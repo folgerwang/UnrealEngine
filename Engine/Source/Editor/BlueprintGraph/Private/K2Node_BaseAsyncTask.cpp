@@ -30,6 +30,7 @@ UK2Node_BaseAsyncTask::UK2Node_BaseAsyncTask(const FObjectInitializer& ObjectIni
 	, ProxyFactoryClass(nullptr)
 	, ProxyClass(nullptr)
 	, ProxyActivateFunctionName(NAME_None)
+	, bPinTooltipsValid(false)
 {
 }
 
@@ -63,6 +64,8 @@ bool UK2Node_BaseAsyncTask::IsCompatibleWithGraph(const UEdGraph* TargetGraph) c
 
 void UK2Node_BaseAsyncTask::AllocateDefaultPins()
 {
+	InvalidatePinTooltips();
+
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 
 	CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Exec, UEdGraphSchema_K2::PN_Execute);
@@ -614,6 +617,49 @@ UK2Node::ERedirectType UK2Node_BaseAsyncTask::DoPinsMatchForReconstruction(const
 	}
 
 	return Super::DoPinsMatchForReconstruction(NewPin, NewPinIndex, OldPin, OldPinIndex);
+}
+
+void UK2Node_BaseAsyncTask::GeneratePinTooltip(UEdGraphPin& Pin) const
+{
+	ensure(Pin.GetOwningNode() == this);
+
+	UEdGraphSchema const* Schema = GetSchema();
+	check(Schema);
+	UEdGraphSchema_K2 const* const K2Schema = Cast<const UEdGraphSchema_K2>(Schema);
+
+	if (K2Schema == nullptr)
+	{
+		Schema->ConstructBasicPinTooltip(Pin, FText::GetEmpty(), Pin.PinToolTip);
+		return;
+	}
+
+	// get the class function object associated with this node
+	// Slight change from UK2Node_CallFunction (where this code is copied from)
+	// We're getting the Factory function instead of GetTargetFunction
+	UFunction* Function = GetFactoryFunction(); 
+	if (Function == nullptr)
+	{
+		Schema->ConstructBasicPinTooltip(Pin, FText::GetEmpty(), Pin.PinToolTip);
+		return;
+	}
+
+	UK2Node_CallFunction::GeneratePinTooltipFromFunction(Pin, Function);
+}
+
+void UK2Node_BaseAsyncTask::GetPinHoverText(const UEdGraphPin& Pin, FString& HoverTextOut) const
+{
+	if (!bPinTooltipsValid)
+	{
+		for (UEdGraphPin* P : Pins)
+		{
+			P->PinToolTip.Reset();
+			GeneratePinTooltip(*P);
+		}
+
+		bPinTooltipsValid = true;
+	}
+
+	return UK2Node::GetPinHoverText(Pin, HoverTextOut);
 }
 
 #undef LOCTEXT_NAMESPACE

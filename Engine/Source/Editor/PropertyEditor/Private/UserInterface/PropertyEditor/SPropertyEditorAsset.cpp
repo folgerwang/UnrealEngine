@@ -184,33 +184,47 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 	TAttribute<bool> IsEnabledAttribute(this, &SPropertyEditorAsset::CanEdit);
 	TAttribute<FText> TooltipAttribute(this, &SPropertyEditorAsset::OnGetToolTip);
 
-	if (Property && Property->HasAnyPropertyFlags(CPF_EditConst | CPF_DisableEditOnTemplate))
+	if (Property)
 	{
-		// There are some cases where editing an Actor Property is not allowed, such as when it is contained within a struct or a CDO
-		TArray<UObject*> ObjectList;
-		if (PropertyEditor.IsValid())
+		UProperty* PropToConsider = Property;
+		if (UProperty* OuterProperty = Cast<UProperty>(PropToConsider->GetOuter()))
 		{
-			PropertyEditor->GetPropertyHandle()->GetOuterObjects(ObjectList);
-		}
-
-		// If there is no objects, that means we must have a struct asset managing this property
-		if (ObjectList.Num() == 0)
-		{
-			IsEnabledAttribute.Set(false);
-			TooltipAttribute.Set(LOCTEXT("VariableHasDisableEditOnTemplate", "Editing this value in structure's defaults is not allowed"));
-		}
-		else
-		{
-			// Go through all the found objects and see if any are a CDO, we can't set an actor in a CDO default.
-			for (UObject* Obj : ObjectList)
+			if (OuterProperty->IsA<UArrayProperty>()
+				|| OuterProperty->IsA<USetProperty>()
+				|| OuterProperty->IsA<UMapProperty>())
 			{
-				if (Obj->IsTemplate())
-				{
-					IsEnabledAttribute.Set(false);
-					TooltipAttribute.Set(LOCTEXT("VariableHasDisableEditOnTemplateTooltip", "Editing this value in a Class Default Object is not allowed"));
-					break;
-				}
+				PropToConsider = OuterProperty;
+			}
+		}
 
+		if (PropToConsider->HasAnyPropertyFlags(CPF_EditConst | CPF_DisableEditOnTemplate))
+		{
+			// There are some cases where editing an Actor Property is not allowed, such as when it is contained within a struct or a CDO
+			TArray<UObject*> ObjectList;
+			if (PropertyEditor.IsValid())
+			{
+				PropertyEditor->GetPropertyHandle()->GetOuterObjects(ObjectList);
+			}
+
+			// If there is no objects, that means we must have a struct asset managing this property
+			if (ObjectList.Num() == 0)
+			{
+				IsEnabledAttribute.Set(false);
+				TooltipAttribute.Set(LOCTEXT("VariableHasDisableEditOnTemplate", "Editing this value in structure's defaults is not allowed"));
+			}
+			else
+			{
+				// Go through all the found objects and see if any are a CDO, we can't set an actor in a CDO default.
+				for (UObject* Obj : ObjectList)
+				{
+					if (Obj->IsTemplate())
+					{
+						IsEnabledAttribute.Set(false);
+						TooltipAttribute.Set(LOCTEXT("VariableHasDisableEditOnTemplateTooltip", "Editing this value in a Class Default Object is not allowed"));
+						break;
+					}
+
+				}
 			}
 		}
 	}

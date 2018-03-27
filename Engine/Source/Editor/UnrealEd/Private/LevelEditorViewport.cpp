@@ -15,7 +15,7 @@
 #include "Engine/BrushBuilder.h"
 #include "Settings/LevelEditorViewportSettings.h"
 #include "Engine/Brush.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "AssetData.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Animation/AnimBlueprint.h"

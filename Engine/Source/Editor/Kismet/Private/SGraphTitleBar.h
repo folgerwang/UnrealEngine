@@ -60,7 +60,6 @@ protected:
 	/** Blueprint title being displayed for toolbar */
 	FText BlueprintTitle;
 
-
 protected:
 	/** Get the icon to use */
 	const FSlateBrush* GetTypeGlyph() const;
@@ -82,4 +81,7 @@ protected:
 
 	/** Helper method used to show blueprint title in breadcrumbs */
 	FText GetBlueprintTitle() const;
+
+	/** Helper method used to create the bookmark selector widget */
+	TSharedRef<SWidget> CreateBookmarkSelectionWidget();
 };

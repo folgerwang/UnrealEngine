@@ -915,7 +915,7 @@ void UK2Node::RewireOldPinsToNewPins(TArray<UEdGraphPin*>& InOldPins, TArray<UEd
 		// * The pin has been flagged not be saved if orphaned
 		// * The pin is hidden and not a split pin
 		const bool bVisibleOrSplitPin = (!OldPin->bHidden || (OldPin->SubPins.Num() > 0));
-		if (UEdGraphPin::AreOrphanPinsEnabled() && !bMatched && bVisibleOrSplitPin && OldPin->bSavePinIfOrphaned)
+		if (UEdGraphPin::AreOrphanPinsEnabled() && !bMatched && bVisibleOrSplitPin && OldPin->ShouldSavePinIfOrphaned())
 		{
 			// The node can specify to save no pins, all pins, or all but exec pins. However, even if all is specified Execute and Then are never saved
 			 const bool bSaveOrphanedPin = ((OrphanedPinSaveMode == ESaveOrphanPinMode::SaveAll) ||
@@ -1411,7 +1411,7 @@ void FOptionalPinManager::EvaluateOldShownPins(const TArray<FOptionalPinFromProp
 		{
 			if (UEdGraphPin* Pin = Node->FindPin(ShowPinForProperty.PropertyName))
 			{
-				Pin->bSavePinIfOrphaned = false;
+				Pin->SetSavePinIfOrphaned(false);
 			}
 		}
 	}

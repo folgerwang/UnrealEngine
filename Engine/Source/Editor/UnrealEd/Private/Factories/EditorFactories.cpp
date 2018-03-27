@@ -228,7 +228,7 @@
 #include "Animation/BlendSpace1D.h"
 #include "Engine/FontFace.h"
 #include "Components/AudioComponent.h"
-#include "AI/Navigation/NavCollision.h"
+#include "AI/Navigation/NavCollisionBase.h"
 #include "Animation/BlendSpace.h"
 #include "Animation/AimOffsetBlendSpace.h"
 #include "Animation/AimOffsetBlendSpace1D.h"
@@ -5245,8 +5245,8 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 			}
 
 			// preserve settings in navcollision subobject
-			UNavCollision* NavCollision = Mesh->NavCollision ? 
-				(UNavCollision*)StaticDuplicateObject(Mesh->NavCollision, GetTransientPackage()) :
+			UNavCollisionBase* NavCollision = Mesh->NavCollision ? 
+				(UNavCollisionBase*)StaticDuplicateObject(Mesh->NavCollision, GetTransientPackage()) :
 				nullptr;
 
 			// preserve extended bound settings

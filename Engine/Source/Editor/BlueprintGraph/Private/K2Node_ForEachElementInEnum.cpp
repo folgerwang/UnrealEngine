@@ -7,6 +7,7 @@
 #include "K2Node_AssignmentStatement.h"
 #include "K2Node_ExecutionSequence.h"
 #include "K2Node_IfThenElse.h"
+#include "K2Node_SwitchEnum.h"
 #include "K2Node_TemporaryVariable.h"
 #include "KismetCompiler.h"
 #include "Kismet/KismetNodeHelperLibrary.h"
@@ -138,13 +139,25 @@ UK2Node_ForEachElementInEnum::UK2Node_ForEachElementInEnum(const FObjectInitiali
 
 const FName UK2Node_ForEachElementInEnum::InsideLoopPinName(TEXT("LoopBody"));
 const FName UK2Node_ForEachElementInEnum::EnumOuputPinName(TEXT("EnumValue"));
+const FName UK2Node_ForEachElementInEnum::SkipHiddenPinName(TEXT("SkipHidden"));
 
 void UK2Node_ForEachElementInEnum::AllocateDefaultPins()
 {
+	UEdGraphSchema_K2 const* K2Schema = GetDefault<UEdGraphSchema_K2>();
+
 	CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Exec, UEdGraphSchema_K2::PN_Execute);
 
 	if (Enum)
 	{
+		if (UEdGraphPin* SkipHiddenPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Boolean, SkipHiddenPinName))
+		{
+			// This is a non-standard option that likely won't need to be utilized much, so we make it advanced.
+			SkipHiddenPin->bAdvancedView = true;
+			AdvancedPinDisplay = ENodeAdvancedPins::Hidden;
+
+			K2Schema->ConstructBasicPinTooltip(*SkipHiddenPin, LOCTEXT("SkipHiddenPinToolTip", "Controls whether or not the loop will skip over hidden enumeration values."), SkipHiddenPin->PinToolTip);
+		}
+
 		CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, InsideLoopPinName);
 		CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Byte, Enum, EnumOuputPinName);
 	}
@@ -210,10 +223,6 @@ void UK2Node_ForEachElementInEnum::ExpandNode(class FKismetCompilerContext& Comp
 
 	const UEdGraphSchema_K2* Schema = CompilerContext.GetSchema();
 
-	CompilerContext.MovePinLinksToIntermediate(*GetExecPin(), *ForLoop.StartLoopExecInPin);
-	CompilerContext.MovePinLinksToIntermediate(*FindPinChecked(UEdGraphSchema_K2::PN_Then), *ForLoop.LoopCompleteOutExecPin);
-	CompilerContext.MovePinLinksToIntermediate(*FindPinChecked(InsideLoopPinName), *ForLoop.InsideLoopExecOutPin);
-
 	UK2Node_GetNumEnumEntries* GetNumEnumEntries = CompilerContext.SpawnIntermediateNode<UK2Node_GetNumEnumEntries>(this, SourceGraph);
 	GetNumEnumEntries->Enum = Enum;
 	GetNumEnumEntries->AllocateDefaultPins();
@@ -230,6 +239,64 @@ void UK2Node_ForEachElementInEnum::ExpandNode(class FKismetCompilerContext& Comp
 	CastByteToEnum->bSafe = true;
 	CastByteToEnum->AllocateDefaultPins();
 	bResult &= Schema->TryCreateConnection(Conv_Func->FindPinChecked(UEdGraphSchema_K2::PN_ReturnValue), CastByteToEnum->FindPinChecked(UK2Node_CastByteToEnum::ByteInputPinName));
+
+	// Additional expansion logic to optionally exclude hidden values during runtime loop iteration
+	UK2Node_ExecutionSequence* SwitchOutputSequence = nullptr;
+	if (const UEdGraphPin* SkipHiddenValuesPin = FindPin(SkipHiddenPinName))
+	{
+		// Process only if the enum type contains at least one hidden value
+		int32 EnumIndex = 0;
+		bool bHasHiddenValues = false;
+		while (!bHasHiddenValues && EnumIndex < Enum->NumEnums() - 1)
+		{
+			bHasHiddenValues = Enum->HasMetaData(TEXT("Hidden"), EnumIndex) || Enum->HasMetaData(TEXT("Spacer"), EnumIndex++);
+		}
+
+		if (bHasHiddenValues)
+		{
+			// Skip hidden values branch (only included if something is linked to the "skip hidden" input pin)
+			UK2Node_IfThenElse* ShouldSkipHiddenBranch = nullptr;
+			if (SkipHiddenValuesPin->LinkedTo.Num() > 0)
+			{
+				bResult &= ensure(SkipHiddenValuesPin->LinkedTo.Num() == 1);
+				ShouldSkipHiddenBranch = CompilerContext.SpawnIntermediateNode<UK2Node_IfThenElse>(this, SourceGraph);
+				ShouldSkipHiddenBranch->AllocateDefaultPins();
+				bResult &= Schema->TryCreateConnection(ForLoop.InsideLoopExecOutPin, ShouldSkipHiddenBranch->GetExecPin());
+				bResult &= Schema->TryCreateConnection(SkipHiddenValuesPin->LinkedTo[0], ShouldSkipHiddenBranch->GetConditionPin());
+			}
+
+			// Enum switch node (only if we included a "should skip" test or if the "skip hidden" input pin default value is 'true')
+			if (ShouldSkipHiddenBranch || SkipHiddenValuesPin->GetDefaultAsString().Equals(TEXT("true"), ESearchCase::IgnoreCase))
+			{
+				// The switch node will internally exclude any hidden enum values when constructed
+				UK2Node_SwitchEnum* SwitchEnum = CompilerContext.SpawnIntermediateNode<UK2Node_SwitchEnum>(this, SourceGraph);
+				SwitchEnum->SetEnum(Enum);
+				SwitchEnum->bHasDefaultPin = false;
+				SwitchEnum->AllocateDefaultPins();
+				bResult &= Schema->TryCreateConnection(SwitchEnum->GetSelectionPin(), CastByteToEnum->FindPinChecked(UEdGraphSchema_K2::PN_ReturnValue));
+				bResult &= Schema->TryCreateConnection(SwitchEnum->GetExecPin(), ShouldSkipHiddenBranch ? ShouldSkipHiddenBranch->GetThenPin() : ForLoop.InsideLoopExecOutPin);
+
+				// Switch output execution sequence (direct all relevant output pins back to a single execution path)
+				SwitchOutputSequence = CompilerContext.SpawnIntermediateNode<UK2Node_ExecutionSequence>(this, SourceGraph);
+				SwitchOutputSequence->AllocateDefaultPins();
+				if (ShouldSkipHiddenBranch)
+				{
+					bResult &= Schema->TryCreateConnection(ShouldSkipHiddenBranch->GetElsePin(), SwitchOutputSequence->GetExecPin());
+				}
+				for (int32 SwitchCasePinIndex = 0; SwitchCasePinIndex < SwitchEnum->EnumEntries.Num() && bResult; ++SwitchCasePinIndex)
+				{
+					if (UEdGraphPin* SwitchCasePin = SwitchEnum->FindPin(SwitchEnum->EnumEntries[SwitchCasePinIndex]))
+					{
+						bResult &= Schema->TryCreateConnection(SwitchCasePin, SwitchOutputSequence->GetExecPin());
+					}
+				}
+			}
+		}
+	}
+
+	CompilerContext.MovePinLinksToIntermediate(*GetExecPin(), *ForLoop.StartLoopExecInPin);
+	CompilerContext.MovePinLinksToIntermediate(*FindPinChecked(UEdGraphSchema_K2::PN_Then), *ForLoop.LoopCompleteOutExecPin);
+	CompilerContext.MovePinLinksToIntermediate(*FindPinChecked(InsideLoopPinName), SwitchOutputSequence ? *SwitchOutputSequence->GetThenPinGivenIndex(0) : *ForLoop.InsideLoopExecOutPin);
 	CompilerContext.MovePinLinksToIntermediate(*FindPinChecked(EnumOuputPinName), *CastByteToEnum->FindPinChecked(UEdGraphSchema_K2::PN_ReturnValue));
 
 	if (!bResult)
@@ -266,6 +333,18 @@ void UK2Node_ForEachElementInEnum::GetMenuActions(FBlueprintActionDatabaseRegist
 FText UK2Node_ForEachElementInEnum::GetMenuCategory() const
 {
 	return FEditorCategoryUtils::GetCommonCategory(FCommonEditorCategory::Enum);
+}
+
+void UK2Node_ForEachElementInEnum::PostPlacedNewNode()
+{
+	Super::PostPlacedNewNode();
+
+	// Skip hidden enumeration values by default for new node placements.
+	if (UEdGraphPin* SkipHiddenPin = FindPin(SkipHiddenPinName))
+	{
+		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+		K2Schema->SetPinAutogeneratedDefaultValue(SkipHiddenPin, TEXT("true"));
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

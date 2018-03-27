@@ -71,7 +71,7 @@ public:
 
 	/** Navigation area type (empty = default obstacle) */
 	UPROPERTY(EditAnywhere, Category = Navigation)
-	TSubclassOf<class UNavArea> AreaClass;
+	TSubclassOf<class UNavAreaBase> AreaClass;
 
 	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;

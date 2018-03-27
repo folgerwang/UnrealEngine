@@ -46,9 +46,10 @@ void FRedirectCollector::OnSoftObjectPathLoaded(const FSoftObjectPath& InPath)
 		if (PropertyName != NAME_None)
 		{
 			ContainingPackageAndProperty.SetProperty(PropertyName);
-		}
-		ContainingPackageAndProperty.SetReferencedByEditorOnlyProperty(CollectType == ESoftObjectPathCollectType::EditorOnlyCollect);
+		}	
 	}
+
+	ContainingPackageAndProperty.SetReferencedByEditorOnlyProperty(CollectType == ESoftObjectPathCollectType::EditorOnlyCollect);
 
 	FScopeLock ScopeLock(&CriticalSection);
 

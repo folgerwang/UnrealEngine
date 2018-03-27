@@ -1484,10 +1484,16 @@ public: \
 	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API( TClass, TSuperClass, TStaticFlags, TPackage, TStaticCastFlags, NO_API) \
 
 // Declare that objects of class being defined reside within objects of the specified class.
-#define DECLARE_WITHIN( TWithinClass ) \
+#define DECLARE_WITHIN_INTERNAL( TWithinClass, bCanUseOnCDO ) \
 	/** The required type of this object's outer ({{ typedef-type }}) */ \
 	typedef class TWithinClass WithinClass;  \
-	TWithinClass* GetOuter##TWithinClass() const { return (TWithinClass*)GetOuter(); }
+	TWithinClass* GetOuter##TWithinClass() const { return (ensure(bCanUseOnCDO || !HasAnyFlags(RF_ClassDefaultObject)) ? (TWithinClass*)GetOuter() : nullptr); }
+
+#define DECLARE_WITHIN( TWithinClass ) \
+	DECLARE_WITHIN_INTERNAL( TWithinClass, false )
+
+#define DECLARE_WITHIN_UPACKAGE() \
+	DECLARE_WITHIN_INTERNAL( UPackage, true )
 
 // Register a class at startup time.
 #define IMPLEMENT_CLASS(TClass, TClassCrc) \

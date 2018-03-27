@@ -2,8 +2,9 @@
 
 #include "EnvironmentQuery/Tests/EnvQueryTest_PathfindingBatch.h"
 #include "Engine/World.h"
-#include "AI/Navigation/RecastNavMesh.h"
-#include "AI/Navigation/RecastQueryFilter.h"
+#include "NavigationSystem.h"
+#include "NavMesh/RecastNavMesh.h"
+#include "NavMesh/RecastQueryFilter.h"
 
 #define LOCTEXT_NAMESPACE "EnvQueryGenerator"
 
@@ -67,7 +68,7 @@ void UEnvQueryTest_PathfindingBatch::RunTest(FEnvQueryInstance& QueryInstance) c
 	float MaxThresholdValue = FloatValueMax.GetValue();
 	float RangeMultiplierValue = ScanRangeMultiplier.GetValue();
 
-	UNavigationSystem* NavSys = QueryInstance.World->GetNavigationSystem();
+	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(QueryInstance.World);
 	if (NavSys == nullptr || QueryOwner == nullptr)
 	{
 		return;

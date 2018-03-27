@@ -1435,7 +1435,35 @@ void FSourceControlWindows::DisplayRevisionHistory( const TArray<FString>& InPac
 	if(SourceControlProvider.Execute(UpdateStatusOperation, PackageFilenames))
 	{
 		TArray< FSourceControlStateRef > SourceControlStates;
-		SourceControlProvider.GetState(PackageFilenames, SourceControlStates, EStateCacheUsage::Use);
+		for(const FString& PackageFilename : PackageFilenames)
+		{
+			TArray<FString> RevisionName;
+			RevisionName.Add(PackageFilename);
+
+			while(RevisionName.Num() != 0)
+			{
+				int32 InitialNum = SourceControlStates.Num();
+				SourceControlProvider.GetState(RevisionName, SourceControlStates, EStateCacheUsage::Use);
+				int32 NewNum = SourceControlStates.Num();
+				ensure(NewNum >= InitialNum);
+				
+				RevisionName.Empty();
+				// check to see if origin of this file is a branch, append the history from the branch point:
+				if(NewNum > InitialNum)
+				{
+					int32 HistorySize = SourceControlStates.Last()->GetHistorySize();
+					if( HistorySize > 0 )
+					{
+						TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> InitialHistory = SourceControlStates.Last()->GetHistoryItem(HistorySize - 1);
+						TSharedPtr<ISourceControlRevision, ESPMode::ThreadSafe> BranchSource = InitialHistory->GetBranchSource();
+						if( BranchSource.IsValid() )
+						{
+							RevisionName.Add(BranchSource->GetFilename());
+						}
+					}
+				}
+			}
+		}
 
 		TSharedRef<SWindow> NewWindow = SNew(SWindow)
 			.Title( NSLOCTEXT("SourceControl.HistoryWindow", "Title", "File History") )

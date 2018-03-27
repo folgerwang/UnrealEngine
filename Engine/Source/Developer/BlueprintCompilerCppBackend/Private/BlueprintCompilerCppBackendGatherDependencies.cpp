@@ -163,6 +163,11 @@ struct FFindAssetsToInclude : public FGatherConvertedClassDependenciesHelperBase
 						// This is a field owned by a class, so attempt to add the class as a dependency.
 						MaybeIncludeObjectAsDependency(OwnerClass, CurrentlyConvertedStruct);
 					}
+					else if (ObjAsBPGC && (CurrentlyConvertedStruct->IsA<UUserDefinedStruct>() || ObjAsBPGC->IsChildOf(CurrentlyConvertedStruct)))
+					{
+						// If an unconverted BP (e.g. DOBP) has a potentially circular dependency on the converted asset, wrap it inside a stub class to avoid an EDL cycle on load.
+						Dependencies.MarkUnconvertedClassAsNecessary(ObjAsBPGC);
+					}
 					else
 					{
 						// Add the class itself as a dependency.
@@ -524,6 +529,23 @@ bool FGatherConvertedClassDependencies::WillClassBeConverted(const UBlueprintGen
 	return false;
 }
 
+void FGatherConvertedClassDependencies::MarkUnconvertedClassAsNecessary(const UBlueprintGeneratedClass* InClass) const
+{
+	if (InClass && !InClass->HasAnyFlags(RF_ClassDefaultObject))
+	{
+		const UClass* ClassToInclude = FindOriginalClass(InClass);
+		checkSlow(ClassToInclude);
+
+		IBlueprintCompilerCppBackendModule& BackEndModule = (IBlueprintCompilerCppBackendModule&)IBlueprintCompilerCppBackendModule::Get();
+		const auto& IncludeUnconvertedClassDelegate = BackEndModule.OnIncludingUnconvertedBP();
+
+		if (IncludeUnconvertedClassDelegate.IsBound())
+		{
+			IncludeUnconvertedClassDelegate.Execute(Cast<UBlueprint>(ClassToInclude->ClassGeneratedBy), NativizationOptions);
+		}
+	}
+}
+
 void FGatherConvertedClassDependencies::DependenciesForHeader()
 {
 	TArray<UObject*> ObjectsToCheck;
@@ -715,7 +737,7 @@ TSet<const UObject*> FGatherConvertedClassDependencies::AllDependencies() const
 	return All;
 }
 
-class FArchiveReferencesInStructIntance : public FArchive
+class FArchiveReferencesInStructInstance : public FArchive
 {
 public:
 
@@ -738,7 +760,7 @@ public:
 	}
 	//~ End FArchive Interface
 
-	FArchiveReferencesInStructIntance()
+	FArchiveReferencesInStructInstance()
 	{
 		ArIsObjectReferenceCollector = true;
 		ArIsFilterEditorOnly = true;
@@ -746,14 +768,14 @@ public:
 };
 
 
-void FGatherConvertedClassDependencies::GatherAssetReferencedByUDSDefaultValue(TSet<UObject*>& Dependencies, UUserDefinedStruct* Struct)
+void FGatherConvertedClassDependencies::GatherAssetsReferencedByUDSDefaultValue(TSet<UObject*>& Dependencies, UUserDefinedStruct* Struct)
 {
 	if (Struct)
 	{
 		FStructOnScope StructOnScope(Struct);
 		Struct->InitializeDefaultValue(StructOnScope.GetStructMemory());
-		FArchiveReferencesInStructIntance ArchiveReferencesInStructIntance;
-		Struct->SerializeItem(ArchiveReferencesInStructIntance, StructOnScope.GetStructMemory(), nullptr);
-		Dependencies.Append(ArchiveReferencesInStructIntance.References);
+		FArchiveReferencesInStructInstance ArchiveReferencesInStructInstance;
+		Struct->SerializeItem(ArchiveReferencesInStructInstance, StructOnScope.GetStructMemory(), nullptr);
+		Dependencies.Append(ArchiveReferencesInStructInstance.References);
 	}
 }

@@ -29,7 +29,8 @@ private:
 		bool operator==(const FPackagePropertyPair& Other) const
 		{
 			return Package == Other.Package &&
-				Property == Other.Property;
+				Property == Other.Property &&
+				bReferencedByEditorOnlyProperty == Other.bReferencedByEditorOnlyProperty;
 		}
 
 		const FName& GetCachedPackageName() const

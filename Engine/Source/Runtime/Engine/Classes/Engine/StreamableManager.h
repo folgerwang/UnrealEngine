@@ -64,11 +64,18 @@ struct ENGINE_API FStreamableHandle : public TSharedFromThis<FStreamableHandle, 
 		return Priority;
 	}
 
-	/** Release this handle. This can be called from normal gameplay code to indicate that the loaded assets are no longer needed. Will be called implicitly if all shared pointers
-	to this handle are destroyed. If called before the completion delegate, the release will be delayed until after completion. */
+	/**
+	 * Release this handle. This can be called from normal gameplay code to indicate that the loaded assets are no longer needed
+	 * This will be called implicitly if all shared pointers to this handle are destroyed
+	 * If called before the completion delegate, the release will be delayed until after completion
+	 */
 	void ReleaseHandle();
 
-	/** Cancel a request, callable from within the manager or externally. Will stop delegate from being called */
+	/**
+	 * Cancel a request, callable from within the manager or externally
+	 * This will immediately release the handle even if it is still in progress
+	 * This will normally stop the completion delegate from getting called, unless that delegate is already in the callback delay queue
+	 */
 	void CancelHandle();
 
 	/** Tells a stalled handle to start its actual request. */
@@ -285,6 +292,9 @@ struct ENGINE_API FStreamableManager : public FGCObject
 	/** This will release any managed active handles pointing to the target string asset reference, even if they include other requested assets in the same load */
 	void Unload(const FSoftObjectPath& Target);
 
+	/** Checks for any redirectors that were previously loaded, and returns the redirected target if found. This will not handle redirects that it doesn't yet know about */
+	FSoftObjectPath ResolveRedirects(const FSoftObjectPath& Target) const;
+
 	DEPRECATED(4.16, "Call LoadSynchronous with bManageActiveHandle=true instead if you want the manager to keep the handle alive")
 	UObject* SynchronousLoad(FSoftObjectPath const& Target);
 
@@ -317,7 +327,6 @@ private:
 
 	void RemoveReferencedAsset(const FSoftObjectPath& Target, TSharedRef<FStreamableHandle> Handle);
 	void StartHandleRequests(TSharedRef<FStreamableHandle> Handle);
-	FSoftObjectPath ResolveRedirects(const FSoftObjectPath& Target) const;
 	void FindInMemory(FSoftObjectPath& InOutTarget, struct FStreamable* Existing);
 	struct FStreamable* FindStreamable(const FSoftObjectPath& Target) const;
 	struct FStreamable* StreamInternal(const FSoftObjectPath& Target, TAsyncLoadPriority Priority, TSharedRef<FStreamableHandle> Handle);

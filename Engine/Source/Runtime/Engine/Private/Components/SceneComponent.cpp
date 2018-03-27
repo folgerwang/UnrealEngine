@@ -13,7 +13,7 @@
 #include "WorldCollision.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/MapBuildDataRegistry.h"
 #include "GameFramework/PhysicsVolume.h"
 #include "Components/BillboardComponent.h"
@@ -508,7 +508,7 @@ void USceneComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 
 	if (PropertyName == LocationName || PropertyName == RotationName || PropertyName == ScaleName)
 	{
-		UNavigationSystem::UpdateComponentInNavOctree(*this);
+		FNavigationSystem::UpdateComponentData(*this);
 	}
 }
 
@@ -1824,11 +1824,11 @@ bool USceneComponent::AttachToComponent(USceneComponent* Parent, const FAttachme
 		{
 			if (Parent->IsTemplate())
 			{
-				ensureMsgf(false, TEXT("Template Mismatch during attachment. Attaching instanced component to template component. Parent '%s' Self '%s'"), *Parent->GetName(), *GetName());
+				ensureMsgf(false, TEXT("Template Mismatch during attachment. Attaching instanced component to template component. Parent '%s' (Owner '%s') Self '%s' (Owner '%s')."), *Parent->GetName(), *GetNameSafe(Parent->GetOwner()), *GetName(), *GetNameSafe(GetOwner()));
 			}
 			else
 			{
-				ensureMsgf(false, TEXT("Template Mismatch during attachment. Attaching template component to instanced component. Parent '%s' Self '%s'"), *Parent->GetName(), *GetName());
+				ensureMsgf(false, TEXT("Template Mismatch during attachment. Attaching template component to instanced component. Parent '%s' (Owner '%s') Self '%s' (Owner '%s')."), *Parent->GetName(), *GetNameSafe(Parent->GetOwner()), *GetName(), *GetNameSafe(GetOwner()));
 			}
 			return false;
 		}
@@ -2728,11 +2728,7 @@ bool USceneComponent::InternalSetWorldLocationAndRotation(FVector NewLocation, c
 		UpdateComponentToWorldWithParent(GetAttachParent(),GetAttachSocketName(), SkipPhysicsToEnum(bNoPhysics), RelativeRotationCache.GetCachedQuat(), Teleport);
 
 		// we need to call this even if this component itself is not navigation relevant
-		// checking ShouldUpdateNavOctreeOnComponentChange here is an optimization for static navigation users
-		if (UNavigationSystem::ShouldUpdateNavOctreeOnComponentChange())
-		{
-			PostUpdateNavigationData();
-		}
+		PostUpdateNavigationData();
 
 		return true;
 	}
@@ -3357,7 +3353,7 @@ bool FScopedMovementUpdate::IsTransformDirty() const
 {
 	if (IsValid(Owner))
 	{
-		return !InitialTransform.Equals(Owner->GetComponentToWorld());
+		return !InitialTransform.Equals(Owner->GetComponentToWorld(), SMALL_NUMBER);
 	}
 
 	return false;
@@ -3579,13 +3575,13 @@ void USceneComponent::UpdateNavigationData()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ComponentUpdateNavData);
 
-	if (UNavigationSystem::ShouldUpdateNavOctreeOnComponentChange() && IsRegistered())
+	if (IsRegistered())
 	{
 		UWorld* MyWorld = GetWorld();
-		if ((MyWorld == nullptr) || !MyWorld->IsGameWorld() || !MyWorld->IsNetMode(ENetMode::NM_Client))
+		if ((MyWorld != nullptr) && (!MyWorld->IsGameWorld() || !MyWorld->IsNetMode(ENetMode::NM_Client)))
 		{
 			// use propagated component's transform update in editor OR server game with additional navsys check
-			UNavigationSystem::UpdateComponentInNavOctree(*this);
+			FNavigationSystem::UpdateComponentData(*this);
 		}
 	}
 }
@@ -3594,15 +3590,9 @@ void USceneComponent::PostUpdateNavigationData()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ComponentPostUpdateNavData);
 
-	if (UNavigationSystem::ShouldUpdateNavOctreeOnComponentChange() && IsRegistered())
+	if (IsRegistered())
 	{
-		UWorld* MyWorld = GetWorld();
-		if (MyWorld != nullptr && MyWorld->GetNavigationSystem() != nullptr 
-			&& (MyWorld->GetNavigationSystem()->ShouldAllowClientSideNavigation() || !MyWorld->IsNetMode(ENetMode::NM_Client)))
-		{
-			// use propagated component's transform update in editor OR server game with additional navsys check
-			UNavigationSystem::UpdateNavOctreeAfterMove(this);
-		}
+		FNavigationSystem::OnComponentTransformChanged(*this);
 	}
 }
 

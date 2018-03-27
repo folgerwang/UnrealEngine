@@ -12,11 +12,11 @@
 #include "GameFramework/Actor.h"
 #include "AI/Navigation/NavigationTypes.h"
 #include "AI/Navigation/NavAgentInterface.h"
+#include "AI/Navigation/PathFollowingAgentInterface.h"
 #include "GameFramework/MovementComponent.h"
 #include "NavMovementComponent.generated.h"
 
 class UCapsuleComponent;
-class UPathFollowingComponent;
 
 /**
  * NavMovementComponent defines base functionality for MovementComponents that move any 'agent' that may be involved in AI pathfinding.
@@ -47,17 +47,19 @@ protected:
 	UPROPERTY(EditAnywhere, Category = NavMovement, meta = (EditCondition = "bUseAccelerationForPaths"))
 	uint32 bUseFixedBrakingDistanceForPaths : 1;
 
-protected:
 	/** If set, StopActiveMovement call will abort current path following request */
 	uint32 bStopMovementAbortPaths:1;
+
+private:
+	/** object implementing IPathFollowingAgentInterface. Is private to control access to it.
+	 *	@see SetPathFollowingAgent, GetPathFollowingAgent */
+	UPROPERTY()
+	UObject* PathFollowingComp;
 
 public:
 	/** Expresses runtime state of character's movement. Put all temporal changes to movement properties here */
 	UPROPERTY()
 	FMovementProperties MovementState;
-
-	/** associated path following component */
-	TWeakObjectPtr<class UPathFollowingComponent> PathFollowingComp;
 
 	/** Stops applying further movement (usually zeros acceleration). */
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|PawnMovement")
@@ -97,6 +99,10 @@ public:
 
 	/** @returns braking distance for acceleration driven path following */
 	virtual float GetPathFollowingBrakingDistance(float MaxSpeed) const;
+
+	void SetPathFollowingAgent(IPathFollowingAgentInterface* InPathFollowingAgent) { PathFollowingComp = Cast<UObject>(InPathFollowingAgent); }
+	IPathFollowingAgentInterface* GetPathFollowingAgent() { return Cast<IPathFollowingAgentInterface>(PathFollowingComp); }
+	const IPathFollowingAgentInterface* GetPathFollowingAgent() const { return Cast<const IPathFollowingAgentInterface>(PathFollowingComp); }
 
 	/** set fixed braking distance */
 	void SetFixedBrakingDistance(float DistanceToEndOfPath);

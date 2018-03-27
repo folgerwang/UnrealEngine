@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
+#include "Engine/Blueprint.h"
 #include "BlueprintEditorSettings.generated.h"
 
 UENUM()
@@ -88,6 +89,22 @@ public:
 	/** If set double clicking on a call function node will jump to the native source definition: */
 	UPROPERTY(EditAnywhere, config, Category=Workflow)
 	bool bNavigateToNativeFunctionsFromCallNodes;
+
+	/** Blueprint bookmark database */
+	UPROPERTY(config)
+	TMap<FGuid, FEditedDocumentInfo> Bookmarks;
+
+	/** Blueprint bookmark nodes (for display) */
+	UPROPERTY(config)
+	TArray<FBPEditorBookmarkNode> BookmarkNodes;
+
+	/** If enabled, comment nodes will be included in the tree view display in the Bookmarks tab. */
+	UPROPERTY(config)
+	bool bIncludeCommentNodesInBookmarksTab;
+
+	/** If enabled, only the bookmarks for the current document will be shown in the Bookmarks tab. */
+	UPROPERTY(config)
+	bool bShowBookmarksForCurrentDocumentOnlyInTab;
 
 // Compiler Settings
 public:

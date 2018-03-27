@@ -31,6 +31,7 @@ void SGraphNodeK2Sequence::CreateOutputSideAddButton(TSharedPtr<SVerticalBox> Ou
 	OutputBox->AddSlot()
 	.AutoHeight()
 	.VAlign(VAlign_Center)
+	.HAlign(HAlign_Right)
 	.Padding(AddPinPadding)
 	[
 		AddPinButton
@@ -51,4 +52,11 @@ FReply SGraphNodeK2Sequence::OnAddPin()
 	}
 	
 	return FReply::Handled();
+}
+
+EVisibility SGraphNodeK2Sequence::IsAddPinButtonVisible() const
+{
+	IK2Node_AddPinInterface* AddPinNode = Cast<IK2Node_AddPinInterface>(GraphNode);
+	ensure(AddPinNode);
+	return ((AddPinNode && AddPinNode->CanAddPin()) ? EVisibility::Visible : EVisibility::Collapsed);
 }

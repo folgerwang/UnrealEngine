@@ -17,7 +17,7 @@ public class LogVisualizer : ModuleRules
 		PublicIncludePaths.AddRange(
 			new string[] {
 				"Runtime/Engine/Classes",
-                "Editor/WorkspaceMenuStructure/Public"
+				"Editor/WorkspaceMenuStructure/Public"
 			}
 		);
 
@@ -26,11 +26,11 @@ public class LogVisualizer : ModuleRules
 				"Core",
 				"CoreUObject",
 				"ApplicationCore",
-                "InputCore",
+				"InputCore",
 				"Json",
 				"Slate",
 				"SlateCore",
-                "EditorStyle",
+				"EditorStyle",
 				"Engine",
 				"UnrealEd",
 			}

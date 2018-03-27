@@ -502,11 +502,6 @@ public:
 	FText GetResetToDefaultLabel();
 
 	/**
-	 * If there is a property, resets it to default.  Otherwise resets the entire parent structure
-	 */
-	void ResetToDefault(FNotifyHook* InNotifyHook);
-
-	/**
 	 * @return If this property node is associated with a property that can be reordered within an array
 	 */
 	bool IsReorderable();
@@ -802,7 +797,11 @@ public:
 	TSharedPtr<FPropertyNode>& GetPropertyKeyNode() { return PropertyKeyNode; }
 
 	const TSharedPtr<FPropertyNode>& GetPropertyKeyNode() const { return PropertyKeyNode; }
-
+	
+	/**
+	* Gets the default value of the property as string.
+	*/
+	FString GetDefaultValueAsString();
 protected:
 
 	TSharedRef<FEditPropertyChain> BuildPropertyChain( UProperty* PropertyAboutToChange );
@@ -842,11 +841,6 @@ protected:
 	bool GetDiffersFromDefaultForObject( FPropertyItemValueDataTrackerSlate& ValueTracker, UProperty* InProperty );
 
 	FString GetDefaultValueAsStringForObject( FPropertyItemValueDataTrackerSlate& ValueTracker, UObject* InObject, UProperty* InProperty );
-	
-	/**
-	* Gets the default value of the property as string.
-	*/
-	FString GetDefaultValueAsString();
 
 	/**
 	 * Helper function to obtain the display name for an enum property

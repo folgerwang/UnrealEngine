@@ -2519,6 +2519,11 @@ public:
 		}
 	}
 
+	/** Do nothing when serializing soft references, this is required because the presave on soft references can fix redirectors, which is unsafe at this point */
+	virtual FArchive& operator<<(FLazyObjectPtr& Value) override { return *this; }
+	virtual FArchive& operator<<(FSoftObjectPtr& Value) override { return *this; }
+	virtual FArchive& operator<<(FSoftObjectPath& Value) override { return *this; }
+
 private:
 
 	/**

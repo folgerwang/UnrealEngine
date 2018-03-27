@@ -10,7 +10,7 @@
 #include "GameFramework/Actor.h"
 #include "Components/ChildActorComponent.h"
 #include "Components/PrimitiveComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "EditorSupportDelegates.h"
 #include "Logging/TokenizedMessage.h"
@@ -172,19 +172,7 @@ void AActor::PostEditMove(bool bFinished)
 
 	if (bFinished)
 	{
-		// update actor and all its components in navigation system after finishing move
-		// USceneComponent::UpdateNavigationData works only in game world
-		UNavigationSystem::UpdateNavOctreeBounds(this);
-
-		TArray<AActor*> ParentedActors;
-		GetAttachedActors(ParentedActors);
-		for (int32 Idx = 0; Idx < ParentedActors.Num(); Idx++)
-		{
-			UNavigationSystem::UpdateNavOctreeBounds(ParentedActors[Idx]);
-		}
-
-		// not doing manual update of all attached actors since UpdateActorAndComponentsInNavOctree should take care of it
-		UNavigationSystem::UpdateActorAndComponentsInNavOctree(*this);
+		FNavigationSystem::OnPostEditActorMove(*this);
 	}
 }
 
@@ -372,7 +360,7 @@ void AActor::PreEditUndo()
 	}
 
 	// let navigation system know to not care about this actor anymore
-	UNavigationSystem::ClearNavOctreeAll(this);
+	FNavigationSystem::RemoveActorData(*this);
 
 	Super::PreEditUndo();
 }
@@ -411,11 +399,11 @@ bool AActor::InternalPostEditUndo()
 		BlueprintCreatedComponents.Reset();
 
 		// notify navigation system
-		UNavigationSystem::UpdateActorAndComponentsInNavOctree(*this);
+		FNavigationSystem::UpdateActorAndComponentData(*this);
 	}
 	else
 	{
-		UNavigationSystem::ClearNavOctreeAll(this);
+		FNavigationSystem::RemoveActorData(*this);
 	}
 
 	// This is a normal undo, so call super

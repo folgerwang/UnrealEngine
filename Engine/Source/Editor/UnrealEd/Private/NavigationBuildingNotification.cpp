@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "NavigationBuildingNotification.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "NavigationSystem.h"
 #include "Editor/EditorEngine.h"
 #include "Settings/LevelEditorMiscSettings.h"
 #include "EngineGlobals.h"
@@ -111,9 +111,10 @@ FText FNavigationBuildingNotificationImpl::GetNotificationText() const
 	if (EEngine)
 	{
 		FWorldContext &EditorContext = EEngine->GetEditorWorldContext();
-		if (EditorContext.World() && EditorContext.World()->GetNavigationSystem())
+		UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(EditorContext.World());
+		if (NavSys)
 		{
-			RemainingTasks = EditorContext.World()->GetNavigationSystem()->GetNumRemainingBuildTasks();
+			RemainingTasks = NavSys->GetNumRemainingBuildTasks();
 		}
 	}
 		
@@ -136,9 +137,10 @@ void FNavigationBuildingNotificationImpl::Tick(float DeltaTime)
 		const bool bUserRequestedBuild = FEditorBuildUtils::IsBuildingNavigationFromUserRequest();
 		FWorldContext &EditorContext = EEngine->GetEditorWorldContext();
 		
-		const bool bBuildInProgress = EditorContext.World() != NULL && EditorContext.World()->GetNavigationSystem() != NULL 
-			&& EditorContext.World()->GetNavigationSystem()->IsNavigationBuildInProgress( GetDefault<ULevelEditorMiscSettings>()->bNavigationAutoUpdate ? true : false) == true
-			&& EditorContext.World()->GetNavigationSystem()->GetNumRemainingBuildTasks() > 0;
+		UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(EditorContext.World());
+		const bool bBuildInProgress = NavSys != nullptr
+			&& NavSys->IsNavigationBuildInProgress( GetDefault<ULevelEditorMiscSettings>()->bNavigationAutoUpdate ? true : false) == true
+			&& NavSys->GetNumRemainingBuildTasks() > 0;
 
 		if (!bPreviouslyDetectedBuild && bBuildInProgress)
 		{

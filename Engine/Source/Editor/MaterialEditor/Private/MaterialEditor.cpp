@@ -4,7 +4,7 @@
 #include "Widgets/Text/STextBlock.h"
 #include "EngineGlobals.h"
 #include "Engine/SkeletalMesh.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/Engine.h"
 #include "Misc/MessageDialog.h"
 #include "Modules/ModuleManager.h"

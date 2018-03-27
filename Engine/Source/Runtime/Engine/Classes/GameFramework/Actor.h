@@ -38,6 +38,7 @@ ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogActor, Log, Warning);
 // Delegate signatures
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams( FTakeAnyDamageSignature, AActor*, DamagedActor, float, Damage, const class UDamageType*, DamageType, class AController*, InstigatedBy, AActor*, DamageCauser );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_NineParams( FTakePointDamageSignature, AActor*, DamagedActor, float, Damage, class AController*, InstigatedBy, FVector, HitLocation, class UPrimitiveComponent*, FHitComponent, FName, BoneName, FVector, ShotFromDirection, const class UDamageType*, DamageType, AActor*, DamageCauser );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_SevenParams( FTakeRadialDamageSignature, AActor*, DamagedActor, float, Damage, const class UDamageType*, DamageType, FVector, Origin, FHitResult, HitInfo, class AController*, InstigatedBy, AActor*, DamageCauser );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FActorBeginOverlapSignature, AActor*, OverlappedActor, AActor*, OtherActor );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FActorEndOverlapSignature, AActor*, OverlappedActor, AActor*, OtherActor );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams( FActorHitSignature, AActor*, SelfActor, AActor*, OtherActor, FVector, NormalImpulse, const FHitResult&, Hit );
@@ -621,6 +622,10 @@ public:
 	/** Called when the actor is damaged by point damage. */
 	UPROPERTY(BlueprintAssignable, Category="Game|Damage")
 	FTakePointDamageSignature OnTakePointDamage;
+
+	/** Called when the actor is damaged by radial damage. */
+	UPROPERTY(BlueprintAssignable, Category="Game|Damage")
+	FTakeRadialDamageSignature OnTakeRadialDamage;
 	
 	/** 
 	 * Called when another actor begins to overlap this actor, for example a player walking into a trigger.
@@ -2678,7 +2683,7 @@ public:
 			{
 				OutComponents.Add(Component);
 			}
-			else if (bIncludeFromChildActors)
+			if (bIncludeFromChildActors)
 			{
 				if (UChildActorComponent* ChildActorComponent = Cast<UChildActorComponent>(OwnedComponent))
 				{
@@ -2726,12 +2731,13 @@ public:
 			if (Component)
 			{
 				OutComponents.Add(Component);
-			}
-			else if (bIncludeFromChildActors)
-			{
-				if (UChildActorComponent* ChildActorComponent = Cast<UChildActorComponent>(Component))
+
+				if (bIncludeFromChildActors)
 				{
-					ChildActorComponents.Add(ChildActorComponent);
+					if (UChildActorComponent* ChildActorComponent = Cast<UChildActorComponent>(Component))
+					{
+						ChildActorComponents.Add(ChildActorComponent);
+					}
 				}
 			}
 		}

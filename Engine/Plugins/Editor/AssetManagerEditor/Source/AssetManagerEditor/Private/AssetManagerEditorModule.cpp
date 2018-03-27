@@ -1440,7 +1440,7 @@ void FAssetManagerEditorModule::SetCurrentRegistrySource(const FString& SourceNa
 
 void FAssetManagerEditorModule::RefreshRegistryData()
 {
-	UAssetManager::Get().UpdateManagementDatabase();
+	UAssetManager::Get().UpdateManagementDatabase(true);
 
 	// Rescan registry sources, try to restore the current one
 	FString OldSourceName = CurrentRegistrySource->SourceName;

@@ -9,7 +9,7 @@
 #include "GameFramework/DamageType.h"
 #include "GameFramework/Pawn.h"
 #include "WorldCollision.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PhysicsVolume.h"
 #include "GameFramework/WorldSettings.h"
@@ -536,7 +536,7 @@ void UPrimitiveComponent::OnRegister()
 		const bool bNavRelevant = bNavigationRelevant = IsNavigationRelevant();
 		if (bNavRelevant)
 		{
-			UNavigationSystem::OnComponentRegistered(this);
+			FNavigationSystem::OnComponentRegistered(*this);
 		}
 	}
 	else
@@ -568,7 +568,7 @@ void UPrimitiveComponent::OnUnregister()
 
 	if (bCanEverAffectNavigation)
 	{
-		UNavigationSystem::OnComponentUnregistered(this);
+		FNavigationSystem::OnComponentUnregistered(*this);
 	}
 }
 

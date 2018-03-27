@@ -633,10 +633,11 @@ void UAISense_Sight::RemoveAllQueriesToTarget(const FAISightTarget::FTargetId& T
 void UAISense_Sight::OnListenerForgetsActor(const FPerceptionListener& Listener, AActor& ActorToForget)
 {
 	const uint32 ListenerId = Listener.GetListenerID();
+	const uint32 TargetId = ActorToForget.GetUniqueID();
 	
 	for (FAISightQuery& SightQuery : SightQueryQueue)
 	{
-		if (SightQuery.ObserverId == ListenerId)
+		if (SightQuery.ObserverId == ListenerId && SightQuery.TargetId == TargetId)
 		{
 			// assuming one query per observer-target pair
 			SightQuery.ForgetPreviousResult();

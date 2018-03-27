@@ -370,8 +370,6 @@ struct FBackendHelperUMG
 {
 	static void WidgetFunctionsInHeader(FEmitterLocalContext& Context);
 
-	static void AdditionalHeaderIncludeForWidget(FEmitterLocalContext& EmitterContext);
-
 	// these function should use the same context as Constructor
 	static void CreateClassSubobjects(FEmitterLocalContext& Context, bool bCreate, bool bInitialize);
 	static void EmitWidgetInitializationFunctions(FEmitterLocalContext& Context);

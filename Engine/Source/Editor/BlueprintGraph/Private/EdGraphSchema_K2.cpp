@@ -816,7 +816,7 @@ bool UEdGraphSchema_K2::CanFunctionBeUsedInGraph(const UClass* InClass, const UF
 					UBlueprint* BP = FBlueprintEditorUtils::FindBlueprintForGraph(InDestGraph);
 					const bool bIsFunctLib = BP && (EBlueprintType::BPTYPE_FunctionLibrary == BP->BlueprintType);
 					UClass* ParentClass = BP ? BP->ParentClass : NULL;
-					const bool bIncompatibleParent = ParentClass && (!FBlueprintEditorUtils::ImplentsGetWorld(BP) && !ParentClass->HasMetaDataHierarchical(FBlueprintMetadata::MD_ShowWorldContextPin));
+					const bool bIncompatibleParent = ParentClass && (!FBlueprintEditorUtils::ImplementsGetWorld(BP) && !ParentClass->HasMetaDataHierarchical(FBlueprintMetadata::MD_ShowWorldContextPin));
 					if (!bIsFunctLib && bIncompatibleParent)
 					{
 						if (OutReason != nullptr)
@@ -3633,10 +3633,14 @@ FText UEdGraphSchema_K2::TerminalTypeToText(const FName Category, const FName Su
 		}
 		else
 		{
-			FString SubCategoryObjName = SubCategoryObject->GetName();
+			FString SubCategoryObjName;
 			if (UField* SubCategoryField = Cast<UField>(SubCategoryObject))
 			{
 				SubCategoryObjName = SubCategoryField->GetDisplayNameText().ToString();
+			}
+			else
+			{
+				SubCategoryObjName = SubCategoryObject->GetName();
 			}
 
 			if (!bIsWeakPtr)
@@ -3651,6 +3655,12 @@ FText UEdGraphSchema_K2::TerminalTypeToText(const FName Category, const FName Su
 				if (Category == UEdGraphSchema_K2::PC_Struct && (SubCategoryObject == UEdGraphSchema_K2::VectorStruct || SubCategoryObject == UEdGraphSchema_K2::RotatorStruct || SubCategoryObject == UEdGraphSchema_K2::TransformStruct))
 				{
 					PropertyText = FText::Format(LOCTEXT("ObjectAsTextWithoutCategory", "{ObjectName}"), Args);
+				}
+				// If this is a raw UObject reference don't display Object twice
+				else if (((Category == UEdGraphSchema_K2::PC_Object) || (Category == UEdGraphSchema_K2::PC_SoftObject)) && (SubCategoryObject == UObject::StaticClass()))
+				{
+					Args.Add(TEXT("Category"), UEdGraphSchema_K2::GetCategoryText(Category));
+					PropertyText = FText::Format(LOCTEXT("ObjectAsJustCategory", "{Category}"), Args);
 				}
 				else
 				{
@@ -3667,7 +3677,7 @@ FText UEdGraphSchema_K2::TerminalTypeToText(const FName Category, const FName Su
 			}
 		}
 	}
-	else if (SubCategory != TEXT(""))
+	else if (!SubCategory.IsNone())
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("Category"), UEdGraphSchema_K2::GetCategoryText(Category));
@@ -4452,7 +4462,7 @@ void UEdGraphSchema_K2::HandleGraphBeingDeleted(UEdGraph& GraphBeingRemoved) con
 		}
 
 		// Remove from the list of recently edited documents
-		Blueprint->LastEditedDocuments.RemoveAll([&GraphBeingRemoved](const FEditedDocumentInfo& TestDoc) { return TestDoc.EditedObject == &GraphBeingRemoved; });
+		Blueprint->LastEditedDocuments.RemoveAll([&GraphBeingRemoved](const FEditedDocumentInfo& TestDoc) { return TestDoc.EditedObjectPath.ResolveObject() == &GraphBeingRemoved; });
 	}
 }
 

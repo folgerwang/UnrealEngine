@@ -34,7 +34,7 @@
 #include "TessellationRendering.h"
 #include "DistanceFieldAtlas.h"
 #include "Components/BrushComponent.h"
-#include "AI/Navigation/NavCollision.h"
+#include "AI/Navigation/NavCollisionBase.h"
 #include "ComponentRecreateRenderStateContext.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "Engine/LODActor.h"
@@ -1249,7 +1249,7 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 
 
 					// The simple nav geometry is only used by dynamic obstacles for now
-					if (StaticMesh->NavCollision && StaticMesh->NavCollision->bIsDynamicObstacle)
+					if (StaticMesh->NavCollision && StaticMesh->NavCollision->IsDynamicObstacle())
 					{
 						// Draw the static mesh's body setup (simple collision)
 						FTransform GeomTransform(GetLocalToWorld());

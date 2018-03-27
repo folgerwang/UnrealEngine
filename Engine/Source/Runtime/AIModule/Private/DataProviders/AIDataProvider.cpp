@@ -29,12 +29,6 @@ void FAIDataProviderValue::GetMatchingProperties(TArray<FName>& MatchingProperti
 	}
 }
 
-template<typename T>
-T* FAIDataProviderValue::GetRawValuePtr() const
-{
-	return CachedProperty ? CachedProperty->ContainerPtrToValuePtr<T>(DataBinding) : nullptr;
-}
-
 void FAIDataProviderValue::BindData(const UObject* Owner, int32 RequestId) const
 {
 	if (DataBinding && ensure(Owner))

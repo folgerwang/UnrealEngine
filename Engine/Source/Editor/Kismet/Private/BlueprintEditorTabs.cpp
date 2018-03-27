@@ -6,6 +6,7 @@ const FName FBlueprintEditorTabs::DetailsID( TEXT( "Inspector" ) );
 const FName FBlueprintEditorTabs::DefaultEditorID( TEXT( "DefaultEditor" ) );
 const FName FBlueprintEditorTabs::DebugID( TEXT( "Debug" ) );
 const FName FBlueprintEditorTabs::PaletteID( TEXT( "PaletteList" ) );
+const FName FBlueprintEditorTabs::BookmarksID( TEXT( "BookmarkList" ) );
 const FName FBlueprintEditorTabs::CompilerResultsID( TEXT( "CompilerResults" ) );
 const FName FBlueprintEditorTabs::FindResultsID( TEXT( "FindResults" ) );
 const FName FBlueprintEditorTabs::ConstructionScriptEditorID( TEXT( "ConstructionScriptEditor" ) );

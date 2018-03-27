@@ -45,8 +45,6 @@ public:
 	 */
 	FPropertyValueImpl( TSharedPtr<FPropertyNode> InPropertyNode, FNotifyHook* InNotifyHook, TSharedPtr<IPropertyUtilities> InPropertyUtilities );
 
-	virtual ~FPropertyValueImpl();
-
 	/**
 	 * Sets an object property to point to the new object
 	 * 
@@ -58,7 +56,7 @@ public:
 	 * Sets the value of an object property to the selected object in the content browser
 	 * @return Whether or not the call was successful
 	 */
-	virtual FPropertyAccess::Result OnUseSelected();
+	FPropertyAccess::Result OnUseSelected();
 
 	/**
 	 * Recurse up to the next object node, adding all array indices into a map according to their property name

@@ -8,7 +8,7 @@
 #include "DestructibleComponent.h"
 #include "EngineStats.h"
 #include "GameFramework/DamageType.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "DestructibleActor.h"

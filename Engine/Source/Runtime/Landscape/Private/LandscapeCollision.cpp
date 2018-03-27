@@ -18,7 +18,7 @@
 #include "LandscapeProxy.h"
 #include "LandscapeInfo.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "LandscapeComponent.h"
 #include "LandscapeLayerInfoObject.h"
 #include "LandscapePrivate.h"
@@ -1526,7 +1526,7 @@ void ULandscapeHeightfieldCollisionComponent::PostEditUndo()
 		RecreateCollision();
 	}
 
-	UNavigationSystem::UpdateComponentInNavOctree(*this);
+	FNavigationSystem::UpdateComponentData(*this);
 }
 
 bool ULandscapeHeightfieldCollisionComponent::ComponentIsTouchingSelectionBox(const FBox& InSelBBox, const FEngineShowFlags& ShowFlags, const bool bConsiderOnlyBSP, const bool bMustEncompassEntireComponent) const

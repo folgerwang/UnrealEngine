@@ -234,7 +234,7 @@ class GAMEPLAYABILITIES_API UAbilitySystemBlueprintLibrary : public UBlueprintFu
 
 	/** Returns true if the aggregated source and target tags from the effect spec meets the tag requirements */
 	UFUNCTION(BlueprintPure, Category = "Ability|GameplayCue")
-	static bool DoesGameplayCueMeetTagRequirements(FGameplayCueParameters Parameters, UPARAM(ref) FGameplayTagRequirements& SourceTagReqs, UPARAM(ref) FGameplayTagRequirements& TargetTagReqs);
+	static bool DoesGameplayCueMeetTagRequirements(FGameplayCueParameters Parameters, const FGameplayTagRequirements& SourceTagReqs, const FGameplayTagRequirements& TargetTagReqs);
 
 	// -------------------------------------------------------------------------------
 	//		GameplayEffectSpec

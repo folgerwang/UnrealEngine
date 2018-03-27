@@ -9,16 +9,18 @@
 #include "Components/ActorComponent.h"
 #include "EngineDefines.h"
 #include "AI/Navigation/NavigationTypes.h"
+#include "NavigationData.h"
 #include "AITypes.h"
 #include "AIResourceInterface.h"
-#include "AI/Navigation/NavigationData.h"
 #include "GameFramework/NavMovementComponent.h"
+#include "AI/Navigation/PathFollowingAgentInterface.h"
 #include "PathFollowingComponent.generated.h"
 
 class Error;
 class FDebugDisplayInfo;
 class INavLinkCustomInterface;
 class UCanvas;
+class ANavigationData;
 
 AIMODULE_API DECLARE_LOG_CATEGORY_EXTERN(LogPathFollowing, Warning, All);
 
@@ -211,7 +213,7 @@ enum class EPathFollowingReachMode : uint8
 };
 
 UCLASS(config=Engine)
-class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIResourceInterface
+class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIResourceInterface, public IPathFollowingAgentInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -227,6 +229,7 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	FMoveComplete OnRequestFinished;
 
 	//~ Begin UActorComponent Interface
+	virtual void OnRegister() override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	//~ End UActorComponent Interface
 
@@ -377,14 +380,12 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	UFUNCTION()
 	virtual void OnActorBump(AActor* SelfActor, AActor* OtherActor, FVector NormalImpulse, const FHitResult& Hit);
 
-	/** Called when movement is blocked by a collision with another actor.  */
-	virtual void OnMoveBlockedBy(const FHitResult& BlockingImpact) {}
-
-	/** Called when falling movement starts. */
-	virtual void OnStartedFalling();
-
-	/** Called when falling movement ends. */
-	virtual void OnLanded() {}
+	// IPathFollowingAgentInterface begin
+	virtual void OnUnableToMove(const UObject& Instigator) override;		
+	//virtual void OnMoveBlockedBy(const FHitResult& BlockingImpact) {}
+	virtual void OnStartedFalling() override;
+	virtual void OnLanded() override {}
+	// IPathFollowingAgentInterface end
 
 	/** Check if path following can be activated */
 	virtual bool IsPathFollowingAllowed() const;
@@ -595,6 +596,10 @@ protected:
 
 	/** reset path following data */
 	virtual void Reset();
+
+	/** Called if owning Controller possesses new pawn or ends up pawn-less. 
+	 *	Doesn't get called if owner is not an AContoller */
+	virtual void OnNewPawn(APawn* NewPawn);
 
 	/** should verify if agent if still on path ater movement has been resumed? */
 	virtual bool ShouldCheckPathOnResume() const;

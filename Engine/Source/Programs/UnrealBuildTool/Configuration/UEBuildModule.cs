@@ -513,7 +513,7 @@ namespace UnrealBuildTool
 			bool bWithLegacyPublicIncludePaths
 			)
 		{
-			if (this.Type.IsGameModule())
+			if (!Rules.bTreatAsEngineModule)
 			{
 				Definitions.Add("DEPRECATED_FORGAME=DEPRECATED");
 			}

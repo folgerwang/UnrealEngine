@@ -76,7 +76,6 @@ public class Engine : ModuleRules
 				"EngineSettings",
 				"SynthBenchmark",
 				"GameplayTags",
-				"AIModule",
 				"DatabaseSupport",
 				"PacketHandler",
 				"HardwareSurvey",
@@ -162,7 +161,6 @@ public class Engine : ModuleRules
 		}
 
 		CircularlyReferencedDependentModules.Add("GameplayTags");
-		CircularlyReferencedDependentModules.Add("AIModule");
 		CircularlyReferencedDependentModules.Add("Landscape");
 		CircularlyReferencedDependentModules.Add("UMG");
 		CircularlyReferencedDependentModules.Add("MaterialShaderQualitySettings");
@@ -414,19 +412,6 @@ public class Engine : ModuleRules
 				"VorbisFile",
 				"libOpus"
 				);
-		}
-
-		if (Target.bCompileRecast)
-		{
-			PrivateDependencyModuleNames.Add("Navmesh");
-			PublicDefinitions.Add("WITH_RECAST=1");
-		}
-		else
-		{
-			// Because we test WITH_RECAST in public Engine header files, we need to make sure that modules
-			// that import this also have this definition set appropriately.  Recast is a private dependency
-			// module, so it's definitions won't propagate to modules that import Engine.
-			PublicDefinitions.Add("WITH_RECAST=0");
 		}
 /*
 		ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, System.IO.DirectoryReference.FromFile(Target.ProjectFile), Target.Platform);

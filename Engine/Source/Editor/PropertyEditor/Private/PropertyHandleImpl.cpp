@@ -33,11 +33,6 @@ FPropertyValueImpl::FPropertyValueImpl( TSharedPtr<FPropertyNode> InPropertyNode
 	, bInteractiveChangeInProgress( false )
 	, InvalidOperationError( nullptr )
 {
-
-}
-
-FPropertyValueImpl::~FPropertyValueImpl()
-{
 }
 
 void FPropertyValueImpl::EnumerateObjectsToModify( FPropertyNode* InPropertyNode, const EnumerateObjectsToModifyFuncRef& InObjectsToModifyCallback ) const
@@ -1158,9 +1153,15 @@ void FPropertyValueImpl::ResetToDefault()
 	TSharedPtr<FPropertyNode> PropertyNodePin = PropertyNode.Pin();
 	if( PropertyNodePin.IsValid() && !PropertyNodePin->IsEditConst() && PropertyNodePin->GetDiffersFromDefault() )
 	{
-		PropertyNodePin->ResetToDefault( NotifyHook );
+		FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "PropertyWindowResetToDefault", "Reset to Default") );
+		TSharedPtr<FPropertyNode>& KeyNode = PropertyNodePin->GetPropertyKeyNode();
+		if(KeyNode.IsValid())
+		{
+			FPropertyValueImpl(KeyNode, NotifyHook, PropertyUtilities.Pin())
+				.ImportText(KeyNode->GetDefaultValueAsString(), EPropertyValueSetFlags::DefaultFlags);
+		}
+		ImportText(PropertyNodePin->GetDefaultValueAsString(), EPropertyValueSetFlags::DefaultFlags);
 	}
-
 }
 
 bool FPropertyValueImpl::DiffersFromDefault() const

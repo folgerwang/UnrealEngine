@@ -1566,7 +1566,10 @@ public:
 	/**
 	 * Returns true if this BP is currently based on a type that returns true for the UObject::ImplementsGetWorld() call:
 	 */
-	static bool ImplentsGetWorld(const UBlueprint* BP);
+	static bool ImplementsGetWorld(const UBlueprint* BP);
+
+	DEPRECATED(4.20, "Use ImplementsGetWorld")
+	static bool ImplentsGetWorld(const UBlueprint* BP) { return ImplementsGetWorld(BP); }
 };
 
 struct UNREALED_API FBlueprintDuplicationScopeFlags

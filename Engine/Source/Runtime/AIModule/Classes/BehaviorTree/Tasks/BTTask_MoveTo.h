@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "InputCoreTypes.h"
 #include "Templates/SubclassOf.h"
-#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "NavFilters/NavigationQueryFilter.h"
 #include "AITypes.h"
 #include "BehaviorTree/Tasks/BTTask_BlackboardBase.h"
 #include "BTTask_MoveTo.generated.h"

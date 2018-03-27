@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "VisualLoggerRenderingActor.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "VisualLogger/VisualLogger.h"
 #include "LogVisualizerSettings.h"
 #include "VisualLoggerDatabase.h"
@@ -10,6 +10,11 @@
 #include "GeomTools.h"
 #endif // WITH_EDITOR
 #include "VisualLoggerRenderingComponent.h"
+
+namespace FDebugDrawing
+{
+	const FVector NavOffset(0, 0, 15);
+}
 
 class UVisualLoggerRenderingComponent;
 class FVisualLoggerSceneProxy final : public FDebugRenderSceneProxy
@@ -396,7 +401,7 @@ void AVisualLoggerRenderingActor::GetDebugShapes(const FVisualLogDevice::FVisual
 		}
 
 
-		const FVector CorridorOffset = NavigationDebugDrawing::PathOffset * 1.25f;
+		const FVector CorridorOffset = FDebugDrawing::NavOffset * 1.25f;
 		const FColor Color = ElementToDraw->GetFColor();
 
 		switch (ElementToDraw->GetType())

@@ -1678,16 +1678,6 @@ FString FPropertyNode::GetDefaultValueAsStringForObject( FPropertyItemValueDataT
 			USetProperty* OuterSetProperty = Cast<USetProperty>(InProperty->GetOuter());
 			UMapProperty* OuterMapProperty = Cast<UMapProperty>(InProperty->GetOuter());
 
-			if ( OuterArrayProperty != NULL )
-			{
-				// make sure we're not trying to compare against an element that doesn't exist
-				if ( ValueTracker.GetPropertyDefaultBaseAddress() != NULL && GetArrayIndex() >= FScriptArrayHelper::Num(ValueTracker.GetPropertyDefaultBaseAddress()) )
-				{
-					bDiffersFromDefaultForObject = true;
-					DefaultValue = NSLOCTEXT("PropertyEditor", "ArrayLongerThanDefault", "Array is longer than the default.").ToString();
-				}
-			}
-
 			// The property is a simple field.  Compare it against the enclosing object's default for that property.
 			if ( !bDiffersFromDefaultForObject)
 			{
@@ -1702,14 +1692,18 @@ FString FPropertyNode::GetDefaultValueAsStringForObject( FPropertyItemValueDataT
 					}
 				}
 
-				if ( ValueTracker.GetPropertyValueAddress() == NULL || ValueTracker.GetPropertyDefaultAddress() == NULL )
+				if ( ValueTracker.GetPropertyDefaultAddress() == NULL )
 				{
-					if ( !OuterSetProperty && !OuterMapProperty )
+					// no default available, fall back on the default value for our primitive:
+					uint8* TempComplexPropAddr = (uint8*)FMemory::Malloc(InProperty->GetSize(), InProperty->GetMinAlignment());
+					InProperty->InitializeValue(TempComplexPropAddr);
+					ON_SCOPE_EXIT
 					{
-					// if either are NULL, we had a dynamic array somewhere in our parent chain and the array doesn't
-					// have enough elements in either the default or the object
-					DefaultValue = NSLOCTEXT("PropertyEditor", "DifferentArrayLength", "Array has different length than the default.").ToString();
-				}
+						InProperty->DestroyValue(TempComplexPropAddr);
+						FMemory::Free(TempComplexPropAddr);
+					};
+					
+					InProperty->ExportText_Direct(DefaultValue, TempComplexPropAddr, TempComplexPropAddr, nullptr, PPF_None);
 				}
 				else if ( GetArrayIndex() == INDEX_NONE && InProperty->ArrayDim > 1 )
 				{
@@ -1782,271 +1776,6 @@ FText FPropertyNode::GetResetToDefaultLabel()
 	}
 
 	return OutLabel;
-}
-
-void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
-{
-	UProperty* TheProperty = GetProperty();
-	check(TheProperty);
-
-		// Get an iterator for the enclosing objects.
-	FObjectPropertyNode* ObjectNode = FindObjectItemParent();
-
-	if( ObjectNode )
-	{
-		// The property is a simple field.  Compare it against the enclosing object's default for that property.
-		////////////////
-		FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "PropertyWindowEditProperties", "Edit Properties") );
-
-		// Whether or not we've process prechange already
-		bool bNotifiedPreChange = false;
-
-		// Whether or not an edit inline new was reset as a result of this reset to default
-		bool bEditInlineNewWasReset = false;
-
-		TArray< TMap<FString, int32> > ArrayIndicesPerObject;
-
-		// List of top level objects sent to the PropertyChangedEvent
-		TArray<const UObject*> TopLevelObjects;
-		TopLevelObjects.Reserve(ObjectNode->GetNumObjects());
-
-		for( int32 ObjIndex = 0; ObjIndex < ObjectNode->GetNumObjects(); ++ObjIndex )
-		{
-			UObject* Object = ObjectNode->GetUObject( ObjIndex );
-
-			// special case for UObject class - it has no defaults
-			if( Object && Object != UObject::StaticClass() && Object != UObject::StaticClass()->GetDefaultObject() )
-			{
-				TSharedPtr<FPropertyItemValueDataTrackerSlate> ValueTrackerPtr = GetValueTracker(Object, ObjIndex);
-
-				if( ValueTrackerPtr.IsValid() && ValueTrackerPtr->IsValidTracker() && ValueTrackerPtr->HasDefaultValue() )
-				{
-					FPropertyItemValueDataTrackerSlate& ValueTracker = *ValueTrackerPtr;
-
-					bool bIsGameWorld = false;
-					// If the object we are modifying is in the PIE world, than make the PIE world the active
-					// GWorld.  Assumes all objects managed by this property window belong to the same world.
-					UWorld* OldGWorld = nullptr;
-					if ( GUnrealEd && GUnrealEd->PlayWorld && !GUnrealEd->bIsSimulatingInEditor && Object->IsIn(GUnrealEd->PlayWorld))
-					{
-						OldGWorld = SetPlayInEditorWorld(GUnrealEd->PlayWorld);
-						bIsGameWorld = true;
-					}
-
-					FPropertyNode* ParentPropertyNode = GetParentNode();
-					UProperty* ParentProperty = ParentPropertyNode != nullptr ? ParentPropertyNode->GetProperty() : nullptr;
-
-					// If we're about to modify an element in a set, check to ensure that we're not duplicating a default value
-					if (Cast<USetProperty>(ParentProperty) != nullptr)
-					{
-						FScriptSetHelper SetHelper(Cast<USetProperty>(ParentProperty), ParentPropertyNode->GetValueBaseAddress((uint8*)Object));
-						FDefaultConstructedPropertyElement DefaultElementValue(SetHelper.ElementProp);
-
-						int32 ThisElementIndex = SetHelper.FindElementIndex(TheProperty->ContainerPtrToValuePtr<uint8>(ValueTrackerPtr->GetPropertyValueAddress()));
-						int32 DefaultIndex = SetHelper.FindElementIndex(DefaultElementValue.GetObjAddress());
-
-						if (DefaultIndex != INDEX_NONE && ThisElementIndex != DefaultIndex)
-						{
-							FNotificationInfo ResetToDefaultErrorInfo = LOCTEXT("SetElementResetToDefault_Duplicate", "Cannot reset the element back to its default value because the default already exists in the set");
-							ResetToDefaultErrorInfo.ExpireDuration = 3.0f;
-							FSlateNotificationManager::Get().AddNotification(ResetToDefaultErrorInfo);
-							return;
-						}
-					}
-
-					// If we're about to modify a map, ensure that the default key value is not duplicated
-					if (Cast<UMapProperty>(ParentProperty) != nullptr)
-					{
-						if (PropertyKeyNode.IsValid())
-						{
-							// This is the value node; it should always be reset to default. The key node should be checked separately.
-							PropertyKeyNode->ResetToDefault( InNotifyHook );
-						}
-						else
-						{
-							// Key node, so perform the default check here
-							FScriptMapHelper MapHelper(Cast<UMapProperty>(ParentProperty), ParentPropertyNode->GetValueBaseAddress((uint8*)Object));
-							FDefaultConstructedPropertyElement DefaultKeyValue(MapHelper.KeyProp);
-
-							uint8* PairPtr = MapHelper.GetPairPtr(ArrayIndex);
-							int32 ThisKeyIndex = MapHelper.FindMapIndexWithKey(TheProperty->ContainerPtrToValuePtr<uint8>(ValueTrackerPtr->GetPropertyValueAddress()));
-							int32 DefaultIndex = MapHelper.FindMapIndexWithKey(DefaultKeyValue.GetObjAddress());
-
-							if (DefaultIndex != INDEX_NONE && ThisKeyIndex != DefaultIndex)
-							{
-								FNotificationInfo ResetToDefaultErrorInfo = LOCTEXT("MapKeyResetToDefault_Duplicate", "Cannot reset the key back to its default value because the default already exists in the map");
-								ResetToDefaultErrorInfo.ExpireDuration = 3.0f;
-								FSlateNotificationManager::Get().AddNotification(ResetToDefaultErrorInfo);
-								return;
-							}
-						}
-					}
-
-					if( !bNotifiedPreChange )
-					{
-						// Call preedit change on all the objects
-						NotifyPreChange( GetProperty(), InNotifyHook );
-						bNotifiedPreChange = true;
-					}
-
-					// Cache the value of the property before modifying it.
-					FString PreviousValue;
-					TheProperty->ExportText_Direct(PreviousValue, ValueTracker.GetPropertyValueAddress(), ValueTracker.GetPropertyValueAddress(), nullptr, 0);
-								
-					FString PreviousArrayValue;
-
-					if (ValueTracker.GetPropertyDefaultAddress())
-					{
-						UObject* RootObject = ValueTracker.GetTopLevelObject();
-
-						FPropertyItemComponentCollector ComponentCollector(ValueTracker);
-
-						// dynamic arrays are the only property type that do not support CopySingleValue correctly due to the fact that they cannot
-						// be used in a static array
-
-						if (UArrayProperty* ParentArrayProp = Cast<UArrayProperty>(ParentProperty))
-						{
-							if (ParentArrayProp->Inner == TheProperty)
-							{
-								uint8* Addr = ParentPropertyNode->GetValueBaseAddress((uint8*)Object);
-
-								ParentArrayProp->ExportText_Direct(PreviousArrayValue, Addr, Addr, nullptr, 0);
-							}
-						}
-
-						if (UArrayProperty* ArrayProp = Cast<UArrayProperty>(TheProperty))
-						{
-							TheProperty->CopyCompleteValue(ValueTracker.GetPropertyValueAddress(), ValueTracker.GetPropertyDefaultAddress());
-						}
-						else
-						{
-							if( GetArrayIndex() == INDEX_NONE && TheProperty->ArrayDim > 1 )
-							{
-								TheProperty->CopyCompleteValue(ValueTracker.GetPropertyValueAddress(), ValueTracker.GetPropertyDefaultAddress());
-							}
-							else
-							{
-								TheProperty->CopySingleValue(ValueTracker.GetPropertyValueAddress(), ValueTracker.GetPropertyDefaultAddress());
-							}
-						}
-
-						if( ComponentCollector.Components.Num() > 0 )
-						{
-							TMap<UObject*,UObject*> ReplaceMap;
-							FPropertyItemComponentCollector DefaultComponentCollector(ValueTracker);
-							for ( int32 CompIndex = 0; CompIndex < ComponentCollector.Components.Num(); CompIndex++ )
-							{
-								if (UObject* Component = ComponentCollector.Components[CompIndex])
-								{
-									if ( DefaultComponentCollector.Components.Contains(Component->GetArchetype()) )
-									{
-										ReplaceMap.Add(Component, Component->GetArchetype());
-									}
-									else if( DefaultComponentCollector.Components.IsValidIndex(CompIndex) )
-									{
-										ReplaceMap.Add(Component, DefaultComponentCollector.Components[CompIndex]);
-									}
-								}
-							}
-
-							{ FArchiveReplaceObjectRef<UObject> ReplaceAr(RootObject, ReplaceMap, false, true, true); }
-
-							// The old objects need to be renamed out of the way otherwise the subobject instancing will just find the
-							// same object again and not get a new one
-							for (const TPair<UObject*,UObject*> ReplacedObjPair : ReplaceMap)
-							{
-								ReplacedObjPair.Key->Rename(nullptr, GetTransientPackage(), REN_DontCreateRedirectors);
-							}
-
-							FObjectInstancingGraph InstanceGraph(RootObject);
-
-							TArray<UObject*> Subobjects;
-							FReferenceFinder Collector(
-								Subobjects,	//	InObjectArray
-								RootObject,		//	LimitOuter
-								false,			//	bRequireDirectOuter
-								true,			//	bIgnoreArchetypes
-								true,			//	bSerializeRecursively
-								false			//	bShouldIgnoreTransient
-								);
-							Collector.FindReferences( RootObject );
-
-							for( UObject* SubObj : Subobjects )
-							{
-								InstanceGraph.AddNewInstance(SubObj);
-							}
-
-							RootObject->InstanceSubobjectTemplates(&InstanceGraph);
-
-							{ FArchiveReplaceObjectRef<UObject> ReplaceAr(RootObject, InstanceGraph.GetReplaceMap(), false, true, true); }
-
-						}
-
-						bEditInlineNewWasReset = ComponentCollector.bContainsEditInlineNew;
-
-					}
-					else
-					{
-						TheProperty->ClearValue(ValueTracker.GetPropertyValueAddress());
-					}
-
-					// Cache the value of the property after having modified it.
-					FString ValueAfterImport;
-					TheProperty->ExportText_Direct(ValueAfterImport, ValueTracker.GetPropertyValueAddress(), ValueTracker.GetPropertyValueAddress(), nullptr, 0);
-
-					// If this is an instanced component property we must move the old component to the 
-					// transient package so resetting owned components on the parent doesn't find it
-					UObjectProperty* ObjectProperty = Cast<UObjectProperty>(TheProperty);
-					if (ObjectProperty 
-						&& ObjectProperty->HasAnyPropertyFlags(CPF_InstancedReference) 
-						&& ObjectProperty->PropertyClass->IsChildOf(UActorComponent::StaticClass())
-						&& PreviousValue != ValueAfterImport)
-					{
-						FString ComponentName = PreviousValue;
-						ConstructorHelpers::StripObjectClass(ComponentName);
-						if (UActorComponent* Component = Cast<UActorComponent>(StaticFindObject(UActorComponent::StaticClass(), ANY_PACKAGE, *ComponentName)))
-						{
-							Component->Modify();
-							Component->Rename(nullptr, GetTransientPackage(), REN_DontCreateRedirectors);
-						}
-					}
-
-					if((Object->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) ||
-						(Object->HasAnyFlags(RF_DefaultSubObject) && Object->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))) &&
-						!bIsGameWorld)
-					{
-						PropagatePropertyChange(Object, *ValueAfterImport, PreviousArrayValue.IsEmpty() ? PreviousValue : PreviousArrayValue);
-					}
-
-					TopLevelObjects.Add(Object);
-
-					if(OldGWorld)
-					{
-						// restore the original (editor) GWorld
-						RestoreEditorWorld( OldGWorld );
-					}
-
-					ArrayIndicesPerObject.Add(TMap<FString, int32>());
-					FPropertyValueImpl::GenerateArrayIndexMapToObjectNode(ArrayIndicesPerObject[ObjIndex], this);
-				}
-			}
-		}
-
-		if( bNotifiedPreChange )
-		{
-			// Call PostEditchange on all the objects
-			// Assume reset to default, can change topology
-			FPropertyChangedEvent ChangeEvent( TheProperty, EPropertyChangeType::ValueSet, &TopLevelObjects );
-			ChangeEvent.SetArrayIndexPerObject(ArrayIndicesPerObject);
-
-			NotifyPostChange( ChangeEvent, InNotifyHook );
-		}
-
-		if( bEditInlineNewWasReset )
-		{
-			RequestRebuildChildren();
-		}
-	}
 }
 
 bool FPropertyNode::IsReorderable()

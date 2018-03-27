@@ -9,7 +9,7 @@
 #include "TimerManager.h"
 #include "GameFramework/Pawn.h"
 #include "Components/PrimitiveComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Components/InputComponent.h"
 #include "Engine/Engine.h"
 #include "UObject/UObjectHash.h"
@@ -752,8 +752,8 @@ void AActor::ApplyWorldOffset(const FVector& InOffset, bool bWorldShift)
 	{
 		if (RootComponent != nullptr && RootComponent->IsRegistered())
 		{
-			UNavigationSystem::UpdateNavOctreeBounds(this);
-			UNavigationSystem::UpdateActorAndComponentsInNavOctree(*this);
+			FNavigationSystem::OnActorBoundsChanged(*this);
+			FNavigationSystem::UpdateActorAndComponentData(*this);
 		}
 	}
 }
@@ -850,23 +850,41 @@ float AActor::GetActorTickInterval() const
 bool AActor::Rename( const TCHAR* InName, UObject* NewOuter, ERenameFlags Flags )
 {
 	const bool bRenameTest = ((Flags & REN_Test) != 0);
+	const bool bChangingOuters = (NewOuter && (NewOuter != GetOuter()));
 
-	if (!bRenameTest && NewOuter)
+	if (!bRenameTest && bChangingOuters)
 	{
 		RegisterAllActorTickFunctions(false, true); // unregister all tick functions
 		UnregisterAllComponents();
+
+		if (ULevel* MyLevel = GetLevel())
+		{
+			int32 ActorIndex;
+			if (MyLevel->Actors.Find(this, ActorIndex))
+			{
+				MyLevel->Actors[ActorIndex] = nullptr;
+				MyLevel->ActorsForGC.Remove(this);
+				// TODO: There may need to be some consideration about removing this actor from the level cluster, but that would probably require destroying the entire cluster, so defer for now
+			}
+		}
 	}
 
 	const bool bSuccess = Super::Rename( InName, NewOuter, Flags );
 
-	if (!bRenameTest && NewOuter && NewOuter->IsA<ULevel>())
+	if (!bRenameTest && bChangingOuters)
 	{
-		UWorld* World = NewOuter->GetWorld();
-		if (World && World->bIsWorldInitialized)
+		if (ULevel* MyLevel = GetLevel())
 		{
-			RegisterAllComponents();
+			MyLevel->Actors.Add(this);
+			MyLevel->ActorsForGC.Add(this);
+
+			UWorld* World = MyLevel->GetWorld();
+			if (World && World->bIsWorldInitialized)
+			{
+				RegisterAllComponents();
+			}
+			RegisterAllActorTickFunctions(true, true); // register all tick functions
 		}
-		RegisterAllActorTickFunctions(true, true); // register all tick functions
 	}
 	return bSuccess;
 }
@@ -1485,7 +1503,6 @@ void AActor::SetOwner( AActor *NewOwner )
 		}
 
 		// Sets this actor's parent to the specified actor.
-		AActor* OldOwner = Owner;
 		if( Owner != nullptr )
 		{
 			// remove from old owner's Children array
@@ -1979,7 +1996,7 @@ void AActor::RouteEndPlay(const EEndPlayReason::Type EndPlayReason)
 			SetLifeSpan(0.f);
 		}
 
-		UNavigationSystem::OnActorUnregistered(this);
+		FNavigationSystem::OnActorUnregistered(*this);
 	}
 
 	UninitializeComponents();
@@ -2135,6 +2152,7 @@ float AActor::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AC
 		{
 			FHitResult const& Hit = (RadialDamageEvent->ComponentHits.Num() > 0) ? RadialDamageEvent->ComponentHits[0] : FHitResult();
 			ReceiveRadialDamage(ActualDamage, DamageTypeCDO, RadialDamageEvent->Origin, Hit, EventInstigator, DamageCauser);
+			OnTakeRadialDamage.Broadcast(this, ActualDamage, DamageTypeCDO, RadialDamageEvent->Origin, Hit, EventInstigator, DamageCauser);
 
 			// add any desired physics impulses to our components
 			for (int HitIdx = 0; HitIdx < RadialDamageEvent->ComponentHits.Num(); ++HitIdx)
@@ -4406,7 +4424,7 @@ void AActor::PostInitializeComponents()
 	{
 		bActorInitialized = true;
 
-		UNavigationSystem::OnActorRegistered(this);
+		FNavigationSystem::OnActorRegistered(*this);
 		
 		UpdateAllReplicatedComponents();
 	}

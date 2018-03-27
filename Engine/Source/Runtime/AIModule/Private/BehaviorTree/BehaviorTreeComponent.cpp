@@ -1009,7 +1009,7 @@ void UBehaviorTreeComponent::ApplySearchUpdates(const TArray<FBehaviorTreeSearch
 		{
 			// special case: service node at root of top most subtree - don't remove/re-add them when tree is in looping mode
 			// don't bother with decorators parent == root means that they are on child branches
-			if (bLoopExecution && UpdateInfo.AuxNode->GetParentNode() == InstanceStack[0].RootNode &&
+			if (bLoopExecution && UpdateInfo.AuxNode->GetMyNode() == InstanceStack[0].RootNode &&
 				UpdateInfo.AuxNode->IsA(UBTService::StaticClass()))
 			{
 				if (UpdateInfo.Mode == EBTNodeUpdateMode::Remove ||
@@ -1906,6 +1906,9 @@ bool UBehaviorTreeComponent::PushInstance(UBehaviorTree& TreeAsset)
 		{
 			UBTService* ServiceNode = RootNode->Services[ServiceIndex];
 			uint8* NodeMemory = (uint8*)ServiceNode->GetNodeMemory<uint8>(InstanceStack[ActiveInstanceIdx]);
+
+			// send initial on search start events in case someone is using them for init logic
+			ServiceNode->NotifyParentActivation(SearchData);
 
 			InstanceStack[ActiveInstanceIdx].ActiveAuxNodes.Add(ServiceNode);
 			ServiceNode->WrappedOnBecomeRelevant(*this, NodeMemory);

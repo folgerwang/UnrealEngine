@@ -15,6 +15,7 @@
 #include "SSCSEditor.h"
 #include "SSCSEditorViewport.h"
 #include "SBlueprintPalette.h"
+#include "SBlueprintBookmarks.h"
 #include "FindInBlueprints.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "SMyBlueprint.h"
@@ -311,6 +312,25 @@ TSharedRef<SWidget> FPaletteSummoner::CreateTabBody(const FWorkflowTabSpawnInfo&
 	return BlueprintEditorPtr->GetPalette();
 }
 
+FBookmarksSummoner::FBookmarksSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp)
+	: FWorkflowTabFactory(FBlueprintEditorTabs::BookmarksID, InHostingApp)
+{
+	TabLabel = LOCTEXT("BookmarksTabTitle", "Bookmarks");
+	TabIcon = FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Tabs.Bookmarks");
+
+	bIsSingleton = true;
+
+	ViewMenuDescription = LOCTEXT("BookmarksView", "Bookmarks");
+	ViewMenuTooltip = LOCTEXT("BookmarksView_ToolTip", "Show bookmarks associated with this Blueprint");
+}
+
+TSharedRef<SWidget> FBookmarksSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
+{
+	TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = StaticCastSharedPtr<FBlueprintEditor>(HostingApp.Pin());
+
+	return BlueprintEditorPtr->GetBookmarksWidget();
+}
+
 FMyBlueprintSummoner::FMyBlueprintSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp)
 	: FWorkflowTabFactory(FBlueprintEditorTabs::MyBlueprintID, InHostingApp)
 {
@@ -420,6 +440,7 @@ void FGraphTabHistory::SaveHistory()
 	{
 		check(GraphEditor.IsValid());
 		GraphEditor.Pin()->GetViewLocation(SavedLocation, SavedZoomAmount);
+		GraphEditor.Pin()->GetViewBookmark(SavedBookmarkId);
 	}
 }
 
@@ -428,7 +449,7 @@ void FGraphTabHistory::RestoreHistory()
 	if (IsHistoryValid())
 	{
 		check(GraphEditor.IsValid());
-		GraphEditor.Pin()->SetViewLocation(SavedLocation, SavedZoomAmount);
+		GraphEditor.Pin()->SetViewLocation(SavedLocation, SavedZoomAmount, SavedBookmarkId);
 	}
 }
 

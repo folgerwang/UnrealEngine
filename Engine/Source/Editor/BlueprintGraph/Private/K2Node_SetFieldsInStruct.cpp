@@ -235,7 +235,7 @@ void UK2Node_SetFieldsInStruct::RemoveFieldPins(UEdGraphPin* Pin, EPinsToRemove 
 			{
 				bWasChanged = true;
 				OptionalProperty.bShowPin = false;
-				Pin->bSavePinIfOrphaned = false;
+				Pin->SetSavePinIfOrphaned(false);
 			}
 		}
 

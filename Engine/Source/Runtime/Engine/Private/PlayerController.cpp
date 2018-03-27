@@ -806,7 +806,9 @@ void APlayerController::Possess(APawn* PawnToPossess)
 			AutoManageActiveCameraTarget(GetPawn());
 			ResetCameraMode();
 		}
-		UpdateNavigationComponents();
+		// not calling UpdateNavigationComponents() anymore. The
+		// PathFollowingComponent is now observing newly possessed
+		// pawns (via OnNewPawn)
 	}
 }
 

@@ -107,6 +107,7 @@
 #include "SSCSEditorViewport.h"
 #include "SKismetInspector.h"
 #include "SBlueprintPalette.h"
+#include "SBlueprintBookmarks.h"
 #include "SBlueprintActionMenu.h"
 #include "SMyBlueprint.h"
 #include "SReplaceNodeReferences.h"
@@ -752,6 +753,11 @@ void FBlueprintEditor::RefreshEditors(ERefreshBlueprintEditorReason::Type Reason
 		
 		// Note: Don't pass 'true' here because we don't want the preview actor to be reconstructed until after Blueprint modification is complete.
 		UpdateSCSPreview();
+	}
+
+	if (BookmarksWidget.IsValid())
+	{
+		BookmarksWidget->RefreshBookmarksTree();
 	}
 
 	// Note: There is an optimization inside of ShowDetailsForSingleObject() that skips the refresh if the object being selected is the same as the previous object.
@@ -2246,6 +2252,10 @@ void FBlueprintEditor::CreateDefaultTabContents(const TArray<UBlueprint*>& InBlu
 		this->Palette = 
 			SNew(SBlueprintPalette, SharedThis(this))
 				.IsEnabled(this, &FBlueprintEditor::IsFocusedGraphEditable);
+
+		this->BookmarksWidget =
+			SNew(SBlueprintBookmarks)
+				.EditorContext(SharedThis(this));
 	}
 
 	if (IsEditingSingleBlueprint())
@@ -2619,6 +2629,11 @@ void FBlueprintEditor::FindInBlueprint_Clicked()
 
 void FBlueprintEditor::ReparentBlueprint_Clicked()
 {
+	if (!ReparentBlueprint_IsVisible())
+	{
+		return;
+	}
+
 	TArray<UBlueprint*> Blueprints;
 	for (int32 i = 0; i < GetEditingObjects().Num(); ++i)
 	{
@@ -4044,7 +4059,7 @@ void FBlueprintEditor::OnAddOptionPin()
 			const FScopedTransaction Transaction( LOCTEXT("AddOptionPin", "Add Option Pin") );
 			SeqNode->Modify();
 
-			SeqNode->AddOptionPinToNode();
+			SeqNode->AddInputPin();
 
 			const UEdGraphSchema* Schema = SeqNode->GetSchema();
 			Schema->ReconstructNode(*SeqNode);
@@ -4068,7 +4083,7 @@ bool FBlueprintEditor::CanAddOptionPin() const
 	{
 		UK2Node_Select* SeqNode = Cast<UK2Node_Select>(*It);
 		// There's a bad node so return false
-		if (SeqNode == NULL || !SeqNode->CanAddOptionPinToNode())
+		if (SeqNode == nullptr || !SeqNode->CanAddPin())
 		{
 			return false;
 		}
@@ -4196,9 +4211,11 @@ void FBlueprintEditor::OnChangePinTypeFinished(const FEdGraphPinType& PinType, U
 {
 	if (FBlueprintEditorUtils::IsPinTypeValid(PinType))
 	{
+		UEdGraphNode* OwningNode = InSelectedPin->GetOwningNode();
+		OwningNode->Modify();
 		InSelectedPin->PinType = PinType;
 		if (UK2Node_Select* SelectNode = Cast<UK2Node_Select>(InSelectedPin->GetOwningNode()))
-			{
+		{
 			SelectNode->ChangePinType(InSelectedPin);
 		}
 	}
@@ -6938,6 +6955,43 @@ void FBlueprintEditor::RequestSaveEditedObjectState()
 	bRequestedSavingOpenDocumentState = true;
 }
 
+void FBlueprintEditor::GetBoundsForNode(const UEdGraphNode* InNode, class FSlateRect& OutRect, float InPadding) const
+{
+	if (FocusedGraphEdPtr.IsValid())
+	{
+		FocusedGraphEdPtr.Pin()->GetBoundsForNode(InNode, OutRect, InPadding);
+	}
+}
+
+void FBlueprintEditor::GetViewBookmark(FGuid& BookmarkId)
+{
+	BookmarkId.Invalidate();
+
+	if (FocusedGraphEdPtr.IsValid())
+	{
+		FocusedGraphEdPtr.Pin()->GetViewBookmark(BookmarkId);
+	}
+}
+
+void FBlueprintEditor::GetViewLocation(FVector2D& Location, float& ZoomAmount)
+{
+	Location = FVector2D::ZeroVector;
+	ZoomAmount = 0.0f;
+
+	if (FocusedGraphEdPtr.IsValid())
+	{
+		FocusedGraphEdPtr.Pin()->GetViewLocation(Location, ZoomAmount);
+	}
+}
+
+void FBlueprintEditor::SetViewLocation(const FVector2D& Location, float ZoomAmount, const FGuid& BookmarkId)
+{
+	if (FocusedGraphEdPtr.IsValid())
+	{
+		FocusedGraphEdPtr.Pin()->SetViewLocation(Location, ZoomAmount, BookmarkId);
+	}
+}
+
 void FBlueprintEditor::Tick(float DeltaTime)
 {
 	// Create or update the Blueprint actor instance in the preview scene
@@ -7113,6 +7167,11 @@ void FBlueprintEditor::OnAddNewLocalVariable()
 
 void FBlueprintEditor::OnAddNewDelegate()
 {
+	if (!AddNewDelegateIsVisible())
+	{
+		return;
+	}
+
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 	check(NULL != K2Schema);
 	UBlueprint* const Blueprint = GetBlueprintObj();
@@ -7156,6 +7215,11 @@ void FBlueprintEditor::OnAddNewDelegate()
 
 void FBlueprintEditor::NewDocument_OnClicked(ECreatedDocumentType GraphType)
 {
+	if (!NewDocument_IsVisibleForType(GraphType))
+	{
+		return;
+	}
+
 	FText DocumentNameText;
 	bool bResetMyBlueprintFilter = false;
 
@@ -7677,7 +7741,7 @@ void FBlueprintEditor::RestoreEditedObjectState()
 
 	for (int32 i = 0; i < Blueprint->LastEditedDocuments.Num(); i++)
 	{
-		if (UObject* Obj = Blueprint->LastEditedDocuments[i].EditedObject)
+		if (UObject* Obj = Blueprint->LastEditedDocuments[i].EditedObjectPath.ResolveObject())
 		{
 			if(UEdGraph* Graph = Cast<UEdGraph>(Obj))
 			{
@@ -8183,6 +8247,137 @@ void FBlueprintEditor::SelectGraphActionItemByName(const FName& ItemName, ESelec
 				Inspector->ShowDetailsForSingleObject(SelectedProperty);
 			}
 		}
+	}
+}
+
+FBPEditorBookmarkNode* FBlueprintEditor::AddBookmark(const FText& DisplayName, const FEditedDocumentInfo& BookmarkInfo, bool bSharedBookmark)
+{
+	FBPEditorBookmarkNode* NewNode = nullptr;
+
+	if (bSharedBookmark)
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			NewNode = new(Blueprint->BookmarkNodes) FBPEditorBookmarkNode;
+			NewNode->NodeGuid = FGuid::NewGuid();
+			NewNode->DisplayName = DisplayName;
+
+			Blueprint->Modify();
+			Blueprint->Bookmarks.Add(NewNode->NodeGuid, BookmarkInfo);
+		}
+	}
+	else if(UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>())
+	{
+		NewNode = new(LocalSettings->BookmarkNodes) FBPEditorBookmarkNode;
+		NewNode->NodeGuid = FGuid::NewGuid();
+		NewNode->DisplayName = DisplayName;
+
+		LocalSettings->Bookmarks.Add(NewNode->NodeGuid, BookmarkInfo);
+		LocalSettings->SaveConfig();
+	}
+
+	if (NewNode && BookmarksWidget.IsValid())
+	{
+		BookmarksWidget->RefreshBookmarksTree();
+	}
+
+	return NewNode;
+}
+
+void FBlueprintEditor::RenameBookmark(const FGuid& BookmarkNodeId, const FText& NewName)
+{
+	bool bFoundSharedBookmark = false;
+	if (UBlueprint* Blueprint = GetBlueprintObj())
+	{
+		for (FBPEditorBookmarkNode& BookmarkNode : Blueprint->BookmarkNodes)
+		{
+			if (BookmarkNode.NodeGuid == BookmarkNodeId)
+			{
+				Blueprint->Modify();
+				BookmarkNode.DisplayName = NewName;
+
+				bFoundSharedBookmark = true;
+				break;
+			}
+		}
+	}
+
+	if (!bFoundSharedBookmark)
+	{
+		UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>();
+		for (FBPEditorBookmarkNode& BookmarkNode : LocalSettings->BookmarkNodes)
+		{
+			if (BookmarkNode.NodeGuid == BookmarkNodeId)
+			{
+				BookmarkNode.DisplayName = NewName;
+				LocalSettings->SaveConfig();
+
+				break;
+			}
+		}
+	}
+
+	if (BookmarksWidget.IsValid())
+	{
+		BookmarksWidget->RefreshBookmarksTree();
+	}
+}
+
+void FBlueprintEditor::RemoveBookmark(const FGuid& BookmarkNodeId, bool bRefreshUI)
+{
+	bool bFoundSharedBookmark = false;
+	if (UBlueprint* Blueprint = GetBlueprintObj())
+	{
+		for (int32 i = 0; i < Blueprint->BookmarkNodes.Num(); ++i)
+		{
+			const FBPEditorBookmarkNode& BookmarkNode = Blueprint->BookmarkNodes[i];
+			if (BookmarkNode.NodeGuid == BookmarkNodeId)
+			{
+				Blueprint->Modify();
+				Blueprint->BookmarkNodes.RemoveAtSwap(i);
+				FEditedDocumentInfo BookmarkInfo = Blueprint->Bookmarks.FindAndRemoveChecked(BookmarkNodeId);
+
+				FGuid CurrentBookmarkId;
+				GetViewBookmark(CurrentBookmarkId);
+				if (CurrentBookmarkId == BookmarkNodeId)
+				{
+					SetViewLocation(BookmarkInfo.SavedViewOffset, BookmarkInfo.SavedZoomAmount);
+				}
+
+				bFoundSharedBookmark = true;
+				break;
+			}
+		}
+	}
+
+	if (!bFoundSharedBookmark)
+	{
+		UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>();
+		for (int32 i = 0; i < LocalSettings->BookmarkNodes.Num(); ++i)
+		{
+			const FBPEditorBookmarkNode& BookmarkNode = LocalSettings->BookmarkNodes[i];
+			if (BookmarkNode.NodeGuid == BookmarkNodeId)
+			{
+				LocalSettings->BookmarkNodes.RemoveAtSwap(i);
+				LocalSettings->SaveConfig();
+
+				FEditedDocumentInfo BookmarkInfo = LocalSettings->Bookmarks.FindAndRemoveChecked(BookmarkNodeId);
+
+				FGuid CurrentBookmarkId;
+				GetViewBookmark(CurrentBookmarkId);
+				if (CurrentBookmarkId == BookmarkNodeId)
+				{
+					SetViewLocation(BookmarkInfo.SavedViewOffset, BookmarkInfo.SavedZoomAmount);
+				}
+
+				break;
+			}
+		}
+	}
+
+	if (bRefreshUI && BookmarksWidget.IsValid())
+	{
+		BookmarksWidget->RefreshBookmarksTree();
 	}
 }
 

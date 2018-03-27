@@ -8,7 +8,7 @@
 #include "UObject/Object.h"
 #include "Templates/SubclassOf.h"
 #include "Engine/EngineTypes.h"
-#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "NavFilters/NavigationQueryFilter.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType.h"
 #include "EnvironmentQuery/EnvQueryContext.h"
 #include "BehaviorTree/BehaviorTreeTypes.h"

@@ -17,7 +17,7 @@
 #include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
 #include "Materials/MaterialInterface.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Settings/LevelEditorMiscSettings.h"
 #include "Misc/ConfigCacheIni.h"
@@ -814,8 +814,7 @@ void FEditorBuildUtils::SubmitPackagesForAutomatedBuild( const TSet<UPackage*>& 
 
 void FEditorBuildUtils::TriggerNavigationBuilder(UWorld* InWorld, FName Id)
 {
-	if( InWorld->GetWorldSettings()->bEnableNavigationSystem &&
-		InWorld->GetNavigationSystem() )
+	if (InWorld)
 	{
 		if (Id == FBuildOptions::BuildAIPaths ||
 			Id == FBuildOptions::BuildSelectedAIPaths ||
@@ -831,7 +830,7 @@ void FEditorBuildUtils::TriggerNavigationBuilder(UWorld* InWorld, FName Id)
 		}
 
 		// Invoke navmesh generator
-		InWorld->GetNavigationSystem()->Build();
+		FNavigationSystem::Build(*InWorld);
 	}
 }
 

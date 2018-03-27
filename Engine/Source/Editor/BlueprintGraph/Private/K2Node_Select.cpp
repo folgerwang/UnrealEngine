@@ -19,16 +19,24 @@
 
 #define LOCTEXT_NAMESPACE "K2Node_Select"
 
+namespace
+{
+	FName NAME_bPickOption0(TEXT("bPickOption0"));
+	FName NAME_Index(TEXT("Index"));
+	FName NAME_Option_0(TEXT("Option 0"));
+	FName NAME_Option_1(TEXT("Option 1"));
+}
+
 //////////////////////////////////////////////////////////////////////////
 // FKCHandler_Select
 
-class FKCHandler_SelectRef : public FNodeHandlingFunctor
+class FKCHandler_Select : public FNodeHandlingFunctor
 {
 protected:
 	TMap<UEdGraphNode*, FBPTerminal*> DefaultTermMap;
 
 public:
-	FKCHandler_SelectRef(FKismetCompilerContext& InCompilerContext)
+	FKCHandler_Select(FKismetCompilerContext& InCompilerContext)
 		: FNodeHandlingFunctor(InCompilerContext)
 	{
 	}
@@ -143,190 +151,6 @@ public:
 	}
 };
 
-class FKCHandler_Select : public FNodeHandlingFunctor
-{
-protected:
-	TMap<UEdGraphNode*, FBPTerminal*> BoolTermMap;
-
-public:
-	FKCHandler_Select(FKismetCompilerContext& InCompilerContext)
-		: FNodeHandlingFunctor(InCompilerContext)
-	{
-	}
-
-	virtual void RegisterNets(FKismetFunctionContext& Context, UEdGraphNode* Node) override
-	{
-		FNodeHandlingFunctor::RegisterNets(Context, Node);
-
-		// Create the net for the return value manually as it's a special case Output Direction pin
-		UK2Node_Select* SelectNode = Cast<UK2Node_Select>(Node);
-		UEdGraphPin* ReturnPin = SelectNode->GetReturnValuePin();
-
-		FBPTerminal* Term = Context.CreateLocalTerminalFromPinAutoChooseScope(ReturnPin, Context.NetNameMap->MakeValidName(ReturnPin));
-		Context.NetMap.Add(SelectNode->GetReturnValuePin(), Term);
-
-		// Create a term to determine if the compare was successful or not
-		FBPTerminal* BoolTerm = Context.CreateLocalTerminal();
-		BoolTerm->Type.PinCategory = UEdGraphSchema_K2::PC_Boolean;
-		BoolTerm->Source = Node;
-		BoolTerm->Name = Context.NetNameMap->MakeValidName(Node) + TEXT("_CmpSuccess");
-		BoolTermMap.Add(Node, BoolTerm);
-	}
-
-	virtual void Compile(FKismetFunctionContext& Context, UEdGraphNode* Node) override
-	{
-		// Cast the node and get all the input pins
-		UK2Node_Select* SelectNode = Cast<UK2Node_Select>(Node);
-		TArray<UEdGraphPin*> OptionPins;
-		SelectNode->GetOptionPins(OptionPins);
-		UEdGraphPin* IndexPin = SelectNode->GetIndexPin();
-
-		// Get the kismet term for the (Condition or Index) that will determine which option to use
-		UEdGraphPin* PinToTry = FEdGraphUtilities::GetNetFromPin(IndexPin);
-		FBPTerminal** ConditionTerm = Context.NetMap.Find(PinToTry);
-
-		// Get the kismet term for the return value
-		UEdGraphPin* ReturnPin = SelectNode->GetReturnValuePin();
-		FBPTerminal** ReturnTerm = Context.NetMap.Find(ReturnPin);
-
-		// Don't proceed if there is no return value or there is no selection
-		if (ConditionTerm != NULL && ReturnTerm != NULL)
-		{
-			FName ConditionalFunctionName = "";
-			UClass* ConditionalFunctionClass = NULL;
-			SelectNode->GetConditionalFunction(ConditionalFunctionName, &ConditionalFunctionClass);
-			UFunction* ConditionFunction = FindField<UFunction>(ConditionalFunctionClass, ConditionalFunctionName);
-
-			// Find the local boolean for use in the equality call function below (BoolTerm = result of EqualEqual_IntInt or NotEqual_BoolBool)
-			FBPTerminal* BoolTerm = BoolTermMap.FindRef(SelectNode);
-
-			// We need to keep a pointer to the previous IfNot statement so it can be linked to the next conditional statement
-			FBlueprintCompiledStatement* PrevIfNotStatement = NULL;
-
-			// Keep an array of all the unconditional goto statements so we can clean up their jumps after the noop statement is created
-			TArray<FBlueprintCompiledStatement*> GotoStatementList;
-
-			// Loop through all the options
-			for (int32 OptionIdx = 0; OptionIdx < OptionPins.Num(); OptionIdx++)
-			{
-				// Create a CallFunction statement with the condition function from the Select class
-				FBlueprintCompiledStatement& Statement = Context.AppendStatementForNode(Node);
-				Statement.Type = KCST_CallFunction;
-				Statement.FunctionToCall = ConditionFunction;
-				Statement.FunctionContext = NULL;
-				Statement.bIsParentContext = false;
-				// BoolTerm will be the return value of the condition statement
-				Statement.LHS = BoolTerm;
-				// The condition passed into the Select node
-				Statement.RHS.Add(*ConditionTerm);
-				// Create a local int for use in the equality call function below (LiteralTerm = the right hand side of the EqualEqual_IntInt or NotEqual_BoolBool statement)
-				FBPTerminal* LiteralTerm = Context.CreateLocalTerminal(ETerminalSpecification::TS_Literal);
-				LiteralTerm->bIsLiteral = true;
-				LiteralTerm->Type.PinCategory = UEdGraphSchema_K2::PC_Int;
-
-				if (UEnum* NodeEnum = SelectNode->GetEnum())
-				{
-					int32 EnumValue = NodeEnum->GetValueByName(OptionPins[OptionIdx]->PinName);
-					LiteralTerm->Name = FString::Printf(TEXT("%d"), EnumValue);
-				}
-				else
-				{
-					LiteralTerm->Name = FString::Printf(TEXT("%d"), OptionIdx);
-				}
-				Statement.RHS.Add(LiteralTerm);
-				// If there is a previous IfNot statement, hook this one to that one for jumping
-				if (PrevIfNotStatement)
-				{
-					Statement.bIsJumpTarget = true;
-					PrevIfNotStatement->TargetLabel = &Statement;
-				}
-
-				// Create a GotoIfNot statement using the BoolTerm from above as the condition
-				FBlueprintCompiledStatement* IfNotStatement = &Context.AppendStatementForNode(Node);
-				IfNotStatement->Type = KCST_GotoIfNot;
-				IfNotStatement->LHS = BoolTerm;
-
-				// Create an assignment statement
-				FBlueprintCompiledStatement& AssignStatement = Context.AppendStatementForNode(Node);
-				AssignStatement.Type = KCST_Assignment;
-				AssignStatement.LHS = *ReturnTerm;
-				// Get the kismet term from the option pin
-				UEdGraphPin* OptionPinToTry = FEdGraphUtilities::GetNetFromPin(OptionPins[OptionIdx]);
-				FBPTerminal** OptionTerm = Context.NetMap.Find(OptionPinToTry);
-				if (!OptionTerm)
-				{
-					Context.MessageLog.Error(*LOCTEXT("Error_UnregisterOptionPin", "Unregister option pin @@").ToString(), OptionPins[OptionIdx]);
-					return;
-				}
-				AssignStatement.RHS.Add(*OptionTerm);
-
-				// Create an unconditional goto to exit the node
-				FBlueprintCompiledStatement& GotoStatement = Context.AppendStatementForNode(Node);
-				GotoStatement.Type = KCST_UnconditionalGoto;
-				GotoStatementList.Add(&GotoStatement);
-
-				// If this is the last IfNot statement, hook the jump to an error message
-				if (OptionIdx == OptionPins.Num() - 1)
-				{
-					// Create a CallFunction statement for doing a print string of our error message
-					FBlueprintCompiledStatement& PrintStatement = Context.AppendStatementForNode(Node);
-					PrintStatement.Type = KCST_CallFunction;
-					PrintStatement.bIsJumpTarget = true;
-					FName PrintStringFunctionName = "";
-					UClass* PrintStringFunctionClass = NULL;
-					SelectNode->GetPrintStringFunction(PrintStringFunctionName, &PrintStringFunctionClass);
-					UFunction* PrintFunction = FindField<UFunction>(PrintStringFunctionClass, PrintStringFunctionName);
-					PrintStatement.FunctionToCall = PrintFunction;
-					PrintStatement.FunctionContext = NULL;
-					PrintStatement.bIsParentContext = false;
-
-					// Create a local int for use in the equality call function below (LiteralTerm = the right hand side of the EqualEqual_IntInt or NotEqual_BoolBool statement)
-					FBPTerminal* LiteralStringTerm = Context.CreateLocalTerminal(ETerminalSpecification::TS_Literal);
-					LiteralStringTerm->bIsLiteral = true;
-					LiteralStringTerm->Type.PinCategory = UEdGraphSchema_K2::PC_String;
-
-					FString SelectionNodeType;
-					if (IndexPin)
-					{
-						if (UEnum* EnumObject = Cast<UEnum>(IndexPin->PinType.PinSubCategoryObject.Get()))
-						{
-							SelectionNodeType = EnumObject->GetName();
-						}
-						else
-						{
-							// Not an enum, so just use the basic type
-							SelectionNodeType = IndexPin->PinType.PinCategory.ToString();
-						}
-					}
-					const UEdGraph* OwningGraph = Context.MessageLog.FindSourceObjectTypeChecked<UEdGraph>( SelectNode->GetGraph() );
-					LiteralStringTerm->Name = FText::Format(
-						LOCTEXT("SelectNodeIndexWarningFmt", "Graph {0}: Selection Node of type {1} failed! Out of bounds indexing of the options. There are only {2} options available."),
-						(OwningGraph) ? FText::FromString(OwningGraph->GetFullName()) : LOCTEXT("SelectNodeIndexWarningNoGraph", "NONE"),
-						(IndexPin) ? FText::FromString(SelectionNodeType) : LOCTEXT("SelectNodeIndexWarningNoPin", "NONE"),
-						OptionPins.Num()
-					).ToString();
-					PrintStatement.RHS.Add(LiteralStringTerm);
-
-					// Hook the IfNot statement's jump target to this statement
-					IfNotStatement->TargetLabel = &PrintStatement;
-				}
-
-				PrevIfNotStatement = IfNotStatement;
-			}
-
-			// Create a noop to jump to so the unconditional goto statements can exit the node after successful assignment
-			FBlueprintCompiledStatement& NopStatement = Context.AppendStatementForNode(Node);
-			NopStatement.Type = KCST_Nop;
-			NopStatement.bIsJumpTarget = true;
-			// Loop through the unconditional goto statements and fix their jump targets
-			for (FBlueprintCompiledStatement* GotoStatement : GotoStatementList)
-			{
-				GotoStatement->TargetLabel = &NopStatement;
-			}
-		}
-	}
-};
-
 UK2Node_Select::UK2Node_Select(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -353,8 +177,6 @@ void UK2Node_Select::AllocateDefaultPins()
 		NumOptionPins = EnumEntries.Num();
 	}
 
-	static const FBoolConfigValueHelper UseSelectRef(TEXT("Kismet"), TEXT("bUseSelectRef"), GEngineIni);
-
 	// Create the option pins
 	for (int32 Idx = 0; Idx < NumOptionPins; Idx++)
 	{
@@ -377,7 +199,7 @@ void UK2Node_Select::AllocateDefaultPins()
 
 		if (NewPin)
 		{
-			NewPin->bDisplayAsMutableRef = UseSelectRef;
+			NewPin->bDisplayAsMutableRef = true;
 			if (IndexPinType.PinCategory == UEdGraphSchema_K2::PC_Boolean)
 			{
 				NewPin->PinFriendlyName = (Idx == 0 ? GFalse : GTrue);
@@ -394,7 +216,7 @@ void UK2Node_Select::AllocateDefaultPins()
 
 	// Create the return value
 	UEdGraphPin* ReturnPin = CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Wildcard, UEdGraphSchema_K2::PN_ReturnValue);
-	ReturnPin->bDisplayAsMutableRef = UseSelectRef;
+	ReturnPin->bDisplayAsMutableRef = true;
 
 	Super::AllocateDefaultPins();
 }
@@ -435,6 +257,19 @@ FText UK2Node_Select::GetNodeTitle(ENodeTitleType::Type TitleType) const
 
 UK2Node::ERedirectType UK2Node_Select::DoPinsMatchForReconstruction(const UEdGraphPin* NewPin, int32 NewPinIndex, const UEdGraphPin* OldPin, int32 OldPinIndex) const
 {
+	if (bReconstructForPinTypeChange)
+	{
+		// If we're reconstructing for the purposes of changing the index pin type then we want to
+		// keep our connections based on the index of the option pin
+		if (NewPin != GetIndexPin() && NewPin != GetReturnValuePin())
+		{
+			if (NewPinIndex == OldPinIndex)
+			{
+				return UK2Node::ERedirectType_Name;
+			}
+		}
+	}
+
 	// Check to see if the new pin name matches the old pin name.
 	if (Enum && (NewPinIndex < NumOptionPins) && (NewPin->PinName != OldPin->PinName))
 	{
@@ -469,11 +304,11 @@ void UK2Node_Select::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& Ol
 	UEdGraphPin* OldReturnPin = nullptr;
 	for (UEdGraphPin* OldPin : OldPins)
 	{
-		if (OldPin->PinName == TEXT("bPickOption0"))
+		if (OldPin->PinName == NAME_bPickOption0)
 		{
 			OldConditionPin = OldPin;
 		}
-		else if (OldPin->PinName == TEXT("Index"))
+		else if (OldPin->PinName == NAME_Index)
 		{
 			OldIndexPin = OldPin;
 		}
@@ -512,8 +347,8 @@ void UK2Node_Select::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& Ol
 			PinConnectionListChanged(IndexPin);
 		}
 
-		UEdGraphPin* OptionPin0 = FindPin(TEXT("Option 0"));
-		UEdGraphPin* OptionPin1 = FindPin(TEXT("Option 1"));
+		UEdGraphPin* OptionPin0 = FindPin(NAME_Option_0);
+		UEdGraphPin* OptionPin1 = FindPin(NAME_Option_1);
 
 		for (UEdGraphPin* OldPin : OldPins)
 		{
@@ -560,6 +395,7 @@ void UK2Node_Select::PostReconstructNode()
 {
 	// After ReconstructNode we must be sure that no additional reconstruction is required
 	bReconstructNode = false;
+	bReconstructForPinTypeChange = false;
 
 	UEdGraphPin* ReturnPin = GetReturnValuePin();
 	const bool bFillTypeFromConnected = ReturnPin && (ReturnPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Wildcard);
@@ -587,7 +423,7 @@ void UK2Node_Select::PostReconstructNode()
 		}
 
 		ReturnPin->PinType = PinType;
-		PinTypeChanged(ReturnPin);
+		OnPinTypeChanged(ReturnPin);
 	}
 
 	Super::PostReconstructNode();
@@ -610,7 +446,7 @@ void UK2Node_Select::NotifyPinConnectionListChanged(UEdGraphPin* Pin)
 			{
 				Pin->PinType = LinkPin->PinType;
 
-				PinTypeChanged(Pin);
+				OnPinTypeChanged(Pin);
 			}
 		}
 	}
@@ -622,23 +458,70 @@ void UK2Node_Select::NotifyPinConnectionListChanged(UEdGraphPin* Pin)
 		UEdGraphPin* ReturnPin = FindPin(UEdGraphSchema_K2::PN_ReturnValue);
 
 		// See if this pin is one of the wildcard pins
-		bool bIsWildcardPin = (Pin == ReturnPin || OptionPins.Find(Pin) != INDEX_NONE) && Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Wildcard;
+		const bool bIsWildcardPin = ((Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Wildcard) && ((Pin == ReturnPin) || (OptionPins.Find(Pin) != INDEX_NONE)));
 
-		// If the pin was one of the wildcards we have to handle it specially
-		if (bIsWildcardPin)
+		TFunction<bool(UEdGraphPin*)> PinInUse = [&PinInUse](UEdGraphPin* PinToConsider)
 		{
-			// If the pin is linked, make sure the other wildcard pins match
-			if (Pin->LinkedTo.Num() > 0)
+			bool bPinInUse = ((PinToConsider->LinkedTo.Num() > 0) || (PinToConsider->ParentPin != nullptr) || !PinToConsider->DoesDefaultValueMatchAutogenerated());
+			if (!bPinInUse)
 			{
-				UEdGraphPin* LinkPin = Pin->LinkedTo[0];
-
-				if (Pin->PinType != LinkPin->PinType)
+				for (UEdGraphPin* SubPin : PinToConsider->SubPins)
 				{
-					Pin->PinType = LinkPin->PinType;
-
-					PinTypeChanged(Pin);
+					bPinInUse = PinInUse(SubPin);
+					if (bPinInUse)
+					{
+						break;
+					}
 				}
 			}
+			return bPinInUse;
+		};
+
+		bool bPinsInUse = PinInUse(ReturnPin);
+		
+		if (!bPinsInUse)
+		{
+			for (UEdGraphPin* OptionPin : OptionPins)
+			{
+				bPinsInUse = PinInUse(OptionPin);
+				if (bPinsInUse)
+				{
+					break;
+				}
+			}
+		}
+
+		bool bPinTypeChanged = false;
+
+		if (bPinsInUse)
+		{
+			// If the pin was one of the wildcards we have to handle it specially
+			if (bIsWildcardPin)
+			{
+				// If the pin is linked, make sure the other wildcard pins match
+				if (Pin->LinkedTo.Num() > 0)
+				{
+					UEdGraphPin* LinkPin = Pin->LinkedTo[0];
+
+					if (Pin->PinType != LinkPin->PinType)
+					{
+						Pin->PinType = LinkPin->PinType;
+						bPinTypeChanged = true;
+					}
+				}
+			}
+		}
+		else
+		{
+			bPinTypeChanged = true;
+			Pin->PinType.PinCategory = UEdGraphSchema_K2::PC_Wildcard;
+			Pin->PinType.PinSubCategory = NAME_None;
+			Pin->PinType.PinSubCategoryObject = nullptr;
+		}
+
+		if (bPinTypeChanged)
+		{
+			OnPinTypeChanged(Pin);
 		}
 	}
 }
@@ -719,8 +602,10 @@ void UK2Node_Select::GetPrintStringFunction(FName& FunctionName, UClass** Functi
 	*FunctionClass = UKismetSystemLibrary::StaticClass();
 }
 
-void UK2Node_Select::AddOptionPinToNode()
+void UK2Node_Select::AddInputPin()
 {
+	Modify();
+
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 
 	// Increment the pin count
@@ -794,7 +679,7 @@ void UK2Node_Select::NodeConnectionListChanged()
 	}
 }
 
-bool UK2Node_Select::CanAddOptionPinToNode() const
+bool UK2Node_Select::CanAddPin() const
 {
 	if (IndexPinType.PinCategory == UEdGraphSchema_K2::PC_Byte &&
 		IndexPinType.PinSubCategoryObject.IsValid() &&
@@ -827,10 +712,11 @@ bool UK2Node_Select::CanRemoveOptionPinToNode() const
 
 void UK2Node_Select::ChangePinType(UEdGraphPin* Pin)
 {
-	PinTypeChanged(Pin);
+	OnPinTypeChanged(Pin);
 
 	if (bReconstructNode)
 	{
+		bReconstructForPinTypeChange = true;
 		ReconstructNode();
 	}
 
@@ -877,6 +763,12 @@ bool UK2Node_Select::CanChangePinType(UEdGraphPin* Pin) const
 
 void UK2Node_Select::PinTypeChanged(UEdGraphPin* Pin)
 {
+	bReconstructForPinTypeChange = true;
+	OnPinTypeChanged(Pin);
+}
+
+void UK2Node_Select::OnPinTypeChanged(UEdGraphPin* Pin)
+{
 	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 
 	if (Pin == GetIndexPin())
@@ -888,7 +780,7 @@ void UK2Node_Select::PinTypeChanged(UEdGraphPin* Pin)
 			// Since it is an interactive action we want the pins to go away regardless of the new type
 			for (UEdGraphPin* PinToDiscard : Pins)
 			{
-				PinToDiscard->bSavePinIfOrphaned = false;
+				PinToDiscard->SetSavePinIfOrphaned(false);
 			}
 
 			if (IndexPinType.PinSubCategoryObject.IsValid())
@@ -968,10 +860,10 @@ void UK2Node_Select::PostPasteNode()
 		FString OldDefaultValue = IndexPin->DefaultValue;
 
 		// Corrects data in the index pin that is not valid after pasting
-		PinTypeChanged(IndexPin);
+		OnPinTypeChanged(IndexPin);
 
 		// Restore the default value of the index pin
-		IndexPin->DefaultValue = OldDefaultValue;
+		IndexPin->DefaultValue = MoveTemp(OldDefaultValue);
 	}
 }
 
@@ -994,10 +886,7 @@ bool UK2Node_Select::IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdG
 
 FNodeHandlingFunctor* UK2Node_Select::CreateNodeHandler(FKismetCompilerContext& CompilerContext) const
 {
-	static const FBoolConfigValueHelper UseSelectRef(TEXT("Kismet"), TEXT("bUseSelectRef"), GEngineIni);
-	return UseSelectRef
-		? static_cast<FNodeHandlingFunctor*>(new FKCHandler_SelectRef(CompilerContext))
-		: static_cast<FNodeHandlingFunctor*>(new FKCHandler_Select(CompilerContext));
+	return static_cast<FNodeHandlingFunctor*>(new FKCHandler_Select(CompilerContext));
 }
 
 void UK2Node_Select::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
@@ -1029,13 +918,6 @@ void UK2Node_Select::ExpandNode(class FKismetCompilerContext& CompilerContext, U
 {
 	Super::ExpandNode(CompilerContext, SourceGraph);
 
-	static const FBoolConfigValueHelper UseSelectRef(TEXT("Kismet"), TEXT("bUseSelectRef"), GEngineIni);
-	if (!UseSelectRef)
-	{
-		return;
-	}
-
-	bool bSuccess = false;
 	const UEdGraphSchema_K2* Schema = CompilerContext.GetSchema();
 	for (UEdGraphPin* Pin : Pins)
 	{

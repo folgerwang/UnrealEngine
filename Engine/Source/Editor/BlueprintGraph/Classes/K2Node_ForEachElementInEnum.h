@@ -22,6 +22,7 @@ class UK2Node_ForEachElementInEnum : public UK2Node
 
 	BLUEPRINTGRAPH_API static const FName InsideLoopPinName;
 	BLUEPRINTGRAPH_API static const FName EnumOuputPinName;
+	BLUEPRINTGRAPH_API static const FName SkipHiddenPinName;
 
 	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
@@ -36,6 +37,7 @@ class UK2Node_ForEachElementInEnum : public UK2Node
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
+	virtual void PostPlacedNewNode() override;
 	//~ End UK2Node Interface
 
 private:

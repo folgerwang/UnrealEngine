@@ -77,7 +77,7 @@ MONOLITHIC_HEADER_BOILERPLATE()
 #include "GameFramework/SpringArmComponent.h"
 #include "AI/RVOAvoidanceInterface.h"
 #include "AI/NavDataGenerator.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "ParticleVertexFactory.h"
 #include "TextureResource.h"

@@ -6,7 +6,7 @@
 #include "CollisionQueryParams.h"
 #include "Engine/World.h"
 #include "Components/PrimitiveComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Components/LineBatchComponent.h"
 #include "Logging/MessageLog.h"
 #include "PhysicsEngine/BodySetup.h"
@@ -950,7 +950,7 @@ void UPrimitiveComponent::OnComponentCollisionSettingsChanged()
 		if (bNavigationRelevant != bNewNavRelevant)
 		{
 			bNavigationRelevant = bNewNavRelevant;
-			UNavigationSystem::UpdateComponentInNavOctree(*this);
+			FNavigationSystem::UpdateComponentData(*this);
 		}
 
 		OnComponentCollisionSettingsChangedEvent.Broadcast(this);

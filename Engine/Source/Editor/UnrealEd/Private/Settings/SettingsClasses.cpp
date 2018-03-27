@@ -7,7 +7,7 @@
 #include "Misc/PackageName.h"
 #include "InputCoreTypes.h"
 #include "Classes/EditorStyleSettings.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Model.h"
 #include "ISourceControlModule.h"
 #include "Settings/ContentBrowserSettings.h"
@@ -356,7 +356,7 @@ void ULevelEditorMiscSettings::PostEditChangeProperty( struct FPropertyChangedEv
 	if (Name == FName(TEXT("bNavigationAutoUpdate")))
 	{
 		FWorldContext &EditorContext = GEditor->GetEditorWorldContext();
-		UNavigationSystem::SetNavigationAutoUpdateEnabled(bNavigationAutoUpdate, EditorContext.World()->GetNavigationSystem());
+		FNavigationSystem::SetNavigationAutoUpdateEnabled(bNavigationAutoUpdate, EditorContext.World()->GetNavigationSystem());
 	}
 
 	if (!FUnrealEdMisc::Get().IsDeletePreferences())

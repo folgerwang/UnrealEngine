@@ -15,7 +15,7 @@
 #include "Async/AsyncWork.h"
 #include "PrimitiveViewRelevance.h"
 #include "ConvexVolume.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/MapBuildDataRegistry.h"
 #include "MaterialShared.h"
 #include "UObject/UObjectIterator.h"
@@ -2741,14 +2741,12 @@ void UHierarchicalInstancedStaticMeshComponent::PartialNavigationUpdate(int32 In
 	if (InstanceIdx == INDEX_NONE)
 	{
 		AccumulatedNavigationDirtyArea.Init();
-		UNavigationSystem::UpdateComponentInNavOctree(*this);
+		FNavigationSystem::UpdateComponentData(*this);
 	}
 	else if (GetStaticMesh())
 	{
 		// Accumulate dirty areas and send them to navigation system once cluster tree is rebuilt
-		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
-		// Check if this component is registered in navigation system
-		if (NavSys && (NavSys->GetObjectsNavOctreeId(this) || NavSys->HasPendingObjectNavOctreeId(this)))
+		if (FNavigationSystem::HasComponentData(*this))
 		{
 			FTransform InstanceTransform(PerInstanceSMData[InstanceIdx].Transform);
 			FBox InstanceBox = GetStaticMesh()->GetBounds().TransformBy(InstanceTransform*GetComponentTransform()).GetBox(); // in world space
@@ -2764,12 +2762,10 @@ void UHierarchicalInstancedStaticMeshComponent::FlushAccumulatedNavigationUpdate
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_UHierarchicalInstancedStaticMeshComponent_FlushAccumulatedNavigationUpdates);
 
 		const TArray<FClusterNode>& ClusterTree = *ClusterTreePtr;
-		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
-		// Check if this component is registered in navigation system
-		if (ClusterTree.Num() && NavSys && NavSys->GetObjectsNavOctreeId(this))
+		if (ClusterTree.Num())
 		{
 			FBox NewBounds = FBox(ClusterTree[0].BoundMin, ClusterTree[0].BoundMax).TransformBy(GetComponentTransform());
-			NavSys->UpdateNavOctreeElementBounds(this, NewBounds, AccumulatedNavigationDirtyArea);
+			FNavigationSystem::OnComponentBoundsChanged(*this, NewBounds, AccumulatedNavigationDirtyArea);
 		}
 			
 		AccumulatedNavigationDirtyArea.Init();

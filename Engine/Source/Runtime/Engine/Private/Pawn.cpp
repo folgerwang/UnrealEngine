@@ -11,7 +11,7 @@
 #include "Engine/World.h"
 #include "GameFramework/Controller.h"
 #include "Components/PrimitiveComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Components/InputComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/Engine.h"
@@ -167,8 +167,8 @@ void APawn::SetCanAffectNavigationGeneration(bool bNewValue, bool bForceUpdate)
 		// update components 
 		UpdateNavigationRelevance();
 
-		// update entries in navigation octree 
-		UNavigationSystem::UpdateActorAndComponentsInNavOctree(*this);
+		// update entries in navigation system
+		FNavigationSystem::UpdateActorAndComponentData(*this);
 	}
 }
 

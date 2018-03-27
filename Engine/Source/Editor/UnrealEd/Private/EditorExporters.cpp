@@ -20,7 +20,7 @@
 #include "SceneTypes.h"
 #include "RawIndexBuffer.h"
 #include "RenderingThread.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Model.h"
 #include "Exporters/Exporter.h"
 #include "Exporters/AnimSequenceExporterFBX.h"
@@ -2100,12 +2100,7 @@ void UEditorEngine::RebuildStaticNavigableGeometry(ULevel* Level)
 			}
 		}
 
-		UWorld* World = GetEditorWorldContext().World();
-		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(World);
-		if (NavSys)
-		{
-			NavSys->UpdateLevelCollision(Level);
-		}
+		FNavigationSystem::UpdateLevelCollision(*Level);
 	}
 }
 

@@ -2063,7 +2063,7 @@ class COREUOBJECT_API UClass : public UStruct
 #endif
 {
 	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UClass, UStruct, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UClass, NO_API)
-	DECLARE_WITHIN(UPackage)
+	DECLARE_WITHIN_UPACKAGE()
 
 public:
 #if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
@@ -2697,7 +2697,7 @@ protected:
 class COREUOBJECT_API UDynamicClass : public UClass
 {
 	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UDynamicClass, UClass, 0, TEXT("/Script/CoreUObject"), CASTCLASS_None, NO_API)
-	DECLARE_WITHIN(UPackage)
+	DECLARE_WITHIN_UPACKAGE()
 
 public:
 

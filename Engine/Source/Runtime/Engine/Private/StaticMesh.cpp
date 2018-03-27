@@ -50,8 +50,8 @@
 
 #include "Engine/StaticMeshSocket.h"
 #include "EditorFramework/AssetImportData.h"
-#include "AI/Navigation/NavCollision.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/Navigation/NavCollisionBase.h"
+#include "AI/NavigationSystemBase.h"
 #include "AI/NavigationSystemHelpers.h"
 #include "ProfilingDebugging/CookStats.h"
 #include "UObject/ReleaseObjectVersion.h"
@@ -2114,7 +2114,7 @@ void UStaticMesh::SetLODGroup(FName NewGroup, bool bRebuildImmediately)
 
 void UStaticMesh::BroadcastNavCollisionChange()
 {
-	if (UNavigationSystem::ShouldUpdateNavOctreeOnComponentChange())
+	if (FNavigationSystem::WantsComponentChangeNotifies())
 	{
 		for (FObjectIterator Iter(UStaticMeshComponent::StaticClass()); Iter; ++Iter)
 		{
@@ -2123,7 +2123,7 @@ void UStaticMesh::BroadcastNavCollisionChange()
 			if (StaticMeshComponent->GetStaticMesh() == this)
 			{
 				StaticMeshComponent->bNavigationRelevant = StaticMeshComponent->IsNavigationRelevant();
-				UNavigationSystem::UpdateComponentInNavOctree(*StaticMeshComponent);
+				FNavigationSystem::UpdateComponentData(*StaticMeshComponent);
 			}
 		}
 	}
@@ -3235,17 +3235,19 @@ void UStaticMesh::CreateNavCollision(const bool bIsUpdate)
 	{
 		if (NavCollision == nullptr)
 		{
-			NavCollision = NewObject<UNavCollision>(this);
+			NavCollision = UNavCollisionBase::ConstructNew(*this);
 		}
 
-#if WITH_EDITOR
-		if (bIsUpdate)
+		if (NavCollision)
 		{
-			NavCollision->InvalidateCollision();
-		}
+#if WITH_EDITOR
+			if (bIsUpdate)
+			{
+				NavCollision->InvalidateCollision();
+			}
 #endif // WITH_EDITOR
-
-		NavCollision->Setup(BodySetup);	
+			NavCollision->Setup(BodySetup);
+		}
 	}
 	else
 	{

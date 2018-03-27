@@ -8,7 +8,7 @@
 #include "LandscapeSplineRaster.h"
 #include "LandscapeProxy.h"
 #include "LandscapeInfo.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "LandscapeComponent.h"
 #include "LandscapeLayerInfoObject.h"
 #include "LandscapeHeightfieldCollisionComponent.h"
@@ -588,11 +588,7 @@ bool ULandscapeInfo::ApplySplinesInternal(bool bOnlySelected, ALandscapeProxy* L
 		if (CollisionComponent)
 		{
 			CollisionComponent->RecreateCollision();
-			UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(Component);
-			if (NavSys)
-			{
-				NavSys->UpdateComponentInNavOctree(*CollisionComponent);
-			}
+			FNavigationSystem::UpdateComponentData(*CollisionComponent);
 		}
 	}
 
@@ -683,11 +679,7 @@ namespace LandscapeSplineRaster
 			if (CollisionComponent)
 			{
 				CollisionComponent->RecreateCollision();
-				UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(Component);
-				if (NavSys)
-				{
-					NavSys->UpdateComponentInNavOctree(*CollisionComponent);
-				}
+				FNavigationSystem::UpdateComponentData(*CollisionComponent);
 			}
 		}
 	}

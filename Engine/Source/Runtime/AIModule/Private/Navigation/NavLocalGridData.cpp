@@ -3,7 +3,7 @@
 #include "Navigation/NavLocalGridData.h"
 #include "Navigation/NavLocalGridManager.h"
 #include "GraphAStar.h"
-#include "AI/Navigation/NavigationPath.h"
+#include "NavigationPath.h"
 
 namespace FGridMathHelpers
 {

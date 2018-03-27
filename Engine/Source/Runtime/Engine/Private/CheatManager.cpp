@@ -17,7 +17,7 @@
 #include "CollisionQueryParams.h"
 #include "WorldCollision.h"
 #include "Engine/World.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "UObject/Package.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Volume.h"
@@ -29,7 +29,6 @@
 #include "EngineUtils.h"
 #include "Net/OnlineEngineInterface.h"
 #include "VisualLogger/VisualLogger.h"
-#include "AI/Navigation/RecastNavMesh.h"
 #include "GameFramework/Character.h"
 #include "Engine/Console.h"
 #include "Engine/DebugCameraController.h"
@@ -915,28 +914,6 @@ void UCheatManager::TestCollisionDistance()
 #endif
 }
 
-void UCheatManager::RebuildNavigation()
-{
-	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
-	if (NavSys)
-	{
-		NavSys->Build();
-	}
-}
-
-void UCheatManager::SetNavDrawDistance(float DrawDistance)
-{
-	if (GIsEditor)
-	{
-		APlayerController* PC = GetOuterAPlayerController();
-		if (PC != NULL)
-		{
-			PC->ClientMessage(TEXT("Setting Nav Rendering Draw Distance is not supported while in Edior"));
-		}
-	}
-	ARecastNavMesh::SetDrawDistance(DrawDistance);
-}
-
 void UCheatManager::DumpOnlineSessionState()
 {
 	UOnlineEngineInterface::Get()->DumpSessionState(GetWorld());
@@ -967,6 +944,11 @@ void UCheatManager::DumpVoiceMutingState()
 
 UWorld* UCheatManager::GetWorld() const
 {
+	if (IsTemplate())
+	{
+		return nullptr;
+	}
+
 	return GetOuterAPlayerController()->GetWorld();
 }
 

@@ -445,7 +445,10 @@ bool FCoreRedirects::RedirectNameAndValues(ECoreRedirectFlags Type, const FCoreR
 				{
 					if (*FoundValueRedirect)
 					{
-						UE_LOG(LogLinker, Error, TEXT("RedirectNameAndValues(%s) found multiple conflicting value redirects, %s and %s!"), *OldObjectName.ToString(), *(*FoundValueRedirect)->OldName.ToString(), *Redirect->OldName.ToString());
+						if (!LegacyCompareEqual((*FoundValueRedirect)->ValueChanges, Redirect->ValueChanges))
+						{
+							UE_LOG(LogLinker, Error, TEXT("RedirectNameAndValues(%s) found multiple conflicting value redirects, %s and %s!"), *OldObjectName.ToString(), *(*FoundValueRedirect)->OldName.ToString(), *Redirect->OldName.ToString());
+						}
 					}
 					else
 					{
@@ -1009,6 +1012,11 @@ ECoreRedirectFlags FCoreRedirects::GetFlagsForTypeName(FName PackageName, FName 
 		return ECoreRedirectFlags::Type_Class;
 	}
 
+	if (TypeName == NAME_UserDefinedEnum)
+	{
+		return ECoreRedirectFlags::Type_Enum;
+	}
+
 	return ECoreRedirectFlags::Type_Object;
 }
 
@@ -1059,9 +1067,9 @@ static void RegisterNativeRedirects40(TArray<FCoreRedirect>& Redirects)
 	CLASS_REDIRECT("MovementComp_Character", "CharacterMovementComponent");
 	CLASS_REDIRECT("MovementComp_Projectile", "ProjectileMovementComponent");
 	CLASS_REDIRECT("MovementComp_Rotating", "RotatingMovementComponent");
-	CLASS_REDIRECT("NavAreaDefault", "/Script/Engine.NavArea_Default");
-	CLASS_REDIRECT("NavAreaDefinition", "/Script/Engine.NavArea");
-	CLASS_REDIRECT("NavAreaNull", "/Script/Engine.NavArea_Null");
+	CLASS_REDIRECT("NavAreaDefault", "/Script/NavigationSystem.NavArea_Default");
+	CLASS_REDIRECT("NavAreaDefinition", "/Script/NavigationSystem.NavArea");
+	CLASS_REDIRECT("NavAreaNull", "/Script/NavigationSystem.NavArea_Null");
 	CLASS_REDIRECT("PhysicsActor", "StaticMeshActor");
 	CLASS_REDIRECT("PhysicsBSJointActor", "PhysicsConstraintActor");
 	CLASS_REDIRECT("PhysicsHingeActor", "PhysicsConstraintActor");
@@ -1098,7 +1106,7 @@ static void RegisterNativeRedirects40(TArray<FCoreRedirect>& Redirects)
 	CLASS_REDIRECT("VimGeneratedClass", "AnimBlueprintGeneratedClass");
 	CLASS_REDIRECT("VimInstance", "AnimInstance");
 	CLASS_REDIRECT("WorldInfo", "WorldSettings");
-	CLASS_REDIRECT_INSTANCES("NavAreaMeta", "/Script/Engine.NavArea_Default");
+	CLASS_REDIRECT_INSTANCES("NavAreaMeta", "/Script/NavigationSystem.NavArea_Default");
 
 	STRUCT_REDIRECT("VimDebugData", "AnimBlueprintDebugData");
 
@@ -1388,7 +1396,7 @@ static void RegisterNativeRedirects46(TArray<FCoreRedirect>& Redirects)
 	CLASS_REDIRECT("EmitterSpawnable", "Emitter");
 	CLASS_REDIRECT("SlateWidgetStyleAsset", "/Script/SlateCore.SlateWidgetStyleAsset");
 	CLASS_REDIRECT("SlateWidgetStyleContainerBase", "/Script/SlateCore.SlateWidgetStyleContainerBase");
-	CLASS_REDIRECT("SmartNavLinkComponent", "/Script/Engine.NavLinkCustomComponent");
+	CLASS_REDIRECT("SmartNavLinkComponent", "/Script/NavigationSystem.NavLinkCustomComponent");
 	CLASS_REDIRECT("WidgetBlueprint", "/Script/UMGEditor.WidgetBlueprint");
 
 	PROPERTY_REDIRECT("AnimNotify.Received_Notify.AnimSeq", "Animation");

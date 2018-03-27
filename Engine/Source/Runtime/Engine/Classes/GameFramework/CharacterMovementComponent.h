@@ -24,6 +24,7 @@ class FDebugDisplayInfo;
 class FNetworkPredictionData_Server_Character;
 class FSavedMove_Character;
 class UPrimitiveComponent;
+class INavigationData;
 class UCharacterMovementComponent;
 
 DECLARE_DELEGATE_RetVal_TwoParams(FTransform, FOnProcessRootMotion, const FTransform&, UCharacterMovementComponent*)
@@ -485,6 +486,14 @@ public:
 	 */
 	UPROPERTY(Category="Character Movement (Networking)", EditDefaultsOnly)
 	uint32 bNetworkSkipProxyPredictionOnNetUpdate:1;
+
+	/**
+	 * Flag used on the server to determine whether to always replicate ReplicatedServerLastTransformUpdateTimeStamp to clients.
+	 * Normally this is only sent when the network smoothing mode on character movement is set to Linear smoothing (on the server), to save bandwidth.
+	 * Setting this to true will force the timestamp to replicate regardless, in case the server doesn't know about the smoothing mode, or if the timestamp is used for another purpose.
+	 */
+	UPROPERTY(Category="Character Movement (Networking)", EditDefaultsOnly, AdvancedDisplay)
+	uint32 bNetworkAlwaysReplicateTransformUpdateTimestamp:1;
 
 public:
 
@@ -1497,7 +1506,7 @@ protected:
 	virtual void SetNavWalkingPhysics(bool bEnable);
 
 	/** Get Navigation data for the Character. Returns null if there is no associated nav data. */
-	const class ANavigationData* GetNavData() const;
+	const class INavigationDataInterface* GetNavData() const;
 
 	/** 
 	 * Checks to see if the current location is not encroaching blocking geometry so the character can leave NavWalking.

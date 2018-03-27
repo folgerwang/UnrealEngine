@@ -690,7 +690,16 @@ void FKismetCompilerContext::CreateClassVariablesFromBlueprint()
 		const FString TimelineVariableName = UTimelineTemplate::TimelineTemplateNameToVariableName(Timeline->GetFName());
 		if (UProperty* TimelineProperty = CreateVariable(*TimelineVariableName, TimelinePinType))
 		{
-			TimelineProperty->SetMetaData( TEXT("Category"), *Blueprint->GetName() );
+			FString CategoryName;
+			if (Timeline->FindMetaDataEntryIndexForKey(TEXT("Category")) != INDEX_NONE)
+			{
+				CategoryName = Timeline->GetMetaData(TEXT("Category"));
+			}
+			else
+			{
+				CategoryName = Blueprint->GetName();
+			}
+			TimelineProperty->SetMetaData(TEXT("Category"), *CategoryName);
 			TimelineProperty->SetPropertyFlags(CPF_BlueprintVisible);
 
 			TimelineToMemberVariableMap.Add(Timeline, TimelineProperty);

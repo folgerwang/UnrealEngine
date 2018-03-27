@@ -7,7 +7,7 @@
 #include "UObject/UObjectGlobals.h"
 #include "Templates/SubclassOf.h"
 #include "EngineDefines.h"
-#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "NavFilters/NavigationQueryFilter.h"
 #include "AITypes.h"
 #include "GameplayTaskOwnerInterface.h"
 #include "GameplayTask.h"
@@ -254,10 +254,7 @@ public:
 	/** Updates state of movement block detection. */
 	UFUNCTION(BlueprintCallable, Category = "AI|Navigation")
 	void SetMoveBlockDetection(bool bEnable);
-
-	/** Prepares path finding and path following components. */
-	virtual void InitNavigationControl(UPathFollowingComponent*& PathFollowingComp) override;
-
+	
 	/** Starts executing behavior tree. */
 	UFUNCTION(BlueprintCallable, Category = "AI")
 	virtual bool RunBehaviorTree(UBehaviorTree* BTAsset);
@@ -384,6 +381,7 @@ public:
 	// INavAgentInterface
 	//----------------------------------------------------------------------//
 	virtual bool IsFollowingAPath() const override;
+	virtual IPathFollowingAgentInterface* GetPathFollowingAgent() const override { return PathFollowingComponent; }
 
 	//----------------------------------------------------------------------//
 	// IGenericTeamAgentInterface

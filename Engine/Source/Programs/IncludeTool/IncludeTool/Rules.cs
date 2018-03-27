@@ -553,6 +553,10 @@ namespace IncludeTool
 			{
 				return true;
 			}
+			if(Markup.Type == PreprocessorMarkupType.Define && Markup.Tokens[0].Text == "DEPRECATED_FORGAME")
+			{
+				return true;
+			}
 			if(Markup.Type == PreprocessorMarkupType.Undef && Markup.Tokens[0].Text == "TEXT")
 			{
 				return true;

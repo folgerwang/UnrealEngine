@@ -14,7 +14,7 @@
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/World.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Components/LightComponent.h"
 #include "Model.h"
 #include "Exporters/Exporter.h"
@@ -1025,13 +1025,11 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 
 	if( LevelsToRebuildNavigation.Num() )
 	{
-		UWorld* World = GetEditorWorldContext().World();
-		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(World);
-		if (NavSys)
+		for (ULevel* Level : LevelsToRebuildNavigation)
 		{
-			for ( ULevel* Level : LevelsToRebuildNavigation )
+			if (Level)
 			{
-				NavSys->UpdateLevelCollision(Level);
+				FNavigationSystem::UpdateLevelCollision(*Level);
 			}
 		}
 	}

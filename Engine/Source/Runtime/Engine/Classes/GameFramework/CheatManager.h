@@ -252,14 +252,6 @@ class ENGINE_API UCheatManager : public UObject
 	UFUNCTION(exec)
 	virtual void TestCollisionDistance();
 
-	/** Builds the navigation mesh (or rebuilds it). **/
-	UFUNCTION(exec)
-	virtual void RebuildNavigation();
-
-	/** Sets navigation drawing distance. Relevant only in non-editor modes. **/
-	UFUNCTION(exec)
-	void SetNavDrawDistance(float DrawDistance);
-
 	/** Dump online session information */
 	UFUNCTION(exec)
 	virtual void DumpOnlineSessionState();

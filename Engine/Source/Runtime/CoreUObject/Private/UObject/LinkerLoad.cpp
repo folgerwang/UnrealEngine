@@ -1182,7 +1182,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 				else if (SerializedCustomVersion.Version > LatestVersion->Version)
 				{
 					// Loading a package with a newer custom version than the current one.
-					UE_LOG(LogLinker, Error, TEXT("Package %s was saved with a newer custom version than the current. Tag %s  PackageVersion %d  MaxExpected %d"), *Filename, *SerializedCustomVersion.Key.ToString(), SerializedCustomVersion.Version, LatestVersion->Version);
+					UE_LOG(LogLinker, Error, TEXT("Package %s was saved with a newer custom version than the current. Tag %s Name '%s' PackageVersion %d  MaxExpected %d"), *Filename, *SerializedCustomVersion.Key.ToString(), *LatestVersion->GetFriendlyName().ToString(), SerializedCustomVersion.Version, LatestVersion->Version);
 					return LINKER_Failed;
 				}
 				else if (SerializedCustomVersion.Version != LatestVersion->Version)
@@ -2227,31 +2227,44 @@ FLinkerLoad::EVerifyResult FLinkerLoad::VerifyImport(int32 ImportIndex)
 				UObject* DestObject = Redir->DestinationObject;
 
 				// check to make sure the destination obj was loaded,
-				if ( DestObject == NULL )
+				if (DestObject == nullptr)
 				{
 					Result = VERIFY_Failed;
-				}
-				// check that in fact it was the type we thought it should be
-				else if ( DestObject->GetClass()->GetFName() != OriginalImport.ClassName
-
-					// if the destination object is a CDO, allow class changes
-					&&	!DestObject->HasAnyFlags(RF_ClassDefaultObject) )
-				{
-					Result = VERIFY_Failed;
-					// if the destination is a ObjectRedirector you've most likely made a nasty circular loop
-					if( Redir->DestinationObject->GetClass() == UObjectRedirector::StaticClass() )
-					{
-						WarningAppend += LOCTEXT("LoadWarningSuffix_circularredirection", " [circular redirection]").ToString();
-					}
 				}
 				else
 				{
-					Result = VERIFY_Redirected;
+					// Blueprint CDOs are always allowed to change class, otherwise we need to do a name check for all parent classes
+					bool bIsValidClass = DestObject->HasAnyFlags(RF_ClassDefaultObject);
+					UClass* CheckClass = DestObject->GetClass();
 
-					// now, fake our Import to be what the redirector pointed to
-					Import.XObject = Redir->DestinationObject;
-					FUObjectThreadContext::Get().ImportCount++;
-					FLinkerManager::Get().AddLoaderWithNewImports(this);
+					while (!bIsValidClass && CheckClass)
+					{
+						if (CheckClass->GetFName() == OriginalImport.ClassName)
+						{
+							bIsValidClass = true;
+							break;
+						}
+						CheckClass = CheckClass->GetSuperClass();
+					}
+
+					if (!bIsValidClass)
+					{
+						Result = VERIFY_Failed;
+						// if the destination is a ObjectRedirector you've most likely made a nasty circular loop
+						if (Redir->DestinationObject->GetClass() == UObjectRedirector::StaticClass())
+						{
+							WarningAppend += LOCTEXT("LoadWarningSuffix_circularredirection", " [circular redirection]").ToString();
+						}
+					}
+					else
+					{
+						Result = VERIFY_Redirected;
+
+						// now, fake our Import to be what the redirector pointed to
+						Import.XObject = Redir->DestinationObject;
+						FUObjectThreadContext::Get().ImportCount++;
+						FLinkerManager::Get().AddLoaderWithNewImports(this);
+					}
 				}
 			}
 		}

@@ -951,6 +951,18 @@ namespace
 			}
 			break;
 
+			case ECheckedMetadataSpecifier::ExpandEnumAsExecs:
+			{
+				if (UFunction* Function = Cast<UFunction>(Field))
+				{
+					if (FHeaderParser::FindField(Function, *InValue, false) == nullptr)
+					{
+						UE_LOG_ERROR_UHT(TEXT("Function does not have a parameter named '%s'"), *InValue);
+					}
+				}
+			}
+			break;
+
 			case ECheckedMetadataSpecifier::DevelopmentStatus:
 			{
 				const FString EarlyAccessValue(TEXT("EarlyAccess"));
