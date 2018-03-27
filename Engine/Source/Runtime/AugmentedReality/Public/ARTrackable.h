@@ -220,7 +220,7 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Face Geometry")
 	const TMap<EARFaceBlendShape, float> GetBlendShapes() const;
-	
+
 	const FARBlendShapeMap& GetBlendShapesRef() const { return BlendShapes; }
 	
 	const TArray<FVector>& GetVertexBuffer() const { return VertexBuffer; }

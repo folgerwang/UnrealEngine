@@ -487,6 +487,7 @@ public:
 		FVector4 ShaderCurrentNeighborLOD;
 	};
 
+	// NOTE: CustomData is added in a FMemStack of the render thread, so no destructor will be called on any of the elements
 	struct FViewCustomDataLOD
 	{
 		FViewCustomDataLOD()
@@ -501,7 +502,7 @@ public:
 		int8 StaticMeshBatchLOD;
 		bool UseCombinedMeshBatch;
 		float ComponentScreenSize;
-		TArray<FViewCustomDataSubSectionLOD> SubSections; // We always have at least 1 subsections
+		TStaticArray<FViewCustomDataSubSectionLOD, MAX_SUBSECTION_COUNT> SubSections; // We always have at least 1 subsections
 
 		// Shaders pre calculated params
 		FVector4 ShaderCurrentLOD;
@@ -620,7 +621,7 @@ protected:
 	bool CanUseMeshBatchForShadowCascade(int8 InLODIndex, float InShadowMapTextureResolution, float InShadowMapCascadeSize) const;
 	FORCEINLINE int32 ConvertBatchElementLODToBatchElementIndex(int8 InBatchElementLOD, bool InUseCombinedMeshBatch);
 	float GetNeighborLOD(const FSceneView& InView, float InBatchElementCurrentLOD, int8 InNeighborIndex, int8 InSubSectionX, int8 InSubSectionY, int8 InCurrentSubSectionIndex) const;
-	void CalculateBatchElementLOD(const FSceneView& InView, float InMeshScreenSizeSquared, float InViewLODScale, FViewCustomDataLOD& InOutLODData) const;
+	void CalculateBatchElementLOD(const FSceneView& InView, float InMeshScreenSizeSquared, float InViewLODScale, FViewCustomDataLOD& InOutLODData, bool InForceCombined = false) const;
 	void CalculateLODFromScreenSize(const FSceneView& InView, float InMeshScreenSizeSquared, float InViewLODScale, int32 InSubSectionIndex, FViewCustomDataLOD& InOutLODData) const;
 	FORCEINLINE void ComputeStaticBatchIndexToRender(FViewCustomDataLOD& OutLODData, int32 InSubSectionIndex);
 	int8 GetLODFromScreenSize(float InScreenSizeSquared, float InViewLODScale) const;
@@ -666,7 +667,7 @@ public:
 	friend class FLandscapeVertexFactoryMobilePixelShaderParameters;
 
 	// FLandscapeComponentSceneProxy interface.
-	FORCEINLINE uint64 GetStaticBatchElementVisibility(const FSceneView& InView, const FMeshBatch* InBatch, const void* InViewCustomData) const;
+	uint64 GetStaticBatchElementVisibility(const FSceneView& InView, const FMeshBatch* InBatch, const void* InViewCustomData) const;
 #if WITH_EDITOR
 	const FMeshBatch& GetGrassMeshBatch() const { return GrassMeshBatch; }
 #endif

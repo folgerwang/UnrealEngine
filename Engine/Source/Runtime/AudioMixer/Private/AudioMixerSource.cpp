@@ -344,11 +344,10 @@ namespace Audio
 			EBufferType::Type BufferType = MixerBuffer->GetType();
 			bResourcesNeedFreeing = (BufferType == EBufferType::PCMRealTime || BufferType == EBufferType::Streaming);
 
-			// Not all wave data types have PCM data size at this point (e.g. procedural sound waves)
-			if (InWaveInstance->WaveData->RawPCMDataSize > 0)
+			// Not all wave data types have a non-zero duration
+			if (InWaveInstance->WaveData->Duration > 0)
 			{
-				int32 NumBytes = InWaveInstance->WaveData->RawPCMDataSize;
-				NumTotalFrames = NumBytes / (Buffer->NumChannels * sizeof(int16));
+				NumTotalFrames = InWaveInstance->WaveData->Duration * InWaveInstance->WaveData->GetSampleRateForCurrentPlatform();
 				check(NumTotalFrames > 0);
 			}
 
@@ -522,13 +521,18 @@ namespace Audio
 		{
 			int64 NumFrames = MixerSourceVoice->GetNumFramesPlayed();
 			AUDIO_MIXER_CHECK(NumTotalFrames > 0);
-			return (float)NumFrames / NumTotalFrames;
+			float PlaybackPercent = (float)NumFrames / NumTotalFrames;
+			if (WaveInstance->LoopingMode == LOOP_Never)
+			{
+				PlaybackPercent = FMath::Min(PlaybackPercent, 1.0f);
+			}
+			return PlaybackPercent;
 		}
 		else
 		{
 			// If we don't have any frames, that means it's a procedural sound wave, which means
 			// that we're never going to have a playback percentage.
-			return 0.0f;
+			return 1.0f;
 		}
 	}
 
@@ -875,6 +879,7 @@ namespace Audio
 		bBuffersToFlush = false;
 		bLoopCallback = false;
 		bResourcesNeedFreeing = false;
+		NumTotalFrames = 0;
 
 		// Reset the source's channel maps
 		for (int32 i = 0; i < (int32)ESubmixChannelFormat::Count; ++i)
@@ -999,12 +1004,15 @@ namespace Audio
 
 		for (FSoundSubmixSendInfo& SendInfo : WaveInstance->SoundSubmixSends)
 		{
-			FMixerSubmixPtr SubmixInstance = MixerDevice->GetSubmixInstance(SendInfo.SoundSubmix);
-			MixerSourceVoice->SetSubmixSendInfo(SubmixInstance, SendInfo.SendLevel);
+			if (SendInfo.SoundSubmix != nullptr)
+			{
+				FMixerSubmixPtr SubmixInstance = MixerDevice->GetSubmixInstance(SendInfo.SoundSubmix);
+				MixerSourceVoice->SetSubmixSendInfo(SubmixInstance, SendInfo.SendLevel);
 
-			// Make sure we flag that we're using this submix sends since these can be dynamically added from BP
-			// If we don't flag this then these channel maps won't be generated for this channel format
-			ChannelMaps[(int32)SendInfo.SoundSubmix->ChannelFormat].bUsed = true;
+				// Make sure we flag that we're using this submix sends since these can be dynamically added from BP
+				// If we don't flag this then these channel maps won't be generated for this channel format
+				ChannelMaps[(int32)SendInfo.SoundSubmix->ChannelFormat].bUsed = true;
+			}
 		}
 	}
 

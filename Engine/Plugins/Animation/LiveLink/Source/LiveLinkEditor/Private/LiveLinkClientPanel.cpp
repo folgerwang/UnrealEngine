@@ -605,7 +605,7 @@ void SLiveLinkClientPanel::AddVirtualSubject()
 	// Show dialog to enter weight
 	TSharedRef<STextEntryPopup> TextEntry =
 		SNew(STextEntryPopup)
-		.Label(LOCTEXT("AddVirtualSubject", "New Virtual Subject Name"))
+		.Label(LOCTEXT("AddVirtualSubjectName", "New Virtual Subject Name"))
 		.OnTextCommitted(this, &SLiveLinkClientPanel::HandleAddVirtualSubject);
 
 	FSlateApplication::Get().PushMenu(

@@ -336,7 +336,7 @@ public:
 		// Already in the list as an explicit tag, ignore. Note we want to add if it is in implicit tag. (E.g, someone added A.B.C then someone tries to add A.B)
 		if (Manager.IsDictionaryTag(FName(*NewTag)))
 		{
-			ShowNotification(FText::Format(LOCTEXT("AddTagFailure", "Failed to add gameplay tag {0}, already exists!"), FText::FromString(NewTag)), 10.0f);
+			ShowNotification(FText::Format(LOCTEXT("AddTagFailure_AlreadyExists", "Failed to add gameplay tag {0}, already exists!"), FText::FromString(NewTag)), 10.0f);
 
 			return false;
 		}
@@ -469,7 +469,7 @@ public:
 
 			if (Referencers.Num() > 0)
 			{
-				ShowNotification(FText::Format(LOCTEXT("RemoveTagFailureBadSource", "Cannot delete tag {0}, still referenced by {1} and possibly others"), FText::FromName(TagNameToDelete), FText::FromString(Referencers[0].ToString())), 10.0f);
+				ShowNotification(FText::Format(LOCTEXT("RemoveTagFailureBadSource_Referenced", "Cannot delete tag {0}, still referenced by {1} and possibly others"), FText::FromName(TagNameToDelete), FText::FromString(Referencers[0].ToString())), 10.0f);
 
 				return false;
 			}

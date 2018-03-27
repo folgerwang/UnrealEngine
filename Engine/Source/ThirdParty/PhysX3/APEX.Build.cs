@@ -214,7 +214,9 @@ public class APEX : ModuleRules
 					"/libApexFramework{0}.so",
 					"/libApexShared{0}.so",
 					"/libAPEX_Legacy{0}.so",
-					"/libAPEX_Clothing{0}.so"
+					"/libAPEX_Clothing{0}.so",
+					"/libNvParameterized{0}.so",
+					"/libRenderDebug{0}.so"
 				};
 
 				foreach (string RuntimeDependency in DynamicLibrariesLinux)

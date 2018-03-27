@@ -112,7 +112,7 @@ FReply FGroupedSpriteComponentDetailsCustomization::SortSprites()
 
 	const FVector SortAxis = GetDefault<URendererSettings>()->TranslucentSortAxis;
 
-	const FScopedTransaction Transaction(LOCTEXT("SortSprites", "Sort instances in group"));
+	const FScopedTransaction Transaction(LOCTEXT("SortSpritesTransaction", "Sort instances in group"));
 	for (UActorComponent* Component : ComponentList)
 	{
 		UPaperGroupedSpriteComponent* GroupedComponent = CastChecked<UPaperGroupedSpriteComponent>(Component);

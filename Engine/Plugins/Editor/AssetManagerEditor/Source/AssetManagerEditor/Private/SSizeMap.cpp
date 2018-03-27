@@ -886,7 +886,7 @@ void SSizeMap::RefreshMap()
 			*SizeMapInternals::MakeBestSizeString(TotalSize, !bAnyUnknownSizes));
 		RootTreeMapNode->LogicalName = LogicalName;
 
-		OverviewText = FText::Format(LOCTEXT("RootNode_Format", "Size map for {0} assets  ({1} total assets))"),
+		OverviewText = FText::Format(LOCTEXT("RootNode_FormatForAssets", "Size map for {0} assets  ({1} total assets))"),
 			FText::AsNumber(RootAssetIdentifiers.Num()),
 			FText::AsNumber(TotalAssetCount));
 	}

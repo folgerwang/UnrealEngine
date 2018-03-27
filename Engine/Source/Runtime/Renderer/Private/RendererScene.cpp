@@ -128,6 +128,9 @@ FSceneViewState::FSceneViewState()
 	AOScreenGridResources = NULL;
 	bDOFHistory = true;
 	bDOFHistory2 = true;
+	
+	// Sets the mipbias to invalid large number.
+	MaterialTextureCachedMipBias = BIG_NUMBER;
 
 	bSequencerIsPaused = false;
 
@@ -3042,6 +3045,12 @@ void FScene::ApplyWorldOffset_RenderThread(FVector InOffset)
 		(*It)->SetTransform(NewTransform);
 	}
 
+	// Planar reflections
+	for (auto It = PlanarReflections.CreateIterator(); It; ++It)
+	{
+		(*It)->ApplyWorldOffset(InOffset);
+	}
+	
 	// Exponential Fog
 	for (FExponentialHeightFogSceneInfo& FogInfo : ExponentialFogs)
 	{

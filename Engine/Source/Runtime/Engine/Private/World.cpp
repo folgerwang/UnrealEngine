@@ -344,11 +344,6 @@ UWorld::UWorld( const FObjectInitializer& ObjectInitializer )
 
 UWorld::~UWorld()
 {
-	while (AsyncPreRegisterLevelStreamingTasks.GetValue())
-	{
-		FPlatformProcess::Sleep(0.0f);
-	}	
-
 	if (PerfTrackers)
 	{
 		delete PerfTrackers;
@@ -2099,22 +2094,6 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform )
 		
 		Level->bAlreadyShiftedActors = true;
 		bExecuteNextStep = (!bConsiderTimeLimit || !IsTimeLimitExceeded( TEXT("shifting actors"), StartTime, Level ));
-	}
-
-	if (bExecuteNextStep && AsyncPreRegisterLevelStreamingTasks.GetValue())
-	{
-		if (!bConsiderTimeLimit)
-		{
-			QUICK_SCOPE_CYCLE_COUNTER(UWorld_AddToWorld_WaitFor_AsyncPreRegisterLevelStreamingTasks);
-			while (AsyncPreRegisterLevelStreamingTasks.GetValue())
-			{
-				FPlatformProcess::Sleep(0.001f);
-			}
-		}
-		else
-		{
-			bExecuteNextStep = false;
-		}
 	}
 
 	// Wait on any async DDC handles

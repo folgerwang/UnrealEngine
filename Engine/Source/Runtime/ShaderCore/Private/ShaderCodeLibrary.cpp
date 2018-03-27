@@ -1135,6 +1135,7 @@ static FShaderCodeLibraryImpl* Impl = nullptr;
 void FShaderCodeLibrary::InitForRuntime(EShaderPlatform ShaderPlatform)
 {
 	check(FPlatformProperties::RequiresCookedData());
+	
 
 	if (Impl != nullptr)
 	{

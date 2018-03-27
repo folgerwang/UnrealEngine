@@ -345,6 +345,114 @@ void FMaterialPropertyHelpers::CopyMaterialToInstance(UMaterialInstanceConstant*
 	}
 }
 
+
+void FMaterialPropertyHelpers::TransitionAndCopyParameters(UMaterialInstanceConstant* ChildInstance, TArray<FEditorParameterGroup> &ParameterGroups)
+{
+	if (ChildInstance)
+	{
+		if (ChildInstance->IsTemplate(RF_ClassDefaultObject) == false)
+		{
+			ChildInstance->MarkPackageDirty();
+			ChildInstance->ClearParameterValuesEditorOnly();
+			//propagate changes to the base material so the instance will be updated if it has a static permutation resource
+			FStaticParameterSet NewStaticParameters;
+			for (int32 GroupIdx = 0; GroupIdx < ParameterGroups.Num(); GroupIdx++)
+			{
+				FEditorParameterGroup& Group = ParameterGroups[GroupIdx];
+				for (int32 ParameterIdx = 0; ParameterIdx < Group.Parameters.Num(); ParameterIdx++)
+				{
+					if (Group.Parameters[ParameterIdx] == NULL)
+					{
+						continue;
+					}
+					UDEditorScalarParameterValue* ScalarParameterValue = Cast<UDEditorScalarParameterValue>(Group.Parameters[ParameterIdx]);
+					if (ScalarParameterValue)
+					{
+						if (ScalarParameterValue->bOverride)
+						{
+							FMaterialParameterInfo TransitionedScalarInfo = FMaterialParameterInfo();
+							TransitionedScalarInfo.Name = ScalarParameterValue->ParameterInfo.Name;
+							ChildInstance->SetScalarParameterValueEditorOnly(TransitionedScalarInfo, ScalarParameterValue->ParameterValue);
+							continue;
+						}
+					}
+					UDEditorFontParameterValue* FontParameterValue = Cast<UDEditorFontParameterValue>(Group.Parameters[ParameterIdx]);
+					if (FontParameterValue)
+					{
+						if (FontParameterValue->bOverride)
+						{
+							FMaterialParameterInfo TransitionedFontInfo = FMaterialParameterInfo();
+							TransitionedFontInfo.Name = FontParameterValue->ParameterInfo.Name;
+							ChildInstance->SetFontParameterValueEditorOnly(TransitionedFontInfo, FontParameterValue->ParameterValue.FontValue, FontParameterValue->ParameterValue.FontPage);
+							continue;
+						}
+					}
+
+					UDEditorTextureParameterValue* TextureParameterValue = Cast<UDEditorTextureParameterValue>(Group.Parameters[ParameterIdx]);
+					if (TextureParameterValue)
+					{
+						if (TextureParameterValue->bOverride)
+						{
+							FMaterialParameterInfo TransitionedTextureInfo = FMaterialParameterInfo();
+							TransitionedTextureInfo.Name = TextureParameterValue->ParameterInfo.Name;
+							ChildInstance->SetTextureParameterValueEditorOnly(TransitionedTextureInfo, TextureParameterValue->ParameterValue);
+							continue;
+						}
+					}
+					UDEditorVectorParameterValue* VectorParameterValue = Cast<UDEditorVectorParameterValue>(Group.Parameters[ParameterIdx]);
+					if (VectorParameterValue)
+					{
+						if (VectorParameterValue->bOverride)
+						{
+							FMaterialParameterInfo TransitionedVectorInfo = FMaterialParameterInfo();
+							TransitionedVectorInfo.Name = VectorParameterValue->ParameterInfo.Name;
+							ChildInstance->SetVectorParameterValueEditorOnly(TransitionedVectorInfo, VectorParameterValue->ParameterValue);
+							continue;
+						}
+					}
+
+					UDEditorStaticSwitchParameterValue* StaticSwitchParameterValue = Cast<UDEditorStaticSwitchParameterValue>(Group.Parameters[ParameterIdx]);
+					if (StaticSwitchParameterValue)
+					{
+						bool SwitchValue = StaticSwitchParameterValue->ParameterValue;
+						FGuid ExpressionIdValue = StaticSwitchParameterValue->ExpressionId;
+
+						if (StaticSwitchParameterValue->bOverride)
+						{
+							FMaterialParameterInfo TransitionedSwitchInfo = FMaterialParameterInfo();
+							TransitionedSwitchInfo.Name = StaticSwitchParameterValue->ParameterInfo.Name;
+							FStaticSwitchParameter* NewParameter =
+								new(NewStaticParameters.StaticSwitchParameters) FStaticSwitchParameter(TransitionedSwitchInfo, SwitchValue, StaticSwitchParameterValue->bOverride, ExpressionIdValue);
+						}
+					}
+
+					// static component mask
+
+					UDEditorStaticComponentMaskParameterValue* StaticComponentMaskParameterValue = Cast<UDEditorStaticComponentMaskParameterValue>(Group.Parameters[ParameterIdx]);
+					if (StaticComponentMaskParameterValue)
+					{
+						bool MaskR = StaticComponentMaskParameterValue->ParameterValue.R;
+						bool MaskG = StaticComponentMaskParameterValue->ParameterValue.G;
+						bool MaskB = StaticComponentMaskParameterValue->ParameterValue.B;
+						bool MaskA = StaticComponentMaskParameterValue->ParameterValue.A;
+						FGuid ExpressionIdValue = StaticComponentMaskParameterValue->ExpressionId;
+
+						if (StaticComponentMaskParameterValue->bOverride)
+						{
+							FMaterialParameterInfo TransitionedMaskInfo = FMaterialParameterInfo();
+							TransitionedMaskInfo.Name = StaticComponentMaskParameterValue->ParameterInfo.Name;
+							FStaticComponentMaskParameter* NewParameter = new(NewStaticParameters.StaticComponentMaskParameters)
+								FStaticComponentMaskParameter(TransitionedMaskInfo, MaskR, MaskG, MaskB, MaskA, StaticComponentMaskParameterValue->bOverride, ExpressionIdValue);
+						}
+					}
+				}
+			}
+
+			ChildInstance->UpdateStaticPermutation(NewStaticParameters);
+		}
+	}
+}
+
 FReply FMaterialPropertyHelpers::OnClickedSaveNewFunctionInstance(class UMaterialFunctionInterface* Object, class UMaterialInterface* PreviewMaterial, UObject* EditorObject)
 {
 	const FString DefaultSuffix = TEXT("_Inst");
@@ -432,6 +540,96 @@ FReply FMaterialPropertyHelpers::OnClickedSaveNewFunctionInstance(class UMateria
 	return FReply::Handled();
 }
 
+
+FReply FMaterialPropertyHelpers::OnClickedSaveNewLayerInstance(class UMaterialFunctionInterface* Object, TSharedPtr<FStackSortedData> InSortedData)
+{
+	const FString DefaultSuffix = TEXT("_Inst");
+	TArray<FEditorParameterGroup> ParameterGroups;
+	UMaterialInterface* FunctionPreviewMaterial = nullptr;
+	if (Object)
+	{
+		FunctionPreviewMaterial = Object->GetPreviewMaterial();
+	}
+	for (TSharedPtr<FStackSortedData> Group : InSortedData->Children)
+	{
+		FEditorParameterGroup DuplicatedGroup = FEditorParameterGroup();
+		DuplicatedGroup.GroupAssociation = Group->Group.GroupAssociation;
+		DuplicatedGroup.GroupName = Group->Group.GroupName;
+		DuplicatedGroup.GroupSortPriority = Group->Group.GroupSortPriority;
+		for (UDEditorParameterValue* Parameter : Group->Group.Parameters)
+		{
+			if (Parameter->ParameterInfo.Index == InSortedData->ParameterInfo.Index)
+			{
+				DuplicatedGroup.Parameters.Add(Parameter);
+			}
+		}
+		ParameterGroups.Add(DuplicatedGroup);
+	}
+
+	if (Object)
+	{
+		UMaterialInterface* EditedMaterial = Cast<UMaterialInterface>(FunctionPreviewMaterial);
+		if (EditedMaterial)
+		{
+			UMaterialInstanceConstant* ProxyMaterial = NewObject<UMaterialInstanceConstant>(GetTransientPackage(), NAME_None, RF_Transactional);
+			ProxyMaterial->SetParentEditorOnly(EditedMaterial);
+			ProxyMaterial->PreEditChange(NULL);
+			ProxyMaterial->PostEditChange();
+			TransitionAndCopyParameters(ProxyMaterial, ParameterGroups);
+			FunctionPreviewMaterial = ProxyMaterial;
+		}
+		// Create an appropriate and unique name 
+		FString Name;
+		FString PackageName;
+		FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
+		AssetToolsModule.Get().CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
+
+
+		UObject* Child;
+		if (Object->GetMaterialFunctionUsage() == EMaterialFunctionUsage::MaterialLayer)
+		{
+			UMaterialFunctionMaterialLayerInstanceFactory* LayerFactory = NewObject<UMaterialFunctionMaterialLayerInstanceFactory>();
+			LayerFactory->InitialParent = Object;
+			Child = AssetToolsModule.Get().CreateAssetWithDialog(Name, FPackageName::GetLongPackagePath(PackageName), UMaterialFunctionMaterialLayerInstance::StaticClass(), LayerFactory);
+		}
+		else if (Object->GetMaterialFunctionUsage() == EMaterialFunctionUsage::MaterialLayerBlend)
+		{
+			UMaterialFunctionMaterialLayerBlendInstanceFactory* BlendFactory = NewObject<UMaterialFunctionMaterialLayerBlendInstanceFactory>();
+			BlendFactory->InitialParent = Object;
+			Child = AssetToolsModule.Get().CreateAssetWithDialog(Name, FPackageName::GetLongPackagePath(PackageName), UMaterialFunctionMaterialLayerBlendInstance::StaticClass(), BlendFactory);
+		}
+		else
+		{
+			UMaterialFunctionInstanceFactory* Factory = NewObject<UMaterialFunctionInstanceFactory>();
+			Factory->InitialParent = Object;
+			Child = AssetToolsModule.Get().CreateAssetWithDialog(Name, FPackageName::GetLongPackagePath(PackageName), UMaterialFunctionInstance::StaticClass(), Factory);
+		}
+
+		UMaterialFunctionInstance* ChildInstance = Cast<UMaterialFunctionInstance>(Child);
+		if (ChildInstance)
+		{
+			if (ChildInstance->IsTemplate(RF_ClassDefaultObject) == false)
+			{
+				ChildInstance->MarkPackageDirty();
+				ChildInstance->SetParent(Object);
+				UMaterialInstance* EditedInstance = Cast<UMaterialInstance>(FunctionPreviewMaterial);
+				if (EditedInstance)
+				{
+					ChildInstance->ScalarParameterValues = EditedInstance->ScalarParameterValues;
+					ChildInstance->VectorParameterValues = EditedInstance->VectorParameterValues;
+					ChildInstance->TextureParameterValues = EditedInstance->TextureParameterValues;
+					ChildInstance->FontParameterValues = EditedInstance->FontParameterValues;
+
+					const FStaticParameterSet& StaticParameters = EditedInstance->GetStaticParameters();
+					ChildInstance->StaticSwitchParameterValues = StaticParameters.StaticSwitchParameters;
+					ChildInstance->StaticComponentMaskParameterValues = StaticParameters.StaticComponentMaskParameters;
+				}
+			}
+		}
+	}
+	return FReply::Handled();
+}
+
 bool FMaterialPropertyHelpers::IsOverriddenExpression(UDEditorParameterValue* Parameter)
 {
 	return Parameter->bOverride != 0;
@@ -453,12 +651,6 @@ void FMaterialPropertyHelpers::OnOverrideParameter(bool NewValue, class UDEditor
 	MaterialEditorInstance->PostEditChangeProperty( OverrideEvent );
 	FEditorSupportDelegates::RedrawAllViewports.Broadcast();
 	FEditorSupportDelegates::UpdateUI.Broadcast();
-}
-
-void FMaterialPropertyHelpers::OnOverrideParameterCheckbox(ECheckBoxState NewValue, class UDEditorParameterValue* Parameter, UMaterialEditorInstanceConstant* MaterialEditorInstance)
-{
-	const bool bIsChecked = (NewValue == ECheckBoxState::Checked);
-	OnOverrideParameter(bIsChecked, Parameter, MaterialEditorInstance);
 }
 
 FText FMaterialPropertyHelpers::GetParameterExpressionDescription(UDEditorParameterValue* Parameter, UObject* MaterialEditorInstance)
@@ -593,6 +785,7 @@ void FMaterialPropertyHelpers::ResetLayerAssetToDefault(TSharedPtr<IPropertyHand
 				else
 				{
 					StoredValue.Blends[Index] = nullptr;
+					MaterialEditorInstance->StoredBlendPreviews[Index] = nullptr;
 				}
 			}
 			else if (InAssociation == EMaterialParameterAssociation::LayerParameter)
@@ -604,6 +797,7 @@ void FMaterialPropertyHelpers::ResetLayerAssetToDefault(TSharedPtr<IPropertyHand
 				else
 				{
 					StoredValue.Layers[Index] = nullptr;
+					MaterialEditorInstance->StoredLayerPreviews[Index] = nullptr;
 				}
 			}
 			LayersParam->ParameterValue = StoredValue;

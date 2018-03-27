@@ -684,7 +684,7 @@ private:
 			}
 			else
 			{
-				ErrorStr = FText::Format(LOCTEXT("HttpResponse", "Connection to {0} failed"), FText::FromString(HttpRequest->GetURL())).ToString();
+				ErrorStr = FText::Format(LOCTEXT("HttpResponse_Failed", "Connection to {0} failed"), FText::FromString(HttpRequest->GetURL())).ToString();
 			}
 		}
 
@@ -748,7 +748,7 @@ private:
 			}
 			else
 			{
-				ErrorStr = FText::Format(LOCTEXT("HttpResponse", "Connection to {0} failed"), FText::FromString(HttpRequest->GetURL())).ToString();
+				ErrorStr = FText::Format(LOCTEXT("HttpResponse_Failed", "Connection to {0} failed"), FText::FromString(HttpRequest->GetURL())).ToString();
 			}
 		}
 
@@ -1733,5 +1733,7 @@ public:
 		return ChunkInstaller.Get();
 	}
 };
+
+#undef LOCTEXT_NAMESPACE
 
 IMPLEMENT_MODULE(FHTTPChunkInstallerModule, HTTPChunkInstaller);

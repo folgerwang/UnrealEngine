@@ -496,7 +496,7 @@ public:
 
 	virtual FText GetInProgressString() const override
 	{
-		return LOCTEXT("OneSkyLocalizationService_ListProjectGroupLanguagesWorker", "Listing languages for Project in OneSky...");
+		return LOCTEXT("OneSkyLocalizationService_ListProjectLanguagesWorker", "Listing languages for Project in OneSky...");
 	}
 
 	FOneSkyListProjectLanguagesOperation() : InProjectId(-1) { }

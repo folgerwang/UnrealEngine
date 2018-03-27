@@ -14,7 +14,6 @@
 #include "Materials/MaterialExpressionMaterialAttributeLayers.h"
 #include "Materials/MaterialFunction.h"
 #include "Materials/MaterialLayersFunctions.h"
-#include "Materials/MaterialSharedInputCollection.h"
 #include "Templates/UniquePtr.h"
 
 #include "Material.generated.h"
@@ -274,30 +273,6 @@ struct FMaterialParameterCollectionInfo
 	bool operator==(const FMaterialParameterCollectionInfo& Other) const
 	{
 		return StateId == Other.StateId && ParameterCollection == Other.ParameterCollection;
-	}
-};
-
-/** Stores information about a shared input collection that this material references, used to know when the material needs to be recompiled. */
-USTRUCT()
-struct FMaterialSharedInputCollectionInfo
-{
-	GENERATED_USTRUCT_BODY()
-
-	/** Id that the collection had when this material was last compiled. */
-	UPROPERTY()
-	FGuid StateId;
-
-	/** The collection which this material has a dependency on. */
-	UPROPERTY()
-	class UMaterialSharedInputCollection* SharedInputCollection;
-
-	FMaterialSharedInputCollectionInfo()
-		: SharedInputCollection(NULL)
-	{}
-
-	bool operator==(const FMaterialSharedInputCollectionInfo& Other) const
-	{
-		return StateId == Other.StateId && SharedInputCollection == Other.SharedInputCollection;
 	}
 };
 
@@ -786,10 +761,6 @@ public:
 	UPROPERTY()
 	TArray<struct FMaterialParameterCollectionInfo> MaterialParameterCollectionInfos;
 
-	/** Array of all shared input collections this material depends on. */
-	UPROPERTY()
-	TArray<struct FMaterialSharedInputCollectionInfo> MaterialSharedInputCollectionInfos;
-
 	/** true if this Material can be assumed Opaque when set to masked. */
 	UPROPERTY()
 	uint32 bCanMaskedBeAssumedOpaque : 1;
@@ -914,8 +885,8 @@ public:
 	ENGINE_API virtual bool GetScalarParameterSliderMinMax(const FMaterialParameterInfo& ParameterInfo, float& OutMinSlider, float& OutMaxSlider) const override;
 	ENGINE_API virtual bool GetVectorParameterValue(const FMaterialParameterInfo& ParameterInfo,FLinearColor& OutValue, bool bOveriddenOnly = false) const override;
 	ENGINE_API virtual bool IsVectorParameterUsedAsChannelMask(const FMaterialParameterInfo& ParameterInfo, bool& OutValue) const override;
-	ENGINE_API virtual bool GetTextureParameterValue(const FMaterialParameterInfo& ParameterInfo,class UTexture*& OutValue) const override;
-	ENGINE_API virtual bool GetFontParameterValue(const FMaterialParameterInfo& ParameterInfo,class UFont*& OutFontValue,int32& OutFontPage) const override;
+	ENGINE_API virtual bool GetTextureParameterValue(const FMaterialParameterInfo& ParameterInfo,class UTexture*& OutValue, bool bOveriddenOnly = false) const override;
+	ENGINE_API virtual bool GetFontParameterValue(const FMaterialParameterInfo& ParameterInfo,class UFont*& OutFontValue,int32& OutFontPage, bool bOveriddenOnly = false) const override;
 	ENGINE_API virtual bool GetGroupName(const FMaterialParameterInfo& ParameterInfo, FName& OutGroup) const override;
 	ENGINE_API virtual bool GetRefractionSettings(float& OutBiasValue) const override;
 	ENGINE_API virtual FMaterialRenderProxy* GetRenderProxy(bool Selected, bool bHovered=false) const override;
@@ -930,8 +901,8 @@ public:
 	ENGINE_API virtual FMaterialResource* AllocateResource();
 	ENGINE_API virtual FMaterialResource* GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num) override;
 	ENGINE_API virtual const FMaterialResource* GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num) const override;
-	ENGINE_API virtual bool GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo,bool& OutValue,FGuid& OutExpressionGuid) const override;
-	ENGINE_API virtual bool GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& R, bool& G, bool& B, bool& A, FGuid& OutExpressionGuid) const override;
+	ENGINE_API virtual bool GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo,bool& OutValue,FGuid& OutExpressionGuid, bool bOveriddenOnly = false) const override;
+	ENGINE_API virtual bool GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& R, bool& G, bool& B, bool& A, FGuid& OutExpressionGuid, bool bOveriddenOnly = false) const override;
 	ENGINE_API virtual bool GetTerrainLayerWeightParameterValue(const FMaterialParameterInfo& ParameterInfo, int32& OutWeightmapIndex, FGuid& OutExpressionGuid) const override;
 	ENGINE_API virtual bool GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid) const override;
 	ENGINE_API virtual bool UpdateLightmassTextureTracking() override;
@@ -1005,24 +976,10 @@ public:
 	 */
 	ENGINE_API static UMaterial* GetDefaultMaterial(EMaterialDomain Domain);
 
-#if USE_EDITOR_ONLY_DEFAULT_MATERIAL_FALLBACK
-	/**
-	 * Return the editor-time-only default material, creating it if necessary
-	 */
-	ENGINE_API static UMaterial* GetEditorOnlyDefaultMaterial(EMaterialDomain Domain);
-#endif
-
 	/**
 	 * Returns true if the material is one of the default materials.
 	 */
 	ENGINE_API bool IsDefaultMaterial() const;
-
-#if USE_EDITOR_ONLY_DEFAULT_MATERIAL_FALLBACK
-	/**
-	 * Returns true if the material is one of the editor-time-only default materials.
-	 */
-	ENGINE_API bool IsEditorOnlyDefaultMaterial() const;
-#endif
 
 	/** 
 	 * Releases rendering resources used by this material. 
@@ -1409,11 +1366,6 @@ private:
 	 */
 	void RebuildMaterialParameterCollectionInfo();
 	
-	/** 
-	 * Rebuild the MaterialSharedInputCollectionInfos array with the current state of the material's shared input collection dependencies.
-	 */
-	void RebuildMaterialSharedInputCollectionInfo();
-
 	/** 
 	 * Cache resource shaders for rendering. 
 	 * If a matching shader map is not found in memory or the DDC, a new one will be compiled.

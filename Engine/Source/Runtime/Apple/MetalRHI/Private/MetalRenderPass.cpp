@@ -125,6 +125,8 @@ id<MTLFence> FMetalRenderPass::Submit(EMetalSubmitFlags Flags)
         CurrentEncoder.CommitCommandBuffer(Flags);
     }
 	
+	OutstandingBufferUploads.Empty();
+	
 	check((Flags & (EMetalSubmitFlagsCreateCommandBuffer|EMetalSubmitFlagsAsyncCommandBuffer)) || !CurrentEncoder.GetCommandBuffer());
 	check(!PrologueEncoder.GetCommandBuffer());
 	
@@ -816,6 +818,45 @@ void FMetalRenderPass::AsyncCopyFromTextureToTexture(id<MTLTexture> Texture, uin
 	check(Encoder);
 	
 	[Encoder copyFromTexture:Texture sourceSlice:sourceSlice sourceLevel:sourceLevel sourceOrigin:sourceOrigin sourceSize:sourceSize toTexture:toTexture destinationSlice:destinationSlice destinationLevel:destinationLevel destinationOrigin:destinationOrigin];
+}
+
+void FMetalRenderPass::AsyncCopyFromBufferToBuffer(id<MTLBuffer> SourceBuffer, NSUInteger SourceOffset, id<MTLBuffer> DestinationBuffer, NSUInteger DestinationOffset, NSUInteger Size)
+{
+	bool bSafe = true;
+	
+	NSRange DestRange = NSMakeRange(DestinationOffset, Size);
+	TArray<NSRange>* Ranges = OutstandingBufferUploads.Find(DestinationBuffer);
+	if (!Ranges)
+	{
+		OutstandingBufferUploads.Add(DestinationBuffer, TArray<NSRange>());
+		Ranges = OutstandingBufferUploads.Find(DestinationBuffer);
+	}
+	for (NSRange Range : *Ranges)
+	{
+		if (NSIntersectionRange(Range, DestRange).length > 0)
+		{
+			UE_LOG(LogMetal, Warning, TEXT("AsyncCopyFromBufferToBuffer on overlapping ranges ({%d, %d} vs {%d, %d}) of destination buffer %p."), (uint32)Range.location, (uint32)Range.length, (uint32)DestinationOffset, (uint32)Size, DestinationBuffer);
+			bSafe = false;
+			break;
+		}
+	}
+	
+	// Only issue asynchronously when it is safe to do so - when there are overlapping ranges it isn't.
+	// This is really an engine bug but we need to handle this here for now.
+	if (bSafe)
+	{
+		ConditionalSwitchToAsyncBlit();
+		id<MTLBlitCommandEncoder> Encoder = PrologueEncoder.GetBlitCommandEncoder();
+		check(Encoder);
+		
+		Ranges->Add(DestRange);
+		
+		[Encoder copyFromBuffer:SourceBuffer sourceOffset:SourceOffset toBuffer:DestinationBuffer destinationOffset:DestinationOffset size:Size];
+	}
+	else
+	{
+		CopyFromBufferToBuffer(SourceBuffer, SourceOffset, DestinationBuffer, DestinationOffset, Size);
+	}
 }
 
 void FMetalRenderPass::AsyncGenerateMipmapsForTexture(id<MTLTexture> Texture)

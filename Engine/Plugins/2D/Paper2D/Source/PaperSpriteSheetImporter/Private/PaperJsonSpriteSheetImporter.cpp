@@ -193,14 +193,14 @@ static bool ParseFrame(TSharedPtr<FJsonObject>& FrameData, FSpriteFrame& OutFram
 
 static bool ParseFramesFromSpriteHash(TSharedPtr<FJsonObject> ObjectBlock, TArray<FSpriteFrame>& OutSpriteFrames, TSet<FName>& FrameNames)
 {
-	GWarn->BeginSlowTask(NSLOCTEXT("Paper2D", "PaperJsonImporterFactory_ParsingSprites", "Parsing Sprite Frame"), true, true);
+	GWarn->BeginSlowTask(NSLOCTEXT("Paper2D", "PaperJsonImporterFactory_ParsingSpriteFrame", "Parsing Sprite Frame"), true, true);
 	bool bLoadedSuccessfully = true;
 
 	// Parse all of the frames
 	int32 FrameCount = 0;
 	for (auto FrameIt = ObjectBlock->Values.CreateIterator(); FrameIt; ++FrameIt)
 	{
-		GWarn->StatusUpdate(FrameCount, ObjectBlock->Values.Num(), NSLOCTEXT("Paper2D", "PaperJsonImporterFactory_ParsingSprites", "Parsing Sprite Frames"));
+		GWarn->StatusUpdate(FrameCount, ObjectBlock->Values.Num(), NSLOCTEXT("Paper2D", "PaperJsonImporterFactory_ParsingSpriteFrames", "Parsing Sprite Frames"));
 
 		bool bReadFrameSuccessfully = true;
 
@@ -247,13 +247,13 @@ static bool ParseFramesFromSpriteHash(TSharedPtr<FJsonObject> ObjectBlock, TArra
 
 static bool ParseFramesFromSpriteArray(const TArray<TSharedPtr<FJsonValue>>& ArrayBlock, TArray<FSpriteFrame>& OutSpriteFrames, TSet<FName>& FrameNames)
 {
-	GWarn->BeginSlowTask(NSLOCTEXT("Paper2D", "PaperJsonImporterFactory_ParsingSprites", "Parsing Sprite Frame"), true, true);
+	GWarn->BeginSlowTask(NSLOCTEXT("Paper2D", "PaperJsonImporterFactory_ParsingSpriteFrame", "Parsing Sprite Frame"), true, true);
 	bool bLoadedSuccessfully = true;
 
 	// Parse all of the frames
 	for (int32 FrameCount = 0; FrameCount < ArrayBlock.Num(); ++FrameCount)
 	{
-		GWarn->StatusUpdate(FrameCount, ArrayBlock.Num(), NSLOCTEXT("Paper2D", "PaperJsonImporterFactory_ParsingSprites", "Parsing Sprite Frames"));
+		GWarn->StatusUpdate(FrameCount, ArrayBlock.Num(), NSLOCTEXT("Paper2D", "PaperJsonImporterFactory_ParsingSpriteFrames", "Parsing Sprite Frames"));
 		bool bReadFrameSuccessfully = true;
 		FSpriteFrame Frame;
 
@@ -555,10 +555,10 @@ bool FPaperJsonSpriteSheetImporter::PerformImport(const FString& LongPackagePath
 {
 	FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 
-	GWarn->BeginSlowTask(NSLOCTEXT("Paper2D", "PaperJsonImporterFactory_ImportingSprites", "Importing Sprite Frame"), true, true);
+	GWarn->BeginSlowTask(NSLOCTEXT("Paper2D", "PaperJsonImporterFactory_ImportingSpriteFrame", "Importing Sprite Frame"), true, true);
 	for (int32 FrameIndex = 0; FrameIndex < Frames.Num(); ++FrameIndex)
 	{
-		GWarn->StatusUpdate(FrameIndex, Frames.Num(), NSLOCTEXT("Paper2D", "PaperJsonImporterFactory_ImportingSprites", "Importing Sprite Frames"));
+		GWarn->StatusUpdate(FrameIndex, Frames.Num(), NSLOCTEXT("Paper2D", "PaperJsonImporterFactory_ImportingSpriteFrames", "Importing Sprite Frames"));
 
 		// Check for user canceling the import
 		if (GWarn->ReceivedUserCancel())

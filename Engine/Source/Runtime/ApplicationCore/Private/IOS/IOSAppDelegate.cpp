@@ -863,6 +863,7 @@ bool GIsSuspended = 0;
 	return YES;
 }
 
+FCriticalSection RenderSuspend;
 - (void)applicationWillResignActive:(UIApplication *)application
 {
 	/*
@@ -888,10 +889,14 @@ bool GIsSuspended = 0;
 		}
     }
 
-	FCoreDelegates::ApplicationWillDeactivateDelegate.Broadcast();
-
 	[self ToggleSuspend:true];
 	[self ToggleAudioSession:false];
+
+	RenderSuspend.TryLock();
+	FGraphEventRef ResignTask = FFunctionGraphTask::CreateAndDispatchWhenReady([]()
+	{
+		FScopeLock ScopeLock(&RenderSuspend);
+	}, TStatId(), NULL, ENamedThreads::ActualRenderingThread);
 }
 
 - (void)applicationDidEnterBackground:(UIApplication *)application
@@ -918,10 +923,9 @@ bool GIsSuspended = 0;
 	/*
 	 Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
 	 */
-    [self ToggleSuspend:false];
+	RenderSuspend.Unlock();
+	[self ToggleSuspend : false];
 	[self ToggleAudioSession:true];
-
-	FCoreDelegates::ApplicationHasReactivatedDelegate.Broadcast();
 
     if (bEngineInit)
     {

@@ -8,7 +8,13 @@ public class MovieScene : ModuleRules
 	{
 		PrivateIncludePaths.Add("Runtime/MovieScene/Private");
 
-		PublicDependencyModuleNames.AddRange(
+        PrivateIncludePathModuleNames.AddRange(
+            new string[] {
+                "TargetPlatform"
+            }
+        );
+
+        PublicDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
 				"CoreUObject",

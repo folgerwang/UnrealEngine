@@ -12,6 +12,7 @@
 #include "Misc/OutputDeviceRedirector.h"
 #include "UObject/PrimaryAssetId.h"
 #include "Templates/IsArrayOrRefOfType.h"
+#include "Serialization/ArchiveUObject.h"
 
 struct FCustomPropertyListNode;
 struct FObjectInstancingGraph;
@@ -1493,6 +1494,95 @@ private:
 	bool					bExactClass;
 };
 
+/** Base class for reference serialization archives */
+class COREUOBJECT_API FReferenceCollectorArchive : public FArchiveUObject
+{
+	/** Object which is performing the serialization. */
+	const UObject* SerializingObject;
+	/** Object that owns the serialized data. */
+	const UObject* SerializedDataContainer;
+	/** Pointer to serialized data (read-only). */
+	const void* SerializedDataPtr;
+	/** Stored pointer to reference collector. */
+	class FReferenceCollector& Collector;
+
+protected:
+
+	class FReferenceCollector& GetCollector()
+	{
+		return Collector;
+	}
+
+public:
+
+	FReferenceCollectorArchive(const UObject* InSerializingObject, FReferenceCollector& InCollector)
+		: SerializingObject(InSerializingObject)
+		, SerializedDataContainer(nullptr)
+		, SerializedDataPtr(nullptr)
+		, Collector(InCollector)
+	{
+	}
+	void SetSerializingObject(const UObject* InSerializingObject)
+	{
+		SerializingObject = InSerializingObject;
+	}
+	const UObject* GetSerializingObject() const
+	{
+		return SerializingObject;
+	}
+	void SetSerializedDataContainer(const UObject* InDataContainer)
+	{
+		SerializedDataContainer = InDataContainer;
+	}
+	const UObject* GetSerializedDataContainer() const
+	{
+		return SerializedDataContainer;
+	}
+	void SetSerializedDataPtr(const void* InSerializedDataPtr)
+	{
+		SerializedDataPtr = InSerializedDataPtr;
+	}
+	const void* GetSerializedDataPtr() const
+	{
+		return SerializedDataPtr;
+	}
+};
+
+/** Helper class for setting and resetting attributes on the FReferenceCollectorArchive */
+class COREUOBJECT_API FVerySlowReferenceCollectorArchiveScope
+{	
+	FReferenceCollectorArchive& Archive;
+	const UObject* OldSerializingObject;
+	UProperty* OldSerializedProperty;
+	const UObject* OldSerializedDataContainer;
+	const void* OldSerializedDataPtr;
+
+public:
+	FVerySlowReferenceCollectorArchiveScope(FReferenceCollectorArchive& InArchive, const UObject* InSerializingObject, UProperty* InSerializedProperty = nullptr, const UObject* InSerializedDataContainer = nullptr, const void* InSerializedDataPtr = nullptr)
+		: Archive(InArchive)
+		, OldSerializingObject(InArchive.GetSerializingObject())
+		, OldSerializedProperty(InArchive.GetSerializedProperty())
+		, OldSerializedDataContainer(InArchive.GetSerializedDataContainer())
+		, OldSerializedDataPtr(InArchive.GetSerializedDataPtr())
+	{
+		Archive.SetSerializingObject(InSerializingObject);
+		Archive.SetSerializedProperty(InSerializedProperty);
+		Archive.SetSerializedDataContainer(InSerializedDataContainer);
+		Archive.SetSerializedDataPtr(InSerializedDataPtr);
+	}
+	~FVerySlowReferenceCollectorArchiveScope()
+	{
+		Archive.SetSerializingObject(OldSerializingObject);
+		Archive.SetSerializedProperty(OldSerializedProperty);
+		Archive.SetSerializedDataContainer(OldSerializedDataContainer);
+		Archive.SetSerializedDataPtr(OldSerializedDataPtr);
+	}
+	FReferenceCollectorArchive& GetArchive()
+	{
+		return Archive;
+	}
+};
+
 /**
  * FReferenceCollector.
  * Helper class used by the garbage collector to collect object references.
@@ -1621,7 +1711,7 @@ public:
 	* Returns the collector archive associated with this collector.
 	* NOTE THAT COLLECTING REFERENCES THROUGH SERIALIZATION IS VERY SLOW.
 	*/
-	FArchive& GetVerySlowReferenceCollectorArchive()
+	FReferenceCollectorArchive& GetVerySlowReferenceCollectorArchive()
 	{
 		if (!DefaultReferenceCollectorArchive)
 		{
@@ -1634,7 +1724,7 @@ public:
 	* INTERNAL USE ONLY: returns the persistent frame collector archive associated with this collector.
 	* NOTE THAT COLLECTING REFERENCES THROUGH SERIALIZATION IS VERY SLOW.
 	*/
-	FArchive& GetInternalPersisnentFrameReferenceCollectorArchive()
+	FReferenceCollectorArchive& GetInternalPersistentFrameReferenceCollectorArchive()
 	{
 		if (!PersistentFrameReferenceCollectorArchive)
 		{
@@ -1680,9 +1770,9 @@ private:
 	void CreatePersistentFrameReferenceCollectorArchive();
 
 	/** Default proxy archive that uses serialization to add objects to this collector */
-	FArchive* DefaultReferenceCollectorArchive;
+	FReferenceCollectorArchive* DefaultReferenceCollectorArchive;
 	/** Persistent frame proxy archive that uses serialization to add objects to this collector */
-	FArchive* PersistentFrameReferenceCollectorArchive;
+	FReferenceCollectorArchive* PersistentFrameReferenceCollectorArchive;
 };
 
 /**

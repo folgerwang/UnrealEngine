@@ -852,20 +852,7 @@ void FMetalDeviceContext::ReleasePooledBuffer(id<MTLBuffer> Buffer)
 {
 	if(GIsRHIInitialized)
 	{
-		if (Buffer.storageMode == MTLStorageModePrivate)
-		{
-			static bool bSupportsHeaps = SupportsFeature(EMetalFeaturesHeaps);
-			id<TMTLBuffer> TBuffer = (id<TMTLBuffer>)Buffer;
-			check ([TBuffer heap: bSupportsHeaps]);
-			[TBuffer makeAliasable: bSupportsHeaps];
-
-			// Can't release via the resource path as we have made this resource aliasable and the backing store may be reused before we process the free-list
-			ReleaseObject(Buffer);
-		}
-		else
-		{
-			ReleaseResource(Buffer);
-		}
+		ReleaseResource(Buffer);
 	}
 }
 
@@ -1480,6 +1467,11 @@ void FMetalContext::AsyncCopyFromBufferToTexture(id<MTLBuffer> Buffer, uint32 so
 void FMetalContext::AsyncCopyFromTextureToTexture(id<MTLTexture> Texture, uint32 sourceSlice, uint32 sourceLevel, MTLOrigin sourceOrigin, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin)
 {
 	RenderPass.AsyncCopyFromTextureToTexture(Texture, sourceSlice, sourceLevel, sourceOrigin, sourceSize, toTexture, destinationSlice, destinationLevel, destinationOrigin);
+}
+
+void FMetalContext::AsyncCopyFromBufferToBuffer(id<MTLBuffer> SourceBuffer, NSUInteger SourceOffset, id<MTLBuffer> DestinationBuffer, NSUInteger DestinationOffset, NSUInteger Size)
+{
+	RenderPass.AsyncCopyFromBufferToBuffer(SourceBuffer, SourceOffset, DestinationBuffer, DestinationOffset, Size);
 }
 
 void FMetalContext::AsyncGenerateMipmapsForTexture(id<MTLTexture> Texture)

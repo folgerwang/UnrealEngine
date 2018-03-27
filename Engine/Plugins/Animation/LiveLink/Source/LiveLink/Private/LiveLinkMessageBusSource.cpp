@@ -1,10 +1,14 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LiveLinkMessageBusSource.h"
 #include "LiveLinkMessages.h"
 #include "ILiveLinkClient.h"
+#include "LiveLinkMessageBusHeartbeatManager.h"
 
 #include "MessageEndpointBuilder.h"
+
+const double LL_CONNECTION_TIMEOUT = 15.0;
+const double LL_HALF_CONNECTION_TIMEOUT = LL_CONNECTION_TIMEOUT / 2.0;
 
 void FLiveLinkMessageBusSource::ReceiveClient(ILiveLinkClient* InClient, FGuid InSourceGuid)
 {
@@ -19,26 +23,32 @@ void FLiveLinkMessageBusSource::ReceiveClient(ILiveLinkClient* InClient, FGuid I
 
 
 	MessageEndpoint->Send(new FLiveLinkConnectMessage(), ConnectionAddress);
+	
+	// Register for heartbeats
+	bIsValid = true;
+	FHeartbeatManager::Get()->RegisterSource(this);
 }
 
-const double LL_CONNECTION_TIMEOUT = 15.0;
-const double LL_HALF_CONNECTION_TIMEOUT = LL_CONNECTION_TIMEOUT / 2.0;
-
-bool FLiveLinkMessageBusSource::IsSourceStillValid()
+bool FLiveLinkMessageBusSource::SendHeartbeat()
 {
 	const double CurrentTime = FPlatformTime::Seconds();
 
 	if (HeartbeatLastSent > (CurrentTime - LL_HALF_CONNECTION_TIMEOUT) &&
-		ConnectionLastActive < (CurrentTime - LL_CONNECTION_TIMEOUT) )
+		ConnectionLastActive < (CurrentTime - LL_CONNECTION_TIMEOUT))
 	{
 		//We have recently tried to heartbeat and not received anything back
-		return false;
+		bIsValid = false;
 	}
+
 	MessageEndpoint->Send(new FLiveLinkHeartbeatMessage(), ConnectionAddress);
 	HeartbeatLastSent = CurrentTime;
-	
-	//Don't know that connection is dead yet
-	return true;
+	return bIsValid;
+}
+
+
+bool FLiveLinkMessageBusSource::IsSourceStillValid()
+{
+	return bIsValid;
 }
 
 void FLiveLinkMessageBusSource::HandleHeartbeat(const FLiveLinkHeartbeatMessage& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
@@ -54,6 +64,7 @@ void FLiveLinkMessageBusSource::HandleClearSubject(const FLiveLinkClearSubject& 
 
 bool FLiveLinkMessageBusSource::RequestSourceShutdown()
 {
+	FHeartbeatManager::Get()->RemoveSource(this);
 	FMessageEndpoint::SafeRelease(MessageEndpoint);
 	return true;
 }
@@ -105,6 +116,10 @@ void FLiveLinkMessageBusSource::HandleSubjectFrame(const FLiveLinkSubjectFrameMe
 	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("\tTransform: %s\n"), *T.ToString());
 	}*/
 
-	FLiveLinkTimeCode TC = Client->MakeTimeCode(Message.Time, Message.FrameNum);
-	Client->PushSubjectData(SourceGuid, Message.SubjectName, Message.Transforms, Message.Curves, TC);
+	FLiveLinkFrameData FrameData;
+	FrameData.Transforms = Message.Transforms;
+	FrameData.CurveElements = Message.Curves;
+	FrameData.MetaData = Message.MetaData;
+	FrameData.WorldTime = FLiveLinkWorldTime(Message.Time);
+	Client->PushSubjectData(SourceGuid, Message.SubjectName, FrameData);
 }

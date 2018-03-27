@@ -12,7 +12,7 @@ public:
 	FSpriteEditorCommands()
 		: TCommands<FSpriteEditorCommands>(
 			TEXT("SpriteEditor"), // Context name for fast lookup
-			NSLOCTEXT("Contexts", "PaperEditor", "Sprite Editor"), // Localized context name for displaying
+			NSLOCTEXT("Contexts", "SpriteEditor", "Sprite Editor"), // Localized context name for displaying
 			NAME_None, // Parent
 			FPaperStyle::Get()->GetStyleSetName() // Icon Style Set
 			)

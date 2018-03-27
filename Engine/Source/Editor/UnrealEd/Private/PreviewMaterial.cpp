@@ -931,6 +931,23 @@ void UMaterialEditorInstanceConstant::RegenerateArrays()
 		// Loop through all types of parameters for this material and add them to the parameter arrays.
 		TArray<FMaterialParameterInfo> OutParameterInfo;
 		TArray<FGuid> Guids;
+		// Need to get layer info first as other params are collected from layers
+		SourceInstance->GetAllMaterialLayersParameterInfo(OutParameterInfo, Guids);
+		// Copy Static Material Layers Parameters
+		for (int32 ParameterIdx = 0; ParameterIdx < SourceStaticParameters.MaterialLayersParameters.Num(); ParameterIdx++)
+		{
+			FStaticMaterialLayersParameter MaterialLayersParameterParameterValue = FStaticMaterialLayersParameter(SourceStaticParameters.MaterialLayersParameters[ParameterIdx]);
+			UDEditorMaterialLayersParameterValue& ParameterValue = *(NewObject<UDEditorMaterialLayersParameterValue>());
+
+			ParameterValue.ParameterValue = MaterialLayersParameterParameterValue.Value;
+			ParameterValue.bOverride = MaterialLayersParameterParameterValue.bOverride;
+			ParameterValue.ParameterInfo = MaterialLayersParameterParameterValue.ParameterInfo;
+			ParameterValue.ExpressionId = MaterialLayersParameterParameterValue.ExpressionGUID;
+
+			ParameterValue.SortPriority = 0; // Has custom interface so not a supported feature
+
+			AssignParameterToGroup(ParentMaterial, &ParameterValue);
+		}
 
 		// Scalar Parameters.
 		SourceInstance->GetAllScalarParameterInfo(OutParameterInfo, Guids);
@@ -1068,22 +1085,7 @@ void UMaterialEditorInstanceConstant::RegenerateArrays()
 			
 			AssignParameterToGroup(ParentMaterial, &ParameterValue);
 		}
-		SourceInstance->GetAllMaterialLayersParameterInfo(OutParameterInfo, Guids);
-		// Copy Static Material Layers Parameters
-		for(int32 ParameterIdx=0; ParameterIdx<SourceStaticParameters.MaterialLayersParameters.Num(); ParameterIdx++)
-		{
-			FStaticMaterialLayersParameter MaterialLayersParameterParameterValue = FStaticMaterialLayersParameter(SourceStaticParameters.MaterialLayersParameters[ParameterIdx]);
-			UDEditorMaterialLayersParameterValue& ParameterValue = *(NewObject<UDEditorMaterialLayersParameterValue>());
-
-			ParameterValue.ParameterValue = MaterialLayersParameterParameterValue.Value;
-			ParameterValue.bOverride = MaterialLayersParameterParameterValue.bOverride;
-			ParameterValue.ParameterInfo = MaterialLayersParameterParameterValue.ParameterInfo;
-			ParameterValue.ExpressionId = MaterialLayersParameterParameterValue.ExpressionGUID;
-
-			ParameterValue.SortPriority = 0; // Has custom interface so not a supported feature
-
-			AssignParameterToGroup(ParentMaterial, &ParameterValue);
-		}
+		
 
 		// Copy Static Switch Parameters
 		SourceInstance->GetAllStaticSwitchParameterInfo(OutParameterInfo, Guids);
@@ -1197,7 +1199,99 @@ void UMaterialEditorInstanceConstant::RegenerateArrays()
 	{
 		ParameterGroups.Append(ParameterDefaultGroups);
 	}
+
+	if (DetailsView.IsValid())
+	{
+		// Tell our source instance to update itself so the preview updates.
+		DetailsView.Pin()->ForceRefresh();
+	}
 }
+
+#if WITH_EDITOR
+void UMaterialEditorInstanceConstant::CleanParameterStack(int32 Index, EMaterialParameterAssociation MaterialType)
+{
+	check(GIsEditor);
+	TArray<FEditorParameterGroup> CleanedGroups;
+	for (FEditorParameterGroup Group : ParameterGroups)
+	{
+		FEditorParameterGroup DuplicatedGroup = FEditorParameterGroup();
+		DuplicatedGroup.GroupAssociation = Group.GroupAssociation;
+		DuplicatedGroup.GroupName = Group.GroupName;
+		DuplicatedGroup.GroupSortPriority = Group.GroupSortPriority;
+		for (UDEditorParameterValue* Parameter : Group.Parameters)
+		{
+			if (Parameter->ParameterInfo.Association != MaterialType
+				|| Parameter->ParameterInfo.Index != Index)
+			{
+				DuplicatedGroup.Parameters.Add(Parameter);
+			}
+		}
+		CleanedGroups.Add(DuplicatedGroup);
+	}
+
+	ParameterGroups = CleanedGroups;
+	CopyToSourceInstance(true);
+}
+void UMaterialEditorInstanceConstant::ResetOverrides(int32 Index, EMaterialParameterAssociation MaterialType)
+{
+	check(GIsEditor);
+
+	for (FEditorParameterGroup Group : ParameterGroups)
+	{
+		for (UDEditorParameterValue* Parameter : Group.Parameters)
+		{
+			if (Parameter->ParameterInfo.Association == MaterialType
+				&& Parameter->ParameterInfo.Index == Index)
+			{
+				UDEditorScalarParameterValue* ScalarParameterValue = Cast<UDEditorScalarParameterValue>(Parameter);
+				UDEditorVectorParameterValue* VectorParameterValue = Cast<UDEditorVectorParameterValue>(Parameter);
+				UDEditorTextureParameterValue* TextureParameterValue = Cast<UDEditorTextureParameterValue>(Parameter);
+				UDEditorFontParameterValue* FontParameterValue = Cast<UDEditorFontParameterValue>(Parameter);
+				UDEditorStaticSwitchParameterValue* StaticSwitchParameterValue = Cast<UDEditorStaticSwitchParameterValue>(Parameter);
+				UDEditorStaticComponentMaskParameterValue* StaticMaskParameterValue = Cast<UDEditorStaticComponentMaskParameterValue>(Parameter);
+				if (ScalarParameterValue)
+				{
+					float Value;
+					Parameter->bOverride = SourceInstance->GetScalarParameterValue(Parameter->ParameterInfo, Value, true);
+				}
+				if (VectorParameterValue)
+				{
+					FLinearColor Value;
+					Parameter->bOverride = SourceInstance->GetVectorParameterValue(Parameter->ParameterInfo, Value, true);
+				}
+				if (TextureParameterValue)
+				{
+					UTexture* Value;
+					Parameter->bOverride = SourceInstance->GetTextureParameterValue(Parameter->ParameterInfo, Value, true);
+				}
+				if (FontParameterValue)
+				{
+					UFont* FontValue;
+					int32 FontPage;
+					Parameter->bOverride = SourceInstance->GetFontParameterValue(Parameter->ParameterInfo, FontValue, FontPage, true);
+				}
+				if (StaticSwitchParameterValue)
+				{
+					bool Value;
+					FGuid ExpressionId;
+					Parameter->bOverride = SourceInstance->GetStaticSwitchParameterValue(Parameter->ParameterInfo, Value, ExpressionId, true);
+				}
+				if (StaticMaskParameterValue)
+				{
+					bool R;
+					bool G;
+					bool B;
+					bool A;
+					FGuid ExpressionId;
+					Parameter->bOverride = SourceInstance->GetStaticComponentMaskParameterValue(Parameter->ParameterInfo, R, G, B, A, ExpressionId, true);
+				}
+			}
+		}
+	}
+	CopyToSourceInstance(true);
+
+}
+#endif
 
 void UMaterialEditorInstanceConstant::CopyToSourceInstance(const bool bForceStaticPermutationUpdate)
 {

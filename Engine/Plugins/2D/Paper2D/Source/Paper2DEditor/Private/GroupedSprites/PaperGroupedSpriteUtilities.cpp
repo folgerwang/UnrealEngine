@@ -94,7 +94,7 @@ void FPaperGroupedSpriteUtilities::SplitSprites(const TArray<UObject*>& InObject
 	{
 		if (UWorld* World = ComponentsToHarvest[0]->GetWorld())
 		{
-			const FScopedTransaction Transaction(LOCTEXT("SplitSprites", "Split sprite instances"));
+			const FScopedTransaction Transaction(LOCTEXT("SplitSpritesTransation", "Split sprite instances"));
 
 			// Create an instance from each item of each batch component that we're harvesting
 			for (UActorComponent* SourceComponent : ComponentsToHarvest)
@@ -183,7 +183,7 @@ void FPaperGroupedSpriteUtilities::MergeSprites(const TArray<UObject*>& InObject
 			FActorSpawnParameters SpawnParams;
 			SpawnParams.bDeferConstruction = true;
 
-			const FScopedTransaction Transaction(LOCTEXT("MergeSprites", "Merge sprite instances"));
+			const FScopedTransaction Transaction(LOCTEXT("MergeSpritesTransaction", "Merge sprite instances"));
 
 			if (APaperGroupedSpriteActor* SpawnedActor = World->SpawnActor<APaperGroupedSpriteActor>(SpawnParams))
 			{

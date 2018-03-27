@@ -107,7 +107,7 @@ void TopMenuBuilderFunc(FMenuBuilder& TopMenuBuilder, const TArray<FString> Sele
 
 	TopMenuBuilder.AddSubMenu(
 	NSLOCTEXT("GameplayAbilitiesEditorModule", "CreateGameplayEffect", "New Gameplay Effect"),
-	NSLOCTEXT("GameplayAbilitiesEditorModule", "CreateGameplayEffect", "Create new Gameplay Effect from list of curated parents"),
+	NSLOCTEXT("GameplayAbilitiesEditorModule", "CreateGameplayEffect_Tooltip", "Create new Gameplay Effect from list of curated parents"),
 	FNewMenuDelegate::CreateLambda([SelectedPaths, Definitions](FMenuBuilder& GETopMenuBuilder)
 	{
 		// Loop through our Definitions and build FGEItems 

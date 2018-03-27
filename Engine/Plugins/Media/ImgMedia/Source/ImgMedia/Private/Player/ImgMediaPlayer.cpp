@@ -644,3 +644,5 @@ bool FImgMediaPlayer::SetTrackFormat(EMediaTrackType TrackType, int32 TrackIndex
 {
 	return (IsInitialized() && (TrackIndex == 0) && (FormatIndex == 0));
 }
+
+#undef LOCTEXT_NAMESPACE

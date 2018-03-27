@@ -158,8 +158,6 @@
 #include "Materials/MaterialExpressionSceneTexelSize.h"
 #include "Materials/MaterialExpressionSceneTexture.h"
 #include "Materials/MaterialExpressionScreenPosition.h"
-#include "Materials/MaterialExpressionGetSharedInput.h"
-#include "Materials/MaterialExpressionSetSharedInput.h"
 #include "Materials/MaterialExpressionSine.h"
 #include "Materials/MaterialExpressionSobol.h"
 #include "Materials/MaterialExpressionSpeedTree.h"
@@ -1602,17 +1600,6 @@ int32 UMaterialExpressionTextureSample::Compile(class FMaterialCompiler* Compile
 					}
 				}
 				InputExpression = NestedFunctionInput->GetEffectivePreviewExpression();
-			}
-
-			UMaterialExpressionGetSharedInput* SharedInput = Cast<UMaterialExpressionGetSharedInput>(InputExpression);
-			if (SharedInput)
-			{			
-				SharedInput->GetEffectiveTextureData(Compiler, EffectiveTexture, InputExpression);
-
-				if (!EffectiveTexture && !InputExpression)
-				{
-					return Compiler->Errorf(TEXT("Failed to find effective texture for shared input '%s'"), *SharedInput->InputName.ToString());
-				}
 			}
 
 			UMaterialExpressionTextureObject* TextureObjectExpression = Cast<UMaterialExpressionTextureObject>(InputExpression);
@@ -11740,6 +11727,7 @@ void UMaterialExpressionCollectionParameter::GetCaption(TArray<FString>& OutCapt
 	}
 }
 
+
 bool UMaterialExpressionCollectionParameter::MatchesSearchQuery(const TCHAR* SearchQuery)
 {
 	if (ParameterName.ToString().Contains(SearchQuery))
@@ -11755,365 +11743,6 @@ bool UMaterialExpressionCollectionParameter::MatchesSearchQuery(const TCHAR* Sea
 	return Super::MatchesSearchQuery(SearchQuery);
 }
 #endif // WITH_EDITOR
-
-//
-//	UMaterialExpressionGetSharedInput
-//
-UMaterialExpressionGetSharedInput::UMaterialExpressionGetSharedInput(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-	// Structure to hold one-time initialization
-	struct FConstructorStatics
-	{
-		FText NAME_Parameters;
-		FConstructorStatics()
-			: NAME_Parameters(LOCTEXT( "Parameters", "Parameters" ))
-		{
-		}
-	};
-	static FConstructorStatics ConstructorStatics;
-
-#if WITH_EDITORONLY_DATA
-	MenuCategories.Add(ConstructorStatics.NAME_Parameters);
-
-	bCollapsed = true;
-
-	Outputs.Reset(1);
-	Outputs.Add(FExpressionOutput(TEXT("")));
-#endif
-}
-
-
-void UMaterialExpressionGetSharedInput::PostLoad()
-{
-	if (Collection)
-	{
-		Collection->ConditionalPostLoad();
-		InputName = Collection->GetInputName(InputId);
-	}
-
-	Super::PostLoad();
-}
-
-#if WITH_EDITOR
-void UMaterialExpressionGetSharedInput::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
-{
-	if (Collection)
-	{
-		InputId = Collection->GetInputId(InputName);
-	}
-	else
-	{
-		InputId = FGuid();
-	}
-
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-}
-
-int32 UMaterialExpressionGetSharedInput::Compile(FMaterialCompiler* Compiler, int32 OutputIndex)
-{
-	int32 Ret = INDEX_NONE;
-
-	if (Collection && InputId.IsValid())
-	{
-		Ret = Compiler->AccessSharedInput(Collection, InputId, InputName);
-
-#if WITH_EDITORONLY_DATA
-		if (Ret == INDEX_NONE)
-		{
-			// Compilation inside a function, layer or thumbnail won't have access to the input, so offer a preview
-			uint32 OutputType = GetOutputType(OutputIndex);
-			if (OutputType & MCT_Texture)
-			{
-				if (!PreviewTexture)
-				{
-					Ret = Compiler->Errorf(TEXT("Missing preview texture for shared input '%s'."), *InputName.ToString());
-				}
-				else
-				{
-					Ret = Compiler->Texture(PreviewTexture);
-				}
-			}
-			else
-			{
-				switch(OutputType)
-				{
-				case MCT_Float2:
-					Ret = Compiler->Constant2(PreviewValue.X, PreviewValue.Y); break;
-				case MCT_Float3:
-					Ret = Compiler->Constant3(PreviewValue.X, PreviewValue.Y, PreviewValue.Z); break;
-				case MCT_Float4:
-					Ret = Compiler->Constant4(PreviewValue.X, PreviewValue.Y, PreviewValue.Z, PreviewValue.W); break;
-				default: // MCT_Float
-					Ret = Compiler->Constant(PreviewValue.X);
-				}
-			}
-		}
-#endif // WITH_EDITORONLY_DATA
-
-		if (Ret == INDEX_NONE)
-		{
-			Ret = Compiler->Errorf(TEXT("Shared input '%s' not found, missing Set node for this input?"), *InputName.ToString());
-		}
-	}
-	else
-	{
-		Ret = Compiler->Error(TEXT("Invalid input name or missing collection"));
-	}
-
-	return Ret;
-}
-
-void UMaterialExpressionGetSharedInput::GetCaption(TArray<FString>& OutCaptions) const
-{
-	FString TypePrefix;
-
-	if (Collection)
-	{
-		TypePrefix = Collection->GetTypeName(InputId);
-	}
-
-	OutCaptions.Add(TEXT("Shared ") + TypePrefix + TEXT(" Input"));
-
-	if (Collection)
-	{
-		OutCaptions.Add(Collection->GetName());
-		OutCaptions.Add(FString(TEXT("'")) + InputName.ToString() + TEXT("'"));
-	}
-	else
-	{
-		OutCaptions.Add(TEXT("Unspecified"));
-	}
-}
-
-uint32 UMaterialExpressionGetSharedInput::GetOutputType(int32 OutputIndex)
-{
-	if (Collection)
-	{
-		EMaterialSharedInputType::Type Type = Collection->GetInputType(InputId);
-		switch(Type)
-		{
-		case EMaterialSharedInputType::Vector2:
-			return MCT_Float2;
-		case EMaterialSharedInputType::Vector3:
-			return MCT_Float3;
-		case EMaterialSharedInputType::Vector4:
-			return MCT_Float4;
-		case EMaterialSharedInputType::Texture2D:
-			return MCT_Texture2D;
-		case EMaterialSharedInputType::TextureCube:
-			return MCT_TextureCube;
-		default: // EMaterialSharedInputType::Scalar
-			return MCT_Float;
-		}
-	}
-
-	return MCT_Unknown;
-}
-
-void UMaterialExpressionGetSharedInput::GetEffectiveTextureData(FMaterialCompiler* Compiler, UTexture*& EffectiveTexture, UMaterialExpression*& EffectiveExpression)
-{
-	EffectiveTexture = nullptr;
-	EffectiveExpression = Compiler->AccessSharedInputExpression(InputId);	
-
-#if WITH_EDITORONLY_DATA
-	if (!EffectiveExpression)
-	{
-		EffectiveExpression = this;
-		EffectiveTexture = PreviewTexture;
-	}
-#endif // WITH_EDITORONLY_DATA
-}				
-
-bool UMaterialExpressionGetSharedInput::MatchesSearchQuery(const TCHAR* SearchQuery)
-{
-	if (InputName.ToString().Contains(SearchQuery))
-	{
-		return true;
-	}
-
-	if (Collection && Collection->GetName().Contains(SearchQuery))
-	{
-		return true;
-	}
-
-	return Super::MatchesSearchQuery(SearchQuery);
-}
-#endif // WITH_EDITOR
-
-//
-//	UMaterialExpressionSetSharedInput
-//
-UMaterialExpressionSetSharedInput::UMaterialExpressionSetSharedInput(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-	// Structure to hold one-time initialization
-	struct FConstructorStatics
-	{
-		FText NAME_Parameters;
-		FConstructorStatics()
-			: NAME_Parameters(LOCTEXT( "Parameters", "Parameters" ))
-		{
-		}
-	};
-	static FConstructorStatics ConstructorStatics;
-
-#if WITH_EDITORONLY_DATA
-	MenuCategories.Add(ConstructorStatics.NAME_Parameters);
-
-	bCollapsed = true;
-
-	// No outputs
-	Outputs.Reset();
-#endif
-}
-
-
-void UMaterialExpressionSetSharedInput::PostLoad()
-{
-	if (Collection)
-	{
-		Collection->ConditionalPostLoad();
-		InputName = Collection->GetInputName(InputId);
-	}
-
-	Super::PostLoad();
-}
-
-#if WITH_EDITOR
-void UMaterialExpressionSetSharedInput::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
-{
-	if (Collection)
-	{
-		InputId = Collection->GetInputId(InputName);
-	}
-	else
-	{
-		InputId = FGuid();
-	}
-
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-}
-
-int32 UMaterialExpressionSetSharedInput::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
-{
-	int32 Ret = INDEX_NONE;
-	EMaterialValueType InputType = (EMaterialValueType)GetInputType(OutputIndex);
-
-	if (Compiler && Compiler->GetCurrentFunctionStackDepth() > 1)
-	{
-		Ret = Compiler->Errorf(TEXT("Shared input '%s' cannot be set within a material function"), *InputName.ToString());
-	}
-	else if (Input.GetTracedInput().Expression)
-	{
-		if (Collection && InputId.IsValid())
-		{
-			int32 InternalCode = INDEX_NONE;
-			if (InputType & MCT_Float)
-			{
-				InternalCode = Input.Compile(Compiler);
-				
-				if (InternalCode != INDEX_NONE)
-				{
-					InternalCode = Compiler->ValidCast(InternalCode, InputType);
-					Compiler->CustomOutput(this, OutputIndex, InternalCode);
-					Ret = InternalCode;
-				}
-				else
-				{
-					Ret = Compiler->Errorf(TEXT("Failed to compile shared input, '%s'"), *InputName.ToString());
-				}		
-			}
-
-			Ret = Compiler->AddCompiledSharedInput(Ret, Input, InputId, InputName, InputType);
-		}
-		else
-		{
-			Ret = Compiler->Error(TEXT("Invalid input name or missing collection"));
-		}
-	}
-	else
-	{
-		Ret = Compiler->Errorf(TEXT("Input missing for shared input, '%s'"), *InputName.ToString());
-	}
-
-	return Ret;
-}
-
-void UMaterialExpressionSetSharedInput::GetCaption(TArray<FString>& OutCaptions) const
-{
-	FString TypePrefix;
-
-	if (Collection)
-	{
-		TypePrefix = Collection->GetTypeName(InputId);
-	}
-
-	OutCaptions.Add(TEXT("Shared ") + TypePrefix + TEXT(" Input"));
-
-	if (Collection)
-	{
-		OutCaptions.Add(Collection->GetName());
-		OutCaptions.Add(FString(TEXT("'")) + InputName.ToString() + TEXT("'"));
-	}
-	else
-	{
-		OutCaptions.Add(TEXT("Unspecified"));
-	}
-}
-
-uint32 UMaterialExpressionSetSharedInput::GetInputType(int32 InputIndex)
-{
-	if (Collection)
-	{
-		EMaterialSharedInputType::Type Type = Collection->GetInputType(InputId);
-		switch(Type)
-		{
-		case EMaterialSharedInputType::Vector2:
-			return MCT_Float2;
-		case EMaterialSharedInputType::Vector3:
-			return MCT_Float3;
-		case EMaterialSharedInputType::Vector4:
-			return MCT_Float4;
-		case EMaterialSharedInputType::Texture2D:
-			return MCT_Texture2D;
-		case EMaterialSharedInputType::TextureCube:
-			return MCT_TextureCube;
-		default: // EMaterialSharedInputType::Scalar
-			return MCT_Float;
-		}
-	}
-
-	return MCT_Unknown;
-}
-
-
-bool UMaterialExpressionSetSharedInput::MatchesSearchQuery(const TCHAR* SearchQuery)
-{
-	if (InputName.ToString().Contains(SearchQuery))
-	{
-		return true;
-	}
-
-	if (Collection && Collection->GetName().Contains(SearchQuery))
-	{
-		return true;
-	}
-
-	return Super::MatchesSearchQuery(SearchQuery);
-}
-
-FExpressionInput* UMaterialExpressionSetSharedInput::GetInput(int32 InputIndex)
-{
-	return &Input;
-}
-#endif // WITH_EDITOR
-
-FString UMaterialExpressionSetSharedInput::GetFunctionName() const
-{
-	return FString::Printf(TEXT("%s_%s"), *Collection->GetName(), *InputName.ToString());
-}
-
 //
 //	UMaterialExpressionLightmapUVs
 //
@@ -14240,8 +13869,6 @@ UMaterialExpressionTangentOutput::UMaterialExpressionTangentOutput(const FObject
 		FConstructorStatics(const FString& DisplayName, const FString& FunctionName)
 			: NAME_Custom(LOCTEXT( "Custom", "Custom" ))
 		{
-			// Register with attribute map to allow use with material attribute nodes and blending	
-			FMaterialAttributeDefinitionMap::AddCustomAttribute(FGuid(0x8EAB2CB2, 0x73634A24, 0x8CD14F47, 0x3F9C8E55), DisplayName, FunctionName, MCT_Float3, FVector4(0,0,0,0));
 		}
 	};
 	static FConstructorStatics ConstructorStatics(GetDisplayName(), GetFunctionName());
@@ -14289,8 +13916,6 @@ UMaterialExpressionClearCoatNormalCustomOutput::UMaterialExpressionClearCoatNorm
 		FConstructorStatics(const FString& DisplayName, const FString& FunctionName)
 			: NAME_Utility(LOCTEXT("Utility", "Utility"))
 		{
-			// Register with attribute map to allow use with material attribute nodes and blending
-			FMaterialAttributeDefinitionMap::AddCustomAttribute(FGuid(0xAA3D5C04, 0x16294716, 0xBBDEC869, 0x6A27DD72), DisplayName, FunctionName, MCT_Float3, FVector4(0,0,1,0));
 		}
 	};
 	static FConstructorStatics ConstructorStatics(GetDisplayName(), GetFunctionName());
@@ -14346,8 +13971,6 @@ UMaterialExpressionBentNormalCustomOutput::UMaterialExpressionBentNormalCustomOu
 		FConstructorStatics(const FString& DisplayName, const FString& FunctionName)
 			: NAME_Utility(LOCTEXT("Utility", "Utility"))
 		{
-			// Register with attribute map to allow use with material attribute nodes and blending
-			FMaterialAttributeDefinitionMap::AddCustomAttribute(FGuid(0xfbd7b46e, 0xb1234824, 0xbde76b23, 0x609f984c), DisplayName, FunctionName, MCT_Float3, FVector4(0,0,1,0));
 		}
 	};
 	static FConstructorStatics ConstructorStatics(GetDisplayName(), GetFunctionName());

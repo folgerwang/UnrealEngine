@@ -686,20 +686,34 @@ void FMeshMergeHelpers::TransformRawMeshVertexData(const FTransform& InTransform
 	{
 		Vertex = InTransform.TransformPosition(Vertex);
 	}
+	
+	auto TransformNormal = [&](FVector& Normal)
+	{
+		FMatrix Matrix = InTransform.ToMatrixWithScale();
+		const float DetM = Matrix.Determinant();
+		FMatrix AdjointT = Matrix.TransposeAdjoint();
+		AdjointT.RemoveScaling();
+
+		Normal = AdjointT.TransformVector(Normal);
+		if (DetM < 0.f)
+		{
+			Normal *= -1.0f;
+		}
+	};	
 
 	for (FVector& TangentX : OutRawMesh.WedgeTangentX)
 	{
-		TangentX = InTransform.TransformVector(TangentX).GetSafeNormal();
+		TransformNormal(TangentX);
 	}
 
 	for (FVector& TangentY : OutRawMesh.WedgeTangentY)
 	{
-		TangentY = InTransform.TransformVector(TangentY).GetSafeNormal();
+		TransformNormal(TangentY);
 	}
 
 	for (FVector& TangentZ : OutRawMesh.WedgeTangentZ)
 	{
-		TangentZ = InTransform.TransformVector(TangentZ).GetSafeNormal();
+		TransformNormal(TangentZ);
 	}
 
 	const bool bIsMirrored = InTransform.GetDeterminant() < 0.f;

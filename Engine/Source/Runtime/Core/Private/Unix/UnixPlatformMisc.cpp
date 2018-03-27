@@ -754,7 +754,7 @@ bool FUnixPlatformMisc::IsRunningOnBattery()
 #if !UE_BUILD_SHIPPING
 CORE_API TFunction<void()> UngrabAllInputCallback;
 
-void FUnixPlatformMisc::DebugBreak()
+void FUnixPlatformMisc::DebugBreakInternal()
 {
 	if( IsDebuggerPresent() )
 	{

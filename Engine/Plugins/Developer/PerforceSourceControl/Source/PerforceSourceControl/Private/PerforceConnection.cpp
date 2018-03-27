@@ -326,11 +326,6 @@ bool FPerforceConnection::EnsureValidConnection(FString& InOutServerName, FStrin
 		//attempt connection with given settings
 		TestP4.SetPort(TCHAR_TO_ANSI(*NewServerName));
 
-		if(InConnectionInfo.Password.Len() > 0)
-		{
-			TestP4.SetPassword(TCHAR_TO_ANSI(*InConnectionInfo.Password));
-		}
-
 		if(InConnectionInfo.HostOverride.Len() > 0)
 		{
 			TestP4.SetHost(TCHAR_TO_ANSI(*InConnectionInfo.HostOverride));
@@ -346,7 +341,7 @@ bool FPerforceConnection::EnsureValidConnection(FString& InOutServerName, FStrin
 		//Connection FAILED
 		StrBuf ErrorMessage;
 		P4Error.Fmt(&ErrorMessage);
-		SourceControlLog.Error(LOCTEXT("P4ErrorConnection", "P4ERROR: Failed to connect to source control provider."));
+		SourceControlLog.Error(LOCTEXT("P4ErrorConnection_FailedToConnect", "P4ERROR: Failed to connect to source control provider."));
 		SourceControlLog.Error(FText::FromString(ANSI_TO_TCHAR(ErrorMessage.Text())));
 		FFormatNamedArguments Arguments;
 		Arguments.Add( TEXT("PortName"), FText::FromString(NewServerName) );
@@ -364,8 +359,8 @@ bool FPerforceConnection::EnsureValidConnection(FString& InOutServerName, FStrin
 		bConnectionOK = CheckUnicodeStatus(TestP4, bIsUnicodeServer, ErrorMessages);
 		if(!bConnectionOK)
 		{
-			SourceControlLog.Error(LOCTEXT("P4ErrorConnection", "P4ERROR: Could not determine server unicode status."));
-			SourceControlLog.Error(ErrorMessages.Num() > 0 ? ErrorMessages[0] : LOCTEXT("P4ErrorConnection_Unknown error", "Unknown error"));
+			SourceControlLog.Error(LOCTEXT("P4ErrorConnection_CouldNotDetermineUnicodeStatus", "P4ERROR: Could not determine server unicode status."));
+			SourceControlLog.Error(ErrorMessages.Num() > 0 ? ErrorMessages[0] : LOCTEXT("P4ErrorConnection_UnknownError", "Unknown error"));
 			FFormatNamedArguments Arguments;
 			Arguments.Add( TEXT("PortName"), FText::FromString(NewServerName) );
 			Arguments.Add( TEXT("UserName"), FText::FromString(NewUserName) );
@@ -386,10 +381,6 @@ bool FPerforceConnection::EnsureValidConnection(FString& InOutServerName, FStrin
 			TestP4.SetUser(FROM_TCHAR(*NewUserName, bIsUnicodeServer));
 			TestP4.SetClient(FROM_TCHAR(*NewClientSpecName, bIsUnicodeServer));
 
-			if(InConnectionInfo.Ticket.Len())
-			{
-				TestP4.SetPassword(FROM_TCHAR(*InConnectionInfo.Ticket, bIsUnicodeServer));
-			}
 		}
 	}
 
@@ -418,7 +409,7 @@ bool FPerforceConnection::EnsureValidConnection(FString& InOutServerName, FStrin
 		if (!bConnectionOK)
 		{
 			//Login FAILED
-			SourceControlLog.Error(LOCTEXT("P4ErrorConnection", "P4ERROR: Failed to connect to source control provider."));
+			SourceControlLog.Error(LOCTEXT("P4ErrorConnection_FailedToConnect", "P4ERROR: Failed to connect to source control provider."));
 			SourceControlLog.Error(ErrorMessages.Num() > 0 ? ErrorMessages[0] : LOCTEXT("P4ErrorConnection_InvalidWorkspace", "Invalid workspace"));
 			FFormatNamedArguments Arguments;
 			Arguments.Add( TEXT("PortName"), FText::FromString(NewServerName) );
@@ -702,19 +693,6 @@ void FPerforceConnection::EstablishConnection(const FPerforceConnectionInfo& InC
 	P4Client.SetPort(TCHAR_TO_ANSI(*InConnectionInfo.Port));
 
 	Error P4Error;
-	if(InConnectionInfo.Password.Len() > 0)
-	{
-		UE_LOG(LogSourceControl, Verbose, TEXT(" ... applying password" ));
-		P4Client.DefinePassword(TCHAR_TO_ANSI(*InConnectionInfo.Password), &P4Error);
-		if(P4Error.Test())
-		{
-			StrBuf ErrorMessage;
-			P4Error.Fmt(&ErrorMessage);
-			UE_LOG(LogSourceControl, Error, TEXT("P4ERROR: Could not set password."));
-			UE_LOG(LogSourceControl, Error, TEXT("%s"), ANSI_TO_TCHAR(ErrorMessage.Text()));
-		}
-	}
-
 	if(InConnectionInfo.HostOverride.Len() > 0)
 	{
 		UE_LOG(LogSourceControl, Verbose, TEXT(" ... overriding host" ));
@@ -766,10 +744,7 @@ void FPerforceConnection::EstablishConnection(const FPerforceConnectionInfo& InC
 				Login(InConnectionInfo);
 			}
 
-			if (InConnectionInfo.Ticket.Len())
-			{
-				P4Client.SetPassword(FROM_TCHAR(*InConnectionInfo.Ticket, bIsUnicode));
-			}
+
 			if (InConnectionInfo.Workspace.Len())
 			{
 				P4Client.SetClient(FROM_TCHAR(*InConnectionInfo.Workspace, bIsUnicode));

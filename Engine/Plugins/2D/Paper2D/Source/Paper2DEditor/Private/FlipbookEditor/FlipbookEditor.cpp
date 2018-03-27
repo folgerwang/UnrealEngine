@@ -484,7 +484,7 @@ void FFlipbookEditor::DeleteSelection()
 {
 	if (FlipbookBeingEdited->IsValidKeyFrameIndex(CurrentSelectedKeyframe))
 	{
-		const FScopedTransaction Transaction(LOCTEXT("DeleteKeyframe", "Delete Keyframe"));
+		const FScopedTransaction Transaction(LOCTEXT("DeleteKeyframeTransaction", "Delete Keyframe"));
 		FlipbookBeingEdited->Modify();
 
 		FScopedFlipbookMutator EditLock(FlipbookBeingEdited);
@@ -498,7 +498,7 @@ void FFlipbookEditor::DuplicateSelection()
 {
 	if (FlipbookBeingEdited->IsValidKeyFrameIndex(CurrentSelectedKeyframe))
 	{
-		const FScopedTransaction Transaction(LOCTEXT("DuplicateKeyframe", "Duplicate Keyframe"));
+		const FScopedTransaction Transaction(LOCTEXT("DuplicateKeyframeTransaction", "Duplicate Keyframe"));
 		FlipbookBeingEdited->Modify();
 
 		FScopedFlipbookMutator EditLock(FlipbookBeingEdited);
@@ -512,7 +512,7 @@ void FFlipbookEditor::DuplicateSelection()
 
 void FFlipbookEditor::AddKeyFrameAtCurrentTime()
 {
-	const FScopedTransaction Transaction(LOCTEXT("InsertKeyFrame", "Insert Key Frame"));
+	const FScopedTransaction Transaction(LOCTEXT("InsertKeyFrameTransaction", "Insert Key Frame"));
 	FlipbookBeingEdited->Modify();
 
 	const float CurrentTime = GetPlaybackPosition();
@@ -526,7 +526,7 @@ void FFlipbookEditor::AddKeyFrameAtCurrentTime()
 
 void FFlipbookEditor::AddNewKeyFrameAtEnd()
 {
-	const FScopedTransaction Transaction(LOCTEXT("AddKeyFrame", "Add Key Frame"));
+	const FScopedTransaction Transaction(LOCTEXT("AddKeyFrameTransaction", "Add Key Frame"));
 	FlipbookBeingEdited->Modify();
 
 	FScopedFlipbookMutator EditLock(FlipbookBeingEdited);
@@ -538,7 +538,7 @@ void FFlipbookEditor::AddNewKeyFrameBefore()
 {
 	if (FlipbookBeingEdited->IsValidKeyFrameIndex(CurrentSelectedKeyframe))
 	{
-		const FScopedTransaction Transaction(LOCTEXT("InsertKeyFrameBefore", "Insert Key Frame Before"));
+		const FScopedTransaction Transaction(LOCTEXT("InsertKeyFrameBeforeTransaction", "Insert Key Frame Before"));
 		FlipbookBeingEdited->Modify();
 
 		FScopedFlipbookMutator EditLock(FlipbookBeingEdited);
@@ -554,7 +554,7 @@ void FFlipbookEditor::AddNewKeyFrameAfter()
 {
 	if (FlipbookBeingEdited->IsValidKeyFrameIndex(CurrentSelectedKeyframe))
 	{
-		const FScopedTransaction Transaction(LOCTEXT("InsertKeyFrameAfter", "Insert Key Frame After"));
+		const FScopedTransaction Transaction(LOCTEXT("InsertKeyFrameAfterTransaction", "Insert Key Frame After"));
 		FlipbookBeingEdited->Modify();
 
 		FScopedFlipbookMutator EditLock(FlipbookBeingEdited);

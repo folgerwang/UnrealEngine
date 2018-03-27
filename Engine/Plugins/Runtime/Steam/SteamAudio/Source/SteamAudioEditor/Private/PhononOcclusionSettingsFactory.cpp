@@ -11,7 +11,7 @@ namespace SteamAudio
 {
 	FText FAssetTypeActions_PhononOcclusionSettings::GetName() const
 	{
-		return NSLOCTEXT("AssetTypeActions", "AssetTypeActions_PhononOcclusionSettings", "Phonon Source Occlusion Settings"); 
+		return NSLOCTEXT("SteamAudio", "AssetTypeActions_PhononOcclusionSettings", "Phonon Source Occlusion Settings"); 
 	}
 
 	FColor FAssetTypeActions_PhononOcclusionSettings::GetTypeColor() const

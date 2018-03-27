@@ -13,6 +13,7 @@
 #include "PyWrapperSet.h"
 #include "PyWrapperMap.h"
 #include "PyConversion.h"
+#include "PyGenUtil.h"
 #include "ProfilingDebugging/ScopedTimers.h"
 #include "UObject/UnrealType.h"
 #include "UObject/UObjectHash.h"
@@ -630,15 +631,6 @@ PyTypeObject* FPyWrapperTypeRegistry::GenerateWrappedClassType(const UClass* InC
 		{
 			FunctionDeclDocString += TEXT(" -> ");
 
-			auto AppendParamType = [&FunctionDeclDocString](const UProperty* Param)
-			{
-				FString ParamExtendedType;
-				const FString ParamType = Param->GetCPPType(&ParamExtendedType, CPPF_ArgumentOrReturnValue);
-
-				FunctionDeclDocString += ParamType;
-				FunctionDeclDocString += ParamExtendedType;
-			};
-
 			// If we have multiple return values and the main return value is a bool, we return None (for false) or the (potentially packed) return value without the bool (for true)
 			bool bStrippedBoolReturn = false;
 			if (OutParams.Num() > 1 && OutParams[0]->IsA<UBoolProperty>())
@@ -649,7 +641,7 @@ PyTypeObject* FPyWrapperTypeRegistry::GenerateWrappedClassType(const UClass* InC
 
 			if (OutParams.Num() == 1)
 			{
-				AppendParamType(OutParams[0]);
+				FunctionDeclDocString += PyGenUtil::GetPropertyTypePythonName(OutParams[0]);
 			}
 			else
 			{
@@ -665,7 +657,7 @@ PyTypeObject* FPyWrapperTypeRegistry::GenerateWrappedClassType(const UClass* InC
 						FunctionDeclDocString += PyGenUtil::PythonizePropertyName(OutParams[OutParamIndex]->GetName(), PyGenUtil::EPythonizeNameCase::Lower);
 						FunctionDeclDocString += TEXT('=');
 					}
-					AppendParamType(OutParams[OutParamIndex]);
+					FunctionDeclDocString += PyGenUtil::GetPropertyTypePythonName(OutParams[OutParamIndex]);
 				}
 				FunctionDeclDocString += TEXT(')');
 			}
@@ -790,6 +782,12 @@ PyTypeObject* FPyWrapperTypeRegistry::GenerateWrappedStructType(const UStruct* I
 	if (PyTypeObject* ExistingPyType = PythonWrappedStructs.FindRef(InStruct->GetFName()))
 	{
 		return ExistingPyType;
+	}
+
+	// UFunction derives from UStruct to define its arguments, but we should never process a UFunction as a UStruct for Python
+	if (InStruct->IsA<UFunction>())
+	{
+		return nullptr;
 	}
 
 	// todo: allow generation of Blueprint generated structs
@@ -967,12 +965,15 @@ PyTypeObject* FPyWrapperTypeRegistry::GenerateWrappedEnumType(const UEnum* InEnu
 		// Register the enum values
 		for (int32 EnumEntryIndex = 0; EnumEntryIndex < InEnum->NumEnums() - 1; ++EnumEntryIndex)
 		{
+			if (PyGenUtil::ShouldExportEnumEntry(InEnum, EnumEntryIndex))
+			{
 			const int64 EnumEntryValue = InEnum->GetValueByIndex(EnumEntryIndex);
 			const FString EnumEntryShortName = InEnum->GetNameStringByIndex(EnumEntryIndex);
 			const FString EnumEntryShortPythonName = PyGenUtil::PythonizeName(EnumEntryShortName, PyGenUtil::EPythonizeNameCase::Upper);
 			const FString EnumEntryDoc = PyGenUtil::PythonizeTooltip(PyGenUtil::GetEnumEntryTooltip(InEnum, EnumEntryIndex));
 
 			FPyWrapperEnum::SetEnumEntryValue(&GeneratedWrappedType->PyType, EnumEntryValue, TCHAR_TO_UTF8(*EnumEntryShortPythonName), TCHAR_TO_UTF8(*EnumEntryDoc));
+		}
 		}
 
 		const FName UnrealModuleName = *PyGenUtil::GetFieldModule(InEnum);

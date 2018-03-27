@@ -1963,6 +1963,19 @@ bool FInternalPlayWorldCommandCallbacks::IsReadyToLaunchOnDevice(FString DeviceI
 			UnrecoverableError = true;
 		}
 
+		if ((Result & ETargetPlatformReadyStatus::RemoveServerNameEmpty) != 0
+				&& (bHasCode || (Result & ETargetPlatformReadyStatus::CodeBuildRequired)
+					|| (!FApp::GetEngineIsPromotedBuild() && !FApp::IsEngineInstalled())))
+		{
+			AddMessageLog(
+				LOCTEXT("RemoveServerNameNotFound", "Remote compiling requires a server name. "),
+				CustomizedLogMessage.IsEmpty() ? LOCTEXT("RemoveServerNameNotFoundDetail", "Please specify one in the Remote Server Name settings field.") : CustomizedLogMessage,
+				NotInstalledTutorialLink,
+				DocumentationLink
+			);
+			UnrecoverableError = true;
+		}
+
 		if (UnrecoverableError)
 		{
 			return false;
@@ -2083,8 +2096,7 @@ FText FInternalPlayWorldCommandCallbacks::GetResumePlaySessionToolTip()
 void FInternalPlayWorldCommandCallbacks::SingleFrameAdvance_Clicked()
 {
 	// We want to function just like Single stepping where we will stop at a breakpoint if one is encountered but we also want to stop after 1 tick if a breakpoint is not encountered.
-	const bool bAllowStepIn = true;
-	FKismetDebugUtilities::RequestSingleStepping(bAllowStepIn);
+	FKismetDebugUtilities::RequestSingleStepIn();
 	if (HasPlayWorld())
 	{
 		GUnrealEd->PlayWorld->bDebugFrameStepExecution = true;
@@ -2123,8 +2135,7 @@ void FInternalPlayWorldCommandCallbacks::ShowCurrentStatement_Clicked()
 
 void FInternalPlayWorldCommandCallbacks::StepInto_Clicked()
 {
-	const bool bAllowStepIn = true;
-	FKismetDebugUtilities::RequestSingleStepping(bAllowStepIn);
+	FKismetDebugUtilities::RequestSingleStepIn();
 	if (HasPlayWorld())
 	{
 		LeaveDebuggingMode();
@@ -2134,8 +2145,7 @@ void FInternalPlayWorldCommandCallbacks::StepInto_Clicked()
 
 void FInternalPlayWorldCommandCallbacks::StepOver_Clicked()
 {
-	const bool bAllowStepIn = false;
-	FKismetDebugUtilities::RequestSingleStepping(bAllowStepIn);
+	FKismetDebugUtilities::RequestStepOver();
 	if (HasPlayWorld())
 	{
 		LeaveDebuggingMode();

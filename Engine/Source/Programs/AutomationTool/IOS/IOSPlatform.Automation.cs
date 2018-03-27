@@ -305,7 +305,7 @@ public class IOSPlatform : Platform
 		// ensure the ue4game binary exists, if applicable
 #if !PLATFORM_MAC
 		string ProjectGameExeFilename = Params.GetProjectExeForPlatform(Platform).ToString();
-		string FullExePath = CombinePaths(Path.GetDirectoryName(ProjectGameExeFilename), (Params.Distribution ? "Distro_" : "") + SC.StageExecutables[0] + (UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac ? ".stub" : ""));
+		string FullExePath = CombinePaths(Path.GetDirectoryName(ProjectGameExeFilename), SC.StageExecutables[0] + (UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac ? ".stub" : ""));
 		if (!SC.IsCodeBasedProject && !FileExists_NoExceptions(FullExePath))
 		{
 			LogError("Failed to find game binary " + FullExePath);
@@ -378,6 +378,8 @@ public class IOSPlatform : Platform
 				}
 			}
 		}
+
+		IOSExports.GenerateAssetCatalog(Params.RawProjectPath, FullExePath, CombinePaths(Params.BaseStageDirectory, (Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS")), Platform);
 
         bCreatedIPA = false;
 		bool bNeedsIPA = false;
@@ -661,8 +663,8 @@ public class IOSPlatform : Platform
 
 		if (bAutomaticSigning)
 		{
-            Arguments += " CODE_SIGN_IDENTITY=" + (Distribution ? "\"iPhone Distribution\"" : "\"iPhone Developer\"");
-            Arguments += " CODE_SIGN_STYLE=\"Automatic\"";
+			Arguments += " CODE_SIGN_IDENTITY=" + (Distribution ? "\"iPhone Distribution\"" : "\"iPhone Developer\"");
+            Arguments += " CODE_SIGN_STYLE=\"Automatic\" -allowProvisioningUpdates";
 			Arguments += " DEVELOPMENT_TEAM=\"" + Team + "\"";
 		}
 		else

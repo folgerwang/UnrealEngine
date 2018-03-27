@@ -664,6 +664,7 @@ void FMaterialInstanceEditor::OnApply()
 	if (bIsFunctionPreviewMaterial && MaterialEditorInstance)
 	{
 		UE_LOG(LogMaterialInstanceEditor, Log, TEXT("Applying instance %s"), *GetEditingObjects()[0]->GetName());
+		MaterialEditorInstance->bIsFunctionInstanceDirty = true;
 		MaterialEditorInstance->ApplySourceFunctionChanges();
 	}
 }
@@ -783,6 +784,8 @@ void FMaterialInstanceEditor::CreateInternalWidgets()
 	FOnGetDetailCustomizationInstance LayoutMICDetails = FOnGetDetailCustomizationInstance::CreateStatic( 
 		&FMaterialInstanceParameterDetails::MakeInstance, MaterialEditorInstance, FGetShowHiddenParameters::CreateSP(this, &FMaterialInstanceEditor::GetShowHiddenParameters) );
 	MaterialInstanceDetails->RegisterInstancedCustomPropertyLayout( UMaterialEditorInstanceConstant::StaticClass(), LayoutMICDetails );
+
+	MaterialEditorInstance->DetailsView = MaterialInstanceDetails;
 
 	IMaterialEditorModule* MaterialEditorModule = &FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
 	if (MaterialEditorModule->MaterialLayersEnabled() && !bIsFunctionPreviewMaterial)

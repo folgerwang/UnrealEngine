@@ -1883,7 +1883,7 @@ bool FStaticLightingSystem::CreateLightmassProcessor()
 		UE_LOG(LogStaticLightingSystem, Warning, TEXT("Failed to connect to Swarm."));
 		FMessageDialog::Open( EAppMsgType::Ok, 
 #if USE_LOCAL_SWARM_INTERFACE
-			LOCTEXT("FailedToConnectToSwarmDialogMessage", "Failed to connect to Swarm. Check that your network interface supports multicast.")
+			LOCTEXT("FailedToConnectToSwarmDialogMessage_CheckNetwork", "Failed to connect to Swarm. Check that your network interface supports multicast.")
 #else
 			LOCTEXT("FailedToConnectToSwarmDialogMessage", "Failed to connect to Swarm.")
 #endif	

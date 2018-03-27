@@ -660,7 +660,7 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 			AvailableMaterials.Append(InComponent->MaterialInstances);
 		}
 
-		if (AvailableMaterials.IsValidIndex(0) && AvailableMaterials[0]->GetMaterial() != nullptr)
+		if (AvailableMaterials.Num() > 1 && AvailableMaterials[0] != nullptr && AvailableMaterials[0]->GetMaterial() != nullptr)
 		{
 			TessellationEnabledOnDefaultMaterial = AvailableMaterials[0]->GetMaterial()->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation;
 		}
@@ -1217,19 +1217,26 @@ float FLandscapeComponentSceneProxy::GetComponentScreenSize(const FSceneView* Vi
 	FVector CameraOrigin = View->ViewMatrices.GetViewOrigin();
 	FMatrix ProjMatrix = View->ViewMatrices.GetProjectionMatrix();
 
-	float ComponentDistanceSquared = FMath::Max(FVector::DistSquared(Origin, CameraOrigin), FMath::Square(MaxExtend));
+	const FVector OriginToCamera = (CameraOrigin - Origin).GetAbs();
+	const FVector ClosestPoint = OriginToCamera.ComponentMin(FVector(MaxExtend));
+	const float DistSquared = (OriginToCamera - ClosestPoint).SizeSquared();
 
 	// Get projection multiple accounting for view scaling.
 	const float ScreenMultiple = FMath::Max(0.5f * ProjMatrix.M[0][0], 0.5f * ProjMatrix.M[1][1]);
 
 	// Calculate screen-space projected radius
-	float SquaredScreenRadius = FMath::Square(ScreenMultiple * ElementRadius) / FMath::Max(1.0f, ComponentDistanceSquared);
+	float SquaredScreenRadius = FMath::Square(ScreenMultiple * ElementRadius) / FMath::Max(1.0f, DistSquared);
 
 	return FMath::Min(SquaredScreenRadius * 2.0f, 1.0f);
 }
 
 void FLandscapeComponentSceneProxy::BuildDynamicMeshElement(const FViewCustomDataLOD* InPrimitiveCustomData, bool InToolMesh, UMaterialInterface* InMaterialInterface, FMeshBatch& OutMeshBatch, TArray<FLandscapeBatchElementParams, SceneRenderingAllocator>& OutStaticBatchParamArray) const
 {
+	if (InMaterialInterface == nullptr)
+	{
+		return;
+	}
+
 	// Could be different from bRequiresAdjacencyInformation during shader compilation
 	bool bCurrentRequiresAdjacencyInformation = !InToolMesh && MaterialRenderingRequiresAdjacencyInformation_RenderingThread(InMaterialInterface, VertexFactory->GetType(), GetScene().GetFeatureLevel());
 
@@ -1343,6 +1350,11 @@ void FLandscapeComponentSceneProxy::BuildDynamicMeshElement(const FViewCustomDat
 
 bool FLandscapeComponentSceneProxy::GetMeshElement(bool UseSeperateBatchForShadow, bool ShadowOnly, bool HasTessellation, uint8 BatchLOD, UMaterialInterface* InMaterialInterface, FMeshBatch& OutMeshBatch, TArray<FLandscapeBatchElementParams>& OutStaticBatchParamArray) const
 {
+	if (InMaterialInterface == nullptr)
+	{
+		return false;
+	}
+
 	// Could be different from bRequiresAdjacencyInformation during shader compilation
 	bool bCurrentRequiresAdjacencyInformation = MaterialRenderingRequiresAdjacencyInformation_RenderingThread(InMaterialInterface, VertexFactory->GetType(), GetScene().GetFeatureLevel());
 
@@ -1565,7 +1577,7 @@ uint64 FLandscapeComponentSceneProxy::GetStaticBatchElementVisibility(const FSce
 
 	SCOPE_CYCLE_COUNTER(STAT_LandscapeStaticDrawLODTime);
 
-	if (TessellationEnabledOnDefaultMaterial && InBatch->MaterialRenderProxy->GetMaterialInterface() == AvailableMaterials[0]) // Batch use tessellation
+	if (TessellationEnabledOnDefaultMaterial && AvailableMaterials.Num() > 1  && AvailableMaterials[0] != nullptr && InBatch->MaterialRenderProxy->GetMaterialInterface() == AvailableMaterials[0]) // Batch use tessellation
 	{
 		INC_DWORD_STAT(STAT_LandscapeTessellatedComponents);
 	}
@@ -1619,7 +1631,7 @@ uint64 FLandscapeComponentSceneProxy::GetStaticBatchElementVisibility(const FSce
 	return BatchesToRenderMask;
 }
 
-void FLandscapeComponentSceneProxy::CalculateBatchElementLOD(const FSceneView& InView, float InMeshScreenSizeSquared, float InViewLODScale, FViewCustomDataLOD& InOutLODData) const
+void FLandscapeComponentSceneProxy::CalculateBatchElementLOD(const FSceneView& InView, float InMeshScreenSizeSquared, float InViewLODScale, FViewCustomDataLOD& InOutLODData, bool InForceCombined) const
 {
 	float SquaredViewLODScale = FMath::Square(InViewLODScale);
 
@@ -1676,7 +1688,7 @@ void FLandscapeComponentSceneProxy::CalculateBatchElementLOD(const FSceneView& I
 			}
 		}
 
-		if (!GLandscapeDebugOptions.IsCombinedDisabled() && (AllSubSectionHaveSameScreenSize || GLandscapeDebugOptions.IsCombinedAll() || ForcedLOD != INDEX_NONE))
+		if (!GLandscapeDebugOptions.IsCombinedDisabled() && (AllSubSectionHaveSameScreenSize || GLandscapeDebugOptions.IsCombinedAll() || ForcedLOD != INDEX_NONE || InForceCombined))
 		{
 			InOutLODData.UseCombinedMeshBatch = true;
 
@@ -1787,8 +1799,7 @@ void* FLandscapeComponentSceneProxy::InitViewCustomData(const FSceneView& InView
 	PrimitiveCustomDataIndex = GetPrimitiveSceneInfo()->GetIndex();
 	const FSceneView& View = GetLODView(InView);
 
-	FViewCustomDataLOD* LODData = (FViewCustomDataLOD*)new(InCustomDataMemStack)  FViewCustomDataLOD();
-	LODData->SubSections.AddDefaulted(NumSubsections == 1 ? 1 : MAX_SUBSECTION_COUNT);
+	FViewCustomDataLOD* LODData = new (InCustomDataMemStack) FViewCustomDataLOD();
 
 	check(InMeshScreenSizeSquared <= 1.0f);
 	LODData->ComponentScreenSize = InMeshScreenSizeSquared;
@@ -1972,7 +1983,6 @@ float FLandscapeComponentSceneProxy::GetNeighborLOD(const FSceneView& InView, fl
 			float MeshBatchScreenSizeSquared = GetComponentScreenSize(&GetLODView(InView), SubSectionOrigin, SubSectionMaxExtend, LandscapeComponent->Bounds.SphereRadius / 2.0f);
 
 			FViewCustomDataLOD NeighborLODData;
-			NeighborLODData.SubSections.AddDefaulted(MAX_SUBSECTION_COUNT);
 			CalculateLODFromScreenSize(InView, MeshBatchScreenSizeSquared, InView.LODDistanceFactor, DesiredSubSectionIndex, NeighborLODData);
 			const FViewCustomDataSubSectionLOD& SubSectionData = NeighborLODData.SubSections[DesiredSubSectionIndex];
 			check(SubSectionData.fBatchElementCurrentLOD != -1.0f);
@@ -1987,7 +1997,6 @@ float FLandscapeComponentSceneProxy::GetNeighborLOD(const FSceneView& InView, fl
 			float MeshBatchScreenSizeSquared = GetComponentScreenSize(&GetLODView(InView), LandscapeComponentOrigin, LandscapeComponentMaxExtends, LandscapeComponent->Bounds.SphereRadius);
 
 			FViewCustomDataLOD NeighborLODData;
-			NeighborLODData.SubSections.AddDefaulted(1);
 			CalculateLODFromScreenSize(InView, MeshBatchScreenSizeSquared, InView.LODDistanceFactor, 0, NeighborLODData);
 
 			FViewCustomDataSubSectionLOD& SubSectionLODData = NeighborLODData.SubSections[0];
@@ -3186,9 +3195,8 @@ public:
 			float ComponentScreenSize = SceneProxy->GetComponentScreenSize(&View, SceneProxy->LandscapeComponent->Bounds.Origin, SceneProxy->ComponentMaxExtend, SceneProxy->LandscapeComponent->Bounds.SphereRadius);
 			
 			FLandscapeComponentSceneProxy::FViewCustomDataLOD CurrentLODData;
-			CurrentLODData.SubSections.AddDefaulted(SceneProxy->NumSubsections == 1 ? 1 : FLandscapeComponentSceneProxy::MAX_SUBSECTION_COUNT);
-
-			SceneProxy->CalculateBatchElementLOD(InView, ComponentScreenSize, View.LODDistanceFactor, CurrentLODData);
+			SceneProxy->CalculateBatchElementLOD(InView, ComponentScreenSize, View.LODDistanceFactor, CurrentLODData, true);
+			check(CurrentLODData.UseCombinedMeshBatch);
 
 			if (LodBiasParameter.IsBound())
 			{
@@ -3205,17 +3213,7 @@ public:
 
 			if (SectionLodsParameter.IsBound())
 			{
-				if (CurrentLODData.UseCombinedMeshBatch)
-				{
-					SetShaderValue(RHICmdList, VertexShaderParamRef, SectionLodsParameter, CurrentLODData.ShaderCurrentLOD);
-				}
-				else
-				{
-					FVector4 ShaderCurrentLOD(ForceInitToZero);
-					ShaderCurrentLOD.Component(SubSectionIndex) = CurrentLODData.SubSections[SubSectionIndex].fBatchElementCurrentLOD;
-
-					SetShaderValue(RHICmdList, VertexShaderParamRef, SectionLodsParameter, ShaderCurrentLOD);
-				}
+				SetShaderValue(RHICmdList, VertexShaderParamRef, SectionLodsParameter, CurrentLODData.ShaderCurrentLOD);
 			}
 
 			if (NeighborSectionLodParameter.IsBound())
@@ -3232,18 +3230,7 @@ public:
 					}
 				}
 
-				if (CurrentLODData.UseCombinedMeshBatch)
-				{
-					SetShaderValue(RHICmdList, VertexShaderParamRef, NeighborSectionLodParameter, CurrentNeighborLOD);
-				}
-				else // in non combined, only the one representing us as we'll be called 4 times (once per sub section)
-				{
-					FVector4 ShaderCurrentNeighborLOD[4];
-					ShaderCurrentNeighborLOD[SubSectionIndex] = CurrentNeighborLOD[SubSectionIndex];
-					check(ShaderCurrentNeighborLOD[SubSectionIndex].X != -1.0f); // they should all match so only check the 1st one for simplicity
-
-					SetShaderValue(RHICmdList, VertexShaderParamRef, NeighborSectionLodParameter, ShaderCurrentNeighborLOD);
-				}
+				SetShaderValue(RHICmdList, VertexShaderParamRef, NeighborSectionLodParameter, CurrentNeighborLOD);
 			}				
 		}
 

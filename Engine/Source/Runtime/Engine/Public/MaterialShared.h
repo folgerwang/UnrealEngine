@@ -55,8 +55,6 @@ template <class ElementType> class TLinkedList;
 
 #define ALLOW_DITHERED_LOD_FOR_INSTANCED_STATIC_MESHES (1)
 
-#define USE_EDITOR_ONLY_DEFAULT_MATERIAL_FALLBACK	(WITH_EDITOR && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
-
 // disallow debug data in shipping or on non-desktop Test
 #define ALLOW_SHADERMAP_DEBUG_DATA (!(UE_BUILD_SHIPPING || (UE_BUILD_TEST && !PLATFORM_DESKTOP)))
 
@@ -1192,9 +1190,6 @@ public:
 	virtual bool HasNormalConnected() const { return false; }
 	virtual bool RequiresSynchronousCompilation() const { return false; };
 	virtual bool IsDefaultMaterial() const { return false; };
-#if USE_EDITOR_ONLY_DEFAULT_MATERIAL_FALLBACK
-	virtual bool IsEditorOnlyDefaultMaterial() const { return false; };
-#endif
 	virtual int32 GetNumCustomizedUVs() const { return 0; }
 	virtual int32 GetBlendableLocation() const { return 0; }
 	virtual bool GetBlendableOutputAlpha() const { return false; }
@@ -1865,9 +1860,6 @@ public:
 	ENGINE_API virtual FString GetFriendlyName() const override;
 	ENGINE_API virtual bool RequiresSynchronousCompilation() const override;
 	ENGINE_API virtual bool IsDefaultMaterial() const override;
-#if USE_EDITOR_ONLY_DEFAULT_MATERIAL_FALLBACK
-	ENGINE_API virtual bool IsEditorOnlyDefaultMaterial() const override;
-#endif
 	ENGINE_API virtual int32 GetNumCustomizedUVs() const override;
 	ENGINE_API virtual int32 GetBlendableLocation() const override;
 	ENGINE_API virtual bool GetBlendableOutputAlpha() const override;

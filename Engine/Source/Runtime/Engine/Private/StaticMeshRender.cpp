@@ -267,7 +267,7 @@ FStaticMeshSceneProxy::~FStaticMeshSceneProxy()
 void FStaticMeshSceneProxy::AddSpeedTreeWind()
 {
 #if STATICMESH_ENABLE_DEBUG_RENDERING
-	if (StaticMesh && StaticMesh->SpeedTreeWind.IsValid())
+	if (StaticMesh && RenderData && StaticMesh->SpeedTreeWind.IsValid())
 	{
 		for (int32 LODIndex = 0; LODIndex < RenderData->LODVertexFactories.Num(); ++LODIndex)
 		{
@@ -281,7 +281,7 @@ void FStaticMeshSceneProxy::AddSpeedTreeWind()
 void FStaticMeshSceneProxy::RemoveSpeedTreeWind()
 {
 #if STATICMESH_ENABLE_DEBUG_RENDERING
-	if (StaticMesh && StaticMesh->SpeedTreeWind.IsValid())
+	if (StaticMesh && RenderData && StaticMesh->SpeedTreeWind.IsValid())
 	{
 		for (int32 LODIndex = 0; LODIndex < RenderData->LODVertexFactories.Num(); ++LODIndex)
 		{

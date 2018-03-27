@@ -1711,6 +1711,8 @@ void USkeletalMesh::RegisterMorphTarget(UMorphTarget* MorphTarget)
 			MarkPackageDirty();
 			// need to refresh the map
 			InitMorphTargets();
+			// invalidate render data
+			InvalidateRenderData();
 		}
 	}
 }
@@ -1721,6 +1723,8 @@ void USkeletalMesh::UnregisterAllMorphTarget()
 	MarkPackageDirty();
 	// need to refresh the map
 	InitMorphTargets();
+	// invalidate render data
+	InvalidateRenderData();
 }
 
 void USkeletalMesh::UnregisterMorphTarget(UMorphTarget* MorphTarget)
@@ -1738,6 +1742,8 @@ void USkeletalMesh::UnregisterMorphTarget(UMorphTarget* MorphTarget)
 				MarkPackageDirty();
 				// need to refresh the map
 				InitMorphTargets();
+				// invalidate render data
+				InvalidateRenderData();
 				return;
 			}
 		}

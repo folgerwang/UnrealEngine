@@ -5,6 +5,7 @@
 #include "ILiveLinkSource.h"
 #include "MessageEndpoint.h"
 #include "IMessageContext.h"
+#include "HAL/ThreadSafeBool.h"
 
 class ILiveLinkClient;
 struct FLiveLinkPongMessage;
@@ -37,6 +38,8 @@ public:
 	virtual FText GetSourceMachineName() const { return SourceMachineName; }
 	virtual FText GetSourceStatus() const { return SourceStatus; }
 
+	bool SendHeartbeat();
+
 private:
 
 	// Message bus message handlers
@@ -64,4 +67,7 @@ private:
 
 	// Time we last recieved anything 
 	double ConnectionLastActive;
+
+	// Current Validity of Source
+	FThreadSafeBool bIsValid;
 };

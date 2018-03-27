@@ -805,10 +805,10 @@ public:
 		FMenuBuilder MenuBuilder( true, NULL );
 
 		FUIAction YesAction( FExecuteAction::CreateSP( this, &SGameplayCueEditorImpl::HandleOverrideTypeChange, true ) );
-		MenuBuilder.AddMenuEntry( GetOverrideTypeDropDownText_Explicit(true), LOCTEXT("GameplayCueEditor", "Show ALL POSSIBLE tags for overrides: including Tags that could exist but currently dont"), FSlateIcon(), YesAction );
+		MenuBuilder.AddMenuEntry( GetOverrideTypeDropDownText_Explicit(true), LOCTEXT("GameplayCueEditor_ShowAllOverrides", "Show ALL POSSIBLE tags for overrides: including Tags that could exist but currently don't"), FSlateIcon(), YesAction );
 
 		FUIAction NoAction( FExecuteAction::CreateSP( this, &SGameplayCueEditorImpl::HandleOverrideTypeChange, false ) );
-		MenuBuilder.AddMenuEntry( GetOverrideTypeDropDownText_Explicit(false), LOCTEXT("GameplayCueEditor", "ONLY show tags for overrides that exist/have been setup."), FSlateIcon(), NoAction );
+		MenuBuilder.AddMenuEntry( GetOverrideTypeDropDownText_Explicit(false), LOCTEXT("GameplayCueEditor_ShowValidOverrides", "ONLY show tags for overrides that exist/have been setup."), FSlateIcon(), NoAction );
 
 		return MenuBuilder.MakeWidget();
 	}

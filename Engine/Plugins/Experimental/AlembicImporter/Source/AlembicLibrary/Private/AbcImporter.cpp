@@ -294,7 +294,7 @@ const EAbcImportError FAbcImporter::ImportTrackData(const int32 InNumThreads, UA
 	// If Start==End or Start > End output error message due to invalid frame span
 	if (FrameSpan <= 0)
 	{
-		TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(EMessageSeverity::Error, FText::Format(LOCTEXT("NoFramesForMeshObject", "Invalid frame range specified {0} - {1}."), FText::FromString(FString::FromInt(StartFrameIndex)),FText::FromString(FString::FromInt(EndFrameIndex))));
+		TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(EMessageSeverity::Error, FText::Format(LOCTEXT("InvalidFrameRange", "Invalid frame range specified {0} - {1}."), FText::FromString(FString::FromInt(StartFrameIndex)),FText::FromString(FString::FromInt(EndFrameIndex))));
 		FAbcImportLogger::AddImportMessage(Message);
 		return AbcImportError_FailedToImportData;
 	}

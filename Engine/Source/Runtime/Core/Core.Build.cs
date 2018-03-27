@@ -107,13 +107,6 @@ public class Core : ModuleRules
 				"elftoolchain"
                 );
 
-			if (Target.Platform == UnrealTargetPlatform.Linux)
-			{
-				AddEngineThirdPartyPrivateStaticDependencies(Target,
-					"SDL2"
-					);
-			}
-
 			// Core uses dlopen()
 			PublicAdditionalLibraries.Add("dl");
         }

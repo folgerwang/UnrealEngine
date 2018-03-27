@@ -52,6 +52,7 @@ struct FKeyboardConfig
 #if HAS_METAL
 	// global metal device
 	id<MTLDevice> MetalDevice;
+	id<CAMetalDrawable> PanicDrawable;
 #endif
 
 	// are we using the Metal API?

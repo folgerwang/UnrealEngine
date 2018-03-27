@@ -30,6 +30,8 @@
 #include "Widgets/Images/SImage.h"
 #include "MaterialEditor/MaterialEditorPreviewParameters.h"
 #include "Widgets/Input/SButton.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Materials/MaterialFunctionInstance.h"
 
 
 #define LOCTEXT_NAMESPACE "MaterialLayerCustomization"
@@ -96,6 +98,19 @@ public:
 		return GetFilterState(InTree, InStackData) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 
+	FText GetLayerName(SMaterialLayersFunctionsInstanceTree* InTree, int32 Counter) const
+	{
+		return InTree->FunctionInstance->GetLayerName(Counter);
+	}
+
+	void OnNameChanged(const FText& InText, ETextCommit::Type CommitInfo, SMaterialLayersFunctionsInstanceTree* InTree, int32 Counter)
+	{
+		const FScopedTransaction Transaction(LOCTEXT("RenamedSection", "Renamed layer and blend section"));
+		InTree->FunctionInstanceHandle->NotifyPreChange();
+		InTree->FunctionInstance->LayerNames[Counter] = InText;
+		InTree->FunctionInstanceHandle->NotifyPostChange();
+	};
+
 	/**
 	* Construct the widget
 	*
@@ -161,7 +176,26 @@ public:
 				TSharedPtr<SBox> ThumbnailBox;
 				UObject* AssetObject;
 				AssetChild->ParameterHandle->GetValue(AssetObject);
-				const TSharedPtr<FAssetThumbnail> AssetThumbnail = MakeShareable(new FAssetThumbnail(AssetObject, ThumbnailSize, ThumbnailSize, InArgs._InTree->GetTreeThumbnailPool()));
+				int32 PreviewIndex = INDEX_NONE;
+				int32 ThumbnailIndex = INDEX_NONE;
+				EMaterialParameterAssociation PreviewAssociation = EMaterialParameterAssociation::GlobalParameter;
+				if (AssetObject)
+				{
+					if (Cast<UMaterialFunctionInterface>(AssetObject)->GetMaterialFunctionUsage() == EMaterialFunctionUsage::MaterialLayer)
+					{
+						PreviewIndex = StackParameterData->ParameterInfo.Index;
+						PreviewAssociation = EMaterialParameterAssociation::LayerParameter;
+						Tree->UpdateThumbnailMaterial(PreviewAssociation, PreviewIndex);
+						ThumbnailIndex = PreviewIndex;
+					}
+					if (Cast<UMaterialFunctionInterface>(AssetObject)->GetMaterialFunctionUsage() == EMaterialFunctionUsage::MaterialLayerBlend)
+					{
+						PreviewIndex = StackParameterData->ParameterInfo.Index;
+						PreviewAssociation = EMaterialParameterAssociation::BlendParameter;
+						Tree->UpdateThumbnailMaterial(PreviewAssociation, PreviewIndex, true);
+						ThumbnailIndex = PreviewIndex - 1;
+					}
+				}
 				HeaderRowWidget->AddSlot()
 					.AutoWidth()
 					.HAlign(HAlign_Center)
@@ -171,25 +205,29 @@ public:
 					[
 						SAssignNew(ThumbnailBox, SBox)
 						[
-							AssetThumbnail->MakeThumbnailWidget()
+							Tree->CreateThumbnailWidget(PreviewAssociation, ThumbnailIndex, ThumbnailSize)
 						]
 					];
 				ThumbnailBox->SetMaxDesiredHeight(ThumbnailSize);
 				ThumbnailBox->SetMinDesiredHeight(ThumbnailSize);
+				ThumbnailBox->SetMinDesiredWidth(ThumbnailSize);
+				ThumbnailBox->SetMaxDesiredWidth(ThumbnailSize);
 			}
 
-			HeaderRowWidget->AddSlot()
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				.Padding(5.0f)
-				[
-					SNew(STextBlock)
-					.Text(NameOverride)
-				.TextStyle(FEditorStyle::Get(), "NormalText.Important")
-				];
+		
 
-			if (StackParameterData->ParameterInfo.Index != 0 && FMaterialPropertyHelpers::IsOverriddenExpression(Tree->FunctionParameter))
+			if (StackParameterData->ParameterInfo.Index != 0)
 			{
+				HeaderRowWidget->AddSlot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					.Padding(5.0f)
+					[
+						SNew(SInlineEditableTextBlock)
+						.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::GetLayerName, InArgs._InTree, StackParameterData->ParameterInfo.Index)))
+						.OnTextCommitted(FOnTextCommitted::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::OnNameChanged, InArgs._InTree, StackParameterData->ParameterInfo.Index))
+						.Font(FEditorStyle::GetFontStyle(TEXT("MaterialEditor.Layers.EditableFontImportant")))
+					];
 				HeaderRowWidget->AddSlot()
 					.FillWidth(1.0f)
 					.VAlign(VAlign_Center)
@@ -202,6 +240,18 @@ public:
 					.Padding(0.0f, 0.0f, 5.0f, 0.0f)
 					[
 						PropertyCustomizationHelpers::MakeClearButton(FSimpleDelegate::CreateSP(InArgs._InTree, &SMaterialLayersFunctionsInstanceTree::RemoveLayer, StackParameterData->ParameterInfo.Index))
+					];
+			}
+			else
+			{
+				HeaderRowWidget->AddSlot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					.Padding(5.0f)
+					[
+						SNew(STextBlock)
+						.Text(NameOverride)
+						.TextStyle(FEditorStyle::Get(), "NormalText.Important")
 					];
 			}
 			LeftSideWidget = HeaderRowWidget;
@@ -224,12 +274,6 @@ public:
 // ASSET --------------------------------------------------
 		if (StackParameterData->StackDataType == EStackDataType::Asset)
 		{
-			TSharedRef<STextBlock> ParentTextBlock = SNew(STextBlock)
-				.Text(LOCTEXT("Parent", "Parent "))
-				.TextStyle(FEditorStyle::Get(), "TinyText");
-			ParentTextBlock->SetToolTipText(LOCTEXT("ParentTooltip", "This allows you to set the parent class of your layer or blend asset to filter the possible assets to use."));
-			ParentTextBlock->EnableToolTipForceField(true);
-
 			FOnSetObject ObjectChanged = FOnSetObject::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::RefreshOnRowChange, Tree);
 			StackParameterData->ParameterHandle->GetProperty()->SetMetaData(FName(TEXT("DisplayThumbnail")), TEXT("true"));
 			FIntPoint ThumbnailOverride;
@@ -263,42 +307,119 @@ public:
 
 			FOnSetObject AssetChanged = FOnSetObject::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::RefreshOnAssetChange, StackParameterData->ParameterInfo.Index, InAssociation);
 
-			RightSideWidget = SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.FillWidth(1.0)
+			FOnClicked OnChildButtonClicked;
+			FOnClicked OnSiblingButtonClicked;
+			UMaterialFunctionInterface* LocalFunction = nullptr;
+			TSharedPtr<SBox> ThumbnailBox;
+
+			if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
+			{
+				LocalFunction = Tree->FunctionInstance->Layers[StackParameterData->ParameterInfo.Index];
+			}
+			else if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter)
+			{
+				LocalFunction = Tree->FunctionInstance->Blends[StackParameterData->ParameterInfo.Index];
+			}
+
+			OnChildButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewLayerInstance,
+				ImplicitConv<UMaterialFunctionInterface*>(LocalFunction), StackParameterData);
+
+			TSharedPtr<SHorizontalBox> SaveInstanceBox;
+
+			RightSideWidget = SNew(SVerticalBox)
+				+SVerticalBox::Slot()
 				[
-					SNew(SObjectPropertyEntryBox)
-					.AllowedClass(UMaterialFunctionInterface::StaticClass())
-					.ObjectPath(this, &SMaterialLayersFunctionsInstanceTreeItem::GetInstancePath, Tree)
-					.ThumbnailPool(Tree->GetTreeThumbnailPool())
-					.OnShouldFilterAsset(AssetFilter)
-					.OnObjectChanged(AssetChanged)
-					.CustomResetToDefault(ResetAssetOverride)
-					.DisplayCompactSize(true)
-					.ThumbnailSizeOverride(ThumbnailOverride)
-					.NewAssetFactories(FMaterialPropertyHelpers::GetAssetFactories(InAssociation))
-				]
-				+ SHorizontalBox::Slot()
-				.Padding(0.0f, 2.0f, 0.0f, 0.0f)
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				[
-					SNew(SCheckBox)
-					.Type(ESlateCheckBoxType::ToggleButton)
-					.Style(&FCoreStyle::Get().GetWidgetStyle< FCheckBoxStyle >("ToggleButtonCheckbox"))
-					.OnCheckStateChanged(this, &SMaterialLayersFunctionsInstanceTreeItem::FilterClicked, InArgs._InTree, StackParameterData)
-					.IsChecked(this, &SMaterialLayersFunctionsInstanceTreeItem::GetFilterChecked, InArgs._InTree, StackParameterData)
-					.ToolTipText(LOCTEXT("FilterLayerAssets", "Filter asset picker to only show related layers or blends. \nStaying within the inheritance hierarchy can improve instruction count."))
-					.Content()
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.HAlign(HAlign_Center)
+					.VAlign(VAlign_Center)
+					.Padding(4.0f)
+					.MaxWidth(ThumbnailOverride.X)
 					[
-						SNew(STextBlock)
-						.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
-						.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
-						.Text(FText::FromString(FString(TEXT("\xf0b0"))) /*fa-filter*/)
+						SAssignNew(ThumbnailBox, SBox)
+						[
+							Tree->CreateThumbnailWidget(StackParameterData->ParameterInfo.Association, StackParameterData->ParameterInfo.Index, ThumbnailOverride.X)
+						]
+					]
+					+ SHorizontalBox::Slot()
+					.FillWidth(1.0)
+					[
+						SNew(SObjectPropertyEntryBox)
+						.AllowedClass(UMaterialFunctionInterface::StaticClass())
+						.ObjectPath(this, &SMaterialLayersFunctionsInstanceTreeItem::GetInstancePath, Tree)
+						.OnShouldFilterAsset(AssetFilter)
+						.OnObjectChanged(AssetChanged)
+						.CustomResetToDefault(ResetAssetOverride)
+						.DisplayCompactSize(true)
+						.NewAssetFactories(FMaterialPropertyHelpers::GetAssetFactories(InAssociation))
+					]
+					+ SHorizontalBox::Slot()
+					.Padding(0.0f, 2.0f, 0.0f, 0.0f)
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					[
+						SNew(SCheckBox)
+						.Type(ESlateCheckBoxType::ToggleButton)
+						.Style(&FCoreStyle::Get().GetWidgetStyle< FCheckBoxStyle >("ToggleButtonCheckbox"))
+						.OnCheckStateChanged(this, &SMaterialLayersFunctionsInstanceTreeItem::FilterClicked, InArgs._InTree, StackParameterData)
+						.IsChecked(this, &SMaterialLayersFunctionsInstanceTreeItem::GetFilterChecked, InArgs._InTree, StackParameterData)
+						.ToolTipText(LOCTEXT("FilterLayerAssets", "Filter asset picker to only show related layers or blends. \nStaying within the inheritance hierarchy can improve instruction count."))
+						.Content()
+						[
+							SNew(STextBlock)
+							.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
+							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
+							.Text(FText::FromString(FString(TEXT("\xf0b0"))) /*fa-filter*/)
+						]
+					]
+				]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SAssignNew(SaveInstanceBox, SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.FillWidth(1.0)
+					[
+						SNullWidget::NullWidget
 					]
 				]
 			;
+			ThumbnailBox->SetMaxDesiredHeight(ThumbnailOverride.Y);
+			ThumbnailBox->SetMinDesiredHeight(ThumbnailOverride.Y);
+			ThumbnailBox->SetMinDesiredWidth(ThumbnailOverride.X);
+			ThumbnailBox->SetMaxDesiredWidth(ThumbnailOverride.X);
 
+			SaveInstanceBox->AddSlot()
+				.AutoWidth()
+				.Padding(2.0f)
+				[
+					SNew(SButton)
+					.ButtonStyle(FEditorStyle::Get(), "FlatButton.Dark")
+					.HAlign(HAlign_Center)
+					.OnClicked(OnChildButtonClicked)
+					.ToolTipText(LOCTEXT("SaveToChildInstance", "Save To Child Instance"))
+					.Content()
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
+							.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+							.Text(FText::FromString(FString(TEXT("\xf0c7 \xf149"))) /*fa-filter*/)
+						]
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+							.Text(FText::FromString(FString(TEXT(" Save Child"))) /*fa-filter*/)
+						]
+					]
+				];
 			
 			const int32 LayerStateIndex = InAssociation == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
 			const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex];
@@ -476,8 +597,11 @@ public:
 			LeftSideWidget = NodeWidgets.NameWidget.ToSharedRef();
 			RightSideWidget = NodeWidgets.ValueWidget.ToSharedRef();
 
+			StackParameterData->ParameterNode->CreatePropertyHandle()->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::UpdateThumbnailMaterial, StackParameterData->ParameterInfo.Association, StackParameterData->ParameterInfo.Index, false));
+			StackParameterData->ParameterNode->CreatePropertyHandle()->SetOnChildPropertyValueChanged(FSimpleDelegate::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::UpdateThumbnailMaterial, StackParameterData->ParameterInfo.Association, StackParameterData->ParameterInfo.Index, false));
+
 			const int32 LayerStateIndex = StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
-			const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex];
+			const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && Tree->FunctionInstance->LayerStates[LayerStateIndex];
 			LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
 			RightSideWidget->SetEnabled(bEnabled);
 		}
@@ -491,7 +615,7 @@ public:
 			RightSideWidget = NodeWidgets.ValueWidget.ToSharedRef();
 
 			const int32 LayerStateIndex = StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
-			const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex];
+			const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && Tree->FunctionInstance->LayerStates[LayerStateIndex];
 			LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
 			RightSideWidget->SetEnabled(bEnabled);
 		}
@@ -637,14 +761,16 @@ void SMaterialLayersFunctionsInstanceTree::Construct(const FArguments& InArgs)
 	{
 		if (FunctionInstance->Layers.Num() != FunctionInstance->RestrictToLayerRelatives.Num())
 		{
-			for (int32 LayerIt = 0; LayerIt < FunctionInstance->Layers.Num() - FunctionInstance->RestrictToLayerRelatives.Num(); LayerIt++)
+			int32 OriginalSize = FunctionInstance->RestrictToLayerRelatives.Num();
+			for (int32 LayerIt = 0; LayerIt < FunctionInstance->Layers.Num() - OriginalSize; LayerIt++)
 			{
 				FunctionInstance->RestrictToLayerRelatives.Add(false);
 			}
 		}
 		if (FunctionInstance->Blends.Num() != FunctionInstance->RestrictToBlendRelatives.Num())
 		{
-			for (int32 BlendIt = 0; BlendIt < FunctionInstance->Blends.Num() - FunctionInstance->RestrictToBlendRelatives.Num(); BlendIt++)
+			int32 OriginalSize = FunctionInstance->RestrictToBlendRelatives.Num();
+			for (int32 BlendIt = 0; BlendIt < FunctionInstance->Blends.Num() - OriginalSize; BlendIt++)
 			{
 				FunctionInstance->RestrictToBlendRelatives.Add(false);
 			}
@@ -719,13 +845,17 @@ void SMaterialLayersFunctionsInstanceTree::SetParentsExpansionState()
 void SMaterialLayersFunctionsInstanceTree::RefreshOnAssetChange(const struct FAssetData& InAssetData, int32 Index, EMaterialParameterAssociation MaterialType)
 {
 	FMaterialPropertyHelpers::OnMaterialLayerAssetChanged(InAssetData, Index, MaterialType, FunctionInstanceHandle, FunctionInstance);
+	//set their overrides back to 0
+	MaterialEditorInstance->CleanParameterStack(Index, MaterialType);
 	CreateGroupsWidget();
+	MaterialEditorInstance->ResetOverrides(Index, MaterialType);
 	RequestTreeRefresh();
 }
 
 void SMaterialLayersFunctionsInstanceTree::ResetAssetToDefault(TSharedPtr<IPropertyHandle> InHandle, TSharedPtr<FStackSortedData> InData)
 {
 	FMaterialPropertyHelpers::ResetLayerAssetToDefault(FunctionInstanceHandle.ToSharedRef(), InData->Parameter, InData->ParameterInfo.Association, InData->ParameterInfo.Index, MaterialEditorInstance);
+	UpdateThumbnailMaterial(InData->ParameterInfo.Association, InData->ParameterInfo.Index, true);
 	CreateGroupsWidget();
 	RequestTreeRefresh();
 }
@@ -768,7 +898,7 @@ TSharedPtr<class FAssetThumbnailPool> SMaterialLayersFunctionsInstanceTree::GetT
 void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 {
 	check(MaterialEditorInstance);
-
+	MaterialEditorInstance->RegenerateArrays();
 	NonLayerProperties.Empty();
 	LayerProperties.Empty();
 	FunctionParameter = nullptr;
@@ -842,6 +972,16 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 				LayerHandle->GetNumChildren(LayerChildren);
 				uint32 BlendChildren;
 				BlendHandle->GetNumChildren(BlendChildren);
+				if (MaterialEditorInstance->StoredLayerPreviews.Num() != LayerChildren)
+				{
+					MaterialEditorInstance->StoredLayerPreviews.Empty();
+					MaterialEditorInstance->StoredLayerPreviews.AddDefaulted(LayerChildren);
+				}
+				if (MaterialEditorInstance->StoredBlendPreviews.Num() != BlendChildren)
+				{
+					MaterialEditorInstance->StoredBlendPreviews.Empty();
+					MaterialEditorInstance->StoredBlendPreviews.AddDefaulted(BlendChildren);
+				}
 					
 				TSharedPtr<FStackSortedData> StackProperty(new FStackSortedData());
 				StackProperty->StackDataType = EStackDataType::Stack;
@@ -858,6 +998,21 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 				ChildProperty->ParameterInfo.Index = LayerChildren - 1;
 				ChildProperty->ParameterInfo.Association = EMaterialParameterAssociation::LayerParameter;
 				ChildProperty->NodeKey = FString::FromInt(ChildProperty->ParameterInfo.Index) + FString::FromInt(ChildProperty->ParameterInfo.Association);
+				
+				UObject* AssetObject;
+				ChildProperty->ParameterHandle->GetValue(AssetObject);
+				if (AssetObject)
+				{
+					if (MaterialEditorInstance->StoredLayerPreviews[LayerChildren - 1] == nullptr)
+					{
+						MaterialEditorInstance->StoredLayerPreviews[LayerChildren - 1] = (NewObject<UMaterialInstanceConstant>(MaterialEditorInstance, NAME_None));
+					}
+					UMaterialInterface* EditedMaterial = Cast<UMaterialInterface>(Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial());
+					if (MaterialEditorInstance->StoredLayerPreviews[LayerChildren - 1] && MaterialEditorInstance->StoredLayerPreviews[LayerChildren - 1]->Parent != EditedMaterial)
+					{
+						MaterialEditorInstance->StoredLayerPreviews[LayerChildren - 1]->SetParentEditorOnly(EditedMaterial);
+					}
+				}
 
 				StackProperty->Children.Add(ChildProperty);
 				LayerProperties.Add(StackProperty);
@@ -874,6 +1029,19 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 						ChildProperty->ParameterInfo.Index = Counter;
 						ChildProperty->ParameterInfo.Association = EMaterialParameterAssociation::BlendParameter;
 						ChildProperty->NodeKey = FString::FromInt(ChildProperty->ParameterInfo.Index) + FString::FromInt(ChildProperty->ParameterInfo.Association);
+						ChildProperty->ParameterHandle->GetValue(AssetObject);
+						if (AssetObject)
+						{
+							if (MaterialEditorInstance->StoredBlendPreviews[Counter] == nullptr)
+							{
+								MaterialEditorInstance->StoredBlendPreviews[Counter] = (NewObject<UMaterialInstanceConstant>(MaterialEditorInstance, NAME_None));
+							}
+							UMaterialInterface* EditedMaterial = Cast<UMaterialInterface>(Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial());
+							if (MaterialEditorInstance->StoredBlendPreviews[Counter] && MaterialEditorInstance->StoredBlendPreviews[Counter]->Parent != EditedMaterial)
+							{
+								MaterialEditorInstance->StoredBlendPreviews[Counter]->SetParentEditorOnly(EditedMaterial);
+							}
+						}
 						LayerProperties.Last()->Children.Add(ChildProperty);
 							
 						StackProperty = MakeShareable(new FStackSortedData());
@@ -891,7 +1059,19 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 						ChildProperty->ParameterInfo.Index = Counter;
 						ChildProperty->ParameterInfo.Association = EMaterialParameterAssociation::LayerParameter;
 						ChildProperty->NodeKey = FString::FromInt(ChildProperty->ParameterInfo.Index) + FString::FromInt(ChildProperty->ParameterInfo.Association);
-
+						ChildProperty->ParameterHandle->GetValue(AssetObject);
+						if (AssetObject)
+						{
+							if (MaterialEditorInstance->StoredLayerPreviews[Counter] == nullptr)
+							{
+								MaterialEditorInstance->StoredLayerPreviews[Counter] = (NewObject<UMaterialInstanceConstant>(MaterialEditorInstance, NAME_None));
+							}
+							UMaterialInterface* EditedMaterial = Cast<UMaterialInterface>(Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial());
+							if (MaterialEditorInstance->StoredLayerPreviews[Counter] && MaterialEditorInstance->StoredLayerPreviews[Counter]->Parent != EditedMaterial)
+							{
+								MaterialEditorInstance->StoredLayerPreviews[Counter]->SetParentEditorOnly(EditedMaterial);
+							}
+						}
 						LayerProperties.Last()->Children.Add(ChildProperty);
 					}
 				}
@@ -931,6 +1111,71 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 bool SMaterialLayersFunctionsInstanceTree::IsLayerVisible(int32 Index) const
 {
 	return FunctionInstance->GetLayerVisibility(Index);
+}
+
+TSharedRef<SWidget> SMaterialLayersFunctionsInstanceTree::CreateThumbnailWidget(EMaterialParameterAssociation InAssociation, int32 InIndex, float InThumbnailSize)
+{
+	UObject* ThumbnailObject = nullptr;
+	if (InAssociation == EMaterialParameterAssociation::LayerParameter)
+	{
+		ThumbnailObject = MaterialEditorInstance->StoredLayerPreviews[InIndex];
+	}
+	else if (InAssociation == EMaterialParameterAssociation::BlendParameter)
+	{
+		ThumbnailObject = MaterialEditorInstance->StoredBlendPreviews[InIndex];
+	}
+	const TSharedPtr<FAssetThumbnail> AssetThumbnail = MakeShareable(new FAssetThumbnail(ThumbnailObject, InThumbnailSize, InThumbnailSize, GetTreeThumbnailPool()));
+	return AssetThumbnail->MakeThumbnailWidget();
+}
+
+void SMaterialLayersFunctionsInstanceTree::UpdateThumbnailMaterial(TEnumAsByte<EMaterialParameterAssociation> InAssociation, int32 InIndex, bool bAlterBlendIndex)
+{
+	// Need to invert index b/c layer properties is generated in reverse order
+	TArray<TSharedPtr<FStackSortedData>> AssetChildren = LayerProperties[LayerProperties.Num() - 1 - InIndex]->Children;
+	UMaterialInstanceConstant* MaterialToUpdate = nullptr;
+	int32 ParameterIndex = InIndex;
+	if (InAssociation == EMaterialParameterAssociation::LayerParameter)
+	{
+		MaterialToUpdate = MaterialEditorInstance->StoredLayerPreviews[ParameterIndex];
+	}
+	if (InAssociation == EMaterialParameterAssociation::BlendParameter)
+	{
+		if (bAlterBlendIndex)
+		{
+			ParameterIndex--;
+		}
+		MaterialToUpdate = MaterialEditorInstance->StoredBlendPreviews[ParameterIndex];
+	}
+
+	TArray<FEditorParameterGroup> ParameterGroups;
+	for (TSharedPtr<FStackSortedData> AssetChild : AssetChildren)
+	{
+		for (TSharedPtr<FStackSortedData> Group : AssetChild->Children)
+		{
+			if (Group->ParameterInfo.Association == InAssociation)
+			{
+				FEditorParameterGroup DuplicatedGroup = FEditorParameterGroup();
+				DuplicatedGroup.GroupAssociation = Group->Group.GroupAssociation;
+				DuplicatedGroup.GroupName = Group->Group.GroupName;
+				DuplicatedGroup.GroupSortPriority = Group->Group.GroupSortPriority;
+				for (UDEditorParameterValue* Parameter : Group->Group.Parameters)
+				{
+					if (Parameter->ParameterInfo.Index == ParameterIndex)
+					{
+						DuplicatedGroup.Parameters.Add(Parameter);
+					}
+				}
+				ParameterGroups.Add(DuplicatedGroup);
+			}
+		}
+
+	
+
+	}
+	if (MaterialToUpdate != nullptr)
+	{
+		FMaterialPropertyHelpers::TransitionAndCopyParameters(MaterialToUpdate, ParameterGroups);
+	}
 }
 
 void SMaterialLayersFunctionsInstanceTree::ShowSubParameters(TSharedPtr<FStackSortedData> ParentParameter)
@@ -1062,18 +1307,58 @@ void SMaterialLayersFunctionsInstanceWrapper::Refresh()
 				.Padding(2.0f)
 				[
 					SNew(SButton)
-					.HAlign(HAlign_Right)
+					.ButtonStyle(FEditorStyle::Get(), "FlatButton.DarkGrey")
+					.HAlign(HAlign_Center)
 					.OnClicked(OnSiblingButtonClicked)
-					.Text(LOCTEXT("SaveToSiblingInstance", "Save To Sibling Instance"))
+					.ToolTipText(LOCTEXT("SaveToSiblingInstance", "Save To Sibling Instance"))
+					.Content()
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
+							.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+							.Text(FText::FromString(FString(TEXT("\xf0c7 \xf178"))) /*fa-filter*/)
+						]
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+						.Text(FText::FromString(FString(TEXT(" Save Sibling"))) /*fa-filter*/)
+						]
+					]
 				];
 		HeaderBox->AddSlot()
 			.AutoWidth()
 			.Padding(2.0f)
 			[
 				SNew(SButton)
-				.HAlign(HAlign_Right)
+				.ButtonStyle(FEditorStyle::Get(), "FlatButton.DarkGrey")
+				.HAlign(HAlign_Center)
 				.OnClicked(OnChildButtonClicked)
-				.Text(LOCTEXT("SaveToChildInstance", "Save To Child Instance"))
+				.ToolTipText(LOCTEXT("SaveToChildInstance", "Save To Child Instance"))
+				.Content()
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
+						.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+						.Text(FText::FromString(FString(TEXT("\xf0c7 \xf149"))) /*fa-filter*/)
+					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+						.Text(FText::FromString(FString(TEXT(" Save Child"))) /*fa-filter*/)
+					]
+				]
 			];
 	}
 	else
@@ -1099,10 +1384,7 @@ void SMaterialLayersFunctionsInstanceWrapper::Construct(const FArguments& InArgs
 		.InWrapper(this);
 
 	LayerParameter = NestedTree->FunctionParameter;
-	if (LayerParameter != nullptr)
-	{
-		IsParamChecked = TAttribute<ECheckBoxState>::Create(TAttribute<ECheckBoxState>::FGetter::CreateStatic(&FMaterialPropertyHelpers::IsOverriddenExpressionCheckbox, LayerParameter));
-	}
+
 	MaterialEditorInstance = InArgs._InMaterialEditorInstance;
 	FEditorSupportDelegates::UpdateUI.AddSP(this, &SMaterialLayersFunctionsInstanceWrapper::Refresh);
 
@@ -1111,7 +1393,6 @@ void SMaterialLayersFunctionsInstanceWrapper::Construct(const FArguments& InArgs
 void SMaterialLayersFunctionsInstanceWrapper::SetEditorInstance(UMaterialEditorInstanceConstant* InMaterialEditorInstance)
 {
 	NestedTree->MaterialEditorInstance = InMaterialEditorInstance;
-	NestedTree->CreateGroupsWidget();
 	Refresh();
 }
 
@@ -1211,7 +1492,7 @@ public:
 				[
 					SNew(STextBlock)
 					.Text(NameOverride)
-					.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+					.TextStyle(FEditorStyle::Get(), "BoldText")
 				];
 			LeftSideWidget = HeaderRowWidget;
 		}
@@ -1230,12 +1511,6 @@ public:
 	// ASSET ---------------------------------------------------------------------
 		if (StackParameterData->StackDataType == EStackDataType::Asset)
 		{
-			TSharedRef<STextBlock> ParentTextBlock = SNew(STextBlock)
-				.Text(LOCTEXT("Parent", "Parent "))
-				.TextStyle(FEditorStyle::Get(), "TinyText");
-			ParentTextBlock->SetToolTipText(LOCTEXT("ParentTooltip", "This allows you to set the parent class of your layer or blend asset to filter the possible assets to use."));
-			ParentTextBlock->EnableToolTipForceField(true);
-
 			if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
 			{
 				NameOverride = FMaterialPropertyHelpers::LayerID;
@@ -1614,9 +1889,29 @@ void SMaterialLayersFunctionsMaterialWrapper::Refresh()
 					.Padding(2.0f)
 					[
 						SNew(SButton)
-						.HAlign(HAlign_Right)
+						.ButtonStyle(FEditorStyle::Get(), "FlatButton.Dark")
+						.HAlign(HAlign_Center)
 						.OnClicked(OnChildButtonClicked)
-						.Text(LOCTEXT("SaveToChildInstance", "Save To Child Instance"))
+						.ToolTipText(LOCTEXT("SaveToChildInstance", "Save To Child Instance"))
+						.Content()
+						[
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							[
+								SNew(STextBlock)
+								.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
+								.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+								.Text(FText::FromString(FString(TEXT("\xf0c7 \xf149"))) /*fa-filter*/)
+							]
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							[
+								SNew(STextBlock)
+								.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+								.Text(FText::FromString(FString(TEXT(" Save Child"))) /*fa-filter*/)
+							]
+						]
 					]
 				]
 				+ SVerticalBox::Slot()

@@ -51,9 +51,13 @@ IMPLEMENT_MODULE(FGoogleARCoreBaseModule, GoogleARCoreBase)
 
 TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > FGoogleARCoreBaseModule::CreateTrackingSystem()
 {
+#if PLATFORM_ANDROID
 	TSharedPtr<FGoogleARCoreXRTrackingSystem, ESPMode::ThreadSafe> ARCoreSystem = NewARSystem<FGoogleARCoreXRTrackingSystem>();
 	FGoogleARCoreDevice::GetInstance()->SetARSystem(ARCoreSystem);
 	return ARCoreSystem;
+#else
+	return TSharedPtr<class IXRTrackingSystem, ESPMode::ThreadSafe>();
+#endif
 }
 
 void FGoogleARCoreBaseModule::StartupModule()
@@ -101,3 +105,5 @@ void FGoogleARCoreBaseModule::ShutdownModule()
 		SettingsModule->UnregisterSettings("Project", "Plugins", "GoogleARCore");
 	}
 }
+
+#undef LOCTEXT_NAMESPACE

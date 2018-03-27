@@ -53,7 +53,7 @@ namespace SteamAudio
 
 		DetailLayout.EditCategory("Baking").AddProperty(GET_MEMBER_NAME_CHECKED(UPhononSourceComponent, UniqueIdentifier));
 		DetailLayout.EditCategory("Baking").AddProperty(GET_MEMBER_NAME_CHECKED(UPhononSourceComponent, BakingRadius));
-		DetailLayout.EditCategory("Baking").AddCustomRow(NSLOCTEXT("PhononSourceComponentDetails", "Bake Propagation", "Bake Propagation"))
+		DetailLayout.EditCategory("Baking").AddCustomRow(NSLOCTEXT("SteamAudio", "Bake Propagation", "Bake Propagation"))
 			.NameContent()
 			[
 				SNullWidget::NullWidget
@@ -72,7 +72,7 @@ namespace SteamAudio
 					.OnClicked(this, &FPhononSourceComponentDetails::OnBakePropagation)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("PhononSourceComponentDetails", "Bake Propagation", "Bake Propagation"))
+						.Text(NSLOCTEXT("SteamAudio", "BakePropagation", "Bake Propagation"))
 						.Font(IDetailLayoutBuilder::GetDetailFont())
 					]
 				]

@@ -16,7 +16,7 @@
 // this is for the protocol, not the data, bump if FShaderCompilerInput or ProcessInputFromArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerInputVersion = 9;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
-const int32 ShaderCompileWorkerOutputVersion = 3;
+const int32 ShaderCompileWorkerOutputVersion = 4;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerSingleJobHeader = 'S';
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
@@ -142,6 +142,11 @@ static void ProcessCompilationJob(const FShaderCompilerInput& Input,FShaderCompi
 class FWorkLoop
 {
 public:
+	bool bIsBuildMachine = false;
+
+	// If we have been idle for 20 seconds then exit. Can be overriden from the cmd line with -TimeToLive=N where N is in seconds (and a float value)
+	float TimeToLive = 20.0f;
+
 	FWorkLoop(const TCHAR* ParentProcessIdText,const TCHAR* InWorkingDirectory,const TCHAR* InInputFilename,const TCHAR* InOutputFilename, TMap<FString, uint32>& InFormatVersionMap)
 	:	ParentProcessId(FCString::Atoi(ParentProcessIdText))
 	,	WorkingDirectory(InWorkingDirectory)
@@ -151,6 +156,22 @@ public:
 	,	OutputFilePath(FString(InWorkingDirectory) + InOutputFilename)
 	,	FormatVersionMap(InFormatVersionMap)
 	{
+		bIsBuildMachine = FParse::Param(FCommandLine::Get(), TEXT("buildmachine"));
+
+		TArray<FString> Tokens, Switches;
+		FCommandLine::Parse(FCommandLine::Get(), Tokens, Switches);
+		for (FString& Switch : Switches)
+		{
+			if (Switch.StartsWith(TEXT("TimeToLive=")))
+			{
+				float TokenTime = FCString::Atof(Switch.GetCharArray().GetData() + 11);
+				if (TokenTime > 0)
+				{
+					TimeToLive = TokenTime;
+					break;
+				}
+			}
+		}
 	}
 
 	void Loop()
@@ -504,6 +525,11 @@ private:
 		int32 OutputVersion = ShaderCompileWorkerOutputVersion;
 		OutputFile << OutputVersion;
 
+		// Temp size to be filled in after we finish
+		int64 FileSize = 0;
+		int64 FileSizePosition = OutputFile.Tell();
+		OutputFile << FileSize;
+
 		int32 ErrorCode = (int32)ESCWErrorCode::Success;
 		OutputFile << ErrorCode;
 
@@ -544,6 +570,11 @@ private:
 				}
 			}
 		}
+
+		// Go back and patch the size
+		FileSize = OutputFilePtr->Tell();
+		OutputFile.Seek(FileSizePosition);
+		OutputFile << FileSize;
 	}
 
 	/** Called in the idle loop, checks for conditions under which the helper should exit */
@@ -569,10 +600,9 @@ private:
 		}
 
 		const double CurrentTime = FPlatformTime::Seconds();
-		// If we have been idle for 20 seconds then exit
-		if (CurrentTime - LastCompileTime > 20.0)
+		if (CurrentTime - LastCompileTime > TimeToLive)
 		{
-			UE_LOG(LogShaders, Log, TEXT("No jobs found for 20 seconds, exiting"));
+			UE_LOG(LogShaders, Log, TEXT("No jobs found for %f seconds, exiting"), (float)(CurrentTime - LastCompileTime));
 			FPlatformMisc::RequestExit(false);
 		}
 #else
@@ -611,9 +641,9 @@ private:
 
 			const double CurrentTime = FPlatformTime::Seconds();
 			// If we have been idle for 20 seconds then exit
-			if (CurrentTime - LastCompileTime > 20.0)
+			if (CurrentTime - LastCompileTime > TimeToLive)
 			{
-				UE_LOG(LogShaders, Log, TEXT("No jobs found for 20 seconds, exiting"));
+				UE_LOG(LogShaders, Log, TEXT("No jobs found for %f seconds, exiting"), (float)(CurrentTime - LastCompileTime));
 				FPlatformMisc::RequestExit(false);
 			}
 		}

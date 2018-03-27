@@ -49,11 +49,13 @@ FMetalIndexBuffer::~FMetalIndexBuffer()
 
 void FMetalIndexBuffer::Alloc(uint32 InSize)
 {
+	bool const bUsePrivateMem = !(GetUsage() & BUF_Volatile) && FMetalCommandQueue::SupportsFeature(EMetalFeaturesEfficientBufferBlits);
+	
 	if (!Buffer)
 	{
 		LLM_SCOPE(ELLMTag::IndexBuffer);
 
-		MTLStorageMode Mode = (FMetalCommandQueue::SupportsFeature(EMetalFeaturesEfficientBufferBlits) ? MTLStorageModePrivate : BUFFER_STORAGE_MODE);
+		MTLStorageMode Mode = (bUsePrivateMem ? MTLStorageModePrivate : BUFFER_STORAGE_MODE);
 		Buffer = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), InSize, Mode));
 		INC_DWORD_STAT_BY(STAT_MetalIndexMemAlloc, InSize);
 			
@@ -101,7 +103,7 @@ void FMetalIndexBuffer::Alloc(uint32 InSize)
 		}
 	}
 	
-	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesEfficientBufferBlits))
+	if (bUsePrivateMem)
 	{
 		if(CPUBuffer)
 		{
@@ -168,7 +170,7 @@ void FMetalIndexBuffer::Unlock()
 	if (LockSize && CPUBuffer)
 	{
 		// Synchronise the buffer with the GPU
-		GetMetalDeviceContext().CopyFromBufferToBuffer(CPUBuffer, 0, Buffer, 0, Buffer.length);
+		GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(CPUBuffer, 0, Buffer, 0, Buffer.length);
 	}
 #if PLATFORM_MAC
 	else if(LockSize && Buffer.storageMode == MTLStorageModeManaged)
@@ -239,7 +241,7 @@ struct FMetalRHICommandInitialiseIndexBuffer : public FRHICommand<FMetalRHIComma
 	
 	void Execute(FRHICommandListBase& CmdList)
 	{
-		GetMetalDeviceContext().CopyFromBufferToBuffer(CPUBuffer, 0, Buffer, 0, Buffer.length);
+		GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(CPUBuffer, 0, Buffer, 0, Buffer.length);
 	}
 };
 
@@ -255,6 +257,8 @@ FIndexBufferRHIRef FMetalDynamicRHI::CreateIndexBuffer_RenderThread(class FRHICo
 			
 			if (IndexBuffer->CPUBuffer)
 			{
+				FMemory::Memzero(IndexBuffer->CPUBuffer.contents, IndexBuffer->CPUBuffer.length);
+				
 				FMemory::Memcpy(IndexBuffer->CPUBuffer.contents, CreateInfo.ResourceArray->GetResourceData(), Size);
 				
 				if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())

@@ -331,7 +331,7 @@ FReply FPaperTileMapDetailsCustomization::OnNewButtonClicked()
 	{
 		UPaperTileSet* OldTileSet = (TileMapComponent->TileMap != nullptr) ? TileMapComponent->TileMap->SelectedTileSet.Get() : nullptr;
 
-		const FScopedTransaction Transaction(LOCTEXT("CreateNewTileMap", "New Tile Map"));
+		const FScopedTransaction Transaction(LOCTEXT("CreateNewTileMapTransaction", "New Tile Map"));
 		TileMapComponent->Modify();
 		TileMapComponent->CreateNewOwnedTileMap();
 
@@ -352,7 +352,7 @@ FReply FPaperTileMapDetailsCustomization::OnPromoteToAssetButtonClicked()
 		{
 			if (TileMapComponent->TileMap != nullptr)
 			{
-				const FScopedTransaction Transaction(LOCTEXT("PromoteToAsset", "Convert Tile Map instance to an asset"));
+				const FScopedTransaction Transaction(LOCTEXT("PromoteToAssetTransactionTransaction", "Convert Tile Map instance to an asset"));
 
 				// Try promoting the tile map to be an asset (prompts for a name&path, creates a package and then calls the factory, which renames the existing asset and sets RF_Public)
 				UPaperTileMapPromotionFactory* PromotionFactory = NewObject<UPaperTileMapPromotionFactory>();
@@ -380,7 +380,7 @@ FReply FPaperTileMapDetailsCustomization::OnMakeInstanceFromAssetButtonClicked()
 	{
 		if (!TileMapComponent->OwnsTileMap())
 		{
-			const FScopedTransaction Transaction(LOCTEXT("ConvertToInstance", "Convert Tile Map asset to unique instance"));
+			const FScopedTransaction Transaction(LOCTEXT("ConvertToInstanceTransactionTransaction", "Convert Tile Map asset to unique instance"));
 
 			TileMapComponent->Modify();
 			TileMapComponent->MakeTileMapEditable();

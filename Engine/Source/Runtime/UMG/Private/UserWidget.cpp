@@ -23,6 +23,7 @@
 #include "UMGPrivate.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/PropertyPortFlags.h"
+#include "Compilation/MovieSceneCompiler.h"
 #include "TimerManager.h"
 
 DECLARE_CYCLE_STAT(TEXT("UserWidget Create"), STAT_CreateWidget, STATGROUP_Slate);
@@ -149,6 +150,10 @@ void UUserWidget::TemplateInitInner()
 
 			if ( DuplicatedAnimation->GetMovieScene() )
 			{
+				// Compile the animation template here since PreSave will not get called on the duplicated animation that was itself created during PreSave
+				FMovieSceneSequencePrecompiledTemplateStore Store;
+				FMovieSceneCompiler::Compile(*DuplicatedAnimation, Store);
+
 				// Find property with the same name as the template and assign the new widget to it.
 				UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(WidgetClass, DuplicatedAnimation->GetMovieScene()->GetFName());
 				if ( Prop )

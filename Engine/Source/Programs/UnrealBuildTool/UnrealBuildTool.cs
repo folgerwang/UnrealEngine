@@ -99,6 +99,16 @@ namespace UnrealBuildTool
 		public static readonly DirectoryReference EnterpriseSourceDirectory = DirectoryReference.Combine(EnterpriseDirectory, "Source");
 
 		/// <summary>
+		/// The full name of the Enterprise/Plugins directory
+		/// </summary>
+		public static readonly DirectoryReference EnterprisePluginsDirectory = DirectoryReference.Combine(EnterpriseDirectory, "Plugins");
+
+		/// <summary>
+		/// The full name of the Enterprise/Intermediate directory
+		/// </summary>
+		public static readonly DirectoryReference EnterpriseIntermediateDirectory = DirectoryReference.Combine(EnterpriseDirectory, "Intermediate");
+
+		/// <summary>
 		/// The Remote Ini directory.  This should always be valid when compiling using a remote server.
 		/// </summary>
 		static string RemoteIniPath = null;
@@ -284,7 +294,7 @@ namespace UnrealBuildTool
 		{
 			// Enterprise modules are considered as engine modules
 			return InDirectory.IsUnderDirectory( UnrealBuildTool.EngineDirectory ) || InDirectory.IsUnderDirectory( UnrealBuildTool.EnterpriseSourceDirectory ) ||
-				InDirectory.IsUnderDirectory( DirectoryReference.Combine( UnrealBuildTool.EnterpriseDirectory, "Plugins" ) );
+				InDirectory.IsUnderDirectory( UnrealBuildTool.EnterprisePluginsDirectory ) || InDirectory.IsUnderDirectory( UnrealBuildTool.EnterpriseIntermediateDirectory );
 		}
 
 		/// <summary>
@@ -298,7 +308,7 @@ namespace UnrealBuildTool
 			bool bIsUnderEngine = InDirectory.IsUnderDirectory( UnrealBuildTool.EngineDirectory );
 
 			bool bIsUnderEnterprise = InDirectory.IsUnderDirectory( UnrealBuildTool.EnterpriseSourceDirectory ) ||
-				InDirectory.IsUnderDirectory( DirectoryReference.Combine( UnrealBuildTool.EnterpriseDirectory, "Plugins" ) );
+				InDirectory.IsUnderDirectory(UnrealBuildTool.EnterprisePluginsDirectory) || InDirectory.IsUnderDirectory(UnrealBuildTool.EnterpriseIntermediateDirectory);
 
 			return (IsEngineInstalled() && bIsUnderEngine) || (IsEnterpriseInstalled() && bIsUnderEnterprise);
 		}
@@ -926,25 +936,10 @@ namespace UnrealBuildTool
 							}
 
 							// Read from the editor config
-							DirectoryReference EngineSavedDir = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Saved");
-							if(IsEngineInstalled())
+							ProjectFileFormat PreferredSourceCodeAccessor;
+							if(ProjectFileGenerator.GetPreferredSourceCodeAccessor(ProjectFile, out PreferredSourceCodeAccessor))
 							{
-								BuildVersion Version;
-								if(BuildVersion.TryRead(BuildVersion.GetDefaultFileName(), out Version))
-								{
-									EngineSavedDir = DirectoryReference.Combine(Utils.GetUserSettingDirectory(), "UnrealEngine", String.Format("{0}.{1}", Version.MajorVersion, Version.MinorVersion), "Saved");
-								}
-							}
-							ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.EditorSettings, DirectoryReference.FromFile(ProjectFile), BuildHostPlatform.Current.Platform, EngineSavedDir);
-
-							string PreferredAccessor;
-							if (Ini.GetString("/Script/SourceCodeAccess.SourceCodeAccessSettings", "PreferredAccessor", out PreferredAccessor))
-							{
-								ProjectFileFormat PreferredFormat;
-								if (Enum.TryParse(PreferredAccessor, out PreferredFormat))
-								{
-									ProjectFileFormats.Add(PreferredFormat);
-								}
+								ProjectFileFormats.Add(PreferredSourceCodeAccessor);
 							}
 
 							// If there's still nothing set, get the default project file format for this platform

@@ -19,9 +19,9 @@ public:
 
 	FGoogleARCoreDevice();
 
-	EGoogleARCoreAvailabilityInternal CheckARCoreAPKAvailability();
+	EGoogleARCoreAvailability CheckARCoreAPKAvailability();
 
-	EGoogleARCoreAPIStatus RequestInstall(bool bUserRequestedInstall, EGoogleARCoreInstallStatusInternal& OutInstallStatus);
+	EGoogleARCoreAPIStatus RequestInstall(bool bUserRequestedInstall, EGoogleARCoreInstallStatus& OutInstallStatus);
 
 	bool GetIsTrackingTypeSupported(EARSessionType SessionType);
 	
@@ -143,6 +143,8 @@ private:
 	bool bPermissionDeniedByUser;
 	bool bStartSessionRequested; // User called StartSession
 	bool bShouldSessionRestart; // Start tracking on activity start
+	bool bARCoreInstallRequested;
+	bool bARCoreInstalled;
 	float WorldToMeterScale;
 	class UARCoreAndroidPermissionHandler* PermissionHandler;
 	FThreadSafeBool bDisplayOrientationChanged;

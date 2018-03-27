@@ -407,7 +407,7 @@ FText SSequencerPlayRateCombo::GetToolTipText() const
 		FText FrameResolutionText = FrameResolutionInfo ? FrameResolutionInfo->DisplayName : FText::Format(LOCTEXT("FrameResolutionFormat", "{0} ticks every second"), FrameResolution.AsDecimal());
 
 		return FocusedMovieScene->GetEvaluationType() == EMovieSceneEvaluationType::FrameLocked
-			? FText::Format(LOCTEXT("ToolTip_Format", "This sequence is locked at runtime to {0} and uses an underlying tick resolution of {1}."), PlayRateText, FrameResolutionText)
+			? FText::Format(LOCTEXT("ToolTip_Format_FrameLocked", "This sequence is locked at runtime to {0} and uses an underlying tick resolution of {1}."), PlayRateText, FrameResolutionText)
 			: FText::Format(LOCTEXT("ToolTip_Format", "This sequence is being presented as {0} and uses an underlying tick resolution of {1}."), PlayRateText, FrameResolutionText);
 	}
 
