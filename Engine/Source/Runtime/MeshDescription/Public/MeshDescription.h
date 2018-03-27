@@ -256,7 +256,9 @@ public:
 
 	// UObject interface
 	virtual void Serialize( FArchive& Ar ) override;
+#if WITH_EDITOR
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
 
 	//Empty the meshdescription
 	void Empty();

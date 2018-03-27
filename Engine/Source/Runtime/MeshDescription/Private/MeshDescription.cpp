@@ -28,6 +28,7 @@ void UMeshDescription::Serialize( FArchive& Ar )
 	Ar << PolygonGroupAttributesSet;
 }
 
+#if WITH_EDITOR
 void UMeshDescription::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -35,6 +36,7 @@ void UMeshDescription::PostEditChangeProperty(FPropertyChangedEvent& PropertyCha
 	//We need to triangulate the mesh every time the mesh description change
 	TriangulateMesh();
 }
+#endif // WITH_EDITOR
 
 void UMeshDescription::Empty()
 {
