@@ -1387,8 +1387,7 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 	for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
 	{
 		FStaticMeshSourceModel& SrcModel = Mesh->SourceModels[LODIndex];
-		UMeshDescription* MeshDescription = Mesh->GetOriginalMeshDescription(LODIndex);
-		KeySuffix += (MeshDescription != nullptr) ? MeshDescription->GetIdString() : TEXT("NoOriginalMeshDescriptionForLod") + FString::FromInt(LODIndex);
+		KeySuffix += SrcModel.RawMeshBulkData->GetIdString();
 
 		// Serialize the build and reduction settings into a temporary array. The archive
 		// is flagged as persistent so that machines of different endianness produce
