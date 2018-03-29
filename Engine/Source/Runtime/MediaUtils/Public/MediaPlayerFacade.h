@@ -55,6 +55,9 @@ public:
 	/** Name of the desired native player, if any. */
 	FName DesiredPlayerName;
 
+	/** Extra time to reduce from current player's time. */
+	FTimespan TimeDelay;
+
 public:
 
 	/** Default constructor. */

@@ -815,6 +815,9 @@ namespace EWorldType
 		/** A preview world for a game */
 		GamePreview,
 
+		/** A minimal RPC world for a game */
+		GameRPC,
+
 		/** An editor world that was loaded but not currently being edited in the level editor */
 		Inactive
 	};
@@ -3395,7 +3398,7 @@ enum EPhysicalSurface
 
 
 /** Describes how often this component is allowed to move. */
-UENUM()
+UENUM(BlueprintType)
 namespace EComponentMobility
 {
 	enum Type

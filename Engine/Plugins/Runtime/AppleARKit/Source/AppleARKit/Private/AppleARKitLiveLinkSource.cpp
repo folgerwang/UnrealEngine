@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
 #include "AppleARKitLiveLinkSource.h"
 #include "UObject/Package.h"
@@ -128,7 +128,7 @@ void FAppleARKitLiveLinkSource::PublishBlendShapes(FName SubjectName, double Tim
 		LiveLinkFrame.WorldTime = Timestamp;
 
 		TArray<FLiveLinkCurveElement>& BlendShapes = LiveLinkFrame.CurveElements;
-		
+
 		BlendShapes.Reset((int32)EARFaceBlendShape::MAX);
 
 		// Iterate through all of the blend shapes copying them into the LiveLink data type

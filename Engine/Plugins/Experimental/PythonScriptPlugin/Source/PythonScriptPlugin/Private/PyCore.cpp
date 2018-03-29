@@ -90,6 +90,33 @@ UObject* GetPythonTypeContainer()
 	return GPythonTypeContainer.Get();
 }
 
+
+FPyWrapperDelegateHandle* FPyWrapperDelegateHandle::CreateInstance(const FDelegateHandle& InValue)
+{
+	FPyWrapperDelegateHandlePtr NewInstance = FPyWrapperDelegateHandlePtr::StealReference(FPyWrapperDelegateHandle::New(&PyDelegateHandleType));
+	if (NewInstance)
+	{
+		if (FPyWrapperDelegateHandle::Init(NewInstance, InValue) != 0)
+		{
+			PyUtil::LogPythonError();
+			return nullptr;
+		}
+	}
+	return NewInstance.Release();
+}
+
+FPyWrapperDelegateHandle* FPyWrapperDelegateHandle::CastPyObject(PyObject* InPyObject)
+{
+	if (PyObject_IsInstance(InPyObject, (PyObject*)&PyDelegateHandleType) == 1)
+	{
+		Py_INCREF(InPyObject);
+		return (FPyWrapperDelegateHandle*)InPyObject;
+	}
+
+	return nullptr;
+}
+
+
 FPyUValueDef* FPyUValueDef::New(PyTypeObject* InType)
 {
 	FPyUValueDef* Self = (FPyUValueDef*)InType->tp_alloc(InType, 0);
@@ -453,6 +480,7 @@ PyTypeObject InitializePyUFunctionDefType()
 }
 
 
+PyTypeObject PyDelegateHandleType = InitializePyWrapperBasicType<FPyWrapperDelegateHandle>("_DelegateHandle", "Type for all UE4 exposed FDelegateHandle instances");
 PyTypeObject PyUValueDefType = InitializePyUValueDefType();
 PyTypeObject PyUPropertyDefType = InitializePyUPropertyDefType();
 PyTypeObject PyUFunctionDefType = InitializePyUFunctionDefType();
@@ -531,6 +559,39 @@ PyObject* Reload(PyObject* InSelf, PyObject* InArgs)
 	if (PythonScriptPlugin)
 	{
 		PythonScriptPlugin->ImportUnrealModule(*ModuleName);
+	}
+
+	Py_RETURN_NONE;
+}
+
+PyObject* LoadModule(PyObject* InSelf, PyObject* InArgs)
+{
+	PyObject* PyObj = nullptr;
+	if (!PyArg_ParseTuple(InArgs, "O:load_module", &PyObj))
+	{
+		return nullptr;
+	}
+
+	FString ModuleName;
+	if (!PyConversion::Nativize(PyObj, ModuleName))
+	{
+		return nullptr;
+	}
+
+	if (!FModuleManager::Get().ModuleExists(*ModuleName))
+	{
+		PyUtil::SetPythonError(PyExc_KeyError, TEXT("load_module"), *FString::Printf(TEXT("'%s' isn't a known module name"), *ModuleName));
+		return nullptr;
+	}
+
+	IModuleInterface* ModulePtr = FModuleManager::Get().LoadModule(*ModuleName);
+	if (ModulePtr)
+	{
+		FPythonScriptPlugin* PythonScriptPlugin = FPythonScriptPlugin::Get();
+		if (PythonScriptPlugin)
+		{
+			PythonScriptPlugin->ImportUnrealModule(*ModuleName);
+		}
 	}
 
 	Py_RETURN_NONE;
@@ -892,6 +953,7 @@ PyMethodDef PyCoreMethods[] = {
 	{ "log_error", PyCFunctionCast(&LogError), METH_VARARGS, "x.log_error(str) -- log the given argument as an error in the LogPython category" },
 	{ "log_flush", PyCFunctionCast(&LogFlush), METH_NOARGS, "x.log_flush() -- flush the log to disk" },
 	{ "reload", PyCFunctionCast(&Reload), METH_VARARGS, "x.reload(str) -- reload the given Unreal Python module" },
+	{ "load_module", PyCFunctionCast(&LoadModule), METH_VARARGS, "x.load_module(str) -- load the given Unreal module and generate any Python code for its reflected types" },
 	{ "find_object", PyCFunctionCast(&FindObject), METH_VARARGS | METH_KEYWORDS, "x.find_object(outer, name, type=Object) -> Object -- find an Unreal object with the given outer and name, optionally validating its type" },
 	{ "load_object", PyCFunctionCast(&LoadObject), METH_VARARGS | METH_KEYWORDS, "x.load_object(outer, name, type=Object) -> Object -- load an Unreal object with the given outer and name, optionally validating its type" },
 	{ "load_class", PyCFunctionCast(&LoadClass), METH_VARARGS | METH_KEYWORDS, "x.load_class(outer, name, type=Object) -> Class -- load an Unreal class with the given outer and name, optionally validating its base type" },
@@ -921,6 +983,8 @@ void InitializeModule()
 #else	// PY_MAJOR_VERSION >= 3
 	PyObject* PyModule = Py_InitModule("_unreal_core", PyCoreMethods);
 #endif	// PY_MAJOR_VERSION >= 3
+
+	PyType_Ready(&PyDelegateHandleType);
 
 	if (PyType_Ready(&PyUValueDefType) == 0)
 	{

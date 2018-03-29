@@ -441,7 +441,7 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 						}
 #endif
 
-						Connection->InitRemoteConnection( this, Socket,  FURL(), *FromAddr, USOCK_Open);
+						Connection->InitRemoteConnection( this, Socket, World ? World->URL : FURL(), *FromAddr, USOCK_Open);
 
 						if (Connection->Handler.IsValid())
 						{

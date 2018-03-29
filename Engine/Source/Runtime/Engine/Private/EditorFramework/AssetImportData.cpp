@@ -145,10 +145,24 @@ void UAssetImportData::Update(const FString& InPath, const FMD5Hash InPreCompute
 }
 //@third party END SIMPLYGON
 
+#if WITH_EDITOR
+FString UAssetImportData::K2_GetFirstFilename() const
+{
+	return GetFirstFilename();
+}
+#endif
+
 FString UAssetImportData::GetFirstFilename() const
 {
 	return SourceData.SourceFiles.Num() > 0 ? ResolveImportFilename(SourceData.SourceFiles[0].RelativeFilename) : FString();
 }
+
+#if WITH_EDITOR
+TArray<FString> UAssetImportData::K2_ExtractFilenames() const
+{
+	return ExtractFilenames();
+}
+#endif
 
 void UAssetImportData::ExtractFilenames(TArray<FString>& AbsoluteFilenames) const
 {

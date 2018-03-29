@@ -26,7 +26,7 @@ static const FString InvalidFilenames[] = {
 -----------------------------------------------------------------------------*/
 
 /**
- * Load a binary file to a dynamic array.
+ * Load a binary file to a dynamic array with two uninitialized bytes at end as padding.
  */
 bool FFileHelper::LoadFileToArray( TArray<uint8>& Result, const TCHAR* Filename, uint32 Flags )
 {
@@ -42,7 +42,8 @@ bool FFileHelper::LoadFileToArray( TArray<uint8>& Result, const TCHAR* Filename,
 		return false;
 	}
 	int64 TotalSize = Reader->TotalSize();
-	Result.Reset( TotalSize );
+	// Allocate slightly larger than file size to avoid re-allocation when caller null terminates file buffer
+	Result.Reset( TotalSize + 2 );
 	Result.AddUninitialized( TotalSize );
 	Reader->Serialize(Result.GetData(), Result.Num());
 	bool Success = Reader->Close();
@@ -514,7 +515,7 @@ bool FFileHelper::LoadANSITextFileToStrings(const TCHAR* InFilename, IFileManage
 		int32 Size = TextFile->TotalSize();
 		// read the file
 		TArray<uint8> Buffer;
-		Buffer.Empty(Size);
+		Buffer.Empty(Size + 1);
 		Buffer.AddUninitialized(Size);
 		TextFile->Serialize(Buffer.GetData(), Size);
 		// zero terminate it

@@ -15,6 +15,7 @@
 #include "SourceControlOperations.h"
 #include "ISourceControlRevision.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 
 #include "ISourceControlLabel.h"
 #include "PackageTools.h"

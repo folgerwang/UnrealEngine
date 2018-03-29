@@ -38,6 +38,9 @@ struct MOVIESCENECAPTURE_API FViewportSurfaceReader
 	/** Set the rectangle within which to read pixels */
 	void SetCaptureRect(FIntRect InCaptureRect) { CaptureRect = InCaptureRect; }
 
+	/** Set the window size that we expect from the BackBuffer */
+	void SetWindowSize(FIntPoint InWindowSize) { WindowSize = InWindowSize; }
+
 protected:
 
 	/** Set up this surface to the specified width/height */
@@ -55,6 +58,9 @@ protected:
 	/** The rectangle to read from the surface */
 	FIntRect CaptureRect;
 
+	/** In windows mode, the size of the widget with the border */
+	FIntPoint WindowSize;
+
 	/** The desired pixel format of the resolved textures */
 	EPixelFormat PixelFormat;
 
@@ -65,6 +71,12 @@ protected:
 struct IFramePayload
 {
 	virtual ~IFramePayload() {}
+
+	/**
+	 * Called when the buffer is now available in CPU ram
+	 * Return true if you would like to execute the default behavior. (If you return false, GetCapturedFrames will be empty).
+	 */
+	virtual bool OnFrameReady_RenderThread(FColor* ColorBuffer, FIntPoint BufferSize, FIntPoint TargetSize) const { return true; }
 };
 
 typedef TSharedPtr<IFramePayload, ESPMode::ThreadSafe> FFramePayloadPtr;
@@ -106,12 +118,13 @@ public:
 	/**
 	 * Construct this frame grabber
 	 *
-	 * @param InViewport		The viewport we are to grab frames for
-	 * @param DesiredBufferSize	The desired size of captured frames
-	 * @param InPixelFormat		The desired pixel format to store captured frames as
-	 * @param InNumSurfaces		The number of destination surfaces contained in our buffer 
+	 * @param InViewport			The viewport we are to grab frames for
+	 * @param DesiredBufferSize		The desired size of captured frames
+	 * @param InPixelFormat			The desired pixel format to store captured frames as
+	 * @param InNumSurfaces			The number of destination surfaces contained in our buffer 
+	 * @param bAlwaysFlushOnDraw	The viewport will flush at everydraw (increase synchronization, reduce performance)
 	 */
-	FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat = PF_B8G8R8A8, uint32 NumSurfaces = 2);
+	FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat = PF_B8G8R8A8, uint32 NumSurfaces = 2, bool bAlwaysFlushOnDraw = true);
 
 	/** Destructor */
 	~FFrameGrabber();

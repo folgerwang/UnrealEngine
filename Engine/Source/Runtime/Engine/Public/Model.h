@@ -489,10 +489,10 @@ public:
 	ENGINE_API void EmptyModel( int32 EmptySurfInfo, int32 EmptyPolys );
 
 	/** Begins releasing the model's resources. */
-	void BeginReleaseResources();
+	ENGINE_API void BeginReleaseResources();
 
 	/** Begins initializing the model's VertexBuffer. */
-	void UpdateVertices();
+	ENGINE_API void UpdateVertices();
 
 	/** Compute the "center" location of all the verts */
 	FVector GetCenter();

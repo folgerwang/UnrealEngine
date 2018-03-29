@@ -6,6 +6,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/AutomationTest.h"
 #include "Modules/ModuleManager.h"
+#include "UObject/GCObjectScopeGuard.h"
 #include "UObject/Object.h"
 #include "UObject/Package.h"
 #include "Misc/PackageName.h"
@@ -109,6 +110,7 @@
 #include "Animation/AnimComposite.h"
 #include "Factories/DataAssetFactory.h"
 #include "Factories/CurveFactory.h"
+#include "AssetExportTask.h"
 
 #define LOCTEXT_NAMESPACE "EditorAssetAutomationTests"
 
@@ -1002,23 +1004,23 @@ namespace ImportExportAssetHelper
 
 				//Export the asset
 				const FString ExportAssetName = FString::Printf(TEXT("%s.%s"), *ImportedAsset->GetName(), *Extension);
-				FString ExportPath = FPaths::Combine(*FPaths::AutomationDir(), TEXT("AssetImportExport"), TEXT("Exported"),*ExportAssetName);
-				UExporter* ExporterToUse = UExporter::FindExporter(ImportedAsset, *Extension);
-				
-				UExporter::FExportToFileParams Params;
-				Params.Object = ImportedAsset;
-				Params.Exporter = ExporterToUse;
-				Params.Filename = *ExportPath;
-				Params.InSelectedOnly = false;
-				Params.NoReplaceIdentical = false;
-				Params.Prompt = false;
-				Params.bUseFileArchive = ImportedAsset->IsA(UPackage::StaticClass());
-				Params.WriteEmptyFiles = false;
-				if (UExporter::ExportToFileEx(Params) != 0)  //1 - success, 0 - fatal error, -1 - non fatal error
+
+				UAssetExportTask* ExportTask = NewObject<UAssetExportTask>();
+				FGCObjectScopeGuard ExportTaskGuard(ExportTask);
+				ExportTask->Object = ImportedAsset;
+				ExportTask->Exporter = UExporter::FindExporter(ImportedAsset, *Extension);
+				ExportTask->Filename = FPaths::Combine(*FPaths::AutomationDir(), TEXT("AssetImportExport"), TEXT("Exported"), *ExportAssetName);
+				ExportTask->bSelected = false;
+				ExportTask->bReplaceIdentical = true;
+				ExportTask->bPrompt = false;
+				ExportTask->bUseFileArchive = ImportedAsset->IsA(UPackage::StaticClass());
+				ExportTask->bWriteEmptyFiles = false;
+				ExportTask->bAutomated = true;
+				if (UExporter::RunAssetExportTask(ExportTask) != 0)  //1 - success, 0 - fatal error, -1 - non fatal error
 				{
 					//Success
 					TestReport.bExportSuccessful = true;
-					TestReport.FileSize = IFileManager::Get().FileSize(*ExportPath);
+					TestReport.FileSize = IFileManager::Get().FileSize(*ExportTask->Filename);
 				}
 				else
 				{

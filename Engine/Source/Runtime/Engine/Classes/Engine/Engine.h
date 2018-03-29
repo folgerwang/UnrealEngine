@@ -35,6 +35,7 @@ class FSceneViewExtensions;
 class IStereoRendering;
 class SViewport;
 class UEditorEngine;
+class UEngineCustomTimeStep;
 class UGameUserSettings;
 class UGameViewportClient;
 class ULocalPlayer;
@@ -1248,6 +1249,12 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Framerate, meta=(UIMin=0, UIMax=200, EditCondition="!bUseFixedFrameRate"))
 	FFloatRange SmoothedFrameRateRange;
 
+private:
+	/** Control how the Engine process the Framerate/Timestep */
+	UPROPERTY(transient)
+	UEngineCustomTimeStep* CustomTimeStep;
+
+public:
 	/** 
 	 * Whether we should check for more than N pawns spawning in a single frame.  
 	 * Basically, spawning pawns and all of their attachments can be slow.  And on consoles it
@@ -1932,6 +1939,13 @@ public:
 	 * Update FApp::CurrentTime/ FApp::DeltaTime while taking into account max tick rate.
 	 */
 	void UpdateTimeAndHandleMaxTickRate();
+
+	/**
+	 * Set the CustomTimeStep that will control the Engine Framerate/Timestep
+	 *
+	 * @return	true if the CustomTimeStep was properly initialized
+	 */
+	bool SetCustomTimeStep(UEngineCustomTimeStep* InCustomTimeStep);
 
 	/** Executes the deferred commands **/
 	void TickDeferredCommands();

@@ -24,6 +24,8 @@
 #include "AssetRegistryModule.h"
 #include "ObjectTools.h"
 #include "JsonObjectConverter.h"
+#include "AssetImportTask.h"
+#include "HAL/FileManager.h"
 
 #define LOCTEXT_NAMESPACE "FBXFactory"
 
@@ -87,6 +89,7 @@ bool UFbxFactory::DetectImportType(const FString& InFilename)
 	if ( ImportType == -1)
 	{
 		FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, LOCTEXT("NoImportTypeDetected", "Can't detect import type. No mesh is found or animation track.")), FFbxErrors::Generic_CannotDetectImportType);
+		FFbxImporter->ReleaseScene();
 		return false;
 	}
 	else if(!IsAutomatedImport() || ImportUI->bAutomatedImportShouldDetectType)
@@ -144,20 +147,29 @@ bool UFbxFactory::ConfigureProperties()
 	return true;
 }
 
-UObject* UFbxFactory::FactoryCreateBinary
+UObject* UFbxFactory::FactoryCreateFile
 (
- UClass*			Class,
- UObject*			InParent,
- FName				Name,
- EObjectFlags		Flags,
- UObject*			Context,
- const TCHAR*		Type,
- const uint8*&		Buffer,
- const uint8*		BufferEnd,
- FFeedbackContext*	Warn,
- bool&				bOutOperationCanceled
+ UClass* Class,
+ UObject* InParent,
+ FName Name,
+ EObjectFlags Flags,
+ const FString& InFilename,
+ const TCHAR* Parms,
+ FFeedbackContext* Warn,
+ bool& bOutOperationCanceled
  )
 {
+	FString FileExtension = FPaths::GetExtension(InFilename);
+	const TCHAR* Type = *FileExtension;
+
+	if (!IFileManager::Get().FileExists(*InFilename))
+	{
+		UE_LOG(LogFbx, Error, TEXT("Failed to load file '%s'"), *InFilename)
+		return nullptr;
+	}
+
+	ParseParms(Parms);
+
 	CA_ASSUME(InParent);
 
 	if( bOperationCanceled )
@@ -201,7 +213,8 @@ UObject* UFbxFactory::FactoryCreateBinary
 				//Set the new fbx source path before starting the re-import
 				FReimportManager::Instance()->UpdateReimportPaths(ObjectToReimport, Filenames);
 				//Do the re-import and exit
-				FReimportManager::Instance()->ValidateAllSourceFileAndReimport(ToReimportObjects);
+				const bool bShowNotification = !(AssetImportTask && AssetImportTask->bAutomated);
+				FReimportManager::Instance()->ValidateAllSourceFileAndReimport(ToReimportObjects, bShowNotification);
 				return ObjectToReimport;
 			}
 		}
@@ -239,6 +252,30 @@ UObject* UFbxFactory::FactoryCreateBinary
 		bIsObjFormat = true;
 	}
 
+	struct FRestoreImportUI
+	{
+		FRestoreImportUI(UFbxFactory* InFbxFactory)
+			: FbxFactory(InFbxFactory) 
+		{
+			ensure(FbxFactory->OriginalImportUI == nullptr);
+			FbxFactory->OriginalImportUI = FbxFactory->ImportUI;
+		}
+
+		~FRestoreImportUI()
+		{
+			FbxFactory->ImportUI = FbxFactory->OriginalImportUI;
+			FbxFactory->OriginalImportUI = nullptr;
+		}
+
+	private:
+		UFbxFactory* FbxFactory;
+	};
+	FRestoreImportUI RestoreImportUI(this);
+	UFbxImportUI* OverrideImportUI = AssetImportTask ? Cast<UFbxImportUI>(AssetImportTask->Options) : nullptr;
+	if (OverrideImportUI)
+	{
+		ImportUI = OverrideImportUI;
+	}
 
 	// Show the import dialog only when not in a "yes to all" state or when automating import
 	bool bIsAutomated = IsAutomatedImport();
@@ -660,6 +697,10 @@ UObject* UFbxFactory::FactoryCreateBinary
 
 		FbxImporter->ReleaseScene();
 		Warn->EndSlowTask();
+	}
+	else // ImportOptions == NULL
+	{
+		FbxImporter->ReleaseScene();
 	}
 
 	FEditorDelegates::OnAssetPostImport.Broadcast(this, NewObject);

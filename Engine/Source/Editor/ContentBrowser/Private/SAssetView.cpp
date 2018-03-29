@@ -2628,7 +2628,9 @@ void SAssetView::OnCollectionUpdated( const FCollectionNameType& Collection )
 void SAssetView::OnAssetRenamed(const FAssetData& AssetData, const FString& OldObjectPath)
 {
 	// Remove the old asset, if it exists
-	RemoveAssetByPath( FName( *OldObjectPath ) );
+	FName OldObjectPackageName = *OldObjectPath;
+	RemoveAssetByPath( OldObjectPackageName );
+	RecentlyAddedAssets.RemoveAllSwap( [&](const FAssetData& AssetData) { return AssetData.ObjectPath == OldObjectPackageName; } );
 
 	// Add the new asset, if it should be in the cached list
 	OnAssetAdded( AssetData );

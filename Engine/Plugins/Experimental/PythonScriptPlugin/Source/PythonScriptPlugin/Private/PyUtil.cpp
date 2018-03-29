@@ -233,14 +233,14 @@ bool CalculatePropertyDef(PyTypeObject* InPyType, FPropertyDef& OutPropertyDef)
 	if (PyObject_IsSubclass((PyObject*)InPyType, (PyObject*)&PyWrapperDelegateType) == 1)
 	{
 		OutPropertyDef.PropertyClass = UDelegateProperty::StaticClass();
-		OutPropertyDef.PropertySubType = (UObject*)FPyWrapperDelegateMetaData::GetDelegateSignature(InPyType);
+		OutPropertyDef.PropertySubType = (UObject*)FPyWrapperDelegateMetaData::GetDelegateSignature(InPyType).Func;
 		return true;
 	}
 
 	if (PyObject_IsSubclass((PyObject*)InPyType, (PyObject*)&PyWrapperMulticastDelegateType) == 1)
 	{
 		OutPropertyDef.PropertyClass = UMulticastDelegateProperty::StaticClass();
-		OutPropertyDef.PropertySubType = (UObject*)FPyWrapperMulticastDelegateMetaData::GetDelegateSignature(InPyType);
+		OutPropertyDef.PropertySubType = (UObject*)FPyWrapperMulticastDelegateMetaData::GetDelegateSignature(InPyType).Func;
 		return true;
 	}
 
@@ -434,115 +434,10 @@ bool IsOutputParameter(const UProperty* InParam)
 	return !bIsReturnParam && bIsOutParam;
 }
 
-PyObject* PackReturnValues(const UFunction* InFunc, const TArrayView<const UProperty*>& InReturnProperties, const void* InBaseParamsAddr, const TCHAR* InErrorCtxt, const TCHAR* InCallingCtxt)
+void InvokeFunctionCall(UObject* InObj, const UFunction* InFunc, void* InBaseParamsAddr, const TCHAR* InErrorCtxt)
 {
-	if (!InReturnProperties.Num())
-	{
-		Py_RETURN_NONE;
-	}
-
-	int32 ReturnPropIndex = 0;
-
-	// If we have multiple return values and the main return value is a bool, we return None (for false) or the (potentially packed) return value without the bool (for true)
-	if (InReturnProperties.Num() > 1 && InReturnProperties[0]->IsA<UBoolProperty>())
-	{
-		const UBoolProperty* BoolReturn = CastChecked<const UBoolProperty>(InReturnProperties[0]);
-		const bool bReturnValue = BoolReturn->GetPropertyValue(BoolReturn->ContainerPtrToValuePtr<void>(InBaseParamsAddr));
-		if (!bReturnValue)
-		{
-			Py_RETURN_NONE;
-		}
-
-		ReturnPropIndex = 1; // Start packing at the 1st out value
-	}
-
-	// Do we need to return a packed tuple, or just a single value?
-	const int32 NumPropertiesToPack = InReturnProperties.Num() - ReturnPropIndex;
-	if (NumPropertiesToPack == 1)
-	{
-		PyObject* OutParamPyObj = nullptr;
-		if (!PyConversion::PythonizeProperty_InContainer(InReturnProperties[ReturnPropIndex], InBaseParamsAddr, 0, OutParamPyObj, EPyConversionMethod::Steal))
-		{
-			PyUtil::SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Failed to convert return property '%s' (%s) when calling %s"), *InReturnProperties[ReturnPropIndex]->GetName(), *InReturnProperties[ReturnPropIndex]->GetClass()->GetName(), InCallingCtxt));
-			return nullptr;
-		}
-		return OutParamPyObj;
-	}
-	else
-	{
-		int32 OutParamTupleIndex = 0;
-		FPyObjectPtr OutParamTuple = FPyObjectPtr::StealReference(PyTuple_New(NumPropertiesToPack));
-		for (; ReturnPropIndex < InReturnProperties.Num(); ++ReturnPropIndex)
-		{
-			PyObject* OutParamPyObj = nullptr;
-			if (!PyConversion::PythonizeProperty_InContainer(InReturnProperties[ReturnPropIndex], InBaseParamsAddr, 0, OutParamPyObj, EPyConversionMethod::Steal))
-			{
-				PyUtil::SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Failed to convert return property '%s' (%s) when calling function %s"), *InReturnProperties[ReturnPropIndex]->GetName(), *InReturnProperties[ReturnPropIndex]->GetClass()->GetName(), InCallingCtxt));
-				return nullptr;
-			}
-			PyTuple_SetItem(OutParamTuple, OutParamTupleIndex++, OutParamPyObj); // SetItem steals the reference
-		}
-		return OutParamTuple.Release();
-	}
-}
-
-bool UnpackReturnValues(PyObject* InRetVals, const UFunction* InFunc, const TArrayView<const UProperty*>& InReturnProperties, void* InBaseParamsAddr, const TCHAR* InErrorCtxt, const TCHAR* InCallingCtxt)
-{
-	if (!InReturnProperties.Num())
-	{
-		return true;
-	}
-
-	int32 ReturnPropIndex = 0;
-
-	// If we have multiple return values and the main return value is a bool, we expect None (for false) or the (potentially packed) return value without the bool (for true)
-	if (InReturnProperties.Num() > 1 && InReturnProperties[0]->IsA<UBoolProperty>())
-	{
-		const UBoolProperty* BoolReturn = CastChecked<const UBoolProperty>(InReturnProperties[0]);
-		const bool bReturnValue = InRetVals != Py_None;
-		BoolReturn->SetPropertyValue(BoolReturn->ContainerPtrToValuePtr<void>(InBaseParamsAddr), bReturnValue);
-
-		ReturnPropIndex = 1; // Start unpacking at the 1st out value
-	}
-
-	// Do we need to expect a packed tuple, or just a single value?
-	const int32 NumPropertiesToUnpack = InReturnProperties.Num() - ReturnPropIndex;
-	if (NumPropertiesToUnpack == 1)
-	{
-		if (!PyConversion::NativizeProperty_InContainer(InRetVals, InReturnProperties[ReturnPropIndex], InBaseParamsAddr, 0))
-		{
-			PyUtil::SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Failed to convert return property '%s' (%s) when calling %s"), *InReturnProperties[ReturnPropIndex]->GetName(), *InReturnProperties[ReturnPropIndex]->GetClass()->GetName(), InCallingCtxt));
-			return false;
-		}
-	}
-	else
-	{
-		if (!PyTuple_Check(InRetVals))
-		{
-			PyUtil::SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Expected a 'tuple' return type, but got '%s' when calling %s"), *GetFriendlyTypename(InRetVals), InCallingCtxt));
-			return false;
-		}
-
-		const int32 RetTupleSize = PyTuple_Size(InRetVals);
-		if (RetTupleSize != NumPropertiesToUnpack)
-		{
-			PyUtil::SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Expected a 'tuple' return type containing '%d' items but got one containing '%d' items when calling %s"), NumPropertiesToUnpack, RetTupleSize, InCallingCtxt));
-			return false;
-		}
-
-		int32 RetTupleIndex = 0;
-		for (; ReturnPropIndex < InReturnProperties.Num(); ++ReturnPropIndex)
-		{
-			PyObject* RetVal = PyTuple_GetItem(InRetVals, RetTupleIndex++);
-			if (!PyConversion::NativizeProperty_InContainer(RetVal, InReturnProperties[ReturnPropIndex], InBaseParamsAddr, 0))
-			{
-				PyUtil::SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Failed to convert return property '%s' (%s) when calling %s"), *InReturnProperties[ReturnPropIndex]->GetName(), *InReturnProperties[ReturnPropIndex]->GetClass()->GetName(), InCallingCtxt));
-				return false;
-			}
-		}
-	}
-
-	return true;
+	FEditorScriptExecutionGuard ScriptGuard;
+	InObj->ProcessEvent((UFunction*)InFunc, InBaseParamsAddr);
 }
 
 bool InspectFunctionArgs(PyObject* InFunc, TArray<FString>& OutArgNames, TArray<FPyObjectPtr>* OutArgDefaults)
@@ -657,27 +552,30 @@ int ValidateContainerIndexParam(const Py_ssize_t InIndex, const Py_ssize_t InLen
 	return 0;
 }
 
-PyObject* GetUEPropValue(const UStruct* InStruct, void* InStructData, const FName InPropName, const char *InAttributeName, PyObject* InOwnerPyObject, const TCHAR* InErrorCtxt)
+PyObject* GetUEPropValue(const UStruct* InStruct, void* InStructData, const UProperty* InProp, const char *InAttributeName, PyObject* InOwnerPyObject, const TCHAR* InErrorCtxt)
 {
-	if (InStruct && ensureAlways(InStructData))
+	if (InStruct && InProp && ensureAlways(InStructData))
 	{
-		UProperty* Prop = InStruct->FindPropertyByName(InPropName);
-		if (!Prop)
+		// Deprecated properties can no longer be accessed and cause an error rather than a warning
 		{
-			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Failed to find property '%s' for attribute '%s' on '%s'"), *InPropName.ToString(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
-			return nullptr;
+			FString DeprecationMessage;
+			if (PyGenUtil::IsDeprecatedProperty(InProp, &DeprecationMessage))
+			{
+				SetPythonError(PyExc_DeprecationWarning, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is deprecated: %s"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName(), *DeprecationMessage));
+				return nullptr;
+			}
 		}
 
-		if (!Prop->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible))
+		if (!InProp->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible))
 		{
-			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is protected and cannot be read"), *Prop->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
+			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is protected and cannot be read"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
 			return nullptr;
 		}
 
 		PyObject* PyPropObj = nullptr;
-		if (!PyConversion::PythonizeProperty_InContainer(Prop, InStructData, 0, PyPropObj, EPyConversionMethod::Reference, InOwnerPyObject))
+		if (!PyConversion::PythonizeProperty_InContainer(InProp, InStructData, 0, PyPropObj, EPyConversionMethod::Reference, InOwnerPyObject))
 		{
-			SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Failed to convert property '%s' (%s) for attribute '%s' on '%s'"), *Prop->GetName(), *Prop->GetClass()->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
+			SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Failed to convert property '%s' (%s) for attribute '%s' on '%s'"), *InProp->GetName(), *InProp->GetClass()->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
 			return nullptr;
 		}
 		return PyPropObj;
@@ -686,7 +584,7 @@ PyObject* GetUEPropValue(const UStruct* InStruct, void* InStructData, const FNam
 	Py_RETURN_NONE;
 }
 
-int SetUEPropValue(const UStruct* InStruct, void* InStructData, PyObject* InValue, const FName InPropName, const char *InAttributeName, const FPyWrapperOwnerContext& InChangeOwner, const uint64 InReadOnlyFlags, const TCHAR* InErrorCtxt)
+int SetUEPropValue(const UStruct* InStruct, void* InStructData, PyObject* InValue, const UProperty* InProp, const char *InAttributeName, const FPyWrapperOwnerContext& InChangeOwner, const uint64 InReadOnlyFlags, const TCHAR* InErrorCtxt)
 {
 	if (!InValue)
 	{
@@ -694,30 +592,33 @@ int SetUEPropValue(const UStruct* InStruct, void* InStructData, PyObject* InValu
 		return -1;
 	}
 
-	if (InStruct && ensureAlways(InStructData))
+	if (InStruct && InProp && ensureAlways(InStructData))
 	{
-		UProperty* Prop = InStruct->FindPropertyByName(InPropName);
-		if (!Prop)
+		// Deprecated properties can no longer be accessed and cause an error rather than a warning
 		{
-			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Failed to find property '%s' for attribute '%s' on '%s'"), *InPropName.ToString(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
+			FString DeprecationMessage;
+			if (PyGenUtil::IsDeprecatedProperty(InProp, &DeprecationMessage))
+			{
+				SetPythonError(PyExc_DeprecationWarning, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is deprecated: %s"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName(), *DeprecationMessage));
+				return -1;
+			}
+		}
+
+		if (!InProp->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible))
+		{
+			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is protected and cannot be set"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
 			return -1;
 		}
 
-		if (!Prop->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible))
+		if (InProp->HasAnyPropertyFlags(InReadOnlyFlags))
 		{
-			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is protected and cannot be set"), *Prop->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
+			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is read-only and cannot be set"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
 			return -1;
 		}
 
-		if (Prop->HasAnyPropertyFlags(InReadOnlyFlags))
+		if (!PyConversion::NativizeProperty_InContainer(InValue, InProp, InStructData, 0, InChangeOwner))
 		{
-			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is read-only and cannot be set"), *Prop->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
-			return -1;
-		}
-
-		if (!PyConversion::NativizeProperty_InContainer(InValue, Prop, InStructData, 0, InChangeOwner))
-		{
-			SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Failed to convert type '%s' to property '%s' (%s) for attribute '%s' on '%s'"), *GetFriendlyTypename(InValue), *Prop->GetName(), *Prop->GetClass()->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
+			SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Failed to convert type '%s' to property '%s' (%s) for attribute '%s' on '%s'"), *GetFriendlyTypename(InValue), *InProp->GetName(), *InProp->GetClass()->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
 			return -1;
 		}
 	}
@@ -917,14 +818,7 @@ FString GetFriendlyStructValue(const UStruct* InStruct, const void* InStructValu
 			FriendlyStructValue += UTF8_TO_TCHAR(InitParam.ParamName.GetData());
 			FriendlyStructValue += TEXT(": ");
 
-			if (UProperty* Prop = InStruct->FindPropertyByName(InitParam.ParamPropName))
-			{
-				FriendlyStructValue += GetFriendlyPropertyValue(Prop, Prop->ContainerPtrToValuePtr<void>(InStructValue), InPortFlags | PPF_Delimited);
-			}
-			else
-			{
-				FriendlyStructValue += TEXT("<missing property>");
-			}
+			FriendlyStructValue += GetFriendlyPropertyValue(InitParam.ParamProp, InitParam.ParamProp->ContainerPtrToValuePtr<void>(InStructValue), InPortFlags | PPF_Delimited);
 		}
 
 		FriendlyStructValue += TEXT('}');
@@ -1066,6 +960,43 @@ void SetPythonError(PyObject* InException, const TCHAR* InErrorContext, const TC
 	}
 
 	PyErr_SetString(InException, TCHAR_TO_UTF8(*FinalException));
+}
+
+int SetPythonWarning(PyObject* InException, PyTypeObject* InErrorContext, const TCHAR* InErrorMsg)
+{
+	return SetPythonWarning(InException, *GetErrorContext(InErrorContext), InErrorMsg);
+}
+
+int SetPythonWarning(PyObject* InException, PyObject* InErrorContext, const TCHAR* InErrorMsg)
+{
+	return SetPythonWarning(InException, *GetErrorContext(InErrorContext), InErrorMsg);
+}
+
+int SetPythonWarning(PyObject* InException, const TCHAR* InErrorContext, const TCHAR* InErrorMsg)
+{
+	const FString FinalException = FString::Printf(TEXT("%s: %s"), InErrorContext, InErrorMsg);
+	return PyErr_WarnEx(InException, TCHAR_TO_UTF8(*FinalException), 1);
+}
+
+bool EnableDeveloperWarnings()
+{
+	FPyObjectPtr PyWarningsModule = FPyObjectPtr::StealReference(PyImport_ImportModule("warnings"));
+	if (PyWarningsModule)
+	{
+		PyObject* PyWarningsDict = PyModule_GetDict(PyWarningsModule);
+
+		PyObject* PySimpleFilterFunc = PyDict_GetItemString(PyWarningsDict, "simplefilter");
+		if (PySimpleFilterFunc)
+		{
+			FPyObjectPtr PySimpleFilterResult = FPyObjectPtr::StealReference(PyObject_CallFunction(PySimpleFilterFunc, "s", "default"));
+			if (PySimpleFilterResult)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 void LogPythonError(const bool bInteractive)

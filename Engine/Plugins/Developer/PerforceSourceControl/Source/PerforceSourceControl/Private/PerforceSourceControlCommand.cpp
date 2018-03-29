@@ -71,3 +71,16 @@ bool FPerforceSourceControlCommand::WasCanceledWhileTryingToConnect() const
 {
 	return bCancelledWhileTryingToConnect != 0;
 }
+
+ECommandResult::Type FPerforceSourceControlCommand::ReturnResults()
+{
+	// Save any messages that have accumulated
+	Operation->AppendResultInfo(ResultInfo);
+
+	// run the completion delegate if we have one bound
+	ECommandResult::Type Result = bCancelled ? ECommandResult::Cancelled : (bCommandSuccessful ? ECommandResult::Succeeded : ECommandResult::Failed);
+	OperationCompleteDelegate.ExecuteIfBound(Operation, Result);
+
+	return Result;
+}
+

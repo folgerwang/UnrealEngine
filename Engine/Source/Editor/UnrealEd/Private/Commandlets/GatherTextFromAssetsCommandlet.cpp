@@ -447,6 +447,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		if (ShouldExcludeDerivedClasses)
 		{
 			FirstPassFilter.bRecursiveClasses = true;
+			FirstPassFilter.ClassNames.Add(TEXT("Object"));
 			for (const FString& ExcludeClassName : ExcludeClassNames)
 			{
 				// Note: Can't necessarily validate these class names here, as the class may be a generated blueprint class that hasn't been loaded yet.

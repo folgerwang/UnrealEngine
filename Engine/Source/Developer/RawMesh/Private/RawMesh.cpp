@@ -285,4 +285,9 @@ void FRawMeshBulkData::UseHashAsGuid(UObject* Owner)
 	bGuidIsHash = true;
 }
 
+const FByteBulkData& FRawMeshBulkData::GetBulkData() const
+{
+	return BulkData;
+}
+
 #endif // #if WITH_EDITORONLY_DATA

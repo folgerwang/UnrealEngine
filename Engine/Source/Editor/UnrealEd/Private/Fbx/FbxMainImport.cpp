@@ -506,22 +506,9 @@ int32 FFbxImporter::GetImportType(const FString& InFilename)
 	FString Filename = InFilename;
 
 	// Prioritized in the order of SkeletalMesh > StaticMesh > Animation (only if animation data is found)
-	if (OpenFile(Filename, true))
+	if (OpenFile(Filename))
 	{
-		FbxStatistics Statistics;
-		Importer->GetStatistics(&Statistics); //-V595
-		int32 ItemIndex;
-		FbxString ItemName;
-		int32 ItemCount;
 		bool bHasAnimation = false;
-
-		for ( ItemIndex = 0; ItemIndex < Statistics.GetNbItems(); ItemIndex++ )
-		{
-			Statistics.GetItemPair(ItemIndex, ItemName, ItemCount);
-			const FString NameBuffer(ItemName.Buffer());
-			UE_LOG(LogFbx, Log, TEXT("ItemName: %s, ItemCount : %d"), *NameBuffer, ItemCount);
-		}
-
 		FbxSceneInfo SceneInfo;
 		if (GetSceneInfo(Filename, SceneInfo, true))
 		{
@@ -536,14 +523,6 @@ int32 FFbxImporter::GetImportType(const FString& InFilename)
 
 			bHasAnimation = SceneInfo.bHasAnimation;
 		}
-
-		if (Importer)
-		{
-			Importer->Destroy();
-		}
-
-		Importer = NULL;
-		CurPhase = NOTSTARTED;
 
 		// In case no Geometry was found, check for animation (FBX can still contain mesh data though)
 		if (bHasAnimation)
@@ -572,7 +551,7 @@ bool FFbxImporter::GetSceneInfo(FString Filename, FbxSceneInfo& SceneInfo, bool 
 	switch (CurPhase)
 	{
 	case NOTSTARTED:
-		if (!OpenFile( Filename, false, bSceneInfo ))
+		if (!OpenFile(Filename))
 		{
 			Result = false;
 			break;
@@ -867,7 +846,7 @@ void FFbxImporter::TraverseHierarchyNodeRecursively(FbxSceneInfo& SceneInfo, Fbx
 	}
 }
 
-bool FFbxImporter::OpenFile(FString Filename, bool bParseStatistics, bool bForSceneInfo )
+bool FFbxImporter::OpenFile(FString Filename)
 {
 	bool Result = true;
 	
@@ -892,11 +871,6 @@ bool FFbxImporter::OpenFile(FString Filename, bool bParseStatistics, bool bForSc
 	FbxManager::GetFileFormatVersion(SDKMajor, SDKMinor, SDKRevision);
 
 	// Initialize the importer by providing a filename.
-	if (bParseStatistics)
-	{
-		Importer->ParseForStatistics(true);
-	}
-	
 	const bool bImportStatus = Importer->Initialize(TCHAR_TO_UTF8(*Filename));
 	
 	FbxCreator = EFbxCreator::Unknow;
@@ -929,29 +903,22 @@ bool FFbxImporter::OpenFile(FString Filename, bool bParseStatistics, bool bForSc
 		return false;
 	}
 
-	// Skip the version check if we are just parsing for information or scene info.
-	if( !bParseStatistics && !bForSceneInfo )
+	// Version out of date warning
+	int32 FileMajor = 0, FileMinor = 0, FileRevision = 0;
+	Importer->GetFileVersion(FileMajor, FileMinor, FileRevision);
+	int32 FileVersion = (FileMajor << 16 | FileMinor << 8 | FileRevision);
+	int32 SDKVersion = (SDKMajor << 16 | SDKMinor << 8 | SDKRevision);
+	if( FileVersion != SDKVersion )
 	{
-		int32 FileMajor,  FileMinor,  FileRevision;
-		Importer->GetFileVersion(FileMajor, FileMinor, FileRevision);
+		// Appending the SDK version to the config key causes the warning to automatically reappear even if previously suppressed when the SDK version we use changes. 
+		FString ConfigStr = FString::Printf( TEXT("Warning_OutOfDateFBX_%d"), SDKVersion );
 
-		int32 FileVersion = (FileMajor << 16 | FileMinor << 8 | FileRevision);
-		int32 SDKVersion = (SDKMajor << 16 | SDKMinor << 8 | SDKRevision);
+		FString FileVerStr = FString::Printf( TEXT("%d.%d.%d"), FileMajor, FileMinor, FileRevision );
+		FString SDKVerStr  = FString::Printf( TEXT("%d.%d.%d"), SDKMajor, SDKMinor, SDKRevision );
 
-		if( FileVersion != SDKVersion )
-		{
-
-			// Appending the SDK version to the config key causes the warning to automatically reappear even if previously suppressed when the SDK version we use changes. 
-			FString ConfigStr = FString::Printf( TEXT("Warning_OutOfDateFBX_%d"), SDKVersion );
-
-			FString FileVerStr = FString::Printf( TEXT("%d.%d.%d"), FileMajor, FileMinor, FileRevision );
-			FString SDKVerStr  = FString::Printf( TEXT("%d.%d.%d"), SDKMajor, SDKMinor, SDKRevision );
-
-			const FText WarningText = FText::Format(
-				NSLOCTEXT("UnrealEd", "Warning_OutOfDateFBX", "An out of date FBX has been detected.\nImporting different versions of FBX files than the SDK version can cause undesirable results.\n\nFile Version: {0}\nSDK Version: {1}" ),
-				FText::FromString(FileVerStr), FText::FromString(SDKVerStr) );
-
-		}
+		const FText WarningText = FText::Format(
+			NSLOCTEXT("UnrealEd", "Warning_OutOfDateFBX", "An out of date FBX has been detected.\nImporting different versions of FBX files than the SDK version can cause undesirable results.\n\nFile Version: {0}\nSDK Version: {1}" ),
+			FText::FromString(FileVerStr), FText::FromString(SDKVerStr) );
 	}
 
 	//Cache the current file hash
@@ -1006,6 +973,12 @@ void FFbxImporter::FixMaterialClashName()
 
 bool FFbxImporter::ImportFile(FString Filename, bool bPreventMaterialNameClash /*=false*/)
 {
+	if (Scene)
+	{
+		UE_LOG(LogFbx, Error, TEXT("FBX Scene already loaded from %s"), *Filename);
+		return false;
+	}
+
 	bool Result = true;
 	
 	bool bStatus;
@@ -1123,7 +1096,7 @@ bool FFbxImporter::ImportFromFile(const FString& Filename, const FString& Type, 
 	switch (CurPhase)
 	{
 	case NOTSTARTED:
-		if (!OpenFile(FString(Filename), false))
+		if (!OpenFile(FString(Filename)))
 		{
 			Result = false;
 			break;

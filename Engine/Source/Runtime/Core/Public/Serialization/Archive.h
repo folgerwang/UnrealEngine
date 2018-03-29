@@ -19,6 +19,7 @@
 class FCustomVersionContainer;
 class ITargetPlatform;
 struct FUntypedBulkData;
+struct FArchiveSerializedPropertyChain;
 template<class TEnum> class TEnumAsByte;
 typedef TFunction<bool (double RemainingTime)> FExternalReadCallback;
 
@@ -1245,7 +1246,8 @@ public:
 	}
 
 	/**
-	 * Sets the property that is currently being serialized
+	 * Overrides the property that is currently being serialized
+	 * @note: You likely want to call PushSerializedProperty/PopSerializedProperty instead
 	 * 
 	 * @param InProperty Pointer to the property that is currently being serialized
 	 */
@@ -1253,32 +1255,6 @@ public:
 	{
 		SerializedProperty = InProperty;
 	}
-
-	/** 
-	 * Adds external read dependency 
-	 *
-	 * @return true if dependency has been added, false if Archive does not support them
-	 */
-	virtual bool AttachExternalReadDependency(FExternalReadCallback& ReadCallback) { return false; };
-
-#if WITH_EDITORONLY_DATA
-	/** Pushes editor-only marker to the stack of currently serialized properties */
-	FORCEINLINE void PushEditorOnlyProperty()
-	{
-		EditorOnlyPropertyStack++;
-	}
-	/** Pops editor-only marker from the stack of currently serialized properties */
-	FORCEINLINE void PopEditorOnlyProperty()
-	{
-		EditorOnlyPropertyStack--;
-		check(EditorOnlyPropertyStack >= 0);
-	}
-	/** Returns true if the stack of currently serialized properties contains an editor-only property */
-	FORCEINLINE bool IsEditorOnlyPropertyOnTheStack() const
-	{
-		return EditorOnlyPropertyStack > 0;
-	}
-#endif
 
 	/**
 	 * Gets the property that is currently being serialized
@@ -1289,6 +1265,54 @@ public:
 	{
 		return SerializedProperty;
 	}
+
+	/**
+	 * Gets the chain of properties that are currently being serialized
+	 * @note This populates the array in stack order, so the 0th entry in the array is the top of the stack of properties
+	 */
+	void GetSerializedPropertyChain(TArray<class UProperty*>& OutProperties) const;
+
+	/**
+	 * Get the raw serialized property chain for this archive
+	 * @note Accessing this directly can avoid an array allocation depending on your use-case
+	 */
+	FORCEINLINE const FArchiveSerializedPropertyChain* GetSerializedPropertyChain() const
+	{
+		return SerializedPropertyChain;
+	}
+
+	/**
+	 * Set the raw serialized property chain for this archive, optionally overriding the serialized property too (or null to use the head of the property chain)
+	 */
+	void SetSerializedPropertyChain(const FArchiveSerializedPropertyChain* InSerializedPropertyChain, class UProperty* InSerializedPropertyOverride = nullptr);
+
+	/**
+	 * Push a property that is currently being serialized onto the property stack
+	 * 
+	 * @param InProperty			Pointer to the property that is currently being serialized
+	 * @param bIsEditorOnlyProperty True if the property is editor only (call UProperty::IsEditorOnlyProperty to work this out, as the archive can't since it can't access CoreUObject types)
+	 */
+	void PushSerializedProperty(class UProperty* InProperty, const bool bIsEditorOnlyProperty);
+
+	/**
+	 * Pop a property that was previously being serialized off the property stack
+	 * 
+	 * @param InProperty			Pointer to the property that was previously being serialized
+	 * @param bIsEditorOnlyProperty True if the property is editor only (call UProperty::IsEditorOnlyProperty to work this out, as the archive can't since it can't access CoreUObject types)
+	 */
+	void PopSerializedProperty(class UProperty* InProperty, const bool bIsEditorOnlyProperty);
+
+#if WITH_EDITORONLY_DATA
+	/** Returns true if the stack of currently serialized properties contains an editor-only property */
+	bool IsEditorOnlyPropertyOnTheStack() const;
+#endif
+
+	/** 
+	 * Adds external read dependency 
+	 *
+	 * @return true if dependency has been added, false if Archive does not support them
+	 */
+	virtual bool AttachExternalReadDependency(FExternalReadCallback& ReadCallback) { return false; };
 
 #if USE_STABLE_LOCALIZATION_KEYS
 	/**
@@ -1578,10 +1602,8 @@ private:
 	/** Holds the pointer to the property that is currently being serialized */
 	class UProperty* SerializedProperty;
 
-#if WITH_EDITORONLY_DATA
-	/** Non-zero if on the current stack of serialized properties there's an editor-only property. Needs to live in FArchive because of SerializedProperty. */
-	int32 EditorOnlyPropertyStack;
-#endif
+	/** Holds the chain of properties that are currently being serialized */
+	FArchiveSerializedPropertyChain* SerializedPropertyChain;
 
 #if USE_STABLE_LOCALIZATION_KEYS
 	/**

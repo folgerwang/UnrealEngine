@@ -4812,8 +4812,9 @@ bool UWorld::Listen( FURL& InURL )
 		}
 		return false;
 	}
-	static bool LanPlay = FParse::Param(FCommandLine::Get(),TEXT("lanplay"));
-	if ( !LanPlay && (NetDriver->MaxInternetClientRate < NetDriver->MaxClientRate) && (NetDriver->MaxInternetClientRate > 2500) )
+	static const bool bLanPlay = FParse::Param(FCommandLine::Get(),TEXT("lanplay"));
+	const bool bLanSpeed = bLanPlay || InURL.HasOption(TEXT("LAN"));
+	if ( !bLanSpeed && (NetDriver->MaxInternetClientRate < NetDriver->MaxClientRate) && (NetDriver->MaxInternetClientRate > 2500) )
 	{
 		NetDriver->MaxClientRate = NetDriver->MaxInternetClientRate;
 	}
@@ -5932,8 +5933,8 @@ FConstLevelIterator	UWorld::GetLevelIterator() const
 
 ULevel* UWorld::GetLevel( int32 InLevelIndex ) const
 {
-	check( InLevelIndex < Levels.Num() );
-		check(Levels[InLevelIndex]);
+	check(InLevelIndex < Levels.Num());
+	check(Levels[InLevelIndex]);
 	return Levels[ InLevelIndex ];
 }
 
@@ -6013,7 +6014,7 @@ bool UWorld::IsPlayInVulkanPreview() const
 
 bool UWorld::IsGameWorld() const
 {
-	return WorldType == EWorldType::Game || WorldType == EWorldType::PIE || WorldType == EWorldType::GamePreview;
+	return WorldType == EWorldType::Game || WorldType == EWorldType::PIE || WorldType == EWorldType::GamePreview || WorldType == EWorldType::GameRPC;
 }
 
 bool UWorld::IsEditorWorld() const

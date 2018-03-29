@@ -176,6 +176,12 @@ public:
 	/* Called to initialize the game instance for standalone instances of the game */
 	void InitializeStandalone();
 
+	/* Called to initialize the game instance with a minimal world suitable for basic network RPC */
+	void InitializeForMinimalNetRPC(const FName InPackageName);
+
+	/** Static util function used by InitializeForMinimalNetRPC and LoadMap to create the minimal world suitable for basic network RPC */
+	static void CreateMinimalNetRPCWorld(const FName InPackageName, UPackage*& OutWorldPackage, UWorld*& OutWorld);
+
 #if WITH_EDITOR
 	/* Called to initialize the game instance for PIE instances of the game */
 	virtual FGameInstancePIEResult InitializeForPlayInEditor(int32 PIEInstanceIndex, const FGameInstancePIEParameters& Params);

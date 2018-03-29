@@ -10,11 +10,11 @@
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonSerializer.h"
 #include "EditorStyleSet.h"
-#include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlState.h"
 #include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "TranslationUnit.h"
 #include "Logging/MessageLog.h"
 #include "TextLocalizationResourceGenerator.h"
@@ -329,7 +329,7 @@ bool FTranslationDataManager::WriteJSONToTextFile(TSharedRef<FJsonObject>& Outpu
 			{
 				bPreviouslyCheckedOut = true;
 			}
-			else if (!SourceControlHelpers::CheckOutFile(Filename))
+			else if (!USourceControlHelpers::CheckOutOrAddFile(Filename))
 			{
 				FFormatNamedArguments Arguments;
 				Arguments.Add(TEXT("Filename"), FText::FromString(Filename));
@@ -360,7 +360,7 @@ bool FTranslationDataManager::WriteJSONToTextFile(TSharedRef<FJsonObject>& Outpu
 				{
 					bPreviouslyCheckedOut = false;
 
-					if( !SourceControlHelpers::CheckOutFile(Filename) )
+					if( !USourceControlHelpers::CheckOutOrAddFile(Filename) )
 					{
 						FFormatNamedArguments Arguments;
 						Arguments.Add( TEXT("Filename"), FText::FromString(Filename) );

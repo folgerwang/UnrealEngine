@@ -78,7 +78,7 @@ void FPyReferenceCollector::AddReferencedObjects(FReferenceCollector& InCollecto
 	for (FPyWrapperBase* PythonWrappedInstance : PythonWrappedInstances)
 	{
 		FPyWrapperBaseMetaData* PythonWrappedInstanceMetaData = FPyWrapperBaseMetaData::GetMetaData(PythonWrappedInstance);
-		if (PythonWrappedInstanceMetaData && PythonWrappedInstanceMetaData->AddReferencedObjects)
+		if (PythonWrappedInstanceMetaData)
 		{
 			PythonWrappedInstanceMetaData->AddReferencedObjects(PythonWrappedInstance, InCollector);
 		}

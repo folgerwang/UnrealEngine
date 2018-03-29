@@ -3,6 +3,7 @@
 #pragma once
 
 #include "IncludePython.h"
+#include "PyWrapperBasic.h"
 #include "PyPtr.h"
 #include "CoreMinimal.h"
 #include "Misc/EnumClassFlags.h"
@@ -15,6 +16,9 @@ UObject* GetPythonPropertyContainer();
 /** Get the object that Python created types should be outered to */
 UObject* GetPythonTypeContainer();
 
+/** Python type for FPyDelegateHandle */
+extern PyTypeObject PyDelegateHandleType;
+
 /** Python type for FPyUValueDef */
 extern PyTypeObject PyUValueDefType;
 
@@ -23,6 +27,20 @@ extern PyTypeObject PyUPropertyDefType;
 
 /** Python type for FPyUFunctionDef */
 extern PyTypeObject PyUFunctionDefType;
+
+/** Type for all UE4 exposed FDelegateHandle instances */
+struct FPyWrapperDelegateHandle : public TPyWrapperBasic<FDelegateHandle, FPyWrapperDelegateHandle>
+{
+	typedef TPyWrapperBasic<FDelegateHandle, FPyWrapperDelegateHandle> Super;
+
+	/** Create and initialize a new wrapper instance from the given native instance */
+	static FPyWrapperDelegateHandle* CreateInstance(const FDelegateHandle& InValue);
+
+	/** Cast the given Python object to this wrapped type (returns a new reference) */
+	static FPyWrapperDelegateHandle* CastPyObject(PyObject* InPyObject);
+};
+
+typedef TPyPtr<FPyWrapperDelegateHandle> FPyWrapperDelegateHandlePtr;
 
 /** Type used to define constant values from Python */
 struct FPyUValueDef

@@ -25,6 +25,7 @@ enum EFunctionInputType
 	FunctionInput_TextureCube,
 	FunctionInput_StaticBool,
 	FunctionInput_MaterialAttributes,
+	FunctionInput_TextureExternal,
 	FunctionInput_MAX,
 };
 

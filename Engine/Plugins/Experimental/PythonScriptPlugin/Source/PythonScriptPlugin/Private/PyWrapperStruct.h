@@ -50,19 +50,40 @@ struct FPyWrapperStruct : public FPyWrapperBase
 	static bool ValidateInternalState(FPyWrapperStruct* InSelf);
 
 	/** Cast the given Python object to this wrapped type (returns a new reference) */
-	static FPyWrapperStruct* CastPyObject(PyObject* InPyObject);
+	static FPyWrapperStruct* CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Cast the given Python object to this wrapped type, or attempt to convert the type into a new wrapped instance (returns a new reference) */
-	static FPyWrapperStruct* CastPyObject(PyObject* InPyObject, PyTypeObject* InType);
+	static FPyWrapperStruct* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Set the named property values on this instance (called via generated code) */
 	static int SetPropertyValues(FPyWrapperStruct* InSelf, PyObject* InArgs, PyObject* InKwds);
 
 	/** Get a named property value from this instance (called via generated code) */
-	static PyObject* GetPropertyValue(FPyWrapperStruct* InSelf, const FName InPropName, const char* InPythonAttrName);
+	static PyObject* GetPropertyValueByName(FPyWrapperStruct* InSelf, const FName InPropName, const char* InPythonAttrName);
+
+	/** Get a property value from this instance (called via generated code) */
+	static PyObject* GetPropertyValue(FPyWrapperStruct* InSelf, const UProperty* InProp, const char* InPythonAttrName);
 
 	/** Set a named property value on this instance (called via generated code) */
-	static int SetPropertyValue(FPyWrapperStruct* InSelf, PyObject* InValue, const FName InPropName, const char* InPythonAttrName, const bool InNotifyChange = false, const uint64 InReadOnlyFlags = CPF_EditConst | CPF_BlueprintReadOnly);
+	static int SetPropertyValueByName(FPyWrapperStruct* InSelf, PyObject* InValue, const FName InPropName, const char* InPythonAttrName, const bool InNotifyChange = false, const uint64 InReadOnlyFlags = CPF_EditConst | CPF_BlueprintReadOnly);
+
+	/** Set a property value on this instance (called via generated code) */
+	static int SetPropertyValue(FPyWrapperStruct* InSelf, PyObject* InValue, const UProperty* InProp, const char* InPythonAttrName, const bool InNotifyChange = false, const uint64 InReadOnlyFlags = CPF_EditConst | CPF_BlueprintReadOnly);
+
+	/** Call a function on this instance (CallFunction internal use only) */
+	static PyObject* CallFunction_Impl(FPyWrapperStruct* InSelf, PyObject* InArgs, PyObject* InKwds, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const PyGenUtil::FGeneratedWrappedMethodParameter& InStructParam, const char* InPythonFuncName, const TCHAR* InErrorCtxt);
+
+	/** Implementation of the "call" logic for a Python method with no arguments (internal Python bindings use only) */
+	static PyObject* CallMethodNoArgs_Impl(FPyWrapperStruct* InSelf, void* InClosure);
+
+	/** Implementation of the "call" logic for a Python method with arguments (internal Python bindings use only) */
+	static PyObject* CallMethodWithArgs_Impl(FPyWrapperStruct* InSelf, PyObject* InArgs, PyObject* InKwds, void* InClosure);
+
+	/** Implementation of the "call" logic for a Python numeric binary function (internal CallBinaryOperator use only) */
+	static PyObject* CallBinaryOperatorFunction_Impl(FPyWrapperStruct* InSelf, PyObject* InRHS, const PyGenUtil::FGeneratedWrappedStructMathOpFunction& InMathOpFunc, const bool InInlineOp, const TOptional<EPyConversionResultState> InRequiredConversionResult = TOptional<EPyConversionResultState>(), FPyConversionResult* OutRHSConversionResult = nullptr);
+
+	/** Implementation of the "call" logic for a Python numeric binary function (internal Python bindings use only) */
+	static PyObject* CallBinaryOperator_Impl(FPyWrapperStruct* InSelf, PyObject* InRHS, const PyGenUtil::FGeneratedWrappedStructMathOpStack::EOpType InOpType);
 
 	/** Implementation of the "getter" logic for a Python descriptor reading from an struct property (internal Python bindings use only) */
 	static PyObject* Getter_Impl(FPyWrapperStruct* InSelf, void* InClosure);
@@ -95,15 +116,15 @@ struct TPyWrapperInlineStruct : public FPyWrapperStruct
 	TTypeCompatibleBytes<WrappedType> InlineStructInstance;
 
 	/** Cast the given Python object to this wrapped type (returns a new reference) */
-	static TPyWrapperInlineStruct* CastPyObject(PyObject* InPyObject)
+	static TPyWrapperInlineStruct* CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult = nullptr)
 	{
-		return (TPyWrapperInlineStruct*)FPyWrapperStruct::CastPyObject(InPyObject);
+		return (TPyWrapperInlineStruct*)FPyWrapperStruct::CastPyObject(InPyObject, OutCastResult);
 	}
 
 	/** Cast the given Python object to this wrapped type, or attempt to convert the type into a new wrapped instance (returns a new reference) */
-	static TPyWrapperInlineStruct* CastPyObject(PyObject* InPyObject, PyTypeObject* InType)
+	static TPyWrapperInlineStruct* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult = nullptr)
 	{
-		return (TPyWrapperInlineStruct*)FPyWrapperStruct::CastPyObject(InPyObject, InType);
+		return (TPyWrapperInlineStruct*)FPyWrapperStruct::CastPyObject(InPyObject, InType, OutCastResult);
 	}
 
 	/** Get a pointer to the typed struct instance this wrapper represents */
@@ -227,7 +248,7 @@ public:
 /** Meta-data for all UE4 exposed struct types */
 struct FPyWrapperStructMetaData : public FPyWrapperBaseMetaData
 {
-	PY_OVERRIDE_GETSET_METADATA(FPyWrapperStructMetaData)
+	PY_METADATA_METHODS(FPyWrapperStructMetaData, FGuid(0x03C9EA75, 0x2C86448B, 0xB53D1453, 0x94AA6BAE))
 
 	FPyWrapperStructMetaData();
 
@@ -249,6 +270,9 @@ struct FPyWrapperStructMetaData : public FPyWrapperBaseMetaData
 	/** Resolve the original property name of a Python method of the given instance */
 	static FName ResolvePropertyName(FPyWrapperStruct* Instance, const FName InPythonPropertyName);
 
+	/** Add object references from the given Python object to the given collector */
+	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector) override;
+
 	/** Allocation policy used with when allocating struct instances for a wrapped type */
 	const IPyWrapperStructAllocationPolicy* AllocPolicy;
 
@@ -260,6 +284,9 @@ struct FPyWrapperStructMetaData : public FPyWrapperBaseMetaData
 
 	/** Array of properties that were exposed to Python and can be used during init */
 	TArray<PyGenUtil::FGeneratedWrappedMethodParameter> InitParams;
+
+	/** The math operator stacks for this struct type */
+	PyGenUtil::FGeneratedWrappedStructMathOpStack MathOpStacks[(int32)PyGenUtil::FGeneratedWrappedStructMathOpStack::EOpType::Num];
 };
 
 /** Meta-data for all UE4 exposed inline struct types */

@@ -23,6 +23,7 @@
 #include "Engine/MapBuildDataRegistry.h"
 #include "Editor/EditorEngine.h"
 #include "ISourceControlModule.h"
+#include "SourceControlOperations.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Settings/EditorLoadingSavingSettings.h"
 #include "Factories/Factory.h"
@@ -4112,6 +4113,11 @@ void UEditorLoadingAndSavingUtils::ImportScene(const FString& Filename)
 void UEditorLoadingAndSavingUtils::ExportScene(bool bExportSelectedActorsOnly)
 {
 	FEditorFileUtils::Export(bExportSelectedActorsOnly);
+}
+
+void UEditorLoadingAndSavingUtils::UnloadPackages(const TArray<UPackage*>& PackagesToUnload, bool& bOutAnyPackagesUnloaded, FText& OutErrorMessage)
+{
+	bOutAnyPackagesUnloaded = PackageTools::UnloadPackages(PackagesToUnload, OutErrorMessage);
 }
 
 #undef LOCTEXT_NAMESPACE

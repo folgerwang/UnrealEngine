@@ -98,7 +98,7 @@ bool ExtractFormatArguments(FPyWrapperText* InSelf, PyObject* InObj, const int32
 						return false;
 					}
 
-					FFormatArgumentData& FormatArg = InOutFormatArgs[InOutFormatArgs.AddDefaulted()];
+					FFormatArgumentData& FormatArg = InOutFormatArgs.AddDefaulted_GetRef();
 					if (!ExtractFormatArgumentKey(InSelf, KeyItem, FormatArg))
 					{
 						PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Cannot convert format argument %d (%s) at index %d"), InArgIndex, *PyUtil::GetFriendlyTypename(InObj), SequenceIndex));
@@ -122,7 +122,7 @@ bool ExtractFormatArguments(FPyWrapperText* InSelf, PyObject* InObj, const int32
 						return false;
 					}
 
-					FFormatArgumentData& FormatArg = InOutFormatArgs[InOutFormatArgs.AddDefaulted()];
+					FFormatArgumentData& FormatArg = InOutFormatArgs.AddDefaulted_GetRef();
 					FormatArg.ArgumentName = FString::FromInt(InArgIndex);
 					if (!ExtractFormatArgumentValue(InSelf, ValueItem, FormatArg))
 					{
@@ -135,7 +135,7 @@ bool ExtractFormatArguments(FPyWrapperText* InSelf, PyObject* InObj, const int32
 	}
 	else
 	{
-		FFormatArgumentData& FormatArg = InOutFormatArgs[InOutFormatArgs.AddDefaulted()];
+		FFormatArgumentData& FormatArg = InOutFormatArgs.AddDefaulted_GetRef();
 		FormatArg.ArgumentName = FString::FromInt(InArgIndex);
 		if (!ExtractFormatArgumentValue(InSelf, InObj, FormatArg))
 		{
@@ -158,63 +158,26 @@ void InitializePyWrapperText(PyObject* PyModule)
 	}
 }
 
-FPyWrapperText* FPyWrapperText::New(PyTypeObject* InType)
+void FPyWrapperText::InitValue(FPyWrapperText* InSelf, const FText InValue)
 {
-	FPyWrapperText* Self = (FPyWrapperText*)FPyWrapperBase::New(InType);
-	if (Self)
-	{
-		new(&Self->Text) FText();
-	}
-	return Self;
+	Super::InitValue(InSelf, InValue);
+	FPyWrapperTextFactory::Get().MapInstance(InSelf->Value, InSelf);
 }
 
-void FPyWrapperText::Free(FPyWrapperText* InSelf)
+void FPyWrapperText::DeinitValue(FPyWrapperText* InSelf)
 {
-	Deinit(InSelf);
-
-	InSelf->Text.~FText();
-	FPyWrapperBase::Free(InSelf);
+	FPyWrapperTextFactory::Get().UnmapInstance(InSelf->Value, Py_TYPE(InSelf));
+	Super::DeinitValue(InSelf);
 }
 
-int FPyWrapperText::Init(FPyWrapperText* InSelf)
+FPyWrapperText* FPyWrapperText::CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult)
 {
-	Deinit(InSelf);
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
 
-	const int BaseInit = FPyWrapperBase::Init(InSelf);
-	if (BaseInit != 0)
-	{
-		return BaseInit;
-	}
-
-	FPyWrapperTextFactory::Get().MapInstance(InSelf->Text, InSelf);
-	return 0;
-}
-
-int FPyWrapperText::Init(FPyWrapperText* InSelf, const FText InValue)
-{
-	Deinit(InSelf);
-
-	const int BaseInit = FPyWrapperBase::Init(InSelf);
-	if (BaseInit != 0)
-	{
-		return BaseInit;
-	}
-
-	InSelf->Text = InValue;
-	FPyWrapperTextFactory::Get().MapInstance(InSelf->Text, InSelf);
-	return 0;
-}
-
-void FPyWrapperText::Deinit(FPyWrapperText* InSelf)
-{
-	FPyWrapperTextFactory::Get().UnmapInstance(InSelf->Text, Py_TYPE(InSelf));
-	InSelf->Text = FText();
-}
-
-FPyWrapperText* FPyWrapperText::CastPyObject(PyObject* InPyObject)
-{
 	if (PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperTextType) == 1)
 	{
+		SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperText*)InPyObject;
 	}
@@ -222,10 +185,14 @@ FPyWrapperText* FPyWrapperText::CastPyObject(PyObject* InPyObject)
 	return nullptr;
 }
 
-FPyWrapperText* FPyWrapperText::CastPyObject(PyObject* InPyObject, PyTypeObject* InType)
+FPyWrapperText* FPyWrapperText::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)InType) == 1 && (InType == &PyWrapperTextType || PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperTextType) == 1))
 	{
+		SetOptionalPyConversionResult(Py_TYPE(InPyObject) == InType ? FPyConversionResult::Success() : FPyConversionResult::SuccessWithCoercion(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperText*)InPyObject;
 	}
@@ -242,6 +209,7 @@ FPyWrapperText* FPyWrapperText::CastPyObject(PyObject* InPyObject, PyTypeObject*
 					return nullptr;
 				}
 			}
+			SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 			return NewText.Release();
 		}
 	}
@@ -253,16 +221,6 @@ PyTypeObject InitializePyWrapperTextType()
 {
 	struct FFuncs
 	{
-		static PyObject* New(PyTypeObject* InType, PyObject* InArgs, PyObject* InKwds)
-		{
-			return (PyObject*)FPyWrapperText::New(InType);
-		}
-
-		static void Dealloc(FPyWrapperText* InSelf)
-		{
-			FPyWrapperText::Free(InSelf);
-		}
-
 		static int Init(FPyWrapperText* InSelf, PyObject* InArgs, PyObject* InKwds)
 		{
 			FText InitValue;
@@ -282,7 +240,7 @@ PyTypeObject InitializePyWrapperTextType()
 
 		static PyObject* Str(FPyWrapperText* InSelf)
 		{
-			return PyUnicode_FromString(TCHAR_TO_UTF8(*InSelf->Text.ToString()));
+			return PyUnicode_FromString(TCHAR_TO_UTF8(*InSelf->Value.ToString()));
 		}
 
 		static PyObject* RichCmp(FPyWrapperText* InSelf, PyObject* InOther, int InOp)
@@ -294,7 +252,7 @@ PyTypeObject InitializePyWrapperTextType()
 				return Py_NotImplemented;
 			}
 
-			return PyUtil::PyRichCmp(InSelf->Text.CompareTo(Other), 0, InOp);
+			return PyUtil::PyRichCmp(InSelf->Value.CompareTo(Other), 0, InOp);
 		}
 
 		static PyUtil::FPyHashType Hash(FPyWrapperText* InSelf)
@@ -400,7 +358,7 @@ PyTypeObject InitializePyWrapperTextType()
 
 		static PyObject* IsEmpty(FPyWrapperText* InSelf)
 		{
-			if (InSelf->Text.IsEmpty())
+			if (InSelf->Value.IsEmpty())
 			{
 				Py_RETURN_TRUE;
 			}
@@ -410,7 +368,7 @@ PyTypeObject InitializePyWrapperTextType()
 
 		static PyObject* IsEmptyOrWhitespace(FPyWrapperText* InSelf)
 		{
-			if (InSelf->Text.IsEmptyOrWhitespace())
+			if (InSelf->Value.IsEmptyOrWhitespace())
 			{
 				Py_RETURN_TRUE;
 			}
@@ -420,7 +378,7 @@ PyTypeObject InitializePyWrapperTextType()
 
 		static PyObject* IsTransient(FPyWrapperText* InSelf)
 		{
-			if (InSelf->Text.IsTransient())
+			if (InSelf->Value.IsTransient())
 			{
 				Py_RETURN_TRUE;
 			}
@@ -430,7 +388,7 @@ PyTypeObject InitializePyWrapperTextType()
 
 		static PyObject* IsCultureInvariant(FPyWrapperText* InSelf)
 		{
-			if (InSelf->Text.IsCultureInvariant())
+			if (InSelf->Value.IsCultureInvariant())
 			{
 				Py_RETURN_TRUE;
 			}
@@ -440,7 +398,7 @@ PyTypeObject InitializePyWrapperTextType()
 
 		static PyObject* IsFromStringTable(FPyWrapperText* InSelf)
 		{
-			if (InSelf->Text.IsFromStringTable())
+			if (InSelf->Value.IsFromStringTable())
 			{
 				Py_RETURN_TRUE;
 			}
@@ -450,13 +408,13 @@ PyTypeObject InitializePyWrapperTextType()
 
 		static PyObject* ToLower(FPyWrapperText* InSelf)
 		{
-			const FText LowerText = InSelf->Text.ToLower();
+			const FText LowerText = InSelf->Value.ToLower();
 			return PyConversion::Pythonize(LowerText);
 		}
 
 		static PyObject* ToUpper(FPyWrapperText* InSelf)
 		{
-			const FText UpperText = InSelf->Text.ToUpper();
+			const FText UpperText = InSelf->Value.ToUpper();
 			return PyConversion::Pythonize(UpperText);
 		}
 
@@ -484,7 +442,7 @@ PyTypeObject InitializePyWrapperTextType()
 				return nullptr;
 			}
 
-			const FText FormattedText = FTextFormatter::Format(InSelf->Text, MoveTemp(FormatArgs), false, false);
+			const FText FormattedText = FTextFormatter::Format(InSelf->Value, MoveTemp(FormatArgs), false, false);
 			return PyConversion::Pythonize(FormattedText);
 		}
 	};
@@ -506,24 +464,14 @@ PyTypeObject InitializePyWrapperTextType()
 		{ nullptr, nullptr, 0, nullptr }
 	};
 
-	PyTypeObject PyType = {
-		PyVarObject_HEAD_INIT(nullptr, 0)
-		"Text", /* tp_name */
-		sizeof(FPyWrapperText), /* tp_basicsize */
-	};
+	PyTypeObject PyType = InitializePyWrapperBasicType<FPyWrapperText>("Text", "Type for all UE4 exposed FText instances");
 
-	PyType.tp_base = &PyWrapperBaseType;
-	PyType.tp_new = (newfunc)&FFuncs::New;
-	PyType.tp_dealloc = (destructor)&FFuncs::Dealloc;
 	PyType.tp_init = (initproc)&FFuncs::Init;
 	PyType.tp_str = (reprfunc)&FFuncs::Str;
 	PyType.tp_richcompare = (richcmpfunc)&FFuncs::RichCmp;
 	PyType.tp_hash = (hashfunc)&FFuncs::Hash;
 
 	PyType.tp_methods = PyMethods;
-
-	PyType.tp_flags = Py_TPFLAGS_DEFAULT;
-	PyType.tp_doc = "Type for all UE4 exposed FText instances";
 
 	return PyType;
 }

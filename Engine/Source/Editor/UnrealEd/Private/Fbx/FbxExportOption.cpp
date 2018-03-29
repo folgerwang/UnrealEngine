@@ -15,6 +15,7 @@ UFbxExportOption::UFbxExportOption(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	FbxExportCompatibility = EFbxExportCompatibility::FBX_2013;
+	bASCII = false;
 	bForceFrontXAxis = false;
 	LevelOfDetail = true;
 	Collision = true;

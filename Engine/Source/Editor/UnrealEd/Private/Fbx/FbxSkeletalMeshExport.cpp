@@ -220,7 +220,7 @@ FbxNode* FFbxExporter::CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* Me
 		}
 	}
 
-	if (ExportOptions->VertexColor)
+	if (GetExportOptions()->VertexColor)
 	{
 		// Create and fill in the vertex color data source.
 		FbxLayerElementVertexColor* VertexColor = FbxLayerElementVertexColor::Create(Mesh, "");

@@ -6,6 +6,7 @@
 #include "Modules/ModuleManager.h"
 #include "GitSourceControlModule.h"
 #include "GitSourceControlUtils.h"
+#include "SourceControlHelpers.h"
 
 namespace GitSettingsConstants
 {

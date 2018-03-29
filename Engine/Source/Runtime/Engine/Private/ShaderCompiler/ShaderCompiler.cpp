@@ -3104,7 +3104,12 @@ void GlobalBeginCompileShader(
 
 	{
 		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.PostProcessing.PropagateAlpha"));
-		Input.Environment.SetDefine(TEXT("POST_PROCESS_ALPHA"), CVar ? (CVar->GetInt() != 0) : 0);
+		int32 PropagateAlpha = CVar->GetInt();
+		if (PropagateAlpha < 0 || PropagateAlpha > 2)
+		{
+			PropagateAlpha = 0;
+		}
+		Input.Environment.SetDefine(TEXT("POST_PROCESS_ALPHA"), PropagateAlpha);
 	}
 
 	{

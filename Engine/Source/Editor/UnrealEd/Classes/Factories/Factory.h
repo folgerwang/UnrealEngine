@@ -170,9 +170,16 @@ public:
 	void SetAutomatedAssetImportData(const class UAutomatedAssetImportData* Data);
 
 	/**
+	 * Sets the import task being used with this factory
+	 *
+	 * @param Task	The import task or nullptr if it does not exist
+	 */
+	void SetAssetImportTask(const class UAssetImportTask* Task);
+
+	/**
 	 * @return true if this factory is being used for automated import.  Dialogs and user input should be disabled if this method returns true
 	 */
-	bool IsAutomatedImport() const { return  GIsAutomationTesting || AutomatedImportData; }
+	bool IsAutomatedImport() const;
 public:
 
 	/**
@@ -323,6 +330,9 @@ public:
 	UPROPERTY()
 	const class UAutomatedAssetImportData* AutomatedImportData;
 
+	/** Task for importing file via script interfaces */
+	UPROPERTY()
+	const class UAssetImportTask* AssetImportTask;
 
 protected:
 

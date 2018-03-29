@@ -7,6 +7,8 @@
 #include "Engine/MeshMerging.h"
 #include "Modules/ModuleInterface.h"
 
+struct FOverlappingCorners;
+
 /**
 * Mesh reduction interface.
 */
@@ -26,7 +28,7 @@ public:
 		struct FRawMesh& OutReducedMesh,
 		float& OutMaxDeviation,
 		const struct FRawMesh& InMesh,
-		const TMultiMap<int32, int32>& InOverlappingCorners,
+		const FOverlappingCorners& InOverlappingCorners,
 		const struct FMeshReductionSettings& ReductionSettings
 	) = 0;
 	/**

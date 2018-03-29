@@ -46,6 +46,7 @@
 #include "Exporters/StaticMeshExporterFBX.h"
 #include "Exporters/StaticMeshExporterOBJ.h"
 #include "Exporters/TextBufferExporterTXT.h"
+#include "Exporters/FbxExportOption.h"
 #include "Engine/StaticMesh.h"
 #include "Sound/SoundWave.h"
 #include "Engine/StaticMeshActor.h"
@@ -69,6 +70,7 @@
 #include "UnrealExporter.h"
 #include "InstancedFoliage.h"
 #include "Engine/Selection.h"
+#include "AssetExportTask.h"
 
 #include "Components/SkeletalMeshComponent.h"
 #include "Camera/CameraComponent.h"
@@ -1591,11 +1593,18 @@ bool ULevelExporterFBX::ExportBinary( UObject* Object, const TCHAR* Type, FArchi
 	GWarn->BeginSlowTask(NSLOCTEXT("UnrealEd", "ExportingLevelToFBX", "Exporting Level To FBX"), true);
 
 	UnFbx::FFbxExporter* Exporter = UnFbx::FFbxExporter::GetInstance();
-	
-	//Show the fbx export dialog options
 	bool ExportCancel = false;
-	bool ExportAll = false;
-	Exporter->FillExportOptions(false, true, UExporter::CurrentFilename, ExportCancel, ExportAll);
+	if (UFbxExportOption* AutomatedExportOptions = GetAutomatedExportOptionsFbx())
+	{
+		Exporter->SetExportOptionsOverride(AutomatedExportOptions);
+	}
+	else
+	{
+		//Show the fbx export dialog options
+		bool ExportAll = false;
+		Exporter->FillExportOptions(false, true, UExporter::CurrentFilename, ExportCancel, ExportAll);
+	}
+
 	if (!ExportCancel)
 	{
 		Exporter->CreateDocument();
@@ -1625,6 +1634,8 @@ bool ULevelExporterFBX::ExportBinary( UObject* Object, const TCHAR* Type, FArchi
 		}
 		Exporter->WriteToFile(*UExporter::CurrentFilename);
 	}
+
+	Exporter->SetExportOptionsOverride(nullptr);
 
 	GWarn->EndSlowTask();
 
@@ -1919,6 +1930,19 @@ bool UStaticMeshExporterOBJ::ExportText(const FExportObjectInnerContext* Context
 }
 
 /*------------------------------------------------------------------------------
+UExporterFBX implementation.
+------------------------------------------------------------------------------*/
+UFbxExportOption* UExporterFBX::GetAutomatedExportOptionsFbx()
+{
+	if (ExportTask && ExportTask->bAutomated)
+	{
+		return Cast<UFbxExportOption>(ExportTask->Options);
+	}
+
+	return nullptr;
+}
+
+/*------------------------------------------------------------------------------
 UStaticMeshExporterFBX implementation.
 ------------------------------------------------------------------------------*/
 UStaticMeshExporterFBX::UStaticMeshExporterFBX(const FObjectInitializer& ObjectInitializer)
@@ -1938,21 +1962,30 @@ bool UStaticMeshExporterFBX::ExportBinary( UObject* Object, const TCHAR* Type, F
 {
 	UStaticMesh* StaticMesh = CastChecked<UStaticMesh>( Object );
 	UnFbx::FFbxExporter* Exporter = UnFbx::FFbxExporter::GetInstance();
-	//Show the fbx export dialog options
-	bool ExportAll = GetBatchMode() && !GetShowExportOption();
-	bool ExportCancel = false;
-	Exporter->FillExportOptions(GetBatchMode(), GetShowExportOption(), UExporter::CurrentFilename, ExportCancel, ExportAll);
-	if (ExportCancel)
+	if (UFbxExportOption* AutomatedExportOptions = GetAutomatedExportOptionsFbx())
 	{
-		SetCancelBatch(GetBatchMode());
-		//User cancel the FBX export
-		return false;
+		Exporter->SetExportOptionsOverride(AutomatedExportOptions);
+		SetShowExportOption(false);
 	}
-	SetShowExportOption(!ExportAll);
+	else
+	{
+		//Show the fbx export dialog options
+		bool ExportAll = GetBatchMode() && !GetShowExportOption();
+		bool ExportCancel = false;
+		Exporter->FillExportOptions(GetBatchMode(), GetShowExportOption(), UExporter::CurrentFilename, ExportCancel, ExportAll);
+		if (ExportCancel)
+		{
+			SetCancelBatch(GetBatchMode());
+			//User cancel the FBX export
+			return false;
+		}
+		SetShowExportOption(!ExportAll);
+	}
 
 	Exporter->CreateDocument();
 	Exporter->ExportStaticMesh(StaticMesh);
 	Exporter->WriteToFile(*UExporter::CurrentFilename);
+	Exporter->SetExportOptionsOverride(nullptr);
 
 	return true;
 }
@@ -1976,21 +2009,30 @@ bool USkeletalMeshExporterFBX::ExportBinary( UObject* Object, const TCHAR* Type,
 {
 	USkeletalMesh* SkeletalMesh = CastChecked<USkeletalMesh>( Object );
 	UnFbx::FFbxExporter* Exporter = UnFbx::FFbxExporter::GetInstance();
-	//Show the fbx export dialog options
-	bool ExportAll = GetBatchMode() && !GetShowExportOption();
-	bool ExportCancel = false;
-	Exporter->FillExportOptions(GetBatchMode(), GetShowExportOption(), UExporter::CurrentFilename, ExportCancel, ExportAll);
-	if (ExportCancel)
+	if (UFbxExportOption* AutomatedExportOptions = GetAutomatedExportOptionsFbx())
 	{
-		SetCancelBatch(GetBatchMode());
-		//User cancel the FBX export
-		return false;
+		Exporter->SetExportOptionsOverride(AutomatedExportOptions);
+		SetShowExportOption(false);
 	}
-	SetShowExportOption(!ExportAll);
+	else
+	{
+		//Show the fbx export dialog options
+		bool ExportAll = GetBatchMode() && !GetShowExportOption();
+		bool ExportCancel = false;
+		Exporter->FillExportOptions(GetBatchMode(), GetShowExportOption(), UExporter::CurrentFilename, ExportCancel, ExportAll);
+		if (ExportCancel)
+		{
+			SetCancelBatch(GetBatchMode());
+			//User cancel the FBX export
+			return false;
+		}
+		SetShowExportOption(!ExportAll);
+	}
 
 	Exporter->CreateDocument();
 	Exporter->ExportSkeletalMesh(SkeletalMesh);
 	Exporter->WriteToFile(*UExporter::CurrentFilename);
+	Exporter->SetExportOptionsOverride(nullptr);
 
 	return true;
 }
@@ -2018,21 +2060,30 @@ bool UAnimSequenceExporterFBX::ExportBinary( UObject* Object, const TCHAR* Type,
 	if (AnimSkeleton && PreviewMesh)
 	{
 		UnFbx::FFbxExporter* Exporter = UnFbx::FFbxExporter::GetInstance();
-		//Show the fbx export dialog options
-		bool ExportAll = GetBatchMode() && !GetShowExportOption();
-		bool ExportCancel = false;
-		Exporter->FillExportOptions(GetBatchMode(), GetShowExportOption(), UExporter::CurrentFilename, ExportCancel, ExportAll);
-		if (ExportCancel)
+		if (UFbxExportOption* AutomatedExportOptions = GetAutomatedExportOptionsFbx())
 		{
-			SetCancelBatch(GetBatchMode());
-			//User cancel the FBX export
-			return false;
+			Exporter->SetExportOptionsOverride(AutomatedExportOptions);
+			SetShowExportOption(false);
 		}
-		SetShowExportOption(!ExportAll);
+		else
+		{
+			//Show the fbx export dialog options
+			bool ExportAll = GetBatchMode() && !GetShowExportOption();
+			bool ExportCancel = false;
+			Exporter->FillExportOptions(GetBatchMode(), GetShowExportOption(), UExporter::CurrentFilename, ExportCancel, ExportAll);
+			if (ExportCancel)
+			{
+				SetCancelBatch(GetBatchMode());
+				//User cancel the FBX export
+				return false;
+			}
+			SetShowExportOption(!ExportAll);
+		}
 
 		Exporter->CreateDocument();
 		Exporter->ExportAnimSequence(AnimSequence, PreviewMesh, false);
 		Exporter->WriteToFile( *UExporter::CurrentFilename );
+		Exporter->SetExportOptionsOverride(nullptr);
 
 		return true;
 	}

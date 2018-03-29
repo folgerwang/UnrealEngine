@@ -609,10 +609,14 @@ bool FPyWrapperMap::ValidateInternalState(FPyWrapperMap* InSelf)
 	return true;
 }
 
-FPyWrapperMap* FPyWrapperMap::CastPyObject(PyObject* InPyObject)
+FPyWrapperMap* FPyWrapperMap::CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperMapType) == 1)
 	{
+		SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperMap*)InPyObject;
 	}
@@ -620,8 +624,10 @@ FPyWrapperMap* FPyWrapperMap::CastPyObject(PyObject* InPyObject)
 	return nullptr;
 }
 
-FPyWrapperMap* FPyWrapperMap::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InKeyDef, const PyUtil::FPropertyDef& InValueDef)
+FPyWrapperMap* FPyWrapperMap::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InKeyDef, const PyUtil::FPropertyDef& InValueDef, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)InType) == 1 && (InType == &PyWrapperMapType || PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperMapType) == 1))
 	{
 		FPyWrapperMap* Self = (FPyWrapperMap*)InPyObject;
@@ -635,6 +641,8 @@ FPyWrapperMap* FPyWrapperMap::CastPyObject(PyObject* InPyObject, PyTypeObject* I
 		const PyUtil::FPropertyDef SelfValuePropDef = Self->MapProp->ValueProp;
 		if (SelfKeyPropDef == InKeyDef && SelfValuePropDef == InValueDef)
 		{
+			SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 			Py_INCREF(Self);
 			return Self;
 		}
@@ -693,6 +701,7 @@ FPyWrapperMap* FPyWrapperMap::CastPyObject(PyObject* InPyObject, PyTypeObject* I
 			NewScriptMapHelper.Rehash();
 		}
 
+		SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 		return NewMap.Release();
 	}
 
@@ -779,6 +788,8 @@ FPyWrapperMap* FPyWrapperMap::CastPyObject(PyObject* InPyObject, PyTypeObject* I
 				}
 
 				NewScriptMapHelper.Rehash();
+
+				SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 				return NewMap.Release();
 			}
 		}
@@ -1830,17 +1841,14 @@ PyTypeObject PyWrapperMapItemViewType = InitializePyWrapperMapSetViewType<FPyWra
 PyTypeObject PyWrapperMapKeyViewType = InitializePyWrapperMapSetViewType<FPyWrapperMapKeyView>("MapKeyView");
 PyTypeObject PyWrapperMapValueViewType = InitializePyWrapperMapViewType<FPyWrapperMapValueView>("MapValueView");
 
-FPyWrapperMapMetaData::FPyWrapperMapMetaData()
+void FPyWrapperMapMetaData::AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector)
 {
-	AddReferencedObjects = [](FPyWrapperBase* Self, FReferenceCollector& Collector)
+	FPyWrapperMap* Self = static_cast<FPyWrapperMap*>(Instance);
+	if (Self->MapProp && Self->MapInstance && !Self->OwnerContext.HasOwner())
 	{
-		FPyWrapperMap* MapSelf = static_cast<FPyWrapperMap*>(Self);
-		if (MapSelf->MapProp && MapSelf->MapInstance && !MapSelf->OwnerContext.HasOwner())
-		{
-			Collector.AddReferencedObject(MapSelf->MapProp);
-			FPyReferenceCollector::AddReferencedObjectsFromProperty(Collector, MapSelf->MapProp, MapSelf->MapInstance);
-		}
-	};
+		Collector.AddReferencedObject(Self->MapProp);
+		FPyReferenceCollector::AddReferencedObjectsFromProperty(Collector, Self->MapProp, Self->MapInstance);
+	}
 }
 
 #endif	// WITH_PYTHON

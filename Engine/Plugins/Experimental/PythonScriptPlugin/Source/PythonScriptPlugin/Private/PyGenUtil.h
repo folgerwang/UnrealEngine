@@ -16,11 +16,17 @@ namespace PyGenUtil
 {
 	extern const FName ScriptNameMetaDataKey;
 	extern const FName ScriptNoExportMetaDataKey;
+	extern const FName ScriptMethodMetaDataKey;
+	extern const FName ScriptMathOpMetaDataKey;
 	extern const FName BlueprintTypeMetaDataKey;
 	extern const FName NotBlueprintTypeMetaDataKey;
 	extern const FName BlueprintSpawnableComponentMetaDataKey;
 	extern const FName BlueprintGetterMetaDataKey;
 	extern const FName BlueprintSetterMetaDataKey;
+	extern const FName CustomStructureParamMetaDataKey;
+	extern const FName DeprecatedPropertyMetaDataKey;
+	extern const FName DeprecatedFunctionMetaDataKey;
+	extern const FName DeprecationMessageMetaDataKey;
 
 	/** Name used by the Python equivalent of PostInitProperties */
 	static const char* PostInitFuncName = "_post_init";
@@ -31,31 +37,68 @@ namespace PyGenUtil
 	/** Stores the data needed by a runtime generated Python parameter */
 	struct FGeneratedWrappedMethodParameter
 	{
+		FGeneratedWrappedMethodParameter()
+			: ParamProp(nullptr)
+		{
+		}
+
+		FGeneratedWrappedMethodParameter(FGeneratedWrappedMethodParameter&&) = default;
+		FGeneratedWrappedMethodParameter(const FGeneratedWrappedMethodParameter&) = default;
+		FGeneratedWrappedMethodParameter& operator=(FGeneratedWrappedMethodParameter&&) = default;
+		FGeneratedWrappedMethodParameter& operator=(const FGeneratedWrappedMethodParameter&) = default;
+
 		/** The name of the parameter */
 		FUTF8Buffer ParamName;
 
-		/** The Unreal property name for this parameter */
-		FName ParamPropName;
+		/** The Unreal property for this parameter */
+		const UProperty* ParamProp;
 
 		/** The default Unreal ExportText value of this parameter; parameters with this set are considered optional */
 		TOptional<FString> ParamDefaultValue;
+	};
+
+	/** Stores the data needed to call an Unreal function via Python */
+	struct FGeneratedWrappedFunction
+	{
+		FGeneratedWrappedFunction()
+			: Func(nullptr)
+		{
+		}
+
+		FGeneratedWrappedFunction(FGeneratedWrappedFunction&&) = default;
+		FGeneratedWrappedFunction(const FGeneratedWrappedFunction&) = default;
+		FGeneratedWrappedFunction& operator=(FGeneratedWrappedFunction&&) = default;
+		FGeneratedWrappedFunction& operator=(const FGeneratedWrappedFunction&) = default;
+
+		/** Set the function to call, and also extract the parameter lists */
+		void SetFunctionAndExtractParams(const UFunction* InFunc);
+
+		/** The Unreal function to call (static dispatch) */
+		const UFunction* Func;
+
+		/** Array of input parameters associated with the function */
+		TArray<FGeneratedWrappedMethodParameter> InputParams;
+
+		/** Array of output (including return) parameters associated with the function */
+		TArray<FGeneratedWrappedMethodParameter> OutputParams;
 	};
 
 	/** Stores the data needed by a runtime generated Python method */
 	struct FGeneratedWrappedMethod
 	{
 		FGeneratedWrappedMethod()
-			: Class(nullptr)
-			, MethodCallback(nullptr)
+			: MethodCallback(nullptr)
 			, MethodFlags(0)
 		{
 		}
 
+		FGeneratedWrappedMethod(FGeneratedWrappedMethod&&) = default;
+		FGeneratedWrappedMethod(const FGeneratedWrappedMethod&) = default;
+		FGeneratedWrappedMethod& operator=(FGeneratedWrappedMethod&&) = default;
+		FGeneratedWrappedMethod& operator=(const FGeneratedWrappedMethod&) = default;
+
 		/** Convert this wrapper type to its Python type */
 		void ToPython(FPyMethodWithClosureDef& OutPyMethod) const;
-
-		/** The class to call the method on (static dispatch) */
-		UClass* Class;
 
 		/** The name of the method */
 		FUTF8Buffer MethodName;
@@ -63,34 +106,141 @@ namespace PyGenUtil
 		/** The doc string of the method */
 		FUTF8Buffer MethodDoc;
 
-		/** The Unreal function name for this method */
-		FName MethodFuncName;
+		/** The Unreal function for this method */
+		FGeneratedWrappedFunction MethodFunc;
 
 		/* The C function this method should call */
 		PyCFunctionWithClosure MethodCallback;
 
 		/* The METH_ flags for this method */
 		int MethodFlags;
+	};
 
-		/** Array of parameters associated with this method */
-		TArray<FGeneratedWrappedMethodParameter> MethodParams;
+	/** Stores the data needed for a set of runtime generated Python methods */
+	struct FGeneratedWrappedMethods
+	{
+		FGeneratedWrappedMethods() = default;
+		FGeneratedWrappedMethods(FGeneratedWrappedMethods&&) = default;
+		FGeneratedWrappedMethods(const FGeneratedWrappedMethods&) = delete;
+		FGeneratedWrappedMethods& operator=(FGeneratedWrappedMethods&&) = default;
+		FGeneratedWrappedMethods& operator=(const FGeneratedWrappedMethods&) = delete;
+
+		/** Called to ready the generated methods with Python */
+		void Finalize();
+
+		/** Array of methods associated from the wrapped type */
+		TArray<FGeneratedWrappedMethod> TypeMethods;
+
+		/** The Python methods that were generated from TypeMethods (in Finalize) */
+		TArray<FPyMethodWithClosureDef> PyMethods;
+	};
+
+	/** Stores the data needed by a runtime generated Python method that is dynamically created and registered post-finalize of its owner struct type (for hoisting util functions onto structs) */
+	struct FGeneratedWrappedDynamicStructMethod : public FGeneratedWrappedMethod
+	{
+		FGeneratedWrappedDynamicStructMethod() = default;
+		FGeneratedWrappedDynamicStructMethod(FGeneratedWrappedDynamicStructMethod&&) = default;
+		FGeneratedWrappedDynamicStructMethod(const FGeneratedWrappedDynamicStructMethod&) = default;
+		FGeneratedWrappedDynamicStructMethod& operator=(FGeneratedWrappedDynamicStructMethod&&) = default;
+		FGeneratedWrappedDynamicStructMethod& operator=(const FGeneratedWrappedDynamicStructMethod&) = default;
+
+		/** The struct parameter information (this parameter is set to the struct instance that calls the method) */
+		FGeneratedWrappedMethodParameter StructParam;
+	};
+
+	/** Stores the data needed by a runtime generated Python method that is dynamically created and registered post-finalize of its owner struct type (for hoisting util functions onto structs) */
+	struct FGeneratedWrappedDynamicStructMethodWithClosure : public FGeneratedWrappedDynamicStructMethod
+	{
+		FGeneratedWrappedDynamicStructMethodWithClosure() = default;
+		FGeneratedWrappedDynamicStructMethodWithClosure(FGeneratedWrappedDynamicStructMethodWithClosure&&) = default;
+		FGeneratedWrappedDynamicStructMethodWithClosure(const FGeneratedWrappedDynamicStructMethodWithClosure&) = delete;
+		FGeneratedWrappedDynamicStructMethodWithClosure& operator=(FGeneratedWrappedDynamicStructMethodWithClosure&&) = default;
+		FGeneratedWrappedDynamicStructMethodWithClosure& operator=(const FGeneratedWrappedDynamicStructMethodWithClosure&) = delete;
+
+		/** Called to ready the generated method for Python */
+		void Finalize();
+
+		/** Python method that was generated from this method */
+		FPyMethodWithClosureDef PyMethod;
+	};
+
+	/** Stores the data needed by a runtime generated Python operator stack function */
+	struct FGeneratedWrappedStructMathOpFunction : public FGeneratedWrappedFunction
+	{
+		FGeneratedWrappedStructMathOpFunction() = default;
+		FGeneratedWrappedStructMathOpFunction(FGeneratedWrappedStructMathOpFunction&&) = default;
+		FGeneratedWrappedStructMathOpFunction(const FGeneratedWrappedStructMathOpFunction&) = default;
+		FGeneratedWrappedStructMathOpFunction& operator=(FGeneratedWrappedStructMathOpFunction&&) = default;
+		FGeneratedWrappedStructMathOpFunction& operator=(const FGeneratedWrappedStructMathOpFunction&) = default;
+
+		/** Set the function to call, and also extract the parameter lists */
+		bool SetFunctionAndExtractParams(const UFunction* InFunc);
+
+		/** The struct parameter information (this parameter is set to the struct instance that calls the function) */
+		FGeneratedWrappedMethodParameter StructParam;
+	};
+
+	/** Stores the data needed by a runtime generated Python operator stack that is dynamically created and registered post-finalize of its owner struct type (for hoisting math operators onto structs) */
+	struct FGeneratedWrappedStructMathOpStack
+	{
+		/** Known math operator types */
+		enum class EOpType : uint8
+		{
+			Add = 0,			// +
+			InlineAdd,			// +=
+			Subtract,			// -
+			InlineSubtract,		// -=
+			Multiply,			// *
+			InlineMultiply,		// *=
+			Divide,				// /
+			InlineDivide,		// /=
+			Modulus,			// %
+			InlineModulus,		// %=
+			And,				// &
+			InlineAnd,			// &=
+			Or,					// |
+			InlineOr,			// |=
+			Xor,				// ^
+			InlineXor,			// ^=
+			RightShift,			// >>
+			InlineRightShift,	// >>=
+			LeftShift,			// <<
+			InlineLeftShift,	// <<=
+			Num,
+		};
+
+		/**
+		 * Given a potential operator string, try and convert it to a known operator type
+		 * @return true if the conversion was a success, false otherwise
+		 */
+		static bool StringToOpType(const TCHAR* InStr, EOpType& OutOpType);
+
+		/**
+		 * Is the given operator a inline operator?
+		 */
+		static bool IsInlineOp(const EOpType InOpType);
+
+		/** Array of math operator functions associated with this operator stack */
+		TArray<FGeneratedWrappedStructMathOpFunction> MathOpFuncs;
 	};
 
 	/** Stores the data needed by a runtime generated Python get/set */
 	struct FGeneratedWrappedGetSet
 	{
 		FGeneratedWrappedGetSet()
-			: Class(nullptr)
+			: Prop(nullptr)
 			, GetCallback(nullptr)
 			, SetCallback(nullptr)
 		{
 		}
 
+		FGeneratedWrappedGetSet(FGeneratedWrappedGetSet&&) = default;
+		FGeneratedWrappedGetSet(const FGeneratedWrappedGetSet&) = default;
+		FGeneratedWrappedGetSet& operator=(FGeneratedWrappedGetSet&&) = default;
+		FGeneratedWrappedGetSet& operator=(const FGeneratedWrappedGetSet&) = default;
+
 		/** Convert this wrapper type to its Python type */
 		void ToPython(PyGetSetDef& OutPyGetSet) const;
-
-		/** The class to call the get/set functions on (static dispatch) */
-		UClass* Class;
 
 		/** The name of the get/set */
 		FUTF8Buffer GetSetName;
@@ -98,14 +248,14 @@ namespace PyGenUtil
 		/** The doc string of the get/set */
 		FUTF8Buffer GetSetDoc;
 
-		/** The Unreal property name for this get/set */
-		FName PropName;
+		/** The Unreal property for this get/set */
+		const UProperty* Prop;
 
 		/** The Unreal function for the get (if any) */
-		FName GetFuncName;
+		FGeneratedWrappedFunction GetFunc;
 
 		/** The Unreal function for the set (if any) */
-		FName SetFuncName;
+		FGeneratedWrappedFunction SetFunc;
 
 		/* The C function that should be called for get */
 		getter GetCallback;
@@ -114,10 +264,34 @@ namespace PyGenUtil
 		setter SetCallback;
 	};
 
+	/** Stores the data needed for a set of runtime generated Python get/sets */
+	struct FGeneratedWrappedGetSets
+	{
+		FGeneratedWrappedGetSets() = default;
+		FGeneratedWrappedGetSets(FGeneratedWrappedGetSets&&) = default;
+		FGeneratedWrappedGetSets(const FGeneratedWrappedGetSets&) = delete;
+		FGeneratedWrappedGetSets& operator=(FGeneratedWrappedGetSets&&) = default;
+		FGeneratedWrappedGetSets& operator=(const FGeneratedWrappedGetSets&) = delete;
+
+		/** Called to ready the generated get/sets with Python */
+		void Finalize();
+
+		/** Array of get/sets from the wrapped type */
+		TArray<FGeneratedWrappedGetSet> TypeGetSets;
+
+		/** The Python get/sets that were generated from TypeGetSets (in Finalize) */
+		TArray<PyGetSetDef> PyGetSets;
+	};
+
 	/** Stores the data needed to generate a Python doc string for editor exposed properties */
 	struct FGeneratedWrappedPropertyDoc
 	{
 		explicit FGeneratedWrappedPropertyDoc(const UProperty* InProp);
+
+		FGeneratedWrappedPropertyDoc(FGeneratedWrappedPropertyDoc&&) = default;
+		FGeneratedWrappedPropertyDoc(const FGeneratedWrappedPropertyDoc&) = default;
+		FGeneratedWrappedPropertyDoc& operator=(FGeneratedWrappedPropertyDoc&&) = default;
+		FGeneratedWrappedPropertyDoc& operator=(const FGeneratedWrappedPropertyDoc&) = default;
 
 		/** Util function to sort an array of doc structs based on the Pythonized property name */
 		static bool SortPredicate(const FGeneratedWrappedPropertyDoc& InOne, const FGeneratedWrappedPropertyDoc& InTwo);
@@ -138,7 +312,7 @@ namespace PyGenUtil
 		FString EditorDocString;
 	};
 
-	/** Stores the data needed by a runtime generated Python type */
+	/** Stores the minimal data needed by a runtime generated Python type */
 	struct FGeneratedWrappedType
 	{
 		FGeneratedWrappedType()
@@ -146,29 +320,27 @@ namespace PyGenUtil
 			PyType = { PyVarObject_HEAD_INIT(nullptr, 0) };
 		}
 
+		virtual ~FGeneratedWrappedType() = default;
+
+		FGeneratedWrappedType(FGeneratedWrappedType&&) = default;
+		FGeneratedWrappedType(const FGeneratedWrappedType&) = delete;
+		FGeneratedWrappedType& operator=(FGeneratedWrappedType&&) = default;
+		FGeneratedWrappedType& operator=(const FGeneratedWrappedType&) = delete;
+
 		/** Called to ready the generated type with Python */
 		bool Finalize();
+
+		/** Internal version of Finalize, called before readying the type with Python */
+		virtual void Finalize_PreReady();
+
+		/** Internal version of Finalize, called after readying the type with Python */
+		virtual void Finalize_PostReady();
 
 		/** The name of the type */
 		FUTF8Buffer TypeName;
 
 		/** The doc string of the type */
 		FUTF8Buffer TypeDoc;
-
-		/** Array of methods associated with this type */
-		TArray<FGeneratedWrappedMethod> TypeMethods;
-
-		/** The Python methods that were generated from TypeMethods (in Finalize) */
-		TArray<FPyMethodWithClosureDef> PyMethods;
-
-		/** Array of get/sets associated with this type */
-		TArray<FGeneratedWrappedGetSet> TypeGetSets;
-
-		/** The Python get/sets that were generated from TypeGetSets (in Finalize) */
-		TArray<PyGetSetDef> PyGetSets;
-
-		/** The doc string data for the properties associated with this type */
-		TArray<FGeneratedWrappedPropertyDoc> TypePropertyDocs;
 
 		/** The meta-data associated with this type */
 		TSharedPtr<FPyWrapperBaseMetaData> MetaData;
@@ -177,9 +349,68 @@ namespace PyGenUtil
 		PyTypeObject PyType;
 	};
 
+	/** Stores the data needed by a runtime generated Python struct type */
+	struct FGeneratedWrappedStructType : public FGeneratedWrappedType
+	{
+		FGeneratedWrappedStructType() = default;
+		FGeneratedWrappedStructType(FGeneratedWrappedStructType&&) = default;
+		FGeneratedWrappedStructType(const FGeneratedWrappedStructType&) = delete;
+		FGeneratedWrappedStructType& operator=(FGeneratedWrappedStructType&&) = default;
+		FGeneratedWrappedStructType& operator=(const FGeneratedWrappedStructType&) = delete;
+
+		/** Internal version of Finalize, called before readying the type with Python */
+		virtual void Finalize_PreReady() override;
+
+		/** Called to add a dynamic struct method to this Python type (this should only be called post-finalize) */
+		void AddDynamicStructMethod(FGeneratedWrappedDynamicStructMethod&& InDynamicStructMethod);
+
+		/** Get/sets associated with this type */
+		FGeneratedWrappedGetSets GetSets;
+
+		/** The doc string data for the properties associated with this type */
+		TArray<FGeneratedWrappedPropertyDoc> PropertyDocs;
+
+		/** Array of dynamic struct methods associated with this struct type (call AddDynamicStructMethod to add methods) */
+		TArray<TSharedRef<FGeneratedWrappedDynamicStructMethodWithClosure>> DynamicStructMethods;
+
+		/** Python number methods for this struct */
+		PyNumberMethods PyNumber;
+	};
+
+	/** Stores the data needed by a runtime generated Python class type */
+	struct FGeneratedWrappedClassType : public FGeneratedWrappedType
+	{
+		FGeneratedWrappedClassType() = default;
+		FGeneratedWrappedClassType(FGeneratedWrappedClassType&&) = default;
+		FGeneratedWrappedClassType(const FGeneratedWrappedClassType&) = delete;
+		FGeneratedWrappedClassType& operator=(FGeneratedWrappedClassType&&) = default;
+		FGeneratedWrappedClassType& operator=(const FGeneratedWrappedClassType&) = delete;
+
+		/** Internal version of Finalize, called before readying the type with Python */
+		virtual void Finalize_PreReady() override;
+
+		/** Internal version of Finalize, called after readying the type with Python */
+		virtual void Finalize_PostReady() override;
+
+		/** Methods associated with this type */
+		FGeneratedWrappedMethods Methods;
+
+		/** Get/sets associated with this type */
+		FGeneratedWrappedGetSets GetSets;
+
+		/** The doc string data for the properties associated with this type */
+		TArray<FGeneratedWrappedPropertyDoc> PropertyDocs;
+	};
+
 	/** Definition data for an Unreal property generated from a Python type */
 	struct FPropertyDef
 	{
+		FPropertyDef() = default;
+		FPropertyDef(FPropertyDef&&) = default;
+		FPropertyDef(const FPropertyDef&) = delete;
+		FPropertyDef& operator=(FPropertyDef&&) = default;
+		FPropertyDef& operator=(const FPropertyDef&) = delete;
+
 		/** Data needed to re-wrap this property for Python */
 		FGeneratedWrappedGetSet GeneratedWrappedGetSet;
 
@@ -190,6 +421,12 @@ namespace PyGenUtil
 	/** Definition data for an Unreal function generated from a Python type */
 	struct FFunctionDef
 	{
+		FFunctionDef() = default;
+		FFunctionDef(FFunctionDef&&) = default;
+		FFunctionDef(const FFunctionDef&) = delete;
+		FFunctionDef& operator=(FFunctionDef&&) = default;
+		FFunctionDef& operator=(const FFunctionDef&) = delete;
+
 		/** Data needed to re-wrap this function for Python */
 		FGeneratedWrappedMethod GeneratedWrappedMethod;
 
@@ -217,23 +454,24 @@ namespace PyGenUtil
 	{
 		FPythonizeTooltipContext()
 			: Prop(nullptr)
-			, ParamsStruct(nullptr)
+			, Func(nullptr)
 			, ReadOnlyFlags(CPF_BlueprintReadOnly | CPF_EditConst)
 		{
 		}
 
-		FPythonizeTooltipContext(const UProperty* InProp, const UStruct* InParamsStruct, const uint64 InReadOnlyFlags = CPF_BlueprintReadOnly | CPF_EditConst)
-			: Prop(InProp)
-			, ParamsStruct(InParamsStruct)
-			, ReadOnlyFlags(InReadOnlyFlags)
-		{
-		}
+		FPythonizeTooltipContext(const UProperty* InProp, const UFunction* InFunc, const uint64 InReadOnlyFlags = CPF_BlueprintReadOnly | CPF_EditConst);
 
 		/** Optional property that should be used when converting property tooltips */
 		const UProperty* Prop;
 
-		/** Optional structure of params that should be used when converting function tooltips */
-		const UStruct* ParamsStruct;
+		/** Optional function that should be used when converting function tooltips */
+		const UFunction* Func;
+
+		/** Optional deprecation message for the property or function */
+		FString DeprecationMessage;
+
+		/** Optional set of parameters that we should ignore when generating function tooltips */
+		TSet<FName> ParamsToIgnore;
 
 		/** Flags that dictate whether the property should be considered read-only */
 		uint64 ReadOnlyFlags;
@@ -246,10 +484,25 @@ namespace PyGenUtil
 	PyObject* GetPostInitFunc(PyTypeObject* InPyType);
 
 	/** Add a struct init parameter to the given array of method parameters */
-	void AddStructInitParam(const TCHAR* InUnrealPropName, const TCHAR* InPythonAttrName, TArray<FGeneratedWrappedMethodParameter>& OutInitParams);
+	void AddStructInitParam(const UProperty* InUnrealProp, const TCHAR* InPythonAttrName, TArray<FGeneratedWrappedMethodParameter>& OutInitParams);
+
+	/** Given a function, extract all of its parameter information (input and output) */
+	void ExtractFunctionParams(const UFunction* InFunc, TArray<FGeneratedWrappedMethodParameter>& OutInputParams, TArray<FGeneratedWrappedMethodParameter>& OutOutputParams);
+
+	/** Apply default values to function arguments */
+	void ApplyParamDefaults(void* InBaseParamsAddr, const TArray<FGeneratedWrappedMethodParameter>& InParamDef);
 
 	/** Parse an array Python objects from the args and keywords based on the generated method parameter data */
 	bool ParseMethodParameters(PyObject* InArgs, PyObject* InKwds, const TArray<FGeneratedWrappedMethodParameter>& InParamDef, const char* InPyMethodName, TArray<PyObject*>& OutPyParams);
+
+	/** Given a set of return values and the struct data associated with them, pack them appropriately for returning to Python */
+	PyObject* PackReturnValues(void* InBaseParamsAddr, const TArray<FGeneratedWrappedMethodParameter>& InOutputParams, const TCHAR* InErrorCtxt, const TCHAR* InCallingCtxt);
+
+	/** Given a Python return value, unpack the values into the struct data associated with them */
+	bool UnpackReturnValues(PyObject* InRetVals, void* InBaseParamsAddr, const TArray<FGeneratedWrappedMethodParameter>& InOutputParams, const TCHAR* InErrorCtxt, const TCHAR* InCallingCtxt);
+
+	/** Build a Python doc string for the given function and arguments list */
+	FString BuildFunctionDocString(const UFunction* InFunc, const FString& InFuncPythonName, const TArray<FGeneratedWrappedMethodParameter>& InInputParams, const TArray<FGeneratedWrappedMethodParameter>& InOutputParams, const bool* InStaticOverride = nullptr);
 
 	/** Is the given class generated by Blueprints? */
 	bool IsBlueprintGeneratedClass(const UClass* InClass);
@@ -259,6 +512,15 @@ namespace PyGenUtil
 
 	/** Is the given enum generated by Blueprints? */
 	bool IsBlueprintGeneratedEnum(const UEnum* InEnum);
+
+	/** Is the given class marked as deprecated? */
+	bool IsDeprecatedClass(const UClass* InClass, FString* OutDeprecationMessage = nullptr);
+
+	/** Is the given property marked as deprecated? */
+	bool IsDeprecatedProperty(const UProperty* InProp, FString* OutDeprecationMessage = nullptr);
+
+	/** Is the given function marked as deprecated? */
+	bool IsDeprecatedFunction(const UFunction* InFunc, FString* OutDeprecationMessage = nullptr);
 
 	/** Should the given class be exported to Python? */
 	bool ShouldExportClass(const UClass* InClass);
@@ -291,7 +553,7 @@ namespace PyGenUtil
 	FString PythonizePropertyTooltip(const FString& InTooltip, const UProperty* InProp, const uint64 InReadOnlyFlags = CPF_BlueprintReadOnly | CPF_EditConst);
 
 	/** Given a function tooltip, convert it to a doc string */
-	FString PythonizeFunctionTooltip(const FString& InTooltip, const UStruct* InParamsStruct);
+	FString PythonizeFunctionTooltip(const FString& InTooltip, const UFunction* InFunc, const TSet<FName>& ParamsToIgnore = TSet<FName>());
 
 	/** Given a tooltip, convert it to a doc string */
 	FString PythonizeTooltip(const FString& InTooltip, const FPythonizeTooltipContext& InContext = FPythonizeTooltipContext());

@@ -177,10 +177,14 @@ bool FPyWrapperStruct::ValidateInternalState(FPyWrapperStruct* InSelf)
 	return true;
 }
 
-FPyWrapperStruct* FPyWrapperStruct::CastPyObject(PyObject* InPyObject)
+FPyWrapperStruct* FPyWrapperStruct::CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperStructType) == 1)
 	{
+		SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperStruct*)InPyObject;
 	}
@@ -188,10 +192,14 @@ FPyWrapperStruct* FPyWrapperStruct::CastPyObject(PyObject* InPyObject)
 	return nullptr;
 }
 
-FPyWrapperStruct* FPyWrapperStruct::CastPyObject(PyObject* InPyObject, PyTypeObject* InType)
+FPyWrapperStruct* FPyWrapperStruct::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)InType) == 1 && (InType == &PyWrapperStructType || PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperStructType) == 1))
 	{
+		SetOptionalPyConversionResult(Py_TYPE(InPyObject) == InType ? FPyConversionResult::Success() : FPyConversionResult::SuccessWithCoercion(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperStruct*)InPyObject;
 	}
@@ -226,7 +234,7 @@ FPyWrapperStruct* FPyWrapperStruct::CastPyObject(PyObject* InPyObject, PyTypeObj
 					break;
 				}
 
-				const int Result = PyUtil::SetUEPropValue(NewStruct->ScriptStruct, NewStruct->StructInstance, SequenceItem, InitParam.ParamPropName, InitParam.ParamName.GetData(), FPyWrapperOwnerContext(), 0, *PyUtil::GetErrorContext(NewStruct.Get()));
+				const int Result = PyUtil::SetUEPropValue(NewStruct->ScriptStruct, NewStruct->StructInstance, SequenceItem, InitParam.ParamProp, InitParam.ParamName.GetData(), FPyWrapperOwnerContext(), 0, *PyUtil::GetErrorContext(NewStruct.Get()));
 				if (Result != 0)
 				{
 					return nullptr;
@@ -234,6 +242,7 @@ FPyWrapperStruct* FPyWrapperStruct::CastPyObject(PyObject* InPyObject, PyTypeObj
 			}
 		}
 
+		SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 		return NewStruct.Release();
 	}
 
@@ -257,7 +266,7 @@ FPyWrapperStruct* FPyWrapperStruct::CastPyObject(PyObject* InPyObject, PyTypeObj
 			PyObject* MappingItem = PyMapping_GetItemString(InPyObject, (char*)InitParam.ParamName.GetData());
 			if (MappingItem)
 			{
-				const int Result = PyUtil::SetUEPropValue(NewStruct->ScriptStruct, NewStruct->StructInstance, MappingItem, InitParam.ParamPropName, InitParam.ParamName.GetData(), FPyWrapperOwnerContext(), 0, *PyUtil::GetErrorContext(NewStruct.Get()));
+				const int Result = PyUtil::SetUEPropValue(NewStruct->ScriptStruct, NewStruct->StructInstance, MappingItem, InitParam.ParamProp, InitParam.ParamName.GetData(), FPyWrapperOwnerContext(), 0, *PyUtil::GetErrorContext(NewStruct.Get()));
 				if (Result != 0)
 				{
 					return nullptr;
@@ -265,6 +274,7 @@ FPyWrapperStruct* FPyWrapperStruct::CastPyObject(PyObject* InPyObject, PyTypeObj
 			}
 		}
 
+		SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 		return NewStruct.Release();
 	}
 
@@ -296,7 +306,7 @@ int FPyWrapperStruct::SetPropertyValues(FPyWrapperStruct* InSelf, PyObject* InAr
 		if (PyValue)
 		{
 			const PyGenUtil::FGeneratedWrappedMethodParameter& InitParam = StructMetaData->InitParams[ParamIndex];
-			const int Result = PyUtil::SetUEPropValue(InSelf->ScriptStruct, InSelf->StructInstance, PyValue, InitParam.ParamPropName, InitParam.ParamName.GetData(), FPyWrapperOwnerContext(), 0, *PyUtil::GetErrorContext(InSelf));
+			const int Result = PyUtil::SetUEPropValue(InSelf->ScriptStruct, InSelf->StructInstance, PyValue, InitParam.ParamProp, InitParam.ParamName.GetData(), FPyWrapperOwnerContext(), 0, *PyUtil::GetErrorContext(InSelf));
 			if (Result != 0)
 			{
 				return Result;
@@ -307,37 +317,262 @@ int FPyWrapperStruct::SetPropertyValues(FPyWrapperStruct* InSelf, PyObject* InAr
 	return 0;
 }
 
-PyObject* FPyWrapperStruct::GetPropertyValue(FPyWrapperStruct* InSelf, const FName InPropName, const char* InPythonAttrName)
+PyObject* FPyWrapperStruct::GetPropertyValueByName(FPyWrapperStruct* InSelf, const FName InPropName, const char* InPythonAttrName)
 {
 	if (!ValidateInternalState(InSelf))
 	{
 		return nullptr;
 	}
 
-	return PyUtil::GetUEPropValue(InSelf->ScriptStruct, InSelf->StructInstance, InPropName, InPythonAttrName, (PyObject*)InSelf, *PyUtil::GetErrorContext(InSelf));
+	UProperty* Prop = InSelf->ScriptStruct->FindPropertyByName(InPropName);
+	if (!Prop)
+	{
+		PyUtil::SetPythonError(PyExc_Exception, InSelf, *FString::Printf(TEXT("Failed to find property '%s' for attribute '%s' on '%s'"), *InPropName.ToString(), UTF8_TO_TCHAR(InPythonAttrName), *InSelf->ScriptStruct->GetName()));
+		return nullptr;
+	}
+
+	return GetPropertyValue(InSelf, Prop, InPythonAttrName);
 }
 
-int FPyWrapperStruct::SetPropertyValue(FPyWrapperStruct* InSelf, PyObject* InValue, const FName InPropName, const char* InPythonAttrName, const bool InNotifyChange, const uint64 InReadOnlyFlags)
+PyObject* FPyWrapperStruct::GetPropertyValue(FPyWrapperStruct* InSelf, const UProperty* InProp, const char* InPythonAttrName)
+{
+	if (!ValidateInternalState(InSelf))
+	{
+		return nullptr;
+	}
+
+	return PyUtil::GetUEPropValue(InSelf->ScriptStruct, InSelf->StructInstance, InProp, InPythonAttrName, (PyObject*)InSelf, *PyUtil::GetErrorContext(InSelf));
+}
+
+int FPyWrapperStruct::SetPropertyValueByName(FPyWrapperStruct* InSelf, PyObject* InValue, const FName InPropName, const char* InPythonAttrName, const bool InNotifyChange, const uint64 InReadOnlyFlags)
 {
 	if (!ValidateInternalState(InSelf))
 	{
 		return -1;
 	}
 
-	const FPyWrapperOwnerContext ChangeOwner = InNotifyChange ? FPyWrapperOwnerContext((PyObject*)InSelf, InPropName) : FPyWrapperOwnerContext();
-	return PyUtil::SetUEPropValue(InSelf->ScriptStruct, InSelf->StructInstance, InValue, InPropName, InPythonAttrName, ChangeOwner, InReadOnlyFlags, *PyUtil::GetErrorContext(InSelf));
+	UProperty* Prop = InSelf->ScriptStruct->FindPropertyByName(InPropName);
+	if (!Prop)
+	{
+		PyUtil::SetPythonError(PyExc_Exception, InSelf, *FString::Printf(TEXT("Failed to find property '%s' for attribute '%s' on '%s'"), *InPropName.ToString(), UTF8_TO_TCHAR(InPythonAttrName), *InSelf->ScriptStruct->GetName()));
+		return -1;
+	}
+
+	return SetPropertyValue(InSelf, InValue, Prop, InPythonAttrName, InNotifyChange, InReadOnlyFlags);
+}
+
+int FPyWrapperStruct::SetPropertyValue(FPyWrapperStruct* InSelf, PyObject* InValue, const UProperty* InProp, const char* InPythonAttrName, const bool InNotifyChange, const uint64 InReadOnlyFlags)
+{
+	if (!ValidateInternalState(InSelf))
+	{
+		return -1;
+	}
+
+	const FPyWrapperOwnerContext ChangeOwner = InNotifyChange ? FPyWrapperOwnerContext((PyObject*)InSelf, InProp) : FPyWrapperOwnerContext();
+	return PyUtil::SetUEPropValue(InSelf->ScriptStruct, InSelf->StructInstance, InValue, InProp, InPythonAttrName, ChangeOwner, InReadOnlyFlags, *PyUtil::GetErrorContext(InSelf));
+}
+
+PyObject* FPyWrapperStruct::CallFunction_Impl(FPyWrapperStruct* InSelf, PyObject* InArgs, PyObject* InKwds, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const PyGenUtil::FGeneratedWrappedMethodParameter& InStructParam, const char* InPythonFuncName, const TCHAR* InErrorCtxt)
+{
+	TArray<PyObject*> Params;
+	if ((InArgs || InKwds) && !PyGenUtil::ParseMethodParameters(InArgs, InKwds, InFuncDef.InputParams, InPythonFuncName, Params))
+	{
+		return nullptr;
+	}
+
+	if (ensureAlways(InFuncDef.Func))
+	{
+		UClass* Class = InFuncDef.Func->GetOwnerClass();
+		UObject* Obj = Class->GetDefaultObject();
+
+		// Deprecated functions emit a warning
+		{
+			FString DeprecationMessage;
+			if (PyGenUtil::IsDeprecatedFunction(InFuncDef.Func, &DeprecationMessage) && 
+				PyUtil::SetPythonWarning(PyExc_DeprecationWarning, InErrorCtxt, *FString::Printf(TEXT("Function '%s.%s' is deprecated: %s"), *Class->GetName(), *InFuncDef.Func->GetName(), *DeprecationMessage)) == -1
+				)
+			{
+				// -1 from SetPythonWarning means the warning should be an exception
+				return nullptr;
+			}
+		}
+
+		FStructOnScope FuncParams(InFuncDef.Func);
+		PyGenUtil::ApplyParamDefaults(FuncParams.GetStructMemory(), InFuncDef.InputParams);
+		if (ensureAlways(InStructParam.ParamProp))
+		{
+			void* StructArgInstance = InStructParam.ParamProp->ContainerPtrToValuePtr<void>(FuncParams.GetStructMemory());
+			CastChecked<UStructProperty>(InStructParam.ParamProp)->Struct->CopyScriptStruct(StructArgInstance, InSelf->StructInstance);
+		}
+		for (int32 ParamIndex = 0; ParamIndex < Params.Num(); ++ParamIndex)
+		{
+			const PyGenUtil::FGeneratedWrappedMethodParameter& ParamDef = InFuncDef.InputParams[ParamIndex];
+
+			PyObject* PyValue = Params[ParamIndex];
+			if (PyValue)
+			{
+				if (!PyConversion::NativizeProperty_InContainer(PyValue, ParamDef.ParamProp, FuncParams.GetStructMemory(), 0))
+				{
+					PyUtil::SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Failed to convert parameter '%s.%s' when calling function '%s' on '%s'"), UTF8_TO_TCHAR(ParamDef.ParamName.GetData()), *Class->GetName(), *InFuncDef.Func->GetName(), *Obj->GetName()));
+					return nullptr;
+				}
+			}
+		}
+		PyUtil::InvokeFunctionCall(Obj, InFuncDef.Func, FuncParams.GetStructMemory(), InErrorCtxt);
+		return PyGenUtil::PackReturnValues(FuncParams.GetStructMemory(), InFuncDef.OutputParams, InErrorCtxt, *FString::Printf(TEXT("function '%s.%s' on '%s'"), *Class->GetName(), *InFuncDef.Func->GetName(), *Obj->GetName()));
+	}
+
+	Py_RETURN_NONE;
+}
+
+PyObject* FPyWrapperStruct::CallMethodNoArgs_Impl(FPyWrapperStruct* InSelf, void* InClosure)
+{
+	if (!ValidateInternalState(InSelf))
+	{
+		return nullptr;
+	}
+
+	const PyGenUtil::FGeneratedWrappedDynamicStructMethod* Closure = (PyGenUtil::FGeneratedWrappedDynamicStructMethod*)InClosure;
+	return CallFunction_Impl(InSelf, nullptr, nullptr, Closure->MethodFunc, Closure->StructParam, Closure->MethodName.GetData(), *PyUtil::GetErrorContext(InSelf));
+}
+
+PyObject* FPyWrapperStruct::CallMethodWithArgs_Impl(FPyWrapperStruct* InSelf, PyObject* InArgs, PyObject* InKwds, void* InClosure)
+{
+	if (!ValidateInternalState(InSelf))
+	{
+		return nullptr;
+	}
+
+	const PyGenUtil::FGeneratedWrappedDynamicStructMethod* Closure = (PyGenUtil::FGeneratedWrappedDynamicStructMethod*)InClosure;
+	return CallFunction_Impl(InSelf, InArgs, InKwds, Closure->MethodFunc, Closure->StructParam, Closure->MethodName.GetData(), *PyUtil::GetErrorContext(InSelf));
+}
+
+PyObject* FPyWrapperStruct::CallBinaryOperatorFunction_Impl(FPyWrapperStruct* InSelf, PyObject* InRHS, const PyGenUtil::FGeneratedWrappedStructMathOpFunction& InMathOpFunc, const bool InInlineOp, const TOptional<EPyConversionResultState> InRequiredConversionResult, FPyConversionResult* OutRHSConversionResult)
+{
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutRHSConversionResult);
+
+	// Binary functions must have a single input parameter (excluding the struct parameter) and a single output parameter (the return value)
+	if (InMathOpFunc.InputParams.Num() != 1 || InMathOpFunc.OutputParams.Num() != 1)
+	{
+		return nullptr;
+	}
+
+	if (ensureAlways(InMathOpFunc.Func))
+	{
+		UClass* Class = InMathOpFunc.Func->GetOwnerClass();
+		UObject* Obj = Class->GetDefaultObject();
+
+		// Build the input arguments (failures here aren't fatal as we may have multiple functions to evaluate on the stack, only one of which may accept the RHS parameter)
+		FStructOnScope FuncParams(InMathOpFunc.Func);
+		{
+			const FPyConversionResult RHSResult = PyConversion::NativizeProperty_InContainer(InRHS, InMathOpFunc.InputParams[0].ParamProp, FuncParams.GetStructMemory(), 0, FPyWrapperOwnerContext(), PyConversion::ESetErrorState::No);
+			SetOptionalPyConversionResult(RHSResult, OutRHSConversionResult);
+
+			if (!RHSResult)
+			{
+				return nullptr;
+			}
+
+			if (InRequiredConversionResult.IsSet() && RHSResult.GetState() != InRequiredConversionResult.GetValue())
+			{
+				return nullptr;
+			}
+		}
+		if (ensureAlways(InMathOpFunc.StructParam.ParamProp))
+		{
+			void* StructArgInstance = InMathOpFunc.StructParam.ParamProp->ContainerPtrToValuePtr<void>(FuncParams.GetStructMemory());
+			CastChecked<UStructProperty>(InMathOpFunc.StructParam.ParamProp)->Struct->CopyScriptStruct(StructArgInstance, InSelf->StructInstance);
+		}
+		PyUtil::InvokeFunctionCall(Obj, InMathOpFunc.Func, FuncParams.GetStructMemory(), *PyUtil::GetErrorContext(InSelf));
+
+		PyObject* ReturnPyObj = nullptr;
+		const PyGenUtil::FGeneratedWrappedMethodParameter& ReturnParamDef = InMathOpFunc.OutputParams[0];
+		if (InInlineOp)
+		{
+			// Copy the result back into ourself
+			if (const UStructProperty* ReturnStructProp = Cast<const UStructProperty>(ReturnParamDef.ParamProp))
+			{
+				if (ReturnStructProp->Struct == FPyWrapperStructMetaData::GetStruct(InSelf))
+				{
+					void* ReturnStructInstance = ReturnStructProp->ContainerPtrToValuePtr<void>(FuncParams.GetStructMemory());
+					ReturnStructProp->Struct->CopyScriptStruct(InSelf->StructInstance, ReturnStructInstance);
+
+					Py_INCREF(InSelf);
+					ReturnPyObj = (PyObject*)InSelf;
+				}
+			}
+		}
+		else
+		{
+			PyConversion::PythonizeProperty_InContainer(ReturnParamDef.ParamProp, FuncParams.GetStructMemory(), 0, ReturnPyObj, EPyConversionMethod::Steal);
+		}
+
+		if (!ReturnPyObj)
+		{
+			PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert return property '%s' (%s) when calling function '%s' on '%s'"), *ReturnParamDef.ParamProp->GetName(), *ReturnParamDef.ParamProp->GetClass()->GetName(), *InMathOpFunc.Func->GetName(), *Obj->GetName()));
+		}
+
+		return ReturnPyObj;
+	}
+
+	return nullptr;
+}
+
+PyObject* FPyWrapperStruct::CallBinaryOperator_Impl(FPyWrapperStruct* InSelf, PyObject* InRHS, const PyGenUtil::FGeneratedWrappedStructMathOpStack::EOpType InOpType)
+{
+	if (!ValidateInternalState(InSelf))
+	{
+		return nullptr;
+	}
+
+	FPyWrapperStructMetaData* StructMetaData = FPyWrapperStructMetaData::GetMetaData(InSelf);
+	if (!StructMetaData)
+	{
+		return nullptr;
+	}
+
+	// We process the operator stack in two passes:
+	//	- The first pass looks for a signature that exactly matches the given argument
+	//	- The second pass allows type coercion to occur when calling the signature
+	// We use the first pass to find a function that may be called for the second pass
+	const bool bInlineOp = PyGenUtil::FGeneratedWrappedStructMathOpStack::IsInlineOp(InOpType);
+	const PyGenUtil::FGeneratedWrappedStructMathOpFunction* CoercedMathOpFunc = nullptr;
+	for (const PyGenUtil::FGeneratedWrappedStructMathOpFunction& MathOpFunc : StructMetaData->MathOpStacks[(int32)InOpType].MathOpFuncs)
+	{
+		FPyConversionResult RHSConversionResult = FPyConversionResult::Failure();
+		PyObject* PyResult = CallBinaryOperatorFunction_Impl(InSelf, InRHS, MathOpFunc, bInlineOp, EPyConversionResultState::Success, &RHSConversionResult);
+		if (PyResult)
+		{
+			return PyResult;
+		}
+		else if (RHSConversionResult.GetState() == EPyConversionResultState::SuccessWithCoercion)
+		{
+			CoercedMathOpFunc = &MathOpFunc;
+		}
+	}
+	if (CoercedMathOpFunc)
+	{
+		PyObject* PyResult = CallBinaryOperatorFunction_Impl(InSelf, InRHS, *CoercedMathOpFunc, bInlineOp);
+		if (PyResult)
+		{
+			return PyResult;
+		}
+	}
+
+	Py_INCREF(Py_NotImplemented);
+	return Py_NotImplemented;
 }
 
 PyObject* FPyWrapperStruct::Getter_Impl(FPyWrapperStruct* InSelf, void* InClosure)
 {
 	const PyGenUtil::FGeneratedWrappedGetSet* Closure = (PyGenUtil::FGeneratedWrappedGetSet*)InClosure;
-	return GetPropertyValue(InSelf, Closure->PropName, Closure->GetSetName.GetData());
+	return GetPropertyValue(InSelf, Closure->Prop, Closure->GetSetName.GetData());
 }
 
 int FPyWrapperStruct::Setter_Impl(FPyWrapperStruct* InSelf, PyObject* InValue, void* InClosure)
 {
 	const PyGenUtil::FGeneratedWrappedGetSet* Closure = (PyGenUtil::FGeneratedWrappedGetSet*)InClosure;
-	return SetPropertyValue(InSelf, InValue, Closure->PropName, Closure->GetSetName.GetData());
+	return SetPropertyValue(InSelf, InValue, Closure->Prop, Closure->GetSetName.GetData());
 }
 
 PyTypeObject InitializePyWrapperStructType()
@@ -446,7 +681,7 @@ PyTypeObject InitializePyWrapperStructType()
 			}
 
 			const FName ResolvedName = FPyWrapperStructMetaData::ResolvePropertyName(InSelf, Name);
-			return FPyWrapperStruct::GetPropertyValue(InSelf, ResolvedName, TCHAR_TO_UTF8(*Name.ToString()));
+			return FPyWrapperStruct::GetPropertyValueByName(InSelf, ResolvedName, TCHAR_TO_UTF8(*Name.ToString()));
 		}
 
 		static PyObject* SetEditorProperty(FPyWrapperStruct* InSelf, PyObject* InArgs, PyObject* InKwds)
@@ -468,7 +703,7 @@ PyTypeObject InitializePyWrapperStructType()
 			}
 
 			const FName ResolvedName = FPyWrapperStructMetaData::ResolvePropertyName(InSelf, Name);
-			const int Result = FPyWrapperStruct::SetPropertyValue(InSelf, PyValueObj, ResolvedName, TCHAR_TO_UTF8(*Name.ToString()), /*InNotifyChange*/true, CPF_EditConst);
+			const int Result = FPyWrapperStruct::SetPropertyValueByName(InSelf, PyValueObj, ResolvedName, TCHAR_TO_UTF8(*Name.ToString()), /*InNotifyChange*/true, CPF_EditConst);
 			if (Result != 0)
 			{
 				return nullptr;
@@ -531,16 +766,17 @@ FPyWrapperStructMetaData::FPyWrapperStructMetaData()
 {
 	static const FPyWrapperStructAllocationPolicy_Heap HeapAllocPolicy = FPyWrapperStructAllocationPolicy_Heap();
 	AllocPolicy = &HeapAllocPolicy;
+}
 
-	AddReferencedObjects = [](FPyWrapperBase* Self, FReferenceCollector& Collector)
+/** Add object references from the given Python object to the given collector */
+void FPyWrapperStructMetaData::AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector)
+{
+	FPyWrapperStruct* Self = static_cast<FPyWrapperStruct*>(Instance);
+	Collector.AddReferencedObject(Self->ScriptStruct);
+	if (Self->ScriptStruct && Self->StructInstance && !Self->OwnerContext.HasOwner())
 	{
-		FPyWrapperStruct* StructSelf = static_cast<FPyWrapperStruct*>(Self);
-		Collector.AddReferencedObject(StructSelf->ScriptStruct);
-		if (StructSelf->ScriptStruct && StructSelf->StructInstance && !StructSelf->OwnerContext.HasOwner())
-		{
-			FPyReferenceCollector::AddReferencedObjectsFromStruct(Collector, StructSelf->ScriptStruct, StructSelf->StructInstance);
-		}
-	};
+		FPyReferenceCollector::AddReferencedObjectsFromStruct(Collector, Self->ScriptStruct, Self->StructInstance);
+	}
 }
 
 const IPyWrapperStructAllocationPolicy* FPyWrapperStructMetaData::GetAllocationPolicy(PyTypeObject* PyType)
@@ -617,9 +853,9 @@ struct FPythonGeneratedStructUtil
 		}
 		for (const TSharedPtr<PyGenUtil::FPropertyDef>& PropDef : InStruct->PropertyDefs)
 		{
-			PyGenUtil::FGeneratedWrappedMethodParameter& StructInitParam = StructInitParams[StructInitParams.AddDefaulted()];
+			PyGenUtil::FGeneratedWrappedMethodParameter& StructInitParam = StructInitParams.AddDefaulted_GetRef();
 			StructInitParam.ParamName = PropDef->GeneratedWrappedGetSet.GetSetName;
-			StructInitParam.ParamPropName = PropDef->GeneratedWrappedGetSet.PropName;
+			StructInitParam.ParamProp = PropDef->GeneratedWrappedGetSet.Prop;
 			StructInitParam.ParamDefaultValue = FString();
 		}
 
@@ -668,10 +904,10 @@ struct FPythonGeneratedStructUtil
 		InStruct->AddCppProperty(Prop);
 
 		// Build the definition data for the new property accessor
-		PyGenUtil::FPropertyDef& PropDef = *InStruct->PropertyDefs[InStruct->PropertyDefs.Add(MakeShared<PyGenUtil::FPropertyDef>())];
+		PyGenUtil::FPropertyDef& PropDef = *InStruct->PropertyDefs.Add_GetRef(MakeShared<PyGenUtil::FPropertyDef>());
 		PropDef.GeneratedWrappedGetSet.GetSetName = PyGenUtil::TCHARToUTF8Buffer(*InFieldName);
 		PropDef.GeneratedWrappedGetSet.GetSetDoc = PyGenUtil::TCHARToUTF8Buffer(*FString::Printf(TEXT("type: %s\n%s"), *PyGenUtil::GetPropertyPythonType(Prop), *PyGenUtil::GetFieldTooltip(Prop)));
-		PropDef.GeneratedWrappedGetSet.PropName = Prop->GetFName();
+		PropDef.GeneratedWrappedGetSet.Prop = Prop;
 		PropDef.GeneratedWrappedGetSet.GetCallback = (getter)&FPyWrapperStruct::Getter_Impl;
 		PropDef.GeneratedWrappedGetSet.SetCallback = (setter)&FPyWrapperStruct::Setter_Impl;
 		PropDef.GeneratedWrappedGetSet.ToPython(PropDef.PyGetSet);

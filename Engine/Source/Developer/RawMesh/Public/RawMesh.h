@@ -118,6 +118,8 @@ public:
 	/** Uses a hash as the GUID, useful to prevent creating new GUIDs on load for legacy assets. */
 	RAWMESH_API void UseHashAsGuid(class UObject* Owner);
 
+	RAWMESH_API const FByteBulkData& GetBulkData() const;
+
 	/** Returns true if no bulk data is available for this mesh. */
 	FORCEINLINE bool IsEmpty() const { return BulkData.GetBulkDataSize() == 0; }
 #endif // #if WITH_EDITORONLY_DATA

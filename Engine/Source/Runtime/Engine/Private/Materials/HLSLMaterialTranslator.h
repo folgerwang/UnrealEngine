@@ -1374,6 +1374,7 @@ protected:
 		case MCT_TextureCube:	return TEXT("textureCube");
 		case MCT_StaticBool:	return TEXT("static bool");
 		case MCT_MaterialAttributes:	return TEXT("MaterialAttributes");
+		case MCT_TextureExternal:	return TEXT("TextureExternal");
 		default:				return TEXT("unknown");
 		};
 	}
@@ -1392,6 +1393,7 @@ protected:
 		case MCT_TextureCube:	return TEXT("textureCube");
 		case MCT_StaticBool:	return TEXT("static bool");
 		case MCT_MaterialAttributes:	return TEXT("MaterialAttributes");
+		case MCT_TextureExternal:	return TEXT("TextureExternal");
 		default:				return TEXT("unknown");
 		};
 	}
@@ -5279,6 +5281,13 @@ protected:
 				InputParamDecl += InputNameStr;
 				InputParamDecl += TEXT("Sampler ");
 				break;
+			case MCT_TextureExternal:
+				InputParamDecl += TEXT("TextureExternal ");
+				InputParamDecl += InputNameStr;
+				InputParamDecl += TEXT(", SamplerState ");
+				InputParamDecl += InputNameStr;
+				InputParamDecl += TEXT("Sampler ");
+				break;
 			default:
 				return Errorf(TEXT("Bad type %s for %s input %s"),DescribeType(GetParameterType(CompiledInputs[i])), *Custom->Description, *InputNameStr);
 				break;
@@ -5312,7 +5321,7 @@ protected:
 
 			CodeChunk += TEXT(",");
 			CodeChunk += *ParamCode;
-			if (ParamType == MCT_Texture2D || ParamType == MCT_TextureCube)
+			if (ParamType == MCT_Texture2D || ParamType == MCT_TextureCube || ParamType == MCT_TextureExternal)
 			{
 				CodeChunk += TEXT(",");
 				CodeChunk += *ParamCode;

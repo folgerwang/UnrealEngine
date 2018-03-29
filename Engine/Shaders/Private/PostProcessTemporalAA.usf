@@ -37,7 +37,11 @@ float OneOverHistoryPreExposure;
 	#endif
 
 #elif TAA_PASS_CONFIG == 1 // Main
-	#define AA_ALPHA (POST_PROCESS_ALPHA)
+	#if POST_PROCESS_ALPHA
+		#define AA_ALPHA 1
+	#else
+		#define AA_ALPHA 0
+	#endif
 	#define AA_BICUBIC 1
 	#define AA_BORDER 1
 	#define AA_CROSS 2
@@ -79,7 +83,11 @@ float OneOverHistoryPreExposure;
 	#define AA_BORDER 1
 
 #elif TAA_PASS_CONFIG == 4 // MainUpsampling
-	#define AA_ALPHA (POST_PROCESS_ALPHA)
+	#if POST_PROCESS_ALPHA
+		#define AA_ALPHA 1
+	#else
+		#define AA_ALPHA 0
+	#endif
 	#define AA_BICUBIC 1
 	#define AA_BORDER 2
 	#define AA_CROSS 1

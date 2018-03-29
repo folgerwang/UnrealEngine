@@ -93,6 +93,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Media|MediaTexture")
 	void SetMediaPlayer(UMediaPlayer* NewMediaPlayer);
 
+	/**
+	 * Gets the next sample Time. Only valid if GetAvailableSampleCount is greater than 0
+	 * @return FTimespan of the next sample
+	 * @see GetAvailableSampleCount
+	 */
+	FTimespan GetNextSampleTime() const;
+
+	/**
+	 * Gets the number of samples that are available
+	 * @return The number of samples in the queue
+	 */
+	int32 GetAvailableSampleCount() const;
+
 #if WITH_EDITOR
 
 	/**

@@ -70,7 +70,8 @@ namespace MediaPlayerFacade
 *****************************************************************************/
 
 FMediaPlayerFacade::FMediaPlayerFacade()
-	: Cache(new FMediaSampleCache)
+	: TimeDelay(FTimespan::Zero())
+	, Cache(new FMediaSampleCache)
 	, LastRate(0.0f)
 { }
 
@@ -287,7 +288,17 @@ TRangeSet<float> FMediaPlayerFacade::GetSupportedRates(bool Unthinned) const
 
 FTimespan FMediaPlayerFacade::GetTime() const
 {
-	return Player.IsValid() ? Player->GetControls().GetTime() : FTimespan::Zero();
+	if (!Player.IsValid())
+	{
+		return FTimespan::Zero(); // no media opened
+	}
+
+	FTimespan Result = Player->GetControls().GetTime() - TimeDelay;
+	if (Result.GetTicks() < 0)
+	{
+		Result = FTimespan::Zero();
+	}
+	return Result;
 }
 
 
@@ -838,7 +849,7 @@ void FMediaPlayerFacade::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 	// determine range of valid samples
 	TRange<FTimespan> TimeRange;
 
-	const FTimespan Time = Player->GetControls().GetTime();
+	const FTimespan Time = GetTime();
 	
 	if (Rate > 0.0f)
 	{
@@ -883,7 +894,7 @@ void FMediaPlayerFacade::TickOutput(FTimespan DeltaTime, FTimespan /*Timecode*/)
 	}
 
 	IMediaControls& Controls = Player->GetControls();
-	Cache->Tick(DeltaTime, Controls.GetRate(), Controls.GetTime());
+	Cache->Tick(DeltaTime, Controls.GetRate(), GetTime());
 }
 
 
@@ -912,7 +923,7 @@ void FMediaPlayerFacade::TickTickable()
 	TRange<FTimespan> AudioTimeRange;
 	TRange<FTimespan> MetadataTimeRange;
 
-	const FTimespan Time = Player->GetControls().GetTime();
+	const FTimespan Time = GetTime();
 
 	if (LastRate > 0.0f)
 	{

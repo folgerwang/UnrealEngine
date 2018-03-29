@@ -182,7 +182,7 @@ public:
 		FRawMesh& OutReducedMesh,
 		float& OutMaxDeviation,
 		const FRawMesh& InMesh,
-		const TMultiMap<int32, int32>& InOverlappingCorners,
+		const FOverlappingCorners& InOverlappingCorners,
 		const FMeshReductionSettings& InSettings
 		) override
 	{

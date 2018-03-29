@@ -13,6 +13,7 @@ class FConfigCacheIni;
 class FEditPropertyChain;
 class ITargetPlatform;
 class ITransactionObjectAnnotation;
+class FTransactionObjectEvent;
 struct FFrame;
 struct FObjectInstancingGraph;
 struct FPropertyChangedChainEvent;
@@ -325,13 +326,21 @@ public:
 	virtual void PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionAnnotation);
 
 	/**
+	 * Called after the object has been transacted in some way.
+	 * TransactionEvent describes what actually happened.
+	 * @note Unlike PostEditUndo (which is called for any object in the transaction), this is only called on objects that are actually changed by the transaction.
+	 */
+	virtual void PostTransacted(const FTransactionObjectEvent& TransactionEvent);
+
+private:
+	/**
 	 * Test the selection state of a UObject
 	 *
 	 * @return		true if the object is selected, false otherwise.
 	 * @todo UE4 this doesn't belong here, but it doesn't belong anywhere else any better
 	 */
-private:
 	virtual bool IsSelectedInEditor() const;
+
 public:
 #endif // WITH_EDITOR
 
@@ -669,6 +678,10 @@ public:
 
 	/** Gathers a collection of asset registry tag metadata */
 	virtual void GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const;
+
+	/** The metadata tags to be transferred from the UMetaData to the Asset Registry */
+	static TSet<FName>& GetMetaDataTagsForAssetRegistry();
+
 #endif
 
 	/** Returns true if this object is considered an asset. */

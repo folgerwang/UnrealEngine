@@ -17,6 +17,7 @@
 #include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "FileHelpers.h"
 
 #include "Kismet2/KismetEditorUtilities.h"

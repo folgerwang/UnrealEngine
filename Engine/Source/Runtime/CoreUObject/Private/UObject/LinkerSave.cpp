@@ -252,7 +252,7 @@ void FLinkerSave::Serialize( void* V, int64 Length )
 {
 #if WITH_EDITOR
 	Saver->ArDebugSerializationFlags = ArDebugSerializationFlags;
-	Saver->SetSerializedProperty(GetSerializedProperty());
+	Saver->SetSerializedPropertyChain(GetSerializedPropertyChain(), GetSerializedProperty());
 #endif
 	Saver->Serialize( V, Length );
 }

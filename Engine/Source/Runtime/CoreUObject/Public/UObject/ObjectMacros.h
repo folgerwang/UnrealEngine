@@ -1003,7 +1003,7 @@ namespace UM
 		/// [ClassMetadata] For BehaviorTree nodes indicates that the class is deprecated and will display a warning when compiled.
 		DeprecatedNode,
 
-		/// [ClassMetadata] [FunctionMetadata] Used in conjunction with DeprecatedNode or DeprecatedFunction to customize the warning message displayed to the user.
+		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] Used in conjunction with DeprecatedNode, DeprecatedProperty, or DeprecatedFunction to customize the warning message displayed to the user.
 		DeprecationMessage,
 
 		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to display for this class, property, or function instead of auto-generating it from the name.
@@ -1089,6 +1089,12 @@ namespace UM
 
 		/// [PropertyMetadata] Used by FDirectoryPath properties. Indicates that the path will be picked using the Slate-style directory picker inside the game Content dir.
 		ContentDir,
+
+		/// [PropertyMetadata] This property is deprecated, any blueprint references to it cause a compilation warning.
+		DeprecatedProperty,
+
+		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] Used in conjunction with DeprecatedNode, DeprecatedProperty, or DeprecatedFunction to customize the warning message displayed to the user.
+		// DeprecationMessage, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the property section)
 
 		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to display for this class, property, or function instead of auto-generating it from the name.
 		// DisplayName, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the property section)
@@ -1276,6 +1282,14 @@ namespace UM
 
 		/// [PropertyMetadata] [FunctionMetadata] Flag set on a property or function to prevent it being exported to a scripting language.
 		//ScriptNoExport, (Commented out so as to avoid duplicate name with version in the Property section, but still show in the function section)
+
+		/// [FunctionMetadata] Flags a static function taking a struct as its first argument so that it "hoists" the function to be a method of the struct when exporting it to a scripting language.
+		/// The value is optional, and may specify a name override for the struct method.
+		ScriptMethod,
+
+		/// [FunctionMetadata] Flags a static function taking a struct as its first argument so that it "hoists" the function to be an mathematical operator of the struct when exporting it to a scripting language.
+		/// The value describes the kind of operator using C++ operator syntax (+, +=, -,-=, *, *=, /, /=, %, %=, &, &=, |, |=, ^, ^=, >>, >>=, <<, <<=).
+		ScriptMathOp,
 
 		/// [FunctionMetadata] For BlueprintCallable functions indicates that the parameter pin should be hidden from the user's view.
 		HidePin,

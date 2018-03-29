@@ -5,13 +5,17 @@
 #include "Containers/Queue.h"
 #include "HAL/PlatformAtomics.h"
 #include "IMediaSamples.h"
+#include "HAL/CriticalSection.h"
+#include "Math/Interval.h"
 #include "Misc/App.h"
+#include "Misc/ScopeLock.h"
 #include "Misc/Timespan.h"
 #include "Templates/SharedPointer.h"
 
 #include "MediaSampleSink.h"
 #include "MediaSampleSource.h"
 
+#include "IMediaTextureSample.h"
 
 /**
  * Template for media sample queues.
@@ -167,7 +171,7 @@ protected:
 		}
 	}
 
-private:
+protected:
 
 	/** Number of samples in the queue. */
 	int32 NumSamples;
@@ -191,3 +195,4 @@ typedef TMediaSampleQueue<class IMediaOverlaySample> FMediaOverlaySampleQueue;
 
 /** Type definition for texture sample queue. */
 typedef TMediaSampleQueue<class IMediaTextureSample> FMediaTextureSampleQueue;
+

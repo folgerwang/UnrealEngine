@@ -869,6 +869,12 @@ public:
 #if WITH_EDITOR
 
 	/**
+	 * Sets a Material given a Material Index
+	 */
+	UFUNCTION(BlueprintCallable, Category = "StaticMesh")
+	ENGINE_API void SetMaterial(int32 MaterialIndex, UMaterialInterface* NewMaterial);
+
+	/**
 	 * Returns true if LODs of this static mesh may share texture lightmaps.
 	 */
 	bool CanLODsShareStaticLighting() const;

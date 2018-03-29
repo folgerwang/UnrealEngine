@@ -4,6 +4,7 @@
 
 #include "Containers/UnrealString.h"
 #include "Internationalization/Text.h"
+#include "Math/Interval.h"
 #include "Misc/Paths.h"
 #include "Misc/Timespan.h"
 

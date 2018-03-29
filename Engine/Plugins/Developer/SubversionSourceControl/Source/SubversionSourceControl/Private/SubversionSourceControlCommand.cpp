@@ -48,3 +48,22 @@ void FSubversionSourceControlCommand::DoThreadedWork()
 	Concurrency = EConcurrency::Asynchronous;
 	DoWork();
 }
+
+ECommandResult::Type FSubversionSourceControlCommand::ReturnResults()
+{
+	// Save any messages that have accumulated
+	for (FString& String : InfoMessages)
+	{
+		Operation->AddInfoMessge(FText::FromString(String));
+	}
+	for (FString& String : ErrorMessages)
+	{
+		Operation->AddErrorMessge(FText::FromString(String));
+	}
+
+	// run the completion delegate if we have one bound
+	ECommandResult::Type Result = bCommandSuccessful ? ECommandResult::Succeeded : ECommandResult::Failed;
+	OperationCompleteDelegate.ExecuteIfBound(Operation, Result);
+
+	return Result;
+}

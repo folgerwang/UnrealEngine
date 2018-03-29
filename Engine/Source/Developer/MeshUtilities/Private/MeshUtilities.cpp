@@ -1535,13 +1535,117 @@ static void ComputeTriangleTangents(
 	check(TriangleTangentZ.Num() == NumTriangles);*/
 }
 
+void FOverlappingCorners::Init(int32 NumIndices)
+{
+	Arrays.Reset();
+	Sets.Reset();
+	bFinishedAdding = false;
+
+	IndexBelongsTo.Reset(NumIndices);
+	IndexBelongsTo.AddUninitialized(NumIndices);
+	FMemory::Memset(IndexBelongsTo.GetData(), 0xFF, NumIndices * sizeof(int32));
+}
+
+void FOverlappingCorners::Add(int32 Key, int32 Value)
+{
+	check(Key != Value);
+	check(bFinishedAdding == false);
+
+	int32 ContainerIndex = IndexBelongsTo[Key];
+	if (ContainerIndex == INDEX_NONE)
+	{
+		ContainerIndex = Arrays.Num();
+		TArray<int32>& Container = Arrays.AddDefaulted_GetRef();
+		Container.Reserve(6);
+		Container.Add(Key);
+		Container.Add(Value);
+		IndexBelongsTo[Key] = ContainerIndex;
+		IndexBelongsTo[Value] = ContainerIndex;
+	}
+	else
+	{
+		IndexBelongsTo[Value] = ContainerIndex;
+
+		TArray<int32>& ArrayContainer = Arrays[ContainerIndex];
+		if (ArrayContainer.Num() == 1)
+		{
+			// Container is a set
+			Sets[ArrayContainer.Last()].Add(Value);
+		}
+		else
+		{
+			// Container is an array
+			ArrayContainer.AddUnique(Value);
+
+			// Change container into set when one vertex is shared by large number of triangles
+			if (ArrayContainer.Num() > 12)
+			{
+				int32 SetIndex = Sets.Num();
+				TSet<int32>& Set = Sets.AddDefaulted_GetRef();
+				Set.Append(ArrayContainer);
+
+				// Having one element means we are using a set
+				// An array will never have just 1 element normally because we add them as pairs
+				ArrayContainer.Reset(1);
+				ArrayContainer.Add(SetIndex);
+			}
+		}
+	}
+}
+
+void FOverlappingCorners::FinishAdding()
+{
+	check(bFinishedAdding == false);
+
+	for (TArray<int32>& Array : Arrays)
+	{
+		// Turn sets back into arrays for easier iteration code
+		// Also reduces peak memory later in the import process
+		if (Array.Num() == 1)
+		{
+			TSet<int32>& Set = Sets[Array.Last()];
+			Array.Reset(Set.Num());
+			for (int32 i : Set)
+			{
+				Array.Add(i);
+			}
+		}
+
+		// Sort arrays now to avoid sort multiple times
+		Array.Sort();
+	}
+
+	Sets.Empty();
+
+	bFinishedAdding = true;
+}
+
+uint32 FOverlappingCorners::GetAllocatedSize(void) const
+{
+	uint32 BaseMemoryAllocated = IndexBelongsTo.GetAllocatedSize() + Arrays.GetAllocatedSize() + Sets.GetAllocatedSize();
+
+	uint32 ArraysMemory = 0;
+	for (const TArray<int32>& ArrayIt : Arrays)
+	{
+		ArraysMemory += ArrayIt.GetAllocatedSize();
+	}
+
+	uint32 SetsMemory = 0;
+	for (const TSet<int32>& SetsIt : Sets)
+	{
+		SetsMemory += SetsIt.GetAllocatedSize();
+	}
+
+	return BaseMemoryAllocated + ArraysMemory + SetsMemory;
+}
+
 /**
 * Create a table that maps the corner of each face to its overlapping corners.
 * @param OutOverlappingCorners - Maps a corner index to the indices of all overlapping corners.
 * @param RawMesh - The mesh for which to compute overlapping corners.
 */
 void FMeshUtilities::FindOverlappingCorners(
-	TMultiMap<int32, int32>& OutOverlappingCorners,
+	FOverlappingCorners& OutOverlappingCorners,
 	const TArray<FVector>& InVertices,
 	const TArray<uint32>& InIndices,
 	float ComparisonThreshold) const
@@ -1559,6 +1663,8 @@ void FMeshUtilities::FindOverlappingCorners(
 	// Sort the vertices by z value
 	VertIndexAndZ.Sort(FCompareIndexAndZ());
 
+	OutOverlappingCorners.Init(NumWedges);
+
 	// Search for duplicates, quickly!
 	for (int32 i = 0; i < VertIndexAndZ.Num(); i++)
 	{
@@ -1574,10 +1680,11 @@ void FMeshUtilities::FindOverlappingCorners(
 			if (PointsEqual(PositionA, PositionB, ComparisonThreshold))
 			{
 				OutOverlappingCorners.Add(VertIndexAndZ[i].Index, VertIndexAndZ[j].Index);
-				OutOverlappingCorners.Add(VertIndexAndZ[j].Index, VertIndexAndZ[i].Index);
 			}
 		}
 	}
+
+	OutOverlappingCorners.FinishAdding();
 }
 
 /**
@@ -1586,7 +1693,7 @@ void FMeshUtilities::FindOverlappingCorners(
 * @param RawMesh - The mesh for which to compute overlapping corners.
 */
 void FMeshUtilities::FindOverlappingCorners(
-	TMultiMap<int32, int32>& OutOverlappingCorners,
+	FOverlappingCorners& OutOverlappingCorners,
 	FRawMesh const& RawMesh,
 	float ComparisonThreshold
 	) const
@@ -1611,7 +1718,7 @@ static void ComputeTangents(
 	const TArray<uint32>& InIndices,
 	const TArray<FVector2D>& InUVs,
 	const TArray<uint32>& SmoothingGroupIndices,
-	TMultiMap<int32, int32> const& OverlappingCorners,
+	const FOverlappingCorners& OverlappingCorners,
 	TArray<FVector>& OutTangentX,
 	TArray<FVector>& OutTangentY,
 	TArray<FVector>& OutTangentZ,
@@ -1640,7 +1747,6 @@ static void ComputeTangents(
 	// Declare these out here to avoid reallocations.
 	TArray<FFanFace> RelevantFacesForCorner[3];
 	TArray<int32> AdjacentFaces;
-	TArray<int32> DupVerts;
 
 	int32 NumWedges = InIndices.Num();
 	int32 NumFaces = NumWedges / 3;
@@ -1712,12 +1818,14 @@ static void ComputeTangents(
 		for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 		{
 			int32 ThisCornerIndex = WedgeOffset + CornerIndex;
-			DupVerts.Reset();
-			OverlappingCorners.MultiFind(ThisCornerIndex, DupVerts);
-			DupVerts.Add(ThisCornerIndex); // I am a "dup" of myself
+			const TArray<int32>& DupVerts = OverlappingCorners.FindIfOverlapping(ThisCornerIndex);
 			for (int32 k = 0; k < DupVerts.Num(); k++)
 			{
 				AdjacentFaces.AddUnique(DupVerts[k] / 3);
+			}
+			if (DupVerts.Num() == 0)
+			{
+				AdjacentFaces.AddUnique(ThisCornerIndex / 3); // I am a "dup" of myself
 			}
 		}
 
@@ -1935,7 +2043,7 @@ static void ComputeTangents(
 
 static void ComputeTangents(
 	FRawMesh& RawMesh,
-	TMultiMap<int32, int32> const& OverlappingCorners,
+	const FOverlappingCorners& OverlappingCorners,
 	uint32 TangentOptions
 	)
 {
@@ -2145,7 +2253,7 @@ static void ComputeNormals(
 	const TArray<uint32>& InIndices,
 	const TArray<FVector2D>& InUVs,
 	const TArray<uint32>& SmoothingGroupIndices,
-	TMultiMap<int32, int32> const& OverlappingCorners,
+	const FOverlappingCorners& OverlappingCorners,
 	TArray<FVector>& OutTangentZ,
 	const uint32 TangentOptions
 	)
@@ -2172,7 +2280,6 @@ static void ComputeNormals(
 	// Declare these out here to avoid reallocations.
 	TArray<FFanFace> RelevantFacesForCorner[3];
 	TArray<int32> AdjacentFaces;
-	TArray<int32> DupVerts;
 
 	int32 NumWedges = InIndices.Num();
 	int32 NumFaces = NumWedges / 3;
@@ -2223,9 +2330,11 @@ static void ComputeNormals(
 		for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 		{
 			int32 ThisCornerIndex = WedgeOffset + CornerIndex;
-			DupVerts.Reset();
-			OverlappingCorners.MultiFind(ThisCornerIndex, DupVerts);
-			DupVerts.Add(ThisCornerIndex); // I am a "dup" of myself
+			const TArray<int32>& DupVerts = OverlappingCorners.FindIfOverlapping(ThisCornerIndex);
+			if (DupVerts.Num() == 0)
+			{
+				AdjacentFaces.AddUnique(ThisCornerIndex / 3); // I am a "dup" of myself
+			}
 			for (int32 k = 0; k < DupVerts.Num(); k++)
 			{
 				AdjacentFaces.AddUnique(DupVerts[k] / 3);
@@ -2396,7 +2505,7 @@ static void ComputeTangents_MikkTSpace(
 	const TArray<uint32>& InIndices,
 	const TArray<FVector2D>& InUVs,
 	const TArray<uint32>& SmoothingGroupIndices,
-	TMultiMap<int32, int32> const& OverlappingCorners,
+	const FOverlappingCorners& OverlappingCorners,
 	TArray<FVector>& OutTangentX,
 	TArray<FVector>& OutTangentY,
 	TArray<FVector>& OutTangentZ,
@@ -2460,7 +2569,7 @@ static void ComputeTangents_MikkTSpace(
 
 static void ComputeTangents_MikkTSpace(
 	FRawMesh& RawMesh,
-	TMultiMap<int32, int32> const& OverlappingCorners,
+	const FOverlappingCorners& OverlappingCorners,
 	uint32 TangentOptions
 	)
 {
@@ -2608,7 +2717,7 @@ void FMeshUtilities::BuildStaticMeshVertexAndIndexBuffers(
 	TArray<TArray<uint32> >& OutPerSectionIndices,
 	TArray<int32>& OutWedgeMap,
 	const FRawMesh& RawMesh,
-	const TMultiMap<int32, int32>& OverlappingCorners,
+	const FOverlappingCorners& OverlappingCorners,
 	const TMap<uint32, uint32>& MaterialToSectionMapping,
 	float ComparisonThreshold,
 	FVector BuildScale,
@@ -2616,7 +2725,6 @@ void FMeshUtilities::BuildStaticMeshVertexAndIndexBuffers(
 	)
 {
 	TMap<int32, int32> FinalVerts;
-	TArray<int32> DupVerts;
 	int32 NumFaces = RawMesh.WedgeIndices.Num() / 3;
 
 	// Process each face, build vertex buffer and per-section index buffers.
@@ -2647,9 +2755,7 @@ void FMeshUtilities::BuildStaticMeshVertexAndIndexBuffers(
 			int32 WedgeIndex = FaceIndex * 3 + CornerIndex;
 			FStaticMeshBuildVertex ThisVertex = BuildStaticMeshVertex(RawMesh, WedgeIndex, BuildScale);
 
-			DupVerts.Reset();
-			OverlappingCorners.MultiFind(WedgeIndex, DupVerts);
-			DupVerts.Sort();
+			const TArray<int32>& DupVerts = OverlappingCorners.FindIfOverlapping(WedgeIndex);
 
 			int32 Index = INDEX_NONE;
 			for (int32 k = 0; k < DupVerts.Num(); k++)
@@ -2790,7 +2896,7 @@ public:
 		{
 			FStaticMeshSourceModel& SrcModel = SourceModels[LODIndex];
 			FRawMesh& RawMesh = *new(LODMeshes)FRawMesh;
-			TMultiMap<int32, int32>& OverlappingCorners = *new(LODOverlappingCorners)TMultiMap<int32, int32>;
+			FOverlappingCorners& OverlappingCorners = *new(LODOverlappingCorners)FOverlappingCorners;
 
 			if (!SrcModel.RawMeshBulkData->IsEmpty())
 			{
@@ -2940,8 +3046,8 @@ public:
 			{
 				FRawMesh& InMesh = LODMeshes[ReductionSettings.BaseLODModel];
 				FRawMesh& DestMesh = LODMeshes[NumValidLODs];
-				TMultiMap<int32, int32>& InOverlappingCorners = LODOverlappingCorners[ReductionSettings.BaseLODModel];
-				TMultiMap<int32, int32>& DestOverlappingCorners = LODOverlappingCorners[NumValidLODs];
+				FOverlappingCorners& InOverlappingCorners = LODOverlappingCorners[ReductionSettings.BaseLODModel];
+				FOverlappingCorners& DestOverlappingCorners = LODOverlappingCorners[NumValidLODs];
 
 				MeshReduction->Reduce(DestMesh, LODMaxDeviation[NumValidLODs], InMesh, InOverlappingCorners, ReductionSettings);
 				if (DestMesh.WedgeIndices.Num() > 0 && !DestMesh.IsValid())
@@ -2952,7 +3058,6 @@ public:
 				OutWasReduced[LODIndex] = true;
 
 				// Recompute adjacency information.
-				DestOverlappingCorners.Reset();
 				float ComparisonThreshold = GetComparisonThreshold(LODBuildSettings[NumValidLODs]);
 				MeshUtilities.FindOverlappingCorners(DestOverlappingCorners, DestMesh, ComparisonThreshold);
 
@@ -3274,7 +3379,7 @@ private:
 	int32 NumValidLODs;
 
 	TIndirectArray<FRawMesh> LODMeshes;
-	TIndirectArray<TMultiMap<int32, int32> > LODOverlappingCorners;
+	TIndirectArray<FOverlappingCorners> LODOverlappingCorners;
 	float LODMaxDeviation[MAX_STATIC_MESH_LODS];
 	FMeshBuildSettings LODBuildSettings[MAX_STATIC_MESH_LODS];
 	bool HasRawMesh[MAX_STATIC_MESH_LODS];
@@ -3539,7 +3644,7 @@ public:
 
 public:
 	void Skeletal_FindOverlappingCorners(
-		TMultiMap<int32, int32>& OutOverlappingCorners,
+		FOverlappingCorners& OutOverlappingCorners,
 		IMeshBuildData* BuildData,
 		float ComparisonThreshold
 		)
@@ -3563,6 +3668,8 @@ public:
 		// Sort the vertices by z value
 		VertIndexAndZ.Sort(FCompareIndexAndZ());
 
+		OutOverlappingCorners.Init(NumWedges);
+
 		// Search for duplicates, quickly!
 		for (int32 i = 0; i < VertIndexAndZ.Num(); i++)
 		{
@@ -3578,10 +3685,11 @@ public:
 				if (PointsEqual(PositionA, PositionB, ComparisonThreshold))
 				{
 					OutOverlappingCorners.Add(VertIndexAndZ[i].Index, VertIndexAndZ[j].Index);
-					OutOverlappingCorners.Add(VertIndexAndZ[j].Index, VertIndexAndZ[i].Index);
 				}
 			}
 		}
+
+		OutOverlappingCorners.FinishAdding();
 	}
 
 	void Skeletal_ComputeTriangleTangents(
@@ -3642,7 +3750,7 @@ public:
 
 	void Skeletal_ComputeTangents(
 		IMeshBuildData* BuildData,
-		TMultiMap<int32, int32> const& OverlappingCorners
+		const FOverlappingCorners& OverlappingCorners
 		)
 	{
 		bool bBlendOverlappingNormals = true;
@@ -3668,7 +3776,6 @@ public:
 		// Declare these out here to avoid reallocations.
 		TArray<FFanFace> RelevantFacesForCorner[3];
 		TArray<int32> AdjacentFaces;
-		TArray<int32> DupVerts;
 
 		int32 NumFaces = BuildData->GetNumFaces();
 		int32 NumWedges = BuildData->GetNumWedges();
@@ -3741,9 +3848,11 @@ public:
 			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 			{
 				int32 ThisCornerIndex = WedgeOffset + CornerIndex;
-				DupVerts.Reset();
-				OverlappingCorners.MultiFind(ThisCornerIndex, DupVerts);
-				DupVerts.Add(ThisCornerIndex); // I am a "dup" of myself
+				const TArray<int32>& DupVerts = OverlappingCorners.FindIfOverlapping(ThisCornerIndex);
+				if (DupVerts.Num() == 0)
+				{
+					AdjacentFaces.AddUnique(ThisCornerIndex / 3); // I am a "dup" of myself
+				}
 				for (int32 k = 0; k < DupVerts.Num(); k++)
 				{
 					AdjacentFaces.AddUnique(DupVerts[k] / 3);
@@ -3964,7 +4073,7 @@ public:
 
 	void Skeletal_ComputeTangents_MikkTSpace(
 		IMeshBuildData* BuildData,
-		TMultiMap<int32, int32> const& OverlappingCorners
+		const FOverlappingCorners& OverlappingCorners
 		)
 	{
 		bool bBlendOverlappingNormals = true;
@@ -3990,7 +4099,6 @@ public:
 		// Declare these out here to avoid reallocations.
 		TArray<FFanFace> RelevantFacesForCorner[3];
 		TArray<int32> AdjacentFaces;
-		TArray<int32> DupVerts;
 
 		int32 NumFaces = BuildData->GetNumFaces();
 		int32 NumWedges = BuildData->GetNumWedges();
@@ -4055,9 +4163,11 @@ public:
 			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 			{
 				int32 ThisCornerIndex = WedgeOffset + CornerIndex;
-				DupVerts.Reset();
-				OverlappingCorners.MultiFind(ThisCornerIndex, DupVerts);
-				DupVerts.Add(ThisCornerIndex); // I am a "dup" of myself
+				const TArray<int32>& DupVerts = OverlappingCorners.FindIfOverlapping(ThisCornerIndex);
+				if (DupVerts.Num() == 0)
+				{
+					AdjacentFaces.AddUnique(ThisCornerIndex / 3); // I am a "dup" of myself
+				}
 				for (int32 k = 0; k < DupVerts.Num(); k++)
 				{
 					AdjacentFaces.AddUnique(DupVerts[k] / 3);
@@ -4252,7 +4362,7 @@ public:
 
 		BeginSlowTask();
 
-		TMultiMap<int32, int32>& OverlappingCorners = *new(LODOverlappingCorners)TMultiMap<int32, int32>;
+		FOverlappingCorners& OverlappingCorners = *new(LODOverlappingCorners)FOverlappingCorners;
 
 		float ComparisonThreshold = THRESH_POINTS_ARE_SAME;//GetComparisonThreshold(LODBuildSettings[LODIndex]);
 		int32 NumWedges = BuildData->GetNumWedges();
@@ -4518,7 +4628,7 @@ private:
 		GenerateRendering,
 	};
 
-	TIndirectArray<TMultiMap<int32, int32> > LODOverlappingCorners;
+	TIndirectArray<FOverlappingCorners> LODOverlappingCorners;
 	EStage Stage;
 };
 
@@ -4539,12 +4649,31 @@ bool FMeshUtilities::BuildSkeletalMesh(FSkeletalMeshLODModel& LODModel, const FR
 		{
 			FSkelMeshSection& CurSection = InLODModel.Sections[SectionIdx];
 			const int32 NumSoftVertices = CurSection.SoftVertices.Num();
-			for (int32 SrcVertIndex = 0; SrcVertIndex < NumSoftVertices; ++SrcVertIndex)
+
+			// Create a list of vertex Z/index pairs
+			TArray<FIndexAndZ> VertIndexAndZ;
+			VertIndexAndZ.Reserve(NumSoftVertices);
+			for (int32 VertIndex = 0; VertIndex < NumSoftVertices; ++VertIndex)
 			{
+				FSoftSkinVertex& SrcVert = CurSection.SoftVertices[VertIndex];
+				new(VertIndexAndZ)FIndexAndZ(VertIndex, SrcVert.Position);
+			}
+			VertIndexAndZ.Sort(FCompareIndexAndZ());
+
+			// Search for duplicates, quickly!
+			for (int32 i = 0; i < VertIndexAndZ.Num(); ++i)
+			{
+				const uint32 SrcVertIndex = VertIndexAndZ[i].Index;
+				const float Z = VertIndexAndZ[i].Z;
 				FSoftSkinVertex& SrcVert = CurSection.SoftVertices[SrcVertIndex];
 
-				for (int32 IterVertIndex = SrcVertIndex + 1; IterVertIndex < NumSoftVertices; ++IterVertIndex)
+				// only need to search forward, since we add pairs both ways
+				for (int32 j = i + 1; j < VertIndexAndZ.Num(); ++j)
 				{
+					if (FMath::Abs(VertIndexAndZ[j].Z - Z) > THRESH_POINTS_ARE_SAME)
+						break; // can't be any more dups
+
+					const uint32 IterVertIndex = VertIndexAndZ[j].Index;
 					FSoftSkinVertex& IterVert = CurSection.SoftVertices[IterVertIndex];
 					if (PointsEqual(SrcVert.Position, IterVert.Position))
 					{
@@ -5145,14 +5274,14 @@ void FMeshUtilities::RecomputeTangentsAndNormalsForRawMesh(bool bRecomputeTangen
 	if (bRecomputeNormals || bRecomputeTangents)
 	{
 		float ComparisonThreshold = InBuildSettings.bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
-		TMultiMap<int32, int32> OverlappingCorners;
+		FOverlappingCorners OverlappingCorners;
 		FindOverlappingCorners(OverlappingCorners, OutRawMesh, ComparisonThreshold);
 
 		RecomputeTangentsAndNormalsForRawMesh( bRecomputeTangents, bRecomputeNormals, InBuildSettings, OverlappingCorners, OutRawMesh );
 	}
 }
 
-void FMeshUtilities::RecomputeTangentsAndNormalsForRawMesh(bool bRecomputeTangents, bool bRecomputeNormals, const FMeshBuildSettings& InBuildSettings, const TMultiMap<int32, int32>& InOverlappingCorners, FRawMesh &OutRawMesh) const
+void FMeshUtilities::RecomputeTangentsAndNormalsForRawMesh(bool bRecomputeTangents, bool bRecomputeNormals, const FMeshBuildSettings& InBuildSettings, const FOverlappingCorners& InOverlappingCorners, FRawMesh &OutRawMesh) const
 {
 	const int32 NumWedges = OutRawMesh.WedgeIndices.Num();
 
@@ -5222,7 +5351,7 @@ void FMeshUtilities::ExtractMeshDataForGeometryCache(FRawMesh& RawMesh, const FM
 	}
 
 	// Compute any missing tangents.
-	TMultiMap<int32, int32> OverlappingCorners;
+	FOverlappingCorners OverlappingCorners;
 	if (bRecomputeNormals || bRecomputeTangents)
 	{
 		float ComparisonThreshold = GetComparisonThreshold(BuildSettings);
@@ -5680,7 +5809,8 @@ bool FMeshUtilities::GenerateUniqueUVsForSkeletalMesh(const FSkeletalMeshLODMode
 	}
 
 	// Build overlapping corners map
-	TMultiMap<int32, int32> OverlappingCorners;
+	FOverlappingCorners OverlappingCorners;
+	OverlappingCorners.Init(NumCorners);
 	for (int32 Index = 0; Index < NumCorners; Index++)
 	{
 		int VertexIndex = LODModel.IndexBuffer[Index];
@@ -5692,6 +5822,7 @@ bool FMeshUtilities::GenerateUniqueUVsForSkeletalMesh(const FSkeletalMeshLODMode
 			}
 		}
 	}
+	OverlappingCorners.FinishAdding();
 
 	// Generate new UVs
 	FLayoutUV Packer(&TempMesh, 0, 1, FMath::Clamp(TextureResolution / 4, 32, 512));
@@ -5711,7 +5842,7 @@ void FMeshUtilities::CalculateTangents(const TArray<FVector>& InVertices, const 
 {
 	const float ComparisonThreshold = (InTangentOptions & ETangentOptions::IgnoreDegenerateTriangles ) ? THRESH_POINTS_ARE_SAME : 0.0f;
 
-	TMultiMap<int32, int32> OverlappingCorners;
+	FOverlappingCorners OverlappingCorners;
 	FindOverlappingCorners(OverlappingCorners, InVertices, InIndices, ComparisonThreshold);
 
 	if ( InTangentOptions & ETangentOptions::UseMikkTSpace )
@@ -5728,13 +5859,13 @@ void FMeshUtilities::CalculateNormals(const TArray<FVector>& InVertices, const T
 {
 	const float ComparisonThreshold = (InTangentOptions & ETangentOptions::IgnoreDegenerateTriangles ) ? THRESH_POINTS_ARE_SAME : 0.0f;
 
-	TMultiMap<int32, int32> OverlappingCorners;
+	FOverlappingCorners OverlappingCorners;
 	FindOverlappingCorners(OverlappingCorners, InVertices, InIndices, ComparisonThreshold);
 
 	ComputeNormals(InVertices, InIndices, InUVs, InSmoothingGroupIndices, OverlappingCorners, OutNormals, InTangentOptions);
 }
 
-void FMeshUtilities::CalculateOverlappingCorners(const TArray<FVector>& InVertices, const TArray<uint32>& InIndices, bool bIgnoreDegenerateTriangles, TMultiMap<int32, int32>& OutOverlappingCorners) const
+void FMeshUtilities::CalculateOverlappingCorners(const TArray<FVector>& InVertices, const TArray<uint32>& InIndices, bool bIgnoreDegenerateTriangles, FOverlappingCorners& OutOverlappingCorners) const
 {
 	const float ComparisonThreshold = bIgnoreDegenerateTriangles ? THRESH_POINTS_ARE_SAME : 0.f;
 	FindOverlappingCorners(OutOverlappingCorners, InVertices, InIndices, ComparisonThreshold);
@@ -6135,7 +6266,7 @@ bool FMeshUtilities::GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int
 
 	// Find overlapping corners for UV generator. Allow some threshold - this should not produce any error in a case if resulting
 	// mesh will not merge these vertices.
-	TMultiMap<int32, int32> OverlappingCorners;
+	FOverlappingCorners OverlappingCorners;
 	FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities").FindOverlappingCorners(OverlappingCorners, RawMesh.VertexPositions, RawMesh.WedgeIndices, THRESH_POINTS_ARE_SAME);
 
 	// Generate new UVs

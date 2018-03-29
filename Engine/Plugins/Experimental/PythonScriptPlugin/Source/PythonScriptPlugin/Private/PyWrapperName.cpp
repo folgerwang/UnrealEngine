@@ -16,63 +16,26 @@ void InitializePyWrapperName(PyObject* PyModule)
 	}
 }
 
-FPyWrapperName* FPyWrapperName::New(PyTypeObject* InType)
+void FPyWrapperName::InitValue(FPyWrapperName* InSelf, const FName InValue)
 {
-	FPyWrapperName* Self = (FPyWrapperName*)FPyWrapperBase::New(InType);
-	if (Self)
-	{
-		new(&Self->Name) FName();
-	}
-	return Self;
+	Super::InitValue(InSelf, InValue);
+	FPyWrapperNameFactory::Get().MapInstance(InSelf->Value, InSelf);
 }
 
-void FPyWrapperName::Free(FPyWrapperName* InSelf)
+void FPyWrapperName::DeinitValue(FPyWrapperName* InSelf)
 {
-	Deinit(InSelf);
-
-	InSelf->Name.~FName();
-	FPyWrapperBase::Free(InSelf);
+	FPyWrapperNameFactory::Get().UnmapInstance(InSelf->Value, Py_TYPE(InSelf));
+	Super::DeinitValue(InSelf);
 }
 
-int FPyWrapperName::Init(FPyWrapperName* InSelf)
+FPyWrapperName* FPyWrapperName::CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult)
 {
-	Deinit(InSelf);
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
 
-	const int BaseInit = FPyWrapperBase::Init(InSelf);
-	if (BaseInit != 0)
-	{
-		return BaseInit;
-	}
-
-	FPyWrapperNameFactory::Get().MapInstance(InSelf->Name, InSelf);
-	return 0;
-}
-
-int FPyWrapperName::Init(FPyWrapperName* InSelf, const FName InValue)
-{
-	Deinit(InSelf);
-
-	const int BaseInit = FPyWrapperBase::Init(InSelf);
-	if (BaseInit != 0)
-	{
-		return BaseInit;
-	}
-
-	InSelf->Name = InValue;
-	FPyWrapperNameFactory::Get().MapInstance(InSelf->Name, InSelf);
-	return 0;
-}
-
-void FPyWrapperName::Deinit(FPyWrapperName* InSelf)
-{
-	FPyWrapperNameFactory::Get().UnmapInstance(InSelf->Name, Py_TYPE(InSelf));
-	InSelf->Name = FName();
-}
-
-FPyWrapperName* FPyWrapperName::CastPyObject(PyObject* InPyObject)
-{
 	if (PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperNameType) == 1)
 	{
+		SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperName*)InPyObject;
 	}
@@ -80,10 +43,14 @@ FPyWrapperName* FPyWrapperName::CastPyObject(PyObject* InPyObject)
 	return nullptr;
 }
 
-FPyWrapperName* FPyWrapperName::CastPyObject(PyObject* InPyObject, PyTypeObject* InType)
+FPyWrapperName* FPyWrapperName::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)InType) == 1 && (InType == &PyWrapperNameType || PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperNameType) == 1))
 	{
+		SetOptionalPyConversionResult(Py_TYPE(InPyObject) == InType ? FPyConversionResult::Success() : FPyConversionResult::SuccessWithCoercion(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperName*)InPyObject;
 	}
@@ -100,6 +67,7 @@ FPyWrapperName* FPyWrapperName::CastPyObject(PyObject* InPyObject, PyTypeObject*
 					return nullptr;
 				}
 			}
+			SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 			return NewName.Release();
 		}
 	}
@@ -111,16 +79,6 @@ PyTypeObject InitializePyWrapperNameType()
 {
 	struct FFuncs
 	{
-		static PyObject* New(PyTypeObject* InType, PyObject* InArgs, PyObject* InKwds)
-		{
-			return (PyObject*)FPyWrapperName::New(InType);
-		}
-
-		static void Dealloc(FPyWrapperName* InSelf)
-		{
-			FPyWrapperName::Free(InSelf);
-		}
-
 		static int Init(FPyWrapperName* InSelf, PyObject* InArgs, PyObject* InKwds)
 		{
 			FName InitValue;
@@ -140,7 +98,7 @@ PyTypeObject InitializePyWrapperNameType()
 
 		static PyObject* Str(FPyWrapperName* InSelf)
 		{
-			return PyUnicode_FromString(TCHAR_TO_UTF8(*InSelf->Name.ToString()));
+			return PyUnicode_FromString(TCHAR_TO_UTF8(*InSelf->Value.ToString()));
 		}
 
 		static PyObject* RichCmp(FPyWrapperName* InSelf, PyObject* InOther, int InOp)
@@ -152,12 +110,12 @@ PyTypeObject InitializePyWrapperNameType()
 				return Py_NotImplemented;
 			}
 
-			return PyUtil::PyRichCmp(InSelf->Name.Compare(Other), 0, InOp);
+			return PyUtil::PyRichCmp(InSelf->Value.Compare(Other), 0, InOp);
 		}
 
 		static PyUtil::FPyHashType Hash(FPyWrapperName* InSelf)
 		{
-			const PyUtil::FPyHashType PyHash = (PyUtil::FPyHashType)GetTypeHash(InSelf->Name);
+			const PyUtil::FPyHashType PyHash = (PyUtil::FPyHashType)GetTypeHash(InSelf->Value);
 			return PyHash != -1 ? PyHash : 0;
 		}
 	};
@@ -182,7 +140,7 @@ PyTypeObject InitializePyWrapperNameType()
 
 		static PyObject* IsValid(FPyWrapperName* InSelf)
 		{
-			if (InSelf->Name.IsValid())
+			if (InSelf->Value.IsValid())
 			{
 				Py_RETURN_TRUE;
 			}
@@ -192,7 +150,7 @@ PyTypeObject InitializePyWrapperNameType()
 
 		static PyObject* IsNone(FPyWrapperName* InSelf)
 		{
-			if (InSelf->Name.IsNone())
+			if (InSelf->Value.IsNone())
 			{
 				Py_RETURN_TRUE;
 			}
@@ -208,24 +166,14 @@ PyTypeObject InitializePyWrapperNameType()
 		{ nullptr, nullptr, 0, nullptr }
 	};
 
-	PyTypeObject PyType = {
-		PyVarObject_HEAD_INIT(nullptr, 0)
-		"Name", /* tp_name */
-		sizeof(FPyWrapperName), /* tp_basicsize */
-	};
+	PyTypeObject PyType = InitializePyWrapperBasicType<FPyWrapperName>("Name", "Type for all UE4 exposed FName instances");
 
-	PyType.tp_base = &PyWrapperBaseType;
-	PyType.tp_new = (newfunc)&FFuncs::New;
-	PyType.tp_dealloc = (destructor)&FFuncs::Dealloc;
 	PyType.tp_init = (initproc)&FFuncs::Init;
 	PyType.tp_str = (reprfunc)&FFuncs::Str;
 	PyType.tp_richcompare = (richcmpfunc)&FFuncs::RichCmp;
 	PyType.tp_hash = (hashfunc)&FFuncs::Hash;
 
 	PyType.tp_methods = PyMethods;
-
-	PyType.tp_flags = Py_TPFLAGS_DEFAULT;
-	PyType.tp_doc = "Type for all UE4 exposed FName instances";
 
 	return PyType;
 }

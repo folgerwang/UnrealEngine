@@ -126,6 +126,9 @@ protected:
 
 	void OnTextChanged(const FText& InText);
 
+	/** Get the maximum width of the selection list */
+	FOptionalSize GetSelectionListMaxWidth() const;
+
 	/** Makes the widget for the suggestions messages in the list view */
 	TSharedRef<ITableRow> MakeSuggestionListItemWidget(TSharedPtr<FString> Message, const TSharedRef<STableViewBase>& OwnerTable);
 

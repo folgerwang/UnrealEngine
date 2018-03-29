@@ -153,13 +153,16 @@ void FViewportSurfaceReader::ResolveRenderTarget(const FViewportRHIRef& Viewport
 
 		FTexture2DRHIRef SourceBackBuffer = RHICmdList.GetViewportBackBuffer(ViewportRHI);
 
-		if (TargetSize.X != SourceBackBuffer->GetSizeX() || TargetSize.Y != SourceBackBuffer->GetSizeY())
+		const bool bIsSourceBackBufferSameAsWindowSize = SourceBackBuffer->GetSizeX() == WindowSize.X && SourceBackBuffer->GetSizeY() == WindowSize.Y;
+		const bool bIsSourceBackBufferSameAsTargetSize = TargetSize.X == SourceBackBuffer->GetSizeX() && TargetSize.Y == SourceBackBuffer->GetSizeY();
+
+		if (bIsSourceBackBufferSameAsWindowSize || bIsSourceBackBufferSameAsTargetSize)
 		{
-			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SourceBackBuffer);
+			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(), SourceBackBuffer);
 		}
 		else
 		{
-			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(), SourceBackBuffer);
+			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SourceBackBuffer);
 		}
 
 		float U = float(CaptureRect.Min.X) / float(SourceBackBuffer->GetSizeX());
@@ -173,7 +176,7 @@ void FViewportSurfaceReader::ResolveRenderTarget(const FViewportRHIRef& Viewport
 			TargetSize.X,							// Dest Width
 			TargetSize.Y,							// Dest Height
 			U, V,									// Source U, V
-			1, 1,									// Source USize, VSize
+			SizeU, SizeV,							// Source USize, VSize
 			CaptureRect.Max - CaptureRect.Min,		// Target buffer size
 			FIntPoint(1, 1),						// Source texture size
 			*VertexShader,
@@ -206,23 +209,26 @@ void FViewportSurfaceReader::ResolveRenderTarget(const FViewportRHIRef& Viewport
 	});
 }
 
-FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat, uint32 NumSurfaces)
+FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat, uint32 NumSurfaces, bool bAlwaysFlushOnDraw)
 {
 	State = EFrameGrabberState::Inactive;
 
-	// cause the viewport to always flush on draw
-	Viewport->IncrementFlushOnDraw();
-
+	if (bAlwaysFlushOnDraw)
 	{
-		// Setup a functor to decrement the flag on destruction (this class isn't necessarily tied to scene viewports)
-		TWeakPtr<FSceneViewport> WeakViewport = Viewport;
-		OnShutdown = [WeakViewport]{
-			TSharedPtr<FSceneViewport> PinnedViewport = WeakViewport.Pin();
-			if (PinnedViewport.IsValid())
-			{
-				PinnedViewport->DecrementFlushOnDraw();
-			}
-		};
+		// cause the viewport to always flush on draw
+		Viewport->IncrementFlushOnDraw();
+
+		{
+			// Setup a functor to decrement the flag on destruction (this class isn't necessarily tied to scene viewports)
+			TWeakPtr<FSceneViewport> WeakViewport = Viewport;
+			OnShutdown = [WeakViewport] {
+				TSharedPtr<FSceneViewport> PinnedViewport = WeakViewport.Pin();
+				if (PinnedViewport.IsValid())
+				{
+					PinnedViewport->DecrementFlushOnDraw();
+				}
+			};
+		}
 	}
 
 	TargetSize = DesiredBufferSize;
@@ -232,6 +238,7 @@ FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint Desi
 	check(NumSurfaces != 0);
 
 	FIntRect CaptureRect(0,0,Viewport->GetSize().X, Viewport->GetSize().Y);
+	FIntPoint WindowSize(0, 0);
 
 	// Set up the capture rectangle
 	TSharedPtr<SViewport> ViewportWidget = Viewport->GetViewportWidget().Pin();
@@ -252,14 +259,18 @@ FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint Desi
 			{
 				FArrangedWidget ArrangedWidget = WidgetPath.FindArrangedWidget(ViewportWidget.ToSharedRef()).Get(FArrangedWidget::NullWidget);
 
-				FVector2D Position = ArrangedWidget.Geometry.AbsolutePosition;
-				FVector2D Size = ArrangedWidget.Geometry.GetDrawSize();
+				FVector2D Position = ArrangedWidget.Geometry.GetAbsolutePosition();
+				FVector2D Size = ArrangedWidget.Geometry.GetAbsoluteSize();
 
 				CaptureRect = FIntRect(
 					Position.X,
 					Position.Y,
 					Position.X + Size.X,
 					Position.Y + Size.Y);
+
+				FVector2D AbsoluteSize = InnerWindowGeometry.GetAbsoluteSize();
+				WindowSize = FIntPoint(AbsoluteSize.X, AbsoluteSize.Y);
+
 			}
 		}
 	}
@@ -270,6 +281,7 @@ FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint Desi
 	{
 		Surfaces.Emplace(InPixelFormat, DesiredBufferSize);
 		Surfaces.Last().Surface.SetCaptureRect(CaptureRect);
+		Surfaces.Last().Surface.SetWindowSize(WindowSize);
 	}
 
 	// Ensure textures are setup
@@ -422,22 +434,32 @@ void FFrameGrabber::OnFrameReady(int32 BufferIndex, FColor* ColorBuffer, int32 W
 	
 	const FResolveSurface& Surface = Surfaces[BufferIndex];
 
-	FCapturedFrameData ResolvedFrameData(TargetSize, Surface.Payload);
-
-	ResolvedFrameData.ColorBuffer.InsertUninitialized(0, TargetSize.X * TargetSize.Y);
-	FColor* Dest = &ResolvedFrameData.ColorBuffer[0];
-
-	const int32 MaxWidth = FMath::Min(TargetSize.X, Width);
-	for (int32 Row = 0; Row < FMath::Min(Height, TargetSize.Y); ++Row)
+	bool bExecuteDefaultGrabber = true;
+	if (Surface.Payload.IsValid())
 	{
-		FMemory::Memcpy(Dest, ColorBuffer, sizeof(FColor)*MaxWidth);
-		ColorBuffer += Width;
-		Dest += MaxWidth;
+		bExecuteDefaultGrabber = Surface.Payload->OnFrameReady_RenderThread(ColorBuffer, FIntPoint(Width, Height), TargetSize);
 	}
 
+	if (bExecuteDefaultGrabber)
 	{
-		FScopeLock Lock(&CapturedFramesMutex);
-		CapturedFrames.Add(MoveTemp(ResolvedFrameData));
+		FCapturedFrameData ResolvedFrameData(TargetSize, Surface.Payload);
+
+		ResolvedFrameData.ColorBuffer.InsertUninitialized(0, TargetSize.X * TargetSize.Y);
+		FColor* Dest = &ResolvedFrameData.ColorBuffer[0];
+
+		const int32 MaxWidth = FMath::Min(TargetSize.X, Width);
+		for (int32 Row = 0; Row < FMath::Min(Height, TargetSize.Y); ++Row)
+		{
+			FMemory::Memcpy(Dest, ColorBuffer, sizeof(FColor)*MaxWidth);
+			ColorBuffer += Width;
+			Dest += MaxWidth;
+		}
+
+		{
+			FScopeLock Lock(&CapturedFramesMutex);
+			CapturedFrames.Add(MoveTemp(ResolvedFrameData));
+		}
 	}
+
 	OutstandingFrameCount.Decrement();
 }

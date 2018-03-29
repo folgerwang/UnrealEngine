@@ -7,6 +7,8 @@
 #include "SourceControlOperations.h"
 #include "ISourceControlRevision.h"
 #include "SourceControlWindows.h"
+#include "SourceControlHelpers.h"
+#include "ISourceControlModule.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/Object.h"
 #include "UObject/Package.h"
@@ -41,7 +43,6 @@
 #include "Widgets/Views/STreeView.h"
 #include "Framework/Docking/TabManager.h"
 #include "EditorStyleSet.h"
-#include "ISourceControlModule.h"
 
 #include "IAssetTools.h"
 #include "IAssetTypeActions.h"

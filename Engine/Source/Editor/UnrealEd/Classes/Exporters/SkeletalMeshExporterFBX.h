@@ -9,10 +9,11 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Exporters/Exporter.h"
+#include "ExporterFbx.h"
 #include "SkeletalMeshExporterFBX.generated.h"
 
 UCLASS()
-class USkeletalMeshExporterFBX : public UExporter
+class USkeletalMeshExporterFBX : public UExporterFBX
 {
 	GENERATED_UCLASS_BODY()
 

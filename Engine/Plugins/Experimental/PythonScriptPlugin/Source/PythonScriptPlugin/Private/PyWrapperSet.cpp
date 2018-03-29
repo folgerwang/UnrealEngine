@@ -327,10 +327,14 @@ bool FPyWrapperSet::ValidateInternalState(FPyWrapperSet* InSelf)
 	return true;
 }
 
-FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject)
+FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperSetType) == 1)
 	{
+		SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperSet*)InPyObject;
 	}
@@ -338,8 +342,10 @@ FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject)
 	return nullptr;
 }
 
-FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InElementDef)
+FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InElementDef, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)InType) == 1 && (InType == &PyWrapperSetType || PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperSetType) == 1))
 	{
 		FPyWrapperSet* Self = (FPyWrapperSet*)InPyObject;
@@ -352,6 +358,8 @@ FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject, PyTypeObject* I
 		const PyUtil::FPropertyDef SelfElementPropDef = Self->SetProp->ElementProp;
 		if (SelfElementPropDef == InElementDef)
 		{
+			SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 			Py_INCREF(Self);
 			return Self;
 		}
@@ -397,6 +405,7 @@ FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject, PyTypeObject* I
 			NewScriptSetHelper.Rehash();
 		}
 
+		SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 		return NewSet.Release();
 	}
 
@@ -432,6 +441,8 @@ FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject, PyTypeObject* I
 				}
 
 				NewScriptSetHelper.Rehash();
+
+				SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 				return NewSet.Release();
 			}
 		}
@@ -1586,17 +1597,14 @@ PyTypeObject InitializePyWrapperSetIteratorType()
 PyTypeObject PyWrapperSetType = InitializePyWrapperSetType();
 PyTypeObject PyWrapperSetIteratorType = InitializePyWrapperSetIteratorType();
 
-FPyWrapperSetMetaData::FPyWrapperSetMetaData()
+void FPyWrapperSetMetaData::AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector)
 {
-	AddReferencedObjects = [](FPyWrapperBase* Self, FReferenceCollector& Collector)
+	FPyWrapperSet* Self = static_cast<FPyWrapperSet*>(Instance);
+	if (Self->SetProp && Self->SetInstance && !Self->OwnerContext.HasOwner())
 	{
-		FPyWrapperSet* SetSelf = static_cast<FPyWrapperSet*>(Self);
-		if (SetSelf->SetProp && SetSelf->SetInstance && !SetSelf->OwnerContext.HasOwner())
-		{
-			Collector.AddReferencedObject(SetSelf->SetProp);
-			FPyReferenceCollector::AddReferencedObjectsFromProperty(Collector, SetSelf->SetProp, SetSelf->SetInstance);
-		}
-	};
+		Collector.AddReferencedObject(Self->SetProp);
+		FPyReferenceCollector::AddReferencedObjectsFromProperty(Collector, Self->SetProp, Self->SetInstance);
+	}
 }
 
 #endif	// WITH_PYTHON

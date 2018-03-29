@@ -110,6 +110,7 @@ FCoreUObjectDelegates::FOnPreObjectPropertyChanged FCoreUObjectDelegates::OnPreO
 FCoreUObjectDelegates::FOnObjectPropertyChanged FCoreUObjectDelegates::OnObjectPropertyChanged;
 TSet<UObject*> FCoreUObjectDelegates::ObjectsModifiedThisFrame;
 FCoreUObjectDelegates::FOnObjectModified FCoreUObjectDelegates::OnObjectModified;
+FCoreUObjectDelegates::FOnObjectTransacted FCoreUObjectDelegates::OnObjectTransacted;
 FCoreUObjectDelegates::FOnAssetLoaded FCoreUObjectDelegates::OnAssetLoaded;
 FCoreUObjectDelegates::FOnObjectSaved FCoreUObjectDelegates::OnObjectSaved;
 #endif // WITH_EDITOR
@@ -2147,7 +2148,6 @@ UObject* StaticDuplicateObjectEx( FObjectDuplicationParameters& Parameters )
 	return DupRootObject;
 }
 
-
 /**
  * Save a copy of this object into the transaction buffer if we are currently recording into
  * one (undo/redo). If bMarkDirty is true, will also mark the package as needing to be saved.
@@ -2183,6 +2183,26 @@ bool SaveToTransactionBuffer(UObject* Object, bool bMarkDirty)
 	}
 
 	return bSavedToTransactionBuffer;
+}
+
+/**
+ * Causes the transaction system to emit a snapshot event for the given object if the following conditions are met:
+ *  a) The object is currently transacting.
+ *  b) The object has changed since it started transacting.
+ *
+ * @param	Object		object to snapshot.
+ */
+void SnapshotTransactionBuffer(UObject* Object)
+{
+	// Neither PIE world objects nor script packages should end up in the transaction buffer. Additionally, in order
+	// to save a copy of the object, we must have a transactor and the object must be transactional.
+	const bool IsTransactional = Object->HasAnyFlags(RF_Transactional);
+	const bool IsNotPIEOrContainsScriptObject = (Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor | PKG_ContainsScript) == false);
+
+	if (GUndo && IsTransactional && IsNotPIEOrContainsScriptObject)
+	{
+		GUndo->SnapshotObject(Object);
+	}
 }
 
 /**

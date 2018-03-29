@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/RendererSettings.h"
+#include "PixelFormat.h"
 
 #if WITH_EDITOR
 #include "Editor/EditorEngine.h"
@@ -8,6 +9,15 @@
 /** The editor object. */
 extern UNREALED_API class UEditorEngine* GEditor;
 #endif // #if WITH_EDITOR
+
+namespace EDefaultBackBufferPixelFormat
+{
+	ENGINE_API EPixelFormat Convert2PixelFormat(int32 InDefaultBackBufferPixelFormat)
+	{
+		static EPixelFormat SPixelFormat[] = { PF_B8G8R8A8, PF_A16B16G16R16, PF_FloatRGB, PF_FloatRGBA, PF_A2B10G10R10 };
+		return SPixelFormat[FMath::Clamp(InDefaultBackBufferPixelFormat, 0, DBBPF_MAX - 1)];
+	}
+}
 
 URendererSettings::URendererSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

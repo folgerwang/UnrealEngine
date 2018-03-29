@@ -2,6 +2,8 @@
 
 #include "SSourceControlLogin.h"
 #include "SourceControlModule.h"
+#include "SourceControlOperations.h"
+
 #if SOURCE_CONTROL_WITH_SLATE
 #include "Widgets/SBoxPanel.h"
 #include "Framework/Application/SlateApplication.h"
@@ -14,6 +16,7 @@
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #endif
+
 #include "SSourceControlPicker.h"
 #include "Logging/MessageLog.h"
 

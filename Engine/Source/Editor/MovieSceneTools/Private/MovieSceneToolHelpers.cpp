@@ -17,6 +17,7 @@
 #include "EditorDirectories.h"
 #include "Sections/MovieSceneFloatSection.h"
 #include "Tracks/MovieSceneFloatTrack.h"
+#include "Tracks/MovieSceneCameraCutTrack.h"
 #include "Sections/MovieScene3DTransformSection.h"
 #include "Tracks/MovieScene3DTransformTrack.h"
 #include "Sections/MovieSceneCinematicShotSection.h"
@@ -1171,6 +1172,79 @@ void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 	}
 }
 
+FGuid FindCameraGuid(FbxCamera* Camera, TMap<FGuid, FString>& InObjectBindingMap)
+{
+	for (auto& Pair : InObjectBindingMap)
+	{
+		if (FCString::Strcmp(*Pair.Value, UTF8_TO_TCHAR(Camera->GetName())) == 0)
+		{
+			return Pair.Key;
+		}
+	}
+	return FGuid();
+}
+
+UMovieSceneCameraCutTrack* GetCameraCutTrack(UMovieScene* InMovieScene)
+{
+	// Get the camera cut
+	UMovieSceneTrack* CameraCutTrack = InMovieScene->GetCameraCutTrack();
+	if (CameraCutTrack == nullptr)
+	{
+		InMovieScene->Modify();
+		CameraCutTrack = InMovieScene->AddCameraCutTrack(UMovieSceneCameraCutTrack::StaticClass());
+	}
+	return CastChecked<UMovieSceneCameraCutTrack>(CameraCutTrack);
+}
+
+void ImportCameraCut(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene, ISequencer& InSequencer, TMap<FGuid, FString>& InObjectBindingMap)
+{
+	// The camera switcher refers to the fbx camera
+	const UMovieSceneUserImportFBXSettings* ImportFBXSettings = GetDefault<UMovieSceneUserImportFBXSettings>();
+	if (!ImportFBXSettings->bCreateCameras)
+	{
+		return;
+	}
+	// Find a camera switcher
+	FbxCameraSwitcher* CameraSwitcher = FbxImporter->Scene->GlobalCameraSettings().GetCameraSwitcher();
+	if (CameraSwitcher == nullptr)
+	{
+		return;
+	}
+	// Get the animation layer
+	FbxAnimStack* AnimStack = FbxImporter->Scene->GetMember<FbxAnimStack>(0);
+	if (AnimStack == nullptr)
+	{
+		return;
+	}
+	FbxAnimLayer* AnimLayer = AnimStack->GetMember<FbxAnimLayer>(0);
+	if (AnimLayer == nullptr)
+	{
+		return;
+	}
+
+	// The camera switcher camera index refer to depth-first found order of the camera in the FBX
+	TArray<FbxCamera*> AllCameras;
+	GetCameras(FbxImporter->Scene->GetRootNode(), AllCameras);
+
+	UMovieSceneCameraCutTrack* CameraCutTrack = GetCameraCutTrack(InMovieScene);
+	FFrameRate FrameRate = CameraCutTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+
+	FbxAnimCurve* AnimCurve = CameraSwitcher->CameraIndex.GetCurve(AnimLayer);
+	for (int i = 0; i < AnimCurve->KeyGetCount(); ++i)
+	{
+		FbxAnimCurveKey key = AnimCurve->KeyGet(i);
+		int value = (int)key.GetValue() - 1;
+		if (value >= 0 && value < AllCameras.Num())
+		{
+			FGuid CameraGuid = FindCameraGuid(AllCameras[value], InObjectBindingMap);
+			if (CameraGuid != FGuid())
+			{
+				CameraCutTrack->AddNewCameraCut(FMovieSceneObjectBindingID(CameraGuid, MovieSceneSequenceID::Root), (((float)key.GetTime().GetSecondDouble()) * FrameRate).FloorToFrame());
+			}
+		}
+	}
+	InSequencer.NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
+}
 
 class SMovieSceneImportFBXSettings : public SCompoundWidget, public FGCObject
 {
@@ -1276,6 +1350,9 @@ private:
 		FbxImporter->PopulateAnimatedCurveData(CurveAPI);
 		TArray<FString> AllNodeNames;
 		CurveAPI.GetAllNodeNameArray(AllNodeNames);
+
+		// Import a camera cut track, do it after populating curve data ensure only one animation layer, if any
+		ImportCameraCut(FbxImporter, MovieScene, *Sequencer, ObjectBindingMap);
 
 		for (FString NodeName : AllNodeNames)
 		{

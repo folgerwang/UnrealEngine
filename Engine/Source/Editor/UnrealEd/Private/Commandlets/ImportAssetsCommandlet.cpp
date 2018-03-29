@@ -13,6 +13,7 @@
 #include "Misc/FileHelper.h"
 #include "Factories/ImportSettings.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "Editor.h"
 #include "FileHelpers.h"
 #include "Misc/FeedbackContext.h"
@@ -252,7 +253,7 @@ bool UImportAssetsCommandlet::ImportAndSave(const TArray<UAutomatedAssetImportDa
 					}
 					else if(PackageSCState->CanCheckout())
 					{
-						const bool bWasCheckedOut = SourceControlHelpers::CheckOutFile(PackageFilename);
+						const bool bWasCheckedOut = SourceControlHelpers::CheckOutOrAddFile(PackageFilename);
 						bShouldAttemptToSave = bWasCheckedOut;
 						if(!bWasCheckedOut)
 						{
@@ -263,7 +264,7 @@ bool UImportAssetsCommandlet::ImportAndSave(const TArray<UAutomatedAssetImportDa
 					else
 					{
 						// package was not checked out by another user and is at the current head revision and could not be checked out
-						// this means it should be added after save because it doesnt exist
+						// this means it should be added after save because it doesn't exist
 						bShouldAttemptToSave = true;
 						bShouldAttemptToAdd = true;
 					}
