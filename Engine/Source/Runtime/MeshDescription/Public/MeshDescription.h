@@ -827,6 +827,12 @@ public:
 	/** Determine UV seams from existing vertex instance UVs */
 	void DetermineUVSeamsFromUVs( const int32 UVIndex, const float Tolerance = KINDA_SMALL_NUMBER );
 
+	/** Get polygons in the same UV chart as the specified polygon */
+	void GetPolygonsInSameChartAsPolygon( const FPolygonID PolygonID, TArray<FPolygonID>& OutPolygonIDs );
+
+	/** Get array of all UV charts */
+	void GetAllCharts( TArray<TArray<FPolygonID>>& OutCharts );
+
 	void ReversePolygonFacing(const FPolygonID PolygonID);
 	void ReverseAllPolygonFacing();
 
