@@ -12,7 +12,7 @@
 #include "RenderingThread.h"
 #include "SceneView.h"
 #include "LegacyScreenPercentageDriver.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "CanvasItem.h"
 #include "Engine/Canvas.h"
 #include "GameFramework/Volume.h"
@@ -2314,24 +2314,9 @@ void UGameViewportClient::VerifyPathRenderingComponents()
 
 	UWorld* const ViewportWorld = GetWorld();
 
-	// make sure nav mesh has a rendering component
-	ANavigationData* const NavData = (ViewportWorld && ViewportWorld->GetNavigationSystem() != nullptr)
-		? ViewportWorld->GetNavigationSystem()->GetMainNavData(FNavigationSystem::DontCreate)
-		: NULL;
-
-	if(NavData && NavData->RenderingComp == NULL)
+	if (ViewportWorld)
 	{
-		NavData->RenderingComp = NavData->ConstructRenderingComponent();
-		if (NavData->RenderingComp)
-		{
-			NavData->RenderingComp->SetVisibility(bShowPaths);
-			NavData->RenderingComp->RegisterComponent();
-		}
-	}
-
-	if(NavData == NULL)
-	{
-		UE_LOG(LogPlayerManagement, Warning, TEXT("No NavData found when calling UGameViewportClient::VerifyPathRenderingComponents()"));
+		FNavigationSystem::VerifyNavigationRenderingComponents(*ViewportWorld, bShowPaths);
 	}
 }
 

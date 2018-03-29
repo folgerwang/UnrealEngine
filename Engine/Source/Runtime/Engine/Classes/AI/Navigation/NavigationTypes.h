@@ -12,7 +12,7 @@
 #include "UObject/WeakObjectPtr.h"
 #include "Misc/CoreStats.h"
 #include "UObject/SoftObjectPath.h"
-#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "GameFramework/Actor.h"
 #include "NavigationTypes.generated.h"
 
 #define INVALID_NAVNODEREF (0)
@@ -33,11 +33,6 @@ struct FNavigationPath;
 /** uniform identifier type for navigation data elements may it be a polygon or graph node */
 typedef uint64 NavNodeRef;
 
-class AActor;
-class ANavigationData;
-class INavAgentInterface;
-class INavRelevantInterface;
-
 namespace FNavigationSystem
 {
 	/** used as a fallback value for navigation agent radius, when none specified via UNavigationSystem::SupportedAgents */
@@ -54,13 +49,6 @@ namespace FNavigationSystem
 	{
 		return TestLocation != InvalidLocation;
 	}
-
-	enum ECreateIfEmpty
-	{
-		Invalid = -1,
-		DontCreate = 0,
-		Create = 1,
-	};
 }
 
 UENUM()
@@ -479,13 +467,15 @@ struct ENGINE_API FNavAgentProperties : public FMovementProperties
 	float NavWalkingSearchHeightScale;
 
 	/** Type of navigation data used by agent, null means "any" */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MovementProperties)
-	TSubclassOf<ANavigationData> PreferredNavData;
-
+	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MovementProperties)
+	TSubclassOf<ANavigationData> PreferredNavData;*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MovementProperties, meta=(MetaClass = "NavigationData"))
+	FSoftClassPath PreferredNavData;
+	
 	FNavAgentProperties(float Radius = -1.f, float Height = -1.f)
 		: AgentRadius(Radius), AgentHeight(Height), AgentStepHeight(-1), NavWalkingSearchHeightScale(0.5f)
-	{
-	}
+	{}
+	FNavAgentProperties(const FNavAgentProperties& Other);
 
 	void UpdateWithCollisionComponent(class UShapeComponent* CollisionComponent);
 
@@ -498,7 +488,9 @@ struct ENGINE_API FNavAgentProperties : public FMovementProperties
 	{
 		return FGenericPlatformMath::Abs(AgentRadius - Other.AgentRadius) < Precision
 			&& FGenericPlatformMath::Abs(AgentHeight - Other.AgentHeight) < Precision
-			&& (HasStepHeightOverride() == false || FGenericPlatformMath::Abs(AgentStepHeight - Other.AgentStepHeight) < Precision)
+			&& ((HasStepHeightOverride() == false) 
+				|| (Other.HasStepHeightOverride() == false) 
+				|| FGenericPlatformMath::Abs(AgentStepHeight - Other.AgentStepHeight) < Precision)
 			&& IsNavDataMatching(Other);
 	}
 	
@@ -512,6 +504,11 @@ struct ENGINE_API FNavAgentProperties : public FMovementProperties
 		return IsValid() 
 			? FVector(AgentRadius, AgentRadius, AgentHeight / 2)
 			: INVALID_NAVEXTENT;
+	}
+
+	void SetPreferredNavData(TSubclassOf<AActor> NavDataClass)
+	{
+		PreferredNavData = FSoftClassPath(NavDataClass.Get());
 	}
 
 	static const FNavAgentProperties DefaultProperties;
@@ -536,13 +533,15 @@ struct ENGINE_API FNavDataConfig : public FNavAgentProperties
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Querying)
 	FVector DefaultQueryExtent;
 
-	UPROPERTY(Transient, EditAnywhere, BlueprintReadOnly, Category = Navigation)
-	TSubclassOf<ANavigationData> NavigationDataClass;
+	// mz@todo make sure we handle NavigationDataClass and NavigationDataClassName in PostEditChange
+	UPROPERTY(Transient)
+	TSubclassOf<AActor> NavigationDataClass;
 
-	UPROPERTY(config)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Navigation, meta=(MetaClass = "NavigationData"))
 	FSoftClassPath NavigationDataClassName;
 
 	FNavDataConfig(float Radius = FNavigationSystem::FallbackAgentRadius, float Height = FNavigationSystem::FallbackAgentHeight);
+	FNavDataConfig(const FNavDataConfig& Other);
 };
 
 struct FNavigationProjectionWork
@@ -606,51 +605,6 @@ namespace ENavigationQueryResult
 	};
 }
 
-struct ENGINE_API FPathFindingQueryData
-{
-	TWeakObjectPtr<const UObject> Owner;
-	FVector StartLocation;
-	FVector EndLocation;
-	FSharedConstNavQueryFilter QueryFilter;
-
-	/** additional flags passed to navigation data handling request */
-	int32 NavDataFlags;
-
-	/** if set, allow partial paths as a result */
-	uint32 bAllowPartialPaths : 1;
-
-	FPathFindingQueryData() : StartLocation(FNavigationSystem::InvalidLocation), EndLocation(FNavigationSystem::InvalidLocation), NavDataFlags(0), bAllowPartialPaths(true) {}
-	FPathFindingQueryData(const UObject* InOwner, const FVector& InStartLocation, const FVector& InEndLocation, FSharedConstNavQueryFilter InQueryFilter = nullptr, int32 InNavDataFlags = 0, bool bInAllowPartialPaths = true) :
-		Owner(InOwner), StartLocation(InStartLocation), EndLocation(InEndLocation), QueryFilter(InQueryFilter), NavDataFlags(InNavDataFlags), bAllowPartialPaths(bInAllowPartialPaths) {}
-};
-
-struct ENGINE_API FPathFindingQuery : public FPathFindingQueryData
-{
-	TWeakObjectPtr<const ANavigationData> NavData;
-	FNavPathSharedPtr PathInstanceToFill;
-	FNavAgentProperties NavAgentProperties;
-
-	FPathFindingQuery() : FPathFindingQueryData() {}
-	FPathFindingQuery(const FPathFindingQuery& Source);
-	FPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, FSharedConstNavQueryFilter SourceQueryFilter = NULL, FNavPathSharedPtr InPathInstanceToFill = NULL);
-	FPathFindingQuery(const INavAgentInterface& InNavAgent, const ANavigationData& InNavData, const FVector& Start, const FVector& End, FSharedConstNavQueryFilter SourceQueryFilter = NULL, FNavPathSharedPtr InPathInstanceToFill = NULL);
-
-	explicit FPathFindingQuery(FNavPathSharedRef PathToRecalculate, const ANavigationData* NavDataOverride = NULL);
-
-	FPathFindingQuery& SetPathInstanceToUpdate(FNavPathSharedPtr InPathInstanceToFill) { PathInstanceToFill = InPathInstanceToFill; return *this; }
-	FPathFindingQuery& SetAllowPartialPaths(bool bAllow) { bAllowPartialPaths = bAllow; return *this; }
-	FPathFindingQuery& SetNavAgentProperties(const FNavAgentProperties& InNavAgentProperties) { NavAgentProperties = InNavAgentProperties; return *this; }
-};
-
-namespace EPathFindingMode
-{
-	enum Type
-	{
-		Regular,
-		Hierarchical,
-	};
-};
-
 /**
 *	Delegate used to communicate that path finding query has been finished.
 *	@param uint32 unique Query ID of given query
@@ -660,25 +614,6 @@ namespace EPathFindingMode
 *		and ENavigationQueryResult == ENavigationQueryResult::Success
 */
 DECLARE_DELEGATE_ThreeParams(FNavPathQueryDelegate, uint32, ENavigationQueryResult::Type, FNavPathSharedPtr);
-
-//////////////////////////////////////////////////////////////////////////
-// Custom path following data
-
-/** Custom data passed to movement requests. */
-struct ENGINE_API FMoveRequestCustomData
-{
-};
-
-typedef TSharedPtr<FMoveRequestCustomData, ESPMode::ThreadSafe> FCustomMoveSharedPtr;
-typedef TWeakPtr<FMoveRequestCustomData, ESPMode::ThreadSafe> FCustomMoveWeakPtr;
-
-UCLASS(Abstract, CustomConstructor)
-class UNavigationTypes : public UObject
-{
-	GENERATED_UCLASS_BODY()
-
-	UNavigationTypes(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get()) : Super(ObjectInitializer) { }
-};
 
 //////////////////////////////////////////////////////////////////////////
 // Memory stating
@@ -758,33 +693,6 @@ struct TContainerTraits<TNavStatArray<InElementType> > : public TContainerTraits
 	enum { MoveWillEmptyContainer = TContainerTraits<typename TNavStatArray<InElementType>::Super>::MoveWillEmptyContainer };
 };
 
-//----------------------------------------------------------------------//
-// Active tiles 
-//----------------------------------------------------------------------//
-struct FNavigationInvokerRaw
-{
-	FVector Location;
-	float RadiusMin;
-	float RadiusMax;
-
-	FNavigationInvokerRaw(const FVector& InLocation, float Min, float Max)
-		: Location(InLocation), RadiusMin(Min), RadiusMax(Max)
-	{}
-};
-
-struct FNavigationInvoker
-{
-	TWeakObjectPtr<AActor> Actor;
-
-	/** tiles GenerationRadius away or close will be generated if they're not already present */
-	float GenerationRadius;
-	/** tiles over RemovalRadius will get removed.
-	*	@Note needs to be >= GenerationRadius or will get clampped */
-	float RemovalRadius;
-
-	FNavigationInvoker();
-	FNavigationInvoker(AActor& InActor, float InGenerationRadius, float InRemovalRadius);
-};
 
 //----------------------------------------------------------------------//
 // generic "landscape" support
@@ -798,3 +706,4 @@ struct ENGINE_API FNavHeightfieldSamples
 
 	FORCEINLINE bool IsEmpty() const { return Heights.Num() == 0; }
 };
+

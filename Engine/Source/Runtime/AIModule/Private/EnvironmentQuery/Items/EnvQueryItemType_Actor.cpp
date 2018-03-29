@@ -3,6 +3,7 @@
 #include "EnvironmentQuery/Items/EnvQueryItemType_Actor.h"
 #include "UObject/WeakObjectPtr.h"
 #include "GameFramework/Actor.h"
+#include "AITypes.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
 
 UEnvQueryItemType_Actor::UEnvQueryItemType_Actor(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -25,13 +26,13 @@ void UEnvQueryItemType_Actor::SetValue(uint8* RawData, const FWeakObjectPtr& Val
 FVector UEnvQueryItemType_Actor::GetItemLocation(const uint8* RawData) const
 {
 	AActor* MyActor = UEnvQueryItemType_Actor::GetValue(RawData);
-	return MyActor ? MyActor->GetActorLocation() : FVector::ZeroVector;
+	return MyActor ? MyActor->GetActorLocation() : FAISystem::InvalidLocation;
 }
 
 FRotator UEnvQueryItemType_Actor::GetItemRotation(const uint8* RawData) const
 {
 	AActor* MyActor = UEnvQueryItemType_Actor::GetValue(RawData);
-	return MyActor ? MyActor->GetActorRotation() : FRotator::ZeroRotator;
+	return MyActor ? MyActor->GetActorRotation() : FAISystem::InvalidRotation;
 }
 
 AActor* UEnvQueryItemType_Actor::GetActor(const uint8* RawData) const

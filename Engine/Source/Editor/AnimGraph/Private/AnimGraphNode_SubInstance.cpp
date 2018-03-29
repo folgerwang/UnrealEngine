@@ -207,7 +207,7 @@ void UAnimGraphNode_SubInstance::ReallocatePinsDuringReconstruction(TArray<UEdGr
 	{
 		if(OldPin && !AnimGraphDefaultSchema->IsPosePin(OldPin->PinType))
 		{
-			OldPin->bSavePinIfOrphaned = false;
+			OldPin->SetSavePinIfOrphaned(false);
 		}
 	}
 

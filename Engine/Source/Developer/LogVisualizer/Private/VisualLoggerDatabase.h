@@ -48,8 +48,8 @@ public:
 	int32 GetCurrentItemIndex() const { return CurrentItemIndex; }
 
 	void SetItemVisibility(int32 ItemIndex, bool IsVisible);
-	bool IsItemVisible(int32 ItemIndex) const { return HiddenItems.Find(ItemIndex) == INDEX_NONE; }
-	int32 GetNumberOfHiddenItems() const { return HiddenItems.Num(); }
+	bool IsItemVisible(int32 ItemIndex) const { return HiddenItems[ItemIndex] == false; }
+	int32 GetNumberOfHiddenItems() const { return NumHiddenItems; }
 
 	int32 GetClosestItem(float Time) const;
 	int32 GetClosestItem(float Time, float ScrubTime) const;
@@ -61,7 +61,8 @@ protected:
 	int32 CurrentItemIndex;
 
 	TArray<FVisualLogDevice::FVisualLogEntryItem>	Items;
-	TArray<int32> HiddenItems;
+	TBitArray<> HiddenItems;
+	int32 NumHiddenItems = 0;
 };
 
 struct FVisualLoggerDatabase

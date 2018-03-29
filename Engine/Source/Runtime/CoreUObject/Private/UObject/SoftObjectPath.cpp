@@ -7,6 +7,7 @@
 #include "Misc/PackageName.h"
 #include "UObject/LinkerLoad.h"
 #include "UObject/UObjectThreadContext.h"
+#include "UObject/CoreRedirects.h"
 #include "Misc/RedirectCollector.h"
 
 FSoftObjectPath::FSoftObjectPath(const UObject* InObject)
@@ -48,19 +49,19 @@ void FSoftObjectPath::SetPath(FString Path)
 		{
 			// Possibly an ExportText path. Trim the ClassName.
 			Path = FPackageName::ExportTextPathToObjectPath(Path);
-	}
+		}
 
 		int32 ColonIndex = INDEX_NONE;
 
 		if (Path.FindChar(':', ColonIndex))
-	{
+		{
 			// Has a subobject, split on that then create a name from the temporary path
 			SubPathString = Path.Mid(ColonIndex + 1);
 			Path.RemoveAt(ColonIndex, Path.Len() - ColonIndex);
 			AssetPathName = *Path;
-	}
-	else
-	{
+		}
+		else
+		{
 			// No Subobject
 			AssetPathName = *Path;
 			SubPathString.Empty();
@@ -71,11 +72,21 @@ void FSoftObjectPath::SetPath(FString Path)
 bool FSoftObjectPath::PreSavePath()
 {
 #if WITH_EDITOR
+	if (IsNull())
+	{
+		return false;
+	}
+
 	FName FoundRedirection = GRedirectCollector.GetAssetPathRedirection(AssetPathName);
 
 	if (FoundRedirection != NAME_None)
 	{
 		AssetPathName = FoundRedirection;
+		return true;
+	}
+
+	if (FixupCoreRedirects())
+	{
 		return true;
 	}
 #endif // WITH_EDITOR
@@ -153,11 +164,11 @@ void FSoftObjectPath::SerializePath(FArchive& Ar)
 			PostLoadPath();
 		}
 		if (Ar.GetPortFlags()&PPF_DuplicateForPIE)
-	{
-		// Remap unique ID if necessary
-		// only for fixing up cross-level references, inter-level references handled in FDuplicateDataReader
-		FixupForPIE();
-	}
+		{
+			// Remap unique ID if necessary
+			// only for fixing up cross-level references, inter-level references handled in FDuplicateDataReader
+			FixupForPIE();
+		}
 	}
 #endif // WITH_EDITOR
 }
@@ -181,7 +192,7 @@ bool FSoftObjectPath::ExportTextItem(FString& ValueStr, FSoftObjectPath const& D
 		return false;
 	}
 
-	if (IsValid())
+	if (!IsNull())
 	{
 		// Fixup any redirectors
 		FSoftObjectPath Temp = *this;
@@ -232,8 +243,20 @@ bool FSoftObjectPath::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObj
 
 	SetPath(MoveTemp(ImportedPath));
 
-	// Consider this a load, so Config string references get cooked
-	PostLoadPath();
+#if WITH_EDITOR
+	if (Parent && IsEditorOnlyObject(Parent))
+	{
+		// We're probably reading config for an editor only object, we need to mark this reference as editor only
+		FSoftObjectPathSerializationScope SerializationScope(NAME_None, NAME_None, ESoftObjectPathCollectType::EditorOnlyCollect, ESoftObjectPathSerializeType::AlwaysSerialize);
+
+		PostLoadPath();
+	}
+	else
+#endif
+	{
+		// Consider this a load, so Config string references get cooked
+		PostLoadPath();
+	}
 
 	return true;
 }
@@ -259,7 +282,7 @@ bool SerializeFromMismatchedTagTemplate(FString& Output, const FPropertyTag& Tag
 			Output = ObjPtr->GetPathName();
 		}
 		else
-	{
+		{
 			Output = FString();
 		}
 		return true;
@@ -270,8 +293,8 @@ bool SerializeFromMismatchedTagTemplate(FString& Output, const FPropertyTag& Tag
 		Ar << String;
 
 		Output = String;
-	return true;
-}
+		return true;
+	}
 	return false;
 }
 
@@ -300,9 +323,22 @@ UObject* FSoftObjectPath::TryLoad() const
 {
 	UObject* LoadedObject = nullptr;
 
-	if ( IsValid() )
+	if (!IsNull())
 	{
 		LoadedObject = LoadObject<UObject>(nullptr, *ToString());
+
+#if WITH_EDITOR
+		// Look at core redirects if we didn't find the object
+		if (!LoadedObject)
+		{
+			FSoftObjectPath FixupObjectPath = *this;
+			if (FixupObjectPath.FixupCoreRedirects())
+			{
+				LoadedObject = LoadObject<UObject>(nullptr, *FixupObjectPath.ToString());
+			}
+		}
+#endif
+
 		while (UObjectRedirector* Redirector = Cast<UObjectRedirector>(LoadedObject))
 		{
 			LoadedObject = Redirector->DestinationObject;
@@ -316,7 +352,7 @@ UObject* FSoftObjectPath::ResolveObject() const
 {
 	// Don't try to resolve if we're saving a package because StaticFindObject can't be used here
 	// and we usually don't want to force references to weak pointers while saving.
-	if (!IsValid() || GIsSavingPackage)
+	if (IsNull() || GIsSavingPackage)
 	{
 		return nullptr;
 	}
@@ -327,9 +363,7 @@ UObject* FSoftObjectPath::ResolveObject() const
 	{
 		// If we are in PIE and this hasn't already been fixed up, we need to fixup at resolution time. We cannot modify the path as it may be somewhere like a blueprint CDO
 		FSoftObjectPath FixupObjectPath = *this;
-		FixupObjectPath.FixupForPIE();
-
-		if (FixupObjectPath.AssetPathName != AssetPathName)
+		if (FixupObjectPath.FixupForPIE())
 		{
 			PathString = FixupObjectPath.ToString();
 		}
@@ -337,6 +371,20 @@ UObject* FSoftObjectPath::ResolveObject() const
 #endif
 
 	UObject* FoundObject = FindObject<UObject>(nullptr, *PathString);
+
+#if WITH_EDITOR
+	// Look at core redirects if we didn't find the object
+	if (!FoundObject)
+	{
+		FSoftObjectPath FixupObjectPath = *this;
+		if (FixupObjectPath.FixupCoreRedirects())
+		{
+			PathString = FixupObjectPath.ToString();
+			FoundObject = FindObject<UObject>(nullptr, *PathString);
+		}
+	}
+#endif
+
 	while (UObjectRedirector* Redirector = Cast<UObjectRedirector>(FoundObject))
 	{
 		FoundObject = Redirector->DestinationObject;
@@ -361,10 +409,10 @@ void FSoftObjectPath::ClearPIEPackageNames()
 	PIEPackageNames.Empty();
 }
 
-void FSoftObjectPath::FixupForPIE()
+bool FSoftObjectPath::FixupForPIE()
 {
 #if WITH_EDITOR
-	if (GPlayInEditorID != INDEX_NONE && IsValid())
+	if (GPlayInEditorID != INDEX_NONE && !IsNull())
 	{
 		FString Path = ToString();
 
@@ -380,13 +428,36 @@ void FSoftObjectPath::FixupForPIE()
 
 			// Duplicate if this an already registered PIE package or this looks like a level subobject reference
 			if (bIsChildOfLevel || PIEPackageNames.Contains(PIEPackage))
-				{
-					// Need to prepend PIE prefix, as we're in PIE and this refers to an object in a PIE package
-					SetPath(MoveTemp(PIEPath));
+			{
+				// Need to prepend PIE prefix, as we're in PIE and this refers to an object in a PIE package
+				SetPath(MoveTemp(PIEPath));
+
+				return true;
 			}
 		}
 	}
 #endif
+	return false;
+}
+
+bool FSoftObjectPath::FixupCoreRedirects()
+{
+	FCoreRedirectObjectName OldName = FCoreRedirectObjectName(ToString());
+	FCoreRedirectObjectName NewName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Object, OldName);
+
+	// This also might be a class
+	if (OldName == NewName)
+	{
+		NewName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Class, OldName);
+	}
+
+	if (OldName != NewName)
+	{
+		SetPath(NewName.ToString());
+		return true;
+	}
+
+	return false;
 }
 
 bool FSoftClassPath::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar)
@@ -406,15 +477,15 @@ bool FSoftClassPath::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, 
 	{
 		SetPath(MoveTemp(Path));
 		PostLoadPath();
-				}
+	}
 
 	return bReturn;
-			}
+}
 
 UClass* FSoftClassPath::ResolveClass() const
 {
 	return Cast<UClass>(ResolveObject());
-		}
+}
 
 FSoftClassPath FSoftClassPath::GetOrCreateIDForClass(const UClass *InClass)
 {
@@ -482,7 +553,7 @@ bool FSoftObjectPathThreadContext::GetSerializationOptions(FName& OutPackageName
 			if (bEditorOnly && CurrentCollectType == ESoftObjectPathCollectType::AlwaysCollect)
 			{
 				CurrentCollectType = ESoftObjectPathCollectType::EditorOnlyCollect;
-	}
+			}
 
 			bFoundAnything = true;
 		}

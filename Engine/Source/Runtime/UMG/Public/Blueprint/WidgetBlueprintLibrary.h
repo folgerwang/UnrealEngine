@@ -231,19 +231,19 @@ public:
 	 * Gets the resource object on a brush.  This could be a UTexture2D or a UMaterialInterface.
 	 */
 	UFUNCTION(BlueprintPure, Category="Widget|Brush")
-	static UObject* GetBrushResource(UPARAM(ref) FSlateBrush& Brush);
+	static UObject* GetBrushResource(const FSlateBrush& Brush);
 
 	/**
 	 * Gets the brush resource as a texture 2D.
 	 */
 	UFUNCTION(BlueprintPure, Category="Widget|Brush")
-	static UTexture2D* GetBrushResourceAsTexture2D(UPARAM(ref) FSlateBrush& Brush);
+	static UTexture2D* GetBrushResourceAsTexture2D(const FSlateBrush& Brush);
 
 	/**
 	 * Gets the brush resource as a material.
 	 */
 	UFUNCTION(BlueprintPure, Category="Widget|Brush")
-	static UMaterialInterface* GetBrushResourceAsMaterial(UPARAM(ref) FSlateBrush& Brush);
+	static UMaterialInterface* GetBrushResourceAsMaterial(const FSlateBrush& Brush);
 
 	/**
 	 * Sets the resource on a brush to be a UTexture2D.

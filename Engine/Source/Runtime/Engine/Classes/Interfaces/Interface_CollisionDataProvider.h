@@ -60,7 +60,7 @@ struct FTriMeshCollisionData
 	}
 };
 
-UINTERFACE(meta=(CannotImplementInterfaceInBlueprint))
+UINTERFACE(MinimalAPI, meta=(CannotImplementInterfaceInBlueprint))
 class UInterface_CollisionDataProvider : public UInterface
 {
 	GENERATED_UINTERFACE_BODY()

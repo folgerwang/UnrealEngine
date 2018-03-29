@@ -30,7 +30,7 @@
 DEFINE_STAT(STAT_PersistentUberGraphFrameMemory);
 
 int32 GBlueprintClusteringEnabled = 0;
-static FAutoConsoleVariableRef CVarUseBackgroundLevelStreaming(
+static FAutoConsoleVariableRef CVarBlueprintClusteringEnabled(
 	TEXT("gc.BlueprintClusteringEnabled"),
 	GBlueprintClusteringEnabled,
 	TEXT("Whether to allow Blueprint classes to create GC clusters."),

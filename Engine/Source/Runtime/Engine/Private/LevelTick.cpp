@@ -23,7 +23,7 @@
 #include "RenderingThread.h"
 #include "Engine/World.h"
 #include "GameFramework/Controller.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "GameFramework/PlayerController.h"
 #include "SceneUtils.h"
 #include "ParticleHelper.h"
@@ -1383,13 +1383,10 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	}
 	
 	// update world's subsystems (NavigationSystem for now)
-	if ( !bIsPaused )
+	if (NavigationSystem != NULL)
 	{
-		if (NavigationSystem != NULL)
-		{
-			SCOPE_CYCLE_COUNTER(STAT_NavWorldTickTime);
-			NavigationSystem->Tick(DeltaSeconds);
-		}
+		SCOPE_CYCLE_COUNTER(STAT_NavWorldTickTime);
+		NavigationSystem->Tick(DeltaSeconds);
 	}
 
 	bool bDoingActorTicks = 

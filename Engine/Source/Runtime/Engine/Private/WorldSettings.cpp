@@ -22,6 +22,8 @@
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "UObject/ReleaseObjectVersion.h"
 #include "SceneManagement.h"
+#include "AI/NavigationSystemConfig.h"
+#include "AI/NavigationSystemBase.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -52,6 +54,7 @@ AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 
 	bEnableWorldBoundsChecks = true;
 	bEnableNavigationSystem = true;
+	NavigationSystemConfig = nullptr;
 	bEnableAISystem = true;
 	bEnableWorldComposition = false;
 	bEnableWorldOriginRebasing = false;
@@ -92,6 +95,15 @@ AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITORONLY_DATA
 	bActorLabelEditable = false;
 #endif // WITH_EDITORONLY_DATA
+}
+
+void AWorldSettings::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (HasAnyFlags(RF_NeedLoad|RF_WasLoaded|RF_ClassDefaultObject) == false)
+	{
+		NavigationSystemConfig = NewObject<UNavigationSystemConfig>(this);
+	}
 }
 
 void AWorldSettings::PreInitializeComponents()
@@ -373,6 +385,21 @@ void AWorldSettings::PostLoad()
 
 	SetIsTemporarilyHiddenInEditor(true);
 #endif// WITH_EDITOR
+
+	if (bEnableNavigationSystem && NavigationSystemConfig == nullptr)
+	{
+		ULevel* Level = GetLevel();
+		if (Level && Level->IsPersistentLevel())
+		{
+			NavigationSystemConfig = NewObject<UNavigationSystemConfig>(this);
+			bEnableNavigationSystem = false;
+		}
+	}
+}
+
+bool AWorldSettings::IsNavigationSystemEnabled() const
+{
+	return NavigationSystemConfig && NavigationSystemConfig->NavigationSystemClass.IsValid();
 }
 
 
@@ -475,12 +502,12 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
 	if (PropertyThatChanged)
 	{
-		if (PropertyThatChanged->GetFName()==GET_MEMBER_NAME_CHECKED(AWorldSettings,bForceNoPrecomputedLighting) && bForceNoPrecomputedLighting)
+		const FName PropertyName = PropertyThatChanged->GetFName();
+		if (PropertyName == GET_MEMBER_NAME_CHECKED(AWorldSettings,bForceNoPrecomputedLighting) && bForceNoPrecomputedLighting)
 		{
 			FMessageDialog::Open( EAppMsgType::Ok, LOCTEXT("bForceNoPrecomputedLightingIsEnabled", "bForceNoPrecomputedLighting is now enabled, build lighting once to propagate the change (will remove existing precomputed lighting data)."));
 		}
-
-		else if (PropertyThatChanged->GetFName()==GET_MEMBER_NAME_CHECKED(AWorldSettings,bEnableWorldComposition))
+		else if (PropertyName == GET_MEMBER_NAME_CHECKED(AWorldSettings,bEnableWorldComposition))
 		{
 			if (UWorldComposition::EnableWorldCompositionEvent.IsBound())
 			{
@@ -489,6 +516,18 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 			else
 			{
 				bEnableWorldComposition = false;
+			}
+		}
+		else if (PropertyName == GET_MEMBER_NAME_CHECKED(AWorldSettings, NavigationSystemConfig))
+		{
+			UWorld* World = GetWorld();
+			if (World)
+			{
+				World->SetNavigationSystem(nullptr);
+				if (NavigationSystemConfig)
+				{
+					FNavigationSystem::AddNavigationSystemToWorld(*World, FNavigationSystemRunMode::EditorMode);
+				}
 			}
 		}
 	}

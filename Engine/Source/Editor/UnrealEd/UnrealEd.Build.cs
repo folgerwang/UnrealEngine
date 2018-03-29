@@ -59,8 +59,9 @@ public class UnrealEd : ModuleRules
 				"ViewportInteraction",
 				"VREditor",
 				"Persona",
-                "PhysicsAssetEditor",
-                "ClothingSystemEditorInterface",
+				"PhysicsAssetEditor",
+				"ClothingSystemEditorInterface",
+				"NavigationSystem",
 			}
 		);
 
@@ -82,7 +83,6 @@ public class UnrealEd : ModuleRules
 				"EditorStyle",
 				"SourceControl",
 				"UnrealEdMessages",
-				"AIModule",
 				"GameplayDebugger",
 				"BlueprintGraph",
 				"Http",
@@ -93,6 +93,7 @@ public class UnrealEd : ModuleRules
 				"AudioEditor",
 				"NetworkFileSystem",
 				"UMG",
+				"NavigationSystem",
                 "MeshDescription",
                 "MeshBuilder",
             }
@@ -186,7 +187,7 @@ public class UnrealEd : ModuleRules
 				"LevelEditor",
 				"PackagesDialog",
 				"Persona",
-                "PhysicsAssetEditor",
+				"PhysicsAssetEditor",
 				"ProjectLauncher",
 				"DeviceManager",
 				"SettingsEditor",
@@ -233,15 +234,15 @@ public class UnrealEd : ModuleRules
 		{
 			DynamicallyLoadedModuleNames.Add("AndroidPlatformEditor");
 		}
-
-		CircularlyReferencedDependentModules.AddRange(
+        
+        CircularlyReferencedDependentModules.AddRange(
 			new string[]
 			{
 				"GraphEditor",
 				"Kismet",
 				"AudioEditor",
 				"ViewportInteraction",
-				"VREditor"
+				"VREditor",
 			}
 		);
 
@@ -257,6 +258,9 @@ public class UnrealEd : ModuleRules
 				"MeshUtilities",
 				"AssetTools",
 				"KismetCompiler",
+				"NavigationSystem",
+				"GameplayTasks",
+				"AIModule",
 			}
 			);
 

@@ -11,7 +11,7 @@
 
 class UAISense_Blueprint;
 
-UCLASS(Blueprintable, Abstract)
+UCLASS(Blueprintable, Abstract, hidedropdown)
 class AIMODULE_API UAISenseConfig_Blueprint : public UAISenseConfig
 {
 	GENERATED_UCLASS_BODY()

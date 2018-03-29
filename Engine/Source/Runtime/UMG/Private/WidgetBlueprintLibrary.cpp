@@ -141,7 +141,7 @@ void UWidgetBlueprintLibrary::SetFocusToGameViewport()
 	FSlateApplication::Get().SetAllUserFocusToGameViewport();
 }
 
-void UWidgetBlueprintLibrary::DrawBox(UPARAM(ref) FPaintContext& Context, FVector2D Position, FVector2D Size, USlateBrushAsset* Brush, FLinearColor Tint)
+void UWidgetBlueprintLibrary::DrawBox(FPaintContext& Context, FVector2D Position, FVector2D Size, USlateBrushAsset* Brush, FLinearColor Tint)
 {
 	Context.MaxLayer++;
 
@@ -157,7 +157,7 @@ void UWidgetBlueprintLibrary::DrawBox(UPARAM(ref) FPaintContext& Context, FVecto
 	}
 }
 
-void UWidgetBlueprintLibrary::DrawLine(UPARAM(ref) FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint, bool bAntiAlias)
+void UWidgetBlueprintLibrary::DrawLine(FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint, bool bAntiAlias)
 {
 	Context.MaxLayer++;
 
@@ -175,7 +175,7 @@ void UWidgetBlueprintLibrary::DrawLine(UPARAM(ref) FPaintContext& Context, FVect
 		bAntiAlias);
 }
 
-void UWidgetBlueprintLibrary::DrawLines(UPARAM(ref) FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint, bool bAntiAlias)
+void UWidgetBlueprintLibrary::DrawLines(FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint, bool bAntiAlias)
 {
 	Context.MaxLayer++;
 
@@ -189,7 +189,7 @@ void UWidgetBlueprintLibrary::DrawLines(UPARAM(ref) FPaintContext& Context, cons
 		bAntiAlias);
 }
 
-void UWidgetBlueprintLibrary::DrawText(UPARAM(ref) FPaintContext& Context, const FString& InString, FVector2D Position, FLinearColor Tint)
+void UWidgetBlueprintLibrary::DrawText(FPaintContext& Context, const FString& InString, FVector2D Position, FLinearColor Tint)
 {
 	Context.MaxLayer++;
 
@@ -206,7 +206,7 @@ void UWidgetBlueprintLibrary::DrawText(UPARAM(ref) FPaintContext& Context, const
 		Tint);
 }
 
-void UWidgetBlueprintLibrary::DrawTextFormatted(UPARAM(ref) FPaintContext& Context, const FText& Text, FVector2D Position, UFont* Font, int32 FontSize, FName FontTypeFace, FLinearColor Tint)
+void UWidgetBlueprintLibrary::DrawTextFormatted(FPaintContext& Context, const FText& Text, FVector2D Position, UFont* Font, int32 FontSize, FName FontTypeFace, FLinearColor Tint)
 {
 	if ( Font )
 	{
@@ -242,7 +242,7 @@ FEventReply UWidgetBlueprintLibrary::Unhandled()
 	return Reply;
 }
 
-FEventReply UWidgetBlueprintLibrary::CaptureMouse(UPARAM(ref) FEventReply& Reply, UWidget* CapturingWidget)
+FEventReply UWidgetBlueprintLibrary::CaptureMouse(FEventReply& Reply, UWidget* CapturingWidget)
 {
 	if ( CapturingWidget )
 	{
@@ -256,7 +256,7 @@ FEventReply UWidgetBlueprintLibrary::CaptureMouse(UPARAM(ref) FEventReply& Reply
 	return Reply;
 }
 
-FEventReply UWidgetBlueprintLibrary::ReleaseMouseCapture(UPARAM(ref) FEventReply& Reply)
+FEventReply UWidgetBlueprintLibrary::ReleaseMouseCapture(FEventReply& Reply)
 {
 	Reply.NativeReply = Reply.NativeReply.ReleaseMouseCapture();
 
@@ -298,24 +298,24 @@ FEventReply UWidgetBlueprintLibrary::SetUserFocus( UPARAM( ref ) FEventReply& Re
 	return Reply;
 }
 
-FEventReply UWidgetBlueprintLibrary::CaptureJoystick(UPARAM(ref) FEventReply& Reply, UWidget* CapturingWidget, bool bInAllJoysticks/* = false*/)
+FEventReply UWidgetBlueprintLibrary::CaptureJoystick(FEventReply& Reply, UWidget* CapturingWidget, bool bInAllJoysticks/* = false*/)
 {
 	return SetUserFocus(Reply, CapturingWidget, bInAllJoysticks);
 }
 
-FEventReply UWidgetBlueprintLibrary::ClearUserFocus(UPARAM(ref) FEventReply& Reply, bool bInAllUsers /*= false*/)
+FEventReply UWidgetBlueprintLibrary::ClearUserFocus(FEventReply& Reply, bool bInAllUsers /*= false*/)
 {
 	Reply.NativeReply = Reply.NativeReply.ClearUserFocus(bInAllUsers);
 
 	return Reply;
 }
 
-FEventReply UWidgetBlueprintLibrary::ReleaseJoystickCapture(UPARAM(ref) FEventReply& Reply, bool bInAllJoysticks /*= false*/)
+FEventReply UWidgetBlueprintLibrary::ReleaseJoystickCapture(FEventReply& Reply, bool bInAllJoysticks /*= false*/)
 {
 	return ClearUserFocus(Reply, bInAllJoysticks);
 }
 
-FEventReply UWidgetBlueprintLibrary::SetMousePosition(UPARAM(ref) FEventReply& Reply, FVector2D NewMousePosition)
+FEventReply UWidgetBlueprintLibrary::SetMousePosition(FEventReply& Reply, FVector2D NewMousePosition)
 {
 	FIntPoint NewPoint((int32)NewMousePosition.X, (int32)NewMousePosition.Y);
 	Reply.NativeReply = Reply.NativeReply.SetMousePos(NewPoint);
@@ -323,7 +323,7 @@ FEventReply UWidgetBlueprintLibrary::SetMousePosition(UPARAM(ref) FEventReply& R
 	return Reply;
 }
 
-FEventReply UWidgetBlueprintLibrary::DetectDrag(UPARAM(ref) FEventReply& Reply, UWidget* WidgetDetectingDrag, FKey DragKey)
+FEventReply UWidgetBlueprintLibrary::DetectDrag(FEventReply& Reply, UWidget* WidgetDetectingDrag, FKey DragKey)
 {
 	if ( WidgetDetectingDrag )
 	{
@@ -348,7 +348,7 @@ FEventReply UWidgetBlueprintLibrary::DetectDragIfPressed(const FPointerEvent& Po
 	return UWidgetBlueprintLibrary::Unhandled();
 }
 
-FEventReply UWidgetBlueprintLibrary::EndDragDrop(UPARAM(ref) FEventReply& Reply)
+FEventReply UWidgetBlueprintLibrary::EndDragDrop(FEventReply& Reply)
 {
 	Reply.NativeReply = Reply.NativeReply.EndDragDrop();
 
@@ -425,17 +425,17 @@ FSlateBrush UWidgetBlueprintLibrary::MakeBrushFromMaterial(UMaterialInterface* M
 	return FSlateNoResource();
 }
 
-UObject* UWidgetBlueprintLibrary::GetBrushResource(FSlateBrush& Brush)
+UObject* UWidgetBlueprintLibrary::GetBrushResource(const FSlateBrush& Brush)
 {
 	return Brush.GetResourceObject();
 }
 
-UTexture2D* UWidgetBlueprintLibrary::GetBrushResourceAsTexture2D(UPARAM(ref) FSlateBrush& Brush)
+UTexture2D* UWidgetBlueprintLibrary::GetBrushResourceAsTexture2D(const FSlateBrush& Brush)
 {
 	return Cast<UTexture2D>(Brush.GetResourceObject());
 }
 
-UMaterialInterface* UWidgetBlueprintLibrary::GetBrushResourceAsMaterial(UPARAM(ref) FSlateBrush& Brush)
+UMaterialInterface* UWidgetBlueprintLibrary::GetBrushResourceAsMaterial(const FSlateBrush& Brush)
 {
 	return Cast<UMaterialInterface>(Brush.GetResourceObject());
 }

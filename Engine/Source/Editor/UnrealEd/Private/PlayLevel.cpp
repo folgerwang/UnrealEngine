@@ -38,7 +38,7 @@
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "Settings/LevelEditorPlaySettings.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Editor/EditorEngine.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Settings/ProjectPackagingSettings.h"
@@ -370,10 +370,7 @@ void UEditorEngine::EndPlayMap()
 	}
 
 	// Lose the EditorWorld pointer (this is only maintained while PIEing)
-	if (EditorWorld->GetNavigationSystem())
-	{
-		EditorWorld->GetNavigationSystem()->OnPIEEnd();
-	}
+	FNavigationSystem::OnPIEEnd(*EditorWorld);
 
 	FGameDelegates::Get().GetEndPlayMapDelegate().Broadcast();
 
@@ -2255,10 +2252,7 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 	FEditorDelegates::BeginPIE.Broadcast(bInSimulateInEditor);
 
 	// let navigation know PIE starts so it can avoid any blueprint creation/deletion/instantiation affect editor map's navmesh changes
-	if (InWorld->GetNavigationSystem())
-	{
-		InWorld->GetNavigationSystem()->OnPIEStart();
-	}
+	FNavigationSystem::OnPIEStart(*InWorld);
 
 	ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
 	check(PlayInSettings);
@@ -2282,11 +2276,7 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 		if ( !bContinuePIE )
 		{
 			FEditorDelegates::EndPIE.Broadcast(bInSimulateInEditor);
-			if (InWorld->GetNavigationSystem())
-			{
-				InWorld->GetNavigationSystem()->OnPIEEnd();
-			}
-
+			FNavigationSystem::OnPIEEnd(*InWorld);
 			return;
 		}
 		else
@@ -2905,10 +2895,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 
 		FEditorDelegates::EndPIE.Broadcast(bInSimulateInEditor);
 
-		if (EditorWorld->GetNavigationSystem())
-		{
-			EditorWorld->GetNavigationSystem()->OnPIEEnd();
-		}
+		FNavigationSystem::OnPIEEnd(*EditorWorld);
 
 		return nullptr;
 	}

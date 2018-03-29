@@ -4,17 +4,17 @@
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/Controller.h"
-#include "AI/Navigation/NavigationSystem.h"
-#include "AI/Navigation/RecastNavMesh.h"
+#include "NavigationSystem.h"
+#include "NavMesh/RecastNavMesh.h"
 #include "VisualLogger/VisualLogger.h"
 #include "AIModuleLog.h"
 
 #if WITH_RECAST
-#include "AI/Navigation/RecastHelpers.h"
+#include "NavMesh/RecastHelpers.h"
 #include "DetourCrowd/DetourObstacleAvoidance.h"
 #include "DetourCrowd/DetourCrowd.h"
 #include "Detour/DetourNavMesh.h"
-#include "AI/Navigation/RecastQueryFilter.h"
+#include "NavMesh/RecastQueryFilter.h"
 #endif
 
 #include "Navigation/CrowdFollowingComponent.h"
@@ -691,7 +691,7 @@ void UCrowdManager::AddAgent(const ICrowdAgentInterface* Agent, FCrowdAgentData&
 	const UCrowdFollowingComponent* CrowdComponent = Cast<const UCrowdFollowingComponent>(Agent);
 	if (CrowdComponent)
 	{
-		UNavigationSystem* NavSys = Cast<UNavigationSystem>(GetOuter());
+		UNavigationSystemV1* NavSys = Cast<UNavigationSystemV1>(GetOuter());
 		MyLinkFilter = MakeShareable(new FRecastSpeciaLinkFilter(NavSys, CrowdComponent->GetOuter()));
 	}
 
@@ -805,7 +805,7 @@ void UCrowdManager::ApplyVelocity(UCrowdFollowingComponent* AgentComponent, int3
 
 void UCrowdManager::UpdateAgentPaths()
 {
-	UNavigationSystem* NavSys = Cast<UNavigationSystem>(GetOuter());
+	UNavigationSystemV1* NavSys = Cast<UNavigationSystemV1>(GetOuter());
 	ARecastNavMesh* RecastNavData = Cast<ARecastNavMesh>(MyNavData);
 	if (RecastNavData == NULL)
 	{
@@ -1255,7 +1255,7 @@ void UCrowdManager::UpdateNavData()
 {
 	if (MyNavData == NULL)
 	{
-		UNavigationSystem* NavSys = Cast<UNavigationSystem>(GetOuter());
+		UNavigationSystemV1* NavSys = Cast<UNavigationSystemV1>(GetOuter());
 		if (NavSys)
 		{
 			for (int32 Idx = 0; Idx < NavSys->NavDataSet.Num(); Idx++)
@@ -1372,18 +1372,18 @@ void UCrowdManager::PostMovePointUpdate()
 
 UWorld* UCrowdManager::GetWorld() const
 {
-	UNavigationSystem* NavSys = Cast<UNavigationSystem>(GetOuter());
+	UNavigationSystemV1* NavSys = Cast<UNavigationSystemV1>(GetOuter());
 	return NavSys ? NavSys->GetWorld() : NULL;
 }
 
 UCrowdManager* UCrowdManager::GetCurrent(UObject* WorldContextObject)
 {
-	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(WorldContextObject);
+	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(WorldContextObject);
 	return NavSys ? Cast<UCrowdManager>(NavSys->GetCrowdManager()) : NULL;
 }
 
 UCrowdManager* UCrowdManager::GetCurrent(UWorld* World)
 {
-	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(World);
+	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
 	return NavSys ? Cast<UCrowdManager>(NavSys->GetCrowdManager()) : NULL;
 }

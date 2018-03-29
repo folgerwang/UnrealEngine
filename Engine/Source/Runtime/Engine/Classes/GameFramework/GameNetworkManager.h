@@ -129,6 +129,10 @@ class ENGINE_API AGameNetworkManager : public AInfo
 	UPROPERTY(GlobalConfig)
 	float ClientNetSendMoveDeltaTimeThrottled;
 
+	/** ClientNetSendMoveDeltaTimeStationary is used when players are determined to not be moving or changing their view. See ClientNetSendMoveDeltaTime for more info. */
+	UPROPERTY(GlobalConfig)
+	float ClientNetSendMoveDeltaTimeStationary;
+
 	/** When player net speed (CurrentNetSpeed, based on ConfiguredInternetSpeed or ConfiguredLanSpeed) is less than or equal to this amount, ClientNetSendMoveDeltaTimeThrottled is used instead of ClientNetSendMoveDeltaTime. */
 	UPROPERTY(GlobalConfig)
 	int32 ClientNetSendMoveThrottleAtNetSpeed;

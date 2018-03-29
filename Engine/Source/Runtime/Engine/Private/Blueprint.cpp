@@ -1810,7 +1810,7 @@ UEdGraph* UBlueprint::GetLastEditedUberGraph() const
 {
 	for ( int32 LastEditedIndex = LastEditedDocuments.Num() - 1; LastEditedIndex >= 0; LastEditedIndex-- )
 	{
-		if ( UObject* Obj = LastEditedDocuments[LastEditedIndex].EditedObject )
+		if ( UObject* Obj = LastEditedDocuments[LastEditedIndex].EditedObjectPath.ResolveObject() )
 		{
 			if ( UEdGraph* Graph = Cast<UEdGraph>(Obj) )
 			{

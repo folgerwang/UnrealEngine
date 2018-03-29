@@ -471,7 +471,7 @@
 #include "Engine/Level.h"
 #include "GameFramework/Actor.h"
 #include "EngineDefines.h"
-#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "NavFilters/NavigationQueryFilter.h"
 #include "AI/Navigation/NavigationTypes.h"
 #include "Engine/LatentActionManager.h"
 #include "Engine/Blueprint.h"

@@ -2,10 +2,12 @@
 
 
 #include "SGraphTitleBar.h"
+#include "SGraphTitleBarAddNewBookmark.h"
 #include "Fonts/SlateFontInfo.h"
 #include "Misc/Paths.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSeparator.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Styling/CoreStyle.h"
@@ -97,21 +99,35 @@ void SGraphTitleBar::Construct( const FArguments& InArgs )
 		.HAlign(HAlign_Fill)
 		.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("EventGraphTitleBar")))
 		[
-			SNew(SVerticalBox)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SGraphTitleBarAddNewBookmark)
+				.EditorPtr(Kismet2Ptr)
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SSeparator)
+				.Orientation(Orient_Vertical)
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				InArgs._HistoryNavigationWidget.ToSharedRef()
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SSeparator)
+				.Orientation(Orient_Vertical)
+			]
 			// Title text/icon
-			+SVerticalBox::Slot()
-			.AutoHeight()
+			+SHorizontalBox::Slot()
 			[
 				SNew(SHorizontalBox)
-
 				+SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					InArgs._HistoryNavigationWidget.ToSharedRef()
-				]
-
-				+SHorizontalBox::Slot()
-				.HAlign(HAlign_Center)
 				.FillWidth(1.f)
 				[
 					SNew(SHorizontalBox)

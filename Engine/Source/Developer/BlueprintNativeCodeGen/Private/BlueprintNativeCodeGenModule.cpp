@@ -156,6 +156,9 @@ void FBlueprintNativeCodeGenModule::MarkUnconvertedBlueprintAsNecessary(TSoftObj
 	FStatePerPlatform* StateForCurrentPlatform = StatesPerPlatform.Find(NativizationOptions.PlatformName);
 	if (ensure(StateForCurrentPlatform))
 	{
+		const UBlueprint* BP = BPPtr.Get();
+		UE_LOG(LogBlueprintCodeGen, Log, TEXT("Requiring stub class for unconverted Blueprint asset: %s"), BP ? *BP->GetName() : TEXT(""));
+
 		StateForCurrentPlatform->StubsRequiredByGeneratedCode.Add(BPPtr);
 	}
 }

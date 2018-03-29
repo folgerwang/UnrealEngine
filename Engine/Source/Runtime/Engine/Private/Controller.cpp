@@ -8,7 +8,7 @@
 #include "GameFramework/Pawn.h"
 #include "CollisionQueryParams.h"
 #include "Engine/World.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
 #include "NetworkingDistanceConstants.h"
@@ -21,7 +21,6 @@
 
 // @todo this is here only due to circular dependency to AIModule. To be removed
 #include "Engine/Canvas.h"
-#include "Navigation/PathFollowingComponent.h"
 
 #include "GameFramework/PlayerState.h"
 
@@ -286,9 +285,11 @@ void AController::Possess(APawn* InPawn)
 
 	REDIRECT_OBJECT_TO_VLOG(InPawn, this);
 
+	const bool bNewPawn = GetPawn() != InPawn;
+
 	if (InPawn != NULL)
 	{
-		if (GetPawn() && GetPawn() != InPawn)
+		if (bNewPawn && GetPawn())
 		{
 			UnPossess();
 		}
@@ -305,6 +306,11 @@ void AController::Possess(APawn* InPawn)
 		SetControlRotation( Pawn->GetActorRotation() );
 
 		Pawn->Restart();
+	}
+
+	if (bNewPawn)
+	{
+		OnNewPawn.Broadcast(GetPawn());
 	}
 }
 
@@ -641,39 +647,17 @@ bool AController::ShouldPostponePathUpdates() const
 
 bool AController::IsFollowingAPath() const
 {
-	UPathFollowingComponent* PathFollowingComp = FindComponentByClass<UPathFollowingComponent>();
-	return (PathFollowingComp != nullptr) && (PathFollowingComp->GetStatus() != EPathFollowingStatus::Idle);
+	return FNavigationSystem::IsFollowingAPath(*this);
 }
 
-void AController::UpdateNavigationComponents()
+IPathFollowingAgentInterface* AController::GetPathFollowingAgent() const
 {
-	UPathFollowingComponent* PathFollowingComp = FindComponentByClass<UPathFollowingComponent>();
-	if (PathFollowingComp != NULL)
-	{
-		PathFollowingComp->UpdateCachedComponents();
-	}
-}
-
-void AController::InitNavigationControl(UPathFollowingComponent*& PathFollowingComp)
-{
-	PathFollowingComp = FindComponentByClass<UPathFollowingComponent>();
-	if (PathFollowingComp == NULL)
-	{
-		PathFollowingComp = NewObject<UPathFollowingComponent>(this);
-		PathFollowingComp->RegisterComponentWithWorld(GetWorld());
-		PathFollowingComp->Initialize();
-	}
+	return FNavigationSystem::FindPathFollowingAgentForActor(*this);
 }
 
 void AController::StopMovement()
 {
-	UE_VLOG(this, LogNavigation, Log, TEXT("AController::StopMovement: %s STOP MOVEMENT"), *GetNameSafe(GetPawn()));
-
-	UPathFollowingComponent* PathFollowingComp = FindComponentByClass<UPathFollowingComponent>();
-	if (PathFollowingComp != NULL)
-	{
-		PathFollowingComp->AbortMove(*this, FPathFollowingResultFlags::MovementStop);
-	}
+	FNavigationSystem::StopMovement(*this);
 }
 
 void AController::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifetimeProps ) const

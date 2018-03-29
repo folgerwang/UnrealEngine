@@ -14,7 +14,7 @@
 #include "LandscapeHeightfieldCollisionComponent.h"
 #include "InstancedFoliageActor.h"
 #include "VREditorInteractor.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 
 // VR Editor
 
@@ -710,7 +710,7 @@ struct FHeightmapAccessor
 			if (CollisionComponent)
 			{
 				CollisionComponent->RecreateCollision();
-				UNavigationSystem::UpdateComponentInNavOctree(*CollisionComponent);
+				FNavigationSystem::UpdateComponentData(*CollisionComponent);
 			}
 		}
 	}
@@ -935,11 +935,7 @@ struct FAlphamapAccessor
 				// We need to trigger navigation mesh build, in case user have painted holes on a landscape
 				if (LayerInfo == ALandscapeProxy::VisibilityLayer)
 				{
-					UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(Component);
-					if (NavSys)
-					{
-						NavSys->UpdateComponentInNavOctree(*CollisionComponent);
-					}
+					FNavigationSystem::UpdateComponentData(*CollisionComponent);
 				}
 			}
 		}
@@ -1041,11 +1037,7 @@ struct FFullWeightmapAccessor
 				// We need to trigger navigation mesh build, in case user have painted holes on a landscape
 				if (LandscapeInfo->GetLayerInfoIndex(ALandscapeProxy::VisibilityLayer) != INDEX_NONE)
 				{
-					UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(Component);
-					if (NavSys)
-					{
-						NavSys->UpdateComponentInNavOctree(*CollisionComponent);
-					}
+					FNavigationSystem::UpdateComponentData(*CollisionComponent);
 				}
 			}
 		}

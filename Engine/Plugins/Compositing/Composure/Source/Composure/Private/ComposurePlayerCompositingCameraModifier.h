@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
-#include "Classes/Camera/CameraModifier.h"
+#include "Camera/CameraModifier.h"
 #include "ComposurePlayerCompositingCameraModifier.generated.h"
 
 

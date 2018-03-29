@@ -1474,6 +1474,31 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 
 		Set( "GraphBreadcrumb.BrowseBack", new IMAGE_BRUSH( "Icons/icon_BlueprintBrowserL_24x", Icon24x24) );
 		Set( "GraphBreadcrumb.BrowseForward", new IMAGE_BRUSH( "Icons/icon_BlueprintBrowserR_24x", Icon24x24) );
+
+		const FComboButtonStyle FastJumpComboBoxComboButton = FComboButtonStyle()
+			.SetButtonStyle(GetWidgetStyle<FButtonStyle>("GraphBreadcrumbButton"));
+		Set("GraphBreadcrumbFastJumpComboBoxStyle", FComboBoxStyle()
+			.SetComboButtonStyle(FastJumpComboBoxComboButton));
+	}
+
+	// Graph bookmark button
+	{
+		Set("GraphBookmarkButton", FButtonStyle()
+			.SetNormal(FSlateNoResource())
+			.SetPressed(BOX_BRUSH("Common/Button_Pressed", 8.0f / 32.0f, SelectionColor_Pressed))
+			.SetHovered(BOX_BRUSH("Common/Button_Hovered", 8.0f / 32.0f, SelectionColor))
+		);
+
+		Set("GraphBookmarkButtonText", FTextBlockStyle(NormalText)
+			.SetFont(ICON_FONT(16))
+			.SetColorAndOpacity(FLinearColor(0.5f, 0.5f, 0.5f))
+			.SetShadowOffset(FVector2D::ZeroVector)
+		);
+
+		Set("GraphBookmarkMenuImage.Button_Add", new IMAGE_BRUSH("Icons/PlusSymbol_12x", Icon12x12));
+		Set("GraphBookmarkMenuText.EmptyListItem", FTextBlockStyle(NormalText)
+			.SetFont(DEFAULT_FONT("Fonts/Roboto-Italic", 9))
+			.SetColorAndOpacity(FSlateColor::UseSubduedForeground()));
 	}
 #endif // WITH_EDITOR
 
@@ -5394,6 +5419,7 @@ void FSlateEditorStyle::FStyle::SetupPersonaStyle()
 			Set( "Kismet.Tabs.Palette", new IMAGE_BRUSH( "/Icons/levels_16x", Icon16x16 ) );
 			Set( "Kismet.Tabs.CompilerResults", new IMAGE_BRUSH( "Icons/icon_tab_OutputLog_16x", Icon16x16 ) );
 			Set( "Kismet.Tabs.FindResults", new IMAGE_BRUSH( "/Icons/icon_Genericfinder_16x", Icon16x16 ) );
+			Set( "Kismet.Tabs.Bookmarks", new IMAGE_BRUSH( "/Icons/icon_BlueprintEditor_Bookmarks_16x", Icon16x16 ) );
 			Set( "Kismet.Tabs.Components", new IMAGE_BRUSH( "/Icons/icon_BlueprintEditor_Components_16x", Icon16x16 ) );
 			Set( "Kismet.Tabs.BlueprintDefaults", new IMAGE_BRUSH( "Icons/icon_BlueprintEditor_Defaults_40x", Icon16x16 ) );
 		}
@@ -5553,6 +5579,13 @@ void FSlateEditorStyle::FStyle::SetupPersonaStyle()
 
 		Set("FindResults.LockButton_Locked", new IMAGE_BRUSH("Icons/padlock_locked_16x", Icon16x16));
 		Set("FindResults.LockButton_Unlocked", new IMAGE_BRUSH("Icons/padlock_unlocked_16x", Icon16x16));
+	}
+
+	//Bookmarks
+	{
+		Set("Bookmarks.AddFolderButtonIcon", new IMAGE_BRUSH("Icons/icon_AddFolder_16x", Icon16x16));
+		Set("Bookmarks.TreeViewItemFont", DEFAULT_FONT("Fonts/Roboto-Regular", 10));
+		Set("Bookmarks.TreeViewRootItemFont", DEFAULT_FONT("Fonts/Roboto-Regular", 11));
 	}
 
 	//Blueprint Diff

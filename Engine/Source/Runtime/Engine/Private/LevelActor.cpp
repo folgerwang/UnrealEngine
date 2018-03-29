@@ -20,7 +20,7 @@
 #include "WorldCollision.h"
 #include "Engine/World.h"
 #include "Components/PrimitiveComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/Brush.h"
 #include "UObject/LinkerLoad.h"
 #include "UObject/CoreOnline.h"
@@ -505,7 +505,7 @@ ABrush* UWorld::SpawnBrush()
  */
 bool UWorld::EditorDestroyActor( AActor* ThisActor, bool bShouldModifyLevel )
 {
-	UNavigationSystem::OnActorUnregistered(ThisActor);
+	FNavigationSystem::OnActorUnregistered(*ThisActor);
 
 	bool bReturnValue = DestroyActor( ThisActor, false, bShouldModifyLevel );
 	ThisActor->GetWorld()->BroadcastLevelsChanged();

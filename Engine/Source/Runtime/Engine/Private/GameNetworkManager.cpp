@@ -23,8 +23,9 @@ AGameNetworkManager::AGameNetworkManager(const FObjectInitializer& ObjectInitial
 	CLIENTADJUSTUPDATECOST = 180.0f;
 	MAXCLIENTUPDATEINTERVAL = 0.25f;
 	MaxMoveDeltaTime = 0.125f;
-	ClientNetSendMoveDeltaTime = 0.0111f;
+	ClientNetSendMoveDeltaTime = 0.0166f;
 	ClientNetSendMoveDeltaTimeThrottled = 0.0222f;
+	ClientNetSendMoveDeltaTimeStationary = 0.0833f;
 	ClientNetSendMoveThrottleAtNetSpeed = 10000;
 	ClientNetSendMoveThrottleOverPlayerCount = 10;
 	ClientAuthorativePosition = false;

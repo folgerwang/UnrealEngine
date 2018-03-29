@@ -3,7 +3,7 @@
 #include "NavAgentSelectorCustomization.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Engine/Engine.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "NavigationSystem.h"
 #include "IDetailChildrenBuilder.h"
 #include "DetailWidgetRow.h"
 
@@ -39,9 +39,14 @@ void FNavAgentSelectorCustomization::CustomizeChildren(TSharedRef<class IPropert
 	StructPropertyHandle->GetNumChildren(NumChildren);
 
 	FString AgentPrefix("bSupportsAgent");
-	const UNavigationSystem* NavSysCDO = (*GEngine->NavigationSystemClass != nullptr)
-		? GetDefault<UNavigationSystem>(GEngine->NavigationSystemClass)
-		: GetDefault<UNavigationSystem>();
+	const UNavigationSystemV1* NavSysCDO = (*GEngine->NavigationSystemClass != nullptr)
+		? GetDefault<UNavigationSystemV1>(GEngine->NavigationSystemClass)
+		: GetDefault<UNavigationSystemV1>();
+
+	if (NavSysCDO == nullptr)
+	{
+		return;
+	}
 
 	const int32 NumAgents = FMath::Min(NavSysCDO->GetSupportedAgents().Num(), 16);
 
@@ -80,9 +85,14 @@ void FNavAgentSelectorCustomization::CustomizeChildren(TSharedRef<class IPropert
 
 void FNavAgentSelectorCustomization::OnAgentStateChanged()
 {
-	const UNavigationSystem* NavSysCDO = (*GEngine->NavigationSystemClass != nullptr)
-		? GetDefault<UNavigationSystem>(GEngine->NavigationSystemClass)
-		: GetDefault<UNavigationSystem>();
+	const UNavigationSystemV1* NavSysCDO = (*GEngine->NavigationSystemClass != nullptr)
+		? GetDefault<UNavigationSystemV1>(GEngine->NavigationSystemClass)
+		: GetDefault<UNavigationSystemV1>();
+
+	if (NavSysCDO == nullptr)
+	{
+		return;
+	}
 
 	const int32 NumAgents = FMath::Min(NavSysCDO->GetSupportedAgents().Num(), 16);
 

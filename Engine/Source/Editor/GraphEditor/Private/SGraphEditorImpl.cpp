@@ -646,11 +646,11 @@ TSharedPtr<SWidget> SGraphEditorImpl::GetTitleBar() const
 	return TitleBar;
 }
 
-void SGraphEditorImpl::SetViewLocation( const FVector2D& Location, float ZoomAmount ) 
+void SGraphEditorImpl::SetViewLocation( const FVector2D& Location, float ZoomAmount, const FGuid& BookmarkId ) 
 {
 	if( GraphPanel.IsValid() &&  EdGraphObj && (!IsLocked() || !GraphPanel->HasDeferredObjectFocus()))
 	{
-		GraphPanel->RestoreViewSettings(Location, ZoomAmount);
+		GraphPanel->RestoreViewSettings(Location, ZoomAmount, BookmarkId);
 	}
 }
 
@@ -660,6 +660,14 @@ void SGraphEditorImpl::GetViewLocation( FVector2D& Location, float& ZoomAmount )
 	{
 		Location = GraphPanel->GetViewOffset();
 		ZoomAmount = GraphPanel->GetZoomAmount();
+	}
+}
+
+void SGraphEditorImpl::GetViewBookmark( FGuid& BookmarkId )
+{
+	if (GraphPanel.IsValid())
+	{
+		BookmarkId = GraphPanel->GetViewBookmarkId();
 	}
 }
 

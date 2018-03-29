@@ -1,14 +1,14 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Navigation/CrowdFollowingComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
-#include "AI/Navigation/RecastNavMesh.h"
+#include "NavigationSystem.h"
+#include "NavMesh/RecastNavMesh.h"
 #include "VisualLogger/VisualLoggerTypes.h"
 #include "VisualLogger/VisualLogger.h"
 #include "AIModuleLog.h"
 #include "Navigation/CrowdManager.h"
-#include "AI/Navigation/NavAreas/NavArea.h"
-#include "AI/Navigation/AbstractNavData.h"
+#include "NavAreas/NavArea.h"
+#include "AbstractNavData.h"
 #include "AIConfig.h"
 #include "Navigation/MetaNavMeshPath.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -474,7 +474,7 @@ void UCrowdFollowingComponent::Initialize()
 		if (!bRegisteredWithCrowdSimulation)
 		{
 			// crowd manager might not be created yet if this component was spawned during level's begin play (possessing a pawn placed in level)
-			UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
+			UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 			if (NavSys && !NavSys->IsInitialized())
 			{
 				NavSys->OnNavigationInitDone.AddUObject(this, &UCrowdFollowingComponent::OnNavigationInitDone);
@@ -734,14 +734,14 @@ void LogPathPartHelper(AActor* LogOwner, FNavMeshPath* NavMeshPath, int32 StartI
 			CenterPt /= Verts.Num();
 
 			const UNavArea* DefArea = AreaClass ? ((UClass*)AreaClass)->GetDefaultObject<UNavArea>() : NULL;
-			const FColor PolygonColor = AreaClass != UNavigationSystem::GetDefaultWalkableArea() ? (DefArea ? DefArea->DrawColor : NavMesh->GetConfig().Color) : FColorList::LightSteelBlue;
+			const FColor PolygonColor = AreaClass != UNavigationSystemV1::GetDefaultWalkableArea() ? (DefArea ? DefArea->DrawColor : NavMesh->GetConfig().Color) : FColorList::LightSteelBlue;
 
 			CorridorPoly.SetColor(PolygonColor.WithAlpha(100));
 			CorridorPoly.Points.Reset();
 			CorridorPoly.Points.Append(Verts);
 			Snapshot->ElementsToDraw.Add(CorridorPoly);
 
-			if (AreaClass && AreaClass != UNavigationSystem::GetDefaultWalkableArea())
+			if (AreaClass && AreaClass != UNavigationSystemV1::GetDefaultWalkableArea())
 			{
 				FVisualLogShapeElement AreaMarkElem(EVisualLoggerShapeElement::Segment);
 				AreaMarkElem.SetColor(FColorList::Orange.WithAlpha(100));

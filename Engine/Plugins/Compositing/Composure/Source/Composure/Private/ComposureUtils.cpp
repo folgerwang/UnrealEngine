@@ -2,7 +2,7 @@
 
 #include "ComposureUtils.h"
 
-#include "Public/ShowFlags.h"
+#include "ShowFlags.h"
 
 
 // static

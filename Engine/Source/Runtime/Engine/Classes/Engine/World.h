@@ -896,9 +896,9 @@ public:
 	uint32 bTriggerPostLoadMap:1;
 
 private:
-	/** The world's navmesh */
+	/** The world's navigation data manager */
 	UPROPERTY(Transient)
-	class UNavigationSystem*					NavigationSystem;
+	class UNavigationSystemBase*				NavigationSystem;
 
 	/** The current GameMode, valid only on the server */
 	UPROPERTY(Transient)
@@ -961,8 +961,8 @@ private:
 	UCanvas* CanvasForDrawMaterialToRenderTarget;
 
 public:
-	/** Set the pointer to the Navgation system. */
-	void SetNavigationSystem( UNavigationSystem* InNavigationSystem);
+	/** Set the pointer to the Navigation System instance. */
+	void SetNavigationSystem(UNavigationSystemBase* InNavigationSystem);
 
 	/** The interface to the scene manager for this world. */
 	class FSceneInterface*						Scene;
@@ -1934,9 +1934,9 @@ public:
 	bool IsTraceHandleValid(const FTraceHandle& Handle, bool bOverlapTrace);
 
 	/** NavigationSystem getter */
-	FORCEINLINE UNavigationSystem* GetNavigationSystem() { return NavigationSystem; }
+	FORCEINLINE UNavigationSystemBase* GetNavigationSystem() { return NavigationSystem; }
 	/** NavigationSystem const getter */
-	FORCEINLINE const UNavigationSystem* GetNavigationSystem() const { return NavigationSystem; }
+	FORCEINLINE const UNavigationSystemBase* GetNavigationSystem() const { return NavigationSystem; }
 
 	/** AISystem getter. if AISystem is missing it tries to create one and returns the result.
 	 *	@NOTE the result can be NULL, for example on client games or if no AI module or AISystem class have not been specified

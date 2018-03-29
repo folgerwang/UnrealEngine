@@ -174,12 +174,12 @@ public:
 		}
 	}
 
-	/* Set new viewer location */
-	virtual void SetViewLocation(const FVector2D& Location, float ZoomAmount)
+	/* Set new viewer location and optionally set the current bookmark */
+	virtual void SetViewLocation(const FVector2D& Location, float ZoomAmount, const FGuid& BookmarkId = FGuid())
 	{
 		if (Implementation.IsValid())
 		{
-			Implementation->SetViewLocation(Location, ZoomAmount);
+			Implementation->SetViewLocation(Location, ZoomAmount, BookmarkId);
 		}
 	}
 
@@ -194,6 +194,19 @@ public:
 		if (Implementation.IsValid())
 		{
 			Implementation->GetViewLocation(OutLocation, OutZoomAmount);
+		}
+	}
+
+	/**
+	 * Gets the current graph view bookmark
+	 *
+	 * @param OutBookmarkId		Will have the current bookmark ID
+	 */
+	virtual void GetViewBookmark(FGuid& OutBookmarkId)
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->GetViewBookmark(OutBookmarkId);
 		}
 	}
 

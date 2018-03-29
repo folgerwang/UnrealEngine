@@ -7,7 +7,7 @@
 #include "UObject/UObjectHash.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/MeshComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Components/DecalComponent.h"
 #include "Components/TextRenderComponent.h"

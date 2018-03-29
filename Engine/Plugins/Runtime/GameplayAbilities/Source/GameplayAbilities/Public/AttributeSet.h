@@ -205,7 +205,7 @@ public:
 	/** This signifies the attribute set can be ID'd by name over the network. */
 	void SetNetAddressable();
 
-	void InitFromMetaDataTable(const UDataTable* DataTable);
+	virtual void InitFromMetaDataTable(const UDataTable* DataTable);
 
 	FORCEINLINE AActor* GetOwningActor() const { return CastChecked<AActor>(GetOuter()); }
 	UAbilitySystemComponent* GetOwningAbilitySystemComponent() const;

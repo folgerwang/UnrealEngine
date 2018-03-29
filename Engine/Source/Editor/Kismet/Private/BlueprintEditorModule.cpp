@@ -7,12 +7,13 @@
 #include "Framework/Application/SlateApplication.h"
 #include "EditorStyleSet.h"
 #include "EditorUndoClient.h"
-#include "Kismet2/KismetEditorUtilities.h"
 #include "Logging/TokenizedMessage.h"
 #include "Misc/ConfigCacheIni.h"
 #include "UObject/UObjectHash.h"
 #include "Serialization/ArchiveReplaceObjectRef.h"
 #include "BlueprintEditor.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "Kismet2/KismetDebugUtilities.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 //#include "BlueprintWarningsConfigurationPanel.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructure.h"
@@ -32,6 +33,7 @@
 #include "Widgets/Docking/SDockTab.h"
 #include "KismetCompiler.h"
 #include "CallStackViewer.h"
+#include "WatchPointViewer.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintEditor"
 
@@ -204,6 +206,8 @@ void FBlueprintEditorModule::StartupModule()
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "BlueprintDebugger.TabIcon"));
 
 	CallStackViewer::RegisterTabSpawner();
+
+	WatchViewer::RegisterTabSpawner();
 
 	// Have to check GIsEditor because right now editor modules can be loaded by the game
 	// Once LoadModule is guaranteed to return NULL for editor modules in game, this can be removed

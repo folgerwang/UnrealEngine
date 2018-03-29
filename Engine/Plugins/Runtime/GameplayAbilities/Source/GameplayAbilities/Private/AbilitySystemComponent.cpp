@@ -525,7 +525,7 @@ void UAbilitySystemComponent::NotifyTagMap_StackCountChange(const FGameplayTagCo
 
 // ------------------------------------------------------------------------
 
-FActiveGameplayEffectHandle UAbilitySystemComponent::ApplyGameplayEffectSpecToTarget(OUT FGameplayEffectSpec &Spec, UAbilitySystemComponent *Target, FPredictionKey PredictionKey)
+FActiveGameplayEffectHandle UAbilitySystemComponent::ApplyGameplayEffectSpecToTarget(const FGameplayEffectSpec &Spec, UAbilitySystemComponent *Target, FPredictionKey PredictionKey)
 {
 	SCOPE_CYCLE_COUNTER(STAT_AbilitySystemComp_ApplyGameplayEffectSpecToTarget);
 
@@ -551,7 +551,7 @@ FActiveGameplayEffectHandle UAbilitySystemComponent::ApplyGameplayEffectSpecToTa
 	return ReturnHandle;
 }
 
-FActiveGameplayEffectHandle UAbilitySystemComponent::ApplyGameplayEffectSpecToSelf(OUT FGameplayEffectSpec &Spec, FPredictionKey PredictionKey)
+FActiveGameplayEffectHandle UAbilitySystemComponent::ApplyGameplayEffectSpecToSelf(const FGameplayEffectSpec &Spec, FPredictionKey PredictionKey)
 {
 	// Scope lock the container after the addition has taken place to prevent the new effect from potentially getting mangled during the remainder
 	// of the add operation
@@ -668,7 +668,7 @@ FActiveGameplayEffectHandle UAbilitySystemComponent::ApplyGameplayEffectSpecToSe
 			{
 				ABILITY_VLOG(OwnerActor, Log, TEXT("Applied %s"), *OurCopyOfSpec->Def->GetFName().ToString());
 
-				for (FGameplayModifierInfo Modifier : Spec.Def->Modifiers)
+				for (const FGameplayModifierInfo& Modifier : Spec.Def->Modifiers)
 				{
 					float Magnitude = 0.f;
 					Modifier.ModifierMagnitude.AttemptCalculateMagnitude(Spec, Magnitude);
@@ -776,7 +776,7 @@ FActiveGameplayEffectHandle UAbilitySystemComponent::ApplyGameplayEffectSpecToSe
 	// Apply Linked effects
 	// todo: this is ignoring the returned handles, should we put them into a TArray and return all of the handles?
 	// ------------------------------------------------------
-	for (const FGameplayEffectSpecHandle TargetSpec: Spec.TargetEffectSpecs)
+	for (const FGameplayEffectSpecHandle& TargetSpec: Spec.TargetEffectSpecs)
 	{
 		if (TargetSpec.IsValid())
 		{
@@ -798,7 +798,7 @@ FActiveGameplayEffectHandle UAbilitySystemComponent::ApplyGameplayEffectSpecToSe
 	return MyHandle;
 }
 
-FActiveGameplayEffectHandle UAbilitySystemComponent::BP_ApplyGameplayEffectSpecToTarget(FGameplayEffectSpecHandle& SpecHandle, UAbilitySystemComponent* Target)
+FActiveGameplayEffectHandle UAbilitySystemComponent::BP_ApplyGameplayEffectSpecToTarget(const FGameplayEffectSpecHandle& SpecHandle, UAbilitySystemComponent* Target)
 {
 	FActiveGameplayEffectHandle ReturnHandle;
 	if (SpecHandle.IsValid() && Target)
@@ -809,7 +809,7 @@ FActiveGameplayEffectHandle UAbilitySystemComponent::BP_ApplyGameplayEffectSpecT
 	return ReturnHandle;
 }
 
-FActiveGameplayEffectHandle UAbilitySystemComponent::BP_ApplyGameplayEffectSpecToSelf(FGameplayEffectSpecHandle& SpecHandle)
+FActiveGameplayEffectHandle UAbilitySystemComponent::BP_ApplyGameplayEffectSpecToSelf(const FGameplayEffectSpecHandle& SpecHandle)
 {
 	FActiveGameplayEffectHandle ReturnHandle;
 	if (SpecHandle.IsValid())

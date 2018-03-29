@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TileMapEditing/EdModeTileMap.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "NavigationSystem.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Engine/Selection.h"
 #include "EditorModeManager.h"
@@ -54,7 +54,7 @@ void FTileMapDirtyRegion::PushToNavSystem() const
 	{
 		if (Component->IsNavigationRelevant())
 		{
-			if (UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(Component))
+			if (UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(Component))
 			{
 				NavSys->AddDirtyArea(DirtyRegionInWorldSpace, ENavigationDirtyFlag::All);
 			}
@@ -230,7 +230,7 @@ void FEdModeTileMap::FlushPendingDirtyRegions()
 	{
 		if (Component)
 		{
-			UNavigationSystem::UpdateComponentInNavOctree(*Component);
+			FNavigationSystem::UpdateComponentData(*Component);
 		}		
 	}
 

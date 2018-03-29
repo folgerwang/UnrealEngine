@@ -29,8 +29,9 @@ public class Paper2DEditor : ModuleRules
 				"EditorStyle",
 				"MeshPaint",
 				"EditorWidgets",
-				"Projects"
-			});
+				"Projects",
+				"NavigationSystem",
+            });
 
 		PrivateIncludePathModuleNames.AddRange(
 			new string[] {

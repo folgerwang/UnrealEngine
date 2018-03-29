@@ -2,54 +2,56 @@
 
 namespace UnrealBuildTool.Rules
 {
-	public class AIModule : ModuleRules
-	{
+    public class AIModule : ModuleRules
+    {
         public AIModule(ReadOnlyTargetRules Target) : base(Target)
-		{
-			PublicIncludePaths.AddRange(
-				new string[] {
+        {
+            PublicIncludePaths.AddRange(
+                new string[] {
+                    "Runtime/NavigationSystem/Public",
                     "Runtime/AIModule/Public",
-				}
-				);
+                }
+                );
 
-			PrivateIncludePaths.AddRange(
-				new string[] {
-					"Runtime/AIModule/Private",
+            PrivateIncludePaths.AddRange(
+                new string[] {
+                    "Runtime/AIModule/Private",
                     "Runtime/Engine/Private",
-				}
-				);
+                }
+                );
 
-			PublicDependencyModuleNames.AddRange(
-				new string[] {
-					"Core",
-					"CoreUObject",
-					"Engine",    
-               		"GameplayTags",
-                    "GameplayTasks"
-				}
-				);
+            PublicDependencyModuleNames.AddRange(
+                new string[] {
+                    "Core",
+                    "CoreUObject",
+                    "Engine",
+                    "GameplayTags",
+                    "GameplayTasks",
+                    "NavigationSystem",
+                }
+                );
 
-			PrivateDependencyModuleNames.AddRange(
-				new string[] {
-					"RHI",
+            PrivateDependencyModuleNames.AddRange(
+                new string[] {
+                    "RHI",
                     "RenderCore",
                     "ShaderCore",
-				}
-				);
+                }
+                );
 
-			DynamicallyLoadedModuleNames.AddRange(
-				new string[] {
+            DynamicallyLoadedModuleNames.AddRange(
+                new string[] {
 					// ... add any modules that your module loads dynamically here ...
 				}
-				);
+                );
 
-			if (Target.bBuildEditor == true)
-			{
-				PrivateDependencyModuleNames.Add("UnrealEd");
+            if (Target.bBuildEditor == true)
+            {
+                PrivateDependencyModuleNames.Add("UnrealEd");
 
-                PrivateDependencyModuleNames.Add("AITestSuite");                
+                PrivateDependencyModuleNames.Add("AITestSuite");
                 CircularlyReferencedDependentModules.Add("AITestSuite");
-			}
+            }
 
             if (Target.bCompileRecast)
             {
@@ -64,15 +66,15 @@ namespace UnrealBuildTool.Rules
                 PublicDefinitions.Add("WITH_RECAST=0");
             }
 
-			if (Target.bBuildDeveloperTools || (Target.Configuration != UnrealTargetConfiguration.Shipping && Target.Configuration != UnrealTargetConfiguration.Test))
-			{
-				PrivateDependencyModuleNames.Add("GameplayDebugger");
-				PublicDefinitions.Add("WITH_GAMEPLAY_DEBUGGER=1");
-			}
-			else
-			{
-				PublicDefinitions.Add("WITH_GAMEPLAY_DEBUGGER=0");
-			}
-		}
+            if (Target.bBuildDeveloperTools || (Target.Configuration != UnrealTargetConfiguration.Shipping && Target.Configuration != UnrealTargetConfiguration.Test))
+            {
+                PrivateDependencyModuleNames.Add("GameplayDebugger");
+                PublicDefinitions.Add("WITH_GAMEPLAY_DEBUGGER=1");
+            }
+            else
+            {
+                PublicDefinitions.Add("WITH_GAMEPLAY_DEBUGGER=0");
+            }
+        }
     }
 }

@@ -5,16 +5,16 @@
 #include "TimerManager.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/Controller.h"
-#include "AI/Navigation/NavigationSystem.h"
-#include "AI/Navigation/RecastNavMesh.h"
+#include "NavigationSystem.h"
+#include "NavMesh/RecastNavMesh.h"
 #include "AISystem.h"
 #include "BrainComponent.h"
 #include "Engine/Canvas.h"
 #include "AIController.h"
 #include "VisualLogger/VisualLoggerTypes.h"
 #include "VisualLogger/VisualLogger.h"
-#include "AI/Navigation/AbstractNavData.h"
-#include "AI/Navigation/NavLinkCustomInterface.h"
+#include "AbstractNavData.h"
+#include "NavLinkCustomInterface.h"
 #include "Navigation/MetaNavMeshPath.h"
 #include "AIConfig.h"
 
@@ -618,6 +618,22 @@ void UPathFollowingComponent::UpdateCachedComponents()
 	UpdateMovementComponent(/*bForce=*/true);
 }
 
+void UPathFollowingComponent::OnNewPawn(APawn* NewPawn)
+{
+	UpdateCachedComponents();
+}
+
+void UPathFollowingComponent::OnRegister()
+{
+	Super::OnRegister();
+	AController* ControllerOwner = Cast<AController>(GetOwner());
+
+	if (ControllerOwner)
+	{
+		ControllerOwner->GetOnNewPawnNotifier().AddUObject(this, &UPathFollowingComponent::OnNewPawn);
+	}
+}
+
 void UPathFollowingComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -644,21 +660,22 @@ void UPathFollowingComponent::SetMovementComponent(UNavMovementComponent* MoveCo
 	{
 		const FNavAgentProperties& NavAgentProps = MoveComp->GetNavAgentPropertiesRef();
 		MyDefaultAcceptanceRadius = NavAgentProps.AgentRadius * 0.1f;
-		MoveComp->PathFollowingComp = this;
+		MoveComp->SetPathFollowingAgent(Cast<IPathFollowingAgentInterface>(this));
 
-		UWorld* MyWorld = GetWorld();
-		if (MyWorld && MyWorld->GetNavigationSystem())
+		UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+		
+		if (NavSys)
 		{
-			MyNavData = MyWorld->GetNavigationSystem()->GetNavDataForProps(NavAgentProps);
+			MyNavData = NavSys->GetNavDataForProps(NavAgentProps);
 			if (MyNavData == nullptr)
 			{
-				if (MyWorld->GetNavigationSystem()->IsInitialized() == false)
+				if (NavSys->IsInitialized() == false)
 				{
-					MyWorld->GetNavigationSystem()->OnNavigationInitDone.AddUObject(this, &UPathFollowingComponent::OnNavigationInitDone);
+					NavSys->OnNavigationInitDone.AddUObject(this, &UPathFollowingComponent::OnNavigationInitDone);
 				}
 				else
 				{
-					MyWorld->GetNavigationSystem()->OnNavDataRegisteredEvent.AddUniqueDynamic(this, &UPathFollowingComponent::OnNavDataRegistered);
+					NavSys->OnNavDataRegisteredEvent.AddUniqueDynamic(this, &UPathFollowingComponent::OnNavDataRegistered);
 				}
 			}
 		}
@@ -670,10 +687,11 @@ void UPathFollowingComponent::OnNavigationInitDone()
 	UWorld* MyWorld = GetWorld();
 	if (MovementComp && MyWorld)
 	{
-		check(MyWorld->GetNavigationSystem());
+		UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(MyWorld);
+		check(NavSys);
 		const FNavAgentProperties& NavAgentProps = MovementComp->GetNavAgentPropertiesRef();
-		MyNavData = MyWorld->GetNavigationSystem()->GetNavDataForProps(NavAgentProps);
-		MyWorld->GetNavigationSystem()->OnNavigationInitDone.RemoveAll(this);
+		MyNavData = NavSys->GetNavDataForProps(NavAgentProps);
+		NavSys->OnNavigationInitDone.RemoveAll(this);
 	}
 }
 
@@ -686,8 +704,9 @@ void UPathFollowingComponent::OnNavDataRegistered(ANavigationData* NavData)
 		{
 			MyNavData = NavData;
 			UWorld* MyWorld = GetWorld();
-			check(MyWorld && MyWorld->GetNavigationSystem());
-			MyWorld->GetNavigationSystem()->OnNavDataRegisteredEvent.RemoveAll(this);
+			UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(MyWorld);
+			check(NavSys);
+			NavSys->OnNavDataRegisteredEvent.RemoveAll(this);
 		}
 	}
 }
@@ -848,7 +867,7 @@ void UPathFollowingComponent::SetMoveSegment(int32 SegmentStartIndex)
 		// handle moving through custom nav links
 		if (PathPt0.CustomLinkId)
 		{
-			UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
+			UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 			INavLinkCustomInterface* CustomNavLink = NavSys->GetCustomLink(PathPt0.CustomLinkId);
 			StartUsingCustomLink(CustomNavLink, SegmentEnd);
 		}
@@ -1559,8 +1578,8 @@ FNavLocation UPathFollowingComponent::GetCurrentNavLocation() const
 		return FNavLocation();
 	}
 
-	UWorld* MyWorld = GetWorld();
-	if (MyWorld == nullptr || MyWorld->GetNavigationSystem() == nullptr)
+	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	if (NavSys == nullptr)
 	{
 		return FNavLocation();
 	}
@@ -1574,7 +1593,7 @@ FNavLocation UPathFollowingComponent::GetCurrentNavLocation() const
 		const AActor* OwnerActor = MovementComp->GetOwner();
 		const FVector OwnerExtent = OwnerActor ? OwnerActor->GetSimpleCollisionCylinderExtent() : FVector::ZeroVector;
 
-		MyWorld->GetNavigationSystem()->ProjectPointToNavigation(OwnerLoc, CurrentNavLocation, OwnerExtent, MyNavData);
+		NavSys->ProjectPointToNavigation(OwnerLoc, CurrentNavLocation, OwnerExtent, MyNavData);
 	}
 
 	return CurrentNavLocation;
@@ -1752,6 +1771,11 @@ FString UPathFollowingComponent::GetDebugString() const
 bool UPathFollowingComponent::IsPathFollowingAllowed() const
 {
 	return MovementComp && MovementComp->CanStartPathFollowing();
+}
+
+void UPathFollowingComponent::OnUnableToMove(const UObject& Instigator)
+{
+	AbortMove(Instigator, FPathFollowingResultFlags::MovementStop);
 }
 
 void UPathFollowingComponent::OnStartedFalling()

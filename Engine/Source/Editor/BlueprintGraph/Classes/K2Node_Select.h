@@ -9,16 +9,18 @@
 #include "Textures/SlateIcon.h"
 #include "K2Node.h"
 #include "NodeDependingOnEnumInterface.h"
+#include "K2Node_AddPinInterface.h"
 #include "K2Node_Select.generated.h"
 
 class FBlueprintActionDatabaseRegistrar;
 class UEdGraph;
 
 UCLASS(MinimalAPI, meta=(Keywords = "Ternary Select"))
-class UK2Node_Select : public UK2Node, public INodeDependingOnEnumInterface
+class UK2Node_Select : public UK2Node, public INodeDependingOnEnumInterface, public IK2Node_AddPinInterface
 {
 	GENERATED_UCLASS_BODY()
 
+private:
 	/** The number of selectable options this node currently has */
 	UPROPERTY()
 	int32 NumOptionPins;
@@ -41,7 +43,17 @@ class UK2Node_Select : public UK2Node, public INodeDependingOnEnumInterface
 
 	/** Whether we need to reconstruct the node after the pins have changed */
 	UPROPERTY(Transient)
-	bool bReconstructNode;
+	uint8 bReconstructNode:1;
+
+	uint8 bReconstructForPinTypeChange:1;
+
+	/**
+	* Respond to a change to the PinType for a selected pin
+	* @param Pin	The pin that is changing type
+	*/
+	void OnPinTypeChanged(UEdGraphPin* Pin);
+
+public:
 
 	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
@@ -74,6 +86,11 @@ class UK2Node_Select : public UK2Node, public INodeDependingOnEnumInterface
 	virtual bool ShouldBeReconstructedAfterEnumChanged() const override { return true; }
 	// End of INodeDependingOnEnumInterface
 
+	//~ IK2Node_AddPinInterface
+	virtual bool CanAddPin() const override;
+	virtual void AddInputPin() override;
+	//~ End IK2Node_AddPinInterface
+
 	/** Get the return value pin */
 	BLUEPRINTGRAPH_API UEdGraphPin* GetReturnValuePin() const;
 	/** Get the condition pin */
@@ -86,12 +103,8 @@ class UK2Node_Select : public UK2Node, public INodeDependingOnEnumInterface
 	/** Gets the name and class of the PrintString function */
 	BLUEPRINTGRAPH_API static void GetPrintStringFunction(FName& FunctionName, UClass** FunctionClass);
 
-	/** Adds a new option pin to the node */
-	BLUEPRINTGRAPH_API void AddOptionPinToNode();
 	/** Removes the last option pin from the node */
 	BLUEPRINTGRAPH_API void RemoveOptionPinToNode();
-	/** Return whether an option pin can be added to the node */
-	BLUEPRINTGRAPH_API virtual bool CanAddOptionPinToNode() const;
 	/** Return whether an option pin can be removed to the node */
 	BLUEPRINTGRAPH_API virtual bool CanRemoveOptionPinToNode() const;
 

@@ -32,7 +32,7 @@
 const FLinearColor SGraphNodeK2Base::BreakpointHitColor(0.7f, 0.0f, 0.0f);
 const FLinearColor SGraphNodeK2Base::LatentBubbleColor(1.f, 0.5f, 0.25f);
 const FLinearColor SGraphNodeK2Base::TimelineBubbleColor(0.7f, 0.5f, 0.5f);
-const FLinearColor SGraphNodeK2Base::PinnedWatchColor(0.7f, 0.5f, 0.5f);
+const FLinearColor SGraphNodeK2Base::PinnedWatchColor(0.35f, 0.25f, 0.25f);
 
 void SGraphNodeK2Base::UpdateStandardNode()
 {

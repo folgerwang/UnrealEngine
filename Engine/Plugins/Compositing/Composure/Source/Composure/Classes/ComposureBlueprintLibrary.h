@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "Classes/Kismet/BlueprintFunctionLibrary.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "ComposurePostMoves.h"
 #include "ComposureUVMap.h"
 #include "ComposureBlueprintLibrary.generated.h"

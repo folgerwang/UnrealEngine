@@ -480,7 +480,7 @@
 #include "Engine/BlueprintCore.h"
 #include "EngineDefines.h"
 #include "AI/Navigation/NavigationTypes.h"
-#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "AI/Navigation/NavQueryFilter.h"
 #include "CollisionQueryParams.h"
 #include "Engine/LatentActionManager.h"
 #include "AI/Navigation/NavAgentInterface.h"

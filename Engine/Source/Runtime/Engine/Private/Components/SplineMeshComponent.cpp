@@ -11,7 +11,7 @@
 #include "SplineMeshSceneProxy.h"
 #include "ShaderParameterUtils.h"
 #include "AI/NavigationSystemHelpers.h"
-#include "AI/Navigation/NavCollision.h"
+#include "AI/Navigation/NavCollisionBase.h"
 #include "Engine/StaticMeshSocket.h"
 #include "Engine/StaticMesh.h"
 #include "PhysicsEngine/ConvexElem.h"
@@ -941,37 +941,37 @@ bool USplineMeshComponent::DoCustomNavigableGeometryExport(FNavigableGeometryExp
 
 	if (GetStaticMesh() != nullptr && GetStaticMesh()->NavCollision != nullptr)
 	{
-		UNavCollision* NavCollision = GetStaticMesh()->NavCollision;
+		UNavCollisionBase* NavCollision = GetStaticMesh()->NavCollision;
 		
-		if (ensure(!NavCollision->bIsDynamicObstacle))
+		if (ensure(!NavCollision->IsDynamicObstacle()))
 		{
-			if (NavCollision->bHasConvexGeometry)
+			if (NavCollision->HasConvexGeometry())
 			{
 				FVector Mask = FVector(1, 1, 1);
 				GetAxisValue(Mask, ForwardAxis) = 0;
 
 				TArray<FVector> VertexBuffer;
-				VertexBuffer.Reserve(FMath::Max(NavCollision->ConvexCollision.VertexBuffer.Num(), NavCollision->TriMeshCollision.VertexBuffer.Num()));
+				VertexBuffer.Reserve(FMath::Max(NavCollision->GetConvexCollision().VertexBuffer.Num(), NavCollision->GetTriMeshCollision().VertexBuffer.Num()));
 
-				for (int32 i = 0; i < NavCollision->ConvexCollision.VertexBuffer.Num(); ++i)
+				for (int32 i = 0; i < NavCollision->GetConvexCollision().VertexBuffer.Num(); ++i)
 				{
-					FVector Vertex = NavCollision->ConvexCollision.VertexBuffer[i];
+					FVector Vertex = NavCollision->GetConvexCollision().VertexBuffer[i];
 					Vertex = CalcSliceTransform(GetAxisValue(Vertex, ForwardAxis)).TransformPosition(Vertex * Mask);
 					VertexBuffer.Add(Vertex);
 				}
 				GeomExport.ExportCustomMesh(VertexBuffer.GetData(), VertexBuffer.Num(),
-					NavCollision->ConvexCollision.IndexBuffer.GetData(), NavCollision->ConvexCollision.IndexBuffer.Num(),
+					NavCollision->GetConvexCollision().IndexBuffer.GetData(), NavCollision->GetConvexCollision().IndexBuffer.Num(),
 					GetComponentTransform());
 
 				VertexBuffer.Reset();
-				for (int32 i = 0; i < NavCollision->TriMeshCollision.VertexBuffer.Num(); ++i)
+				for (int32 i = 0; i < NavCollision->GetTriMeshCollision().VertexBuffer.Num(); ++i)
 				{
-					FVector Vertex = NavCollision->TriMeshCollision.VertexBuffer[i];
+					FVector Vertex = NavCollision->GetTriMeshCollision().VertexBuffer[i];
 					Vertex = CalcSliceTransform(GetAxisValue(Vertex, ForwardAxis)).TransformPosition(Vertex * Mask);
 					VertexBuffer.Add(Vertex);
 				}
 				GeomExport.ExportCustomMesh(VertexBuffer.GetData(), VertexBuffer.Num(),
-					NavCollision->TriMeshCollision.IndexBuffer.GetData(), NavCollision->TriMeshCollision.IndexBuffer.Num(),
+					NavCollision->GetTriMeshCollision().IndexBuffer.GetData(), NavCollision->GetTriMeshCollision().IndexBuffer.Num(),
 					GetComponentTransform());
 
 				return false;

@@ -4,11 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "Templates/SubclassOf.h"
+#include "UObject/WeakObjectPtrTemplates.h"
 #include "AI/Navigation/NavLinkDefinition.h"
-#include "AI/Navigation/NavAreas/NavArea.h"
 
 class UBrushComponent;
 class UPrimitiveComponent;
+class UNavAreaBase;
 
 template<typename InElementType> class TNavStatArray;
 
@@ -18,7 +19,7 @@ struct ENGINE_API FNavigationModifier
 	FORCEINLINE bool HasMetaAreas() const { return !!bHasMetaAreas; }
 
 protected:
-	/** set to true if any of areas used by this modifier is a meta nav area (UNavAreaMeta subclass)*/
+	/** set to true if any of areas used by this modifier is a meta nav area (UNavArea::IsMetaArea is true)*/
 	int32 bHasMetaAreas : 1;
 };
 
@@ -59,6 +60,8 @@ namespace ENavigationCoordSystem
 	{
 		Unreal,
 		Recast,
+
+		MAX
 	};
 }
 
@@ -92,31 +95,31 @@ struct ENGINE_API FAreaNavModifier : public FNavigationModifier
 	float FixedCost;
 
 	FAreaNavModifier() : Cost(0.0f), FixedCost(0.0f), Bounds(ForceInitToZero), ShapeType(ENavigationShapeType::Unknown), ApplyMode(ENavigationAreaMode::Apply), bIncludeAgentHeight(false), bIsLowAreaModifier(false) {}
-	FAreaNavModifier(float Radius, float Height, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
-	FAreaNavModifier(const FVector& Extent, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
-	FAreaNavModifier(const FBox& Box, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
-	FAreaNavModifier(const TArray<FVector>& Points, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
-	FAreaNavModifier(const TArray<FVector>& Points, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
-	FAreaNavModifier(const TNavStatArray<FVector>& Points, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
-	FAreaNavModifier(const UBrushComponent* BrushComponent, const TSubclassOf<UNavArea> AreaClass);
+	FAreaNavModifier(float Radius, float Height, const FTransform& LocalToWorld, const TSubclassOf<UNavAreaBase> AreaClass);
+	FAreaNavModifier(const FVector& Extent, const FTransform& LocalToWorld, const TSubclassOf<UNavAreaBase> AreaClass);
+	FAreaNavModifier(const FBox& Box, const FTransform& LocalToWorld, const TSubclassOf<UNavAreaBase> AreaClass);
+	FAreaNavModifier(const TArray<FVector>& Points, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavAreaBase> AreaClass);
+	FAreaNavModifier(const TArray<FVector>& Points, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavAreaBase> AreaClass);
+	FAreaNavModifier(const TNavStatArray<FVector>& Points, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavAreaBase> AreaClass);
+	FAreaNavModifier(const UBrushComponent* BrushComponent, const TSubclassOf<UNavAreaBase> AreaClass);
 
 	FORCEINLINE const FBox& GetBounds() const { return Bounds; }
 	FORCEINLINE ENavigationShapeType::Type GetShapeType() const { return ShapeType; }
 	FORCEINLINE ENavigationAreaMode::Type GetApplyMode() const { return ApplyMode; }
 	FORCEINLINE bool IsLowAreaModifier() const { return bIsLowAreaModifier; }
 	FORCEINLINE bool ShouldIncludeAgentHeight() const { return bIncludeAgentHeight; }
-	FORCEINLINE void SetIncludeAgentHeight(bool bInclude) { bIncludeAgentHeight = bInclude; }
-	FORCEINLINE const TSubclassOf<UNavArea> GetAreaClass() const { return TSubclassOf<UNavArea>(AreaClassOb.Get()); }
-	FORCEINLINE const TSubclassOf<UNavArea> GetAreaClassToReplace() const { return TSubclassOf<UNavArea>(ReplaceAreaClassOb.Get()); }
+	FORCEINLINE FAreaNavModifier& SetIncludeAgentHeight(bool bInclude) { bIncludeAgentHeight = bInclude; return *this; }
+	FORCEINLINE const TSubclassOf<UNavAreaBase> GetAreaClass() const { return TSubclassOf<UNavAreaBase>(AreaClassOb.Get()); }
+	FORCEINLINE const TSubclassOf<UNavAreaBase> GetAreaClassToReplace() const { return TSubclassOf<UNavAreaBase>(ReplaceAreaClassOb.Get()); }
 
 	/** navigation area applied by this modifier */
-	void SetAreaClass(const TSubclassOf<UNavArea> AreaClass);
+	void SetAreaClass(const TSubclassOf<UNavAreaBase> AreaClass);
 
 	/** operation mode, ReplaceInLowPass will always automatically use UNavArea_LowHeight as ReplaceAreaClass! */
 	void SetApplyMode(ENavigationAreaMode::Type InApplyMode);
 	
 	/** additional class for used by some ApplyModes, setting it will automatically change ApplyMode to keep backwards compatibility! */
-	void SetAreaClassToReplace(const TSubclassOf<UNavArea> AreaClass);
+	void SetAreaClassToReplace(const TSubclassOf<UNavAreaBase> AreaClass);
 
 	void GetCylinder(FCylinderNavAreaData& Data) const;
 	void GetBox(FBoxNavAreaData& Data) const;
@@ -138,7 +141,7 @@ protected:
 	/** set when this modifier affects low spans in navmesh generation step */
 	uint8 bIsLowAreaModifier : 1;
 
-	void Init(const TSubclassOf<UNavArea> InAreaClass);
+	void Init(const TSubclassOf<UNavAreaBase> InAreaClass);
 	void SetConvex(const FVector* InPoints, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld);
 	void SetBox(const FBox& Box, const FTransform& LocalToWorld);
 };
@@ -278,7 +281,7 @@ struct ENGINE_API FCompositeNavModifier : public FNavigationModifier
 		bHasLowAreaModifiers |= Modifiers.HasLowAreaModifiers();
 	}
 
-	void CreateAreaModifiers(const UPrimitiveComponent* PrimComp, const TSubclassOf<UNavArea> AreaClass);
+	void CreateAreaModifiers(const UPrimitiveComponent* PrimComp, const TSubclassOf<UNavAreaBase> AreaClass);
 
 	FORCEINLINE const TArray<FAreaNavModifier>& GetAreas() const { return Areas; }
 	FORCEINLINE const TArray<FSimpleLinkNavModifier>& GetSimpleLinks() const { return SimpleLinks; }

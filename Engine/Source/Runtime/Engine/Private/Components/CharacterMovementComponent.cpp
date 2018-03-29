@@ -8,7 +8,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EngineStats.h"
 #include "Components/PrimitiveComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
+#include "AI/Navigation/NavigationDataInterface.h"
 #include "UObject/Package.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PhysicsVolume.h"
@@ -20,10 +21,7 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/GameStateBase.h"
 #include "Engine/Canvas.h"
-
-// @todo this is here only due to circular dependency to AIModule. To be removed
-#include "Navigation/PathFollowingComponent.h"
-#include "AI/Navigation/RecastNavMesh.h"
+#include "AI/Navigation/PathFollowingAgentInterface.h"
 #include "AI/Navigation/AvoidanceManager.h"
 #include "Components/BrushComponent.h"
 
@@ -1012,9 +1010,13 @@ void UCharacterMovementComponent::OnMovementModeChanged(EMovementMode PreviousMo
 		}
 	}
 
-	if (MovementMode == MOVE_Falling && PreviousMovementMode != MOVE_Falling && PathFollowingComp.IsValid())
+	if (MovementMode == MOVE_Falling && PreviousMovementMode != MOVE_Falling)
 	{
-		PathFollowingComp->OnStartedFalling();
+		IPathFollowingAgentInterface* PFAgent = GetPathFollowingAgent();
+		if (PFAgent)
+		{
+			PFAgent->OnStartedFalling();
+		}
 	}
 
 	CharacterOwner->OnMovementModeChanged(PreviousMovementMode, PreviousCustomMode);
@@ -2382,7 +2384,7 @@ bool UCharacterMovementComponent::CanCrouchInCurrentState() const
 		return false;
 	}
 
-	return IsFalling() || IsMovingOnGround();
+	return (IsFalling() || IsMovingOnGround()) && UpdatedComponent && !UpdatedComponent->IsSimulatingPhysics();
 }
 
 
@@ -2626,12 +2628,12 @@ void UCharacterMovementComponent::UnCrouch(bool bClientSimulation)
 void UCharacterMovementComponent::UpdateCharacterStateBeforeMovement()
 {
 	// Check for a change in crouch state. Players toggle crouch by changing bWantsToCrouch.
-	const bool bAllowedToCrouch = CanCrouchInCurrentState();
-	if ((!bAllowedToCrouch || !bWantsToCrouch) && IsCrouching())
+	const bool bIsCrouching = IsCrouching();
+	if (bIsCrouching && (!bWantsToCrouch || !CanCrouchInCurrentState()))
 	{
 		UnCrouch(false);
 	}
-	else if (bWantsToCrouch && bAllowedToCrouch && !IsCrouching())
+	else if (!bIsCrouching && bWantsToCrouch && CanCrouchInCurrentState())
 	{
 		Crouch(false);
 	}
@@ -3278,15 +3280,12 @@ void UCharacterMovementComponent::UpdateDefaultAvoidance()
 	SCOPE_CYCLE_COUNTER(STAT_AI_ObstacleAvoidance);
 
 	UAvoidanceManager* AvoidanceManager = GetWorld()->GetAvoidanceManager();
-	if (AvoidanceManager && !bWasAvoidanceUpdated)
+	if (AvoidanceManager && !bWasAvoidanceUpdated && GetCharacterOwner()->GetCapsuleComponent())
 	{
-		if (UCapsuleComponent *OurCapsule = GetCharacterOwner()->GetCapsuleComponent())
-		{
-			AvoidanceManager->UpdateRVO(this);
+		AvoidanceManager->UpdateRVO(this);
 
-			//Consider this a clean move because we didn't even try to avoid.
-			SetAvoidanceVelocityLock(AvoidanceManager, AvoidanceManager->LockTimeAfterClean);
-		}
+		//Consider this a clean move because we didn't even try to avoid.
+		SetAvoidanceVelocityLock(AvoidanceManager, AvoidanceManager->LockTimeAfterClean);
 	}
 
 	bWasAvoidanceUpdated = false;		//Reset for next frame
@@ -4860,7 +4859,7 @@ void UCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iteratio
 
 bool UCharacterMovementComponent::FindNavFloor(const FVector& TestLocation, FNavLocation& NavFloorLocation) const
 {
-	const ANavigationData* NavData = GetNavData();
+	const INavigationDataInterface* NavData = GetNavData();
 	if (NavData == nullptr)
 	{
 		return false;
@@ -5029,32 +5028,17 @@ void UCharacterMovementComponent::FindBestNavMeshLocation(const FVector& TraceSt
 	}
 }
 
-const ANavigationData* UCharacterMovementComponent::GetNavData() const
+const INavigationDataInterface* UCharacterMovementComponent::GetNavData() const
 {
-	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
-	if (NavSys == nullptr || !HasValidData())
+	const UWorld* World = GetWorld();
+	if (World == nullptr || World->GetNavigationSystem() == nullptr 
+		|| !HasValidData()
+		|| CharacterOwner == nullptr)
 	{
 		return nullptr;
 	}
 
-	const ANavigationData* NavData = nullptr;
-	INavAgentInterface* MyNavAgent = CastChecked<INavAgentInterface>(CharacterOwner);
-	if (MyNavAgent)
-	{
-		const FNavAgentProperties& AgentProps = MyNavAgent->GetNavAgentPropertiesRef();
-		NavData = NavSys->GetNavDataForProps(AgentProps);
-	}
-	if (NavData == nullptr)
-	{
-		NavData = NavSys->GetMainNavData();
-	}
-
-	// Only RecastNavMesh supported
-	const ARecastNavMesh* NavMeshData = Cast<const ARecastNavMesh>(NavData);
-	if (NavMeshData == nullptr)
-	{
-		return nullptr;
-	}
+	const INavigationDataInterface* NavData = FNavigationSystem::GetNavDataForActor(*CharacterOwner);
 
 	return NavData;
 }
@@ -5178,9 +5162,11 @@ void UCharacterMovementComponent::ProcessLanded(const FHitResult& Hit, float rem
 
 		SetPostLandedPhysics(Hit);
 	}
-	if (PathFollowingComp.IsValid())
+	
+	IPathFollowingAgentInterface* PFAgent = GetPathFollowingAgent();
+	if (PFAgent)
 	{
-		PathFollowingComp->OnLanded();
+		PFAgent->OnLanded();
 	}
 
 	StartNewPhysics(remainingTime, Iterations);
@@ -5461,9 +5447,11 @@ void UCharacterMovementComponent::PhysicsVolumeChanged( APhysicsVolume* NewVolum
 		if ( !CanEverSwim() )
 		{
 			// AI needs to stop any current moves
-			if (PathFollowingComp.IsValid())
+			IPathFollowingAgentInterface* PFAgent = GetPathFollowingAgent();
+			if (PFAgent)
 			{
-				PathFollowingComp->AbortMove(*this, FPathFollowingResultFlags::MovementStop);
+				//PathFollowingComp->AbortMove(*this, FPathFollowingResultFlags::MovementStop);
+				PFAgent->OnUnableToMove(*this);
 			}			
 		}
 		else if ( !IsSwimming() )
@@ -6424,9 +6412,11 @@ void UCharacterMovementComponent::HandleImpact(const FHitResult& Impact, float T
 		CharacterOwner->MoveBlockedBy(Impact);
 	}
 
-	if (PathFollowingComp.IsValid())
-	{	// Also notify path following!
-		PathFollowingComp->OnMoveBlockedBy(Impact);
+	IPathFollowingAgentInterface* PFAgent = GetPathFollowingAgent();
+	if (PFAgent)
+	{
+		// Also notify path following!
+		PFAgent->OnMoveBlockedBy(Impact);
 	}
 
 	APawn* OtherPawn = Cast<APawn>(Impact.GetActor());
@@ -10189,7 +10179,6 @@ void FSavedMove_Character::PostUpdate(ACharacter* Character, FSavedMove_Characte
 		if ((StartActorOverlapCounter != EndActorOverlapCounter) || (StartComponentOverlapCounter != EndComponentOverlapCounter))
 		{
 			bForceNoCombine = true;
-			UE_LOG(LogNetPlayerMovement, Log, TEXT("SavedMove: Setting bForceNoCombine true because of an overlap event!"));
 		}
 	}
 	else if (PostUpdateMode == PostUpdate_Replay)
@@ -10256,14 +10245,23 @@ float UCharacterMovementComponent::GetClientNetSendDeltaTime(const APlayerContro
 	const AGameNetworkManager* const GameNetworkManager = GetDefault<AGameNetworkManager>();
 	float NetMoveDelta = GameNetworkManager->ClientNetSendMoveDeltaTime;
 
-	// send moves more frequently in small games where server isn't likely to be saturated
-	if (Player && (Player->CurrentNetSpeed > GameNetworkManager->ClientNetSendMoveThrottleAtNetSpeed) && (GameState != nullptr) && (GameState->PlayerArray.Num() <= GameNetworkManager->ClientNetSendMoveThrottleOverPlayerCount))
+	if (PC && Player)
 	{
-		NetMoveDelta = GameNetworkManager->ClientNetSendMoveDeltaTime;
-	}
-	else if (Player)
-	{
-		NetMoveDelta = FMath::Max(GameNetworkManager->ClientNetSendMoveDeltaTimeThrottled, 2 * GameNetworkManager->MoveRepSize / Player->CurrentNetSpeed);
+		// send moves more frequently in small games where server isn't likely to be saturated
+		if ((Player->CurrentNetSpeed > GameNetworkManager->ClientNetSendMoveThrottleAtNetSpeed) && (GameState != nullptr) && (GameState->PlayerArray.Num() <= GameNetworkManager->ClientNetSendMoveThrottleOverPlayerCount))
+		{
+			NetMoveDelta = GameNetworkManager->ClientNetSendMoveDeltaTime;
+		}
+		else
+		{
+			NetMoveDelta = FMath::Max(GameNetworkManager->ClientNetSendMoveDeltaTimeThrottled, 2 * GameNetworkManager->MoveRepSize / Player->CurrentNetSpeed);
+		}
+
+		// Lower frequency for standing still and not rotating camera
+		if (Acceleration.IsZero() && Velocity.IsZero() && ClientData->LastAckedMove.IsValid() && ClientData->LastAckedMove->StartControlRotation.Equals(PC->GetControlRotation()))
+		{
+			NetMoveDelta = FMath::Max(GameNetworkManager->ClientNetSendMoveDeltaTimeStationary, NetMoveDelta);
+		}
 	}
 	
 	return NetMoveDelta;

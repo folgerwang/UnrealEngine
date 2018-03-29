@@ -9,7 +9,7 @@
 #include "Async/Async.h"
 #include "EngineGlobals.h"
 #include "Debug/DebugDrawService.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
 #include "VisualLogger/VisualLogger.h"

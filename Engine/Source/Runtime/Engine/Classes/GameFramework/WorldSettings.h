@@ -16,6 +16,7 @@
 
 class UAssetUserData;
 class UNetConnection;
+class UNavigationSystemConfig;
 
 UENUM()
 enum EVisibilityAggressiveness
@@ -387,10 +388,15 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World, AdvancedDisplay)
 	uint32 bEnableWorldBoundsChecks:1;
 
-	/** if set to false navigation system will not get created (and all navigation functionality won't be accessible)*/
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, config, Category=World, AdvancedDisplay)
+protected:
+	/** if set to false navigation system will not get created (and all 
+	 *	navigation functionality won't be accessible).
+	 *	This flag is now deprecated. Use NavigationSystemConfig property to 
+	 *	determine navigation system's properties or existence */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, config, Category=World, AdvancedDisplay, meta=(DisplayName = "DEPRECATED_bEnableNavigationSystem"))
 	uint32 bEnableNavigationSystem:1;
 
+public:
 	/** if set to false AI system will not get created. Use it to disable all AI-related activity on a map */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, config, Category = World, AdvancedDisplay)
 	uint32 bEnableAISystem:1;
@@ -420,6 +426,11 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	/** If set to true we will use GlobalGravityZ instead of project setting DefaultGravityZ */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(DisplayName = "Override World Gravity"), Category = Physics)
 	uint32 bGlobalGravitySet:1;
+
+	/** Holds parameters for NavigationSystem's creation. Set to Null will result
+	 *	in NavigationSystem instance not being created for this world */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World, AdvancedDisplay, Instanced, NoClear, meta=(NoResetToDefault))
+	UNavigationSystemConfig* NavigationSystemConfig;
 
 	// any actor falling below this level gets destroyed
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World, meta=(editcondition = "bEnableWorldBoundsChecks"))
@@ -675,6 +686,7 @@ public:
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;
 #endif // WITH_EDITOR
+	virtual void PostInitProperties() override;
 	virtual void PreInitializeComponents() override;
 	virtual void PostInitializeComponents() override;
 	virtual void PostRegisterAllComponents() override;
@@ -700,6 +712,13 @@ public:
 
 	/** Sets the global time dilation value (subject to clamping). Returns the final value that was set. */
 	virtual float SetTimeDilation(float NewTimeDilation);
+
+	/** @return configuration for NavigationSystem's creation. Null means 
+	 *	no navigation system will be created*/
+	UNavigationSystemConfig* const GetNavigationSystemConfig() const { return NavigationSystemConfig; }
+
+	/** @return whether given world is configured to host any NavigationSystem */
+	bool IsNavigationSystemEnabled() const;
 
 	/**
 	 * Called from GameStateBase, calls BeginPlay on all actors

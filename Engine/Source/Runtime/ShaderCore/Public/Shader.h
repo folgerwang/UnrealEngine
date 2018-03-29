@@ -1657,11 +1657,11 @@ public:
 	void GetShaderList(TMap<FShaderId, FShader*>& OutShaders) const
 	{
 		check(bHasBeenRegistered);
-		for(TMap<FShaderPrimaryKey,TRefCountPtr<FShader> >::TConstIterator ShaderIt(Shaders);ShaderIt;++ShaderIt)
+		for (typename TMap<FShaderPrimaryKey, TRefCountPtr<FShader>>::TConstIterator ShaderIt(Shaders); ShaderIt; ++ShaderIt)
 		{
-			if(ShaderIt.Value())
+			if (ShaderIt.Value())
 			{
-				OutShaders.Add(ShaderIt.Value()->GetId(),ShaderIt.Value());
+				OutShaders.Add(ShaderIt.Value()->GetId(), ShaderIt.Value());
 			}
 		}
 	}

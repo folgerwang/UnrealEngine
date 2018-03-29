@@ -19,6 +19,7 @@
 #include "Editor/UnrealEdEngine.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "CallStackViewer.h"
+#include "WatchPointViewer.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
 #include "UnrealEdGlobals.h"
 #include "Engine/Breakpoint.h"
@@ -705,6 +706,7 @@ void FKismetDebugUtilities::AttemptToBreakExecution(UBlueprint* BlueprintObj, co
 		Data.LastExceptionMessage = Info.GetDescription();
 		FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(NodeStoppedAt);
 		CallStackViewer::UpdateDisplayedCallstack(FBlueprintExceptionTracker::Get().ScriptStack);
+		WatchViewer::UpdateDisplayedWatches(BlueprintObj);
 		FSlateApplication::Get().EnterDebuggingMode();
 	}
 }
@@ -1040,6 +1042,8 @@ void FKismetDebugUtilities::ClearBreakpoints(UBlueprint* Blueprint)
 	Blueprint->MarkPackageDirty();
 }
 
+FKismetDebugUtilities::FOnWatchedPinsListChanged FKismetDebugUtilities::WatchedPinsListChangedEvent;
+
 bool FKismetDebugUtilities::CanWatchPin(const UBlueprint* Blueprint, const UEdGraphPin* Pin)
 {
 	//@TODO: This function belongs in the schema
@@ -1067,6 +1071,7 @@ void FKismetDebugUtilities::RemovePinWatch(UBlueprint* Blueprint, const UEdGraph
 	Blueprint->WatchedPins.Remove(NonConstPin);
 	Blueprint->MarkPackageDirty();
 	Blueprint->PostEditChange();
+	WatchedPinsListChangedEvent.Broadcast(Blueprint);
 }
 
 void FKismetDebugUtilities::TogglePinWatch(UBlueprint* Blueprint, const UEdGraphPin* Pin)
@@ -1083,6 +1088,8 @@ void FKismetDebugUtilities::TogglePinWatch(UBlueprint* Blueprint, const UEdGraph
 		Blueprint->MarkPackageDirty();
 		Blueprint->PostEditChange();
 	}
+
+	WatchedPinsListChangedEvent.Broadcast(Blueprint);
 }
 
 void FKismetDebugUtilities::ClearPinWatches(UBlueprint* Blueprint)
@@ -1090,10 +1097,44 @@ void FKismetDebugUtilities::ClearPinWatches(UBlueprint* Blueprint)
 	Blueprint->WatchedPins.Empty();
 	Blueprint->MarkPackageDirty();
 	Blueprint->PostEditChange();
+
+	WatchedPinsListChangedEvent.Broadcast(Blueprint);
 }
 
 // Gets the watched tooltip for a specified site
 FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::GetWatchText(FString& OutWatchText, UBlueprint* Blueprint, UObject* ActiveObject, const UEdGraphPin* WatchPin)
+{
+	UProperty* PropertyToDebug = nullptr;
+	void* DataPtr = nullptr;
+	void* DeltaPtr = nullptr;
+	UObject* ParentObj = nullptr;
+	FKismetDebugUtilities::EWatchTextResult Result = FindDebuggingData(Blueprint, ActiveObject, WatchPin, PropertyToDebug, DataPtr, DeltaPtr, ParentObj);
+
+	if (Result == FKismetDebugUtilities::EWatchTextResult::EWTR_Valid)
+	{
+		PropertyToDebug->ExportText_InContainer(/*ArrayElement=*/ 0, /*inout*/ OutWatchText, DataPtr, DeltaPtr, /*Parent=*/ ParentObj, PPF_PropertyWindow | PPF_BlueprintDebugView);
+	}
+
+	return Result;
+}
+
+FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::GetDebugInfo(FDebugInfo& OutDebugInfo, UBlueprint* Blueprint, UObject* ActiveObject, const UEdGraphPin* WatchPin)
+{
+	UProperty* PropertyToDebug = nullptr;
+	void* DataPtr = nullptr;
+	void* DeltaPtr = nullptr;
+	UObject* ParentObj = nullptr;
+	FKismetDebugUtilities::EWatchTextResult Result = FindDebuggingData(Blueprint, ActiveObject, WatchPin, PropertyToDebug, DataPtr, DeltaPtr, ParentObj);
+
+	if (Result == FKismetDebugUtilities::EWatchTextResult::EWTR_Valid)
+	{
+		GetDebugInfo_InContainer(0, OutDebugInfo, PropertyToDebug, DataPtr);
+	}
+
+	return Result;
+}
+
+FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::FindDebuggingData(UBlueprint* Blueprint, UObject* ActiveObject, const UEdGraphPin* WatchPin, UProperty*& OutProperty, void*& OutData, void*& OutDelta, UObject*& OutParent)
 {
 	FKismetDebugUtilitiesData& Data = FKismetDebugUtilitiesData::Get();
 
@@ -1161,7 +1202,7 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::GetWatchText(FStr
 #if USE_UBER_GRAPH_PERSISTENT_FRAME
 			// Try find the propertybase in the persistent ubergraph frame
 			UFunction* OuterFunction = Cast<UFunction>(Property->GetOuter());
-			if(!PropertyBase && OuterFunction)
+			if (!PropertyBase && OuterFunction)
 			{
 				UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass);
 				if (BPGC && ActiveObject->IsA(BPGC))
@@ -1170,15 +1211,15 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::GetWatchText(FStr
 				}
 			}
 #endif // USE_UBER_GRAPH_PERSISTENT_FRAME
-			
+
 			// see if our WatchPin is on a animation node & if so try to get its property info
 			UAnimBlueprintGeneratedClass* AnimBlueprintGeneratedClass = Cast<UAnimBlueprintGeneratedClass>(Blueprint->GeneratedClass);
-			if(!PropertyBase && AnimBlueprintGeneratedClass)
+			if (!PropertyBase && AnimBlueprintGeneratedClass)
 			{
 				// are we linked to an anim graph node?
 				UProperty* LinkedProperty = Property;
 				const UAnimGraphNode_Base* Node = Cast<UAnimGraphNode_Base>(WatchPin->GetOuter());
-				if(Node == nullptr && WatchPin->LinkedTo.Num() > 0)
+				if (Node == nullptr && WatchPin->LinkedTo.Num() > 0)
 				{
 					const UEdGraphPin* LinkedPin = WatchPin->LinkedTo[0];
 					// When we change Node we *must* change Property, so it's still a sub-element of that.
@@ -1186,7 +1227,7 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::GetWatchText(FStr
 					Node = Cast<UAnimGraphNode_Base>(LinkedPin->GetOuter());
 				}
 
-				if(Node && LinkedProperty)
+				if (Node && LinkedProperty)
 				{
 					UStructProperty* NodeStructProperty = Cast<UStructProperty>(FKismetDebugUtilities::FindClassPropertyForNode(Blueprint, Node));
 					if (NodeStructProperty)
@@ -1196,7 +1237,10 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::GetWatchText(FStr
 							if (NodeProperty == NodeStructProperty)
 							{
 								void* NodePtr = NodeProperty->ContainerPtrToValuePtr<void>(ActiveObject);
-								LinkedProperty->ExportText_InContainer(/*ArrayElement=*/ 0, /*inout*/ OutWatchText, NodePtr, NodePtr, /*Parent=*/ ActiveObject, PPF_PropertyWindow|PPF_BlueprintDebugView);
+								OutProperty = LinkedProperty;
+								OutData = NodePtr;
+								OutDelta = NodePtr;
+								OutParent = ActiveObject;
 								return EWTR_Valid;
 							}
 						}
@@ -1207,7 +1251,10 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::GetWatchText(FStr
 			// Now either print out the variable value, or that it was out-of-scope
 			if (PropertyBase != nullptr)
 			{
-				Property->ExportText_InContainer(/*ArrayElement=*/ 0, /*inout*/ OutWatchText, PropertyBase, PropertyBase, /*Parent=*/ ActiveObject, PPF_PropertyWindow|PPF_BlueprintDebugView);
+				OutProperty = Property;
+				OutData = PropertyBase;
+				OutDelta = PropertyBase;
+				OutParent = ActiveObject;
 				return EWTR_Valid;
 			}
 			else
@@ -1224,6 +1271,255 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::GetWatchText(FStr
 	{
 		return EWTR_NoProperty;
 	}
+}
+
+void FKismetDebugUtilities::GetDebugInfo_InContainer(int32 Index, FDebugInfo& DebugInfo, UProperty* Property, const void* Data)
+{
+	GetDebugInfoInternal(DebugInfo, Property, Property->ContainerPtrToValuePtr<void>(Data, Index));
+}
+
+void FKismetDebugUtilities::GetDebugInfoInternal(FDebugInfo& DebugInfo, UProperty* Property, const void* PropertyValue)
+{
+	if (Property == nullptr)
+	{
+		return;
+	}
+
+	DebugInfo.Type = UEdGraphSchema_K2::TypeToText(Property);
+	DebugInfo.DisplayName = Property->GetDisplayNameText();
+
+	UByteProperty* ByteProperty = Cast<UByteProperty>(Property);
+	if (ByteProperty)
+	{
+		UEnum* Enum = ByteProperty->GetIntPropertyEnum();
+		if (Enum)
+		{
+			if (Enum->IsValidEnumValue(*(const uint8*)PropertyValue))
+			{
+				DebugInfo.Value = Enum->GetDisplayNameTextByValue(*(const uint8*)PropertyValue);
+			}
+			else
+			{
+				DebugInfo.Value = FText::FromString(TEXT("(INVALID)"));
+			}
+
+			return;
+		}
+
+		// if there is no Enum we need to fall through and treat this as a UNumericProperty
+	}
+
+	UNumericProperty* NumericProperty = Cast<UNumericProperty>(Property);
+	if (NumericProperty)
+	{
+		DebugInfo.Value = FText::FromString(NumericProperty->GetNumericPropertyValueToString(PropertyValue));
+		return;
+	}
+
+	UBoolProperty* BoolProperty = Cast<UBoolProperty>(Property);
+	if (BoolProperty)
+	{
+		DebugInfo.Value = BoolProperty->GetPropertyValue(PropertyValue) ? GTrue : GFalse;
+		return;
+	}
+
+	UNameProperty* NameProperty = Cast<UNameProperty>(Property);
+	if (NameProperty)
+	{
+		DebugInfo.Value = FText::FromName(*(FName*)PropertyValue);
+		return;
+	}
+
+	UTextProperty* TextProperty = Cast<UTextProperty>(Property);
+	if (TextProperty)
+	{
+		DebugInfo.Value = TextProperty->GetPropertyValue(PropertyValue);
+		return;
+	}
+
+	UStrProperty* StringProperty = Cast<UStrProperty>(Property);
+	if (StringProperty)
+	{
+		DebugInfo.Value = FText::FromString(StringProperty->GetPropertyValue(PropertyValue));
+		return;
+	}
+
+	UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Property);
+	if (ArrayProperty)
+	{
+		checkSlow(ArrayProperty->Inner);
+
+		FScriptArrayHelper ArrayHelper(ArrayProperty, PropertyValue);
+
+		DebugInfo.Value = FText::Format(LOCTEXT("ArraySize", "Num={0}"), FText::AsNumber(ArrayHelper.Num()));
+
+		for (int32 i = 0; i < ArrayHelper.Num(); i++)
+		{
+			FDebugInfo ArrayDebugInfo;
+
+			uint8* PropData = ArrayHelper.GetRawPtr(i);
+			GetDebugInfoInternal(ArrayDebugInfo, ArrayProperty->Inner, PropData);
+			// overwrite the display name with the array index for the current element
+			ArrayDebugInfo.DisplayName = FText::Format(LOCTEXT("ArrayIndexName", "[{0}]"), FText::AsNumber(i));
+			DebugInfo.Children.Add(ArrayDebugInfo);
+		}
+
+		return;
+	}
+
+	UStructProperty* StructProperty = Cast<UStructProperty>(Property);
+	if (StructProperty)
+	{
+		FString WatchText;
+		StructProperty->ExportTextItem(WatchText, PropertyValue, PropertyValue, nullptr, PPF_PropertyWindow | PPF_BlueprintDebugView, nullptr);
+		DebugInfo.Value = FText::FromString(WatchText);
+
+		for (TFieldIterator<UProperty> It(StructProperty->Struct); It; ++It)
+		{
+			FDebugInfo StructDebugInfo;
+			GetDebugInfoInternal(StructDebugInfo, *It, It->ContainerPtrToValuePtr<void>(PropertyValue, 0));
+
+			DebugInfo.Children.Add(StructDebugInfo);
+		}
+
+		return;
+	}
+
+	UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property);
+	if (EnumProperty)
+	{
+		UNumericProperty* LocalUnderlyingProp = EnumProperty->GetUnderlyingProperty();
+		UEnum* Enum = EnumProperty->GetEnum();
+
+		int64 Value = LocalUnderlyingProp->GetSignedIntPropertyValue(PropertyValue);
+
+		// if the value is the max value (the autogenerated *_MAX value), export as "INVALID", unless we're exporting text for copy/paste (for copy/paste,
+		// the property text value must actually match an entry in the enum's names array)
+		if (Enum)
+		{
+			if (Enum->IsValidEnumValue(Value))
+			{
+				DebugInfo.Value = Enum->GetDisplayNameTextByValue(Value);
+			}
+			else
+			{
+				DebugInfo.Value = LOCTEXT("Invalid", "(INVALID)");
+			}
+		}
+		else
+		{
+			DebugInfo.Value = FText::AsNumber(Value);
+		}
+
+		return;
+	}
+
+	UMapProperty* MapProperty = Cast<UMapProperty>(Property);
+	if (MapProperty)
+	{
+		FScriptMapHelper MapHelper(MapProperty, PropertyValue);
+		DebugInfo.Value = FText::Format(LOCTEXT("MapSize", "Num={0}"), FText::AsNumber(MapHelper.Num()));
+		uint8* PropData = MapHelper.GetPairPtr(0);
+
+		int32 Index = 0;
+		for (int32 Count = MapHelper.Num(); Count; PropData += MapProperty->MapLayout.SetLayout.Size, ++Index)
+		{
+			if (MapHelper.IsValidIndex(Index))
+			{
+				FDebugInfo ChildInfo;
+
+				GetDebugInfoInternal(ChildInfo, MapProperty->ValueProp, PropData + MapProperty->MapLayout.ValueOffset);
+
+				// use the info from the ValueProp and then overwrite the name with the KeyProp data
+				FString NameStr = TEXT("[");
+				MapProperty->KeyProp->ExportTextItem(NameStr, PropData, nullptr, nullptr, PPF_PropertyWindow | PPF_BlueprintDebugView | PPF_Delimited, nullptr);
+				NameStr += TEXT("] ");
+
+				ChildInfo.DisplayName = FText::FromString(NameStr);
+
+				DebugInfo.Children.Add(ChildInfo);
+
+				--Count;
+			}
+		}
+
+		return;
+	}
+
+	USetProperty* SetProperty = Cast<USetProperty>(Property);
+	if (SetProperty)
+	{
+		FScriptSetHelper SetHelper(SetProperty, PropertyValue);
+		DebugInfo.Value = FText::Format(LOCTEXT("SetSize", "Num={0}"), FText::AsNumber(SetHelper.Num()));
+		uint8* PropData = SetHelper.GetElementPtr(0);
+
+		int32 Index = 0;
+		for (int32 Count = SetHelper.Num(); Count; PropData += SetProperty->SetLayout.Size, ++Index)
+		{
+			if (SetHelper.IsValidIndex(Index))
+			{
+				FDebugInfo ChildInfo;
+				GetDebugInfoInternal(ChildInfo, SetProperty->ElementProp, PropData);
+
+				// members of sets don't have their own names
+				ChildInfo.DisplayName = FText::GetEmpty();
+
+				DebugInfo.Children.Add(ChildInfo);
+
+				--Count;
+			}
+		}
+
+		return;
+	}
+
+	UObjectPropertyBase* ObjectPropertyBase = Cast<UObjectPropertyBase>(Property);
+	if (ObjectPropertyBase)
+	{
+		UObject* Obj = ObjectPropertyBase->GetObjectPropertyValue(PropertyValue);
+		if (Obj != nullptr)
+		{
+			DebugInfo.Value = FText::FromString(Obj->GetFullName());
+		}
+		else
+		{
+			DebugInfo.Value = FText::FromString(TEXT("None"));
+		}
+
+		return;
+	}
+
+	UDelegateProperty* DelegateProperty = Cast<UDelegateProperty>(Property);
+	if (DelegateProperty)
+	{
+		if (DelegateProperty->SignatureFunction)
+		{
+			DebugInfo.Value = DelegateProperty->SignatureFunction->GetDisplayNameText();
+		}
+		else
+		{
+			DebugInfo.Value = LOCTEXT("NoFunc", "(No bound function)");
+		}
+
+		return;
+	}
+
+	UMulticastDelegateProperty* MulticastDelegateProperty = Cast<UMulticastDelegateProperty>(Property);
+	if (MulticastDelegateProperty)
+	{
+		if (MulticastDelegateProperty->SignatureFunction)
+		{
+			DebugInfo.Value = MulticastDelegateProperty->SignatureFunction->GetDisplayNameText();
+		}
+		else
+		{
+			DebugInfo.Value = LOCTEXT("NoFunc", "(No bound function)");
+		}
+
+		return;
+	}
+
+	ensure(false);
 }
 
 FText FKismetDebugUtilities::GetAndClearLastExceptionMessage()

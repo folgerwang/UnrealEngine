@@ -3913,16 +3913,47 @@ void FBlueprintDelegateActionDetails::CustomizeDetails( IDetailLayoutBuilder& De
 		TSharedRef<FBlueprintGraphArgumentGroupLayout> InputArgumentGroup = MakeShareable(new FBlueprintGraphArgumentGroupLayout(SharedThis(this), FunctionEntryNode));
 		InputsCategory.AddCustomBuilder(InputArgumentGroup);
 
-		InputsCategory.AddCustomRow( LOCTEXT("FunctionNewInputArg", "New") )
+		TSharedRef<SHorizontalBox> InputsHeaderContentWidget = SNew(SHorizontalBox);
+		TWeakPtr<SWidget> WeakInputsHeaderWidget = InputsHeaderContentWidget;
+		InputsHeaderContentWidget->AddSlot()
 		[
-			SNew(SBox)
+			SNew(SHorizontalBox)
+		];
+		InputsHeaderContentWidget->AddSlot()
+		.AutoWidth()
+		[
+			SNew(SButton)
+			.ButtonStyle(FEditorStyle::Get(), "RoundButton")
+			.ForegroundColor(FEditorStyle::GetSlateColor("DefaultForeground"))
+			.ContentPadding(FMargin(2, 0))
+			.OnClicked(this, &FBlueprintDelegateActionDetails::OnAddNewInputClicked)
 			.HAlign(HAlign_Right)
+			.ToolTipText(LOCTEXT("DelegateNewOutputArgTooltip", "Create a new input argument"))
+			.VAlign(VAlign_Center)
+			.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("DelegateNewInputArg")))
 			[
-				SNew(SButton)
-				.Text(LOCTEXT("FunctionNewInputArg", "New"))
-				.OnClicked(this, &FBlueprintDelegateActionDetails::OnAddNewInputClicked)
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(0, 1))
+				[
+					SNew(SImage)
+					.Image(FEditorStyle::GetBrush("Plus"))
+				]
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				.Padding(FMargin(2, 0, 0, 0))
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFontBold())
+					.Text(LOCTEXT("DelegateNewParameterInputArg", "New Parameter"))
+					.Visibility(this, &FBlueprintDelegateActionDetails::OnGetSectionTextVisibility, WeakInputsHeaderWidget)
+					.ShadowOffset(FVector2D(1, 1))
+				]
 			]
 		];
+		InputsCategory.HeaderContent(InputsHeaderContentWidget);
 
 		CollectAvailibleSignatures();
 
@@ -4021,6 +4052,21 @@ void FBaseBlueprintGraphActionDetails::OnParamsChanged(UK2Node_EditablePinBase* 
 		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 
 		K2Schema->HandleParameterDefaultValueChanged(TargetNode);
+	}
+}
+
+EVisibility FBlueprintDelegateActionDetails::OnGetSectionTextVisibility(TWeakPtr<SWidget> RowWidget) const
+{
+	bool ShowText = RowWidget.Pin()->IsHovered();
+
+	// If the row is currently hovered, or a menu is being displayed for a button, keep the button expanded.
+	if (ShowText)
+	{
+		return EVisibility::SelfHitTestInvisible;
+	}
+	else
+	{
+		return EVisibility::Collapsed;
 	}
 }
 

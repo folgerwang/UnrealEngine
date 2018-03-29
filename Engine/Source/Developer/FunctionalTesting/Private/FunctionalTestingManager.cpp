@@ -5,7 +5,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "FunctionalTestingModule.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "NavigationSystem.h"
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
 #include "Misc/RuntimeErrors.h"
@@ -163,7 +163,7 @@ void UFunctionalTestingManager::TriggerFirstValidTest()
 
 	const bool bIsWorldInitialized =
 		World->AreActorsInitialized() &&
-		!UNavigationSystem::IsNavigationBeingBuilt(World);
+		!UNavigationSystemV1::IsNavigationBeingBuilt(World);
 
 	if (bInitialDelayApplied == true && bIsWorldInitialized)
 	{

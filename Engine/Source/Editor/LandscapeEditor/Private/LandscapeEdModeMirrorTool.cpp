@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "InputCoreTypes.h"
 #include "Materials/MaterialInterface.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UnrealWidget.h"
 #include "EditorModeManager.h"
@@ -19,7 +19,6 @@
 #include "LandscapeRender.h"
 #include "LandscapeHeightfieldCollisionComponent.h"
 //#include "LandscapeDataAccess.h"
-//#include "AI/Navigation/NavigationSystem.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
@@ -640,8 +639,6 @@ public:
 		TSet<ULandscapeComponent*> Components;
 		if (LandscapeEdit.GetComponentsInRegion(DestMinX, DestMinY, DestMaxX, DestMaxY, &Components) && Components.Num() > 0)
 		{
-			UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(*begin(Components));
-
 			for (ULandscapeComponent* Component : Components)
 			{
 				// Recreate collision for modified components and update the navmesh
@@ -649,10 +646,7 @@ public:
 				if (CollisionComponent)
 				{
 					CollisionComponent->RecreateCollision();
-					if (NavSys)
-					{
-						NavSys->UpdateComponentInNavOctree(*CollisionComponent);
-					}
+					FNavigationSystem::UpdateComponentData(*CollisionComponent);
 				}
 			}
 

@@ -23,7 +23,7 @@
 #include "Materials/MaterialInterface.h"
 #include "Engine/SkeletalMesh.h"
 #include "Components/StaticMeshComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/Texture.h"
 #include "Engine/StaticMesh.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -2243,11 +2243,10 @@ namespace BuildPromotionTestHelper
 			GUnrealEd->Exec(World, TEXT("MAP REBUILD ALLVISIBLE"));
 			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Rebuilt the map"));
 
-			if (World->GetWorldSettings()->bEnableNavigationSystem &&
-				World->GetNavigationSystem())
+			if (World->GetNavigationSystem())
 			{
 				// Invoke navmesh generator
-				World->GetNavigationSystem()->Build();
+				FNavigationSystem::Build(*World);
 				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Built navigation"));
 			}
 

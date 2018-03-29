@@ -23,7 +23,7 @@
 
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
-#include "AI/Navigation/NavCollision.h"
+#include "AI/Navigation/NavCollisionBase.h"
 #include "PhysicsEngine/BodySetup.h"
 
 #include "Engine/AssetUserData.h"
@@ -616,8 +616,8 @@ void FStaticMeshEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDraw
 			}
 		}
 
-		// The simple nav geometry is only used by dynamic obstacles for now
-		if (StaticMesh->NavCollision && StaticMesh->NavCollision->bIsDynamicObstacle)
+		if (StaticMesh->NavCollision 
+			&& StaticMesh->bHasNavigationData)
 		{
 			// Draw the static mesh's body setup (simple collision)
 			FTransform GeomTransform(StaticMeshComponent->GetComponentTransform());

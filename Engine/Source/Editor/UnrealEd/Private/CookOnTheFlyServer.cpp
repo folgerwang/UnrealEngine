@@ -962,7 +962,7 @@ bool UCookOnTheFlyServer::StartNetworkFileServer( const bool BindAnyPort )
 		FAssetRegistryGenerator* Generator = RegistryGenerators.FindRef(FName(*Platforms[Index]->PlatformName()));
 		if (Generator)
 		{
-			Generator->SaveAssetRegistry(GetSandboxAssetRegistryFilename(), false);
+			Generator->SaveAssetRegistry(GetSandboxAssetRegistryFilename(), true);
 		}
 	}
 

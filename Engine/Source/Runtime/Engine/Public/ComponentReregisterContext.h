@@ -8,7 +8,7 @@
 #include "UObject/UObjectIterator.h"
 #include "Components/PrimitiveComponent.h"
 #include "Engine/World.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "ContentStreaming.h"
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogActorComponent, Log, All);

@@ -18,7 +18,7 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "RHIStaticStates.h"
 #include "Engine/TextureStreamingTypes.h"
 #include "Components/PrimitiveComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Misc/MessageDialog.h"
 #include "HAL/FileManager.h"
 #include "Misc/CommandLine.h"
@@ -1935,11 +1935,19 @@ void LoadSpecialMaterial(const FString& MaterialName, const FString& MaterialNam
 
 
 template<typename ClassType>
-void LoadEngineClass(const FSoftClassPath& ClassName, TSubclassOf<ClassType>& EngineClassRef)
+void LoadEngineClass(FSoftClassPath& ClassName, TSubclassOf<ClassType>& EngineClassRef)
 {
 	if ( EngineClassRef == nullptr )
 	{
 		EngineClassRef = LoadClass<ClassType>(nullptr, *ClassName.ToString());
+
+		// try redirects
+		if (EngineClassRef == nullptr)
+		{
+			ClassName.FixupCoreRedirects();
+			EngineClassRef = LoadClass<ClassType>(nullptr, *ClassName.ToString());
+		}
+
 		if (EngineClassRef == nullptr)
 		{
 			EngineClassRef = ClassType::StaticClass();
@@ -2098,7 +2106,7 @@ void UEngine::InitializeObjectReferences()
 	LoadEngineClass<UGameViewportClient>(GameViewportClientClassName, GameViewportClientClass);
 	LoadEngineClass<ULocalPlayer>(LocalPlayerClassName, LocalPlayerClass);
 	LoadEngineClass<AWorldSettings>(WorldSettingsClassName, WorldSettingsClass);
-	LoadEngineClass<UNavigationSystem>(NavigationSystemClassName, NavigationSystemClass);
+	LoadEngineClass<UNavigationSystemBase>(NavigationSystemClassName, NavigationSystemClass);
 	LoadEngineClass<UAvoidanceManager>(AvoidanceManagerClassName, AvoidanceManagerClass);
 	LoadEngineClass<UPhysicsCollisionHandler>(PhysicsCollisionHandlerClassName, PhysicsCollisionHandlerClass);
 	LoadEngineClass<UGameUserSettings>(GameUserSettingsClassName, GameUserSettingsClass);
@@ -9066,22 +9074,6 @@ float DrawMapWarnings(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanv
 
 	}
 
-	// check navmesh
-#if WITH_EDITOR
-	const bool bIsNavigationAutoUpdateEnabled = UNavigationSystem::GetIsNavigationAutoUpdateEnabled();
-#else
-	const bool bIsNavigationAutoUpdateEnabled = true;
-#endif
-	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(World);
-	if (NavSys && NavSys->IsNavigationDirty() &&
-		(!bIsNavigationAutoUpdateEnabled || !NavSys->SupportsNavigationGeneration() || !NavSys->CanRebuildDirtyNavigation()))
-	{
-		SmallTextItem.SetColor(FLinearColor::White);
-		SmallTextItem.Text = LOCTEXT("NAVMESHERROR", "NAVMESH NEEDS TO BE REBUILT");
-		Canvas->DrawItem(SmallTextItem, FVector2D(MessageX, MessageY));
-		MessageY += FontSizeY;
-	}
-
 	if (World->bKismetScriptError)
 	{
 		SmallTextItem.Text = LOCTEXT("BlueprintInLevelHadCompileErrorMessage", "BLUEPRINT COMPILE ERROR");
@@ -11722,7 +11714,7 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 	WorldContext.World()->InitializeActorsForPlay(URL);		
 
 	// calling it after InitializeActorsForPlay has been called to have all potential bounding boxed initialized
-	UNavigationSystem::InitializeForWorld(WorldContext.World(), FNavigationSystemRunMode::GameMode);
+	FNavigationSystem::AddNavigationSystemToWorld(*WorldContext.World(), FNavigationSystemRunMode::GameMode);
 
 	// Remember the URL. Put this before spawning player controllers so that
 	// a player controller can get the map name during initialization and

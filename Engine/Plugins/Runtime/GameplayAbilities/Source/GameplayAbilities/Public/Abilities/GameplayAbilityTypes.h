@@ -397,9 +397,9 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FGameplayAbilityEndedDelegate, const FAbilit
  *	Structure that tells AbilitySystemComponent what to bind to an InputComponent (see BindAbilityActivationToInputComponent) 
  *	
  */
-struct FGameplayAbiliyInputBinds
+struct FGameplayAbilityInputBinds
 {
-	FGameplayAbiliyInputBinds(FString InConfirmTargetCommand, FString InCancelTargetCommand, FString InEnumName, int32 InConfirmTargetInputID = INDEX_NONE, int32 InCancelTargetInputID = INDEX_NONE)
+	FGameplayAbilityInputBinds(FString InConfirmTargetCommand, FString InCancelTargetCommand, FString InEnumName, int32 InConfirmTargetInputID = INDEX_NONE, int32 InCancelTargetInputID = INDEX_NONE)
 	: ConfirmTargetCommand(InConfirmTargetCommand)
 	, CancelTargetCommand(InCancelTargetCommand)
 	, EnumName(InEnumName)

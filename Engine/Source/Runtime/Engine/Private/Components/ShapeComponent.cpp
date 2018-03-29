@@ -2,8 +2,7 @@
 
 
 #include "Components/ShapeComponent.h"
-#include "AI/Navigation/NavAreas/NavArea_Obstacle.h"
-#include "AI/NavigationOctree.h"
+#include "AI/Navigation/NavAreaBase.h"
 #include "PhysicsEngine/BoxElem.h"
 #include "PhysicsEngine/SphereElem.h"
 #include "PhysicsEngine/SphylElem.h"
@@ -39,7 +38,8 @@ UShapeComponent::UShapeComponent(const FObjectInitializer& ObjectInitializer)
 	bHasCustomNavigableGeometry = EHasCustomNavigableGeometry::Yes;
 	bCanEverAffectNavigation = true;
 	bDynamicObstacle = false;
-	AreaClass = UNavArea_Obstacle::StaticClass();
+	// mz@todo
+	//AreaClass = UNavArea_Obstacle::StaticClass();
 }
 
 FPrimitiveSceneProxy* UShapeComponent::CreateSceneProxy()

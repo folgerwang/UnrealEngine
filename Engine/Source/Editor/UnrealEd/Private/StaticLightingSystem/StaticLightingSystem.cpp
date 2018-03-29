@@ -24,7 +24,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/LightComponentBase.h"
 #include "Components/ReflectionCaptureComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/MapBuildDataRegistry.h"
 #include "Components/LightComponent.h"
 #include "Model.h"

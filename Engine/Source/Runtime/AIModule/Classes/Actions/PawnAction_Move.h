@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "Templates/SubclassOf.h"
 #include "Engine/EngineTypes.h"
-#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "NavFilters/NavigationQueryFilter.h"
 #include "Actions/PawnAction.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "PawnAction_Move.generated.h"

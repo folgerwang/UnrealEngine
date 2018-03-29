@@ -24,7 +24,7 @@
 #include "TimerManager.h"
 #include "Materials/MaterialInterface.h"
 #include "GameFramework/Controller.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/MapBuildDataRegistry.h"
 #include "Model.h"
 #include "Engine/Brush.h"
@@ -1086,11 +1086,11 @@ UAISystemBase* UWorld::CreateAISystem()
 	// create navigation system for editor and server targets, but remove it from game clients
 	if (AISystem == NULL && UAISystemBase::ShouldInstantiateInNetMode(GetNetMode()) && PersistentLevel)
 	{
-		FName AIModuleName = UAISystemBase::GetAISystemModuleName();
+		const FName AIModuleName = UAISystemBase::GetAISystemModuleName();
 		const AWorldSettings* WorldSettings = PersistentLevel->GetWorldSettings(false);
 		if (AIModuleName.IsNone() == false && WorldSettings && WorldSettings->bEnableAISystem)
 		{
-			IAISystemModule* AISystemModule = FModuleManager::LoadModulePtr<IAISystemModule>(UAISystemBase::GetAISystemModuleName());
+			IAISystemModule* AISystemModule = FModuleManager::LoadModulePtr<IAISystemModule>(AIModuleName);
 			if (AISystemModule)
 			{
 				AISystem = AISystemModule->CreateAISystemInstance(this);
@@ -1193,14 +1193,14 @@ void UWorld::InitWorld(const InitializationValues IVS)
 		AWorldSettings* WorldSettings = GetWorldSettings();
 		if (WorldSettings)
 		{
-			if (IVS.bCreateNavigation && WorldSettings->bEnableNavigationSystem)
-		{
-			UNavigationSystem::CreateNavigationSystem(this);
-		}
+			if (IVS.bCreateNavigation)
+			{
+				FNavigationSystem::AddNavigationSystemToWorld(*this, FNavigationSystemRunMode::InvalidMode, /*bInitializeForWorld=*/false);
+			}
 			if (IVS.bCreateAISystem && WorldSettings->bEnableAISystem)
-	{
-		CreateAISystem();
-	}
+			{
+				CreateAISystem();
+			}
 		}
 	}
 	
@@ -2340,16 +2340,18 @@ void UWorld::RemoveFromWorld( ULevel* Level, bool bAllowIncrementalRemoval )
 			// Remove any pawns from the pawn list that are about to be streamed out
 			for( FConstPawnIterator Iterator = GetPawnIterator(); Iterator; ++Iterator )
 			{
-				APawn* Pawn = Iterator->Get();
-				if (Pawn->IsInLevel(Level))
+				if (APawn* Pawn = Iterator->Get())
 				{
-					RemovePawn(Pawn);
-					--Iterator;
-				}
-				else if (UCharacterMovementComponent* CharacterMovement = Cast<UCharacterMovementComponent>(Pawn->GetMovementComponent()))
-				{
-					// otherwise force floor check in case the floor was streamed out from under it
-					CharacterMovement->bForceNextFloorCheck = true;
+					if (Pawn->IsInLevel(Level))
+					{
+						RemovePawn(Pawn);
+						--Iterator;
+					}
+					else if (UCharacterMovementComponent* CharacterMovement = Cast<UCharacterMovementComponent>(Pawn->GetMovementComponent()))
+					{
+						// otherwise force floor check in case the floor was streamed out from under it
+						CharacterMovement->bForceNextFloorCheck = true;
+					}
 				}
 			}
 
@@ -5606,9 +5608,6 @@ UWorld* FSeamlessTravelHandler::Tick()
 					{
 						KeptGameState = static_cast<AGameStateBase*>(TheActor);
 					}
-					// add to new world's actor list and remove from old
-					LoadedWorld->PersistentLevel->Actors.Add(TheActor);
-					LoadedWorld->PersistentLevel->ActorsForGC.Add(TheActor);
 
 					TheActor->bActorSeamlessTraveled = true;
 				}
@@ -5749,7 +5748,7 @@ UWorld* FSeamlessTravelHandler::Tick()
 			LoadedWorld->InitializeActorsForPlay(PendingTravelURL, false);
 
 			// calling it after InitializeActorsForPlay has been called to have all potential bounding boxed initialized
-			UNavigationSystem::InitializeForWorld(LoadedWorld, FNavigationSystemRunMode::GameMode);
+			FNavigationSystem::AddNavigationSystemToWorld(*LoadedWorld, FNavigationSystemRunMode::GameMode);
 
 			// send loading complete notifications for all local players
 			for (FLocalPlayerIterator It(GEngine, LoadedWorld); It; ++It)
@@ -6233,11 +6232,11 @@ bool UWorld::ServerTravel(const FString& FURL, bool bAbsolute, bool bShouldSkipG
 	return true;
 }
 
-void UWorld::SetNavigationSystem( UNavigationSystem* InNavigationSystem)
+void UWorld::SetNavigationSystem(UNavigationSystemBase* InNavigationSystem)
 {
 	if (NavigationSystem != NULL && NavigationSystem != InNavigationSystem)
 	{
-		NavigationSystem->CleanUp(UNavigationSystem::CleanupWithWorld);
+		NavigationSystem->CleanUp(FNavigationSystem::ECleanupMode::CleanupWithWorld);
 	}
 
 	NavigationSystem = InNavigationSystem;

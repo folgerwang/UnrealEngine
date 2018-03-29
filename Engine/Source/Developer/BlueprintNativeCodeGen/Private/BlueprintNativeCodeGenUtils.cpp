@@ -30,8 +30,6 @@ DEFINE_LOG_CATEGORY(LogBlueprintCodeGen)
 namespace BlueprintNativeCodeGenUtilsImpl
 {
 	static FString CoreModuleName   = TEXT("Core");
-	static FString EngineModuleName = TEXT("Engine");
-	static FString EngineHeaderFile = TEXT("Engine.h");
 
 	// Used to cache the set of plugin dependencies.
 	static TSet<FString> PluginDependencies;
@@ -189,7 +187,6 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(const FBl
 	FText FailureReason;
 
 	TArray<FString> PchIncludes;
-	PchIncludes.Add(EngineHeaderFile);
 	PchIncludes.Add(TEXT("GeneratedCodeHelpers.h"));
 	PchIncludes.Add(NativizedDependenciesFileName() + TEXT(".h"));
 
@@ -259,8 +256,6 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(const FBlue
 	TArray<FString> PublicDependencies;
 	// for IModuleInterface
 	PublicDependencies.Add(CoreModuleName);
-	// for Engine.h
-	PublicDependencies.Add(EngineModuleName);
 
 	if (GameProjectUtils::ProjectHasCodeFiles()) 
 	{

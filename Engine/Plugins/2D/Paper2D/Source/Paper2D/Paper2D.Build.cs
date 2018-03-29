@@ -16,8 +16,9 @@ public class Paper2D : ModuleRules
 				"ShaderCore",
 				"RenderCore",
 				"RHI",
-                "SlateCore",
-                "Slate"
+        		        "SlateCore",
+        		        "Slate",
+                		"NavigationSystem"
 			}
 		);
 

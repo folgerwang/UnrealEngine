@@ -5,15 +5,14 @@
 =============================================================================*/
 
 #include "InstancedStaticMesh.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/MapBuildDataRegistry.h"
 #include "Components/LightComponent.h"
 #include "Logging/TokenizedMessage.h"
 #include "Logging/MessageLog.h"
 #include "UnrealEngine.h"
 #include "AI/NavigationSystemHelpers.h"
-#include "AI/Navigation/NavCollision.h"
-#include "AI/NavigationOctree.h"
+#include "AI/Navigation/NavCollisionBase.h"
 #include "ShaderParameterUtils.h"
 #include "Misc/UObjectToken.h"
 #include "PhysXPublic.h"
@@ -24,6 +23,7 @@
 #include "SceneManagement.h"
 #include "Algo/Transform.h"
 #include "UObject/MobileObjectVersion.h"
+#include "EngineStats.h"
 
 const int32 InstancedStaticMeshMaxTexCoord = 8;
 
@@ -1904,7 +1904,7 @@ void UInstancedStaticMeshComponent::ClearInstances()
 	InitPerInstanceRenderData(false);
 	MarkRenderStateDirty();
 
-	UNavigationSystem::UpdateComponentInNavOctree(*this);
+	FNavigationSystem::UpdateComponentData(*this);
 }
 
 int32 UInstancedStaticMeshComponent::GetInstanceCount() const
@@ -2003,26 +2003,26 @@ void UInstancedStaticMeshComponent::PostLoad()
 void UInstancedStaticMeshComponent::PartialNavigationUpdate(int32 InstanceIdx)
 {
 	// Just update everything
-	UNavigationSystem::UpdateComponentInNavOctree(*this);
+	FNavigationSystem::UpdateComponentData(*this);
 }
 
 bool UInstancedStaticMeshComponent::DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const
 {
 	if (GetStaticMesh() && GetStaticMesh()->NavCollision)
 	{
-		UNavCollision* NavCollision = GetStaticMesh()->NavCollision;
-		if (GetStaticMesh()->NavCollision->bIsDynamicObstacle)
+		UNavCollisionBase* NavCollision = GetStaticMesh()->NavCollision;
+		if (GetStaticMesh()->NavCollision->IsDynamicObstacle())
 		{
 			return false;
 		}
 		
-		if (NavCollision->bHasConvexGeometry)
+		if (NavCollision->HasConvexGeometry())
 		{
-			GeomExport.ExportCustomMesh(NavCollision->ConvexCollision.VertexBuffer.GetData(), NavCollision->ConvexCollision.VertexBuffer.Num(),
-				NavCollision->ConvexCollision.IndexBuffer.GetData(), NavCollision->ConvexCollision.IndexBuffer.Num(), FTransform::Identity);
+			GeomExport.ExportCustomMesh(NavCollision->GetConvexCollision().VertexBuffer.GetData(), NavCollision->GetConvexCollision().VertexBuffer.Num(),
+				NavCollision->GetConvexCollision().IndexBuffer.GetData(), NavCollision->GetConvexCollision().IndexBuffer.Num(), FTransform::Identity);
 
-			GeomExport.ExportCustomMesh(NavCollision->TriMeshCollision.VertexBuffer.GetData(), NavCollision->TriMeshCollision.VertexBuffer.Num(),
-				NavCollision->TriMeshCollision.IndexBuffer.GetData(), NavCollision->TriMeshCollision.IndexBuffer.Num(), FTransform::Identity);
+			GeomExport.ExportCustomMesh(NavCollision->GetTriMeshCollision().VertexBuffer.GetData(), NavCollision->GetTriMeshCollision().VertexBuffer.Num(),
+				NavCollision->GetTriMeshCollision().IndexBuffer.GetData(), NavCollision->GetTriMeshCollision().IndexBuffer.Num(), FTransform::Identity);
 		}
 		else
 		{
@@ -2045,8 +2045,8 @@ void UInstancedStaticMeshComponent::GetNavigationData(FNavigationRelevantData& D
 {
 	if (GetStaticMesh() && GetStaticMesh()->NavCollision)
 	{
-		UNavCollision* NavCollision = GetStaticMesh()->NavCollision;
-		if (NavCollision->bIsDynamicObstacle)
+		UNavCollisionBase* NavCollision = GetStaticMesh()->NavCollision;
+		if (NavCollision->IsDynamicObstacle())
 		{
 			NavCollision->GetNavigationModifier(Data.Modifiers, FTransform::Identity);
 
@@ -2166,7 +2166,7 @@ void UInstancedStaticMeshComponent::PostEditUndo()
 {
 	Super::PostEditUndo();
 
-	UNavigationSystem::UpdateComponentInNavOctree(*this);
+	FNavigationSystem::UpdateComponentData(*this);
 }
 #endif
 

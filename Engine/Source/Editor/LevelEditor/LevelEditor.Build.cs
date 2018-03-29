@@ -65,7 +65,6 @@ public class LevelEditor : ModuleRules
 				"HierarchicalLODUtilities",
 				"MaterialShaderQualitySettings",
 				"PixelInspectorModule",
-				"FunctionalTesting",
 				"CommonMenuExtensions"
 			}
 		);

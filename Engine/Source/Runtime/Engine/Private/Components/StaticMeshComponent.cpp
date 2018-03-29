@@ -28,11 +28,10 @@
 #include "LightMap.h"
 #include "ShadowMap.h"
 #include "Engine/ShadowMapTexture2D.h"
-#include "AI/Navigation/NavCollision.h"
+#include "AI/Navigation/NavCollisionBase.h"
 #include "Engine/StaticMeshSocket.h"
 #include "AI/NavigationSystemHelpers.h"
-#include "AI/NavigationOctree.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "EngineGlobals.h"
 #include "ComponentRecreateRenderStateContext.h"
@@ -612,14 +611,14 @@ void UStaticMeshComponent::OnCreatePhysicsState()
 	Super::OnCreatePhysicsState();
 
 	bNavigationRelevant = IsNavigationRelevant();
-	UNavigationSystem::UpdateComponentInNavOctree(*this);
+	FNavigationSystem::UpdateComponentData(*this);
 }
 
 void UStaticMeshComponent::OnDestroyPhysicsState()
 {
 	Super::OnDestroyPhysicsState();
 
-	UNavigationSystem::UpdateComponentInNavOctree(*this);
+	FNavigationSystem::UpdateComponentData(*this);
 	bNavigationRelevant = IsNavigationRelevant();
 }
 
@@ -2240,8 +2239,8 @@ bool UStaticMeshComponent::DoCustomNavigableGeometryExport(FNavigableGeometryExp
 	const FVector Scale3D = GetComponentToWorld().GetScale3D();
 	if (GetStaticMesh() && GetStaticMesh()->NavCollision && !Scale3D.IsZero())
 	{
-		UNavCollision* NavCollision = GetStaticMesh()->NavCollision;
-		const bool bExportAsObstacle = bOverrideNavigationExport ? bForceNavigationObstacle : NavCollision->bIsDynamicObstacle;
+		UNavCollisionBase* NavCollision = GetStaticMesh()->NavCollision;
+		const bool bExportAsObstacle = bOverrideNavigationExport ? bForceNavigationObstacle : NavCollision->IsDynamicObstacle();
 
 		if (bExportAsObstacle)
 		{
@@ -2313,8 +2312,8 @@ void UStaticMeshComponent::GetNavigationData(FNavigationRelevantData& Data) cons
 	const FVector Scale3D = GetComponentToWorld().GetScale3D();
 	if (GetStaticMesh() && GetStaticMesh()->NavCollision && !Scale3D.IsZero())
 	{
-		UNavCollision* NavCollision = GetStaticMesh()->NavCollision;
-		const bool bExportAsObstacle = bOverrideNavigationExport ? bForceNavigationObstacle : NavCollision->bIsDynamicObstacle;
+		UNavCollisionBase* NavCollision = GetStaticMesh()->NavCollision;
+		const bool bExportAsObstacle = bOverrideNavigationExport ? bForceNavigationObstacle : NavCollision->IsDynamicObstacle();
 
 		if (bExportAsObstacle)
 		{

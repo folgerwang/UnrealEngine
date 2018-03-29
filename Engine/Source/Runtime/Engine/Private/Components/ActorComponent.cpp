@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 // ActorComponent.cpp: Actor component implementation.
 
 #include "Components/ActorComponent.h"
@@ -11,7 +11,7 @@
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
 #include "Components/PrimitiveComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "ContentStreaming.h"
 #include "ComponentReregisterContext.h"
@@ -1017,10 +1017,12 @@ void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
 
 		for (UObject* Child : Children)
 		{
-			UActorComponent* ChildComponent = Cast<UActorComponent>(Child);
-			if (ChildComponent && !ChildComponent->IsRegistered() && ChildComponent->GetOwner() == MyOwner)
+			if (UActorComponent* ChildComponent = Cast<UActorComponent>(Child))
 			{
-				ChildComponent->RegisterComponentWithWorld(InWorld);
+				if (ChildComponent->bAutoRegister && !ChildComponent->IsRegistered() && ChildComponent->GetOwner() == MyOwner)
+				{
+					ChildComponent->RegisterComponentWithWorld(InWorld);
+				}
 			}
 		}
 
@@ -1780,11 +1782,11 @@ void UActorComponent::HandleCanEverAffectNavigationChange(bool bForceUpdate)
 		if (bCanEverAffectNavigation)
 		{
 			bNavigationRelevant = IsNavigationRelevant();
-			UNavigationSystem::OnComponentRegistered(this);
+			FNavigationSystem::OnComponentRegistered(*this);
 		}
 		else
 		{
-			UNavigationSystem::OnComponentUnregistered(this);
+			FNavigationSystem::OnComponentUnregistered(*this);
 		}
 	}
 }

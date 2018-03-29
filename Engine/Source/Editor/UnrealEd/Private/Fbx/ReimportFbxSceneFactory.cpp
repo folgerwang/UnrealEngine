@@ -54,7 +54,7 @@
 
 #include "ObjectTools.h"
 
-#include "AI/Navigation/NavCollision.h"
+#include "AI/Navigation/NavCollisionBase.h"
 
 #define LOCTEXT_NAMESPACE "FBXSceneReImportFactory"
 
@@ -1426,8 +1426,8 @@ EReimportResult::Type UReimportFbxSceneFactory::ReimportStaticMesh(void* VoidFbx
 	}
 
 	// preserve settings in navcollision subobject
-	UNavCollision* NavCollision = Mesh->NavCollision ?
-		(UNavCollision*)StaticDuplicateObject(Mesh->NavCollision, GetTransientPackage()) :
+	UNavCollisionBase* NavCollision = Mesh->NavCollision ?
+		(UNavCollisionBase*)StaticDuplicateObject(Mesh->NavCollision, GetTransientPackage()) :
 		nullptr;
 
 	// preserve extended bound settings

@@ -221,7 +221,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		static readonly KeyValuePair<string, string>[] WhitelistedCircularDependencies =
 		{
-			new KeyValuePair<string, string>("Engine", "AIModule"),
 			new KeyValuePair<string, string>("Engine", "Landscape"),
 			new KeyValuePair<string, string>("Engine", "UMG"),
 			new KeyValuePair<string, string>("Engine", "GameplayTags"),
@@ -273,6 +272,7 @@ namespace UnrealBuildTool
             new KeyValuePair<string, string>("MeshPaintMode", "ViewportInteraction"),
             new KeyValuePair<string, string>("MeshPaintMode", "VREditor"),
             new KeyValuePair<string, string>("Sequencer", "ViewportInteraction"),
+            new KeyValuePair<string, string>("NavigationSystem", "UnrealEd"),
         };
 
 

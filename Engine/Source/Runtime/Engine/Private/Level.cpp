@@ -19,7 +19,6 @@ Level.cpp: Level-related functions
 #include "GameFramework/Pawn.h"
 #include "Engine/World.h"
 #include "SceneInterface.h"
-#include "AI/Navigation/NavigationData.h"
 #include "PrecomputedLightVolume.h"
 #include "PrecomputedVolumetricLightmap.h"
 #include "Engine/MapBuildDataRegistry.h"
@@ -2114,13 +2113,9 @@ void ULevel::ApplyWorldOffset(const FVector& InWorldOffset, bool bWorldShift)
 			AActor* Actor = Actors[ActorIndex];
 			if (Actor)
 			{
-				FVector Offset = (bWorldShift && Actor->bIgnoresOriginShifting) ? FVector::ZeroVector : InWorldOffset;
-
-				if (!Actor->IsA(ANavigationData::StaticClass())) // Navigation data will be moved in NavigationSystem
-				{
-					FScopeCycleCounterUObject Context(Actor);
-					Actor->ApplyWorldOffset(Offset, bWorldShift);
-				}
+				const FVector Offset = (bWorldShift && Actor->bIgnoresOriginShifting) ? FVector::ZeroVector : InWorldOffset;
+				FScopeCycleCounterUObject Context(Actor);
+				Actor->ApplyWorldOffset(Offset, bWorldShift);
 			}
 		}
 	}

@@ -710,7 +710,7 @@ public:
 
 	/** The class for NavigationSystem **/
 	UPROPERTY()
-	TSubclassOf<class UNavigationSystem>  NavigationSystemClass;
+	TSubclassOf<class UNavigationSystemBase>  NavigationSystemClass;
 	
 	/** Name of behavior tree manager class */
 	UPROPERTY(globalconfig, noclear, meta=(MetaClass="AvoidanceManager", DisplayName="Avoidance Manager Class"))

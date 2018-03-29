@@ -24,7 +24,9 @@
 class FSpeedTreeWind;
 class UAssetUserData;
 class UMaterialInterface;
+class UNavCollisionBase;
 class UMeshDescription;
+
 struct FStaticMeshLODResources;
 
 /*-----------------------------------------------------------------------------
@@ -710,7 +712,7 @@ public:
 
 	/** Pre-build navigation collision */
 	UPROPERTY(VisibleAnywhere, transient, duplicatetransient, Instanced, Category = Navigation)
-	class UNavCollision* NavCollision;
+	UNavCollisionBase* NavCollision;
 public:
 	/**
 	 * Default constructor
@@ -883,9 +885,9 @@ public:
 	 */
 	ENGINE_API void CreateNavCollision(const bool bIsUpdate = false);
 
-	FORCEINLINE const UNavCollision* GetNavCollision() const { return NavCollision; }
+	FORCEINLINE const UNavCollisionBase* GetNavCollision() const { return NavCollision; }
 
-	/** Configures this SM as bHasNavigationData = false and clears stored UNavCollision */
+	/** Configures this SM as bHasNavigationData = false and clears stored NavCollision */
 	ENGINE_API void MarkAsNotHavingNavigationData();
 
 	const FGuid& GetLightingGuid() const

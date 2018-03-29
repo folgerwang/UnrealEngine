@@ -2529,7 +2529,7 @@ void FBlueprintEditorUtils::RemoveGraph(UBlueprint* Blueprint, class UEdGraph* G
 			// Can't just call Remove, the object is wrapped in a struct
 			for(int EditedDocIdx = 0; EditedDocIdx < Blueprint->LastEditedDocuments.Num(); ++EditedDocIdx)
 			{
-				if(Blueprint->LastEditedDocuments[EditedDocIdx].EditedObject == GraphToRemove)
+				if(Blueprint->LastEditedDocuments[EditedDocIdx].EditedObjectPath.ResolveObject() == GraphToRemove)
 				{
 					Blueprint->LastEditedDocuments.RemoveAt(EditedDocIdx);
 					break;
@@ -3873,11 +3873,16 @@ void FBlueprintEditorUtils::SetBlueprintVariableCategory(UBlueprint* Blueprint, 
 		UClass* OuterClass = CastChecked<UClass>(TargetProperty->GetOuter());
 		const bool bIsNativeVar = (OuterClass->ClassGeneratedBy == nullptr);
 
-		// If the category does not change, we will not recompile the Blueprint
-		bool bIsCategoryChanged = false;
 		if (!bIsNativeVar)
 		{
-			TargetProperty->SetMetaData(TEXT("Category"), *SetCategory.ToString());
+			if (UTimelineTemplate* Timeline = Blueprint->FindTimelineTemplateByVariableName(TargetProperty->GetFName()))
+			{
+				Timeline->SetMetaData(TEXT("Category"), *SetCategory.ToString());
+			}
+			else
+			{
+				TargetProperty->SetMetaData(TEXT("Category"), *SetCategory.ToString());
+			}
 			const int32 VarIndex = FBlueprintEditorUtils::FindNewVariableIndex(Blueprint, VarName);
 			if (VarIndex != INDEX_NONE)
 			{
@@ -5917,7 +5922,7 @@ void FBlueprintEditorUtils::PurgeNullGraphs(UBlueprint* Blueprint)
 	CleanNullGraphReferencesInArray(Blueprint, Blueprint->DelegateSignatureGraphs);
 	CleanNullGraphReferencesInArray(Blueprint, Blueprint->MacroGraphs);
 
-	Blueprint->LastEditedDocuments.RemoveAll([](const FEditedDocumentInfo& TestDoc) { return TestDoc.EditedObject == nullptr; });
+	Blueprint->LastEditedDocuments.RemoveAll([](const FEditedDocumentInfo& TestDoc) { return TestDoc.EditedObjectPath.ResolveObject() == nullptr; });
 }
 
 struct FConformCallsToParentFunctionUtils
@@ -9013,7 +9018,7 @@ UClass* FBlueprintEditorUtils::GetNativeParent(const UBlueprint* BP)
 	return Ret;
 }
 
-bool FBlueprintEditorUtils::ImplentsGetWorld(const UBlueprint* BP)
+bool FBlueprintEditorUtils::ImplementsGetWorld(const UBlueprint* BP)
 {
 	if(UClass* NativeParent = GetNativeParent(BP))
 	{

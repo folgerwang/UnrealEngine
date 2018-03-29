@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Classes/Components/SceneComponent.h"
+#include "Components/SceneComponent.h"
 #include "ComposureUVMap.generated.h"
 
 

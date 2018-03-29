@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "InputCoreTypes.h"
 #include "HitProxies.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Engine/Texture2D.h"
 #include "UnrealWidget.h"
@@ -580,11 +580,7 @@ public:
 					if (CollisionComponent)
 					{
 						CollisionComponent->RecreateCollision();
-						UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(Component);
-						if (NavSys)
-						{
-							NavSys->UpdateComponentInNavOctree(*CollisionComponent);
-						}
+						FNavigationSystem::UpdateComponentData(*CollisionComponent);
 					}
 				}
 			}

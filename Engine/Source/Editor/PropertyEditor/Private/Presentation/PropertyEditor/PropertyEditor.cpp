@@ -456,18 +456,6 @@ void FPropertyEditor::SetEditConditionState( bool bShouldEnable )
 	PropertyNode->NotifyPostChange( ChangeEvent, PropertyUtilities->GetNotifyHook() );
 }
 
-void FPropertyEditor::ResetToDefault()
-{
-	// This action must be deferred until next tick so that we avoid accessing invalid data before we have a chance to tick
-	PropertyUtilities->EnqueueDeferredAction( FSimpleDelegate::CreateSP( this, &FPropertyEditor::OnResetToDefault ) );
-}
-
-void FPropertyEditor::CustomResetToDefault(const FResetToDefaultOverride& OnCustomResetToDefault)
-{
-	// This action must be deferred until next tick so that we avoid accessing invalid data before we have a chance to tick
-	PropertyUtilities->EnqueueDeferredAction(FSimpleDelegate::CreateLambda([this, OnCustomResetToDefault](){ this->OnCustomResetToDefault(OnCustomResetToDefault); }));
-}
-
 void FPropertyEditor::OnGetClassesForAssetPicker( TArray<const UClass*>& OutClasses )
 {
 	UProperty* NodeProperty = GetPropertyNode()->GetProperty();
@@ -513,25 +501,6 @@ void FPropertyEditor::OnGetActorFiltersForSceneOutliner( TSharedPtr<SceneOutline
 	OutFilters->AddFilterPredicate( SceneOutliner::FActorFilterPredicate::CreateStatic( &Local::IsFilteredActor, AsShared() ) );
 }
 
-void FPropertyEditor::OnResetToDefault()
-{
-	PropertyNode->ResetToDefault( PropertyUtilities->GetNotifyHook() );
-}
-
-void FPropertyEditor::OnCustomResetToDefault(const FResetToDefaultOverride& OnCustomResetToDefault)
-{
-	if (OnCustomResetToDefault.OnResetToDefaultClicked().IsBound())
-	{
-		PropertyNode->NotifyPreChange( PropertyNode->GetProperty(), PropertyUtilities->GetNotifyHook() );
-
-		OnCustomResetToDefault.OnResetToDefaultClicked().Execute(GetPropertyHandle());
-
-		// Call PostEditchange on all the objects
-		FPropertyChangedEvent ChangeEvent( PropertyNode->GetProperty() );
-		PropertyNode->NotifyPostChange( ChangeEvent, PropertyUtilities->GetNotifyHook() );
-	}
-}
-
 bool FPropertyEditor::IsPropertyEditingEnabled() const
 {
 	return ( PropertyUtilities->IsPropertyEditingEnabled() ) && 
@@ -561,27 +530,6 @@ bool FPropertyEditor::IsEditConditionMet() const
 bool FPropertyEditor::SupportsEditConditionToggle() const
 {
 	return SupportsEditConditionToggle( PropertyNode->GetProperty() );
-}
-
-bool FPropertyEditor::IsResetToDefaultAvailable() const
-{
-	UProperty* Property = PropertyNode->GetProperty();
-
-	// Should not be able to reset fixed size arrays
-	const bool bFixedSized = Property && Property->PropertyFlags & CPF_EditFixedSize;
-	const bool bCanResetToDefault = !(Property && Property->PropertyFlags & CPF_Config);
-
-	return Property && bCanResetToDefault && !bFixedSized && PropertyHandle->DiffersFromDefault();
-}
-
-bool FPropertyEditor::ValueDiffersFromDefault() const
-{
-	return PropertyHandle->DiffersFromDefault();
-}
-
-FText FPropertyEditor::GetResetToDefaultLabel() const
-{
-	return PropertyNode->GetResetToDefaultLabel();
 }
 
 void FPropertyEditor::AddPropertyEditorChild( const TSharedRef<FPropertyEditor>& Child )

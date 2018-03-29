@@ -50,6 +50,7 @@ IMPLEMENT_MODULE(FAIModule, AIModule)
 
 void FAIModule::StartupModule()
 { 
+	FModuleManager::LoadModulePtr< IModuleInterface >("NavigationSystem");
 #if WITH_EDITOR 
 	FModuleManager::LoadModulePtr< IModuleInterface >("AITestSuite");
 

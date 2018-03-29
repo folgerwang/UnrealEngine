@@ -14,6 +14,7 @@ public class FunctionalTesting : ModuleRules
                 "ShaderCore",
                 "Slate",
                 "MessageLog",
+                "NavigationSystem",
                 "AIModule",
                 "RenderCore",
                 "AssetRegistry",
