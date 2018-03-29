@@ -2577,11 +2577,6 @@ void UStaticMesh::SetMeshDescription(int32 LodIndex, class UMeshDescription* InM
 	MeshDescriptions[LodIndex] = InMeshDescription;
 }
 
-int32 UStaticMesh::GetMeshDescriptionCount() const
-{
-	return MeshDescriptions.Num();
-}
-
 UMeshDescription* UStaticMesh::GetOriginalMeshDescription(int32 LodIndex)
 {
 	if (SourceModels.IsValidIndex(LodIndex))

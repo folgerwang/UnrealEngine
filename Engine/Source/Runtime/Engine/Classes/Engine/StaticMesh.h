@@ -690,10 +690,12 @@ public:
 
 	/**
 	 * Accessors for the mesh description use to build the render data
+	 * This is not the data imported it is a modified version to fit the build settings
+	 * Use GetOriginalMeshDescription to get the imported MeshDescription.
+	 * It can be null 
 	 */
 	ENGINE_API UMeshDescription* GetMeshDescription(int32 LodIndex=0) const;
 	ENGINE_API void SetMeshDescription(int32 LodIndex, UMeshDescription* InMeshDescription);
-	ENGINE_API int32 GetMeshDescriptionCount() const;
 
 	/**
 	 * Accessors for the original mesh description imported data
