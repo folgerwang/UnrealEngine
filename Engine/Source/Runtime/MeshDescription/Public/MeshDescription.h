@@ -821,6 +821,12 @@ public:
 	/** Set the vertex instance tangent and normal for all vertex instances in the mesh description. */
 	void ComputeTangentsAndNormals(EComputeNTBsOptions ComputeNTBsOptions);
 
+	/** Determine the edge hardnesses from existing normals */
+	void DetermineEdgeHardnessesFromVertexInstanceNormals( const float Tolerance = KINDA_SMALL_NUMBER );
+
+	/** Determine UV seams from existing vertex instance UVs */
+	void DetermineUVSeamsFromUVs( const int32 UVIndex, const float Tolerance = KINDA_SMALL_NUMBER );
+
 	void ReversePolygonFacing(const FPolygonID PolygonID);
 	void ReverseAllPolygonFacing();
 

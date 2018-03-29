@@ -6,9 +6,16 @@
 #include "WireframeMeshComponent.h"
 
 
-static FColor GetEdgeColor( bool bIsHardEdge )
+static FColor GetEdgeColor( bool bIsHardEdge, bool bIsUVSeam )
 {
-	return bIsHardEdge ? FColor( 0, 76, 76 ) : FColor( 0, 0, 76 );
+	if( bIsUVSeam )
+	{
+		return bIsHardEdge ? FColor( 20, 80, 25 ) : FColor( 0, 46, 10 );
+	}
+	else
+	{
+		return bIsHardEdge ? FColor( 20, 20, 128 ) : FColor( 0, 0, 76 );
+	}
 }
 
 
@@ -61,11 +68,12 @@ void UMeshEditorStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edi
 
 	// Add all edges
 	const TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
+	const TEdgeAttributeArray<bool>& EdgeUVSeams = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsUVSeam );
 	for( const FEdgeID EdgeID : MeshDescription->Edges().GetElementIDs() )
 	{
 		WireframeMesh->AddEdge( EdgeID );
 		WireframeMesh->SetEdgeVertices( EdgeID, EditableMesh->GetEdgeVertex( EdgeID, 0 ), EditableMesh->GetEdgeVertex( EdgeID, 1 ) );
-		WireframeMesh->SetEdgeColor( EdgeID, GetEdgeColor( EdgeHardnesses[ EdgeID ] ) );
+		WireframeMesh->SetEdgeColor( EdgeID, GetEdgeColor( EdgeHardnesses[ EdgeID ], EdgeUVSeams[ EdgeID ] ) );
 	}
 
 	// Add all polygons and edge instances
@@ -223,12 +231,13 @@ void UMeshEditorStaticMeshAdapter::OnCreateEdges( const UEditableMesh* EditableM
 	check( MeshDescription );
 
 	const TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
+	const TEdgeAttributeArray<bool>& EdgeUVSeams = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsUVSeam );
 
 	for( const FEdgeID EdgeID : EdgeIDs )
 	{
 		WireframeMesh->AddEdge( EdgeID );
 		WireframeMesh->SetEdgeVertices( EdgeID, EditableMesh->GetEdgeVertex( EdgeID, 0 ), EditableMesh->GetEdgeVertex( EdgeID, 1 ) );
-		WireframeMesh->SetEdgeColor( EdgeID, GetEdgeColor( EdgeHardnesses[ EdgeID ] ) );
+		WireframeMesh->SetEdgeColor( EdgeID, GetEdgeColor( EdgeHardnesses[ EdgeID ], EdgeUVSeams[ EdgeID ] ) );
 
 		for( const FPolygonID PolygonID : MeshDescription->GetEdgeConnectedPolygons( EdgeID ) )
 		{
@@ -266,9 +275,16 @@ void UMeshEditorStaticMeshAdapter::OnSetEdgesVertices( const UEditableMesh* Edit
 
 void UMeshEditorStaticMeshAdapter::OnSetEdgeAttribute( const UEditableMesh* EditableMesh, const FEdgeID EdgeID, const FMeshElementAttributeData& Attribute )
 {
-	if( Attribute.AttributeName == MeshAttribute::Edge::IsHard )
+	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	check( MeshDescription );
+
+	const TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
+	const TEdgeAttributeArray<bool>& EdgeUVSeams = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsUVSeam );
+
+	if( Attribute.AttributeName == MeshAttribute::Edge::IsHard ||
+		Attribute.AttributeName == MeshAttribute::Edge::IsUVSeam )
 	{
-		WireframeMesh->SetEdgeColor( EdgeID, GetEdgeColor( Attribute.AttributeValue.GetValue<bool>() ) );
+		WireframeMesh->SetEdgeColor( EdgeID, GetEdgeColor( EdgeHardnesses[ EdgeID ], EdgeUVSeams[ EdgeID ] ) );
 	}
 }
 

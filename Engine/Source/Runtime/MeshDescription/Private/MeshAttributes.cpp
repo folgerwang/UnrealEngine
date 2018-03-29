@@ -14,6 +14,7 @@ namespace MeshAttribute
 	const FName VertexInstance::Color( "Color" );
 
 	const FName Edge::IsHard( "IsHard" );
+	const FName Edge::IsUVSeam( "IsUVSeam" );
 	const FName Edge::CreaseSharpness( "CreaseSharpness" );
 
 	const FName Polygon::Normal( "Normal" );

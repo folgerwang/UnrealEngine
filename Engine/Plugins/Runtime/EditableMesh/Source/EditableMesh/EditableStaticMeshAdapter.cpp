@@ -260,9 +260,6 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 
 				const FIndexArrayView RenderingIndices = StaticMeshLOD.IndexBuffer.GetArrayView();
 
-				static TMultiMap<FEdgeID, TTuple<FVertexInstanceID, FVertexInstanceID>> EdgeToVertexInstancePair;
-				EdgeToVertexInstancePair.Reset();
-
 				const uint32 NumSections = StaticMeshLOD.Sections.Num();
 				MeshDescription->ReserveNewPolygonGroups( NumSections );
 
@@ -334,38 +331,6 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 									}
 
 									NewEdgeIDs[ TriangleEdgeNumber ] = NewEdgeID;
-
-									// Determine edge hardness by checking whether overlapping edges' vertex instances have the same normals or not
-									if( !EdgeHardnesses[ NewEdgeID ] )
-									{
-										// Get vertex instance IDs corresponding to the ends of the edge.
-										// Always order them the same for overlapping edges so we compare equivalent vertex instances each time.
-										// For simplicity, we just order them by vertex ID value, lowest/highest.
-										FVertexInstanceID VertexInstanceID0 = TriangleVertexInstanceIDs[ TriangleEdgeNumber ];
-										FVertexInstanceID VertexInstanceID1 = TriangleVertexInstanceIDs[ ( TriangleEdgeNumber + 1 ) % 3 ];
-										if( VertexID0.GetValue() > VertexID1.GetValue() )
-										{
-											Swap( VertexInstanceID0, VertexInstanceID1 );
-										}
-
-										TArray<TTuple<FVertexInstanceID, FVertexInstanceID>> VertexInstancePairs;
-										EdgeToVertexInstancePair.MultiFind( NewEdgeID, VertexInstancePairs );
-
-										for( const TTuple<FVertexInstanceID, FVertexInstanceID>& VertexInstancePair : VertexInstancePairs )
-										{
-											const FVertexInstanceID ExistingVertexInstanceID0 = VertexInstancePair.Get<0>();
-											const FVertexInstanceID ExistingVertexInstanceID1 = VertexInstancePair.Get<1>();
-
-											if( VertexInstanceNormals[ ExistingVertexInstanceID0 ] != VertexInstanceNormals[ VertexInstanceID0 ] ||
-												VertexInstanceNormals[ ExistingVertexInstanceID1 ] != VertexInstanceNormals[ VertexInstanceID1 ] )
-											{
-												EdgeHardnesses[ NewEdgeID ] = true;
-												break;
-											}
-										}
-
-										EdgeToVertexInstancePair.Add( NewEdgeID, MakeTuple( VertexInstanceID0, VertexInstanceID1 ) );
-									}
 								}
 							}
 
@@ -408,36 +373,45 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 						}
 					}
 				}
+
+				// Determine edge hardnesses
+				MeshDescription->DetermineEdgeHardnessesFromVertexInstanceNormals();
+
+				// Determine UV seams
+				if( NumUVs > 0 )
+				{
+					MeshDescription->DetermineUVSeamsFromUVs( 0 );
+				}
+
+				// Cache polygon tangent bases
+				static TArray<FPolygonID> PolygonIDs;
+				PolygonIDs.Reset();
+				for( const FPolygonID PolygonID : EditableMesh->GetMeshDescription()->Polygons().GetElementIDs() )
+				{
+					PolygonIDs.Add( PolygonID );
+				}
+
+				EditableMesh->GeneratePolygonTangentsAndNormals( PolygonIDs );
+
+#if 0
+				// Test tangent generation
+				static TArray<FPolygonID> AllPolygons;
+				AllPolygons.Reset();
+				for( int32 PolygonIndex = 0; PolygonIndex < EditableMesh->Polygons.GetMaxIndex(); ++PolygonIndex )
+				{
+					if( EditableMesh->Polygons.IsAllocated( PolygonIndex ) )
+					{
+						EditableMesh->PolygonsPendingNewTangentBasis.Add( FPolygonID( PolygonIndex ) );
+					}
+				}
+
+				EditableMesh->GenerateTangentsAndNormals();
+#endif
 			}
 		}
 	}
 
 	this->CachedBoundingBoxAndSphere = StaticMesh->GetBounds();
-
-	// Cache polygon tangent bases
-	static TArray<FPolygonID> PolygonIDs;
-	PolygonIDs.Reset();
-	for( const FPolygonID PolygonID : EditableMesh->GetMeshDescription()->Polygons().GetElementIDs() )
-	{
-		PolygonIDs.Add( PolygonID );
-	}
-
-	EditableMesh->GeneratePolygonTangentsAndNormals( PolygonIDs );
-
-#if 0
-	// Test tangent generation
-	static TArray<FPolygonID> AllPolygons;
-	AllPolygons.Reset();
-	for( int32 PolygonIndex = 0; PolygonIndex < EditableMesh->Polygons.GetMaxIndex(); ++PolygonIndex )
-	{
-		if( EditableMesh->Polygons.IsAllocated( PolygonIndex ) )
-		{
-			EditableMesh->PolygonsPendingNewTangentBasis.Add( FPolygonID( PolygonIndex ) );
-		}
-	}
-
-	EditableMesh->GenerateTangentsAndNormals();
-#endif
 
 #if EDITABLE_MESH_USE_OPENSUBDIV
 	EditableMesh->RefreshOpenSubdiv();

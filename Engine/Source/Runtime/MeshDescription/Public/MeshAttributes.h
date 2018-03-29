@@ -27,6 +27,7 @@ namespace MeshAttribute
 	namespace Edge
 	{
 		extern MESHDESCRIPTION_API const FName IsHard;
+		extern MESHDESCRIPTION_API const FName IsUVSeam;
 		extern MESHDESCRIPTION_API const FName CreaseSharpness;
 	}
 

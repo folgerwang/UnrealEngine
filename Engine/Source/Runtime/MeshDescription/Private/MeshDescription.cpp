@@ -1030,6 +1030,132 @@ void UMeshDescription::ComputeTangentsAndNormals(EComputeNTBsOptions ComputeNTBs
 	}
 }
 
+
+void UMeshDescription::DetermineEdgeHardnessesFromVertexInstanceNormals( const float Tolerance )
+{
+	const TVertexInstanceAttributeArray<FVector>& VertexNormals = VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Normal );
+	TEdgeAttributeArray<bool>& EdgeHardnesses = EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
+
+	// Holds unique vertex instance IDs for a given edge vertex
+	TArray<FVertexInstanceID> UniqueVertexInstanceIDs;
+
+	for( const FEdgeID EdgeID : Edges().GetElementIDs() )
+	{
+		// Get list of polygons connected to this edge
+		const TArray<FPolygonID>& ConnectedPolygonIDs = GetEdgeConnectedPolygons( EdgeID );
+		if( ConnectedPolygonIDs.Num() == 0 )
+		{
+			// What does it mean if an edge has no connected polygons? For now we just skip it
+			continue;
+		}
+
+		// Assume by default that the edge is soft - but as soon as any vertex instance belonging to a connected polygon
+		// has a distinct normal from the others (within the given tolerance), we mark it as hard.
+		// The exception is if an edge has exactly one connected polygon: in this case we automatically deem it a hard edge. 
+		bool bEdgeIsHard = ( ConnectedPolygonIDs.Num() == 1 );
+
+		// Examine vertices on each end of the edge, if we haven't yet identified it as 'hard'
+		for( int32 VertexIndex = 0; !bEdgeIsHard && VertexIndex < 2; ++VertexIndex )
+		{
+			const FVertexID VertexID = GetEdgeVertex( EdgeID, VertexIndex );
+
+			const int32 ReservedElements = 4;
+			UniqueVertexInstanceIDs.Reset( ReservedElements );
+
+			// Get a list of all vertex instances for this vertex which form part of any polygon connected to the edge
+			for( const FVertexInstanceID VertexInstanceID : GetVertexVertexInstances( VertexID ) )
+			{
+				for( const FPolygonID PolygonID : GetVertexInstanceConnectedPolygons( VertexInstanceID ) )
+				{
+					if( ConnectedPolygonIDs.Contains( PolygonID ) )
+					{
+						UniqueVertexInstanceIDs.AddUnique( VertexInstanceID );
+						break;
+					}
+				}
+			}
+			check( UniqueVertexInstanceIDs.Num() > 0 );
+
+			// First unique vertex instance is used as a reference against which the others are compared.
+			// (not a perfect approach: really the 'median' should be used as a reference)
+			const FVector ReferenceNormal = VertexNormals[ UniqueVertexInstanceIDs[ 0 ] ];
+			for( int32 Index = 1; Index < UniqueVertexInstanceIDs.Num(); ++Index )
+			{
+				if( !VertexNormals[ UniqueVertexInstanceIDs[ Index ] ].Equals( ReferenceNormal, Tolerance ) )
+				{
+					bEdgeIsHard = true;
+					break;
+				}
+			}
+		}
+
+		EdgeHardnesses[ EdgeID ] = bEdgeIsHard;
+	}
+}
+
+
+void UMeshDescription::DetermineUVSeamsFromUVs( const int32 UVIndex, const float Tolerance )
+{
+	const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = VertexInstanceAttributes().GetAttributes<FVector2D>( MeshAttribute::VertexInstance::TextureCoordinate, UVIndex );
+	TEdgeAttributeArray<bool>& EdgeUVSeams = EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsUVSeam );
+
+	// Holds unique vertex instance IDs for a given edge vertex
+	TArray<FVertexInstanceID> UniqueVertexInstanceIDs;
+
+	for( const FEdgeID EdgeID : Edges().GetElementIDs() )
+	{
+		// Get list of polygons connected to this edge
+		const TArray<FPolygonID>& ConnectedPolygonIDs = GetEdgeConnectedPolygons( EdgeID );
+		if( ConnectedPolygonIDs.Num() == 0 )
+		{
+			// What does it mean if an edge has no connected polygons? For now we just skip it
+			continue;
+		}
+
+		// Assume by default that the edge is not a UV seam - but as soon as any vertex instance belonging to a connected polygon
+		// has a distinct UV from the others (within the given tolerance), we mark it as a UV seam.
+		bool bEdgeIsUVSeam = false;
+
+		// Examine vertices on each end of the edge, if we haven't yet identified it as a UV seam
+		for( int32 VertexIndex = 0; !bEdgeIsUVSeam && VertexIndex < 2; ++VertexIndex )
+		{
+			const FVertexID VertexID = GetEdgeVertex( EdgeID, VertexIndex );
+
+			const int32 ReservedElements = 4;
+			UniqueVertexInstanceIDs.Reset( ReservedElements );
+
+			// Get a list of all vertex instances for this vertex which form part of any polygon connected to the edge
+			for( const FVertexInstanceID VertexInstanceID : GetVertexVertexInstances( VertexID ) )
+			{
+				for( const FPolygonID PolygonID : GetVertexInstanceConnectedPolygons( VertexInstanceID ) )
+				{
+					if( ConnectedPolygonIDs.Contains( PolygonID ) )
+					{
+						UniqueVertexInstanceIDs.AddUnique( VertexInstanceID );
+						break;
+					}
+				}
+			}
+			check( UniqueVertexInstanceIDs.Num() > 0 );
+
+			// First unique vertex instance is used as a reference against which the others are compared.
+			// (not a perfect approach: really the 'median' should be used as a reference)
+			const FVector2D ReferenceUV = VertexUVs[ UniqueVertexInstanceIDs[ 0 ] ];
+			for( int32 Index = 1; Index < UniqueVertexInstanceIDs.Num(); ++Index )
+			{
+				if( !VertexUVs[ UniqueVertexInstanceIDs[ Index ] ].Equals( ReferenceUV, Tolerance ) )
+				{
+					bEdgeIsUVSeam = true;
+					break;
+				}
+			}
+		}
+
+		EdgeUVSeams[ EdgeID ] = bEdgeIsUVSeam;
+	}
+}
+
+
 void UMeshDescription::ReversePolygonFacing(const FPolygonID PolygonID)
 {
 	FMeshPolygon& Polygon = GetPolygon(PolygonID);

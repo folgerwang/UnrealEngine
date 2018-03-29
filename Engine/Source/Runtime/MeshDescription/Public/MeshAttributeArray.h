@@ -42,9 +42,6 @@ public:
 
 	/** Disallow use of the copy constructor to prevent arrays being mistakenly accessed in the UMeshDescription by value */
 	TMeshAttributeArrayBase( const TMeshAttributeArrayBase& ) = delete;
-//	{
-//		static_assert( false, "TMeshAttributeArray must be accessed by reference");
-//	}
 
 	/**
 	 * Custom serialization for TMeshAttributeArrayBase.

@@ -2507,6 +2507,7 @@ void UStaticMesh::RegisterMeshAttributes( UMeshDescription* MeshDescription )
 
 	// Add basic edge attributes
 	MeshDescription->EdgeAttributes().RegisterAttribute<bool>( MeshAttribute::Edge::IsHard, 1, false );
+	MeshDescription->EdgeAttributes().RegisterAttribute<bool>( MeshAttribute::Edge::IsUVSeam, 1, false );
 	MeshDescription->EdgeAttributes().RegisterAttribute<float>( MeshAttribute::Edge::CreaseSharpness, 1, 0.0f, EMeshAttributeFlags::Lerpable );
 
 	// Add basic polygon attributes
