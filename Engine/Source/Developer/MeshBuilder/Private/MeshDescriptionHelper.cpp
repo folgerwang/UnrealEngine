@@ -67,7 +67,8 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 		}
 
 		//This function make sure the Polygon NTB are compute and also remove degenerated triangle from the render mesh description.
-		RenderMeshDescription->ComputePolygonTangentsAndNormals(BuildSettings->bRemoveDegenerates ? SMALL_NUMBER : 0.0f);
+		FMeshDescriptionOperations::CreatePolygonNTB(RenderMeshDescription, ComparisonThreshold);
+		//RenderMeshDescription->ComputePolygonTangentsAndNormals(BuildSettings->bRemoveDegenerates ? SMALL_NUMBER : 0.0f);
 		
 		//Keep the original mesh description NTBs if we do not rebuild the normals or tangents.
 		bool bComputeTangentLegacy = !BuildSettings->bUseMikkTSpace && (BuildSettings->bRecomputeNormals || BuildSettings->bRecomputeTangents);
@@ -98,15 +99,19 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 		{
 			if (!bHasAllNormals)
 			{
-				EComputeNTBsOptions ComputeNTBsOptions = EComputeNTBsOptions::Normals;
-				RenderMeshDescription->ComputeTangentsAndNormals(ComputeNTBsOptions);
+				FMeshDescriptionOperations::CreateNormals(RenderMeshDescription, (FMeshDescriptionOperations::ETangentOptions)TangentOptions, false);
+
+				//EComputeNTBsOptions ComputeNTBsOptions = EComputeNTBsOptions::Normals;
+				//RenderMeshDescription->ComputeTangentsAndNormals(ComputeNTBsOptions);
 			}
 			FMeshDescriptionOperations::CreateMikktTangents(RenderMeshDescription, (FMeshDescriptionOperations::ETangentOptions)TangentOptions);
 		}
 		else if(!bHasAllNormals || !bHasAllTangents)
 		{
-			EComputeNTBsOptions ComputeNTBsOptions = (bHasAllNormals ? EComputeNTBsOptions::None : EComputeNTBsOptions::Normals) | (bHasAllTangents ? EComputeNTBsOptions::None : EComputeNTBsOptions::Tangents);
-			RenderMeshDescription->ComputeTangentsAndNormals(ComputeNTBsOptions);
+			FMeshDescriptionOperations::CreateNormals(RenderMeshDescription, (FMeshDescriptionOperations::ETangentOptions)TangentOptions, true);
+
+			//EComputeNTBsOptions ComputeNTBsOptions = (bHasAllNormals ? EComputeNTBsOptions::None : EComputeNTBsOptions::Normals) | (bHasAllTangents ? EComputeNTBsOptions::None : EComputeNTBsOptions::Tangents);
+			//RenderMeshDescription->ComputeTangentsAndNormals(ComputeNTBsOptions);
 		}
 	}
 

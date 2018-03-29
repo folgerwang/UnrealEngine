@@ -316,18 +316,105 @@ void FMeshDescriptionOperations::ConverToRawMesh(const UMeshDescription* SourceM
 	ConvertHardEdgesToSmoothGroup(SourceMeshDescription, DestinationRawMesh);
 }
 
-void FMeshDescriptionOperations::ConverFromRawMesh(const struct FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription, const TMap<int32, FName>& MaterialMap)
+//We want to fill the UMeshDescription vertex position mesh attribute with the FRawMesh vertex position
+//We will also weld the vertex position (old FRawMesh is not always welded) and construct a mapping array to match the FVertexID
+void FillMeshDescriptionVertexPositionNoDuplicate(const TArray<FVector> &RawMeshVertexPositions, UMeshDescription* DestinationMeshDescription, TArray<FVertexID>& RemapVertexPosition)
+{
+	TVertexAttributeArray<FVector>& VertexPositions = DestinationMeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+
+	const int32 NumVertex = RawMeshVertexPositions.Num();
+
+	TMap<int32, int32> TempRemapVertexPosition;
+	TempRemapVertexPosition.Reserve(NumVertex);
+
+	// Create a list of vertex Z/index pairs
+	TArray<FIndexAndZ> VertIndexAndZ;
+	VertIndexAndZ.Reserve(NumVertex);
+
+	for (int32 VertexIndex = 0; VertexIndex < NumVertex; ++VertexIndex)
+	{
+		new(VertIndexAndZ)FIndexAndZ(VertexIndex, RawMeshVertexPositions[VertexIndex]);
+	}
+
+	// Sort the vertices by z value
+	VertIndexAndZ.Sort(FCompareIndexAndZ());
+
+	int32 VertexCount = 0;
+	// Search for duplicates, quickly!
+	for (int32 i = 0; i < VertIndexAndZ.Num(); i++)
+	{
+		int32 Index_i = VertIndexAndZ[i].Index;
+		if (TempRemapVertexPosition.Contains(Index_i))
+		{
+			continue;
+		}
+		TempRemapVertexPosition.FindOrAdd(Index_i) = VertexCount;
+		// only need to search forward, since we add pairs both ways
+		for (int32 j = i + 1; j < VertIndexAndZ.Num(); j++)
+		{
+			if (FMath::Abs(VertIndexAndZ[j].Z - VertIndexAndZ[i].Z) > SMALL_NUMBER)
+				break; // can't be any more dups
+
+			const FVector& PositionA = *(VertIndexAndZ[i].OriginalVector);
+			const FVector& PositionB = *(VertIndexAndZ[j].OriginalVector);
+
+			if (PositionA.Equals(PositionB, SMALL_NUMBER))
+			{
+				TempRemapVertexPosition.FindOrAdd(VertIndexAndZ[j].Index) = VertexCount;
+			}
+		}
+		VertexCount++;
+	}
+
+	//Make sure the vertex are added in the same order to be lossless when converting the FRawMesh
+	//In case there is a duplicate even reordering it will not be lossless, but MeshDescription do not support
+	//bad data like duplicated vertex position.
+	RemapVertexPosition.AddUninitialized(NumVertex);
+	DestinationMeshDescription->ReserveNewVertices(VertexCount);
+	TArray<FVertexID> UniqueVertexDone;
+	UniqueVertexDone.AddUninitialized(VertexCount);
+	for (int32 VertexIndex = 0; VertexIndex < VertexCount; ++VertexIndex)
+	{
+		UniqueVertexDone[VertexIndex] = FVertexID::Invalid;
+	}
+	for (int32 VertexIndex = 0; VertexIndex < NumVertex; ++VertexIndex)
+	{
+		int32 RealIndex = TempRemapVertexPosition[VertexIndex];
+		if (UniqueVertexDone[RealIndex] != FVertexID::Invalid)
+		{
+			RemapVertexPosition[VertexIndex] = UniqueVertexDone[RealIndex];
+			continue;
+		}
+		FVertexID VertexID = DestinationMeshDescription->CreateVertex();
+		UniqueVertexDone[RealIndex] = VertexID;
+		VertexPositions[VertexID] = RawMeshVertexPositions[VertexIndex];
+		RemapVertexPosition[VertexIndex] = VertexID;
+	}
+}
+
+//Discover degenerated triangle
+bool IsTriangleDegenerated(const FRawMesh &SourceRawMesh, const TArray<FVertexID>& RemapVertexPosition, const int32 VerticeIndexBase)
+{
+	FVertexID VertexIDs[3];
+	for (int32 Corner = 0; Corner < 3; ++Corner)
+	{
+		int32 VerticeIndex = VerticeIndexBase + Corner;
+		VertexIDs[Corner] = RemapVertexPosition[SourceRawMesh.WedgeIndices[VerticeIndex]];
+	}
+	return (VertexIDs[0] == VertexIDs[1] || VertexIDs[0] == VertexIDs[2] || VertexIDs[1] == VertexIDs[2]);
+}
+
+void FMeshDescriptionOperations::ConverFromRawMesh(const FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription, const TMap<int32, FName>& MaterialMap)
 {
 	check(DestinationMeshDescription != nullptr);
 	DestinationMeshDescription->Empty();
 
-	DestinationMeshDescription->ReserveNewVertices(SourceRawMesh.VertexPositions.Num());
 	DestinationMeshDescription->ReserveNewVertexInstances(SourceRawMesh.WedgeIndices.Num());
 	DestinationMeshDescription->ReserveNewPolygons(SourceRawMesh.WedgeIndices.Num() / 3);
-	DestinationMeshDescription->ReserveNewEdges(SourceRawMesh.WedgeIndices.Num() * 2 / 3); //Approximately 2 edges per polygons
-																						   //Gather all array data
-	TVertexAttributeArray<FVector>& VertexPositions = DestinationMeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	//Approximately 2.5 edges per polygons
+	DestinationMeshDescription->ReserveNewEdges(SourceRawMesh.WedgeIndices.Num() * 2.5f / 3);
 
+	//Gather all array data
 	TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = DestinationMeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
 	TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = DestinationMeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
 	TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = DestinationMeshDescription->VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
@@ -350,11 +437,10 @@ void FMeshDescriptionOperations::ConverFromRawMesh(const struct FRawMesh &Source
 		}
 	}
 	VertexInstanceUVs.SetNumIndices(NumTexCoords);
-	for (int32 VertexIndex = 0; VertexIndex < SourceRawMesh.VertexPositions.Num(); ++VertexIndex)
-	{
-		FVertexID VertexID = DestinationMeshDescription->CreateVertex();
-		VertexPositions[VertexID] = SourceRawMesh.VertexPositions[VertexIndex];
-	}
+
+	//Ensure we do not have any duplicate, We found all duplicated vertex and compact them and build a remap indice array to remap the wedgeindices
+	TArray<FVertexID> RemapVertexPosition;
+	FillMeshDescriptionVertexPositionNoDuplicate(SourceRawMesh.VertexPositions, DestinationMeshDescription, RemapVertexPosition);
 
 	bool bHasColors = SourceRawMesh.WedgeColors.Num() > 0;
 	bool bHasTangents = SourceRawMesh.WedgeTangentX.Num() > 0 && SourceRawMesh.WedgeTangentY.Num() > 0;
@@ -367,7 +453,12 @@ void FMeshDescriptionOperations::ConverFromRawMesh(const struct FRawMesh &Source
 	for (int32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
 	{
 		int32 VerticeIndexBase = TriangleIndex * 3;
-
+		//Check if the triangle is degenerated and skip the data if its the case
+		if (IsTriangleDegenerated(SourceRawMesh, RemapVertexPosition, VerticeIndexBase))
+		{
+			continue;
+		}
+		
 		//PolygonGroup
 		FPolygonGroupID PolygonGroupID = FPolygonGroupID::Invalid;
 		FName PolygonGroupImportedMaterialSlotName = NAME_None;
@@ -391,12 +482,13 @@ void FMeshDescriptionOperations::ConverFromRawMesh(const struct FRawMesh &Source
 			PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = PolygonGroupImportedMaterialSlotName == NAME_None ? FName(*FString::Printf(TEXT("MaterialSlot_%d"), MaterialIndex)) : PolygonGroupImportedMaterialSlotName;
 			PolygonGroups.Add(PolygonGroupID);
 		}
-
+		FVertexInstanceID TriangleVertexInstanceIDs[3];
 		for (int32 Corner = 0; Corner < 3; ++Corner)
 		{
 			int32 VerticeIndex = VerticeIndexBase + Corner;
-			FVertexID VertexID(SourceRawMesh.WedgeIndices[VerticeIndex]);
+			FVertexID VertexID = RemapVertexPosition[SourceRawMesh.WedgeIndices[VerticeIndex]];
 			FVertexInstanceID VertexInstanceID = DestinationMeshDescription->CreateVertexInstance(VertexID);
+			TriangleVertexInstanceIDs[Corner] = VertexInstanceID;
 			VertexInstanceColors[VertexInstanceID] = bHasColors ? FLinearColor::FromSRGBColor(SourceRawMesh.WedgeColors[VerticeIndex]) : FLinearColor::White;
 			VertexInstanceTangents[VertexInstanceID] = bHasTangents ? SourceRawMesh.WedgeTangentX[VerticeIndex] : FVector(ForceInitToZero);
 			VertexInstanceBinormalSigns[VertexInstanceID] = bHasTangents ? GetBasisDeterminantSign(SourceRawMesh.WedgeTangentX[VerticeIndex].GetSafeNormal(), SourceRawMesh.WedgeTangentY[VerticeIndex].GetSafeNormal(), SourceRawMesh.WedgeTangentZ[VerticeIndex].GetSafeNormal()) : 0.0f;
@@ -415,7 +507,6 @@ void FMeshDescriptionOperations::ConverFromRawMesh(const struct FRawMesh &Source
 
 		//Create the polygon edges
 		TArray<UMeshDescription::FContourPoint> Contours;
-		// Add the edges of this triangle
 		for (uint32 Corner = 0; Corner < 3; ++Corner)
 		{
 			int32 ContourPointIndex = Contours.AddDefaulted();
@@ -426,8 +517,8 @@ void FMeshDescriptionOperations::ConverFromRawMesh(const struct FRawMesh &Source
 			CornerIndices[1] = (Corner + 1) % 3;
 
 			FVertexID EdgeVertexIDs[2];
-			EdgeVertexIDs[0] = DestinationMeshDescription->GetVertexInstanceVertex(FVertexInstanceID(VerticeIndexBase + CornerIndices[0]));
-			EdgeVertexIDs[1] = DestinationMeshDescription->GetVertexInstanceVertex(FVertexInstanceID(VerticeIndexBase + CornerIndices[1]));
+			EdgeVertexIDs[0] = DestinationMeshDescription->GetVertexInstanceVertex(FVertexInstanceID(TriangleVertexInstanceIDs[CornerIndices[0]]));
+			EdgeVertexIDs[1] = DestinationMeshDescription->GetVertexInstanceVertex(FVertexInstanceID(TriangleVertexInstanceIDs[CornerIndices[1]]));
 
 			FEdgeID MatchEdgeId = DestinationMeshDescription->GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
 			if (MatchEdgeId == FEdgeID::Invalid)
@@ -435,7 +526,7 @@ void FMeshDescriptionOperations::ConverFromRawMesh(const struct FRawMesh &Source
 				MatchEdgeId = DestinationMeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
 			}
 			ContourPoint.EdgeID = MatchEdgeId;
-			ContourPoint.VertexInstanceID = FVertexInstanceID(VerticeIndexBase + CornerIndices[0]);
+			ContourPoint.VertexInstanceID = FVertexInstanceID(TriangleVertexInstanceIDs[CornerIndices[0]]);
 		}
 
 		const FPolygonID NewPolygonID = DestinationMeshDescription->CreatePolygon(PolygonGroupID, Contours);
@@ -443,20 +534,27 @@ void FMeshDescriptionOperations::ConverFromRawMesh(const struct FRawMesh &Source
 		FMeshTriangle& NewTriangle = DestinationMeshDescription->GetPolygonTriangles(NewPolygonID)[NewTriangleIndex];
 		for (int32 Corner = 0; Corner < 3; ++Corner)
 		{
-			FVertexInstanceID VertexInstanceID(VerticeIndexBase + Corner);
+			FVertexInstanceID VertexInstanceID = TriangleVertexInstanceIDs[Corner];
 			NewTriangle.SetVertexInstanceID(Corner, VertexInstanceID);
 		}
 	}
-	DestinationMeshDescription->ComputePolygonTangentsAndNormals(0.0f);
+	//DestinationMeshDescription->ComputePolygonTangentsAndNormals(0.0f);
+	FMeshDescriptionOperations::CreatePolygonNTB(DestinationMeshDescription, 0.0f);
+
+	ConvertSmoothGroupToHardEdges(SourceRawMesh, DestinationMeshDescription);
 
 	//Create the missing normals and tangents, should we use Mikkt space for tangent???
 	if (!bHasNormals || !bHasTangents)
 	{
-		EComputeNTBsOptions ComputeNTBsOptions = (bHasNormals ? EComputeNTBsOptions::None : EComputeNTBsOptions::Normals) | (bHasTangents ? EComputeNTBsOptions::None : EComputeNTBsOptions::Tangents);
-		DestinationMeshDescription->ComputeTangentsAndNormals(ComputeNTBsOptions);
+		//EComputeNTBsOptions ComputeNTBsOptions = (bHasNormals ? EComputeNTBsOptions::None : EComputeNTBsOptions::Normals) | (bHasTangents ? EComputeNTBsOptions::None : EComputeNTBsOptions::Tangents);
+		//DestinationMeshDescription->ComputeTangentsAndNormals(ComputeNTBsOptions);
+		//Create the missing normals and tangents
+		if (!bHasNormals)
+		{
+			CreateNormals(DestinationMeshDescription, ETangentOptions::BlendOverlappingNormals, false);
+		}
+		CreateMikktTangents(DestinationMeshDescription, ETangentOptions::BlendOverlappingNormals);
 	}
-
-	ConvertSmoothGroupToHardEdges(SourceRawMesh, DestinationMeshDescription);
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -13,6 +13,7 @@
 #include "MeshBuilder.h"
 #include "MeshAttributes.h"
 #include "RawMesh.h"
+#include "MeshUtilities.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -25,6 +26,7 @@
 IMPLEMENT_COMPLEX_AUTOMATION_TEST(FMeshDescriptionAutomationTest, "Editor.Meshes.MeshDescription", (EAutomationTestFlags::EditorContext | EAutomationTestFlags::NonNullRHI | EAutomationTestFlags::EngineFilter))
 
 #define ConversionTestData 1
+#define NTB_TestData 2
 
 class FMeshDescriptionTest
 {
@@ -38,6 +40,7 @@ public:
 	FString TestData;
 	bool Execute(FAutomationTestExecutionInfo& ExecutionInfo);
 	bool ConversionTest(FAutomationTestExecutionInfo& ExecutionInfo);
+	bool NTBTest(FAutomationTestExecutionInfo& ExecutionInfo);
 private:
 	bool CompareRawMesh(const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, const FRawMesh& ReferenceRawMesh, const FRawMesh& ResultRawMesh) const;
 	bool CompareMeshDescription(const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, const UMeshDescription* ReferenceMeshDescription, const UMeshDescription* MeshDescription) const;
@@ -87,11 +90,17 @@ private:
 void FMeshDescriptionAutomationTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands) const
 {
 	FMeshDescriptionTests::GetInstance().ClearTests();
-	//Create cube test
+	//Create conversion test
 	FMeshDescriptionTest ConversionTest(TEXT("Conversion test data"), FString::FromInt(ConversionTestData));
 	FMeshDescriptionTests::GetInstance().AddTest(ConversionTest);
 	OutBeautifiedNames.Add(ConversionTest.BeautifiedNames);
 	OutTestCommands.Add(ConversionTest.TestData);
+	//Create NormalTangentBinormal test
+/*	FMeshDescriptionTest NTB_Test(TEXT("Normals Tangents and Binormals test"), FString::FromInt(NTB_TestData));
+	FMeshDescriptionTests::GetInstance().AddTest(NTB_Test);
+	OutBeautifiedNames.Add(NTB_Test.BeautifiedNames);
+	OutTestCommands.Add(NTB_Test.TestData);
+*/
 }
 
 /**
@@ -124,6 +133,9 @@ bool FMeshDescriptionTest::Execute(FAutomationTestExecutionInfo& ExecutionInfo)
 	{
 	case ConversionTestData:
 		bSuccess = ConversionTest(ExecutionInfo);
+		break;
+	case NTB_TestData:
+		bSuccess = NTBTest(ExecutionInfo);
 		break;
 	}
 	return bSuccess;
@@ -484,9 +496,7 @@ bool FMeshDescriptionTest::ConversionTest(FAutomationTestExecutionInfo& Executio
 
 		if (AssetMesh != nullptr)
 		{
-#if WITH_EDITOR
 			AssetMesh->BuildCacheAutomationTestGuid = FGuid::NewGuid();
-#endif
 			TMap<FName, int32> MaterialMap;
 			TMap<int32, FName> MaterialMapInverse;
 			for (int32 MaterialIndex = 0; MaterialIndex < AssetMesh->StaticMaterials.Num(); ++MaterialIndex)
@@ -550,5 +560,162 @@ bool FMeshDescriptionTest::ConversionTest(FAutomationTestExecutionInfo& Executio
 	}
 	//Collect garbage pass to remove everything from memory
 	TryCollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+	return bAllSame;
+}
+
+bool FMeshDescriptionTest::NTBTest(FAutomationTestExecutionInfo& ExecutionInfo)
+{
+	TArray<FString> AssetNames;
+	AssetNames.Add(TEXT("Cone_1"));
+	AssetNames.Add(TEXT("Cone_2"));
+	AssetNames.Add(TEXT("Cube"));
+	AssetNames.Add(TEXT("Patch_1"));
+	AssetNames.Add(TEXT("Patch_2"));
+	AssetNames.Add(TEXT("Patch_3"));
+	AssetNames.Add(TEXT("Patch_4"));
+	AssetNames.Add(TEXT("Patch_5"));
+	AssetNames.Add(TEXT("Pentagone"));
+	AssetNames.Add(TEXT("Sphere_1"));
+	AssetNames.Add(TEXT("Sphere_2"));
+	AssetNames.Add(TEXT("Sphere_3"));
+	AssetNames.Add(TEXT("Torus_1"));
+	AssetNames.Add(TEXT("Torus_2"));
+
+	bool bAllSame = true;
+	for (const FString& AssetName : AssetNames)
+	{
+		FString FullAssetName = TEXT("/Game/Tests/MeshDescription/") + AssetName + TEXT(".") + AssetName;
+		UStaticMesh* AssetMesh = LoadObject<UStaticMesh>(nullptr, *FullAssetName, nullptr, LOAD_None, nullptr);
+
+		if (AssetMesh == nullptr)
+		{
+			continue;
+		}
+		//Dirty the build
+		AssetMesh->BuildCacheAutomationTestGuid = FGuid::NewGuid();
+		UMeshDescription* MeshDescription = AssetMesh->GetOriginalMeshDescription(0);
+		FRawMesh RawMesh;
+		AssetMesh->SourceModels[0].LoadRawMesh(RawMesh);
+
+		//const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+		const TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
+		const TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
+		const TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = MeshDescription->VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
+		const TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
+		const TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		int32 ExistingUVCount = VertexInstanceUVs.GetNumIndices();
+		//Build the normals and tangent and compare the result
+		MeshDescription->ComputePolygonTangentsAndNormals(SMALL_NUMBER);
+		EComputeNTBsOptions ComputeNTBsOptions = EComputeNTBsOptions::Normals | EComputeNTBsOptions::Tangents;
+		MeshDescription->ComputeTangentsAndNormals(ComputeNTBsOptions);
+		//FMeshDescriptionOperations::CreatePolygonNTB(MeshDescription, SMALL_NUMBER);
+		//FMeshDescriptionOperations::CreateNormals(MeshDescription, FMeshDescriptionOperations::ETangentOptions::BlendOverlappingNormals, true);
+
+		IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>(TEXT("MeshUtilities"));
+		FMeshBuildSettings MeshBuildSettings;
+		MeshBuildSettings.bRemoveDegenerates = true;
+		MeshBuildSettings.bUseMikkTSpace = false;
+		MeshUtilities.RecomputeTangentsAndNormalsForRawMesh(true, true, MeshBuildSettings, RawMesh);
+
+		//The normals and tangents of both the meshdescription and the RawMesh should be equal to not break old data
+		if(RawMesh.WedgeIndices.Num() != MeshDescription->VertexInstances().Num())
+		{
+			ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("Test: [Normals Tangents and Binormals test]    Asset: [%s]    Error: The number of vertex instances is not equal between FRawMesh [%d] and UMeshDescription [%d]."),
+				*AssetName,
+				RawMesh.WedgeIndices.Num(),
+				MeshDescription->VertexInstances().Num())));
+			continue;
+		}
+		int32 VertexInstanceIndex = 0;
+		int32 TriangleIndex = 0;
+
+		auto OutputError=[&ExecutionInfo, &AssetName](FString ErrorMessage)
+		{
+			ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("Test: [Normals Tangents and Binormals test]    Asset: [%s]    Error: %s."),
+				*AssetName,
+				*ErrorMessage)));
+		};
+		bool bError = false;
+		for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
+		{
+			if (bError)
+			{
+				break;
+			}
+			const FPolygonGroupID& PolygonGroupID = MeshDescription->GetPolygonPolygonGroup(PolygonID);
+			int32 PolygonIDValue = PolygonID.GetValue();
+			const TArray<FMeshTriangle>& Triangles = MeshDescription->GetPolygonTriangles(PolygonID);
+			for (const FMeshTriangle& MeshTriangle : Triangles)
+			{
+				if (bError)
+				{
+					break;
+				}
+				for (int32 Corner = 0; Corner < 3 && bError == false; ++Corner)
+				{
+					uint32 WedgeIndex = TriangleIndex * 3 + Corner;
+					const FVertexInstanceID VertexInstanceID = MeshTriangle.GetVertexInstanceID(Corner);
+					const int32 VertexInstanceIDValue = VertexInstanceID.GetValue();
+					if (RawMesh.WedgeColors[WedgeIndex] != FLinearColor(VertexInstanceColors[VertexInstanceID]).ToFColor(true))
+					{
+						FString MeshDescriptionColor = FLinearColor(VertexInstanceColors[VertexInstanceID]).ToFColor(true).ToString();
+						OutputError(FString::Printf(TEXT("Vertex color is different between MeshDescription [%s] and FRawMesh [%s].   Indice[%d]")
+							, *MeshDescriptionColor
+							, *(RawMesh.WedgeColors[WedgeIndex].ToString())
+							, VertexInstanceIDValue));
+						bError = true;
+					}
+					if (RawMesh.WedgeIndices[WedgeIndex] != MeshDescription->GetVertexInstanceVertex(VertexInstanceID).GetValue())
+					{
+						OutputError(FString::Printf(TEXT("Vertex index is different between MeshDescription [%d] and FRawMesh [%d].   Indice[%d]")
+							, MeshDescription->GetVertexInstanceVertex(VertexInstanceID).GetValue()
+							, RawMesh.WedgeIndices[WedgeIndex]
+							, VertexInstanceIDValue));
+						bError = true;
+					}
+					if (!RawMesh.WedgeTangentX[WedgeIndex].Equals(VertexInstanceTangents[VertexInstanceID], THRESH_NORMALS_ARE_SAME))
+					{
+						OutputError(FString::Printf(TEXT("Vertex tangent is different between MeshDescription [%s] and FRawMesh [%s].   Indice[%d]")
+							, *(VertexInstanceTangents[VertexInstanceID].ToString())
+							, *(RawMesh.WedgeTangentX[WedgeIndex].ToString())
+							, VertexInstanceIDValue));
+						bError = true;
+					}
+					if (!RawMesh.WedgeTangentY[WedgeIndex].Equals(FVector::CrossProduct(VertexInstanceNormals[VertexInstanceID], VertexInstanceTangents[VertexInstanceID]).GetSafeNormal() * VertexInstanceBinormalSigns[VertexInstanceID], THRESH_NORMALS_ARE_SAME))
+					{
+						FVector MeshDescriptionBinormalResult = FVector::CrossProduct(VertexInstanceNormals[VertexInstanceID], VertexInstanceTangents[VertexInstanceID]).GetSafeNormal() * VertexInstanceBinormalSigns[VertexInstanceID];
+						OutputError(FString::Printf(TEXT("Vertex binormal is different between MeshDescription [%s] and FRawMesh [%s].   Indice[%d]")
+							, *(MeshDescriptionBinormalResult.ToString())
+							, *(RawMesh.WedgeTangentY[WedgeIndex].ToString())
+							, VertexInstanceIDValue));
+						bError = true;
+					}
+					if (!RawMesh.WedgeTangentZ[WedgeIndex].Equals(VertexInstanceNormals[VertexInstanceID], THRESH_NORMALS_ARE_SAME))
+					{
+						OutputError(FString::Printf(TEXT("Vertex normal is different between MeshDescription [%s] and FRawMesh [%s].   Indice[%d]")
+							, *(VertexInstanceNormals[VertexInstanceID].ToString())
+							, *(RawMesh.WedgeTangentZ[WedgeIndex].ToString())
+							, VertexInstanceIDValue));
+						bError = true;
+					}
+
+					for (int32 UVIndex = 0; UVIndex < ExistingUVCount; ++UVIndex)
+					{
+						if (!RawMesh.WedgeTexCoords[UVIndex][WedgeIndex].Equals(VertexInstanceUVs.GetArrayForIndex(UVIndex)[VertexInstanceID], THRESH_UVS_ARE_SAME))
+						{
+							OutputError(FString::Printf(TEXT("Vertex Texture coordinnate is different between MeshDescription [%s] and FRawMesh [%s].   UVIndex[%d]  Indice[%d]")
+								, *(VertexInstanceUVs.GetArrayForIndex(UVIndex)[VertexInstanceID].ToString())
+								, *(RawMesh.WedgeTexCoords[UVIndex][WedgeIndex].ToString())
+								, UVIndex
+								, VertexInstanceIDValue));
+							bError = true;
+						}
+					}
+				}
+				++TriangleIndex;
+			}
+		}
+	}
+
 	return bAllSame;
 }
