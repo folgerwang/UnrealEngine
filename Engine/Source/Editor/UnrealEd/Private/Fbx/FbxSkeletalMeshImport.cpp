@@ -1474,6 +1474,11 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 		return nullptr;
 	}
 
+	// Array of re-import contexts for components using this mesh
+	// Will unregister before import, then re-register afterwards
+	TIndirectArray<FComponentReregisterContext> ComponentContexts;
+	TUniquePtr< FSkinnedMeshComponentRecreateRenderStateContext > SkinnedMeshComponentRecreateRenderStateContext;
+
 	TArray<ClothingAssetUtils::FClothingAssetMeshBinding> ClothingBindings;
 
 	//Backup the data before importing the new one
@@ -1485,6 +1490,10 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 		{
 			Binding.Asset->UnbindFromSkeletalMesh(ExistingSkelMesh, Binding.LODIndex);
 		}
+
+		
+		//Release the Renderdata resources before reimporting the skeletal mesh
+		SkinnedMeshComponentRecreateRenderStateContext = MakeUnique<FSkinnedMeshComponentRecreateRenderStateContext>(ExistingSkelMesh);
 
 		ExistingSkelMesh->PreEditChange(NULL);
 		//The backup of the skeletal mesh data empty the LOD array in the ImportedResource of the skeletal mesh
@@ -1537,10 +1546,6 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 	
 	// Pass the number of texture coordinate sets to the LODModel.  Ensure there is at least one UV coord
 	LODModel.NumTexCoords = FMath::Max<uint32>(1, SkelMeshImportDataPtr->NumTexCoords);
-
-	// Array of re-import contexts for components using this mesh
-	// Will unregister before import, then re-register afterwards
-	TIndirectArray<FComponentReregisterContext> ComponentContexts;
 
 	if(ImportSkeletalMeshArgs.bCreateRenderData )
 	{
@@ -1799,8 +1804,6 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 			}
 		}
 	}
-
-	// ComponentContexts will now go out of scope, causing components to be re-registered
 
 	// ComponentContexts will now go out of scope, causing components to be re-registered
 
