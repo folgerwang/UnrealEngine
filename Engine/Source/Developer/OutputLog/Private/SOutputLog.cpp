@@ -11,6 +11,7 @@
 #include "Framework/Commands/UIAction.h"
 #include "Framework/Text/SlateTextLayout.h"
 #include "Framework/Text/SlateTextRun.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SMenuAnchor.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
@@ -127,7 +128,7 @@ bool FConsoleCommandExecutor::Exec(const TCHAR* Input)
 			}
 		}
 
-		if (!bWasHandled && !Player)
+		if (!bWasHandled)
 		{
 			if (GIsEditor)
 			{
@@ -186,7 +187,7 @@ SConsoleInputBox::SConsoleInputBox()
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-void SConsoleInputBox::Construct( const FArguments& InArgs )
+void SConsoleInputBox::Construct(const FArguments& InArgs)
 {
 	OnConsoleCommandExecuted = InArgs._OnConsoleCommandExecuted;
 	ConsoleCommandCustomExec = InArgs._ConsoleCommandCustomExec;
@@ -253,6 +254,8 @@ void SConsoleInputBox::Construct( const FArguments& InArgs )
 			[
 				SNew(SBox)
 				.HeightOverride(250) // avoids flickering, ideally this would be adaptive to the content without flickering
+				.MinDesiredWidth(300)
+				.MaxDesiredWidth(this, &SConsoleInputBox::GetSelectionListMaxWidth)
 				[
 					SAssignNew(SuggestionListView, SListView< TSharedPtr<FString> >)
 					.ListItemsSource(&Suggestions.SuggestionsList)
@@ -309,6 +312,13 @@ void SConsoleInputBox::SuggestionSelectionChanged(TSharedPtr<FString> NewValue, 
 //	FSlateApplication::Get().SetKeyboardFocus( WidgetToFocusPath, EFocusCause::SetDirectly );
 }
 
+FOptionalSize SConsoleInputBox::GetSelectionListMaxWidth() const
+{
+	// Limit the width of the suggestions list to the work area that this widget currently resides on
+	const FSlateRect WidgetRect(GetCachedGeometry().GetAbsolutePosition(), GetCachedGeometry().GetAbsolutePosition() + GetCachedGeometry().GetAbsoluteSize());
+	const FSlateRect WidgetWorkArea = FSlateApplication::Get().GetWorkArea(WidgetRect);
+	return FMath::Max(300.0f, WidgetWorkArea.GetSize().X - 12.0f);
+}
 
 TSharedRef<ITableRow> SConsoleInputBox::MakeSuggestionListItemWidget(TSharedPtr<FString> Text, const TSharedRef<STableViewBase>& OwnerTable)
 {
@@ -322,14 +332,10 @@ TSharedRef<ITableRow> SConsoleInputBox::MakeSuggestionListItemWidget(TSharedPtr<
 	return
 		SNew(STableRow< TSharedPtr<FString> >, OwnerTable)
 		[
-			SNew(SBox)
-			.MinDesiredWidth(300)
-			[
-				SNew(STextBlock)
-				.Text(FText::FromString(SanitizedText))
-				.TextStyle(FEditorStyle::Get(), "Log.Normal")
-				.HighlightText(Suggestions.SuggestionsHighlight)
-			]
+			SNew(STextBlock)
+			.Text(FText::FromString(SanitizedText))
+			.TextStyle(FEditorStyle::Get(), "Log.Normal")
+			.HighlightText(Suggestions.SuggestionsHighlight)
 		];
 }
 

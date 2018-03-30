@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ModuleDescriptor.h"
+#include "Misc/App.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Dom/JsonObject.h"
 #include "Modules/ModuleManager.h"
@@ -194,6 +195,28 @@ bool FModuleDescriptor::Read(const FJsonObject& Object, FText& OutFailReason)
 		}
 	}
 
+	// Read the whitelisted target configurations
+	TSharedPtr<FJsonValue> WhitelistTargetConfigurationsValue = Object.TryGetField(TEXT("WhitelistTargetConfigurations"));
+	if (WhitelistTargetConfigurationsValue.IsValid() && WhitelistTargetConfigurationsValue->Type == EJson::Array)
+	{
+		const TArray< TSharedPtr< FJsonValue > >& ConfigsArray = WhitelistTargetConfigurationsValue->AsArray();
+		for (int Idx = 0; Idx < ConfigsArray.Num(); Idx++)
+		{
+			WhitelistTargetConfigurations.Add(ConfigsArray[Idx]->AsString());
+		}
+	}
+
+	// Read the blacklisted target configurations
+	TSharedPtr<FJsonValue> BlacklistTargetConfigurationsValue = Object.TryGetField(TEXT("BlacklistTargetConfigurations"));
+	if (BlacklistTargetConfigurationsValue.IsValid() && BlacklistTargetConfigurationsValue->Type == EJson::Array)
+	{
+		const TArray< TSharedPtr< FJsonValue > >& ConfigsArray = BlacklistTargetConfigurationsValue->AsArray();
+		for (int Idx = 0; Idx < ConfigsArray.Num(); Idx++)
+		{
+			BlacklistTargetConfigurations.Add(ConfigsArray[Idx]->AsString());
+		}
+	}
+
 	// Read the additional dependencies
 	TSharedPtr<FJsonValue> AdditionalDependenciesValue = Object.TryGetField(TEXT("AdditionalDependencies"));
 	if (AdditionalDependenciesValue.IsValid() && AdditionalDependenciesValue->Type == EJson::Array)
@@ -284,6 +307,24 @@ void FModuleDescriptor::Write(TJsonWriter<>& Writer) const
 		}
 		Writer.WriteArrayEnd();
 	}
+	if (WhitelistTargetConfigurations.Num() > 0)
+	{
+		Writer.WriteArrayStart(TEXT("WhitelistTargetConfigurations"));
+		for (int Idx = 0; Idx < WhitelistTargetConfigurations.Num(); Idx++)
+		{
+			Writer.WriteValue(WhitelistTargetConfigurations[Idx]);
+		}
+		Writer.WriteArrayEnd();
+	}
+	if (BlacklistTargetConfigurations.Num() > 0)
+	{
+		Writer.WriteArrayStart(TEXT("BlacklistTargetConfigurations"));
+		for (int Idx = 0; Idx < BlacklistTargetConfigurations.Num(); Idx++)
+		{
+			Writer.WriteValue(BlacklistTargetConfigurations[Idx]);
+		}
+		Writer.WriteArrayEnd();
+	}
 	if (AdditionalDependencies.Num() > 0)
 	{
 		Writer.WriteArrayStart(TEXT("AdditionalDependencies"));
@@ -312,7 +353,9 @@ void FModuleDescriptor::WriteArray(TJsonWriter<>& Writer, const TCHAR* Name, con
 bool FModuleDescriptor::IsCompiledInCurrentConfiguration() const
 {
 	// Cache the string for the current platform
-	static FString UBTPlatform(FPlatformMisc::GetUBTPlatform());
+	static const FString UBTPlatform = FPlatformMisc::GetUBTPlatform();
+	static const FString UBTTarget = FPlatformMisc::GetUBTTarget();
+	static const FString UBTTargetConfiguration = EBuildConfigurations::ToString(FApp::GetBuildConfiguration());
 
 	// Check the platform is whitelisted
 	if(WhitelistPlatforms.Num() > 0 && !WhitelistPlatforms.Contains(UBTPlatform))
@@ -326,8 +369,6 @@ bool FModuleDescriptor::IsCompiledInCurrentConfiguration() const
 		return false;
 	}
 
-	static FString UBTTarget(FPlatformMisc::GetUBTTarget());
-
 	// Check the target is whitelisted
 	if (WhitelistTargets.Num() > 0 && !WhitelistTargets.Contains(UBTTarget))
 	{
@@ -336,6 +377,18 @@ bool FModuleDescriptor::IsCompiledInCurrentConfiguration() const
 
 	// Check the target is not blacklisted
 	if (BlacklistTargets.Num() > 0 && BlacklistTargets.Contains(UBTTarget))
+	{
+		return false;
+	}
+
+	// Check the target configuration is whitelisted
+	if (WhitelistTargetConfigurations.Num() > 0 && !WhitelistTargetConfigurations.Contains(UBTTargetConfiguration))
+	{
+		return false;
+	}
+
+	// Check the target configuration is not blacklisted
+	if (BlacklistTargetConfigurations.Num() > 0 && BlacklistTargetConfigurations.Contains(UBTTargetConfiguration))
 	{
 		return false;
 	}

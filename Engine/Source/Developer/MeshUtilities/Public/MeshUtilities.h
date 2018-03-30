@@ -58,6 +58,45 @@ struct FBoneVertInfo
 	TArray<FVector>	Normals;
 };
 
+/**
+* Container to hold overlapping corners. For a vertex, lists all the overlapping vertices
+*/
+struct FOverlappingCorners
+{
+	FOverlappingCorners() : bFinishedAdding(false)
+	{
+	}
+
+	/* Resets, pre-allocates memory, marks all indices as not overlapping in preperation for calls to Add() */
+	void Init(int32 NumIndices);
+
+	/* Add overlapping indices pair */
+	void Add(int32 Key, int32 Value);
+
+	/* Sorts arrays, converts sets to arrays for sorting and to allow simple iterating code, prevents additional adding */
+	void FinishAdding();
+
+	/* Estimate memory allocated */
+	uint32 GetAllocatedSize(void) const;
+
+	/** 
+	* @return array of sorted overlapping indices including input 'Key', empty array for indices that have no overlaps.
+	*/
+	const TArray<int32>& FindIfOverlapping(int32 Key) const
+	{
+		check(bFinishedAdding);
+		int32 ContainerIndex = IndexBelongsTo[Key];
+		return (ContainerIndex != INDEX_NONE) ? Arrays[ContainerIndex] : EmptyArray;
+	}
+
+private:
+	TArray<int32> IndexBelongsTo;
+	TArray< TArray<int32> > Arrays;
+	TArray< TSet<int32> > Sets;
+	TArray<int32> EmptyArray;
+	bool bFinishedAdding;
+};
+
 class IMeshUtilities : public IModuleInterface
 {
 public:
@@ -176,7 +215,7 @@ public:
 		TArray<TArray<uint32> >& OutPerSectionIndices,
 		TArray<int32>& OutWedgeMap,
 		const FRawMesh& RawMesh,
-		const TMultiMap<int32, int32>& OverlappingCorners,
+		const FOverlappingCorners& OverlappingCorners,
 		const TMap<uint32, uint32>& MaterialToSectionMapping,
 		float ComparisonThreshold,
 		FVector BuildScale,
@@ -332,12 +371,12 @@ public:
 	 * @param InVertices Vertices that make up the mesh
 	 * @param InIndices Indices for the Vertex array
 	 * @param bIgnoreDegenerateTriangles Indicates if we should skip degenerate triangles
-	 * @param OutOverlappingCorners MultiMap to hold the overlapping corners. For a vertex, lists all the overlapping vertices.
+	 * @param OutOverlappingCorners Container to hold the overlapping corners. For a vertex, lists all the overlapping vertices.
 	 */
-	virtual void CalculateOverlappingCorners(const TArray<FVector>& InVertices, const TArray<uint32>& InIndices, bool bIgnoreDegenerateTriangles, TMultiMap<int32, int32>& OutOverlappingCorners) const = 0;
+	virtual void CalculateOverlappingCorners(const TArray<FVector>& InVertices, const TArray<uint32>& InIndices, bool bIgnoreDegenerateTriangles, FOverlappingCorners& OutOverlappingCorners) const = 0;
 
 	virtual void RecomputeTangentsAndNormalsForRawMesh(bool bRecomputeTangents, bool bRecomputeNormals, const FMeshBuildSettings& InBuildSettings, FRawMesh &OutRawMesh) const = 0;
-	virtual void RecomputeTangentsAndNormalsForRawMesh(bool bRecomputeTangents, bool bRecomputeNormals, const FMeshBuildSettings& InBuildSettings, const TMultiMap<int32, int32>& InOverlappingCorners, FRawMesh &OutRawMesh) const = 0;
+	virtual void RecomputeTangentsAndNormalsForRawMesh(bool bRecomputeTangents, bool bRecomputeNormals, const FMeshBuildSettings& InBuildSettings, const FOverlappingCorners& InOverlappingCorners, FRawMesh &OutRawMesh) const = 0;
 
-	virtual void FindOverlappingCorners(TMultiMap<int32, int32>& OutOverlappingCorners, const TArray<FVector>& InVertices, const TArray<uint32>& InIndices, float ComparisonThreshold) const = 0;
+	virtual void FindOverlappingCorners(FOverlappingCorners& OutOverlappingCorners, const TArray<FVector>& InVertices, const TArray<uint32>& InIndices, float ComparisonThreshold) const = 0;
 };

@@ -10714,7 +10714,8 @@ static const TCHAR* GetInputTypeName(uint8 InputType)
 		TEXT("T2d"),
 		TEXT("TCube"),
 		TEXT("B"),
-		TEXT("MA")
+		TEXT("MA"),
+		TEXT("TExt")
 	};
 
 	check(InputType < FunctionInput_MAX);
@@ -11220,7 +11221,8 @@ void UMaterialExpressionFunctionInput::GetCaption(TArray<FString>& OutCaptions) 
 		TEXT("Texture2D"),
 		TEXT("TextureCube"),
 		TEXT("StaticBool"),
-		TEXT("MaterialAttributes")
+		TEXT("MaterialAttributes"),
+		TEXT("External")
 	};
 	check(InputType < FunctionInput_MAX);
 	OutCaptions.Add(FString(TEXT("Input ")) + InputName.ToString() + TEXT(" (") + TypeNames[InputType] + TEXT(")"));
@@ -11256,6 +11258,7 @@ int32 UMaterialExpressionFunctionInput::CompilePreviewValue(FMaterialCompiler* C
 			return FMaterialAttributeDefinitionMap::CompileDefaultExpression(Compiler, AttributeID);
 		case FunctionInput_Texture2D:
 		case FunctionInput_TextureCube:
+		case FunctionInput_TextureExternal:
 		case FunctionInput_StaticBool:
 			return Compiler->Errorf(TEXT("Missing Preview connection for function input '%s'"), *InputName.ToString());
 		default:
@@ -11275,7 +11278,8 @@ int32 UMaterialExpressionFunctionInput::Compile(class FMaterialCompiler* Compile
 		MCT_Texture2D,
 		MCT_TextureCube,
 		MCT_StaticBool,
-		MCT_MaterialAttributes
+		MCT_MaterialAttributes,
+		MCT_TextureExternal
 	};
 	check(InputType < FunctionInput_MAX);
 
@@ -11412,6 +11416,8 @@ uint32 UMaterialExpressionFunctionInput::GetInputType(int32 InputIndex)
 		return MCT_Texture2D;
 	case FunctionInput_TextureCube:
 		return MCT_TextureCube;
+	case FunctionInput_TextureExternal:
+		return MCT_TextureExternal;
 	case FunctionInput_StaticBool:
 		return MCT_StaticBool;
 	case FunctionInput_MaterialAttributes:

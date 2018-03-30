@@ -171,6 +171,23 @@ public:
 	}
 
 	/**
+	 * If true, the viewport's texture alpha is ignored when performing blending.  In this case only the viewport tint opacity is used
+	 * If false, the texture alpha is used during blending
+	 * 
+	 * @param bIgnoreTextureAlpha If texture alpha should be ignored when blending.
+	 */
+	void SetIgnoreTextureAlpha(const bool bInIgnoreTextureAlpha)
+	{
+		bIgnoreTextureAlpha = bInIgnoreTextureAlpha;
+	}
+
+	/** @return Whether or not to ignore texture alpha when blending */
+	bool GetIgnoreTextureAlpha(void) const
+	{
+		return bIgnoreTextureAlpha;
+	}
+
+	/**
 	 * Sets whether stereo rendering is allowed for this viewport.  Advanced use only
 	 * 
 	 * @param	bInEnableStereoRendering	Whether stereo rendering should be allowed for this viewport

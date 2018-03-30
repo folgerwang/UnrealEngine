@@ -2707,7 +2707,7 @@ void FSlateApplication::UnregisterOnWindowActionNotification(FDelegateHandle Han
 	}
 }
 
-TSharedPtr<SWindow> FSlateApplication::FindBestParentWindowForDialogs(const TSharedPtr<SWidget>& InWidget)
+TSharedPtr<SWindow> FSlateApplication::FindBestParentWindowForDialogs(const TSharedPtr<SWidget>& InWidget, const ESlateParentWindowSearchMethod InParentWindowSearchMethod)
 {
 	TSharedPtr<SWindow> ParentWindow = ( InWidget.IsValid() ) ? FindWidgetWindow(InWidget.ToSharedRef()) : TSharedPtr<SWindow>();
 
@@ -2715,7 +2715,7 @@ TSharedPtr<SWindow> FSlateApplication::FindBestParentWindowForDialogs(const TSha
 	{
 		// First check the active top level window.
 		TSharedPtr<SWindow> ActiveTopWindow = GetActiveTopLevelWindow();
-		if ( ActiveTopWindow.IsValid() && ActiveTopWindow->IsRegularWindow() )
+		if ( ActiveTopWindow.IsValid() && ActiveTopWindow->IsRegularWindow() && InParentWindowSearchMethod == ESlateParentWindowSearchMethod::ActiveWindow )
 		{
 			ParentWindow = ActiveTopWindow;
 		}
@@ -2737,9 +2737,9 @@ TSharedPtr<SWindow> FSlateApplication::FindBestParentWindowForDialogs(const TSha
 	return ParentWindow;
 }
 
-const void* FSlateApplication::FindBestParentWindowHandleForDialogs(const TSharedPtr<SWidget>& InWidget)
+const void* FSlateApplication::FindBestParentWindowHandleForDialogs(const TSharedPtr<SWidget>& InWidget, const ESlateParentWindowSearchMethod InParentWindowSearchMethod)
 {
-	TSharedPtr<SWindow> ParentWindow = FindBestParentWindowForDialogs(InWidget);
+	TSharedPtr<SWindow> ParentWindow = FindBestParentWindowForDialogs(InWidget, InParentWindowSearchMethod);
 
 	const void* ParentWindowWindowHandle = nullptr;
 	if ( ParentWindow.IsValid() && ParentWindow->GetNativeWindow().IsValid() )

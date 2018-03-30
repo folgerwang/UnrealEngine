@@ -117,7 +117,7 @@ public:
 protected:
 
 	/** Array of user data stored with the component */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Instanced, Category = AssetUserData)
 	TArray<UAssetUserData*> AssetUserData;
 
 	/** 

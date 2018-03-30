@@ -10,7 +10,8 @@
 #if WITH_EDITOR
 #include "ISourceControlModule.h"
 #include "ISourceControlProvider.h"
-#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "SourceControlHelpers.h"
 #endif
 
 DEFINE_LOG_CATEGORY_STATIC(GroundTruthLog, Log, Log)

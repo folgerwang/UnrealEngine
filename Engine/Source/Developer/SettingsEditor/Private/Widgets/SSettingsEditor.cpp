@@ -161,11 +161,10 @@ void SSettingsEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 		
 		if (PropertyChangedEvent.GetNumObjectsBeingEdited() > 0)
 		{
-			const UObject* ObjectBeingEdited = PropertyChangedEvent.GetObjectBeingEdited(0);
+			UObject* ObjectBeingEdited = (UObject*)PropertyChangedEvent.GetObjectBeingEdited(0);
 
 			// Get the section from the edited object.  We cannot use the selected section as multiple sections can be shown at once in the settings details panel.
 			ISettingsSectionPtr Section = Model->GetSectionFromSectionObject(ObjectBeingEdited);
-			if(Section.IsValid())
 			{
 				FString RelativePath;
 				bool bIsSourceControlled = false;
@@ -194,7 +193,10 @@ void SSettingsEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 					SettingsHelpers::MakeWritable(FullPath);
 				}
 			
-				RecordPreferenceChangedAnalytics(Section, PropertyChangedEvent);
+				if (Section.IsValid())
+				{
+					RecordPreferenceChangedAnalytics(Section, PropertyChangedEvent);
+				}
 
 				// Determine if the Property is an Array or Array Element
 				bool bIsArrayOrArrayElement = PropertyThatChanged->GetActiveMemberNode()->GetValue()->IsA(UArrayProperty::StaticClass()) 
@@ -207,11 +209,11 @@ void SSettingsEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 				bool bIsMapOrMapElement = PropertyThatChanged->GetActiveMemberNode()->GetValue()->IsA(UMapProperty::StaticClass())
 					|| ((Outer != nullptr) && Outer->IsA(UMapProperty::StaticClass()));
 
-				if (Section->GetSettingsObject()->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig) && !bIsArrayOrArrayElement && !bIsSetOrSetElement && !bIsMapOrMapElement)
+				if (ObjectBeingEdited->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig) && !bIsArrayOrArrayElement && !bIsSetOrSetElement && !bIsMapOrMapElement)
 				{
-					Section->GetSettingsObject()->UpdateSinglePropertyInConfigFile(PropertyThatChanged->GetActiveMemberNode()->GetValue(), Section->GetSettingsObject()->GetDefaultConfigFilename());
+					ObjectBeingEdited->UpdateSinglePropertyInConfigFile(PropertyThatChanged->GetActiveMemberNode()->GetValue(), ObjectBeingEdited->GetDefaultConfigFilename());
 				}
-				else
+				else if (Section.IsValid())
 				{
 					Section->Save();
 				}

@@ -57,6 +57,11 @@ public:
 		return Ticker;
 	}
 
+	virtual FSimpleMulticastDelegate& GetOnTickPreEngineCompleted() override
+	{
+		return OnTickPreEngineCompleted;
+	}
+
 	virtual void LockToTimecode(bool Locked) override
 	{
 		TimecodeLocked = Locked;
@@ -95,6 +100,8 @@ public:
 		}
 
 		Clock.TickInput();
+
+		OnTickPreEngineCompleted.Broadcast();
 	}
 
 	virtual void TickPreSlate() override
@@ -158,6 +165,9 @@ private:
 
 	/** High-frequency ticker thread. */
 	FRunnableThread* TickerThread;
+
+	/** Delegate to receive TickPreEngine */
+	FSimpleMulticastDelegate OnTickPreEngineCompleted;
 
 	/** Whether media objects should lock to the media clock's time code. */
 	bool TimecodeLocked;

@@ -1921,7 +1921,7 @@ namespace AutomationTool
 			}
 
             List<UnrealTargetPlatform> ClientTargetPlatformTypes = ClientTargetPlatforms.ConvertAll(x => x.Type).Distinct().ToList();
-            var Properties = ProjectUtils.GetProjectProperties(RawProjectPath, ClientTargetPlatformTypes, RunAssetNativization);
+            var Properties = ProjectUtils.GetProjectProperties(RawProjectPath, ClientTargetPlatformTypes, ClientConfigsToBuild, RunAssetNativization);
 
 			bIsCodeBasedProject = Properties.bIsCodeBasedProject;			
 			DetectedTargets = Properties.Targets;

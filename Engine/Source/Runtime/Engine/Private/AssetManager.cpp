@@ -24,7 +24,7 @@
 
 #define LOCTEXT_NAMESPACE "AssetManager"
 
-DEFINE_LOG_CATEGORY_STATIC(LogAssetManager, Log, All);
+DEFINE_LOG_CATEGORY(LogAssetManager);
 
 /** Structure defining the current loading state of an asset */
 struct FPrimaryAssetLoadState

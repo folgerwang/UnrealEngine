@@ -1553,13 +1553,13 @@ public:
 	* Given an optional widget, try and get the most suitable parent window to use with dialogs (such as file and directory pickers).
 	* This will first try and get the window that owns the widget (if provided), before falling back to using the MainFrame window.
 	*/
-	TSharedPtr<SWindow> FindBestParentWindowForDialogs(const TSharedPtr<SWidget>& InWidget);
+	TSharedPtr<SWindow> FindBestParentWindowForDialogs(const TSharedPtr<SWidget>& InWidget, const ESlateParentWindowSearchMethod InParentWindowSearchMethod = ESlateParentWindowSearchMethod::ActiveWindow);
 
 	/**
 	* Given an optional widget, try and get the most suitable parent window handle to use with dialogs (such as file and directory pickers).
 	* This will first try and get the window that owns the widget (if provided), before falling back to using the MainFrame window.
 	*/
-	const void* FindBestParentWindowHandleForDialogs(const TSharedPtr<SWidget>& InWidget);
+	const void* FindBestParentWindowHandleForDialogs(const TSharedPtr<SWidget>& InWidget, const ESlateParentWindowSearchMethod InParentWindowSearchMethod = ESlateParentWindowSearchMethod::ActiveWindow);
 
 public:
 #if WITH_EDITORONLY_DATA

@@ -23,6 +23,8 @@
 #include "GameFramework/Actor.h"
 #include "Model.h"
 #include "Misc/FeedbackContext.h"
+#include "AssetExportTask.h"
+#include "UObject/GCObjectScopeGuard.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogExporter, Log, All);
 
@@ -203,150 +205,38 @@ void UExporter::ExportToOutputDevice(const FExportObjectInnerContext* Context, U
 int32 UExporter::ExportToFile( UObject* Object, UExporter* InExporter, const TCHAR* Filename, bool InSelectedOnly, bool NoReplaceIdentical, bool Prompt )
 {
 #if WITH_EDITOR
-	check(Object);
-
-	CurrentFilename = Filename;
-
-	UExporter*	Exporter	= InExporter;
-	int32		Result		= 0;
-	FString		Extension;
-
-	if (!Exporter)
-	{
-		// look for an exporter with all possible extensions, so an exporter can have something like *.xxx.yyy as an extension
-		int32 SearchStart = 0;
-		int32 DotLocation;
-		while (!Exporter && (DotLocation = CurrentFilename.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromStart, SearchStart)) != INDEX_NONE)
-		{
-			// get everything after the current .
-			Extension = CurrentFilename.Mid(DotLocation + 1);
-
-			// try to find an exporter with it
-			Exporter = FindExporter( Object, *Extension );
-
-			// skip past the dot in case we look again
-			SearchStart = DotLocation + 1;
-		}
-	}
-
-	if( !Exporter )
-	{
-		UE_LOG(LogExporter, Warning, TEXT("No %s exporter found for %s"), *Extension, *Object->GetFullName() );
-		CurrentFilename = TEXT("");
-		return 0;
-	}
-
-	Exporter->bSelectedOnly = InSelectedOnly;
-
-	if( Exporter->bText )
-	{
-		FStringOutputDevice Buffer;
-		const FExportObjectInnerContext Context;
-		ExportToOutputDevice( &Context, Object, Exporter, Buffer, *Extension, 0, PPF_ExportsNotFullyQualified, InSelectedOnly );
-		if ( Buffer.Len() == 0 )
-		{
-			Result = -1;
-		}
-		else
-		{
-			if( NoReplaceIdentical )
-			{
-				FString FileBytes;
-				if ( FFileHelper::LoadFileToString(FileBytes,Filename) && FCString::Strcmp(*Buffer,*FileBytes) == 0 )
-				{
-					UE_LOG(LogExporter, Log,  TEXT("Not replacing %s because identical"), Filename );
-					Result = 1;
-					goto Done;
-				}
-
-				if( Prompt )
-				{
-					if( !GWarn->YesNof( FText::Format( NSLOCTEXT("Core", "Overwrite", "The file '{0}' needs to be updated.  Do you want to overwrite the existing version?"), FText::FromString( Filename ) ) ) )
-					{
-						Result = 1;
-						goto Done;
-					}
-				}
-			}
-			if( !FFileHelper::SaveStringToFile( Buffer, Filename ) )
-			{
-	#if 0
-				if( GWarn->YesNof( FText::Format( NSLOCTEXT("Core", "OverwriteReadOnly", "'{0}' is marked read-only.  Would you like to try to force overwriting it?"), FText::FromString( Filename ) ) ) )
-				{
-					IFileManager::Get().Delete( Filename, 0, 1 );
-					if( FFileHelper::SaveStringToFile( Buffer, Filename ) )
-					{
-						Result = 1;
-						goto Done;
-					}
-				}
-	#endif
-				UE_LOG(LogExporter, Error, TEXT("Error exporting %s: couldn't open file '%s'"), *Object->GetFullName(), Filename);
-				goto Done;
-			}
-			Result = 1;
-		}
-	}
-	else
-	{
-		for( int32 i = 0; i < Exporter->GetFileCount(); i++ )
-		{
-			FBufferArchive Buffer;
-			if( ExportToArchive( Object, Exporter, Buffer, *Extension, i ) )
-			{
-				FString UniqueFilename = Exporter->GetUniqueFilename( Filename, i );
-
-				if( NoReplaceIdentical )
-				{
-					TArray<uint8> FileBytes;
-
-					if(	FFileHelper::LoadFileToArray( FileBytes, *UniqueFilename )
-					&&	FileBytes.Num() == Buffer.Num()
-					&&	FMemory::Memcmp( &FileBytes[ 0 ], &Buffer[ 0 ], Buffer.Num() ) == 0 )
-					{
-						UE_LOG(LogExporter, Log,  TEXT( "Not replacing %s because identical" ), *UniqueFilename );
-						Result = 1;
-						goto Done;
-					}
-					if( Prompt )
-					{
-						if( !GWarn->YesNof( FText::Format( NSLOCTEXT("Core", "Overwrite", "The file '{0}' needs to be updated.  Do you want to overwrite the existing version?"), FText::FromString( UniqueFilename ) ) ) )
-						{
-							Result = 1;
-							goto Done;
-						}
-					}
-				}
-
-				if( !FFileHelper::SaveArrayToFile( Buffer, *UniqueFilename ) )
-				{
-					UE_LOG(LogExporter, Error, TEXT("Error exporting %s: couldn't open file '%s'"), *Object->GetFullName(), *UniqueFilename);
-					goto Done;
-				}
-			}
-		}
-		Result = 1;
-	}
-Done:
-	CurrentFilename = TEXT("");
-
-	return Result;
+	UAssetExportTask* ExportTask = NewObject<UAssetExportTask>();
+	FGCObjectScopeGuard ExportTaskGuard(ExportTask);
+	ExportTask->Object = Object;
+	ExportTask->Exporter = InExporter;
+	ExportTask->Filename = Filename;
+	ExportTask->bSelected = InSelectedOnly;
+	ExportTask->bReplaceIdentical = !NoReplaceIdentical;
+	ExportTask->bPrompt = Prompt;
+	ExportTask->bUseFileArchive = false;
+	ExportTask->bWriteEmptyFiles = false;
+	ExportTask->bAutomated = false;
+	return RunAssetExportTask(ExportTask) ? 1 : 0;
 #else
 	return 0;
 #endif
 }
 
 
-int32 UExporter::ExportToFileEx( FExportToFileParams& ExportParams )
+bool UExporter::RunAssetExportTask(class UAssetExportTask* Task)
 {
 #if WITH_EDITOR
-	check(ExportParams.Object);
+	check(Task);
 
-	CurrentFilename = ExportParams.Filename;
+	CurrentFilename = Task->Filename;
+	struct FScopedCleanup
+	{
+		~FScopedCleanup() { UExporter::CurrentFilename = TEXT(""); }
+	};
+	FScopedCleanup ScopedCleanup;
 
-	UExporter*	Exporter	= ExportParams.Exporter;
-	FString		Extension	= FPaths::GetExtension(ExportParams.Filename);
-	int32		Result		= 0;
+	UExporter*	Exporter	= Task->Exporter;
+	FString		Extension	= FPaths::GetExtension(Task->Filename);
 
 	if (!Exporter)
 	{
@@ -359,7 +249,7 @@ int32 UExporter::ExportToFileEx( FExportToFileParams& ExportParams )
 			Extension = CurrentFilename.Mid(DotLocation + 1);
 
 			// try to find an exporter with it
-			Exporter = FindExporter( ExportParams.Object, *Extension );
+			Exporter = FindExporter(Task->Object, *Extension );
 
 			// skip past the dot in case we look again
 			SearchStart = DotLocation + 1;
@@ -368,25 +258,26 @@ int32 UExporter::ExportToFileEx( FExportToFileParams& ExportParams )
 
 	if( !Exporter )
 	{
-		UE_LOG(LogExporter, Warning, TEXT("No %s exporter found for %s"), *Extension, *(ExportParams.Object->GetFullName()) );
-		CurrentFilename = TEXT("");
-		return 0;
+		Task->Errors.Add(FString::Printf(TEXT("No %s exporter found for %s"), *Extension, *(Task->Object->GetFullName())));
+		UE_LOG(LogExporter, Warning, TEXT("%s"), *Task->Errors.Last());
+		return false;
 	}
 
-	Exporter->bSelectedOnly = ExportParams.InSelectedOnly;
+	Exporter->ExportTask = Task;
+	Exporter->bSelectedOnly = Task->bSelected;
 
-	FOutputDevice* TextBuffer = NULL;
+	TSharedPtr<FOutputDevice> TextBuffer;
 	if( Exporter->bText )
 	{
 		bool bIsFileDevice = false;
-		FString TempFile = FPaths::GetPath(ExportParams.Filename);
-		if (Exporter->bForceFileOperations || ExportParams.bUseFileArchive)
+		FString TempFile = FPaths::GetPath(Task->Filename);
+		if (Exporter->bForceFileOperations || Task->bUseFileArchive)
 		{
 			IFileManager::Get().MakeDirectory(*TempFile);
 
 			TempFile += TEXT("/UnrealExportFile.tmp");
-			TextBuffer = new FOutputDeviceFile(*TempFile);
-			if (TextBuffer)
+			TextBuffer = MakeShareable(new FOutputDeviceFile(*TempFile));
+			if (TextBuffer.IsValid())
 			{
 				TextBuffer->SetSuppressEventTag(true);
 				TextBuffer->SetAutoEmitLineTerminator(false);
@@ -394,67 +285,65 @@ int32 UExporter::ExportToFileEx( FExportToFileParams& ExportParams )
 			}
 		}
 
-		if (TextBuffer == NULL)
+		if (!TextBuffer.IsValid())
 		{
-			if (ExportParams.bUseFileArchive)
+			if (Task->bUseFileArchive)
 			{
 				UE_LOG(LogExporter, Warning, TEXT("Failed to create file output device... defaulting to string buffer"));
 			}
-			TextBuffer = new FStringOutputDevice();
+			TextBuffer = MakeShareable(new FStringOutputDevice());
 		}
-		const FExportObjectInnerContext Context(ExportParams.IgnoreObjectList);
-		ExportToOutputDevice( &Context, ExportParams.Object, Exporter, *TextBuffer, *Extension, 0, PPF_ExportsNotFullyQualified, ExportParams.InSelectedOnly );
+		const FExportObjectInnerContext Context(Task->IgnoreObjectList);
+		ExportToOutputDevice(&Context, Task->Object, Exporter, *TextBuffer, *Extension, 0, PPF_ExportsNotFullyQualified, Task->bSelected);
 		if (bIsFileDevice)
 		{
 			TextBuffer->TearDown();
-			IFileManager::Get().Move(ExportParams.Filename, *TempFile, 1, 1);
+			IFileManager::Get().Move(*Task->Filename, *TempFile, 1, 1);
 		}
 		else
 		{
-			FStringOutputDevice& StringBuffer = *((FStringOutputDevice*)TextBuffer);
+			FStringOutputDevice& StringBuffer = *((FStringOutputDevice*)TextBuffer.Get());
 			if ( StringBuffer.Len() == 0 )
 			{
-				Result = -1;
+				// non-fatal
+				return true;
 			}
 			else
 			{
-				if( ExportParams.NoReplaceIdentical )
+				if ( !Task->bReplaceIdentical )
 				{
 					FString FileBytes;
 					if
-						(	FFileHelper::LoadFileToString(FileBytes,ExportParams.Filename)
+						(	FFileHelper::LoadFileToString(FileBytes, *Task->Filename)
 						&&	FCString::Strcmp(*StringBuffer,*FileBytes)==0 )
 					{
-						UE_LOG(LogExporter, Log,  TEXT("Not replacing %s because identical"), ExportParams.Filename );
-						Result = 1;
-						goto Done;
+						UE_LOG(LogExporter, Log, TEXT("Not replacing %s because identical"), *Task->Filename);
+						return true;
 					}
-					if( ExportParams.Prompt )
+					if( Task->bPrompt )
 					{
-						if( !GWarn->YesNof( FText::Format( NSLOCTEXT("Core", "Overwrite", "The file '{0}' needs to be updated.  Do you want to overwrite the existing version?"), FText::FromString(  ExportParams.Filename ) ) ) )
+						if( !GWarn->YesNof(FText::Format(NSLOCTEXT("Core", "Overwrite", "The file '{0}' needs to be updated.  Do you want to overwrite the existing version?"), FText::FromString(  Task->Filename ) ) ) )
 						{
-							Result = 1;
-							goto Done;
+							return true;
 						}
 					}
 				}
-				if( !FFileHelper::SaveStringToFile( StringBuffer, ExportParams.Filename ) )
+				if(!FFileHelper::SaveStringToFile( StringBuffer, *Task->Filename ) )
 				{
 #if 0
-					if( GWarn->YesNof( FText::Format( NSLOCTEXT("Core", "OverwriteReadOnly", "'{0}' is marked read-only.  Would you like to try to force overwriting it?"), FText::FromString( ExportParams.Filename ) ) ) )
+					if(GWarn->YesNof(FText::Format(NSLOCTEXT("Core", "OverwriteReadOnly", "'{0}' is marked read-only.  Would you like to try to force overwriting it?"), FText::FromString(Task->Filename))))
 					{
-						IFileManager::Get().Delete( ExportParams.Filename, 0, 1 );
-						if( FFileHelper::SaveStringToFile( StringBuffer, ExportParams.Filename ) )
+						IFileManager::Get().Delete( Task->Filename, 0, 1 );
+						if(FFileHelper::SaveStringToFile( StringBuffer, *Task->Filename ) )
 						{
-							Result = 1;
-							goto Done;
+							return true;
 						}
 					}
 #endif
-					UE_LOG(LogExporter, Error, TEXT("%s"), *FString::Printf( TEXT("Error exporting %s: couldn't open file '%s'"), *(ExportParams.Object->GetFullName()), ExportParams.Filename));
-					goto Done;
+					UE_LOG(LogExporter, Error, TEXT("%s"), *FString::Printf(TEXT("Error exporting %s: couldn't open file '%s'"), *(Task->Object->GetFullName()), *Task->Filename));
+					return false;
 				}
-				Result = 1;
+				return true;
 			}
 		}
 	}
@@ -463,11 +352,11 @@ int32 UExporter::ExportToFileEx( FExportToFileParams& ExportParams )
 		for( int32 i = 0; i < Exporter->GetFileCount(); i++ )
 		{
 			FBufferArchive Buffer;
-			if( ExportToArchive( ExportParams.Object, Exporter, Buffer, *Extension, i ) )
+			if(ExportToArchive(Task->Object, Exporter, Buffer, *Extension, i))
 			{
-				FString UniqueFilename = Exporter->GetUniqueFilename( ExportParams.Filename, i );
+				FString UniqueFilename = Exporter->GetUniqueFilename(*Task->Filename, i);
 
-				if( ExportParams.NoReplaceIdentical )
+				if(!Task->bReplaceIdentical)
 				{
 					TArray<uint8> FileBytes;
 
@@ -476,43 +365,72 @@ int32 UExporter::ExportToFileEx( FExportToFileParams& ExportParams )
 					&&	FMemory::Memcmp( &FileBytes[ 0 ], &Buffer[ 0 ], Buffer.Num() ) == 0 )
 					{
 						UE_LOG(LogExporter, Log,  TEXT( "Not replacing %s because identical" ), *UniqueFilename );
-						Result = 1;
-						goto Done;
+						return true;
 					}
-					if( ExportParams.Prompt )
+					if(Task->bPrompt)
 					{
 						if( !GWarn->YesNof( FText::Format( NSLOCTEXT("Core", "Overwrite", "The file '{0}' needs to be updated.  Do you want to overwrite the existing version?"), FText::FromString( UniqueFilename ) ) ) )
 						{
-							Result = 1;
-							goto Done;
+							return true;
 						}
 					}
 				}
 
-				if ( !ExportParams.WriteEmptyFiles && !Buffer.Num() )
+				if (!Task->bWriteEmptyFiles && !Buffer.Num())
 				{
-					Result = 1;
-					goto Done;
+					return true;
 				}
 
 				if( !FFileHelper::SaveArrayToFile( Buffer, *UniqueFilename ) )
 				{
-					UE_LOG(LogExporter, Error, TEXT("Error exporting %s: couldn't open file '%s'"), *(ExportParams.Object->GetFullName()), *UniqueFilename);
-					goto Done;
+					Task->Errors.Add(FString::Printf(TEXT("Error exporting %s: couldn't open file '%s'"), *(Task->Object->GetFullName()), *UniqueFilename));
+					UE_LOG(LogExporter, Error, TEXT("%s"), *Task->Errors.Last());
+					return false;
 				}
 			}
 		}
-		Result = 1;
+		return true;
 	}
-Done:
-	if ( TextBuffer != NULL )
-	{
-		delete TextBuffer;
-		TextBuffer = NULL;
-	}
-	CurrentFilename = TEXT("");
+	return false;
+#else
+	return false;
+#endif
+}
 
-	return Result;
+bool UExporter::RunAssetExportTasks(const TArray<UAssetExportTask*>& ExportTasks)
+{
+#if WITH_EDITOR
+	bool bSuccess = true;
+	for (UAssetExportTask* Task : ExportTasks)
+	{
+		if (!RunAssetExportTask(Task))
+		{
+			bSuccess = false;
+		}
+	}
+	return bSuccess;
+#else
+	return false;
+#endif
+}
+
+int32 UExporter::ExportToFileEx( FExportToFileParams& ExportParams )
+{
+#if WITH_EDITOR
+	check(ExportParams.Object);
+	UAssetExportTask* ExportTask = NewObject<UAssetExportTask>();
+	FGCObjectScopeGuard ExportTaskGuard(ExportTask);
+	ExportTask->Object = ExportParams.Object;
+	ExportTask->Exporter = ExportParams.Exporter;
+	ExportTask->Filename = ExportParams.Filename;
+	ExportTask->bSelected = ExportParams.InSelectedOnly;
+	ExportTask->bReplaceIdentical = !ExportParams.NoReplaceIdentical;
+	ExportTask->bPrompt = ExportParams.Prompt;
+	ExportTask->bUseFileArchive = ExportParams.bUseFileArchive;
+	ExportTask->bWriteEmptyFiles = ExportParams.WriteEmptyFiles;
+	ExportTask->IgnoreObjectList = ExportParams.IgnoreObjectList;
+	ExportTask->bAutomated = false;
+	return RunAssetExportTask(ExportTask) ? 1 : 0;
 #else
 	return 0;
 #endif
@@ -595,7 +513,7 @@ FExportObjectInnerContext::FExportObjectInnerContext()
 }
 
 
-FExportObjectInnerContext::FExportObjectInnerContext(TArray<UObject*>& ObjsToIgnore)
+FExportObjectInnerContext::FExportObjectInnerContext(const TArray<UObject*>& ObjsToIgnore)
 {
 	// For each object . . .
 	for (UObject* InnerObj : TObjectRange<UObject>(RF_ClassDefaultObject, true, EInternalObjectFlags::PendingKill))

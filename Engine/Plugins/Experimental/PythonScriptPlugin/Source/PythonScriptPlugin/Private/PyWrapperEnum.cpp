@@ -244,7 +244,7 @@ struct FPythonGeneratedEnumUtil
 		}
 
 		// Build the definition data for the new enum value
-		UPythonGeneratedEnum::FEnumValueDef& EnumValueDef = *InEnum->EnumValueDefs[InEnum->EnumValueDefs.Add(MakeShared<UPythonGeneratedEnum::FEnumValueDef>())];
+		UPythonGeneratedEnum::FEnumValueDef& EnumValueDef = *InEnum->EnumValueDefs.Add_GetRef(MakeShared<UPythonGeneratedEnum::FEnumValueDef>());
 		EnumValueDef.Value = EnumValue;
 		EnumValueDef.Name = InFieldName;
 

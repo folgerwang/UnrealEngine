@@ -53,6 +53,17 @@ public:
 	{
 		return false; // override in child classes, if supported
 	}
+	
+	/**
+	 * Query the number of samples for the specified caching state.
+	 *
+	 * @param State The sample state we're interested in.
+	 * @return Sample count.
+	 */
+	virtual int32 GetSampleCount(EMediaCacheState State) const
+	{
+		return 0; // override in child classes, if supported
+	}
 
 public:
 

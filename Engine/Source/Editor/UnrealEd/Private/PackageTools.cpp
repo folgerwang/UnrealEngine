@@ -21,6 +21,7 @@
 #include "SourceControlOperations.h"
 #include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "Editor.h"
 #include "Dialogs/Dialogs.h"
 #include "Toolkits/AssetEditorManager.h"

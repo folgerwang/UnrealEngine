@@ -552,7 +552,7 @@ public:
 	 * @param bParseStatistics
 	 * @return bool
 	 */
-	bool OpenFile( FString Filename, bool bParseStatistics, bool bForSceneInfo = false );
+	bool OpenFile(FString Filename);
 	
 	/**
 	 * Import Fbx file.

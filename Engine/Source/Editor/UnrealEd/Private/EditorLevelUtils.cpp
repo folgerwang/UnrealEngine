@@ -1083,11 +1083,11 @@ void UEditorLevelUtils::GetWorlds(UWorld* InWorld, TArray<UWorld*>& OutWorlds, b
 				const ULevel* Level = StreamingLevel->GetLoadedLevel();
 
 				// This should always be the case for valid level names as the Editor preloads all packages.
-				if (Level != NULL)
+				if (Level)
 				{
 					// Newer levels have their packages' world as the outer.
 					UWorld* World = Cast<UWorld>(Level->GetOuter());
-					if (World != NULL)
+					if (World)
 					{
 						OutWorlds.AddUnique(World);
 					}
@@ -1097,14 +1097,13 @@ void UEditorLevelUtils::GetWorlds(UWorld* InWorld, TArray<UWorld*>& OutWorlds, b
 	}
 
 	// Levels can be loaded directly without StreamingLevel facilities
-	for (int32 LevelIndex = 0; LevelIndex < InWorld->GetLevels().Num(); ++LevelIndex)
+	for (ULevel* Level : InWorld->GetLevels())
 	{
-		ULevel* Level = InWorld->GetLevel(LevelIndex);
 		if (Level)
 		{
 			// Newer levels have their packages' world as the outer.
 			UWorld* World = Cast<UWorld>(Level->GetOuter());
-			if (World != NULL)
+			if (World)
 			{
 				OutWorlds.AddUnique(World);
 			}

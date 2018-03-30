@@ -24,6 +24,8 @@ THIRD_PARTY_INCLUDES_END
 
 DEFINE_LOG_CATEGORY_STATIC(LogICUInternationalization, Log, All);
 
+static_assert(sizeof(UChar) == 2, "UChar (from ICU) is assumed to always be 2-bytes!");
+
 namespace
 {
 	struct FICUOverrides

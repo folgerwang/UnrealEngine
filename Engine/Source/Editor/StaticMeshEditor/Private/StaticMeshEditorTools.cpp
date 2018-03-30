@@ -2228,33 +2228,8 @@ void FMeshMaterialsLayout::GetMaterials(IMaterialListBuilder& ListBuilder)
 void FMeshMaterialsLayout::OnMaterialChanged(UMaterialInterface* NewMaterial, UMaterialInterface* PrevMaterial, int32 MaterialIndex, bool bReplaceAll)
 {
 	UStaticMesh& StaticMesh = GetStaticMesh();
-	FScopedTransaction ScopeTransaction(LOCTEXT("StaticMeshEditorMaterialChanged", "Staticmesh editor: Material changed"));
-
-	// flag the property (Materials) we're modifying so that not all of the object is rebuilt.
-	UProperty* ChangedProperty = NULL;
-	ChangedProperty = FindField<UProperty>(UStaticMesh::StaticClass(), "StaticMaterials");
-	check(ChangedProperty);
-	StaticMesh.PreEditChange(ChangedProperty);
-
-	if (StaticMesh.StaticMaterials.IsValidIndex(MaterialIndex))
-	{
-		StaticMesh.StaticMaterials[MaterialIndex].MaterialInterface = NewMaterial;
-		if (NewMaterial != nullptr)
-		{
-			//Set the Material slot name to a good default one
-			if (StaticMesh.StaticMaterials[MaterialIndex].MaterialSlotName == NAME_None)
-			{
-				StaticMesh.StaticMaterials[MaterialIndex].MaterialSlotName = NewMaterial->GetFName();
-			}
-			//Set the original fbx material name so we can re-import correctly
-			if (StaticMesh.StaticMaterials[MaterialIndex].ImportedMaterialSlotName == NAME_None)
-			{
-				StaticMesh.StaticMaterials[MaterialIndex].ImportedMaterialSlotName = NewMaterial->GetFName();
-			}
-		}
-	}
-
-	CallPostEditChange(ChangedProperty);
+	StaticMesh.SetMaterial(MaterialIndex, NewMaterial);
+	StaticMeshEditor.RefreshViewport();
 }
 
 TSharedRef<SWidget> FMeshMaterialsLayout::OnGenerateWidgetsForMaterial(UMaterialInterface* Material, int32 SlotIndex)

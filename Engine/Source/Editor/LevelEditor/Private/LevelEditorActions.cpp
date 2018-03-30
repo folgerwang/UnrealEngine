@@ -18,6 +18,7 @@
 #include "Materials/Material.h"
 #include "Editor/EditorPerProjectUserSettings.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "Factories/BlueprintFactory.h"
@@ -2216,7 +2217,7 @@ void FLevelEditorActionCallbacks::CheckOutProjectSettingsConfig( )
 	FString ConfigFilePath = FPaths::ConvertRelativePathToFull(FString::Printf(TEXT("%sDefaultEngine.ini"), *FPaths::SourceConfigDir()));
 	if(ISourceControlModule::Get().IsEnabled())
 	{
-		SourceControlHelpers::CheckOutFile(ConfigFilePath);
+		USourceControlHelpers::CheckOutOrAddFile(ConfigFilePath);
 	}
 	else
 	{

@@ -174,7 +174,7 @@ class BuildPlugin : BuildCommand
 				bool bBuildDeveloperTools = (TargetType == TargetType.Editor || TargetType == TargetType.Program);
 				bool bBuildEditor = (TargetType == TargetType.Editor);
 				bool bBuildRequiresCookedData = (TargetType != TargetType.Editor && TargetType != TargetType.Program);
-				if (Module.IsCompiledInConfiguration(Platform, TargetType, bBuildDeveloperTools, bBuildEditor, bBuildRequiresCookedData))
+				if (Module.IsCompiledInConfiguration(Platform, Configuration, TargetType, bBuildDeveloperTools, bBuildEditor, bBuildRequiresCookedData))
 				{
 					bCompilePlatform = true;
 				}

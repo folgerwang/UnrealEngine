@@ -15,6 +15,8 @@
 #include "Materials/Material.h"
 #include "Editor/EditorPerProjectUserSettings.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
+#include "SourceControlOperations.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "Settings/EditorLoadingSavingSettings.h"
 #include "ThumbnailRendering/ThumbnailManager.h"

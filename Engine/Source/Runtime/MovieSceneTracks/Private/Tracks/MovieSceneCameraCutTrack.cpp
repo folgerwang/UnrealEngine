@@ -124,7 +124,7 @@ FFrameNumber UMovieSceneCameraCutTrack::FindEndTimeForCameraCut( FFrameNumber St
 
 	for( UMovieSceneSection* Section : Sections )
 	{
-		if( Section->HasStartFrame() && Section->GetInclusiveStartFrame() >= StartTime )
+		if( Section->HasStartFrame() && Section->GetInclusiveStartFrame() > StartTime )
 		{
 			ExclusiveEndTime = Section->GetInclusiveStartFrame();
 			break;

@@ -38,7 +38,7 @@ struct CORE_API FFileHelper
 	static void BufferToString( FString& Result, const uint8* Buffer, int32 Size );
 
 	/**
-	 * Load a binary file to a dynamic array.
+	 * Load a binary file to a dynamic array with two uninitialized bytes at end as padding.
 	 *
 	 * @param Result    Receives the contents of the file
 	 * @param Filename  The file to read

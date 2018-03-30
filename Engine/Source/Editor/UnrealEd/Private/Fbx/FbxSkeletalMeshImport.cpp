@@ -1491,7 +1491,7 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 			Binding.Asset->UnbindFromSkeletalMesh(ExistingSkelMesh, Binding.LODIndex);
 		}
 
-
+		
 		//Release the Renderdata resources before reimporting the skeletal mesh
 		SkinnedMeshComponentRecreateRenderStateContext = MakeUnique<FSkinnedMeshComponentRecreateRenderStateContext>(ExistingSkelMesh);
 
@@ -3607,7 +3607,7 @@ class FAsyncImportMorphTargetWork : public FNonAbandonableTask
 public:
 	FAsyncImportMorphTargetWork(FSkeletalMeshLODModel* InLODModel, const FReferenceSkeleton& InRefSkeleton, const FSkeletalMeshImportData& InBaseImportData, TArray<FVector>&& InMorphLODPoints,
 		FBXImportOptions* InImportOptions, TArray< FMorphTargetDelta >& InMorphDeltas, TArray<uint32>& InBaseIndexData, TArray< uint32 >& InBaseWedgePointIndices,
-		TMap<uint32,uint32>& InWedgePointToVertexIndexMap, const TMultiMap<int32, int32>& InOverlappingCorners,
+		TMap<uint32,uint32>& InWedgePointToVertexIndexMap, const FOverlappingCorners& InOverlappingCorners,
 		const TSet<uint32> InModifiedPoints, const TMultiMap< int32, int32 >& InWedgeToFaces, const FMeshDataBundle& InMeshDataBundle, const TArray<FVector>& InTangentZ)
 		: LODModel(InLODModel)
 		, RefSkeleton(InRefSkeleton)
@@ -3634,8 +3634,9 @@ public:
 		WasProcessed.Empty(MeshDataBundle.Indices.Num());
 		WasProcessed.AddZeroed(MeshDataBundle.Indices.Num());
 
-		TArray< int32 > OverlappingWedges;
 		TArray< int32 > WedgeFaces;
+		TArray< int32 > OverlappingWedgesDummy;
+		TArray< int32 > OtherOverlappingWedgesDummy;
 
 		// For each ModifiedPoints, reset the tangents for the affected wedges
 		for (int32 WedgeIdx = 0; WedgeIdx < MeshDataBundle.Indices.Num(); ++WedgeIdx)
@@ -3646,9 +3647,7 @@ public:
 			{
 				TangentZ[ WedgeIdx ] = FVector::ZeroVector;
 
-				OverlappingWedges.Reset();
-				OverlappingCorners.MultiFind( WedgeIdx, OverlappingWedges );
-				OverlappingWedges.Add( WedgeIdx );
+				const TArray<int32>& OverlappingWedges = FindIncludingNoOverlapping(OverlappingCorners, WedgeIdx, OverlappingWedgesDummy);
 
 				for ( const int32 OverlappingWedgeIndex : OverlappingWedges )
 				{
@@ -3670,9 +3669,7 @@ public:
 
 							TangentZ[ WedgeIndex ] = FVector::ZeroVector;
 
-							TArray< int32 > OtherOverlappingWedges;
-							OverlappingCorners.MultiFind( WedgeIndex, OtherOverlappingWedges );
-							OtherOverlappingWedges.Add( WedgeIndex );
+							const TArray<int32>& OtherOverlappingWedges = FindIncludingNoOverlapping(OverlappingCorners, WedgeIndex, OtherOverlappingWedgesDummy);
 
 							for ( const int32 OtherDupVert : OtherOverlappingWedges )
 							{
@@ -3792,6 +3789,22 @@ public:
 	}
 
 private:
+
+	const TArray<int32>& FindIncludingNoOverlapping(const FOverlappingCorners& Corners, int32 Key, TArray<int32>& NoOverlapping)
+	{
+		const TArray<int32>& Found = Corners.FindIfOverlapping(Key);
+		if (Found.Num() > 0)
+		{
+			return Found;
+		}
+		else
+		{
+			NoOverlapping.Reset(1);
+			NoOverlapping.Add(Key);
+			return NoOverlapping;
+		}
+	}
+
 	FSkeletalMeshLODModel* LODModel;
 	// @todo not thread safe
 	const FReferenceSkeleton& RefSkeleton;
@@ -3806,7 +3819,7 @@ private:
 	TArray< uint32 >& BaseWedgePointIndices;
 	TMap<uint32,uint32>& WedgePointToVertexIndexMap;
 
-	const TMultiMap<int32, int32>& OverlappingCorners;
+	const FOverlappingCorners& OverlappingCorners;
 	const TSet<uint32> ModifiedPoints;
 	const TMultiMap< int32, int32 >& WedgeToFaces;
 	const FMeshDataBundle& MeshDataBundle;
@@ -3923,7 +3936,7 @@ void UnFbx::FFbxImporter::ImportMorphTargetsInternal( TArray<FbxNode*>& SkelMesh
 		TangentOptions = (ETangentOptions::Type)(TangentOptions | ETangentOptions::UseMikkTSpace);
 	}
 
-	TMultiMap<int32, int32> OverlappingVertices;
+	FOverlappingCorners OverlappingVertices;
 	MeshUtilities.CalculateOverlappingCorners(MeshDataBundle.Vertices, MeshDataBundle.Indices, false, OverlappingVertices );
 
 	TArray<FVector> TangentZ;

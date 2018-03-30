@@ -439,7 +439,7 @@ void FFbxExporter::ExportAnimTrack(IAnimTrackAdapter& AnimTrackAdapter, AActor* 
 
 			FTransform BoneTransform = SkeletalMeshComponent->BoneSpaceTransforms[BoneIndex];
 
-			if (ExportOptions->MapSkeletalMotionToRoot && BoneIndex == 0)
+			if (GetExportOptions()->MapSkeletalMotionToRoot && BoneIndex == 0)
 			{
 				BoneTransform = SkeletalMeshComponent->GetSocketTransform(BoneName) * InitialInvParentTransform;
 			}

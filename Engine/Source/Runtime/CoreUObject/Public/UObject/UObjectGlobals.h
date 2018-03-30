@@ -528,6 +528,14 @@ void GlobalSetProperty( const TCHAR* Value, UClass* Class, UProperty* Property, 
  */
 COREUOBJECT_API bool SaveToTransactionBuffer(UObject* Object, bool bMarkDirty);
 
+/**
+ * Causes the transaction system to emit a snapshot event for the given object if the following conditions are met:
+ *  a) The object is currently transacting.
+ *  b) The object has changed since it started transacting.
+ *
+ * @param	Object		object to snapshot.
+ */
+COREUOBJECT_API void SnapshotTransactionBuffer(UObject* Object);
 
 /**
  * Check for StaticAllocateObject error; only for use with the editor, make or other commandlets.
@@ -1874,6 +1882,10 @@ struct COREUOBJECT_API FCoreUObjectDelegates
 			OnObjectModified.Broadcast(Object);
 		}
 	}
+
+	/** Callback for an object being transacted */
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnObjectTransacted, UObject*, const class FTransactionObjectEvent&);
+	static FOnObjectTransacted OnObjectTransacted;
 
 	/** Callback for when an asset is saved. This is called from UObject::PreSave before it is actually written to disk, for every object saved */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnObjectSaved, UObject*);

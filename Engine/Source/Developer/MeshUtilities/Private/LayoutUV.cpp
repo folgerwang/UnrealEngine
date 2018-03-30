@@ -23,7 +23,7 @@ FLayoutUV::FLayoutUV( FRawMesh* InMesh, uint32 InSrcChannel, uint32 InDstChannel
 	, NextMeshChartId( 0 )
 {}
 
-int32 FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
+int32 FLayoutUV::FindCharts( const FOverlappingCorners& OverlappingCorners )
 {
 	double Begin = FPlatformTime::Seconds();
 
@@ -43,10 +43,10 @@ int32 FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
 	FDisjointSet DisjointSet( NumTris );
 	for( uint32 i = 0; i < NumIndexes; i++ )
 	{
-		for( auto It = OverlappingCorners.CreateConstKeyIterator(i); It; ++It )
+		const TArray<int32>& Overlapping = OverlappingCorners.FindIfOverlapping(i);
+		for (int32 It : Overlapping)
 		{
-			uint32 j = It.Value();
-
+			uint32 j = It;
 			if( j > i )
 			{
 				const uint32 TriI = i/3;

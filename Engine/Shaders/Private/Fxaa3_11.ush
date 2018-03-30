@@ -703,7 +703,20 @@ NOTE the other tuning knobs are now in the shader function inputs!
                    GREEN AS LUMA OPTION SUPPORT FUNCTION
 ============================================================================*/
 #if (FXAA_GREEN_AS_LUMA == 0)
-    FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.w; }
+
+	#if POST_PROCESS_ALPHA == 2
+		// POST_PROCESS_ALPHA == 2 allows the tonemapper to not output Luma in alpha channel,
+		// therefore need to compute it manually.
+		FxaaFloat FxaaLuma(FxaaFloat4 rgba)
+		{
+			return dot(rgba.rgb, FxaaFloat3(0.299f, 0.587f, 0.114f));
+		}
+
+	#else
+		FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.w; }
+
+	#endif
+
 #else
     FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.y; }
 #endif    

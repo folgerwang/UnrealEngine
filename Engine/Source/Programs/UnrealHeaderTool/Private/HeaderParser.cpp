@@ -6392,6 +6392,7 @@ void FHeaderParser::CompileFunctionDeclaration(FClasses& AllClasses)
 	}
 
 	// Peek ahead to look for a CORE_API style DLL import/export token if present
+	FString APIMacroIfPresent;
 	{
 		FToken Token;
 		if (GetToken(Token, true))
@@ -6411,6 +6412,8 @@ void FHeaderParser::CompileFunctionDeclaration(FClasses& AllClasses)
 					}
 					FuncInfo.FunctionFlags |= FUNC_RequiredAPI;
 					FuncInfo.FunctionExportFlags |= FUNCEXPORT_RequiredAPI;
+
+					APIMacroIfPresent = RequiredAPIMacroIfPresent;
 				}
 			}
 
@@ -6419,6 +6422,12 @@ void FHeaderParser::CompileFunctionDeclaration(FClasses& AllClasses)
 				UngetToken(Token);
 			}
 		}
+	}
+
+	// Look for static again, in case there was an ENGINE_API token first
+	if (!APIMacroIfPresent.IsEmpty() && MatchIdentifier(TEXT("static")))
+	{
+		FError::Throwf(TEXT("Unexpected API macro '%s'. Did you mean to put '%s' after the static keyword?"), *APIMacroIfPresent, *APIMacroIfPresent);
 	}
 
 	// Look for virtual again, in case there was an ENGINE_API token first

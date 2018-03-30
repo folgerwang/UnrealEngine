@@ -259,10 +259,14 @@ bool FPyWrapperFixedArray::ValidateInternalState(FPyWrapperFixedArray* InSelf)
 	return true;
 }
 
-FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject)
+FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperFixedArrayType) == 1)
 	{
+		SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperFixedArray*)InPyObject;
 	}
@@ -270,8 +274,10 @@ FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject)
 	return nullptr;
 }
 
-FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InPropDef)
+FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InPropDef, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)InType) == 1 && (InType == &PyWrapperFixedArrayType || PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperFixedArrayType) == 1))
 	{
 		FPyWrapperFixedArray* Self = (FPyWrapperFixedArray*)InPyObject;
@@ -283,6 +289,8 @@ FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject, P
 		const PyUtil::FPropertyDef SelfPropDef = Self->ArrayProp;
 		if (SelfPropDef == InPropDef)
 		{
+			SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 			Py_INCREF(Self);
 			return Self;
 		}
@@ -311,6 +319,7 @@ FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject, P
 			}
 		}
 
+		SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 		return NewArray.Release();
 	}
 
@@ -343,6 +352,7 @@ FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject, P
 					}
 				}
 
+				SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 				return NewArray.Release();
 			}
 		}
@@ -889,17 +899,14 @@ PyTypeObject InitializePyWrapperFixedArrayIteratorType()
 PyTypeObject PyWrapperFixedArrayType = InitializePyWrapperFixedArrayType();
 PyTypeObject PyWrapperFixedArrayIteratorType = InitializePyWrapperFixedArrayIteratorType();
 
-FPyWrapperFixedArrayMetaData::FPyWrapperFixedArrayMetaData()
+void FPyWrapperFixedArrayMetaData::AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector)
 {
-	AddReferencedObjects = [](FPyWrapperBase* Self, FReferenceCollector& Collector)
+	FPyWrapperFixedArray* Self = static_cast<FPyWrapperFixedArray*>(Instance);
+	if (Self->ArrayProp && Self->ArrayInstance && !Self->OwnerContext.HasOwner())
 	{
-		FPyWrapperFixedArray* FixedArraySelf = static_cast<FPyWrapperFixedArray*>(Self);
-		if (FixedArraySelf->ArrayProp && FixedArraySelf->ArrayInstance && !FixedArraySelf->OwnerContext.HasOwner())
-		{
-			Collector.AddReferencedObject(FixedArraySelf->ArrayProp);
-			FPyReferenceCollector::AddReferencedObjectsFromProperty(Collector, FixedArraySelf->ArrayProp, FixedArraySelf->ArrayInstance);
-		}
-	};
+		Collector.AddReferencedObject(Self->ArrayProp);
+		FPyReferenceCollector::AddReferencedObjectsFromProperty(Collector, Self->ArrayProp, Self->ArrayInstance);
+	}
 }
 
 #endif	// WITH_PYTHON

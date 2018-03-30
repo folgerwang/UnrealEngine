@@ -130,22 +130,21 @@ FArchive& FObjectAndNameAsStringProxyArchive::operator<<(FWeakObjectPtr& Obj)
 	return *this;
 }
 
-#if WITH_EDITORONLY_DATA
-void FSerializedPropertyScope::PushEditorOnlyProperty()
+void FSerializedPropertyScope::PushProperty()
 {
-	if (Property && Property->IsEditorOnlyProperty())
+	if (Property)
 	{
-		Ar.PushEditorOnlyProperty();
+		Ar.PushSerializedProperty(Property, Property->IsEditorOnlyProperty());
 	}
 }
-void FSerializedPropertyScope::PopEditorOnlyProperty()
+
+void FSerializedPropertyScope::PopProperty()
 {
-	if (Property && Property->IsEditorOnlyProperty())
+	if (Property)
 	{
-		Ar.PopEditorOnlyProperty();
+		Ar.PopSerializedProperty(Property, Property->IsEditorOnlyProperty());
 	}
 }
-#endif
 
 void FArchiveReplaceObjectRefBase::SerializeObject(UObject* ObjectToSerialize)
 {

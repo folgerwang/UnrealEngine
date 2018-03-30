@@ -3,6 +3,8 @@
 #include "SourceControlModule.h"
 #include "Features/IModularFeatures.h"
 #include "SSourceControlLogin.h"
+#include "SourceControlOperations.h"
+#include "SourceControlHelpers.h"
 
 #if SOURCE_CONTROL_WITH_SLATE
 	#include "Widgets/DeclarativeSyntaxSupport.h"

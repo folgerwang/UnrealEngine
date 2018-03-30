@@ -27,7 +27,7 @@ struct FPyWrapperEnum : public FPyWrapperBase
 /** Meta-data for all UE4 exposed enum types */
 struct FPyWrapperEnumMetaData : public FPyWrapperBaseMetaData
 {
-	PY_OVERRIDE_GETSET_METADATA(FPyWrapperEnumMetaData)
+	PY_METADATA_METHODS(FPyWrapperEnumMetaData, FGuid(0x1D69987C, 0x2F624403, 0x8379FCB5, 0xF896B595))
 
 	FPyWrapperEnumMetaData();
 

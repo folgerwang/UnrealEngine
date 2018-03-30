@@ -12,6 +12,8 @@
 #include "SubversionSourceControlCommand.h"
 #include "SubversionSourceControlModule.h"
 #include "ISourceControlLabel.h"
+#include "SourceControlHelpers.h"
+#include "SourceControlOperations.h"
 #include "SubversionSourceControlLabel.h"
 #include "SubversionSourceControlUtils.h"
 #include "SSubversionSourceControlSettings.h"
@@ -144,11 +146,15 @@ ECommandResult::Type FSubversionSourceControlProvider::Execute( const TSharedRef
 {
 	if(!IsEnabled())
 	{
+		// Note that IsEnabled() always returns true so unless it is changed, this code will never be executed
+		InOperationCompleteDelegate.ExecuteIfBound(InOperation, ECommandResult::Failed);
 		return ECommandResult::Failed;
 	}
 
 	if(!SubversionSourceControlUtils::CheckFilenames(InFiles))
 	{
+		InOperation->AddErrorMessge(LOCTEXT("UnsupportedSubvFile", "Filename with wildcards is not supported by Subversion"));
+		InOperationCompleteDelegate.ExecuteIfBound(InOperation, ECommandResult::Failed);
 		return ECommandResult::Failed;
 	}
 
@@ -162,7 +168,10 @@ ECommandResult::Type FSubversionSourceControlProvider::Execute( const TSharedRef
 		FFormatNamedArguments Arguments;
 		Arguments.Add( TEXT("OperationName"), FText::FromName(InOperation->GetName()) );
 		Arguments.Add( TEXT("ProviderName"), FText::FromName(GetName()) );
-		FMessageLog("SourceControl").Error(FText::Format(LOCTEXT("UnsupportedOperation", "Operation '{OperationName}' not supported by source control provider '{ProviderName}'"), Arguments));
+		FText Message(FText::Format(LOCTEXT("UnsupportedOperation", "Operation '{OperationName}' not supported by source control provider '{ProviderName}'"), Arguments));
+		FMessageLog("SourceControl").Error(Message);
+		InOperation->AddErrorMessge(Message);
+		InOperationCompleteDelegate.ExecuteIfBound(InOperation, ECommandResult::Failed);
 		return ECommandResult::Failed;
 	}
 
@@ -216,7 +225,7 @@ TSharedPtr<ISubversionSourceControlWorker, ESPMode::ThreadSafe> FSubversionSourc
 	{
 		return Operation->Execute();
 	}
-		
+
 	return NULL;
 }
 
@@ -347,7 +356,7 @@ void FSubversionSourceControlProvider::OutputCommandMessages(const FSubversionSo
 }
 
 void FSubversionSourceControlProvider::Tick()
-{	
+{
 	bool bStatesUpdated = false;
 	for (int32 CommandIndex = 0; CommandIndex < CommandQueue.Num(); ++CommandIndex)
 	{
@@ -366,8 +375,7 @@ void FSubversionSourceControlProvider::Tick()
 			// dump any messages to output log
 			OutputCommandMessages(Command);
 
-			// run the completion delegate if we have one bound
-			Command.OperationCompleteDelegate.ExecuteIfBound(Command.Operation, Command.bCommandSuccessful ? ECommandResult::Succeeded : ECommandResult::Failed);
+			Command.ReturnResults();
 
 			//commands that are left in the array during a tick need to be deleted
 			if(Command.bAutoDelete)
@@ -375,8 +383,8 @@ void FSubversionSourceControlProvider::Tick()
 				// Only delete commands that are not running 'synchronously'
 				delete &Command;
 			}
-			
-			// only do one command per tick loop, as we dont want concurrent modification 
+
+			// only do one command per tick loop, as we dont want concurrent modification
 			// of the command queue (which can happen in the completion delegate)
 			break;
 		}
@@ -404,7 +412,7 @@ static void ParseListResults(const TArray<FXmlFile>& ResultsXml, TArray< TShared
 	{
 		const FXmlNode* ListsNode = ResultIt->GetRootNode();
 		if(ListsNode != NULL && ListsNode->GetTag() == Lists)
-		{ 
+		{
 			const TArray<FXmlNode*> ListsChildren = ListsNode->GetChildrenNodes();
 			for(auto ListIter(ListsChildren.CreateConstIterator()); ListIter; ListIter++)
 			{
@@ -469,7 +477,7 @@ TArray< TSharedRef<ISourceControlLabel> > FSubversionSourceControlProvider::GetL
 	{
 		TArray< TSharedRef<FSubversionSourceControlLabel> > AllLabels;
 		ParseListResults(ResultsXml, AllLabels);
-		
+
 		for(auto Iter(AllLabels.CreateConstIterator()); Iter; Iter++)
 		{
 			if((*Iter)->GetName().Contains(InMatchingSpec))
@@ -512,13 +520,13 @@ ECommandResult::Type FSubversionSourceControlProvider::ExecuteSynchronousCommand
 		{
 			// Tick the command queue and update progress.
 			Tick();
-			
+
 			Progress.Tick();
 
 			// Sleep for a bit so we don't busy-wait so much.
 			FPlatformProcess::Sleep(0.01f);
 		}
-	
+
 		// always do one more Tick() to make sure the command queue is cleaned up.
 		Tick();
 
@@ -527,7 +535,7 @@ ECommandResult::Type FSubversionSourceControlProvider::ExecuteSynchronousCommand
 			Result = ECommandResult::Succeeded;
 		}
 	}
-	
+
 
 	// If the command failed, inform the user that they need to try again
 	if ( Result != ECommandResult::Succeeded && !bSuppressResponseMsg )
@@ -539,7 +547,7 @@ ECommandResult::Type FSubversionSourceControlProvider::ExecuteSynchronousCommand
 	check(!InCommand.bAutoDelete);
 
 	// ensure commands that are not auto deleted do not end up in the command queue
-	if ( CommandQueue.Contains( &InCommand ) ) 
+	if ( CommandQueue.Contains( &InCommand ) )
 	{
 		CommandQueue.Remove( &InCommand );
 	}
@@ -553,7 +561,8 @@ ECommandResult::Type FSubversionSourceControlProvider::IssueCommand(FSubversionS
 {
 	if ( !bSynchronous && GThreadPool != NULL )
 	{
-		// Queue this to our worker thread(s) for resolving
+		// Queue this to our worker thread(s) for resolving.
+		// When asynchronous, any callback gets called from Tick().
 		GThreadPool->AddQueuedWork(&InCommand);
 		CommandQueue.Add(&InCommand);
 		return ECommandResult::Succeeded;
@@ -561,18 +570,14 @@ ECommandResult::Type FSubversionSourceControlProvider::IssueCommand(FSubversionS
 	else
 	{
 		InCommand.bCommandSuccessful = InCommand.DoWork();
-		
+
 		UpdateConnectionState(InCommand);
 
 		InCommand.Worker->UpdateStates();
 
 		OutputCommandMessages(InCommand);
 
-		// Callback now if present. When asynchronous, this callback gets called from Tick().
-		ECommandResult::Type Result = InCommand.bCommandSuccessful ? ECommandResult::Succeeded : ECommandResult::Failed;
-		InCommand.OperationCompleteDelegate.ExecuteIfBound(InCommand.Operation, Result);
-
-		return Result;
+		return InCommand.ReturnResults();
 	}
 }
 

@@ -285,6 +285,11 @@ void FRawMeshBulkData::UseHashAsGuid(UObject* Owner)
 	bGuidIsHash = true;
 }
 
+const FByteBulkData& FRawMeshBulkData::GetBulkData() const
+{
+	return BulkData;
+}
+
 void FRawMeshBulkData::Empty()
 {
 	BulkData.RemoveBulkData();

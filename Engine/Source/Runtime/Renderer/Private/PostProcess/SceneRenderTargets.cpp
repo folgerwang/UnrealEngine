@@ -100,6 +100,17 @@ static TAutoConsoleVariable<int32> CVarGBufferFormat(
 	TEXT(" 5: high precision"),
 	ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarDefaultBackBufferPixelFormat(
+	TEXT("r.DefaultBackBufferPixelFormat"),
+	4,
+	TEXT("Defines the default back buffer pixel format.\n")
+	TEXT(" 0: 8bit RGBA\n")
+	TEXT(" 1: 16bit RGBA\n")
+	TEXT(" 2: Float RGB\n")
+	TEXT(" 3: Float RGBA\n")
+	TEXT(" 4: 10bit RGB, 2bit Alpha\n"),
+	ECVF_ReadOnly);
+
 int32 GAllowCustomMSAAResolves = 1;
 static FAutoConsoleVariableRef CVarAllowCustomResolves(
    TEXT("r.MSAA.AllowCustomResolves"),

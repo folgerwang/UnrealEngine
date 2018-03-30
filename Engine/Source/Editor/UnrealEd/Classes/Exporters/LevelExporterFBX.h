@@ -10,10 +10,11 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectGlobals.h"
 #include "Exporters/Exporter.h"
+#include "ExporterFbx.h"
 #include "LevelExporterFBX.generated.h"
 
 UCLASS()
-class ULevelExporterFBX : public UExporter
+class ULevelExporterFBX : public UExporterFBX
 {
 public:
 	GENERATED_BODY()

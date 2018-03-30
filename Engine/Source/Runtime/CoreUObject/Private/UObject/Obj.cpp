@@ -336,6 +336,13 @@ void UObject::PostEditChange(void)
 void UObject::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	FCoreUObjectDelegates::OnObjectPropertyChanged.Broadcast(this, PropertyChangedEvent);
+
+	// Snapshot the transaction buffer for this object if this was from an interactive change
+	// This allows listeners to be notified of intermediate changes of state
+	if (PropertyChangedEvent.ChangeType == EPropertyChangeType::Interactive)
+	{
+		SnapshotTransactionBuffer(this);
+	}
 }
 
 
@@ -529,6 +536,10 @@ void UObject::PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionA
 	UObject::PostEditUndo();
 }
 
+void UObject::PostTransacted(const FTransactionObjectEvent& TransactionEvent)
+{
+	FCoreUObjectDelegates::OnObjectTransacted.Broadcast(this, TransactionEvent);
+}
 
 bool UObject::IsSelectedInEditor() const
 {
@@ -1665,6 +1676,26 @@ void UObject::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	}
 
 	FAssetRegistryTag::GetAssetRegistryTagsFromSearchableProperties(this, OutTags);
+
+#if WITH_EDITOR
+	// Check if there's a UMetaData for this object that has tags that are requested in the settings to be transferred to the Asset Registry
+	const TSet<FName>& MetaDataTagsForAR = GetMetaDataTagsForAssetRegistry();
+	if (MetaDataTagsForAR.Num() > 0)
+	{
+		TMap<FName, FString>* MetaDataMap = UMetaData::GetMapForObject(this);
+		if (MetaDataMap)
+		{
+			for (TMap<FName, FString>::TConstIterator It(*MetaDataMap); It; ++It)
+			{
+				FName Tag = It->Key;
+				if (!Tag.IsNone() && MetaDataTagsForAR.Contains(Tag))
+				{
+					OutTags.Add(FAssetRegistryTag(Tag, It->Value, UObject::FAssetRegistryTag::TT_Alphabetical));
+				}
+			}
+		}
+	}
+#endif // WITH_EDITOR
 }
 
 const FName& UObject::SourceFileTagName()
@@ -1674,6 +1705,13 @@ const FName& UObject::SourceFileTagName()
 }
 
 #if WITH_EDITOR
+static TSet<FName> MetaDataTagsForAssetRegistry;
+
+TSet<FName>& UObject::GetMetaDataTagsForAssetRegistry()
+{
+	return MetaDataTagsForAssetRegistry;
+}
+
 void UObject::GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const
 {
 	OutMetadata.Add(FPrimaryAssetId::PrimaryAssetTypeTag,

@@ -2016,8 +2016,15 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.PostProcessing.PropagateAlpha"));
 		if (CVar && CVar->GetValueOnAnyThread() > 0)
 		{
+			if (CVar->GetValueOnAnyThread() == 2)
+			{
+				KeyString += TEXT("_SA2");
+			}
+			else
+			{
 			KeyString += TEXT("_SA");
 		}
+	}
 	}
 
 	{

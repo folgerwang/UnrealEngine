@@ -11,6 +11,7 @@
 #include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "Settings/EditorLoadingSavingSettings.h"
 #include "Engine/Selection.h"
 #include "EditorModeManager.h"

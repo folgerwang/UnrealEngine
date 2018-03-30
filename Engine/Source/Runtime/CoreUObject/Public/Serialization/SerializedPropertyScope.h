@@ -13,31 +13,24 @@ class COREUOBJECT_API FSerializedPropertyScope
 {
 	FArchive& Ar;
 	UProperty* Property;
-	UProperty* OldProperty;
-#if WITH_EDITORONLY_DATA
-	void PushEditorOnlyProperty();
-	void PopEditorOnlyProperty();
-#endif
+	void PushProperty();
+	void PopProperty();
 public:
 	FSerializedPropertyScope(FArchive& InAr, UProperty* InProperty, const UProperty* OnlyIfOldProperty = nullptr)
 		: Ar(InAr)
 		, Property(InProperty)
 	{
-		OldProperty = Ar.GetSerializedProperty();
-		if (!OnlyIfOldProperty || OldProperty == OnlyIfOldProperty)
+		if (!OnlyIfOldProperty || Ar.GetSerializedProperty() == OnlyIfOldProperty)
 		{
-			Ar.SetSerializedProperty(Property);
+			PushProperty();
 		}
-		
-#if WITH_EDITORONLY_DATA
-		PushEditorOnlyProperty();
-#endif
+		else
+		{
+			Property = nullptr;
+		}
 	}
 	~FSerializedPropertyScope()
 	{
-#if WITH_EDITORONLY_DATA
-		PopEditorOnlyProperty();
-#endif
-		Ar.SetSerializedProperty(OldProperty);
+		PopProperty();
 	}
 };

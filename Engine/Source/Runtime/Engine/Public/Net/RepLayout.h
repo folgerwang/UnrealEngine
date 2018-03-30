@@ -528,8 +528,8 @@ public:
 	void ClearSharedSerializationForRPC();
 
 	// Struct support
-	void SerializePropertiesForStruct( UStruct * Struct, FBitArchive & Ar, UPackageMap	* Map, void* Data, bool & bHasUnmapped ) const;	
-	void InitFromStruct( UStruct * InStruct, const UNetConnection* ServerConnection = nullptr );
+	ENGINE_API void SerializePropertiesForStruct( UStruct * Struct, FBitArchive & Ar, UPackageMap	* Map, void* Data, bool & bHasUnmapped ) const;	
+	ENGINE_API void InitFromStruct( UStruct * InStruct, const UNetConnection* ServerConnection = nullptr );
 
 	// Serializes all replicated properties of a UObject in or out of an archive (depending on what type of archive it is)
 	ENGINE_API void SerializeObjectReplicatedProperties(UObject* Object, FBitArchive & Ar) const;

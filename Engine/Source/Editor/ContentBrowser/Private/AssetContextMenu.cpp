@@ -10,6 +10,7 @@
 #include "HAL/PlatformApplicationMisc.h"
 #include "HAL/FileManager.h"
 #include "Misc/ScopedSlowTask.h"
+#include "UObject/MetaData.h"
 #include "UObject/UObjectIterator.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SWindow.h"
@@ -17,6 +18,7 @@
 #include "Widgets/Text/STextBlock.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
 #include "EditorStyleSet.h"
 #include "EditorReimportHandler.h"
 #include "Components/ActorComponent.h"
@@ -24,9 +26,9 @@
 #include "UnrealClient.h"
 #include "Materials/MaterialFunctionInstance.h"
 #include "Materials/Material.h"
-#include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "FileHelpers.h"
@@ -36,6 +38,7 @@
 #include "ContentBrowserUtils.h"
 #include "SAssetView.h"
 #include "ContentBrowserModule.h"
+#include "Dialogs/Dialogs.h"
 
 #include "ObjectTools.h"
 #include "PackageTools.h"
@@ -354,10 +357,10 @@ void FAssetContextMenu::MakeAssetActionsSubMenu(FMenuBuilder& MenuBuilder)
 		LOCTEXT("CreateBlueprintUsingTooltip", "Create a new Blueprint and add this asset to it"),
 		FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.CreateClassBlueprint"),
 		FUIAction(
-		FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteCreateBlueprintUsing),
-		FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteCreateBlueprintUsing)
-			)
-		);
+			FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteCreateBlueprintUsing),
+			FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteCreateBlueprintUsing)
+		)
+	);
 
 	// Capture Thumbnail
 	FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
@@ -368,10 +371,10 @@ void FAssetContextMenu::MakeAssetActionsSubMenu(FMenuBuilder& MenuBuilder)
 			LOCTEXT("CaptureThumbnailTooltip", "Captures a thumbnail from the active viewport."),
 			FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.CreateThumbnail"),
 			FUIAction(
-			FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteCaptureThumbnail),
-			FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteCaptureThumbnail)
-				)
-			);
+				FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteCaptureThumbnail),
+				FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteCaptureThumbnail)
+			)
+		);
 	}
 
 	// Clear Thumbnail
@@ -506,6 +509,17 @@ void FAssetContextMenu::MakeAssetActionsSubMenu(FMenuBuilder& MenuBuilder)
 				)
 				);
 		}
+
+		// Create Metadata menu
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("ShowAssetMetaData", "Show Meta-data"),
+			LOCTEXT("ShowAssetMetaDataTooltip", "Show the asset meta-data dialog."),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteShowAssetMetaData),
+				FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteShowAssetMetaData)
+			)
+		);
 
 		// Chunk actions
 		if (GetDefault<UEditorExperimentalSettings>()->bContextMenuChunkAssignments)
@@ -1742,6 +1756,51 @@ void FAssetContextMenu::ExecutePropertyMatrix()
 	}
 }
 
+void FAssetContextMenu::ExecuteShowAssetMetaData()
+{
+	bool bFirstAsset = true;
+	FString OutputValue;
+
+	for (const FAssetData& AssetData : SelectedAssets)
+	{
+		UObject* Asset = AssetData.GetAsset();
+		if (Asset)
+		{
+			if (!bFirstAsset)
+			{
+				OutputValue.Append(TEXT("\n\n"));
+			}
+			bFirstAsset = false;
+
+			OutputValue.Append(*Asset->GetPathName());
+
+			TMap<FName, FString>* TagValues = UMetaData::GetMapForObject(Asset);
+			if (TagValues)
+			{
+				for (TMap<FName, FString>::TIterator It(*TagValues); It; ++It)
+				{
+					OutputValue.Append(TEXT("\n  "));
+					OutputValue.Append(It.Key().ToString());
+					OutputValue.Append(TEXT(": "));
+					OutputValue.Append(It.Value());
+				}
+			}
+			else
+			{
+				OutputValue.Append(TEXT("\n  "));
+				OutputValue.Append(NSLOCTEXT("AssetContextMenu", "ShowMetaData", "No meta-data found.").ToString());
+			}
+		}
+	}
+
+	SGenericDialogWidget::OpenDialog(
+		NSLOCTEXT("AssetContextMenu", "ShowMetaData", "Show Meta-data"),
+		SNew(SMultiLineEditableTextBox)
+			.Text(FText::FromString(OutputValue))
+			.IsReadOnly(true)
+	);
+}
+
 void FAssetContextMenu::ExecuteEditAsset()
 {
 	TMap<UClass*, TArray<UObject*> > SelectedAssetsByClass;
@@ -2411,6 +2470,24 @@ FText FAssetContextMenu::GetExecutePropertyMatrixTooltip() const
 		ResultTooltip = LOCTEXT("PropertyMatrixTooltip", "Opens the property matrix editor for the selected assets.");
 	}
 	return ResultTooltip;
+}
+
+bool FAssetContextMenu::CanExecuteShowAssetMetaData() const
+{
+	TArray<UObject*> ObjectsForPropertiesMenu;
+	const bool SkipRedirectors = true;
+	GetSelectedAssets(ObjectsForPropertiesMenu, SkipRedirectors);
+
+	bool bResult = false;
+	for (const UObject* Asset : ObjectsForPropertiesMenu)
+	{
+		if (Asset && UMetaData::GetMapForObject(Asset))
+		{
+			bResult = true;
+			break;
+		}
+	}
+	return bResult;
 }
 
 bool FAssetContextMenu::CanExecuteDuplicate() const

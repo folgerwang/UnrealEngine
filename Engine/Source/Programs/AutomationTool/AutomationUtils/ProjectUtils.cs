@@ -86,7 +86,7 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="RawProjectPath">Full project path.</param>
 		/// <returns>Properties of the project.</returns>
-		public static ProjectProperties GetProjectProperties(FileReference RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms = null, bool AssetNativizationRequested = false)
+		public static ProjectProperties GetProjectProperties(FileReference RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms = null, List<UnrealTargetConfiguration> ClientTargetConfigurations = null, bool AssetNativizationRequested = false)
 		{
 			string ProjectKey = "UE4";
 			if (RawProjectPath != null)
@@ -96,7 +96,7 @@ namespace AutomationTool
 			ProjectProperties Properties;
 			if (PropertiesCache.TryGetValue(ProjectKey, out Properties) == false)
 			{
-                Properties = DetectProjectProperties(RawProjectPath, ClientTargetPlatforms, AssetNativizationRequested);
+                Properties = DetectProjectProperties(RawProjectPath, ClientTargetPlatforms, ClientTargetConfigurations, AssetNativizationRequested);
 				PropertiesCache.Add(ProjectKey, Properties);
 			}
 			return Properties;
@@ -107,9 +107,9 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="RawProjectPath">Full project path.</param>
 		/// <returns>True if the project is a UProject file with source code.</returns>
-		public static bool IsCodeBasedUProjectFile(FileReference RawProjectPath)
+		public static bool IsCodeBasedUProjectFile(FileReference RawProjectPath, List<UnrealTargetConfiguration> ClientTargetConfigurations = null)
 		{
-			return GetProjectProperties(RawProjectPath, null).bIsCodeBasedProject;
+			return GetProjectProperties(RawProjectPath, null, ClientTargetConfigurations).bIsCodeBasedProject;
 		}
 
 		/// <summary>
@@ -127,7 +127,7 @@ namespace AutomationTool
 			return ProjectClientBinariesPath;
 		}
 
-		private static bool RequiresTempTarget(FileReference RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms, bool AssetNativizationRequested)
+		private static bool RequiresTempTarget(FileReference RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms, List<UnrealTargetConfiguration> ClientTargetConfigurations, bool AssetNativizationRequested)
 		{
 			// check to see if we already have a Target.cs file
 			if (File.Exists (Path.Combine (Path.GetDirectoryName (RawProjectPath.FullName), "Source", RawProjectPath.GetFileNameWithoutExtension() + ".Target.cs")))
@@ -184,6 +184,20 @@ namespace AutomationTool
 				}
 			}
 
+			List<UnrealTargetConfiguration> TargetConfigurations = ClientTargetConfigurations;
+			if (TargetConfigurations == null || TargetConfigurations.Count < 1)
+			{
+				// No client target configurations, add all in
+				TargetConfigurations = new List<UnrealTargetConfiguration>();
+				foreach (UnrealTargetConfiguration TargetConfigurationType in Enum.GetValues(typeof(UnrealTargetConfiguration)))
+				{
+					if (TargetConfigurationType != UnrealTargetConfiguration.Unknown)
+					{
+						TargetConfigurations.Add(TargetConfigurationType);
+					}
+				}
+			}
+
 			// Change the working directory to be the Engine/Source folder. We are running from Engine/Binaries/DotNET
 			DirectoryReference oldCWD = DirectoryReference.GetCurrentDirectory();
 			try
@@ -212,7 +226,11 @@ namespace AutomationTool
 					// find if there are any plugins enabled or disabled which differ from the default
 					foreach(PluginInfo Plugin in AvailablePlugins)
 					{
-						bool bPluginEnabledForProject = Plugins.IsPluginEnabledForProject(Plugin, Project, TargetPlatformType, TargetType.Game);
+						bool bPluginEnabledForProject = false;
+						foreach (UnrealTargetConfiguration TargetConfigType in TargetConfigurations)
+						{
+							bPluginEnabledForProject |= Plugins.IsPluginEnabledForProject(Plugin, Project, TargetPlatformType, TargetConfigType, TargetRules.TargetType.Game);
+						}
 						if ((bPluginEnabledForProject != Plugin.EnabledByDefault) || (bPluginEnabledForProject && Plugin.Descriptor.bInstalled))
 						{
 							// NOTE: this code was only marking plugins that compiled for the platform to upgrade to code project, however
@@ -296,7 +314,7 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="RawProjectPath">Full project path.</param>
 		/// <returns>Project properties.</returns>
-        private static ProjectProperties DetectProjectProperties(FileReference RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms, bool AssetNativizationRequested)
+        private static ProjectProperties DetectProjectProperties(FileReference RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms, List<UnrealTargetConfiguration> ClientTargetConfigurations, bool AssetNativizationRequested)
 		{
 			var Properties = new ProjectProperties();
 			Properties.RawProjectPath = RawProjectPath;
@@ -306,7 +324,7 @@ namespace AutomationTool
 			if (RawProjectPath != null)
 			{
                 string TempTargetDir = CommandUtils.CombinePaths(Path.GetDirectoryName(RawProjectPath.FullName), "Intermediate", "Source");
-                if (RequiresTempTarget(RawProjectPath, ClientTargetPlatforms, AssetNativizationRequested))
+                if (RequiresTempTarget(RawProjectPath, ClientTargetPlatforms, ClientTargetConfigurations, AssetNativizationRequested))
 				{
 					GenerateTempTarget(RawProjectPath);
 					Properties.bWasGenerated = true;

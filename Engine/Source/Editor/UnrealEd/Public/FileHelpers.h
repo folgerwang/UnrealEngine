@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "AssetData.h"
 #include "ISourceControlProvider.h"
+#include "UObject/TextProperty.h"
 #include "FileHelpers.generated.h"
 
 class ULevel;
@@ -153,6 +154,14 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | Editor Loading and Saving")
 	static UNREALED_API void ExportScene(bool bExportSelectedActorsOnly);
+
+	/**
+	* Unloads a list of packages
+	*
+	* @param PackagesToUnload Array of packages to unload.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | Editor Loading and Saving")
+	static UNREALED_API void UnloadPackages(const TArray<UPackage*>& PackagesToUnload, bool& bOutAnyPackagesUnloaded, FText& OutErrorMessage);
 };
 
 

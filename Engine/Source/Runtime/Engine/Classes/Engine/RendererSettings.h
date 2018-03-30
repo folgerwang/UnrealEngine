@@ -7,6 +7,7 @@
 #include "Engine/EngineTypes.h"
 #include "Engine/Scene.h"
 #include "Engine/DeveloperSettings.h"
+#include "PixelFormat.h"
 
 #include "RendererSettings.generated.h"
 
@@ -90,6 +91,32 @@ namespace EEarlyZPass
 	};
 }
 
+/**
+ * Enumerates available options for alpha channel through post processing. The renderer will always generate premultiplied RGBA
+ * with alpha as translucency (0 = fully opaque; 1 = fully translucent).
+ */
+UENUM()
+namespace EAlphaChannelMode
+{
+	enum Type
+	{
+		/** Disabled, reducing GPU cost to the minimum. (default). */
+		Disabled = 0 UMETA(DisplayName = "Disabled"),
+
+		/** Maintain alpha channel only within linear color space. Tonemapper won't output alpha channel. */
+		LinearColorSpaceOnly = 1 UMETA(DisplayName="Linear color space only"),
+
+		/** Maintain alpha channel within linear color space, but also pass it through the tonemapper.
+		 *
+		 * CAUTION: Passing the alpha channel through the tonemapper can unevitably lead to pretty poor compositing quality as
+		 * opposed to linear color space compositing, especially on purely additive pixels bloom can generate. This settings is
+		 * exclusively targeting broadcast industry in case of hardware unable to do linear color space compositing and
+		 * tonemapping.
+		 */
+		AllowThroughTonemapper = 2 UMETA(DisplayName="Allow through tonemapper"),
+	};
+}
+
 /** used by FPostProcessSettings AutoExposure*/
 UENUM()
 namespace EAutoExposureMethodUI
@@ -104,6 +131,26 @@ namespace EAutoExposureMethodUI
 		AEM_Manual   UMETA(DisplayName = "Manual"),
 		AEM_MAX,
 	};
+}
+
+/** used by DefaultBackBufferPixelFormat*/
+UENUM()
+namespace EDefaultBackBufferPixelFormat
+{
+	enum Type
+	{
+		DBBPF_B8G8R8A8 = 0	UMETA(DisplayName = "8bit RGBA"),
+		DBBPF_A16B16G16R16	UMETA(DisplayName = "16bit RGBA"),
+		DBBPF_FloatRGB		UMETA(DisplayName = "Float RGB"),
+		DBBPF_FloatRGBA		UMETA(DisplayName = "Float RGBA"),
+		DBBPF_A2B10G10R10	UMETA(DisplayName = "10bit RGB, 2bit Alpha"),
+		DBBPF_MAX,
+	};
+}
+
+namespace EDefaultBackBufferPixelFormat
+{
+	ENGINE_API EPixelFormat Convert2PixelFormat(int32 InDefaultBackBufferPixelFormat);
 }
 
 /**
@@ -276,9 +323,9 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 
 	UPROPERTY(config, EditAnywhere, Category = Postprocessing, meta = (
 		ConsoleVariable = "r.PostProcessing.PropagateAlpha", DisplayName = "Enable alpha channel support in post processing (experimental).",
-		ToolTip = "Whether alpha channel should be supported in post processing chain. Still experimental: works only with Temporal AA, Motion Blur, Circle Depth Of Field. This option also force disable the separate translucency.",
+		ToolTip = "Configures alpha channel support in renderer's post processing chain. Still experimental: works only with Temporal AA, Motion Blur, Circle Depth Of Field. This option also force disable the separate translucency.",
 		ConfigRestartRequired = true))
-	uint32 bEnableAlphaChannelInPostProcessing : 1;
+	TEnumAsByte<EAlphaChannelMode::Type> bEnableAlphaChannelInPostProcessing;
 
 	UPROPERTY(config, EditAnywhere, Category = Postprocessing, meta = (
 		ConsoleVariable = "r.UsePreExposure", DisplayName = "Apply Pre-exposure before writing to the scene color",
@@ -341,6 +388,12 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConsoleVariable = "r.DefaultFeature.SpotLightUnits", DisplayName = "Spot Light Units",
 		ToolTip = "Which units to use for spot lights"))
 	ELightUnits DefaultSpotLightUnits;
+
+	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = DefaultSettings, meta = (
+		ConsoleVariable = "r.DefaultBackBufferPixelFormat",DisplayName = "Frame Buffer Pixel Format",
+		ToolTip = "Pixel format used for back buffer, when not specified",
+		ConfigRestartRequired=true))
+	TEnumAsByte<EDefaultBackBufferPixelFormat::Type> DefaultBackBufferPixelFormat;
 
 	UPROPERTY(config, EditAnywhere, Category=Optimizations, meta=(
 		ConsoleVariable="r.Shadow.UnbuiltPreviewInGame",DisplayName="Render Unbuilt Preview Shadows in game",

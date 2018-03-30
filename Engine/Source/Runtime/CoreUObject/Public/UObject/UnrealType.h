@@ -259,13 +259,12 @@ public:
 	{
 		if( ShouldSerializeValue(Ar) )
 		{
-			FSerializedPropertyScope SerializedProperty(Ar, this);
 			const int32 LoopMin = ArrayIdx < 0 ? 0 : ArrayIdx;
 			const int32 LoopMax = ArrayIdx < 0 ? ArrayDim : ArrayIdx + 1;
 			for (int32 Idx = LoopMin; Idx < LoopMax; Idx++)
 			{
 				// Keep setting the property in case something inside of SerializeItem changes it
-				Ar.SetSerializedProperty(this);
+				FSerializedPropertyScope SerializedProperty(Ar, this);
 				SerializeItem( Ar, ContainerPtrToValuePtr<void>(Data, Idx) );
 			}
 		}

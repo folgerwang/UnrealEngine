@@ -52,6 +52,16 @@ namespace UnrealBuildTool
 		public UnrealTargetPlatform[] BlacklistPlatforms;
 
 		/// <summary>
+		/// If enabled, list of target configurations for which the plugin should be enabled (or all target configurations if blank).
+		/// </summary>
+		public UnrealTargetConfiguration[] WhitelistTargetConfigurations;
+
+		/// <summary>
+		/// If enabled, list of target configurations for which the plugin should be disabled.
+		/// </summary>
+		public UnrealTargetConfiguration[] BlacklistTargetConfigurations;
+
+		/// <summary>
 		/// If enabled, list of targets for which the plugin should be enabled (or all targets if blank).
 		/// </summary>
 		public TargetType[] WhitelistTargets;
@@ -108,7 +118,15 @@ namespace UnrealBuildTool
 			{
 				Writer.WriteEnumArrayField("BlacklistPlatforms", BlacklistPlatforms);
 			}
-			if(WhitelistTargets != null && WhitelistTargets.Length > 0)
+			if (WhitelistTargetConfigurations != null && WhitelistTargetConfigurations.Length > 0)
+			{
+				Writer.WriteEnumArrayField("WhitelistTargetConfigurations", WhitelistTargetConfigurations);
+			}
+			if (BlacklistTargetConfigurations != null && BlacklistTargetConfigurations.Length > 0)
+			{
+				Writer.WriteEnumArrayField("BlacklistTargetConfigurations", BlacklistTargetConfigurations);
+			}
+			if (WhitelistTargets != null && WhitelistTargets.Length > 0)
 			{
 				Writer.WriteEnumArrayField("WhitelistTargets", WhitelistTargets);
 			}
@@ -155,6 +173,8 @@ namespace UnrealBuildTool
 			RawObject.TryGetStringField("MarketplaceURL", out Descriptor.MarketplaceURL);
 			RawObject.TryGetEnumArrayField<UnrealTargetPlatform>("WhitelistPlatforms", out Descriptor.WhitelistPlatforms);
 			RawObject.TryGetEnumArrayField<UnrealTargetPlatform>("BlacklistPlatforms", out Descriptor.BlacklistPlatforms);
+			RawObject.TryGetEnumArrayField<UnrealTargetConfiguration>("WhitelistTargetConfigurations", out Descriptor.WhitelistTargetConfigurations);
+			RawObject.TryGetEnumArrayField<UnrealTargetConfiguration>("BlacklistTargetConfigurations", out Descriptor.BlacklistTargetConfigurations);
 			RawObject.TryGetEnumArrayField<TargetType>("WhitelistTargets", out Descriptor.WhitelistTargets);
 			RawObject.TryGetEnumArrayField<TargetType>("BlacklistTargets", out Descriptor.BlacklistTargets);
 			RawObject.TryGetEnumArrayField<UnrealTargetPlatform>("SupportedTargetPlatforms", out Descriptor.SupportedTargetPlatforms);
@@ -177,6 +197,28 @@ namespace UnrealBuildTool
 				return false;
 			}
 			if (BlacklistPlatforms != null && BlacklistPlatforms.Contains(Platform))
+			{
+				return false;
+			}
+			return true;
+		}
+
+		/// <summary>
+		/// Determines if this reference enables the plugin for a given target configuration
+		/// </summary>
+		/// <param name="TargetConfiguration">The target configuration to check</param>
+		/// <returns>True if the plugin should be enabled</returns>
+		public bool IsEnabledForTargetConfiguration(UnrealTargetConfiguration TargetConfiguration)
+		{
+			if (!bEnabled)
+			{
+				return false;
+			}
+			if (WhitelistTargetConfigurations != null && WhitelistTargetConfigurations.Length > 0 && !WhitelistTargetConfigurations.Contains(TargetConfiguration))
+			{
+				return false;
+			}
+			if (BlacklistTargetConfigurations != null && BlacklistTargetConfigurations.Contains(TargetConfiguration))
 			{
 				return false;
 			}

@@ -34,5 +34,10 @@ public:
 	{
 		return FModuleManager::Get().IsModuleLoaded(DATASMITHCONTENT_MODULE_NAME);
 	}
+
+	/**
+	 * @returns temporary directory created for this process
+	 */
+	virtual const FString& GetTempDir() const = 0;
 };
 

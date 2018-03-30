@@ -35,18 +35,22 @@ UMediaPlayer::UMediaPlayer(const FObjectInitializer& ObjectInitializer)
 	, Shuffle(false)
 	, Loop(false)
 	, PlaylistIndex(INDEX_NONE)
+	, TimeDelay(FTimespan::Zero())
 	, HorizontalFieldOfView(90.0f)
 	, VerticalFieldOfView(60.0f)
 	, ViewRotation(FRotator::ZeroRotator)
-	, PlayerFacade(MakeShareable(new FMediaPlayerFacade))
 	, PlayerGuid(FGuid::NewGuid())
 	, PlayOnNext(false)
 #if WITH_EDITOR
 	, WasPlayingInPIE(false)
 #endif
 {
-	PlayerFacade->OnMediaEvent().AddUObject(this, &UMediaPlayer::HandlePlayerMediaEvent);
-	Playlist = NewObject<UMediaPlaylist>(GetTransientPackage(), NAME_None, RF_Transactional | RF_Transient);
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		PlayerFacade = MakeShared<FMediaPlayerFacade, ESPMode::ThreadSafe>();
+		PlayerFacade->OnMediaEvent().AddUObject(this, &UMediaPlayer::HandlePlayerMediaEvent);
+		Playlist = NewObject<UMediaPlaylist>(GetTransientPackage(), NAME_None, RF_Transactional | RF_Transient);
+	}
 }
 
 
@@ -274,6 +278,12 @@ FRotator UMediaPlayer::GetViewRotation() const
 	}
 
 	return OutOrientation.Rotator();
+}
+
+
+FTimespan UMediaPlayer::GetTimeDelay() const
+{
+	return PlayerFacade->TimeDelay;
 }
 
 
@@ -577,6 +587,13 @@ bool UMediaPlayer::SetViewRotation(const FRotator& Rotation, bool Absolute)
 }
 
 
+void UMediaPlayer::SetTimeDelay(FTimespan InTimeDelay)
+{
+	UE_LOG(LogMediaAssets, Verbose, TEXT("%s.SetTimeDelay %s"), *GetFName().ToString(), *InTimeDelay.ToString());
+	PlayerFacade->TimeDelay = InTimeDelay;
+}
+
+
 bool UMediaPlayer::SupportsRate(float Rate, bool Unthinned) const
 {
 	return PlayerFacade->SupportsRate(Rate, Unthinned);
@@ -628,15 +645,18 @@ void UMediaPlayer::ResumePIE()
 
 void UMediaPlayer::BeginDestroy()
 {
-	IMediaModule* MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");
-
-	if (MediaModule != nullptr)
+	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		MediaModule->GetClock().RemoveSink(PlayerFacade.ToSharedRef());
-		MediaModule->GetTicker().RemoveTickable(PlayerFacade.ToSharedRef());
-	}
+		IMediaModule* MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");
 
-	PlayerFacade->Close();
+		if (MediaModule != nullptr)
+		{
+			MediaModule->GetClock().RemoveSink(PlayerFacade.ToSharedRef());
+			MediaModule->GetTicker().RemoveTickable(PlayerFacade.ToSharedRef());
+		}
+
+		PlayerFacade->Close();
+	}
 
 	Super::BeginDestroy();
 }
@@ -652,8 +672,11 @@ void UMediaPlayer::PostDuplicate(bool bDuplicateForPIE)
 {
 	Super::PostDuplicate(bDuplicateForPIE);
 
-	PlayerGuid = FGuid::NewGuid();
-	PlayerFacade->SetGuid(PlayerGuid);
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		PlayerGuid = FGuid::NewGuid();
+		PlayerFacade->SetGuid(PlayerGuid);
+	}
 }
 
 
@@ -661,15 +684,18 @@ void UMediaPlayer::PostInitProperties()
 {
 	Super::PostInitProperties();
 
-	// Set the player GUID - required for UMediaPlayers dynamically allocated at runtime
-	PlayerFacade->SetGuid(PlayerGuid);
-
-	IMediaModule* MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");
-
-	if (MediaModule != nullptr)
+	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		MediaModule->GetClock().AddSink(PlayerFacade.ToSharedRef());
-		MediaModule->GetTicker().AddTickable(PlayerFacade.ToSharedRef());
+		// Set the player GUID - required for UMediaPlayers dynamically allocated at runtime
+		PlayerFacade->SetGuid(PlayerGuid);
+
+		IMediaModule* MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");
+
+		if (MediaModule != nullptr)
+		{
+			MediaModule->GetClock().AddSink(PlayerFacade.ToSharedRef());
+			MediaModule->GetTicker().AddTickable(PlayerFacade.ToSharedRef());
+		}
 	}
 }
 
@@ -677,8 +703,11 @@ void UMediaPlayer::PostLoad()
 {
 	Super::PostLoad();
 
-	// Set the player GUID - required for UMediaPlayer assets
-	PlayerFacade->SetGuid(PlayerGuid);
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		// Set the player GUID - required for UMediaPlayer assets
+		PlayerFacade->SetGuid(PlayerGuid);
+	}
 }
 
 
@@ -693,6 +722,10 @@ void UMediaPlayer::PostEditChangeProperty(FPropertyChangedEvent& PropertyChanged
 	if (PropertyName == GET_MEMBER_NAME_CHECKED(UMediaPlayer, Loop))
 	{
 		SetLooping(Loop);
+	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UMediaPlayer, TimeDelay))
+	{
+		SetTimeDelay(TimeDelay);
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -719,6 +752,7 @@ void UMediaPlayer::HandlePlayerMediaEvent(EMediaEvent Event)
 		PlayerFacade->SetLooping(Loop && (Playlist->Num() == 1));
 		PlayerFacade->SetViewField(HorizontalFieldOfView, VerticalFieldOfView, true);
 		PlayerFacade->SetViewOrientation(FQuat(ViewRotation), true);
+		PlayerFacade->TimeDelay = TimeDelay;
 
 		OnMediaOpened.Broadcast(PlayerFacade->GetUrl());
 

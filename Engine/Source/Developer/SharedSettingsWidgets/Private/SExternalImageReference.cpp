@@ -3,10 +3,10 @@
 #include "SExternalImageReference.h"
 #include "HAL/FileManager.h"
 
-#include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 

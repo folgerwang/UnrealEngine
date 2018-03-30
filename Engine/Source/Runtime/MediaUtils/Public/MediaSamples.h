@@ -146,17 +146,17 @@ public:
 private:
 
 	/** Audio sample queue. */
-	TMediaSampleQueue<IMediaAudioSample> AudioSampleQueue;
+	FMediaAudioSampleQueue AudioSampleQueue;
 
 	/** Caption sample queue. */
-	TMediaSampleQueue<IMediaOverlaySample> CaptionSampleQueue;
+	FMediaOverlaySampleQueue CaptionSampleQueue;
 
 	/** Metadata sample queue. */
-	TMediaSampleQueue<IMediaBinarySample> MetadataSampleQueue;
+	FMediaBinarySampleQueue MetadataSampleQueue;
 
 	/** Subtitle sample queue. */
-	TMediaSampleQueue<IMediaOverlaySample> SubtitleSampleQueue;
+	FMediaOverlaySampleQueue SubtitleSampleQueue;
 
 	/** Video sample queue. */
-	TMediaSampleQueue<IMediaTextureSample> VideoSampleQueue;
+	FMediaTextureSampleQueue VideoSampleQueue;
 };

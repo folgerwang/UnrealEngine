@@ -5,10 +5,10 @@
 #include "UObject/UObjectHash.h"
 #include "UObject/Package.h"
 #include "Misc/PackageName.h"
-#include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 

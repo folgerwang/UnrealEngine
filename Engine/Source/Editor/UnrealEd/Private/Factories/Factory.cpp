@@ -17,6 +17,7 @@
 #include "AssetToolsModule.h"
 #include "EditorClassUtils.h"
 #include "AutomatedAssetImportData.h"
+#include "AssetImportTask.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFactory, Log, All);
 
@@ -294,6 +295,10 @@ void UFactory::DisplayOverwriteOptionsDialog(const FText& Message)
 	if(AutomatedImportData)
 	{
 		OverwriteYesOrNoToAllState =  AutomatedImportData->bReplaceExisting ? EAppReturnType::YesAll : EAppReturnType::NoAll;
+	}
+	else if (AssetImportTask && AssetImportTask->bAutomated)
+	{
+		OverwriteYesOrNoToAllState = AssetImportTask->bReplaceExisting ? EAppReturnType::YesAll : EAppReturnType::NoAll;
 	}
 	else if (OverwriteYesOrNoToAllState != EAppReturnType::YesAll && OverwriteYesOrNoToAllState != EAppReturnType::NoAll)
 	{
@@ -606,4 +611,14 @@ FString UFactory::GetDefaultNewAssetName() const
 void UFactory::SetAutomatedAssetImportData(const UAutomatedAssetImportData* Data)
 {
 	AutomatedImportData = Data;
+}
+
+void UFactory::SetAssetImportTask(const UAssetImportTask* Task)
+{
+	AssetImportTask = Task;
+}
+
+bool UFactory::IsAutomatedImport() const
+{
+	return GIsAutomationTesting || AutomatedImportData || (AssetImportTask && AssetImportTask->bAutomated);
 }

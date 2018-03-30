@@ -7,6 +7,8 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
+#include "SourceControlOperations.h"
 #include "Editor.h"
 #include "AssetToolsModule.h"
 #include "ICollectionManager.h"

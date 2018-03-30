@@ -92,10 +92,85 @@ void FPrimaryAssetRules::PropagateCookRules(const FPrimaryAssetRules& ParentRule
 }
 
 #if WITH_EDITOR
+void UAssetManagerSettings::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	ApplyMetaDataTagsSettings();
+}
+
+void UAssetManagerSettings::ApplyMetaDataTagsSettings()
+{
+	TSet<FName>& GlobalTagsForAssetRegistry = UObject::GetMetaDataTagsForAssetRegistry();
+	for (FName Tag : MetaDataTagsForAssetRegistry)
+	{
+		if (!Tag.IsNone())
+		{
+			if (!GlobalTagsForAssetRegistry.Contains(Tag))
+			{
+				GlobalTagsForAssetRegistry.Add(Tag);
+			}
+			else
+			{
+				// To catch the case where the same tag is used by different users and their settings are synced after edition
+				UE_LOG(LogAssetManager, Warning, TEXT("Cannot use duplicate metadata tag '%s' for Asset Registry"), *Tag.ToString());
+			}
+		}
+	}
+}
+
+void UAssetManagerSettings::ClearMetaDataTagsSettings()
+{
+	TSet<FName>& GlobalTagsForAssetRegistry = UObject::GetMetaDataTagsForAssetRegistry();
+	for (FName Tag : MetaDataTagsForAssetRegistry)
+	{
+		if (!Tag.IsNone())
+		{
+			GlobalTagsForAssetRegistry.Remove(Tag);
+		}
+	}
+}
+
+void UAssetManagerSettings::PreEditChange(UProperty* PropertyAboutToChange)
+{
+	Super::PreEditChange(PropertyAboutToChange);
+
+	FName PropertyName = PropertyAboutToChange->GetFName();
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UAssetManagerSettings, MetaDataTagsForAssetRegistry))
+	{
+		ClearMetaDataTagsSettings();
+	}
+}
+
 void UAssetManagerSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
-	if (PropertyChangedEvent.Property && UAssetManager::IsValid())
+
+	FName PropertyName = (PropertyChangedEvent.MemberProperty != NULL) ? PropertyChangedEvent.MemberProperty->GetFName() : NAME_None;
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UAssetManagerSettings, MetaDataTagsForAssetRegistry))
+	{
+		if (PropertyChangedEvent.ChangeType == EPropertyChangeType::ValueSet)
+		{
+			// Check if the new value already exists in the global tags list
+			int32 Index = PropertyChangedEvent.GetArrayIndex(PropertyName.ToString());
+			if (Index > 0)
+			{
+				TSet<FName>::TIterator It = MetaDataTagsForAssetRegistry.CreateIterator();
+				for (int32 i = 0; i < Index; ++i)
+				{
+					++It;
+				}
+				FName NewValue = It ? *It : FName();
+				if (UObject::GetMetaDataTagsForAssetRegistry().Contains(NewValue))
+				{
+					*It = FName();
+					UE_LOG(LogAssetManager, Warning, TEXT("Cannot use duplicate metadata tag '%s' for Asset Registry"), *NewValue.ToString());
+				}
+			}
+		}
+		ApplyMetaDataTagsSettings();
+	}
+	else if (PropertyChangedEvent.Property && UAssetManager::IsValid())
 	{
 		UAssetManager::Get().ReinitializeFromConfig();
 	}

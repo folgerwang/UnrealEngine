@@ -399,6 +399,15 @@ public:
 	FRotator GetViewRotation() const;
 
 	/**
+	 * Delay of the player's time.
+	 *
+	 * @return Delay added to the player's time used to manually sync multiple sources.
+	 * @see SetTimeDelay
+	 */
+	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
+	FTimespan GetTimeDelay() const;
+
+	/**
 	 * Check whether the player is in an error state.
 	 *
 	 * When the player is in an error state, no further operations are possible.
@@ -718,6 +727,18 @@ public:
 	bool SetViewRotation(const FRotator& Rotation, bool Absolute);
 
 	/**
+	 * Delay of the player's time.
+	 *
+	 * This setting can be used to manually sync multiple sources.
+	 * Set to 1 seconds, if you would like that Player to play 1 second behind his current time.
+	 * If the value is too big, it is possible that the player would not hold that frame for that long.
+	 * @return true on success, false otherwise.
+	 * @see GetTimeDelay
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Media|MediaPlayer")
+	void SetTimeDelay(FTimespan TimeDelay);
+
+	/**
 	 * Check whether the specified playback rate is supported.
 	 *
 	 * @param Rate The playback rate to check.
@@ -977,6 +998,14 @@ protected:
 	 */
 	UPROPERTY(BlueprintReadOnly, Category=Playback)
 	int32 PlaylistIndex;
+
+	/**
+	 * Delay of the player's time.
+	 *
+	 * @see SetTimeDelay, GetTimeDelay
+	 */
+	UPROPERTY(BlueprintReadOnly, Category=Playback)
+	FTimespan TimeDelay;
 
 protected:
 

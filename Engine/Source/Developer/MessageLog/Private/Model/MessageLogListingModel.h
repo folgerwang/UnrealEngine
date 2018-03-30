@@ -97,7 +97,7 @@ public:
 	/** Helper function for RemoveDuplicates(), exposed so the ViewModel can use it too */
 	static bool AreMessagesEqual(const TSharedRef< FTokenizedMessage >& Message0, const TSharedRef< FTokenizedMessage >& Message1);
 
-	/** Remove any messages that are duplicates of one another - O(n^2) */
+	/** Remove any messages that are duplicates of one another - O(n) */
 	void RemoveDuplicates(uint32 PageIndex);
 
 protected:

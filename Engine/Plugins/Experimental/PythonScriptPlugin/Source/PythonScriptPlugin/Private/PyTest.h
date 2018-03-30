@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "PyTest.generated.h"
 
 /**
@@ -65,6 +66,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Python)
 	TMap<FString, int32> StringIntMap;
+
+	UPROPERTY(meta=(DeprecatedProperty, DeprecationMessage="LegacyInt is deprecated. Please use Int instead."))
+	int32 LegacyInt_DEPRECATED;
 };
 
 /**
@@ -74,6 +78,30 @@ USTRUCT(BlueprintType)
 struct FPyTestChildStruct : public FPyTestStruct
 {
 	GENERATED_BODY()
+};
+
+/**
+ * Function library containing methods that should be hoisted onto the test struct in Python.
+ */
+UCLASS()
+class UPyTestStructLibrary : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMethod))
+	static bool IsBoolSet(const FPyTestStruct& InStruct);
+
+	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMethod, DeprecatedFunction, DeprecationMessage="LegacyIsBoolSet is deprecated. Please use IsBoolSet instead."))
+	static bool LegacyIsBoolSet(const FPyTestStruct& InStruct);
+
+	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMathOp="+;+="))
+	static FPyTestStruct AddInt(const FPyTestStruct& InStruct, const int32 InValue);
+
+	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMathOp="+;+="))
+	static FPyTestStruct AddFloat(const FPyTestStruct& InStruct, const float InValue);
+
+	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMathOp="+;+="))
+	static FPyTestStruct AddStr(const FPyTestStruct& InStruct, const FString& InValue);
 };
 
 /**
@@ -150,6 +178,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Python)
 	void FuncTakingPyTestChildStruct(const FPyTestChildStruct& InStruct) const;
 
+	UFUNCTION(BlueprintCallable, Category = Python, meta=(DeprecatedFunction, DeprecationMessage="LegacyFuncTakingPyTestStruct is deprecated. Please use FuncTakingPyTestStruct instead."))
+	void LegacyFuncTakingPyTestStruct(const FPyTestStruct& InStruct) const;
+
 	UFUNCTION(BlueprintCallable, Category = Python)
 	int32 FuncTakingPyTestDelegate(const FPyTestDelegate& InDelegate, const int32 InValue) const;
 
@@ -165,6 +196,15 @@ public:
  */
 UCLASS(Blueprintable)
 class UPyTestChildObject : public UPyTestObject
+{
+	GENERATED_BODY()
+};
+
+/**
+ * Object to test deprecation of Python wrapped types.
+ */
+UCLASS(Blueprintable, deprecated, meta=(DeprecationMessage="LegacyPyTestObject is deprecated. Please use PyTestObject instead."))
+class UDEPRECATED_LegacyPyTestObject : public UPyTestObject
 {
 	GENERATED_BODY()
 };

@@ -11,6 +11,8 @@
 #include "GenericPlatform/GenericPlatformChunkInstall.h"
 #include "AssetManager.generated.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogAssetManager, Log, All);
+
 /** Defined in C++ file */
 struct FPrimaryAssetTypeData;
 struct FPrimaryAssetData;

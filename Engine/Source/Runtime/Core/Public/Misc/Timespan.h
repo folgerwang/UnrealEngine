@@ -4,6 +4,7 @@
 
 #include "CoreTypes.h"
 #include "Misc/AssertionMacros.h"
+#include "Math/Interval.h"
 
 class FArchive;
 class FOutputDevice;
@@ -774,6 +775,19 @@ private:
 	int64 Ticks;
 };
 
+template <>
+struct TIntervalTraits<FTimespan>
+{
+	static FTimespan Max()
+	{
+		return FTimespan::MaxValue();
+	}
+
+	static FTimespan Lowest()
+	{
+		return FTimespan::MinValue();
+	}
+};
 
 /**
  * Pre-multiply a time span with the given scalar.

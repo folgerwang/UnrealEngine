@@ -645,7 +645,7 @@ bool FPluginManager::ConfigureEnabledPlugin(const FPluginReferenceDescriptor& Fi
 			const FPluginReferenceDescriptor& Reference = *NewPluginReferences[Idx];
 
 			// Check if the plugin is required for this platform
-			if(!Reference.IsEnabledForPlatform(FPlatformMisc::GetUBTPlatform()) || !Reference.IsEnabledForTarget(FPlatformMisc::GetUBTTarget()))
+			if(!Reference.IsEnabledForPlatform(FPlatformMisc::GetUBTPlatform()) || !Reference.IsEnabledForTargetConfiguration(EBuildConfigurations::ToString(FApp::GetBuildConfiguration())) || !Reference.IsEnabledForTarget(FPlatformMisc::GetUBTTarget()))
 			{
 				UE_LOG(LogPluginManager, Verbose, TEXT("Ignoring plugin '%s' for platform/configuration"), *Reference.Name);
 				continue;

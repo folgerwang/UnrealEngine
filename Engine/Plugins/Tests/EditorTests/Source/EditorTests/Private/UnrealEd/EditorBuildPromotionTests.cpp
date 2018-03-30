@@ -41,6 +41,7 @@
 #include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Factories/BlueprintFactory.h"
 #include "Factories/FbxFactory.h"

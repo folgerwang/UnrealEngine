@@ -10,7 +10,7 @@
 #if WITH_PYTHON
 
 template <typename WrapperType>
-void InitializeAndRegisterMathType(PyObject* PyModule, PyTypeObject* InPyType, FPyConstantDef* InPyConstants, const TFunctionRef<void(TArray<PyGenUtil::FGeneratedWrappedMethodParameter>&)>& InBuildInitParamsFunc)
+void InitializeAndRegisterMathType(PyObject* PyModule, PyTypeObject* InPyType, FPyConstantDef* InPyConstants, const TFunctionRef<void(const UStruct*, TArray<PyGenUtil::FGeneratedWrappedMethodParameter>&)>& InBuildInitParamsFunc)
 {
 	typedef typename WrapperType::WrappedType WrappedType;
 
@@ -18,7 +18,7 @@ void InitializeAndRegisterMathType(PyObject* PyModule, PyTypeObject* InPyType, F
 	{
 		static TPyWrapperInlineStructMetaData<WrappedType> MetaData;
 		MetaData.Struct = TBaseStructure<WrappedType>::Get();
-		InBuildInitParamsFunc(MetaData.InitParams);
+		InBuildInitParamsFunc(MetaData.Struct, MetaData.InitParams);
 		TPyWrapperInlineStructMetaData<WrappedType>::SetMetaData(InPyType, &MetaData);
 
 		if (InPyConstants)
@@ -53,11 +53,11 @@ void InitializePyWrapperVector(PyObject* PyModule)
 		{ nullptr, nullptr, nullptr, nullptr }
 	};
 	
-	InitializeAndRegisterMathType<FPyWrapperVector>(PyModule, &PyWrapperVectorType, PyConstants, [](TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
+	InitializeAndRegisterMathType<FPyWrapperVector>(PyModule, &PyWrapperVectorType, PyConstants, [](const UStruct* InStruct, TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
 	{
-		PyGenUtil::AddStructInitParam(TEXT("X"), TEXT("x"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Y"), TEXT("y"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Z"), TEXT("z"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("X")), TEXT("x"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Y")), TEXT("y"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Z")), TEXT("z"), OutInitParams);
 	});
 }
 
@@ -78,21 +78,21 @@ void InitializePyWrapperVector2D(PyObject* PyModule)
 		{ nullptr, nullptr, nullptr, nullptr }
 	};
 
-	InitializeAndRegisterMathType<FPyWrapperVector2D>(PyModule, &PyWrapperVector2DType, PyConstants, [](TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
+	InitializeAndRegisterMathType<FPyWrapperVector2D>(PyModule, &PyWrapperVector2DType, PyConstants, [](const UStruct* InStruct, TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
 	{
-		PyGenUtil::AddStructInitParam(TEXT("X"), TEXT("x"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Y"), TEXT("y"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("X")), TEXT("x"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Y")), TEXT("y"), OutInitParams);
 	});
 }
 
 void InitializePyWrapperVector4(PyObject* PyModule)
 {
-	InitializeAndRegisterMathType<FPyWrapperVector4>(PyModule, &PyWrapperVector4Type, nullptr, [](TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
+	InitializeAndRegisterMathType<FPyWrapperVector4>(PyModule, &PyWrapperVector4Type, nullptr, [](const UStruct* InStruct, TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
 	{
-		PyGenUtil::AddStructInitParam(TEXT("X"), TEXT("x"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Y"), TEXT("y"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Z"), TEXT("z"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("W"), TEXT("w"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("X")), TEXT("x"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Y")), TEXT("y"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Z")), TEXT("z"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("W")), TEXT("w"), OutInitParams);
 	});
 }
 
@@ -112,12 +112,12 @@ void InitializePyWrapperQuat(PyObject* PyModule)
 		{ nullptr, nullptr, nullptr, nullptr }
 	};
 
-	InitializeAndRegisterMathType<FPyWrapperQuat>(PyModule, &PyWrapperQuatType, PyConstants, [](TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
+	InitializeAndRegisterMathType<FPyWrapperQuat>(PyModule, &PyWrapperQuatType, PyConstants, [](const UStruct* InStruct, TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
 	{
-		PyGenUtil::AddStructInitParam(TEXT("X"), TEXT("x"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Y"), TEXT("y"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Z"), TEXT("z"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("W"), TEXT("w"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("X")), TEXT("x"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Y")), TEXT("y"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Z")), TEXT("z"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("W")), TEXT("w"), OutInitParams);
 	});
 }
 
@@ -144,12 +144,12 @@ void InitializePyWrapperLinearColor(PyObject* PyModule)
 		{ nullptr, nullptr, nullptr, nullptr }
 	};
 
-	InitializeAndRegisterMathType<FPyWrapperLinearColor>(PyModule, &PyWrapperLinearColorType, PyConstants, [](TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
+	InitializeAndRegisterMathType<FPyWrapperLinearColor>(PyModule, &PyWrapperLinearColorType, PyConstants, [](const UStruct* InStruct, TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
 	{
-		PyGenUtil::AddStructInitParam(TEXT("R"), TEXT("r"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("G"), TEXT("g"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("B"), TEXT("b"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("A"), TEXT("a"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("R")), TEXT("r"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("G")), TEXT("g"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("B")), TEXT("b"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("A")), TEXT("a"), OutInitParams);
 	});
 }
 
@@ -248,7 +248,7 @@ bool StructStructOp_ReturnStruct(PyTypeObject* InStructType, WrapperType* InLHS,
 	}
 
 	WrappedType Result = OpType::template Apply<WrappedType, WrappedType, WrappedType>(WrapperType::GetTypedStruct(InLHS), WrapperType::GetTypedStruct(RHS));
-	return PyConversion::PythonizeStruct(Result, OutResult);
+	return PyConversion::PythonizeStruct(Result, OutResult).Succeeded();
 }
 
 /** Struct(op=)Struct -> Struct */
@@ -285,7 +285,7 @@ bool StructStructOp_ReturnIntrinsic(PyTypeObject* InStructType, WrapperType* InL
 	}
 
 	IntrinsicType Result = OpType::template Apply<IntrinsicType, WrappedType, WrappedType>(WrapperType::GetTypedStruct(InLHS), WrapperType::GetTypedStruct(RHS));
-	return PyConversion::Pythonize(Result, OutResult);
+	return PyConversion::Pythonize(Result, OutResult).Succeeded();
 }
 
 /** Struct(op)Intrinsic -> Struct */
@@ -301,7 +301,7 @@ bool StructIntrinsicOp_ReturnStruct(PyTypeObject* InStructType, WrapperType* InL
 	}
 
 	WrappedType Result = OpType::template Apply<WrappedType, WrappedType, IntrinsicType>(WrapperType::GetTypedStruct(InLHS), RHS);
-	return PyConversion::PythonizeStruct(Result, OutResult);
+	return PyConversion::PythonizeStruct(Result, OutResult).Succeeded();
 }
 
 /** Struct(op=)Intrinsic -> Struct */

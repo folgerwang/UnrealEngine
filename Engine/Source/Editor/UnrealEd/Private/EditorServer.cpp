@@ -16,6 +16,7 @@
 #include "ProfilingDebugging/ResourceSize.h"
 #include "UObject/Object.h"
 #include "UObject/GarbageCollection.h"
+#include "UObject/GCObjectScopeGuard.h"
 #include "UObject/Class.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/Package.h"
@@ -155,6 +156,7 @@
 #include "ILauncherPlatform.h"
 #include "LauncherPlatformModule.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "AssetExportTask.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorServer, Log, All);
 
@@ -2771,17 +2773,18 @@ void UEditorEngine::ExportMap(UWorld* InWorld, const TCHAR* InFilename, bool bEx
 	const FText LocalizedExportingMap = FText::Format( NSLOCTEXT("UnrealEd", "ExportingMap_F", "Exporting map: {0}..." ), FText::FromString(MapFileName) );
 	GWarn->BeginSlowTask( LocalizedExportingMap, true);
 
-	UExporter::FExportToFileParams Params;
-	Params.Object = InWorld;
-	Params.Exporter = NULL;
-	Params.Filename = InFilename;
-	Params.InSelectedOnly = bExportSelectedActorsOnly;
-	Params.NoReplaceIdentical = false;
-	Params.Prompt = false;
-	Params.bUseFileArchive = false;
-	Params.WriteEmptyFiles = false;
+	UAssetExportTask* ExportTask = NewObject<UAssetExportTask>();
+	FGCObjectScopeGuard ExportTaskGuard(ExportTask);
+	ExportTask->Object = InWorld;
+	ExportTask->Exporter = NULL;
+	ExportTask->Filename = InFilename;
+	ExportTask->bSelected = bExportSelectedActorsOnly;
+	ExportTask->bReplaceIdentical = true;
+	ExportTask->bPrompt = false;
+	ExportTask->bUseFileArchive = false;
+	ExportTask->bWriteEmptyFiles = false;
 
-	UExporter::ExportToFileEx(Params);
+	UExporter::RunAssetExportTask(ExportTask);
 
 	GWarn->EndSlowTask();
 }

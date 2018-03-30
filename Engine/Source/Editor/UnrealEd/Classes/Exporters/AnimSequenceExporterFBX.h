@@ -9,10 +9,11 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Exporters/Exporter.h"
+#include "ExporterFbx.h"
 #include "AnimSequenceExporterFBX.generated.h"
 
 UCLASS()
-class UAnimSequenceExporterFBX : public UExporter
+class UAnimSequenceExporterFBX : public UExporterFBX
 {
 	GENERATED_UCLASS_BODY()
 

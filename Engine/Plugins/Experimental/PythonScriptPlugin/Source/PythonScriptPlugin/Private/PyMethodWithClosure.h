@@ -48,6 +48,9 @@ struct FPyMethodWithClosureDef
 	/** The closure passed to the C function, or nullptr */
 	void* MethodClosure;
 
+	/** Add a singular method to the given type */
+	static bool AddMethod(FPyMethodWithClosureDef* InMethod, PyTypeObject* InType);
+
 	/** Add the given null-terminated table of methods to the given type */
 	static bool AddMethods(FPyMethodWithClosureDef* InMethods, PyTypeObject* InType);
 

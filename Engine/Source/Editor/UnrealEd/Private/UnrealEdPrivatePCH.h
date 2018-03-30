@@ -618,15 +618,6 @@
 // From EditorStyle:
 #include "EditorStyleSet.h"
 
-// From SourceControl:
-#include "ISourceControlState.h"
-#include "SourceControlHelpers.h"
-#include "ISourceControlRevision.h"
-#include "ISourceControlProvider.h"
-#include "ISourceControlOperation.h"
-#include "SourceControlOperations.h"
-#include "ISourceControlModule.h"
-
 // From BlueprintGraph:
 #include "BlueprintNodeSignature.h"
 #include "K2Node.h"

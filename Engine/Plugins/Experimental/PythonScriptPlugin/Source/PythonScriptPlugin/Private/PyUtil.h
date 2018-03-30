@@ -206,11 +206,8 @@ namespace PyUtil
 	/** Check to see if the given property is an output parameter for a function */
 	bool IsOutputParameter(const UProperty* InParam);
 
-	/** Given a set of potential return values and the struct data associated with them, pack them appropriately for returning to Python */
-	PyObject* PackReturnValues(const UFunction* InFunc, const TArrayView<const UProperty*>& InReturnProperties, const void* InBaseParamsAddr, const TCHAR* InErrorCtxt, const TCHAR* InCallingCtxt);
-
-	/** Given a Python return value, unpack the values into the struct data associated with them */
-	bool UnpackReturnValues(PyObject* InRetVals, const UFunction* InFunc, const TArrayView<const UProperty*>& InReturnProperties, void* InBaseParamsAddr, const TCHAR* InErrorCtxt, const TCHAR* InCallingCtxt);
+	/** Invoke a function call */
+	void InvokeFunctionCall(UObject* InObj, const UFunction* InFunc, void* InBaseParamsAddr, const TCHAR* InErrorCtxt);
 
 	/** Given a Python function, get the names of the arguments along with their default values */
 	bool InspectFunctionArgs(PyObject* InFunc, TArray<FString>& OutArgNames, TArray<FPyObjectPtr>* OutArgDefaults = nullptr);
@@ -225,10 +222,10 @@ namespace PyUtil
 	int ValidateContainerIndexParam(const Py_ssize_t InIndex, const Py_ssize_t InLen, const UProperty* InProp, const TCHAR* InErrorCtxt);
 
 	/** Given a struct, get the named property value from it */
-	PyObject* GetUEPropValue(const UStruct* InStruct, void* InStructData, const FName InPropName, const char *InAttributeName, PyObject* InOwnerPyObject, const TCHAR* InErrorCtxt);
+	PyObject* GetUEPropValue(const UStruct* InStruct, void* InStructData, const UProperty* InProp, const char *InAttributeName, PyObject* InOwnerPyObject, const TCHAR* InErrorCtxt);
 
 	/** Given a struct, set the named property value on it */
-	int SetUEPropValue(const UStruct* InStruct, void* InStructData, PyObject* InValue, const FName InPropName, const char *InAttributeName, const FPyWrapperOwnerContext& InChangeOwner, const uint64 InReadOnlyFlags, const TCHAR* InErrorCtxt);
+	int SetUEPropValue(const UStruct* InStruct, void* InStructData, PyObject* InValue, const UProperty* InProp, const char *InAttributeName, const FPyWrapperOwnerContext& InChangeOwner, const uint64 InReadOnlyFlags, const TCHAR* InErrorCtxt);
 
 	/**
 	 * Check to see if the given object implements a length function.
@@ -347,6 +344,20 @@ namespace PyUtil
 	{
 		return SetPythonError(InException, (PyObject*)InErrorContext, InErrorMsg);
 	}
+
+	/** Set a Python warning (see PyErr_WarnEx for the return value meaning) */
+	int SetPythonWarning(PyObject* InException, PyTypeObject* InErrorContext, const TCHAR* InErrorMsg);
+	int SetPythonWarning(PyObject* InException, PyObject* InErrorContext, const TCHAR* InErrorMsg);
+	int SetPythonWarning(PyObject* InException, const TCHAR* InErrorContext, const TCHAR* InErrorMsg);
+
+	template <typename T>
+	int SetPythonWarning(PyObject* InException, T* InErrorContext, const TCHAR* InErrorMsg)
+	{
+		return SetPythonWarning(InException, (PyObject*)InErrorContext, InErrorMsg);
+	}
+
+	/** Enable developer warnings (eg, deprecation warnings) */
+	bool EnableDeveloperWarnings();
 
 	/** Log any pending Python error (will also clear the error) */
 	void LogPythonError(const bool bInteractive = false);

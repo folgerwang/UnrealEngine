@@ -3,10 +3,10 @@
 #pragma once
 
 #include "IncludePython.h"
+#include "IPythonScriptPlugin.h"
 #include "PyUtil.h"
 #include "PyPtr.h"
 #include "Misc/CoreMisc.h"
-#include "Modules/ModuleInterface.h"
 #include "HAL/IConsoleManager.h"
 
 class FPythonScriptPlugin;
@@ -50,13 +50,20 @@ struct IPythonCommandMenu
 };
 #endif	// WITH_PYTHON
 
-class FPythonScriptPlugin : public IModuleInterface, public FSelfRegisteringExec
+class FPythonScriptPlugin : public IPythonScriptPlugin, public FSelfRegisteringExec
 {
 public:
 	FPythonScriptPlugin();
 
 	/** Get this module */
-	static FPythonScriptPlugin* Get();
+	static FPythonScriptPlugin* Get()
+	{
+		return static_cast<FPythonScriptPlugin*>(IPythonScriptPlugin::Get());
+	}
+
+	//~ IPythonScriptPlugin interface
+	virtual bool IsPythonAvailable() const override;
+	virtual bool ExecPythonCommand(const TCHAR* InPythonCommand) override;
 
 	//~ IModuleInterface interface
 	virtual void StartupModule() override;
@@ -72,14 +79,14 @@ public:
 	 */
 	void ImportUnrealModule(const TCHAR* InModuleName);
 
-	void HandlePythonExecCommand(const TCHAR* InPythonCommand);
+	bool HandlePythonExecCommand(const TCHAR* InPythonCommand);
 
 	PyObject* EvalString(const TCHAR* InStr, const TCHAR* InContext, const int InMode);
 	PyObject* EvalString(const TCHAR* InStr, const TCHAR* InContext, const int InMode, PyObject* InGlobalDict, PyObject* InLocalDict);
 
-	void RunString(const TCHAR* InStr);
+	bool RunString(const TCHAR* InStr);
 
-	void RunFile(const TCHAR* InFile);
+	bool RunFile(const TCHAR* InFile, const TCHAR* InArgs);
 #endif	// WITH_PYTHON
 
 private:
@@ -87,6 +94,8 @@ private:
 	void InitializePython();
 
 	void ShutdownPython();
+
+	void Tick(const float InDeltaTime);
 
 	void OnModuleDirtied(FName InModuleName);
 
@@ -102,16 +111,15 @@ private:
 
 	FPythonCommandExecutor CmdExec;
 	IPythonCommandMenu* CmdMenu;
-	FDelegateHandle ReinstanceTickerHandle;
+	FDelegateHandle TickHandle;
 
 	PyUtil::FPyApiBuffer PyProgramName;
 	PyUtil::FPyApiBuffer PyHomePath;
-	TArray<PyUtil::FPyApiBuffer> PyCommandLineArgs;
-	TArray<PyUtil::FPyApiChar*> PyCommandLineArgPtrs;
 	FPyObjectPtr PyGlobalDict;
 	FPyObjectPtr PyLocalDict;
 	FPyObjectPtr PyUnrealModule;
 	bool bInitialized;
+	bool bHasTicked;
 #endif	// WITH_PYTHON
 
 

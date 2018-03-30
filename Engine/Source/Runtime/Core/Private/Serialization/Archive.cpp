@@ -24,6 +24,7 @@
 #include "Misc/NetworkVersion.h"
 #include "Interfaces/ITargetPlatform.h"
 #include "Serialization/CompressedChunkInfo.h"
+#include "Serialization/ArchiveSerializedPropertyChain.h"
 
 /*-----------------------------------------------------------------------------
 	FArchive implementation.
@@ -35,6 +36,8 @@ FArchive::FArchive()
 	ActiveFPLB = &InlineFPLB;
 #endif
 	CustomVersionContainer = nullptr;
+
+	SerializedPropertyChain = nullptr;
 
 #if USE_STABLE_LOCALIZATION_KEYS
 	LocalizationNamespacePtr = nullptr;
@@ -53,6 +56,9 @@ FArchive::FArchive(const FArchive& ArchiveToCopy)
 #endif // USE_STABLE_LOCALIZATION_KEYS
 
 	CopyTrivialFArchiveStatusMembers(ArchiveToCopy);
+
+	SerializedPropertyChain = nullptr;
+	SetSerializedPropertyChain(ArchiveToCopy.SerializedPropertyChain, ArchiveToCopy.SerializedProperty);
 
 	// Don't know why this is set to false, but this is what the original copying code did
 	ArIsFilterEditorOnly  = false;
@@ -75,6 +81,8 @@ FArchive& FArchive::operator=(const FArchive& ArchiveToCopy)
 	ActiveFPLB->Reset();
 #endif
 	CopyTrivialFArchiveStatusMembers(ArchiveToCopy);
+
+	SetSerializedPropertyChain(ArchiveToCopy.SerializedPropertyChain, ArchiveToCopy.SerializedProperty);
 
 	// Don't know why this is set to false, but this is what the original copying code did
 	ArIsFilterEditorOnly  = false;
@@ -103,6 +111,8 @@ FArchive& FArchive::operator=(const FArchive& ArchiveToCopy)
 FArchive::~FArchive()
 {
 	delete CustomVersionContainer;
+
+	delete SerializedPropertyChain;
 
 #if USE_STABLE_LOCALIZATION_KEYS
 	delete LocalizationNamespacePtr;
@@ -151,17 +161,20 @@ void FArchive::Reset()
 	ArIsNetArchive						= false;
 	ArCustomPropertyList				= nullptr;
 	ArUseCustomPropertyList				= false;
-	CookingTargetPlatform = nullptr;
-	SerializedProperty = nullptr;
-#if WITH_EDITORONLY_DATA
-	EditorOnlyPropertyStack = 0;
-#endif
+	CookingTargetPlatform				= nullptr;
+	SerializedProperty					= nullptr;
+
+	delete SerializedPropertyChain;
+	SerializedPropertyChain = nullptr;
+
 #if USE_STABLE_LOCALIZATION_KEYS
 	SetBaseLocalizationNamespace(FString());
 #endif // USE_STABLE_LOCALIZATION_KEYS
+
 #if WITH_EDITOR
 	ArDebugSerializationFlags			= 0;
 #endif
+
 	// Reset all custom versions to the current registered versions.
 	ResetCustomVersions();
 }
@@ -205,10 +218,7 @@ void FArchive::CopyTrivialFArchiveStatusMembers(const FArchive& ArchiveToCopy)
 	ArCustomPropertyList				 = ArchiveToCopy.ArCustomPropertyList;
 	ArUseCustomPropertyList				 = ArchiveToCopy.ArUseCustomPropertyList;
 	CookingTargetPlatform                = ArchiveToCopy.CookingTargetPlatform;
-	SerializedProperty = ArchiveToCopy.SerializedProperty;
-#if WITH_EDITORONLY_DATA
-	EditorOnlyPropertyStack = ArchiveToCopy.EditorOnlyPropertyStack;
-#endif
+	SerializedProperty					 = ArchiveToCopy.SerializedProperty;
 #if USE_STABLE_LOCALIZATION_KEYS
 	SetBaseLocalizationNamespace(ArchiveToCopy.GetBaseLocalizationNamespace());
 #endif // USE_STABLE_LOCALIZATION_KEYS
@@ -224,6 +234,93 @@ FString FArchive::GetArchiveName() const
 {
 	return TEXT("FArchive");
 }
+
+void FArchive::GetSerializedPropertyChain(TArray<class UProperty*>& OutProperties) const
+{
+	if (SerializedPropertyChain)
+	{
+		const int32 NumProperties = SerializedPropertyChain->GetNumProperties();
+		OutProperties.Reserve(NumProperties);
+
+		for (int32 PropertyIndex = 0; PropertyIndex < NumProperties; ++PropertyIndex)
+		{
+			OutProperties.Add(SerializedPropertyChain->GetPropertyFromStack(PropertyIndex));
+		}
+	}
+}
+
+void FArchive::SetSerializedPropertyChain(const FArchiveSerializedPropertyChain* InSerializedPropertyChain, class UProperty* InSerializedPropertyOverride)
+{
+	if (InSerializedPropertyChain && InSerializedPropertyChain->GetNumProperties() > 0)
+	{
+		if (!SerializedPropertyChain)
+		{
+			SerializedPropertyChain = new FArchiveSerializedPropertyChain();
+		}
+		*SerializedPropertyChain = *InSerializedPropertyChain;
+	}
+	else
+	{
+		delete SerializedPropertyChain;
+		SerializedPropertyChain = nullptr;
+	}
+
+	if (InSerializedPropertyOverride)
+	{
+		SerializedProperty = InSerializedPropertyOverride;
+	}
+	else if (SerializedPropertyChain && SerializedPropertyChain->GetNumProperties() > 0)
+	{
+		SerializedProperty = SerializedPropertyChain->GetPropertyFromStack(0);
+	}
+	else
+	{
+		SerializedProperty = nullptr;
+	}
+}
+
+void FArchive::PushSerializedProperty(class UProperty* InProperty, const bool bIsEditorOnlyProperty)
+{
+	if (InProperty)
+	{
+		// Push this property into the chain
+		if (!SerializedPropertyChain)
+		{
+			SerializedPropertyChain = new FArchiveSerializedPropertyChain();
+		}
+		SerializedPropertyChain->PushProperty(InProperty, bIsEditorOnlyProperty);
+
+		// Update the serialized property pointer with the new head
+		SerializedProperty = InProperty;
+	}
+}
+
+void FArchive::PopSerializedProperty(class UProperty* InProperty, const bool bIsEditorOnlyProperty)
+{
+	if (InProperty)
+	{
+		// Pop this property from the chain
+		check(SerializedPropertyChain);
+		SerializedPropertyChain->PopProperty(InProperty, bIsEditorOnlyProperty);
+
+		// Update the serialized property pointer with the new head
+		if (SerializedPropertyChain->GetNumProperties() > 0)
+		{
+			SerializedProperty = SerializedPropertyChain->GetPropertyFromStack(0);
+		}
+		else
+		{
+			SerializedProperty = nullptr;
+		}
+	}
+}
+
+#if WITH_EDITORONLY_DATA
+bool FArchive::IsEditorOnlyPropertyOnTheStack() const
+{
+	return SerializedPropertyChain && SerializedPropertyChain->HasEditorOnlyProperty();
+}
+#endif
 
 #if USE_STABLE_LOCALIZATION_KEYS
 void FArchive::SetBaseLocalizationNamespace(const FString& InLocalizationNamespace)

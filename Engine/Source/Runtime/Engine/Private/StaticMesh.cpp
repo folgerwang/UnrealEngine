@@ -49,6 +49,7 @@
 #include "MeshUtilities.h"
 #include "DerivedDataCacheInterface.h"
 #include "PlatformInfo.h"
+#include "ScopedTransaction.h"
 #include "IMeshBuilderModule.h"
 #include "MeshDescriptionOperations.h"
 #endif // #if WITH_EDITOR
@@ -64,6 +65,7 @@
 #include "UObject/ReleaseObjectVersion.h"
 #include "Streaming/UVChannelDensity.h"
 
+#define LOCTEXT_NAMESPACE "StaticMesh"
 DEFINE_LOG_CATEGORY(LogStaticMesh);	
 
 DECLARE_MEMORY_STAT( TEXT( "StaticMesh Total Memory" ), STAT_StaticMeshTotalMemory2, STATGROUP_MemoryStaticMesh );
@@ -2400,7 +2402,7 @@ void FMeshSectionInfoMap::Clear()
 
 int32 FMeshSectionInfoMap::GetSectionNumber(int32 LODIndex) const
 {
-	int SectionCount = 0;
+	int32 SectionCount = 0;
 	for (auto kvp : Map)
 	{
 		if (((kvp.Key & 0xffff0000) >> 16) == LODIndex)
@@ -4162,6 +4164,53 @@ int32 UStaticMesh::GetMaterialIndex(FName MaterialSlotName) const
 	return -1;
 }
 
+#if WITH_EDITOR
+void UStaticMesh::SetMaterial(int32 MaterialIndex, UMaterialInterface* NewMaterial)
+{
+	static FName NAME_StaticMaterials = GET_MEMBER_NAME_CHECKED(UStaticMesh, StaticMaterials);
+
+	if (StaticMaterials.IsValidIndex(MaterialIndex))
+	{
+		FScopedTransaction ScopeTransaction(LOCTEXT("StaticMeshMaterialChanged", "StaticMesh: Material changed"));
+
+		// flag the property (Materials) we're modifying so that not all of the object is rebuilt.
+		UProperty* ChangedProperty = FindField<UProperty>(UStaticMesh::StaticClass(), NAME_StaticMaterials);
+		check(ChangedProperty);
+		PreEditChange(ChangedProperty);
+
+		StaticMaterials[MaterialIndex].MaterialInterface = NewMaterial;
+		if (NewMaterial != nullptr)
+		{
+			//Set the Material slot name to a good default one
+			if (StaticMaterials[MaterialIndex].MaterialSlotName == NAME_None)
+			{
+				StaticMaterials[MaterialIndex].MaterialSlotName = NewMaterial->GetFName();
+			}
+			//Set the original fbx material name so we can re-import correctly
+			if (StaticMaterials[MaterialIndex].ImportedMaterialSlotName == NAME_None)
+			{
+				StaticMaterials[MaterialIndex].ImportedMaterialSlotName = NewMaterial->GetFName();
+			}
+		}
+
+		if (ChangedProperty)
+		{
+			FPropertyChangedEvent PropertyUpdateStruct(ChangedProperty);
+			PostEditChangeProperty(PropertyUpdateStruct);
+		}
+		else
+		{
+			Modify();
+			PostEditChange();
+		}
+		if (BodySetup)
+		{
+			BodySetup->CreatePhysicsMeshes();
+		}
+	}
+}
+#endif //WITH_EDITOR
+
 int32 UStaticMesh::GetMaterialIndexFromImportedMaterialSlotName(FName ImportedMaterialSlotName) const
 {
 	for (int32 MaterialIndex = 0; MaterialIndex < StaticMaterials.Num(); ++MaterialIndex)
@@ -4428,3 +4477,5 @@ void UStaticMeshSocket::Serialize(FArchive& Ar)
 		RelativeScale = FVector(1.0f, 1.0f, 1.0f);
 	}
 }
+
+#undef LOCTEXT_NAMESPACE

@@ -461,12 +461,19 @@ namespace UnrealBuildTool
 			SystemIncludePaths.UnionWith(PublicSystemIncludePaths);
 			Definitions.AddRange(PublicDefinitions);
 
-			// Add the import of export declaration for the module
+			// Add the import or export declaration for the module
 			if(Rules.Type == ModuleRules.ModuleType.CPlusPlus)
 			{
 				if(Rules.Target.LinkType == TargetLinkType.Monolithic)
 				{
-					Definitions.Add(ModuleApiDefine + "=");
+					if (Rules.Target.bShouldCompileAsDLL && Rules.Target.bHasExports)
+					{
+						Definitions.Add(ModuleApiDefine + "=DLLEXPORT");
+					}
+					else
+					{
+						Definitions.Add(ModuleApiDefine + "=");
+					}
 				}
 				else if(Binary == null || SourceBinary != Binary)
 				{

@@ -83,6 +83,7 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "EngineUtils.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/Input/SButton.h"
+#include "Engine/EngineCustomTimeStep.h"
 #include "Engine/TextureLODSettings.h"
 #include "Engine/LevelStreamingPersistent.h"
 #include "Engine/ObjectReferencer.h"
@@ -1529,6 +1530,8 @@ void UEngine::PreExit()
 
 	delete ScreenSaverInhibitorRunnable;
 
+	SetCustomTimeStep(nullptr);
+
 	ShutdownHMD();
 }
 
@@ -1662,6 +1665,12 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	FTimedMemReport::Get().PumpTimedMemoryReports();
 #endif
+
+	if (CustomTimeStep)
+	{
+		CustomTimeStep->UpdateTimeStep(this);
+		return;
+	}
 
 	// This is always in realtime and is not adjusted by fixed framerate. Start slightly below current real time
 	static double LastRealTime = FPlatformTime::Seconds() - 0.0001;
@@ -1852,6 +1861,31 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 #endif // !UE_BUILD_SHIPPING
 }
 
+bool UEngine::SetCustomTimeStep(UEngineCustomTimeStep* InCustomTimeStep)
+{
+	bool bResult = true;
+
+	if (InCustomTimeStep != CustomTimeStep)
+	{
+		if (CustomTimeStep)
+		{
+			CustomTimeStep->Shutdown(this);
+		}
+
+		CustomTimeStep = InCustomTimeStep;
+
+		if (CustomTimeStep)
+		{
+			bResult = CustomTimeStep->Initialize(this);
+			if (!bResult)
+			{
+				CustomTimeStep = nullptr;
+			}
+		}
+	}
+
+	return bResult;
+}
 
 void UEngine::ParseCommandline()
 {
@@ -2715,6 +2749,11 @@ bool UEngine::IsSplitScreen(UWorld *InWorld)
 		// If no specified world, return true if any world context has multiple local players
 		for (auto It = WorldList.CreateIterator(); It; ++It)
 		{
+			if (It->WorldType == EWorldType::GameRPC)
+			{
+				continue;
+			}
+
 			if (It->OwningGameInstance != NULL && It->OwningGameInstance->GetNumLocalPlayers() > 1)
 			{
 				return true;
@@ -10060,6 +10099,11 @@ ULocalPlayer* UEngine::GetDebugLocalPlayer()
 {
 	for (auto It = WorldList.CreateConstIterator(); It; ++It)
 	{
+		if (It->WorldType == EWorldType::GameRPC)
+		{
+			continue;
+		}
+
 		if (It->OwningGameInstance != NULL && It->OwningGameInstance->GetFirstGamePlayer() != NULL )
 		{
 			return It->OwningGameInstance->GetFirstGamePlayer();
@@ -10969,24 +11013,58 @@ EBrowseReturnVal::Type UEngine::Browse( FWorldContext& WorldContext, FURL URL, F
 	}
 	else if (URL.HasOption(TEXT("failed")) || URL.HasOption(TEXT("closed")))
 	{
-		// Browsing after a failure, load default map
-
 		if (WorldContext.PendingNetGame)
 		{
 			CancelPending(WorldContext);
 		}
-		// Handle failure URL.
-		UE_LOG(LogNet, Log, TEXT("%s"), TEXT("Failed; returning to Entry") );
 		if (WorldContext.World() != NULL)
 		{
 			ResetLoaders( WorldContext.World()->GetOuter() );
 		}
 
-		const UGameMapsSettings* GameMapsSettings = GetDefault<UGameMapsSettings>();
-		const FString TextURL = GameMapsSettings->GetGameDefaultMap() + GameMapsSettings->LocalMapOptions;
-		if (!LoadMap(WorldContext, FURL(&URL, *TextURL, TRAVEL_Partial), NULL, Error))
+		if (WorldContext.WorldType == EWorldType::GameRPC)
 		{
-			HandleBrowseToDefaultMapFailure(WorldContext, TextURL, Error);
+			UE_LOG(LogNet, Log, TEXT("RPC connection failed; retrying..."));
+
+			// Clean up all current net-drivers before we create a new one
+			// Need to copy the array as DestroyNamedNetDriver_Local mutates it
+			{
+				TArray<FNamedNetDriver> ActiveNetDrivers = WorldContext.ActiveNetDrivers;
+				for (const FNamedNetDriver& ActiveNetDriver : ActiveNetDrivers)
+				{
+					if (ActiveNetDriver.NetDriver)
+					{
+						DestroyNamedNetDriver_Local(WorldContext, ActiveNetDriver.NetDriver->NetDriverName);
+					}
+				}
+				CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+			}
+
+			// Just reload the RPC world (as we have no real map to load)
+			WorldContext.PendingNetGame = NewObject<UPendingNetGame>();
+			WorldContext.PendingNetGame->Initialize(WorldContext.LastURL);
+			WorldContext.PendingNetGame->InitNetDriver();
+			if (!WorldContext.PendingNetGame->NetDriver)
+			{
+				// UPendingNetGame will set the appropriate error code and connection lost type, so
+				// we just have to propagate that message to the game.
+				BroadcastTravelFailure(WorldContext.World(), ETravelFailure::PendingNetGameCreateFailure, WorldContext.PendingNetGame->ConnectionError);
+				WorldContext.PendingNetGame = NULL;
+				return EBrowseReturnVal::Failure;
+			}
+
+			return EBrowseReturnVal::Pending;
+		}
+
+		// Browsing after a failure, load default map
+		UE_LOG(LogNet, Log, TEXT("Connection failed; returning to Entry"));
+		
+		const UGameMapsSettings* GameMapsSettings = GetDefault<UGameMapsSettings>();
+		const FURL DefaultURL = FURL(&URL, *(GameMapsSettings->GetGameDefaultMap() + GameMapsSettings->LocalMapOptions), TRAVEL_Partial);
+
+		if (!LoadMap(WorldContext, DefaultURL, NULL, Error))
+		{
+			HandleBrowseToDefaultMapFailure(WorldContext, DefaultURL.ToString(), Error);
 			return EBrowseReturnVal::Failure;
 		}
 
@@ -11510,6 +11588,12 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 				}
 			}
 		}
+	}
+
+	// Is this a minimal net RPC world?
+	if (WorldContext.WorldType == EWorldType::GameRPC)
+	{
+		UGameInstance::CreateMinimalNetRPCWorld(*URL.Map, WorldPackage, NewWorld);
 	}
 
 	const FString URLTrueMapName = URL.Map;
