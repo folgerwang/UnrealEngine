@@ -364,7 +364,17 @@ struct FStaticMaterial
 		, ImportedMaterialSlotName(InImportedMaterialSlotName)
 #endif //WITH_EDITORONLY_DATA
 	{
-
+		//If not specified add some valid material slot name
+		if (MaterialInterface && MaterialSlotName == NAME_None)
+		{
+			MaterialSlotName = MaterialInterface->GetFName();
+		}
+#if WITH_EDITORONLY_DATA
+		if (ImportedMaterialSlotName == NAME_None)
+		{
+			ImportedMaterialSlotName = MaterialSlotName;
+		}
+#endif
 	}
 
 	friend FArchive& operator<<(FArchive& Ar, FStaticMaterial& Elem);
