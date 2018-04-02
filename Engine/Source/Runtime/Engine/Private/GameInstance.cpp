@@ -27,6 +27,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Framework/Application/SlateApplication.h"
 #include "GenericPlatform/GenericApplication.h"
+#include "Misc/PackageName.h"
 
 #if WITH_EDITOR
 #include "Settings/LevelEditorPlaySettings.h"
