@@ -48,10 +48,19 @@
 void FMeshMergeHelpers::ExtractSections(const UStaticMeshComponent* Component, int32 LODIndex, TArray<FSectionInfo>& OutSections)
 {
 	static UMaterialInterface* DefaultMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
-
-	TArray<FName> MaterialSlotNames = Component->GetMaterialSlotNames();
-
+	
 	const UStaticMesh* StaticMesh = Component->GetStaticMesh();
+
+	TArray<FName> MaterialSlotNames;
+	for (const FStaticMaterial& StaticMaterial : StaticMesh->StaticMaterials)
+	{
+#if WITH_EDITOR
+		MaterialSlotNames.Add(StaticMaterial.ImportedMaterialSlotName);
+#else
+		MaterialSlotNames.Add(StaticMaterial.MaterialSlotName);
+#endif
+	}
+
 	for (const FStaticMeshSection& MeshSection : StaticMesh->RenderData->LODResources[LODIndex].Sections)
 	{
 		// Retrieve material for this section
@@ -133,7 +142,12 @@ void FMeshMergeHelpers::ExtractSections(const UStaticMesh* StaticMesh, int32 LOD
 		FSectionInfo SectionInfo;
 		SectionInfo.Material = StoredMaterial;
 		SectionInfo.MaterialIndex = MeshSection.MaterialIndex;
+#if WITH_EDITOR
+		SectionInfo.MaterialSlotName = StaticMesh->StaticMaterials.IsValidIndex(MeshSection.MaterialIndex) ? StaticMesh->StaticMaterials[MeshSection.MaterialIndex].ImportedMaterialSlotName : NAME_None;
+#else
 		SectionInfo.MaterialSlotName = StaticMesh->StaticMaterials.IsValidIndex(MeshSection.MaterialIndex) ? StaticMesh->StaticMaterials[MeshSection.MaterialIndex].MaterialSlotName : NAME_None;
+#endif
+		
 
 		if (MeshSection.bEnableCollision)
 		{

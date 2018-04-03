@@ -123,6 +123,23 @@ namespace StaticMeshCookStats
 #endif
 
 
+#if WITH_EDITOR
+static void FillMaterialName(const TArray<FStaticMaterial>& StaticMaterials, TMap<int32, FName>& OutMaterialMap)
+{
+	OutMaterialMap.Empty(StaticMaterials.Num());
+
+	for (int32 MaterialIndex = 0; MaterialIndex < StaticMaterials.Num(); ++MaterialIndex)
+	{
+		FName MaterialName = StaticMaterials[MaterialIndex].ImportedMaterialSlotName;
+		if (MaterialName == NAME_None)
+		{
+			MaterialName = *(TEXT("MaterialSlot_") + FString::FromInt(MaterialIndex));
+		}
+		OutMaterialMap.Add(MaterialIndex, MaterialName);
+	}
+}
+#endif
+
 
 /*-----------------------------------------------------------------------------
 	FStaticMeshLODResources
@@ -1316,7 +1333,7 @@ FArchive& operator<<(FArchive& Ar, FMeshBuildSettings& BuildSettings)
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define STATICMESH_DERIVEDDATA_VER TEXT("AD8FEAB182864DDDAFD9AC29A7B2B600")
+#define STATICMESH_DERIVEDDATA_VER TEXT("74CAFC5D929A4BB8AC6B2690A29A1E99")
 
 static const FString& GetStaticMeshDerivedDataVersion()
 {
@@ -2357,10 +2374,7 @@ void FStaticMeshSourceModel::SaveRawMesh(FRawMesh& InRawMesh, bool bConvertToMes
 	{
 		TMap<int32, FName> MaterialMap;
 		check(StaticMeshOwner != nullptr);
-		for (int32 MaterialIndex = 0; MaterialIndex < StaticMeshOwner->StaticMaterials.Num(); ++MaterialIndex)
-		{
-			MaterialMap.Add(MaterialIndex, StaticMeshOwner->StaticMaterials[MaterialIndex].ImportedMaterialSlotName);
-		}
+		FillMaterialName(StaticMeshOwner->StaticMaterials, MaterialMap);
 		FMeshDescriptionOperations::ConverFromRawMesh(InRawMesh, OriginalMeshDescription, MaterialMap);
 	}
 }
@@ -2592,10 +2606,7 @@ UMeshDescription* UStaticMesh::GetOriginalMeshDescription(int32 LodIndex)
 			FRawMesh LodRawMesh;
 			SourceModels[LodIndex].LoadRawMesh(LodRawMesh);
 			TMap<int32, FName> MaterialMap;
-			for (int32 MaterialIndex = 0; MaterialIndex < StaticMaterials.Num(); ++MaterialIndex)
-			{
-				MaterialMap.Add(MaterialIndex, StaticMaterials[MaterialIndex].ImportedMaterialSlotName);
-			}
+			FillMaterialName(StaticMaterials, MaterialMap);
 			FMeshDescriptionOperations::ConverFromRawMesh(LodRawMesh, SourceModels[LodIndex].OriginalMeshDescription, MaterialMap);
 		}
 		return SourceModels[LodIndex].OriginalMeshDescription;
@@ -2642,22 +2653,20 @@ void UStaticMesh::FixupMaterialSlotName()
 	//Make sure we have non empty imported material slot names
 	for (FStaticMaterial& Material : StaticMaterials)
 	{
-		if (Material.ImportedMaterialSlotName != NAME_None)
+		if (Material.ImportedMaterialSlotName == NAME_None)
 		{
-			continue;
-		}
-		
-		if (Material.MaterialSlotName != NAME_None)
-		{
-			Material.ImportedMaterialSlotName = Material.MaterialSlotName;
-		}
-		else if (Material.MaterialInterface != nullptr)
-		{
-			Material.ImportedMaterialSlotName = Material.MaterialInterface->GetFName();
-		}
-		else
-		{
-			Material.ImportedMaterialSlotName = FName(TEXT("MaterialSlot"));
+			if (Material.MaterialSlotName != NAME_None)
+			{
+				Material.ImportedMaterialSlotName = Material.MaterialSlotName;
+			}
+			else if (Material.MaterialInterface != nullptr)
+			{
+				Material.ImportedMaterialSlotName = Material.MaterialInterface->GetFName();
+			}
+			else
+			{
+				Material.ImportedMaterialSlotName = FName(TEXT("MaterialSlot"));
+			}
 		}
 
 		FString UniqueName = Material.ImportedMaterialSlotName.ToString();
@@ -2680,7 +2689,7 @@ void UStaticMesh::FixupMaterialSlotName()
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("EEEE375ED2AD4000BE7EEEC11D331333")
+#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("7681842ECB2C4CBDB21613591CDC5B40")
 
 static const FString& GetMeshDataKeyStaticMeshDerivedDataVersion()
 {
@@ -2715,7 +2724,7 @@ bool UStaticMesh::GetMeshDataKey(FString& OutKey)
 		{
 			LodIndexString += TEXT("REDUCELOD");
 		}
-		TArray<TCHAR> LodIndexArray = LodIndexString.GetCharArray();
+		const TArray<TCHAR>& LodIndexArray = LodIndexString.GetCharArray();
 		Sha.Update((uint8*)LodIndexArray.GetData(), LodIndexArray.Num() * LodIndexArray.GetTypeSize());
 	}
 	Sha.Final();
@@ -2873,10 +2882,7 @@ void UStaticMesh::CacheMeshData()
 
 				//Convert the raw mesh to mesh description and save the mesh description in the ddc
 				TMap<int32, FName> MaterialMap;
-				for (int32 MaterialIndex = 0; MaterialIndex < StaticMaterials.Num(); ++MaterialIndex)
-				{
-					MaterialMap.Add(MaterialIndex, StaticMaterials[MaterialIndex].ImportedMaterialSlotName);
-				}
+				FillMaterialName(StaticMaterials, MaterialMap);
 				FMeshDescriptionOperations::ConverFromRawMesh(TempRawMesh, SourceModel.OriginalMeshDescription, MaterialMap);
 			}
 		}

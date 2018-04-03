@@ -502,6 +502,9 @@ public:
 		const TVertexInstanceAttributeArray<float>& InVertexBinormalSigns = InMesh->VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
 		const TVertexInstanceAttributeArray<FVector4>& InVertexColors = InMesh->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
 		const TVertexInstanceAttributeIndicesArray<FVector2D>& InVertexUVs = InMesh->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		
+		const TPolygonGroupAttributeArray<FName>& InPolygonGroupMaterialNames = InMesh->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+		TPolygonGroupAttributeArray<FName>& OutPolygonGroupMaterialNames = OutReducedMesh->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
 		// Process each face, build vertex buffer and index buffer
 		for (int32 FaceIndex = 0; FaceIndex < NumFaces; FaceIndex++)
@@ -674,18 +677,18 @@ public:
 
 		{
 			//Empty the destination mesh
-			//We want to keep the polygon group information, the reduce do not impact the material list
-			// @todo refactor this: PolygonGroup.Polygons shouldn't be mutated like this (it is likely to be made private soon).
-			// Prefer creating an empty mesh description, and copying the polygon group attributes over.
-			for (const FPolygonGroupID& PolygonGroupID : OutReducedMesh->PolygonGroups().GetElementIDs())
-			{
-				FMeshPolygonGroup& PolygonGroup = OutReducedMesh->GetPolygonGroup(PolygonGroupID);
-				PolygonGroup.Polygons.Empty();
-			}
+			OutReducedMesh->PolygonGroups().Reset();
 			OutReducedMesh->Polygons().Reset();
 			OutReducedMesh->Edges().Reset();
 			OutReducedMesh->VertexInstances().Reset();
 			OutReducedMesh->Vertices().Reset();
+
+			//Fill the PolygonGroups from the InMesh
+			for (const FPolygonGroupID& PolygonGroupID : InMesh->PolygonGroups().GetElementIDs())
+			{
+				OutReducedMesh->CreatePolygonGroupWithID(PolygonGroupID);
+				OutPolygonGroupMaterialNames[PolygonGroupID] = InPolygonGroupMaterialNames[PolygonGroupID];
+			}
 
 			TVertexAttributeArray<FVector>& OutVertexPositions = OutReducedMesh->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 

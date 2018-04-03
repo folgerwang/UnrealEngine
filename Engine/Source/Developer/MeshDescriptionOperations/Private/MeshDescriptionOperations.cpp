@@ -447,6 +447,33 @@ void FMeshDescriptionOperations::ConverFromRawMesh(const FRawMesh &SourceRawMesh
 	bool bHasNormals = SourceRawMesh.WedgeTangentZ.Num() > 0;
 
 	TArray<FPolygonGroupID> PolygonGroups;
+	TMap<int32, FPolygonGroupID> MaterialIndexToPolygonGroup;
+
+	//Find the maximum material index
+	int32 MaxMaterialIndex = 0;
+	for(int32 MaterialIndex : SourceRawMesh.FaceMaterialIndices)
+	{
+		if (MaterialIndex > MaxMaterialIndex)
+		{
+			MaxMaterialIndex = MaterialIndex;
+		}
+	}
+
+	//Create the known Materials, this will ensure we create them in the correct order, since it is possible to have FRawMesh with unordered FaceMaterialIndices
+	for (auto Kvp : MaterialMap)
+	{
+		//Avoid creating empty sections
+		if (Kvp.Key > MaxMaterialIndex)
+		{
+			continue;
+		}
+		FPolygonGroupID PolygonGroupID = DestinationMeshDescription->CreatePolygonGroup();
+		check(Kvp.Key == PolygonGroupID.GetValue());
+		FName PolygonGroupImportedMaterialSlotName = Kvp.Value;
+		PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = PolygonGroupImportedMaterialSlotName == NAME_None ? FName(*FString::Printf(TEXT("MaterialSlot_%d"), Kvp.Key)) : PolygonGroupImportedMaterialSlotName;
+		PolygonGroups.Add(PolygonGroupID);
+		MaterialIndexToPolygonGroup.Add(Kvp.Key, PolygonGroupID);
+	}
 
 	//Triangles
 	int32 TriangleCount = SourceRawMesh.WedgeIndices.Num() / 3;
@@ -463,15 +490,19 @@ void FMeshDescriptionOperations::ConverFromRawMesh(const FRawMesh &SourceRawMesh
 		FPolygonGroupID PolygonGroupID = FPolygonGroupID::Invalid;
 		FName PolygonGroupImportedMaterialSlotName = NAME_None;
 		int32 MaterialIndex = SourceRawMesh.FaceMaterialIndices[TriangleIndex];
-
-		if (MaterialMap.Num() > 0 && MaterialMap.Contains(SourceRawMesh.FaceMaterialIndices[TriangleIndex]))
+		if (MaterialIndexToPolygonGroup.Contains(MaterialIndex))
 		{
-			PolygonGroupImportedMaterialSlotName = MaterialMap[SourceRawMesh.FaceMaterialIndices[TriangleIndex]];
+			PolygonGroupID = MaterialIndexToPolygonGroup[MaterialIndex];
+		}
+		else if (MaterialMap.Num() > 0 && MaterialMap.Contains(MaterialIndex))
+		{
+			PolygonGroupImportedMaterialSlotName = MaterialMap[MaterialIndex];
 			for (const FPolygonGroupID& SearchPolygonGroupID : DestinationMeshDescription->PolygonGroups().GetElementIDs())
 			{
 				if (PolygonGroupImportedMaterialSlotNames[SearchPolygonGroupID] == PolygonGroupImportedMaterialSlotName)
 				{
 					PolygonGroupID = SearchPolygonGroupID;
+					break;
 				}
 			}
 		}
@@ -481,6 +512,7 @@ void FMeshDescriptionOperations::ConverFromRawMesh(const FRawMesh &SourceRawMesh
 			PolygonGroupID = DestinationMeshDescription->CreatePolygonGroup();
 			PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = PolygonGroupImportedMaterialSlotName == NAME_None ? FName(*FString::Printf(TEXT("MaterialSlot_%d"), MaterialIndex)) : PolygonGroupImportedMaterialSlotName;
 			PolygonGroups.Add(PolygonGroupID);
+			MaterialIndexToPolygonGroup.Add(MaterialIndex, PolygonGroupID);
 		}
 		FVertexInstanceID TriangleVertexInstanceIDs[3];
 		for (int32 Corner = 0; Corner < 3; ++Corner)

@@ -92,10 +92,11 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh, const FStaticMeshLODGrou
 		//Reduce LODs
 		if (bUseReduction)
 		{
+			int32 BaseLODIndex = 0;
 			float OverlappingThreshold = LODBuildSettings.bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
 			TMultiMap<int32, int32> OverlappingCorners;
-			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, StaticMesh->GetMeshDescription(0), OverlappingThreshold);
-			MeshDescriptionHelper.ReduceLOD(StaticMesh->GetMeshDescription(0), StaticMesh->GetMeshDescription(LodIndex), ReductionSettings, OverlappingCorners);
+			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, StaticMesh->GetMeshDescription(BaseLODIndex), OverlappingThreshold);
+			MeshDescriptionHelper.ReduceLOD(StaticMesh->GetMeshDescription(BaseLODIndex), StaticMesh->GetMeshDescription(LodIndex), ReductionSettings, OverlappingCorners);
 			// Recompute adjacency information. Since we change the vertices when we reduce
 			MeshDescriptionHelper.FindOverlappingCorners(StaticMesh->GetMeshDescription(LodIndex), OverlappingThreshold);
 		}
@@ -429,9 +430,9 @@ void BuildVertexBuffer(
 			}
 		}
 
-		if (LodIndex > 0)
+		if (LodIndex > 0 && StaticMesh->SectionInfoMap.GetSectionNumber(LodIndex) <= SectionIndex)
 		{
-			//Set the overwrite section info map
+			//Set the overwrite section info map in case there is not already one
 			FMeshSectionInfo SectionInfo = StaticMesh->SectionInfoMap.Get(LodIndex, SectionIndex);
 			SectionInfo.MaterialIndex = StaticMeshSection.MaterialIndex;
 			StaticMesh->SectionInfoMap.Set(LodIndex, SectionIndex, SectionInfo);

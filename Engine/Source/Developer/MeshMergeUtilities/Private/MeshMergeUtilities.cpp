@@ -2588,18 +2588,50 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 			}
 		}
 		
+		auto IsMaterialImportedNameUnique = [&StaticMesh](FName ImportedMaterialSlotName)
+		{
+			for (const FStaticMaterial& StaticMaterial : StaticMesh->StaticMaterials)
+			{
+#if WITH_EDITOR
+				if (StaticMaterial.ImportedMaterialSlotName == ImportedMaterialSlotName)
+#else
+				if (StaticMaterial.MaterialSlotName == ImportedMaterialSlotName)
+#endif
+				{
+					return false;
+				}
+			}
+			return true;
+		};
+		
+
 		for (UMaterialInterface* Material : UniqueMaterials)
 		{
 			if (Material && (!Material->IsAsset() && InOuter != GetTransientPackage()))
 			{
 				Material = nullptr; // do not save non-asset materials
 			}
-			StaticMesh->StaticMaterials.Add(FStaticMaterial(Material, DataTracker.GetMaterialSlotName(Material)));
+			//Make sure we have unique slot name here
+			FName MaterialSlotName = DataTracker.GetMaterialSlotName(Material);
+			int32 Counter = 1;
+			while (!IsMaterialImportedNameUnique(MaterialSlotName))
+			{
+				MaterialSlotName = *(DataTracker.GetMaterialSlotName(Material).ToString() + TEXT("_") + FString::FromInt(Counter++));
+			}
+
+			StaticMesh->StaticMaterials.Add(FStaticMaterial(Material, MaterialSlotName));
 		}
 
 		for(UMaterialInterface* ImposterMaterial : ImposterMaterials)
 		{
-			StaticMesh->StaticMaterials.Add(FStaticMaterial(ImposterMaterial));
+			//Make sure we have unique slot name here
+			FName MaterialSlotName = ImposterMaterial->GetFName();
+			int32 Counter = 1;
+			while (!IsMaterialImportedNameUnique(MaterialSlotName))
+			{
+				MaterialSlotName = *(ImposterMaterial->GetName() + TEXT("_") + FString::FromInt(Counter++));
+			}
+			StaticMesh->StaticMaterials.Add(FStaticMaterial(ImposterMaterial, MaterialSlotName));
 		}
 
 		if (InSettings.bMergePhysicsData)
