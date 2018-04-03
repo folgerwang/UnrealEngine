@@ -124,6 +124,15 @@
       </ItemGroup>
     </When>
   </Choose>
+  <Choose>
+    <When Condition="Exists('Platform\Quail\UEBuildQuail.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\Quail\QuailProjectGenerator.cs" />
+        <Compile Include="Platform\Quail\QuailToolChain.cs" />
+        <Compile Include="Platform\Quail\UEBuildQuail.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
   <ItemGroup>
     <Compile Include="Configuration\ModuleRules.cs" />
     <Compile Include="Configuration\PlatformTargetRules.cs" />

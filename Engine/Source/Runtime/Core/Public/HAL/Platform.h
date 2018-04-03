@@ -40,6 +40,9 @@
 #if !defined(PLATFORM_ANDROID_VULKAN)
 	#define PLATFORM_ANDROID_VULKAN 0
 #endif
+#if !defined(PLATFORM_QUAIL)
+	#define PLATFORM_QUAIL 0
+#endif
 #if !defined(PLATFORM_ANDROIDESDEFERRED)
 	#define PLATFORM_ANDROIDESDEFERRED 0
 #endif
@@ -79,6 +82,8 @@
 	#include "HTML5/HTML5PlatformCompilerPreSetup.h"
 #elif PLATFORM_LINUX
 	#include "Linux/LinuxPlatformCompilerPreSetup.h"
+#elif PLATFORM_QUAIL
+	#include "Quail/QuailPlatformCompilerPreSetup.h"
 #elif PLATFORM_SWITCH
 	#include "Switch/SwitchPlatformCompilerPreSetup.h"
 #else
@@ -115,6 +120,8 @@
 	#include "HTML5/HTML5Platform.h"
 #elif PLATFORM_LINUX
 	#include "Linux/LinuxPlatform.h"
+#elif PLATFORM_QUAIL
+	#include "Quail/QuailPlatform.h"
 #elif PLATFORM_SWITCH
 	#include "Switch/SwitchPlatform.h"
 #else
@@ -845,6 +852,8 @@ namespace TypeTests
 	#include "HTML5/HTML5PlatformCompilerSetup.h"
 #elif PLATFORM_LINUX
 	#include "Linux/LinuxPlatformCompilerSetup.h"
+#elif PLATFORM_QUAIL
+	#include "Quail/QuailPlatformCompilerSetup.h"
 #elif PLATFORM_SWITCH
 	#include "Switch/SwitchPlatformCompilerSetup.h"
 #else

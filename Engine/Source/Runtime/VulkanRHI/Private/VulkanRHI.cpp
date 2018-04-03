@@ -395,6 +395,11 @@ void FVulkanDynamicRHI::Init()
 
 void FVulkanDynamicRHI::Shutdown()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("savevulkanpsocacheonexit")))
+	{
+		SavePipelineCache();
+	}
+
 	check(IsInGameThread() && IsInRenderingThread());
 	check(Device);
 

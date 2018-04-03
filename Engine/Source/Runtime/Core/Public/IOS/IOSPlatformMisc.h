@@ -9,8 +9,6 @@
 #include "IOS/IOSSystemIncludes.h"
 #include "Apple/ApplePlatformMisc.h"
 
-#define IOS_SUBSYSTEM FName(TEXT("IOS"))
-
 /**
 * iOS implementation of the misc OS functions
 **/
@@ -47,9 +45,6 @@ struct CORE_API FIOSPlatformMisc : public FApplePlatformMisc
 
 	static class IPlatformChunkInstall* GetPlatformChunkInstall();
 	
-	static const class FName& GetDefaultOnlineSubsystemName();
-
-
 	//////// Platform specific
 	static int GetDefaultStackSize();
 	static void HandleLowMemoryWarning();

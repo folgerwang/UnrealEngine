@@ -222,6 +222,7 @@ public class BuildCookRun : BuildCommand
 		Project.Deploy(Params);
 		PrintRunTime();
 		Project.Run(Params);
+		Project.GetFile(Params);
 
 		// Check everything in!
 		if (WorkingCL != -1)

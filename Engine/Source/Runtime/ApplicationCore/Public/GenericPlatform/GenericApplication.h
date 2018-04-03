@@ -529,6 +529,8 @@ public:
 
 	virtual bool ApplicationLicenseValid(FPlatformUserId PlatformUser = PLATFORMUSERID_NONE) { return true; }
 
+	virtual bool IsAllowedToRender() const { return true; }
+
 public:
 
 	const TSharedPtr< ICursor > Cursor;

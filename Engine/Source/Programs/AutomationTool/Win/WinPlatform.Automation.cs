@@ -99,6 +99,12 @@ public abstract class BaseWinPlatform : Platform
     {
     }
 
+	public override void GetTargetFile(string RemoteFilePath, string LocalFile, ProjectParams Params)
+	{
+		var SourceFile = FileReference.Combine(new DirectoryReference(Params.BaseStageDirectory), GetCookPlatform(Params.HasServerCookedTargets, Params.HasClientTargetDetected), RemoteFilePath);
+		CommandUtils.CopyFile(SourceFile.FullName, LocalFile);
+	}
+
 	void StageBootstrapExecutable(DeploymentContext SC, string ExeName, FileReference TargetFile, StagedFileReference StagedRelativeTargetPath, string StagedArguments)
 	{
 		FileReference InputFile = FileReference.Combine(SC.LocalRoot, "Engine", "Binaries", SC.PlatformDir, String.Format("BootstrapPackagedGame-{0}-Shipping.exe", SC.PlatformDir));

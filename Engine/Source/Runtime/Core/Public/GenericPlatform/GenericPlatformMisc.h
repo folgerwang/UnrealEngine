@@ -717,11 +717,6 @@ public:
 	/** Function to store the current working directory for use with LaunchDir() */
 	static void CacheLaunchDir();
 
-	static bool IsAllowedToRender()
-	{
-		return true;
-	}
-
 	/**
 	 *	Return the project directory
 	 */
@@ -1073,13 +1068,6 @@ public:
 	{
 		return true;
 	}
-
-	/**
-	 * Returns the default OSS that this platform uses. This is pulled out of OSS so that we don't have to put confidential
-	 * platform information into shared code.
-	 */
-	static const class FName& GetDefaultOnlineSubsystemName();
-
 
 #if !UE_BUILD_SHIPPING
 	/** 

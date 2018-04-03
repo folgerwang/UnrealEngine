@@ -20,8 +20,6 @@ class TFunction;
 #define UE_DEBUG_BREAK() (FAndroidMisc::DebugBreakInternal())
 #endif
 
-#define GOOGLEPLAY_SUBSYSTEM FName(TEXT("GOOGLEPLAY"))
-
 /**
  * Android implementation of the misc OS functions
  */
@@ -196,8 +194,6 @@ public:
 	{
 		__sync_synchronize();
 	}
-
-	static const class FName& GetDefaultOnlineSubsystemName();
 
 
 #if STATS || ENABLE_STATNAMEDEVENTS
