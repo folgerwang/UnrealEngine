@@ -18,6 +18,8 @@
 #include "Android/AndroidPlatformInput.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformInput.h"
+#elif PLATFORM_QUAIL
+#include "Quail/QuailPlatformInput.h"
 #elif PLATFORM_LINUX
 #include "Linux/LinuxPlatformInput.h"
 #elif PLATFORM_SWITCH

@@ -26,6 +26,9 @@ FPerformanceMonitorModule::FPerformanceMonitorModule()
 	}
 	TimeBetweenRecords = 0.01f;
 	TestTimeOut = 0.f;
+	NumOfCapturedFrames = 0;
+	NumOfFramesToCapture = 0;
+	bCvsToolsMode = false;
 }
 
 FPerformanceMonitorModule::~FPerformanceMonitorModule()
@@ -145,13 +148,22 @@ bool FPerformanceMonitorModule::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputD
 				}
 			}
 		}
+		else if (FParse::Command(&Cmd, TEXT("cvstoolsmode")))
+		{
+			FString StringCommand = Cmd;
+			if (!StringCommand.IsEmpty())
+			{
+				bCvsToolsMode = FCString::ToBool(*StringCommand);
+			}
+		}
 		else
 		{
 			Ar.Logf(TEXT("Incorrect PerformanceMonitor command syntax! Supported commands are: "));
 			Ar.Logf(TEXT("\tPerformanceMonitor start <filename as string>"));
 			Ar.Logf(TEXT("\tPerformanceMonitor stop"));
 			Ar.Logf(TEXT("\tPerformanceMonitor setinterval <seconds as float>"));
-			Ar.Logf(TEXT("\tAutomation addtimer <timername as string>"));
+			Ar.Logf(TEXT("\tPerformanceMonitor addtimer <timername as string>"));
+			Ar.Logf(TEXT("\tPerformanceMonitor cvstoolsmode <true|false>"));
 		}
 
 
@@ -233,6 +245,15 @@ void FPerformanceMonitorModule::StartRecordingPerfTimers(FString FileNameToUse, 
 			))
 		{
 			TestTimeOut = floatValueReceived;
+		}
+		int32 intValueReceived = 0;
+		if (GConfig->GetInt(*ConfigCategory,
+			TEXT("PerformanceMonitorNumOfFramesToCapture"),
+			intValueReceived,
+			GGameIni
+		))
+		{
+			NumOfFramesToCapture = intValueReceived;
 		}
 		TArray<FString> TimersOfInterest;
 		if (GConfig->GetArray(*ConfigCategory,
@@ -357,6 +378,15 @@ void FPerformanceMonitorModule::RecordFrame()
 		StopRecordingPerformanceTimers();
 	}
 
+	if (NumOfFramesToCapture > 0)
+	{
+		++NumOfCapturedFrames;
+
+		if (NumOfCapturedFrames >= NumOfFramesToCapture)
+		{
+			StopRecordingPerformanceTimers();
+		}
+	}
 }
 
 void FPerformanceMonitorModule::GetStatsBreakdown()
@@ -424,7 +454,15 @@ void FPerformanceMonitorModule::StopRecordingPerformanceTimers()
 		return;
 	}
 
-	RecordData();
+	if (bCvsToolsMode)
+	{
+		RecordDataInCvsToolsMode();
+	}
+	else
+	{
+		RecordData();
+	}
+
 	FThreadStats::MasterEnableSubtract(1);
 	FStatsThreadState& Stats = FStatsThreadState::GetLocalState();
 	Stats.NewFrameDelegate.RemoveAll(this);
@@ -444,7 +482,7 @@ void FPerformanceMonitorModule::StopRecordingPerformanceTimers()
 
 	if (bExitOnCompletion)
 	{
-		FPlatformMisc::RequestExit(true);
+		FPlatformMisc::RequestExit(false);
 	}
 #endif
 }
@@ -504,6 +542,57 @@ float FPerformanceMonitorModule::GetAverageOfArray(TArray<float>ArrayToAvg, FStr
 		RetVal /= NumValidValues;
 	}
 	return RetVal;
+}
+
+void FPerformanceMonitorModule::RecordDataInCvsToolsMode()
+{
+#if STATS
+
+	int MaxStats = 0;
+
+	// Print header
+	FString StringToPrint;
+	for (TMap<FString, TArray<float>>::TConstIterator ThreadedItr(GeneratedStats); ThreadedItr; ++ThreadedItr)
+	{
+		if (!StringToPrint.IsEmpty())
+		{
+			StringToPrint += TEXT(",");
+		}
+
+		StringToPrint += ThreadedItr.Key();
+
+		MaxStats = FMath::Max(MaxStats, ThreadedItr.Value().Num());
+	}
+
+	StringToPrint += TEXT("\n");
+	FileToLogTo->Serialize(TCHAR_TO_ANSI(*StringToPrint), StringToPrint.Len());
+
+	for (int i = 0; i < MaxStats; ++i)
+	{
+		StringToPrint.Empty();
+
+		for (TMap<FString, TArray<float>>::TConstIterator ThreadedItr(GeneratedStats); ThreadedItr; ++ThreadedItr)
+		{
+			float StatValue = -1;
+			const TArray<float>& StatValues = ThreadedItr.Value();
+			if (i < StatValues.Num())
+			{
+				StatValue = StatValues[i];
+			}
+
+			if (!StringToPrint.IsEmpty())
+			{
+				StringToPrint += TEXT(",");
+			}
+
+			StringToPrint += FString::Printf(TEXT("%0.4f"), StatValue);
+		}
+
+		StringToPrint += TEXT("\n");
+		FileToLogTo->Serialize(TCHAR_TO_ANSI(*StringToPrint), StringToPrint.Len());
+	}
+
+#endif
 }
 
 void FPerformanceMonitorModule::RecordData()

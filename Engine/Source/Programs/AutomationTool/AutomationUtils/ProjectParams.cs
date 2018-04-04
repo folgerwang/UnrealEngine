@@ -306,6 +306,7 @@ namespace AutomationTool
 			this.ForcePackageData = InParams.ForcePackageData;
 			this.Deploy = InParams.Deploy;
 			this.DeployFolder = InParams.DeployFolder;
+			this.GetFile = InParams.GetFile;
 			this.IterativeDeploy = InParams.IterativeDeploy;
 			this.IgnoreCookErrors = InParams.IgnoreCookErrors;
 			this.FastCook = InParams.FastCook;
@@ -426,6 +427,7 @@ namespace AutomationTool
 			bool? Client = null,
 			bool? Deploy = null,
 			string DeployFolder = null,
+			string GetFile = null,
 			bool? FileServer = null,
 			bool? Foreign = null,
 			bool? ForeignCode = null,
@@ -723,6 +725,8 @@ namespace AutomationTool
 				//@todo - remove 'deploy' var and check deployfolder != null?
 				this.Deploy = true;
 			}
+
+			this.GetFile = ParseParamValueIfNotSpecified(Command, GetFile, "getfile", null);
 
 			this.IterativeDeploy = GetParamValueIfNotSpecified(Command, IterativeDeploy, this.IterativeDeploy, new string[] {"iterativedeploy", "iterate" } );
 			this.FastCook = GetParamValueIfNotSpecified(Command, FastCook, this.FastCook, "FastCook");
@@ -1886,6 +1890,13 @@ namespace AutomationTool
 
 		[Help("deploy", "Location to deploy to on the target platform")]
 		public string DeployFolder { get; set; }
+
+		#endregion
+
+		#region GetFile
+
+		[Help("getfile", "download file from target after successful run")]
+		public string GetFile { get; set; }
 
 		#endregion
 

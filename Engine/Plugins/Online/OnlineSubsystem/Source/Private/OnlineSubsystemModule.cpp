@@ -113,17 +113,7 @@ void FOnlineSubsystemModule::LoadDefaultSubsystem()
 		bHasLoadedModule = TryLoadSubsystemAndSetDefault(FName(*InterfaceString));
 	}
 
-	// if the above failed, then attempt the platform's default
-	if (!bHasLoadedModule)
-	{
-		FName PlatformOSSName = FPlatformMisc::GetDefaultOnlineSubsystemName();
-		if (PlatformOSSName != NAME_None)
-		{
-			bHasLoadedModule = TryLoadSubsystemAndSetDefault(PlatformOSSName);
-		}
-	}
-
-	// if all else fails, attempt to load Null
+	// if default fails, attempt to load Null
 	if (!bHasLoadedModule)
 	{
 		bHasLoadedModule = TryLoadSubsystemAndSetDefault(NULL_SUBSYSTEM);

@@ -18,6 +18,8 @@
 #include "Android/AndroidMisc.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformMisc.h"
+#elif PLATFORM_QUAIL
+#include "Quail/QuailPlatformMisc.h"
 #elif PLATFORM_LINUX
 #include "Linux/LinuxPlatformMisc.h"
 #elif PLATFORM_SWITCH

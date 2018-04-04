@@ -211,6 +211,17 @@ namespace AutomationTool
 		}
 
 		/// <summary>
+		/// Downloads file from target device to local pc
+		/// </summary>
+		/// <param name="RemoteFilePath"></param>
+		/// <param name="LocalFile"></param>
+		/// <param name="Params"></param>
+		public virtual void GetTargetFile(string RemoteFilePath, string LocalFile, ProjectParams Params)
+		{
+			throw new NotImplementedException();
+		}
+
+		/// <summary>
 		/// Allow platform specific clean-up or detection after client has run
 		/// </summary>
 		/// <param name="ClientRunFlags"></param>

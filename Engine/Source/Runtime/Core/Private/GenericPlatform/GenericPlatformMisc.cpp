@@ -1081,9 +1081,3 @@ void FGenericPlatformMisc::UnregisterForRemoteNotifications()
 {
 	// not implemented by default
 }
-
-const FName& FGenericPlatformMisc::GetDefaultOnlineSubsystemName()
-{
-	static FName OSSName = NAME_None;
-	return OSSName;
-}

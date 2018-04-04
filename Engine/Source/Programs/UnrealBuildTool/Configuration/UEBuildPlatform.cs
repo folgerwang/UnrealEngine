@@ -416,6 +416,7 @@ namespace UnrealBuildTool
 				case CppPlatform.Linux:			return UnrealTargetPlatform.Linux;
 				case CppPlatform.TVOS:			return UnrealTargetPlatform.TVOS;
 				case CppPlatform.Switch: 		return UnrealTargetPlatform.Switch;
+				case CppPlatform.Quail:			return UnrealTargetPlatform.Quail;
 			}
 			throw new BuildException("CPPTargetPlatformToUnrealTargetPlatform: Unknown CPPTargetPlatform {0}", InCPPPlatform.ToString());
 		}

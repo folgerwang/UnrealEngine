@@ -83,6 +83,11 @@ namespace UnrealBuildTool
 		/// Nintendo Switch
 		/// </summary>
 		Switch,
+
+		/// <summary>
+		/// NDA'd platform Quail
+		/// </summary>
+		Quail,
 	}
 
 	/// <summary>
