@@ -449,30 +449,21 @@ void FMeshDescriptionOperations::ConverFromRawMesh(const FRawMesh &SourceRawMesh
 	TArray<FPolygonGroupID> PolygonGroups;
 	TMap<int32, FPolygonGroupID> MaterialIndexToPolygonGroup;
 
-	//Find the maximum material index
-	int32 MaxMaterialIndex = 0;
+	//Create the PolygonGroups
 	for(int32 MaterialIndex : SourceRawMesh.FaceMaterialIndices)
 	{
-		if (MaterialIndex > MaxMaterialIndex)
+		if (!MaterialIndexToPolygonGroup.Contains(MaterialIndex))
 		{
-			MaxMaterialIndex = MaterialIndex;
+			FPolygonGroupID PolygonGroupID(MaterialIndex);
+			DestinationMeshDescription->CreatePolygonGroupWithID(PolygonGroupID);
+			PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = FName(*FString::Printf(TEXT("MaterialSlot_%d"), MaterialIndex));
+			if (MaterialMap.Contains(MaterialIndex))
+			{
+				PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = MaterialMap[MaterialIndex];
+			}
+			PolygonGroups.Add(PolygonGroupID);
+			MaterialIndexToPolygonGroup.Add(MaterialIndex, PolygonGroupID);
 		}
-	}
-
-	//Create the known Materials, this will ensure we create them in the correct order, since it is possible to have FRawMesh with unordered FaceMaterialIndices
-	for (auto Kvp : MaterialMap)
-	{
-		//Avoid creating empty sections
-		if (Kvp.Key > MaxMaterialIndex)
-		{
-			continue;
-		}
-		FPolygonGroupID PolygonGroupID = DestinationMeshDescription->CreatePolygonGroup();
-		check(Kvp.Key == PolygonGroupID.GetValue());
-		FName PolygonGroupImportedMaterialSlotName = Kvp.Value;
-		PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = PolygonGroupImportedMaterialSlotName == NAME_None ? FName(*FString::Printf(TEXT("MaterialSlot_%d"), Kvp.Key)) : PolygonGroupImportedMaterialSlotName;
-		PolygonGroups.Add(PolygonGroupID);
-		MaterialIndexToPolygonGroup.Add(Kvp.Key, PolygonGroupID);
 	}
 
 	//Triangles

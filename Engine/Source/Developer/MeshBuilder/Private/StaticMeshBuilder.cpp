@@ -73,16 +73,28 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh, const FStaticMeshLODGrou
 		
 		if(MeshDescription == nullptr)
 		{
+			int32 BaseReduceLodIndex = 0;
 			if (bUseReduction)
 			{
 				//Create an empty mesh description that the reduce will fill
 				MeshDescription = NewObject<UMeshDescription>(StaticMesh, NAME_None);
 				UStaticMesh::RegisterMeshAttributes(MeshDescription);
 			}
-			else if(StaticMesh->GetMeshDescription(0) != nullptr)
+			else if(StaticMesh->GetMeshDescription(BaseReduceLodIndex) != nullptr)
 			{
 				//Duplicate the lodindex 0 we have a 100% reduction which is like a duplicate
-				MeshDescription = Cast<UMeshDescription>(StaticDuplicateObject(StaticMesh->GetMeshDescription(0), StaticMesh, NAME_None, RF_NoFlags));
+				MeshDescription = Cast<UMeshDescription>(StaticDuplicateObject(StaticMesh->GetMeshDescription(BaseReduceLodIndex), StaticMesh, NAME_None, RF_NoFlags));
+			}
+			if (LodIndex > 0)
+			{
+				//Make sure the SectionInfoMap is taken from the Base RawMesh
+				int32 SectionNumber = StaticMesh->OriginalSectionInfoMap.GetSectionNumber(BaseReduceLodIndex);
+				for (int32 SectionIndex = 0; SectionIndex < SectionNumber; ++SectionIndex)
+				{
+					FMeshSectionInfo Info = StaticMesh->OriginalSectionInfoMap.Get(BaseReduceLodIndex, SectionIndex);
+					StaticMesh->SectionInfoMap.Set(LodIndex, SectionIndex, Info);
+					StaticMesh->OriginalSectionInfoMap.Set(LodIndex, SectionIndex, Info);
+				}
 			}
 		}
 
@@ -97,8 +109,53 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh, const FStaticMeshLODGrou
 			TMultiMap<int32, int32> OverlappingCorners;
 			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, StaticMesh->GetMeshDescription(BaseLODIndex), OverlappingThreshold);
 			MeshDescriptionHelper.ReduceLOD(StaticMesh->GetMeshDescription(BaseLODIndex), StaticMesh->GetMeshDescription(LodIndex), ReductionSettings, OverlappingCorners);
-			// Recompute adjacency information. Since we change the vertices when we reduce
-			MeshDescriptionHelper.FindOverlappingCorners(StaticMesh->GetMeshDescription(LodIndex), OverlappingThreshold);
+			UMeshDescription* MeshDescriptionReduced = StaticMesh->GetMeshDescription(LodIndex);
+			if (MeshDescriptionReduced != nullptr)
+			{
+				const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescriptionReduced->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+				// Recompute adjacency information. Since we change the vertices when we reduce
+				MeshDescriptionHelper.FindOverlappingCorners(MeshDescriptionReduced, OverlappingThreshold);
+			
+				//Make sure the static mesh SectionInfoMap is up to date with the new reduce LOD
+				//We have to remap the material index with the ReductionSettings.BaseLODModel sectionInfoMap
+			
+				//Set the new SectionInfoMap for this reduced LOD base on the ReductionSettings.BaseLODModel SectionInfoMap
+				const FMeshSectionInfoMap& LODModelSectionInfoMap = StaticMesh->SectionInfoMap;
+				TArray<int32> UniqueMaterialIndex;
+				//Find all unique Material in used order
+				for (const FPolygonGroupID& PolygonGroupID : MeshDescriptionReduced->PolygonGroups().GetElementIDs())
+				{
+					int32 MaterialIndex = StaticMesh->GetMaterialIndexFromImportedMaterialSlotName(PolygonGroupImportedMaterialSlotNames[PolygonGroupID]);
+					if (MaterialIndex == INDEX_NONE)
+					{
+						MaterialIndex = PolygonGroupID.GetValue();
+					}
+					UniqueMaterialIndex.AddUnique(MaterialIndex);
+				}
+				//All used material represent a different section
+				for (int32 SectionIndex = 0; SectionIndex < UniqueMaterialIndex.Num(); ++SectionIndex)
+				{
+					//Section material index have to be remap with the ReductionSettings.BaseLODModel SectionInfoMap to create
+					//a valid new section info map for the reduced LOD.
+					if (LODModelSectionInfoMap.IsValidSection(ReductionSettings.BaseLODModel, UniqueMaterialIndex[SectionIndex]))
+					{
+						FMeshSectionInfo SectionInfo = LODModelSectionInfoMap.Get(ReductionSettings.BaseLODModel, UniqueMaterialIndex[SectionIndex]);
+						//Try to recuperate the valid data
+						if (LODModelSectionInfoMap.IsValidSection(LodIndex, SectionIndex))
+						{
+							//If the old LOD section was using the same Material copy the data
+							FMeshSectionInfo OriginalLODSectionInfo = LODModelSectionInfoMap.Get(LodIndex, SectionIndex);
+							if (OriginalLODSectionInfo.MaterialIndex == SectionInfo.MaterialIndex)
+							{
+								SectionInfo.bCastShadow = OriginalLODSectionInfo.bCastShadow;
+								SectionInfo.bEnableCollision = OriginalLODSectionInfo.bEnableCollision;
+							}
+						}
+						//Copy the BaseLODModel section info to the reduce LODIndex.
+						StaticMesh->SectionInfoMap.Set(LodIndex, SectionIndex, SectionInfo);
+					}
+				}
+			}
 		}
 
 		const FPolygonGroupArray& PolygonGroups = MeshDescription->PolygonGroups();
@@ -415,27 +472,11 @@ void BuildVertexBuffer(
 		{
 			StaticMeshSection.NumTriangles += (uint32)MeshDescription->GetPolygonTriangles(PolygonID).Num();
 		}
-
 		StaticMeshSection.MaterialIndex = StaticMesh->GetMaterialIndexFromImportedMaterialSlotName(PolygonGroupImportedMaterialSlotNames[PolygonGroupID]);
 		
-		if (!StaticMesh->StaticMaterials.IsValidIndex(StaticMeshSection.MaterialIndex))
+		if (StaticMeshSection.MaterialIndex == INDEX_NONE)
 		{
-			if (StaticMesh->StaticMaterials.IsValidIndex(PolygonGroupID.GetValue()))
-			{
-				StaticMeshSection.MaterialIndex = PolygonGroupID.GetValue();
-			}
-			else
-			{
-				StaticMeshSection.MaterialIndex = 0;
-			}
-		}
-
-		if (LodIndex > 0 && StaticMesh->SectionInfoMap.GetSectionNumber(LodIndex) <= SectionIndex)
-		{
-			//Set the overwrite section info map in case there is not already one
-			FMeshSectionInfo SectionInfo = StaticMesh->SectionInfoMap.Get(LodIndex, SectionIndex);
-			SectionInfo.MaterialIndex = StaticMeshSection.MaterialIndex;
-			StaticMesh->SectionInfoMap.Set(LodIndex, SectionIndex, SectionInfo);
+			StaticMeshSection.MaterialIndex = PolygonGroupID.GetValue();
 		}
 
 		for (const FPolygonID PolygonID : Polygons)

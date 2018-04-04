@@ -1444,6 +1444,32 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 					}
 				}
 			}
+			
+			//Set the Section Info Map to fit the real StaticMaterials array
+			int32 SectionIndex = 0;
+			for (const FPolygonGroupID PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs())
+			{
+				const FName& ImportedMaterialSlotName = PolygonGroupImportedMaterialSlotNames[PolygonGroupID];
+				int32 MaterialIndex = INDEX_NONE;
+				for (int32 FbxMaterialIndex = 0; FbxMaterialIndex < StaticMesh->StaticMaterials.Num(); ++FbxMaterialIndex)
+				{
+					FName& StaticMaterialName = StaticMesh->StaticMaterials[FbxMaterialIndex].ImportedMaterialSlotName;
+					if (StaticMaterialName == ImportedMaterialSlotName)
+					{
+						MaterialIndex = FbxMaterialIndex;
+						break;
+					}
+				}
+				if (MaterialIndex == INDEX_NONE)
+				{
+					MaterialIndex = PolygonGroupID.GetValue();
+				}
+				FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(LODIndex, SectionIndex);
+				Info.MaterialIndex = MaterialIndex;
+				StaticMesh->SectionInfoMap.Remove(LODIndex, SectionIndex);
+				StaticMesh->SectionInfoMap.Set(LODIndex, SectionIndex, Info);
+				SectionIndex++;
+			}
 		}
 		//Set the original mesh description to be able to do non destructive reduce
 		StaticMesh->SetOriginalMeshDescription(LODIndex, MeshDescription);
