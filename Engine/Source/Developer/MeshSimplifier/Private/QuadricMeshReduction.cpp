@@ -664,7 +664,7 @@ public:
 		//MeshSimp->SetBoundaryLocked();
 		MeshSimp->InitCosts();
 
-		float MaxErrorSqr = MeshSimp->SimplifyMesh(MAX_FLT, NumTris * ReductionSettings.PercentTriangles);
+		float MaxErrorSqr = MeshSimp->SimplifyMesh(MAX_FLT, FMath::Max(1, int32(NumTris * ReductionSettings.PercentTriangles)));
 
 		NumVerts = MeshSimp->GetNumVerts();
 		NumTris = MeshSimp->GetNumTris();
