@@ -1333,7 +1333,7 @@ FArchive& operator<<(FArchive& Ar, FMeshBuildSettings& BuildSettings)
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define STATICMESH_DERIVEDDATA_VER TEXT("5299B55CC23A45F58FCEFE9826427C90")
+#define STATICMESH_DERIVEDDATA_VER TEXT("362693FC09D94DED98AB6AA6BCC225F6")
 
 static const FString& GetStaticMeshDerivedDataVersion()
 {
@@ -2689,7 +2689,7 @@ void UStaticMesh::FixupMaterialSlotName()
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("B452DD73E30F4FC2BC05536BE2E39058")
+#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("9F9D58468EEC4147B7859523D6AEA2A3")
 
 static const FString& GetMeshDataKeyStaticMeshDerivedDataVersion()
 {
