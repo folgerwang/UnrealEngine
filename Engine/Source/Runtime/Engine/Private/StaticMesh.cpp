@@ -1591,7 +1591,7 @@ void FStaticMeshRenderData::Cache(UStaticMesh* Owner, const FStaticMeshLODSettin
 			if (bUseMeshDescription)
 			{
 				IMeshBuilderModule& MeshBuilderModule = FModuleManager::Get().LoadModuleChecked<IMeshBuilderModule>(TEXT("MeshBuilder"));
-				if (!MeshBuilderModule.BuildMesh(Owner, LODGroup))
+				if (!MeshBuilderModule.BuildMesh(*this, Owner, LODGroup))
 				{
 					UE_LOG(LogStaticMesh, Error, TEXT("Failed to build static mesh. See previous line(s) for details."));
 					return;

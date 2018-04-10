@@ -17,9 +17,6 @@ DEFINE_LOG_CATEGORY(LogStaticMeshBuilder);
 
 //////////////////////////////////////////////////////////////////////////
 //Local functions definition
-bool IsOrphanedVertex(const class UMeshDescription *MeshDescription, const FVertexID VertexID);
-void UpdateBounds(class UStaticMesh* StaticMesh);
-void UpdateCollision(UStaticMesh *StaticMesh);
 void BuildVertexBuffer(
 	  UStaticMesh *StaticMesh
 	, int32 LodIndex
@@ -41,7 +38,7 @@ FStaticMeshBuilder::FStaticMeshBuilder()
 
 }
 
-bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh, const FStaticMeshLODGroup& LODGroup)
+bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, UStaticMesh* StaticMesh, const FStaticMeshLODGroup& LODGroup)
 {
 	if (StaticMesh->GetOriginalMeshDescription(0) == nullptr)
 	{
@@ -49,17 +46,19 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh, const FStaticMeshLODGrou
 		UE_LOG(LogStaticMeshBuilder, Error, TEXT("Cannot find a valid mesh description to build the asset."));
 		return false;
 	}
-	if (StaticMesh->RenderData != nullptr && StaticMesh->RenderData->LODResources.Num() > 0)
+	if (StaticMeshRenderData.LODResources.Num() > 0)
 	{
-		//This log is to know which staticmesh caugh the error so the log has the full name
-		UE_LOG(LogStaticMeshBuilder, Error, TEXT("StaticMesh RenderData is build 2 time [%s]."), *StaticMesh->GetFullName());
+		//At this point the render data is suppose to be empty
+		UE_LOG(LogStaticMeshBuilder, Error, TEXT("Cannot build static mesh render data twice [%s]."), *StaticMesh->GetFullName());
+		
+		//Crash in debug
+		checkSlow(StaticMeshRenderData.LODResources.Num() == 0);
+
 		return false;
 	}
-	StaticMesh->RenderData->AllocateLODResources(StaticMesh->SourceModels.Num());
+	StaticMeshRenderData.AllocateLODResources(StaticMesh->SourceModels.Num());
 
-	//OnBuildRenderMeshStart(StaticMesh, false);
 
-	FStaticMeshRenderData& StaticMeshRenderData = *StaticMesh->RenderData;
 	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
 		FMeshBuildSettings& LODBuildSettings = StaticMesh->SourceModels[LodIndex].BuildSettings;
@@ -231,166 +230,8 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh, const FStaticMeshLODGrou
 			StaticMeshRenderData.Bounds.SphereRadius
 		);
 	}
-	//OnBuildRenderMeshFinish(StaticMesh, true);
 
 	return true;
-}
-
-void FStaticMeshBuilder::OnBuildRenderMeshStart(UStaticMesh* StaticMesh, const bool bInvalidateLighting)
-{
-	// We may already have a lock on the rendering resources, if it wasn't released the last time we called EndModification()
-	// on the mesh.  This is only the case when rolling back preview changes for a mesh, because we're guaranteed to apply another
-	// modification to the same mesh in the very same frame.  So we can avoid having to update the GPU resources twice in one frame.
-	if (!RecreateRenderStateContext.IsValid())
-	{
-		// We're changing the mesh itself, so ALL static mesh components in the scene will need
-		// to be unregistered for this (and reregistered afterwards.)
-		const bool bRefreshBounds = true;
-		RecreateRenderStateContext = MakeShareable(new FStaticMeshComponentRecreateRenderStateContext(StaticMesh, bInvalidateLighting, bRefreshBounds));
-
-		// Release the static mesh's resources.
-		StaticMesh->ReleaseResources();
-
-		// Flush the resource release commands to the rendering thread to ensure that the build doesn't occur while a resource is still
-		// allocated, and potentially accessing the UStaticMesh.
-		StaticMesh->ReleaseResourcesFence.Wait();
-	}
-}
-
-void FStaticMeshBuilder::OnBuildRenderMeshFinish(UStaticMesh* StaticMesh, const bool bRebuildBoundsAndCollision)
-{
-	if (bRebuildBoundsAndCollision)
-	{
-		UpdateBounds(StaticMesh);
-		UpdateCollision(StaticMesh);
-	}
-
-	StaticMesh->InitResources();
-
-	// NOTE: This can call InvalidateLightingCache() on all components using this mesh, causing Modify() to be 
-	// called on those components!  Just something to be aware of when EndModification() is called within
-	// an undo transaction.
-	RecreateRenderStateContext.Reset();
-}
-
-bool IsOrphanedVertex(const UMeshDescription *MeshDescription, const FVertexID VertexID)
-{
-	for (const FVertexInstanceID VertexInstanceID : MeshDescription->GetVertexVertexInstances(VertexID))
-	{
-		if (MeshDescription->GetVertexInstanceConnectedPolygons(VertexInstanceID).Num() > 0)
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
-void UpdateBounds(UStaticMesh* StaticMesh)
-{
-	const UMeshDescription* MeshDescription = StaticMesh->GetMeshDescription();
-	check(MeshDescription != nullptr);
-
-	// Compute a new bounding box
-	// @todo mesheditor perf: During the final modification, only do this if the bounds may have changed (need hinting)
-	FBoxSphereBounds BoundingBoxAndSphere;
-
-	FBox BoundingBox;
-	BoundingBox.Init();
-
-	// Could improve performance here if necessary:
-	// 1) cache polygon IDs per vertex (in order to quickly reject orphans) and just iterate vertex array; or
-	// 2) cache bounding box per polygon
-	// There are other cases where having polygon adjacency information (1) might be useful, so it's maybe worth considering.
-
-	const FVertexArray& Vertices = MeshDescription->Vertices();
-	const FVertexInstanceArray& VertexInstances = MeshDescription->VertexInstances();
-
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-
-	for (const FVertexID VertexID : Vertices.GetElementIDs())
-	{
-		if (!IsOrphanedVertex(MeshDescription, VertexID))
-		{
-			BoundingBox += VertexPositions[VertexID];
-		}
-	}
-
-	BoundingBox.GetCenterAndExtents( /* Out */ BoundingBoxAndSphere.Origin, /* Out */ BoundingBoxAndSphere.BoxExtent);
-
-	// Calculate the bounding sphere, using the center of the bounding box as the origin.
-	BoundingBoxAndSphere.SphereRadius = 0.0f;
-
-	for (const FVertexID VertexID : Vertices.GetElementIDs())
-	{
-		if (!IsOrphanedVertex(MeshDescription, VertexID))
-		{
-			BoundingBoxAndSphere.SphereRadius = FMath::Max((VertexPositions[VertexID] - BoundingBoxAndSphere.Origin).Size(), BoundingBoxAndSphere.SphereRadius);
-		}
-	}
-
-	FStaticMeshRenderData& StaticMeshRenderData = *StaticMesh->RenderData;
-	StaticMeshRenderData.Bounds = BoundingBoxAndSphere;
-	StaticMesh->CalculateExtendedBounds();
-}
-
-
-void UpdateCollision(UStaticMesh *StaticMesh)
-{
-	// @todo mesheditor collision: We're wiping the existing simplified collision and generating a simple bounding
-	// box collision, since that's the best we can do without impacting performance.  We always using visibility (complex)
-	// collision for traces while mesh editing (for hover/selection), so simplified collision isn't really important.
-	const bool bRecreateSimplifiedCollision = true;
-
-	if (StaticMesh->BodySetup == nullptr)
-	{
-		StaticMesh->CreateBodySetup();
-	}
-
-	UBodySetup* BodySetup = StaticMesh->BodySetup;
-
-	// NOTE: We don't bother calling Modify() on the BodySetup as EndModification() will rebuild this guy after every undo
-	// BodySetup->Modify();
-
-	if (bRecreateSimplifiedCollision)
-	{
-		if (BodySetup->AggGeom.GetElementCount() > 0)
-		{
-			BodySetup->RemoveSimpleCollision();
-		}
-	}
-
-	BodySetup->InvalidatePhysicsData();
-
-	if (bRecreateSimplifiedCollision)
-	{
-		const FBoxSphereBounds Bounds = StaticMesh->GetBounds();
-
-		FKBoxElem BoxElem;
-		BoxElem.Center = Bounds.Origin;
-		BoxElem.X = Bounds.BoxExtent.X * 2.0f;
-		BoxElem.Y = Bounds.BoxExtent.Y * 2.0f;
-		BoxElem.Z = Bounds.BoxExtent.Z * 2.0f;
-		BodySetup->AggGeom.BoxElems.Add(BoxElem);
-	}
-
-	// Update all static mesh components that are using this mesh
-	// @todo mesheditor perf: This is a pretty heavy operation, and overlaps with what we're already doing in RecreateRenderStateContext
-	// a little bit.  Ideally we do everything in a single pass.  Furthermore, if this could be updated lazily it would be faster.
-	{
-		for (FObjectIterator Iter(UStaticMeshComponent::StaticClass()); Iter; ++Iter)
-		{
-			UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(*Iter);
-			if (StaticMeshComponent->GetStaticMesh() == StaticMesh)
-			{
-				// it needs to recreate IF it already has been created
-				if (StaticMeshComponent->IsPhysicsStateCreated())
-				{
-					StaticMeshComponent->RecreatePhysicsState();
-				}
-			}
-		}
-	}
 }
 
 bool AreVerticesEqual(FStaticMeshBuildVertex const& A, FStaticMeshBuildVertex const& B, float ComparisonThreshold)
