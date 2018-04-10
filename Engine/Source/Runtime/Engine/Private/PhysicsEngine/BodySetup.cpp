@@ -1517,7 +1517,7 @@ FByteBulkData* UBodySetup::GetCookedData(FName Format, bool bRuntimeOnlyOptimize
 		}
 		else if(!bIsRuntime)	//only want to warn if DDC cooking failed - if it's really trying to use runtime and we can't, the runtime cooker code will catch it
 		{
-			UE_LOG(LogPhysics, Warning, TEXT("Attempt to build physics data for %s when we are unable to."), *GetPathName());
+			UE_LOG(LogPhysics, Log, TEXT("Attempt to build physics data for %s when we are unable to."), *GetPathName());
 		}
 	}
 #endif // WITH_PHYSX && WITH_EDITOR
