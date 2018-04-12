@@ -32,6 +32,8 @@
 #include "AssetViewerSettings.h"
 #include "Editor/EditorPerProjectUserSettings.h"
 #include "Materials/Material.h"
+#include "SkeletalMeshTypes.h"
+#include "IPersonaToolkit.h"
 
 #define LOCTEXT_NAMESPACE "PersonaViewportToolbar"
 
@@ -40,7 +42,6 @@
 
 void SAnimationEditorViewport::Construct(const FArguments& InArgs, const FAnimationEditorViewportRequiredArgs& InRequiredArgs)
 {
-	SkeletonTreePtr = InRequiredArgs.SkeletonTree;
 	PreviewScenePtr = InRequiredArgs.PreviewScene;
 	TabBodyPtr = InRequiredArgs.TabBody;
 	AssetEditorToolkitPtr = InRequiredArgs.AssetEditorToolkit;
@@ -53,7 +54,6 @@ void SAnimationEditorViewport::Construct(const FArguments& InArgs, const FAnimat
 	bShowFloorOptions = InArgs._ShowFloorOptions;
 	bShowTurnTable = InArgs._ShowTurnTable;
 	bShowPhysicsMenu = InArgs._ShowPhysicsMenu;
-	InRequiredArgs.OnPostUndo.Add(FSimpleDelegate::CreateSP(this, &SAnimationEditorViewport::OnUndoRedo));
 	ViewportIndex = InRequiredArgs.ViewportIndex;
 
 	SEditorViewport::Construct(
@@ -68,7 +68,7 @@ void SAnimationEditorViewport::Construct(const FArguments& InArgs, const FAnimat
 TSharedRef<FEditorViewportClient> SAnimationEditorViewport::MakeEditorViewportClient()
 {
 	// Create an animation viewport client
-	LevelViewportClient = MakeShareable(new FAnimationViewportClient(SkeletonTreePtr.Pin().ToSharedRef(), PreviewScenePtr.Pin().ToSharedRef(), SharedThis(this), AssetEditorToolkitPtr.Pin().ToSharedRef(), ViewportIndex, bShowStats));
+	LevelViewportClient = MakeShareable(new FAnimationViewportClient(PreviewScenePtr.Pin().ToSharedRef(), SharedThis(this), AssetEditorToolkitPtr.Pin().ToSharedRef(), ViewportIndex, bShowStats));
 
 	LevelViewportClient->ViewportType = LVT_Perspective;
 	LevelViewportClient->bSetListenerPosition = false;
@@ -92,7 +92,12 @@ TSharedPtr<SWidget> SAnimationEditorViewport::MakeViewportToolbar()
 		.ShowPhysicsMenu(bShowPhysicsMenu);
 }
 
-void SAnimationEditorViewport::OnUndoRedo()
+void SAnimationEditorViewport::PostUndo( bool bSuccess )
+{
+	LevelViewportClient->Invalidate();
+}
+
+void SAnimationEditorViewport::PostRedo( bool bSuccess )
 {
 	LevelViewportClient->Invalidate();
 }
@@ -171,7 +176,8 @@ static FText ConcatenateLine(const FText& InText, const FText& InNewLine)
 FText SAnimationEditorViewportTabBody::GetDisplayString() const
 {
 	class UDebugSkelMeshComponent* Component = GetPreviewScene()->GetPreviewMeshComponent();
-	FName TargetSkeletonName = GetSkeletonTree()->GetEditableSkeleton()->GetSkeleton().GetFName();
+	TSharedPtr<IEditableSkeleton> EditableSkeleton = GetPreviewScene()->GetPersonaToolkit()->GetEditableSkeleton();
+	FName TargetSkeletonName = EditableSkeleton.IsValid() ? EditableSkeleton->GetSkeleton().GetFName() : NAME_None;
 
 	FText DefaultText;
 
@@ -198,7 +204,7 @@ FText SAnimationEditorViewportTabBody::GetDisplayString() const
 				DefaultText = FText::Format(LOCTEXT("PreviewingAnimBP", "Previewing {0}"), FText::FromString(Component->AnimClass->GetName()));
 			}
 		}
-		else if (Component->SkeletalMesh == NULL)
+		else if (Component->SkeletalMesh == NULL && TargetSkeletonName != NAME_None)
 		{
 			DefaultText = FText::Format(LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromName(TargetSkeletonName));
 		}
@@ -284,11 +290,10 @@ FReply SAnimationEditorViewportTabBody::OnKeyDown(const FGeometry& MyGeometry, c
 }
 
 
-void SAnimationEditorViewportTabBody::Construct(const FArguments& InArgs, const TSharedRef<class ISkeletonTree>& InSkeletonTree, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class FAssetEditorToolkit>& InAssetEditorToolkit, FSimpleMulticastDelegate& InOnUndoRedo, int32 InViewportIndex)
+void SAnimationEditorViewportTabBody::Construct(const FArguments& InArgs, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class FAssetEditorToolkit>& InAssetEditorToolkit, int32 InViewportIndex)
 {
 	UICommandList = MakeShareable(new FUICommandList_Pinnable);
 
-	SkeletonTreePtr = InSkeletonTree;
 	PreviewScenePtr = StaticCastSharedRef<FAnimationEditorPreviewScene>(InPreviewScene);
 	AssetEditorToolkitPtr = InAssetEditorToolkit;
 	BlueprintEditorPtr = InArgs._BlueprintEditor;
@@ -313,7 +318,7 @@ void SAnimationEditorViewportTabBody::Construct(const FArguments& InArgs, const 
 		.OptionsSource(&UVChannels)
 		.OnSelectionChanged(this, &SAnimationEditorViewportTabBody::ComboBoxSelectionChanged);
 
-	FAnimationEditorViewportRequiredArgs ViewportArgs(InSkeletonTree, InPreviewScene, SharedThis(this), InAssetEditorToolkit, InOnUndoRedo, InViewportIndex);
+	FAnimationEditorViewportRequiredArgs ViewportArgs(InPreviewScene, SharedThis(this), InAssetEditorToolkit, InViewportIndex);
 
 	ViewportWidget = SNew(SAnimationEditorViewport, ViewportArgs)
 		.Extenders(InArgs._Extenders)

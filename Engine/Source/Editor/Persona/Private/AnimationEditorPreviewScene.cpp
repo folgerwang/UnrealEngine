@@ -26,13 +26,15 @@
 #include "AnimPreviewAttacheInstance.h"
 #include "Animation/PreviewCollectionInterface.h"
 #include "ScopedTransaction.h"
+#include "ISkeletonTreeItem.h"
+#include "Engine/SkeletalMeshSocket.h"
 
 #define LOCTEXT_NAMESPACE "AnimationEditorPreviewScene"
 
 /////////////////////////////////////////////////////////////////////////
 // FAnimationEditorPreviewScene
 
-FAnimationEditorPreviewScene::FAnimationEditorPreviewScene(const ConstructionValues& CVS, const TSharedRef<IEditableSkeleton>& InEditableSkeleton, const TSharedRef<IPersonaToolkit>& InPersonaToolkit)
+FAnimationEditorPreviewScene::FAnimationEditorPreviewScene(const ConstructionValues& CVS, const TSharedPtr<IEditableSkeleton>& InEditableSkeleton, const TSharedRef<IPersonaToolkit>& InPersonaToolkit)
 	: IPersonaPreviewScene(CVS)
 	, Actor(nullptr)
 	, SkeletalMeshComponent(nullptr)
@@ -46,6 +48,7 @@ FAnimationEditorPreviewScene::FAnimationEditorPreviewScene(const ConstructionVal
 	, SelectedBoneIndex(INDEX_NONE)
 	, bEnableMeshHitProxies(false)
 	, LastTickTime(0.0)
+	, bSelecting(false)
 {
 	if (GEditor)
 	{
@@ -54,7 +57,10 @@ FAnimationEditorPreviewScene::FAnimationEditorPreviewScene(const ConstructionVal
 	
 	FloorBounds = FloorMeshComponent->CalcBounds(FloorMeshComponent->GetRelativeTransform());
 
-	InEditableSkeleton->LoadAdditionalPreviewSkeletalMeshes();
+	if(InEditableSkeleton.IsValid())
+	{
+		InEditableSkeleton->LoadAdditionalPreviewSkeletalMeshes();
+	}
 
 	// create the preview scene description
 	PreviewSceneDescription = NewObject<UPersonaPreviewSceneDescription>(GetTransientPackage());
@@ -63,11 +69,17 @@ FAnimationEditorPreviewScene::FAnimationEditorPreviewScene(const ConstructionVal
 	PreviewSceneDescription->SetPreviewController(UPersonaPreviewSceneDefaultController::StaticClass(), this);
 	
 	PreviewSceneDescription->PreviewMesh = InPersonaToolkit->GetPreviewMesh();
-	PreviewSceneDescription->AdditionalMeshes = InEditableSkeleton->GetSkeleton().GetAdditionalPreviewSkeletalMeshes();
+	if(InEditableSkeleton.IsValid())
+	{
+		PreviewSceneDescription->AdditionalMeshes = InEditableSkeleton->GetSkeleton().GetAdditionalPreviewSkeletalMeshes();
+	}
 
 	// create a default additional mesh collection so we dont always have to create an asset to edit additional meshes
 	UPreviewMeshCollectionFactory* FactoryToUse = NewObject<UPreviewMeshCollectionFactory>();
-	FactoryToUse->CurrentSkeleton = MakeWeakObjectPtr(const_cast<USkeleton*>(&InEditableSkeleton->GetSkeleton()));
+	if(InEditableSkeleton.IsValid())
+	{
+		FactoryToUse->CurrentSkeleton = MakeWeakObjectPtr(const_cast<USkeleton*>(&InEditableSkeleton->GetSkeleton()));
+	}
 	PreviewSceneDescription->DefaultAdditionalMeshes = CastChecked<UPreviewMeshCollection>(FactoryToUse->FactoryCreateNew(UPreviewMeshCollection::StaticClass(), PreviewSceneDescription, "UnsavedCollection", RF_Transient, nullptr, nullptr));
 
 	if (!PreviewSceneDescription->AdditionalMeshes.IsValid())
@@ -99,10 +111,10 @@ FAnimationEditorPreviewScene::~FAnimationEditorPreviewScene()
 
 void FAnimationEditorPreviewScene::SetPreviewMesh(USkeletalMesh* NewPreviewMesh)
 {
-	const USkeleton& Skeleton = GetEditableSkeleton()->GetSkeleton();
-
-	if (NewPreviewMesh != nullptr && !Skeleton.IsCompatibleMesh(NewPreviewMesh))
+	if (NewPreviewMesh != nullptr && GetEditableSkeleton().IsValid() && !GetEditableSkeleton()->GetSkeleton().IsCompatibleMesh(NewPreviewMesh))
 	{
+		const USkeleton& Skeleton = GetEditableSkeleton()->GetSkeleton();
+
 		// message box, ask if they'd like to regenerate skeleton
 		if (FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("RenerateSkeleton", "The preview mesh hierarchy doesn't match with Skeleton anymore. Would you like to regenerate skeleton?")) == EAppReturnType::Yes)
 		{
@@ -233,7 +245,7 @@ void FAnimationEditorPreviewScene::SetPreviewMeshInternal(USkeletalMesh* NewPrev
 void FAnimationEditorPreviewScene::ValidatePreviewAttachedAssets(USkeletalMesh* PreviewSkeletalMesh)
 {
 	// Validate the skeleton/meshes attached objects and display a notification to the user if any were broken
-	int32 NumBrokenAssets = GetEditableSkeleton()->ValidatePreviewAttachedObjects();
+	int32 NumBrokenAssets = GetEditableSkeleton().IsValid() ? GetEditableSkeleton()->ValidatePreviewAttachedObjects() : 0;
 	if (PreviewSkeletalMesh)
 	{
 		NumBrokenAssets += PreviewSkeletalMesh->ValidatePreviewAttachedObjects();
@@ -259,7 +271,10 @@ void FAnimationEditorPreviewScene::ValidatePreviewAttachedAssets(USkeletalMesh* 
 
 void FAnimationEditorPreviewScene::SetAdditionalMeshes(class UDataAsset* InAdditionalMeshes)
 {
-	GetEditableSkeleton()->SetAdditionalPreviewSkeletalMeshes(InAdditionalMeshes);
+	if(GetEditableSkeleton().IsValid())
+	{
+		GetEditableSkeleton()->SetAdditionalPreviewSkeletalMeshes(InAdditionalMeshes);
+	}
 
 	RefreshAdditionalMeshes();
 }
@@ -276,7 +291,7 @@ void FAnimationEditorPreviewScene::RefreshAdditionalMeshes()
 	AdditionalMeshes.Empty();
 
 	// add new components
-	UDataAsset* PreviewSceneAdditionalMeshes = GetEditableSkeleton()->GetSkeleton().GetAdditionalPreviewSkeletalMeshes();
+	UDataAsset* PreviewSceneAdditionalMeshes = GetEditableSkeleton().IsValid() ? GetEditableSkeleton()->GetSkeleton().GetAdditionalPreviewSkeletalMeshes() : nullptr;
 	if (PreviewSceneAdditionalMeshes == nullptr)
 	{
 		PreviewSceneAdditionalMeshes = PreviewSceneDescription->DefaultAdditionalMeshes;
@@ -324,14 +339,17 @@ void FAnimationEditorPreviewScene::AddPreviewAttachedObjects()
 		}
 	}
 
-	const USkeleton& Skeleton = GetEditableSkeleton()->GetSkeleton();
-
-	// ...and then skeleton attachments
-	for(int32 i = 0; i < Skeleton.PreviewAttachedAssetContainer.Num(); i++)
+	if(GetEditableSkeleton().IsValid())
 	{
-		const FPreviewAttachedObjectPair& PreviewAttachedObject = Skeleton.PreviewAttachedAssetContainer[i];
+		const USkeleton& Skeleton = GetEditableSkeleton()->GetSkeleton();
 
-		AttachObjectToPreviewComponent(PreviewAttachedObject.GetAttachedObject(), PreviewAttachedObject.AttachedTo);
+		// ...and then skeleton attachments
+		for(int32 i = 0; i < Skeleton.PreviewAttachedAssetContainer.Num(); i++)
+		{
+			const FPreviewAttachedObjectPair& PreviewAttachedObject = Skeleton.PreviewAttachedAssetContainer[i];
+
+			AttachObjectToPreviewComponent(PreviewAttachedObject.GetAttachedObject(), PreviewAttachedObject.AttachedTo);
+		}
 	}
 }
 
@@ -414,15 +432,17 @@ void FAnimationEditorPreviewScene::FocusViews()
 
 void FAnimationEditorPreviewScene::RemoveAttachedComponent( bool bRemovePreviewAttached /* = true */ )
 {
-	const USkeleton& Skeleton = GetEditableSkeleton()->GetSkeleton();
-
 	TMap<UObject*, TArray<FName>> PreviewAttachedObjects;
 
 	if( !bRemovePreviewAttached )
 	{
-		for(auto Iter = Skeleton.PreviewAttachedAssetContainer.CreateConstIterator(); Iter; ++Iter)
+		if(GetEditableSkeleton().IsValid())
 		{
-			PreviewAttachedObjects.FindOrAdd(Iter->GetAttachedObject()).Add(Iter->AttachedTo);
+			const USkeleton& Skeleton = GetEditableSkeleton()->GetSkeleton();
+			for(auto Iter = Skeleton.PreviewAttachedAssetContainer.CreateConstIterator(); Iter; ++Iter)
+			{
+				PreviewAttachedObjects.FindOrAdd(Iter->GetAttachedObject()).Add(Iter->AttachedTo);
+			}
 		}
 
 		if ( USkeletalMesh* PreviewMesh = PersonaToolkit.Pin()->GetMesh() )
@@ -499,7 +519,7 @@ void FAnimationEditorPreviewScene::SetPreviewAnimationAsset(UAnimationAsset* Ani
 {
 	if (SkeletalMeshComponent)
 	{
-		const USkeleton& Skeleton = GetEditableSkeleton()->GetSkeleton();
+		const USkeleton* Skeleton = GetEditableSkeleton().IsValid() ? &GetEditableSkeleton()->GetSkeleton() : nullptr;
 
 		RemoveAttachedComponent(false);
 
@@ -512,7 +532,7 @@ void FAnimationEditorPreviewScene::SetPreviewAnimationAsset(UAnimationAsset* Ani
 			}
 
 			// Treat it as invalid if it's got a bogus skeleton pointer
-			if (AnimAsset->GetSkeleton() != &Skeleton)
+			if (AnimAsset->GetSkeleton() != Skeleton)
 			{
 				return;
 			}
@@ -543,11 +563,11 @@ void FAnimationEditorPreviewScene::SetFloorLocation(const FVector& InPosition)
 	FloorMeshComponent->SetWorldTransform(FTransform(FQuat::Identity, InPosition, FVector(3.0f, 3.0f, 1.0f)));
 }
 
-void FAnimationEditorPreviewScene::ShowReferencePose(bool bResetBoneTransforms)
+void FAnimationEditorPreviewScene::ShowReferencePose(bool bShowRefPose, bool bResetBoneTransforms)
 {
 	if(SkeletalMeshComponent)
 	{
-		SkeletalMeshComponent->EnablePreview(true, nullptr);
+		SkeletalMeshComponent->ShowReferencePose(bShowRefPose);
 
 		// Also reset bone transforms
 		if(bResetBoneTransforms && SkeletalMeshComponent->SkeletalMesh != nullptr)
@@ -578,7 +598,7 @@ void FAnimationEditorPreviewScene::ShowReferencePose(bool bResetBoneTransforms)
 
 bool FAnimationEditorPreviewScene::IsShowReferencePoseEnabled() const
 {
-	return SkeletalMeshComponent->IsPreviewOn() && SkeletalMeshComponent->PreviewInstance->GetCurrentAsset() == nullptr;
+	return SkeletalMeshComponent->IsReferencePoseShown();
 }
 
 void FAnimationEditorPreviewScene::SetDefaultAnimationMode(EPreviewSceneDefaultAnimationMode Mode, bool bShowNow)
@@ -596,8 +616,10 @@ void FAnimationEditorPreviewScene::ShowDefaultMode()
 	switch (DefaultMode)
 	{
 	case EPreviewSceneDefaultAnimationMode::ReferencePose:
-		ShowReferencePose();
-		break;
+		{
+			ShowReferencePose(true);
+			break;
+		}
 	case EPreviewSceneDefaultAnimationMode::Animation:
 		{
 			UObject* PreviewAsset = PersonaToolkit.Pin()->GetAnimationAsset();
@@ -618,6 +640,11 @@ void FAnimationEditorPreviewScene::ShowDefaultMode()
 			}
 		}
 		break;
+	case EPreviewSceneDefaultAnimationMode::Custom:
+		{
+			SkeletalMeshComponent->SetCustomDefaultPose();
+			break;
+		}
 	}
 }
 
@@ -655,15 +682,21 @@ FText FAnimationEditorPreviewScene::GetPreviewAssetTooltip(bool bEditingAnimBlue
 
 void FAnimationEditorPreviewScene::ClearSelectedBone()
 {
+	TGuardValue<bool> RecursionGuard(bSelecting, true);
+
 	SelectedBoneIndex = INDEX_NONE;
 	SkeletalMeshComponent->BonesOfInterest.Empty();
+
+	OnSelectedBoneChanged.Broadcast(NAME_None);
 
 	InvalidateViews();
 }
 
 void FAnimationEditorPreviewScene::SetSelectedBone(const FName& BoneName)
 {
-	const int32 BoneIndex = GetEditableSkeleton()->GetSkeleton().GetReferenceSkeleton().FindBoneIndex(BoneName);
+	TGuardValue<bool> RecursionGuard(bSelecting, true);
+
+	const int32 BoneIndex = GetEditableSkeleton().IsValid() ? GetEditableSkeleton()->GetSkeleton().GetReferenceSkeleton().FindBoneIndex(BoneName) : INDEX_NONE;
 	if (BoneIndex != INDEX_NONE)
 	{
 		ClearSelectedBone();
@@ -684,23 +717,33 @@ void FAnimationEditorPreviewScene::SetSelectedBone(const FName& BoneName)
 			}
 
 			InvalidateViews();
+
+			OnSelectedBoneChanged.Broadcast(BoneName);
 		}
 	}
 }
 
 void FAnimationEditorPreviewScene::SetSelectedSocket(const FSelectedSocketInfo& SocketInfo)
 {
+	TGuardValue<bool> RecursionGuard(bSelecting, true);
+
 	ClearSelectedBone();
 	ClearSelectedActor();
 
 	SelectedSocket = SocketInfo;
+
+	OnSelectedSocketChanged.Broadcast(SelectedSocket);
 
 	InvalidateViews();
 }
 
 void FAnimationEditorPreviewScene::ClearSelectedSocket()
 {
+	TGuardValue<bool> RecursionGuard(bSelecting, true);
+
 	SelectedSocket.Reset();
+
+	OnSelectedSocketChanged.Broadcast(SelectedSocket);
 
 	InvalidateViews();
 }
@@ -727,6 +770,8 @@ void FAnimationEditorPreviewScene::DeselectAll()
 	ClearSelectedBone();
 	ClearSelectedSocket();
 	ClearSelectedActor();
+
+	OnDeselectAll.Broadcast();
 
 	InvalidateViews();
 }
@@ -960,6 +1005,34 @@ void FAnimationEditorPreviewScene::FlagTickable()
 {
 	// Set the last tick time so we tick kwhen we are visible in a viewport
 	LastTickTime = FPlatformTime::Seconds();
+}
+
+void FAnimationEditorPreviewScene::HandleSkeletonTreeSelectionChanged(const TArrayView<TSharedPtr<ISkeletonTreeItem>>& InSelectedItems, ESelectInfo::Type InSelectInfo)
+{
+	if(!bSelecting)
+	{
+		if(InSelectedItems.Num() == 0)
+		{
+			DeselectAll();
+		}
+		else
+		{
+			for(const TSharedPtr<ISkeletonTreeItem>& Item : InSelectedItems)
+			{
+				if(Item->IsOfTypeByName("FSkeletonTreeBoneItem"))
+				{
+					SetSelectedBone(Item->GetRowItemName());
+				}
+				else if(Item->IsOfTypeByName("FSkeletonTreeSocketItem"))
+				{
+					FSelectedSocketInfo SocketInfo;
+					SocketInfo.Socket = CastChecked<USkeletalMeshSocket>(Item->GetObject());
+					SocketInfo.bSocketIsOnSkeleton = !SocketInfo.Socket->GetOuter()->IsA<USkeletalMesh>();
+					SetSelectedSocket(SocketInfo);
+				}
+			}
+		}
+	}
 }
 
 void FAnimationEditorPreviewScene::Tick(float InDeltaTime)

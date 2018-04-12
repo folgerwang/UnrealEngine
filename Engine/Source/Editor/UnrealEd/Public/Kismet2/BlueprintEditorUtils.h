@@ -14,6 +14,7 @@
 #include "K2Node_EditablePinBase.h"
 #include "Editor/ClassViewer/Public/ClassViewerModule.h"
 #include "EdGraphSchema_K2.h"
+#include "BlueprintActionDatabase.h"
 
 class AActor;
 class ALevelScriptActor;
@@ -140,10 +141,18 @@ public:
 	 */
 	static void RefreshAllNodes(UBlueprint* Blueprint);
 
+	/** Event fired after RefreshAllNodes is called */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnRefreshAllNodes, UBlueprint* /*Blueprint*/);
+	static FOnRefreshAllNodes OnRefreshAllNodesEvent;
+
 	/**
 	 * Reconstructs all nodes in the blueprint, node reconstruction order determined by FCompareNodePriority.
 	 */
 	static void ReconstructAllNodes(UBlueprint* Blueprint);
+
+	/** Event fired after ReconstructAllNodes is called */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnReconstructAllNodes, UBlueprint* /*Blueprint*/);
+	static FOnReconstructAllNodes OnReconstructAllNodesEvent;
 
 	/**
 	 * Optimized refresh of nodes that depend on external blueprints.  Refreshes the nodes, but does not recompile the skeleton class
@@ -1538,6 +1547,27 @@ protected:
 	 * @param InOutVarDesc		The variable description to validate
 	 */
 	static void PostSetupObjectPinType(UBlueprint* InBlueprint, FBPVariableDescription& InOutVarDesc);
+
+public:
+	/** Event fired after RenameVariableReferences is called */
+	DECLARE_MULTICAST_DELEGATE_FourParams(FOnRenameVariableReferences, UBlueprint* /*Blueprint*/, UClass* /*VariableClass*/, const FName& /*OldVarName*/, const FName& /*NewVarName*/);
+	static FOnRenameVariableReferences OnRenameVariableReferencesEvent;
+
+	/** Delegate used for class-specific actions */
+	/** Delegate fired so specific classes can register their actions */
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnGetClassPropertyActions, UClass const* const /*Class*/, FBlueprintActionDatabase::FActionList& /*ActionListOut*/);
+	static FOnGetClassPropertyActions OnGetClassPropertyActionsEvent;
+protected:
+	/**
+	 * Looks through the specified blueprint for any references to the specified 
+	 * variable, and renames them accordingly.
+	 * 
+	 * @param  Blueprint		The blueprint that you want to search through.
+	 * @param  VariableClass	The class that owns the variable that we're renaming
+	 * @param  OldVarName		The current name of the variable we want to replace
+	 * @param  NewVarName		The name that we wish to change all references to
+	 */
+	static void RenameVariableReferences(UBlueprint* Blueprint, UClass* VariableClass, const FName& OldVarName, const FName& NewVarName);
 
 public:
 	static FName GetFunctionNameFromClassByGuid(const UClass* InClass, const FGuid FunctionGuid);

@@ -526,9 +526,11 @@ void UBodySetup::FinishCreatingPhysicsMeshes(const TArray<PxConvexMesh*>& Convex
 
 	for (PxTriangleMesh* TriMesh : CookedTriMeshes)
 	{
-		check(TriMesh);
-		TriMeshes.Add(TriMesh);
-		FPhysxSharedData::Get().Add(TriMesh, FullName);
+		if(TriMesh)
+		{
+			TriMeshes.Add(TriMesh);
+			FPhysxSharedData::Get().Add(TriMesh, FullName);
+		}
 	}
 
 	// Clear the cooked data
@@ -1687,6 +1689,8 @@ int32 FKAggregateGeom::GetElementCount(EAggCollisionShape::Type Type) const
 		return SphylElems.Num();
 	case EAggCollisionShape::Sphere:
 		return SphereElems.Num();
+	case EAggCollisionShape::TaperedCapsule:
+		return TaperedCapsuleElems.Num();
 	default:
 		return 0;
 	}
@@ -2037,6 +2041,62 @@ float FKSphylElem::GetClosestPointAndNormal(const FVector& WorldPosition, const 
 	return bIsOutside ? DistToEdge : 0.f;
 }
 
+void FKTaperedCapsuleElem::ScaleElem(FVector DeltaSize, float MinSize)
+{
+	float DeltaRadius0 = DeltaSize.X;
+	float DeltaRadius1 = DeltaSize.Y;
+
+	float DeltaHeight = DeltaSize.Z;
+	float radius0 = FMath::Max(Radius0 + DeltaRadius0, MinSize);
+	float radius1 = FMath::Max(Radius1 + DeltaRadius1, MinSize);
+	float length = Length + DeltaHeight;
+
+	length += ((Radius1 - radius1) + (Radius0 - radius0)) * 0.5f;
+	length = FMath::Max(0.f, length);
+
+	Radius0 = radius0;
+	Radius1 = radius1;
+	Length = length;
+}
+
+FKTaperedCapsuleElem FKTaperedCapsuleElem::GetFinalScaled(const FVector& Scale3D, const FTransform& RelativeTM) const
+{
+	FKTaperedCapsuleElem ScaledTaperedCapsuleElem = *this;
+
+	float MinScale, MinScaleAbs;
+	FVector Scale3DAbs;
+
+	SetupNonUniformHelper(Scale3D * RelativeTM.GetScale3D(), MinScale, MinScaleAbs, Scale3DAbs);
+
+	GetScaledRadii(Scale3DAbs, ScaledTaperedCapsuleElem.Radius0, ScaledTaperedCapsuleElem.Radius1);
+	ScaledTaperedCapsuleElem.Length = GetScaledCylinderLength(Scale3DAbs);
+
+	FVector LocalOrigin = RelativeTM.TransformPosition(Center) * Scale3D;
+	ScaledTaperedCapsuleElem.Center = LocalOrigin;
+	ScaledTaperedCapsuleElem.Rotation = FRotator(RelativeTM.GetRotation() * FQuat(ScaledTaperedCapsuleElem.Rotation));
+
+	return ScaledTaperedCapsuleElem;
+}
+
+void FKTaperedCapsuleElem::GetScaledRadii(const FVector& Scale3D, float& OutRadius0, float& OutRadius1) const
+{
+	const FVector Scale3DAbs = Scale3D.GetAbs();
+	const float RadiusScale = FMath::Max(Scale3DAbs.X, Scale3DAbs.Y);
+	OutRadius0 = FMath::Clamp(Radius0 * RadiusScale, 0.1f, GetScaledHalfLength(Scale3DAbs));
+	OutRadius1 = FMath::Clamp(Radius1 * RadiusScale, 0.1f, GetScaledHalfLength(Scale3DAbs));
+}
+
+float FKTaperedCapsuleElem::GetScaledCylinderLength(const FVector& Scale3D) const
+{
+	float ScaledRadius0, ScaledRadius1;
+	GetScaledRadii(Scale3D, ScaledRadius0, ScaledRadius1);
+	return FMath::Max(0.1f, ((GetScaledHalfLength(Scale3D) * 2.0f) - (ScaledRadius0 + ScaledRadius1)));
+}
+
+float FKTaperedCapsuleElem::GetScaledHalfLength(const FVector& Scale3D) const
+{
+	return FMath::Max((Length + Radius0 + Radius1) * FMath::Abs(Scale3D.Z) * 0.5f, 0.1f);
+}
 
 class UPhysicalMaterial* UBodySetup::GetPhysMaterial() const
 {

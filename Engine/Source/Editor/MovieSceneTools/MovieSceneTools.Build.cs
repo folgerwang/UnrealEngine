@@ -53,6 +53,7 @@ public class MovieSceneTools : ModuleRules
 				"RHI",
 				"ShaderCore",
 				"SequenceRecorder",
+                "AnimationCore",
 			}
 		);
 

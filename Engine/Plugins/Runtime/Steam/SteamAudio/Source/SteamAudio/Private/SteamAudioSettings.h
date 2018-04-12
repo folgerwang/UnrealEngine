@@ -30,6 +30,18 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = General)
 	EIplAudioEngine AudioEngine;
 
+	// Which convolution renderer to use.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = General)
+	EIplConvolutionType ConvolutionType;
+
+	// Minimum compute units to reserve on the GPU for convolution processing.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = General, meta = (ClampMin = "0", ClampMax = "16", UIMin = "0", UIMax = "16"))
+	int32 MinComputeUnits;
+
+	// Maximum compute units to reserve on the GPU for convolution processing.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = General, meta = (ClampMin = "0", ClampMax = "16", UIMin = "0", UIMax = "16"))
+	int32 MaxComputeUnits;
+
 	//==============================================================================================================================================
 
 	// Whether or not to export BSP geometry.
@@ -193,6 +205,23 @@ public:
 	// Maximum number of supported sources.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = IndirectSound, meta = (ClampMin = "1", ClampMax = "128", UIMin = "1", UIMax = "128"))
 	uint32 MaxSources;
+
+	//==============================================================================================================================================
+
+	// TAN override output of indirect propagation is stored in ambisonics of this order.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "IndirectSound|TrueAudio Next Overrides", meta = (ClampMin = "1", ClampMax = "3", UIMin = "0", UIMax = "3",
+		DisplayName = "Override Ambisonics Order"))
+	int32 TANIndirectImpulseResponseOrder;
+
+	// TAN override length of impulse response to compute for each sound source.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "IndirectSound|TrueAudio Next Overrides", meta = (ClampMin = "0.1", ClampMax = "5.0", UIMin = "0.1", UIMax = "5.0",
+		DisplayName = "Override Impulse Response Duration"))
+	float TANIndirectImpulseResponseDuration;
+
+	// TAN override maximum number of supported sources.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "IndirectSound|TrueAudio Next Overrides", meta = (ClampMin = "1", ClampMax = "128", UIMin = "1", UIMax = "128",
+		DisplayName = "Override Max Sources"))
+	uint32 TANMaxSources;
 
 	//==============================================================================================================================================
 

@@ -11,6 +11,7 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Framework/Text/SlateHyperlinkRun.h"
 #include "Editor/PropertyEditor/Public/PropertyEditorDelegates.h"
+#include "IStructureDetailsView.h"
 
 class FBlueprintEditor;
 class IDetailsView;
@@ -78,6 +79,9 @@ public:
 
 	/** Update the inspector window to show information on the supplied objects */
 	void ShowDetailsForObjects(const TArray<UObject*>& PropertyObjects, const FShowDetailsOptions& Options = FShowDetailsOptions());
+
+	/** Update the inspector window to show single struct. This invalidates ShowDetailsForObjects */
+	void ShowSingleStruct(TSharedPtr<FStructOnScope> InStructToDisplay);
 
 	/** Used to control visibility of a property in the property window */
 	bool IsPropertyVisible( const struct FPropertyAndParent& PropertyAndParent ) const;
@@ -156,6 +160,18 @@ protected:
 
 	/** Details options that are used by the inspector on the next refresh. */
 	FShowDetailsOptions RefreshOptions;
+
+	/** Struct to preview */
+	TSharedPtr<FStructOnScope> StructToDisplay;
+
+	/* Sturct Detail View */
+	TSharedPtr<class IStructureDetailsView> StructureDetailsView;
+
+	/** Update the inspector window to show information on the single struct */
+	void UpdateFromSingleStruct(const TSharedPtr<FStructOnScope>& InStructToDisplay);
+
+	/** Is struct view property read only */
+	bool IsStructViewPropertyReadOnly(const struct FPropertyAndParent& PropertyAndParent) const;
 
 protected:
 	/** Show properties of the selected object */

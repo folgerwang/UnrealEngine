@@ -1564,6 +1564,16 @@ void FAnimationRuntime::FillUpComponentSpaceTransformsRefPose(const USkeleton* S
 	FillUpComponentSpaceTransforms(RefSkeleton, ReferencePose, ComponentSpaceTransforms);
 }
 
+void FAnimationRuntime::FillUpComponentSpaceTransformsRetargetBasePose(const USkeletalMesh* Mesh, TArray<FTransform> &ComponentSpaceTransforms)
+{
+	if (Mesh)
+	{
+		const TArray<FTransform>& ReferencePose = Mesh->RetargetBasePose;
+		const FReferenceSkeleton& RefSkeleton = Mesh->RefSkeleton;
+		FillUpComponentSpaceTransforms(RefSkeleton, ReferencePose, ComponentSpaceTransforms);
+	}
+}
+
 void FAnimationRuntime::FillUpComponentSpaceTransformsRetargetBasePose(const USkeleton* Skeleton, TArray<FTransform> &ComponentSpaceTransforms)
 {
 	check(Skeleton);
@@ -1572,13 +1582,7 @@ void FAnimationRuntime::FillUpComponentSpaceTransformsRetargetBasePose(const USk
 	const USkeletalMesh* PreviewMesh = Skeleton->GetPreviewMesh();
 	if (PreviewMesh)
 	{
-		const TArray<FTransform>& ReferencePose = PreviewMesh->RetargetBasePose;
-		const FReferenceSkeleton& RefSkeleton = PreviewMesh->RefSkeleton;
-		FillUpComponentSpaceTransforms(RefSkeleton, ReferencePose, ComponentSpaceTransforms);
-	}
-	else
-	{
-		FAnimationRuntime::FillUpComponentSpaceTransformsRefPose(Skeleton, ComponentSpaceTransforms);
+		FillUpComponentSpaceTransformsRetargetBasePose(PreviewMesh, ComponentSpaceTransforms);
 	}
 }
 #endif // WITH_EDITOR

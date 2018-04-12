@@ -34,6 +34,10 @@ FSkeletonTreePhysicsShapeItem::FSkeletonTreePhysicsShapeItem(USkeletalBodySetup*
 		ShapeBrush = FEditorStyle::GetBrush("PhysicsAssetEditor.Tree.Convex");
 		DefaultLabel = *FText::Format(LOCTEXT("ConvexLabel", "{0} Convex {1}"), FText::FromName(InBoneName), FText::AsNumber(ShapeIndex)).ToString();
 		break;
+	case EAggCollisionShape::TaperedCapsule:
+		ShapeBrush = FEditorStyle::GetBrush("PhysicsAssetEditor.Tree.TaperedCapsule");
+		DefaultLabel = *FText::Format(LOCTEXT("CapsuleLabel", "{0} Tapered Capsule {1}"), FText::FromName(InBoneName), FText::AsNumber(ShapeIndex)).ToString();
+		break;
 	default:
 		check(false);
 		break;
@@ -92,16 +96,34 @@ FString FSkeletonTreePhysicsShapeItem::GetNameAsString() const
 	switch (ShapeType)
 	{
 	case EAggCollisionShape::Sphere:
-		StringName = BodySetup->AggGeom.SphereElems.IsValidIndex(ShapeIndex) ? BodySetup->AggGeom.SphereElems[ShapeIndex].GetName() : FString();
+		if(BodySetup->AggGeom.SphereElems.IsValidIndex(ShapeIndex))
+		{
+			StringName = BodySetup->AggGeom.SphereElems[ShapeIndex].GetName();
+		}
 		break;
 	case EAggCollisionShape::Box:
-		StringName = BodySetup->AggGeom.BoxElems.IsValidIndex(ShapeIndex) ? BodySetup->AggGeom.BoxElems[ShapeIndex].GetName() : FString();
+		if(BodySetup->AggGeom.BoxElems.IsValidIndex(ShapeIndex))
+		{
+			StringName = BodySetup->AggGeom.BoxElems[ShapeIndex].GetName();
+		}
 		break;
 	case EAggCollisionShape::Sphyl:
-		StringName = BodySetup->AggGeom.SphylElems.IsValidIndex(ShapeIndex) ? BodySetup->AggGeom.SphylElems[ShapeIndex].GetName() : FString();
+		if(BodySetup->AggGeom.SphylElems.IsValidIndex(ShapeIndex))
+		{
+			StringName = BodySetup->AggGeom.SphylElems[ShapeIndex].GetName();
+		}
 		break;
 	case EAggCollisionShape::Convex:
-		StringName = BodySetup->AggGeom.ConvexElems.IsValidIndex(ShapeIndex) ? BodySetup->AggGeom.ConvexElems[ShapeIndex].GetName() : FString();
+		if(BodySetup->AggGeom.ConvexElems.IsValidIndex(ShapeIndex))
+		{
+			StringName = BodySetup->AggGeom.ConvexElems[ShapeIndex].GetName();
+		}
+		break;
+	case EAggCollisionShape::TaperedCapsule:
+		if(BodySetup->AggGeom.TaperedCapsuleElems.IsValidIndex(ShapeIndex))
+		{
+			StringName = BodySetup->AggGeom.TaperedCapsuleElems[ShapeIndex].GetName();
+		}
 		break;
 	}
 
@@ -150,6 +172,12 @@ void FSkeletonTreePhysicsShapeItem::HandleTextCommitted(const FText& InText, ETe
 			if(BodySetup->AggGeom.ConvexElems.IsValidIndex(ShapeIndex))
 			{
 				BodySetup->AggGeom.ConvexElems[ShapeIndex].SetName(InText.ToString());
+			}
+			break;
+		case EAggCollisionShape::TaperedCapsule:
+			if(BodySetup->AggGeom.TaperedCapsuleElems.IsValidIndex(ShapeIndex))
+			{
+				BodySetup->AggGeom.TaperedCapsuleElems[ShapeIndex].SetName(InText.ToString());
 			}
 			break;
 		default:

@@ -276,7 +276,7 @@ bool USkeletalMeshComponent::IsAnyRigidBodyAwake()
 		{
 			// Found an awake one - so mesh is considered 'awake'
 			bAwake = true;
-			continue;
+			break;
 		}
 	}
 

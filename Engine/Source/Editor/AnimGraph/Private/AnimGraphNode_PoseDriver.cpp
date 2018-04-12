@@ -51,7 +51,39 @@ FText UAnimGraphNode_PoseDriver::GetTooltipText() const
 
 FText UAnimGraphNode_PoseDriver::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	return LOCTEXT("PoseDriver", "Pose Driver");
+	const FText Description = LOCTEXT("PoseDriver", "Pose Driver");
+
+	const FName FirstSourceBone = (Node.SourceBones.Num() > 0) ? Node.SourceBones[0].BoneName : NAME_None;
+ 	if ((TitleType == ENodeTitleType::ListView || TitleType == ENodeTitleType::MenuTitle) && (FirstSourceBone == NAME_None))
+	{
+		return Description;
+	}
+	else 
+	{
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("ControllerDescription"), Description);
+		const int32 TotalNumBones = Node.SourceBones.Num();
+		Args.Add(TEXT("FirstSourceBone"), FText::FromName(FirstSourceBone));
+
+		// FText::Format() is slow, so we cache this to save on performance
+		if (TitleType == ENodeTitleType::ListView || TitleType == ENodeTitleType::MenuTitle)
+		{
+			CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("AnimGraphNode_PoseDriver_ListTitle", "{ControllerDescription} - Source: {FirstSourceBone}"), Args), this);
+		}
+		else
+		{
+			if (TotalNumBones > 1)
+			{
+				Args.Add(TEXT("MoreJoint"), FText::AsNumber(TotalNumBones - 1));
+				CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("AnimGraphNode_PoseDriver_Title", "{ControllerDescription}\nSource: {FirstSourceBone} and {MoreJoint} more"), Args), this);
+			}
+			else
+			{
+				CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("AnimGraphNode_PoseDriver_Title", "{ControllerDescription}\nSource: {FirstSourceBone}"), Args), this);
+			}
+		}
+	}
+	return CachedNodeTitles[TitleType];
 }
 
 FText UAnimGraphNode_PoseDriver::GetMenuCategory() const

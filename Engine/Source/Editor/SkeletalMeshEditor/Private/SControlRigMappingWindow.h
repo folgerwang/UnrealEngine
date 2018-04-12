@@ -76,5 +76,4 @@ private:
 	void CreateBoneMappingList(const FString& SearchText, TArray< TSharedPtr<FDisplayedBoneMappingInfo> >& BoneMappingList);
 
 	class UNodeMappingContainer* GetCurrentBoneMappingContainer() const;
-	int32 GetNodeData(class UNodeMappingContainer* InContainer, TArray<FName>& OutNodeNames, TArray<FTransform>& OutTransforms) const;
 };

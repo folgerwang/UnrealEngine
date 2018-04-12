@@ -113,6 +113,7 @@ USoundWave::USoundWave(const FObjectInitializer& ObjectInitializer)
 	bIsPrecacheDone = true;
 #if !WITH_EDITOR
 	bCachedSampleRateFromPlatformSettings = false;
+	bSampleRateManuallyReset = false;
 	CachedSampleRateOverride = 0.0f;
 #endif //!WITH_EDITOR
 }
@@ -1101,6 +1102,13 @@ float USoundWave::GetSampleRateForCurrentPlatform()
 #else
 	if (bCachedSampleRateFromPlatformSettings)
 	{
+		return CachedSampleRateOverride;
+	}
+	else if (bSampleRateManuallyReset)
+	{
+		CachedSampleRateOverride = SampleRate;
+		bCachedSampleRateFromPlatformSettings = true;
+
 		return CachedSampleRateOverride;
 	}
 	else

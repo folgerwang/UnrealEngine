@@ -3,24 +3,25 @@
 #pragma once
 
 #include "AbcImporter.h"
-#include "AbcImportData.h"
 
 #include "SlateOptMacros.h"
+#include "AbcPolyMesh.h"
+#include "AlembicImportOptions.h"
 
 struct FAbcTrackInformation;
 
-typedef TSharedPtr<struct FAbcPolyMeshObject> FAbcPolyMeshObjectPtr;
+typedef TSharedPtr<FPolyMeshData> FPolyMeshDataPtr;
 
 /**
 * Implements a row widget for the dispatch state list.
 */
 class STrackSelectionTableRow
-	: public SMultiColumnTableRow<FAbcPolyMeshObjectPtr>
+	: public SMultiColumnTableRow<FPolyMeshDataPtr>
 {
 public:
 
 	SLATE_BEGIN_ARGS(STrackSelectionTableRow) { }
-	SLATE_ARGUMENT(FAbcPolyMeshObjectPtr, PolyMesh)
+	SLATE_ARGUMENT(FPolyMeshDataPtr, PolyMesh)
 	SLATE_END_ARGS()
 
 public:
@@ -35,9 +36,9 @@ public:
 	{
 		check(InArgs._PolyMesh.IsValid());
 
-		PolyMesh = InArgs._PolyMesh;
+		PolyMeshData = InArgs._PolyMesh;
 
-		SMultiColumnTableRow<FAbcPolyMeshObjectPtr>::Construct(FSuperRowType::FArguments(), InOwnerTableView);		
+		SMultiColumnTableRow<FPolyMeshDataPtr>::Construct(FSuperRowType::FArguments(), InOwnerTableView);
 	}
 
 public:
@@ -45,7 +46,7 @@ public:
 	// SMultiColumnTableRow interface
 
 	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-		virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
+	virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
 	{
 		if (ColumnName == "ShouldImport")
 		{
@@ -65,7 +66,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(FText::FromString(PolyMesh->Name))
+					.Text(FText::FromString(PolyMeshData->PolyMesh->GetName()))
 				];
 		}
 		else if (ColumnName == "TrackFrameStart")
@@ -75,7 +76,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(FText::FromString(FString::FromInt(PolyMesh->StartFrameIndex)))
+					.Text(FText::FromString(FString::FromInt(PolyMeshData->PolyMesh->GetFrameIndexForFirstData())))
 				];
 		}
 		else if (ColumnName == "TrackFrameEnd")
@@ -85,7 +86,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(FText::FromString(FString::FromInt(PolyMesh->StartFrameIndex + PolyMesh->NumSamples)))
+					.Text(FText::FromString(FString::FromInt(PolyMeshData->PolyMesh->GetFrameIndexForFirstData() + (PolyMeshData->PolyMesh->GetNumberOfSamples()-1))))
 				];
 		}
 		else if (ColumnName == "TrackFrameNum")
@@ -95,7 +96,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(FText::FromString(FString::FromInt(PolyMesh->NumSamples)))
+					.Text(FText::FromString(FString::FromInt(PolyMeshData->PolyMesh->GetNumberOfSamples())))
 				];
 		}
 
@@ -106,15 +107,15 @@ public:
 private:
 	ECheckBoxState ShouldImportEnabled() const
 	{
-		return PolyMesh->bShouldImport ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+		return PolyMeshData->PolyMesh->bShouldImport ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 
 	void OnChangeShouldImport(ECheckBoxState NewState)
 	{
-		PolyMesh->bShouldImport = (NewState == ECheckBoxState::Checked);
+		PolyMeshData->PolyMesh->bShouldImport = (NewState == ECheckBoxState::Checked);
 	}
 
 private:
-	FAbcPolyMeshObjectPtr PolyMesh;
+	FPolyMeshDataPtr PolyMeshData;
 	FText InformationText;
 };

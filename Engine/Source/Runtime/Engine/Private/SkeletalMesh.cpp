@@ -47,6 +47,7 @@
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "UObject/PropertyPortFlags.h"
 #include "Templates/UniquePtr.h"
+#include "AnimationRuntime.h"
 
 #if WITH_EDITOR
 #include "Rendering/SkeletalMeshModel.h"
@@ -2698,7 +2699,7 @@ class UNodeMappingContainer* USkeletalMesh::GetNodeMappingContainer(class UBluep
 	for (int32 Index = 0; Index < NodeMappingData.Num(); ++Index)
 	{
 		UNodeMappingContainer* Iter = NodeMappingData[Index];
-		if (Iter && Iter->GetSourceAsset() == SourceAsset)
+		if (Iter && Iter->GetSourceAssetSoftObjectPtr() == TSoftObjectPtr<UObject>(SourceAsset))
 		{
 			return Iter;
 		}
@@ -2784,6 +2785,47 @@ void USkeletalMesh::SetLODSettings(USkeletalMeshLODSettings* InLODSettings)
 		LODSettings->SetLODSettingsToMesh(this);
 	}
 #endif // WITH_EDITORONLY_DATA
+}
+
+void USkeletalMesh::GetMappableNodeData(TArray<FName>& OutNames, TArray<FNodeItem>& OutNodeItems) const
+{
+	TArray<FTransform> ComponentSpaceRefPose;
+#if WITH_EDITORONLY_DATA
+	FAnimationRuntime::FillUpComponentSpaceTransformsRetargetBasePose(this, ComponentSpaceRefPose);
+#else
+	// hasn't tested this route, but we don't have retarget base pose if not editor, wonder we should to non-editor soon
+	ensure(false);
+	FAnimationRuntime::FillUpComponentSpaceTransforms(RefSkeleton, RefSkeleton.GetRefBonePose(), ComponentSpaceRefPose);
+#endif // 
+
+	// @todo: for now we support raw bones, no virtual bone
+	ensureMsgf(RefSkeleton.GetRawBoneNum() == RefSkeleton.GetNum(), TEXT("We don't support virtual bone for retargeting yet"));
+	check(ComponentSpaceRefPose.Num() == RefSkeleton.GetRawBoneNum());
+
+	const int32 NumJoint = RefSkeleton.GetRawBoneNum();
+	// allocate buffer
+	OutNames.Reset(NumJoint);
+	OutNodeItems.Reset(NumJoint);
+
+	if (NumJoint > 0)
+	{
+		OutNames.AddDefaulted(NumJoint);
+		OutNodeItems.AddDefaulted(NumJoint);
+
+		const TArray<FMeshBoneInfo> MeshBoneInfo = RefSkeleton.GetRefBoneInfo();
+		for (int32 NodeIndex = 0; NodeIndex < NumJoint; ++NodeIndex)
+		{
+			OutNames[NodeIndex] = MeshBoneInfo[NodeIndex].Name;
+			if (MeshBoneInfo[NodeIndex].ParentIndex != INDEX_NONE)
+			{
+				OutNodeItems[NodeIndex] = FNodeItem(MeshBoneInfo[MeshBoneInfo[NodeIndex].ParentIndex].Name, ComponentSpaceRefPose[NodeIndex]);
+			}
+			else
+			{
+				OutNodeItems[NodeIndex] = FNodeItem(NAME_None, ComponentSpaceRefPose[NodeIndex]);
+			}
+		}
+	}
 }
 /*-----------------------------------------------------------------------------
 USkeletalMeshSocket

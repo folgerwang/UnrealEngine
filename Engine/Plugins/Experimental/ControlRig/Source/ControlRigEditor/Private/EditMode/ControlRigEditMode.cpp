@@ -7,8 +7,6 @@
 #include "Algo/Transform.h"
 #include "ControlRig.h"
 #include "HitProxies.h"
-#include "Rigs/HierarchicalRig.h"
-#include "Rigs/HumanRig.h"
 #include "ControlRigEditModeSettings.h"
 #include "ISequencer.h"
 #include "SequencerSettings.h"
@@ -20,79 +18,64 @@
 #include "EditorModeManager.h"
 #include "Engine/Selection.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "ControlRigCommands.h"
+#include "ControlRigEditModeCommands.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Modules/ModuleManager.h"
 #include "ISequencerModule.h"
 #include "Toolkits/AssetEditorToolkit.h"
 #include "ControlRigEditorModule.h"
+#include "ControlUnitProxy.h"
+#include "Constraint.h"
+#include "Units/RigUnit_Control.h"
+#include "ControlRigControl.h"
+#include "EngineUtils.h"
+#include "ControlRigBlueprintGeneratedClass.h"
+#include "IControlRigObjectBinding.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 FName FControlRigEditMode::ModeName("EditMode.ControlRig");
 
 #define LOCTEXT_NAMESPACE "ControlRigEditMode"
 
-/** Base class for ControlRig hit proxies */
-struct HControlRigProxy : public HHitProxy
+/** The different parts of a transform that manipulators can support */
+enum class ETransformComponent
 {
-	DECLARE_HIT_PROXY();
+	None,
 
-	HControlRigProxy(UControlRig* InControlRig, EHitProxyPriority Priority = HPP_Wireframe)
-		: HHitProxy(Priority)
-		, ControlRig(InControlRig)
-	{}
+	Rotation,
 
-	virtual EMouseCursor::Type GetMouseCursor() override
-	{
-		return EMouseCursor::Crosshairs;
-	}
+	Translation,
 
-	virtual bool AlwaysAllowsTranslucentPrimitives() const override
-	{
-		return true;
-	}
-
-	TWeakObjectPtr<UControlRig> ControlRig;
+	Scale
 };
-
-IMPLEMENT_HIT_PROXY(HControlRigProxy, HHitProxy);
-
-/** Proxy for a manipulator */
-struct HManipulatorNodeProxy : public HControlRigProxy
-{
-	DECLARE_HIT_PROXY();
-
-	HManipulatorNodeProxy(UControlRig* InControlRig, FName InNodeName)
-		: HControlRigProxy(InControlRig, HPP_Foreground)
-		, NodeName(InNodeName)
-	{}
-
-	FName NodeName;
-};
-
-IMPLEMENT_HIT_PROXY(HManipulatorNodeProxy, HControlRigProxy);
 
 FControlRigEditMode::FControlRigEditMode()
 	: bIsTransacting(false)
 	, bManipulatorMadeChange(false)
-	, bSelectedNode(false)
+	, bSelectedJoint(false)
 	, bSelecting(false)
 	, bSelectingByPath(false)
 	, PivotTransform(FTransform::Identity)
 {
 	Settings = NewObject<UControlRigEditModeSettings>(GetTransientPackage(), *LOCTEXT("SettingsName", "Settings").ToString());
-	Settings->AddToRoot();
 
-	OnNodesSelectedDelegate.AddRaw(this, &FControlRigEditMode::HandleSelectionChanged);
+	OnControlsSelectedDelegate.AddRaw(this, &FControlRigEditMode::HandleSelectionChanged);
 
 	CommandBindings = MakeShareable(new FUICommandList);
 	BindCommands();
+
+#if WITH_EDITOR
+	GEditor->OnObjectsReplaced().AddRaw(this, &FControlRigEditMode::OnObjectsReplaced);
+#endif
 }
 
 FControlRigEditMode::~FControlRigEditMode()
 {
-	Settings->RemoveFromRoot();
-
 	CommandBindings = nullptr;
+
+#if WITH_EDITOR
+	GEditor->OnObjectsReplaced().RemoveAll(this);
+#endif
 }
 
 void FControlRigEditMode::SetSequencer(TSharedPtr<ISequencer> InSequencer)
@@ -105,7 +88,11 @@ void FControlRigEditMode::SetSequencer(TSharedPtr<ISequencer> InSequencer)
 		Settings->Sequence = nullptr;
 
 		WeakSequencer = InSequencer;
-		StaticCastSharedPtr<SControlRigEditModeTools>(Toolkit->GetInlineContent())->SetSequencer(InSequencer);
+		if(UsesToolkits())
+		{
+			StaticCastSharedPtr<SControlRigEditModeTools>(Toolkit->GetInlineContent())->SetSequencer(InSequencer);
+		}
+
 		if (InSequencer.IsValid())
 		{
 			if (UControlRigSequence* Sequence = ExactCast<UControlRigSequence>(InSequencer->GetFocusedMovieSceneSequence()))
@@ -117,14 +104,10 @@ void FControlRigEditMode::SetSequencer(TSharedPtr<ISequencer> InSequencer)
 	}
 }
 
-void FControlRigEditMode::SetObjects(const TArray<TWeakObjectPtr<>>& InSelectedObjects, const TArray<FGuid>& InObjectBindings)
+void FControlRigEditMode::SetObjects(const TWeakObjectPtr<>& InSelectedObject, const FGuid& InObjectBinding)
 {
-	ControlRigs.Reset();
-
-	check(InSelectedObjects.Num() == InObjectBindings.Num());
-
-	ControlRigGuids = InObjectBindings;
-	Algo::Transform(InSelectedObjects, ControlRigs, [](TWeakObjectPtr<> Object) { return Cast<UControlRig>(Object); });
+	WeakControlRig = Cast<UControlRig>(InSelectedObject.Get());
+	ControlRigGuid = InObjectBinding;
 
 	SetObjects_Internal();
 }
@@ -132,10 +115,21 @@ void FControlRigEditMode::SetObjects(const TArray<TWeakObjectPtr<>>& InSelectedO
 void FControlRigEditMode::SetObjects_Internal()
 {
 	TArray<TWeakObjectPtr<>> SelectedObjects;
-	Algo::TransformIf(ControlRigs, SelectedObjects, [](TWeakObjectPtr<> Object) { return Object.IsValid(); }, [](TWeakObjectPtr<> Object) { return TWeakObjectPtr<>(Object.Get()); });
-	SelectedObjects.Insert(Settings, 0);
+	if(IsInLevelEditor())
+	{
+		SelectedObjects.Add(Settings);
+	}
+	if(WeakControlRig.IsValid())
+	{
+		SelectedObjects.Add(WeakControlRig);
+	}
 
-	StaticCastSharedPtr<SControlRigEditModeTools>(Toolkit->GetInlineContent())->SetDetailsObjects(SelectedObjects);
+	if(UsesToolkits())
+	{
+		StaticCastSharedPtr<SControlRigEditModeTools>(Toolkit->GetInlineContent())->SetDetailsObjects(SelectedObjects);
+	}
+
+	RefreshControlProxies();
 }
 
 void FControlRigEditMode::HandleBindToActor(AActor* InActor, bool bFocus)
@@ -145,7 +139,10 @@ void FControlRigEditMode::HandleBindToActor(AActor* InActor, bool bFocus)
 	{
 		TGuardValue<bool> ScopeGuard(bRecursionGuard, true);
 
-		FControlRigBindingTemplate::SetObjectBinding(InActor);
+		if(IsInLevelEditor())
+		{
+			FControlRigBindingTemplate::SetObjectBinding(InActor);
+		}
 
 		if (WeakSequencer.IsValid())
 		{
@@ -170,26 +167,23 @@ void FControlRigEditMode::HandleBindToActor(AActor* InActor, bool bFocus)
 				Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChangedRefreshImmediately);
 
 				// Force a rig evaluation here to make sure our manipulators are up to date
-				if (ControlRigs.Num() > 0 && ControlRigs[0].Get())
-				{
-					if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRigs[0].Get()))
-					{
-						HierarchicalRig->PreEvaluate();
-						HierarchicalRig->Evaluate();
-						HierarchicalRig->PostEvaluate();
-					}
-				}
+ 				if (UControlRig* ControlRig = WeakControlRig.Get())
+ 				{
+ 					ControlRig->PreEvaluate_GameThread();
+ 					ControlRig->Evaluate_AnyThread();
+ 					ControlRig->PostEvaluate_GameThread();
+ 				}
 
 				// Now re-display our objects in the details panel (they may have changed)
 				if (MovieScene->GetSpawnableCount() > 0)
 				{
 					FGuid SpawnableGuid = MovieScene->GetSpawnable(0).GetGuid();
 					TWeakObjectPtr<> BoundObject = Sequencer->FindSpawnedObjectOrTemplate(SpawnableGuid);
-					SetObjects(TArray<TWeakObjectPtr<>>({ BoundObject }), TArray<FGuid>({ SpawnableGuid }));
+					SetObjects(BoundObject, SpawnableGuid);
 				}
 			}
 
-			if (bFocus && InActor)
+			if (bFocus && InActor && IsInLevelEditor())
 			{
 				const bool bNotifySelectionChanged = false;
 				const bool bDeselectBSP = true;
@@ -219,7 +213,7 @@ void FControlRigEditMode::ReBindToActor()
 
 bool FControlRigEditMode::UsesToolkits() const
 {
-	return true;
+	return IsInLevelEditor();
 }
 
 void FControlRigEditMode::Enter()
@@ -227,12 +221,15 @@ void FControlRigEditMode::Enter()
 	// Call parent implementation
 	FEdMode::Enter();
 
-	if (!Toolkit.IsValid())
+	if(UsesToolkits())
 	{
-		Toolkit = MakeShareable(new FControlRigEditModeToolkit);
-	}
+		if (!Toolkit.IsValid())
+		{
+			Toolkit = MakeShareable(new FControlRigEditModeToolkit(*this));
+		}
 
-	Toolkit->Init(Owner->GetToolkitHost());
+		Toolkit->Init(Owner->GetToolkitHost());
+	}
 
 	SetObjects_Internal();
 }
@@ -255,289 +252,148 @@ void FControlRigEditMode::Exit()
 	FEdMode::Exit();
 }
 
-static ETransformComponent WidgetModeToTransformComponent(FWidget::EWidgetMode WidgetMode)
+static bool ModeSupportedByTransformFilter(const FTransformFilter& InFilter, FWidget::EWidgetMode InMode)
 {
-	switch (WidgetMode)
+	if(InMode == FWidget::WM_Translate && InFilter.TranslationFilter.IsValid())
 	{
-	case FWidget::WM_Translate:
-		return ETransformComponent::Translation;
-	case FWidget::WM_Rotate:
-		return ETransformComponent::Rotation;
-	case FWidget::WM_Scale:
-		return ETransformComponent::Scale;
-	case FWidget::WM_2D:
-	case FWidget::WM_TranslateRotateZ:
-	default:
-		return ETransformComponent::None;
+		return true;
 	}
+
+	if(InMode == FWidget::WM_Rotate && InFilter.RotationFilter.IsValid())
+	{
+		return true;
+	}
+
+	if(InMode == FWidget::WM_Scale && InFilter.ScaleFilter.IsValid())
+	{
+		return true;
+	}
+
+	return false;
 }
 
 void FControlRigEditMode::Tick(FEditorViewportClient* ViewportClient, float DeltaTime)
 {
 	FEdMode::Tick(ViewportClient, DeltaTime);
 
-	if (bSelectedNode)
+	if(UControlRig* ControlRig = WeakControlRig.Get())
 	{
-		// cycle the widget mode if it is not supported on this selection
-		if (ControlRigs.Num() > 0 && ControlRigs[0].Get())
+		if (bSelectedJoint)
 		{
-			if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRigs[0].Get()))
+			if(AreControlsSelected())
 			{
-				if (SelectedNodes.Num() > 0)
+				// cycle the widget mode if it is not supported on this selection
+				FWidget::EWidgetMode CurrentMode = GetModeManager()->GetWidgetMode();
+				bool bModeSupported = false;
+				for (FControlUnitProxy& UnitProxy : ControlUnits)
 				{
-					FWidget::EWidgetMode CurrentMode = GetModeManager()->GetWidgetMode();
-					bool bModeSupported = false;
-					for (const FName& SelectedNode : SelectedNodes)
+					if(UnitProxy.IsSelected())
 					{
-						UControlManipulator* Manipulator = HierarchicalRig->FindManipulator(SelectedNode);
-						if (Manipulator)
+						if(FRigUnit_Control* ControlUnit = GetRigUnit(UnitProxy, ControlRig))
 						{
-							if (Manipulator->SupportsTransformComponent(WidgetModeToTransformComponent(CurrentMode)))
+							if(ModeSupportedByTransformFilter(ControlUnit->Filter, CurrentMode))
 							{
 								bModeSupported = true;
 							}
 						}
 					}
-
-					if (!bModeSupported)
-					{
-						GetModeManager()->CycleWidgetMode();
-					}
 				}
 
-				ViewportClient->Invalidate();
-			}
-		}
-		
-		bSelectedNode = false;
-	}
-
-	// check if we need to change selection because we switched modes
-	for (TWeakObjectPtr<UControlRig> ControlRig : ControlRigs)
-	{
-		if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRig.Get()))
-		{
-			TArray<FName> LocalSelectedNodes(SelectedNodes);
-			for (const FName& SelectedNode : LocalSelectedNodes)
-			{
-				for (UControlManipulator* Manipulator : HierarchicalRig->Manipulators)
+				if (!bModeSupported)
 				{
-					if (Manipulator)
-					{
-						if (Manipulator->Name == SelectedNode && !HierarchicalRig->IsManipulatorEnabled(Manipulator))
-						{
-							// node is selected but disabled, switch our selection
-							SetNodeSelection(Manipulator->Name, false);
-							if (UControlManipulator* CounterpartManipulator = HierarchicalRig->FindCounterpartManipulator(Manipulator))
-							{
-								SetNodeSelection(CounterpartManipulator->Name, true);
-							}
-						}
-					}
+					GetModeManager()->CycleWidgetMode();
 				}
 			}
 		}
-	}
 
-	// If we have detached from sequencer, unbind the settings UI
-	if (!WeakSequencer.IsValid() && Settings->Sequence != nullptr)
-	{
-		Settings->Sequence = nullptr;
-		RefreshObjects();
-	}
+		ViewportClient->Invalidate();
+		bSelectedJoint = false;
 
-	// update the pivot transform of our selected objects (they could be animating)
-	RecalcPivotTransform();
-
-	// Tick manipulators
-	for (TWeakObjectPtr<UControlRig> ControlRig : ControlRigs)
-	{
-		if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRig.Get()))
+		// If we have detached from sequencer, unbind the settings UI
+		if (!WeakSequencer.IsValid() && Settings->Sequence != nullptr)
 		{
-			for (UControlManipulator* Manipulator : HierarchicalRig->Manipulators)
+			Settings->Sequence = nullptr;
+			RefreshObjects();
+		}
+
+		USceneComponent* Component = Cast<USceneComponent>(ControlRig->GetObjectBinding()->GetBoundObject());
+		FTransform ComponentTransform = Component ? Component->GetComponentTransform() : FTransform::Identity;
+
+		// Update controls from rig
+		for(const FControlUnitProxy& UnitProxy : ControlUnits)
+		{
+			if(UnitProxy.Control)
 			{
-				Manipulator->CurrentProximity = FMath::FInterpTo(Manipulator->CurrentProximity, Manipulator->TargetProximity, DeltaTime, 10.0f);
+				UScriptStruct* Struct = nullptr;
+				if(FRigUnit_Control* ControlUnit = GetRigUnit(UnitProxy, ControlRig, &Struct))
+				{
+					UnitProxy.Control->SetTransform(ControlUnit->GetResultantTransform() * ComponentTransform);
+					UnitProxy.Control->TickControl(DeltaTime, *ControlUnit, Struct);
+				}
 			}
 		}
-	}
 
-	if (Settings->bDisplayTrajectories)
-	{
-		if (WeakSequencer.IsValid() && ControlRigGuids.Num() > 0 && ControlRigGuids[0].IsValid())
-		{
-			TSharedRef<ISequencer> Sequencer = WeakSequencer.Pin().ToSharedRef();
-			UMovieScene* MovieScene = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
-			float FrameSnap = MovieScene->GetPlaybackFrameRate().AsInterval();
-			TrajectoryCache.Update(Sequencer, ControlRigGuids[0], MovieScene->GetPlaybackRange() / MovieScene->GetFrameResolution(), FrameSnap, DeltaTime, FApp::GetCurrentTime());
-		}
-	}
-}
+		// update the pivot transform of our selected objects (they could be animating)
+		RecalcPivotTransform();
 
-FTransform GetParentTransform(UControlManipulator* Manipulator, UHierarchicalRig* HierarchicalRig)
-{
-	if (Manipulator->bInLocalSpace)
-	{
-		const FAnimationHierarchy& Hierarchy = HierarchicalRig->GetHierarchy();
-		int32 NodeIndex = Hierarchy.GetNodeIndex(Manipulator->Name);
-		if (NodeIndex != INDEX_NONE)
+		// Tick controls
+		for(FControlUnitProxy& UnitProxy : ControlUnits)
 		{
-			FName ParentName = Hierarchy.GetParentName(NodeIndex);
-			if (ParentName != NAME_None)
+			if(UnitProxy.Control)
 			{
-				return HierarchicalRig->GetMappedGlobalTransform(ParentName);
+				UnitProxy.Control->Tick(DeltaTime);
 			}
 		}
-	}
-
-	return FTransform::Identity;
-}
-
-void FControlRigEditMode::RenderLimb(const FLimbControl& Limb, UHumanRig* HumanRig, FPrimitiveDrawInterface* PDI)
-{
-	// Look for manipulator of the IK target, we want its color
-	UControlManipulator* TargetManip = HumanRig->FindManipulatorForNode(Limb.IKJointTargetName);
-
-	// If we have a (colored) manipulator, and its enabled, draw the line
-	UColoredManipulator* ColorManip = Cast<UColoredManipulator>(TargetManip);
-	if (ColorManip && HumanRig->IsManipulatorEnabled(ColorManip))
-	{
-		FLinearColor DrawColor = IsNodeSelected(Limb.IKJointTargetName) ? ColorManip->SelectedColor : ColorManip->Color;
-		DrawColor = (DrawColor * 0.5f); // Tone down color of manipulator a bit
-
-		USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>(HumanRig->GetBoundObject());
-		FTransform ComponentTransform = SkelMeshComp ? SkelMeshComp->GetComponentTransform() : FTransform::Identity;
-
-		// Get joint location
-		const FVector JointLocation = ComponentTransform.TransformPosition(HumanRig->GetMappedGlobalTransform(Limb.IKChainName[1]).GetLocation());
-		// Get handle location
-		const FVector HandleLocation = ComponentTransform.TransformPosition(HumanRig->GetMappedGlobalTransform(Limb.IKJointTargetName).GetLocation());
-
-		PDI->DrawLine(JointLocation, HandleLocation, DrawColor, SDPG_Foreground, 0.25f);
 	}
 }
 
 void FControlRigEditMode::Render(const FSceneView* View, FViewport* Viewport, FPrimitiveDrawInterface* PDI)
 {
-	bool bRender = true;
-	if (WeakSequencer.IsValid())
+	if(UControlRig* ControlRig = WeakControlRig.Get())
 	{
-		bRender = WeakSequencer.Pin()->GetPlaybackStatus() != EMovieScenePlayerStatus::Playing || Settings->bShowManipulatorsDuringPlayback;
-	}
-
-	// Force off manipulators if hide flag is set
-	if (Settings->bHideManipulators)
-	{
-		bRender = false;
-	}
-
-	if (bRender)
-	{
-		FIntPoint MousePosition;
-		FVector Origin;
-		FVector Direction;
-		Viewport->GetMousePos(MousePosition);
-		View->DeprojectFVector2D(MousePosition, Origin, Direction);
-
-		for (TWeakObjectPtr<UControlRig> ControlRig : ControlRigs)
+		bool bRender = true;
+		if (WeakSequencer.IsValid())
 		{
-			if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRig.Get()))
+			bRender = WeakSequencer.Pin()->GetPlaybackStatus() != EMovieScenePlayerStatus::Playing || Settings->bShowManipulatorsDuringPlayback;
+		}
+
+		// Force off manipulators if hide flag is set
+		if (Settings->bHideManipulators)
+		{
+			bRender = false;
+		}
+
+		if (bRender)
+		{
+			if (Settings->bDisplayHierarchy)
 			{
-				// now get all node data
-				const FAnimationHierarchy& Hierarchy = HierarchicalRig->GetHierarchy();
-				const TArray<FNodeObject>& NodeObjects = Hierarchy.GetNodes();
+				USceneComponent* Component = Cast<USceneComponent>(ControlRig->GetObjectBinding()->GetBoundObject());
+				FTransform ComponentTransform = Component ? Component->GetComponentTransform() : FTransform::Identity;
 
-				USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>(HierarchicalRig->GetBoundObject());
-
-				const FColor NormalColor = FColor(255, 255, 255, 255);
-				const FColor SelectedColor = FColor(255, 0, 255, 255);
-				const float GrabHandleSize = 5.0f;
-
-				FTransform ComponentTransform = SkelMeshComp ? SkelMeshComp->GetComponentTransform() : FTransform::Identity;
-
-				if (Settings->bDisplayHierarchy)
+				// each base hierarchy Joint
+				const FRigHierarchy& BaseHierarchy = ControlRig->GetBaseHierarchy();
+				for (int32 JointIndex = 0; JointIndex < BaseHierarchy.Joints.Num(); ++JointIndex)
 				{
-					// each hierarchy node
-					for (int32 NodeIndex = 0; NodeIndex < NodeObjects.Num(); ++NodeIndex)
+					const FRigJoint& CurrentJoint = BaseHierarchy.Joints[JointIndex];
+					const FTransform Transform = BaseHierarchy.GetGlobalTransform(JointIndex);
+
+					if (CurrentJoint.ParentIndex != INDEX_NONE)
 					{
-						const FNodeObject& CurrentNode = NodeObjects[NodeIndex];
-						const FVector Location = ComponentTransform.TransformPosition(HierarchicalRig->GetMappedGlobalTransform(CurrentNode.Name).GetLocation());
-						if (CurrentNode.ParentName != NAME_None)
-						{
-							const FVector ParentLocation = ComponentTransform.TransformPosition(HierarchicalRig->GetMappedGlobalTransform(CurrentNode.ParentName).GetLocation());
-							PDI->DrawLine(Location, ParentLocation, SelectedColor, SDPG_Foreground);
-						}
+						const FTransform ParentTransform = BaseHierarchy.GetGlobalTransform(CurrentJoint.ParentIndex);
 
-						PDI->DrawPoint(Location, NormalColor, GrabHandleSize, SDPG_Foreground);
-					}
-				}
-
-				// First setup manipulator proximities
-				if (!bIsTransacting)
-				{
-					float ClosestDistance = 50.0f;
-					UControlManipulator* ClosestManipulator = nullptr;
-					for (UControlManipulator* Manipulator : HierarchicalRig->Manipulators)
-					{
-						if (Manipulator)
-						{
-							Manipulator->TargetProximity = 0.8f;
-
-							if (HierarchicalRig->IsManipulatorEnabled(Manipulator))
-							{
-								if (IsNodeSelected(Manipulator->Name))
-								{
-									Manipulator->TargetProximity = 1.0f;
-								}
-
-								FTransform ManipulatorTransform = Manipulator->GetTransform(HierarchicalRig);
-								FTransform ParentTransform = GetParentTransform(Manipulator, HierarchicalRig);
-								FTransform DisplayTransform = ManipulatorTransform*ParentTransform*ComponentTransform;
-
-								float DistanceToPoint = FMath::PointDistToLine(DisplayTransform.GetLocation(), Direction, Origin);
-								if (DistanceToPoint < ClosestDistance)
-								{
-									ClosestDistance = DistanceToPoint;
-									ClosestManipulator = Manipulator;
-								}
-							}
-						}
+						PDI->DrawLine(Transform.GetLocation(), ParentTransform.GetLocation(), FLinearColor::White, SDPG_Foreground);
 					}
 
-					if (ClosestManipulator)
-					{
-						ClosestManipulator->TargetProximity = 1.3f;
-					}
-				}
-
-				// Draw each manipulator
-				for (UControlManipulator* Manipulator : HierarchicalRig->Manipulators)
-				{
-					if (Manipulator && HierarchicalRig->IsManipulatorEnabled(Manipulator))
-					{
-						PDI->SetHitProxy(new HManipulatorNodeProxy(HierarchicalRig, Manipulator->Name));
-						FTransform ManipulatorTransform = Manipulator->GetTransform(HierarchicalRig);
-						FTransform ParentTransform = GetParentTransform(Manipulator, HierarchicalRig);
-						FTransform DisplayTransform = ManipulatorTransform*ParentTransform*ComponentTransform;
-
-						Manipulator->Draw(DisplayTransform, View, PDI, IsNodeSelected(Manipulator->Name));
-						PDI->SetHitProxy(nullptr);
-					}
-				}
-
-				// Special drawing for human rig (e.g. lines to IK target)
-				if (UHumanRig* HumanRig = Cast<UHumanRig>(ControlRig.Get()))
-				{
-					RenderLimb(HumanRig->LeftArm, HumanRig, PDI);
-					RenderLimb(HumanRig->RightArm, HumanRig, PDI);
-					RenderLimb(HumanRig->LeftLeg, HumanRig, PDI);
-					RenderLimb(HumanRig->RightLeg, HumanRig, PDI);
-				}
-
-				if (Settings->bDisplayTrajectories)
-				{
-					TrajectoryCache.RenderTrajectories(ComponentTransform, PDI);
+					PDI->DrawPoint(Transform.GetLocation(), FLinearColor::White, 5.0f, SDPG_Foreground);
 				}
 			}
+
+			// @TODO: debug drawing per rig Joint (like details customizations) for this
+
+// 			if (Settings->bDisplayTrajectories)
+// 			{
+// 				TrajectoryCache.RenderTrajectories(ComponentTransform, PDI);
+// 			}
 		}
 	}
 }
@@ -562,18 +418,15 @@ bool FControlRigEditMode::EndTracking(FEditorViewportClient* InViewportClient, F
 	{
 		if (bManipulatorMadeChange)
 		{
-			// One final notify of our manipulators to make sure the property is updated
-			for (TWeakObjectPtr<UControlRig>& ControlRig : ControlRigs)
+			// One final notify of our manipulators to make sure the property is keyed
+			if(UControlRig* ControlRig = WeakControlRig.Get())
 			{
-				if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRig.Get()))
+				for(FControlUnitProxy& UnitProxy : ControlUnits)
 				{
-					for (UControlManipulator* Manipulator : HierarchicalRig->Manipulators)
+					if(UnitProxy.IsManipulating())
 					{
-						if (Manipulator)
-						{
-							Manipulator->bManipulating = false;
-							Manipulator->NotifyPostEditChangeProperty(HierarchicalRig);
-						}
+						UnitProxy.SetManipulating(false);
+						UnitProxy.NotifyPostEditChangeProperty(ControlRig);
 					}
 				}
 			}
@@ -599,22 +452,16 @@ bool FControlRigEditMode::StartTracking(FEditorViewportClient* InViewportClient,
 {
 	if (!bIsTransacting)
 	{
-		GEditor->BeginTransaction(LOCTEXT("MoveManipulatorTransaction", "Move Manipulator"));
+		GEditor->BeginTransaction(LOCTEXT("MoveControlTransaction", "Move Control"));
 
-		for (TWeakObjectPtr<UControlRig>& ControlRig : ControlRigs)
+		if(UControlRig* ControlRig = WeakControlRig.Get())
 		{
-			if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRig.Get()))
-			{
-				HierarchicalRig->SetFlags(RF_Transactional);
-				HierarchicalRig->Modify();
+			ControlRig->SetFlags(RF_Transactional);
+			ControlRig->Modify();
 
-				for (UControlManipulator* Manipulator : HierarchicalRig->Manipulators)
-				{
-					if (Manipulator)
-					{
-						Manipulator->bManipulating = true;
-					}
-				}
+			for(FControlUnitProxy& UnitProxy : ControlUnits)
+			{
+				UnitProxy.SetManipulating(true);
 			}
 		}
 
@@ -629,7 +476,18 @@ bool FControlRigEditMode::StartTracking(FEditorViewportClient* InViewportClient,
 
 bool FControlRigEditMode::UsesTransformWidget() const
 {
-	if (SelectedNodes.Num() > 0)
+	if(UControlRig* ControlRig = WeakControlRig.Get())
+	{
+		for (const FControlUnitProxy& UnitProxy : ControlUnits)
+		{
+			if(UnitProxy.IsSelected())
+			{
+				return true;
+			}
+		}
+	}
+
+	if (AreJointSelected())
 	{
 		return true;
 	}
@@ -639,19 +497,23 @@ bool FControlRigEditMode::UsesTransformWidget() const
 
 bool FControlRigEditMode::UsesTransformWidget(FWidget::EWidgetMode CheckMode) const
 {
-	if(ControlRigs.Num() > 0 && ControlRigs[0].Get())
+	if(UControlRig* ControlRig = WeakControlRig.Get())
 	{
-		if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRigs[0].Get()))
+		for (const FControlUnitProxy& UnitProxy : ControlUnits)
 		{
-			for (const FName& SelectedNode : SelectedNodes)
+			if(UnitProxy.IsSelected())
 			{
-				UControlManipulator* Manipulator = HierarchicalRig->FindManipulator(SelectedNode);
-				if (Manipulator)
+				if(FRigUnit_Control* ControlUnit = GetRigUnit(UnitProxy, ControlRig))
 				{
-					return Manipulator->SupportsTransformComponent(WidgetModeToTransformComponent(CheckMode));
+					return ModeSupportedByTransformFilter(ControlUnit->Filter, CheckMode);
 				}
 			}
 		}
+	}
+
+	if (AreJointSelected())
+	{
+		return true;
 	}
 
 	return FEdMode::UsesTransformWidget(CheckMode);
@@ -659,16 +521,24 @@ bool FControlRigEditMode::UsesTransformWidget(FWidget::EWidgetMode CheckMode) co
 
 FVector FControlRigEditMode::GetWidgetLocation() const
 {
-	if (ControlRigs.Num() > 0 && ControlRigs[0].Get())
+	if(UControlRig* ControlRig = WeakControlRig.Get())
 	{
-		if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRigs[0].Get()))
+		USceneComponent* Component = Cast<USkeletalMeshComponent>(ControlRig->GetObjectBinding()->GetBoundObject());
+		FTransform ComponentTransform = Component ? Component->GetComponentTransform() : FTransform::Identity;
+
+		for (const FControlUnitProxy& UnitProxy : ControlUnits)
 		{
-			if (SelectedNodes.Num() > 0)
+			if(UnitProxy.IsSelected())
 			{
-				USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>(HierarchicalRig->GetBoundObject());
-				FTransform ComponentTransform = SkelMeshComp ? SkelMeshComp->GetComponentTransform() : FTransform::Identity;
 				return ComponentTransform.TransformPosition(PivotTransform.GetLocation());
 			}
+		}
+
+		// @todo: we only supports the first ast one for now
+		// later we support multi select
+		if (AreJointSelected())
+		{
+			return ComponentTransform.TransformPosition(OnGetJointTransformDelegate.Execute(SelectedJoints[0], false).GetLocation());
 		}
 	}
 
@@ -677,15 +547,24 @@ FVector FControlRigEditMode::GetWidgetLocation() const
 
 bool FControlRigEditMode::GetCustomDrawingCoordinateSystem(FMatrix& OutMatrix, void* InData)
 {
-	if (ControlRigs.Num() > 0 && ControlRigs[0].Get())
+	if(UControlRig* ControlRig = WeakControlRig.Get())
 	{
-		if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRigs[0].Get()))
+		for (const FControlUnitProxy& UnitProxy : ControlUnits)
 		{
-			if (SelectedNodes.Num() > 0)
+			if(UnitProxy.IsSelected())
 			{
 				OutMatrix = PivotTransform.ToMatrixNoScale().RemoveTranslation();
 				return true;
 			}
+		}
+
+		if (AreJointSelected())
+		{
+			USceneComponent* Component = Cast<USkeletalMeshComponent>(ControlRig->GetObjectBinding()->GetBoundObject());
+			FTransform ComponentTransform = Component ? Component->GetComponentTransform() : FTransform::Identity;
+			FTransform JointTransform = OnGetJointTransformDelegate.Execute(SelectedJoints[0], false)*ComponentTransform;
+			OutMatrix = JointTransform.ToMatrixWithScale().RemoveTranslation();
+			return true;
 		}
 	}
 
@@ -699,62 +578,74 @@ bool FControlRigEditMode::GetCustomInputCoordinateSystem(FMatrix& OutMatrix, voi
 
 bool FControlRigEditMode::HandleClick(FEditorViewportClient* InViewportClient, HHitProxy *HitProxy, const FViewportClick &Click)
 {
-	if (HitProxy && HitProxy->IsA(HManipulatorNodeProxy::StaticGetType()))
+	if(HActor* ActorHitProxy = HitProxyCast<HActor>(HitProxy))
 	{
-		HManipulatorNodeProxy* NodeProxy = static_cast<HManipulatorNodeProxy*>(HitProxy);
+		if(ActorHitProxy->Actor && ActorHitProxy->Actor->IsA<AControlRigControl>())
+		{
+			AControlRigControl* ControlRigControl = Cast<AControlRigControl>(ActorHitProxy->Actor);
+			if (Click.IsShiftDown() || Click.IsControlDown())
+			{
+				SetControlSelection(ControlRigControl->GetPropertyPath(), !IsControlSelected(ControlRigControl->GetPropertyPath()));
+			}
+			else
+			{
+				ClearControlSelection();
+				SetControlSelection(ControlRigControl->GetPropertyPath(), true);
+			}
 
-		if (Click.IsShiftDown() || Click.IsControlDown())
-		{
-			SetNodeSelection(NodeProxy->NodeName, !IsNodeSelected(NodeProxy->NodeName));
+			return true;
 		}
-		else
-		{
-			ClearNodeSelection();
-			SetNodeSelection(NodeProxy->NodeName, true);
-		}
-		return true;
 	}
 
-	// clear selected nodes
-	ClearNodeSelection();
+	// clear selected controls
+	ClearControlSelection();
+
+	// If we are animating then swallow clicks so we dont select things other than controls
+	if(WeakSequencer.IsValid() && WeakSequencer.Pin()->GetFocusedMovieSceneSequence()->IsA<UControlRigSequence>())
+	{
+		return true;
+	}
 
 	return FEdMode::HandleClick(InViewportClient, HitProxy, Click);
 }
 
-bool FControlRigEditMode::IntersectSelect(bool InSelect, const TFunctionRef<bool(UControlManipulator*,const FTransform&)>& Intersects)
+bool FControlRigEditMode::IntersectSelect(bool InSelect, const TFunctionRef<bool(const FControlUnitProxy&, const FTransform&)>& Intersects)
 {
-	if (ControlRigs.Num() > 0 && ControlRigs[0].Get())
+	if(UControlRig* ControlRig = WeakControlRig.Get())
 	{
-		if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRigs[0].Get()))
-		{
-			USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>(HierarchicalRig->GetBoundObject());
-			FTransform ComponentTransform = SkelMeshComp ? SkelMeshComp->GetComponentTransform() : FTransform::Identity;
+		USceneComponent* Component = Cast<USceneComponent>(ControlRig->GetObjectBinding()->GetBoundObject());
+		FTransform ComponentTransform = Component ? Component->GetComponentTransform() : FTransform::Identity;
 
-			bool bSelected = false;
-			for (UControlManipulator* Manipulator : HierarchicalRig->Manipulators)
+		bool bSelected = false;
+		for (const FControlUnitProxy& UnitProxy : ControlUnits)
+		{
+			if(FRigUnit_Control* ControlUnit = GetRigUnit(UnitProxy, ControlRig))
 			{
-				FTransform ManipulatorTransform = HierarchicalRig->GetMappedGlobalTransform(Manipulator->Name) * ComponentTransform;
-				if (Intersects(Manipulator, ManipulatorTransform))
+				const FTransform ControlTransform = ControlUnit->GetResultantTransform() * ComponentTransform;
+				if (Intersects(UnitProxy, ControlTransform))
 				{
-					SetNodeSelection(Manipulator->Name, InSelect);
+					SetControlSelection(UnitProxy.PropertyPathString, InSelect);
 					bSelected = true;
 				}
 			}
-
-			return bSelected;
 		}
-	}
 
+		return bSelected;
+	}
 	return false;
 }
 
 bool FControlRigEditMode::BoxSelect(FBox& InBox, bool InSelect)
 {
-	bool bIntersects = IntersectSelect(InSelect, [&](UControlManipulator* Manipulator, const FTransform& Transform)
+	bool bIntersects = IntersectSelect(InSelect, [&](const FControlUnitProxy& ControlProxy, const FTransform& Transform)
 	{ 
-		FBox Bounds = Manipulator->GetLocalBoundingBox();
-		Bounds = Bounds.TransformBy(Transform);
-		return InBox.Intersect(Bounds);
+		if(ControlProxy.Control != nullptr)
+		{
+			FBox Bounds = ControlProxy.Control->GetComponentsBoundingBox(true);
+			Bounds = Bounds.TransformBy(Transform);
+			return InBox.Intersect(Bounds);
+		}
+		return false;
 	});
 
 	if (bIntersects)
@@ -767,11 +658,15 @@ bool FControlRigEditMode::BoxSelect(FBox& InBox, bool InSelect)
 
 bool FControlRigEditMode::FrustumSelect(const FConvexVolume& InFrustum, bool InSelect)
 {
-	bool bIntersects = IntersectSelect(InSelect, [&](UControlManipulator* Manipulator, const FTransform& Transform) 
+	bool bIntersects = IntersectSelect(InSelect, [&](const FControlUnitProxy& ControlProxy, const FTransform& Transform) 
 	{
-		FSphere Bounds = Manipulator->GetLocalBoundingSphere();
-		Bounds = Bounds.TransformBy(Transform);
-		return InFrustum.IntersectSphere(Bounds.Center, Bounds.W);
+		if(ControlProxy.Control != nullptr)
+		{
+			FBox Bounds = ControlProxy.Control->GetComponentsBoundingBox(true);
+			Bounds = Bounds.TransformBy(Transform);
+			return InFrustum.IntersectBox(Bounds.GetCenter(), Bounds.GetExtent());
+		}
+		return false;
 	});
 
 	if (bIntersects)
@@ -784,14 +679,16 @@ bool FControlRigEditMode::FrustumSelect(const FConvexVolume& InFrustum, bool InS
 
 void FControlRigEditMode::SelectNone()
 {
-	ClearNodeSelection();
+	ClearControlSelection();
+
+	SelectedJoints.Reset();
 
 	FEdMode::SelectNone();
 }
 
 bool FControlRigEditMode::InputDelta(FEditorViewportClient* InViewportClient, FViewport* InViewport, FVector& InDrag, FRotator& InRot, FVector& InScale)
 {
-	if (ControlRigs.Num() > 0 && ControlRigs[0].Get())
+	if(UControlRig* ControlRig = WeakControlRig.Get())
 	{
 		FVector Drag = InDrag;
 		FRotator Rot = InRot;
@@ -806,73 +703,130 @@ bool FControlRigEditMode::InputDelta(FEditorViewportClient* InViewportClient, FV
 		const EAxisList::Type CurrentAxis = InViewportClient->GetCurrentWidgetAxis();
 		const ECoordSystem CoordSystem = InViewportClient->GetWidgetCoordSystemSpace();
 
-		if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRigs[0].Get()))
+		if (bIsTransacting && bMouseButtonDown && !bCtrlDown && !bShiftDown && !bAltDown && CurrentAxis != EAxisList::None)
 		{
-			if (SelectedNodes.Num() > 0 && bIsTransacting && bMouseButtonDown && !bCtrlDown && !bShiftDown && !bAltDown && CurrentAxis != EAxisList::None)
+			const bool bDoRotation = !Rot.IsZero() && (WidgetMode == FWidget::WM_Rotate || WidgetMode == FWidget::WM_TranslateRotateZ);
+			const bool bDoTranslation = !Drag.IsZero() && (WidgetMode == FWidget::WM_Translate || WidgetMode == FWidget::WM_TranslateRotateZ);
+			const bool bDoScale = !Scale.IsZero() && WidgetMode == FWidget::WM_Scale;
+
+			USceneComponent* Component = Cast<USceneComponent>(ControlRig->GetObjectBinding()->GetBoundObject());
+			FTransform ComponentTransform = Component ? Component->GetComponentTransform() : FTransform::Identity;
+
+			if (AreControlsSelected())
 			{
-				const bool bDoRotation = !Rot.IsZero() && (WidgetMode == FWidget::WM_Rotate || WidgetMode == FWidget::WM_TranslateRotateZ);
-				const bool bDoTranslation = !Drag.IsZero() && (WidgetMode == FWidget::WM_Translate || WidgetMode == FWidget::WM_TranslateRotateZ);
-				const bool bDoScale = !Scale.IsZero() && WidgetMode == FWidget::WM_Scale;
-
-				USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>(HierarchicalRig->GetBoundObject());
-				FTransform ComponentTransform = SkelMeshComp ? SkelMeshComp->GetComponentTransform() : FTransform::Identity;
-
 				// manipulator transform is always on actor base - (actor origin being 0)
-				for (const FName& SelectedNode : SelectedNodes)
+				for (FControlUnitProxy& UnitProxy : ControlUnits)
 				{
-					UControlManipulator* Manipulator = HierarchicalRig->FindManipulator(SelectedNode);
-					if (Manipulator)
+					if (UnitProxy.IsSelected())
 					{
-						FTransform NewTransform = HierarchicalRig->GetMappedGlobalTransform(SelectedNode) * ComponentTransform;
-
-						bool bTransformChanged = false;
-						if (bDoRotation && Manipulator->bUsesRotation)
+						if (FRigUnit_Control* ControlUnit = GetRigUnit(UnitProxy, ControlRig))
 						{
-							FQuat CurrentRotation = NewTransform.GetRotation();
-							CurrentRotation = (Rot.Quaternion() * CurrentRotation);
-							NewTransform.SetRotation(CurrentRotation);
-							bTransformChanged = true;
-						}
+							FTransform NewWorldTransform = ControlUnit->GetResultantTransform() * ComponentTransform;
 
-						if (bDoTranslation && Manipulator->bUsesTranslation)
-						{
-							FVector ManipulatorLocation = NewTransform.GetLocation();
-							ManipulatorLocation = ManipulatorLocation + Drag;
-							NewTransform.SetLocation(ManipulatorLocation);
-							bTransformChanged = true;
-						}
-
-						if (bDoScale && Manipulator->bUsesScale)
-						{
-							FVector ManipulatorScale = NewTransform.GetScale3D();
-							ManipulatorScale = ManipulatorScale + Scale;
-							NewTransform.SetScale3D(ManipulatorScale);
-							bTransformChanged = true;
-						}
-
-						if (bTransformChanged)
-						{
-							HierarchicalRig->SetMappedGlobalTransform(SelectedNode, NewTransform * ComponentTransform.Inverse());
-
-							if (Manipulator->bInLocalSpace)
+							bool bTransformChanged = false;
+							if (bDoRotation && ControlUnit->Filter.RotationFilter.IsValid())
 							{
-								FTransform ParentTransform = GetParentTransform(Manipulator, HierarchicalRig);
-								Manipulator->SetTransform(NewTransform.GetRelativeTransform(ParentTransform), HierarchicalRig);
-							}
-							else
-							{
-								Manipulator->SetTransform(NewTransform, HierarchicalRig);
+								FQuat CurrentRotation = NewWorldTransform.GetRotation();
+								CurrentRotation = (Rot.Quaternion() * CurrentRotation);
+								NewWorldTransform.SetRotation(CurrentRotation);
+								bTransformChanged = true;
 							}
 
-							// have to update manipulator to node when children modifies from set global transform
-							HierarchicalRig->UpdateManipulatorToNode(true);
+							if (bDoTranslation && ControlUnit->Filter.TranslationFilter.IsValid())
+							{
+								FVector CurrentLocation = NewWorldTransform.GetLocation();
+								CurrentLocation = CurrentLocation + Drag;
+								NewWorldTransform.SetLocation(CurrentLocation);
+								bTransformChanged = true;
+							}
 
-							bManipulatorMadeChange = true;
+							if (bDoScale && ControlUnit->Filter.ScaleFilter.IsValid())
+							{
+								FVector CurrentScale = NewWorldTransform.GetScale3D();
+								CurrentScale = CurrentScale + Scale;
+								NewWorldTransform.SetScale3D(CurrentScale);
+								bTransformChanged = true;
+							}
+
+							if (bTransformChanged)
+							{
+								FTransform ResultantTransform = NewWorldTransform.GetRelativeTransform(ComponentTransform);
+
+								UnitProxy.NotifyPreEditChangeProperty(ControlRig);
+
+								ControlUnit->SetResultantTransform(ResultantTransform);
+
+								if (UnitProxy.Control)
+								{
+									UnitProxy.Control->SetTransform(NewWorldTransform);
+								}
+								UnitProxy.NotifyPostEditChangeProperty(ControlRig);
+
+								// Push to CDO if we are not in the level editor
+								if (!IsInLevelEditor())
+								{
+									UClass* Class = ControlRig->GetClass();
+									UControlRig* CDO = Class->GetDefaultObject<UControlRig>();
+									if (FRigUnit_Control* DefaultControlUnit = GetRigUnit(UnitProxy, CDO))
+									{
+										CDO->Modify();
+
+										DefaultControlUnit->SetResultantTransform(ResultantTransform);
+
+										UBlueprint* Blueprint = Cast<UBlueprint>(Class->ClassGeneratedBy);
+										if (Blueprint)
+										{
+											FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
+										}
+									}
+								}
+
+								bManipulatorMadeChange = true;
+							}
 						}
 					}
 				}
 
 				RecalcPivotTransform();
+
+				return true;
+			}
+			else if (AreJointSelected())
+			{
+				// set joint transform
+				// that will set initial joint transform
+				const FName CurrentJoint = SelectedJoints[0];
+				FTransform NewWorldTransform = OnGetJointTransformDelegate.Execute(CurrentJoint, false) * ComponentTransform;
+				bool bTransformChanged = false;
+				if (bDoRotation)
+				{
+					FQuat CurrentRotation = NewWorldTransform.GetRotation();
+					CurrentRotation = (Rot.Quaternion() * CurrentRotation);
+					NewWorldTransform.SetRotation(CurrentRotation);
+					bTransformChanged = true;
+				}
+
+				if (bDoTranslation)
+				{
+					FVector CurrentLocation = NewWorldTransform.GetLocation();
+					CurrentLocation = CurrentLocation + Drag;
+					NewWorldTransform.SetLocation(CurrentLocation);
+					bTransformChanged = true;
+				}
+
+				if (bDoScale)
+				{
+					FVector CurrentScale = NewWorldTransform.GetScale3D();
+					CurrentScale = CurrentScale + Scale;
+					NewWorldTransform.SetScale3D(CurrentScale);
+					bTransformChanged = true;
+				}
+
+				if (bTransformChanged)
+				{
+					FTransform NewComponentTransform = NewWorldTransform.GetRelativeTransform(ComponentTransform);
+					OnSetJointTransformDelegate.Execute(CurrentJoint, NewComponentTransform);
+				}
 
 				return true;
 			}
@@ -884,7 +838,7 @@ bool FControlRigEditMode::InputDelta(FEditorViewportClient* InViewportClient, FV
 
 bool FControlRigEditMode::ShouldDrawWidget() const
 {
-	if (SelectedNodes.Num() > 0)
+	if (AreControlsSelected() || AreJointSelected())
 	{
 		return true;
 	}
@@ -901,136 +855,160 @@ bool FControlRigEditMode::IsCompatibleWith(FEditorModeID OtherModeID) const
 	return true;
 }
 
-void FControlRigEditMode::ClearNodeSelection()
+void FControlRigEditMode::AddReferencedObjects( FReferenceCollector& Collector )
+{
+	Collector.AddReferencedObject(Settings);
+
+	for(FControlUnitProxy& UnitProxy : ControlUnits)
+	{
+		Collector.AddReferencedObject(UnitProxy.Control);
+	}
+}
+
+void FControlRigEditMode::ClearControlSelection()
 {
 	if (!bSelecting)
 	{
 		TGuardValue<bool> ReentrantGuard(bSelecting, true);
 
-		SelectedNodes.Empty();
+		for(FControlUnitProxy& UnitProxy : ControlUnits)
+		{
+			UnitProxy.SetSelected(false);
+		}
 
-		bSelectedNode = true;
-		OnNodesSelectedDelegate.Broadcast(SelectedNodes);
+		bSelectedJoint = true;
+		OnControlsSelectedDelegate.Broadcast(TArray<FString>());
 	}
 }
 
-void FControlRigEditMode::SetNodeSelection(const FName& NodeName, bool bSelected)
+void FControlRigEditMode::SetControlSelection(const FString& InControlPropertyPath, bool bSelected)
 {
 	if (!bSelecting)
 	{
 		TGuardValue<bool> ReentrantGuard(bSelecting, true);
 
-		if (bSelected)
+		TArray<FString> SelectedPropertyPaths;
+		for(FControlUnitProxy& UnitProxy : ControlUnits)
 		{
-			SelectedNodes.AddUnique(NodeName);
-		}
-		else
-		{
-			SelectedNodes.Remove(NodeName);
+			if(InControlPropertyPath == UnitProxy.PropertyPathString || InControlPropertyPath == UnitProxy.TransformPropertyPathString)
+			{
+				UnitProxy.SetSelected(bSelected);
+				SelectedPropertyPaths.Add(UnitProxy.TransformPropertyPathString);
+			}
 		}
 
-		bSelectedNode = true;
-		OnNodesSelectedDelegate.Broadcast(SelectedNodes);
+		bSelectedJoint = true;
+		OnControlsSelectedDelegate.Broadcast(SelectedPropertyPaths);
 	}
 }
 
-void FControlRigEditMode::SetNodeSelection(const TArray<FName>& NodeNames, bool bSelected)
+void FControlRigEditMode::SetControlSelection(const TArray<FString>& InControlPropertyPaths, bool bSelected)
 {
 	if (!bSelecting)
 	{
 		TGuardValue<bool> ReentrantGuard(bSelecting, true);
 
-		for (const FName& NodeName : NodeNames)
+		TArray<FString> SelectedPropertyPaths;
+		for(FControlUnitProxy& UnitProxy : ControlUnits)
 		{
-			if (bSelected)
+			for (const FString& ControlPropertyPath : InControlPropertyPaths)
 			{
-				SelectedNodes.AddUnique(NodeName);
-			}
-			else
-			{
-				SelectedNodes.Remove(NodeName);
+				if(ControlPropertyPath == UnitProxy.PropertyPathString || ControlPropertyPath == UnitProxy.TransformPropertyPathString)
+				{
+					UnitProxy.SetSelected(bSelected);
+					SelectedPropertyPaths.Add(UnitProxy.TransformPropertyPathString);
+					break;
+				}
 			}
 		}
 
-		bSelectedNode = true;
-		OnNodesSelectedDelegate.Broadcast(SelectedNodes);
+		bSelectedJoint = true;
+		OnControlsSelectedDelegate.Broadcast(SelectedPropertyPaths);
 	}
 }
 
-const TArray<FName>& FControlRigEditMode::GetSelectedNodes() const
+bool FControlRigEditMode::IsControlSelected(const FString& InControlPropertyPath) const
 {
-	return SelectedNodes;
-}
-
-bool FControlRigEditMode::IsNodeSelected(const FName& NodeName) const
-{
-	return SelectedNodes.Contains(NodeName);
-}
-
-void FControlRigEditMode::SetNodeSelectionByPropertyPath(const TArray<FString>& InPropertyPaths)
-{
-	if (!bSelecting)
+	for(const FControlUnitProxy& UnitProxy : ControlUnits)
 	{
-		TGuardValue<bool> SelectingReentrantGuard(bSelecting, true);
-		TGuardValue<bool> SelectingByPathReentrantGuard(bSelectingByPath, true);
-
-		TArray<FName> NodesToSelect;
-
-		for (TWeakObjectPtr<UControlRig> ControlRig : ControlRigs)
+		if(UnitProxy.PropertyPathString == InControlPropertyPath)
 		{
-			if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRig.Get()))
+			return UnitProxy.IsSelected();
+		}
+	}
+
+	return false;
+}
+
+bool FControlRigEditMode::AreControlsSelected() const
+{
+	if(UControlRig* ControlRig = WeakControlRig.Get())
+	{
+		for(const FControlUnitProxy& UnitProxy : ControlUnits)
+		{
+			if(UnitProxy.IsSelected())
 			{
-				for (UControlManipulator* Manipulator : HierarchicalRig->Manipulators)
-				{
-					for (const FString& PropertyPath : InPropertyPaths)
-					{
-						if (PropertyPath == Manipulator->PropertyToManipulate.ToString())
-						{
-							NodesToSelect.Add(Manipulator->Name);
-							break;
-						}
-					}
-				}
+				return true;
 			}
 		}
+	}
 
-		if (NodesToSelect.Num() > 0)
+	return false;
+}
+
+int32 FControlRigEditMode::GetNumSelectedControls() const
+{
+	int32 NumSelected = 0;
+	if(UControlRig* ControlRig = WeakControlRig.Get())
+	{
+		for(const FControlUnitProxy& UnitProxy : ControlUnits)
 		{
-			SelectedNodes.Sort();
-			NodesToSelect.Sort();
-
-			if (NodesToSelect != SelectedNodes)
+			if(UnitProxy.IsSelected())
 			{
-				SelectedNodes.Empty();
-				for (const FName& NodeName : NodesToSelect)
-				{
-					SelectedNodes.AddUnique(NodeName);
-				}
-
-				bSelectedNode = true;
-				OnNodesSelectedDelegate.Broadcast(SelectedNodes);
+				NumSelected++;
 			}
+		}
+	}
+
+	return NumSelected;
+}
+
+void FControlRigEditMode::SetControlEnabled(const FString& InControlPropertyPath, bool bEnabled)
+{
+	for(FControlUnitProxy& UnitProxy : ControlUnits)
+	{
+		if(UnitProxy.PropertyPathString == InControlPropertyPath)
+		{
+			UnitProxy.SetEnabled(bEnabled);
 		}
 	}
 }
 
-FName FControlRigEditMode::GetNodeFromPropertyPath(const FString& InPropertyPath) const
+bool FControlRigEditMode::IsControlEnabled(const FString& InControlPropertyPath) const
 {
-	for (TWeakObjectPtr<UControlRig> ControlRig : ControlRigs)
+	for(const FControlUnitProxy& UnitProxy : ControlUnits)
 	{
-		if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRig.Get()))
+		if(UnitProxy.PropertyPathString == InControlPropertyPath)
 		{
-			for (UControlManipulator* Manipulator : HierarchicalRig->Manipulators)
-			{
-				if (InPropertyPath == Manipulator->PropertyToManipulate.ToString())
-				{
-					return Manipulator->Name;
-				}
-			}
+			return UnitProxy.IsEnabled();
+		}
+	}
+
+	return false;
+}
+
+FString FControlRigEditMode::GetControlFromPropertyPath(const FString& InPropertyPath) const
+{
+	for (const FControlUnitProxy& UnitProxy : ControlUnits)
+	{
+		if (UnitProxy.PropertyPathString == InPropertyPath)
+		{
+			// the output
+			return UnitProxy.PropertyPath.ToString();
 		}
 	}
 	
-	return NAME_None;
+	return TEXT("");
 }
 
 void FControlRigEditMode::HandleObjectSpawned(FGuid InObjectBinding, UObject* SpawnedObject, IMovieScenePlayer& Player)
@@ -1044,31 +1022,25 @@ void FControlRigEditMode::HandleObjectSpawned(FGuid InObjectBinding, UObject* Sp
 			RefreshObjects();
 
 			// check if the object is being displayed currently
-			check(ControlRigs.Num() == ControlRigGuids.Num());
-			for (int32 ObjectIndex = 0; ObjectIndex < ControlRigGuids.Num(); ObjectIndex++)
+			if (ControlRigGuid == InObjectBinding)
 			{
-				if (ControlRigGuids[ObjectIndex] == InObjectBinding)
+				if (WeakControlRig != Cast<UControlRig>(SpawnedObject))
 				{
-					if (ControlRigs[ObjectIndex] != Cast<UControlRig>(SpawnedObject))
-					{
-						ControlRigs[ObjectIndex] = Cast<UControlRig>(SpawnedObject);
-						SetObjects_Internal();
-					}
-					return;
+					WeakControlRig = Cast<UControlRig>(SpawnedObject);
+					SetObjects_Internal();
 				}
+				return;
 			}
 
 			// We didnt find an existing Guid, so set up our internal cache
-			if (ControlRigGuids.Num() == 0)
+			if (!ControlRigGuid.IsValid())
 			{
-				TArray<TWeakObjectPtr<>> SelectedObjects({ SpawnedObject });
-				TArray<FGuid> SelectedGuids({ InObjectBinding });
-				SetObjects(SelectedObjects, SelectedGuids);
+				SetObjects(SpawnedObject, InObjectBinding);
 				if (UControlRig* ControlRig = Cast<UControlRig>(SpawnedObject))
 				{
-					if (Settings->Actor.IsValid() && ControlRig->GetBoundObject() == nullptr)
+					if (Settings->Actor.IsValid() && ControlRig->GetObjectBinding()->GetBoundObject() == nullptr)
 					{
-						ControlRig->BindToObject(Settings->Actor.Get());
+						ControlRig->GetObjectBinding()->BindToObject(Settings->Actor.Get());
 					}
 				}
 				ReBindToActor();
@@ -1085,35 +1057,20 @@ void FControlRigEditMode::RefreshObjects()
 		UMovieScene* MovieScene = Sequencer->GetFocusedMovieSceneSequence() ? Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene() : nullptr;
 		if (MovieScene)
 		{
-			check(ControlRigs.Num() == ControlRigGuids.Num());
-			TArray<int32> InvalidIndices;
-			for (int32 ObjectIndex = 0; ObjectIndex < ControlRigGuids.Num(); ObjectIndex++)
+			// check if we have an invalid Guid & invalidate Guid if so
+			if (ControlRigGuid.IsValid() && MovieScene->FindSpawnable(ControlRigGuid) == nullptr)
 			{
-				// check if we have an invalid Guid & invalidate Guid if so
-				if (ControlRigGuids[ObjectIndex].IsValid() && MovieScene->FindSpawnable(ControlRigGuids[ObjectIndex]) == nullptr)
-				{
-					ControlRigGuids[ObjectIndex].Invalidate();
-					ControlRigs[ObjectIndex] = nullptr;
-					InvalidIndices.Add(ObjectIndex);
-				}
+				ControlRigGuid.Invalidate();
+				WeakControlRig = nullptr;
 			}
 
-			if (InvalidIndices.Num() > 0)
-			{
-				for (int32 InvalidIndex : InvalidIndices)
-				{
-					ControlRigs.RemoveAt(InvalidIndex);
-					ControlRigGuids.RemoveAt(InvalidIndex);
-				}
-
-				SetObjects_Internal();
-			}
+			SetObjects_Internal();
 		}
 	}
 	else
 	{
-		ControlRigs.Empty();
-		ControlRigGuids.Empty();
+		WeakControlRig = nullptr;
+		ControlRigGuid.Invalidate();
 
 		SetObjects_Internal();
 	}
@@ -1121,78 +1078,81 @@ void FControlRigEditMode::RefreshObjects()
 
 void FControlRigEditMode::RecalcPivotTransform()
 {
+	int32 NumSelectedControls = GetNumSelectedControls();
+
 	PivotTransform = FTransform::Identity;
 
-	if (ControlRigs.Num() > 0 && ControlRigs[0].Get())
+	if(UControlRig* ControlRig = WeakControlRig.Get())
 	{
-		if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRigs[0].Get()))
+		if(NumSelectedControls > 0)
 		{
-			if (SelectedNodes.Num() > 0)
+			FTransform LastTransform = FTransform::Identity;
+
+			// Use average location as pivot location
+			FVector PivotLocation = FVector::ZeroVector;
+
+			for(const FControlUnitProxy& UnitProxy : ControlUnits)
 			{
-				// Use average location as pivot location
-				FVector PivotLocation = FVector::ZeroVector;
-				for (const FName& SelectedNode : SelectedNodes)
+				if(UnitProxy.IsSelected())
 				{
-					PivotLocation += HierarchicalRig->GetMappedGlobalTransform(SelectedNode).GetLocation();
+					if(FRigUnit_Control* ControlUnit = GetRigUnit(UnitProxy, ControlRig))
+					{
+						FTransform ResultantTransform = ControlUnit->GetResultantTransform();
+						PivotLocation += ResultantTransform.GetLocation();
+						LastTransform = ResultantTransform;
+					}
 				}
+			}
 
-				PivotLocation /= (float)SelectedNodes.Num();
-				PivotTransform.SetLocation(PivotLocation);
+			PivotLocation /= (float)NumSelectedControls;
+			PivotTransform.SetLocation(PivotLocation);
 
-				// recalc coord system too
-				USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>(HierarchicalRig->GetBoundObject());
-				FTransform ComponentTransform = SkelMeshComp ? SkelMeshComp->GetComponentTransform() : FTransform::Identity;
+			// recalc coord system too
+			USceneComponent* Component = Cast<USceneComponent>(ControlRig->GetObjectBinding()->GetBoundObject());
+			FTransform ComponentTransform = Component ? Component->GetComponentTransform() : FTransform::Identity;
 
-				if (SelectedNodes.Num() == 1)
-				{
-					// A single node just uses its own transform
-					FTransform WorldTransform = HierarchicalRig->GetMappedGlobalTransform(SelectedNodes[0]) * ComponentTransform;
-					PivotTransform.SetRotation(WorldTransform.GetRotation());
-				}
-				else if (SelectedNodes.Num() > 1)
-				{
-					// If we have more than one node selected, use the coordinate space of the component
-					PivotTransform.SetRotation(ComponentTransform.GetRotation());
-				}
+			if (NumSelectedControls == 1)
+			{
+				// A single Joint just uses its own transform
+				FTransform WorldTransform = LastTransform * ComponentTransform;
+				PivotTransform.SetRotation(WorldTransform.GetRotation());
+			}
+			else if (NumSelectedControls > 1)
+			{
+				// If we have more than one Joint selected, use the coordinate space of the component
+				PivotTransform.SetRotation(ComponentTransform.GetRotation());
 			}
 		}
 	}
 }
 
-void FControlRigEditMode::HandleSelectionChanged(const TArray<FName>& InSelectedNodes)
+void FControlRigEditMode::HandleSelectionChanged(const TArray<FString>& InSelectedPropertyPaths)
 {
-	SelectedIndices.Reset();
-
-	TArray<FString> PropertyPaths;
-
-	for (TWeakObjectPtr<UControlRig> ControlRig : ControlRigs)
+	if(!bSelecting)
 	{
-		if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRig.Get()))
-		{
-			const FAnimationHierarchy& Hierarchy = HierarchicalRig->GetHierarchy();
+		ClearControlSelection();
+		SetControlSelection(InSelectedPropertyPaths, true);
+	}
 
-			for (UControlManipulator* Manipulator : HierarchicalRig->Manipulators)
+	if (WeakSequencer.IsValid())
+	{
+		if (InSelectedPropertyPaths.Num() > 0)
+		{
+			WeakSequencer.Pin()->SelectByPropertyPaths(InSelectedPropertyPaths);
+		}
+	}
+
+	for(const FControlUnitProxy& UnitProxy : ControlUnits)
+	{
+		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+		if (UnitProxy.Control)
+		{
+			UnitProxy.Control->GetComponents(PrimitiveComponents, true);
+			for (UPrimitiveComponent* PrimitiveComponent : PrimitiveComponents)
 			{
-				if (IsNodeSelected(Manipulator->Name))
-				{
-					PropertyPaths.Add(Manipulator->PropertyToManipulate.ToString());
-					SelectedIndices.Add(Hierarchy.GetNodeIndex(Manipulator->Name));
-				}
+				PrimitiveComponent->PushSelectionToProxy();
 			}
 		}
-	}
-
-	if (WeakSequencer.IsValid() && !bSelectingByPath)
-	{
-		if (PropertyPaths.Num())
-		{
-			WeakSequencer.Pin()->SelectByPropertyPaths(PropertyPaths);
-		}
-	}
-
-	if (Settings->bDisplayTrajectories)
-	{
-		TrajectoryCache.RebuildMesh(SelectedIndices);
 	}
 
 	if (WeakSequencer.IsValid())
@@ -1206,7 +1166,7 @@ void FControlRigEditMode::HandleSelectionChanged(const TArray<FName>& InSelected
 
 void FControlRigEditMode::BindCommands()
 {
-	const FControlRigCommands& Commands = FControlRigCommands::Get();
+	const FControlRigEditModeCommands& Commands = FControlRigEditModeCommands::Get();
 
 	CommandBindings->MapAction(
 		Commands.SetKey,
@@ -1223,29 +1183,30 @@ void FControlRigEditMode::BindCommands()
 
 void FControlRigEditMode::SetKeysForSelectedManipulators()
 {
-	for (TWeakObjectPtr<UControlRig> ControlRig : ControlRigs)
+	if(UControlRig* ControlRig = WeakControlRig.Get())
 	{
-		if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRig.Get()))
+		for(const FControlUnitProxy& UnitProxy : ControlUnits)
 		{
-			for (UControlManipulator* Manipulator : HierarchicalRig->Manipulators)
+			if(UnitProxy.IsSelected())
 			{
-				if (IsNodeSelected(Manipulator->Name))
-				{
-					SetKeyForManipulator(HierarchicalRig, Manipulator);
-				}
+				SetKeyForControl(UnitProxy);
 			}
 		}
 	}
 }
 
-void FControlRigEditMode::SetKeyForManipulator(UHierarchicalRig* HierarchicalRig, UControlManipulator* Manipulator)
+void FControlRigEditMode::SetKeyForControl(const FControlUnitProxy& UnitProxy)
 {
-	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
-	if (Sequencer.IsValid())
+	if(UControlRig* ControlRig = WeakControlRig.Get())
 	{
-		TArray<UObject*> Objects({ HierarchicalRig });
-		FKeyPropertyParams KeyPropertyParams(Objects, Manipulator->CachedPropertyPath, ESequencerKeyMode::ManualKeyForced);
-		Sequencer->KeyProperty(KeyPropertyParams);
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		if (Sequencer.IsValid())
+		{
+			// @TODO: need sequencer support for the new property path lib
+			TArray<UObject*> Objects({ ControlRig });
+		//	FKeyPropertyParams KeyPropertyParams(Objects, UnitProxy.PropertyPathString, ESequencerKeyMode::ManualKeyForced);
+		//	Sequencer->KeyProperty(KeyPropertyParams);
+		}
 	}
 }
 
@@ -1258,13 +1219,159 @@ void FControlRigEditMode::ToggleManipulators()
 void FControlRigEditMode::ToggleTrajectories()
 {
 	Settings->bDisplayTrajectories = !Settings->bDisplayTrajectories;
-	TrajectoryCache.RebuildMesh(SelectedIndices);
+//	TrajectoryCache.RebuildMesh(SelectedIndices);
 }
 
 
 void FControlRigEditMode::RefreshTrajectoryCache()
 {
-	TrajectoryCache.ForceRecalc();
+//	TrajectoryCache.ForceRecalc();
 }
 
+bool FControlRigEditMode::MouseMove(FEditorViewportClient* ViewportClient, FViewport* Viewport, int32 x, int32 y)
+{
+	// Inform units of hover state
+	HActor* ActorHitProxy = HitProxyCast<HActor>(Viewport->GetHitProxy(x, y));
+	if(ActorHitProxy && ActorHitProxy->Actor && ActorHitProxy->Actor->IsA<AControlRigControl>())
+	{
+		for(FControlUnitProxy& UnitProxy : ControlUnits)
+		{
+			UnitProxy.SetHovered(ActorHitProxy->Actor == UnitProxy.Control);
+		}
+	}
+
+	return false;
+}
+
+bool FControlRigEditMode::MouseLeave(FEditorViewportClient* ViewportClient, FViewport* Viewport)
+{
+	// Remove hover state from all units
+	for(FControlUnitProxy& UnitProxy : ControlUnits)
+	{
+		UnitProxy.SetHovered(false);
+	}
+
+	return false;
+}
+
+void FControlRigEditMode::RefreshControlProxies()
+{
+	TArray<FString> SelectedPropertyPaths;
+
+	for(FControlUnitProxy& UnitProxy : ControlUnits)
+	{
+		if(UnitProxy.IsSelected())
+		{
+			SelectedPropertyPaths.Add(UnitProxy.PropertyPathString);
+		}
+
+		if(UnitProxy.Control)
+		{
+			GetWorld()->DestroyActor(UnitProxy.Control, false, false);
+			UnitProxy.Control = nullptr;
+		}
+	}
+
+	ControlUnits.Reset();
+
+	if(UControlRig* ControlRig = WeakControlRig.Get())
+	{
+		UControlRigBlueprintGeneratedClass* Class = Cast<UControlRigBlueprintGeneratedClass>(ControlRig->GetClass());
+		for(UStructProperty* ControlUnitProperty : Class->ControlUnitProperties)
+		{
+			FRigUnit_Control* Control = ControlUnitProperty->ContainerPtrToValuePtr<FRigUnit_Control>(ControlRig);
+			FControlUnitProxy& UnitProxy = ControlUnits[ControlUnits.AddDefaulted()];
+			UnitProxy.PropertyPath = FCachedPropertyPath(ControlUnitProperty->GetName());
+			UnitProxy.PropertyPathString = UnitProxy.PropertyPath.ToString();
+			UnitProxy.TransformPropertyPath = FCachedPropertyPath(ControlUnitProperty->GetName() + TEXT(".Transform"));
+			UnitProxy.TransformPropertyPathString = UnitProxy.TransformPropertyPath.ToString();
+			UnitProxy.SetSelected(SelectedPropertyPaths.Contains(UnitProxy.PropertyPathString));
+
+			if(Control->ControlClass)
+			{
+				FActorSpawnParameters ActorSpawnParameters;
+				ActorSpawnParameters.bTemporaryEditorActor = true;
+				UnitProxy.Control = GetWorld()->SpawnActor<AControlRigControl>(Control->ControlClass, ActorSpawnParameters);
+				UnitProxy.Control->SetPropertyPath(UnitProxy.PropertyPathString);
+
+				TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+				UnitProxy.Control->GetComponents(PrimitiveComponents, true);
+				for(UPrimitiveComponent* PrimitiveComponent : PrimitiveComponents)
+				{
+					PrimitiveComponent->SelectionOverrideDelegate = UPrimitiveComponent::FSelectionOverride::CreateRaw(this, &FControlRigEditMode::PreviewComponentSelectionOverride);
+					PrimitiveComponent->PushSelectionToProxy();
+				}
+			}
+		}
+	}
+}
+
+FControlRigEditMode* FControlRigEditMode::GetEditModeFromWorldContext(UWorld* InWorldContext)
+{
+	return nullptr;
+}
+
+FRigUnit_Control* FControlRigEditMode::GetRigUnit(const FControlUnitProxy& InProxy, UControlRig* InControlRig, UScriptStruct** OutControlStructPtr /*= nullptr*/)
+{
+	UControlRigBlueprintGeneratedClass* Class = CastChecked<UControlRigBlueprintGeneratedClass>(InControlRig->GetClass());
+	for(UStructProperty* Property : Class->ControlUnitProperties)
+	{
+		if(Property->GetFName() == InProxy.PropertyPath.GetLastSegment().GetName())
+		{
+			if(OutControlStructPtr)
+			{
+				*OutControlStructPtr = Property->Struct;
+			}
+			return Property->ContainerPtrToValuePtr<FRigUnit_Control>(InControlRig);
+		}
+	}
+
+	return nullptr;
+}
+
+bool FControlRigEditMode::PreviewComponentSelectionOverride(const UPrimitiveComponent* InComponent) const
+{
+	AActor* OwnerActor = InComponent->GetOwner();
+	if(OwnerActor)
+	{
+		// See if the actor is in a selected unit proxy
+		for(const FControlUnitProxy& UnitProxy : ControlUnits)
+		{
+			if(UnitProxy.Control == OwnerActor)
+			{
+				return UnitProxy.IsSelected();
+			}
+		}
+	}
+
+	return false;
+}
+
+void FControlRigEditMode::OnObjectsReplaced(const TMap<UObject*, UObject*>& OldToNewInstanceMap)
+{
+	if (WeakControlRig.IsValid())
+	{
+		UObject* OldObject = WeakControlRig.Get();
+		UObject* NewObject = OldToNewInstanceMap.FindRef(OldObject);
+		if (NewObject)
+		{
+			WeakControlRig = Cast<UControlRig>(NewObject);
+			WeakControlRig->PostReinstanceCallback(CastChecked<UControlRig>(OldObject));
+			SetObjects_Internal();
+		}
+	}
+}
+
+bool FControlRigEditMode::AreJointSelected() const
+{
+	return (OnGetJointTransformDelegate.IsBound() && OnSetJointTransformDelegate.IsBound() && SelectedJoints.Num() > 0);
+}
+
+void FControlRigEditMode::SelectJoint(const FName& InJoint)
+{
+	ClearControlSelection();
+
+	SelectedJoints.Reset();
+	SelectedJoints.Add(InJoint);
+}
 #undef LOCTEXT_NAMESPACE

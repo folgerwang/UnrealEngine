@@ -781,8 +781,11 @@ void UPhysicsAsset::RefreshPhysicsAssetChange() const
 	OnRefreshPhysicsAssetChange.Broadcast(this);
 }
 
+#endif
+
 USkeletalMesh* UPhysicsAsset::GetPreviewMesh() const
 {
+#if WITH_EDITORONLY_DATA
 	USkeletalMesh* PreviewMesh = PreviewSkeletalMesh.Get();
 	if(!PreviewMesh)
 	{
@@ -796,10 +799,14 @@ USkeletalMesh* UPhysicsAsset::GetPreviewMesh() const
 	}
 
 	return PreviewMesh;
+#else
+	return nullptr;
+#endif
 }
 
-void UPhysicsAsset::SetPreviewMesh(USkeletalMesh* PreviewMesh)
+void UPhysicsAsset::SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty/*=true*/)
 {
+#if WITH_EDITORONLY_DATA
 	if(PreviewMesh)
 	{
 		// See if any bones are missing from the skeletal mesh we are trying to use
@@ -817,11 +824,13 @@ void UPhysicsAsset::SetPreviewMesh(USkeletalMesh* PreviewMesh)
 		}
 	}
 
-	Modify();
+	if(bMarkAsDirty)
+	{
+		Modify();
+	}
 	PreviewSkeletalMesh = PreviewMesh;
-}
-
 #endif
+}
 
 void UPhysicsAsset::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {

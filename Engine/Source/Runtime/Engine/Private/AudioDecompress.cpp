@@ -642,8 +642,12 @@ void FAsyncAudioDecompressWorker::DoWork()
 				AudioInfo->EnableHalfRate(true);
 			}
 #endif
-			// Extract the data
-			ensureMsgf(Wave->GetSampleRateForCurrentPlatform() == QualityInfo.SampleRate, TEXT("Warning: Found sample rate mismatch."));
+			// Update the sound wave's properties based on metadata read from the compressed audio asset's header:
+			if (Wave->GetSampleRateForCurrentPlatform() != QualityInfo.SampleRate)
+			{
+				UE_LOG(LogAudio, Warning, TEXT("Warning: Found sample rate mismatch."));
+			}
+
 			Wave->SetSampleRate(QualityInfo.SampleRate);
 			Wave->NumChannels = QualityInfo.NumChannels;
 			if (QualityInfo.Duration > 0.0f)

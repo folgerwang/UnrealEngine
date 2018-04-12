@@ -2149,6 +2149,13 @@ public:
 	/** Assemble reference token streams for all classes if they haven't had it assembled already */
 	static void AssembleReferenceTokenStreams();
 
+#if WITH_EDITOR
+	void GenerateFunctionList(TArray<FName>& OutArray) const 
+	{ 
+		FuncMap.GenerateKeyArray(OutArray); 
+	}
+#endif // WITH_EDITOR
+
 private:
 #if WITH_EDITOR
 	/** Provides access to attributes of the underlying C++ class. Should never be unset. */

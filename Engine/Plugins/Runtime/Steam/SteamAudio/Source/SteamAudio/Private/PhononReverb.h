@@ -13,6 +13,8 @@
 
 namespace SteamAudio
 {
+	class FEnvironment;
+
 	struct FReverbSource
 	{
 		FReverbSource();
@@ -39,13 +41,11 @@ namespace SteamAudio
 		virtual void ProcessSourceAudio(const FAudioPluginSourceInputData& InputData, FAudioPluginSourceOutputData& OutputData) override;
 		
 		void ProcessMixedAudio(const FSoundEffectSubmixInputData& InData, FSoundEffectSubmixOutputData& OutData);
-		void SetEnvironmentalRenderer(IPLhandle EnvironmentalRenderer);
-		void SetEnvironmentCriticalSection(FCriticalSection* CriticalSection);
+		void SetEnvironment(FEnvironment* InEnvironment);
 		void CreateReverbEffect();
 		void UpdateListener(const FVector& Position, const FVector& Forward, const FVector& Up);
 
 	private:
-		IPLhandle EnvironmentalRenderer;
 		IPLhandle BinauralRenderer;
 		IPLhandle IndirectBinauralEffect;
 		IPLhandle IndirectPanningEffect;
@@ -72,8 +72,6 @@ namespace SteamAudio
 
 		EIplSpatializationMethod CachedSpatializationMethod;
 
-		IPLRenderingSettings RenderingSettings;
-
 		TArray<FReverbSource> ReverbSources;
 
 		float ReverbIndirectContribution;
@@ -81,7 +79,8 @@ namespace SteamAudio
 
 		TAudioPluginListenerPtr PluginManagerPtr;
 
-		FCriticalSection* EnvironmentalCriticalSectionHandle;
+		FAudioPluginInitializationParams AudioPluginInitializationParams;
+		FEnvironment* Environment;
 	};
 }
 

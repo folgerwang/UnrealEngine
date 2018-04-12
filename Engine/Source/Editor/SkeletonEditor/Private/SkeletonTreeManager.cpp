@@ -42,6 +42,8 @@ TSharedRef<ISkeletonTree> FSkeletonTreeManager::CreateSkeletonTree(class USkelet
 
 TSharedRef<FEditableSkeleton> FSkeletonTreeManager::CreateEditableSkeleton(class USkeleton* InSkeleton)
 {
+	check(InSkeleton);
+
 	TWeakPtr<FEditableSkeleton>* EditableSkeletonPtr = EditableSkeletons.Find(InSkeleton);
 	if (EditableSkeletonPtr == nullptr || !(*EditableSkeletonPtr).IsValid())
 	{

@@ -737,6 +737,57 @@ int32 USkeleton::GetMeshBoneIndexFromSkeletonBoneIndex(const USkeletalMesh* InSk
 	return LinkupTable.SkeletonToMeshTable[SkeletonBoneIndex];
 }
 
+
+USkeletalMesh* USkeleton::GetPreviewMesh(bool bFindIfNotSet/*=false*/)
+{
+#if WITH_EDITORONLY_DATA
+	USkeletalMesh* PreviewMesh = PreviewSkeletalMesh.LoadSynchronous();
+
+	if(PreviewMesh && PreviewMesh->Skeleton != this) // fix mismatched skeleton
+	{
+		PreviewSkeletalMesh.Reset();
+		PreviewMesh = nullptr;
+	}
+
+	// if not existing, and if bFindIfNotExisting is true, then try find one
+	if(!PreviewMesh && bFindIfNotSet)
+	{
+		USkeletalMesh* CompatibleSkeletalMesh = FindCompatibleMesh();
+		if(CompatibleSkeletalMesh)
+		{
+			SetPreviewMesh(CompatibleSkeletalMesh, false);
+			// update PreviewMesh
+			PreviewMesh = PreviewSkeletalMesh.Get();
+		}
+	}
+
+	return PreviewMesh;
+#else
+	return nullptr;
+#endif
+}
+
+USkeletalMesh* USkeleton::GetPreviewMesh() const
+{
+#if WITH_EDITORONLY_DATA
+	return PreviewSkeletalMesh.Get();
+#else
+	return nullptr;
+#endif
+}
+
+void USkeleton::SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty/*=true*/)
+{
+#if WITH_EDITORONLY_DATA
+	if (bMarkAsDirty)
+	{
+		Modify();
+	}
+
+	PreviewSkeletalMesh = PreviewMesh;
+#endif
+}
+
 #if WITH_EDITORONLY_DATA
 void USkeleton::UpdateRetargetSource( const FName Name )
 {
@@ -843,36 +894,6 @@ USkeletalMesh* USkeleton::FindCompatibleMesh() const
 	return nullptr;
 }
 
-USkeletalMesh* USkeleton::GetPreviewMesh(bool bFindIfNotSet)
-{
-	USkeletalMesh* PreviewMesh = PreviewSkeletalMesh.LoadSynchronous();
-
-	if(PreviewMesh && PreviewMesh->Skeleton != this) // fix mismatched skeleton
-	{
-		PreviewSkeletalMesh.Reset();
-		PreviewMesh = nullptr;
-	}
-
-	// if not existing, and if bFindIfNotExisting is true, then try find one
-	if(!PreviewMesh && bFindIfNotSet)
-	{
-		USkeletalMesh* CompatibleSkeletalMesh = FindCompatibleMesh();
-		if(CompatibleSkeletalMesh)
-		{
-			SetPreviewMesh(CompatibleSkeletalMesh, false);
-			// update PreviewMesh
-			PreviewMesh = PreviewSkeletalMesh.Get();
-		}
-	}
-
-	return PreviewMesh;
-}
-
-USkeletalMesh* USkeleton::GetPreviewMesh() const
-{
-	return PreviewSkeletalMesh.Get();
-}
-
 USkeletalMesh* USkeleton::GetAssetPreviewMesh(UObject* InAsset) 
 {
 	USkeletalMesh* PreviewMesh = nullptr;
@@ -894,16 +915,6 @@ USkeletalMesh* USkeleton::GetAssetPreviewMesh(UObject* InAsset)
 	}
 
 	return PreviewMesh;
-}
-
-void USkeleton::SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty/*=true*/)
-{
-	if (bMarkAsDirty)
-	{
-		Modify();
-	}
-
-	PreviewSkeletalMesh = PreviewMesh;
 }
 
 void USkeleton::LoadAdditionalPreviewSkeletalMeshes()

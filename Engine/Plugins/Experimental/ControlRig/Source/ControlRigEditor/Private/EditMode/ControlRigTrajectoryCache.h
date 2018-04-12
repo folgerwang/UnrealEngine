@@ -9,7 +9,7 @@
 
 class FControlRigTrajectoryFrame;
 class ISequencer;
-class UHierarchicalRig;
+class UControlRig;
 class UMaterialInstanceDynamic;
 
 /**
@@ -30,7 +30,7 @@ public:
 public:
 
 	/** Calculates the frame for the current position. */
-	void CalculateFrame(UHierarchicalRig* HierarchicalRig);
+	void CalculateFrame(UControlRig* ControlRig);
 
 	/** Get the time this frame is a snapshot of */
 	float GetTime() const { return Time; }

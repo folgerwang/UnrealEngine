@@ -8,10 +8,9 @@
 #include "Widgets/SCompoundWidget.h"
 #include "IPersonaPreviewScene.h"
 #include "SPoseAssetNameWidget.h"
-#include "AssetData.h"
 
 class IEditableSkeleton;
-
+struct FAssetData;
 //////////////////////////////////////////////////////////////////////////
 // SRetargetManager
 

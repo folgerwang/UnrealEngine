@@ -258,6 +258,43 @@ void UAnimationAsset::SetSkeleton(USkeleton* NewSkeleton)
 	}
 }
 
+USkeletalMesh* UAnimationAsset::GetPreviewMesh(bool bFindIfNotSet)
+{
+#if WITH_EDITORONLY_DATA
+	USkeletalMesh* PreviewMesh = PreviewSkeletalMesh.LoadSynchronous();
+	// if somehow skeleton changes, just nullify it. 
+	if (PreviewMesh && PreviewMesh->Skeleton != Skeleton)
+	{
+		PreviewMesh = nullptr;
+		SetPreviewMesh(nullptr);
+	}
+
+	return PreviewMesh;
+#else
+	return nullptr;
+#endif
+}
+
+USkeletalMesh* UAnimationAsset::GetPreviewMesh() const
+{
+#if WITH_EDITORONLY_DATA
+	return PreviewSkeletalMesh.Get();
+#else
+	return nullptr;
+#endif
+}
+
+void UAnimationAsset::SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty/*=true*/)
+{
+#if WITH_EDITORONLY_DATA
+	if(bMarkAsDirty)
+	{
+		Modify();
+	}
+	PreviewSkeletalMesh = PreviewMesh;
+#endif
+}
+
 #if WITH_EDITOR
 void UAnimationAsset::RemapTracksToNewSkeleton(USkeleton* NewSkeleton, bool bConvertSpaces)
 {
@@ -368,30 +405,6 @@ void UAnimationAsset::ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAn
 // 	{
 // 		AssetMappingTable->ReplaceReferredAnimations(ReplacementMap);
 // 	}
-}
-
-USkeletalMesh* UAnimationAsset::GetPreviewMesh()
-{
-	USkeletalMesh* PreviewMesh = PreviewSkeletalMesh.LoadSynchronous();
-	// if somehow skeleton changes, just nullify it. 
-	if (PreviewMesh && PreviewMesh->Skeleton != Skeleton)
-	{
-		PreviewMesh = nullptr;
-		SetPreviewMesh(nullptr);
-	}
-
-	return PreviewMesh;
-}
-
-USkeletalMesh* UAnimationAsset::GetPreviewMesh() const
-{
-	return PreviewSkeletalMesh.Get();
-}
-
-void UAnimationAsset::SetPreviewMesh(USkeletalMesh* PreviewMesh)
-{
-	Modify();
-	PreviewSkeletalMesh = PreviewMesh;
 }
 
 void UAnimationAsset::UpdateParentAsset()

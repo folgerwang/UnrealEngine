@@ -30,6 +30,6 @@ public:
 	virtual UObject* SpawnObject(FMovieSceneSpawnable& Spawnable, FMovieSceneSequenceIDRef TemplateID, IMovieScenePlayer& Player) override;
 	virtual void DestroySpawnedObject(UObject& Object) override;
 
-private:
+protected:
 	TWeakObjectPtr<UControlRigObjectHolder> ObjectHolderPtr;
 };

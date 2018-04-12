@@ -3,6 +3,9 @@
 #include "AbcImportUtilities.h"
 #include "Stats/StatsMisc.h"
 
+#include "AbcImporter.h"
+#include "AbcPolyMesh.h"
+
 #if PLATFORM_WINDOWS
 #include "Windows/WindowsHWrapper.h"
 #endif
@@ -15,9 +18,9 @@ THIRD_PARTY_INCLUDES_START
 #include <Alembic/AbcCoreHDF5/All.h>
 #include <Alembic/Abc/All.h>
 #include <Alembic/AbcGeom/All.h>
+#include <Alembic/Abc/IObject.h>
 THIRD_PARTY_INCLUDES_END
 
-#include "AbcImportData.h"
 #include "Rendering/SkeletalMeshLODModel.h"
 
 #define LOCTEXT_NAMESPACE "AbcImporterUtilities"
@@ -150,56 +153,46 @@ void AbcImporterUtilities::TriangulateMaterialIndices(const TArray<uint32>& InFa
 	InOutData = NewData;
 }
 
-FAbcMeshSample* AbcImporterUtilities::GenerateAbcMeshSampleForFrame(Alembic::AbcGeom::IPolyMeshSchema& Schema, const Alembic::Abc::ISampleSelector FrameSelector, const bool bFirstFrame)
+FAbcMeshSample* AbcImporterUtilities::GenerateAbcMeshSampleForFrame(const Alembic::AbcGeom::IPolyMeshSchema& Schema, const Alembic::Abc::ISampleSelector FrameSelector, const ESampleReadFlags ReadFlags, const bool bFirstFrame)
 {
-	SCOPE_LOG_TIME("STAT_ALEMBIC_GenerateAbcMesh", nullptr);
-
 	FAbcMeshSample* Sample = new FAbcMeshSample();
 
-	// Get single (vertex-data) sample from Alembic file
-	Alembic::AbcGeom::IPolyMeshSchema::Sample MeshSample;
-	Schema.get(MeshSample, FrameSelector);
-
-	bool bRetrievalResult = true;
-
-	// Retrieve all available mesh data
-	Alembic::Abc::P3fArraySamplePtr PositionsSample = MeshSample.getPositions();
-	bRetrievalResult &= RetrieveTypedAbcData<Alembic::Abc::P3fArraySamplePtr, FVector>(PositionsSample, Sample->Vertices);	
-
-	Alembic::Abc::Int32ArraySamplePtr FaceCountsSample = MeshSample.getFaceCounts();
-	TArray<uint32> FaceCounts;
-	bRetrievalResult &= RetrieveTypedAbcData<Alembic::Abc::Int32ArraySamplePtr, uint32>(FaceCountsSample, FaceCounts);
-	const bool bNeedsTriangulation = FaceCounts.Contains(4);
-
-	const uint32* Result = FaceCounts.FindByPredicate([](uint32 FaceCount) { return FaceCount < 3 || FaceCount > 4; });
-	if (Result)
+	if (!GenerateAbcMeshSampleDataForFrame(Schema, FrameSelector, Sample, ReadFlags, bFirstFrame))
 	{
-		// We found an Ngon which we can't triangulate atm
-		TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(EMessageSeverity::Error, FText::Format(LOCTEXT("FoundNGon", "Unable to import mesh due to a face consisting of {0} vertices, expecting triangles (3) or quads (4)."), FText::FromString(FString::FromInt((*Result)))));
-		FAbcImportLogger::AddImportMessage(Message);
 		delete Sample;
-		return nullptr;
+		Sample = nullptr;
 	}
 
-	Alembic::Abc::Int32ArraySamplePtr IndicesSample = MeshSample.getFaceIndices();
-	bRetrievalResult &= RetrieveTypedAbcData<Alembic::Abc::Int32ArraySamplePtr, uint32>(IndicesSample, Sample->Indices);
-	if (bNeedsTriangulation)
+	return Sample;
+}
+
+ESampleReadFlags AbcImporterUtilities::GenerateAbcMeshSampleReadFlags(const Alembic::AbcGeom::IPolyMeshSchema& Schema)
+{
+	ESampleReadFlags Flags = ESampleReadFlags::Default;
+
+	if (Schema.getPositionsProperty().valid() && !Schema.getPositionsProperty().isConstant())
 	{
-		TriangulateIndexBuffer(FaceCounts, Sample->Indices);
+		Flags |= ESampleReadFlags::Positions;
 	}
 
-	Alembic::AbcGeom::IV2fGeomParam UVCoordinateParameter = Schema.getUVsParam();
-	if (UVCoordinateParameter.valid())
+	if (Schema.getFaceIndicesProperty().valid() && !Schema.getFaceIndicesProperty().isConstant())
 	{
-		ReadUVSetData(UVCoordinateParameter, FrameSelector, Sample->UVs[0], Sample->Indices, bNeedsTriangulation, FaceCounts);
+		Flags |= ESampleReadFlags::Indices;
 	}
-	else
+	
+	if (Schema.getNormalsParam().valid() && !Schema.getNormalsParam().isConstant())
 	{
-		Sample->UVs[0].AddZeroed(Sample->Indices.Num());
+		Flags |= ESampleReadFlags::Normals;
 	}
 
-	Alembic::AbcGeom::ICompoundProperty GeomParams = Schema.getArbGeomParams();
-	if (GeomParams.valid())
+	if (Schema.getFaceIndicesProperty().valid() && !Schema.getFaceIndicesProperty().isConstant())
+	{
+		Flags |= ESampleReadFlags::Indices;
+	}
+		
+	bool bConstantUVs = Schema.getUVsParam().valid() && Schema.getUVsParam().isConstant();
+		Alembic::AbcGeom::ICompoundProperty GeomParams = Schema.getArbGeomParams();
+	if (GeomParams.valid() && !bConstantUVs)
 	{
 		const int32 NumGeomParams = GeomParams.getNumProperties();
 		for (int32 GeomParamIndex = 0; GeomParamIndex < NumGeomParams; ++GeomParamIndex)
@@ -209,54 +202,20 @@ FAbcMeshSample* AbcImporterUtilities::GenerateAbcMeshSampleForFrame(Alembic::Abc
 			if (Alembic::AbcGeom::IV2fGeomParam::matches(PropertyHeader))
 			{
 				UVSetProperty = Alembic::AbcGeom::IV2fGeomParam(GeomParams, PropertyHeader.getName());
-				ReadUVSetData(UVSetProperty, FrameSelector, Sample->UVs[Sample->NumUVSets], Sample->Indices, bNeedsTriangulation, FaceCounts);
-				++Sample->NumUVSets;
+				bConstantUVs &= UVSetProperty.isConstant();
 			}
 		}
 	}
 
-	Alembic::AbcGeom::IN3fGeomParam NormalParameter = Schema.getNormalsParam();
-	// Check if Normals are available anyhow
-	const bool bNormalsAvailable = NormalParameter.valid();
-
-	// Check if the Normals are 'constant' which means there won't be any normal data available after frame 0
-	bool bConstantNormals = bNormalsAvailable && Schema.getNormalsParam().isConstant();
-	if (bNormalsAvailable && (!bConstantNormals || (bConstantNormals && bFirstFrame)))
+	if (!bConstantUVs)
 	{
-		Alembic::Abc::N3fArraySamplePtr NormalsSample = NormalParameter.getValueProperty().getValue(FrameSelector);
-		RetrieveTypedAbcData<Alembic::Abc::N3fArraySamplePtr, FVector>(NormalsSample, Sample->Normals);
-
-		// Can only retrieve normal indices when the Normals array is indexed
-		bool bIndexedNormals = NormalParameter.getIndexProperty().valid();
-		if (bIndexedNormals)
-		{
-			Alembic::Abc::UInt32ArraySamplePtr NormalIndiceSample = NormalParameter.getIndexProperty().getValue(FrameSelector);
-			TArray<uint32> NormalIndices;
-			RetrieveTypedAbcData<Alembic::Abc::UInt32ArraySamplePtr, uint32>(NormalIndiceSample, NormalIndices);
-
-			if (bNeedsTriangulation)
-			{
-				TriangulateIndexBuffer(FaceCounts, NormalIndices);
-			}
-
-			// Expand Normal array
-			ExpandVertexAttributeArray<FVector>(NormalIndices, Sample->Normals);
-		}
-		else
-		{
-			// For vertex only normals (and no normal indices available), expand using the regular indices
-			if (Sample->Normals.Num() != Sample->Indices.Num())
-			{
-				ExpandVertexAttributeArray<FVector>(Sample->Indices, Sample->Normals);
-			}
-			else if (bNeedsTriangulation)
-			{
-				TriangulateVertexAttributeBuffer(FaceCounts, Sample->Normals);
-			}
-		}
+		Flags |= ESampleReadFlags::UVs;
 	}
+
 	Alembic::AbcGeom::IC3fGeomParam Color3Property;
 	Alembic::AbcGeom::IC4fGeomParam Color4Property;
+
+	bool bConstantColors = true;
 	if (GeomParams.valid())
 	{
 		const int32 NumGeomParams = GeomParams.getNumProperties();
@@ -266,119 +225,42 @@ FAbcMeshSample* AbcImporterUtilities::GenerateAbcMeshSampleForFrame(Alembic::Abc
 			if (Alembic::AbcGeom::IC3fGeomParam::matches(PropertyHeader))
 			{
 				Color3Property = Alembic::AbcGeom::IC3fGeomParam(GeomParams, PropertyHeader.getName());
+				bConstantColors &= Color3Property.isConstant();
 			}
 			else if (Alembic::AbcGeom::IC4fGeomParam::matches(PropertyHeader))
 			{
 				Color4Property = Alembic::AbcGeom::IC4fGeomParam(GeomParams, PropertyHeader.getName());
-			}
-		}
-	}	
-
-	if (Color3Property.valid())
-	{
-		Alembic::Abc::C3fArraySamplePtr ColorSample = Color3Property.getValueProperty().getValue(FrameSelector);
-
-		// Allocate required memory for the OutData
-		const int32 NumEntries = ColorSample->size();
-		
-		bool bSuccess = false;
-
-		if (NumEntries)
-		{
-			Sample->Colors.AddZeroed(NumEntries);
-			
-			for (int32 Entry = 0; Entry < NumEntries; ++Entry)
-			{
-				auto DataPtr = &ColorSample->get()[Entry];
-				auto OutDataPtr = &Sample->Colors[Entry];
-				FMemory::Memcpy(OutDataPtr, DataPtr, sizeof(FLinearColor));
-				Sample->Colors[Entry].A = 1.0f;
-			}
-		}
-
-		const bool bIndexedColors = Color3Property.getIndexProperty().valid();
-		if (bIndexedColors)
-		{
-			Alembic::Abc::UInt32ArraySamplePtr ColorIndiceSample = Color3Property.getIndexProperty().getValue(FrameSelector);
-			TArray<uint32> ColorIndices;
-			RetrieveTypedAbcData<Alembic::Abc::UInt32ArraySamplePtr, uint32>(ColorIndiceSample, ColorIndices);
-
-			if (bNeedsTriangulation)
-			{
-				TriangulateIndexBuffer(FaceCounts, ColorIndices);
-			}
-
-			// Expand color array
-			ExpandVertexAttributeArray<FLinearColor>(ColorIndices, Sample->Colors);
-		}
-		else
-		{
-			if (Sample->Colors.Num() != Sample->Indices.Num())
-			{
-				ExpandVertexAttributeArray<FLinearColor>(Sample->Indices, Sample->Colors);
-			}
-			else if (bNeedsTriangulation)
-			{
-				TriangulateVertexAttributeBuffer(FaceCounts, Sample->Colors);
+				bConstantColors &= Color4Property.isConstant();
 			}
 		}
 	}
-	else if (Color4Property.valid())
+
+	if (!bConstantColors)
 	{
-		Alembic::AbcGeom::IC4fGeomParam::Sample sample;
-		Color4Property.getExpanded(sample, FrameSelector);
-		Alembic::Abc::C4fArraySamplePtr ColorSample = Color4Property.getValueProperty().getValue(FrameSelector);
-		RetrieveTypedAbcData<Alembic::Abc::C4fArraySamplePtr, FLinearColor>(ColorSample, Sample->Colors);
+		Flags |= ESampleReadFlags::Colors;
+	}
 
-		bool bIndexedColors = Color4Property.getIndexProperty().valid();
-		if (bIndexedColors)
+	{
+		Alembic::AbcGeom::IPolyMeshSchema* MutableSchema = const_cast<Alembic::AbcGeom::IPolyMeshSchema*>(&Schema);
+		std::vector<std::string> FaceSetNames;
+		MutableSchema->getFaceSetNames(FaceSetNames);
+		bool bConstantFaceSets = true;
+		for (int32 FaceSetIndex = 0; FaceSetIndex < FaceSetNames.size(); ++FaceSetIndex)
 		{
-			Alembic::Abc::UInt32ArraySamplePtr ColorIndiceSample = Color4Property.getIndexProperty().getValue(FrameSelector);
-			TArray<uint32> Indices;
-			RetrieveTypedAbcData<Alembic::Abc::UInt32ArraySamplePtr, uint32>(ColorIndiceSample, Indices);
-
-			if (bNeedsTriangulation)
-			{
-				TriangulateIndexBuffer(FaceCounts, Indices);
-			}
-
-			// Expand color array
-			ExpandVertexAttributeArray<FLinearColor>(Indices, Sample->Colors);
+			Alembic::AbcGeom::IFaceSet FaceSet = MutableSchema->getFaceSet(FaceSetNames[FaceSetIndex]);
+			Alembic::AbcGeom::IFaceSetSchema FaceSetSchema = FaceSet.getSchema();
+			bConstantFaceSets &= FaceSetSchema.isConstant();
 		}
-		else
+
+		// Currently face sets are not animated when coming from Maya, so this screws us over :)
+		if (true || !bConstantFaceSets)
 		{
-			if (Sample->Colors.Num() != Sample->Indices.Num())
-			{
-				ExpandVertexAttributeArray<FLinearColor>(Sample->Indices, Sample->Colors);
-			}
-			else if (bNeedsTriangulation)
-			{
-				TriangulateVertexAttributeBuffer(FaceCounts, Sample->Colors);
-			}
+			Flags |= ESampleReadFlags::MaterialIndices;
 		}
 	}
-	else
-	{
-		Sample->Colors.AddZeroed(Sample->Indices.Num());
-	}
+	
 
-	// Pre initialize face-material indices
-	Sample->MaterialIndices.AddZeroed(Sample->Indices.Num() / 3);
-	Sample->NumMaterials = GenerateMaterialIndicesFromFaceSets(Schema, FrameSelector, Sample->MaterialIndices);
-
-	// Triangulate material face indices if needed
-	if (bNeedsTriangulation)
-	{
-		TriangulateMaterialIndices(FaceCounts, Sample->MaterialIndices);
-	}
-
-	if (!bRetrievalResult)
-	{
-		delete Sample;
-		Sample = nullptr;
-	}
-
-	return Sample;
+	return Flags;
 }
 
 /** Generated smoothing groups based on the given face normals, will compare angle between adjacent normals to determine whether or not an edge is hard/soft
@@ -446,74 +328,335 @@ void AbcImporterUtilities::GenerateSmoothingGroups(TMultiMap<uint32, uint32> &To
 
 		// Retrieve connected faces if we moved down a step
 		if (PreviousRecursionDepth <= CurrentRecursionDepth)
-	{
-			ConnectedFaceIndices.Empty();
-
-			// Check if this face has already been processed (assigned a face index)
-			if (FaceSmoothingGroups[CurrentFaceIndex] == INDEX_NONE)
-			{
-				SmoothingGroupConnectedFaces.MultiFind(CurrentFaceIndex, ConnectedFaceIndices);
-				FaceSmoothingGroups[CurrentFaceIndex] = SmoothingGroupIndex;
-			}
-			else
-			{
-				// If so step up to top recursion level and increment face index to process next
-				CurrentFaceIndex = ++FaceIndex;
-				CurrentRecursionDepth = 0;
-				continue;
-			}
-		}
-
-		// Store recursion depth for next cycle
-		PreviousRecursionDepth = CurrentRecursionDepth;
-
-		// If there are any connected face check if they still need to be processed
-		if (ConnectedFaceIndices.Num())
 		{
-			int32 FoundFaceIndex = INDEX_NONE;
-			for (int32 FoundConnectedFaceIndex = 0; FoundConnectedFaceIndex < ConnectedFaceIndices.Num(); ++FoundConnectedFaceIndex)
-		{
-				const int32 ConnectedFaceIndex = ConnectedFaceIndices[FoundConnectedFaceIndex];
-				if (FaceSmoothingGroups[ConnectedFaceIndex] == INDEX_NONE)
+				ConnectedFaceIndices.Empty();
+
+				// Check if this face has already been processed (assigned a face index)
+				if (FaceSmoothingGroups[CurrentFaceIndex] == INDEX_NONE)
 				{
-					FoundFaceIndex = ConnectedFaceIndex;
-
-					// Step down for next cycle
-					++CurrentRecursionDepth;
-					++ProcessedFaces;
-					break;
+					SmoothingGroupConnectedFaces.MultiFind(CurrentFaceIndex, ConnectedFaceIndices);
+					FaceSmoothingGroups[CurrentFaceIndex] = SmoothingGroupIndex;
 				}
-		}
+				else
+				{
+					// If so step up to top recursion level and increment face index to process next
+					CurrentFaceIndex = ++FaceIndex;
+					CurrentRecursionDepth = 0;
+					continue;
+				}
+			}
 
-			if (FoundFaceIndex != INDEX_NONE)
+			// Store recursion depth for next cycle
+			PreviousRecursionDepth = CurrentRecursionDepth;
+
+			// If there are any connected face check if they still need to be processed
+			if (ConnectedFaceIndices.Num())
 			{
-				// Set next face index to process
-				CurrentFaceIndex = FoundFaceIndex;
-				// Remove the index from the connected faces list as it'll be processed
-				ConnectedFaceIndices.Remove(CurrentFaceIndex);
+				int32 FoundFaceIndex = INDEX_NONE;
+				for (int32 FoundConnectedFaceIndex = 0; FoundConnectedFaceIndex < ConnectedFaceIndices.Num(); ++FoundConnectedFaceIndex)
+			{
+					const int32 ConnectedFaceIndex = ConnectedFaceIndices[FoundConnectedFaceIndex];
+					if (FaceSmoothingGroups[ConnectedFaceIndex] == INDEX_NONE)
+					{
+						FoundFaceIndex = ConnectedFaceIndex;
+
+						// Step down for next cycle
+						++CurrentRecursionDepth;
+						++ProcessedFaces;
+						break;
+					}
+			}
+
+				if (FoundFaceIndex != INDEX_NONE)
+				{
+					// Set next face index to process
+					CurrentFaceIndex = FoundFaceIndex;
+					// Remove the index from the connected faces list as it'll be processed
+					ConnectedFaceIndices.Remove(CurrentFaceIndex);
+				}
+				else
+				{
+					// No connected faces left so step up
+					--CurrentRecursionDepth;
+				}
 			}
 			else
 			{
 				// No connected faces left so step up
 				--CurrentRecursionDepth;
 			}
-		}
-		else
-		{
-			// No connected faces left so step up
-			--CurrentRecursionDepth;
-		}
 
-		// If we reached the top of recursion stack reset the values
-		if (CurrentRecursionDepth == -1)
-		{
-			CurrentFaceIndex = ++FaceIndex;
-			CurrentRecursionDepth = 0;
-			++SmoothingGroupIndex;
-	}
+			// If we reached the top of recursion stack reset the values
+			if (CurrentRecursionDepth == -1)
+			{
+				CurrentFaceIndex = ++FaceIndex;
+				CurrentRecursionDepth = 0;
+				++SmoothingGroupIndex;
+		}
 	}	
 
 	HighestSmoothingGroup = SmoothingGroupIndex;
+}
+
+bool AbcImporterUtilities::GenerateAbcMeshSampleDataForFrame(const Alembic::AbcGeom::IPolyMeshSchema &Schema, const Alembic::Abc::ISampleSelector FrameSelector, FAbcMeshSample* &Sample, const ESampleReadFlags ReadFlags, const bool bFirstFrame)
+{
+	// Get single (vertex-data) sample from Alembic file
+	Alembic::AbcGeom::IPolyMeshSchema::Sample MeshSample;
+	Schema.get(MeshSample, FrameSelector);
+
+	bool bRetrievalResult = true;
+
+	// Retrieve all available mesh data
+	if (EnumHasAnyFlags(ReadFlags, ESampleReadFlags::Positions))
+	{
+		Alembic::Abc::P3fArraySamplePtr PositionsSample = MeshSample.getPositions();
+		bRetrievalResult &= RetrieveTypedAbcData<Alembic::Abc::P3fArraySamplePtr, FVector>(PositionsSample, Sample->Vertices);
+	}
+	
+	TArray<uint32> FaceCounts;	
+	if (EnumHasAnyFlags(ReadFlags, ESampleReadFlags::Indices | ESampleReadFlags::UVs | ESampleReadFlags::Normals | ESampleReadFlags::Colors | ESampleReadFlags::MaterialIndices))
+	{
+		Alembic::Abc::Int32ArraySamplePtr FaceCountsSample = MeshSample.getFaceCounts();
+		bRetrievalResult &= RetrieveTypedAbcData<Alembic::Abc::Int32ArraySamplePtr, uint32>(FaceCountsSample, FaceCounts);
+	}
+
+	const bool bNeedsTriangulation = FaceCounts.Contains(4);
+	if (bFirstFrame)
+	{
+		const uint32* Result = FaceCounts.FindByPredicate([](uint32 FaceCount) { return FaceCount < 3 || FaceCount > 4; });
+		if (Result)
+		{
+			// We found an Ngon which we can't triangulate atm
+			TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(EMessageSeverity::Error, FText::Format(LOCTEXT("FoundNGon", "Unable to import mesh due to a face consisting of {0} vertices, expecting triangles (3) or quads (4)."), FText::FromString(FString::FromInt((*Result)))));
+			FAbcImportLogger::AddImportMessage(Message);
+			return false;
+		}
+	}
+
+	if (EnumHasAnyFlags(ReadFlags, ESampleReadFlags::Indices))
+	{
+		Alembic::Abc::Int32ArraySamplePtr IndicesSample = MeshSample.getFaceIndices();
+		bRetrievalResult &= RetrieveTypedAbcData<Alembic::Abc::Int32ArraySamplePtr, uint32>(IndicesSample, Sample->Indices);
+		if (bNeedsTriangulation)
+		{
+			TriangulateIndexBuffer(FaceCounts, Sample->Indices);
+		}
+	}
+
+	Alembic::AbcGeom::ICompoundProperty GeomParams = Schema.getArbGeomParams();
+	
+	if (EnumHasAnyFlags(ReadFlags, ESampleReadFlags::UVs))
+	{
+		Alembic::AbcGeom::IV2fGeomParam UVCoordinateParameter = Schema.getUVsParam();
+		if (UVCoordinateParameter.valid())
+		{
+			ReadUVSetData(UVCoordinateParameter, FrameSelector, Sample->UVs[0], Sample->Indices, bNeedsTriangulation, FaceCounts);
+		}
+		else
+		{
+			Sample->UVs[0].AddZeroed(Sample->Indices.Num());
+		}
+
+
+		if (GeomParams.valid())
+		{
+			const int32 NumGeomParams = GeomParams.getNumProperties();
+			for (int32 GeomParamIndex = 0; GeomParamIndex < NumGeomParams; ++GeomParamIndex)
+			{
+				Alembic::AbcGeom::IV2fGeomParam UVSetProperty;
+				auto PropertyHeader = GeomParams.getPropertyHeader(GeomParamIndex);
+				if (Alembic::AbcGeom::IV2fGeomParam::matches(PropertyHeader))
+				{
+					UVSetProperty = Alembic::AbcGeom::IV2fGeomParam(GeomParams, PropertyHeader.getName());
+					ReadUVSetData(UVSetProperty, FrameSelector, Sample->UVs[Sample->NumUVSets], Sample->Indices, bNeedsTriangulation, FaceCounts);
+					++Sample->NumUVSets;
+				}
+			}
+		}
+	}
+
+	if (EnumHasAnyFlags(ReadFlags, ESampleReadFlags::Normals))
+	{
+		Alembic::AbcGeom::IN3fGeomParam NormalParameter = Schema.getNormalsParam();
+		// Check if Normals are available anyhow
+		const bool bNormalsAvailable = NormalParameter.valid();
+
+		// Check if the Normals are 'constant' which means there won't be any normal data available after frame 0
+		bool bConstantNormals = bNormalsAvailable && Schema.getNormalsParam().isConstant();
+		if (bNormalsAvailable && (!bConstantNormals || (bConstantNormals && bFirstFrame)))
+		{
+			Alembic::Abc::N3fArraySamplePtr NormalsSample = NormalParameter.getValueProperty().getValue(FrameSelector);
+			RetrieveTypedAbcData<Alembic::Abc::N3fArraySamplePtr, FVector>(NormalsSample, Sample->Normals);
+
+			// Can only retrieve normal indices when the Normals array is indexed
+			bool bIndexedNormals = NormalParameter.getIndexProperty().valid();
+			if (bIndexedNormals)
+			{
+				Alembic::Abc::UInt32ArraySamplePtr NormalIndiceSample = NormalParameter.getIndexProperty().getValue(FrameSelector);
+				TArray<uint32> NormalIndices;
+				RetrieveTypedAbcData<Alembic::Abc::UInt32ArraySamplePtr, uint32>(NormalIndiceSample, NormalIndices);
+
+				if (bNeedsTriangulation)
+				{
+					TriangulateIndexBuffer(FaceCounts, NormalIndices);
+				}
+
+				// Expand Normal array
+				ExpandVertexAttributeArray<FVector>(NormalIndices, Sample->Normals);
+			}
+			else
+			{
+				// For vertex only normals (and no normal indices available), expand using the regular indices
+				if (Sample->Normals.Num() != Sample->Indices.Num())
+				{
+					ExpandVertexAttributeArray<FVector>(Sample->Indices, Sample->Normals);
+				}
+				else if (bNeedsTriangulation)
+				{
+					TriangulateVertexAttributeBuffer(FaceCounts, Sample->Normals);
+				}
+			}
+		}
+	}
+
+	if (EnumHasAnyFlags(ReadFlags, ESampleReadFlags::Colors))
+	{
+		Alembic::AbcGeom::IC3fGeomParam Color3Property;
+		Alembic::AbcGeom::IC4fGeomParam Color4Property;
+		if (GeomParams.valid())
+		{
+			const int32 NumGeomParams = GeomParams.getNumProperties();
+			for (int32 GeomParamIndex = 0; GeomParamIndex < NumGeomParams; ++GeomParamIndex)
+			{
+				auto PropertyHeader = GeomParams.getPropertyHeader(GeomParamIndex);
+				if (Alembic::AbcGeom::IC3fGeomParam::matches(PropertyHeader))
+				{
+					Color3Property = Alembic::AbcGeom::IC3fGeomParam(GeomParams, PropertyHeader.getName());
+				}
+				else if (Alembic::AbcGeom::IC4fGeomParam::matches(PropertyHeader))
+				{
+					Color4Property = Alembic::AbcGeom::IC4fGeomParam(GeomParams, PropertyHeader.getName());
+				}
+			}
+		}
+
+		if (Color3Property.valid())
+		{
+			Alembic::Abc::C3fArraySamplePtr ColorSample = Color3Property.getValueProperty().getValue(FrameSelector);
+
+			// Allocate required memory for the OutData
+			const int32 NumEntries = ColorSample->size();
+
+			bool bSuccess = false;
+
+			if (NumEntries)
+			{
+				Sample->Colors.AddZeroed(NumEntries);
+
+				for (int32 Entry = 0; Entry < NumEntries; ++Entry)
+				{
+					auto DataPtr = &ColorSample->get()[Entry];
+					auto OutDataPtr = &Sample->Colors[Entry];
+					FMemory::Memcpy(OutDataPtr, DataPtr, sizeof(FLinearColor));
+					Sample->Colors[Entry].A = 1.0f;
+				}
+			}
+
+			const bool bIndexedColors = Color3Property.getIndexProperty().valid();
+			if (bIndexedColors)
+			{
+				Alembic::Abc::UInt32ArraySamplePtr ColorIndiceSample = Color3Property.getIndexProperty().getValue(FrameSelector);
+				TArray<uint32> ColorIndices;
+				RetrieveTypedAbcData<Alembic::Abc::UInt32ArraySamplePtr, uint32>(ColorIndiceSample, ColorIndices);
+
+				if (bNeedsTriangulation)
+				{
+					TriangulateIndexBuffer(FaceCounts, ColorIndices);
+				}
+
+				// Expand color array
+				ExpandVertexAttributeArray<FLinearColor>(ColorIndices, Sample->Colors);
+			}
+			else
+			{
+				if (Sample->Colors.Num() != Sample->Indices.Num())
+				{
+					ExpandVertexAttributeArray<FLinearColor>(Sample->Indices, Sample->Colors);
+				}
+				else if (bNeedsTriangulation)
+				{
+					TriangulateVertexAttributeBuffer(FaceCounts, Sample->Colors);
+				}
+			}
+		}
+		else if (Color4Property.valid())
+		{
+			Alembic::AbcGeom::IC4fGeomParam::Sample sample;
+			Color4Property.getExpanded(sample, FrameSelector);
+			Alembic::Abc::C4fArraySamplePtr ColorSample = Color4Property.getValueProperty().getValue(FrameSelector);
+			RetrieveTypedAbcData<Alembic::Abc::C4fArraySamplePtr, FLinearColor>(ColorSample, Sample->Colors);
+
+			bool bIndexedColors = Color4Property.getIndexProperty().valid();
+			if (bIndexedColors)
+			{
+				Alembic::Abc::UInt32ArraySamplePtr ColorIndiceSample = Color4Property.getIndexProperty().getValue(FrameSelector);
+				TArray<uint32> Indices;
+				RetrieveTypedAbcData<Alembic::Abc::UInt32ArraySamplePtr, uint32>(ColorIndiceSample, Indices);
+
+				if (bNeedsTriangulation)
+				{
+					TriangulateIndexBuffer(FaceCounts, Indices);
+				}
+
+				// Expand color array
+				ExpandVertexAttributeArray<FLinearColor>(Indices, Sample->Colors);
+			}
+			else
+			{
+				if (Sample->Colors.Num() != Sample->Indices.Num())
+				{
+					ExpandVertexAttributeArray<FLinearColor>(Sample->Indices, Sample->Colors);
+				}
+				else if (bNeedsTriangulation)
+				{
+					TriangulateVertexAttributeBuffer(FaceCounts, Sample->Colors);
+				}
+			}
+		}
+		else
+		{
+			Sample->Colors.AddZeroed(Sample->Indices.Num());
+		}
+	}
+	else
+	{
+		if (Sample->Colors.Num() < Sample->Indices.Num())
+		{
+			Sample->Colors.AddZeroed(Sample->Indices.Num() - Sample->Colors.Num());
+		}
+	}
+
+	if (EnumHasAnyFlags(ReadFlags, ESampleReadFlags::MaterialIndices))
+	{
+		// Pre initialize face-material indices
+		Sample->MaterialIndices.AddZeroed(Sample->Indices.Num() / 3);
+		Sample->NumMaterials = GenerateMaterialIndicesFromFaceSets(*const_cast<Alembic::AbcGeom::IPolyMeshSchema*>(&Schema), FrameSelector, Sample->MaterialIndices);
+
+		// Triangulate material face indices if needed
+		if (bNeedsTriangulation)
+		{
+			TriangulateMaterialIndices(FaceCounts, Sample->MaterialIndices);
+		}
+	}
+	else
+	{
+		if (Sample->MaterialIndices.Num() < ( Sample->Indices.Num() / 3))
+		{
+			Sample->MaterialIndices.AddZeroed((Sample->Indices.Num() / 3) - Sample->MaterialIndices.Num());
+		}
+	}
+
+	return bRetrievalResult;
 }
 
 void AbcImporterUtilities::ReadUVSetData(Alembic::AbcGeom::IV2fGeomParam &UVCoordinateParameter, const Alembic::Abc::ISampleSelector FrameSelector, TArray<FVector2D>& OutUVs, const TArray<uint32>& MeshIndices, const bool bNeedsTriangulation, const TArray<uint32>& FaceCounts)
@@ -551,7 +694,7 @@ void AbcImporterUtilities::ReadUVSetData(Alembic::AbcGeom::IV2fGeomParam &UVCoor
 	}
 }
 
-void AbcImporterUtilities::GenerateSmoothingGroupsIndices(FAbcMeshSample* MeshSample, const UAbcImportSettings* ImportSettings)
+void AbcImporterUtilities::GenerateSmoothingGroupsIndices(FAbcMeshSample* MeshSample, float HardEdgeAngleThreshold)
 {
 	// Vertex lookup map
 	TMultiMap<uint32, uint32> VertexLookupMap;
@@ -641,7 +784,7 @@ void AbcImporterUtilities::GenerateSmoothingGroupsIndices(FAbcMeshSample* MeshSa
 	}
 		
 	MeshSample->NumSmoothingGroups = 0;
-	GenerateSmoothingGroups(TouchingFaces, FaceNormals, MeshSample->SmoothingGroupIndices, MeshSample->NumSmoothingGroups, ImportSettings->NormalGenerationSettings.HardEdgeAngleThreshold);
+	GenerateSmoothingGroups(TouchingFaces, FaceNormals, MeshSample->SmoothingGroupIndices, MeshSample->NumSmoothingGroups, HardEdgeAngleThreshold);
 	MeshSample->NumSmoothingGroups += 1;
 }
 
@@ -751,17 +894,11 @@ void AbcImporterUtilities::CalculateNormalsWithSmoothingGroups(FAbcMeshSample* S
 	}
 
 	TArray<FVector> PerVertexNormals;
-	TArray<TArray<FVector>> SmoothingGroupVertexNormals;
+	PerVertexNormals.AddZeroed(Sample->Vertices.Num());	
 
-	SmoothingGroupVertexNormals.AddDefaulted(NumSmoothingGroups);
-
-	for (uint32 SmoothingGroupIndex = 0; SmoothingGroupIndex < NumSmoothingGroups; ++SmoothingGroupIndex)
-	{
-		SmoothingGroupVertexNormals[SmoothingGroupIndex].AddZeroed(Sample->Vertices.Num());
-	}
-
-	PerVertexNormals.AddZeroed(Sample->Vertices.Num());
-
+	TMap<TPair<uint32, uint32>, FVector> SmoothingGroupVertexNormals;
+	SmoothingGroupVertexNormals.Reserve(Sample->Indices.Num());
+	
 	// Loop over each face
 	const uint32 NumFaces = Sample->Indices.Num() / 3;
 	const int32 TriangleIndices[3] = { 2, 1, 0 };
@@ -786,12 +923,20 @@ void AbcImporterUtilities::CalculateNormalsWithSmoothingGroups(FAbcMeshSample* S
 
 		// Calculate normal for triangle face			
 		FVector N = FVector::CrossProduct((VertexPositions[0] - VertexPositions[1]), (VertexPositions[0] - VertexPositions[2]));
-		N.Normalize();
-				
-		// Unrolled loop
-		SmoothingGroupVertexNormals[SmoothingGroup][VertexIndices[0]] += N;
-		SmoothingGroupVertexNormals[SmoothingGroup][VertexIndices[1]] += N;
-		SmoothingGroupVertexNormals[SmoothingGroup][VertexIndices[2]] += N;			
+		N.Normalize();				
+
+		for (int32 Index = 0; Index < 3; ++Index)
+		{
+			const TPair<uint32, uint32> Pair = TPair<uint32, uint32>(SmoothingGroup, VertexIndices[Index]);
+			if (FVector* SN = SmoothingGroupVertexNormals.Find(Pair))
+			{
+				(*SN) += N;
+			}
+			else
+			{
+				SmoothingGroupVertexNormals.Add(Pair, N);
+			}
+		}		
 	}
 
 	Sample->Normals.Empty(Sample->Indices.Num());
@@ -801,29 +946,32 @@ void AbcImporterUtilities::CalculateNormalsWithSmoothingGroups(FAbcMeshSample* S
 	{
 		// Retrieve smoothing group for this face
 		const int32 SmoothingGroup = SmoothingMasks[FaceIndex];
-		const int32 FaceOffset = FaceIndex * 3;
-			
-		// Unrolled loop for calculating final normals
-		Sample->Normals[FaceOffset + 0] = SmoothingGroupVertexNormals[SmoothingGroup][Sample->Indices[FaceOffset + 0]];
-		Sample->Normals[FaceOffset + 0].Normalize();												  
-																										  
-		Sample->Normals[FaceOffset + 1] = SmoothingGroupVertexNormals[SmoothingGroup][Sample->Indices[FaceOffset + 1]];
-		Sample->Normals[FaceOffset + 1].Normalize();												  
-																										  
-		Sample->Normals[FaceOffset + 2] = SmoothingGroupVertexNormals[SmoothingGroup][Sample->Indices[FaceOffset + 2]];
-		Sample->Normals[FaceOffset + 2].Normalize();
+		const int32 FaceOffset = FaceIndex * 3;			
+
+		for (int32 Index = 0; Index < 3; ++Index)
+		{
+			Sample->Normals[FaceOffset + Index] = SmoothingGroupVertexNormals.FindChecked(TPair<uint32, uint32>(SmoothingGroup, Sample->Indices[FaceOffset + Index]));
+			Sample->Normals[FaceOffset + Index].Normalize();
+		}
 	}
 }
 
-void AbcImporterUtilities::ComputeTangents(FAbcMeshSample* Sample, UAbcImportSettings* ImportSettings, IMeshUtilities& MeshUtilities)
+void AbcImporterUtilities::CalculateNormalsWithSampleData(FAbcMeshSample* Sample, const FAbcMeshSample* SourceSample)
 {
-	uint32 TangentOptions = 0x0;
-	TangentOptions |= ImportSettings->NormalGenerationSettings.bIgnoreDegenerateTriangles ? ETangentOptions::IgnoreDegenerateTriangles : 0;
+	CalculateNormalsWithSmoothingGroups(Sample, SourceSample->SmoothingGroupIndices, SourceSample->NumSmoothingGroups);
+	Sample->SmoothingGroupIndices = SourceSample->SmoothingGroupIndices;
+	Sample->NumSmoothingGroups = SourceSample->NumSmoothingGroups;
+}
+
+void AbcImporterUtilities::ComputeTangents(FAbcMeshSample* Sample, bool bIgnoreDegenerateTriangles, IMeshUtilities& MeshUtilities)
+{
+	uint32 TangentOptions = 0x4;
+	TangentOptions |= bIgnoreDegenerateTriangles ? ETangentOptions::IgnoreDegenerateTriangles : 0;
 
 	MeshUtilities.CalculateTangents(Sample->Vertices, Sample->Indices, Sample->UVs[0], Sample->SmoothingGroupIndices, TangentOptions, Sample->TangentX, Sample->TangentY, Sample->Normals);
 }
 
-FAbcMeshSample* AbcImporterUtilities::MergeMeshSamples(const TArray<FAbcMeshSample*>& Samples)
+FAbcMeshSample* AbcImporterUtilities::MergeMeshSamples(const TArray<const FAbcMeshSample*>& Samples)
 {
 	FAbcMeshSample* MergedSample = new FAbcMeshSample();
 	FMemory::Memzero(MergedSample, sizeof(FAbcMeshSample));
@@ -900,13 +1048,13 @@ FAbcMeshSample* AbcImporterUtilities::MergeMeshSamples(const TArray<FAbcMeshSamp
 
 FAbcMeshSample* AbcImporterUtilities::MergeMeshSamples(FAbcMeshSample* MeshSampleOne, FAbcMeshSample* MeshSampleTwo)
 {
-	TArray<FAbcMeshSample*> Samples;
+	TArray<const FAbcMeshSample*> Samples;
 	Samples.Add(MeshSampleOne);
 	Samples.Add(MeshSampleTwo);		
 	return MergeMeshSamples(Samples);
 }
 
-void AbcImporterUtilities::AppendMeshSample(FAbcMeshSample* MeshSampleOne, FAbcMeshSample* MeshSampleTwo)
+void AbcImporterUtilities::AppendMeshSample(FAbcMeshSample* MeshSampleOne, const FAbcMeshSample* MeshSampleTwo)
 {
 	const uint32 VertexOffset = MeshSampleOne->Vertices.Num();
 	MeshSampleOne->Vertices.Append(MeshSampleTwo->Vertices);
@@ -1002,137 +1150,20 @@ void AbcImporterUtilities::PropogateMatrixTransformationToSample(FAbcMeshSample*
 	for (FVector& Normal : Sample->Normals)
 	{
 		Normal = Matrix.TransformVector(Normal);
+		Normal.Normalize();
 	}
 
 	for (FVector& TangentX : Sample->TangentX)
 	{
 		TangentX = Matrix.TransformVector(TangentX);
+		TangentX.Normalize();
 	}
 
 	for (FVector& TangentY : Sample->TangentY)
 	{
 		TangentY = Matrix.TransformVector(TangentY);
+		TangentY.Normalize();
 	}
-}
-
-// TODO restructure this to be retrieve cached transformations (computed on import) instead
-FMatrix AbcImporterUtilities::GetTransformationForFrame(const FAbcPolyMeshObject& Object, const Alembic::Abc::ISampleSelector FrameSelector)
-{
-	check(Object.Mesh.valid());
-	TDoubleLinkedList<Alembic::AbcGeom::IXform> Hierarchy;
-	GetHierarchyForObject(Object.Mesh, Hierarchy);
-
-	// This is in here for safety, normally Alembic writes out same sample count for every node
-	uint32 HighestNumSamples = 0;
-	TDoubleLinkedList<Alembic::AbcGeom::IXform>::TConstIterator It(Hierarchy.GetHead());
-	while (It)
-	{			
-		const uint32 NumSamples = (*It).getSchema().getNumSamples();
-		if (NumSamples > HighestNumSamples)
-		{
-			HighestNumSamples = NumSamples;
-		}
-		It++;
-	}
-
-	// If there are no samples available we push out one identity matrix
-	FMatrix SampleMatrix = FMatrix::Identity;
-
-	if (HighestNumSamples != 0)
-	{
-		Alembic::Abc::M44d WorldMatrix;
-
-		// Traverse DLinkedList back to front		
-		It = TDoubleLinkedList<Alembic::AbcGeom::IXform>::TConstIterator(Hierarchy.GetTail());
-
-		while (It)
-		{
-			// Get schema from parent object
-			Alembic::AbcGeom::XformSample sample;
-			Alembic::AbcGeom::IXformSchema Schema = (*It).getSchema();
-			Schema.get(sample, FrameSelector);
-
-			// Get matrix and concatenate
-			Alembic::Abc::M44d Matrix = sample.getMatrix();
-			WorldMatrix *= Matrix;
-
-			It--;
-		}
-
-		// Store Sample data and time
-		SampleMatrix = AbcImporterUtilities::ConvertAlembicMatrix(WorldMatrix);
-	}
-
-	return SampleMatrix;
-}
-
-void AbcImporterUtilities::CalculateAverageFrameData(const TSharedPtr<FAbcPolyMeshObject>& MeshObject, TArray<FVector>& AverageVertexData, TArray<FVector>& AverageNormalData, float& OutMinSampleTime, float& OutMaxSampleTime)
-{
-	const uint32 FrameZeroIndex = 0;
-	const uint32 NumVertices = MeshObject->MeshSamples[FrameZeroIndex]->Vertices.Num();
-	const uint32 NumIndices = MeshObject->MeshSamples[FrameZeroIndex]->Indices.Num();
-
-	// Determine offset for vertices and normals
-	const int32 VertexOffset = AverageVertexData.Num();
-	const int32 NormalsOffset = AverageNormalData.Num();
-
-	// Add new data for this mesh object
-	AverageVertexData.AddZeroed(NumVertices);
-	AverageNormalData.AddZeroed(NumIndices);
-
-	for (const FAbcMeshSample* MeshSample : MeshObject->MeshSamples)
-	{
-		for (uint32 VertexIndex = 0; VertexIndex < NumVertices; ++VertexIndex)
-		{
-			AverageVertexData[VertexOffset + VertexIndex] += MeshSample->Vertices[VertexIndex];
-		}
-
-		for (uint32 NormalIndex = 0; NormalIndex < NumIndices; ++NormalIndex)
-		{
-			AverageNormalData[NormalsOffset + NormalIndex] += MeshSample->Normals[NormalIndex];
-		}
-
-		OutMinSampleTime = FMath::Min(OutMinSampleTime, MeshSample->SampleTime);
-		OutMaxSampleTime = FMath::Max(OutMaxSampleTime, MeshSample->SampleTime);
-	}
-
-	const float OneOverNumSamples = 1.0f / (float)MeshObject->MeshSamples.Num();
-
-	for (uint32 VertexIndex = 0; VertexIndex < NumVertices; ++VertexIndex)
-	{
-		AverageVertexData[VertexOffset + VertexIndex] *= OneOverNumSamples;
-	}
-
-	for (uint32 NormalIndex = 0; NormalIndex < NumIndices; ++NormalIndex)
-	{
-		//AverageNormalData[NormalsOffset + NormalIndex] *= OneOverNumSamples;
-		AverageNormalData[NormalsOffset + NormalIndex].Normalize();
-	}
-}
-
-void AbcImporterUtilities::GenerateDeltaFrameDataMatrix(const TSharedPtr<FAbcPolyMeshObject>& MeshObject, TArray<FVector>& AverageVertexData, TArray<float>& OutGeneratedMatrix)
-{
-	checkf(MeshObject->MeshSamples[0]->Vertices.Num() == AverageVertexData.Num(), TEXT("Incorrect mesh object with average vertex data array length"));
-	const uint32 NumVertices = AverageVertexData.Num();
-	// Expanding to number of matrix rows (one for each vector component)
-	const uint32 NumMatrixRows = NumVertices * 3;
-	const int32 NumSamples = MeshObject->MeshSamples.Num();
-
-	OutGeneratedMatrix.AddZeroed(NumMatrixRows * NumSamples);
-
-	ParallelFor(NumSamples, [&](int32 SampleIndex)
-	{
-		const FAbcMeshSample* MeshSample = MeshObject->MeshSamples[SampleIndex];
-		const int32 SampleOffset = (SampleIndex * NumMatrixRows);
-		for (uint32 VertexIndex = 0; VertexIndex < NumVertices; ++VertexIndex)
-		{
-			const int32 ComponentIndexOffset = VertexIndex * 3;
-			const FVector AverageDifference = AverageVertexData[VertexIndex] - MeshSample->Vertices[VertexIndex];
-			OutGeneratedMatrix[SampleOffset + ComponentIndexOffset + 0] = AverageDifference.X;
-			OutGeneratedMatrix[SampleOffset + ComponentIndexOffset + 1] = AverageDifference.Y;
-			OutGeneratedMatrix[SampleOffset + ComponentIndexOffset + 2] = AverageDifference.Z;
-		}
-	});
 }
 
 void AbcImporterUtilities::GenerateDeltaFrameDataMatrix(const TArray<FVector>& FrameVertexData, TArray<FVector>& AverageVertexData, const int32 SampleOffset, const int32 AverageVertexOffset, TArray<float>& OutGeneratedMatrix)
@@ -1191,21 +1222,7 @@ void AbcImporterUtilities::GenerateCompressedMeshData(FCompressedAbcData& Compre
 	}
 }
 
-void AbcImporterUtilities::AppendMaterialNames(const TSharedPtr<FAbcPolyMeshObject>& MeshObject, FCompressedAbcData& CompressedData)
-{
-	// Add material names from this mesh object
-	if (MeshObject->FaceSetNames.Num() > 0)
-	{
-		CompressedData.MaterialNames.Append(MeshObject->FaceSetNames);
-	}
-	else
-	{
-		static const FString DefaultName("NoFaceSetName");
-		CompressedData.MaterialNames.Add(DefaultName);
-	}
-}
-
-void AbcImporterUtilities::CalculateNewStartAndEndFrameIndices(const float FrameStepRatio, uint32& InOutStartFrameIndex, uint32& InOutEndFrameIndex )
+void AbcImporterUtilities::CalculateNewStartAndEndFrameIndices(const float FrameStepRatio, int32& InOutStartFrameIndex, int32& InOutEndFrameIndex )
 {
 	// Using the calculated ratio we recompute the start/end frame indices
 	InOutStartFrameIndex = FMath::Max(FMath::FloorToInt(InOutStartFrameIndex * FrameStepRatio), 0);
@@ -1282,6 +1299,108 @@ void AbcImporterUtilities::ApplyConversion(FAbcMeshSample* InOutSample, const FA
 	}
 }
 
+bool AbcImporterUtilities::IsObjectVisible(const Alembic::Abc::IObject& Object, const Alembic::Abc::ISampleSelector FrameSelector)
+{
+	checkf(Object.valid(), TEXT("Invalid Object"));
+
+	Alembic::Abc::ICompoundProperty CompoundProperty = Object.getProperties();
+	Alembic::AbcGeom::IVisibilityProperty visibilityProperty;
+	if (CompoundProperty.getPropertyHeader(Alembic::AbcGeom::kVisibilityPropertyName))
+	{
+		visibilityProperty = Alembic::AbcGeom::IVisibilityProperty(CompoundProperty,
+			Alembic::AbcGeom::kVisibilityPropertyName);
+	}
+
+	Alembic::AbcGeom::ObjectVisibility visibilityValue = Alembic::AbcGeom::kVisibilityDeferred;
+	if (visibilityProperty)
+	{
+		int8_t rawVisibilityValue;
+		rawVisibilityValue = visibilityProperty.getValue(FrameSelector);
+		visibilityValue = Alembic::AbcGeom::ObjectVisibility(rawVisibilityValue);
+	}
+
+	Alembic::Abc::IObject currentObject = Object;
+	while (visibilityValue == Alembic::AbcGeom::kVisibilityDeferred)
+	{
+		// go up a level
+		currentObject = currentObject.getParent();
+		if (!currentObject)
+		{
+			return true;
+		}
+
+		CompoundProperty = currentObject.getProperties();
+		if (CompoundProperty.getPropertyHeader(Alembic::AbcGeom::kVisibilityPropertyName))
+		{
+			visibilityProperty = Alembic::AbcGeom::IVisibilityProperty(CompoundProperty,
+				Alembic::AbcGeom::kVisibilityPropertyName);
+		}
+
+		if (visibilityProperty && visibilityProperty.valid())
+		{
+			int8_t rawVisibilityValue;
+			rawVisibilityValue = visibilityProperty.getValue(FrameSelector);
+			visibilityValue = Alembic::AbcGeom::ObjectVisibility(rawVisibilityValue);
+		}
+
+		// At this point if we didn't find the visiblilty
+		// property OR if the value was deferred we'll
+		// continue up a level (so only if this object
+		// says hidden OR explicitly says visible do we stop.
+	}
+
+	if (visibilityValue == Alembic::AbcGeom::kVisibilityHidden)
+		return false;
+
+	return true;
+}
+
+bool AbcImporterUtilities::IsObjectVisibilityConstant(const Alembic::Abc::IObject& Object)
+{
+	checkf(Object.valid(), TEXT("Invalid Object"));
+
+	Alembic::Abc::ICompoundProperty CompoundProperty = Object.getProperties();
+	Alembic::AbcGeom::IVisibilityProperty visibilityProperty;
+	if (CompoundProperty.getPropertyHeader(Alembic::AbcGeom::kVisibilityPropertyName))
+	{
+		visibilityProperty = Alembic::AbcGeom::IVisibilityProperty(CompoundProperty,
+			Alembic::AbcGeom::kVisibilityPropertyName);
+	}
+
+	bool bConstantVisibility = true;
+
+	if (visibilityProperty)
+	{
+		bConstantVisibility = visibilityProperty.isConstant();
+	}
+
+	Alembic::Abc::IObject currentObject = Object;
+	while (bConstantVisibility)
+	{
+		// go up a level
+		currentObject = currentObject.getParent();
+		if (!currentObject)
+		{
+			return bConstantVisibility;
+		}
+
+		CompoundProperty = currentObject.getProperties();
+		if (CompoundProperty.getPropertyHeader(Alembic::AbcGeom::kVisibilityPropertyName))
+		{
+			visibilityProperty = Alembic::AbcGeom::IVisibilityProperty(CompoundProperty,
+				Alembic::AbcGeom::kVisibilityPropertyName);
+		}
+
+		if (visibilityProperty && visibilityProperty.valid())
+		{
+			bConstantVisibility = visibilityProperty.isConstant();
+		}
+	}
+
+
+	return bConstantVisibility;
+}
+
 FBoxSphereBounds AbcImporterUtilities::ExtractBounds(Alembic::Abc::IBox3dProperty InBoxBoundsProperty)
 {
 	FBoxSphereBounds Bounds(EForceInit::ForceInitToZero);
@@ -1302,6 +1421,13 @@ FBoxSphereBounds AbcImporterUtilities::ExtractBounds(Alembic::Abc::IBox3dPropert
 	}
 
 	return Bounds;
+}
+
+void AbcImporterUtilities::ApplyConversion(FMatrix& InOutMatrix, const FAbcConversionSettings& InConversionSettings)
+{
+	// Calculate conversion matrix	
+	const FMatrix ConversionMatrix = FScaleMatrix::Make(InConversionSettings.Scale) * FRotationMatrix::Make(FQuat::MakeFromEuler(InConversionSettings.Rotation));
+	InOutMatrix = InOutMatrix * ConversionMatrix;
 }
 
 void AbcImporterUtilities::ApplyConversion(FBoxSphereBounds& InOutBounds, const FAbcConversionSettings& InConversionSettings)

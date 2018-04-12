@@ -21,10 +21,38 @@
 #include "Rendering/SkeletalMeshModel.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "ClothingSimulationInteractor.h"
+#include "Serialization/CustomVersion.h"
 
 DEFINE_LOG_CATEGORY(LogClothingAsset)
 
 #define LOCTEXT_NAMESPACE "ClothingAsset"
+
+
+// Custom serialization version for clothing assets
+struct FClothingAssetCustomVersion
+{
+	enum Type
+	{
+		// Before any version changes were made
+		BeforeCustomVersionWasAdded = 0,
+		// Added storage of vertex colors with sim data, for editor usage
+		AddVertexColorsToPhysicalMesh = 1,
+
+		// -----<new versions can be added above this line>-------------------------------------------------
+		VersionPlusOne,
+		LatestVersion = VersionPlusOne - 1
+	};
+
+	// The GUID for this custom version number
+	const static FGuid GUID;
+
+private:
+	FClothingAssetCustomVersion() {}
+};
+
+const FGuid FClothingAssetCustomVersion::GUID(0xFB680AF2, 0x59EF4BA3, 0xBAA819B5, 0x73C8443D);
+FCustomVersionRegistration GRegisterClothingAssetCustomVersion(FClothingAssetCustomVersion::GUID, FClothingAssetCustomVersion::LatestVersion, TEXT("ClothingAssetVer"));
+
 
 UClothingAsset::UClothingAsset(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -295,26 +323,26 @@ void UClothingAsset::UnbindFromSkeletalMesh(USkeletalMesh* InSkelMesh, int32 InM
 
 		FSkeletalMeshLODModel& LodModel = Mesh->LODModels[InMeshLodIndex];
 
-		for (int32 SectionIdx = LodModel.Sections.Num() - 1; SectionIdx >= 0; --SectionIdx)
-		{
+			for(int32 SectionIdx = LodModel.Sections.Num() - 1; SectionIdx >= 0; --SectionIdx)
+			{
 			FSkelMeshSection& Section = LodModel.Sections[SectionIdx];
 
 			if(Section.HasClothingData() && Section.ClothingData.AssetGuid == AssetGuid)
-			{
+					{
 				if(!bChangedMesh)
-				{
+						{
 					InSkelMesh->PreEditChange(nullptr);
-				}
+					}
 
 				ClothingAssetUtils::ClearSectionClothingData(Section);
 
 				// Clear the LOD map entry for this asset
 				if(LodMap.IsValidIndex(InMeshLodIndex))
-				{
+					{
 					LodMap[InMeshLodIndex] = INDEX_NONE;
-				}
+						}
 
-				bChangedMesh = true;
+					bChangedMesh = true;
 			}
 		}
 	}
@@ -372,36 +400,36 @@ void UClothingAsset::InvalidateCachedData()
 		
 		if(bHasMaxDistance)
 		{
-			float MassSum = 0.0f;
-			for(int32 CurrVertIndex = 0; CurrVertIndex < NumVerts; ++CurrVertIndex)
-			{
-				float& InvMass = InvMasses[CurrVertIndex];
-				const float& MaxDistance = PhysMesh.MaxDistances[CurrVertIndex];
+		float MassSum = 0.0f;
+		for(int32 CurrVertIndex = 0; CurrVertIndex < NumVerts; ++CurrVertIndex)
+		{
+			float& InvMass = InvMasses[CurrVertIndex];
+			const float& MaxDistance = PhysMesh.MaxDistances[CurrVertIndex];
 
-				if(MaxDistance < SMALL_NUMBER)
+			if(MaxDistance < SMALL_NUMBER)
+			{
+				InvMass = 0.0f;
+				++PhysMesh.NumFixedVerts;
+			}
+			else
+			{
+				MassSum += InvMass;
+			}
+		}
+
+		if(MassSum > 0.0f)
+		{
+			const float MassScale = (float)(NumVerts - PhysMesh.NumFixedVerts) / MassSum;	
+
+			for(float& InvMass : InvMasses)
+			{
+				if(InvMass != 0.0f)
 				{
-					InvMass = 0.0f;
-					++PhysMesh.NumFixedVerts;
-				}
-				else
-				{
-					MassSum += InvMass;
+					InvMass *= MassScale;
+					InvMass = 1.0f / InvMass;
 				}
 			}
-
-			if(MassSum > 0.0f)
-			{
-				const float MassScale = (float)(NumVerts - PhysMesh.NumFixedVerts) / MassSum;
-
-				for(float& InvMass : InvMasses)
-				{
-					if(InvMass != 0.0f)
-					{
-						InvMass *= MassScale;
-						InvMass = 1.0f / InvMass;
-					}
-				}
-			}
+		}
 		}
 		else
 		{
@@ -664,6 +692,24 @@ void UClothingAsset::PostLoad()
 		SetFlags(RF_Transactional);
 	}
 
+#if WITH_EDITORONLY_DATA
+	// Fix content imported before we kept vertex colors
+	if(GetLinkerCustomVersion(FClothingAssetCustomVersion::GUID) < FClothingAssetCustomVersion::AddVertexColorsToPhysicalMesh)
+	{
+		for (FClothLODData& Lod : LodData)
+		{
+			const int32 NumVerts = Lod.PhysicalMeshData.Vertices.Num(); // number of verts
+
+			Lod.PhysicalMeshData.VertexColors.Reset();
+			Lod.PhysicalMeshData.VertexColors.AddUninitialized(NumVerts);
+			for (int32 VertIdx = 0; VertIdx < NumVerts; VertIdx++)
+			{
+				Lod.PhysicalMeshData.VertexColors[VertIdx] = FColor::White;
+			}
+		}
+	}
+#endif // WITH_EDITORONLY_DATA
+
 #if WITH_EDITOR
 	if(CustomVersion < FAnimPhysObjectVersion::CacheClothMeshInfluences)
 	{
@@ -864,6 +910,7 @@ void UClothingAsset::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 	Ar.UsingCustomVersion(FAnimPhysObjectVersion::GUID);
+	Ar.UsingCustomVersion(FClothingAssetCustomVersion::GUID);
 }
 
 void ClothingAssetUtils::GetMeshClothingAssetBindings(USkeletalMesh* InSkelMesh, TArray<FClothingAssetMeshBinding>& OutBindings)
@@ -982,6 +1029,9 @@ void FClothPhysicalMeshData::Reset(const int32 InNumVerts)
 {
 	Vertices.Reset();
 	Normals.Reset();
+#if WITH_EDITORONLY_DATA
+	VertexColors.Reset();
+#endif // #if WITH_EDITORONLY_DATA
 	MaxDistances.Reset();
 	BackstopDistances.Reset();
 	BackstopRadiuses.Reset();
@@ -990,6 +1040,9 @@ void FClothPhysicalMeshData::Reset(const int32 InNumVerts)
 
 	Vertices.AddDefaulted(InNumVerts);
 	Normals.AddDefaulted(InNumVerts);
+#if WITH_EDITORONLY_DATA
+	VertexColors.AddDefaulted(InNumVerts);
+#endif //#if WITH_EDITORONLY_DATA
 	MaxDistances.AddDefaulted(InNumVerts);
 	BackstopDistances.AddDefaulted(InNumVerts);
 	BackstopRadiuses.AddDefaulted(InNumVerts);

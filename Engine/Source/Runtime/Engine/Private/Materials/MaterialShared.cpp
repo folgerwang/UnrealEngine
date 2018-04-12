@@ -867,6 +867,11 @@ bool FMaterialResource::IsUsedWithSkeletalMesh() const
 	return Material->bUsedWithSkeletalMesh;
 }
 
+bool FMaterialResource::IsUsedWithGeometryCache() const
+{
+	return Material->bUsedWithGeometryCache;
+}
+
 bool FMaterialResource::IsUsedWithLandscape() const
 {
 	return false;

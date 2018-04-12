@@ -22,26 +22,32 @@ IDetailPropertyRow* UPersonaPreviewSceneAnimationController::AddPreviewControlle
 {
 	TArray<UObject*> ListOfPreviewController{ this };
 
-	FString SkeletonName = FAssetData(&PersonaToolkit->GetEditableSkeleton()->GetSkeleton()).GetExportTextName();
+	const USkeleton* Skeleton = PersonaToolkit->GetPreviewMeshComponent()->SkeletalMesh ? PersonaToolkit->GetPreviewMeshComponent()->SkeletalMesh->Skeleton : nullptr;
+	if (Skeleton)
+	{
+		FString SkeletonName = FAssetData(Skeleton).GetExportTextName();
 
-	IDetailPropertyRow* NewRow = Category.AddExternalObjectProperty(ListOfPreviewController, Property->GetFName(), PropertyLocation);
+		IDetailPropertyRow* NewRow = Category.AddExternalObjectProperty(ListOfPreviewController, Property->GetFName(), PropertyLocation);
 	
-	NewRow->CustomWidget()
-	.NameContent()
-	[
-		NewRow->GetPropertyHandle()->CreatePropertyNameWidget()
-	]
-	.ValueContent()
-	.MaxDesiredWidth(250.0f)
-	.MinDesiredWidth(250.0f)
-	[
-		SNew(SObjectPropertyEntryBox)
-		.AllowedClass(UAnimationAsset::StaticClass())
-		.PropertyHandle(NewRow->GetPropertyHandle())
-		.OnShouldFilterAsset(FOnShouldFilterAsset::CreateUObject(this, &UPersonaPreviewSceneAnimationController::HandleShouldFilterAsset, SkeletonName))
-		.ThumbnailPool(DetailBuilder.GetThumbnailPool())
-	];
-	return NewRow;
+		NewRow->CustomWidget()
+		.NameContent()
+		[
+			NewRow->GetPropertyHandle()->CreatePropertyNameWidget()
+		]
+		.ValueContent()
+		.MaxDesiredWidth(250.0f)
+		.MinDesiredWidth(250.0f)
+		[
+			SNew(SObjectPropertyEntryBox)
+			.AllowedClass(UAnimationAsset::StaticClass())
+			.PropertyHandle(NewRow->GetPropertyHandle())
+			.OnShouldFilterAsset(FOnShouldFilterAsset::CreateUObject(this, &UPersonaPreviewSceneAnimationController::HandleShouldFilterAsset, SkeletonName))
+			.ThumbnailPool(DetailBuilder.GetThumbnailPool())
+		];
+		return NewRow;
+	}
+
+	return nullptr;
 }
 
 bool UPersonaPreviewSceneAnimationController::HandleShouldFilterAsset(const FAssetData& InAssetData, const FString SkeletonName) const

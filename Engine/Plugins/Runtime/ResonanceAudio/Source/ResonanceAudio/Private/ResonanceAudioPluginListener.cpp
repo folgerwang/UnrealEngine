@@ -5,6 +5,7 @@
 #include "ResonanceAudioPluginListener.h"
 #include "ResonanceAudioAmbisonics.h"
 #include "AudioDevice.h"
+#include "Async/Async.h"
 
 namespace ResonanceAudio
 {

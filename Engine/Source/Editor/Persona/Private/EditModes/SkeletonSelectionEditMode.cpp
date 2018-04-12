@@ -12,6 +12,8 @@
 #include "EngineUtils.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 
+#include "IPersonaToolkit.h"
+#include "IEditableSkeleton.h"
 
 #define LOCTEXT_NAMESPACE "SkeletonSelectionEditMode"
 
@@ -71,6 +73,18 @@ void FSkeletonSelectionEditMode::GetOnScreenDebugInfo(TArray<FText>& OutDebugInf
 
 }
 
+FSelectedSocketInfo FSkeletonSelectionEditMode::DuplicateAndSelectSocket(const FSelectedSocketInfo& SocketInfoToDuplicate)
+{
+	USkeletalMesh* SkeletalMesh = GetAnimPreviewScene().GetPreviewMeshComponent()->SkeletalMesh;
+	USkeletalMeshSocket* NewSocket = GetAnimPreviewScene().GetPersonaToolkit()->GetEditableSkeleton()->DuplicateSocket(SocketInfoToDuplicate, SocketInfoToDuplicate.Socket->BoneName, SkeletalMesh);
+
+	FSelectedSocketInfo NewSocketInfo(NewSocket, SocketInfoToDuplicate.bSocketIsOnSkeleton);
+	GetAnimPreviewScene().DeselectAll();
+	GetAnimPreviewScene().SetSelectedSocket(NewSocketInfo);
+
+	return NewSocketInfo;
+}
+
 bool FSkeletonSelectionEditMode::StartTracking(FEditorViewportClient* InViewportClient, FViewport* InViewport)
 {
 	EAxisList::Type CurrentAxis = InViewportClient->GetCurrentWidgetAxis();
@@ -96,7 +110,7 @@ bool FSkeletonSelectionEditMode::StartTracking(FEditorViewportClient* InViewport
 				if (bAltDown)
 				{
 					// Rather than moving/rotating the selected socket, copy it and move the copy instead
-					static_cast<FAnimationViewportClient*>(InViewportClient)->GetSkeletonTree()->DuplicateAndSelectSocket(SelectedSocketInfo);
+					SelectedSocketInfo = DuplicateAndSelectSocket(SelectedSocketInfo);
 				}
 
 				// Socket movement is transactional - we want undo/redo and saving of it
@@ -495,14 +509,16 @@ bool FSkeletonSelectionEditMode::HandleClick(FEditorViewportClient* InViewportCl
 
 		if ( HitProxy->IsA( HPersonaSocketProxy::StaticGetType() ) )
 		{
-			// Tell the skeleton tree that the socket has been selected - this will sort out the skeleton tree, etc.
-			static_cast<FAnimationViewportClient*>(InViewportClient)->GetSkeletonTree()->SetSelectedSocket(static_cast<HPersonaSocketProxy*>(HitProxy)->SocketInfo);
+			// Tell the preview scene that the socket has been selected - this will sort out the skeleton tree, etc.
+			GetAnimPreviewScene().DeselectAll();
+			GetAnimPreviewScene().SetSelectedSocket(static_cast<HPersonaSocketProxy*>(HitProxy)->SocketInfo);
 			bHandled = true;
 		}
 		else if ( HitProxy->IsA( HPersonaBoneProxy::StaticGetType() ) )
 		{			
-			// Tell the skeleton tree that the bone has been selected - this will sort out the skeleton tree, etc.
-			static_cast<FAnimationViewportClient*>(InViewportClient)->GetSkeletonTree()->SetSelectedBone(static_cast<HPersonaBoneProxy*>(HitProxy)->BoneName);
+			// Tell the preview scene that the bone has been selected - this will sort out the skeleton tree, etc.
+			GetAnimPreviewScene().DeselectAll();
+			GetAnimPreviewScene().SetSelectedBone(static_cast<HPersonaBoneProxy*>(HitProxy)->BoneName);
 			bHandled = true;
 		}
 		else if ( HitProxy->IsA( HActor::StaticGetType() ) && bSelectingSections)
@@ -530,13 +546,14 @@ bool FSkeletonSelectionEditMode::HandleClick(FEditorViewportClient* InViewportCl
 		
 		if(bHit)
 		{
-			static_cast<FAnimationViewportClient*>(InViewportClient)->GetSkeletonTree()->SetSelectedBone(Result.BoneName);
+			GetAnimPreviewScene().DeselectAll();
+			GetAnimPreviewScene().SetSelectedBone(Result.BoneName);
 			bHandled = true;
 		}
 		else
 		{
 			// We didn't hit a proxy or a physics object, so deselect all objects
-			static_cast<FAnimationViewportClient*>(InViewportClient)->GetSkeletonTree()->DeselectAll();
+			GetAnimPreviewScene().DeselectAll();
 		}
 	}
 

@@ -615,7 +615,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Usage)
 	uint32 bUsedWithNiagaraMeshParticles : 1;
 
-
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Usage)
+	uint32 bUsedWithGeometryCache : 1;
 
 	/** 
 	 * Indicates that the material and its instances can be use with static lighting

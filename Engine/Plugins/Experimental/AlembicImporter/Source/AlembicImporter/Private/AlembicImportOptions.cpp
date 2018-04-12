@@ -18,7 +18,6 @@ void SAlembicImportOptions::Construct(const FArguments& InArgs)
 {
 	ImportSettings = InArgs._ImportSettings;
 	WidgetWindow = InArgs._WidgetWindow;
-	PolyMeshes = InArgs._PolyMeshes;
 
 	check(ImportSettings);
 
@@ -28,6 +27,11 @@ void SAlembicImportOptions::Construct(const FArguments& InArgs)
 	DetailsViewArgs.NameAreaSettings = FDetailsViewArgs::HideNameArea;
 	DetailsView = PropertyEditorModule.CreateDetailView(DetailsViewArgs);
 	DetailsView->SetObject(ImportSettings);
+	
+	for (FAbcPolyMesh* PolyMesh : InArgs._PolyMeshes)
+	{
+		PolyMeshData.Add(FPolyMeshDataPtr(new FPolyMeshData(PolyMesh)));
+	}
 
 	this->ChildSlot
 	[
@@ -73,10 +77,10 @@ void SAlembicImportOptions::Construct(const FArguments& InArgs)
 				.MinDesiredWidth(512.0f)
 				.MaxDesiredHeight(350.0f)
 				[
-					SNew(SListView<FAbcPolyMeshObjectPtr>)
+					SNew(SListView<FPolyMeshDataPtr>)
 					.ItemHeight(24)						
 					.ScrollbarVisibility(EVisibility::Visible)
-					.ListItemsSource(&PolyMeshes)
+					.ListItemsSource(&PolyMeshData)
 					.OnMouseButtonDoubleClick(this, &SAlembicImportOptions::OnItemDoubleClicked)
 					.OnGenerateRow(this, &SAlembicImportOptions::OnGenerateWidgetForList)
 					.HeaderRow
@@ -142,7 +146,7 @@ void SAlembicImportOptions::Construct(const FArguments& InArgs)
 	];
 }
 
-TSharedRef<ITableRow> SAlembicImportOptions::OnGenerateWidgetForList(FAbcPolyMeshObjectPtr InItem, const TSharedRef<STableViewBase>& OwnerTable)
+TSharedRef<ITableRow> SAlembicImportOptions::OnGenerateWidgetForList(FPolyMeshDataPtr InItem, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(STrackSelectionTableRow, OwnerTable)
 		.PolyMesh(InItem);
@@ -153,11 +157,11 @@ bool SAlembicImportOptions::CanImport()  const
 	return true;
 }
 
-void SAlembicImportOptions::OnItemDoubleClicked(FAbcPolyMeshObjectPtr ClickedItem)
+void SAlembicImportOptions::OnItemDoubleClicked(FPolyMeshDataPtr ClickedItem)
 {
-	for (FAbcPolyMeshObjectPtr Item : PolyMeshes)
+	for (FPolyMeshDataPtr& Item : PolyMeshData)
 	{
-		Item->bShouldImport = (Item == ClickedItem);
+		Item->PolyMesh->bShouldImport = (Item == ClickedItem);
 	}
 }
 

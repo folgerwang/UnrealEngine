@@ -544,7 +544,6 @@
 #include "RawIndexBuffer.h"
 #include "LocalVertexFactory.h"
 #include "Engine/StaticMesh.h"
-#include "BoneIndices.h"
 #include "ReferenceSkeleton.h"
 #include "GPUSkinPublicDefs.h"
 #include "Components/MeshComponent.h"

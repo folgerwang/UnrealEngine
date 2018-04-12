@@ -113,6 +113,7 @@ private:
 	FEdGraphSchemaAction_K2Var* MyBlueprintSelectionAsVar() const {return MyBlueprint.Pin()->SelectionAsVar();}
 	FEdGraphSchemaAction_K2LocalVar* MyBlueprintSelectionAsLocalVar() const {return MyBlueprint.Pin()->SelectionAsLocalVar();}
 	UK2Node_Variable* EdGraphSelectionAsVar() const;
+	UProperty* CustomizedObjectAsProperty() const;
 	UProperty* SelectionAsProperty() const;
 	FName GetVariableName() const;
 
@@ -281,6 +282,9 @@ private:
 
 	/** External detail customizations */
 	TArray<TSharedPtr<IDetailCustomization>> ExternalDetailCustomizations;
+
+	/** Array of nodes were were constructed to represent */
+	TArray< TWeakObjectPtr<UObject> > ObjectsBeingEdited;
 };
 
 class FBaseBlueprintGraphActionDetails : public IDetailCustomization

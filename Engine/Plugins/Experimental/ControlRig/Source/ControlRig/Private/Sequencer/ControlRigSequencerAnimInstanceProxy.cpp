@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigSequencerAnimInstanceProxy.h"
-#include "ControlRigSequencerAnimInstance.h"
+#include "Sequencer/ControlRigSequencerAnimInstance.h"
 
 void FControlRigSequencerAnimInstanceProxy::Initialize(UAnimInstance* InAnimInstance)
 {
@@ -122,7 +122,6 @@ void FControlRigSequencerAnimInstanceProxy::InitControlRigTrack(UControlRig* InC
 
 		// now set animation data to player
 		PlayerState->ControlRigNode.SetControlRig(InControlRig);
-		PlayerState->ControlRigNode.bAdditive = bAdditive;
 		PlayerState->bApplyBoneFilter = bApplyBoneFilter;
 		PlayerState->bAdditive = bAdditive;
 

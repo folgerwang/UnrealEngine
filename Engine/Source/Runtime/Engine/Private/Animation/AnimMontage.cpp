@@ -2768,6 +2768,7 @@ UAnimMontage* UAnimMontage::CreateSlotAnimationAsDynamicMontage(UAnimSequenceBas
 
 	FCompositeSection NewSection;
 	NewSection.SectionName = TEXT("Default");
+	NewSection.LinkSequence(Asset, Asset->SequenceLength);
 	NewSection.SetTime(0.0f);
 
 	// add new section

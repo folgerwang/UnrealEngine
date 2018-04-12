@@ -378,6 +378,259 @@ void FKSphylElem::DrawElemSolid(FPrimitiveDrawInterface* PDI, const FTransform& 
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
+// FKTaperedCapsuleElem
+/////////////////////////////////////////////////////////////////////////////////////
+
+void FKTaperedCapsuleElem::DrawTaperedCapsuleSides(FPrimitiveDrawInterface* PDI, const FTransform& ElemTM, const FVector& InCenter0, const FVector& InCenter1, float InRadius0, float InRadius1, const FColor& Color)
+{
+	// Draws just the sides of a tapered capsule specified by provided Spheres that can have different radii.  Does not draw the spheres, just the sleeve.
+	// Extent geometry endpoints not necessarily coplanar with sphere origins (uses hull horizon)
+	// Otherwise uses the great-circle cap assumption.
+	const float AngleIncrementCircle = 360.0f / DrawCollisionSides;
+	const float AngleIncrementSides = 90.0f; 
+	const FVector Separation = InCenter1 - InCenter0;
+	const float Distance = Separation.Size();
+	if(Separation.IsNearlyZero() || Distance <= FMath::Abs(InRadius0 - InRadius1))
+	{
+		return;
+	}
+	FQuat CapsuleOrientation = ElemTM.GetRotation();
+	float OffsetZ = (InRadius1 - InRadius0) / Distance;
+	float ScaleXY = FMath::Sqrt(1.0f - FMath::Square(OffsetZ));
+	FVector StartVertex = CapsuleOrientation.RotateVector(FVector(ScaleXY, 0, OffsetZ));
+	FVector VertexPrevious = StartVertex;
+	for(float Angle = AngleIncrementCircle; Angle <= 360.0f; Angle += AngleIncrementCircle)  // iterate over unit circle about capsule's major axis (which is orientation.AxisZ)
+	{
+		FVector VertexCurrent = CapsuleOrientation.RotateVector(FVector(FMath::Cos(FMath::DegreesToRadians(Angle))*ScaleXY, FMath::Sin(FMath::DegreesToRadians(Angle))*ScaleXY, OffsetZ));
+		PDI->DrawLine(InCenter0 + VertexPrevious * InRadius0, InCenter0 + VertexCurrent * InRadius0, Color, SDPG_World);  // cap-circle segment on sphere S0
+		PDI->DrawLine(InCenter1 + VertexPrevious * InRadius1, InCenter1 + VertexCurrent * InRadius1, Color, SDPG_World);  // cap-circle segment on sphere S1
+		VertexPrevious = VertexCurrent;
+	}
+
+	VertexPrevious = StartVertex;
+	for(float Angle = AngleIncrementSides; Angle <= 360.0f; Angle += AngleIncrementSides)  // iterate over unit circle about capsule's major axis (which is orientation.AxisZ)
+	{
+		FVector VertexCurrent = CapsuleOrientation.RotateVector(FVector(FMath::Cos(FMath::DegreesToRadians(Angle))*ScaleXY, FMath::Sin(FMath::DegreesToRadians(Angle))*ScaleXY, OffsetZ));
+		PDI->DrawLine(InCenter0 + VertexCurrent  * InRadius0, InCenter1 + VertexCurrent * InRadius1, Color, SDPG_World);  // capsule side segment between spheres
+		VertexPrevious = VertexCurrent;
+	}
+}
+
+void FKTaperedCapsuleElem::DrawElemWire(class FPrimitiveDrawInterface* PDI, const FTransform& ElemTM, const FVector& Scale3D, const FColor Color) const
+{
+	const FVector Origin = ElemTM.GetLocation();
+	const FVector XAxis = ElemTM.GetScaledAxis(EAxis::X);
+	const FVector YAxis = ElemTM.GetScaledAxis(EAxis::Y);
+	const FVector ZAxis = ElemTM.GetScaledAxis(EAxis::Z);
+	const float ScaledHalfLength = GetScaledCylinderLength(Scale3D) * .5f;
+	float ScaledRadius0;
+	float ScaledRadius1;
+	GetScaledRadii(Scale3D, ScaledRadius0, ScaledRadius1);
+	
+	// Draw top and bottom circles
+	const FVector TopEnd = Origin + (ScaledHalfLength * ZAxis);
+	const FVector BottomEnd = Origin - (ScaledHalfLength * ZAxis);
+
+	const FVector Separation = TopEnd - BottomEnd;
+	float Distance = Separation.Size();
+
+	if(Separation.IsNearlyZero() || Distance <= FMath::Abs(ScaledRadius0 - ScaledRadius1))
+	{
+		// Degenerate or one end encompasses the other - draw a sphere
+		if(ScaledRadius0 > ScaledRadius1)
+		{
+			DrawCircle(PDI, TopEnd, XAxis, YAxis, Color, ScaledRadius0, DrawCollisionSides, SDPG_World);
+			DrawCircle(PDI, TopEnd, XAxis, ZAxis, Color, ScaledRadius0, DrawCollisionSides, SDPG_World);
+			DrawCircle(PDI, TopEnd, YAxis, ZAxis, Color, ScaledRadius0, DrawCollisionSides, SDPG_World);
+		}
+		else
+		{
+			DrawCircle(PDI, BottomEnd, XAxis, YAxis, Color, ScaledRadius1, DrawCollisionSides, SDPG_World);
+			DrawCircle(PDI, BottomEnd, XAxis, ZAxis, Color, ScaledRadius1, DrawCollisionSides, SDPG_World);
+			DrawCircle(PDI, BottomEnd, YAxis, ZAxis, Color, ScaledRadius1, DrawCollisionSides, SDPG_World);
+		}
+	}
+	else
+	{
+		if(ScaledRadius0 > ScaledRadius1)
+		{
+			DrawCircle(PDI, TopEnd, XAxis, YAxis, Color, ScaledRadius0, DrawCollisionSides, SDPG_World);
+		}
+		else
+		{
+			DrawCircle(PDI, BottomEnd, XAxis, YAxis, Color, ScaledRadius1, DrawCollisionSides, SDPG_World);
+		}	
+
+		const FVector NegZAxis = -ZAxis;
+
+		const float OffsetZ0 = ((ScaledRadius0 - ScaledRadius1) * ScaledRadius0) / Distance;
+		float TopLimit = 90.0f - FMath::RadiansToDegrees(FMath::Asin(OffsetZ0 / ScaledRadius0));
+		DrawArc(PDI, TopEnd, NegZAxis, YAxis, TopLimit, 360.0f-TopLimit, ScaledRadius0, DrawCollisionSides, Color, SDPG_World);
+		DrawArc(PDI, TopEnd, NegZAxis, XAxis, TopLimit, 360.0f-TopLimit, ScaledRadius0, DrawCollisionSides, Color, SDPG_World);
+
+		const float OffsetZ1 = ((ScaledRadius0 - ScaledRadius1) * ScaledRadius1) / Distance;
+		float BottomLimit =  180.0f - TopLimit;
+ 		DrawArc(PDI, BottomEnd, ZAxis, YAxis, BottomLimit, 360.0f-BottomLimit, ScaledRadius1, DrawCollisionSides, Color, SDPG_World);
+ 		DrawArc(PDI, BottomEnd, ZAxis, XAxis, BottomLimit, 360.0f-BottomLimit, ScaledRadius1, DrawCollisionSides, Color, SDPG_World);
+
+		// Draw connecty lines
+		DrawTaperedCapsuleSides(PDI, ElemTM, TopEnd, BottomEnd, ScaledRadius0, ScaledRadius1, Color);
+	}
+}
+
+struct FScopedTaperedCapsuleBuilder
+{
+	FScopedTaperedCapsuleBuilder(const FKTaperedCapsuleElem& InTaperedCapsule, const FVector& InScale3D, ERHIFeatureLevel::Type InFeatureLevel)
+		: MeshBuilder(InFeatureLevel)
+	{
+		const float ScaledLength = InTaperedCapsule.GetScaledCylinderLength(InScale3D);
+		const float ScaledHalfLength = ScaledLength * 0.5f;
+		float ScaledRadius0;
+		float ScaledRadius1;
+		InTaperedCapsule.GetScaledRadii(InScale3D, ScaledRadius0, ScaledRadius1);
+
+		// Deal with degenerates
+		float SphereOffset0 = ScaledHalfLength;
+		float SphereOffset1 = -ScaledHalfLength;
+		if(FMath::IsNearlyZero(ScaledLength) || ScaledLength <= FMath::Abs(ScaledRadius0 - ScaledRadius1))
+		{
+			// Degenerate or one end encompasses the other - we need to draw a sphere, so map one end to the other
+			if(ScaledRadius0 > ScaledRadius1)
+			{
+				SphereOffset1 = SphereOffset0;
+				ScaledRadius1 = ScaledRadius0;
+			}
+			else
+			{
+				SphereOffset0 = SphereOffset1;
+				ScaledRadius0 = ScaledRadius1;
+			}
+		}
+		
+		const int32 NumSides = DrawCollisionSides;
+		const int32 NumRings = (DrawCollisionSides / 2) + 1;
+
+		// The first/last arc are on top of each other.
+		const int32 NumVerts = (NumSides + 1) * (NumRings + 1);
+		Verts = (FDynamicMeshVertex*)FMemory::Malloc(NumVerts * sizeof(FDynamicMeshVertex));
+
+		// Calculate verts for one arc
+		ArcVerts = (FDynamicMeshVertex*)FMemory::Malloc((NumRings + 1) * sizeof(FDynamicMeshVertex));
+
+		// Calc arc split point
+		const float OffsetZ = ((ScaledRadius0 - ScaledRadius1) * ScaledRadius0) / ScaledLength;
+		float SplitAngle = 90.0f - FMath::RadiansToDegrees(FMath::Asin(OffsetZ / ScaledRadius0));
+		int32 SplitPoint = (int32)((float)NumRings * ((180.0f - SplitAngle) / 180.0f));
+
+		for (int32 RingIdx = 0; RingIdx < NumRings + 1; RingIdx++)
+		{
+			FDynamicMeshVertex* ArcVert = &ArcVerts[RingIdx];
+
+			// Note- unit sphere, so position always has mag of one. We can just use it for normal!		
+			FVector SpherePos;
+			SpherePos.X = 0.0f;
+
+			float ZOffset;
+
+			if (RingIdx <= SplitPoint)
+			{
+				float Angle = ((float)RingIdx / (NumRings - 1)) * PI;
+				ZOffset = SphereOffset0;
+				SpherePos.Y = ScaledRadius0 * FMath::Sin(Angle);
+				SpherePos.Z = ScaledRadius0 * FMath::Cos(Angle);
+			}
+			else
+			{
+				float Angle = ((float)(RingIdx - 1) / (NumRings - 1)) * PI;
+				ZOffset = SphereOffset1;
+				SpherePos.Y = ScaledRadius1 * FMath::Sin(Angle);
+				SpherePos.Z = ScaledRadius1 * FMath::Cos(Angle);
+			}
+
+			ArcVert->Position = SpherePos + FVector(0, 0, ZOffset);
+
+			ArcVert->SetTangents(
+				FVector(1, 0, 0),
+				FVector(0.0f, -SpherePos.Z, SpherePos.Y),
+				SpherePos
+				);
+
+			ArcVert->TextureCoordinate[0].X = 0.0f;
+			ArcVert->TextureCoordinate[0].Y = ((float)RingIdx / NumRings);
+		}
+
+		// Then rotate this arc NumSides+1 times.
+		for (int32 SideIdx = 0; SideIdx < NumSides + 1; SideIdx++)
+		{
+			const FRotator ArcRotator(0, 360.f * ((float)SideIdx / NumSides), 0);
+			const FRotationMatrix ArcRot(ArcRotator);
+			const float XTexCoord = ((float)SideIdx / NumSides);
+
+			for (int32 VertIdx = 0; VertIdx < NumRings + 1; VertIdx++)
+			{
+				int32 VIx = (NumRings + 1)*SideIdx + VertIdx;
+
+				Verts[VIx].Position = ArcRot.TransformPosition(ArcVerts[VertIdx].Position);
+
+				Verts[VIx].SetTangents(
+					ArcRot.TransformVector(ArcVerts[VertIdx].TangentX),
+					ArcRot.TransformVector(ArcVerts[VertIdx].GetTangentY()),
+					ArcRot.TransformVector(ArcVerts[VertIdx].TangentZ)
+					);
+
+				Verts[VIx].TextureCoordinate[0].X = XTexCoord;
+				Verts[VIx].TextureCoordinate[0].Y = ArcVerts[VertIdx].TextureCoordinate[0].Y;
+			}
+		}
+
+	
+		{
+			// Add all of the vertices to the mesh.
+			for (int32 VertIdx = 0; VertIdx < NumVerts; VertIdx++)
+			{
+				MeshBuilder.AddVertex(Verts[VertIdx]);
+			}
+
+			// Add all of the triangles to the mesh.
+			for (int32 SideIdx = 0; SideIdx < NumSides; SideIdx++)
+			{
+				const int32 a0start = (SideIdx + 0) * (NumRings + 1);
+				const int32 a1start = (SideIdx + 1) * (NumRings + 1);
+
+				for (int32 RingIdx = 0; RingIdx < NumRings; RingIdx++)
+				{
+					MeshBuilder.AddTriangle(a0start + RingIdx + 0, a1start + RingIdx + 0, a0start + RingIdx + 1);
+					MeshBuilder.AddTriangle(a1start + RingIdx + 0, a1start + RingIdx + 1, a0start + RingIdx + 1);
+				}
+			}
+		}
+	}
+
+	~FScopedTaperedCapsuleBuilder()
+	{
+		FMemory::Free(Verts);
+		FMemory::Free(ArcVerts);
+	}
+
+	FDynamicMeshBuilder MeshBuilder;
+	FDynamicMeshVertex* Verts;
+	FDynamicMeshVertex* ArcVerts;
+};
+
+void FKTaperedCapsuleElem::GetElemSolid(const FTransform& ElemTM, const FVector& Scale3D, const FMaterialRenderProxy* MaterialRenderProxy, int32 ViewIndex, FMeshElementCollector& Collector) const
+{
+	FScopedTaperedCapsuleBuilder TaperedCapsuleBuilder(*this, Scale3D, Collector.GetFeatureLevel());
+	TaperedCapsuleBuilder.MeshBuilder.GetMesh(ElemTM.ToMatrixWithScale(), MaterialRenderProxy, SDPG_World, false, false, ViewIndex, Collector);
+}
+
+void FKTaperedCapsuleElem::DrawElemSolid(FPrimitiveDrawInterface* PDI, const FTransform& ElemTM, const FVector& Scale3D, const FMaterialRenderProxy* MaterialRenderProxy) const
+{
+	FScopedTaperedCapsuleBuilder TaperedCapsuleBuilder(*this, Scale3D, PDI->View->GetFeatureLevel());
+	TaperedCapsuleBuilder.MeshBuilder.Draw(PDI, ElemTM.ToMatrixWithScale(), MaterialRenderProxy, SDPG_World, 0.f);
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////
 // FKConvexElem
 /////////////////////////////////////////////////////////////////////////////////////
 
@@ -640,6 +893,18 @@ void FKAggregateGeom::GetAggGeom(const FTransform& Transform, const FColor Color
 				ConvexElems[i].DrawElemWire(Collector.GetPDI(ViewIndex), ElemTM, 1.f, ConvexColor);	//we pass in 1 for scale because the ElemTM already has the scale baked into it
 			}
 		}
+	}
+
+	for (int32 i = 0; i < TaperedCapsuleElems.Num(); i++)
+	{
+		FTransform ElemTM = TaperedCapsuleElems[i].GetTransform();
+		ElemTM.ScaleTranslation(Scale3D);
+		ElemTM *= ParentTM;
+
+		if (bDrawSolid)
+			TaperedCapsuleElems[i].GetElemSolid(ElemTM, Scale3D, MatInst, ViewIndex, Collector);
+		else
+			TaperedCapsuleElems[i].DrawElemWire(Collector.GetPDI(ViewIndex), ElemTM, Scale3D, Color);
 	}
 }
 

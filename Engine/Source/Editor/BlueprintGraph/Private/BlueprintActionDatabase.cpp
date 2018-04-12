@@ -693,6 +693,9 @@ static void BlueprintActionDatabaseImpl::AddClassPropertyActions(UClass const* c
 			ActionListOut.Add(SetterSpawner);
 		}
 	}
+
+	// Now check to see if we have any class-specific actions to add over and above the defaults
+	FBlueprintEditorUtils::OnGetClassPropertyActionsEvent.Broadcast(Class, ActionListOut);
 }
 
 //------------------------------------------------------------------------------

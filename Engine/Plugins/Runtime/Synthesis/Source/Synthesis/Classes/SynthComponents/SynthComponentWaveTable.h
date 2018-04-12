@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/SynthComponent.h"
 #include "DSP/SampleBufferReader.h"
-#include "DSP/SampleBuffer.h"
+#include "Sound/SampleBuffer.h"
 #include "Sound/SoundWave.h"
 #include "SynthComponentWaveTable.generated.h"
 
@@ -87,7 +87,7 @@ public:
 
 protected:
 	Audio::FSampleBufferReader SampleBufferReader;
-	Audio::FSampleBuffer SampleBuffer;
+	Audio::TSampleBuffer<int16> SampleBuffer;
 	Audio::FSoundWavePCMLoader SoundWaveLoader;
 
 	float SampleDurationSec;

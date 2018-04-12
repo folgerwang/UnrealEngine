@@ -805,6 +805,9 @@ protected:
 	void PasteNodes();
 	virtual bool CanPasteNodes() const override;
 
+	/** virtual function that gets called post paste to fix up any issue for the graph */
+	virtual void PostPasteNode(TSet<UEdGraphNode*>& PastedNodes) {};
+
 	void DuplicateNodes();
 	bool CanDuplicateNodes() const;
 
@@ -935,7 +938,7 @@ protected:
 	//~ End FNotifyHook Interface
 
 	/** Callback when properties have finished being handled */
-	void OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent);
+	virtual void OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent);
 
 	/** On starting to rename node */
 	void OnRenameNode();
@@ -954,6 +957,9 @@ protected:
 	virtual void	PostUndo(bool bSuccess) override;
 	virtual void	PostRedo(bool bSuccess) override;
 	// End of FEditorUndoClient
+
+	/** Setup all the events that the graph editor can handle */
+	virtual void SetupGraphEditorEvents(UEdGraph* InGraph, SGraphEditor::FGraphEditorEvents& InEvents);
 
 	/** Get the graph appearance of the currently focused graph */
 	FGraphAppearanceInfo GetCurrentGraphAppearance() const;

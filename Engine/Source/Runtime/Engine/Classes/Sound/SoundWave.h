@@ -342,9 +342,15 @@ public:
 	/**
 	* Overwrite sample rate. Used for procedural soundwaves, as well as sound waves that are resampled on compress/decompress.
 	*/
+
 	void SetSampleRate(uint32 InSampleRate)
 	{
 		SampleRate = InSampleRate;
+#if !WITH_EDITOR
+		// Ensure that we invalidate our cached sample rate if the UProperty sample rate is changed.
+		bCachedSampleRateFromPlatformSettings = false;
+		bSampleRateManuallyReset = true;
+#endif
 	}
 
 	/**
@@ -558,6 +564,9 @@ private:
 #if !WITH_EDITOR
 	// This is set to false on initialization, then set to true on non-editor platforms when we cache appropriate sample rate.
 	bool bCachedSampleRateFromPlatformSettings;
+
+	// This is set when SetSampleRate is called to invalidate our cached sample rate while not re-parsing project settings.
+	bool bSampleRateManuallyReset;
 
 	// This is the sample rate gotten from platform settings.
 	float CachedSampleRateOverride;

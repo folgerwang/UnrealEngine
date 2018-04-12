@@ -112,7 +112,7 @@ void SRetargetManager::Construct(const FArguments& InArgs, const TSharedRef<IEdi
 		.Padding(2, 5)
 		[
 			// construct rig manager window
-			SNew(SRigWindow, InEditableSkeleton, InOnPostUndo)
+			SNew(SRigWindow, InEditableSkeleton, InPreviewScene, InOnPostUndo)
 		]
 
 		+SVerticalBox::Slot()

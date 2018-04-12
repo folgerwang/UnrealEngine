@@ -2,7 +2,8 @@
 
 #include "AudioResampler.h"
 
-#define WITH_LIBSAMPLERATE (WITH_EDITOR && PLATFORM_WINDOWS)
+// Convenience macro for the case in which LibSampleRate needs to be built for limited platforms.
+#define WITH_LIBSAMPLERATE (WITH_EDITOR && !PLATFORM_LINUX)
 
 #if WITH_LIBSAMPLERATE
 #include "samplerate.h"

@@ -73,11 +73,11 @@ public:
 			];
 
 		// Create the widget used for the pin body (status indicator, label, and value)
-		TSharedRef<SWrapBox> LabelAndValue =
+		TSharedRef<SWrapBox> LocalLabelAndValue =
 			SNew(SWrapBox)
 			.PreferredWidth(150.f);
 
-		LabelAndValue->AddSlot()
+		LocalLabelAndValue->AddSlot()
 			.VAlign(VAlign_Center)
 			[
 				PinStatusIndicator
@@ -99,7 +99,7 @@ public:
 				.AutoWidth()
 				.VAlign(VAlign_Center)
 				[
-					LabelAndValue
+					LocalLabelAndValue
 				];
 		}
 		else
@@ -110,7 +110,7 @@ public:
 				.AutoWidth()
 				.VAlign(VAlign_Center)
 				[
-					LabelAndValue
+					LocalLabelAndValue
 				]
 			+ SHorizontalBox::Slot()
 				.AutoWidth()

@@ -7,6 +7,7 @@
 #include "EditorFramework/AssetImportData.h"
 #include "HAL/FileManager.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Toolkits/AssetEditorManager.h"
 
 #include "Interfaces/IMainFrameModule.h"
 
@@ -84,9 +85,9 @@ UObject* UAlembicImportFactory::FactoryCreateFile(UClass* InClass, UObject* InPa
 	if (bShowOption)
 	{
 		TSharedPtr<SAlembicImportOptions> Options;
-	ShowImportOptionsWindow(Options, UFactory::CurrentFilename, Importer);
-	// Set whether or not the user canceled
-	bOutOperationCanceled = !Options->ShouldImport();
+		ShowImportOptionsWindow(Options, UFactory::CurrentFilename, Importer);
+		// Set whether or not the user canceled
+		bOutOperationCanceled = !Options->ShouldImport();
 	}
 
 	// Set up message log page name to separate different assets
@@ -367,6 +368,7 @@ void UAlembicImportFactory::SetReimportPaths(UObject* Obj, const TArray<FString>
 EReimportResult::Type UAlembicImportFactory::Reimport(UObject* Obj)
 {
 	ImportSettings->bReimport = true;
+	const FString PageName = "Reimporting " + Obj->GetName() + ".abc";
 	if (Obj->GetClass() == UStaticMesh::StaticClass())
 	{
 		UStaticMesh* Mesh = Cast<UStaticMesh>(Obj);
@@ -377,7 +379,13 @@ EReimportResult::Type UAlembicImportFactory::Reimport(UObject* Obj)
 
 		CurrentFilename = Mesh->AssetImportData->GetFirstFilename();
 
-		return ReimportStaticMesh(Mesh);
+		// Close possible open editors using this asset	
+		FAssetEditorManager::Get().CloseAllEditorsForAsset(Mesh);
+		
+		EReimportResult::Type Result = ReimportStaticMesh(Mesh);
+		FAbcImportLogger::OutputMessages(PageName);
+
+		return Result;
 	}
 	else if (Obj->GetClass() == UGeometryCache::StaticClass())
 	{
@@ -400,6 +408,10 @@ EReimportResult::Type UAlembicImportFactory::Reimport(UObject* Obj)
 			GeometryCache->MarkPackageDirty();
 		}
 
+		// Close possible open editors using this asset	
+		FAssetEditorManager::Get().CloseAllEditorsForAsset(GeometryCache);
+
+		FAbcImportLogger::OutputMessages(PageName);
 		return Result;
 	}
 	else if (Obj->GetClass() == USkeletalMesh::StaticClass())
@@ -423,6 +435,10 @@ EReimportResult::Type UAlembicImportFactory::Reimport(UObject* Obj)
 			SkeletalMesh->MarkPackageDirty();
 		}
 
+		// Close possible open editors using this asset	
+		FAssetEditorManager::Get().CloseAllEditorsForAsset(SkeletalMesh);
+
+		FAbcImportLogger::OutputMessages(PageName);
 		return Result;
 	}
 	else if (Obj->GetClass() == UAnimSequence::StaticClass())
@@ -450,6 +466,9 @@ EReimportResult::Type UAlembicImportFactory::Reimport(UObject* Obj)
 			return EReimportResult::Failed;
 		}
 
+		// Close possible open editors using this asset	
+		FAssetEditorManager::Get().CloseAllEditorsForAsset(SkeletalMesh);
+
 		EReimportResult::Type Result = ReimportSkeletalMesh(SkeletalMesh);
 
 		if (SkeletalMesh->GetOuter())
@@ -461,6 +480,7 @@ EReimportResult::Type UAlembicImportFactory::Reimport(UObject* Obj)
 			SkeletalMesh->MarkPackageDirty();
 		}
 
+		FAbcImportLogger::OutputMessages(PageName);
 		return Result;
 	}
 
@@ -527,12 +547,12 @@ EReimportResult::Type UAlembicImportFactory::ReimportGeometryCache(UGeometryCach
 	if (bShowOption)
 	{
 		TSharedPtr<SAlembicImportOptions> Options;
-	ShowImportOptionsWindow(Options, CurrentFilename, Importer);
+		ShowImportOptionsWindow(Options, CurrentFilename, Importer);
 
-	if (!Options->ShouldImport())
-	{
-		return EReimportResult::Cancelled;
-	}
+		if (!Options->ShouldImport())
+		{
+			return EReimportResult::Cancelled;
+		}
 	}
 
 	int32 NumThreads = 1;
@@ -721,12 +741,12 @@ EReimportResult::Type UAlembicImportFactory::ReimportStaticMesh(UStaticMesh* Mes
 	if (bShowOption)
 	{
 		TSharedPtr<SAlembicImportOptions> Options;
-	ShowImportOptionsWindow(Options, CurrentFilename, Importer);
+		ShowImportOptionsWindow(Options, CurrentFilename, Importer);
 
-	if (!Options->ShouldImport())
-	{
-		return EReimportResult::Cancelled;
-	}
+		if (!Options->ShouldImport())
+		{
+			return EReimportResult::Cancelled;
+		}
 	}
 
 	int32 NumThreads = 1;

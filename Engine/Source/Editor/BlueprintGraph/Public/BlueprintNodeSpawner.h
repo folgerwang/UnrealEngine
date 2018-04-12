@@ -229,6 +229,11 @@ public:
 	 */
 	void ClearCachedTemplateNode() const;
 
+	/**
+	 * Determine if the node of this spawner's template's type should be filtered in the actions menu
+	 */
+	virtual bool IsTemplateNodeFilteredOut(FBlueprintActionFilter const& Filter) const;
+
 	// IBlueprintNodeBinder interface
 	virtual bool IsBindingCompatible(UObject const* BindingCandidate) const override { return false; }
 	virtual bool CanBindMultipleObjects() const override { return false; }

@@ -844,6 +844,22 @@ void UDebugSkelMeshComponent::RebuildCachedClothBounds()
 	CachedClothBounds = FBoxSphereBounds(ClothBBox);
 }
 
+void UDebugSkelMeshComponent::ShowReferencePose(bool bRefPose)
+{
+	if (bRefPose)
+	{
+		EnablePreview(true, nullptr);
+	}
+}
+
+bool UDebugSkelMeshComponent::IsReferencePoseShown() const
+{
+	return (IsPreviewOn() && PreviewInstance->GetCurrentAsset() == nullptr);
+}
+
+/***************************************************
+ * FDebugSkelMeshSceneProxy 
+ ***************************************************/
 FDebugSkelMeshSceneProxy::FDebugSkelMeshSceneProxy(const UDebugSkelMeshComponent* InComponent, FSkeletalMeshRenderData* InSkelMeshRenderData, const FColor& InWireframeOverlayColor /*= FColor::White*/) :
 	FSkeletalMeshSceneProxy(InComponent, InSkelMeshRenderData)
 {
@@ -1012,3 +1028,4 @@ FDebugSkelMeshDynamicData::FDebugSkelMeshDynamicData(UDebugSkelMeshComponent* In
 		}
 	}
 }
+

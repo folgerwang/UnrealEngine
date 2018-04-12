@@ -194,10 +194,31 @@ void UPhysicsAssetEditorSkeletalMeshComponent::RenderAssetTools(const FSceneView
 				PDI->SetHitProxy(NULL);
 			}
 
+			for (int32 j = 0; j <AggGeom->TaperedCapsuleElems.Num(); ++j)
+			{
+				PDI->SetHitProxy(new HPhysicsAssetEditorEdBoneProxy(i, EAggCollisionShape::TaperedCapsule, j));
+
+				FTransform ElemTM = GetPrimitiveTransform(BoneTM, i, EAggCollisionShape::TaperedCapsule, j, Scale);
+
+				if (CollisionViewMode == EPhysicsAssetEditorRenderMode::Solid)
+				{
+					UMaterialInterface*	PrimMaterial = GetPrimitiveMaterial(i, EAggCollisionShape::TaperedCapsule, j);
+					AggGeom->TaperedCapsuleElems[j].DrawElemSolid(PDI, ElemTM, VectorScale, PrimMaterial->GetRenderProxy(0));
+				}
+
+				if (CollisionViewMode == EPhysicsAssetEditorRenderMode::Solid || CollisionViewMode == EPhysicsAssetEditorRenderMode::Wireframe)
+				{
+					AggGeom->TaperedCapsuleElems[j].DrawElemWire(PDI, ElemTM, VectorScale, GetPrimitiveColor(i, EAggCollisionShape::TaperedCapsule, j));
+				}
+					
+				PDI->SetHitProxy(NULL);
+			}
+
 			if (SharedData->bShowCOM && Bodies.IsValidIndex(i))
 			{
 				Bodies[i]->DrawCOMPosition(PDI, COMRenderSize, SharedData->COMRenderColor);
 			}
+
 		}
 	}
 
@@ -328,6 +349,12 @@ FTransform UPhysicsAssetEditorSkeletalMeshComponent::GetPrimitiveTransform(FTran
 		PrimTM.ScaleTranslation(Scale3D);
 		return PrimTM * BoneTM;
 	}
+	else if (PrimType == EAggCollisionShape::TaperedCapsule)
+	{
+		FTransform PrimTM = ManTM * SharedBodySetup->AggGeom.TaperedCapsuleElems[PrimIndex].GetTransform();
+		PrimTM.ScaleTranslation(Scale3D);
+		return PrimTM * BoneTM;
+	}
 
 	// Should never reach here
 	check(0);
@@ -378,6 +405,10 @@ FColor UPhysicsAssetEditorSkeletalMeshComponent::GetPrimitiveColor(int32 BodyInd
 	{
 		return ElemSelectedBodyColor;
 	}
+	if(PrimitiveType == EAggCollisionShape::TaperedCapsule)
+	{
+		return NoCollisionColor;
+	}
 
 	if (SharedData->bRunningSimulation)
 	{
@@ -406,7 +437,7 @@ UMaterialInterface* UPhysicsAssetEditorSkeletalMeshComponent::GetPrimitiveMateri
 {
 	if (SharedData->bRunningSimulation)
 	{
-		return BoneUnselectedMaterial;
+		return PrimitiveType == EAggCollisionShape::TaperedCapsule ? BoneNoCollisionMaterial : BoneUnselectedMaterial;
 	}
 
 	FPhysicsAssetEditorSharedData::FSelection Body(BodyIndex, PrimitiveType, PrimitiveIndex);
@@ -417,6 +448,11 @@ UMaterialInterface* UPhysicsAssetEditorSkeletalMeshComponent::GetPrimitiveMateri
 		{
 			return ElemSelectedMaterial;
 		}
+	}
+
+	if(PrimitiveType == EAggCollisionShape::TaperedCapsule)
+	{
+		return BoneNoCollisionMaterial;
 	}
 
 	// If there is no collision with this body, use 'no collision material'.

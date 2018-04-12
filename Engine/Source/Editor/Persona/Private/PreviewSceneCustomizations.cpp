@@ -136,8 +136,10 @@ void FPreviewSceneDescriptionCustomization::CustomizeDetails(IDetailLayoutBuilde
 			const EPropertyLocation::Type PropertyLocation = bAdvancedDisplay ? EPropertyLocation::Advanced : EPropertyLocation::Common;
 
 			IDetailPropertyRow* NewRow = PersonaPreviewSceneDescription->PreviewControllerInstance->AddPreviewControllerPropertyToDetails(PersonaToolkit.Pin().ToSharedRef(), DetailBuilder, AnimCategory, TestProperty, PropertyLocation);
-			
-			NewRow->GetPropertyHandle()->SetOnPropertyValueChanged(PropertyChangedDelegate);
+			if (NewRow)
+			{
+				NewRow->GetPropertyHandle()->SetOnPropertyValueChanged(PropertyChangedDelegate);
+			}
 		}
 	}
 
@@ -156,9 +158,13 @@ void FPreviewSceneDescriptionCustomization::CustomizeDetails(IDetailLayoutBuilde
 		{
 			PreviewMeshName = FText::Format(LOCTEXT("PreviewMeshPhysicsAsset", "{0}\n(Physics Asset)"), SkeletalMeshProperty->GetPropertyDisplayName());
 		}
-		else
+		else if(PersonaToolkit.Pin()->GetContext() == USkeleton::StaticClass()->GetFName())
 		{
 			PreviewMeshName = FText::Format(LOCTEXT("PreviewMeshSkeleton", "{0}\n(Skeleton)"), SkeletalMeshProperty->GetPropertyDisplayName());
+		}
+		else
+		{
+			PreviewMeshName = SkeletalMeshProperty->GetPropertyDisplayName();
 		}
 
 		DetailBuilder.EditCategory("Mesh")
@@ -185,7 +191,7 @@ void FPreviewSceneDescriptionCustomization::CustomizeDetails(IDetailLayoutBuilde
 					USkeletalMesh* SkeletalMesh = PinnedPersonaToolkit->GetPreviewMesh();
 					if(SkeletalMesh == nullptr)
 					{
-						SkeletalMesh = EditableSkeleton.Pin()->GetSkeleton().GetPreviewMesh();
+						SkeletalMesh = EditableSkeleton.IsValid() ? EditableSkeleton.Pin()->GetSkeleton().GetPreviewMesh() : nullptr;
 					}
 					return (SkeletalMesh != PinnedPersonaToolkit->GetPreviewScene()->GetPreviewMesh()) ? EVisibility::Visible : EVisibility::Collapsed;
 				})
@@ -215,7 +221,7 @@ void FPreviewSceneDescriptionCustomization::CustomizeDetails(IDetailLayoutBuilde
 	}
 
 	// set the skeleton to use in our factory as we shouldn't be picking one here
-	FactoryToUse->CurrentSkeleton = MakeWeakObjectPtr(const_cast<USkeleton*>(&EditableSkeleton.Pin()->GetSkeleton()));
+	FactoryToUse->CurrentSkeleton = EditableSkeleton.IsValid() ? MakeWeakObjectPtr(const_cast<USkeleton*>(&EditableSkeleton.Pin()->GetSkeleton())) : nullptr;
 	TArray<UFactory*> FactoriesToUse({ FactoryToUse });
 
 	FAssetData AdditionalMeshesAsset;
@@ -361,7 +367,7 @@ bool FPreviewSceneDescriptionCustomization::HandleShouldFilterAsset(const FAsset
 	}
 
 	FString SkeletonTag = InAssetData.GetTagValueRef<FString>("Skeleton");
-	if (SkeletonTag == SkeletonName)
+	if (SkeletonName.IsEmpty() || SkeletonTag == SkeletonName)
 	{
 		return false;
 	}

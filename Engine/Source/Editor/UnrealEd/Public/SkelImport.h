@@ -232,6 +232,7 @@ struct ExistingSkelMeshData
 	USkeleton*								ExistingSkeleton;
 	TArray<FTransform>						ExistingRetargetBasePose;
 	USkeletalMeshLODSettings*				ExistingLODSettings;
+	TSubclassOf<UAnimInstance>				ExistingPostProcessAnimBlueprint;
 
 	bool									bExistingUseFullPrecisionUVs;
 

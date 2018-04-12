@@ -548,6 +548,8 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh, 
 		ExistingMeshDataPtr->ExistingShadowPhysicsAsset = ExistingSkelMesh->ShadowPhysicsAsset;
 
 		ExistingMeshDataPtr->ExistingSkeleton = ExistingSkelMesh->Skeleton;
+		// since copying back original skeleton, this shoudl be safe to do
+		ExistingMeshDataPtr->ExistingPostProcessAnimBlueprint = ExistingSkelMesh->PostProcessAnimBlueprint;
 
 		ExistingMeshDataPtr->ExistingLODSettings = ExistingSkelMesh->LODSettings;
 
@@ -902,7 +904,8 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 		SkeletalMesh->ShadowPhysicsAsset = MeshData->ExistingShadowPhysicsAsset;
 
 		SkeletalMesh->Skeleton = MeshData->ExistingSkeleton;
-
+		SkeletalMesh->PostProcessAnimBlueprint = MeshData->ExistingPostProcessAnimBlueprint;
+		
 		// Copy mirror table.
 		SkeletalMesh->ImportMirrorTable(MeshData->ExistingMirrorTable);
 

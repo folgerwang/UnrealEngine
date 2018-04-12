@@ -16,7 +16,7 @@ class UEdGraph;
  * instantiating a bunch of graphs/blueprints per UBlueprintNodeSpawner, we'd 
  * rather have a small centralized set here.
  */
-class FBlueprintNodeTemplateCache : public FGCObject
+class BLUEPRINTGRAPH_API FBlueprintNodeTemplateCache : public FGCObject
 {
 public:
 	/** */

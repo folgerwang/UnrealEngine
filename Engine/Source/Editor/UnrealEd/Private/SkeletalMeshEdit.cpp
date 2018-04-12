@@ -1204,9 +1204,12 @@ bool UnFbx::FFbxImporter::ImportAnimation(USkeleton* Skeleton, UAnimSequence * D
 		// The sequence already existed when we began the import. We need to scale the key times for all curves to match the new 
 		// duration before importing over them. This is to catch any user-added curves
 		float ScaleFactor = DestSeq->SequenceLength / PreviousSequenceLength;
-		for(FFloatCurve& Curve : DestSeq->RawCurveData.FloatCurves)
+		if (!FMath::IsNearlyEqual(ScaleFactor, 1.f))
 		{
-			Curve.FloatCurve.ScaleCurve(0.0f, ScaleFactor);
+			for (FFloatCurve& Curve : DestSeq->RawCurveData.FloatCurves)
+			{
+				Curve.FloatCurve.ScaleCurve(0.0f, ScaleFactor);
+			}
 		}
 	}
 

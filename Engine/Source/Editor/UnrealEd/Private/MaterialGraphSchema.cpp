@@ -304,7 +304,7 @@ bool UMaterialGraphSchema::ConnectionCausesLoop(const UEdGraphPin* InputPin, con
 	return false;
 }
 
-bool UMaterialGraphSchema::ArePinsCompatible(const UEdGraphPin* InputPin, const UEdGraphPin* OutputPin, FText& ResponseMessage) const
+bool UMaterialGraphSchema::ArePinsCompatible_Internal(const UEdGraphPin* InputPin, const UEdGraphPin* OutputPin, FText& ResponseMessage) const
 {
 	uint32 InputType = GetMaterialValueType(InputPin);
 	uint32 OutputType = GetMaterialValueType(OutputPin);
@@ -523,7 +523,7 @@ const FPinConnectionResponse UMaterialGraphSchema::CanCreateConnection(const UEd
 	}
 
 	// Check for incompatible pins and get description if they cannot connect
-	if (!ArePinsCompatible(InputPin, OutputPin, ResponseMessage) && bPreventInvalidConnections)
+	if (!ArePinsCompatible_Internal(InputPin, OutputPin, ResponseMessage) && bPreventInvalidConnections)
 	{
 		return FPinConnectionResponse(CONNECT_RESPONSE_DISALLOW, ResponseMessage);
 	}

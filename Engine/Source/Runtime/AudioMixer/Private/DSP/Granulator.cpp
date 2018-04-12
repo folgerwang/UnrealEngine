@@ -459,7 +459,7 @@ namespace Audio
 		}
 	}
 
-	void FGranularSynth::LoadSampleBuffer(const FSampleBuffer& InSampleBuffer)
+	void FGranularSynth::LoadSampleBuffer(const TSampleBuffer<int16>& InSampleBuffer)
 	{
 		SampleBuffer = InSampleBuffer;
 	}

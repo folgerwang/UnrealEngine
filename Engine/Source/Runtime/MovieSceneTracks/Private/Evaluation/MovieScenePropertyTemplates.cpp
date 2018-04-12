@@ -234,3 +234,33 @@ void FMovieSceneTransformPropertySectionTemplate::Evaluate(const FMovieSceneEval
 	// Add the blendable to the accumulator
 	ExecutionTokens.BlendToken(ActuatorTypeID, TBlendableToken<FTransform>(TransformValue, TemplateData.BlendType, Weight));
 }
+
+
+//	----------------------------------------------------------------------------
+//	Euler transform Property Template
+FMovieSceneEulerTransformPropertySectionTemplate::FMovieSceneEulerTransformPropertySectionTemplate(const UMovieScene3DTransformSection& Section, const UMovieScenePropertyTrack& Track)
+	: FMovieScenePropertySectionTemplate(Track.GetPropertyName(), Track.GetPropertyPath())
+	, TemplateData(Section)
+{}
+
+void FMovieSceneEulerTransformPropertySectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
+{
+	MovieScene::TMultiChannelValue<float, 9> TransformValue = TemplateData.Evaluate(Context.GetTime());
+
+	// Actuator type ID for this property
+	FMovieSceneBlendingActuatorID ActuatorTypeID = EnsureActuator<FEulerTransform>(ExecutionTokens.GetBlendingAccumulator());
+
+	// Add the blendable to the accumulator
+	float Weight = EvaluateEasing(Context.GetTime());
+	if (EnumHasAllFlags(TemplateData.Mask.GetChannels(), EMovieSceneTransformChannel::Weight))
+	{
+		float ChannelWeight = 0.f;
+		if (TemplateData.ManualWeight.Evaluate(Context.GetTime(), ChannelWeight))
+		{
+			Weight *= ChannelWeight;
+		}
+	}
+
+	// Add the blendable to the accumulator
+	ExecutionTokens.BlendToken(ActuatorTypeID, TBlendableToken<FEulerTransform>(TransformValue, TemplateData.BlendType, Weight));
+}

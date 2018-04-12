@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "DSP/Dsp.h"
-#include "DSP/SampleBuffer.h"
+#include "Sound/SampleBuffer.h"
 
 namespace Audio
 {

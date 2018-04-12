@@ -2959,8 +2959,13 @@ private:
 class FScriptArrayHelper_InContainer : public FScriptArrayHelper
 {
 public:
-	FORCEINLINE FScriptArrayHelper_InContainer(const UArrayProperty* InProperty, const void* InArray, int32 FixedArrayIndex=0)
-		:FScriptArrayHelper(InProperty, InProperty->ContainerPtrToValuePtr<void>(InArray, FixedArrayIndex))
+	FORCEINLINE FScriptArrayHelper_InContainer(const UArrayProperty* InProperty, const void* InContainer, int32 FixedArrayIndex=0)
+		:FScriptArrayHelper(InProperty, InProperty->ContainerPtrToValuePtr<void>(InContainer, FixedArrayIndex))
+	{
+	}
+
+	FORCEINLINE FScriptArrayHelper_InContainer(const UArrayProperty* InProperty, const UObject* InContainer, int32 FixedArrayIndex=0)
+		:FScriptArrayHelper(InProperty, InProperty->ContainerPtrToValuePtr<void>(InContainer, FixedArrayIndex))
 	{
 	}
 };

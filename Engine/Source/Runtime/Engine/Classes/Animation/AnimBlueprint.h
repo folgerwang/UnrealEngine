@@ -6,6 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "Misc/Guid.h"
 #include "Engine/Blueprint.h"
+#include "Interfaces/Interface_PreviewMeshProvider.h"
 #include "AnimBlueprint.generated.h"
 
 class SWidget;
@@ -60,7 +61,7 @@ struct FAnimParentNodeAssetOverride
  * for a Skeletal Mesh each frame.
  */
 UCLASS(BlueprintType)
-class ENGINE_API UAnimBlueprint : public UBlueprint
+class ENGINE_API UAnimBlueprint : public UBlueprint, public IInterface_PreviewMeshProvider
 {
 	GENERATED_UCLASS_BODY()
 
@@ -147,22 +148,16 @@ class ENGINE_API UAnimBlueprint : public UBlueprint
 
 	virtual void Serialize(FArchive& Ar) override;
 
-	/** Set the preview mesh for this animation blueprint */
-	void SetPreviewMesh(USkeletalMesh* PreviewMesh);
-
-	/** 
-	 * Get the preview mesh for this animation blueprint 
-	 * Note: loads the mesh if it is not already loaded, or nulls it out if the skeleton has changed since.
-	 */
-	USkeletalMesh* GetPreviewMesh();
-
-	/** Get the preview mesh for this animation blueprint */
-	USkeletalMesh* GetPreviewMesh() const;
-
 protected:
 	// Broadcast when an override is changed, allowing derived blueprints to be updated
 	FOnOverrideChangedMulticaster OnOverrideChanged;
 #endif	// #if WITH_EDITOR
+
+public:
+	/** IInterface_PreviewMeshProvider interface */
+	virtual void SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty = true) override;
+	virtual USkeletalMesh* GetPreviewMesh(bool bFindIfNotSet = false) override;
+	virtual USkeletalMesh* GetPreviewMesh() const override;
 
 #if WITH_EDITORONLY_DATA
 public:
@@ -180,4 +175,8 @@ private:
 	UPROPERTY(duplicatetransient, AssetRegistrySearchable)
 	TSoftObjectPtr<class USkeletalMesh> PreviewSkeletalMesh;
 #endif
+
+#if WITH_EDITOR
+	virtual void LoadModulesRequiredForCompilation() override;
+#endif //WITH_EDITOR
 };

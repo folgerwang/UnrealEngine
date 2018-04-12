@@ -15,6 +15,8 @@
 #ifdef PLATFORM_WINDOWS
 	#if PLATFORM_WINDOWS
 	#define SRC_EXPORT __declspec(dllexport)
+	#else
+	#define SRC_EXPORT
 	#endif
 #else
 	#define SRC_EXPORT

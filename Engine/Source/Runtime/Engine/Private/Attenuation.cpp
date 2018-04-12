@@ -72,46 +72,53 @@ float FBaseAttenuationSettings::AttenuationEval(const float Distance, const floa
 	// which could be 1.0 (and not 0.0f).
 
 	const float FalloffCopy = FMath::Max(Falloff, 1.0f);
-	const float DistanceCopy = FMath::Clamp(Distance, 0.0f, FalloffCopy) * DistanceScale;
+	const float DistanceCopy = FMath::Max(Distance * DistanceScale, 1.0f);
 
 	float Result = 0.0f;
 	switch(DistanceAlgorithm)
 	{
-	case EAttenuationDistanceModel::Linear:
+		case EAttenuationDistanceModel::Linear:
 
-		Result = (1.0f - (DistanceCopy / FalloffCopy));
+			Result = (1.0f - (DistanceCopy / FalloffCopy));
+			break;
+
+		case EAttenuationDistanceModel::Logarithmic:
+			Result = 0.5f * - FMath::Loge(DistanceCopy / FalloffCopy);
+			break;
+
+		case EAttenuationDistanceModel::Inverse:
+
+			Result = 0.02f / (DistanceCopy / FalloffCopy);
+			break;
+
+		case EAttenuationDistanceModel::LogReverse:
+		{
+			if (DistanceCopy > FalloffCopy)
+			{
+				Result = 0.0f;
+			}
+			else
+			{
+				Result = 1.0f + 0.5f * FMath::Loge(1.0f - (DistanceCopy / FalloffCopy));
+			}
+		}
 		break;
 
-	case EAttenuationDistanceModel::Logarithmic:
+		case EAttenuationDistanceModel::NaturalSound:
+		{
+			check(dBAttenuationAtMax <= 0.0f);
+			Result = FMath::Pow(10.0f, ((DistanceCopy / FalloffCopy) * dBAttenuationAtMax) / 20.0f);
+			break;
+		}
 
-		Result = 0.5f * - FMath::Loge(DistanceCopy / FalloffCopy);
-		break;
+		case EAttenuationDistanceModel::Custom:
 
-	case EAttenuationDistanceModel::Inverse:
+			Result = CustomAttenuationCurve.GetRichCurveConst()->Eval(DistanceCopy / FalloffCopy);
+			break;
 
-		Result = 0.02f / (DistanceCopy / FalloffCopy);
-		break;
-
-	case EAttenuationDistanceModel::LogReverse:
-
-		Result = 1.0f + 0.5f * FMath::Loge(1.0f - (DistanceCopy / FalloffCopy));
-		break;
-
-	case EAttenuationDistanceModel::NaturalSound:
-	{
-		check( dBAttenuationAtMax <= 0.0f );
-		Result = FMath::Pow(10.0f, ((DistanceCopy / FalloffCopy) * dBAttenuationAtMax) / 20.0f);
-		break;
-	}
-
-	case EAttenuationDistanceModel::Custom:
-
-		Result = CustomAttenuationCurve.GetRichCurveConst()->Eval(DistanceCopy / FalloffCopy);
-		break;
-
-	default:
-		checkf(false, TEXT("Uknown attenuation distance algorithm!"))
-		break;
+		default:
+			checkf(false, TEXT("Uknown attenuation distance algorithm!"))
+				break;
 	}
 
 	// Make sure the output is clamped between 0.0 and 1.0f. Some of the algorithms above can
