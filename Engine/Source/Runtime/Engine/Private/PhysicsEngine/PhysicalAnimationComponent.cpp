@@ -6,6 +6,7 @@
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysXPublic.h"
 
+
 const FConstraintProfileProperties UPhysicalAnimationComponent::PhysicalAnimationProfile = []()
 {
 	//Setup the default constraint profile for all joints created by physical animation system
@@ -232,10 +233,17 @@ FTransform ComputeLocalSpaceTargetTM(const USkeletalMeshComponent& SkeletalMeshC
 
 		if (SkeletalMeshComponent.Bodies.IsValidIndex(BodyIndex))
 		{
-
-			FBodyInstance* ParentBody = SkeletalMeshComponent.Bodies[BodyIndex];
-			const FTransform NewWorldTM = AccumulatedDelta * ParentBody->GetUnrealWorldTransform_AssumesLocked();
-			return NewWorldTM;
+			if (BodyIndex < SkeletalMeshComponent.Bodies.Num())
+			{
+				FBodyInstance* ParentBody = SkeletalMeshComponent.Bodies[BodyIndex];
+				const FTransform NewWorldTM = AccumulatedDelta * ParentBody->GetUnrealWorldTransform_AssumesLocked();
+				return NewWorldTM;
+			}
+			else
+			{
+				// Bodies array has changed on us?
+				break;
+			}
 		}
 
 		AccumulatedDelta = AccumulatedDelta * SkeletalMeshComponent.BoneSpaceTransforms[CurBoneIdx];

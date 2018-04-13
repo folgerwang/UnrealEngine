@@ -1810,7 +1810,7 @@ public:
 	* @param FloorResult			Result of the floor check
 	*/
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement", meta=(DisplayName="FindFloor", ScriptName="FindFloor"))
-	void K2_FindFloor(FVector CapsuleLocation, FFindFloorResult& FloorResult) const;
+	virtual void K2_FindFloor(FVector CapsuleLocation, FFindFloorResult& FloorResult) const;
 
 	/**
 	 * Compute distance to the floor from bottom sphere of capsule and store the result in OutFloorResult.
@@ -1839,7 +1839,7 @@ public:
 	* @param FloorResult			Result of the floor check
 	*/
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement", meta=(DisplayName="ComputeFloorDistance", ScriptName="ComputeFloorDistance"))
-	void K2_ComputeFloorDist(FVector CapsuleLocation, float LineDistance, float SweepDistance, float SweepRadius, FFindFloorResult& FloorResult) const;
+	virtual void K2_ComputeFloorDist(FVector CapsuleLocation, float LineDistance, float SweepDistance, float SweepRadius, FFindFloorResult& FloorResult) const;
 
 	/**
 	 * Sweep against the world and return the first blocking hit.

@@ -65,6 +65,8 @@ public:
 	virtual void GetHapticFrequencyRange(float& MinFrequency, float& MaxFrequency) const override;
 	virtual float GetHapticAmplitudeScale() const override;
 
+	uint32 GetNumberOfTouchControllers() const;
+
 private:
 
 	/** Applies force feedback settings to the controller */

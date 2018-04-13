@@ -838,6 +838,18 @@ float FOculusInput::GetHapticAmplitudeScale() const
 	return 1.f;
 }
 
+uint32 FOculusInput::GetNumberOfTouchControllers() const
+{
+	uint32 RetVal = 0;
+
+	for (FOculusTouchControllerPair Pair : ControllerPairs)
+	{
+		RetVal += (Pair.ControllerStates[0].bIsConnected ? 1 : 0);
+		RetVal += (Pair.ControllerStates[1].bIsConnected ? 1 : 0);
+	}
+
+	return RetVal;
+}
 
 } // namespace OculusInput
 

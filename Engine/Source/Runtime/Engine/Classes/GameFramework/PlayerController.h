@@ -1060,6 +1060,14 @@ public:
 	void SetHapticsByValue(const float Frequency, const float Amplitude, EControllerHand Hand);
 	
 	/**
+	 * Allows the player controller to disable all haptic requests from being fired, e.g. in the case of a level loading
+	 *
+	 * @param	bNewDisabled	If TRUE, the haptics will stop and prevented from being enabled again until set to FALSE
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game|Feedback")
+	virtual void SetDisableHaptics(bool bNewDisabled);
+
+	/**
 	 * Sets the light color of the player's controller
 	 * @param	Color					The color for the light to be
 	 */
@@ -1824,4 +1832,9 @@ public:
 	 * Designate this player controller as local (public for GameModeBase to use, not expected to be called anywhere else)
 	 */
 	void SetAsLocalPlayerController() { bIsLocalPlayerController = true; }
+
+private:
+	/** If true, prevent any haptic effects from playing */
+	bool bDisableHaptics : 1;
+
 };

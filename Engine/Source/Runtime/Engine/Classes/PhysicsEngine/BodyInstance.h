@@ -338,6 +338,18 @@ public:
 	*/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Physics)
 	uint8 bUseAsyncScene : 1;
+
+
+	/** 
+	 * @HACK:
+	 * These are ONLY used when the 'p.EnableDynamicPerBodyFilterHacks' CVar is set (disabled by default).
+	 * Some games need to dynamically modify collision per skeletal body. These provide game code a way to 
+	 * do that, until we're able to refactor how skeletal bodies work.
+	 */
+	uint32 bHACK_DisableCollisionResponse : 1;
+	/* By default, an owning skel mesh component will override the body's collision filter. This will disable that behavior. */
+	uint32 bHACK_DisableSkelComponentFilterOverriding : 1;
+
 protected:
 
 	/** Whether this body instance has its own custom MaxDepenetrationVelocity*/

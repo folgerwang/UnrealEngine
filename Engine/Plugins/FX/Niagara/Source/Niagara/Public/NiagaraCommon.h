@@ -317,19 +317,23 @@ struct FVMExternalFunctionBindingInfo
 struct NIAGARA_API FNiagaraSystemUpdateContext
 {
 	FNiagaraSystemUpdateContext(const UNiagaraSystem* System, bool bReInit) { Add(System, bReInit); }
+#if WITH_EDITORONLY_DATA
 	FNiagaraSystemUpdateContext(const UNiagaraEmitter* Emitter, bool bReInit) { Add(Emitter, bReInit); }
 	FNiagaraSystemUpdateContext(const UNiagaraScript* Script, bool bReInit) { Add(Script, bReInit); }
 	//FNiagaraSystemUpdateContext(UNiagaraDataInterface* Interface, bool bReinit) : Add(Interface, bReinit) {}
 	FNiagaraSystemUpdateContext(const UNiagaraParameterCollection* Collection, bool bReInit) { Add(Collection, bReInit); }
+#endif
 	FNiagaraSystemUpdateContext() { }
 
 	~FNiagaraSystemUpdateContext();
 
 	void Add(const UNiagaraSystem* System, bool bReInit);
+#if WITH_EDITORONLY_DATA
 	void Add(const UNiagaraEmitter* Emitter, bool bReInit);
 	void Add(const UNiagaraScript* Script, bool bReInit);
 	//void Add(UNiagaraDataInterface* Interface, bool bReinit);
 	void Add(const UNiagaraParameterCollection* Collection, bool bReInit);
+#endif
 
 	/** Adds all currently active systems.*/
 	void AddAll(bool bReInit);

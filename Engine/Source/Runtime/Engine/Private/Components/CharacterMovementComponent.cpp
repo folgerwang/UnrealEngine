@@ -5948,7 +5948,12 @@ void UCharacterMovementComponent::FindFloor(const FVector& CapsuleLocation, FFin
 
 void UCharacterMovementComponent::K2_FindFloor(FVector CapsuleLocation, FFindFloorResult& FloorResult) const
 {
+	const bool SavedForceNextFloorCheck(bForceNextFloorCheck);
 	FindFloor(CapsuleLocation, FloorResult, false);
+	
+	// FindFloor clears this, but this is only a test not done during normal movement.
+	UCharacterMovementComponent* MutableThis = const_cast<UCharacterMovementComponent*>(this);
+	MutableThis->bForceNextFloorCheck = SavedForceNextFloorCheck;
 }
 
 void UCharacterMovementComponent::K2_ComputeFloorDist(FVector CapsuleLocation, float LineDistance, float SweepDistance, float SweepRadius, FFindFloorResult& FloorResult) const

@@ -1470,7 +1470,8 @@ public:
 	int32 FindRootBodyIndex() const;
 
 
-	/** Terminate physics on all bodies below the named bone */
+	/** Terminate physics on all bodies below the named bone, effectively disabling collision forever. If you terminate, you won't be able to re-init later. */
+	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
 	void TermBodiesBelow(FName ParentBoneName);
 
 	/** Find instance of the constraint that matches the name supplied. */

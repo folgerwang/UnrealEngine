@@ -676,7 +676,7 @@ private:
 **/
 FORCEINLINE bool PhysSingleThreadedMode()
 {
-	if (IsRunningDedicatedServer() || FPlatformMisc::NumberOfCores() < 3 || !FPlatformProcess::SupportsMultithreading())
+	if (IsRunningDedicatedServer() || FPlatformMisc::NumberOfCores() < 3 || !FPlatformProcess::SupportsMultithreading() || FParse::Param(FCommandLine::Get(), TEXT("SingleThreadedPhysics")))
 	{
 		return true;
 	}
