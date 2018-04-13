@@ -142,6 +142,8 @@ namespace SteamAudio
 
 	private:
 		static void* PhononDllHandle;
+		static void* TANDllHandle;
+		static void* TANUtilsDllHandle;
 
 		TArray<FAudioDevice*> RegisteredAudioDevices;
 

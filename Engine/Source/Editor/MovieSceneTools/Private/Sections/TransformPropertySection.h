@@ -10,7 +10,7 @@ class ISequencer;
 class UMovieSceneSection;
 
 /**
- * An implementation of vector property sections.
+ * An implementation of transform property sections.
  */
 class FTransformSection : public FSequencerSection
 {

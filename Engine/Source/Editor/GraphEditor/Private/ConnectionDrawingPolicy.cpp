@@ -435,6 +435,13 @@ void FConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& 
 {
 	PinGeometries = &InPinGeometries;
 
+	BuildPinToPinWidgetMap(InPinGeometries);
+
+	DrawPinGeometries(InPinGeometries, ArrangedNodes);
+}
+
+void FConnectionDrawingPolicy::BuildPinToPinWidgetMap(TMap<TSharedRef<SWidget>, FArrangedWidget>& InPinGeometries)
+{
 	PinToPinWidgetMap.Empty();
 	for (TMap<TSharedRef<SWidget>, FArrangedWidget>::TIterator ConnectorIt(InPinGeometries); ConnectorIt; ++ConnectorIt)
 	{
@@ -443,7 +450,10 @@ void FConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& 
 
 		PinToPinWidgetMap.Add(PinWidget.GetPinObj(), StaticCastSharedRef<SGraphPin>(SomePinWidget));
 	}
+}
 
+void FConnectionDrawingPolicy::DrawPinGeometries(TMap<TSharedRef<SWidget>, FArrangedWidget>& InPinGeometries, FArrangedChildren& ArrangedNodes)
+{
 	for (TMap<TSharedRef<SWidget>, FArrangedWidget>::TIterator ConnectorIt(InPinGeometries); ConnectorIt; ++ConnectorIt)
 	{
 		TSharedRef<SWidget> SomePinWidget = ConnectorIt.Key();

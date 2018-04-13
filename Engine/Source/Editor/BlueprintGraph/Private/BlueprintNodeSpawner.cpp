@@ -292,6 +292,16 @@ void UBlueprintNodeSpawner::ClearCachedTemplateNode() const
 	}
 }
 
+bool UBlueprintNodeSpawner::IsTemplateNodeFilteredOut(FBlueprintActionFilter const& Filter) const
+{
+	bool bIsFilteredOut = false;
+	if(UK2Node* NodeTemplate = Cast<UK2Node>(GetTemplateNode()))
+	{
+		bIsFilteredOut = NodeTemplate->IsActionFilteredOut(Filter);
+	}
+	return bIsFilteredOut;
+}
+
 //------------------------------------------------------------------------------
 UEdGraphNode* UBlueprintNodeSpawner::SpawnEdGraphNode(TSubclassOf<UEdGraphNode> InNodeClass, UEdGraph* ParentGraph, FBindingSet const& Bindings, FVector2D const Location, FCustomizeNodeDelegate PostSpawnDelegate) const
 {

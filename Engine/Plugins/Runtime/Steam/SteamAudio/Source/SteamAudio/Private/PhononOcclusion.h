@@ -12,6 +12,8 @@ class UOcclusionPluginSourceSettingsBase;
 
 namespace SteamAudio
 {
+	class FEnvironment;
+
 	struct FDirectSoundSource
 	{
 		FDirectSoundSource();
@@ -54,27 +56,15 @@ namespace SteamAudio
 		void UpdateDirectSoundSources(const FVector& ListenerPosition, const FVector& ListenerForward, const FVector& ListenerUp);
 
 		// Sets up handle to the environment handle owned by the FPhononPluginManager.
-		void SetEnvironment(IPLhandle Environment);
-
-		// Sets up handle to the environmental handle owned by the FPhononPluginManager.
-		void SetEnvironmentalRenderer(IPLhandle EnvironmentalRenderer);
-
-		// Sets up the handle to the Critical Section owned by the FPhononPluginManager.
-		void SetCriticalSectionHandle(FCriticalSection* CriticalSectionHandle);
+		void SetEnvironment(FEnvironment* InEnvironment);
 
 	private:
-		//Critical section. Scope locked so that environment is not modified by the Plugin Manager during audio processing.
-		FCriticalSection* EnvironmentCriticalSectionHandle;
-		
-		//Handle to FPhononPluginManager's Environmental Renderer.
-		IPLhandle EnvironmentalRenderer;
-		IPLhandle Environment;
-
-		//Cached Audio Formats:
 		IPLAudioFormat InputAudioFormat;
 		IPLAudioFormat OutputAudioFormat;
 
-		//Cached array of direct sound sources to be occluded.
+		FEnvironment* Environment;
+
+		// Cached array of direct sound sources to be occluded.
 		TArray<FDirectSoundSource> DirectSoundSources;
 	};
 }

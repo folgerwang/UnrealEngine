@@ -988,7 +988,10 @@ bool EnableDeveloperWarnings()
 		PyObject* PySimpleFilterFunc = PyDict_GetItemString(PyWarningsDict, "simplefilter");
 		if (PySimpleFilterFunc)
 		{
-			FPyObjectPtr PySimpleFilterResult = FPyObjectPtr::StealReference(PyObject_CallFunction(PySimpleFilterFunc, "s", "default"));
+			char Arg1[] = "s";
+			char Arg2[] = "default";
+
+			FPyObjectPtr PySimpleFilterResult = FPyObjectPtr::StealReference(PyObject_CallFunction(PySimpleFilterFunc, Arg1, Arg2));
 			if (PySimpleFilterResult)
 			{
 				return true;

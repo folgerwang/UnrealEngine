@@ -103,7 +103,7 @@ void UGranularSynth::TickComponent(float DeltaTime, enum ELevelTick TickType, FA
 {
 	if (SoundWaveLoader.Update())
 	{
-		Audio::FSampleBuffer SampleBuffer;
+		Audio::TSampleBuffer<int16> SampleBuffer;
 		SoundWaveLoader.GetSampleBuffer(SampleBuffer);
 
 		SynthCommand([this, SampleBuffer]()

@@ -173,8 +173,21 @@ void UAnimBlueprint::Serialize(FArchive& Ar)
 	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
 }
 
-USkeletalMesh* UAnimBlueprint::GetPreviewMesh()
+bool UAnimBlueprint::CanRecompileWhilePlayingInEditor() const
 {
+	return GetDefault<UEditorExperimentalSettings>()->bEnableLiveRecompilationOfAnimationBlueprints;
+}
+
+void UAnimBlueprint::LoadModulesRequiredForCompilation()
+{
+	static const FName ModuleName(TEXT("AnimationBlueprintEditor"));
+	FModuleManager::Get().LoadModule(ModuleName);
+}
+#endif
+
+USkeletalMesh* UAnimBlueprint::GetPreviewMesh(bool bFindIfNotSet/*=false*/)
+{
+#if WITH_EDITORONLY_DATA
 	USkeletalMesh* PreviewMesh = PreviewSkeletalMesh.LoadSynchronous();
 	// if somehow skeleton changes, just nullify it. 
 	if (PreviewMesh && PreviewMesh->Skeleton != TargetSkeleton)
@@ -184,22 +197,27 @@ USkeletalMesh* UAnimBlueprint::GetPreviewMesh()
 	}
 
 	return PreviewMesh;
+#else
+	return nullptr;
+#endif
 }
 
 USkeletalMesh* UAnimBlueprint::GetPreviewMesh() const
 {
+#if WITH_EDITORONLY_DATA
 	return PreviewSkeletalMesh.Get();
-}
-
-void UAnimBlueprint::SetPreviewMesh(USkeletalMesh* PreviewMesh)
-{
-	Modify();
-	PreviewSkeletalMesh = PreviewMesh;
-}
-
-bool UAnimBlueprint::CanRecompileWhilePlayingInEditor() const
-{
-	return GetDefault<UEditorExperimentalSettings>()->bEnableLiveRecompilationOfAnimationBlueprints;
-}
-
+#else
+	return nullptr;
 #endif
+}
+
+void UAnimBlueprint::SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty/*=true*/)
+{
+#if WITH_EDITORONLY_DATA
+	if(bMarkAsDirty)
+	{
+		Modify();
+	}
+	PreviewSkeletalMesh = PreviewMesh;
+#endif
+}

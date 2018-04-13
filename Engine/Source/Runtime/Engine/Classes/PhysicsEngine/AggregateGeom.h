@@ -8,6 +8,7 @@
 #include "PhysicsEngine/BoxElem.h"
 #include "PhysicsEngine/SphereElem.h"
 #include "PhysicsEngine/SphylElem.h"
+#include "PhysicsEngine/TaperedCapsuleElem.h"
 #include "AggregateGeom.generated.h"
 
 class FMaterialRenderProxy;
@@ -29,6 +30,9 @@ struct ENGINE_API FKAggregateGeom
 
 	UPROPERTY(VisibleAnywhere, editfixedsize, Category = "Aggregate Geometry", meta = (DisplayName = "Convex Elements"))
 	TArray<FKConvexElem> ConvexElems;
+
+	UPROPERTY(EditAnywhere, editfixedsize, Category = "Aggregate Geometry", meta = (DisplayName = "Tapered Capsules"))
+	TArray<FKTaperedCapsuleElem> TaperedCapsuleElems;
 
 	class FKConvexGeomRenderInfo* RenderInfo;
 
@@ -52,7 +56,7 @@ struct ENGINE_API FKAggregateGeom
 
 	int32 GetElementCount() const
 	{
-		return SphereElems.Num() + SphylElems.Num() + BoxElems.Num() + ConvexElems.Num();
+		return SphereElems.Num() + SphylElems.Num() + BoxElems.Num() + ConvexElems.Num() + TaperedCapsuleElems.Num();
 	}
 
 	int32 GetElementCount(EAggCollisionShape::Type Type) const;
@@ -63,6 +67,7 @@ struct ENGINE_API FKAggregateGeom
 		ConvexElems.Empty();
 		SphylElems.Empty();
 		SphereElems.Empty();
+		TaperedCapsuleElems.Empty();
 
 		FreeRenderInfo();
 	}
@@ -99,5 +104,6 @@ private:
 		BoxElems = Other.BoxElems;
 		SphylElems = Other.SphylElems;
 		ConvexElems = Other.ConvexElems;
+		TaperedCapsuleElems = Other.TaperedCapsuleElems;
 	}
 };

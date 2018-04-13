@@ -173,9 +173,9 @@ void FTransformConstraintDescription::AccumulateConstraintTransform(const FTrans
 	{
 		if (DoesAffectTranslation())
 		{
-			FVector4 Translation = TargetLocalTransform.GetTranslation();
+			FVector Translation = TargetLocalTransform.GetTranslation();
 			AxesFilterOption.FilterVector(Translation);
-			BlendHelperInLocalSpace.AddTranslation(FVector(Translation.X, Translation.Y, Translation.Z), Weight);
+			BlendHelperInLocalSpace.AddTranslation(Translation, Weight);
 		}
 
 		if (DoesAffectRotation())
@@ -187,9 +187,9 @@ void FTransformConstraintDescription::AccumulateConstraintTransform(const FTrans
 
 		if (DoesAffectScale())
 		{
-			FVector4 Scale = TargetLocalTransform.GetScale3D();
+			FVector Scale = TargetLocalTransform.GetScale3D();
 			AxesFilterOption.FilterVector(Scale);
-			BlendHelperInLocalSpace.AddScale(FVector(Scale.X, Scale.Y, Scale.Z), Weight);
+			BlendHelperInLocalSpace.AddScale(Scale, Weight);
 		}
 	}
 }
@@ -197,12 +197,18 @@ void FTransformConstraintDescription::AccumulateConstraintTransform(const FTrans
 void FAimConstraintDescription::AccumulateConstraintTransform(const FTransform& TargetTransform, const FTransform& CurrentTransform, const FTransform& CurrentParentTransform, float Weight, FMultiTransformBlendHelper& BlendHelperInLocalSpace) const
 {
 	// need current transform - I need global transform of Target, I think incoming is local space
-	FQuat DeltaRotation = AnimationCore::SolveAim(CurrentTransform, TargetTransform.GetLocation(), LookAt_Axis.GetTransformedAxis(CurrentTransform), bUseLookUp, LookAt_Axis.GetTransformedAxis(CurrentTransform));
-
 	FTransform NewTransform = CurrentTransform;
-	NewTransform.SetRotation(DeltaRotation * CurrentTransform.GetRotation());
 
-	FTransform LocalTransform = NewTransform.GetRelativeTransform(TargetTransform);
+	if (bUseLookUp)
+	{
+		FQuat DeltaRotation = AnimationCore::SolveAim(NewTransform, LookUpTarget, LookUp_Axis.GetTransformedAxis(NewTransform), false, FVector::ZeroVector);
+		NewTransform.SetRotation(DeltaRotation * NewTransform.GetRotation());
+	}
+
+	FQuat DeltaRotation = AnimationCore::SolveAim(NewTransform, TargetTransform.GetLocation(), LookAt_Axis.GetTransformedAxis(NewTransform), false, FVector::ZeroVector);
+	NewTransform.SetRotation(DeltaRotation * NewTransform.GetRotation());
+
+	FTransform LocalTransform = NewTransform.GetRelativeTransform(CurrentParentTransform);
 	FQuat LocalRotation = LocalTransform.GetRotation();
 	AxesFilterOption.FilterQuat(LocalRotation);
 	BlendHelperInLocalSpace.AddRotation(LocalRotation, Weight);

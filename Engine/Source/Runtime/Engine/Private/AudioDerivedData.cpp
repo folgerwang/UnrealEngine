@@ -1074,7 +1074,12 @@ static void CookSurroundWave( USoundWave* SoundWave, FName FormatName, const IAu
 
 			FSoundQualityInfo QualityInfo = { 0 };
 
-			float ModifiedCompressionQuality = (float)SoundWave->CompressionQuality * CompressionOverrides->CompressionQualityModifier;
+			float CompressionQualityModifier = 1.0f;
+			if (CompressionOverrides)
+			{
+				CompressionQualityModifier = CompressionOverrides->CompressionQualityModifier;
+			}
+			float ModifiedCompressionQuality = (float)SoundWave->CompressionQuality * CompressionQualityModifier;
 			if (ModifiedCompressionQuality >= 1.0f)
 			{
 				QualityInfo.Quality = FMath::FloorToInt(ModifiedCompressionQuality);

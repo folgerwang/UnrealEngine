@@ -5,7 +5,7 @@
 
 void UPersonaPreviewSceneRefPoseController::InitializeView(UPersonaPreviewSceneDescription* SceneDescription, IPersonaPreviewScene* PreviewScene) const
 {
-	PreviewScene->ShowReferencePose(bResetBoneTransforms);
+	PreviewScene->ShowReferencePose(true, bResetBoneTransforms);
 }
 
 void UPersonaPreviewSceneRefPoseController::UninitializeView(UPersonaPreviewSceneDescription* SceneDescription, IPersonaPreviewScene* PreviewScene) const

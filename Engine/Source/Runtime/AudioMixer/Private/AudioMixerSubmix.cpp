@@ -21,6 +21,8 @@ namespace Audio
 		, NumSamples(0)
 		, SubmixAmbisonicsEncoderID(INDEX_NONE)
 		, SubmixAmbisonicsDecoderID(INDEX_NONE)
+		, bIsRecording(false)
+		, OwningSubmixObject(nullptr)
 	{
 	}
 
@@ -36,12 +38,21 @@ namespace Audio
 		{
 			TearDownAmbisonicsDecoder();
 		}
+
+		if (bIsRecording && OwningSubmixObject)
+		{
+			FString InterruptedFileName = TEXT("InterruptedRecording.wav");
+			UE_LOG(LogAudioMixer, Warning, TEXT("Recording of Submix %s was interrupted. Saving interrupted recording as %s."), *(OwningSubmixObject->GetName()), *InterruptedFileName);
+			OwningSubmixObject->StopRecordingOutput(MixerDevice, EAudioRecordingExportType::WavFile, InterruptedFileName, FString());
+		}
 	}
 
 	void FMixerSubmix::Init(USoundSubmix* InSoundSubmix)
 	{
 		if (InSoundSubmix != nullptr)
 		{
+			OwningSubmixObject = InSoundSubmix;
+
 			// Loop through the submix's presets and make new instances of effects in the same order as the presets
 			ClearSoundEffectSubmixes();
 
@@ -605,6 +616,17 @@ namespace Audio
 
 				FMemory::Memcpy((void*)BufferPtr, (void*)ScratchBuffer.GetData(), sizeof(float)*NumSamples);
 			}
+
+		}
+
+		// If we are recording, Add out buffer to the RecordingData buffer:
+		{
+			FScopeLock ScopedLock(&RecordingCriticalSection);
+			if (bIsRecording)
+			{
+				// TODO: Consider a scope lock between here and OnStopRecordingOutput.
+				RecordingData.Append((float*)BufferPtr, NumSamples);
+			}
 		}
 
 		// If the channel types match, just do a copy
@@ -615,6 +637,17 @@ namespace Audio
 		else
 		{
 			FMemory::Memcpy((void*)OutAudioBuffer.GetData(), (void*)InputBuffer.GetData(), sizeof(float)*NumSamples);
+		}
+
+		// Now loop through any buffer listeners and feed the listeners the result of this audio callback
+		{
+			double AudioClock = MixerDevice->GetAudioTime();
+			float SampleRate = MixerDevice->GetSampleRate();
+			FScopeLock Lock(&BufferListenerCriticalSection);
+			for (ISubmixBufferListener* BufferListener : BufferListeners)
+			{
+				BufferListener->OnNewSubmixBuffer(OwningSubmixObject, OutAudioBuffer.GetData(), OutAudioBuffer.Num(), NumChannels, SampleRate, AudioClock);
+			}
 		}
 	}
 
@@ -664,6 +697,34 @@ namespace Audio
 
 		UpdateAmbisonicsEncoderForChildren();
 		UpdateAmbisonicsDecoderForParent();
+	}
+
+	void FMixerSubmix::OnStartRecordingOutput(float ExpectedDuration)
+	{
+		RecordingData.Reset();
+		RecordingData.Reserve(ExpectedDuration * GetSampleRate());
+		bIsRecording = true;
+	}
+
+	AlignedFloatBuffer& FMixerSubmix::OnStopRecordingOutput(float& OutNumChannels, float& OutSampleRate)
+	{
+		FScopeLock ScopedLock(&RecordingCriticalSection);
+		bIsRecording = false;
+		OutNumChannels = NumChannels;
+		OutSampleRate = GetSampleRate();
+		return RecordingData;
+	}
+
+	void FMixerSubmix::RegisterBufferListener(ISubmixBufferListener* BufferListener)
+	{
+		FScopeLock Lock(&BufferListenerCriticalSection);
+		BufferListeners.AddUnique(BufferListener);
+	}
+
+	void FMixerSubmix::UnregisterBufferListener(ISubmixBufferListener* BufferListener)
+	{
+		FScopeLock Lock(&BufferListenerCriticalSection);
+		BufferListeners.Remove(BufferListener);
 	}
 
 }

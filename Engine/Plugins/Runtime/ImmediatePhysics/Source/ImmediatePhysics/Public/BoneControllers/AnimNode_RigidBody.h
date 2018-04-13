@@ -23,8 +23,8 @@ enum class ESimulationSpace
 	ComponentSpace,
 	/** Simulate in world space. Moving the skeletal mesh will generate velocity changes */
 	WorldSpace,
-	/** Simulate in root bone space. Moving the entire skeletal mesh and individually modifying the root bone will have no affect on velocities */
-	RootBoneSpace
+	/** Simulate in another bone space. Moving the entire skeletal mesh and individually modifying the base bone will have no affect on velocities */
+	BaseBoneSpace,
 };
 
 /**
@@ -77,7 +77,11 @@ struct IMMEDIATEPHYSICS_API FAnimNode_RigidBody : public FAnimNode_SkeletalContr
 	/** What space to simulate the bodies in. This affects how velocities are generated */
 	UPROPERTY(EditAnywhere, Category = Settings)
 	ESimulationSpace SimulationSpace;
-	
+
+	/** Matters if SimulationSpace is BaseBone */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	FBoneReference BaseBoneRef;
+
 	UPROPERTY(EditAnywhere, Category = Settings, meta = (InlineEditConditionToggle))
 	bool bOverrideWorldGravity;
 
@@ -105,7 +109,6 @@ struct IMMEDIATEPHYSICS_API FAnimNode_RigidBody : public FAnimNode_SkeletalContr
 	bool bFreezeIncomingPoseOnStart;
 
 	void PostSerialize(const FArchive& Ar);
-
 private:
 
 	UPROPERTY()
@@ -119,7 +122,7 @@ private:
 	void UpdateWorldGeometry(const UWorld& World, const USkeletalMeshComponent& SKC);
 	void UpdateWorldForces(const FTransform& ComponentToWorld, const FTransform& RootBoneTM);
 
-	void InitializeNewBodyTransformsDuringSimulation(FComponentSpacePoseContext& Output, const FTransform& ComponentTransform, const FTransform& RootBoneTM);
+	void InitializeNewBodyTransformsDuringSimulation(FComponentSpacePoseContext& Output, const FTransform& ComponentTransform, const FTransform& BaseBoneTM);
 
 private:
 
@@ -151,8 +154,6 @@ private:
 		bool bBodyTransformInitialized;
 		FTransform TransferedBoneVelocity;
 	};
-	
-	FBoneReference RootBoneRef;
 
 	TArray<FOutputBoneData> OutputBoneData;
 	TArray<ImmediatePhysics::FActorHandle*> Bodies;

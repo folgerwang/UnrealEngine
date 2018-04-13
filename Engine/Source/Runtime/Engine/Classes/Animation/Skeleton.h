@@ -16,7 +16,7 @@
 #include "Animation/SmartName.h"
 #include "Engine/AssetUserData.h"
 #include "Interfaces/Interface_AssetUserData.h"
-
+#include "Interfaces/Interface_PreviewMeshProvider.h"
 #include "Skeleton.generated.h"
 
 class UAnimSequence;
@@ -267,7 +267,7 @@ public:
  *		- Mirror table
  */
 UCLASS(hidecategories=Object, MinimalAPI)
-class USkeleton : public UObject, public IInterface_AssetUserData
+class USkeleton : public UObject, public IInterface_AssetUserData, public IInterface_PreviewMeshProvider
 {
 	friend class UAnimationBlueprintLibrary;
 
@@ -529,6 +529,11 @@ public:
 	/** Runtime built mapping table between SkeletalMeshes, and LinkupCache array indices. */
 	TMap<TWeakObjectPtr<USkeletalMesh>, int32> SkelMesh2LinkupCache;
 
+	/** IInterface_PreviewMeshProvider interface */
+	virtual USkeletalMesh* GetPreviewMesh(bool bFindIfNotSet = false) override;
+	virtual USkeletalMesh* GetPreviewMesh() const override;
+	virtual void SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty=true);
+
 #if WITH_EDITORONLY_DATA
 
 	// @todo document
@@ -537,16 +542,10 @@ public:
 	// @todo document
 	ENGINE_API void AddNewAnimationNotify(FName NewAnimNotifyName);
 
-	/** Returns the skeletons preview mesh, loading it if necessary */
-	ENGINE_API USkeletalMesh* GetPreviewMesh(bool bFindIfNotSet=false);
-	ENGINE_API USkeletalMesh* GetPreviewMesh() const;
 	ENGINE_API USkeletalMesh* GetAssetPreviewMesh(UObject* InAsset);
 
 	/** Find the first compatible mesh for this skeleton */
 	ENGINE_API USkeletalMesh* FindCompatibleMesh() const;
-
-	/** Returns the skeletons preview mesh, loading it if necessary */
-	ENGINE_API void SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty=true);
 
 	/** Load any additional meshes we may have */
 	ENGINE_API void LoadAdditionalPreviewSkeletalMeshes();

@@ -419,6 +419,23 @@ public:
 	virtual void OnDefaultDeviceChanged() = 0;
 };
 
+/** Abstract interface for receiving audio data from a given submix. */
+class ENGINE_API ISubmixBufferListener
+{
+public:
+	/* 
+	Called when a new buffer has been rendered for a given submix
+	@param OwningSubmix	The submix object which has renderered a new buffer
+	@param AudioData		Ptr to the audio buffer
+	@param NumSamples		The number of audio samples in the audio buffer
+	@param NumChannels		The number of channels of audio in the buffer (e.g. 2 for stereo, 6 for 5.1, etc)
+	@param SampleRate		The sample rate of the audio buffer
+	@param AudioClock		Double audio clock value, from start of audio rendering. 
+	*/
+	virtual void OnNewSubmixBuffer(const USoundSubmix* OwningSubmix, float* AudioData, int32 NumSamples, int32 NumChannels, const int32 SampleRate, double AudioClock) = 0;
+};
+
+
 class ENGINE_API FAudioDevice : public FExec
 {
 public:
@@ -796,6 +813,24 @@ public:
 	/** Unregisters the sound submix */
 	virtual void UnregisterSoundSubmix(USoundSubmix* SoundSubmix) {}
 
+	/** 
+	 * Registers the submix buffer listener with the given submix. 
+	 * A nullptr for SoundSubmix will register the listener with the master submix.
+	*/
+	virtual void RegisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* SoundSubmix = nullptr)
+	{
+		UE_LOG(LogAudio, Error, TEXT("Submix buffer listener only works with the audio mixer. Please run with audio mixer enabled."));
+	}
+
+	/** 
+	 * Unregisters the submix buffer listener with the given submix. 
+	 * A nullptr for SoundSubmix will unregister the listener with the master submix.
+	*/
+	virtual void UnregisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* SoundSubmix = nullptr)
+	{
+		UE_LOG(LogAudio, Error, TEXT("Submix buffer listener only works with the audio mixer. Please run with audio mixer enabled."));
+	}
+
 	virtual void InitSoundEffectPresets() {}
 
 	/**
@@ -1096,6 +1131,21 @@ public:
 
 	/** Returns the current source effect chain entries set dynamically from BP or elsewhere. */
 	virtual bool GetCurrentSourceEffectChain(const uint32 SourceEffectChainId, TArray<FSourceEffectChainEntry>& OutCurrentSourceEffectChainEntries) { return false; }
+
+	/** This is called by a USoundSubmix to start recording a submix instance on this device. */
+	virtual void StartRecording(USoundSubmix* InSubmix, float ExpectedRecordingDuration) 
+	{
+		UE_LOG(LogAudio, Fatal, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
+	}
+
+	/** This is called by a USoundSubmix when we stop recording a submix on this device. */
+	virtual Audio::AlignedFloatBuffer& StopRecording(USoundSubmix* InSubmix, float& OutNumChannels, float& OutSampleRate) 
+	{
+		UE_LOG(LogAudio, Fatal, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
+		
+		static Audio::AlignedFloatBuffer InvalidBuffer;
+		return InvalidBuffer;
+	}
 
 protected:
 	friend class FSoundSource;

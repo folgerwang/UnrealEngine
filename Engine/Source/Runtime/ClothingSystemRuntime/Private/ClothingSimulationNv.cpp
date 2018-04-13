@@ -299,6 +299,30 @@ void FClothingSimulationNv::ExtractActorCollisions(UClothingAsset* Asset, FCloth
 				InActor.ExtractedCollisions.SphereConnections.Add(Connection);
 				bAddedBodies = true;
 			}
+
+			for(const FKTaperedCapsuleElem& TaperedCapsule : BodySetup->AggGeom.TaperedCapsuleElems)
+			{
+				FClothCollisionPrim_Sphere Sphere0;
+				FClothCollisionPrim_Sphere Sphere1;
+				FVector OrientedDirection = TaperedCapsule.Rotation.RotateVector(FVector(0.0f, 0.0f, 1.0f));
+				FVector HalfDim = OrientedDirection * (TaperedCapsule.Length / 2.0f);
+				Sphere0.LocalPosition = TaperedCapsule.Center + HalfDim;
+				Sphere1.LocalPosition = TaperedCapsule.Center - HalfDim;
+				Sphere0.Radius = TaperedCapsule.Radius0;
+				Sphere1.Radius = TaperedCapsule.Radius1;
+				Sphere0.BoneIndex = MappedBoneIndex;
+				Sphere1.BoneIndex = MappedBoneIndex;
+
+				InActor.ExtractedCollisions.Spheres.Add(Sphere0);
+				InActor.ExtractedCollisions.Spheres.Add(Sphere1);
+
+				FClothCollisionPrim_SphereConnection Connection;
+				Connection.SphereIndices[0] = InActor.ExtractedCollisions.Spheres.Num() - 2;
+				Connection.SphereIndices[1] = InActor.ExtractedCollisions.Spheres.Num() - 1;
+
+				InActor.ExtractedCollisions.SphereConnections.Add(Connection);
+				bAddedBodies = true;
+			}
 		}
 
 		// Dirty the actor collisions if we've changed the bodies

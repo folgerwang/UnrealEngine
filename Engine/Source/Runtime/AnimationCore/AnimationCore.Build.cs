@@ -10,6 +10,7 @@ public class AnimationCore : ModuleRules
             new string[] {
                 "Core",
                 "CoreUObject",
+                "Engine",
             }
         );
     }

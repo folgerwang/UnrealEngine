@@ -27,7 +27,7 @@ public class IOSPlatformEditor : ModuleRules
 				"MaterialShaderQualitySettings",
 				"RenderCore",
                 "AudioSettingsEditor"
-            }
+			}
 		);
 
 		PrivateIncludePathModuleNames.AddRange(

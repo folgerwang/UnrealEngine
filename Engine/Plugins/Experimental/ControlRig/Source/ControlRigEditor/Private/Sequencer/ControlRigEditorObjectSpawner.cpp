@@ -14,6 +14,20 @@
 
 #define LOCTEXT_NAMESPACE "ControlRigEditorObjectSpawner"
 
+FControlRigEditorObjectSpawner::FControlRigEditorObjectSpawner()
+	: FControlRigObjectSpawner()
+{
+#if WITH_EDITOR
+	GEditor->OnObjectsReplaced().AddRaw(this, &FControlRigEditorObjectSpawner::OnObjectsReplaced);
+#endif
+}
+
+FControlRigEditorObjectSpawner::~FControlRigEditorObjectSpawner()
+{
+#if WITH_EDITOR
+	GEditor->OnObjectsReplaced().RemoveAll(this);
+#endif
+}
 TSharedRef<IMovieSceneObjectSpawner> FControlRigEditorObjectSpawner::CreateObjectSpawner()
 {
 	return MakeShareable(new FControlRigEditorObjectSpawner);
@@ -85,6 +99,26 @@ void FControlRigEditorObjectSpawner::SetupDefaultsForSpawnable(UObject* SpawnedO
 	}
 }
 
+void FControlRigEditorObjectSpawner::OnObjectsReplaced(const TMap<UObject*, UObject*>& OldToNewInstanceMap)
+{
+	if (ObjectHolderPtr.IsValid())
+	{
+		for (int32 Index = 0; Index < ObjectHolderPtr->Objects.Num(); ++Index)
+		{
+			const UObject* CurrentObject = ObjectHolderPtr->Objects[Index];
+			UObject* const* NewFound = OldToNewInstanceMap.Find(CurrentObject);
+
+			if (NewFound)
+			{
+				UControlRig* ControlRig = Cast<UControlRig>(*NewFound);
+				if (ControlRig)
+				{
+					ControlRig->PostReinstanceCallback(CastChecked<const UControlRig>(CurrentObject));
+				}
+			}
+		}
+	}
+}
 #endif	// #if WITH_EDITOR
 
 #undef LOCTEXT_NAMESPACE

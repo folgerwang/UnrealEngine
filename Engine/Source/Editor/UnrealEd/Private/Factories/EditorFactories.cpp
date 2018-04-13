@@ -6901,12 +6901,8 @@ bool UPreviewMeshCollectionFactory::ConfigureProperties()
 
 UObject* UPreviewMeshCollectionFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
-	UPreviewMeshCollection* NewCollection = nullptr;
-	if (CurrentSkeleton.IsValid())
-	{
-		NewCollection = NewObject<UPreviewMeshCollection>(InParent, Name, Flags);
-		NewCollection->Skeleton = CurrentSkeleton.Get();
-	}
+	UPreviewMeshCollection* NewCollection = NewObject<UPreviewMeshCollection>(InParent, Name, Flags);
+	NewCollection->Skeleton = CurrentSkeleton.Get();
 
 	return NewCollection;
 }

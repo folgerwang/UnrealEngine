@@ -11,7 +11,7 @@ public class Engine : ModuleRules
 
 		SharedPCHHeaderFile = "Public/EngineSharedPCH.h";
 
-		PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler", "NetworkReplayStreaming", "AudioMixer" });
+		PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler", "NetworkReplayStreaming", "AudioMixer", "AnimationCore" });
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -171,9 +171,7 @@ public class Engine : ModuleRules
 		// The AnimGraphRuntime module is not needed by Engine proper, but it is loaded in LaunchEngineLoop.cpp,
 		// and needs to be listed in an always-included module in order to be compiled into standalone games
 		DynamicallyLoadedModuleNames.Add("AnimGraphRuntime");
-		// So does Geometry Cache
-		DynamicallyLoadedModuleNames.Add("GeometryCache");
-
+        
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{
@@ -344,15 +342,15 @@ public class Engine : ModuleRules
 			DynamicallyLoadedModuleNames.Add("PhysXCooking");
 		}
 
-		// Engine public headers need to know about some types (enums etc.)
-		PublicIncludePathModuleNames.Add("ClothingSystemRuntimeInterface");
-		PublicDependencyModuleNames.Add("ClothingSystemRuntimeInterface");
+			// Engine public headers need to know about some types (enums etc.)
+			PublicIncludePathModuleNames.Add("ClothingSystemRuntimeInterface");
+			PublicDependencyModuleNames.Add("ClothingSystemRuntimeInterface");
 
-		if (Target.bBuildEditor)
-		{
-			PrivateDependencyModuleNames.Add("ClothingSystemEditorInterface");
-			PrivateIncludePathModuleNames.Add("ClothingSystemEditorInterface");
-		}
+			if (Target.bBuildEditor)
+			{
+				PrivateDependencyModuleNames.Add("ClothingSystemEditorInterface");
+				PrivateIncludePathModuleNames.Add("ClothingSystemEditorInterface");
+			}
 
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))

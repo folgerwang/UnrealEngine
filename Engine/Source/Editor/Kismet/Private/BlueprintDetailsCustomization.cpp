@@ -228,6 +228,8 @@ FBlueprintVarActionDetails::~FBlueprintVarActionDetails()
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void FBlueprintVarActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 {
+	DetailLayout.GetObjectsBeingCustomized(ObjectsBeingEdited);
+
 	CachedVariableProperty = SelectionAsProperty();
 
 	if(!CachedVariableProperty.IsValid())
@@ -1456,6 +1458,16 @@ void FBlueprintVarActionDetails::PopulateCategories(SMyBlueprint* MyBlueprint, T
 	}
 }
 
+UProperty* FBlueprintVarActionDetails::CustomizedObjectAsProperty() const
+{
+	if(ObjectsBeingEdited.Num() == 1)
+	{
+		return Cast<UProperty>(ObjectsBeingEdited[0].Get());
+	}
+
+	return nullptr;
+}
+
 UK2Node_Variable* FBlueprintVarActionDetails::EdGraphSelectionAsVar() const
 {
 	TWeakPtr<FBlueprintEditor> BlueprintEditor = MyBlueprint.Pin()->GetBlueprintEditor();
@@ -1496,6 +1508,11 @@ UProperty* FBlueprintVarActionDetails::SelectionAsProperty() const
 	{
 		return GraphVar->GetPropertyForVariable();
 	}
+	UProperty* Property = CustomizedObjectAsProperty();
+	if(Property)
+	{
+		return Property;
+	}
 	return NULL;
 }
 
@@ -1515,6 +1532,11 @@ FName FBlueprintVarActionDetails::GetVariableName() const
 	if(GraphVar)
 	{
 		return GraphVar->GetVarName();
+	}
+	UProperty* Property = CustomizedObjectAsProperty();
+	if(Property)
+	{
+		return Property->GetFName();
 	}
 	return NAME_None;
 }
@@ -5589,7 +5611,7 @@ void FBlueprintComponentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailLa
 			[
 				PropertyCustomizationHelpers::MakeBrowseButton(
 					FSimpleDelegate::CreateSP(this, &FBlueprintComponentDetails::OnBrowseSocket), 
-					LOCTEXT( "SocketBrowseButtonToolTipText", "Select a different Parent Socket - cannot change socket on inherited componentes"), 
+					LOCTEXT( "SocketBrowseButtonToolTipText", "Select a different Parent Socket - cannot change socket on inherited components"), 
 					TAttribute<bool>(this, &FBlueprintComponentDetails::CanChangeSocket)
 				)
 			]
@@ -5601,7 +5623,7 @@ void FBlueprintComponentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailLa
 			[
 				PropertyCustomizationHelpers::MakeClearButton(
 					FSimpleDelegate::CreateSP(this, &FBlueprintComponentDetails::OnClearSocket), 
-					LOCTEXT("SocketClearButtonToolTipText", "Clear the Parent Socket - cannot change socket on inherited componentes"), 
+					LOCTEXT("SocketClearButtonToolTipText", "Clear the Parent Socket - cannot change socket on inherited components"), 
 					TAttribute<bool>(this, &FBlueprintComponentDetails::CanChangeSocket)
 				)
 			]

@@ -23,6 +23,7 @@
 #include "SkeletalMeshSampling.h"
 #include "PerPlatformProperties.h"
 #include "SkeletalMeshLODSettings.h"
+#include "Animation/NodeMappingProviderInterface.h"
 
 #include "SkeletalMesh.generated.h"
 
@@ -368,7 +369,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnPostMeshCache, class USkeletalMesh*);
  * @see https://docs.unrealengine.com/latest/INT/Engine/Content/Types/SkeletalMeshes/
  */
 UCLASS(hidecategories=Object, BlueprintType)
-class ENGINE_API USkeletalMesh : public UObject, public IInterface_CollisionDataProvider, public IInterface_AssetUserData
+class ENGINE_API USkeletalMesh : public UObject, public IInterface_CollisionDataProvider, public IInterface_AssetUserData, public INodeMappingProviderInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -1019,6 +1020,8 @@ private:
 	/** Called to notify a change to the clothing object array */
 	FSimpleMulticastDelegate OnClothingChange;
 #endif // WITH_EDITOR
+	// INodeMappingProviderInterface
+	virtual void GetMappableNodeData(TArray<FName>& OutNames, TArray<FNodeItem>& OutTransforms) const override;
 
 public:
 	/*

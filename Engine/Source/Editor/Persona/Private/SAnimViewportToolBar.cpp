@@ -467,7 +467,14 @@ TSharedRef<SWidget> SAnimViewportToolBar::GenerateViewMenu() const
 							.SelectedBone(Viewport.Pin()->GetCameraFollowBoneName())
 							.OnGetReferenceSkeleton_Lambda([this]() -> const FReferenceSkeleton&
 							{
-								return Viewport.Pin()->GetPreviewScene()->GetPersonaToolkit()->GetEditableSkeleton()->GetSkeleton().GetReferenceSkeleton();
+								USkeletalMesh* PreviewMesh = Viewport.Pin()->GetPreviewScene()->GetPreviewMesh();
+								if (PreviewMesh)
+								{
+									return PreviewMesh->RefSkeleton;
+								}
+
+								static FReferenceSkeleton EmptySkeleton;
+								return EmptySkeleton;
 							})
 						],
 						FText(), 

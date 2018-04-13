@@ -71,6 +71,15 @@ enum class EIplSimulationType : uint8
 };
 
 UENUM(BlueprintType)
+enum class EIplConvolutionType : uint8
+{
+	// Default CPU convolution renderer.
+	PHONON			UMETA(DisplayName = "Phonon"),
+	// AMD TrueAudio Next GPU convolution renderer.
+	TRUEAUDIONEXT	UMETA(DisplayName = "AMD TrueAudio Next")
+};
+
+UENUM(BlueprintType)
 enum class EIplAudioEngine : uint8
 {
 	// Native Unreal audio engine.
@@ -92,7 +101,11 @@ namespace SteamAudio
 	extern TMap<EQualitySettings, FSimulationQualitySettings> RealtimeSimulationQualityPresets;
 	extern TMap<EQualitySettings, FSimulationQualitySettings> BakedSimulationQualityPresets;
 
-	extern const IPLContext STEAMAUDIO_API GlobalContext;
+	void* UnrealAlloc(const size_t size, const size_t alignment);
+	void UnrealFree(void* ptr);
+	void UnrealLog(char* msg);
+
+	extern IPLhandle STEAMAUDIO_API GlobalContext;
 
 	extern FString STEAMAUDIO_API BasePath;
 	extern FString STEAMAUDIO_API RuntimePath;

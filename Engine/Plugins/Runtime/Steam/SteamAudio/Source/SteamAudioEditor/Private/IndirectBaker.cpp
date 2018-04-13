@@ -9,6 +9,8 @@
 #include "PhononScene.h"
 #include "SteamAudioSettings.h"
 #include "SteamAudioEditorModule.h"
+#include "PhononReverb.h"
+#include "SteamAudioEnvironment.h"
 
 #include "LevelEditor.h"
 #include "LevelEditorActions.h"
@@ -136,7 +138,11 @@ namespace SteamAudio
 					IPLhandle ProbeBox = nullptr;
 					PhononProbeVolume->LoadProbeBoxFromDisk(&ProbeBox);
 
-					iplDeleteBakedDataByName(ProbeBox, (IPLstring)"__reverb__");
+					IPLBakedDataIdentifier ReverbIdentifier;
+					ReverbIdentifier.identifier = 0;
+					ReverbIdentifier.type = IPL_BAKEDDATATYPE_REVERB;
+
+					iplDeleteBakedDataByIdentifier(ProbeBox, ReverbIdentifier);
 					iplBakeReverb(PhononEnvironment, ProbeBox, BakingSettings, BakeProgressCallback);
 
 					if (!GIsBaking.load())
@@ -147,7 +153,7 @@ namespace SteamAudio
 
 					FBakedDataInfo BakedDataInfo;
 					BakedDataInfo.Name = "__reverb__";
-					BakedDataInfo.Size = iplGetBakedDataSizeByName(ProbeBox, (IPLstring)"__reverb__");
+					BakedDataInfo.Size = iplGetBakedDataSizeByIdentifier(ProbeBox, ReverbIdentifier);
 
 					auto ExistingInfo = PhononProbeVolume->BakedDataInfo.FindByPredicate([=](const FBakedDataInfo& InfoItem)
 					{
@@ -184,6 +190,10 @@ namespace SteamAudio
 				++GCurrentBakeTask;
 			}
 
+			// IN PROGRESS
+			FIdentifierMap BakedIdentifierMap;
+			LoadBakedIdentifierMapFromDisk(World, BakedIdentifierMap);
+
 			for (auto PhononSourceComponent : PhononSourceComponents)
 			{
 				// Set the User ID on the audio component
@@ -196,8 +206,17 @@ namespace SteamAudio
 				else
 				{
 					AudioComponent->AudioComponentUserID = PhononSourceComponent->UniqueIdentifier;
+					FString SourceString = AudioComponent->GetAudioComponentUserID().ToString().ToLower();
+					if (!BakedIdentifierMap.ContainsKey(SourceString))
+					{
+						BakedIdentifierMap.Add(SourceString);
+					}
 
-					GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking", "Baking..."));
+					IPLBakedDataIdentifier SourceIdentifier;
+					SourceIdentifier.type = IPL_BAKEDDATATYPE_STATICSOURCE;
+					SourceIdentifier.identifier = BakedIdentifierMap.Get(SourceString);
+
+					GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking...", "Baking..."));
 					GNumProbeVolumes = PhononProbeVolumes.Num();
 					GCurrentProbeVolume = 1;
 
@@ -212,9 +231,8 @@ namespace SteamAudio
 						SourceInfluence.radius = PhononSourceComponent->BakingRadius * SteamAudio::SCALEFACTOR;
 						SourceInfluence.center = SteamAudio::UnrealToPhononIPLVector3(PhononSourceComponent->GetComponentLocation());
 
-						iplDeleteBakedDataByName(ProbeBox, TCHAR_TO_ANSI(*AudioComponent->GetAudioComponentUserID().ToString()));
-						iplBakePropagation(PhononEnvironment, ProbeBox, SourceInfluence, TCHAR_TO_ANSI(*AudioComponent->GetAudioComponentUserID().ToString().ToLower()),
-							BakingSettings, BakeProgressCallback);
+						iplDeleteBakedDataByIdentifier(ProbeBox, SourceIdentifier);
+						iplBakePropagation(PhononEnvironment, ProbeBox, SourceInfluence, SourceIdentifier, BakingSettings, BakeProgressCallback);
 
 						if (!GIsBaking.load())
 						{
@@ -224,7 +242,7 @@ namespace SteamAudio
 
 						FBakedDataInfo BakedDataInfo;
 						BakedDataInfo.Name = PhononSourceComponent->UniqueIdentifier;
-						BakedDataInfo.Size = iplGetBakedDataSizeByName(ProbeBox, TCHAR_TO_ANSI(*PhononSourceComponent->UniqueIdentifier.ToString().ToLower()));
+						BakedDataInfo.Size = iplGetBakedDataSizeByIdentifier(ProbeBox, SourceIdentifier);
 
 						auto ExistingInfo = PhononProbeVolume->BakedDataInfo.FindByPredicate([=](const FBakedDataInfo& InfoItem)
 						{
@@ -256,6 +274,8 @@ namespace SteamAudio
 					++GCurrentBakeTask;
 				}
 			}
+
+			SaveBakedIdentifierMapToDisk(World, BakedIdentifierMap);
 
 			iplDestroyEnvironment(&PhononEnvironment);
 			iplDestroyScene(&PhononScene);

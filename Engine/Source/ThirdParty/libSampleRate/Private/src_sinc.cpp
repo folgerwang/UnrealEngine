@@ -149,7 +149,7 @@ sinc_set_converter (SRC_PRIVATE *psrc, int src_enum)
 
 	if (psrc->private_data != NULL)
 	{	
-		free (psrc->private_data) ;
+		FMemory::Free(psrc->private_data) ;
 		psrc->private_data = NULL ;
 	} ;
 

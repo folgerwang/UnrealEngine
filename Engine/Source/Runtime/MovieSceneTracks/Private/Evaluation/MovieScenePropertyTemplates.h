@@ -13,6 +13,7 @@
 #include "Channels/MovieSceneByteChannel.h"
 #include "Channels/MovieSceneIntegerChannel.h"
 #include "Channels/MovieSceneFloatChannel.h"
+#include "EulerTransform.h"
 #include "MovieScenePropertyTemplates.generated.h"
 
 class UMovieSceneBoolSection;
@@ -173,6 +174,25 @@ struct FMovieSceneTransformPropertySectionTemplate : public FMovieScenePropertyS
 
 	FMovieSceneTransformPropertySectionTemplate(){}
 	FMovieSceneTransformPropertySectionTemplate(const UMovieScene3DTransformSection& Section, const UMovieScenePropertyTrack& Track);
+
+protected:
+
+	virtual UScriptStruct& GetScriptStructImpl() const override { return *StaticStruct(); }
+	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
+
+	UPROPERTY()
+	FMovieScene3DTransformTemplateData TemplateData;
+};
+
+Expose_TNameOf(FEulerTransform);
+
+USTRUCT()
+struct FMovieSceneEulerTransformPropertySectionTemplate : public FMovieScenePropertySectionTemplate
+{
+	GENERATED_BODY()
+
+	FMovieSceneEulerTransformPropertySectionTemplate(){}
+	FMovieSceneEulerTransformPropertySectionTemplate(const UMovieScene3DTransformSection& Section, const UMovieScenePropertyTrack& Track);
 
 protected:
 

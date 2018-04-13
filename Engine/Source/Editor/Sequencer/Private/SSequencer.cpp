@@ -68,6 +68,7 @@
 #include "SCurveEditorPanel.h"
 #include "MovieSceneTimeHelpers.h"
 #include "FrameNumberNumericInterface.h"
+#include "LevelSequence.h"
 
 #define LOCTEXT_NAMESPACE "Sequencer"
 
@@ -794,7 +795,7 @@ TSharedRef<SWidget> SSequencer::MakeToolBar()
 				ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().ToggleKeyAllEnabled, NAME_None, TAttribute<FText>(), TAttribute<FText>(), KeyAllIcon );
 			}
 
-			if (IVREditorModule::Get().IsVREditorModeActive())
+			if (IVREditorModule::Get().IsVREditorModeActive() || (SequencerPtr.Pin()->IsLevelEditorSequencer() && ExactCast<ULevelSequence>(SequencerPtr.Pin()->GetFocusedMovieSceneSequence()) == nullptr))
 			{
 				TAttribute<FSlateIcon> AutoChangeModeIcon;
 				AutoChangeModeIcon.Bind(TAttribute<FSlateIcon>::FGetter::CreateLambda( [&] {
@@ -1250,7 +1251,7 @@ TSharedRef<SWidget> SSequencer::MakeAutoChangeMenu()
 		MenuBuilder.AddMenuEntry(FSequencerCommands::Get().SetAutoTrack);
 	}
 
-	if (IVREditorModule::Get().IsVREditorModeActive())
+	if (IVREditorModule::Get().IsVREditorModeActive() || (SequencerPtr.Pin()->IsLevelEditorSequencer() && ExactCast<ULevelSequence>(SequencerPtr.Pin()->GetFocusedMovieSceneSequence()) == nullptr))
 	{
 		MenuBuilder.AddMenuEntry(FSequencerCommands::Get().SetAutoChangeAll);
 	}

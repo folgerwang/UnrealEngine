@@ -15,7 +15,6 @@
 #include "IPersonaPreviewScene.h"
 #include "EditorViewportClient.h"
 #include "AnimationEditorViewportClient.h"
-#include "ISkeletonTree.h"
 #include "AnimationEditorPreviewScene.h"
 #include "SEditorViewport.h"
 #include "PersonaModule.h"
@@ -26,24 +25,18 @@ class SAnimViewportToolBar;
 
 struct FAnimationEditorViewportRequiredArgs
 {
-	FAnimationEditorViewportRequiredArgs(const TSharedRef<class ISkeletonTree>& InSkeletonTree, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, TSharedRef<class SAnimationEditorViewportTabBody> InTabBody, TSharedRef<class FAssetEditorToolkit> InAssetEditorToolkit, FSimpleMulticastDelegate& InOnPostUndo, int32 InViewportIndex)
-		: SkeletonTree(InSkeletonTree)
-		, PreviewScene(InPreviewScene)
+	FAnimationEditorViewportRequiredArgs(const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, TSharedRef<class SAnimationEditorViewportTabBody> InTabBody, TSharedRef<class FAssetEditorToolkit> InAssetEditorToolkit, int32 InViewportIndex)
+		: PreviewScene(InPreviewScene)
 		, TabBody(InTabBody)
 		, AssetEditorToolkit(InAssetEditorToolkit)
-		, OnPostUndo(InOnPostUndo)
 		, ViewportIndex(InViewportIndex)
 	{}
-
-	TSharedRef<class ISkeletonTree> SkeletonTree;
 
 	TSharedRef<class IPersonaPreviewScene> PreviewScene;
 
 	TSharedRef<class SAnimationEditorViewportTabBody> TabBody;
 
 	TSharedRef<class FAssetEditorToolkit> AssetEditorToolkit;
-
-	FSimpleMulticastDelegate& OnPostUndo;
 
 	int32 ViewportIndex;
 };
@@ -60,7 +53,7 @@ enum class ESectionDisplayMode
 	NumSectionDisplayMode
 };
 
-class SAnimationEditorViewport : public SEditorViewport
+class SAnimationEditorViewport : public SEditorViewport, public FEditorUndoClient
 {
 public:
 	SLATE_BEGIN_ARGS(SAnimationEditorViewport) 
@@ -107,7 +100,8 @@ protected:
 	// End of SEditorViewport interface
 
 	/**  Handle undo/redo by refreshing the viewport */
-	void OnUndoRedo();
+	virtual void PostUndo( bool bSuccess );
+	virtual void PostRedo( bool bSuccess );
 
 	virtual void BindCommands() override;
 
@@ -120,9 +114,6 @@ protected:
 
 	// The preview scene that we are viewing
 	TWeakPtr<class IPersonaPreviewScene> PreviewScenePtr;
-
-	// The skeleton tree we are editing
-	TWeakPtr<class ISkeletonTree> SkeletonTreePtr;
 
 	// The asset editor we are embedded in
 	TWeakPtr<class FAssetEditorToolkit> AssetEditorToolkitPtr;
@@ -211,7 +202,7 @@ public:
 	SLATE_END_ARGS()
 public:
 
-	void Construct(const FArguments& InArgs, const TSharedRef<class ISkeletonTree>& InSkeletonTree, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class FAssetEditorToolkit>& InAssetEditorToolkit, FSimpleMulticastDelegate& InOnUndoRedo, int32 InViewportIndex);
+	void Construct(const FArguments& InArgs, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class FAssetEditorToolkit>& InAssetEditorToolkit, int32 InViewportIndex);
 	SAnimationEditorViewportTabBody();
 	virtual ~SAnimationEditorViewportTabBody();
 
@@ -286,13 +277,10 @@ public:
 	void OnSetLODModel(int32 LODSelectionType);
 	void OnLODModelChanged();
 
-	/** Get the skeleton tree we are bound to */
-	TSharedRef<class ISkeletonTree> GetSkeletonTree() const { return SkeletonTreePtr.Pin().ToSharedRef(); }
-
 	/** Get the preview scene we are viewing */
 	TSharedRef<class FAnimationEditorPreviewScene> GetPreviewScene() const { return PreviewScenePtr.Pin().ToSharedRef(); }
 
-	/** Get the skeleton tree we are bound to */
+	/** Get the asset editor toolkit we are embedded in */
 	TSharedPtr<class FAssetEditorToolkit> GetAssetEditorToolkit() const { return AssetEditorToolkitPtr.Pin(); }
 
 protected:
@@ -512,9 +500,6 @@ private:
 #endif // #if WITH_APEX_CLOTHING
 
 private:
-	/** Weak pointer back to the skeleton tree we are bound to */
-	TWeakPtr<class ISkeletonTree> SkeletonTreePtr;
-
 	/** Weak pointer back to the preview scene we are viewing */
 	TWeakPtr<class FAnimationEditorPreviewScene> PreviewScenePtr;
 

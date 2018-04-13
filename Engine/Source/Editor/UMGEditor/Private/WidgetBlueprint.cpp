@@ -30,6 +30,7 @@
 
 #if WITH_EDITOR
 #include "Interfaces/ITargetPlatform.h"
+#include "Modules/ModuleManager.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "UMG"
@@ -811,4 +812,11 @@ bool UWidgetBlueprint::WidgetSupportsDynamicCreation() const
 	}
 }
 
+#if WITH_EDITOR
+void UWidgetBlueprint::LoadModulesRequiredForCompilation()
+{
+	static const FName ModuleName(TEXT("UMGEditor"));
+	FModuleManager::Get().LoadModule(ModuleName);
+}
+#endif // WITH_EDITOR
 #undef LOCTEXT_NAMESPACE 

@@ -491,4 +491,22 @@ void URig::Serialize(FArchive& Ar)
 	}
 }
 
+void URig::GetMappableNodeData(TArray<FName>& OutNames, TArray<FNodeItem>& OutNodeItems) const
+{
+	const int32 NodeCount = Nodes.Num(); 
+	OutNames.Reset(NodeCount);
+	OutNodeItems.Reset(NodeCount);
+
+	if (NodeCount > 0)
+	{
+		OutNames.AddDefaulted(NodeCount);
+		OutNodeItems.AddDefaulted(NodeCount);
+
+		for (int32 Index = 0; Index < NodeCount; ++Index)
+		{
+			OutNames[Index] = Nodes[Index].Name;
+			OutNodeItems[Index] = FNodeItem(Nodes[Index].ParentName, Nodes[Index].Transform);
+		}
+	}
+}
 #undef LOCTEXT_NAMESPACE 

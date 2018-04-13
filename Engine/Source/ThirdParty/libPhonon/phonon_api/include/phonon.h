@@ -8,7 +8,9 @@
 
 #include <stddef.h>
 
-#if (defined(_WIN32) || defined(_WIN64))
+#if defined(SWIG)
+#define IPLAPI
+#elif (defined(_WIN32) || defined(_WIN64))
 #define IPLAPI __declspec(dllexport)
 #else
 #define IPLAPI __attribute__((visibility("default")))
@@ -97,14 +99,31 @@ extern "C" {
      */
     typedef IPLvoid     (*IPLFreeFunction)(IPLvoid*);
 
-    /** The Context object. Any of the data members may be \c NULL, in which case Phonon will use a built-in
-     *  default behavior.
+    /** Creates a Context object. A Context object must be created before creating any other API objects.
+     *
+     *  \param  logCallback         Callback for logging messages. Can be NULL.
+     *  \param  allocateCallback    Callback for allocating memory. Can be NULL.
+     *  \param  freeCallback        Callback for freeing memory. Can be NULL.
+     *  \param  context             [out] Handle to the created Context object.
+     *
+     *  \return Status code indicating whether or not the operation succeeded.
      */
-    typedef struct {
-        IPLLogFunction      logCallback;        /**< Callback for logging messages. */
-        IPLAllocateFunction allocateCallback;   /**< Callback for allocating memory. */
-        IPLFreeFunction     freeCallback;       /**< Callback for freeing memory. */
-    } IPLContext;
+    IPLAPI IPLerror iplCreateContext(IPLLogFunction logCallback,
+                                     IPLAllocateFunction allocateCallback,
+                                     IPLFreeFunction freeCallback,
+                                     IPLhandle* context);
+    
+    /** Destroys a Context object. If any other API objects are still referencing the Context object, it will not be
+     *  destroyed; destruction occurs when the Context object's reference count reaches zero.
+     *
+     *  \param  context             [in, out] Address of a handle to the Context object to destroy.
+     */
+    IPLAPI IPLvoid iplDestroyContext(IPLhandle* context);
+
+    /** Performs last-minute cleanup and finalization. This function must be the last API function to be called before
+     *  your application exits.
+     */
+    IPLAPI IPLvoid iplCleanup();
 
     /** \} */
 
@@ -203,19 +222,29 @@ extern "C" {
         IPL_COMPUTEDEVICE_ANY   /**< Use either a CPU or GPU device, whichever is listed first by the driver. */
     } IPLComputeDeviceType;
 
+    /** Specifies constraints on the type of OpenCL device to create. This information is intended to be passed to
+     *	\c iplCreateComputeDevice.
+     */
+    typedef struct {
+        IPLComputeDeviceType    type;                   /**< The type of device to use. */
+        IPLbool                 requiresTrueAudioNext;  /**< Whether the device must support AMD TrueAudio Next. */
+        IPLint32                minReservableCUs;       /**< The minimum number of CUs that should be possible to
+                                                             reserve on the device, for TrueAudio Next. */
+        IPLint32                maxCUsToReserve;        /**< The maximum number of CUs that the application needs to
+                                                             reserve on the device, for TrueAudio Next. */
+    } IPLComputeDeviceFilter;
+
     /** Creates a Compute Device object. The same Compute Device must be used by the game engine and audio engine
      *  parts of the Phonon integration. Depending on the OpenCL driver and device, this function may take some
      *  time to execute, so do not call it from performance-sensitive code.
      *
      *  \param  context         The Context object used by the game engine.
-     *  \param  deviceType      The type of device to use.
-     *  \param  numComputeUnits Reserved for future use.
+     *	\param	deviceFilter    Constraints on the type of device to create.
      *  \param  device          [out] Handle to the created Compute Device object.
      *
      *  \return Status code indicating whether or not the operation succeeded.
      */
-    IPLAPI IPLerror iplCreateComputeDevice(IPLContext context, IPLComputeDeviceType deviceType,
-        IPLint32 numComputeUnits, IPLhandle* device);
+    IPLAPI IPLerror iplCreateComputeDevice(IPLhandle context, IPLComputeDeviceFilter deviceFilter, IPLhandle* device);
 
     /** Destroys a Compute Device object. If any other API objects are still referencing the Compute Device object,
      *  it will not be destroyed; destruction occurs when the object's reference count reaches zero.
@@ -338,6 +367,22 @@ extern "C" {
     /** The acoustic properties of a surface. You can specify the acoustic material properties of each triangle,
      *  although typically many triangles will share a common material. The acoustic material properties are specified
      *  for three frequency bands with center frequencies of 400 Hz, 2.5 KHz, and 15 KHz.
+     *
+     *  Below are the acoustic material properties for a few standard materials.
+     *
+     *  ```cpp
+     *  {"generic",{0.10f,0.20f,0.30f,0.05f,0.100f,0.050f,0.030f}}
+     *  {"brick",{0.03f,0.04f,0.07f,0.05f,0.015f,0.015f,0.015f}}
+     *  {"concrete",{0.05f,0.07f,0.08f,0.05f,0.015f,0.002f,0.001f}}
+     *  {"ceramic",{0.01f,0.02f,0.02f,0.05f,0.060f,0.044f,0.011f}}
+     *  {"gravel",{0.60f,0.70f,0.80f,0.05f,0.031f,0.012f,0.008f}},
+     *  {"carpet",{0.24f,0.69f,0.73f,0.05f,0.020f,0.005f,0.003f}}
+     *  {"glass",{0.06f,0.03f,0.02f,0.05f,0.060f,0.044f,0.011f}}
+     *  {"plaster",{0.12f,0.06f,0.04f,0.05f,0.056f,0.056f,0.004f}}
+     *  {"wood",{0.11f,0.07f,0.06f,0.05f,0.070f,0.014f,0.005f}}
+     *  {"metal",{0.20f,0.07f,0.06f,0.05f,0.200f,0.025f,0.010f}}
+     *  {"rock",{0.13f,0.20f,0.24f,0.05f,0.015f,0.002f,0.001f}}
+     *  ```
      */
     typedef struct {
         IPLfloat32  lowFreqAbsorption;      /**< Fraction of sound energy absorbed at low frequencies. Between 0.0 and
@@ -350,16 +395,19 @@ extern "C" {
                                                 it reaches the surface. Between 0.0 and 1.0. A value of 0.0 describes
                                                 a smooth surface with mirror-like reflection properties; a value of 1.0
                                                 describes rough surface with diffuse reflection properties. */
-        IPLfloat32  lowFreqTransmission;    /**< Fraction of sound energy transmitted through at low frequencies. 
-                                                Between 0.0 and 1.0. */
+        IPLfloat32  lowFreqTransmission;    /**< Fraction of sound energy transmitted through at low frequencies.
+                                                Between 0.0 and 1.0. 
+                                                <b>Used only for direct sound occlusion calculations</b>.*/
         IPLfloat32  midFreqTransmission;    /**< Fraction of sound energy transmitted through at middle frequencies. 
-                                                Between 0.0 and 1.0. */
+                                                Between 0.0 and 1.0.
+                                                <b>Used only for direct sound occlusion calculations</b>.*/
         IPLfloat32  highFreqTransmission;   /**< Fraction of sound energy transmitted through at high frequencies. 
-                                                Between 0.0 and 1.0. */
+                                                Between 0.0 and 1.0.
+                                                <b>Used only for direct sound occlusion calculations</b>.*/
     } IPLMaterial;
 
-    /** A callback that is called to update the application on the progress of the iplLoadScene function. You can
-     *  use this to provide the user with visual feedback, like a progress bar.
+    /** A callback that is called to update the application on the progress of the iplLoadFinalizedScene function. You 
+     *  can use this to provide the user with visual feedback, like a progress bar.
      *
      *  \param  progress    Fraction of the loading process that has been completed, between 0.0 and 1.0.
      */
@@ -418,6 +466,65 @@ extern "C" {
     typedef void (*IPLAnyHitCallback)(const IPLfloat32* origin, const IPLfloat32* direction,
         const IPLfloat32 minDistance, const IPLfloat32 maxDistance, IPLint32* hitExists, IPLvoid* userData);
 
+    /** A callback that is called to calculate the closest hits along a batch of rays. Strictly speaking, intersections
+     *  are calculated with ray _intervals_ (equivalent to line segments). Any ray interval may have multiple points
+     *  of intersection with scene geometry; this function must return, for each ray interval, information about the
+     *  point of intersection that is closest to the ray's origin.
+     *
+     *  \param  numRays             Number of rays in the batch.
+     *  \param  origins             Array containing the origins of each ray. Successive ray origins are located
+     *                              \c rayStride bytes apart in this array.
+     *  \param  directions          Array containing the unit-length direction vectors of each ray. Successive ray
+     *                              directions are located \c rayStride bytes apart in this array.
+     *  \param  rayStride           Number of bytes between successive origins in the \c origins array, and between
+     *                              successive directions in the \c directions array.
+     *  \param  minDistances        Array containing, for each ray, the minimum distance from the origin at which an
+     *                              intersection may occur for it to be considered.
+     *  \param  maxDistances        Array containing, for each ray, the maximum distance from the origin at which an
+     *                              intersection may occur for it to be considered.
+     *  \param  hitDistances        [out] Array containing, for each ray, the distance between the ray's origin and
+     *                              the closest intersection point on the ray. Successive distance values are located
+     *                              \c hitStride bytes apart in this array.
+     *  \param  hitNormals          [out] Array containing, for each ray, the unit-length surface normal at the ray's
+     *                              closest intersection point. Successive normals are located \c hitStride bytes
+     *                              apart in this array.
+     *  \param  hitMaterial         [out] Array containing, for each ray, a pointer to the material properties of the
+     *                              surface at the closest intersection point. Successive material pointers are
+     *                              located \c hitStride bytes apart in this array.
+     *  \param  hitStride           Number of bytes between successive distance values in the \c hitDistances array,
+     *                              between successive normals in the \c hitNormals array, and successive material
+     *                              pointers in the \c hitMaterials array.
+     *  \param  userData            Pointer a block of memory containing arbitrary data, specified during the call to
+     *                              \c ::iplSetRayTracerCallbacks.
+     */
+    typedef void (*IPLBatchedClosestHitCallback)(IPLint32 numRays, IPLVector3* origins, IPLVector3* directions,
+        IPLint32 rayStride, IPLfloat32* minDistances, IPLfloat32* maxDistances, IPLfloat32* hitDistances,
+        IPLVector3* hitNormals, IPLMaterial** hitMaterials, IPLint32 hitStride, IPLvoid* userData);
+
+    /** A callback that is called to calculate, for each ray in a batch of rays, whether the ray hits any geometry.
+     *  Strictly speaking, the function looks for intersections with ray _intervals_ (equivalent to line segments).
+     *
+     *  \param  numRays             Number of rays in the batch.
+     *  \param  origins             Array containing the origins of each ray. Successive ray origins are located
+     *                              \c rayStride bytes apart in this array.
+     *  \param  directions          Array containing the unit-length direction vectors of each ray. Successive ray
+     *                              directions are located \c rayStride bytes apart in this array.
+     *  \param  rayStride           Number of bytes between successive origins in the \c origins array, and between
+     *                              successive directions in the \c directions array.
+     *  \param  minDistances        Array containing, for each ray, the minimum distance from the origin at which an
+     *                              intersection may occur for it to be considered.
+     *  \param  maxDistances        Array containing, for each ray, the maximum distance from the origin at which an
+     *                              intersection may occur for it to be considered.
+     *  \param  hitExists           [out] An array of integers indicating, for each ray, whether the ray intersects
+     *                              any geometry. A value of 0 indicates no intersection, 1 indicates that an
+     *                              intersection exists.
+     *  \param  userData            Pointer a block of memory containing arbitrary data, specified during the call to
+     *                              \c ::iplSetRayTracerCallbacks.
+     */
+    typedef void (*IPLBatchedAnyHitCallback)(IPLint32 numRays, IPLVector3* origins, IPLVector3* directions,
+        IPLint32 rayStride, IPLfloat32* minDistances, IPLfloat32* maxDistances, IPLuint8* hitExists,
+        IPLvoid* userData);
+
     /** Creates a Scene object. A Scene object does not store any geometry information on its own; for that you
      *  need to create one or more Static Mesh objects and add them to the Scene object. The Scene object
      *  does contain an array of materials; all triangles in all Static Mesh objects refer to this array in order
@@ -434,7 +541,7 @@ extern "C" {
      *
      *  \return Status code indicating whether or not the operation succeeded.
      */
-    IPLAPI IPLerror iplCreateScene(IPLContext context, IPLhandle computeDevice,
+    IPLAPI IPLerror iplCreateScene(IPLhandle context, IPLhandle computeDevice,
         IPLSimulationSettings simulationSettings, IPLint32 numMaterials, IPLhandle* scene);
 
     /** Destroys a Scene object. If any other API objects are still referencing the Scene object, it will not be
@@ -459,14 +566,21 @@ extern "C" {
      *  ray tracer, this function must be called before any simulation occurs, otherwise undefined behavior will
      *  occur.
      *
-     *  \param  scene               Handle to the Scene object.
-     *  \param  closestHitCallback  Pointer to a function that returns the closest hit along a ray.
-     *  \param  anyHitCallback      Pointer to a function that returns whether a ray hits anything.
-     *  \param  userData            Pointer to a block of memory containing arbitrary data for use
-     *                              by the closest hit and any hit callbacks.
+     *  \param  scene                       Handle to the Scene object.
+     *  \param  closestHitCallback          Pointer to a function that returns the closest hit along a ray.
+     *  \param  anyHitCallback              Pointer to a function that returns whether a ray hits anything.
+     *  \param  batchedClosestHitCallback   Pointer to a function that returns the closests hits along each ray in a
+     *                                      batch of rays. Can be \c NULL. If not \c NULL, then this function is used
+     *                                      instead of \c closestHitCallback.
+     *  \param  batchedAnyHitCallback       Pointer to a function that returns, for each ray in a batch of rays,
+     *                                      whether the ray hits anything. Can be \c NULL. If not \c NULL, then this
+     *                                      function is used instead of \c anyHitCallback.
+     *  \param  userData                    Pointer to a block of memory containing arbitrary data for use
+     *                                      by the closest hit and any hit callbacks.
      */
     IPLAPI IPLvoid iplSetRayTracerCallbacks(IPLhandle scene, IPLClosestHitCallback closestHitCallback,
-        IPLAnyHitCallback anyHitCallback, IPLvoid* userData);
+        IPLAnyHitCallback anyHitCallback, IPLBatchedClosestHitCallback batchedClosestHitCallback,
+        IPLBatchedAnyHitCallback batchedAnyHitCallback, IPLvoid* userData);
 
     /** Creates a Static Mesh object. A Static Mesh object represents a triangle mesh that does not change after it
      *  is created. A Static Mesh object also contains a mapping between each of its triangles and their acoustic
@@ -571,7 +685,7 @@ extern "C" {
      *
      *  \return Status code indicating whether or not the operation succeeded.
      */
-    IPLAPI IPLerror iplLoadFinalizedScene(IPLContext context, IPLSimulationSettings simulationSettings,
+    IPLAPI IPLerror iplLoadFinalizedScene(IPLhandle context, IPLSimulationSettings simulationSettings,
         IPLbyte* data, IPLint32 size, IPLhandle computeDevice, IPLLoadSceneProgressCallback progressCallback, IPLhandle* scene);
 
     /** Saves a Scene object to an OBJ file. An OBJ file is a widely-supported 3D model file format, that can be
@@ -622,7 +736,7 @@ extern "C" {
      *
      *  \return Status code indicating whether or not the operation succeeded.
      */
-    IPLAPI IPLerror iplCreateEnvironment(IPLContext context, IPLhandle computeDevice,
+    IPLAPI IPLerror iplCreateEnvironment(IPLhandle context, IPLhandle computeDevice,
         IPLSimulationSettings simulationSettings, IPLhandle scene, IPLhandle probeManager, IPLhandle* environment);
 
     /** Destroys an Environment object. If any other API objects are still referencing the Environment object, it will
@@ -889,12 +1003,13 @@ extern "C" {
      *    world. This is achieved by using the Ambisonics Rotator object to apply the inverse of the user's rotation
      *    to the final mix.
      *
+     *  \param  context             The Context object used by the audio engine.
      *  \param  order               The order of the Ambisonics data to rotate.
      *  \param  rotator             [out] Handle to the created Ambisonics Rotator object.
      *
      *  \return Status code indicating whether or not the operation succeeded.
      */
-    IPLAPI IPLerror iplCreateAmbisonicsRotator(IPLint32 order, IPLhandle* rotator);
+    IPLAPI IPLerror iplCreateAmbisonicsRotator(IPLhandle context, IPLint32 order, IPLhandle* rotator);
 
     /** Destroys an Ambisonics Rotator object.
      *
@@ -1038,7 +1153,7 @@ extern "C" {
      *
      *  \return Status code indicating whether or not the operation succeeded.
      */
-    IPLAPI IPLerror iplCreateBinauralRenderer(IPLContext context, IPLRenderingSettings renderingSettings,
+    IPLAPI IPLerror iplCreateBinauralRenderer(IPLhandle context, IPLRenderingSettings renderingSettings,
         IPLHrtfParams params, IPLhandle* renderer);
 
     /** Destroys a Binaural Renderer object. If any other API objects are still referencing the Binaural Renderer
@@ -1454,7 +1569,7 @@ extern "C" {
      *
      *  \return Status code indicating whether or not the operation succeeded.
      */
-    IPLAPI IPLerror iplCreateEnvironmentalRenderer(IPLContext context, IPLhandle environment,
+    IPLAPI IPLerror iplCreateEnvironmentalRenderer(IPLhandle context, IPLhandle environment,
         IPLRenderingSettings renderingSettings, IPLAudioFormat outputFormat,
         IPLSimulationThreadCreateCallback threadCreateCallback,
         IPLSimulationThreadDestroyCallback threadDestroyCallback, IPLhandle* renderer);
@@ -1656,17 +1771,32 @@ extern "C" {
      *  \{
      */
 
+    /** Defines how a set of baked data should be interpreted.
+     */
+    typedef enum {
+        IPL_BAKEDDATATYPE_STATICSOURCE,     /**< Baked sound propagation from a static source to a moving listener. */
+        IPL_BAKEDDATATYPE_STATICLISTENER,   /**< Baked sound propagation from a moving source to a static listener. */
+        IPL_BAKEDDATATYPE_REVERB            /**< Baked listener-centric reverb. */
+    } IPLBakedDataType;
+
+    /** Identifies a set of baked data. It is the application's responsibility to ensure that this data is unique
+     *  across the lifetime of an Environment object.
+     */
+    typedef struct {
+        IPLint32            identifier; /**< 32-bit signed integer that uniquely identifies this set of baked data. */
+        IPLBakedDataType    type;       /**< How this set of baked data should be interpreted. */
+    } IPLBakedDataIdentifier;
+
     /** Creates a Convolution Effect object.
      *
      *  \param  renderer            Handle to an Environmental Renderer object.
-     *  \param  name                Name of the corresponding source, as defined in the baked data exported by the
-     *                              game engine. Each Convolution Effect object may have a name, which is used only if
-     *                              the Environment object provided by the game engine uses baked data for sound
-     *                              propagation. If so, the name of the Convolution Effect is used to look up the
-     *                              appropriate information from the baked data. Multiple Convolution Effect objects
-     *                              may be created with the same name; in that case they will use the same baked data.
-     *                              If you want this Convolution Effect to be used to render baked reverb, pass
-     *                              \c "__reverb__" as the name.
+     *  \param  identifier          Unique identifier of the corresponding source, as defined in the baked data 
+     *                              exported by the game engine. Each Convolution Effect object may have an identifier,
+     *                              which is used only if the Environment object provided by the game engine uses baked
+     *                              data for sound propagation. If so, the identifier of the Convolution Effect is used
+     *                              to look up the appropriate information from the baked data. Multiple Convolution
+     *                              Effect objects may be created with the same identifier; in that case they will use
+     *                              the same baked data.
      *  \param  simulationType      Whether this Convolution Effect object should use baked data or real-time simulation.
      *  \param  inputFormat         Format of all audio buffers passed as input to
      *                              \c ::iplSetDryAudioForConvolutionEffect.
@@ -1675,7 +1805,7 @@ extern "C" {
      *
      *  \return Status code indicating whether or not the operation succeeded.
      */
-    IPLAPI IPLerror iplCreateConvolutionEffect(IPLhandle renderer, IPLstring name, IPLSimulationType simulationType,
+    IPLAPI IPLerror iplCreateConvolutionEffect(IPLhandle renderer, IPLBakedDataIdentifier identifier, IPLSimulationType simulationType,
         IPLAudioFormat inputFormat, IPLAudioFormat outputFormat, IPLhandle* effect);
 
     /** Destroys a Convolution Effect object.
@@ -1684,14 +1814,14 @@ extern "C" {
      */
     IPLAPI IPLvoid iplDestroyConvolutionEffect(IPLhandle* effect);
 
-    /** Changes the name associated with a Convolution Effect object. This is useful when using a static listener
+    /** Changes the identifier associated with a Convolution Effect object. This is useful when using a static listener
      *  bake, where you may want to teleport the listener between two or more locations for which baked data has
      *  been generated.
      *
      *  \param  effect              Handle to a Convolution Effect object.
-     *  \param  name                The new name of the Convolution Effect object.
+     *  \param  identifier          The new identifier of the Convolution Effect object.
      */
-    IPLAPI IPLvoid iplSetConvolutionEffectName(IPLhandle effect, IPLstring name);
+    IPLAPI IPLvoid iplSetConvolutionEffectIdentifier(IPLhandle effect, IPLBakedDataIdentifier identifier);
 
     /** Specifies a frame of dry audio for a Convolution Effect object. This is the audio data to which sound
      *  propagation effects should be applied.
@@ -1767,7 +1897,7 @@ extern "C" {
                                          large enough to fill the interior of the box. */
         IPL_PLACEMENT_OCTREE,       /**< Generates probes throughout the volume of the box. The algorithm is adaptive,
                                          and generates more probes in regions of higher geometric complexity, and
-                                         fewer probes around empty space. */
+                                         fewer probes around empty space. <b>This option is currently not supported</b>.*/
         IPL_PLACEMENT_UNIFORMFLOOR  /**< Generates probes that are uniformly-spaced, at a fixed height above solid
                                          geometry. A probe will never be generated above another probe unless there is
                                          a solid object between them. The goal is to model floors or terrain, and
@@ -1804,6 +1934,7 @@ extern "C" {
     /** Generates probes within a box. This function should typically be called from the game engine's editor, in
      *  response to the user indicating that they want to generate probes in the scene.
      *
+     *  \param  context                     Handle to the Context object used by the game engine.
      *  \param  scene                       Handle to the Scene object.
      *  \param  boxLocalToWorldTransform    4x4 local to world transform matrix laid out in column-major format.
      *  \param  placementParams             Parameters specifying how probes should be generated.
@@ -1813,7 +1944,7 @@ extern "C" {
      *
      *  \return Status code indicating whether or not the operation succeeded.
      */
-    IPLAPI IPLerror iplCreateProbeBox(IPLhandle scene, IPLfloat32* boxLocalToWorldTransform,
+    IPLAPI IPLerror iplCreateProbeBox(IPLhandle context, IPLhandle scene, IPLfloat32* boxLocalToWorldTransform,
         IPLProbePlacementParams placementParams, IPLProbePlacementProgressCallback progressCallback,
         IPLhandle* probeBox);
 
@@ -1855,6 +1986,7 @@ extern "C" {
     /** Deserializes a Probe Box object from a byte array. This is typically called by the game engine's editor when
      *  loading a Probe Box object from disk.
      *
+     *  \param  context             Handle to the Context object used by the game engine.
      *  \param  data                Byte array containing the serialized representation of the Probe Box object. Must
      *                              not be \c NULL.
      *  \param  size                Size (in bytes) of the serialized data.
@@ -1862,7 +1994,7 @@ extern "C" {
      *
      *  \return Status code indicating whether or not the operation succeeded.
      */
-    IPLAPI IPLerror iplLoadProbeBox(IPLbyte* data, IPLint32 size, IPLhandle* probeBox);
+    IPLAPI IPLerror iplLoadProbeBox(IPLhandle context, IPLbyte* data, IPLint32 size, IPLhandle* probeBox);
 
     /** Creates a Probe Batch object. A Probe Batch object represents a set of probes that are loaded and unloaded
      *  from memory as a unit when the game is played. A Probe Batch may contain probes from multiple Probe Boxes;
@@ -1875,11 +2007,12 @@ extern "C" {
      *  3.  The editor saves the Probe Batches along with the rest of the scene data for use at run-time.
      *  4.  At run-time, Phonon uses the Probe Batches to retrieve baked data.
      *
+     *  \param  context             Handle to the Context object used by the game engine.
      *  \param  probeBatch          [out] Handle to the created Probe Batch object.
      *
      *  \return Status code indicating whether or not the operation succeeded.
      */
-    IPLAPI IPLerror iplCreateProbeBatch(IPLhandle* probeBatch);
+    IPLAPI IPLerror iplCreateProbeBatch(IPLhandle context, IPLhandle* probeBatch);
 
     /** Destroys a Probe Batch object.
      *
@@ -1925,6 +2058,7 @@ extern "C" {
      *  loading a Probe Batch object from disk. Calling this function implicitly calls \c ::iplFinalizeProbeBatch, so
      *  you do not need to call it explicitly.
      *
+     *  \param  context             Handle to the Context object used by the game engine.
      *  \param  data                Byte array containing the serialized representation of the Probe Batch object. Must
      *                              not be \c NULL.
      *  \param  size                Size (in bytes) of the serialized data.
@@ -1932,17 +2066,18 @@ extern "C" {
      *
      *  \return Status code indicating whether or not the operation succeeded.
      */
-    IPLAPI IPLerror iplLoadProbeBatch(IPLbyte* data, IPLint32 size, IPLhandle* probeBatch);
+    IPLAPI IPLerror iplLoadProbeBatch(IPLhandle context, IPLbyte* data, IPLint32 size, IPLhandle* probeBatch);
 
     /** Creates a Probe Manager object. A Probe Manager object manages a set of Probe Batch objects are runtime.
      *  It is typically exported from the game engine to the audio engine via an Environment object. Probe Batch
      *  objects can be dynamically added to or removed from a Probe Manager object.
      *
+     *  \param  context             Handle to the Context object used by the game engine.
      *  \param  probeManager        [out] Handle to the created Probe Manager object.
      *
      *  \return Status code indicating whether or not the operation succeeded.
      */
-    IPLAPI IPLerror iplCreateProbeManager(IPLhandle* probeManager);
+    IPLAPI IPLerror iplCreateProbeManager(IPLhandle context, IPLhandle* probeManager);
 
     /** Destroys a Probe Manager object.
      *
@@ -2025,14 +2160,14 @@ extern "C" {
      *  \param  probeBox            Handle to the Probe Box containing the probes for which to bake reverb.
      *  \param  sourceInfluence     Sphere defined by the source position (at its center) and its radius of
      *                              influence.
-     *  \param  sourceName          Name of the source. At run-time, a Convolution Effect object can use this name
-     *                              to look up the correct impulse response information.
+     *  \param  sourceIdentifier    Identifier of the source. At run-time, a Convolution Effect object can use this
+     *                              identifier to look up the correct impulse response information.
      *  \param  bakingSettings      The kind of acoustic responses to bake.
      *  \param  progressCallback    Pointer to a function that reports the percentage of this function's work that
      *                              has been completed. May be \c NULL.
      */
     IPLAPI IPLvoid iplBakePropagation(IPLhandle environment, IPLhandle probeBox, IPLSphere sourceInfluence,
-        IPLstring sourceName, IPLBakingSettings bakingSettings, IPLBakeProgressCallback progressCallback);
+        IPLBakedDataIdentifier sourceIdentifier, IPLBakingSettings bakingSettings, IPLBakeProgressCallback progressCallback);
 
     /** Bakes propagation effects from all probes in a Probe Box to a specified listener. Listeners are defined
      *  solely by their position; their orientation may freely change at run-time. This is a time-consuming
@@ -2041,15 +2176,14 @@ extern "C" {
      *  \param  environment         Handle to an Environment object.
      *  \param  probeBox            Handle to the Probe Box containing the probes for which to bake reverb.
      *  \param  listenerInfluence   Position and influence radius of the listener.
-     *  \param  listenerName        Name of the listener. At run-time, a Convolution Effect object can use this
-     *                              name prefixed with \c __staticlistener__ to look up the correct impulse
-     *                              response information.
+     *  \param  listenerIdentifier  Identifier of the listener. At run-time, a Convolution Effect object can use this
+     *                              identifier to look up the correct impulse response information.
      *  \param  bakingSettings      The kind of acoustic responses to bake.
      *  \param  progressCallback    Pointer to a function that reports the percentage of this function's work that
      *                              has been completed. May be \c NULL.
      */
     IPLAPI IPLvoid iplBakeStaticListener(IPLhandle environment, IPLhandle probeBox, IPLSphere listenerInfluence,
-        IPLstring listenerName, IPLBakingSettings bakingSettings, IPLBakeProgressCallback progressCallback);
+        IPLBakedDataIdentifier listenerIdentifier, IPLBakingSettings bakingSettings, IPLBakeProgressCallback progressCallback);
 
     /** Cancels any bake operations that may be in progress. Typically, an application will call \c ::iplBakeReverb
      *  or \c ::iplBakePropagation in a separate thread from the editor's GUI thread, to keep the GUI responsive.
@@ -2062,19 +2196,19 @@ extern "C" {
      *  exists, this function does nothing.
      *
      *  \param  probeBox            Handle to a Probe Box object.
-     *  \param  sourceName          Name of the source whose baked data is to be deleted.
+     *  \param  identifier          Identifier of the source whose baked data is to be deleted.
      */
-    IPLAPI IPLvoid iplDeleteBakedDataByName(IPLhandle probeBox, IPLstring sourceName);
+    IPLAPI IPLvoid iplDeleteBakedDataByIdentifier(IPLhandle probeBox, IPLBakedDataIdentifier identifier);
 
     /** Returns the size (in bytes) of the baked data stored in a Probe Box corresponding to a given source.
      *  This is useful for displaying statistics in the editor's GUI.
      *
      *  \param  probeBox            Handle to a Probe Box object.
-     *  \param  sourceName          Name of the source whose baked data size is to be returned.
+     *  \param  identifier          Identifier of the source whose baked data size is to be returned.
      *
-     *  \return Size (in bytes) of the baked data stored in the Probe Box corresponding to the named source.
+     *  \return Size (in bytes) of the baked data stored in the Probe Box corresponding to the source.
      */
-    IPLAPI IPLint32 iplGetBakedDataSizeByName(IPLhandle probeBox, IPLstring sourceName);
+    IPLAPI IPLint32 iplGetBakedDataSizeByIdentifier(IPLhandle probeBox, IPLBakedDataIdentifier identifier);
 
     /** \} */
 

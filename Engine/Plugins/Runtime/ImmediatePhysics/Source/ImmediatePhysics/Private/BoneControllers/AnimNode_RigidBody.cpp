@@ -65,35 +65,37 @@ void FAnimNode_RigidBody::GatherDebugData(FNodeDebugData& DebugData)
 	}
 }
 
-FVector WorldVectorToSpaceNoScale(ESimulationSpace Space, const FVector& WorldDir, const FTransform& ComponentToWorld, const FTransform& RootBoneTM)
+FVector WorldVectorToSpaceNoScale(ESimulationSpace Space, const FVector& WorldDir, const FTransform& ComponentToWorld, const FTransform& BaseBoneTM)
 {
 	switch(Space)
 	{
 		case ESimulationSpace::ComponentSpace: return ComponentToWorld.InverseTransformVectorNoScale(WorldDir);
 		case ESimulationSpace::WorldSpace: return WorldDir;
-		case ESimulationSpace::RootBoneSpace: return RootBoneTM.InverseTransformVectorNoScale(ComponentToWorld.InverseTransformVectorNoScale(WorldDir));
+		case ESimulationSpace::BaseBoneSpace:
+			return BaseBoneTM.InverseTransformVectorNoScale(ComponentToWorld.InverseTransformVectorNoScale(WorldDir));
 		default: return FVector::ZeroVector;
 	}
 }
 
-FVector WorldPositionToSpace(ESimulationSpace Space, const FVector& WorldPoint, const FTransform& ComponentToWorld, const FTransform& RootBoneTM)
+FVector WorldPositionToSpace(ESimulationSpace Space, const FVector& WorldPoint, const FTransform& ComponentToWorld, const FTransform& BaseBoneTM)
 {
 	switch (Space)
 	{
 		case ESimulationSpace::ComponentSpace: return ComponentToWorld.InverseTransformPosition(WorldPoint);
 		case ESimulationSpace::WorldSpace: return WorldPoint;
-		case ESimulationSpace::RootBoneSpace: return RootBoneTM.InverseTransformPosition(ComponentToWorld.InverseTransformPosition(WorldPoint));
+		case ESimulationSpace::BaseBoneSpace:
+			return BaseBoneTM.InverseTransformPosition(ComponentToWorld.InverseTransformPosition(WorldPoint));
 		default: return FVector::ZeroVector;
 	}
 }
 
-FORCEINLINE_DEBUGGABLE FTransform ConvertCSTransformToSimSpace(ESimulationSpace SimulationSpace, const FTransform& InCSTransform, const FTransform& ComponentToWorld, const FTransform& RootBoneTM)
+FORCEINLINE_DEBUGGABLE FTransform ConvertCSTransformToSimSpace(ESimulationSpace SimulationSpace, const FTransform& InCSTransform, const FTransform& ComponentToWorld, const FTransform& BaseBoneTM)
 {
 	switch (SimulationSpace)
 	{
 		case ESimulationSpace::ComponentSpace: return InCSTransform;
 		case ESimulationSpace::WorldSpace:  return InCSTransform * ComponentToWorld; 
-		case ESimulationSpace::RootBoneSpace: return InCSTransform.GetRelativeTransform(RootBoneTM); break;
+		case ESimulationSpace::BaseBoneSpace: return InCSTransform.GetRelativeTransform(BaseBoneTM); break;
 		default: ensureMsgf(false, TEXT("Unsupported Simulation Space")); return InCSTransform;
 	}
 }
@@ -157,7 +159,7 @@ void FAnimNode_RigidBody::EvaluateComponentPose_AnyThread(FComponentSpacePoseCon
 	}
 }
 
-void FAnimNode_RigidBody::InitializeNewBodyTransformsDuringSimulation(FComponentSpacePoseContext& Output, const FTransform& ComponentTransform, const FTransform& RootBoneTM)
+void FAnimNode_RigidBody::InitializeNewBodyTransformsDuringSimulation(FComponentSpacePoseContext& Output, const FTransform& ComponentTransform, const FTransform& BaseBoneTM)
 {
 	for (const FOutputBoneData& OutputData : OutputBoneData)
 	{
@@ -186,7 +188,7 @@ void FAnimNode_RigidBody::InitializeNewBodyTransformsDuringSimulation(FComponent
 			else
 			{
 				const FTransform& ComponentSpaceTM = Output.Pose.GetComponentSpaceTransform(OutputData.CompactPoseBoneIndex);
-				const FTransform BodyTM = ConvertCSTransformToSimSpace(SimulationSpace, ComponentSpaceTM, ComponentTransform, RootBoneTM);
+				const FTransform BodyTM = ConvertCSTransformToSimSpace(SimulationSpace, ComponentSpaceTM, ComponentTransform, BaseBoneTM);
 
 				Bodies[BodyIndex]->SetWorldTransform(BodyTM);
 			}
@@ -217,13 +219,13 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 	{
 		const FBoneContainer& BoneContainer = Output.Pose.GetPose().GetBoneContainer();
 		const FTransform CompWorldSpaceTM = Output.AnimInstanceProxy->GetComponentTransform();
-		const FTransform RootBoneTM = Output.Pose.GetComponentSpaceTransform(RootBoneRef.GetCompactPoseIndex(BoneContainer));
+		const FTransform BaseBoneTM = Output.Pose.GetComponentSpaceTransform(BaseBoneRef.GetCompactPoseIndex(BoneContainer));
 
 		// Initialize potential new bodies because of LOD change.
 		if (!bResetSimulated && bCheckForBodyTransformInit)
 		{
 			bCheckForBodyTransformInit = false;
-			InitializeNewBodyTransformsDuringSimulation(Output, CompWorldSpaceTM, RootBoneTM);
+			InitializeNewBodyTransformsDuringSimulation(Output, CompWorldSpaceTM, BaseBoneTM);
 		}
 
 		// If time advances, update simulation
@@ -256,8 +258,8 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 								const FTransform PrevCSTM = CapturedBoneVelocityPose.GetComponentSpaceTransform(PrevCompactPoseBoneIndex);
 								const FTransform NextCSTM = Output.Pose.GetComponentSpaceTransform(NextCompactPoseBoneIndex);
 
-								const FTransform PrevSSTM = ConvertCSTransformToSimSpace(SimulationSpace, PrevCSTM, CompWorldSpaceTM, RootBoneTM);
-								const FTransform NextSSTM = ConvertCSTransformToSimSpace(SimulationSpace, NextCSTM, CompWorldSpaceTM, RootBoneTM);
+								const FTransform PrevSSTM = ConvertCSTransformToSimSpace(SimulationSpace, PrevCSTM, CompWorldSpaceTM, BaseBoneTM);
+								const FTransform NextSSTM = ConvertCSTransformToSimSpace(SimulationSpace, NextCSTM, CompWorldSpaceTM, BaseBoneTM);
 
 								// Linear Velocity
 								BodyData.TransferedBoneVelocity.SetTranslation((NextSSTM.GetLocation() - PrevSSTM.GetLocation()) / DeltaSeconds);
@@ -279,7 +281,7 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 						BodyAnimData[BodyIndex].bBodyTransformInitialized = true;
 
 						const FTransform& ComponentSpaceTM = Output.Pose.GetComponentSpaceTransform(OutputData.CompactPoseBoneIndex);
-						const FTransform BodyTM = ConvertCSTransformToSimSpace(SimulationSpace, ComponentSpaceTM, CompWorldSpaceTM, RootBoneTM);
+						const FTransform BodyTM = ConvertCSTransformToSimSpace(SimulationSpace, ComponentSpaceTM, CompWorldSpaceTM, BaseBoneTM);
 						Bodies[BodyIndex]->SetWorldTransform(BodyTM);
 					}
 				}
@@ -315,14 +317,14 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 					if (!BodyAnimData[BodyIndex].bIsSimulated)
 					{
 						const FTransform& ComponentSpaceTM = Output.Pose.GetComponentSpaceTransform(OutputData.CompactPoseBoneIndex);
-						const FTransform BodyTM = ConvertCSTransformToSimSpace(SimulationSpace, ComponentSpaceTM, CompWorldSpaceTM, RootBoneTM);
+						const FTransform BodyTM = ConvertCSTransformToSimSpace(SimulationSpace, ComponentSpaceTM, CompWorldSpaceTM, BaseBoneTM);
 
 						Bodies[BodyIndex]->SetKinematicTarget(BodyTM);
 					}
 				}
 
-				UpdateWorldForces(CompWorldSpaceTM, RootBoneTM);
-				const FVector SimSpaceGravity = WorldVectorToSpaceNoScale(SimulationSpace, WorldSpaceGravity, CompWorldSpaceTM, RootBoneTM);
+				UpdateWorldForces(CompWorldSpaceTM, BaseBoneTM);
+				const FVector SimSpaceGravity = WorldVectorToSpaceNoScale(SimulationSpace, WorldSpaceGravity, CompWorldSpaceTM, BaseBoneTM);
 
 				// Run simulation at a minimum of 30 FPS to prevent system from exploding.
 				// DeltaTime can be higher due to URO, so take multiple iterations in that case.
@@ -350,7 +352,7 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 				{
 					case ESimulationSpace::ComponentSpace: ComponentSpaceTM = BodyTM; break;
 					case ESimulationSpace::WorldSpace: ComponentSpaceTM = BodyTM.GetRelativeTransform(CompWorldSpaceTM); break;
-					case ESimulationSpace::RootBoneSpace: ComponentSpaceTM = BodyTM * RootBoneTM; break;
+					case ESimulationSpace::BaseBoneSpace: ComponentSpaceTM = BodyTM * BaseBoneTM; break;
 					default: ensureMsgf(false, TEXT("Unsupported Simulation Space")); ComponentSpaceTM = BodyTM;
 				}
 					
@@ -624,7 +626,7 @@ void FAnimNode_RigidBody::UpdateWorldGeometry(const UWorld& World, const USkelet
 
 DECLARE_CYCLE_STAT(TEXT("FAnimNode_Ragdoll::UpdateWorldForces"), STAT_ImmediateUpdateWorldForces, STATGROUP_ImmediatePhysics);
 
-void FAnimNode_RigidBody::UpdateWorldForces(const FTransform& ComponentToWorld, const FTransform& RootBoneTM)
+void FAnimNode_RigidBody::UpdateWorldForces(const FTransform& ComponentToWorld, const FTransform& BaseBoneTM)
 {
 	SCOPE_CYCLE_COUNTER(STAT_ImmediateUpdateWorldForces);
 
@@ -632,7 +634,7 @@ void FAnimNode_RigidBody::UpdateWorldForces(const FTransform& ComponentToWorld, 
 	{
 		for (const USkeletalMeshComponent::FPendingRadialForces& PendingRadialForce : PendingRadialForces)
 		{
-			const FVector RadialForceOrigin = WorldPositionToSpace(SimulationSpace, PendingRadialForce.Origin, ComponentToWorld, RootBoneTM);
+			const FVector RadialForceOrigin = WorldPositionToSpace(SimulationSpace, PendingRadialForce.Origin, ComponentToWorld, BaseBoneTM);
 			for(FActorHandle* Body : Bodies)
 			{
 				const float InvMass = Body->GetInverseMass();
@@ -656,7 +658,7 @@ void FAnimNode_RigidBody::UpdateWorldForces(const FTransform& ComponentToWorld, 
 
 		if(!ExternalForce.IsNearlyZero())
 		{
-			const FVector ExternalForceInSimSpace = WorldVectorToSpaceNoScale(SimulationSpace, ExternalForce, ComponentToWorld, RootBoneTM);
+			const FVector ExternalForceInSimSpace = WorldVectorToSpaceNoScale(SimulationSpace, ExternalForce, ComponentToWorld, BaseBoneTM);
 			for (FActorHandle* Body : Bodies)
 			{
 				const float InvMass = Body->GetInverseMass();
@@ -776,9 +778,16 @@ void FAnimNode_RigidBody::InitializeBoneReferences(const FBoneContainer& Require
 
 	int32 NumSimulatedBodies = 0;
 
-	//we always cache root bone
-	RootBoneRef.BoneName = RefSkeleton.GetBoneName(0);
-	RootBoneRef.Initialize(RequiredBones);
+	// if no name is entered, use root
+	if (BaseBoneRef.BoneName == NAME_None)
+	{
+		BaseBoneRef.BoneName = RefSkeleton.GetBoneName(0);
+	}
+
+	if (BaseBoneRef.BoneName != NAME_None)
+	{
+		BaseBoneRef.Initialize(RequiredBones);
+	}
 
 	for(int32 Index = 0; Index < NumRequiredBoneIndices; ++Index)
 	{

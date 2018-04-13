@@ -75,6 +75,10 @@ bool FPhysicsAssetEditorEditMode::GetCameraTarget(FSphere& OutTarget) const
 		{
 			Bounds += AggGeom.ConvexElems[SelectedObject.PrimitiveIndex].CalcAABB(BoneTM, BoneTM.GetScale3D());
 		}
+		else if (SelectedObject.PrimitiveType == EAggCollisionShape::TaperedCapsule)
+		{
+			Bounds += AggGeom.TaperedCapsuleElems[SelectedObject.PrimitiveIndex].CalcAABB(BoneTM, Scale);
+		}
 
 		bHandled = true;
 	}
@@ -342,6 +346,11 @@ bool FPhysicsAssetEditorEditMode::InputDelta(FEditorViewportClient* InViewportCl
 					else if (SelectedObject.PrimitiveType == EAggCollisionShape::Sphyl)
 					{
 						AggGeom->SphylElems[SelectedObject.PrimitiveIndex].SetTransform(SelectedObject.ManipulateTM * AggGeom->SphylElems[SelectedObject.PrimitiveIndex].GetTransform());
+						SelectedObject.ManipulateTM.SetIdentity();
+					}
+					else if (SelectedObject.PrimitiveType == EAggCollisionShape::TaperedCapsule)
+					{
+						AggGeom->TaperedCapsuleElems[SelectedObject.PrimitiveIndex].SetTransform(SelectedObject.ManipulateTM * AggGeom->TaperedCapsuleElems[SelectedObject.PrimitiveIndex].GetTransform());
 						SelectedObject.ManipulateTM.SetIdentity();
 					}
 				}
@@ -933,6 +942,11 @@ void FPhysicsAssetEditorEditMode::ModifyPrimitiveSize(int32 BodyIndex, EAggColli
 		}
 
 		AggGeom->ConvexElems[PrimIndex].ScaleElem(ModifiedSize, MinPrimSize);
+	}
+	else if (PrimType == EAggCollisionShape::TaperedCapsule)
+	{
+		check(AggGeom->TaperedCapsuleElems.IsValidIndex(PrimIndex));
+		AggGeom->TaperedCapsuleElems[PrimIndex].ScaleElem(DeltaSize, MinPrimSize);
 	}
 }
 

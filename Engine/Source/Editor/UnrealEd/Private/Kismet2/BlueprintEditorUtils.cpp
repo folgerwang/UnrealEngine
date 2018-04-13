@@ -276,16 +276,10 @@ static void RenameVariableReferencesInGraph(UBlueprint* InBlueprint, UClass* InV
 	}
 }
 
-/**
- * Looks through the specified blueprint for any references to the specified 
- * variable, and renames them accordingly.
- * 
- * @param  Blueprint		The blueprint that you want to search through.
- * @param  VariableClass	The class that owns the variable that we're renaming
- * @param  OldVarName		The current name of the variable we want to replace
- * @param  NewVarName		The name that we wish to change all references to
- */
-static void RenameVariableReferences(UBlueprint* Blueprint, UClass* VariableClass, const FName& OldVarName, const FName& NewVarName)
+FBlueprintEditorUtils::FOnRenameVariableReferences FBlueprintEditorUtils::OnRenameVariableReferencesEvent;
+FBlueprintEditorUtils::FOnGetClassPropertyActions FBlueprintEditorUtils::OnGetClassPropertyActionsEvent;
+
+void FBlueprintEditorUtils::RenameVariableReferences(UBlueprint* Blueprint, UClass* VariableClass, const FName& OldVarName, const FName& NewVarName)
 {
 	TArray<UEdGraph*> AllGraphs;
 	Blueprint->GetAllGraphs(AllGraphs);
@@ -295,6 +289,8 @@ static void RenameVariableReferences(UBlueprint* Blueprint, UClass* VariableClas
 	{
 		RenameVariableReferencesInGraph(Blueprint, VariableClass, CurrentGraph, OldVarName, NewVarName);
 	}
+
+	OnRenameVariableReferencesEvent.Broadcast(Blueprint, VariableClass, OldVarName, NewVarName);
 }
 
 //////////////////////////////////////
@@ -491,6 +487,8 @@ FUCSComponentId::FUCSComponentId(const UK2Node_AddComponent* UCSNode)
 //////////////////////////////////////
 // FBlueprintEditorUtils
 
+FBlueprintEditorUtils::FOnRefreshAllNodes FBlueprintEditorUtils::OnRefreshAllNodesEvent;
+
 void FBlueprintEditorUtils::RefreshAllNodes(UBlueprint* Blueprint)
 {
 	if (!Blueprint || !Blueprint->HasAllFlags(RF_LoadCompleted))
@@ -541,8 +539,11 @@ void FBlueprintEditorUtils::RefreshAllNodes(UBlueprint* Blueprint)
 	{
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 	}
+
+	OnRefreshAllNodesEvent.Broadcast(Blueprint);
 }
 
+FBlueprintEditorUtils::FOnReconstructAllNodes FBlueprintEditorUtils::OnReconstructAllNodesEvent;
 
 void FBlueprintEditorUtils::ReconstructAllNodes(UBlueprint* Blueprint)
 {
@@ -570,6 +571,8 @@ void FBlueprintEditorUtils::ReconstructAllNodes(UBlueprint* Blueprint)
 		const UEdGraphSchema* Schema = CurrentNode->GetGraph()->GetSchema();
 		Schema->ReconstructNode(*CurrentNode, true);
 	}
+
+	OnReconstructAllNodesEvent.Broadcast(Blueprint);
 }
 
 void FBlueprintEditorUtils::ReplaceDeprecatedNodes(UBlueprint* Blueprint)
@@ -5271,14 +5274,14 @@ void FBlueprintEditorUtils::ReplaceVariableReferences(UBlueprint* Blueprint, con
 {
 	check((OldName != NAME_None) && (NewName != NAME_None));
 
-	::RenameVariableReferences(Blueprint, Blueprint->GeneratedClass, OldName, NewName);
+	FBlueprintEditorUtils::RenameVariableReferences(Blueprint, Blueprint->GeneratedClass, OldName, NewName);
 
 	TArray<UBlueprint*> Dependents;
 	GetDependentBlueprints(Blueprint, Dependents);
 
 	for (UBlueprint* DependentBp : Dependents)
 	{
-		::RenameVariableReferences(DependentBp, Blueprint->GeneratedClass, OldName, NewName);
+		FBlueprintEditorUtils::RenameVariableReferences(DependentBp, Blueprint->GeneratedClass, OldName, NewName);
 	}
 }
 

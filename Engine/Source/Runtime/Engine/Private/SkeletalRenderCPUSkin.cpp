@@ -761,12 +761,22 @@ static void SkinVertexSection(
 				{
 					FORCEINLINE static FVector GetClothSimulPosition(const FClothSimulData& InClothSimData, int32 InIndex)
 					{
-						return FVector(InClothSimData.Transform.TransformPosition(InClothSimData.Positions[InIndex]));
+						if (InClothSimData.Positions.IsValidIndex(InIndex))
+						{
+							return FVector(InClothSimData.Transform.TransformPosition(InClothSimData.Positions[InIndex]));
+						}
+
+						return FVector::ZeroVector;
 					}
 
 					FORCEINLINE static FVector GetClothSimulNormal(const FClothSimulData& InClothSimData, int32 InIndex)
 					{
-						return FVector(InClothSimData.Transform.TransformVector(InClothSimData.Normals[InIndex]));
+						if (InClothSimData.Normals.IsValidIndex(InIndex))
+						{
+							return FVector(InClothSimData.Transform.TransformVector(InClothSimData.Normals[InIndex]));
+						}
+
+						return FVector(0, 0, 1);
 					}
 
 					FORCEINLINE static FVector ClothingPosition(const FMeshToMeshVertData& InClothVertData, const FClothSimulData& InClothSimData)

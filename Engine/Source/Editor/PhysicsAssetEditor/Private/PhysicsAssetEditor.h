@@ -233,7 +233,8 @@ private:
 	void OnAddSphere();
 	void OnAddSphyl();
 	void OnAddBox();
-	bool CanAddPrimitive() const;
+	void OnAddTaperedCapsule();
+	bool CanAddPrimitive(EAggCollisionShape::Type InPrimitiveType) const;
 	void OnDeletePrimitive();
 	void OnDuplicatePrimitive();
 	bool CanDuplicatePrimitive() const;

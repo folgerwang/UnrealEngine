@@ -25,7 +25,7 @@ void FPhysXCookHelper::CreatePhysicsMeshes_Concurrent()
 		const bool bError = !PhysXCookingModule->GetPhysXCooking()->CreateTriMesh(FPlatformProperties::GetPhysicsFormat(), CookInfo.TriMeshCookFlags, CookInfo.TriangleMeshDesc.Vertices, CookInfo.TriangleMeshDesc.Indices, CookInfo.TriangleMeshDesc.MaterialIndices, CookInfo.TriangleMeshDesc.bFlipNormals, OutTriangleMeshes[0]);
 		if (bError)
 		{
-			UE_LOG(LogPhysics, Warning, TEXT("Failed to cook TriMesh: %s."), *CookInfo.OuterDebugName);
+			UE_LOG(LogPhysics, Log, TEXT("Failed to cook TriMesh: %s."), *CookInfo.OuterDebugName);
 		}
 		else if (CookInfo.bSupportUVFromHitResults)
 		{

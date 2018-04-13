@@ -139,4 +139,11 @@ public:
 	virtual void ApplyHoverDeemphasis(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ float& Thickness, /*inout*/ FLinearColor& WireColor);
 
 	virtual bool IsConnectionCulled( const FArrangedWidget& StartLink, const FArrangedWidget& EndLink ) const;
+
+protected:
+	// Helper function used by Draw(). Called before DrawPinGeometries to populate PinToPinWidgetMap
+	virtual void BuildPinToPinWidgetMap(TMap<TSharedRef<SWidget>, FArrangedWidget>& InPinGeometries);
+
+	// Helper function used by Draw(). Iterates over the pin geometries, drawing connections between them
+	virtual void DrawPinGeometries(TMap<TSharedRef<SWidget>, FArrangedWidget>& InPinGeometries, FArrangedChildren& ArrangedNodes);
 };

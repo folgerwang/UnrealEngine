@@ -16,6 +16,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "AnimInterpFilter.h"
 #include "AnimEnums.h"
+#include "Interfaces/Interface_PreviewMeshProvider.h"
 #include "AnimationAsset.generated.h"
 
 class UAssetMappingTable;
@@ -750,7 +751,7 @@ struct FAnimationGroupReference
 };
 
 UCLASS(abstract, MinimalAPI)
-class UAnimationAsset : public UObject, public IInterface_AssetUserData
+class UAnimationAsset : public UObject, public IInterface_AssetUserData, public IInterface_PreviewMeshProvider
 {
 	GENERATED_UCLASS_BODY()
 
@@ -845,6 +846,11 @@ public:
 	ENGINE_API void RemoveMetaData(class UAnimMetaData* MetaDataInstance);
 	ENGINE_API void RemoveMetaData(const TArray<class UAnimMetaData*> MetaDataInstances);
 
+	/** IInterface_PreviewMeshProvider interface */
+	virtual void SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty = true) override;
+	virtual USkeletalMesh* GetPreviewMesh(bool bFindIfNotSet = false) override;
+	virtual USkeletalMesh* GetPreviewMesh() const override;
+
 #if WITH_EDITOR
 	/** Replace Skeleton 
 	 * 
@@ -868,18 +874,6 @@ public:
 	 * @param ReplacementMap	Mapping of original asset to new asset
 	 **/
 	ENGINE_API virtual void ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap);
-
-	/** Set the preview mesh for this animation asset */
-	ENGINE_API void SetPreviewMesh(USkeletalMesh* PreviewMesh);
-
-	/** 
-	 * Get the preview mesh for this animation asset 
-	 * Note: loads the mesh if it is not already loaded, or nulls it out if the skeleton has changed since.
-	 */
-	ENGINE_API USkeletalMesh* GetPreviewMesh();
-
-	/** Get the preview mesh for this animation asset */
-	ENGINE_API USkeletalMesh* GetPreviewMesh() const;
 
 	ENGINE_API virtual int32 GetMarkerUpdateCounter() const { return 0; }
 

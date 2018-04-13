@@ -77,28 +77,23 @@ namespace SteamAudio
 	FString RuntimePath;
 	FString EditorOnlyPath;
 
-	static void* UnrealAlloc(const size_t size, const size_t alignment)
+	void* UnrealAlloc(const size_t size, const size_t alignment)
 	{
 		return FMemory::Malloc(size, alignment);
 	}
 
-	static void UnrealFree(void* ptr)
+	void UnrealFree(void* ptr)
 	{
 		FMemory::Free(ptr);
 	}
 
-	static void UnrealLog(char* msg)
+	void UnrealLog(char* msg)
 	{
 		FString Message(msg);
 		UE_LOG(LogSteamAudio, Log, TEXT("%s"), *Message); 
 	}
 
-	const IPLContext GlobalContext =
-	{
-		UnrealLog,
-		nullptr, //UnrealAlloc, 
-		nullptr  //UnrealFree
-	};
+	IPLhandle GlobalContext = nullptr;
 
 	FVector UnrealToPhononFVector(const FVector& UnrealCoords, const bool bScale)
 	{

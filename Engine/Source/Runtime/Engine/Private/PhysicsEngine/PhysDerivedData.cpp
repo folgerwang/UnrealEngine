@@ -189,7 +189,7 @@ bool FDerivedDataPhysXCooker::BuildTriMesh( TArray<uint8>& OutData,  const FTriM
 	if( !bResult )
 	{
 		bError = true;
-		UE_LOG(LogPhysics, Warning, TEXT("Failed to cook TriMesh: %s."), *CollisionDataProvider->GetPathName());
+		UE_LOG(LogPhysics, Log, TEXT("Failed to cook TriMesh: %s."), *CollisionDataProvider->GetPathName());
 	}
 
 	// If we want UV info, copy that now

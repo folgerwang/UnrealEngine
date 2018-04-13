@@ -22,10 +22,21 @@ void FAbcImportSettingsCustomization::CustomizeDetails(IDetailLayoutBuilder& Lay
 	IDetailCategoryBuilder& StaticMeshBuilder = LayoutBuilder.EditCategory("StaticMesh");
 	StaticMeshBuilder.SetCategoryVisibility(EnumValue == (uint8)EAlembicImportType::StaticMesh);
 
+	IDetailCategoryBuilder& GeomCacheBuilder = LayoutBuilder.EditCategory("GeometryCache");
+	GeomCacheBuilder.SetCategoryVisibility(EnumValue == (uint8)EAlembicImportType::GeometryCache);
+
 	FSimpleDelegate OnImportTypeChangedDelegate = FSimpleDelegate::CreateSP(this, &FAbcImportSettingsCustomization::OnImportTypeChanged, &LayoutBuilder);
 	ImportType->SetOnPropertyValueChanged(OnImportTypeChangedDelegate);
 
-	if (UAbcImportSettings::Get()->bReimport)
+	TArray<TWeakObjectPtr<UObject>> Objects;
+	LayoutBuilder.GetObjectsBeingCustomized(Objects);
+
+	
+	TWeakObjectPtr<UObject>* SettingsObject = Objects.FindByPredicate([](const TWeakObjectPtr<UObject>& Object) { return Object->IsA<UAbcImportSettings>(); } );
+
+	UAbcImportSettings* CurrentSettings = SettingsObject ? Cast<UAbcImportSettings>(SettingsObject->Get()) : nullptr;
+
+	if (CurrentSettings && CurrentSettings->bReimport)
 	{
 		UEnum* ImportTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EAlembicImportType"));		
 		static FText RestrictReason = NSLOCTEXT("AlembicImportFactory", "ReimportRestriction", "Unable to change type while reimporting");
@@ -35,7 +46,7 @@ void FAbcImportSettingsCustomization::CustomizeDetails(IDetailLayoutBuilder& Lay
 		{
 			if (EnumValue != EnumIndex)
 			{
-				EnumRestriction->AddDisabledValue(ImportTypeEnum->GetNameByValue(EnumIndex).ToString());
+				EnumRestriction->AddDisabledValue(ImportTypeEnum->GetNameStringByIndex(EnumIndex));
 			}
 		}		
 		ImportType->AddRestriction(EnumRestriction.ToSharedRef());
@@ -59,14 +70,18 @@ TSharedRef<IPropertyTypeCustomization> FAbcSamplingSettingsCustomization::MakeIn
 
 void FAbcSamplingSettingsCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> StructPropertyHandle, IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
 {
-	Settings = UAbcImportSettings::Get();
-
 	uint32 NumChildren;
 	StructPropertyHandle->GetNumChildren(NumChildren);
 	
 	for (uint32 ChildIndex = 0; ChildIndex < NumChildren; ++ChildIndex)
 	{
 		TSharedRef<IPropertyHandle> ChildHandle = StructPropertyHandle->GetChildHandle(ChildIndex).ToSharedRef();
+
+		if (ChildHandle->GetProperty()->GetFName() == GET_MEMBER_NAME_CHECKED(FAbcSamplingSettings, SamplingType))
+		{
+			SamplingTypeHandle = ChildHandle; 
+		}
+
 		IDetailPropertyRow& Property = StructBuilder.AddProperty(ChildHandle);
 		static const FName EditConditionName = "EnumCondition";
 		int32 EnumCondition = ChildHandle->GetINTMetaData(EditConditionName);
@@ -76,7 +91,13 @@ void FAbcSamplingSettingsCustomization::CustomizeChildren(TSharedRef<IPropertyHa
 
 EVisibility FAbcSamplingSettingsCustomization::ArePropertiesVisible(const int32 VisibleType) const
 {
-	return (Settings->SamplingSettings.SamplingType == (EAlembicSamplingType)VisibleType || VisibleType == 0) ? EVisibility::Visible : EVisibility::Collapsed;
+	uint8 Value = 0;
+	if (SamplingTypeHandle.IsValid() && (SamplingTypeHandle->GetValue(Value) == FPropertyAccess::Success))
+	{
+		return (Value == (uint8)VisibleType || VisibleType == 0) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+	
+	return EVisibility::Visible;
 }
 
 TSharedRef<IPropertyTypeCustomization> FAbcCompressionSettingsCustomization::MakeInstance()
@@ -86,14 +107,18 @@ TSharedRef<IPropertyTypeCustomization> FAbcCompressionSettingsCustomization::Mak
 
 void FAbcCompressionSettingsCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> StructPropertyHandle, IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
 {
-	Settings = UAbcImportSettings::Get();
-
 	uint32 NumChildren;
 	StructPropertyHandle->GetNumChildren(NumChildren);
 
 	for (uint32 ChildIndex = 0; ChildIndex < NumChildren; ++ChildIndex)
 	{
 		TSharedRef<IPropertyHandle> ChildHandle = StructPropertyHandle->GetChildHandle(ChildIndex).ToSharedRef();
+
+		if (ChildHandle->GetProperty()->GetFName() == GET_MEMBER_NAME_CHECKED(FAbcCompressionSettings, BaseCalculationType))
+		{
+			BaseCalculationTypeHandle = ChildHandle;
+		}
+
 		IDetailPropertyRow& Property = StructBuilder.AddProperty(ChildHandle);
 		static const FName EditConditionName = "EnumCondition";
 		int32 EnumCondition = ChildHandle->GetINTMetaData(EditConditionName);
@@ -103,7 +128,13 @@ void FAbcCompressionSettingsCustomization::CustomizeChildren(TSharedRef<IPropert
 
 EVisibility FAbcCompressionSettingsCustomization::ArePropertiesVisible(const int32 VisibleType) const
 {
-	return (Settings->CompressionSettings.BaseCalculationType == (EBaseCalculationType)VisibleType || VisibleType == 0) ? EVisibility::Visible : EVisibility::Collapsed;
+	uint8 Value = 0;
+	if (BaseCalculationTypeHandle.IsValid() && (BaseCalculationTypeHandle->GetValue(Value) == FPropertyAccess::Success))
+	{
+		return (Value == (uint8)VisibleType || VisibleType == 0) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+	return EVisibility::Visible;
 }
 
 TSharedRef<IPropertyTypeCustomization> FAbcConversionSettingsCustomization::MakeInstance()
@@ -113,9 +144,15 @@ TSharedRef<IPropertyTypeCustomization> FAbcConversionSettingsCustomization::Make
 
 void FAbcConversionSettingsCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> StructPropertyHandle, IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
 {
-	Settings = UAbcImportSettings::Get();
 	FSimpleDelegate OnPresetChanged = FSimpleDelegate::CreateSP(this, &FAbcConversionSettingsCustomization::OnConversionPresetChanged);
 	FSimpleDelegate OnValueChanged = FSimpleDelegate::CreateSP(this, &FAbcConversionSettingsCustomization::OnConversionValueChanged);
+
+	TArray<void*> StructPtrs;
+	StructPropertyHandle->AccessRawData(StructPtrs);
+	if (StructPtrs.Num() == 1)
+	{
+		Settings = (FAbcConversionSettings*)StructPtrs[0];
+	}
 
 	uint32 NumChildren;
 	StructPropertyHandle->GetNumChildren(NumChildren);
@@ -139,25 +176,28 @@ void FAbcConversionSettingsCustomization::CustomizeChildren(TSharedRef<IProperty
 
 void FAbcConversionSettingsCustomization::OnConversionPresetChanged()
 {
-	// Set values to specified preset
-	switch (Settings->ConversionSettings.Preset)
+	if (Settings)
 	{
-		case EAbcConversionPreset::Maya:
+		// Set values to specified preset
+		switch (Settings->Preset)
 		{
-			Settings->ConversionSettings.bFlipU = false;
-			Settings->ConversionSettings.bFlipV = true;
-			Settings->ConversionSettings.Scale = FVector(1.0f, -1.0f, 1.0f);
-			Settings->ConversionSettings.Rotation = FVector::ZeroVector;
-			break;
-		}
+			case EAbcConversionPreset::Maya:
+			{
+				Settings->bFlipU = false;
+				Settings->bFlipV = true;
+				Settings->Scale = FVector(1.0f, -1.0f, 1.0f);
+				Settings->Rotation = FVector::ZeroVector;
+				break;
+			}
 
-		case EAbcConversionPreset::Max:
-		{
-			Settings->ConversionSettings.bFlipU = false;
-			Settings->ConversionSettings.bFlipV = true;
-			Settings->ConversionSettings.Scale = FVector(1.0f, -1.0f, 1.0f);
-			Settings->ConversionSettings.Rotation = FVector(90.0f, 0.0f, 0);
-			break;
+			case EAbcConversionPreset::Max:
+			{
+				Settings->bFlipU = false;
+				Settings->bFlipV = true;
+				Settings->Scale = FVector(1.0f, -1.0f, 1.0f);
+				Settings->Rotation = FVector(90.0f, 0.0f, 0);
+				break;
+			}
 		}
 	}
 }
@@ -165,5 +205,5 @@ void FAbcConversionSettingsCustomization::OnConversionPresetChanged()
 void FAbcConversionSettingsCustomization::OnConversionValueChanged()
 {
 	// Set conversion preset to custom
-	Settings->ConversionSettings.Preset = EAbcConversionPreset::Custom;
+	Settings->Preset = EAbcConversionPreset::Custom;
 }

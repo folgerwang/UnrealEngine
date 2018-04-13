@@ -91,7 +91,7 @@ src_delete (SRC_STATE *state)
 	{	
 		if (psrc->private_data)
 		{
-			free(psrc->private_data);
+			FMemory::Free(psrc->private_data);
 		}
 		FMemory::Memset(psrc, 0, sizeof (SRC_PRIVATE)) ;
 		delete psrc;

@@ -217,7 +217,6 @@ public class UnrealEd : ModuleRules
 				"HTML5PlatformEditor",
 				"PortalProxies",
 				"PortalServices",
-				"GeometryCacheEd",
 				"BlueprintNativeCodeGen",
 				"OverlayEditor",
 				"AnimationModifiers",

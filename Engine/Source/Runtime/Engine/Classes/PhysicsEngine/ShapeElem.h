@@ -16,6 +16,8 @@ namespace EAggCollisionShape
 		Box,
 		Sphyl,
 		Convex,
+		TaperedCapsule,
+
 		Unknown
 	};
 }

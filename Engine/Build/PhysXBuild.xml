@@ -27,8 +27,10 @@
 	<Option Name="WithAndroid-x64" DefaultValue="false" Description="Compile for Android x64"/>
 	<Option Name="WithHTML5" DefaultValue="false" Description="Compile for HTML5"/>
 	<Option Name="WithSwitch" DefaultValue="false" Description="Compile for Switch"/>
+	<Option Name="ShelvedChange" DefaultValue="" Description="Change to unshelve"/>
 
 	<Property Name="OtherArgs" Value=""/>
+	<Property Name="OtherArgs" Value="$(OtherArgs) -Unshelve=$(ShelvedChange)" If="'$(ShelvedChange)' != ''"/>
 	<Property Name="OtherArgs" Value="$(OtherArgs) -SkipBuildSolutions" If="$(SkipBuildSolutions)"/>
 	<Property Name="OtherArgs" Value="$(OtherArgs) -SkipBuild" If="$(SkipBuild)"/>
 	<Property Name="OtherArgs" Value="$(OtherArgs) -SkipCreateChangelist" If="$(SkipCreateChangelist)"/>

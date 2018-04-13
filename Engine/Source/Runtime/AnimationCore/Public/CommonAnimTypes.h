@@ -21,8 +21,10 @@ struct FAxis
 	bool bInLocalSpace;
 
 	FAxis(const FVector& InAxis = FVector::ForwardVector)
-		: Axis(InAxis)
-		, bInLocalSpace(true) {};
+		:  bInLocalSpace(true) 
+	{
+		Axis = InAxis.GetSafeNormal();
+	};
 
 	/** return transformed axis based on ComponentSpaceTransform */
 	FVector GetTransformedAxis(const FTransform& ComponentSpaceTransform) const

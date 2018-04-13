@@ -21,6 +21,7 @@ public:
 	virtual ~FPersonaToolkit() {}
 
 	/** Initialize from a various sources */
+	void Initialize(UObject* InAsset);
 	void Initialize(USkeleton* InSkeleton);
 	void Initialize(UAnimationAsset* InAnimationAsset);
 	void Initialize(USkeletalMesh* InSkeletalMesh);
@@ -62,6 +63,9 @@ private:
 
 	/** the physics asset we are editing */
 	UPhysicsAsset* PhysicsAsset;
+
+	/** The generic asset we are editing */
+	UObject* Asset;
 
 	/** Preview scene for the editor */
 	TSharedPtr<FAnimationEditorPreviewScene> PreviewScene;

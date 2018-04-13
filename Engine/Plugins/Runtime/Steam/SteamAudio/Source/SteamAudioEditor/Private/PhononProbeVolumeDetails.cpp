@@ -7,6 +7,8 @@
 #include "PhononCommon.h"
 #include "SteamAudioEditorModule.h"
 #include "SteamAudioSettings.h"
+#include "PhononReverb.h"
+#include "SteamAudioEnvironment.h"
 
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
@@ -160,7 +162,17 @@ namespace SteamAudio
 	{
 		IPLhandle ProbeBox = nullptr;
 		PhononProbeVolume->LoadProbeBoxFromDisk(&ProbeBox);
-		iplDeleteBakedDataByName(ProbeBox, TCHAR_TO_ANSI(*PhononProbeVolume->BakedDataInfo[ArrayIndex].Name.ToString().ToLower()));
+		
+		FIdentifierMap IdentifierMap;
+		LoadBakedIdentifierMapFromDisk(PhononProbeVolume->GetWorld(), IdentifierMap);
+		
+		FString BakedDataString = PhononProbeVolume->BakedDataInfo[ArrayIndex].Name.ToString().ToLower();
+
+		IPLBakedDataIdentifier BakedDataIdentifier;
+		BakedDataIdentifier.type = BakedDataString.Equals("__reverb__") ? IPL_BAKEDDATATYPE_REVERB : IPL_BAKEDDATATYPE_STATICSOURCE;
+		BakedDataIdentifier.identifier = IdentifierMap.Get(BakedDataString);
+		
+		iplDeleteBakedDataByIdentifier(ProbeBox, BakedDataIdentifier);
 		PhononProbeVolume->BakedDataInfo.RemoveAt(ArrayIndex);
 		PhononProbeVolume->UpdateProbeData(ProbeBox);
 		iplDestroyProbeBox(&ProbeBox);

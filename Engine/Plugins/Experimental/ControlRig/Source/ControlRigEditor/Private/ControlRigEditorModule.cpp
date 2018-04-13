@@ -6,16 +6,12 @@
 #include "BlueprintEditorModule.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "ControlRig.h"
-#include "K2Node_ControlRig.h"
-#include "K2Node_ControlRigOutput.h"
-#include "ControlRigInputOutputDetailsCustomization.h"
-#include "UserLabeledFieldCustomization.h"
 #include "ControlRigComponent.h"
 #include "ISequencerModule.h"
 #include "ControlRigTrackEditor.h"
 #include "IAssetTools.h"
 #include "ControlRigSequenceActions.h"
-#include "ControlRigSequenceEditorStyle.h"
+#include "ControlRigEditorStyle.h"
 #include "Framework/Docking/LayoutExtender.h"
 #include "LevelEditor.h"
 #include "MovieSceneToolsProjectSettings.h"
@@ -27,8 +23,6 @@
 #include "Sequencer/ControlRigSequence.h"
 #include "EditorModeRegistry.h"
 #include "ControlRigEditMode.h"
-#include "Rigs/HumanRig.h"
-#include "HumanRigDetails.h"
 #include "ControlRigEditorObjectBinding.h"
 #include "ControlRigEditorObjectSpawner.h"
 #include "ILevelSequenceModule.h"
@@ -37,7 +31,7 @@
 #include "ControlRigEditMode.h"
 #include "Sequencer/MovieSceneControlRigSection.h"
 #include "MovieSceneControlRigSectionDetailsCustomization.h"
-#include "ControlRigCommands.h"
+#include "ControlRigEditModeCommands.h"
 #include "Materials/Material.h"
 #include "Framework/MultiBox/MultiBoxExtender.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
@@ -48,18 +42,42 @@
 #include "ControlRigSequenceExporterSettings.h"
 #include "ContentBrowserModule.h"
 #include "AssetRegistryModule.h"
+#include "Editor/ControlRigEditor.h"
+#include "ControlRigBlueprintActions.h"
+#include "Graph/ControlRigGraphSchema.h"
+#include "Graph/ControlRigGraph.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "ControlRigGraphNode.h"
+#include "EdGraphUtilities.h"
+#include "ControlRigGraphPanelNodeFactory.h"
+#include "ControlRigGraphPanelPinFactory.h"
+#include "ControlRigBlueprintUtils.h"
+#include "ControlRigBlueprintCommands.h"
+#include "ControlRigHierarchyCommands.h"
+#include "Animation/AnimSequence.h"
+#include "ControlRigEditorEditMode.h"
+#include "ControlRigDetails.h"
+#include "Units/RigUnitEditor_TwoBoneIKFK.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigEditorModule"
 
+DEFINE_LOG_CATEGORY(LogControlRigEditor);
+
+TMap<FName, TSubclassOf<URigUnitEditor_Base>> FControlRigEditorModule::RigUnitEditorClasses;
+
 void FControlRigEditorModule::StartupModule()
 {
-	FHumanRigNodeCommand::Register();
-	FControlRigCommands::Register();
-	FControlRigSequenceEditorStyle::Get();
+	FControlRigEditModeCommands::Register();
+	FControlRigBlueprintCommands::Register();
+	FControlRigHierarchyCommands::Register();
+	FControlRigEditorStyle::Get();
 
 	CommandBindings = MakeShareable(new FUICommandList());
 
 	BindCommands();
+
+	MenuExtensibilityManager = MakeShareable(new FExtensibilityManager);
+	ToolBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
 
 	// Register Blueprint editor variable customization
 	FBlueprintEditorModule& BlueprintEditorModule = FModuleManager::LoadModuleChecked<FBlueprintEditorModule>("Kismet");
@@ -68,16 +86,11 @@ void FControlRigEditorModule::StartupModule()
 	// Register to fixup newly created BPs
 	FKismetEditorUtilities::RegisterOnBlueprintCreatedCallback(this, UControlRig::StaticClass(), FKismetEditorUtilities::FOnBlueprintCreated::CreateRaw(this, &FControlRigEditorModule::HandleNewBlueprintCreated));
 
+	FKismetCompilerContext::RegisterCompilerForBP(UControlRigBlueprint::StaticClass(), &FControlRigEditorModule::GetControlRigCompiler);
+
 	// Register details customizations for animation controller nodes
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 	ClassesToUnregisterOnShutdown.Reset();
-
-	// not safe to call StaticClass on shutdown, so cache name here, and shut down using that name
-	ClassesToUnregisterOnShutdown.Add(UK2Node_ControlRig::StaticClass()->GetFName());
-	PropertyEditorModule.RegisterCustomClassLayout(ClassesToUnregisterOnShutdown.Last(), FOnGetDetailCustomizationInstance::CreateStatic(&FControlRigInputOutputDetailsCustomization::MakeInstance));
-
-	ClassesToUnregisterOnShutdown.Add(UHumanRig::StaticClass()->GetFName());
-	PropertyEditorModule.RegisterCustomClassLayout(ClassesToUnregisterOnShutdown.Last(), FOnGetDetailCustomizationInstance::CreateStatic(&FHumanRigDetails::MakeInstance));
 
 	ClassesToUnregisterOnShutdown.Add(UMovieSceneControlRigSection::StaticClass()->GetFName());
 	PropertyEditorModule.RegisterCustomClassLayout(ClassesToUnregisterOnShutdown.Last(), FOnGetDetailCustomizationInstance::CreateStatic(&FMovieSceneControlRigSectionDetailsCustomization::MakeInstance));
@@ -85,22 +98,27 @@ void FControlRigEditorModule::StartupModule()
 	ClassesToUnregisterOnShutdown.Add(UControlRigSequenceExporterSettings::StaticClass()->GetFName());
 	PropertyEditorModule.RegisterCustomClassLayout(ClassesToUnregisterOnShutdown.Last(), FOnGetDetailCustomizationInstance::CreateStatic(&FControlRigSequenceExporterSettingsDetailsCustomization::MakeInstance));
 
-	// same as ClassesToUnregisterOnShutdown but for properties
-	PropertiesToUnregisterOnShutdown.Reset();
+	ClassesToUnregisterOnShutdown.Add(UControlRig::StaticClass()->GetFName());
+	PropertyEditorModule.RegisterCustomClassLayout(ClassesToUnregisterOnShutdown.Last(), FOnGetDetailCustomizationInstance::CreateStatic(&FControlRigDetails::MakeInstance));
 
-	PropertiesToUnregisterOnShutdown.Add(FUserLabeledField::StaticStruct()->GetFName());
-	PropertyEditorModule.RegisterCustomPropertyTypeLayout(PropertiesToUnregisterOnShutdown.Last(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FUserLabeledFieldCustomization::MakeInstance));
+	// same as ClassesToUnregisterOnShutdown but for properties, there is none right now
+	PropertiesToUnregisterOnShutdown.Reset();
 
 	// Register blueprint compiler
 	IKismetCompilerInterface& KismetCompilerModule = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>("KismetCompiler");
 	KismetCompilerModule.GetCompilers().Add(&ControlRigBlueprintCompiler);
 
 	// Register asset tools
-	IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
-	TSharedRef<IAssetTypeActions> AssetTypeAction = MakeShareable(new FControlRigSequenceActions());
-	RegisteredAssetTypeActions.Add(AssetTypeAction);
-	AssetTools.RegisterAssetTypeActions(AssetTypeAction);
+	auto RegisterAssetTypeAction = [this](const TSharedRef<IAssetTypeActions>& InAssetTypeAction)
+	{
+		IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
+		RegisteredAssetTypeActions.Add(InAssetTypeAction);
+		AssetTools.RegisterAssetTypeActions(InAssetTypeAction);
+	};
 
+	RegisterAssetTypeAction(MakeShareable(new FControlRigSequenceActions()));
+	RegisterAssetTypeAction(MakeShareable(new FControlRigBlueprintActions()));
+	
 	// Register sequencer track editor
 	ISequencerModule& SequencerModule = FModuleManager::Get().LoadModuleChecked<ISequencerModule>("Sequencer");
 	SequencerCreatedHandle = SequencerModule.RegisterOnSequencerCreated(FOnSequencerCreated::FDelegate::CreateRaw(this, &FControlRigEditorModule::HandleSequencerCreated));
@@ -115,7 +133,7 @@ void FControlRigEditorModule::StartupModule()
 		CommandBindings,
 		FToolBarExtensionDelegate::CreateLambda([](FToolBarBuilder& ToolBarBuilder)
 		{
-			ToolBarBuilder.AddToolBarButton(FControlRigCommands::Get().ExportAnimSequence);
+			ToolBarBuilder.AddToolBarButton(FControlRigEditModeCommands::Get().ExportAnimSequence);
 		}));
 
 	SequencerModule.GetToolBarExtensibilityManager()->AddExtender(SequencerToolbarExtender);
@@ -136,8 +154,14 @@ void FControlRigEditorModule::StartupModule()
 	FEditorModeRegistry::Get().RegisterMode<FControlRigEditMode>(
 		FControlRigEditMode::ModeName,
 		NSLOCTEXT("AnimationModeToolkit", "DisplayName", "Animation"),
-		FSlateIcon(FControlRigSequenceEditorStyle::Get().GetStyleSetName(), "ControlRigEditMode", "ControlRigEditMode.Small"),
+		FSlateIcon(FControlRigEditorStyle::Get().GetStyleSetName(), "ControlRigEditMode", "ControlRigEditMode.Small"),
 		true);
+
+	FEditorModeRegistry::Get().RegisterMode<FControlRigEditorEditMode>(
+		FControlRigEditorEditMode::ModeName,
+		NSLOCTEXT("RiggingModeToolkit", "DisplayName", "Rigging"),
+		FSlateIcon(FControlRigEditorStyle::Get().GetStyleSetName(), "ControlRigEditMode", "ControlRigEditMode.Small"),
+		false);
 
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
 	ContentBrowserModule.GetAllAssetViewContextMenuExtenders().Add(FContentBrowserMenuExtender_SelectedAssets::CreateLambda([this](const TArray<FAssetData>& SelectedAssets)
@@ -152,7 +176,7 @@ void FControlRigEditorModule::StartupModule()
 				CommandBindings,
 				FMenuExtensionDelegate::CreateLambda([this, SelectedAssets](FMenuBuilder& MenuBuilder)
 				{
-					const TSharedPtr<FUICommandInfo>& ImportFromRigSequence = FControlRigCommands::Get().ImportFromRigSequence;
+					const TSharedPtr<FUICommandInfo>& ImportFromRigSequence = FControlRigEditModeCommands::Get().ImportFromRigSequence;
 					MenuBuilder.AddMenuEntry(
 						ImportFromRigSequence->GetLabel(),
 						ImportFromRigSequence->GetDescription(),
@@ -187,7 +211,7 @@ void FControlRigEditorModule::StartupModule()
 					CommandBindings,
 					FMenuExtensionDelegate::CreateLambda([this, SelectedAssets](FMenuBuilder& MenuBuilder)
 					{
-						const TSharedPtr<FUICommandInfo>& ReImportFromRigSequence = FControlRigCommands::Get().ReImportFromRigSequence;
+						const TSharedPtr<FUICommandInfo>& ReImportFromRigSequence = FControlRigEditModeCommands::Get().ReImportFromRigSequence;
 						MenuBuilder.AddMenuEntry(
 							ReImportFromRigSequence->GetLabel(),
 							ReImportFromRigSequence->GetDescription(),
@@ -206,7 +230,7 @@ void FControlRigEditorModule::StartupModule()
 				{
 					MenuBuilder.BeginSection("ControlRigActions", LOCTEXT("ControlRigActions", "Control Rig Sequence Actions"));
 					{
-						const TSharedPtr<FUICommandInfo>& ExportAnimSequence = FControlRigCommands::Get().ExportAnimSequence;
+						const TSharedPtr<FUICommandInfo>& ExportAnimSequence = FControlRigEditModeCommands::Get().ExportAnimSequence;
 						MenuBuilder.AddMenuEntry(
 							ExportAnimSequence->GetLabel(),
 							ExportAnimSequence->GetDescription(),
@@ -228,7 +252,7 @@ void FControlRigEditorModule::StartupModule()
 
 						if (bCanReExport)
 						{
-							const TSharedPtr<FUICommandInfo>& ReExportAnimSequence = FControlRigCommands::Get().ReExportAnimSequence;
+							const TSharedPtr<FUICommandInfo>& ReExportAnimSequence = FControlRigEditModeCommands::Get().ReExportAnimSequence;
 							MenuBuilder.AddMenuEntry(
 								ReExportAnimSequence->GetLabel(),
 								ReExportAnimSequence->GetDescription(),
@@ -243,10 +267,33 @@ void FControlRigEditorModule::StartupModule()
 		return Extender;
 	}));
 	ContentBrowserMenuExtenderHandle = ContentBrowserModule.GetAllAssetViewContextMenuExtenders().Last().GetHandle();
+
+	ControlRigGraphPanelNodeFactory = MakeShared<FControlRigGraphPanelNodeFactory>();
+	FEdGraphUtilities::RegisterVisualNodeFactory(ControlRigGraphPanelNodeFactory);
+
+	ControlRigGraphPanelPinFactory = MakeShared<FControlRigGraphPanelPinFactory>();
+	FEdGraphUtilities::RegisterVisualPinFactory(ControlRigGraphPanelPinFactory);
+
+	ReconstructAllNodesDelegateHandle = FBlueprintEditorUtils::OnReconstructAllNodesEvent.AddStatic(&FControlRigBlueprintUtils::HandleReconstructAllNodes);
+	RefreshAllNodesDelegateHandle = FBlueprintEditorUtils::OnRefreshAllNodesEvent.AddStatic(&FControlRigBlueprintUtils::HandleRefreshAllNodes);
+	RenameVariableReferencesDelegateHandle = FBlueprintEditorUtils::OnRenameVariableReferencesEvent.AddStatic(&FControlRigBlueprintUtils::HandleRenameVariableReferencesEvent);
+
+	GetClassPropertyActionsDelegateHandle = FBlueprintEditorUtils::OnGetClassPropertyActionsEvent.AddStatic(&FControlRigBlueprintUtils::HandleGetClassPropertyActions);
+
+	// register rig unit base editor class
+	RegisterRigUnitEditorClass("RigUnit_TwoBoneIKFK", URigUnitEditor_TwoBoneIKFK::StaticClass());
 }
 
 void FControlRigEditorModule::ShutdownModule()
 {
+	FBlueprintEditorUtils::OnGetClassPropertyActionsEvent.Remove(GetClassPropertyActionsDelegateHandle);
+	FBlueprintEditorUtils::OnRefreshAllNodesEvent.Remove(RefreshAllNodesDelegateHandle);
+	FBlueprintEditorUtils::OnReconstructAllNodesEvent.Remove(ReconstructAllNodesDelegateHandle);
+	FBlueprintEditorUtils::OnRenameVariableReferencesEvent.Remove(RenameVariableReferencesDelegateHandle);
+
+	FEdGraphUtilities::UnregisterVisualPinFactory(ControlRigGraphPanelPinFactory);
+	FEdGraphUtilities::UnregisterVisualNodeFactory(ControlRigGraphPanelNodeFactory);
+
 	FContentBrowserModule* ContentBrowserModule = FModuleManager::GetModulePtr<FContentBrowserModule>(TEXT("ContentBrowser"));
 	if (ContentBrowserModule)
 	{
@@ -260,6 +307,7 @@ void FControlRigEditorModule::ShutdownModule()
 
 	FAssetEditorManager::Get().OnAssetEditorOpened().Remove(AssetEditorOpenedHandle);
 
+	FEditorModeRegistry::Get().UnregisterMode(FControlRigEditorEditMode::ModeName);
 	FEditorModeRegistry::Get().UnregisterMode(FControlRigEditMode::ModeName);
 
 	ILevelSequenceModule* LevelSequenceModule = FModuleManager::GetModulePtr<ILevelSequenceModule>("LevelSequence");
@@ -322,27 +370,13 @@ void FControlRigEditorModule::ShutdownModule()
 
 void FControlRigEditorModule::HandleNewBlueprintCreated(UBlueprint* InBlueprint)
 {
-	if (ensure(InBlueprint->UbergraphPages.Num() > 0))
-	{
-		UEdGraph* EventGraph = InBlueprint->UbergraphPages[0];
+	// add an initial graph for us to work in
+	const UControlRigGraphSchema* ControlRigGraphSchema = GetDefault<UControlRigGraphSchema>();
 
-		// Add animation output node
-		UK2Node_ControlRigOutput* OutputNode = NewObject<UK2Node_ControlRigOutput>(EventGraph);
-		OutputNode->CreateNewGuid();
-		OutputNode->PostPlacedNewNode();
-		OutputNode->SetFlags(RF_Transactional);
-		OutputNode->AllocateDefaultPins();
-		OutputNode->ReconstructNode();
-		OutputNode->NodePosX = 0;
-		OutputNode->NodePosY = 0;
-		UEdGraphSchema_K2::SetNodeMetaData(OutputNode, FNodeMetadata::DefaultGraphNode);
-		OutputNode->MakeAutomaticallyPlacedGhostNode();
-		OutputNode->NodeComment = LOCTEXT("AnimationOutputComment", "This node acts as the output for this animation controller.\nTo add or remove an output pin, enable or disable the \"Animation Output\" checkbox for a variable.").ToString();
-		OutputNode->bCommentBubbleVisible = true;
-		OutputNode->bCommentBubblePinned = true;
-
-		EventGraph->AddNode(OutputNode);
-	}
+	UEdGraph* ControlRigGraph = FBlueprintEditorUtils::CreateNewGraph(InBlueprint, ControlRigGraphSchema->GraphName_ControlRig, UControlRigGraph::StaticClass(), UControlRigGraphSchema::StaticClass());
+	ControlRigGraph->bAllowDeletion = false;
+	FBlueprintEditorUtils::AddUbergraphPage(InBlueprint, ControlRigGraph);
+	InBlueprint->LastEditedDocuments.AddUnique(ControlRigGraph);
 }
 
 void FControlRigEditorModule::HandleSequencerCreated(TSharedRef<ISequencer> InSequencer)
@@ -379,9 +413,7 @@ void FControlRigEditorModule::HandleSequencerCreated(TSharedRef<ISequencer> InSe
 				if (FControlRigEditMode* ControlRigEditMode = static_cast<FControlRigEditMode*>(GLevelEditorModeTools().GetActiveMode(FControlRigEditMode::ModeName)))
 				{
 					ControlRigEditMode->SetSequencer(nullptr);
-					TArray<TWeakObjectPtr<>> SelectedObjects;
-					TArray<FGuid> ObjectBindings;
-					ControlRigEditMode->SetObjects(SelectedObjects, ObjectBindings);
+					ControlRigEditMode->SetObjects(TWeakObjectPtr<>(), FGuid());
 				}
 			}
 		}
@@ -401,28 +433,24 @@ void FControlRigEditorModule::HandleSequencerCreated(TSharedRef<ISequencer> InSe
 			UMovieSceneSequence* Sequence = Sequencer->GetFocusedMovieSceneSequence();
 			if (UControlRigSequence* ControlRigSequence = ExactCast<UControlRigSequence>(Sequence))
 			{
-				TArray<TWeakObjectPtr<>> SelectedObjects;
-
-				// first make a list of unique objects
-				TArray<FGuid> UniqueBindings;
-				for (const FGuid& Guid : InObjectBindings)
+				TWeakObjectPtr<> SelectedObject;
+				FGuid ObjectBinding;
+				if(InObjectBindings.Num() > 0)
 				{
-					UniqueBindings.AddUnique(Guid);
+					ObjectBinding = InObjectBindings[0];
+					TArrayView<TWeakObjectPtr<>> BoundObjects = Sequencer->FindBoundObjects(ObjectBinding, Sequencer->GetFocusedTemplateID());
+					if(BoundObjects.Num() > 0)
+					{
+						SelectedObject = BoundObjects[0];
+					}
 				}
 
-				for (const FGuid& Guid : UniqueBindings)
-				{
-					TArrayView<TWeakObjectPtr<>> BoundObjects = Sequencer->FindBoundObjects(Guid, Sequencer->GetFocusedTemplateID());
-					SelectedObjects.Append(BoundObjects.GetData(), BoundObjects.Num());
-				}
-
-				// @TODO: allow binding to sub-editor mode tools for use in animation editors
-				if (SelectedObjects.Num() > 0)
+				if (SelectedObject.IsValid())
 				{
 					GLevelEditorModeTools().ActivateMode(FControlRigEditMode::ModeName);
 					if (FControlRigEditMode* ControlRigEditMode = static_cast<FControlRigEditMode*>(GLevelEditorModeTools().GetActiveMode(FControlRigEditMode::ModeName)))
 					{
-						ControlRigEditMode->SetObjects(SelectedObjects, UniqueBindings);
+						ControlRigEditMode->SetObjects(SelectedObject, ObjectBinding);
 					}
 				}
 			}
@@ -467,7 +495,8 @@ void FControlRigEditorModule::HandleSequencerCreated(TSharedRef<ISequencer> InSe
 
 				if (FControlRigEditMode* ControlRigEditMode = static_cast<FControlRigEditMode*>(GLevelEditorModeTools().GetActiveMode(FControlRigEditMode::ModeName)))
 				{
-					ControlRigEditMode->SetNodeSelectionByPropertyPath(PropertyPaths);
+					ControlRigEditMode->ClearControlSelection();
+					ControlRigEditMode->SetControlSelection(PropertyPaths, true);
 				}
 			}
 		}
@@ -514,7 +543,7 @@ void FControlRigEditorModule::OnInitializeSequence(UControlRigSequence* Sequence
 
 void FControlRigEditorModule::BindCommands()
 {
-	const FControlRigCommands& Commands = FControlRigCommands::Get();
+	const FControlRigEditModeCommands& Commands = FControlRigEditModeCommands::Get();
 
 	CommandBindings->MapAction(
 		Commands.ExportAnimSequence,
@@ -641,14 +670,50 @@ bool FControlRigEditorModule::IsTrackVisible(const UMovieSceneTrack* InTrack)
 	if (FControlRigEditMode* ControlRigEditMode = static_cast<FControlRigEditMode*>(GLevelEditorModeTools().GetActiveMode(FControlRigEditMode::ModeName)))
 	{		
 		// If nothing selected, show all nodes
-		if (ControlRigEditMode->GetSelectedNodes().Num() == 0)
+		if (ControlRigEditMode->GetNumSelectedControls() == 0)
 		{
 			return true;
 		}
 
-		return ControlRigEditMode->IsNodeSelected(ControlRigEditMode->GetNodeFromPropertyPath(InTrack->GetTrackName().ToString()));
+		return ControlRigEditMode->IsControlSelected(ControlRigEditMode->GetControlFromPropertyPath(InTrack->GetTrackName().ToString()));
 	}
 	return true;
+}
+
+TSharedRef<IControlRigEditor> FControlRigEditorModule::CreateControlRigEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, class UControlRigBlueprint* InBlueprint)
+{
+	TSharedRef< FControlRigEditor > NewControlRigEditor(new FControlRigEditor());
+	NewControlRigEditor->InitControlRigEditor(Mode, InitToolkitHost, InBlueprint);
+	return NewControlRigEditor;
+}
+
+TSharedPtr<FKismetCompilerContext> FControlRigEditorModule::GetControlRigCompiler(UBlueprint* BP, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions)
+{
+	return TSharedPtr<FKismetCompilerContext>(new FControlRigBlueprintCompilerContext(BP, InMessageLog, InCompileOptions, nullptr));
+}
+
+void FControlRigEditorModule::RegisterRigUnitEditorClass(FName RigUnitClassName, TSubclassOf<URigUnitEditor_Base> InClass)
+{
+	TSubclassOf<URigUnitEditor_Base>& Class = RigUnitEditorClasses.FindOrAdd(RigUnitClassName);
+	Class = InClass;
+}
+
+void FControlRigEditorModule::UnregisterRigUnitEditorClass(FName RigUnitClassName)
+{
+	RigUnitEditorClasses.Remove(RigUnitClassName);
+}
+
+// It's CDO of the class, so we don't want the object to be writable or even if you write, it won't be per instance
+TSubclassOf<URigUnitEditor_Base> FControlRigEditorModule::GetEditorObjectByRigUnit(const FName& RigUnitClassName) 
+{
+	const TSubclassOf<URigUnitEditor_Base>* Class = RigUnitEditorClasses.Find(RigUnitClassName);
+	if (Class)
+	{
+		return *Class;
+	}
+
+	//if you don't find anything, just send out base one
+	return URigUnitEditor_Base::StaticClass();
 }
 
 IMPLEMENT_MODULE(FControlRigEditorModule, ControlRigEditor)

@@ -13,7 +13,7 @@ void UPhysicsAssetGraphNode_Bone::SetupBoneNode(USkeletalBodySetup* InBodySetup,
 	PhysicsAsset = InPhysicsAsset;
 
 	const FKAggregateGeom& AggGeom = InPhysicsAsset->SkeletalBodySetups[InBodyIndex]->AggGeom;
-	int32 NumShapes = AggGeom.BoxElems.Num() + AggGeom.SphereElems.Num() + AggGeom.SphylElems.Num() + AggGeom.ConvexElems.Num();
+	int32 NumShapes = AggGeom.GetElementCount();
 	NodeTitle = FText::Format(LOCTEXT("BodyTitle", "Body\n{0}\n{1} shape(s)"), FText::FromName(InBodySetup->BoneName), FText::AsNumber(NumShapes));
 
 	SetupPhysicsAssetNode();

@@ -38,5 +38,12 @@
 				"Linux"
 			]
 		}
+	],
+	"Plugins":
+	[
+		{
+			"Name": "GeometryCache",
+			"Enabled": true
+		}
 	]
 }

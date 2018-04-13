@@ -12,10 +12,13 @@
 #include "Widgets/Views/STableRow.h"
 #include "Widgets/Input/SComboButton.h"
 #include "SBoneMappingBase.h"
+#include "Animation/NodeMappingContainer.h"
+#include "IPersonaPreviewScene.h"
 
 class IEditableSkeleton;
 class URig;
 class USkeleton;
+struct FAssetData;
 //////////////////////////////////////////////////////////////////////////
 // SRigWindow
 
@@ -33,7 +36,7 @@ public:
 	* @param InArgs - Arguments passed from Slate
 	*
 	*/
-	void Construct( const FArguments& InArgs, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& InOnPostUndo );
+	void Construct( const FArguments& InArgs, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, FSimpleMulticastDelegate& InOnPostUndo );
 
 private:
 
@@ -44,15 +47,6 @@ private:
 	*
 	*/
 	void CreateBoneMappingList( const FString& SearchText, TArray< TSharedPtr<FDisplayedBoneMappingInfo> >& BoneMappingList );
-
-	/** Pointer back to the Persona that owns us */
-	TWeakPtr<class IEditableSkeleton> EditableSkeletonPtr;
-
-	/** show advanced? */
-	bool bDisplayAdvanced;
-
-	/** rig combo button */
-	TSharedPtr< class SComboButton > AssetComboButton;
 
 	/**
 	 * Callback for asset picker
@@ -74,7 +68,12 @@ private:
 
 	FReply OnAutoMapping();
 	FReply OnClearMapping();
+	FReply OnSaveMapping();
+	FReply OnLoadMapping();
 	FReply OnToggleView();
+	
+	// set selected mapping asset
+	void SetSelectedMappingAsset(const FAssetData& InAssetData);
 
 	FReply OnToggleAdvanced();
 	FText GetAdvancedButtonText() const;
@@ -82,6 +81,18 @@ private:
 	bool SelectSourceReferenceSkeleton(URig* Rig) const;
 	bool OnTargetSkeletonSelected(USkeleton* SelectedSkeleton, URig*  Rig) const;
 
+	/** Pointer back to the Persona that owns us */
+	TWeakPtr<class IEditableSkeleton> EditableSkeletonPtr;
+
+	/** show advanced? */
+	bool bDisplayAdvanced;
+
+	/** rig combo button */
+	TSharedPtr< class SComboButton > AssetComboButton;
+
 	// bone mapping widget
 	TSharedPtr<SBoneMappingBase> BoneMappingWidget;
+
+	/** The preview scene  */
+	TWeakPtr<class IPersonaPreviewScene> PreviewScenePtr;
 };

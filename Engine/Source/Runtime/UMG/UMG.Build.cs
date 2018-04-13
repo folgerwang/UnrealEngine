@@ -31,7 +31,8 @@ public class UMG : ModuleRules
 				"HTTP",
 				"MovieScene",
                 "MovieSceneTracks",
-			}
+                "PropertyPath",
+            }
         );
 
         PrivateIncludePathModuleNames.AddRange(

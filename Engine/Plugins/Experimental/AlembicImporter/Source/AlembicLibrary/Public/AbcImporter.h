@@ -6,32 +6,31 @@
 #include "Containers/List.h"
 #include "Animation/MorphTarget.h"
 #include "Animation/AnimSequence.h"
+#include "AbcPolyMesh.h"
 
 #if PLATFORM_WINDOWS
 #include "Windows/WindowsHWrapper.h"
 #endif
 
 THIRD_PARTY_INCLUDES_START
-	#include <Alembic/AbcGeom/All.h>
+#include <Alembic/AbcGeom/All.h>
 THIRD_PARTY_INCLUDES_END
 
 class UMaterial;
 class UStaticMesh;
 class USkeletalMesh;
 class UGeometryCache;
-class UGeometryCacheTrack_FlipbookAnimation;
-class UGeometryCacheTrack_TransformAnimation;
+class UDEPRECATED_GeometryCacheTrack_FlipbookAnimation;
+class UDEPRECATED_GeometryCacheTrack_TransformAnimation;
+class UGeometryCacheTrackStreamable;
 class UAbcImportSettings;
 class FSkeletalMeshImportData;
 class UAbcAssetImportData;
 
 struct FAbcImportData;
 struct FGeometryCacheMeshData;
-struct FAbcPolyMeshObject;
-struct FAbcTransformObject;
 struct FAbcMeshSample;
 struct FAbcCompressionSettings;
-struct FCompressedAbcData;
 struct FRawMesh;
 
 enum EAbcImportError : uint32
@@ -41,6 +40,39 @@ enum EAbcImportError : uint32
 	AbcImportError_NoValidTopObject,	
 	AbcImportError_NoMeshes,
 	AbcImportError_FailedToImportData
+};
+
+struct FCompressedAbcData
+{
+	~FCompressedAbcData();
+	/** GUID identifying the poly mesh object this compressed data corresponds to */
+	FGuid Guid;
+	/** Average sample to apply the bases to */
+	FAbcMeshSample* AverageSample;
+	/** List of base samples calculated using PCA compression */
+	TArray<FAbcMeshSample*> BaseSamples;
+	/** Contains the curve values for each individual base */
+	TArray<TArray<float>> CurveValues;
+	/** Contains the time key values for each individual base */
+	TArray<TArray<float>> TimeValues;
+	/** Material names used for retrieving created materials */
+	TArray<FString> MaterialNames;
+};
+
+/** Mesh section used for chunking the mesh data during Skeletal mesh building */
+struct FMeshSection
+{
+	FMeshSection() : MaterialIndex(0), NumFaces(0) {}
+	int32 MaterialIndex;
+	TArray<uint32> Indices;
+	TArray<uint32> OriginalIndices;
+	TArray<FVector> TangentX;
+	TArray<FVector> TangentY;
+	TArray<FVector> TangentZ;
+	TArray<FVector2D> UVs[MAX_TEXCOORDS];
+	TArray<FColor> Colors;
+	uint32 NumFaces;
+	uint32 NumUVSets;
 };
 
 class ALEMBICLIBRARY_API FAbcImporter
@@ -82,7 +114,7 @@ public:
 	* @return UGeometryCache*
 	*/
 	UGeometryCache* ImportAsGeometryCache(UObject* InParent, EObjectFlags Flags);
-	
+
 	TArray<UObject*> ImportAsSkeletalMesh(UObject* InParent, EObjectFlags Flags);	
 
 	/**
@@ -110,11 +142,8 @@ public:
 	TArray<UObject*> ReimportAsSkeletalMesh(USkeletalMesh* SkeletalMesh);
 
 	/** Returns the array of imported PolyMesh objects */
-	const TArray<TSharedPtr<FAbcPolyMeshObject>>& GetPolyMeshes() const;
+	const TArray<class FAbcPolyMesh*>& GetPolyMeshes() const;
 	
-	/** Returns the number of frames for the imported Alembic file */
-	const uint32 GetNumFrames() const;
-
 	/** Returns the lowest frame index containing data for the imported Alembic file */
 	const uint32 GetStartFrameIndex() const;
 
@@ -123,7 +152,6 @@ public:
 
 	/** Returns the number of tracks found in the imported Alembic file */
 	const uint32 GetNumMeshTracks() const;
-
 
 	void UpdateAssetImportData(UAbcAssetImportData* AssetImportData);
 	void RetrieveAssetImportData(UAbcAssetImportData* ImportData);
@@ -136,44 +164,9 @@ private:
 	* @param Flags - Object creation flags
 	*/
 	template<typename T> T* CreateObjectInstance(UObject*& InParent, const FString& ObjectName, const EObjectFlags Flags);
-
-	/** Recursive functionality to traverse a whole Alembic Archive and caching all the object type/data */
-	void TraverseAbcHierarchy(const Alembic::Abc::IObject& InObject, TArray<TSharedPtr<FAbcTransformObject>>& InObjectHierarchy, FGuid InGuid);
-
-	/** Templated function to parse a specific Alembic typed object from the archive */
-	template<typename T> void ParseAbcObject(T& InObject, FGuid InHierarchyGuid) {};
-
-	/**
-	* CreateFlipbookAnimationTrack
-	*
-	* @param Name - Alembic Object Name
-	* @param PolyMesh - Alembic PolyMeshSchema Object used for creation of the track
-	* @param GeometryCacheParent - Parent for the GeometryCacheTrack
-	* @return UGeometryCacheTrack_FlipbookAnimation*
-	*/
-	UGeometryCacheTrack_FlipbookAnimation* CreateFlipbookAnimationTrack(const FString& TrackName, TSharedPtr<FAbcPolyMeshObject>& InMeshObject, UGeometryCache* GeometryCacheParent, const uint32 MaterialOffset);
-
-	/**
-	* CreateTransformAnimationTrack
-	*
-	* @param Name - Alembic Object Name
-	* @param GeometryCacheParent - Parent for the GeometryCacheTrack
-	* @return UGeometryCacheTrack_TransformAnimation*
-	*/
-	UGeometryCacheTrack_TransformAnimation* CreateTransformAnimationTrack(const FString& TrackName, TSharedPtr<FAbcPolyMeshObject>& InMeshObject, UGeometryCache* GeometryCacheParent, const uint32 MaterialOffset);
-
-	/** Generates and populates a FGeometryCacheMeshData instance from and for the given mesh object and sample index */
-	void GenerateGeometryCacheMeshDataForSample(FGeometryCacheMeshData& OutMeshData, TSharedPtr<FAbcPolyMeshObject>& InMeshObject, const uint32 SampleIndex, const uint32 MaterialOffset);
 	
-	/**
-	* Import a single Alembic mesh as a StaticMeshInstance
-	*
-	* @param MeshIndex - Index into the MeshObjects Array
-	* @param InParent - ParentObject for the static mesh
-	* @param Flags - Object flags
-	* @return UStaticMesh*
-	*/
-	UStaticMesh* ImportSingleAsStaticMesh(const int32 MeshIndex, UObject* InParent, EObjectFlags Flags);
+	/** Generates and populates a FGeometryCacheMeshData instance from and for the given mesh sample */
+	void GeometryCacheDataForMeshSample(FGeometryCacheMeshData &OutMeshData, const FAbcMeshSample* MeshSample, const uint32 MaterialOffset);
 
 	/**
 	* Creates a Static mesh from the given raw mesh
@@ -188,19 +181,8 @@ private:
 	*/
 	UStaticMesh* CreateStaticMeshFromRawMesh(UObject* InParent, const FString& Name, EObjectFlags Flags, const uint32 NumMaterials, const TArray<FString>& FaceSetNames, FRawMesh& RawMesh);
 
-	/** Generates and populate a FRawMesh instance from the specific sample index */
-	void GenerateRawMeshFromSample(const uint32 FirstSampleIndex, const uint32 SampleIndex, FRawMesh& RawMesh);
 	/** Generates and populate a FRawMesh instance from the given sample*/
-	void GenerateRawMeshFromSample(FAbcMeshSample* Sample, FRawMesh& RawMesh);
-	
-	/** Retrieves matrix samples using the Hierarchy linked to the given GUID */
-	void GetMatrixSamplesForGUID(const FGuid& InGUID, const float StartSampleTime, const float EndSampleTime, TArray<FMatrix>& MatrixSamples, TArray<float>& SampleTimes, bool& OutConstantTransform);
-
-	/** Temporary functionality for retrieving the object hierarchy for a given Alembic object */
-	void GetHierarchyForObject(const Alembic::Abc::IObject& Object, TDoubleLinkedList<Alembic::AbcGeom::IXform>& Hierarchy);
-
-	/** Caches the matrix transform samples for all the object hierarchies retrieved from the Alembic archive */
-	void CacheHierarchyTransforms(const float StartSampleTime, const float EndSampleTime);
+	void GenerateRawMeshFromSample(const FAbcMeshSample* Sample, FRawMesh& RawMesh);
 	
 	/** Retrieves a material according to the given name and resaves it into the parent package*/
 	UMaterialInterface* RetrieveMaterial(const FString& MaterialName, UObject* InParent, EObjectFlags Flags );
@@ -222,11 +204,12 @@ private:
 	void SetupMorphTargetCurves(USkeleton* Skeleton, FName ConstCurveName, UAnimSequence* Sequence, const TArray<float> &CurveValues, const TArray<float>& TimeValues);
 	
 private:
-	FAbcImportData* ImportData;
-	static const int32 FirstSampleIndex;
-};
+	/** Cached ptr for the import settings */
+	UAbcImportSettings* ImportSettings;
 
-/** Specialized template function to parse IPolyMesh object types */
-template<> void FAbcImporter::ParseAbcObject<Alembic::AbcGeom::IPolyMesh>(Alembic::AbcGeom::IPolyMesh& InPolyMesh, FGuid InHierarchyGuid);
-/** Specialized template function to parse IXform object types */
-template<> void FAbcImporter::ParseAbcObject<Alembic::AbcGeom::IXform>(Alembic::AbcGeom::IXform& InXform, FGuid InHierarchyGuid);
+	/** Resulting compressed data from PCA compression */
+	TArray<FCompressedAbcData> CompressedMeshData;
+
+	/** ABC file representation for currently opened filed */
+	class FAbcFile* AbcFile;
+};

@@ -1481,6 +1481,7 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 
 	TArray<ClothingAssetUtils::FClothingAssetMeshBinding> ClothingBindings;
 
+	FSkinnedMeshComponentRecreateRenderStateContext* RecreateExistingRenderStateContext = ExistingSkelMesh ? new FSkinnedMeshComponentRecreateRenderStateContext(ExistingSkelMesh, false) : nullptr;
 	//Backup the data before importing the new one
 	if (ExistingSkelMesh)
 	{
@@ -1806,6 +1807,11 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 	}
 
 	// ComponentContexts will now go out of scope, causing components to be re-registered
+
+	if (RecreateExistingRenderStateContext)
+	{
+		delete RecreateExistingRenderStateContext;
+	}
 
 	return SkeletalMesh;
 }

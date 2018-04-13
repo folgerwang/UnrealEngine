@@ -23,7 +23,7 @@ FAnimationEditorMode::FAnimationEditorMode(TSharedRef<FWorkflowCentricApplicatio
 	FPersonaModule& PersonaModule = FModuleManager::LoadModuleChecked<FPersonaModule>("Persona");
 	TabFactories.RegisterFactory(PersonaModule.CreateDetailsTabFactory(InHostingApp, FOnDetailsCreated::CreateSP(&AnimationEditor.Get(), &FAnimationEditor::HandleDetailsCreated)));
 
-	FPersonaViewportArgs ViewportArgs(InSkeletonTree, AnimationEditor->GetPersonaToolkit()->GetPreviewScene(), AnimationEditor->OnPostUndo);
+	FPersonaViewportArgs ViewportArgs(AnimationEditor->GetPersonaToolkit()->GetPreviewScene());
 	ViewportArgs.bShowTimeline = false;
 	ViewportArgs.ContextName = TEXT("AnimationEditor.Viewport");
 

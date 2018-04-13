@@ -7,6 +7,7 @@
 #include "Algo/AnyOf.h"
 #include "Channels/MovieSceneChannelProxy.h"
 #include "GameFramework/Actor.h"
+#include "EulerTransform.h"
 
 #if WITH_EDITOR
 
@@ -81,90 +82,148 @@ struct F3DTransformChannelEditorData
 		ExternalValues[8].OnGetExternalValue = ExtractScaleZ;
 	}
 
-	static TOptional<FTransform> GetTransform(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	static TOptional<FVector> GetTranslation(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
-		TOptional<FTransform> Transform = Bindings ? Bindings->GetOptionalValue<FTransform>(InObject) : TOptional<FTransform>();
-		if (Transform.IsSet())
-		{
-			return Transform;
-		}
+		const UStructProperty* TransformProperty = Bindings ? Cast<UStructProperty>(Bindings->GetProperty(InObject)) : nullptr;
 
-		if (AActor* Actor = Cast<AActor>(&InObject))
+		if (TransformProperty)
+		{
+			if (TransformProperty->Struct == TBaseStructure<FTransform>::Get())
+			{
+				if (TOptional<FTransform> Transform = Bindings->GetOptionalValue<FTransform>(InObject))
+				{
+					return Transform->GetTranslation();
+				}
+			}
+			else if (TransformProperty->Struct == TBaseStructure<FEulerTransform>::Get())
+			{
+				if (TOptional<FEulerTransform> EulerTransform = Bindings->GetOptionalValue<FEulerTransform>(InObject))
+				{
+					return EulerTransform->Location;
+				}
+			}
+		}
+		else if (AActor* Actor = Cast<AActor>(&InObject))
 		{
 			if (USceneComponent* RootComponent = Actor->GetRootComponent())
 			{
-				Transform = RootComponent->GetRelativeTransform();
+				return RootComponent->GetRelativeTransform().GetTranslation();
 			}
 		}
 
-		return Transform;
+		return TOptional<FVector>();
 	}
 
 	static TOptional<FRotator> GetRotator(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
-		TOptional<FRotator> Rotator = Bindings ? Bindings->GetOptionalValue<FRotator>(InObject) : TOptional<FRotator>();
-		if (Rotator.IsSet())
-		{
-			return Rotator;
-		}
+		const UStructProperty* TransformProperty = Bindings ? Cast<UStructProperty>(Bindings->GetProperty(InObject)) : nullptr;
 
-		if (AActor* Actor = Cast<AActor>(&InObject))
+		if (TransformProperty)
+		{
+			if (TransformProperty->Struct == TBaseStructure<FTransform>::Get())
+			{
+				if (TOptional<FTransform> Transform = Bindings->GetOptionalValue<FTransform>(InObject))
+				{
+					return Transform->GetRotation().Rotator();
+				}
+			}
+			else if (TransformProperty->Struct == TBaseStructure<FEulerTransform>::Get())
+			{
+				if (TOptional<FEulerTransform> EulerTransform = Bindings->GetOptionalValue<FEulerTransform>(InObject))
+				{
+					return EulerTransform->Rotation;
+				}
+			}
+		}
+		else if (AActor* Actor = Cast<AActor>(&InObject))
 		{
 			if (USceneComponent* RootComponent = Actor->GetRootComponent())
 			{
-				Rotator = RootComponent->RelativeRotation;
+				return RootComponent->RelativeRotation;
 			}
 		}
 
-		return Rotator;
+		return TOptional<FRotator>();
+	}
+
+	static TOptional<FVector> GetScale(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		const UStructProperty* TransformProperty = Bindings ? Cast<UStructProperty>(Bindings->GetProperty(InObject)) : nullptr;
+
+		if (TransformProperty)
+		{
+			if (TransformProperty->Struct == TBaseStructure<FTransform>::Get())
+			{
+				if (TOptional<FTransform> Transform = Bindings->GetOptionalValue<FTransform>(InObject))
+				{
+					return Transform->GetScale3D();
+				}
+			}
+			else if (TransformProperty->Struct == TBaseStructure<FEulerTransform>::Get())
+			{
+				if (TOptional<FEulerTransform> EulerTransform = Bindings->GetOptionalValue<FEulerTransform>(InObject))
+				{
+					return EulerTransform->Scale;
+				}
+			}
+		}
+		else if (AActor* Actor = Cast<AActor>(&InObject))
+		{
+			if (USceneComponent* RootComponent = Actor->GetRootComponent())
+			{
+				return RootComponent->GetRelativeTransform().GetScale3D();
+			}
+		}
+
+		return TOptional<FVector>();
 	}
 
 	static TOptional<float> ExtractTranslationX(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
-		TOptional<FTransform> Transform = GetTransform(InObject, Bindings);
-		return Transform.IsSet() ? Transform->GetTranslation().X : TOptional<float>();
+		TOptional<FVector> Translation = GetTranslation(InObject, Bindings);
+		return Translation.IsSet() ? Translation->X : TOptional<float>();
 	}
 	static TOptional<float> ExtractTranslationY(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
-		TOptional<FTransform> Transform = GetTransform(InObject, Bindings);
-		return Transform.IsSet() ? Transform->GetTranslation().Y : TOptional<float>();
+		TOptional<FVector> Translation = GetTranslation(InObject, Bindings);
+		return Translation.IsSet() ? Translation->Y : TOptional<float>();
 	}
 	static TOptional<float> ExtractTranslationZ(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
-		TOptional<FTransform> Transform = GetTransform(InObject, Bindings);
-		return Transform.IsSet() ? Transform->GetTranslation().Z : TOptional<float>();
+		TOptional<FVector> Translation = GetTranslation(InObject, Bindings);
+		return Translation.IsSet() ? Translation->Z : TOptional<float>();
 	}
 
 	static TOptional<float> ExtractRotationX(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
 		TOptional<FRotator> Rotator = GetRotator(InObject, Bindings);
-		return Rotator.IsSet() ? Rotator.GetValue().Roll : TOptional<float>();
+		return Rotator.IsSet() ? Rotator->Roll : TOptional<float>();
 	}
 	static TOptional<float> ExtractRotationY(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
 		TOptional<FRotator> Rotator = GetRotator(InObject, Bindings);
-		return Rotator.IsSet() ? Rotator.GetValue().Pitch : TOptional<float>();
+		return Rotator.IsSet() ? Rotator->Pitch : TOptional<float>();
 	}
 	static TOptional<float> ExtractRotationZ(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
 		TOptional<FRotator> Rotator = GetRotator(InObject, Bindings);
-		return Rotator.IsSet() ? Rotator.GetValue().Yaw : TOptional<float>();
+		return Rotator.IsSet() ? Rotator->Yaw : TOptional<float>();
 	}
 
 	static TOptional<float> ExtractScaleX(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
-		TOptional<FTransform> Transform = GetTransform(InObject, Bindings);
-		return Transform.IsSet() ? Transform->GetScale3D().X : TOptional<float>();
+		TOptional<FVector> Scale = GetScale(InObject, Bindings);
+		return Scale.IsSet() ? Scale->X : TOptional<float>();
 	}
 	static TOptional<float> ExtractScaleY(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
-		TOptional<FTransform> Transform = GetTransform(InObject, Bindings);
-		return Transform.IsSet() ? Transform->GetScale3D().Y : TOptional<float>();
+		TOptional<FVector> Scale = GetScale(InObject, Bindings);
+		return Scale.IsSet() ? Scale->Y : TOptional<float>();
 	}
 	static TOptional<float> ExtractScaleZ(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
-		TOptional<FTransform> Transform = GetTransform(InObject, Bindings);
-		return Transform.IsSet() ? Transform->GetScale3D().Z : TOptional<float>();
+		TOptional<FVector> Scale = GetScale(InObject, Bindings);
+		return Scale.IsSet() ? Scale->Z : TOptional<float>();
 	}
 
 	FMovieSceneChannelEditorData    CommonData[10];

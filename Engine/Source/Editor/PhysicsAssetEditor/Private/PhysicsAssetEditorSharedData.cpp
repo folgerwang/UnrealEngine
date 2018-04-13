@@ -291,10 +291,18 @@ void FPhysicsAssetEditorSharedData::Mirror()
 				{
 					Sphere.Center = ArtistMirrorConvention.RotateVector(Sphere.Center);
 				}
+				for (FKTaperedCapsuleElem& TaperedCapsule : DestBody->AggGeom.TaperedCapsuleElems)
+				{
+					TaperedCapsule.Rotation	= (ArtistMirrorConvention*TaperedCapsule.Rotation.Quaternion()).Rotator();
+					TaperedCapsule.Center	= ArtistMirrorConvention.RotateVector(TaperedCapsule.Center);
+				}
 				int32 MirrorConstraintIndex = PhysicsAsset->FindConstraintIndex(DestBody->BoneName);
-				UPhysicsConstraintTemplate * FromConstraint = PhysicsAsset->ConstraintSetup[MirrorInfo.ConstraintIndex];
-				UPhysicsConstraintTemplate * ToConstraint = PhysicsAsset->ConstraintSetup[MirrorConstraintIndex];
-				CopyConstraintProperties(FromConstraint, ToConstraint);
+				if(PhysicsAsset->ConstraintSetup.IsValidIndex(MirrorConstraintIndex) && PhysicsAsset->ConstraintSetup.IsValidIndex(MirrorInfo.ConstraintIndex))
+				{
+					UPhysicsConstraintTemplate * FromConstraint = PhysicsAsset->ConstraintSetup[MirrorInfo.ConstraintIndex];
+					UPhysicsConstraintTemplate * ToConstraint = PhysicsAsset->ConstraintSetup[MirrorConstraintIndex];
+					CopyConstraintProperties(FromConstraint, ToConstraint);
+				}
 			}
 		}
 	}
@@ -439,6 +447,11 @@ void FPhysicsAssetEditorSharedData::SetSelectedBodyAnyPrim(int32 BodyIndex, bool
 	else if (BodySetup->AggGeom.ConvexElems.Num() > 0)
 	{
 		FSelection Selection(BodyIndex, EAggCollisionShape::Convex, 0);
+		SetSelectedBody(Selection, bSelected);
+	}
+	else if (BodySetup->AggGeom.TaperedCapsuleElems.Num() > 0)
+	{
+		FSelection Selection(BodyIndex, EAggCollisionShape::TaperedCapsule, 0);
 		SetSelectedBody(Selection, bSelected);
 	}
 	else
@@ -1413,6 +1426,7 @@ void FPhysicsAssetEditorSharedData::DeleteCurrentPrim()
 		int32 BoxDeletedCount = 0;
 		int32 SphylDeletedCount = 0;
 		int32 ConvexDeletedCount = 0;
+		int32 TaperedCapsuleDeletedCount = 0;
 
 		for (int32 i = 0; i < SelectedPrimitives.Num(); ++i)
 		{
@@ -1438,6 +1452,10 @@ void FPhysicsAssetEditorSharedData::DeleteCurrentPrim()
 				BodySetup->AggGeom.ConvexElems.RemoveAt(SelectedBody.PrimitiveIndex - (ConvexDeletedCount++));
 				// Need to invalidate GUID in this case as cooked data must be updated
 				BodySetup->InvalidatePhysicsData();
+			}
+			else if (SelectedBody.PrimitiveType == EAggCollisionShape::TaperedCapsule)
+			{
+				BodySetup->AggGeom.TaperedCapsuleElems.RemoveAt(SelectedBody.PrimitiveIndex - (TaperedCapsuleDeletedCount++));
 			}
 
 			// If this bone has no more geometry - remove it totally.
@@ -1787,6 +1805,7 @@ void FPhysicsAssetEditorSharedData::PostUndo()
 				case EAggCollisionShape::Convex: bInvalidSelection = BodySetup->AggGeom.ConvexElems.Num() <= Selection.PrimitiveIndex ? true : bInvalidSelection; break;
 				case EAggCollisionShape::Sphere: bInvalidSelection = BodySetup->AggGeom.SphereElems.Num() <= Selection.PrimitiveIndex ? true : bInvalidSelection; break;
 				case EAggCollisionShape::Sphyl: bInvalidSelection = BodySetup->AggGeom.SphylElems.Num() <= Selection.PrimitiveIndex ? true : bInvalidSelection; break;
+				case EAggCollisionShape::TaperedCapsule: bInvalidSelection = BodySetup->AggGeom.TaperedCapsuleElems.Num() <= Selection.PrimitiveIndex ? true : bInvalidSelection; break;
 				default: bInvalidSelection = true;
 				}
 			}

@@ -9,7 +9,7 @@ namespace UnrealBuildTool.Rules
             PrivateIncludePaths.Add("ControlRig/Private");
             PrivateIncludePaths.Add("ControlRig/Private/Controllers");
             PrivateIncludePaths.Add("ControlRig/Private/Sequencer");
-            PublicIncludePaths.Add("ControlRig/Private/Controllers");
+            PrivateIncludePaths.Add("ControlRig/Private/Units");
 
             PrivateDependencyModuleNames.AddRange(
                 new string[]
@@ -20,6 +20,7 @@ namespace UnrealBuildTool.Rules
                     "AnimGraphRuntime",
                     "MovieScene",
                     "MovieSceneTracks",
+                    "PropertyPath",
                 }
             );
 

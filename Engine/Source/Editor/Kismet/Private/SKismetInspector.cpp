@@ -112,9 +112,18 @@ void SKismetInspector::Tick( const FGeometry& AllottedGeometry, const double InC
 {
 	if(bRefreshOnTick)
 	{
-		FKismetSelectionInfo SelectionInfo;
-		UpdateFromObjects(RefreshPropertyObjects, SelectionInfo, RefreshOptions);
-		RefreshPropertyObjects.Empty();
+		// if struct is valid, update struct
+		if (StructToDisplay.IsValid())
+		{
+			UpdateFromSingleStruct(StructToDisplay);
+			StructToDisplay.Reset();
+		}
+		else
+		{
+			FKismetSelectionInfo SelectionInfo;
+			UpdateFromObjects(RefreshPropertyObjects, SelectionInfo, RefreshOptions);
+			RefreshPropertyObjects.Empty();
+		}
 
 		bRefreshOnTick = false;
 	}
@@ -398,6 +407,24 @@ void SKismetInspector::Construct(const FArguments& InArgs)
 	TArray<UObject*> InitialSelectedObjects;
 	FKismetSelectionInfo SelectionInfo;
 	UpdateFromObjects(InitialSelectedObjects, SelectionInfo, SKismetInspector::FShowDetailsOptions(FText::GetEmpty(), true));
+
+	// create struct to display
+	FStructureDetailsViewArgs StructureViewArgs;
+	StructureViewArgs.bShowObjects = true;
+	StructureViewArgs.bShowAssets = true;
+	StructureViewArgs.bShowClasses = true;
+	StructureViewArgs.bShowInterfaces = true;
+
+	FDetailsViewArgs ViewArgs;
+	ViewArgs.bAllowSearch = false;
+	ViewArgs.bHideSelectionTip = false;
+	ViewArgs.bShowActorLabel = false;
+	ViewArgs.NotifyHook = NotifyHook;
+
+	StructureDetailsView = EditModule.CreateStructureDetailView(ViewArgs, StructureViewArgs, StructToDisplay, LOCTEXT("Struct", "Struct View"));
+	StructureDetailsView->GetDetailsView()->SetIsPropertyReadOnlyDelegate(FIsPropertyReadOnly::CreateSP(this, &SKismetInspector::IsStructViewPropertyReadOnly));
+	StructureDetailsView->GetOnFinishedChangingPropertiesDelegate().Clear();
+	StructureDetailsView->GetOnFinishedChangingPropertiesDelegate().Add(UserOnFinishedChangingProperties);
 }
 
 void SKismetInspector::EnableComponentDetailsCustomization(bool bEnable)
@@ -467,6 +494,30 @@ void SKismetInspector::ShowDetailsForObjects(const TArray<UObject*>& PropertyObj
 	bRefreshOnTick = true;
 }
 
+/** Update the inspector window to show information on the supplied object */
+void SKismetInspector::ShowSingleStruct(TSharedPtr<FStructOnScope> InStructToDisplay)
+{
+	static bool bIsReentrant = false;
+	if (!bIsReentrant)
+	{
+		bIsReentrant = true;
+		// When the selection is changed, we may be potentially actively editing a property,
+		// if this occurs we need need to immediately clear keyboard focus
+		if (FSlateApplication::Get().HasFocusedDescendants(AsShared()))
+		{
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::Mouse);
+		}
+		bIsReentrant = false;
+	}
+
+	StructToDisplay = InStructToDisplay;
+	// we don't defer this becasue StructDetailViews contains TSharedPtr to this sturct, 
+	// not clearing until next tick causes crash
+	// so will update struct view here, but updating widget will happen in the tick
+	StructureDetailsView->SetStructureData(InStructToDisplay);
+	bRefreshOnTick = true;
+}
+
 void SKismetInspector::AddPropertiesRecursive(UProperty* Property)
 {
 	if (Property != NULL)
@@ -490,6 +541,15 @@ void SKismetInspector::AddPropertiesRecursive(UProperty* Property)
 		{
 			AddPropertiesRecursive(ArrayProperty->Inner);
 		}
+	}
+}
+
+void SKismetInspector::UpdateFromSingleStruct(const TSharedPtr<FStructOnScope>& InStructToDisplay)
+{
+	if (StructureDetailsView.IsValid())
+	{
+		// Update our context-sensitive editing widget
+		ContextualEditingBorderWidget->SetContent(StructureDetailsView->GetWidget().ToSharedRef());
 	}
 }
 
@@ -692,6 +752,17 @@ void SKismetInspector::UpdateFromObjects(const TArray<UObject*>& PropertyObjects
 
 	// Update our context-sensitive editing widget
 	ContextualEditingBorderWidget->SetContent( MakeContextualEditingWidget(SelectionInfo, Options) );
+}
+
+bool SKismetInspector::IsStructViewPropertyReadOnly(const struct FPropertyAndParent& PropertyAndParent) const
+{
+	const UProperty& Property = PropertyAndParent.Property;
+	if (Property.HasAnyPropertyFlags(CPF_EditConst))
+	{
+		return true;
+	}
+
+	return false;
 }
 
 bool SKismetInspector::IsPropertyVisible( const FPropertyAndParent& PropertyAndParent ) const

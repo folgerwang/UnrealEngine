@@ -1202,6 +1202,7 @@ bool UClothingAssetFactory::ImportToLodInternal(USkeletalMesh* SourceMesh, int32
 
 		PhysMesh.Vertices[VertexIndex] = SourceVert.Position;
 		PhysMesh.Normals[VertexIndex] = SourceVert.TangentZ;
+		PhysMesh.VertexColors[VertexIndex] = SourceVert.Color;
 		PhysMesh.MaxDistances[VertexIndex] = 0.0f;
 
 		PhysMesh.BackstopRadiuses[VertexIndex] = 0.0f;

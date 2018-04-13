@@ -1007,4 +1007,17 @@ class ENGINE_API UEdGraphSchema : public UObject
 	 * @return the response to making a new connection
 	 */
 	virtual FPinConnectionResponse CanCreateNewNodes(UEdGraphPin* InSourcePin) const { return FPinConnectionResponse(); }
+
+	/**
+	 * Returns true if the types and directions of two pins are schema compatible. Handles
+	 * outputting a more derived type to an input pin expecting a less derived type.
+	 *
+	 * @param	PinA		  	The pin a.
+	 * @param	PinB		  	The pin b.
+	 * @param	CallingContext	(optional) The calling context (required to properly evaluate pins of type Self)
+	 * @param	bIgnoreArray	(optional) Whether or not to ignore differences between array and non-array types
+	 *
+	 * @return	true if the pin types and directions are compatible.
+	 */
+	virtual bool ArePinsCompatible(const UEdGraphPin* PinA, const UEdGraphPin* PinB, const UClass* CallingContext = NULL, bool bIgnoreArray = false) const { return true; }
 };

@@ -13,6 +13,7 @@
 #include "TrackEditors/PropertyTrackEditors/IntegerPropertyTrackEditor.h"
 #include "TrackEditors/PropertyTrackEditors/VectorPropertyTrackEditor.h"
 #include "TrackEditors/PropertyTrackEditors/TransformPropertyTrackEditor.h"
+#include "TrackEditors/PropertyTrackEditors/EulerTransformPropertyTrackEditor.h"
 #include "TrackEditors/PropertyTrackEditors/VisibilityPropertyTrackEditor.h"
 #include "TrackEditors/PropertyTrackEditors/ActorReferencePropertyTrackEditor.h"
 #include "TrackEditors/PropertyTrackEditors/StringPropertyTrackEditor.h"
@@ -86,6 +87,7 @@ public:
 		IntegerPropertyTrackCreateEditorHandle = SequencerModule.RegisterPropertyTrackEditor<FIntegerPropertyTrackEditor>();
 		VectorPropertyTrackCreateEditorHandle = SequencerModule.RegisterPropertyTrackEditor<FVectorPropertyTrackEditor>();
 		TransformPropertyTrackCreateEditorHandle = SequencerModule.RegisterPropertyTrackEditor<FTransformPropertyTrackEditor>();
+		EulerTransformPropertyTrackCreateEditorHandle = SequencerModule.RegisterPropertyTrackEditor<FEulerTransformPropertyTrackEditor>();
 		VisibilityPropertyTrackCreateEditorHandle = SequencerModule.RegisterPropertyTrackEditor<FVisibilityPropertyTrackEditor>();
 		ActorReferencePropertyTrackCreateEditorHandle = SequencerModule.RegisterPropertyTrackEditor<FActorReferencePropertyTrackEditor>();
 		StringPropertyTrackCreateEditorHandle = SequencerModule.RegisterPropertyTrackEditor<FStringPropertyTrackEditor>();
@@ -151,6 +153,7 @@ public:
 		SequencerModule.UnRegisterTrackEditor( IntegerPropertyTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor( VectorPropertyTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor( TransformPropertyTrackCreateEditorHandle );
+		SequencerModule.UnRegisterTrackEditor( EulerTransformPropertyTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor( VisibilityPropertyTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor( ActorReferencePropertyTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor( StringPropertyTrackCreateEditorHandle );
@@ -229,6 +232,7 @@ private:
 	FDelegateHandle IntegerPropertyTrackCreateEditorHandle;
 	FDelegateHandle VectorPropertyTrackCreateEditorHandle;
 	FDelegateHandle TransformPropertyTrackCreateEditorHandle;
+	FDelegateHandle EulerTransformPropertyTrackCreateEditorHandle;
 	FDelegateHandle VisibilityPropertyTrackCreateEditorHandle;
 	FDelegateHandle ActorReferencePropertyTrackCreateEditorHandle;
 	FDelegateHandle StringPropertyTrackCreateEditorHandle;

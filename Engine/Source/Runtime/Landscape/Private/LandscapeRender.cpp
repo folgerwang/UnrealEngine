@@ -3444,6 +3444,7 @@ public:
 	bool IsUsedWithSplineMeshes()          const override { return false; }
 	bool IsUsedWithInstancedStaticMeshes() const override { return false; }
 	bool IsUsedWithAPEXCloth()             const override { return false; }
+	bool IsUsedWithGeometryCache()         const override { return false; }
 	EMaterialTessellationMode GetTessellationMode() const override { return (bIsLayerThumbnail || bDisableTessellation) ? MTM_NoTessellation : FMaterialResource::GetTessellationMode(); };
 
 	bool ShouldCache(EShaderPlatform Platform, const FShaderType* ShaderType, const FVertexFactoryType* VertexFactoryType) const override

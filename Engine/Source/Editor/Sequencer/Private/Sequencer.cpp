@@ -4441,7 +4441,7 @@ void FSequencer::OnSelectedOutlinerNodesChanged()
 
 void FSequencer::SynchronizeExternalSelectionWithSequencerSelection()
 {
-	if ( bUpdatingSequencerSelection || !IsLevelEditorSequencer() )
+	if ( bUpdatingSequencerSelection || !IsLevelEditorSequencer() || ExactCast<ULevelSequence>(GetFocusedMovieSceneSequence()) == nullptr )
 	{
 		return;
 	}
@@ -4562,7 +4562,7 @@ void GetRootObjectBindingNodes(const TArray<TSharedRef<FSequencerDisplayNode>>& 
 
 void FSequencer::SynchronizeSequencerSelectionWithExternalSelection()
 {
-	if ( bUpdatingExternalSelection || !IsLevelEditorSequencer() )
+	if ( bUpdatingExternalSelection || !IsLevelEditorSequencer() || ExactCast<ULevelSequence>(GetFocusedMovieSceneSequence()) == nullptr)
 	{
 		return;
 	}

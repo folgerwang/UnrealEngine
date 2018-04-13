@@ -6,7 +6,6 @@
 
 
 #include "KismetCompiler.h"
-#include "AnimBlueprintCompiler.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "Misc/CoreMisc.h"
 #include "Components/ActorComponent.h"
@@ -53,6 +52,7 @@
 #include "Engine/InheritableComponentHandler.h"
 #include "BlueprintCompilerCppBackendInterface.h"
 #include "Serialization/ArchiveScriptReferenceCollector.h"
+#include "AnimBlueprintCompiler.h"
 
 static bool bDebugPropertyPropagation = false;
 

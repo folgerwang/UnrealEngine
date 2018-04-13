@@ -1016,6 +1016,60 @@ namespace Audio
 		return SourceManager.GetListenerTransforms();
 	}
 
+	void FMixerDevice::StartRecording(USoundSubmix* InSubmix, float ExpectedRecordingDuration)
+	{
+		// if we can find the submix here, record that submix. Otherwise, just record the master submix.
+		Audio::FMixerSubmixPtr* FoundSubmix = Submixes.Find(InSubmix);
+		if (FoundSubmix)
+		{
+			(*FoundSubmix)->OnStartRecordingOutput(ExpectedRecordingDuration);
+		}
+		else
+		{
+			GetMasterSubmix()->OnStartRecordingOutput(ExpectedRecordingDuration);
+		}
+	}
+
+	Audio::AlignedFloatBuffer& FMixerDevice::StopRecording(USoundSubmix* InSubmix, float& OutNumChannels, float& OutSampleRate)
+	{
+		// if we can find the submix here, record that submix. Otherwise, just record the master submix.
+		Audio::FMixerSubmixPtr* FoundSubmix = Submixes.Find(InSubmix);
+		if (FoundSubmix)
+		{
+			return (*FoundSubmix)->OnStopRecordingOutput(OutNumChannels, OutSampleRate);
+		}
+		else
+		{
+			return GetMasterSubmix()->OnStopRecordingOutput(OutNumChannels, OutSampleRate);
+		}
+	}
+
+	void FMixerDevice::RegisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* InSubmix)
+	{
+		Audio::FMixerSubmixPtr* FoundSubmix = Submixes.Find(InSubmix);
+		if (FoundSubmix)
+		{
+			return (*FoundSubmix)->RegisterBufferListener(InSubmixBufferListener);
+		}
+		else
+		{
+			return GetMasterSubmix()->RegisterBufferListener(InSubmixBufferListener);
+		}
+	}
+
+	void FMixerDevice::UnregisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* InSubmix)
+	{
+		Audio::FMixerSubmixPtr* FoundSubmix = Submixes.Find(InSubmix);
+		if (FoundSubmix)
+		{
+			return (*FoundSubmix)->UnregisterBufferListener(InSubmixBufferListener);
+		}
+		else
+		{
+			return GetMasterSubmix()->UnregisterBufferListener(InSubmixBufferListener);
+		}
+	}
+
 	int32 FMixerDevice::GetDeviceSampleRate() const
 	{
 		return SampleRate;

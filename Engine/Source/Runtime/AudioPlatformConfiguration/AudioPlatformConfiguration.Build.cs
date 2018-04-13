@@ -16,9 +16,7 @@ namespace UnrealBuildTool.Rules
 
             PrivateIncludePathModuleNames.Add("Engine");
 
-            if (Target.Type == TargetType.Editor &&
-                (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
-                )
+            if (Target.Type == TargetType.Editor && Target.Platform != UnrealTargetPlatform.Linux)
             {
                 AddEngineThirdPartyPrivateStaticDependencies(Target,
                     "UELibSampleRate"
