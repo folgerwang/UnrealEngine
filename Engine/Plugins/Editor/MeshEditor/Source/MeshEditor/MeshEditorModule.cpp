@@ -65,12 +65,12 @@ protected:
 	/** Menu extension for the VR Editor's 'Modes' menu */
 	TSharedPtr<const class FExtensionBase> VRRadialMenuModesExtension;
 
+	/** Whether mesh editor mode is enabled: currently defaults to false */
+	bool bIsEnabled;
+
 	/** Console commands for enabling/disabling mesh editor mode while it is still in development */
 	FAutoConsoleCommand MeshEditorEnable;
 	FAutoConsoleCommand MeshEditorDisable;
-
-	/** Whether mesh editor mode is enabled: currently defaults to false */
-	bool bIsEnabled;
 };
 
 
