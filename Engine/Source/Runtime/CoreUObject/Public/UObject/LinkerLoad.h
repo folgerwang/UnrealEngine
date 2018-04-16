@@ -1098,7 +1098,7 @@ private:
 	 * to make sure this placeholder is completely resolved before continuing on 
 	 * to the next.
 	 */
-	class FLinkerPlaceholderBase* ResolvingDeferredPlaceholder;
+	TArray<class FLinkerPlaceholderBase*> ResolvingPlaceholderStack;
 
 	/** 
 	 * Internal list to track imports that were deferred, but don't belong to 

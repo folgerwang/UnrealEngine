@@ -1551,7 +1551,7 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 			UField**& InCurrentParamStorageLocation, 
 			EFunctionFlags InFunctionFlags, 
 			const TArray<UK2Node_FunctionResult*>& ReturnNodes, 
-			const TArray<UEdGraphPin*>& InputPins, 
+			const TArray<UEdGraphPin*>& InputPins,
 			bool bIsStaticFunction, 
 			bool bForceArrayStructRefsConst, 
 			UFunction* SignatureOverride) -> UFunction*
@@ -1791,7 +1791,7 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 	UField** CurrentFieldStorageLocation = &Ret->Children;
 	
 	// Helper function for making UFunctions generated for 'event' nodes, e.g. custom event and timelines
-	const auto MakeEventFunction = [&CurrentFieldStorageLocation, MakeFunction, Schema]( FName InName, EFunctionFlags ExtraFnFlags, const TArray<UEdGraphPin*>& InputPins, UFunction* InSourceFN, bool bInCallInEditor )
+	const auto MakeEventFunction = [&CurrentFieldStorageLocation, MakeFunction, Schema]( FName InName, EFunctionFlags ExtraFnFlags, const TArray<UEdGraphPin*>& InputPins, const TArray< TSharedPtr<FUserPinInfo> >& UserPins, UFunction* InSourceFN, bool bInCallInEditor )
 	{
 		UField** CurrentParamStorageLocation = nullptr;
 
@@ -1809,18 +1809,7 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 
 		if(NewFunction)
 		{
-			for (UEdGraphPin* InputPin : InputPins)
-			{
-				// No defaults for object/class pins
-				if(	!Schema->IsMetaPin(*InputPin) && 
-					(InputPin->PinType.PinCategory != UEdGraphSchema_K2::PC_Object) && 
-					(InputPin->PinType.PinCategory != UEdGraphSchema_K2::PC_Class) && 
-					(InputPin->PinType.PinCategory != UEdGraphSchema_K2::PC_Interface) && 
-					!InputPin->DefaultValue.IsEmpty() )
-				{
-					NewFunction->SetMetaData(InputPin->PinName, *InputPin->DefaultValue);
-				}
-			}
+			FKismetCompilerContext::SetDefaultInputValueMetaData(NewFunction, UserPins);
 
 			if(bInCallInEditor)
 			{
@@ -1870,6 +1859,7 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 				CompilerContext.GetEventStubFunctionName(Event), 
 				(EFunctionFlags)Event->FunctionFlags, 
 				Event->Pins, 
+				Event->UserDefinedPins,
 				Event->FindEventSignatureFunction(),
 				bCallInEditor
 			);
@@ -1880,11 +1870,11 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 	{
 		for(int32 EventTrackIdx=0; EventTrackIdx<Timeline->EventTracks.Num(); EventTrackIdx++)
 		{
-			MakeEventFunction(Timeline->GetEventTrackFunctionName(EventTrackIdx), EFunctionFlags::FUNC_None, TArray<UEdGraphPin*>(), nullptr, false);
+			MakeEventFunction(Timeline->GetEventTrackFunctionName(EventTrackIdx), EFunctionFlags::FUNC_None, TArray<UEdGraphPin*>(), TArray< TSharedPtr<FUserPinInfo> >(), nullptr, false);
 		}
 		
-		MakeEventFunction(Timeline->GetUpdateFunctionName(), EFunctionFlags::FUNC_None, TArray<UEdGraphPin*>(), nullptr, false);
-		MakeEventFunction(Timeline->GetFinishedFunctionName(), EFunctionFlags::FUNC_None, TArray<UEdGraphPin*>(), nullptr, false);
+		MakeEventFunction(Timeline->GetUpdateFunctionName(), EFunctionFlags::FUNC_None, TArray<UEdGraphPin*>(), TArray< TSharedPtr<FUserPinInfo> >(), nullptr, false);
+		MakeEventFunction(Timeline->GetFinishedFunctionName(), EFunctionFlags::FUNC_None, TArray<UEdGraphPin*>(), TArray< TSharedPtr<FUserPinInfo> >(), nullptr, false);
 	}
 
 	CompilerContext.NewClass = Ret;

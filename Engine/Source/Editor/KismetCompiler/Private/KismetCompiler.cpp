@@ -37,6 +37,7 @@
 #include "K2Node_TunnelBoundary.h"
 #include "K2Node_VariableGet.h"
 #include "K2Node_VariableSet.h"
+#include "K2Node_EditablePinBase.h" // for FUserPinInfo
 #include "KismetCompilerBackend.h"
 #include "Kismet2/KismetReinstanceUtilities.h"
 #include "Engine/SCS_Node.h"
@@ -2088,35 +2089,28 @@ void FKismetCompilerContext::SetCalculatedMetaDataAndFlags(UFunction* Function, 
 		Function->SetMetaData(FBlueprintMetadata::MD_WorldContext, *WorldContextPin->PinName.ToString());
 	}
 
-	for (int32 EntryPinIndex = 0; EntryPinIndex < EntryNode->Pins.Num(); ++EntryPinIndex)
-	{
-		UEdGraphPin* EntryPin = EntryNode->Pins[EntryPinIndex];
-		// No defaults for object/class pins
-		if(	!K2Schema->IsMetaPin(*EntryPin) && 
-			(EntryPin->PinType.PinCategory != UEdGraphSchema_K2::PC_Object) && 
-			(EntryPin->PinType.PinCategory != UEdGraphSchema_K2::PC_Class) && 
-			(EntryPin->PinType.PinCategory != UEdGraphSchema_K2::PC_Interface))
-		{
-			if (!EntryPin->DefaultValue.IsEmpty())
-			{
-				Function->SetMetaData(EntryPin->PinName, *EntryPin->DefaultValue);
-			}
-			else if (!EntryPin->DefaultTextValue.IsEmpty())
-			{
-				FString TextAsString;
-				if (FTextStringHelper::WriteToString(TextAsString, EntryPin->DefaultTextValue))
-				{
-					Function->SetMetaData(EntryPin->PinName, *TextAsString);
-				}
-			}
-			
-		}
-	}
+	SetDefaultInputValueMetaData(Function, EntryNode->UserDefinedPins);
 
 	if(UFunction* OverriddenFunction = Function->GetSuperFunction())
 	{
 		// Copy metadata from parent function as well
 		UMetaData::CopyMetadata(OverriddenFunction, Function);
+	}
+}
+
+void FKismetCompilerContext::SetDefaultInputValueMetaData(UFunction* Function, const TArray< TSharedPtr<FUserPinInfo> >& InputData)
+{
+	for (const TSharedPtr<FUserPinInfo>& InputDataPtr : InputData)
+	{
+		if ( InputDataPtr.IsValid() &&
+			(InputDataPtr->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec) && 
+			(InputDataPtr->PinName != UEdGraphSchema_K2::PN_Self) && 
+			(InputDataPtr->PinType.PinCategory != UEdGraphSchema_K2::PC_Object) &&
+			(InputDataPtr->PinType.PinCategory != UEdGraphSchema_K2::PC_Class) &&
+			(InputDataPtr->PinType.PinCategory != UEdGraphSchema_K2::PC_Interface) )
+		{
+			Function->SetMetaData(InputDataPtr->PinName, *InputDataPtr->PinDefaultValue);
+		}
 	}
 }
 

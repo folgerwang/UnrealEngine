@@ -799,7 +799,6 @@ FLinkerLoad::FLinkerLoad(UPackage* InParent, const TCHAR* InFilename, uint32 InL
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 ,	bForceBlueprintFinalization(false)
 ,	DeferredCDOIndex(INDEX_NONE)
-,	ResolvingDeferredPlaceholder(nullptr)
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 {
 	FMemory::Memset(ExportHash, INDEX_NONE, sizeof(ExportHash));
@@ -3172,34 +3171,11 @@ void FLinkerLoad::Preload( UObject* Object )
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
-			// Because of delta serialization, we require that a parent's CDO be 
-			// fully serialized before its children's CDOs are created. However, 
-			// due to cyclic parent/child dependencies, we have some cases where 
-			// the linker breaks that expected behavior. In those cases, we 
-			// defer the child's initialization (i.e. defer copying of parent  
-			// property values, etc.), and wait until we can guarantee that the 
-			// parent CDO has been fully loaded.
-			//
-			// In a normal scenario, the order of property initialization is:
-			// Creation (zeroed) -> Initialization (copied super's values) -> Serialization (overridden values loaded)
-			// When the initialization has been deferred we have to make sure to
-			// defer serialization here as well (don't worry, it will be invoked 
-			// again from FinalizeBlueprint()->ResolveDeferredExports())
-			if (Object->HasAnyFlags(RF_ClassDefaultObject) && FDeferredObjInitializerTracker::IsCdoDeferred(Object->GetClass()))
+			// In certain situations, a constructed object has its initializer deferred (when its archetype hasn't been serialized).
+			// In those cases, we shouldn't serialize the object yet (initialization needs to run first).
+			// See the comment on DeferObjectPreload() for more info on the issue.
+			if (FDeferredObjInitializationHelper::DeferObjectPreload(Object))
 			{
-				return;
-			}
-			// if this is an inherited sub-object on a CDO, and that CDO has had
-			// its initialization deferred (for reasons explained above), then 
-			// we shouldn't serialize in data for this quite yet... not until 
-			// its owner has had a chaTnce to initialize itself (because, as part
-			// of CDO initialization, inherited sub-objects get filled in with 
-			// values inherited from the super)
-			else if (Object->HasAnyFlags(RF_DefaultSubObject|RF_InheritableComponentTemplate) && FDeferredObjInitializerTracker::DeferSubObjectPreload(Object))
-			{
-				// don't worry, FDeferredObjInitializerTracker::DeferSubObjectPreload() 
-				// should have cached this object, and it will run Preload() on 
-				// this later (once the super CDO has been initialized)
 				return;
 			}
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
@@ -3321,8 +3297,8 @@ void FLinkerLoad::Preload( UObject* Object )
 					}
 				}
 
-				{
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+				{
 					SCOPE_CYCLE_COUNTER(STAT_LinkerLoadDeferred);
 					if ((LoadFlags & LOAD_DeferDependencyLoads) != (*LoadFlagsGuard & LOAD_DeferDependencyLoads))
 					{
@@ -3366,8 +3342,23 @@ void FLinkerLoad::Preload( UObject* Object )
 							FinalizeBlueprint(ObjectAsClass);
 						}
 					}
-#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 				}
+
+				// Conceptually, we could run this here for CDOs and it shouldn't be a problem.
+				// 
+				// We don't do it here for CDOs because we were already doing it for them in 
+				// ResolveDeferredExports(), and we don't want to destabalize the functional 
+				// load order of things (doing it here could cause subsequent loads which would 
+				// happen from a point in ResolveDeferredExports() where they didn't happen before - again, this 
+				// should be fine; we're just keeping the surface area of this to a minimum at this time)
+				if (!Object->HasAnyFlags(RF_ClassDefaultObject))
+				{
+					// If this was an archetype object, there may be some initializers/preloads that
+					// were waiting for it to be fully serialized
+					FDeferredObjInitializationHelper::ResolveDeferredInitsFromArchetype(Object);
+				}
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+				
 
 				// Make sure we serialized the right amount of stuff.
 				int64 Pos = Tell();

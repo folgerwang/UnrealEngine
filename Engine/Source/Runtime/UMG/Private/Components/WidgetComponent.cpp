@@ -502,6 +502,9 @@ public:
 
 		Result.bDrawRelevance = IsShown(View) && bVisible && View->Family->EngineShowFlags.WidgetComponents;
 		Result.bDynamicRelevance = true;
+		Result.bRenderCustomDepth = ShouldRenderCustomDepth();
+		Result.bRenderInMainPass = ShouldRenderInMainPass();
+		Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 		Result.bShadowRelevance = IsShadowCast(View);
 		Result.bEditorPrimitiveRelevance = false;
 
@@ -557,6 +560,7 @@ UWidgetComponent::UWidgetComponent( const FObjectInitializer& PCIP )
 	, LastWidgetRenderTime(0)
 	, bReceiveHardwareInput(false)
 	, bWindowFocusable(true)
+	, bApplyGammaCorrection(false)
 	, BackgroundColor( FLinearColor::Transparent )
 	, TintColorAndOpacity( FLinearColor::White )
 	, OpacityFromTexture( 1.0f )
@@ -599,7 +603,7 @@ UWidgetComponent::UWidgetComponent( const FObjectInitializer& PCIP )
 
 	Space = EWidgetSpace::World;
 	TimingPolicy = EWidgetTimingPolicy::RealTime;
-	Pivot = FVector2D(0.5, 0.5);
+	Pivot = FVector2D(0.5f, 0.5f);
 
 	bAddedToScreen = false;
 }
@@ -772,7 +776,7 @@ void UWidgetComponent::OnRegister()
 
 			if ( !WidgetRenderer.IsValid() && !GUsingNullRHI )
 			{
-				WidgetRenderer = MakeShareable(new FWidgetRenderer());
+				WidgetRenderer = MakeShareable(new FWidgetRenderer(bApplyGammaCorrection));
 			}
 		}
 
@@ -920,7 +924,7 @@ void UWidgetComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, 
 				// the world is paused, this also takes care of the case where the widget component is rendering at
 				// a different rate than the rest of the world.
 				const float DeltaTimeFromLastDraw = LastWidgetRenderTime == 0 ? 0 : (GetCurrentTime() - LastWidgetRenderTime);
-			    DrawWidgetToRenderTarget(DeltaTimeFromLastDraw);
+				DrawWidgetToRenderTarget(DeltaTimeFromLastDraw);
 		    }
 	    }
 	    else
@@ -1293,6 +1297,11 @@ void UWidgetComponent::SetOwnerPlayer(ULocalPlayer* LocalPlayer)
 		RemoveWidgetFromScreen();
 		OwnerPlayer = LocalPlayer;
 	}
+}
+
+void UWidgetComponent::SetManuallyRedraw(bool bUseManualRedraw)
+{
+	bManuallyRedraw = bUseManualRedraw;
 }
 
 ULocalPlayer* UWidgetComponent::GetOwnerPlayer() const

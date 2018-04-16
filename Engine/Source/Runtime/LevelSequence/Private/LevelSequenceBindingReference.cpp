@@ -90,6 +90,29 @@ UObject* ResolveByPath(UObject* InContext, const FString& InObjectPath)
 			return FoundObject;
 		}
 
+#if WITH_EDITOR
+		UWorld* WorldContext = InContext->GetWorld();
+		if (WorldContext && WorldContext->IsPlayInEditor())
+		{
+			FString PackageRoot, PackagePath, PackageName;
+			if (FPackageName::SplitLongPackageName(InObjectPath, PackageRoot, PackagePath, PackageName))
+			{
+				int32 ObjectDelimiterIdx = INDEX_NONE;
+				PackageName.FindChar('.', ObjectDelimiterIdx);
+				const FString SubLevelObjPath = PackageName.Mid(ObjectDelimiterIdx + 1);
+
+				for (ULevel* Level : WorldContext->GetLevels())
+				{
+					UPackage* Pkg = Level->GetOutermost();
+					if (UObject* FoundObject = FindObject<UObject>(Pkg, *SubLevelObjPath, false))
+ 					{
+ 						return FoundObject;
+					}
+				}
+			}
+		}
+#endif
+
 		if (UObject* FoundObject = FindObject<UObject>(ANY_PACKAGE, *InObjectPath, false))
 		{
 			return FoundObject;
@@ -114,7 +137,7 @@ UObject* FLevelSequenceLegacyObjectReference::Resolve(UObject* InContext) const
 				return FoundObject;
 			}
 
-			UE_LOG(LogMovieScene, Warning, TEXT("Attempted to resolve object with a PIE instance that has not been fixed up yet. This is probably due to a streamed level not being available yet."));
+			UE_LOG(LogMovieScene, Warning, TEXT("Attempted to resolve object (%s) with a PIE instance that has not been fixed up yet. This is probably due to a streamed level not being available yet."), *ObjectPath);
 			return nullptr;
 		}
 		FLazyObjectPtr LazyPtr;

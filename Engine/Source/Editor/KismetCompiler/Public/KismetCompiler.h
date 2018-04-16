@@ -20,6 +20,7 @@ class UK2Node_TemporaryVariable;
 class UK2Node_Timeline;
 class UK2Node_Tunnel;
 class FKismetCompilerVMBackend;
+struct FUserPinInfo;
 
 KISMETCOMPILER_API DECLARE_LOG_CATEGORY_EXTERN(LogK2Compiler, Log, All);
 
@@ -496,6 +497,9 @@ protected:
 	void FinishCompilingFunction(FKismetFunctionContext& Context);
 
 	static void SetCalculatedMetaDataAndFlags(UFunction* Function, UK2Node_FunctionEntry* EntryNode, const UEdGraphSchema_K2* Schema );
+
+	/** Reflects each pin's user set, default value into the function's metadata (so it can be queried for later by CallFunction nodes, etc.) */
+	static void SetDefaultInputValueMetaData(UFunction* Function, const TArray< TSharedPtr<FUserPinInfo> >& InputData);
 
 	/**
 	 * Handles adding the implemented interface information to the class

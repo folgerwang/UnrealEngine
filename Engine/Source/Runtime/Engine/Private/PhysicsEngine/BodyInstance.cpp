@@ -23,7 +23,7 @@
 #include "PhysicsEngine/SphylElem.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "HAL/LowLevelMemTracker.h"
-
+#include "HAL/IConsoleManager.h"
 #include "Logging/TokenizedMessage.h"
 #include "Logging/MessageLog.h"
 #include "Misc/UObjectToken.h"
@@ -59,6 +59,14 @@ DECLARE_CYCLE_STAT(TEXT("UpdateBodyScale"), STAT_BodyInstanceUpdateBodyScale, ST
 DECLARE_CYCLE_STAT(TEXT("CreatePhysicsShapesAndActors"), STAT_CreatePhysicsShapesAndActors, STATGROUP_Physics);
 DECLARE_CYCLE_STAT(TEXT("BodyInstance SetCollisionProfileName"), STAT_BodyInst_SetCollisionProfileName, STATGROUP_Physics);
 DECLARE_CYCLE_STAT(TEXT("Phys SetBodyTransform"), STAT_SetBodyTransform, STATGROUP_Physics);
+
+// @HACK Guard to better encapsulate game related hacks introduced into UpdatePhysicsFilterData()
+TAutoConsoleVariable<int32> CVarEnableDynamicPerBodyFilterHacks(
+	TEXT("p.EnableDynamicPerBodyFilterHacks"), 
+	0, 
+	TEXT("Enables/Disables the use of a set of game focused hacks - allowing users to modify skel body collision dynamically (changes the behavior of per-body collision filtering)."),
+	ECVF_ReadOnly
+);
 
 #if WITH_PHYSX
 int32 FillInlinePxShapeArray_AssumesLocked(FInlinePxShapeArray& Array, const physx::PxRigidActor& RigidActor)
@@ -1110,9 +1118,12 @@ void FBodyInstance::UpdatePhysicsFilterData()
 	bool bResponseOverride = false;
 	bool bNotifyOverride = false;
 
+	// @TODO: The skel mesh really shouldn't be the (pseudo-)authority here on the body's collision.
+	//        This block should ultimately be removed, and outside of this (in the skel component) we 
+	//        should configure the bodies to reflect this desired behavior.
 	if (USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>(OwnerComponentInst))
 	{
-		// In skeletal case, collision enable/disable/movement should be overriden by mesh component
+		// In skeletal case, collision enable/disable/movement should be overridden by mesh component
 		// being in the physics asset, and not having collision is a waste and it can cause a bug where disconnected bodies
 		if (Owner)
 		{
@@ -1125,24 +1136,44 @@ void FBodyInstance::UpdatePhysicsFilterData()
 				UseCollisionEnabled = ECollisionEnabled::NoCollision;
 			}
 		}
-		
 
 		ObjectType = SkelMeshComp->GetCollisionObjectType();
 		bUseCollisionEnabledOverride = true;
 
-		if (BodySetup->CollisionReponse == EBodyCollisionResponse::BodyCollision_Enabled)
+		// @HACK: 
+		// Some of our games have needed to dynamically disable & re-enable collision per body.
+		// We support that here as a hack, but as noted by the @TODO above, this should all be moved and 
+		// refactored (gameplay code should be able to modify the body instance's collision without fear 
+		// of the skel component overriding it).
+		if (CVarEnableDynamicPerBodyFilterHacks.GetValueOnGameThread() && bHACK_DisableCollisionResponse)
+		{
+			UseResponse.SetAllChannels(ECR_Ignore);
+			UseCollisionEnabled = ECollisionEnabled::PhysicsOnly;
+		}
+		else if (BodySetup->CollisionReponse == EBodyCollisionResponse::BodyCollision_Enabled)
 		{
 			UseResponse.SetAllChannels(ECR_Block);
 		}
 		else if (BodySetup->CollisionReponse == EBodyCollisionResponse::BodyCollision_Disabled)
 		{
 			UseResponse.SetAllChannels(ECR_Ignore);
+			UseCollisionEnabled = ECollisionEnabled::PhysicsOnly;		// this will prevent object traces hitting this as well
 		}
 
 		UseResponse = FCollisionResponseContainer::CreateMinContainer(UseResponse, SkelMeshComp->BodyInstance.CollisionResponses.GetResponseContainer());
 		bUseNotifyRBCollision = bUseNotifyRBCollision && SkelMeshComp->BodyInstance.bNotifyRigidBodyCollision;
 		bResponseOverride = true;
 		bNotifyOverride = true;
+
+		// @HACK
+		// Some of our games want to prevent the skeletal mesh component from overriding the 
+		// body's original setup (on a per body basis). This hack allows them to dynamically prevent that until we refactor this
+		// and remove this whole block of skel specialization (as detailed above).
+		if (CVarEnableDynamicPerBodyFilterHacks.GetValueOnGameThread() && bHACK_DisableSkelComponentFilterOverriding)
+		{
+			// if we have a custom response set up, trust that, don't override with the above.
+			bResponseOverride = false;
+		}
 	}
 
 #if WITH_EDITOR
@@ -1351,7 +1382,6 @@ struct FInitBodiesHelper
 			Instance->RigidActorSync->setName(Instance->CharDebugName.IsValid() ? Instance->CharDebugName->GetData() : nullptr);
 
 			check(FPhysxUserData::Get<FBodyInstance>(Instance->RigidActorSync->userData) == Instance);
-
 		}
 
 		if (Instance->RigidActorAsync)
@@ -2360,8 +2390,8 @@ bool FBodyInstance::UpdateBodyScale(const FVector& InScale3D, bool bForceUpdate)
 					float HalfHeight = HalfLength - Radius;
 					HalfHeight = FMath::Max(FCollisionShape::MinCapsuleAxisHalfHeight(), HalfHeight);
 
-					PCapsuleGeom.halfHeight = HalfHeight;
-					PCapsuleGeom.radius = Radius;
+					PCapsuleGeom.halfHeight = FMath::Max(HalfHeight, KINDA_SMALL_NUMBER);
+					PCapsuleGeom.radius = FMath::Max(Radius, KINDA_SMALL_NUMBER);
 
 					PLocalPose = PxTransform(U2PVector(RelativeTM.TransformPosition(SphylElem->Center)), U2PQuat(SphylElem->Rotation.Quaternion()) * U2PSphylBasis);
 					PLocalPose.p.x *= AdjustedScale3D.X;

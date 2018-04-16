@@ -2030,6 +2030,10 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 
 	// Create scene, and add to map
 	PxScene* PScene = GPhysXSDK->createScene(PSceneDesc);
+	if(PxPvdSceneClient* PVDClient = PScene->getScenePvdClient())
+	{
+		PVDClient->setScenePvdFlags(PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS | PxPvdSceneFlag::eTRANSMIT_CONTACTS | PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES);
+	}
 
 #if WITH_APEX
 	// Build the APEX scene descriptor for the PhysX scene

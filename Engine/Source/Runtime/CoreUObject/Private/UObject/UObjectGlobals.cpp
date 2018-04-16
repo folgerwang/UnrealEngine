@@ -2646,94 +2646,16 @@ FObjectInitializer::~FObjectInitializer()
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	bool bIsPostConstructInitDeferred = false;
 	if (!FBlueprintSupport::IsDeferredCDOInitializationDisabled())
-	{		
-		UClass* BlueprintClass = nullptr;
-		// since "InheritableComponentTemplate"s are not default sub-objects, 
-		// they won't be fixed up by the owner's FObjectInitializer (CDO 
-		// FObjectInitializers will init default sub-object properties, copying  
-		// from the super's DSOs) - this means that we need to separately defer 
-		// init'ing these sub-objects when their archetype hasn't been loaded 
-		// yet (it is possible that the archetype isn't even correct, as the 
-		// super's sub-object hasn't even been created yet; in this case the 
-		// component's CDO is used, which is probably wrong)
-		if (Obj->HasAnyFlags(RF_InheritableComponentTemplate))
+	{
+		if (FObjectInitializer* DeferredCopy = FDeferredObjInitializationHelper::DeferObjectInitializerIfNeeded(*this))
 		{
-			BlueprintClass = Cast<UClass>(Obj->GetOuter());
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			check(BlueprintClass != nullptr);
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-		}
-		else if (bIsCDO && !Class->IsNative())
-		{
-			BlueprintClass = Class;
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			check(Class->HasAnyClassFlags(CLASS_CompiledFromBlueprint));
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-		}
+			DeferredCopy->bIsDeferredInitializer = true;
+			// make sure this wasn't mistakenly pushed into ObjectInitializers
+			// (the copy constructor should have been what was invoked, 
+			// which doesn't push to ObjectInitializers)
+			check(FUObjectThreadContext::Get().TopInitializer() != DeferredCopy);
 
-		if (BlueprintClass != nullptr)
-		{
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			check(!BlueprintClass->IsNative());
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-
-			UClass* SuperClass = BlueprintClass->GetSuperClass();
-			if (SuperClass && !SuperClass->IsNative())
-			{
-				UObject* SuperBpCDO = nullptr;
-				// if this is a CDO (then we know/assume the archetype is the 
-				// CDO from the super class), use the ObjectArchetype for the 
-				// SuperBpCDO (because the SuperClass may have a REINST CDO 
-				// cached currently)
-				if (bIsCDO)
-				{
-					SuperBpCDO = ObjectArchetype;
-					SuperClass = ObjectArchetype->GetClass();
-
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-					check(ObjectArchetype->HasAnyFlags(RF_ClassDefaultObject));
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-				}
-				else
-				{
-					SuperBpCDO = SuperClass->GetDefaultObject(/*bCreateIfNeeded =*/false);
-				}
-
-				FLinkerLoad* SuperClassLinker = SuperClass->GetLinker();
-				const bool bSuperLoadPending = FDeferredObjInitializerTracker::IsCdoDeferred(SuperClass) ||
-					(SuperBpCDO && (SuperBpCDO->HasAnyFlags(RF_NeedLoad) || (SuperBpCDO->HasAnyFlags(RF_WasLoaded) && !SuperBpCDO->HasAnyFlags(RF_LoadCompleted))));
-
-				FLinkerLoad* ObjLinker = BlueprintClass->GetLinker();
-				const bool bIsBpClassSerializing    = ObjLinker && (ObjLinker->LoadFlags & LOAD_DeferDependencyLoads);
-				const bool bIsResolvingDeferredObjs = BlueprintClass->HasAnyFlags(RF_LoadCompleted) &&
-					ObjLinker && ObjLinker->IsBlueprintFinalizationPending();
-
-				if (bSuperLoadPending && (bIsBpClassSerializing || bIsResolvingDeferredObjs))
-				{
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-					// make sure we haven't already deferred this once, if we have
-					// then something is destroying this one prematurely 
-					check(bIsDeferredInitializer == false);
-
-					for (const FSubobjectsToInit::FSubobjectInit& SubObjInfo : ComponentInits.SubobjectInits)
-					{
-						check(!SubObjInfo.Subobject->HasAnyFlags(RF_NeedLoad));
-					}
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-					
-					// makes a copy of this and saves it off, to be ran later
-					if (FObjectInitializer* DeferredCopy = FDeferredObjInitializerTracker::Add(*this))
-					{
-						bIsPostConstructInitDeferred = true;
-						DeferredCopy->bIsDeferredInitializer = true;
-
-						// make sure this wasn't mistakenly pushed into ObjectInitializers
-						// (the copy constructor should have been what was invoked, 
-						// which doesn't push to ObjectInitializers)
-						check(FUObjectThreadContext::Get().TopInitializer() != DeferredCopy);
-					}
-				}
-			}
+			bIsPostConstructInitDeferred = true;
 		}
 	}
 

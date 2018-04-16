@@ -689,6 +689,110 @@ static UObject* FindExistingImportObject(const int32 Index, const TArray<FObject
 	return FoundObject;
 }
 
+/**
+ * This utility struct helps track blueprint structs/linkers that are currently 
+ * in the middle of a call to ResolveDeferredDependencies(). This can be used  
+ * to know if a dependency's resolve needs to be finished (to avoid unwanted 
+ * placeholder references ending up in script-code).
+ */
+struct FUnresolvedStructTracker
+{
+public:
+	/** Marks the specified struct (and its linker) as "resolving" for the lifetime of this instance */
+	FUnresolvedStructTracker(UStruct* LoadStruct)
+		: TrackedStruct(LoadStruct)
+	{
+		DEFERRED_DEPENDENCY_CHECK((LoadStruct != nullptr) && (LoadStruct->GetLinker() != nullptr));
+		FScopeLock UnresolvedStructsLock(&UnresolvedStructsCritical);
+		UnresolvedStructs.Add(LoadStruct);
+	}
+
+	/** Removes the wrapped struct from the "resolving" set (it has been fully "resolved") */
+	~FUnresolvedStructTracker()
+	{
+		// even if another FUnresolvedStructTracker added this struct earlier,  
+		// we want the most nested one removing it from the set (because this 
+		// means the struct is fully resolved, even if we're still in the middle  
+		// of a ResolveDeferredDependencies() call further up the stack)
+		FScopeLock UnresolvedStructsLock(&UnresolvedStructsCritical);
+		UnresolvedStructs.Remove(TrackedStruct);
+	}
+
+	/**
+	 * Checks to see if the specified import object is a blueprint class/struct 
+	 * that is currently in the midst of resolving (and hasn't completed that  
+	 * resolve elsewhere in some nested call).
+	 * 
+	 * @param  ImportObject    The object you wish to check.
+	 * @return True if the specified object is a class/struct that hasn't been fully resolved yet (otherwise false).
+	 */
+	static bool IsImportStructUnresolved(UObject* ImportObject)
+	{
+		FScopeLock UnresolvedStructsLock(&UnresolvedStructsCritical);
+		return UnresolvedStructs.Contains(ImportObject);
+	}
+
+	/**
+	 * Checks to see if the specified linker is associated with any of the 
+	 * unresolved structs that this is currently tracking.
+	 *
+	 * NOTE: This could return false, even if the linker is in a 
+	 *       ResolveDeferredDependencies() call futher up the callstack... in 
+	 *       that scenario, the associated struct was fully resolved by a 
+	 *       subsequent call to the same function (for the same linker/struct).
+	 * 
+	 * @param  Linker	The linker you want to check.
+	 * @return True if the specified linker is in the midst of an unfinished ResolveDeferredDependencies() call (otherwise false).
+	 */
+	static bool IsAssociatedStructUnresolved(const FLinkerLoad* Linker)
+	{
+		FScopeLock UnresolvedStructsLock(&UnresolvedStructsCritical);
+		for (UObject* UnresolvedObj : UnresolvedStructs)
+		{
+			// each unresolved struct should have a linker set on it, because 
+			// they would have had to go through Preload()
+			if (UnresolvedObj->GetLinker() == Linker)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**  */
+	static void Reset(const FLinkerLoad* Linker)
+	{
+		FScopeLock UnresolvedStructsLock(&UnresolvedStructsCritical);
+		TArray<UObject*> ToRemove;
+		for (UObject* UnresolvedObj : UnresolvedStructs)
+		{
+			if (UnresolvedObj->GetLinker() == Linker)
+			{
+				ToRemove.Add(UnresolvedObj);
+			}
+		}
+		for (UObject* ResetingObj : ToRemove)
+		{
+			UnresolvedStructs.Remove(ResetingObj);
+		}
+	}
+
+private:
+	/** The struct that is currently being "resolved" */
+	UStruct* TrackedStruct;
+
+	/** 
+	 * A set of blueprint structs & classes that are currently being "resolved"  
+	 * by ResolveDeferredDependencies() (using UObject* instead of UStruct, so
+	 * we don't have to cast import objects before checking for their presence).
+	 */
+	static TSet<UObject*> UnresolvedStructs;
+	static FCriticalSection UnresolvedStructsCritical;
+};
+/** A global set that tracks structs currently being ran through (and unfinished by) FLinkerLoad::ResolveDeferredDependencies() */
+TSet<UObject*> FUnresolvedStructTracker::UnresolvedStructs;
+FCriticalSection FUnresolvedStructTracker::UnresolvedStructsCritical;
+
 bool FLinkerLoad::DeferPotentialCircularImport(const int32 Index)
 {
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
@@ -702,10 +806,65 @@ bool FLinkerLoad::DeferPotentialCircularImport(const int32 Index)
 	//--------------------------------------
 
 	FObjectImport& Import = ImportMap[Index];
+
 	if (Import.XObject != nullptr)
 	{
-		bool const bIsPlaceHolderClass = Import.XObject->IsA<ULinkerPlaceholderClass>();
-		return bIsPlaceHolderClass;
+		FLinkerPlaceholderBase* ImportPlaceholder = nullptr;
+		if (ULinkerPlaceholderClass* AsPlaceholderClass = Cast<ULinkerPlaceholderClass>(Import.XObject))
+		{
+			ImportPlaceholder = AsPlaceholderClass;
+		}
+		else if (ULinkerPlaceholderFunction* AsPlaceholderFunc = Cast<ULinkerPlaceholderFunction>(Import.XObject))
+		{
+			ImportPlaceholder = AsPlaceholderFunc;
+		}
+
+		const bool bIsResolvingPlaceholders = ImportPlaceholder && (LoadFlags & LOAD_DeferDependencyLoads) == LOAD_None;
+		// if this import already had a placeholder spawned for it, but the package 
+		// has passed the need for placeholders (it's in the midst of ResolveDeferredDependencies)
+		if (bIsResolvingPlaceholders)
+		{
+			// this is to validate our assumption that this package is in ResolveDeferredDependencies() earlier up the stack
+			DEFERRED_DEPENDENCY_CHECK(FUnresolvedStructTracker::IsAssociatedStructUnresolved(this));
+		
+			UClass* LoadClass = nullptr;
+			// Get the LoadClass that is currently in the midst of being resolved (needed to pass to ResolveDependencyPlaceholder)
+			{
+				// if DeferredCDOIndex is not set, then this is presumably a struct package (it should always be  
+				// set at this point for class BP packages - see Preload() where DeferredCDOIndex is assigned)
+				if (DeferredCDOIndex != INDEX_NONE)
+				{
+					FPackageIndex ClassIndex = ExportMap[DeferredCDOIndex].ClassIndex;
+					DEFERRED_DEPENDENCY_CHECK(ClassIndex.IsExport());
+
+					if (ClassIndex.IsExport())
+					{
+						FObjectExport ClassExport = ExportMap[ClassIndex.ToExport()];
+						LoadClass = Cast<UClass>(ClassExport.Object);
+					}
+
+					DEFERRED_DEPENDENCY_CHECK(LoadClass != nullptr);
+				}
+			}
+
+			// go ahead and resolve the placeholder here (since someone's requesting it and we're already in the 
+			// midst of resolving placeholders earlier in the stack) - the idea is that the resolve, already in progress, will 
+			// eventually get to this placeholder, it just hasn't looped there yet
+			//
+			// this will prevent other, needless placeholders from being created (export templates that are relying on this class, etc.)
+			ResolveDependencyPlaceholder(ImportPlaceholder, LoadClass);
+
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+			const bool bIsStillPlaceholder = Import.XObject->IsA<ULinkerPlaceholderClass>() || Import.XObject->IsA<ULinkerPlaceholderFunction>();
+			DEFERRED_DEPENDENCY_CHECK(!bIsStillPlaceholder);
+			return bIsStillPlaceholder;
+#else 
+			// presume that ResolveDependencyPlaceholder() worked and the import is no longer a placeholder
+			return false;
+#endif 
+
+		}
+		return (ImportPlaceholder != nullptr);
 	}
 
 	if ((LoadFlags & LOAD_DeferDependencyLoads) && !IsImportNative(Index))
@@ -1019,110 +1178,6 @@ int32 FLinkerLoad::FindCDOExportIndex(UClass* LoadClass)
 	return INDEX_NONE;
 }
 
-/**
- * This utility struct helps track blueprint structs/linkers that are currently 
- * in the middle of a call to ResolveDeferredDependencies(). This can be used  
- * to know if a dependency's resolve needs to be finished (to avoid unwanted 
- * placeholder references ending up in script-code).
- */
-struct FUnresolvedStructTracker
-{
-public:
-	/** Marks the specified struct (and its linker) as "resolving" for the lifetime of this instance */
-	FUnresolvedStructTracker(UStruct* LoadStruct)
-		: TrackedStruct(LoadStruct)
-	{
-		DEFERRED_DEPENDENCY_CHECK((LoadStruct != nullptr) && (LoadStruct->GetLinker() != nullptr));
-		FScopeLock UnresolvedStructsLock(&UnresolvedStructsCritical);
-		UnresolvedStructs.Add(LoadStruct);
-	}
-
-	/** Removes the wrapped struct from the "resolving" set (it has been fully "resolved") */
-	~FUnresolvedStructTracker()
-	{
-		// even if another FUnresolvedStructTracker added this struct earlier,  
-		// we want the most nested one removing it from the set (because this 
-		// means the struct is fully resolved, even if we're still in the middle  
-		// of a ResolveDeferredDependencies() call further up the stack)
-		FScopeLock UnresolvedStructsLock(&UnresolvedStructsCritical);
-		UnresolvedStructs.Remove(TrackedStruct);
-	}
-
-	/**
-	 * Checks to see if the specified import object is a blueprint class/struct 
-	 * that is currently in the midst of resolving (and hasn't completed that  
-	 * resolve elsewhere in some nested call).
-	 * 
-	 * @param  ImportObject    The object you wish to check.
-	 * @return True if the specified object is a class/struct that hasn't been fully resolved yet (otherwise false).
-	 */
-	static bool IsImportStructUnresolved(UObject* ImportObject)
-	{
-		FScopeLock UnresolvedStructsLock(&UnresolvedStructsCritical);
-		return UnresolvedStructs.Contains(ImportObject);
-	}
-
-	/**
-	 * Checks to see if the specified linker is associated with any of the 
-	 * unresolved structs that this is currently tracking.
-	 *
-	 * NOTE: This could return false, even if the linker is in a 
-	 *       ResolveDeferredDependencies() call futher up the callstack... in 
-	 *       that scenario, the associated struct was fully resolved by a 
-	 *       subsequent call to the same function (for the same linker/struct).
-	 * 
-	 * @param  Linker	The linker you want to check.
-	 * @return True if the specified linker is in the midst of an unfinished ResolveDeferredDependencies() call (otherwise false).
-	 */
-	static bool IsAssociatedStructUnresolved(const FLinkerLoad* Linker)
-	{
-		FScopeLock UnresolvedStructsLock(&UnresolvedStructsCritical);
-		for (UObject* UnresolvedObj : UnresolvedStructs)
-		{
-			// each unresolved struct should have a linker set on it, because 
-			// they would have had to go through Preload()
-			if (UnresolvedObj->GetLinker() == Linker)
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**  */
-	static void Reset(const FLinkerLoad* Linker)
-	{
-		FScopeLock UnresolvedStructsLock(&UnresolvedStructsCritical);
-		TArray<UObject*> ToRemove;
-		for (UObject* UnresolvedObj : UnresolvedStructs)
-		{
-			if (UnresolvedObj->GetLinker() == Linker)
-			{
-				ToRemove.Add(UnresolvedObj);
-			}
-		}
-		for (UObject* ResetingObj : ToRemove)
-		{
-			UnresolvedStructs.Remove(ResetingObj);
-		}
-	}
-
-private:
-	/** The struct that is currently being "resolved" */
-	UStruct* TrackedStruct;
-
-	/** 
-	 * A set of blueprint structs & classes that are currently being "resolved"  
-	 * by ResolveDeferredDependencies() (using UObject* instead of UStruct, so
-	 * we don't have to cast import objects before checking for their presence).
-	 */
-	static TSet<UObject*> UnresolvedStructs;
-	static FCriticalSection UnresolvedStructsCritical;
-};
-/** A global set that tracks structs currently being ran through (and unfinished by) FLinkerLoad::ResolveDeferredDependencies() */
-TSet<UObject*> FUnresolvedStructTracker::UnresolvedStructs;
-FCriticalSection FUnresolvedStructTracker::UnresolvedStructsCritical;
-
 UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FLinkerLoad* ImportLinker);
 
 void FLinkerLoad::ResolveDeferredDependencies(UStruct* LoadStruct)
@@ -1150,117 +1205,134 @@ void FLinkerLoad::ResolveDeferredDependencies(UStruct* LoadStruct)
 		
 		UClass* const LoadClass = Cast<UClass>(LoadStruct);
 
-		bool bImportMapResolved = false;
+		int32 StartingImportIndex = 0;
 		// this function (for this linker) could be reentrant (see where we 
 		// recursively call ResolveDeferredDependencies() for super-classes below);  
 		// if that's the case, then we want to finish resolving the pending class 
 		// before we continue on
-		if (ResolvingDeferredPlaceholder != nullptr)
+		if (ResolvingPlaceholderStack.Num() > 0)
 		{
-			FName ReplacementPkgPath = NAME_None;
-			// if this placeholder is not an ImportMap placeholder, then we need
-			// additional info to resolve it (namely the true object's package
-			// path)... if we don't have that, then this resolve will fail
-			if (ResolvingDeferredPlaceholder->PackageIndex.IsNull())
+			// Since this method is recursive, we don't need to needlessly loop over all the imports we've already 
+			// resolved. However, we can only guarantee that the oldest entry in the 'resolving' stack is from a loop below.
+			// Now that other places call ResolveDependencyPlaceholder(), the ResolvingPlaceholderStack may jump around and
+			// skip some entries. The only certainty is that this function is the initial entry point for ResolveDependencyPlaceholder().
+			const FPackageIndex& FirstResolvingIndex = ResolvingPlaceholderStack[0]->PackageIndex;
+			if (FirstResolvingIndex.IsNull())
 			{
-				const FName* ImportObjectPath = ImportPlaceholders.FindKey(ResolvingDeferredPlaceholder);
-				DEFERRED_DEPENDENCY_CHECK(ImportObjectPath != nullptr);
+				// if the placeholder's package index is null, that means we've already looped over the entire 
+				// ImportMap, and moved on to the loop below it (where we resolve placeholders from ImportText() 
+				// and such - they don't have entries in the ImportMap), so skip the ImportMap loop
+				StartingImportIndex = ImportMap.Num();
+			}
+			else
+			{
+				DEFERRED_DEPENDENCY_CHECK(FirstResolvingIndex.IsImport());
 
-				if (ImportObjectPath != nullptr)
-				{
-					ReplacementPkgPath = *ImportObjectPath;
-					// save us from looping through the ImportMap again; if 
-					// we're already resolving an entry from ImportPlaceholders,  
-					// then we've already been through this function and are in  
-					// the ImportPlaceholders loop somewhere up the stack
-					bImportMapResolved = true;
-				}
+				// Since the ImportMap loop below resolves ULinkerPlaceholderFunction's owner first (out of order), we cannot 
+				// even guarantee that we've resolved everything prior to FirstResolvingIndex, so don't set StartingImportIndex in this case
+// 				if (FirstResolvingIndex.IsImport())
+// 				{
+// 					StartingImportIndex = FirstResolvingIndex.ToImport()+1;
+// 				}
 			}
 
-			int32 ResolvedRefCount = ResolveDependencyPlaceholder(ResolvingDeferredPlaceholder, LoadClass, ReplacementPkgPath);
-			// @TODO: can we reliably count on this resolving some dependencies?... 
-			//        if so, check verify that!
-			ResolvingDeferredPlaceholder = nullptr;
-			ImportPlaceholders.Remove(ReplacementPkgPath);
+			while (ResolvingPlaceholderStack.Num() > 0)
+			{
+				FLinkerPlaceholderBase* ResolvingPlaceholder = ResolvingPlaceholderStack.Pop();
+				// If this is a placeholder outside the ImportMap (from ImportText(), etc.), then it needs a PackagePath to
+				// resolve. Don't worry that one isn't passed in as a param here, ResolveDependencyPlaceholder() will 
+				// look it up itself in ImportPlaceholders (the param is just an optimization)
+				ResolveDependencyPlaceholder(ResolvingPlaceholder, LoadClass);
+			}
+
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+			for (int32 ImportIndex = 0; ImportIndex < StartingImportIndex; ++ImportIndex)
+			{
+				if (UObject* ImportObj = ImportMap[ImportIndex].XObject)
+				{
+					DEFERRED_DEPENDENCY_CHECK(Cast<ULinkerPlaceholderClass>(ImportObj) == nullptr);
+					DEFERRED_DEPENDENCY_CHECK(Cast<ULinkerPlaceholderFunction>(ImportObj) == nullptr);
+				}
+			}
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 		}
-
-		if (!bImportMapResolved)
+		
+		// because this loop could recurse (and end up finishing all of this for
+		// us), we check HasUnresolvedDependencies() so we can early out  
+		// from this loop in that situation (the loop has been finished elsewhere)
+		for (int32 ImportIndex = StartingImportIndex; ImportIndex < ImportMap.Num() && HasUnresolvedDependencies(); ++ImportIndex)
 		{
-			// because this loop could recurse (and end up finishing all of this for
-			// us), we check HasUnresolvedDependencies() so we can early out  
-			// from this loop in that situation (the loop has been finished elsewhere)
-			for (int32 ImportIndex = 0; ImportIndex < ImportMap.Num() && HasUnresolvedDependencies(); ++ImportIndex)
+			FObjectImport& Import = ImportMap[ImportIndex];
+
+			FLinkerLoad* SourceLinker = Import.SourceLinker;
+			// we cannot rely on Import.SourceLinker being set, if you look 
+			// at FLinkerLoad::CreateImport(), you'll see in game builds 
+			// that we try to circumvent the normal Import loading with a
+			// FindImportFast() call... if this is successful (the import 
+			// has already been somewhat loaded), then we don't fill out the 
+			// SourceLinker field
+			if (SourceLinker == nullptr)
 			{
-				FObjectImport& Import = ImportMap[ImportIndex];
-
-				FLinkerLoad* SourceLinker = Import.SourceLinker;
-				// we cannot rely on Import.SourceLinker being set, if you look 
-				// at FLinkerLoad::CreateImport(), you'll see in game builds 
-				// that we try to circumvent the normal Import loading with a
-				// FindImportFast() call... if this is successful (the import 
-				// has already been somewhat loaded), then we don't fill out the 
-				// SourceLinker field
-				if (SourceLinker == nullptr)
+				if (Import.XObject != nullptr)
 				{
-					if (Import.XObject != nullptr)
-					{
-						SourceLinker = Import.XObject->GetLinker();
-						//if (SourceLinker == nullptr)
-						//{
-						//	UPackage* ImportPkg = Import.XObject->GetOutermost();
-						//	// we use this package as placeholder for our 
-						//	// placeholders, so make sure to skip those (all other
-						//	// imports should belong to another package)
-						//	if (ImportPkg && ImportPkg != LinkerRoot)
-						//	{
-						//		SourceLinker = FindExistingLinkerForPackage(ImportPkg);
-						//	}
-						//}
-					}					
+					SourceLinker = Import.XObject->GetLinker();
+					//if (SourceLinker == nullptr)
+					//{
+					//	UPackage* ImportPkg = Import.XObject->GetOutermost();
+					//	// we use this package as placeholder for our 
+					//	// placeholders, so make sure to skip those (all other
+					//	// imports should belong to another package)
+					//	if (ImportPkg && ImportPkg != LinkerRoot)
+					//	{
+					//		SourceLinker = FindExistingLinkerForPackage(ImportPkg);
+					//	}
+					//}
+				}					
+			}
+
+			const UPackage* SourcePackage = (SourceLinker != nullptr) ? SourceLinker->LinkerRoot : nullptr;
+			// this package may not have introduced any (possible) cyclic 
+			// dependencies, but it still could have been deferred (kept from
+			// fully loading... we need to make sure metadata gets loaded, etc.)
+			if ((SourcePackage != nullptr) && !SourcePackage->HasAnyFlags(RF_WasLoaded))
+			{
+				uint32 InternalLoadFlags = LoadFlags & (LOAD_NoVerify | LOAD_NoWarn | LOAD_Quiet);
+				// make sure LoadAllObjects() is called for this package
+				LoadPackageInternal(/*Outer =*/nullptr, *SourceLinker->Filename, InternalLoadFlags, this); //-V595
+			}
+
+			DEFERRED_DEPENDENCY_CHECK(ResolvingPlaceholderStack.Num() == 0);
+			if (ULinkerPlaceholderClass* PlaceholderClass = Cast<ULinkerPlaceholderClass>(Import.XObject))
+			{
+				DEFERRED_DEPENDENCY_CHECK(PlaceholderClass->PackageIndex.ToImport() == ImportIndex);
+
+				// NOTE: we don't check that this resolve successfully replaced any
+				//       references (by the return value), because this resolve 
+				//       could have been re-entered and completed by a nested call
+				//       to the same function (for the same placeholder)
+				ResolveDependencyPlaceholder(PlaceholderClass, LoadClass);
+			}
+			else if (ULinkerPlaceholderFunction* PlaceholderFunction = Cast<ULinkerPlaceholderFunction>(Import.XObject))
+			{
+				if (ULinkerPlaceholderClass* PlaceholderOwner = Cast<ULinkerPlaceholderClass>(PlaceholderFunction->GetOwnerClass()))
+				{
+					ResolveDependencyPlaceholder(PlaceholderOwner, LoadClass);
 				}
 
-				const UPackage* SourcePackage = (SourceLinker != nullptr) ? SourceLinker->LinkerRoot : nullptr;
-				// this package may not have introduced any (possible) cyclic 
-				// dependencies, but it still could have been deferred (kept from
-				// fully loading... we need to make sure metadata gets loaded, etc.)
-				if ((SourcePackage != nullptr) && !SourcePackage->HasAnyFlags(RF_WasLoaded))
+				DEFERRED_DEPENDENCY_CHECK(PlaceholderFunction->PackageIndex.ToImport() == ImportIndex);
+				ResolveDependencyPlaceholder(PlaceholderFunction, LoadClass);
+			}
+			else if (UScriptStruct* StructObj = Cast<UScriptStruct>(Import.XObject))
+			{
+				// in case this is a user defined struct, we have to resolve any 
+				// deferred dependencies in the struct 
+				if (SourceLinker != nullptr)
 				{
-					uint32 InternalLoadFlags = LoadFlags & (LOAD_NoVerify | LOAD_NoWarn | LOAD_Quiet);
-					// make sure LoadAllObjects() is called for this package
-					LoadPackageInternal(/*Outer =*/nullptr, *SourceLinker->Filename, InternalLoadFlags, this); //-V595
-				}
-
-				if (ULinkerPlaceholderClass* PlaceholderClass = Cast<ULinkerPlaceholderClass>(Import.XObject))
-				{
-					DEFERRED_DEPENDENCY_CHECK(PlaceholderClass->PackageIndex.ToImport() == ImportIndex);
-
-					// NOTE: we don't check that this resolve successfully replaced any
-					//       references (by the return value), because this resolve 
-					//       could have been re-entered and completed by a nested call
-					//       to the same function (for the same placeholder)
-					ResolveDependencyPlaceholder(PlaceholderClass, LoadClass);
-				}
-				else if (ULinkerPlaceholderFunction* PlaceholderFunction = Cast<ULinkerPlaceholderFunction>(Import.XObject))
-				{
-					if (ULinkerPlaceholderClass* PlaceholderOwner = Cast<ULinkerPlaceholderClass>(PlaceholderFunction->GetOwnerClass()))
-					{
-						ResolveDependencyPlaceholder(PlaceholderOwner, LoadClass);
-					}
-
-					DEFERRED_DEPENDENCY_CHECK(PlaceholderFunction->PackageIndex.ToImport() == ImportIndex);
-					ResolveDependencyPlaceholder(PlaceholderFunction, LoadClass);
-				}
-				else if (UScriptStruct* StructObj = Cast<UScriptStruct>(Import.XObject))
-				{
-					// in case this is a user defined struct, we have to resolve any 
-					// deferred dependencies in the struct 
-					if (SourceLinker != nullptr)
-					{
-						SourceLinker->ResolveDeferredDependencies(StructObj);
-					}
+					SourceLinker->ResolveDeferredDependencies(StructObj);
 				}
 			}
-		} // if (!bImportMapResolved)
+			DEFERRED_DEPENDENCY_CHECK(ResolvingPlaceholderStack.Num() == 0);
+		}
 
 		// resolve any placeholders that were imported through methods like 
 		// ImportText() (meaning the ImportMap wouldn't reference them)
@@ -1305,16 +1377,34 @@ void FLinkerLoad::ResolveDeferredDependencies(UStruct* LoadStruct)
 	//LoadAllObjects();
 
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-	for (TObjectIterator<ULinkerPlaceholderClass> PlaceholderIt; PlaceholderIt; ++PlaceholderIt)
+	auto CheckPlaceholderReferences = [this](FLinkerPlaceholderBase* Placeholder)
 	{
-		ULinkerPlaceholderClass* PlaceholderClass = *PlaceholderIt;
-		if (PlaceholderClass->GetOuter() == LinkerRoot)
+		UObject* PlaceholderObj = Placeholder->GetPlaceholderAsUObject();
+		if (PlaceholderObj->GetOuter() == LinkerRoot)
 		{
 			// there shouldn't be any deferred dependencies (belonging to this 
 			// linker) that need to be resolved by this point
-			DEFERRED_DEPENDENCY_CHECK(!PlaceholderClass->HasKnownReferences());
+			DEFERRED_DEPENDENCY_CHECK(!Placeholder->HasKnownReferences());
+
+			if (!Placeholder->PackageIndex.IsNull() && ensure(Placeholder->PackageIndex.IsImport()))
+			{
+				const UObject* ImportObj = ImportMap[Placeholder->PackageIndex.ToImport()].XObject;
+				DEFERRED_DEPENDENCY_CHECK(ImportObj != PlaceholderObj);
+				DEFERRED_DEPENDENCY_CHECK(Cast<ULinkerPlaceholderClass>(ImportObj) == nullptr);
+				DEFERRED_DEPENDENCY_CHECK(Cast<ULinkerPlaceholderFunction>(ImportObj) == nullptr);
+			}
 		}
+	};
+
+	for (TObjectIterator<ULinkerPlaceholderClass> PlaceholderIt; PlaceholderIt; ++PlaceholderIt)
+	{
+		CheckPlaceholderReferences(*PlaceholderIt);
 	}
+	for (TObjectIterator<ULinkerPlaceholderFunction> PlaceholderIt; PlaceholderIt; ++PlaceholderIt)
+	{
+		CheckPlaceholderReferences(*PlaceholderIt);
+	}
+
 	DEFERRED_DEPENDENCY_CHECK(ImportPlaceholders.Num() == 0);
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
@@ -1323,14 +1413,14 @@ void FLinkerLoad::ResolveDeferredDependencies(UStruct* LoadStruct)
 bool FLinkerLoad::HasUnresolvedDependencies() const
 {
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
-	// checking (ResolvingDeferredPlaceholder != nullptr) is not sufficient, 
+	// checking (ResolvingPlaceholderStack.Num() <= 0) is not sufficient, 
 	// because the linker could be in the midst of a nested resolve (for a 
 	// struct, or super... see FLinkerLoad::ResolveDeferredDependencies)
 	bool bIsClassExportUnresolved = FUnresolvedStructTracker::IsAssociatedStructUnresolved(this);
 
-	// (ResolvingDeferredPlaceholder != nullptr) should imply 
+	// (ResolvingPlaceholderStack.Num() <= 0) should imply 
 	// bIsClassExportUnresolved is true (but not the other way around)
-	DEFERRED_DEPENDENCY_CHECK((ResolvingDeferredPlaceholder == nullptr) || bIsClassExportUnresolved);
+	DEFERRED_DEPENDENCY_CHECK((ResolvingPlaceholderStack.Num() <= 0) || bIsClassExportUnresolved);
 	
 	return bIsClassExportUnresolved;
 
@@ -1339,24 +1429,39 @@ bool FLinkerLoad::HasUnresolvedDependencies() const
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 }
 
-int32 FLinkerLoad::ResolveDependencyPlaceholder(FLinkerPlaceholderBase* PlaceholderIn, UClass* ReferencingClass, const FName ObjectPath)
+int32 FLinkerLoad::ResolveDependencyPlaceholder(FLinkerPlaceholderBase* PlaceholderIn, UClass* ReferencingClass, const FName ObjectPathIn)
 {
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	TGuardValue<uint32>  LoadFlagsGuard(LoadFlags, (LoadFlags & ~LOAD_DeferDependencyLoads));
-	TGuardValue<FLinkerPlaceholderBase*> ResolvingClassGuard(ResolvingDeferredPlaceholder, PlaceholderIn);
+	ResolvingPlaceholderStack.Push(PlaceholderIn);
 
 	UObject* PlaceholderObj = PlaceholderIn->GetPlaceholderAsUObject();
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 	DEFERRED_DEPENDENCY_CHECK(PlaceholderObj != nullptr);
 	DEFERRED_DEPENDENCY_CHECK(PlaceholderObj->GetOutermost() == LinkerRoot);
+	const int32 ResolvingStackDepth = ResolvingPlaceholderStack.Num();
+#endif
 	
 	UObject* RealImportObj = nullptr;
 
+	FName ObjectPathName = NAME_None;
 	if (PlaceholderIn->PackageIndex.IsNull())
 	{
-		DEFERRED_DEPENDENCY_CHECK(ObjectPath.IsValid() && !ObjectPath.IsNone());
+		ObjectPathName = ObjectPathIn;
+		if (!ObjectPathIn.IsValid() || ObjectPathIn.IsNone())
+		{
+			const FName* ObjectPathPtr = ImportPlaceholders.FindKey(PlaceholderIn);
+			DEFERRED_DEPENDENCY_CHECK(ObjectPathPtr != nullptr);
+			if (ObjectPathPtr)
+			{
+				ObjectPathName = *ObjectPathPtr;
+			}
+		}
+		DEFERRED_DEPENDENCY_CHECK(ObjectPathName.IsValid() && !ObjectPathName.IsNone());
+
 		// emulating the StaticLoadObject() call in UObjectPropertyBase::FindImportedObject(),
 		// since this was most likely a placeholder 
-		RealImportObj = StaticLoadObject(UObject::StaticClass(), /*Outer =*/nullptr, *ObjectPath.ToString(), /*Filename =*/nullptr, (LOAD_NoWarn | LOAD_FindIfFail));
+		RealImportObj = StaticLoadObject(UObject::StaticClass(), /*Outer =*/nullptr, *ObjectPathName.ToString(), /*Filename =*/nullptr, (LOAD_NoWarn | LOAD_FindIfFail));
 	}
 	else
 	{
@@ -1366,7 +1471,9 @@ int32 FLinkerLoad::ResolveDependencyPlaceholder(FLinkerPlaceholderBase* Placehol
 
 		if ((Import.XObject != nullptr) && (Import.XObject != PlaceholderObj))
 		{
-			DEFERRED_DEPENDENCY_CHECK(ResolvingDeferredPlaceholder == PlaceholderIn);
+			DEFERRED_DEPENDENCY_CHECK(ResolvingPlaceholderStack.Num() > 0 && ResolvingPlaceholderStack.Top() == PlaceholderIn);
+			DEFERRED_DEPENDENCY_CHECK(ResolvingPlaceholderStack.Num() == ResolvingStackDepth);
+
 			RealImportObj = Import.XObject;
 		}
 		else
@@ -1452,6 +1559,16 @@ int32 FLinkerLoad::ResolveDependencyPlaceholder(FLinkerPlaceholderBase* Placehol
 	DEFERRED_DEPENDENCY_CHECK(!bIsReferenced || bIsAsyncLoadRef);
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 
+	// this could recurse back into ResolveDeferredDependencies(), which resolves all placeholders from this list,
+	// so by the time we're returned here, the list may be empty
+	if (ResolvingPlaceholderStack.Num() > 0)
+	{
+		DEFERRED_DEPENDENCY_CHECK(ResolvingPlaceholderStack.Top() == PlaceholderIn);
+		DEFERRED_DEPENDENCY_CHECK(ResolvingPlaceholderStack.Num() == ResolvingStackDepth);
+
+		ResolvingPlaceholderStack.Pop();
+	}
+	ImportPlaceholders.Remove(ObjectPathName);
 
 	return ReplacementCount;
 #else  // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
@@ -1892,7 +2009,7 @@ void FLinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 		// regenerated the class layout (and property offsets) may no longer 
 		// match the layout that sub-class CDOs were constructed with (making 
 		// property copying dangerous)
-		FDeferredObjInitializerTracker::ResolveDeferredSubClassObjects(LoadClass);
+		FDeferredObjInitializationHelper::ResolveDeferredInitsFromArchetype(BlueprintCDO);
 
 		DEFERRED_DEPENDENCY_CHECK(BlueprintCDO->HasAnyFlags(RF_LoadCompleted));
 	}
@@ -2002,7 +2119,7 @@ void FLinkerLoad::ResetDeferredLoadingState()
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	DeferredCDOIndex = INDEX_NONE;
 	bForceBlueprintFinalization = false;
-	ResolvingDeferredPlaceholder = nullptr;
+	ResolvingPlaceholderStack.Empty();
 	ImportPlaceholders.Empty();
 	LoadFlags &= ~(LOAD_DeferDependencyLoads);
 
@@ -2380,251 +2497,359 @@ bool FObjectInitializer::InitNonNativeProperty(UProperty* Property, UObject* Dat
 }
 
 /*******************************************************************************
- * FDeferredObjInitializerTracker
+ * FDeferredInitializationTrackerBase
  ******************************************************************************/
 
-FObjectInitializer* FDeferredObjInitializerTracker::Add(const FObjectInitializer& DeferringInitializer)
+FObjectInitializer* FDeferredInitializationTrackerBase::Add(const UObject* InitDependecy, const FObjectInitializer& DeferringInitializer)
 {
-	UObject* InitingObj = DeferringInitializer.GetObj();
-	DEFERRED_DEPENDENCY_CHECK(InitingObj != nullptr);
-	const bool bIsSubObjTemplate = InitingObj && InitingObj->HasAnyFlags(RF_InheritableComponentTemplate);
+	FObjectInitializer* DeferredInitializerCopy = nullptr;
 
-	UClass* LoadClass = nullptr;
-	if (bIsSubObjTemplate)
+	DEFERRED_DEPENDENCY_CHECK(InitDependecy);
+	if (InitDependecy)
 	{
-		LoadClass = Cast<UClass>(InitingObj->GetOuter());
+		UObject* InstanceObj = DeferringInitializer.GetObj();
+		ArchetypeInstanceMap.AddUnique(InitDependecy, InstanceObj);
+
+		DEFERRED_DEPENDENCY_CHECK(DeferredInitializers.Find(InstanceObj) == nullptr); // did we try to init the object twice?
+
+		// NOTE: we copy the FObjectInitializer, because it is most likely in the process of being destroyed
+		DeferredInitializerCopy = &DeferredInitializers.Add(InstanceObj, DeferringInitializer);
 	}
-	else if (InitingObj != nullptr)
-	{
-		DEFERRED_DEPENDENCY_CHECK(InitingObj->HasAnyFlags(RF_ClassDefaultObject));
-		LoadClass = InitingObj->GetClass();
-	}
-	
-	FObjectInitializer* DeferredCopy = nullptr;
-	if (LoadClass != nullptr)
-	{
-		FDeferredObjInitializerTracker& ThreadInst = FDeferredObjInitializerTracker::Get();
-		TMultiMap<UClass*, UClass*>& SuperClassMap = ThreadInst.SuperClassMap;
+	return DeferredInitializerCopy;
+}
 
-		UClass* SuperClass = LoadClass->GetSuperClass();
-		SuperClassMap.AddUnique(SuperClass, LoadClass);
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-		UObject* SuperCDO = SuperClass->GetDefaultObject(/*bCreateIfNeeded =*/false);
-		DEFERRED_DEPENDENCY_CHECK( SuperCDO && (SuperCDO->HasAnyFlags(RF_NeedLoad) ||
-			(SuperClass->GetLinker() && SuperClass->GetLinker()->IsBlueprintFinalizationPending()) || IsCdoDeferred(SuperClass)) );
+void FDeferredInitializationTrackerBase::ResolveArchetypeInstances(UObject* InitDependecy)
+{
+	TArray<UObject*> ArchetypeInstances;
+	ArchetypeInstanceMap.MultiFind(InitDependecy, ArchetypeInstances);
 
-		FLinkerLoad* ClassLinker = LoadClass->GetLinker();
-		DEFERRED_DEPENDENCY_CHECK((bIsSubObjTemplate && ClassLinker->IsBlueprintFinalizationPending()) || 
-			(ClassLinker->LoadFlags & LOAD_DeferDependencyLoads) != 0);
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+	for (UObject* Instance : ArchetypeInstances)
+	{
+		DEFERRED_DEPENDENCY_CHECK(ResolvingObjects.Contains(Instance) == false);
+		ResolvingObjects.Push(Instance);
+
+		if (ResolveDeferredInitialization(InitDependecy, Instance))
+		{
+			// For sub-objects, this has to come after ResolveDeferredInitialization(), since InitSubObjectProperties() is 
+			// invoked there (which is where we fill this sub-object with values from the super)
+			PreloadDeferredDependents(Instance);
+		}
 		
-		if (bIsSubObjTemplate)
-		{
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			TArray<FObjectInitializer*> DeferredSubObjInitializers;
-			ThreadInst.DeferredSubObjInitializers.MultiFindPointer(LoadClass, DeferredSubObjInitializers);
-			// check to make sure that we haven't already added this one for deferral
-			for (FObjectInitializer* SubObjInitializer : DeferredSubObjInitializers)
-			{
-				DEFERRED_DEPENDENCY_CHECK(SubObjInitializer->GetObj() != DeferringInitializer.GetObj());
-			}
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			DeferredCopy = &ThreadInst.DeferredSubObjInitializers.Add(LoadClass, DeferringInitializer);
-		}
-		else
-		{
-			TMap<UClass*, FObjectInitializer>& InitializersCache = ThreadInst.DeferredInitializers;
-			DEFERRED_DEPENDENCY_CHECK(InitializersCache.Find(LoadClass) == nullptr); // did we try to init the CDO twice?
-
-			// NOTE: we copy the FObjectInitializer, because it is most likely being destroyed
-			DeferredCopy = &InitializersCache.Add(LoadClass, DeferringInitializer);
-		}
-	}
-	return DeferredCopy;
-}
-
-FObjectInitializer* FDeferredObjInitializerTracker::Find(UClass* LoadClass)
-{
-	FDeferredObjInitializerTracker& ThreadInst = FDeferredObjInitializerTracker::Get();
-	return ThreadInst.DeferredInitializers.Find(LoadClass);
-}
-
-bool FDeferredObjInitializerTracker::IsCdoDeferred(UClass* LoadClass)
-{
-	return (Find(LoadClass) != nullptr);
-}
-
-bool FDeferredObjInitializerTracker::DeferSubObjectPreload(UObject* SubObject)
-{
-	bool bDeferralNeeded = false;
-	// if this is an "InheritableComponentTemplate" we expect it's outer to be
-	// the class it belongs to, and know that this overrides a inherited 
-	// component (belonging to the owner's super)
-	const bool bIsComponentOverride = SubObject->HasAnyFlags(RF_InheritableComponentTemplate);
-
-	UClass* OwningClass = nullptr;
-	if (bIsComponentOverride)
-	{
-		OwningClass = Cast<UClass>(SubObject->GetOuter());
-		DEFERRED_DEPENDENCY_CHECK(OwningClass != nullptr);
-	}
-	else
-	{
-		DEFERRED_DEPENDENCY_CHECK(SubObject->HasAnyFlags(RF_DefaultSubObject));
-
-		UObject* SubObjOuter = SubObject->GetOuter();
-		OwningClass = SubObjOuter->GetClass();
-		// NOTE: the outer of a DSO may not be a CDO like we want, it could 
-		//       be something like a component template; right now we ignore 
-		//       those cases (IsCdoDeferred() below will reject this), but if 
-		//       this case proves to be a problem, then we may need to look up 
-		//       the outer chain, or see if the outer sub-obj is deferred itself
+		DEFERRED_DEPENDENCY_CHECK(ResolvingObjects.Top() == Instance);
+		ResolvingObjects.Pop();
 	}
 
-	FDeferredObjInitializerTracker& ThreadInst = FDeferredObjInitializerTracker::Get();	
-	if (IsCdoDeferred(OwningClass) && (OwningClass != ThreadInst.ResolvingClass))
-	{
-		// no need to check the archetype, we know that this is overriding a
-		// super component - we need to defer Preload()
-		if (bIsComponentOverride)
-		{
-			ThreadInst.DeferredSubObjects.AddUnique(OwningClass, SubObject);
-			bDeferralNeeded = true;
-		}
-		else
-		{
-			DEFERRED_DEPENDENCY_CHECK(SubObject->GetOuter()->HasAnyFlags(RF_ClassDefaultObject));
-
-			UObject* SubObjTemplate = SubObject->GetArchetype();
-			// check that this is an inherited sub-object (that it is defined on the 
-			// parent class)... we only need to defer Preload() for inherited 
-			// components because they're what gets filled out in the CDO's InitSubobjectProperties()
-			if (SubObjTemplate && (SubObjTemplate->GetOuter() != SubObject->GetOuter()))
-			{
-				ThreadInst.DeferredSubObjects.AddUnique(OwningClass, SubObject);
-				bDeferralNeeded = true;
-			}
-		}		
-	}
-
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-	TArray<FObjectInitializer*> DeferredSubObjInitializers;
-	ThreadInst.DeferredSubObjInitializers.MultiFindPointer(OwningClass, DeferredSubObjInitializers);
-	// check to make sure that we haven't already added this one for deferral
-	for (FObjectInitializer* SubObjInitializer : DeferredSubObjInitializers)
-	{
-		DEFERRED_DEPENDENCY_CHECK(bDeferralNeeded || SubObjInitializer->GetObj() != SubObject);
-	}
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-	return bDeferralNeeded;
+	ArchetypeInstanceMap.Remove(InitDependecy);
 }
 
-void FDeferredObjInitializerTracker::Remove(UClass* LoadClass)
+bool FDeferredInitializationTrackerBase::IsInitializationDeferred(const UObject* Object) const
 {
-	FDeferredObjInitializerTracker& ThreadInst = FDeferredObjInitializerTracker::Get();
-	ThreadInst.DeferredInitializers.Remove(LoadClass);
-	ThreadInst.DeferredSubObjects.Remove(LoadClass);
-	ThreadInst.SuperClassMap.RemoveSingle(LoadClass->GetSuperClass(), LoadClass);
-	ThreadInst.DeferredSubObjInitializers.Remove(LoadClass);
+	return DeferredInitializers.Contains(Object);
 }
 
-bool FDeferredObjInitializerTracker::ResolveDeferredInitialization(UClass* LoadClass)
+bool FDeferredInitializationTrackerBase::DeferPreload(UObject* Object)
 {
-	if (FObjectInitializer* DeferredInitializer = FDeferredObjInitializerTracker::Find(LoadClass))
+	const bool bDeferPreload = IsInitializationDeferred(Object);
+	if (bDeferPreload && !IsResolving(Object))
 	{
-		FDeferredObjInitializerTracker& ThreadInst = FDeferredObjInitializerTracker::Get();
-		TGuardValue<UClass*> ResolvingGuard(ThreadInst.ResolvingClass, LoadClass);
+		DeferredPreloads.AddUnique(Object, Object);
+	}
+	return bDeferPreload;
+}
 
-		DEFERRED_DEPENDENCY_CHECK(!LoadClass->GetSuperClass()->HasAnyClassFlags(CLASS_NewerVersionExists));
+bool FDeferredInitializationTrackerBase::IsResolving(UObject* ArchetypeInstance) const
+{
+	return ResolvingObjects.Contains(ArchetypeInstance);
+}
+
+bool FDeferredInitializationTrackerBase::ResolveDeferredInitialization(UObject* /*ResolvingObject*/, UObject* ArchetypeInstance)
+{
+	if (FObjectInitializer* DeferredInitializer = DeferredInitializers.Find(ArchetypeInstance))
+	{
 		// initializes and instances CDO properties (copies inherited values 
 		// from the super's CDO)
 		FScriptIntegrationObjectHelper::PostConstructInitObject(*DeferredInitializer);
 
-		ResolveDeferredSubObjects(LoadClass->GetDefaultObject());
-		FDeferredObjInitializerTracker::Remove(LoadClass);
+		DeferredInitializers.Remove(ArchetypeInstance);
+	}
 
-		return true;
+	return true;
+}
+
+void FDeferredInitializationTrackerBase::PreloadDeferredDependents(UObject* ArchetypeInstance)
+{
+	TArray<UObject*> ObjsToPreload;
+	DeferredPreloads.MultiFind(ArchetypeInstance, ObjsToPreload);
+
+	for (UObject* Object : ObjsToPreload)
+	{
+		FLinkerLoad* Linker = Object->GetLinker();
+		DEFERRED_DEPENDENCY_CHECK(Linker != nullptr);
+		if (Linker)
+		{
+			Linker->Preload(Object);
+		}
+	}
+
+	DeferredPreloads.Remove(ArchetypeInstance);
+}
+
+/*******************************************************************************
+ * FDeferredCdoInitializationTracker
+ ******************************************************************************/
+
+bool FDeferredCdoInitializationTracker::DeferPreload(UObject* Object)
+{
+	bool bDeferPostload = false;
+
+	if (Object->HasAnyFlags(RF_ClassDefaultObject))
+	{
+		// When the initialization has been deferred we have to make sure to
+		// defer serialization as well - don't worry, for CDOs, Preload() will be invoked 
+		// again from FinalizeBlueprint()->ResolveDeferredExports()
+		bDeferPostload = !IsResolving(Object) && IsInitializationDeferred(Object);
 	}
 	else
 	{
-		// make sure we're not missing sub-obj initializers that would have been 
-		// ran in the above if case
-		DEFERRED_DEPENDENCY_CHECK(FDeferredObjInitializerTracker::Get().DeferredSubObjInitializers.Find(LoadClass) == nullptr);
-	}
-	return false;
-}
-
-void FDeferredObjInitializerTracker::ResolveDeferredSubObjects(UObject* CDO)
-{
-	DEFERRED_DEPENDENCY_CHECK(CDO->HasAnyFlags(RF_ClassDefaultObject));
-	UClass* LoadClass = CDO->GetClass();
-
-	FDeferredObjInitializerTracker& ThreadInst = FDeferredObjInitializerTracker::Get();
-	// guard to keep sub-object preloads from ending up back in DeferSubObjectPreload()
-	TGuardValue<UClass*> ResolvingGuard(ThreadInst.ResolvingClass, LoadClass);
-	
-	TArray<FObjectInitializer*> DeferredSubObjInitializers;
-	ThreadInst.DeferredSubObjInitializers.MultiFindPointer(LoadClass, DeferredSubObjInitializers);
-
-	for (FObjectInitializer* DeferredInitializer : DeferredSubObjInitializers)
-	{
-		UObject* SubObjArchetype = DeferredInitializer->GetArchetype();
-		// just because the class's CDO archetype has completed serialization 
-		// does not mean that the archetypes for these sub-objects have... 
-		// unfortunately there isn't anywhere else where we ensure that these 
-		// archetypes are loaded (else we should defer this further, until then 
-		// when we can guarantee that each archetype is complete) - we don't  
-		// even force a load of these sub-object archetypes prior to their own 
-		// Blueprint's regeneration, meaning it's compiled-on-load potentially 
-		// with incomplete component templates; this is potentially bad in 
-		// itself (TODO: investigate)
-		if (SubObjArchetype && !SubObjArchetype->HasAnyFlags(RF_LoadCompleted))
+		auto ShouldDeferSubObjectPreload = [this, Object](UObject* OwnerObject)->bool
 		{
-			if (FLinkerLoad* SubObjLinker = SubObjArchetype->GetLinker())
+			if (IsInitializationDeferred(OwnerObject))
 			{
-				check(!GEventDrivenLoaderEnabled || !EVENT_DRIVEN_ASYNC_LOAD_ACTIVE_AT_RUNTIME);
-				SubObjArchetype->SetFlags(RF_NeedLoad);
-				SubObjLinker->Preload(SubObjArchetype);
+				const bool bDeferSubObjPostload = !IsResolving(OwnerObject);
+				if (bDeferSubObjPostload)
+				{
+					DeferredPreloads.AddUnique(OwnerObject, Object);
+				}
+				return bDeferSubObjPostload;
+			}
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+			else if (OwnerObject)
+			{
+				UObject* OwnerClass = OwnerObject->GetClass();
+				for (auto& DeferredCdo : DeferredInitializers)
+				{
+					// we used to index these by class, so to ensure the same behavior validate
+					// our assumption that we can use the CDO object itself as the key (and that 
+					// using the class wouldn't find a match instead)
+					DEFERRED_DEPENDENCY_CHECK(DeferredCdo.Key->GetClass() != OwnerClass);
+				}
+			}
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+			return false;
+		};
+
+		if (Object->HasAnyFlags(RF_DefaultSubObject))
+		{
+			UObject* SubObjOuter = Object->GetOuter();
+			// NOTE: The outer of a DSO may not be a CDO like we want. It could 
+			//       be something like a component template. Right now we ignore 
+			//       those cases (IsDeferred() will reject this - only CDOs are 
+			//       deferred in this struct), but if this case proves to be a problem, 
+			//       then we may need to look up the outer chain, or see if the outer 
+			//       sub-obj is deferred itself.
+			bDeferPostload = ShouldDeferSubObjectPreload(SubObjOuter);
+		}
+		else if (Object->HasAnyFlags(RF_InheritableComponentTemplate))
+		{
+			UClass* OwningClass = Cast<UClass>(Object->GetOuter());
+
+			DEFERRED_DEPENDENCY_CHECK(OwningClass && OwningClass->ClassDefaultObject);
+			if (OwningClass)
+			{
+				bDeferPostload = ShouldDeferSubObjectPreload(OwningClass->ClassDefaultObject);
 			}
 		}
-		FScriptIntegrationObjectHelper::PostConstructInitObject(*DeferredInitializer);
 	}
-	ThreadInst.DeferredSubObjInitializers.Remove(LoadClass);
-	
-	TArray<UObject*> DeferredSubObjects;
-	ThreadInst.DeferredSubObjects.MultiFind(LoadClass, DeferredSubObjects);
+	return bDeferPostload;
+}
 
-	FLinkerLoad* ClassLinker = LoadClass->GetLinker();
-	DEFERRED_DEPENDENCY_CHECK(ClassLinker != nullptr);
-	if (ClassLinker != nullptr)
+/*******************************************************************************
+ * FDeferredSubObjInitializationTracker
+ ******************************************************************************/
+
+bool FDeferredSubObjInitializationTracker::ResolveDeferredInitialization(UObject* ResolvingObject, UObject* ArchetypeInstance)
+{
+	bool bInitializerRan = false;
+
+	// If we deferred the sub-object because the super CDO wasn't ready, we still
+	// need to check that its archetype is in a ready state (ready to be copied from)
+	if (ResolvingObject->HasAnyFlags(RF_ClassDefaultObject))
 	{
-		// this all needs to happen after PostConstructInitObject() (in 
-		// ResolveDeferredInitialization), since InitSubObjectProperties() is 
-		// invoked there (which is where we fill this sub-object with values 
-		// from the super)... here we account for any Preload() calls that were 
-		// skipped on account of the deferred CDO initialization
-		for (UObject* SubObj : DeferredSubObjects)
+		if (FObjectInitializer* DeferredInitializer = DeferredInitializers.Find(ArchetypeInstance))
 		{
-			DEFERRED_DEPENDENCY_CHECK( (SubObj->GetOuter() == CDO && SubObj->HasAnyFlags(RF_DefaultSubObject)) || 
-				(SubObj->GetOuter() == LoadClass && SubObj->HasAnyFlags(RF_InheritableComponentTemplate)) );
+			UObject* Archetype = DeferredInitializer->GetArchetype();
+			// When this sub-object was created it's archetype object (the 
+			// super's sub-obj) may not have been created yet. In that scenario, the 
+			// component class's CDO would have been used in its place; now that 
+			// the super is good, we should update the archetype
+			if (ArchetypeInstance->HasAnyFlags(RF_ClassDefaultObject))
+			{
+				Archetype = UObject::GetArchetypeFromRequiredInfo(ArchetypeInstance->GetClass(), ArchetypeInstance->GetOuter(), ArchetypeInstance->GetFName(), ArchetypeInstance->GetFlags());
+			}
+
+			const bool bArchetypeLoadPending = Archetype &&
+				(Archetype->HasAnyFlags(RF_NeedLoad) || (Archetype->HasAnyFlags(RF_WasLoaded) && !Archetype->HasAnyFlags(RF_LoadCompleted)));
+
+			if (bArchetypeLoadPending)
+			{
+				// Archetype isn't ready, move the deferred initializer to wait for its archetype 
+				ArchetypeInstanceMap.Add(Archetype, ArchetypeInstance);
+				// don't need to add this to DeferredInitializers, as it is already there
+			}
+			else
+			{
+				bInitializerRan = FDeferredInitializationTrackerBase::ResolveDeferredInitialization(ResolvingObject, ArchetypeInstance);
+			}
+		}
+	}
+	else
+	{
+		bInitializerRan = FDeferredInitializationTrackerBase::ResolveDeferredInitialization(ResolvingObject, ArchetypeInstance);
+	}
+
+	return bInitializerRan;
+}
+
+/*******************************************************************************
+ * FDeferredObjInitializationHelper
+ ******************************************************************************/
+
+FObjectInitializer* FDeferredObjInitializationHelper::DeferObjectInitializerIfNeeded(const FObjectInitializer& DeferringInitializer)
+{
+	FObjectInitializer* DeferredInitializerCopy = nullptr;
+
+	UObject* TargetObj = DeferringInitializer.GetObj();
+	if (TargetObj)
+	{
+		FDeferredCdoInitializationTracker& CdoInitDeferalSys = FDeferredCdoInitializationTracker::Get();
+		auto IsSuperCdoReadyToBeCopied = [&CdoInitDeferalSys](const UClass* LoadClass, const UObject* SuperCDO)->bool
+		{
+			// RF_WasLoaded indicates that this Super was loaded from disk (and hasn't been regenerated on load)
+			// regenerated CDOs will not have the RF_LoadCompleted
+			const bool bSuperCdoLoadPending = CdoInitDeferalSys.IsInitializationDeferred(SuperCDO) ||
+				SuperCDO->HasAnyFlags(RF_NeedLoad) || (SuperCDO->HasAnyFlags(RF_WasLoaded) && !SuperCDO->HasAnyFlags(RF_LoadCompleted));
+
+			if (bSuperCdoLoadPending)
+			{
+				const FLinkerLoad* ObjLinker = LoadClass->GetLinker();
+				const bool bIsBpClassSerializing = ObjLinker && (ObjLinker->LoadFlags & LOAD_DeferDependencyLoads);
+				const bool bIsResolvingDeferredObjs = LoadClass->HasAnyFlags(RF_LoadCompleted) &&
+					ObjLinker && ObjLinker->IsBlueprintFinalizationPending();
+
+				DEFERRED_DEPENDENCY_CHECK(bIsBpClassSerializing || bIsResolvingDeferredObjs);
+				return !bIsBpClassSerializing && !bIsResolvingDeferredObjs;
+			}
+			return true;
+		};
+
+		const bool bIsCDO = TargetObj->HasAnyFlags(RF_ClassDefaultObject);
+		if (bIsCDO)
+		{
+			const UClass* CdoClass = DeferringInitializer.GetClass();
+			UClass* SuperClass = CdoClass->GetSuperClass();
+
+			if (!CdoClass->IsNative() && !SuperClass->IsNative())
+			{
+				DEFERRED_DEPENDENCY_CHECK(CdoClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint));
+				DEFERRED_DEPENDENCY_CHECK(SuperClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint));
+
+				const UObject* SuperCDO = DeferringInitializer.GetArchetype();
+				DEFERRED_DEPENDENCY_CHECK(SuperCDO && SuperCDO->HasAnyFlags(RF_ClassDefaultObject));
+				// use the ObjectArchetype for the super CDO because the SuperClass may have a REINST CDO cached currently
+				SuperClass = SuperCDO->GetClass();
+
+				if (!IsSuperCdoReadyToBeCopied(CdoClass, SuperCDO))
+				{
+					DeferredInitializerCopy = CdoInitDeferalSys.Add(SuperCDO, DeferringInitializer);
+				}
+			}
+		}
+		// since "InheritableComponentTemplate"s are not default sub-objects, 
+		// they won't be fixed up by the owner's FObjectInitializer (CDO 
+		// FObjectInitializers will init default sub-object properties, copying  
+		// from the super's DSOs) - this means that we need to separately defer 
+		// init'ing these sub-objects when their archetype hasn't been loaded yet 
+		else if (TargetObj->HasAnyFlags(RF_InheritableComponentTemplate))
+		{
+			const UClass* OwnerClass = Cast<UClass>(TargetObj->GetOuter());
+			DEFERRED_DEPENDENCY_CHECK(OwnerClass && OwnerClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint));
+			const UClass* SuperClass = OwnerClass->GetSuperClass();
+
+			if (SuperClass && !SuperClass->IsNative())
+			{
+				// It is possible that the archetype isn't even correct, if the 
+				// super's sub-object hasn't even been created yet (in this case the 
+				// component's CDO is used, which is probably wrong)
+				// 
+				// So if the super CDO isn't ready, we need to defer this sub-object
+				const UObject* SuperCDO = SuperClass->ClassDefaultObject;
+				if (!IsSuperCdoReadyToBeCopied(OwnerClass, SuperCDO))
+				{
+					FDeferredSubObjInitializationTracker& SubObjInitDeferalSys = FDeferredSubObjInitializationTracker::Get();
+					DeferredInitializerCopy = SubObjInitDeferalSys.Add(SuperCDO, DeferringInitializer);
+				}
+			}
+
+			// if it passed the super CDO check above, assume the archetype is kosher
+			if (!DeferredInitializerCopy)
+			{
+				UObject* Archetype = DeferringInitializer.GetArchetype();
 			
-			ClassLinker->Preload(SubObj);
+				const bool bArchetypeLoadPending = Archetype &&
+					( Archetype->HasAnyFlags(RF_NeedLoad) || (Archetype->HasAnyFlags(RF_WasLoaded) && !Archetype->HasAnyFlags(RF_LoadCompleted)) );
+
+				if (bArchetypeLoadPending)
+				{
+					FDeferredSubObjInitializationTracker& SubObjInitDeferalSys = FDeferredSubObjInitializationTracker::Get();
+					DeferredInitializerCopy = SubObjInitDeferalSys.Add(Archetype, DeferringInitializer);
+				}
+			}
 		}
 	}
 
-	ThreadInst.DeferredSubObjects.Remove(LoadClass);
+	return DeferredInitializerCopy;
 }
 
-void FDeferredObjInitializerTracker::ResolveDeferredSubClassObjects(UClass* SuperClass)
+bool FDeferredObjInitializationHelper::DeferObjectPreload(UObject* Object)
 {
-	FDeferredObjInitializerTracker& ThreadInst = FDeferredObjInitializerTracker::Get();
-	TArray<UClass*> DeferredSubClasses;
-	ThreadInst.SuperClassMap.MultiFind(SuperClass, DeferredSubClasses);
+	return FDeferredCdoInitializationTracker::Get().DeferPreload(Object) || FDeferredSubObjInitializationTracker::Get().DeferPreload(Object);
+}
 
-	for (UClass* SubClass : DeferredSubClasses)
+void FDeferredObjInitializationHelper::ResolveDeferredInitsFromArchetype(UObject* Archetype)
+{
+	FDeferredCdoInitializationTracker& DeferredCdoTracker = FDeferredCdoInitializationTracker::Get();
+	FDeferredSubObjInitializationTracker& DeferredSubObjTracker = FDeferredSubObjInitializationTracker::Get();
+
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+	if (Archetype->HasAnyFlags(RF_ClassDefaultObject))
 	{
-		ResolveDeferredInitialization(SubClass);
+		// we used to index the deferred initialization by class, so to ensure the same behavior validate
+		// our assumption that we can use the CDO object itself as the key (and that using the class wouldn't find a match instead)
+		auto IsDeferredByClass = [Archetype](const TMultiMap<const UObject*, UObject*>& ArchetypeMap)->bool
+		{
+			for (auto& DeferredObj : ArchetypeMap)
+			{
+				if (DeferredObj.Key->GetClass() == Archetype->GetClass())
+				{
+					return true;
+				}
+			}
+			return false;
+		};
+
+		if (!DeferredCdoTracker.ArchetypeInstanceMap.Contains(Archetype))
+		{
+			DEFERRED_DEPENDENCY_CHECK(IsDeferredByClass(DeferredCdoTracker.ArchetypeInstanceMap) == false);
+		}
+		if (!DeferredSubObjTracker.ArchetypeInstanceMap.Contains(Archetype))
+		{
+			DEFERRED_DEPENDENCY_CHECK(IsDeferredByClass(DeferredSubObjTracker.ArchetypeInstanceMap) == false);
+		}
 	}
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+
+	DeferredCdoTracker.ResolveArchetypeInstances(Archetype);
+	DeferredSubObjTracker.ResolveArchetypeInstances(Archetype);
 }
 
 // don't want other files ending up with this internal define
@@ -2770,10 +2995,3 @@ void IBlueprintNativeCodeGenCore::Register(const IBlueprintNativeCodeGenCore* Co
 }
 
 #endif // WITH_EDITOR
-
-
-
-
-
-
-

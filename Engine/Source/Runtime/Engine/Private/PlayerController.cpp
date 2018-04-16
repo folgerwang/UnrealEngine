@@ -117,6 +117,7 @@ APlayerController::APlayerController(const FObjectInitializer& ObjectInitializer
 
 	bIsPlayerController = true;
 	bIsLocalPlayerController = false;
+	bDisableHaptics = false;
 
 	ClickEventKeys.Add(EKeys::LeftMouseButton);
 
@@ -3848,12 +3849,24 @@ void APlayerController::StopHapticEffect(EControllerHand Hand)
 	SetHapticsByValue(0.f, 0.f, Hand);
 }
 
+void APlayerController::SetDisableHaptics(bool bNewDisabled)
+{
+	if (bNewDisabled)
+	{
+		StopHapticEffect(EControllerHand::Left);
+		StopHapticEffect(EControllerHand::Right);
+		StopHapticEffect(EControllerHand::Gun);
+	}
+
+	bDisableHaptics = bNewDisabled;
+}
+
 static TAutoConsoleVariable<int32> CVarDisableHaptics(TEXT("input.DisableHaptics"),0,TEXT("If greater than zero, no haptic feedback is processed."));
 
 void APlayerController::SetHapticsByValue(const float Frequency, const float Amplitude, EControllerHand Hand)
 {
-	bool bDisableHaptics = (CVarDisableHaptics.GetValueOnGameThread() > 0);
-	if (bDisableHaptics)
+	bool bAreHapticsDisabled = bDisableHaptics || (CVarDisableHaptics.GetValueOnGameThread() > 0);
+	if (bAreHapticsDisabled)
 	{
 		return;
 	}
@@ -4009,8 +4022,8 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 		{
 			InputInterface->SetForceFeedbackChannelValues(ControllerId, (bForceFeedbackEnabled ? ForceFeedbackValues : FForceFeedbackValues()));
 
-			const bool bDisableHaptics = (CVarDisableHaptics.GetValueOnGameThread() > 0);
-			if (!bDisableHaptics)
+			bool bAreHapticsDisabled = (CVarDisableHaptics.GetValueOnGameThread() > 0) || bDisableHaptics;
+			if (!bAreHapticsDisabled)
 			{
 				// Haptic Updates
 				if (bLeftHapticsNeedUpdate)
@@ -4021,6 +4034,7 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 				{
 					InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Right, RightHaptics);
 				}
+
 				if (bGunHapticsNeedUpdate)
 				{
 					InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Gun, GunHaptics);
