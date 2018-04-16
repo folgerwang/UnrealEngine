@@ -23,7 +23,8 @@ namespace UnrealBuildTool.Rules
                     "VREditor",
 					"Projects",
                     "ShaderCore",
-                    "RHI"
+                    "RHI",
+                    "LevelEditor"
                 }
             );
 
@@ -37,8 +38,7 @@ namespace UnrealBuildTool.Rules
 
 			DynamicallyLoadedModuleNames.AddRange(
 				new string[] {
-                    "ContentBrowser",
-					"LevelEditor",
+                    "ContentBrowser"
 				}
 			);
         }
