@@ -6,11 +6,22 @@
 
 bool FPrimaryAssetTypeInfo::FillRuntimeData()
 {
+	if (PrimaryAssetType == NAME_None)
+	{
+		// Invalid type
+		return false;
+	}
+
+	if (!ensureMsgf(!AssetBaseClass.IsNull(), TEXT("Primary Asset Type %s must have a class set!"), *PrimaryAssetType.ToString()))
+	{
+		return false;
+	}
+
 	// Hot reload may have messed up asset pointer
 	AssetBaseClass.ResetWeakPtr();
 	AssetBaseClassLoaded = AssetBaseClass.LoadSynchronous();
 
-	if (!ensureMsgf(AssetBaseClassLoaded, TEXT("Failed to load Primary Asset Type class %s!"), *AssetBaseClass.ToString()))
+	if (!ensureMsgf(AssetBaseClassLoaded, TEXT("Failed to load class %s for Primary Asset Type %s!"), *AssetBaseClass.ToString(), *PrimaryAssetType.ToString()))
 	{
 		return false;
 	}
@@ -37,11 +48,7 @@ bool FPrimaryAssetTypeInfo::FillRuntimeData()
 		return false;
 	}
 
-	if (PrimaryAssetType == NAME_None)
-	{
-		// Invalid type
-		return false;
-	}
+	
 
 	return true;
 }

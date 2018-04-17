@@ -956,7 +956,7 @@ EActiveTimerReturnType SFindInBlueprints::UpdateSearchResults( double InCurrentT
 
 			StreamSearch->EnsureCompletion();
 
-			TArray<TSharedPtr<class FImaginaryFiBData>> ImaginaryResults;
+			TArray<FImaginaryFiBDataSharedPtr> ImaginaryResults;
 			if (OnSearchComplete.IsBound())
 			{
 				// Pull out the filtered imaginary results if there is a callback to pass them to
@@ -1061,7 +1061,7 @@ void SFindInBlueprints::MakeSearchQuery(FString InSearchString, bool bInIsFindWi
 			{
 				Interfaces.Add(InterfaceDesc.Interface->GetPathName());
 			}
-			TSharedPtr< FImaginaryBlueprint> ImaginaryBlueprint(new FImaginaryBlueprint(Blueprint->GetName(), Blueprint->GetPathName(), ParentClass, Interfaces, FFindInBlueprintSearchManager::Get().QuerySingleBlueprint(Blueprint)));
+			FImaginaryFiBDataSharedPtr ImaginaryBlueprint(new FImaginaryBlueprint(Blueprint->GetName(), Blueprint->GetPathName(), ParentClass, Interfaces, FFindInBlueprintSearchManager::Get().QuerySingleBlueprint(Blueprint)));
 			TSharedPtr< FFiBSearchInstance > SearchInstance(new FFiBSearchInstance);
 			FSearchResult SearchResult = RootSearchResult = SearchInstance->StartSearchQuery(SearchValue, ImaginaryBlueprint);
 

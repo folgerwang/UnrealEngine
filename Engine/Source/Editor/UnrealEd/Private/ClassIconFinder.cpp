@@ -121,9 +121,6 @@ const UClass* FClassIconFinder::GetIconClassForAssetData(const FAssetData& InAss
 	
 	if ( AssetClass == UBlueprint::StaticClass() )
 	{
-		static const FName NativeParentClassTag = "NativeParentClass";
-		static const FName ParentClassTag = "ParentClass";
-
 		if ( bOutIsClassType )
 		{
 			*bOutIsClassType = true;
@@ -131,9 +128,9 @@ const UClass* FClassIconFinder::GetIconClassForAssetData(const FAssetData& InAss
 
 		// We need to use the asset data to get the parent class as the blueprint may not be loaded
 		FString ParentClassName;
-		if ( !InAssetData.GetTagValue(NativeParentClassTag, ParentClassName) )
+		if ( !InAssetData.GetTagValue(FBlueprintTags::NativeParentClassPath, ParentClassName) )
 		{
-			InAssetData.GetTagValue(ParentClassTag, ParentClassName);
+			InAssetData.GetTagValue(FBlueprintTags::ParentClassPath, ParentClassName);
 		}
 		if ( !ParentClassName.IsEmpty() )
 		{

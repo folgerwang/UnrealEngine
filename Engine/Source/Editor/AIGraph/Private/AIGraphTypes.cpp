@@ -301,7 +301,7 @@ void FGraphNodeClassHelper::OnAssetAdded(const struct FAssetData& AssetData)
 void FGraphNodeClassHelper::OnAssetRemoved(const struct FAssetData& AssetData)
 {
 	FString AssetClassName;
-	if (AssetData.GetTagValue("GeneratedClass", AssetClassName))
+	if (AssetData.GetTagValue(FBlueprintTags::GeneratedClassPath, AssetClassName))
 	{
 		ConstructorHelpers::StripObjectClass(AssetClassName);
 		AssetClassName = FPackageName::ObjectPathToObjectName(*AssetClassName);
@@ -338,7 +338,7 @@ TSharedPtr<FGraphNodeClassNode> FGraphNodeClassHelper::CreateClassDataNode(const
 
 	FString AssetClassName;
 	FString AssetParentClassName;
-	if (AssetData.GetTagValue("GeneratedClass", AssetClassName) && AssetData.GetTagValue("ParentClass", AssetParentClassName))
+	if (AssetData.GetTagValue(FBlueprintTags::GeneratedClassPath, AssetClassName) && AssetData.GetTagValue(FBlueprintTags::ParentClassPath, AssetParentClassName))
 	{
 		UObject* Outer1(NULL);
 		ResolveName(Outer1, AssetClassName, false, false);

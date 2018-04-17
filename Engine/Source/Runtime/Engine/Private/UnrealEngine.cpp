@@ -12586,14 +12586,13 @@ bool UEngine::PrepareMapChange(FWorldContext &Context, const TArray<FName>& Leve
 	// Make sure we don't interrupt a pending map change in progress.
 	if( !IsPreparingMapChange(Context) )
 	{
-		Context.LevelsToLoadForPendingMapChange.Empty();
-		Context.LevelsToLoadForPendingMapChange += LevelNames;
+		Context.LevelsToLoadForPendingMapChange.Reset();
+		Context.LevelsToLoadForPendingMapChange.Append(LevelNames);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		// Verify that all levels specified are in the package file cache.
-		for( int32 LevelIndex=0; LevelIndex < Context.LevelsToLoadForPendingMapChange.Num(); LevelIndex++ )
+		for (const FName LevelName : Context.LevelsToLoadForPendingMapChange)
 		{
-			const FName LevelName = Context.LevelsToLoadForPendingMapChange[LevelIndex];
 			if( !FPackageName::DoesPackageExist( LevelName.ToString() ) )
 			{
 				Context.LevelsToLoadForPendingMapChange.Empty();
@@ -12618,10 +12617,8 @@ bool UEngine::PrepareMapChange(FWorldContext &Context, const TArray<FName>& Leve
 		}
 
 		// Kick off async loading of packages.
-		for( int32 LevelIndex=0; LevelIndex < Context.LevelsToLoadForPendingMapChange.Num(); LevelIndex++ )
+		for (const FName LevelName : Context.LevelsToLoadForPendingMapChange)
 		{
-			const FName LevelName = Context.LevelsToLoadForPendingMapChange[LevelIndex];
-
 			STAT_ADD_CUSTOMMESSAGE_NAME( STAT_NamedMarker, *(FString( TEXT( "PrepareMapChange - " ) + LevelName.ToString() )) );
 			LoadPackageAsync(LevelName.ToString(),
 				FLoadPackageAsyncDelegate::CreateStatic(&AsyncMapChangeLevelLoadCompletionCallback, Context.ContextHandle)
@@ -12800,11 +12797,12 @@ bool UEngine::CommitMapChange( FWorldContext &Context )
 			Context.World(),
 			*FString::Printf(TEXT("LevelStreamingPersistent_%s"), *FakePersistentLevel->GetOutermost()->GetName()) );
 
+		// Add it to the world info's list of levels.
+		Context.World()->AddStreamingLevel(LevelStreamingPersistent);
+
 		// Propagate level and name to streaming object.
 		FStreamingLevelPrivateAccessor::SetLoadedLevel(LevelStreamingPersistent, FakePersistentLevel);
 		LevelStreamingPersistent->SetWorldAssetByPackageName(FakePersistentLevelName);
-		// And add it to the world info's list of levels.
-		Context.World()->AddStreamingLevel(LevelStreamingPersistent);
 
 		UWorld* FakeWorld = CastChecked<UWorld>(FakePersistentLevel->GetOuter());
 
@@ -12816,7 +12814,7 @@ bool UEngine::CommitMapChange( FWorldContext &Context )
 		}
 
 		// Move the secondary levels to the world info levels array.
-		Context.World()->SetStreamingLevels(FakeWorld->GetStreamingLevels());
+		Context.World()->AddStreamingLevels(FakeWorld->GetStreamingLevels());
 		FakeWorld->ClearStreamingLevels();
 
 		// fixup up any kismet streaming objects to force them to be loaded if they were preloaded, this

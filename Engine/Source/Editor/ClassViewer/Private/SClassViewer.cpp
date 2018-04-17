@@ -414,10 +414,10 @@ public:
 	TSharedPtr< FClassViewerNode > FindParent(const TSharedPtr< FClassViewerNode >& InRootNode, FName InParentClassname, const UClass* InParentClass);
 
 	/** Updates the Class of a node. Uses the generated class package name to find the node.
-	 *	@param InGeneratedClassPackageName			The name of the generated class package to find the node for.
-	 *	@param InNewClass							The class to update the node with.
+	 *	@param InGeneratedClassPath		The path of the generated class to find the node for.
+	 *	@param InNewClass				The class to update the node with.
 	*/
-	void UpdateClassInNode(const FString& InGeneratedClassPackageName, UClass* InNewClass, UBlueprint* InNewBluePrint );
+	void UpdateClassInNode(FName InGeneratedClassPath, UClass* InNewClass, UBlueprint* InNewBluePrint );
 
 	/** Finds the node, recursively going deeper into the hierarchy. Does so by comparing class names.
 	*	@param InClassName			The name of the generated class package to find the node for.
@@ -437,11 +437,11 @@ private:
 	void OnHotReload( bool bWasTriggeredAutomatically );
 
 	/** Finds the node, recursively going deeper into the hierarchy. Does so by comparing generated class package names.
-	 *	@param InGeneratedClassPackageName			The name of the generated class package to find the node for.
+	 *	@param InGeneratedClassPath		The path of the generated class to find the node for.
 	 *
 	 *	@return The node.
 	 */
-	TSharedPtr< FClassViewerNode > FindNodeByGeneratedClassPackageName(const TSharedPtr< FClassViewerNode >& InRootNode, const FString& InGeneratedClassPackageName);
+	TSharedPtr< FClassViewerNode > FindNodeByGeneratedClassPath(const TSharedPtr< FClassViewerNode >& InRootNode, FName InGeneratedClassPath);
 
 	/** 
 	 * Loads the tag data for an unloaded blueprint asset.
@@ -461,12 +461,12 @@ private:
 	/** 
 	 * Recursively searches through the hierarchy to find and remove the asset. Used when deleting assets.
 	 *
-	 * @param InRootNode		The node to start the search with.
-	 * @param InAssetPackage	The package name of the asset to delete.
+	 * @param InRootNode	The node to start the search with.
+	 * @param InClassPath	The class path of the asset to delete
 	 *
 	 * @return Returns true if the asset was found and deleted successfully.
 	 */
-	bool FindAndRemoveNodeByPackageName(const TSharedPtr< FClassViewerNode >& InRootNode, const FString& InAssetPackage);
+	bool FindAndRemoveNodeByClassPath(const TSharedPtr< FClassViewerNode >& InRootNode, FName InClassPath);
 
 	/** Callback registered to the Asset Registry to be notified when an asset is added. */
 	void AddAsset(const FAssetData& InAddedAssetData);
@@ -501,7 +501,7 @@ namespace ClassViewer
 		// Pre-declare these functions.
 		static bool CheckIfBlueprintBase( TSharedPtr< FClassViewerNode> InNode );
 		static UBlueprint* GetBlueprint( UClass* InClass );
-		static void UpdateClassInNode(const FString& InGeneratedClassPackageName, UClass* InNewClass, UBlueprint* InNewBluePrint );
+		static void UpdateClassInNode(FName InGeneratedClassPath, UClass* InNewClass, UBlueprint* InNewBluePrint );
 
 		/** Util class to checks if a particular class can be made into a Blueprint, ignores deprecation
 		 *
@@ -696,14 +696,16 @@ namespace ClassViewer
 			bool bPassesDeveloperFilter = true;
 			static const FString DeveloperPathWithSlash = FPackageName::FilenameToLongPackageName(FPaths::GameDevelopersDir());
 			static const FString UserDeveloperPathWithSlash = FPackageName::FilenameToLongPackageName(FPaths::GameUserDeveloperDir());
+			FString GeneratedClassPathString = InOriginalRootNode->ClassPath.ToString();
+
 			if (InAllowedDeveloperType == EClassViewerDeveloperType::CVDT_None)
 			{
-				bPassesDeveloperFilter = !InOriginalRootNode->GeneratedClassPackage.StartsWith(DeveloperPathWithSlash);
+				bPassesDeveloperFilter = !GeneratedClassPathString.StartsWith(DeveloperPathWithSlash);
 			}
 			else if (InAllowedDeveloperType == EClassViewerDeveloperType::CVDT_CurrentUser)
 			{
-				if (InOriginalRootNode->GeneratedClassPackage.StartsWith(DeveloperPathWithSlash))
-					bPassesDeveloperFilter = InOriginalRootNode->GeneratedClassPackage.StartsWith(UserDeveloperPathWithSlash);
+				if (GeneratedClassPathString.StartsWith(DeveloperPathWithSlash))
+					bPassesDeveloperFilter = GeneratedClassPathString.StartsWith(UserDeveloperPathWithSlash);
 			}
 
 			// The INI files declare classes and folders that are considered internal only. Does this class match any of those patterns?
@@ -713,7 +715,7 @@ namespace ClassViewer
 			{
 				for (int i = 0; i < InternalPaths.Num(); i++)
 				{
-					if (InOriginalRootNode->GeneratedClassPackage.StartsWith(InternalPaths[i].Path))
+					if (GeneratedClassPathString.StartsWith(InternalPaths[i].Path))
 					{
 						bPassesInternalFilter = false;
 						break;
@@ -848,14 +850,15 @@ namespace ClassViewer
 			bool bPassesDeveloperFilter = true;
 			static const FString DeveloperPathWithSlash = FPackageName::FilenameToLongPackageName(FPaths::GameDevelopersDir());
 			static const FString UserDeveloperPathWithSlash = FPackageName::FilenameToLongPackageName(FPaths::GameUserDeveloperDir());
+			FString GeneratedClassPathString = InOriginalRootNode->ClassPath.ToString();
 			if (InAllowedDeveloperType == EClassViewerDeveloperType::CVDT_None)
 			{
-				bPassesDeveloperFilter = !InOriginalRootNode->GeneratedClassPackage.StartsWith(DeveloperPathWithSlash);
+				bPassesDeveloperFilter = GeneratedClassPathString.StartsWith(DeveloperPathWithSlash);
 			}
 			else if (InAllowedDeveloperType == EClassViewerDeveloperType::CVDT_CurrentUser)
 			{
-				if (InOriginalRootNode->GeneratedClassPackage.StartsWith(DeveloperPathWithSlash))
-					bPassesDeveloperFilter = InOriginalRootNode->GeneratedClassPackage.StartsWith(UserDeveloperPathWithSlash);
+				if (GeneratedClassPathString.StartsWith(DeveloperPathWithSlash))
+					bPassesDeveloperFilter = GeneratedClassPathString.StartsWith(UserDeveloperPathWithSlash);
 			}
 
 			// The INI files declare classes and folders that are considered internal only. Does this class match any of those patterns?
@@ -865,7 +868,7 @@ namespace ClassViewer
 			{
 				for (int i = 0; i < InternalPaths.Num(); i++)
 				{
-					if (InOriginalRootNode->GeneratedClassPackage.StartsWith(InternalPaths[i].Path))
+					if (GeneratedClassPathString.StartsWith(InternalPaths[i].Path))
 					{
 						bPassesInternalFilter = false;
 						break;
@@ -979,7 +982,7 @@ namespace ClassViewer
 				return Cast<UBlueprint>(InClass->ClassGeneratedBy);
 			}
 
-			return NULL;
+			return nullptr;
 		}
 
 		/** Retrieves a few items of information on the given UClass (retrieved via the InClassIndex). 
@@ -994,7 +997,7 @@ namespace ClassViewer
 			if (UClass* Class = InClass.Get())
 			{
 				bInOutIsBlueprintBase = CanCreateBlueprintOfClass_IgnoreDeprecation( Class );
-				bInOutHasBlueprint = Class->ClassGeneratedBy != NULL;
+				bInOutHasBlueprint = Class->ClassGeneratedBy != nullptr;
 			}
 			else
 			{
@@ -1026,27 +1029,6 @@ namespace ClassViewer
 			return false;
 		}
 
-		/** Recursively loads the entire chain of blueprints because children need their parents to be loaded.
-		 *	@param	InRootNode				The current node being examined.
-		 *	@param	InBlueprint				The blueprint to add.
-		 */
-		static void AddBlueprintChainToHierarchy(TSharedPtr< FClassViewerNode > InRootNode, UObject* InBlueprint)
-		{
-			TSharedPtr< FClassViewerNode > ParentNode = ClassHierarchy->FindParent(ClassHierarchy->GetObjectRootNode(), InRootNode->ParentClassname, NULL);
-
-			if( ParentNode.IsValid() && !ParentNode->GeneratedClassPackage.IsEmpty() )
-			{
-				UPackage* Package = LoadPackage(NULL, *ParentNode->GeneratedClassPackage, LOAD_NoRedirects );
-				Package->FullyLoad();
-				UObject* ParentObject = FindObject<UObject>(Package, *ParentNode->AssetName);
-
-				if(ParentObject->IsA(UBlueprint::StaticClass()))
-				{
-					AddBlueprintChainToHierarchy(ParentNode, ParentObject);
-				}
-			}
-		}
-
 		/**
 		 * Creates a blueprint from a class.
 		 *
@@ -1055,7 +1037,7 @@ namespace ClassViewer
 		 */
 		static void CreateBlueprint(const FString& InBlueprintName, UClass* InCreationClass)
 		{
-			if(InCreationClass == NULL || !FKismetEditorUtilities::CanCreateBlueprintOfClass(InCreationClass))
+			if(InCreationClass == nullptr || !FKismetEditorUtilities::CanCreateBlueprintOfClass(InCreationClass))
 			{
 				FMessageDialog::Open( EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "InvalidClassToMakeBlueprintFrom", "Invalid class to make a Blueprint of."));
 				return;
@@ -1065,7 +1047,7 @@ namespace ClassViewer
 			FString PackageName = InBlueprintName;
 
 			// Then find/create it.
-			UPackage* Package = CreatePackage(NULL, *PackageName);
+			UPackage* Package = CreatePackage(nullptr, *PackageName);
 			check(Package);
 
 			// Handle fully loading packages before creating new objects.
@@ -1186,56 +1168,23 @@ namespace ClassViewer
 		static void LoadClass(TSharedPtr< FClassViewerNode > InOutClassNode)
 		{
 			GWarn->BeginSlowTask(LOCTEXT("LoadPackage", "Loading Package..."), true);
+			UClass* Class = LoadObject<UClass>(nullptr, *InOutClassNode->ClassPath.ToString());
+			GWarn->EndSlowTask();
 
-			UPackage* Package = LoadPackage(NULL, *InOutClassNode->GeneratedClassPackage, LOAD_NoRedirects );
-			if(Package)
+			if (Class)
 			{
-				Package->FullyLoad();
+				InOutClassNode->Blueprint = Cast<UBlueprint>(Class->ClassGeneratedBy);
+				InOutClassNode->Class = Class;
 
-				UObject* Object = FindObject<UObject>(Package, *InOutClassNode->AssetName);
-
-				GWarn->EndSlowTask();
-
-				// Check if this item is a blueprint.
-				if( Object->IsA(UBlueprint::StaticClass()) )
-				{
-					InOutClassNode->Blueprint = Cast<UBlueprint>(Object);
-					InOutClassNode->Class = *InOutClassNode->Blueprint->GeneratedClass;
-
-					// Tell the original node to update so when a refresh happens it will still know about the newly loaded class.
-					ClassViewer::Helpers::UpdateClassInNode(InOutClassNode->GeneratedClassPackage, InOutClassNode->Class.Get(), InOutClassNode->Blueprint.Get() );
-
-					// Adds the entire hierarchy of Blueprints to the EditorClassHierarchy so they will continue to appear when a full rebuild of the tree happens.
-					ClassViewer::Helpers::AddBlueprintChainToHierarchy(InOutClassNode, Object);
-				}
-				else if (UClass* Class = Cast<UClass>(Object))
-				{
-					InOutClassNode->Blueprint = Cast<UBlueprint>(Class->ClassGeneratedBy);
-					InOutClassNode->Class = Class;
-
-					// Tell the original node to update so when a refresh happens it will still know about the newly loaded class.
-					ClassViewer::Helpers::UpdateClassInNode(InOutClassNode->GeneratedClassPackage, InOutClassNode->Class.Get(), InOutClassNode->Blueprint.Get() );
-
-					// Adds the entire hierarchy of Blueprints to the EditorClassHierarchy so they will continue to appear when a full rebuild of the tree happens.
-					ClassViewer::Helpers::AddBlueprintChainToHierarchy(InOutClassNode, Object);
-				}
-				else
-				{
-					InOutClassNode->Class = Object->GetClass();
-				}
+				// Tell the original node to update so when a refresh happens it will still know about the newly loaded class.
+				ClassViewer::Helpers::UpdateClassInNode(InOutClassNode->ClassPath, InOutClassNode->Class.Get(), InOutClassNode->Blueprint.Get() );
 			}
 			else
 			{
-				GWarn->EndSlowTask();
-
-				// Check to see if the class can be found, if it can't, notify that the package failed to load.
-				//if(!FindClass(InOutClassNode))
-				{
-					FMessageLog EditorErrors("EditorErrors");
-					EditorErrors.Error(LOCTEXT("PackageLoadFail", "Package Load Failed"));
-					EditorErrors.Info(FText::FromString(InOutClassNode->GeneratedClassPackage));
-					EditorErrors.Notify(LOCTEXT("PackageLoadFail", "Package Load Failed"));
-				}
+				FMessageLog EditorErrors("EditorErrors");
+				FFormatNamedArguments Arguments;
+				Arguments.Add(TEXT("ObjectName"), FText::FromName(InOutClassNode->ClassPath));
+				EditorErrors.Error(FText::Format(LOCTEXT("PackageLoadFail", "Failed to load class {ObjectName}"), Arguments));
 			}
 		}
 
@@ -1246,7 +1195,7 @@ namespace ClassViewer
 		 */
 		static void OpenBlueprintTool(UBlueprint* InBlueprint)
 		{
-			if( InBlueprint != NULL )
+			if( InBlueprint != nullptr )
 			{
 				FAssetEditorManager::Get().OpenEditorForAsset(InBlueprint);
 			}
@@ -1287,12 +1236,12 @@ namespace ClassViewer
 		}
 
 		/** Updates the Class of a node. Uses the generated class package name to find the node.
-		*	@param InGeneratedClassPackageName			The name of the generated class package to find the node for.
-		*	@param InNewClass							The class to update the node with.
+		*	@param InGeneratedClassPath			The name of the generated class to find the node for.
+		*	@param InNewClass					The class to update the node with.
 		*/
-		static void UpdateClassInNode(const FString& InGeneratedClassPackageName, UClass* InNewClass, UBlueprint* InNewBluePrint )
+		static void UpdateClassInNode(FName InGeneratedClassPath, UClass* InNewClass, UBlueprint* InNewBluePrint )
 		{
-			ClassHierarchy->UpdateClassInNode(InGeneratedClassPackageName, InNewClass, InNewBluePrint );
+			ClassHierarchy->UpdateClassInNode(InGeneratedClassPath, InNewClass, InNewBluePrint );
 		}
 
 		static TSharedRef<SWidget> CreateMenu(UClass* Class, const bool bIsBlueprint, const bool bHasBlueprint)
@@ -1434,8 +1383,11 @@ public:
 				else if (UClass* Class = AssociatedNode->Class.Get())
 				{
 					UPackage*  Package  = Class->GetOutermost();
-					UMetaData* MetaData = Package->GetMetaData();
 					ToolTip = FEditorClassUtils::GetTooltip(Class);
+				}
+				else if (AssociatedNode->ClassPath != NAME_None)
+				{
+					ToolTip = SNew(SToolTip).Text(FText::FromName(AssociatedNode->ClassPath));
 				}
 
 				return ToolTip;
@@ -1510,7 +1462,7 @@ private:
 		// If in a Class Viewer and it has not been loaded, load the class when double-left clicking.
 		if ( bIsInClassViewer )
 		{
-			if( bDynamicClassLoading && AssociatedNode->Class == NULL && AssociatedNode->UnloadedBlueprintData.IsValid() && InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+			if( bDynamicClassLoading && AssociatedNode->Class == nullptr && AssociatedNode->UnloadedBlueprintData.IsValid() && InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 			{
 				ClassViewer::Helpers::LoadClass(AssociatedNode);
 			}
@@ -1664,16 +1616,10 @@ static TSharedPtr< FClassViewerNode > CreateNodeForClass(UClass* Class, const TM
 	TSharedPtr< FClassViewerNode > NewNode = MakeShareable(new FClassViewerNode(Class->GetName(), Class->GetDisplayNameText().ToString()));
 	NewNode->Blueprint = ClassViewer::Helpers::GetBlueprint(Class);
 	NewNode->Class = Class;
-
-	// Retrieve all blueprint classes
-	TArray<FAssetData> BlueprintList;
-	BlueprintPackageToAssetDataMap.MultiFind(NewNode->Class->GetOuterUPackage()->GetFName(), BlueprintList);
-
-	// Check if the Asset Registry found anything, it should, but check.
-	if ( BlueprintList.Num() )
+	NewNode->ClassPath = FName(*Class->GetPathName());
+	if (Class->GetSuperClass())
 	{
-		// Grab the generated class name and check it before assigning. Objects that haven't been saved since this has started to be exported do not have the information.
-		BlueprintList[0].GetTagValue("GeneratedClass", NewNode->GeneratedClassname);
+		NewNode->ParentClassPath = FName(*Class->GetSuperClass()->GetPathName());
 	}
 
 	return NewNode;
@@ -1717,7 +1663,7 @@ void FClassHierarchy::AddChildren_NoFilter( TSharedPtr< FClassViewerNode >& InOu
 		}
 		else
 		{
-			while ( CurrentClass->GetSuperClass() != NULL )
+			while ( CurrentClass->GetSuperClass() != nullptr )
 			{
 				TSharedPtr<FClassViewerNode>& ParentEntry = Nodes.FindOrAdd(CurrentClass->GetSuperClass());
 				if ( !ParentEntry.IsValid() )
@@ -1746,7 +1692,7 @@ void FClassHierarchy::AddChildren_NoFilter( TSharedPtr< FClassViewerNode >& InOu
 TSharedPtr< FClassViewerNode > FClassHierarchy::FindParent(const TSharedPtr< FClassViewerNode >& InRootNode, FName InParentClassname, const UClass* InParentClass)
 {
 	// Check if the current node is the parent classname that is being searched for.
-	if(InRootNode->GeneratedClassname == InParentClassname)
+	if(InRootNode->ClassPath == InParentClassname)
 	{
 		// Return the node if it is the correct parent, this ends the recursion.
 		return InRootNode;
@@ -1808,9 +1754,9 @@ TSharedPtr< FClassViewerNode > FClassHierarchy::FindNodeByClassName(const TShare
 	return ReturnNode;
 }
 
-TSharedPtr< FClassViewerNode > FClassHierarchy::FindNodeByGeneratedClassPackageName(const TSharedPtr< FClassViewerNode >& InRootNode, const FString& InGeneratedClassPackageName)
+TSharedPtr< FClassViewerNode > FClassHierarchy::FindNodeByGeneratedClassPath(const TSharedPtr< FClassViewerNode >& InRootNode, FName InGeneratedClassPath)
 {
-	if(InRootNode->GeneratedClassPackage == InGeneratedClassPackageName)
+	if(InRootNode->ClassPath == InGeneratedClassPath)
 	{
 		return InRootNode;
 	}
@@ -1821,7 +1767,7 @@ TSharedPtr< FClassViewerNode > FClassHierarchy::FindNodeByGeneratedClassPackageN
 	for(int32 ChildClassIndex = 0; !ReturnNode.IsValid() && ChildClassIndex < InRootNode->GetChildrenList().Num(); ChildClassIndex++)
 	{
 		// Check the child, then check the return to see if it is valid. If it is valid, end the recursion.
-		ReturnNode = FindNodeByGeneratedClassPackageName(InRootNode->GetChildrenList()[ChildClassIndex], InGeneratedClassPackageName);
+		ReturnNode = FindNodeByGeneratedClassPath(InRootNode->GetChildrenList()[ChildClassIndex], InGeneratedClassPath);
 
 		if(ReturnNode.IsValid())
 		{
@@ -1832,9 +1778,9 @@ TSharedPtr< FClassViewerNode > FClassHierarchy::FindNodeByGeneratedClassPackageN
 	return ReturnNode;
 }
 
-void FClassHierarchy::UpdateClassInNode(const FString& InGeneratedClassPackageName, UClass* InNewClass,  UBlueprint* InNewBluePrint )
+void FClassHierarchy::UpdateClassInNode(FName InGeneratedClassPath, UClass* InNewClass, UBlueprint* InNewBluePrint )
 {
-	TSharedPtr< FClassViewerNode > Node = FindNodeByGeneratedClassPackageName(ObjectClassRoot, InGeneratedClassPackageName);
+	TSharedPtr< FClassViewerNode > Node = FindNodeByGeneratedClassPath(ObjectClassRoot, InGeneratedClassPath);
 
 	if( Node.IsValid() )
 	{
@@ -1843,20 +1789,20 @@ void FClassHierarchy::UpdateClassInNode(const FString& InGeneratedClassPackageNa
 	}
 }
 
-bool FClassHierarchy::FindAndRemoveNodeByPackageName(const TSharedPtr< FClassViewerNode >& InRootNode, const FString& InAssetPackage)
+bool FClassHierarchy::FindAndRemoveNodeByClassPath(const TSharedPtr< FClassViewerNode >& InRootNode, FName InClassPath)
 {
 	bool bReturnValue = false;
 
 	// Search the children recursively, one of them might have the parent.
 	for(int32 ChildClassIndex = 0; ChildClassIndex < InRootNode->GetChildrenList().Num(); ChildClassIndex++)
 	{
-		if(InRootNode->GetChildrenList()[ChildClassIndex]->GeneratedClassPackage == InAssetPackage)
+		if(InRootNode->GetChildrenList()[ChildClassIndex]->ClassPath == InClassPath)
 		{
 			InRootNode->GetChildrenList().RemoveAt(ChildClassIndex);
 			return true;
 		}
 		// Check the child, then check the return to see if it is valid. If it is valid, end the recursion.
-		bReturnValue = FindAndRemoveNodeByPackageName(InRootNode->GetChildrenList()[ChildClassIndex], InAssetPackage);
+		bReturnValue = FindAndRemoveNodeByClassPath(InRootNode->GetChildrenList()[ChildClassIndex], InClassPath);
 
 		if(bReturnValue)
 		{
@@ -1868,7 +1814,13 @@ bool FClassHierarchy::FindAndRemoveNodeByPackageName(const TSharedPtr< FClassVie
 
 void FClassHierarchy::RemoveAsset(const FAssetData& InRemovedAssetData)
 {
-	if(FindAndRemoveNodeByPackageName(ObjectClassRoot, InRemovedAssetData.PackageName.ToString()))
+	FString ClassObjectPath;
+	if (InRemovedAssetData.GetTagValue(FBlueprintTags::GeneratedClassPath, ClassObjectPath))
+	{
+		ClassObjectPath = FPackageName::ExportTextPathToObjectPath(ClassObjectPath);
+	}
+
+	if (FindAndRemoveNodeByClassPath(ObjectClassRoot, FName(*ClassObjectPath)))
 	{
 		// All viewers must refresh.
 		ClassViewer::Helpers::RefreshAll();
@@ -1885,8 +1837,14 @@ void FClassHierarchy::AddAsset(const FAssetData& InAddedAssetData)
 
 		if( AncestorClassNames.Contains(UBlueprintCore::StaticClass()->GetFName()) )
 		{
+			FString ClassObjectPath;
+			if (InAddedAssetData.GetTagValue(FBlueprintTags::GeneratedClassPath, ClassObjectPath))
+			{
+				ClassObjectPath = FPackageName::ExportTextPathToObjectPath(ClassObjectPath);
+			}
+
 			// Make sure that the node does not already exist. There is a bit of double adding going on at times and this prevents it.
-			if(!FindNodeByGeneratedClassPackageName(ObjectClassRoot, InAddedAssetData.PackageName.ToString()).IsValid())
+			if(!FindNodeByGeneratedClassPath(ObjectClassRoot, FName(*ClassObjectPath)).IsValid())
 			{
 				TSharedPtr< FClassViewerNode > NewNode;
 				LoadUnloadedTagData(NewNode, InAddedAssetData);
@@ -1895,12 +1853,9 @@ void FClassHierarchy::AddAsset(const FAssetData& InAddedAssetData)
 				FindClass(NewNode);
 
 				// Resolve the parent's class name locally and use it to find the parent's class.
-				FString ParentClassName = NewNode->ParentClassname.ToString();
-				UObject* Outer(NULL);
-				ResolveName(Outer, ParentClassName, false, false);
-
-				UClass* ParentClass = FindObject<UClass>(ANY_PACKAGE, *ParentClassName);
-				TSharedPtr< FClassViewerNode > ParentNode = FindParent(ObjectClassRoot, NewNode->ParentClassname, ParentClass); 
+				FString ParentClassPath = NewNode->ParentClassPath.ToString();
+				UClass* ParentClass = FindObject<UClass>(nullptr, *ParentClassPath);
+				TSharedPtr< FClassViewerNode > ParentNode = FindParent(ObjectClassRoot, NewNode->ParentClassPath, ParentClass); 
 				if(ParentNode.IsValid())
 				{
 					ParentNode->AddChild(NewNode);
@@ -1934,56 +1889,46 @@ void FClassHierarchy::SortChildren( TSharedPtr< FClassViewerNode >& InRootNode )
 
 void FClassHierarchy::FindClass(TSharedPtr< FClassViewerNode > InOutClassNode)
 {
-	UPackage* Package = FindPackage(NULL, *InOutClassNode->GeneratedClassPackage );
-	if (Package)
-	{
-		UObject* Object = FindObject<UObject>(Package, *InOutClassNode->AssetName);
+	UClass* Class = FindObject<UClass>(nullptr, *InOutClassNode->ClassPath.ToString());
 
-		if (Object)
-		{
-			// Check if this item is a blueprint.
-			if (Object->IsA(UBlueprint::StaticClass()))
-			{
-				InOutClassNode->Blueprint = Cast<UBlueprint>(Object);
-				if (InOutClassNode->Blueprint.IsValid())
-				{
-					InOutClassNode->Class = *InOutClassNode->Blueprint->GeneratedClass;
-				}
-			}
-			else if (UClass* Class = Cast<UClass>(Object))
-			{
-				InOutClassNode->Blueprint = Cast<UBlueprint>(Class->ClassGeneratedBy);
-				InOutClassNode->Class = Class;
-			}
-			else
-			{
-				InOutClassNode->Class = Object->GetClass();
-			}
-		}
+	if (Class)
+	{
+		InOutClassNode->Blueprint = Cast<UBlueprint>(Class->ClassGeneratedBy);
+		InOutClassNode->Class = Class;
 	}
 }
 
 void FClassHierarchy::LoadUnloadedTagData(TSharedPtr<FClassViewerNode>& InOutClassViewerNode, const FAssetData& InAssetData)
 {
-	// Create the viewer node.
-	const FString AssetName = InAssetData.AssetName.ToString();
-	InOutClassViewerNode = MakeShareable(new FClassViewerNode(AssetName, AssetName));
+	// Create the viewer node. We use the name without _C for both
+	const FString ClassName = InAssetData.AssetName.ToString();
+	InOutClassViewerNode = MakeShareable(new FClassViewerNode(ClassName, ClassName));
 
-	InOutClassViewerNode->AssetName = AssetName;
-	InOutClassViewerNode->GeneratedClassPackage = InAssetData.PackageName.ToString();
-	InAssetData.GetTagValue("GeneratedClass", InOutClassViewerNode->GeneratedClassname);
-	InAssetData.GetTagValue("ParentClass", InOutClassViewerNode->ParentClassname);
-	InOutClassViewerNode->bIsBPNormalType = InAssetData.GetTagValueRef<FString>("BlueprintType") == TEXT("BPType_Normal");
+	InOutClassViewerNode->BlueprintAssetPath = InAssetData.ObjectPath;
+
+	FString ClassObjectPath;
+	if (InAssetData.GetTagValue(FBlueprintTags::GeneratedClassPath, ClassObjectPath))
+	{
+		InOutClassViewerNode->ClassPath = FName(*FPackageName::ExportTextPathToObjectPath(ClassObjectPath));
+	}
+
+	FString ParentClassPathString;
+	if (InAssetData.GetTagValue(FBlueprintTags::ParentClassPath, ParentClassPathString))
+	{
+		InOutClassViewerNode->ParentClassPath = FName(*FPackageName::ExportTextPathToObjectPath(ParentClassPathString));
+	}
+
+	InOutClassViewerNode->bIsBPNormalType = InAssetData.GetTagValueRef<FString>(FBlueprintTags::BlueprintType) == TEXT("BPType_Normal");
 			
 	// It is an unloaded blueprint, so we need to create the structure that will hold the data.
 	TSharedPtr<FUnloadedBlueprintData> UnloadedBlueprintData = MakeShareable( new FUnloadedBlueprintData(InOutClassViewerNode) );
 	InOutClassViewerNode->UnloadedBlueprintData = UnloadedBlueprintData;
 
 	// Get the class flags.
-	const uint32 ClassFlags = InAssetData.GetTagValueRef<uint32>("ClassFlags");
+	const uint32 ClassFlags = InAssetData.GetTagValueRef<uint32>(FBlueprintTags::ClassFlags);
 	InOutClassViewerNode->UnloadedBlueprintData->SetClassFlags(ClassFlags);
 
-	const FString ImplementedInterfaces = InAssetData.GetTagValueRef<FString>("ImplementedInterfaces");
+	const FString ImplementedInterfaces = InAssetData.GetTagValueRef<FString>(FBlueprintTags::ImplementedInterfaces);
 	if(!ImplementedInterfaces.IsEmpty())
 	{
 		FString FullInterface;
@@ -2046,17 +1991,15 @@ void FClassHierarchy::PopulateClassHierarchy()
 	// Second pass to link them to parents.
 	for (int32 CurrentNodeIdx = 0; CurrentNodeIdx < RootLevelClasses.Num(); ++CurrentNodeIdx)
 	{
-		if(RootLevelClasses[CurrentNodeIdx]->ParentClassname != NAME_None)
+		if(RootLevelClasses[CurrentNodeIdx]->ParentClassPath != NAME_None)
 		{
 			// Resolve the parent's class name locally and use it to find the parent's class.
-			FString ParentClassName = RootLevelClasses[CurrentNodeIdx]->ParentClassname.ToString();
-			UObject* Outer(NULL);
-			ResolveName(Outer, ParentClassName, false, false);
-			const UClass* ParentClass = FindObject<UClass>(ANY_PACKAGE, *ParentClassName);
+			FString ParentClassPath = RootLevelClasses[CurrentNodeIdx]->ParentClassPath.ToString();
+			const UClass* ParentClass = FindObject<UClass>(nullptr, *ParentClassPath);
 
 			for (int32 SearchNodeIdx = 0; SearchNodeIdx < RootLevelClasses.Num(); ++SearchNodeIdx)
 			{
-				TSharedPtr< FClassViewerNode > ParentNode = FindParent(RootLevelClasses[SearchNodeIdx], RootLevelClasses[CurrentNodeIdx]->ParentClassname, ParentClass); 
+				TSharedPtr< FClassViewerNode > ParentNode = FindParent(RootLevelClasses[SearchNodeIdx], RootLevelClasses[CurrentNodeIdx]->ParentClassPath, ParentClass);
 				if(ParentNode.IsValid())
 				{
 					// AddUniqueChild makes sure that when a node was generated one by EditorClassHierarchy and one from LoadUnloadedTagData - the proper one is selected
@@ -2439,7 +2382,7 @@ void SClassViewer::OnClassViewerSelectionChanged( TSharedPtr<FClassViewerNode> I
 	{
 		UClass* Class = Item->Class.Get();
 
-		// If the class is NULL and UnloadedBlueprintData is valid then attempt to load it. UnloadedBlueprintData is invalid in the case of a "None" item.
+		// If the class is nullptr and UnloadedBlueprintData is valid then attempt to load it. UnloadedBlueprintData is invalid in the case of a "None" item.
 		if ( bEnableClassDynamicLoading && !Class && Item->UnloadedBlueprintData.IsValid() )
 		{
 			ClassViewer::Helpers::LoadClass( Item );
@@ -2454,7 +2397,7 @@ void SClassViewer::OnClassViewerSelectionChanged( TSharedPtr<FClassViewerNode> I
 			}
 			else
 			{
-				OnClassPicked.ExecuteIfBound( NULL );
+				OnClassPicked.ExecuteIfBound( nullptr );
 			}
 		}
 	}
@@ -2530,11 +2473,6 @@ TSharedRef< ITableRow > SClassViewer::OnGenerateRowForClassViewer( TSharedPtr<FC
 		.OnDragDetected(this, &SClassViewer::OnDragDetected)
 		.OnClassItemDoubleClicked(FOnClassItemDoubleClickDelegate::CreateSP(this, &SClassViewer::ToggleExpansionState_Helper));
 
-	if ( !Item->GeneratedClassPackage.IsEmpty() )
-	{
-		ReturnRow->SetToolTipText(FText::FromString(Item->GeneratedClassPackage));
-	}
-
 	// Expand the item if needed.
 	if (!bPendingSetExpansionStates)
 	{
@@ -2576,7 +2514,7 @@ TSharedRef<SWidget> SClassViewer::GetViewButtonContent()
 {
 	// Get all menu extenders for this context menu from the content browser module
 
-	FMenuBuilder MenuBuilder(/*bInShouldCloseWindowAfterMenuSelection=*/true, NULL, NULL, /*bCloseSelfOnly=*/ true);
+	FMenuBuilder MenuBuilder(/*bInShouldCloseWindowAfterMenuSelection=*/true, nullptr, nullptr, /*bCloseSelfOnly=*/ true);
 
 	MenuBuilder.AddMenuEntry(LOCTEXT("ExpandAll", "Expand All"), LOCTEXT("ExpandAll_Tooltip", "Expands the entire tree"), FSlateIcon(), FUIAction(FExecuteAction::CreateSP(this, &SClassViewer::SetAllExpansionStates, bool(true))), NAME_None, EUserInterfaceActionType::Button);
 	MenuBuilder.AddMenuEntry(LOCTEXT("CollapseAll", "Collapse All"), LOCTEXT("CollapseAll_Tooltip", "Collapses the entire tree"), FSlateIcon(), FUIAction(FExecuteAction::CreateSP(this, &SClassViewer::SetAllExpansionStates, bool(false))), NAME_None, EUserInterfaceActionType::Button);
@@ -2745,7 +2683,7 @@ FReply SClassViewer::OnDragDetected( const FGeometry& Geometry, const FPointerEv
 		{
 			TSharedRef< FClassViewerNode > Item = SelectedItems[0].ToSharedRef();
 
-			// If there is no class then we must spawn an FUnloadedClassDragDropOp so the class will be loaded when dropped.
+			// If there is no class then we must spawn an FAssetDragDropOp so the class will be loaded when dropped.
 			if ( UClass* Class = Item->Class.Get() )
 			{
 				// Spawn a loaded blueprint just like any other asset from the Content Browser.
@@ -2761,9 +2699,14 @@ FReply SClassViewer::OnDragDetected( const FGeometry& Geometry, const FPointerEv
 					return FReply::Handled().BeginDragDrop(FClassDragDropOp::New(MakeWeakObjectPtr(Class)));
 				}	
 			}
-			else
+			else if (Item->BlueprintAssetPath != NAME_None)
 			{
-				return FReply::Handled().BeginDragDrop(FUnloadedClassDragDropOp::New(FClassPackageData(Item->AssetName, Item->GeneratedClassPackage)));
+				FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+				// Pull asset data out of asset registry
+				TArray<FAssetData> InAssetData;
+				InAssetData.Add(AssetRegistryModule.Get().GetAssetByObjectPath(Item->BlueprintAssetPath));
+				return FReply::Handled().BeginDragDrop(FAssetDragDropOp::New(InAssetData));
 			}
 		}
 	}
@@ -2800,14 +2743,14 @@ void SClassViewer::OnFilterTextCommitted(const FText& InText, ETextCommit::Type 
 			TArray< TSharedPtr< FClassViewerNode > > SelectedList = ClassList->GetSelectedItems();
 			TSharedPtr< FClassViewerNode > FirstSelected;
 
-			UClass* Class = NULL;
+			UClass* Class = nullptr;
 			
 			if (SelectedList.Num() > 0)
 			{
 				FirstSelected = SelectedList[0];
 				Class = FirstSelected->Class.Get();
 
-				// If the class is NULL and UnloadedBlueprintData is valid then attempt to load it. UnloadedBlueprintData is invalid in the case of a "None" item.
+				// If the class is nullptr and UnloadedBlueprintData is valid then attempt to load it. UnloadedBlueprintData is invalid in the case of a "None" item.
 				if ( bEnableClassDynamicLoading && Class == nullptr && FirstSelected->UnloadedBlueprintData.IsValid())
 				{
 					ClassViewer::Helpers::LoadClass(FirstSelected);

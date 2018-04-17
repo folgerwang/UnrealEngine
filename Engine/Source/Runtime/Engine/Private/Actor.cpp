@@ -674,7 +674,7 @@ void AActor::PostLoadSubobjects(FObjectInstancingGraph* OuterInstanceGraph)
 
 	ResetOwnedComponents();
 
-	if (RootComponent && bHadRoot && OldRoot != RootComponent)
+	if (RootComponent && bHadRoot && OldRoot != RootComponent && OldRoot->IsIn(this))
 	{
 		UE_LOG(LogActor, Log, TEXT("Root component has changed, relocating new root component to old position %s->%s"), *OldRoot->GetFullName(), *GetRootComponent()->GetFullName());
 		GetRootComponent()->RelativeRotation = OldRotation;
@@ -1972,8 +1972,7 @@ void AActor::RouteEndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	if (bActorInitialized)
 	{
-		UWorld* World = GetWorld();
-		if (World && World->HasBegunPlay())
+		if (ActorHasBegunPlay == EActorBeginPlayState::HasBegunPlay)
 		{
 			EndPlay(EndPlayReason);
 		}
@@ -1984,7 +1983,7 @@ void AActor::RouteEndPlay(const EEndPlayReason::Type EndPlayReason)
 			ClearComponentOverlaps();
 
 			bActorInitialized = false;
-			if (World)
+			if (UWorld* World = GetWorld())
 			{
 				World->RemoveNetworkActor(this);
 			}
@@ -2808,10 +2807,26 @@ void AActor::PostSpawnInitialize(FTransform const& UserSpawnTransform, AActor* I
 	USceneComponent* const SceneRootComponent = FixupNativeActorComponents(this);
 	if (SceneRootComponent != nullptr)
 	{
+		check(SceneRootComponent->GetOwner() == this);
+		
+		FVector RootComponentRelativeLocation = SceneRootComponent->RelativeLocation;
+		FRotator RootComponentRelativeRotation = SceneRootComponent->RelativeRotation;
+
+		// For converted BP root components, we must zero out RelativeLocation/RelativeRotation here. The reason is that in the non-nativized
+		// case, we ignore them when we instance a scene component that will also become the root (see USCS_Node::ExecuteNodeOnActor). Once
+		// a Blueprint class is nativized, we no longer run through that path, but we need to keep the same rotation/translation as before.
+		// We used to ignore them at nativization time, but that doesn't work because existing placements of the Blueprint component may rely
+		// on the value that's stored in the CDO, because it won't have been serialized out to the instance as a result of delta serialization.
+		if (Cast<UDynamicClass>(SceneRootComponent->GetArchetype()->GetOuter()->GetClass()))
+		{
+			RootComponentRelativeLocation = FVector::ZeroVector;
+			RootComponentRelativeRotation = FRotator::ZeroRotator;
+		}
+
 		// Set the actor's location and rotation since it has a native rootcomponent
 		// Note that we respect any initial transformation the root component may have from the CDO, so the final transform
 		// might necessarily be exactly the passed-in UserSpawnTransform.
- 		const FTransform RootTransform(SceneRootComponent->RelativeRotation, SceneRootComponent->RelativeLocation, SceneRootComponent->RelativeScale3D);
+ 		const FTransform RootTransform(RootComponentRelativeRotation, RootComponentRelativeLocation, SceneRootComponent->RelativeScale3D);
  		const FTransform FinalRootComponentTransform = RootTransform * UserSpawnTransform;
 		SceneRootComponent->SetWorldTransform(FinalRootComponentTransform);
 	}
@@ -3162,6 +3177,13 @@ void AActor::DispatchBeginPlay()
 
 		ensure(BeginPlayCallDepth - 1 == CurrentCallDepth);
 		BeginPlayCallDepth = CurrentCallDepth;
+
+		if (bActorWantsDestroyDuringBeginPlay)
+		{
+			// Pass true for bNetForce as either it doesn't matter or it was true the first time to even 
+			// get to the point we set bActorWantsDestroyDuringBeginPlay to true
+			World->DestroyActor(this, true); 
+		}
 	}
 }
 

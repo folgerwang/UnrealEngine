@@ -856,7 +856,7 @@ void UGameplayCueManager::BuildCuesToAddToGlobalSet(const TArray<FAssetData>& As
 		
 		if (!FoundGameplayTag.IsNone())
 		{
-			const FString GeneratedClassTag = Data.GetTagValueRef<FString>("GeneratedClass");
+			const FString GeneratedClassTag = Data.GetTagValueRef<FString>(FBlueprintTags::GeneratedClassPath);
 			if (GeneratedClassTag.IsEmpty())
 			{
 				ABILITY_LOG(Warning, TEXT("Unable to find GeneratedClass value for AssetData %s"), *Data.ObjectPath.ToString());
@@ -1054,7 +1054,7 @@ void UGameplayCueManager::HandleAssetDeleted(UObject *Object)
 /** Handles cleaning up an object library if it matches the passed in object */
 void UGameplayCueManager::HandleAssetRenamed(const FAssetData& Data, const FString& String)
 {
-	const FString ParentClassName = Data.GetTagValueRef<FString>("ParentClass");
+	const FString ParentClassName = Data.GetTagValueRef<FString>(FBlueprintTags::ParentClassPath);
 	if (!ParentClassName.IsEmpty())
 	{
 		UClass* DataClass = FindObject<UClass>(nullptr, *ParentClassName);

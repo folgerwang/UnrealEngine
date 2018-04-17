@@ -64,6 +64,7 @@
 #include "Slate/SceneViewport.h"
 #include "Engine/NetworkObjectList.h"
 #include "GameFramework/GameSession.h"
+#include "GameMapsSettings.h"
 
 DEFINE_LOG_CATEGORY(LogPlayerController);
 
@@ -3948,10 +3949,10 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 	}	
 #endif
 
+	UWorld* World = GetWorld();
+
 	if (bProcessFeedback)
 	{
-		UWorld* World = GetWorld();
-
 		// --- Force Feedback --------------------------
 		for (int32 Index = ActiveForceFeedbackEffects.Num() - 1; Index >= 0; --Index)
 		{
@@ -4015,29 +4016,39 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 
 	if (FSlateApplication::IsInitialized())
 	{
-		const int32 ControllerId = GetInputIndex();
+		int32 ControllerId = GetInputIndex();
 
-		IInputInterface* InputInterface = FSlateApplication::Get().GetInputInterface();
-		if (InputInterface)
+		if (ControllerId != INVALID_CONTROLLERID)
 		{
-			InputInterface->SetForceFeedbackChannelValues(ControllerId, (bForceFeedbackEnabled ? ForceFeedbackValues : FForceFeedbackValues()));
-
-			bool bAreHapticsDisabled = (CVarDisableHaptics.GetValueOnGameThread() > 0) || bDisableHaptics;
-			if (!bAreHapticsDisabled)
+			IInputInterface* InputInterface = FSlateApplication::Get().GetInputInterface();
+			if (InputInterface)
 			{
-				// Haptic Updates
-				if (bLeftHapticsNeedUpdate)
+				// Adjust the ControllerId to account for the controller ID offset applied in UGameViewportClient::InputKey/Axis
+				// to play the force feedback on the correct controller if the offset player gamepad IDs feature is in use. 
+				const int32 NumLocalPlayers = World->GetGameInstance()->GetNumLocalPlayers();
+				if (NumLocalPlayers > 1 && GetDefault<UGameMapsSettings>()->bOffsetPlayerGamepadIds)
 				{
-					InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Left, LeftHaptics);
-				}
-				if (bRightHapticsNeedUpdate)
-				{
-					InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Right, RightHaptics);
+					--ControllerId;
 				}
 
-				if (bGunHapticsNeedUpdate)
+				InputInterface->SetForceFeedbackChannelValues(ControllerId, (bForceFeedbackEnabled ? ForceFeedbackValues : FForceFeedbackValues()));
+
+				const bool bAreHapticsDisabled = (CVarDisableHaptics.GetValueOnGameThread() > 0) || bDisableHaptics;
+				if (!bAreHapticsDisabled)
 				{
-					InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Gun, GunHaptics);
+					// Haptic Updates
+					if (bLeftHapticsNeedUpdate)
+					{
+						InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Left, LeftHaptics);
+					}
+					if (bRightHapticsNeedUpdate)
+					{
+						InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Right, RightHaptics);
+					}
+					if (bGunHapticsNeedUpdate)
+					{
+						InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Gun, GunHaptics);
+					}
 				}
 			}
 		}

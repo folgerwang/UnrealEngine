@@ -10,6 +10,38 @@ class UDynamicClass;
 struct FCompilerNativizationOptions;
 class ITargetPlatform;
 
+/**
+ * List of asset registry tags used by blueprints. These are here so they can be used by both the asset registry and blueprint code
+ * These need to be kept in sync with UBlueprint::GetAssetRegistryTags, and any changes there will require resaving content
+ */
+struct COREUOBJECT_API FBlueprintTags
+{
+	/** Full path in export form ClassType'/PackagePath/PackageName.ClassName' of generated blueprint class */
+	static const FName GeneratedClassPath;
+	/** Full path in export form ClassType'/PackagePath/PackageName.ClassName' of the immediate parent, may be a blueprint or native class */
+	static const FName ParentClassPath;
+	/** Full path in export form Class'/Script/ModuleName.ClassName' of the first found parent native class */
+	static const FName NativeParentClassPath;
+	/** Integer representing bitfield EClassFlags */
+	static const FName ClassFlags;
+	/** String representing enum EBlueprintType */
+	static const FName BlueprintType;
+	/** String with user-entered description of blueprint */
+	static const FName BlueprintDescription;
+	/** String set to True/False, set if this is a data only blueprint */
+	static const FName IsDataOnly;
+	/** List of implemented interfaces, must be converted to FBPInterfaceDescription */
+	static const FName ImplementedInterfaces;
+	/** Very large string used to store find in blueprint data for the editor */
+	static const FName FindInBlueprintsData;
+	/** Number of replicated properties */
+	static const FName NumReplicatedProperties;
+	/** Number of native components */
+	static const FName NumNativeComponents;
+	/** Number of blueprint components */
+	static const FName NumBlueprintComponents;
+};
+
 struct FBlueprintWarningDeclaration
 {
 	FBlueprintWarningDeclaration(FName InWarningIdentifier, FText InWarningDescription)

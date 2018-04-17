@@ -759,9 +759,7 @@ public:
 
 #if WITH_EDITOR
 	/**
-	 * Serializes all objects which have this object as their archetype into GMemoryArchive, then recursively calls this function
-	 * on each of those objects until the full list has been processed.
-	 * Called when a property value is about to be modified in an archetype object. 
+	 * Calls PreEditChange on all instances based on an archetype in AffectedObjects. Recurses on any instances.
 	 *
 	 * @param	AffectedObjects		the array of objects which have this object in their ObjectArchetype chain and will be affected by the change.
 	 *								Objects which have this object as their direct ObjectArchetype are removed from the list once they're processed.
@@ -769,8 +767,7 @@ public:
 	void PropagatePreEditChange( TArray<UObject*>& AffectedObjects, FEditPropertyChain& PropertyAboutToChange );
 
 	/**
-	 * De-serializes all objects which have this object as their archetype from the GMemoryArchive, then recursively calls this function
-	 * on each of those objects until the full list has been processed.
+	 * Calls PostEditChange on all instances based on an archetype in AffectedObjects. Recurses on any instances.
 	 *
 	 * @param	AffectedObjects		the array of objects which have this object in their ObjectArchetype chain and will be affected by the change.
 	 *								Objects which have this object as their direct ObjectArchetype are removed from the list once they're processed.

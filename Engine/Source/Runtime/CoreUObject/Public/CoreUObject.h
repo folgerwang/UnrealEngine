@@ -58,8 +58,6 @@ MONOLITHIC_HEADER_BOILERPLATE()
 #include "Serialization/ObjectAndNameAsStringProxyArchive.h"
 #include "Serialization/ObjectWriter.h"
 #include "Serialization/ObjectReader.h"
-#include "Serialization/ReloadObjectArc.h"
-#include "Serialization/ArchiveReplaceArchetype.h"
 #include "Serialization/ArchiveShowReferences.h"
 #include "Serialization/FindReferencersArchive.h"
 #include "Serialization/FindObjectReferencers.h"

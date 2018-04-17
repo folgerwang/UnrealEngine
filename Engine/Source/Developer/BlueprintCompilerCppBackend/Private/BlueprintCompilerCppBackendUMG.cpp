@@ -122,9 +122,18 @@ bool FBackendHelperUMG::SpecialStructureConstructorUMG(const UStruct* Struct, co
 		if (OutResult)
 		{
 			const FSectionEvaluationData* SectionEvaluationData = reinterpret_cast<const FSectionEvaluationData*>(ValuePtr);
-			*OutResult = FString::Printf(TEXT("FSectionEvaluationData(%d, %d)")
-				, SectionEvaluationData->ImplIndex
-				, SectionEvaluationData->ForcedTime.Value);
+			if (SectionEvaluationData->ForcedTime == TNumericLimits<int32>::Lowest())
+			{
+				*OutResult = FString::Printf(TEXT("FSectionEvaluationData(%d, ESectionEvaluationFlags(0x%02x))")
+					, SectionEvaluationData->ImplIndex
+					, (uint8)SectionEvaluationData->Flags);
+			}
+			else
+			{
+				*OutResult = FString::Printf(TEXT("FSectionEvaluationData(%d, %d)")
+					, SectionEvaluationData->ImplIndex
+					, SectionEvaluationData->ForcedTime.Value);
+			}
 		}
 		return true;
 	}
@@ -133,11 +142,23 @@ bool FBackendHelperUMG::SpecialStructureConstructorUMG(const UStruct* Struct, co
 	{
 		if (OutResult)
 		{
+			auto MovieSceneSegmentRangeBoundConstructorLambda = [](const TRangeBound<FFrameNumber>& InRangeBound, const FFrameNumber& InRangeBoundValue) -> FString
+			{
+				if (InRangeBound.IsExclusive())
+				{
+					return FString::Printf(TEXT("TRangeBound<FFrameNumber>::Exclusive(%d)"), InRangeBoundValue.Value);
+				}
+				else if (InRangeBound.IsInclusive())
+				{
+					return FString::Printf(TEXT("TRangeBound<FFrameNumber>::Inclusive(%d)"), InRangeBoundValue.Value);
+				}
+				else
+				{
+					return FString::Printf(TEXT("TRangeBound<FFrameNumber>::Open()"));
+				}
+			};
+
 			const FMovieSceneSegment* MovieSceneSegment = reinterpret_cast<const FMovieSceneSegment*>(ValuePtr);
-			FString RangeStr;
-			FEmitDefaultValueHelper::SpecialStructureConstructor(TBaseStructure<FFloatRange>::Get()
-				, reinterpret_cast<const uint8*>(&MovieSceneSegment->Range)
-				, &RangeStr);
 			FString SegmentsInitializerList;
 			for (const FSectionEvaluationData& SectionEvaluationData : MovieSceneSegment->Impls)
 			{
@@ -151,7 +172,11 @@ bool FBackendHelperUMG::SpecialStructureConstructorUMG(const UStruct* Struct, co
 					, &SectionEvaluationDataStr);
 				SegmentsInitializerList += SectionEvaluationDataStr;
 			}
-			*OutResult = FString::Printf(TEXT("FMovieSceneSegment(%s, {%s})"), *RangeStr, *SegmentsInitializerList);
+			const FString LowerBoundStr = MovieSceneSegmentRangeBoundConstructorLambda(MovieSceneSegment->Range.GetLowerBound()
+				, MovieSceneSegment->Range.GetLowerBound().IsClosed() ? MovieSceneSegment->Range.GetLowerBoundValue() : FFrameNumber());
+			const FString UpperBoundStr = MovieSceneSegmentRangeBoundConstructorLambda(MovieSceneSegment->Range.GetUpperBound()
+				, MovieSceneSegment->Range.GetUpperBound().IsClosed() ? MovieSceneSegment->Range.GetUpperBoundValue() : FFrameNumber());
+			*OutResult = FString::Printf(TEXT("FMovieSceneSegment(TRange<FFrameNumber>(%s, %s), {%s})"), *LowerBoundStr, *UpperBoundStr, *SegmentsInitializerList);
 		}
 		return true;
 	}

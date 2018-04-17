@@ -442,11 +442,12 @@ bool FSoftObjectPath::FixupForPIE()
 
 bool FSoftObjectPath::FixupCoreRedirects()
 {
-	FCoreRedirectObjectName OldName = FCoreRedirectObjectName(ToString());
+	FString OldString = ToString();
+	FCoreRedirectObjectName OldName = FCoreRedirectObjectName(OldString);
 	FCoreRedirectObjectName NewName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Object, OldName);
 
 	// This also might be a class
-	if (OldName == NewName)
+	if (OldName == NewName && OldString.StartsWith(TEXT("/Script/")))
 	{
 		NewName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Class, OldName);
 	}

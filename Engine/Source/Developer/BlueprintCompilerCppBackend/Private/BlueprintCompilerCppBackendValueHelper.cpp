@@ -641,7 +641,7 @@ bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UStruct* Struct,
 			}
 			if (RangeBound->IsInclusive())
 			{
-				*OutResult = FString::Printf(TEXT("FInt32RangeBound::%s(%d)"), GET_FUNCTION_NAME_STRING_CHECKED(FInt32RangeBound, Exclusive), RangeBound->GetValue());
+				*OutResult = FString::Printf(TEXT("FInt32RangeBound::%s(%d)"), GET_FUNCTION_NAME_STRING_CHECKED(FInt32RangeBound, Inclusive), RangeBound->GetValue());
 			}
 			if (RangeBound->IsOpen())
 			{
@@ -864,7 +864,7 @@ struct FDefaultSubobjectData
 
 protected:
 	// Generate special-case property initialization code. This could be something that is normally handled through custom serialization.
-	virtual bool HandledAsSpecialProperty(FEmitterLocalContext& Context, const UProperty* Property)
+	bool HandledAsSpecialProperty(FEmitterLocalContext& Context, const UProperty* Property)
 	{
 		bool bWasHandled = true;
 
@@ -922,11 +922,9 @@ struct FNonativeComponentData : public FDefaultSubobjectData
 	FString ParentVariableName;
 	/** Socket/Bone that Component might attach to */
 	FName AttachToName;
-	bool bIsRoot;
 
 	FNonativeComponentData()
 		: SCSNode(nullptr)
-		, bIsRoot(false)
 	{
 		bAddLocalScope = false;
 	}
@@ -955,24 +953,6 @@ struct FNonativeComponentData : public FDefaultSubobjectData
 
 		// Continue inline here with the default logic, but we don't need to enclose it within a new scope block.
 		FDefaultSubobjectData::EmitPropertyInitialization(Context);
-	}
-
-protected:
-	virtual bool HandledAsSpecialProperty(FEmitterLocalContext& Context, const UProperty* Property) override
-	{
-		// skip relative location and rotation. THey are ignored for root components created from scs (and they probably should be reset by scs editor).
-		if (bIsRoot && (Property->GetOuter() == USceneComponent::StaticClass()))
-		{
-			UProperty* RelativeLocationProperty = USceneComponent::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeLocation));
-			UProperty* RelativeRotationProperty = USceneComponent::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeRotation));
-			if ((Property == RelativeLocationProperty) || (Property == RelativeRotationProperty))
-			{
-				return true;
-			}
-		}
-
-		// Continue on with default logic.
-		return FDefaultSubobjectData::HandledAsSpecialProperty(Context, Property);
 	}
 };
 
@@ -1015,9 +995,6 @@ FString FEmitDefaultValueHelper::HandleNonNativeComponent(FEmitterLocalContext& 
 			NonativeComponentData.SCSNode = Node;
 			NonativeComponentData.VariableName = NativeVariablePropertyName;
 			NonativeComponentData.Object = ComponentTemplate;
-			USCS_Node* RootComponentNode = nullptr;
-			Node->GetSCS()->GetSceneRootComponentTemplate(&RootComponentNode);
-			NonativeComponentData.bIsRoot = RootComponentNode == Node;
 			UClass* ComponentClass = ComponentTemplate->GetClass();
 			check(ComponentClass != nullptr);
 

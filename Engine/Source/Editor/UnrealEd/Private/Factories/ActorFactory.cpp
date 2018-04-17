@@ -1347,7 +1347,7 @@ bool UActorFactoryBlueprint::CanCreateActorFrom( const FAssetData& AssetData, FT
 		return false;
 	}
 
-	const FString ParentClassPath = AssetData.GetTagValueRef<FString>( "ParentClass" );
+	const FString ParentClassPath = AssetData.GetTagValueRef<FString>(FBlueprintTags::ParentClassPath);
 	if ( ParentClassPath.IsEmpty() )
 	{
 		OutErrorMsg = NSLOCTEXT("CanCreateActor", "NoBlueprint", "No Blueprint was specified, or the specified Blueprint needs to be compiled.");
@@ -1393,7 +1393,7 @@ AActor* UActorFactoryBlueprint::GetDefaultActor( const FAssetData& AssetData )
 		return NULL;
 	}
 
-	const FString GeneratedClassPath = AssetData.GetTagValueRef<FString>("GeneratedClass");
+	const FString GeneratedClassPath = AssetData.GetTagValueRef<FString>(FBlueprintTags::GeneratedClassPath);
 	if ( GeneratedClassPath.IsEmpty() )
 	{
 		return NULL;

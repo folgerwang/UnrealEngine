@@ -2194,6 +2194,7 @@ public:
 
 	//~ Begin UObject Interface
 	virtual void Serialize( FArchive& Ar ) override;
+	virtual void BeginDestroy() override;
 	virtual void FinishDestroy() override;
 	virtual void PostLoad() override;
 	virtual bool PreSaveRoot(const TCHAR* Filename) override;

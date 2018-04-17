@@ -142,7 +142,6 @@ bool					GIsSlowTask						= false;					/* Whether there is a slow task in progre
 bool					GSlowTaskOccurred				= false;					/* Whether a slow task began last tick*/
 bool					GIsRequestingExit				= false;					/* Indicates that MainLoop() should be exited at the end of the current iteration */
 /** Archive for serializing arbitrary data to and from memory												*/
-FReloadObjectArc*		GMemoryArchive					= NULL;
 bool					GAreScreenMessagesEnabled		= true;						/* Whether onscreen warnings/messages are enabled */
 bool					GScreenMessagesRestoreState		= false;					/* Used to restore state after a screenshot */
 int32					GIsDumpingMovie					= 0;						/* Whether we are dumping screenshots (!= 0), exposed as console variable r.DumpingMovie */

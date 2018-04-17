@@ -759,6 +759,20 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 #endif // WITH_EDITOR
 }
 
+void UWorld::BeginDestroy()
+{
+	Super::BeginDestroy();
+
+	for (FLevelCollection& LevelCollection : LevelCollections)
+	{
+		TSet<ULevel*> CollectionLevels = LevelCollection.GetLevels();
+		for (ULevel* CollectionLevel : CollectionLevels)
+		{
+			LevelCollection.RemoveLevel(CollectionLevel);
+		}
+	}
+}
+
 void UWorld::FinishDestroy()
 {
 	// Avoid cleanup if the world hasn't been initialized, e.g., the default object or a world object that got loaded

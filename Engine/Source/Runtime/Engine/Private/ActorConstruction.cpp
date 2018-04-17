@@ -884,7 +884,50 @@ static TAutoConsoleVariable<int32> CVarLogBlueprintComponentInstanceCalls(
 	TEXT("Log Blueprint Component instance calls; debugging."));
 #endif
 
-UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, const FName InName)
+static FName FindFirstFreeName(UObject* Outer, FName BaseName)
+{
+	int32 Lower = 0;
+	FName Ret = FName(BaseName, Lower);
+
+	// Binary search if we appear to have used this name a lot, else
+	// just linear search for the first free index:
+	if (FindObjectFast<UObject>(Outer, FName(BaseName, 100)))
+	{
+		// could be replaced by Algo::LowerBound if TRange or some other
+		// integer range type could be made compatible with the algo's
+		// implementation:
+		int32 Upper = INT_MAX;
+		while (true)
+		{
+			int32 Next = (Upper - Lower) / 2 + Lower;
+			if (FindObjectFast<UObject>(Outer, FName(BaseName, Next)))
+			{
+				Lower = Next + 1;
+			}
+			else
+			{
+				Upper = Next;
+			}
+
+			if (Upper == Lower)
+			{
+				Ret = FName(BaseName, Lower);
+				break;
+			}
+		}
+	}
+	else
+	{
+		while (FindObjectFast<UObject>(Outer, Ret))
+		{
+			Ret = FName(BaseName, ++Lower);
+		}
+	}
+
+	return Ret;
+}
+
+UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, FName InName)
 {
 	SCOPE_CYCLE_COUNTER(STAT_InstanceActorComponent);
 
@@ -894,15 +937,20 @@ UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, 
 #if !UE_BUILD_SHIPPING
 		const double StartTime = FPlatformTime::Seconds();
 #endif
-		// Make sure, that the name of the instance is different than the name of the template. This ensures that archetypes will not be recycled as instances in the nativized case.
-		const FName NewComponentName = (InName != NAME_None) ? InName : MakeUniqueObjectName(this, Template->GetClass(), Template->GetFName());
-		ensure(NewComponentName != Template->GetFName());
-
-		// Resolve any name conflicts.
-		CheckComponentInstanceName(NewComponentName);
+		if (InName == NAME_None)
+		{
+			// Search for a unique name based on our template. Our template is going to be our archetype
+			// thanks to logic in UBPGC::FindArchetype:
+			InName = FindFirstFreeName(this, Template->GetFName());
+		}
+		else
+		{
+			// Resolve any name conflicts.
+			CheckComponentInstanceName(InName);
+		}
 
 		// Note we aren't copying the the RF_ArchetypeObject flag. Also note the result is non-transactional by default.
-		NewActorComp = (UActorComponent*)StaticDuplicateObject(Template, this, NewComponentName, RF_AllFlags & ~(RF_ArchetypeObject | RF_Transactional | RF_WasLoaded | RF_Public | RF_InheritableComponentTemplate));
+		NewActorComp = (UActorComponent*)StaticDuplicateObject(Template, this, InName, RF_AllFlags & ~(RF_ArchetypeObject | RF_Transactional | RF_WasLoaded | RF_Public | RF_InheritableComponentTemplate));
 
 		// Handle post-creation tasks.
 		PostCreateBlueprintComponent(NewActorComp);
@@ -910,14 +958,14 @@ UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, 
 #if !UE_BUILD_SHIPPING
 		if (CVarLogBlueprintComponentInstanceCalls.GetValueOnGameThread())
 		{
-			UE_LOG(LogBlueprint, Log, TEXT("%s: CreateComponentFromTemplate() - %s \'%s\' completed in %.02g ms"), *GetName(), *Template->GetClass()->GetName(), *NewComponentName.ToString(), (FPlatformTime::Seconds() - StartTime) * 1000.0);
+			UE_LOG(LogBlueprint, Log, TEXT("%s: CreateComponentFromTemplate() - %s \'%s\' completed in %.02g ms"), *GetName(), *Template->GetClass()->GetName(), *InName.ToString(), (FPlatformTime::Seconds() - StartTime) * 1000.0);
 		}
 #endif
 	}
 	return NewActorComp;
 }
 
-UActorComponent* AActor::CreateComponentFromTemplateData(const FBlueprintCookedComponentInstancingData* TemplateData, const FName InName)
+UActorComponent* AActor::CreateComponentFromTemplateData(const FBlueprintCookedComponentInstancingData* TemplateData, FName InName)
 {
 	SCOPE_CYCLE_COUNTER(STAT_InstanceActorComponent);
 
@@ -943,18 +991,24 @@ UActorComponent* AActor::CreateComponentFromTemplateData(const FBlueprintCookedC
 #if !UE_BUILD_SHIPPING
 		const double StartTime = FPlatformTime::Seconds();
 #endif
-		// Make sure, that the name of the instance is different than the name of the template. This ensures that archetypes will not be recycled as instances in the nativized case.
-		const FName NewComponentName = (InName != NAME_None) ? InName : MakeUniqueObjectName(this, TemplateData->ComponentTemplateClass, TemplateData->ComponentTemplateName);
-		ensure(NewComponentName != TemplateData->ComponentTemplateName);
-
 		// Resolve any name conflicts.
-		CheckComponentInstanceName(NewComponentName);
+		if (InName == NAME_None)
+		{
+			// Search for a unique name based on our template. Our template is going to be our archetype
+			// thanks to logic in UBPGC::FindArchetype:
+			InName = FindFirstFreeName(this, TemplateData->ComponentTemplateName);
+		}
+		else
+		{
+			// Resolve any name conflicts.
+			CheckComponentInstanceName(InName);
+		}
 
 		// Note we aren't copying the the RF_ArchetypeObject flag. Also note the result is non-transactional by default.
 		NewActorComp = NewObject<UActorComponent>(
 			this,
 			TemplateData->ComponentTemplateClass,
-			NewComponentName,
+			InName,
 			EObjectFlags(TemplateData->ComponentTemplateFlags) & ~(RF_ArchetypeObject | RF_Transactional | RF_WasLoaded | RF_Public | RF_InheritableComponentTemplate)
 		);
 
@@ -978,7 +1032,7 @@ UActorComponent* AActor::CreateComponentFromTemplateData(const FBlueprintCookedC
 #if !UE_BUILD_SHIPPING
 		if (CVarLogBlueprintComponentInstanceCalls.GetValueOnGameThread())
 		{
-			UE_LOG(LogBlueprint, Log, TEXT("%s: CreateComponentFromTemplateData() - %s \'%s\' completed in %.02g ms"), *GetName(), *TemplateData->ComponentTemplateClass->GetName(), *NewComponentName.ToString(), (FPlatformTime::Seconds() - StartTime) * 1000.0);
+			UE_LOG(LogBlueprint, Log, TEXT("%s: CreateComponentFromTemplateData() - %s \'%s\' completed in %.02g ms"), *GetName(), *TemplateData->ComponentTemplateClass->GetName(), *InName.ToString(), (FPlatformTime::Seconds() - StartTime) * 1000.0);
 		}
 #endif
 	}

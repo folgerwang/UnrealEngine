@@ -165,7 +165,7 @@ void FBlutilityMenuExtensions::GetBlutilityClasses(TArray<FAssetData>& OutAssets
 	// Check each asset to see if it matches our type
 	for (const FAssetData& Asset : AssetList)
 	{
-		if (const FString* GeneratedClassPathPtr = Asset.TagsAndValues.Find(TEXT("GeneratedClass")))
+		if (const FString* GeneratedClassPathPtr = Asset.TagsAndValues.Find(FBlueprintTags::GeneratedClassPath))
 		{
 			const FString ClassObjectPath = FPackageName::ExportTextPathToObjectPath(*GeneratedClassPathPtr);
 			const FString ClassName = FPackageName::ObjectPathToObjectName(ClassObjectPath);

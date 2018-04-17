@@ -969,6 +969,9 @@ bool FAssetManagerEditorModule::GetStringValueForCustomColumn(const FAssetData& 
 		case EPrimaryAssetCookRule::AlwaysCook: 
 			OutValue = TEXT("Always");
 			return true;
+		case EPrimaryAssetCookRule::DevelopmentAlwaysCook:
+			OutValue = TEXT("DevelopmentAlways");
+			return true;
 		case EPrimaryAssetCookRule::DevelopmentCook: 
 			OutValue = TEXT("Development");
 			return true;
@@ -1054,6 +1057,9 @@ bool FAssetManagerEditorModule::GetDisplayTextForCustomColumn(const FAssetData& 
 		{
 		case EPrimaryAssetCookRule::AlwaysCook:
 			OutValue = LOCTEXT("AlwaysCook", "Always");
+			return true;
+		case EPrimaryAssetCookRule::DevelopmentAlwaysCook:
+			OutValue = LOCTEXT("DevelopmentAlwaysCook", "DevelopmentAlways");
 			return true;
 		case EPrimaryAssetCookRule::DevelopmentCook:
 			OutValue = LOCTEXT("DevelopmentCook", "Development");

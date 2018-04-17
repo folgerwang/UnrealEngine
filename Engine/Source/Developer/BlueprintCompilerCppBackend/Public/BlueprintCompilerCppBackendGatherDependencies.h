@@ -49,7 +49,6 @@ public:
 
 public:
 	bool WillClassBeConverted(const UBlueprintGeneratedClass* InClass) const;
-	void MarkUnconvertedClassAsNecessary(const UBlueprintGeneratedClass* InClass) const;
 
 	static void GatherAssetsReferencedByUDSDefaultValue(TSet<UObject*>& Dependencies, UUserDefinedStruct* Struct);
 

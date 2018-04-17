@@ -240,12 +240,9 @@ static void GetContentBrowserSelectionFactoryMenuEntries( FAssetData& TargetAsse
 	{
 		// For blueprints, attempt to determine placeability from its tag information
 
-		const FName NativeParentClassTag = TEXT("NativeParentClass");
-		const FName ClassFlagsTag = TEXT("ClassFlags");
-
 		FString TagValue;
 
-		if ( TargetAssetData.GetTagValue( NativeParentClassTag, TagValue ) && !TagValue.IsEmpty() )
+		if ( TargetAssetData.GetTagValue( FBlueprintTags::NativeParentClassPath, TagValue ) && !TagValue.IsEmpty() )
 		{
 			// If the native parent class can't be placed, neither can the blueprint
 
@@ -256,7 +253,7 @@ static void GetContentBrowserSelectionFactoryMenuEntries( FAssetData& TargetAsse
 			bPlaceable = AssetSelectionUtils::IsClassPlaceable( NativeParentClass );
 		}
 		
-		if ( bPlaceable && TargetAssetData.GetTagValue( ClassFlagsTag, TagValue ) && !TagValue.IsEmpty() )
+		if ( bPlaceable && TargetAssetData.GetTagValue( FBlueprintTags::ClassFlags, TagValue ) && !TagValue.IsEmpty() )
 		{
 			// Check to see if this class is placeable from its class flags
 

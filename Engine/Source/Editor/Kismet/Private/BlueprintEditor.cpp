@@ -8367,9 +8367,8 @@ void FBlueprintEditor::RemoveBookmark(const FGuid& BookmarkNodeId, bool bRefresh
 			if (BookmarkNode.NodeGuid == BookmarkNodeId)
 			{
 				LocalSettings->BookmarkNodes.RemoveAtSwap(i);
-				LocalSettings->SaveConfig();
-
 				FEditedDocumentInfo BookmarkInfo = LocalSettings->Bookmarks.FindAndRemoveChecked(BookmarkNodeId);
+				LocalSettings->SaveConfig();
 
 				FGuid CurrentBookmarkId;
 				GetViewBookmark(CurrentBookmarkId);

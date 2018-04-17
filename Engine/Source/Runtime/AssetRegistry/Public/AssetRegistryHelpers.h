@@ -42,7 +42,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Asset Data")
 	static bool IsValid(const FAssetData& InAssetData);
 
-	/** Returns true if this asset was found in a UAsset file */
+	/** Returns true if this is the primary asset in a package, true for maps and assets but false for secondary objects like class redirectors */
 	UFUNCTION(BlueprintPure, Category = "Asset Data")
 	static bool IsUAsset(const FAssetData& InAssetData);
 

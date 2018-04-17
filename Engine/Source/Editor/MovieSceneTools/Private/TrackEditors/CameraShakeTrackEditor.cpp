@@ -25,7 +25,6 @@
 
 #define LOCTEXT_NAMESPACE "FCameraShakeTrackEditor"
 
-static const FName ParentClassTagName(TEXT("ParentClass"));
 static const FString CameraShakeClassPath(TEXT("Class'/Script/Engine.CameraShake'"));
 
 
@@ -143,7 +142,7 @@ void FCameraShakeTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuil
 			Filter.ClassNames.Add(UBlueprint::StaticClass()->GetFName());
 
 			TMultiMap<FName, FString> TagsAndValuesFilter;
-			TagsAndValuesFilter.Add(ParentClassTagName, CameraShakeClassPath);
+			TagsAndValuesFilter.Add(FBlueprintTags::ParentClassPath, CameraShakeClassPath);
 			Filter.TagsAndValues = TagsAndValuesFilter;
 
 			AssetRegistryModule.Get().GetAssets(Filter, AssetDataList);
@@ -174,7 +173,7 @@ void FCameraShakeTrackEditor::AddCameraShakeSubMenu(FMenuBuilder& MenuBuilder, F
 		AssetPickerConfig.bAllowNullSelection = false;
 		AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 		AssetPickerConfig.Filter.ClassNames.Add(UBlueprint::StaticClass()->GetFName());
-		AssetPickerConfig.Filter.TagsAndValues.Add(ParentClassTagName, CameraShakeClassPath);
+		AssetPickerConfig.Filter.TagsAndValues.Add(FBlueprintTags::ParentClassPath, CameraShakeClassPath);
 	}
 
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));

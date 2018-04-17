@@ -453,13 +453,13 @@ bool ULevelStreaming::DetermineTargetState()
 		{
 			TargetState = ETargetState::Unloaded;
 		}
-		else if (ShouldBeVisible())
-		{
-			TargetState = ETargetState::LoadedVisible;
-		}
 		else if (!IsDesiredLevelLoaded())
 		{
 			TargetState = ETargetState::LoadedNotVisible;
+		}
+		else if (ShouldBeVisible())
+		{
+			TargetState = ETargetState::LoadedVisible;
 		}
 		else
 		{

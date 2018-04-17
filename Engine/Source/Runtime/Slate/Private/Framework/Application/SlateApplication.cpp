@@ -2467,6 +2467,9 @@ void FSlateApplication::UnregisterGameViewport()
 {
 	ResetToDefaultPointerInputSettings();
 
+	bIsFakingTouched = false;
+	bIsGameFakingTouch = false;
+
 	if (GameViewportWidget.IsValid())
 	{
 		GameViewportWidget.Pin()->SetActive(false);
@@ -5165,13 +5168,13 @@ void FSlateApplication::SetGameIsFakingTouchEvents(const bool bIsFaking, FVector
 {
 	if ( bIsGameFakingTouch != bIsFaking )
 	{
-	if (bIsFakingTouched && !bIsFaking && bIsGameFakingTouch && !bIsFakingTouch)
-	{
-		OnTouchEnded((CursorLocation ? *CursorLocation : PlatformApplication->Cursor->GetPosition()), 0, 0);
-	}
+		if (bIsFakingTouched && !bIsFaking && bIsGameFakingTouch && !bIsFakingTouch)
+		{
+			OnTouchEnded((CursorLocation ? *CursorLocation : PlatformApplication->Cursor->GetPosition()), 0, 0);
+		}
 
-	bIsGameFakingTouch = bIsFaking;
-}
+		bIsGameFakingTouch = bIsFaking;
+	}
 }
 
 #endif

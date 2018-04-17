@@ -1565,7 +1565,6 @@ FReply SSequencer::OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent
 	if (Operation.IsValid() && (
 		Operation->IsOfType<FAssetDragDropOp>() ||
 		Operation->IsOfType<FClassDragDropOp>() ||
-		Operation->IsOfType<FUnloadedClassDragDropOp>() ||
 		Operation->IsOfType<FActorDragDropGraphEdOp>() ) )
 	{
 		bIsDragSupported = true;
@@ -1608,13 +1607,6 @@ FReply SSequencer::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& Dr
 			OnClassesDropped( *DragDropOp );
 			bWasDropHandled = true;
 		}
-		else if( Operation->IsOfType<FUnloadedClassDragDropOp>() )
-		{
-			const auto& DragDropOp = StaticCastSharedPtr<FUnloadedClassDragDropOp>( Operation );
-
-			OnUnloadedClassesDropped( *DragDropOp );
-			bWasDropHandled = true;
-		}
 		else if( Operation->IsOfType<FActorDragDropGraphEdOp>() )
 		{
 			const auto& DragDropOp = StaticCastSharedPtr<FActorDragDropGraphEdOp>( Operation );
@@ -1654,6 +1646,21 @@ void SSequencer::OnAssetsDropped( const FAssetDragDropOp& DragDropOp )
 	bool bObjectAdded = false;
 	TArray< UObject* > DroppedObjects;
 	bool bAllAssetsWereLoaded = true;
+	bool bNeedsLoad = false;
+
+	for (const FAssetData& AssetData : DragDropOp.GetAssets())
+	{
+		if (!AssetData.IsAssetLoaded())
+		{
+			bNeedsLoad = true;
+			break;
+		}
+	}
+
+	if (bNeedsLoad)
+	{
+		GWarn->BeginSlowTask(LOCTEXT("OnDrop_FullyLoadPackage", "Fully Loading Package For Drop"), true, false);
+	}
 
 	for (const FAssetData& AssetData : DragDropOp.GetAssets())
 	{
@@ -1667,6 +1674,11 @@ void SSequencer::OnAssetsDropped( const FAssetDragDropOp& DragDropOp )
 		{
 			bAllAssetsWereLoaded = false;
 		}
+	}
+
+	if (bNeedsLoad)
+	{
+		GWarn->EndSlowTask();
 	}
 
 	const TSet< TSharedRef<FSequencerDisplayNode> >& SelectedNodes = SequencerPtr.Pin()->GetSelection().GetSelectedOutlinerNodes();
@@ -1737,58 +1749,10 @@ void SSequencer::OnClassesDropped( const FClassDragDropOp& DragDropOp )
 	}
 }
 
-
-void SSequencer::OnUnloadedClassesDropped( const FUnloadedClassDragDropOp& DragDropOp )
-{
-	FSequencer& SequencerRef = *SequencerPtr.Pin();
-	for( auto ClassDataIter = DragDropOp.AssetsToDrop->CreateConstIterator(); ClassDataIter; ++ClassDataIter )
-	{
-		auto& ClassData = *ClassDataIter;
-
-		// Check to see if the asset can be found, otherwise load it.
-		UObject* Object = FindObject<UObject>( nullptr, *ClassData.AssetName );
-		if( Object == nullptr )
-		{
-			Object = FindObject<UObject>(nullptr, *FString::Printf(TEXT("%s.%s"), *ClassData.GeneratedPackageName, *ClassData.AssetName));
-		}
-
-		if( Object == nullptr )
-		{
-			// Load the package.
-			GWarn->BeginSlowTask( LOCTEXT("OnDrop_FullyLoadPackage", "Fully Loading Package For Drop"), true, false );
-			UPackage* Package = LoadPackage(nullptr, *ClassData.GeneratedPackageName, LOAD_NoRedirects );
-			if( Package != nullptr )
-			{
-				Package->FullyLoad();
-			}
-			GWarn->EndSlowTask();
-
-			Object = FindObject<UObject>(Package, *ClassData.AssetName);
-		}
-
-		if( Object != nullptr )
-		{
-			// Check to see if the dropped asset was a blueprint
-			if(Object->IsA(UBlueprint::StaticClass()))
-			{
-				// Get the default object from the generated class.
-				Object = Cast<UBlueprint>(Object)->GeneratedClass->GetDefaultObject();
-			}
-		}
-
-		if( Object != nullptr )
-		{
-			FGuid NewGuid = SequencerRef.MakeNewSpawnable( *Object );
-		}
-	}
-}
-
-
 void SSequencer::OnActorsDropped( FActorDragDropGraphEdOp& DragDropOp )
 {
 	SequencerPtr.Pin()->OnActorsDropped( DragDropOp.Actors );
 }
-
 
 void SSequencer::OnCrumbClicked(const FSequencerBreadcrumb& Item)
 {
