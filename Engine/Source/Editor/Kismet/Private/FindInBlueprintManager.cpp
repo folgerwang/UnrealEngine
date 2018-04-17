@@ -221,7 +221,7 @@ float FStreamSearch::GetPercentComplete() const
 	return FFindInBlueprintSearchManager::Get().GetPercentComplete(this);
 }
 
-void FStreamSearch::GetFilteredImaginaryResults(TArray<TSharedPtr<class FImaginaryFiBData>>& OutFilteredImaginaryResults)
+void FStreamSearch::GetFilteredImaginaryResults(TArray<FImaginaryFiBDataSharedPtr>& OutFilteredImaginaryResults)
 {
 	OutFilteredImaginaryResults = MoveTemp(FilteredImaginaryResults);
 }
@@ -1477,7 +1477,7 @@ void FFindInBlueprintSearchManager::OnAssetAdded(const FAssetData& InAssetData)
 			{
 				ExtractUnloadedFiBData(InAssetData, *FiBSearchData, false);
 			}
-			else if(const FString* FiBVersionedSearchData = InAssetData.TagsAndValues.Find("FiBData"))
+			else if(const FString* FiBVersionedSearchData = InAssetData.TagsAndValues.Find(FBlueprintTags::FindInBlueprintsData))
 			{
 				if (FiBVersionedSearchData->Len() == 0)
 				{
@@ -1509,9 +1509,9 @@ void FFindInBlueprintSearchManager::ExtractUnloadedFiBData(const FAssetData& InA
 	FSearchData NewSearchData;
 
 	NewSearchData.BlueprintPath = InAssetData.ObjectPath;
-	InAssetData.GetTagValue("ParentClass", NewSearchData.ParentClass);
+	InAssetData.GetTagValue(FBlueprintTags::ParentClassPath, NewSearchData.ParentClass);
 
-	const FString ImplementedInterfaces = InAssetData.GetTagValueRef<FString>("ImplementedInterfaces");
+	const FString ImplementedInterfaces = InAssetData.GetTagValueRef<FString>(FBlueprintTags::ImplementedInterfaces);
 	if(!ImplementedInterfaces.IsEmpty())
 	{
 		FString FullInterface;
@@ -1808,15 +1808,10 @@ bool FFindInBlueprintSearchManager::ContinueSearchQuery(const FStreamSearch* InS
 		ActiveSearchCounter.Increment();
 	}
 
-	int32* SearchIdxPtr = NULL;
+	// Must lock this behind a critical section to ensure that no other thread is accessing it at the same time
+	FScopeLock ScopeLock(&SafeQueryModifyCriticalSection);
 
-	{
-		// Must lock this behind a critical section to ensure that no other thread is accessing it at the same time
-		FScopeLock ScopeLock(&SafeQueryModifyCriticalSection);
-		SearchIdxPtr = ActiveSearchQueries.Find(InSearchOriginator);
-	}
-
-	if(SearchIdxPtr)
+	if(int32* SearchIdxPtr = ActiveSearchQueries.Find(InSearchOriginator))
 	{
 		int32& SearchIdx = *SearchIdxPtr;
 		while(SearchIdx < SearchArray.Num())
@@ -1844,11 +1839,7 @@ bool FFindInBlueprintSearchManager::ContinueSearchQuery(const FStreamSearch* InS
 		}
 	}
 
-	{
-		// Must lock this behind a critical section to ensure that no other thread is accessing it at the same time
-		FScopeLock ScopeLock(&SafeQueryModifyCriticalSection);
-		ActiveSearchQueries.Remove(InSearchOriginator);
-	}
+	ActiveSearchQueries.Remove(InSearchOriginator);
 	ActiveSearchCounter.Decrement();
 
 	return false;

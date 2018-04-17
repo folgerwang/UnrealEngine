@@ -7,6 +7,7 @@
 #include "Widgets/Layout/SBox.h"
 
 #include "DragAndDrop/ClassDragDropOp.h"
+#include "DragAndDrop/AssetDragDropOp.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
 
@@ -266,56 +267,56 @@ FReply SPropertyEditorClass::OnDrop(const FGeometry& MyGeometry, const FDragDrop
 	if (ClassOperation.IsValid())
 	{
 		// We can only drop one item into the combo box, so drop the first one.
-		FString AssetName = ClassOperation->ClassesToDrop[0]->GetName();
+		FString ClassPath = ClassOperation->ClassesToDrop[0]->GetPathName();
 
 		// Set the property, it will be verified as valid.
-		SendToObjects(AssetName);
+		SendToObjects(ClassPath);
 
 		return FReply::Handled();
 	}
 	
-	TSharedPtr<FUnloadedClassDragDropOp> UnloadedClassOp = DragDropEvent.GetOperationAs<FUnloadedClassDragDropOp>();
+	TSharedPtr<FAssetDragDropOp> UnloadedClassOp = DragDropEvent.GetOperationAs<FAssetDragDropOp>();
 	if (UnloadedClassOp.IsValid())
 	{
-		// Check if the asset is loaded, used to see if the context menu should be available
 		bool bAllAssetWereLoaded = true;
 
-		TArray<FClassPackageData>& AssetArray = *(UnloadedClassOp->AssetsToDrop.Get());
+		FString AssetPath;
 
-		// We can only drop one item into the combo box, so drop the first one.
-		FString& AssetName = AssetArray[0].AssetName;
-
-		// Check to see if the asset can be found, otherwise load it.
-		UObject* Object = FindObject<UObject>(NULL, *AssetName);
-		if(Object == NULL)
+		// Find the class/blueprint path
+		if (UnloadedClassOp->HasAssets())
 		{
-			// Check to see if the dropped asset was a blueprint
-			const FString& PackageName = AssetArray[0].GeneratedPackageName;
-			Object = FindObject<UObject>(NULL, *FString::Printf(TEXT("%s.%s"), *PackageName, *AssetName));
-
-			if(Object == NULL)
-			{
-				// Load the package.
-				GWarn->BeginSlowTask(LOCTEXT("OnDrop_LoadPackage", "Fully Loading Package For Drop"), true, false);
-				UPackage* Package = LoadPackage(NULL, *PackageName, LOAD_NoRedirects );
-				if(Package)
-				{
-					Package->FullyLoad();
-				}
-				GWarn->EndSlowTask();
-
-				Object = FindObject<UObject>(Package, *AssetName);
-			}
-
-			if(Object->IsA(UBlueprint::StaticClass()))
-			{
-				// Get the default object from the generated class.
-				Object = Cast<UBlueprint>(Object)->GeneratedClass->GetDefaultObject();
-			}
+			AssetPath = UnloadedClassOp->GetAssets()[0].ObjectPath.ToString();
+		}
+		else if (UnloadedClassOp->HasAssetPaths())
+		{
+			AssetPath = UnloadedClassOp->GetAssetPaths()[0];
 		}
 
-		// Set the property, it will be verified as valid.
-		SendToObjects(AssetName);
+		// Check to see if the asset can be found, otherwise load it.
+		UObject* Object = FindObject<UObject>(nullptr, *AssetPath);
+		if(Object == nullptr)
+		{
+			// Load the package.
+			GWarn->BeginSlowTask(LOCTEXT("OnDrop_LoadPackage", "Fully Loading Package For Drop"), true, false);
+
+			Object = LoadObject<UObject>(nullptr, *AssetPath);
+
+			GWarn->EndSlowTask();
+		}
+
+		if (UClass* Class = Cast<UClass>(Object))
+		{
+			// This was pointing to a class directly
+			SendToObjects(Class->GetPathName());
+		}
+		else if (UBlueprint* Blueprint = Cast<UBlueprint>(Object))
+		{
+			if (Blueprint->GeneratedClass)
+			{
+				// This was pointing to a blueprint, get generated class
+				SendToObjects(Blueprint->GeneratedClass->GetPathName());
+			}
+		}
 
 		return FReply::Handled();
 	}

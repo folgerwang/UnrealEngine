@@ -3166,6 +3166,11 @@ void UNavigationSystemV1::Build()
 		}
 	}
 
+#if !UE_BUILD_SHIPPING
+	// no longer report that navmesh needs to be rebuild
+	bDirtyAreasReportedWhileAccumulationLocked = false;
+#endif // !UE_BUILD_SHIPPING
+
 	UE_LOG(LogNavigation, Display, TEXT("UNavigationSystemV1::Build total execution time: %.5f"), float(FPlatformTime::Seconds() - BuildStartTime));
 }
 

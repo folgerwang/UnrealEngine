@@ -314,7 +314,7 @@ void SControlRigMappingWindow::OnAssetSelectedFromMeshPicker(const FAssetData& A
 bool SControlRigMappingWindow::OnShouldFilterAnimAsset(const FAssetData& AssetData) const
 {
 	FString ParentClassName;
-	if (AssetData.GetTagValue(FName(TEXT("NativeParentClass")), ParentClassName))
+	if (AssetData.GetTagValue(FBlueprintTags::NativeParentClassPath, ParentClassName))
 	{
 		if (ParentClassName.IsEmpty() == false)
 		{

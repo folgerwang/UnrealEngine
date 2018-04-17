@@ -13,7 +13,6 @@ class FConfigCacheIni;
 class FFixedUObjectArray;
 class FOutputDeviceConsole;
 class FOutputDeviceRedirector;
-class FReloadObjectArc;
 class ITransaction;
 
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogHAL, Log, All);
@@ -203,9 +202,6 @@ extern CORE_API bool GIsSlowTask;
 extern CORE_API bool GSlowTaskOccurred;
 extern CORE_API bool GIsGuarded;
 extern CORE_API bool GIsRequestingExit;
-
-/** Archive for serializing arbitrary data to and from memory						*/
-extern CORE_API FReloadObjectArc* GMemoryArchive;
 
 /**
 *	Global value indicating on-screen warnings/message should be displayed.

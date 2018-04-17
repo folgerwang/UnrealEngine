@@ -297,6 +297,9 @@ private:
 	UPROPERTY(Transient, DuplicateTransient)
 	uint8 bActorIsBeingDestroyed:1;
 
+	/** Set if an Actor tries to be destroyed while it is beginning play so that once BeginPlay ends we can issue the destroy call. */
+	uint8 bActorWantsDestroyDuringBeginPlay : 1;
+
 	enum class EActorBeginPlayState : uint8
 	{
 		HasNotBegunPlay,
@@ -2923,6 +2926,7 @@ private:
 
 	friend struct FMarkActorIsBeingDestroyed;
 	friend struct FActorParentComponentSetter;
+	friend struct FSetActorWantsDestroyDuringBeginPlay;
 
 	// Static helpers for accessing functions on SceneComponent.
 	// These are templates for no other reason than to delay compilation until USceneComponent is defined.
@@ -3011,6 +3015,20 @@ private:
 
 	friend UWorld;
 };
+
+/** This should only be used by UWorld::DestroyActor when the actor is in the process of beginning play so it can't be destroyed yet */
+struct FSetActorWantsDestroyDuringBeginPlay
+{
+private:
+	FSetActorWantsDestroyDuringBeginPlay(AActor* InActor)
+	{
+		ensure(InActor->IsActorBeginningPlay()); // Doesn't make sense to call this under any other circumstances
+		InActor->bActorWantsDestroyDuringBeginPlay = true;
+	}
+
+	friend UWorld;
+};
+
 
 /**
  * TInlineComponentArray is simply a TArray that reserves a fixed amount of space on the stack

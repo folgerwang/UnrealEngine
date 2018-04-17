@@ -14,6 +14,7 @@
 #include "Widgets/Views/STableRow.h"
 #include "Widgets/Views/STreeView.h"
 #include "BlueprintEditor.h"
+#include "FindInBlueprints.h"
 
 class FImaginaryFiBData;
 class SComboButton;
@@ -118,7 +119,7 @@ protected:
 	FReply OnFindAndReplaceAll();
 
 	/** Callback when the search for "Find and Replace All" is complete so that the replacements can begin */
-	void FindAllReplacementsComplete(TArray<TSharedPtr<class FImaginaryFiBData>>& InRawDataList);
+	void FindAllReplacementsComplete(TArray<FImaginaryFiBDataSharedPtr>& InRawDataList);
 
 	/** Recursively gathers all available Blueprint Variable references to replace with */
 	void GatherAllAvailableBlueprintVariables(UClass* InTargetClass);

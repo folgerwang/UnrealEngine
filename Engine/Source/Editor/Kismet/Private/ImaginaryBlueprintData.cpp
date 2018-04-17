@@ -31,13 +31,13 @@ bool FComponentUniqueDisplay::operator==(const FComponentUniqueDisplay& Other)
 
 FCriticalSection FImaginaryFiBData::ParseChildDataCriticalSection;
 
-FImaginaryFiBData::FImaginaryFiBData(TWeakPtr<FImaginaryFiBData> InOuter) 
+FImaginaryFiBData::FImaginaryFiBData(FImaginaryFiBDataWeakPtr InOuter)
 	: LookupTablePtr(nullptr)
 	, Outer(InOuter)
 {
 }
 
-FImaginaryFiBData::FImaginaryFiBData(TWeakPtr<FImaginaryFiBData> InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr)
+FImaginaryFiBData::FImaginaryFiBData(FImaginaryFiBDataWeakPtr InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr)
 	: UnparsedJsonObject(InUnparsedJsonObject)
 	, LookupTablePtr(InLookupTablePtr)
 	, Outer(InOuter)
@@ -60,16 +60,16 @@ FSearchResult FImaginaryFiBData::CreateSearchResult(FSearchResult InParent) cons
 	return ReturnSearchResult;
 }
 
-FSearchResult FImaginaryFiBData::CreateSearchTree(FSearchResult InParentSearchResult, TWeakPtr< FImaginaryFiBData > InCurrentPointer, TArray< const FImaginaryFiBData* >& InValidSearchResults, TMultiMap< const FImaginaryFiBData*, FComponentUniqueDisplay >& InMatchingSearchComponents)
+FSearchResult FImaginaryFiBData::CreateSearchTree(FSearchResult InParentSearchResult, FImaginaryFiBDataWeakPtr InCurrentPointer, TArray< const FImaginaryFiBData* >& InValidSearchResults, TMultiMap< const FImaginaryFiBData*, FComponentUniqueDisplay >& InMatchingSearchComponents)
 {
-	TSharedPtr<FImaginaryFiBData> CurrentDataPtr = InCurrentPointer.Pin();
+	FImaginaryFiBDataSharedPtr CurrentDataPtr = InCurrentPointer.Pin();
 	if (FImaginaryFiBData* CurrentData = CurrentDataPtr.Get())
 	{
 		FSearchResult CurrentSearchResult = CurrentData->CreateSearchResult(InParentSearchResult);
 		bool bValidSearchResults = false;
 
 		// Check all children first, to see if they are valid in the search results
-		for (TSharedPtr<FImaginaryFiBData> ChildData : CurrentData->ParsedChildData)
+		for (FImaginaryFiBDataSharedPtr ChildData : CurrentData->ParsedChildData)
 		{
 			FSearchResult Result = CreateSearchTree(CurrentSearchResult, ChildData, InValidSearchResults, InMatchingSearchComponents);
 			if (Result.IsValid())
@@ -135,7 +135,7 @@ void FImaginaryFiBData::ParseAllChildData_Internal(ESearchableValueStatus InSear
 
 			if (MetaDataField.IsValid())
 			{
-				TSharedPtr<FFiBMetaData> MetaDataFiBInfo = MakeShareable(new FFiBMetaData(AsShared(), MetaDataField, LookupTablePtr));
+				TSharedPtr<FFiBMetaData, ESPMode::ThreadSafe> MetaDataFiBInfo = MakeShareable(new FFiBMetaData(AsShared(), MetaDataField, LookupTablePtr));
 				MetaDataFiBInfo->ParseAllChildData_Internal();
 
 				if (MetaDataFiBInfo->IsHidden() && MetaDataFiBInfo->IsExplicit())
@@ -188,7 +188,7 @@ void FImaginaryFiBData::ParseJsonValue(FText InKey, FText InDisplayKey, TSharedP
 	}
 	else if( InJsonValue->Type == EJson::Array)
 	{
-		TSharedPtr< FCategorySectionHelper > ArrayCategory = MakeShareable(new FCategorySectionHelper(AsShared(), LookupTablePtr, InKey, true));
+		TSharedPtr< FCategorySectionHelper, ESPMode::ThreadSafe > ArrayCategory = MakeShareable(new FCategorySectionHelper(AsShared(), LookupTablePtr, InKey, true));
 		ParsedChildData.Add(ArrayCategory);
 		TArray<TSharedPtr< FJsonValue > > ArrayList = InJsonValue->AsArray();
 		for( int32 ArrayIdx = 0; ArrayIdx < ArrayList.Num(); ++ArrayIdx)
@@ -199,7 +199,7 @@ void FImaginaryFiBData::ParseJsonValue(FText InKey, FText InDisplayKey, TSharedP
 	}
 	else if (InJsonValue->Type == EJson::Object)
 	{
-		TSharedPtr< FCategorySectionHelper > SubObjectCategory = MakeShareable(new FCategorySectionHelper(AsShared(), InJsonValue->AsObject(), LookupTablePtr, InDisplayKey, bIsInArray));
+		TSharedPtr< FCategorySectionHelper, ESPMode::ThreadSafe > SubObjectCategory = MakeShareable(new FCategorySectionHelper(AsShared(), InJsonValue->AsObject(), LookupTablePtr, InDisplayKey, bIsInArray));
 		SubObjectCategory->ParseAllChildData_Internal(SearchabilityStatus);
 		ParsedChildData.Add(SubObjectCategory);
 	}
@@ -240,7 +240,7 @@ bool FImaginaryFiBData::TestBasicStringExpression(const FTextFilterString& InVal
 		}
 	}
 	// Any children that are treated as a TagAndValue Category should be added for independent searching
-	for (const TSharedPtr< FImaginaryFiBData > Child : ParsedChildData)
+	for (const FImaginaryFiBDataSharedPtr Child : ParsedChildData)
 	{
 		if (Child->IsTagAndValueCategory())
 		{
@@ -276,7 +276,7 @@ bool FImaginaryFiBData::TestComplexExpression(const FName& InKey, const FTextFil
 	}
 
 	// Any children that are treated as a TagAndValue Category should be added for independent searching
-	for (const TSharedPtr< FImaginaryFiBData > Child : ParsedChildData)
+	for (const FImaginaryFiBDataSharedPtr Child : ParsedChildData)
 	{
 		if (Child->IsTagAndValueCategory())
 		{
@@ -294,7 +294,7 @@ UObject* FImaginaryFiBData::GetObject(UBlueprint* InBlueprint) const
 ///////////////////////////
 // FFiBMetaData
 
-FFiBMetaData::FFiBMetaData(TWeakPtr<FImaginaryFiBData> InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr)
+FFiBMetaData::FFiBMetaData(FImaginaryFiBDataWeakPtr InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr)
 	: FImaginaryFiBData(InOuter, InUnparsedJsonObject, InLookupTablePtr)
 	, bIsHidden(false)
 	, bIsExplicit(false)
@@ -322,21 +322,21 @@ bool FFiBMetaData::TrySpecialHandleJsonValue(FText InKey, TSharedPtr< FJsonValue
 ///////////////////////////
 // FCategorySectionHelper
 
-FCategorySectionHelper::FCategorySectionHelper(TWeakPtr<FImaginaryFiBData> InOuter, TMap<int32, FText>* InLookupTablePtr, FText InCategoryName, bool bInTagAndValueCategory)
+FCategorySectionHelper::FCategorySectionHelper(FImaginaryFiBDataWeakPtr InOuter, TMap<int32, FText>* InLookupTablePtr, FText InCategoryName, bool bInTagAndValueCategory)
 	: FImaginaryFiBData(InOuter, nullptr, InLookupTablePtr)
 	, CategoryName(InCategoryName)
 	, bIsTagAndValue(bInTagAndValueCategory)
 {
 }
 
-FCategorySectionHelper::FCategorySectionHelper(TWeakPtr<FImaginaryFiBData> InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr, FText InCategoryName, bool bInTagAndValueCategory)
+FCategorySectionHelper::FCategorySectionHelper(FImaginaryFiBDataWeakPtr InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr, FText InCategoryName, bool bInTagAndValueCategory)
 	: FImaginaryFiBData(InOuter, InUnparsedJsonObject, InLookupTablePtr)
 	, CategoryName(InCategoryName)
 	, bIsTagAndValue(bInTagAndValueCategory)
 {
 }
 
-FCategorySectionHelper::FCategorySectionHelper(TWeakPtr<FImaginaryFiBData> InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr, FText InCategoryName, bool bInTagAndValueCategory, FCategorySectionHelperCallback InSpecialHandlingCallback)
+FCategorySectionHelper::FCategorySectionHelper(FImaginaryFiBDataWeakPtr InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr, FText InCategoryName, bool bInTagAndValueCategory, FCategorySectionHelperCallback InSpecialHandlingCallback)
 	: FImaginaryFiBData(InOuter, InUnparsedJsonObject, InLookupTablePtr)
 	, SpecialHandlingCallback(InSpecialHandlingCallback)
 	, CategoryName(InCategoryName)
@@ -403,7 +403,7 @@ FImaginaryBlueprint::FImaginaryBlueprint(FString InBlueprintName, FString InBlue
 	ParsedTagsAndValues.Add(FindInBlueprintsHelpers::FSimpleFTextKeyStorage(FFindInBlueprintSearchTags::FiB_Path), FSearchableValueInfo(FFindInBlueprintSearchTags::FiB_Path, FText::FromString(InBlueprintPath), ESearchableValueStatus::ExplicitySearchable));
 	ParsedTagsAndValues.Add(FindInBlueprintsHelpers::FSimpleFTextKeyStorage(FFindInBlueprintSearchTags::FiB_ParentClass), FSearchableValueInfo(FFindInBlueprintSearchTags::FiB_ParentClass, FText::FromString(InBlueprintParentClass), ESearchableValueStatus::ExplicitySearchable));
 
-	TSharedPtr< FCategorySectionHelper > InterfaceCategory = MakeShareable(new FCategorySectionHelper(nullptr, &LookupTable, FFindInBlueprintSearchTags::FiB_Interfaces, true));
+	TSharedPtr< FCategorySectionHelper, ESPMode::ThreadSafe > InterfaceCategory = MakeShareable(new FCategorySectionHelper(nullptr, &LookupTable, FFindInBlueprintSearchTags::FiB_Interfaces, true));
 	for( int32 InterfaceIdx = 0; InterfaceIdx < InInterfaces.Num(); ++InterfaceIdx)
 	{
 		FString& Interface = InInterfaces[InterfaceIdx];
@@ -507,7 +507,7 @@ void FImaginaryBlueprint::ParseGraph( TSharedPtr< FJsonValue > InJsonValue, FStr
 	}
 }
 
-void FImaginaryBlueprint::ParseComponents(TSharedPtr< FJsonObject > InJsonObject, TArray< TSharedPtr<FImaginaryFiBData> >& OutParsedChildData)
+void FImaginaryBlueprint::ParseComponents(TSharedPtr< FJsonObject > InJsonObject, TArray<FImaginaryFiBDataSharedPtr>& OutParsedChildData)
 {
 	// Pulls out all properties (variables) for this Blueprint
 	TArray<TSharedPtr< FJsonValue > > ComponentList = InJsonObject->GetArrayField(FFindInBlueprintSearchTags::FiB_Components.ToString());
@@ -520,7 +520,7 @@ void FImaginaryBlueprint::ParseComponents(TSharedPtr< FJsonObject > InJsonObject
 //////////////////////////
 // FImaginaryGraph
 
-FImaginaryGraph::FImaginaryGraph(TWeakPtr<FImaginaryFiBData> InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr, EGraphType InGraphType)
+FImaginaryGraph::FImaginaryGraph(FImaginaryFiBDataWeakPtr InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr, EGraphType InGraphType)
 	: FImaginaryFiBData(InOuter, InUnparsedJsonObject, InLookupTablePtr)
 	, GraphType(InGraphType)
 {
@@ -590,7 +590,7 @@ bool FImaginaryGraph::TrySpecialHandleJsonValue(FText InKey, TSharedPtr< FJsonVa
 //////////////////////////////////////
 // FImaginaryGraphNode
 
-FImaginaryGraphNode::FImaginaryGraphNode(TWeakPtr<FImaginaryFiBData> InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr)
+FImaginaryGraphNode::FImaginaryGraphNode(FImaginaryFiBDataWeakPtr InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr)
 	: FImaginaryFiBData(InOuter, InUnparsedJsonObject, InLookupTablePtr)
 {
 }
@@ -681,7 +681,7 @@ void FImaginaryGraphNode::ParseAllChildData_Internal(ESearchableValueStatus InSe
 ///////////////////////////////////////////
 // FImaginaryProperty
 
-FImaginaryProperty::FImaginaryProperty(TWeakPtr<FImaginaryFiBData> InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr)
+FImaginaryProperty::FImaginaryProperty(FImaginaryFiBDataWeakPtr InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr)
 	: FImaginaryFiBData(InOuter, InUnparsedJsonObject, InLookupTablePtr)
 {
 }
@@ -723,7 +723,7 @@ ESearchableValueStatus FImaginaryProperty::GetSearchabilityStatus(FString InKey)
 //////////////////////////////
 // FImaginaryComponent
 
-FImaginaryComponent::FImaginaryComponent(TWeakPtr<FImaginaryFiBData> InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr)
+FImaginaryComponent::FImaginaryComponent(FImaginaryFiBDataWeakPtr InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr)
 	: FImaginaryProperty(InOuter, InUnparsedJsonObject, InLookupTablePtr)
 {
 }
@@ -736,7 +736,7 @@ bool FImaginaryComponent::IsCompatibleWithFilter(ESearchQueryFilter InSearchQuer
 //////////////////////////////
 // FImaginaryPin
 
-FImaginaryPin::FImaginaryPin(TWeakPtr<FImaginaryFiBData> InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr, FString InSchemaName)
+FImaginaryPin::FImaginaryPin(FImaginaryFiBDataWeakPtr InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr, FString InSchemaName)
 	: FImaginaryFiBData(InOuter, InUnparsedJsonObject, InLookupTablePtr)
 	, SchemaName(InSchemaName)
 {

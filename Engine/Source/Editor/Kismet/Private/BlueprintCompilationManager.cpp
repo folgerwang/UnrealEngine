@@ -789,18 +789,6 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 			if(BP->GeneratedClass && BP->GeneratedClass->GetSuperClass()->HasAnyClassFlags(CLASS_NewerVersionExists))
 			{
 				BP->GeneratedClass->SetSuperStruct(BP->GeneratedClass->GetSuperClass()->GetAuthoritativeClass());
-
-				if(CompilerData.ShouldResetClassMembers())
-				{
-					BP->GeneratedClass->Children = NULL;
-					BP->GeneratedClass->Script.Empty();
-					BP->GeneratedClass->MinAlignment = 0;
-					BP->GeneratedClass->RefLink = NULL;
-					BP->GeneratedClass->PropertyLink = NULL;
-					BP->GeneratedClass->DestructorLink = NULL;
-					BP->GeneratedClass->ScriptObjectReferences.Empty();
-					BP->GeneratedClass->PropertyLink = NULL;
-				}
 			}
 		}
 
@@ -827,6 +815,16 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 		
 					FKismetCompilerContext& CompilerContext = *(CompilerData.Compiler);
 					CompilerContext.CompileClassLayout(EInternalCompilerFlags::PostponeLocalsGenerationUntilPhaseTwo);
+
+					// We immediately relink children so that iterative compilation logic has an easier time:
+					TArray<UClass*> ClassesToRelink;
+					GetDerivedClasses(BP->GeneratedClass, ClassesToRelink, false);
+					for (UClass* ChildClass : ClassesToRelink)
+					{
+						ChildClass->Bind();
+						ChildClass->StaticLink();
+						ensure(ChildClass->ClassDefaultObject == nullptr);
+					}
 				}
 				else
 				{

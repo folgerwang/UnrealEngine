@@ -935,8 +935,10 @@ void USceneComponent::DestroyComponent(bool bPromoteChildren/*= false*/)
 						else
 						{
 							// Default to first child node
-							check(AttachedChildren[0] != nullptr);
-							ChildToPromote = AttachedChildren[0];
+							if(ensureMsgf(AttachedChildren[0] != nullptr, TEXT("Deleting a non-root scene component with no promotable AttachChildren: %s"), *GetFullName()))
+							{
+								ChildToPromote = AttachedChildren[0];
+							}
 						}
 					}
 
@@ -1680,7 +1682,7 @@ void USceneComponent::SetRelativeRotationCache(const FRotationConversionCache& I
 
 void USceneComponent::SetupAttachment(class USceneComponent* InParent, FName InSocketName)
 {
-	if (ensureMsgf(!bRegistered, TEXT("SetupAttachment should only be used to initialize AttachParent and AttachSocketName for a future AttachTo. Once a component is registered you must use AttachTo.")))
+	if (ensureMsgf(!bRegistered, TEXT("SetupAttachment should only be used to initialize AttachParent and AttachSocketName for a future AttachToComponent. Once a component is registered you must use AttachToComponent.")))
 	{
 		if (ensureMsgf(InParent != this, TEXT("Cannot attach a component to itself.")))
 		{

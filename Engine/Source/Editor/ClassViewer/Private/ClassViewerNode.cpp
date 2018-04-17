@@ -30,11 +30,10 @@ FClassViewerNode::FClassViewerNode( const FClassViewerNode& InCopyObject)
 	
 	UnloadedBlueprintData = InCopyObject.UnloadedBlueprintData;
 
-	GeneratedClassPackage = InCopyObject.GeneratedClassPackage;
-	GeneratedClassname = InCopyObject.GeneratedClassname;
-	ParentClassname = InCopyObject.ParentClassname;
+	ClassPath = InCopyObject.ClassPath;
+	ParentClassPath = InCopyObject.ParentClassPath;
 	ClassName = InCopyObject.ClassName;
-	AssetName = InCopyObject.AssetName;
+	BlueprintAssetPath = InCopyObject.BlueprintAssetPath;
 	bIsBPNormalType = InCopyObject.bIsBPNormalType;
 
 	// We do not want to copy the child list, do not add it. It should be the only item missing.
@@ -108,4 +107,9 @@ bool FClassViewerNode::IsClassPlaceable() const
 	}
 
 	return false;
+}
+
+bool FClassViewerNode::IsBlueprintClass() const
+{
+	return BlueprintAssetPath != NAME_None;
 }

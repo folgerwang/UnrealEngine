@@ -104,12 +104,11 @@ void FPersonaModule::StartupModule()
 		TArray<FAssetData> AssetData;
 		AssetRegistryModule.Get().GetAssetsByClass(UBlueprint::StaticClass()->GetFName(), AssetData);
 
-		const FName BPParentClassName( TEXT( "ParentClass" ) );
 		const FString BPAnimNotify( TEXT("Class'/Script/Engine.AnimNotify'" ));
 
 		for (int32 AssetIndex = 0; AssetIndex < AssetData.Num(); ++AssetIndex)
 		{
-			FString TagValue = AssetData[ AssetIndex ].GetTagValueRef<FString>(BPParentClassName);
+			FString TagValue = AssetData[ AssetIndex ].GetTagValueRef<FString>(FBlueprintTags::ParentClassPath);
 			if (TagValue == BPAnimNotify)
 			{
 				FString BlueprintPath = AssetData[AssetIndex].ObjectPath.ToString();

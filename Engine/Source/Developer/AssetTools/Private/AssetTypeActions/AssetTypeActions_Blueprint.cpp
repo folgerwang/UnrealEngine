@@ -298,15 +298,12 @@ FText FAssetTypeActions_Blueprint::GetAssetDescription(const FAssetData& AssetDa
 
 TWeakPtr<IClassTypeActions> FAssetTypeActions_Blueprint::GetClassTypeActions(const FAssetData& AssetData) const
 {
-	static const FName NativeParentClassTag = "NativeParentClass";
-	static const FName ParentClassTag = "ParentClass";
-
 	// Blueprints get the class type actions for their parent native class - this avoids us having to load the blueprint
 	UClass* ParentClass = nullptr;
 	FString ParentClassName;
-	if(!AssetData.GetTagValue(NativeParentClassTag, ParentClassName))
+	if(!AssetData.GetTagValue(FBlueprintTags::NativeParentClassPath, ParentClassName))
 	{
-		AssetData.GetTagValue(ParentClassTag, ParentClassName);
+		AssetData.GetTagValue(FBlueprintTags::ParentClassPath, ParentClassName);
 	}
 	if(!ParentClassName.IsEmpty())
 	{

@@ -13,7 +13,7 @@ class UBehaviorTreeGraphNode_Root : public UBehaviorTreeGraphNode
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(EditAnywhere, Category=BehaviorTree)
+	UPROPERTY(EditAnywhere, Category="AI|BehaviorTree")
 	class UBlackboardData* BlackboardAsset;
 
 	virtual void PostPlacedNewNode() override;

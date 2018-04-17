@@ -31,6 +31,19 @@ DEFINE_LOG_CATEGORY_STATIC(LogBlueprintSupport, Log, All);
 // Flag to enable the new BlueprintCompilationManager:
 COREUOBJECT_API bool GBlueprintUseCompilationManager = false;
 
+const FName FBlueprintTags::GeneratedClassPath(TEXT("GeneratedClass"));
+const FName FBlueprintTags::ParentClassPath(TEXT("ParentClass"));
+const FName FBlueprintTags::NativeParentClassPath(TEXT("NativeParentClass"));
+const FName FBlueprintTags::ClassFlags(TEXT("ClassFlags"));
+const FName FBlueprintTags::BlueprintType(TEXT("BlueprintType"));
+const FName FBlueprintTags::BlueprintDescription(TEXT("BlueprintDescription"));
+const FName FBlueprintTags::IsDataOnly(TEXT("IsDataOnly"));
+const FName FBlueprintTags::ImplementedInterfaces(TEXT("ImplementedInterfaces"));
+const FName FBlueprintTags::FindInBlueprintsData(TEXT("FiBData"));
+const FName FBlueprintTags::NumReplicatedProperties(TEXT("NumReplicatedProperties"));
+const FName FBlueprintTags::NumNativeComponents(TEXT("NativeComponents"));
+const FName FBlueprintTags::NumBlueprintComponents(TEXT("BlueprintComponents"));
+
 /**
  * Defined in BlueprintSupport.cpp
  * Duplicates all fields of a class in depth-first order. It makes sure that everything contained

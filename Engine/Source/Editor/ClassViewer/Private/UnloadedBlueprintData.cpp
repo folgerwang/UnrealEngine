@@ -31,9 +31,9 @@ bool FUnloadedBlueprintData::IsChildOf(const UClass* InClass) const
 	TSharedPtr< FClassViewerNode > CurrentNode = ClassViewerNode.Pin()->ParentNode.Pin();
 
 	// Keep going through parents till you find an invalid.
-	while(CurrentNode.IsValid())
+	while (CurrentNode.IsValid())
 	{
-		if(*CurrentNode->GetClassName() == InClass->GetName())
+		if (CurrentNode->Class.Get() == InClass)
 		{
 			return true;
 		}

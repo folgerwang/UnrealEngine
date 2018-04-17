@@ -567,10 +567,6 @@ bool SLevelViewport::HandleDragObjects(const FGeometry& MyGeometry, const FDragD
 			new(SelectedAssetDatas)FAssetData(ClassOperation->ClassesToDrop[DroppedAssetIdx].Get());
 		}
 	}
-	else if (Operation->IsOfType<FUnloadedClassDragDropOp>())
-	{
-		bValidDrag = true;
-	}
 	else if (Operation->IsOfType<FExportTextDragDropOp>())
 	{
 		bValidDrag = true;
@@ -707,56 +703,6 @@ bool SLevelViewport::HandlePlaceDraggedObjects(const FGeometry& MyGeometry, cons
 		}
 
 		bValidDrop = true;
-	}
-	else if (Operation->IsOfType<FUnloadedClassDragDropOp>())
-	{
-		TSharedPtr<FUnloadedClassDragDropOp> DragDropOp = StaticCastSharedPtr<FUnloadedClassDragDropOp>( Operation );
-
-		DroppedObjects.Empty();
-
-		// Check if the asset is loaded, used to see if the context menu should be available
-		bAllAssetWereLoaded = true;
-
-		TArray< FClassPackageData >& AssetArray = *(DragDropOp->AssetsToDrop.Get());
-		for (int32 DroppedAssetIdx = 0; DroppedAssetIdx < AssetArray.Num(); ++DroppedAssetIdx)
-		{
-			bValidDrop = true;
-
-			FString& AssetName = AssetArray[DroppedAssetIdx].AssetName;
-
-			// Check to see if the asset can be found, otherwise load it.
-			UObject* Object = FindObject<UObject>(NULL, *AssetName);
-			if(Object == NULL)
-			{
-				// Check to see if the dropped asset was a blueprint
-				const FString& PackageName = AssetArray[DroppedAssetIdx].GeneratedPackageName;
-				Object = FindObject<UObject>(NULL, *FString::Printf(TEXT("%s.%s"), *PackageName, *AssetName));
-
-				if ( Object == NULL )
-				{
-					// Load the package.
-					GWarn->BeginSlowTask( LOCTEXT("OnDrop_FullyLoadPackage", "Fully Loading Package For Drop"), true, false );
-					UPackage* Package = LoadPackage(NULL, *PackageName, LOAD_NoRedirects );
-					if (Package)
-					{
-						Package->FullyLoad();
-					}
-					GWarn->EndSlowTask();
-
-					Object = FindObject<UObject>(Package, *AssetName);
-				}
-			}
-
-			// Check again if it has been loaded, if not, mark that all were not loaded and move on.
-			if(Object)
-			{
-				DroppedObjects.Add(Object);
-			}
-			else
-			{	
-				bAllAssetWereLoaded = false;
-			}
-		}
 	}
 	else if (Operation->IsOfType<FAssetDragDropOp>())
 	{

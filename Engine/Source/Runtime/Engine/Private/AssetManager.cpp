@@ -296,7 +296,7 @@ FPrimaryAssetId UAssetManager::DeterminePrimaryAssetIdForObject(const UObject* O
 
 bool UAssetManager::IsAssetDataBlueprintOfClassSet(const FAssetData& AssetData, const TSet<FName>& ClassNameSet)
 {
-	const FString ParentClassFromData = AssetData.GetTagValueRef<FString>("ParentClass");
+	const FString ParentClassFromData = AssetData.GetTagValueRef<FString>(FBlueprintTags::ParentClassPath);
 	if (!ParentClassFromData.IsEmpty())
 	{
 		const FString ClassObjectPath = FPackageName::ExportTextPathToObjectPath(ParentClassFromData);
@@ -2845,12 +2845,16 @@ void UAssetManager::ModifyCook(TArray<FName>& PackagesToCook, TArray<FName>& Pac
 		{
 			EPrimaryAssetCookRule CookRule = GetPackageCookRule(AssetData.PackageName);
 
-			if (CookRule == EPrimaryAssetCookRule::AlwaysCook && !TypeInfo.bIsEditorOnly)
+			// Treat DevAlwaysCook as AlwaysCook, may get excluded in VerifyCanCookPackage
+			bool bAlwaysCook = (CookRule == EPrimaryAssetCookRule::AlwaysCook || CookRule == EPrimaryAssetCookRule::DevelopmentAlwaysCook);
+			bool bCanCook = VerifyCanCookPackage(AssetData.PackageName, false);
+			
+			if (bAlwaysCook && bCanCook && !TypeInfo.bIsEditorOnly)
 			{
-				// If this is always cook and not editor only, cook it
+				// If this is always cook, not excluded, and not editor only, cook it
 				PackagesToCook.AddUnique(AssetData.PackageName);
 			}
-			else if (!VerifyCanCookPackage(AssetData.PackageName, false))
+			else if (!bCanCook)
 			{
 				// If this package cannot be cooked, add to exclusion list
 				PackagesToNeverCook.AddUnique(AssetData.PackageName);
@@ -2903,7 +2907,7 @@ bool UAssetManager::VerifyCanCookPackage(FName PackageName, bool bLogError) cons
 		
 		return false;
 	}
-	else if (CookRule == EPrimaryAssetCookRule::DevelopmentCook && bOnlyCookProductionAssets)
+	else if ((CookRule == EPrimaryAssetCookRule::DevelopmentCook || CookRule == EPrimaryAssetCookRule::DevelopmentAlwaysCook) && bOnlyCookProductionAssets)
 	{
 		if (bLogError)
 		{

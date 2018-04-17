@@ -102,7 +102,7 @@ public:
 	virtual FArchive& operator<<(UObject*& Object) override
 	{
 		UObject* SerializedObject = Object;
-		if (Object && Object->IsIn(Component))
+		if (Object && Component && Object->IsIn(Component))
 		{
 			SerializedObject = GetDuplicatedObject(Object);
 		}
@@ -197,8 +197,9 @@ FActorComponentInstanceData::FActorComponentInstanceData(const UActorComponent* 
 		FComponentPropertyWriter ComponentPropertyWriter(SourceComponent, SavedProperties, InstancedObjects);
 
 		// Cache off the length of an array that will come from SerializeTaggedProperties that had no properties saved in to it.
-		auto GetSizeOfEmptyArchive = [](const UActorComponent* DummyComponent) -> int32
+		auto GetSizeOfEmptyArchive = []() -> int32
 		{
+			const UActorComponent* DummyComponent = GetDefault<UActorComponent>();
 			TArray<uint8> NoWrittenPropertyReference;
 			TArray<UObject*> NoInstances;
 			FComponentPropertyWriter NullWriter(nullptr, NoWrittenPropertyReference, NoInstances);
@@ -211,7 +212,7 @@ FActorComponentInstanceData::FActorComponentInstanceData(const UActorComponent* 
 			return NoWrittenPropertyReference.Num();
 		};
 
-		static const int32 SizeOfEmptyArchive = GetSizeOfEmptyArchive(SourceComponent);
+		static const int32 SizeOfEmptyArchive = GetSizeOfEmptyArchive();
 
 		// SerializeTaggedProperties will always put a sentinel NAME_None at the end of the Archive. 
 		// If that is the only thing in the buffer then empty it because we want to know that we haven't stored anything.
@@ -268,7 +269,7 @@ void FActorComponentInstanceData::ApplyToComponent(UActorComponent* Component, c
 
 		for (UObject* InstancedObject : InstancedObjects)
 		{
-			InstancedObject->Rename(nullptr, Component);
+			InstancedObject->Rename(nullptr, Component, REN_DontCreateRedirectors | REN_ForceNoResetLoaders);
 		}
 
 		FComponentPropertyReader ComponentPropertyReader(Component, SavedProperties);

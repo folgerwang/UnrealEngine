@@ -710,7 +710,7 @@ void FFrontendFilter_Modified::OnPackageDirtyStateUpdated(UPackage* Package)
 
 bool FFrontendFilter_ReplicatedBlueprint::PassesFilter(FAssetFilterType InItem) const
 {
-	const int32 NumReplicatedProperties = InItem.GetTagValueRef<int32>("NumReplicatedProperties");
+	const int32 NumReplicatedProperties = InItem.GetTagValueRef<int32>(FBlueprintTags::NumReplicatedProperties);
 	return NumReplicatedProperties > 0;
 }
 

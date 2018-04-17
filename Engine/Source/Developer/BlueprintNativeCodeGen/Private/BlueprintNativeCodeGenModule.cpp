@@ -79,6 +79,10 @@ private:
 	void GenerateSingleStub(UBlueprint* BP, const FName PlatformName);
 	void CollectBoundFunctions(UBlueprint* BP);
 	void GenerateSingleAsset(UField* ForConversion, const FName PlatformName, TSharedPtr<FNativizationSummary> NativizationSummary = TSharedPtr<FNativizationSummary>());
+	void ReplaceAsset(const UObject* InAsset, const FCompilerNativizationOptions& NativizationOptions) const;
+	void GatherClassAssetsReferencedByStruct(TSet<const UBlueprintGeneratedClass*>& Assets, const UStruct* OuterStruct, const UStruct* InnerStruct = nullptr) const;
+	void ReplaceAssetsWithCircularReferenceTo(const UBlueprintGeneratedClass* InClass, const FCompilerNativizationOptions& NativizationOptions) const;
+	bool HasCircularReferenceWithAnyConvertedAsset(const UBlueprintGeneratedClass* InClass, const FCompilerNativizationOptions& NativizationOptions) const;
 
 	struct FStatePerPlatform
 	{
@@ -890,13 +894,8 @@ EReplacementResult FBlueprintNativeCodeGenModule::IsTargetedForReplacement(const
 		}
 		return false;
 	};
-	if (ObjectIsNotReplacedAtAll())
-	{
-		StateForCurrentPlatform->CachedIsTargetedForReplacement.Add(ObjectKey, EReplacementResult::DontReplace);
-		return EReplacementResult::DontReplace;
-	}
 
-	auto ObjectGenratesOnlyStub = [&]() -> bool
+	auto ObjectGeneratesOnlyStub = [&]() -> bool
 	{
 		// ExcludedFolderPaths
 		{
@@ -1050,14 +1049,165 @@ EReplacementResult FBlueprintNativeCodeGenModule::IsTargetedForReplacement(const
 		}
 		return false;
 	};
-	if (ObjectGenratesOnlyStub())
+
+	EReplacementResult Result = EReplacementResult::ReplaceCompletely;
+
+	if (ObjectIsNotReplacedAtAll())
 	{
-		StateForCurrentPlatform->CachedIsTargetedForReplacement.Add(ObjectKey, EReplacementResult::GenerateStub);
-		return EReplacementResult::GenerateStub;
+		Result = EReplacementResult::DontReplace;
+	}
+	else if (ObjectGeneratesOnlyStub())
+	{
+		Result = EReplacementResult::GenerateStub;
 	}
 
-	StateForCurrentPlatform->CachedIsTargetedForReplacement.Add(ObjectKey, EReplacementResult::ReplaceCompletely);
-	return EReplacementResult::ReplaceCompletely;
+	StateForCurrentPlatform->CachedIsTargetedForReplacement.Add(ObjectKey, Result);
+
+	if (BlueprintClass)
+	{
+		if (Result == EReplacementResult::ReplaceCompletely)
+		{
+			// Look for any circular references with unconverted assets. We'll need to convert those as well in order to avoid creating an EDL cycle.
+			ReplaceAssetsWithCircularReferenceTo(BlueprintClass, NativizationOptions);
+		}
+		else if(HasCircularReferenceWithAnyConvertedAsset(BlueprintClass, NativizationOptions))
+		{
+			UE_LOG(LogBlueprintCodeGen, Log, TEXT("Forcing '%s' to be replaced as it has a circular reference to a converted asset"), *BlueprintClass->GetName());
+
+			// Force unconverted assets to be replaced if it has a circular reference with any converted asset.
+			ReplaceAsset(BlueprintClass, NativizationOptions);
+		}
+	}
+
+	return Result;
+}
+
+void FBlueprintNativeCodeGenModule::ReplaceAsset(const UObject* InAsset, const FCompilerNativizationOptions& NativizationOptions) const
+{
+	if (InAsset)
+	{
+		const FStatePerPlatform* StateForCurrentPlatform = StatesPerPlatform.Find(NativizationOptions.PlatformName);
+		check(StateForCurrentPlatform);
+
+		const FSoftObjectPath ObjectKey(InAsset);
+		StateForCurrentPlatform->CachedIsTargetedForReplacement.FindChecked(ObjectKey) = EReplacementResult::ReplaceCompletely;
+	}
+}
+
+void FBlueprintNativeCodeGenModule::GatherClassAssetsReferencedByStruct(TSet<const UBlueprintGeneratedClass*>& Assets, const UStruct* OuterStruct, const UStruct* InnerStruct) const
+{
+	if (OuterStruct)
+	{
+		for (const UProperty* Property = (InnerStruct ? InnerStruct->PropertyLink : OuterStruct->PropertyLink); Property; Property = Property->PropertyLinkNext)
+		{
+			TArray<const UProperty*, TInlineAllocator<2>> InnerPropertyList;
+			if (const UArrayProperty* ArrayProperty = Cast<const UArrayProperty>(Property))
+			{
+				InnerPropertyList.Add(ArrayProperty->Inner);
+			}
+			else if (const USetProperty* SetProperty = Cast<const USetProperty>(Property))
+			{
+				InnerPropertyList.Add(SetProperty->ElementProp);
+			}
+			else if (const UMapProperty* MapProperty = Cast<const UMapProperty>(Property))
+			{
+				InnerPropertyList.Add(MapProperty->KeyProp);
+				InnerPropertyList.Add(MapProperty->ValueProp);
+			}
+			else
+			{
+				InnerPropertyList.Add(Property);
+			}
+
+			for (const UProperty* InnerProperty : InnerPropertyList)
+			{
+				if (const UStructProperty* StructProperty = Cast<UStructProperty>(InnerProperty))
+				{
+					GatherClassAssetsReferencedByStruct(Assets, OuterStruct, StructProperty->Struct);
+				}
+				else
+				{
+					const UBlueprintGeneratedClass* BPGC = nullptr;
+					if (const UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(InnerProperty))
+					{
+						BPGC = Cast<const UBlueprintGeneratedClass>(ObjectProperty->PropertyClass);
+					}
+					else if (const UClassProperty* ClassProperty = Cast<UClassProperty>(InnerProperty))
+					{
+						BPGC = Cast<const UBlueprintGeneratedClass>(ClassProperty->MetaClass);
+					}
+
+					if (BPGC)
+					{
+						Assets.Add(BPGC);
+					}
+				}
+			}
+		}
+	}
+}
+
+void FBlueprintNativeCodeGenModule::ReplaceAssetsWithCircularReferenceTo(const UBlueprintGeneratedClass* InClass, const FCompilerNativizationOptions& NativizationOptions) const
+{
+	TSet<const UBlueprintGeneratedClass*> ForwardReferencedAssets;
+	GatherClassAssetsReferencedByStruct(ForwardReferencedAssets, InClass);
+
+	for (const UBlueprintGeneratedClass* ForwardReference : ForwardReferencedAssets)
+	{
+		const EReplacementResult Result = IsTargetedForReplacement(ForwardReference, NativizationOptions);
+		if (Result != EReplacementResult::ReplaceCompletely)
+		{
+			bool bForceConvert = false;
+			if (ForwardReference->IsChildOf(InClass))
+			{
+				UE_LOG(LogBlueprintCodeGen, Log, TEXT("Forcing '%s' to be replaced as it has a circular reference with '%s'"), *ForwardReference->GetName(), *InClass->GetName());
+				
+				ReplaceAsset(ForwardReference, NativizationOptions);
+			}
+			else
+			{
+				TSet<const UBlueprintGeneratedClass*> ReverseReferencedAssets;
+				GatherClassAssetsReferencedByStruct(ReverseReferencedAssets, ForwardReference);
+
+				for (const UBlueprintGeneratedClass* ReverseReference : ReverseReferencedAssets)
+				{
+					if (ReverseReference->IsChildOf(InClass))
+					{
+						UE_LOG(LogBlueprintCodeGen, Log, TEXT("Forcing '%s' to be replaced as it has a circular reference to '%s'"), *ForwardReference->GetName(), *InClass->GetName());
+						
+						ReplaceAsset(ForwardReference, NativizationOptions);
+						break;
+					}
+				}
+			}
+		}
+	}
+}
+
+bool FBlueprintNativeCodeGenModule::HasCircularReferenceWithAnyConvertedAsset(const UBlueprintGeneratedClass* InClass, const FCompilerNativizationOptions& NativizationOptions) const
+{
+	TSet<const UBlueprintGeneratedClass*> ForwardReferencedAssets;
+	GatherClassAssetsReferencedByStruct(ForwardReferencedAssets, InClass);
+
+	for (const UBlueprintGeneratedClass* ForwardReference : ForwardReferencedAssets)
+	{
+		const EReplacementResult Result = IsTargetedForReplacement(ForwardReference, NativizationOptions);
+		if (Result == EReplacementResult::ReplaceCompletely)
+		{
+			TSet<const UBlueprintGeneratedClass*> ReverseReferencedAssets;
+			GatherClassAssetsReferencedByStruct(ReverseReferencedAssets, ForwardReference);
+
+			for (const UBlueprintGeneratedClass* ReverseReference : ReverseReferencedAssets)
+			{
+				if (ReverseReference->IsChildOf(InClass))
+				{
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
 }
 
 void FBlueprintNativeCodeGenModule::FillPlatformNativizationDetails(const ITargetPlatform* Platform, FPlatformNativizationDetails& Details)

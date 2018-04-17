@@ -12,6 +12,7 @@
 #include "EdGraph/EdGraphPin.h"
 #include "Engine/BlueprintCore.h"
 #include "UObject/SoftObjectPath.h"
+#include "Blueprint/BlueprintSupport.h"
 #include "Blueprint.generated.h"
 
 class FCompilerResultsLog;

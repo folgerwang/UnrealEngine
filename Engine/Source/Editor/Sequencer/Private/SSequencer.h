@@ -21,7 +21,6 @@ class FAssetDragDropOp;
 class FClassDragDropOp;
 class FMovieSceneClipboard;
 class FSequencerTimeSliderController;
-class FUnloadedClassDragDropOp;
 class FVirtualTrackArea;
 class ISequencerEditTool;
 class SSequencerGotoBox;
@@ -376,14 +375,7 @@ private:
 	 * @param	DragDropOp	Information about the class(es) that were dropped
 	 */
 	void OnClassesDropped(const FClassDragDropOp& DragDropOp);
-	
-	/**
-	 * Called when one or more unloaded classes are dropped into the widget
-	 *
-	 * @param	DragDropOp	Information about the unloaded class(es) that were dropped
-	 */
-	void OnUnloadedClassesDropped(const FUnloadedClassDragDropOp& DragDropOp);
-	
+		
 	/**
 	 * Called when one or more actors are dropped into the widget
 	 *

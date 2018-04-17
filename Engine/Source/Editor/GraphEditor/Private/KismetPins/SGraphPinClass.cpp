@@ -125,7 +125,13 @@ FOnClicked SGraphPinClass::GetOnUseButtonDelegate()
 
 void SGraphPinClass::OnPickedNewClass(UClass* ChosenClass)
 {
-	if(GraphPinObj->DefaultObject != ChosenClass)
+	FString NewPath;
+	if (ChosenClass)
+	{
+		NewPath = ChosenClass->GetPathName();
+	}
+
+	if(GraphPinObj->GetDefaultAsString() != NewPath)
 	{
 		const FScopedTransaction Transaction( NSLOCTEXT("GraphEditor", "ChangeClassPinValue", "Change Class Pin Value" ) );
 		GraphPinObj->Modify();

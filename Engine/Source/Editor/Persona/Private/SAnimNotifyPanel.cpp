@@ -3781,7 +3781,7 @@ void SAnimNotifyTrack::GetNotifyMenuData(TArray<FAssetData>& NotifyAssetData, TA
 		// this functionality is only available in native class
 		// so we don't have to call BP function but just call native on the check of validity
 		FString NativeParentClassName;
-		if (NotifyData.GetTagValue("NativeParentClass", NativeParentClassName))
+		if (NotifyData.GetTagValue(FBlueprintTags::NativeParentClassPath, NativeParentClassName))
 		{
 			UObject* Outer = nullptr;
 			ResolveName(Outer, NativeParentClassName, false, false);
@@ -4826,8 +4826,6 @@ void SAnimNotifyPanel::OnGetNotifyBlueprintData(TArray<FAssetData>& OutNotifyDat
 	// Collect a full list of assets with the specified class
 	AssetRegistryModule.Get().GetAssetsByClass(UBlueprint::StaticClass()->GetFName(), AssetDataList);
 
-	static const FName BPParentClassName(TEXT("ParentClass"));
-	static const FName BPGenClassName(TEXT("GeneratedClass"));
 
 	int32 BeginClassCount = InOutAllowedClassNames->Num();
 	int32 CurrentClassCount = -1;
@@ -4839,12 +4837,12 @@ void SAnimNotifyPanel::OnGetNotifyBlueprintData(TArray<FAssetData>& OutNotifyDat
 		for(int32 AssetIndex = 0; AssetIndex < AssetDataList.Num(); ++AssetIndex)
 		{
 			FAssetData& AssetData = AssetDataList[AssetIndex];
-			FString TagValue = AssetData.GetTagValueRef<FString>(BPParentClassName);
+			FString TagValue = AssetData.GetTagValueRef<FString>(FBlueprintTags::ParentClassPath);
 
 			if(InOutAllowedClassNames->Contains(TagValue))
 			{
-				FString GenClass = AssetData.GetTagValueRef<FString>(BPGenClassName);
-				const uint32 ClassFlags = AssetData.GetTagValueRef<uint32>("ClassFlags");
+				FString GenClass = AssetData.GetTagValueRef<FString>(FBlueprintTags::GeneratedClassPath);
+				const uint32 ClassFlags = AssetData.GetTagValueRef<uint32>(FBlueprintTags::ClassFlags);
 				if (ClassFlags & CLASS_Abstract)
 				{
 					continue;

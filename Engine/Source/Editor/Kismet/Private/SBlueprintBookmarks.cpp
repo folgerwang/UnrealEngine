@@ -258,7 +258,9 @@ void SBlueprintBookmarks::OnDeleteSelectedTreeViewItems()
 	{
 		for(FTreeViewItemPtr SelectedItem : TreeViewWidget->GetSelectedItems())
 		{
-			BlueprintEditor->RemoveBookmark(SelectedItem->BookmarkNode.NodeGuid, false);
+			// The item contains a reference to the node in the source array, so use a local copy of the GUID since this will use RemoveSwap().
+			const FGuid NodeGuid = SelectedItem->BookmarkNode.NodeGuid;
+			BlueprintEditor->RemoveBookmark(NodeGuid, false);
 		}
 
 		RefreshBookmarksTree();

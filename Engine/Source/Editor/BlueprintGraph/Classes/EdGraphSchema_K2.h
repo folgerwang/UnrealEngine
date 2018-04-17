@@ -574,7 +574,7 @@ public:
 	virtual bool DefaultValueSimpleValidation(const FEdGraphPinType& PinType, const FName PinName, const FString& NewDefaultValue, UObject* NewDefaultObject, const FText& InText, FString* OutMsg = nullptr) const;
 
 	/** Returns true if the owning node is a function with AutoCreateRefTerm meta data */
-	bool IsAutoCreateRefTerm(const UEdGraphPin* Pin) const;
+	static bool IsAutoCreateRefTerm(const UEdGraphPin* Pin);
 
 	/** See if a class has any members that are accessible by a blueprint */
 	bool ClassHasBlueprintAccessibleMembers(const UClass* InClass) const;
@@ -808,7 +808,7 @@ public:
 	 * @param	Function				The function to check for auto-emitted ref terms on
 	 * @param	AutoEmitParameterNames	(out) Returns an array of param names that should be auto-emitted if nothing is connected
 	 */
-	void GetAutoEmitTermParameters(const UFunction* Function, TArray<FString>& AutoEmitParameterNames) const;
+	static void GetAutoEmitTermParameters(const UFunction* Function, TArray<FString>& AutoEmitParameterNames);
 
 	/**
 	 * Determine if a function has a parameter of a specific type.

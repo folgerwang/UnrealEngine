@@ -166,7 +166,7 @@ public:
 		return ObjectPath != NAME_None;
 	}
 
-	/** Returns true if this asset was found in a UAsset file */
+	/** Returns true if this is the primary asset in a package, true for maps and assets but false for secondary objects like class redirectors */
 	bool IsUAsset() const
 	{
 		return FPackageName::GetLongPackageAssetName(PackageName.ToString()) == AssetName.ToString();

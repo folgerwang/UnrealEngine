@@ -567,6 +567,12 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 			// Don't destroy PlayerControllers and BeaconClients
 			return false;
 		}
+
+		if (ThisActor->IsActorBeginningPlay())
+		{
+			FSetActorWantsDestroyDuringBeginPlay SetActorWantsDestroyDuringBeginPlay(ThisActor);
+			return true; // while we didn't actually destroy it now, we are going to, so tell the calling code it succeeded
+		}
 	}
 	else
 	{

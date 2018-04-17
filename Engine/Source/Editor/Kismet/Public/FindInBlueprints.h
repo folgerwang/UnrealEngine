@@ -25,7 +25,7 @@ class FUICommandList;
 
 typedef STreeView<FSearchResult>  STreeViewType;
 
-DECLARE_DELEGATE_OneParam(FOnSearchComplete, TArray<TSharedPtr<class FImaginaryFiBData>>&);
+DECLARE_DELEGATE_OneParam(FOnSearchComplete, TArray<FImaginaryFiBDataSharedPtr>&);
 
 /** Some utility functions to help with Find-in-Blueprint functionality */
 namespace FindInBlueprintsHelpers
