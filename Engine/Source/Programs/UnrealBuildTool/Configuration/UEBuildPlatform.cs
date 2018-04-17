@@ -43,7 +43,8 @@ namespace UnrealBuildTool
 			new FileSystemName("NoRedist"),
 			new FileSystemName("PS4"),
 			new FileSystemName("XboxOne"),
-			new FileSystemName("Switch")
+			new FileSystemName("Switch"),
+			new FileSystemName("Quail")
 		};
 
 		/// <summary>
