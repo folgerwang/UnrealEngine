@@ -196,20 +196,46 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 		//Build the vertex and index buffer
 		BuildVertexBuffer(StaticMesh, LodIndex, MeshDescription, StaticMeshLOD, LODBuildSettings, IndexBuffer, WedgeMap, PerSectionIndices, StaticMeshBuildVertices, MeshDescriptionHelper.GetOverlappingCorners(), VertexComparisonThreshold, RemapVerts);
 
-		// Figure out which index buffer stride we need
+		// Concatenate the per-section index buffers.
+		TArray<uint32> CombinedIndices;
 		bool bNeeds32BitIndices = false;
-		for (const FStaticMeshSection& StaticMeshSection : StaticMeshLOD.Sections)
+		for (int32 SectionIndex = 0; SectionIndex < StaticMeshLOD.Sections.Num(); SectionIndex++)
 		{
-			if (StaticMeshSection.MaxVertexIndex > TNumericLimits<uint16>::Max())
+			FStaticMeshSection& Section = StaticMeshLOD.Sections[SectionIndex];
+			TArray<uint32> const& SectionIndices = PerSectionIndices[SectionIndex];
+			Section.FirstIndex = 0;
+			Section.NumTriangles = 0;
+			Section.MinVertexIndex = 0;
+			Section.MaxVertexIndex = 0;
+
+			if (SectionIndices.Num())
 			{
-				bNeeds32BitIndices = true;
-				break;
+				Section.FirstIndex = CombinedIndices.Num();
+				Section.NumTriangles = SectionIndices.Num() / 3;
+
+				CombinedIndices.AddUninitialized(SectionIndices.Num());
+				uint32* DestPtr = &CombinedIndices[Section.FirstIndex];
+				uint32 const* SrcPtr = SectionIndices.GetData();
+
+				Section.MinVertexIndex = *SrcPtr;
+				Section.MaxVertexIndex = *SrcPtr;
+
+				for (int32 Index = 0; Index < SectionIndices.Num(); Index++)
+				{
+					uint32 VertIndex = *SrcPtr++;
+
+					bNeeds32BitIndices |= (VertIndex > MAX_uint16);
+					Section.MinVertexIndex = FMath::Min<uint32>(VertIndex, Section.MinVertexIndex);
+					Section.MaxVertexIndex = FMath::Max<uint32>(VertIndex, Section.MaxVertexIndex);
+					*DestPtr++ = VertIndex;
+				}
 			}
 		}
-		const EIndexBufferStride::Type IndexBufferStride = bNeeds32BitIndices ? EIndexBufferStride::Force32Bit : EIndexBufferStride::Force16Bit;
-		StaticMeshLOD.IndexBuffer.SetIndices(IndexBuffer, IndexBufferStride);
 
-		BuildAllBufferOptimizations(StaticMeshLOD, LODBuildSettings, IndexBuffer, bNeeds32BitIndices, StaticMeshBuildVertices);
+		const EIndexBufferStride::Type IndexBufferStride = bNeeds32BitIndices ? EIndexBufferStride::Force32Bit : EIndexBufferStride::Force16Bit;
+		StaticMeshLOD.IndexBuffer.SetIndices(CombinedIndices, IndexBufferStride);
+
+		BuildAllBufferOptimizations(StaticMeshLOD, LODBuildSettings, CombinedIndices, bNeeds32BitIndices, StaticMeshBuildVertices);
 	} //End of LOD for loop
 
 	// Calculate the bounding box.
@@ -418,7 +444,8 @@ void BuildVertexBuffer(
 	//Optimize before setting the buffer
 	if (VertexInstances.Num() < 100000 * 3)
 	{
-		BuildOptimizationHelper::CacheOptimizeVertexAndIndexBuffer(StaticMeshBuildVertices, OutPerSectionIndices);
+		BuildOptimizationHelper::CacheOptimizeVertexAndIndexBuffer(StaticMeshBuildVertices, OutPerSectionIndices, OutWedgeMap);
+		check(OutWedgeMap.Num() == MeshDescription->VertexInstances().Num());
 	}
 
 	StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.SetUseHighPrecisionTangentBasis(LODBuildSettings.bUseHighPrecisionTangentBasis);

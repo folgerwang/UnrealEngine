@@ -344,9 +344,19 @@ public:
 
 	static void CacheOptimizeVertexAndIndexBuffer(
 		TArray<FStaticMeshBuildVertex>& Vertices,
-		TArray<TArray<uint32> >& PerSectionIndices
+		TArray<TArray<uint32> >& PerSectionIndices,
+		TArray<int32>& WedgeMap
 	)
 	{
+		// Copy the vertices since we will be reordering them
+		TArray<FStaticMeshBuildVertex> OriginalVertices = Vertices;
+
+		// Initialize a cache that stores which indices have been assigned
+		TArray<int32> IndexCache;
+		IndexCache.AddUninitialized(Vertices.Num());
+		FMemory::Memset(IndexCache.GetData(), INDEX_NONE, IndexCache.Num() * IndexCache.GetTypeSize());
+		int32 NextAvailableIndex = 0;
+
 		// Iterate through the section index buffers, 
 		// Optimizing index order for the post transform cache (minimizes the number of vertices transformed), 
 		// And vertex order for the pre transform cache (minimizes the amount of vertex data fetched by the GPU).
@@ -358,6 +368,40 @@ public:
 			{
 				// Optimize the index buffer for the post transform cache with.
 				CacheOptimizeIndexBuffer(Indices);
+
+				// Copy the index buffer since we will be reordering it
+				TArray<uint32> OriginalIndices = Indices;
+
+				// Go through the indices and assign them new values that are coherent where possible
+				for (int32 Index = 0; Index < Indices.Num(); Index++)
+				{
+					const int32 CachedIndex = IndexCache[OriginalIndices[Index]];
+
+					if (CachedIndex == INDEX_NONE)
+					{
+						// No new index has been allocated for this existing index, assign a new one
+						Indices[Index] = NextAvailableIndex;
+						// Mark what this index has been assigned to
+						IndexCache[OriginalIndices[Index]] = NextAvailableIndex;
+						NextAvailableIndex++;
+					}
+					else
+					{
+						// Reuse an existing index assignment
+						Indices[Index] = CachedIndex;
+					}
+					// Reorder the vertices based on the new index assignment
+					Vertices[Indices[Index]] = OriginalVertices[OriginalIndices[Index]];
+				}
+			}
+		}
+
+		for (int32 i = 0; i < WedgeMap.Num(); i++)
+		{
+			int32 MappedIndex = WedgeMap[i];
+			if (MappedIndex != INDEX_NONE)
+			{
+				WedgeMap[i] = IndexCache[MappedIndex];
 			}
 		}
 	}
