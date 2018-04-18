@@ -170,6 +170,11 @@ protected:
 
 		struct FSerializedObject
 		{
+			FSerializedObject()
+				: bIsPendingKill(false)
+			{
+			}
+
 			void SetObject(const UObject* InObject)
 			{
 				ObjectName = InObject->GetFName();
