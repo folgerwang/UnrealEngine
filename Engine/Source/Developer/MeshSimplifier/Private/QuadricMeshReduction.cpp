@@ -563,7 +563,7 @@ public:
 					if (UVIndex < InVertexUVs.GetNumIndices())
 					{
 						NewVert.TexCoords[UVIndex] = InVertexUVs.GetArrayForIndex(UVIndex)[VertexInstanceIDs[CornerIndex]];
-						InMeshNumTexCoords = FMath::Max(UVIndex, InMeshNumTexCoords);
+						InMeshNumTexCoords = FMath::Max(UVIndex+1, InMeshNumTexCoords);
 					}
 					else
 					{
