@@ -678,7 +678,7 @@ private:
 		{
 			if (HttpResponse.IsValid())
 			{
-				ErrorStr = FText::Format(LOCTEXT("HttpResponse", "HTTP {0} response from {1}"),
+				ErrorStr = FText::Format(LOCTEXT("HttpResponseFromUrl", "HTTP {0} response from {1}"),
 					FText::AsNumber(HttpResponse->GetResponseCode()),
 					FText::FromString(HttpResponse->GetURL())).ToString();
 			}
@@ -742,7 +742,7 @@ private:
 		{
 			if (HttpResponse.IsValid())
 			{
-				ErrorStr = FText::Format(LOCTEXT("HttpResponse", "HTTP {0} response from {1}"),
+				ErrorStr = FText::Format(LOCTEXT("HttpResponseFromUrl", "HTTP {0} response from {1}"),
 					FText::AsNumber(HttpResponse->GetResponseCode()),
 					FText::FromString(HttpResponse->GetURL())).ToString();
 			}
