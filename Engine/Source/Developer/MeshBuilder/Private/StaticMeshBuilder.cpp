@@ -92,6 +92,7 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 			}
 			if (LodIndex > 0)
 			{
+				LODBuildSettings = StaticMesh->SourceModels[BaseReduceLodIndex].BuildSettings;
 				//Make sure the SectionInfoMap is taken from the Base RawMesh
 				int32 SectionNumber = StaticMesh->OriginalSectionInfoMap.GetSectionNumber(BaseReduceLodIndex);
 				for (int32 SectionIndex = 0; SectionIndex < SectionNumber; ++SectionIndex)
