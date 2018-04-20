@@ -9,7 +9,7 @@
 #include "StaticMeshVertexData.h"
 
 /*-----------------------------------------------------------------------------
-	FPositionVertexBuffer
+FPositionVertexBuffer
 -----------------------------------------------------------------------------*/
 
 /** The implementation of the static mesh position-only vertex data storage type. */
@@ -43,17 +43,15 @@ void FPositionVertexBuffer::CleanUp()
 	{
 		delete VertexData;
 		VertexData = NULL;
-		Data = NULL;
-		NumVertices = 0;
 	}
 }
 
 void FPositionVertexBuffer::Init(uint32 InNumVertices, bool bNeedsCPUAccess)
 {
+	NumVertices = InNumVertices;
+
 	// Allocate the vertex data storage type.
 	AllocateData(bNeedsCPUAccess);
-
-	NumVertices = InNumVertices;
 
 	// Allocate the vertex data buffer.
 	VertexData->ResizeBuffer(NumVertices);
@@ -61,9 +59,9 @@ void FPositionVertexBuffer::Init(uint32 InNumVertices, bool bNeedsCPUAccess)
 }
 
 /**
- * Initializes the buffer with the given vertices, used to convert legacy layouts.
- * @param InVertices - The vertices to initialize the buffer with.
- */
+* Initializes the buffer with the given vertices, used to convert legacy layouts.
+* @param InVertices - The vertices to initialize the buffer with.
+*/
 void FPositionVertexBuffer::Init(const TArray<FStaticMeshBuildVertex>& InVertices)
 {
 	Init(InVertices.Num());
@@ -78,15 +76,15 @@ void FPositionVertexBuffer::Init(const TArray<FStaticMeshBuildVertex>& InVertice
 }
 
 /**
- * Initializes this vertex buffer with the contents of the given vertex buffer.
- * @param InVertexBuffer - The vertex buffer to initialize from.
- */
+* Initializes this vertex buffer with the contents of the given vertex buffer.
+* @param InVertexBuffer - The vertex buffer to initialize from.
+*/
 void FPositionVertexBuffer::Init(const FPositionVertexBuffer& InVertexBuffer)
 {
-	Init(InVertexBuffer.GetNumVertices());
-
-	if( NumVertices )
+	if ( InVertexBuffer.GetNumVertices() )
 	{
+		Init(InVertexBuffer.GetNumVertices());
+
 		check( Stride == InVertexBuffer.GetStride() );
 
 		const uint8* InData = InVertexBuffer.Data;
@@ -96,45 +94,19 @@ void FPositionVertexBuffer::Init(const FPositionVertexBuffer& InVertexBuffer)
 
 void FPositionVertexBuffer::Init(const TArray<FVector>& InPositions)
 {
-	Init(InPositions.Num());
-
+	NumVertices = InPositions.Num();
 	if ( NumVertices )
 	{
+		AllocateData();
 		check( Stride == InPositions.GetTypeSize() );
+		VertexData->ResizeBuffer(NumVertices);
+		Data = VertexData->GetDataPointer();
 		FMemory::Memcpy( Data, InPositions.GetData(), Stride * NumVertices );
 	}
 }
 
 void FPositionVertexBuffer::AppendVertices( const FStaticMeshBuildVertex* Vertices, const uint32 NumVerticesToAppend )
 {
-	if (VertexData == nullptr && NumVerticesToAppend > 0)
-	{
-		// Allocate the vertex data storage type if the buffer was never allocated before
-		AllocateData();
-	}
-
-	if( NumVerticesToAppend > 0 )
-	{
-		check( VertexData != nullptr );
-		check( Vertices != nullptr );
-
-		const uint32 FirstDestVertexIndex = NumVertices;
-		NumVertices += NumVerticesToAppend;
-		VertexData->ResizeBuffer( NumVertices );
-		if( NumVertices > 0 )
-		{
-			Data = VertexData->GetDataPointer();
-
-			// Copy the vertices into the buffer.
-			for( uint32 VertexIter = 0; VertexIter < NumVerticesToAppend; ++VertexIter )
-			{
-				const FStaticMeshBuildVertex& SourceVertex = Vertices[ VertexIter ];
-
-				const uint32 DestVertexIndex = FirstDestVertexIndex + VertexIter;
-				VertexPosition( DestVertexIndex ) = SourceVertex.Position;
-			}
-		}
-	}
 }
 
 /**
@@ -181,7 +153,7 @@ void FPositionVertexBuffer::InitRHI()
 		// Create the vertex buffer.
 		FRHIResourceCreateInfo CreateInfo(ResourceArray);
 		VertexBufferRHI = RHICreateVertexBuffer(ResourceArray->GetResourceDataSize(), BUF_Static | BUF_ShaderResource, CreateInfo);
-		
+
 		// we have decide to create the SRV based on GMaxRHIShaderPlatform because this is created once and shared between feature levels for editor preview.
 		if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
 		{
