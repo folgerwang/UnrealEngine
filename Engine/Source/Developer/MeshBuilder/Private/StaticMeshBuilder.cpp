@@ -114,8 +114,14 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 			float OverlappingThreshold = LODBuildSettings.bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
 			TMultiMap<int32, int32> OverlappingCorners;
 			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, StaticMesh->GetMeshDescription(BaseLODIndex), OverlappingThreshold);
-			MeshDescriptionHelper.ReduceLOD(StaticMesh->GetMeshDescription(BaseLODIndex), StaticMesh->GetMeshDescription(LodIndex), ReductionSettings, OverlappingCorners);
-			UMeshDescription* MeshDescriptionReduced = StaticMesh->GetMeshDescription(LodIndex);
+
+			//Create a new destination mesh in case we reduce ourself
+			UMeshDescription* MeshDescriptionReduced = NewObject<UMeshDescription>(StaticMesh, NAME_None);
+			UStaticMesh::RegisterMeshAttributes(MeshDescriptionReduced);
+			MeshDescriptionHelper.ReduceLOD(StaticMesh->GetMeshDescription(BaseLODIndex), MeshDescriptionReduced, ReductionSettings, OverlappingCorners);
+			StaticMesh->SetMeshDescription(LodIndex, MeshDescriptionReduced);
+			MeshDescription = MeshDescriptionReduced;
+
 			if (MeshDescriptionReduced != nullptr)
 			{
 				const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescriptionReduced->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
