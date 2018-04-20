@@ -107,14 +107,42 @@ void FPositionVertexBuffer::Init(const TArray<FVector>& InPositions)
 
 void FPositionVertexBuffer::AppendVertices( const FStaticMeshBuildVertex* Vertices, const uint32 NumVerticesToAppend )
 {
+	if (VertexData == nullptr && NumVerticesToAppend > 0)
+	{
+		// Allocate the vertex data storage type if the buffer was never allocated before
+		AllocateData();
+	}
+
+	if( NumVerticesToAppend > 0 )
+	{
+		check( VertexData != nullptr );
+		check( Vertices != nullptr );
+
+		const uint32 FirstDestVertexIndex = NumVertices;
+		NumVertices += NumVerticesToAppend;
+		VertexData->ResizeBuffer( NumVertices );
+		if( NumVertices > 0 )
+		{
+			Data = VertexData->GetDataPointer();
+
+			// Copy the vertices into the buffer.
+			for( uint32 VertexIter = 0; VertexIter < NumVerticesToAppend; ++VertexIter )
+			{
+				const FStaticMeshBuildVertex& SourceVertex = Vertices[ VertexIter ];
+
+				const uint32 DestVertexIndex = FirstDestVertexIndex + VertexIter;
+				VertexPosition( DestVertexIndex ) = SourceVertex.Position;
+			}
+		}
+	}
 }
 
 /**
-* Serializer
-*
-* @param	Ar				Archive to serialize with
-* @param	bNeedsCPUAccess	Whether the elements need to be accessed by the CPU
-*/
+ * Serializer
+ *
+ * @param	Ar				Archive to serialize with
+ * @param	bNeedsCPUAccess	Whether the elements need to be accessed by the CPU
+ */
 void FPositionVertexBuffer::Serialize( FArchive& Ar, bool bNeedsCPUAccess )
 {
 	Ar << Stride << NumVertices;

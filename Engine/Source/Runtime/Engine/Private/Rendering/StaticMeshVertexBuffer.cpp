@@ -37,16 +37,15 @@ void FStaticMeshVertexBuffer::CleanUp()
 
 void FStaticMeshVertexBuffer::Init(uint32 InNumVertices, uint32 InNumTexCoords, bool bNeedsCPUAccess)
 {
-	// Allocate the vertex data storage type.
-	AllocateData(bNeedsCPUAccess);
-
 	NumTexCoords = InNumTexCoords;
 	NumVertices = InNumVertices;
+
+	// Allocate the vertex data storage type.
+	AllocateData(bNeedsCPUAccess);
 
 	// Allocate the vertex data buffer.
 	TangentsData->ResizeBuffer(NumVertices);
 	TangentsDataPtr = NumVertices ? TangentsData->GetDataPointer() : nullptr;
-
 	TexcoordData->ResizeBuffer(NumVertices * GetNumTexCoords());
 	TexcoordDataPtr = NumVertices ? TexcoordData->GetDataPointer() : nullptr;
 }
@@ -80,15 +79,18 @@ void FStaticMeshVertexBuffer::Init(const TArray<FStaticMeshBuildVertex>& InVerti
 */
 void FStaticMeshVertexBuffer::Init(const FStaticMeshVertexBuffer& InVertexBuffer)
 {
+	NumTexCoords = InVertexBuffer.GetNumTexCoords();
+	NumVertices = InVertexBuffer.GetNumVertices();
 	bUseFullPrecisionUVs = InVertexBuffer.GetUseFullPrecisionUVs();
 	bUseHighPrecisionTangentBasis = InVertexBuffer.GetUseHighPrecisionTangentBasis();
 
-	Init(InVertexBuffer.GetNumVertices(), InVertexBuffer.GetNumTexCoords());
-
 	if (NumVertices)
 	{
+		AllocateData();
 		{
 			check(TangentsData->GetStride() == InVertexBuffer.TangentsData->GetStride());
+			TangentsData->ResizeBuffer(NumVertices);
+			TangentsDataPtr = TangentsData->GetDataPointer();
 			const uint8* InData = InVertexBuffer.TangentsDataPtr;
 			FMemory::Memcpy(TangentsDataPtr, InData, TangentsData->GetStride() * NumVertices);
 		}
@@ -104,6 +106,8 @@ void FStaticMeshVertexBuffer::Init(const FStaticMeshVertexBuffer& InVertexBuffer
 			}
 			else
 			{
+				TexcoordData->ResizeBuffer(NumVertices * GetNumTexCoords());
+				TexcoordDataPtr = TexcoordData->GetDataPointer();
 				FMemory::Memcpy(TexcoordDataPtr, InData, TexcoordData->GetStride() * NumVertices * GetNumTexCoords());
 			}
 		}
@@ -131,6 +135,7 @@ void FStaticMeshVertexBuffer::ConvertHalfTexcoordsToFloat(const uint8* InData)
 	}
 
 	delete OriginalTexcoordData;
+	OriginalTexcoordData = nullptr;
 }
 
 
@@ -218,7 +223,7 @@ void FStaticMeshVertexBuffer::Serialize(FArchive& Ar, bool bNeedsCPUAccess)
 
 			// Make a copy of the vertex data pointer.
 			TexcoordDataPtr = TexcoordData->GetDataPointer();
-			
+
 			// convert half float data to full float if the HW requires it.
 			if (!GetUseFullPrecisionUVs() && !GVertexElementTypeSupport.IsSupported(VET_Half2))
 			{
@@ -365,7 +370,7 @@ void FStaticMeshVertexBuffer::BindTangentVertexBuffer(const FVertexFactory* Vert
 	{
 		Data.TangentsSRV = TangentsSRV;
 	}
-	
+
 	{
 		uint32 TangentSizeInBytes = 0;
 		uint32 TangentXOffset = 0;
@@ -416,7 +421,7 @@ void FStaticMeshVertexBuffer::BindPackedTexCoordVertexBuffer(const FVertexFactor
 	{
 		Data.TextureCoordinatesSRV = TextureCoordinatesSRV;
 	}
-	
+
 	{
 		EVertexElementType UVDoubleWideVertexElementType = VET_None;
 		EVertexElementType UVVertexElementType = VET_None;
@@ -470,7 +475,7 @@ void FStaticMeshVertexBuffer::BindTexCoordVertexBuffer(const FVertexFactory* Ver
 	{
 		Data.TextureCoordinatesSRV = TextureCoordinatesSRV;
 	}
-	
+
 	{
 		EVertexElementType UVVertexElementType = VET_None;
 		uint32 UVSizeInBytes = 0;
@@ -521,7 +526,7 @@ void FStaticMeshVertexBuffer::BindLightMapVertexBuffer(const FVertexFactory* Ver
 	{
 		Data.TextureCoordinatesSRV = TextureCoordinatesSRV;
 	}
-	
+
 	{
 		EVertexElementType UVVertexElementType = VET_None;
 		uint32 UVSizeInBytes = 0;
