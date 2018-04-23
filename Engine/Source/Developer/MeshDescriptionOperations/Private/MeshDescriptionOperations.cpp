@@ -353,7 +353,7 @@ void FillMeshDescriptionVertexPositionNoDuplicate(const TArray<FVector> &RawMesh
 		}
 		TempRemapVertexPosition.FindOrAdd(Index_i) = VertexCount;
 		// only need to search forward, since we add pairs both ways
-		for (int32 j = i + 1; j < VertIndexAndZ.Num(); j++)
+/*		for (int32 j = i + 1; j < VertIndexAndZ.Num(); j++)
 		{
 			if (FMath::Abs(VertIndexAndZ[j].Z - VertIndexAndZ[i].Z) > SMALL_NUMBER)
 				break; // can't be any more dups
@@ -365,7 +365,7 @@ void FillMeshDescriptionVertexPositionNoDuplicate(const TArray<FVector> &RawMesh
 			{
 				TempRemapVertexPosition.FindOrAdd(VertIndexAndZ[j].Index) = VertexCount;
 			}
-		}
+		}*/
 		VertexCount++;
 	}
 
@@ -728,6 +728,18 @@ void FMeshDescriptionOperations::CreateNormals(UMeshDescription* MeshDescription
 							VertexInfo.VertexInstanceID = VertexInstanceID;
 							VertexInfo.UVs = VertexUVs[VertexInstanceID];
 							bPointHasAllTangents &= !VertexNormals[VertexInstanceID].IsNearlyZero() && !VertexTangents[VertexInstanceID].IsNearlyZero();
+							if (bPointHasAllTangents)
+							{
+								FVector TangentX = VertexTangents[VertexInstanceID].GetSafeNormal();
+								FVector TangentZ = VertexNormals[VertexInstanceID].GetSafeNormal();
+								FVector TangentY = (FVector::CrossProduct(TangentZ, TangentX).GetSafeNormal() * VertexBinormalSigns[VertexInstanceID]).GetSafeNormal();
+								if (TangentX.ContainsNaN() || TangentX.IsNearlyZero(SMALL_NUMBER) ||
+									TangentY.ContainsNaN() || TangentY.IsNearlyZero(SMALL_NUMBER) ||
+									TangentZ.ContainsNaN() || TangentZ.IsNearlyZero(SMALL_NUMBER))
+								{
+									bPointHasAllTangents = false;
+								}
+							}
 							break;
 						}
 					}
@@ -801,17 +813,35 @@ void FMeshDescriptionOperations::CreateNormals(UMeshDescription* MeshDescription
 			FVector GroupNormal(0.0f);
 			for (const FPolygonID PolygonID : Group)
 			{
+				FVector PolyNormal = PolygonNormals[PolygonID];
+				FVector PolyTangent = PolygonTangents[PolygonID];
+				FVector PolyBinormal = PolygonBinormals[PolygonID];
+				
 				ConsumedPolygon.Add(PolygonID);
 				VertexInstanceInGroup.Add(VertexInfoMap[PolygonID].VertexInstanceID);
-				GroupNormal += PolygonNormals[PolygonID];
+				if (!PolyNormal.IsNearlyZero(SMALL_NUMBER) && !PolyNormal.ContainsNaN())
+				{
+					GroupNormal += PolyNormal;
+				}
 				if (bComputeTangent)
 				{
 					const FVector2D UVs = VertexInfoMap[PolygonID].UVs;
 					bool CreateGroup = (!GroupTangent.Contains(UVs));
 					FVector& GroupTangentValue = GroupTangent.FindOrAdd(UVs);
 					FVector& GroupBiNormalValue = GroupBiNormal.FindOrAdd(UVs);
-					GroupTangentValue = CreateGroup ? PolygonTangents[PolygonID] : GroupTangentValue + PolygonTangents[PolygonID];
-					GroupBiNormalValue = CreateGroup ? PolygonBinormals[PolygonID] : GroupBiNormalValue + PolygonBinormals[PolygonID];
+					if (CreateGroup)
+					{
+						GroupTangentValue = FVector(0.0f);
+						GroupBiNormalValue = FVector(0.0f);
+					}
+					if (!PolyTangent.IsNearlyZero(SMALL_NUMBER) && !PolyTangent.ContainsNaN())
+					{
+						GroupTangentValue += PolyTangent;
+					}
+					if (!PolyBinormal.IsNearlyZero(SMALL_NUMBER) && !PolyBinormal.ContainsNaN())
+					{
+						GroupBiNormalValue += PolyBinormal;
+					}
 				}
 			}
 
