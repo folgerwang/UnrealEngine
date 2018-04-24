@@ -413,6 +413,51 @@ bool FConvexVolume::IntersectSphere(const FVector& Origin,const float& Radius, b
 	return Result;
 }
 
+bool FConvexVolume::IntersectLineSegment(const FVector& InStart, const FVector& InEnd) const
+{
+	// @todo: not optimized
+	// Not sure if there's a better algorithm for this; in any case, there's scope for vectorizing some of this stuff
+	// using the permuted planes array.
+
+	// Take copies of the line segment start/end points so they can be modified
+	FVector Start(InStart);
+	FVector End(InEnd);
+
+	// Iterate through all planes, successively clipping the line segment against each one,
+	// until it is either completely contained within the convex volume (intersects), or
+	// it is completely outside (doesn't intersect)
+	for (const FPlane& Plane : Planes)
+	{
+		const float DistanceFromStart = Plane.PlaneDot(Start);
+		const float DistanceFromEnd = Plane.PlaneDot(End);
+
+		if (DistanceFromStart > 0.0f && DistanceFromEnd > 0.0f)
+		{
+			// Both points are outside one of the frustum planes, so cannot intersect
+			return false;
+		}
+
+		if (DistanceFromStart < 0.0f && DistanceFromEnd < 0.0f)
+		{
+			// Both points are inside this frustum plane, no need to clip it against the plane
+			continue;
+		}
+
+		// Clip the line segment against the plane
+		const FVector IntersectionPoint = FMath::LinePlaneIntersection(Start, End, Plane);
+		if (DistanceFromStart > 0.0f)
+		{
+			Start = IntersectionPoint;
+		}
+		else
+		{
+			End = IntersectionPoint;
+		}
+	}
+
+	return true;
+}
+
 void GetViewFrustumBounds(FConvexVolume& OutResult, const FMatrix& ViewProjectionMatrix, bool UseNearPlane)
 {
 	GetViewFrustumBounds(OutResult, ViewProjectionMatrix, FPlane(), false, UseNearPlane);

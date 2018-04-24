@@ -122,7 +122,7 @@ public:
 	~FScopedABTimer()
 	{
 		Stop();
-		FABTest::Get().ReportScopeTime(GetAccumulatedTime());
+		FABTest::Get().ReportScopeTime(Accumulator);
 	}
 private:
 	double TimerData;

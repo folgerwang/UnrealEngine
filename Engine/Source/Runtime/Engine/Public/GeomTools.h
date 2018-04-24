@@ -156,8 +156,8 @@ namespace FGeomTools
 	ENGINE_API void Split2DPolysWithPlane(FUtilPoly2DSet& PolySet, const FPlane& Plane, const FColor& ExteriorVertColor, const FColor& InteriorVertColor);
 
 	/** Given three direction vectors, indicates if A and B are on the same 'side' of Vec. */
-	ENGINE_API bool VectorsOnSameSide(const FVector& Vec, const FVector& A, const FVector& B);
+	ENGINE_API bool VectorsOnSameSide(const FVector& Vec, const FVector& A, const FVector& B, const float SameSideDotProductEpsilon = 0.0f );
 
 	/** Util to see if P lies within triangle created by A, B and C. */
-	ENGINE_API bool PointInTriangle(const FVector& A, const FVector& B, const FVector& C, const FVector& P);
+	ENGINE_API bool PointInTriangle(const FVector& A, const FVector& B, const FVector& C, const FVector& P, const float InsideTriangleDotProductEpsilon = 0.0f);
 };

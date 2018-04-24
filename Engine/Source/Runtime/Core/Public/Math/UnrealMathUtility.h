@@ -949,6 +949,17 @@ struct FMath : public FPlatformMath
 
 	// Geometry intersection 
 
+	/**
+	 * Find the intersection of a ray and a plane.  The ray has a start point with an infinite length.  Assumes that the
+	 * line and plane do indeed intersect; you must make sure they're not parallel before calling.
+	 *
+	 * @param RayOrigin	The start point of the ray
+	 * @param RayDirection	The direction the ray is pointing (normalized vector)
+	 * @param Plane	The plane to intersect with
+	 *
+	 * @return The point of intersection between the ray and the plane.
+	 */
+	static FVector RayPlaneIntersection( const FVector& RayOrigin, const FVector& RayDirection, const FPlane& Plane );
 
 	/**
 	 * Find the intersection of a line and an offset plane. Assumes that the
@@ -976,6 +987,7 @@ struct FMath : public FPlatformMath
 	 * @return The point of intersection between the line and the plane.
 	 */
 	static FVector LinePlaneIntersection( const FVector &Point1, const FVector &Point2, const FPlane  &Plane);
+
 
 	// @parma InOutScissorRect should be set to View.ViewRect before the call
 	// @return 0: light is not visible, 1:use scissor rect, 2: no scissor rect needed

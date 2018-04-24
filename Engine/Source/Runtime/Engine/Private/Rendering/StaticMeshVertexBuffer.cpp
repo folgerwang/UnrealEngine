@@ -138,20 +138,48 @@ void FStaticMeshVertexBuffer::ConvertHalfTexcoordsToFloat(const uint8* InData)
 	OriginalTexcoordData = nullptr;
 }
 
-/**
-* Removes the cloned vertices used for extruding shadow volumes.
-* @param NumVertices - The real number of static mesh vertices which should remain in the buffer upon return.
-*/
-void FStaticMeshVertexBuffer::RemoveLegacyShadowVolumeVertices(uint32 InNumVertices)
-{
-	check(TangentsData && TexcoordData);
-	TangentsData->ResizeBuffer(InNumVertices);
-	TexcoordData->ResizeBuffer(InNumVertices * GetNumTexCoords());
-	NumVertices = InNumVertices;
 
-	// Make a copy of the vertex data pointer.
-	TangentsDataPtr = TangentsData->GetDataPointer();
-	TexcoordDataPtr = TexcoordData->GetDataPointer();
+void FStaticMeshVertexBuffer::AppendVertices( const FStaticMeshBuildVertex* Vertices, const uint32 NumVerticesToAppend )
+{
+	if ((TangentsData == nullptr || TexcoordData == nullptr) && NumVerticesToAppend > 0)
+	{
+		check(NumVertices == 0);
+		NumTexCoords = 1;
+
+		// Allocate the vertex data storage type if it has never been allocated before
+		AllocateData();
+	}
+
+	if( NumVerticesToAppend > 0 )
+	{
+		check( Vertices != nullptr );
+
+		const uint32 FirstDestVertexIndex = NumVertices;
+		NumVertices += NumVerticesToAppend;
+
+		TangentsData->ResizeBuffer(NumVertices);
+		TexcoordData->ResizeBuffer(NumVertices * GetNumTexCoords());
+
+		if( NumVertices > 0 )
+		{
+			TangentsDataPtr = TangentsData->GetDataPointer();
+			TexcoordDataPtr = TexcoordData->GetDataPointer();
+
+			// Copy the vertices into the buffer.
+			for( uint32 VertexIter = 0; VertexIter < NumVerticesToAppend; ++VertexIter )
+			{
+				const FStaticMeshBuildVertex& SourceVertex = Vertices[ VertexIter ];
+
+				const uint32 DestVertexIndex = FirstDestVertexIndex + VertexIter;
+
+				SetVertexTangents( DestVertexIndex, SourceVertex.TangentX, SourceVertex.TangentY, SourceVertex.TangentZ );
+				for( uint32 UVIndex = 0; UVIndex < NumTexCoords; UVIndex++ )
+				{
+					SetVertexUV( DestVertexIndex, UVIndex, SourceVertex.UVs[ UVIndex ] );
+				}
+			}
+		}
+	}
 }
 
 
@@ -195,7 +223,7 @@ void FStaticMeshVertexBuffer::Serialize(FArchive& Ar, bool bNeedsCPUAccess)
 
 			// Make a copy of the vertex data pointer.
 			TexcoordDataPtr = TexcoordData->GetDataPointer();
-			
+
 			// convert half float data to full float if the HW requires it.
 			if (!GetUseFullPrecisionUVs() && !GVertexElementTypeSupport.IsSupported(VET_Half2))
 			{
@@ -342,7 +370,7 @@ void FStaticMeshVertexBuffer::BindTangentVertexBuffer(const FVertexFactory* Vert
 	{
 		Data.TangentsSRV = TangentsSRV;
 	}
-	
+
 	{
 		uint32 TangentSizeInBytes = 0;
 		uint32 TangentXOffset = 0;
@@ -393,7 +421,7 @@ void FStaticMeshVertexBuffer::BindPackedTexCoordVertexBuffer(const FVertexFactor
 	{
 		Data.TextureCoordinatesSRV = TextureCoordinatesSRV;
 	}
-	
+
 	{
 		EVertexElementType UVDoubleWideVertexElementType = VET_None;
 		EVertexElementType UVVertexElementType = VET_None;
@@ -447,7 +475,7 @@ void FStaticMeshVertexBuffer::BindTexCoordVertexBuffer(const FVertexFactory* Ver
 	{
 		Data.TextureCoordinatesSRV = TextureCoordinatesSRV;
 	}
-	
+
 	{
 		EVertexElementType UVVertexElementType = VET_None;
 		uint32 UVSizeInBytes = 0;
@@ -498,7 +526,7 @@ void FStaticMeshVertexBuffer::BindLightMapVertexBuffer(const FVertexFactory* Ver
 	{
 		Data.TextureCoordinatesSRV = TextureCoordinatesSRV;
 	}
-	
+
 	{
 		EVertexElementType UVVertexElementType = VET_None;
 		uint32 UVSizeInBytes = 0;

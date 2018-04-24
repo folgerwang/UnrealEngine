@@ -4,6 +4,7 @@
 
 #include "CoreTypes.h"
 #include "UObject/UObjectHierarchyFwd.h"
+#include "Change.h"
 
 // Class for handling undo/redo transactions among objects.
 typedef void(*STRUCT_DC)( void* TPtr );						// default construct
@@ -199,9 +200,19 @@ public:
 	 * Saves an UObject to the transaction.
 	 *
 	 * @param Object The object to save.
+	 *
 	 * @see SaveArray
 	 */
 	virtual void SaveObject( UObject* Object ) = 0;
+
+	/**
+	 * Stores a command that can be used to undo a change to the specified object.  This may be called multiple times in the
+	 * same transaction to stack up changes that will be rolled back in reverse order.  No copy of the object itself is stored.
+	 *
+	 * @param Object The object the undo change will apply to
+	 * @param CustomChange The change that can be used to undo the changes to this object.
+	 */
+	virtual void StoreUndo( UObject* Object, TUniquePtr<FChange> CustomChange ) = 0;
 
 	/**
 	 * Sets the transaction's primary object.

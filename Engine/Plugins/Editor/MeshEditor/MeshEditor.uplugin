@@ -1,0 +1,36 @@
+{
+	"FileVersion" : 3,
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"FriendlyName" : "Mesh Editor",
+	"Description" : "Mesh editing system",
+	"Category" : "Editor",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"EnabledByDefault" : true,
+	"CanContainContent" : true,
+	"IsBetaVersion" : false,
+	"Installed" : false,
+	"Modules" :
+	[
+		{
+			"Name" : "MeshEditor",
+			"Type" : "Editor",
+			"LoadingPhase" : "Default"
+		},
+		{
+			"Name" : "PolygonModeling",
+			"Type" : "Editor",
+			"LoadingPhase" : "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "EditableMesh",
+			"Enabled": true
+		}
+	]
+}

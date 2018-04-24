@@ -880,8 +880,10 @@ inline bool TQuadricAttrOptimizer< NumAttributes >::Optimize( FVector& Point ) c
 	//     [ -d[ 0 .. m] ]
 
 	// ( C - 1/a * B*Bt ) * p = -1/a * B*d - dn
-
-	checkSlow( a != 0.0 );
+	if (FMath::IsNearlyZero(a, (double)(1.e-12)))
+	{
+		return false;
+	}
 	
 	// M = C - 1/a * B*Bt
 	double ia = 1.0 / a;

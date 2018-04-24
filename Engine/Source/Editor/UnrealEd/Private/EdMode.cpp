@@ -520,12 +520,12 @@ bool FEdMode::BoxSelect( FBox& InBox, bool InSelect )
 	return bResult;
 }
 
-bool FEdMode::FrustumSelect( const FConvexVolume& InFrustum, bool InSelect )
+bool FEdMode::FrustumSelect( const FConvexVolume& InFrustum, FEditorViewportClient* InViewportClient, bool InSelect )
 {
 	bool bResult = false;
 	if( GetCurrentTool() )
 	{
-		bResult = GetCurrentTool()->FrustumSelect( InFrustum, InSelect );
+		bResult = GetCurrentTool()->FrustumSelect( InFrustum, InViewportClient, InSelect );
 	}
 	return bResult;
 }

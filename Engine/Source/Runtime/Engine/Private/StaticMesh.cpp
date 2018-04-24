@@ -40,14 +40,21 @@
 #include "Model.h"
 #include "SplineMeshSceneProxy.h"
 #include "Templates/UniquePtr.h"
+#include "MeshDescription.h"
 
 #if WITH_EDITOR
 #include "RawMesh.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "MeshBuilder.h"
 #include "MeshUtilities.h"
 #include "DerivedDataCacheInterface.h"
 #include "PlatformInfo.h"
 #include "ScopedTransaction.h"
+#include "IMeshBuilderModule.h"
+#include "MeshDescriptionOperations.h"
 #endif // #if WITH_EDITOR
+
+#include "MeshAttributes.h"
 
 #include "Engine/StaticMeshSocket.h"
 #include "EditorFramework/AssetImportData.h"
@@ -115,6 +122,23 @@ namespace StaticMeshCookStats
 }
 #endif
 
+
+#if WITH_EDITOR
+static void FillMaterialName(const TArray<FStaticMaterial>& StaticMaterials, TMap<int32, FName>& OutMaterialMap)
+{
+	OutMaterialMap.Empty(StaticMaterials.Num());
+
+	for (int32 MaterialIndex = 0; MaterialIndex < StaticMaterials.Num(); ++MaterialIndex)
+	{
+		FName MaterialName = StaticMaterials[MaterialIndex].ImportedMaterialSlotName;
+		if (MaterialName == NAME_None)
+		{
+			MaterialName = *(TEXT("MaterialSlot_") + FString::FromInt(MaterialIndex));
+		}
+		OutMaterialMap.Add(MaterialIndex, MaterialName);
+	}
+}
+#endif
 
 
 /*-----------------------------------------------------------------------------
@@ -1309,7 +1333,7 @@ FArchive& operator<<(FArchive& Ar, FMeshBuildSettings& BuildSettings)
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define STATICMESH_DERIVEDDATA_VER TEXT("8CAD439CF4B14211ACC831AE9C7C98BC")
+#define STATICMESH_DERIVEDDATA_VER TEXT("305A71049F594F5A8D73BE076F3DEF11")
 
 static const FString& GetStaticMeshDerivedDataVersion()
 {
@@ -1370,6 +1394,13 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 	{
 		KeySuffix += Lex::ToString(Mesh->LightmapUVVersion);
 	}
+#if WITH_EDITOR
+	if (GIsAutomationTesting && Mesh->BuildCacheAutomationTestGuid.IsValid())
+	{
+		//If we are in automation testing and the BuildCacheAutomationTestGuid was set
+		KeySuffix += Mesh->BuildCacheAutomationTestGuid.ToString(EGuidFormats::Digits);
+	}
+#endif
 
 	int32 NumLODs = Mesh->SourceModels.Num();
 	for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
@@ -1551,11 +1582,29 @@ void FStaticMeshRenderData::Cache(UStaticMesh* Owner, const FStaticMeshLODSettin
 			Args.Add(TEXT("StaticMeshName"), FText::FromString( Owner->GetName() ) );
 			FStaticMeshStatusMessageContext StatusContext( FText::Format( NSLOCTEXT("Engine", "BuildingStaticMeshStatus", "Building static mesh {StaticMeshName}..."), Args ) );
 
-			IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>(TEXT("MeshUtilities"));
-			if (!MeshUtilities.BuildStaticMesh(*this, Owner, LODGroup))
+			bool bUseMeshDescription = false;
+			if (Owner->GetOriginalMeshDescription(0) != nullptr)
 			{
-				UE_LOG(LogStaticMesh, Error, TEXT("Failed to build static mesh. See previous line(s) for details."));
-				return;
+				bUseMeshDescription = true;
+			}
+
+			if (bUseMeshDescription)
+			{
+				IMeshBuilderModule& MeshBuilderModule = FModuleManager::Get().LoadModuleChecked<IMeshBuilderModule>(TEXT("MeshBuilder"));
+				if (!MeshBuilderModule.BuildMesh(*this, Owner, LODGroup))
+				{
+					UE_LOG(LogStaticMesh, Error, TEXT("Failed to build static mesh. See previous line(s) for details."));
+					return;
+				}
+			}
+			else
+			{
+				IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>(TEXT("MeshUtilities"));
+				if (!MeshUtilities.BuildStaticMesh(*this, Owner, LODGroup))
+				{
+					UE_LOG(LogStaticMesh, Error, TEXT("Failed to build static mesh. See previous line(s) for details."));
+					return;
+				}
 			}
 
 			ComputeUVDensities();
@@ -1672,6 +1721,9 @@ UStaticMesh::UStaticMesh(const FObjectInitializer& ObjectInitializer)
 	MinLOD.Default = 0;
 
 	bSupportUniformlyDistributedSampling = false;
+#if WITH_EDITOR
+	BuildCacheAutomationTestGuid.Invalidate();
+#endif
 }
 
 void UStaticMesh::PostInitProperties()
@@ -2130,6 +2182,14 @@ void UStaticMesh::BroadcastNavCollisionChange()
 		}
 	}
 }
+
+FStaticMeshSourceModel& UStaticMesh::AddSourceModel()
+{
+	int32 LodModelIndex = SourceModels.AddDefaulted();
+	SourceModels[LodModelIndex].StaticMeshOwner = this;
+	return SourceModels[LodModelIndex];
+}
+
 #endif // WITH_EDITOR
 
 void UStaticMesh::BeginDestroy()
@@ -2260,6 +2320,8 @@ FStaticMeshSourceModel::FStaticMeshSourceModel()
 #if WITH_EDITOR
 	RawMeshBulkData = new FRawMeshBulkData();
 	ScreenSize.Default = 0.0f;
+	OriginalMeshDescription = nullptr;
+	StaticMeshOwner = nullptr;
 #endif // #if WITH_EDITOR
 }
 
@@ -2271,10 +2333,52 @@ FStaticMeshSourceModel::~FStaticMeshSourceModel()
 		delete RawMeshBulkData;
 		RawMeshBulkData = NULL;
 	}
+	OriginalMeshDescription = nullptr;
+	StaticMeshOwner = nullptr;
 #endif // #if WITH_EDITOR
-	}
+}
 
 #if WITH_EDITOR
+bool FStaticMeshSourceModel::IsRawMeshEmpty() const
+{
+	return (RawMeshBulkData == nullptr || (RawMeshBulkData->IsEmpty() && OriginalMeshDescription == nullptr));
+}
+
+void FStaticMeshSourceModel::LoadRawMesh(FRawMesh& OutRawMesh) const
+{
+	if (RawMeshBulkData->IsEmpty() && OriginalMeshDescription != nullptr)
+	{
+		TMap<FName, int32> MaterialMap;
+		check(StaticMeshOwner != nullptr);
+		for (int32 MaterialIndex = 0; MaterialIndex < StaticMeshOwner->StaticMaterials.Num(); ++MaterialIndex)
+		{
+			MaterialMap.Add(StaticMeshOwner->StaticMaterials[MaterialIndex].ImportedMaterialSlotName, MaterialIndex);
+		}
+		FMeshDescriptionOperations::ConverToRawMesh(OriginalMeshDescription, OutRawMesh, MaterialMap);
+	}
+	else
+	{
+		RawMeshBulkData->LoadRawMesh(OutRawMesh);
+	}
+}
+
+void FStaticMeshSourceModel::SaveRawMesh(FRawMesh& InRawMesh, bool bConvertToMeshdescription /*= true*/)
+{
+	if (!InRawMesh.IsValid())
+	{
+		return;
+	}
+	//Save both format
+	RawMeshBulkData->SaveRawMesh(InRawMesh);
+	if (bConvertToMeshdescription && OriginalMeshDescription != nullptr)
+	{
+		TMap<int32, FName> MaterialMap;
+		check(StaticMeshOwner != nullptr);
+		FillMaterialName(StaticMeshOwner->StaticMaterials, MaterialMap);
+		FMeshDescriptionOperations::ConverFromRawMesh(InRawMesh, OriginalMeshDescription, MaterialMap);
+	}
+}
+
 void FStaticMeshSourceModel::SerializeBulkData(FArchive& Ar, UObject* Owner)
 {
 	check(RawMeshBulkData != NULL);
@@ -2401,6 +2505,40 @@ void FMeshSectionInfoMap::Serialize(FArchive& Ar)
 
 #endif // #if WITH_EDITORONLY_DATA
 
+/**
+ * Registers the mesh attributes required by the mesh description for a static mesh.
+ */
+void UStaticMesh::RegisterMeshAttributes( UMeshDescription* MeshDescription )
+{
+	// Add basic vertex attributes
+	MeshDescription->VertexAttributes().RegisterAttribute<FVector>( MeshAttribute::Vertex::Position, 1, FVector::ZeroVector, EMeshAttributeFlags::Lerpable );
+	MeshDescription->VertexAttributes().RegisterAttribute<float>( MeshAttribute::Vertex::CornerSharpness, 1, 0.0f, EMeshAttributeFlags::Lerpable );
+
+	// Add basic vertex instance attributes
+	MeshDescription->VertexInstanceAttributes().RegisterAttribute<FVector2D>( MeshAttribute::VertexInstance::TextureCoordinate, 1, FVector2D::ZeroVector, EMeshAttributeFlags::Lerpable );
+	MeshDescription->VertexInstanceAttributes().RegisterAttribute<FVector>( MeshAttribute::VertexInstance::Normal, 1, FVector::ZeroVector, EMeshAttributeFlags::AutoGenerated );
+	MeshDescription->VertexInstanceAttributes().RegisterAttribute<FVector>( MeshAttribute::VertexInstance::Tangent, 1, FVector::ZeroVector, EMeshAttributeFlags::AutoGenerated );
+	MeshDescription->VertexInstanceAttributes().RegisterAttribute<float>( MeshAttribute::VertexInstance::BinormalSign, 1, 0.0f, EMeshAttributeFlags::AutoGenerated );
+	MeshDescription->VertexInstanceAttributes().RegisterAttribute<FVector4>( MeshAttribute::VertexInstance::Color, 1, FVector4( 1.0f ), EMeshAttributeFlags::Lerpable );
+
+	// Add basic edge attributes
+	MeshDescription->EdgeAttributes().RegisterAttribute<bool>( MeshAttribute::Edge::IsHard, 1, false );
+	MeshDescription->EdgeAttributes().RegisterAttribute<bool>( MeshAttribute::Edge::IsUVSeam, 1, false );
+	MeshDescription->EdgeAttributes().RegisterAttribute<float>( MeshAttribute::Edge::CreaseSharpness, 1, 0.0f, EMeshAttributeFlags::Lerpable );
+
+	// Add basic polygon attributes
+	MeshDescription->PolygonAttributes().RegisterAttribute<FVector>( MeshAttribute::Polygon::Normal, 1, FVector::ZeroVector, EMeshAttributeFlags::AutoGenerated );
+	MeshDescription->PolygonAttributes().RegisterAttribute<FVector>( MeshAttribute::Polygon::Tangent, 1, FVector::ZeroVector, EMeshAttributeFlags::AutoGenerated );
+	MeshDescription->PolygonAttributes().RegisterAttribute<FVector>( MeshAttribute::Polygon::Binormal, 1, FVector::ZeroVector, EMeshAttributeFlags::AutoGenerated );
+	MeshDescription->PolygonAttributes().RegisterAttribute<FVector>( MeshAttribute::Polygon::Center, 1, FVector::ZeroVector, EMeshAttributeFlags::AutoGenerated );
+
+	// Add basic polygon group attributes
+	MeshDescription->PolygonGroupAttributes().RegisterAttribute<FName>( MeshAttribute::PolygonGroup::ImportedMaterialSlotName ); //The unique key to match the mesh material slot
+	MeshDescription->PolygonGroupAttributes().RegisterAttribute<bool>( MeshAttribute::PolygonGroup::EnableCollision ); //Deprecated
+	MeshDescription->PolygonGroupAttributes().RegisterAttribute<bool>( MeshAttribute::PolygonGroup::CastShadow ); //Deprecated
+}
+
+
 #if WITH_EDITOR
 static FStaticMeshRenderData& GetPlatformStaticMeshRenderData(UStaticMesh* Mesh, const ITargetPlatform* Platform)
 {
@@ -2432,8 +2570,344 @@ static FStaticMeshRenderData& GetPlatformStaticMeshRenderData(UStaticMesh* Mesh,
 	return *PlatformRenderData;
 }
 
+
+#if WITH_EDITORONLY_DATA
+
+UMeshDescription* UStaticMesh::GetMeshDescription(int32 LodIndex) const
+{
+	if (!MeshDescriptions.IsValidIndex(LodIndex))
+	{
+		return nullptr;
+	}
+	return MeshDescriptions[LodIndex];
+}
+
+void UStaticMesh::SetMeshDescription(int32 LodIndex, class UMeshDescription* InMeshDescription)
+{
+	if (!MeshDescriptions.IsValidIndex(LodIndex) && LodIndex >= 0)
+	{
+		//Add nullptr missing entries
+		MeshDescriptions.AddZeroed(LodIndex - MeshDescriptions.Num() + 1);
+	}
+	//Set the original mesh description
+	MeshDescriptions[LodIndex] = InMeshDescription;
+}
+
+UMeshDescription* UStaticMesh::GetOriginalMeshDescription(int32 LodIndex)
+{
+	if (SourceModels.IsValidIndex(LodIndex))
+	{
+		if (SourceModels[LodIndex].OriginalMeshDescription == nullptr && !SourceModels[LodIndex].IsRawMeshEmpty())
+		{
+			//Fill the MeshDescription on demand
+			SourceModels[LodIndex].OriginalMeshDescription = NewObject<UMeshDescription>(this, NAME_None);
+			RegisterMeshAttributes(SourceModels[LodIndex].OriginalMeshDescription);
+
+			FRawMesh LodRawMesh;
+			SourceModels[LodIndex].LoadRawMesh(LodRawMesh);
+			TMap<int32, FName> MaterialMap;
+			FillMaterialName(StaticMaterials, MaterialMap);
+			FMeshDescriptionOperations::ConverFromRawMesh(LodRawMesh, SourceModels[LodIndex].OriginalMeshDescription, MaterialMap);
+		}
+		return SourceModels[LodIndex].OriginalMeshDescription;
+	}
+	return nullptr;
+}
+
+void UStaticMesh::SetOriginalMeshDescription(int32 LodIndex, class UMeshDescription* MeshDescription)
+{
+	//The source model must be create before calling this function
+	check(SourceModels.IsValidIndex(LodIndex));
+
+	if (MeshDescription != nullptr)
+	{
+		FRawMesh TempRawMesh;
+		TMap<FName, int32> MaterialMap;
+		for (int32 MaterialIndex = 0; MaterialIndex < StaticMaterials.Num(); ++MaterialIndex)
+		{
+			MaterialMap.Add(StaticMaterials[MaterialIndex].ImportedMaterialSlotName, MaterialIndex);
+		}
+		//Convert RawMesh to meshdescription
+		FMeshDescriptionOperations::ConverToRawMesh(MeshDescription, TempRawMesh, MaterialMap);
+		SourceModels[LodIndex].RawMeshBulkData->SaveRawMesh(TempRawMesh);
+	}
+	else
+	{
+		//Mesh description is null, remove the rawmesh data
+		SourceModels[LodIndex].RawMeshBulkData->Empty();
+	}
+	SourceModels[LodIndex].OriginalMeshDescription = MeshDescription;
+}
+
+void UStaticMesh::ClearOriginalMeshDescription(int32 LodIndex)
+{
+	if (SourceModels.IsValidIndex(LodIndex))
+	{
+		SourceModels[LodIndex].OriginalMeshDescription = nullptr;
+	}
+}
+
+void UStaticMesh::FixupMaterialSlotName()
+{
+	TArray<FName> UniqueMaterialSlotName;
+	//Make sure we have non empty imported material slot names
+	for (FStaticMaterial& Material : StaticMaterials)
+	{
+		if (Material.ImportedMaterialSlotName == NAME_None)
+		{
+			if (Material.MaterialSlotName != NAME_None)
+			{
+				Material.ImportedMaterialSlotName = Material.MaterialSlotName;
+			}
+			else if (Material.MaterialInterface != nullptr)
+			{
+				Material.ImportedMaterialSlotName = Material.MaterialInterface->GetFName();
+			}
+			else
+			{
+				Material.ImportedMaterialSlotName = FName(TEXT("MaterialSlot"));
+			}
+		}
+
+		FString UniqueName = Material.ImportedMaterialSlotName.ToString();
+		int32 UniqueIndex = 1;
+		while (UniqueMaterialSlotName.Contains(FName(*UniqueName)))
+		{
+			UniqueName = FString::Printf(TEXT("%s_%d"), *UniqueName, UniqueIndex);
+			UniqueIndex++;
+		}
+		Material.ImportedMaterialSlotName = FName(*UniqueName);
+		UniqueMaterialSlotName.Add(Material.ImportedMaterialSlotName);
+		if (Material.MaterialSlotName == NAME_None)
+		{
+			Material.MaterialSlotName = Material.ImportedMaterialSlotName;
+		}
+	}
+}
+
+// If static mesh derived data needs to be rebuilt (new format, serialization
+// differences, etc.) replace the version GUID below with a new one.
+// In case of merge conflicts with DDC versions, you MUST generate a new GUID
+// and set this new GUID as the version.                                       
+#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("0329735AAE644B4AAC069ED412F0574B")
+
+static const FString& GetMeshDataKeyStaticMeshDerivedDataVersion()
+{
+	static FString CachedVersionString;
+	if (CachedVersionString.IsEmpty())
+	{
+		// Static mesh versioning is controlled by the version reported by the mesh utilities module.
+		CachedVersionString = FString::Printf(TEXT("%s%s"),
+			*UMeshDescription::GetMeshDescriptionVersion(),
+			MESHDATAKEY_STATICMESH_DERIVEDDATA_VER);
+	}
+	return CachedVersionString;
+}
+
+bool UStaticMesh::GetMeshDataKey(FString& OutKey)
+{
+	OutKey.Empty();
+	if (SourceModels.Num() < 1)
+	{
+		return false;
+	}
+	FSHA1 Sha;
+	for (int32 LodIndex = 0; LodIndex < SourceModels.Num(); ++LodIndex)
+	{
+		FString LodIndexString = FString::Printf(TEXT("%d_"), LodIndex);
+		FStaticMeshSourceModel& SourceModel = SourceModels[LodIndex];
+		if(!SourceModel.RawMeshBulkData->IsEmpty())
+		{
+			LodIndexString += SourceModel.RawMeshBulkData->GetIdString();
+		}
+		else
+		{
+			LodIndexString += TEXT("REDUCELOD");
+		}
+		const TArray<TCHAR>& LodIndexArray = LodIndexString.GetCharArray();
+		Sha.Update((uint8*)LodIndexArray.GetData(), LodIndexArray.Num() * LodIndexArray.GetTypeSize());
+	}
+	Sha.Final();
+	// Retrieve the hash and use it to construct a pseudo-GUID.
+	uint32 Hash[5];
+	Sha.GetHash((uint8*)Hash);
+	FGuid Guid = FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]);
+	FString MeshLodData = Guid.ToString(EGuidFormats::Digits);
+
+	OutKey = FDerivedDataCacheInterface::BuildCacheKey(
+		TEXT("MESHDATAKEY_STATICMESH"),
+		*GetMeshDataKeyStaticMeshDerivedDataVersion(),
+		*MeshLodData
+	);
+	return true;
+}
+
+struct FMeshDataSerialize
+{
+private:
+	int32 LodNumber;
+	TArray<bool> MeshDescriptionTable;
+	TArray<UMeshDescription*> MeshDescriptionContent;
+
+public:
+	FMeshDataSerialize()
+	{
+		LodNumber = 0;
+	}
+
+	~FMeshDataSerialize()
+	{
+		for (int32 LodIndex = 0; LodIndex < LodNumber; ++LodIndex)
+		{
+			if (MeshDescriptionTable[LodIndex] == true)
+			{
+				MeshDescriptionContent[LodIndex]->ClearFlags(RF_AllFlags);
+				MeshDescriptionContent[LodIndex]->MarkPendingKill();
+			}
+		}
+		LodNumber = 0;
+		MeshDescriptionTable.Empty();
+		MeshDescriptionContent.Empty();
+	}
+
+	//Fill the structure data using the static mesh
+	void ReadDataFromStaticMesh(UStaticMesh* StaticMesh)
+	{
+		LodNumber = StaticMesh->SourceModels.Num();
+		MeshDescriptionTable.AddZeroed(LodNumber);
+		MeshDescriptionContent.AddZeroed(LodNumber);
+		for (int32 LodIndex = 0; LodIndex < LodNumber; ++LodIndex)
+		{
+			FStaticMeshSourceModel& SourceModel = StaticMesh->SourceModels[LodIndex];
+			MeshDescriptionTable[LodIndex] = SourceModel.OriginalMeshDescription != nullptr;
+			if (MeshDescriptionTable[LodIndex])
+			{
+				MeshDescriptionContent[LodIndex] = Cast<UMeshDescription>(StaticDuplicateObject(SourceModel.OriginalMeshDescription, GetTransientPackage(), NAME_None));
+				MeshDescriptionContent[LodIndex]->SetFlags(RF_Standalone);
+			}
+		}
+	}
+
+	//Apply the structure data to a static mesh
+	//Return true if we have valid data to set in the static mesh
+	bool WriteDataToStaticMesh(UStaticMesh* StaticMesh, int32 LodIndex)
+	{
+		if (LodIndex >= LodNumber || LodIndex < 0 || !StaticMesh->SourceModels.IsValidIndex(LodIndex))
+		{
+			return false;
+		}
+
+		if (MeshDescriptionTable.IsValidIndex(LodIndex) && MeshDescriptionTable[LodIndex] && MeshDescriptionContent[LodIndex] != nullptr)
+		{
+			StaticMesh->SourceModels[LodIndex].OriginalMeshDescription = Cast<UMeshDescription>(StaticDuplicateObject(MeshDescriptionContent[LodIndex], StaticMesh, NAME_None, RF_AllFlags & ~RF_Standalone));
+			return true;
+		}
+
+		return false;
+	}
+
+	void ReadArchive(TArray<uint8>& DerivedData)
+	{
+		FMemoryReader Ar(DerivedData, /*bIsPersistent=*/ true);
+		Ar.Serialize((void*)(&LodNumber), sizeof(int32));
+		MeshDescriptionTable.AddZeroed(LodNumber);
+		MeshDescriptionContent.AddZeroed(LodNumber);
+		for (int32 LodIndex = 0; LodIndex < LodNumber; ++LodIndex)
+		{
+			int32 HasMeshDescription;
+			Ar.Serialize((void*)(&HasMeshDescription), sizeof(int32));
+			MeshDescriptionTable[LodIndex] = HasMeshDescription == 0 ? false : true;
+			if (MeshDescriptionTable[LodIndex])
+			{
+				//Write the UMeshDescription
+				MeshDescriptionContent[LodIndex] = NewObject<UMeshDescription>(GetTransientPackage(), NAME_None, RF_Standalone);
+				MeshDescriptionContent[LodIndex]->Serialize(Ar);
+			}
+		}
+	}
+
+	void WriteArchive(TArray<uint8>& DerivedData)
+	{
+		FMemoryWriter Ar(DerivedData, /*bIsPersistent=*/ true);
+		Ar.Serialize((void*)(&LodNumber), sizeof(int32));
+		for (int32 LodIndex = 0; LodIndex < LodNumber; ++LodIndex)
+		{
+			int32 HasMeshDescription = MeshDescriptionTable[LodIndex] ? 1 : 0;
+			Ar.Serialize((void*)(&HasMeshDescription), sizeof(int32));
+			if (HasMeshDescription)
+			{
+				//Write the UMeshDescription
+				MeshDescriptionContent[LodIndex]->Serialize(Ar);
+			}
+		}
+	}
+};
+
+void UStaticMesh::CacheMeshData()
+{
+	//Look if a ddc exist for this mesh data
+	bool IsValidCache = false;
+	//Since we can have more then 1 LOD we need a structure to store the RawData per LOD to read/write the mesh description ddc
+	FMeshDataSerialize MeshDataSerialize;
+	FString MeshDataKey;
+	if (GetMeshDataKey(MeshDataKey))
+	{
+		//Get the ddc if it exist
+		TArray<uint8> DerivedData;
+		if (GetDerivedDataCacheRef().GetSynchronous(*MeshDataKey, DerivedData))
+		{
+			MeshDataSerialize.ReadArchive(DerivedData);
+			IsValidCache = true;
+		}
+	}
+
+	for (int32 LodIndex = 0; LodIndex < SourceModels.Num(); ++LodIndex)
+	{
+		//For phase 1 the mesh description is transient to avoid loosing data
+		FStaticMeshSourceModel& SourceModel = SourceModels[LodIndex];
+		if (!SourceModel.RawMeshBulkData->IsEmpty() && SourceModel.OriginalMeshDescription == nullptr)
+		{
+			//Use the ddc if it exist, otherwise convert the data
+			if (!MeshDataSerialize.WriteDataToStaticMesh(this, LodIndex))
+			{
+				//ddc does not contain a mesh description, create one
+				IsValidCache = false;
+				FRawMesh TempRawMesh;
+				//Convert the rawmesh to mesh description mark the ddc for save
+				SourceModel.RawMeshBulkData->LoadRawMesh(TempRawMesh);
+
+				//The original mesh description is null we must create one
+				SourceModel.OriginalMeshDescription = NewObject<UMeshDescription>(this, NAME_None);
+				RegisterMeshAttributes(SourceModel.OriginalMeshDescription);
+
+				//Convert the raw mesh to mesh description and save the mesh description in the ddc
+				TMap<int32, FName> MaterialMap;
+				FillMaterialName(StaticMaterials, MaterialMap);
+				FMeshDescriptionOperations::ConverFromRawMesh(TempRawMesh, SourceModel.OriginalMeshDescription, MaterialMap);
+			}
+		}
+	}
+
+	//Write the mesh description ddc cache if necessary
+	if (!IsValidCache && !MeshDataKey.IsEmpty())
+	{
+		//We need to write the cache
+		MeshDataSerialize.ReadDataFromStaticMesh(this);
+		//Write the ddc cache
+		TArray<uint8> DerivedData;
+		MeshDataSerialize.WriteArchive(DerivedData);
+		int32 LodNumber = SourceModels.Num();
+		GetDerivedDataCacheRef().Put(*MeshDataKey, DerivedData);
+	}
+}
+
+#endif
+
 void UStaticMesh::CacheDerivedData()
 {
+#if WITH_EDITORONLY_DATA
+	CacheMeshData();
+#endif
 	// Cache derived data for the running platform.
 	ITargetPlatformManagerModule& TargetPlatformManager = GetTargetPlatformManagerRef();
 	ITargetPlatform* RunningPlatform = TargetPlatformManager.GetRunningTargetPlatform();
@@ -2747,7 +3221,7 @@ void UStaticMesh::Serialize(FArchive& Ar)
 			FStaticMeshSourceModel& SourceModel = SourceModels[LODIndex];
 
 			FRawMesh RawMesh;
-			SourceModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+			SourceModel.LoadRawMesh(RawMesh);
 
 			// Billboard LOD is made up out of quads so check for this
 			bool bQuadVertices = ((RawMesh.VertexPositions.Num() % 4) == 0);
@@ -2784,6 +3258,15 @@ void UStaticMesh::PostLoad()
 		if (DistanceFieldReplacementMesh)
 		{
 			DistanceFieldReplacementMesh->ConditionalPostLoad();
+		}
+		
+		//TODO remove this code when FRawMesh will be removed
+		//Fill the static mesh owner
+		int32 NumLODs = SourceModels.Num();
+		for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
+		{
+			FStaticMeshSourceModel& SrcModel = SourceModels[LODIndex];
+			SrcModel.StaticMeshOwner = this;
 		}
 	}
 
@@ -2823,10 +3306,9 @@ void UStaticMesh::PostLoad()
 
 			for (int32 i = 0; i < SourceModels.Num(); ++i)
 			{
-				FRawMeshBulkData* RawMeshBulkData = SourceModels[i].RawMeshBulkData;
-				if (RawMeshBulkData)
+				if (!SourceModels[i].IsRawMeshEmpty())
 				{
-					RawMeshBulkData->LoadRawMesh(TempRawMesh);
+					SourceModels[i].LoadRawMesh(TempRawMesh);
 					TotalIndexCount += TempRawMesh.WedgeIndices.Num();
 				}
 			}
@@ -2842,6 +3324,8 @@ void UStaticMesh::PostLoad()
 		{
 			SetLODGroup(LODGroup);
 		}
+
+		FixupMaterialSlotName();
 
 		CacheDerivedData();
 
@@ -3276,27 +3760,28 @@ void UStaticMesh::GetVertexColorData(TMap<FVector, FColor>& VertexColorData)
 	// What LOD to get vertex colors from.  
 	// Currently mesh painting only allows for painting on the first lod.
 	const uint32 PaintingMeshLODIndex = 0;
-	if (SourceModels.IsValidIndex(PaintingMeshLODIndex)
-		&& SourceModels[PaintingMeshLODIndex].RawMeshBulkData->IsEmpty() == false)
+	if (SourceModels.IsValidIndex(PaintingMeshLODIndex))
 	{
-		// Extract the raw mesh.
-		FRawMesh Mesh;
-		SourceModels[PaintingMeshLODIndex].RawMeshBulkData->LoadRawMesh(Mesh);
-
-		// Nothing to copy if there are no colors stored.
-		if (Mesh.WedgeColors.Num() != 0 && Mesh.WedgeColors.Num() == Mesh.WedgeIndices.Num())
+		if (SourceModels[PaintingMeshLODIndex].IsRawMeshEmpty() == false)
 		{
-			// Build a mapping of vertex positions to vertex colors.
-			for (int32 WedgeIndex = 0; WedgeIndex < Mesh.WedgeIndices.Num(); ++WedgeIndex)
+			// Extract the raw mesh.
+			FRawMesh Mesh;
+			SourceModels[PaintingMeshLODIndex].LoadRawMesh(Mesh);
+			// Nothing to copy if there are no colors stored.
+			if (Mesh.WedgeColors.Num() != 0 && Mesh.WedgeColors.Num() == Mesh.WedgeIndices.Num())
 			{
-				FVector Position = Mesh.VertexPositions[Mesh.WedgeIndices[WedgeIndex]];
-				FColor Color = Mesh.WedgeColors[WedgeIndex];
-				if (!VertexColorData.Contains(Position))
+				// Build a mapping of vertex positions to vertex colors.
+				for (int32 WedgeIndex = 0; WedgeIndex < Mesh.WedgeIndices.Num(); ++WedgeIndex)
 				{
-					VertexColorData.Add(Position, Color);
+					FVector Position = Mesh.VertexPositions[Mesh.WedgeIndices[WedgeIndex]];
+					FColor Color = Mesh.WedgeColors[WedgeIndex];
+					if (!VertexColorData.Contains(Position))
+					{
+						VertexColorData.Add(Position, Color);
+					}
 				}
 			}
-		}	
+		}
 	}
 #endif // #if WITH_EDITORONLY_DATA
 }
@@ -3314,37 +3799,39 @@ void UStaticMesh::SetVertexColorData(const TMap<FVector, FColor>& VertexColorDat
 	// What LOD to get vertex colors from.  
 	// Currently mesh painting only allows for painting on the first lod.
 	const uint32 PaintingMeshLODIndex = 0;
-	if (SourceModels.IsValidIndex(PaintingMeshLODIndex)
-		&& SourceModels[PaintingMeshLODIndex].RawMeshBulkData->IsEmpty() == false)
+	if (SourceModels.IsValidIndex(PaintingMeshLODIndex))
 	{
-		// Extract the raw mesh.
-		FRawMesh Mesh;
-		SourceModels[PaintingMeshLODIndex].RawMeshBulkData->LoadRawMesh(Mesh);
-
-		// Reserve space for the new vertex colors.
-		if (Mesh.WedgeColors.Num() == 0 || Mesh.WedgeColors.Num() != Mesh.WedgeIndices.Num())
+		if (SourceModels[PaintingMeshLODIndex].IsRawMeshEmpty() == false)
 		{
-			Mesh.WedgeColors.Empty(Mesh.WedgeIndices.Num());
-			Mesh.WedgeColors.AddUninitialized(Mesh.WedgeIndices.Num());
-		}
+			// Extract the raw mesh.
+			FRawMesh Mesh;
+			SourceModels[PaintingMeshLODIndex].LoadRawMesh(Mesh);
 
-		// Build a mapping of vertex positions to vertex colors.
-		for (int32 WedgeIndex = 0; WedgeIndex < Mesh.WedgeIndices.Num(); ++WedgeIndex)
-		{
-			FVector Position = Mesh.VertexPositions[Mesh.WedgeIndices[WedgeIndex]];
-			const FColor* Color = VertexColorData.Find(Position);
-			if (Color)
+			// Reserve space for the new vertex colors.
+			if (Mesh.WedgeColors.Num() == 0 || Mesh.WedgeColors.Num() != Mesh.WedgeIndices.Num())
 			{
-				Mesh.WedgeColors[WedgeIndex] = *Color;
+				Mesh.WedgeColors.Empty(Mesh.WedgeIndices.Num());
+				Mesh.WedgeColors.AddUninitialized(Mesh.WedgeIndices.Num());
 			}
-			else
-			{
-				Mesh.WedgeColors[WedgeIndex] = FColor(255,255,255,255);
-			}
-		}
 
-		// Save the new raw mesh.
-		SourceModels[PaintingMeshLODIndex].RawMeshBulkData->SaveRawMesh(Mesh);
+			// Build a mapping of vertex positions to vertex colors.
+			for (int32 WedgeIndex = 0; WedgeIndex < Mesh.WedgeIndices.Num(); ++WedgeIndex)
+			{
+				FVector Position = Mesh.VertexPositions[Mesh.WedgeIndices[WedgeIndex]];
+				const FColor* Color = VertexColorData.Find(Position);
+				if (Color)
+				{
+					Mesh.WedgeColors[WedgeIndex] = *Color;
+				}
+				else
+				{
+					Mesh.WedgeColors[WedgeIndex] = FColor(255, 255, 255, 255);
+				}
+			}
+
+			// Save the new raw mesh.
+			SourceModels[PaintingMeshLODIndex].SaveRawMesh(Mesh);
+		}
 	}
 	// TODO_STATICMESH: Build?
 #endif // #if WITH_EDITOR
@@ -3357,16 +3844,16 @@ ENGINE_API void UStaticMesh::RemoveVertexColors()
 
 	for (FStaticMeshSourceModel& SourceModel : SourceModels)
 	{
-		if (SourceModel.RawMeshBulkData && !SourceModel.RawMeshBulkData->IsEmpty())
+		if (!SourceModel.IsRawMeshEmpty())
 		{
 			FRawMesh RawMesh;
-			SourceModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+			SourceModel.LoadRawMesh(RawMesh);
 
 			if (RawMesh.WedgeColors.Num() > 0)
 			{
 				RawMesh.WedgeColors.Empty();
 
-				SourceModel.RawMeshBulkData->SaveRawMesh(RawMesh);
+				SourceModel.SaveRawMesh(RawMesh);
 
 				bRemovedVertexColors = true;
 			}
@@ -3729,6 +4216,19 @@ void UStaticMesh::SetMaterial(int32 MaterialIndex, UMaterialInterface* NewMateri
 	}
 }
 #endif //WITH_EDITOR
+
+int32 UStaticMesh::GetMaterialIndexFromImportedMaterialSlotName(FName ImportedMaterialSlotName) const
+{
+	for (int32 MaterialIndex = 0; MaterialIndex < StaticMaterials.Num(); ++MaterialIndex)
+	{
+		const FStaticMaterial &StaticMaterial = StaticMaterials[MaterialIndex];
+		if (StaticMaterial.ImportedMaterialSlotName == ImportedMaterialSlotName)
+		{
+			return MaterialIndex;
+		}
+	}
+	return INDEX_NONE;
+}
 
 /**
  * Returns the render data to use for exporting the specified LOD. This method should always

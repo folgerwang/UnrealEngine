@@ -19,6 +19,7 @@
 class FCanvas;
 class FViewport;
 class FViewportClient;
+class UModel;
 
 /**
  * A render target.
@@ -438,6 +439,13 @@ public:
 	 * Caution is required as calling Invalidate after this will free the returned HHitProxy.
 	 */
 	ENGINE_API HHitProxy* GetHitProxy(int32 X,int32 Y);
+
+	/**
+	 * Returns all actors and models found in the hit proxy within a specified region.
+	 * InRect must be entirely within the viewport's client area.
+	 * If the hit proxies are not cached, this will call ViewportClient->Draw with a hit-testing canvas.
+	 */
+	ENGINE_API void GetActorsAndModelsInHitProxy(FIntRect InRect, TSet<AActor*>& OutActors, TSet<UModel*>& OutModels);
 
 	/**
 	 * Retrieves the interface to the viewport's frame, if it has one.

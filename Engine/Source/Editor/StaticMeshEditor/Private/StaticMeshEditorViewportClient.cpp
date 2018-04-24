@@ -443,7 +443,7 @@ void FStaticMeshEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDraw
 
 	TSharedPtr<IStaticMeshEditor> StaticMeshEditor = StaticMeshEditorPtr.Pin();
 
-	if(!StaticMesh->RenderData->LODResources.IsValidIndex(StaticMeshEditor->GetCurrentLODIndex()))
+	if(!StaticMesh->RenderData || !StaticMesh->RenderData->LODResources.IsValidIndex(StaticMeshEditor->GetCurrentLODIndex()))
 	{
 		// Guard against corrupted meshes
 		return;
@@ -778,7 +778,7 @@ void FStaticMeshEditorViewportClient::DrawCanvas( FViewport& InViewport, FSceneV
 	TextItems.Add(SStaticMeshEditorViewport::FOverlayTextItem(
 		FText::Format(NSLOCTEXT("UnrealEd", "UVChannels_F", "UV Channels:  {0}"), FText::AsNumber(StaticMeshEditorPtr.Pin()->GetNumUVChannels(CurrentLODLevel)))));
 
-	if( StaticMesh->RenderData->LODResources.Num() > 0 )
+	if(StaticMesh->RenderData && StaticMesh->RenderData->LODResources.Num() > 0 )
 	{
 		if (StaticMesh->RenderData->LODResources[0].DistanceFieldData != nullptr )
 		{
@@ -999,7 +999,7 @@ void FStaticMeshEditorViewportClient::ProcessClick(class FSceneView& InView, cla
 
 				const uint32 LODLevel = FMath::Clamp( StaticMeshComponent->ForcedLodModel - 1, 0, StaticMeshComponent->GetStaticMesh()->GetNumLODs() - 1 );
 				FRawMesh RawMesh;
-				StaticMeshComponent->GetStaticMesh()->SourceModels[LODLevel].RawMeshBulkData->LoadRawMesh(RawMesh);
+				StaticMeshComponent->GetStaticMesh()->SourceModels[LODLevel].LoadRawMesh(RawMesh);
 
 				const int32 RawEdgeCount = RawMesh.WedgeIndices.Num() - 1; 
 				const int32 NumFaces = RawMesh.WedgeIndices.Num() / 3;

@@ -6,6 +6,7 @@
 
 #include "Math/Color.h"
 #include "Math/Vector.h"
+#include "Math/Vector4.h"
 #include "Math/Float16Color.h"
 
 // Common colors.
@@ -52,6 +53,13 @@ FLinearColor::FLinearColor(const FVector& Vector) :
 	G(Vector.Y),
 	B(Vector.Z),
 	A(1.0f)
+{}
+
+FLinearColor::FLinearColor(const FVector4& Vector) :
+	R(Vector.X),
+	G(Vector.Y),
+	B(Vector.Z),
+	A(Vector.W)
 {}
 
 FLinearColor::FLinearColor(const FFloat16Color& C)

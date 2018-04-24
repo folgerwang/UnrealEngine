@@ -216,7 +216,7 @@ void FAssetTypeActions_StaticMesh::ExecutePasteLODSettings(TArray<TWeakObjectPtr
 
 			while (Mesh->SourceModels.Num() < LODCount)
 			{
-				new(Mesh->SourceModels) FStaticMeshSourceModel();
+				Mesh->AddSourceModel();
 			}
 
 			for (int32 i = 0; i < LODCount; i++)

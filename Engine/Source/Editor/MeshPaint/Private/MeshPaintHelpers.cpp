@@ -107,7 +107,7 @@ bool MeshPaintHelpers::PropagateColorsToRawMesh(UStaticMesh* StaticMesh, int32 L
 	{
 		// Use the wedge map if it is available as it is lossless.
 		FRawMesh RawMesh;
-		SrcModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+		SrcModel.LoadRawMesh(RawMesh);
 
 		int32 NumWedges = RawMesh.WedgeIndices.Num();
 		if (RenderData.WedgeMap.Num() == NumWedges)
@@ -127,21 +127,21 @@ bool MeshPaintHelpers::PropagateColorsToRawMesh(UStaticMesh* StaticMesh, int32 L
 				}
 				RawMesh.WedgeColors[i] = WedgeColor;
 			}
-			SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
+			SrcModel.SaveRawMesh(RawMesh);
 			bPropagatedColors = true;
 		}
 	}
 	else
 	{
 		// If there's no raw mesh data, don't try to do any fixup here
-		if (SrcModel.RawMeshBulkData->IsEmpty() || ComponentLODInfo.OverrideMapBuildData == nullptr)
+		if (SrcModel.IsRawMeshEmpty() || ComponentLODInfo.OverrideMapBuildData == nullptr)
 		{
 			return false;
 		}
 
 		// Fall back to mapping based on position.
 		FRawMesh RawMesh;
-		SrcModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+		SrcModel.LoadRawMesh(RawMesh);
 
 		TArray<FColor> NewVertexColors;
 		FPositionVertexBuffer TempPositionVertexBuffer;
@@ -165,7 +165,7 @@ bool MeshPaintHelpers::PropagateColorsToRawMesh(UStaticMesh* StaticMesh, int32 L
 				int32 Index = RawMesh.WedgeIndices[i];
 				RawMesh.WedgeColors[i] = NewVertexColors[Index];
 			}
-			SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
+			SrcModel.SaveRawMesh(RawMesh);
 			bPropagatedColors = true;
 		}
 	}

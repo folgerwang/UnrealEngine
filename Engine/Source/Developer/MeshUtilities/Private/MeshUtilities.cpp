@@ -876,16 +876,16 @@ UStaticMesh* FMeshUtilities::ConvertMeshesToStaticMesh(const TArray<UMeshCompone
 			{
 				if (RawMesh.IsValidOrFixable())
 				{
-					FStaticMeshSourceModel* SrcModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
-					SrcModel->BuildSettings.bRecomputeNormals = false;
-					SrcModel->BuildSettings.bRecomputeTangents = false;
-					SrcModel->BuildSettings.bRemoveDegenerates = true;
-					SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
-					SrcModel->BuildSettings.bUseFullPrecisionUVs = false;
-					SrcModel->BuildSettings.bGenerateLightmapUVs = true;
-					SrcModel->BuildSettings.SrcLightmapIndex = 0;
-					SrcModel->BuildSettings.DstLightmapIndex = LightMapIndex;
-					SrcModel->RawMeshBulkData->SaveRawMesh(RawMesh);
+					FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
+					SrcModel.BuildSettings.bRecomputeNormals = false;
+					SrcModel.BuildSettings.bRecomputeTangents = false;
+					SrcModel.BuildSettings.bRemoveDegenerates = true;
+					SrcModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
+					SrcModel.BuildSettings.bUseFullPrecisionUVs = false;
+					SrcModel.BuildSettings.bGenerateLightmapUVs = true;
+					SrcModel.BuildSettings.SrcLightmapIndex = 0;
+					SrcModel.BuildSettings.DstLightmapIndex = LightMapIndex;
+					SrcModel.SaveRawMesh(RawMesh);
 				}
 			}
 
@@ -2898,9 +2898,9 @@ public:
 			FRawMesh& RawMesh = *new(LODMeshes)FRawMesh;
 			FOverlappingCorners& OverlappingCorners = *new(LODOverlappingCorners)FOverlappingCorners;
 
-			if (!SrcModel.RawMeshBulkData->IsEmpty())
+			if (!SrcModel.IsRawMeshEmpty())
 			{
-				SrcModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+				SrcModel.LoadRawMesh(RawMesh);
 				// Make sure the raw mesh is not irreparably malformed.
 				if (!RawMesh.IsValidOrFixable())
 				{
@@ -3355,7 +3355,7 @@ public:
 		{
 			if (!HasRawMesh[Index])
 			{
-				SourceModels[Index].RawMeshBulkData->SaveRawMesh(LODMeshes[Index]);
+				SourceModels[Index].SaveRawMesh(LODMeshes[Index]);
 				bDirty = true;
 			}
 		}

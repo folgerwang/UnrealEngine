@@ -48,10 +48,19 @@
 void FMeshMergeHelpers::ExtractSections(const UStaticMeshComponent* Component, int32 LODIndex, TArray<FSectionInfo>& OutSections)
 {
 	static UMaterialInterface* DefaultMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
-
-	TArray<FName> MaterialSlotNames = Component->GetMaterialSlotNames();
-
+	
 	const UStaticMesh* StaticMesh = Component->GetStaticMesh();
+
+	TArray<FName> MaterialSlotNames;
+	for (const FStaticMaterial& StaticMaterial : StaticMesh->StaticMaterials)
+	{
+#if WITH_EDITOR
+		MaterialSlotNames.Add(StaticMaterial.ImportedMaterialSlotName);
+#else
+		MaterialSlotNames.Add(StaticMaterial.MaterialSlotName);
+#endif
+	}
+
 	for (const FStaticMeshSection& MeshSection : StaticMesh->RenderData->LODResources[LODIndex].Sections)
 	{
 		// Retrieve material for this section
@@ -133,7 +142,12 @@ void FMeshMergeHelpers::ExtractSections(const UStaticMesh* StaticMesh, int32 LOD
 		FSectionInfo SectionInfo;
 		SectionInfo.Material = StoredMaterial;
 		SectionInfo.MaterialIndex = MeshSection.MaterialIndex;
+#if WITH_EDITOR
+		SectionInfo.MaterialSlotName = StaticMesh->StaticMaterials.IsValidIndex(MeshSection.MaterialIndex) ? StaticMesh->StaticMaterials[MeshSection.MaterialIndex].ImportedMaterialSlotName : NAME_None;
+#else
 		SectionInfo.MaterialSlotName = StaticMesh->StaticMaterials.IsValidIndex(MeshSection.MaterialIndex) ? StaticMesh->StaticMaterials[MeshSection.MaterialIndex].MaterialSlotName : NAME_None;
+#endif
+		
 
 		if (MeshSection.bEnableCollision)
 		{
@@ -309,7 +323,7 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMesh* StaticMesh, int32 LODInd
 	const FStaticMeshSourceModel& StaticMeshModel = StaticMesh->SourceModels[LODIndex];
 
 	// Imported meshes will have a filled RawMeshBulkData set
-	const bool bImportedMesh = !StaticMeshModel.RawMeshBulkData->IsEmpty();
+	const bool bImportedMesh = !StaticMeshModel.IsRawMeshEmpty();
 	// Check whether or not this mesh has been reduced in-engine
 	const bool bReducedMesh = (StaticMeshModel.ReductionSettings.PercentTriangles < 1.0f);
 	// Trying to retrieve rawmesh from SourceStaticMeshModel was giving issues, which causes a mismatch			
@@ -317,7 +331,7 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMesh* StaticMesh, int32 LODInd
 
 	if (bImportedMesh && !bReducedMesh && !bRenderDataMismatch)
 	{
-		StaticMeshModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+		StaticMeshModel.LoadRawMesh(RawMesh);
 	}
 	else
 	{

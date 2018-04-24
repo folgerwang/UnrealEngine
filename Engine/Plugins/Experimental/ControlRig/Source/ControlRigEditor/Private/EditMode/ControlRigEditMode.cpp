@@ -656,7 +656,7 @@ bool FControlRigEditMode::BoxSelect(FBox& InBox, bool InSelect)
 	return FEdMode::BoxSelect(InBox, InSelect);
 }
 
-bool FControlRigEditMode::FrustumSelect(const FConvexVolume& InFrustum, bool InSelect)
+bool FControlRigEditMode::FrustumSelect(const FConvexVolume& InFrustum, FEditorViewportClient* InViewportClient, bool InSelect)
 {
 	bool bIntersects = IntersectSelect(InSelect, [&](const FControlUnitProxy& ControlProxy, const FTransform& Transform) 
 	{
@@ -674,7 +674,7 @@ bool FControlRigEditMode::FrustumSelect(const FConvexVolume& InFrustum, bool InS
 		return true;
 	}
 
-	return FEdMode::FrustumSelect(InFrustum, InSelect);
+	return FEdMode::FrustumSelect(InFrustum, InViewportClient, InSelect);
 }
 
 void FControlRigEditMode::SelectNone()

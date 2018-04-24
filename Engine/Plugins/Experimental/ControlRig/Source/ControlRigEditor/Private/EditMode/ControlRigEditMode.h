@@ -56,7 +56,7 @@ public:
 	virtual bool StartTracking(FEditorViewportClient* InViewportClient, FViewport* InViewport) override;
 	virtual bool HandleClick(FEditorViewportClient* InViewportClient, HHitProxy *HitProxy, const FViewportClick &Click) override;
 	virtual bool BoxSelect(FBox& InBox, bool InSelect = true) override;
-	virtual bool FrustumSelect(const FConvexVolume& InFrustum, bool InSelect = true) override;
+	virtual bool FrustumSelect(const FConvexVolume& InFrustum, FEditorViewportClient* InViewportClient, bool InSelect = true) override;
 	virtual void SelectNone() override;
 	virtual bool InputDelta(FEditorViewportClient* InViewportClient, FViewport* InViewport, FVector& InDrag, FRotator& InRot, FVector& InScale) override;
 	virtual bool UsesTransformWidget() const override;

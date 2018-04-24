@@ -1714,8 +1714,10 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		}
 	}
 
-	// Update viewports.
+	// Updates all the extensions for all the editor worlds
+	EditorWorldExtensionsManager->Tick( DeltaSeconds );
 
+	// Update viewports.
 	for (int32 ViewportIndex = AllViewportClients.Num()-1; ViewportIndex >= 0; ViewportIndex--)
 	{
 		FEditorViewportClient* ViewportClient = AllViewportClients[ ViewportIndex ];
@@ -1729,9 +1731,6 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 			ViewportClient->Tick(DeltaSeconds);
 		}
 	}
-
-	// Updates all the extensions for all the editor worlds
-	EditorWorldExtensionsManager->Tick(DeltaSeconds);
 
 	bool bIsMouseOverAnyLevelViewport = false;
 

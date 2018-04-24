@@ -1739,7 +1739,7 @@ bool UStaticMeshExporterOBJ::ExportText(const FExportObjectInnerContext* Context
 		// Currently, we only export LOD 0 of the static mesh. In the future, we could potentially export all available LODs
 		const FStaticMeshLODResources& RenderData = StaticMesh->GetLODForExport(0);
 		FRawMesh RawMesh;
-		StaticMesh->SourceModels[0].RawMeshBulkData->LoadRawMesh(RawMesh);
+		StaticMesh->SourceModels[0].LoadRawMesh(RawMesh);
 
 		uint32 Count = RenderData.GetNumTriangles();
 

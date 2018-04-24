@@ -31,6 +31,22 @@ public:
 		const FOverlappingCorners& InOverlappingCorners,
 		const struct FMeshReductionSettings& ReductionSettings
 	) = 0;
+
+	/**
+	* Reduces the raw mesh using the provided reduction settings.
+	* @param OutReducedMesh - Upon return contains the reduced mesh.
+	* @param OutMaxDeviation - Upon return contains the maximum distance by which the reduced mesh deviates from the original.
+	* @param InMesh - The mesh to reduce.
+	* @param ReductionSettings - Setting with which to reduce the mesh.
+	*/
+	virtual void ReduceMeshDescription(
+		class UMeshDescription* OutReducedMesh,
+		float& OutMaxDeviation,
+		const class UMeshDescription* InMesh,
+		const TMultiMap<int32, int32>& InOverlappingCorners,
+		const struct FMeshReductionSettings& ReductionSettings
+	) = 0;
+
 	/**
 	* Reduces the provided skeletal mesh.
 	* @returns true if reduction was successful.

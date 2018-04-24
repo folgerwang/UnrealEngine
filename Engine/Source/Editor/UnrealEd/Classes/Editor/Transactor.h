@@ -237,6 +237,8 @@ protected:
 		// Variables.
 		/** The object to track */
 		FPersistentObjectRef Object;
+		/** Custom change to apply to this object to undo this record.  Executing the undo will return an object that can be used to redo the change. */
+		TUniquePtr<FChange> CustomChange;
 		/** Array: If an array object, reference to script array */
 		FScriptArray*		Array;
 		/** Array: Offset into the array */
@@ -274,8 +276,14 @@ protected:
 		// Constructors.
 		FObjectRecord()
 		{}
-		FObjectRecord( FTransaction* Owner, UObject* InObject, FScriptArray* InArray, int32 InIndex, int32 InCount, int32 InOper, int32 InElementSize, STRUCT_DC InDefaultConstructor, STRUCT_AR InSerializer, STRUCT_DTOR InDestructor );
+		FObjectRecord( FTransaction* Owner, UObject* InObject, TUniquePtr<FChange> InCustomChange, FScriptArray* InArray, int32 InIndex, int32 InCount, int32 InOper, int32 InElementSize, STRUCT_DC InDefaultConstructor, STRUCT_AR InSerializer, STRUCT_DTOR InDestructor );
 
+	private:
+		// Non-copyable
+		FObjectRecord( const FObjectRecord& ) = delete;
+		FObjectRecord& operator=( const FObjectRecord& ) = delete;
+
+	public:
 		// Functions.
 		void SerializeContents( FArchive& Ar, int32 InOper );
 		void SerializeObject( FArchive& Ar );
@@ -503,8 +511,6 @@ protected:
 	bool					bFlip;
 	/** Used to track direction to iterate over transaction's object records. Typically -1 for Undo, 1 for Redo */
 	int32					Inc;
-	/** Count of the number of UModels modified since the last call to FTransaction::Apply */
-	int32					NumModelsModified;
 
 	struct FChangedObjectValue
 	{
@@ -540,9 +546,17 @@ public:
 	{
 	}
 
+private:
+	// Non-copyable
+	FTransaction( const FTransaction& ) = delete;
+	FTransaction& operator=( const FTransaction& ) = delete;
+
+public:
+	
 	// FTransactionBase interface.
 	virtual void SaveObject( UObject* Object ) override;
 	virtual void SaveArray( UObject* Object, FScriptArray* Array, int32 Index, int32 Count, int32 Oper, int32 ElementSize, STRUCT_DC DefaultConstructor, STRUCT_AR Serializer, STRUCT_DTOR Destructor ) override;
+	virtual void StoreUndo( UObject* Object, TUniquePtr<FChange> UndoChange ) override;
 	virtual void SetPrimaryObject(UObject* InObject) override;
 	virtual void SnapshotObject( UObject* InObject ) override;
 
@@ -591,12 +605,6 @@ public:
 
 	/** Used by GC to collect referenced objects. */
 	void AddReferencedObjects( FReferenceCollector& Collector );
-
-	/** Returns the number of models that were modified by the last call to FTransaction::Apply(). */
-	int32 GetNumModelsModified() const
-	{
-		return NumModelsModified;
-	}
 
 	/**
 	 * Get all the objects that are part of this transaction.

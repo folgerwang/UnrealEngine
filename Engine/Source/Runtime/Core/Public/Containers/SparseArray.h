@@ -950,6 +950,22 @@ struct TContainerTraits<TSparseArray<ElementType, Allocator> > : public TContain
 		TContainerTraits<typename TSparseArray<ElementType, Allocator>::AllocationBitArrayType>::MoveWillEmptyContainer };
 };
 
+//
+// TSparseArray operator news.
+//
+template <typename T, typename Allocator> void* operator new( size_t Size, TSparseArray<T, Allocator>& Array )
+{
+	check( Size == sizeof( T ) );
+	const int32 Index = Array.AddUninitialized().Index;
+	return &Array[ Index ];
+}
+template <typename T, typename Allocator> void* operator new( size_t Size, TSparseArray<T, Allocator>& Array, int32 Index )
+{
+	check( Size == sizeof( T ) );
+	Array.InsertUninitialized( Index );
+	return &Array[ Index ];
+}
+
 struct FScriptSparseArrayLayout
 {
 	int32 ElementOffset;

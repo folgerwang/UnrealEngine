@@ -139,7 +139,7 @@ public:
 	/** When creating new Material Layers and Material Layer Blends, set up example graphs. */
 	UPROPERTY(EditAnywhere, config, Category = Materials)
 	bool bExampleLayersAndBlends;
-	
+
 	/**
 	 * Returns an event delegate that is executed when a setting has changed.
 	 *

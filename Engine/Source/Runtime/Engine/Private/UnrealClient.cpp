@@ -21,7 +21,7 @@
 #include "HighResScreenshot.h"
 #include "GameFramework/GameUserSettings.h"
 #include "DynamicResolutionState.h"
-
+#include "HModel.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Engine/PostProcessVolume.h"
@@ -29,6 +29,7 @@
 #include "EngineModule.h"
 #include "Performance/EnginePerformanceTargets.h"
 #include "Templates/UniquePtr.h"
+#include "EngineUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogClient, Log, All);
 
@@ -1668,6 +1669,51 @@ HHitProxy* FViewport::GetHitProxy(int32 X,int32 Y)
 	}
 
 	return HitProxy;
+}
+
+void FViewport::GetActorsAndModelsInHitProxy(FIntRect InRect, TSet<AActor*>& OutActors, TSet<UModel*>& OutModels)
+{
+	const TArray<FColor>& RawHitProxyData = GetRawHitProxyData(InRect);
+
+	OutActors.Empty();
+	OutModels.Empty();
+
+	// Lower the resolution with massive box selects
+	const int32 Step = (InRect.Width() > 500 && InRect.Height() > 500) ? 4 : 1;
+
+	for (int32 Y = InRect.Min.Y; Y < InRect.Max.Y; Y = Y < InRect.Max.Y - 1 ? FMath::Min(InRect.Max.Y-1, Y+Step) : ++Y )
+	{
+		const FColor* SourceData = &RawHitProxyData[Y * SizeX];
+		for (int32 X = InRect.Min.X; X < InRect.Max.X; X = X < InRect.Max.X-1 ? FMath::Min(InRect.Max.X-1, X + Step) : ++X )
+		{
+			FHitProxyId HitProxyId(SourceData[X]);
+			HHitProxy* HitProxy = GetHitProxyById(HitProxyId);
+
+			if (HitProxy)
+			{
+				if( HitProxy->IsA(HActor::StaticGetType()) )
+				{
+					AActor* Actor = ((HActor*)HitProxy)->Actor;
+					if (Actor)
+					{
+						OutActors.Add(Actor);
+					}
+				}
+				else if( HitProxy->IsA(HModel::StaticGetType()) )
+				{
+					OutModels.Add( ((HModel*)HitProxy)->GetModel() );
+				}
+				else if( HitProxy->IsA(HBSPBrushVert::StaticGetType()) )
+				{
+					HBSPBrushVert* HitBSPBrushVert = ((HBSPBrushVert*)HitProxy);
+					if( HitBSPBrushVert->Brush.IsValid() )
+					{
+						OutActors.Add( HitBSPBrushVert->Brush.Get() );
+					}
+				}
+			}
+		}
+	}
 }
 
 void FViewport::UpdateViewportRHI(bool bDestroyed, uint32 NewSizeX, uint32 NewSizeY, EWindowMode::Type NewWindowMode, EPixelFormat PreferredPixelFormat)

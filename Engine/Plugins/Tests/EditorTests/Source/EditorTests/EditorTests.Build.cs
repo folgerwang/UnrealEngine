@@ -64,7 +64,11 @@ public class EditorTests : ModuleRules
 				"AudioEditor",
 				"AnimGraphRuntime",
 				"MeshMergeUtilities",
-				"MaterialBaking"
+				"MaterialBaking",
+                "MeshDescription",
+                "MeshDescriptionOperations",
+                "MeshBuilder",
+                "RawMesh",
 			}
 		);
 

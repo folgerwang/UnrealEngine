@@ -2476,6 +2476,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 			UniqueMaterialIndices.AddUnique(MaterialIndex);
 		}
 
+		UniqueMaterialIndices.Sort();
 		for (int32 Index = 0; Index < UniqueMaterialIndices.Num(); ++Index)
 		{
 			const int32 SectionIndex = UniqueMaterialIndices[Index];
@@ -2565,17 +2566,17 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 			FRawMesh& MergedMeshLOD = MergedRawMeshes[LODIndex];
 			if (MergedMeshLOD.VertexPositions.Num() > 0)
 			{
-				FStaticMeshSourceModel* SrcModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
+				FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
 				// Don't allow the engine to recalculate normals
-				SrcModel->BuildSettings.bRecomputeNormals = false;
-				SrcModel->BuildSettings.bRecomputeTangents = false;
-				SrcModel->BuildSettings.bRemoveDegenerates = false;
-				SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
-				SrcModel->BuildSettings.bUseFullPrecisionUVs = false;
-				SrcModel->BuildSettings.bGenerateLightmapUVs = InSettings.bGenerateLightMapUV;
-				SrcModel->BuildSettings.MinLightmapResolution = InSettings.bComputedLightMapResolution ? DataTracker.GetLightMapDimension() : InSettings.TargetLightMapResolution;
-				SrcModel->BuildSettings.SrcLightmapIndex = 0;
-				SrcModel->BuildSettings.DstLightmapIndex = LightMapUVChannel;
+				SrcModel.BuildSettings.bRecomputeNormals = false;
+				SrcModel.BuildSettings.bRecomputeTangents = false;
+				SrcModel.BuildSettings.bRemoveDegenerates = false;
+				SrcModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
+				SrcModel.BuildSettings.bUseFullPrecisionUVs = false;
+				SrcModel.BuildSettings.bGenerateLightmapUVs = InSettings.bGenerateLightMapUV;
+				SrcModel.BuildSettings.MinLightmapResolution = InSettings.bComputedLightMapResolution ? DataTracker.GetLightMapDimension() : InSettings.TargetLightMapResolution;
+				SrcModel.BuildSettings.SrcLightmapIndex = 0;
+				SrcModel.BuildSettings.DstLightmapIndex = LightMapUVChannel;
 
 				const bool bContainsImposters = ImposterComponents.Num() > 0;
 				if (bContainsImposters)
@@ -2584,22 +2585,54 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 					FMeshMergeHelpers::MergeImpostersToRawMesh(ImposterComponents, MergedMeshLOD, MergedAssetPivot, UniqueMaterials.Num(), ImposterMaterials);
 				}
 
-				SrcModel->RawMeshBulkData->SaveRawMesh(MergedMeshLOD);
+				SrcModel.SaveRawMesh(MergedMeshLOD);
 			}
 		}
 		
+		auto IsMaterialImportedNameUnique = [&StaticMesh](FName ImportedMaterialSlotName)
+		{
+			for (const FStaticMaterial& StaticMaterial : StaticMesh->StaticMaterials)
+			{
+#if WITH_EDITOR
+				if (StaticMaterial.ImportedMaterialSlotName == ImportedMaterialSlotName)
+#else
+				if (StaticMaterial.MaterialSlotName == ImportedMaterialSlotName)
+#endif
+				{
+					return false;
+				}
+			}
+			return true;
+		};
+		
+
 		for (UMaterialInterface* Material : UniqueMaterials)
 		{
 			if (Material && (!Material->IsAsset() && InOuter != GetTransientPackage()))
 			{
 				Material = nullptr; // do not save non-asset materials
 			}
-			StaticMesh->StaticMaterials.Add(FStaticMaterial(Material, DataTracker.GetMaterialSlotName(Material)));
+			//Make sure we have unique slot name here
+			FName MaterialSlotName = DataTracker.GetMaterialSlotName(Material);
+			int32 Counter = 1;
+			while (!IsMaterialImportedNameUnique(MaterialSlotName))
+			{
+				MaterialSlotName = *(DataTracker.GetMaterialSlotName(Material).ToString() + TEXT("_") + FString::FromInt(Counter++));
+			}
+
+			StaticMesh->StaticMaterials.Add(FStaticMaterial(Material, MaterialSlotName));
 		}
 
 		for(UMaterialInterface* ImposterMaterial : ImposterMaterials)
 		{
-			StaticMesh->StaticMaterials.Add(FStaticMaterial(ImposterMaterial));
+			//Make sure we have unique slot name here
+			FName MaterialSlotName = ImposterMaterial->GetFName();
+			int32 Counter = 1;
+			while (!IsMaterialImportedNameUnique(MaterialSlotName))
+			{
+				MaterialSlotName = *(ImposterMaterial->GetName() + TEXT("_") + FString::FromInt(Counter++));
+			}
+			StaticMesh->StaticMaterials.Add(FStaticMaterial(ImposterMaterial, MaterialSlotName));
 		}
 
 		if (InSettings.bMergePhysicsData)

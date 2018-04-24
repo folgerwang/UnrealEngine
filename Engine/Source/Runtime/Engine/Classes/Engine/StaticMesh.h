@@ -25,6 +25,8 @@ class FSpeedTreeWind;
 class UAssetUserData;
 class UMaterialInterface;
 class UNavCollisionBase;
+class UMeshDescription;
+
 struct FStaticMeshLODResources;
 
 /*-----------------------------------------------------------------------------
@@ -155,7 +157,29 @@ struct FStaticMeshSourceModel
 #if WITH_EDITOR
 	/** Imported raw mesh data. Optional for all but the first LOD. */
 	class FRawMeshBulkData* RawMeshBulkData;
+	
+	/*
+	 * The staticmesh owner of this source model. We need the SM to be able to convert between MeshDesription and RawMesh.
+	 * RawMesh use int32 material index and MeshDescription use FName material slot name.
+	 * This memeber is fill in the PostLoad of the static mesh.
+	 * TODO: Remove this member when FRawMesh will be remove.
+	 */
+	class UStaticMesh* StaticMeshOwner;
+	/*
+	 * Accessor to Load and save the raw mesh or the mesh description depending on the editor settings.
+	 * Temporary until we deprecate the RawMesh.
+	 */
+	ENGINE_API bool IsRawMeshEmpty() const;
+	ENGINE_API void LoadRawMesh(struct FRawMesh& OutRawMesh) const;
+	ENGINE_API void SaveRawMesh(struct FRawMesh& InRawMesh, bool bConvertToMeshdescription = true);
+
 #endif // #if WITH_EDITOR
+
+#if WITH_EDITORONLY_DATA
+	/* Original Imported mesh description data. Optional for all but the first LOD. Autogenerate LOD do not have original mesh description*/
+	UPROPERTY(Transient)
+	UMeshDescription* OriginalMeshDescription;
+#endif
 
 	/** Settings applied when building the mesh. */
 	UPROPERTY(EditAnywhere, Category=BuildSettings)
@@ -340,7 +364,17 @@ struct FStaticMaterial
 		, ImportedMaterialSlotName(InImportedMaterialSlotName)
 #endif //WITH_EDITORONLY_DATA
 	{
-
+		//If not specified add some valid material slot name
+		if (MaterialInterface && MaterialSlotName == NAME_None)
+		{
+			MaterialSlotName = MaterialInterface->GetFName();
+		}
+#if WITH_EDITORONLY_DATA
+		if (ImportedMaterialSlotName == NAME_None)
+		{
+			ImportedMaterialSlotName = MaterialSlotName;
+		}
+#endif
 	}
 
 	friend FArchive& operator<<(FArchive& Ar, FStaticMaterial& Elem);
@@ -356,11 +390,9 @@ struct FStaticMaterial
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = StaticMesh)
 	FName MaterialSlotName;
 
-#if WITH_EDITORONLY_DATA
 	/*This name should be use when we re-import a skeletal mesh so we can order the Materials array like it should be*/
 	UPROPERTY(VisibleAnywhere, Category = StaticMesh)
 	FName ImportedMaterialSlotName;
-#endif //WITH_EDITORONLY_DATA
 
 	/** Data used for texture streaming relative to each UV channels. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = StaticMesh)
@@ -629,6 +661,9 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 #if WITH_EDITOR
 	FOnExtendedBoundsChanged OnExtendedBoundsChanged;
 	FOnMeshChanged OnMeshChanged;
+
+	/** This transient guid is use by the automation framework to modify the DDC key to force a build. */
+	FGuid BuildCacheAutomationTestGuid;
 #endif
 
 protected:
@@ -644,6 +679,49 @@ protected:
 	TArray<UAssetUserData*> AssetUserData;
 
 public:
+	/** The editable mesh representation of this static mesh */
+	// @todo: Maybe we don't want this visible in the details panel in the end; for now, this might aid debugging.
+	UPROPERTY(Instanced, VisibleAnywhere, Category = EditableMesh)
+	class UObject* EditableMesh;
+
+	/**
+	 * Registers the mesh attributes required by the mesh description for a static mesh.
+	 */
+	ENGINE_API static void RegisterMeshAttributes( UMeshDescription* MeshDescription );
+
+#if WITH_EDITORONLY_DATA
+	/**
+	 * The MeshDescription use to build the render data.
+	 * When building the render data we copy the original mesh description and modify it to
+	 * respect the build options (tangent, UVs, reduce, ...) we then keep the copy in this array in case we need it
+	 */
+	UPROPERTY(VisibleAnywhere, Category = MeshDescription)
+	TArray<UMeshDescription*> MeshDescriptions;
+
+	/**
+	 * Accessors for the mesh description use to build the render data
+	 * This is not the data imported it is a modified version to fit the build settings
+	 * Use GetOriginalMeshDescription to get the imported MeshDescription.
+	 * It can be null 
+	 */
+	ENGINE_API UMeshDescription* GetMeshDescription(int32 LodIndex=0) const;
+	ENGINE_API void SetMeshDescription(int32 LodIndex, UMeshDescription* InMeshDescription);
+
+	/**
+	 * Accessors for the original mesh description imported data
+	 * The original import data is necessary to start from the full data when applying build options.
+	 */
+	ENGINE_API UMeshDescription* GetOriginalMeshDescription(int32 LodIndex = 0);
+	ENGINE_API void SetOriginalMeshDescription(int32 LodIndex, UMeshDescription* MeshDescription);
+	ENGINE_API void ClearOriginalMeshDescription(int32 LodIndex);
+
+	/**
+	 * Internal function use to make sure all imported material slot name are unique and non empty.
+	 */
+	void FixupMaterialSlotName();
+
+#endif
+
 	/** Pre-build navigation collision */
 	UPROPERTY(VisibleAnywhere, transient, duplicatetransient, Instanced, Category = Navigation)
 	UNavCollisionBase* NavCollision;
@@ -663,6 +741,9 @@ public:
 
 	FOnExtendedBoundsChanged& GetOnExtendedBoundsChanged() { return OnExtendedBoundsChanged; }
 	FOnMeshChanged& GetOnMeshChanged() { return OnMeshChanged; }
+
+	//SourceModels API
+	ENGINE_API FStaticMeshSourceModel& AddSourceModel();
 #endif // WITH_EDITOR
 
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
@@ -765,6 +846,8 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "StaticMesh")
 	ENGINE_API int32 GetMaterialIndex(FName MaterialSlotName) const;
+
+	ENGINE_API int32 GetMaterialIndexFromImportedMaterialSlotName(FName ImportedMaterialSlotName) const;
 
 	/**
 	 * Returns the render data to use for exporting the specified LOD. This method should always
@@ -914,10 +997,22 @@ private:
 	void FixupZeroTriangleSections();
 
 	/**
+	* Return mesh data key. The key is the ddc filename for the mesh data
+	*/
+	bool GetMeshDataKey(FString& OutKey);
+
+	/**
+	* Caches mesh data.
+	*/
+	void CacheMeshData();
+
+public:
+	/**
 	 * Caches derived renderable data.
 	 */
-	void CacheDerivedData();
+	ENGINE_API void CacheDerivedData();
 
+private:
 
 	FOnPreMeshBuild PreMeshBuild;
 	FOnPostMeshBuild PostMeshBuild;
@@ -926,6 +1021,5 @@ private:
 	 * Fixes up the material when it was converted to the new staticmesh build process
 	 */
 	bool CleanUpRedondantMaterialPostLoad;
-
 #endif // #if WITH_EDITOR
 };

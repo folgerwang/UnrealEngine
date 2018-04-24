@@ -58,8 +58,9 @@ inline UObject* BuildSubobjectKey(UObject* InObj, TArray<FName>& OutHierarchyNam
 	A single transaction.
 -----------------------------------------------------------------------------*/
 
-FTransaction::FObjectRecord::FObjectRecord(FTransaction* Owner, UObject* InObject, FScriptArray* InArray, int32 InIndex, int32 InCount, int32 InOper, int32 InElementSize, STRUCT_DC InDefaultConstructor, STRUCT_AR InSerializer, STRUCT_DTOR InDestructor)
+FTransaction::FObjectRecord::FObjectRecord(FTransaction* Owner, UObject* InObject, TUniquePtr<FChange> InCustomChange, FScriptArray* InArray, int32 InIndex, int32 InCount, int32 InOper, int32 InElementSize, STRUCT_DC InDefaultConstructor, STRUCT_AR InSerializer, STRUCT_DTOR InDestructor)
 	:	Object				( InObject )
+	,	CustomChange		( MoveTemp( InCustomChange ) )
 	,	Array				( InArray )
 	,	Index				( InIndex )
 	,	Count				( InCount )
@@ -83,9 +84,21 @@ FTransaction::FObjectRecord::FObjectRecord(FTransaction* Owner, UObject* InObjec
 	{
 		bWantsBinarySerialization = false;
 	}
-	SerializedObject.SetObject(Object.Get());
-	FWriter Writer( SerializedObject, bWantsBinarySerialization );
-	SerializeContents( Writer, Oper );
+
+	// Don't bother saving the object state if we have a custom change which can perform the undo operation
+	if( CustomChange.IsValid() )
+	{
+		// @todo mesheditor debug
+		//GWarn->Logf( TEXT( "------------ Saved Undo Change ------------" ) );
+		//CustomChange->PrintToLog( *GWarn );
+		//GWarn->Logf( TEXT( "-------------------------------------------" ) );
+	}
+	else
+	{
+		SerializedObject.SetObject(Object.Get());
+		FWriter Writer( SerializedObject, bWantsBinarySerialization );
+		SerializeContents( Writer, Oper );
+	}
 }
 
 void FTransaction::FObjectRecord::SerializeContents( FArchive& Ar, int32 InOper )
@@ -177,13 +190,22 @@ void FTransaction::FObjectRecord::Restore( FTransaction* Owner )
 	{
 		bRestored = true;
 		check(!Owner->bFlip);
+		check(!CustomChange.IsValid());
+
 		FReader Reader( Owner, SerializedObject, bWantsBinarySerialization );
+	
 		SerializeContents( Reader, Oper );
 	}
 }
 
 void FTransaction::FObjectRecord::Save(FTransaction* Owner)
 {
+	// if record has a custom change, no need to do anything here
+	if( CustomChange.IsValid() )
+	{
+		return;
+	}
+
 	// common undo/redo path, before applying undo/redo buffer we save current state:
 	check(Owner->bFlip);
 	if (!bRestored)
@@ -208,9 +230,31 @@ void FTransaction::FObjectRecord::Load(FTransaction* Owner)
 	if (!bRestored)
 	{
 		bRestored = true;
-		FReader Reader(Owner, SerializedObject, bWantsBinarySerialization);
-		SerializeContents(Reader, Oper);
-		SerializedObject.Swap(SerializedObjectFlip);
+
+		if( CustomChange.IsValid() )
+		{
+			// @todo mesheditor debug
+			//GWarn->Logf( TEXT( "---------- Undoing Custom Change ----------" ) );
+			//CustomChange->PrintToLog( *GWarn );
+			
+			TUniquePtr<FChange> InvertedChange = CustomChange->Execute( Object.Get() );
+
+			// @todo mesheditor debug
+			//GWarn->Logf( TEXT( "-----(Here's what the Redo looks like)-----" ) );
+			//if( InvertedChange.IsValid() )
+			//{
+			//	InvertedChange->PrintToLog( *GWarn );
+			//}
+			//GWarn->Logf( TEXT( "-------------------------------------------" ) );
+
+			this->CustomChange = MoveTemp( InvertedChange );
+		}
+		else
+		{
+			FReader Reader(Owner, SerializedObject, bWantsBinarySerialization);
+			SerializeContents(Reader, Oper);
+			SerializedObject.Swap(SerializedObjectFlip);
+		}
 		Oper *= -1;
 	}
 }
@@ -602,7 +646,6 @@ void FTransaction::AddReferencedObjects( FReferenceCollector& Collector )
 	Collector.AddReferencedObjects(ObjectMap);
 }
 
-// FTransactionBase interface.
 void FTransaction::SaveObject( UObject* Object )
 {
 	check(Object);
@@ -613,7 +656,7 @@ void FTransaction::SaveObject( UObject* Object )
 	{
 		ObjectMap.Add(Object,1);
 		// Save the object.
-		new( Records )FObjectRecord( this, Object, NULL, 0, 0, 0, 0, NULL, NULL, NULL );
+		new( Records )FObjectRecord( this, Object, nullptr, NULL, 0, 0, 0, 0, NULL, NULL, NULL );
 	}
 	else
 	{
@@ -639,8 +682,23 @@ void FTransaction::SaveArray( UObject* Object, FScriptArray* Array, int32 Index,
 	if( Object->HasAnyFlags(RF_Transactional) && !Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 	{
 		// Save the array.
-		new( Records )FObjectRecord( this, Object, Array, Index, Count, Oper, ElementSize, DefaultConstructor, Serializer, Destructor );
+		new( Records )FObjectRecord( this, Object, nullptr, Array, Index, Count, Oper, ElementSize, DefaultConstructor, Serializer, Destructor );
 	}
+}
+
+void FTransaction::StoreUndo( UObject* Object, TUniquePtr<FChange> UndoChange )
+{
+	check( Object );
+	Object->CheckDefaultSubobjects();
+
+	int32* SaveCount = ObjectMap.Find( Object );
+	if( !SaveCount )
+	{
+		ObjectMap.Add( Object, 0 );
+	}
+
+	// Save the undo record
+	new( Records )FObjectRecord( this, Object, MoveTemp( UndoChange ), NULL, 0, 0, 0, 0, NULL, NULL, NULL );
 }
 
 void FTransaction::SetPrimaryObject(UObject* InObject)
@@ -731,7 +789,6 @@ void FTransaction::Apply()
 	});
 
 	TArray<ULevel*> LevelsToCommitModelSurface;
-	NumModelsModified = 0;		// Count the number of UModels that were changed.
 	for (auto ChangedObjectIt : ChangedObjects)
 	{
 		UObject* ChangedObject = ChangedObjectIt.Key;
@@ -739,7 +796,6 @@ void FTransaction::Apply()
 		if (Model && Model->Nodes.Num())
 		{
 			FBSPOps::bspBuildBounds(Model);
-			++NumModelsModified;
 		}
 		
 		if (UModelComponent* ModelComponent = Cast<UModelComponent>(ChangedObject))
@@ -1017,7 +1073,6 @@ void UTransBuffer::Cancel( int32 StartIndex /*=0*/ )
 			// clear the global pointer to the soon-to-be-deleted transaction
 			GUndo = nullptr;
 			
-			// remove the currently active transaction from the buffer
 			UndoBuffer.Pop(false);
 
 			// replace the removed transactions
@@ -1030,6 +1085,7 @@ void UTransBuffer::Cancel( int32 StartIndex /*=0*/ )
 
 			UndoCount = PreviousUndoCount;
 			PreviousUndoCount = INDEX_NONE;
+
 		}
 		else
 		{

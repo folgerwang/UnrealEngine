@@ -1705,7 +1705,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 								
 								RenderStateIndexToStaticMeshIndex.Add(DrawCall->m_nRenderStateIndex, StaticMesh->StaticMaterials.Num());
 								MaterialIndex = StaticMesh->StaticMaterials.Num();
-								StaticMesh->StaticMaterials.Add(FStaticMaterial(Material));
+								StaticMesh->StaticMaterials.Add(FStaticMaterial(Material, FName(*MaterialName), FName(*MaterialName)));
 							}
 							else
 							{
@@ -1783,15 +1783,15 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 							}							
 						}
 
-						FStaticMeshSourceModel* LODModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
-						LODModel->BuildSettings.bRecomputeNormals = false;
-						LODModel->BuildSettings.bRecomputeTangents = false;
-						LODModel->BuildSettings.bRemoveDegenerates = true;
-						LODModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
-						LODModel->BuildSettings.bUseFullPrecisionUVs = false;
-						LODModel->BuildSettings.bGenerateLightmapUVs = false;
-						LODModel->ScreenSize.Default = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
-						LODModel->RawMeshBulkData->SaveRawMesh(RawMesh);
+						FStaticMeshSourceModel& LODModel = StaticMesh->AddSourceModel();
+						LODModel.BuildSettings.bRecomputeNormals = false;
+						LODModel.BuildSettings.bRecomputeTangents = false;
+						LODModel.BuildSettings.bRemoveDegenerates = true;
+						LODModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
+						LODModel.BuildSettings.bUseFullPrecisionUVs = false;
+						LODModel.BuildSettings.bGenerateLightmapUVs = false;
+						LODModel.ScreenSize.Default = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
+						LODModel.SaveRawMesh(RawMesh);
 
 						for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->StaticMaterials.Num(); ++MaterialIndex)
 						{
@@ -1806,9 +1806,10 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 				// make billboard LOD
 				if (Options->SpeedTreeImportData->ImportGeometryType != EImportGeometryType::IGT_3D && SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards > 0)
 				{
-					UMaterialInterface* Material = CreateSpeedTreeMaterial7(InParent, MeshName + "_Billboard", &SpeedTreeGeometry->m_aBillboardRenderStates[SpeedTree::RENDER_PASS_MAIN], Options, WindType, SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards, LoadedPackages);
+					FString MaterialName = MeshName + "_Billboard";
+					UMaterialInterface* Material = CreateSpeedTreeMaterial7(InParent, MaterialName, &SpeedTreeGeometry->m_aBillboardRenderStates[SpeedTree::RENDER_PASS_MAIN], Options, WindType, SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards, LoadedPackages);
 					int32 MaterialIndex = StaticMesh->StaticMaterials.Num();
-					StaticMesh->StaticMaterials.Add(FStaticMaterial(Material));
+					StaticMesh->StaticMaterials.Add(FStaticMaterial(Material, FName(*MaterialName), FName(*MaterialName)));
 
 					FRawMesh RawMesh;
 					
@@ -1897,15 +1898,15 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 						}
 					}
 
-					FStaticMeshSourceModel* LODModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
-					LODModel->BuildSettings.bRecomputeNormals = false;
-					LODModel->BuildSettings.bRecomputeTangents = false;
-					LODModel->BuildSettings.bRemoveDegenerates = true;
-					LODModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
-					LODModel->BuildSettings.bUseFullPrecisionUVs = false;
-					LODModel->BuildSettings.bGenerateLightmapUVs = false;
-					LODModel->ScreenSize.Default = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
-					LODModel->RawMeshBulkData->SaveRawMesh(RawMesh);
+					FStaticMeshSourceModel& LODModel = StaticMesh->AddSourceModel();
+					LODModel.BuildSettings.bRecomputeNormals = false;
+					LODModel.BuildSettings.bRecomputeTangents = false;
+					LODModel.BuildSettings.bRemoveDegenerates = true;
+					LODModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
+					LODModel.BuildSettings.bUseFullPrecisionUVs = false;
+					LODModel.BuildSettings.bGenerateLightmapUVs = false;
+					LODModel.ScreenSize.Default = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
+					LODModel.SaveRawMesh(RawMesh);
 					// Add mesh section info entry for billboard LOD (only one section/material index)
 					const int32 LODIndex = StaticMesh->SourceModels.Num() - 1;
 					FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(LODIndex, 0);
@@ -2049,23 +2050,23 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 
 			for (uint32 LODIndex = 0; LODIndex < SpeedTree.Lods().Count(); ++LODIndex)
 			{
-				FStaticMeshSourceModel* LODModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
-				LODModel->BuildSettings.SrcLightmapIndex = 1;
-				LODModel->BuildSettings.DstLightmapIndex = 1;
-				LODModel->BuildSettings.bRecomputeNormals = false;
-				LODModel->BuildSettings.bRecomputeTangents = false;
-				LODModel->BuildSettings.bRemoveDegenerates = true;
-				LODModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
-				LODModel->BuildSettings.bUseFullPrecisionUVs = false;
-				LODModel->BuildSettings.bGenerateLightmapUVs = false;
+				FStaticMeshSourceModel& LODModel = StaticMesh->AddSourceModel();
+				LODModel.BuildSettings.SrcLightmapIndex = 1;
+				LODModel.BuildSettings.DstLightmapIndex = 1;
+				LODModel.BuildSettings.bRecomputeNormals = false;
+				LODModel.BuildSettings.bRecomputeTangents = false;
+				LODModel.BuildSettings.bRemoveDegenerates = true;
+				LODModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
+				LODModel.BuildSettings.bUseFullPrecisionUVs = false;
+				LODModel.BuildSettings.bGenerateLightmapUVs = false;
 
 				if (Options->SpeedTreeImportData->LODType == ILT_IndividualActors)
 				{
-					LODModel->ScreenSize = FMath::Lerp(1.0f, 0.1f, FMath::Square(LODIndex * Denominator));
+					LODModel.ScreenSize = FMath::Lerp(1.0f, 0.1f, FMath::Square(LODIndex * Denominator));
 				}
 				else
 				{
-					LODModel->ScreenSize = FMath::Lerp(1.0f, 0.25f, LODIndex * Denominator);
+					LODModel.ScreenSize = FMath::Lerp(1.0f, 0.25f, LODIndex * Denominator);
 				}
 			}
 		}
@@ -2140,7 +2141,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 					MaterialName.InsertAt(MaterialName.Len() - 4, GeomString);
 					UMaterialInterface* Material = CreateSpeedTreeMaterial8(InParent, MaterialName, SpeedTreeMaterial, Options, WindType, GeomType, LoadedPackages, bCrossfadeLOD);
 					MaterialMap.Add(MaterialKey, StaticMesh->StaticMaterials.Num());
-					StaticMesh->StaticMaterials.Add(FStaticMaterial(Material));
+					StaticMesh->StaticMaterials.Add(FStaticMaterial(Material, FName(*MaterialName), FName(*MaterialName)));
 				}
 				uint32 MaterialIndex = MaterialMap[MaterialKey];
 
@@ -2249,10 +2250,10 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 			if (!StaticMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty( ))
 			{
 				FRawMesh EmptyRawMesh;
-				StaticMesh->SourceModels[LODIndex].RawMeshBulkData->SaveRawMesh(EmptyRawMesh);
+				StaticMesh->SourceModels[LODIndex].SaveRawMesh(EmptyRawMesh);
 			}
 
-			StaticMesh->SourceModels[LODIndex].RawMeshBulkData->SaveRawMesh(RawMesh);
+			StaticMesh->SourceModels[LODIndex].SaveRawMesh(RawMesh);
 		}
 
 		// replace materials if they've been switched out

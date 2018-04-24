@@ -472,6 +472,16 @@ public:
 		SkeletalMesh->CalculateRequiredBones(SkeletalMeshResource->LODModels[LODIndex], SkeletalMesh->RefSkeleton, &BonesToRemove);
 	}
 
+	virtual void ReduceMeshDescription(
+		class UMeshDescription* OutReducedMesh,
+		float& OutMaxDeviation,
+		const class UMeshDescription* InMesh,
+		const TMultiMap<int32, int32>& InOverlappingCorners,
+		const struct FMeshReductionSettings& ReductionSettings
+	) override
+	{
+	}
+
 	virtual bool ReduceSkeletalMesh(
 		USkeletalMesh* SkeletalMesh,
 		int32 LODIndex,

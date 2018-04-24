@@ -291,9 +291,9 @@ struct FStaticMeshLODResources
 #endif
 	
 	/** Default constructor. */
-	FStaticMeshLODResources();
+	ENGINE_API FStaticMeshLODResources();
 
-	~FStaticMeshLODResources();
+	ENGINE_API ~FStaticMeshLODResources();
 
 	/** Initializes all rendering resources. */
 	void InitResources(UStaticMesh* Parent);
@@ -357,7 +357,7 @@ class FStaticMeshRenderData
 {
 public:
 	/** Default constructor. */
-	FStaticMeshRenderData();
+	ENGINE_API FStaticMeshRenderData();
 
 	/** Per-LOD resources. */
 	TIndirectArray<FStaticMeshLODResources> LODResources;

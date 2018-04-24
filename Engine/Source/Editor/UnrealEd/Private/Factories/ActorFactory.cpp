@@ -359,7 +359,10 @@ void UActorFactoryStaticMesh::PostSpawnActor( UObject* Asset, AActor* NewActor)
 	StaticMeshComponent->UnregisterComponent();
 
 	StaticMeshComponent->SetStaticMesh(StaticMesh);
-	StaticMeshComponent->StaticMeshDerivedDataKey = StaticMesh->RenderData->DerivedDataKey;
+	if (StaticMesh->RenderData)
+	{
+		StaticMeshComponent->StaticMeshDerivedDataKey = StaticMesh->RenderData->DerivedDataKey;
+	}
 
 	// Init Component
 	StaticMeshComponent->RegisterComponent();

@@ -79,8 +79,9 @@ public class Engine : ModuleRules
 				"DatabaseSupport",
 				"PacketHandler",
 				"HardwareSurvey",
-                "AudioPlatformConfiguration"
-            }
+                "AudioPlatformConfiguration",
+				"MeshDescription",
+			}
 		);
 
 		PrivateDependencyModuleNames.AddRange(
@@ -94,7 +95,7 @@ public class Engine : ModuleRules
 				"MaterialShaderQualitySettings",
 				"CinematicCamera",
 				"Analytics",
-				"AnalyticsET"
+				"AnalyticsET",
 			}
 		);
 
@@ -116,7 +117,8 @@ public class Engine : ModuleRules
 		{
 			// for now we depend on this
 			PrivateDependencyModuleNames.Add("RawMesh");
-		}
+            PrivateDependencyModuleNames.Add("MeshDescriptionOperations");
+        }
 
 		bool bVariadicTemplatesSupported = true;
 		if (Target.Platform == UnrealTargetPlatform.XboxOne)

@@ -608,13 +608,13 @@ bool FEditorModeTools::BoxSelect( FBox& InBox, bool InSelect )
 }
 
 /** Notifies all active modes of frustum selection attempts */
-bool FEditorModeTools::FrustumSelect( const FConvexVolume& InFrustum, bool InSelect )
+bool FEditorModeTools::FrustumSelect( const FConvexVolume& InFrustum, FEditorViewportClient* InViewportClient, bool InSelect )
 {
 	bool bHandled = false;
 	for( int32 ModeIndex = 0; ModeIndex < Modes.Num(); ++ModeIndex )
 	{
 		const TSharedPtr<FEdMode>& Mode = Modes[ ModeIndex ];
-		bHandled |= Mode->FrustumSelect( InFrustum, InSelect );
+		bHandled |= Mode->FrustumSelect( InFrustum, InViewportClient, InSelect );
 	}
 	return bHandled;
 }

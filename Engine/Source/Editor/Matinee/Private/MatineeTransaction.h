@@ -22,5 +22,6 @@ public:
 
 	virtual void SaveObject( UObject* Object ) override;
 	virtual void SaveArray( UObject* Object, FScriptArray* Array, int32 Index, int32 Count, int32 Oper, int32 ElementSize, STRUCT_DC DefaultConstructor, STRUCT_AR Serializer, STRUCT_DTOR Destructor ) override;
+	virtual void StoreUndo( UObject* Object, TUniquePtr<FChange> UndoChange ) override;
 };
 

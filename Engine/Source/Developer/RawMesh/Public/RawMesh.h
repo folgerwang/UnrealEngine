@@ -84,7 +84,15 @@ struct FRawMesh
 	 * Also updates the material index map.
 	 */
 	RAWMESH_API void CompactMaterialIndices();
+
 };
+
+/**
+* Add the raw mesh data to an archive
+*
+*/
+RAWMESH_API FArchive& operator<<(FArchive& Ar, FRawMesh& RawMesh);
+
 
 /**
  * Bulk data storage for raw meshes.
@@ -122,5 +130,8 @@ public:
 
 	/** Returns true if no bulk data is available for this mesh. */
 	FORCEINLINE bool IsEmpty() const { return BulkData.GetBulkDataSize() == 0; }
+
+	/** Returns true if no bulk data is available for this mesh. */
+	RAWMESH_API void Empty();
 #endif // #if WITH_EDITORONLY_DATA
 };

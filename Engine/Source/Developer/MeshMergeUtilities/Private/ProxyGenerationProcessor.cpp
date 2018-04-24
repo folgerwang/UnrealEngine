@@ -174,18 +174,20 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 	StaticMesh->LightMapResolution = Data->MergeData->InProxySettings.LightMapResolution;
 	StaticMesh->LightMapCoordinateIndex = 1;
 
-	FStaticMeshSourceModel* SrcModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
-	SrcModel->BuildSettings.bRecomputeNormals = false;
-	SrcModel->BuildSettings.bRecomputeTangents = false;
-	SrcModel->BuildSettings.bRemoveDegenerates = true;
-	SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
-	SrcModel->BuildSettings.bUseFullPrecisionUVs = false;
-	SrcModel->BuildSettings.bGenerateLightmapUVs = Data->MergeData->InProxySettings.bGenerateLightmapUVs;
-	SrcModel->BuildSettings.bBuildReversedIndexBuffer = false;
-	SrcModel->BuildSettings.bBuildAdjacencyBuffer = Data->MergeData->InProxySettings.bAllowAdjacency;
+
+	FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
+	/*Don't allow the engine to recalculate normals*/
+	SrcModel.BuildSettings.bRecomputeNormals = false;
+	SrcModel.BuildSettings.bRecomputeTangents = false;
+	SrcModel.BuildSettings.bRemoveDegenerates = true;
+	SrcModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
+	SrcModel.BuildSettings.bUseFullPrecisionUVs = false;
+	SrcModel.BuildSettings.bGenerateLightmapUVs = Data->MergeData->InProxySettings.bGenerateLightmapUVs;
+	SrcModel.BuildSettings.bBuildReversedIndexBuffer = false;
+	SrcModel.BuildSettings.bBuildAdjacencyBuffer = Data->MergeData->InProxySettings.bAllowAdjacency;
 	if (!Data->MergeData->InProxySettings.bAllowDistanceField)
 	{
-		SrcModel->BuildSettings.DistanceFieldResolutionScale = 0.0f;
+		SrcModel.BuildSettings.DistanceFieldResolutionScale = 0.0f;
 	}
 
 	const bool bContainsImposters = Data->MergeData->ImposterComponents.Num() > 0;
@@ -202,7 +204,7 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 			Data->RawMesh.WedgeColors.Empty();
 		}
 
-		SrcModel->RawMeshBulkData->SaveRawMesh(Data->RawMesh);
+		SrcModel.SaveRawMesh(Data->RawMesh);
 		StaticMesh->StaticMaterials.Add(FStaticMaterial(ProxyMaterial));
 
 		for (UMaterialInterface* Material : ImposterMaterials)
@@ -217,7 +219,8 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 			Data->RawMesh.WedgeColors.Empty();
 		}
 
-		SrcModel->RawMeshBulkData->SaveRawMesh(Data->RawMesh);
+
+		SrcModel.SaveRawMesh(Data->RawMesh);
 		StaticMesh->StaticMaterials.Add(FStaticMaterial(ProxyMaterial));
 	}	
 

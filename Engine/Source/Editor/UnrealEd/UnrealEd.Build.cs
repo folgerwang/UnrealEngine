@@ -94,7 +94,9 @@ public class UnrealEd : ModuleRules
 				"NetworkFileSystem",
 				"UMG",
 				"NavigationSystem",
-			}
+                "MeshDescription",
+                "MeshBuilder",
+            }
 		);
 
 		PrivateDependencyModuleNames.AddRange(
@@ -158,7 +160,7 @@ public class UnrealEd : ModuleRules
 				"ClothingSystemRuntime",
 				"ClothingSystemRuntimeInterface",
 				"PIEPreviewDeviceProfileSelector",
-			}
+            }
 		);
 
 		DynamicallyLoadedModuleNames.AddRange(

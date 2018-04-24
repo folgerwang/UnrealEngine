@@ -290,4 +290,11 @@ const FByteBulkData& FRawMeshBulkData::GetBulkData() const
 	return BulkData;
 }
 
+void FRawMeshBulkData::Empty()
+{
+	BulkData.RemoveBulkData();
+	Guid.Invalidate();
+	bGuidIsHash = false;
+}
+
 #endif // #if WITH_EDITORONLY_DATA

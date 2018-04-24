@@ -181,7 +181,7 @@ UStaticMesh* FAbcImporter::CreateStaticMeshFromRawMesh(UObject* InParent, const 
 	if (StaticMesh)
 	{
 		// Add the first LOD, we only support one
-		new(StaticMesh->SourceModels) FStaticMeshSourceModel();
+		StaticMesh->AddSourceModel();
 
 		// Generate a new lighting GUID (so its unique)
 		StaticMesh->LightingGuid = FGuid::NewGuid();
@@ -224,7 +224,7 @@ UStaticMesh* FAbcImporter::CreateStaticMeshFromRawMesh(UObject* InParent, const 
 		SrcModel.BuildSettings.DstLightmapIndex = 1;
 
 		// Store the raw mesh within the RawMeshBulkData
-		SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
+		SrcModel.SaveRawMesh(RawMesh);
 		
 		//Set the Imported version before calling the build
 		StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;

@@ -28,8 +28,5 @@ protected:
 	/** Called when selection changes in the level */
 	void OnActorSelectionChanged( UObject* ChangedObject );
 
-	/** Creates a list of transformables with the current selected actors */
-	void UpdateTransformables();
-
 };
 

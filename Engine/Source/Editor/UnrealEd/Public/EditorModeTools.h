@@ -127,7 +127,7 @@ public:
 	}
 	//@}
 
-	virtual bool FrustumSelect( const FConvexVolume& InFrustum, bool InSelect = true )
+	virtual bool FrustumSelect( const FConvexVolume& InFrustum, FEditorViewportClient* InViewportClient, bool InSelect = true )
 	{
 		return false;
 	}
