@@ -118,6 +118,7 @@
 /Makefile
 /CMakeLists.txt
 *.target.xml
+*.dll.config
 *.exe.config
 *.exe.manifest
 /.kdev4/
