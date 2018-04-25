@@ -285,63 +285,6 @@ public:
 		}
 	}
 
-	static void BuildStaticAdjacencyIndexBuffer(
-		const FPositionVertexBuffer& PositionVertexBuffer,
-		const FStaticMeshVertexBuffer& VertexBuffer,
-		const TArray<uint32>& Indices,
-		TArray<uint32>& OutPnAenIndices
-	)
-	{
-		if (Indices.Num())
-		{
-			BuildOptimizationPrivate::NvTriStripHelper::FStaticMeshNvRenderBuffer StaticMeshRenderBuffer(PositionVertexBuffer, VertexBuffer, Indices);
-			nv::IndexBuffer* PnAENIndexBuffer = nv::tess::buildTessellationBuffer(&StaticMeshRenderBuffer, nv::DBM_PnAenDominantCorner, true);
-			check(PnAENIndexBuffer);
-			const int32 IndexCount = (int32)PnAENIndexBuffer->getLength();
-			OutPnAenIndices.Empty(IndexCount);
-			OutPnAenIndices.AddUninitialized(IndexCount);
-			for (int32 Index = 0; Index < IndexCount; ++Index)
-			{
-				OutPnAenIndices[Index] = (*PnAENIndexBuffer)[Index];
-			}
-			delete PnAENIndexBuffer;
-		}
-		else
-		{
-			OutPnAenIndices.Empty();
-		}
-	}
-
-	static void CacheOptimizeIndexBuffer(TArray<uint16>& Indices)
-	{
-		bool bDisableTriangleOrderOptimization = (BuildOptimizationPrivate::CVarTriangleOrderOptimization.GetValueOnGameThread() == 2);
-		bool bUsingNvTriStrip = !bDisableTriangleOrderOptimization && (BuildOptimizationPrivate::CVarTriangleOrderOptimization.GetValueOnGameThread() == 0);
-
-		if (bUsingNvTriStrip)
-		{
-			BuildOptimizationPrivate::NvTriStripHelper::CacheOptimizeIndexBuffer(Indices);
-		}
-		else if (!bDisableTriangleOrderOptimization)
-		{
-			BuildOptimizationPrivate::ForsythHelper::CacheOptimizeIndexBuffer(Indices);
-		}
-	}
-
-	static void CacheOptimizeIndexBuffer(TArray<uint32>& Indices)
-	{
-		bool bDisableTriangleOrderOptimization = (BuildOptimizationPrivate::CVarTriangleOrderOptimization.GetValueOnGameThread() == 2);
-		bool bUsingNvTriStrip = !bDisableTriangleOrderOptimization && (BuildOptimizationPrivate::CVarTriangleOrderOptimization.GetValueOnGameThread() == 0);
-
-		if (bUsingNvTriStrip)
-		{
-			BuildOptimizationPrivate::NvTriStripHelper::CacheOptimizeIndexBuffer(Indices);
-		}
-		else if (!bDisableTriangleOrderOptimization)
-		{
-			BuildOptimizationPrivate::ForsythHelper::CacheOptimizeIndexBuffer(Indices);
-		}
-	}
-
 	static void CacheOptimizeVertexAndIndexBuffer(
 		TArray<FStaticMeshBuildVertex>& Vertices,
 		TArray<TArray<uint32> >& PerSectionIndices,
@@ -367,7 +310,7 @@ public:
 			if (Indices.Num())
 			{
 				// Optimize the index buffer for the post transform cache with.
-				CacheOptimizeIndexBuffer(Indices);
+				BuildOptimizationThirdParty::CacheOptimizeIndexBuffer(Indices);
 
 				// Copy the index buffer since we will be reordering it
 				TArray<uint32> OriginalIndices = Indices;

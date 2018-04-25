@@ -353,7 +353,7 @@ void FillMeshDescriptionVertexPositionNoDuplicate(const TArray<FVector> &RawMesh
 		}
 		TempRemapVertexPosition.FindOrAdd(Index_i) = VertexCount;
 		// only need to search forward, since we add pairs both ways
-/*		for (int32 j = i + 1; j < VertIndexAndZ.Num(); j++)
+		for (int32 j = i + 1; j < VertIndexAndZ.Num(); j++)
 		{
 			if (FMath::Abs(VertIndexAndZ[j].Z - VertIndexAndZ[i].Z) > SMALL_NUMBER)
 				break; // can't be any more dups
@@ -365,7 +365,7 @@ void FillMeshDescriptionVertexPositionNoDuplicate(const TArray<FVector> &RawMesh
 			{
 				TempRemapVertexPosition.FindOrAdd(VertIndexAndZ[j].Index) = VertexCount;
 			}
-		}*/
+		}
 		VertexCount++;
 	}
 
@@ -1053,7 +1053,7 @@ void FMeshDescriptionOperations::CreateLightMapUVLayout(UMeshDescription* MeshDe
 	ELightmapUVVersion LightmapUVVersion,
 	const TMultiMap<int32, int32>& OverlappingCorners)
 {
-	FLayoutUV Packer(MeshDescription, SrcLightmapIndex, DstLightmapIndex, MinLightmapResolution);
+	MeshDescriptionOp::FLayoutUV Packer(MeshDescription, SrcLightmapIndex, DstLightmapIndex, MinLightmapResolution);
 	Packer.SetVersion(LightmapUVVersion);
 
 	Packer.FindCharts(OverlappingCorners);
@@ -1074,7 +1074,7 @@ bool FMeshDescriptionOperations::GenerateUniqueUVsForStaticMesh(const UMeshDescr
 	FindOverlappingCorners(OverlappingCorners, DuplicateMeshDescription, THRESH_POINTS_ARE_SAME);
 
 	// Generate new UVs
-	FLayoutUV Packer(DuplicateMeshDescription, 0, 1, FMath::Clamp(TextureResolution / 4, 32, 512));
+	MeshDescriptionOp::FLayoutUV Packer(DuplicateMeshDescription, 0, 1, FMath::Clamp(TextureResolution / 4, 32, 512));
 	Packer.FindCharts(OverlappingCorners);
 
 	bool bPackSuccess = Packer.FindBestPacking();

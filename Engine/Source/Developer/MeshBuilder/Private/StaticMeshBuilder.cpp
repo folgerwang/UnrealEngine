@@ -494,7 +494,7 @@ void BuildAllBufferOptimizations(FStaticMeshLODResources& StaticMeshLOD, const F
 
 		if (DepthOnlyIndices.Num() < 50000 * 3)
 		{
-			BuildOptimizationHelper::CacheOptimizeIndexBuffer(DepthOnlyIndices);
+			BuildOptimizationThirdParty::CacheOptimizeIndexBuffer(DepthOnlyIndices);
 		}
 
 		StaticMeshLOD.DepthOnlyIndexBuffer.SetIndices(DepthOnlyIndices, IndexBufferStride);
@@ -534,7 +534,7 @@ void BuildAllBufferOptimizations(FStaticMeshLODResources& StaticMeshLOD, const F
 	{
 		TArray<uint32> AdjacencyIndices;
 
-		BuildOptimizationHelper::BuildStaticAdjacencyIndexBuffer(
+		BuildOptimizationThirdParty::NvTriStripHelper::BuildStaticAdjacencyIndexBuffer(
 			StaticMeshLOD.VertexBuffers.PositionVertexBuffer,
 			StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer,
 			IndexBuffer,
