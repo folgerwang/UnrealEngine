@@ -32,7 +32,8 @@ public:
 
 	}
 
-	friend FArchive& operator<<( FArchive& Ar, FWorldTileLayer& D );
+	friend FArchive& operator<<(FArchive& Ar, FWorldTileLayer& D);
+	friend void operator<<(FStructuredArchive::FSlot Slot, FWorldTileLayer& D);
 
 public:
 	/** Human readable name for this layer */
@@ -59,7 +60,8 @@ public:
 	{
 	}
 
-	friend FArchive& operator<<( FArchive& Ar, FWorldTileLayer& D );
+	friend FArchive& operator<<(FArchive& Ar, FWorldTileLayer& D);
+	friend void operator<<(FStructuredArchive::FSlot Slot, FWorldTileLayer& D);
 
 	bool operator==(const FWorldTileLODInfo& OtherInfo) const
 	{
@@ -93,7 +95,8 @@ public:
 	{
 	}
 	
-	COREUOBJECT_API friend FArchive& operator<<( FArchive& Ar, FWorldTileInfo& D );
+	COREUOBJECT_API friend FArchive& operator<<(FArchive& Ar, FWorldTileInfo& D);
+	COREUOBJECT_API friend void operator<<(FStructuredArchive::FSlot Slot, FWorldTileInfo& D);
 
 	bool operator==(const FWorldTileInfo& OtherInfo) const
 	{

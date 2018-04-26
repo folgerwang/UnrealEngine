@@ -33,7 +33,6 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"AndroidCamera/Private",
 					"AndroidCamera/Private/Player",
-					"AndroidCamera/Private/Shared",
 				});
 
 			string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, Target.RelativeEnginePath);

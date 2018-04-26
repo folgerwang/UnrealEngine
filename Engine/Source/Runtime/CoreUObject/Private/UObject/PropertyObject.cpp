@@ -30,7 +30,7 @@ FString UObjectProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 	return TEXT("OBJECT");
 }
 
-bool UObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+EConvertFromTypeResult UObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
 	static FName NAME_AssetObjectProperty = "AssetObjectProperty"; // old name of soft object property
 
@@ -47,10 +47,10 @@ bool UObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uin
 		// Validate the type is proper
 		CheckValidObject(GetPropertyValuePtr_InContainer(Data, Tag.ArrayIndex));
 
-		return true;
+		return EConvertFromTypeResult::CannotConvert;
 	}
 
-	return false;
+	return EConvertFromTypeResult::UseSerializeItem;
 }
 
 void UObjectProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const

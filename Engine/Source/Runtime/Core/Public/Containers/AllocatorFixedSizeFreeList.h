@@ -92,7 +92,8 @@ public:
 	}
 
 	/**
-	 * Get total memory allocated
+	 * Get total memory allocated.
+	 * Only returns the size of allocations made directly by the allocator, not the elements themselves.
 	 */
 	uint32 GetAllocatedSize() const
 	{

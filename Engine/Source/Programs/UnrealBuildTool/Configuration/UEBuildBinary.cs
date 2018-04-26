@@ -650,6 +650,18 @@ namespace UnrealBuildTool
 					}
 					else
 					{
+						// Create a compile environment for resource files
+						CppCompileEnvironment ResourceCompileEnvironment = new CppCompileEnvironment(BinaryCompileEnvironment);
+
+						// @todo: This should be in some Windows code somewhere...
+						// Set the original file name macro; used in PCLaunch.rc to set the binary metadata fields.
+						string OriginalFilename = (OriginalOutputFilePaths != null) ? OriginalOutputFilePaths[0].GetFileName() : OutputFilePaths[0].GetFileName();
+						ResourceCompileEnvironment.Definitions.Add("ORIGINAL_FILE_NAME=\"" + OriginalFilename + "\"");
+
+						// Set the other version fields
+						ResourceCompileEnvironment.Definitions.Add(String.Format("BUILT_FROM_CHANGELIST={0}", Target.Version.Changelist));
+						ResourceCompileEnvironment.Definitions.Add(String.Format("BUILD_VERSION={0}", Target.BuildVersion));
+
 						// Otherwise compile the default resource file per-binary, so that it gets the correct ORIGINAL_FILE_NAME macro.
 						FileItem DefaultResourceFile = FileItem.GetItemByFileReference(FileReference.Combine(UnrealBuildTool.EngineSourceDirectory, "Runtime", "Launch", "Resources", "Windows", "PCLaunch.rc"));
 						CPPOutput DefaultResourceOutput = ToolChain.CompileRCFiles(BinaryCompileEnvironment, new List<FileItem> { DefaultResourceFile }, ((UEBuildModuleCPP)Modules.First()).IntermediateDirectory, ActionGraph);

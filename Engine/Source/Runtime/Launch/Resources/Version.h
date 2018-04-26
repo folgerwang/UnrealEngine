@@ -58,62 +58,11 @@
 #define ENGINE_MINOR_VERSION	20
 #define ENGINE_PATCH_VERSION	0
 
-// If set to 1, indicates that this is a licensee build of the engine. For the same major/minor/patch release of the engine, licensee changelists are always 
-// considered newer than Epic changelists for engine versions. This follows the assumption that content is developed by Epic leading up to a release, and which 
-// point we lock compatibility, and any subsequent licensee modifications to the engine will have a superset of its functionality even if the changelist 
-// numbers are lower.
-#define ENGINE_IS_LICENSEE_VERSION 0
-
-// The Perforce changelist being compiled. Use this value advisedly; it does not take into account out-of-order commits to engine release branches over 
-// development branches, licensee versions, or whether the engine version has been locked to maintain compatibility with a previous engine release. Prefer
-// BUILD_VERSION where a unique, product-specific identifier is required, or FEngineVersion::CompatibleWith() where relational comparisons between two 
-// versions is required.
-#define BUILT_FROM_CHANGELIST 0
-
-// Whether this build is "promoted"; that is, compiled by a build machine (rather than locally) and distributed in binary form. This disables certain features in
-// the engine relating to building locally (because they require intermediate files to be available), such as the hot-reload functionality in the editor.
-// UnrealGameSync explicitly sets this to zero for local builds.
-#define ENGINE_IS_PROMOTED_BUILD  (BUILT_FROM_CHANGELIST > 0)
-
-// The changelist version of the engine. By including a monotonically increasing number in the engine version (and saving it into packages as FEngineVersion), 
-// we can prevent newer packages with the same major/minor engine version from being loaded with an older revision of the engine.
-#define ENGINE_CURRENT_CL_VERSION  BUILT_FROM_CHANGELIST
-
-// The compatible changelist version of the engine. This number identifies a particular API revision, and is used to determine module and package backwards 
-// compatibility. Hotfixes should retain the compatible version of the original release. This define is parsed by the build tools, and should be a number or 
-// BUILT_FROM_CHANGELIST, defined in this particular order for each alternative.
-#if ENGINE_CURRENT_CL_VERSION > 0
-	#if ENGINE_IS_LICENSEE_VERSION
-		#define ENGINE_COMPATIBLE_CL_VERSION ENGINE_CURRENT_CL_VERSION
-	#else
-		#define ENGINE_COMPATIBLE_CL_VERSION ENGINE_CURRENT_CL_VERSION /* Or hotfix compatibility changelist */
-	#endif
-#else
-	#define ENGINE_COMPATIBLE_CL_VERSION 0
-#endif
-#if ENGINE_IS_LICENSEE_VERSION == 0 && ENGINE_PATCH_VERSION > 0 && ENGINE_CURRENT_CL_VERSION > 0 && ENGINE_COMPATIBLE_CL_VERSION == ENGINE_CURRENT_CL_VERSION
-	#error ENGINE_COMPATIBLE_CL_VERSION must be manually defined for hotfix builds
-#endif
-
-// The version number used for determining network compatibility
-#define ENGINE_NET_VERSION  ENGINE_COMPATIBLE_CL_VERSION
-
-// The version number used for determining replay compatibility
-#define ENGINE_REPLAY_VERSION  ENGINE_NET_VERSION
-
-// The branch that this engine is being built from. When set by UAT, this has the form of a Perforce depot path with forward slashes escaped by plus characters 
-// (eg. //UE4/Main -> ++UE4+Main)
-#define BRANCH_NAME "UE4"
-
 // Macros for encoding strings
 #define VERSION_TEXT_2(x) L ## x
 #define VERSION_TEXT(x) VERSION_TEXT_2(x)
 #define VERSION_STRINGIFY_2(x) VERSION_TEXT(#x)
 #define VERSION_STRINGIFY(x) VERSION_STRINGIFY_2(x)
-
-// The BUILD_VERSION string defines an opaque string representing this particular build, and can be customized for a product without modifying the internal engine version.
-// This string should be used to uniquely identify a build of the current product, as opposed to something built with this version of the engine.
-#define BUILD_VERSION VERSION_TEXT(BRANCH_NAME) VERSION_TEXT("-CL-") VERSION_STRINGIFY(BUILT_FROM_CHANGELIST) 
 
 // Various strings used for engine resources
 #define EPIC_COMPANY_NAME  "Epic Games, Inc."
@@ -143,6 +92,7 @@
 	#define BUILD_PROJECT_PRODUCT_IDENTIFIER EPIC_PRODUCT_IDENTIFIER
 #endif // !PROJECT_PRODUCT_IDENTIFIER
 
+#if defined(BUILT_FROM_CHANGELIST) && defined(BRANCH_NAME)
 #define ENGINE_VERSION_STRING \
 	VERSION_STRINGIFY(ENGINE_MAJOR_VERSION) \
 	VERSION_TEXT(".") \
@@ -153,3 +103,11 @@
 	VERSION_STRINGIFY(BUILT_FROM_CHANGELIST) \
 	VERSION_TEXT("+") \
 	VERSION_TEXT(BRANCH_NAME)
+#else
+#define ENGINE_VERSION_STRING \
+	VERSION_STRINGIFY(ENGINE_MAJOR_VERSION) \
+	VERSION_TEXT(".") \
+	VERSION_STRINGIFY(ENGINE_MINOR_VERSION) \
+	VERSION_TEXT(".") \
+	VERSION_STRINGIFY(ENGINE_PATCH_VERSION)
+#endif

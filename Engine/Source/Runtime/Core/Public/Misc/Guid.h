@@ -6,6 +6,7 @@
 #include "Misc/AssertionMacros.h"
 #include "Misc/Crc.h"
 #include "Containers/UnrealString.h"
+#include "Serialization/StructuredArchiveFromArchive.h"
 
 class FArchive;
 class FOutputDevice;
@@ -181,8 +182,17 @@ public:
 	 */
 	friend FArchive& operator<<(FArchive& Ar, FGuid& G)
 	{
-		return Ar << G.A << G.B << G.C << G.D;
+		FStructuredArchiveFromArchive(Ar).GetSlot() << G;
+		return Ar;
 	}
+
+	/**
+	 * Serializes a GUID from or into a structured archive slot.
+	 *
+	 * @param Ar The structured archive slot to serialize from or into.
+	 * @param G The GUID to serialize.
+	 */
+	CORE_API friend void operator<<(FStructuredArchive::FSlot Slot, FGuid& G);
 
 	bool Serialize(FArchive& Ar)
 	{
@@ -328,5 +338,10 @@ namespace Lex
 	inline FString ToString(const FGuid& Value)
 	{
 		return Value.ToString();
+	}
+
+	inline void FromString(FGuid& Result, const TCHAR* String)
+	{
+		FGuid::Parse(String, Result);
 	}
 }

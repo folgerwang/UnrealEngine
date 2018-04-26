@@ -71,6 +71,8 @@ public:
  */
 class COREUOBJECT_API FGCObject
 {
+	bool bReferenceAdded = false;
+
 	void Init()
 	{
 		// Some objects can get created after the engine started shutting down (lazy init of singletons etc).
@@ -80,6 +82,7 @@ class COREUOBJECT_API FGCObject
 			check(GGCObjectReferencer);
 			// Add this instance to the referencer's list
 			GGCObjectReferencer->AddObject(this);
+			bReferenceAdded = true;
 		}
 	}
 
@@ -129,8 +132,8 @@ public:
 	virtual ~FGCObject(void)
 	{
 		// GObjectSerializer will be NULL if this object gets destroyed after the exit purge.
-		// We also don't want to be removing objects when exiting since some of they may not have been added anyway (see Init())
-		if (GGCObjectReferencer && !GIsRequestingExit)
+		// We want to make sure we remove any objects that were added to the GGCObjectReferencer during Init when exiting
+		if (GGCObjectReferencer && bReferenceAdded)
 		{
 			// Remove this instance from the referencer's list
 			GGCObjectReferencer->RemoveObject(this);

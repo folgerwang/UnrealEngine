@@ -9,7 +9,6 @@ public class AESHandlerComponent : ModuleRules
 	{
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"AESHandlerComponent/Private",
 			}
 			);
 

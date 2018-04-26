@@ -18,6 +18,7 @@
 #include "Math/Vector.h"
 #include "Math/Rotator.h"
 #include "Misc/Paths.h"
+#include "Serialization/StructuredArchiveFromArchive.h"
 
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogConfig, Warning, All);
 
@@ -95,14 +96,18 @@ public:
 
 	friend FArchive& operator<<(FArchive& Ar, FConfigValue& ConfigSection)
 	{
-		Ar << ConfigSection.SavedValue;
+		FStructuredArchiveFromArchive(Ar).GetSlot() << ConfigSection;
+		return Ar;
+	}
 
-		if (Ar.IsLoading())
+	friend void operator<<(FStructuredArchive::FSlot Slot, FConfigValue& ConfigSection)
+	{
+		Slot << ConfigSection.SavedValue;
+
+		if (Slot.GetUnderlyingArchive().IsLoading())
 		{
 			ConfigSection.ExpandValueInternal();
 		}
-
-		return Ar;
 	}
 
 	/**

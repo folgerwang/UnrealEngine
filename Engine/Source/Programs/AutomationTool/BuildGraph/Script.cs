@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -81,7 +81,7 @@ namespace AutomationTool
 				{
 					if (!Document.bHasErrors)
 					{
-						CommandUtils.LogError("{0}", Ex.Message);
+						UnrealBuildTool.Log.WriteLine(LogEventType.Error, LogFormatOptions.NoSeverityPrefix, "{0}({1}): error: {2}", File.FullName, Ex.LineNumber, Ex.Message);
 						Document.bHasErrors = true;
 					}
 				}
@@ -158,6 +158,53 @@ namespace AutomationTool
 	}
 
 	/// <summary>
+	/// Stores information about a script function that has been declared
+	/// </summary>
+	class ScriptMacro
+	{
+		/// <summary>
+		/// Name of the function
+		/// </summary>
+		public readonly string Name;
+
+		/// <summary>
+		/// Element where the function was declared
+		/// </summary>
+		public readonly ScriptElement Element;
+
+		/// <summary>
+		/// The total number of arguments
+		/// </summary>
+		public readonly int NumArguments;
+
+		/// <summary>
+		/// Number of arguments that are required
+		/// </summary>
+		public readonly int NumRequiredArguments;
+
+		/// <summary>
+		/// Maps an argument name to its type
+		/// </summary>
+		public readonly Dictionary<string, int> ArgumentNameToIndex;
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Name">Name of the function</param>
+		/// <param name="Element">Element containing the function definition</param>
+		/// <param name="ArgumentNameToIndex">Map of argument name to index</param>
+		/// <param name="NumRequiredArguments">Number of arguments that are required. Indices 0 to NumRequiredArguments - 1 are required.</param>
+		public ScriptMacro(string Name, ScriptElement Element, Dictionary<string, int> ArgumentNameToIndex, int NumRequiredArguments)
+		{
+			this.Name = Name;
+			this.Element = Element;
+			this.NumArguments = ArgumentNameToIndex.Count;
+			this.NumRequiredArguments = NumRequiredArguments;
+			this.ArgumentNameToIndex = ArgumentNameToIndex;
+		}
+	}
+
+	/// <summary>
 	/// Reader for build graph definitions. Instanced to contain temporary state; public interface is through ScriptReader.TryRead().
 	/// </summary>
 	class ScriptReader
@@ -178,6 +225,11 @@ namespace AutomationTool
 		/// The former is likely a coding error, since it implies that the scope of the variable was meant to be further out, whereas the latter is common for temporary and loop variables.
 		/// </summary>
 		List<HashSet<string>> ShadowProperties = new List<HashSet<string>>();
+
+		/// <summary>
+		/// Maps from a function name to its definition
+		/// </summary>
+		Dictionary<string, ScriptMacro> MacroNameToDefinition = new Dictionary<string, ScriptMacro>();
 
 		/// <summary>
 		/// Schema for the script
@@ -295,6 +347,9 @@ namespace AutomationTool
 					case "EnvVar":
 						ReadEnvVar(ChildElement);
 						break;
+					case "Macro":
+						ReadMacro(ChildElement);
+						break;
 					case "Agent":
 						ReadAgent(ChildElement, null);
 						break;
@@ -312,6 +367,9 @@ namespace AutomationTool
 						break;
 					case "Trigger":
 						ReadTrigger(ChildElement);
+						break;
+					case "Trace":
+						ReadDiagnostic(ChildElement, LogEventType.Console, null, null, null);
 						break;
 					case "Warning":
 						ReadDiagnostic(ChildElement, LogEventType.Warning, null, null, null);
@@ -498,6 +556,9 @@ namespace AutomationTool
 					case "Notifier":
 						ReadNotifier(ChildElement);
 						break;
+					case "Trace":
+						ReadDiagnostic(ChildElement, LogEventType.Console, null, null, Trigger);
+						break;
 					case "Warning":
 						ReadDiagnostic(ChildElement, LogEventType.Warning, null, null, Trigger);
 						break;
@@ -660,6 +721,61 @@ namespace AutomationTool
 		}
 
 		/// <summary>
+		/// Reads a macro definition
+		/// </summary>
+		/// <param name="Element">Xml element to read the definition from</param>
+		void ReadMacro(ScriptElement Element)
+		{
+			if(EvaluateCondition(Element))
+			{
+				string Name = ReadAttribute(Element, "Name");
+				if (ValidateName(Element, Name))
+				{
+					ScriptMacro OriginalDefinition;
+					if(MacroNameToDefinition.TryGetValue(Name, out OriginalDefinition))
+					{
+						LogError(Element, "Function '{0}' has already been declared (see {1} line {2})", OriginalDefinition.Element.File, OriginalDefinition.Element.LineNumber);
+					}
+					else
+					{
+						Dictionary<string, int> ArgumentNameToIndex = new Dictionary<string, int>();
+						ReadMacroArguments(Element, "Arguments", ArgumentNameToIndex);
+
+						int NumRequiredArguments = ArgumentNameToIndex.Count;
+						ReadMacroArguments(Element, "OptionalArguments", ArgumentNameToIndex);
+
+						MacroNameToDefinition.Add(Name, new ScriptMacro(Name, Element, ArgumentNameToIndex, NumRequiredArguments));
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Reads a list of macro arguments from an attribute
+		/// </summary>
+		/// <param name="Element">The element containing the attributes</param>
+		/// <param name="AttributeName">Name of the attribute containing the arguments</param>
+		/// <param name="ArgumentNameToIndex">List of arguments to add to</param>
+		void ReadMacroArguments(ScriptElement Element, string AttributeName, Dictionary<string, int> ArgumentNameToIndex)
+		{
+			string AttributeValue = ReadAttribute(Element, AttributeName);
+			if(AttributeValue != null)
+			{
+				foreach(string ArgumentName in AttributeValue.Split(new char[]{ ';' }, StringSplitOptions.RemoveEmptyEntries))
+				{
+					if(ArgumentNameToIndex.ContainsKey(ArgumentName))
+					{
+						LogWarning(Element, "Argument '{0}' is listed multiple times", ArgumentName);
+					}
+					else
+					{
+						ArgumentNameToIndex.Add(ArgumentName, ArgumentNameToIndex.Count);
+					}
+				}
+			}
+		}
+
+		/// <summary>
 		/// Reads the definition for an agent.
 		/// </summary>
 		/// <param name="Element">Xml element to read the definition from</param>
@@ -723,6 +839,9 @@ namespace AutomationTool
 						break;
 					case "Aggregate":
 						ReadAggregate(ChildElement);
+						break;
+					case "Trace":
+						ReadDiagnostic(ChildElement, LogEventType.Console, null, ParentAgent, ControllingTrigger);
 						break;
 					case "Warning":
 						ReadDiagnostic(ChildElement, LogEventType.Warning, null, ParentAgent, ControllingTrigger);
@@ -931,6 +1050,9 @@ namespace AutomationTool
 					case "Property":
 						ReadProperty(ChildElement);
 						break;
+					case "Trace":
+						ReadDiagnostic(ChildElement, LogEventType.Console, NewNode, ParentAgent, ControllingTrigger);
+						break;
 					case "Warning":
 						ReadDiagnostic(ChildElement, LogEventType.Warning, NewNode, ParentAgent, ControllingTrigger);
 						break;
@@ -945,6 +1067,9 @@ namespace AutomationTool
 						break;
 					case "ForEach":
 						ReadForEach(ChildElement, x => ReadNodeBody(x, NewNode, ParentAgent, ControllingTrigger));
+						break;
+					case "Expand":
+						ReadExpand(ChildElement, x => ReadNodeBody(x, NewNode, ParentAgent, ControllingTrigger));
 						break;
 					default:
 						ReadTask(ChildElement, NewNode);
@@ -1024,6 +1149,68 @@ namespace AutomationTool
 				}
 			}
 			LeaveScope();
+		}
+
+		/// <summary>
+		/// Reads an "Expand" element 
+		/// </summary>
+		/// <param name="Element">Xml element to read the definition from</param>
+		/// <param name="ReadContents">Delegate to read the contents of the element, if the condition evaluates to true</param>
+		void ReadExpand(ScriptElement Element, Action<ScriptElement> ReadContents)
+		{
+			if(EvaluateCondition(Element))
+			{
+				string Name = ReadAttribute(Element, "Name");
+
+				ScriptMacro Macro;
+				if(!MacroNameToDefinition.TryGetValue(Name, out Macro))
+				{
+					LogError(Element, "Macro '{0}' does not exist", Name);
+				}
+				else
+				{
+					// Parse the argument list
+					string[] Arguments = new string[Macro.ArgumentNameToIndex.Count];
+					foreach(XmlAttribute Attribute in Element.Attributes)
+					{
+						if(Attribute.Name != "Name" && Attribute.Name != "If")
+						{
+							int Index;
+							if(Macro.ArgumentNameToIndex.TryGetValue(Attribute.Name, out Index))
+							{
+								Arguments[Index] = Attribute.Value;
+							}
+							else
+							{
+								LogWarning(Element, "Macro '{0}' does not take an argument '{1}'", Name, Attribute.Name);
+							}
+						}
+					}
+
+					// Make sure none of the required arguments are missing
+					bool bHasMissingArguments = false;
+					for(int Idx = 0; Idx < Macro.NumRequiredArguments; Idx++)
+					{
+						if(Arguments[Idx] == null)
+						{
+							LogWarning(Element, "Macro '{0}' is missing argument '{1}'", Macro.ArgumentNameToIndex.First(x => x.Value == Idx).Key);
+							bHasMissingArguments = true;
+						}
+					}
+
+					// Expand the function
+					if(!bHasMissingArguments)
+					{
+						EnterScope();
+						foreach(KeyValuePair<string, int> Pair in Macro.ArgumentNameToIndex)
+						{
+							ScopedProperties[ScopedProperties.Count - 1][Pair.Key] = Arguments[Pair.Value] ?? "";
+						}
+						ReadContents(Macro.Element);
+						LeaveScope();
+					}
+				}
+			}
 		}
 
 		/// <summary>

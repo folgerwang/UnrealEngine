@@ -37,7 +37,6 @@ public class AddContentDialog : ModuleRules
 			new string[] {
 				"Editor/AddContentDialog/Private",
 				"Editor/AddContentDialog/Private/ViewModels",
-				"Editor/AddContentDialog/Private/ContentSourceProviders/AssetPack",
 				"Editor/AddContentDialog/Private/ContentSourceProviders/FeaturePack",
 			}
 		);

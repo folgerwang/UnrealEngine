@@ -113,6 +113,17 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Gets the path for a special folder
+		/// </summary>
+		/// <param name="Folder">The folder to receive the path for</param>
+		/// <returns>Directory reference for the given folder, or null if it is not available</returns>
+		public static DirectoryReference GetSpecialFolder(Environment.SpecialFolder Folder)
+		{
+			string FolderPath = Environment.GetFolderPath(Folder);
+			return String.IsNullOrEmpty(FolderPath)? null : new DirectoryReference(FolderPath);
+		}
+
+		/// <summary>
 		/// Determines whether this path represents a root directory in the filesystem
 		/// </summary>
 		/// <returns>True if this path is a root directory, false otherwise</returns>

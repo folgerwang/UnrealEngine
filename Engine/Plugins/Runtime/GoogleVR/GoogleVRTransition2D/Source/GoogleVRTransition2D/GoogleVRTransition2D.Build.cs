@@ -10,7 +10,6 @@ public class GoogleVRTransition2D : ModuleRules
 		
 		PublicIncludePaths.AddRange(
 			new string[] {
-				"GoogleVRTransition2D/Public",
 				"Runtime/Launch/Public"
 				// ... add public include paths required here ...
 			}

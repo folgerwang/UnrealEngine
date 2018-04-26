@@ -55,8 +55,11 @@ struct FPakInfo
 		PakFile_Version_NoTimestamps = 2,
 		PakFile_Version_CompressionEncryption = 3,
 		PakFile_Version_IndexEncryption = 4,
+		PakFile_Version_RelativeChunkOffsets = 5,
 
-		PakFile_Version_Latest = PakFile_Version_IndexEncryption
+
+		PakFile_Version_Last,
+		PakFile_Version_Latest = PakFile_Version_Last - 1
 	};
 
 	/** Pak file magic value. */
@@ -93,6 +96,13 @@ struct FPakInfo
 	int64 GetSerializedSize() const
 	{
 		return sizeof(Magic) + sizeof(Version) + sizeof(IndexOffset) + sizeof(IndexSize) + sizeof(IndexHash) + sizeof(bEncryptedIndex);
+	}
+
+	/**
+	 */
+	int64 HasRelativeCompressedChunkOffsets() const
+	{
+		return Version >= PakFile_Version_RelativeChunkOffsets;
 	}
 
 	/**
@@ -551,13 +561,16 @@ public:
 							// Set Verified to true to avoid have a synchronous open fail comparing FPakEntry structures.
 							OutEntry->Verified = true;
 
+							// Base offset to the compressed data
+							int64 BaseOffset = Info.HasRelativeCompressedChunkOffsets() ? OutEntry->Offset : 0; 
+
 							// Handle building of the CompressionBlocks array.
 							if (OutEntry->CompressionBlocks.Num() == 1)
 							{
 								// If the number of CompressionBlocks is 1, we didn't store any extra information.
 								// Derive what we can from the entry's file offset and size.
 								FPakCompressedBlock& CompressedBlock = OutEntry->CompressionBlocks[0];
-								CompressedBlock.CompressedStart = OutEntry->Offset + OutEntry->GetSerializedSize(Info.Version);
+								CompressedBlock.CompressedStart = BaseOffset + OutEntry->GetSerializedSize(Info.Version);
 								CompressedBlock.CompressedEnd = CompressedBlock.CompressedStart + OutEntry->Size;
 							}
 							else if (OutEntry->CompressionBlocks.Num() > 0)
@@ -566,7 +579,7 @@ public:
 								uint32* CompressionBlockSizePtr = (uint32*)FoundPtr;
 
 								// CompressedBlockOffset is the starting offset. Everything else can be derived from there.
-								int64 CompressedBlockOffset = OutEntry->Offset + OutEntry->GetSerializedSize(Info.Version);
+								int64 CompressedBlockOffset = BaseOffset + OutEntry->GetSerializedSize(Info.Version);
 								for (int CompressionBlockIndex = 0; CompressionBlockIndex < OutEntry->CompressionBlocks.Num(); ++CompressionBlockIndex)
 								{
 									FPakCompressedBlock& CompressedBlock = OutEntry->CompressionBlocks[CompressionBlockIndex];

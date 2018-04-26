@@ -39,7 +39,7 @@ public:
     // Returns a human readable description of the latent operation's current state
     virtual FString GetDescription() const override
     {
-        return FString::Printf(*NSLOCTEXT("StereoCaptureDoneAction", "IsStereoCaptureDone", "Is Stereo Capture Done: %d").ToString(), IsStereoCaptureDone);
+		return FText::Format(NSLOCTEXT("StereoCaptureDoneAction", "IsStereoCaptureDoneFmt", "Is Stereo Capture Done: {0}"), IsStereoCaptureDone).ToString();
     }
 #endif
 };

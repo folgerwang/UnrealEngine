@@ -23,16 +23,18 @@ bool APostProcessVolume::EncompassesPoint(FVector Point, float SphereRadius/*=0.
 	return AVolume::EncompassesPoint(Point, SphereRadius, OutDistanceToPoint);
 }
 
-#if WITH_EDITOR
 void APostProcessVolume::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
-
-	if(Ar.IsLoading())
+#if WITH_EDITOR
+	if (Ar.IsLoading())
 	{
 		Settings.OnAfterLoad();
 	}
+#endif
 }
+
+#if WITH_EDITOR
 
 void APostProcessVolume::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {

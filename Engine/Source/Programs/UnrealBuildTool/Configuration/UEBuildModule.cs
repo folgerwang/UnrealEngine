@@ -236,7 +236,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Converts an optional string list parameter to a well-defined hash set.
 		/// </summary>
-		protected static HashSet<DirectoryReference> CreateDirectoryHashSet(IEnumerable<string> InEnumerableStrings)
+		protected HashSet<DirectoryReference> CreateDirectoryHashSet(IEnumerable<string> InEnumerableStrings)
 		{
 			HashSet<DirectoryReference> Directories = new HashSet<DirectoryReference>();
 			if(InEnumerableStrings != null)
@@ -248,7 +248,16 @@ namespace UnrealBuildTool
 					{
 						throw new BuildException("Unable to expand variable in '{0}'", InputString);
 					}
-					Directories.Add(new DirectoryReference(ExpandedString));
+
+					DirectoryReference Dir = new DirectoryReference(ExpandedString);
+					if(DirectoryReference.Exists(Dir))
+					{
+						Directories.Add(Dir);
+					}
+					else
+					{
+						Log.WriteLineOnce(LogEventType.Warning, LogFormatOptions.NoSeverityPrefix, "{0}: warning: Referenced directory '{1}' does not exist.", RulesFile, Dir);
+					}
 				}
 			}
 			return Directories;
@@ -430,17 +439,14 @@ namespace UnrealBuildTool
 			// Need to check whether directories exist to avoid bloating compiler command line with generated code directories
 			foreach(DirectoryReference IncludePathToAdd in IncludePathsToAdd)
 			{
-				if(DirectoryReference.Exists(IncludePathToAdd))
-				{
-					IncludePaths.Add(IncludePathToAdd);
-				}
+				IncludePaths.Add(IncludePathToAdd);
 			}
 		}
 
 		/// <summary>
 		/// Sets up the environment for compiling any module that includes the public interface of this module.
 		/// </summary>
-		public void AddModuleToCompileEnvironment(
+		public virtual void AddModuleToCompileEnvironment(
 			UEBuildBinary SourceBinary,
 			HashSet<DirectoryReference> IncludePaths,
 			HashSet<DirectoryReference> SystemIncludePaths,

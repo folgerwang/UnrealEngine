@@ -10,6 +10,7 @@ using System.Text;
 using System.Linq;
 using Ionic.Zip;
 using Tools.DotNETCommon;
+using System.Globalization;
 
 namespace UnrealBuildTool
 {
@@ -60,7 +61,14 @@ namespace UnrealBuildTool
 			SelectSDK(BaseSDKDir, "MacOSX", ref MacOSSDKVersion, bVerbose);
 
 			// convert to float for easy comparison
-			MacOSSDKVersionFloat = float.Parse(MacOSSDKVersion, System.Globalization.CultureInfo.InvariantCulture);
+			if(String.IsNullOrWhiteSpace(MacOSSDKVersion))
+			{
+				throw new BuildException("Unable to find installed MacOS SDK on remote agent.");
+			}
+			else if(!float.TryParse(MacOSSDKVersion, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture.NumberFormat, out MacOSSDKVersionFloat))
+			{
+				throw new BuildException("Unable to parse installed MacOS version (\"{0}\")", MacOSSDKVersion);
+			}
 		}
 	}
 
@@ -158,6 +166,11 @@ namespace UnrealBuildTool
 
 			Result += " -fexceptions";
 			Result += " -fasm-blocks";
+
+			if (!Utils.IsRunningOnMono)
+			{
+				Result += " -fdiagnostics-format=msvc";
+			}
 
 			if(CompileEnvironment.bHideSymbolsByDefault)
 			{
@@ -588,7 +601,6 @@ namespace UnrealBuildTool
 				// We're already distributing the command by execution on Mac.
 				CompileAction.bCanExecuteRemotely = false;
 				CompileAction.bShouldOutputStatusDescription = true;
-				CompileAction.OutputEventHandler = new DataReceivedEventHandler(RemoteOutputReceivedEventHandler);
 			}
 			return Result;
 		}
@@ -628,19 +640,6 @@ namespace UnrealBuildTool
 		private int LoadBuiltFromChangelistValue()
 		{
 			return LoadEngineCL();
-		}
-
-		private int LoadIsLicenseeVersionValue()
-		{
-			BuildVersion Version;
-			if (BuildVersion.TryRead(BuildVersion.GetDefaultFileName(), out Version))
-			{
-				return Version.IsLicenseeVersion;
-			}
-			else
-			{
-				return 0;
-			}
 		}
 
 		private string LoadEngineAPIVersion()
@@ -1011,7 +1010,6 @@ namespace UnrealBuildTool
 			LinkAction.bCanExecuteRemotely = false;
 
 			LinkAction.StatusDescription = Path.GetFileName(OutputFile.AbsolutePath);
-			LinkAction.OutputEventHandler = new DataReceivedEventHandler(RemoteOutputReceivedEventHandler);
 
 			LinkAction.ProducedItems.Add(RemoteOutputFile);
 

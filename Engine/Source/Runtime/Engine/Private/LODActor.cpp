@@ -973,11 +973,10 @@ void ALODActor::OnCVarsChanged()
 	}
 }
 
-#if WITH_EDITOR
 void ALODActor::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
-
+#if WITH_EDITOR
 	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
 	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
 
@@ -986,12 +985,15 @@ void ALODActor::Serialize(FArchive& Ar)
 	if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::CullDistanceRefactor_NeverCullALODActorsByDefault)
 	{
 		if (UStaticMeshComponent* SMComponent = GetStaticMeshComponent())
-		{	
+		{
 			SMComponent->LDMaxDrawDistance = 0.f;
 			SMComponent->bNeverDistanceCull = true;
 		}
 	}
+#endif
 }
+
+#if WITH_EDITOR
 
 void ALODActor::PreSave(const class ITargetPlatform* TargetPlatform)
 {

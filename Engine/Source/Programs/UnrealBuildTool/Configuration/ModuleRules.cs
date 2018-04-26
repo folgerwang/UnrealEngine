@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -227,7 +227,7 @@ namespace UnrealBuildTool
 			/// Add a receipt property to the list
 			/// </summary>
 			/// <param name="InReceiptProperty">ReceiptProperty instance</param>
-			[Obsolete("Constructing a ReceiptProperty object is deprecated. Call RuntimeDependencies.Add() with the path to the file to stage.")]
+			[Obsolete("Constructing a ReceiptProperty object is deprecated. Call ReceiptProperties.Add() with the path to the file to stage.")]
 			public void Add(ReceiptProperty InReceiptProperty)
 			{
 				Inner.Add(InReceiptProperty);
@@ -524,6 +524,17 @@ namespace UnrealBuildTool
 		/// of search paths that have to be passed to the compiler, improving performance and reducing the length of the compiler command line.
 		/// </summary>
 		public bool? bLegacyPublicIncludePaths;
+
+		/// <summary>
+		/// The current engine directory
+		/// </summary>
+		public string EngineDirectory
+		{
+			get
+			{
+				return UnrealBuildTool.EngineDirectory.FullName;
+			}
+		}
 
 		/// <summary>
 		/// Property for the directory containing this module. Useful for adding paths to third party dependencies.

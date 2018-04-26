@@ -6,6 +6,7 @@
 #include "Containers/Array.h"
 #include "UObject/NameTypes.h"
 #include "Delegates/Delegate.h"
+#include "IModularFeature.h"
 
 /**
  * Public interface to all known modular features

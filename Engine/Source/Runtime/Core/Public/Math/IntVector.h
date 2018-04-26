@@ -256,6 +256,14 @@ public:
 		return Ar << Vector.X << Vector.Y << Vector.Z;
 	}
 
+	friend void operator<<(FStructuredArchive::FSlot Slot, FIntVector& Vector)
+	{
+		FStructuredArchive::FRecord Record = Slot.EnterRecord();
+		Record << NAMED_ITEM("X", Vector.X);
+		Record << NAMED_ITEM("Y", Vector.Y);
+		Record << NAMED_ITEM("Z", Vector.Z);
+	}
+
 	bool Serialize( FArchive& Ar )
 	{
 		Ar << *this;

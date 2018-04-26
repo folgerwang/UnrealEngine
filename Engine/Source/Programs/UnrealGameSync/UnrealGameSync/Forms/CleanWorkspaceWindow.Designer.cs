@@ -33,7 +33,7 @@ namespace UnrealGameSync
 			this.components = new System.ComponentModel.Container();
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(CleanWorkspaceWindow));
 			this.TreeView = new System.Windows.Forms.TreeView();
-			this.DeleteBtn = new System.Windows.Forms.Button();
+			this.CleanBtn = new System.Windows.Forms.Button();
 			this.CancelBtn = new System.Windows.Forms.Button();
 			this.label1 = new System.Windows.Forms.Label();
 			this.SelectAllBtn = new System.Windows.Forms.Button();
@@ -44,6 +44,7 @@ namespace UnrealGameSync
 			this.FolderContextMenu_SelectNone = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
 			this.FolderContextMenu_OpenWithExplorer = new System.Windows.Forms.ToolStripMenuItem();
+			this.SelectMissingBtn = new System.Windows.Forms.Button();
 			this.FolderContextMenu.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -61,17 +62,17 @@ namespace UnrealGameSync
 			this.TreeView.DrawNode += new System.Windows.Forms.DrawTreeNodeEventHandler(this.TreeView_DrawNode);
 			this.TreeView.NodeMouseClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.TreeView_NodeMouseClick);
 			// 
-			// DeleteBtn
+			// CleanBtn
 			// 
-			this.DeleteBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.DeleteBtn.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.DeleteBtn.Location = new System.Drawing.Point(714, 560);
-			this.DeleteBtn.Name = "DeleteBtn";
-			this.DeleteBtn.Size = new System.Drawing.Size(101, 26);
-			this.DeleteBtn.TabIndex = 1;
-			this.DeleteBtn.Text = "Delete Files";
-			this.DeleteBtn.UseVisualStyleBackColor = true;
-			this.DeleteBtn.Click += new System.EventHandler(this.DeleteBtn_Click);
+			this.CleanBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+			this.CleanBtn.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+			this.CleanBtn.Location = new System.Drawing.Point(714, 560);
+			this.CleanBtn.Name = "CleanBtn";
+			this.CleanBtn.Size = new System.Drawing.Size(101, 26);
+			this.CleanBtn.TabIndex = 1;
+			this.CleanBtn.Text = "Clean Files";
+			this.CleanBtn.UseVisualStyleBackColor = true;
+			this.CleanBtn.Click += new System.EventHandler(this.CleanBtn_Click);
 			// 
 			// CancelBtn
 			// 
@@ -91,10 +92,10 @@ namespace UnrealGameSync
 			this.label1.AutoSize = true;
 			this.label1.Location = new System.Drawing.Point(12, 16);
 			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(727, 15);
+			this.label1.Size = new System.Drawing.Size(776, 15);
 			this.label1.TabIndex = 3;
-			this.label1.Text = "The files below are not tracked by Perforce; check any you wish to delete. Interm" +
-    "ediate files that are safe to delete are checked by default.";
+			this.label1.Text = "The following differences were found against Perforce. Check any files you wish t" +
+    "o clean. Files which can be cleaned safely are checked by default.";
 			// 
 			// SelectAllBtn
 			// 
@@ -159,23 +160,36 @@ namespace UnrealGameSync
 			this.FolderContextMenu_OpenWithExplorer.Text = "Open with Explorer...";
 			this.FolderContextMenu_OpenWithExplorer.Click += new System.EventHandler(this.FolderContextMenu_OpenWithExplorer_Click);
 			// 
+			// SelectMissingBtn
+			// 
+			this.SelectMissingBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+			this.SelectMissingBtn.Location = new System.Drawing.Point(143, 560);
+			this.SelectMissingBtn.Name = "SelectMissingBtn";
+			this.SelectMissingBtn.Size = new System.Drawing.Size(125, 26);
+			this.SelectMissingBtn.TabIndex = 5;
+			this.SelectMissingBtn.Text = "Select Missing";
+			this.SelectMissingBtn.UseVisualStyleBackColor = true;
+			this.SelectMissingBtn.Click += new System.EventHandler(this.SelectMissingBtn_Click);
+			// 
 			// CleanWorkspaceWindow
 			// 
-			this.AcceptButton = this.DeleteBtn;
+			this.AcceptButton = this.CleanBtn;
 			this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.CancelButton = this.CancelBtn;
 			this.ClientSize = new System.Drawing.Size(827, 598);
 			this.ControlBox = false;
+			this.Controls.Add(this.SelectMissingBtn);
 			this.Controls.Add(this.SelectAllBtn);
 			this.Controls.Add(this.label1);
 			this.Controls.Add(this.CancelBtn);
-			this.Controls.Add(this.DeleteBtn);
+			this.Controls.Add(this.CleanBtn);
 			this.Controls.Add(this.TreeView);
 			this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
 			this.MinimumSize = new System.Drawing.Size(843, 594);
 			this.Name = "CleanWorkspaceWindow";
+			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Clean Workspace";
 			this.Load += new System.EventHandler(this.CleanWorkspaceWindow_Load);
@@ -188,7 +202,7 @@ namespace UnrealGameSync
 		#endregion
 
 		private System.Windows.Forms.TreeView TreeView;
-		private System.Windows.Forms.Button DeleteBtn;
+		private System.Windows.Forms.Button CleanBtn;
 		private System.Windows.Forms.Button CancelBtn;
 		private System.Windows.Forms.Label label1;
 		private System.Windows.Forms.Button SelectAllBtn;
@@ -199,5 +213,6 @@ namespace UnrealGameSync
 		private System.Windows.Forms.ToolStripMenuItem FolderContextMenu_SelectNone;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
 		private System.Windows.Forms.ToolStripMenuItem FolderContextMenu_OpenWithExplorer;
+		private System.Windows.Forms.Button SelectMissingBtn;
 	}
 }

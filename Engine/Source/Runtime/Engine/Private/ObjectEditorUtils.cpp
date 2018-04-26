@@ -142,7 +142,7 @@ namespace FObjectEditorUtils
 			TargetMapHelper.EmptyValues();
 
 			int32 Num = SourceMapHelper.Num();
-			for ( int32 Index = 0; Index < Num; Index++ )
+			for ( int32 Index = 0; Num; Index++ )
 			{
 				if ( SourceMapHelper.IsValidIndex(Index) )
 				{
@@ -157,6 +157,8 @@ namespace FObjectEditorUtils
 					CopySinglePropertyRecursive(SourceObject, SrcPairPtr, SrcMapProperty->ValueProp, PairPtr, InDestinationObject, DestMapProperty->ValueProp);
 
 					TargetMapHelper.Rehash();
+
+					--Num;
 				}
 			}
 

@@ -507,6 +507,14 @@ private:
 		const bool bIsEnsure = false;
 		FWindowsPlatformCrashContext CrashContext(bIsEnsure);
 
+		// Thread context wrapper for stack operations
+		void* ContextWrapper = FWindowsPlatformStackWalk::MakeThreadContextWrapper(ExceptionInfo->ContextRecord, CrashingThreadHandle);
+
+		// Generate the portable callstack, for non-Asserts pass in a negative IgnoreCount as need top of crash context record, and IgnoreCount is increased by stack walking methods
+		const int32 IgnoreCount = FDebug::HasAsserted() ? 1 : -3;
+		const int32 MaxDepth = 100;
+		FGenericCrashContext::GeneratePortableCallStack(IgnoreCount, MaxDepth, ContextWrapper);
+
 		// First launch the crash reporter client.
 #if WINVER > 0x502	// Windows Error Reporting is not supported on Windows XP
 		if (GUseCrashReportClient)
@@ -540,9 +548,13 @@ private:
 			ANSICHAR* StackTrace = (ANSICHAR*)GMalloc->Malloc(StackTraceSize);
 			StackTrace[0] = 0;
 			// Walk the stack and dump it to the allocated memory. This process usually allocates a lot of memory.
-			void* ContextWapper = FWindowsPlatformStackWalk::MakeThreadContextWrapper(ExceptionInfo->ContextRecord, CrashingThreadHandle);
-			FPlatformStackWalk::StackWalkAndDump(StackTrace, StackTraceSize, 0, ContextWapper);
-			FWindowsPlatformStackWalk::ReleaseThreadContextWrapper(ContextWapper);
+			if (!ContextWrapper)
+			{
+				ContextWrapper = FWindowsPlatformStackWalk::MakeThreadContextWrapper(ExceptionInfo->ContextRecord, CrashingThreadHandle);
+			}
+			
+			FPlatformStackWalk::StackWalkAndDump(StackTrace, StackTraceSize, 0, ContextWrapper);
+			
 			if (ExceptionInfo->ExceptionRecord->ExceptionCode != 1)
 			{
 				CreateExceptionInfoString(ExceptionInfo->ExceptionRecord);
@@ -553,6 +565,12 @@ private:
 			FCString::Strncat(GErrorHist, ANSI_TO_TCHAR(StackTrace), ARRAY_COUNT(GErrorHist));
 
 			GMalloc->Free(StackTrace);
+		}
+
+		// Make sure any thread context wrapper is released
+		if (ContextWrapper)
+		{
+			FWindowsPlatformStackWalk::ReleaseThreadContextWrapper(ContextWrapper);
 		}
 
 #if !UE_BUILD_SHIPPING

@@ -22,6 +22,7 @@
 #include "Misc/OutputDeviceRedirector.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "Serialization/ArchiveFromStructuredArchive.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogUnrealNames, Log, All);
@@ -327,7 +328,7 @@ FString FName::NameToDisplayString( const FString& InDisplayName, const bool bIs
 		}
 
 		// If the current character is upper case or a digit, and the previous character wasn't, then we need to insert a space if there wasn't one previously
-		if( (bUpperCase || bIsDigit) && !bInARun && !bWasOpenParen)
+		if( (bUpperCase || bIsDigit) && (!bInARun || ((CharIndex + 1 < Chars.Num() && FChar::IsLower(Chars[CharIndex + 1])) && !bIsDigit)) && !bWasOpenParen)
 		{
 			if( !bWasSpace && OutDisplayName.Len() > 0 )
 			{
@@ -1218,6 +1219,16 @@ void FNameEntry::Write( FArchive& Ar ) const
 	Ar << EntrySerialized;
 }
 
+void FNameEntry::Write(FStructuredArchive::FSlot Slot) const
+{
+	// This path should be unused - since FNameEntry structs are allocated with a dynamic size, we can only save them. Use FNameEntrySerialized to read them back into an intermediate buffer.
+	checkf(!Slot.GetUnderlyingArchive().IsLoading(), TEXT("FNameEntry does not support reading from an archive. Serialize into a FNameEntrySerialized and construct a FNameEntry from that."));
+
+	// Convert to our serialized type
+	FNameEntrySerialized EntrySerialized(*this);
+	Slot << EntrySerialized;
+}
+
 FArchive& operator<<(FArchive& Ar, FNameEntrySerialized& E)
 {
 	if (Ar.IsLoading())
@@ -1271,6 +1282,32 @@ FArchive& operator<<(FArchive& Ar, FNameEntrySerialized& E)
 	}
 
 	return Ar;
+}
+
+void operator<<(FStructuredArchive::FSlot Slot, FNameEntrySerialized& E)
+{
+	if (Slot.GetUnderlyingArchive().IsTextFormat())
+	{
+		FString Str = E.GetPlainNameString();
+		Slot << Str;
+
+		if (Slot.GetUnderlyingArchive().IsLoading())
+		{
+			// mark the name will be wide
+			E.PreSetIsWideForSerialization(true);
+
+			// get the pointer to the wide array 
+			WIDECHAR* WideName = const_cast<WIDECHAR*>(E.GetWideName());
+			FCString::Strcpy(WideName, 1024, *Str);
+
+			E.bWereHashesLoaded = false;
+		}
+	}
+	else
+	{
+		FArchiveFromStructuredArchive Ar(Slot);
+		Ar << E;
+	}
 }
 
 /**

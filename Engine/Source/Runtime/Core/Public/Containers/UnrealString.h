@@ -279,6 +279,10 @@ public:
 	{
 		const int32 NewSizeIncludingTerminator = (NewReservedSize > 0) ? (NewReservedSize + 1) : 0;
 		Data.Reset(NewSizeIncludingTerminator);
+		if (TCHAR* DataPtr = Data.GetData())
+		{
+			*DataPtr = TEXT('\0');
+		}
 	}
 
 	/**
@@ -1361,9 +1365,7 @@ public:
 	template <typename FmtType, typename... Types>
 	static FString Printf(const FmtType& Fmt, Types... Args)
 	{
-#if USE_FORMAT_STRING_TYPE_CHECKING
 		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
-#endif
 		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FString::Printf");
 
 		return PrintfImpl(Fmt, Args...);
@@ -1820,7 +1822,7 @@ inline const TCHAR* GetData(const FString& String)
 
 inline SIZE_T GetNum(const FString& String)
 {
-	return String.GetCharArray().Num();
+	return String.Len();
 }
 
 /** Case insensitive string hash function. */
@@ -2085,6 +2087,26 @@ struct TTypeFromString
 {
 	static void FromString(T& Value, const TCHAR* Buffer) { return Lex::FromString(Value, Buffer); }
 };
+
+/**
+ * Gets a non-owning TCHAR pointer from a string type.
+ *
+ * Can be used generically to get a const TCHAR*, when it is not known if the argument is a TCHAR* or an FString:
+ *
+ * template <typename T>
+ * void LogValue(const T& Val)
+ * {
+ *     Logf(TEXT("Value: %s"), ToCStr(LexToString(Val)));
+ * }
+ */
+FORCEINLINE const TCHAR* ToCStr(const TCHAR* Ptr)
+{
+	return Ptr;
+}
+FORCEINLINE const TCHAR* ToCStr(const FString& Str)
+{
+	return *Str;
+}
 
 /*----------------------------------------------------------------------------
 	Special archivers.

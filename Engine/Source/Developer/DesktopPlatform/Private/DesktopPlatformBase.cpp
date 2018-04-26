@@ -561,40 +561,17 @@ bool FDesktopPlatformBase::CompileGameProject(const FString& RootDir, const FStr
 	// Get the project directory
 	FString ProjectDir = FPaths::GetPath(ProjectFileName);
 
-	// Get the target name. By default it'll be the same as the project name, but that might not be the case if the project was renamed.
-	FString TargetName = FPaths::GetBaseFilename(ProjectFileName);
-	if(!FPaths::FileExists(ProjectDir / FString::Printf(TEXT("Source/%sEditor.Target.cs"), *TargetName)))
-	{
-		// Find all the target files
-		TArray<FString> TargetFiles;
-		IFileManager::Get().FindFilesRecursive(TargetFiles, *(ProjectDir / TEXT("Source")), TEXT("*.target.cs"), true, false, false);
-
-		// Try to find a target that's clearly meant to be the editor. If there isn't one, let UBT fail with a sensible message without trying to do anything else smart.
-		for(const FString TargetFile: TargetFiles)
-		{
-			if(TargetFile.EndsWith("Editor.Target.cs"))
-			{
-				TargetName = FPaths::GetBaseFilename(FPaths::GetBaseFilename(TargetFile));
-				break;
-			}
-		}
-	}
-
 	// Build the argument list
-	FString Arguments = FString::Printf(TEXT("%s %s %s"), *TargetName, FModuleManager::Get().GetUBTConfiguration(), FPlatformMisc::GetUBTPlatform());
+	FString Arguments = FString::Printf(TEXT("%s %s"), FModuleManager::Get().GetUBTConfiguration(), FPlatformMisc::GetUBTPlatform());
 
 	// Append the project name if it's a foreign project
 	if ( !ProjectFileName.IsEmpty() )
 	{
-		FUProjectDictionary ProjectDictionary(RootDir);
-		if(ProjectDictionary.IsForeignProject(ProjectFileName))
-		{
-			Arguments += FString::Printf(TEXT(" -project=\"%s\""), *IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*ProjectFileName));
-		}
+		Arguments += FString::Printf(TEXT(" -Project=\"%s\""), *IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*ProjectFileName));
 	}
 
 	// Append any other options
-	Arguments += " -editorrecompile -progress -NoHotReloadFromIDE";
+	Arguments += " -TargetType=Editor -Progress -NoHotReloadFromIDE";
 
 	// Run UBT
 	return RunUnrealBuildTool(LOCTEXT("CompilingProject", "Compiling project..."), RootDir, Arguments, Warn);
@@ -655,21 +632,16 @@ bool FDesktopPlatformBase::GenerateProjectFiles(const FString& RootDir, const FS
 
 bool FDesktopPlatformBase::InvalidateMakefiles(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn)
 {
-	// Composes the target, platform, and config (eg, "QAGame Win64 Development")
-	FString Arguments = FString::Printf(TEXT("%s %s %s"), FApp::GetProjectName(), FPlatformMisc::GetUBTPlatform(), FModuleManager::GetUBTConfiguration());
+	// Composes the platform, and config (eg, "Win64 Development")
+	FString Arguments = FString::Printf(TEXT("%s %s"), FPlatformMisc::GetUBTPlatform(), FModuleManager::GetUBTConfiguration());
 
-	// -editorrecompile tells UBT to work out the editor target name from the game target name we provided (eg, converting "QAGame" to "QAGameEditor")
-	Arguments += TEXT(" -editorrecompile");
+	// -TargetType=Editor tells UBT to work out the editor target name from the project we provided
+	Arguments += TEXT(" -TargetType=Editor");
 
-	// Build the arguments to pass to UBT. If it's a non-foreign project, just build full project files.
-	if ( !ProjectFileName.IsEmpty() && GetCachedProjectDictionary(RootDir).IsForeignProject(ProjectFileName) )
+	// Add the project path
+	if ( !ProjectFileName.IsEmpty() )
 	{
-		// Figure out whether it's a foreign project
-		const FUProjectDictionary &ProjectDictionary = GetCachedProjectDictionary(RootDir);
-		if(ProjectDictionary.IsForeignProject(ProjectFileName))
-		{
-			Arguments += FString::Printf(TEXT(" \"%s\""), *IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*ProjectFileName));
-		}
+		Arguments += FString::Printf(TEXT(" -Project=\"%s\""), *IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*ProjectFileName));
 	}
 	
 	// -invalidatemakefilesonly tells UBT to invalidate its UBT makefiles without building

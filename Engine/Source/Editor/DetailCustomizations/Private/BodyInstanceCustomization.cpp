@@ -1100,7 +1100,7 @@ struct FUpdateCollisionResponseHelper
 		if(CollisionResponsesHandle.IsValid())
 		{
 			const SIZE_T PropertyOffset = (SIZE_T)&((UPrimitiveComponent*)0)->BodyInstance.CollisionResponses;
-			check(PropertyOffset < (int32)(-1));
+			check(PropertyOffset < (SIZE_T)(-1));
 			const int32 ProeprtyOffset32 = (int32) PropertyOffset;
 
 			TSet<USceneComponent*> UpdatedInstances;

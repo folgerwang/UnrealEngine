@@ -7,9 +7,6 @@ namespace UnrealBuildTool.Rules
 	{
 		public MeshBuilder(ReadOnlyTargetRules Target) : base(Target)
 		{
-            PrivateIncludePaths.Add("Runtime/MeshBuilder/Private");
-            PublicIncludePaths.Add("Runtime/MeshBuilder/Public");
-
             PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{

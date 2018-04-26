@@ -21,7 +21,6 @@ public class SlateCore : ModuleRules
 				"Runtime/SlateCore/Private/Animation",
 				"Runtime/SlateCore/Private/Application",
 				"Runtime/SlateCore/Private/Brushes",
-				"Runtime/SlateCore/Private/Commands",
 				"Runtime/SlateCore/Private/Fonts",
 				"Runtime/SlateCore/Private/Input",
 				"Runtime/SlateCore/Private/Layout",

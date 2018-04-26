@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -900,6 +900,59 @@ namespace UnrealBuildTool
 
 		[DllImport("kernel32.dll", SetLastError=true)]
 		extern static bool GetLogicalProcessorInformationEx(LOGICAL_PROCESSOR_RELATIONSHIP RelationshipType, IntPtr Buffer, ref uint ReturnedLength);
+
+		/// <summary>
+		/// Gets the number of logical cores. We use this rather than Environment.ProcessorCount when possible to handle machines with > 64 cores (the single group limit available to the .NET framework).
+		/// </summary>
+		/// <returns>The number of logical cores.</returns>
+		public static int GetLogicalProcessorCount()
+		{
+			// This function uses Windows P/Invoke calls; if we're on Mono, just return the default.
+			if(!Utils.IsRunningOnMono)
+			{
+				const int ERROR_INSUFFICIENT_BUFFER = 122;
+
+				// Determine the required buffer size to store the processor information
+				uint ReturnLength = 0;
+				if(!GetLogicalProcessorInformationEx(LOGICAL_PROCESSOR_RELATIONSHIP.RelationGroup, IntPtr.Zero, ref ReturnLength) && Marshal.GetLastWin32Error() == ERROR_INSUFFICIENT_BUFFER)
+				{
+					// Allocate a buffer for it
+					IntPtr Ptr = Marshal.AllocHGlobal((int)ReturnLength);
+					try
+					{
+						if (GetLogicalProcessorInformationEx(LOGICAL_PROCESSOR_RELATIONSHIP.RelationGroup, Ptr, ref ReturnLength))
+						{
+							int Count = 0;
+							for(int Pos = 0; Pos < ReturnLength; )
+							{
+								LOGICAL_PROCESSOR_RELATIONSHIP Type = (LOGICAL_PROCESSOR_RELATIONSHIP)Marshal.ReadInt16(Ptr, Pos);
+								if(Type == LOGICAL_PROCESSOR_RELATIONSHIP.RelationGroup)
+								{
+									// Read the values from the embedded GROUP_RELATIONSHIP structure
+									int GroupRelationshipPos = Pos + 8;
+									int ActiveGroupCount = Marshal.ReadInt16(Ptr, GroupRelationshipPos + 2);
+
+									// Read the processor counts from the embedded PROCESSOR_GROUP_INFO structures
+									int GroupInfoPos = GroupRelationshipPos + 24;
+									for(int GroupIdx = 0; GroupIdx < ActiveGroupCount; GroupIdx++)
+									{
+										Count += Marshal.ReadByte(Ptr, GroupInfoPos + 1);
+										GroupInfoPos += 40 + IntPtr.Size;
+									}
+								}
+								Pos += Marshal.ReadInt32(Ptr, Pos + 4);
+							}
+							return Count;
+						}
+					}
+					finally
+					{
+						Marshal.FreeHGlobal(Ptr);		
+					}
+				}
+			}
+			return Environment.ProcessorCount;
+		}
 
 		/// <summary>
 		/// Gets the number of physical cores, excluding hyper threading.

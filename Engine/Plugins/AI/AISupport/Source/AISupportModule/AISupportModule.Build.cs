@@ -8,7 +8,6 @@ namespace UnrealBuildTool.Rules
 		{
 			PublicIncludePaths.AddRange(
 			new string[] {
-				"Runtime/AISupportModule/Public",
 			}
 			);
 

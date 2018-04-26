@@ -568,6 +568,7 @@ public:
 	/** 
 	 * Helper function to return the amount of memory allocated by this
 	 * container.
+	 * Only returns the size of allocations made directly by the container, not the elements themselves.
 	 *
 	 * @returns Number of bytes allocated by this container.
 	 */

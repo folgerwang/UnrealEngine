@@ -914,16 +914,17 @@ static FAutoConsoleVariableRef CMaxObjectsInGame(
 void UObjectBaseInit()
 {
 	// Zero initialize and later on get value from .ini so it is overridable per game/ platform...
-	int32 MaxObjectsNotConsideredByGC	= 0;  
-	int32 SizeOfPermanentObjectPool	= 0;
+	int32 MaxObjectsNotConsideredByGC = 0;
+	int32 SizeOfPermanentObjectPool = 0;
 	int32 MaxUObjects = 2 * 1024 * 1024; // Default to ~2M UObjects
+	bool bPreAllocateUObjectArray = false;	
 
 	// To properly set MaxObjectsNotConsideredByGC look for "Log: XXX objects as part of root set at end of initial load."
 	// in your log file. This is being logged from LaunchEnglineLoop after objects have been added to the root set. 
 
 	// Disregard for GC relies on seekfree loading for interaction with linkers. We also don't want to use it in the Editor, for which
 	// FPlatformProperties::RequiresCookedData() will be false. Please note that GIsEditor and FApp::IsGame() are not valid at this point.
-	if( FPlatformProperties::RequiresCookedData() )
+	if (FPlatformProperties::RequiresCookedData())
 	{
 		FString Value;
 		bool bIsCookOnTheFly = FParse::Value(FCommandLine::Get(), TEXT("-filehostip="), Value);
@@ -942,6 +943,9 @@ void UObjectBaseInit()
 
 		// Maximum number of UObjects in cooked game
 		GConfig->GetInt(TEXT("/Script/Engine.GarbageCollectionSettings"), TEXT("gc.MaxObjectsInGame"), MaxUObjects, GEngineIni);
+
+		// If true, the UObjectArray will pre-allocate all entries for UObject pointers
+		GConfig->GetBool(TEXT("/Script/Engine.GarbageCollectionSettings"), TEXT("gc.PreAllocateUObjectArray"), bPreAllocateUObjectArray, GEngineIni);
 	}
 	else
 	{
@@ -955,11 +959,14 @@ void UObjectBaseInit()
 #endif
 	}
 
+
 	// Log what we're doing to track down what really happens as log in LaunchEngineLoop doesn't report those settings in pristine form.
-	UE_LOG(LogInit, Log, TEXT("Presizing for max %d objects, including %i objects not considered by GC, pre-allocating %i bytes for permanent pool."), MaxUObjects, MaxObjectsNotConsideredByGC, SizeOfPermanentObjectPool);
+	UE_LOG(LogInit, Log, TEXT("%s for max %d objects, including %i objects not considered by GC, pre-allocating %i bytes for permanent pool."), 
+		bPreAllocateUObjectArray ? TEXT("Pre-allocating") : TEXT("Presizing"),
+		MaxUObjects, MaxObjectsNotConsideredByGC, SizeOfPermanentObjectPool);
 
 	GUObjectAllocator.AllocatePermanentObjectPool(SizeOfPermanentObjectPool);
-	GUObjectArray.AllocateObjectPool(MaxUObjects, MaxObjectsNotConsideredByGC);
+	GUObjectArray.AllocateObjectPool(MaxUObjects, MaxObjectsNotConsideredByGC, bPreAllocateUObjectArray);
 
 	void InitAsyncThread();
 	InitAsyncThread();

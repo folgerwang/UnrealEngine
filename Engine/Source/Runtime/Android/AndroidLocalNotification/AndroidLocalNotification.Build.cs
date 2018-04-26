@@ -12,8 +12,6 @@ public class AndroidLocalNotification : ModuleRules
         {
             "Runtime/Android/AndroidLocalNotification/Public",
             "Runtime/Engine/Public",
-            "Runtime/Launch/Android/Public",
-            "/Runtime/Launch/Private"
         });
 
 

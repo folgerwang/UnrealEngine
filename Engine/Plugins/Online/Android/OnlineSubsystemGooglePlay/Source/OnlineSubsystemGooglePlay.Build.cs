@@ -12,7 +12,6 @@ public class OnlineSubsystemGooglePlay : ModuleRules
 		PrivateIncludePaths.AddRange(
 			new string[] {
 				"Private",    
-				"Runtime/Launch/Private"
 			}
 			);
 

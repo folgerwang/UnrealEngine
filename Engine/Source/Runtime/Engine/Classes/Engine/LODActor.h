@@ -154,11 +154,11 @@ public:
 
 	//~ Begin UObject Interface.
 	virtual FString GetDetailedInfoInternal() const override;
-	virtual void PostLoad() override;	
+	virtual void PostLoad() override;
+	virtual void Serialize(FArchive& Ar) override;
 #if WITH_EDITOR
 	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	virtual void Serialize(FArchive& Ar) override;
 
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void BeginDestroy() override;

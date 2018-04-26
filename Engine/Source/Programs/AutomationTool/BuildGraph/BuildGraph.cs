@@ -54,6 +54,7 @@ namespace AutomationTool
 	[Help("CleanNode=<Name>[+<Name>...]", "Cleans just the given nodes before running")]
 	[Help("Resume", "Resumes a local build from the last node that completed successfully")]
 	[Help("ListOnly", "Shows the contents of the preprocessed graph, but does not execute it")]
+	[Help("ShowDiagnostics", "When running with -ListOnly, causes diagnostic messages entered when parsing the graph to be shown")]
 	[Help("ShowDeps", "Show node dependencies in the graph output")]
 	[Help("ShowNotifications", "Show notifications that will be sent for each node in the output")]
 	[Help("Trigger=<Name>", "Executes only nodes behind the given trigger")]
@@ -90,6 +91,7 @@ namespace AutomationTool
 			bool bSkipTargetsWithoutTokens = ParseParam("SkipTargetsWithoutTokens");
 			bool bResume = SingleNodeName != null || ParseParam("Resume");
 			bool bListOnly = ParseParam("ListOnly");
+			bool bShowDiagnostics = ParseParam("ShowDiagnostics");
 			bool bWriteToSharedStorage = ParseParam("WriteToSharedStorage") || CommandUtils.IsBuildMachine;
 			bool bPublicTasksOnly = ParseParam("PublicTasksOnly");
 			string ReportName = ParseParamValue("ReportName", null); 
@@ -123,8 +125,8 @@ namespace AutomationTool
 			DefaultProperties["RootDir"] = CommandUtils.RootDirectory.FullName;
 			DefaultProperties["IsBuildMachine"] = IsBuildMachine ? "true" : "false";
 			DefaultProperties["HostPlatform"] = HostPlatform.Current.HostEditorPlatform.ToString();
-			DefaultProperties["RestrictedFolderNames"] = String.Join(";", PlatformExports.RestrictedFolderNames.Select(x => x.DisplayName));
-			DefaultProperties["RestrictedFolderFilter"] = String.Join(";", PlatformExports.RestrictedFolderNames.Select(x => String.Format(".../{0}/...", x.DisplayName)));
+			DefaultProperties["RestrictedFolderNames"] = String.Join(";", FileFilter.RestrictedFolderNames.Select(x => x.DisplayName));
+			DefaultProperties["RestrictedFolderFilter"] = String.Join(";", FileFilter.RestrictedFolderNames.Select(x => String.Format(".../{0}/...", x.DisplayName)));
 
 			// Attempt to read existing Build Version information
 			BuildVersion Version;
@@ -355,7 +357,10 @@ namespace AutomationTool
 			// Write out the preprocessed script
 			if (PreprocessedFileName != null)
 			{
-				Graph.Write(new FileReference(PreprocessedFileName), (SchemaFileName != null)? new FileReference(SchemaFileName) : null);
+				FileReference PreprocessedFileLocation = new FileReference(PreprocessedFileName);
+				Log("Writing {0}...", PreprocessedFileLocation);
+				Graph.Write(PreprocessedFileLocation, (SchemaFileName != null)? new FileReference(SchemaFileName) : null);
+				return ExitCode.Success;
 			}
 
 			// Find the triggers which we are explicitly running.
@@ -379,16 +384,19 @@ namespace AutomationTool
 			{ 
 				HashSet<Node> CompletedNodes = FindCompletedNodes(Graph, Storage);
 				Graph.Print(CompletedNodes, PrintOptions);
-				return ExitCode.Success;
 			}
 
 			// Print out all the diagnostic messages which still apply, unless we're running a step as part of a build system or just listing the contents of the file. 
-			if(SingleNode == null)
+			if(SingleNode == null || !bListOnly || bShowDiagnostics)
 			{
 				IEnumerable<GraphDiagnostic> Diagnostics = Graph.Diagnostics.Where(x => x.EnclosingTrigger == Trigger);
 				foreach(GraphDiagnostic Diagnostic in Diagnostics)
 				{
-					if(Diagnostic.EventType == LogEventType.Warning)
+					if(Diagnostic.EventType == LogEventType.Console)
+					{
+						CommandUtils.Log(Diagnostic.Message);
+					}
+					else if(Diagnostic.EventType == LogEventType.Warning)
 					{
 						CommandUtils.LogWarning(Diagnostic.Message);
 					}
@@ -403,25 +411,31 @@ namespace AutomationTool
 				}
 			}
 
-			// Execute the command
+			// Export the graph to a file
 			if(ExportFileName != null)
 			{
 				HashSet<Node> CompletedNodes = FindCompletedNodes(Graph, Storage);
 				Graph.Print(CompletedNodes, PrintOptions);
 				Graph.Export(new FileReference(ExportFileName), Trigger, CompletedNodes);
+				return ExitCode.Success;
 			}
-			else if(SingleNode != null)
+
+			// Execute the command
+			if(!bListOnly)
 			{
-				if(!BuildNode(new JobContext(this), Graph, SingleNode, Storage, bWithBanner: true))
+				if(SingleNode != null)
 				{
-					return ExitCode.Error_Unknown;
+					if(!BuildNode(new JobContext(this), Graph, SingleNode, Storage, bWithBanner: true))
+					{
+						return ExitCode.Error_Unknown;
+					}
 				}
-			}
-			else
-			{
-				if(!BuildAllNodes(new JobContext(this), Graph, Storage))
+				else
 				{
-					return ExitCode.Error_Unknown;
+					if(!BuildAllNodes(new JobContext(this), Graph, Storage))
+					{
+						return ExitCode.Error_Unknown;
+					}
 				}
 			}
 			return ExitCode.Success;

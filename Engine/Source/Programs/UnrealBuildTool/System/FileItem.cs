@@ -301,6 +301,9 @@ namespace UnrealBuildTool
 		/// Creates a text file with the given contents.  If the contents of the text file aren't changed, it won't write the new contents to
 		/// the file to avoid causing an action to be considered outdated.
 		/// </summary>
+		/// <param name="AbsolutePath">Path to the intermediate file to create</param>
+		/// <param name="Contents">Contents of the new file</param>
+		/// <returns>File item for the newly created file</returns>
 		public static FileItem CreateIntermediateTextFile(FileReference AbsolutePath, string Contents)
 		{
 			// Create the directory if it doesn't exist.
@@ -316,11 +319,33 @@ namespace UnrealBuildTool
 				string CurrentContents = Utils.ReadAllText(AbsolutePath.FullName);
 				if(!String.Equals(CurrentContents, Contents, StringComparison.InvariantCultureIgnoreCase))
 				{
-					Log.TraceLog("Updating {0} - contents have changed. Previous:\n  {1}\nNew:\n  {2}", AbsolutePath.FullName, CurrentContents.Replace("\n", "\n  "), Contents.Replace("\n", "\n  "));
+					try
+					{
+						FileReference PrevAbsolutePath = new FileReference(AbsolutePath.FullName + ".prev");
+						FileReference.Delete(PrevAbsolutePath);
+						FileReference.Move(AbsolutePath, PrevAbsolutePath);
+						Log.TraceLog("Updating {0} - contents have changed (previous version renamed to {1}).", PrevAbsolutePath);
+					}
+					catch
+					{
+						Log.TraceLog("Updating {0} - contents have changed (unable to rename). Previous:\n  {1}\nNew:\n  {2}", AbsolutePath.FullName, CurrentContents.Replace("\n", "\n  "), Contents.Replace("\n", "\n  "));
+					}
 					File.WriteAllText(AbsolutePath.FullName, Contents, GetEncodingForString(Contents));
 				}
 			}
 			return GetItemByFileReference(AbsolutePath);
+		}
+
+		/// <summary>
+		/// Creates a text file with the given contents.  If the contents of the text file aren't changed, it won't write the new contents to
+		/// the file to avoid causing an action to be considered outdated.
+		/// </summary>
+		/// <param name="AbsolutePath">Path to the intermediate file to create</param>
+		/// <param name="Contents">Contents of the new file</param>
+		/// <returns>File item for the newly created file</returns>
+		public static FileItem CreateIntermediateTextFile(FileReference AbsolutePath, IEnumerable<string> Contents)
+		{
+			return CreateIntermediateTextFile(AbsolutePath, string.Join(Environment.NewLine, Contents));
 		}
 
 		/// <summary>

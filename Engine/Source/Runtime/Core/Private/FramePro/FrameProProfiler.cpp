@@ -232,7 +232,7 @@ void FFrameProProfiler::FrameStart()
 	{
 		UE_LOG(LogFramePro, Log, TEXT("FramePro Support Available"));
 
-		FramePro::SendSessionInfo(TEXT(""), VERSION_STRINGIFY(BUILT_FROM_CHANGELIST));
+		FramePro::SendSessionInfo(TEXT(""), *FString::Printf(TEXT("%d"), FEngineVersion::Current().GetChangelist()));
 
 		FRAMEPRO_THREAD_ORDER(TEXT("GameThread"));
 		FRAMEPRO_THREAD_ORDER(TEXT("RenderThread"));

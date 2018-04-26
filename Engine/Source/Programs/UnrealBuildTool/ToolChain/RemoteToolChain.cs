@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections;
@@ -1133,60 +1133,6 @@ namespace UnrealBuildTool
 
 			Log.TraceVerbose("Available command slot count for " + TargetMacName + " is " + RemoteAvailableCommandSlotCount.ToString());
 			return RemoteAvailableCommandSlotCount;
-		}
-
-		/// <summary>
-		/// Translates clang output warning/error messages into vs-clickable messages
-		/// </summary>
-		/// <param name="sender"> Sending object</param>
-		/// <param name="e">  Event arguments (In this case, the line of string output)</param>
-		protected void RemoteOutputReceivedEventHandler(object sender, DataReceivedEventArgs e)
-		{
-			string Output = e.Data;
-			if (Output == null)
-			{
-				return;
-			}
-
-			if (Utils.IsRunningOnMono)
-			{
-				Log.TraceInformation(Output);
-			}
-			else
-			{
-				// Need to match following for clickable links
-				string RegexFilePath = @"^(\/[A-Za-z0-9_\-\.]*)+\.(cpp|c|mm|m|hpp|h)";
-				string RegexLineNumber = @"\:\d+\:\d+\:";
-				string RegexDescription = @"(\serror:\s|\swarning:\s).*";
-
-				// Get Matches
-				string MatchFilePath = Regex.Match(Output, RegexFilePath).Value.Replace("Engine/Source/../../", "");
-				string MatchLineNumber = Regex.Match(Output, RegexLineNumber).Value;
-				string MatchDescription = Regex.Match(Output, RegexDescription).Value;
-
-				// If any of the above matches failed, do nothing
-				if (MatchFilePath.Length == 0 ||
-					MatchLineNumber.Length == 0 ||
-					MatchDescription.Length == 0)
-				{
-					Log.TraceInformation(Output);
-					return;
-				}
-
-				// Convert Path
-				string RegexStrippedPath = @"\/Engine\/.*"; //@"(Engine\/|[A-Za-z0-9_\-\.]*\/).*";
-				string ConvertedFilePath = Regex.Match(MatchFilePath, RegexStrippedPath).Value;
-				ConvertedFilePath = Path.GetFullPath("..\\.." + ConvertedFilePath);
-
-				// Extract Line + Column Number
-				string ConvertedLineNumber = Regex.Match(MatchLineNumber, @"\d+").Value;
-				string ConvertedColumnNumber = Regex.Match(MatchLineNumber, @"(?<=:\d+:)\d+").Value;
-
-				// Write output
-				string ConvertedExpression = "  " + ConvertedFilePath + "(" + ConvertedLineNumber + "," + ConvertedColumnNumber + "):" + MatchDescription;
-				Log.TraceInformation(ConvertedExpression); // To create clickable vs link
-				//			Log.TraceInformation(Output);				// To preserve readable output log
-			}
 		}
 
 		/// <summary>

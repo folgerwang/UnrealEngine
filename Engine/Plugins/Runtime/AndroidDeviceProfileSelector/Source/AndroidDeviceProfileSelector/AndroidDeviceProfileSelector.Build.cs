@@ -8,18 +8,6 @@ namespace UnrealBuildTool.Rules
 		{
 			ShortName = "AndroidDPS";
 
-			PublicIncludePaths.AddRange(
-				new string[] {
-					"Runtime/AndroidDeviceProfileSelector/Public",
-				}
-				);
-
-			PrivateIncludePaths.AddRange(
-				new string[] {
-					"Runtime/AndroidDeviceProfileSelector/Private",
-				}
-				);
-
 			PublicDependencyModuleNames.AddRange(
 				new string[]
 				{

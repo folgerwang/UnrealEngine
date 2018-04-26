@@ -8,13 +8,11 @@ namespace UnrealBuildTool.Rules
 		{
 			PublicIncludePaths.AddRange(
 				new string[] {
-                    "Runtime/LinuxDeviceProfileSelector/Public",
 				}
 				);
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					"Runtime/LinuxDeviceProfileSelector/Private",
 				}
 				);
 

@@ -8,7 +8,6 @@ public class OpenCVHelper: ModuleRules
 	{
 		PublicIncludePaths.AddRange(
 			new string[] {
-				"OpenCVHelper/Public"
 			}
 		);
 

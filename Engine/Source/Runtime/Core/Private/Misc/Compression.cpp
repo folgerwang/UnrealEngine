@@ -10,6 +10,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/CompressedGrowableBuffer.h"
 #include "GenericPlatform/GenericPlatformCompression.h"
+#include "Features/IModularFeatures.h"
 // #include "TargetPlatformBase.h"
 THIRD_PARTY_INCLUDES_START
 #include "ThirdParty/zlib/zlib-1.2.5/Inc/zlib.h"
@@ -29,6 +30,17 @@ static void *zalloc(void *opaque, unsigned int size, unsigned int num)
 static void zfree(void *opaque, void *p)
 {
 	FMemory::Free(p);
+}
+
+/**
+ * Singleton for getting the custom compressor implementation via a modular feature.
+ *
+ * @return The custom compressor instance.
+ */
+static ICustomCompressor& GetCustomCompressor()
+{
+	static ICustomCompressor& Compressor = IModularFeatures::Get().GetModularFeature<ICustomCompressor>(CUSTOM_COMPRESSOR_FEATURE_NAME);
+	return Compressor;
 }
 
 /**
@@ -170,14 +182,17 @@ bool appUncompressMemoryZLIB( void* UncompressedBuffer, int32 UncompressedSize, 
 
 	// Uncompress data.
 	Result = inflate(&stream, Z_FINISH);
-
 	if(Result == Z_STREAM_END)
 	{
 		ZUncompressedSize = stream.total_out;
 	}
 
-	Result = inflateEnd(&stream);
-	
+	int32 EndResult = inflateEnd(&stream);
+	if (Result >= Z_OK)
+	{
+		Result = EndResult;
+	}
+
 	// These warnings will be compiled out in shipping.
 	UE_CLOG(Result == Z_MEM_ERROR, LogCompression, Warning, TEXT("appUncompressMemoryZLIB failed: Error: Z_MEM_ERROR, not enough memory!"));
 	UE_CLOG(Result == Z_BUF_ERROR, LogCompression, Warning, TEXT("appUncompressMemoryZLIB failed: Error: Z_BUF_ERROR, not enough room in the output buffer!"));
@@ -235,7 +250,7 @@ int32 FCompression::CompressMemoryBound( ECompressionFlags Flags, int32 Uncompre
 {
 	int32 CompressionBound = UncompressedSize;
 	// make sure a valid compression scheme was provided
-	check(Flags & COMPRESS_ZLIB);
+	check(Flags & (COMPRESS_ZLIB | COMPRESS_Custom));
 
 	Flags = CheckGlobalCompressionFlags(Flags);
 
@@ -253,21 +268,27 @@ int32 FCompression::CompressMemoryBound( ECompressionFlags Flags, int32 Uncompre
 			CompressionBound = UncompressedSize + ((UncompressedSize + 7) >> 3) + ((UncompressedSize + 63) >> 6) + 5 + 6;
 		}
 		break;
+	case COMPRESS_Custom:
+		CompressionBound = GetCustomCompressor().GetCompressedBufferSize(UncompressedSize);
+		break;
 	default:
 		break;
 	}
 
 #if !WITH_EDITOR
-	// check platform specific bounds, if available
-	IPlatformCompression* PlatformCompression = FPlatformMisc::GetPlatformCompression();
-	if (PlatformCompression != nullptr)
+	if (!(Flags & COMPRESS_OverridePlatform))
 	{
-		int32 PlatformSpecificCompressionBound = PlatformCompression->CompressMemoryBound(Flags, UncompressedSize, BitWindow);
-		// since we don't know at this point if platform specific compression will actually work, we need to take the worst case number
-		// between the platform specific and generic code paths
-		if (PlatformSpecificCompressionBound > CompressionBound)
+		// check platform specific bounds, if available
+		IPlatformCompression* PlatformCompression = FPlatformMisc::GetPlatformCompression();
+		if (PlatformCompression != nullptr)
 		{
-			CompressionBound = PlatformSpecificCompressionBound;
+			int32 PlatformSpecificCompressionBound = PlatformCompression->CompressMemoryBound(Flags, UncompressedSize, BitWindow);
+			// since we don't know at this point if platform specific compression will actually work, we need to take the worst case number
+			// between the platform specific and generic code paths
+			if (PlatformSpecificCompressionBound > CompressionBound)
+			{
+				CompressionBound = PlatformSpecificCompressionBound;
+			}
 		}
 	}
 #endif
@@ -293,29 +314,32 @@ bool FCompression::CompressMemory( ECompressionFlags Flags, void* CompressedBuff
 	uint64 CompressorStartTime = FPlatformTime::Cycles64();
 
 	// make sure a valid compression scheme was provided
-	check(Flags & COMPRESS_ZLIB || Flags & COMPRESS_GZIP);
+	check(Flags & COMPRESS_ZLIB || Flags & COMPRESS_GZIP || Flags & COMPRESS_Custom);
 
 	bool bCompressSucceeded = false;
 
 	Flags = CheckGlobalCompressionFlags(Flags);
 
 #if !WITH_EDITOR
-	IPlatformCompression* PlatformCompression = FPlatformMisc::GetPlatformCompression();
-	if (PlatformCompression != nullptr)
+	if (!(Flags & COMPRESS_OverridePlatform))
 	{
-		bCompressSucceeded = PlatformCompression->CompressMemory(Flags, CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize, BitWindow);
-		if (bCompressSucceeded)
+		IPlatformCompression* PlatformCompression = FPlatformMisc::GetPlatformCompression();
+		if (PlatformCompression != nullptr)
 		{
-			// Keep track of compression time and stats.
-			CompressorTimeCycles += FPlatformTime::Cycles64() - CompressorStartTime;
+			bCompressSucceeded = PlatformCompression->CompressMemory(Flags, CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize, BitWindow);
 			if (bCompressSucceeded)
 			{
-				CompressorSrcBytes += UncompressedSize;
-				CompressorDstBytes += CompressedSize;
+				// Keep track of compression time and stats.
+				CompressorTimeCycles += FPlatformTime::Cycles64() - CompressorStartTime;
+				if (bCompressSucceeded)
+				{
+					CompressorSrcBytes += UncompressedSize;
+					CompressorDstBytes += CompressedSize;
+				}
+				return true;
 			}
-			return true;
+			// if platform compression fails, fall through to generic code path
 		}
-		// if platform compression fails, fall through to generic code path
 	}
 #endif
 
@@ -326,6 +350,9 @@ bool FCompression::CompressMemory( ECompressionFlags Flags, void* CompressedBuff
 			break;
 		case COMPRESS_GZIP:
 			bCompressSucceeded = appCompressMemoryGZIP(CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize);
+			break;
+		case COMPRESS_Custom:
+			bCompressSucceeded = GetCustomCompressor().Compress(CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize);
 			break;
 		default:
 			UE_LOG(LogCompression, Warning, TEXT("appCompressMemory - This compression type not supported"));
@@ -364,26 +391,29 @@ bool FCompression::UncompressMemory( ECompressionFlags Flags, void* Uncompressed
 	STAT(double UncompressorStartTime = FPlatformTime::Seconds();)
 	
 	// make sure a valid compression scheme was provided
-	check(Flags & COMPRESS_ZLIB);
+	check(Flags & (COMPRESS_ZLIB | COMPRESS_Custom));
 
 	bool bUncompressSucceeded = false;
 
 	// try to use a platform specific decompression routine if available
-	IPlatformCompression* PlatformCompression = FPlatformMisc::GetPlatformCompression();
-	if (PlatformCompression != nullptr)
+	if (!(Flags & COMPRESS_OverridePlatform))
 	{
-		bUncompressSucceeded = PlatformCompression->UncompressMemory(Flags, UncompressedBuffer, UncompressedSize, CompressedBuffer, CompressedSize, bIsSourcePadded, BitWindow);
-		if (bUncompressSucceeded)
+		IPlatformCompression* PlatformCompression = FPlatformMisc::GetPlatformCompression();
+		if (PlatformCompression != nullptr)
 		{
-#if	STATS
-			if (FThreadStats::IsThreadingReady())
+			bUncompressSucceeded = PlatformCompression->UncompressMemory(Flags, UncompressedBuffer, UncompressedSize, CompressedBuffer, CompressedSize, bIsSourcePadded, BitWindow);
+			if (bUncompressSucceeded)
 			{
-				INC_FLOAT_STAT_BY(STAT_UncompressorTime, (float)(FPlatformTime::Seconds() - UncompressorStartTime))
-			}
+#if	STATS
+				if (FThreadStats::IsThreadingReady())
+				{
+					INC_FLOAT_STAT_BY(STAT_UncompressorTime, (float)(FPlatformTime::Seconds() - UncompressorStartTime))
+				}
 #endif // STATS
-			return true;
+				return true;
+			}
+			// if platform decompression fails, fall through to generic code path
 		}
-		// if platform decompression fails, fall through to generic code path
 	}
 
 	switch(Flags & COMPRESSION_FLAGS_TYPE_MASK)
@@ -408,6 +438,13 @@ bool FCompression::UncompressMemory( ECompressionFlags Flags, void* Uncompressed
 					bUncompressSucceeded = true;
 				}
 				// Always log an error
+				UE_LOG(LogCompression, Error, TEXT("FCompression::UncompressMemory - Failed to uncompress memory (%d/%d), this may indicate the asset is corrupt!"), CompressedSize, UncompressedSize);
+			}
+			break;
+		case COMPRESS_Custom:
+			bUncompressSucceeded = GetCustomCompressor().Uncompress(UncompressedBuffer, UncompressedSize, CompressedBuffer, CompressedSize, BitWindow);
+			if (!bUncompressSucceeded)
+			{
 				UE_LOG(LogCompression, Error, TEXT("FCompression::UncompressMemory - Failed to uncompress memory (%d/%d), this may indicate the asset is corrupt!"), CompressedSize, UncompressedSize);
 			}
 			break;

@@ -39,14 +39,14 @@ public:
 	/** Function to change mobility type */
 	void SetMobility(EComponentMobility::Type InMobility);
 
-#if WITH_EDITOR
 	//~ Begin AActor Interface
+#if WITH_EDITOR
 	virtual void CheckForErrors() override;
 	virtual bool GetReferencedContentObjects( TArray<UObject*>& Objects ) const override;
-	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;	
+#endif // WITH_EDITOR
+	virtual void Serialize(FArchive& Ar) override;
 	//~ End AActor Interface
-#endif // WITH_EDITOR	
 
 	// INavRelevantInterface begin
 	virtual ENavDataGatheringMode GetGeometryGatheringMode() const { return ENavDataGatheringMode::Default; }

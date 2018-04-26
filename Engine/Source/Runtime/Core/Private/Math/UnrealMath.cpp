@@ -2449,6 +2449,44 @@ CORE_API FLinearColor FMath::CInterpTo(const FLinearColor& Current, const FLinea
 	return Current + DeltaMove;
 }
 
+CORE_API FQuat FMath::QInterpConstantTo(const FQuat& Current, const FQuat& Target, float DeltaTime, float InterpSpeed)
+{
+	// If no interp speed, jump to target value
+	if (InterpSpeed <= 0.f)
+	{
+		return Target;
+	}
+
+	// If the values are nearly equal, just return Target and assume we have reached our destination.
+	if (Current.Equals(Target))
+	{
+		return Target;
+	}
+
+	float DeltaInterpSpeed = FMath::Clamp(DeltaTime * InterpSpeed, 0.f, 1.f);
+	float AngularDistance = FMath::Max(SMALL_NUMBER, Target.AngularDistance(Current));
+	float Alpha = FMath::Clamp(DeltaInterpSpeed / AngularDistance, 0.f, 1.f);
+
+	return FQuat::Slerp(Current, Target, Alpha);
+}
+
+CORE_API FQuat FMath::QInterpTo(const FQuat& Current, const FQuat& Target, float DeltaTime, float InterpSpeed)
+{
+	// If no interp speed, jump to target value
+	if (InterpSpeed <= 0.f)
+	{
+		return Target;
+	}
+
+	// If the values are nearly equal, just return Target and assume we have reached our destination.
+	if (Current.Equals(Target))
+	{
+		return Target;
+	}
+
+	return FQuat::Slerp(Current, Target, FMath::Clamp(InterpSpeed * DeltaTime, 0.f, 1.f));
+}
+
 CORE_API float ClampFloatTangent( float PrevPointVal, float PrevTime, float CurPointVal, float CurTime, float NextPointVal, float NextTime )
 {
 	const float PrevToNextTimeDiff = FMath::Max< double >( KINDA_SMALL_NUMBER, NextTime - PrevTime );

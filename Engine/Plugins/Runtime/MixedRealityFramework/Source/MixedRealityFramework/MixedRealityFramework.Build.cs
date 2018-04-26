@@ -8,7 +8,6 @@ public class MixedRealityFramework : ModuleRules
 	{
 		PublicIncludePaths.AddRange(
 			new string[] {
-				"MixedRealityFramework/Public"
 			}
 		);
 

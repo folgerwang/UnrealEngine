@@ -75,7 +75,7 @@ EARTrackingQuality UARBlueprintLibrary::GetTrackingQuality()
 
 void UARBlueprintLibrary::StartARSession(UARSessionConfig* SessionConfig)
 {
-	static const TCHAR* NotARApp_Warning = TEXT("Attempting to Start an AR session but there is no AR system. To use AR, enable bIsARApp under Project Settings.");
+	static const TCHAR NotARApp_Warning[] = TEXT("Attempting to Start an AR session but there is no AR system. To use AR, enable bIsARApp under Project Settings.");
 	
 	auto ARSystem = GetARSystem();
 	if (ensureAlwaysMsgf(ARSystem.IsValid(), NotARApp_Warning))

@@ -64,6 +64,10 @@
       <HintPath>..\..\..\Binaries\DotNET\Ionic.Zip.Reduced.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Microsoft.VisualStudio.Setup.Configuration.Interop">
+      <HintPath>..\..\..\Binaries\ThirdParty\VisualStudio\Microsoft.VisualStudio.Setup.Configuration.Interop.dll</HintPath>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </Reference>
     <Reference Include="RPCUtility">
       <HintPath>..\..\..\Binaries\DotNET\RPCUtility.exe</HintPath>
       <Private>False</Private>
@@ -167,8 +171,6 @@
     <Compile Include="System\PrecompiledManifest.cs" />
     <Compile Include="System\PrecompileMode.cs" />
     <Compile Include="System\RulesDocumentation.cs" />
-    <Compile Include="System\FileFilter.cs" />
-    <Compile Include="System\FileFilterNode.cs" />
     <Compile Include="System\Log.cs" />
     <Compile Include="System\PrecompiledHeaderInstance.cs" />
     <Compile Include="System\PrecompiledHeaderTemplate.cs" />
@@ -201,6 +203,7 @@
     <Compile Include="System\TargetReceipt.cs" />
     <Compile Include="System\UBTMakefile.cs" />
     <Compile Include="System\UEConsoleTraceListener.cs" />
+    <Compile Include="System\VersionNumber.cs" />
     <Compile Include="System\XmlConfig.cs" />
     <Compile Include="System\XmlConfigData.cs" />
     <Compile Include="System\XmlConfigFile.cs" />
@@ -323,7 +326,6 @@
     <Compile Include="System\LinkEnvironment.cs" />
     <Compile Include="System\LocalExecutor.cs" />
     <Compile Include="System\Plugins.cs" />
-    <Compile Include="System\ResponseFile.cs" />
     <Compile Include="System\RPCUtilHelper.cs" />
     <Compile Include="System\RulesCompiler.cs" />
     <Compile Include="System\SourceFileSearch.cs" />

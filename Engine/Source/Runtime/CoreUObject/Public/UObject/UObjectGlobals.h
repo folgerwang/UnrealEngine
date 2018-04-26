@@ -148,7 +148,7 @@ struct FObjectDuplicationParameters
 	COREUOBJECT_API FObjectDuplicationParameters( UObject* InSourceObject, UObject* InDestOuter );
 };
 
-COREUOBJECT_API TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags);
+COREUOBJECT_API TArray<const TCHAR*> ParsePropertyFlags(EPropertyFlags Flags);
 
 COREUOBJECT_API UPackage* GetTransientPackage();
 
@@ -264,10 +264,6 @@ COREUOBJECT_API UObject* StaticConstructObject_Internal(UClass* Class, UObject* 
 COREUOBJECT_API UObject* StaticDuplicateObject(UObject const* SourceObject, UObject* DestOuter, const FName DestName = NAME_None, EObjectFlags FlagMask = RF_AllFlags, UClass* DestClass = nullptr, EDuplicateMode::Type DuplicateMode = EDuplicateMode::Normal, EInternalObjectFlags InternalFlagsMask = EInternalObjectFlags::AllFlags);
 COREUOBJECT_API UObject* StaticDuplicateObjectEx( struct FObjectDuplicationParameters& Parameters );
 
-/**
- * Performs UObject system pre-initialization. Deprecated, do not use.
- */
-COREUOBJECT_API void PreInitUObject();
 /** 
  *   Iterate over all objects considered part of the root to setup GC optimizations
  */
@@ -1741,8 +1737,6 @@ public:
 		return *PersistentFrameReferenceCollectorArchive;
 	}
 
-	virtual void SetShouldHandleAsWeakRef(bool bWeakRef) {}
-
 protected:
 	/**
 	 * Handle object reference. Called by AddReferencedObject.
@@ -2174,7 +2168,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass Type;
 		const char*    NameUTF8;
 		EObjectFlags   ObjectFlags;
-		uint64         PropertyFlags;
+		EPropertyFlags PropertyFlags;
 		int32          ArrayDim;
 		const char*    RepNotifyFuncUTF8;
 	};
@@ -2184,7 +2178,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass Type;
 		const char*    NameUTF8;
 		EObjectFlags   ObjectFlags;
-		uint64         PropertyFlags;
+		EPropertyFlags PropertyFlags;
 		int32          ArrayDim;
 		const char*    RepNotifyFuncUTF8;
 		int32          Offset;
@@ -2195,7 +2189,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2210,7 +2204,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2226,7 +2220,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		uint32           ElementSize;
@@ -2244,7 +2238,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2260,7 +2254,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2277,7 +2271,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2293,7 +2287,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2309,7 +2303,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2325,7 +2319,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2341,7 +2335,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2357,7 +2351,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;

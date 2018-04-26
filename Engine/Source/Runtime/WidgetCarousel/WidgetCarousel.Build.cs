@@ -19,7 +19,6 @@ public class WidgetCarousel : ModuleRules
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"Developer/WidgetCarousel/Private",
 			}
 		);
 	}

@@ -23,7 +23,6 @@ public class WindowsTargetPlatform : ModuleRules
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"Developer/WindowsTargetPlatform/Classes"
 			}
 		);
 

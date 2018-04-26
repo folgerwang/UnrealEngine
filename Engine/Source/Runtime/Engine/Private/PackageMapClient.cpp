@@ -2955,7 +2955,7 @@ bool FNetGUIDCache::ShouldAsyncLoad() const
 		case EAsyncLoadMode::UseCVar:		return CVarAllowAsyncLoading.GetValueOnAnyThread() > 0;
 		case EAsyncLoadMode::ForceDisable:	return false;
 		case EAsyncLoadMode::ForceEnable:	return true;
-		default: ensureMsgf( false, TEXT( "Invalid AsyncLoadMode: %i" ), AsyncLoadMode ); return false;
+		default: ensureMsgf( false, TEXT( "Invalid AsyncLoadMode: %i" ), (int32)AsyncLoadMode ); return false;
 	}
 }
 

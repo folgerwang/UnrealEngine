@@ -27,7 +27,7 @@ namespace UnrealGameSync
 		[DllImport("user32.dll")]
 		static extern bool SetWindowText(IntPtr hWnd, string text);
 
-		public ArgumentsWindow(List<Tuple<string, bool>> Arguments)
+		public ArgumentsWindow(List<Tuple<string, bool>> Arguments, bool bPromptBeforeLaunch)
 		{
 			InitializeComponent();
 			ActiveControl = ArgumentsList;
@@ -45,6 +45,13 @@ namespace UnrealGameSync
 
 			ListViewItem AddAnotherItem = new ListViewItem("Click to add an item...", 0);
 			ArgumentsList.Items.Add(AddAnotherItem);
+
+			PromptBeforeLaunchCheckBox.Checked = bPromptBeforeLaunch;
+		}
+
+		public bool PromptBeforeLaunch
+		{
+			get { return PromptBeforeLaunchCheckBox.Checked; }
 		}
 
 		public List<Tuple<string, bool>> GetItems()
@@ -217,6 +224,12 @@ namespace UnrealGameSync
 		{
 			MoveUpButton.Enabled = (ArgumentsList.SelectedIndices.Count == 1 && ArgumentsList.SelectedIndices[0] > 0);
 			MoveDownButton.Enabled = (ArgumentsList.SelectedIndices.Count == 1 && ArgumentsList.SelectedIndices[0] < ArgumentsList.Items.Count - 2);
+		}
+
+		private void checkBox1_CheckedChanged(object sender, EventArgs e)
+		{
+
+
 		}
 	}
 }

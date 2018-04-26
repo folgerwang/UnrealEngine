@@ -10,7 +10,6 @@ public class BlueprintMaterialTextureNodes : ModuleRules
 		
 		PublicIncludePaths.AddRange(
 			new string[] {
-				"BlueprintMaterialTextureNodes/Public",
                 "Runtime/Engine/Classes/Materials",
 				
 				// ... add public include paths required here ...

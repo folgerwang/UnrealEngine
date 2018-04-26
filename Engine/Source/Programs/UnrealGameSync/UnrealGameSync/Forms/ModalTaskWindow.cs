@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -14,55 +14,85 @@ using System.Windows.Forms;
 
 namespace UnrealGameSync
 {
-	interface IModalTask
-	{
-		bool Run(out string ErrorMessage);
-	}
-
 	partial class ModalTaskWindow : Form
 	{
-		string Title;
-		string Message;
-		Thread BackgroundThread;
 		IModalTask Task;
-		string ErrorMessage;
-		bool bSucceeded;
+		SynchronizationContext SyncContext;
+		Thread BackgroundThread;
+		ModalTaskResult? PendingResult;
 
-		private ModalTaskWindow(IModalTask InTask, string InTitle, string InMessage)
+		public ModalTaskResult Result
 		{
-			Task = InTask;
-			Title = InTitle;
-			Message = InMessage;
+			get { return PendingResult.Value; }
+		}
+
+		public string ErrorMessage
+		{
+			get;
+			private set;
+		}
+
+		public event Action Complete;
+
+		public ModalTaskWindow(IModalTask InTask, string InTitle, string InMessage, FormStartPosition InStartPosition)
+		{
 			InitializeComponent();
-		}
 
-		public static bool Execute(IWin32Window Owner, IModalTask Task, string InTitle, string InMessage, out string ErrorMessage)
-		{
-			ModalTaskWindow Window = new ModalTaskWindow(Task, InTitle, InMessage);
-			Window.ShowDialog(Owner);
-			ErrorMessage = Window.ErrorMessage;
-			return Window.bSucceeded;
-		}
+			Task = InTask;
+			Text = InTitle;
+			MessageLabel.Text = InMessage;
+			StartPosition = InStartPosition;
 
-		private void OpenProjectWindow_Load(object sender, EventArgs e)
-		{
-			Text = Title;
-			MessageLabel.Text = Message;
+			SyncContext = SynchronizationContext.Current;
 
 			BackgroundThread = new Thread(x => ThreadProc());
 			BackgroundThread.Start();
 		}
 
-		private void OpenProjectWindow_FormClosing(object sender, FormClosingEventArgs e)
+		public void ShowAndActivate()
 		{
-			BackgroundThread.Abort();
-			BackgroundThread.Join();
+			Show();
+			Activate();
 		}
 
 		private void ThreadProc()
 		{
-			bSucceeded = Task.Run(out ErrorMessage);
-			BeginInvoke(new MethodInvoker(Close));
+			string ErrorMessageValue;
+			if(Task.Run(out ErrorMessageValue))
+			{
+				PendingResult = ModalTaskResult.Succeeded;
+			}
+			else
+			{
+				ErrorMessage =  ErrorMessageValue;
+				PendingResult = ModalTaskResult.Failed;
+			}
+			SyncContext.Post((o) => ThreadCompleteCallback(), null);
+		}
+
+		private void ThreadCompleteCallback()
+		{
+			if(BackgroundThread != null)
+			{
+				BackgroundThread.Abort();
+				BackgroundThread.Join();
+				BackgroundThread = null;
+
+				if(!PendingResult.HasValue)
+				{
+					PendingResult = ModalTaskResult.Aborted;
+				}
+
+				if(Complete != null)
+				{
+					Complete();
+				}
+			}
+		}
+
+		private void ModalTaskWindow_FormClosing(object sender, FormClosingEventArgs e)
+		{
+			ThreadCompleteCallback();
 		}
 	}
 }

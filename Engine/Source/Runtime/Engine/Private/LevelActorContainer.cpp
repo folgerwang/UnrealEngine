@@ -17,48 +17,21 @@ DEFINE_LOG_CATEGORY_STATIC(LogLevelActorContainer, Log, All);
 /**
 * Handles UObject references found by TFastReferenceCollector
 */
-class FActorClusterReferenceProcessor
+class FActorClusterReferenceProcessor : public FSimpleReferenceProcessorBase
 {
 	int32 ClusterRootIndex;
 	FUObjectCluster& Cluster;
 	ULevel* ParentLevel;
 	UPackage* ParentLevelPackage;
-	volatile bool bIsRunningMultithreaded;
+
 public:
 
 	FActorClusterReferenceProcessor(int32 InClusterRootIndex, FUObjectCluster& InCluster, ULevel* InParentLevel)
 		: ClusterRootIndex(InClusterRootIndex)
 		, Cluster(InCluster)
 		, ParentLevel(InParentLevel)
-		, bIsRunningMultithreaded(false)
 	{
 		ParentLevelPackage = ParentLevel->GetOutermost();
-	}
-
-	FORCEINLINE int32 GetMinDesiredObjectsPerSubTask() const
-	{
-		// We're not running the processor in parallel when creating clusters
-		return 0;
-	}
-
-	FORCEINLINE volatile bool IsRunningMultithreaded() const
-	{
-		// This should always be false
-		return bIsRunningMultithreaded;
-	}
-
-	FORCEINLINE void SetIsRunningMultithreaded(bool bIsParallel)
-	{
-		check(!bIsParallel);
-		bIsRunningMultithreaded = bIsParallel;
-	}
-
-	void UpdateDetailedStats(UObject* CurrentObject, uint32 DeltaCycles)
-	{
-	}
-
-	void LogDetailedStatsSummary()
-	{
 	}
 
 	FORCENOINLINE bool CanAddToCluster(UObject* Object)
@@ -96,7 +69,7 @@ public:
 		check(!Obj->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad));
 		check(ObjectItem->GetOwnerIndex() == 0 || ObjectItem->GetOwnerIndex() == ClusterRootIndex || ObjectIndex == ClusterRootIndex);
 		check(Obj->CanBeInCluster());
-		if (ObjectIndex != ClusterRootIndex && ObjectItem->GetOwnerIndex() == 0 && !GUObjectArray.IsDisregardForGC(Obj))
+		if (ObjectIndex != ClusterRootIndex && ObjectItem->GetOwnerIndex() == 0 && !GUObjectArray.IsDisregardForGC(Obj) && !Obj->IsRooted())
 		{
 			ObjectsToSerialize.Add(Obj);
 			check(!ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot));
@@ -187,43 +160,6 @@ public:
 	}
 };
 
-/**
-* Specialized FReferenceCollector that uses FActorClusterReferenceProcessor to construct the cluster
-*/
-template <class TProcessor>
-class TActorClusterCollector : public FReferenceCollector
-{
-	TProcessor& Processor;
-	FGCArrayStruct& ObjectArrayStruct;
-
-public:
-	TActorClusterCollector(TProcessor& InProcessor, FGCArrayStruct& InObjectArrayStruct)
-		: Processor(InProcessor)
-		, ObjectArrayStruct(InObjectArrayStruct)
-	{
-	}
-	virtual void HandleObjectReference(UObject*& Object, const UObject* ReferencingObject, const UProperty* ReferencingProperty) override
-	{
-		Processor.HandleTokenStreamObjectReference(ObjectArrayStruct.ObjectsToSerialize, const_cast<UObject*>(ReferencingObject), Object, INDEX_NONE, false);
-	}
-	virtual void HandleObjectReferences(UObject** InObjects, const int32 ObjectNum, const UObject* ReferencingObject, const UProperty* InReferencingProperty) override
-	{
-		for (int32 ObjectIndex = 0; ObjectIndex < ObjectNum; ++ObjectIndex)
-		{
-			UObject*& Object = InObjects[ObjectIndex];
-			Processor.HandleTokenStreamObjectReference(ObjectArrayStruct.ObjectsToSerialize, const_cast<UObject*>(ReferencingObject), Object, INDEX_NONE, false);
-		}
-	}
-	virtual bool IsIgnoringArchetypeRef() const override
-	{
-		return false;
-	}
-	virtual bool IsIgnoringTransient() const override
-	{
-		return false;
-	}
-};
-
 void ULevelActorContainer::CreateCluster()
 {
 
@@ -244,7 +180,7 @@ void ULevelActorContainer::CreateCluster()
 
 	// Collect all objects referenced by cluster root and by all objects it's referencing
 	FActorClusterReferenceProcessor Processor(ContainerInternalIndex, Cluster, CastChecked<ULevel>(GetOuter()));
-	TFastReferenceCollector<false, FActorClusterReferenceProcessor, TActorClusterCollector<FActorClusterReferenceProcessor>, FGCArrayPool, true> ReferenceCollector(Processor, FGCArrayPool::Get());
+	TFastReferenceCollector<false, FActorClusterReferenceProcessor, TDefaultReferenceCollector<FActorClusterReferenceProcessor>, FGCArrayPool, true> ReferenceCollector(Processor, FGCArrayPool::Get());
 	FGCArrayStruct ArrayStruct;
 	TArray<UObject*>& ObjectsToProcess = ArrayStruct.ObjectsToSerialize;
 	ObjectsToProcess.Add(static_cast<UObject*>(this));

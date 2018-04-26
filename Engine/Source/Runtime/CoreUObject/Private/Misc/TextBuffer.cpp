@@ -6,6 +6,7 @@
 
 #include "Misc/TextBuffer.h"
 #include "UObject/Class.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UTextBuffer, UObject, { });
 
@@ -46,3 +47,5 @@ void UTextBuffer::Serialize (FArchive& Ar)
 
 	Ar << Pos << Top << Text;
 }
+
+IMPLEMENT_FSTRUCTUREDARCHIVE_SERIALIZER(UTextBuffer);

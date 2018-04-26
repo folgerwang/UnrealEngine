@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealGameSync
 {
@@ -36,6 +36,7 @@ namespace UnrealGameSync
 			this.OkBtn = new System.Windows.Forms.Button();
 			this.CancelBtn = new System.Windows.Forms.Button();
 			this.ChangeComboBox = new System.Windows.Forms.ComboBox();
+			this.ProjectListBox = new System.Windows.Forms.CheckedListBox();
 			this.SuspendLayout();
 			// 
 			// TimePicker
@@ -70,8 +71,9 @@ namespace UnrealGameSync
 			// 
 			// OkBtn
 			// 
+			this.OkBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.OkBtn.DialogResult = System.Windows.Forms.DialogResult.OK;
-			this.OkBtn.Location = new System.Drawing.Point(494, 54);
+			this.OkBtn.Location = new System.Drawing.Point(602, 238);
 			this.OkBtn.Name = "OkBtn";
 			this.OkBtn.Size = new System.Drawing.Size(87, 26);
 			this.OkBtn.TabIndex = 5;
@@ -80,8 +82,9 @@ namespace UnrealGameSync
 			// 
 			// CancelBtn
 			// 
+			this.CancelBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.CancelBtn.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.CancelBtn.Location = new System.Drawing.Point(401, 54);
+			this.CancelBtn.Location = new System.Drawing.Point(509, 238);
 			this.CancelBtn.Name = "CancelBtn";
 			this.CancelBtn.Size = new System.Drawing.Size(87, 26);
 			this.CancelBtn.TabIndex = 4;
@@ -101,13 +104,27 @@ namespace UnrealGameSync
 			this.ChangeComboBox.Size = new System.Drawing.Size(171, 23);
 			this.ChangeComboBox.TabIndex = 2;
 			// 
+			// ProjectListBox
+			// 
+			this.ProjectListBox.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+			this.ProjectListBox.CheckOnClick = true;
+			this.ProjectListBox.FormattingEnabled = true;
+			this.ProjectListBox.IntegralHeight = false;
+			this.ProjectListBox.Location = new System.Drawing.Point(14, 50);
+			this.ProjectListBox.Name = "ProjectListBox";
+			this.ProjectListBox.Size = new System.Drawing.Size(675, 180);
+			this.ProjectListBox.TabIndex = 8;
+			// 
 			// ScheduleWindow
 			// 
 			this.AcceptButton = this.OkBtn;
 			this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.CancelButton = this.CancelBtn;
-			this.ClientSize = new System.Drawing.Size(593, 92);
+			this.ClientSize = new System.Drawing.Size(704, 276);
+			this.Controls.Add(this.ProjectListBox);
 			this.Controls.Add(this.CancelBtn);
 			this.Controls.Add(this.OkBtn);
 			this.Controls.Add(this.label1);
@@ -115,8 +132,10 @@ namespace UnrealGameSync
 			this.Controls.Add(this.ChangeComboBox);
 			this.Controls.Add(this.TimePicker);
 			this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+			this.Icon = global::UnrealGameSync.Properties.Resources.Icon;
+			this.MinimumSize = new System.Drawing.Size(720, 315);
 			this.Name = "ScheduleWindow";
+			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Schedule";
 			this.ResumeLayout(false);
@@ -132,5 +151,6 @@ namespace UnrealGameSync
 		private System.Windows.Forms.Button OkBtn;
 		private System.Windows.Forms.Button CancelBtn;
 		private System.Windows.Forms.ComboBox ChangeComboBox;
+		private System.Windows.Forms.CheckedListBox ProjectListBox;
 	}
 }

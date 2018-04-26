@@ -37,6 +37,7 @@
 	"Warning: guard '[^']*' cannot be installed at specified location",
 	"Warning: The object file name .* in the do_not_analyze section was not found",
 	"Warning: Code range for .* is not unique, using the first match",
+	"Warning: The finalizer is unable to determine what symbol it needs.",
 
 	# Temporary Vivox hacks
 	"warning: \\\(arm64\\\) /Users/jenkins/slave-jenkins/workspace/sdk-4.9.2-build-ios-xcode9/.*: No such file or directory",
@@ -144,12 +145,12 @@ unshift @::gMatchers, (
     {
         id =>               "clErrorMultiline",
         pattern =>          q{([^(]+)(\([\d,]+\))? ?: (fatal )?error [a-zA-Z]+[\d]+},
-        action =>           q{incValue("errors"); my ($file_only) = ($1 =~ /([^\\\\]+)$/); diagnostic($file_only || $1, "error", backIf("[^ ]+\.cpp\$"), forwardWhile("^(    |^([^(]+)\\\\([\\\\d,]+\\\\) ?: note)"))},
+        action =>           q{incValue("errors"); my ($file_only) = ($1 =~ /([^\\\\]+)$/); diagnostic($file_only || $1, "error", 0, forwardWhile("^(    |^([^(]+)\\\\([\\\\d,]+\\\\) ?: note)"))},
     },
     {
         id =>               "clWarningMultiline",
         pattern =>          q{([^(]+)(\([\d,]+\))? ?: warning[ :]},
-        action =>           q{incValue("warnings"); my ($file_only) = ($1 =~ /([^\\\\]+)$/); diagnostic($file_only || $1, "warning", backIf("[^ ]+\.cpp\$"), forwardWhile("^(    |^([^(]+)\\\\([\\\\d,]+\\\\) ?: note)")) },
+        action =>           q{incValue("warnings"); my ($file_only) = ($1 =~ /([^\\\\]+)$/); diagnostic($file_only || $1, "warning", 0, forwardWhile("^(    |^([^(]+)\\\\([\\\\d,]+\\\\) ?: note)")) },
     },
     {
         id =>               "clangError",
@@ -232,9 +233,19 @@ unshift @::gMatchers, (
 		action =>           q{incValue("errors"); diagnostic("", "error", 0, forwardWhile('^\\s*\\[[Ee]rror\\]')) },
 	},
 	{
+		id =>				"EacWarning",
+        pattern =>          q{\[[Ww]arning\]},
+		action =>           q{incValue("warnings"); diagnostic("", "warning", 0, forwardWhile('^\\s*\\[[Ww]arning\\]')) },
+	},
+	{
 		id =>				"monoInternalError",
 		pattern =>			q{\* Assertion at wthreads.c:},
 		action =>           q{incValue("errors"); diagnostic("", "error", 0)},
+	},
+	{
+		id =>				"UnhandledException",
+        pattern =>          q{^\s*Unhandled Exception: },
+		action =>           q{incValue("errors"); diagnostic("", "error", 0, forwardWhile('^\\s*at')) },
 	}
 );
 

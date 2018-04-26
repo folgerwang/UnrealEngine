@@ -873,13 +873,15 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 			}
 
 			// We're allowing defered serialization.
-			if( Ar.IsAllowingLazyLoading() && Owner != NULL)
+			FArchive* CacheableArchive = Ar.GetCacheableArchive();
+			if( Ar.IsAllowingLazyLoading() && Owner != NULL && CacheableArchive)
 			{				
 #if WITH_EDITOR
 				Linker = Owner->GetLinker();
 				check(Linker);
-				Ar.AttachBulkData( Owner, this );
-				AttachedAr = &Ar;
+				CacheableArchive->AttachBulkData( Owner, this );
+				check(!CacheableArchive->IsTextFormat());
+				AttachedAr = CacheableArchive;
 				Filename = Linker->Filename;
 #else
 				Package = Owner->GetOutermost();
@@ -1002,7 +1004,7 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 			FLinkerSave* LinkerSave = Cast<FLinkerSave>(Ar.GetLinker());
 
 			// determine whether we are going to store the payload inline or not.
-			bool bStoreInline = !!(BulkDataFlags&BULKDATA_ForceInlinePayload) || !LinkerSave;
+			bool bStoreInline = !!(BulkDataFlags&BULKDATA_ForceInlinePayload) || !LinkerSave || Ar.IsTextFormat();
 
 			if (IsEventDrivenLoaderEnabledInCookedBuilds() && Ar.IsCooking() && !bStoreInline && !(BulkDataFlags&BULKDATA_Force_NOT_InlinePayload))
 			{
@@ -1105,7 +1107,7 @@ bool FUntypedBulkData::RequiresSingleElementSerialization( FArchive& Ar )
 void FUntypedBulkData::DetachFromArchive( FArchive* Ar, bool bEnsureBulkDataIsLoaded )
 {
 	check( Ar );
-	check( Ar == AttachedAr );
+	check( Ar == AttachedAr || AttachedAr->IsProxyOf(Ar) );
 
 	// Make sure bulk data is loaded.
 	if( bEnsureBulkDataIsLoaded )
@@ -1409,7 +1411,7 @@ void FUntypedBulkData::LoadDataIntoMemory( void* Dest )
 	if (IsInAsyncLoadingThread() && Package.IsValid() && Package->LinkerLoad && Package->LinkerLoad->GetOwnerThreadId() == FPlatformTLS::GetCurrentThreadId() && ((BulkDataFlags & BULKDATA_PayloadInSeperateFile) == 0))
 	{
 		FLinkerLoad* LinkerLoad = Package->LinkerLoad;
-		if (LinkerLoad && LinkerLoad->Loader)
+		if (LinkerLoad && LinkerLoad->HasLoader())
 		{
 			FArchive* Ar = LinkerLoad;
 			// keep track of current position in this archive

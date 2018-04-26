@@ -264,6 +264,7 @@ void UAnimBlueprintGeneratedClass::Link(FArchive& Ar, bool bRelinkExistingProper
 	if(RootClass != this)
 	{
 		// Copy root, state notifies and baked machines from the root class
+		check(RootClass);
 		RootAnimNodeIndex = RootClass->RootAnimNodeIndex;
 		AnimNotifies = RootClass->AnimNotifies;
 		BakedStateMachines = RootClass->BakedStateMachines;
@@ -289,6 +290,7 @@ void UAnimBlueprintGeneratedClass::Link(FArchive& Ar, bool bRelinkExistingProper
 
 	if(RootClass != this)
 	{
+		check(RootClass);
 		if(OrderedSavedPoseIndices.Num() != RootClass->OrderedSavedPoseIndices.Num() || OrderedSavedPoseIndices != RootClass->OrderedSavedPoseIndices)
 		{
 			// Derived and our parent has a new ordered pose order, copy over.

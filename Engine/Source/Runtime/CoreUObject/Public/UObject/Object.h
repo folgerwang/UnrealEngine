@@ -36,7 +36,7 @@ namespace ECastCheckedType
 class COREUOBJECT_API UObject : public UObjectBaseUtility
 {
 	// Declarations.
-	DECLARE_CLASS(UObject,UObject,CLASS_Abstract|CLASS_NoExport|CLASS_Intrinsic,CASTCLASS_None,TEXT("/Script/CoreUObject"),NO_API)
+	DECLARE_CLASS(UObject,UObject,CLASS_Abstract|CLASS_NoExport|CLASS_Intrinsic|CLASS_MatchedSerializers,CASTCLASS_None,TEXT("/Script/CoreUObject"),NO_API)
 	DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(UObject)
 	static UObject* __VTableCtorCaller(FVTableHelper& Helper)
 	{
@@ -257,7 +257,8 @@ public:
 	virtual void FinishDestroy();
 
 	/** UObject serializer. */
-	virtual void Serialize( FArchive& Ar );
+	virtual void Serialize(FArchive& Ar);
+	virtual void Serialize(FStructuredArchive::FRecord Record);
 
 	virtual void ShutdownAfterError() {}
 

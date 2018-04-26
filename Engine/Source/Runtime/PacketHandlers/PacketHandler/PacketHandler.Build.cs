@@ -7,8 +7,6 @@ public class PacketHandler : ModuleRules
 {
     public PacketHandler(ReadOnlyTargetRules Target) : base(Target)
     {
-		PrivateIncludePaths.Add("PacketHandler/Private");
-
         PublicDependencyModuleNames.AddRange
 		(
             new string[]

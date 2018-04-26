@@ -11,6 +11,7 @@
 class Error;
 class FConfigCacheIni;
 class FFixedUObjectArray;
+class FChunkedFixedUObjectArray;
 class FOutputDeviceConsole;
 class FOutputDeviceRedirector;
 class ITransaction;
@@ -473,5 +474,5 @@ void CORE_API SetEmitDrawEvents(bool EmitDrawEvents);
 void CORE_API EnableEmitDrawEventsOnlyOnCommandlist();
 
 /** Array to help visualize weak pointers in the debugger */
-class FFixedUObjectArray;
-extern CORE_API FFixedUObjectArray* GCoreObjectArrayForDebugVisualizers;
+class FChunkedFixedUObjectArray;
+extern CORE_API FChunkedFixedUObjectArray* GCoreObjectArrayForDebugVisualizers;

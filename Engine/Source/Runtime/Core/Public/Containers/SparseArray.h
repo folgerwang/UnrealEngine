@@ -15,6 +15,7 @@
 #include "Math/UnrealMathUtility.h"
 #include "Containers/ScriptArray.h"
 #include "Containers/BitArray.h"
+#include "Serialization/StructuredArchive.h"
 
 
 #if UE_BUILD_SHIPPING || UE_BUILD_TEST
@@ -449,6 +450,7 @@ public:
 
 	/** 
 	 * Helper function to return the amount of memory allocated by this container 
+	 * Only returns the size of allocations made directly by the container, not the elements themselves.
 	 * @return number of bytes allocated by this container
 	 */
 	uint32 GetAllocatedSize( void ) const
@@ -490,6 +492,31 @@ public:
 			}
 		}
 		return Ar;
+	}
+
+	/** Structured archive serializer. */
+	friend void operator<<(FStructuredArchive::FSlot Slot, TSparseArray& InArray)
+	{
+		int32 NumElements = InArray.Num();
+		FStructuredArchive::FArray Array = Slot.EnterArray(NumElements);
+		if (Slot.GetUnderlyingArchive().IsLoading())
+		{
+			InArray.Empty(NumElements);
+
+			for (int32 Index = 0; Index < NumElements; ++Index)
+			{
+				FStructuredArchive::FSlot ElementSlot = Array.EnterElement();
+				ElementSlot << *::new(InArray.AddUninitialized())ElementType;
+			}
+		}
+		else
+		{
+			for (TIterator It(InArray); It; ++It)
+			{
+				FStructuredArchive::FSlot ElementSlot = Array.EnterElement();
+				ElementSlot << *It;
+			}
+		}
 	}
 
 	/**

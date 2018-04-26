@@ -7,7 +7,6 @@ namespace UnrealBuildTool.Rules
         public ControlRig(ReadOnlyTargetRules Target) : base(Target)
         {
             PrivateIncludePaths.Add("ControlRig/Private");
-            PrivateIncludePaths.Add("ControlRig/Private/Controllers");
             PrivateIncludePaths.Add("ControlRig/Private/Sequencer");
             PrivateIncludePaths.Add("ControlRig/Private/Units");
 

@@ -444,6 +444,10 @@ bool FApplePlatformSymbolication::SymbolInfoForStrippedSymbol(FApplePlatformSymb
 bool FApplePlatformSymbolication::SymbolInfoForAddress(uint64 ProgramCounter, FProgramCounterSymbolInfo& out_SymbolInfo)
 {
 	bool bOK = false;
+
+	// Store the PC into the info structure
+	out_SymbolInfo.ProgramCounter = ProgramCounter;
+	
 	if (GAllowApplePlatformSymbolication)
 	{
 		CSSymbolicatorRef Symbolicator = CSSymbolicatorCreateWithPid(FPlatformProcess::GetCurrentProcessId());

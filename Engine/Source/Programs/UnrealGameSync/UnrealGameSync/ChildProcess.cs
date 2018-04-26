@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using Microsoft.Win32.SafeHandles;
 using System;
@@ -14,6 +14,7 @@ namespace UnrealGameSync
 {
 	class ChildProcess : IDisposable
 	{
+		const UInt32 JOB_OBJECT_LIMIT_BREAKAWAY_OK = 0x00000800;
 		const UInt32 JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000;
 
 		[StructLayout(LayoutKind.Sequential)]
@@ -145,6 +146,18 @@ namespace UnrealGameSync
 		[DllImport("kernel32.dll", SetLastError = true)]
 		static extern int GetExitCodeProcess(SafeFileHandle hProcess, out int lpExitCode);
 
+		[DllImport ("kernel32.dll")]
+		static extern bool IsProcessInJob(IntPtr hProcess, IntPtr hJob, out bool Result);
+
+		[DllImport("kernel32.dll", SetLastError=true)]
+		static extern int TerminateProcess(SafeHandleZeroOrMinusOneIsInvalid hProcess, uint uExitCode);
+
+		const UInt32 INFINITE = 0xFFFFFFFF;
+
+		[DllImport("kernel32.dll", SetLastError=true)]
+		static extern UInt32 WaitForSingleObject(SafeHandleZeroOrMinusOneIsInvalid hHandle, UInt32 dwMilliseconds);
+
+
 		SafeFileHandle JobHandle;
 		SafeFileHandle ProcessHandle;
 		SafeFileHandle StdInWrite;
@@ -153,7 +166,9 @@ namespace UnrealGameSync
 		FileStream InnerStream;
 		StreamReader ReadStream;
 
-		public ChildProcess(string FileName, string CommandLine, string Input)
+		static object CreateProcessLock = new object();
+
+		public ChildProcess(string FileName, string WorkingDir, string CommandLine, string Input)
 		{
 			JobHandle = CreateJobObject(IntPtr.Zero, IntPtr.Zero);
 			if(JobHandle == null)
@@ -173,104 +188,117 @@ namespace UnrealGameSync
 				throw new Win32Exception();
 			}
 
-			SafeFileHandle StdInRead = null;
-			SafeFileHandle StdOutWrite = null;
-			SafeWaitHandle StdErrWrite = null;
+			PROCESS_INFORMATION ProcessInfo = new PROCESS_INFORMATION();
 			try
 			{
-				SECURITY_ATTRIBUTES SecurityAttributes = new SECURITY_ATTRIBUTES();
-				SecurityAttributes.bInheritHandle = 1;
-
-				if(CreatePipe(out StdInRead, out StdInWrite, SecurityAttributes, 0) == 0 || SetHandleInformation(StdInWrite, HANDLE_FLAG_INHERIT, 0) == 0)
+				lock(CreateProcessLock)
 				{
-					throw new Win32Exception();
-				}
-				if(CreatePipe(out StdOutRead, out StdOutWrite, SecurityAttributes, 0) == 0 || SetHandleInformation(StdOutRead, HANDLE_FLAG_INHERIT, 0) == 0)
-				{
-					throw new Win32Exception();
-				}
-				if(DuplicateHandle(GetCurrentProcess(), StdOutWrite, GetCurrentProcess(), out StdErrWrite, DUPLICATE_SAME_ACCESS, true, 0) == 0)
-				{
-					throw new Win32Exception();
-				}
+					SafeFileHandle StdInRead = null;
+					SafeFileHandle StdOutWrite = null;
+					SafeWaitHandle StdErrWrite = null;
+					try
+					{
+						SECURITY_ATTRIBUTES SecurityAttributes = new SECURITY_ATTRIBUTES();
+						SecurityAttributes.nLength = Marshal.SizeOf(SecurityAttributes);
+						SecurityAttributes.bInheritHandle = 1;
 
-				STARTUPINFO StartupInfo = new STARTUPINFO();
-                StartupInfo.cb = Marshal.SizeOf(StartupInfo);
-				StartupInfo.hStdInput = StdInRead;
-				StartupInfo.hStdOutput = StdOutWrite;
-				StartupInfo.hStdError = StdErrWrite;
-				StartupInfo.dwFlags = STARTF_USESTDHANDLES;
-
-				PROCESS_INFORMATION ProcessInfo = new PROCESS_INFORMATION();
-				try
-				{
-					if(CreateProcess(null, new StringBuilder("\"" + FileName + "\" " + CommandLine), IntPtr.Zero, IntPtr.Zero, true, CREATE_NO_WINDOW | CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB, new IntPtr(0), null, StartupInfo, ProcessInfo) == 0)
-					{
-						throw new Win32Exception();
-					}
-					if(AssignProcessToJobObject(JobHandle, ProcessInfo.hProcess) == 0)
-					{
-						throw new Win32Exception();
-					}
-					if(ResumeThread(ProcessInfo.hThread) == -1)
-					{
-						throw new Win32Exception();
-					}
-
-					using(StreamWriter StdInWriter = new StreamWriter(new FileStream(StdInWrite, FileAccess.Write, 4096, false), Console.InputEncoding, 4096))
-					{
-						if(!String.IsNullOrEmpty(Input))
+						if(CreatePipe(out StdInRead, out StdInWrite, SecurityAttributes, 0) == 0 || SetHandleInformation(StdInWrite, HANDLE_FLAG_INHERIT, 0) == 0)
 						{
-							StdInWriter.WriteLine(Input);
-							StdInWriter.Flush();
+							throw new Win32Exception();
+						}
+						if(CreatePipe(out StdOutRead, out StdOutWrite, SecurityAttributes, 0) == 0 || SetHandleInformation(StdOutRead, HANDLE_FLAG_INHERIT, 0) == 0)
+						{
+							throw new Win32Exception();
+						}
+						if(DuplicateHandle(GetCurrentProcess(), StdOutWrite, GetCurrentProcess(), out StdErrWrite, 0, true, DUPLICATE_SAME_ACCESS) == 0)
+						{
+							throw new Win32Exception();
+						}
+
+						STARTUPINFO StartupInfo = new STARTUPINFO();
+						StartupInfo.cb = Marshal.SizeOf(StartupInfo);
+						StartupInfo.hStdInput = StdInRead;
+						StartupInfo.hStdOutput = StdOutWrite;
+						StartupInfo.hStdError = StdErrWrite;
+						StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+
+						if(CreateProcess(null, new StringBuilder("\"" + FileName + "\" " + CommandLine), IntPtr.Zero, IntPtr.Zero, true, CREATE_NO_WINDOW | CREATE_SUSPENDED, new IntPtr(0), WorkingDir, StartupInfo, ProcessInfo) == 0)
+						{
+							throw new Win32Exception();
 						}
 					}
+					finally
+					{
+						if(StdInRead != null)
+						{
+							StdInRead.Dispose();
+							StdInRead = null;
+						}
+						if(StdOutWrite != null)
+						{
+							StdOutWrite.Dispose();
+							StdOutWrite = null;
+						}
+						if(StdErrWrite != null)
+						{
+							StdErrWrite.Dispose();
+							StdErrWrite = null;
+						}
+					}
+				}
 
-					InnerStream = new FileStream(StdOutRead, FileAccess.Read, 4096, false);
-					ReadStream = new StreamReader(InnerStream, Console.OutputEncoding);
-					ProcessHandle = new SafeFileHandle(ProcessInfo.hProcess, true);
-				}
-				finally
+				if(AssignProcessToJobObject(JobHandle, ProcessInfo.hProcess) == 0)
 				{
-					if(ProcessInfo.hProcess != null && ProcessHandle == null)
+					// Support for nested job objects was only addeed in Windows 8; prior to that, assigning processes to job objects would fail. Figure out if we're already in a job, and ignore the error if we are.
+					int OriginalError = Marshal.GetLastWin32Error();
+
+					bool bProcessInJob;
+					IsProcessInJob(GetCurrentProcess(), IntPtr.Zero, out bProcessInJob);
+
+					if(!bProcessInJob)
 					{
-						CloseHandle(ProcessInfo.hProcess);
-					}
-					if(ProcessInfo.hThread != null)
-					{
-						CloseHandle(ProcessInfo.hThread);
+						throw new Win32Exception(OriginalError);
 					}
 				}
+
+				if(ResumeThread(ProcessInfo.hThread) == -1)
+				{
+					throw new Win32Exception();
+				}
+
+				using(StreamWriter StdInWriter = new StreamWriter(new FileStream(StdInWrite, FileAccess.Write, 4096, false), Console.InputEncoding, 4096))
+				{
+					if(!String.IsNullOrEmpty(Input))
+					{
+						StdInWriter.WriteLine(Input);
+						StdInWriter.Flush();
+					}
+				}
+
+				InnerStream = new FileStream(StdOutRead, FileAccess.Read, 4096, false);
+				ReadStream = new StreamReader(InnerStream, Console.OutputEncoding);
+				ProcessHandle = new SafeFileHandle(ProcessInfo.hProcess, true);
 			}
 			finally
 			{
-				if(StdInRead != null)
+				if(ProcessInfo.hProcess != null && ProcessHandle == null)
 				{
-					StdInRead.Dispose();
-					StdInRead = null;
+					CloseHandle(ProcessInfo.hProcess);
 				}
-				if(StdOutWrite != null)
+				if(ProcessInfo.hThread != null)
 				{
-					StdOutWrite.Dispose();
-					StdOutWrite = null;
-				}
-				if(StdErrWrite != null)
-				{
-					StdErrWrite.Dispose();
-					StdErrWrite = null;
+					CloseHandle(ProcessInfo.hThread);
 				}
 			}
 		}
 
 		public void Dispose()
 		{
-			if(JobHandle != null)
-			{
-				JobHandle.Dispose();
-				JobHandle = null;
-			}
 			if(ProcessHandle != null)
 			{
+				TerminateProcess(ProcessHandle, 0);
+				WaitForSingleObject(ProcessHandle, INFINITE);
+
 				ProcessHandle.Dispose();
 				ProcessHandle = null;
 			}
@@ -283,6 +311,11 @@ namespace UnrealGameSync
 			{
 				StdOutRead.Dispose();
 				StdOutRead = null;
+			}
+			if(JobHandle != null)
+			{
+				JobHandle.Dispose();
+				JobHandle = null;
 			}
 		}
 

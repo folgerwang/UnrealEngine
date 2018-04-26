@@ -334,12 +334,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		private void AddDefaultIncludePaths()
 		{
-			// Add the path to the generated headers 
-			if (GeneratedCodeDirectory != null)
-			{
-				PublicIncludePaths.Add(GeneratedCodeDirectory);
-			}
-
 			// Add the module's parent directory to the public include paths, so other modules may include headers from it explicitly.
 			PublicIncludePaths.Add(ModuleDirectory.ParentDirectory);
 
@@ -397,6 +391,26 @@ namespace UnrealBuildTool
 			ProjectFile.AddIntelliSensePreprocessorDefinitions(ModuleCompileEnvironment.Definitions);
 			ProjectFile.AddInteliiSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.SystemIncludePaths, true);
 			ProjectFile.AddInteliiSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.UserIncludePaths, false);
+		}
+
+		/// <summary>
+		/// Sets up the environment for compiling any module that includes the public interface of this module.
+		/// </summary>
+		public override void AddModuleToCompileEnvironment(
+			UEBuildBinary SourceBinary,
+			HashSet<DirectoryReference> IncludePaths,
+			HashSet<DirectoryReference> SystemIncludePaths,
+			List<string> Definitions,
+			List<UEBuildFramework> AdditionalFrameworks,
+			bool bLegacyPublicIncludePaths
+			)
+		{
+			if(AutoGenerateCppInfo != null)
+			{
+				IncludePaths.Add(GeneratedCodeDirectory);
+			}
+
+			base.AddModuleToCompileEnvironment(SourceBinary, IncludePaths, SystemIncludePaths, Definitions, AdditionalFrameworks, bLegacyPublicIncludePaths);
 		}
 
 		// UEBuildModule interface.

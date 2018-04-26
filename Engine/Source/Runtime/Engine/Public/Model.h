@@ -365,7 +365,7 @@ enum {MAX_NODES  = 65536};
 enum {MAX_POINTS = 128000};
 class UModel : public UObject
 {
-	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR_NO_VTABLE_CTOR(UModel, UObject, 0, TEXT("/Script/Engine"), 0, ENGINE_API)
+	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR_NO_VTABLE_CTOR(UModel, UObject, 0, TEXT("/Script/Engine"), CASTCLASS_None, ENGINE_API)
 
 	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
 	UModel(FVTableHelper& Helper);

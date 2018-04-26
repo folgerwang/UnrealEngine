@@ -64,43 +64,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Sends a string to an action's OutputEventHandler
-		/// </summary>
-		private static void SendOutputToEventHandler(Action Action, string Output)
-		{
-			// pass the output to any handler requested
-			if (Action.OutputEventHandler != null)
-			{
-				// NOTE: This is a pretty nasty hack with C# reflection, however it saves us from having to replace all the
-				// handlers in various Toolchains with a wrapper handler that takes a string - it is certainly doable, but 
-				// touches code outside of this class that I don't want to touch right now
-
-				// DataReceivedEventArgs is not normally constructable, so work around it with creating a scratch Args object
-				DataReceivedEventArgs EventArgs = (DataReceivedEventArgs)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(DataReceivedEventArgs));
-
-				// now we need to set the Data field using reflection, since it is read only
-				FieldInfo[] ArgFields = typeof(DataReceivedEventArgs).GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-
-				// call the handler once per line
-				string[] Lines = Output.Split("\r\n".ToCharArray());
-				foreach (string Line in Lines)
-				{
-					// set the Data field
-					ArgFields[0].SetValue(EventArgs, Line);
-
-					// finally call the handler with this faked object
-					Action.OutputEventHandler(Action, EventArgs);
-				}
-			}
-			else
-			{
-				// if no handler, print it out!
-				Log.TraceInformation(Output);
-			}
-		}
-
-
-		/// <summary>
 		/// Used when debuging Actions outputs all action return values to debug out
 		/// </summary>
 		/// <param name="sender"> Sending object</param>
@@ -144,7 +107,7 @@ namespace UnrealBuildTool
 					}
 				}
 
-				SendOutputToEventHandler(Action, Output);
+				Log.TraceInformation(Output);
 			}
 			else
 			{
@@ -206,18 +169,12 @@ namespace UnrealBuildTool
 					{
 						ActionProcess = new Process();
 						ActionProcess.StartInfo = ActionStartInfo;
-						bool bShouldRedirectOuput = Action.OutputEventHandler != null || Action.bPrintDebugInfo;
+						bool bShouldRedirectOuput = Action.bPrintDebugInfo;
 						if (bShouldRedirectOuput)
 						{
 							ActionStartInfo.RedirectStandardOutput = true;
 							ActionStartInfo.RedirectStandardError = true;
 							ActionProcess.EnableRaisingEvents = true;
-
-							if (Action.OutputEventHandler != null)
-							{
-								ActionProcess.OutputDataReceived += Action.OutputEventHandler;
-								ActionProcess.ErrorDataReceived += Action.OutputEventHandler;
-							}
 
 							if (Action.bPrintDebugInfo)
 							{
@@ -349,30 +306,34 @@ namespace UnrealBuildTool
 		/// <returns>Max number of actions to execute in parallel</returns>
 		public virtual int GetMaxActionsToExecuteInParallel()
 		{
+			// Get the number of logical processors
+			int NumLogicalCores = Utils.GetLogicalProcessorCount();
+
 			// Use WMI to figure out physical cores, excluding hyper threading.
-			int NumCores = Utils.GetPhysicalProcessorCount();
-			if (NumCores == -1)
+			int NumPhysicalCores = Utils.GetPhysicalProcessorCount();
+			if (NumPhysicalCores == -1)
 			{
-				NumCores = System.Environment.ProcessorCount;
+				NumPhysicalCores = NumLogicalCores;
 			}
+
 			// The number of actions to execute in parallel is trying to keep the CPU busy enough in presence of I/O stalls.
 			int MaxActionsToExecuteInParallel = 0;
-			if (NumCores < System.Environment.ProcessorCount && ProcessorCountMultiplier != 1.0)
+			if (NumPhysicalCores < NumLogicalCores && ProcessorCountMultiplier != 1.0)
 			{
 				// The CPU has more logical cores than physical ones, aka uses hyper-threading. 
 				// Use multiplier if provided
-				MaxActionsToExecuteInParallel = (int)(NumCores * ProcessorCountMultiplier);
+				MaxActionsToExecuteInParallel = (int)(NumPhysicalCores * ProcessorCountMultiplier);
 			}
-			else if (NumCores < System.Environment.ProcessorCount && NumCores > 4)
+			else if (NumPhysicalCores < NumLogicalCores && NumPhysicalCores > 4)
 			{
 				// The CPU has more logical cores than physical ones, aka uses hyper-threading. 
 				// Use average of logical and physical if we have "lots of cores"
-				MaxActionsToExecuteInParallel = (int)(NumCores + System.Environment.ProcessorCount) / 2;
+				MaxActionsToExecuteInParallel = Math.Max((int)(NumPhysicalCores + NumLogicalCores) / 2, NumLogicalCores - 4);
 			}
 			// No hyper-threading. Only kicking off a task per CPU to keep machine responsive.
 			else
 			{
-				MaxActionsToExecuteInParallel = NumCores;
+				MaxActionsToExecuteInParallel = NumPhysicalCores;
 			}
 
 #if !NET_CORE

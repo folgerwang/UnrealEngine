@@ -120,6 +120,47 @@ UEdGraphNode::UEdGraphNode(const FObjectInitializer& ObjectInitializer)
 {
 }
 
+void UEdGraphNode::Serialize(FArchive& Ar)
+{
+#if WITH_EDITOR
+	Ar.UsingCustomVersion(FBlueprintsObjectVersion::GUID);
+#endif
+
+	Super::Serialize(Ar);
+
+#if WITH_EDITOR
+	if (Ar.IsLoading())
+	{
+		// If this was an older version, ensure that we update the enabled state for already-disabled nodes.
+		// Note: We need to do this here and not in PostLoad() as it must be assigned prior to compile-on-load.
+		if (!bIsNodeEnabled_DEPRECATED && !bUserSetEnabledState && EnabledState == ENodeEnabledState::Enabled)
+		{
+			EnabledState = ENodeEnabledState::Disabled;
+		}
+
+		if (Ar.IsPersistent() && !Ar.HasAnyPortFlags(PPF_Duplicate | PPF_DuplicateForPIE))
+		{
+			if (Ar.CustomVer(FBlueprintsObjectVersion::GUID) < FBlueprintsObjectVersion::EdGraphPinOptimized)
+			{
+				for (UEdGraphPin_Deprecated* LegacyPin : DeprecatedPins)
+				{
+					Ar.Preload(LegacyPin);
+					if (UEdGraphPin::FindPinCreatedFromDeprecatedPin(LegacyPin) == nullptr)
+					{
+						UEdGraphPin::CreatePinFromDeprecatedPin(LegacyPin);
+					}
+				}
+			}
+		}
+	}
+
+	if (Ar.CustomVer(FBlueprintsObjectVersion::GUID) >= FBlueprintsObjectVersion::EdGraphPinOptimized)
+	{
+		UEdGraphPin::SerializeAsOwningNode(Ar, Pins);
+	}
+#endif
+}
+
 #if WITH_EDITOR
 
 FString UEdGraphNode::GetPropertyNameAndValueForDiff(const UProperty* Prop, const uint8* PropertyAddr) const
@@ -443,43 +484,6 @@ void UEdGraphNode::AddReferencedObjects(UObject* InThis, FReferenceCollector& Co
 		{
 			Pin->AddStructReferencedObjects(Collector);
 		}
-	}
-}
-
-void UEdGraphNode::Serialize(FArchive& Ar)
-{
-	Ar.UsingCustomVersion(FBlueprintsObjectVersion::GUID);
-
-	Super::Serialize(Ar);
-
-	if (Ar.IsLoading())
-	{
-		// If this was an older version, ensure that we update the enabled state for already-disabled nodes.
-		// Note: We need to do this here and not in PostLoad() as it must be assigned prior to compile-on-load.
-		if(!bIsNodeEnabled_DEPRECATED && !bUserSetEnabledState && EnabledState == ENodeEnabledState::Enabled)
-		{
-			EnabledState = ENodeEnabledState::Disabled;
-		}
-
-		if (Ar.IsPersistent() && !Ar.HasAnyPortFlags(PPF_Duplicate | PPF_DuplicateForPIE))
-		{
-			if (Ar.CustomVer(FBlueprintsObjectVersion::GUID) < FBlueprintsObjectVersion::EdGraphPinOptimized)
-			{
-				for (UEdGraphPin_Deprecated* LegacyPin : DeprecatedPins)
-				{
-					Ar.Preload(LegacyPin);
-					if (UEdGraphPin::FindPinCreatedFromDeprecatedPin(LegacyPin) == nullptr)
-					{
-						UEdGraphPin::CreatePinFromDeprecatedPin(LegacyPin);
-					}
-				}
-			}
-		}
-	}
-
-	if (Ar.CustomVer(FBlueprintsObjectVersion::GUID) >= FBlueprintsObjectVersion::EdGraphPinOptimized)
-	{
-		UEdGraphPin::SerializeAsOwningNode(Ar, Pins);
 	}
 }
 

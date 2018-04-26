@@ -15,7 +15,6 @@ public class NetworkFile : ModuleRules
 				"Sockets"
 			});
 
-		PublicIncludePaths.Add("Runtime/CoreUObject/Public/Interfaces");
 		PublicIncludePaths.Add("Runtime/CoreUObject/Public/UObject");
 		PublicIncludePaths.Add("Runtime/CoreUObject/Public");
 

@@ -35,20 +35,3 @@ public:
 	 */
 	static bool TryRead(const FString& FileName, FModuleManifest& Manifest);
 };
-
-/**
- * Adapter for the module manager to be able to read and Enumerates the contents Stores a record of a built target, with all metadata that other tools may need to know about the build.
- */
-class CORE_API FModuleEnumerator
-{
-public:
-	explicit FModuleEnumerator(const FString& InBuildId);
-#if !IS_MONOLITHIC
-	bool RegisterWithModuleManager();
-#endif
-
-private:
-	const FString BuildId;
-
-	void QueryModules(const FString& InDirectoryName, bool bIsGameDirectory, TMap<FString, FString>& OutModules) const;
-};

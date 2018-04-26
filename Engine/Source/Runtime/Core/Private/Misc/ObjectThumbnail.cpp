@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/ObjectThumbnail.h"
+#include "Serialization/StructuredArchiveFromArchive.h"
 
 /** Static: Thumbnail compressor */
 FThumbnailCompressionInterface* FObjectThumbnail::ThumbnailCompressor = NULL;
@@ -29,29 +30,36 @@ const TArray< uint8 >& FObjectThumbnail::GetUncompressedImageData() const
 
 void FObjectThumbnail::Serialize( FArchive& Ar )
 {
-	Ar << ImageWidth;
-	Ar << ImageHeight;
+	Serialize(FStructuredArchiveFromArchive(Ar).GetSlot());
+}
+
+void FObjectThumbnail::Serialize(FStructuredArchive::FSlot Slot)
+{
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+	Record << NAMED_FIELD(ImageWidth);
+	Record << NAMED_FIELD(ImageHeight);
 
 	//if the image thinks it's empty, ensure there is no memory waste
-	if ((ImageWidth == 0) || (ImageHeight==0))
+	if ((ImageWidth == 0) || (ImageHeight == 0))
 	{
 		CompressedImageData.Reset();
 	}
 
 	// Compress the image on demand if we don't have any compressed bytes yet.
-	if( CompressedImageData.Num() == 0 &&
-		( Ar.IsSaving() || Ar.IsCountingMemory() ) )
+	if (CompressedImageData.Num() == 0 &&
+		(Slot.GetUnderlyingArchive().IsSaving() || Slot.GetUnderlyingArchive().IsCountingMemory()))
 	{
 		CompressImageData();
 	}
-	Ar << CompressedImageData;
 
-	if ( Ar.IsCountingMemory() )
+	Record << NAMED_FIELD(CompressedImageData);
+
+	if (Slot.GetUnderlyingArchive().IsCountingMemory())
 	{
-		Ar << ImageData << bIsDirty;
+		Record << NAMED_FIELD(ImageData) << NAMED_FIELD(bIsDirty);
 	}
 
-	if (Ar.IsLoading())
+	if (Slot.GetUnderlyingArchive().IsLoading())
 	{
 		bLoadedFromDisk = true;
 		if ((ImageWidth>0) && (ImageHeight>0))

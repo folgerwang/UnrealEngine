@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -39,6 +39,7 @@ namespace UnrealGameSync
 		public string Name;
 		public string Owner;
 		public string Host;
+		public string Stream;
 		public string Root;
 
 		public PerforceClientRecord(Dictionary<string, string> Tags)
@@ -46,7 +47,26 @@ namespace UnrealGameSync
 			Tags.TryGetValue("client", out Name);
 			Tags.TryGetValue("Owner", out Owner);
 			Tags.TryGetValue("Host", out Host);
+			Tags.TryGetValue("Stream", out Stream);
 			Tags.TryGetValue("Root", out Root);
+		}
+	}
+
+	[DebuggerDisplay("{Identifier}")]
+	class PerforceStreamRecord
+	{
+		public string Identifier;
+		public string Name;
+		public string Parent;
+
+		public PerforceStreamRecord(Dictionary<string, string> Tags)
+		{
+			Tags.TryGetValue("Stream", out Identifier);
+			Tags.TryGetValue("Name", out Name);
+			if(Tags.TryGetValue("Parent", out Parent) && Parent == "none")
+			{
+				Parent = null;
+			}
 		}
 	}
 
@@ -159,6 +179,15 @@ namespace UnrealGameSync
 		}
 	}
 
+	[Flags]
+	enum PerforceFileFlags
+	{
+		ModTime = 1,
+		AlwaysWritable = 2,
+		Executable = 4,
+		ExclusiveCheckout = 8,
+	}
+
 	[DebuggerDisplay("{DepotPath}")]
 	class PerforceFileRecord
 	{
@@ -166,6 +195,7 @@ namespace UnrealGameSync
 		public string ClientPath;
 		public string Path;
 		public string Action;
+		public PerforceFileFlags Flags;
 		public int Revision;
 		public bool IsMapped;
 		public bool Unmap;
@@ -179,6 +209,34 @@ namespace UnrealGameSync
 			{
 				Tags.TryGetValue("headAction", out Action);
 			}
+
+			string Type;
+			if(Tags.TryGetValue("headType", out Type))
+			{
+				int AttributesIdx = Type.IndexOf('+');
+				if(AttributesIdx != -1)
+				{
+					for(int Idx = AttributesIdx + 1; Idx < Type.Length; Idx++)
+					{
+						switch(Type[Idx])
+						{
+							case 'm':
+								Flags |= PerforceFileFlags.ModTime;
+								break;
+							case 'w':
+								Flags |= PerforceFileFlags.AlwaysWritable;
+								break;
+							case 'x':
+								Flags |= PerforceFileFlags.Executable;
+								break;
+							case 'l':
+								Flags |= PerforceFileFlags.ExclusiveCheckout;
+								break;
+						}
+					}
+				}
+			}
+
 			IsMapped = Tags.ContainsKey("isMapped");
 			Unmap = Tags.ContainsKey("unmap");
 
@@ -386,6 +444,14 @@ namespace UnrealGameSync
 		}
 	}
 
+	enum LoginResult
+	{
+		Failed,
+		MissingPassword,
+		IncorrectPassword,
+		Succeded
+	}
+
 	class PerforceConnection
 	{
 		[Flags]
@@ -400,6 +466,8 @@ namespace UnrealGameSync
 			IgnoreFilesNotOpenedOnThisClientError = 0x20,
 			IgnoreExitCode = 0x40,
 			IgnoreFilesNotInClientViewError = 0x80,
+			IgnoreEnterPassword = 0x100,
+			IgnoreFilesNotOnClientError = 0x200,
 		}
 
 		delegate bool HandleRecordDelegate(Dictionary<string, string> Tags);
@@ -419,6 +487,46 @@ namespace UnrealGameSync
 		public PerforceConnection OpenClient(string NewClientName)
 		{
 			return new PerforceConnection(UserName, NewClientName, ServerAndPort);
+		}
+
+		public bool IsLoggedIn(TextWriter Log)
+		{
+			return RunCommand("login -s", CommandOptions.None, Log);
+		}
+
+		public LoginResult Login(string Password, out string ErrorMessage, TextWriter Log)
+		{
+			List<PerforceOutputLine> Lines = new List<PerforceOutputLine>();
+			bool bResult = RunCommand("login", Password, Line => { Lines.Add(Line); return true; }, CommandOptions.IgnoreEnterPassword, Log);
+			if(bResult)
+			{
+				ErrorMessage = null;
+				return LoginResult.Succeded;
+			}
+
+			ErrorMessage = String.Join("\n", Lines.Where(x => x.Channel != PerforceOutputChannel.Unknown).Select(x => x.Text));
+
+			if (String.IsNullOrEmpty(Password))
+			{
+				if(Lines.Any(x => x.Channel == PerforceOutputChannel.Error && x.Text.Contains("EOF")))
+				{
+					return LoginResult.MissingPassword;
+				}
+			}
+			else
+			{
+				if(Lines.Any(x => x.Channel == PerforceOutputChannel.Error && x.Text.Contains("Authentication failed")))
+				{
+					return LoginResult.IncorrectPassword;
+				}
+			}
+
+			return LoginResult.Failed;
+		}
+
+		public void Logout(TextWriter Log)
+		{
+			RunCommand("logout", CommandOptions.None, Log);
 		}
 
 		public bool Info(out PerforceInfoRecord Info, TextWriter Log)
@@ -465,6 +573,11 @@ namespace UnrealGameSync
 			return RunCommand("clients", out Clients, CommandOptions.NoClient, Log);
 		}
 
+		public bool FindClients(string ForUserName, out List<PerforceClientRecord> Clients, TextWriter Log)
+		{
+			return RunCommand(String.Format("clients -u{0}", ForUserName), out Clients, CommandOptions.NoClient, Log);
+		}
+
 		public bool FindClients(string ForUserName, out List<string> ClientNames, TextWriter Log)
 		{
 			List<string> Lines;
@@ -488,6 +601,30 @@ namespace UnrealGameSync
 				}
 			}
 			return true;
+		}
+
+		public bool CreateClient(PerforceSpec Client, out string ErrorMessage, TextWriter Log)
+		{
+			List<string> Lines = new List<string>();
+			bool bResult = RunCommand("client -i", Client.ToString(), Line => { Lines.Add(Line.Text); return (Line.Channel == PerforceOutputChannel.Info); }, CommandOptions.None, Log);
+			ErrorMessage = String.Join("\n", Lines);
+
+			return bResult;
+		}
+
+		public bool ClientExists(string Name, out bool bExists, TextWriter Log)
+		{
+			List<string> Lines;
+			if(!RunCommand(String.Format("clients -e \"{0}\"", Name), out Lines, CommandOptions.None, Log))
+			{
+				bExists = false;
+				return false;
+			}
+			else
+			{
+				bExists = Lines.Count > 0;
+				return true;
+			}
 		}
 
 		public bool TryGetClientSpec(string ClientName, out PerforceSpec Spec, TextWriter Log)
@@ -796,6 +933,21 @@ namespace UnrealGameSync
 			}
 		}
 
+		public bool FindStreams(out List<PerforceStreamRecord> OutStreams, TextWriter Log)
+		{
+			List<Dictionary<string, string>> Records = new List<Dictionary<string, string>>();
+			if(RunCommandWithBinaryOutput("streams", Records, CommandOptions.None, Log))
+			{
+				OutStreams = Records.Select(x => new PerforceStreamRecord(x)).ToList();
+				return true;
+			}
+			else
+			{
+				OutStreams = null;
+				return false;
+			}
+		}
+
 		public bool FindStreams(string Filter, out List<string> OutStreamNames, TextWriter Log)
 		{
 			List<string> Lines;
@@ -896,7 +1048,7 @@ namespace UnrealGameSync
 
 		public bool Have(string Filter, out List<PerforceFileRecord> FileRecords, TextWriter Log)
 		{
-			return RunCommand(String.Format("have \"{0}\"", Filter), out FileRecords, CommandOptions.None, Log);
+			return RunCommand(String.Format("have \"{0}\"", Filter), out FileRecords, CommandOptions.IgnoreFilesNotOnClientError, Log);
 		}
 
 		public bool Stat(string Filter, out List<PerforceFileRecord> FileRecords, TextWriter Log)
@@ -909,40 +1061,49 @@ namespace UnrealGameSync
 			return RunCommand("sync " + Filter, CommandOptions.IgnoreFilesUpToDateError, Log);
 		}
 
-		public bool Sync(List<string> DepotPaths, int ChangeNumber, Action<PerforceFileRecord> SyncOutput, List<string> TamperedFiles, PerforceSyncOptions Options, TextWriter Log)
+		public bool Sync(List<string> FileRevisions, Action<PerforceFileRecord> SyncOutput, List<string> TamperedFiles, PerforceSyncOptions Options, TextWriter Log)
 		{
 			// Write all the files we want to sync to a temp file
 			string TempFileName = Path.GetTempFileName();
-			using(StreamWriter Writer = new StreamWriter(TempFileName))
+			try
 			{
-				foreach(string DepotPath in DepotPaths)
-				{
-					Writer.WriteLine("{0}@{1}", DepotPath, ChangeNumber);
-				}
-			}
+				// Write out the temp file
+				File.WriteAllLines(TempFileName, FileRevisions);
 
-			// Create a filter to strip all the sync records
-			bool bResult;
-			using(PerforceTagRecordParser Parser = new PerforceTagRecordParser(x => SyncOutput(new PerforceFileRecord(x))))
-			{
-				StringBuilder CommandLine = new StringBuilder();
-				CommandLine.AppendFormat("-x \"{0}\" -z tag", TempFileName);
-				if(Options != null && Options.NumRetries > 0)
+				// Create a filter to strip all the sync records
+				bool bResult;
+				using(PerforceTagRecordParser Parser = new PerforceTagRecordParser(x => SyncOutput(new PerforceFileRecord(x))))
 				{
-					CommandLine.AppendFormat(" -r {0}", Options.NumRetries);
+					StringBuilder CommandLine = new StringBuilder();
+					CommandLine.AppendFormat("-x \"{0}\" -z tag", TempFileName);
+					if(Options != null && Options.NumRetries > 0)
+					{
+						CommandLine.AppendFormat(" -r {0}", Options.NumRetries);
+					}
+					if(Options != null && Options.TcpBufferSize > 0)
+					{
+						CommandLine.AppendFormat(" -v net.tcpsize={0}", Options.TcpBufferSize);
+					}
+					CommandLine.Append(" sync");
+					if(Options != null && Options.NumThreads > 1)
+					{
+						CommandLine.AppendFormat(" --parallel=threads={0}", Options.NumThreads);
+					}
+					bResult = RunCommand(CommandLine.ToString(), null, Line => FilterSyncOutput(Line, Parser, TamperedFiles, Log), CommandOptions.NoFailOnErrors | CommandOptions.IgnoreFilesUpToDateError | CommandOptions.IgnoreExitCode, Log);
 				}
-				if(Options != null && Options.TcpBufferSize > 0)
-				{
-					CommandLine.AppendFormat(" -v net.tcpsize={0}", Options.TcpBufferSize);
-				}
-				CommandLine.Append(" sync");
-				if(Options != null && Options.NumThreads > 1)
-				{
-					CommandLine.AppendFormat(" --parallel=threads={0}", Options.NumThreads);
-				}
-				bResult = RunCommand(CommandLine.ToString(), null, Line => FilterSyncOutput(Line, Parser, TamperedFiles, Log), CommandOptions.NoFailOnErrors | CommandOptions.IgnoreFilesUpToDateError | CommandOptions.IgnoreExitCode, Log);
+				return bResult;
 			}
-			return bResult;
+			finally
+			{
+				// Remove the temp file
+				try
+				{
+					File.Delete(TempFileName);
+				}
+				catch
+				{
+				}
+			}
 		}
 
 		private static bool FilterSyncOutput(PerforceOutputLine Line, PerforceTagRecordParser Parser, List<string> TamperedFiles, TextWriter Log)
@@ -977,6 +1138,11 @@ namespace UnrealGameSync
 		public bool SyncPreview(string Filter, int ChangeNumber, bool bOnlyFilesInThisChange, out List<PerforceFileRecord> FileRecords, TextWriter Log)
 		{
 			return RunCommand(String.Format("sync -n {0}@{1}{2}", Filter, bOnlyFilesInThisChange? "=" : "", ChangeNumber), out FileRecords, CommandOptions.IgnoreFilesUpToDateError | CommandOptions.IgnoreNoSuchFilesError, Log);
+		}
+
+		public bool ForceSync(string Filter, TextWriter Log)
+		{
+			return RunCommand(String.Format("sync -f \"{0}\"", Filter), CommandOptions.IgnoreFilesUpToDateError, Log);
 		}
 
 		public bool ForceSync(string Filter, int ChangeNumber, TextWriter Log)
@@ -1083,7 +1249,7 @@ namespace UnrealGameSync
 			Log.WriteLine("p4> p4.exe {0}", FullCommandLine);
 
 			List<string> RawOutputLines;
-			if(Utility.ExecuteProcess("p4.exe", FullCommandLine, null, out RawOutputLines) != 0 && !Options.HasFlag(CommandOptions.IgnoreExitCode))
+			if(Utility.ExecuteProcess("p4.exe", null, FullCommandLine, null, out RawOutputLines) != 0 && !Options.HasFlag(CommandOptions.IgnoreExitCode))
 			{
 				Lines = null;
 				return false;
@@ -1112,7 +1278,7 @@ namespace UnrealGameSync
 
 			bool bResult = true;
 			Log.WriteLine("p4> p4.exe {0}", FullCommandLine);
-			if(Utility.ExecuteProcess("p4.exe", FullCommandLine, Input, Line => { bResult &= ParseCommandOutput(Line, HandleOutput, Options); }) != 0 && !Options.HasFlag(CommandOptions.IgnoreExitCode))
+			if(Utility.ExecuteProcess("p4.exe", null, FullCommandLine, Input, Line => { bResult &= ParseCommandOutput(Line, HandleOutput, Options); }) != 0 && !Options.HasFlag(CommandOptions.IgnoreExitCode))
 			{
 				bResult = false;
 			}
@@ -1213,7 +1379,15 @@ namespace UnrealGameSync
 			{
 				return true;
 			}
+			else if(Options.HasFlag(CommandOptions.IgnoreFilesNotOnClientError) && Text.StartsWith("error: ") && Text.EndsWith("- file(s) not on client."))
+			{
+				return true;
+			}
 			else if(Options.HasFlag(CommandOptions.IgnoreFilesNotOpenedOnThisClientError) && Text.StartsWith("error: ") && Text.EndsWith(" - file(s) not opened on this client."))
+			{
+				return true;
+			}
+			else if(Options.HasFlag(CommandOptions.IgnoreEnterPassword) && Text.StartsWith("Enter password:"))
 			{
 				return true;
 			}
@@ -1273,7 +1447,7 @@ namespace UnrealGameSync
 					byte Temp = Reader.ReadByte();
 					if(Temp != '{')
 					{
-						Log.WriteLine("Unexpected data while parsing marshalled output - expected '{'");
+						Log.WriteLine("Unexpected data while parsing marshaled output - expected '{'");
 						return false;
 					}
 
@@ -1289,7 +1463,7 @@ namespace UnrealGameSync
 						}
 						else if(KeyFieldType != 's')
 						{
-							Log.WriteLine("Unexpected key field type while parsing marshalled output ({0}) - expected 's'", (int)KeyFieldType);
+							Log.WriteLine("Unexpected key field type while parsing marshaled output ({0}) - expected 's'", (int)KeyFieldType);
 							return false;
 						}
 
@@ -1330,6 +1504,30 @@ namespace UnrealGameSync
 
 	static class PerforceUtils
 	{
+		static public bool TryGetDepotName(string DepotPath, out string DepotName)
+		{
+			return TryGetClientName(DepotPath, out DepotName);
+		}
+
+		static public bool TryGetClientName(string ClientPath, out string ClientName)
+		{
+			if(!ClientPath.StartsWith("//"))
+			{
+				ClientName = null;
+				return false;
+			}
+
+			int SlashIdx = ClientPath.IndexOf('/', 2);
+			if(SlashIdx == -1)
+			{
+				ClientName = null;
+				return false;
+			}
+
+			ClientName = ClientPath.Substring(2, SlashIdx - 2);
+			return true;
+		}
+
 		static public string GetClientOrDepotDirectoryName(string ClientFile)
 		{
 			int Index = ClientFile.LastIndexOf('/');
@@ -1341,6 +1539,17 @@ namespace UnrealGameSync
 			{
 				return ClientFile.Substring(0, Index);
 			}
+		}
+
+		static public string UnescapePath(string Path)
+		{
+			string NewPath = Path;
+			NewPath = NewPath.Replace("%40", "@");
+			NewPath = NewPath.Replace("%23", "#");
+			NewPath = NewPath.Replace("%2A", "*");
+			NewPath = NewPath.Replace("%2a", "*");
+			NewPath = NewPath.Replace("%25", "%");
+			return NewPath;
 		}
 	}
 }

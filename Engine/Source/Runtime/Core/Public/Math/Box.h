@@ -464,9 +464,27 @@ public:
 		return Ar << Box.Min << Box.Max << Box.IsValid;
 	}
 
+	/**
+	 * Serializes the bounding box.
+	 *
+	 * @param Slot The structured archive slot to serialize into.
+	 * @param Box The box to serialize.
+	 */
+	friend void operator<<(FStructuredArchive::FSlot Slot, FBox& Box)
+	{
+		FStructuredArchive::FRecord Record = Slot.EnterRecord();
+		Record << NAMED_ITEM("Min", Box.Min) << NAMED_ITEM("Max", Box.Max) << NAMED_ITEM("IsValid", Box.IsValid);
+	}
+
 	bool Serialize( FArchive& Ar )
 	{
 		Ar << *this;
+		return true;
+	}
+
+	bool Serialize( FStructuredArchive::FSlot Slot )
+	{
+		Slot << *this;
 		return true;
 	}
 };

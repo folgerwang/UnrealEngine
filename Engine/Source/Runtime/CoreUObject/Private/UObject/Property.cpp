@@ -387,7 +387,7 @@ UProperty::UProperty(const FObjectInitializer& ObjectInitializer)
 {
 }
 
-UProperty::UProperty(ECppProperty, int32 InOffset, uint64 InFlags)
+UProperty::UProperty(ECppProperty, int32 InOffset, EPropertyFlags InFlags)
 	: UField(FObjectInitializer::Get())
 	, ArrayDim(1)
 	, PropertyFlags(InFlags)
@@ -396,7 +396,7 @@ UProperty::UProperty(ECppProperty, int32 InOffset, uint64 InFlags)
 	Init();
 }
 
-UProperty::UProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
+UProperty::UProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, EPropertyFlags InFlags )
 : UField(ObjectInitializer)	
 , ArrayDim(1)
 , PropertyFlags(InFlags)
@@ -429,9 +429,9 @@ void UProperty::Serialize( FArchive& Ar )
 
 	Super::Serialize( Ar );
 
-	uint64 SaveFlags(PropertyFlags & ~CPF_ComputedFlags);
+	EPropertyFlags SaveFlags = PropertyFlags & ~CPF_ComputedFlags;
 	// Archive the basic info.
-	Ar << ArrayDim << SaveFlags;
+	Ar << ArrayDim << (uint64&)SaveFlags;
 	if (Ar.IsLoading())
 	{
 		PropertyFlags = (SaveFlags & ~CPF_ComputedFlags) | (PropertyFlags & CPF_ComputedFlags);
@@ -803,9 +803,9 @@ void UProperty::LinkInternal(FArchive& Ar)
 	check(0); // Link shouldn't call super...and we should never link an abstract property, like this base class
 }
 
-bool UProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+EConvertFromTypeResult UProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
-	return false;
+	return EConvertFromTypeResult::UseSerializeItem;
 }
 
 

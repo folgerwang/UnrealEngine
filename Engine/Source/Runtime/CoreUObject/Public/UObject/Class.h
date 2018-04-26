@@ -924,7 +924,7 @@ public:
 		virtual uint32 GetTypeHash(const void* Src) = 0;
 
 		/** Returns property flag values that can be computed at compile time */
-		virtual uint64 GetComputedPropertyFlags() const = 0;
+		virtual EPropertyFlags GetComputedPropertyFlags() const = 0;
 
 		/** return true if this struct is abstract **/
 		virtual bool IsAbstract() const = 0;
@@ -1084,13 +1084,13 @@ public:
 			ensure(HasGetTypeHash());
 			return GetTypeHashOrNot((const CPPSTRUCT*)Src);
 		}
-		virtual uint64 GetComputedPropertyFlags() const override
+		virtual EPropertyFlags GetComputedPropertyFlags() const override
 		{
 			return 
-				(TIsPODType<CPPSTRUCT>::Value ? CPF_IsPlainOldData : 0) 
-				| (TIsTriviallyDestructible<CPPSTRUCT>::Value ? CPF_NoDestructor : 0) 
-				| (TIsZeroConstructType<CPPSTRUCT>::Value ? CPF_ZeroConstructor : 0)
-				| (THasGetTypeHash<CPPSTRUCT>::Value ? CPF_HasGetValueTypeHash : 0);;
+				  (TIsPODType<CPPSTRUCT>::Value ? CPF_IsPlainOldData : CPF_None)
+				| (TIsTriviallyDestructible<CPPSTRUCT>::Value ? CPF_NoDestructor : CPF_None)
+				| (TIsZeroConstructType<CPPSTRUCT>::Value ? CPF_ZeroConstructor : CPF_None)
+				| (THasGetTypeHash<CPPSTRUCT>::Value ? CPF_HasGetValueTypeHash : CPF_None);
 		}
 		bool IsAbstract() const override
 		{
@@ -2642,6 +2642,11 @@ public:
 	 * this should happen in Link. Also needs to happen after blueprint compiliation.
 	 */
 	void SetUpRuntimeReplicationData();
+
+	/**
+	 * Helper function for determining if the given class is compatible with structured archive serialization
+	 */
+	static bool IsSafeToSerializeToStructuredArchives(UClass* InClass);
 
 private:
 	#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE

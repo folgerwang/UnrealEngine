@@ -12,6 +12,8 @@
 	#include "Windows/WindowsHWrapper.h"
 	#include "Windows/AllowWindowsPlatformTypes.h"
 
+	THIRD_PARTY_INCLUDES_START
+
 	#include <windows.h>
 	
 	#include <D3D9.h>
@@ -22,6 +24,8 @@
 	#include <mmeapi.h>
 	#include <nserror.h>
 	#include <shlwapi.h>
+
+	THIRD_PARTY_INCLUDES_END
 
 	const GUID FORMAT_525WSS = { 0xc7ecf04d, 0x4582, 0x4869, { 0x9a, 0xbb, 0xbf, 0xb5, 0x23, 0xb6, 0x2e, 0xdf } };
 	const GUID FORMAT_DvInfo = { 0x05589f84, 0xc356, 0x11ce, { 0xbf, 0x01, 0x00, 0xaa, 0x00, 0x55, 0x59, 0x5a } };

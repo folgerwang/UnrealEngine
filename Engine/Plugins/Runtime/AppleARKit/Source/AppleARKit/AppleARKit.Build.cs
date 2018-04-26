@@ -6,17 +6,8 @@ public class AppleARKit : ModuleRules
 {
 	public AppleARKit(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PublicIncludePaths.AddRange(
-			new string[] {
-				"AppleARKit/Public"
-				// ... add public include paths required here ...
-			}
-			);
-				
-		
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"AppleARKit/Private",
 				"../../../../Source/Runtime/Renderer/Private",
 				// ... add other private include paths required here ...
 			}

@@ -69,6 +69,14 @@ void AStaticMeshActor::SetMobility(EComponentMobility::Type InMobility)
 	}
 }
 
+void AStaticMeshActor::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+#if WITH_EDITOR
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+#endif
+}
+
 #if WITH_EDITOR
 
 void AStaticMeshActor::LoadedFromAnotherClass(const FName& OldClassName)
@@ -133,12 +141,6 @@ bool AStaticMeshActor::GetReferencedContentObjects( TArray<UObject*>& Objects ) 
 		Objects.Add(StaticMeshComponent->GetStaticMesh());
 	}
 	return true;
-}
-
-void AStaticMeshActor::Serialize(FArchive& Ar)
-{
-	Super::Serialize(Ar);
-	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
 }
 
 void AStaticMeshActor::PostLoad()

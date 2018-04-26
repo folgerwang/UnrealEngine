@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -19,13 +19,21 @@ namespace UnrealGameSync
 {
 	partial class CleanWorkspaceWindow : Form
 	{
+		enum TreeNodeAction
+		{
+			Sync,
+			Delete,
+		}
+
 		class TreeNodeData
 		{
+			public TreeNodeAction Action;
 			public FileInfo File;
 			public FolderToClean Folder;
 			public int NumFiles;
 			public int NumSelectedFiles;
 			public int NumEmptySelectedFiles;
+			public int NumMissingSelectedFiles;
 			public int NumDefaultSelectedFiles;
 		}
 
@@ -33,6 +41,7 @@ namespace UnrealGameSync
 		{
 			All,
 			SafeToDelete,
+			Missing,
 			Empty,
 			None,
 		}
@@ -44,6 +53,7 @@ namespace UnrealGameSync
 			CheckBoxState.CheckedNormal 
 		};
 
+		PerforceConnection PerforceClient;
 		FolderToClean RootFolderToClean;
 
 		static readonly string[] SafeToDeleteFolders =
@@ -91,9 +101,11 @@ namespace UnrealGameSync
 		[DllImport("Shell32.dll", EntryPoint = "ExtractIconExW", CharSet = CharSet.Unicode, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
 		private static extern int ExtractIconEx(string sFile, int iIndex, IntPtr piLargeVersion, out IntPtr piSmallVersion, int amountIcons);
 
-		private CleanWorkspaceWindow(FolderToClean InRootFolderToClean)
+		private CleanWorkspaceWindow(PerforceConnection PerforceClient, FolderToClean RootFolderToClean)
 		{
-			RootFolderToClean = InRootFolderToClean;
+			this.PerforceClient = PerforceClient;
+			this.RootFolderToClean = RootFolderToClean;
+
 			InitializeComponent();
 		}
 
@@ -104,7 +116,7 @@ namespace UnrealGameSync
 			using(FindFoldersToCleanTask QueryWorkspace = new FindFoldersToCleanTask(PerforceClient, RootFolderToClean, ClientRootPath, SyncPaths, Log))
 			{
 				string ErrorMessage;
-				if(!ModalTaskWindow.Execute(Owner, QueryWorkspace, "Clean Workspace", "Querying files in Perforce, please wait...", out ErrorMessage))
+				if(ModalTask.Execute(Owner, QueryWorkspace, "Clean Workspace", "Querying files in Perforce, please wait...", out ErrorMessage) != ModalTaskResult.Succeeded)
 				{
 					if(!String.IsNullOrEmpty(ErrorMessage))
 					{
@@ -115,14 +127,14 @@ namespace UnrealGameSync
 			}
 
 			// If there's nothing to delete, don't bother displaying the dialog at all
-			if(RootFolderToClean.FilesToClean.Count == 0 && RootFolderToClean.SubFolders.Count == 0)
+			if(RootFolderToClean.FilesToDelete.Count == 0 && RootFolderToClean.NameToSubFolder.Count == 0)
 			{
 				MessageBox.Show("You have no local files which are not in Perforce.", "Workspace Clean", MessageBoxButtons.OK);
 				return;
 			}
 
 			// Populate the tree
-			CleanWorkspaceWindow CleanWorkspace = new CleanWorkspaceWindow(RootFolderToClean);
+			CleanWorkspaceWindow CleanWorkspace = new CleanWorkspaceWindow(PerforceClient, RootFolderToClean);
 			CleanWorkspace.ShowDialog();
 		}
 
@@ -174,7 +186,7 @@ namespace UnrealGameSync
 			FolderNode.Text = Folder.Name;
 			FolderNode.Tag = FolderNodeData;
 
-			foreach(FolderToClean SubFolder in Folder.SubFolders.OrderBy(x => x.Name))
+			foreach(FolderToClean SubFolder in Folder.NameToSubFolder.OrderBy(x => x.Key).Select(x => x.Value))
 			{
 				TreeNode ChildNode = BuildTreeViewStructure(SubFolder, FolderPath + SubFolder.Name.ToLowerInvariant() + "/", bSelectFolder, Depth + 1);
 				FolderNode.Nodes.Add(ChildNode);
@@ -183,20 +195,48 @@ namespace UnrealGameSync
 				FolderNodeData.NumFiles += ChildNodeData.NumFiles;
 				FolderNodeData.NumSelectedFiles += ChildNodeData.NumSelectedFiles;
 				FolderNodeData.NumEmptySelectedFiles += ChildNodeData.NumEmptySelectedFiles;
+				FolderNodeData.NumMissingSelectedFiles += ChildNodeData.NumMissingSelectedFiles;
 				FolderNodeData.NumDefaultSelectedFiles += ChildNodeData.NumDefaultSelectedFiles;
 			}
 
-			foreach(FileInfo File in Folder.FilesToClean.OrderBy(x => x.Name))
+			foreach(FileInfo File in Folder.FilesToSync.OrderBy(x => x.Name))
+			{
+				TreeNodeData FileNodeData = new TreeNodeData();
+				FileNodeData.Action = TreeNodeAction.Sync;
+				FileNodeData.File = File;
+				FileNodeData.NumFiles = 1;
+				FileNodeData.NumSelectedFiles = 1;
+				FileNodeData.NumEmptySelectedFiles = 0;
+				FileNodeData.NumMissingSelectedFiles = 1;
+				FileNodeData.NumDefaultSelectedFiles = FileNodeData.NumSelectedFiles;
+
+				TreeNode FileNode = new TreeNode();
+				FileNode.Text = File.Name + " (sync)";
+				FileNode.Tag = FileNodeData;
+				FolderNode.Nodes.Add(FileNode);
+
+				UpdateImage(FileNode);
+
+				FolderNodeData.NumFiles++;
+				FolderNodeData.NumSelectedFiles += FileNodeData.NumSelectedFiles;
+				FolderNodeData.NumEmptySelectedFiles += FileNodeData.NumEmptySelectedFiles;
+				FolderNodeData.NumMissingSelectedFiles += FileNodeData.NumMissingSelectedFiles;
+				FolderNodeData.NumDefaultSelectedFiles += FileNodeData.NumDefaultSelectedFiles;
+			}
+
+			foreach(FileInfo File in Folder.FilesToDelete.OrderBy(x => x.Name))
 			{
 				string Name = File.Name.ToLowerInvariant();
 
 				bool bSelectFile = bSelectFolder || IsSafeToDeleteFile(FolderPath, File.Name.ToLowerInvariant());
 
 				TreeNodeData FileNodeData = new TreeNodeData();
+				FileNodeData.Action = TreeNodeAction.Delete;
 				FileNodeData.File = File;
 				FileNodeData.NumFiles = 1;
 				FileNodeData.NumSelectedFiles = bSelectFile? 1 : 0;
 				FileNodeData.NumEmptySelectedFiles = 0;
+				FileNodeData.NumMissingSelectedFiles = 0;
 				FileNodeData.NumDefaultSelectedFiles = FileNodeData.NumSelectedFiles;
 
 				TreeNode FileNode = new TreeNode();
@@ -209,6 +249,7 @@ namespace UnrealGameSync
 				FolderNodeData.NumFiles++;
 				FolderNodeData.NumSelectedFiles += FileNodeData.NumSelectedFiles;
 				FolderNodeData.NumEmptySelectedFiles += FileNodeData.NumEmptySelectedFiles;
+				FolderNodeData.NumMissingSelectedFiles += FileNodeData.NumMissingSelectedFiles;
 				FolderNodeData.NumDefaultSelectedFiles += FileNodeData.NumDefaultSelectedFiles;
 			}
 
@@ -220,7 +261,7 @@ namespace UnrealGameSync
 				FolderNodeData.NumDefaultSelectedFiles++;
 			}
 
-			if(FolderNodeData.NumSelectedFiles > 0 && !FolderNodeData.Folder.bEmptyAfterDelete && Depth < 2)
+			if(FolderNodeData.NumSelectedFiles > 0 && !FolderNodeData.Folder.bEmptyAfterClean && Depth < 2)
 			{
 				FolderNode.Expand();
 			}
@@ -296,6 +337,9 @@ namespace UnrealGameSync
 				case SelectionType.Empty:
 					NewNumSelectedFiles = ParentNodeData.NumEmptySelectedFiles;
 					break;
+				case SelectionType.Missing:
+					NewNumSelectedFiles = ParentNodeData.NumMissingSelectedFiles;
+					break;
 				case SelectionType.SafeToDelete:
 					NewNumSelectedFiles = ParentNodeData.NumDefaultSelectedFiles;
 					break;
@@ -319,22 +363,23 @@ namespace UnrealGameSync
 		{
 			TreeNodeData NodeData = (TreeNodeData)Node.Tag;
 			int ImageIndex = (NodeData.Folder != null)? 0 : 3;
-			ImageIndex += (NodeData.NumSelectedFiles == 0)? 0 : (NodeData.NumSelectedFiles < NodeData.NumFiles || (NodeData.Folder != null && !NodeData.Folder.bEmptyAfterDelete))? 1 : 2;
+			ImageIndex += (NodeData.NumSelectedFiles == 0)? 0 : (NodeData.NumSelectedFiles < NodeData.NumFiles || (NodeData.Folder != null && !NodeData.Folder.bEmptyAfterClean))? 1 : 2;
 			Node.ImageIndex = ImageIndex;
 			Node.SelectedImageIndex = ImageIndex;
 		}
 
-		private void DeleteBtn_Click(object sender, EventArgs e)
+		private void CleanBtn_Click(object sender, EventArgs e)
 		{
-			List<FileInfo> Files = new List<FileInfo>();
-			List<DirectoryInfo> Directories = new List<DirectoryInfo>();
+			List<FileInfo> FilesToSync = new List<FileInfo>();
+			List<FileInfo> FilesToDelete = new List<FileInfo>();
+			List<DirectoryInfo> DirectoriesToDelete = new List<DirectoryInfo>();
 			foreach(TreeNode RootNode in TreeView.Nodes)
 			{
-				FindSelection(RootNode, Files, Directories);
+				FindSelection(RootNode, FilesToSync, FilesToDelete, DirectoriesToDelete);
 			}
 
 			string ErrorMessage;
-			if(!ModalTaskWindow.Execute(this, new DeleteFilesTask(Files, Directories), "Clean Workspace", "Deleting files, please wait...", out ErrorMessage) && !String.IsNullOrEmpty(ErrorMessage))
+			if(ModalTask.Execute(this, new DeleteFilesTask(PerforceClient, FilesToSync, FilesToDelete, DirectoriesToDelete), "Clean Workspace", "Cleaning files, please wait...", out ErrorMessage) != ModalTaskResult.Succeeded && !String.IsNullOrEmpty(ErrorMessage))
 			{
 				FailedToDeleteWindow FailedToDelete = new FailedToDeleteWindow();
 				FailedToDelete.FileList.Text = ErrorMessage;
@@ -344,25 +389,32 @@ namespace UnrealGameSync
 			}
 		}
 
-		private void FindSelection(TreeNode Node, List<FileInfo> Files, List<DirectoryInfo> Directories)
+		private void FindSelection(TreeNode Node, List<FileInfo> FilesToSync, List<FileInfo> FilesToDelete, List<DirectoryInfo> DirectoriesToDelete)
 		{
 			TreeNodeData NodeData = (TreeNodeData)Node.Tag;
 			if(NodeData.File != null)
 			{
 				if(NodeData.NumSelectedFiles > 0)
 				{
-					Files.Add(NodeData.File);
+					if(NodeData.Action == TreeNodeAction.Delete)
+					{
+						FilesToDelete.Add(NodeData.File);
+					}
+					else
+					{
+						FilesToSync.Add(NodeData.File);
+					}
 				}
 			}
 			else
 			{
 				foreach(TreeNode ChildNode in Node.Nodes)
 				{
-					FindSelection(ChildNode, Files, Directories);
+					FindSelection(ChildNode, FilesToSync, FilesToDelete, DirectoriesToDelete);
 				}
-				if(NodeData.Folder != null && NodeData.Folder.bEmptyAfterDelete && NodeData.NumSelectedFiles == NodeData.NumFiles)
+				if(NodeData.Folder != null && NodeData.Folder.bEmptyAfterClean && NodeData.NumSelectedFiles == NodeData.NumFiles)
 				{
-					Directories.Add(NodeData.Folder.Directory);
+					DirectoriesToDelete.Add(NodeData.Folder.Directory);
 				}
 			}
 		}
@@ -372,6 +424,14 @@ namespace UnrealGameSync
 			foreach(TreeNode Node in TreeView.Nodes)
 			{
 				SetSelected(Node, SelectionType.All);
+			}
+		}
+
+		private void SelectMissingBtn_Click(object sender, EventArgs e)
+		{
+			foreach(TreeNode Node in TreeView.Nodes)
+			{
+				SetSelected(Node, SelectionType.Missing);
 			}
 		}
 

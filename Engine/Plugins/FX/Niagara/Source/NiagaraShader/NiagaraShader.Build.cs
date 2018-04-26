@@ -40,8 +40,6 @@ public class NiagaraShader : ModuleRules
 
         PublicIncludePaths.AddRange(
             new string[] {
-                "DerivedDataCache",
-                "Niagara",
             });
 
         PrivateIncludePaths.AddRange(

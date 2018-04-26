@@ -105,7 +105,9 @@ class FChunkCacheWorker : public FRunnable
 	};
 
 	/** Reference hashes */
-	TArray<uint32> ChunkHashes;
+	TArray<TPakChunkHash> ChunkHashes;
+	/** Hash of the sig file data. Used to check that nothing was corrupted when a signature check fails */
+	TPakChunkHash OriginalSignatureFileHash;
 	/** Thread to run the worker FRunnable on */
 	FRunnableThread* Thread;
 	/** Archive reader */

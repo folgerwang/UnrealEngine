@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections;
@@ -87,8 +87,7 @@ namespace UnrealBuildTool
 						Hashtable Results = Command("/", "date", string.Join(" && ", Commands), null);
 						if ((Int64)Results["ExitCode"] != 0)
 						{
-							Log.TraceError("Failed to run init commands on {0}. Output = {1}", MacName, Results["CommandOutput"]);
-							return RemoteToolChain.RemoteToolChainErrorCode.SSHCommandFailed;
+							throw new BuildException("Failed to run init commands on remote server {0}. Output = {1}", MacName, Results["CommandOutput"]);
 						}
 
 						string[] Lines = ((string)Results["CommandOutput"]).Split("\r\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
@@ -120,17 +119,19 @@ namespace UnrealBuildTool
 						Command("/", "rm", "-rf /UE4/Builds/" + Environment.MachineName, null);
 					}
 				}
+				catch (BuildException)
+				{
+					throw;
+				}
 				catch (Exception Ex)
 				{
 					Log.TraceVerbose("SSH Initialize exception {0}", Ex.ToString());
-					Log.TraceError("Failed to run init commands on {0}", MacName);
-					return RemoteToolChain.RemoteToolChainErrorCode.SSHCommandFailed;
+					throw new BuildException("Failed to run init commands on remote server {0}", MacName);
 				}
 			}
 			else
 			{
-				Log.TraceError("Failed to ping Mac named {0}", MacName);
-				return RemoteToolChain.RemoteToolChainErrorCode.ServerNotResponding;
+				throw new BuildException("Failed to ping Mac named {0}", MacName);
 			}
 
 			return RemoteToolChain.RemoteToolChainErrorCode.NoError;

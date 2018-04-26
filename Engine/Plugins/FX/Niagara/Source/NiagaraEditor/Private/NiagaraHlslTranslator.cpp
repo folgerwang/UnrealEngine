@@ -4573,7 +4573,7 @@ int32 FHlslNiagaraTranslator::CompileOutputPin(UEdGraphPin* Pin)
 			}
 			else
 			{
-				Error(LOCTEXT("IncorrectNumOutputsError", "Incorect number of outputs. Can possibly be fixed with a graph refresh."), Node, Pin);
+				Error(LOCTEXT("IncorrectNumOutputsError", "Incorrect number of outputs. Can possibly be fixed with a graph refresh."), Node, Pin);
 			}
 		}
 	}

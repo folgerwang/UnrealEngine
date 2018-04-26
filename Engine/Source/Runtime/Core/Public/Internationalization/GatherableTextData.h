@@ -23,6 +23,7 @@ struct FTextSourceSiteContext
 };
 
 CORE_API FArchive& operator<<(FArchive& Archive, FTextSourceSiteContext& This);
+CORE_API void operator<<(FStructuredArchive::FSlot Slot, FTextSourceSiteContext& This);
 
 struct FTextSourceData
 {
@@ -31,6 +32,7 @@ struct FTextSourceData
 };
 
 CORE_API FArchive& operator<<(FArchive& Archive, FTextSourceData& This);
+CORE_API void operator<<(FStructuredArchive::FSlot Slot, FTextSourceData& This);
 
 struct FGatherableTextData
 {
@@ -41,3 +43,4 @@ struct FGatherableTextData
 };
 
 CORE_API FArchive& operator<<(FArchive& Archive, FGatherableTextData& This);
+CORE_API void operator<<(FStructuredArchive::FSlot Slot, FGatherableTextData& This);

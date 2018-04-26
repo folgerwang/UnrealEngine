@@ -6,9 +6,6 @@ namespace UnrealBuildTool.Rules
 	{
         public PhysXVehiclesEditor(ReadOnlyTargetRules Target) : base(Target)
 		{
-			PrivateIncludePaths.Add("PhysXVehiclesEditor/Private");
-            PublicIncludePaths.Add("PhysXVehiclesEditor/Public");
-
 			PublicDependencyModuleNames.AddRange(
 				new string[]
 				{

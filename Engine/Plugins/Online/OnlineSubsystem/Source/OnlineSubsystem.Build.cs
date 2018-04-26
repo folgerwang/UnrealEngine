@@ -14,10 +14,7 @@ public class OnlineSubsystem : ModuleRules
 			}
 		);
 
-		PublicIncludePaths.Add("OnlineSubsystem/Public/Interfaces");
 		PublicIncludePaths.Add(ModuleDirectory);
-
-        PrivateIncludePaths.Add("OnlineSubsystem/Private");
 
         PublicDefinitions.Add("ONLINESUBSYSTEM_PACKAGE=1");
 		PublicDefinitions.Add("DEBUG_LAN_BEACON=0");

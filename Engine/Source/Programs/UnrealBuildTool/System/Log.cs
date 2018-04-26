@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -533,7 +533,7 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Similar to Trace.WriteLin
+		/// Similar to Trace.WriteLine
 		/// </summary>
 		/// <param name="Verbosity"></param>
 		/// <param name="Format"></param>
@@ -542,6 +542,19 @@ namespace UnrealBuildTool
 		public static void WriteLineOnce(LogEventType Verbosity, string Format, params object[] Args)
 		{
 			WriteLinePrivate(1, true, Verbosity, LogFormatOptions.None, Format, Args);
+		}
+
+		/// <summary>
+		/// Similar to Trace.WriteLine
+		/// </summary>
+		/// <param name="Verbosity"></param>
+		/// <param name="Options"></param>
+		/// <param name="Format"></param>
+		/// <param name="Args"></param>
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void WriteLineOnce(LogEventType Verbosity, LogFormatOptions Options, string Format, params object[] Args)
+		{
+			WriteLinePrivate(1, true, Verbosity, Options, Format, Args);
 		}
 
 		/// <summary>

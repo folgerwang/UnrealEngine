@@ -156,7 +156,6 @@ private:
 	bool bIsOpenAndAvailableForClosing;
 };
 
-PRAGMA_DISABLE_OPTIMIZATION
 
 class FFileHandleRegistry
 {
@@ -346,6 +345,4 @@ private:
 
 	FThreadSafeCounter HandlesCurrentlyInUse;
 };
-
-PRAGMA_ENABLE_OPTIMIZATION
 

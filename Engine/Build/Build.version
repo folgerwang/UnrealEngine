@@ -5,6 +5,6 @@
 	"Changelist": 0,
 	"CompatibleChangelist": 0,
 	"IsLicenseeVersion": 0,
-	"IsPromotedBuild": 1,
-	"BranchName": ""
+	"IsPromotedBuild": 0,
+	"BranchName": "UE4"
 }

@@ -932,9 +932,9 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				{
 					Property = Property->PropertyLinkNext;
 				}
-				bAdvanceProperty = false;
-				RemainingArrayDim	= Property ? Property->ArrayDim : 0;
+				RemainingArrayDim = Property ? Property->ArrayDim : 0;
 			}
+			bAdvanceProperty = false;
 			
 			// Optionally resolve properties using Guid Property tags in non cooked builds that support it.
 			if (bArePropertyGuidsAvailable && Tag.HasPropertyGuid)
@@ -1054,50 +1054,48 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 			// check for valid array index
 			else if( Tag.ArrayIndex >= Property->ArrayDim || Tag.ArrayIndex < 0 )
 			{
-				UE_LOG(LogClass, Warning, TEXT("Array bound exceeded (var %s=%d, exceeds %s [0-%d] in package:  %s"), 
+				UE_LOG(LogClass, Warning, TEXT("Array bound exceeded (var %s=%d, exceeds %s [0-%d] in package:  %s"),
 					*Tag.Name.ToString(), Tag.ArrayIndex, *GetName(), Property->ArrayDim-1, *Ar.GetArchiveName());
 			}
-
 			else if( !Property->ShouldSerializeValue(Ar) )
 			{
 				UE_CLOG((Ar.IsPersistent() && FPlatformProperties::RequiresCookedData()), LogClass, Warning, TEXT("Skipping saved property %s of %s since it is no longer serializable for asset:  %s. (Maybe resave asset?)"), *Tag.Name.ToString(), *GetName(), *Ar.GetArchiveName() );
 			}
-
-			else if (Property->ConvertFromType(Tag, Ar, Data, DefaultsStruct, bAdvanceProperty))
-			{
-				if (bAdvanceProperty)
-				{
-					continue;
-				}
-			}
-
-			else if (Tag.Type != PropID)
-			{
-				UE_LOG(LogClass, Warning, TEXT("Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.Type.ToString(), *PropID.ToString(), *Ar.GetArchiveName() );
-			}
 			else
 			{
-				uint8* DestAddress = Property->ContainerPtrToValuePtr<uint8>(Data, Tag.ArrayIndex);  
-				uint8* DefaultsFromParent = Property->ContainerPtrToValuePtrForDefaults<uint8>(DefaultsStruct, Defaults, Tag.ArrayIndex);
-
-				// This property is ok.			
-				Tag.SerializeTaggedProperty(Ar, Property, DestAddress, DefaultsFromParent);
-
-				bAdvanceProperty = true;
-				if (!Ar.IsCriticalError())
+				switch (Property->ConvertFromType(Tag, Ar, Data, DefaultsStruct))
 				{
-					continue;
+					case EConvertFromTypeResult::Converted:
+						bAdvanceProperty = true;
+						break;
+
+					case EConvertFromTypeResult::UseSerializeItem:
+						if (Tag.Type != PropID)
+						{
+							UE_LOG(LogClass, Warning, TEXT("Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.Type.ToString(), *PropID.ToString(), *Ar.GetArchiveName() );
+						}
+						else
+						{
+							uint8* DestAddress = Property->ContainerPtrToValuePtr<uint8>(Data, Tag.ArrayIndex);
+							uint8* DefaultsFromParent = Property->ContainerPtrToValuePtrForDefaults<uint8>(DefaultsStruct, Defaults, Tag.ArrayIndex);
+
+							// This property is ok.
+							Tag.SerializeTaggedProperty(Ar, Property, DestAddress, DefaultsFromParent);
+							bAdvanceProperty = !Ar.IsCriticalError();
+						}
+						break;
+
+					case EConvertFromTypeResult::CannotConvert:
+						break;
+
+					default:
+						check(false);
 				}
 			}
 
-			bAdvanceProperty = false;
-
-			// Skip unknown or bad property.
-			const int64 RemainingSize = Tag.Size - (Ar.Tell() - StartOfProperty);
-			uint8 B;
-			for( int64 i=0; i<RemainingSize; i++ )
+			if (!bAdvanceProperty)
 			{
-				Ar << B;
+				Ar.Seek(StartOfProperty + Tag.Size);
 			}
 		}
 	}
@@ -3156,6 +3154,22 @@ void UClass::SetUpRuntimeReplicationData()
 	}
 }
 
+/**
+* Helper function for determining if the given class is compatible with structured archive serialization
+*/
+bool UClass::IsSafeToSerializeToStructuredArchives(UClass* InClass)
+{
+	while (InClass)
+	{
+		if (!InClass->HasAnyClassFlags(CLASS_MatchedSerializers))
+		{
+			return false;
+		}
+		InClass = InClass->GetSuperClass();
+	}
+	return true;
+}
+
 #if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
 
 	struct FClassParentPair
@@ -3789,7 +3803,7 @@ void UClass::PurgeClass(bool bRecompilingOnLoad)
 	ClassConstructor = nullptr;
 	ClassVTableHelperCtorCaller = nullptr;
 	ClassFlags = CLASS_None;
-	ClassCastFlags = 0;
+	ClassCastFlags = CASTCLASS_None;
 	ClassUnique = 0;
 	ClassReps.Empty();
 	NetFields.Empty();
@@ -3884,7 +3898,7 @@ UClass::UClass(const FObjectInitializer& ObjectInitializer)
 ,	ClassUnique(0)
 ,	bCooked(false)
 ,	ClassFlags(CLASS_None)
-,	ClassCastFlags(0)
+,	ClassCastFlags(CASTCLASS_None)
 ,	ClassWithin( UObject::StaticClass() )
 ,	ClassGeneratedBy(nullptr)
 ,	ClassDefaultObject(nullptr)
@@ -3902,7 +3916,7 @@ UClass::UClass(const FObjectInitializer& ObjectInitializer, UClass* InBaseClass)
 ,	ClassUnique(0)
 ,	bCooked(false)
 ,	ClassFlags(CLASS_None)
-,	ClassCastFlags(0)
+,	ClassCastFlags(CASTCLASS_None)
 ,	ClassWithin(UObject::StaticClass())
 ,	ClassGeneratedBy(nullptr)
 ,	ClassDefaultObject(nullptr)

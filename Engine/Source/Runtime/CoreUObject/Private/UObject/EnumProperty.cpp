@@ -52,7 +52,7 @@ UEnumProperty::UEnumProperty(const FObjectInitializer& ObjectInitializer, UEnum*
 	UnderlyingProp = nullptr;
 }
 
-UEnumProperty::UEnumProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UEnum* InEnum)
+UEnumProperty::UEnumProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, EPropertyFlags InFlags, UEnum* InEnum)
 	: UProperty(ObjectInitializer, EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash)
 	, Enum(InEnum)
 {
@@ -335,15 +335,12 @@ bool UEnumProperty::SameType(const UProperty* Other) const
 	return Super::SameType(Other) && static_cast<const UEnumProperty*>(Other)->Enum == Enum;
 }
 
-bool UEnumProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+EConvertFromTypeResult UEnumProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
 	if ((Enum == nullptr) || (UnderlyingProp == nullptr))
 	{
-		bOutAdvanceProperty = false;
-		return false;
+		return EConvertFromTypeResult::UseSerializeItem;
 	}
-
-	bOutAdvanceProperty = true;
 
 	if (Tag.Type == NAME_ByteProperty)
 	{
@@ -407,10 +404,10 @@ bool UEnumProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8
 	}
 	else
 	{
-		bOutAdvanceProperty = false;
+		return EConvertFromTypeResult::UseSerializeItem;
 	}
 
-	return bOutAdvanceProperty;
+	return EConvertFromTypeResult::Converted;
 }
 
 uint32 UEnumProperty::GetValueTypeHashInternal(const void* Src) const

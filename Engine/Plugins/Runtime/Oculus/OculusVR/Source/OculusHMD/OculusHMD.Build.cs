@@ -15,9 +15,25 @@ namespace UnrealBuildTool.Rules
 					"../../../../../Source/Runtime/Renderer/Private",
 					"../../../../../Source/Runtime/OpenGLDrv/Private",
 					"../../../../../Source/Runtime/VulkanRHI/Private",
-					"../../../../../Source/Runtime/VulkanRHI/Private/" + Target.Platform,
 					"../../../../../Source/Runtime/Engine/Classes/Components",
 				});
+
+			if(Target.Platform == UnrealTargetPlatform.Android)
+			{
+				PrivateIncludePaths.Add("../../../../../Source/Runtime/VulkanRHI/Private/Android");
+			}
+			else if(Target.Platform == UnrealTargetPlatform.Linux)
+			{
+				PrivateIncludePaths.Add("../../../../../Source/Runtime/VulkanRHI/Private/Linux");
+			}
+			else if(Target.Platform == UnrealTargetPlatform.Quail)
+			{
+				PrivateIncludePaths.Add("../../../../../Source/Runtime/VulkanRHI/Private/Quail");
+			}
+			else if(Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
+			{
+				PrivateIncludePaths.Add("../../../../../Source/Runtime/VulkanRHI/Private/Windows");
+			}
 
 			PublicIncludePathModuleNames.Add("Launch");
 

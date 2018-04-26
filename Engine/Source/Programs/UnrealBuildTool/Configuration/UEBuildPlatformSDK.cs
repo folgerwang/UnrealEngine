@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
@@ -142,6 +143,25 @@ namespace UnrealBuildTool
 				}
 			}
 			return SDKPath;
+		}
+
+		/// <summary>
+		/// Returns path to platform SDKs
+		/// </summary>
+		/// <returns>Valid SDK string</returns>
+		public static bool TryGetHostPlatformAutoSDKDir(out DirectoryReference OutPlatformDir)
+		{
+			string SDKRoot = Environment.GetEnvironmentVariable(SDKRootEnvVar);
+			if (String.IsNullOrEmpty(SDKRoot))
+			{
+				OutPlatformDir = null;
+				return false;
+			}
+			else
+			{
+				OutPlatformDir = DirectoryReference.Combine(new DirectoryReference(SDKRoot), "Host" + BuildHostPlatform.Current.Platform);
+				return true;
+			}
 		}
 
 		/// <summary>

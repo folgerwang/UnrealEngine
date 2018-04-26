@@ -6,13 +6,6 @@ namespace UnrealBuildTool.Rules
 	{
 		public GameplayTagsEditor(ReadOnlyTargetRules Target) : base(Target)
 		{
-			PrivateIncludePaths.AddRange(
-				new string[] {
-					"Editor/GameplayTagsEditor/Private",
-					"Developer/AssetTools/Private",
-				}
-			);
-
 			PublicIncludePathModuleNames.AddRange(
 				new string[] {
 					"AssetTools",

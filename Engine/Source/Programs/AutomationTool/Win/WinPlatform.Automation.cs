@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -189,7 +189,10 @@ public abstract class BaseWinPlatform : Platform
         // Select target configurations based on the exe list returned from GetExecutableNames
         List<UnrealTargetConfiguration> TargetConfigs = SC.StageTargetConfigurations.GetRange(0, ExeNames.Count);
 
-		WindowsExports.PrepForUATPackageOrDeploy(Params.RawProjectPath, Params.ShortProjectName, SC.ProjectRoot, TargetConfigs, ExeNames, SC.EngineRoot);
+		if (!Params.HasDLCName)
+		{
+			WindowsExports.SetApplicationIcon(Params.RawProjectPath, Params.ShortProjectName, SC.ProjectRoot, TargetConfigs, ExeNames, SC.EngineRoot);
+		}
 
 		// package up the program, potentially with an installer for Windows
 		PrintRunTime();
@@ -313,6 +316,46 @@ public abstract class BaseWinPlatform : Platform
         return true;
     }
 
+	public static bool TryGetPdbCopyLocation(out FileReference OutLocation)
+	{
+		// Try to find an installation of the Windows 10 SDK
+		string SdkInstallFolder =
+			(Microsoft.Win32.Registry.GetValue("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows Kits\\Installed Roots", "KitsRoot10", null) as string) ??
+			(Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows Kits\\Installed Roots", "KitsRoot10", null) as string) ??
+			(Microsoft.Win32.Registry.GetValue("HKEY_CURRENT_USER\\Software\\Wow6432Node\\Microsoft\\Windows Kits\\Installed Roots", "KitsRoot10", null) as string) ??
+			(Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\Software\\Wow6432Node\\Microsoft\\Windows Kits\\Installed Roots", "KitsRoot10", null) as string);
+
+		if(!String.IsNullOrEmpty(SdkInstallFolder))
+		{
+			FileReference Location = FileReference.Combine(new DirectoryReference(SdkInstallFolder), "Debuggers", "x64", "PDBCopy.exe");
+			if(FileReference.Exists(Location))
+			{
+				OutLocation = Location;
+				return true;
+			}
+		}
+
+		// Look for an installation of the MSBuild 14
+		FileReference LocationMsBuild14 = FileReference.Combine(DirectoryReference.GetSpecialFolder(Environment.SpecialFolder.ProgramFilesX86), "MSBuild", "Microsoft", "VisualStudio", "v14.0", "AppxPackage", "PDBCopy.exe");
+		if(FileReference.Exists(LocationMsBuild14))
+		{
+			OutLocation = LocationMsBuild14;
+			return true;
+		}
+
+		// Look for an installation of the MSBuild 12
+		FileReference LocationMsBuild12 = FileReference.Combine(DirectoryReference.GetSpecialFolder(Environment.SpecialFolder.ProgramFilesX86), "MSBuild", "Microsoft", "VisualStudio", "v12.0", "AppxPackage", "PDBCopy.exe");
+		if(FileReference.Exists(LocationMsBuild12))
+		{
+			OutLocation = LocationMsBuild12;
+			return true;
+		}
+
+		// Otherwise fail
+		OutLocation = null;
+		return false;
+	}
+
 	public override void StripSymbols(FileReference SourceFile, FileReference TargetFile)
 	{
 		bool bStripInPlace = false;
@@ -324,14 +367,14 @@ public abstract class BaseWinPlatform : Platform
 			bStripInPlace = true;
 		}
 
-		ProcessStartInfo StartInfo = new ProcessStartInfo();
-		string PDBCopyPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "MSBuild", "Microsoft", "VisualStudio", "v14.0", "AppxPackage", "PDBCopy.exe");
-		if (!File.Exists(PDBCopyPath))
+		FileReference PdbCopyLocation;
+		if(!TryGetPdbCopyLocation(out PdbCopyLocation))
 		{
-			// Fall back on VS2013 version
-			PDBCopyPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "MSBuild", "Microsoft", "VisualStudio", "v12.0", "AppxPackage", "PDBCopy.exe");
+			throw new AutomationException("Unable to find installation of PDBCOPY.EXE, which is required to strip symbols. This tool is included as part of the 'Windows Debugging Tools' component of the Windows 10 SDK (https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk).");
 		}
-		StartInfo.FileName = PDBCopyPath;
+
+		ProcessStartInfo StartInfo = new ProcessStartInfo();
+		StartInfo.FileName = PdbCopyLocation.FullName;
 		StartInfo.Arguments = String.Format("\"{0}\" \"{1}\" -p", SourceFile.FullName, TargetFile.FullName);
 		StartInfo.UseShellExecute = false;
 		StartInfo.CreateNoWindow = true;

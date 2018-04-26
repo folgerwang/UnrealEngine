@@ -131,8 +131,45 @@ public:
 		return bLoaderIsFArchiveAsync2 ? (FArchiveAsync2*)Loader : nullptr;
 	}
 
+private:
+
+	/** Structured archive interface. Wraps underlying loader to provide contextual metadata to the values being written
+	 *  which ultimately allows text based serialization of the data
+	 */
+	FStructuredArchive* StructuredArchive;
+	FArchiveFormatterType* StructuredArchiveFormatter;
+	TOptional<FStructuredArchive::FRecord> StructuredArchiveRootRecord;
+
+	/** A map of full object path name to package index. Used with text assets to resolve incoming string names to an export */
+	TMap<FName, FPackageIndex> ObjectNameToPackageIndex;
+
+protected:
+
 	/** The archive that actually reads the raw data from disk.																*/
 	FArchive*				Loader;
+
+public:
+
+	/** Access the underlying archive. Note that if this is a text archive, the loader will point to a generic text file, and not a binary archive as
+	  * in the past. General access to the underlying file format is discouraged and should only be done after checking that the linker package is what
+	  * you expect it to be (i.e. !IsTextFormat())
+	  */
+	FArchive * GetLoader_Unsafe() const
+	{
+		return Loader;
+	}
+
+	bool HasLoader() const
+	{
+		return Loader != nullptr;
+	}
+
+	void DestroyLoader()
+	{
+		delete Loader;
+		Loader = nullptr;
+	}
+
 	/** The async package associated with this linker */
 	struct FAsyncPackage* AsyncRoot;
 #if WITH_EDITOR

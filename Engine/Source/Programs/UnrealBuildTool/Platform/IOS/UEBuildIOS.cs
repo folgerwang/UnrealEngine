@@ -882,15 +882,6 @@ namespace UnrealBuildTool
 			UEBuildPlatform.RegisterBuildPlatform(new IOSPlatform(SDK));
 			UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.IOS, UnrealPlatformGroup.Apple);
 			UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.IOS, UnrealPlatformGroup.IOS);
-
-			if (IOSPlatform.IOSArchitecture == "-simulator")
-			{
-				UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.IOS, UnrealPlatformGroup.Simulator);
-			}
-			else
-			{
-				UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.IOS, UnrealPlatformGroup.Device);
-			}
 		}
 	}
 }

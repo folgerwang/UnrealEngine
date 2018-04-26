@@ -98,8 +98,8 @@ public:
 	// Variables.
 	EPropertyType       Type;
 	EArrayType::Type    ArrayType;
-	uint64              PropertyFlags;
-	uint64              ImpliedPropertyFlags;
+	EPropertyFlags      PropertyFlags;
+	EPropertyFlags      ImpliedPropertyFlags;
 	ERefQualifier::Type RefQualifier; // This is needed because of legacy stuff - FString mangles the flags for reasons that have become lost in time but we need this info for testing for invalid replicated function signatures.
 
 	TSharedPtr<FPropertyBase> MapKeyProp;
@@ -141,8 +141,8 @@ public:
 	explicit FPropertyBase(EPropertyType InType)
 	: Type                (InType)
 	, ArrayType           (EArrayType::None)
-	, PropertyFlags       (0)
-	, ImpliedPropertyFlags(0)
+	, PropertyFlags       (CPF_None)
+	, ImpliedPropertyFlags(CPF_None)
 	, RefQualifier        (ERefQualifier::None)
 	, PropertyExportFlags (PROPEXPORT_Public)
 	, StringSize          (0)
@@ -158,8 +158,8 @@ public:
 	explicit FPropertyBase(EPropertyType InType, EIntType InIntType)
 	: Type                (InType)
 	, ArrayType           (EArrayType::None)
-	, PropertyFlags       (0)
-	, ImpliedPropertyFlags(0)
+	, PropertyFlags       (CPF_None)
+	, ImpliedPropertyFlags(CPF_None)
 	, RefQualifier        (ERefQualifier::None)
 	, PropertyExportFlags (PROPEXPORT_Public)
 	, StringSize          (0)
@@ -175,8 +175,8 @@ public:
 	explicit FPropertyBase(UEnum* InEnum, EPropertyType InType)
 	: Type                (InType)
 	, ArrayType           (EArrayType::None)
-	, PropertyFlags       (0)
-	, ImpliedPropertyFlags(0)
+	, PropertyFlags       (CPF_None)
+	, ImpliedPropertyFlags(CPF_None)
 	, RefQualifier        (ERefQualifier::None)
 	, PropertyExportFlags (PROPEXPORT_Public)
 	, Enum                (InEnum)
@@ -192,8 +192,8 @@ public:
 	explicit FPropertyBase(UClass* InClass, bool bIsWeak = false, bool bWeakIsAuto = false, bool bIsLazy = false, bool bIsSoft = false)
 	: Type                (CPT_ObjectReference)
 	, ArrayType           (EArrayType::None)
-	, PropertyFlags       (0)
-	, ImpliedPropertyFlags(0)
+	, PropertyFlags       (CPF_None)
+	, ImpliedPropertyFlags(CPF_None)
 	, RefQualifier        (ERefQualifier::None)
 	, PropertyExportFlags (PROPEXPORT_Public)
 	, PropertyClass       (InClass)
@@ -230,8 +230,8 @@ public:
 	explicit FPropertyBase(UScriptStruct* InStruct)
 	: Type                (CPT_Struct)
 	, ArrayType           (EArrayType::None)
-	, PropertyFlags       (0)
-	, ImpliedPropertyFlags(0)
+	, PropertyFlags       (CPF_None)
+	, ImpliedPropertyFlags(CPF_None)
 	, RefQualifier        (ERefQualifier::None)
 	, PropertyExportFlags (PROPEXPORT_Public)
 	, Struct              (InStruct)
@@ -253,9 +253,9 @@ public:
 	{
 		checkSlow(Property);
 
-		EArrayType::Type ArrType = EArrayType::None;
-		uint64  PropagateFlags   = 0;
-		UClass* ClassOfProperty  = Property->GetClass();
+		EArrayType::Type ArrType         = EArrayType::None;
+		EPropertyFlags   PropagateFlags  = CPF_None;
+		UClass*          ClassOfProperty = Property->GetClass();
 
 		if( ClassOfProperty==UArrayProperty::StaticClass() )
 		{
@@ -434,7 +434,7 @@ public:
 		}
 		ArrayType            = ArrType;
 		PropertyFlags        = Property->PropertyFlags | PropagateFlags;
-		ImpliedPropertyFlags = 0;
+		ImpliedPropertyFlags = CPF_None;
 		RefQualifier         = ERefQualifier::None;
 		PointerType          = EPointerType::None;
 	}

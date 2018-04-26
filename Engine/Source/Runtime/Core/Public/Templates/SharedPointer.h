@@ -813,6 +813,16 @@ public:
 	 *
 	 * @return  True if the shared pointer is valid and can be dereferenced
 	 */
+	FORCEINLINE explicit operator bool() const
+	{
+		return Object != nullptr;
+	}
+
+	/**
+	 * Checks to see if this shared pointer is actually pointing to an object
+	 *
+	 * @return  True if the shared pointer is valid and can be dereferenced
+	 */
 	FORCEINLINE const bool IsValid() const
 	{
 		return Object != nullptr;

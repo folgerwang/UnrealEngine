@@ -340,7 +340,6 @@ namespace UnrealBuildTool
 					// Register this build platform for HTML5
 					Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.HTML5.ToString());
 					UEBuildPlatform.RegisterBuildPlatform(new HTML5Platform(SDK));
-					UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.HTML5, UnrealPlatformGroup.Device);
 				}
 			}
 

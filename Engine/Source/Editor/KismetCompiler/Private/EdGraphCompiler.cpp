@@ -36,11 +36,13 @@ void FGraphCompilerContext::ValidatePin(const UEdGraphPin* Pin) const
 	if (!Pin || !Pin->GetOwningNodeUnchecked())
 	{
 		MessageLog.Error(
-			*FString::Printf(
-				*NSLOCTEXT("EdGraphCompiler", "PinWrongOuterError", "Blueprint is corrupted! Pin '%s' has wrong outer '%s'.").ToString(),
-				Pin ? *Pin->GetName() : TEXT("UNKNOWN"),
-				(Pin && Pin->GetOuter()) ? *Pin->GetOuter()->GetName() : TEXT("NULL")),
-			Pin);
+			*FText::Format(
+				NSLOCTEXT("EdGraphCompiler", "PinWrongOuterErrorFmt", "Blueprint is corrupted! Pin '{0}' has wrong outer '{1}'."),
+				FText::FromString(Pin ? *Pin->GetName() : TEXT("UNKNOWN")),
+				FText::FromString((Pin && Pin->GetOuter()) ? *Pin->GetOuter()->GetName() : TEXT("NULL"))
+			).ToString(),
+			Pin
+		);
 		return;
 	}
 

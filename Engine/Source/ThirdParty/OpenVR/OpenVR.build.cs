@@ -48,7 +48,6 @@ public class OpenVR : ModuleRules
 			PublicDelayLoadDLLs.Add(DylibPath);
 			PublicAdditionalShadowFiles.Add(DylibPath);
 			RuntimeDependencies.Add(DylibPath);
-			PublicIncludePaths.Add(SdkBase + "/headers/osx");
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Linux && Target.Architecture.StartsWith("x86_64"))
 		{

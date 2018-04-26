@@ -2602,7 +2602,7 @@ void FBlueprintGraphArgumentGroupLayout::GenerateChildContent( IDetailChildrenBu
 					TWeakPtr<FUserPinInfo>(Pins[i]),
 					TargetNode.Get(),
 					GraphActionDetailsPtr,
-					FName(*FString::Printf(bIsInputNode ? TEXT("InputArgument%i") : TEXT("OutputArgument%i"), i)),
+					FName(*(bIsInputNode ? FString::Printf(TEXT("InputArgument%i"), i) : FString(TEXT("OutputArgument%i"), i))),
 					bIsInputNode));
 				ChildrenBuilder.AddCustomBuilder(BlueprintArgumentLayout);
 				WasContentAdded = true;

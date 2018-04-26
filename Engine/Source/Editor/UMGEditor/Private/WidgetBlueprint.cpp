@@ -426,8 +426,14 @@ bool FDelegateEditorBinding::IsBindingValid(UClass* BlueprintGeneratedClass, UWi
 				FText ValidationError;
 				if ( SourcePath.Validate(DelegateProperty, ValidationError) == false )
 				{
-					FText const ErrorFormat = LOCTEXT("BindingError", "Binding: Property '@@' on Widget '@@': %s");
-					MessageLog.Error(*FString::Printf(*ErrorFormat.ToString(), *ValidationError.ToString()), DelegateProperty, TargetWidget);
+					MessageLog.Error(
+						*FText::Format(
+							LOCTEXT("BindingErrorFmt", "Binding: Property '@@' on Widget '@@': {0}"),
+							ValidationError
+						).ToString(),
+						DelegateProperty,
+						TargetWidget
+					);
 
 					return false;
 				}

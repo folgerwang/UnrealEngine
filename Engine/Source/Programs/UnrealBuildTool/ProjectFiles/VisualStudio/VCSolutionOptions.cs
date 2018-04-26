@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -345,28 +345,45 @@ namespace UnrealBuildTool
 		{
 		}
 
-		public void Read(Stream InputStream)
+		public void Read(Stream InputStream, VCProjectFileFormat Format)
 		{
 			BinaryReader Reader = new BinaryReader(InputStream, Encoding.Unicode);
-			ReadOpenProjects(Reader);
+			ReadOpenProjects(Reader, Format);
 			ReadSelectedProjects(Reader);
 			ReadEpilogue(Reader);
 		}
 
-		public void Write(Stream OutputStream)
+		public void Write(Stream OutputStream, VCProjectFileFormat Format)
 		{
 			BinaryWriter Writer = new BinaryWriter(OutputStream, Encoding.Unicode);
-			WriteOpenProjects(Writer);
+			WriteOpenProjects(Writer, Format);
 			WriteSelectedProjects(Writer);
 			WriteEpilogue(Writer);
 		}
 
-		void ReadOpenProjects(BinaryReader Reader)
+		void ReadOpenProjects(BinaryReader Reader, VCProjectFileFormat Format)
 		{
 			long OpenFoldersEnd = Reader.BaseStream.Position + Reader.ReadInt32();
-			if (Reader.ReadInt32() != 11 || Reader.ReadInt16() != 1 || Reader.ReadByte() != 0)
+
+			if(Format >= VCProjectFileFormat.VisualStudio2017)
 			{
-				throw new Exception("Unexpected data in open projects section");
+				int Header1 = Reader.ReadInt32();
+				int Header2 = Reader.ReadInt32();
+				int Header3 = Reader.ReadByte();
+				if (Header1 != 15)
+				{
+					throw new BuildException("Unexpected data in open projects section");
+				}
+			}
+			else
+			{
+				int Header1 = Reader.ReadInt32();
+				int Header2 = Reader.ReadInt32();
+				int Header3 = Reader.ReadByte();
+				if (Header1 != 11 || Header2 != 1 || Header3 != 0)
+				{
+					throw new BuildException("Unexpected data in open projects section");
+				}
 			}
 
 			int NumProjects = Reader.ReadInt16();
@@ -386,12 +403,22 @@ namespace UnrealBuildTool
 			Debug.Assert(Reader.BaseStream.Position == OpenFoldersEnd);
 		}
 
-		void WriteOpenProjects(BinaryWriter Writer)
+		void WriteOpenProjects(BinaryWriter Writer, VCProjectFileFormat Format)
 		{
-			Writer.Write(4 + (4 + 2 + 1) + 2 + OpenProjects.Sum(x => GetStringSize(x.Item1) + 2 + x.Item2.Sum(y => GetStringSize(y))));
-			Writer.Write(11);
-			Writer.Write((short)1);
-			Writer.Write((byte)0);
+			if(Format >= VCProjectFileFormat.VisualStudio2017)
+			{
+				Writer.Write(4 + (4 + 4 + 1) + 2 + OpenProjects.Sum(x => GetStringSize(x.Item1) + 2 + x.Item2.Sum(y => GetStringSize(y))));
+				Writer.Write(15);
+				Writer.Write(65536);
+				Writer.Write((byte)0);
+			}
+			else
+			{
+				Writer.Write(4 + (4 + 2 + 1) + 2 + OpenProjects.Sum(x => GetStringSize(x.Item1) + 2 + x.Item2.Sum(y => GetStringSize(y))));
+				Writer.Write(11);
+				Writer.Write((short)1);
+				Writer.Write((byte)0);
+			}
 			Writer.Write((short)OpenProjects.Count);
 			foreach (Tuple<string, string[]> OpenProject in OpenProjects)
 			{
@@ -505,13 +532,17 @@ namespace UnrealBuildTool
 
 	class VCSolutionOptions : VCOleContainer
 	{
-		public VCSolutionOptions()
+		VCProjectFileFormat Format;
+
+		public VCSolutionOptions(VCProjectFileFormat Format)
 		{
+			this.Format = Format;
 		}
 
-		public VCSolutionOptions(string FileName)
+		public VCSolutionOptions(string FileName, VCProjectFileFormat Format)
 			: base(FileName)
 		{
+			this.Format = Format;
 		}
 
 		public IEnumerable<VCBinarySetting> GetConfiguration()
@@ -549,7 +580,7 @@ namespace UnrealBuildTool
 			if (TryGetSection("ProjExplorerState", out Data))
 			{
 				VCSolutionExplorerState State = new VCSolutionExplorerState();
-				State.Read(new MemoryStream(Data, false));
+				State.Read(new MemoryStream(Data, false), Format);
 				return State;
 			}
 			return null;
@@ -559,7 +590,7 @@ namespace UnrealBuildTool
 		{
 			using (MemoryStream OutputStream = new MemoryStream())
 			{
-				State.Write(OutputStream);
+				State.Write(OutputStream, Format);
 				SetSection("ProjExplorerState", OutputStream.ToArray());
 			}
 		}

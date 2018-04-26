@@ -27,8 +27,6 @@ public class HierarchicalLODUtilities : ModuleRules
         PrivateIncludePaths.AddRange(
             new string[]
             {
-                "MeshMergeUtilities",
-                "MeshReductionInterface",
             }
         );
 

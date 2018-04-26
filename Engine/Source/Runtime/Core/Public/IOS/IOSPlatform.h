@@ -61,6 +61,12 @@ typedef FIOSPlatformTypes FPlatformTypes;
 #define PLATFORM_UI_NEEDS_TOOLTIPS						0
 #define PLATFORM_UI_NEEDS_FOCUS_OUTLINES				0
 
+#if __has_feature(cxx_decltype_auto)
+	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1
+#else
+	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 0
+#endif
+
 //mallocpoison not safe with aligned ansi allocator.  returns the larger unaligned size during Free() which causes writes off the end of the allocation.
 #define UE_USE_MALLOC_FILL_BYTES 0 
 

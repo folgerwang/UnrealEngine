@@ -130,6 +130,11 @@ bool FTicker::FElement::Fire(float DeltaTime)
 	return false;
 }
 
+#if PLATFORM_WINDOWS && PLATFORM_32BITS
+// Workaround for ICE on VC++ 2017 14.13.26128 for UE4Game Win32
+PRAGMA_DISABLE_OPTIMIZATION
+#endif
+
 FTickerObjectBase::FTickerObjectBase(float InDelay, FTicker& InTicker)
 	: Ticker(InTicker)
 {
@@ -137,6 +142,10 @@ FTickerObjectBase::FTickerObjectBase(float InDelay, FTicker& InTicker)
 	FTickerDelegate TickDelegate = FTickerDelegate::CreateRaw(this, &FTickerObjectBase::Tick);
 	TickHandle = Ticker.AddTicker(TickDelegate, InDelay);
 }
+
+#if PLATFORM_WINDOWS && PLATFORM_32BITS
+PRAGMA_ENABLE_OPTIMIZATION
+#endif
 
 FTickerObjectBase::~FTickerObjectBase()
 {

@@ -167,13 +167,15 @@ void FDebug::LogFormattedMessageWithCallstack(const FName& LogName, const ANSICH
 		// Find the end of the current line
 		const TCHAR* LineEnd = LineStart;
 		TCHAR* SingleLineWritePos = SingleLine;
+		int32 SpaceRemaining = ARRAY_COUNT(SingleLine) - 1;
 
-		while (*LineEnd != 0 && *LineEnd != '\r' && *LineEnd != '\n')
+		while (SpaceRemaining > 0 && *LineEnd != 0 && *LineEnd != '\r' && *LineEnd != '\n')
 		{
 			*SingleLineWritePos++ = *LineEnd++;
+			--SpaceRemaining;
 		}
 
-		// cap it it
+		// cap it
 		*SingleLineWritePos = 0;
 
 		// prefix function lines with [Callstack] for parsing tools
@@ -420,7 +422,7 @@ void VARARGS FDebug::AssertFailed(const ANSICHAR* Expr, const ANSICHAR* File, in
 }
 
 #if DO_CHECK || DO_GUARD_SLOW
-bool VARARGS FDebug::OptionallyLogFormattedEnsureMessageReturningFalse( bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ... )
+bool VARARGS FDebug::OptionallyLogFormattedEnsureMessageReturningFalseImpl( bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ... )
 {
 	if (bLog)
 	{

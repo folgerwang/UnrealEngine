@@ -103,6 +103,8 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
 	UClass* BrokenReturnTypeForFunction();
+
+	UEnum* SomeFunc() const;
 };
 
 PRAGMA_ENABLE_DEPRECATION_WARNINGS

@@ -2,25 +2,13 @@
 
 #pragma once
 
-#include "CoreTypes.h"
+#include "Algo/Impl/RangePointerType.h"
 #include "Templates/IdentityFunctor.h"
 #include "Templates/Invoke.h"
 #include "Templates/UnrealTemplate.h" // For MoveTemp
 
 namespace AlgoImpl
 {
-	template <typename RangeType>
-	struct TRangePointerType
-	{
-		using Type = decltype(&*begin(DeclVal<RangeType&>()));
-	};
-
-	template <typename T, unsigned int N>
-	struct TRangePointerType<T[N]>
-	{
-		using Type = T*;
-	};
-
 	template <typename RangeType, typename ValueType, typename ProjectionType>
 	typename TRangePointerType<RangeType>::Type FindBy(RangeType& Range, const ValueType& Value, ProjectionType Proj)
 	{

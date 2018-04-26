@@ -24,8 +24,6 @@ namespace UnrealBuildTool.Rules
 				}
 			);
 
-			PrivateIncludePaths.Add("Runtime/AppleMoviePlayer/Private");
-
 			if (Target.Platform == UnrealTargetPlatform.Mac)
 			{
 				PublicFrameworks.AddRange(

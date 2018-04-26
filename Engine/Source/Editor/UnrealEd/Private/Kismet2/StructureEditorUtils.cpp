@@ -103,7 +103,7 @@ FStructureEditorUtils::EStructureError FStructureEditorUtils::IsStructureValid(c
 	{
 		if (OutMsg)
 		{
-			*OutMsg = FString::Printf(*LOCTEXT("StructureSizeIsZero", "Struct '%s' is empty").ToString(), *Struct->GetFullName());
+			*OutMsg = FText::Format(LOCTEXT("StructureSizeIsZeroFmt", "Struct '{0}' is empty"), FText::FromString(Struct->GetFullName())).ToString();
 		}
 		return EStructureError::EmptyStructure;
 	}
@@ -114,7 +114,7 @@ FStructureEditorUtils::EStructureError FStructureEditorUtils::IsStructureValid(c
 		{
 			if (OutMsg)
 			{
-				*OutMsg = FString::Printf(*LOCTEXT("StructureNotCompiled", "Struct '%s' is not compiled").ToString(), *Struct->GetFullName());
+				*OutMsg = FText::Format(LOCTEXT("StructureNotCompiledFmt", "Struct '{0}' is not compiled"), FText::FromString(Struct->GetFullName())).ToString();
 			}
 			return EStructureError::NotCompiled;
 		}
@@ -136,8 +136,11 @@ FStructureEditorUtils::EStructureError FStructureEditorUtils::IsStructureValid(c
 				{
 					if (OutMsg)
 					{
-						*OutMsg = FString::Printf(*LOCTEXT("StructureUnknownProperty", "Struct unknown (deleted?). Parent '%s' Property: '%s'").ToString(),
-							*Struct->GetFullName(), *StructProp->GetName());
+						*OutMsg = FText::Format(
+							LOCTEXT("StructureUnknownPropertyFmt", "Struct unknown (deleted?). Parent '{0}' Property: '{1}'"),
+							FText::FromString(Struct->GetFullName()),
+							FText::FromString(StructProp->GetName())
+						).ToString();
 					}
 					return EStructureError::FallbackStruct;
 				}
@@ -151,8 +154,12 @@ FStructureEditorUtils::EStructureError FStructureEditorUtils::IsStructureValid(c
 				{
 					if (OutMsg)
 					{
-						*OutMsg = FString::Printf(*LOCTEXT("StructurePropertyErrorTemplate", "Struct '%s' Property '%s' Error ( %s )").ToString(),
-							*Struct->GetFullName(), *StructProp->GetName(), *OutMsgInner);
+						*OutMsg = FText::Format(
+							LOCTEXT("StructurePropertyErrorTemplateFmt", "Struct '{0}' Property '{1}' Error ( {2} )"),
+							FText::FromString(Struct->GetFullName()),
+							FText::FromString(StructProp->GetName()),
+							FText::FromString(OutMsgInner)
+						).ToString();
 					}
 					return Result;
 				}
@@ -163,8 +170,11 @@ FStructureEditorUtils::EStructureError FStructureEditorUtils::IsStructureValid(c
 			{
 				if (OutMsg)
 				{
-					*OutMsg = FString::Printf(*LOCTEXT("StructureUnknownObjectProperty", "Invalid object property. Structure '%s' Property: '%s'").ToString(),
-						*Struct->GetFullName(), *P->GetName());
+					*OutMsg = FText::Format(
+						LOCTEXT("StructureUnknownObjectPropertyFmt", "Invalid object property. Structure '{0}' Property: '{1}'"),
+						FText::FromString(Struct->GetFullName()),
+						FText::FromString(P->GetName())
+					).ToString();
 				}
 				return EStructureError::NotCompiled;
 			}

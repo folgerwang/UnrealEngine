@@ -6,8 +6,6 @@ public class AnalyticsMulticastEditor : ModuleRules
 {
     public AnalyticsMulticastEditor(ReadOnlyTargetRules Target) : base(Target)
 	{
-        PrivateIncludePaths.Add("AnalyticsMulticastEditor/Private");
-
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",

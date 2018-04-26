@@ -6,8 +6,6 @@ public class BlueprintNativeCodeGen : ModuleRules
 {
     public BlueprintNativeCodeGen(ReadOnlyTargetRules Target) : base(Target)
 	{
-        PrivateIncludePaths.Add("BlueprintNativeCodeGen/Private");
-
 		PublicDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",

@@ -20,7 +20,6 @@
 #include "CoreGlobals.h"
 #include "Stats/Stats.h"
 #include "Misc/CoreStats.h"
-#include "Runtime/Core/Resources/Windows/ModuleVersionResource.h"
 #include "Windows/WindowsHWrapper.h"
 
 #include "Windows/AllowWindowsPlatformTypes.h"
@@ -123,48 +122,6 @@ void* FWindowsPlatformProcess::GetDllExport( void* DllHandle, const TCHAR* ProcN
 	check(DllHandle);
 	check(ProcName);
 	return (void*)::GetProcAddress( (HMODULE)DllHandle, TCHAR_TO_ANSI(ProcName) );
-}
-
-int32 FWindowsPlatformProcess::GetDllApiVersion( const TCHAR* Filename )
-{
-	int32 Result = -1;
-
-	// Retrieves the embedded API version from a DLL
-	check(Filename);
-	HMODULE hModule = LoadLibraryEx(Filename, NULL, LOAD_LIBRARY_AS_DATAFILE);
-	if(hModule != NULL)
-	{
-		HRSRC hResInfo = FindResource(hModule, MAKEINTRESOURCE(ID_MODULE_API_VERSION_RESOURCE), RT_RCDATA);
-		if(hResInfo != NULL)
-		{
-			HGLOBAL hResGlobal = LoadResource(hModule, hResInfo);
-			if(hResGlobal != NULL)
-			{
-				void *pResData = LockResource(hResGlobal);
-				if(pResData != NULL)
-				{
-					::DWORD Length = SizeofResource(hModule, hResInfo);
-					if(Length > 0)
-					{
-						char *Str = (char*)pResData;
-						if(Str[Length - 1] == 0)
-						{
-							char *End = Str;
-							uint64 Value = FCStringAnsi::Strtoui64(Str, &End, 10);
-							if(*End == 0 && Value <= INT_MAX)
-							{
-								Result = (int32)Value;
-							}
-						}
-					}
-					UnlockResource(pResData);
-				}
-			}
-		}
-		FreeLibrary(hModule);
-	}
-
-	return Result;
 }
 
 void FWindowsPlatformProcess::PushDllDirectory(const TCHAR* Directory)
@@ -608,60 +565,70 @@ void FWindowsPlatformProcess::ReadFromPipes(FString* OutStrings[], HANDLE InPipe
 	}
 }
 
+#include "Windows/AllowWindowsPlatformTypes.h"
 /**
  * Executes a process, returning the return code, stdout, and stderr. This
  * call blocks until the process has returned.
  */
 bool FWindowsPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr )
 {
-	PROCESS_INFORMATION ProcInfo;
-	SECURITY_ATTRIBUTES Attr;
+	STARTUPINFOEX StartupInfoEx;
+	ZeroMemory(&StartupInfoEx, sizeof(StartupInfoEx));
+	StartupInfoEx.StartupInfo.cb = sizeof(StartupInfoEx);
+	StartupInfoEx.StartupInfo.dwX = CW_USEDEFAULT;
+	StartupInfoEx.StartupInfo.dwY = CW_USEDEFAULT;
+	StartupInfoEx.StartupInfo.dwXSize = CW_USEDEFAULT;
+	StartupInfoEx.StartupInfo.dwYSize = CW_USEDEFAULT;
+	StartupInfoEx.StartupInfo.dwFlags = STARTF_USESHOWWINDOW;
+	StartupInfoEx.StartupInfo.wShowWindow = SW_SHOWMINNOACTIVE;
+	StartupInfoEx.StartupInfo.hStdInput = ::GetStdHandle(STD_INPUT_HANDLE);
 
-	FString CommandLine = FString::Printf(TEXT("%s %s"), URL, Params);
+	HANDLE hStdOutRead = NULL;
+	HANDLE hStdErrRead = NULL;
+	TArray<uint8> AttributeList;
 
-	Attr.nLength = sizeof(SECURITY_ATTRIBUTES);
-	Attr.lpSecurityDescriptor = NULL;
-	Attr.bInheritHandle = true;
-
-	uint32 CreateFlags = NORMAL_PRIORITY_CLASS;
-	CreateFlags |= DETACHED_PROCESS;
-
-	uint32 dwFlags = STARTF_USESHOWWINDOW;
-	uint16 ShowWindowFlags = SW_SHOWMINNOACTIVE;
-
-	const int32 MaxPipeCount = 2;
-	HANDLE ReadablePipes[MaxPipeCount] = {0};
-	HANDLE WritablePipes[MaxPipeCount] = {0};
-	const bool bRedirectOutput = OutStdOut != NULL || OutStdErr != NULL;
-
-	if (bRedirectOutput)
+	if(OutStdOut != nullptr || OutStdErr != nullptr)
 	{
-		dwFlags |= STARTF_USESTDHANDLES;
-		for (int32 PipeIndex = 0; PipeIndex < MaxPipeCount; ++PipeIndex)
+		StartupInfoEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
+
+		SECURITY_ATTRIBUTES Attr;
+		ZeroMemory(&Attr, sizeof(Attr));
+		Attr.nLength = sizeof(SECURITY_ATTRIBUTES);
+		Attr.bInheritHandle = TRUE;
+
+		verify(::CreatePipe(&hStdOutRead, &StartupInfoEx.StartupInfo.hStdOutput, &Attr, 0));
+		verify(::CreatePipe(&hStdErrRead, &StartupInfoEx.StartupInfo.hStdError, &Attr, 0));
+
+		SIZE_T BufferSize = 0;
+		if(!InitializeProcThreadAttributeList(NULL, 1, 0, &BufferSize) && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
 		{
-			verify(::CreatePipe(&ReadablePipes[PipeIndex], &WritablePipes[PipeIndex], &Attr, 0));
-			verify(::SetHandleInformation(ReadablePipes[PipeIndex], /*dwMask=*/ HANDLE_FLAG_INHERIT, /*dwFlags=*/ 0));
+			AttributeList.SetNum(BufferSize);
+			StartupInfoEx.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)AttributeList.GetData();
+			verify(InitializeProcThreadAttributeList(StartupInfoEx.lpAttributeList, 1, 0, &BufferSize));
 		}
+
+		HANDLE InheritHandles[2] = { StartupInfoEx.StartupInfo.hStdOutput, StartupInfoEx.StartupInfo.hStdError };
+		verify(UpdateProcThreadAttribute(StartupInfoEx.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, InheritHandles, sizeof(InheritHandles), NULL, NULL));
 	}
 
 	bool bSuccess = false;
-	STARTUPINFO StartupInfo = { sizeof(STARTUPINFO), NULL, NULL, NULL,
-		(::DWORD)CW_USEDEFAULT, (::DWORD)CW_USEDEFAULT, (::DWORD)CW_USEDEFAULT, (::DWORD)CW_USEDEFAULT,
-		(::DWORD)0, (::DWORD)0, (::DWORD)0, (::DWORD)dwFlags, ShowWindowFlags, 0, NULL,
-		::GetStdHandle((::DWORD)ProcessConstants::WIN_STD_INPUT_HANDLE), WritablePipes[0], WritablePipes[1] };
-	if (CreateProcess(NULL, CommandLine.GetCharArray().GetData(), &Attr, &Attr, true, CreateFlags,
-		NULL, NULL, &StartupInfo, &ProcInfo))
+
+	FString CommandLine = FString::Printf(TEXT("%s %s"), URL, Params);
+
+	PROCESS_INFORMATION ProcInfo;
+	if (CreateProcess(NULL, CommandLine.GetCharArray().GetData(), NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS | DETACHED_PROCESS | EXTENDED_STARTUPINFO_PRESENT, NULL, NULL, &StartupInfoEx.StartupInfo, &ProcInfo))
 	{
-		if (bRedirectOutput)
+		if (hStdOutRead != NULL)
 		{
-			FString* OutStrings[MaxPipeCount] = { OutStdOut, OutStdErr };
+			HANDLE ReadablePipes[2] = { hStdOutRead, hStdErrRead };
+			FString* OutStrings[2] = { OutStdOut, OutStdErr };
 			FProcHandle ProcHandle(ProcInfo.hProcess);
 			do 
 			{
-				ReadFromPipes(OutStrings, ReadablePipes, MaxPipeCount);
+				ReadFromPipes(OutStrings, ReadablePipes, 2);
 				FPlatformProcess::Sleep(0);
 			} while (IsProcRunning(ProcHandle));
-			ReadFromPipes(OutStrings, ReadablePipes, MaxPipeCount);
+			ReadFromPipes(OutStrings, ReadablePipes, 2);
 		}
 		else
 		{
@@ -669,7 +636,7 @@ bool FWindowsPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params
 		}		
 		if (OutReturnCode)
 		{
-			verify(::GetExitCodeProcess(ProcInfo.hProcess, (::DWORD*)OutReturnCode));
+			verify(::GetExitCodeProcess(ProcInfo.hProcess, (DWORD*)OutReturnCode));
 		}
 		::CloseHandle(ProcInfo.hProcess);
 		::CloseHandle(ProcInfo.hThread);
@@ -683,13 +650,6 @@ bool FWindowsPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params
 		if (OutReturnCode)
 		{
 			*OutReturnCode = ErrorCode;
-		}
-		if (bRedirectOutput)
-		{
-			for (int32 PipeIndex = 0; PipeIndex < MaxPipeCount; ++PipeIndex)
-			{
-				verify(::CloseHandle(WritablePipes[PipeIndex]));
-			}
 		}
 
 		TCHAR ErrorMessage[512];
@@ -705,16 +665,31 @@ bool FWindowsPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params
 		UE_LOG(LogWindows, Warning, TEXT("URL: %s %s"), URL, Params);
 	}
 
-	if (bRedirectOutput)
+	if(StartupInfoEx.StartupInfo.hStdOutput != NULL)
 	{
-		for (int32 PipeIndex = 0; PipeIndex < MaxPipeCount; ++PipeIndex)
-		{
-			verify(::CloseHandle(ReadablePipes[PipeIndex]));
-		}
+		CloseHandle(StartupInfoEx.StartupInfo.hStdOutput);
+	}
+	if(StartupInfoEx.StartupInfo.hStdError != NULL)
+	{
+		CloseHandle(StartupInfoEx.StartupInfo.hStdError);
+	}
+	if(hStdOutRead != NULL)
+	{
+		CloseHandle(hStdOutRead);
+	}
+	if(hStdErrRead != NULL)
+	{
+		CloseHandle(hStdErrRead);
+	}
+
+	if(StartupInfoEx.lpAttributeList != NULL)
+	{
+		DeleteProcThreadAttributeList(StartupInfoEx.lpAttributeList);
 	}
 
 	return bSuccess;
 }
+#include "Windows/HideWindowsPlatformTypes.h"
 
 bool FWindowsPlatformProcess::ExecElevatedProcess(const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode)
 {

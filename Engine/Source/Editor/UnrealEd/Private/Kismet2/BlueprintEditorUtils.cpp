@@ -5679,10 +5679,13 @@ bool FBlueprintEditorUtils::ImplementNewInterface(UBlueprint* Blueprint, const F
 	{
 		if( Blueprint->ImplementedInterfaces[i].Interface == InterfaceClass )
 		{
-			Blueprint->Message_Warn( FString::Printf (*LOCTEXT("InterfaceAlreadyImplemented", "ImplementNewInterface: Blueprint '%s' already implements the interface called '%s'").ToString(), 
-				*Blueprint->GetPathName(), 
-				*InterfaceClassName.ToString())
-				);
+			Blueprint->Message_Warn(
+				FText::Format(
+					LOCTEXT("InterfaceAlreadyImplementedFmt", "ImplementNewInterface: Blueprint '{0}' already implements the interface called '{1}'"),
+					FText::FromString(Blueprint->GetPathName()),
+					FText::FromString(InterfaceClassName.ToString())
+				).ToString()
+			);
 			return false;
 		}
 	}
@@ -5705,11 +5708,14 @@ bool FBlueprintEditorUtils::ImplementNewInterface(UBlueprint* Blueprint, const F
 			{
 				bAllFunctionsAdded = false;
 
-				Blueprint->Message_Error( FString::Printf (*LOCTEXT("InterfaceFunctionConflicts", "ImplementNewInterface: Blueprint '%s' has a function or graph which conflicts with the function %s in the interface called '%s'").ToString(), 
-					*Blueprint->GetPathName(), 
-					*FunctionName.ToString(), 
-					*InterfaceClassName.ToString())
-					);
+				Blueprint->Message_Error(
+					FText::Format(
+						LOCTEXT("InterfaceFunctionConflictsFmt", "ImplementNewInterface: Blueprint '{0}' has a function or graph which conflicts with the function {1} in the interface called '{2}'"),
+						FText::FromString(Blueprint->GetPathName()),
+						FText::FromName(FunctionName),
+						FText::FromName(InterfaceClassName)
+					).ToString()
+				);
 				break;
 			}
 
@@ -6369,11 +6375,23 @@ static void ConformInterfaceByName(UBlueprint* Blueprint, FBPInterfaceDescriptio
 
 			// warn the user that their old functionality won't work (it's now connected 
 			// to a custom node that isn't triggered anywhere)
-			FText WarningMessageText = InterfaceFunction ?
-				LOCTEXT("InterfaceEventNodeReplaced_Warn", "'%s' was promoted from an event to a function - it has been replaced by a custom event, which won't trigger unless you call it manually.") :
-				LOCTEXT("InterfaceEventRemovedNodeReplaced_Warn", "'%s' was removed from its interface - it has been replaced by a custom event, which won't trigger unless you call it manually.");
+			FText WarningMessageText;
+			if (InterfaceFunction)
+			{
+				WarningMessageText = FText::Format(
+					LOCTEXT("InterfaceEventNodeReplaced_WarnFmt", "'{0}' was promoted from an event to a function - it has been replaced by a custom event, which won't trigger unless you call it manually."),
+					FText::FromName(FunctionName)
+				);
+			}
+			else
+			{
+				WarningMessageText = FText::Format(
+					LOCTEXT("InterfaceEventRemovedNodeReplaced_WarnFmt", "'{0}' was removed from its interface - it has been replaced by a custom event, which won't trigger unless you call it manually."),
+					FText::FromName(FunctionName)
+				);
+			}
 
-			Blueprint->Message_Warn(FString::Printf(*WarningMessageText.ToString(), *FunctionName.ToString()));
+			Blueprint->Message_Warn(WarningMessageText.ToString());
 		}
 
 		// Cache off the graph names for this interface, for easier searching
@@ -6453,8 +6471,12 @@ static void ConformInterfaceByName(UBlueprint* Blueprint, FBPInterfaceDescriptio
 			else
 			{
 				Blueprint->Status = BS_Error;
-				const FString NewError = FString::Printf( *LOCTEXT("InterfaceNameCollision_Error", "Interface name collision in blueprint: %s, interface: %s, name: %s").ToString(), 
-					*Blueprint->GetFullName(), *CurrentInterfaceDesc.Interface->GetFullName(), *FunctionName.ToString());
+				const FString NewError = FText::Format(
+					LOCTEXT("InterfaceNameCollision_ErrorFmt", "Interface name collision in blueprint: {0}, interface: {1}, name: {2}"),
+					FText::FromString(Blueprint->GetFullName()),
+					FText::FromString(CurrentInterfaceDesc.Interface->GetFullName()),
+					FText::FromName(FunctionName)
+				).ToString();
 				Blueprint->Message_Error(NewError);
 			}
 		}

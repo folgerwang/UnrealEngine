@@ -53,6 +53,9 @@
 #include "Blueprint/BlueprintSupport.h"
 #include "HAL/IConsoleManager.h"
 #include "Serialization/ArchiveStackTrace.h"
+#include "Serialization/Formatters/BinaryArchiveFormatter.h"
+#include "Serialization/Formatters/JsonArchiveOutputFormatter.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSavePackage, Log, All);
 
@@ -117,7 +120,7 @@ namespace SavePackageStats
 		ADD_COOK_STAT(MBWritten);
 
 		AddStat(TEXT("Package.Save"), StatsList);
-		
+
 		StatsList.Empty(15);
 		ADD_COOK_STAT(NumberOfDifferentPackages);
 		ADD_COOK_STAT(DifferentPackagesSizeMB);
@@ -491,6 +494,7 @@ void AsyncWriteFileWithSplitExports(FLargeMemoryPtr Data, const int64 DataSize, 
 			, HeaderSize(InHeaderSize)
 			, FinalTimeStamp(InTimeStamp)
 		{
+			check(InDataSize);
 		}
 
 		/** Write the file  */
@@ -776,7 +780,7 @@ static void ConditionallyExcludeObjectForTarget(UObject* Obj, EObjectMark Exclud
 
 	UObject* ObjOuter = Obj->GetOuter();
 	UClass* ObjClass = Obj->GetClass();
-
+	
 	if (bIsCooking && TargetPlatform)
 	{
 		// Check for nativization replacement
@@ -3595,7 +3599,9 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 		// The temp file will be saved in the game save folder to not have to deal with potentially too long paths.
 		// Since the temp filename may include a 32 character GUID as well, limit the user prefix to 32 characters.
 		FString TempFilename;
+		FString TextFormatTempFilename;
 		TempFilename = FPaths::CreateTempFilename(*FPaths::ProjectSavedDir(), *BaseFilename.Left(32));
+		TextFormatTempFilename = TempFilename + FPackageName::GetTextAssetPackageExtension();
 
 		// Init.
 		FString CleanFilename = FPaths::GetCleanFilename(Filename);
@@ -3742,6 +3748,9 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				bool bSaveUnversioned = !!(SaveFlags & SAVE_Unversioned);
 
 				FLinkerSave* Linker = nullptr;
+				FArchiveFormatterType* Formatter = nullptr;
+				FArchive* TextFormatArchive = nullptr;
+				bool bTextFormat = FString(Filename).EndsWith(FPackageName::GetTextAssetPackageExtension()) || FString(Filename).EndsWith(FPackageName::GetTextMapPackageExtension());
 				
 #if WITH_EDITOR
 				FString DiffCookedPackagesPath;
@@ -3786,6 +3795,20 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					Linker = new FLinkerSave(InOuter, *TempFilename, bForceByteSwapping, bSaveUnversioned);
 				}
 
+#if WITH_EDITOR
+				if (bTextFormat)
+				{
+					TextFormatArchive = IFileManager::Get().CreateFileWriter(*TextFormatTempFilename);
+					Formatter = new FJsonArchiveOutputFormatter(*TextFormatArchive);
+				}
+				else
+#endif
+				{
+					Formatter = new FBinaryArchiveFormatter(*(FArchive*)Linker);
+				}
+
+				FStructuredArchive* StructuredArchive = new FStructuredArchive(*Formatter);
+				FStructuredArchive::FRecord StructuredArchiveRoot = StructuredArchive->Open().EnterRecord();
 #if WITH_EDITOR
 				if (!!TargetPlatform)
 				{
@@ -4258,7 +4281,10 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 #if WITH_EDITOR
 					FArchiveStackTraceIgnoreScope IgnoreSummaryDiffsScope(DiffSettings.bIgnoreHeaderDiffs);
 #endif // WITH_EDITOR
-				*Linker << Linker->Summary;
+					if (!bTextFormat)
+				    {
+						StructuredArchiveRoot.GetUnderlyingArchive() << Linker->Summary;
+				    }
 				}
 				int32 OffsetAfterPackageFileSummary = Linker->Tell();
 		
@@ -4311,6 +4337,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 
 				// Save names.
 				{
+					FStructuredArchive::FStream NameStream = StructuredArchiveRoot.EnterStream(FIELD_NAME_TEXT("Names"));
 #if WITH_EDITOR
 					FArchive::FScopeSetDebugSerializationFlags S(*Linker, DSF_IgnoreDiff, true);
 					FArchiveStackTraceIgnoreScope IgnoreSummaryDiffsScope(DiffSettings.bIgnoreHeaderDiffs);
@@ -4318,7 +4345,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					Linker->Summary.NameCount = Linker->NameMap.Num();
 					for (int32 i = 0; i < Linker->NameMap.Num(); i++)
 					{
-						Linker->NameMap[i].GetDisplayNameEntry()->Write(*Linker);
+						Linker->NameMap[i].GetDisplayNameEntry()->Write(NameStream.EnterElement());
 						Linker->NameIndices.Add(Linker->NameMap[i], i);
 					}
 				}
@@ -4328,6 +4355,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				}
 				SlowTask.EnterProgressFrame();
 
+				FStructuredArchive::FStream Stream = StructuredArchiveRoot.EnterStream(FIELD_NAME_TEXT("GatherableTextData"));
 				Linker->Summary.GatherableTextDataOffset = 0;
 				Linker->Summary.GatherableTextDataCount = 0;
 				if ( !(Linker->Summary.PackageFlags & PKG_FilterEditorOnly) && bCanCacheGatheredText )
@@ -4341,7 +4369,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					Linker->Summary.GatherableTextDataCount = Linker->GatherableTextDataMap.Num();
 					for (FGatherableTextData& GatherableTextData : Linker->GatherableTextDataMap)
 					{
-						*Linker << GatherableTextData;
+						Stream.EnterElement() << GatherableTextData;
 					}
 				}
 
@@ -4686,6 +4714,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				SlowTask.EnterProgressFrame();
 
 				// Save dummy import map, overwritten later.
+				if (!bTextFormat)
 				{
 #if WITH_EDITOR
 					FArchiveStackTraceIgnoreScope IgnoreSummaryDiffsScope(DiffSettings.bIgnoreHeaderDiffs);
@@ -4694,19 +4723,20 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					for (int32 i = 0; i < Linker->ImportMap.Num(); i++)
 					{
 						FObjectImport& Import = Linker->ImportMap[i];
-						*Linker << Import;
+						StructuredArchiveRoot.GetUnderlyingArchive() << Import;
 					}
 				}
 				int32 OffsetAfterImportMap = Linker->Tell();
 
 
-				if (EndSavingIfCancelled(Linker, TempFilename))
-				{
+				if ( EndSavingIfCancelled( Linker, TempFilename ) ) 
+				{ 
 					return ESavePackageResult::Canceled;
 				}
 				SlowTask.EnterProgressFrame();
 
 				// Save dummy export map, overwritten later.
+				if (!bTextFormat)
 				{
 #if WITH_EDITOR
 					FArchiveStackTraceIgnoreScope IgnoreSummaryDiffsScope(DiffSettings.bIgnoreHeaderDiffs);
@@ -4721,12 +4751,13 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				int32 OffsetAfterExportMap = Linker->Tell();
 
 
-				if (EndSavingIfCancelled(Linker, TempFilename))
-				{
+				if ( EndSavingIfCancelled( Linker, TempFilename ) ) 
+				{ 
 					return ESavePackageResult::Canceled;
 				}
 				SlowTask.EnterProgressFrame();
 
+				FStructuredArchive::FStream DependsStream = StructuredArchiveRoot.EnterStream(FIELD_NAME_TEXT("DependsMap"));
 				if (Linker->IsCooking())
 				{
 #if WITH_EDITOR
@@ -4737,7 +4768,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					Linker->Summary.DependsOffset = Linker->Tell();
 					for (int32 i = 0; i < Linker->ExportMap.Num(); i++)
 					{
-						*Linker << Depends;
+						DependsStream.EnterElement() << Depends;
 					}
 				}
 				else
@@ -4748,7 +4779,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					for (int32 i = 0; i < Linker->ExportMap.Num(); i++)
 					{
 						TArray<FPackageIndex>& Depends = Linker->DependsMap[i];
-						*Linker << Depends;
+						DependsStream.EnterElement() << Depends;
 					}
 				}
 
@@ -4769,15 +4800,16 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 #if WITH_EDITOR
 						FArchive::FScopeSetDebugSerializationFlags S(*Linker, DSF_IgnoreDiff, true);
 #endif
+						FStructuredArchive::FStream SoftReferenceStream = StructuredArchiveRoot.EnterStream(FIELD_NAME_TEXT("SoftReferences"));
 						for (FName& SoftPackageName : Linker->SoftPackageReferenceList)
 						{
-							*Linker << SoftPackageName;
+							SoftReferenceStream.EnterElement() << SoftPackageName;
 						}
 					}
 
 					// Save searchable names map
 					Linker->Summary.SearchableNamesOffset = Linker->Tell();
-					Linker->SerializeSearchableNamesMap(*Linker);
+					Linker->SerializeSearchableNamesMap(StructuredArchiveRoot.EnterField(FIELD_NAME_TEXT("SearchableNames")));
 				}
 				else
 				{
@@ -4792,13 +4824,13 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 #endif // WITH_EDITOR
 
 					// Save thumbnails
-					UPackage::SaveThumbnails(InOuter, Linker);
+					UPackage::SaveThumbnails(InOuter, Linker, StructuredArchiveRoot.EnterField(FIELD_NAME_TEXT("Thumbnails")));
 
 					// Save asset registry data so the editor can search for information about assets in this package
-					UPackage::SaveAssetRegistryData(InOuter, Linker);
+					UPackage::SaveAssetRegistryData(InOuter, Linker, StructuredArchiveRoot.EnterField(FIELD_NAME_TEXT("AssetRegistry")));
 
 					// Save level information used by World browser
-					UPackage::SaveWorldLevelInfo(InOuter, Linker);
+					UPackage::SaveWorldLevelInfo(InOuter, Linker, StructuredArchiveRoot.EnterField(FIELD_NAME_TEXT("WorldLevelInfo")));
 				}
 
 
@@ -4958,7 +4990,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 						}
 					};
 
-
+					FStructuredArchive::FStream DepedenciesStream = StructuredArchiveRoot.EnterStream(FIELD_NAME_TEXT("PreloadDependencies"));
 					TArray<UObject*> Subobjects;
 					TArray<UObject*> Deps;
 					for (int32 i = 0; i < Linker->ExportMap.Num(); i++)
@@ -5099,7 +5131,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 								}
 								Linker->Summary.PreloadDependencyCount++;
 								Export.SerializationBeforeSerializationDependencies++;
-								*Linker << Index;
+								DepedenciesStream.EnterElement() << Index;
 								AddArcForDepChecking(true, Index, true);
 							}
 							for (FPackageIndex Index : CreateBeforeSerializationDependencies)
@@ -5123,7 +5155,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 								}
 								Linker->Summary.PreloadDependencyCount++;
 								Export.CreateBeforeSerializationDependencies++;
-								*Linker << Index;
+								DepedenciesStream.EnterElement() << Index;
 								AddArcForDepChecking(true, Index, false);
 							}
 							for (FPackageIndex Index : SerializationBeforeCreateDependencies)
@@ -5135,7 +5167,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 								}
 								Linker->Summary.PreloadDependencyCount++;
 								Export.SerializationBeforeCreateDependencies++;
-								*Linker << Index;
+								DepedenciesStream.EnterElement() << Index;
 								AddArcForDepChecking(false, Index, true);
 							}
 							for (FPackageIndex Index : CreateBeforeCreateDependencies)
@@ -5147,7 +5179,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 								}
 								Linker->Summary.PreloadDependencyCount++;
 								Export.CreateBeforeCreateDependencies++;
-								*Linker << Index;
+								DepedenciesStream.EnterElement() << Index;
 								AddArcForDepChecking(false, Index, false);
 							}
 						}
@@ -5197,9 +5229,22 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 							Export.SerialOffset = Linker->Tell();
 							Linker->CurrentlySavingExport = FPackageIndex::FromExport(i);
 							// UE_LOG(LogSavePackage, Log, TEXT("export %s for %s"), *Export.Object->GetFullName(), *Linker->CookingTarget()->PlatformName());
+
+							//FString ObjectName = Export.Object->GetPathName(InOuter);
+							FString ObjectName = Export.Object->GetPathName(InOuter);
+							FStructuredArchive::FSlot ExportSlot = StructuredArchiveRoot.EnterField(FIELD_NAME(*ObjectName));
+
+#if WITH_EDITOR
+							bool bSupportsText = UClass::IsSafeToSerializeToStructuredArchives(Export.Object->GetClass());
+#else
+							bool bSupportsText = false;
+#endif
+
 							if ( Export.Object->HasAnyFlags(RF_ClassDefaultObject) )
 							{
-								Export.Object->GetClass()->SerializeDefaultObject(Export.Object, *Linker);
+								FArchiveUObjectFromStructuredArchive Adapter(ExportSlot);
+								Adapter.SetExternalObjectIndicesMap(&Linker->ObjectIndicesMap);
+								Export.Object->GetClass()->SerializeDefaultObject(Export.Object, Adapter);
 							}
 							else
 							{
@@ -5209,7 +5254,18 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 								FScopedDurationTimer SerializeTimer(TimingInfo.Key);
 #endif
 								TGuardValue<UObject*> GuardSerializedObject(ThreadContext.SerializedObject, Export.Object);
-								Export.Object->Serialize( *Linker );
+
+								if (bSupportsText)
+								{
+									FStructuredArchive::FRecord ExportRecord = ExportSlot.EnterRecord();
+									Export.Object->Serialize(ExportRecord);
+								}
+								else
+								{
+									FArchiveUObjectFromStructuredArchive Adapter(ExportSlot);
+									Adapter.SetExternalObjectIndicesMap(&Linker->ObjectIndicesMap);
+									Export.Object->Serialize(Adapter);
+								}
 
 #if WITH_EDITOR
 								if (Linker->IsCooking())
@@ -5250,7 +5306,9 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				int64 StartOfBulkDataArea = Linker->Tell();
 				Linker->Summary.BulkDataStartOffset = StartOfBulkDataArea;
 
-				if (Linker->BulkDataToAppend.Num() > 0)
+				check(!bTextFormat || Linker->BulkDataToAppend.Num() == 0);
+
+				if (!bTextFormat && Linker->BulkDataToAppend.Num() > 0)
 				{
 					COOK_STAT(FScopedDurationTimer SaveTimer(SavePackageStats::SerializeBulkDataTimeSec));
 
@@ -5361,8 +5419,11 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				Linker->BulkDataToAppend.Empty();
 			
 				// write the package post tag
+				if (!bTextFormat)
+				{
 				uint32 Tag = PACKAGE_FILE_TAG;
-				*Linker << Tag;
+					StructuredArchiveRoot.GetUnderlyingArchive() << Tag;
+				}
 
 				// We capture the package size before the first seek to work with archives that don't report the file
 				// size correctly while the file is still being written to.
@@ -5374,7 +5435,14 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					FArchiveStackTraceIgnoreScope IgnoreSummaryDiffsScope(DiffSettings.bIgnoreHeaderDiffs);
 #endif // WITH_EDITOR
 
+					if (!bTextFormat)
+					{
 					Linker->Seek(Linker->Summary.ImportOffset);
+					}
+
+					int32 NumImports = Linker->ImportMap.Num();
+					FStructuredArchive::FStream ImportTableStream = StructuredArchiveRoot.EnterStream(FIELD_NAME_TEXT("ImportTable"));
+
 					for (int32 i = 0; i < Linker->ImportMap.Num(); i++)
 					{
 						FObjectImport& Import = Linker->ImportMap[i];
@@ -5425,14 +5493,19 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 						}
 
 						// Save it.
-						*Linker << Import;
+						ImportTableStream.EnterElement() << Import;
 					}
 				}
 
-				check(Linker->Tell() == OffsetAfterImportMap);
-
 				// Save the export map.
-				Linker->Seek(Linker->Summary.ExportOffset);
+				if (!bTextFormat)
+				{
+				check( Linker->Tell() == OffsetAfterImportMap );
+					Linker->Seek(Linker->Summary.ExportOffset);
+				}
+
+				int32 NumExports = Linker->ExportMap.Num();
+				FStructuredArchive::FStream ExportTableStream = StructuredArchiveRoot.EnterStream(FIELD_NAME_TEXT("ExportTable"));
 				{
 #if WITH_EDITOR
 					FArchive::FScopeSetDebugSerializationFlags S(*Linker, DSF_IgnoreDiff, true);
@@ -5440,13 +5513,18 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 #endif
 					for (int32 i = 0; i < Linker->ExportMap.Num(); i++)
 					{
-						*Linker << Linker->ExportMap[i];
+						FObjectExport& Export = Linker->ExportMap[i];
+						ExportTableStream.EnterElement() << Export;
 					}
 				}
-				check(Linker->Tell() == OffsetAfterExportMap);
 
-				if (EndSavingIfCancelled(Linker, TempFilename))
+				if (!bTextFormat)
 				{
+				check( Linker->Tell() == OffsetAfterExportMap );
+				}
+
+				if ( EndSavingIfCancelled( Linker, TempFilename ) ) 
+				{ 
 					return ESavePackageResult::Canceled;
 				}
 				SlowTask.EnterProgressFrame();
@@ -5472,14 +5550,21 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				// Update package flags from package, in case serialization has modified package flags.
 				Linker->Summary.PackageFlags = Linker->LinkerRoot->GetPackageFlags() & ~PKG_NewlyCreated;
 
+				if (!bTextFormat)
+				{
 				Linker->Seek(0);
+				}
 				{
 #if WITH_EDITOR
 					FArchiveStackTraceIgnoreScope IgnoreSummaryDiffsScope(DiffSettings.bIgnoreHeaderDiffs);
 #endif // WITH_EDITOR
-					*Linker << Linker->Summary;
+					StructuredArchiveRoot.EnterField(FIELD_NAME_TEXT("Summary")) << Linker->Summary;
 				}
+
+				if (!bTextFormat)
+				{
 				check( Linker->Tell() == OffsetAfterPackageFileSummary );
+				}
 
 				if ( EndSavingIfCancelled( Linker, TempFilename ) ) 
 				{ 
@@ -5491,6 +5576,15 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				if (!bSaveAsync)
 				{
 					Linker->Detach();
+
+					delete StructuredArchive;
+
+					if (TextFormatArchive)
+					{
+						TextFormatArchive->Flush();
+						TextFormatArchive->Close();
+						delete TextFormatArchive;
+					}
 				}
 				UNCLOCK_CYCLES(Time);
 				UE_CLOG(!(SaveFlags & (SAVE_DiffCallstack | SAVE_DiffOnly)), LogSavePackage, Verbose,  TEXT("Save=%.2fms"), FPlatformTime::ToMilliseconds(Time) );
@@ -5558,6 +5652,12 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					// Move the temporary file.
 					else
 					{
+						if (bTextFormat)
+						{
+							IFileManager::Get().Delete(*TempFilename);
+							TempFilename = TextFormatTempFilename;
+						}
+
 						UE_LOG(LogSavePackage, Log,  TEXT("Moving '%s' to '%s'"), *TempFilename, *NewPath );
 						TotalPackageSizeUncompressed += IFileManager::Get().FileSize(*TempFilename);
 						Success = IFileManager::Get().Move( *NewPath, *TempFilename );
@@ -5647,17 +5747,17 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 			// attached in PreSaveRoot.
 			// If we are saving concurrently, this should be called after UPackage::Save.
 			// Also if we're trying to diff the package and gathering callstacks, Presave has already been done
-			if (Base && !bSavingConcurrent && !(SaveFlags & SAVE_DiffCallstack))
+			if( Base && !bSavingConcurrent && !(SaveFlags & SAVE_DiffCallstack) )
 			{
-				Base->PostSaveRoot(bCleanupIsRequired);
+				Base->PostSaveRoot( bCleanupIsRequired );
 			}
 
 			SlowTask.EnterProgressFrame();
-
+			
 #if WITH_EDITOR
-			if (!bSavingConcurrent)
+			if ( !bSavingConcurrent )
 			{
-				for (int CachedObjectIndex = 0; CachedObjectIndex < CachedObjects.Num(); ++CachedObjectIndex)
+				for ( int CachedObjectIndex = 0; CachedObjectIndex < CachedObjects.Num(); ++CachedObjectIndex )
 				{
 					CachedObjects[CachedObjectIndex]->ClearCachedCookedPlatformData(TargetPlatform);
 				}
@@ -5665,7 +5765,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 #endif
 
 		}
-		if (Success == true)
+		if( Success == true )
 		{
 			// Package has been save, so unmark NewlyCreated flag.
 			InOuter->ClearPackageFlags(PKG_NewlyCreated);
@@ -5719,9 +5819,12 @@ bool UPackage::SavePackage(UPackage* InOuter, UObject* Base, EObjectFlags TopLev
  *
  * @param	InOuter							the outer to use for the new package
  * @param	Linker							linker we're currently saving with
+ * @param	Slot							structed archive slot we are saving too (temporary)
  */
-void UPackage::SaveThumbnails( UPackage* InOuter, FLinkerSave* Linker )
+void UPackage::SaveThumbnails(UPackage* InOuter, FLinkerSave* Linker, FStructuredArchive::FSlot Slot)
 {
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+
 	Linker->Summary.ThumbnailTableOffset = 0;
 
 #if WITH_EDITORONLY_DATA
@@ -5772,6 +5875,8 @@ void UPackage::SaveThumbnails( UPackage* InOuter, FLinkerSave* Linker )
 		if( ObjectsWithThumbnails.Num() > 0 )
 		{
 			// Save out the image data for the thumbnails
+			FStructuredArchive::FStream ThumbnailStream = Record.EnterStream(FIELD_NAME_TEXT("Thumbnails"));
+
 			for( int32 CurObjectIndex = 0; CurObjectIndex < ObjectsWithThumbnails.Num(); ++CurObjectIndex )
 			{
 				FObjectFullNameAndThumbnail& CurObjectThumb = ObjectsWithThumbnails[ CurObjectIndex ];
@@ -5781,7 +5886,7 @@ void UPackage::SaveThumbnails( UPackage* InOuter, FLinkerSave* Linker )
 
 				// Serialize the thumbnail!
 				FObjectThumbnail* SerializableThumbnail = const_cast< FObjectThumbnail* >( CurObjectThumb.ObjectThumbnail );
-				SerializableThumbnail->Serialize( *Linker );
+				SerializableThumbnail->Serialize(ThumbnailStream.EnterElement());
 			}
 
 
@@ -5791,7 +5896,7 @@ void UPackage::SaveThumbnails( UPackage* InOuter, FLinkerSave* Linker )
 
 				// Save number of thumbnails
 				int32 ThumbnailCount = ObjectsWithThumbnails.Num();
-				*Linker << ThumbnailCount;
+				FStructuredArchive::FArray IndexArray = Record.EnterField(FIELD_NAME_TEXT("Index")).EnterArray(ThumbnailCount);
 
 				// Store a list of object names along with the offset in the file where the thumbnail is stored
 				for( int32 CurObjectIndex = 0; CurObjectIndex < ObjectsWithThumbnails.Num(); ++CurObjectIndex )
@@ -5811,13 +5916,13 @@ void UPackage::SaveThumbnails( UPackage* InOuter, FLinkerSave* Linker )
 					// on the package file name
 					FString ObjectPathWithoutPackageName = ObjectPath.Mid( ObjectPath.Find( TEXT( "." ) ) + 1 );
 
-					// Store both the object's class and path name (relative to it's package)
-					*Linker << ObjectClassName;
-					*Linker << ObjectPathWithoutPackageName;
-
 					// File offset for the thumbnail (already saved out.)
 					int32 FileOffset = CurObjectThumb.FileOffset;
-					*Linker << FileOffset;
+
+					IndexArray.EnterElement().EnterRecord()
+						<< NAMED_FIELD(ObjectClassName)
+						<< NAMED_FIELD(ObjectPathWithoutPackageName)
+						<< NAMED_FIELD(FileOffset);
 				}
 			}
 		}
@@ -5831,7 +5936,7 @@ void UPackage::SaveThumbnails( UPackage* InOuter, FLinkerSave* Linker )
 #endif
 }
 
-void UPackage::SaveAssetRegistryData( UPackage* InOuter, FLinkerSave* Linker )
+void UPackage::SaveAssetRegistryData(UPackage* InOuter, FLinkerSave* Linker, FStructuredArchive::FSlot Slot)
 {
 	// Make a copy of the tag map
 	TArray<UObject*> AssetObjects;
@@ -5854,7 +5959,7 @@ void UPackage::SaveAssetRegistryData( UPackage* InOuter, FLinkerSave* Linker )
 
 	// Save the number of objects in the tag map
 	int32 ObjectCount = AssetObjects.Num();
-	*Linker << ObjectCount;
+	FStructuredArchive::FArray AssetArray = Slot.EnterArray(ObjectCount);
 
 	// If there are any Asset Registry tags, add them to the summary
 	for (int32 ObjectIdx = 0; ObjectIdx < AssetObjects.Num(); ++ObjectIdx)
@@ -5865,33 +5970,53 @@ void UPackage::SaveAssetRegistryData( UPackage* InOuter, FLinkerSave* Linker )
 		FString ObjectPath = Object->GetPathName(Object->GetOutermost());
 		FString ObjectClassName = Object->GetClass()->GetName();
 		
+		TArray<FAssetRegistryTag> SourceTags;
+		Object->GetAssetRegistryTags(SourceTags);
+
 		TArray<FAssetRegistryTag> Tags;
-		Object->GetAssetRegistryTags(Tags);
+		for (FAssetRegistryTag& SourceTag : SourceTags)
+		{
+			const FAssetRegistryTag* Existing = Tags.FindByPredicate([SourceTag](const FAssetRegistryTag& InTag) { return InTag.Name == SourceTag.Name; });
+			if (Existing)
+			{
+				check(Existing->Value == SourceTag.Value);
+			}
+			else
+			{
+				Tags.Add(SourceTag);
+			}
+		}
 
 		int32 TagCount = Tags.Num();
 
-		*Linker << ObjectPath;
-		*Linker << ObjectClassName;
-		*Linker << TagCount;
+		FStructuredArchive::FRecord AssetRecord = AssetArray.EnterElement().EnterRecord();
+		AssetRecord << NAMED_ITEM("Path", ObjectPath) << NAMED_ITEM("Class", ObjectClassName);
+
+		FStructuredArchive::FMap TagMap = AssetRecord.EnterField(FIELD_NAME_TEXT("Tags")).EnterMap(TagCount);
 				
 		for (TArray<FAssetRegistryTag>::TConstIterator TagIter(Tags); TagIter; ++TagIter)
 		{
 			FString Key = TagIter->Name.ToString();
 			FString Value = TagIter->Value;
-			*Linker << Key;
-			*Linker << Value;
+
+			TagMap.EnterElement(Key) << Value;
 		}
 	}
 }
 
-void UPackage::SaveWorldLevelInfo( UPackage* InOuter, FLinkerSave* Linker )
+void UPackage::SaveWorldLevelInfo(UPackage* InOuter, FLinkerSave* Linker, FStructuredArchive::FSlot Slot)
 {
 	Linker->Summary.WorldTileInfoDataOffset = 0;
 	
 	if(InOuter->WorldTileInfo.IsValid())
 	{
 		Linker->Summary.WorldTileInfoDataOffset = Linker->Tell();
-		*Linker << *(InOuter->WorldTileInfo);
+		Slot << *(InOuter->WorldTileInfo);
+	}
+	else
+	{
+		// Make empty record, because structured archive API doesn't allow us to leave a slot empty
+		Slot.EnterRecord();
 	}
 }
 

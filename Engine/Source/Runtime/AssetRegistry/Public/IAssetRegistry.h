@@ -334,6 +334,7 @@ public:
 
 	/** Serialize the registry to/from a file, skipping editor only data */
 	virtual void Serialize(FArchive& Ar) = 0;
+	virtual void Serialize(FStructuredArchive::FRecord Record) = 0;
 
 	/** Returns memory size of entire registry, optionally logging sizes */
 	virtual uint32 GetAllocatedSize(bool bLogDetailed = false) const = 0;

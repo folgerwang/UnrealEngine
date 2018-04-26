@@ -363,7 +363,7 @@ protected:
 	virtual bool IsNodePure(const UEdGraphNode* Node) const;
 
 	/** Creates a property with flags including PropertyFlags in the Scope structure for each entry in the Terms array */
-	void CreatePropertiesFromList(UStruct* Scope, UField**& PropertyStorageLocation, TIndirectArray<FBPTerminal>& Terms, uint64 PropertyFlags, bool bPropertiesAreLocal, bool bPropertiesAreParameters = false);
+	void CreatePropertiesFromList(UStruct* Scope, UField**& PropertyStorageLocation, TIndirectArray<FBPTerminal>& Terms, EPropertyFlags PropertyFlags, bool bPropertiesAreLocal, bool bPropertiesAreParameters = false);
 
 	/** Create the properties on a function for input/output parameters */
 	void CreateParametersForFunction(FKismetFunctionContext& Context, UFunction* ParameterSignature, UField**& FunctionPropertyStorageLocation);

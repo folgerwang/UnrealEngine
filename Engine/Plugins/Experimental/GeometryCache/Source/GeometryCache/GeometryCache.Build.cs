@@ -6,10 +6,6 @@ public class GeometryCache : ModuleRules
 {
 	public GeometryCache(ReadOnlyTargetRules Target) : base(Target)
 	{
-        PublicIncludePaths.Add("Runtime/GeometryCache/Public");
-        PublicIncludePaths.Add("Runtime/GeometryCache/Classes");
-        PrivateIncludePaths.Add("Runtime/GeometryCache/Private");
-        
         PublicDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",

@@ -187,6 +187,9 @@ public:
 
 	/** Adds a plugin descriptor string to the enabled plugins list in the crash context */
 	static void AddPlugin(const FString& PluginDesc);
+	
+	/** Generate raw call stack for crash report (image base + offset) */
+	static void GeneratePortableCallStack(int32 IgnoreCount, int32 MaxDepth = 100, void* Context = nullptr);
 
 	/**
 	 * @return whether this crash is a non-crash event
@@ -197,8 +200,15 @@ protected:
 	bool bIsEnsure;
 
 private:
+
 	/** Serializes platform specific properties to the buffer. */
 	virtual void AddPlatformSpecificProperties() const;
+
+	/** Add callstack information to the crash report xml */
+	void AddPortableCallStack() const;
+
+	/** Add a stack frame to the crash report call stack */
+	static void AddStackFrame(const FString& ModuleName, uint64 BaseAddress, uint64 Offset);
 
 	/** Writes header information to the buffer. */
 	void AddHeader() const;

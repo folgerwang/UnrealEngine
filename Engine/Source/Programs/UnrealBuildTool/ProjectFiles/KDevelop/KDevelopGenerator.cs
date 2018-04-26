@@ -200,7 +200,7 @@ namespace UnrealBuildTool
 					{
 						if (CurConfiguration != UnrealTargetConfiguration.Unknown && CurConfiguration != UnrealTargetConfiguration.Development)
 						{
-							if (UnrealBuildTool.IsValidConfiguration(CurConfiguration))
+							if (InstalledPlatformInfo.IsValidConfiguration(CurConfiguration, EProjectType.Code))
 							{
 								string ConfName = Enum.GetName(typeof(UnrealTargetConfiguration), CurConfiguration);
 								FileContent.Append(String.Format("[CustomBuildSystem][BuildConfig{0}]\nBuildDir=file://{1}\n", BuildConfigIndex, UnrealRootPath));

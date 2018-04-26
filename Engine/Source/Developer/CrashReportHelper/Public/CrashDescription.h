@@ -214,23 +214,6 @@ struct FPrimaryCrashProperties
 	FEngineVersion EngineVersion;
 
 	/**
-	 * Built from changelist.
-	 * @ChangeListVersion	varchar(64)
-	 * 
-	 * BUILT_FROM_CHANGELIST
-	 */
-	//EngineVersion.GetChangelist()
-	//uint32 BuiltFromCL;
-
-	/**
-	 * The name of the branch this game was built out of.
-	 * @Branch varchar(32)
-	 * 
-	 * BRANCH_NAME
-	 */
-	//EngineVersion.GetBranch();
-
-	/**
 	 * The command line of the application that crashed.
 	 * @CommandLine varchar(512)
 	 * 

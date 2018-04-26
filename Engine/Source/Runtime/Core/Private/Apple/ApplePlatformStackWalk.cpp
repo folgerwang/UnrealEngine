@@ -84,6 +84,9 @@ int32 GetModuleTimeStamp( const struct mach_header* Header )
 
 static void AsyncSafeProgramCounterToSymbolInfo( uint64 ProgramCounter, FProgramCounterSymbolInfo& out_SymbolInfo )
 {
+	// Store the PC into the info structure
+	out_SymbolInfo.ProgramCounter = ProgramCounter;
+	
 	Dl_info DylibInfo;
 	int32 Result = dladdr((const void*)ProgramCounter, &DylibInfo);
 	if (Result == 0)

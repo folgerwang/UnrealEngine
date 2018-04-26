@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -261,8 +261,7 @@ namespace UnrealBuildTool
 			// If we have a non-default setting for visual studio, check the compiler exists. If not, revert to the default.
 			if(ProjectFileFormat == VCProjectFileFormat.VisualStudio2015)
 			{
-				DirectoryReference VCInstallDir;
-				if (!WindowsPlatform.TryGetVCInstallDir(WindowsCompiler.VisualStudio2015, out VCInstallDir))
+				if (!WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2015))
 				{
 					Log.TraceWarning("Visual Studio C++ 2015 installation not found - ignoring preferred project file format.");
 					ProjectFileFormat = VCProjectFileFormat.Default;
@@ -270,8 +269,7 @@ namespace UnrealBuildTool
 			}
 			else if(ProjectFileFormat == VCProjectFileFormat.VisualStudio2017)
 			{
-				DirectoryReference VCInstallDir;
-				if (!WindowsPlatform.TryGetVCInstallDir(WindowsCompiler.VisualStudio2017, out VCInstallDir))
+				if (!WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2017))
 				{
 					Log.TraceWarning("Visual Studio C++ 2017 installation not found - ignoring preferred project file format.");
 					ProjectFileFormat = VCProjectFileFormat.Default;
@@ -284,14 +282,13 @@ namespace UnrealBuildTool
 			if (ProjectFileFormat == VCProjectFileFormat.Default)
 			{
 				// Pick the best platform installed by default
-				DirectoryReference VCInstallDir;
-				if (WindowsPlatform.TryGetVCInstallDir(WindowsCompiler.VisualStudio2015, out VCInstallDir))
-				{
-					ProjectFileFormat = VCProjectFileFormat.VisualStudio2015;
-				}
-				else if (WindowsPlatform.TryGetVCInstallDir(WindowsCompiler.VisualStudio2017, out VCInstallDir))
+				if (WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2017))
 				{
 					ProjectFileFormat = VCProjectFileFormat.VisualStudio2017;
+				}
+				else if (WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2015))
+				{
+					ProjectFileFormat = VCProjectFileFormat.VisualStudio2015;
 				}
 
 				// Allow the SDKs to override
@@ -598,11 +595,11 @@ namespace UnrealBuildTool
 
 						foreach (UnrealTargetConfiguration CurConfiguration in SupportedConfigurations)
 						{
-							if (UnrealBuildTool.IsValidConfiguration(CurConfiguration))
+							if (InstalledPlatformInfo.IsValidConfiguration(CurConfiguration, EProjectType.Code))
 							{
 								foreach (UnrealTargetPlatform CurPlatform in SupportedPlatforms)
 								{
-									if (UnrealBuildTool.IsValidPlatform(CurPlatform))
+									if (InstalledPlatformInfo.IsValidPlatform(CurPlatform, EProjectType.Code))
 									{
 										foreach (ProjectFile CurProject in AllProjectFiles)
 										{
@@ -988,7 +985,7 @@ namespace UnrealBuildTool
 				{
 					DirectoryReference.CreateDirectory(SolutionOptionsFileName.Directory);
 
-					VCSolutionOptions Options = new VCSolutionOptions();
+					VCSolutionOptions Options = new VCSolutionOptions(ProjectFileFormat);
 
 					// Set the default configuration and startup project
 					VCSolutionConfigCombination DefaultConfig = SolutionConfigCombinations.Find(x => x.Configuration == UnrealTargetConfiguration.Development && x.Platform == UnrealTargetPlatform.Win64 && x.TargetConfigurationName == "Editor");
@@ -1005,21 +1002,13 @@ namespace UnrealBuildTool
 
 					// Mark all the projects as closed by default, apart from the startup project
 					VCSolutionExplorerState ExplorerState = new VCSolutionExplorerState();
-					foreach (ProjectFile ProjectFile in AllProjectFiles)
+					if(ProjectFileFormat >= VCProjectFileFormat.VisualStudio2017)
 					{
-						string ProjectName = ProjectFile.ProjectFilePath.GetFileNameWithoutExtension();
-						if (ProjectFile == DefaultProject)
-						{
-							ExplorerState.OpenProjects.Add(new Tuple<string, string[]>(ProjectName, new string[] { ProjectName }));
-						}
-						else
-						{
-							ExplorerState.OpenProjects.Add(new Tuple<string, string[]>(ProjectName, new string[] { }));
-						}
+						BuildSolutionExplorerState_VS2017(RootFolder, "", ExplorerState, DefaultProject);
 					}
-					if (IncludeEnginePrograms)
+					else
 					{
-						ExplorerState.OpenProjects.Add(new Tuple<string, string[]>("Automation", new string[0]));
+						BuildSolutionExplorerState_VS2015(AllProjectFiles, ExplorerState, DefaultProject, IncludeEnginePrograms);
 					}
 					Options.SetExplorerState(ExplorerState);
 
@@ -1034,6 +1023,55 @@ namespace UnrealBuildTool
 			return bSuccess;
 		}
 
+		static void BuildSolutionExplorerState_VS2017(MasterProjectFolder Folder, string Suffix, VCSolutionExplorerState ExplorerState, ProjectFile DefaultProject)
+		{
+			foreach(ProjectFile Project in Folder.ChildProjects)
+			{
+				string ProjectIdentifier = String.Format("{0}{1}", Project.ProjectFilePath.GetFileNameWithoutExtension(), Suffix);
+				if (Project == DefaultProject)
+				{
+					ExplorerState.OpenProjects.Add(new Tuple<string, string[]>(ProjectIdentifier, new string[] { ProjectIdentifier }));
+				}
+				else
+				{
+					ExplorerState.OpenProjects.Add(new Tuple<string, string[]>(ProjectIdentifier, new string[] { }));
+				}
+			}
+
+			foreach(MasterProjectFolder SubFolder in Folder.SubFolders)
+			{
+				string SubFolderName = SubFolder.FolderName + Suffix;
+				if(SubFolderName == "Automation;Programs")
+				{
+					ExplorerState.OpenProjects.Add(new Tuple<string, string[]>(SubFolderName, new string[] { }));
+				}
+				else
+				{
+					ExplorerState.OpenProjects.Add(new Tuple<string, string[]>(SubFolderName, new string[] { SubFolderName }));
+				}
+				BuildSolutionExplorerState_VS2017(SubFolder, ";" + SubFolderName, ExplorerState, DefaultProject);
+			}
+		}
+
+		static void BuildSolutionExplorerState_VS2015(List<ProjectFile> AllProjectFiles, VCSolutionExplorerState ExplorerState, ProjectFile DefaultProject, bool IncludeEnginePrograms)
+		{
+			foreach (ProjectFile ProjectFile in AllProjectFiles)
+			{
+				string ProjectName = ProjectFile.ProjectFilePath.GetFileNameWithoutExtension();
+				if (ProjectFile == DefaultProject)
+				{
+					ExplorerState.OpenProjects.Add(new Tuple<string, string[]>(ProjectName, new string[] { ProjectName }));
+				}
+				else
+				{
+					ExplorerState.OpenProjects.Add(new Tuple<string, string[]>(ProjectName, new string[] { }));
+				}
+			}
+			if (IncludeEnginePrograms)
+			{
+				ExplorerState.OpenProjects.Add(new Tuple<string, string[]>("Automation", new string[0]));
+			}
+		}
 
 		/// <summary>
 		/// Takes a string and "cleans it up" to make it parsable by the Visual Studio source control provider's file format

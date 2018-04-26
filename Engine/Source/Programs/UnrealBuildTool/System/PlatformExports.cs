@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -14,14 +14,6 @@ namespace UnrealBuildTool
 	/// </summary>
 	public class PlatformExports
 	{
-		/// <summary>
-		/// Returns a list of restricted folder names
-		/// </summary>
-		public static FileSystemName[] RestrictedFolderNames
-		{
-			get { return UEBuildPlatform.RestrictedFolderNames; }
-		}
-
 		/// <summary>
 		/// Checks whether the given platform is available
 		/// </summary>
@@ -62,6 +54,37 @@ namespace UnrealBuildTool
 		{
 			UEBuildPlatform BuildPlat = UEBuildPlatform.GetBuildPlatform(Platform, true);
 			return (BuildPlat == null)? true : BuildPlat.HasDefaultBuildConfig(Platform, ProjectFile.Directory);
+		}
+
+		/// <summary>
+		/// Returns an array of all platform folder names
+		/// </summary>
+		/// <returns>All platform folder names</returns>
+		public static FileSystemName[] GetPlatformFolderNames()
+		{
+			return UEBuildPlatform.GetPlatformFolderNames();
+		}
+
+		/// <summary>
+		/// Returns an array of all platform folder names
+		/// </summary>
+		/// <param name="Platform">The platform to get the included folder names for</param>
+		/// <returns>All platform folder names</returns>
+		public static FileSystemName[] GetIncludedFolderNames(UnrealTargetPlatform Platform)
+		{
+			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, false);
+			return BuildPlatform.GetIncludedFolderNames();
+		}
+
+		/// <summary>
+		/// Returns all the excluded folder names for a given platform
+		/// </summary>
+		/// <param name="Platform">The platform to get the excluded folder names for</param>
+		/// <returns>Array of folder names</returns>
+		public static FileSystemName[] GetExcludedFolderNames(UnrealTargetPlatform Platform)
+		{
+			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, false);
+			return BuildPlatform.GetExcludedFolderNames();
 		}
 
 		/// <summary>

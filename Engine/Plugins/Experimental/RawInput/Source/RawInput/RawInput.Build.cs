@@ -8,8 +8,6 @@ namespace UnrealBuildTool.Rules
 	{
 		public RawInput(ReadOnlyTargetRules Target) : base(Target)
 		{
-			PublicIncludePaths.Add("RawInput/Source/RawInput/Public");
-
 			PublicDependencyModuleNames.AddRange(
 				new string[]
 				{

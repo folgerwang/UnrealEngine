@@ -2711,11 +2711,11 @@ void FScene::Release()
 	{
 		for (auto* ActorComponent : TObjectRange<UActorComponent>())
 		{
-			if ( !ensureMsgf(!ActorComponent->IsRegistered() || ActorComponent->GetScene() != this, 
-					*FString::Printf(TEXT("Component Name: %s World Name: %s Component Asset: %s"), 
-										*ActorComponent->GetFullName(), 
-										*GetWorld()->GetFullName(), 
-										*ActorComponent->AdditionalStatObject()->GetPathName())) )
+			if ( !ensureMsgf(!ActorComponent->IsRegistered() || ActorComponent->GetScene() != this,
+					TEXT("Component Name: %s World Name: %s Component Asset: %s"),
+										*ActorComponent->GetFullName(),
+										*GetWorld()->GetFullName(),
+										*ActorComponent->AdditionalStatObject()->GetPathName()) )
 			{
 				bTriggeredOnce = true;
 				break;

@@ -125,7 +125,6 @@ public:
 	static void* GetDllHandle( const TCHAR* Filename );
 	static void FreeDllHandle( void* DllHandle );
 	static void* GetDllExport( void* DllHandle, const TCHAR* ProcName );
-	static int32 GetDllApiVersion( const TCHAR* Filename );
 	static void AddDllDirectory(const TCHAR* Directory);
 	static void PushDllDirectory(const TCHAR* Directory);
 	static void PopDllDirectory(const TCHAR* Directory);

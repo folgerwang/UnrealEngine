@@ -499,7 +499,7 @@ These are also supported as UPROPERTYs, as long they are based on uint8 - this r
 		UPROPERTY()
 		EThing MyProperty;
 
-Enum classes used as flags can take advantage of a new ENUM_CLASS_FLAGS(EnumType) macro to automatically define all of the bitwise operators:
+Enum classes used as flags can take advantage of the ENUM_CLASS_FLAGS(EnumType) macro to automatically define all of the bitwise operators:
 
 		enum class EFlags
 		{
@@ -525,6 +525,45 @@ The one exception to this is the use of flags in a 'truth' context - this is a l
 All of the main container types - TArray, TMap, TSet, FString - have move constructors and move assignment operators.  These are often used automatically when passing/returning these types by value, but can be explicitly invoked by using MoveTemp, which is UE4's equivalent of std::move.
 
 Returning containers or strings by value can be a win for expressivity without the usual cost of temporary copies.  Rules around pass-by-value and use of MoveTemp are still being established, but can already be found in some optimized areas of the codebase.
+
+
+### Default member initializers
+
+Default member initializers can be used to define the defaults of a class inside the class itself:
+
+		UCLASS()
+		class UTeaOptions : public UObject
+		{
+			GENERATED_BODY()
+
+		public:
+			UPROPERTY()
+			int32 MaximumNumberOfCupsPerDay = 10;
+
+			UPROPERTY()
+			float CupWidth = 11.5f;
+
+			UPROPERTY()
+			FString TeaType = TEXT("Earl Grey");
+
+			UPROPERTY()
+			EDrinkingStyle DrinkingStyle = EDrinkingStyle::PinkyExtended;
+		};
+
+Code written like this has the following benefits:
+
+* It does not need to concern itself with having to duplicate initializers across multiple constructors
+* It is not possible to mix the initialization order and declaration order.
+* The member type, property flags and default values and are all in one place, aiding readability and maintainability.
+
+However, there are also some downsides:
+
+* Any change to the defaults will necessitate a rebuild of all dependent files.
+* Headers cannot change in patch releases of the engine, so this style can limit the kinds of fixes that are possible.
+* Not everything can be initialized in this way, e.g. base classes, UObject subobjects, pointers to forward-declared types, values deduced from constructor arguments, members initialized over multiple steps.
+* Having some initializers in the header and the rest in constructors in the .cpp file can end up hampering readability and maintainability.
+
+Use your best judgment when deciding whether to use them.  As a rule of thumb, default member initializers make more sense in game code than engine code.  Also consider using config files for default values.
 
 
 ## Third Party Code
@@ -662,7 +701,7 @@ You can use namespaces to organize your classes, functions and variables where a
 
 ## Encapsulation
 
-Enforce encapsulation with the protection keywords. Class members should almost always be declared private unless they are part of the public/protected interface to the class. Use your best judgement, but always be aware that a lack of accessors makes it hard to refactor later without breaking plugins and existing projects.
+Enforce encapsulation with the protection keywords. Class members should almost always be declared private unless they are part of the public/protected interface to the class. Use your best judgment, but always be aware that a lack of accessors makes it hard to refactor later without breaking plugins and existing projects.
 
 If particular fields are only intended to be usable by derived classes, make them private and provide protected accessors.
 

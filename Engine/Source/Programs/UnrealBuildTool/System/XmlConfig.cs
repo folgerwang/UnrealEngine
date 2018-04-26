@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -392,7 +392,7 @@ namespace UnrealBuildTool
 			{
 				Element.SchemaTypeName = XmlSchemaType.GetBuiltInSimpleType(XmlTypeCode.String).QualifiedName;
 			}
-			else if(Type == typeof(bool))
+			else if(Type == typeof(bool) || Type == typeof(bool?))
 			{
 				Element.SchemaTypeName = XmlSchemaType.GetBuiltInSimpleType(XmlTypeCode.Boolean).QualifiedName;
 			}
@@ -548,7 +548,7 @@ namespace UnrealBuildTool
 			{
 				return Text;
 			}
-			else if(FieldType == typeof(bool))
+			else if(FieldType == typeof(bool) || FieldType == typeof(bool?))
 			{
 				return (Text == "1" || Text.Equals("true", StringComparison.InvariantCultureIgnoreCase));
 			}

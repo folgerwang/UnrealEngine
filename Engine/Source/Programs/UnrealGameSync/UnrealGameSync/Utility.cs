@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #define USE_NEW_PROCESS_JOBS
 
@@ -89,24 +89,24 @@ namespace UnrealGameSync
 			}
 		}
 
-		public static int ExecuteProcess(string FileName, string CommandLine, string Input, TextWriter Log)
+		public static int ExecuteProcess(string FileName, string WorkingDir, string CommandLine, string Input, TextWriter Log)
 		{
-			return ExecuteProcess(FileName, CommandLine, Input, Line => Log.WriteLine(Line));
+			return ExecuteProcess(FileName, WorkingDir, CommandLine, Input, Line => Log.WriteLine(Line));
 		}
 
-		public static int ExecuteProcess(string FileName, string CommandLine, string Input, out List<string> OutputLines)
+		public static int ExecuteProcess(string FileName, string WorkingDir, string CommandLine, string Input, out List<string> OutputLines)
 		{
-			using(ChildProcess NewProcess = new ChildProcess(FileName, CommandLine, Input))
+			using(ChildProcess NewProcess = new ChildProcess(FileName, WorkingDir, CommandLine, Input))
 			{
 				OutputLines = NewProcess.ReadAllLines();
 				return NewProcess.ExitCode;
 			}
 		}
 
-		public static int ExecuteProcess(string FileName, string CommandLine, string Input, Action<string> OutputLine)
+		public static int ExecuteProcess(string FileName, string WorkingDir, string CommandLine, string Input, Action<string> OutputLine)
 		{
 #if USE_NEW_PROCESS_JOBS
-			using(ChildProcess NewProcess = new ChildProcess(FileName, CommandLine, Input))
+			using(ChildProcess NewProcess = new ChildProcess(FileName, WorkingDir, CommandLine, Input))
 			{
 				string Line;
 				while(NewProcess.TryReadLine(out Line))
@@ -242,12 +242,10 @@ namespace UnrealGameSync
 		/// </summary>
 		/// <param name="FileName">Path to the project file</param>
 		/// <returns>True if the given filename is an enterprise project</returns>
-		public static bool IsEnterpriseProject(string FileName)
+		public static bool IsEnterpriseProjectFromText(string Text)
 		{
 			try
 			{
-				string Text = File.ReadAllText(FileName);
-
 				JavaScriptSerializer Serializer = new JavaScriptSerializer();
 				Dictionary<string, object> RawObject = Serializer.Deserialize<Dictionary<string, object>>(Text);
 
@@ -263,6 +261,24 @@ namespace UnrealGameSync
 			{
 				return false;
 			}
+		}
+
+		public static List<string> GetConfigFileLocations(string BaseWorkspacePath, string ProjectPath, char Separator)
+		{
+			List<string> ProjectConfigFileNames = new List<string>();
+			ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}UnrealGameSync.ini", BaseWorkspacePath, Separator));
+			ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}NotForLicensees{1}UnrealGameSync.ini", BaseWorkspacePath, Separator));
+			if(ProjectPath.EndsWith(".uproject", StringComparison.InvariantCultureIgnoreCase))
+			{
+				ProjectConfigFileNames.Add(String.Format("{0}{1}Build{1}UnrealGameSync.ini", ProjectPath.Substring(0, ProjectPath.LastIndexOf(Separator)), Separator));
+				ProjectConfigFileNames.Add(String.Format("{0}{1}Build{1}NotForLicensees{1}UnrealGameSync.ini", ProjectPath.Substring(0, ProjectPath.LastIndexOf(Separator)), Separator));
+			}
+			else
+			{
+				ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}DefaultProject.ini", BaseWorkspacePath, Separator));
+				ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}NotForLicensees{1}DefaultProject.ini", BaseWorkspacePath, Separator));
+			}
+			return ProjectConfigFileNames;
 		}
 	}
 }

@@ -249,7 +249,7 @@ void FLinuxWindow::Initialize( FLinuxApplication* const Application, const TShar
 		}
 		else
 		{
-			ErrorMessage = FString::Printf(*LOCTEXT("SDLWindowCreationFailedLinux", "Window creation failed (SDL error: '%s'')").ToString(), UTF8_TO_TCHAR(SDL_GetError()));
+			ErrorMessage = FText::Format(LOCTEXT("SDLWindowCreationFailedLinuxFmt", "Window creation failed (SDL error: '{0}'')"), FText::FromString(UTF8_TO_TCHAR(SDL_GetError()))).ToString();
 			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *ErrorMessage,
 										 *LOCTEXT("SDLWindowCreationFailedLinuxTitle", "Unable to create an SDL window.").ToString());
 		}

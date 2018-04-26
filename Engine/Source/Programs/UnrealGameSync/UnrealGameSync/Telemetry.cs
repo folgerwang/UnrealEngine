@@ -12,17 +12,18 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web.Script.Serialization;
 
 namespace UnrealGameSync
 {
 	class TelemetryTimingData
 	{
-		public string Action;
-		public string Result;
-		public string UserName;
-		public string Project;
-		public DateTime Timestamp;
-		public float Duration;
+		public string Action { get; set; }
+		public string Result { get; set; }
+		public string UserName { get; set; }
+		public string Project { get; set; }
+		public DateTime Timestamp { get; set; }
+		public float Duration { get; set; }
 	}
 
 	enum TelemetryErrorType
@@ -32,11 +33,11 @@ namespace UnrealGameSync
 
 	class TelemetryErrorData
 	{
-		public TelemetryErrorType Type;
-		public string Text;
-		public string UserName;
-		public string Project;
-		public DateTime Timestamp;
+		public TelemetryErrorType Type { get; set; }
+		public string Text { get; set; }
+		public string UserName { get; set; }
+		public string Project { get; set; }
+		public DateTime Timestamp { get; set; }
 	}
 
 	class TelemetryStopwatch : IDisposable
@@ -80,7 +81,7 @@ namespace UnrealGameSync
 	{
 		static TelemetryWriter Instance;
 
-		string SqlConnectionString;
+		string ApiUrl;
 		Thread WorkerThread;
 		BoundedLogWriter LogWriter;
 		bool bDisposing;
@@ -88,14 +89,14 @@ namespace UnrealGameSync
 		ConcurrentQueue<TelemetryErrorData> QueuedErrorData = new ConcurrentQueue<TelemetryErrorData>(); 
 		AutoResetEvent RefreshEvent = new AutoResetEvent(false);
 
-		public TelemetryWriter(string InSqlConnectionString, string InLogFileName)
+		public TelemetryWriter(string InApiUrl, string InLogFileName)
 		{
 			Instance = this;
 
-			SqlConnectionString = InSqlConnectionString;
+			ApiUrl = InApiUrl;
 
 			LogWriter = new BoundedLogWriter(InLogFileName);
-			LogWriter.WriteLine("Using connection string: {0}", SqlConnectionString);
+			LogWriter.WriteLine("Using connection string: {0}", ApiUrl);
 
 			WorkerThread = new Thread(() => WorkerThreadCallback());
 			WorkerThread.Start();
@@ -154,7 +155,7 @@ namespace UnrealGameSync
 				TelemetryTimingData TimingData;
 				while(QueuedTimingData.TryDequeue(out TimingData))
 				{
-					while(!bDisposing && !SendTimingData(TimingData, Version, IpAddress) && SqlConnectionString != null)
+					while(!bDisposing && !SendTimingData(TimingData, Version, IpAddress) && ApiUrl != null)
 					{
 						RefreshEvent.WaitOne(10 * 1000);
 					}
@@ -164,7 +165,7 @@ namespace UnrealGameSync
 				TelemetryErrorData ErrorData;
 				while(QueuedErrorData.TryDequeue(out ErrorData))
 				{
-					while(!SendErrorData(ErrorData, Version, IpAddress) && SqlConnectionString != null)
+					while(!SendErrorData(ErrorData, Version, IpAddress) && ApiUrl != null)
 					{
 						if(bDisposing) break;
 						RefreshEvent.WaitOne(10 * 1000);
@@ -179,22 +180,7 @@ namespace UnrealGameSync
 			{
 				Stopwatch Timer = Stopwatch.StartNew();
 				LogWriter.WriteLine("Posting timing data... ({0}, {1}, {2}, {3}, {4}, {5})", Data.Action, Data.Result, Data.UserName, Data.Project, Data.Timestamp, Data.Duration);
-				using(SqlConnection Connection = new SqlConnection(SqlConnectionString))
-				{
-					Connection.Open();
-					using (SqlCommand Command = new SqlCommand("INSERT INTO dbo.[Telemetry.v2] (Action, Result, UserName, Project, Timestamp, Duration, Version, IpAddress) VALUES (@Action, @Result, @UserName, @Project, @Timestamp, @Duration, @Version, @IpAddress)", Connection))
-					{
-						Command.Parameters.AddWithValue("@Action", Data.Action);
-						Command.Parameters.AddWithValue("@Result", Data.Result);
-						Command.Parameters.AddWithValue("@UserName", Data.UserName);
-						Command.Parameters.AddWithValue("@Project", Data.Project);
-						Command.Parameters.AddWithValue("@Timestamp", Data.Timestamp);
-						Command.Parameters.AddWithValue("@Duration", Data.Duration);
-						Command.Parameters.AddWithValue("@Version", Version);
-						Command.Parameters.AddWithValue("@IPAddress", IpAddress);
-						Command.ExecuteNonQuery();
-					}
-				}
+				RESTApi.POST(ApiUrl, "telemetry", new JavaScriptSerializer().Serialize(Data), string.Format("Version={0}", Version), string.Format("IpAddress={0}", IpAddress));
 				LogWriter.WriteLine("Done in {0}ms.", Timer.ElapsedMilliseconds);
 				return true;
 			}
@@ -211,28 +197,7 @@ namespace UnrealGameSync
 			{
 				Stopwatch Timer = Stopwatch.StartNew();
 				LogWriter.WriteLine("Posting error data... ({0}, {1})", Data.Type, Data.Timestamp);
-				using(SqlConnection Connection = new SqlConnection(SqlConnectionString))
-				{
-					Connection.Open();
-					using (SqlCommand Command = new SqlCommand("INSERT INTO dbo.[Errors] (Type, Text, UserName, Project, Timestamp, Version, IpAddress) VALUES (@Type, @Text, @UserName, @Project, @Timestamp, @Version, @IpAddress)", Connection))
-					{
-						Command.Parameters.AddWithValue("@Type", Data.Type.ToString());
-						Command.Parameters.AddWithValue("@Text", Data.Text);
-						Command.Parameters.AddWithValue("@UserName", Data.UserName);
-						if(Data.Project == null)
-						{
-							Command.Parameters.AddWithValue("@Project", DBNull.Value);
-						}
-						else
-						{
-							Command.Parameters.AddWithValue("@Project", Data.Project);
-						}
-						Command.Parameters.AddWithValue("@Timestamp", Data.Timestamp);
-						Command.Parameters.AddWithValue("@Version", Version);
-						Command.Parameters.AddWithValue("@IPAddress", IpAddress);
-						Command.ExecuteNonQuery();
-					}
-				}
+				RESTApi.POST(ApiUrl, "error", new JavaScriptSerializer().Serialize(Data), string.Format("Version={0}", Version), string.Format("IpAddress={0}", IpAddress));
 				LogWriter.WriteLine("Done in {0}ms.", Timer.ElapsedMilliseconds);
 				return true;
 			}

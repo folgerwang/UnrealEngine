@@ -420,6 +420,7 @@ bool FOutputDeviceFile::CreateWriter(uint32 MaxAttempts)
 			{
 				CreateBackupCopy(*FinalFilename);
 			}
+			FCString::Strcpy(Filename, ARRAY_COUNT(Filename), *FinalFilename);
 			Ar = IFileManager::Get().CreateFileWriter(*FinalFilename, WriteFlags);
 		} while (!Ar && FileIndex < MaxAttempts);
 	}

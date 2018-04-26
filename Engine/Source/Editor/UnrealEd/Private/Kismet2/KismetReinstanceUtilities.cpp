@@ -1308,6 +1308,7 @@ void FActorReplacementHelper::AttachChildActors(USceneComponent* RootComponent, 
 		}
 
 		// If this actor is no longer attached to anything, reattach
+		check(Info.AttachedActor);
 		if (!Info.AttachedActor->IsPendingKill() && Info.AttachedActor->GetAttachParentActor() == nullptr)
 		{
 			USceneComponent* ChildRoot = Info.AttachedActor->GetRootComponent();

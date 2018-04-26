@@ -3071,7 +3071,7 @@ void FHeaderParser::GetVarType(
 	FClasses&                       AllClasses,
 	FScope*                         Scope,
 	FPropertyBase&                  VarProperty,
-	uint64                          Disallow,
+	EPropertyFlags                  Disallow,
 	FToken*                         OuterPropertyType,
 	EPropertyDeclarationStyle::Type PropertyDeclarationStyle,
 	EVariableCategory::Type         VariableCategory,
@@ -3082,8 +3082,8 @@ void FHeaderParser::GetVarType(
 	FName RepCallbackName = FName(NAME_None);
 
 	// Get flags.
-	uint64 Flags        = 0;
-	uint64 ImpliedFlags = 0;
+	EPropertyFlags Flags        = CPF_None;
+	EPropertyFlags ImpliedFlags = CPF_None;
 
 	// force members to be 'blueprint read only' if in a const class
 	if (VariableCategory == EVariableCategory::Member)
@@ -3735,7 +3735,7 @@ void FHeaderParser::GetVarType(
 
 		// GetVarType() clears the property flags of the array var, so use dummy 
 		// flags when getting the inner property
-		uint64 OriginalVarTypeFlags = VarType.PropertyFlags;
+		EPropertyFlags OriginalVarTypeFlags = VarType.PropertyFlags;
 		VarType.PropertyFlags |= Flags;
 
 		GetVarType(AllClasses, Scope, VarProperty, Disallow, &VarType, EPropertyDeclarationStyle::None, VariableCategory);
@@ -3783,7 +3783,7 @@ void FHeaderParser::GetVarType(
 
 		// GetVarType() clears the property flags of the array var, so use dummy 
 		// flags when getting the inner property
-		uint64 OriginalVarTypeFlags = VarType.PropertyFlags;
+		EPropertyFlags OriginalVarTypeFlags = VarType.PropertyFlags;
 		VarType.PropertyFlags |= Flags;
 
 		FToken MapKeyType;
@@ -3852,7 +3852,7 @@ void FHeaderParser::GetVarType(
 
 		// GetVarType() clears the property flags of the array var, so use dummy 
 		// flags when getting the inner property
-		uint64 OriginalVarTypeFlags = VarType.PropertyFlags;
+		EPropertyFlags OriginalVarTypeFlags = VarType.PropertyFlags;
 		VarType.PropertyFlags |= Flags;
 
 		GetVarType(AllClasses, Scope, VarProperty, Disallow, &VarType, EPropertyDeclarationStyle::None, VariableCategory);
@@ -4435,7 +4435,7 @@ void FHeaderParser::GetVarType(
 	}
 
 	// Check for invalid transients
-	uint64 Transients = VarProperty.PropertyFlags & (CPF_DuplicateTransient | CPF_TextExportTransient | CPF_NonPIEDuplicateTransient);
+	EPropertyFlags Transients = VarProperty.PropertyFlags & (CPF_DuplicateTransient | CPF_TextExportTransient | CPF_NonPIEDuplicateTransient);
 	if (Transients && !Cast<UClass>(OwnerStruct))
 	{
 		TArray<const TCHAR*> FlagStrs = ParsePropertyFlags(Transients);
@@ -4780,7 +4780,7 @@ UProperty* FHeaderParser::GetVarNameAndDim
 
 		NewProperty = CreateVariableProperty(VarProperty, NewScope, PropertyName, ObjectFlags, VariableCategory, CurrentSrcFile);
 
-		auto PropagateFlags = [](uint64 FlagsToPropagate, FPropertyBase& From, UProperty* To) {
+		auto PropagateFlags = [](EPropertyFlags FlagsToPropagate, FPropertyBase& From, UProperty* To) {
 			// Copy some of the property flags to the inner property.
 			To->PropertyFlags |= (From.PropertyFlags & FlagsToPropagate);
 
@@ -4879,7 +4879,7 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, TArray<UDelegateFun
 		return true;
 	}
 
-	if (Token.Matches(TEXT("class")) && (TopNest->NestType == ENestType::GlobalScope))
+	if (Token.Matches(TEXT("class"), ESearchCase::CaseSensitive) && (TopNest->NestType == ENestType::GlobalScope))
 	{
 		// Make sure the previous class ended with valid nesting.
 		if (bEncounteredNewStyleClass_UnmatchedBrackets)
@@ -4900,7 +4900,7 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, TArray<UDelegateFun
 		return true;
 	}
 
-	if (Token.Matches(TEXT("GENERATED_IINTERFACE_BODY")) || (Token.Matches(TEXT("GENERATED_BODY")) && TopNest->NestType == ENestType::NativeInterface))
+	if (Token.Matches(TEXT("GENERATED_IINTERFACE_BODY"), ESearchCase::CaseSensitive) || (Token.Matches(TEXT("GENERATED_BODY"), ESearchCase::CaseSensitive) && TopNest->NestType == ENestType::NativeInterface))
 	{
 		if (TopNest->NestType != ENestType::NativeInterface)
 		{
@@ -4917,19 +4917,19 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, TArray<UDelegateFun
 
 		bClassHasGeneratedIInterfaceBody = true;
 
-		if (Token.Matches(TEXT("GENERATED_IINTERFACE_BODY")))
+		if (Token.Matches(TEXT("GENERATED_IINTERFACE_BODY"), ESearchCase::CaseSensitive))
 		{
 			CurrentAccessSpecifier = ACCESS_Public;
 		}
 
-		if (Token.Matches(TEXT("GENERATED_BODY")))
+		if (Token.Matches(TEXT("GENERATED_BODY"), ESearchCase::CaseSensitive))
 		{
 			ClassDefinitionRanges[GetCurrentClass()].bHasGeneratedBody = true;
 		}
 		return true;
 	}
 
-	if (Token.Matches(TEXT("GENERATED_UINTERFACE_BODY")) || (Token.Matches(TEXT("GENERATED_BODY")) && TopNest->NestType == ENestType::Interface))
+	if (Token.Matches(TEXT("GENERATED_UINTERFACE_BODY"), ESearchCase::CaseSensitive) || (Token.Matches(TEXT("GENERATED_BODY"), ESearchCase::CaseSensitive) && TopNest->NestType == ENestType::Interface))
 	{
 		if (TopNest->NestType != ENestType::Interface)
 		{
@@ -4946,14 +4946,14 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, TArray<UDelegateFun
 
 		bClassHasGeneratedUInterfaceBody = true;
 
-		if (Token.Matches(TEXT("GENERATED_UINTERFACE_BODY")))
+		if (Token.Matches(TEXT("GENERATED_UINTERFACE_BODY"), ESearchCase::CaseSensitive))
 		{
 			CurrentAccessSpecifier = ACCESS_Public;
 		}
 		return true;
 	}
 
-	if (Token.Matches(TEXT("GENERATED_UCLASS_BODY")) || (Token.Matches(TEXT("GENERATED_BODY")) && TopNest->NestType == ENestType::Class))
+	if (Token.Matches(TEXT("GENERATED_UCLASS_BODY"), ESearchCase::CaseSensitive) || (Token.Matches(TEXT("GENERATED_BODY"), ESearchCase::CaseSensitive) && TopNest->NestType == ENestType::Class))
 	{
 		if (TopNest->NestType != ENestType::Class)
 		{
@@ -4962,7 +4962,7 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, TArray<UDelegateFun
 
 		FClassMetaData* ClassData = GetCurrentClassData();
 
-		if (Token.Matches(TEXT("GENERATED_BODY")))
+		if (Token.Matches(TEXT("GENERATED_BODY"), ESearchCase::CaseSensitive))
 		{
 			if (!ClassDefinitionRanges.Contains(GetCurrentClass()))
 			{
@@ -4997,7 +4997,7 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, TArray<UDelegateFun
 		return true;
 	}
 
-	if (Token.Matches(TEXT("UINTERFACE")))
+	if (Token.Matches(TEXT("UINTERFACE"), ESearchCase::CaseSensitive))
 	{
 		bHaveSeenUClass = true;
 		bEncounteredNewStyleClass_UnmatchedBrackets = true;
@@ -5011,7 +5011,7 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, TArray<UDelegateFun
 		return true;
 	}
 
-	if (Token.Matches(TEXT("UDELEGATE")))
+	if (Token.Matches(TEXT("UDELEGATE"), ESearchCase::CaseSensitive))
 	{
 		UDelegateFunction* Delegate = CompileDelegateDeclaration(AllClasses, Token.Identifier, EDelegateSpecifierAction::Parse);
 		DelegatesToFixup.Add(Delegate);
@@ -5034,14 +5034,14 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, TArray<UDelegateFun
 		return true;
 	}
 
-	if (Token.Matches(TEXT("UENUM")))
+	if (Token.Matches(TEXT("UENUM"), ESearchCase::CaseSensitive))
 	{
 		// Enumeration definition.
 		CompileEnum();
 		return true;
 	}
 
-	if (Token.Matches(TEXT("USTRUCT")))
+	if (Token.Matches(TEXT("USTRUCT"), ESearchCase::CaseSensitive))
 	{
 		// Struct definition.
 		UScriptStruct* Struct = CompileStructDeclaration(AllClasses);
@@ -5136,6 +5136,7 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, TArray<UDelegateFun
 				GetToken(ConstructorToken);
 			}
 
+			bool bSkippedAPIToken = false;
 			if (FString(ConstructorToken.Identifier).EndsWith("_API"))
 			{
 				if (!bFoundExplicit)
@@ -5145,11 +5146,20 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, TArray<UDelegateFun
 				}
 
 				GetToken(ConstructorToken);
+				bSkippedAPIToken = true;
 			}
 
-			if (ConstructorToken.Matches(NameLookupCPP.GetNameCPP(Class)) && TryToMatchConstructorParameterList(ConstructorToken))
+			if (ConstructorToken.Matches(NameLookupCPP.GetNameCPP(Class)))
 			{
-				return true;
+				if (TryToMatchConstructorParameterList(ConstructorToken))
+				{
+					return true;
+				}
+			}
+			else if (bSkippedAPIToken)
+			{
+				// We skipped over an _API token, but this wasn't a constructor so we need to unget so that subsequent code and still process it
+				UngetToken(ConstructorToken);
 			}
 		}
 	}
@@ -5158,6 +5168,107 @@ bool FHeaderParser::CompileDeclaration(FClasses& AllClasses, TArray<UDelegateFun
 	if (ProbablyAnUnknownObjectLikeMacro(*this, Token))
 	{
 		return true;
+	}
+
+	// Determine if this statement is a serialize function declaration
+	if (bEncounteredNewStyleClass_UnmatchedBrackets && IsInAClass() && TopNest->NestType == ENestType::Class)
+	{
+		static const FName NAME_Virtual(TEXT("virtual"));
+		static const FName NAME_Void(TEXT("void"));
+		static const FName NAME_Serialize(TEXT("Serialize"));
+		static const FName NAME_OpenBracket(TEXT("("));
+		static const FName NAME_CloseBracket(TEXT(")"));
+		static const FName NAME_FArchive(TEXT("FArchive"));
+		static const FName NAME_FStructuredArchive(TEXT("FStructuredArchive"));
+		static const FName NAME_Reference(TEXT("&"));
+		static const FName NAME_ClassMember(TEXT("::"));
+		static const FName NAME_FRecord(TEXT("FRecord"));
+
+		while (Token.Matches(NAME_Virtual) || FString(Token.Identifier).EndsWith(TEXT("_API")))
+		{
+			GetToken(Token);
+		}
+
+		if (Token.Identifier == NAME_Void)
+		{
+			GetToken(Token);
+			if (Token.Identifier == NAME_Serialize)
+			{
+				GetToken(Token);
+				if (Token.Identifier == NAME_OpenBracket)
+				{
+					GetToken(Token);
+					bool bMatchedSerializeToFArchive = Token.Identifier == NAME_FArchive;
+					bool bMatchedSerializeToFStructuredArchive = Token.Identifier == NAME_FStructuredArchive;
+
+					if (bMatchedSerializeToFArchive || bMatchedSerializeToFStructuredArchive)
+					{
+						bool bMatchingFunctionSignature = false;
+						GetToken(Token);
+
+						if (bMatchedSerializeToFArchive)
+						{
+							if (Token.Identifier == NAME_Reference)
+							{
+								GetToken(Token);
+
+								// Allow the declaration to not define a name for the archive parameter
+								if (Token.Identifier != NAME_CloseBracket)
+								{
+									GetToken(Token);
+								}
+
+								bMatchingFunctionSignature = Token.Identifier == NAME_CloseBracket;
+							}
+						}
+						else
+						{
+							if (Token.Identifier == NAME_ClassMember)
+							{
+								GetToken(Token);
+
+								if (Token.Identifier == NAME_FRecord)
+								{
+									GetToken(Token);
+
+									// Allow the declaration to not define a name for the slot parameter
+									if (Token.Identifier != NAME_CloseBracket)
+									{
+										GetToken(Token);
+									}
+
+									bMatchingFunctionSignature = Token.Identifier == NAME_CloseBracket;
+								}
+							}
+						}
+
+						if (bMatchingFunctionSignature)
+						{
+							// Found what we want!
+							if (CompilerDirectiveStack.Num() == 0 || (CompilerDirectiveStack.Num() == 1 && CompilerDirectiveStack[0] == ECompilerDirective::WithEditorOnlyData))
+							{
+								FString EnclosingDefine = CompilerDirectiveStack.Num() > 0 ? TEXT("WITH_EDITORONLY_DATA") : TEXT("");
+
+								UClass* CurrentClass = GetCurrentClass();
+								
+								if (bMatchedSerializeToFArchive)
+								{
+									CurrentClass->SetMetaData(TEXT("SerializeToFArchive"), *EnclosingDefine);
+								}
+								else
+								{
+									CurrentClass->SetMetaData(TEXT("SerializeToFStructuredArchive"), *EnclosingDefine);
+								}
+							}
+							else
+							{
+								FError::Throwf(TEXT("Serialize functions must be defined outside of all compiler define blocks, except for WITH_EDITORONLY_DATA"));
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	// Ignore C++ declaration / function definition. 
@@ -6039,7 +6150,7 @@ UDelegateFunction* FHeaderParser::CompileDelegateDeclaration(FClasses& AllClasse
 
 	if (bHasReturnValue)
 	{
-		GetVarType(AllClasses, GetCurrentScope(), ReturnType, 0, NULL, EPropertyDeclarationStyle::None, EVariableCategory::Return);
+		GetVarType(AllClasses, GetCurrentScope(), ReturnType, CPF_None, nullptr, EPropertyDeclarationStyle::None, EVariableCategory::Return);
 		RequireSymbol(TEXT(","), CurrentScopeName);
 	}
 
@@ -6314,7 +6425,7 @@ void FHeaderParser::CompileFunctionDeclaration(FClasses& AllClasses)
 	const bool bClassGeneratedFromBP = FClass::IsDynamic(GetCurrentClass());
 	if ((FuncInfo.FunctionFlags & FUNC_NetServer) && !(FuncInfo.FunctionFlags & FUNC_NetValidate) && !bClassGeneratedFromBP)
 	{
-		FError::Throwf(TEXT("Server RPC missing 'WithValidation' keyword in the UPROPERTY() declaration statement.  Required for security purposes."));
+		FError::Throwf(TEXT("Server RPC missing 'WithValidation' keyword in the UFUNCTION() declaration statement.  Required for security purposes."));
 	}
 
 	if ((0 != (FuncInfo.FunctionExportFlags & FUNCEXPORT_CustomThunk)) && !MetaData.Contains("CustomThunk"))
@@ -6491,7 +6602,7 @@ void FHeaderParser::CompileFunctionDeclaration(FClasses& AllClasses)
 	bool bHasReturnValue = !MatchIdentifier(TEXT("void"));
 	if (bHasReturnValue)
 	{
-		GetVarType(AllClasses, GetCurrentScope(), ReturnType, 0, NULL, EPropertyDeclarationStyle::None, EVariableCategory::Return);
+		GetVarType(AllClasses, GetCurrentScope(), ReturnType, CPF_None, nullptr, EPropertyDeclarationStyle::None, EVariableCategory::Return);
 	}
 
 	// Skip whitespaces to get InputPos exactly on beginning of function name.
@@ -7019,8 +7130,8 @@ struct FExposeOnSpawnValidator
 
 void FHeaderParser::CompileVariableDeclaration(FClasses& AllClasses, UStruct* Struct)
 {
-	uint64 DisallowFlags = CPF_ParmFlags;
-	uint64 EdFlags       = 0;
+	EPropertyFlags DisallowFlags = CPF_ParmFlags;
+	EPropertyFlags EdFlags       = CPF_None;
 
 	// Get variable type.
 	FPropertyBase OriginalProperty(CPT_None);

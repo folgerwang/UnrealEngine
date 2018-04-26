@@ -439,6 +439,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Whether we should compile in support for Simplygon or not.
 		/// </summary>
+		[RequiresUniqueBuildEnvironment]
 		[CommandLine("-WithSimplygon")]
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSimplygon")]
 		public bool bCompileSimplygon = true;
@@ -446,6 +447,7 @@ namespace UnrealBuildTool
         /// <summary>
         /// Whether we should compile in support for Simplygon's SSF library or not.
         /// </summary>
+		[RequiresUniqueBuildEnvironment]
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSimplygonSSF")]
         public bool bCompileSimplygonSSF = true;
 
@@ -459,6 +461,7 @@ namespace UnrealBuildTool
         /// <summary>
 		/// Whether to utilize cache freed OS allocs with MallocBinned
 		/// </summary>
+		[RequiresUniqueBuildEnvironment]
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bUseCacheFreedOSAllocs")]
         public bool bUseCacheFreedOSAllocs = true;
 
@@ -504,17 +507,20 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Enable inlining for all modules.
 		/// </summary>
+		[RequiresUniqueBuildEnvironment]
 		[XmlConfigFile(Category = "BuildConfiguration")]
 		public bool bUseInlining = true;
 
 		/// <summary>
 		/// Enable exceptions for all modules.
 		/// </summary>
+		[RequiresUniqueBuildEnvironment]
 		public bool bForceEnableObjCExceptions = false;
 
 		/// <summary>
 		/// Enable RTTI for all modules.
 		/// </summary>
+		[RequiresUniqueBuildEnvironment]
 		public bool bForceEnableRTTI = false;
 
 		/// <summary>
@@ -526,6 +532,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Whether to include stats support even without the engine.
 		/// </summary>
+		[RequiresUniqueBuildEnvironment]
 		public bool bCompileWithStatsWithoutEngine = false;
 
 		/// <summary>
@@ -544,17 +551,20 @@ namespace UnrealBuildTool
         /// <summary>
         /// Whether to include PerfCounters support.
         /// </summary>
+		[RequiresUniqueBuildEnvironment]
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bWithPerfCounters")]
         public bool bWithPerfCounters = false;
 
         /// <summary>
         /// Whether to turn on logging for test/shipping builds.
         /// </summary>
-        public bool bUseLoggingInShipping = false;
+		[RequiresUniqueBuildEnvironment]
+		public bool bUseLoggingInShipping = false;
 
 		/// <summary>
 		/// Whether to turn on logging to memory for test/shipping builds.
 		/// </summary>
+		[RequiresUniqueBuildEnvironment]
 		public bool bLoggingToMemoryEnabled;
 
 		/// <summary>
@@ -565,6 +575,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Whether to turn on checks (asserts) for test/shipping builds.
 		/// </summary>
+		[RequiresUniqueBuildEnvironment]
 		public bool bUseChecksInShipping = false;
 
 		/// <summary>
@@ -577,6 +588,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// True if we want to favor optimizing size over speed.
 		/// </summary>
+		[RequiresUniqueBuildEnvironment]
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileForSize")]
 		public bool bCompileForSize = false;
 
@@ -705,7 +717,7 @@ namespace UnrealBuildTool
 		/// Forces the use of undefined identifiers in conditional expressions to be treated as errors.
 		/// </summary>
 		[XmlConfigFile(Category = "BuildConfiguration")]
-		public bool bUndefinedIdentifierErrors = false;
+		public bool bUndefinedIdentifierErrors = true;
 
 		/// <summary>
 		/// New Monolithic Graphics drivers have optional "fast calls" replacing various D3d functions
@@ -885,7 +897,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		[CommandLine("-FastPDB")]
 		[XmlConfigFile(Category = "BuildConfiguration")]
-		public bool bUseFastPDBLinking = false;
+		public bool? bUseFastPDBLinking;
 
 		/// <summary>
 		/// Outputs a map file as part of the build.
@@ -981,6 +993,11 @@ namespace UnrealBuildTool
 		public bool bLegacyPublicIncludePaths = true;
 
 		/// <summary>
+		/// The build version string
+		/// </summary>
+		public string BuildVersion;
+
+		/// <summary>
 		/// Specifies how to link modules in this target (monolithic or modular). This is currently protected for backwards compatibility. Call the GetLinkType() accessor
 		/// until support for the deprecated ShouldCompileMonolithic() override has been removed.
 		/// </summary>
@@ -1051,8 +1068,10 @@ namespace UnrealBuildTool
 		public List<string> ExtraModuleNames = new List<string>();
 
 		/// <summary>
-		/// Specifies the build environment for this target. See TargetBuildEnvironment for more infomation on the available options.
+		/// Specifies the build environment for this target. See TargetBuildEnvironment for more information on the available options.
 		/// </summary>
+		[CommandLine("-SharedBuildEnvironment", Value = "Shared")]
+		[CommandLine("-UniqueBuildEnvironment", Value = "Unique")]
 		public TargetBuildEnvironment BuildEnvironment = TargetBuildEnvironment.Default;
 
 		/// <summary>
@@ -1068,6 +1087,18 @@ namespace UnrealBuildTool
 		/// $(EngineDir), $(ProjectDir), $(TargetName), $(TargetPlatform), $(TargetConfiguration), $(TargetType), $(ProjectFile).
 		/// </summary>
 		public List<string> PostBuildSteps = new List<string>();
+
+		/// <summary>
+		/// Additional arguments to pass to the compiler
+		/// </summary>
+		[RequiresUniqueBuildEnvironment]
+		public string AdditionalCompilerArguments;
+
+		/// <summary>
+		/// Additional arguments to pass to the linker
+		/// </summary>
+		[RequiresUniqueBuildEnvironment]
+		public string AdditionalLinkerArguments;
 
 		/// <summary>
 		/// Android-specific target settings.
@@ -1151,6 +1182,9 @@ namespace UnrealBuildTool
 			{
 				bCreateStubIPA = false;
 			}
+
+			// Set the default build version
+			BuildVersion = String.Format("{0}-CL-{1}", Target.Version.BranchName, Target.Version.Changelist);
 
 			// Setup macros for signing and encryption keys
 			EncryptionAndSigning.CryptoSettings CryptoSettings = EncryptionAndSigning.ParseCryptoSettings(DirectoryReference.FromFile(ProjectFile), Platform);
@@ -1866,7 +1900,7 @@ namespace UnrealBuildTool
 			get { return Inner.bBreakBuildOnLicenseViolation; }
 		}
 
-		public bool bUseFastPDBLinking
+		public bool? bUseFastPDBLinking
 		{
 			get { return Inner.bUseFastPDBLinking; }
 		}
@@ -1946,6 +1980,11 @@ namespace UnrealBuildTool
 			get { return Inner.bLegacyPublicIncludePaths; }
 		}
 
+		public string BuildVersion
+		{
+			get { return Inner.BuildVersion; }
+		}
+
 		public TargetLinkType LinkType
 		{
 			get { return Inner.LinkType; }
@@ -1984,6 +2023,16 @@ namespace UnrealBuildTool
 		public IReadOnlyList<string> PostBuildSteps
 		{
 			get { return Inner.PostBuildSteps; }
+		}
+
+		public string AdditionalCompilerArguments
+		{
+			get { return Inner.AdditionalCompilerArguments; }
+		}
+
+		public string AdditionalLinkerArguments
+		{
+			get { return Inner.AdditionalLinkerArguments; }
 		}
 
 		public ReadOnlyAndroidTargetRules AndroidPlatform

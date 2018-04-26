@@ -34,7 +34,6 @@ namespace UnrealBuildTool.Rules
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					"Runtime/ImagePlate/Private",
 				}
 			);
 		}

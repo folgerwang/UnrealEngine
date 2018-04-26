@@ -6,7 +6,7 @@
 #include "HAL/UnrealMemory.h"
 #include "UObject/NameTypes.h"
 
-class FFixedUObjectArray;
+class FChunkedFixedUObjectArray;
 
 // Boilerplate that is included once for each module, even in monolithic builds
 #if !defined(PER_MODULE_BOILERPLATE_ANYLINK)
@@ -38,7 +38,7 @@ class FFixedUObjectArray;
 	void operator delete  ( void* Ptr, size_t Size, const std::nothrow_t& )             OPERATOR_DELETE_NOTHROW_SPEC { FMemory::Free( Ptr ); } \
 	void operator delete[]( void* Ptr, size_t Size, const std::nothrow_t& )             OPERATOR_DELETE_NOTHROW_SPEC { FMemory::Free( Ptr ); }
 
-class FFixedUObjectArray;
+class FChunkedFixedUObjectArray;
 
 // GDB/LLDB pretty printers don't use these - no need to export additional symbols. This also solves ODR violation reported by ASan on Linux
 #if PLATFORM_UNIX
@@ -46,7 +46,7 @@ class FFixedUObjectArray;
 #else
 #define UE4_VISUALIZERS_HELPERS \
 	FNameEntry*** GFNameTableForDebuggerVisualizers_MT = FName::GetNameTableForDebuggerVisualizers_MT(); \
-	FFixedUObjectArray*& GObjectArrayForDebugVisualizers = GCoreObjectArrayForDebugVisualizers;
+	FChunkedFixedUObjectArray*& GObjectArrayForDebugVisualizers = GCoreObjectArrayForDebugVisualizers;
 #endif
 
 // in DLL builds, these are done per-module, otherwise we just need one in the application

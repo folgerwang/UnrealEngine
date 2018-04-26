@@ -17,7 +17,6 @@ namespace UnrealBuildTool.Rules
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					"Editor/USDImporter/Private",
 					ModuleDirectory + "/../UnrealUSDWrapper/Source/Public",
 				}
 				);

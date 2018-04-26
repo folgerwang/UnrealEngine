@@ -436,44 +436,6 @@ FText FText::TrimPrecedingAndTrailing( const FText& InText )
 	return NewText;
 }
 
-FText FText::Format(FTextFormat Fmt, FFormatArgumentValue v1)
-{
-	FFormatOrderedArguments Arguments;
-	Arguments.Reserve(1);
-	Arguments.Add(MoveTemp(v1));
-	return FTextFormatter::Format(MoveTemp(Fmt), MoveTemp(Arguments), false, false);
-}
-
-FText FText::Format(FTextFormat Fmt, FFormatArgumentValue v1, FFormatArgumentValue v2)
-{
-	FFormatOrderedArguments Arguments;
-	Arguments.Reserve(2);
-	Arguments.Add(MoveTemp(v1));
-	Arguments.Add(MoveTemp(v2));
-	return FTextFormatter::Format(MoveTemp(Fmt), MoveTemp(Arguments), false, false);
-}
-
-FText FText::Format(FTextFormat Fmt, FFormatArgumentValue v1, FFormatArgumentValue v2, FFormatArgumentValue v3)
-{
-	FFormatOrderedArguments Arguments;
-	Arguments.Reserve(3);
-	Arguments.Add(MoveTemp(v1));
-	Arguments.Add(MoveTemp(v2));
-	Arguments.Add(MoveTemp(v3));
-	return FTextFormatter::Format(MoveTemp(Fmt), MoveTemp(Arguments), false, false);
-}
-
-FText FText::Format(FTextFormat Fmt, FFormatArgumentValue v1, FFormatArgumentValue v2, FFormatArgumentValue v3, FFormatArgumentValue v4)
-{
-	FFormatOrderedArguments Arguments;
-	Arguments.Reserve(4);
-	Arguments.Add(MoveTemp(v1));
-	Arguments.Add(MoveTemp(v2));
-	Arguments.Add(MoveTemp(v3));
-	Arguments.Add(MoveTemp(v4));
-	return FTextFormatter::Format(MoveTemp(Fmt), MoveTemp(Arguments), false, false);
-}
-
 void FText::GetFormatPatternParameters(const FTextFormat& Fmt, TArray<FString>& ParameterNames)
 {
 	return Fmt.GetFormatArgumentNames(ParameterNames);
@@ -495,11 +457,6 @@ FText FText::Format(FTextFormat Fmt, const FFormatOrderedArguments& InArguments)
 }
 
 FText FText::Format(FTextFormat Fmt, FFormatOrderedArguments&& InArguments)
-{
-	return FTextFormatter::Format(MoveTemp(Fmt), MoveTemp(InArguments), false, false);
-}
-
-FText FText::Format(FTextFormat Fmt, TArray< FFormatArgumentData > InArguments)
 {
 	return FTextFormatter::Format(MoveTemp(Fmt), MoveTemp(InArguments), false, false);
 }

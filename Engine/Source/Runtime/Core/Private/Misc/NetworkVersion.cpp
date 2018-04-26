@@ -6,6 +6,7 @@
 #include "Runtime/Launch/Resources/Version.h"
 #include "Misc/NetworkGuid.h"
 #include "HAL/IConsoleManager.h"
+#include "BuildSettings.h"
 
 DEFINE_LOG_CATEGORY( LogNetVersion );
 
@@ -43,7 +44,7 @@ uint32 FNetworkVersion::GetNetworkCompatibleChangelist()
 	// If we have a version set explicitly, use that. Otherwise fall back to the regular engine version changelist, since it might be set at runtime (via Build.version).
 	if (ReturnedVersion == 0)
 	{
-		return ENGINE_NET_VERSION ? ENGINE_NET_VERSION : FEngineVersion::CompatibleWith().GetChangelist();
+		return ENGINE_NET_VERSION ? ENGINE_NET_VERSION : BuildSettings::GetCompatibleChangelist();
 	}
 
 	return (uint32)ReturnedVersion;
@@ -51,7 +52,7 @@ uint32 FNetworkVersion::GetNetworkCompatibleChangelist()
 
 uint32 FNetworkVersion::GetReplayCompatibleChangelist()
 {
-	return BUILT_FROM_CHANGELIST;
+	return BuildSettings::GetCurrentChangelist();
 }
 
 uint32 FNetworkVersion::GetEngineNetworkProtocolVersion()

@@ -11,7 +11,6 @@ public class OnlineSubsystemOculus : ModuleRules
 		
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"OnlineSubsystemOculus/Private",
 			}
 			);
 

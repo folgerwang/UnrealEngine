@@ -53,7 +53,6 @@ public class LevelSequenceEditor : ModuleRules
             new string[] {
 				"LevelSequenceEditor/Private",
 				"LevelSequenceEditor/Private/AssetTools",
-                "LevelSequenceEditor/Private/Customizations",
 				"LevelSequenceEditor/Private/Factories",
                 "LevelSequenceEditor/Private/Misc",
 				"LevelSequenceEditor/Private/Styles",

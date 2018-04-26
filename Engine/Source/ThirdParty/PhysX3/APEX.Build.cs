@@ -94,7 +94,6 @@ public class APEX : ModuleRules
 				APEXDir + "shared/general/RenderDebug/public",
 				APEXDir + "shared/general/PairFilter/include",
 				APEXDir + "shared/internal/include",
-				APEXDir + "externals/CUDA_6.5.19/include",
 			}
 			);
 

@@ -23,6 +23,36 @@ struct FStructuredArchive::FContainer
 };
 #endif
 
+FStructuredArchiveChildReader::FStructuredArchiveChildReader(FStructuredArchive::FSlot InSlot)
+	: OwnedFormatter(nullptr)
+	, Archive(nullptr)
+{
+	FStructuredArchiveFormatter* Formatter = &InSlot.Ar.Formatter;
+	if (InSlot.GetUnderlyingArchive().IsTextFormat())
+	{
+		Formatter = OwnedFormatter = InSlot.Ar.Formatter.CreateSubtreeReader();
+	}
+
+	Archive = new FStructuredArchive(*Formatter);
+	Root.Emplace(Archive->Open());
+}
+
+FStructuredArchiveChildReader::~FStructuredArchiveChildReader()
+{
+	Root.Reset();
+	Archive->Close();
+	delete Archive;
+	Archive = nullptr;
+
+	// If this is a text archive, we'll have created a subtree reader that our contained archive is using as 
+	// its formatter. We need to clean it up now.
+	if (OwnedFormatter)
+	{
+		delete OwnedFormatter;
+		OwnedFormatter = nullptr;
+	}
+}
+
 //////////// FStructuredArchive ////////////
 
 FStructuredArchive::FStructuredArchive(FArchiveFormatterType& InFormatter)
@@ -111,7 +141,7 @@ void FStructuredArchive::SetScope(int32 Depth, int32 ElementId)
 {
 	// Make sure the scope is valid
 	checkf(Depth < CurrentScope.Num() && CurrentScope[Depth].Id == ElementId, TEXT("Invalid scope for writing to archive"));
-	checkf(CurrentSlotElementId == INDEX_NONE, TEXT("Cannot change scope until having written a value to the current slot"));
+	checkf(CurrentSlotElementId == INDEX_NONE || GetUnderlyingArchive().IsLoading(), TEXT("Cannot change scope until having written a value to the current slot"));
 
 	// Roll back to the correct scope
 	for(int32 CurrentDepth = CurrentScope.Num() - 1; CurrentDepth > Depth; CurrentDepth--)
@@ -128,7 +158,7 @@ void FStructuredArchive::SetScope(int32 Depth, int32 ElementId)
 			break;
 		case EElementType::Array:
 #if DO_GUARD_SLOW
-			checkf(CurrentContainer.Top()->Index == CurrentContainer.Top()->Count, TEXT("Incorrect number of elements serialized in array"));
+			checkf(GetUnderlyingArchive().IsLoading() || CurrentContainer.Top()->Index == CurrentContainer.Top()->Count, TEXT("Incorrect number of elements serialized in array"));
 #endif
 			Formatter.LeaveArray();
 #if DO_GUARD_SLOW
@@ -339,9 +369,12 @@ FStructuredArchive::FSlot FStructuredArchive::FRecord::EnterField(FArchiveFieldN
 	Ar.CurrentSlotElementId = Ar.NextElementId++;
 
 #if DO_GUARD_SLOW
-	FContainer& Container = *Ar.CurrentContainer.Top();
-	checkf(!Container.KeyNames.Contains(Name.Name), TEXT("Multiple keys called '%s' serialized into record"), Name.Name);
-	Container.KeyNames.Add(Name.Name);
+	if (!Ar.GetUnderlyingArchive().IsLoading())
+	{
+		FContainer& Container = *Ar.CurrentContainer.Top();
+		checkf(!Container.KeyNames.Contains(Name.Name), TEXT("Multiple keys called '%s' serialized into record"), Name.Name);
+		Container.KeyNames.Add(Name.Name);
+	}
 #endif
 
 	Ar.Formatter.EnterField(Name);
@@ -374,9 +407,12 @@ TOptional<FStructuredArchive::FSlot> FStructuredArchive::FRecord::TryEnterField(
 	Ar.SetScope(Depth, ElementId);
 
 #if DO_GUARD_SLOW
-	FContainer& Container = *Ar.CurrentContainer.Top();
-	checkf(!Container.KeyNames.Contains(Name.Name), TEXT("Multiple keys called '%s' serialized into record"), Name.Name);
-	Container.KeyNames.Add(Name.Name);
+	if (!GetUnderlyingArchive().IsLoading())
+	{
+		FContainer& Container = *Ar.CurrentContainer.Top();
+		checkf(!Container.KeyNames.Contains(Name.Name), TEXT("Multiple keys called '%s' serialized into record"), Name.Name);
+		Container.KeyNames.Add(Name.Name);
+	}
 #endif
 
 	if (Ar.Formatter.TryEnterField(Name, bEnterWhenWriting))

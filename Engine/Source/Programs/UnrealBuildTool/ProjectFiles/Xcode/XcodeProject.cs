@@ -509,14 +509,14 @@ namespace UnrealBuildTool
             Content.Append("\t\t\t\t\t" + TargetGuid + " = {" + ProjectFileGenerator.NewLine);
 
 			bool bAutomaticSigning = false;
-			if (UnrealBuildTool.IsValidPlatform(UnrealTargetPlatform.IOS))
+			if (InstalledPlatformInfo.IsValidPlatform(UnrealTargetPlatform.IOS, EProjectType.Code))
 			{
 				IOSPlatform IOSPlatform = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS));
 				IOSProjectSettings ProjectSettings = IOSPlatform.ReadProjectSettings(ProjectFile);
 				bAutomaticSigning = ProjectSettings.bAutomaticSigning;
 			}
 
-			if (UnrealBuildTool.IsValidPlatform(UnrealTargetPlatform.TVOS))
+			if (InstalledPlatformInfo.IsValidPlatform(UnrealTargetPlatform.TVOS, EProjectType.Code))
 			{
 				TVOSPlatform TVOSPlatform = ((TVOSPlatform)UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.TVOS));
 				TVOSProjectSettings ProjectSettings = TVOSPlatform.ReadProjectSettings(ProjectFile);
@@ -668,7 +668,7 @@ namespace UnrealBuildTool
                 string TEAM_TVOS = "";
                 string IOS_CERT = "iPhone Developer";
                 string TVOS_CERT = "iPhone Developer";
-                if (UnrealBuildTool.IsValidPlatform(UnrealTargetPlatform.IOS))
+                if (InstalledPlatformInfo.IsValidPlatform(UnrealTargetPlatform.IOS, EProjectType.Code))
                 {
 					IOSPlatform IOSPlatform = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS));
 					IOSProjectSettings ProjectSettings = IOSPlatform.ReadProjectSettings(ProjectFile);
@@ -686,7 +686,7 @@ namespace UnrealBuildTool
                     TEAM_IOS = ProvisioningData.TeamUUID;
                 }
 
-                if (UnrealBuildTool.IsValidPlatform(UnrealTargetPlatform.TVOS))
+                if (InstalledPlatformInfo.IsValidPlatform(UnrealTargetPlatform.TVOS, EProjectType.Code))
 				{
 					TVOSPlatform TVOSPlatform = ((TVOSPlatform)UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.TVOS));
 					TVOSProjectSettings ProjectSettings = TVOSPlatform.ReadProjectSettings(ProjectFile);
@@ -944,12 +944,12 @@ namespace UnrealBuildTool
 			{
 				string ValidArchs = "x86_64";
 				string SupportedPlatforms = "macosx";
-				if (UnrealBuildTool.IsValidPlatform(UnrealTargetPlatform.IOS))
+				if (InstalledPlatformInfo.IsValidPlatform(UnrealTargetPlatform.IOS, EProjectType.Code))
 				{
 					ValidArchs += " arm64 armv7 armv7s";
 					SupportedPlatforms += " iphoneos";
 				}
-				if (UnrealBuildTool.IsValidPlatform(UnrealTargetPlatform.TVOS))
+				if (InstalledPlatformInfo.IsValidPlatform(UnrealTargetPlatform.TVOS, EProjectType.Code))
 				{
 					if (ValidArchs == "x86_64")
 					{
@@ -1056,11 +1056,11 @@ namespace UnrealBuildTool
 
 			foreach (UnrealTargetConfiguration Configuration in Configurations)
 			{
-				if (UnrealBuildTool.IsValidConfiguration(Configuration))
+				if (InstalledPlatformInfo.IsValidConfiguration(Configuration, EProjectType.Code))
 				{
 					foreach (UnrealTargetPlatform Platform in Platforms)
 					{
-						if (UnrealBuildTool.IsValidPlatform(Platform) && (Platform == UnrealTargetPlatform.Mac || Platform == UnrealTargetPlatform.IOS)) // @todo support other platforms
+						if (InstalledPlatformInfo.IsValidPlatform(Platform, EProjectType.Code) && (Platform == UnrealTargetPlatform.Mac || Platform == UnrealTargetPlatform.IOS)) // @todo support other platforms
 						{
 							UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, true);
 							if ((BuildPlatform != null) && (BuildPlatform.HasRequiredSDKsInstalled() == SDKStatus.Valid))

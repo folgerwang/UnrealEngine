@@ -113,7 +113,7 @@ void UK2Node_Composite::PostPasteNode()
 				}
 				else
 				{
-					ensureMsgf(false, *LOCTEXT("UnexpectedTunnelNode", "Unexpected tunnel node '%s' in cloned graph '%s' (both I/O or neither)").ToString(), *Tunnel->GetName(), *GetName());
+					ensureMsgf(false, TEXT("%s"), *LOCTEXT("UnexpectedTunnelNode", "Unexpected tunnel node '%s' in cloned graph '%s' (both I/O or neither)").ToString(), *Tunnel->GetName(), *GetName());
 				}
 			}
 		}
@@ -161,7 +161,7 @@ void UK2Node_Composite::FixupInputAndOutputSink()
 				}
 				else
 				{
-					ensureMsgf(false, *LOCTEXT("UnexpectedTunnelNode", "Unexpected tunnel node '%s' in cloned graph '%s' (both I/O or neither)").ToString(), *Tunnel->GetName(), *GetName());
+					ensureMsgf(false, TEXT("%s"), *LOCTEXT("UnexpectedTunnelNode", "Unexpected tunnel node '%s' in cloned graph '%s' (both I/O or neither)").ToString(), *Tunnel->GetName(), *GetName());
 				}
 			}
 		}

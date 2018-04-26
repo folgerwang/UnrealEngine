@@ -3,8 +3,13 @@
 #include "DestructibleFractureSettings.h"
 #include "Materials/Material.h"
 #include "PhysXPublic.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 
 //////////////////////////////////////////////////////////////////////////
+
+UDestructibleFractureSettings::~UDestructibleFractureSettings()
+{
+}
 
 // Local utilities
 
@@ -279,6 +284,8 @@ void UDestructibleFractureSettings::Serialize(FArchive& Ar)
 
 #endif // #if WITH_EDITOR	//	Fracture code is only needed in editor
 }
+
+//IMPLEMENT_FSTRUCTUREDARCHIVE_SERIALIZER(UDestructibleFractureSettings);
 
 void UDestructibleFractureSettings::PostInitProperties()
 {

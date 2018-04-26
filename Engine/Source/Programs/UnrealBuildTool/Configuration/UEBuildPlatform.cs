@@ -28,24 +28,19 @@ namespace UnrealBuildTool
 		public readonly CppPlatform DefaultCppPlatform;
 
 		/// <summary>
+		/// All the platform folder names
+		/// </summary>
+		private static FileSystemName[] CachedPlatformFolderNames;
+
+		/// <summary>
+		/// Cached copy of the list of folders to include for this platform
+		/// </summary>
+		private FileSystemName[] CachedIncludedFolderNames;
+
+		/// <summary>
 		/// Cached copy of the list of folders to exclude for this platform
 		/// </summary>
 		private FileSystemName[] CachedExcludedFolderNames;
-
-		/// <summary>
-		/// List of all confidential folder names
-		/// </summary>
-		public static readonly FileSystemName[] RestrictedFolderNames =
-		{
-			new FileSystemName("EpicInternal"),
-			new FileSystemName("CarefullyRedist"),
-			new FileSystemName("NotForLicensees"),
-			new FileSystemName("NoRedist"),
-			new FileSystemName("PS4"),
-			new FileSystemName("XboxOne"),
-			new FileSystemName("Switch"),
-			new FileSystemName("Quail")
-		};
 
 		/// <summary>
 		/// Constructor.
@@ -59,34 +54,64 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets an array of all platform folder names
+		/// </summary>
+		/// <returns>Array of platform folders</returns>
+		public static FileSystemName[] GetPlatformFolderNames()
+		{
+			if(CachedPlatformFolderNames == null)
+			{
+				List<FileSystemName> PlatformFolderNames = new List<FileSystemName>();
+
+				// Find all the platform folders to exclude from the list of precompiled modules
+				foreach (UnrealTargetPlatform TargetPlatform in Enum.GetValues(typeof(UnrealTargetPlatform)))
+				{
+					if (TargetPlatform != UnrealTargetPlatform.Unknown)
+					{
+						PlatformFolderNames.Add(new FileSystemName(TargetPlatform.ToString()));
+					}
+				}
+
+				// Also exclude all the platform groups that this platform is not a part of
+				foreach (UnrealPlatformGroup PlatformGroup in Enum.GetValues(typeof(UnrealPlatformGroup)))
+				{
+					PlatformFolderNames.Add(new FileSystemName(PlatformGroup.ToString()));
+				}
+
+				// Save off the list as an array
+				CachedPlatformFolderNames = PlatformFolderNames.ToArray();
+			}
+			return CachedPlatformFolderNames;
+		}
+
+		/// <summary>
+		/// Finds a list of folder names to exclude when building for this platform
+		/// </summary>
+		public FileSystemName[] GetIncludedFolderNames()
+		{
+			if(CachedIncludedFolderNames == null)
+			{
+				List<FileSystemName> Names = new List<FileSystemName>();
+
+				Names.Add(new FileSystemName(Platform.ToString()));
+				foreach(UnrealPlatformGroup Group in UEBuildPlatform.GetPlatformGroups(Platform))
+				{
+					Names.Add(new FileSystemName(Group.ToString()));
+				}
+
+				CachedIncludedFolderNames = Names.ToArray();
+			}
+			return CachedIncludedFolderNames;
+		}
+
+		/// <summary>
 		/// Finds a list of folder names to exclude when building for this platform
 		/// </summary>
 		public FileSystemName[] GetExcludedFolderNames()
 		{
 			if(CachedExcludedFolderNames == null)
 			{
-				// Find all the platform folders to exclude from the list of precompiled modules
-				List<FileSystemName> Names = new List<FileSystemName>();
-				foreach (UnrealTargetPlatform TargetPlatform in Enum.GetValues(typeof(UnrealTargetPlatform)))
-				{
-					if (TargetPlatform != UnrealTargetPlatform.Unknown && TargetPlatform != Platform)
-					{
-						Names.Add(new FileSystemName(TargetPlatform.ToString()));
-					}
-				}
-
-				// Also exclude all the platform groups that this platform is not a part of
-				List<UnrealPlatformGroup> IncludePlatformGroups = new List<UnrealPlatformGroup>(UEBuildPlatform.GetPlatformGroups(Platform));
-				foreach (UnrealPlatformGroup PlatformGroup in Enum.GetValues(typeof(UnrealPlatformGroup)))
-				{
-					if (!IncludePlatformGroups.Contains(PlatformGroup))
-					{
-						Names.Add(new FileSystemName(PlatformGroup.ToString()));
-					}
-				}
-
-				// Save off the list as an array
-				CachedExcludedFolderNames = Names.ToArray();
+				CachedExcludedFolderNames = GetPlatformFolderNames().Except(GetIncludedFolderNames()).ToArray();
 			}
 			return CachedExcludedFolderNames;
 		}

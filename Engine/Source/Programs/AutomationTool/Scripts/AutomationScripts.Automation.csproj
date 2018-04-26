@@ -76,6 +76,7 @@
     <Compile Include="CheckCsprojDotNetVersion.cs" />
     <Compile Include="CheckForHacks.cs" />
     <Compile Include="CheckRestrictedFolders.cs" />
+    <Compile Include="CleanAutomationReports.cs" />
     <Compile Include="CleanFormalBuilds.Automation.cs" />
     <Compile Include="CodeSurgery.Automation.cs" />
     <Compile Include="CookCommand.Automation.cs" />
@@ -83,6 +84,7 @@
     <Compile Include="CopySharedCookedBuild.Automation.cs" />
     <Compile Include="CopyUAT.Automation.cs" />
     <Compile Include="CopyUsingDistillFileSet.Automation.cs" />
+    <Compile Include="CryptoKeys.Automation.cs" />
     <Compile Include="DeployCommand.Automation.cs" />
     <Compile Include="GetFileCommand.Automation.cs" />
     <Compile Include="RebasePublicIncludePaths.cs" />

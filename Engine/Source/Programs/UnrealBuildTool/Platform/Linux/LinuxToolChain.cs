@@ -653,51 +653,6 @@ namespace UnrealBuildTool
 			return " rcs";
 		}
 
-		public static void CrossCompileOutputReceivedDataEventHandler(Object Sender, DataReceivedEventArgs e)
-		{
-			Debug.Assert(CrossCompiling());
-
-			string Output = e.Data;
-			if (String.IsNullOrEmpty(Output))
-			{
-				return;
-			}
-
-			// format the string so the output errors are clickable in Visual Studio
-
-			// Need to match following for clickable links
-			string RegexFilePath = @"^[A-Z]\:([\\\/][A-Za-z0-9_\-\.]*)+\.(cpp|c|mm|m|hpp|h)";
-			string RegexLineNumber = @"\:\d+\:\d+\:";
-			string RegexDescription = @"(\serror:\s|\swarning:\s|\snote:\s).*";
-
-			// Get Matches
-			string MatchFilePath = Regex.Match(Output, RegexFilePath).Value.Replace("Engine\\Source\\..\\..\\", "");
-			string MatchLineNumber = Regex.Match(Output, RegexLineNumber).Value;
-			string MatchDescription = Regex.Match(Output, RegexDescription).Value;
-
-			// If any of the above matches failed, do nothing
-			if (MatchFilePath.Length == 0 ||
-				MatchLineNumber.Length == 0 ||
-				MatchDescription.Length == 0)
-			{
-				Log.TraceInformation(Output);
-				return;
-			}
-
-			// Convert Path
-			string RegexStrippedPath = @"\\Engine\\.*"; //@"(Engine\/|[A-Za-z0-9_\-\.]*\/).*";
-			string ConvertedFilePath = Regex.Match(MatchFilePath, RegexStrippedPath).Value;
-			ConvertedFilePath = Path.GetFullPath("..\\.." + ConvertedFilePath);
-
-			// Extract Line + Column Number
-			string ConvertedLineNumber = Regex.Match(MatchLineNumber, @"\d+").Value;
-			string ConvertedColumnNumber = Regex.Match(MatchLineNumber, @"(?<=:\d+:)\d+").Value;
-
-			// Write output
-			string ConvertedExpression = "  " + ConvertedFilePath + "(" + ConvertedLineNumber + "," + ConvertedColumnNumber + "):" + MatchDescription;
-			Log.TraceInformation(ConvertedExpression); // To create clickable vs link
-		}
-
 		// cache the location of NDK tools
 		protected string BaseLinuxPath;
 		protected string ClangPath;
@@ -995,10 +950,11 @@ namespace UnrealBuildTool
 
 				Debug.Assert(CompileAction.ProducedItems.Count > 0);
 
-				// file name needs to include the hash, otherwise changes in compiler flags won't be noticed by UBT
-				FileReference CompilerResponseFileName = CompileAction.ProducedItems[0].Location + AllArguments.GetHashCode().ToString("X") + ".rsp";
+				FileReference CompilerResponseFileName = CompileAction.ProducedItems[0].Location + ".rsp";
+				FileItem CompilerResponseFileItem = FileItem.CreateIntermediateTextFile(CompilerResponseFileName, AllArguments);
 
-				CompileAction.CommandArguments = string.Format(" @\"{0}\"", ResponseFile.Create(CompilerResponseFileName, new string[] { AllArguments }));
+				CompileAction.CommandArguments = string.Format(" @\"{0}\"", CompilerResponseFileName);
+				CompileAction.PrerequisiteItems.Add(CompilerResponseFileItem);
 				CompileAction.CommandDescription = "Compile";
 				CompileAction.StatusDescription = Path.GetFileName(SourceFile.AbsolutePath);
 				CompileAction.bIsGCCCompiler = true;
@@ -1007,12 +963,6 @@ namespace UnrealBuildTool
 				CompileAction.bCanExecuteRemotely =
 					CompileEnvironment.PrecompiledHeaderAction != PrecompiledHeaderAction.Create ||
 					CompileEnvironment.bAllowRemotelyCompiledPCHs;
-
-				// piping output through the handler during native builds is unnecessary and reportedly causes problems with tools like octobuild.
-				if (CrossCompiling())
-				{
-					CompileAction.OutputEventHandler = new DataReceivedEventHandler(CrossCompileOutputReceivedDataEventHandler);
-				}
 			}
 
 			return Result;
@@ -1066,7 +1016,8 @@ namespace UnrealBuildTool
 			FileReference ResponsePath = GetResponseFileName(LinkEnvironment, OutputFile);
 			if (!ProjectFileGenerator.bGenerateProjectFiles)
 			{
-				ResponseFile.Create(ResponsePath, InputFileNames);
+				FileItem ResponseFileItem = FileItem.CreateIntermediateTextFile(ResponsePath, InputFileNames);
+				ArchiveAction.PrerequisiteItems.Add(ResponseFileItem);
 			}
 			ArchiveAction.CommandArguments += string.Format(" @\"{0}\"", ConvertPath(ResponsePath.FullName));
 
@@ -1091,12 +1042,6 @@ namespace UnrealBuildTool
 
 			// Only execute linking on the local PC.
 			ArchiveAction.bCanExecuteRemotely = false;
-
-			// piping output through the handler during native builds is unnecessary and reportedly causes problems with tools like octobuild.
-			if (CrossCompiling())
-			{
-				ArchiveAction.OutputEventHandler = new DataReceivedEventHandler(CrossCompileOutputReceivedDataEventHandler);
-			}
 
 			return OutputFile;
 		}
@@ -1148,12 +1093,6 @@ namespace UnrealBuildTool
 				PostLinkAction.CommandArguments += bUseCmdExe ? "\"" : "'";
 
 				System.Console.WriteLine("{0} {1}", PostLinkAction.CommandPath, PostLinkAction.CommandArguments);
-
-				// piping output through the handler during native builds is unnecessary and reportedly causes problems with tools like octobuild.
-				if (CrossCompiling())
-				{
-					PostLinkAction.OutputEventHandler = new DataReceivedEventHandler(CrossCompileOutputReceivedDataEventHandler);
-				}
 
 				PostLinkAction.ProducedItems.Add(OutputFile);
 				return OutputFile;
@@ -1360,7 +1299,10 @@ namespace UnrealBuildTool
 			ResponseLines.Add(" --end-group");
 
 			FileReference ResponseFileName = GetResponseFileName(LinkEnvironment, OutputFile);
-			LinkAction.CommandArguments += string.Format(" -Wl,@\"{0}\"", ResponseFile.Create(ResponseFileName, ResponseLines));
+			FileItem ResponseFileItem = FileItem.CreateIntermediateTextFile(ResponseFileName, ResponseLines);
+
+			LinkAction.CommandArguments += string.Format(" -Wl,@\"{0}\"", ResponseFileName);
+			LinkAction.PrerequisiteItems.Add(ResponseFileItem);
 
 			LinkAction.CommandArguments += " -Wl,--start-group";
 			LinkAction.CommandArguments += ExternalLibraries;
@@ -1563,18 +1505,7 @@ namespace UnrealBuildTool
 
 					RelinkAction.CommandPath = ShellBinary;
 					RelinkAction.CommandArguments = ExecuteSwitch + " \"" + RelinkScriptFullPath + "\"";
-
-					// piping output through the handler during native builds is unnecessary and reportedly causes problems with tools like octobuild.
-					if (CrossCompiling())
-					{
-						RelinkAction.OutputEventHandler = new DataReceivedEventHandler(CrossCompileOutputReceivedDataEventHandler);
-					}
 				}
-			}
-
-			if (CrossCompiling())
-			{
-				LinkAction.OutputEventHandler = new DataReceivedEventHandler(CrossCompileOutputReceivedDataEventHandler);
 			}
 			return OutputFile;
 		}

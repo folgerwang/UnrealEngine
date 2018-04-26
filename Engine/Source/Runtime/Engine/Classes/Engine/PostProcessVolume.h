@@ -78,8 +78,8 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
-	virtual void Serialize(FArchive& Ar);
 #endif // WITH_EDITOR
+	virtual void Serialize(FArchive& Ar);
 	//~ End UObject Interface
 
 	/** Adds an Blendable (implements IBlendableInterface) to the array of Blendables (if it doesn't exist) and update the weight */

@@ -112,7 +112,7 @@ namespace UnrealBuildTool
 					{
 						if (CurConfiguration != UnrealTargetConfiguration.Unknown && CurConfiguration != UnrealTargetConfiguration.Development)
 						{
-							if (UnrealBuildTool.IsValidConfiguration(CurConfiguration))
+							if (InstalledPlatformInfo.IsValidConfiguration(CurConfiguration, EProjectType.Code))
 							{
 								string Confname = Enum.GetName(typeof(UnrealTargetConfiguration), CurConfiguration);
 								MakefileContent.Append(String.Format(" \\\n\t{0}-Linux-{1} ", Basename, Confname));
@@ -167,7 +167,7 @@ namespace UnrealBuildTool
 
 						if (CurConfiguration != UnrealTargetConfiguration.Unknown && CurConfiguration != UnrealTargetConfiguration.Development)
 						{
-							if (UnrealBuildTool.IsValidConfiguration(CurConfiguration))
+							if (InstalledPlatformInfo.IsValidConfiguration(CurConfiguration, EProjectType.Code))
 							{
 								string Confname = Enum.GetName(typeof(UnrealTargetConfiguration), CurConfiguration);
 								MakefileContent.Append(String.Format("\n{1}-Linux-{2}:\n\t {0} {1} Linux {2} {3} $(ARGS)\n", MakeBuildCommand, Basename, Confname, MakeProjectCmdArg));

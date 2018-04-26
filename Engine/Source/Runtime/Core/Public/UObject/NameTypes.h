@@ -12,6 +12,7 @@
 #include "Containers/StringConv.h"
 #include "UObject/UnrealNames.h"
 #include "Templates/Atomic.h"
+#include "Serialization/StructuredArchive.h"
 
 /*----------------------------------------------------------------------------
 	Definitions.
@@ -19,7 +20,7 @@
 
 /** 
  * Do we want to support case-variants for FName?
- * This will add an extra NAME_INDEX variable to FName, but means that ToString() will return you the exact same 
+ * This will add an extra NAME_INunrealDEX variable to FName, but means that ToString() will return you the exact same 
  * string that FName::Init was called with (which is useful if your FNames are shown to the end user)
  * Currently this is enabled for the Editor and any Programs (such as UHT), but not the Runtime
  */
@@ -252,6 +253,7 @@ public:
 
 	// Functions.
 	CORE_API void Write(FArchive& Ar) const;
+	CORE_API void Write(FStructuredArchive::FSlot Slot) const;
 
 	// Friend for access to Flags.
 	template<typename TCharType>
@@ -328,6 +330,12 @@ struct FNameEntrySerialized
 	friend CORE_API FArchive& operator<<(FArchive& Ar, FNameEntrySerialized* E)
 	{
 		return Ar << *E;
+	}
+
+	friend CORE_API void operator<<(FStructuredArchive::FSlot Slot, FNameEntrySerialized& E);
+	friend CORE_API void operator<<(FStructuredArchive::FSlot Slot, FNameEntrySerialized* E)
+	{
+		Slot << *E;
 	}
 };
 

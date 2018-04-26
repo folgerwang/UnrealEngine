@@ -6,173 +6,220 @@
 #include "UObject/UObjectGlobals.h"
 #include "UObject/Class.h"
 
+/** Search mode flags */
+enum class EReferenceChainSearchMode
+{
+	// Returns all reference chains found
+	Default = 0,
+	// Returns only reference chains from external objects
+	ExternalOnly = 1 << 0,
+	// Returns only the shortest reference chain for each rooted object
+	Shortest = 1 << 1,
+	// Returns only the longest reference chain for each rooted object
+	Longest = 1 << 2,
+	// Returns only the direct referencers
+	Direct = 1 << 3,
+
+	// Print results
+	PrintResults = 1 << 16,
+	// Print ALL results (in some cases there may be thousands of reference chains)
+	PrintAllResults = 1 << 17,
+};
+
+ENUM_CLASS_FLAGS(EReferenceChainSearchMode);
+
+
 class FReferenceChainSearch
 {
 public:
 
-	/** Describes how an object is referenced */
-	struct EReferenceType
+	/** Type of reference */
+	enum class EReferenceType
 	{
-		enum Type
-		{
-			/** Invalid */
-			Invalid,
-			/** Object is referenced through a property */
-			Property,
-			/** Object is referenced by an array */
-			ArrayProperty,
-			/** Object is added to the references list by a StructAddReferencedObject call */
-			StructARO,
-			/** Object is added to the references list by an AddReferencedObject call */
-			ARO,
-			/** Object is referenced by a map */
-			MapProperty,
-			/** Object is referenced by a set */
-			SetProperty,
-		};
+		Unknown = 0,
+		Property = 1,
+		AddReferencedObjects
 	};
 
-	/** Entry in the reference chain */
-	struct FReferenceChainLink
+	/** Extended information about a reference */
+	template <typename T>
+	struct TReferenceInfo
 	{
-		/** Index of ReferencedObj token in ReferencedBy->ReferenceTokenStream **/
-		int32 ReferencedObjectIndex;
-		/** Describes in which way an object is referenced */
-		EReferenceType::Type ReferenceType;
-		/** The object that is referencing */
-		UObject* ReferencedBy;
-		/** Pointer to the object/function that the object is referenced through. Depending on the ReferenceType
-			this can be a UProperty or a memberfunction pointer to an ARO or StructARO function. */
-		void* ReferencedThrough;
-		/** The object that is referenced by this link */
-		UObject* ReferencedObj;
-		/** Array Index of the references. Only valid if reference is through an array. */
-		int32 ArrayIndex;
+		/** Object that is being referenced */
+		T* Object;
+		/** Type of reference to the object being referenced */
+		EReferenceType Type;
+		/** Name of the object or property that is referencing this object */
+		FName ReferencerName;
 
-		FReferenceChainLink()
-			:ReferencedObjectIndex(INDEX_NONE), ReferenceType(EReferenceType::Invalid), ReferencedBy(NULL), ReferencedThrough(NULL), ArrayIndex(INDEX_NONE) {}
+		/** Default ctor */
+		TReferenceInfo()
+			: Object(nullptr)
+			, Type(EReferenceType::Unknown)
+		{}
 
-		FReferenceChainLink(int32 InReferencedObjectIndex, EReferenceType::Type RefType, UObject* InReferencedBy, void* InReferencedThrough, UObject* InReferencedObj, int32 InArrayIndex = INDEX_NONE)
-			:ReferencedObjectIndex(InReferencedObjectIndex), ReferenceType(RefType), ReferencedBy(InReferencedBy), ReferencedThrough(InReferencedThrough), ReferencedObj(InReferencedObj), ArrayIndex(InArrayIndex)
-		{ }
-#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
-		FORCEINLINE FString GetReferencedByName() const
+		/** Ctor */
+		TReferenceInfo(T* InObject, EReferenceType InType = EReferenceType::Unknown, const FName& InReferencerName = NAME_None)
+			: Object(InObject)
+			, Type(InType)
+			, ReferencerName(InReferencerName)
+		{}
+
+		bool operator == (const TReferenceInfo& Other) const
 		{
-			return ReferencedBy->GetClass()->DebugTokenMap.GetTokenInfo(ReferencedObjectIndex).Name.ToString();
+			return Object == Other.Object;
 		}
-#endif // !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
 
-		/** Returns whether this link is a property reference or not */
-		FORCEINLINE bool IsProperty() const { return ReferenceType == EReferenceType::Property || ReferenceType == EReferenceType::ArrayProperty || ReferenceType == EReferenceType::MapProperty; }
+		friend uint32 GetTypeHash(const TReferenceInfo& Info)
+		{
+			return GetTypeHash(Info.Object);
+		}
 
-		FORCEINLINE bool operator == (const FReferenceChainLink& Rhs) const { return ReferencedBy == Rhs.ReferencedBy && ReferencedObj == Rhs.ReferencedObj; }
-
-		FString ToString() const;
+		/** Dumps this reference info to string. Does not include the object being referenced */
+		FString ToString() const
+		{
+			if (Type == EReferenceType::Property)
+			{
+				return FString::Printf(TEXT("->%s"), *ReferencerName.ToString());
+			}
+			else if (Type == EReferenceType::AddReferencedObjects)
+			{
+				return TEXT("::AddReferencedObjects()");
+			}
+			return FString();
+		}
 	};
 
-	/** Stores the entire reference chain from the topmost object up to the object which referencers are searched */
-	struct FReferenceChain
+	/** Single node in the reference graph */
+	struct FGraphNode
 	{
-		/** Array of reference links */
-		TArray<FReferenceChainLink> RefChain;
+		FGraphNode()
+			: Object(nullptr)
+			, Visited(0)
+		{}
 
-		bool Contains(const FReferenceChain& Other);
+		/** Object pointer */
+		UObject* Object;
+		/** Objects referenced by this object with reference info */
+		TSet< TReferenceInfo<FGraphNode> > ReferencedObjects;
+		/** Objects that have references to this object */
+		TSet<FGraphNode*> ReferencedByObjects;
+		/** Non-zero if this node has been already visited during reference search */
+		int32 Visited;
 	};
 
-	/** Reference Collector to hijack AddReferencedObjects-Calls */
-	class FFindReferencerCollector : public FReferenceCollector
+	/** Convenience type definitions to avoid template hell */
+	typedef TReferenceInfo<UObject> FObjectReferenceInfo;
+	typedef TReferenceInfo<FGraphNode> FNodeReferenceInfo;
+
+	/** Reference chain. The first object in the list is the target object and the last object is a root object */
+	class FReferenceChain
 	{
-		/** Backpointer to the search-instance */
-		FReferenceChainSearch* RefSearchArc;
-		/** Reference type of this collector */
-		EReferenceType::Type RefType;
-		/** ARO function pointer */
-		void* AROFuncPtr;
-		/** Referencing object being AROed*/
-		UObject* ReferencingObject;
-#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
-		/** Finds index of ReferencedObject in ReferencedBy.ReferenceTokenStream */
-		int32 FindReferencedObjectIndex(const UObject& ReferencedBy, const UObject& ReferencedObject);
-#endif // !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
+		friend class FReferenceChainSearch;
+
+		/** Nodes in this reference chain. The first node is the target object and the last one is a root object */
+		TArray<FGraphNode*> Nodes;
+		/** Reference information for Nodes */
+		TArray<FNodeReferenceInfo> ReferenceInfos;
+
+		/** Fills this chain with extended reference info for each node */
+		void FillReferenceInfo();
+
 	public:
-
-		FFindReferencerCollector( FReferenceChainSearch* InRefSearchArc, EReferenceType::Type InRefType, void* InAROFuncPtr, UObject* InReferencingObject = NULL)
-			: RefSearchArc(InRefSearchArc), RefType(InRefType), AROFuncPtr(InAROFuncPtr), ReferencingObject(InReferencingObject)
+		/** Adds a new node to the chain */
+		void AddNode(FGraphNode* InNode)
 		{
+			Nodes.Add(InNode);
 		}
-
-		virtual void HandleObjectReference( UObject*& InObject, const UObject* InReferencingObject, const UProperty* ReferencingProperty ) override;
-
-		virtual bool IsIgnoringArchetypeRef() const override	{ return false; }
-		virtual bool IsIgnoringTransient() const override		{ return false; }
-
-		TArray<FReferenceChainLink> References;
-	};
-
-
-	struct ESearchMode
-	{
-		enum Type
+		/** Gets a node from the chain */
+		FGraphNode* GetNode(int32 NodeIndex) const
 		{
-			// Returns all reference chains found
-			Default			= 0,
-			// Returns only reference chains from external objects
-			ExternalOnly	= 1<<0,
-			// Returns only the shortest reference chain
-			Shortest		= 1<<1,
-			// Returns only the longest reference chain
-			Longest			= 1<<2,
-			// Returns only the direct referencers
-			Direct			= 1<<3,
-			
-			// Print results
-			PrintResults	= 1<<16,
-		};
+			return Nodes[NodeIndex];
+		}
+		FGraphNode* GetRootNode() const
+		{
+			return Nodes.Last();
+		}
+		/** Returns the number of nodes in the chain */
+		int32 Num() const
+		{
+			return Nodes.Num();
+		}
+		/** Returns a duplicate of this chain */
+		FReferenceChain* Split()
+		{
+			FReferenceChain* NewChain = new FReferenceChain(*this);
+			return NewChain;
+		}
+		/** Checks if this chain contains the specified node */
+		bool Contains(const FGraphNode* InNode) const
+		{
+			return Nodes.Contains(InNode);
+		}
+		/** Gets extended reference info for the specified node index */
+		const FNodeReferenceInfo& GetReferenceInfo(int32 NodeIndex) const
+		{
+			return ReferenceInfos[NodeIndex];
+		}
+		/** Check if this reference chain represents an external reference (the root is not in target object) */
+		bool IsExternal() const;
 	};
 
-	/** 
-	 *	Constructs the reference chain search and start it.
-	 *
-	 *	@param		ObjectToFind		The Object we want the referencers to be found for
-	 **/
-	FReferenceChainSearch(UObject* ObjectToFind, uint32 Mode = ESearchMode::PrintResults);
+	/** Constructs a new search engine and finds references to the specified object */
+	FReferenceChainSearch(UObject* InObjectToFindReferencesTo, EReferenceChainSearchMode Mode = EReferenceChainSearchMode::PrintResults);
+
+	/** Destructor */
+	~FReferenceChainSearch();
 
 	/** 
-	 *	Returns the array of ReferenceChains found, which lead to the Object in question
-	 *
-	 *	@return		Array of reference chains
-	 **/
-	const TArray<FReferenceChain>& GetReferenceChains() const { return Referencers; }
+	 * Dumps results to log 
+	 * @param bDumpAllChains - if set to false, the output will be trimmed to the first 100 reference chains
+	 */
+	void PrintResults(bool bDumpAllChains = false);
 
-	/** Dumps results to log */
-	void PrintResults();
+	/** Returns all reference chains */
+	const TArray<FReferenceChain*>& GetReferenceChains() const
+	{
+		return ReferenceChains;
+	}
 
 private:
-	/** Object we want to find all the referencers to */
-	UObject* ObjectToFind;
-	/** Array of all found reference chains leading to the object in question. */
-	TArray<FReferenceChain> Referencers;
-	/** Cache to store all the references of objects. */
-	TMap<UObject*, TArray<FReferenceChainLink> > ReferenceMap;
-	/** Search mode */
-	uint32 SearchMode;
+
+	/** The object we're going to look for references to */
+	UObject* ObjectToFindReferencesTo;
+	/** All reference chain found during the search */
+	TArray<FReferenceChain*> ReferenceChains;
+	/** All nodes created during the search */
+	TMap<UObject*, FGraphNode*> AllNodes;
+
+	/** Performs the search */
+	void PerformSearch(EReferenceChainSearchMode SearchMode);
+
+	/** Performs the search */
+	void FindDirectReferencesForObjects();
+
+	/** Frees memory */
+	void Cleanup();
+
+	/** Tries to find a node for an object and if it doesn't exists creates a new one and returns it */
+	static FGraphNode* FindOrAddNode(TMap<UObject*, FGraphNode*>& AllNodes, UObject* InObjectToFindNodeFor);
+	/** Builds reference chains */
+	static void BuildReferenceChains(FGraphNode* TargetNode, FReferenceChain* Chain, TArray<FReferenceChain*>& AllChains, const int32 VisitCounter);
+	/** Builds reference chains */
+	static void BuildReferenceChains(FGraphNode* TargetNode, TArray<FReferenceChain*>& AllChains, EReferenceChainSearchMode SearchMode);
+	/** Builds reference chains for direct references only */
+	static void BuildReferenceChainsForDirectReferences(FGraphNode* TargetNode, TArray<FReferenceChain*>& AllChains, EReferenceChainSearchMode SearchMode);
+	/** Leaves only chains with unique root objects */
+	static void RemoveChainsWithDuplicatedRoots(TArray<FReferenceChain*>& AllChains);
+	/** Leaves only unique chains */
+	static void RemoveDuplicatedChains(TArray<FReferenceChain*>& AllChains);
+	/** Tries to complete chains we stopped processing in BuildReferenceChains with chains that are already complete */
+	static void TryToCompleteChains(TArray<FReferenceChain*>& IncompleteChains, TArray<FReferenceChain*>& AllChains);
 	
-	/** Prints the passed in reference chain to the log. */
-	void PrintReferencers(FReferenceChain& Referencer);
-	/** Performs the referencer search */
-	void PerformSearch();
-	/** Processes an object and returns whether it is part of the reference chain or not */
-	void ProcessObject(UObject* CurrentObject);
-	/** Inserts the reference chain into the result set and tries to merge it into an already
-		present one, if possible */
-	void InsertReferenceChain(FReferenceChain& Referencer);
-	/** Generates internal reference graph representation */
-	void BuildRefGraph();
-	/** Recursively creates reference chains from the internal reference graph relationship */
-	void CreateReferenceChain(struct FRefGraphItem* Node, FReferenceChain& ThisChain, TArray<FReferenceChain>& ChainArray, UObject* ObjectToFind, int32 Levels);
-	/** Returns true if the search should log anything */
-	bool ShouldOutputToLog() const
-	{
-		return !!(SearchMode & ESearchMode::PrintResults);
-	}
+	static void FindCompleteChains(TArray<FReferenceChain*>& AllChains, TArray<FReferenceChain*>& CompleteChains, TArray<FReferenceChain*>& IncompleteChains, EReferenceChainSearchMode SearchMode);
+	/** Returns a string with all flags (we care about) set on an object */
+	static FString GetObjectFlags(UObject* InObject);
+	/** Dumps a reference chain to log */
+	static void DumpChain(FReferenceChain* Chain);
 };
+

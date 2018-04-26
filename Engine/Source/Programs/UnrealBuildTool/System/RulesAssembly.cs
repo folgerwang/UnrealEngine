@@ -437,12 +437,11 @@ namespace UnrealBuildTool
 		/// <param name="Architecture">The architecture the target is being built for</param>
 		/// <param name="ProjectFile">The project containing the target being built</param>
 		/// <param name="Version">The current build version</param>
-		/// <param name="bInEditorRecompile">Whether this is an editor recompile, where we need to guess the name of the editor target</param>
 		/// <returns>The build target rules for the specified target</returns>
-		public TargetRules CreateTargetRules(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version, bool bInEditorRecompile)
+		public TargetRules CreateTargetRules(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version)
 		{
 			FileReference TargetFileName;
-			return CreateTargetRules(TargetName, Platform, Configuration, Architecture, ProjectFile, Version, bInEditorRecompile, out TargetFileName);
+			return CreateTargetRules(TargetName, Platform, Configuration, Architecture, ProjectFile, Version, out TargetFileName);
 		}
 
 		/// <summary>
@@ -454,12 +453,10 @@ namespace UnrealBuildTool
 		/// <param name="Architecture">Architecture being built</param>
 		/// <param name="ProjectFile">Path to the project file for this target</param>
 		/// <param name="Version">The current build version</param>
-		/// <param name="bInEditorRecompile">Whether this is an editor recompile, where we need to guess the name of the editor target</param>
 		/// <param name="TargetFileName">The original source file name of the Target.cs file for this target</param>
 		/// <returns>The build target rules for the specified target</returns>
-		public TargetRules CreateTargetRules(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version, bool bInEditorRecompile, out FileReference TargetFileName)
+		public TargetRules CreateTargetRules(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version, out FileReference TargetFileName)
 		{
-			// Make sure the target file is known to us
 			bool bFoundTargetName = TargetNameToTargetFile.ContainsKey(TargetName);
 			if (bFoundTargetName == false)
 			{
@@ -484,7 +481,7 @@ namespace UnrealBuildTool
 				}
 				else
 				{
-					return Parent.CreateTargetRules(TargetName, Platform, Configuration, Architecture, ProjectFile, Version, bInEditorRecompile, out TargetFileName);
+					return Parent.CreateTargetRules(TargetName, Platform, Configuration, Architecture, ProjectFile, Version, out TargetFileName);
 				}
 			}
 
@@ -495,59 +492,55 @@ namespace UnrealBuildTool
 			string TargetTypeName = TargetName + "Target";
 
 			// The build module must define a type named '<TargetName>Target' that derives from our 'TargetRules' type.  
-			TargetRules Rules = CreateTargetRulesInstance(TargetTypeName, new TargetInfo(TargetName, Platform, Configuration, Architecture, ProjectFile, Version));
-			if (bInEditorRecompile)
+			return CreateTargetRulesInstance(TargetTypeName, new TargetInfo(TargetName, Platform, Configuration, Architecture, ProjectFile, Version));
+		}
+
+		/// <summary>
+		/// Determines a target name based on the type of target we're trying to build
+		/// </summary>
+		/// <param name="Type">The type of target to look for</param>
+		/// <param name="Platform">The platform being built</param>
+		/// <param name="Configuration">The configuration being built</param>
+		/// <param name="Architecture">The architecture being built</param>
+		/// <param name="ProjectFile">Project file for the target being built</param>
+		/// <param name="Version">The current engine version information</param>
+		/// <returns>Name of the target for the given type</returns>
+		public string GetTargetNameByType(TargetType Type, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version)
+		{
+			// Create all the targets in this assembly 
+			List<string> Matches = new List<string>();
+			foreach(KeyValuePair<string, FileReference> TargetPair in TargetNameToTargetFile)
 			{
-				// Make sure this is an editor module.
-				if (Rules != null)
+				TargetRules Rules = CreateTargetRulesInstance(TargetPair.Key + "Target", new TargetInfo(TargetPair.Key, Platform, Configuration, Architecture, ProjectFile, Version));
+				if(Rules.Type == Type)
 				{
-					if (Rules.Type != TargetType.Editor)
-					{
-						// Not the editor... determine the editor project
-						string TargetSourceFolderString = TargetFileName.FullName;
-						Int32 SourceFolderIndex = -1;
-						if (Utils.IsRunningOnMono)
-						{
-							TargetSourceFolderString = TargetSourceFolderString.Replace("\\", "/");
-							SourceFolderIndex = TargetSourceFolderString.LastIndexOf("/Source/", StringComparison.InvariantCultureIgnoreCase);
-						}
-						else
-						{
-							TargetSourceFolderString = TargetSourceFolderString.Replace("/", "\\");
-							SourceFolderIndex = TargetSourceFolderString.LastIndexOf("\\Source\\", StringComparison.InvariantCultureIgnoreCase);
-						}
-						if (SourceFolderIndex != -1)
-						{
-							DirectoryReference TargetSourceFolder = new DirectoryReference(TargetSourceFolderString.Substring(0, SourceFolderIndex + 7));
-							foreach (KeyValuePair<string, FileReference> CheckEntry in TargetNameToTargetFile)
-							{
-								if (CheckEntry.Value.IsUnderDirectory(TargetSourceFolder))
-								{
-									if (CheckEntry.Key.Equals(TargetName, StringComparison.InvariantCultureIgnoreCase) == false)
-									{
-										// We have found a target in the same source folder that is not the original target found.
-										// See if it is the editor project
-										string CheckTargetTypeName = CheckEntry.Key + "Target";
-										TargetRules CheckRulesObject = CreateTargetRulesInstance(CheckTargetTypeName, new TargetInfo(CheckEntry.Key, Platform, Configuration, Architecture, ProjectFile, Version));
-										if (CheckRulesObject != null)
-										{
-											if (CheckRulesObject.Type == TargetType.Editor)
-											{
-												// Found it
-												// NOTE: This prevents multiple Editor targets from co-existing...
-												Rules = CheckRulesObject;
-												break;
-											}
-										}
-									}
-								}
-							}
-						}
-					}
+					Matches.Add(TargetPair.Key);
 				}
 			}
 
-			return Rules;
+			// If we got a result, return it. If there were multiple results, fail.
+			if(Matches.Count == 0)
+			{
+				if(Parent == null)
+				{
+					throw new BuildException("Unable to find target of type '{0}' for project '{1}'", Type, ProjectFile);
+				}
+				else
+				{
+					return Parent.GetTargetNameByType(Type, Platform, Configuration, Architecture, ProjectFile, Version);
+				}
+			}
+			else
+			{
+				if(Matches.Count == 1)
+				{
+					return Matches[0];
+				}
+				else
+				{
+					throw new BuildException("Found multiple targets with TargetType={0}: {1}", Type, String.Join(", ", Matches));
+				}
+			}
 		}
 
 		/// <summary>

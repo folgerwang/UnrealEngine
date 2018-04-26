@@ -983,14 +983,14 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 					MaterialEditorInstance->StoredBlendPreviews.AddDefaulted(BlendChildren);
 				}
 					
-				TSharedPtr<FStackSortedData> StackProperty(new FStackSortedData());
+				TSharedRef<FStackSortedData> StackProperty = MakeShared<FStackSortedData>();
 				StackProperty->StackDataType = EStackDataType::Stack;
 				StackProperty->Parameter = Parameter;
 				StackProperty->ParameterInfo.Index = LayerChildren - 1;
 				StackProperty->NodeKey = FString::FromInt(StackProperty->ParameterInfo.Index);
 
 
-				TSharedPtr<FStackSortedData> ChildProperty(new FStackSortedData());
+				TSharedRef<FStackSortedData> ChildProperty = MakeShared<FStackSortedData>();
 				ChildProperty->StackDataType = EStackDataType::Asset;
 				ChildProperty->Parameter = Parameter;
 				ChildProperty->ParameterHandle = LayerHandle->AsArray()->GetElement(LayerChildren - 1);
@@ -1007,7 +1007,7 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 					{
 						MaterialEditorInstance->StoredLayerPreviews[LayerChildren - 1] = (NewObject<UMaterialInstanceConstant>(MaterialEditorInstance, NAME_None));
 					}
-					UMaterialInterface* EditedMaterial = Cast<UMaterialInterface>(Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial());
+					UMaterialInterface* EditedMaterial = Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial();
 					if (MaterialEditorInstance->StoredLayerPreviews[LayerChildren - 1] && MaterialEditorInstance->StoredLayerPreviews[LayerChildren - 1]->Parent != EditedMaterial)
 					{
 						MaterialEditorInstance->StoredLayerPreviews[LayerChildren - 1]->SetParentEditorOnly(EditedMaterial);
@@ -1021,7 +1021,7 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 				{
 					for (int32 Counter = BlendChildren - 1; Counter >= 0; Counter--)
 					{
-						ChildProperty = MakeShareable(new FStackSortedData());
+						ChildProperty = MakeShared<FStackSortedData>();
 						ChildProperty->StackDataType = EStackDataType::Asset;
 						ChildProperty->Parameter = Parameter;
 						ChildProperty->ParameterHandle = BlendHandle->AsArray()->GetElement(Counter);	
@@ -1036,7 +1036,7 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 							{
 								MaterialEditorInstance->StoredBlendPreviews[Counter] = (NewObject<UMaterialInstanceConstant>(MaterialEditorInstance, NAME_None));
 							}
-							UMaterialInterface* EditedMaterial = Cast<UMaterialInterface>(Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial());
+							UMaterialInterface* EditedMaterial = Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial();
 							if (MaterialEditorInstance->StoredBlendPreviews[Counter] && MaterialEditorInstance->StoredBlendPreviews[Counter]->Parent != EditedMaterial)
 							{
 								MaterialEditorInstance->StoredBlendPreviews[Counter]->SetParentEditorOnly(EditedMaterial);
@@ -1044,14 +1044,14 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 						}
 						LayerProperties.Last()->Children.Add(ChildProperty);
 							
-						StackProperty = MakeShareable(new FStackSortedData());
+						StackProperty = MakeShared<FStackSortedData>();
 						StackProperty->StackDataType = EStackDataType::Stack;
 						StackProperty->Parameter = Parameter;
 						StackProperty->ParameterInfo.Index = Counter;
 						StackProperty->NodeKey = FString::FromInt(StackProperty->ParameterInfo.Index);
 						LayerProperties.Add(StackProperty);
 
-						ChildProperty = MakeShareable(new FStackSortedData());
+						ChildProperty = MakeShared<FStackSortedData>();
 						ChildProperty->StackDataType = EStackDataType::Asset;
 						ChildProperty->Parameter = Parameter;
 						ChildProperty->ParameterHandle = LayerHandle->AsArray()->GetElement(Counter);
@@ -1066,7 +1066,7 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 							{
 								MaterialEditorInstance->StoredLayerPreviews[Counter] = (NewObject<UMaterialInstanceConstant>(MaterialEditorInstance, NAME_None));
 							}
-							UMaterialInterface* EditedMaterial = Cast<UMaterialInterface>(Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial());
+							UMaterialInterface* EditedMaterial = Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial();
 							if (MaterialEditorInstance->StoredLayerPreviews[Counter] && MaterialEditorInstance->StoredLayerPreviews[Counter]->Parent != EditedMaterial)
 							{
 								MaterialEditorInstance->StoredLayerPreviews[Counter]->SetParentEditorOnly(EditedMaterial);
@@ -1253,8 +1253,8 @@ void SMaterialLayersFunctionsInstanceWrapper::Refresh()
 	TSharedPtr<SHorizontalBox> HeaderBox;
 	NestedTree->CreateGroupsWidget();
 	LayerParameter = NestedTree->FunctionParameter;
-	FOnClicked 	OnChildButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewMaterialInstance, Cast<UMaterialInterface>(MaterialEditorInstance->SourceInstance), Cast<UObject>(MaterialEditorInstance));
-	FOnClicked	OnSiblingButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewMaterialInstance, MaterialEditorInstance->SourceInstance->Parent, Cast<UObject>(MaterialEditorInstance));
+	FOnClicked 	OnChildButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewMaterialInstance, ImplicitConv<UMaterialInterface*>(MaterialEditorInstance->SourceInstance), ImplicitConv<UObject*>(MaterialEditorInstance));
+	FOnClicked	OnSiblingButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewMaterialInstance, MaterialEditorInstance->SourceInstance->Parent, ImplicitConv<UObject*>(MaterialEditorInstance));
 
 	if (LayerParameter != nullptr)
 	{
@@ -1857,7 +1857,7 @@ void SMaterialLayersFunctionsMaterialWrapper::Refresh()
 	LayerParameter = nullptr;
 	NestedTree->CreateGroupsWidget();
 	LayerParameter = NestedTree->FunctionParameter;
-	FOnClicked 	OnChildButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewMaterialInstance, Cast<UMaterialInterface>(MaterialEditorInstance->OriginalMaterial), Cast<UObject>(MaterialEditorInstance));
+	FOnClicked 	OnChildButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewMaterialInstance, ImplicitConv<UMaterialInterface*>(MaterialEditorInstance->OriginalMaterial), ImplicitConv<UObject*>(MaterialEditorInstance));
 
 	if (LayerParameter != nullptr)
 	{

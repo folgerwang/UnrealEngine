@@ -15,7 +15,7 @@ namespace UnrealBuildTool
 	class BaseWindowsDeploy : UEBuildDeploy
 	{
 
-        public bool PrepForUATPackageOrDeploy(FileReference ProjectFile, string ProjectName, string ProjectDirectory, List<UnrealTargetConfiguration> TargetConfigurations, List<string> ExecutablePaths, string EngineDirectory)
+        public bool SetApplicationIcon(FileReference ProjectFile, string ProjectName, string ProjectDirectory, List<UnrealTargetConfiguration> TargetConfigurations, List<string> ExecutablePaths, string EngineDirectory)
         {
             string ApplicationIconPath = Path.Combine(ProjectDirectory, "Build/Windows/Application.ico");
             // Does a Project icon exist?
@@ -30,22 +30,22 @@ namespace UnrealBuildTool
                 }
             }
             // sets the icon on the original exe this will be used in the task bar when the bootstrap exe runs
-            if (File.Exists(ApplicationIconPath))
+            if (File.Exists(ApplicationIconPath) )
             {
                 GroupIconResource GroupIcon = null;
                 GroupIcon = GroupIconResource.FromIco(ApplicationIconPath);
 
                 foreach (string ExecutablePath in ExecutablePaths)
                 {
-                    // Update the icon on the original exe because this will be used when the game is running in the task bar
-                    using (ModuleResourceUpdate Update = new ModuleResourceUpdate(ExecutablePath, false))
-                    {
-                        const int IconResourceId = 123; // As defined in Engine\Source\Runtime\Launch\Resources\Windows\resource.h
-                        if (GroupIcon != null)
-                        {
-                            Update.SetIcons(IconResourceId, GroupIcon);
-                        }
-                    }
+					// Update the icon on the original exe because this will be used when the game is running in the task bar
+					using (ModuleResourceUpdate Update = new ModuleResourceUpdate(ExecutablePath, false))
+					{
+						const int IconResourceId = 123; // As defined in Engine\Source\Runtime\Launch\Resources\Windows\resource.h
+						if (GroupIcon != null)
+						{
+							Update.SetIcons(IconResourceId, GroupIcon);
+						}
+					}
                 }
             }
             return true;
@@ -65,7 +65,7 @@ namespace UnrealBuildTool
                 List<UnrealTargetConfiguration> TargetConfigs = new List<UnrealTargetConfiguration> { InTarget.Configuration };
                 List<string> ExePaths = new List<string> { InTarget.OutputPath.FullName };
 				string RelativeEnginePath = UnrealBuildTool.EngineDirectory.MakeRelativeTo(DirectoryReference.GetCurrentDirectory());
-                PrepForUATPackageOrDeploy(InTarget.ProjectFile, InAppName, InTarget.ProjectDirectory.FullName, TargetConfigs, ExePaths, RelativeEnginePath);
+                SetApplicationIcon(InTarget.ProjectFile, InAppName, InTarget.ProjectDirectory.FullName, TargetConfigs, ExePaths, RelativeEnginePath);
 			}
 			return true;
 		}

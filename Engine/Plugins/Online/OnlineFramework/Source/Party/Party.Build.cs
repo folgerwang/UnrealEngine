@@ -18,7 +18,6 @@ public class Party : ModuleRules
 
         PrivateIncludePaths.AddRange(
 			new string[] {
-				"Private",
 			}
 			);
 

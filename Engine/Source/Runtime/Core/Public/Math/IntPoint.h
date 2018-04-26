@@ -289,12 +289,36 @@ public:
 	/**
 	 * Serialize the point.
 	 *
+	 * @param Slot The structured archive slot to serialize into.
+	 * @param Point The point to serialize.
+	 */
+	friend void operator<<(FStructuredArchive::FSlot Slot, FIntPoint& Point)
+	{
+		FStructuredArchive::FRecord Record = Slot.EnterRecord();
+		Record << NAMED_ITEM("X", Point.X) << NAMED_ITEM("Y", Point.Y);
+	}
+
+	/**
+	 * Serialize the point.
+	 *
 	 * @param Ar The archive to serialize into.
 	 * @return true on success, false otherwise.
 	 */
 	bool Serialize(FArchive& Ar)
 	{
 		Ar << *this;
+		return true;
+	}
+
+	/**
+	 * Serialize the point.
+	 *
+	 * @param Slot The structured archive slot to serialize into.
+	 * @return true on success, false otherwise.
+	 */
+	bool Serialize(FStructuredArchive::FSlot Slot)
+	{
+		Slot << *this;
 		return true;
 	}
 };

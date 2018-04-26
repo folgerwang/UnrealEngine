@@ -20,7 +20,7 @@
 #include "ProfilingDebugging/MallocProfiler.h"
 #include "HAL/MallocThreadSafeProxy.h"
 #include "HAL/MallocVerify.h"
-#include "HAL/MallocLeakDetection.h"
+#include "HAL/MallocLeakDetectionProxy.h"
 #include "HAL/PlatformMallocCrash.h"
 #include "HAL/MallocPoisonProxy.h"
 

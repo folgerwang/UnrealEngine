@@ -5,18 +5,13 @@
 #include "Serialization/CustomVersion.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "UObject/ReleaseObjectVersion.h"
-
-/** Version numbers for networking - DEPRECATED!!!! Use FNetworkVersion::GetNetworkCompatibleChangelist instead!!! */
-int32 GEngineNetVersion = ENGINE_NET_VERSION;
-
-const int32 GEngineMinNetVersion		= 7038;
-const int32 GEngineNegotiationVersion	= 3077;
+#include "BuildSettings.h"
 
 // Global instance of the current engine version
-FEngineVersion FEngineVersion::CurrentVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, ENGINE_PATCH_VERSION, (ENGINE_CURRENT_CL_VERSION | (ENGINE_IS_LICENSEE_VERSION << 31)), BRANCH_NAME);
+FEngineVersion FEngineVersion::CurrentVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, ENGINE_PATCH_VERSION, BuildSettings::GetCurrentChangelist() | (BuildSettings::IsLicenseeVersion()? (1U << 31) : 0), BuildSettings::GetBranchName());
 
 // Version which this engine maintains strict API and package compatibility with. By default, we always maintain compatibility with the current major/minor version, unless we're built at a different changelist.
-FEngineVersion FEngineVersion::CompatibleWithVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, 0, (ENGINE_COMPATIBLE_CL_VERSION | (ENGINE_IS_LICENSEE_VERSION << 31)), BRANCH_NAME);
+FEngineVersion FEngineVersion::CompatibleWithVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, 0, BuildSettings::GetCurrentChangelist() | (BuildSettings::IsLicenseeVersion()? (1U << 31) : 0), BuildSettings::GetBranchName());
 
 
 FEngineVersionBase::FEngineVersionBase()
@@ -211,25 +206,19 @@ const FString& FEngineVersion::GetBranchDescriptor() const
 	return Branch;
 }
 
-bool FEngineVersion::OverrideCurrentVersionChangelist(int32 NewChangelist, int32 NewCompatibleChangelist)
-{
-	if(CurrentVersion.GetChangelist() != 0 || CompatibleWithVersion.GetChangelist() != 0)
-	{
-		return false;
-	}
-
-	CurrentVersion.Set(CurrentVersion.Major, CurrentVersion.Minor, CurrentVersion.Patch, NewChangelist | (ENGINE_IS_LICENSEE_VERSION << 31), CurrentVersion.Branch);
-	CompatibleWithVersion.Set(CompatibleWithVersion.Major, CompatibleWithVersion.Minor, CompatibleWithVersion.Patch, NewCompatibleChangelist | (ENGINE_IS_LICENSEE_VERSION << 31), CompatibleWithVersion.Branch);
-	return true;
-}
-
 void operator<<(FArchive &Ar, FEngineVersion &Version)
 {
-	Ar << Version.Major;
-	Ar << Version.Minor;
-	Ar << Version.Patch;
-	Ar << Version.Changelist;
-	Ar << Version.Branch;
+	FStructuredArchiveFromArchive(Ar).GetSlot() << Version;
+}
+
+void operator<<(FStructuredArchive::FSlot Slot, FEngineVersion &Version)
+{
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+	Record << NAMED_ITEM("Major", Version.Major);
+	Record << NAMED_ITEM("Minor", Version.Minor);
+	Record << NAMED_ITEM("Patch", Version.Patch);
+	Record << NAMED_ITEM("Changelist", Version.Changelist);
+	Record << NAMED_ITEM("Branch", Version.Branch);
 }
 
 

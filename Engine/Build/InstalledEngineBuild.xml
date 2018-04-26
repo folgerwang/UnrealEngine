@@ -94,7 +94,7 @@
 	<Include Script="InstalledEngineFilters.xml"/>
 
 	<!-- Base editor and tools for compile on Windows -->
-	<Agent Name="Editor Win64" Type="CompileWin64">
+	<Agent Name="Editor Win64" Type="CompileWin64;Win64">
 		<Node Name="Update Version Files">
 			<Log Message="$(RootDir)"/>
 			<SetVersion Change="$(Change)" Branch="$(EscapedBranch)" If="$(IsBuildMachine)"/>
@@ -138,7 +138,7 @@
 
 
 	<!-- Base editor and tools for compile on Mac -->
-	<Agent Name="Editor Mac" Type="CompileMac">
+	<Agent Name="Editor Mac" Type="CompileMac;Mac">
 		<Node Name="Compile UnrealHeaderTool Mac" Requires="Update Version Files">
 			<Compile Target="UnrealHeaderTool" Platform="Mac" Configuration="Development" Arguments="-precompile"/>
 		</Node>
@@ -170,7 +170,7 @@
 	</Agent>
 
 	<!-- Base editor and tools for compile on Linux -->
-	<Agent Name="Editor Linux" Type="CompileWin64">
+	<Agent Name="Editor Linux" Type="CompileWin64;Win64">
 		<Node Name="Compile UnrealHeaderTool Linux" Requires="Update Version Files">
 			<Compile Target="UnrealHeaderTool" Platform="Linux" Configuration="Development" Arguments="-precompile"/>
 		</Node>
@@ -196,7 +196,7 @@
 	</Agent>
 
 	<!-- Target Platforms normally built from a Win64 machine -->
-	<Agent Name="Target Platforms Win64" Type="CompileWin64">
+	<Agent Name="Target Platforms Win64" Type="CompileWin64;Win64">
 		<!-- Downstream monolithics and tools Win64 -->
 		<Node Name="Compile UE4Game Win64" Requires="Compile UnrealHeaderTool Win64" Produces="#UE4Game Win64;#UE4Game Win64 Unstripped;#UE4Game Win64 Stripped;#UE4Game Win64 Unsigned;#UE4Game Win64 Signed;#UE4Game Win64 Includes">
 		
@@ -356,7 +356,7 @@
 	</Agent>
 
 	<!-- Target Platforms normally built from a Mac machine -->
-	<Agent Name="Target Platforms Mac" Type="CompileMac">
+	<Agent Name="Target Platforms Mac" Type="CompileMac;Mac">
 		<!-- Downstream monolithics and tools Mac -->
 		<Node Name="Compile UE4Game Mac" Requires="Compile UnrealHeaderTool Mac" Produces="#UE4Game Mac;#UE4Game Mac Unstripped;#UE4Game Mac Stripped;#UE4Game Mac Unsigned;#UE4Game Mac Signed;#UE4Game Mac Includes">
 		
@@ -416,7 +416,7 @@
 		</Node>
 	</Agent>
 
-	<Agent Name="Tools Group Win64" Type="CompileWin64">
+	<Agent Name="Tools Group Win64" Type="CompileWin64;Win64">
 		<Node Name="Build Tools Win64" Requires="Compile UnrealHeaderTool Win64">
 			<Compile Target="CrashReportClient" Configuration="Shipping" Platform="Win64" Tag="#Build Tools Win64"/>
 			<Compile Target="CrashReportClient" Configuration="Shipping" Platform="Win32" Tag="#Build Tools Win64"/>
@@ -489,7 +489,7 @@
 		</Node>
 	</Agent>
 
-	<Agent Name="Tools Group Mac" Type="CompileMac">
+	<Agent Name="Tools Group Mac" Type="CompileMac;Mac">
 		<Node Name="Build Tools Mac" Requires="Compile UnrealHeaderTool Mac">
 			<Compile Target="CrashReportClient" Configuration="Shipping" Platform="Mac" Tag="#Build Tools Mac"/>
 			<Compile Target="ShaderCompileWorker" Configuration="Development" Platform="Mac" Tag="#Build Tools Mac"/>

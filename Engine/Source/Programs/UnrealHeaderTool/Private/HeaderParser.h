@@ -575,7 +575,7 @@ protected:
 		FClasses&                       AllClasses,
 		FScope*							Scope,
 		FPropertyBase&                  VarProperty,
-		uint64                          Disallow,
+		EPropertyFlags                  Disallow,
 		FToken*                         OuterPropertyType,
 		EPropertyDeclarationStyle::Type PropertyDeclarationStyle,
 		EVariableCategory::Type         VariableCategory,

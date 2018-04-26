@@ -240,7 +240,6 @@ struct CORE_API FUnixPlatformProcess : public FGenericPlatformProcess
 	static void* GetDllHandle( const TCHAR* Filename );
 	static void FreeDllHandle( void* DllHandle );
 	static void* GetDllExport( void* DllHandle, const TCHAR* ProcName );
-	static int32 GetDllApiVersion( const TCHAR* Filename );
 	static const TCHAR* ComputerName();
 	static void CleanFileCache();
 	static const TCHAR* UserName(bool bOnlyAlphaNumeric = true);

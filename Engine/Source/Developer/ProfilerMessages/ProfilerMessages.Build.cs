@@ -21,7 +21,6 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePaths.AddRange(
 				new string[]
 				{
-					"Editor/ProfilerMessages/Private",
 				});
 
 			if (Target.Configuration != UnrealTargetConfiguration.Shipping)

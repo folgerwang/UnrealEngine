@@ -67,6 +67,15 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 
 #define PLATFORM_SUPPORTS_STACK_SYMBOLS						1
 
+#if defined(__INTEL_COMPILER) || _MSC_VER > 1900
+	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1
+#else
+	// Static analysis causes internal compiler errors with auto-deduced return types,
+	// but some older VC versions still have return type deduction failures inside the delegate code
+	// when they are enabled.  So we currently only enable them for static analysis builds.
+	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO USING_CODE_ANALYSIS
+#endif
+
 // Intrinsics for 128-bit atomics on Windows platform requires Windows 8 or higher (WINVER>=0x0602)
 // http://msdn.microsoft.com/en-us/library/windows/desktop/hh972640.aspx
 #define PLATFORM_HAS_128BIT_ATOMICS							(!HACK_HEADER_GENERATOR && PLATFORM_64BITS && (WINVER >= 0x602))

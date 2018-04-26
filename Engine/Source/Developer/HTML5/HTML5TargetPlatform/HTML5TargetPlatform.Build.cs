@@ -35,7 +35,6 @@ public class HTML5TargetPlatform : ModuleRules
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"Developer/HTML5TargetPlatform/Classes"
 			}
 		);
 	}

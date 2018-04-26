@@ -665,6 +665,19 @@ public:
 	virtual void DetachBulkData(FUntypedBulkData* BulkData, bool bEnsureBulkDataIsLoaded) { }
 
 	/**
+	* Determine if the given archive is a valid "child" of this archive. In general, this means "is exactly the same" but
+	* this function allows a derived archive to support "child" or "internal" archives which are different objects that proxy the
+	* original one in some way.
+	*
+	* @param	BulkData	Bulk data object to detach
+	* @param	bEnsureBulkDataIsLoaded	Whether to ensure that the bulk data is loaded before detaching
+	*/
+	virtual bool IsProxyOf(FArchive* InOther) const
+	{
+		return InOther == this;
+	}
+
+	/**
 	 * Hint the archive that the region starting at passed in offset and spanning the passed in size
 	 * is going to be read soon and should be precached.
 	 *
@@ -868,6 +881,17 @@ public:
 	 * @return The version number, or 0 if the custom tag isn't stored in the archive.
 	 */
 	int32 CustomVer(const struct FGuid& Key) const;
+
+	/**
+	 * Returns a pointer to an archive that represents the same data that the current archive covers, but that can be cached and reused later
+	 * In the case of standard archives, this function will just return a pointer to itself. If the archive is actually a temporary proxy to
+	 * another archive, and has a shorter lifecycle than the source archive, it should return either a pointer to the underlying archive, or
+	 * if the data becomes inaccessible when the proxy object disappears (as is the case with text format archives) then nullptr
+	 */
+	virtual FArchive* GetCacheableArchive()
+	{
+		return this;
+	}
 
 	FORCEINLINE bool IsLoading() const
 	{
@@ -1292,7 +1316,7 @@ public:
 	 * @param InProperty			Pointer to the property that is currently being serialized
 	 * @param bIsEditorOnlyProperty True if the property is editor only (call UProperty::IsEditorOnlyProperty to work this out, as the archive can't since it can't access CoreUObject types)
 	 */
-	void PushSerializedProperty(class UProperty* InProperty, const bool bIsEditorOnlyProperty);
+	virtual void PushSerializedProperty(class UProperty* InProperty, const bool bIsEditorOnlyProperty);
 
 	/**
 	 * Pop a property that was previously being serialized off the property stack
@@ -1300,11 +1324,11 @@ public:
 	 * @param InProperty			Pointer to the property that was previously being serialized
 	 * @param bIsEditorOnlyProperty True if the property is editor only (call UProperty::IsEditorOnlyProperty to work this out, as the archive can't since it can't access CoreUObject types)
 	 */
-	void PopSerializedProperty(class UProperty* InProperty, const bool bIsEditorOnlyProperty);
+	virtual void PopSerializedProperty(class UProperty* InProperty, const bool bIsEditorOnlyProperty);
 
 #if WITH_EDITORONLY_DATA
 	/** Returns true if the stack of currently serialized properties contains an editor-only property */
-	bool IsEditorOnlyPropertyOnTheStack() const;
+	virtual bool IsEditorOnlyPropertyOnTheStack() const;
 #endif
 
 	/** 

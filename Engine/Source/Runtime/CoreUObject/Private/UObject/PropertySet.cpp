@@ -158,7 +158,7 @@ namespace UE4SetProperty_Private
 	}
 }
 
-USetProperty::USetProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags)
+USetProperty::USetProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, EPropertyFlags InFlags)
 : USetProperty_Super(ObjectInitializer, EC_CppProperty, InOffset, InFlags)
 {
 	// This is expected to be set post-construction by AddCppProperty
@@ -750,7 +750,7 @@ bool USetProperty::SameType(const UProperty* Other) const
 	return Super::SameType(Other) && ElementProp && ElementProp->SameType(SetProp->ElementProp);
 }
 
-bool USetProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+EConvertFromTypeResult USetProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
 	// Ar related calls in this function must be mirrored in USetProperty::ConvertFromType
 	checkSlow(ElementProp);
@@ -759,12 +759,12 @@ bool USetProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 	Ar.Preload(ElementProp);
 
 	// Ar related calls in this function must be mirrored in USetProperty::SerializeItem
-	if(Tag.Type == NAME_SetProperty)
+	if (Tag.Type == NAME_SetProperty)
 	{
 		if (Tag.InnerType != NAME_None && Tag.InnerType != ElementProp->GetID())
 		{
 			FScriptSetHelper ScriptSetHelper(this, ContainerPtrToValuePtr<void>(Data));
-		
+
 			uint8* TempElementStorage = nullptr;
 			ON_SCOPE_EXIT
 			{
@@ -774,13 +774,12 @@ bool USetProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 					FMemory::Free(TempElementStorage);
 				}
 			};
-		
+
 			FPropertyTag InnerPropertyTag;
 			InnerPropertyTag.Type = Tag.InnerType;
 			InnerPropertyTag.ArrayIndex = 0;
-		
+
 			bool bConversionSucceeded = true;
-			bool bDummyAdvance = false;
 
 			// When we saved this instance we wrote out any elements that were in the 'Default' instance but not in the 
 			// instance that was being written. Presumably we were constructed from our defaults and must now remove 
@@ -793,7 +792,7 @@ bool USetProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 				TempElementStorage = (uint8*)FMemory::Malloc(SetLayout.Size);
 				ElementProp->InitializeValue(TempElementStorage);
 
-				if (ElementProp->ConvertFromType(InnerPropertyTag, Ar, TempElementStorage, DefaultsStruct, bDummyAdvance))
+				if (ElementProp->ConvertFromType(InnerPropertyTag, Ar, TempElementStorage, DefaultsStruct) == EConvertFromTypeResult::Converted)
 				{
 					int32 Found = ScriptSetHelper.FindElementIndex(TempElementStorage);
 					if (Found != INDEX_NONE)
@@ -803,8 +802,8 @@ bool USetProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 
 					for (int32 I = 1; I < NumElementsToRemove; ++I)
 					{
-						verify(ElementProp->ConvertFromType(InnerPropertyTag, Ar, TempElementStorage, DefaultsStruct, bDummyAdvance));
-					
+						verify(ElementProp->ConvertFromType(InnerPropertyTag, Ar, TempElementStorage, DefaultsStruct) == EConvertFromTypeResult::Converted);
+
 						Found = ScriptSetHelper.FindElementIndex(TempElementStorage);
 						if (Found != INDEX_NONE)
 						{
@@ -817,7 +816,7 @@ bool USetProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 					bConversionSucceeded = false;
 				}
 			}
-		
+
 			int32 Num = 0;
 			Ar << Num;
 
@@ -834,7 +833,7 @@ bool USetProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 
 					// and read the first entry, we have to check for conversion possibility again because 
 					// NumElementsToRemove may not have run (in fact, it likely did not):
-					if (ElementProp->ConvertFromType(InnerPropertyTag, Ar, TempElementStorage, DefaultsStruct, bDummyAdvance))
+					if (ElementProp->ConvertFromType(InnerPropertyTag, Ar, TempElementStorage, DefaultsStruct) == EConvertFromTypeResult::Converted)
 					{
 						if (ScriptSetHelper.FindElementIndex(TempElementStorage) == INDEX_NONE)
 						{
@@ -849,7 +848,7 @@ bool USetProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 						for (int32 I = 1; I < Num; ++I)
 						{
 							// Read key into temporary storage
-							verify(ElementProp->ConvertFromType(InnerPropertyTag, Ar, TempElementStorage, DefaultsStruct, bDummyAdvance) );
+							verify(ElementProp->ConvertFromType(InnerPropertyTag, Ar, TempElementStorage, DefaultsStruct) == EConvertFromTypeResult::Converted);
 
 							// Add a new entry if the element doesn't currently exist in the set
 							if (ScriptSetHelper.FindElementIndex(TempElementStorage) == INDEX_NONE)
@@ -867,7 +866,7 @@ bool USetProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 						bConversionSucceeded = false;
 					}
 				}
-		
+
 				ScriptSetHelper.Rehash();
 			}
 
@@ -876,29 +875,27 @@ bool USetProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 			{
 				UE_LOG(LogClass, Warning, TEXT("Set Element Type mismatch in %s of %s - Previous (%s) Current (%s) for package: %s"), *Tag.Name.ToString(), *GetName(), *Tag.InnerType.ToString(), *ElementProp->GetID().ToString(), *Ar.GetArchiveName() );
 			}
-			bOutAdvanceProperty = bConversionSucceeded;
 
-			return true;
+			return bConversionSucceeded ? EConvertFromTypeResult::Converted : EConvertFromTypeResult::CannotConvert;
 		}
-		else if(UStructProperty* ElementPropAsStruct = Cast<UStructProperty>(ElementProp))
+
+		if(UStructProperty* ElementPropAsStruct = Cast<UStructProperty>(ElementProp))
 		{
 			if(!ElementPropAsStruct->Struct || (ElementPropAsStruct->Struct->GetCppStructOps() && !ElementPropAsStruct->Struct->GetCppStructOps()->HasGetTypeHash()) )
 			{
 				// If the type we contain is no longer hashable, we're going to drop the saved data here. This can
 				// happen if the native GetTypeHash function is removed.
 				ensureMsgf(false, TEXT("USetProperty %s with tag %s has an unhashable type %s and will lose its saved data"), *GetName(), *Tag.Name.ToString(), *ElementProp->GetID().ToString());
-			
+
 				FScriptSetHelper ScriptSetHelper(this, ContainerPtrToValuePtr<void>(Data));
 				ScriptSetHelper.EmptyElements();
 
-				bOutAdvanceProperty = false;
-				return true;
+				return EConvertFromTypeResult::CannotConvert;
 			}
 		}
 	}
-	
 
-	return false;
+	return EConvertFromTypeResult::UseSerializeItem;
 }
 
 

@@ -449,7 +449,7 @@ namespace AutomationTool
 		/// </summary>
 		public List<FileReference> UpdateVersionFiles(bool ActuallyUpdateVersionFiles = true, int? ChangelistNumberOverride = null, int? CompatibleChangelistNumberOverride = null, string Build = null, bool? IsPromotedOverride = null, bool bSkipHeader = false)
 		{
-			bool bIsLicenseeVersion = ParseParam("Licensee");
+			bool bIsLicenseeVersion = ParseParam("Licensee") || !FileReference.Exists(FileReference.Combine(CommandUtils.EngineDirectory, "Build", "NotForLicensees", "EpicInternal.txt"));
 			bool bIsPromotedBuild = IsPromotedOverride.HasValue? IsPromotedOverride.Value : (ParseParamInt("Promoted", 1) != 0);
 			bool bDoUpdateVersionFiles = CommandUtils.P4Enabled && ActuallyUpdateVersionFiles;		
 			int ChangelistNumber = 0;
@@ -474,108 +474,66 @@ namespace AutomationTool
 
 		public static List<FileReference> StaticUpdateVersionFiles(int ChangelistNumber, int CompatibleChangelistNumber, string Branch, string Build, bool bIsLicenseeVersion, bool bIsPromotedBuild, bool bDoUpdateVersionFiles, bool bSkipHeader)
 		{
-			string ChangelistString = (ChangelistNumber != 0 && bDoUpdateVersionFiles)? ChangelistNumber.ToString() : String.Empty;
+			FileReference BuildVersionFile = BuildVersion.GetDefaultFileName();
+
+			BuildVersion Version;
+			if(!BuildVersion.TryRead(BuildVersionFile, out Version))
+			{
+				Version = new BuildVersion();
+			}
+
 
 			var Result = new List<FileReference>();
 			{
-				FileReference VerFile = BuildVersion.GetDefaultFileName();
 				if (bDoUpdateVersionFiles)
 				{
-					CommandUtils.LogLog("Updating {0} with:", VerFile);
+					CommandUtils.LogLog("Updating {0} with:", BuildVersionFile);
 					CommandUtils.LogLog("  Changelist={0}", ChangelistNumber);
 					CommandUtils.LogLog("  CompatibleChangelist={0}", CompatibleChangelistNumber);
 					CommandUtils.LogLog("  IsLicenseeVersion={0}", bIsLicenseeVersion? 1 : 0);
 					CommandUtils.LogLog("  IsPromotedBuild={0}", bIsPromotedBuild? 1 : 0);
 					CommandUtils.LogLog("  BranchName={0}", Branch);
 
-					BuildVersion Version;
-					if(!BuildVersion.TryRead(VerFile, out Version))
-					{
-						Version = new BuildVersion();
-					}
-
 					Version.Changelist = ChangelistNumber;
 					if(CompatibleChangelistNumber > 0)
 					{
 						Version.CompatibleChangelist = CompatibleChangelistNumber;
 					}
-					Version.IsLicenseeVersion = bIsLicenseeVersion? 1 : 0;
-					Version.IsPromotedBuild = bIsPromotedBuild? 1 : 0;
+					Version.IsLicenseeVersion = bIsLicenseeVersion;
+					Version.IsPromotedBuild = bIsPromotedBuild;
 					Version.BranchName = Branch;
 
-					VersionFileUpdater.MakeFileWriteable(VerFile.FullName);
+					VersionFileUpdater.MakeFileWriteable(BuildVersionFile.FullName);
 
-					Version.Write(VerFile);
+					Version.Write(BuildVersionFile);
 				}
 				else
 				{
-					CommandUtils.LogVerbose("{0} will not be updated because P4 is not enabled.", VerFile);
+					CommandUtils.LogVerbose("{0} will not be updated because P4 is not enabled.", BuildVersionFile);
 				}
-				Result.Add(VerFile);
+				Result.Add(BuildVersionFile);
 			}
-
-            FileReference EngineVersionFile = FileReference.Combine(CommandUtils.EngineDirectory, "Source", "Runtime", "Launch", "Resources", "Version.h");
-            {
-                FileReference VerFile = EngineVersionFile;
-				if (bDoUpdateVersionFiles && !bSkipHeader)
-				{
-					CommandUtils.LogLog("Updating {0} with:", VerFile);
-					CommandUtils.LogLog(" #define	BRANCH_NAME  {0}", Branch);
-					CommandUtils.LogLog(" #define	BUILT_FROM_CHANGELIST  {0}", ChangelistString);
-					if(CompatibleChangelistNumber > 0)
-					{
-						CommandUtils.LogLog(" #define	ENGINE_COMPATIBLE_CL_VERSION  {0}", CompatibleChangelistNumber);
-					}
-					if (Build != null)
-					{
-						CommandUtils.LogLog(" #define	BUILD_VERSION  {0}", Build);
-					}
-					CommandUtils.LogLog(" #define   ENGINE_IS_LICENSEE_VERSION  {0}", bIsLicenseeVersion ? "1" : "0");
-					CommandUtils.LogLog(" #define   ENGINE_IS_PROMOTED_BUILD  {0}", bIsPromotedBuild? "1" : "0");
-
-					VersionFileUpdater VersionH = new VersionFileUpdater(VerFile);
-					VersionH.ReplaceLine("#define BRANCH_NAME ", "\"" + Branch + "\"");
-					VersionH.ReplaceLine("#define BUILT_FROM_CHANGELIST ", ChangelistString);
-					if (Build != null)
-					{
-						VersionH.ReplaceLine("#define BUILD_VERSION ", "L\"" + Build + "\"");
-					}
-					if(CompatibleChangelistNumber > 0)
-					{
-						VersionH.ReplaceLine("#define ENGINE_COMPATIBLE_CL_VERSION", CompatibleChangelistNumber.ToString(), bIsLicenseeVersion? 0 : 1);
-					}
-					VersionH.ReplaceLine("#define ENGINE_IS_LICENSEE_VERSION ", bIsLicenseeVersion ? "1" : "0");
-					VersionH.ReplaceLine("#define ENGINE_IS_PROMOTED_BUILD ", bIsPromotedBuild? "1" : "0");
-
-                    VersionH.Commit();
-                }
-				else
-				{
-					CommandUtils.LogVerbose("{0} will not be updated because P4 is not enabled.", VerFile);
-				}
-                Result.Add(VerFile);
-            }
 
             {
                 // Use Version.h data to update MetaData.cs so the assemblies match the engine version.
-                FileReference VerFile = FileReference.Combine(CommandUtils.EngineDirectory, "Source", "Programs", "DotNETCommon", "MetaData.cs");
+                FileReference MetaDataFile = FileReference.Combine(CommandUtils.EngineDirectory, "Source", "Programs", "DotNETCommon", "MetaData.cs");
 
 				if (bDoUpdateVersionFiles)
                 {
                     // Get the MAJOR/MINOR/PATCH from the Engine Version file, as it is authoritative. The rest we get from the P4Env.
-                    string NewInformationalVersion = FEngineVersionSupport.FromVersionFile(EngineVersionFile.FullName, ChangelistNumber).ToString();
+                    string NewInformationalVersion = String.Format("{0}.{1}.{2}-{3}+{4}", Version.MajorVersion, Version.MinorVersion, Version.PatchVersion, Version.Changelist.ToString(), Version.BranchName);
 
-                    CommandUtils.LogLog("Updating {0} with AssemblyInformationalVersion: {1}", VerFile, NewInformationalVersion);
+                    CommandUtils.LogLog("Updating {0} with AssemblyInformationalVersion: {1}", MetaDataFile, NewInformationalVersion);
 
-                    VersionFileUpdater VersionH = new VersionFileUpdater(VerFile);
+                    VersionFileUpdater VersionH = new VersionFileUpdater(MetaDataFile);
                     VersionH.SetAssemblyInformationalVersion(NewInformationalVersion);
                     VersionH.Commit();
                 }
                 else
                 {
-                    CommandUtils.LogVerbose("{0} will not be updated because P4 is not enabled.", VerFile);
+                    CommandUtils.LogVerbose("{0} will not be updated because P4 is not enabled.", MetaDataFile);
                 }
-                Result.Add(VerFile);
+                Result.Add(MetaDataFile);
             }
 
 			return Result;

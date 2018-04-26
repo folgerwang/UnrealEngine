@@ -6,6 +6,7 @@
 #include "Misc/Guid.h"
 #include "Serialization/CustomVersion.h"
 #include "Misc/EngineVersion.h"
+#include "Serialization/StructuredArchive.h"
 
 struct FCompressedChunk;
 
@@ -36,6 +37,7 @@ struct FGenerationInfo
 	 * we use a function instead of operator<< so we can pass in the package file summary for version tests, since archive version hasn't been set yet
 	 */
 	void Serialize(FArchive& Ar, const struct FPackageFileSummary& Summary);
+	void Serialize(FStructuredArchive::FSlot Slot, const struct FPackageFileSummary& Summary);
 };
 
 /**
@@ -234,7 +236,8 @@ public:
 		bUnversioned = bInSaveUnversioned;
 	}
 
-	/** I/O function */
+	/** I/O functions */
 	friend COREUOBJECT_API FArchive& operator<<(FArchive& Ar, FPackageFileSummary& Sum);
+	friend COREUOBJECT_API void operator<<(FStructuredArchive::FSlot Slot, FPackageFileSummary& Sum);
 };
 

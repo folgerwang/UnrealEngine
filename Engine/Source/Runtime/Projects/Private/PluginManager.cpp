@@ -738,7 +738,7 @@ bool FPluginManager::ConfigureEnabledPlugin(const FPluginReferenceDescriptor& Fi
 				if (Project != nullptr && Project->Modules.Num() == 0)
 				{
 					TArray<FString> IncompatibleFiles;
-					if (!FModuleDescriptor::CheckModuleCompatibility(Plugin.Descriptor.Modules, Plugin.GetLoadedFrom() == EPluginLoadedFrom::Project, IncompatibleFiles))
+					if (!FModuleDescriptor::CheckModuleCompatibility(Plugin.Descriptor.Modules, IncompatibleFiles))
 					{
 						if (PromptToDisableIncompatiblePlugin(FirstReference.Name, Reference.Name))
 						{
@@ -1029,7 +1029,7 @@ bool FPluginManager::CheckModuleCompatibility(TArray<FString>& OutIncompatibleMo
 	for(const TPair<FString, TSharedRef<FPlugin>>& PluginPair : AllPlugins)
 	{
 		const TSharedRef< FPlugin > &Plugin = PluginPair.Value;
-		if (Plugin->bEnabled && !FModuleDescriptor::CheckModuleCompatibility(Plugin->Descriptor.Modules, Plugin->GetLoadedFrom() == EPluginLoadedFrom::Project, OutIncompatibleModules))
+		if (Plugin->bEnabled && !FModuleDescriptor::CheckModuleCompatibility(Plugin->Descriptor.Modules, OutIncompatibleModules))
 		{
 			bResult = false;
 		}

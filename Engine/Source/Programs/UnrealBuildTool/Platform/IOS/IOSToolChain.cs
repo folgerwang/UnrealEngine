@@ -217,6 +217,10 @@ namespace UnrealBuildTool
 			Result += " -pipe";
 			Result += " -fpascal-strings";
 
+			if (!Utils.IsRunningOnMono)
+			{
+				Result += " -fdiagnostics-format=msvc";
+			}
 
 			// Optionally enable exception handling (off by default since it generates extra code needed to propagate exceptions)
 			if (CompileEnvironment.bEnableExceptions)
@@ -820,7 +824,6 @@ namespace UnrealBuildTool
 				// We're already distributing the command by execution on Mac.
 				CompileAction.bCanExecuteRemotely = false;
 				CompileAction.bShouldOutputStatusDescription = true;
-				CompileAction.OutputEventHandler = new DataReceivedEventHandler(RemoteOutputReceivedEventHandler);
 
 				AddFrameworksToTrack(CompileEnvironment.AdditionalFrameworks, CompileAction);
 			}
@@ -963,12 +966,12 @@ namespace UnrealBuildTool
 				FileReference ResponsePath = FileReference.Combine(((!bIsUE4Game && ProjectFile != null) ? ProjectFile.Directory : UnrealBuildTool.EngineDirectory), "Intermediate", "Build", LinkEnvironment.Platform.ToString(), "LinkFileList_" + LinkEnvironment.OutputFilePath.GetFileNameWithoutExtension() + ".tmp");
 				if (!Utils.IsRunningOnMono && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
 				{
-					ResponseFile.Create(ResponsePath, InputFileNames);
+					FileItem.CreateIntermediateTextFile(ResponsePath, InputFileNames);
 					RPCUtilHelper.CopyFile(ResponsePath.FullName, ConvertPath(ResponsePath.FullName), true);
 				}
 				else
 				{
-					ResponseFile.Create(new FileReference(ConvertPath(ResponsePath.FullName)), InputFileNames);
+					FileItem.CreateIntermediateTextFile(new FileReference(ConvertPath(ResponsePath.FullName)), InputFileNames);
 				}
 				LinkCommandArguments += string.Format(" @\"{0}\"", ConvertPath(ResponsePath.FullName));
 			}
@@ -983,7 +986,6 @@ namespace UnrealBuildTool
 			LinkAction.bCanExecuteRemotely = false;
 
 			LinkAction.StatusDescription = string.Format("{0}", OutputFile.AbsolutePath);
-			LinkAction.OutputEventHandler = new DataReceivedEventHandler(RemoteOutputReceivedEventHandler);
 
 			LinkAction.CommandPath = "sh";
 			if(LinkEnvironment.Configuration == CppConfiguration.Shipping && Path.GetExtension(RemoteOutputFile.AbsolutePath) != ".a")

@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 //#include "AI/NavigationSystemBase.h"
-#include "Modules/ModuleVersion.h"
 #if WITH_EDITOR
 #include "Developer/AssetTools/Public/AssetTypeCategories.h"
 #endif // WITH_EDITOR

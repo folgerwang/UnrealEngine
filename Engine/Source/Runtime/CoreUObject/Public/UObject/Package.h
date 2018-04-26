@@ -547,7 +547,7 @@ public:
 	* @param	InOuter							the outer to use for the new package
 	* @param	Linker							linker we're currently saving with
 	*/
-	static void SaveThumbnails( UPackage* InOuter, FLinkerSave* Linker );
+	static void SaveThumbnails(UPackage* InOuter, FLinkerSave* Linker, FStructuredArchive::FSlot Slot);
 
 	/**
 	* Static: Saves asset registry data for the specified package outer and linker
@@ -555,7 +555,7 @@ public:
 	* @param	InOuter							the outer to use for the new package
 	* @param	Linker							linker we're currently saving with
 	*/
-	static void SaveAssetRegistryData( UPackage* InOuter, FLinkerSave* Linker );
+	static void SaveAssetRegistryData(UPackage* InOuter, FLinkerSave* Linker, FStructuredArchive::FSlot Slot);
 
 	/**
 	* Static: Saves the level information used by the World browser
@@ -563,7 +563,7 @@ public:
 	* @param	InOuter							the outer to use for the new package
 	* @param	Linker							linker we're currently saving with
 	*/
-	static void SaveWorldLevelInfo( UPackage* InOuter, FLinkerSave* Linker );
+	static void SaveWorldLevelInfo(UPackage* InOuter, FLinkerSave* Linker, FStructuredArchive::FSlot Slot);
 
 	/**
 	* Determines if a package contains no more assets.

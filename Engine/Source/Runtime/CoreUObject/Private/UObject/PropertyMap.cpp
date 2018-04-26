@@ -175,7 +175,7 @@ namespace UE4MapProperty_Private
 	}
 }
 
-UMapProperty::UMapProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags)
+UMapProperty::UMapProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, EPropertyFlags InFlags)
 : UMapProperty_Super(ObjectInitializer, EC_CppProperty, InOffset, InFlags)
 {
 	// These are expected to be set post-construction by AddCppProperty
@@ -884,7 +884,7 @@ bool UMapProperty::SameType(const UProperty* Other) const
 	return Super::SameType(Other) && KeyProp && ValueProp && KeyProp->SameType(MapProp->KeyProp) && ValueProp->SameType(MapProp->ValueProp);
 }
 
-bool UMapProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+EConvertFromTypeResult UMapProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
 	// Ar related calls in this function must be mirrored in UMapProperty::SerializeItem
 	checkSlow(KeyProp);
@@ -897,14 +897,13 @@ bool UMapProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 	const auto SerializeOrConvert = [](UProperty* CurrentType, const FPropertyTag& InTag, FArchive& InAr, uint8* InData, UStruct* InDefaultsStruct) -> bool
 	{
 		// Serialize wants the property address, while convert wants the container address. InData is the container address
-		bool bDummyAdvance = false;
 		if(CurrentType->GetID() == InTag.Type)
 		{
 			uint8* DestAddress = CurrentType->ContainerPtrToValuePtr<uint8>(InData, InTag.ArrayIndex);
 			CurrentType->SerializeItem(InAr, DestAddress, nullptr);
 			return true;
 		}
-		else if( CurrentType->ConvertFromType(InTag, InAr, InData, InDefaultsStruct, bDummyAdvance) )
+		else if( CurrentType->ConvertFromType(InTag, InAr, InData, InDefaultsStruct) == EConvertFromTypeResult::Converted )
 		{
 			return true;
 		}
@@ -930,13 +929,13 @@ bool UMapProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 			FPropertyTag KeyPropertyTag;
 			KeyPropertyTag.Type = Tag.InnerType;
 			KeyPropertyTag.ArrayIndex = 0;
-		
+
 			FPropertyTag ValuePropertyTag;
 			ValuePropertyTag.Type = Tag.ValueType;
 			ValuePropertyTag.ArrayIndex = 0;
-		
+
 			bool bConversionSucceeded = true;
-		
+
 			// When we saved this instance we wrote out any elements that were in the 'Default' instance but not in the 
 			// instance that was being written. Presumably we were constructed from our defaults and must now remove 
 			// any of the elements that were not present when we saved this Map:
@@ -976,7 +975,7 @@ bool UMapProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 
 			int32 NumEntries = 0;
 			Ar << NumEntries;
-		
+
 			if( bConversionSucceeded )
 			{
 				if( NumEntries != 0 )
@@ -997,7 +996,7 @@ bool UMapProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 							bKeyAlreadyPresent = false;
 							NextPairIndex = MapHelper.AddDefaultValue_Invalid_NeedsRehash();
 						}
-					
+
 						uint8* NextPairPtr = MapHelper.GetPairPtrWithoutCheck(NextPairIndex);
 						// This copy is unnecessary when the key was already in the map:
 						KeyProp->CopyCompleteValue_InContainer(NextPairPtr, TempKeyStorage);
@@ -1014,7 +1013,7 @@ bool UMapProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 								{
 									NextPairIndex = MapHelper.AddDefaultValue_Invalid_NeedsRehash();
 								}
-					
+
 								NextPairPtr = MapHelper.GetPairPtrWithoutCheck(NextPairIndex);
 								// This copy is unnecessary when the key was already in the map:
 								KeyProp->CopyCompleteValue_InContainer(NextPairPtr, TempKeyStorage);
@@ -1027,7 +1026,7 @@ bool UMapProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 							{
 								MapHelper.EmptyValues();
 							}
-							
+
 							bConversionSucceeded = false;
 						}
 					}
@@ -1035,7 +1034,7 @@ bool UMapProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 					{
 						bConversionSucceeded = false;
 					}
-				
+
 					MapHelper.Rehash();
 				}
 			}
@@ -1044,41 +1043,39 @@ bool UMapProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 			if(!bConversionSucceeded)
 			{
 				UE_LOG(
-					LogClass, 
-					Warning, 
-					TEXT("Map Element Type mismatch in %s of %s - Previous (%s to %s) Current (%s to %s) for package: %s"), 
+					LogClass,
+					Warning,
+					TEXT("Map Element Type mismatch in %s of %s - Previous (%s to %s) Current (%s to %s) for package: %s"),
 					*Tag.Name.ToString(),
-					*GetName(), 
-					*Tag.InnerType.ToString(), 
-					*Tag.ValueType.ToString(), 
-					*KeyProp->GetID().ToString(), 
-					*ValueProp->GetID().ToString(), 
-					*Ar.GetArchiveName() 
+					*GetName(),
+					*Tag.InnerType.ToString(),
+					*Tag.ValueType.ToString(),
+					*KeyProp->GetID().ToString(),
+					*ValueProp->GetID().ToString(),
+					*Ar.GetArchiveName()
 				);
 			}
 
-			bOutAdvanceProperty = bConversionSucceeded;
-
-			return true;
+			return bConversionSucceeded ? EConvertFromTypeResult::Converted : EConvertFromTypeResult::CannotConvert;
 		}
-		else if(UStructProperty* KeyPropAsStruct = Cast<UStructProperty>(KeyProp))
+
+		if (UStructProperty* KeyPropAsStruct = Cast<UStructProperty>(KeyProp))
 		{
 			if(!KeyPropAsStruct->Struct || (KeyPropAsStruct->Struct->GetCppStructOps() && !KeyPropAsStruct->Struct->GetCppStructOps()->HasGetTypeHash() ) )
 			{
 				// If the type we contain is no longer hashable, we're going to drop the saved data here. This can
 				// happen if the native GetTypeHash function is removed.
 				ensureMsgf(false, TEXT("UMapProperty %s with tag %s has an unhashable key type %s and will lose its saved data"), *GetName(), *Tag.Name.ToString(), *KeyProp->GetID().ToString());
-			
+
 				FScriptMapHelper ScriptMapHelper(this, ContainerPtrToValuePtr<void>(Data));
 				ScriptMapHelper.EmptyValues();
 
-				bOutAdvanceProperty = false;
-				return true;
+				return EConvertFromTypeResult::CannotConvert;
 			}
 		}
 	}
 
-	return false;
+	return EConvertFromTypeResult::UseSerializeItem;
 }
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UMapProperty, UProperty,

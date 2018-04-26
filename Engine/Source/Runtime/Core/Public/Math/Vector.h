@@ -975,10 +975,32 @@ public:
 		// See TArray::BulkSerialize for detailed description of implied limitations.
 		return Ar << V.X << V.Y << V.Z;
 	}
+
+	/**
+	 * Structured archive slot serializer.
+	 *
+	 * @param Slot Structured archive slot.
+	 * @param V Vector to serialize.
+	 */
+	friend void operator<<(FStructuredArchive::FSlot Slot, FVector& V)
+	{
+		// @warning BulkSerialize: FVector is serialized as memory dump
+		// See TArray::BulkSerialize for detailed description of implied limitations.
+		FStructuredArchive::FStream Stream = Slot.EnterStream();
+		Stream.EnterElement() << V.X;
+		Stream.EnterElement() << V.Y;
+		Stream.EnterElement() << V.Z;
+	}
 	
 	bool Serialize(FArchive& Ar)
 	{
 		Ar << *this;
+		return true;
+	}
+
+	bool Serialize(FStructuredArchive::FSlot Slot)
+	{
+		Slot << *this;
 		return true;
 	}
 

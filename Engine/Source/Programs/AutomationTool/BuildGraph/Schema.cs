@@ -137,6 +137,9 @@ namespace AutomationTool
 		Option,
 		EnvVar,
 		Property,
+		Macro,
+		Expand,
+		Trace,
 		Warning,
 		Error,
 		Name,
@@ -302,6 +305,9 @@ namespace AutomationTool
 			NewSchema.Items.Add(CreateOptionType());
 			NewSchema.Items.Add(CreateEnvVarType());
 			NewSchema.Items.Add(CreatePropertyType());
+			NewSchema.Items.Add(CreateMacroType());
+			NewSchema.Items.Add(CreateExpandType());
+			NewSchema.Items.Add(CreateDiagnosticType(ScriptSchemaStandardType.Trace));
 			NewSchema.Items.Add(CreateDiagnosticType(ScriptSchemaStandardType.Warning));
 			NewSchema.Items.Add(CreateDiagnosticType(ScriptSchemaStandardType.Error));
 			NewSchema.Items.Add(CreateSimpleTypeFromRegex(GetTypeName(ScriptSchemaStandardType.Name), "(" + NamePattern + "|" + StringWithPropertiesPattern + ")"));
@@ -418,17 +424,20 @@ namespace AutomationTool
 			GraphChoice.Items.Add(CreateSchemaElement("Option", ScriptSchemaStandardType.Option));
 			GraphChoice.Items.Add(CreateSchemaElement("EnvVar", ScriptSchemaStandardType.EnvVar));
 			GraphChoice.Items.Add(CreateSchemaElement("Property", ScriptSchemaStandardType.Property));
+			GraphChoice.Items.Add(CreateSchemaElement("Macro", ScriptSchemaStandardType.Macro));
 			GraphChoice.Items.Add(CreateSchemaElement("Agent", ScriptSchemaStandardType.Agent));
 			GraphChoice.Items.Add(CreateSchemaElement("Trigger", ScriptSchemaStandardType.Trigger));
 			GraphChoice.Items.Add(CreateSchemaElement("Aggregate", ScriptSchemaStandardType.Aggregate));
 			GraphChoice.Items.Add(CreateSchemaElement("Report", ScriptSchemaStandardType.Report));
 			GraphChoice.Items.Add(CreateSchemaElement("Badge", ScriptSchemaStandardType.Badge));
 			GraphChoice.Items.Add(CreateSchemaElement("Notify", ScriptSchemaStandardType.Notify));
+			GraphChoice.Items.Add(CreateSchemaElement("Trace", ScriptSchemaStandardType.Trace));
 			GraphChoice.Items.Add(CreateSchemaElement("Warning", ScriptSchemaStandardType.Warning));
 			GraphChoice.Items.Add(CreateSchemaElement("Error", ScriptSchemaStandardType.Error));
 			GraphChoice.Items.Add(CreateDoElement(ScriptSchemaStandardType.Graph));
 			GraphChoice.Items.Add(CreateSwitchElement(ScriptSchemaStandardType.Graph));
 			GraphChoice.Items.Add(CreateForEachElement(ScriptSchemaStandardType.Graph));
+
 			XmlSchemaComplexType GraphType = new XmlSchemaComplexType();
 			GraphType.Name = GetTypeName(ScriptSchemaStandardType.Graph);
 			GraphType.Particle = GraphChoice;
@@ -468,6 +477,7 @@ namespace AutomationTool
 			TriggerChoice.Items.Add(CreateSchemaElement("EnvVar", ScriptSchemaStandardType.EnvVar));
 			TriggerChoice.Items.Add(CreateSchemaElement("Agent", ScriptSchemaStandardType.Agent));
 			TriggerChoice.Items.Add(CreateSchemaElement("Aggregate", ScriptSchemaStandardType.Aggregate));
+			TriggerChoice.Items.Add(CreateSchemaElement("Trace", ScriptSchemaStandardType.Trace));
 			TriggerChoice.Items.Add(CreateSchemaElement("Warning", ScriptSchemaStandardType.Warning));
 			TriggerChoice.Items.Add(CreateSchemaElement("Error", ScriptSchemaStandardType.Error));
 			TriggerChoice.Items.Add(CreateDoElement(ScriptSchemaStandardType.TriggerBody));
@@ -513,6 +523,7 @@ namespace AutomationTool
 			AgentChoice.Items.Add(CreateSchemaElement("Property", ScriptSchemaStandardType.Property));
 			AgentChoice.Items.Add(CreateSchemaElement("EnvVar", ScriptSchemaStandardType.EnvVar));
 			AgentChoice.Items.Add(CreateSchemaElement("Node", ScriptSchemaStandardType.Node));
+			AgentChoice.Items.Add(CreateSchemaElement("Trace", ScriptSchemaStandardType.Trace));
 			AgentChoice.Items.Add(CreateSchemaElement("Warning", ScriptSchemaStandardType.Warning));
 			AgentChoice.Items.Add(CreateSchemaElement("Error", ScriptSchemaStandardType.Error));
 			AgentChoice.Items.Add(CreateDoElement(ScriptSchemaStandardType.AgentBody));
@@ -561,8 +572,10 @@ namespace AutomationTool
 			NodeChoice.MaxOccursString = "unbounded";
 			NodeChoice.Items.Add(CreateSchemaElement("Property", ScriptSchemaStandardType.Property));
 			NodeChoice.Items.Add(CreateSchemaElement("EnvVar", ScriptSchemaStandardType.EnvVar));
+			NodeChoice.Items.Add(CreateSchemaElement("Trace", ScriptSchemaStandardType.Trace));
 			NodeChoice.Items.Add(CreateSchemaElement("Warning", ScriptSchemaStandardType.Warning));
 			NodeChoice.Items.Add(CreateSchemaElement("Error", ScriptSchemaStandardType.Error));
+			NodeChoice.Items.Add(CreateSchemaElement("Expand", ScriptSchemaStandardType.Expand));
 			NodeChoice.Items.Add(CreateDoElement(ScriptSchemaStandardType.NodeBody));
 			NodeChoice.Items.Add(CreateSwitchElement(ScriptSchemaStandardType.NodeBody));
 			NodeChoice.Items.Add(CreateForEachElement(ScriptSchemaStandardType.NodeBody));
@@ -702,6 +715,45 @@ namespace AutomationTool
 			XmlSchemaComplexType PropertyType = new XmlSchemaComplexType();
 			PropertyType.Name = GetTypeName(ScriptSchemaStandardType.Property);
 			PropertyType.ContentModel = ContentModel;
+			return PropertyType;
+		}
+
+		/// <summary>
+		/// Creates the schema type representing the macro type
+		/// </summary>
+		/// <returns>Type definition for a node</returns>
+		static XmlSchemaType CreateMacroType()
+		{
+			XmlSchemaComplexContentExtension Extension = new XmlSchemaComplexContentExtension();
+			Extension.BaseTypeName = GetQualifiedTypeName(ScriptSchemaStandardType.NodeBody);
+			Extension.Attributes.Add(CreateSchemaAttribute("Name", ScriptSchemaStandardType.Name, XmlSchemaUse.Required));
+			Extension.Attributes.Add(CreateSchemaAttribute("Arguments", ScriptSchemaStandardType.BalancedString, XmlSchemaUse.Optional));
+			Extension.Attributes.Add(CreateSchemaAttribute("OptionalArguments", ScriptSchemaStandardType.BalancedString, XmlSchemaUse.Optional));
+			Extension.Attributes.Add(CreateSchemaAttribute("If", ScriptSchemaStandardType.BalancedString, XmlSchemaUse.Optional));
+
+			XmlSchemaComplexContent ContentModel = new XmlSchemaComplexContent();
+			ContentModel.Content = Extension;
+
+			XmlSchemaComplexType ComplexType = new XmlSchemaComplexType();
+			ComplexType.Name = GetTypeName(ScriptSchemaStandardType.Macro);
+			ComplexType.ContentModel = ContentModel;
+			return ComplexType;
+		}
+
+		/// <summary>
+		/// Creates the schema type representing a macro expansion
+		/// </summary>
+		/// <returns>Type definition for expanding a macro</returns>
+		static XmlSchemaType CreateExpandType()
+		{
+			XmlSchemaAnyAttribute AnyAttribute = new XmlSchemaAnyAttribute();
+			AnyAttribute.ProcessContents = XmlSchemaContentProcessing.Skip;
+
+			XmlSchemaComplexType PropertyType = new XmlSchemaComplexType();
+			PropertyType.Name = GetTypeName(ScriptSchemaStandardType.Expand);
+			PropertyType.Attributes.Add(CreateSchemaAttribute("Name", ScriptSchemaStandardType.BalancedString, XmlSchemaUse.Required));
+			PropertyType.Attributes.Add(CreateSchemaAttribute("If", ScriptSchemaStandardType.BalancedString, XmlSchemaUse.Optional));
+			PropertyType.AnyAttribute = AnyAttribute;
 			return PropertyType;
 		}
 

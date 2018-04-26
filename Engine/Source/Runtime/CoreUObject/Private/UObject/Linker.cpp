@@ -5,12 +5,12 @@
 =============================================================================*/
 
 #include "UObject/Linker.h"
+#include "Misc/PackageName.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
 #include "UObject/Package.h"
 #include "Templates/Casts.h"
 #include "UObject/UnrealType.h"
-#include "Misc/PackageName.h"
 #include "UObject/LinkerLoad.h"
 #include "Misc/SecureHash.h"
 #include "Logging/TokenizedMessage.h"
@@ -20,6 +20,7 @@
 #include "UObject/LinkerManager.h"
 #include "UObject/UObjectThreadContext.h"
 #include "UObject/DebugSerializationFlags.h"
+#include "UObject/ObjectResource.h"
 
 DEFINE_LOG_CATEGORY(LogLinker);
 
@@ -69,6 +70,14 @@ FArchive& operator<<(FArchive& Ar,FCompressedChunk& Chunk)
 	return Ar;
 }
 
+void operator<<(FStructuredArchive::FSlot Slot, FCompressedChunk& Chunk)
+{
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+	Record << NAMED_ITEM("UncompressedOffset", Chunk.UncompressedOffset);
+	Record << NAMED_ITEM("UncompressedSize", Chunk.UncompressedSize);
+	Record << NAMED_ITEM("CompressedOffset", Chunk.CompressedOffset);
+	Record << NAMED_ITEM("CompressedSize", Chunk.CompressedSize);
+}
 
 /*----------------------------------------------------------------------------
 	Items stored in Unreal files.
@@ -78,12 +87,18 @@ FGenerationInfo::FGenerationInfo(int32 InExportCount, int32 InNameCount)
 : ExportCount(InExportCount), NameCount(InNameCount)
 {}
 
-/** I/O function
+/** I/O functions
  * we use a function instead of operator<< so we can pass in the package file summary for version tests, since archive version hasn't been set yet
  */
 void FGenerationInfo::Serialize(FArchive& Ar, const struct FPackageFileSummary& Summary)
 {
 	Ar << ExportCount << NameCount;
+}
+
+void FGenerationInfo::Serialize(FStructuredArchive::FSlot Slot, const struct FPackageFileSummary& Summary)
+{
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+	Record << NAMED_FIELD(ExportCount) << NAMED_FIELD(NameCount);
 }
 
 #if WITH_EDITORONLY_DATA
@@ -92,11 +107,16 @@ extern int32 GLinkerAllowDynamicClasses;
 
 void FLinkerTables::SerializeSearchableNamesMap(FArchive& Ar)
 {
+	SerializeSearchableNamesMap(FStructuredArchiveFromArchive(Ar).GetSlot());
+}
+
+void FLinkerTables::SerializeSearchableNamesMap(FStructuredArchive::FSlot Slot)
+{
 #if WITH_EDITOR
-	FArchive::FScopeSetDebugSerializationFlags S(Ar, DSF_IgnoreDiff, true);
+	FArchive::FScopeSetDebugSerializationFlags S(Slot.GetUnderlyingArchive(), DSF_IgnoreDiff, true);
 #endif
 
-	if (Ar.IsSaving())
+	if (Slot.GetUnderlyingArchive().IsSaving())
 	{
 		// Sort before saving to keep order consistent
 		SearchableNamesMap.KeySort(TLess<FPackageIndex>());
@@ -108,7 +128,7 @@ void FLinkerTables::SerializeSearchableNamesMap(FArchive& Ar)
 	}
 
 	// Default Map serialize works fine
-	Ar << SearchableNamesMap;
+	Slot << SearchableNamesMap;
 }
 
 FName FLinker::GetExportClassName( int32 i )
@@ -461,11 +481,6 @@ static void LogGetPackageLinkerError(FArchive* LinkerArchive, const TCHAR* InFil
 			SafeLoadError(InOuter, LoadFlags, *Error.ToString());
 		}
 	}
-}
-
-static void LogGetPackageLinkerError(FLinkerLoad* Linker, const TCHAR* InFilename, const FText& InFullErrorMessage, const FText& InSummaryErrorMessage, UObject* InOuter, uint32 LoadFlags)
-{
-	LogGetPackageLinkerError(Linker ? Linker->Loader : nullptr, InFilename, InFullErrorMessage, InSummaryErrorMessage, InOuter, LoadFlags);
 }
 
 /** Customized version of FPackageName::DoesPackageExist that takes dynamic native class packages into account */

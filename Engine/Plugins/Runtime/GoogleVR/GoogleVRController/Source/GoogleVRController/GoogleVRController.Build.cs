@@ -10,14 +10,14 @@ namespace UnrealBuildTool.Rules
 		{
 			bFasterWithoutUnity = true;
 
-			string GoogleVRSDKDir = Target.UEThirdPartySourceDirectory + "GoogleVR/";
+//			string GoogleVRSDKDir = Target.UEThirdPartySourceDirectory + "GoogleVR/";
 			PrivateIncludePaths.AddRange(
 				new string[] {
 					"GoogleVRController/Private",
 					"GoogleVRController/Private/ArmModel",
 					// ... add other private include paths required here ...
-					GoogleVRSDKDir + "include",
-					GoogleVRSDKDir + "include/vr/gvr/capi/include",
+//					GoogleVRSDKDir + "include",
+//					GoogleVRSDKDir + "include/vr/gvr/capi/include",
 				}
 				);
 

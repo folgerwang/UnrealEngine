@@ -9,8 +9,6 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePaths.AddRange(
 				new string[] {
 					"Runtime/NetworkFileSystem/Private",
-					"Runtime/NetworkFileSystem/Private/Simple",
-					"Runtime/NetworkFileSystem/Private/Streaming",
 				});
 
 			PrivateDependencyModuleNames.AddRange(
@@ -25,8 +23,6 @@ namespace UnrealBuildTool.Rules
 			PublicIncludePaths.AddRange(
 				new string[] {
 					"Runtime/NetworkFileSystem/Public",
-					"Runtime/NetworkFileSystem/Public/Interfaces",
-					"Runtime/CoreUObject/Public/Interfaces",
 				});
 
 			PublicDependencyModuleNames.AddRange(

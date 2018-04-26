@@ -237,7 +237,7 @@ FKeyPropertyResult FMediaTrackEditor::AddMasterMediaSource(FFrameNumber KeyTime,
 }
 
 
-void FMediaTrackEditor::AddNewSection(const FAssetData& AssetData, UMovieSceneMediaTrack* Track)
+void FMediaTrackEditor::AddNewSection(const FAssetData& AssetData, UMovieSceneMediaTrack* MediaTrack)
 {
 	FSlateApplication::Get().DismissAllMenus();
 
@@ -251,7 +251,6 @@ void FMediaTrackEditor::AddNewSection(const FAssetData& AssetData, UMovieSceneMe
 		{
 			const FScopedTransaction Transaction(NSLOCTEXT("Sequencer", "AddMedia_Transaction", "Add Media"));
 
-			auto MediaTrack = Cast<UMovieSceneMediaTrack>(Track);
 			MediaTrack->Modify();
 
 			FFrameTime KeyTime = GetSequencer()->GetLocalTime().Time;

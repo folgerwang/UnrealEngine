@@ -101,12 +101,6 @@ void* FUnixPlatformProcess::GetDllExport( void* DllHandle, const TCHAR* ProcName
 	return dlsym( DllHandle, TCHAR_TO_ANSI(ProcName) );
 }
 
-int32 FUnixPlatformProcess::GetDllApiVersion( const TCHAR* Filename )
-{
-	check(Filename);
-	return FEngineVersion::CompatibleWith().GetChangelist();
-}
-
 const TCHAR* FUnixPlatformProcess::GetModulePrefix()
 {
 	return TEXT("lib");

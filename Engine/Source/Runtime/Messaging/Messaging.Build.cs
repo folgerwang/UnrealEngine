@@ -18,7 +18,6 @@ namespace UnrealBuildTool.Rules
 					"Runtime/Messaging/Private",
 					"Runtime/Messaging/Private/Bus",
 					"Runtime/Messaging/Private/Bridge",
-					"Runtime/Messaging/Private/Serialization",
 				});
 		}
 	}

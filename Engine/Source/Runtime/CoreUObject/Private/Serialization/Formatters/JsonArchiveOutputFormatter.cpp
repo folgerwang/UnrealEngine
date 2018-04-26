@@ -207,60 +207,20 @@ void FJsonArchiveOutputFormatter::Serialize(bool& Value)
 
 void FJsonArchiveOutputFormatter::Serialize(FString& Value)
 {
-	FString Result = TEXT("\"");
-
 	// Insert a "String:" prefix to prevent incorrect interpretation as another explicit type
 	if (Value.StartsWith(TEXT("Name:")) || Value.StartsWith(TEXT("Object:")) || Value.StartsWith(TEXT("String:")) || Value.StartsWith(TEXT("Base64:")))
 	{
-		Result += TEXT("String:");
+		SerializeStringInternal(FString::Printf(TEXT("String:%s"), *Value));
 	}
-
-	// Escape the string characters
-	for (int32 Idx = 0; Idx < Value.Len(); Idx++)
+	else
 	{
-		switch (Value[Idx])
-		{
-		case '\"':
-			Result += "\\\"";
-			break;
-		case '\\':
-			Result += "\\\\";
-			break;
-		case '\b':
-			Result += "\\b";
-			break;
-		case '\f':
-			Result += "\\f";
-			break;
-		case '\n':
-			Result += "\\n";
-			break;
-		case '\r':
-			Result += "\\r";
-			break;
-		case '\t':
-			Result += "\\t";
-			break;
-		default:
-			if (Value[Idx] <= 0x1f || Value[Idx] >= 0x7f)
-			{
-				Result += FString::Printf(TEXT("\\u%04x"), Value[Idx]);
-			}
-			else
-			{
-				Result.AppendChar(Value[Idx]);
-			}
-			break;
-		}
+		SerializeStringInternal(Value);
 	}
-	Result += TEXT("\"");
-
-	WriteValue(Result);
 }
 
 void FJsonArchiveOutputFormatter::Serialize(FName& Value)
 {
-	WriteValue(FString::Printf(TEXT("\"Name:%s\""), *Value.ToString()));
+	SerializeStringInternal(FString::Printf(TEXT("Name:%s"), *Value.ToString()));
 }
 
 void FJsonArchiveOutputFormatter::Serialize(UObject*& Value)
@@ -271,7 +231,7 @@ void FJsonArchiveOutputFormatter::Serialize(UObject*& Value)
 	}
 	else
 	{
-		WriteValue(FString::Printf(TEXT("\"Object:%s\""), *Value->GetFullName()));
+		SerializeStringInternal(FString::Printf(TEXT("Object:%s"), *Value->GetFullName()));
 	}
 }
 
@@ -393,6 +353,53 @@ void FJsonArchiveOutputFormatter::WriteOptionalNewline()
 		Inner.Serialize(Newline.GetData(), Newline.Num());
 		bNeedsNewline = false;
 	}
+}
+
+void FJsonArchiveOutputFormatter::SerializeStringInternal(const FString& String)
+{
+	FString Result = TEXT("\"");
+
+	// Escape the string characters
+	for (int32 Idx = 0; Idx < String.Len(); Idx++)
+	{
+		switch (String[Idx])
+		{
+		case '\"':
+			Result += "\\\"";
+			break;
+		case '\\':
+			Result += "\\\\";
+			break;
+		case '\b':
+			Result += "\\b";
+			break;
+		case '\f':
+			Result += "\\f";
+			break;
+		case '\n':
+			Result += "\\n";
+			break;
+		case '\r':
+			Result += "\\r";
+			break;
+		case '\t':
+			Result += "\\t";
+			break;
+		default:
+			if (String[Idx] <= 0x1f || String[Idx] >= 0x7f)
+			{
+				Result += FString::Printf(TEXT("\\u%04x"), String[Idx]);
+			}
+			else
+			{
+				Result.AppendChar(String[Idx]);
+			}
+			break;
+		}
+	}
+	Result += TEXT("\"");
+
+	WriteValue(Result);
 }
 
 #endif

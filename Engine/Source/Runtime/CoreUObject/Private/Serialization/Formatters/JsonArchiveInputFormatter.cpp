@@ -30,6 +30,17 @@ FArchive& FJsonArchiveInputFormatter::GetUnderlyingArchive()
 	return Inner;
 }
 
+FStructuredArchiveFormatter* FJsonArchiveInputFormatter::CreateSubtreeReader()
+{
+	FJsonArchiveInputFormatter* Cloned = new FJsonArchiveInputFormatter(*this);
+	Cloned->ObjectStack.Empty();
+	Cloned->ValueStack.Empty();
+	Cloned->MapIteratorStack.Empty();
+	Cloned->ValueStack.Push(ValueStack.Top());
+
+	return Cloned;
+}
+
 void FJsonArchiveInputFormatter::EnterRecord()
 {
 	TSharedPtr<FJsonValue>& Value = ValueStack.Top();
@@ -230,7 +241,12 @@ void FJsonArchiveInputFormatter::Serialize(bool& Value)
 
 void FJsonArchiveInputFormatter::Serialize(FString& Value)
 {
-	Value = ValueStack.Top()->AsString();
+	// If the string we serialized was empty, this value will be a null object rather than a string, so we have to
+#if DO_CHECK
+	bool bSuccess =
+#endif
+		ValueStack.Top()->TryGetString(Value);
+	check(bSuccess || ValueStack.Top()->IsNull());
 	Value.RemoveFromStart(TEXT("String:"));
 }
 
@@ -251,10 +267,9 @@ void FJsonArchiveInputFormatter::Serialize(FName& Value)
 
 void FJsonArchiveInputFormatter::Serialize(UObject*& Value)
 {
-	FString StringValue = ValueStack.Top()->AsString();
-
+	FString StringValue;
 	const TCHAR Prefix[] = TEXT("Object:");
-	if (ensure(StringValue.StartsWith(Prefix)))
+	if (ValueStack.Top()->TryGetString(StringValue) && StringValue.StartsWith(Prefix))
 	{
 		Value = ResolveObjectName(*StringValue + ARRAY_COUNT(Prefix) - 1);
 	}

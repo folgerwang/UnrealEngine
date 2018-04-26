@@ -8,15 +8,11 @@ namespace UnrealBuildTool.Rules
         {
             PublicIncludePaths.AddRange(
                     new string[] {
-                        "Runtime/HTNPlanner/Public",
                     }
                     );
 
             PrivateIncludePaths.AddRange(
                 new string[] {
-                        "Runtime/AIModule/Public",
-                        "Runtime/AIModule/Private",
-                        "Runtime/Engine/Private",
                 }
                 );
 

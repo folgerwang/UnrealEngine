@@ -1063,7 +1063,7 @@ namespace UnrealBuildTool
 			if (!FileReference.Exists(LinkerExceptionsCPPFilename))
 			{
 				// Create a dummy file in case it doesn't exist yet so that the module does not complain it's not there
-				ResponseFile.Create(LinkerExceptionsCPPFilename, new List<string>());
+				FileItem.CreateIntermediateTextFile(LinkerExceptionsCPPFilename, new List<string>());
 			}
 
 			List<string> Result = new List<string>();
@@ -1104,7 +1104,7 @@ namespace UnrealBuildTool
 			// If we determined that we should write the file, write it now.
 			if (bShouldWriteFile)
 			{
-				ResponseFile.Create(LinkerExceptionsCPPFilename, Result);
+				FileItem.CreateIntermediateTextFile(LinkerExceptionsCPPFilename, Result);
 			}
 
 			SourceFiles.Add(FileItem.GetItemByFileReference(LinkerExceptionsCPPFilename));
@@ -1380,12 +1380,14 @@ namespace UnrealBuildTool
 						}
 
 						// Create the response file
-						FileReference ResponseFileName = CompileAction.ProducedItems[0].Location + "_" + AllArguments.GetHashCode().ToString("X") + ".rsp";
-						string ResponseArgument = string.Format("@\"{0}\"", ResponseFile.Create(ResponseFileName, new List<string> { AllArguments }).FullName);
+						FileReference ResponseFileName = CompileAction.ProducedItems[0].Location + ".rsp";
+						FileItem ResponseFileItem = FileItem.CreateIntermediateTextFile(ResponseFileName, new List<string> { AllArguments });
+						string ResponseArgument = string.Format("@\"{0}\"", ResponseFileName);
 
 						CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 						CompileAction.CommandPath = ClangPath;
 						CompileAction.CommandArguments = ResponseArgument;
+						CompileAction.PrerequisiteItems.Add(ResponseFileItem);
 						CompileAction.StatusDescription = string.Format("{0} [{1}-{2}]", Path.GetFileName(SourceFile.AbsolutePath), Arch.Replace("-", ""), GPUArchitecture.Replace("-", ""));
 
 						// VC++ always outputs the source file name being compiled, so we don't need to emit this ourselves
@@ -1605,7 +1607,11 @@ namespace UnrealBuildTool
 					// Write out a response file
 					FileReference ResponseFileName = GetResponseFileName(LinkEnvironment, OutputFile);
 					InputFileNames.Add(LinkResponseArguments.Replace("\\", "/"));
-					LinkAction.CommandArguments += string.Format(" @\"{0}\"", ResponseFile.Create(ResponseFileName, InputFileNames));
+
+					FileItem ResponseFileItem = FileItem.CreateIntermediateTextFile(ResponseFileName, InputFileNames);
+
+					LinkAction.CommandArguments += string.Format(" @\"{0}\"", ResponseFileName);
+					LinkAction.PrerequisiteItems.Add(ResponseFileItem);
 
 					// Fix up the paths in commandline
 					LinkAction.CommandArguments = LinkAction.CommandArguments.Replace("\\", "/");

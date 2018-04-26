@@ -9,7 +9,6 @@ public class EditorTests : ModuleRules
 
 		PublicIncludePaths.AddRange(
 			new string[] {
-				"EditorTests/Public"
 				// ... add public include paths required here ...
 			}
 		);

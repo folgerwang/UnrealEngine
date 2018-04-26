@@ -20,7 +20,7 @@ UBoolProperty::UBoolProperty( const FObjectInitializer& ObjectInitializer )
 	SetBoolSize( 1, false, 1 );
 }
 
-UBoolProperty::UBoolProperty(ECppProperty, int32 InOffset, uint64 InFlags, uint32 InBitMask, uint32 InElementSize, bool bIsNativeBool)
+UBoolProperty::UBoolProperty(ECppProperty, int32 InOffset, EPropertyFlags InFlags, uint32 InBitMask, uint32 InElementSize, bool bIsNativeBool)
 	: UProperty(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash)
 	, FieldSize(0)
 	, ByteOffset(0)
@@ -30,7 +30,7 @@ UBoolProperty::UBoolProperty(ECppProperty, int32 InOffset, uint64 InFlags, uint3
 	SetBoolSize(InElementSize, bIsNativeBool, InBitMask);
 }
 
-UBoolProperty::UBoolProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, uint32 InBitMask, uint32 InElementSize, bool bIsNativeBool )
+UBoolProperty::UBoolProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, EPropertyFlags InFlags, uint32 InBitMask, uint32 InElementSize, bool bIsNativeBool )
 : UProperty( ObjectInitializer, EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash)
 , FieldSize(0)
 , ByteOffset(0)
@@ -212,10 +212,8 @@ void LoadFromType(UBoolProperty* Property, const FPropertyTag& Tag, FArchive& Ar
 	}
 }
 
-bool UBoolProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+EConvertFromTypeResult UBoolProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
-	bOutAdvanceProperty = true;
-
 	if (Tag.Type == NAME_IntProperty)
 	{
 		LoadFromType<int32>(this, Tag, Ar, Data);
@@ -238,19 +236,16 @@ bool UBoolProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8
 		if (Tag.EnumName == NAME_None)
 		{
 			// If we're a nested property the EnumName tag got lost, don't allow this
-			UProperty* const PropertyOwner = Cast<UProperty>(GetOuterUField());
-
-			if (PropertyOwner)
+			if (GetOuterUField()->IsA<UProperty>())
 			{
-				bOutAdvanceProperty = false;
-				return bOutAdvanceProperty;
+				return EConvertFromTypeResult::UseSerializeItem;
 			}
 
 			LoadFromType<uint8>(this, Tag, Ar, Data);
 		}
 		else
 		{
-			bOutAdvanceProperty = false;
+			return EConvertFromTypeResult::UseSerializeItem;
 		}
 	}
 	else if (Tag.Type == NAME_UInt16Property)
@@ -267,10 +262,10 @@ bool UBoolProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8
 	}
 	else
 	{
-		bOutAdvanceProperty = false;
+		return EConvertFromTypeResult::UseSerializeItem;
 	}
-			
-	return bOutAdvanceProperty;
+
+	return EConvertFromTypeResult::Converted;
 }
 
 void UBoolProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const

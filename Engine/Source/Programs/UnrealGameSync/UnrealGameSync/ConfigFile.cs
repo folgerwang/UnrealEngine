@@ -530,6 +530,13 @@ namespace UnrealGameSync
 			return (Section == null)? DefaultValue : Section.GetValue(Key.Substring(DotIdx + 1), DefaultValue);
 		}
 
+		public int GetValue(string Key, int DefaultValue)
+		{
+			int DotIdx = Key.IndexOf('.');
+			ConfigSection Section = FindSection(Key.Substring(0, DotIdx));
+			return (Section == null)? DefaultValue : Section.GetValue(Key.Substring(DotIdx + 1), DefaultValue);
+		}
+
 		public string GetValue(string Key, string DefaultValue)
 		{
 			int DotIdx = Key.IndexOf('.');

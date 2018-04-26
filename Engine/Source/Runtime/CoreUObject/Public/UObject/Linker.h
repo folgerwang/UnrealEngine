@@ -28,8 +28,9 @@ struct FCompressedChunk
 	/** Compressed size in bytes.				*/
 	int32		CompressedSize;
 
-	/** I/O function */
-	friend COREUOBJECT_API FArchive& operator<<(FArchive& Ar,FCompressedChunk& Chunk);
+	/** I/O functions */
+	friend COREUOBJECT_API FArchive& operator<<(FArchive& Ar, FCompressedChunk& Chunk);
+	friend COREUOBJECT_API void operator<<(FStructuredArchive::FSlot Slot, FCompressedChunk& Chunk);
 };
 
 
@@ -160,6 +161,7 @@ public:
 
 	/** Serializes the searchable name map */
 	COREUOBJECT_API void SerializeSearchableNamesMap(FArchive &Ar);
+	COREUOBJECT_API void SerializeSearchableNamesMap(FStructuredArchive::FSlot Slot);
 };
 
 

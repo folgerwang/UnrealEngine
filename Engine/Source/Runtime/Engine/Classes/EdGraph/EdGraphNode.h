@@ -316,6 +316,10 @@ public:
 	/** Marks this node as an automatically placed ghost node (see the DefaultEventNodes ini section) */
 	void MakeAutomaticallyPlacedGhostNode();
 
+	// UObject interface
+	virtual void Serialize(FArchive& Ar) override;
+	// End of UObject interface
+
 #if WITH_EDITOR
 
 private:
@@ -324,7 +328,6 @@ private:
 public:
 	// UObject interface
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-	virtual void Serialize(FArchive& Ar) override;
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void PostLoad() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

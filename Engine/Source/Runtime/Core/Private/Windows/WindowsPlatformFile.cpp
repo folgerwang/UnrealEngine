@@ -623,7 +623,7 @@ public:
 	}
 	virtual bool IsReadOnly(const TCHAR* Filename) override
 	{
-		uint32 Result = GetFileAttributes(*NormalizeFilename(Filename));
+		uint32 Result = GetFileAttributesW(*NormalizeFilename(Filename));
 		if (Result != 0xFFFFFFFF)
 		{
 			return !!(Result & FILE_ATTRIBUTE_READONLY);

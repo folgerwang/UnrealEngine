@@ -98,7 +98,7 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 	{
 		TArray< TSharedPtr<FJsonValue> > Out;
 		FScriptSetHelper Helper(SetProperty, Value);
-		for ( int32 i=0, n=Helper.Num(); i < n; ++i )
+		for ( int32 i=0, n=Helper.Num(); n; ++i )
 		{
 			if ( Helper.IsValidIndex(i) )
 			{
@@ -108,6 +108,8 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 					// add to the array
 					Out.Push(Elem);
 				}
+
+				--n;
 			}
 		}
 		return MakeShareable(new FJsonValueArray(Out));
@@ -117,7 +119,7 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 		TSharedRef<FJsonObject> Out = MakeShareable(new FJsonObject());
 
 		FScriptMapHelper Helper(MapProperty, Value);
-		for ( int32 i=0, n = Helper.Num(); i < n; ++i )
+		for ( int32 i=0, n = Helper.Num(); n; ++i )
 		{
 			if ( Helper.IsValidIndex(i) )
 			{
@@ -138,6 +140,8 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 
 					Out->SetField(KeyString, ValueElement);
 				}
+
+				--n;
 			}
 		}
 

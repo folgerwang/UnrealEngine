@@ -12,7 +12,5 @@ public class LiveLinkInterface : ModuleRules
                 "CoreUObject"
             }
         );
-
-        PrivateIncludePaths.Add("LiveLinkInterface/Private");
 	}
 }

@@ -568,7 +568,7 @@ FReply FMaterialPropertyHelpers::OnClickedSaveNewLayerInstance(class UMaterialFu
 
 	if (Object)
 	{
-		UMaterialInterface* EditedMaterial = Cast<UMaterialInterface>(FunctionPreviewMaterial);
+		UMaterialInterface* EditedMaterial = FunctionPreviewMaterial;
 		if (EditedMaterial)
 		{
 			UMaterialInstanceConstant* ProxyMaterial = NewObject<UMaterialInstanceConstant>(GetTransientPackage(), NAME_None, RF_Transactional);

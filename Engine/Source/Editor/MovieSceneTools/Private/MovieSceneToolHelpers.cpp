@@ -190,16 +190,15 @@ FString MovieSceneToolHelpers::ComposeShotName(const FString& ShotPrefix, uint32
 
 	if (ShotNumber != INDEX_NONE)
 	{
-		FString ShotFormat = TEXT("%0") + FString::Printf(TEXT("%d"), ProjectSettings->ShotNumDigits) + TEXT("d");
-		ShotName += FString::Printf(*ShotFormat, ShotNumber);	
+		ShotName += FString::Printf(TEXT("%0*d"), ProjectSettings->ShotNumDigits, ShotNumber);
 	}
-	
+
 	if (TakeNumber != INDEX_NONE)
 	{
 		FString TakeFormat = TEXT("%0") + FString::Printf(TEXT("%d"), ProjectSettings->TakeNumDigits) + TEXT("d");
 		
 		ShotName += ProjectSettings->TakeSeparator;
-		ShotName += FString::Printf(*TakeFormat, TakeNumber);
+		ShotName += FString::Printf(TEXT("%0*d"), ProjectSettings->TakeNumDigits, TakeNumber);
 	}
 	return ShotName;
 }

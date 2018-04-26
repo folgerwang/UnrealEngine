@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,6 +12,38 @@ using System.Windows.Forms;
 
 namespace UnrealGameSync
 {
+	class StatusElementResources
+	{
+		Dictionary<FontStyle, Font> FontCache = new Dictionary<FontStyle, Font>();
+
+		public StatusElementResources(Font BaseFont)
+		{
+			FontCache.Add(FontStyle.Regular, BaseFont);
+		}
+
+		public void Dispose()
+		{
+			foreach(KeyValuePair<FontStyle, Font> FontPair in FontCache)
+			{
+				if(FontPair.Key != FontStyle.Regular)
+				{
+					FontPair.Value.Dispose();
+				}
+			}
+		}
+
+		public Font FindOrAddFont(FontStyle Style)
+		{
+			Font Result;
+			if(!FontCache.TryGetValue(Style, out Result))
+			{
+				Result = new Font(FontCache[FontStyle.Regular], Style);
+				FontCache[Style] = Result;
+			}
+			return Result;
+		}
+	}
+
 	abstract class StatusElement
 	{
 		public Cursor Cursor = Cursors.Arrow;
@@ -18,26 +51,15 @@ namespace UnrealGameSync
 		public bool bMouseDown;
 		public Rectangle Bounds;
 
-		public static Font FindOrAddFont(FontStyle Style, Dictionary<FontStyle, Font> Cache)
+		public Point Layout(Graphics Graphics, Point Location, StatusElementResources Resources)
 		{
-			Font Result;
-			if(!Cache.TryGetValue(Style, out Result))
-			{
-				Result = new Font(Cache[FontStyle.Regular], Style);
-				Cache[Style] = Result;
-			}
-			return Result;
-		}
-
-		public Point Layout(Graphics Graphics, Point Location, Dictionary<FontStyle, Font> FontCache)
-		{
-			Size Size = Measure(Graphics, FontCache);
+			Size Size = Measure(Graphics, Resources);
 			Bounds = new Rectangle(Location.X, Location.Y - (Size.Height + 1) / 2, Size.Width, Size.Height);
 			return new Point(Location.X + Size.Width, Location.Y);
 		}
 
-		public abstract Size Measure(Graphics Graphics, Dictionary<FontStyle, Font> FontCache);
-		public abstract void Draw(Graphics Grahpics, Dictionary<FontStyle, Font> FontCache);
+		public abstract Size Measure(Graphics Graphics, StatusElementResources Resources);
+		public abstract void Draw(Graphics Grahpics, StatusElementResources Resources);
 
 		public virtual void OnClick(Point Location)
 		{
@@ -53,12 +75,12 @@ namespace UnrealGameSync
 			Icon = InIcon;
 		}
 
-		public override Size Measure(Graphics Graphics, Dictionary<FontStyle, Font> FontCache)
+		public override Size Measure(Graphics Graphics, StatusElementResources Resources)
 		{
 			return Icon.Size;
 		}
 
-		public override void Draw(Graphics Graphics, Dictionary<FontStyle, Font> FontCache)
+		public override void Draw(Graphics Graphics, StatusElementResources Resources)
 		{
 			Graphics.DrawImage(Icon, Bounds.Location);
 		}
@@ -77,12 +99,12 @@ namespace UnrealGameSync
 			Index = InIndex;
 		}
 
-		public override Size Measure(Graphics Graphics, Dictionary<FontStyle, Font> FontCache)
+		public override Size Measure(Graphics Graphics, StatusElementResources Resources)
 		{
 			return IconSize;
 		}
 
-		public override void Draw(Graphics Graphics, Dictionary<FontStyle, Font> FontCache)
+		public override void Draw(Graphics Graphics, StatusElementResources Resources)
 		{
 			Graphics.DrawImage(Strip, Bounds, new Rectangle(IconSize.Width * Index, 0, IconSize.Width, IconSize.Height), GraphicsUnit.Pixel);
 		}
@@ -99,14 +121,14 @@ namespace UnrealGameSync
 			Style = InStyle;
 		}
 
-		public override Size Measure(Graphics Graphics, Dictionary<FontStyle, Font> FontCache)
+		public override Size Measure(Graphics Graphics, StatusElementResources Resources)
 		{
-			return TextRenderer.MeasureText(Graphics, Text, FindOrAddFont(Style, FontCache), new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding);
+			return TextRenderer.MeasureText(Graphics, Text, Resources.FindOrAddFont(Style), new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding);
 		}
 
-		public override void Draw(Graphics Graphics, Dictionary<FontStyle, Font> FontCache)
+		public override void Draw(Graphics Graphics, StatusElementResources Resources)
 		{
-			TextRenderer.DrawText(Graphics, Text, FindOrAddFont(Style, FontCache), Bounds.Location, SystemColors.ControlText, TextFormatFlags.NoPadding);
+			TextRenderer.DrawText(Graphics, Text, Resources.FindOrAddFont(Style), Bounds.Location, SystemColors.ControlText, TextFormatFlags.NoPadding);
 		}
 	}
 
@@ -129,12 +151,12 @@ namespace UnrealGameSync
 			LinkAction(Location, Bounds);
 		}
 
-		public override Size Measure(Graphics Graphics, Dictionary<FontStyle, Font> FontCache)
+		public override Size Measure(Graphics Graphics, StatusElementResources Resources)
 		{
-			return TextRenderer.MeasureText(Graphics, Text, FindOrAddFont(Style, FontCache), new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding);
+			return TextRenderer.MeasureText(Graphics, Text, Resources.FindOrAddFont(Style), new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding);
 		}
 
-		public override void Draw(Graphics Graphics, Dictionary<FontStyle, Font> FontCache)
+		public override void Draw(Graphics Graphics, StatusElementResources Resources)
 		{
 			Color TextColor = SystemColors.HotTrack;
 			if(bMouseDown)
@@ -145,7 +167,7 @@ namespace UnrealGameSync
 			{
 				TextColor = Color.FromArgb(TextColor.B, TextColor.G, TextColor.R);
 			}
-			TextRenderer.DrawText(Graphics, Text, FindOrAddFont(Style, FontCache), Bounds.Location, TextColor, TextFormatFlags.NoPadding);
+			TextRenderer.DrawText(Graphics, Text, Resources.FindOrAddFont(Style), Bounds.Location, TextColor, TextFormatFlags.NoPadding);
 		}
 	}
 
@@ -158,13 +180,13 @@ namespace UnrealGameSync
 			Progress = InProgress;
 		}
 
-		public override Size Measure(Graphics Graphics, Dictionary<FontStyle, Font> FontCache)
+		public override Size Measure(Graphics Graphics, StatusElementResources Resources)
 		{
-			int Height = (int)(FindOrAddFont(FontStyle.Regular, FontCache).Height * 0.9f);
+			int Height = (int)(Resources.FindOrAddFont(FontStyle.Regular).Height * 0.9f);
 			return new Size(Height * 16, Height);
 		}
 
-		public override void Draw(Graphics Graphics, Dictionary<FontStyle, Font> FontCache)
+		public override void Draw(Graphics Graphics, StatusElementResources Resources)
 		{
 			Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
 
@@ -247,21 +269,23 @@ namespace UnrealGameSync
 			return false;
 		}
 
-		public void Layout(Graphics Graphics, Point Location, Dictionary<FontStyle, Font> FontCache)
+		public void Layout(Graphics Graphics, Point Location, StatusElementResources Resources)
 		{
+			Bounds = new Rectangle(Location, new Size(0, 0));
+
 			Point NextLocation = Location;
 			foreach(StatusElement Element in Elements)
 			{
-				NextLocation = Element.Layout(Graphics, NextLocation, FontCache);
-				Bounds = Bounds.IsEmpty? Element.Bounds : Rectangle.Union(Bounds, Element.Bounds);
+				NextLocation = Element.Layout(Graphics, NextLocation, Resources);
+				Bounds = Rectangle.Union(Bounds, Element.Bounds);
 			}
 		}
 
-		public void Draw(Graphics Graphics, Dictionary<FontStyle, Font> FontCache)
+		public void Draw(Graphics Graphics, StatusElementResources Resources)
 		{
 			foreach(StatusElement Element in Elements)
 			{
-				Element.Draw(Graphics, FontCache);
+				Element.Draw(Graphics, Resources);
 			}
 		}
 	}
@@ -273,8 +297,13 @@ namespace UnrealGameSync
 		Image ProjectLogo;
 		bool bDisposeProjectLogo;
 		Rectangle ProjectLogoBounds;
-		Dictionary<FontStyle, Font> FontCache = new Dictionary<FontStyle,Font>();
+		StatusElementResources Resources;
 		List<StatusLine> Lines = new List<StatusLine>();
+		StatusLine Caption;
+		Pen AlertDividerPen;
+		int AlertDividerY;
+		StatusLine Alert;
+		Color? TintColor;
 		Point? MouseOverLocation;
 		StatusElement MouseOverElement;
 		Point? MouseDownLocation;
@@ -285,6 +314,9 @@ namespace UnrealGameSync
 		public StatusPanel()
 		{
 			DoubleBuffered = true;
+
+			AlertDividerPen = new Pen(Color.Black);
+			AlertDividerPen.DashPattern = new float[] { 2, 2 };
 		}
 
 		public void SuspendDisplay()
@@ -313,6 +345,11 @@ namespace UnrealGameSync
 
 			if(disposing)
 			{
+				if(AlertDividerPen != null)
+				{
+					AlertDividerPen.Dispose();
+					AlertDividerPen = null;
+				}
 				if(ProjectLogo != null)
 				{
 					if(bDisposeProjectLogo)
@@ -327,18 +364,12 @@ namespace UnrealGameSync
 
 		private void ResetFontCache()
 		{
-			// Dispose of all the fonts we have at the moment
-			foreach(KeyValuePair<FontStyle, Font> FontPair in FontCache)
+			if(Resources != null)
 			{
-				if(FontPair.Key != FontStyle.Regular)
-				{
-					FontPair.Value.Dispose();
-				}
+				Resources.Dispose();
+				Resources = null;
 			}
-
-			// Repopulate with the basic font
-			FontCache.Clear();
-			FontCache.Add(FontStyle.Regular, Font);
+			Resources = new StatusElementResources(Font);
 		}
 
 		public void SetProjectLogo(Image NewProjectLogo, bool bDispose)
@@ -359,18 +390,22 @@ namespace UnrealGameSync
 		{
 			InvalidateElements();
 			Lines.Clear();
+			Caption = null;
 		}
 
-		public void Set(IEnumerable<StatusLine> NewLines)
+		public void Set(IEnumerable<StatusLine> NewLines, StatusLine NewCaption, StatusLine NewAlert, Color? NewTintColor)
 		{
-			if(FontCache.Count == 0)
+			if(Resources == null)
 			{
-				FontCache.Add(FontStyle.Regular, Font);
+				Resources = new StatusElementResources(Font);
 			}
 
 			InvalidateElements();
 			Lines.Clear();
 			Lines.AddRange(NewLines);
+			Caption = NewCaption;
+			Alert = NewAlert;
+			TintColor = NewTintColor;
 			LayoutElements();
 			InvalidateElements();
 
@@ -382,9 +417,19 @@ namespace UnrealGameSync
 
 		protected void InvalidateElements()
 		{
+			Invalidate(ProjectLogoBounds);
+
 			foreach(StatusLine Line in Lines)
 			{
 				Invalidate(Line.Bounds);
+			}
+			if(Caption != null)
+			{
+				Invalidate(Caption.Bounds);
+			}
+			if(Alert != null)
+			{
+				Invalidate(Alert.Bounds);
 			}
 		}
 
@@ -394,6 +439,20 @@ namespace UnrealGameSync
 			foreach(StatusLine Line in Lines)
 			{
 				if(Line.HitTest(Location, out OutElement))
+				{
+					return true;
+				}
+			}
+			if(Caption != null)
+			{
+				if(Caption.HitTest(Location, out OutElement))
+				{
+					return true;
+				}
+			}
+			if(Alert != null)
+			{
+				if(Alert.HitTest(Location, out OutElement))
 				{
 					return true;
 				}
@@ -419,38 +478,65 @@ namespace UnrealGameSync
 
 		protected void LayoutElements(Graphics Graphics)
 		{
+			// Layout the alert message
+			int BodyHeight = Height;
+			if(Alert != null)
+			{
+				AlertDividerY = Height - Font.Height - 16;
+				Alert.Layout(Graphics, Point.Empty, Resources);
+				Alert.Layout(Graphics, new Point((Width - Alert.Bounds.Width) / 2, (Height + AlertDividerY) / 2), Resources);
+				BodyHeight = AlertDividerY;
+			}
+
 			// Get the logo size
 			Image DrawProjectLogo = ProjectLogo ?? Properties.Resources.DefaultProjectLogo;
-			float LogoScale = Math.Min((float)Height / DrawProjectLogo.Height, 1.0f);
+			float LogoScale = Math.Min((float)BodyHeight - ((Caption != null)? Font.Height : 0) / DrawProjectLogo.Height, 1.0f);
 			int LogoWidth = (int)(DrawProjectLogo.Width * LogoScale);
 			int LogoHeight = (int)(DrawProjectLogo.Height * LogoScale);
 
 			// Figure out where the split between content and the logo is going to be
 			int DividerX = ((Width - LogoWidth - ContentWidth) / 2) + LogoWidth;
 
+			// Get the logo position
+			int LogoX = DividerX - LogoWidth;
+			int LogoY = (BodyHeight - LogoHeight) / 2;
+
+			// Layout the caption. We may move the logo to make room for this.
+			if(Caption != null)
+			{
+				LogoY -= Font.Height / 2;
+				Caption.Layout(Graphics, Point.Empty, Resources);
+				int CaptionWidth = Caption.Bounds.Width;
+				Caption.Layout(Graphics, new Point(Math.Min(LogoX + (LogoWidth / 2) - (CaptionWidth / 2), DividerX - CaptionWidth), LogoY + LogoHeight), Resources);
+			}
+
 			// Set the logo rectangle
-			ProjectLogoBounds = new Rectangle(DividerX - LogoWidth, (Height - LogoHeight) / 2, LogoWidth, LogoHeight);
+			ProjectLogoBounds = new Rectangle(LogoX, LogoY, LogoWidth, LogoHeight);
 
 			// Measure up all the line height
 			float TotalLineHeight = Lines.Sum(x => x.LineHeight);
 
 			// Space out all the lines
-			float LineY = (Height - TotalLineHeight * (int)(Font.Height * LineSpacing)) / 2;
+			float LineY = (BodyHeight - TotalLineHeight * (int)(Font.Height * LineSpacing)) / 2;
 			foreach(StatusLine Line in Lines)
 			{
 				LineY += (int)(Font.Height * LineSpacing * Line.LineHeight * 0.5f);
-				Line.Layout(Graphics, new Point(DividerX + 5, (int)LineY), FontCache);
+				Line.Layout(Graphics, new Point(DividerX + 5, (int)LineY), Resources);
 				LineY += (int)(Font.Height * LineSpacing * Line.LineHeight * 0.5f);
 			}
 		}
 
 		protected override void OnMouseMove(MouseEventArgs e)
 		{
+			base.OnMouseMove(e);
+
 			SetMouseOverLocation(e.Location);
 		}
 
 		protected override void OnMouseDown(MouseEventArgs e)
 		{
+			base.OnMouseDown(e);
+
 			if(e.Button == MouseButtons.Left)
 			{
 				SetMouseDownLocation(e.Location);
@@ -459,27 +545,19 @@ namespace UnrealGameSync
 
 		protected override void OnMouseUp(MouseEventArgs e)
 		{
+			base.OnMouseUp(e);
+
 			if(MouseDownElement != null && MouseOverElement == MouseDownElement)
 			{
 				MouseDownElement.OnClick(e.Location);
 			}
+
 			SetMouseDownLocation(null);
 		}
 
-		protected override void OnMouseCaptureChanged(EventArgs e)
+		protected override void OnMouseLeave(EventArgs e)
 		{
-			base.OnMouseCaptureChanged(e);
-
-			if(!Capture)
-			{
-				SetMouseDownLocation(null);
-				SetMouseOverLocation(null);
-			}
-		}
-
-		protected override void OnLeave(EventArgs e)
-		{
-			base.OnLeave(e);
+			base.OnMouseLeave(e);
 
 			SetMouseDownLocation(null);
 			SetMouseOverLocation(null);
@@ -491,6 +569,29 @@ namespace UnrealGameSync
 
 			LayoutElements();
 			Invalidate();
+		}
+
+		protected override void OnPaintBackground(PaintEventArgs e)
+		{
+			base.OnPaintBackground(e);
+
+			if(TintColor.HasValue)
+			{
+				int TintSize = Width / 2;
+				using(LinearGradientBrush BackgroundBrush = new LinearGradientBrush(new Point(Width, 0), new Point(Width - TintSize, TintSize), TintColor.Value, BackColor))
+				{
+					BackgroundBrush.WrapMode = WrapMode.TileFlipXY;
+					using (GraphicsPath Path = new GraphicsPath())
+					{
+						Path.StartFigure();
+						Path.AddLine(Width, 0, Width - TintSize * 2, 0);
+						Path.AddLine(Width, TintSize * 2, Width, 0);
+						Path.CloseFigure();
+
+						e.Graphics.FillPath(BackgroundBrush, Path);
+					}
+				}
+			}
 		}
 
 		protected override void OnPaint(PaintEventArgs e)
@@ -505,7 +606,16 @@ namespace UnrealGameSync
 
 				foreach(StatusLine Line in Lines)
 				{
-					Line.Draw(e.Graphics, FontCache);
+					Line.Draw(e.Graphics, Resources);
+				}
+				if(Caption != null)
+				{
+					Caption.Draw(e.Graphics, Resources);
+				}
+				if(Alert != null)
+				{
+					e.Graphics.DrawLine(AlertDividerPen, 0, AlertDividerY, Width, AlertDividerY);
+					Alert.Draw(e.Graphics, Resources);
 				}
 			}
 		}
@@ -538,8 +648,6 @@ namespace UnrealGameSync
 					Invalidate(MouseOverElement.Bounds);
 				}
 			}
-
-			Capture = (MouseDownElement != null || MouseOverElement != null);
 		}
 
 		protected void SetMouseDownLocation(Point? NewMouseDownLocation)
@@ -568,8 +676,6 @@ namespace UnrealGameSync
 					Invalidate(MouseDownElement.Bounds);
 				}
 			}
-
-			Capture = (MouseDownElement != null || MouseOverElement != null);
 		}
 	}
 }

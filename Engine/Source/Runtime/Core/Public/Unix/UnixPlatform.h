@@ -55,6 +55,12 @@ typedef FUnixPlatformTypes FPlatformTypes;
 
 #define PLATFORM_ENABLE_POPCNT_INTRINSIC 1
 
+#if __has_feature(cxx_decltype_auto)
+#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1
+#else
+#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 0
+#endif
+
 // SOCK_CLOEXEC is available on Unix since 2.6.27
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
 	#define PLATFORM_HAS_BSD_SOCKET_FEATURE_CLOSE_ON_EXEC	1

@@ -44,6 +44,7 @@
 #include "Misc/RedirectCollector.h"
 
 
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 #include "Serialization/ArchiveDescribeReference.h"
 #include "UObject/FindStronglyConnected.h"
 #include "UObject/UObjectThreadContext.h"
@@ -1163,6 +1164,12 @@ void UObject::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 			OutDeps.Add(ObjClass->GetDefaultObject());
 		}
 	}
+}
+
+void UObject::Serialize(FStructuredArchive::FRecord Record)
+{
+	FArchiveUObjectFromStructuredArchive Ar(Record.EnterField(FIELD_NAME_TEXT("BaseClassAutoGen")));
+	UObject::Serialize(Ar);
 }
 
 void UObject::Serialize( FArchive& Ar )
@@ -2996,7 +3003,7 @@ void ParseFunctionFlags(uint32 Flags, TArray<const TCHAR*>& Results)
 }
 
 
-COREUOBJECT_API TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags)
+COREUOBJECT_API TArray<const TCHAR*> ParsePropertyFlags(EPropertyFlags InFlags)
 {
 	TArray<const TCHAR*> Results;
 
@@ -3060,6 +3067,7 @@ COREUOBJECT_API TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags)
 		TEXT("CPF_SkipSerialization"),
 	};
 
+	uint64 Flags = InFlags;
 	for (const TCHAR* FlagName : PropertyFlags)
 	{
 		if (Flags & 1)
@@ -3713,38 +3721,38 @@ bool StaticExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 			UObject* Object;
 			if (ParseObject(Str,TEXT("NAME="),Object,ANY_PACKAGE))
 			{
-				uint32 SearchModeFlags = FReferenceChainSearch::ESearchMode::PrintResults;
+				
+				EReferenceChainSearchMode SearchModeFlags = EReferenceChainSearchMode::PrintResults;
 
 				FString Tok;
 				while(FParse::Token(Str, Tok, false))
 				{
 					if (FCString::Stricmp(*Tok, TEXT("shortest")) == 0)
 					{
-						if ( !!(SearchModeFlags&FReferenceChainSearch::ESearchMode::Longest) )
+						if ( !!(SearchModeFlags&EReferenceChainSearchMode::Longest) )
 						{
 							UE_LOG(LogObj, Log, TEXT("Specifing 'shortest' AND 'longest' is invalid. Ignoring this occurence of 'shortest'."));
 						}
-						SearchModeFlags |= FReferenceChainSearch::ESearchMode::Shortest;
+						SearchModeFlags |= EReferenceChainSearchMode::Shortest;
 					}
 					else if (FCString::Stricmp(*Tok, TEXT("longest")) == 0)
 					{
-						if ( !!(SearchModeFlags&FReferenceChainSearch::ESearchMode::Shortest) )
+						if ( !!(SearchModeFlags&EReferenceChainSearchMode::Shortest) )
 						{
 							UE_LOG(LogObj, Log, TEXT("Specifing 'shortest' AND 'longest' is invalid. Ignoring this occurence of 'longest'."));
 						}
-						SearchModeFlags |= FReferenceChainSearch::ESearchMode::Longest;
+						SearchModeFlags |= EReferenceChainSearchMode::Longest;
 					}
 					else if (FCString::Stricmp(*Tok, TEXT("external")) == 0)
 					{
-						SearchModeFlags |= FReferenceChainSearch::ESearchMode::ExternalOnly;
+						SearchModeFlags |= EReferenceChainSearchMode::ExternalOnly;
 					}
 					else if (FCString::Stricmp(*Tok, TEXT("direct")) == 0)
 					{
-						SearchModeFlags |= FReferenceChainSearch::ESearchMode::Direct;
+						SearchModeFlags |= EReferenceChainSearchMode::Direct;
 					}
 				}
 				
-
 				FReferenceChainSearch RefChainSearch(Object, SearchModeFlags);
 			}
 			else
@@ -4120,11 +4128,6 @@ bool StaticExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 void StaticUObjectInit();
 void InitUObject();
 void StaticExit();
-
-void PreInitUObject()
-{
-	// Deprecated.
-}
 
 void InitUObject()
 {

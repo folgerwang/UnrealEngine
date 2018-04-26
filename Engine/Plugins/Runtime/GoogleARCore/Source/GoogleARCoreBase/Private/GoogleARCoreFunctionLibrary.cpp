@@ -41,7 +41,7 @@ namespace
 				OutRequestResult = EGoogleARCoreInstallRequestResult::UserDeclinedInstallation;
 				break;
 			default:
-				ensureMsgf(false, TEXT("Unexpected ARCore API Status: %d"), RequestStatus);
+				ensureMsgf(false, TEXT("Unexpected ARCore API Status: %d"), (int)RequestStatus);
 				break;
 		}
 		return OutRequestResult;

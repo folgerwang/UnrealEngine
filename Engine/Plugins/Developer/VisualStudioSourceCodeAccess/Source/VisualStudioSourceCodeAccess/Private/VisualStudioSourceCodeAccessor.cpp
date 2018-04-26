@@ -14,6 +14,7 @@
 #include "HAL/PlatformTime.h"
 #include "ProjectDescriptor.h"
 #include "Interfaces/IProjectManager.h"
+#include "Misc/FileHelper.h"
 //#include "GameProjectGenerationModule.h"
 
 #if WITH_EDITOR
@@ -1284,7 +1285,12 @@ FString FVisualStudioSourceCodeAccessor::GetSolutionPath() const
 
 			if (!FUProjectDictionary(FPaths::RootDir()).IsForeignProject(CachedSolutionPath))
 			{
-				CachedSolutionPath = FPaths::Combine(FPaths::RootDir(), TEXT("UE4.sln"));
+				FString MasterProjectName;
+				if (!FFileHelper::LoadFileToString(MasterProjectName, *(FPaths::EngineIntermediateDir() / TEXT("ProjectFiles/MasterProjectName.txt"))))
+				{
+					MasterProjectName = "UE4";
+				}
+				CachedSolutionPath = FPaths::Combine(FPaths::RootDir(), MasterProjectName + TEXT(".sln"));
 			}
 			else
 			{

@@ -29,7 +29,6 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"AndroidMedia/Private",
 					"AndroidMedia/Private/Player",
-					"AndroidMedia/Private/Shared",
 				});
 		}
 	}

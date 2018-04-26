@@ -157,15 +157,6 @@ namespace UnrealBuildTool
 			UEBuildPlatform.RegisterBuildPlatform(new TVOSPlatform(SDK));
 			UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.TVOS, UnrealPlatformGroup.Apple);
 			UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.TVOS, UnrealPlatformGroup.IOS);
-
-			if (TVOSPlatform.TVOSArchitecture == "-simulator")
-			{
-				UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.TVOS, UnrealPlatformGroup.Simulator);
-			}
-			else
-			{
-				UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.TVOS, UnrealPlatformGroup.Device);
-			}
 		}
 	}
 

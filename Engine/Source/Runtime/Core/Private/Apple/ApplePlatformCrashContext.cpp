@@ -74,6 +74,8 @@ int32 FApplePlatformCrashContext::ReportCrash() const
 		ANSICHAR* StackBuffer = const_cast<ANSICHAR*>(&MinidumpCallstackInfo[0]);
 		*StackBuffer = 0;
 		
+		// Generate the portable callstack for the crash xml
+		GeneratePortableCallStack(IgnoreDepth, ARRAY_COUNT(MinidumpCallstackInfo) - 1, Context);		
 		// Walk the stack and dump it to the allocated memory (ignore first 2 callstack lines as those are in stack walking code)
 		FPlatformStackWalk::StackWalkAndDump( StackBuffer, ARRAY_COUNT(MinidumpCallstackInfo) - 1, IgnoreDepth, Context );
 		

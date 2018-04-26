@@ -351,7 +351,7 @@ void FKismet2CompilerModule::RefreshVariables(UBlueprint* Blueprint)
 				Blueprint->NewVariables[MissingVarIndex].VarName, 
 				Blueprint->NewVariables[MissingVarIndex].VarType, 
 				Blueprint->GeneratedClass, 
-				0,
+				CPF_None,
 				K2Schema,
 				MessageLog);
 

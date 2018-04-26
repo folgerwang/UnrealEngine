@@ -6,6 +6,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "BuildSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogApp, Log, All);
 
@@ -38,17 +39,17 @@ bool FApp::bHasVRFocus = false;
 
 FString FApp::GetBranchName()
 {
-	return FString(TEXT(BRANCH_NAME));
+	return FString(BuildSettings::GetBranchName());
 }
 
 const TCHAR* FApp::GetBuildVersion()
 {
-	return BUILD_VERSION;
+	return BuildSettings::GetBuildVersion();
 }
 
 int32 FApp::GetEngineIsPromotedBuild()
 {
-	return ENGINE_IS_PROMOTED_BUILD;
+	return BuildSettings::IsPromotedBuild()? 1 : 0;
 }
 
 

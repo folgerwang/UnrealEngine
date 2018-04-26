@@ -180,6 +180,35 @@ public:
 		InnerArchive.PopDebugDataString();
 	}
 #endif
+
+	/** Pushes editor-only marker to the stack of currently serialized properties */
+	virtual FORCEINLINE void PushSerializedProperty(class UProperty* InProperty, const bool bIsEditorOnlyProperty)
+	{
+		InnerArchive.PushSerializedProperty(InProperty, bIsEditorOnlyProperty);
+	}
+	/** Pops editor-only marker from the stack of currently serialized properties */
+	virtual FORCEINLINE void PopSerializedProperty(class UProperty* InProperty, const bool bIsEditorOnlyProperty)
+	{
+		InnerArchive.PopSerializedProperty(InProperty, bIsEditorOnlyProperty);
+	}
+#if WITH_EDITORONLY_DATA
+	/** Returns true if the stack of currently serialized properties contains an editor-only property */
+	virtual FORCEINLINE bool IsEditorOnlyPropertyOnTheStack() const
+	{
+		return InnerArchive.IsEditorOnlyPropertyOnTheStack();
+	}
+#endif
+
+	virtual FORCEINLINE bool IsProxyOf(FArchive* InOther) const
+	{
+		return InOther == this || InOther == &InnerArchive || InnerArchive.IsProxyOf(InOther);
+	}
+
+	virtual FArchive* GetCacheableArchive() override
+	{
+		return InnerArchive.GetCacheableArchive();
+	}
+
 protected:
 
 	/** Holds the archive that this archive is a proxy to. */

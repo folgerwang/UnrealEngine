@@ -399,7 +399,7 @@ void DiffUtils::CompareUnrelatedSCS(const UBlueprint* Old, const TArray< FSCSRes
 
 static void AdvanceSetIterator( FScriptSetHelper& SetHelper, int32& Index)
 {
-	while(Index < SetHelper.Num() && !SetHelper.IsValidIndex(Index))
+	while(Index < SetHelper.GetMaxIndex() && !SetHelper.IsValidIndex(Index))
 	{
 		++Index;
 	}
@@ -407,7 +407,7 @@ static void AdvanceSetIterator( FScriptSetHelper& SetHelper, int32& Index)
 
 static void AdvanceMapIterator( FScriptMapHelper& MapHelper, int32& Index)
 {
-	while(Index < MapHelper.Num() && !MapHelper.IsValidIndex(Index))
+	while(Index < MapHelper.GetMaxIndex() && !MapHelper.IsValidIndex(Index))
 	{
 		++Index;
 	}

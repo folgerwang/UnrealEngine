@@ -13,6 +13,7 @@
 #include "Algo/Reverse.h"
 #include "Templates/Tuple.h"
 #include "Templates/HasGetTypeHash.h"
+#include "Containers/UnrealString.h"
 
 #define ExchangeB(A,B) {bool T=A; A=B; B=T;}
 
@@ -265,6 +266,7 @@ public:
 
 	/** 
 	 * Helper function to return the amount of memory allocated by this container .
+	 * Only returns the size of allocations made directly by the container, not the elements themselves.
 	 *
 	 * @return Number of bytes allocated by this container.
 	 * @see CountBytes
@@ -525,6 +527,45 @@ public:
 	FORCEINLINE friend FArchive& operator<<(FArchive& Ar,TMapBase& Map)
 	{
 		return Ar << Map.Pairs;
+	}
+
+	/** Structured archive serializer. */
+	FORCEINLINE friend void operator<<(FStructuredArchive::FSlot Slot, TMapBase& InMap)
+	{
+		if (Slot.GetUnderlyingArchive().IsTextFormat())
+		{
+			int32 Num = InMap.Num();
+			FStructuredArchive::FMap Map = Slot.EnterMap(Num);
+
+			if (Slot.GetUnderlyingArchive().IsLoading())
+			{
+				FString KeyString;
+				KeyType Key;
+
+				for (int32 Index = 0; Index < Num; ++Index)
+				{
+					FStructuredArchive::FSlot ValueSlot = Map.EnterElement(KeyString);
+					using namespace Lex;
+					FromString(Key, *KeyString);
+					ValueSlot << InMap.Add(Key);
+				}
+			}
+			else
+			{
+				FString StringK;
+				for (TMapBase::TIterator It(InMap); It; ++It)
+				{
+					using namespace Lex;
+					StringK = ToString(It->Key);
+					FStructuredArchive::FSlot ValueSlot = Map.EnterElement(StringK);
+					ValueSlot << It->Value;
+				}
+			}
+		}
+		else
+		{
+			Slot << InMap.Pairs;
+		}
 	}
 
 	/**

@@ -1387,15 +1387,14 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 				{
 					// Sanity check to make sure that Linker is the linker that loaded our Result package or the linker has already been detached
 					check(!Result || Result->LinkerLoad == Linker || Result->LinkerLoad == nullptr);
-					if (Result && Linker->Loader)
+					if (Result && Linker->HasLoader())
 					{
 						ResetLoaders(Result);
 					}
 					// Reset loaders could have already deleted Linker so guard against deleting stale pointers
 					if (Result && Result->LinkerLoad)
 					{
-						delete Linker->Loader;
-						Linker->Loader = nullptr;
+						Linker->DestroyLoader();
 					}
 					// And make sure no one can use it after it's been deleted
 					Linker = nullptr;
@@ -1711,11 +1710,11 @@ void EndLoad()
 		{
 			if (Linker)
 			{				
-				if (Linker->Loader && Linker->LinkerRoot)
+				if (Linker->HasLoader() && Linker->LinkerRoot)
 				{
 					ResetLoaders(Linker->LinkerRoot);
 				}
-				check(Linker->Loader == nullptr);				
+				check(!Linker->HasLoader());				
 			}
 		}
 
@@ -2231,7 +2230,7 @@ bool StaticAllocateObjectErrorTests( UClass* InClass, UObject* InOuter, FName In
 			const FString ErrorMsg = FString::Printf(TEXT("Class which was marked abstract was trying to be loaded.  It will be nulled out on save. %s %s"), *InName.ToString(), *InClass->GetName());
 			// if we are trying instantiate an abstract class in the editor we'll warn the user that it will be nulled out on save
 			UE_LOG(LogUObjectGlobals, Warning, TEXT("%s"), *ErrorMsg);
-			ensureMsgf(false, *ErrorMsg);
+			ensureMsgf(false, TEXT("%s"), *ErrorMsg);
 		}
 		else
 		{

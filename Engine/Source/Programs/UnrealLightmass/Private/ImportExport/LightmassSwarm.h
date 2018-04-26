@@ -14,6 +14,7 @@
 #include "Templates/IsValidVariadicFunctionArg.h"
 #include "Templates/AndOrNot.h"
 #include "Templates/IsArrayOrRefOfType.h"
+#include "ImportExport.h"
 
 namespace Lightmass
 {

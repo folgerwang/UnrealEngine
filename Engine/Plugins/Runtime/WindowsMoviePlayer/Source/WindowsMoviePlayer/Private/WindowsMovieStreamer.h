@@ -7,8 +7,11 @@
 
 #include "Windows/WindowsHWrapper.h"
 #include "Windows/AllowWindowsPlatformTypes.h"
+
+THIRD_PARTY_INCLUDES_START
 #include <mfapi.h>
 #include <mfidl.h>
+THIRD_PARTY_INCLUDES_END
 
 DECLARE_LOG_CATEGORY_EXTERN(LogWindowsMoviePlayer, Log, All);
 

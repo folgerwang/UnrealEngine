@@ -330,7 +330,10 @@ void UWidgetBlueprintGeneratedClass::SetTemplate(UUserWidget* InTemplate)
 {
 	Template = InTemplate;
 	TemplateAsset = InTemplate;
-
+	if (Template)
+	{
+		Template->AddToCluster(this, true);
+	}
 	bValidTemplate = TemplateAsset.IsNull() ? false : true;
 }
 

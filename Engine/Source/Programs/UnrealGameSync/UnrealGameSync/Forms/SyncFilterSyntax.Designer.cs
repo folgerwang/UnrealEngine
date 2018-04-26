@@ -88,6 +88,7 @@
 			this.MaximizeBox = false;
 			this.MinimizeBox = false;
 			this.Name = "SyncFilterSyntax";
+			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "View Syntax";
 			this.panel1.ResumeLayout(false);

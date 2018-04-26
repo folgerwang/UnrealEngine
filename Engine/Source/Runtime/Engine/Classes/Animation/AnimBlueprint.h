@@ -95,6 +95,8 @@ class ENGINE_API UAnimBlueprint : public UBlueprint, public IInterface_PreviewMe
 	// @todo document
 	class UAnimBlueprintGeneratedClass* GetAnimBlueprintSkeletonClass() const;
 
+	virtual void Serialize(FArchive& Ar) override;
+
 #if WITH_EDITOR
 
 	virtual UClass* GetBlueprintClass() const override;
@@ -145,8 +147,6 @@ class ENGINE_API UAnimBlueprint : public UBlueprint, public IInterface_PreviewMe
 	}
 
 	virtual void PostLoad() override;
-
-	virtual void Serialize(FArchive& Ar) override;
 
 protected:
 	// Broadcast when an override is changed, allowing derived blueprints to be updated

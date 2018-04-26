@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -57,7 +57,6 @@ public class UnrealLightmass : ModuleRules
 		PrivateIncludePaths.Add("Programs/UnrealLightmass/Private/LightmassCore/Misc");
 		PrivateIncludePaths.Add("Programs/UnrealLightmass/Private/LightmassCore/Math");
 		PrivateIncludePaths.Add("Programs/UnrealLightmass/Private/LightmassCore/Templates");
-		PrivateIncludePaths.Add("Programs/UnrealLightmass/Private/LightmassCore/Types");
 
         // EMBREE
         if (Target.Platform == UnrealTargetPlatform.Win64)

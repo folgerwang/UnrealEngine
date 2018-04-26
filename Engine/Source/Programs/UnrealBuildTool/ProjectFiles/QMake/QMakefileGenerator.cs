@@ -382,7 +382,7 @@ namespace UnrealBuildTool
 					{
 						if (CurConfiguration != UnrealTargetConfiguration.Unknown && CurConfiguration != UnrealTargetConfiguration.Development)
 						{
-							if (UnrealBuildTool.IsValidConfiguration(CurConfiguration))
+							if (InstalledPlatformInfo.IsValidConfiguration(CurConfiguration, EProjectType.Code))
 							{
 
 								if (TargetName == GameProjectName || TargetName == (GameProjectName + "Editor"))

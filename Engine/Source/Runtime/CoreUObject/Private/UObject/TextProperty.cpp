@@ -8,36 +8,32 @@
 #include "Internationalization/TextPackageNamespaceUtil.h"
 #include "Internationalization/StringTableRegistry.h"
 
-bool UTextProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+EConvertFromTypeResult UTextProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
 	// Convert serialized string to text.
-	if (Tag.Type==NAME_StrProperty) 
-	{ 
+	if (Tag.Type==NAME_StrProperty)
+	{
 		FString str;
 		Ar << str;
 		FText Text = FText::FromString(str);
 		Text.TextData->PersistText();
 		Text.Flags |= ETextFlag::ConvertedProperty;
 		SetPropertyValue_InContainer(Data, Text, Tag.ArrayIndex);
-		bOutAdvanceProperty = true;
+		return EConvertFromTypeResult::Converted;
 	}
 
 	// Convert serialized name to text.
-	else if (Tag.Type==NAME_NameProperty) 
-	{ 
-		FName Name;  
+	if (Tag.Type==NAME_NameProperty)
+	{
+		FName Name;
 		Ar << Name;
 		FText Text = FText::FromName(Name);
 		Text.Flags |= ETextFlag::ConvertedProperty;
 		SetPropertyValue_InContainer(Data, Text, Tag.ArrayIndex);
-		bOutAdvanceProperty = true;
-	}
-	else
-	{
-		bOutAdvanceProperty = false;
+		return EConvertFromTypeResult::Converted;
 	}
 
-	return bOutAdvanceProperty;
+	return EConvertFromTypeResult::UseSerializeItem;
 }
 
 bool UTextProperty::Identical_Implementation(const FText& ValueA, const FText& ValueB, uint32 PortFlags)

@@ -10,7 +10,7 @@ using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
-	class HTML5ToolChain : VCToolChain
+	class HTML5ToolChain : UEToolChain
 	{
 		// ini configurations
 		static bool targetWebGL2 = true; // Currently if this is set to true, UE4 can still fall back to WebGL 1 at runtime if browser does not support WebGL 2.
@@ -36,7 +36,7 @@ namespace UnrealBuildTool
 		}
 
 		public HTML5ToolChain(FileReference InProjectFile)
-			: base(CppPlatform.HTML5, WindowsCompiler.VisualStudio2015, false, false, null)
+			: base(CppPlatform.HTML5)
 		{
 			if (!HTML5SDKInfo.IsSDKInstalled())
 			{
@@ -95,6 +95,7 @@ namespace UnrealBuildTool
 			string Result = " ";
 //			string Result = " -Werror";
 
+			Result += " -fdiagnostics-format=msvc";
 			Result += " -fno-exceptions";
 
 			Result += " -Wdelete-non-virtual-dtor";
@@ -354,54 +355,6 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		public static void CompileOutputReceivedDataEventHandler(Object Sender, DataReceivedEventArgs Line)
-		{
-			string Output = Line.Data;
-			if (Output == null)
-			{
-				return;
-			}
-
-			Output = Output.Replace("\\", "/");
-			// Need to match following for clickable links
-			string RegexFilePath = @"^([\/A-Za-z0-9_\-\.]*)+\.(cpp|c|mm|m|hpp|h)";
-			string RegexFilePath2 = @"^([A-Z]:[\/A-Za-z0-9_\-\.]*)+\.(cpp|c|mm|m|hpp|h)";
-			string RegexLineNumber = @"\:\d+\:\d+\:";
-			string RegexDescription = @"(\serror:\s|\swarning:\s).*";
-
-			// Get Matches
-			string MatchFilePath = Regex.Match(Output, RegexFilePath).Value;
-			if (MatchFilePath.Length == 0)
-			{
-				MatchFilePath = Regex.Match(Output, RegexFilePath2).Value;
-			}
-			string MatchLineNumber = Regex.Match(Output, RegexLineNumber).Value;
-			string MatchDescription = Regex.Match(Output, RegexDescription).Value;
-
-			// If any of the above matches failed, do nothing
-			if (MatchFilePath.Length == 0 ||
-				MatchLineNumber.Length == 0 ||
-				MatchDescription.Length == 0)
-			{
-				Log.TraceInformation(Output);
-				return;
-			}
-
-			// Convert Path
-			string RegexStrippedPath = @"(Engine\/|[A-Za-z0-9_\-\.]*\/).*";
-			string ConvertedFilePath = Regex.Match(MatchFilePath, RegexStrippedPath).Value;
-			ConvertedFilePath = Path.GetFullPath(/*"..\\..\\" +*/ ConvertedFilePath);
-
-			// Extract Line + Column Number
-			string ConvertedLineNumber = Regex.Match(MatchLineNumber, @"\d+").Value;
-			string ConvertedColumnNumber = Regex.Match(MatchLineNumber, @"(?<=:\d+:)\d+").Value;
-
-			// Write output
-			string ConvertedExpression = "  " + ConvertedFilePath + "(" + ConvertedLineNumber + "," + ConvertedColumnNumber + "):" + MatchDescription;
-			Log.TraceInformation(ConvertedExpression); // To create clickable vs link
-			Log.TraceInformation(Output);				// To preserve readable output log
-		}
-
 		public void AddIncludePath(ref string Arguments, DirectoryReference IncludePath)
 		{
 			if(IncludePath.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
@@ -490,7 +443,6 @@ namespace UnrealBuildTool
 
 				//System.Console.WriteLine(CompileAction.CommandArguments);
 				CompileAction.StatusDescription = Path.GetFileName(SourceFile.AbsolutePath);
-				CompileAction.OutputEventHandler = new DataReceivedEventHandler(CompileOutputReceivedDataEventHandler);
 
 				// Don't farm out creation of precomputed headers as it is the critical path task.
 				CompileAction.bCanExecuteRemotely = CompileEnvironment.PrecompiledHeaderAction != PrecompiledHeaderAction.Create;
@@ -515,60 +467,6 @@ namespace UnrealBuildTool
 			CPPOutput Result = new CPPOutput();
 
 			return Result;
-		}
-
-		/// <summary>
-		/// Translates clang output warning/error messages into vs-clickable messages
-		/// </summary>
-		/// <param name="sender"> Sending object</param>
-		/// <param name="e"> Event arguments (In this case, the line of string output)</param>
-		protected void RemoteOutputReceivedEventHandler(object sender, DataReceivedEventArgs e)
-		{
-			string Output = e.Data;
-			if (Output == null)
-			{
-				return;
-			}
-
-			if (Utils.IsRunningOnMono)
-			{
-				Log.TraceInformation(Output);
-			}
-			else
-			{
-				// Need to match following for clickable links
-				string RegexFilePath = @"^(\/[A-Za-z0-9_\-\.]*)+\.(cpp|c|mm|m|hpp|h)";
-				string RegexLineNumber = @"\:\d+\:\d+\:";
-				string RegexDescription = @"(\serror:\s|\swarning:\s).*";
-
-				// Get Matches
-				string MatchFilePath = Regex.Match(Output, RegexFilePath).Value.Replace("Engine/Source/../../", "");
-				string MatchLineNumber = Regex.Match(Output, RegexLineNumber).Value;
-				string MatchDescription = Regex.Match(Output, RegexDescription).Value;
-
-				// If any of the above matches failed, do nothing
-				if (MatchFilePath.Length == 0 ||
-					MatchLineNumber.Length == 0 ||
-					MatchDescription.Length == 0)
-				{
-					Log.TraceInformation(Output);
-					return;
-				}
-
-				// Convert Path
-				string RegexStrippedPath = @"\/Engine\/.*"; //@"(Engine\/|[A-Za-z0-9_\-\.]*\/).*";
-				string ConvertedFilePath = Regex.Match(MatchFilePath, RegexStrippedPath).Value;
-				ConvertedFilePath = Path.GetFullPath("..\\.." + ConvertedFilePath);
-
-				// Extract Line + Column Number
-				string ConvertedLineNumber = Regex.Match(MatchLineNumber, @"\d+").Value;
-				string ConvertedColumnNumber = Regex.Match(MatchLineNumber, @"(?<=:\d+:)\d+").Value;
-
-				// Write output
-				string ConvertedExpression = "  " + ConvertedFilePath + "(" + ConvertedLineNumber + "," + ConvertedColumnNumber + "):" + MatchDescription;
-				Log.TraceInformation(ConvertedExpression);	// To create clickable vs link
-//				Log.TraceInformation(Output);				// To preserve readable output log
-			}
 		}
 
 		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
@@ -658,10 +556,10 @@ namespace UnrealBuildTool
 
 			FileReference ResponseFileName = GetResponseFileName(LinkEnvironment, OutputFile);
 
+			FileItem ResponseFileItem = FileItem.CreateIntermediateTextFile(ResponseFileName, ReponseLines);
 
-			LinkAction.CommandArguments += string.Format(" @\"{0}\"", ResponseFile.Create(ResponseFileName, ReponseLines));
-
-			LinkAction.OutputEventHandler = new DataReceivedEventHandler(RemoteOutputReceivedEventHandler);
+			LinkAction.CommandArguments += string.Format(" @\"{0}\"", ResponseFileName);
+			LinkAction.PrerequisiteItems.Add(ResponseFileItem);
 
 			return OutputFile;
 		}

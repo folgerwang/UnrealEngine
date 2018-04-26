@@ -8,7 +8,6 @@ public class MixedRealityCalibration : ModuleRules
 	{
 		PublicIncludePaths.AddRange(
 			new string[] {
-				"MixedRealityCalibration/Public"
 			}
 		);
 

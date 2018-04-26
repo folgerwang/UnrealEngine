@@ -22,6 +22,7 @@ class FStaticMeshStaticLightingTextureMapping;
 class FBSPSurfaceStaticLighting;
 class FFluidSurfaceStaticLightingTextureMapping;
 class FLandscapeStaticLightingTextureMapping;
+class FStaticLightingGlobalVolumeMapping;
 
 /** A sample of a light's surface. */
 class FLightSurfaceSample

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -121,6 +121,18 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Helper class for formatting incoming hex signing key strings
+		/// </summary>
+		private static string ProcessSigningKeyInputStrings(string InString)
+		{
+			if (InString.StartsWith("0x"))
+			{
+				InString = InString.Substring(2);
+			}
+			return InString.TrimStart('0');
+		}
+
+		/// <summary>
 		/// Parse crypto settings from INI file
 		/// </summary>
 		public static CryptoSettings ParseCryptoSettings(DirectoryReference InProjectDirectory, UnrealTargetPlatform InTargetPlatform)
@@ -154,10 +166,18 @@ namespace UnrealBuildTool
 				else
 				{
 					Settings.SigningKey = new SigningKeyPair();
-					Settings.SigningKey.PrivateKey.Exponent = ParseHexStringToByteArray(SigningKeyStrings[0]);
-					Settings.SigningKey.PrivateKey.Modulus = ParseHexStringToByteArray(SigningKeyStrings[1]);
-					Settings.SigningKey.PublicKey.Exponent = ParseHexStringToByteArray(SigningKeyStrings[2]);
+					Settings.SigningKey.PrivateKey.Exponent = ParseHexStringToByteArray(ProcessSigningKeyInputStrings(SigningKeyStrings[0]), 64);
+					Settings.SigningKey.PrivateKey.Modulus = ParseHexStringToByteArray(ProcessSigningKeyInputStrings(SigningKeyStrings[1]), 64);
+					Settings.SigningKey.PublicKey.Exponent = ParseHexStringToByteArray(ProcessSigningKeyInputStrings(SigningKeyStrings[2]), 64);
 					Settings.SigningKey.PublicKey.Modulus = Settings.SigningKey.PrivateKey.Modulus;
+
+					if ((Settings.SigningKey.PrivateKey.Exponent.Length > 64) ||
+						(Settings.SigningKey.PrivateKey.Modulus.Length > 64) ||
+						(Settings.SigningKey.PublicKey.Exponent.Length > 64) ||
+						(Settings.SigningKey.PublicKey.Modulus.Length > 64))
+					{
+						throw new Exception(string.Format("[{0}] Signing keys parsed from encryption.ini are too long. They must be a maximum of 64 bytes long!", InProjectDirectory));
+					}
 				}
 
 				Ini.GetBool("Core.Encryption", "EncryptPak", out Settings.bEnablePakIndexEncryption);
@@ -168,7 +188,20 @@ namespace UnrealBuildTool
 				string EncryptionKeyString;
 				Ini.GetString("Core.Encryption", "aes.key", out EncryptionKeyString);
 				Settings.EncryptionKey = new EncryptionKey();
-				Settings.EncryptionKey.Key = ParseAnsiStringToByteArray(EncryptionKeyString);
+
+				if (EncryptionKeyString.Length > 0)
+				{
+					if (EncryptionKeyString.Length < 32)
+					{
+						Log.WriteLine(LogEventType.Warning, "AES key parsed from encryption.ini is too short. It must be 32 bytes, so will be padded with 0s, giving sub-optimal security!");
+					}
+					else if (EncryptionKeyString.Length > 32)
+					{
+						Log.WriteLine(LogEventType.Warning, "AES key parsed from encryption.ini is too long. It must be 32 bytes, so will be truncated!");
+					}
+
+					Settings.EncryptionKey.Key = ParseAnsiStringToByteArray(EncryptionKeyString, 32);
+				}
 			}
 
 			Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Crypto, InProjectDirectory, InTargetPlatform);
@@ -191,11 +224,6 @@ namespace UnrealBuildTool
 				{
 					Settings.EncryptionKey = new EncryptionKey();
 					Settings.EncryptionKey.Key = System.Convert.FromBase64String(EncryptionKeyString);
-
-					if (Settings.EncryptionKey.Key.Length != 32)
-					{
-						throw new Exception("The encryption key specified in the crypto config file must be 32 bytes long!");
-					}
 				}
 
 				// Parse signing key
@@ -220,7 +248,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Take a hex string and parse into an array of bytes
 		/// </summary>
-		private static byte[] ParseHexStringToByteArray(string InString)
+		private static byte[] ParseHexStringToByteArray(string InString, int InMinimumLength)
 		{
 			if (InString.StartsWith("0x"))
 			{
@@ -235,16 +263,34 @@ namespace UnrealBuildTool
 				InString = InString.Substring(0, InString.Length - CharsToParse);
 				Bytes.Add(byte.Parse(Value, System.Globalization.NumberStyles.AllowHexSpecifier));
 			}
+
+			while (Bytes.Count < InMinimumLength)
+			{
+				Bytes.Add(0);
+			}
+
 			return Bytes.ToArray();
 		}
 
-		private static byte[] ParseAnsiStringToByteArray(string InString)
+		private static byte[] ParseAnsiStringToByteArray(string InString, Int32 InRequiredLength)
 		{
 			List<byte> Bytes = new List<byte>();
+
+			if (InString.Length > InRequiredLength)
+			{
+				InString = InString.Substring(0, InRequiredLength);
+			}
+
 			foreach (char C in InString)
 			{
 				Bytes.Add((byte)C);
 			}
+
+			while (Bytes.Count < InRequiredLength)
+			{
+				Bytes.Add(0);
+			}
+
 			return Bytes.ToArray();
 		}
 	}

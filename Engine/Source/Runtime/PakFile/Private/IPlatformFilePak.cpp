@@ -895,6 +895,7 @@ class FPakPrecacher
 			, MaxShift(0)
 			, BytesToBitsShift(0)
 			, Name(InName)
+			, OriginalSignatureFileHash(0)
 		{
 			check(Handle && TotalSize > 0 && Name != NAME_None);
 			for (int32 Index = 0; Index < AIOP_NUM; Index++)
@@ -2941,6 +2942,8 @@ void FPakPrecacher::DoSignatureCheck(bool bWasCanceled, IAsyncReadRequest* Reque
 	int64 RequestOffset = 0;
 	uint16 PakIndex;
 	TPakChunkHash MasterSignatureHash = 0;
+	static const int64 MaxHashesToCache = 16;
+	TPakChunkHash HashCache[MaxHashesToCache];
 
 	{
 		// Try and keep lock for as short a time as possible. Find our request and copy out the data we need
@@ -2960,7 +2963,13 @@ void FPakPrecacher::DoSignatureCheck(bool bWasCanceled, IAsyncReadRequest* Reque
 		Data = RequestToLower.Memory;
 		SignatureIndex = RequestOffset / FPakInfo::MaxChunkDataSize;
 
-		MasterSignatureHash = CachedPakData[PakIndex].OriginalSignatureFileHash;
+		FPakData& PakData = CachedPakData[PakIndex];
+		MasterSignatureHash = PakData.OriginalSignatureFileHash;
+
+		for (int32 CacheIndex = 0; CacheIndex < FMath::Min(NumSignaturesToCheck, MaxHashesToCache); ++CacheIndex)
+		{
+			HashCache[CacheIndex] = PakData.ChunkHashes[SignatureIndex + CacheIndex];
+		}
 	}
 
 	check(Data);
@@ -2973,16 +2982,21 @@ void FPakPrecacher::DoSignatureCheck(bool bWasCanceled, IAsyncReadRequest* Reque
 	{
 		int64 Size = FMath::Min(RequestSize, (int64)FPakInfo::MaxChunkDataSize);
 
+		if ((SignedChunkIndex > 0) && ((SignedChunkIndex % MaxHashesToCache) == 0))
+		{
+			FScopeLock Lock(&CachedFilesScopeLock);
+			FPakData& PakData = CachedPakData[PakIndex];
+			for (int32 CacheIndex = 0; (CacheIndex < MaxHashesToCache) && ((SignedChunkIndex + CacheIndex) < NumSignaturesToCheck); ++CacheIndex)
+			{
+				HashCache[CacheIndex] = PakData.ChunkHashes[SignatureIndex + CacheIndex];
+			}
+		}
+
 		{
 			SCOPE_SECONDS_ACCUMULATOR(STAT_PakCache_SigningChunkHashTime);
 
 			TPakChunkHash ThisHash = ComputePakChunkHash(Data, Size);
-			bool bChunkHashesMatch;
-			{
-				FScopeLock Lock(&CachedFilesScopeLock);
-				FPakData* PakData = &CachedPakData[PakIndex];
-				bChunkHashesMatch = ThisHash == PakData->ChunkHashes[SignatureIndex];
-			}
+			bool bChunkHashesMatch = (ThisHash == HashCache[SignedChunkIndex % MaxHashesToCache]);
 
 			if (!bChunkHashesMatch)
 			{
@@ -3022,7 +3036,6 @@ class FPakAsyncReadFileHandle final : public IAsyncReadFileHandle
 	FName PakFile;
 	int64 PakFileSize;
 	int64 OffsetInPak;
-	int64 CompressedFileSize;
 	int64 UncompressedFileSize;
 	FPakEntry FileEntry;
 	TSet<FPakProcessedReadRequest*> LiveRequests;
@@ -3030,6 +3043,7 @@ class FPakAsyncReadFileHandle final : public IAsyncReadFileHandle
 	FAsyncFileCallBack ReadCallbackFunction;
 	FCriticalSection CriticalSection;
 	int32 NumLiveRawRequests;
+	int32 CompressedChunkOffset;
 
 	TMap<FCachedAsyncBlock*, FPakProcessedReadRequest*> OutstandingCancelMapBlock;
 
@@ -3050,18 +3064,20 @@ public:
 		, PakFileSize(InPakFile->TotalSize())
 		, FileEntry(*InFileEntry)
 		, NumLiveRawRequests(0)
+		, CompressedChunkOffset(0)
 	{
 		OffsetInPak = FileEntry.Offset + FileEntry.GetSerializedSize(InPakFile->GetInfo().Version);
 		UncompressedFileSize = FileEntry.UncompressedSize;
-		CompressedFileSize = FileEntry.UncompressedSize;
+		int64 CompressedFileSize = FileEntry.UncompressedSize;
 		if (FileEntry.CompressionMethod != COMPRESS_None && UncompressedFileSize)
 		{
 			check(FileEntry.CompressionBlocks.Num());
-			CompressedFileSize = FileEntry.CompressionBlocks.Last().CompressedEnd - OffsetInPak;
-			check(CompressedFileSize > 0);
+			CompressedFileSize = FileEntry.CompressionBlocks.Last().CompressedEnd - FileEntry.CompressionBlocks[0].CompressedStart;
+			check(CompressedFileSize >= 0);
 			const int32 CompressionBlockSize = FileEntry.CompressionBlockSize;
 			check((UncompressedFileSize + CompressionBlockSize - 1) / CompressionBlockSize == FileEntry.CompressionBlocks.Num());
 			Blocks.AddDefaulted(FileEntry.CompressionBlocks.Num());
+			CompressedChunkOffset = InPakFile->GetInfo().HasRelativeCompressedChunkOffsets() ? FileEntry.Offset : 0;
 		}
 		UE_LOG(LogPakFile, Verbose, TEXT("FPakPlatformFile::OpenAsyncRead[%016llX, %016llX) %s"), OffsetInPak, OffsetInPak + CompressedFileSize, Filename);
 		check(PakFileSize > 0 && OffsetInPak + CompressedFileSize <= PakFileSize && OffsetInPak >= 0);
@@ -3161,7 +3177,7 @@ public:
 			Block.RawSize = Align(Block.RawSize, FAES::AESBlockSize);
 		}
 		NumLiveRawRequests++;
-		Block.RawRequest = new FPakReadRequest(PakFile, PakFileSize, &ReadCallbackFunction, FileEntry.CompressionBlocks[BlockIndex].CompressedStart, Block.RawSize, Priority, nullptr, true, &Block);
+		Block.RawRequest = new FPakReadRequest(PakFile, PakFileSize, &ReadCallbackFunction, FileEntry.CompressionBlocks[BlockIndex].CompressedStart + CompressedChunkOffset, Block.RawSize, Priority, nullptr, true, &Block);
 	}
 	void RawReadCallback(bool bWasCancelled, IAsyncReadRequest* InRequest)
 	{
@@ -3662,7 +3678,7 @@ public:
 			int64 UncompressedBlockSize = FMath::Min<int64>(PakEntry.UncompressedSize-Pos, PakEntry.CompressionBlockSize);
 			int64 ReadSize = EncryptionPolicy::AlignReadRequest(CompressedBlockSize);
 			int64 WriteSize = FMath::Min<int64>(UncompressedBlockSize - DirectCopyStart, Length);
-			PakReader->Seek(Block.CompressedStart);
+			PakReader->Seek(Block.CompressedStart + (PakFile.GetInfo().HasRelativeCompressedChunkOffsets() ? PakEntry.Offset : 0));
 			PakReader->Serialize(WorkingBuffers[CompressionBlockIndex & 1],ReadSize);
 			if (bStartedUncompress)
 			{
@@ -4231,12 +4247,12 @@ void FPakFile::UnloadFilenames(bool bShrinkPakEntries)
 					bIsPossibleToShrink = false;
 					break;
 				}
-				if (Entry.CompressionBlocks.Num() > 0 && (Entry.Offset + Entry.GetSerializedSize(Info.Version) != Entry.CompressionBlocks[0].CompressedStart))
+				if (Entry.CompressionBlocks.Num() > 0 && ((Info.HasRelativeCompressedChunkOffsets() ? 0 : Entry.Offset) + Entry.GetSerializedSize(Info.Version) != Entry.CompressionBlocks[0].CompressedStart))
 				{
 					bIsPossibleToShrink = false;
 					break;
 				}
-				if (Entry.CompressionBlocks.Num() == 1 && (Entry.Offset + Entry.GetSerializedSize(Info.Version) + Entry.Size != Entry.CompressionBlocks[0].CompressedEnd))
+				if (Entry.CompressionBlocks.Num() == 1 && ((Info.HasRelativeCompressedChunkOffsets() ? 0 : Entry.Offset) + Entry.GetSerializedSize(Info.Version) + Entry.Size != Entry.CompressionBlocks[0].CompressedEnd))
 				{
 					bIsPossibleToShrink = false;
 					break;
@@ -4673,12 +4689,14 @@ bool FPakPlatformFile::CheckIfPakFilesExist(IPlatformFile* LowLevelFile, const T
 bool FPakPlatformFile::ShouldBeUsed(IPlatformFile* Inner, const TCHAR* CmdLine) const
 {
 	bool Result = false;
-	if (FPlatformProperties::RequiresCookedData() && !FParse::Param(CmdLine, TEXT("NoPak")))
+#if !WITH_EDITOR
+	if (!FParse::Param(CmdLine, TEXT("NoPak")))
 	{
 		TArray<FString> PakFolders;
 		GetPakFolders(CmdLine, PakFolders);
 		Result = CheckIfPakFilesExist(Inner, PakFolders);
 	}
+#endif
 	return Result;
 }
 

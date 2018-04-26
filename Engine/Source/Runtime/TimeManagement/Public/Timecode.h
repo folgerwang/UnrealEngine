@@ -204,8 +204,14 @@ public:
 			SignText = "+ ";
 		}
 
-		FString FormatString = bDropFrameFormat ? TEXT("%s%02d;%02d;%02d;%02d") : TEXT("%s%02d:%02d:%02d:%02d");
-		return FString::Printf(*FormatString, *SignText, FMath::Abs(Hours), FMath::Abs(Minutes), FMath::Abs(Seconds), FMath::Abs(Frames));
+		if (bDropFrameFormat)
+		{
+			return FString::Printf(TEXT("%s%02d;%02d;%02d;%02d"), *SignText, FMath::Abs(Hours), FMath::Abs(Minutes), FMath::Abs(Seconds), FMath::Abs(Frames));
+		}
+		else
+		{
+			return FString::Printf(TEXT("%s%02d:%02d:%02d:%02d"), *SignText, FMath::Abs(Hours), FMath::Abs(Minutes), FMath::Abs(Seconds), FMath::Abs(Frames));
+		}
 	}
 
 public:

@@ -74,6 +74,9 @@ public:
 	/** Add a category name to our inclusion filter. As soon as one inclusion exists, all others will be ignored */
 	void IncludeCategory(const class FName& InCategoryName);
 
+	/** Returns the filename associated with this output device */
+	const TCHAR* GetFilename() const { return Filename; }
+
 private:
 
 	/** Writes to a file on a separate thread */

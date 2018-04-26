@@ -4,6 +4,7 @@
 
 #include "CoreTypes.h"
 #include "Templates/Atomic.h"
+#include "Features/IModularFeature.h"
 
 /**
  * Flags controlling [de]compression
@@ -17,10 +18,14 @@ enum ECompressionFlags
 	COMPRESS_ZLIB 					= 0x01,
 	/** Compress with GZIP															*/
 	COMPRESS_GZIP					= 0x02,
+	/** Compress with user defined callbacks                                        */
+	COMPRESS_Custom                 = 0x04,
 	/** Prefer compression that compresses smaller (ONLY VALID FOR COMPRESSION)		*/
 	COMPRESS_BiasMemory 			= 0x10,
 	/** Prefer compression that compresses faster (ONLY VALID FOR COMPRESSION)		*/
 	COMPRESS_BiasSpeed				= 0x20,
+	/* Override Platform Compression (use library Compression_Method even on platforms with platform specific compression */
+	COMPRESS_OverridePlatform		= 0x40
 };
 
 
@@ -45,6 +50,15 @@ enum ECompressionFlags
 #define LOADING_COMPRESSION_CHUNK_SIZE_PRE_369  32768
 #define LOADING_COMPRESSION_CHUNK_SIZE			131072
 #define SAVING_COMPRESSION_CHUNK_SIZE			LOADING_COMPRESSION_CHUNK_SIZE
+
+#define CUSTOM_COMPRESSOR_FEATURE_NAME "CustomCompressor"
+
+struct ICustomCompressor : IModularFeature
+{
+	virtual bool Compress(void* CompressedBuffer, int32& CompressedSize, const void* UncompressedBuffer, int32 UncompressedSize) = 0;
+	virtual bool Uncompress(void* UncompressedBuffer, int32& UncompressedSize, const void* CompressedBuffer, int32 CompressedSize, int32 BitWindow = 0) = 0;
+	virtual int32 GetCompressedBufferSize(int32 UncompressedSize) = 0;
+};
 
 struct FCompression
 {

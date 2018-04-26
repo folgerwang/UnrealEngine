@@ -22,6 +22,7 @@
 #include "HAL/ExceptionHandling.h"
 #include "UObject/UObjectClusters.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "UObject/GarbageCollectionVerification.h"
 
 /*-----------------------------------------------------------------------------
    Garbage collection.
@@ -32,10 +33,6 @@
 
 DEFINE_LOG_CATEGORY(LogGarbage);
 
-// UE_BUILD_SHIPPING has GShouldVerifyGCAssumptions=false by default
-#define VERIFY_DISREGARD_GC_ASSUMPTIONS			!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-
-#define TEST_ARO_FINDS_ALL_OBJECTS 0
 
 /** Object count during last mark phase																				*/
 int32		GObjectCountDuringLastMarkPhase			= 0;
@@ -100,13 +97,6 @@ void CleanupGCArrayPools()
 {
 	FGCArrayPool::Get().Cleanup();
 }
-
-/**
- * If set and VERIFY_DISREGARD_GC_ASSUMPTIONS is true, we verify GC assumptions about "Disregard For GC" objects. We also
- * verify that no unreachable actors/ components are referenced if VERIFY_NO_UNREACHABLE_OBJECTS_ARE_REFERENCED
- * is true.
- */
-COREUOBJECT_API bool	GShouldVerifyGCAssumptions				= !(UE_BUILD_SHIPPING != 0 && WITH_EDITOR != 0);
 
 // Minimum number of objects to spawn a GC sub-task for
 static int32 GMinDesiredObjectsPerSubTask = 128;
@@ -215,6 +205,10 @@ class FGCReferenceProcessor
 public:
 
 	FGCReferenceProcessor()
+	{
+	}
+
+	void SetCurrentObject(UObject* InObject)
 	{
 	}
 
@@ -1347,58 +1341,14 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 		check(!GObjPurgeIsRequired);
 
 #if VERIFY_DISREGARD_GC_ASSUMPTIONS
-		FUObjectArray& UObjectArray = GUObjectArray;
 		// Only verify assumptions if option is enabled. This avoids false positives in the Editor or commandlets.
-		if ((UObjectArray.DisregardForGCEnabled() || GUObjectClusters.GetNumAllocatedClusters()) && GShouldVerifyGCAssumptions)
+		if ((GUObjectArray.DisregardForGCEnabled() || GUObjectClusters.GetNumAllocatedClusters()) && GShouldVerifyGCAssumptions)
 		{
 			DECLARE_SCOPE_CYCLE_COUNTER(TEXT("CollectGarbageInternal.VerifyGCAssumptions"), STAT_CollectGarbageInternal_VerifyGCAssumptions, STATGROUP_GC);
-			bool bShouldAssert = false;
-
-			// Verify that objects marked to be disregarded for GC are not referencing objects that are not part of the root set.
-			for (FRawObjectIterator It(false); It; ++It)
-			{
-				FUObjectItem* ObjectItem = *It;
-				UObject* Object = (UObject*)ObjectItem->Object;
-				// Don't require UGCObjectReferencer's references to adhere to the assumptions.
-				// Although we want the referencer itself to sit in the disregard for gc set, most of the objects
-				// it's referencing will not be in the root set.
-				if (UObjectArray.IsDisregardForGC(Object) && !Object->IsA(UGCObjectReferencer::StaticClass()))
-				{
-					// Serialize object with reference collector.
-					TArray<UObject*> CollectedReferences;
-					FReferenceFinder ObjectReferenceCollector(CollectedReferences);
-					ObjectReferenceCollector.FindReferences(Object);
-
-					// Iterate over referenced objects, finding bad ones.
-					for (int32 ReferenceIndex = 0; ReferenceIndex < CollectedReferences.Num(); ReferenceIndex++)
-					{
-						UObject* ReferencedObject = CollectedReferences[ReferenceIndex];
-						if (ReferencedObject &&
-							!(ReferencedObject->IsRooted() ||
-								UObjectArray.IsDisregardForGC(ReferencedObject) ||
-								UObjectArray.ObjectToObjectItem(ReferencedObject)->GetOwnerIndex() > 0 ||
-								UObjectArray.ObjectToObjectItem(ReferencedObject)->HasAnyFlags(EInternalObjectFlags::ClusterRoot)))
-						{
-							UE_LOG(LogGarbage, Warning, TEXT("Disregard for GC object %s referencing %s which is not part of root set"),
-								*Object->GetFullName(),
-								*ReferencedObject->GetFullName());
-							bShouldAssert = true;
-						}
-					}
-				}
-				else if (ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot))
-				{
-					if (!VerifyClusterAssumptions(Object))
-					{
-						bShouldAssert = true;
-					}
-				}
-			}
-			// Assert if we encountered any objects breaking implicit assumptions.
-			if (bShouldAssert)
-			{
-				UE_LOG(LogGarbage, Fatal, TEXT("Encountered object(s) breaking Disregard for GC assumption. Please check log for details."));
-			}
+			const double StartTime = FPlatformTime::Seconds();
+			VerifyGCAssumptions();
+			VerifyClustersAssumptions();
+			UE_LOG(LogGarbage, Log, TEXT("%f ms for Verify GC Assumptions"), (FPlatformTime::Seconds() - StartTime) * 1000);
 		}
 #endif
 
@@ -1568,23 +1518,6 @@ bool TryCollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge)
 	return bCanRunGC;
 }
 
-
-/**
- * Helper function to add referenced objects via serialization
- *
- * @param ObjectArray	array to add referenced objects to via AddReferencedObject
- */
-#if TEST_ARO_FINDS_ALL_OBJECTS
-static void AddReferencedObjectsViaSerialization( UObject* Object, FReferenceCollector& Collector )
-{
-	check( Object != NULL );
-
-	// Collect object references by serializing the object
-	FVerySlowReferenceCollectorArchiveScope CollectorScope(Collector.GetVerySlowReferenceCollectorArchive(), Object);
-	Object->Serialize(CollectorScope.GetArchive());
-}
-#endif
-
 void UObject::CallAddReferencedObjects(FReferenceCollector& Collector)
 {
 	GetClass()->CallAddReferencedObjects(this, Collector);
@@ -1608,19 +1541,6 @@ void UObject::AddReferencedObjects(UObject* This, FReferenceCollector& Collector
 		Collector.AddReferencedObject( LoadOuter, This );
 		Collector.AllowEliminatingReferences(true);
 		Collector.AddReferencedObject( Class, This );
-
-#if TEST_ARO_FINDS_ALL_OBJECTS
-		TArray<UObject*> SerializedObjects;
-		AddReferencedObjectsViaSerialization( This, SerializedObjects );
-		for( int32 Index = 0; Index < SerializedObjects.Num(); Index++ )
-		{
-			UObject* SerializedObject = SerializedObjects( Index );
-			if( SerializedObject && SerializedObject->HasAnyFlags( RF_Unreachable ) )
-			{
-				UE_LOG( LogObj, Fatal, TEXT("Object %s references object %s which was not referenced via AddReferencedObjects."), *GetFullName(), *SerializedObject->GetFullName() );
-			}
-		}
-#endif
 	}
 #endif
 }

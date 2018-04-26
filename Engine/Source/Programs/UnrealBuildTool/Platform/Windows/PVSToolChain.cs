@@ -1,22 +1,95 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Xml;
+using System.Xml.Serialization;
 using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
+	/// <summary>
+	/// Partial representation of PVS-Studio main settings file
+	/// </summary>
+	[XmlRoot("ApplicationSettings")]
+	public class PVSApplicationSettings
+	{
+		/// <summary>
+		/// Masks for paths excluded for analysis
+		/// </summary>
+		public string[] PathMasks;
+
+		/// <summary>
+		/// Registered username
+		/// </summary>
+		public string UserName;
+
+		/// <summary>
+		/// Registered serial number
+		/// </summary>
+		public string SerialNumber;
+	}
+
 	class PVSToolChain : UEToolChain
 	{
-		WindowsCompiler Compiler;
+		VCEnvironment EnvVars;
+		FileReference AnalyzerFile;
+		FileReference LicenseFile;
+		PVSApplicationSettings ApplicationSettings;
 
-		public PVSToolChain(CppPlatform InCppPlatform, WindowsCompiler InCompiler) : base(InCppPlatform)
+		public PVSToolChain(CppPlatform Platform, ReadOnlyTargetRules Target) : base(Platform)
 		{
-			this.Compiler = InCompiler;
+			EnvVars = VCEnvironment.Create(Target.WindowsPlatform.Compiler, Platform, Target.WindowsPlatform.CompilerVersion, Target.WindowsPlatform.WindowsSdkVersion);
+
+			AnalyzerFile = FileReference.Combine(new DirectoryReference(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)), "PVS-Studio", "x64", "PVS-Studio.exe");
+			if(!FileReference.Exists(AnalyzerFile))
+			{
+				FileReference EngineAnalyzerFile = FileReference.Combine(UnrealBuildTool.RootDirectory, "Engine", "Extras", "ThirdPartyNotUE", "NoRedist", "PVS-Studio", "PVS-Studio.exe");
+				if (FileReference.Exists(EngineAnalyzerFile))
+				{
+					AnalyzerFile = EngineAnalyzerFile;
+				}
+				else
+				{
+					throw new BuildException("Unable to find PVS-Studio at {0} or {1}", AnalyzerFile, EngineAnalyzerFile);
+				}
+			}
+
+			FileReference SettingsPath = FileReference.Combine(new DirectoryReference(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)), "PVS-Studio", "Settings.xml");
+			if (FileReference.Exists(SettingsPath))
+			{
+				try
+				{
+					XmlSerializer Serializer = new XmlSerializer(typeof(PVSApplicationSettings));
+					using(FileStream Stream = new FileStream(SettingsPath.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
+					{
+						ApplicationSettings = (PVSApplicationSettings)Serializer.Deserialize(Stream);
+					}
+				}
+				catch(Exception Ex)
+				{
+					throw new BuildException(Ex, "Unable to read PVS-Studio settings file from {0}", SettingsPath);
+				}
+			}
+
+			if(ApplicationSettings != null && !String.IsNullOrEmpty(ApplicationSettings.UserName) && !String.IsNullOrEmpty(ApplicationSettings.SerialNumber))
+			{
+				LicenseFile = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "PVS", "PVS-Studio.lic");
+				FileItem.CreateIntermediateTextFile(LicenseFile, new string[]{ ApplicationSettings.UserName, ApplicationSettings.SerialNumber });
+			}
+			else
+			{
+				FileReference DefaultLicenseFile = AnalyzerFile.ChangeExtension(".lic");
+				if(FileReference.Exists(DefaultLicenseFile))
+				{
+					LicenseFile = DefaultLicenseFile;
+				}
+			}
 		}
 
 		static string GetFullIncludePath(string IncludePath)
@@ -26,8 +99,6 @@ namespace UnrealBuildTool
 
 		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
 		{
-			VCEnvironment EnvVars = VCEnvironment.SetEnvironment(CppPlatform, Compiler);
-
 			// Get the MSVC arguments required to compile all files in this batch
 			List<string> SharedArguments = new List<string>();
 			SharedArguments.Add("/nologo");
@@ -35,11 +106,19 @@ namespace UnrealBuildTool
 			SharedArguments.Add("/C"); // Preserve comments when preprocessing
 			SharedArguments.Add("/D PVS_STUDIO");
 			SharedArguments.Add("/wd4005");
+			if (EnvVars.Compiler >= WindowsCompiler.VisualStudio2015)
+			{
+				SharedArguments.Add("/D _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS=1");
+			}
 			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
 			{
 				SharedArguments.Add(String.Format("/I \"{0}\"", IncludePath));
 			}
 			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+			{
+				SharedArguments.Add(String.Format("/I \"{0}\"", IncludePath));
+			}
+			foreach (DirectoryReference IncludePath in EnvVars.IncludePaths)
 			{
 				SharedArguments.Add(String.Format("/I \"{0}\"", IncludePath));
 			}
@@ -50,27 +129,6 @@ namespace UnrealBuildTool
 			foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
 			{
 				SharedArguments.Add(String.Format("/FI\"{0}\"", ForceIncludeFile.Location));
-			}
-
-			// Get the path to PVS studio
-			FileReference AnalyzerFile = new FileReference(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "PVS-Studio", "x64", "PVS-Studio.exe"));
-
-			// Check if AutoSDK is set up and PVS-Studio exists in it.
-			bool UseSavedLicense = false;
-			FileReference EnginePVS = FileReference.Combine(UnrealBuildTool.RootDirectory, "Engine", "Extras", "ThirdPartyNotUE", "NoRedist", "PVS-Studio", "PVS-Studio.exe");
-			FileReference EnginePVSLicense = FileReference.Combine(UnrealBuildTool.RootDirectory, "Engine", "Extras", "ThirdPartyNotUE", "NoRedist", "PVS-Studio", "PVS-Studio.lic");
-			if (FileReference.Exists(EnginePVS))
-			{
-				if(FileReference.Exists(EnginePVSLicense))
-				{
-					UseSavedLicense = true;
-				}
-				AnalyzerFile = EnginePVS;
-			}
-			
-			if (!FileReference.Exists(AnalyzerFile))
-			{
-				throw new BuildException("Unable to find PVS-Studio at {0}", AnalyzerFile);
 			}
 
 			CPPOutput Result = new CPPOutput();
@@ -104,7 +162,24 @@ namespace UnrealBuildTool
 
 				// Write the PVS studio config file
 				StringBuilder ConfigFileContents = new StringBuilder();
-				ConfigFileContents.AppendFormat("exclude-path={0}\n", EnvVars.VCInstallDir.FullName);
+				foreach(DirectoryReference IncludePath in EnvVars.IncludePaths)
+				{
+					ConfigFileContents.AppendFormat("exclude-path={0}\n", IncludePath.FullName);
+				}
+				foreach(string PathMask in ApplicationSettings.PathMasks)
+				{
+					if (PathMask.Contains(":") || PathMask.Contains("\\") || PathMask.Contains("/"))
+					{
+						if(Path.IsPathRooted(PathMask) && !PathMask.Contains(":"))
+						{
+							ConfigFileContents.AppendFormat("exclude-path=*{0}*\n", PathMask);
+						}
+						else
+						{
+							ConfigFileContents.AppendFormat("exclude-path={0}\n", PathMask);
+						}
+					}
+				}
 				if (CppPlatform == CppPlatform.Win64)
 				{
 					ConfigFileContents.Append("platform=x64\n");
@@ -115,7 +190,7 @@ namespace UnrealBuildTool
 				}
 				else
 				{
-					throw new BuildException("PVS studio does not support this platform");
+					throw new BuildException("PVS-Studio does not support this platform");
 				}
 				ConfigFileContents.Append("preprocessor=visualcpp\n");
 				ConfigFileContents.Append("language=C++\n");
@@ -134,7 +209,12 @@ namespace UnrealBuildTool
 				AnalyzeAction.StatusDescription = BaseFileName;
 				AnalyzeAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 				AnalyzeAction.CommandPath = AnalyzerFile.FullName;
-				AnalyzeAction.CommandArguments = String.Format("--cl-params \"{0}\" --source-file \"{1}\" --output-file \"{2}\" --cfg \"{3}\" --analysis-mode 4 {4}", PreprocessAction.CommandArguments, SourceFile.AbsolutePath, OutputFileLocation, ConfigFileItem.AbsolutePath, (UseSavedLicense ? string.Format("--lic-file \"{0}\"", EnginePVSLicense.FullName) : string.Empty));
+				AnalyzeAction.CommandArguments = String.Format("--cl-params \"{0}\" --source-file \"{1}\" --output-file \"{2}\" --cfg \"{3}\" --analysis-mode 4", PreprocessAction.CommandArguments, SourceFile.AbsolutePath, OutputFileLocation, ConfigFileItem.AbsolutePath);
+				if (LicenseFile != null)
+				{
+					AnalyzeAction.CommandArguments += String.Format(" --lic-file \"{0}\"", LicenseFile);
+					AnalyzeAction.PrerequisiteItems.Add(FileItem.GetItemByFileReference(LicenseFile));
+				}
 				AnalyzeAction.PrerequisiteItems.Add(ConfigFileItem);
 				AnalyzeAction.PrerequisiteItems.Add(PreprocessedFileItem);
 				AnalyzeAction.ProducedItems.Add(OutputFileItem);
@@ -162,7 +242,7 @@ namespace UnrealBuildTool
 				OutputFile = FileReference.Combine(Target.ProjectFile.Directory, "Saved", "PVS-Studio", String.Format("{0}.pvslog", Target.Name));
 			}
 
-			List<FileReference> InputFiles = OutputItems.Select(x => x.Location).ToList();
+			List<FileReference> InputFiles = OutputItems.Select(x => x.Location).Where(x => x.HasExtension(".pvslog")).ToList();
 
 			Action AnalyzeAction = ActionGraph.Add(ActionType.Compile);
 			AnalyzeAction.CommandPath = "Dummy.exe";
@@ -180,7 +260,7 @@ namespace UnrealBuildTool
 		void WriteResults(FileReference OutputFile, List<FileReference> InputFiles, out int ExitCode, out string Output)
 		{
 			StringBuilder OutputBuilder = new StringBuilder();
-			OutputBuilder.Append("Processing PVS Studio output...\n");
+			OutputBuilder.Append("Processing PVS-Studio output...\n");
 
 			// Create the combined output file, and print the diagnostics to the log
 			HashSet<string> UniqueItems = new HashSet<string>();
@@ -189,31 +269,49 @@ namespace UnrealBuildTool
 				foreach (FileReference InputFile in InputFiles)
 				{
 					string[] Lines = File.ReadAllLines(InputFile.FullName);
-					foreach (string Line in Lines)
+					for(int LineIdx = 0; LineIdx < Lines.Length; LineIdx++)
 					{
+						string Line = Lines[LineIdx];
 						if (!String.IsNullOrWhiteSpace(Line) && UniqueItems.Add(Line))
 						{
+							bool bCanParse = false;
+
 							string[] Tokens = Line.Split(new string[] { "<#~>" }, StringSplitOptions.None);
-
-							string Trial = Tokens[1];
-							int LineNumber = int.Parse(Tokens[2]);
-							string FileName = Tokens[3];
-							string WarningCode = Tokens[5];
-							string WarningMessage = Tokens[6];
-							bool bFalseAlarm = bool.Parse(Tokens[7]);
-							int Level = int.Parse(Tokens[8]);
-
-							// Ignore anything in ThirdParty folders
-							if(FileName.Replace('/', '\\').IndexOf("\\ThirdParty\\", StringComparison.InvariantCultureIgnoreCase) == -1)
+							if(Tokens.Length >= 9)
 							{
-								// Output the line to the raw output file
-								RawWriter.WriteLine(Line);
+								string Trial = Tokens[1];
+								string LineNumberStr = Tokens[2];
+								string FileName = Tokens[3];
+								string WarningCode = Tokens[5];
+								string WarningMessage = Tokens[6];
+								string FalseAlarmStr = Tokens[7];
+								string LevelStr = Tokens[8];
 
-								// Output the line to the log
-								if (!bFalseAlarm && Level == 1)
+								int LineNumber;
+								bool bFalseAlarm;
+								int Level;
+								if(int.TryParse(LineNumberStr, out LineNumber) && bool.TryParse(FalseAlarmStr, out bFalseAlarm) && int.TryParse(LevelStr, out Level))
 								{
-									OutputBuilder.AppendFormat("{0}({1}): warning {2}: {3}\n", FileName, LineNumber, WarningCode, WarningMessage);
+									bCanParse = true;
+
+									// Ignore anything in ThirdParty folders
+									if(FileName.Replace('/', '\\').IndexOf("\\ThirdParty\\", StringComparison.InvariantCultureIgnoreCase) == -1)
+									{
+										// Output the line to the raw output file
+										RawWriter.WriteLine(Line);
+
+										// Output the line to the log
+										if (!bFalseAlarm && Level == 1)
+										{
+											OutputBuilder.AppendFormat("{0}({1}): warning {2}: {3}\n", FileName, LineNumber, WarningCode, WarningMessage);
+										}
+									}
 								}
+							}
+
+							if(!bCanParse)
+							{
+								Log.WriteLine(LogEventType.Warning, LogFormatOptions.NoSeverityPrefix, "{0}({1}): warning: Unable to parse PVS output line '{2}' (tokens=|{3}|)", InputFile, LineIdx + 1, Line, String.Join("|", Tokens));
 							}
 						}
 					}

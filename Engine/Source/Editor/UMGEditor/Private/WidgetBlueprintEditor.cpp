@@ -797,11 +797,25 @@ void FWidgetBlueprintEditor::DestroyPreview()
 					bFoundLeak = true;
 					if ( UPanelWidget* ParentWidget = Widget->GetParent() )
 					{
-						LogResults.Warning(*FString::Printf(*LOCTEXT("LeakingWidgetsWithParent_Warning", "Leak Detected!  %s (@@) still has living Slate widgets, it or the parent %s (@@) is keeping them in memory.  Release all Slate resources in ReleaseSlateResources().").ToString(), *Widget->GetName(), *( ParentWidget->GetName() )), Widget->GetClass(), ParentWidget->GetClass());
+						LogResults.Warning(
+							*FText::Format(
+								LOCTEXT("LeakingWidgetsWithParent_WarningFmt", "Leak Detected!  {0} (@@) still has living Slate widgets, it or the parent {1} (@@) is keeping them in memory.  Release all Slate resources in ReleaseSlateResources()."),
+								FText::FromString(Widget->GetName()),
+								FText::FromString(ParentWidget->GetName())
+							).ToString(),
+							Widget->GetClass(),
+							ParentWidget->GetClass()
+						);
 					}
 					else
 					{
-						LogResults.Warning(*FString::Printf(*LOCTEXT("LeakingWidgetsWithoutParent_Warning", "Leak Detected!  %s (@@) still has living Slate widgets, it or the parent widget is keeping them in memory.  Release all Slate resources in ReleaseSlateResources().").ToString(), *Widget->GetName()), Widget->GetClass());
+						LogResults.Warning(
+							*FText::Format(
+								LOCTEXT("LeakingWidgetsWithoutParent_WarningFmt", "Leak Detected!  {0} (@@) still has living Slate widgets, it or the parent widget is keeping them in memory.  Release all Slate resources in ReleaseSlateResources()."),
+								FText::FromString(Widget->GetName())
+							).ToString(),
+							Widget->GetClass()
+						);
 					}
 				}
 			}

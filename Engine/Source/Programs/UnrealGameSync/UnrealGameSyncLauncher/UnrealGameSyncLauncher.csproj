@@ -68,6 +68,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="UpdateLogWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UpdateLogWindow.Designer.cs">
+      <DependentUpon>UpdateLogWindow.cs</DependentUpon>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UpdateErrorWindow.cs">
@@ -87,6 +93,9 @@
     </Compile>
     <EmbeddedResource Include="UpdateErrorWindow.resx">
       <DependentUpon>UpdateErrorWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UpdateLogWindow.resx">
+      <DependentUpon>UpdateLogWindow.cs</DependentUpon>
     </EmbeddedResource>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>

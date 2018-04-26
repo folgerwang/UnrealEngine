@@ -173,7 +173,7 @@ float					GNearClippingPlane				= 10.0f;				/* Near clipping plane */
 
 bool					GExitPurge						= false;
 
-FFixedUObjectArray* GCoreObjectArrayForDebugVisualizers = nullptr;
+FChunkedFixedUObjectArray* GCoreObjectArrayForDebugVisualizers = nullptr;
 
 /** Game name, used for base game directory and ini among other things										*/
 #if (!IS_MONOLITHIC && !IS_PROGRAM)

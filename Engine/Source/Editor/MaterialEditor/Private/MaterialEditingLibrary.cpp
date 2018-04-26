@@ -219,7 +219,7 @@ void UMaterialEditingLibrary::RebuildMaterialInstanceEditors(UMaterialFunction* 
 				TArray<UMaterialFunctionInterface*> DependentFunctions;
 				SourceInstance->GetDependentFunctions(DependentFunctions);
 
-				if (DependentFunctions.Contains(BaseFunction) || DependentFunctions.Contains(BaseFunction->ParentFunction))
+				if (BaseFunction && (DependentFunctions.Contains(BaseFunction) || DependentFunctions.Contains(BaseFunction->ParentFunction)))
 				{
 					IAssetEditorInstance* EditorInstance = AssetEditorManager.FindEditorForAsset(EditedAsset, false);
 					if (EditorInstance != nullptr)

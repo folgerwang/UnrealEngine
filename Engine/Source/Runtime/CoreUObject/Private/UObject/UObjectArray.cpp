@@ -24,7 +24,7 @@ FUObjectArray::FUObjectArray()
 	GCoreObjectArrayForDebugVisualizers = &GUObjectArray.ObjObjects;
 }
 
-void FUObjectArray::AllocateObjectPool(int32 InMaxUObjects, int32 InMaxObjectsNotConsideredByGC)
+void FUObjectArray::AllocateObjectPool(int32 InMaxUObjects, int32 InMaxObjectsNotConsideredByGC, bool bPreAllocateObjectArray)
 {
 	check(IsInGameThread());
 
@@ -38,7 +38,7 @@ void FUObjectArray::AllocateObjectPool(int32 InMaxUObjects, int32 InMaxObjectsNo
 	// Pre-size array.
 	check(ObjObjects.Num() == 0);
 	UE_CLOG(InMaxUObjects <= 0, LogUObjectArray, Fatal, TEXT("Max UObject count is invalid. It must be a number that is greater than 0."));
-	ObjObjects.PreAllocate(InMaxUObjects);
+	ObjObjects.PreAllocate(InMaxUObjects, bPreAllocateObjectArray);
 
 	if (MaxObjectsNotConsideredByGC > 0)
 	{

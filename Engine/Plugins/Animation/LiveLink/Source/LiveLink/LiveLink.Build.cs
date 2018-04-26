@@ -20,8 +20,6 @@ namespace UnrealBuildTool.Rules
 				"HeadMountedDisplay"
             }
             );
-
-            PrivateIncludePaths.Add("/LiveLink/Private");
         }
     }
 }

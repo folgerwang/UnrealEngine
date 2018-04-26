@@ -195,15 +195,16 @@ void DumpExternalReferences(UObject* InObject, UPackage* InPackage)
 	TArray<FString> ExternalRefDumps;
 
 	{
-		FReferenceChainSearch ObjectRefChains(InObject, FReferenceChainSearch::ESearchMode::Default);
-		for (const FReferenceChainSearch::FReferenceChain& ObjectRefChain : ObjectRefChains.GetReferenceChains())
+		FReferenceChainSearch ObjectRefChains(InObject, EReferenceChainSearchMode::Default);
+		for (const FReferenceChainSearch::FReferenceChain* ObjectRefChain : ObjectRefChains.GetReferenceChains())
 		{
-			for (const FReferenceChainSearch::FReferenceChainLink& ObjectRefChainLink : ObjectRefChain.RefChain)
+			for (int32 NodeIndex = 0; NodeIndex < ObjectRefChain->Num(); ++NodeIndex)
 			{
-				const bool bIsExternalRef = !ObjectRefChainLink.ReferencedBy || ObjectRefChainLink.ReferencedBy->GetOutermost() != InPackage;
+				const FReferenceChainSearch::FGraphNode* ObjectRefChainLink = ObjectRefChain->GetNode(NodeIndex);
+				const bool bIsExternalRef = ObjectRefChainLink->Object->GetOutermost() != InPackage;
 				if (bIsExternalRef)
 				{
-					ExternalRefDumps.Emplace(ObjectRefChainLink.ToString());
+					ExternalRefDumps.Emplace(ObjectRefChainLink->Object->GetFullName());
 				}
 			}
 		}

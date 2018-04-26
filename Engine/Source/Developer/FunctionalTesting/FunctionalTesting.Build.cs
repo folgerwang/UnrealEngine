@@ -32,8 +32,6 @@ public class FunctionalTesting : ModuleRules
         PrivateIncludePaths.AddRange(
             new string[]
             {
-                "MessageLog/Public",
-                "Stats/Public",
                 "Developer/FunctionalTesting/Private",
             }
         );

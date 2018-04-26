@@ -41,7 +41,7 @@ EARTrackingQuality FARSystemBase::GetTrackingQuality() const
 
 void FARSystemBase::StartARSession(UARSessionConfig* InSessionConfig)
 {
-	static const TCHAR* NotARApp_Warning = TEXT("To use AR, enable bIsARApp under Project Settings.");
+	static const TCHAR NotARApp_Warning[] = TEXT("To use AR, enable bIsARApp under Project Settings.");
 	
 	const bool bIsARApp = GetDefault<UGeneralProjectSettings>()->bSupportAR;
 	if (ensureAlwaysMsgf(bIsARApp, NotARApp_Warning))

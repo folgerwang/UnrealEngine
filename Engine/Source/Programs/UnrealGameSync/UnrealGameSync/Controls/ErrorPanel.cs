@@ -10,9 +10,9 @@ namespace UnrealGameSync
 {
 	class ErrorPanel : StatusPanel, IMainWindowTabPanel
 	{
-		public ErrorPanel(string InSelectedFileName)
+		public ErrorPanel(UserSelectedProjectSettings InSelectedProject)
 		{
-			SelectedFileName = InSelectedFileName;
+			SelectedProject = InSelectedProject;
 			SetProjectLogo(Properties.Resources.DefaultErrorLogo, false);
 		}
 
@@ -58,7 +58,7 @@ namespace UnrealGameSync
 			get { return Tuple.Create(TaskbarState.Normal, 0.0f); }
 		}
 
-		public string SelectedFileName
+		public UserSelectedProjectSettings SelectedProject
 		{
 			get;
 			private set;

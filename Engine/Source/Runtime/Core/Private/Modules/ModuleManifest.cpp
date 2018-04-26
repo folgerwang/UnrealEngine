@@ -12,19 +12,11 @@ FModuleManifest::FModuleManifest()
 
 FString FModuleManifest::GetFileName(const FString& DirectoryName, bool bIsGameFolder)
 {
-	FString AppExecutableName = FPlatformProcess::ExecutableName();
-#if PLATFORM_WINDOWS
-	if (AppExecutableName.EndsWith(TEXT("-Cmd")))
-	{
-		AppExecutableName = AppExecutableName.Left(AppExecutableName.Len() - 4);
-	}
+#if UE_BUILD_DEVELOPMENT
+	return DirectoryName / ((FApp::GetBuildConfiguration() == EBuildConfigurations::DebugGame && bIsGameFolder)? TEXT(UBT_MODULE_MANIFEST_DEBUGGAME) : TEXT(UBT_MODULE_MANIFEST));
+#else
+	return DirectoryName / TEXT(UBT_MODULE_MANIFEST);
 #endif
-	FString FileName = DirectoryName / AppExecutableName;
-	if(FApp::GetBuildConfiguration() == EBuildConfigurations::DebugGame && bIsGameFolder)
-	{
-		FileName += FString::Printf(TEXT("-%s-DebugGame"), FPlatformProcess::GetBinariesSubdirectory());
-	}
-	return FileName + TEXT(".modules");
 }
 
 bool FModuleManifest::TryRead(const FString& FileName, FModuleManifest& OutManifest)
@@ -113,27 +105,5 @@ bool FModuleManifest::TryRead(const FString& FileName, FModuleManifest& OutManif
 		{
 			return false;
 		}
-	}
-}
-
-FModuleEnumerator::FModuleEnumerator(const FString& InBuildId)
-	: BuildId(InBuildId)
-{
-}
-
-#if !IS_MONOLITHIC
-bool FModuleEnumerator::RegisterWithModuleManager()
-{
-	FModuleManager::Get().QueryModulesDelegate.BindRaw(this, &FModuleEnumerator::QueryModules);
-	return true;
-}
-#endif
-
-void FModuleEnumerator::QueryModules(const FString& InDirectoryName, bool bIsGameDirectory, TMap<FString, FString>& OutModules) const
-{
-	FModuleManifest Manifest;
-	if(FModuleManifest::TryRead(FModuleManifest::GetFileName(InDirectoryName, bIsGameDirectory), Manifest) && Manifest.BuildId == BuildId)
-	{
-		OutModules = Manifest.ModuleNameToFileName;
 	}
 }

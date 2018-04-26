@@ -34,14 +34,14 @@ static inline void PreloadInnerStructMembers(UStructProperty* StructProperty)
 	UStructProperty.
 -----------------------------------------------------------------------------*/
 
-UStructProperty::UStructProperty(ECppProperty, int32 InOffset, uint64 InFlags, UScriptStruct* InStruct)
+UStructProperty::UStructProperty(ECppProperty, int32 InOffset, EPropertyFlags InFlags, UScriptStruct* InStruct)
 	: UProperty(FObjectInitializer::Get(), EC_CppProperty, InOffset, InStruct->GetCppStructOps() ? InStruct->GetCppStructOps()->GetComputedPropertyFlags() | InFlags : InFlags)
 	, Struct(InStruct)
 {
 	ElementSize = Struct->PropertiesSize;
 }
 
-UStructProperty::UStructProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UScriptStruct* InStruct )
+UStructProperty::UStructProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, EPropertyFlags InFlags, UScriptStruct* InStruct )
 	:	UProperty( ObjectInitializer, EC_CppProperty, InOffset, InStruct->GetCppStructOps() ? InStruct->GetCppStructOps()->GetComputedPropertyFlags() | InFlags : InFlags )
 	,	Struct( InStruct )
 {
@@ -289,10 +289,8 @@ bool UStructProperty::SameType(const UProperty* Other) const
 	return Super::SameType(Other) && (Struct == ((UStructProperty*)Other)->Struct);
 }
 
-bool UStructProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+EConvertFromTypeResult UStructProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
-	bOutAdvanceProperty = false;
-
 	auto CanSerializeFromStructWithDifferentName = [](const FArchive& InAr, const FPropertyTag& PropertyTag, const UStructProperty* StructProperty)
 	{
 		if (InAr.UE4Ver() < VER_UE4_STRUCT_GUID_IN_PROPERTY_TAG)
@@ -312,15 +310,16 @@ bool UStructProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uin
 			void* DestAddress = ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex);
 			if (CppStructOps->SerializeFromMismatchedTag(Tag, Ar, DestAddress))
 			{
-				bOutAdvanceProperty = true;
-			}			
+				return EConvertFromTypeResult::Converted;
+			}
 			else
 			{
 				UE_LOG(LogClass, Warning, TEXT("SerializeFromMismatchedTag failed: Type mismatch in %s of %s - Previous (%s) Current(StructProperty) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.Type.ToString(), *Ar.GetArchiveName());
+				return EConvertFromTypeResult::CannotConvert;
 			}
-			return true;
 		}
-		else if (Tag.Type == NAME_StructProperty && Tag.StructName != Struct->GetFName() && !CanSerializeFromStructWithDifferentName(Ar, Tag, this))
+
+		if (Tag.Type == NAME_StructProperty && Tag.StructName != Struct->GetFName() && !CanSerializeFromStructWithDifferentName(Ar, Tag, this))
 		{
 			//handle Vector -> Vector4 upgrades here because using the SerializeFromMismatchedTag system would cause a dependency from Core -> CoreUObject
 			if (Tag.StructName == NAME_Vector && Struct->GetFName() == NAME_Vector4)
@@ -330,7 +329,7 @@ bool UStructProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uin
 				Ar << OldValue;
 
 				//only set X/Y/Z.  The W should already have been set to the property specific default and we don't want to trash it by forcing 0 or 1.
-				FVector4* DestValue = (FVector4*)DestAddress;				
+				FVector4* DestValue = (FVector4*)DestAddress;
 				DestValue->X = OldValue.X;
 				DestValue->Y = OldValue.Y;
 				DestValue->Z = OldValue.Z;
@@ -341,10 +340,10 @@ bool UStructProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uin
 					*Tag.Name.ToString(), *GetName(), *Tag.StructName.ToString(), *Struct->GetName(), *Ar.GetArchiveName());
 			}
 
-			return true;
+			return EConvertFromTypeResult::CannotConvert;
 		}
 	}
-	return false;
+	return EConvertFromTypeResult::UseSerializeItem;
 }
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UStructProperty, UProperty,

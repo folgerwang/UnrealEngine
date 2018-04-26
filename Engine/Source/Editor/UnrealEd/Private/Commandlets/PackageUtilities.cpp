@@ -906,7 +906,7 @@ FLinkerLoad* CreateLinkerForFilename(const FString& InFilename)
  *
  * @param	InLinker	if specified, changes this reporter's Linker before generating the report.
  */
-void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/ )
+void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=00NULL*/ )
 {
 	check(InLinker);
 
@@ -927,6 +927,12 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 	UE_LOG(LogPackageUtilities, Display, TEXT("********************************************") );
 	UE_LOG(LogPackageUtilities, Display, TEXT("Package '%s' Summary"), *LinkerName.ToString() );
 	UE_LOG(LogPackageUtilities, Display, TEXT("--------------------------------------------") );
+
+	if (InLinker->IsTextFormat())
+	{
+		UE_LOG(LogPackageUtilities, Warning, TEXT("\tPackageReports are not currently supported for text based assets"));
+		return;
+	}
 
 	UE_LOG(LogPackageUtilities, Display, TEXT("\t         Filename: %s"), *Linker->Filename);
 	UE_LOG(LogPackageUtilities, Display, TEXT("\t     File Version: %i"), Linker->UE4Ver() );
@@ -1343,7 +1349,7 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 		if( Linker->Summary.AssetRegistryDataOffset > 0 )
 		{
 			// Seek to the AssetRegistry table of contents
-			Linker->Loader->Seek( Linker->Summary.AssetRegistryDataOffset );
+			Linker->GetLoader_Unsafe()->Seek( Linker->Summary.AssetRegistryDataOffset );
 
 			// Load the number of assets in the tag map
 			int32 AssetCount = 0;

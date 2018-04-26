@@ -244,11 +244,6 @@ public:
 	 */
 	void AbandonModuleWithCallback( const FName InModuleName );
 
-	/** Delegate that's used by the module manager to find all the valid modules in a directory matching a pattern */
-	typedef TMap<FString, FString> FModuleNamesMap;
-	DECLARE_DELEGATE_ThreeParams( FQueryModulesDelegate, const FString&, bool, FModuleNamesMap& );
-	FQueryModulesDelegate QueryModulesDelegate;
-
 public:
 
 	/**
@@ -420,9 +415,6 @@ public:
 
 	/** Sets the filename for a module. The module is not reloaded immediately, but the new name will be used for subsequent unload/load events. */
 	void SetModuleFilename(FName ModuleName, const FString& Filename);
-
-	/** Gets the clean filename for a module, without having added it to the module manager. */
-	FString GetCleanModuleFilename(FName ModuleName, bool bIsGameModule);
 #endif
 
 public:
@@ -562,12 +554,6 @@ private:
 	}
 
 #if !IS_MONOLITHIC
-	/** Compares file versions between the current executing engine version and the specified dll */
-	static bool CheckModuleCompatibility(const TCHAR *Filename, ECheckModuleCompatibilityFlags Flags = ECheckModuleCompatibilityFlags::None );
-
-	/** Gets the prefix and suffix for a module file */
-	static void GetModuleFilenameFormat(bool bGameModule, FString& OutPrefix, FString& OutSuffix);
-
 	/** Finds modules matching a given name wildcard. */
 	void FindModulePaths(const TCHAR *NamePattern, TMap<FName, FString> &OutModulePaths, bool bCanUseCache = true) const;
 
@@ -608,6 +594,9 @@ private:
 
 	/** Array of game binaries directories. */
 	TArray<FString> GameBinariesDirectories;
+
+	/** ID used to validate module manifests. Read from the module manifest in the engine directory on first query to load a new module; unset until then. */
+	mutable TOptional<FString> BuildId;
 
 	/** Critical section object controlling R/W access to Modules. */
 	mutable FCriticalSection ModulesCriticalSection;
@@ -751,7 +740,7 @@ class FDefaultGameModuleImpl
  */
 #if PLATFORM_DESKTOP
 	#ifdef UE_ENGINE_DIRECTORY
-		#define IMPLEMENT_FOREIGN_ENGINE_DIR() const TCHAR *GForeignEngineDir = TEXT( PREPROCESSOR_TO_STRING(UE_ENGINE_DIRECTORY) );
+		#define IMPLEMENT_FOREIGN_ENGINE_DIR() const TCHAR *GForeignEngineDir = TEXT( UE_ENGINE_DIRECTORY );
 	#else
 		#define IMPLEMENT_FOREIGN_ENGINE_DIR() const TCHAR *GForeignEngineDir = nullptr;
 	#endif

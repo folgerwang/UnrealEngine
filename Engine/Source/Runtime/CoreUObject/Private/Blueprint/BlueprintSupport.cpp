@@ -279,7 +279,7 @@ void FBlueprintSupport::ValidateNoRefsToOutOfDateClasses()
 
 	for(UObject* Obj : OutOfDateClasses)
 	{
-		FReferenceChainSearch RefChainSearch(Obj, FReferenceChainSearch::ESearchMode::Shortest);
+		FReferenceChainSearch RefChainSearch(Obj, EReferenceChainSearchMode::Shortest);
 		if( RefChainSearch.GetReferenceChains().Num() != 0 )
 		{
 			RefChainSearch.PrintResults();
@@ -326,24 +326,28 @@ void FBlueprintSupport::ValidateNoExternalRefsToSkeletons()
 
 	for(UObject* SkeletonClass : SkeletonClasses)
 	{
-		FReferenceChainSearch RefChainSearch(SkeletonClass, FReferenceChainSearch::ESearchMode::Shortest|FReferenceChainSearch::ESearchMode::ExternalOnly);
+		FReferenceChainSearch RefChainSearch(SkeletonClass, EReferenceChainSearchMode::Shortest | EReferenceChainSearchMode::ExternalOnly);
 		bool bBadRefs = false;
-		for(const FReferenceChainSearch::FReferenceChain& Chain : RefChainSearch.GetReferenceChains())
+		for(const FReferenceChainSearch::FReferenceChain* Chain : RefChainSearch.GetReferenceChains())
 		{
-			if(Chain.RefChain[0].ReferencedBy->GetOutermost() != SkeletonClass->GetOutermost())
+			if(Chain->GetRootNode()->Object->GetOutermost() != SkeletonClass->GetOutermost())
 			{
 				bBadRefs = true;
-				// if there's a skeleton class (or an object outered to a skeleton class) at the end of chain, then it's fine:
-				if(UClass* AsClass = Cast<UClass>(Chain.RefChain.Last().ReferencedBy))
+				for (int32 NodeIndex = 1; bBadRefs && NodeIndex < Chain->Num(); ++NodeIndex)
 				{
-					if(IsSkeleton(AsClass))
+					// if there's a skeleton class (or an object outered to a skeleton class) somewhere in the chain, then it's fine:
+					UObject* ObjectReferencingSkeletonClass = Chain->GetNode(NodeIndex)->Object;
+					if (UClass* AsClass = Cast<UClass>(ObjectReferencingSkeletonClass))
+					{
+						if (IsSkeleton(AsClass))
+						{
+							bBadRefs = false;
+						}
+					}
+					else if (IsOuteredToSkeleton(ObjectReferencingSkeletonClass))
 					{
 						bBadRefs = false;
 					}
-				}
-				else if(IsOuteredToSkeleton(Chain.RefChain.Last().ReferencedBy))
-				{
-					bBadRefs = false;
 				}
 			}
 		}

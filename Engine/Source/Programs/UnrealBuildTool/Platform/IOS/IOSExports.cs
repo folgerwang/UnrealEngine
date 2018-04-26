@@ -170,7 +170,7 @@ namespace UnrealBuildTool
 			ActionGraph.FinalizeActionGraph();
 
 			// I'm not sure how to derive the UE4Game and Development arguments programmatically.
-			string[] Arguments = new string[] { "UE4Game", (PlatformType == UnrealTargetPlatform.IOS ? "IOS" : "TVOS"), "Development" };
+			string[] Arguments = new string[] { "UE4Game", (PlatformType == UnrealTargetPlatform.IOS ? "IOS" : "TVOS"), "Development", "-UniqueBuildEnvironment" };
 
 			// Perform all of the setup necessary to actually execute the ActionGraph instance.
 			ReadOnlyBuildVersion Version = new ReadOnlyBuildVersion(BuildVersion.ReadDefault());
@@ -220,7 +220,7 @@ namespace UnrealBuildTool
 
 			// Begin execution of the ActionGraph.
 			Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap;
-			List<Action> ActionsToExecute = ActionGraph.GetActionsToExecute(BuildConfiguration, PrerequisiteActions, Targets, TargetToHeaders, out TargetToOutdatedPrerequisitesMap);
+			List<Action> ActionsToExecute = ActionGraph.GetActionsToExecute(BuildConfiguration, PrerequisiteActions, Targets, TargetToHeaders, true, true, out TargetToOutdatedPrerequisitesMap);
 			string ExecutorName = "Unknown";
 			bool bSuccess = ActionGraph.ExecuteActions(BuildConfiguration, ActionsToExecute, bIsRemoteCompile, out ExecutorName, "", EHotReload.Disabled);
 			if (bSuccess)

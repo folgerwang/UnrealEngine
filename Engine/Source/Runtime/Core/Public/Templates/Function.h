@@ -5,11 +5,14 @@
 #include "CoreTypes.h"
 #include "Misc/AssertionMacros.h"
 #include "HAL/UnrealMemory.h"
+#include "Templates/AndOrNot.h"
 #include "Templates/AreTypesEqual.h"
 #include "Templates/UnrealTypeTraits.h"
 #include "Templates/RemoveReference.h"
 #include "Templates/Decay.h"
 #include "Templates/Invoke.h"
+#include "Templates/IsConstructible.h"
+#include "Templates/IsInvocable.h"
 #include "Containers/ContainerAllocationPolicies.h"
 #include "Math/UnrealMathUtility.h"
 #include <new>
@@ -325,6 +328,33 @@ namespace UE4Function_Private
 			UE4Function_Private::TDebugHelper<void> DebugPtrStorage;
 		#endif
 	};
+
+	template <typename T>
+	T&& DeclVal();
+
+	template <typename FunctorType, typename Ret, typename... ParamTypes>
+	struct TFunctorReturnTypeIsCompatible
+		: TIsConstructible<Ret, decltype(DeclVal<FunctorType>()(DeclVal<ParamTypes>()...))>
+	{
+	};
+
+	template <typename FuncType, typename FunctorType>
+	struct TFuncCanBindToFunctor;
+
+	template <typename FunctorType, typename Ret, typename... ParamTypes>
+	struct TFuncCanBindToFunctor<Ret(ParamTypes...), FunctorType> :
+		TAnd<
+			TIsInvocable<FunctorType, ParamTypes...>,
+			TFunctorReturnTypeIsCompatible<FunctorType, Ret, ParamTypes...>
+		>
+	{
+	};
+
+	template <typename FunctorType, typename... ParamTypes>
+	struct TFuncCanBindToFunctor<void(ParamTypes...), FunctorType> :
+		TIsInvocable<FunctorType, ParamTypes...>
+	{
+	};
 }
 
 /**
@@ -389,7 +419,16 @@ public:
 	/**
 	 * Constructor which binds a TFunctionRef to a non-const lvalue function object.
 	 */
-	template <typename FunctorType, typename = typename TEnableIf<!TIsFunction<FunctorType>::Value && !TAreTypesEqual<TFunctionRef, FunctorType>::Value>::Type>
+	template <
+		typename FunctorType,
+		typename = typename TEnableIf<
+			TAnd<
+				TNot<TIsFunction<FunctorType>>,
+				TNot<TAreTypesEqual<TFunctionRef, FunctorType>>,
+				UE4Function_Private::TFuncCanBindToFunctor<FuncType, FunctorType>
+			>::Value
+		>::Type
+	>
 	TFunctionRef(FunctorType& Functor)
 		: Super(NoInit)
 	{
@@ -402,7 +441,16 @@ public:
 	/**
 	 * Constructor which binds a TFunctionRef to an rvalue or const lvalue function object.
 	 */
-	template <typename FunctorType, typename = typename TEnableIf<!TIsFunction<FunctorType>::Value && !TAreTypesEqual<TFunctionRef, FunctorType>::Value>::Type>
+	template <
+		typename FunctorType,
+		typename = typename TEnableIf<
+			TAnd<
+				TNot<TIsFunction<FunctorType>>,
+				TNot<TAreTypesEqual<TFunctionRef, FunctorType>>,
+				UE4Function_Private::TFuncCanBindToFunctor<FuncType, FunctorType>
+			>::Value
+		>::Type
+	>
 	TFunctionRef(const FunctorType& Functor)
 		: Super(NoInit)
 	{
@@ -415,7 +463,15 @@ public:
 	/**
 	 * Constructor which binds a TFunctionRef to a function pointer.
 	 */
-	template <typename FunctionType, typename = typename TEnableIf<TIsFunction<FunctionType>::Value>::Type>
+	template <
+		typename FunctionType,
+		typename = typename TEnableIf<
+			TAnd<
+				TIsFunction<FunctionType>,
+				UE4Function_Private::TFuncCanBindToFunctor<FuncType, FunctionType>
+			>::Value
+		>::Type
+	>
 	TFunctionRef(FunctionType* Function)
 		: Super(NoInit)
 	{
@@ -542,7 +598,15 @@ public:
 	/**
 	 * Constructor which binds a TFunction to any function object.
 	 */
-	template <typename FunctorType, typename = typename TEnableIf<!TAreTypesEqual<TFunction, typename TDecay<FunctorType>::Type>::Value>::Type>
+	template <
+		typename FunctorType,
+		typename = typename TEnableIf<
+			TAnd<
+				TNot<TAreTypesEqual<TFunction, typename TDecay<FunctorType>::Type>>,
+				UE4Function_Private::TFuncCanBindToFunctor<FuncType, FunctorType>
+			>::Value
+		>::Type
+	>
 	TFunction(FunctorType&& InFunc)
 		: Super(NoInit)
 	{

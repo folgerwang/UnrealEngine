@@ -103,7 +103,6 @@ public class PhysX : ModuleRules
 				PxSharedIncludeDir + "pvd",
 				PxSharedIncludeDir + "task",
 				PhysXIncludeDir,
-				PhysXIncludeDir + "foundation",
 				PhysXIncludeDir + "cooking",
 				PhysXIncludeDir + "common",
 				PhysXIncludeDir + "extensions",

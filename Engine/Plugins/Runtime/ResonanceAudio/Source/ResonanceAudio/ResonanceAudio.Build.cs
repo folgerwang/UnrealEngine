@@ -13,7 +13,6 @@ namespace UnrealBuildTool.Rules
 
             PublicIncludePaths.AddRange(
                 new string[] {
-                    "ResonanceAudio/Public"
                 }
             );
 

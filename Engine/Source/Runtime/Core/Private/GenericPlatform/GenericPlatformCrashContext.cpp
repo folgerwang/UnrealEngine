@@ -2,6 +2,7 @@
 
 #include "GenericPlatform/GenericPlatformCrashContext.h"
 #include "HAL/PlatformTime.h"
+#include "HAL/PlatformStackWalk.h"
 #include "Misc/Parse.h"
 #include "Misc/FileHelper.h"
 #include "Misc/CommandLine.h"
@@ -26,6 +27,20 @@ extern CORE_API bool GIsGPUCrashed;
 /*-----------------------------------------------------------------------------
 	FGenericCrashContext
 -----------------------------------------------------------------------------*/
+
+struct FCrashStackFrame
+{
+	FCrashStackFrame(const FString& ModuleNameIn, uint64 BaseAddressIn, uint64 OffsetIn)
+	{
+		ModuleName = ModuleNameIn;
+		BaseAddress = BaseAddressIn;
+		Offset = OffsetIn;
+	}
+
+	FString ModuleName;
+	uint64 BaseAddress;
+	uint64 Offset;
+};
 
 const ANSICHAR* FGenericCrashContext::CrashContextRuntimeXMLNameA = "CrashContext.runtime-xml";
 const TCHAR* FGenericCrashContext::CrashContextRuntimeXMLNameW = TEXT( "CrashContext.runtime-xml" );
@@ -92,7 +107,7 @@ namespace NCachedCrashContextProperties
 	static FString CrashReportClientRichText;
 	static FString GameStateName;
 	static TArray<FString> EnabledPluginsList;
-
+	static TArray<FCrashStackFrame> CrashStack;	
 }
 
 void FGenericCrashContext::Initialize()
@@ -289,7 +304,12 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddCrashProperty( TEXT( "LoginId" ), *NCachedCrashContextProperties::LoginIdStr );
 	AddCrashProperty( TEXT( "EpicAccountId" ), *NCachedCrashContextProperties::EpicAccountId );
 
-	AddCrashProperty( TEXT( "CallStack" ), TEXT( "" ) );
+	// Legacy callstack element for current crash reporter
+	AddCrashProperty(TEXT("CallStack"), TEXT(""));
+
+	// Add new portable callstack element with crash stack
+	AddPortableCallStack();
+
 	AddCrashProperty( TEXT( "SourceContext" ), TEXT( "" ) );
 	AddCrashProperty( TEXT( "UserDescription" ), TEXT( "" ) );
 	AddCrashProperty( TEXT( "UserActivityHint" ), *NCachedCrashContextProperties::UserActivityHint );
@@ -340,11 +360,8 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddCrashProperty( TEXT( "MemoryStats.OOMAllocationSize"), (uint64)FPlatformMemory::OOMAllocationSize );
 	AddCrashProperty( TEXT( "MemoryStats.OOMAllocationAlignment"), (int32)FPlatformMemory::OOMAllocationAlignment );
 
-	//Architecture
-	//CrashedModuleName
-	//LoadedModules
 	EndSection( *RuntimePropertiesTag );
-	
+
 	// Add platform specific properties.
 	BeginSection( *PlatformPropertiesTag );
 	AddPlatformSpecificProperties();
@@ -411,6 +428,39 @@ void FGenericCrashContext::AddPlatformSpecificProperties() const
 {
 	// Nothing really to do here. Can be overridden by the platform code.
 	// @see FWindowsPlatformCrashContext::AddPlatformSpecificProperties
+}
+
+void FGenericCrashContext::AddPortableCallStack() const
+{	
+
+	if (NCachedCrashContextProperties::CrashStack.Num() == 0)
+	{
+		AddCrashProperty(TEXT("PCallStack"), TEXT(""));
+		return;
+	}
+
+	FString CrashStackBuffer = LINE_TERMINATOR;
+
+	// Get the max module name length for padding
+	int32 MaxModuleLength = 0;
+	for (TArray<FCrashStackFrame>::TConstIterator It(NCachedCrashContextProperties::CrashStack); It; ++It)
+	{
+		MaxModuleLength = FMath::Max(MaxModuleLength, It->ModuleName.Len());
+	}
+
+	for (TArray<FCrashStackFrame>::TConstIterator It(NCachedCrashContextProperties::CrashStack); It; ++It)
+	{
+		CrashStackBuffer += FString::Printf(TEXT("%-*s 0x%016x + %-8x"),MaxModuleLength + 1, *It->ModuleName, It->BaseAddress, It->Offset);
+		CrashStackBuffer += LINE_TERMINATOR;
+	}
+
+	FString EscapedStackBuffer;
+
+	AppendEscapedXMLString(EscapedStackBuffer, *CrashStackBuffer);
+
+	AddCrashProperty(TEXT("PCallStack"), *EscapedStackBuffer);
+
+	NCachedCrashContextProperties::CrashStack.Empty();
 }
 
 void FGenericCrashContext::AddHeader() const
@@ -563,6 +613,57 @@ void FGenericCrashContext::PurgeOldCrashConfig()
 void FGenericCrashContext::AddPlugin(const FString& PluginDesc)
 {
 	NCachedCrashContextProperties::EnabledPluginsList.Add(PluginDesc);
+}
+
+void FGenericCrashContext::AddStackFrame(const FString& ModuleName, uint64 BaseAddress, uint64 Offset)
+{
+	NCachedCrashContextProperties::CrashStack.Add(FCrashStackFrame(ModuleName, BaseAddress, Offset));
+}
+
+void FGenericCrashContext::GeneratePortableCallStack(int32 IgnoreCount, int32 MaxDepth, void* Context)
+{
+	uint32 ModuleEntries = (uint32)FPlatformStackWalk::GetProcessModuleCount();
+
+	if (ModuleEntries)
+	{
+		TArray<FStackWalkModuleInfo> ProcessModules;
+		ProcessModules.AddUninitialized(ModuleEntries);
+		FPlatformStackWalk::GetProcessModuleSignatures(ProcessModules.GetData(), ProcessModules.Max());
+
+		TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(IgnoreCount, MaxDepth, Context);
+		TMap<FString, uint64> ImageBases;
+		int32 ModuleIndex = 0;
+
+		for (TArray<FProgramCounterSymbolInfo>::TConstIterator Itr(Stack); Itr; ++Itr)
+		{
+			FString ModuleName = FPaths::GetBaseFilename(Itr->ModuleName);
+
+			if (!ImageBases.Contains(ModuleName))
+			{
+				for (TArray<FStackWalkModuleInfo>::TConstIterator ProcessModuleItr(ProcessModules); ProcessModuleItr; ++ProcessModuleItr)
+				{
+					FString ProcessModuleName = FPaths::GetBaseFilename(ProcessModuleItr->ImageName);
+
+					if (!ModuleName.Compare(ProcessModuleName, ESearchCase::IgnoreCase))
+					{
+						ImageBases.Add(ModuleName, ProcessModuleItr->BaseOfImage);
+						break;
+					}
+				}
+
+			}
+
+			uint64 BaseOfImage = MAX_uint64;
+
+			if (ImageBases.Contains(ModuleName))
+			{
+				BaseOfImage = ImageBases[ModuleName];
+			}
+
+			FGenericCrashContext::AddStackFrame(ModuleName, BaseOfImage, Itr->ProgramCounter > BaseOfImage ? Itr->ProgramCounter - BaseOfImage : MAX_uint64);
+		}
+	}
+
 }
 
 FProgramCounterSymbolInfoEx::FProgramCounterSymbolInfoEx( FString InModuleName, FString InFunctionName, FString InFilename, uint32 InLineNumber, uint64 InSymbolDisplacement, uint64 InOffsetInModule, uint64 InProgramCounter ) :

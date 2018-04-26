@@ -11,7 +11,6 @@ public class Lobby : ModuleRules
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"Private",
 			}
 			);
 

@@ -108,16 +108,7 @@ namespace UnrealBuildTool
 			for (int ActionIndex = 1; ActionIndex < ActionsToExecute.Count && XGEResult; ++ActionIndex)
 			{
 				Action CurrentAction = ActionsToExecute[ActionIndex];
-				if (CurrentAction.OutputEventHandler == ActionBatch[0].OutputEventHandler)
-				{
-					ActionBatch.Add(CurrentAction);
-				}
-				else
-				{
-					XGEResult = ExecuteActionBatch(ActionBatch);
-					ActionBatch.Clear();
-					ActionBatch.Add(CurrentAction);
-				}
+				ActionBatch.Add(CurrentAction);
 			}
 			if (ActionBatch.Count > 0 && XGEResult)
 			{
@@ -166,7 +157,7 @@ namespace UnrealBuildTool
 					}
 				}
 
-				DataReceivedEventHandler OutputHandler = Actions[0].OutputEventHandler ?? ((Sender, Args) => { if(Args.Data != null) { DefaultOutputHandler(Args.Data); } });
+				DataReceivedEventHandler OutputHandler = ((Sender, Args) => { if(Args.Data != null) { DefaultOutputHandler(Args.Data); } });
 				XGEResult = ExecuteTaskFileWithProgressMarkup(XGETaskFilePath, Actions.Count, OutputHandler);
 			}
 			return XGEResult;

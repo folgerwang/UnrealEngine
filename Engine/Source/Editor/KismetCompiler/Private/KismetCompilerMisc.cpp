@@ -80,7 +80,7 @@ static bool IsTypeCompatibleWithProperty(UEdGraphPin* SourcePin, const FEdGraphP
 
 		if (ClassType == NULL)
 		{
-			MessageLog.Error(*FString::Printf(*LOCTEXT("FindClassForPin_Error", "Failed to find class for pin @@").ToString()), SourcePin);
+			MessageLog.Error(*LOCTEXT("FindClassForPin_Error", "Failed to find class for pin @@").ToString(), SourcePin);
 		}
 		else
 		{
@@ -143,7 +143,7 @@ static bool IsTypeCompatibleWithProperty(UEdGraphPin* SourcePin, const FEdGraphP
 
 		if (ObjectType == NULL)
 		{
-			MessageLog.Error(*FString::Printf(*LOCTEXT("FindClassForPin_Error", "Failed to find class for pin @@").ToString()), SourcePin);
+			MessageLog.Error(*LOCTEXT("FindClassForPin_Error", "Failed to find class for pin @@").ToString(), SourcePin);
 		}
 		else
 		{
@@ -220,7 +220,7 @@ static bool IsTypeCompatibleWithProperty(UEdGraphPin* SourcePin, const FEdGraphP
 		const UScriptStruct* StructType = Cast<const UScriptStruct>(PinSubCategoryObject);
 		if (StructType == NULL)
 		{
-			MessageLog.Error(*FString::Printf(*LOCTEXT("FindStructForPin_Error", "Failed to find struct for pin @@").ToString()), SourcePin);
+			MessageLog.Error(*LOCTEXT("FindStructForPin_Error", "Failed to find struct for pin @@").ToString(), SourcePin);
 		}
 		else
 		{
@@ -250,7 +250,7 @@ static bool IsTypeCompatibleWithProperty(UEdGraphPin* SourcePin, const FEdGraphP
 	}
 	else
 	{
-		MessageLog.Error(*FString::Printf(*LOCTEXT("UnsupportedTypeForPin", "Unsupported type (%s) on @@").ToString(), *UEdGraphSchema_K2::TypeToText(OwningType).ToString()), SourcePin);
+		MessageLog.Error(*FText::Format(LOCTEXT("UnsupportedTypeForPinFmt", "Unsupported type ({0}) on @@"), UEdGraphSchema_K2::TypeToText(OwningType)).ToString(), SourcePin);
 	}
 
 	return false;
@@ -391,11 +391,15 @@ bool FKismetCompilerUtilities::IsTypeCompatibleWithProperty(UEdGraphPin* SourceP
 
 	if (bTypeMismatch)
 	{
-		MessageLog.Error(*FString::Printf(*LOCTEXT("TypeDoesNotMatchPropertyOfType_Error", "@@ of type %s doesn't match the property %s of type %s").ToString(),
-			*UEdGraphSchema_K2::TypeToText(Type).ToString(),
-			*Property->GetName(),
-			*UEdGraphSchema_K2::TypeToText(Property).ToString()),
-			SourcePin);
+		MessageLog.Error(
+			*FText::Format(
+				LOCTEXT("TypeDoesNotMatchPropertyOfType_ErrorFmt", "@@ of type {0} doesn't match the property {1} of type {2}"),
+				UEdGraphSchema_K2::TypeToText(Type),
+				FText::FromString(Property->GetName()),
+				UEdGraphSchema_K2::TypeToText(Property)
+			).ToString(),
+			SourcePin
+		);
 	}
 
 	// Now check the direction if it is parameter coming in or out of a function call style node (variable nodes are excluded since they maybe local parameters)
@@ -406,7 +410,13 @@ bool FKismetCompilerUtilities::IsTypeCompatibleWithProperty(UEdGraphPin* SourceP
 
 		if ( ((SourcePin->Direction == EGPD_Input) && bOutParam) || ((SourcePin->Direction == EGPD_Output) && !bOutParam))
 		{
-			MessageLog.Error(*FString::Printf(*LOCTEXT("DirectionMismatchParameter_Error", "The direction of @@ doesn't match the direction of parameter %s").ToString(), *Property->GetName()), SourcePin);
+			MessageLog.Error(
+				*FText::Format(
+					LOCTEXT("DirectionMismatchParameter_ErrorFmt", "The direction of @@ doesn't match the direction of parameter {0}"),
+					FText::FromString(Property->GetName())
+				).ToString(),
+				SourcePin
+			);
 		}
 
 		if (Property->HasAnyPropertyFlags(CPF_ReferenceParm)
@@ -645,14 +655,14 @@ void FKismetCompilerUtilities::ValidateEnumProperties(UObject* DefaultObject, FC
 				if(!Enum->IsValidEnumValue(EnumValue))
 				{
 					MessageLog.Warning(
-						*FString::Printf(
-							*LOCTEXT("InvalidEnumDefaultValue_Error", "Default Enum value '%s' for class '%s' is invalid in object '%s'. EnumVal: %lld. EnumAcceptableMax: %lld ").ToString(),
-							*Property->GetName(),
-							*DefaultObject->GetClass()->GetName(),
-							*DefaultObject->GetName(),
+						*FText::Format(
+							LOCTEXT("InvalidEnumDefaultValue_ErrorFmt", "Default Enum value '{0}' for class '{1}' is invalid in object '{2}'. EnumVal: {3}. EnumAcceptableMax: {4} "),
+							FText::FromString(Property->GetName()),
+							FText::FromString(DefaultObject->GetClass()->GetName()),
+							FText::FromString(DefaultObject->GetName()),
 							EnumValue,
 							Enum->GetMaxEnumValue()
-						)
+						).ToString()
 					);
 				}
 			}
@@ -670,7 +680,10 @@ bool FKismetCompilerUtilities::ValidateSelfCompatibility(const UEdGraphPin* Pin,
 	FString ErrorMsg;
 	if (Blueprint->BlueprintType != BPTYPE_FunctionLibrary && K2Schema->IsStaticFunctionGraph(SourceGraph))
 	{
-		ErrorMsg = FString::Printf(*LOCTEXT("PinMustHaveConnection_Static_Error", "'@@' must have a connection, because %s is a static function and will not be bound to instances of this blueprint.").ToString(), *SourceGraph->GetName());
+		ErrorMsg = FText::Format(
+			LOCTEXT("PinMustHaveConnection_Static_ErrorFmt", "'@@' must have a connection, because {0} is a static function and will not be bound to instances of this blueprint."),
+			FText::FromString(SourceGraph->GetName())
+		).ToString();
 	}
 	else
 	{
@@ -697,11 +710,14 @@ bool FKismetCompilerUtilities::ValidateSelfCompatibility(const UEdGraphPin* Pin,
 
 			if (PinType.IsEmpty())
 			{
-				ErrorMsg = FString::Printf(*LOCTEXT("PinMustHaveConnection_NoType_Error", "This blueprint (self) is not compatible with '@@', therefore that pin must have a connection.").ToString());
+				ErrorMsg = *LOCTEXT("PinMustHaveConnection_NoType_Error", "This blueprint (self) is not compatible with '@@', therefore that pin must have a connection.").ToString();
 			}
 			else
 			{
-				ErrorMsg = FString::Printf(*LOCTEXT("PinMustHaveConnection_WrongClass_Error", "This blueprint (self) is not a %s, therefore '@@' must have a connection.").ToString(), *PinType);
+				ErrorMsg = FText::Format(
+					LOCTEXT("PinMustHaveConnection_WrongClass_ErrorFmt", "This blueprint (self) is not a {0}, therefore '@@' must have a connection."),
+					FText::FromString(PinType)
+				).ToString();
 			}
 		}
 	}
@@ -953,12 +969,13 @@ UProperty* FKismetCompilerUtilities::CreatePrimitiveProperty(UObject* PropertySc
 			else
 			{
 				MessageLog.Error(
-					*FString::Printf(
-						*LOCTEXT("InvalidStructForField_Error", "Invalid property '%s' structure '%s' error: %s").ToString(),
-						*ValidatedPropertyName.ToString(),
-						*SubType->GetName(),
-						*StructureError
-						));
+					*FText::Format(
+						LOCTEXT("InvalidStructForField_ErrorFmt", "Invalid property '{0}' structure '{1}' error: {2}"),
+						FText::FromName(ValidatedPropertyName),
+						FText::FromString(SubType->GetName()),
+						FText::FromString(StructureError)
+					).ToString()
+				);
 			}
 		}
 	}
@@ -972,10 +989,11 @@ UProperty* FKismetCompilerUtilities::CreatePrimitiveProperty(UObject* PropertySc
 			SubType = UObject::StaticClass();
 
 			MessageLog.Warning(
-				*FString::Printf(
-					*LOCTEXT("InvalidClassForField_Error", "Invalid property '%s' class, replaced with Object.  Please fix or remove.").ToString(),
-					*ValidatedPropertyName.ToString()
-					));
+				*FText::Format(
+					LOCTEXT("InvalidClassForField_ErrorFmt", "Invalid property '{0}' class, replaced with Object.  Please fix or remove."),
+					FText::FromName(ValidatedPropertyName)
+				).ToString()
+			);
 		}
 
 		if (SubType)
@@ -1069,7 +1087,7 @@ UProperty* FKismetCompilerUtilities::CreatePrimitiveProperty(UObject* PropertySc
 }
 
 /** Creates a property named PropertyName of type PropertyType in the Scope or returns NULL if the type is unknown, but does *not* link that property in */
-UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const FName& PropertyName, const FEdGraphPinType& Type, UClass* SelfClass, uint64 PropertyFlags, const UEdGraphSchema_K2* Schema, FCompilerResultsLog& MessageLog)
+UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const FName& PropertyName, const FEdGraphPinType& Type, UClass* SelfClass, EPropertyFlags PropertyFlags, const UEdGraphSchema_K2* Schema, FCompilerResultsLog& MessageLog)
 {
 	const EObjectFlags ObjectFlags = RF_Public;
 
@@ -1165,9 +1183,10 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 			if (!NewProperty->HasAnyPropertyFlags(CPF_HasGetValueTypeHash))
 			{
 				MessageLog.Error(
-					*FString::Printf(
-						*LOCTEXT("MapKeyTypeUnhashable_Error", "Map Property @@ has key type of %s which cannot be hashed and is therefore invalid").ToString(),
-						*(Schema->GetCategoryText(Type.PinCategory).ToString())),
+					*FText::Format(
+						LOCTEXT("MapKeyTypeUnhashable_ErrorFmt", "Map Property @@ has key type of {0} which cannot be hashed and is therefore invalid"),
+						Schema->GetCategoryText(Type.PinCategory)
+					).ToString(),
 					NewMapProperty
 				);
 			}
@@ -1206,9 +1225,10 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 			if (!NewProperty->HasAnyPropertyFlags(CPF_HasGetValueTypeHash))
 			{
 				MessageLog.Error(
-					*FString::Printf(
-						*LOCTEXT("SetKeyTypeUnhashable_Error", "Set Property @@ has contained type of %s which cannot be hashed and is therefore invalid").ToString(), 
-						*(Schema->GetCategoryText(Type.PinCategory).ToString())),
+					*FText::Format(
+						LOCTEXT("SetKeyTypeUnhashable_ErrorFmt", "Set Property @@ has contained type of {0} which cannot be hashed and is therefore invalid"),
+						Schema->GetCategoryText(Type.PinCategory)
+					).ToString(),
 					NewSetProperty
 				);
 
@@ -1473,9 +1493,10 @@ void FKismetCompilerUtilities::DetectValuesReturnedByRef(const UFunction* Func, 
 		UProperty* FuncParam = *PropIt;
 		if (FuncParam->HasAllPropertyFlags(CPF_OutParm) && !FuncParam->HasAllPropertyFlags(CPF_ConstParm))
 		{
-			const FString MessageStr = FString::Printf(
-				*LOCTEXT("WrongRefOutput", "No value will be returned by reference. Parameter '%s'. Node: @@").ToString(),
-				*FuncParam->GetName());
+			const FString MessageStr = FText::Format(
+				LOCTEXT("WrongRefOutputFmt", "No value will be returned by reference. Parameter '{0}'. Node: @@"),
+				FText::FromString(FuncParam->GetName())
+			).ToString();
 			if (FuncParam->IsA<UArrayProperty>()) // array is always passed by reference, see FKismetCompilerContext::CreatePropertiesFromList
 			{
 				MessageLog.Note(*MessageStr, Node);
@@ -1603,7 +1624,14 @@ bool FNodeHandlingFunctor::ValidateAndRegisterNetIfLiteral(FKismetFunctionContex
 		FString DefaultAllowedResult = CompilerContext.GetSchema()->IsCurrentPinDefaultValid(Net);
 		if (DefaultAllowedResult != TEXT(""))
 		{
-			CompilerContext.MessageLog.Error(*FString::Printf(*LOCTEXT("InvalidDefaultValue_Error", "Default value '%s' for @@ is invalid: '%s'").ToString(), *(Net->GetDefaultAsString()), *DefaultAllowedResult), Net);
+			CompilerContext.MessageLog.Error(
+				*FText::Format(
+					LOCTEXT("InvalidDefaultValue_ErrorFmt", "Default value '{0}' for @@ is invalid: '{1}'"),
+					Net->GetDefaultAsText(),
+					FText::FromString(DefaultAllowedResult)
+				).ToString(),
+				Net
+			);
 			return false;
 		}
 

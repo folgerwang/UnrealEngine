@@ -66,6 +66,9 @@
     <Compile Include="FastJSON\JsonSerializer.cs" />
     <Compile Include="FastJSON\Reflection.cs" />
     <Compile Include="FastJSON\SafeDictionary.cs" />
+    <Compile Include="FileFilter.cs" />
+    <Compile Include="FileFilterNode.cs" />
+    <Compile Include="FilePattern.cs" />
     <Compile Include="FileReference.cs" />
     <Compile Include="FileSystemName.cs" />
     <Compile Include="FileSystemReference.cs" />

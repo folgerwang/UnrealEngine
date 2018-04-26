@@ -307,16 +307,35 @@ bool FParse::Param( const TCHAR* Stream, const TCHAR* Param )
 //
 bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, FString& Value, bool bShouldStopOnSeparator )
 {
-	TCHAR Temp[4096]=TEXT("");
-	if( FParse::Value( Stream, Match, Temp, ARRAY_COUNT(Temp), bShouldStopOnSeparator) )
-	{
-		Value = Temp;
-		return true;
-	}
-	else
+	if (!Stream)
 	{
 		return false;
 	}
+
+	int32 StreamLen = FCString::Strlen(Stream);
+	if (StreamLen < 4096)
+	{
+		TCHAR Temp[4096]=TEXT("");
+		if (FParse::Value(Stream, Match, Temp, ARRAY_COUNT(Temp), bShouldStopOnSeparator))
+		{
+			Value = Temp;
+			return true;
+		}
+	}
+	else
+	{
+		FString TempValue;
+		TArray<TCHAR>& ValueCharArray = TempValue.GetCharArray();
+		ValueCharArray.AddUninitialized(StreamLen + 1);
+		if( FParse::Value( Stream, Match, ValueCharArray.GetData(), StreamLen + 1, bShouldStopOnSeparator) )
+		{
+			TempValue.Shrink();
+			Value = MoveTemp(TempValue);
+			return true;
+		}
+	}
+
+	return false;
 }
 
 // 

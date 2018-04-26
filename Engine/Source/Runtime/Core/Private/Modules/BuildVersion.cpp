@@ -32,11 +32,8 @@ FString FBuildVersion::GetFileNameForCurrentExecutable()
 		AppExecutableName = AppExecutableName.Left(AppExecutableName.Len() - 4);
 	}
 #endif
-#if IS_PROGRAM || IS_MONOLITHIC
-	return FPaths::ProjectDir() / TEXT("Binaries") / FPlatformProcess::GetBinariesSubdirectory() / AppExecutableName + TEXT(".version");
-#else
-	return FPaths::EngineDir() / TEXT("Binaries") / FPlatformProcess::GetBinariesSubdirectory() / AppExecutableName + TEXT(".version");
-#endif
+	FString Result = FPlatformProcess::GetModulesDirectory() / AppExecutableName + TEXT(".version");
+	return Result;
 }
 
 bool FBuildVersion::TryRead(const FString& FileName, FBuildVersion& OutVersion)

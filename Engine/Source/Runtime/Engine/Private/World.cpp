@@ -2671,7 +2671,11 @@ public:
 		if (Object && (Object->IsA(UWorld::StaticClass()) || Object->IsInA(UWorld::StaticClass())) && !VisitedObjects.Contains(Object))
 		{
 			VisitedObjects.Add(Object);
-			Object->Serialize(*this);
+			UPackage* Outermost = Object->GetOutermost();
+			if (!Outermost || Outermost->HasAnyPackageFlags(PKG_PlayInEditor))
+			{
+				Object->Serialize(*this);
+			}
 		}
 		return *this;
 	}

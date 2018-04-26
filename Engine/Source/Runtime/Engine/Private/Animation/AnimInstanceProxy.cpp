@@ -622,7 +622,7 @@ void FAnimInstanceProxy::TickAssetPlayerInstances(float DeltaSeconds)
 					{
 						ErrorMsg += FString::Format(TEXT("\t\t{0}) '{1}'\n"), {MarkerIndex, SyncGroup.ValidMarkers[MarkerIndex].ToString()});
 					}
-					ensureMsgf(false, *ErrorMsg);
+					ensureMsgf(false, TEXT("%s"), *ErrorMsg);
 					TickContext.InvalidateMarkerSync();
 				}
 				else if (!bEndMarkerValid)
@@ -635,7 +635,7 @@ void FAnimInstanceProxy::TickAssetPlayerInstances(float DeltaSeconds)
 					{
 						ErrorMsg += FString::Format(TEXT("\t\t{0}) '{1}'\n"), { MarkerIndex, SyncGroup.ValidMarkers[MarkerIndex].ToString() });
 					}
-					ensureMsgf(false, *ErrorMsg);
+					ensureMsgf(false, TEXT("%s"), *ErrorMsg);
 					TickContext.InvalidateMarkerSync();
 				}
 			}

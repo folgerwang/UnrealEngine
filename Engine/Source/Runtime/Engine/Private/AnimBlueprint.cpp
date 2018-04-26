@@ -31,6 +31,17 @@ UAnimBlueprintGeneratedClass* UAnimBlueprint::GetAnimBlueprintSkeletonClass() co
 	return Result;
 }
 
+void UAnimBlueprint::Serialize(FArchive& Ar)
+{
+	LLM_SCOPE(ELLMTag::Animation);
+
+	Super::Serialize(Ar);
+
+#if WITH_EDITOR
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+#endif
+}
+
 #if WITH_EDITOR
 
 UClass* UAnimBlueprint::GetBlueprintClass() const
@@ -163,14 +174,6 @@ void UAnimBlueprint::PostLoad()
 		AnimationEditorUtils::RegenerateSubGraphArrays(this);
 	}
 #endif
-}
-
-void UAnimBlueprint::Serialize(FArchive& Ar)
-{
-	LLM_SCOPE(ELLMTag::Animation);
-
-	Super::Serialize(Ar);
-	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
 }
 
 bool UAnimBlueprint::CanRecompileWhilePlayingInEditor() const

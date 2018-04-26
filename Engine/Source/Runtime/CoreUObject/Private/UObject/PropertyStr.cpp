@@ -9,23 +9,20 @@
 	UStrProperty.
 -----------------------------------------------------------------------------*/
 
-bool UStrProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+EConvertFromTypeResult UStrProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
 	// Convert serialized text to string.
-	if (Tag.Type==NAME_TextProperty) 
+	if (Tag.Type==NAME_TextProperty)
 	{ 
-		FText Text;  
+		FText Text;
 		Ar << Text;
 		const FString String = FTextInspector::GetSourceString(Text) ? *FTextInspector::GetSourceString(Text) : TEXT("");
 		SetPropertyValue_InContainer(Data, String, Tag.ArrayIndex);
-		bOutAdvanceProperty = true;
-	}
-	else
-	{
-		bOutAdvanceProperty = false;
+
+		return EConvertFromTypeResult::Converted;
 	}
 
-	return bOutAdvanceProperty;
+	return EConvertFromTypeResult::UseSerializeItem;
 }
 
 FString UStrProperty::GetCPPTypeForwardDeclaration() const

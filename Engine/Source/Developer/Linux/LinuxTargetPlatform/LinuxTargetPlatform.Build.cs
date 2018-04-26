@@ -26,7 +26,6 @@ public class LinuxTargetPlatform : ModuleRules
 
         PrivateIncludePaths.AddRange(
             new string[] {
-				"Developer/LinuxTargetPlatform/Classes"
 			}
         );
 

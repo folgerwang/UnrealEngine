@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
@@ -17,6 +17,8 @@
 #include "Internationalization/ITextData.h"
 #include "Misc/Optional.h"
 #include "Templates/UniquePtr.h"
+#include "Templates/IsConstructible.h"
+#include "Templates/AndOrNot.h"
 
 class FFormatArgumentValue;
 class FTextFormatData;
@@ -108,7 +110,6 @@ namespace EFormatArgumentType
 	};
 }
 
-class FFormatArgumentValue;
 typedef TMap<FString, FFormatArgumentValue, FDefaultSetAllocator, FLocKeyMapFuncs<FFormatArgumentValue>> FFormatNamedArguments;
 typedef TArray<FFormatArgumentValue> FFormatOrderedArguments;
 
@@ -472,13 +473,18 @@ public:
 	static FText Format(FTextFormat Fmt, const FFormatOrderedArguments& InArguments);
 	static FText Format(FTextFormat Fmt, FFormatOrderedArguments&& InArguments);
 
-	DEPRECATED(4.13, "The version of FText::Format taking FFormatArgumentData was internal to Blueprints and has been deprecated for C++ usage. Please use one of the other FText::Format(...) functions.")
-	static FText Format(FTextFormat Fmt, TArray< struct FFormatArgumentData > InArguments);
+	template <typename... ArgTypes>
+	static FORCEINLINE FText Format(FTextFormat Fmt, ArgTypes... Args)
+	{
+		static_assert(TAnd<TIsConstructible<FFormatArgumentValue, ArgTypes>...>::Value, "Invalid argument type passed to FText::Format");
+		static_assert(sizeof...(Args) > 0, "FText::Format expects at least one non-format argument"); // we do this to ensure that people don't call Format for no good reason
 
-	static FText Format(FTextFormat Fmt, FFormatArgumentValue v1);
-	static FText Format(FTextFormat Fmt, FFormatArgumentValue v1, FFormatArgumentValue v2);
-	static FText Format(FTextFormat Fmt, FFormatArgumentValue v1, FFormatArgumentValue v2, FFormatArgumentValue v3);
-	static FText Format(FTextFormat Fmt, FFormatArgumentValue v1, FFormatArgumentValue v2, FFormatArgumentValue v3, FFormatArgumentValue v4);
+		// We do this to force-select the correct overload, because overload resolution will cause compile
+		// errors when it tries to instantiate the FFormatNamedArguments overloads.
+		FText (*CorrectFormat)(FTextFormat, FFormatOrderedArguments&&) = Format;
+
+		return CorrectFormat(MoveTemp(Fmt), FFormatOrderedArguments{ MoveTemp(Args)... });
+	}
 
 	/**
 	 * FormatNamed allows you to pass name <-> value pairs to the function to format automatically
@@ -571,6 +577,7 @@ public:
 	friend class FTextInspector;
 	friend class FStringTableRegistry;
 	friend class FArchive;
+	friend class FArchiveFromStructuredArchive;
 	friend class UTextProperty;
 	friend class FFormatArgumentValue;
 	friend class FTextHistory_NamedFormat;

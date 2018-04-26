@@ -1689,7 +1689,7 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 							{
 								UsedPinNames.Add(Pin->PinName);
 							
-								UProperty* Param = FKismetCompilerUtilities::CreatePropertyOnScope(NewFunction, Pin->PinName, Pin->PinType, Ret, 0, Schema, MessageLog);
+								UProperty* Param = FKismetCompilerUtilities::CreatePropertyOnScope(NewFunction, Pin->PinName, Pin->PinType, Ret, CPF_None, Schema, MessageLog);
 								if(Param)
 								{
 									Param->SetFlags(RF_Transient);
@@ -1766,7 +1766,7 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 						if( FindField<UObjectProperty>(NewFunction, TEXT("__WorldContext")) == nullptr )
 						{
 							FEdGraphPinType WorldContextPinType(UEdGraphSchema_K2::PC_Object, NAME_None, UObject::StaticClass(), EPinContainerType::None, false, FEdGraphTerminalType());
-							UProperty* Param = FKismetCompilerUtilities::CreatePropertyOnScope(NewFunction, TEXT("__WorldContext"), WorldContextPinType, Ret, 0, Schema, MessageLog);
+							UProperty* Param = FKismetCompilerUtilities::CreatePropertyOnScope(NewFunction, TEXT("__WorldContext"), WorldContextPinType, Ret, CPF_None, Schema, MessageLog);
 							if(Param)
 							{
 								Param->SetFlags(RF_Transient);

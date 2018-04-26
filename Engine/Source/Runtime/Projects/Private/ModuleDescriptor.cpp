@@ -545,7 +545,7 @@ void FModuleDescriptor::LoadModulesForPhase(ELoadingPhase::Type LoadingPhase, co
 }
 
 #if !IS_MONOLITHIC
-bool FModuleDescriptor::CheckModuleCompatibility(const TArray<FModuleDescriptor>& Modules, bool bGameModules, TArray<FString>& OutIncompatibleFiles)
+bool FModuleDescriptor::CheckModuleCompatibility(const TArray<FModuleDescriptor>& Modules, TArray<FString>& OutIncompatibleFiles)
 {
 	FModuleManager& ModuleManager = FModuleManager::Get();
 
@@ -554,7 +554,7 @@ bool FModuleDescriptor::CheckModuleCompatibility(const TArray<FModuleDescriptor>
 	{
 		if (Module.IsCompiledInCurrentConfiguration() && !ModuleManager.IsModuleUpToDate(Module.Name))
 		{
-			OutIncompatibleFiles.Add(ModuleManager.GetCleanModuleFilename(Module.Name, bGameModules));
+			OutIncompatibleFiles.Add(Module.Name.ToString());
 			bResult = false;
 		}
 	}

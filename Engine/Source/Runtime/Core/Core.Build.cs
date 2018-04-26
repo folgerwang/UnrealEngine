@@ -12,16 +12,16 @@ public class Core : ModuleRules
 
 		SharedPCHHeaderFile = "Public/CoreSharedPCH.h";
 
+		PrivateDependencyModuleNames.Add("BuildSettings");
+
 		PrivateIncludePaths.AddRange(
 			new string[] {
 				"Developer/DerivedDataCache/Public",
 				"Runtime/SynthBenchmark/Public",
 				"Runtime/Core/Private",
 				"Runtime/Core/Private/Misc",
-				"Runtime/Core/Private/Serialization/Json",
                 "Runtime/Core/Private/Internationalization",
 				"Runtime/Core/Private/Internationalization/Cultures",
-                "Runtime/Analytics/Public",
 				"Runtime/Engine/Public",
 			}
 			);

@@ -16,7 +16,7 @@ my $output_enabled = 1;
 # read everything from stdin
 while(<STDIN>)
 {
-	# remove timestamps added by gubp
+	# remove timestamps added by UAT
 	s/^\[[0-9:.]+\] //;
 
 	# remove the mono prefix for recursive UAT calls on Mac
@@ -25,14 +25,11 @@ while(<STDIN>)
 	# remove the AutomationTool prefix for recursive UAT calls anywhere
 	s/^AutomationTool: ([A-Za-z0-9-]+: )/$1/;
 	
-	# remove the gubp function or prefix
+	# remove the UAT function or prefix
 	s/^([A-Za-z0-9.-]+): // if !/^AutomationTool\\.AutomationException:/ && !/^error:/i && !/^warning:/i;
 
 	# if it was the editor, also strip any additional timestamp
-	if($1 && $1 =~ /^UE4Editor/)
-	{
-		s/^\[[0-9.:-]+\]\[\s*\d+\]//;
-	}
+	s/^\s*\[[0-9.:]+-[0-9.:]+\]\[\s*\d+\]//;
 
 	# skip over warnings if necessary
 	if($no_warnings)

@@ -17,18 +17,6 @@ namespace UnrealBuildTool.Rules
                 }
             );
 
-            PrivateIncludePaths.AddRange(
-                new string[] {            
-                    "AudioCapture/Private"
-                }
-            );
-
-            PublicIncludePaths.AddRange(
-                new string[] {
-                    "AudioCapture/Public"
-                }
-            );
-
             if (Target.Platform == UnrealTargetPlatform.Win32 ||
                 Target.Platform == UnrealTargetPlatform.Win64)
             {

@@ -1412,6 +1412,7 @@ bool UBlueprint::GetBlueprintHierarchyFromClass(const UClass* InClass, TArray<UB
 		}
 		else
 		{
+			check(CurrentClass);
 			CurrentClass = CurrentClass->GetSuperClass();
 		}
 	}

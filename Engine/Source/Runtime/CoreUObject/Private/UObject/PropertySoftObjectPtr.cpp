@@ -106,14 +106,13 @@ const TCHAR* USoftObjectProperty::ImportText_Internal( const TCHAR* InBuffer, vo
 	}
 }
 
-bool USoftObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+EConvertFromTypeResult USoftObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
 	static FName NAME_AssetObjectProperty = "AssetObjectProperty";
 	static FName NAME_SoftObjectPath = "SoftObjectPath";
 	static FName NAME_SoftClassPath = "SoftClassPath";
 	static FName NAME_StringAssetReference = "StringAssetReference";
 	static FName NAME_StringClassReference = "StringClassReference";
-	bOutAdvanceProperty = true;
 
 	if (Tag.Type == NAME_AssetObjectProperty)
 	{
@@ -124,10 +123,10 @@ bool USoftObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar,
 
 		if (Ar.IsCriticalError())
 		{
-			bOutAdvanceProperty = false;
+			return EConvertFromTypeResult::CannotConvert;
 		}
 
-		return true;
+		return EConvertFromTypeResult::Converted;
 	}
 	else if (Tag.Type == NAME_ObjectProperty)
 	{
@@ -137,7 +136,7 @@ bool USoftObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar,
 		FSoftObjectPtr* PropertyValue = GetPropertyValuePtr_InContainer(Data, Tag.ArrayIndex);
 		check(PropertyValue);
 
-		return PropertyValue->GetUniqueID().SerializeFromMismatchedTag(Tag, Ar);
+		return PropertyValue->GetUniqueID().SerializeFromMismatchedTag(Tag, Ar) ? EConvertFromTypeResult::Converted : EConvertFromTypeResult::UseSerializeItem;
 	}
 	else if (Tag.Type == NAME_StructProperty && (Tag.StructName == NAME_SoftObjectPath || Tag.StructName == NAME_SoftClassPath || Tag.StructName == NAME_StringAssetReference || Tag.StructName == NAME_StringClassReference))
 	{
@@ -151,10 +150,10 @@ bool USoftObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar,
 		PreviousValueSoftObjectPtr = PreviousValue;
 		SetPropertyValue_InContainer(Data, PreviousValueSoftObjectPtr, Tag.ArrayIndex);
 
-		return true;
+		return EConvertFromTypeResult::Converted;
 	}
 
-	return false;
+	return EConvertFromTypeResult::UseSerializeItem;
 }
 
 UObject* USoftObjectProperty::GetObjectPropertyValue(const void* PropertyValueAddress) const

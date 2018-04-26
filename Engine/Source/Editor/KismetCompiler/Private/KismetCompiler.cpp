@@ -392,7 +392,7 @@ void FKismetCompilerContext::ValidateLink(const UEdGraphPin* PinA, const UEdGrap
 		const bool bMissingConversion = (ConnectResponse.Response == CONNECT_RESPONSE_MAKE_WITH_CONVERSION_NODE);
 		if (bForbiddenConnection || bMissingConversion)
 		{
-			const FString ErrorMessage = FString::Printf(*LOCTEXT("PinTypeMismatch_Error", "Can't connect pins @@ and @@: %s").ToString(), *ConnectResponse.Message.ToString());
+			const FString ErrorMessage = FText::Format(LOCTEXT("PinTypeMismatch_ErrorFmt", "Can't connect pins @@ and @@: {0}"), ConnectResponse.Message).ToString();
 			MessageLog.Error(*ErrorMessage, PinA, PinB);
 		}
 	}
@@ -489,19 +489,30 @@ UProperty* FKismetCompilerContext::CreateVariable(const FName VarName, const FEd
 {
 	if (BPTYPE_FunctionLibrary == Blueprint->BlueprintType)
 	{
-		MessageLog.Error(*FString::Printf(*LOCTEXT("VariableInFunctionLibrary_Error", "The variable %s cannot be declared in FunctionLibrary @@").ToString(),
-			*VarName.ToString()), Blueprint);
+		MessageLog.Error(
+			*FText::Format(
+				LOCTEXT("VariableInFunctionLibrary_ErrorFmt", "The variable {0} cannot be declared in FunctionLibrary @@"),
+				FText::FromName(VarName)
+			).ToString(),
+			Blueprint
+		);
 	}
 
-	UProperty* NewProperty = FKismetCompilerUtilities::CreatePropertyOnScope(NewClass, VarName, VarType, NewClass, 0, Schema, MessageLog);
-	if (NewProperty != NULL)
+	UProperty* NewProperty = FKismetCompilerUtilities::CreatePropertyOnScope(NewClass, VarName, VarType, NewClass, CPF_None, Schema, MessageLog);
+	if (NewProperty != nullptr)
 	{
 		FKismetCompilerUtilities::LinkAddedProperty(NewClass, NewProperty);
 	}
 	else
 	{
-		MessageLog.Error(*FString::Printf(*LOCTEXT("VariableInvalidType_Error", "The variable %s declared in @@ has an invalid type %s").ToString(),
-			*VarName.ToString(), *UEdGraphSchema_K2::TypeToText(VarType).ToString()), Blueprint);
+		MessageLog.Error(
+			*FText::Format(
+				LOCTEXT("VariableInvalidType_ErrorFmt", "The variable {0} declared in @@ has an invalid type {1}"),
+				FText::FromName(VarName),
+				UEdGraphSchema_K2::TypeToText(VarType)
+			).ToString(),
+			Blueprint
+		);
 	}
 
 	return NewProperty;
@@ -552,7 +563,13 @@ void FKismetCompilerContext::ValidateVariableNames()
 
 			if (OldVarName != NewVarName)
 			{
-				MessageLog.Warning(*FString::Printf(*LOCTEXT("MemberVariableConflictWarning", "Found a member variable with a conflicting name (%s) - changed to %s.").ToString(), *VarNameStr, *NewVarName.ToString()));
+				MessageLog.Warning(
+					*FText::Format(
+						LOCTEXT("MemberVariableConflictWarningFmt", "Found a member variable with a conflicting name ({0}) - changed to {1}."),
+						FText::FromString(VarNameStr),
+						FText::FromName(NewVarName)
+					).ToString()
+				);
 				TGuardValue<bool> LockDependencies(Blueprint->bCachedDependenciesUpToDate, Blueprint->bCachedDependenciesUpToDate);
 				FBlueprintEditorUtils::RenameMemberVariable(Blueprint, OldVarName, NewVarName);
 			}
@@ -583,7 +600,13 @@ void FKismetCompilerContext::ValidateTimelineNames()
 				FString TimelineName = UTimelineTemplate::TimelineTemplateNameToVariableName(TimelineTemplate->GetFName());
 
 				FName NewName = FBlueprintEditorUtils::FindUniqueKismetName(Blueprint, TimelineName);
-				MessageLog.Warning(*FString::Printf(*LOCTEXT("TimelineConflictWarning", "Found a timeline with a conflicting name (%s) - changed to %s.").ToString(), *TimelineTemplate->GetName(), *NewName.ToString()));
+				MessageLog.Warning(
+					*FText::Format(
+						LOCTEXT("TimelineConflictWarningFmt", "Found a timeline with a conflicting name ({0}) - changed to {1}."),
+						FText::FromString(TimelineTemplate->GetName()),
+						FText::FromName(NewName)
+					).ToString()
+				);
 				FBlueprintEditorUtils::RenameTimeline(Blueprint, FName(*TimelineName), NewName);
 			}
 		}
@@ -629,7 +652,7 @@ void FKismetCompilerContext::CreateClassVariablesFromBlueprint()
 				}
 			}
 
-			NewProperty->SetPropertyFlags(Variable.PropertyFlags);
+			NewProperty->SetPropertyFlags((EPropertyFlags)Variable.PropertyFlags);
 			NewProperty->SetMetaData(TEXT("DisplayName"), *Variable.FriendlyName);
 			NewProperty->SetMetaData(TEXT("Category"), *Variable.Category.ToString());
 			NewProperty->RepNotifyFunc = Variable.RepNotifyFunc;
@@ -660,7 +683,12 @@ void FKismetCompilerContext::CreateClassVariablesFromBlueprint()
 					NewProperty->SetPropertyFlags(CPF_ExposeOnSpawn);
 					if (NewProperty->HasAnyPropertyFlags(CPF_DisableEditOnInstance))
 					{
-						MessageLog.Warning(*FString::Printf(*LOCTEXT("ExposeToSpawnButPrivateWarning", "Variable %s is marked as 'Expose on Spawn' but not marked as 'Editable'; please make it 'Editable'").ToString(), *NewProperty->GetName()));
+						MessageLog.Warning(
+							*FText::Format(
+								LOCTEXT("ExposeToSpawnButPrivateWarningFmt", "Variable {0} is marked as 'Expose on Spawn' but not marked as 'Editable'; please make it 'Editable'"),
+								FText::FromString(NewProperty->GetName())
+							).ToString()
+						);
 					}
 				}
 			}
@@ -758,7 +786,7 @@ void FKismetCompilerContext::CreateClassVariablesFromBlueprint()
 	}
 }
 
-void FKismetCompilerContext::CreatePropertiesFromList(UStruct* Scope, UField**& PropertyStorageLocation, TIndirectArray<FBPTerminal>& Terms, uint64 PropertyFlags, bool bPropertiesAreLocal, bool bPropertiesAreParameters)
+void FKismetCompilerContext::CreatePropertiesFromList(UStruct* Scope, UField**& PropertyStorageLocation, TIndirectArray<FBPTerminal>& Terms, EPropertyFlags PropertyFlags, bool bPropertiesAreLocal, bool bPropertiesAreParameters)
 {
 	for (FBPTerminal& Term : Terms)
 	{
@@ -768,12 +796,26 @@ void FKismetCompilerContext::CreatePropertiesFromList(UStruct* Scope, UField**& 
 			{
 				continue;
 			}
-			MessageLog.Warning(*FString::Printf(*LOCTEXT("AssociatedVarProperty_Error", "AssociatedVarProperty property overridden %s from @@ type (%s)").ToString(), *Term.Name, *UEdGraphSchema_K2::TypeToText(Term.Type).ToString()), Term.Source);
+			MessageLog.Warning(
+				*FText::Format(
+					LOCTEXT("AssociatedVarProperty_ErrorFmt", "AssociatedVarProperty property overridden {0} from @@ type ({1})"),
+					FText::FromString(Term.Name),
+					UEdGraphSchema_K2::TypeToText(Term.Type)
+				).ToString(),
+				Term.Source
+			);
 		}
 
 		if (Term.bIsLiteral)
 		{
-			MessageLog.Error(*FString::Printf(*LOCTEXT("PropertyForLiteral_Error", "Cannot create property for a literal: %s from @@ type (%s)").ToString(), *Term.Name, *UEdGraphSchema_K2::TypeToText(Term.Type).ToString()), Term.Source);
+			MessageLog.Error(
+				*FText::Format(
+					LOCTEXT("PropertyForLiteral_ErrorFmt", "Cannot create property for a literal: {0} from @@ type ({1})"),
+					FText::FromString(Term.Name),
+					UEdGraphSchema_K2::TypeToText(Term.Type)
+				).ToString(),
+				Term.Source
+			);
 		}
 
 		if (UProperty* NewProperty = FKismetCompilerUtilities::CreatePropertyOnScope(Scope, FName(*Term.Name), Term.Type, NewClass, PropertyFlags, Schema, MessageLog))
@@ -866,7 +908,7 @@ void FKismetCompilerContext::CreatePropertiesFromList(UStruct* Scope, UField**& 
 					else
 					{
 						MessageLog.Warning(
-							*FString::Printf(*LOCTEXT("UnusedDefaultValue_Warn", "Default value for '%s' cannot be used.").ToString(), *NewProperty->GetName()), 
+							*FText::Format(LOCTEXT("UnusedDefaultValue_WarnFmt", "Default value for '{0}' cannot be used."), FText::FromString(NewProperty->GetName())).ToString(),
 							Term.Source);
 					}
 				}
@@ -878,8 +920,14 @@ void FKismetCompilerContext::CreatePropertiesFromList(UStruct* Scope, UField**& 
 		}
 		else
 		{
-			MessageLog.Error(*FString::Printf(*LOCTEXT("FailedCreateProperty_Error", "Failed to create property %s from @@ due to a bad or unknown type (%s)").ToString(), *Term.Name, *UEdGraphSchema_K2::TypeToText(Term.Type).ToString()),
-				Term.Source);
+			MessageLog.Error(
+				*FText::Format(
+					LOCTEXT("FailedCreateProperty_ErrorFmt", "Failed to create property {0} from @@ due to a bad or unknown type ({1})"),
+					FText::FromString(Term.Name),
+					UEdGraphSchema_K2::TypeToText(Term.Type)
+				).ToString(),
+				Term.Source
+			);
 		}
 
 	}
@@ -934,7 +982,13 @@ void FKismetCompilerContext::CreateParametersForFunction(FKismetFunctionContext&
 				}
 				else
 				{
-					MessageLog.Error(*FString::Printf(*LOCTEXT("WrongParameterOrder_Error", "Cannot order parameters %s in function %s.").ToString(), *WantedName.ToString(), *Context.Function->GetName()));
+					MessageLog.Error(
+						*FText::Format(
+							LOCTEXT("WrongParameterOrder_ErrorFmt", "Cannot order parameters {0} in function {1}."),
+							FText::FromName(WantedName),
+							FText::FromString(Context.Function->GetName())
+						).ToString()
+					);
 					break;
 				}
 			}
@@ -967,11 +1021,11 @@ void FKismetCompilerContext::CreateLocalVariablesForFunction(FKismetFunctionCont
 	{
 		const bool bArePropertiesLocal = true;
 
-		CreatePropertiesFromList(Context.Function, FunctionPropertyStorageLocation, Context.Locals, 0, bArePropertiesLocal, /*bPropertiesAreParameters=*/ true);
+		CreatePropertiesFromList(Context.Function, FunctionPropertyStorageLocation, Context.Locals, CPF_None, bArePropertiesLocal, /*bPropertiesAreParameters=*/ true);
 
 		if (bPersistentUberGraphFrame)
 		{
-			CreatePropertiesFromList(Context.Function, FunctionPropertyStorageLocation, Context.EventGraphLocals, 0, bArePropertiesLocal, true);
+			CreatePropertiesFromList(Context.Function, FunctionPropertyStorageLocation, Context.EventGraphLocals, CPF_None, bArePropertiesLocal, true);
 		}
 
 		// Create debug data for variable reads/writes
@@ -1025,14 +1079,14 @@ void FKismetCompilerContext::CreateLocalVariablesForFunction(FKismetFunctionCont
 		}
 
 		const bool bArePropertiesLocal = false;
-		const uint64 UbergraphHiddenVarFlags = CPF_Transient | CPF_DuplicateTransient;
+		const EPropertyFlags UbergraphHiddenVarFlags = CPF_Transient | CPF_DuplicateTransient;
 		if (!bPersistentUberGraphFrame)
 		{
 			CreatePropertiesFromList(NewClass, ClassPropertyStorageLocation, Context.EventGraphLocals, UbergraphHiddenVarFlags, bArePropertiesLocal);
 		}
 
 		// Handle level actor references
-		const uint64 LevelActorReferenceVarFlags = 0/*CPF_Edit*/;
+		const EPropertyFlags LevelActorReferenceVarFlags = CPF_None/*CPF_Edit*/;
 		CreatePropertiesFromList(NewClass, ClassPropertyStorageLocation, Context.LevelActorReferences, LevelActorReferenceVarFlags, false);
 	}
 }
@@ -1057,7 +1111,7 @@ void FKismetCompilerContext::CreateUserDefinedLocalVariablesForFunction(FKismetF
 
 UProperty* FKismetCompilerContext::CreateUserDefinedLocalVariableForFunction(const FBPVariableDescription& Variable, UFunction* Function, UBlueprintGeneratedClass* OwningClass, UField**& FunctionPropertyStorageLocation, const UEdGraphSchema_K2* Schema, FCompilerResultsLog& MessageLog)
 {
-	UProperty* NewProperty = FKismetCompilerUtilities::CreatePropertyOnScope(Function, Variable.VarName, Variable.VarType, OwningClass, 0, Schema, MessageLog);
+	UProperty* NewProperty = FKismetCompilerUtilities::CreatePropertyOnScope(Function, Variable.VarName, Variable.VarType, OwningClass, CPF_None, Schema, MessageLog);
 	
 	if(NewProperty)
 	{
@@ -1065,11 +1119,11 @@ UProperty* FKismetCompilerContext::CreateUserDefinedLocalVariableForFunction(con
 		*FunctionPropertyStorageLocation = NewProperty;
 		FunctionPropertyStorageLocation = &(NewProperty->Next);
 		
-		NewProperty->SetPropertyFlags(Variable.PropertyFlags);
+		NewProperty->SetPropertyFlags((EPropertyFlags)Variable.PropertyFlags);
 		NewProperty->SetMetaData(TEXT("FriendlyName"), *Variable.FriendlyName);
 		NewProperty->SetMetaData(TEXT("Category"), *Variable.Category.ToString());
 		NewProperty->RepNotifyFunc = Variable.RepNotifyFunc;
-		NewProperty->SetPropertyFlags(Variable.PropertyFlags);
+		NewProperty->SetPropertyFlags((EPropertyFlags)Variable.PropertyFlags);
 	}
 	
 	return NewProperty;
@@ -1115,7 +1169,11 @@ void FKismetCompilerContext::CopyTermDefaultsToDefaultObject(UObject* DefaultObj
 				const bool bParseSuccedded = FBlueprintEditorUtils::PropertyValueFromString(Property, Value, reinterpret_cast<uint8*>(DefaultObject));
 				if(!bParseSuccedded)
 				{
-					const FString ErrorMessage = *FString::Printf(*LOCTEXT("ParseDefaultValueError", "Can't parse default value '%s' for @@. Property: %s.").ToString(), *Value, *Property->GetName());
+					const FString ErrorMessage = *FText::Format(
+						LOCTEXT("ParseDefaultValueErrorFmt", "Can't parse default value '{0}' for @@. Property: {1}."),
+						FText::FromString(Value),
+						FText::FromString(Property->GetName())
+					).ToString();
 					UObject* InstigatorObject = NewClass->GetDebugData().FindObjectThatCreatedProperty(Property);
 					if(InstigatorObject)
 					{
@@ -1147,19 +1205,28 @@ void FKismetCompilerContext::PrintVerboseInfoStruct(UStruct* Struct) const
 	{
 		UProperty* Prop = *PropIt;
 
-		MessageLog.Note(*FString::Printf(*LOCTEXT("StructInfo_Note", "  %s named %s at offset %d with size %d [dim = %d] and flags %x").ToString(),
-			*Prop->GetClass()->GetDescription(),
-			*Prop->GetName(),
-			Prop->GetOffset_ForDebug(),
-			Prop->ElementSize,
-			Prop->ArrayDim,
-			Prop->PropertyFlags));
+		MessageLog.Note(
+			*FText::Format(
+				LOCTEXT("StructInfo_NoteFmt", "  {0} named {1} at offset {2} with size {3} [dim = {4}] and flags {5}"),
+				FText::FromString(Prop->GetClass()->GetDescription()),
+				FText::FromString(Prop->GetName()),
+				Prop->GetOffset_ForDebug(),
+				Prop->ElementSize,
+				Prop->ArrayDim,
+				FText::FromString(FString::Printf(TEXT("%x"), Prop->PropertyFlags))
+			).ToString()
+		);
 	}
 }
 
 void FKismetCompilerContext::PrintVerboseInformation(UClass* Class) const
 {
-	MessageLog.Note(*FString::Printf(*LOCTEXT("ClassHasMembers_Note", "Class %s has members:").ToString(), *Class->GetName()));
+	MessageLog.Note(
+		*FText::Format(
+			LOCTEXT("ClassHasMembers_NoteFmt", "Class {0} has members:"),
+			FText::FromString(Class->GetName())
+		).ToString()
+	);
 	PrintVerboseInfoStruct(Class);
 
 	for (int32 i = 0; i < FunctionList.Num(); ++i)
@@ -1168,12 +1235,12 @@ void FKismetCompilerContext::PrintVerboseInformation(UClass* Class) const
 
 		if (Context.IsValid())
 		{
-			MessageLog.Note(*FString::Printf(*LOCTEXT("FunctionHasMembers_Note", "Function %s has members:").ToString(), *Context.Function->GetName()));
+			MessageLog.Note(*FText::Format(LOCTEXT("FunctionHasMembers_NoteFmt", "Function {0} has members:"), FText::FromString(Context.Function->GetName())).ToString());
 			PrintVerboseInfoStruct(Context.Function);
 		}
 		else
 		{
-			MessageLog.Note(*FString::Printf(*LOCTEXT("FunctionCompileFailed_Note", "Function #%d failed to compile and is not valid.").ToString(), i));
+			MessageLog.Note(*FText::Format(LOCTEXT("FunctionCompileFailed_NoteFmt", "Function #{0} failed to compile and is not valid."), i).ToString());
 		}
 	}
 }
@@ -1182,7 +1249,7 @@ void FKismetCompilerContext::CheckConnectionResponse(const FPinConnectionRespons
 {
 	if (!Response.CanSafeConnect())
 	{
-		MessageLog.Error(*FString::Printf(*LOCTEXT("FailedBuildingConnection_Error", "COMPILER ERROR: failed building connection with '%s' at @@").ToString(), *Response.Message.ToString()), Node);
+		MessageLog.Error(*FText::Format(LOCTEXT("FailedBuildingConnection_ErrorFmt", "COMPILER ERROR: failed building connection with '{0}' at @@"), Response.Message).ToString(), Node);
 	}
 }
 
@@ -1202,7 +1269,7 @@ void FKismetCompilerContext::TransformNodes(FKismetFunctionContext& Context)
 		}
 		else
 		{
-			MessageLog.Error(*FString::Printf(*LOCTEXT("UnexpectedNodeType_Error", "Unexpected node type %s encountered at @@").ToString(), *(Node->GetClass()->GetName())), Node);
+			MessageLog.Error(*FText::Format(LOCTEXT("UnexpectedNodeType_ErrorFmt", "Unexpected node type {0} encountered at @@"), FText::FromString(Node->GetClass()->GetName())).ToString(), Node);
 		}
 	}
 }
@@ -1346,7 +1413,7 @@ void FKismetCompilerContext::PruneIsolatedNodes(const TArray<UEdGraphNode*>& Roo
 					}
 					if (!bHasExecPin)
 					{
-						const FString WarningStr = FString::Printf(*LOCTEXT("NoPureNodeWithoutExec_Warning", "Node @@. The node won't be pruned as isolated one. The node is not pure, but it has no exec pin(s). Verify IsNodePure implementation in %s.").ToString(), *Node->GetClass()->GetDisplayNameText().ToString());
+						const FString WarningStr = FText::Format(LOCTEXT("NoPureNodeWithoutExec_WarningFmt", "Node @@. The node won't be pruned as isolated one. The node is not pure, but it has no exec pin(s). Verify IsNodePure implementation in {0}."), Node->GetClass()->GetDisplayNameText()).ToString();
 						MessageLog.Warning(*WarningStr, Node);
 					}
 					return !bHasExecPin;
@@ -1472,10 +1539,12 @@ void FKismetCompilerContext::PrecompileFunction(FKismetFunctionContext& Context,
 		// Make sure there was only one function entry node
 		for (int32 i = 1; i < EntryPoints.Num(); ++i)
 		{
-			MessageLog.Error(*FString::Printf(*LOCTEXT("ExpectedOneFunctionEntry_Error", "Expected only one function entry node in graph @@, but found both @@ and @@").ToString()),
+			MessageLog.Error(
+				*LOCTEXT("ExpectedOneFunctionEntry_Error", "Expected only one function entry node in graph @@, but found both @@ and @@").ToString(),
 				Context.SourceGraph,
 				Context.EntryPoint,
-				EntryPoints[i]);
+				EntryPoints[i]
+			);
 		}
 
 		{
@@ -1516,12 +1585,24 @@ void FKismetCompilerContext::PrecompileFunction(FKismetFunctionContext& Context,
 		const FString NewFunctionNameString = NewFunctionName.ToString();
 		if (CreatedFunctionNames.Contains(NewFunctionNameString))
 		{
-			MessageLog.Error(*FString::Printf(*LOCTEXT("DuplicateFunctionName_Error", "Found more than one function with the same name %s; second occurance at @@").ToString(), *NewFunctionNameString), Context.EntryPoint);
+			MessageLog.Error(
+				*FText::Format(
+					LOCTEXT("DuplicateFunctionName_ErrorFmt", "Found more than one function with the same name {0}; second occurance at @@"),
+					FText::FromString(NewFunctionNameString)
+				).ToString(),
+				Context.EntryPoint
+			);
 			return;
 		}
 		else if (NULL != FindField<UProperty>(NewClass, NewFunctionName))
 		{
-			MessageLog.Error(*FString::Printf(*LOCTEXT("DuplicateFieldName_Error", "Name collision - function and property have the same name - '%s'. @@").ToString(), *NewFunctionNameString), Context.EntryPoint);
+			MessageLog.Error(
+				*FText::Format(
+					LOCTEXT("DuplicateFieldName_ErrorFmt", "Name collision - function and property have the same name - '{0}'. @@"),
+					FText::FromString(NewFunctionNameString)
+				).ToString(),
+				Context.EntryPoint
+			);
 			return;
 		}
 		else
@@ -1756,7 +1837,14 @@ void FKismetCompilerContext::PrecompileFunction(FKismetFunctionContext& Context,
 				{
 					SignatureClassName = SignatureClass->GetName();
 				}
-				MessageLog.Error(*FString::Printf(*LOCTEXT("OverrideFunctionDifferentSignature_Error", "Cannot override '%s::%s' at @@ which was declared in a parent with a different signature").ToString(), *SignatureClassName, *NewFunctionNameString), Context.EntryPoint);
+				MessageLog.Error(
+					*FText::Format(
+						LOCTEXT("OverrideFunctionDifferentSignature_ErrorFmt", "Cannot override '{0}::{1}' at @@ which was declared in a parent with a different signature"),
+						FText::FromString(SignatureClassName),
+						FText::FromString(NewFunctionNameString)
+					).ToString(),
+					Context.EntryPoint
+				);
 			}
 			const bool bEmptyCase = (0 == AccessSpecifierFlag);
 			const bool bDifferentAccessSpecifiers = AccessSpecifierFlag != (ParentFunction->FunctionFlags & FUNC_AccessSpecifiers);
@@ -1883,7 +1971,13 @@ void FKismetCompilerContext::CompileFunction(FKismetFunctionContext& Context)
 		}
 		else
 		{
-			MessageLog.Error(*FString::Printf(*LOCTEXT("UnexpectedNodeTypeWhenCompilingFunc_Error", "Unexpected node type %s encountered in execution chain at @@").ToString(), *(Node->GetClass()->GetName())), Node);
+			MessageLog.Error(
+				*FText::Format(
+					LOCTEXT("UnexpectedNodeTypeWhenCompilingFunc_ErrorFmt", "Unexpected node type {0} encountered in execution chain at @@"),
+					FText::FromString(Node->GetClass()->GetName())
+				).ToString(),
+				Node
+			);
 		}
 	}
 	
@@ -2645,10 +2739,13 @@ void FKismetCompilerContext::CreateFunctionStubForEvent(UK2Node_Event* SrcEventN
 	if (ExistingGraph && !ExistingGraph->HasAnyFlags(RF_Transient))
 	{
 		MessageLog.Error(
-			*FString::Printf(*LOCTEXT("CannotCreateStubForEvent_Error", "Graph named '%s' already exists in '%s'. Another one cannot be generated from @@").ToString()
-			, *EventNodeName.ToString()
-			, *GetNameSafe(OwnerOfTemporaries))
-			, SrcEventNode);
+			*FText::Format(
+				LOCTEXT("CannotCreateStubForEvent_ErrorFmt", "Graph named '{0}' already exists in '{1}'. Another one cannot be generated from @@"),
+				FText::FromName(EventNodeName),
+				FText::FromString(*GetNameSafe(OwnerOfTemporaries))
+			).ToString(),
+			SrcEventNode
+		);
 		return;
 	}
 	UEdGraph* ChildStubGraph = NewObject<UEdGraph>(OwnerOfTemporaries, EventNodeName);
@@ -2708,7 +2805,7 @@ void FKismetCompilerContext::CreateFunctionStubForEvent(UK2Node_Event* SrcEventN
 	if( !SrcEventNode->IsFunctionEntryCompatible(EntryNode) )
 	{
 		// There is no match, so the function parameters must have changed.  Throw an error, and force them to refresh
-		MessageLog.Error(*FString::Printf(*LOCTEXT("EventNodeOutOfDate_Error", "Event node @@ is out-of-date.  Please refresh it.").ToString()), SrcEventNode);
+		MessageLog.Error(*LOCTEXT("EventNodeOutOfDate_Error", "Event node @@ is out-of-date.  Please refresh it.").ToString(), SrcEventNode);
 		return;
 	}
 
@@ -2912,7 +3009,13 @@ void FKismetCompilerContext::CreateLocalsAndRegisterNets(FKismetFunctionContext&
 			}
 			else
 			{
-				MessageLog.Error(*FString::Printf(*LOCTEXT("UnexpectedNodeType_Error", "Unexpected node type %s encountered at @@").ToString(), *(Node->GetClass()->GetName())), Node);
+				MessageLog.Error(
+					*FText::Format(
+						LOCTEXT("UnexpectedNodeType_ErrorFmt", "Unexpected node type {0} encountered at @@"),
+						FText::FromString(Node->GetClass()->GetName())
+					).ToString(),
+					Node
+				);
 			}
 		}
 	}
@@ -3329,8 +3432,8 @@ void FKismetCompilerContext::ExpandTunnelsAndMacros(UEdGraph* SourceGraph)
 				CreateCommentBlockAroundNodes(
 					MacroNodes,
 					MacroInstanceNode,
-					SourceGraph, 
-					FString::Printf(*LOCTEXT("ExpandedMacroComment", "Macro %s").ToString(), *(MacroGraph->GetName())),
+					SourceGraph,
+					FText::Format(LOCTEXT("ExpandedMacroCommentFmt", "Macro {0}"), FText::FromString(MacroGraph->GetName())).ToString(),
 					MacroInstanceNode->MetaData.InstanceTitleColor,
 					/*out*/ NodeOffsetX,
 					/*out*/ NodeOffsetY);
@@ -3529,7 +3632,13 @@ void FKismetCompilerContext::ValidateFunctionGraphNames()
 				if( ParentBPNameValidator->IsValid(FunctionGraph->GetName()) != EValidatorResult::Ok )
 				{
 					FName NewFunctionName = FBlueprintEditorUtils::FindUniqueKismetName(Blueprint, FunctionGraph->GetName());
-					MessageLog.Warning(*FString::Printf(*LOCTEXT("FunctionGraphConflictWarning", "Found a function graph with a conflicting name (%s) - changed to %s.").ToString(), *FunctionGraph->GetName(), *NewFunctionName.ToString()));
+					MessageLog.Warning(
+						*FText::Format(
+							LOCTEXT("FunctionGraphConflictWarningFmt", "Found a function graph with a conflicting name ({0}) - changed to {1}."),
+							FText::FromString(FunctionGraph->GetName()),
+							FText::FromName(NewFunctionName)
+						).ToString()
+					);
 					FBlueprintEditorUtils::RenameGraph(FunctionGraph, NewFunctionName.ToString());
 				}
 			}
@@ -4411,12 +4520,12 @@ void FKismetCompilerContext::SetCanEverTick() const
 			if (bHasCanTickMetadata && bHasCannotTickMetadata)
 			{
 				// User error: The C++ class has conflicting metadata
-				const FString ConlictingMetadataWarning = FString::Printf(
-					*LOCTEXT("HasBothCanAndCannotMetadata", "Native class %s has both '%s' and '%s' metadata specified, they are mutually exclusive and '%s' will win.").ToString(),
-					*FirstNativeClass->GetPathName(),
-					*FBlueprintMetadata::MD_ChildCanTick.ToString(),
-					*FBlueprintMetadata::MD_ChildCannotTick.ToString(),
-					*FBlueprintMetadata::MD_ChildCannotTick.ToString());
+				const FString ConlictingMetadataWarning = FText::Format(
+					LOCTEXT("HasBothCanAndCannotMetadataFmt", "Native class %s has both '{0}' and '{1}' metadata specified, they are mutually exclusive and '{1}' will win."),
+					FText::FromString(FirstNativeClass->GetPathName()),
+					FText::FromName(FBlueprintMetadata::MD_ChildCanTick),
+					FText::FromName(FBlueprintMetadata::MD_ChildCannotTick)
+				).ToString();
 				MessageLog.Warning(*ConlictingMetadataWarning);
 			}
 
@@ -4426,10 +4535,10 @@ void FKismetCompilerContext::SetCanEverTick() const
 				check(!bHasUniversalParent);
 
 				// Parent class has forbidden us to tick
-				const FString NativeClassSaidNo = FString::Printf(
-					*LOCTEXT("NativeClassProhibitsTicking", "@@ is not allowed as the C++ parent class %s has disallowed Blueprint subclasses from ticking.  Please consider using a Timer instead of Tick.").ToString(),
-					*FirstNativeClass->GetPathName(),
-					*FBlueprintMetadata::MD_ChildCannotTick.ToString());
+				const FString NativeClassSaidNo = FText::Format(
+					LOCTEXT("NativeClassProhibitsTickingFmt", "@@ is not allowed as the C++ parent class {0} has disallowed Blueprint subclasses from ticking.  Please consider using a Timer instead of Tick."),
+					FText::FromString(FirstNativeClass->GetPathName())
+				).ToString();
 				MessageLog.Warning(*NativeClassSaidNo, FindLocalEntryPoint(ReceiveTickEvent));
 			}
 			else
@@ -4442,14 +4551,16 @@ void FKismetCompilerContext::SetCanEverTick() const
 				else
 				{
 					// Nothing allowing us to tick
-					const FString ReceiveTickEventWarning = FString::Printf(
-						*LOCTEXT("ReceiveTick_CanNeverTick", "@@ is not allowed for Blueprints based on the C++ parent class %s, so it will never Tick!").ToString(),
-						FirstNativeClass ? *FirstNativeClass->GetPathName() : TEXT("<null>"));
+					const FString ReceiveTickEventWarning = FText::Format(
+						LOCTEXT("ReceiveTick_CanNeverTickFmt", "@@ is not allowed for Blueprints based on the C++ parent class {0}, so it will never Tick!"),
+						FText::FromString(FirstNativeClass ? *FirstNativeClass->GetPathName() : TEXT("<null>"))
+					).ToString();
 					MessageLog.Warning(*ReceiveTickEventWarning, FindLocalEntryPoint(ReceiveTickEvent));
 
-					const FString ReceiveTickEventRemedies = FString::Printf(
-						*LOCTEXT("ReceiveTick_CanNeverTickRemedies", "You can solve this in several ways:\n  1) Consider using a Timer instead of Tick.\n  2) Add meta=(%s) to the parent C++ class\n  3) Reparent the Blueprint to AActor or UActorComponent, which can always tick.").ToString(),
-						*FBlueprintMetadata::MD_ChildCanTick.ToString());
+					const FString ReceiveTickEventRemedies = FText::Format(
+						LOCTEXT("ReceiveTick_CanNeverTickRemediesFmt", "You can solve this in several ways:\n  1) Consider using a Timer instead of Tick.\n  2) Add meta=({0}) to the parent C++ class\n  3) Reparent the Blueprint to AActor or UActorComponent, which can always tick."),
+						FText::FromName(FBlueprintMetadata::MD_ChildCanTick)
+					).ToString();
 					MessageLog.Warning(*ReceiveTickEventRemedies);
 				}
 			}

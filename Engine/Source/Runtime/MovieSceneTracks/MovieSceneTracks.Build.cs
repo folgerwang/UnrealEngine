@@ -11,7 +11,6 @@ public class MovieSceneTracks : ModuleRules
             "Runtime/MovieSceneTracks/Private",
 			"Runtime/MovieSceneTracks/Private/Sections",
 			"Runtime/MovieSceneTracks/Private/Tracks",
-            "Runtime/MovieSceneTracks/Private/TrackInstances",
         });
 
 		PublicDependencyModuleNames.AddRange(

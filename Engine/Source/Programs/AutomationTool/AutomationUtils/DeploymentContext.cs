@@ -217,6 +217,11 @@ public class DeploymentContext //: ProjectParams
 	public FilesToStage FilesToStage = new FilesToStage();
 
 	/// <summary>
+	/// Map of staged crash reporter file to source location 
+	/// </summary>
+	public Dictionary<StagedFileReference, FileReference> CrashReporterUFSFiles = new Dictionary<StagedFileReference, FileReference>();
+
+	/// <summary>
 	/// List of files to be archived
 	/// </summary>
 	public Dictionary<string, string> ArchivedFiles = new Dictionary<string, string>();
@@ -230,6 +235,11 @@ public class DeploymentContext //: ProjectParams
 	/// List of directories to remap during the stage
 	/// </summary>
 	public List<Tuple<StagedDirectoryReference, StagedDirectoryReference>> RemapDirectories = new List<Tuple<StagedDirectoryReference, StagedDirectoryReference>>();
+
+	/// <summary>
+	/// List of directories to allow staging, even if they contain restricted folder names 
+	/// </summary>
+	public List<StagedDirectoryReference> WhitelistDirectories = new List<StagedDirectoryReference>();
 
 	/// <summary>
 	/// Set of config files which are whitelisted to be staged. By default, we warn for config files which are not well known to prevent internal data (eg. editor/server settings)
@@ -406,10 +416,12 @@ public class DeploymentContext //: ProjectParams
 		ProjectBinariesFolder = DirectoryReference.Combine(ProjectUtils.GetClientProjectBinariesRootPath(RawProjectPath, TargetType.Game, IsCodeBasedProject), PlatformDir);
 
 		// Build a list of restricted folder names. This will comprise all other restricted platforms, plus standard restricted folder names such as NoRedist, NotForLicensees, etc...
-		RestrictedFolderNames.UnionWith(Enum.GetNames(typeof(UnrealTargetPlatform)).Select(x => new FileSystemName(x)));
-		RestrictedFolderNames.UnionWith(PlatformExports.RestrictedFolderNames);
-		RestrictedFolderNames.ExceptWith(StageTargetPlatform.GetStagePlatforms().Select(x => new FileSystemName(x.ToString())));
-		RestrictedFolderNames.Remove(new FileSystemName(UnrealTargetPlatform.Unknown.ToString()));
+		RestrictedFolderNames.UnionWith(PlatformExports.GetPlatformFolderNames());
+		foreach(UnrealTargetPlatform StagePlatform in StageTargetPlatform.GetStagePlatforms())
+		{
+			RestrictedFolderNames.ExceptWith(PlatformExports.GetIncludedFolderNames(StagePlatform));
+		}
+		RestrictedFolderNames.UnionWith(FileFilter.RestrictedFolderNames);
 		RestrictedFolderNames.Remove(new FileSystemName(StageTargetPlatform.IniPlatformType.ToString()));
 
 		// Read the game config files
@@ -440,6 +452,16 @@ public class DeploymentContext //: ProjectParams
 				}
 
 				RemapDirectories.Add(Tuple.Create(new StagedDirectoryReference(FromDir), new StagedDirectoryReference(ToDir)));
+			}
+		}
+
+		// Read the list of directories to whitelist from restricted folder warnings
+		List<string> WhitelistDirectoriesList;
+		if (GameConfig.GetArray("Staging", "WhitelistDirectories", out WhitelistDirectoriesList))
+		{
+			foreach(string WhitelistDirectory in WhitelistDirectoriesList)
+			{
+				WhitelistDirectories.Add(new StagedDirectoryReference(WhitelistDirectory));
 			}
 		}
 
@@ -674,6 +696,52 @@ public class DeploymentContext //: ProjectParams
 		{
 			StagedFileReference OutputFile = StagedFileReference.Combine(OutputDir, InputFile.MakeRelativeTo(InputDir));
 			StageFile(FileType, InputFile, OutputFile);
+		}
+	}
+
+	/// <summary>
+	/// Stages a file for use by crash reporter.
+	/// </summary>
+	/// <param name="FileType">The type of the staged file</param>
+	/// <param name="InputFile">Location of the input file</param>
+	/// <param name="StagedFile">Location of the file in the staging directory</param>
+	public void StageCrashReporterFile(StagedFileType FileType, FileReference InputFile, StagedFileReference StagedFile)
+	{
+		if(FileType == StagedFileType.UFS)
+		{
+			CrashReporterUFSFiles[StagedFile] = InputFile;
+		}
+		else
+		{
+			StageFile(FileType, InputFile, StagedFile);
+		}
+	}
+
+	/// <summary>
+	/// Stage multiple files for use by crash reporter
+	/// </summary>
+	/// <param name="FileType">The type of the staged file</param>
+	/// <param name="InputDir">Location of the input directory</param>
+	/// <param name="Option">Whether to stage all subdirectories or just the top-level directory</param>
+	public void StageCrashReporterFiles(StagedFileType FileType, DirectoryReference InputDir, StageFilesSearch Option)
+	{
+		StageCrashReporterFiles(FileType, InputDir, Option, new StagedDirectoryReference(InputDir.MakeRelativeTo(LocalRoot)));
+	}
+
+	/// <summary>
+	/// Stage multiple files for use by crash reporter
+	/// </summary>
+	/// <param name="FileType">The type of the staged file</param>
+	/// <param name="InputDir">Location of the input directory</param>
+	/// <param name="Option">Whether to stage all subdirectories or just the top-level directory</param>
+	/// <param name="OutputDir">Location of the output directory within the staging folder</param>
+	public void StageCrashReporterFiles(StagedFileType FileType, DirectoryReference InputDir, StageFilesSearch Option, StagedDirectoryReference OutputDir)
+	{
+		List<FileReference> InputFiles = FindFilesToStage(InputDir, Option);
+		foreach(FileReference InputFile in InputFiles)
+		{
+			StagedFileReference StagedFile = StagedFileReference.Combine(OutputDir, InputFile.MakeRelativeTo(InputDir));
+			StageCrashReporterFile(FileType, InputFile, StagedFile);
 		}
 	}
 

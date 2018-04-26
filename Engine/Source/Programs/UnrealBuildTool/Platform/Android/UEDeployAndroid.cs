@@ -1871,28 +1871,13 @@ namespace UnrealBuildTool
 		{
 			if (!bHaveReadEngineVersion)
 			{
-				string EngineVersionFile = Path.Combine(EngineDirectory, "Source", "Runtime", "Launch", "Resources", "Version.h");
-				string[] EngineVersionLines = File.ReadAllLines(EngineVersionFile);
-				for (int i = 0; i < EngineVersionLines.Length; ++i)
-				{
-					if (EngineVersionLines[i].StartsWith("#define ENGINE_MAJOR_VERSION"))
-					{
-						EngineMajorVersion = EngineVersionLines[i].Split('\t')[1].Trim(' ');
-					}
-					else if (EngineVersionLines[i].StartsWith("#define ENGINE_MINOR_VERSION"))
-					{
-						EngineMinorVersion = EngineVersionLines[i].Split('\t')[1].Trim(' ');
-					}
-					else if (EngineVersionLines[i].StartsWith("#define ENGINE_PATCH_VERSION"))
-					{
-						EnginePatchVersion = EngineVersionLines[i].Split('\t')[1].Trim(' ');
-					}
-						else if (EngineVersionLines[i].StartsWith("#define BUILT_FROM_CHANGELIST"))
-						{
-							EngineChangelist = EngineVersionLines[i].Split(new char[] { ' ', '\t' })[2].Trim(' ');
-						}
-				}
+				BuildVersion Version = BuildVersion.ReadDefault();
 
+				EngineMajorVersion = Version.MajorVersion.ToString();
+				EngineMinorVersion = Version.MinorVersion.ToString();
+				EnginePatchVersion = Version.PatchVersion.ToString();
+				EngineChangelist = Version.Changelist.ToString();
+				
 				bHaveReadEngineVersion = true;
 			}
 

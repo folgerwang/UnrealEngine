@@ -31,7 +31,6 @@ namespace UnrealBuildTool.Rules
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					"Runtime/Portal/Rpc/PortalRpc/Private",
 				}
 			);
 		}

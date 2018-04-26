@@ -254,7 +254,7 @@ namespace UnrealBuildTool
 			XElement CodeLiteWorkspaceBuildMatrix = new XElement("BuildMatrix");
 			foreach (UnrealTargetConfiguration CurConfiguration in SupportedConfigurations)
 			{
-				if (UnrealBuildTool.IsValidConfiguration(CurConfiguration))
+				if (InstalledPlatformInfo.IsValidConfiguration(CurConfiguration, EProjectType.Code))
 				{
 					XElement CodeLiteWorkspaceBuildMatrixConfiguration = new XElement("WorkspaceConfiguration");
 					XAttribute CodeLiteWorkspaceProjectName = new XAttribute("Name", CurConfiguration.ToString());

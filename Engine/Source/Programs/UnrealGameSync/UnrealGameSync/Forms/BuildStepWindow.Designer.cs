@@ -48,7 +48,6 @@ namespace UnrealGameSync
 			this.label5 = new System.Windows.Forms.Label();
 			this.OtherUseLogWindowCheckBox = new System.Windows.Forms.CheckBox();
 			this.CookFileNameButton = new System.Windows.Forms.Button();
-			this.OtherArgumentsTextBox = new System.Windows.Forms.TextBox();
 			this.OtherFileNameButton = new System.Windows.Forms.Button();
 			this.OtherFileNameTextBox = new System.Windows.Forms.TextBox();
 			this.CookFileNameTextBox = new System.Windows.Forms.TextBox();
@@ -60,6 +59,10 @@ namespace UnrealGameSync
 			this.NewCancelButton = new System.Windows.Forms.Button();
 			this.groupBox3 = new System.Windows.Forms.GroupBox();
 			this.groupBox4 = new System.Windows.Forms.GroupBox();
+			this.OtherWorkingDirButton = new System.Windows.Forms.Button();
+			this.label3 = new System.Windows.Forms.Label();
+			this.OtherWorkingDirTextBox = new System.Windows.Forms.TextBox();
+			this.OtherArgumentsTextBox = new System.Windows.Forms.TextBox();
 			this.VariablesButton = new System.Windows.Forms.Button();
 			this.groupBox1.SuspendLayout();
 			this.groupBox3.SuspendLayout();
@@ -132,7 +135,7 @@ namespace UnrealGameSync
 			this.label8.AutoSize = true;
 			this.label8.Location = new System.Drawing.Point(28, 38);
 			this.label8.Name = "label8";
-			this.label8.Size = new System.Drawing.Size(44, 15);
+			this.label8.Size = new System.Drawing.Size(43, 15);
 			this.label8.TabIndex = 37;
 			this.label8.Text = "Target:";
 			// 
@@ -222,9 +225,9 @@ namespace UnrealGameSync
 			this.label5.AutoSize = true;
 			this.label5.Location = new System.Drawing.Point(28, 67);
 			this.label5.Name = "label5";
-			this.label5.Size = new System.Drawing.Size(69, 15);
+			this.label5.Size = new System.Drawing.Size(73, 15);
 			this.label5.TabIndex = 34;
-			this.label5.Text = "Arguments:";
+			this.label5.Text = "Working Dir:";
 			// 
 			// OtherUseLogWindowCheckBox
 			// 
@@ -232,7 +235,7 @@ namespace UnrealGameSync
 			this.OtherUseLogWindowCheckBox.AutoSize = true;
 			this.OtherUseLogWindowCheckBox.Checked = true;
 			this.OtherUseLogWindowCheckBox.CheckState = System.Windows.Forms.CheckState.Checked;
-			this.OtherUseLogWindowCheckBox.Location = new System.Drawing.Point(578, 66);
+			this.OtherUseLogWindowCheckBox.Location = new System.Drawing.Point(578, 93);
 			this.OtherUseLogWindowCheckBox.Name = "OtherUseLogWindowCheckBox";
 			this.OtherUseLogWindowCheckBox.Size = new System.Drawing.Size(115, 19);
 			this.OtherUseLogWindowCheckBox.TabIndex = 3;
@@ -249,15 +252,6 @@ namespace UnrealGameSync
 			this.CookFileNameButton.Text = "...";
 			this.CookFileNameButton.UseVisualStyleBackColor = true;
 			this.CookFileNameButton.Click += new System.EventHandler(this.CookFileNameButton_Click);
-			// 
-			// OtherArgumentsTextBox
-			// 
-			this.OtherArgumentsTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-			this.OtherArgumentsTextBox.Location = new System.Drawing.Point(107, 63);
-			this.OtherArgumentsTextBox.Name = "OtherArgumentsTextBox";
-			this.OtherArgumentsTextBox.Size = new System.Drawing.Size(452, 23);
-			this.OtherArgumentsTextBox.TabIndex = 2;
 			// 
 			// OtherFileNameButton
 			// 
@@ -326,14 +320,14 @@ namespace UnrealGameSync
 			this.label4.AutoSize = true;
 			this.label4.Location = new System.Drawing.Point(17, 51);
 			this.label4.Name = "label4";
-			this.label4.Size = new System.Drawing.Size(67, 15);
+			this.label4.Size = new System.Drawing.Size(66, 15);
 			this.label4.TabIndex = 4;
 			this.label4.Text = "Status Text:";
 			// 
 			// OkButton
 			// 
 			this.OkButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.OkButton.Location = new System.Drawing.Point(655, 431);
+			this.OkButton.Location = new System.Drawing.Point(655, 455);
 			this.OkButton.Name = "OkButton";
 			this.OkButton.Size = new System.Drawing.Size(96, 27);
 			this.OkButton.TabIndex = 10;
@@ -345,7 +339,7 @@ namespace UnrealGameSync
 			// 
 			this.NewCancelButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
 			this.NewCancelButton.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.NewCancelButton.Location = new System.Drawing.Point(553, 431);
+			this.NewCancelButton.Location = new System.Drawing.Point(553, 455);
 			this.NewCancelButton.Name = "NewCancelButton";
 			this.NewCancelButton.Size = new System.Drawing.Size(96, 27);
 			this.NewCancelButton.TabIndex = 9;
@@ -370,6 +364,9 @@ namespace UnrealGameSync
 			// 
 			this.groupBox4.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+			this.groupBox4.Controls.Add(this.OtherWorkingDirButton);
+			this.groupBox4.Controls.Add(this.label3);
+			this.groupBox4.Controls.Add(this.OtherWorkingDirTextBox);
 			this.groupBox4.Controls.Add(this.OtherUseLogWindowCheckBox);
 			this.groupBox4.Controls.Add(this.OtherFileNameTextBox);
 			this.groupBox4.Controls.Add(this.label6);
@@ -378,13 +375,51 @@ namespace UnrealGameSync
 			this.groupBox4.Controls.Add(this.OtherArgumentsTextBox);
 			this.groupBox4.Location = new System.Drawing.Point(14, 303);
 			this.groupBox4.Name = "groupBox4";
-			this.groupBox4.Size = new System.Drawing.Size(729, 114);
+			this.groupBox4.Size = new System.Drawing.Size(729, 139);
 			this.groupBox4.TabIndex = 8;
 			this.groupBox4.TabStop = false;
 			// 
+			// OtherWorkingDirButton
+			// 
+			this.OtherWorkingDirButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+			this.OtherWorkingDirButton.Location = new System.Drawing.Point(663, 63);
+			this.OtherWorkingDirButton.Name = "OtherWorkingDirButton";
+			this.OtherWorkingDirButton.Size = new System.Drawing.Size(30, 23);
+			this.OtherWorkingDirButton.TabIndex = 38;
+			this.OtherWorkingDirButton.Text = "...";
+			this.OtherWorkingDirButton.UseVisualStyleBackColor = true;
+			this.OtherWorkingDirButton.Click += new System.EventHandler(this.OtherWorkingDirButton_Click);
+			// 
+			// label3
+			// 
+			this.label3.AutoSize = true;
+			this.label3.Location = new System.Drawing.Point(28, 94);
+			this.label3.Name = "label3";
+			this.label3.Size = new System.Drawing.Size(69, 15);
+			this.label3.TabIndex = 37;
+			this.label3.Text = "Arguments:";
+			// 
+			// OtherWorkingDirTextBox
+			// 
+			this.OtherWorkingDirTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+			this.OtherWorkingDirTextBox.Location = new System.Drawing.Point(107, 63);
+			this.OtherWorkingDirTextBox.Name = "OtherWorkingDirTextBox";
+			this.OtherWorkingDirTextBox.Size = new System.Drawing.Size(548, 23);
+			this.OtherWorkingDirTextBox.TabIndex = 36;
+			// 
+			// OtherArgumentsTextBox
+			// 
+			this.OtherArgumentsTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+			this.OtherArgumentsTextBox.Location = new System.Drawing.Point(107, 90);
+			this.OtherArgumentsTextBox.Name = "OtherArgumentsTextBox";
+			this.OtherArgumentsTextBox.Size = new System.Drawing.Size(452, 23);
+			this.OtherArgumentsTextBox.TabIndex = 2;
+			// 
 			// VariablesButton
 			// 
-			this.VariablesButton.Location = new System.Drawing.Point(12, 431);
+			this.VariablesButton.Location = new System.Drawing.Point(12, 455);
 			this.VariablesButton.Name = "VariablesButton";
 			this.VariablesButton.Size = new System.Drawing.Size(112, 27);
 			this.VariablesButton.TabIndex = 13;
@@ -398,7 +433,7 @@ namespace UnrealGameSync
 			this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.CancelButton = this.NewCancelButton;
-			this.ClientSize = new System.Drawing.Size(763, 470);
+			this.ClientSize = new System.Drawing.Size(763, 494);
 			this.Controls.Add(this.VariablesButton);
 			this.Controls.Add(this.CookRadioButton);
 			this.Controls.Add(this.OtherRadioButton);
@@ -417,10 +452,11 @@ namespace UnrealGameSync
 			this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
 			this.MaximizeBox = false;
-			this.MaximumSize = new System.Drawing.Size(38227, 508);
+			this.MaximumSize = new System.Drawing.Size(38227, 533);
 			this.MinimizeBox = false;
-			this.MinimumSize = new System.Drawing.Size(779, 508);
+			this.MinimumSize = new System.Drawing.Size(779, 533);
 			this.Name = "BuildStepWindow";
+			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Edit Build Step";
 			this.Load += new System.EventHandler(this.BuildTaskWindow_Load);
@@ -442,7 +478,6 @@ namespace UnrealGameSync
 		private System.Windows.Forms.Label label2;
 		private System.Windows.Forms.TextBox DurationTextBox;
 		private System.Windows.Forms.GroupBox groupBox1;
-		private System.Windows.Forms.TextBox OtherArgumentsTextBox;
 		private System.Windows.Forms.Button OtherFileNameButton;
 		private System.Windows.Forms.TextBox OtherFileNameTextBox;
 		private System.Windows.Forms.TextBox CookFileNameTextBox;
@@ -467,5 +502,9 @@ namespace UnrealGameSync
 		private System.Windows.Forms.GroupBox groupBox3;
 		private System.Windows.Forms.GroupBox groupBox4;
 		private System.Windows.Forms.Button VariablesButton;
-	}
+        private System.Windows.Forms.Button OtherWorkingDirButton;
+        private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.TextBox OtherWorkingDirTextBox;
+        private System.Windows.Forms.TextBox OtherArgumentsTextBox;
+    }
 }
