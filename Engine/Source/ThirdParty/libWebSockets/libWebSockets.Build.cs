@@ -54,7 +54,10 @@ public class libWebSockets : ModuleRules
 			return;
 		}
 
-        PublicLibraryPaths.Add(Path.Combine(WebsocketPath, "lib", PlatformSubdir, ConfigurationSubdir));
+		if(Target.Platform != UnrealTargetPlatform.Android)
+		{
+			PublicLibraryPaths.Add(Path.Combine(WebsocketPath, "lib", PlatformSubdir, ConfigurationSubdir));
+		}
 		PublicIncludePaths.Add(Path.Combine(WebsocketPath, "include", PlatformSubdir));
 
 		PublicDependencyModuleNames.Add("OpenSSL");
