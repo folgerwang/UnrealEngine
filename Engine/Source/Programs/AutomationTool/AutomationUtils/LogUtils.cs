@@ -60,7 +60,7 @@ namespace AutomationTool
                 }
                 catch (Exception Ex)
                 {
-					if(NumAttempts >= 10)
+					if(NumAttempts++ >= 10)
                     {
 						throw new AutomationException(Ex, "Unable to create log file after {0} attempts.", NumAttempts);
 					}
