@@ -6,6 +6,7 @@
 
 #include "LMThreading.h"
 #include "LMCore.h"
+#include "HAL/PlatformProcess.h"
 
 #if PLATFORM_WINDOWS
 #include "Windows/WindowsHWrapper.h"

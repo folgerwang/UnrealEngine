@@ -6,6 +6,8 @@
 // #include "Collision.h"
 #include "LMMath.h"
 #include "LMMathSSE.h"
+#include "LMStats.h"
+#include "UnrealLightmass.h"
 
 namespace Lightmass
 {

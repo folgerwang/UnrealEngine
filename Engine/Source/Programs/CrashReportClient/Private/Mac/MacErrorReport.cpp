@@ -7,6 +7,8 @@
 #include "CrashDebugHelper.h"
 #include "Misc/FileHelper.h"
 #include "HAL/PlatformFilemanager.h"
+#include "Modules/ModuleManager.h"
+#include "CrashDebugHelperModule.h"
 
 #define LOCTEXT_NAMESPACE "CrashReportClient"
 
