@@ -3,14 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Interfaces/IHttpRequest.h"
+#include "GenericPlatform/HttpRequestImpl.h"
 
 /** 
   * Adapter class for IHttpRequest abstract interface
   * does not fully expose the wrapped interface in the base. This allows client defined marshalling of the requests when end point permissions are at issue.
   */
 
-class FHttpRequestAdapterBase : public IHttpRequest
+class FHttpRequestAdapterBase : public FHttpRequestImpl
 {
 public:
     FHttpRequestAdapterBase(const TSharedRef<IHttpRequest>& InHttpRequest) 

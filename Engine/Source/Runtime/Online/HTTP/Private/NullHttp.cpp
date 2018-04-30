@@ -111,16 +111,6 @@ bool FNullHttpRequest::ProcessRequest()
 	return true;
 }
 
-FHttpRequestCompleteDelegate& FNullHttpRequest::OnProcessRequestComplete()
-{
-	return RequestCompleteDelegate;
-}
-
-FHttpRequestProgressDelegate& FNullHttpRequest::OnRequestProgress()
-{
-	return ReuestProgressDelegate;
-}
-
 void FNullHttpRequest::CancelRequest()
 {
 	FinishedRequest();

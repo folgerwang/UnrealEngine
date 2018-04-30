@@ -7,6 +7,7 @@
 #include "Http.h"
 #include "Misc/EngineVersion.h"
 #include "Curl/CurlHttpManager.h"
+#include "Misc/ScopeLock.h"
 
 #if WITH_LIBCURL
 
@@ -162,12 +163,25 @@ FString FCurlHttpRequest::GetHeader(const FString& HeaderName) const
 	return Result;
 }
 
+FString FCurlHttpRequest::CombineHeaderKeyValue(const FString& HeaderKey, const FString& HeaderValue)
+{
+	FString Combined;
+	const TCHAR Separator[] = TEXT(": ");
+	constexpr const int32 SeparatorLength = ARRAY_COUNT(Separator) - 1;
+	Combined.Reserve(HeaderKey.Len() + SeparatorLength + HeaderValue.Len());
+	Combined.Append(HeaderKey);
+	Combined.AppendChars(Separator, SeparatorLength);
+	Combined.Append(HeaderValue);
+	return Combined;
+}
+
 TArray<FString> FCurlHttpRequest::GetAllHeaders() const
 {
 	TArray<FString> Result;
-	for (TMap<FString, FString>::TConstIterator It(Headers); It; ++It)
+	Result.Reserve(Headers.Num());
+	for (const TPair<FString, FString>& It : Headers)
 	{
-		Result.Add(It.Key() + TEXT(": ") + It.Value());
+		Result.Emplace(CombineHeaderKeyValue(It.Key, It.Value));
 	}
 	return Result;
 }
@@ -309,23 +323,15 @@ size_t FCurlHttpRequest::ReceiveResponseHeaderCallback(void* Ptr, size_t SizeInB
 			FString HeaderKey, HeaderValue;
 			if (Header.Split(TEXT(":"), &HeaderKey, &HeaderValue))
 			{
+				HeaderValue.TrimStartInline();
 				if (!HeaderKey.IsEmpty() && !HeaderValue.IsEmpty())
 				{
-					FString* PreviousValue = Response->Headers.Find(HeaderKey);
-					FString NewValue;
-					if (PreviousValue != nullptr && !PreviousValue->IsEmpty())
-					{
-						NewValue = (*PreviousValue) + TEXT(", ");
-					}
-					HeaderValue.TrimStartInline();
-					NewValue += HeaderValue;
-					Response->Headers.Add(HeaderKey, NewValue);
-
 					//Store the content length so OnRequestProgress() delegates have something to work with
 					if (HeaderKey == TEXT("Content-Length"))
 					{
 						Response->ContentLength = FCString::Atoi(*HeaderValue);
 					}
+					Response->NewlyReceivedHeaders.Enqueue(TPair<FString, FString>(MoveTemp(HeaderKey), MoveTemp(HeaderValue)));
 				}
 			}
 			return HeaderSize;
@@ -733,16 +739,6 @@ void FCurlHttpRequest::TickThreadedRequest(float DeltaSeconds)
 	TimeSinceLastResponse += DeltaSeconds;
 }
 
-FHttpRequestCompleteDelegate& FCurlHttpRequest::OnProcessRequestComplete()
-{
-	return RequestCompleteDelegate;
-}
-
-FHttpRequestProgressDelegate& FCurlHttpRequest::OnRequestProgress()
-{
-	return RequestProgressDelegate;
-}
-
 void FCurlHttpRequest::CancelRequest()
 {
 	bCanceled = true;
@@ -773,18 +769,20 @@ const FHttpResponsePtr FCurlHttpRequest::GetResponse() const
 void FCurlHttpRequest::Tick(float DeltaSeconds)
 {
 	CheckProgressDelegate();
+	BroadcastNewlyReceivedHeaders();
 }
 
 void FCurlHttpRequest::CheckProgressDelegate()
-	{
+{
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FCurlHttpRequest_CheckProgressDelegate);
-	int32 CurrentBytesRead = Response.IsValid() ? Response->TotalBytesRead.GetValue() : 0;
-	int32 CurrentBytesSent = BytesSent.GetValue();
+	const int32 CurrentBytesRead = Response.IsValid() ? Response->TotalBytesRead.GetValue() : 0;
+	const int32 CurrentBytesSent = BytesSent.GetValue();
 
 	const bool bProcessing = CompletionStatus == EHttpRequestStatus::Processing;
-	const bool bProgessChanged = (CurrentBytesSent != LastReportedBytesSent) ||
-		(Response.IsValid() && CurrentBytesRead != LastReportedBytesRead);
-	if (bProcessing && bProgessChanged)
+	const bool bBytesSentChanged = (CurrentBytesSent != LastReportedBytesSent);
+	const bool bBytesReceivedChanged = (Response.IsValid() && CurrentBytesRead != LastReportedBytesRead);
+	const bool bProgressChanged = bBytesSentChanged || bBytesReceivedChanged;
+	if (bProcessing && bProgressChanged)
 	{
 		LastReportedBytesSent = CurrentBytesSent;
 		if (Response.IsValid())
@@ -796,8 +794,38 @@ void FCurlHttpRequest::CheckProgressDelegate()
 	}
 }
 
+void FCurlHttpRequest::BroadcastNewlyReceivedHeaders()
+{
+	check(IsInGameThread());
+	if (Response.IsValid())
+	{
+		// Process the headers received on the HTTP thread and merge them into our master list and then broadcast the new headers
+		TPair<FString, FString> NewHeader;
+		while (Response->NewlyReceivedHeaders.Dequeue(NewHeader))
+		{
+			const FString& HeaderKey = NewHeader.Key;
+			const FString& HeaderValue = NewHeader.Value;
+
+			FString NewValue;
+			FString* PreviousValue = Response->Headers.Find(HeaderKey);
+			if (PreviousValue != nullptr && !PreviousValue->IsEmpty())
+			{
+				constexpr const int32 SeparatorLength = 2; // Length of ", "
+				NewValue = MoveTemp(*PreviousValue);
+				NewValue.Reserve(NewValue.Len() + SeparatorLength + HeaderValue.Len());
+				NewValue += TEXT(", ");
+			}
+			NewValue += HeaderValue;
+			Response->Headers.Add(HeaderKey, MoveTemp(NewValue));
+
+			OnHeaderReceived().ExecuteIfBound(SharedThis(this), NewHeader.Key, NewHeader.Value);
+		}
+	}
+}
+
 void FCurlHttpRequest::FinishedRequest()
 {
+	check(IsInGameThread());
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FCurlHttpRequest_FinishedRequest);
 	
 	CheckProgressDelegate();
@@ -810,13 +838,13 @@ void FCurlHttpRequest::FinishedRequest()
 
 			// get the information
 			long HttpCode = 0;
-			if (0 == curl_easy_getinfo(EasyHandle, CURLINFO_RESPONSE_CODE, &HttpCode))
+			if (CURLE_OK == curl_easy_getinfo(EasyHandle, CURLINFO_RESPONSE_CODE, &HttpCode))
 			{
 				Response->HttpCode = HttpCode;
 			}
 
 			double ContentLengthDownload = 0.0;
-			if (0 == curl_easy_getinfo(EasyHandle, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &ContentLengthDownload))
+			if (CURLE_OK == curl_easy_getinfo(EasyHandle, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &ContentLengthDownload))
 			{
 				Response->ContentLength = static_cast< int32 >(ContentLengthDownload);
 			}
@@ -826,6 +854,7 @@ void FCurlHttpRequest::FinishedRequest()
 	// if just finished, mark as stopped async processing
 	if (Response.IsValid())
 	{
+		BroadcastNewlyReceivedHeaders();
 		Response->bIsReady = true;
 	}
 
@@ -867,9 +896,10 @@ void FCurlHttpRequest::FinishedRequest()
 			}
 		}
 
-
 		// Mark last request attempt as completed successfully
 		CompletionStatus = EHttpRequestStatus::Succeeded;
+		// Broadcast any headers we haven't broadcast yet
+		BroadcastNewlyReceivedHeaders();
 		// Call delegate with valid request/response objects
 		OnProcessRequestComplete().ExecuteIfBound(SharedThis(this),Response,true);
 	}
@@ -881,7 +911,7 @@ void FCurlHttpRequest::FinishedRequest()
 		}
 		else
 		{
-		UE_LOG(LogHttp, Warning, TEXT("%p: request failed, libcurl error: %d (%s)"), this, (int32)CurlCompletionResult, ANSI_TO_TCHAR(curl_easy_strerror(CurlCompletionResult)));
+			UE_LOG(LogHttp, Warning, TEXT("%p: request failed, libcurl error: %d (%s)"), this, (int32)CurlCompletionResult, ANSI_TO_TCHAR(curl_easy_strerror(CurlCompletionResult)));
 		}
 
 		for (int32 i = 0; i < InfoMessageCache.Num(); ++i)
@@ -946,7 +976,7 @@ FString FCurlHttpResponse::GetURLParameter(const FString& ParameterName) const
 
 FString FCurlHttpResponse::GetHeader(const FString& HeaderName) const
 {
-	FString Result(TEXT(""));
+	FString Result;
 	if (!bIsReady)
 	{
 		UE_LOG(LogHttp, Warning, TEXT("Can't get cached header [%s]. Response still processing. %p"),
@@ -957,7 +987,7 @@ FString FCurlHttpResponse::GetHeader(const FString& HeaderName) const
 		const FString* Header = Headers.Find(HeaderName);
 		if (Header != NULL)
 		{
-			return *Header;
+			Result = *Header;
 		}
 	}
 	return Result;
@@ -972,9 +1002,10 @@ TArray<FString> FCurlHttpResponse::GetAllHeaders() const
 	}
 	else
 	{
-		for (TMap<FString, FString>::TConstIterator It(Headers); It; ++It)
+		Result.Reserve(Headers.Num());
+		for (const TPair<FString, FString>& It : Headers)
 		{
-			Result.Add(It.Key() + TEXT(": ") + It.Value());
+			Result.Emplace(FCurlHttpRequest::CombineHeaderKeyValue(It.Key, It.Value));
 		}
 	}
 	return Result;

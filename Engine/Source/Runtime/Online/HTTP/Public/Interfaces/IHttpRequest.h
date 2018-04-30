@@ -63,20 +63,29 @@ typedef TSharedPtr<class IHttpResponse,ESPMode::ThreadSafe> FHttpResponsePtr;
 /**
  * Delegate called when an Http request completes
  *
- * @param first parameter - original Http request that started things
- * @param second parameter - response received from the server if a successful connection was established
- * @param third parameter - indicates whether or not the request was able to connect successfully
+ * @param Request original Http request that started things
+ * @param Response response received from the server if a successful connection was established
+ * @param bConnectedSuccessfully - indicates whether or not the request was able to connect successfully
  */
-DECLARE_DELEGATE_ThreeParams(FHttpRequestCompleteDelegate, FHttpRequestPtr, FHttpResponsePtr, bool);
+DECLARE_DELEGATE_ThreeParams(FHttpRequestCompleteDelegate, FHttpRequestPtr /*Request*/, FHttpResponsePtr /*Response*/, bool /*bConnectedSuccessfully*/);
+
+/**
+ * Delegate called when an Http request receives a header
+ *
+ * @param Request original Http request that started things
+ * @param HeaderName the name of the header
+ * @param NewHeaderValue the value of the header
+ */
+DECLARE_DELEGATE_ThreeParams(FHttpRequestHeaderReceivedDelegate, FHttpRequestPtr /*Request*/, const FString& /*HeaderName*/, const FString& /*NewHeaderValue*/);
 
 /**
  * Delegate called per tick to update an Http request upload or download size progress
  *
- * @param first parameter - original Http request that started things
- * @param second parameter - the number of bytes sent / uploaded in the request so far.
- * @param third parameter - the number of bytes received / downloaded in the response so far.
+ * @param Request original Http request that started things
+ * @param BytesSent the number of bytes sent / uploaded in the request so far.
+ * @param BytesReceived the number of bytes received / downloaded in the response so far.
  */
-DECLARE_DELEGATE_ThreeParams(FHttpRequestProgressDelegate, FHttpRequestPtr, int32, int32);
+DECLARE_DELEGATE_ThreeParams(FHttpRequestProgressDelegate, FHttpRequestPtr /*Request*/, int32 /*BytesSent*/, int32 /*BytesReceived*/);
 
 /**
  * Interface for Http requests (created using FHttpFactory)
@@ -171,6 +180,11 @@ public:
 	 * Delegate called to update the request/response progress. See FHttpRequestProgressDelegate
 	 */
 	virtual FHttpRequestProgressDelegate& OnRequestProgress() = 0;
+
+	/** 
+	 * Delegate called to signal the receipt of a header.  See FHttpRequestHeaderReceivedDelegate
+	 */
+	virtual FHttpRequestHeaderReceivedDelegate& OnHeaderReceived() = 0;
 
 	/**
 	 * Called to cancel a request that is still being processed

@@ -85,8 +85,6 @@ namespace FHttpRetrySystem
 		// IHttpRequest interface
 		HTTP_API virtual bool ProcessRequest() override;
 		HTTP_API virtual void CancelRequest() override;
-		virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override { return OnProcessRequestCompleteDelegate; }
-		virtual FHttpRequestProgressDelegate& OnRequestProgress() override { return OnProcessRequestProgressDelegate; }
 		virtual FHttpRequestWillRetryDelegate& OnRequestWillRetry() { return OnRequestWillRetryDelegate; }
 		
 		// FRequest
@@ -113,8 +111,6 @@ namespace FHttpRetrySystem
 		FRetryResponseCodes					 RetryResponseCodes;
         FRetryVerbs                          RetryVerbs;
 
-		FHttpRequestCompleteDelegate OnProcessRequestCompleteDelegate;
-		FHttpRequestProgressDelegate OnProcessRequestProgressDelegate;
 		FHttpRequestWillRetryDelegate OnRequestWillRetryDelegate;
 
 		FManager& RetryManager;

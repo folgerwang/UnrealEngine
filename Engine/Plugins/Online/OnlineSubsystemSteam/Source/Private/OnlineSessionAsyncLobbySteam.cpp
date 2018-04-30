@@ -150,19 +150,19 @@ static void GetLobbyKeyValuePairsFromSessionSettings(const FOnlineSessionSetting
  * @param SessionInfo session info to get key, value pairs from
  * @param KeyValuePairs key value pair structure to add to
  */
-static void GetLobbyKeyValuePairsFromSessionInfo(const FOnlineSessionInfoSteam* SessionInfo, FSteamSessionKeyValuePairs& KeyValuePairs)
+static void GetLobbyKeyValuePairsFromSessionInfo(const FOnlineSessionInfoSteam& SessionInfo, FSteamSessionKeyValuePairs& KeyValuePairs)
 {
-	if (SessionInfo->HostAddr.IsValid())
+	if (SessionInfo.HostAddr.IsValid())
 	{
 		uint32 HostAddr;
-		SessionInfo->HostAddr->GetIp(HostAddr);
+		SessionInfo.HostAddr->GetIp(HostAddr);
 		KeyValuePairs.Add(STEAMKEY_HOSTIP, FString::FromInt(HostAddr));
-		KeyValuePairs.Add(STEAMKEY_HOSTPORT, FString::FromInt(SessionInfo->HostAddr->GetPort()));
+		KeyValuePairs.Add(STEAMKEY_HOSTPORT, FString::FromInt(SessionInfo.HostAddr->GetPort()));
 	}
 
-	if (SessionInfo->SteamP2PAddr.IsValid())
+	if (SessionInfo.SteamP2PAddr.IsValid())
 	{
-		TSharedPtr<FInternetAddrSteam> SteamAddr = StaticCastSharedPtr<FInternetAddrSteam>(SessionInfo->SteamP2PAddr);
+		TSharedPtr<FInternetAddrSteam> SteamAddr = StaticCastSharedPtr<FInternetAddrSteam>(SessionInfo.SteamP2PAddr);
 		KeyValuePairs.Add(STEAMKEY_P2PADDR, SteamAddr->ToString(false));
 		KeyValuePairs.Add(STEAMKEY_P2PPORT, FString::FromInt(SteamAddr->GetPort()));
 	}
@@ -176,16 +176,19 @@ static void GetLobbyKeyValuePairsFromSessionInfo(const FOnlineSessionInfoSteam* 
  */
 static void GetLobbyKeyValuePairsFromSession(const FOnlineSession* Session, FSteamSessionKeyValuePairs& KeyValuePairs)
 {
-	FUniqueNetIdSteam* SteamId = (FUniqueNetIdSteam*)(Session->OwningUserId.Get());
-	KeyValuePairs.Add(STEAMKEY_OWNINGUSERID, SteamId->ToString());
+	TSharedPtr<const FUniqueNetIdSteam> SteamId = StaticCastSharedPtr<const FUniqueNetIdSteam>(Session->OwningUserId);
+	if (SteamId.IsValid())
+	{
+		KeyValuePairs.Add(STEAMKEY_OWNINGUSERID, SteamId->ToString());
+	}
 	KeyValuePairs.Add(STEAMKEY_OWNINGUSERNAME, Session->OwningUserName);
 	KeyValuePairs.Add(STEAMKEY_NUMOPENPRIVATECONNECTIONS, FString::FromInt(Session->NumOpenPrivateConnections));
 	KeyValuePairs.Add(STEAMKEY_NUMOPENPUBLICCONNECTIONS, FString::FromInt(Session->NumOpenPublicConnections));
 
 	if (Session->SessionInfo.IsValid())
 	{
-		FOnlineSessionInfoSteam* SessionInfo = (FOnlineSessionInfoSteam*)(Session->SessionInfo.Get());
-		GetLobbyKeyValuePairsFromSessionInfo(SessionInfo, KeyValuePairs);
+		TSharedPtr<FOnlineSessionInfoSteam> SessionInfo = StaticCastSharedPtr<FOnlineSessionInfoSteam>(Session->SessionInfo);
+		GetLobbyKeyValuePairsFromSessionInfo(*SessionInfo, KeyValuePairs);
 	}
 
 	GetLobbyKeyValuePairsFromSessionSettings(Session->SessionSettings, KeyValuePairs);
@@ -211,7 +214,7 @@ bool FillSessionFromLobbyData(FUniqueNetIdSteam& LobbyId, FOnlineSession& Sessio
 	Session.SessionSettings.Settings.Empty();
 
 	// Create the session info
-	TSharedPtr<FOnlineSessionInfoSteam> SessionInfo = MakeShareable(new FOnlineSessionInfoSteam(ESteamSession::LobbySession, FUniqueNetIdSteam(LobbyId)));
+	TSharedPtr<FOnlineSessionInfoSteam> SessionInfo = MakeShared<FOnlineSessionInfoSteam>(ESteamSession::LobbySession, FUniqueNetIdSteam(LobbyId));
 	TSharedRef<FInternetAddr> HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
 	TSharedRef<FInternetAddrSteam> SteamP2PAddr = MakeShareable(new FInternetAddrSteam);
 	
@@ -482,17 +485,17 @@ void FOnlineAsyncTaskSteamCreateLobby::Finalize()
 			FUniqueNetIdSteam LobbyId(CallbackResults.m_ulSteamIDLobby);
 
 			// Setup the host session info now that we have a lobby id
-			FOnlineSessionInfoSteam* NewSessionInfo = new FOnlineSessionInfoSteam(ESteamSession::LobbySession, LobbyId);
+			TSharedRef<FOnlineSessionInfoSteam> NewSessionInfo = MakeShared<FOnlineSessionInfoSteam>(ESteamSession::LobbySession, LobbyId);
 			NewSessionInfo->Init();
 			// Lobby sessions don't have a valid IP
 			NewSessionInfo->HostAddr = NULL;
 			// Copy the P2P addr
-			FInternetAddrSteam* SteamAddr = new FInternetAddrSteam(FUniqueNetIdSteam(SteamUser()->GetSteamID()));
+			TSharedRef<FInternetAddrSteam> SteamAddr = MakeShared<FInternetAddrSteam>(FUniqueNetIdSteam(SteamUser()->GetSteamID()));
 			SteamAddr->SetPort(Subsystem->GetGameServerGamePort());
-			NewSessionInfo->SteamP2PAddr = MakeShareable(SteamAddr);
-			
+			NewSessionInfo->SteamP2PAddr = SteamAddr;
+
 			// Set the info on the session
-			Session->SessionInfo = MakeShareable(NewSessionInfo);
+			Session->SessionInfo = NewSessionInfo;
 
 			// Set the game state as pending (not started)
 			Session->SessionState = EOnlineSessionState::Pending;
@@ -581,73 +584,75 @@ void FOnlineAsyncTaskSteamUpdateLobby::Tick()
 		FNamedOnlineSession* Session = SessionInt->GetNamedSession(SessionName);
 		if (Session)
 		{
-			FOnlineSessionInfoSteam* SessionInfo = (FOnlineSessionInfoSteam*)(Session->SessionInfo.Get());
-
-			bool bUsesPresence = Session->SessionSettings.bUsesPresence;
-			if (bUsesPresence != NewSessionSettings.bUsesPresence)
+			TSharedPtr<FOnlineSessionInfoSteam> SessionInfo = StaticCastSharedPtr<FOnlineSessionInfoSteam>(Session->SessionInfo);
+			if (SessionInfo.IsValid())
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Can't change presence settings on existing session %s, ignoring."), *SessionName.ToString());
-			}
-
-			FSteamSessionKeyValuePairs OldKeyValuePairs;
-			GetLobbyKeyValuePairsFromSession(Session, OldKeyValuePairs);
-
-			Session->SessionSettings = NewSessionSettings;
-			Session->SessionSettings.bUsesPresence = bUsesPresence;
-
-			if (bUpdateOnlineData)
-			{
-				ISteamMatchmaking* SteamMatchmakingPtr = SteamMatchmaking();
-				check(SteamMatchmakingPtr);
-
-				ELobbyType LobbyType = BuildLobbyType(&Session->SessionSettings);
-				if (SteamMatchmakingPtr->SetLobbyType(SessionInfo->SessionId, LobbyType))
+				bool bUsesPresence = Session->SessionSettings.bUsesPresence;
+				if (bUsesPresence != NewSessionSettings.bUsesPresence)
 				{
-					int32 LobbyMemberCount = SteamMatchmakingPtr->GetNumLobbyMembers(SessionInfo->SessionId);
-					int32 MaxLobbyMembers = SteamMatchmakingPtr->GetLobbyMemberLimit(SessionInfo->SessionId);
-					bool bLobbyJoinable = Session->SessionSettings.bAllowJoinInProgress && (LobbyMemberCount < MaxLobbyMembers);
-					if (SteamMatchmakingPtr->SetLobbyJoinable(SessionInfo->SessionId, bLobbyJoinable))
+					UE_LOG_ONLINE(Warning, TEXT("Can't change presence settings on existing session %s, ignoring."), *SessionName.ToString());
+				}
+
+				FSteamSessionKeyValuePairs OldKeyValuePairs;
+				GetLobbyKeyValuePairsFromSession(Session, OldKeyValuePairs);
+
+				Session->SessionSettings = NewSessionSettings;
+				Session->SessionSettings.bUsesPresence = bUsesPresence;
+
+				if (bUpdateOnlineData)
+				{
+					ISteamMatchmaking* SteamMatchmakingPtr = SteamMatchmaking();
+					check(SteamMatchmakingPtr);
+
+					ELobbyType LobbyType = BuildLobbyType(&Session->SessionSettings);
+					if (SteamMatchmakingPtr->SetLobbyType(SessionInfo->SessionId, LobbyType))
 					{
-						int32 NumConnections = Session->SessionSettings.NumPrivateConnections + Session->SessionSettings.NumPublicConnections;
-						if (SteamMatchmakingPtr->SetLobbyMemberLimit(SessionInfo->SessionId, NumConnections))
+						int32 LobbyMemberCount = SteamMatchmakingPtr->GetNumLobbyMembers(SessionInfo->SessionId);
+						int32 MaxLobbyMembers = SteamMatchmakingPtr->GetLobbyMemberLimit(SessionInfo->SessionId);
+						bool bLobbyJoinable = Session->SessionSettings.bAllowJoinInProgress && (LobbyMemberCount < MaxLobbyMembers);
+						if (SteamMatchmakingPtr->SetLobbyJoinable(SessionInfo->SessionId, bLobbyJoinable))
 						{
-							bWasSuccessful = true;
-
-							FSteamSessionKeyValuePairs KeyValuePairs;
-							GetLobbyKeyValuePairsFromSession(Session, KeyValuePairs);
-
-							// @TODO ONLINE Make sure to only remove/set data that has changed
-							// Unregister old session properties with Steam lobby
-							for (FSteamSessionKeyValuePairs::TConstIterator It(OldKeyValuePairs); It; ++It)
+							int32 NumConnections = Session->SessionSettings.NumPrivateConnections + Session->SessionSettings.NumPublicConnections;
+							if (SteamMatchmakingPtr->SetLobbyMemberLimit(SessionInfo->SessionId, NumConnections))
 							{
-								UE_LOG_ONLINE(Verbose, TEXT("Removing Lobby Data (%s, %s)"), *It.Key(), *It.Value());
-								if (!SteamMatchmakingPtr->SetLobbyData(SessionInfo->SessionId, TCHAR_TO_UTF8(*It.Key()), ""))
-								{
-									bWasSuccessful = false;
-									break;
-								}
-							}
+								bWasSuccessful = true;
 
-							if (bWasSuccessful)
-							{
-								// Register session properties with Steam lobby
-								for (FSteamSessionKeyValuePairs::TConstIterator It(KeyValuePairs); It; ++It)
+								FSteamSessionKeyValuePairs KeyValuePairs;
+								GetLobbyKeyValuePairsFromSession(Session, KeyValuePairs);
+
+								// @TODO ONLINE Make sure to only remove/set data that has changed
+								// Unregister old session properties with Steam lobby
+								for (FSteamSessionKeyValuePairs::TConstIterator It(OldKeyValuePairs); It; ++It)
 								{
-									UE_LOG_ONLINE(Verbose, TEXT("Updating Lobby Data (%s, %s)"), *It.Key(), *It.Value());
-									if (!SteamMatchmakingPtr->SetLobbyData(SessionInfo->SessionId, TCHAR_TO_UTF8(*It.Key()), TCHAR_TO_UTF8(*It.Value())))
+									UE_LOG_ONLINE(Verbose, TEXT("Removing Lobby Data (%s, %s)"), *It.Key(), *It.Value());
+									if (!SteamMatchmakingPtr->SetLobbyData(SessionInfo->SessionId, TCHAR_TO_UTF8(*It.Key()), ""))
 									{
 										bWasSuccessful = false;
 										break;
+									}
+								}
+
+								if (bWasSuccessful)
+								{
+									// Register session properties with Steam lobby
+									for (FSteamSessionKeyValuePairs::TConstIterator It(KeyValuePairs); It; ++It)
+									{
+										UE_LOG_ONLINE(Verbose, TEXT("Updating Lobby Data (%s, %s)"), *It.Key(), *It.Value());
+										if (!SteamMatchmakingPtr->SetLobbyData(SessionInfo->SessionId, TCHAR_TO_UTF8(*It.Key()), TCHAR_TO_UTF8(*It.Value())))
+										{
+											bWasSuccessful = false;
+											break;
+										}
 									}
 								}
 							}
 						}
 					}
 				}
-			}
-			else
-			{
-				bWasSuccessful = true;
+				else
+				{
+					bWasSuccessful = true;
+				}
 			}
 		}
 	}

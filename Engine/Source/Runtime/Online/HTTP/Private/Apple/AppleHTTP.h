@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Containers/UnrealString.h"
-#include "Interfaces/IHttpRequest.h"
+#include "GenericPlatform/HttpRequestImpl.h"
 #include "Interfaces/IHttpResponse.h"
 #include "HttpManager.h"
 #include "PlatformHttp.h"
@@ -16,7 +16,7 @@ class IHttpRequest;
 /**
  * Apple implementation of an Http request
  */
-class FAppleHttpRequest : public IHttpRequest
+class FAppleHttpRequest : public FHttpRequestImpl
 {
 private:
 	// This is the NSMutableURLRequest, all our Apple functionality will deal with this.
@@ -50,15 +50,12 @@ public:
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override;
 	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override;
 	virtual bool ProcessRequest() override;
-	virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override;
-	virtual FHttpRequestProgressDelegate& OnRequestProgress() override;
 	virtual void CancelRequest() override;
 	virtual EHttpRequestStatus::Type GetStatus() const override;
 	virtual const FHttpResponsePtr GetResponse() const override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual float GetElapsedTime() const override;
 	//~ End IHttpRequest Interface
-
 
 	/**
 	 * Constructor
@@ -98,12 +95,6 @@ private:
 
 	/** BYTE array payload to use with the request. Typically for a POST */
 	mutable TArray<uint8> RequestPayload;
-
-	/** Delegate that will get called once request completes or on any error */
-	FHttpRequestCompleteDelegate RequestCompleteDelegate;
-
-	/** Delegate that will get called once per tick with bytes downloaded so far */
-	FHttpRequestProgressDelegate RequestProgressDelegate;
 
 	/** Current status of request being processed */
 	EHttpRequestStatus::Type CompletionStatus;

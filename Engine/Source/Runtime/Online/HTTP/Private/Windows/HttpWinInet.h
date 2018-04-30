@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "GenericPlatform/HttpRequestImpl.h"
 #include "Interfaces/IHttpResponse.h"
 #include "HttpModule.h"
 #include "HAL/ThreadSafeCounter.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Containers/Queue.h"
 #include "Windows/WindowsHWrapper.h"
 #include "Windows/AllowWindowsPlatformTypes.h"
 	#include <wininet.h>
@@ -67,9 +70,8 @@ private:
 /**
  * WinInet implementation of an Http request
  */
-class FHttpRequestWinInet : public IHttpRequest
+class FHttpRequestWinInet : public FHttpRequestImpl
 {
-
 public:
 
 	// IHttpBase
@@ -92,8 +94,6 @@ public:
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override;
 	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override;
 	virtual bool ProcessRequest() override;
-	virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override;
-	virtual FHttpRequestProgressDelegate& OnRequestProgress() override;
 	virtual void CancelRequest() override;
 	virtual EHttpRequestStatus::Type GetStatus() const override;
 	virtual const FHttpResponsePtr GetResponse() const override;
@@ -145,6 +145,12 @@ private:
 	 */
 	void ResetRequestTimeout();
 
+	/** Broadcast newly received headers */
+	void BroadcastNewlyReceivedHeaders();
+
+	/** Combine a header's key/value in the format "Key: Value" */
+	static FString CombineHeaderKeyValue(const FString& HeaderKey, const FString& HeaderValue);
+	
 	// implementation friends
 	friend class FHttpResponseWinInet;
 	friend void CALLBACK InternetStatusCallbackWinInet(HINTERNET, DWORD_PTR,::DWORD,LPVOID,::DWORD);
@@ -161,10 +167,6 @@ private:
 	TArray<uint8> RequestPayload;
 	/** Holds response data that comes back from a successful request.  NULL if request can't connect */
 	TSharedPtr<class FHttpResponseWinInet,ESPMode::ThreadSafe> Response;
-	/** Delegate that will get called once request completes or on any error */
-	FHttpRequestCompleteDelegate RequestCompleteDelegate;
-	/** Delegate that will get called once per tick with bytes downloaded so far */
-	FHttpRequestProgressDelegate RequestProgressDelegate;
 	/** Current status of request being processed */
 	EHttpRequestStatus::Type CompletionStatus;
 	/** WinInet handle to a session connection opened via InternetConnect */
@@ -172,7 +174,7 @@ private:
 	/** WinInet handle to a request opened via HttpOpenRequest */
 	HINTERNET RequestHandle;
 	/** Total elapsed time in seconds since the last server response, in milliseconds */
-	int32 volatile ElapsedTimeSinceLastServerResponse;
+	FThreadSafeCounter ElapsedTimeSinceLastServerResponse;
 	/** Number of bytes sent to progress update */
 	int32 ProgressBytesSent;
 	/** Used to calculate total elapsed time for the request */
@@ -267,8 +269,10 @@ private:
 	int32 AsyncBytesRead;
 	/** Caches how many bytes of the response we've read so far */
 	int32 TotalBytesRead;
-	/** Cached key/value header pairs. Parsed from HttpQueryInfo results once request completes */
+	/** Cached key/value header pairs. Parsed from HttpQueryInfo results once request completes. Only accessible on the game thread. */
 	TMap<FString, FString> ResponseHeaders;
+	/** Newly received headers we need to inform listeners about */
+	TQueue<TPair<FString, FString>> NewlyReceivedHeaders;
 	/** Cached code from completed response */
 	int32 ResponseCode;
 	/** Cached content length from completed response */
@@ -276,11 +280,13 @@ private:
 	/** BYTE array to fill in as the response is read via InternetReadFile */
 	TArray<uint8> ResponsePayload;
 	/** True when the response has finished async processing */
-	int32 volatile bIsReady;
+	FThreadSafeBool bIsAsyncProcessingFinished;
+	/** True when we have called FinishedRequest() */
+	bool bIsReady;
 	/** True if the response was successfully received/processed */
-	int32 volatile bResponseSucceeded;
+	FThreadSafeBool bResponseSucceeded;
 	/** Whether or not the request was actually sent */
-	int32 volatile bRequestSent;
+	FThreadSafeBool bRequestSent;
 	/** Threadsafe counter for exchanging bytes read so far with main thread tick */
 	FThreadSafeCounter ProgressBytesRead;
 	/** Max buffer size for individual http reads */

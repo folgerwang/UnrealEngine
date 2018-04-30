@@ -6,6 +6,7 @@
 #include "HAL/ThreadSafeCounter.h"
 #include "Interfaces/IHttpResponse.h"
 #include "IHttpThreadedRequest.h"
+#include "Containers/Queue.h"
 
 class FCurlHttpResponse;
 
@@ -141,8 +142,6 @@ public:
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override;
 	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override;
 	virtual bool ProcessRequest() override;
-	virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override;
-	virtual FHttpRequestProgressDelegate& OnRequestProgress() override;
 	virtual void CancelRequest() override;
 	virtual EHttpRequestStatus::Type GetStatus() const override;
 	virtual const FHttpResponsePtr GetResponse() const override;
@@ -198,7 +197,6 @@ public:
 	 * Destructor. Clean up any connection/request handles
 	 */
 	virtual ~FCurlHttpRequest();
-
 
 private:
 
@@ -304,15 +302,16 @@ private:
 	void FinishedRequest();
 
 	/**
-	 * Close session/request handles and unregister callbacks
-	 */
-	void CleanupRequest();
-
-	/**
 	 * Trigger the request progress delegate if progress has changed
 	 */
 	void CheckProgressDelegate();
 
+	/** Broadcast newly received headers */
+	void BroadcastNewlyReceivedHeaders();
+
+	/** Combine a header's key/value in the format "Key: Value" */
+	static FString CombineHeaderKeyValue(const FString& HeaderKey, const FString& HeaderValue);
+	
 private:
 
 	/** Pointer to an easy handle specific to this request */
@@ -335,10 +334,6 @@ private:
 	TSharedPtr<class FCurlHttpResponse,ESPMode::ThreadSafe> Response;
 	/** BYTE array payload to use with the request. Typically for a POST */
 	TArray<uint8> RequestPayload;
-	/** Delegate that will get called once request completes or on any error */
-	FHttpRequestCompleteDelegate RequestCompleteDelegate;
-	/** Delegate that will get called once per tick with total bytes uploaded and downloaded so far */
-	FHttpRequestProgressDelegate RequestProgressDelegate;
 	/** Current status of request being processed */
 	EHttpRequestStatus::Type CompletionStatus;
 	/** Mapping of header section to values. */
@@ -361,8 +356,6 @@ private:
 	TArray<FString> InfoMessageCache;
 };
 
-
-
 /**
  * Curl implementation of an HTTP response
  */
@@ -378,7 +371,6 @@ public:
 	// implementation friends
 	friend class FCurlHttpRequest;
 
-
 	//~ Begin IHttpBase Interface
 	virtual FString GetURL() const override;
 	virtual FString GetURLParameter(const FString& ParameterName) const override;
@@ -393,11 +385,6 @@ public:
 	virtual int32 GetResponseCode() const override;
 	virtual FString GetContentAsString() const override;
 	//~ End IHttpResponse Interface
-
-	/**
-	 * Check whether a response is ready or not.
-	 */
-	bool IsReady();
 
 	/**
 	 * Constructor
@@ -417,8 +404,10 @@ private:
 	TArray<uint8> Payload;
 	/** Caches how many bytes of the response we've read so far */
 	FThreadSafeCounter TotalBytesRead;
-	/** Cached key/value header pairs. Parsed once request completes */
+	/** Cached key/value header pairs. Parsed once request completes. Only accessible on the game thread. */
 	TMap<FString, FString> Headers;
+	/** Newly received headers we need to inform listeners about */
+	TQueue<TPair<FString, FString>> NewlyReceivedHeaders;
 	/** Cached code from completed response */
 	int32 HttpCode;
 	/** Cached content length from completed response */
