@@ -47,7 +47,7 @@ EConvertFromTypeResult UObjectProperty::ConvertFromType(const FPropertyTag& Tag,
 		// Validate the type is proper
 		CheckValidObject(GetPropertyValuePtr_InContainer(Data, Tag.ArrayIndex));
 
-		return EConvertFromTypeResult::CannotConvert;
+		return EConvertFromTypeResult::Converted;
 	}
 
 	return EConvertFromTypeResult::UseSerializeItem;
