@@ -976,6 +976,28 @@ static void ReleaseGCLock()
 	FGCCSyncObject::Get().GCUnlock();
 }
 
+/** Locks GC within a scope but only if it hasn't been locked already */
+struct FConditionalGCLock
+{
+	bool bNeedsUnlock;
+	FConditionalGCLock()
+		: bNeedsUnlock(false)
+	{
+		if (!FGCCSyncObject::Get().IsGCLocked())
+		{
+			AcquireGCLock();
+			bNeedsUnlock = true;
+		}
+	}
+	~FConditionalGCLock()
+	{
+		if (bNeedsUnlock)
+		{
+			ReleaseGCLock();
+		}
+	}
+};
+
 /**
  * Incrementally purge garbage by deleting all unreferenced objects after routing Destroy.
  *
@@ -1037,9 +1059,8 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 
 	if (GUnrechableObjectIndex < GUnreachableObjects.Num())
 	{
-		AcquireGCLock();
+		FConditionalGCLock ScopedGCLock;
 		bTimeLimitReached = UnhashUnreachableObjects(bUseTimeLimit, TimeLimit);
-		ReleaseGCLock();
 	}
 
 	// Set 'I'm garbage collecting' flag - might be checked inside UObject::Destroy etc.

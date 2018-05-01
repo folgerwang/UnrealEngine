@@ -146,6 +146,11 @@ public:
 	{
 		return AsyncCounter.GetValue() != 0;
 	}
+	/** Checks if GC has a lock */
+	bool IsGCLocked() const
+	{
+		return GCCounter.GetValue() != 0;
+	}
 	/** Lock for GC. Will not block and return false if any other thread has already locked. */
 	bool TryGCLock()
 	{
