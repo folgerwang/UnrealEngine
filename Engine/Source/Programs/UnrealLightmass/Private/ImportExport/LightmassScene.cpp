@@ -1439,9 +1439,7 @@ bool FSpotLight::AffectsBounds(const FBoxSphereBounds& Bounds) const
 
 FSphere FSpotLight::GetBoundingSphere() const
 {
-	// Use the law of cosines to find the distance to the furthest edge of the spotlight cone from a position that is halfway down the spotlight direction
-	const float BoundsRadius = FMath::Sqrt(1.25f * Radius * Radius - Radius * Radius * CosOuterConeAngle);
-	return FSphere(Position + .5f * Direction * Radius, BoundsRadius);
+	return FMath::ComputeBoundingSphereForCone(Position, Direction, Radius, CosOuterConeAngle, SinOuterConeAngle);
 }
 
 /**

@@ -79,16 +79,17 @@ static uint32 GetConstantAllocatorSize(bool bIsAsyncComputeContext, bool bIsDefa
 	return ConstantAllocatorSizesKB::Graphics * 1024;
 }
 
+FD3D12CommandContextBase::FD3D12CommandContextBase(class FD3D12Adapter* InParentAdapter, FRHIGPUMask InNodeMask)
+	: FD3D12AdapterChild(InParentAdapter)
+	, NodeMask(InNodeMask)
+{
+}
+
+
 FD3D12CommandContext::FD3D12CommandContext(FD3D12Device* InParent, FD3D12SubAllocatedOnlineHeap::SubAllocationDesc& SubHeapDesc, bool InIsDefaultContext, bool InIsAsyncComputeContext) :
+	FD3D12CommandContextBase(InParent->GetParentAdapter(), InParent->GetNodeMask()),
 	OwningRHI(*InParent->GetOwningRHI()),
 	bUsingTessellation(false),
-	PendingNumVertices(0),
-	PendingVertexDataStride(0),
-	PendingPrimitiveType(0),
-	PendingNumPrimitives(0),
-	PendingMinVertexIndex(0),
-	PendingNumIndices(0),
-	PendingIndexDataStride(0),
 	CurrentDepthTexture(nullptr),
 	NumSimultaneousRenderTargets(0),
 	NumUAVs(0),
@@ -102,7 +103,7 @@ FD3D12CommandContext::FD3D12CommandContext(FD3D12Device* InParent, FD3D12SubAllo
 	CommandListHandle(),
 	CommandAllocator(nullptr),
 	CommandAllocatorManager(InParent, InIsAsyncComputeContext ? D3D12_COMMAND_LIST_TYPE_COMPUTE : D3D12_COMMAND_LIST_TYPE_DIRECT),
-	ConstantsAllocator(InParent, GetVisibilityMask(), GetConstantAllocatorSize(InIsAsyncComputeContext, InIsDefaultContext) ),
+	ConstantsAllocator(InParent, InParent->GetNodeMask(), GetConstantAllocatorSize(InIsAsyncComputeContext, InIsDefaultContext) ),
 	DynamicVB(InParent),
 	DynamicIB(InParent),
 	StateCache(InParent->GetNodeMask()),
@@ -112,10 +113,9 @@ FD3D12CommandContext::FD3D12CommandContext(FD3D12Device* InParent, FD3D12SubAllo
 	PSConstantBuffer(InParent, ConstantsAllocator),
 	GSConstantBuffer(InParent, ConstantsAllocator),
 	CSConstantBuffer(InParent, ConstantsAllocator),
-	bIsMGPUAware(InParent->GetParentAdapter()->GetNumGPUNodes() > 1),
+	bIsMGPUAware(GNumActiveGPUsForRendering > 1),
 	CurrentDepthStencilTarget(nullptr),
-	FD3D12DeviceChild(InParent),
-	FD3D12SingleNodeGPUObject(InParent->GetNodeMask())
+	FD3D12DeviceChild(InParent)
 {
 	FMemory::Memzero(DirtyUniformBuffers);
 	FMemory::Memzero(BoundUniformBuffers);
@@ -298,14 +298,12 @@ void FD3D12CommandContext::Finish(TArray<FD3D12CommandListHandle>& CommandLists)
 	CommandListHandle = FD3D12CommandListHandle();
 }
 
-void FD3D12CommandContext::RHIBeginFrame()
+void FD3D12CommandContextBase::RHIBeginFrame()
 {
-	FD3D12Device* Device = GetParentDevice();
-	FD3D12Adapter* Adapter = Device->GetParentAdapter();
-
-	check(IsDefaultContext());
-	check(Adapter->GetCurrentNodeMask() == Device->GetNodeMask());
 	RHIPrivateBeginFrame();
+	for (uint32 GPUIndex : NodeMask)
+	{
+		FD3D12Device* Device = ParentAdapter->GetDevice(GPUIndex);
 
 	FD3D12GlobalOnlineHeap& SamplerHeap = Device->GetGlobalSamplerHeap();
 
@@ -328,8 +326,9 @@ void FD3D12CommandContext::RHIBeginFrame()
 	}
 
 	Device->GetGlobalSamplerHeap().ToggleDescriptorTablesDirtyFlag(false);
+	}
 
-	Adapter->GetGPUProfiler().BeginFrame(Device->GetOwningRHI());
+	ParentAdapter->GetGPUProfiler().BeginFrame(ParentAdapter->GetOwningRHI());
 }
 
 void FD3D12CommandContext::ClearState()
@@ -384,15 +383,13 @@ void FD3D12CommandContext::ClearAllShaderResources()
 	StateCache.ClearSRVs();
 }
 
-void FD3D12CommandContext::RHIEndFrame()
+void FD3D12CommandContextBase::RHIEndFrame()
 {
-	FD3D12Device* Device = GetParentDevice();
-	FD3D12Adapter* Adapter = Device->GetParentAdapter();
-	{
-		check(IsDefaultContext());
-		check(Adapter->GetCurrentNodeMask() == Device->GetNodeMask());
+	ParentAdapter->EndFrame();
 
-		Adapter->EndFrame();
+	for (uint32 GPUIndex : NodeMask)
+	{
+		FD3D12Device* Device = ParentAdapter->GetDevice(GPUIndex);
 
 		const uint32 NumContexts = Device->GetNumContexts();
 		for (uint32 i = 0; i < NumContexts; ++i)
@@ -410,6 +407,7 @@ void FD3D12CommandContext::RHIEndFrame()
 		Device->GetDefaultBufferAllocator().CleanupFreeBlocks();
 
 		Device->GetDefaultFastAllocator().CleanupPages<FD3D12ScopeLock>(10);
+	}
 
 		// The Texture streaming threads
 		{
@@ -423,29 +421,20 @@ void FD3D12CommandContext::RHIEndFrame()
 			}
 		}
 
-		GetCommandListManager().ReleaseResourceBarrierCommandListAllocator();
+	for (uint32 GPUIndex : NodeMask)
+	{
+		FD3D12Device* Device = ParentAdapter->GetDevice(GPUIndex);
+		Device->GetCommandListManager().ReleaseResourceBarrierCommandListAllocator();
+	}
 
 		UpdateMemoryStats();
 	}
 
-#if PLATFORM_SUPPORTS_MGPU
-	if (Adapter->AlternateFrameRenderingEnabled())
-	{
-		// When doing AFR rendering we need to switch to the next GPU
-		Adapter->SwitchToNextGPU();
-
-		// Update the default context redirector so that the next frame will work on the correct context
-		Adapter->GetDefaultContextRedirector().SetCurrentDeviceIndex(Adapter->GetCurrentDevice()->GetNodeIndex());
-		Adapter->GetDefaultAsyncComputeContextRedirector().SetCurrentDeviceIndex(Adapter->GetCurrentDevice()->GetNodeIndex());
-	}
-#endif
-}
-
-void FD3D12CommandContext::UpdateMemoryStats()
+void FD3D12CommandContextBase::UpdateMemoryStats()
 {
 #if PLATFORM_WINDOWS && STATS
 	DXGI_QUERY_VIDEO_MEMORY_INFO LocalVideoMemoryInfo;
-	GetParentDevice()->GetLocalVideoMemoryInfo(&LocalVideoMemoryInfo);
+	ParentAdapter->GetLocalVideoMemoryInfo(&LocalVideoMemoryInfo);
 
 	const int64 Budget = LocalVideoMemoryInfo.Budget;
 	const int64 AvailableSpace = Budget - int64(LocalVideoMemoryInfo.CurrentUsage);
@@ -463,6 +452,12 @@ void FD3D12CommandContext::RHIEndScene()
 {
 }
 
+IRHICommandContext* FD3D12CommandContext::GetContextForNodeMask(const FRHIGPUMask& InNodeMask)
+{
+	check(NodeMask == InNodeMask);
+	return this;
+}
+
 #if D3D12_SUPPORTS_PARALLEL_RHI_EXECUTE
 
 //todo recycle these to avoid alloc
@@ -470,9 +465,11 @@ void FD3D12CommandContext::RHIEndScene()
 class FD3D12CommandContextContainer : public IRHICommandContextContainer
 {
 	FD3D12Adapter* Adapter;
+
 	FD3D12CommandContext* CmdContext;
+	FD3D12CommandContextRedirector* CmdContextRedirector;
+
 	TArray<FD3D12CommandListHandle> CommandLists;
-	const int32 FrameIndex;
 
 public:
 
@@ -480,8 +477,8 @@ public:
 	void* operator new(size_t Size);
 	void operator delete(void* RawMemory);
 
-	FD3D12CommandContextContainer(FD3D12Adapter* InAdapter, int32 Index)
-		: Adapter(InAdapter), CmdContext(nullptr), FrameIndex(Index)
+	FD3D12CommandContextContainer(FD3D12Adapter* InAdapter)
+		: Adapter(InAdapter), CmdContext(nullptr), CmdContextRedirector(nullptr)
 	{
 		CommandLists.Reserve(16);
 	}
@@ -490,40 +487,80 @@ public:
 	{
 	}
 
-	virtual IRHICommandContext* GetContext() override
+	virtual IRHICommandContext* GetContext(const FRHIGPUMask& NodeMask) override
 	{
-		FD3D12Device* Device = Adapter->GetDeviceByIndex(FrameIndex);
+		check(NodeMask.HasSingleIndex() || NodeMask == FRHIGPUMask::All());
+		check(!CmdContext && !CmdContextRedirector);
 
-		check(CmdContext == nullptr);
+		if (NodeMask.HasSingleIndex())
+		{
+			FD3D12Device* Device = Adapter->GetDevice(NodeMask.ToIndex());
+
 		CmdContext = Device->ObtainCommandContext();
-		check(CmdContext != nullptr);
-		check(CmdContext->CommandListHandle == nullptr);
+			check(!CmdContext->CommandListHandle);
+			CmdContext->OpenCommandList();
+			CmdContext->ClearState();
 
+			return CmdContext;
+		}
+		else
+		{
+			CmdContextRedirector = new FD3D12CommandContextRedirector(Adapter);
+			CmdContextRedirector->SetGPUNodeMask(NodeMask);
+
+			for (uint32 GPUIndex : NodeMask)
+			{
+				FD3D12Device* Device = Adapter->GetDevice(GPUIndex);
+
+				CmdContext = Device->ObtainCommandContext();
+				check(!CmdContext->CommandListHandle);
 		CmdContext->OpenCommandList();
 		CmdContext->ClearState();
 
-		return CmdContext;
+				CmdContextRedirector->SetPhysicalContext(CmdContext);
+				CmdContext = nullptr;
+			}
+			return CmdContextRedirector;
+		}
+
 	}
 
 	virtual void FinishContext() override
 	{
-		FD3D12Device* Device = Adapter->GetDeviceByIndex(FrameIndex);
-
 		// We never "Finish" the default context. It gets submitted when FlushCommands() is called.
-		check(!CmdContext->IsDefaultContext());
+		check(!CmdContext || !CmdContext->IsDefaultContext());
 
+		if (CmdContext)
+		{
 		CmdContext->Finish(CommandLists);
+			CmdContext->GetParentDevice()->ReleaseCommandContext(CmdContext);
+			CmdContext = nullptr;
+		}
 
-		Device->ReleaseCommandContext(CmdContext);
+		if (CmdContextRedirector)
+		{
+			for (uint32 GPUIndex : CmdContextRedirector->GetGPUNodeMask())
+			{
+				CmdContext = CmdContextRedirector->GetPhysicalContext(GPUIndex);
+				CmdContext->Finish(CommandLists);
+				CmdContext->GetParentDevice()->ReleaseCommandContext(CmdContext);
 		CmdContext = nullptr;
 	}
+			delete CmdContextRedirector;
+			CmdContextRedirector = nullptr;
+		}
+	}
 
-	virtual void SubmitAndFreeContextContainer(int32 Index, int32 Num) override
+	virtual void SubmitAndFreeContextContainer(const FRHIGPUMask& NodeMask, int32 Index, int32 Num) override
 	{
-		FD3D12Device* Device = Adapter->GetDeviceByIndex(FrameIndex);
+		check(NodeMask.HasSingleIndex() || NodeMask == FRHIGPUMask::All());
 
 		if (Index == 0)
 		{
+			for (uint32 GPUIndex : NodeMask)
+			{
+				FD3D12Device* Device = Adapter->GetDevice(GPUIndex);
+				check(Device);
 			check((IsInRenderingThread() || IsInRHIThread()));
 
 			FD3D12CommandContext& DefaultContext = Device->GetDefaultCommandContext();
@@ -540,20 +577,29 @@ public:
 
 			DefaultContext.OpenCommandList();
 		}
-
-		// Add the current lists for execution (now or possibly later depending on the command list batching mode).
-		for (int32 i = 0; i < CommandLists.Num(); ++i)
-		{
-			Device->PendingCommandLists.Add(CommandLists[i]);
-			Device->PendingCommandListsTotalWorkCommands +=
-				CommandLists[i].GetCurrentOwningContext()->numClears +
-				CommandLists[i].GetCurrentOwningContext()->numCopies +
-				CommandLists[i].GetCurrentOwningContext()->numDraws;
 		}
 
+		// Add the current lists for execution (now or possibly later depending on the command list batching mode).
+		for (FD3D12CommandListHandle& CommandList : CommandLists)
+		{
+			FD3D12Device* Device = Adapter->GetDevice(CommandList.GetGPUIndex());
+			check(Device);
+
+			Device->PendingCommandLists.Add(CommandList);
+			Device->PendingCommandListsTotalWorkCommands +=
+				CommandList.GetCurrentOwningContext()->numClears +
+				CommandList.GetCurrentOwningContext()->numCopies +
+				CommandList.GetCurrentOwningContext()->numDraws;
+		}
 		CommandLists.Reset();
 
+		for (uint32 GPUIndex : NodeMask)
+		{
+			FD3D12Device* Device = Adapter->GetDevice(GPUIndex);
+			check(Device);
+
 		bool Flush = false;
+
 		// If the GPU is starving (i.e. we are CPU bound) feed it asap!
 		if (Device->IsGPUIdle() && Device->PendingCommandLists.Num() > 0)
 		{
@@ -578,7 +624,7 @@ public:
 			Device->PendingCommandLists.Reset();
 			Device->PendingCommandListsTotalWorkCommands = 0;
 		}
-
+		}
 		delete this;
 	}
 };
@@ -595,7 +641,7 @@ void FD3D12CommandContextContainer::operator delete(void* RawMemory)
 
 IRHICommandContextContainer* FD3D12DynamicRHI::RHIGetCommandContextContainer(int32 Index, int32 Num)
 {
-	return new FD3D12CommandContextContainer(&GetAdapter(), GFrameNumberRenderThread % GetAdapter().GetNumGPUNodes());
+	return new FD3D12CommandContextContainer(&GetAdapter());
 }
 
 #endif // D3D12_SUPPORTS_PARALLEL_RHI_EXECUTE
@@ -608,10 +654,104 @@ IRHICommandContextContainer* FD3D12DynamicRHI::RHIGetCommandContextContainer(int
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 FD3D12CommandContextRedirector::FD3D12CommandContextRedirector(class FD3D12Adapter* InParent)
-	: CurrentDeviceIndex(0)
-	, FD3D12AdapterChild(InParent)
+	: FD3D12CommandContextBase(InParent, FRHIGPUMask::All())
 {
 	FMemory::Memzero(PhysicalContexts, sizeof(PhysicalContexts[0]) * MAX_NUM_LDA_NODES);
+}
+
+void FD3D12CommandContextRedirector::RHIBeginDrawPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
+{
+	check(!PendingUP);
+
+	PendingUP.PrimitiveType = PrimitiveType;
+	PendingUP.NumPrimitives = NumPrimitives;
+	PendingUP.NumVertices = NumVertices;
+	PendingUP.VertexDataStride = VertexDataStride;
+	OutVertexData = PendingUP.VertexData = FMemory::Malloc(NumVertices * VertexDataStride, 16);
+}
+	
+void FD3D12CommandContextRedirector::RHIEndDrawPrimitiveUP()
+{
+	if (PendingUP.VertexData)
+	{
+		for (uint32 GPUIndex : NodeMask)
+		{
+			FD3D12CommandContext* GPUContext = PhysicalContexts[GPUIndex];
+			check(GPUContext);
+
+			void* GPUVertexData = nullptr;
+			GPUContext->RHIBeginDrawPrimitiveUP(PendingUP.PrimitiveType, PendingUP.NumPrimitives, PendingUP.NumVertices, PendingUP.VertexDataStride, GPUVertexData);
+			if (GPUVertexData)
+			{
+				FMemory::Memcpy(GPUVertexData, PendingUP.VertexData, PendingUP.NumVertices * PendingUP.VertexDataStride);
+			}
+			GPUContext->RHIEndDrawPrimitiveUP();
+		}
+
+		FMemory::Free(PendingUP.VertexData);
+	}
+
+	PendingUP.Reset();
+}
+	
+void FD3D12CommandContextRedirector::RHIBeginDrawIndexedPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
+{
+	check(!PendingUP);
+
+	PendingUP.PrimitiveType = PrimitiveType;
+	PendingUP.NumPrimitives = NumPrimitives;
+	PendingUP.NumVertices = NumVertices;
+	PendingUP.VertexDataStride = VertexDataStride;
+	OutVertexData = PendingUP.VertexData = FMemory::Malloc(NumVertices * VertexDataStride);
+
+	PendingUP.MinVertexIndex = MinVertexIndex;
+	PendingUP.NumIndices = NumIndices;
+	PendingUP.IndexDataStride = IndexDataStride;
+	OutIndexData = PendingUP.IndexData = FMemory::Malloc(NumIndices * IndexDataStride);
+}
+	
+void FD3D12CommandContextRedirector::RHIEndDrawIndexedPrimitiveUP()
+{
+	if (PendingUP.VertexData && PendingUP.IndexData)
+	{
+		for (uint32 GPUIndex : NodeMask)
+		{
+			FD3D12CommandContext* GPUContext = PhysicalContexts[GPUIndex];
+			check(GPUContext);
+
+			void* GPUVertexData = nullptr;
+			void* GPUIndexData = nullptr;
+			GPUContext->RHIBeginDrawIndexedPrimitiveUP(PendingUP.PrimitiveType, PendingUP.NumPrimitives, PendingUP.NumVertices, PendingUP.VertexDataStride, GPUVertexData, PendingUP.MinVertexIndex, PendingUP.NumIndices, PendingUP.IndexDataStride, GPUIndexData);
+			if (GPUVertexData)
+			{
+				FMemory::Memcpy(GPUVertexData, PendingUP.VertexData, PendingUP.NumVertices * PendingUP.VertexDataStride);
+			}
+			if (GPUIndexData)
+			{
+				FMemory::Memcpy(GPUIndexData, PendingUP.IndexData, PendingUP.NumIndices * PendingUP.IndexDataStride);
+			}
+			GPUContext->RHIEndDrawIndexedPrimitiveUP();
+		}
+
+		FMemory::Free(PendingUP.VertexData);
+		FMemory::Free(PendingUP.IndexData);
+	}
+
+	PendingUP.Reset();
+}
+
+IRHICommandContext* FD3D12CommandContextRedirector::GetContextForNodeMask(const FRHIGPUMask& InNodeMask)
+{
+	check(InNodeMask.HasSingleIndex() || InNodeMask == FRHIGPUMask::All());
+
+	if (InNodeMask == NodeMask)
+	{
+		return this;
+	}
+	else
+	{
+		return PhysicalContexts[InNodeMask.ToIndex()];
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -621,16 +761,17 @@ FD3D12CommandContextRedirector::FD3D12CommandContextRedirector(class FD3D12Adapt
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 FD3D12TemporalEffect::FD3D12TemporalEffect()
-	: EffectFence(nullptr, "TemporalEffectFence")
+	: EffectFence(nullptr, FRHIGPUMask::GPU0(), "TemporalEffectFence")
 	, FD3D12AdapterChild(nullptr)
 {}
 
 FD3D12TemporalEffect::FD3D12TemporalEffect(FD3D12Adapter* Parent, const FName& InEffectName)
-	: EffectFence(Parent, InEffectName.GetPlainANSIString())
+	: EffectFence(Parent, FRHIGPUMask::All(), InEffectName.GetPlainANSIString())
 	, FD3D12AdapterChild(Parent)
 {}
 
 FD3D12TemporalEffect::FD3D12TemporalEffect(const FD3D12TemporalEffect& Other)
+	: EffectFence(nullptr, FRHIGPUMask::GPU0(), "TemporalEffectFence")
 {
 	FMemory::Memcpy(EffectFence, Other.EffectFence);
 }
@@ -645,17 +786,17 @@ void FD3D12TemporalEffect::Destroy()
 	EffectFence.Destroy();
 }
 
-void FD3D12TemporalEffect::WaitForPrevious(ID3D12CommandQueue* Queue)
+void FD3D12TemporalEffect::WaitForPrevious(ED3D12CommandQueueType InQueueType)
 {
 	const uint64 CurrentFence = EffectFence.GetCurrentFence();
 	if (CurrentFence > 1)
 	{
-		EffectFence.GpuWait(Queue, CurrentFence - 1);
+		EffectFence.GpuWait(InQueueType, CurrentFence - 1);
 	}
 }
 
-void FD3D12TemporalEffect::SignalSyncComplete(ID3D12CommandQueue* Queue)
+void FD3D12TemporalEffect::SignalSyncComplete(ED3D12CommandQueueType InQueueType)
 {
-	EffectFence.Signal(Queue);
+	EffectFence.Signal(InQueueType);
 }
 

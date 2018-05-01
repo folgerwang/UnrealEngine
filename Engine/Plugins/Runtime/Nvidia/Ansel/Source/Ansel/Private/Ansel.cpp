@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
+#include "Containers/StaticBitArray.h"
 #include "IAnselPlugin.h"
 #include "Camera/CameraTypes.h"
 #include "Camera/CameraPhotography.h"
@@ -15,9 +16,12 @@
 #include "Kismet/GameplayStatics.h"
 #include "Widgets/SWindow.h"
 #include "Application/SlateApplicationBase.h"
+#include "AnselFunctionLibrary.h"
 #include <AnselSDK.h>
 
 DEFINE_LOG_CATEGORY_STATIC(LogAnsel, Log, All);
+
+#define LOCTEXT_NAMESPACE "Photography"
 
 /////////////////////////////////////////////////
 // All the NVIDIA Ansel-specific details
@@ -28,8 +32,28 @@ public:
 	FNVAnselCameraPhotographyPrivate();
 	virtual ~FNVAnselCameraPhotographyPrivate() override;
 	virtual bool UpdateCamera(FMinimalViewInfo& InOutPOV, APlayerCameraManager* PCMgr) override;
+	virtual void UpdatePostProcessing(FPostProcessSettings& InOutPostProcessSettings) override;
+	virtual void StartSession() override;
+	virtual void StopSession() override;
 	virtual bool IsSupported() override;
+	virtual void SetUIControlVisibility(uint8 UIControlTarget, bool bIsVisible) override;
+	virtual void DefaultConstrainCamera(const FVector NewCameraLocation, const FVector PreviousCameraLocation, const FVector OriginalCameraLocation, FVector& OutCameraLocation, APlayerCameraManager* PCMgr) override;
 	virtual const TCHAR* const GetProviderName() override { return TEXT("NVIDIA Ansel"); };
+
+	enum econtrols {
+		control_dofscale,
+		control_doffocalregion,
+		control_doffocaldistance,
+		control_bloomintensity,
+		control_bloomscale,
+		control_scenefringeintensity,
+		control_motionbluramount,
+		control_COUNT
+	};
+	typedef union {
+		bool bool_val;
+		float float_val;
+	} ansel_control_val;
 
 private:
 	void ReconfigureAnsel();
@@ -37,7 +61,7 @@ private:
 
 	static ansel::StartSessionStatus AnselStartSessionCallback(ansel::SessionConfiguration& settings, void* userPointer);
 	static void AnselStopSessionCallback(void* userPointer);
-	static void AnselStartCaptureCallback(const ansel::CaptureConfiguration& CaptureType, void* userPointer);
+	static void AnselStartCaptureCallback(const ansel::CaptureConfiguration& CaptureInfo, void* userPointer);
 	static void AnselStopCaptureCallback(void* userPointer);
 
 	static bool AnselCamerasMatch(ansel::Camera& a, ansel::Camera& b);
@@ -47,6 +71,11 @@ private:
 
 	bool BlueprintModifyCamera(ansel::Camera& InOutAnselCam, APlayerCameraManager* PCMgr); // returns whether modified cam is in original (session-start) position
 
+	void SanitizePostprocessingForCapture(FPostProcessSettings& InOutPostProcessSettings);
+	void DoCustomUIControls(FPostProcessSettings& InOutPPSettings, bool bRebuildControls);
+	void DeclareSlider(int id, FText LocTextLabel, float LowerBound, float UpperBound, float Val);
+	bool ProcessUISlider(int id, float& InOutVal);
+
 	ansel::Configuration* AnselConfig;
 	ansel::Camera AnselCamera;
 	ansel::Camera AnselCameraOriginal;
@@ -55,12 +84,15 @@ private:
 	FMinimalViewInfo UECameraOriginal;
 	FMinimalViewInfo UECameraPrevious;
 
+	FPostProcessSettings UEPostProcessingOriginal;
+
 	bool bAnselSessionActive;
 	bool bAnselSessionNewlyActive;
 	bool bAnselSessionWantDeactivate;
 	bool bAnselCaptureActive;
 	bool bAnselCaptureNewlyActive;
 	bool bAnselCaptureNewlyFinished;
+	ansel::CaptureConfiguration AnselCaptureInfo;
 
 	bool bForceDisallow;
 	bool bIsOrthoProjection;
@@ -74,10 +106,21 @@ private:
 	bool bAutoPostprocess;
 	bool bAutoPause;
 
+	// members relating to the 'Game Settings' controls in the Ansel overlay UI
+	TStaticBitArray<256> bEffectUIAllowed;
+
+	bool bUIControlsNeedRebuild;
+	ansel::UserControlDesc UIControls[control_COUNT];
+	static ansel_control_val UIControlValues[control_COUNT]; // static to allow access from a callback
+	float UIControlRangeLower[control_COUNT];
+	float UIControlRangeUpper[control_COUNT];
+
 	/** Console variable delegate for checking when the console variables have changed */
 	FConsoleCommandDelegate CVarDelegate;
 	FConsoleVariableSinkHandle CVarDelegateHandle;
 };
+
+FNVAnselCameraPhotographyPrivate::ansel_control_val FNVAnselCameraPhotographyPrivate::UIControlValues[control_COUNT];
 
 static void* AnselSDKDLLHandle = 0;
 static bool bAnselDLLLoaded = false;
@@ -92,7 +135,13 @@ FNVAnselCameraPhotographyPrivate::FNVAnselCameraPhotographyPrivate()
 	, bAnselCaptureNewlyFinished(false)
 	, bForceDisallow(false)
 	, bIsOrthoProjection(false)
+	, bUIControlsNeedRebuild(false)
 {
+	for (int i = 0; i < bEffectUIAllowed.Num(); ++i)
+	{
+		bEffectUIAllowed[i] = true; // allow until explicitly disallowed
+	}
+
 	if (bAnselDLLLoaded)
 	{
 		AnselConfig = new ansel::Configuration();
@@ -136,10 +185,14 @@ FNVAnselCameraPhotographyPrivate::~FNVAnselCameraPhotographyPrivate()
 	}
 }
 
-
 bool FNVAnselCameraPhotographyPrivate::IsSupported()
 {
 	return bAnselDLLLoaded && ansel::isAnselAvailable();
+}
+
+void FNVAnselCameraPhotographyPrivate::SetUIControlVisibility(uint8 UIControlTarget, bool bIsVisible)
+{
+	bEffectUIAllowed[UIControlTarget] = bIsVisible;
 }
 
 bool FNVAnselCameraPhotographyPrivate::AnselCamerasMatch(ansel::Camera& a, ansel::Camera& b)
@@ -195,6 +248,160 @@ bool FNVAnselCameraPhotographyPrivate::BlueprintModifyCamera(ansel::Camera& InOu
 		Proposed.Rotation.Equals(UECameraOriginal.Rotation) &&
 		Proposed.FOV == UECameraOriginal.FOV;
 	return bIsCameraInOriginalTransform;
+}
+
+void FNVAnselCameraPhotographyPrivate::DeclareSlider(int id, FText LocTextLabel, float LowerBound, float UpperBound, float Val)
+{
+	UIControlRangeLower[id] = LowerBound;
+	UIControlRangeUpper[id] = UpperBound;
+
+	UIControls[id].labelUtf8 = TCHAR_TO_UTF8(LocTextLabel.ToString().GetCharArray().GetData());
+	UIControlValues[id].float_val = FMath::GetRangePct(LowerBound, UpperBound, Val);
+
+	UIControls[id].callback = [](const ansel::UserControlInfo& info) {
+		UIControlValues[info.userControlId - 1].float_val = *(float*)info.value;
+	};
+	UIControls[id].info.userControlId = id + 1; // reserve 0 as 'unused'
+	UIControls[id].info.userControlType = ansel::kUserControlSlider;
+	UIControls[id].info.value = &UIControlValues[id].float_val;
+
+	ansel::UserControlStatus status = ansel::addUserControl(UIControls[id]);
+	UE_LOG(LogAnsel, Log, TEXT("control#%d status=%d"), (int)id, (int)status);
+}
+
+bool FNVAnselCameraPhotographyPrivate::ProcessUISlider(int id, float& InOutVal)
+{
+	if (UIControls[id].info.userControlId <= 0)
+	{
+		return false; // control is not in use
+	}
+
+	InOutVal = FMath::Lerp(UIControlRangeLower[id], UIControlRangeUpper[id], UIControlValues[id].float_val);
+	return true;
+}
+
+void FNVAnselCameraPhotographyPrivate::DoCustomUIControls(FPostProcessSettings& InOutPPSettings, bool bRebuildControls)
+{
+	if (bRebuildControls)
+	{
+		// clear existing controls
+		for (int i = 0; i < control_COUNT; ++i)
+		{
+			if (UIControls[i].info.userControlId > 0) // we are using id 0 as 'unused'
+			{
+				ansel::removeUserControl(UIControls[i].info.userControlId);
+				UIControls[i].info.userControlId = 0;
+			}
+		}
+
+		// save postproc settings at session start
+		UEPostProcessingOriginal = InOutPPSettings;
+
+		// add all relevant controls
+		if (bEffectUIAllowed[DepthOfField] && (InOutPPSettings.DepthOfFieldMethod == DOFM_Gaussian || InOutPPSettings.DepthOfFieldScale > 0.f)) // 'Is DoF used?'
+		{
+			if (InOutPPSettings.DepthOfFieldMethod != DOFM_Gaussian) // scale irrelevant for gaussian
+			{
+				DeclareSlider(
+					control_dofscale,
+					LOCTEXT("control_dofscale", "Focus Scale"),
+					0.f, 2.f,
+					InOutPPSettings.DepthOfFieldScale
+				);
+			}
+
+			DeclareSlider(
+				control_doffocalregion,
+				LOCTEXT("control_doffocalregion", "Focus Region"),
+				0.f, 10000.f,
+				InOutPPSettings.DepthOfFieldFocalRegion
+			);
+			DeclareSlider(
+				control_doffocaldistance,
+				LOCTEXT("control_dofscale", "Focus Distance"),
+				0.f, 10000.f,
+				InOutPPSettings.DepthOfFieldFocalDistance
+			);
+		}
+
+		if (bEffectUIAllowed[Bloom] &&
+			InOutPPSettings.BloomIntensity > 0.f)
+		{
+			DeclareSlider(
+				control_bloomintensity,
+				LOCTEXT("control_bloomintensity", "Bloom Intensity"),
+				0.f, 8.f,
+				InOutPPSettings.BloomIntensity
+			);
+			DeclareSlider(
+				control_bloomscale,
+				LOCTEXT("control_bloomscale", "Bloom Scale"),
+				0.f, 64.f,
+				InOutPPSettings.BloomSizeScale
+			);
+		}
+
+		if (bEffectUIAllowed[ChromaticAberration] &&
+			InOutPPSettings.SceneFringeIntensity > 0.f)
+		{
+			DeclareSlider(
+				control_scenefringeintensity,
+				LOCTEXT("control_chromaticaberration", "Chromatic Aberration"),
+				0.f, 15.f, // note: FPostProcesssSettings metadata says range is 0./5. but larger values are possible in the wild 
+				InOutPPSettings.SceneFringeIntensity
+			);
+		}
+
+		if (bEffectUIAllowed[MotionBlur] &&
+			InOutPPSettings.MotionBlurAmount > 0.f)
+		{
+			// Kludge: Character-based motion blur now works with a free camera and during multi-part captures but when the session starts the effect seems to be overly intense.  This dampens it.
+			float MotionBlurAmount = FMath::Min(InOutPPSettings.MotionBlurAmount, 0.1f);
+
+			DeclareSlider(
+				control_motionbluramount,
+				LOCTEXT("control_motionbluramount", "Motion Blur"),
+				0.f, 1.f,
+				MotionBlurAmount
+			);
+		}
+	}
+
+	// postprocessing is based upon postprocessing settings at session start time (avoids set of
+	// UI tweakables changing due to the camera wandering between postprocessing-volumes, also
+	// avoids most discontinuities where stereo and panoramic captures can also wander between
+	//  postprocessing-volumes)
+	InOutPPSettings = UEPostProcessingOriginal;
+
+	// update values where corresponding controls are in use
+	if (ProcessUISlider(control_dofscale, InOutPPSettings.DepthOfFieldScale))
+	{
+		InOutPPSettings.bOverride_DepthOfFieldScale = 1;
+	}
+	if (ProcessUISlider(control_doffocalregion, InOutPPSettings.DepthOfFieldFocalRegion))
+	{
+		InOutPPSettings.bOverride_DepthOfFieldFocalRegion = 1;
+	}
+	if (ProcessUISlider(control_doffocaldistance, InOutPPSettings.DepthOfFieldFocalDistance))
+	{
+		InOutPPSettings.bOverride_DepthOfFieldFocalDistance = 1;
+	}
+	if (ProcessUISlider(control_bloomintensity, InOutPPSettings.BloomIntensity))
+	{
+		InOutPPSettings.bOverride_BloomIntensity = 1;
+	}
+	if (ProcessUISlider(control_bloomscale, InOutPPSettings.BloomSizeScale))
+	{
+		InOutPPSettings.bOverride_BloomSizeScale = 1;
+	}
+	if (ProcessUISlider(control_scenefringeintensity, InOutPPSettings.SceneFringeIntensity))
+	{
+		InOutPPSettings.bOverride_SceneFringeIntensity = 1;
+	}
+	if (ProcessUISlider(control_motionbluramount, InOutPPSettings.MotionBlurAmount))
+	{
+		InOutPPSettings.bOverride_MotionBlurAmount = 1;
+	}
 }
 
 bool FNVAnselCameraPhotographyPrivate::UpdateCamera(FMinimalViewInfo& InOutPOV, APlayerCameraManager* PCMgr)
@@ -322,6 +529,8 @@ bool FNVAnselCameraPhotographyPrivate::UpdateCamera(FMinimalViewInfo& InOutPOV, 
 					PCMgr->bEnableFading = false;
 				}
 
+				bUIControlsNeedRebuild = true;
+
 				// store initial camera info
 				UECameraPrevious = InOutPOV;
 				UECameraOriginal = InOutPOV;
@@ -347,10 +556,6 @@ bool FNVAnselCameraPhotographyPrivate::UpdateCamera(FMinimalViewInfo& InOutPOV, 
 				}
 			}
 
-			//bool bIsCameraStatic = AnselCamerasMatch(AnselCamera, AnselCameraPrevious);
-			//UE_LOG(LogAnsel, Warning, TEXT("Anselcam static=%d orig=%d"), bIsCameraStatic, bIsCameraInOriginalState);
-			//if (!bIsCameraInOriginalState) __debugbreak();
-
 			AnselCameraToFMinimalView(InOutPOV, AnselCamera);
 
 			if (!bIsCameraInOriginalState)
@@ -359,56 +564,115 @@ bool FNVAnselCameraPhotographyPrivate::UpdateCamera(FMinimalViewInfo& InOutPOV, 
 				PCMgr->GetWorld()->bIsCameraMoveableWhenPaused = true;
 			}
 
-			if (bAnselCaptureActive)
-			{
-				if (bAutoPostprocess)
-				{
-					// force-disable the standard postprocessing effects which are known to
-					// be problematic in multi-part shots
-
-					// these effects tile poorly
-					InOutPOV.PostProcessSettings.bOverride_BloomDirtMaskIntensity = 1;
-					InOutPOV.PostProcessSettings.BloomDirtMaskIntensity = 0.f;
-					InOutPOV.PostProcessSettings.bOverride_LensFlareIntensity = 1;
-					InOutPOV.PostProcessSettings.LensFlareIntensity = 0.f;
-					InOutPOV.PostProcessSettings.bOverride_VignetteIntensity = 1;
-					InOutPOV.PostProcessSettings.VignetteIntensity = 0.f;
-					InOutPOV.PostProcessSettings.bOverride_SceneFringeIntensity = 1;
-					InOutPOV.PostProcessSettings.SceneFringeIntensity = 0.f;
-
-					// motion blur doesn't make sense with a teleporting camera
-					InOutPOV.PostProcessSettings.bOverride_MotionBlurAmount = 1;
-					InOutPOV.PostProcessSettings.MotionBlurAmount = 0.f;
-
-					// DoF can look poor/wrong at high-res, depending on settings.
-					InOutPOV.PostProcessSettings.bOverride_DepthOfFieldScale = 1;
-					InOutPOV.PostProcessSettings.DepthOfFieldScale = 0.f; // BokehDOF
-					InOutPOV.PostProcessSettings.bOverride_DepthOfFieldNearBlurSize = 1;
-					InOutPOV.PostProcessSettings.DepthOfFieldNearBlurSize = 0.f; // GaussianDOF
-					InOutPOV.PostProcessSettings.bOverride_DepthOfFieldFarBlurSize = 1;
-					InOutPOV.PostProcessSettings.DepthOfFieldFarBlurSize = 0.f; // GaussianDOF
-					InOutPOV.PostProcessSettings.bOverride_DepthOfFieldDepthBlurRadius = 1;
-					InOutPOV.PostProcessSettings.DepthOfFieldDepthBlurRadius = 0.f; // CircleDOF
-					InOutPOV.PostProcessSettings.bOverride_DepthOfFieldVignetteSize = 1;
-					InOutPOV.PostProcessSettings.DepthOfFieldVignetteSize = 200.f; // Scene.h says 200.0 means 'no effect'
-
-					// freeze auto-exposure adaptation
-					InOutPOV.PostProcessSettings.bOverride_AutoExposureSpeedDown = 1;
-					InOutPOV.PostProcessSettings.AutoExposureSpeedDown = 0.f;
-					InOutPOV.PostProcessSettings.bOverride_AutoExposureSpeedUp = 1;
-					InOutPOV.PostProcessSettings.AutoExposureSpeedUp = 0.f;
-
-					// SSR is a quality gamble in multi-part shots; disable
-					InOutPOV.PostProcessSettings.bOverride_ScreenSpaceReflectionIntensity = 1;
-					InOutPOV.PostProcessSettings.ScreenSpaceReflectionIntensity = 0.f;
-				}
-			}
-
 			AnselCameraPrevious = AnselCamera;
+		}
+
+		if (bAnselCaptureActive)
+		{
+			// eliminate letterboxing during capture
+			InOutPOV.bConstrainAspectRatio = false;
 		}
 	}
 
 	return bGameCameraCutThisFrame;
+}
+
+void FNVAnselCameraPhotographyPrivate::SanitizePostprocessingForCapture(FPostProcessSettings& InOutPostProcessingSettings)
+{
+	if (bAnselCaptureActive)
+	{
+		if (bAutoPostprocess)
+		{
+			// force-disable the standard postprocessing effects which are known to
+			// be problematic in multi-part shots
+
+			// these effects tile poorly
+			InOutPostProcessingSettings.bOverride_BloomDirtMaskIntensity = 1;
+			InOutPostProcessingSettings.BloomDirtMaskIntensity = 0.f;
+			InOutPostProcessingSettings.bOverride_LensFlareIntensity = 1;
+			InOutPostProcessingSettings.LensFlareIntensity = 0.f;
+			InOutPostProcessingSettings.bOverride_VignetteIntensity = 1;
+			InOutPostProcessingSettings.VignetteIntensity = 0.f;
+			InOutPostProcessingSettings.bOverride_SceneFringeIntensity = 1;
+			InOutPostProcessingSettings.SceneFringeIntensity = 0.f;
+
+			// freeze auto-exposure adaptation
+			InOutPostProcessingSettings.bOverride_AutoExposureSpeedDown = 1;
+			InOutPostProcessingSettings.AutoExposureSpeedDown = 0.f;
+			InOutPostProcessingSettings.bOverride_AutoExposureSpeedUp = 1;
+			InOutPostProcessingSettings.AutoExposureSpeedUp = 0.f;
+
+			// bring rendering up to (at least) full resolution
+			if (InOutPostProcessingSettings.ScreenPercentage < 100.f)
+			{
+				// note: won't override r.screenpercentage set from console, that takes precedence
+				InOutPostProcessingSettings.bOverride_ScreenPercentage = 1;
+				InOutPostProcessingSettings.ScreenPercentage = 100.f;
+			}
+
+			bool bAnselSuperresCaptureActive = AnselCaptureInfo.captureType == ansel::kCaptureTypeSuperResolution;
+			bool bAnselStereoCaptureActive = AnselCaptureInfo.captureType == ansel::kCaptureType360Stereo || AnselCaptureInfo.captureType == ansel::kCaptureTypeStereo;
+
+			if (bAnselStereoCaptureActive)
+			{
+				// Attempt to nerf DoF in stereoscopic shots where it can be quite unpleasant for the viewer
+				InOutPostProcessingSettings.bOverride_DepthOfFieldScale = 1;
+				InOutPostProcessingSettings.DepthOfFieldScale = 0.f; // BokehDOF
+				InOutPostProcessingSettings.bOverride_DepthOfFieldNearBlurSize = 1;
+				InOutPostProcessingSettings.DepthOfFieldNearBlurSize = 0.f; // GaussianDOF
+				InOutPostProcessingSettings.bOverride_DepthOfFieldFarBlurSize = 1;
+				InOutPostProcessingSettings.DepthOfFieldFarBlurSize = 0.f; // GaussianDOF
+				InOutPostProcessingSettings.bOverride_DepthOfFieldDepthBlurRadius = 1;
+				InOutPostProcessingSettings.DepthOfFieldDepthBlurRadius = 0.f; // CircleDOF
+				InOutPostProcessingSettings.bOverride_DepthOfFieldVignetteSize = 1;
+				InOutPostProcessingSettings.DepthOfFieldVignetteSize = 200.f; // Scene.h says 200.0 means 'no effect'
+			}
+
+			if (!bAnselSuperresCaptureActive)
+			{
+				// Disable SSR in multi-part shots unless taking a super-resolution shot; SSR *usually* degrades gracefully in tiled shots, and super-resolution mode in Ansel has an 'enhance' option which repairs any lingering SSR artifacts quite well.
+				InOutPostProcessingSettings.bOverride_ScreenSpaceReflectionIntensity = 1;
+				InOutPostProcessingSettings.ScreenSpaceReflectionIntensity = 0.f;
+			}
+		}
+	}
+}
+
+void FNVAnselCameraPhotographyPrivate::UpdatePostProcessing(FPostProcessSettings& InOutPostProcessingSettings)
+{
+	if (bAnselSessionActive)
+	{
+		DoCustomUIControls(InOutPostProcessingSettings, bUIControlsNeedRebuild);
+		bUIControlsNeedRebuild = false;
+
+		SanitizePostprocessingForCapture(InOutPostProcessingSettings);
+	}
+}
+
+void FNVAnselCameraPhotographyPrivate::StartSession()
+{
+	ansel::startSession();
+}
+
+void FNVAnselCameraPhotographyPrivate::StopSession()
+{
+	ansel::stopSession();
+}
+
+void FNVAnselCameraPhotographyPrivate::DefaultConstrainCamera(const FVector NewCameraLocation, const FVector PreviousCameraLocation, const FVector OriginalCameraLocation, FVector& OutCameraLocation, APlayerCameraManager* PCMgr)
+{
+	// let proposed camera through unmodified by default
+	OutCameraLocation = NewCameraLocation;
+
+	static IConsoleVariable* CVarConstrainCameraDistance = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Photography.Constrain.MaxCameraDistance"));
+
+	// First, constrain by distance
+	FVector ConstrainedLocation;
+	float MaxDistance = CVarConstrainCameraDistance->GetFloat();
+	UAnselFunctionLibrary::ConstrainCameraByDistance(PCMgr, NewCameraLocation, PreviousCameraLocation, OriginalCameraLocation, ConstrainedLocation, MaxDistance);
+
+	// Second, constrain against collidable geometry
+	UAnselFunctionLibrary::ConstrainCameraByGeometry(PCMgr, ConstrainedLocation, PreviousCameraLocation, OriginalCameraLocation, OutCameraLocation);
 }
 
 ansel::StartSessionStatus FNVAnselCameraPhotographyPrivate::AnselStartSessionCallback(ansel::SessionConfiguration& settings, void* userPointer)
@@ -460,12 +724,13 @@ void FNVAnselCameraPhotographyPrivate::AnselStopSessionCallback(void* userPointe
 	UE_LOG(LogAnsel, Log, TEXT("Photography camera session end"));
 }
 
-void FNVAnselCameraPhotographyPrivate::AnselStartCaptureCallback(const ansel::CaptureConfiguration& CaptureType, void* userPointer)
+void FNVAnselCameraPhotographyPrivate::AnselStartCaptureCallback(const ansel::CaptureConfiguration& CaptureInfo, void* userPointer)
 {
 	FNVAnselCameraPhotographyPrivate* PrivateImpl = static_cast<FNVAnselCameraPhotographyPrivate*>(userPointer);
 	check(PrivateImpl != nullptr);
 	PrivateImpl->bAnselCaptureActive = true;
 	PrivateImpl->bAnselCaptureNewlyActive = true;
+	PrivateImpl->AnselCaptureInfo = CaptureInfo;
 
 	UE_LOG(LogAnsel, Log, TEXT("Photography camera multi-part capture started"));
 }
@@ -590,3 +855,5 @@ private:
 };
 
 IMPLEMENT_MODULE(FAnselModule, Ansel)
+
+#undef LOCTEXT_NAMESPACE

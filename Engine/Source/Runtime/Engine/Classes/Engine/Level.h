@@ -506,6 +506,14 @@ public:
 	UPROPERTY()
 	uint8 										bTextureStreamingRotationChanged : 1;
 
+	/** 
+	 * Whether the level has finished registering all static components in the streaming manager.
+	 * Once a level static components are registered, all new components need to go through the dynamic path.
+	 * This flag is used to direct the registration to the right path with a low perf impact.
+	 */
+	UPROPERTY(Transient, DuplicateTransient, NonTransactional)
+	uint8										bStaticComponentsRegisteredInStreamingManager: 1;
+
 	/** Whether the level is currently visible/ associated with the world */
 	UPROPERTY(transient)
 	uint8										bIsVisible:1;

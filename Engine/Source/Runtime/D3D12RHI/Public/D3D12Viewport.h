@@ -27,7 +27,7 @@ static DXGI_FORMAT GetRenderTargetFormat(EPixelFormat PixelFormat)
 	}
 }
 
-#if PLATFORM_SUPPORTS_MGPU
+#if WITH_SLI
 class FD3D12FramePacing : public FRunnable, public FD3D12AdapterChild
 {
 public:
@@ -69,7 +69,7 @@ private:
 
 	FRunnableThread* Thread;
 };
-#endif //PLATFORM_SUPPORTS_MGPU
+#endif //WITH_SLI
 
 class FD3D12Viewport : public FRHIViewport, public FD3D12AdapterChild
 {
@@ -175,10 +175,10 @@ private:
 	TRefCountPtr<IDXGISwapChain1> SDRSwapChain1;
 
 	static const uint32 DefaultNumBackBuffers = 3;
-	static const uint32 AFRNumBackBuffersPerNode = 1;
 
 	TArray<TRefCountPtr<FD3D12Texture2D>> BackBuffers;
 	uint32 NumBackBuffers;
+	int32 DisplayedGPUIndex;
 
 	uint32 CurrentBackBufferIndex_RenderThread;
 	FD3D12Texture2D* BackBuffer_RenderThread;
@@ -197,7 +197,6 @@ private:
 	/** A fence value used to track the GPU's progress. */
 	FD3D12Fence Fence;
 	uint64 LastSignaledValue;
-	ID3D12CommandQueue* pCommandQueue;
 
 	// Determine how deep the swapchain should be (based on AFR or not)
 	void CalculateSwapChainDepth(int32 DefaultSwapChainDepth);
@@ -206,9 +205,9 @@ private:
 
 	DXGI_MODE_DESC SetupDXGI_MODE_DESC() const;
 
-#if PLATFORM_SUPPORTS_MGPU
+#if WITH_SLI
 	FD3D12FramePacing* FramePacerRunnable;
-#endif //PLATFORM_SUPPORTS_MGPU
+#endif //WITH_SLI
 
 	// Display gamut, format, and chromacities
 	// Note: Must be kept in sync with CVars and Tonemapping shaders

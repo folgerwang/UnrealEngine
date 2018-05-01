@@ -15,6 +15,35 @@
 
 MTLPP_BEGIN
 
+namespace ue4
+{
+	template<>
+	struct ITable<id<MTLDepthStencilState>, void> : public IMPTable<id<MTLDepthStencilState>, void>, public ITableCacheRef
+	{
+		ITable()
+		{
+		}
+		
+		ITable(Class C)
+		: IMPTable<id<MTLDepthStencilState>, void>(C)
+		{
+		}
+	};
+	
+	template<>
+	inline ITable<MTLStencilDescriptor*, void>* CreateIMPTable(MTLStencilDescriptor* handle)
+	{
+		static ITable<MTLStencilDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	template<>
+	inline ITable<MTLDepthStencilDescriptor*, void>* CreateIMPTable(MTLDepthStencilDescriptor* handle)
+	{
+		static ITable<MTLDepthStencilDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+}
+
 namespace mtlpp
 {
     enum class CompareFunction
@@ -47,7 +76,8 @@ namespace mtlpp
     {
     public:
         StencilDescriptor();
-        StencilDescriptor(MTLStencilDescriptor* handle) : ns::Object<MTLStencilDescriptor*>(handle) { }
+		StencilDescriptor(ns::Ownership const retain) : ns::Object<MTLStencilDescriptor*>(retain) {}
+        StencilDescriptor(MTLStencilDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLStencilDescriptor*>(handle, retain) { }
 
         CompareFunction  GetStencilCompareFunction() const;
         StencilOperation GetStencilFailureOperation() const;
@@ -69,13 +99,13 @@ namespace mtlpp
     {
     public:
         DepthStencilDescriptor();
-        DepthStencilDescriptor(MTLDepthStencilDescriptor* handle) : ns::Object<MTLDepthStencilDescriptor*>(handle) { }
+        DepthStencilDescriptor(MTLDepthStencilDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLDepthStencilDescriptor*>(handle, retain) { }
 
         CompareFunction   GetDepthCompareFunction() const;
         bool              IsDepthWriteEnabled() const;
-        StencilDescriptor GetFrontFaceStencil() const;
-        StencilDescriptor GetBackFaceStencil() const;
-        ns::String        GetLabel() const;
+        ns::AutoReleased<StencilDescriptor> GetFrontFaceStencil() const;
+        ns::AutoReleased<StencilDescriptor> GetBackFaceStencil() const;
+        ns::AutoReleased<ns::String>        GetLabel() const;
 
         void SetDepthCompareFunction(CompareFunction depthCompareFunction) const;
         void SetDepthWriteEnabled(bool depthWriteEnabled) const;
@@ -89,10 +119,10 @@ namespace mtlpp
     {
     public:
         DepthStencilState() { }
-        DepthStencilState(ns::Protocol<id<MTLDepthStencilState>>::type handle) : ns::Object<ns::Protocol<id<MTLDepthStencilState>>::type>(handle) { }
+		DepthStencilState(ns::Protocol<id<MTLDepthStencilState>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLDepthStencilState>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetDepthStencilState(handle)) { }
 
-        ns::String GetLabel() const;
-        Device     GetDevice() const;
+        ns::AutoReleased<ns::String> GetLabel() const;
+        ns::AutoReleased<Device>     GetDevice() const;
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 }

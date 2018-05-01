@@ -51,18 +51,17 @@ public:
 	 * Resolves from one texture to another.
 	 * @param SourceTexture - texture to resolve from, 0 is silenty ignored
 	 * @param DestTexture - texture to resolve to, 0 is silenty ignored
-	 * @param bKeepOriginalSurface - true if the original surface will still be used after this function so must remain valid
 	 * @param ResolveParams - optional resolve params
 	 */
-	virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, bool bKeepOriginalSurface, const FResolveParams& ResolveParams) final override;
+	virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, const FResolveParams& ResolveParams) final override;
 	
 	virtual void RHIBeginRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
 	
 	virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
 	
-	virtual void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch) final override;
+	void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch);
 	
-	virtual void RHIEndOcclusionQueryBatch() final override;
+	void RHIEndOcclusionQueryBatch();
 	
 	virtual void RHISubmitCommandsHint() override;
 	
@@ -285,14 +284,19 @@ public:
 	virtual void RHIEndDrawIndexedPrimitiveUP() final override;
 	
 	/**
-	 * Enabled/Disables Depth Bounds Testing with the given min/max depth.
+	 * Enabled/Disables Depth Bounds Testing.
 	 * @param bEnable	Enable(non-zero)/disable(zero) the depth bounds test
-	 * @param MinDepth	The minimum depth for depth bounds test
-	 * @param MaxDepth	The maximum depth for depth bounds test.
-	 *					The valid values for fMinDepth and fMaxDepth are such that 0 <= fMinDepth <= fMaxDepth <= 1
 	 */
-	virtual void RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth) final override;
-	
+	virtual void RHIEnableDepthBoundsTest(bool bEnable) final override;
+
+	/**
+	* Sets Depth Bounds Testing with the given min/max depth.
+	* @param MinDepth	The minimum depth for depth bounds test
+	* @param MaxDepth	The maximum depth for depth bounds test.
+	*					The valid values for fMinDepth and fMaxDepth are such that 0 <= fMinDepth <= fMaxDepth <= 1
+	*/
+	virtual void RHISetDepthBounds(float MinDepth, float MaxDepth) final override;
+
 	virtual void RHIPushEvent(const TCHAR* Name, FColor Color) final override;
 	
 	virtual void RHIPopEvent() final override;
@@ -317,7 +321,14 @@ public:
 	 */
 	virtual void RHIWaitComputeFence(FComputeFenceRHIParamRef InFence) final override;
 
+	virtual void RHIBeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* InName) final override;
+
+	virtual void RHIEndRenderPass() final override;
 	
+	virtual void RHIBeginComputePass(const TCHAR* InName) final override;
+	
+	virtual void RHIEndComputePass() final override;
+
 protected:
 	static TGlobalResource<TBoundShaderStateHistory<10000>> BoundShaderStateHistory;
 	
@@ -331,10 +342,10 @@ protected:
 	struct FMetalGPUProfiler* Profiler;
 	
 	/** Some local variables to track the pending primitive information used in RHIEnd*UP functions */
-	uint32 PendingVertexBufferOffset;
+	FMetalBuffer PendingVertexBuffer;
 	uint32 PendingVertexDataStride;
 	
-	uint32 PendingIndexBufferOffset;
+	FMetalBuffer PendingIndexBuffer;
 	uint32 PendingIndexDataStride;
 	
 	uint32 PendingPrimitiveType;

@@ -37,7 +37,12 @@ public:
 
 	enum
 	{
+#if WITH_SLI
 		MaxBufferedOcclusionFrames = 3
+#else
+		MaxBufferedOcclusionFrames = 3
+#endif
+
 	};
 
 	// get the system-wide number of frames of buffered occlusion queries.

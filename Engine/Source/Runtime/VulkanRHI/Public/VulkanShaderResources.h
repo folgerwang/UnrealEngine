@@ -145,8 +145,8 @@ struct FVulkanCodeHeader
 
 	uint64 UniformBuffersWithDescriptorMask;
 
-	// Number of uniform buffers (not including PackedGlobalUBs)
-	uint32 NEWNumNonGlobalUBs;
+	// Number of uniform buffers (not including PackedGlobalUBs) UNUSED
+	uint32 UNUSED_NumNonGlobalUBs;
 
 	// (Separated to improve cache) if this is non-zero, then we can assume all UBs are emulated
 	TArray<uint32> NEWPackedGlobalUBSizes;
@@ -183,7 +183,7 @@ inline FArchive& operator<<(FArchive& Ar, FVulkanCodeHeader& Header)
 			}
 		}
 	}
-	Ar << Header.NEWNumNonGlobalUBs;
+	Ar << Header.UNUSED_NumNonGlobalUBs;
 	Ar << Header.NEWPackedGlobalUBSizes;
 	Ar << Header.NEWEmulatedUBCopyRanges;
 	{

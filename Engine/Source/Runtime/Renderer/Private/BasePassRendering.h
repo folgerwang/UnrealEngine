@@ -26,6 +26,7 @@
 #include "FogRendering.h"
 #include "PlanarReflectionRendering.h"
 #include "UnrealEngine.h"
+#include "ReflectionEnvironment.h"
 
 class FScene;
 
@@ -49,134 +50,79 @@ public:
 	FVector4 LightTangentAndSoftSourceRadius;
 };
 
+BEGIN_UNIFORM_BUFFER_STRUCT(FSharedBasePassUniformParameters,)
+	UNIFORM_MEMBER_STRUCT(FForwardLightData, Forward)
+	UNIFORM_MEMBER_STRUCT(FForwardLightData, ForwardISR)
+	UNIFORM_MEMBER_STRUCT(FReflectionUniformParameters, Reflection)
+	UNIFORM_MEMBER_STRUCT(FFogUniformParameters, Fog)
+END_UNIFORM_BUFFER_STRUCT(FSharedBasePassUniformParameters)
+
+BEGIN_UNIFORM_BUFFER_STRUCT(FOpaqueBasePassUniformParameters,)
+	UNIFORM_MEMBER_STRUCT(FSharedBasePassUniformParameters, Shared)
+	// Forward shading 
+	UNIFORM_MEMBER_TEXTURE(Texture2D, ForwardScreenSpaceShadowMaskTexture)
+	UNIFORM_MEMBER_SAMPLER(SamplerState, ForwardScreenSpaceShadowMaskTextureSampler)
+	UNIFORM_MEMBER_TEXTURE(Texture2D, IndirectOcclusionTexture)
+	UNIFORM_MEMBER_SAMPLER(SamplerState, IndirectOcclusionTextureSampler)
+	UNIFORM_MEMBER_TEXTURE(Texture2D, ResolvedSceneDepthTexture)
+	// DBuffer decals
+	UNIFORM_MEMBER_TEXTURE(Texture2D, DBufferATexture)
+	UNIFORM_MEMBER_SAMPLER(SamplerState, DBufferATextureSampler)
+	UNIFORM_MEMBER_TEXTURE(Texture2D, DBufferBTexture)
+	UNIFORM_MEMBER_SAMPLER(SamplerState, DBufferBTextureSampler)
+	UNIFORM_MEMBER_TEXTURE(Texture2D, DBufferCTexture)
+	UNIFORM_MEMBER_SAMPLER(SamplerState, DBufferCTextureSampler)
+	UNIFORM_MEMBER_TEXTURE(Texture2D<uint>, DBufferRenderMask)
+	// Misc
+	UNIFORM_MEMBER_TEXTURE(Texture2D, EyeAdaptation)
+END_UNIFORM_BUFFER_STRUCT(FOpaqueBasePassUniformParameters)
+
+BEGIN_UNIFORM_BUFFER_STRUCT(FTranslucentBasePassUniformParameters,)
+	UNIFORM_MEMBER_STRUCT(FSharedBasePassUniformParameters, Shared)
+	UNIFORM_MEMBER_STRUCT(FSceneTexturesUniformParameters, SceneTextures)
+	// Material SSR
+	UNIFORM_MEMBER(FVector4, HZBUvFactorAndInvFactor)
+	UNIFORM_MEMBER(FVector4, PrevScreenPositionScaleBias)
+	UNIFORM_MEMBER(float, PrevSceneColorPreExposureInv)
+	UNIFORM_MEMBER_TEXTURE(Texture2D, HZBTexture)
+	UNIFORM_MEMBER_SAMPLER(SamplerState, HZBSampler)
+	UNIFORM_MEMBER_TEXTURE(Texture2D, PrevSceneColor)
+	UNIFORM_MEMBER_SAMPLER(SamplerState, PrevSceneColorSampler)
+	// Translucency Lighting Volume
+	UNIFORM_MEMBER_TEXTURE(Texture3D, TranslucencyLightingVolumeAmbientInner)
+	UNIFORM_MEMBER_SAMPLER(SamplerState, TranslucencyLightingVolumeAmbientInnerSampler)
+	UNIFORM_MEMBER_TEXTURE(Texture3D, TranslucencyLightingVolumeAmbientOuter)
+	UNIFORM_MEMBER_SAMPLER(SamplerState, TranslucencyLightingVolumeAmbientOuterSampler)
+	UNIFORM_MEMBER_TEXTURE(Texture3D, TranslucencyLightingVolumeDirectionalInner)
+	UNIFORM_MEMBER_SAMPLER(SamplerState, TranslucencyLightingVolumeDirectionalInnerSampler)
+	UNIFORM_MEMBER_TEXTURE(Texture3D, TranslucencyLightingVolumeDirectionalOuter)
+	UNIFORM_MEMBER_SAMPLER(SamplerState, TranslucencyLightingVolumeDirectionalOuterSampler)
+END_UNIFORM_BUFFER_STRUCT(FTranslucentBasePassUniformParameters)
+
+extern FTextureRHIRef& GetEyeAdaptation(const FViewInfo& View);
+
+extern void SetupSharedBasePassParameters(
+	const FViewInfo& View,
+	FSceneRenderTargets& SceneRenderTargets,
+	FSharedBasePassUniformParameters& BasePassParameters);
+
+extern void CreateOpaqueBasePassUniformBuffer(
+	FRHICommandListImmediate& RHICmdList, 
+	const FViewInfo& View,
+	IPooledRenderTarget* ForwardScreenSpaceShadowMask, 
+	TUniformBufferRef<FOpaqueBasePassUniformParameters>& BasePassUniformBuffer);
+
+extern void CreateTranslucentBasePassUniformBuffer(
+	FRHICommandListImmediate& RHICmdList,
+	const FViewInfo& View,
+	IPooledRenderTarget* SceneColorCopy,
+	ESceneTextureSetupMode SceneTextureSetupMode,
+	TUniformBufferRef<class FTranslucentBasePassUniformParameters>& BasePassUniformBuffer);
+
 /** Parameters for computing forward lighting. */
 class FForwardLightingParameters
 {
 public:
-
-	void Bind(const FShaderParameterMap& ParameterMap)
-	{
-		ForwardGlobalLightData.Bind(ParameterMap, TEXT("ForwardGlobalLightData"));
-		ForwardLocalLightBuffer.Bind(ParameterMap, TEXT("ForwardLocalLightBuffer"));
-		NumCulledLightsGrid.Bind(ParameterMap, TEXT("NumCulledLightsGrid"));
-		CulledLightDataGrid.Bind(ParameterMap, TEXT("CulledLightDataGrid"));
-		
-		InstancedForwardGlobalLightData.Bind(ParameterMap, TEXT("InstancedForwardGlobalLightData"));
-		InstancedForwardLocalLightBuffer.Bind(ParameterMap, TEXT("InstancedForwardLocalLightBuffer"));
-		InstancedNumCulledLightsGrid.Bind(ParameterMap, TEXT("InstancedNumCulledLightsGrid"));
-		InstancedCulledLightDataGrid.Bind(ParameterMap, TEXT("InstancedCulledLightDataGrid"));
-
-		LightAttenuationTexture.Bind(ParameterMap, TEXT("LightAttenuationTexture"));
-		LightAttenuationTextureSampler.Bind(ParameterMap, TEXT("LightAttenuationTextureSampler"));
-		IndirectOcclusionTexture.Bind(ParameterMap, TEXT("IndirectOcclusionTexture"));
-		IndirectOcclusionTextureSampler.Bind(ParameterMap, TEXT("IndirectOcclusionTextureSampler"));
-		ReflectionCaptureBuffer.Bind(ParameterMap, TEXT("ReflectionCapture"));
-		ResolvedSceneDepthTexture.Bind(ParameterMap, TEXT("ResolvedSceneDepthTexture"));
-	}
-
-	template<typename RHICommandListType, typename ShaderRHIParamRef>
-	void Set(RHICommandListType& RHICmdList, const ShaderRHIParamRef& ShaderRHI, const FViewInfo& View, const bool bIsInstancedStereo = false)
-	{
-		//@todo - put all of these in a shader resource table
-		check(View.ForwardLightingResources->ForwardGlobalLightData.IsValid() || !ForwardGlobalLightData.IsBound());
-		SetUniformBufferParameter(RHICmdList, ShaderRHI, ForwardGlobalLightData, View.ForwardLightingResources->ForwardGlobalLightData);
-		SetSRVParameter(RHICmdList, ShaderRHI, ForwardLocalLightBuffer, View.ForwardLightingResources->ForwardLocalLightBuffer.SRV);
-		NumCulledLightsGrid.SetBuffer(RHICmdList, ShaderRHI, View.ForwardLightingResources->NumCulledLightsGrid);
-		CulledLightDataGrid.SetBuffer(RHICmdList, ShaderRHI, View.ForwardLightingResources->CulledLightDataGrid);
-
-		if (bIsInstancedStereo)
-		{
-			// Bind right eye uniforms to instanced parameters
-			const FSceneView& InstancedView = *View.Family->Views[1];
-			check(View.ForwardLightingResources->ForwardGlobalLightData.IsValid() || !InstancedForwardGlobalLightData.IsBound());
-			SetUniformBufferParameter(RHICmdList, ShaderRHI, InstancedForwardGlobalLightData, InstancedView.ForwardLightingResources->ForwardGlobalLightData);
-			SetSRVParameter(RHICmdList, ShaderRHI, InstancedForwardLocalLightBuffer, InstancedView.ForwardLightingResources->ForwardLocalLightBuffer.SRV);
-			InstancedNumCulledLightsGrid.SetBuffer(RHICmdList, ShaderRHI, InstancedView.ForwardLightingResources->NumCulledLightsGrid);
-			InstancedCulledLightDataGrid.SetBuffer(RHICmdList, ShaderRHI, InstancedView.ForwardLightingResources->CulledLightDataGrid);
-		}
-		else
-		{
-			// Metal & Vulkan require all slots be bound even if we don't care to use them at runtime.
-			check(!InstancedForwardGlobalLightData.IsBound() || View.ForwardLightingResources->ForwardGlobalLightData.IsValid());
-			SetUniformBufferParameter(RHICmdList, ShaderRHI, InstancedForwardGlobalLightData, View.ForwardLightingResources->ForwardGlobalLightData);
-			SetSRVParameter(RHICmdList, ShaderRHI, InstancedForwardLocalLightBuffer, View.ForwardLightingResources->ForwardLocalLightBuffer.SRV);
-			InstancedNumCulledLightsGrid.SetBuffer(RHICmdList, ShaderRHI, View.ForwardLightingResources->NumCulledLightsGrid);
-			InstancedCulledLightDataGrid.SetBuffer(RHICmdList, ShaderRHI, View.ForwardLightingResources->CulledLightDataGrid);
-		}
-
-		FSceneRenderTargets& SceneRenderTargets = FSceneRenderTargets::Get(RHICmdList);
-
-		if (LightAttenuationTexture.IsBound() || IndirectOcclusionTexture.IsBound())
-		{
-			SetTextureParameter(
-				RHICmdList, 
-				ShaderRHI,
-				LightAttenuationTexture,
-				LightAttenuationTextureSampler,
-				TStaticSamplerState<SF_Point,AM_Wrap,AM_Wrap,AM_Wrap>::GetRHI(),
-				SceneRenderTargets.GetEffectiveLightAttenuationTexture(true)
-				);
-
-			IPooledRenderTarget* IndirectOcclusion = SceneRenderTargets.ScreenSpaceAO;
-
-			if (!SceneRenderTargets.bScreenSpaceAOIsValid)
-			{
-				IndirectOcclusion = GSystemTextures.WhiteDummy;
-			}
-
-			SetTextureParameter(
-				RHICmdList, 
-				ShaderRHI,
-				IndirectOcclusionTexture,
-				IndirectOcclusionTextureSampler,
-				TStaticSamplerState<SF_Point,AM_Wrap,AM_Wrap,AM_Wrap>::GetRHI(),
-				IndirectOcclusion->GetRenderTargetItem().ShaderResourceTexture
-				);
-		}
-
-		SetUniformBufferParameter(RHICmdList, ShaderRHI, ReflectionCaptureBuffer, View.ReflectionCaptureUniformBuffer);
-
-		if (ResolvedSceneDepthTexture.IsBound())
-		{
-			FTextureRHIParamRef ResolvedSceneDepthTextureValue = GSystemTextures.WhiteDummy->GetRenderTargetItem().ShaderResourceTexture;
-
-			if (SceneRenderTargets.GetMSAACount() > 1)
-			{
-				ResolvedSceneDepthTextureValue = SceneRenderTargets.SceneDepthZ->GetRenderTargetItem().ShaderResourceTexture;
-			}
-
-			SetTextureParameter(
-				RHICmdList, 
-				ShaderRHI,
-				ResolvedSceneDepthTexture,
-				ResolvedSceneDepthTextureValue
-				);
-		}
-	}
-
-	template<typename ShaderRHIParamRef>
-	void UnsetParameters(FRHICommandList& RHICmdList, const ShaderRHIParamRef& ShaderRHI, const FViewInfo& View)
-	{
-		NumCulledLightsGrid.UnsetUAV(RHICmdList, ShaderRHI);
-		CulledLightDataGrid.UnsetUAV(RHICmdList, ShaderRHI);
-		
-		TArray<FUnorderedAccessViewRHIParamRef, TInlineAllocator<2>> OutUAVs;
-
-		if (NumCulledLightsGrid.IsUAVBound())
-		{
-			OutUAVs.Add(View.ForwardLightingResources->NumCulledLightsGrid.UAV);
-		}
-
-		if (CulledLightDataGrid.IsUAVBound())
-		{
-			OutUAVs.Add(View.ForwardLightingResources->CulledLightDataGrid.UAV);
-		}
-
-		if (OutUAVs.Num() > 0)
-		{
-			RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, OutUAVs.GetData(), OutUAVs.Num());
-		}
-	}
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
@@ -186,139 +132,37 @@ public:
 		extern int32 NumCulledGridPrimitiveTypes;
 		OutEnvironment.SetDefine(TEXT("NUM_CULLED_GRID_PRIMITIVE_TYPES"), NumCulledGridPrimitiveTypes);
 	}
-
-	/** Serializer. */
-	friend FArchive& operator<<(FArchive& Ar,FForwardLightingParameters& P)
-	{
-		Ar << P.ForwardGlobalLightData;
-		Ar << P.ForwardLocalLightBuffer;
-		Ar << P.NumCulledLightsGrid;
-		Ar << P.CulledLightDataGrid;
-
-		Ar << P.InstancedForwardGlobalLightData;
-		Ar << P.InstancedForwardLocalLightBuffer;
-		Ar << P.InstancedNumCulledLightsGrid;
-		Ar << P.InstancedCulledLightDataGrid;
-
-		Ar << P.LightAttenuationTexture;
-		Ar << P.LightAttenuationTextureSampler;
-		Ar << P.IndirectOcclusionTexture;
-		Ar << P.IndirectOcclusionTextureSampler;
-		Ar << P.ReflectionCaptureBuffer;
-		Ar << P.ResolvedSceneDepthTexture;
-		return Ar;
-	}
-
-private:
-
-	FShaderUniformBufferParameter ForwardGlobalLightData;
-	FShaderResourceParameter ForwardLocalLightBuffer;
-	FRWShaderParameter NumCulledLightsGrid;
-	FRWShaderParameter CulledLightDataGrid;
-	
-	FShaderUniformBufferParameter InstancedForwardGlobalLightData;
-	FShaderResourceParameter InstancedForwardLocalLightBuffer;
-	FRWShaderParameter InstancedNumCulledLightsGrid;
-	FRWShaderParameter InstancedCulledLightDataGrid;
-
-	FShaderResourceParameter LightAttenuationTexture;
-	FShaderResourceParameter LightAttenuationTextureSampler;
-	FShaderResourceParameter IndirectOcclusionTexture;
-	FShaderResourceParameter IndirectOcclusionTextureSampler;
-	FShaderUniformBufferParameter ReflectionCaptureBuffer;
-
-	FShaderResourceParameter ResolvedSceneDepthTexture;
 };
 
-/** Parameters needed for looking up into translucency lighting volumes. */
-class FTranslucentLightingVolumeParameters
+inline void BindBasePassUniformBuffer(const FShaderParameterMap& ParameterMap, FShaderUniformBufferParameter& BasePassUniformBuffer)
 {
-public:
+	TArray<const FUniformBufferStruct*> NestedStructs;
+	FOpaqueBasePassUniformParameters::StaticStruct.GetNestedStructs(NestedStructs);
+	FTranslucentBasePassUniformParameters::StaticStruct.GetNestedStructs(NestedStructs);
 
-	void Bind(const FShaderParameterMap& ParameterMap)
+	for (int32 StructIndex = 0; StructIndex < NestedStructs.Num(); StructIndex++)
 	{
-		TranslucencyLightingVolumeAmbientInner.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeAmbientInner"));
-		TranslucencyLightingVolumeAmbientInnerSampler.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeAmbientInnerSampler"));
-		TranslucencyLightingVolumeAmbientOuter.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeAmbientOuter"));
-		TranslucencyLightingVolumeAmbientOuterSampler.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeAmbientOuterSampler"));
-		TranslucencyLightingVolumeDirectionalInner.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeDirectionalInner"));
-		TranslucencyLightingVolumeDirectionalInnerSampler.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeDirectionalInnerSampler"));
-		TranslucencyLightingVolumeDirectionalOuter.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeDirectionalOuter"));
-		TranslucencyLightingVolumeDirectionalOuterSampler.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeDirectionalOuterSampler"));
+		const TCHAR* StructVariableName = NestedStructs[StructIndex]->GetShaderVariableName();
+		checkfSlow(!ParameterMap.ContainsParameterAllocation(StructVariableName), TEXT("%s found bound in the base pass.  Base Pass uniform buffer nested structs should not be bound separately"), StructVariableName);
 	}
+	
+	const bool bNeedsOpaqueBasePass = ParameterMap.ContainsParameterAllocation(FOpaqueBasePassUniformParameters::StaticStruct.GetShaderVariableName());
+	const bool bNeedsTransparentBasePass = ParameterMap.ContainsParameterAllocation(FTranslucentBasePassUniformParameters::StaticStruct.GetShaderVariableName());
 
-	template<typename ShaderRHIParamRef>
-	void Set(FRHICommandList& RHICmdList, const ShaderRHIParamRef& ShaderRHI)
+	checkSlow(!(bNeedsOpaqueBasePass && bNeedsTransparentBasePass));
+
+	BasePassUniformBuffer.Bind(ParameterMap, FOpaqueBasePassUniformParameters::StaticStruct.GetShaderVariableName());
+
+	if (!BasePassUniformBuffer.IsBound())
 	{
-		if (TranslucencyLightingVolumeAmbientInner.IsBound())
-		{
-			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-
-			SetTextureParameter(
-				RHICmdList, 
-				ShaderRHI, 
-				TranslucencyLightingVolumeAmbientInner, 
-				TranslucencyLightingVolumeAmbientInnerSampler, 
-				TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
-				SceneContext.GetTranslucencyVolumeAmbient(TVC_Inner)->GetRenderTargetItem().ShaderResourceTexture);
-
-			SetTextureParameter(
-				RHICmdList, 
-				ShaderRHI, 
-				TranslucencyLightingVolumeAmbientOuter, 
-				TranslucencyLightingVolumeAmbientOuterSampler, 
-				TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
-				SceneContext.GetTranslucencyVolumeAmbient(TVC_Outer)->GetRenderTargetItem().ShaderResourceTexture);
-
-			SetTextureParameter(
-				RHICmdList, 
-				ShaderRHI, 
-				TranslucencyLightingVolumeDirectionalInner, 
-				TranslucencyLightingVolumeDirectionalInnerSampler, 
-				TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
-				SceneContext.GetTranslucencyVolumeDirectional(TVC_Inner)->GetRenderTargetItem().ShaderResourceTexture);
-
-			SetTextureParameter(
-				RHICmdList, 
-				ShaderRHI, 
-				TranslucencyLightingVolumeDirectionalOuter, 
-				TranslucencyLightingVolumeDirectionalOuterSampler, 
-				TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
-				SceneContext.GetTranslucencyVolumeDirectional(TVC_Outer)->GetRenderTargetItem().ShaderResourceTexture);
-		}
+		BasePassUniformBuffer.Bind(ParameterMap, FTranslucentBasePassUniformParameters::StaticStruct.GetShaderVariableName());
 	}
-
-	/** Serializer. */
-	friend FArchive& operator<<(FArchive& Ar,FTranslucentLightingVolumeParameters& P)
-	{
-		Ar << P.TranslucencyLightingVolumeAmbientInner;
-		Ar << P.TranslucencyLightingVolumeAmbientInnerSampler;
-		Ar << P.TranslucencyLightingVolumeAmbientOuter;
-		Ar << P.TranslucencyLightingVolumeAmbientOuterSampler;
-		Ar << P.TranslucencyLightingVolumeDirectionalInner;
-		Ar << P.TranslucencyLightingVolumeDirectionalInnerSampler;
-		Ar << P.TranslucencyLightingVolumeDirectionalOuter;
-		Ar << P.TranslucencyLightingVolumeDirectionalOuterSampler;
-		return Ar;
-	}
-
-private:
-
-	FShaderResourceParameter TranslucencyLightingVolumeAmbientInner;
-	FShaderResourceParameter TranslucencyLightingVolumeAmbientInnerSampler;
-	FShaderResourceParameter TranslucencyLightingVolumeAmbientOuter;
-	FShaderResourceParameter TranslucencyLightingVolumeAmbientOuterSampler;
-	FShaderResourceParameter TranslucencyLightingVolumeDirectionalInner;
-	FShaderResourceParameter TranslucencyLightingVolumeDirectionalInnerSampler;
-	FShaderResourceParameter TranslucencyLightingVolumeDirectionalOuter;
-	FShaderResourceParameter TranslucencyLightingVolumeDirectionalOuterSampler;
-};
+}
 
 /**
  * The base shader type for vertex shaders that render the emissive color, and light-mapped/ambient lighting of a mesh.
  * The base type is shared between the versions with and without atmospheric fog.
  */
-
 template<typename VertexParametersType>
 class TBasePassVertexShaderPolicyParamType : public FMeshMaterialShader, public VertexParametersType
 {
@@ -329,9 +173,8 @@ protected:
 		FMeshMaterialShader(Initializer)
 	{
 		VertexParametersType::Bind(Initializer.ParameterMap);
-		HeightFogParameters.Bind(Initializer.ParameterMap);
-		TranslucentLightingVolumeParameters.Bind(Initializer.ParameterMap);
-		ForwardLightingParameters.Bind(Initializer.ParameterMap);
+		BindBasePassUniformBuffer(Initializer.ParameterMap, PassUniformBuffer);
+		ReflectionCaptureBuffer.Bind(Initializer.ParameterMap, TEXT("ReflectionCapture"));
 		const bool bOutputsVelocityToGBuffer = FVelocityRendering::OutputsToGBuffer();
 		if (bOutputsVelocityToGBuffer)
 		{
@@ -356,9 +199,7 @@ public:
 	{
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		VertexParametersType::Serialize(Ar);
-		Ar << HeightFogParameters;
-		Ar << TranslucentLightingVolumeParameters;
-		Ar << ForwardLightingParameters;
+		Ar << ReflectionCaptureBuffer;
 		Ar << PreviousLocalToWorldParameter;
 		Ar << SkipOutputVelocityParameter;
 		Ar << InstancedEyeIndexParameter;
@@ -372,28 +213,24 @@ public:
 		const FVertexFactory* VertexFactory,
 		const FMaterial& InMaterialResource,
 		const FViewInfo& View,
-		ESceneRenderTargetsMode::Type TextureMode, 
-		bool bIsInstancedStereo,
-		bool bUseDownsampledTranslucencyViewUniformBuffer
+		const FDrawingPolicyRenderState& DrawRenderState,
+		bool bIsInstancedStereo
 		)
 	{
-		checkSlow(!bUseDownsampledTranslucencyViewUniformBuffer || View.DownsampledTranslucencyViewUniformBuffer);
-		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer = bUseDownsampledTranslucencyViewUniformBuffer ? View.DownsampledTranslucencyViewUniformBuffer : View.ViewUniformBuffer;
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, InMaterialResource, View, ViewUniformBuffer, TextureMode);
+		const FVertexShaderRHIParamRef ShaderRHI = GetVertexShader();
 
-		HeightFogParameters.Set(RHICmdList, GetVertexShader(), &View);
+		FMeshMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, InMaterialResource, View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 
-		TranslucentLightingVolumeParameters.Set(RHICmdList, GetVertexShader());
-		ForwardLightingParameters.Set(RHICmdList, GetVertexShader(), View, bIsInstancedStereo);
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, ReflectionCaptureBuffer, View.ReflectionCaptureUniformBuffer);
 
 		if (IsInstancedStereoParameter.IsBound())
 		{
-			SetShaderValue(RHICmdList, GetVertexShader(), IsInstancedStereoParameter, bIsInstancedStereo);
+			SetShaderValue(RHICmdList, ShaderRHI, IsInstancedStereoParameter, bIsInstancedStereo);
 		}
 
 		if (InstancedEyeIndexParameter.IsBound())
 		{
-			SetShaderValue(RHICmdList, GetVertexShader(), InstancedEyeIndexParameter, 0);
+			SetShaderValue(RHICmdList, ShaderRHI, InstancedEyeIndexParameter, 0);
 		}
 	}
 
@@ -403,10 +240,7 @@ public:
 
 private:
 	
-	/** The parameters needed to calculate the fog contribution from height fog layers. */
-	FHeightFogShaderParameters HeightFogParameters;
-	FTranslucentLightingVolumeParameters TranslucentLightingVolumeParameters;
-	FForwardLightingParameters ForwardLightingParameters;
+	FShaderUniformBufferParameter ReflectionCaptureBuffer;
 	// When outputting from base pass, the previous transform
 	FShaderParameter PreviousLocalToWorldParameter;
 	FShaderParameter SkipOutputVelocityParameter;
@@ -499,7 +333,9 @@ protected:
 
 	TBasePassHS(const FMeshMaterialShaderType::CompiledShaderInitializerType& Initializer):
 		FBaseHS(Initializer)
-	{}
+	{
+		BindBasePassUniformBuffer(Initializer.ParameterMap, PassUniformBuffer);
+	}
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
@@ -534,6 +370,7 @@ protected:
 	TBasePassDS(const FMeshMaterialShaderType::CompiledShaderInitializerType& Initializer):
 		FBaseDS(Initializer)
 	{
+		BindBasePassUniformBuffer(Initializer.ParameterMap, PassUniformBuffer);
 	}
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
@@ -559,71 +396,6 @@ public:
 	// Don't implement : void SetParameters(...) or SetMesh() unless changing the shader reference in TBasePassDrawingPolicy
 };
 
-/** Parameters needed to implement the sky light cubemap reflection. */
-class FSkyLightReflectionParameters
-{
-public:
-
-	void Bind(const FShaderParameterMap& ParameterMap)
-	{
-		SkyLightCubemap.Bind(ParameterMap, TEXT("SkyLightCubemap"));
-		SkyLightCubemapSampler.Bind(ParameterMap, TEXT("SkyLightCubemapSampler"));
-		SkyLightBlendDestinationCubemap.Bind(ParameterMap, TEXT("SkyLightBlendDestinationCubemap"));
-		SkyLightBlendDestinationCubemapSampler.Bind(ParameterMap, TEXT("SkyLightBlendDestinationCubemapSampler"));
-		SkyLightParameters.Bind(ParameterMap, TEXT("SkyLightParameters"));
-		SkyLightCubemapBrightness.Bind(ParameterMap, TEXT("SkyLightCubemapBrightness"));
-	}
-
-	template<typename TParamRef, typename TRHICmdList>
-	void SetParameters(TRHICmdList& RHICmdList, const TParamRef& ShaderRHI, const FScene* Scene, bool bApplySkyLight)
-	{
-		if (SkyLightCubemap.IsBound() || SkyLightBlendDestinationCubemap.IsBound() || SkyLightParameters.IsBound())
-		{
-			FTexture* SkyLightTextureResource = GBlackTextureCube;
-			FTexture* SkyLightBlendDestinationTextureResource = GBlackTextureCube;
-			float ApplySkyLightMask = 0;
-			float SkyMipCount = 1;
-			float BlendFraction = 0;
-			bool bSkyLightIsDynamic = false;
-			float SkyAverageBrightness = 1.0f;
-
-			GetSkyParametersFromScene(Scene, bApplySkyLight, SkyLightTextureResource, SkyLightBlendDestinationTextureResource, ApplySkyLightMask, SkyMipCount, bSkyLightIsDynamic, BlendFraction, SkyAverageBrightness);
-
-			SetTextureParameter(RHICmdList, ShaderRHI, SkyLightCubemap, SkyLightCubemapSampler, SkyLightTextureResource);
-			SetTextureParameter(RHICmdList, ShaderRHI, SkyLightBlendDestinationCubemap, SkyLightBlendDestinationCubemapSampler, SkyLightBlendDestinationTextureResource);
-			const FVector4 SkyParametersValue(SkyMipCount - 1.0f, ApplySkyLightMask, bSkyLightIsDynamic ? 1.0f : 0.0f, BlendFraction);
-			SetShaderValue(RHICmdList, ShaderRHI, SkyLightParameters, SkyParametersValue);
-			SetShaderValue(RHICmdList, ShaderRHI, SkyLightCubemapBrightness, SkyAverageBrightness);
-		}
-	}
-
-	friend FArchive& operator<<(FArchive& Ar,FSkyLightReflectionParameters& P)
-	{
-		Ar << P.SkyLightCubemap << P.SkyLightCubemapSampler << P.SkyLightParameters << P.SkyLightBlendDestinationCubemap << P.SkyLightBlendDestinationCubemapSampler << P.SkyLightCubemapBrightness;
-		return Ar;
-	}
-
-private:
-
-	FShaderResourceParameter SkyLightCubemap;
-	FShaderResourceParameter SkyLightCubemapSampler;
-	FShaderResourceParameter SkyLightBlendDestinationCubemap;
-	FShaderResourceParameter SkyLightBlendDestinationCubemapSampler;
-	FShaderParameter SkyLightParameters;
-	FShaderParameter SkyLightCubemapBrightness;
-
-	void GetSkyParametersFromScene(
-		const FScene* Scene, 
-		bool bApplySkyLight, 
-		FTexture*& OutSkyLightTextureResource, 
-		FTexture*& OutSkyLightBlendDestinationTextureResource, 
-		float& OutApplySkyLightMask, 
-		float& OutSkyMipCount, 
-		bool& bSkyLightIsDynamic, 
-		float& OutBlendFraction,
-		float& OutSkyAverageBrightness);
-};
-
 /** Parameters needed for reflections, shared by multiple shaders. */
 class FBasePassReflectionParameters
 {
@@ -632,16 +404,11 @@ public:
 	void Bind(const FShaderParameterMap& ParameterMap)
 	{
 		PlanarReflectionParameters.Bind(ParameterMap);
-		ReflectionCubemap.Bind(ParameterMap, TEXT("ReflectionCubemap"));
-		ReflectionCubemapSampler.Bind(ParameterMap, TEXT("ReflectionCubemapSampler"));
 		SingleCubemapArrayIndex.Bind(ParameterMap, TEXT("SingleCubemapArrayIndex"));	
 		SingleCaptureOffsetAndAverageBrightness.Bind(ParameterMap, TEXT("SingleCaptureOffsetAndAverageBrightness"));
 		SingleCapturePositionAndRadius.Bind(ParameterMap, TEXT("SingleCapturePositionAndRadius"));
 		SingleCaptureBrightness.Bind(ParameterMap, TEXT("SingleCaptureBrightness"));
-		SkyLightReflectionParameters.Bind(ParameterMap);
 	}
-
-	void Set(FRHICommandList& RHICmdList, FPixelShaderRHIParamRef PixelShaderRHI, const FViewInfo* View);
 
 	void SetMesh(FRHICommandList& RHICmdList, FPixelShaderRHIParamRef PixelShaderRH, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, ERHIFeatureLevel::Type FeatureLevel);
 
@@ -649,73 +416,21 @@ public:
 	friend FArchive& operator<<(FArchive& Ar,FBasePassReflectionParameters& P)
 	{
 		Ar << P.PlanarReflectionParameters;
-		Ar << P.ReflectionCubemap;
-		Ar << P.ReflectionCubemapSampler;
 		Ar << P.SingleCubemapArrayIndex;
 		Ar << P.SingleCaptureOffsetAndAverageBrightness;
 		Ar << P.SingleCapturePositionAndRadius;
 		Ar << P.SingleCaptureBrightness;
-		Ar << P.SkyLightReflectionParameters;
 		return Ar;
 	}
 
 private:
 
 	FPlanarReflectionParameters PlanarReflectionParameters;
-	FShaderResourceParameter ReflectionCubemap;
-	FShaderResourceParameter ReflectionCubemapSampler;
 
 	FShaderParameter SingleCubemapArrayIndex;
 	FShaderParameter SingleCaptureOffsetAndAverageBrightness;
 	FShaderParameter SingleCapturePositionAndRadius;
 	FShaderParameter SingleCaptureBrightness;
-
-	FSkyLightReflectionParameters SkyLightReflectionParameters;
-};
-
-/** Parameters needed for lighting translucency, shared by multiple shaders. */
-class FTranslucentLightingParameters
-{
-public:
-
-	void Bind(const FShaderParameterMap& ParameterMap)
-	{
-		TranslucentLightingVolumeParameters.Bind(ParameterMap);
-		HZBTexture.Bind(ParameterMap, TEXT("HZBTexture"));
-		HZBSampler.Bind(ParameterMap, TEXT("HZBSampler"));
-		HZBUvFactorAndInvFactor.Bind(ParameterMap, TEXT("HZBUvFactorAndInvFactor"));
-		PrevScreenPositionScaleBias.Bind(ParameterMap, TEXT("PrevScreenPositionScaleBias"));
-		PrevSceneColorPreExposureInv.Bind(ParameterMap, TEXT("PrevSceneColorPreExposureInv"));
-		PrevSceneColor.Bind(ParameterMap, TEXT("PrevSceneColor"));
-		PrevSceneColorSampler.Bind(ParameterMap, TEXT("PrevSceneColorSampler"));
-	}
-
-	void Set(FRHICommandList& RHICmdList, FPixelShaderRHIParamRef PixelShaderRHI, const FViewInfo* View);
-
-	/** Serializer. */
-	friend FArchive& operator<<(FArchive& Ar,FTranslucentLightingParameters& P)
-	{
-		Ar << P.TranslucentLightingVolumeParameters;
-		Ar << P.HZBTexture;
-		Ar << P.HZBSampler;
-		Ar << P.HZBUvFactorAndInvFactor;
-		Ar << P.PrevScreenPositionScaleBias;
-		Ar << P.PrevSceneColorPreExposureInv;
-		Ar << P.PrevSceneColor;
-		Ar << P.PrevSceneColorSampler;
-		return Ar;
-	}
-
-private:
-
-	FTranslucentLightingVolumeParameters TranslucentLightingVolumeParameters;
-	FShaderResourceParameter HZBTexture;
-	FShaderResourceParameter HZBSampler;
-	FShaderParameter HZBUvFactorAndInvFactor;
-	FShaderParameter PrevScreenPositionScaleBias;
-	FShaderParameter PrevSceneColorPreExposureInv;
-	FShaderResourceParameter PrevSceneColor;
-	FShaderResourceParameter PrevSceneColorSampler;
 };
 
 /**
@@ -748,10 +463,13 @@ public:
 		FMeshMaterialShader(Initializer)
 	{
 		PixelParametersType::Bind(Initializer.ParameterMap);
+		BindBasePassUniformBuffer(Initializer.ParameterMap, PassUniformBuffer);
 		ReflectionParameters.Bind(Initializer.ParameterMap);
-		TranslucentLightingParameters.Bind(Initializer.ParameterMap);
-		HeightFogParameters.Bind(Initializer.ParameterMap);
-		ForwardLightingParameters.Bind(Initializer.ParameterMap);
+		ReflectionCaptureBuffer.Bind(Initializer.ParameterMap, TEXT("ReflectionCapture"));
+
+		// These parameters should only be used nested in the base pass uniform buffer
+		check(!Initializer.ParameterMap.ContainsParameterAllocation(FFogUniformParameters::StaticStruct.GetShaderVariableName()));
+		check(!Initializer.ParameterMap.ContainsParameterAllocation(FReflectionUniformParameters::StaticStruct.GetShaderVariableName()));
 	}
 	TBasePassPixelShaderPolicyParamType() {}
 
@@ -760,32 +478,14 @@ public:
 		const FMaterialRenderProxy* MaterialRenderProxy, 
 		const FMaterial& MaterialResource, 
 		const FViewInfo* View, 
-		EBlendMode BlendMode,
-		ESceneRenderTargetsMode::Type TextureMode,
-		bool bIsInstancedStereo,
-		bool bUseDownsampledTranslucencyViewUniformBuffer)
+		const FDrawingPolicyRenderState& DrawRenderState,
+		EBlendMode BlendMode)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
-		checkSlow(!bUseDownsampledTranslucencyViewUniformBuffer || View->DownsampledTranslucencyViewUniformBuffer);
-		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer = bUseDownsampledTranslucencyViewUniformBuffer ? View->DownsampledTranslucencyViewUniformBuffer : View->ViewUniformBuffer;
-		FMeshMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, MaterialResource, *View, ViewUniformBuffer, TextureMode);
+		FMeshMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, MaterialResource, *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 
-		ReflectionParameters.Set(RHICmdList, ShaderRHI, View);
-
-		const bool bTranslucent = IsTranslucentBlendMode(BlendMode);
-
-		if (bTranslucent)
-		{
-			TranslucentLightingParameters.Set(RHICmdList, ShaderRHI, View);
-		}
-
-		if (bTranslucent || IsForwardShadingEnabled(View->FeatureLevel))
-		{
-			HeightFogParameters.Set(RHICmdList, ShaderRHI, View);
-		}
-
-		ForwardLightingParameters.Set(RHICmdList, ShaderRHI, *View, bIsInstancedStereo);
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, ReflectionCaptureBuffer, View->ReflectionCaptureUniformBuffer);
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState, EBlendMode BlendMode);
@@ -795,17 +495,13 @@ public:
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		PixelParametersType::Serialize(Ar);
 		Ar << ReflectionParameters;
-		Ar << TranslucentLightingParameters;
-		Ar << HeightFogParameters;
-		Ar << ForwardLightingParameters;
+		Ar << ReflectionCaptureBuffer;
 		return bShaderHasOutdatedParameters;
 	}
 
 private:
 	FBasePassReflectionParameters ReflectionParameters;
-	FTranslucentLightingParameters TranslucentLightingParameters;
-	FHeightFogShaderParameters HeightFogParameters;
-	FForwardLightingParameters ForwardLightingParameters;
+	FShaderUniformBufferParameter ReflectionCaptureBuffer;
 };
 
 /**
@@ -867,7 +563,7 @@ public:
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		// For deferred decals, the shader class used is FDeferredDecalPS. the TBasePassPS is only used in the material editor and will read wrong values.
-		OutEnvironment.SetDefine(TEXT("SCENE_TEXTURES_DISABLED"), Material->GetMaterialDomain() == MD_DeferredDecal); 
+		OutEnvironment.SetDefine(TEXT("SCENE_TEXTURES_DISABLED"), Material->GetMaterialDomain() != MD_Surface); 
 
 		OutEnvironment.SetDefine(TEXT("ENABLE_SKY_LIGHT"), bEnableSkyLight);
 		TBasePassPixelShaderBaseType<LightMapPolicyType>::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
@@ -1001,7 +697,6 @@ public:
 		ERHIFeatureLevel::Type InFeatureLevel,
 		LightMapPolicyType InLightMapPolicy,
 		EBlendMode InBlendMode,
-		ESceneRenderTargetsMode::Type InSceneTextureMode,
 		bool bInEnableSkyLight,
 		bool bInEnableAtmosphericFog,
 		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
@@ -1011,7 +706,6 @@ public:
 		FBasePassDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InMaterialResource, InOverrideSettings, InDebugViewShaderMode, bInEnableReceiveDecalOutput),
 		LightMapPolicy(InLightMapPolicy),
 		BlendMode(InBlendMode), 
-		SceneTextureMode(InSceneTextureMode),
 		bEnableSkyLight(bInEnableSkyLight),
 		bEnableAtmosphericFog(bInEnableAtmosphericFog)
 	{
@@ -1050,7 +744,6 @@ public:
 			DRAWING_POLICY_MATCH(PixelShader == Other.PixelShader) &&
 			DRAWING_POLICY_MATCH(HullShader == Other.HullShader) &&
 			DRAWING_POLICY_MATCH(DomainShader == Other.DomainShader) &&
-			DRAWING_POLICY_MATCH(SceneTextureMode == Other.SceneTextureMode) &&
 			DRAWING_POLICY_MATCH(bEnableSkyLight == Other.bEnableSkyLight) && 
 			DRAWING_POLICY_MATCH(LightMapPolicy == Other.LightMapPolicy) &&
 			DRAWING_POLICY_MATCH(bEnableReceiveDecalOutput == Other.bEnableReceiveDecalOutput) &&
@@ -1117,38 +810,38 @@ public:
 		}
 	}
 
-	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FViewInfo* View, const ContextDataType PolicyContext, bool bUseDownsampledTranslucencyViewUniformBuffer = false) const
+	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FViewInfo* View, const ContextDataType PolicyContext) const
 	{
 		// If the current debug view shader modes are allowed, different VS/DS/HS must be used (with only SV_POSITION as PS interpolant).
 		if (View->Family->UseDebugViewVSDSHS())
 		{
-			FDebugViewMode::SetParametersVSHSDS(RHICmdList, MaterialRenderProxy, MaterialResource, *View, VertexFactory, HullShader && DomainShader);
+			FDebugViewMode::SetParametersVSHSDS(RHICmdList, MaterialRenderProxy, MaterialResource, *View, VertexFactory, HullShader && DomainShader, DrawRenderState);
 		}
 		else
 		{
-			// Set the light-map policy.
-			LightMapPolicy.Set(RHICmdList, VertexShader, !UseDebugViewPS() ? PixelShader : nullptr, VertexShader, PixelShader, VertexFactory, MaterialRenderProxy, View);
+			check(VertexFactory && VertexFactory->IsInitialized());
+			VertexFactory->SetStreams(View->FeatureLevel, RHICmdList);
 
-			VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, VertexFactory, *MaterialResource, *View, SceneTextureMode, PolicyContext.bIsInstancedStereo, bUseDownsampledTranslucencyViewUniformBuffer);
+			VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, VertexFactory, *MaterialResource, *View, DrawRenderState, PolicyContext.bIsInstancedStereo);
 
 			if(HullShader)
 			{
-				HullShader->SetParameters(RHICmdList, MaterialRenderProxy, *View);
+				HullShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 			}
 
 			if (DomainShader)
 			{
-				DomainShader->SetParameters(RHICmdList, MaterialRenderProxy, *View);
+				DomainShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 			}
 		}
 
 		if (UseDebugViewPS())
 		{
-			FDebugViewMode::GetPSInterface(View->ShaderMap, MaterialResource, GetDebugViewShaderMode())->SetParameters(RHICmdList, VertexShader, PixelShader, MaterialRenderProxy, *MaterialResource, *View);
+			FDebugViewMode::GetPSInterface(View->ShaderMap, MaterialResource, GetDebugViewShaderMode())->SetParameters(RHICmdList, VertexShader, PixelShader, MaterialRenderProxy, *MaterialResource, *View, DrawRenderState);
 		}
 		else
 		{
-			PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View, BlendMode, SceneTextureMode, PolicyContext.bIsInstancedStereo, bUseDownsampledTranslucencyViewUniformBuffer);
+			PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View, DrawRenderState, BlendMode);
 		}
 	}
 
@@ -1243,7 +936,6 @@ public:
 		COMPAREDRAWINGPOLICYMEMBERS(DomainShader);
 		COMPAREDRAWINGPOLICYMEMBERS(VertexFactory);
 		COMPAREDRAWINGPOLICYMEMBERS(MaterialRenderProxy);
-		COMPAREDRAWINGPOLICYMEMBERS(SceneTextureMode);
 		COMPAREDRAWINGPOLICYMEMBERS(bEnableSkyLight);
 		COMPAREDRAWINGPOLICYMEMBERS(bEnableReceiveDecalOutput);
 
@@ -1262,8 +954,6 @@ protected:
 	LightMapPolicyType LightMapPolicy;
 	EBlendMode BlendMode;
 
-	ESceneRenderTargetsMode::Type SceneTextureMode;
-
 	uint32 bEnableSkyLight : 1;
 
 	/** Whether or not this policy enables atmospheric fog */
@@ -1280,10 +970,7 @@ public:
 	enum { bAllowSimpleElements = true };
 	struct ContextType 
 	{
-		ESceneRenderTargetsMode::Type TextureMode;
-
-		ContextType(ESceneRenderTargetsMode::Type InTextureMode)
-			: TextureMode( InTextureMode )
+		ContextType()
 		{}
 	};
 
@@ -1313,7 +1000,6 @@ public:
 	EBlendMode BlendMode;
 	EMaterialShadingModel ShadingModel;
 	const bool bAllowFog;
-	ESceneRenderTargetsMode::Type TextureMode;
 	ERHIFeatureLevel::Type FeatureLevel;
 	const bool bIsInstancedStereo;
 	const bool bUseMobileMultiViewMask;
@@ -1324,7 +1010,6 @@ public:
 		const FMaterial* InMaterial,
 		const FPrimitiveSceneProxy* InPrimitiveSceneProxy,
 		bool InbAllowFog,
-		ESceneRenderTargetsMode::Type InTextureMode,
 		ERHIFeatureLevel::Type InFeatureLevel,
 		const bool InbIsInstancedStereo = false,
 		const bool InbUseMobileMultiViewMask = false
@@ -1336,7 +1021,6 @@ public:
 		BlendMode(InMaterial->GetBlendMode()),
 		ShadingModel(InMaterial->GetShadingModel()),
 		bAllowFog(InbAllowFog),
-		TextureMode(InTextureMode),
 		FeatureLevel(InFeatureLevel), 
 		bIsInstancedStereo(InbIsInstancedStereo), 
 		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)
@@ -1350,7 +1034,6 @@ public:
 		const FMaterial* InMaterial,
 		const FPrimitiveSceneProxy* InPrimitiveSceneProxy,
 		bool InbAllowFog,
-		ESceneRenderTargetsMode::Type InTextureMode,
 		ERHIFeatureLevel::Type InFeatureLevel, 
 		bool InbIsInstancedStereo = false, 
 		bool InbUseMobileMultiViewMask = false
@@ -1362,7 +1045,6 @@ public:
 		BlendMode(InMaterial->GetBlendMode()),
 		ShadingModel(InMaterial->GetShadingModel()),
 		bAllowFog(InbAllowFog),
-		TextureMode(InTextureMode),
 		FeatureLevel(InFeatureLevel),
 		bIsInstancedStereo(InbIsInstancedStereo), 
 		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)

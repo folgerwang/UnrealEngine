@@ -424,8 +424,8 @@ public:
 	/**
 	 * Build with stat metadata
 	 */
-	FORCEINLINE_STATS FStatNameAndInfo(FName InStatName, char const* InGroup, char const* InCategory, TCHAR const* InDescription, EStatDataType::Type InStatType, bool bShouldClearEveryFrame, bool bCycleStat, FPlatformMemory::EMemoryCounterRegion MemoryRegion = FPlatformMemory::MCR_Invalid)
-		: NameAndInfo(NameToMinimalName(ToLongName(InStatName, InGroup, InCategory, InDescription)))
+	FORCEINLINE_STATS FStatNameAndInfo(FName InStatName, char const* InGroup, char const* InCategory, TCHAR const* InDescription, EStatDataType::Type InStatType, bool bShouldClearEveryFrame, bool bCycleStat, bool bSortByName, FPlatformMemory::EMemoryCounterRegion MemoryRegion = FPlatformMemory::MCR_Invalid)
+		: NameAndInfo(NameToMinimalName(ToLongName(InStatName, InGroup, InCategory, InDescription, bSortByName)))
 	{
 		int32 Number = NameAndInfo.Number;
 		// ok, you can't have numbered stat FNames too large
@@ -535,6 +535,15 @@ public:
 		CheckInvariants();
 		return GetDescriptionFrom(GetRawName());
 	}
+	/**
+	 * Expensive! Extracts the sort by name flag
+	 */
+	FORCEINLINE_STATS bool GetSortByName() const
+	{
+		CheckInvariants();
+		return GetSortByNameFrom(GetRawName());
+	}
+
 
 	/**
 	 * Makes sure this object is in good shape
@@ -616,13 +625,16 @@ public:
 	 * @param InGroup, Group name
 	 * @param InCategory, Category name
 	 * @param InDescription, Description
+	 * @param InSortByName, Whether this stats need to be sorted by name
 	 * @return the packed FName
 	 */
-	CORE_API static FName ToLongName(FName InStatName, char const* InGroup, char const* InCategory, TCHAR const* InDescription);
+	CORE_API static FName ToLongName(FName InStatName, char const* InGroup, char const* InCategory, TCHAR const* InDescription, bool InSortByName);
 	CORE_API static FName GetShortNameFrom(FName InLongName);
 	CORE_API static FName GetGroupNameFrom(FName InLongName);
 	CORE_API static FName GetGroupCategoryFrom(FName InLongName);
 	CORE_API static FString GetDescriptionFrom(FName InLongName);
+	CORE_API static bool GetSortByNameFrom(FName InLongName);
+	
 };
 
 
@@ -687,8 +699,8 @@ struct FStatMessage
 	/**
 	* Build a meta data message
 	*/
-	FStatMessage(FName InStatName, EStatDataType::Type InStatType, char const* InGroup, char const* InCategory, TCHAR const* InDescription, bool bShouldClearEveryFrame, bool bCycleStat, FPlatformMemory::EMemoryCounterRegion MemoryRegion = FPlatformMemory::MCR_Invalid)
-		: NameAndInfo(InStatName, InGroup, InCategory, InDescription, InStatType, bShouldClearEveryFrame, bCycleStat, MemoryRegion)
+	FStatMessage(FName InStatName, EStatDataType::Type InStatType, char const* InGroup, char const* InCategory, TCHAR const* InDescription, bool bShouldClearEveryFrame, bool bCycleStat, bool bSortByName, FPlatformMemory::EMemoryCounterRegion MemoryRegion = FPlatformMemory::MCR_Invalid)
+		: NameAndInfo(InStatName, InGroup, InCategory, InDescription, InStatType, bShouldClearEveryFrame, bCycleStat, bSortByName, MemoryRegion)
 	{
 		NameAndInfo.SetField<EStatOperation>(EStatOperation::SetLongName);
 	}
@@ -1621,7 +1633,7 @@ public:
 	CORE_API void AddThreadMetadata( const FName InThreadFName, uint32 InThreadID );
 
 	/** Adds a regular metadata. */
-	CORE_API void AddMetadata( FName InStatName, const TCHAR* InStatDesc, const char* InGroupName, const char* InGroupCategory, const TCHAR* InGroupDesc, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, bool bCycleStat, FPlatformMemory::EMemoryCounterRegion InMemoryRegion = FPlatformMemory::MCR_Invalid );
+	CORE_API void AddMetadata( FName InStatName, const TCHAR* InStatDesc, const char* InGroupName, const char* InGroupCategory, const TCHAR* InGroupDesc, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, bool bCycleStat, bool bSortByName, FPlatformMemory::EMemoryCounterRegion InMemoryRegion = FPlatformMemory::MCR_Invalid );
 
 	/** Access the singleton. */
 	CORE_API static FStartupMessages& Get();
@@ -1650,7 +1662,7 @@ public:
 	 * @param bShouldClearEveryFrame, If this is true, this is a memory counter or an accumulator
 	 * @return a pointer to a FName (valid forever) that determines if this group is active
 	 */
-	virtual TStatId GetHighPerformanceEnableForStat(FName StatShortName, const char* InGroup, const char* InCategory, bool bDefaultEnable, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, TCHAR const* InDescription, bool bCycleStat, FPlatformMemory::EMemoryCounterRegion MemoryRegion = FPlatformMemory::MCR_Invalid) = 0;
+	virtual TStatId GetHighPerformanceEnableForStat(FName StatShortName, const char* InGroup, const char* InCategory, bool bDefaultEnable, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, TCHAR const* InDescription, bool bCycleStat, bool bSortByName, FPlatformMemory::EMemoryCounterRegion MemoryRegion = FPlatformMemory::MCR_Invalid) = 0;
 
 	/**
 	 * Enables or disabled a particular group of stats
@@ -1690,7 +1702,7 @@ struct FThreadSafeStaticStatBase
 {
 protected:
 	mutable TAtomic<const TStatIdData*> HighPerformanceEnable; // must be uninitialized, because we need atomic initialization
-	CORE_API const TStatIdData* DoSetup(const char* InStatName, const TCHAR* InStatDesc, const char* InGroupName, const char* InGroupCategory, const TCHAR* InGroupDesc, bool bDefaultEnable, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, bool bCycleStat, FPlatformMemory::EMemoryCounterRegion InMemoryRegion) const;
+	CORE_API const TStatIdData* DoSetup(const char* InStatName, const TCHAR* InStatDesc, const char* InGroupName, const char* InGroupCategory, const TCHAR* InGroupDesc, bool bDefaultEnable, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, bool bCycleStat, bool bSortByName, FPlatformMemory::EMemoryCounterRegion InMemoryRegion) const;
 };
 
 template<class TStatData, bool TCompiledIn>
@@ -1701,7 +1713,7 @@ struct FThreadSafeStaticStatInner : public FThreadSafeStaticStatBase
 		const TStatIdData* LocalHighPerformanceEnable = HighPerformanceEnable.Load(EMemoryOrder::Relaxed);
 		if (!LocalHighPerformanceEnable)
 		{
-			LocalHighPerformanceEnable = DoSetup(TStatData::GetStatName(), TStatData::GetDescription(), TStatData::TGroup::GetGroupName(), TStatData::TGroup::GetGroupCategory(), TStatData::TGroup::GetDescription(), TStatData::TGroup::IsDefaultEnabled(), TStatData::IsClearEveryFrame(), TStatData::GetStatType(), TStatData::IsCycleStat(), TStatData::GetMemoryRegion() );
+			LocalHighPerformanceEnable = DoSetup(TStatData::GetStatName(), TStatData::GetDescription(), TStatData::TGroup::GetGroupName(), TStatData::TGroup::GetGroupCategory(), TStatData::TGroup::GetDescription(), TStatData::TGroup::IsDefaultEnabled(), TStatData::IsClearEveryFrame(), TStatData::GetStatType(), TStatData::IsCycleStat(), TStatData::TGroup::GetSortByName(), TStatData::GetMemoryRegion() );
 		}
 		return TStatId(LocalHighPerformanceEnable);
 	}
@@ -1729,13 +1741,14 @@ struct FThreadSafeStaticStat : public FThreadSafeStaticStatInner<TStatData, TSta
 {
 };
 
-#define DECLARE_STAT_GROUP(Description, StatName, StatCategory, InDefaultEnable, InCompileTimeEnable) \
+#define DECLARE_STAT_GROUP(Description, StatName, StatCategory, InDefaultEnable, InCompileTimeEnable, InSortByName) \
 struct FStatGroup_##StatName\
 { \
 	enum \
 	{ \
 		DefaultEnable = InDefaultEnable, \
-		CompileTimeEnable = InCompileTimeEnable \
+		CompileTimeEnable = InCompileTimeEnable, \
+		SortByName = InSortByName \
 	}; \
 	static FORCEINLINE const char* GetGroupName() \
 	{ \
@@ -1756,6 +1769,10 @@ struct FStatGroup_##StatName\
 	static FORCEINLINE bool IsCompileTimeEnable() \
 	{ \
 		return (bool)CompileTimeEnable; \
+	} \
+	static FORCEINLINE bool GetSortByName() \
+	{ \
+		return (bool)SortByName; \
 	} \
 };
 
@@ -1884,13 +1901,16 @@ struct FStat_##StatName\
 
 /** Macro for declaring group factory instances */
 #define DECLARE_STATS_GROUP(GroupDesc, GroupId, GroupCat) \
-	DECLARE_STAT_GROUP(GroupDesc, GroupId, GroupCat, true, true);
+	DECLARE_STAT_GROUP(GroupDesc, GroupId, GroupCat, true, true, false);
+
+#define DECLARE_STATS_GROUP_SORTBYNAME(GroupDesc, GroupId, GroupCat) \
+	DECLARE_STAT_GROUP(GroupDesc, GroupId, GroupCat, true, true, true);
 
 #define DECLARE_STATS_GROUP_VERBOSE(GroupDesc, GroupId, GroupCat) \
-	DECLARE_STAT_GROUP(GroupDesc, GroupId, GroupCat, false, true);
+	DECLARE_STAT_GROUP(GroupDesc, GroupId, GroupCat, false, true, false);
 
 #define DECLARE_STATS_GROUP_MAYBE_COMPILED_OUT(GroupDesc, GroupId, GroupCat, CompileIn) \
-	DECLARE_STAT_GROUP(GroupDesc, GroupId, GroupCat, false, CompileIn);
+	DECLARE_STAT_GROUP(GroupDesc, GroupId, GroupCat, false, CompileIn, false);
 
 #define DECLARE_SCOPE_CYCLE_COUNTER(CounterName,Stat,GroupId) \
 	DECLARE_STAT(CounterName,Stat,GroupId,EStatDataType::ST_int64, true, true, FPlatformMemory::MCR_Invalid); \
@@ -2122,9 +2142,9 @@ DECLARE_STATS_GROUP(TEXT("Shader Compiling"),STATGROUP_ShaderCompiling, STATCAT_
 DECLARE_STATS_GROUP(TEXT("Shader Compression"),STATGROUP_Shaders, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Shadow Rendering"),STATGROUP_ShadowRendering, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Stat System"),STATGROUP_StatSystem, STATCAT_Advanced);
-DECLARE_STATS_GROUP(TEXT("Streaming Overview"),STATGROUP_StreamingOverview, STATCAT_Advanced);
-DECLARE_STATS_GROUP(TEXT("Streaming Details"),STATGROUP_StreamingDetails, STATCAT_Advanced);
-DECLARE_STATS_GROUP(TEXT("Streaming"),STATGROUP_Streaming, STATCAT_Advanced);
+DECLARE_STATS_GROUP_SORTBYNAME(TEXT("Streaming Overview"),STATGROUP_StreamingOverview, STATCAT_Advanced);
+DECLARE_STATS_GROUP_SORTBYNAME(TEXT("Streaming Details"),STATGROUP_StreamingDetails, STATCAT_Advanced);
+DECLARE_STATS_GROUP_SORTBYNAME(TEXT("Streaming"),STATGROUP_Streaming, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Target Platform"),STATGROUP_TargetPlatform, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Text"),STATGROUP_Text, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("ThreadPool Async Tasks"),STATGROUP_ThreadPoolAsyncTasks, STATCAT_Advanced);

@@ -12,10 +12,6 @@
 #include "VulkanPendingState.h"
 #include "VulkanContext.h"
 #include "GlobalShader.h"
-#include "HAL/Runnable.h"
-#include "HAL/RunnableThread.h"
-#include "Misc/CoreDelegates.h"
-#include "UnrealEngine.h"
 
 static const double HitchTime = 1.0 / 1000.0;
 
@@ -49,44 +45,6 @@ static inline FSHAHash GetShaderHashForStage(const FGraphicsPipelineStateInitial
 	FSHAHash Dummy;
 	return Dummy;
 }
-
-
-struct FVulkanAsyncPSOLoadThread : public FRunnable
-{
-	FRunnableThread* Thread = nullptr;
-	FCriticalSection ThreadPtrDeleteLock;
-	TArray<FString> CacheFilenames;
-	FVulkanPipelineStateCache* PipelineStateCache;
-	FVulkanAsyncPSOLoadThread(const TArray<FString>& InCacheFilenames, FVulkanPipelineStateCache* InPipelineStateCache)
-		: CacheFilenames(InCacheFilenames)
-		, PipelineStateCache(InPipelineStateCache)
-	{
-		Thread = FRunnableThread::Create(this, TEXT("VulkanPSOLoading"), 0, FPlatformAffinity::GetRenderingThreadPriority(), FPlatformAffinity::GetPoolThreadMask());
-		check(Thread);
-	}
-
-	virtual ~FVulkanAsyncPSOLoadThread()
-	{
-		WaitForCompletion();
-	}
-
-	virtual uint32 Run() override final
-	{
-		FVulkanPipelineStateCache::LoadCacheFiles(PipelineStateCache, CacheFilenames);
-		return 0;
-	}
-
-	void WaitForCompletion()
-	{
-		FScopeLock Lock(&ThreadPtrDeleteLock);
-		if (Thread)
-		{
-			Thread->WaitForCompletion();
-			delete Thread;
-			Thread = nullptr;
-		}
-	}
-};
 
 FVulkanPipeline::FVulkanPipeline(FVulkanDevice* InDevice)
 	: Device(InDevice)
@@ -169,24 +127,10 @@ FVulkanPipelineStateCache::FVulkanPipelineStateCache(FVulkanDevice* InDevice)
 	: Device(InDevice)
 	, PipelineCache(VK_NULL_HANDLE)
 {
-
-	NumShaderCompiles = 0;
-	FCoreDelegates::OnGetOnScreenMessages.AddLambda([this](TMultiMap<FCoreDelegates::EOnScreenMessageSeverity, FText >& OutMessages)
-	{
-		FScopeLock Lock(&CompileTimeCS);
-		if (NumShaderCompiles)
-		{
-			GEngine->AddOnScreenDebugMessage(FPlatformMath::Rand(), 2.0f, FColor::Red, FString::Printf(TEXT("Compiled %d shaders, in %.2fms!"), NumShaderCompiles, (float)(ShaderCompileTime * 1000.0)));
-			NumShaderCompiles = 0;
-			ShaderCompileTime = 0;
-		}
-	});
 }
 
 FVulkanPipelineStateCache::~FVulkanPipelineStateCache()
 {
-	delete Loader;
-
 	DestroyCache();
 
 	// Only destroy layouts when quitting
@@ -199,9 +143,8 @@ FVulkanPipelineStateCache::~FVulkanPipelineStateCache()
 	PipelineCache = VK_NULL_HANDLE;
 }
 
-void FVulkanPipelineStateCache::InternalLoadCacheFiles(const TArray<FString>& CacheFilenames)
+void FVulkanPipelineStateCache::Load(const TArray<FString>& CacheFilenames)
 {
-	// Given a list of filenames, it will only use the first one it fully succeeds.
 	for (const FString& CacheFilename : CacheFilenames)
 	{
 		TArray<uint8> MemFile;
@@ -246,7 +189,14 @@ void FVulkanPipelineStateCache::InternalLoadCacheFiles(const TArray<FString>& Ca
 				}
 			}
 
-			ShaderCache.Data.Append(FileShaderCacheData);
+			// Not using TMap::Append to avoid copying duplicate microcode
+			for (auto& Pair : FileShaderCacheData)
+			{
+				if (!ShaderCache.Data.Find(Pair.Key))
+				{
+					ShaderCache.Data.Add(Pair.Key, Pair.Value);
+				}
+			}
 
 			double BeginTime = FPlatformTime::Seconds();
 
@@ -334,33 +284,6 @@ void FVulkanPipelineStateCache::InternalLoadCacheFiles(const TArray<FString>& Ca
 	}
 }
 
-void FVulkanPipelineStateCache::BeginLoad(const TArray<FString>& CacheFilenames)
-{
-	check(!Loader);
-	Loader = new FVulkanAsyncPSOLoadThread(CacheFilenames, this);
-}
-
-FVulkanGraphicsPipelineState* FVulkanPipelineStateCache::FindInRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32& OutHash)
-{
-	if(Loader)
-	{
-		Loader->WaitForCompletion();
-	}
-
-	OutHash = FCrc::MemCrc32(&Initializer, sizeof(Initializer));
-
-	{
-		FScopeLock Lock(&InitializerToPipelineMapCS);
-		FVulkanGraphicsPipelineState** Found = InitializerToPipelineMap.Find(OutHash);
-		if(Found)
-		{
-			return *Found;
-		}
-	}
-
-	return nullptr;
-}
-
 void FVulkanPipelineStateCache::DestroyPipeline(FVulkanGfxPipeline* Pipeline)
 {
 	ensure(0);
@@ -378,19 +301,19 @@ void FVulkanPipelineStateCache::InitAndLoad(const TArray<FString>& CacheFilename
 	if (GEnablePipelineCacheLoadCvar.GetValueOnAnyThread() == 0)
 	{
 		UE_LOG(LogVulkanRHI, Display, TEXT("Not loading pipeline cache per r.Vulkan.PipelineCacheLoad=0"));
-
-		// Lazily create the cache in case the load failed
-		if (PipelineCache == VK_NULL_HANDLE)
-		{
-			VkPipelineCacheCreateInfo PipelineCacheInfo;
-			FMemory::Memzero(PipelineCacheInfo);
-			PipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-			VERIFYVULKANRESULT(VulkanRHI::vkCreatePipelineCache(Device->GetInstanceHandle(), &PipelineCacheInfo, nullptr, &PipelineCache));
-		}
 	}
 	else
 	{
-		BeginLoad(CacheFilenames);
+		Load(CacheFilenames);
+	}
+
+	// Lazily create the cache in case the load failed
+	if (PipelineCache == VK_NULL_HANDLE)
+	{
+		VkPipelineCacheCreateInfo PipelineCacheInfo;
+		FMemory::Memzero(PipelineCacheInfo);
+		PipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+		VERIFYVULKANRESULT(VulkanRHI::vkCreatePipelineCache(Device->GetInstanceHandle(), &PipelineCacheInfo, nullptr, &PipelineCache));
 	}
 }
 
@@ -452,9 +375,6 @@ FVulkanGraphicsPipelineState* FVulkanPipelineStateCache::CreateAndAdd(const FGra
 	if (Delta > HitchTime)
 	{
 		UE_LOG(LogVulkanRHI, Verbose, TEXT("Hitchy gfx pipeline (%.3f ms)"), (float)(Delta * 1000.0));
-		FScopeLock Lock(&CompileTimeCS);
-		NumShaderCompiles++;
-		ShaderCompileTime += Delta;
 	}
 
 	FVulkanGraphicsPipelineState* PipelineState = new FVulkanGraphicsPipelineState(PSOInitializer, Pipeline);
@@ -615,24 +535,25 @@ FArchive& operator << (FArchive& Ar, FVulkanPipelineStateCache::FGfxPipelineEntr
 
 void FVulkanPipelineStateCache::FGfxPipelineEntry::FDepthStencil::ReadFrom(const VkPipelineDepthStencilStateCreateInfo& InState)
 {
-	DepthCompareOp =		(uint8)InState.depthCompareOp;
-	bDepthTestEnable =		InState.depthTestEnable != VK_FALSE;
-	bDepthWriteEnable =		InState.depthWriteEnable != VK_FALSE;
-	bStencilTestEnable =	InState.stencilTestEnable != VK_FALSE;
-	FrontFailOp =			(uint8)InState.front.failOp;
-	FrontPassOp =			(uint8)InState.front.passOp;
-	FrontDepthFailOp =		(uint8)InState.front.depthFailOp;
-	FrontCompareOp =		(uint8)InState.front.compareOp;
-	FrontCompareMask =		(uint8)InState.front.compareMask;
-	FrontWriteMask =		InState.front.writeMask;
-	FrontReference =		InState.front.reference;
-	BackFailOp =			(uint8)InState.back.failOp;
-	BackPassOp =			(uint8)InState.back.passOp;
-	BackDepthFailOp =		(uint8)InState.back.depthFailOp;
-	BackCompareOp =			(uint8)InState.back.compareOp;
-	BackCompareMask =		(uint8)InState.back.compareMask;
-	BackWriteMask =			InState.back.writeMask;
-	BackReference =			InState.back.reference;
+	DepthCompareOp =			(uint8)InState.depthCompareOp;
+	bDepthTestEnable =			InState.depthTestEnable != VK_FALSE;
+	bDepthWriteEnable =			InState.depthWriteEnable != VK_FALSE;
+	bDepthBoundsTestEnable =	InState.depthBoundsTestEnable != VK_FALSE;
+	bStencilTestEnable =		InState.stencilTestEnable != VK_FALSE;
+	FrontFailOp =				(uint8)InState.front.failOp;
+	FrontPassOp =				(uint8)InState.front.passOp;
+	FrontDepthFailOp =			(uint8)InState.front.depthFailOp;
+	FrontCompareOp =			(uint8)InState.front.compareOp;
+	FrontCompareMask =			(uint8)InState.front.compareMask;
+	FrontWriteMask =			InState.front.writeMask;
+	FrontReference =			InState.front.reference;
+	BackFailOp =				(uint8)InState.back.failOp;
+	BackPassOp =				(uint8)InState.back.passOp;
+	BackDepthFailOp =			(uint8)InState.back.depthFailOp;
+	BackCompareOp =				(uint8)InState.back.compareOp;
+	BackCompareMask =			(uint8)InState.back.compareMask;
+	BackWriteMask =				InState.back.writeMask;
+	BackReference =				InState.back.reference;
 }
 
 void FVulkanPipelineStateCache::FGfxPipelineEntry::FDepthStencil::WriteInto(VkPipelineDepthStencilStateCreateInfo& Out) const
@@ -640,9 +561,7 @@ void FVulkanPipelineStateCache::FGfxPipelineEntry::FDepthStencil::WriteInto(VkPi
 	Out.depthCompareOp =		(VkCompareOp)DepthCompareOp;
 	Out.depthTestEnable =		bDepthTestEnable;
 	Out.depthWriteEnable =		bDepthWriteEnable;
-	Out.depthBoundsTestEnable =	VK_FALSE;	// What is this?
-	Out.minDepthBounds =		0;
-	Out.maxDepthBounds =		0;
+	Out.depthBoundsTestEnable =	bDepthBoundsTestEnable;
 	Out.stencilTestEnable =		bStencilTestEnable;
 	Out.front.failOp =			(VkStencilOp)FrontFailOp;
 	Out.front.passOp =			(VkStencilOp)FrontPassOp;
@@ -666,6 +585,7 @@ FArchive& operator << (FArchive& Ar, FVulkanPipelineStateCache::FGfxPipelineEntr
 	Ar << DepthStencil.DepthCompareOp;
 	Ar << DepthStencil.bDepthTestEnable;
 	Ar << DepthStencil.bDepthWriteEnable;
+	Ar << DepthStencil.bDepthBoundsTestEnable;
 	Ar << DepthStencil.bStencilTestEnable;
 	Ar << DepthStencil.FrontFailOp;
 	Ar << DepthStencil.FrontPassOp;
@@ -1007,6 +927,7 @@ void FVulkanPipelineStateCache::CreateGfxPipelineFromEntry(const FGfxPipelineEnt
 	DynamicStatesEnabled[DynamicState.dynamicStateCount++] = VK_DYNAMIC_STATE_VIEWPORT;
 	DynamicStatesEnabled[DynamicState.dynamicStateCount++] = VK_DYNAMIC_STATE_SCISSOR;
 	DynamicStatesEnabled[DynamicState.dynamicStateCount++] = VK_DYNAMIC_STATE_STENCIL_REFERENCE;
+	DynamicStatesEnabled[DynamicState.dynamicStateCount++] = VK_DYNAMIC_STATE_DEPTH_BOUNDS;
 
 	PipelineInfo.pDynamicState = &DynamicState;
 
@@ -1292,8 +1213,11 @@ FVulkanPipelineStateCache::FGfxPipelineEntry* FVulkanPipelineStateCache::CreateG
 	}
 
 	OutGfxEntry->Rasterizer.ReadFrom(ResourceCast(PSOInitializer.RasterizerState)->RasterizerState);
-
-	OutGfxEntry->DepthStencil.ReadFrom(ResourceCast(PSOInitializer.DepthStencilState)->DepthStencilState);
+	{
+		VkPipelineDepthStencilStateCreateInfo DSInfo;
+		ResourceCast(PSOInitializer.DepthStencilState)->SetupCreateInfo(PSOInitializer, DSInfo);
+		OutGfxEntry->DepthStencil.ReadFrom(DSInfo);
+	}
 
 	int32 NumShaders = 0;
 	for (int32 Index = 0; Index < SF_Compute; ++Index)
@@ -1362,7 +1286,9 @@ FVulkanGraphicsPipelineState* FVulkanPipelineStateCache::FindInLoadedLibrary(con
 
 FGraphicsPipelineStateRHIRef FVulkanDynamicRHI::RHICreateGraphicsPipelineState(const FGraphicsPipelineStateInitializer& PSOInitializer)
 {
+#if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanGetOrCreatePipeline);
+#endif
 
 	FBoundShaderStateRHIRef BoundShaderState = RHICreateBoundShaderState(
 		PSOInitializer.BoundShaderState.VertexDeclarationRHI,
@@ -1402,10 +1328,7 @@ FGraphicsPipelineStateRHIRef FVulkanDynamicRHI::RHICreateGraphicsPipelineState(c
 
 FVulkanComputePipeline* FVulkanPipelineStateCache::GetOrCreateComputePipeline(FVulkanComputeShader* ComputeShader)
 {
-	if (Loader)
-	{
-		Loader->WaitForCompletion();
-	}
+	FScopeLock ScopeLock(&CreateComputePipelineCS);
 
 	// Fast path, try based on FVulkanComputeShader pointer
 	FVulkanComputePipeline** ComputePipelinePtr = ComputeShaderToPipelineMap.Find(ComputeShader);

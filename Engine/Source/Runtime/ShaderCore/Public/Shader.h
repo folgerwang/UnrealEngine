@@ -274,9 +274,6 @@ public:
 	virtual void InitRHI();
 	virtual void ReleaseRHI();
 
-	// FDeferredCleanupInterface implementation.
-	virtual void FinishCleanup();
-
 	/** Finds a matching shader resource in memory if possible. */
 	SHADERCORE_API static FShaderResource* FindShaderResourceById(const FShaderResourceId& Id);
 
@@ -391,7 +388,8 @@ public:
 		uint8 Token = InValue;
 
 		// Anything that does not fit in 4 bits needs to go into FullLengths, with a special token value of 0
-		if (InValue > 7)
+		// InValue == 0 also should go into FullLengths, because its Token value is also 0
+		if (InValue > 7 || InValue == 0)
 		{
 			Token = 0;
 			FullLengths.Add(InValue);
@@ -725,9 +723,6 @@ public:
 	/** Called from the main thread to register and set the serialized resource */
 	void RegisterSerializedResource();
 
-	// FDeferredCleanupInterface implementation.
-	virtual void FinishCleanup();
-
 	/** Implement for geometry shaders that want to use stream out. */
 	static void GetStreamOutElements(FStreamOutElementList& ElementList, TArray<uint32>& StreamStrides, int32& RasterizedStream) {}
 
@@ -740,7 +735,7 @@ public:
 	template<typename UniformBufferStructType>
 	FORCEINLINE_DEBUGGABLE const TShaderUniformBufferParameter<UniformBufferStructType>& GetUniformBufferParameter() const
 	{
-		FUniformBufferStruct* SearchStruct = &UniformBufferStructType::StaticStruct;
+		const FUniformBufferStruct* SearchStruct = &UniformBufferStructType::StaticStruct;
 		int32 FoundIndex = INDEX_NONE;
 
 		for (int32 StructIndex = 0, Count = UniformBufferParameterStructs.Num(); StructIndex < Count; StructIndex++)
@@ -770,7 +765,7 @@ public:
 	}
 
 	/** Finds an automatically bound uniform buffer matching the given uniform buffer struct if one exists, or returns an unbound parameter. */
-	const FShaderUniformBufferParameter& GetUniformBufferParameter(FUniformBufferStruct* SearchStruct) const
+	const FShaderUniformBufferParameter& GetUniformBufferParameter(const FUniformBufferStruct* SearchStruct) const
 	{
 		int32 FoundIndex = INDEX_NONE;
 
@@ -1712,7 +1707,7 @@ public:
 
 	inline void SerializeShaderForSaving(FShader* CurrentShader, FArchive& Ar, bool bHandleShaderKeyChanges, bool bInlineShaderResource)
 	{
-		int32 SkipOffset = Ar.Tell();
+		int64 SkipOffset = Ar.Tell();
 
 		{
 #if WITH_EDITOR
@@ -1731,7 +1726,7 @@ public:
 		CurrentShader->SerializeBase(Ar, bInlineShaderResource);
 
 		// Get the offset to the end of the shader's serialized data
-		int32 EndOffset = Ar.Tell();
+		int64 EndOffset = Ar.Tell();
 		// Seek back to the placeholder and write the end offset
 		// This allows us to skip over the shader's serialized data at load time without knowing how to deserialize it
 		// Which can happen with shaders that were available at cook time, but not on the target platform (shaders in editor module for example)
@@ -1742,7 +1737,7 @@ public:
 
 	inline FShader* SerializeShaderForLoad(FShaderType* Type, FArchive& Ar, bool bHandleShaderKeyChanges, bool bInlineShaderResource)
 	{
-		int32 EndOffset = 0;
+		int64 EndOffset = 0;
 		Ar << EndOffset;
 
 		FSelfContainedShaderId SelfContainedKey;

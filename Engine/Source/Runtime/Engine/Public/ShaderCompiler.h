@@ -333,6 +333,9 @@ public:
 	virtual int32 CompilingLoop() override;
 
 	static bool IsSupported();
+
+private:
+	void DispatchShaderCompileJobsBatch(TArray<FShaderCommonCompileJob*>& JobsToSerialize);
 };
 
 #endif // PLATFORM_WINDOWS

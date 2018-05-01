@@ -181,7 +181,7 @@ void AScreenshotFunctionalTestBase::OnComparisonComplete(bool bWasNew, bool bWas
 		{
 			if (ErrorMessage.IsEmpty())
 			{
-				UE_LOG(LogScreenshotFunctionalTest, Error, TEXT("Screenshot '%s' test failed, Screnshots were different!  Global Difference = %f, Max Local Difference = %f"), *GetName(), GlobalDifference, MaxLocalDifference);
+				UE_LOG(LogScreenshotFunctionalTest, Error, TEXT("Screenshot '%s' test failed, Screenshots were different!  Global Difference = %f, Max Local Difference = %f"), *GetName(), GlobalDifference, MaxLocalDifference);
 			}
 			else
 			{

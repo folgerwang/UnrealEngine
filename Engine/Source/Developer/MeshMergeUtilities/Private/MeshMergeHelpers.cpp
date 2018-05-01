@@ -270,9 +270,9 @@ void FMeshMergeHelpers::RetrieveMesh(USkeletalMeshComponent* SkeletalMeshCompone
 				const FSoftSkinVertex& SoftVertex = SkelMeshSection.SoftVertices[VertexIndexForWedge - SkelMeshSection.BaseVertexIndex];
 
 				const FFinalSkinVertex& SkinnedVertex = FinalVertices[VertexIndexForWedge];
-				const FVector TangentX = SkinnedVertex.TangentX;
-				const FVector TangentZ = SkinnedVertex.TangentZ;
-				const FVector4 UnpackedTangentZ = SkinnedVertex.TangentZ;
+				const FVector TangentX = SkinnedVertex.TangentX.ToFVector();
+				const FVector TangentZ = SkinnedVertex.TangentZ.ToFVector();
+				const FVector4 UnpackedTangentZ = SkinnedVertex.TangentZ.ToFVector4();
 				const FVector TangentY = (TangentX ^ TangentZ).GetSafeNormal() * UnpackedTangentZ.W;
 
 				RawMesh.WedgeTangentX.Add(TangentX);

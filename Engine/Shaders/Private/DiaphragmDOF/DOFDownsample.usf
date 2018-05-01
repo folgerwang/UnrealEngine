@@ -1,0 +1,55 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DiaphragmDOF/DOFDownsample.usf: Diaphragm DOF's bilateral downsampling shader. 
+=============================================================================*/
+
+#include "DOFDownsample.ush"
+
+
+//------------------------------------------------------- PARAMETERS
+
+float2 MaxBufferUV;
+float OutputCocRadiusMultiplier;
+
+
+//------------------------------------------------------- OUTPUTS
+
+RWTexture2D<float4>	Output0;
+
+
+//------------------------------------------------------- ENTRY POINT
+
+[numthreads(DEFAULT_GROUP_BORDER_SIZE, DEFAULT_GROUP_BORDER_SIZE, 1)]
+void DownsampleCS(uint2 DispatchThreadId : SV_DispatchThreadID) 
+{
+	// Compute scene buffer uv, but carefully to handle view size % 2 == 1,
+	// because this pass is running at half resolution.
+	float2 BufferUV = (2.0 * (DispatchThreadId + 0.5)) * PostprocessInput0Size.zw;
+	
+	// Sample scene color.
+	float4 SceneColors[4];
+	float CocRadii[4];
+
+	for (uint i = 0; i < 4; i++)
+	{
+		float2 SampleUV = BufferUV + PostprocessInput0Size.zw * (0.5 * float2(kOffsetsCross3x3[i]));
+
+		SampleUV = min(SampleUV, MaxBufferUV);
+
+		float4 RawSample = PostprocessInput0.SampleLevel(GlobalPointClampedSampler, SampleUV, 0);
+
+		SceneColors[i] = float4(RawSample.rgb, 0);
+		CocRadii[i] = RawSample.a;
+	}
+
+	// Downsample.
+	float4 OutColor;
+	float OutCocRadius;
+	DownsampleSceneColorWithCoc(SceneColors, CocRadii, OutColor, OutCocRadius);
+	
+	if (all(DispatchThreadId < ViewportRect.zw))
+	{
+		Output0[DispatchThreadId] = float4(OutColor.rgb, OutCocRadius * OutputCocRadiusMultiplier);
+	}
+}

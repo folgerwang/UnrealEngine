@@ -71,7 +71,7 @@ static void StartSetSplashText( const SplashTextType::Type InType, const FText& 
 	FScopeLock Lock(&GSplashMutex);
 
 	// Draw background
-	[GSplashScreenImage drawAtPoint: NSMakePoint(0,0) fromRect: NSZeroRect operation: NSCompositeCopy fraction: 1.0];
+	[GSplashScreenImage drawAtPoint: NSMakePoint(0,0) fromRect: NSZeroRect operation: NSCompositingOperationCopy fraction: 1.0];
 
 	for( int32 CurTypeIndex = 0; CurTypeIndex < SplashTextType::NumTextTypes; ++CurTypeIndex )
 	{
@@ -118,11 +118,11 @@ static void StartSetSplashText( const SplashTextType::Type InType, const FText& 
 			}
 
 			// Alignment
-			NSTextAlignment align = NSLeftTextAlignment;
+			NSTextAlignment align = NSTextAlignmentLeft;
 			switch ( CurTypeIndex )
 			{
 			case SplashTextType::GameName:
-				align = NSRightTextAlignment;
+				align = NSTextAlignmentRight;
 				break;
 			}
 			

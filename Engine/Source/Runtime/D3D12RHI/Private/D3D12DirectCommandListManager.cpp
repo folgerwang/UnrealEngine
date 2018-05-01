@@ -8,7 +8,7 @@ extern bool D3D12RHI_ShouldCreateWithD3DDebug();
 
 FComputeFenceRHIRef FD3D12DynamicRHI::RHICreateComputeFence(const FName& Name)
 {
-	FD3D12Fence* Fence = new FD3D12Fence(&GetAdapter(), Name);
+	FD3D12Fence* Fence = new FD3D12Fence(&GetAdapter(), FRHIGPUMask::All(), Name);
 	Fence->CreateFence();
 
 	return Fence;
@@ -35,14 +35,16 @@ FD3D12FenceCore::~FD3D12FenceCore()
 	}
 }
 
-FD3D12Fence::FD3D12Fence(FD3D12Adapter* Parent, const FName& Name)
-	: FRHIComputeFence(Name)
+FD3D12Fence::FD3D12Fence(FD3D12Adapter* InParent, const FRHIGPUMask& InNodeMask, const FName& InName)
+	: FRHIComputeFence(InName)
+	, FD3D12AdapterChild(InParent)
+	, FD3D12MultiNodeGPUObject(InNodeMask, InNodeMask)
 	, CurrentFence(0)
 	, LastSignaledFence(0)
 	, LastCompletedFence(0)
-	, FenceCore(nullptr)
-	, FD3D12AdapterChild(Parent)
 {
+	FMemory::Memzero(FenceCores);
+	FMemory::Memzero(LastCompletedFences);
 }
 
 FD3D12Fence::~FD3D12Fence()
@@ -52,33 +54,74 @@ FD3D12Fence::~FD3D12Fence()
 
 void FD3D12Fence::Destroy()
 {
-	if (FenceCore)
+	for (uint32 GPUIndex : GetNodeMask())
 	{
-		// Return the underlying fence to the pool, store the last value signaled on this fence
-		GetParentAdapter()->GetFenceCorePool().ReleaseFenceCore(FenceCore, LastSignaledFence);
-		FenceCore = nullptr;
+		if (FenceCores[GPUIndex])
+		{
+			// Return the underlying fence to the pool, store the last value signaled on this fence. 
+			// If not fence was signaled since CreateFence() was called, then the last completed value is the last signaled value for this GPU.
+			GetParentAdapter()->GetFenceCorePool().ReleaseFenceCore(FenceCores[GPUIndex], LastSignaledFence > 0 ? LastSignaledFence : LastCompletedFences[GPUIndex]);
+			FenceCores[GPUIndex] = nullptr;
+		}
 	}
 }
 
 void FD3D12Fence::CreateFence()
 {
-	check(FenceCore == nullptr);
+	// Can't set the last signaled fence per GPU before a common signal is sent.
+	LastSignaledFence = 0;
 
-	// Get a fence from the pool
-	FenceCore = GetParentAdapter()->GetFenceCorePool().ObtainFenceCore();
-	SetName(FenceCore->GetFence(), *GetName().ToString());
+	if (GetNodeMask().HasSingleIndex())
+	{
+		const uint32 GPUIndex = GetNodeMask().ToIndex();
+		check(!FenceCores[GPUIndex]);
 
-	LastSignaledFence = GetLastCompletedFence();
-	CurrentFence = LastSignaledFence + 1;
+		// Get a fence from the pool
+		FD3D12FenceCore* FenceCore = GetParentAdapter()->GetFenceCorePool().ObtainFenceCore();
+		check(FenceCore);
+		FenceCores[GPUIndex] = FenceCore;
+
+		LastCompletedFences[GPUIndex] = FenceCore->GetFence()->GetCompletedValue();
+
+		SetName(FenceCore->GetFence(), *GetName().ToString());
+
+		LastCompletedFence = LastCompletedFences[GPUIndex];
+		CurrentFence = LastCompletedFences[GPUIndex] + 1;
+	}
+	else
+	{
+		CurrentFence = 0;
+		LastCompletedFence = MAXUINT64;
+
+		for (uint32 GPUIndex : GetNodeMask())
+		{
+			check(!FenceCores[GPUIndex]);
+			
+			// Get a fence from the pool
+			FD3D12FenceCore* FenceCore = GetParentAdapter()->GetFenceCorePool().ObtainFenceCore();
+			check(FenceCore);
+			FenceCores[GPUIndex] = FenceCore;
+
+			LastCompletedFences[GPUIndex] = FenceCore->GetFence()->GetCompletedValue();
+			
+			// Append the GPU index to the fence.
+			SetName(FenceCore->GetFence(), *FString::Printf(TEXT("%s%u"), *GetName().ToString(), GPUIndex));
+
+			LastCompletedFence = FMath::Min(LastCompletedFence, LastCompletedFences[GPUIndex]);
+			CurrentFence = FMath::Max(CurrentFence, LastCompletedFences[GPUIndex]);
+		}
+
+		++CurrentFence;
+	}
 }
 
-uint64 FD3D12Fence::Signal(ID3D12CommandQueue* pCommandQueue)
+uint64 FD3D12Fence::Signal(ED3D12CommandQueueType InQueueType)
 {
 	check(LastSignaledFence != CurrentFence);
-	InternalSignal(pCommandQueue, CurrentFence);
+	InternalSignal(InQueueType, CurrentFence);
 
 	// Update the cached version of the fence value
-	GetLastCompletedFence();
+	UpdateLastCompletedFence();
 
 	// Increment the current Fence
 	CurrentFence++;
@@ -86,47 +129,74 @@ uint64 FD3D12Fence::Signal(ID3D12CommandQueue* pCommandQueue)
 	return LastSignaledFence;
 }
 
-void FD3D12Fence::GpuWait(ID3D12CommandQueue* pCommandQueue, uint64 FenceValue)
+void FD3D12Fence::GpuWait(ED3D12CommandQueueType InQueueType, uint64 FenceValue)
 {
-	check(pCommandQueue != nullptr);
+	for (uint32 GPUIndex : GetNodeMask())
+	{
+		ID3D12CommandQueue* CommandQueue = GetParentAdapter()->GetDevice(GPUIndex)->GetD3DCommandQueue(InQueueType);
+		check(CommandQueue);
+		FD3D12FenceCore* FenceCore = FenceCores[GPUIndex];
+		check(FenceCore);
 
 #if DEBUG_FENCES
-	UE_LOG(LogD3D12RHI, Log, TEXT("*** GPU WAIT (CmdQueue: %016llX) Fence: %016llX (%s), Value: %u ***"), pCommandQueue, FenceCore->GetFence(), *GetName().ToString(), FenceValue);
+		UE_LOG(LogD3D12RHI, Log, TEXT("*** GPU WAIT (CmdQueueType: %u) Fence: %016llX (%s), Value: %u ***"), InQueueType, FenceCore->GetFence(), *GetName().ToString(), FenceValue);
 #endif
-
-	VERIFYD3D12RESULT(pCommandQueue->Wait(FenceCore->GetFence(), FenceValue));
+		VERIFYD3D12RESULT(CommandQueue->Wait(FenceCore->GetFence(), FenceValue));
+	}
 }
 
 bool FD3D12Fence::IsFenceComplete(uint64 FenceValue)
 {
-	check(FenceCore);
+	check(FenceValue <= CurrentFence);
 
 	// Avoid repeatedly calling GetCompletedValue()
 	if (FenceValue <= LastCompletedFence)
 	{
-		checkf(FenceValue <= FenceCore->GetFence()->GetCompletedValue(), TEXT("Fence value (%llu) sanity check failed! Last completed value is really %llu."), FenceValue, FenceCore->GetFence()->GetCompletedValue());
+		checkf(FenceValue <= PeekLastCompletedFence(), TEXT("Fence value (%llu) sanity check failed! Last completed value is really %llu."), FenceValue, LastCompletedFence);
 		return true;
 	}
 
 	// Refresh the completed fence value
-	return FenceValue <= GetLastCompletedFence();
+	return FenceValue <= UpdateLastCompletedFence();
+
 }
 
-uint64 FD3D12Fence::GetLastCompletedFence()
+uint64 FD3D12Fence::PeekLastCompletedFence() const
 {
-	LastCompletedFence = FenceCore->GetFence()->GetCompletedValue();
-	return LastCompletedFence;
+	uint64 CompletedFence = MAXUINT64;
+	for (uint32 GPUIndex : GetNodeMask())
+	{
+		CompletedFence = FMath::Min<uint64>(FenceCores[GPUIndex]->GetFence()->GetCompletedValue(), CompletedFence);
+	}
+	return CompletedFence;
 }
 
-uint64 FD3D12ManualFence::Signal(ID3D12CommandQueue* pCommandQueue, uint64 FenceToSignal)
+
+uint64 FD3D12Fence::UpdateLastCompletedFence()
+{
+	uint64 CompletedFence = MAXUINT64;
+	for (uint32 GPUIndex : GetNodeMask())
+	{
+		FD3D12FenceCore* FenceCore = FenceCores[GPUIndex];
+		check(FenceCore);
+		LastCompletedFences[GPUIndex] = FenceCore->GetFence()->GetCompletedValue();
+		CompletedFence = FMath::Min<uint64>(LastCompletedFences[GPUIndex], CompletedFence);
+	}
+
+	// Must be computed on the stack because the function can be called concurrently.
+	LastCompletedFence = CompletedFence;
+	return CompletedFence;
+}
+
+uint64 FD3D12ManualFence::Signal(ED3D12CommandQueueType InQueueType, uint64 FenceToSignal)
 {
 	check(LastSignaledFence != FenceToSignal);
-	InternalSignal(pCommandQueue, FenceToSignal);
+	InternalSignal(InQueueType, FenceToSignal);
 
 	// Update the cached version of the fence value
-	GetLastCompletedFence();
-
+	UpdateLastCompletedFence();
 	check(LastSignaledFence == FenceToSignal);
+
 	return LastSignaledFence;
 }
 
@@ -157,7 +227,7 @@ FD3D12CommandAllocator* FD3D12CommandAllocatorManager::ObtainCommandAllocator()
 
 		// Set a valid sync point
 		FD3D12Fence& FrameFence = GetParentDevice()->GetParentAdapter()->GetFrameFence();
-		const FD3D12SyncPoint SyncPoint(&FrameFence, FrameFence.GetLastCompletedFence());
+		const FD3D12SyncPoint SyncPoint(&FrameFence, FrameFence.UpdateLastCompletedFence());
 		pCommandAllocator->SetSyncPoint(SyncPoint);
 	}
 
@@ -172,11 +242,12 @@ void FD3D12CommandAllocatorManager::ReleaseCommandAllocator(FD3D12CommandAllocat
 	CommandAllocatorQueue.Enqueue(pCommandAllocator);
 }
 
-FD3D12CommandListManager::FD3D12CommandListManager(FD3D12Device* InParent, D3D12_COMMAND_LIST_TYPE CommandListType)
-	: CommandListType(CommandListType)
+FD3D12CommandListManager::FD3D12CommandListManager(FD3D12Device* InParent, D3D12_COMMAND_LIST_TYPE InCommandListType, ED3D12CommandQueueType InQueueType)
+	: CommandListType(InCommandListType)
+	, QueueType(InQueueType)
 	, ResourceBarrierCommandAllocator(nullptr)
 	, ResourceBarrierCommandAllocatorManager(InParent, D3D12_COMMAND_LIST_TYPE_DIRECT)
-	, CommandListFence(nullptr, L"Command List Fence")
+	, CommandListFence(nullptr)
 	, FD3D12DeviceChild(InParent)
 	, FD3D12SingleNodeGPUObject(InParent->GetNodeMask())
 {
@@ -200,7 +271,12 @@ void FD3D12CommandListManager::Destroy()
 		ReadyLists.Dequeue(hList);
 	}
 
-	CommandListFence.Destroy();
+	if (CommandListFence)
+	{
+		CommandListFence->Destroy();
+		delete CommandListFence;
+		CommandListFence = nullptr;
+	}
 }
 
 void FD3D12CommandListManager::Create(const TCHAR* Name, uint32 NumCommandLists, uint32 Priority)
@@ -208,8 +284,8 @@ void FD3D12CommandListManager::Create(const TCHAR* Name, uint32 NumCommandLists,
 	FD3D12Device* Device = GetParentDevice();
 	FD3D12Adapter* Adapter = Device->GetParentAdapter();
 
-	CommandListFence.SetParentAdapter(Adapter);
-	CommandListFence.CreateFence();
+	CommandListFence = new FD3D12Fence(Adapter, GetNodeMask(), L"Command List Fence");
+	CommandListFence->CreateFence();
 
 	check(D3DCommandQueue.GetReference() == nullptr);
 	check(ReadyLists.IsEmpty());
@@ -217,7 +293,7 @@ void FD3D12CommandListManager::Create(const TCHAR* Name, uint32 NumCommandLists,
 
 	D3D12_COMMAND_QUEUE_DESC CommandQueueDesc = {};
 	CommandQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-	CommandQueueDesc.NodeMask = GetNodeMask();
+	CommandQueueDesc.NodeMask = (uint32)GetNodeMask();
 	CommandQueueDesc.Priority = Priority;
 	CommandQueueDesc.Type = CommandListType;
 	D3DCommandQueue = Adapter->GetOwningRHI()->CreateCommandQueue(Device, CommandQueueDesc);
@@ -233,6 +309,27 @@ void FD3D12CommandListManager::Create(const TCHAR* Name, uint32 NumCommandLists,
 			ReadyLists.Enqueue(hList);
 		}
 	}
+}
+
+FGPUTimingCalibrationTimestamp FD3D12CommandListManager::GetCalibrationTimestamp()
+{
+	check(CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT || CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE);
+
+	uint64 GPUTimestampFrequency;
+	GetTimestampFrequency(&GPUTimestampFrequency);
+
+	LARGE_INTEGER CPUTimestempFrequency;
+	QueryPerformanceFrequency(&CPUTimestempFrequency);
+
+	uint64 GPUTimestamp, CPUTimestamp;
+	VERIFYD3D12RESULT(D3DCommandQueue->GetClockCalibration(&GPUTimestamp, &CPUTimestamp));
+
+	FGPUTimingCalibrationTimestamp Result = {};
+
+	Result.GPUMicroseconds = uint64(GPUTimestamp * (1e6 / GPUTimestampFrequency));
+	Result.CPUMicroseconds = uint64(CPUTimestamp * (1e6 / CPUTimestempFrequency.QuadPart));
+
+	return Result;
 }
 
 FD3D12CommandListHandle FD3D12CommandListManager::ObtainCommandList(FD3D12CommandAllocator& CommandAllocator)
@@ -304,12 +401,14 @@ uint64 FD3D12CommandListManager::ExecuteAndIncrementFence(FD3D12CommandListPaylo
 #endif
 	}
 
-	return Fence.Signal(D3DCommandQueue);
+	checkf(Fence.GetNodeMask() == GetNodeMask(), TEXT("Fence GPU masks does not fit with the command list mask!"));
+	return Fence.Signal(QueueType);
 }
 
 void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandle>& Lists, bool WaitForCompletion)
 {
 	SCOPE_CYCLE_COUNTER(STAT_D3D12ExecuteCommandListTime);
+	check(CommandListFence);
 
 	bool NeedsResourceBarriers = false;
 	for (int32 i = 0; i < Lists.Num(); i++)
@@ -329,6 +428,7 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 
 	FD3D12CommandListManager& DirectCommandListManager = GetParentDevice()->GetCommandListManager();
 	FD3D12Fence& DirectFence = DirectCommandListManager.GetFence();
+	checkf(DirectFence.GetNodeMask() == GetNodeMask(), TEXT("Fence GPU masks does not fit with the command list mask!"));
 
 	int32 commandListIndex = 0;
 	int32 barrierCommandListIndex = 0;
@@ -382,7 +482,7 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 					ComputeBarrierPayload.Reset();
 					ComputeBarrierPayload.Append(barrierCommandList.CommandList(), &barrierCommandList.GetResidencySet());
 					BarrierFenceValue = DirectCommandListManager.ExecuteAndIncrementFence(ComputeBarrierPayload, DirectFence);
-					DirectFence.GpuWait(D3DCommandQueue, BarrierFenceValue);
+					DirectFence.GpuWait(QueueType, BarrierFenceValue);
 				}
 				else
 				{
@@ -393,8 +493,8 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 			CurrentCommandListPayload.Append(commandList.CommandList(), &commandList.GetResidencySet());
 			commandList.LogResourceBarriers();
 		}
-		SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, CommandListFence);
-		SyncPoint = FD3D12SyncPoint(&CommandListFence, SignaledFenceValue);
+		SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, *CommandListFence);
+		SyncPoint = FD3D12SyncPoint(CommandListFence, SignaledFenceValue);
 		if (CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
 		{
 			BarrierSyncPoint = FD3D12SyncPoint(&DirectFence, BarrierFenceValue);
@@ -411,9 +511,9 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 			CurrentCommandListPayload.Append(Lists[i].CommandList(), &Lists[i].GetResidencySet());
 			Lists[i].LogResourceBarriers();
 		}
-		SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, CommandListFence);
+		SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, *CommandListFence);
 		check(CommandListType != D3D12_COMMAND_LIST_TYPE_COMPUTE);
-		SyncPoint = FD3D12SyncPoint(&CommandListFence, SignaledFenceValue);
+		SyncPoint = FD3D12SyncPoint(CommandListFence, SignaledFenceValue);
 		BarrierSyncPoint = SyncPoint;
 	}
 
@@ -439,7 +539,7 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 
 	if (WaitForCompletion)
 	{
-		CommandListFence.WaitForFence(SignaledFenceValue);
+		CommandListFence->WaitForFence(SignaledFenceValue);
 		check(SyncPoint.IsComplete());
 	}
 }
@@ -565,8 +665,9 @@ void FD3D12CommandListManager::WaitForCommandQueueFlush()
 {
 	if (D3DCommandQueue)
 	{
-		const uint64 SignaledFence = CommandListFence.Signal(D3DCommandQueue);
-		CommandListFence.WaitForFence(SignaledFence);
+		check(CommandListFence);
+		const uint64 SignaledFence = CommandListFence->Signal(QueueType);
+		CommandListFence->WaitForFence(SignaledFence);
 	}
 }
 

@@ -431,9 +431,9 @@ public:
 
 						Vertex.Position = Position;
 						Vertex.TangentX = TangentX.GetSafeNormal();
-						uint8 WComponent = Vertex.TangentZ.Vector.W;
+						uint8 WComponent = Vertex.TangentZ.W;
 						Vertex.TangentZ = TangentZ.GetSafeNormal();
-						Vertex.TangentZ.Vector.W = WComponent;
+						Vertex.TangentZ.W = WComponent;
 					}
 				}
 				FixUpSectionBoneMaps(Section, BonesToRemove);

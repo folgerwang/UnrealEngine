@@ -11,7 +11,11 @@
 class FVulkanDynamicRHI;
 class FVulkanSwapChain;
 class FVulkanQueue;
-struct FVulkanSemaphore;
+
+namespace VulkanRHI
+{
+	class FSemaphore;
+}
 
 class FVulkanViewport : public FRHIViewport, public VulkanRHI::FDeviceChild
 {
@@ -23,19 +27,14 @@ public:
 
 	FVulkanTexture2D* GetBackBuffer(FRHICommandList& RHICmdList);
 
-	void WaitForFrameEventCompletion();
+	//void WaitForFrameEventCompletion();
 
 	//#todo-rco
-	void IssueFrameEvent() {}
+	//void IssueFrameEvent() {}
 
 	inline FIntPoint GetSizeXY() const
 	{
 		return FIntPoint(SizeX, SizeY);
-	}
-
-	inline FVulkanSwapChain* GetSwapChain()
-	{
-		return SwapChain;
 	}
 
 	virtual void SetCustomPresent(FRHICustomPresent* InCustomPresent) override final
@@ -50,7 +49,7 @@ public:
 
 	void AdvanceBackBufferFrame();
 
-	bool Present(FVulkanCmdBuffer* CmdBuffer, FVulkanQueue* Queue, FVulkanQueue* PresentQueue, bool bLockToVsync);
+	bool Present(FVulkanCommandListContext* Context, FVulkanCmdBuffer* CmdBuffer, FVulkanQueue* Queue, FVulkanQueue* PresentQueue, bool bLockToVsync);
 
 	inline uint32 GetPresentCount() const
 	{
@@ -59,7 +58,7 @@ public:
 
 protected:
 	VkImage BackBufferImages[NUM_BUFFERS];
-	FVulkanSemaphore* RenderingDoneSemaphores[NUM_BUFFERS];
+	VulkanRHI::FSemaphore* RenderingDoneSemaphores[NUM_BUFFERS];
 	FVulkanTextureView TextureViews[NUM_BUFFERS];
 
 	// 'Dummy' back buffer
@@ -77,7 +76,7 @@ protected:
 	uint32 PresentCount;
 
 	// Just a pointer, not owned by this class
-	FVulkanSemaphore* AcquiredSemaphore;
+	VulkanRHI::FSemaphore* AcquiredSemaphore;
 
 	FCustomPresentRHIRef CustomPresent;
 
@@ -100,10 +99,3 @@ struct TVulkanResourceTraits<FRHIViewport>
 {
 	typedef FVulkanViewport TConcreteType;
 };
-
-
-inline bool DelayAcquireBackBuffer()
-{
-	extern FAutoConsoleVariable GCVarDelayAcquireBackBuffer;
-	return GCVarDelayAcquireBackBuffer->GetInt() != 0;
-}

@@ -17,14 +17,12 @@
 class FVulkanDevice;
 class FVulkanQueue;
 class FVulkanCmdBuffer;
-class FVulkanGlobalUniformPool;
 class FVulkanBuffer;
 class FVulkanBufferCPU;
 struct FVulkanTextureBase;
 class FVulkanTexture2D;
 struct FVulkanBufferView;
 class FVulkanResourceMultiBuffer;
-struct FVulkanSemaphore;
 
 namespace VulkanRHI
 {
@@ -256,6 +254,26 @@ public:
 
 	inline uint32 GetNumMips() const { return NumMips; }
 
+	inline uint32 GetNumberOfArrayLevels() const
+	{
+		switch (ViewType)
+		{
+		case VK_IMAGE_VIEW_TYPE_1D:
+		case VK_IMAGE_VIEW_TYPE_2D:
+		case VK_IMAGE_VIEW_TYPE_3D:
+			return 1;
+		case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+			return NumArrayLevels;
+		case VK_IMAGE_VIEW_TYPE_CUBE:
+			return 6;
+		case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+			return 6 * NumArrayLevels;
+		default:
+			UE_LOG(LogVulkanRHI, Error, TEXT("Invalid ViewType %d"), (uint32)ViewType);
+			return 1;
+		}
+	}
+
 	// Full includes Depth+Stencil
 	inline VkImageAspectFlags GetFullAspectMask() const
 	{
@@ -268,14 +286,14 @@ public:
 		return PartialAspectMask;
 	}
 
+	inline bool IsDepthOrStencilAspect() const
+	{
+		return (FullAspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) != 0;
+	}
+
 	inline bool IsImageOwner() const
 	{
 		return bIsImageOwner;
-	}
-
-	inline VulkanRHI::FDeviceMemoryAllocation* GetAllocation() const
-	{
-		return Allocation;
 	}
 
 	FVulkanDevice* Device;
@@ -292,6 +310,7 @@ public:
 	uint32 UEFlags;
 	VkMemoryPropertyFlags MemProps;
 	VkMemoryRequirements MemoryRequirements;
+	uint32 NumArrayLevels;
 
 	static void InternalLockWrite(FVulkanCommandListContext& Context, FVulkanSurface* Surface, const VkImageSubresourceRange& SubresourceRange, const VkBufferImageCopy& Region, VulkanRHI::FStagingBuffer* StagingBuffer);
 
@@ -306,11 +325,9 @@ private:
 	VkImageViewType	ViewType;
 
 	bool bIsImageOwner;
-	VulkanRHI::FDeviceMemoryAllocation* Allocation;
 	TRefCountPtr<VulkanRHI::FOldResourceAllocation> ResourceAllocation;
 
 	uint32 NumMips;
-
 	uint32 NumSamples;
 
 	VkImageAspectFlags FullAspectMask;
@@ -601,7 +618,7 @@ inline FVulkanTextureBase* GetVulkanTextureFromRHITexture(FRHITexture* Texture)
 
 #if VULKAN_USE_NEW_QUERIES
 extern FCriticalSection GOcclusionQueryCS;
-class FVulkanQueryPool : public VulkanRHI::FDeviceChild
+class FVulkanQueryPool : public VulkanRHI::FDeviceChild 
 {
 public:
 	FVulkanQueryPool(FVulkanDevice* InDevice, uint32 InMaxQueries, VkQueryType InQueryType);
@@ -625,6 +642,8 @@ public:
 	{
 		return QueryPool;
 	}
+
+	uint32 NumResets = 0;
 
 protected:
 	VkQueryPool QueryPool;
@@ -723,7 +742,7 @@ public:
 		return State == EState::InEnd;
 	}
 
-	//uint64 FrameCounter = 0;
+	uint32 LastPoolReset = 0;
 
 private:
 	int32 QueryIndex = INT32_MAX;
@@ -981,7 +1000,7 @@ public:
 	FVulkanBuffer(FVulkanDevice& Device, uint32 InSize, VkFlags InUsage, VkMemoryPropertyFlags InMemPropertyFlags, bool bAllowMultiLock, const char* File, int32 Line);
 	virtual ~FVulkanBuffer();
 
-	inline const VkBuffer& GetBufferHandle() const { return Buf; }
+	inline VkBuffer GetBufferHandle() const { return Buf; }
 
 	inline uint32 GetSize() const { return Size; }
 
@@ -989,7 +1008,7 @@ public:
 
 	void Unlock();
 
-	inline const VkFlags& GetFlags() const { return Usage; }
+	inline VkFlags GetFlags() const { return Usage; }
 
 private:
 	FVulkanDevice& Device;
@@ -1012,7 +1031,7 @@ public:
 	~FVulkanRingBuffer();
 
 	// allocate some space in the ring buffer
-	uint64 AllocateMemory(uint64 Size, uint32 Alignment);
+	uint64 AllocateMemory(uint64 Size, uint32 Alignment, FVulkanCmdBuffer* InCmdBuffer);
 
 	inline uint32 GetBufferOffset() const
 	{
@@ -1034,12 +1053,16 @@ protected:
 	uint64 BufferOffset;
 	uint32 MinAlignment;
 	VulkanRHI::FBufferSuballocation* BufferSuballocation;
+
+	// Fence for wrapping around
+	FVulkanCmdBuffer* FenceCmdBuffer = nullptr;
+	uint64 FenceCounter = 0;
 };
 
 struct FVulkanUniformBufferUploader : public VulkanRHI::FDeviceChild
 {
 public:
-	FVulkanUniformBufferUploader(FVulkanDevice* InDevice, uint64 TotalSize);
+	FVulkanUniformBufferUploader(FVulkanDevice* InDevice);
 	~FVulkanUniformBufferUploader();
 
 	uint8* GetCPUMappedPointer()
@@ -1047,9 +1070,9 @@ public:
 		return (uint8*)CPUBuffer->GetMappedPointer();
 	}
 
-	uint64 AllocateMemory(uint64 Size, uint32 Alignment)
+	uint64 AllocateMemory(uint64 Size, uint32 Alignment, FVulkanCmdBuffer* InCmdBuffer)
 	{
-		return CPUBuffer->AllocateMemory(Size, Alignment);
+		return CPUBuffer->AllocateMemory(Size, Alignment, InCmdBuffer);
 	}
 
 	VkBuffer GetCPUBufferHandle() const
@@ -1064,23 +1087,18 @@ public:
 
 protected:
 	FVulkanRingBuffer* CPUBuffer;
-	FVulkanRingBuffer* GPUBuffer;
 	friend class FVulkanCommandListContext;
 };
 
 class FVulkanResourceMultiBuffer : public VulkanRHI::FDeviceChild
 {
 public:
-	FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, VkBufferUsageFlags InBufferUsageFlags, uint32 InSize, uint32 InUEUsage, FRHIResourceCreateInfo& CreateInfo);
+	FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, VkBufferUsageFlags InBufferUsageFlags, uint32 InSize, uint32 InUEUsage, FRHIResourceCreateInfo& CreateInfo, class FRHICommandListImmediate* InRHICmdList = nullptr);
 	virtual ~FVulkanResourceMultiBuffer();
 
 	inline VkBuffer GetHandle() const
 	{
-		if (NumBuffers == 0)
-		{
-			return VolatileLockInfo.GetHandle();
-		}
-		return Buffers[DynamicBufferIndex]->GetHandle();
+		return Current.Handle;
 	}
 
 	inline bool IsDynamic() const
@@ -1112,11 +1130,7 @@ public:
 	// Offset used for Binding a VkBuffer
 	inline uint32 GetOffset() const
 	{
-		if (NumBuffers == 0)
-		{
-			return VolatileLockInfo.GetBindOffset();
-		}
-		return Buffers[DynamicBufferIndex]->GetOffset();
+		return Current.Offset;
 	}
 
 	inline VkBufferUsageFlags GetBufferUsageFlags() const
@@ -1133,6 +1147,12 @@ protected:
 	uint32 NumBuffers;
 	uint32 DynamicBufferIndex;
 	TRefCountPtr<VulkanRHI::FBufferSuballocation> Buffers[NUM_RENDER_BUFFERS];
+	struct
+	{
+		VulkanRHI::FBufferSuballocation* SubAlloc = nullptr;
+		VkBuffer Handle = VK_NULL_HANDLE;
+		uint64 Offset = 0;
+	} Current;
 	VulkanRHI::FTempFrameAllocationBuffer::FTempAllocInfo VolatileLockInfo;
 
 	static void InternalUnlock(FVulkanCommandListContext& Context, VulkanRHI::FPendingBufferLock& PendingLock, FVulkanResourceMultiBuffer* MultiBuffer, int32 InDynamicBufferIndex);
@@ -1144,7 +1164,7 @@ protected:
 class FVulkanIndexBuffer : public FRHIIndexBuffer, public FVulkanResourceMultiBuffer
 {
 public:
-	FVulkanIndexBuffer(FVulkanDevice* InDevice, uint32 InStride, uint32 InSize, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo);
+	FVulkanIndexBuffer(FVulkanDevice* InDevice, uint32 InStride, uint32 InSize, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, class FRHICommandListImmediate* InRHICmdList);
 
 	inline VkIndexType GetIndexType() const
 	{
@@ -1158,7 +1178,7 @@ private:
 class FVulkanVertexBuffer : public FRHIVertexBuffer, public FVulkanResourceMultiBuffer
 {
 public:
-	FVulkanVertexBuffer(FVulkanDevice* InDevice, uint32 InSize, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo);
+	FVulkanVertexBuffer(FVulkanDevice* InDevice, uint32 InSize, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, class FRHICommandListImmediate* InRHICmdList);
 };
 
 class FVulkanUniformBuffer : public FRHIUniformBuffer, public FVulkanResourceMultiBuffer
@@ -1288,11 +1308,14 @@ protected:
 
 class FVulkanComputeFence : public FRHIComputeFence, public VulkanRHI::FGPUEvent
 {
+	bool bWriteEvent = false;
+
 public:
 	FVulkanComputeFence(FVulkanDevice* InDevice, FName InName);
 	virtual ~FVulkanComputeFence();
 
-	void WriteCmd(VkCommandBuffer CmdBuffer);
+	void WriteCmd(VkCommandBuffer CmdBuffer, bool bInWriteEvent);
+	void WriteWaitEvent(VkCommandBuffer CmdBuffer);
 };
 
 
@@ -1345,7 +1368,7 @@ public:
 	{
 	}
 
-	void Init(const FVulkanCodeHeader* InCodeHeader, uint64& OutPackedUniformBufferStagingMask, uint64& OutUniformBuffersWithDataMask)
+	void Init(const FVulkanCodeHeader* InCodeHeader, uint64& OutPackedUniformBufferStagingMask, uint64& OutUniformBuffersWithDataMask, uint64& OutDirtyResourcesMask)
 	{
 		CodeHeader = InCodeHeader;
 		PackedUniformBuffers.AddDefaulted(CodeHeader->NEWPackedGlobalUBSizes.Num());
@@ -1356,14 +1379,31 @@ public:
 
 		OutPackedUniformBufferStagingMask = ((uint64)1 << (uint64)CodeHeader->NEWPackedGlobalUBSizes.Num()) - 1;
 		OutUniformBuffersWithDataMask = InCodeHeader->UniformBuffersWithDescriptorMask;
+
+		OutDirtyResourcesMask = 0;
+		for (auto Type : CodeHeader->NEWDescriptorInfo.DescriptorTypes)
+		{
+			OutDirtyResourcesMask |= (uint64)1 << (uint64)Type;
+		}
 	}
 
-	inline void SetPackedGlobalParameter(uint32 BufferIndex, uint32 ByteOffset, uint32 NumBytes, const void* NewValue, uint64& InOutPackedUniformBufferStagingDirty)
+	inline void SetPackedGlobalParameter(uint32 BufferIndex, uint32 ByteOffset, uint32 NumBytes, const void* RESTRICT NewValue, uint64& InOutPackedUniformBufferStagingDirty)
 	{
 		FPackedBuffer& StagingBuffer = PackedUniformBuffers[BufferIndex];
 		check(ByteOffset + NumBytes <= (uint32)StagingBuffer.Num());
-		FMemory::Memcpy(StagingBuffer.GetData() + ByteOffset, NewValue, NumBytes);
-		InOutPackedUniformBufferStagingDirty = InOutPackedUniformBufferStagingDirty | ((uint64)1 << (uint64)BufferIndex);
+		check((NumBytes & 3) == 0 && (ByteOffset & 3) == 0);
+		uint32* RESTRICT RawDst = (uint32*)(StagingBuffer.GetData() + ByteOffset);
+		uint32* RESTRICT RawSrc = (uint32*)NewValue;
+		uint32* RESTRICT RawSrcEnd = RawSrc + (NumBytes >> 2);
+
+		bool bChanged = false;
+		do
+		{
+			bChanged |= CopyAndReturnNotEqual(*RawDst++, *RawSrc++);
+		}
+		while (RawSrc != RawSrcEnd);
+
+		InOutPackedUniformBufferStagingDirty = InOutPackedUniformBufferStagingDirty | ((uint64)(bChanged ? 1 : 0) << (uint64)BufferIndex);
 	}
 
 	// Copies a 'real' constant buffer into the packed globals uniform buffer (only the used ranges)
@@ -1375,14 +1415,23 @@ public:
 			uint32 Range = CodeHeader->NEWEmulatedUBCopyRanges[BindPoint];
 			uint16 Start = (Range >> 16) & 0xffff;
 			uint16 Count = Range & 0xffff;
+			const uint8* RESTRICT SourceData = ConstantData.GetData();
 			for (int32 Index = Start; Index < Start + Count; ++Index)
 			{
 				const CrossCompiler::FUniformBufferCopyInfo& CopyInfo = CodeHeader->UniformBuffersCopyInfo[Index];
 				check(CopyInfo.SourceUBIndex == BindPoint);
 				FPackedBuffer& StagingBuffer = PackedUniformBuffers[(int32)CopyInfo.DestUBIndex];
 				//check(ByteOffset + NumBytes <= (uint32)StagingBuffer.Num());
-				FMemory::Memcpy(StagingBuffer.GetData() + CopyInfo.DestOffsetInFloats * 4, ConstantData.GetData() + CopyInfo.SourceOffsetInFloats * 4, CopyInfo.SizeInFloats * 4);
-				NEWPackedUniformBufferStagingDirty = NEWPackedUniformBufferStagingDirty | ((uint64)1 << (uint64)CopyInfo.DestUBIndex);
+				bool bChanged = false;
+				uint32* RESTRICT RawDst = (uint32*)(StagingBuffer.GetData() + CopyInfo.DestOffsetInFloats * 4);
+				uint32* RESTRICT RawSrc = (uint32*)(SourceData + CopyInfo.SourceOffsetInFloats * 4);
+				uint32* RESTRICT RawSrcEnd = RawSrc + CopyInfo.SizeInFloats;
+				do
+				{
+					bChanged |= CopyAndReturnNotEqual(*RawDst++, *RawSrc++);
+				}
+				while (RawSrc != RawSrcEnd);
+				NEWPackedUniformBufferStagingDirty = NEWPackedUniformBufferStagingDirty | ((uint64)(bChanged ? 1 : 0) << (uint64)CopyInfo.DestUBIndex);
 			}
 		}
 	}

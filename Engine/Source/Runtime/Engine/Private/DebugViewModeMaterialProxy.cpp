@@ -147,15 +147,16 @@ bool FDebugViewModeMaterialProxy::RequiresSynchronousCompilation() const
 	return bSynchronousCompilation;
 }
 
-const FMaterial* FDebugViewModeMaterialProxy::GetMaterial(ERHIFeatureLevel::Type FeatureLevel) const
+void FDebugViewModeMaterialProxy::GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const
 {
 	if (GetRenderingThreadShaderMap())
 	{
-		return this;
+		OutMaterialRenderProxy = this;
+		OutMaterial = this;
 	}
 	else
 	{
-		return UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterial(FeatureLevel);
+		UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterialWithFallback(FeatureLevel, OutMaterialRenderProxy, OutMaterial);
 	}
 }
 

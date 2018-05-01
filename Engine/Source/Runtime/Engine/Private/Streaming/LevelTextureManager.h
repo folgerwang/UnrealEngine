@@ -20,7 +20,7 @@ class FLevelTextureManager
 {
 public:
 
-	FLevelTextureManager(ULevel* InLevel, TextureInstanceTask::FDoWorkTask& AsyncTask) : Level(InLevel), bIsInitialized(false), StaticInstances(AsyncTask),  BuildStep(EStaticBuildStep::BuildTextureLookUpMap) {}
+	FLevelTextureManager(ULevel* InLevel, TextureInstanceTask::FDoWorkTask& AsyncTask);
 
 	ULevel* GetLevel() const { return Level; }
 
@@ -31,17 +31,14 @@ public:
 
 	// Invalidate a component reference.
 
-	void RemoveActorReferences(const AActor* Actor)
-	{
-		UnprocessedStaticActors.RemoveSingleSwap(Actor); 
-	}
+	FORCEINLINE void RemoveActorReferences(const AActor* Actor) {}
 
 	void RemoveComponentReferences(const UPrimitiveComponent* Component, FRemovedTextureArray& RemovedTextures) 
 	{ 
 		// Check everywhere as the mobility can change in game.
 		StaticInstances.Remove(Component, &RemovedTextures); 
 		UnprocessedComponents.RemoveSingleSwap(Component); 
-		PendingInsertionStaticPrimitives.RemoveSingleSwap(Component); 
+		PendingComponents.RemoveSingleSwap(Component); 
 	}
 
 	const FStaticTextureInstanceManager& GetStaticInstances() const { return StaticInstances; }
@@ -72,8 +69,7 @@ private:
 	enum class EStaticBuildStep : uint8
 	{
 		BuildTextureLookUpMap,
-		GetActors,
-		GetComponents,
+		ProcessActors,
 		ProcessComponents,
 		NormalizeLightmapTexelFactors,
 		CompileElements,
@@ -83,17 +79,16 @@ private:
 
 	// The current step of the incremental build.
 	EStaticBuildStep BuildStep;
-	// The actors / components left to be processed in ProcessComponents
-	TArray<const AActor*> UnprocessedStaticActors;
+	// The components left to be processed in ProcessComponents
 	TArray<const UPrimitiveComponent*> UnprocessedComponents;
 	// The components that could not be processed by the incremental build.
-	TArray<const UPrimitiveComponent*> PendingInsertionStaticPrimitives;
+	TArray<const UPrimitiveComponent*> PendingComponents;
 	// Reversed lookup for ULevel::StreamingTextureGuids.
 	TMap<FGuid, int32> TextureGuidToLevelIndex;
 
 	bool NeedsIncrementalBuild(int32 NumStepsLeftForIncrementalBuild) const;
 	void IncrementalBuild(FDynamicTextureInstanceManager& DynamicComponentManager, FStreamingTextureLevelContext& LevelContext, bool bForceCompletion, int64& NumStepsLeft);
-	
-	// Add this primitive to either the static instance or the dynamic ones. Returns false if the primitive couldn't be handled correctly.
-	bool AddPrimitive(FDynamicTextureInstanceManager& DynamicComponentManager, FStreamingTextureLevelContext& LevelContext, const UPrimitiveComponent* Primitive, bool bLevelIsVisible, float MaxTextureUVDensity);
+
+	FORCEINLINE_DEBUGGABLE void SetAsStatic(FDynamicTextureInstanceManager& DynamicComponentManager, const UPrimitiveComponent* Primitive);
+	FORCEINLINE_DEBUGGABLE void SetAsDynamic(FDynamicTextureInstanceManager& DynamicComponentManager, FStreamingTextureLevelContext& LevelContext, const UPrimitiveComponent* Primitive);
 };

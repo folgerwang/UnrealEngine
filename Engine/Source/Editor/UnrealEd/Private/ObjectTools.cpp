@@ -3682,7 +3682,6 @@ namespace ThumbnailTools
 					RHICmdList.CopyToResolveTarget(
 						RenderTargetResource->GetRenderTargetTexture(),		// Source texture
 						RenderTargetResource->TextureRHI,					// Dest texture
-						false,												// Do we need the source image content again?
 						FResolveParams() );									// Resolve parameters
 				});
 

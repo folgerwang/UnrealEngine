@@ -100,14 +100,10 @@ float3 SplineMeshY;
 #endif
 
 #if MANUAL_VERTEX_FETCH
-	Buffer<float2> VertexFetch_TexCoordBuffer;
-	Buffer<float4> VertexFetch_PackedTangentsBuffer;
-	Buffer<float4> VertexFetch_ColorComponentsBuffer;
 	Buffer<float4> VertexFetch_InstanceOriginBuffer;
 	Buffer<float4> VertexFetch_InstanceTransformBuffer;
 	Buffer<float4> VertexFetch_InstanceLightmapBuffer;
 
-	uint3 VertexFetch_Parameters;
 	uint InstanceOffset;
 	uint VertexOffset;
 
@@ -405,16 +401,16 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 #endif	// USE_INSTANCING
 
 	Result.PreSkinnedPosition = Input.Position.xyz;
-	Result.PreSkinnedNormal = TangentToLocal[2]; //Input.TangentZ.xyz * 2.f - 1.f;
+	Result.PreSkinnedNormal = TangentToLocal[2]; //TangentBias(Input.TangentZ.xyz);
 
 #if MANUAL_VERTEX_FETCH && NUM_MATERIAL_TEXCOORDS_VERTEX
-		const uint NumFetchTexCoords = VertexFetch_Parameters[VF_NumTexcoords_Index];
+		const uint NumFetchTexCoords = LocalVF.VertexFetch_Parameters[VF_NumTexcoords_Index];
 		UNROLL
 		for (uint CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS_VERTEX; CoordinateIndex++)
 		{
 			// Clamp coordinates to mesh's maximum as materials can request more than are available
 			uint ClampedCoordinateIndex = min(CoordinateIndex, NumFetchTexCoords-1);
-			Result.TexCoords[CoordinateIndex] = VertexFetch_TexCoordBuffer[NumFetchTexCoords * (VertexOffset + Input.VertexId) + ClampedCoordinateIndex];
+			Result.TexCoords[CoordinateIndex] = LocalVF.VertexFetch_TexCoordBuffer[NumFetchTexCoords * (VertexOffset + Input.VertexId) + ClampedCoordinateIndex];
 		}
 #elif NUM_MATERIAL_TEXCOORDS_VERTEX
 		#if GPUSKIN_PASS_THROUGH
@@ -570,15 +566,21 @@ half3x3 CalcTangentToLocal(FVertexFactoryInput Input, out float TangentSign)
 	half3x3 Result;
 	
 #if MANUAL_VERTEX_FETCH
-	half3 TangentInputX = VertexFetch_PackedTangentsBuffer[2 * (VertexOffset + Input.VertexId) + 0].xyz;
-	half4 TangentInputZ = VertexFetch_PackedTangentsBuffer[2 * (VertexOffset + Input.VertexId) + 1].xyzw;
+	half3 TangentInputX = LocalVF.VertexFetch_PackedTangentsBuffer[2 * (VertexOffset + Input.VertexId) + 0].xyz;
+	half4 TangentInputZ = LocalVF.VertexFetch_PackedTangentsBuffer[2 * (VertexOffset + Input.VertexId) + 1].xyzw;
 #else
 	half3 TangentInputX = Input.TangentX;
 	half4 TangentInputZ = Input.TangentZ;
 #endif
 
+#ifdef GPUSKIN_PASS_THROUGH
+	half3 TangentX = TangentInputX;
+	half4 TangentZ = TangentInputZ;
+#else
 	half3 TangentX = TangentBias(TangentInputX);
 	half4 TangentZ = TangentBias(TangentInputZ);
+#endif
+
 	TangentSign = TangentZ.w;
 
 #if USE_SPLINEDEFORM
@@ -622,7 +624,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	FVertexFactoryIntermediates Intermediates;
 
 #if MANUAL_VERTEX_FETCH
-	Intermediates.Color = VertexFetch_ColorComponentsBuffer[(VertexOffset + Input.VertexId) & VertexFetch_Parameters[VF_ColorIndexMask_Index]] FMANUALFETCH_COLOR_COMPONENT_SWIZZLE; // Swizzle vertex color.
+	Intermediates.Color = LocalVF.VertexFetch_ColorComponentsBuffer[(VertexOffset + Input.VertexId) & LocalVF.VertexFetch_Parameters[VF_ColorIndexMask_Index]] FMANUALFETCH_COLOR_COMPONENT_SWIZZLE; // Swizzle vertex color.
 #else
 	Intermediates.Color = Input.Color FCOLOR_COMPONENT_SWIZZLE; // Swizzle vertex color.
 #endif
@@ -724,7 +726,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 
 #elif NUM_MATERIAL_TEXCOORDS_VERTEX == 0 && USE_PARTICLE_SUBUVS
 	#if MANUAL_VERTEX_FETCH
-		SetUV(Interpolants, 0, VertexFetch_TexCoordBuffer[VertexFetch_Parameters[VF_NumTexcoords_Index] * (VertexOffset + Input.VertexId)]);
+		SetUV(Interpolants, 0, LocalVF.VertexFetch_TexCoordBuffer[LocalVF.VertexFetch_Parameters[VF_NumTexcoords_Index] * (VertexOffset + Input.VertexId)]);
 	#else
 		SetUV(Interpolants, 0, Input.TexCoords[0]);
 	#endif
@@ -734,7 +736,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	float2 LightMapCoordinate = 0;
 	float2 ShadowMapCoordinate = 0;
 	#if MANUAL_VERTEX_FETCH
-		float2 LightMapCoordinateInput = VertexFetch_TexCoordBuffer[VertexFetch_Parameters[VF_NumTexcoords_Index] * (VertexOffset + Input.VertexId) + VertexFetch_Parameters[FV_LightMapIndex_Index]];
+		float2 LightMapCoordinateInput = LocalVF.VertexFetch_TexCoordBuffer[LocalVF.VertexFetch_Parameters[VF_NumTexcoords_Index] * (VertexOffset + Input.VertexId) + LocalVF.VertexFetch_Parameters[FV_LightMapIndex_Index]];
 	#else
 		float2 LightMapCoordinateInput = Input.LightMapCoordinate;
 	#endif

@@ -20,6 +20,12 @@ enum ETextureEditorBackgrounds
 	TextureEditorBackground_CheckeredFill UMETA(DisplayName="Checkered (Fill)")
 };
 
+UENUM()
+enum ETextureEditorVolumeViewMode
+{
+	TextureEditorVolumeViewMode_DepthSlices UMETA(DisplayName="Depth Slices"),
+	TextureEditorVolumeViewMode_VolumeTrace UMETA(DisplayName="Trace Into Volume"),
+};
 
 /**
  * Implements the Editor's user settings.
@@ -35,6 +41,10 @@ public:
 	/** The type of background to draw in the texture editor view port. */
 	UPROPERTY(config)
 	TEnumAsByte<ETextureEditorBackgrounds> Background;
+
+	/** The type of display when viewing volume textures. */
+	UPROPERTY(config)
+	TEnumAsByte<ETextureEditorVolumeViewMode> VolumeViewMode;
 
 	/** Background and foreground color used by Texture preview view ports. */
 	UPROPERTY(config, EditAnywhere, Category=Background)

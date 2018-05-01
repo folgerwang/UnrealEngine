@@ -236,6 +236,7 @@ private:
 	friend class UTexture;
 	friend class UTexture2D;
 	friend class UTextureCube;
+	friend class UVolumeTexture;
 
 	/** The bulk source data. */
 	FByteBulkData BulkData;

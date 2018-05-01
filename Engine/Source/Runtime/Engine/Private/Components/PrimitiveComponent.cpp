@@ -269,6 +269,7 @@ UPrimitiveComponent::UPrimitiveComponent(const FObjectInitializer& ObjectInitial
 	bAttachedToStreamingManagerAsStatic = false;
 	bAttachedToStreamingManagerAsDynamic = false;
 	bHandledByStreamingManagerAsDynamic = false;
+	bIgnoreStreamingManagerUpdate = false;
 	LastCheckedAllCollideableDescendantsTime = 0.f;
 	
 	bApplyImpulseOnDamage = true;
@@ -481,6 +482,20 @@ bool UPrimitiveComponent::IsPostPhysicsComponentTickEnabled() const
 //////////////////////////////////////////////////////////////////////////
 // Render
 
+// Helper to access the level bStaticComponentsRegisteredInStreamingManager flag.
+FORCEINLINE_DEBUGGABLE bool OwnerLevelHasRegisteredStaticComponentsInStreamingManager(const AActor* Owner)
+{
+	if (Owner)
+	{
+		const ULevel* Level = Owner->GetLevel();
+		if (Level)
+		{
+			return Level->bStaticComponentsRegisteredInStreamingManager;
+		}
+	}
+	return false;
+}
+
 void UPrimitiveComponent::CreateRenderState_Concurrent()
 {
 	// Make sure cached cull distance is up-to-date if its zero and we have an LD cull distance
@@ -500,9 +515,15 @@ void UPrimitiveComponent::CreateRenderState_Concurrent()
 		GetWorld()->Scene->AddPrimitive(this);
 	}
 
-	// To prevent processing components twice (since they are also processed in the FLevelTextureManager when the level becomes visible)
-	// here we only handles component that are already dynamic and that need an updates.
-	if (bHandledByStreamingManagerAsDynamic)
+	// Components are either registered as static or dynamic in the streaming manager.
+	// Static components are registered in batches the first frame the level becomes visible (or incrementally each frame when loaded but not yet visible). 
+	// The level static streaming data is never updated after this, and gets reused whenever the level becomes visible again (after being hidden).
+	// Dynamic components, on the other hand, are updated whenever their render states change.
+	// The following logic handles all cases where static components should fallback on the dynamic path.
+	// It is based on a design where each component must either have bHandledByStreamingManagerAsDynamic or bAttachedToStreamingManagerAsStatic set.
+	// If this is not the case, then the component has never been handled before.
+	// The bIgnoreStreamingManagerUpdate flag is used to prevent handling component that are already in the update list or that don't have streaming data.
+	if (!bIgnoreStreamingManagerUpdate && (Mobility != EComponentMobility::Static || bHandledByStreamingManagerAsDynamic || (!bAttachedToStreamingManagerAsStatic && OwnerLevelHasRegisteredStaticComponentsInStreamingManager(GetOwner()))))
 	{
 		FStreamingManagerCollection* Collection = IStreamingManager::Get_Concurrent();
 		if (Collection)
@@ -907,6 +928,9 @@ void UPrimitiveComponent::PostEditChangeProperty(FPropertyChangedEvent& Property
 	{
 		HandleCanEverAffectNavigationChange();
 	}
+
+	// Whatever changed, ensure the streaming data gets refreshed.
+	IStreamingManager::Get().NotifyPrimitiveUpdated(this);
 }
 
 bool UPrimitiveComponent::CanEditChange(const UProperty* InProperty) const
@@ -3061,6 +3085,28 @@ bool UPrimitiveComponent::ComponentOverlapMultiImpl(TArray<struct FOverlapResult
 	OutOverlaps.Reset();
 	return BodyInstance.OverlapMulti(OutOverlaps, World, /*pWorldToComponent=*/ nullptr, Pos, Quat, TestChannel, ParamsWithSelf, FCollisionResponseParams(GetCollisionResponseToChannels()), ObjectQueryParams);
 }
+
+#if WITH_EDITOR
+void UPrimitiveComponent::UpdateBounds()
+{
+	// Save old bounds
+	FBoxSphereBounds OriginalBounds = Bounds;
+
+	Super::UpdateBounds();
+
+	if (IsRegistered() && (GetWorld() != nullptr) && !GetWorld()->IsGameWorld() && (!OriginalBounds.Origin.Equals(Bounds.Origin) || !OriginalBounds.BoxExtent.Equals(Bounds.BoxExtent)) )
+	{
+		if (!bIgnoreStreamingManagerUpdate && !bHandledByStreamingManagerAsDynamic && bAttachedToStreamingManagerAsStatic)
+		{
+			FStreamingManagerCollection* Collection = IStreamingManager::Get_Concurrent();
+			if (Collection)
+			{
+				Collection->NotifyPrimitiveUpdated_Concurrent(this);
+			}
+		}
+	}
+}
+#endif
 
 void UPrimitiveComponent::UpdatePhysicsVolume( bool bTriggerNotifiers )
 {

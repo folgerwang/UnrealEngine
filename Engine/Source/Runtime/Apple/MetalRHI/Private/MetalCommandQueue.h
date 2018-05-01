@@ -3,6 +3,11 @@
 #pragma once
 
 #include <Metal/Metal.h>
+#include "device.hpp"
+#include "command_queue.hpp"
+#include "command_buffer.hpp"
+
+#include "Containers/LockFreeList.h"
 
 class FMetalCommandList;
 
@@ -84,6 +89,8 @@ typedef NS_OPTIONS(uint64, EMetalFeatures)
 	EMetalFeaturesFunctionConstants = 1llu << 34llu,
 	/** Supports efficient buffer-blits */
 	EMetalFeaturesEfficientBufferBlits = 1llu << 35llu,
+	/** Supports private buffer sub-allocation */
+	EMetalFeaturesPrivateBufferSubAllocation = 1llu << 36llu,
 };
 
 /**
@@ -99,7 +106,7 @@ public:
 	 * @param Device The Metal device to create on.
 	 * @param MaxNumCommandBuffers The maximum number of incomplete command-buffers, defaults to 0 which implies the system default.
 	 */
-	FMetalCommandQueue(id<MTLDevice> Device, uint32 const MaxNumCommandBuffers = 0);
+	FMetalCommandQueue(mtlpp::Device Device, uint32 const MaxNumCommandBuffers = 0);
 	
 	/** Destructor */
 	~FMetalCommandQueue(void);
@@ -111,13 +118,13 @@ public:
 	 * Instead call EndEncoding & CommitCommandBuffer before calling this.
 	 * @param CommandBuffer The new command buffer to begin encoding to.
 	 */
-	id<MTLCommandBuffer> CreateCommandBuffer(void);
+	mtlpp::CommandBuffer CreateCommandBuffer(void);
 	
 	/**
 	 * Commit the supplied command buffer immediately.
 	 * @param CommandBuffer The command buffer to commit, must be non-nil.
  	 */
-	void CommitCommandBuffer(id<MTLCommandBuffer> const CommandBuffer);
+	void CommitCommandBuffer(mtlpp::CommandBuffer& CommandBuffer);
 	
 	/**
 	 * Deferred contexts submit their internal lists of command-buffers out of order, the command-queue takes ownership and handles reordering them & lazily commits them once all command-buffer lists are submitted.
@@ -125,18 +132,21 @@ public:
 	 * @param Index The 0-based index to commit BufferList's contents into relative to other active deferred contexts.
 	 * @param Count The total number of deferred contexts that will submit - only once all are submitted can any command-buffer be committed.
 	 */
-	void SubmitCommandBuffers(NSArray<id<MTLCommandBuffer>>* BufferList, uint32 Index, uint32 Count);
+	void SubmitCommandBuffers(TArray<mtlpp::CommandBuffer> BufferList, uint32 Index, uint32 Count);
 
 	/** @returns Creates a new MTLFence or nil if this is unsupported */
-	id<MTLFence> CreateFence(NSString* Label) const;
+	mtlpp::Fence CreateFence(ns::String const& Label) const;
+	
+	/** @params Fences An array of command-buffer fences for the committed command-buffers */
+	void GetCommittedCommandBufferFences(TArray<mtlpp::CommandBufferFence>& Fences);
 	
 #pragma mark - Public Command Queue Accessors -
 	
 	/** @returns The command queue's native device. */
-	id<MTLDevice> GetDevice(void) const;
+	mtlpp::Device& GetDevice(void);
 	
 	/** Converts a Metal v1.1+ resource option to something valid on the current version. */
-	NSUInteger GetCompatibleResourceOptions(MTLResourceOptions Options) const;
+	mtlpp::ResourceOptions GetCompatibleResourceOptions(mtlpp::ResourceOptions Options) const;
 	
 	/**
 	 * @param InFeature A specific Metal feature to check for.
@@ -171,11 +181,14 @@ public:
 	
 private:
 #pragma mark - Private Member Variables -
-	id<MTLCommandQueue> CommandQueue;
+	mtlpp::Device Device;
+	mtlpp::CommandQueue CommandQueue;
 #if METAL_STATISTICS
 	class IMetalStatistics* Statistics;
 #endif
-	TArray<NSArray<id<MTLCommandBuffer>>*> CommandBuffers;
+	TArray<TArray<mtlpp::CommandBuffer>> CommandBuffers;
+	TLockFreePointerListLIFO<mtlpp::CommandBufferFence> CommandBufferFences;
+	uint64 ParallelCommandLists;
 	int32 RuntimeDebuggingLevel;
 	NSUInteger PermittedOptions;
 	static uint64 Features;

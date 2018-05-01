@@ -145,6 +145,72 @@ bool IsReflectionCaptureAvailable()
 	return (!AllowStaticLightingVar || AllowStaticLightingVar->GetInt() != 0);
 }
 
+IMPLEMENT_UNIFORM_BUFFER_STRUCT(FReflectionUniformParameters, TEXT("ReflectionStruct"));
+
+void SetupReflectionUniformParameters(const FViewInfo& View, FReflectionUniformParameters& OutParameters)
+{
+	FTexture* SkyLightTextureResource = GBlackTextureCube;
+	FTexture* SkyLightBlendDestinationTextureResource = GBlackTextureCube;
+	float ApplySkyLightMask = 0;
+	float BlendFraction = 0;
+	bool bSkyLightIsDynamic = false;
+	float SkyAverageBrightness = 1.0f;
+
+	const bool bApplySkyLight = View.Family->EngineShowFlags.SkyLighting;
+	const FScene* Scene = (const FScene*)View.Family->Scene;
+
+	if (Scene
+		&& Scene->SkyLight 
+		&& Scene->SkyLight->ProcessedTexture
+		&& bApplySkyLight)
+	{
+		const FSkyLightSceneProxy& SkyLight = *Scene->SkyLight;
+		SkyLightTextureResource = SkyLight.ProcessedTexture;
+		BlendFraction = SkyLight.BlendFraction;
+
+		if (SkyLight.BlendFraction > 0.0f && SkyLight.BlendDestinationProcessedTexture)
+		{
+			if (SkyLight.BlendFraction < 1.0f)
+			{
+				SkyLightBlendDestinationTextureResource = SkyLight.BlendDestinationProcessedTexture;
+			}
+			else
+			{
+				SkyLightTextureResource = SkyLight.BlendDestinationProcessedTexture;
+				BlendFraction = 0;
+			}
+		}
+		
+		ApplySkyLightMask = 1;
+		bSkyLightIsDynamic = !SkyLight.bHasStaticLighting && !SkyLight.bWantsStaticShadowing;
+		SkyAverageBrightness = SkyLight.AverageBrightness;
+	}
+
+	const int32 CubemapWidth = SkyLightTextureResource->GetSizeX();
+	const float SkyMipCount = FMath::Log2(CubemapWidth) + 1.0f;
+
+	OutParameters.SkyLightCubemap = SkyLightTextureResource->TextureRHI;
+	OutParameters.SkyLightCubemapSampler = SkyLightTextureResource->SamplerStateRHI;
+	OutParameters.SkyLightBlendDestinationCubemap = SkyLightBlendDestinationTextureResource->TextureRHI;
+	OutParameters.SkyLightBlendDestinationCubemapSampler = SkyLightBlendDestinationTextureResource->SamplerStateRHI;
+	OutParameters.SkyLightParameters = FVector4(SkyMipCount - 1.0f, ApplySkyLightMask, bSkyLightIsDynamic ? 1.0f : 0.0f, BlendFraction);
+	OutParameters.SkyLightCubemapBrightness = SkyAverageBrightness;
+
+	// Note: GBlackCubeArrayTexture has an alpha of 0, which is needed to represent invalid data so the sky cubemap can still be applied
+	FTextureRHIParamRef CubeArrayTexture = View.FeatureLevel >= ERHIFeatureLevel::SM5 ? GBlackCubeArrayTexture->TextureRHI : GBlackTextureCube->TextureRHI;
+
+	if (View.Family->EngineShowFlags.ReflectionEnvironment 
+		&& View.FeatureLevel >= ERHIFeatureLevel::SM5
+		&& Scene
+		&& Scene->ReflectionSceneData.CubemapArray.IsValid())
+	{
+		CubeArrayTexture = Scene->ReflectionSceneData.CubemapArray.GetRenderTarget().ShaderResourceTexture;
+	}
+
+	OutParameters.ReflectionCubemap = CubeArrayTexture;
+	OutParameters.ReflectionCubemapSampler = TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+}
+
 void FReflectionEnvironmentCubemapArray::InitDynamicRHI()
 {
 	if (GetFeatureLevel() >= ERHIFeatureLevel::SM5)
@@ -294,7 +360,7 @@ void FReflectionEnvironmentCubemapArray::ResizeCubemapArrayGPU(uint32 InMaxCubem
 						// For now, we'll just do this on RHIs where we know CopyToResolveTarget does the right thing. In future we should look to 
 						// add a a new RHI method
 						check(GRHISupportsResolveCubemapFaces);
-						RHICmdList.CopyToResolveTarget(OldReflectionEnvs->GetRenderTargetItem().ShaderResourceTexture, ReflectionEnvs->GetRenderTargetItem().ShaderResourceTexture, true, ResolveParams);
+						RHICmdList.CopyToResolveTarget(OldReflectionEnvs->GetRenderTargetItem().ShaderResourceTexture, ReflectionEnvs->GetRenderTargetItem().ShaderResourceTexture, ResolveParams);
 					}
 				}
 			}
@@ -411,16 +477,14 @@ public:
 	FReflectionEnvironmentTiledDeferredPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		ReflectionCubemap.Bind(Initializer.ParameterMap,TEXT("ReflectionCubemap"));
 		ReflectionCubemapSampler.Bind(Initializer.ParameterMap,TEXT("ReflectionCubemapSampler"));
 		ScreenSpaceReflectionsTexture.Bind(Initializer.ParameterMap, TEXT("ScreenSpaceReflectionsTexture"));
 		ScreenSpaceReflectionsSampler.Bind(Initializer.ParameterMap, TEXT("ScreenSpaceReflectionsSampler"));
 		PreIntegratedGF.Bind(Initializer.ParameterMap, TEXT("PreIntegratedGF"));
 		PreIntegratedGFSampler.Bind(Initializer.ParameterMap, TEXT("PreIntegratedGFSampler"));
-		SkyLightParameters.Bind(Initializer.ParameterMap);
 		SpecularOcclusionParameters.Bind(Initializer.ParameterMap);
-		ForwardLightingParameters.Bind(Initializer.ParameterMap);
 	}
 
 	FReflectionEnvironmentTiledDeferredPS()
@@ -438,7 +502,7 @@ public:
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		FScene* Scene = (FScene*)View.Family->Scene;
 
@@ -467,43 +531,41 @@ public:
 
 		SetTextureParameter(RHICmdList, ShaderRHI, PreIntegratedGF, PreIntegratedGFSampler, TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(), GSystemTextures.PreintegratedGF->GetRenderTargetItem().ShaderResourceTexture);
 	
-		SkyLightParameters.SetParameters(RHICmdList, ShaderRHI, Scene, View.Family->EngineShowFlags.SkyLighting);
+		FReflectionUniformParameters ReflectionUniformParameters;
+		SetupReflectionUniformParameters(View, ReflectionUniformParameters);
+		SetUniformBufferParameterImmediate(RHICmdList, ShaderRHI, GetUniformBufferParameter<FReflectionUniformParameters>(), ReflectionUniformParameters);
 
 		const float MinOcclusion = Scene->SkyLight ? Scene->SkyLight->MinOcclusion : 0;
 		const FVector OcclusionTint = Scene->SkyLight ? (const FVector&)Scene->SkyLight->OcclusionTint : FVector::ZeroVector;
 		SpecularOcclusionParameters.SetParameters(RHICmdList, ShaderRHI, DynamicBentNormalAO, CVarSkySpecularOcclusionStrength.GetValueOnRenderThread(), FVector4(OcclusionTint, MinOcclusion));
 
-		ForwardLightingParameters.Set(RHICmdList, ShaderRHI, View);
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, GetUniformBufferParameter<FForwardLightData>(), View.ForwardLightingResources->ForwardLightDataUniformBuffer);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
 	{		
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << ReflectionCubemap;
 		Ar << ReflectionCubemapSampler;
 		Ar << ScreenSpaceReflectionsTexture;
 		Ar << ScreenSpaceReflectionsSampler;
 		Ar << PreIntegratedGF;
 		Ar << PreIntegratedGFSampler;
-		Ar << SkyLightParameters;
 		Ar << SpecularOcclusionParameters;
-		Ar << ForwardLightingParameters;
 		return bShaderHasOutdatedParameters;
 	}
 
 private:
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderResourceParameter ReflectionCubemap;
 	FShaderResourceParameter ReflectionCubemapSampler;
 	FShaderResourceParameter ScreenSpaceReflectionsTexture;
 	FShaderResourceParameter ScreenSpaceReflectionsSampler;
 	FShaderResourceParameter PreIntegratedGF;
 	FShaderResourceParameter PreIntegratedGFSampler;
-	FSkyLightReflectionParameters SkyLightParameters;
 	FDistanceFieldAOSpecularOcclusionParameters SpecularOcclusionParameters;
-	FForwardLightingParameters ForwardLightingParameters;
 };
 
 template< uint32 bUseLightmaps, uint32 bHasSkyLight, uint32 bBoxCapturesOnly, uint32 bSphereCapturesOnly, uint32 bSupportDFAOIndirectOcclusion >
@@ -585,13 +647,13 @@ class FReflectionCaptureSpecularBouncePS : public FGlobalShader
 	FReflectionCaptureSpecularBouncePS() {}
 
 public:
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 
 	/** Initialization constructor. */
 	FReflectionCaptureSpecularBouncePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 	}
 
 	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View)
@@ -600,14 +662,14 @@ public:
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
 
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 	}
 
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		return bShaderHasOutdatedParameters;
 	}
 };

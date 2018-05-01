@@ -1,0 +1,150 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DiaphragmDOF/DOFHybridScatterCompilation.ush: Compile list of sample to scatter.
+=============================================================================*/
+
+#include "DOFHybridScatterCommon.ush"
+#include "../EyeAdaptationCommon.ush"
+
+
+//------------------------------------------------------- PARAMETERS
+
+// Parameters for ComputeScatterFactor.
+struct FHybridScatterInputs
+{
+	// ------- compile time constant category.
+
+	// Texture used for performing neighborhood comparison.
+	Texture2D NeighborhoodComparisonBuffer;
+	float2 NeighborhoodComparisonBufferInvSize;
+	float2 NeighborhoodComparisonMaxBufferUV;
+	
+	
+	// Minimum Coc radius absolute value to have to scater.
+	float MinScatteringCocRadius;
+	
+
+	// ------- run time pixel independent category.
+
+	float FrameExposureScale;
+	float4 ViewportRect;
+	
+	// ------- run time category.
+	float2 SvPosition;
+	float4 Color;
+	float CocRadius;
+
+	// Coordinate of input pixel.
+	float2 BufferUV;
+};
+
+// Determines whether a sample should be scattered.
+float ComputeScatterFactor(in const FHybridScatterInputs Parameters)
+{
+	// Neighborhood comparison to decide whether should scatter or not.
+	float ScatterFactor = 0;
+	{
+		// Minimal threshold.
+		const float Threshold = 0.7;
+
+		float LinearScale = rcp(Parameters.FrameExposureScale);
+		float LinearColorMaximum = 3 * LinearScale;
+
+		float4 SaturatedColor = min(Parameters.Color, LinearColorMaximum);
+
+		#if 1
+			const uint NeightborCount = 4;
+		#else
+			const uint NeightborCount = 9;
+		#endif
+
+		UNROLL
+		for (uint i = 0; i < NeightborCount; i++)
+		{
+			#if 1
+				const float2 Offset = kOffsetsCross3x3[i];
+			#else
+				const float2 Offset = kOffsetsSquare3x3[i];
+			#endif
+			if (all(Offset == 0))
+			{
+				continue;
+			}
+
+			float2 SampleUV = Parameters.BufferUV + Offset * Parameters.NeighborhoodComparisonBufferInvSize;
+
+			// Parameters.BufferUV is assumed to be already clamped.
+			if (Offset.x > 0)
+			{
+				SampleUV.x = min(SampleUV.x, Parameters.NeighborhoodComparisonMaxBufferUV.x);
+			}
+			if (Offset.y > 0)
+			{
+				SampleUV.y = min(SampleUV.y, Parameters.NeighborhoodComparisonMaxBufferUV.y);
+			}
+
+			float4 SampleColor = Parameters.NeighborhoodComparisonBuffer.SampleLevel(GlobalPointClampedSampler, SampleUV, 0);
+			float SampleCoc = SampleColor.a;
+
+			SampleColor = min(SampleColor, LinearColorMaximum);
+
+
+			float4 ColorDiff = max(SaturatedColor - SampleColor, 0);
+
+			// TODO: should do Luminance() instead?
+			float MajorDiff = max3(ColorDiff.r, ColorDiff.g, ColorDiff.b) * (Parameters.FrameExposureScale);
+
+			float SampleScatterFactor = saturate(MajorDiff * rcp(Threshold) - 1.0);
+
+			// Wether the sample should be considered because have CoC with same sign as input Coc.
+			float ConsiderSample = 1; // saturate(SampleCoc * Parameters.CocRadius * 1000000.0);
+
+			if (i == 0)
+			{
+				ScatterFactor = SampleScatterFactor * ConsiderSample;
+			}
+			else
+			{
+				ScatterFactor = max(ScatterFactor, SampleScatterFactor * ConsiderSample);
+			}
+		}
+	}
+
+	// Do not scater if the sample becomes really small.
+	ScatterFactor *= saturate(abs(Parameters.CocRadius) - Parameters.MinScatteringCocRadius);
+
+	// Do not scater if the Coc start to draw outside the viewport.
+	if (1)
+	{
+		float ClosestBorderDistance = float(min(
+			min(Parameters.SvPosition.x, Parameters.SvPosition.y),
+			min(Parameters.ViewportRect.z - Parameters.SvPosition.x, Parameters.ViewportRect.w - Parameters.SvPosition.y)));
+	
+		BRANCH
+		if (ClosestBorderDistance < abs(Parameters.CocRadius))
+		{
+			ScatterFactor *= saturate(ClosestBorderDistance - abs(Parameters.CocRadius));
+		}
+	}
+
+	// Do not scater if the post exposure intensity is too small.
+	// TODO: currently it depends on the resolution, which is weird.
+	if (1)
+	{
+		const float MinimalPerceivedLuminance = 0.1;
+
+		float PerceivedLuminance = Parameters.FrameExposureScale * Luminance(Parameters.Color.rgb);
+
+		ScatterFactor *= saturate((PerceivedLuminance - MinimalPerceivedLuminance) * rcp(MinimalPerceivedLuminance));
+	}
+
+	// Sharpen to remove sprites that are contributing not that much.
+	if (1)
+	{
+		const float Sharpen = 2;
+		ScatterFactor = max(ScatterFactor * Sharpen - (Sharpen - 1), 0);
+	}
+
+	return ScatterFactor;
+}

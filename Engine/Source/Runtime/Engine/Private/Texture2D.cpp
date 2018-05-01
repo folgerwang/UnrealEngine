@@ -186,6 +186,7 @@ void FTexture2DMipMap::Serialize(FArchive& Ar, UObject* Owner, int32 MipIdx)
 	BulkData.Serialize(Ar, Owner, MipIdx);
 	Ar << SizeX;
 	Ar << SizeY;
+	Ar << SizeZ;
 
 #if WITH_EDITORONLY_DATA
 	if (!bCooked)
@@ -534,22 +535,25 @@ bool UTexture2D::IsReadyForStreaming() const
 
 void UTexture2D::WaitForStreaming()
 {
-	// Make sure there are no pending requests in flight otherwise calling UpdateIndividualTexture could be prevented to defined a new requested mip.
-	while (	!IsReadyForStreaming() || UpdateStreamingStatus() ) 
+	if (bIsStreamable)
 	{
-		// Give up timeslice.
-		FPlatformProcess::Sleep(0);
-	}
-
-	// Update the wanted mip and stream in..		
-	if (IStreamingManager::Get().IsTextureStreamingEnabled())
-	{
-		IStreamingManager::Get().GetTextureStreamingManager().UpdateIndividualTexture( this );
-
-		while (	UpdateStreamingStatus() ) 
+		// Make sure there are no pending requests in flight otherwise calling UpdateIndividualTexture could be prevented to defined a new requested mip.
+		while (	!IsReadyForStreaming() || UpdateStreamingStatus() ) 
 		{
 			// Give up timeslice.
 			FPlatformProcess::Sleep(0);
+		}
+
+		// Update the wanted mip and stream in..		
+		if (IStreamingManager::Get().IsTextureStreamingEnabled())
+		{
+			IStreamingManager::Get().GetTextureStreamingManager().UpdateIndividualTexture( this );
+
+			while (	UpdateStreamingStatus() ) 
+			{
+				// Give up timeslice.
+				FPlatformProcess::Sleep(0);
+			}
 		}
 	}
 }
@@ -564,7 +568,8 @@ bool UTexture2D::UpdateStreamingStatus( bool bWaitForMipFading /*= false*/ )
 			PendingUpdate->Abort();
 		}
 
-		PendingUpdate->Tick(this, FTexture2DUpdate::TT_None);
+		// When the renderthread is the gamethread, allow the Tick to execute rendercommands.
+		PendingUpdate->Tick(this, GIsThreadedRendering ? FTexture2DUpdate::TT_None : FTexture2DUpdate::TT_Render);
 		if (!PendingUpdate->IsCompleted())
 		{
 			return true;

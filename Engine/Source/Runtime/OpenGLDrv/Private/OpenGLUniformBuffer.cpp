@@ -433,13 +433,19 @@ static void SetLayoutTable(FOpenGLUniformBuffer* NewUniformBuffer, const void* C
 	if (Layout.Resources.Num())
 	{
 		int32 NumResources = Layout.Resources.Num();
-		FRHIResource** InResources = (FRHIResource**)((uint8*)Contents + Layout.ResourceOffset);
 		NewUniformBuffer->ResourceTable.Empty(NumResources);
 		NewUniformBuffer->ResourceTable.AddZeroed(NumResources);
 		for (int32 i = 0; i < NumResources; ++i)
 		{
-			check(InResources[i]);
-			NewUniformBuffer->ResourceTable[i] = InResources[i];
+			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[i]);
+
+			// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
+			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && Layout.Resources[i] == UBMT_SRV))
+			{
+				check(Resource);
+			}
+
+			NewUniformBuffer->ResourceTable[i] = Resource;
 		}
 	}
 }

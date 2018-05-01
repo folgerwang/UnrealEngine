@@ -158,7 +158,7 @@ namespace MobileReflectionEnvironmentCapture
 						FIntPoint(MipSize, MipSize),
 						*VertexShader);
 
-					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, true, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
+					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
 				}
 			}
 		}
@@ -175,16 +175,18 @@ namespace MobileReflectionEnvironmentCapture
 			const int32 NumMips = FMath::CeilLogTwo(EffectiveTopMipSize) + 1;
 			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
+			RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, ProcessedTexture->TextureRHI);
+
 			// GPU copy back to the skylight's texture, which is not a render target
 			for (int32 MipIndex = 0; MipIndex < NumMips; MipIndex++)
 			{
 				// The source for this copy is the dest from the filtering pass
 				FSceneRenderTargetItem& EffectiveSource = GetEffectiveRenderTarget(SceneContext, false, MipIndex);
-
-				for (int32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
-				{
-					RHICmdList.CopyToResolveTarget(EffectiveSource.ShaderResourceTexture, ProcessedTexture->TextureRHI, true, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex, 0, 0));
-				}
+				RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EffectiveSource.ShaderResourceTexture);
+				FRHICopyTextureInfo CopyInfo(EffectiveSource.ShaderResourceTexture->GetSizeXYZ());
+				CopyInfo.NumArraySlices = 6;
+				RHICmdList.CopyTexture(EffectiveSource.ShaderResourceTexture, ProcessedTexture->TextureRHI, CopyInfo);
+				CopyInfo.AdvanceMip();
 			}
 		}
 	}
@@ -235,7 +237,7 @@ namespace MobileReflectionEnvironmentCapture
 				SourceDimensions,
 				*VertexShader);
 
-			RHICmdList.CopyToResolveTarget(EffectiveColorRT.TargetableTexture, EffectiveColorRT.ShaderResourceTexture, true, FResolveParams(FResolveRect(), (ECubeFace)CubeFace));
+			RHICmdList.CopyToResolveTarget(EffectiveColorRT.TargetableTexture, EffectiveColorRT.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace));
 		}
 
 		int32 DiffuseConvolutionSourceMip = INDEX_NONE;
@@ -292,7 +294,7 @@ namespace MobileReflectionEnvironmentCapture
 						FIntPoint(MipSize, MipSize),
 						*VertexShader);
 
-					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, true, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
+					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
 				}
 
 				if (MipSize == GDiffuseIrradianceCubemapSize)
@@ -375,7 +377,7 @@ namespace MobileReflectionEnvironmentCapture
 						FIntPoint(MipSize, MipSize),
 						*VertexShader);
 
-					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, true, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
+					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
 				}
 			}
 		}

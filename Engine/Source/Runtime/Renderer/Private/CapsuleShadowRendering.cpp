@@ -297,7 +297,7 @@ public:
 		LightPositionAndInvRadius.Bind(Initializer.ParameterMap, TEXT("LightPositionAndInvRadius"));
 		LightAngleAndNormalThreshold.Bind(Initializer.ParameterMap, TEXT("LightAngleAndNormalThreshold"));
 		ScissorRectMinAndSize.Bind(Initializer.ParameterMap, TEXT("ScissorRectMinAndSize"));
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		DownsampleFactor.Bind(Initializer.ParameterMap, TEXT("DownsampleFactor"));
 		NumShadowCapsules.Bind(Initializer.ParameterMap, TEXT("NumShadowCapsules"));
 		ShadowCapsuleShapes.Bind(Initializer.ParameterMap, TEXT("ShadowCapsuleShapes"));
@@ -375,7 +375,7 @@ public:
 			check(!ReceiverBentNormalTexture.IsBound());
 		}
 
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		SetShaderValue(RHICmdList, ShaderRHI, NumGroups, NumGroupsValue);
 
@@ -467,7 +467,7 @@ public:
 		Ar << RayStartOffsetDepthScale;
 		Ar << LightAngleAndNormalThreshold;
 		Ar << ScissorRectMinAndSize;
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << DownsampleFactor;
 		Ar << NumShadowCapsules;
 		Ar << ShadowCapsuleShapes;
@@ -495,7 +495,7 @@ private:
 	FShaderParameter RayStartOffsetDepthScale;
 	FShaderParameter LightAngleAndNormalThreshold;
 	FShaderParameter ScissorRectMinAndSize;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter DownsampleFactor;
 	FShaderParameter NumShadowCapsules;
 	FShaderResourceParameter ShadowCapsuleShapes;
@@ -650,7 +650,7 @@ public:
 	TCapsuleShadowingUpsamplePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		ShadowFactorsTexture.Bind(Initializer.ParameterMap,TEXT("ShadowFactorsTexture"));
 		ShadowFactorsSampler.Bind(Initializer.ParameterMap,TEXT("ShadowFactorsSampler"));
 		ScissorRectMinAndSize.Bind(Initializer.ParameterMap,TEXT("ScissorRectMinAndSize"));
@@ -662,7 +662,7 @@ public:
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		SetTextureParameter(RHICmdList, ShaderRHI, ShadowFactorsTexture, ShadowFactorsSampler, TStaticSamplerState<SF_Bilinear>::GetRHI(), ShadowFactorsTextureValue->GetRenderTargetItem().ShaderResourceTexture);
 	
@@ -674,7 +674,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << ShadowFactorsTexture;
 		Ar << ShadowFactorsSampler;
 		Ar << ScissorRectMinAndSize;
@@ -684,7 +684,7 @@ public:
 
 private:
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderResourceParameter ShadowFactorsTexture;
 	FShaderResourceParameter ShadowFactorsSampler;
 	FShaderParameter ScissorRectMinAndSize;
@@ -1427,6 +1427,8 @@ void FDeferredShadingSceneRenderer::RenderIndirectCapsuleShadows(
 							}
 						}
 			
+						RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, RayTracedShadowsRT->GetRenderTargetItem().UAV);
+
 						{
 							SCOPED_DRAW_EVENTF(RHICmdList, Upsample, TEXT("Upsample %dx%d"), ScissorRect.Width(), ScissorRect.Height());
 
@@ -1502,6 +1504,8 @@ void FDeferredShadingSceneRenderer::RenderIndirectCapsuleShadows(
 					}
 				}
 			}
+
+			RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, RenderTargets.GetData(), RenderTargets.Num());
 		}
 	}
 }

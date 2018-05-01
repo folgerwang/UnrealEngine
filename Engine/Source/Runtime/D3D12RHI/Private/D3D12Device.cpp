@@ -13,11 +13,11 @@ namespace D3D12RHI
 using namespace D3D12RHI;
 
 FD3D12Device::FD3D12Device() :
-	FD3D12Device(GDefaultGPUMask, nullptr)
+	FD3D12Device(FRHIGPUMask::GPU0(), nullptr)
 	{
 	}
 
-FD3D12Device::FD3D12Device(GPUNodeMask Node, FD3D12Adapter* InAdapter) :
+FD3D12Device::FD3D12Device(FRHIGPUMask Node, FD3D12Adapter* InAdapter) :
 	RTVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 256),
 	DSVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 256),
 	SRVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024),
@@ -113,7 +113,7 @@ void FD3D12Device::CreateCommandContexts()
 bool FD3D12Device::IsGPUIdle()
 {
 	FD3D12Fence& Fence = CommandListManager->GetFence();
-	return Fence.GetLastCompletedFence() >= (Fence.GetCurrentFence() - 1);
+	return Fence.IsFenceComplete(Fence.GetLastSignaledFence());
 }
 
 void FD3D12Device::SetupAfterDeviceCreation()
@@ -272,6 +272,25 @@ void FD3D12Device::Cleanup()
 	D3DX12Residency::DestroyResidencyManager(ResidencyManager);
 }
 
+ID3D12CommandQueue* FD3D12Device::GetD3DCommandQueue(ED3D12CommandQueueType InQueueType) const
+{
+	switch (InQueueType)
+	{
+	case ED3D12CommandQueueType::Default:
+		check(CommandListManager->GetQueueType() == InQueueType);
+		return CommandListManager->GetD3DCommandQueue();
+	case ED3D12CommandQueueType::Async:
+		check(AsyncCommandListManager->GetQueueType() == InQueueType);
+		return AsyncCommandListManager->GetD3DCommandQueue();
+	case ED3D12CommandQueueType::Copy:
+		check(CopyCommandListManager->GetQueueType() == InQueueType);
+		return CopyCommandListManager->GetD3DCommandQueue();
+	default:
+		check(false);
+		return nullptr;
+	}
+}
+
 void FD3D12Device::RegisterGPUWork(uint32 NumPrimitives, uint32 NumVertices)
 {
 	GetParentAdapter()->GetGPUProfiler().RegisterGPUWork(NumPrimitives, NumVertices);
@@ -287,20 +306,14 @@ void FD3D12Device::PopGPUEvent()
 	GetParentAdapter()->GetGPUProfiler().PopEvent();
 }
 
-void FD3D12Device::GetLocalVideoMemoryInfo(DXGI_QUERY_VIDEO_MEMORY_INFO* LocalVideoMemoryInfo)
-{
-#if PLATFORM_WINDOWS
-	TRefCountPtr<IDXGIAdapter3> Adapter3;
-	VERIFYD3D12RESULT(GetParentAdapter()->GetAdapter()->QueryInterface(IID_PPV_ARGS(Adapter3.GetInitReference())));
-
-	VERIFYD3D12RESULT(Adapter3->QueryVideoMemoryInfo(GetNodeIndex(), DXGI_MEMORY_SEGMENT_GROUP_LOCAL, LocalVideoMemoryInfo));
-#endif
-}
-
 void FD3D12Device::BlockUntilIdle()
 {
 	GetDefaultCommandContext().FlushCommands();
-	GetDefaultAsyncComputeContext().FlushCommands();
+
+	if (GEnableAsyncCompute)
+	{
+		GetDefaultAsyncComputeContext().FlushCommands();
+	}
 
 	GetCommandListManager().WaitForCommandQueueFlush();
 	GetCopyCommandListManager().WaitForCommandQueueFlush();

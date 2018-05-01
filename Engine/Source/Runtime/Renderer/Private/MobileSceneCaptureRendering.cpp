@@ -48,7 +48,7 @@ public:
 	{
 		InTexture.Bind(Initializer.ParameterMap, TEXT("InTexture"), SPF_Mandatory);
 		InTextureSampler.Bind(Initializer.ParameterMap, TEXT("InTextureSampler"));
-		SceneTextureParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 	}
 	FMobileSceneCaptureCopyPS() {}
 
@@ -67,7 +67,7 @@ public:
 	{
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, GetPixelShader(), View.ViewUniformBuffer);
 		SetTextureParameter(RHICmdList, GetPixelShader(), InTexture, InTextureSampler, SamplerStateRHI, TextureRHI);
-		SceneTextureParameters.Set(RHICmdList, GetPixelShader(), View);
+		SceneTextureParameters.Set(RHICmdList, GetPixelShader(), View.FeatureLevel, ESceneTextureSetupMode::All);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -338,7 +338,7 @@ void UpdateSceneCaptureContentMobile_RenderThread(
 	FSceneRenderer* SceneRenderer,
 	FRenderTarget* RenderTarget,
 	FTexture* RenderTargetTexture,
-	const FName OwnerName,
+	const FString& EventName,
 	const FResolveParams& ResolveParams)
 {
 	FMemMark MemStackMark(FMemStack::Get());
@@ -349,8 +349,6 @@ void UpdateSceneCaptureContentMobile_RenderThread(
 
 	{
 #if WANTS_DRAW_MESH_EVENTS
-		FString EventName;
-		OwnerName.ToString(EventName);
 		SCOPED_DRAW_EVENTF(RHICmdList, SceneCaptureMobile, TEXT("SceneCaptureMobile %s"), *EventName);
 #else
 		SCOPED_DRAW_EVENT(RHICmdList, UpdateSceneCaptureContentMobile_RenderThread);
@@ -442,7 +440,7 @@ void UpdateSceneCaptureContentMobile_RenderThread(
 			CopyCaptureToTarget(RHICmdList, Target, TargetSize, View, ViewRect, FSceneRenderTargets::Get(RHICmdList).GetSceneColorTexture()->GetTexture2D(), bNeedsFlippedCopy, SceneRenderer);
 		}
 
-		RHICmdList.CopyToResolveTarget(RenderTarget->GetRenderTargetTexture(), RenderTargetTexture->TextureRHI, false, ResolveParams);
+		RHICmdList.CopyToResolveTarget(RenderTarget->GetRenderTargetTexture(), RenderTargetTexture->TextureRHI, ResolveParams);
 	}
 	FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(RHICmdList, SceneRenderer);
 }

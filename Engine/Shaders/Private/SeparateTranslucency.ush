@@ -36,7 +36,7 @@ float4 NearestDepthNeighborUpsampling(float2 Position, float2 UV, Texture2D LowR
 	// Note: this upsample is specialized for half res to full res
     float4 LowResDepthBuffer = LowResDepthTexture.GatherRed(BilinearClampedSampler, UV);
     float4 LowResDepth = min(float4(ConvertFromDeviceZ(LowResDepthBuffer.x), ConvertFromDeviceZ(LowResDepthBuffer.y), ConvertFromDeviceZ(LowResDepthBuffer.z), ConvertFromDeviceZ(LowResDepthBuffer.w)), MaxOperationDepth.xxxx);
-	float FullResDepth = min(ConvertFromDeviceZ(SceneDepthTexture[uint2(Position.xy)].x), MaxOperationDepth);
+	float FullResDepth = min(ConvertFromDeviceZ(SceneTexturesStruct.SceneDepthTexture[uint2(Position.xy)].x), MaxOperationDepth);
 
 	float RelativeDepthThreshold = .1f;
 

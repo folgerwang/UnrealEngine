@@ -382,9 +382,6 @@ public:
 	/** Size this class uses in bytes */
 	uint32 GetMemoryFootprint();
 
-	// FDeferredCleanupInterface implementation.
-	virtual void FinishCleanup() { delete this; }
-
 	/** 
 	 * Retrieves the index of the primitive in the scene's primitives array.
 	 * This index is only valid until a primitive is added to or removed from

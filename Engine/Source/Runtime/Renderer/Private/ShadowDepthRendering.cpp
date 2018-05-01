@@ -59,6 +59,7 @@ public:
 		ShadowParameters.Bind(Initializer.ParameterMap);
 		ShadowViewProjectionMatrices.Bind(Initializer.ParameterMap, TEXT("ShadowViewProjectionMatrices"));
 		MeshVisibleToFace.Bind(Initializer.ParameterMap, TEXT("MeshVisibleToFace"));
+		BindSceneTextureUniformBufferDependentOnShadingPath(Initializer, PassUniformBuffer, PassUniformBuffer);
 	}
 
 	FShadowDepthVS() {}
@@ -77,10 +78,11 @@ public:
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FMaterial& Material,
 		const FSceneView& View,
-		const FProjectedShadowInfo* ShadowInfo
+		const FProjectedShadowInfo* ShadowInfo,
+		const FDrawingPolicyRenderState& DrawRenderState
 		)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(),MaterialRenderProxy,Material,View,View.ViewUniformBuffer,ESceneRenderTargetsMode::DontSet);
+		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(),MaterialRenderProxy,Material,View,DrawRenderState.GetViewUniformBuffer(),DrawRenderState.GetPassUniformBuffer());
 		ShadowParameters.SetVertexShader(RHICmdList, this, View, ShadowInfo, MaterialRenderProxy);
 		
 		if(ShadowViewProjectionMatrices.IsBound())
@@ -279,10 +281,11 @@ public:
 		FRHICommandList& RHICmdList, 
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FSceneView& View,
-		const FProjectedShadowInfo* ShadowInfo
+		const FProjectedShadowInfo* ShadowInfo,
+		const FDrawingPolicyRenderState& DrawRenderState
 		)
 	{
-		FBaseDS::SetParameters(RHICmdList, MaterialRenderProxy, View);
+		FBaseDS::SetParameters(RHICmdList, MaterialRenderProxy, View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 		ShadowParameters.SetDomainShader(RHICmdList, this, View, ShadowInfo, MaterialRenderProxy);
 		
 		if(ShadowViewProjectionMatrices.IsBound())
@@ -362,6 +365,7 @@ public:
 	{
 		ShadowViewProjectionMatrices.Bind(Initializer.ParameterMap, TEXT("ShadowViewProjectionMatrices"));
 		MeshVisibleToFace.Bind(Initializer.ParameterMap, TEXT("MeshVisibleToFace"));
+		BindSceneTextureUniformBufferDependentOnShadingPath(Initializer, PassUniformBuffer, PassUniformBuffer);
 	}
 
 	FOnePassPointShadowDepthGS() {}
@@ -476,6 +480,7 @@ public:
 		GvListHeadBuffer.Bind(Initializer.ParameterMap,TEXT("RWGvListHeadBuffer"));
 		VplListBuffer.Bind(Initializer.ParameterMap,TEXT("RWVplListBuffer"));
 		VplListHeadBuffer.Bind(Initializer.ParameterMap,TEXT("RWVplListHeadBuffer"));
+		BindSceneTextureUniformBufferDependentOnShadingPath(Initializer, PassUniformBuffer, PassUniformBuffer);
 	}
 
 	TShadowDepthBasePS() {}
@@ -485,12 +490,13 @@ public:
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FMaterial& Material,
 		const FSceneView& View,
-		const FProjectedShadowInfo* ShadowInfo
+		const FProjectedShadowInfo* ShadowInfo,
+		const FDrawingPolicyRenderState& DrawRenderState
 		)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
-		FMeshMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, Material, View, View.ViewUniformBuffer, ESceneRenderTargetsMode::DontSet);
+		FMeshMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, Material, View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 
 		SetShaderValue(RHICmdList, ShaderRHI, ShadowParams, FVector2D(ShadowInfo->GetShaderDepthBias(), ShadowInfo->InvMaxSubjectDepth));
 
@@ -863,7 +869,7 @@ void FShadowDepthDrawingPolicy<bRenderingReflectiveShadowMaps>::SetSharedState(F
 {
 	checkSlow(bDirectionalLight == PolicyContext.ShadowInfo->bDirectionalLight && bPreShadow == PolicyContext.ShadowInfo->bPreShadow);
 
-	VertexShader->SetParameters(RHICmdList, MaterialRenderProxy,*MaterialResource,*View,PolicyContext.ShadowInfo);
+	VertexShader->SetParameters(RHICmdList, MaterialRenderProxy,*MaterialResource,*View,PolicyContext.ShadowInfo,DrawRenderState);
 
 	if (GeometryShader)
 	{
@@ -872,13 +878,13 @@ void FShadowDepthDrawingPolicy<bRenderingReflectiveShadowMaps>::SetSharedState(F
 
 	if(HullShader && DomainShader)
 	{
-		HullShader->SetParameters(RHICmdList, MaterialRenderProxy,*View);
-		DomainShader->SetParameters(RHICmdList, MaterialRenderProxy,*View,PolicyContext.ShadowInfo);
+		HullShader->SetParameters(RHICmdList, MaterialRenderProxy,*View,DrawRenderState.GetViewUniformBuffer(),DrawRenderState.GetPassUniformBuffer());
+		DomainShader->SetParameters(RHICmdList, MaterialRenderProxy,*View,PolicyContext.ShadowInfo,DrawRenderState);
 	}
 
 	if (PixelShader)
 	{
-		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy,*MaterialResource,*View,PolicyContext.ShadowInfo);
+		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy,*MaterialResource,*View,PolicyContext.ShadowInfo,DrawRenderState);
 	}
 
 	// Set the shared mesh resources.
@@ -1496,8 +1502,17 @@ class FShadowParallelCommandListSet : public FParallelCommandListSet
 	EShadowDepthRenderMode RenderMode;
 
 public:
-	FShadowParallelCommandListSet(const FViewInfo& InView, const FSceneRenderer* InSceneRenderer, FRHICommandListImmediate& InParentCmdList, bool bInParallelExecute, bool bInCreateSceneContext, FProjectedShadowInfo& InProjectedShadowInfo, FSetShadowRenderTargetFunction InSetShadowRenderTargets, EShadowDepthRenderMode RenderModeIn )
-		: FParallelCommandListSet(GET_STATID(STAT_CLP_Shadow), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext)
+	FShadowParallelCommandListSet(
+		const FViewInfo& InView, 
+		const FSceneRenderer* InSceneRenderer, 
+		FRHICommandListImmediate& InParentCmdList, 
+		bool bInParallelExecute, 
+		bool bInCreateSceneContext, 
+		const FDrawingPolicyRenderState& InDrawRenderState,
+		FProjectedShadowInfo& InProjectedShadowInfo, 
+		FSetShadowRenderTargetFunction InSetShadowRenderTargets, 
+		EShadowDepthRenderMode RenderModeIn )
+		: FParallelCommandListSet(GET_STATID(STAT_CLP_Shadow), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext, InDrawRenderState)
 		, ProjectedShadowInfo(InProjectedShadowInfo)
 		, SetShadowRenderTargets(InSetShadowRenderTargets)
 		, RenderMode(RenderModeIn)
@@ -1734,7 +1749,29 @@ void FProjectedShadowInfo::CopyCachedShadowMap(FRHICommandList& RHICmdList, cons
 
 void FProjectedShadowInfo::RenderDepthInner(FRHICommandList& RHICmdList, FSceneRenderer* SceneRenderer, const FViewInfo* FoundView, FSetShadowRenderTargetFunction SetShadowRenderTargets, EShadowDepthRenderMode RenderMode)
 {
-	FDrawingPolicyRenderState DrawRenderState(*FoundView);
+	TUniformBufferRef<FSceneTexturesUniformParameters> DeferredPassUniformBuffer;
+	TUniformBufferRef<FMobileSceneTextureUniformParameters> MobilePassUniformBuffer;
+	FUniformBufferRHIParamRef PassUniformBuffer = nullptr;
+
+	if (FSceneInterface::GetShadingPath(FoundView->FeatureLevel) == EShadingPath::Deferred)
+	{
+		FSceneTexturesUniformParameters SceneTextureParameters;
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+		SetupSceneTextureUniformParameters(SceneContext, FoundView->FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
+		DeferredPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);	
+		PassUniformBuffer = DeferredPassUniformBuffer;
+	}
+
+	if (FSceneInterface::GetShadingPath(FoundView->FeatureLevel) == EShadingPath::Mobile)
+	{
+		FMobileSceneTextureUniformParameters SceneTextureParameters;
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+		SetupMobileSceneTextureUniformParameters(SceneContext, FoundView->FeatureLevel, false, SceneTextureParameters);
+		MobilePassUniformBuffer = TUniformBufferRef<FMobileSceneTextureUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);	
+		PassUniformBuffer = MobilePassUniformBuffer;
+	}
+	
+	FDrawingPolicyRenderState DrawRenderState(*FoundView, PassUniformBuffer);
 	SetStateForDepth(RHICmdList, RenderMode, DrawRenderState);
 	
 	if (CacheMode == SDCM_MovablePrimitivesOnly)
@@ -1769,7 +1806,7 @@ void FProjectedShadowInfo::RenderDepthInner(FRHICommandList& RHICmdList, FSceneR
 		{
 			check(RHICmdList.IsImmediate());
 			FRHICommandListImmediate& Immed = static_cast<FRHICommandListImmediate&>(RHICmdList);
-			FShadowParallelCommandListSet ParallelCommandListSet(*FoundView, SceneRenderer, Immed, CVarRHICmdShadowDeferredContexts.GetValueOnRenderThread() > 0, !bFlush, *this, SetShadowRenderTargets, RenderMode);
+			FShadowParallelCommandListSet ParallelCommandListSet(*FoundView, SceneRenderer, Immed, CVarRHICmdShadowDeferredContexts.GetValueOnRenderThread() > 0, !bFlush, DrawRenderState, *this, SetShadowRenderTargets, RenderMode);
 
 			// Draw the subject's static elements using static draw lists
 			if (bIsWholeSceneDirectionalShadow && RenderMode != ShadowDepthRenderMode_EmissiveOnly && RenderMode != ShadowDepthRenderMode_GIBlockingVolumes)
@@ -2302,9 +2339,9 @@ void FSceneRenderer::RenderShadowDepthMaps(FRHICommandListImmediate& RHICmdList)
 
 			{
 				// Resolve the shadow depth z surface.
-				RHICmdList.CopyToResolveTarget(DepthTarget.TargetableTexture, DepthTarget.ShaderResourceTexture, false, FResolveParams());
-				RHICmdList.CopyToResolveTarget(ColorTarget0.TargetableTexture, ColorTarget0.ShaderResourceTexture, false, FResolveParams());
-				RHICmdList.CopyToResolveTarget(ColorTarget1.TargetableTexture, ColorTarget1.ShaderResourceTexture, false, FResolveParams());
+				RHICmdList.CopyToResolveTarget(DepthTarget.TargetableTexture, DepthTarget.ShaderResourceTexture, FResolveParams());
+				RHICmdList.CopyToResolveTarget(ColorTarget0.TargetableTexture, ColorTarget0.ShaderResourceTexture, FResolveParams());
+				RHICmdList.CopyToResolveTarget(ColorTarget1.TargetableTexture, ColorTarget1.ShaderResourceTexture, FResolveParams());
 
 				FUnorderedAccessViewRHIParamRef UavsToReadable[2];
 				UavsToReadable[0] = LightPropagationVolume->GetGvListBufferUav();

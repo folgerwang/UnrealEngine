@@ -240,20 +240,7 @@ bool FAndroidTargetPlatform::SupportsVulkan() const
 #if WITH_ENGINE
 	EngineSettings.GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bSupportsVulkan"), bSupportsVulkan);
 #endif
-
-	// glslang library is needed for vulkan shader compiling
-	bool GlslangAvailable = false;
-#if PLATFORM_WINDOWS
-#if PLATFORM_64BITS
-	GlslangAvailable = true;
-#endif
-#elif PLATFORM_MAC
-	GlslangAvailable = true;
-#elif PLATFORM_LINUX
-	GlslangAvailable = false;	// @TODO: change when glslang library compiled for Linux
-#endif
-
-	return bSupportsVulkan && GlslangAvailable;
+	return bSupportsVulkan;
 }
 
 bool FAndroidTargetPlatform::SupportsSoftwareOcclusion() const

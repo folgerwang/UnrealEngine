@@ -246,6 +246,7 @@ protected:
 	TDistortionMeshVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		:	FMeshMaterialShader(Initializer)
 	{
+		BindSceneTextureUniformBufferDependentOnShadingPath(Initializer, PassUniformBuffer, PassUniformBuffer);
 	}
 
 	TDistortionMeshVS()
@@ -259,9 +260,9 @@ protected:
 
 public:
 	
-	void SetParameters(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FMaterialRenderProxy* MaterialRenderProxy,const FSceneView* View)
+	void SetParameters(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FMaterialRenderProxy* MaterialRenderProxy,const FSceneView* View, const FDrawingPolicyRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View->GetFeatureLevel()), *View, View->ViewUniformBuffer, ESceneRenderTargetsMode::SetTextures);
+		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View->GetFeatureLevel()), *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
@@ -283,7 +284,9 @@ protected:
 
 	TDistortionMeshHS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FBaseHS(Initializer)
-	{}
+	{
+		BindSceneTextureUniformBufferDependentOnShadingPath(Initializer, PassUniformBuffer, PassUniformBuffer);
+	}
 
 	TDistortionMeshHS() {}
 
@@ -306,7 +309,9 @@ protected:
 
 	TDistortionMeshDS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FBaseDS(Initializer)
-	{}
+	{
+		BindSceneTextureUniformBufferDependentOnShadingPath(Initializer, PassUniformBuffer, PassUniformBuffer);
+	}
 
 	TDistortionMeshDS() {}
 
@@ -340,8 +345,8 @@ public:
 	TDistortionMeshPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		:	FMeshMaterialShader(Initializer)
 	{
-//later?		MaterialParameters.Bind(Initializer.ParameterMap);
 		DistortionParams.Bind(Initializer.ParameterMap,TEXT("DistortionParams"));
+		BindSceneTextureUniformBufferDependentOnShadingPath(Initializer, PassUniformBuffer, PassUniformBuffer);
 	}
 
 	TDistortionMeshPS()
@@ -351,10 +356,11 @@ public:
 	void SetParameters(
 		FRHICommandList& RHICmdList, 
 		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FSceneView& View
+		const FSceneView& View,
+		const FDrawingPolicyRenderState& DrawRenderState
 		)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneRenderTargetsMode::SetTextures);
+		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 
 		float Ratio = View.UnscaledViewRect.Width() / (float)View.UnscaledViewRect.Height();
 		float Params[4];
@@ -431,7 +437,7 @@ public:
 	* @param CI - The command interface to execute the draw commands on.
 	* @param View - The view of the scene being drawn.
 	*/
-	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, const ContextDataType PolicyContext) const;
+	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FViewInfo* View, const ContextDataType PolicyContext) const;
 	
 	/** 
 	* Create bound shader state using the vertex decl from the mesh draw policy
@@ -448,7 +454,7 @@ public:
 	*/
 	void SetMeshRenderState(
 		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
+		const FViewInfo& View,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
@@ -548,36 +554,40 @@ template<class DistortMeshPolicy>
 void TDistortionMeshDrawingPolicy<DistortMeshPolicy>::SetSharedState(
 	FRHICommandList& RHICmdList, 
 	const FDrawingPolicyRenderState& DrawRenderState,
-	const FSceneView* View,
+	const FViewInfo* View,
 	const ContextDataType PolicyContext
 	) const
 {
 	// Set shared mesh resources
 	FMeshDrawingPolicy::SetSharedState(RHICmdList, DrawRenderState, View, PolicyContext);
-
-	// Set the translucent shader parameters for the material instance
-	VertexShader->SetParameters(RHICmdList, VertexFactory,MaterialRenderProxy,View);
-
-	if(HullShader && DomainShader)
+	if (View->Family->UseDebugViewVSDSHS())
 	{
-		HullShader->SetParameters(RHICmdList, MaterialRenderProxy,*View);
-		DomainShader->SetParameters(RHICmdList, MaterialRenderProxy,*View);
+		FDebugViewMode::SetParametersVSHSDS(RHICmdList, MaterialRenderProxy, MaterialResource, *View, VertexFactory, HullShader && DomainShader, DrawRenderState);
+	}
+	else
+	{
+		// Set the translucent shader parameters for the material instance
+		VertexShader->SetParameters(RHICmdList, VertexFactory, MaterialRenderProxy, View, DrawRenderState);
+
+		if(HullShader && DomainShader)
+		{
+			HullShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
+			DomainShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
+		}
 	}
 
 	if (UseDebugViewPS())
 	{
 		check(!bInitializeOffsets);
+		IDebugViewModePSInterface* Interface = FDebugViewMode::GetPSInterface(View->ShaderMap, MaterialResource, GetDebugViewShaderMode());
+		Interface->SetParameters(RHICmdList, VertexShader, DistortPixelShader, MaterialRenderProxy, *MaterialResource, *View, DrawRenderState);
 //later		TShaderMapRef<FShaderComplexityAccumulatePixelShader> ShaderComplexityPixelShader(GetGlobalShaderMap(View->ShaderMap));
 		//don't add any vertex complexity
 //later		ShaderComplexityPixelShader->SetParameters(0, DistortPixelShader->GetNumInstructions());
 	}
-	if (bInitializeOffsets)
+	else if (!bInitializeOffsets)
 	{
-//later			InitializePixelShader->SetParameters(0, 0);
-	}
-	else
-	{
-		DistortPixelShader->SetParameters(RHICmdList, MaterialRenderProxy,*View);
+		DistortPixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, DrawRenderState);
 	}
 }
 
@@ -607,7 +617,7 @@ FBoundShaderStateInput TDistortionMeshDrawingPolicy<DistortMeshPolicy>::GetBound
 		PixelShaderRHIRef = DistortPixelShader->GetPixelShader();
 	}
 
-	return FBoundShaderStateInput(
+	FBoundShaderStateInput BoundShaderStateInput(
 		FMeshDrawingPolicy::GetVertexDeclaration(), 
 		VertexShader->GetVertexShader(),
 		GETSAFERHISHADER_HULL(HullShader), 
@@ -615,6 +625,12 @@ FBoundShaderStateInput TDistortionMeshDrawingPolicy<DistortMeshPolicy>::GetBound
 		PixelShaderRHIRef,
 		FGeometryShaderRHIRef());
 
+	if (UseDebugViewPS())
+	{
+		FDebugViewMode::PatchBoundShaderState(BoundShaderStateInput, MaterialResource, VertexFactory, InFeatureLevel, GetDebugViewShaderMode());
+	}
+
+	return BoundShaderStateInput;
 }
 
 /**
@@ -626,7 +642,7 @@ FBoundShaderStateInput TDistortionMeshDrawingPolicy<DistortMeshPolicy>::GetBound
 template<class DistortMeshPolicy>
 void TDistortionMeshDrawingPolicy<DistortMeshPolicy>::SetMeshRenderState(
 	FRHICommandList& RHICmdList, 
-	const FSceneView& View,
+	const FViewInfo& View,
 	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 	const FMeshBatch& Mesh,
 	int32 BatchElementIndex,
@@ -637,21 +653,34 @@ void TDistortionMeshDrawingPolicy<DistortMeshPolicy>::SetMeshRenderState(
 {
 
 	const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
-
-	// Set transforms
-	VertexShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
-
-	if(HullShader && DomainShader)
+	if (View.Family->UseDebugViewVSDSHS())
 	{
-		HullShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
-		DomainShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
+		FDebugViewMode::SetMeshVSHSDS(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState, MaterialResource, HullShader && DomainShader);
+	}
+	else
+	{
+		// Set transforms
+		VertexShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
+
+		if(HullShader && DomainShader)
+		{
+			HullShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
+			DomainShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
+		}
 	}
 	
-
-	// Don't set pixel shader constants if we are overriding with the shader complexity pixel shader
-	if (!bInitializeOffsets && !UseDebugViewPS())
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (UseDebugViewPS())
 	{
-		DistortPixelShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
+		IDebugViewModePSInterface* Interface = FDebugViewMode::GetPSInterface(View.ShaderMap, MaterialResource, GetDebugViewShaderMode());
+		Interface->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, Mesh.VisualizeLODIndex, BatchElement, DrawRenderState);
+	}
+	else
+#endif
+	// Don't set pixel shader constants if we are overriding with the shader complexity pixel shader
+	if (!bInitializeOffsets)
+	{
+		DistortPixelShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
 	}
 }
 
@@ -676,7 +705,7 @@ public:
 	*/
 	static bool DrawDynamicMesh(
 		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
+		const FViewInfo& View,
 		ContextType DrawingContext,
 		const FMeshBatch& Mesh,
 		bool bPreFog,
@@ -708,7 +737,7 @@ public:
 template<class DistortMeshPolicy>
 bool TDistortionMeshDrawingPolicyFactory<DistortMeshPolicy>::DrawDynamicMesh(
 	FRHICommandList& RHICmdList, 
-	const FSceneView& View,
+	const FViewInfo& View,
 	ContextType bInitializeOffsets,
 	const FMeshBatch& Mesh,
 	bool bPreFog,
@@ -1030,6 +1059,7 @@ void FSceneRenderer::RenderDistortion(FRHICommandListImmediate& RHICmdList)
 	}
 
 	bool bDirty = false;
+	bool bDebugShader = false;
 
 	TRefCountPtr<IPooledRenderTarget> DistortionRT;
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
@@ -1076,7 +1106,11 @@ void FSceneRenderer::RenderDistortion(FRHICommandListImmediate& RHICmdList)
 				// viewport to match view size
 				RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);	
 
-				FDrawingPolicyRenderState DrawRenderState(View);
+				FSceneTexturesUniformParameters SceneTextureParameters;
+				SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::All, SceneTextureParameters);
+				TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
+
+				FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
 
 				// test against depth and write stencil mask
 				DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<
@@ -1091,6 +1125,7 @@ void FSceneRenderer::RenderDistortion(FRHICommandListImmediate& RHICmdList)
 
 				// draw only distortion meshes to accumulate their offsets
 				bDirty |= View.DistortionPrimSet.DrawAccumulatedOffsets(RHICmdList, View, DrawRenderState, false);
+				bDebugShader |= View.Family->GetDebugViewShaderMode() != DVSM_None;
 			}
 
 			if (bDirty)
@@ -1103,7 +1138,7 @@ void FSceneRenderer::RenderDistortion(FRHICommandListImmediate& RHICmdList)
 		}
 	}
 
-	if(bDirty)
+	if (bDirty && !bDebugShader)
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_FSceneRenderer_RenderDistortion_Post);
 		SCOPED_DRAW_EVENT(RHICmdList, DistortionApply);
@@ -1190,7 +1225,7 @@ void FSceneRenderer::RenderDistortionES2(FRHICommandListImmediate& RHICmdList)
 		
 		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
-		RHICmdList.CopyToResolveTarget(SceneContext.GetSceneColorSurface(), SceneContext.GetSceneColorTexture(), true, FResolveRect(0, 0, FamilySize.X, FamilySize.Y));
+		RHICmdList.CopyToResolveTarget(SceneContext.GetSceneColorSurface(), SceneContext.GetSceneColorTexture(), FResolveRect(0, 0, FamilySize.X, FamilySize.Y));
 
 		TRefCountPtr<IPooledRenderTarget> SceneColorDistorted;
 		FPooledRenderTargetDesc Desc = SceneContext.GetSceneColor()->GetDesc();
@@ -1257,7 +1292,11 @@ void FSceneRenderer::RenderDistortionES2(FRHICommandListImmediate& RHICmdList)
 			// Set the view family's render target/viewport.
 			Context.SetViewportAndCallRHI(View.ViewRect);
 
-			FDrawingPolicyRenderState DrawRenderState(View);
+			FMobileSceneTextureUniformParameters SceneTextureParameters;
+			SetupMobileSceneTextureUniformParameters(SceneContext, View.FeatureLevel, true, SceneTextureParameters);
+			TUniformBufferRef<FMobileSceneTextureUniformParameters> MobilePassUniformBuffer = TUniformBufferRef<FMobileSceneTextureUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
+
+			FDrawingPolicyRenderState DrawRenderState(View, MobilePassUniformBuffer);
 			// test against depth
 			DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
 			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());

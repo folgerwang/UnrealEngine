@@ -43,7 +43,8 @@ public:
 		const FShader* OriginalPS, 
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FMaterial& Material,
-		const FSceneView& View
+		const FSceneView& View,
+		const FDrawingPolicyRenderState& DrawRenderState
 		) override {}
 
 	virtual void SetMesh(
@@ -160,21 +161,22 @@ void FDebugViewMode::SetParametersVSHSDS(
 	const FMaterial* Material, 
 	const FSceneView& View,
 	const FVertexFactory* VertexFactory,
-	bool bHasHullAndDomainShader
+	bool bHasHullAndDomainShader, 
+	const FDrawingPolicyRenderState& DrawRenderState
 	)
 {
-	VertexFactory->Set(View.GetShaderPlatform(), RHICmdList);
+	VertexFactory->SetStreams(View.GetFeatureLevel(), RHICmdList);
 
 	GetMaterialForVSHSDS(&MaterialRenderProxy, &Material, View.GetFeatureLevel());
 
 	FVertexFactoryType* VertexFactoryType = VertexFactory->GetType();
 
-	Material->GetShader<FDebugViewModeVS>(VertexFactoryType)->SetParameters(RHICmdList, MaterialRenderProxy, *Material, View);
+	Material->GetShader<FDebugViewModeVS>(VertexFactoryType)->SetParameters(RHICmdList, MaterialRenderProxy, *Material, View, DrawRenderState);
 
 	if (bHasHullAndDomainShader)
 	{
-		Material->GetShader<FDebugViewModeHS>(VertexFactoryType)->SetParameters(RHICmdList, MaterialRenderProxy, View);
-		Material->GetShader<FDebugViewModeDS>(VertexFactoryType)->SetParameters(RHICmdList, MaterialRenderProxy, View);
+		Material->GetShader<FDebugViewModeHS>(VertexFactoryType)->SetParameters(RHICmdList, MaterialRenderProxy, View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
+		Material->GetShader<FDebugViewModeDS>(VertexFactoryType)->SetParameters(RHICmdList, MaterialRenderProxy, View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 	}
 }
 

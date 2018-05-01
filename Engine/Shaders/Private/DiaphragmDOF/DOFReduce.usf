@@ -1,0 +1,395 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DiaphragmDOF/DOFReduce.usf: Diaphragm DOF's reduce pass. 
+=============================================================================*/
+
+#include "DOFDownsample.ush"
+#include "DOFHybridScatterCompilation.ush"
+
+
+//------------------------------------------------------- COMPILE TIME CONSTANTS
+
+#define SHARED_REDUCE_COUNT 3
+
+#define OUTPUT_MIP_COUNT (SHARED_REDUCE_COUNT + 1)
+
+#define THREADGROUP_TILE_SIZE (1 << SHARED_REDUCE_COUNT)
+#define THREADGROUP_TOTALSIZE (THREADGROUP_TILE_SIZE * THREADGROUP_TILE_SIZE)
+
+
+//------------------------------------------------------- PARAMETERS
+
+uint MaxScatteringGroupCount;
+float2 MaxInputBufferUV;
+
+float MinScatteringCocRadius;
+
+float2 PreProcessingToProcessingCocRadiusFactor;
+
+
+//------------------------------------------------------- OUTPUTS
+
+RWTexture2D<float4>	Output0Mip0;
+RWTexture2D<float4>	Output0Mip1;
+RWTexture2D<float4>	Output0Mip2;
+RWTexture2D<float4>	Output0Mip3;
+RWTexture2D<float4>	Output0Mip4;
+
+#if DIM_HYBRID_SCATTER_FGD || DIM_HYBRID_SCATTER_BGD
+	RWBuffer<uint> OutScatterDrawIndirectParameters;
+
+	RWStructuredBuffer<float4> OutForegroundScatterDrawList;
+	RWStructuredBuffer<float4> OutBackgroundScatterDrawList;
+#endif
+
+
+//------------------------------------------------------- LDS
+
+groupshared uint SharedForegroundScatterGroupMask;
+groupshared uint SharedBackgroundScatterGroupMask;
+
+groupshared uint SharedForegroundAtomic;
+groupshared uint SharedBackgroundAtomic;
+
+groupshared float4 GroupSharedArray[THREADGROUP_TOTALSIZE];
+
+
+//------------------------------------------------------- FUNCTIONS
+
+uint SignedRightShift(uint x, const int bitshift)
+{
+	if (bitshift > 0)
+	{
+		return x << asuint(bitshift);
+	}
+	else if (bitshift < 0)
+	{
+		return x >> asuint(-bitshift);
+	}
+	return x;
+}
+
+// Returns the pixel pos [[0; N[[^2 in a two dimensional tile size of N=2^TileSizeLog2, to
+// store at a given SharedArrayId in [[0; N^2[[, so that a following recursive 2x2 pixel
+// block reduction stays entirely LDS memory banks coherent.
+uint2 InitialTilePixelPositionForReduction2x2(const uint TileSizeLog2, uint SharedArrayId)
+{
+	uint x = 0;
+	uint y = 0;
+
+	UNROLL
+	for (uint i = 0; i < TileSizeLog2; i++)
+	{
+		const uint DestBitId = TileSizeLog2 - 1 - i;
+		const uint DestBitMask = 1 << DestBitId;
+		x |= DestBitMask & SignedRightShift(SharedArrayId, int(DestBitId) - int(i * 2 + 0));
+		y |= DestBitMask & SignedRightShift(SharedArrayId, int(DestBitId) - int(i * 2 + 1));
+	}
+
+	#if 0
+	const uint N = 1 << TileSizeLog2;
+	return uint2(SharedArrayId / N, SharedArrayId - N * (SharedArrayId / N));
+	#endif
+
+	return uint2(x, y);
+}
+
+// Reduce using GroupSharedArray
+void ReduceOperator(uint OutId, uint ReduceBankSize, float CocRadiusMultiplier)
+{
+	// Gather the 4 imput samples. Eaches samples are on banks of size <ReduceBankSize> for coherent LDS memory access.
+	float4 Colors[4];
+	float CocRadii[4];
+	for (uint i = 0; i < 4; i++)
+	{
+		uint InSharedId = OutId + i * ReduceBankSize;
+		Colors[i] = GroupSharedArray[InSharedId];
+		CocRadii[i] = Colors[i].a;
+	}
+
+	// Downsample the 4 sample to one according to Coc.
+	float4 OutColor;
+	float OutCocRadius;
+	DownsampleSceneColorWithCoc(Colors, CocRadii, OutColor, OutCocRadius, CocRadiusMultiplier); 
+	
+	// Technically need a barrier, but in practice with a warp size >= 32, no need.
+	// GroupMemoryBarrierWithGroupSync();
+		
+	// Output to shared memory.
+	GroupSharedArray[OutId] = float4(OutColor.rgb, OutCocRadius);
+}
+
+
+//------------------------------------------------------- ENTRY POINT
+
+[numthreads(THREADGROUP_TILE_SIZE, THREADGROUP_TILE_SIZE, 1)]
+void ReduceCS(
+	uint2 GroupId : SV_GroupID,
+	uint GroupThreadIndex : SV_GroupIndex) 
+{
+	// Init LDS.
+	#if (DIM_HYBRID_SCATTER_FGD || DIM_HYBRID_SCATTER_BGD) && !COMPILER_SUPPORTS_WAVE_BIT_ORAND
+	{
+		SharedForegroundScatterGroupMask = 0;
+		SharedBackgroundScatterGroupMask = 0;
+		
+		GroupMemoryBarrierWithGroupSync();
+	}
+	#endif
+
+	// Gets group thread id to be fully LDS coherent.
+	uint2 GroupThreadId = InitialTilePixelPositionForReduction2x2(SHARED_REDUCE_COUNT, GroupThreadIndex);
+	uint2 DispatchThreadId = THREADGROUP_TILE_SIZE * GroupId + GroupThreadId;
+	
+	uint ScatteringGroupIndex = GroupThreadIndex & 0xF;
+	uint ScatteringGroupThreadIndex = GroupThreadIndex >> 4;
+
+
+	float2 BufferUV = (DispatchThreadId + 0.5) * PostprocessInput0Size.zw;
+
+	if (true)
+	{
+		BufferUV = min(BufferUV, MaxInputBufferUV);
+	}
+
+	// Fetch scene color.
+	float4 GatheredColor = 0;
+	float CocRadius = 0;
+	{
+		// Unpack scene color RGB and CocRadius.
+		GatheredColor = PostprocessInput0.SampleLevel(GlobalPointClampedSampler, BufferUV, 0);
+
+		CocRadius = GatheredColor.a;
+
+		// Convert Coc radius from preprocessing basis to processing basis.
+		CocRadius *= PreProcessingToProcessingCocRadiusFactor.x;
+	}
+
+	// Indirect dispatch 
+	#if DIM_HYBRID_SCATTER_FGD || DIM_HYBRID_SCATTER_BGD
+	{
+		const uint IndirectParameterSize = SCATTERING_INDIRECT_PARAMETER_SIZE;
+
+		float ScatterFactor;
+		
+		// Decides whether should hybrid scatter or not.
+		// It is fine to do it for sample outside viewport UV because they are discarded when the bokeh
+		// is getting close to viewport edge.
+		#if 0
+			if (1)
+		
+		#elif DIM_HYBRID_SCATTER_FGD && !DIM_HYBRID_SCATTER_BGD
+			BRANCH
+			if (CocRadius < -MinScatteringCocRadius)
+
+		#elif !DIM_HYBRID_SCATTER_FGD && DIM_HYBRID_SCATTER_BGD
+			BRANCH
+			if (CocRadius > MinScatteringCocRadius)
+
+		#else
+			BRANCH
+			if (abs(CocRadius) > MinScatteringCocRadius)
+		#endif
+		{
+			FHybridScatterInputs Parameters;
+			Parameters.NeighborhoodComparisonBuffer = PostprocessInput1;
+			Parameters.NeighborhoodComparisonBufferInvSize = PostprocessInput1Size.zw;
+			Parameters.NeighborhoodComparisonMaxBufferUV = MaxInputBufferUV;
+
+			Parameters.MinScatteringCocRadius = MinScatteringCocRadius;
+
+			Parameters.FrameExposureScale = EyeAdaptationLookup();
+			Parameters.ViewportRect = ViewportRect;
+
+			Parameters.SvPosition = (DispatchThreadId + 0.5);
+			Parameters.Color = GatheredColor;
+			Parameters.CocRadius = CocRadius;
+			Parameters.BufferUV = BufferUV;
+
+			ScatterFactor = ComputeScatterFactor(Parameters);
+		}
+		else
+		{
+			ScatterFactor = 0;
+		}
+
+		uint ScatteringGroupMask = 1 << ScatteringGroupIndex;
+		
+		const float ScatterFactorThreshold = 0.01;
+		uint bScatterThisColor = ScatterFactor > ScatterFactorThreshold;
+		uint bIsForeground = IsForeground(CocRadius);
+			
+		// Whether scattering group actually scatter or not.
+		uint ForegroundScatterGroupMask = 0;
+		uint BackgroundScatterGroupMask = 0;
+		#if COMPILER_SUPPORTS_WAVE_BIT_ORAND
+		{
+			#if DIM_HYBRID_SCATTER_FGD
+				ForegroundScatterGroupMask = WaveAllBitOr((ScatteringGroupMask * bScatterThisColor) * bIsForeground);
+			#endif
+			
+			#if DIM_HYBRID_SCATTER_BGD
+				BackgroundScatterGroupMask = WaveAllBitOr((ScatteringGroupMask * bScatterThisColor) * !bIsForeground);
+			#endif
+		}
+		#else // if !COMPILER_SUPPORTS_WAVE_BIT_ORAND
+		// Atomic or whether scattering group actually scatter or not.
+		{
+			BRANCH
+			if (DIM_HYBRID_SCATTER_FGD && bIsForeground)
+			{
+				uint Unused;
+				InterlockedOr(SharedForegroundScatterGroupMask, (ScatteringGroupMask * bScatterThisColor), Unused);
+			}
+			
+			BRANCH
+			if (DIM_HYBRID_SCATTER_BGD && !bIsForeground)
+			{
+				uint Unused;
+				InterlockedOr(SharedBackgroundScatterGroupMask, (ScatteringGroupMask * bScatterThisColor), Unused);
+			}
+			
+			GroupMemoryBarrierWithGroupSync();
+
+			#if DIM_HYBRID_SCATTER_FGD
+				ForegroundScatterGroupMask = SharedForegroundScatterGroupMask;
+			#endif
+			#if DIM_HYBRID_SCATTER_BGD
+				BackgroundScatterGroupMask = SharedBackgroundScatterGroupMask;
+			#endif
+		}
+		#endif // !COMPILER_SUPPORTS_WAVE_BIT_ORAND
+
+		// Allocate globally.
+		BRANCH
+		if (GroupThreadIndex == 0)
+		{
+			BRANCH
+			if (DIM_HYBRID_SCATTER_FGD && ForegroundScatterGroupMask)
+			{
+				uint ScatteringGroupCount = countbits(ForegroundScatterGroupMask);
+				InterlockedAdd(OutScatterDrawIndirectParameters[1 + 0 * IndirectParameterSize], ScatteringGroupCount, SharedForegroundAtomic);
+			}
+		
+			BRANCH
+			if (DIM_HYBRID_SCATTER_BGD && BackgroundScatterGroupMask)
+			{
+				uint ScatteringGroupCount = countbits(BackgroundScatterGroupMask);
+				InterlockedAdd(OutScatterDrawIndirectParameters[1 + 1 * IndirectParameterSize], ScatteringGroupCount, SharedBackgroundAtomic);
+			}
+		}
+		
+		#if COMPILER_SUPPORTS_WAVE_ONCE
+			if (WaveGetLaneCount() < THREADGROUP_TILE_SIZE * THREADGROUP_TILE_SIZE)
+			{
+				GroupMemoryBarrierWithGroupSync();
+			}
+		#else
+			GroupMemoryBarrierWithGroupSync();
+		#endif
+		
+		// Intensity loss factor caused by the area of confusion.
+		// TODO: no need min()
+		float IntensityLossFactor = min(1, SafeRcp(PI * CocRadius * CocRadius, 1.0));
+
+		// Enqueue scattering group in foreground scatter draw list.
+		BRANCH
+		if (DIM_HYBRID_SCATTER_FGD && (ScatteringGroupMask & ForegroundScatterGroupMask))
+		{
+			uint GroupScatteringOffset = countbits(ForegroundScatterGroupMask & (ScatteringGroupMask - 1));
+			uint IndirectDrawIndex = SharedForegroundAtomic + GroupScatteringOffset;
+			
+			BRANCH
+			if (IndirectDrawIndex < MaxScatteringGroupCount)
+			{
+				BRANCH
+				if (ScatteringGroupThreadIndex == 0)
+				{
+					OutForegroundScatterDrawList[5 * IndirectDrawIndex + 0] = float4(DispatchThreadId + 0.5, 0.0, 0.0);
+				}
+				
+				float4 ScatterColor = GatheredColor * (ScatterFactor * IntensityLossFactor * (IsForeground(CocRadius) ? 1 : 0));
+				OutForegroundScatterDrawList[5 * IndirectDrawIndex + ScatteringGroupThreadIndex + 1] = float4(ScatterColor.rgb, abs(CocRadius));
+			}
+			else
+			{
+				// If not scatering this Scattering group index, then ensure ScatterFactor = 1 in case of the OutScatterDrawList was full.
+				ScatterFactor = 0;
+			}
+		}
+
+		// Enqueue scattering group in background scatter draw list.
+		BRANCH
+		if (DIM_HYBRID_SCATTER_BGD && (ScatteringGroupMask & BackgroundScatterGroupMask))
+		{
+			uint GroupScatteringOffset = countbits(BackgroundScatterGroupMask & (ScatteringGroupMask - 1));
+			uint IndirectDrawIndex = SharedBackgroundAtomic + GroupScatteringOffset;
+			
+			BRANCH
+			if (IndirectDrawIndex < MaxScatteringGroupCount)
+			{
+				BRANCH
+				if (ScatteringGroupThreadIndex == 0)
+				{
+					OutBackgroundScatterDrawList[5 * IndirectDrawIndex + 0] = float4(DispatchThreadId + 0.5, 0.0, 0.0);
+				}
+				
+				float4 ScatterColor = GatheredColor * (ScatterFactor * IntensityLossFactor * (IsForeground(CocRadius) ? 0 : 1));
+				OutBackgroundScatterDrawList[5 * IndirectDrawIndex + ScatteringGroupThreadIndex + 1] = float4(ScatterColor.rgb, abs(CocRadius));
+			}
+			else
+			{
+				// If not scatering this Scattering group index, then ensure ScatterFactor = 1 in case of the OutScatterDrawList was full.
+				ScatterFactor = 0;
+			}
+		}
+
+		// Remove color intensity that has been scattered.
+		GatheredColor.rgb *= (1 - ScatterFactor);
+	}
+	#endif // DIM_HYBRID_SCATTER_FGD || DIM_HYBRID_SCATTER_BGD
+	
+	// Convert back.
+	// TODO: could clean that a little bit?
+	CocRadius *= PreProcessingToProcessingCocRadiusFactor.y;
+
+	// Unconditionaly output mip 0 in output buffer that is always a multiple of group size,
+	// for gathering pass to avoid having to clamp UV in gathering pass. 
+	Output0Mip0[DispatchThreadId] = float4(GatheredColor.rgb, CocRadius);
+
+	// Store color to LDS for reduction.
+	GroupSharedArray[GroupThreadIndex] = float4(GatheredColor.rgb, CocRadius);
+
+	// Output mip > 0 of the gathering pass.
+	UNROLL
+	for (uint i = 0; i < (DIM_REDUCE_MIP_COUNT - 1); i++)
+	{
+		const uint TileSize = THREADGROUP_TILE_SIZE / (1 << (i + 1));
+		const uint ReduceBankSize = TileSize * TileSize;
+		
+		// GroupSharedArray has been written before.
+		GroupMemoryBarrierWithGroupSync();
+		
+		if (GroupThreadIndex < ReduceBankSize)
+		{
+			const float CocRadiusMultiplier = 0.5 / float(1 << (i));
+
+			// Reduce.
+			ReduceOperator(GroupThreadIndex, ReduceBankSize, CocRadiusMultiplier);
+
+			// Output mip map.
+			uint2 MipPixelPos = GroupId * TileSize + InitialTilePixelPositionForReduction2x2(SHARED_REDUCE_COUNT - 1 - i, GroupThreadIndex);
+			
+			// This is hugly, but compile time.
+			if (i == 0)
+				Output0Mip1[MipPixelPos] = GroupSharedArray[GroupThreadIndex];
+			else if (i == 1)
+				Output0Mip2[MipPixelPos] = GroupSharedArray[GroupThreadIndex];
+			else if (i == 2)
+				Output0Mip3[MipPixelPos] = GroupSharedArray[GroupThreadIndex];
+			else if (i == 3)
+				Output0Mip4[MipPixelPos] = GroupSharedArray[GroupThreadIndex];
+		}
+	}
+}

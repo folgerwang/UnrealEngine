@@ -10,15 +10,41 @@
 #include "GlobalShader.h"
 #include "Serialization/MemoryReader.h"
 
-static TAutoConsoleVariable<int32> GStripGLSL(
-	TEXT("r.Vulkan.StripGlsl"),
+TAutoConsoleVariable<int32> GDynamicGlobalUBs(
+	TEXT("r.Vulkan.DynamicGlobalUBs"),
 	1,
-	TEXT("1 to remove glsl source (default)\n")\
-	TEXT("0 to keep glsl source in each shader for debugging"),
+	TEXT("2 to treat ALL uniform buffers as dynamic\n")\
+	TEXT("1 to treat global/packed uniform buffers as dynamic [default]\n")\
+	TEXT("0 to treat them as regular"),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe
 );
 
 static_assert(SF_Geometry + 1 == SF_Compute, "Assumes compute is after gfx stages!");
+
+
+static void ConvertPackedUBsToDynamic(FVulkanCodeHeader& CodeHeader)
+{
+	if (GDynamicGlobalUBs.GetValueOnAnyThread() > 1)
+	{
+		for (VkDescriptorType& Type : CodeHeader.NEWDescriptorInfo.DescriptorTypes)
+		{
+			if (Type ==VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+			{
+				Type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+			}
+		}
+	}
+	else if (GDynamicGlobalUBs.GetValueOnAnyThread() == 1)
+	{
+		for (auto Entry : CodeHeader.NEWPackedUBToVulkanBindingIndices)
+		{
+			uint8 BindingIndex = Entry.VulkanBindingIndex;
+			check(CodeHeader.NEWDescriptorInfo.DescriptorTypes[BindingIndex] == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			CodeHeader.NEWDescriptorInfo.DescriptorTypes[BindingIndex] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+		}
+	}
+}
+
 
 void FVulkanShader::Create(EShaderFrequency Frequency, const TArray<uint8>& InShaderCode)
 {
@@ -28,18 +54,19 @@ void FVulkanShader::Create(EShaderFrequency Frequency, const TArray<uint8>& InSh
 
 	Ar << CodeHeader;
 
+#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
+	if (GDynamicGlobalUBs.GetValueOnAnyThread() > 0)
+	{
+		ConvertPackedUBsToDynamic(CodeHeader);
+	}
+#endif
+
 	TArray<ANSICHAR> DebugNameArray;
 	Ar << DebugNameArray;
 	DebugName = ANSI_TO_TCHAR(DebugNameArray.GetData());
 
 	TArray<uint8> Spirv;
 	Ar << Spirv;
-
-	Ar << GlslSource;
-	if (GStripGLSL.GetValueOnAnyThread() == 1)
-	{
-		GlslSource.Empty(0);
-	}
 
 	int32 CodeOffset = Ar.Tell();
 
@@ -57,6 +84,17 @@ void FVulkanShader::Create(EShaderFrequency Frequency, const TArray<uint8>& InSh
 	check(Code != nullptr);
 	CodeSize = ModuleCreateInfo.codeSize;
 	ModuleCreateInfo.pCode = Code;
+
+#if VULKAN_SUPPORTS_VALIDATION_CACHE
+	VkShaderModuleValidationCacheCreateInfoEXT ValidationInfo;
+	if (Device->GetOptionalExtensions().HasEXTValidationCache)
+	{
+		FMemory::Memzero(ValidationInfo);
+		ValidationInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_VALIDATION_CACHE_CREATE_INFO_EXT;
+		ValidationInfo.validationCache = Device->GetValidationCache();
+		ModuleCreateInfo.pNext = &ValidationInfo;
+	}
+#endif
 
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateShaderModule(Device->GetInstanceHandle(), &ModuleCreateInfo, nullptr, &ShaderModule));
 
@@ -211,9 +249,7 @@ void FVulkanLayout::Compile()
 
 	const TArray<VkDescriptorSetLayout>& LayoutHandles = DescriptorSetLayout.GetHandles();
 
-#if !VULKAN_KEEP_CREATE_INFO
 	VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo;
-#endif
 	FMemory::Memzero(PipelineLayoutCreateInfo);
 	PipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	//PipelineLayoutCreateInfo.pNext = nullptr;
@@ -226,31 +262,27 @@ void FVulkanLayout::Compile()
 }
 
 
-#if !VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
+#if !VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 FOLDVulkanDescriptorSetRingBuffer::FOLDVulkanDescriptorSetRingBuffer(FVulkanDevice* InDevice)
 	: VulkanRHI::FDeviceChild(InDevice)
 	, CurrDescriptorSets(nullptr)
 {
 }
-
-FOLDVulkanDescriptorSetRingBuffer::~FOLDVulkanDescriptorSetRingBuffer()
-{
-}
 #endif
 
-void FVulkanDescriptorSetWriter::SetupDescriptorWrites(const FNEWVulkanShaderDescriptorInfo& Info, VkWriteDescriptorSet* InWriteDescriptors, VkDescriptorImageInfo* InImageInfo, VkDescriptorBufferInfo* InBufferInfo)
+uint32 FVulkanDescriptorSetWriter::SetupDescriptorWrites(const FNEWVulkanShaderDescriptorInfo& Info, VkWriteDescriptorSet* InWriteDescriptors, 
+	VkDescriptorImageInfo* InImageInfo, VkDescriptorBufferInfo* InBufferInfo, uint8* InBindingToDynamicOffsetMap)
 {
 	WriteDescriptors = InWriteDescriptors;
 	NumWrites = Info.DescriptorTypes.Num();
-	FullMask = ((uint64)1 << (uint64)Info.DescriptorTypes.Num()) - (uint64)1;
+	checkf(Info.DescriptorTypes.Num() <= 64, TEXT("Out of bits for Dirty Mask! More than 64 resources in one descriptor set!"));
+
+	BindingToDynamicOffsetMap = InBindingToDynamicOffsetMap;
 
 	BufferViewReferences.Empty(NumWrites);
 	BufferViewReferences.AddDefaulted(NumWrites);
 
-	checkf(Info.DescriptorTypes.Num() <= sizeof(FullMask) * 8, TEXT("Out of dirty mask bits! Need %d"), Info.DescriptorTypes.Num());
-
-	MarkAllDirty();
-
+	uint32 DynamicOffsetIndex = 0;
 	for (int32 Index = 0; Index < Info.DescriptorTypes.Num(); ++Index)
 	{
 		InWriteDescriptors->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -260,8 +292,12 @@ void FVulkanDescriptorSetWriter::SetupDescriptorWrites(const FNEWVulkanShaderDes
 
 		switch (Info.DescriptorTypes[Index])
 		{
-		case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
 		case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+			BindingToDynamicOffsetMap[Index] = DynamicOffsetIndex;
+			++DynamicOffsetIndex;
+			InWriteDescriptors->pBufferInfo = InBufferInfo++;
+			break;
+		case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
 		case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
 			InWriteDescriptors->pBufferInfo = InBufferInfo++;
 			break;
@@ -280,6 +316,8 @@ void FVulkanDescriptorSetWriter::SetupDescriptorWrites(const FNEWVulkanShaderDes
 		}
 		++InWriteDescriptors;
 	}
+
+	return DynamicOffsetIndex;
 }
 
 void FVulkanDescriptorSetsLayoutInfo::AddBindingsForStage(VkShaderStageFlagBits StageFlags, EDescriptorSetStage DescSet, const FVulkanCodeHeader& CodeHeader)
@@ -299,54 +337,8 @@ void FVulkanDescriptorSetsLayoutInfo::AddBindingsForStage(VkShaderStageFlagBits 
 	}
 }
 
-/*
-void FVulkanComputeShaderState::SetUniformBuffer(uint32 BindPoint, const FVulkanUniformBuffer* UniformBuffer)
-{
-	check(0);
-#if 0
-	uint32 VulkanBindingPoint = ComputeShader->GetBindingTable().UniformBufferBindingIndices[BindPoint];
 
-	check(UniformBuffer && (UniformBuffer->GetBufferUsageFlags() & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT));
-
-	VkDescriptorBufferInfo* BufferInfo = &DescriptorBufferInfo[BindPoint];
-	BufferInfo->buffer = UniformBuffer->GetHandle();
-	BufferInfo->range = UniformBuffer->GetSize();
-
-#if VULKAN_ENABLE_RHI_DEBUGGING
-	//DebugInfo.UBs[BindPoint] = UniformBuffer;
-#endif
-#endif
-}
-
-void FVulkanComputeShaderState::SetSRVTextureView(uint32 BindPoint, const FVulkanTextureView& TextureView)
-{
-	ensure(0);
-#if 0
-	uint32 VulkanBindingPoint = ComputeShader->GetBindingTable().CombinedSamplerBindingIndices[BindPoint];
-	DescriptorImageInfo[VulkanBindingPoint].imageView = TextureView.View;
-	//DescriptorSamplerImageInfoForStage[VulkanBindingPoint].imageLayout = (TextureView.BaseTexture->Surface.GetFullAspectMask() & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) != 0 ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
-
-	DirtySamplerStates = true;
-#if VULKAN_ENABLE_RHI_DEBUGGING
-	//DebugInfo.SRVIs[BindPoint] = &TextureView;
-#endif
-#endif
-}
-
-void FVulkanComputeShaderState::ResetState()
-{
-#if 0
-	DirtyPackedUniformBufferStaging = DirtyPackedUniformBufferStagingMask;
-#endif
-
-	CurrDescriptorSets = nullptr;
-
-	LastBoundPipeline = VK_NULL_HANDLE;
-}
-
-*/
-
-#if !VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
+#if !VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 FOLDVulkanDescriptorSetRingBuffer::FDescriptorSetsPair::~FDescriptorSetsPair()
 {
 	delete DescriptorSets;
@@ -432,11 +424,10 @@ FBoundShaderStateRHIRef FVulkanDynamicRHI::RHICreateBoundShaderState(
 	return new FVulkanBoundShaderState(VertexDeclarationRHI, VertexShaderRHI, PixelShaderRHI, HullShaderRHI, DomainShaderRHI, GeometryShaderRHI);
 }
 
-#if !VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
-FOLDVulkanDescriptorPool* FVulkanCommandListContext::AllocateDescriptorSets(const VkDescriptorSetAllocateInfo& InDescriptorSetAllocateInfo, const FVulkanDescriptorSetsLayout& Layout, VkDescriptorSet* OutSets)
+FVulkanDescriptorPool* FVulkanCommandListContext::AllocateDescriptorSets(const VkDescriptorSetAllocateInfo& InDescriptorSetAllocateInfo, const FVulkanDescriptorSetsLayout& Layout, VkDescriptorSet* OutSets)
 {
 #if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
-	FOLDVulkanDescriptorPool* Pool = nullptr;
+	FVulkanDescriptorPool* Pool = nullptr;
 	VkDescriptorSetAllocateInfo DescriptorSetAllocateInfo = InDescriptorSetAllocateInfo;
 	VkResult Result = VK_ERROR_OUT_OF_DEVICE_MEMORY;
 
@@ -458,7 +449,7 @@ FOLDVulkanDescriptorPool* FVulkanCommandListContext::AllocateDescriptorSets(cons
 		TypedDescriptorPools = &DescriptorPools.Add(Hash);
 	}
 #else
-	FOLDVulkanDescriptorPool* Pool = DescriptorPools.Last();
+	FVulkanDescriptorPool* Pool = DescriptorPools.Last();
 	VkDescriptorSetAllocateInfo DescriptorSetAllocateInfo = InDescriptorSetAllocateInfo;
 	VkResult Result = VK_ERROR_OUT_OF_DEVICE_MEMORY;
 	if (Pool->CanAllocate(Layout))
@@ -477,10 +468,10 @@ FOLDVulkanDescriptorPool* FVulkanCommandListContext::AllocateDescriptorSets(cons
 		{
 			// Spec says any negative value could be due to fragmentation, so create a new Pool. If it fails here then we really are out of memory!
 #if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
-			Pool = new FOLDVulkanDescriptorPool(Device, Layout);
+			Pool = new FVulkanDescriptorPool(Device, Layout);
 			TypedDescriptorPools->Add(Pool);
 #else
-			Pool = new FOLDVulkanDescriptorPool(Device);
+			Pool = new FVulkanDescriptorPool(Device);
 			DescriptorPools.Add(Pool);
 #endif
 			DescriptorSetAllocateInfo.descriptorPool = Pool->GetHandle();
@@ -490,4 +481,3 @@ FOLDVulkanDescriptorPool* FVulkanCommandListContext::AllocateDescriptorSets(cons
 
 	return Pool;
 }
-#endif

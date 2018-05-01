@@ -35,6 +35,7 @@
 #include "Engine/Texture2DDynamic.h"
 #include "Engine/TextureCube.h"
 #include "Engine/TextureRenderTargetCube.h"
+#include "Engine/VolumeTexture.h"
 #include "Styling/CoreStyle.h"
 
 #include "Materials/MaterialExpressionAbs.h"
@@ -181,6 +182,7 @@
 #include "Materials/MaterialExpressionAntialiasedTextureMask.h"
 #include "Materials/MaterialExpressionTextureSampleParameterSubUV.h"
 #include "Materials/MaterialExpressionTextureSampleParameterCube.h"
+#include "Materials/MaterialExpressionTextureSampleParameterVolume.h"
 #include "Materials/MaterialExpressionTextureCoordinate.h"
 #include "Materials/MaterialExpressionTime.h"
 #include "Materials/MaterialExpressionTransform.h"
@@ -229,9 +231,12 @@ FUObjectAnnotationSparseBool GMaterialFunctionsThatNeedSamplerFixup;
 /** Returns whether the given expression class is allowed. */
 bool IsAllowedExpressionType(UClass* Class, bool bMaterialFunction)
 {
+	static const auto AllowVolumeTextureAssetCreationVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowVolumeTextureAssetCreation"));
+
 	// Exclude comments from the expression list, as well as the base parameter expression, as it should not be used directly
 	const bool bSharedAllowed = Class != UMaterialExpressionComment::StaticClass() 
-		&& Class != UMaterialExpressionParameter::StaticClass();
+		&& Class != UMaterialExpressionParameter::StaticClass()
+		&& (Class != UMaterialExpressionTextureSampleParameterVolume::StaticClass() || AllowVolumeTextureAssetCreationVar->GetValueOnGameThread() != 0);
 
 	if (bMaterialFunction)
 	{
@@ -320,6 +325,9 @@ void GetMaterialValueTypeDescriptions(uint32 MaterialValueType, TArray<FText>& O
 				break;
 			case MCT_TextureCube:
 				OutDescriptions.Add(LOCTEXT("TextureCube", "Texture Cube"));
+				break;
+			case MCT_VolumeTexture:
+				OutDescriptions.Add(LOCTEXT("VolumeTexture", "Volume Texture"));
 				break;
 			case MCT_Texture:
 				OutDescriptions.Add(LOCTEXT("Texture", "Texture"));
@@ -1626,7 +1634,11 @@ int32 UMaterialExpressionTextureSample::Compile(class FMaterialCompiler* Compile
 				const EMaterialValueType TextureType = Compiler->GetParameterType(TextureCodeIndex);
 				if (TextureType == MCT_TextureCube && !Coordinates.GetTracedInput().Expression)
 				{
-					return CompilerError(Compiler, TEXT("UV input required for cubemap sample"));
+					return CompilerError(Compiler, TEXT("UVW input required for cubemap sample"));
+				}
+				else if (TextureType == MCT_VolumeTexture && !Coordinates.GetTracedInput().Expression)
+				{
+					return CompilerError(Compiler, TEXT("UVW input required for volume sample"));
 				}
 			}
 
@@ -2038,6 +2050,10 @@ uint32 UMaterialExpressionTextureObject::GetOutputType(int32 OutputIndex)
 	{
 		return MCT_TextureCube;
 	}
+	else if (Cast<UVolumeTexture>(Texture) != NULL)
+	{
+		return MCT_VolumeTexture;
+	}
 	else
 	{
 		return MCT_Texture2D;
@@ -2299,6 +2315,77 @@ const TCHAR* UMaterialExpressionTextureSampleParameterCube::GetRequirements()
 void UMaterialExpressionTextureSampleParameterCube::SetDefaultTexture()
 {
 	Texture = LoadObject<UTextureCube>(NULL, TEXT("/Engine/EngineResources/DefaultTextureCube.DefaultTextureCube"), NULL, LOAD_None, NULL);
+}
+
+//
+//  UMaterialExpressionTextureSampleParameterVolume
+//
+UMaterialExpressionTextureSampleParameterVolume::UMaterialExpressionTextureSampleParameterVolume(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		ConstructorHelpers::FObjectFinder<UVolumeTexture> DefaultVolumeTexture;
+		FText NAME_Texture;
+		FText NAME_Parameters;
+		FConstructorStatics()
+			: DefaultVolumeTexture(TEXT("/Engine/EngineResources/DefaultVolumeTexture"))
+			, NAME_Texture(LOCTEXT( "Texture", "Texture" ))
+			, NAME_Parameters(LOCTEXT( "Parameters", "Parameters" ))
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+	Texture = ConstructorStatics.DefaultVolumeTexture.Object;
+
+#if WITH_EDITORONLY_DATA
+	MenuCategories.Empty();
+	MenuCategories.Add(ConstructorStatics.NAME_Texture);
+	MenuCategories.Add(ConstructorStatics.NAME_Parameters);
+#endif
+}
+
+#if WITH_EDITOR
+int32 UMaterialExpressionTextureSampleParameterVolume::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
+{
+	if (!Coordinates.GetTracedInput().Expression)
+	{
+		return CompilerError(Compiler, TEXT("Volume sample needs UVW input"));
+	}
+
+	return UMaterialExpressionTextureSampleParameter::Compile(Compiler, OutputIndex);
+}
+
+void UMaterialExpressionTextureSampleParameterVolume::GetCaption(TArray<FString>& OutCaptions) const
+{
+	OutCaptions.Add(TEXT("ParamVolume")); 
+	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
+}
+#endif // WITH_EDITOR
+
+bool UMaterialExpressionTextureSampleParameterVolume::TextureIsValid( UTexture* InTexture )
+{
+	bool Result=false;
+	if (InTexture)
+	{
+		if( InTexture->GetClass() == UVolumeTexture::StaticClass() )
+		{
+			Result = true;
+		}
+	}
+	return Result;
+}
+
+const TCHAR* UMaterialExpressionTextureSampleParameterVolume::GetRequirements()
+{
+	return TEXT("Requires VolumeTexture");
+}
+
+void UMaterialExpressionTextureSampleParameterVolume::SetDefaultTexture()
+{
+	Texture = LoadObject<UVolumeTexture>(NULL, TEXT("/Engine/EngineResources/DefaultVolumeTexture.DefaultVolumeTexture"), NULL, LOAD_None, NULL);
 }
 
 /** 
@@ -11277,6 +11364,7 @@ int32 UMaterialExpressionFunctionInput::Compile(class FMaterialCompiler* Compile
 		MCT_Float4,
 		MCT_Texture2D,
 		MCT_TextureCube,
+		MCT_VolumeTexture,
 		MCT_StaticBool,
 		MCT_MaterialAttributes,
 		MCT_TextureExternal
@@ -11418,6 +11506,8 @@ uint32 UMaterialExpressionFunctionInput::GetInputType(int32 InputIndex)
 		return MCT_TextureCube;
 	case FunctionInput_TextureExternal:
 		return MCT_TextureExternal;
+	case FunctionInput_VolumeTexture:
+		return MCT_VolumeTexture;
 	case FunctionInput_StaticBool:
 		return MCT_StaticBool;
 	case FunctionInput_MaterialAttributes:

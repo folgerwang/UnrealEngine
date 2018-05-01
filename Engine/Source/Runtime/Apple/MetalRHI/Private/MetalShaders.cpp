@@ -70,41 +70,33 @@ public:
 	
 	~FMetalCompiledShaderCache()
 	{
-		for (TPair<FMetalCompiledShaderKey, id<MTLFunction>> Pair : Cache)
-		{
-			[Pair.Value release];
-		}
-		for (TPair<id<MTLFunction>, id<MTLLibrary>> Pair : LibCache)
-		{
-			[Pair.Value release];
-		}
 	}
 	
-	id<MTLFunction> FindRef(FMetalCompiledShaderKey Key)
+	mtlpp::Function FindRef(FMetalCompiledShaderKey const& Key)
 	{
 		FRWScopeLock(Lock, SLT_ReadOnly);
-		id<MTLFunction> Func = Cache.FindRef(Key);
+		mtlpp::Function Func = Cache.FindRef(Key);
 		return Func;
 	}
 	
-	id<MTLLibrary> FindLibrary(id<MTLFunction> Function)
+	mtlpp::Library FindLibrary(mtlpp::Function const& Function)
 	{
 		FRWScopeLock(Lock, SLT_ReadOnly);
-		id<MTLLibrary> Lib = LibCache.FindRef(Function);
+		mtlpp::Library Lib = LibCache.FindRef(Function.GetPtr());
 		return Lib;
 	}
 	
-	void Add(FMetalCompiledShaderKey Key, id<MTLLibrary> Lib, id<MTLFunction> Function)
+	void Add(FMetalCompiledShaderKey Key, mtlpp::Library const& Lib, mtlpp::Function const& Function)
 	{
 		FRWScopeLock(Lock, SLT_Write);
 		Cache.Add(Key, Function);
-		LibCache.Add(Function, [Lib retain]);
+		LibCache.Add(Function.GetPtr(), Lib);
 	}
 	
 private:
 	FRWLock Lock;
-	TMap<FMetalCompiledShaderKey, id<MTLFunction>> Cache;
-	TMap<id<MTLFunction>, id<MTLLibrary>> LibCache;
+	TMap<FMetalCompiledShaderKey, mtlpp::Function> Cache;
+	TMap<mtlpp::Function::Type, mtlpp::Library> LibCache;
 };
 
 static FMetalCompiledShaderCache& GetMetalCompiledShaderCache()
@@ -126,14 +118,10 @@ NSString* DecodeMetalSourceCode(uint32 CodeSize, TArray<uint8> const& Compressed
 			GlslCodeNSString = [[NSString stringWithUTF8String:UncompressedCode.GetData()] retain];
 		}
 	}
-	if (!GlslCodeNSString)
-	{
-		GlslCodeNSString = [@"Offline" retain];
-	}
 	return GlslCodeNSString;
 }
 
-static MTLLanguageVersion ValidateVersion(uint8 Version)
+static mtlpp::LanguageVersion ValidateVersion(uint8 Version)
 {
 	static uint32 MetalMacOSVersions[][3] = {
 		{10,11,6},
@@ -157,18 +145,18 @@ static MTLLanguageVersion ValidateVersion(uint8 Version)
 	
 	Version = FMath::Min(Version, (uint8)3);
 	
-	MTLLanguageVersion Result = MTLLanguageVersion1_1;
+	mtlpp::LanguageVersion Result = mtlpp::LanguageVersion::Version1_1;
 	if (Version < 3)
 	{
 #if PLATFORM_MAC
-		Result = Version == 0 ? MTLLanguageVersion1_1 : (MTLLanguageVersion)((1 << 16) + FMath::Min(Version, (uint8)2u));
+		Result = Version == 0 ? mtlpp::LanguageVersion::Version1_1 : (mtlpp::LanguageVersion)((1 << 16) + FMath::Min(Version, (uint8)2u));
 #else
-		Result = (MTLLanguageVersion)((1 << 16) + FMath::Min(Version, (uint8)2u));
+		Result = (mtlpp::LanguageVersion)((1 << 16) + FMath::Min(Version, (uint8)2u));
 #endif
 	}
 	else if (Version == 3)
 	{
-		Result = (MTLLanguageVersion)(2 << 16);
+		Result = (mtlpp::LanguageVersion)(2 << 16);
 	}
 	
 	if (!FApplePlatformMisc::IsOSAtLeastVersion(MetalMacOSVersions[Version], MetaliOSVersions[Version], MetaliOSVersions[Version]))
@@ -193,7 +181,7 @@ static MTLLanguageVersion ValidateVersion(uint8 Version)
 
 /** Initialization constructor. */
 template<typename BaseResourceType, int32 ShaderType>
-void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& InShaderCode, FMetalCodeHeader& Header, id<MTLLibrary> InLibrary)
+void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& InShaderCode, FMetalCodeHeader& Header, mtlpp::Library InLibrary)
 {
 	FShaderCodeReader ShaderCode(InShaderCode);
 
@@ -275,7 +263,7 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 		BufferTypeHash ^= Constant;
 	}
 	
-	Library = [InLibrary retain];
+	Library = InLibrary;
 	
 	bool bNeedsCompiling = false;
 	uint32 const Count = Header.bTessFunctionConstants ? EMetalIndexType_Num : 1;
@@ -285,10 +273,10 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 		uint32 FunctionConstantHash = i ^ ConstantValueHash;
 		FMetalCompiledShaderKey Key(Header.SourceLen, Header.SourceCRC, FunctionConstantHash, 0);
 		
-		Function[i][EMetalBufferType_Dynamic] = [GetMetalCompiledShaderCache().FindRef(Key) retain];
+		Function[i][EMetalBufferType_Dynamic] = GetMetalCompiledShaderCache().FindRef(Key);
 		if (!Library && Function[i][EMetalBufferType_Dynamic])
 		{
-			Library = [GetMetalCompiledShaderCache().FindLibrary(Function[i][EMetalBufferType_Dynamic]) retain];
+			Library = GetMetalCompiledShaderCache().FindLibrary(Function[i][EMetalBufferType_Dynamic]);
 		}
 		else
 		{
@@ -349,7 +337,7 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 		{
 			if (InLibrary)
 			{
-				Library = [InLibrary retain];
+				Library = InLibrary;
 			}
 			else
 			{
@@ -358,24 +346,23 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 				
 				// allow GCD to copy the data into its own buffer
 				//		dispatch_data_t GCDBuffer = dispatch_data_create(InShaderCode.GetTypedData() + CodeOffset, ShaderCode.GetActualShaderCodeSize() - CodeOffset, nil, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-                NSError* Error;
+				ns::AutoReleasedError AError;
 				void* Buffer = FMemory::Malloc( BufferSize );
 				FMemory::Memcpy( Buffer, InShaderCode.GetData() + CodeOffset, BufferSize );
 				dispatch_data_t GCDBuffer = dispatch_data_create(Buffer, BufferSize, dispatch_get_main_queue(), ^(void) { FMemory::Free(Buffer); } );
 				
 				// load up the already compiled shader
-				Library = [GetMetalDeviceContext().GetDevice() newLibraryWithData:GCDBuffer error:&Error];
+				Library = GetMetalDeviceContext().GetDevice().NewLibrary(GCDBuffer, &AError);
 				dispatch_release(GCDBuffer);
 				
                 if (Library == nil)
                 {
-                    NSLog(@"Failed to create library: %@", Error);
+					NSLog(@"Failed to create library: %@", ns::Error(AError).GetPtr());
                 }
 			}
 		}
 		else
 		{
-			NSError* Error;
 			NSString* ShaderString = ((OfflineCompiledFlag == 0) ? [NSString stringWithUTF8String:SourceCode] : GlslCodeNSString);
 			
 			if(Header.ShaderName.Len())
@@ -388,23 +375,23 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 			NSString* NewShaderString = [ShaderString stringByReplacingOccurrencesOfString:@"#include \"ue4_stdlib.metal\"" withString:UE4StdLibString];
 			NewShaderString = [NewShaderString stringByReplacingOccurrencesOfString:@"#pragma once" withString:@""];
 			
-			MTLCompileOptions *CompileOptions = [[MTLCompileOptions alloc] init];
+			mtlpp::CompileOptions CompileOptions;
 			
 #if DEBUG_METAL_SHADERS
 			static bool bForceFastMath = FParse::Param(FCommandLine::Get(), TEXT("metalfastmath"));
 			static bool bForceNoFastMath = FParse::Param(FCommandLine::Get(), TEXT("metalnofastmath"));
 			if (bForceNoFastMath)
 			{
-				CompileOptions.fastMathEnabled = NO;
+				CompileOptions.SetFastMathEnabled(NO);
 			}
 			else if (bForceFastMath)
 			{
-				CompileOptions.fastMathEnabled = YES;
+				CompileOptions.SetFastMathEnabled(YES);
 			}
 			else
 #endif
 			{
-				CompileOptions.fastMathEnabled = (BOOL)(!(Header.CompileFlags & (1 << CFLAG_NoFastMath)));
+				CompileOptions.SetFastMathEnabled((BOOL)(!(Header.CompileFlags & (1 << CFLAG_NoFastMath))));
 			}
 			
 #if !PLATFORM_MAC || DEBUG_METAL_SHADERS
@@ -415,36 +402,36 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 #if DEBUG_METAL_SHADERS
 			[PreprocessorMacros addEntriesFromDictionary: @{ @"MTLSL_ENABLE_DEBUG_INFO" : @(1)}];
 #endif
-			[CompileOptions setPreprocessorMacros : PreprocessorMacros];
+			CompileOptions.SetPreprocessorMacros(PreprocessorMacros);
 #endif
 			if (GetMetalDeviceContext().SupportsFeature(EMetalFeaturesShaderVersions))
 			{
 				if (Header.Version < 3)
 				{
 	#if PLATFORM_MAC
-					CompileOptions.languageVersion = Header.Version == 0 ? MTLLanguageVersion1_1 : (MTLLanguageVersion)((1 << 16) + FMath::Min(Header.Version, (uint8)2u));
+					CompileOptions.SetLanguageVersion(Header.Version == 0 ? mtlpp::LanguageVersion::Version1_1 : (mtlpp::LanguageVersion)((1 << 16) + FMath::Min(Header.Version, (uint8)2u)));
 	#else
-					CompileOptions.languageVersion = (MTLLanguageVersion)((1 << 16) + FMath::Min(Header.Version, (uint8)2u));
+					CompileOptions.SetLanguageVersion((mtlpp::LanguageVersion)((1 << 16) + FMath::Min(Header.Version, (uint8)2u)));
 	#endif
 				}
 				else if (Header.Version == 3)
 				{
-					CompileOptions.languageVersion = (MTLLanguageVersion)(2 << 16);
+					CompileOptions.SetLanguageVersion((mtlpp::LanguageVersion)(2 << 16));
 				}
 			}
-			Library = [GetMetalDeviceContext().GetDevice() newLibraryWithSource:NewShaderString options : CompileOptions error : &Error];
-			[CompileOptions release];
 			
+			ns::AutoReleasedError Error;
+			Library = GetMetalDeviceContext().GetDevice().NewLibrary(NewShaderString, CompileOptions, &Error);
 			if (Library == nil)
 			{
 				UE_LOG(LogRHI, Error, TEXT("*********** Error\n%s"), *FString(NewShaderString));
-				UE_LOG(LogRHI, Fatal, TEXT("Failed to create shader: %s"), *FString([Error description]));
+				UE_LOG(LogRHI, Fatal, TEXT("Failed to create shader: %s"), *FString([Error.GetPtr() description]));
 			}
 			else if (Error != nil)
 			{
 				// Warning...
 				UE_LOG(LogRHI, Warning, TEXT("*********** Warning\n%s"), *FString(NewShaderString));
-				UE_LOG(LogRHI, Warning, TEXT("Created shader with warnings: %s"), *FString([Error description]));
+				UE_LOG(LogRHI, Warning, TEXT("Created shader with warnings: %s"), *FString([Error.GetPtr() description]));
 			}
 			
 			GlslCodeNSString = NewShaderString;
@@ -468,20 +455,7 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 template<typename BaseResourceType, int32 ShaderType>
 TMetalBaseShader<BaseResourceType, ShaderType>::~TMetalBaseShader()
 {
-	for (uint32 i = 0; i < EMetalIndexType_Num; i++)
-	{
-        for (uint32 j = 0; j < EMetalBufferType_Num; j++)
-		{
-			if (Function[i][j])
-			{
-				UNTRACK_OBJECT(STAT_MetalFunctionCount, Function[i][j]);
-				[Function[i][j] release];
-			}
-		}
-	}
 	[GlslCodeNSString release];
-	[Library release];
-	Library = nil;
 }
 
 template<typename BaseResourceType, int32 ShaderType>
@@ -505,28 +479,28 @@ uint32 TMetalBaseShader<BaseResourceType, ShaderType>::GetBufferBindingHash(EPix
 }
 
 template<typename BaseResourceType, int32 ShaderType>
-id<MTLFunction> TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 InBufferTypeHash, bool const bAsync)
+mtlpp::Function TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 InBufferTypeHash, bool const bAsync)
 {
 	EMetalBufferType BT = (InBufferTypeHash == BufferTypeHash && BufferTypeHash) ? EMetalBufferType_Static : EMetalBufferType_Dynamic;
 	
-    id<MTLFunction> Func = Function[IndexType][BT];
+    mtlpp::Function Func = Function[IndexType][BT];
     
 	if (!Func)
 	{
 		// Find the existing compiled shader in the cache.
 		uint32 FunctionConstantHash = IndexType ^ ConstantValueHash;
 		FMetalCompiledShaderKey Key(SourceLen, SourceCRC, FunctionConstantHash, (InBufferTypeHash == BufferTypeHash) ? BufferTypeHash : 0);
-		Func = Function[IndexType][BT] = [GetMetalCompiledShaderCache().FindRef(Key) retain];
+		Func = Function[IndexType][BT] = GetMetalCompiledShaderCache().FindRef(Key);
 		
 		if (!Func)
 		{
 			// Get the function from the library - the function name is "Main" followed by the CRC32 of the source MTLSL as 0-padded hex.
 			// This ensures that even if we move to a unified library that the function names will be unique - duplicates will only have one entry in the library.
 			NSString* Name = [NSString stringWithFormat:@"Main_%0.8x_%0.8x", SourceLen, SourceCRC];
-            MTLFunctionConstantValues* ConstantValues = nil;
+			mtlpp::FunctionConstantValues ConstantValues(nil);
             if (bHasFunctionConstants)
             {
-                ConstantValues = [[MTLFunctionConstantValues new] autorelease];
+                ConstantValues = mtlpp::FunctionConstantValues();
 				
 				uint32 BoundBuffers = Bindings.TypedBuffers;
 				while(BoundBuffers)
@@ -540,13 +514,13 @@ id<MTLFunction> TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunct
 						{
 							// It all matches what is in the shader, so bind the MAX value to force it to elide all the switch-case stuff and just load as directly as possible
 							uint32 v = EMetalBufferFormat::Max;
-							[ConstantValues setConstantValues:&v type:MTLDataTypeUInt withRange:NSMakeRange(Index, 1)];
+							ConstantValues.SetConstantValues(&v, mtlpp::DataType::UInt, ns::Range(Index, 1));
 						}
 						else
 						{
 							// It doesn't match and we don't know what it will be, so load the type dynamically from the buffer meta-table - adds a lot of instructions and hurts performance
 							uint32 v = EMetalBufferFormat::Unknown;
-							[ConstantValues setConstantValues:&v type:MTLDataTypeUInt withRange:NSMakeRange(Index, 1)];
+							ConstantValues.SetConstantValues(&v, mtlpp::DataType::UInt, ns::Range(Index, 1));
 						}
 					}
 				}
@@ -554,12 +528,12 @@ id<MTLFunction> TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunct
                 if(bTessFunctionConstants)
                 {
                     // Index 32 is the tessellation index-buffer presence constant
-                    [ConstantValues setConstantValues:&IndexType type:MTLDataTypeUInt withRange:NSMakeRange(32, 1)];
+					ConstantValues.SetConstantValues(&IndexType, mtlpp::DataType::UInt, ns::Range(32, 1));
                 }
                 if (bDeviceFunctionConstants)
                 {
                     // Index 33 is the device vendor id constant
-                    [ConstantValues setConstantValue:&GRHIVendorId type:MTLDataTypeUInt withName:@"GMetalDeviceManufacturer"];
+					ConstantValues.SetConstantValue(&GRHIVendorId, mtlpp::DataType::UInt, @"GMetalDeviceManufacturer");
                 }
             }
             
@@ -567,33 +541,30 @@ id<MTLFunction> TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunct
             {
                 if (!bHasFunctionConstants)
                 {
-                    Function[IndexType][BT] = [[Library newFunctionWithName:Name] retain];
+                    Function[IndexType][BT] = Library.NewFunction(Name);
                 }
                 else
                 {
-                    NSError* Error = nil;
-                    Function[IndexType][BT] = [[Library newFunctionWithName:Name constantValues:ConstantValues error:&Error] retain];
-                    UE_CLOG(Function[IndexType][BT] == nil, LogMetal, Error, TEXT("Failed to create function: %s"), *FString(Error.description));
+					ns::AutoReleasedError AError;
+					Function[IndexType][BT] = Library.NewFunction(Name, ConstantValues, &AError);
+					ns::Error Error = AError;
+					UE_CLOG(Function[IndexType][BT] == nil, LogMetal, Error, TEXT("Failed to create function: %s"), *FString(Error.GetPtr().description));
                     UE_CLOG(Function[IndexType][BT] == nil, LogMetal, Fatal, TEXT("*********** Error\n%s"), *FString(GetSourceCode()));
                 }
                 
                 check(Function[IndexType][BT]);
                 GetMetalCompiledShaderCache().Add(Key, Library, Function[IndexType][BT]);
-                TRACK_OBJECT(STAT_MetalFunctionCount, Function[IndexType][BT]);
                 
                 Func = Function[IndexType][BT];
             }
             else
             {
-                [Library newFunctionWithName:Name constantValues:[ConstantValues retain] completionHandler:^(id<MTLFunction> _Nullable NewFunction, NSError* _Nonnull Error)
-                {
-                    UE_CLOG(NewFunction == nil, LogMetal, Error, TEXT("Failed to create function: %s"), *FString(Error.description));
-                    UE_CLOG(NewFunction == nil, LogMetal, Fatal, TEXT("*********** Error\n%s"), *FString(GetSourceCode()));
-
-                    GetMetalCompiledShaderCache().Add(Key, Library, [NewFunction retain]);
-                    TRACK_OBJECT(STAT_MetalFunctionCount, NewFunction);
-                    [ConstantValues release];
-                }];
+				Library.NewFunction(Name, ConstantValues, [Key, this](mtlpp::Function const& NewFunction, ns::Error const& Error){
+					UE_CLOG(NewFunction == nil, LogMetal, Error, TEXT("Failed to create function: %s"), *FString(Error.GetPtr().description));
+					UE_CLOG(NewFunction == nil, LogMetal, Fatal, TEXT("*********** Error\n%s"), *FString(GetSourceCode()));
+					
+					GetMetalCompiledShaderCache().Add(Key, Library, NewFunction);
+				});
 
                 return nil;
             }
@@ -604,7 +575,7 @@ id<MTLFunction> TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunct
 	return Func;
 }
 
-FMetalComputeShader::FMetalComputeShader(const TArray<uint8>& InCode, id<MTLLibrary> InLibrary)
+FMetalComputeShader::FMetalComputeShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary)
 : NumThreadsX(0)
 , NumThreadsY(0)
 , NumThreadsZ(0)
@@ -622,10 +593,6 @@ FMetalComputeShader::~FMetalComputeShader()
 {
     for (uint32 i = 0; i < EMetalBufferType_Num; i++)
     {
-        if (Pipeline[i])
-        {
-            UNTRACK_OBJECT(STAT_MetalComputePipelineStateCount, Pipeline[i]);
-        }
         [Pipeline[i] release];
         Pipeline[i] = nil;
     }
@@ -646,25 +613,29 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
 	
 	if (!Pipeline[BT])
 	{
-		id<MTLFunction> Func = GetCompiledFunction(EMetalIndexType_None, BufferTypes, (InBufferTypeHash == BufferTypeHash) ? BufferTypeHash : 0);
+		mtlpp::Function Func = GetCompiledFunction(EMetalIndexType_None, BufferTypes, (InBufferTypeHash == BufferTypeHash) ? BufferTypeHash : 0);
 		check(Func);
         
-        NSError* Error;
-        
-        id<MTLComputePipelineState> Kernel = nil;
-        MTLComputePipelineReflection* Reflection = nil;
+		ns::Error Error;
+		mtlpp::ComputePipelineState Kernel;
+        mtlpp::ComputePipelineReflection Reflection;
         
     #if METAL_DEBUG_OPTIONS
         if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
         {
-            MTLAutoreleasedComputePipelineReflection ComputeReflection;
-            Kernel = [[GetMetalDeviceContext().GetDevice() newComputePipelineStateWithFunction:Func options:MTLPipelineOptionArgumentInfo reflection:&ComputeReflection error:&Error] autorelease];
-            Reflection = ComputeReflection;
+			ns::AutoReleasedError ComputeError;
+            mtlpp::AutoReleasedComputePipelineReflection ComputeReflection;
+			
+			Kernel = GetMetalDeviceContext().GetDevice().NewComputePipelineState(Func, mtlpp::PipelineOption::ArgumentInfo, ComputeReflection, &ComputeError);
+			Error = ComputeError;
+			Reflection = ComputeReflection;
         }
         else
     #endif
         {
-            Kernel = [[GetMetalDeviceContext().GetDevice() newComputePipelineStateWithFunction:Func error:&Error] autorelease];
+			ns::AutoReleasedError ComputeError;
+			Kernel = GetMetalDeviceContext().GetDevice().NewComputePipelineState(Func, &ComputeError);
+			Error = ComputeError;
         }
         
         if (Kernel == nil)
@@ -674,13 +645,12 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
         }
         
         Pipeline[BT] = [FMetalShaderPipeline new];
-        Pipeline[BT].ComputePipelineState = Kernel;
+        Pipeline[BT]->ComputePipelineState = Kernel;
 #if METAL_DEBUG_OPTIONS
-        Pipeline[BT].ComputePipelineReflection = Reflection;
-        Pipeline[BT].ComputeSource = GetSourceCode();
+        Pipeline[BT]->ComputePipelineReflection = Reflection;
+        Pipeline[BT]->ComputeSource = GetSourceCode();
 #endif
         METAL_DEBUG_OPTION(FMemory::Memzero(Pipeline[BT]->ResourceMask, sizeof(Pipeline[BT]->ResourceMask)));
-        TRACK_OBJECT(STAT_MetalComputePipelineStateCount, Pipeline[BT]);
 	}
 	check(Pipeline[BT]);
 
@@ -706,7 +676,7 @@ FMetalVertexShader::FMetalVertexShader(const TArray<uint8>& InCode)
 	TessellationPatchesPerThreadGroup = Header.TessellationPatchesPerThreadGroup;
 }
 
-FMetalVertexShader::FMetalVertexShader(const TArray<uint8>& InCode, id<MTLLibrary> InLibrary)
+FMetalVertexShader::FMetalVertexShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary)
 {
 	FMetalCodeHeader Header = {0};
 	Init(InCode, Header, InLibrary);
@@ -734,7 +704,7 @@ uint32 FMetalVertexShader::GetBindingHash(EPixelFormat const* const BufferTypes)
 	return 0;
 }
 
-id<MTLFunction> FMetalVertexShader::GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash)
+mtlpp::Function FMetalVertexShader::GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash)
 {
 	return GetCompiledFunction(IndexType, BufferTypes, BufferTypeHash);
 }
@@ -745,7 +715,7 @@ FMetalPixelShader::FMetalPixelShader(const TArray<uint8>& InCode)
 	Init(InCode, Header);
 }
 
-FMetalPixelShader::FMetalPixelShader(const TArray<uint8>& InCode, id<MTLLibrary> InLibrary)
+FMetalPixelShader::FMetalPixelShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary)
 {
 	FMetalCodeHeader Header = {0};
 	Init(InCode, Header, InLibrary);
@@ -760,7 +730,7 @@ uint32 FMetalPixelShader::GetBindingHash(EPixelFormat const* const BufferTypes) 
 	return 0;
 }
 
-id<MTLFunction> FMetalPixelShader::GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash)
+mtlpp::Function FMetalPixelShader::GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash)
 {
 	return GetCompiledFunction(IndexType, BufferTypes, BufferTypeHash);
 }
@@ -771,7 +741,7 @@ FMetalHullShader::FMetalHullShader(const TArray<uint8>& InCode)
 	Init(InCode, Header);
 }
 
-FMetalHullShader::FMetalHullShader(const TArray<uint8>& InCode, id<MTLLibrary> InLibrary)
+FMetalHullShader::FMetalHullShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary)
 {
 	FMetalCodeHeader Header = {0};
 	Init(InCode, Header, InLibrary);
@@ -786,7 +756,7 @@ uint32 FMetalHullShader::GetBindingHash(EPixelFormat const* const BufferTypes) c
 	return 0;
 }
 
-id<MTLFunction> FMetalHullShader::GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash)
+mtlpp::Function FMetalHullShader::GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash)
 {
 	return GetCompiledFunction(IndexType, BufferTypes, BufferTypeHash);
 }
@@ -803,22 +773,22 @@ FMetalDomainShader::FMetalDomainShader(const TArray<uint8>& InCode)
 	switch (Header.TessellationOutputWinding)
 	{
 		// NOTE: cw and ccw are flipped
-		case EMetalOutputWindingMode::Clockwise:		TessellationOutputWinding = MTLWindingCounterClockwise; break;
-		case EMetalOutputWindingMode::CounterClockwise:	TessellationOutputWinding = MTLWindingClockwise; break;
+		case EMetalOutputWindingMode::Clockwise:		TessellationOutputWinding = mtlpp::Winding::CounterClockwise; break;
+		case EMetalOutputWindingMode::CounterClockwise:	TessellationOutputWinding = mtlpp::Winding::Clockwise; break;
 		default: check(0);
 	}
 	
 	switch (Header.TessellationPartitioning)
 	{
-		case EMetalPartitionMode::Pow2:				TessellationPartitioning = MTLTessellationPartitionModePow2; break;
-		case EMetalPartitionMode::Integer:			TessellationPartitioning = MTLTessellationPartitionModeInteger; break;
-		case EMetalPartitionMode::FractionalOdd:	TessellationPartitioning = MTLTessellationPartitionModeFractionalOdd; break;
-		case EMetalPartitionMode::FractionalEven:	TessellationPartitioning = MTLTessellationPartitionModeFractionalEven; break;
+		case EMetalPartitionMode::Pow2:				TessellationPartitioning = mtlpp::TessellationPartitionMode::ModePow2; break;
+		case EMetalPartitionMode::Integer:			TessellationPartitioning = mtlpp::TessellationPartitionMode::ModeInteger; break;
+		case EMetalPartitionMode::FractionalOdd:	TessellationPartitioning = mtlpp::TessellationPartitionMode::ModeFractionalOdd; break;
+		case EMetalPartitionMode::FractionalEven:	TessellationPartitioning = mtlpp::TessellationPartitionMode::ModeFractionalEven; break;
 		default: check(0);
 	}
 }
 
-FMetalDomainShader::FMetalDomainShader(const TArray<uint8>& InCode, id<MTLLibrary> InLibrary)
+FMetalDomainShader::FMetalDomainShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary)
 {
 	FMetalCodeHeader Header = {0};
 	Init(InCode, Header, InLibrary);
@@ -830,17 +800,17 @@ FMetalDomainShader::FMetalDomainShader(const TArray<uint8>& InCode, id<MTLLibrar
 	switch (Header.TessellationOutputWinding)
 	{
 		// NOTE: cw and ccw are flipped
-		case EMetalOutputWindingMode::Clockwise:		TessellationOutputWinding = MTLWindingCounterClockwise; break;
-		case EMetalOutputWindingMode::CounterClockwise:	TessellationOutputWinding = MTLWindingClockwise; break;
+		case EMetalOutputWindingMode::Clockwise:		TessellationOutputWinding = mtlpp::Winding::CounterClockwise; break;
+		case EMetalOutputWindingMode::CounterClockwise:	TessellationOutputWinding = mtlpp::Winding::Clockwise; break;
 		default: check(0);
 	}
 	
 	switch (Header.TessellationPartitioning)
 	{
-		case EMetalPartitionMode::Pow2:				TessellationPartitioning = MTLTessellationPartitionModePow2; break;
-		case EMetalPartitionMode::Integer:			TessellationPartitioning = MTLTessellationPartitionModeInteger; break;
-		case EMetalPartitionMode::FractionalOdd:	TessellationPartitioning = MTLTessellationPartitionModeFractionalOdd; break;
-		case EMetalPartitionMode::FractionalEven:	TessellationPartitioning = MTLTessellationPartitionModeFractionalEven; break;
+		case EMetalPartitionMode::Pow2:				TessellationPartitioning = mtlpp::TessellationPartitionMode::ModePow2; break;
+		case EMetalPartitionMode::Integer:			TessellationPartitioning = mtlpp::TessellationPartitionMode::ModeInteger; break;
+		case EMetalPartitionMode::FractionalOdd:	TessellationPartitioning = mtlpp::TessellationPartitionMode::ModeFractionalOdd; break;
+		case EMetalPartitionMode::FractionalEven:	TessellationPartitioning = mtlpp::TessellationPartitionMode::ModeFractionalEven; break;
 		default: check(0);
 	}
 }
@@ -854,7 +824,7 @@ uint32 FMetalDomainShader::GetBindingHash(EPixelFormat const* const BufferTypes)
 	return 0;
 }
 
-id<MTLFunction> FMetalDomainShader::GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash)
+mtlpp::Function FMetalDomainShader::GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash)
 {
 	return GetCompiledFunction(IndexType, BufferTypes, BufferTypeHash);
 }
@@ -1018,7 +988,64 @@ FComputeShaderRHIRef FMetalDynamicRHI::RHICreateComputeShader(FRHIShaderLibraryP
 	}
 }
 
-FMetalShaderLibrary::FMetalShaderLibrary(EShaderPlatform InPlatform, id<MTLLibrary> InLibrary, FMetalShaderMap const& InMap)
+FVertexShaderRHIRef FMetalDynamicRHI::CreateVertexShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code)
+{
+	return RHICreateVertexShader(Code);
+}
+FVertexShaderRHIRef FMetalDynamicRHI::CreateVertexShader_RenderThread(class FRHICommandListImmediate& RHICmdList, FRHIShaderLibraryParamRef Library, FSHAHash Hash)
+{
+	return RHICreateVertexShader(Library, Hash);
+}
+FPixelShaderRHIRef FMetalDynamicRHI::CreatePixelShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code)
+{
+	return RHICreatePixelShader(Code);
+}
+FPixelShaderRHIRef FMetalDynamicRHI::CreatePixelShader_RenderThread(class FRHICommandListImmediate& RHICmdList, FRHIShaderLibraryParamRef Library, FSHAHash Hash)
+{
+	return RHICreatePixelShader(Library, Hash);
+}
+FGeometryShaderRHIRef FMetalDynamicRHI::CreateGeometryShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code)
+{
+	return RHICreateGeometryShader(Code);
+}
+FGeometryShaderRHIRef FMetalDynamicRHI::CreateGeometryShader_RenderThread(class FRHICommandListImmediate& RHICmdList, FRHIShaderLibraryParamRef Library, FSHAHash Hash)
+{
+	return RHICreateGeometryShader(Library, Hash);
+}
+FGeometryShaderRHIRef FMetalDynamicRHI::CreateGeometryShaderWithStreamOutput_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code, const FStreamOutElementList& ElementList, uint32 NumStrides, const uint32* Strides, int32 RasterizedStream)
+{
+	return RHICreateGeometryShaderWithStreamOutput(Code, ElementList, NumStrides, Strides, RasterizedStream);
+}
+FGeometryShaderRHIRef FMetalDynamicRHI::CreateGeometryShaderWithStreamOutput_RenderThread(class FRHICommandListImmediate& RHICmdList, const FStreamOutElementList& ElementList, uint32 NumStrides, const uint32* Strides, int32 RasterizedStream, FRHIShaderLibraryParamRef Library, FSHAHash Hash)
+{
+	return RHICreateGeometryShaderWithStreamOutput(ElementList, NumStrides, Strides, RasterizedStream, Library, Hash);
+}
+FComputeShaderRHIRef FMetalDynamicRHI::CreateComputeShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code)
+{
+	return RHICreateComputeShader(Code);
+}
+FComputeShaderRHIRef FMetalDynamicRHI::CreateComputeShader_RenderThread(class FRHICommandListImmediate& RHICmdList, FRHIShaderLibraryParamRef Library, FSHAHash Hash)
+{
+	return RHICreateComputeShader(Library, Hash);
+}
+FHullShaderRHIRef FMetalDynamicRHI::CreateHullShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code)
+{
+	return RHICreateHullShader(Code);
+}
+FHullShaderRHIRef FMetalDynamicRHI::CreateHullShader_RenderThread(class FRHICommandListImmediate& RHICmdList, FRHIShaderLibraryParamRef Library, FSHAHash Hash)
+{
+	return RHICreateHullShader(Library, Hash);
+}
+FDomainShaderRHIRef FMetalDynamicRHI::CreateDomainShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code)
+{
+	return RHICreateDomainShader(Code);
+}
+FDomainShaderRHIRef FMetalDynamicRHI::CreateDomainShader_RenderThread(class FRHICommandListImmediate& RHICmdList, FRHIShaderLibraryParamRef Library, FSHAHash Hash)
+{
+	return RHICreateDomainShader(Library, Hash);
+}
+
+FMetalShaderLibrary::FMetalShaderLibrary(EShaderPlatform InPlatform, mtlpp::Library InLibrary, FMetalShaderMap const& InMap)
 : FRHIShaderLibrary(InPlatform)
 , Library(InLibrary)
 , Map(InMap)
@@ -1153,6 +1180,11 @@ FRHIShaderLibrary::FShaderLibraryEntry FMetalShaderLibrary::FMetalShaderLibraryI
 	return Entry;
 }
 
+FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary_RenderThread(class FRHICommandListImmediate& RHICmdList, EShaderPlatform Platform, FString FilePath)
+{
+	return RHICreateShaderLibrary(Platform, FilePath);
+}
+
 FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Platform, FString FolderPath)
 {
 	@autoreleasepool {
@@ -1179,14 +1211,9 @@ FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Pl
 #endif
 			
 			NSError* Error;
-			id<MTLLibrary> Library = [GetMetalDeviceContext().GetDevice() newLibraryWithFile:MetalLibraryFilePath.GetNSString() error:&Error];
+			mtlpp::Library Library = [GetMetalDeviceContext().GetDevice() newLibraryWithFile:MetalLibraryFilePath.GetNSString() error:&Error];
 			if (Library != nil)
 			{
-				if (Map.HashMap.Num() != Library.functionNames.count)
-				{
-					UE_LOG(LogMetal, Error, TEXT("Mistmatch between map (%d) & library (%d) shader count"), Map.HashMap.Num(), Library.functionNames.count);
-				}
-				
 				Result = new FMetalShaderLibrary(Platform, Library, Map);
 			}
 			else
@@ -1250,6 +1277,20 @@ FMetalShaderParameterCache::~FMetalShaderParameterCache()
 }
 
 /**
+ * Invalidates all existing data.
+ */
+void FMetalShaderParameterCache::Reset()
+{
+	for (int32 ArrayIndex = 0; ArrayIndex < CrossCompiler::PACKED_TYPEINDEX_MAX; ++ArrayIndex)
+	{
+		PackedGlobalUniformDirty[ArrayIndex].LowVector = 0;
+		PackedGlobalUniformDirty[ArrayIndex].HighVector = 0;
+	}
+}
+
+const int SizeOfFloat4 = 4 * sizeof(float);
+
+/**
  * Marks all uniform arrays as dirty.
  */
 void FMetalShaderParameterCache::MarkAllDirty()
@@ -1257,11 +1298,9 @@ void FMetalShaderParameterCache::MarkAllDirty()
 	for (int32 ArrayIndex = 0; ArrayIndex < CrossCompiler::PACKED_TYPEINDEX_MAX; ++ArrayIndex)
 	{
 		PackedGlobalUniformDirty[ArrayIndex].LowVector = 0;
-		PackedGlobalUniformDirty[ArrayIndex].HighVector = 0;//UniformArraySize / 16;
+		PackedGlobalUniformDirty[ArrayIndex].HighVector = PackedGlobalUniformsSizes[ArrayIndex] / SizeOfFloat4;
 	}
 }
-
-const int SizeOfFloat4 = 4 * sizeof(float);
 
 /**
  * Set parameter values.
@@ -1297,12 +1336,11 @@ void FMetalShaderParameterCache::CommitPackedGlobals(FMetalStateCache* Cache, FM
 			uint8 const* Bytes = PackedGlobalUniforms[UniformBufferIndex];
 			uint32 Size = FMath::Min(TotalSize, SizeToUpload);
 			
-			uint32 Offset = Encoder->GetRingBuffer().Allocate(Size, 0);
-			id<MTLBuffer> Buffer = Encoder->GetRingBuffer().Buffer->Buffer;
+			FMetalBuffer Buffer = Encoder->GetRingBuffer().NewBuffer(Size, 0);
 			
-			FMemory::Memcpy((uint8*)[Buffer contents] + Offset, Bytes, Size);
+			FMemory::Memcpy((uint8*)Buffer.GetContents(), Bytes, Size);
 			
-			Cache->SetShaderBuffer(Frequency, Buffer, nil, Offset, Size, UniformBufferIndex);
+			Cache->SetShaderBuffer(Frequency, Buffer, nil, 0, Size, UniformBufferIndex);
 
 			// mark as clean
 			PackedGlobalUniformDirty[UniformBufferIndex].HighVector = 0;
@@ -1340,7 +1378,7 @@ void FMetalShaderParameterCache::CommitPackedUniformBuffers(FMetalStateCache* Ca
 			const FRHIUniformBuffer* RHIUniformBuffer = RHIUniformBuffers[BufferIndex];
 			check(RHIUniformBuffer);
 			FMetalUniformBuffer* EmulatedUniformBuffer = (FMetalUniformBuffer*)RHIUniformBuffer;
-			const uint32* RESTRICT SourceData = (uint32 const*)((uint8 const*)EmulatedUniformBuffer->GetData() + EmulatedUniformBuffer->Offset);
+			const uint32* RESTRICT SourceData = (uint32 const*)((uint8 const*)EmulatedUniformBuffer->GetData());
 			for (int32 InfoIndex = LastInfoIndex; InfoIndex < UniformBuffersCopyInfo.Num(); ++InfoIndex)
 			{
 				const CrossCompiler::FUniformBufferCopyInfo& Info = UniformBuffersCopyInfo[InfoIndex];

@@ -17,6 +17,10 @@ public class MetalRHI : ModuleRules
 				"UtilityShaders"
 			}
 			);
+
+		AddEngineThirdPartyPrivateStaticDependencies(Target,
+			"MTLPP"
+		);
 			
 		PublicWeakFrameworks.Add("Metal");
 

@@ -1,0 +1,129 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DiaphragmDOF/DOFGatherTileSuggest.ush: takes care of choosing how to
+	gather a given coc tile.
+=============================================================================*/
+
+#include "DOFCocTileCommon.ush"
+
+#pragma once
+
+
+//------------------------------------------------------- FUNCTIONS
+
+struct FGatheringTileSuggestion
+{
+	// True when we know from coc tile that there is no gathering.
+	bool bCanEarlyReturn;
+
+	// True when we can use fast gather accumulator.
+	bool bCanDofastGathering;
+	
+	// Smallest absolute coc radius
+	float MinCocRadiusAbs;
+	
+	// Largest absolute coc radius
+	float MaxCocRadiusAbs;
+
+	// Coc radius the closest from the camera.
+	float ClosestCocRadius;
+};
+
+
+/** Infers the gather processing to do from coc tile buffer sample, for a given LayerProcessing. */
+FGatheringTileSuggestion InferGatherTileSuggestion(
+	in FCocTileSample CocTileInfos,
+	const uint LayerProcessing,
+	float MinGatherRadius)
+{
+	FGatheringTileSuggestion OutSuggestion;
+
+	if (LayerProcessing == LAYER_PROCESSING_FOREGROUND_ONLY)
+	{
+		// Smallest Coc radius is the foreground minimum Coc.
+		OutSuggestion.MinCocRadiusAbs = -CocTileInfos.Foreground[0].MaxCoc;
+		
+		// Kernel radius is the foreground maximum Coc.
+		OutSuggestion.MaxCocRadiusAbs = -CocTileInfos.Foreground[0].MinCoc;
+		
+		// Closest Coc radius is the foreground minimum Coc.
+		OutSuggestion.ClosestCocRadius = CocTileInfos.Foreground[0].MinCoc;
+	}
+	else if (LayerProcessing == LAYER_PROCESSING_FOREGROUND_HOLE_FILLING)
+	{
+		// Smallest Coc radius is the foreground minimum Coc.
+		OutSuggestion.MinCocRadiusAbs = -CocTileInfos.Foreground[0].MaxCoc;
+		
+		// Kernel radius is the foreground maximum Coc.
+		// TODO: max() with background.
+		OutSuggestion.MaxCocRadiusAbs = -CocTileInfos.Foreground[0].MinCoc;
+			
+		// Closest Coc radius is the foreground minimum Coc.
+		OutSuggestion.ClosestCocRadius = CocTileInfos.Foreground[0].MinCoc;
+	}
+	else if (LayerProcessing == LAYER_PROCESSING_BACKGROUND_ONLY)
+	{
+		// Smallest Coc radius is the backrgound minimum Coc.
+		OutSuggestion.MinCocRadiusAbs = CocTileInfos.Background[0].MinCoc;
+		
+		// Kernel radius is the foreground maximum Coc.
+		OutSuggestion.MaxCocRadiusAbs = CocTileInfos.Background[0].MaxCoc;
+		
+		// Closest Coc radius is the background minimum Coc.
+		OutSuggestion.ClosestCocRadius = CocTileInfos.Background[0].MinCoc;
+	}
+	else // if (LayerProcessing == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS)
+	{
+		// TODO: could be optimised on transition between very close foreground and very far background to bCanSkipGathering == true.
+		if (CocTileInfos.Foreground[0].MinCoc == 0 && CocTileInfos.Background[0].MaxCoc == 0)
+		{
+			OutSuggestion.MinCocRadiusAbs = EXTREMELY_LARGE_COC_RADIUS;
+		}
+		else if (CocTileInfos.Foreground[0].MinCoc == 0)
+		{
+			OutSuggestion.MinCocRadiusAbs = CocTileInfos.Background[0].MinCoc;
+		}
+		else if (CocTileInfos.Background[0].MaxCoc == 0)
+		{
+			OutSuggestion.MinCocRadiusAbs = -CocTileInfos.Foreground[0].MaxCoc;
+		}
+		else
+		{
+			OutSuggestion.MinCocRadiusAbs = min(-CocTileInfos.Foreground[0].MaxCoc, CocTileInfos.Background[0].MinCoc);
+		}
+
+		OutSuggestion.MaxCocRadiusAbs = max(-CocTileInfos.Foreground[0].MinCoc, CocTileInfos.Background[0].MaxCoc);
+
+		OutSuggestion.ClosestCocRadius = CocTileInfos.Foreground[0].MinCoc < 0 ? CocTileInfos.Foreground[0].MinCoc : CocTileInfos.Background[0].MinCoc;
+	}
+	
+	// Coc error accepted for fast gathering, set to 5% of the kernel size.
+	float FastGatheringCocError = OutSuggestion.MaxCocRadiusAbs * 0.05;
+
+	// Logic whether can entirely skeep gathering.
+	if (LayerProcessing == LAYER_PROCESSING_FOREGROUND_HOLE_FILLING)
+	{
+		// Foreground hole filling only need to accumulate where we know foreground's opacity != 0 && != 1.
+		OutSuggestion.bCanEarlyReturn = (
+			OutSuggestion.MaxCocRadiusAbs - OutSuggestion.MinCocRadiusAbs < FastGatheringCocError ||
+			OutSuggestion.MinCocRadiusAbs > MAX_RECOMBINE_ABS_COC_RADIUS ||
+			(OutSuggestion.MaxCocRadiusAbs <= MinGatherRadius));
+	}
+	else if (LayerProcessing == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS)
+	{
+		// Slight out of focus always have 3 rings.
+		const uint RingCount = 3; 
+
+		OutSuggestion.bCanEarlyReturn = (OutSuggestion.MinCocRadiusAbs > float(RingCount));
+	}
+	else
+	{
+		OutSuggestion.bCanEarlyReturn = (OutSuggestion.MaxCocRadiusAbs <= MinGatherRadius);
+	}
+	
+	// Whether can switch to fast gathering.
+	OutSuggestion.bCanDofastGathering = OutSuggestion.MaxCocRadiusAbs - OutSuggestion.MinCocRadiusAbs < FastGatheringCocError;
+
+	return OutSuggestion;
+}

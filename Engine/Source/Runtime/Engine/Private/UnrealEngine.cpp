@@ -205,6 +205,7 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "UObject/ObjectKey.h"
 #include "AssetRegistryModule.h"
 #include "ProfilingDebugging/CsvProfiler.h"
+#include "ProfilingDebugging/TracingProfiler.h"
 #include "Engine/CoreSettings.h"
 
 #if !UE_BUILD_SHIPPING
@@ -9376,6 +9377,20 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 			MessageY += 250.0f;
 			Canvas->DrawItem(SmallTextItem, FVector2D(MessageX, MessageY));
 			MessageY += FontSizeY;
+		}
+#endif
+
+#if TRACING_PROFILER
+		if (FTracingProfiler::Get()->IsCapturing())
+		{
+			SmallTextItem.SetColor(FLinearColor(0.0f, 1.0f, 0.0f, 1.0f));
+			FString ProfilerScreenText = FString::Printf(TEXT("TracingProfiler frame: %d"), FTracingProfiler::Get()->GetCaptureFrameNumber());
+			SmallTextItem.Text = FText::FromString(ProfilerScreenText);
+
+			MessageY += 250.0f;
+			Canvas->DrawItem(SmallTextItem, FVector2D(MessageX, MessageY));
+			MessageY += FontSizeY;
+
 		}
 #endif
 

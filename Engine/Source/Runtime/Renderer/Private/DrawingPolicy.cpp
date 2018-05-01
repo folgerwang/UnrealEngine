@@ -103,9 +103,10 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 				{
 					for (uint32 Run = 0; Run < BatchElement.NumInstances; Run++)
 					{
-						const uint32 InstanceCount = (1 + BatchElement.InstanceRuns[Run * 2 + 1] - BatchElement.InstanceRuns[Run * 2]);
-						SetInstanceParameters(RHICmdList, View, BatchElement.BaseVertexIndex, 0, InstanceCount);
-						Mesh.VertexFactory->OffsetPositionInstanceStreams(RHICmdList, BatchElement.InstanceRuns[Run * 2]);
+						const uint32 InstanceOffset = BatchElement.InstanceRuns[Run * 2];
+						const uint32 InstanceCount = (1 + BatchElement.InstanceRuns[Run * 2 + 1] - InstanceOffset);
+						SetInstanceParameters(RHICmdList, View, BatchElement.BaseVertexIndex, InstanceOffset, InstanceCount);
+						Mesh.VertexFactory->OffsetPositionInstanceStreams(RHICmdList, InstanceOffset);
 
 						RHICmdList.DrawIndexedPrimitive(
 							BatchElement.IndexBuffer->IndexBufferRHI,
@@ -123,9 +124,10 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 				{
 					for (uint32 Run = 0; Run < BatchElement.NumInstances; Run++)
 					{
-						uint32 InstanceCount = (1 + BatchElement.InstanceRuns[Run * 2 + 1] - BatchElement.InstanceRuns[Run * 2]);
-						SetInstanceParameters(RHICmdList, View, BatchElement.BaseVertexIndex, 0, InstanceCount);
-						Mesh.VertexFactory->OffsetInstanceStreams(RHICmdList, BatchElement.InstanceRuns[Run * 2]);
+						const uint32 InstanceOffset = BatchElement.InstanceRuns[Run * 2];
+						const uint32 InstanceCount = (1 + BatchElement.InstanceRuns[Run * 2 + 1] - InstanceOffset);
+						SetInstanceParameters(RHICmdList, View, BatchElement.BaseVertexIndex, InstanceOffset, InstanceCount);
+						Mesh.VertexFactory->OffsetInstanceStreams(RHICmdList, InstanceOffset);
 
 						RHICmdList.DrawIndexedPrimitive(
 							BatchElement.IndexBuffer->IndexBufferRHI,
@@ -145,7 +147,7 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 				for (uint32 Run = 0; Run < BatchElement.NumInstances; Run++)
 				{
 					const uint32 InstanceOffset = BatchElement.InstanceRuns[Run * 2];
-					const uint32 InstanceCount = (1 + BatchElement.InstanceRuns[Run * 2 + 1] - BatchElement.InstanceRuns[Run * 2]);
+					const uint32 InstanceCount = (1 + BatchElement.InstanceRuns[Run * 2 + 1] - InstanceOffset);
 					SetInstanceParameters(RHICmdList, View, BatchElement.BaseVertexIndex, InstanceOffset, InstanceCount);
 
 					RHICmdList.DrawIndexedPrimitive(
@@ -207,7 +209,7 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 void FMeshDrawingPolicy::SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, const FMeshDrawingPolicy::ContextDataType PolicyContext) const
 {
 	check(VertexFactory && VertexFactory->IsInitialized());
-	VertexFactory->Set(View->GetShaderPlatform(), RHICmdList);
+	VertexFactory->SetStreams(View->FeatureLevel, RHICmdList);
 }
 
 /**

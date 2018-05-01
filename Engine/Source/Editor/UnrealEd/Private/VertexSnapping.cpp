@@ -196,9 +196,8 @@ public:
 
 	virtual FVector Normal() override
 	{
-		FPackedNormal TangentX = LODData.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentX(VertexIndex);
 		FPackedNormal TangentZ = LODData.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(VertexIndex);
-		FVector VertNormal = TangentZ;
+		FVector VertNormal = TangentZ.ToFVector();
 		return ComponentToWorldIT.TransformVector(VertNormal);
 	}
 

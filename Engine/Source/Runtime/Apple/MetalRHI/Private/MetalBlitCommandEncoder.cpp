@@ -349,7 +349,6 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
     [Inner copyFromBuffer:(id <MTLBuffer>)sourceBuffer sourceOffset:(NSUInteger)sourceOffset toBuffer:(id <MTLBuffer>)destinationBuffer destinationOffset:(NSUInteger)destinationOffset size:(NSUInteger)size];
 }
 
-#if METAL_SUPPORTS_HEAPS
 - (void)updateFence:(id <MTLFence>)fence
 {
 #if METAL_DEBUG_OPTIONS
@@ -385,7 +384,6 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
 		[Inner waitForFence:(id <MTLFence>)fence];
 	}
 }
-#endif
 
 -(NSString*) description
 {
@@ -403,20 +401,3 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
 }
 
 @end
-
-#if !METAL_SUPPORTS_HEAPS
-@implementation FMetalDebugBlitCommandEncoder (MTLBlitCommandEncoderExtensions)
--(void) updateFence:(id <MTLFence>)fence
-{
-#if METAL_DEBUG_OPTIONS
-	[self addUpdateFence:fence];
-#endif
-}
--(void) waitForFence:(id <MTLFence>)fence
-{
-#if METAL_DEBUG_OPTIONS
-	[self addWaitFence:fence];
-#endif
-}
-@end
-#endif

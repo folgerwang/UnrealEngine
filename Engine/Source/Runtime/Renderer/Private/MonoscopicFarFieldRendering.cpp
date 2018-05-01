@@ -68,7 +68,7 @@ public:
 	FCompositeMonoscopicFarFieldViewPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer) :
 		FGlobalShader(Initializer)
 	{
-		SceneTextureParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		MonoColorTextureParameter.Bind(Initializer.ParameterMap, TEXT("MonoColorTexture"));
 		MonoColorTextureParameterSampler.Bind(Initializer.ParameterMap, TEXT("MonoColorTextureSampler"));
 	}
@@ -81,7 +81,7 @@ public:
 		const FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 		const FSamplerStateRHIRef Filter = TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 		SetTextureParameter(RHICmdList, GetPixelShader(), MonoColorTextureParameter, MonoColorTextureParameterSampler, Filter, SceneContext.GetSceneMonoColorTexture());
-		SceneTextureParameters.Set(RHICmdList, GetPixelShader(), View);
+		SceneTextureParameters.Set(RHICmdList, GetPixelShader(), View.FeatureLevel, ESceneTextureSetupMode::All);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -127,7 +127,7 @@ public:
 	FMonoscopicFarFieldMaskPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer) :
 		FGlobalShader(Initializer)
 	{
-		SceneTextureParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		MobileSceneColorTexture.Bind(Initializer.ParameterMap, TEXT("MobileSceneColorTexture"));
 		MobileSceneColorTextureSampler.Bind(Initializer.ParameterMap, TEXT("MobileSceneColorTextureSampler"));
 		LeftViewWidthNDCParameter.Bind(Initializer.ParameterMap, TEXT("LeftViewWidthNDC"));
@@ -148,7 +148,7 @@ public:
 		SetShaderValue(RHICmdList, GetPixelShader(), LeftViewWidthNDCParameter, LeftViewWidthNDC);
 		SetShaderValue(RHICmdList, GetPixelShader(), LateralOffsetNDCParameter, LateralOffsetNDC);
 
-		SceneTextureParameters.Set(RHICmdList, GetPixelShader(), View);
+		SceneTextureParameters.Set(RHICmdList, GetPixelShader(), View.FeatureLevel, ESceneTextureSetupMode::All);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override

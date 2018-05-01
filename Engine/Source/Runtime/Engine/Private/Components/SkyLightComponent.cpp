@@ -42,6 +42,14 @@ FAutoConsoleCommandWithWorld CaptureConsoleCommand(
 	FConsoleCommandWithWorldDelegate::CreateStatic(OnUpdateSkylights)
 	);
 
+int32 GUpdateSkylightsEveryFrame = 0;
+FAutoConsoleVariableRef CVarUpdateSkylightsEveryFrame(
+	TEXT("r.SkylightUpdateEveryFrame"),
+	GUpdateSkylightsEveryFrame,
+	TEXT("Whether to update all skylights every frame.  Useful for debugging."),
+	ECVF_Default
+	);
+
 void FSkyTextureCubeResource::InitRHI()
 {
 	if (GetFeatureLevel() >= ERHIFeatureLevel::SM4 || GSupportsRenderTargetFormat_PF_FloatRGBA)
@@ -551,7 +559,7 @@ void USkyLightComponent::UpdateSkyCaptureContentsArray(UWorld* WorldToUpdate, TA
 		USkyLightComponent* CaptureComponent = ComponentArray[CaptureIndex];
 		AActor* Owner = CaptureComponent->GetOwner();
 
-		if ((!Owner || !Owner->GetLevel() || (WorldToUpdate->ContainsActor(Owner) && Owner->GetLevel()->bIsVisible))
+		if (((!Owner || Owner->GetLevel()->bIsVisible) && CaptureComponent->GetWorld() == WorldToUpdate)
 			// Only process sky capture requests once async shader compiling completes, otherwise we will capture the scene with temporary shaders
 			&& (!bIsCompilingShaders || CaptureComponent->SourceType == SLS_SpecifiedCubemap))
 		{
@@ -605,6 +613,19 @@ void USkyLightComponent::UpdateSkyCaptureContents(UWorld* WorldToUpdate)
 	if (WorldToUpdate->Scene)
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_SkylightCaptures);
+
+		if (GUpdateSkylightsEveryFrame)
+		{
+			for (TObjectIterator<USkyLightComponent> It; It; ++It)
+			{
+				USkyLightComponent* SkylightComponent = *It;
+				if (WorldToUpdate->ContainsActor(SkylightComponent->GetOwner()) && !SkylightComponent->IsPendingKill())
+				{			
+					SkylightComponent->SetCaptureIsDirty();			
+				}
+			}
+		}
+
 		if (SkyCapturesToUpdate.Num() > 0)
 		{
 			FScopeLock Lock(&SkyCapturesToUpdateLock);

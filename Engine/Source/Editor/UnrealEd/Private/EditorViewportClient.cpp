@@ -64,6 +64,14 @@ static TAutoConsoleVariable<int32> CVarAlignedOrthoZoom(
 	TEXT(" 1: All ortho viewport zoom are locked to each other to allow axis lines to be aligned with each other."),
 	ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarEditorViewportTest(
+	TEXT("r.Test.EditorConstrainedView"),
+	0,
+	TEXT("Allows to test different viewport rectangle configuations (in game only) as they can happen when using Matinee/Editor.\n")
+	TEXT("0: off(default)\n")
+	TEXT("1..7: Various Configuations"),
+	ECVF_RenderThreadSafe);
+
 static bool GetDefaultLowDPIPreviewValue()
 {
 	static auto CVarEnableEditorScreenPercentageOverride = IConsoleManager::Get().FindConsoleVariable(TEXT("Editor.OverrideDPIBasedEditorViewportScaling"));
@@ -743,10 +751,34 @@ FSceneView* FEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily, c
 
 
 
-	const FIntPoint ViewportSizeXY = Viewport->GetSizeXY();
+	FIntPoint ViewportSize = Viewport->GetSizeXY();
+	FIntPoint ViewportOffset(0, 0);
 
-	FIntRect ViewRect = FIntRect(0, 0, ViewportSizeXY.X, ViewportSizeXY.Y);
-	ViewInitOptions.SetViewRectangle(ViewRect);
+	// We expect some size to avoid problems with the view rect manipulation
+	if (ViewportSize.X > 50 && ViewportSize.Y > 50)
+	{
+		int32 Value = CVarEditorViewportTest.GetValueOnGameThread();
+
+		if (Value)
+		{
+			int InsetX = ViewportSize.X / 4;
+			int InsetY = ViewportSize.Y / 4;
+
+			// this allows to test various typical view port situations
+			switch (Value)
+			{
+			case 1: ViewportOffset.X += InsetX; ViewportOffset.Y += InsetY; ViewportSize.X -= InsetX * 2; ViewportSize.Y -= InsetY * 2; break;
+			case 2: ViewportOffset.Y += InsetY; ViewportSize.Y -= InsetY * 2; break;
+			case 3: ViewportOffset.X += InsetX; ViewportSize.X -= InsetX * 2; break;
+			case 4: ViewportSize.X /= 2; ViewportSize.Y /= 2; break;
+			case 5: ViewportSize.X /= 2; ViewportSize.Y /= 2; ViewportOffset.X += ViewportSize.X;	break;
+			case 6: ViewportSize.X /= 2; ViewportSize.Y /= 2; ViewportOffset.Y += ViewportSize.Y; break;
+			case 7: ViewportSize.X /= 2; ViewportSize.Y /= 2; ViewportOffset.X += ViewportSize.X; ViewportOffset.Y += ViewportSize.Y; break;
+			}
+		}
+	}
+
+	ViewInitOptions.SetViewRectangle(FIntRect(ViewportOffset, ViewportOffset + ViewportSize));
 
 	// no matter how we are drawn (forced or otherwise), reset our time here
 	TimeForForceRedraw = 0.0;
@@ -786,8 +818,8 @@ FSceneView* FEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily, c
 		    {
 		        int32 X = 0;
 		        int32 Y = 0;
-		        uint32 SizeX = ViewportSizeXY.X;
-		        uint32 SizeY = ViewportSizeXY.Y;
+		        uint32 SizeX = ViewportSize.X;
+		        uint32 SizeY = ViewportSize.Y;
 			    GEngine->StereoRenderingDevice->AdjustViewRect( StereoPass, X, Y, SizeX, SizeY );
 		        const FIntRect StereoViewRect = FIntRect( X, Y, X + SizeX, Y + SizeY );
 		        ViewInitOptions.SetViewRectangle( StereoViewRect );
@@ -848,16 +880,16 @@ FSceneView* FEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily, c
 				    float XAxisMultiplier;
 				    float YAxisMultiplier;
     
-				    if (((ViewportSizeXY.X > ViewportSizeXY.Y) && (AspectRatioAxisConstraint == AspectRatio_MajorAxisFOV)) || (AspectRatioAxisConstraint == AspectRatio_MaintainXFOV))
+				    if (((ViewportSize.X > ViewportSize.Y) && (AspectRatioAxisConstraint == AspectRatio_MajorAxisFOV)) || (AspectRatioAxisConstraint == AspectRatio_MaintainXFOV))
 				    {
 					    //if the viewport is wider than it is tall
 					    XAxisMultiplier = 1.0f;
-					    YAxisMultiplier = ViewportSizeXY.X / (float)ViewportSizeXY.Y;
+					    YAxisMultiplier = ViewportSize.X / (float)ViewportSize.Y;
 				    }
 				    else
 				    {
 					    //if the viewport is taller than it is wide
-					    XAxisMultiplier = ViewportSizeXY.Y / (float)ViewportSizeXY.X;
+					    XAxisMultiplier = ViewportSize.Y / (float)ViewportSize.X;
 					    YAxisMultiplier = 1.0f;
 				    }
     
@@ -895,8 +927,8 @@ FSceneView* FEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily, c
 			//The divisor for the matrix needs to match the translation code.
 			const float Zoom = GetOrthoUnitsPerPixel(Viewport);
 
-			float OrthoWidth = Zoom * ViewportSizeXY.X / 2.0f;
-			float OrthoHeight = Zoom * ViewportSizeXY.Y / 2.0f;
+			float OrthoWidth = Zoom * ViewportSize.X / 2.0f;
+			float OrthoHeight = Zoom * ViewportSize.Y / 2.0f;
 
 			if (EffectiveViewportType == LVT_OrthoXY)
 			{
@@ -970,7 +1002,7 @@ FSceneView* FEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily, c
 
 		if (bConstrainAspectRatio)
 		{
-			ViewInitOptions.SetConstrainedViewRectangle(Viewport->CalculateViewExtents(AspectRatio, ViewRect));
+			ViewInitOptions.SetConstrainedViewRectangle(Viewport->CalculateViewExtents(AspectRatio, ViewInitOptions.GetViewRect()));
 		}
 	}
 

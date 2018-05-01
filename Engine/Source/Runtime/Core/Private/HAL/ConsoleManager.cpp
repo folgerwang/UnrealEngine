@@ -2030,14 +2030,6 @@ static TAutoConsoleVariable<float> CVarScreenPercentage(
 	TEXT("<0 is treated like 100."),
 	ECVF_Scalability | ECVF_Default);
 
-static TAutoConsoleVariable<float> CVarSeparateTranslucencyScreenPercentage(
-	TEXT("r.SeparateTranslucencyScreenPercentage"),
-	100.0f,
-	TEXT("Render separate translucency at this percentage of the full resolution.\n")
-	TEXT("in percent, >0 and <=100, larger numbers are possible (supersampling).")
-	TEXT("<0 is treated like 100."),
-	ECVF_Scalability | ECVF_Default);
-
 static TAutoConsoleVariable<int32> CVarHighResScreenshotDelay(
 	TEXT("r.HighResScreenshotDelay"),
 	4,

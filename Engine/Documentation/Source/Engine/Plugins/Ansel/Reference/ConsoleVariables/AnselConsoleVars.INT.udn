@@ -12,6 +12,10 @@ topic-image:Console_Topic.png
 
 The following console variables are available for configuring the behavior of the NVIDIA Ansel Photography Plugin and can be set manually from the console, through your .ini files, or dynamically by a Blueprint. Most of them should be configured during development instead of at runtime, though `r.Photography.Allow` is useful to set dynamically.
 
+	[REGION:note]
+	These values may be set by Blueprint actions instead of directly setting the console variables; see the **NVIDIA Ansel Blueprint Node Reference**
+	[/REGION]
+
 | Variable | Default | Description |
 | --- | --- | --- |
 | `r.Photography.Available` | 1 | (Read-only) If 1, the photography system is potentially available to the user.  Otherwise, a functioning back-end is not available. This is set to 1 when the plugin is enabled. |
@@ -19,6 +23,8 @@ The following console variables are available for configuring the behavior of th
 | `r.Photography.EnableMultipart` | 1 | If 1, allow the photography system to take high-resolution shots that need to be rendered in tiles which are later stitched together. |
 | `r.Photography.SettleFrames` | 10 | The number of frames to let the rendering 'settle' before taking a photo.  Useful to allow temporal AA/smoothing to work well; if not using any temporal effects, can be lowered for faster capture. |
 | `r.Photography.TranslationSpeed` | 100.0 | Normal speed (in Unreal units per second) at which to move the roaming photography camera. |
+| `r.Photography.Constrain.CameraSize` | 14.0 | Radius (in Unreal Units) of sphere around the camera; used to prevent the camera clipping into nearby geometry when constraining camera with collision. |
+| `r.Photography.Constrain.CameraDistance` | 2500.0 | Maximum distance (in Unreal Units) which camera is allowed to wander from its initial position when constraining camera by distance. |
 | `r.Photography.AutoPostprocess` | 1 | If 1, the photography system will attempt to automatically disable HUD, subtitles, and some standard postprocessing effects during photography sessions/captures which are known to give poor photography results.  Set to 0 to manage all postprocessing tweaks manually from the PlayerCameraManager Blueprint callbacks. [REGION:note]Blueprint callbacks will be called regardless of AutoPostprocess value.[/REGION] |
 | `r.Photography.AutoPause` | 1 | If 1, the photography system will attempt to ensure that the level is paused while in photography mode.  Set to 0 to manage pausing and unpausing manually from the PlayerCameraManager Blueprint callbacks.  [REGION:note]Blueprint callbacks will be called regardless of AutoPause value.[/REGION] |
 

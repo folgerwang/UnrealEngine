@@ -15,6 +15,7 @@
 #include "RawIndexBuffer.h"
 #include "Templates/UniquePtr.h"
 #include "Runtime/Launch/Resources/Version.h"
+#include "UObject/RenderingObjectVersion.h"
 #include "StaticMeshComponent.generated.h"
 
 class FColorVertexBuffer;
@@ -41,7 +42,7 @@ struct FPaintedVertex
 	FVector Position;
 
 	UPROPERTY()
-	FPackedNormal Normal;
+	FVector4 Normal;
 
 	UPROPERTY()
 	FColor Color;
@@ -54,13 +55,24 @@ struct FPaintedVertex
 	}
 
 
-		FORCEINLINE friend FArchive& operator<<( FArchive& Ar, FPaintedVertex& PaintedVertex )
+	FORCEINLINE friend FArchive& operator<<(FArchive& Ar, FPaintedVertex& PaintedVertex)
+	{
+		Ar << PaintedVertex.Position;
+
+		if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::IncreaseNormalPrecision)
 		{
-			Ar << PaintedVertex.Position;
-			Ar << PaintedVertex.Normal;
-			Ar << PaintedVertex.Color;
-			return Ar;
+			FDeprecatedSerializedPackedNormal Temp;
+			Ar << Temp;
+			PaintedVertex.Normal = Temp;
 		}
+		else
+		{
+			Ar << PaintedVertex.Normal;
+		}
+		
+		Ar << PaintedVertex.Color;
+		return Ar;
+	}
 	
 };
 

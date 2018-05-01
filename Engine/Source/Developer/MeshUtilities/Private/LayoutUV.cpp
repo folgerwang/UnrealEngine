@@ -486,6 +486,11 @@ int32 FLayoutUV::FindCharts( const FOverlappingCorners& OverlappingCorners )
 
 					ChartA.Join[ Side ^ 1 ] = ChartB.Join[ Side ^ 1 ];
 					ChartA.MaxUV[ Axis ] += ChartB.MaxUV[ Axis ] - ChartB.MinUV[ Axis ];
+					if( LayoutVersion >= ELightmapUVVersion::ChartJoiningLFix )
+					{
+						// Fixing joined chart MaxUV value to properly inflate non-joined axis extent
+						ChartA.MaxUV[ Axis ^ 1 ] = FMath::Max( ChartA.MaxUV[ Axis ^ 1 ], ChartA.MinUV[ Axis ^ 1 ] + ( ChartB.MaxUV[ Axis ^ 1 ] - ChartB.MinUV[ Axis ^ 1 ] ) );
+					}
 					ChartA.WorldScale += ChartB.WorldScale;
 					ChartA.UVArea += ChartB.UVArea;
 

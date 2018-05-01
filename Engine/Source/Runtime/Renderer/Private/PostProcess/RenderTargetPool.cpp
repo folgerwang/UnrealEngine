@@ -290,6 +290,9 @@ bool FRenderTargetPool::FindFreeElement(FRHICommandList& RHICmdList, const FPool
 		return true;
 	}
 
+	// Querying a render target that have no mip levels makes no sens.
+	check(InputDesc.NumMips > 0);
+
 	// Make sure if requesting a depth format that the clear value is correct
 	ensure(!IsDepthOrStencilFormat(InputDesc.Format) || (InputDesc.ClearValue.ColorBinding == EClearBinding::ENoneBound || InputDesc.ClearValue.ColorBinding == EClearBinding::EDepthStencilBound));
 
@@ -568,7 +571,13 @@ Done:
 		{
 			// The render target desc is invalid if a UAV is requested with an RHI that doesn't support the high-end feature level.
 			check(GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5);
-			Found->RenderTargetItem.UAV = RHICreateUnorderedAccessView(Found->RenderTargetItem.TargetableTexture);
+			Found->RenderTargetItem.MipUAVs.Reserve(Desc.NumMips);
+			for (uint32 MipLevel = 0; MipLevel < Desc.NumMips; MipLevel++)
+			{
+				Found->RenderTargetItem.MipUAVs.Add(RHICreateUnorderedAccessView(Found->RenderTargetItem.TargetableTexture, MipLevel));
+			}
+
+			Found->RenderTargetItem.UAV = Found->RenderTargetItem.MipUAVs[0];
 		}
 
 		AllocationLevelInKB += ComputeSizeInKB(*Found);

@@ -40,6 +40,9 @@ UShapeComponent::UShapeComponent(const FObjectInitializer& ObjectInitializer)
 	bDynamicObstacle = false;
 	// mz@todo
 	//AreaClass = UNavArea_Obstacle::StaticClass();
+
+	// Ignore streaming updates since GetUsedMaterials() is not implemented.
+	bIgnoreStreamingManagerUpdate = true;
 }
 
 FPrimitiveSceneProxy* UShapeComponent::CreateSceneProxy()

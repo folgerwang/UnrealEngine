@@ -5,12 +5,20 @@
 =============================================================================*/
 
 #include "Common.ush"
+
+// Reroute SceneTexturesStruct uniform buffer references to the appropriate base pass uniform buffer
+#if MATERIALBLENDING_TRANSLUCENT || MATERIALBLENDING_ADDITIVE || MATERIALBLENDING_MODULATE
+	#define SceneTexturesStruct TranslucentBasePass.SceneTextures 
+	#define EyeAdaptationStruct TranslucentBasePass.SceneTextures
+#else
+	#define EyeAdaptationStruct OpaqueBasePass
+#endif 
+
 #include "SHCommon.ush"
 #include "/Engine/Generated/Material.ush"
 #include "BasePassCommon.ush"
 #include "/Engine/Generated/VertexFactory.ush"
 #include "LightmapCommon.ush"  
-#include "ReflectionEnvironmentShared.ush"
 #include "PlanarReflectionShared.ush"
 #include "BRDF.ush"
 #include "Random.ush"
@@ -18,6 +26,7 @@
 #include "DeferredShadingCommon.ush"
 #include "VelocityCommon.ush"
 #include "SphericalGaussian.ush"
+#include "DBufferDecalShared.ush"
 
 #define PREV_FRAME_COLOR	1
 #include "ScreenSpaceRayCast.ush"
@@ -25,6 +34,8 @@
 #if NEEDS_BASEPASS_PIXEL_FOGGING || NEEDS_BASEPASS_PIXEL_VOLUMETRIC_FOGGING
 	#include "HeightFogCommon.ush"
 #endif
+
+#include "ReflectionEnvironmentShared.ush"
 
 float NormalCurvatureToRoughness(float3 WorldNormal)
 {
@@ -50,15 +61,6 @@ float NormalCurvatureToRoughness(float3 WorldNormal)
 #include "ShadingModelsMaterial.ush"
 #if MATERIAL_SHADINGMODEL_HAIR || SIMPLE_FORWARD_DIRECTIONAL_LIGHT
 #include "ShadingModels.ush"
-#endif
-
-Texture2D		HZBTexture;
-SamplerState	HZBSampler;
-Texture2D		PrevSceneColor;
-SamplerState	PrevSceneColorSampler;
-
-#if PLATFORM_SUPPORTS_RENDERTARGET_WRITE_MASK && USE_DBUFFER && MATERIALDECALRESPONSEMASK && !MATERIALBLENDING_ANY_TRANSLUCENT
-	Texture2D<uint> DBufferMask;
 #endif
 
 #ifndef COMPILER_GLSL
@@ -463,6 +465,7 @@ void GetPrecomputedIndirectLightingAndSkyLight(
 
 	// Apply indirect lighting scale while we have only accumulated lightmaps
 	OutDiffuseLighting *= View.IndirectLightingColorScale;
+	OutSubsurfaceLighting *= View.IndirectLightingColorScale;
 
 	float3 SkyDiffuseLighting;
 	float3 SkySubsurfaceLighting;
@@ -791,7 +794,7 @@ void FPixelShaderInOut_MainPS(
 	{
 
 	#if PLATFORM_SUPPORTS_RENDERTARGET_WRITE_MASK
-		uint RTWriteMaskBit = DecodeRTWriteMaskTexture(In.SvPosition.xy, DBufferMask);
+		uint RTWriteMaskBit = DecodeRTWriteMaskTexture(In.SvPosition.xy, OpaqueBasePass.DBufferRenderMask);
 		if(RTWriteMaskBit)
 	#endif
 		{
@@ -874,7 +877,7 @@ void FPixelShaderInOut_MainPS(
 
 #if MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE && USES_GBUFFER
 	// SubsurfaceProfile applies the BaseColor in a later pass. Any lighting output in the base pass needs
-	// to separate specualar and diffuse lighting in a checkerboard pattern
+	// to separate specular and diffuse lighting in a checkerboard pattern
 	bool bChecker = CheckerFromPixelPos(MaterialParameters.SvPosition.xy);
 	if ( GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE ) 
 	{
@@ -971,7 +974,8 @@ void FPixelShaderInOut_MainPS(
 				GridIndex = ComputeLightGridCellIndex((uint2)(MaterialParameters.SvPosition.xy - ResolvedView.ViewRectMin.xy), MaterialParameters.SvPosition.w, EyeIndex);
 
 				#if FORWARD_SHADING || TRANSLUCENCY_LIGHTING_SURFACE_FORWARDSHADING
-					Color += GetForwardDirectLighting(GridIndex, MaterialParameters.AbsoluteWorldPosition, MaterialParameters.CameraVector, GBuffer, NearestResolvedDepthScreenUV, EyeIndex);
+					const float Dither = InterleavedGradientNoise(MaterialParameters.SvPosition.xy, View.StateFrameIndexMod8);
+					Color += GetForwardDirectLighting(GridIndex, MaterialParameters.AbsoluteWorldPosition, MaterialParameters.CameraVector, GBuffer, NearestResolvedDepthScreenUV, EyeIndex, Dither);
 				#endif
 			#endif
             
@@ -1014,7 +1018,7 @@ void FPixelShaderInOut_MainPS(
 	float4 Fogging = HeightFogging;
 
 #if NEEDS_BASEPASS_PIXEL_VOLUMETRIC_FOGGING
-	if (ApplyVolumetricFog > 0)
+	if (FogStruct.ApplyVolumetricFog > 0) 
 	{
 		float3 VolumeUV = ComputeVolumeUV(MaterialParameters.AbsoluteWorldPosition, ResolvedView.WorldToClip);
 		Fogging = CombineVolumetricFog(HeightFogging, VolumeUV);

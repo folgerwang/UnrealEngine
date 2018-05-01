@@ -614,13 +614,13 @@ struct FDynamicStats
 			TStatGroup::GetGroupName(),
 			TStatGroup::GetGroupCategory(),
 			TStatGroup::GetDescription(),
-			true, EStatDataType::ST_int64, true );
+			true, EStatDataType::ST_int64, true, false );
 
 		TStatId StatID = IStatGroupEnableManager::Get().GetHighPerformanceEnableForStat( StatNameOrDescription,
 			TStatGroup::GetGroupName(),
 			TStatGroup::GetGroupCategory(),
 			TStatGroup::DefaultEnable,
-			true, EStatDataType::ST_int64, nullptr, true );
+			true, EStatDataType::ST_int64, nullptr, true, false );
 
 		return StatID;
 #endif // STATS
@@ -646,13 +646,13 @@ struct FDynamicStats
 			TStatGroup::GetGroupName(),
 			TStatGroup::GetGroupCategory(),
 			TStatGroup::GetDescription(),
-			false, EStatDataType::ST_int64, false, MemRegion);
+			false, EStatDataType::ST_int64, false, false, MemRegion);
 
 		TStatId StatID = IStatGroupEnableManager::Get().GetHighPerformanceEnableForStat(StatNameOrDescription,
 			TStatGroup::GetGroupName(),
 			TStatGroup::GetGroupCategory(),
 			TStatGroup::DefaultEnable,
-			false, EStatDataType::ST_int64, *StatNameOrDescription.ToString(), false, MemRegion);
+			false, EStatDataType::ST_int64, *StatNameOrDescription.ToString(), false, false, MemRegion);
 
 		return StatID;
 #endif // STATS

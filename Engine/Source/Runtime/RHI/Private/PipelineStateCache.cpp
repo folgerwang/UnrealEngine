@@ -662,6 +662,8 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 	FGraphicsPipelineStateInitializer NewInitializer;
 	const FGraphicsPipelineStateInitializer* Initializer = &OriginalInitializer;
 
+	check(OriginalInitializer.DepthStencilState && OriginalInitializer.BlendState && OriginalInitializer.RasterizerState);
+
 	if (!!(ApplyFlags & EApplyRendertargetOption::ForceApply))
 	{
 		// Copy original initializer first, then apply the render targets
@@ -718,9 +720,9 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 
 	FGraphicsPipelineState* OutCachedState = nullptr;
 
-	bool WasFound = GGraphicsPipelineCache.Find(*Initializer, OutCachedState);
+	bool bWasFound = GGraphicsPipelineCache.Find(*Initializer, OutCachedState);
 
-	if (WasFound == false)
+	if (bWasFound == false)
 	{
 		// create new graphics state
 		OutCachedState = new FGraphicsPipelineState();

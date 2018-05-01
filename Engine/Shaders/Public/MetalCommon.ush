@@ -5,7 +5,7 @@
 =============================================================================*/
 
 // Update this GUID to improve shader recompilation for Metal only shaders
-// GUID = {0C91821D-7081-477F-A434-945D00DABC73}
+// GUID = {2EC46B93-2FB6-4BEA-B3AD-09A0B1F054A5}
   
 #pragma once
 
@@ -18,3 +18,5 @@
 // Abuse the GLSL-style "invariant" keyword that hlslcc exposes to modify Buffer<>/RWBuffer<> declarations to assume that they input type is always the same as that declared in the shader
 // The MetalRHI runtime will then assert when it isn't. For Metal 1.1 and below all Buffer<>/RWBuffer<> objects will *assume* this type matches as there is no way to gracefully handle it there.
 #define STRONG_TYPE invariant
+// Note: this is assuming that Metal Buffers and StructuredBuffers are interchangeable
+#define StrongTypedBuffer StructuredBuffer

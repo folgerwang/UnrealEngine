@@ -18,6 +18,9 @@ void FTextureEditorCommands::RegisterCommands()
 	UI_COMMAND(SolidBackground, "Solid Color", "Solid color background", EUserInterfaceActionType::RadioButton, FInputChord());
 	UI_COMMAND(TextureBorder, "Draw Border", "If enabled, a border is drawn around the texture", EUserInterfaceActionType::ToggleButton, FInputChord());
 
+	UI_COMMAND(DepthSlices, "Depth Slices", "Shows depth slice side by side", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(TraceIntoVolume, "Trace Into Volume", "Traces into the volume, accumuling opacity / color", EUserInterfaceActionType::RadioButton, FInputChord());
+
 	UI_COMMAND(CompressNow, "Compress", "Compress the texture", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(Reimport, "Reimport", "Reimports the texture from file", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(Settings, "Settings...", "Opens the settings for the texture editor", EUserInterfaceActionType::Button, FInputChord());

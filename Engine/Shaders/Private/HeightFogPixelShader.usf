@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "Common.ush"
+#include "SceneTexturesCommon.ush"
 #include "SHCommon.ush"
 #include "HeightFogCommon.ush"
 

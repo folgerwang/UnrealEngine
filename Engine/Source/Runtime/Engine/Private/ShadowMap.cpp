@@ -55,11 +55,6 @@ void FShadowMap::Cleanup()
 	BeginCleanup(this);
 }
 
-void FShadowMap::FinishCleanup()
-{
-	delete this;
-}
-
 #if WITH_EDITOR
 
 struct FShadowMapAllocation

@@ -260,6 +260,8 @@ public:
 
 	typedef void (*MenuBarShutdownFuncPtr)();
 	static MenuBarShutdownFuncPtr MenuBarShutdownFunc;
+	
+	static unichar TranslateKeyCodeToUniCode(uint32 KeyCode, uint32 Modifier);
 
 private:
 

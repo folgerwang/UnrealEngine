@@ -45,7 +45,7 @@ void FDumpTransitionsHelper::DumpResourceTransition(const FName& ResourceName, c
 
 FAutoConsoleVariableSink FDumpTransitionsHelper::CVarDumpTransitionsForResourceSink(FConsoleCommandDelegate::CreateStatic(&FDumpTransitionsHelper::DumpTransitionForResourceHandler));
 
-void EnableDepthBoundsTest(FRHICommandList& RHICmdList, float WorldSpaceDepthNear, float WorldSpaceDepthFar, const FMatrix& ProjectionMatrix)
+void SetDepthBoundsTest(FRHICommandList& RHICmdList, float WorldSpaceDepthNear, float WorldSpaceDepthFar, const FMatrix& ProjectionMatrix)
 {
 	if (GSupportsDepthBoundsTest)
 	{
@@ -64,15 +64,7 @@ void EnableDepthBoundsTest(FRHICommandList& RHICmdList, float WorldSpaceDepthNea
 		}
 
 		// Note, using a reversed z depth surface
-		RHICmdList.EnableDepthBoundsTest(true, DepthFar, DepthNear);
-	}
-}
-
-void DisableDepthBoundsTest(FRHICommandList& RHICmdList)
-{
-	if (GSupportsDepthBoundsTest)
-	{
-		RHICmdList.EnableDepthBoundsTest(false, 0, 1);
+		RHICmdList.SetDepthBounds(DepthFar, DepthNear);
 	}
 }
 

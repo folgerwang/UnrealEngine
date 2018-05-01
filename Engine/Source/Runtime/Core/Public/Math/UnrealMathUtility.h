@@ -999,6 +999,14 @@ struct FMath : public FPlatformMath
 	// @return 0: light is not visible, 1:use scissor rect, 2: no scissor rect needed
 	static CORE_API uint32 ComputeProjectedSphereScissorRect(struct FIntRect& InOutScissorRect, FVector SphereOrigin, float Radius, FVector ViewOrigin, const FMatrix& ViewMatrix, const FMatrix& ProjMatrix);
 
+	// @param ConeOrigin Cone origin
+	// @param ConeDirection Cone direction
+	// @param ConeRadius Cone Radius
+	// @param CosConeAngle Cos of the cone angle
+	// @param SinConeAngle Sin of the cone angle
+	// @return Minimal bounding sphere encompassing given cone
+	static FSphere ComputeBoundingSphereForCone(FVector const& ConeOrigin, FVector const& ConeDirection, float ConeRadius, float CosConeAngle, float SinConeAngle);
+
 	/** 
 	 * Determine if a plane and an AABB intersect
 	 * @param P - the plane to test

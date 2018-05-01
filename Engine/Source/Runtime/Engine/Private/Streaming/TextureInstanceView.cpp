@@ -259,6 +259,15 @@ void FTextureInstanceView::SwapData(FTextureInstanceView* Lfs, FTextureInstanceV
 	FMemory::Memswap(&Lfs->MaxTexelFactor , &Rhs->MaxTexelFactor, sizeof(Lfs->MaxTexelFactor));
 }
 
+struct FStreamingViewInfoExtra
+{
+	// The screen size factor including the view boost.
+	float ScreenSizeFloat;
+
+	// The extra view boost for visible primitive (if ViewInfo.BoostFactor > "r.Streaming.MaxHiddenPrimitiveViewBoost").
+	float ExtraBoostForVisiblePrimitiveFloat;
+};
+
 void FTextureInstanceAsyncView::UpdateBoundSizes_Async(const TArray<FStreamingViewInfo>& ViewInfos, float LastUpdateTime, const FTextureStreamingSettings& Settings)
 {
 	if (!View.IsValid())  return;
@@ -267,6 +276,30 @@ void FTextureInstanceAsyncView::UpdateBoundSizes_Async(const TArray<FStreamingVi
 	const int32 NumBounds4 = View->NumBounds4();
 
 	const VectorRegister LastUpdateTime4 = VectorSet(LastUpdateTime, LastUpdateTime, LastUpdateTime, LastUpdateTime);
+	const float OneOverMaxHiddenPrimitiveViewBoost = 1.f / Settings.MaxHiddenPrimitiveViewBoost;
+	
+	TArray<FStreamingViewInfoExtra, TInlineAllocator<4> > ViewInfoExtras;
+	ViewInfoExtras.AddZeroed(ViewInfos.Num());
+	
+	for (int32 ViewIndex = 0; ViewIndex < NumViews; ++ViewIndex)
+	{
+		const FStreamingViewInfo& ViewInfo = ViewInfos[ViewIndex];
+		FStreamingViewInfoExtra& ViewInfoExtra = ViewInfoExtras[ViewIndex];
+
+		const float EffectiveScreenSize = (Settings.MaxEffectiveScreenSize > 0.0f) ? FMath::Min(Settings.MaxEffectiveScreenSize, ViewInfo.ScreenSize) : ViewInfo.ScreenSize;
+		ViewInfoExtra.ScreenSizeFloat = EffectiveScreenSize * .5f; // Multiply by half since the ratio factors map to half the screen only
+		ViewInfoExtra.ExtraBoostForVisiblePrimitiveFloat = 1.f;
+
+		if (ViewInfo.BoostFactor > Settings.MaxHiddenPrimitiveViewBoost)
+		{
+			ViewInfoExtra.ScreenSizeFloat *= Settings.MaxHiddenPrimitiveViewBoost;
+			ViewInfoExtra.ExtraBoostForVisiblePrimitiveFloat = ViewInfo.BoostFactor * OneOverMaxHiddenPrimitiveViewBoost;
+		}
+		else
+		{
+			ViewInfoExtra.ScreenSizeFloat *= ViewInfo.BoostFactor;
+		}
+	}
 
 	BoundsViewInfo.Empty(NumBounds4 * 4);
 	BoundsViewInfo.AddUninitialized(NumBounds4 * 4);
@@ -301,11 +334,10 @@ void FTextureInstanceAsyncView::UpdateBoundSizes_Async(const TArray<FStreamingVi
 		for (int32 ViewIndex = 0; ViewIndex < NumViews; ++ViewIndex)
 		{
 			const FStreamingViewInfo& ViewInfo = ViewInfos[ViewIndex];
+			const FStreamingViewInfoExtra& ViewInfoExtra = ViewInfoExtras[ViewIndex];
 
-			const float EffectiveScreenSize = (Settings.MaxEffectiveScreenSize > 0.0f) ? FMath::Min(Settings.MaxEffectiveScreenSize, ViewInfo.ScreenSize) : ViewInfo.ScreenSize;
-			const float ScreenSizeFloat = EffectiveScreenSize * ViewInfo.BoostFactor * .5f; // Multiply by half since the ratio factors map to half the screen only
-
-			const VectorRegister ScreenSize = VectorLoadFloat1( &ScreenSizeFloat );
+			const VectorRegister ScreenSize = VectorLoadFloat1( &ViewInfoExtra.ScreenSizeFloat );
+			const VectorRegister ExtraBoostForVisiblePrimitive = VectorLoadFloat1( &ViewInfoExtra.ExtraBoostForVisiblePrimitiveFloat );
 			const VectorRegister ViewOriginX = VectorLoadFloat1( &ViewInfo.ViewOrigin.X );
 			const VectorRegister ViewOriginY = VectorLoadFloat1( &ViewInfo.ViewOrigin.Y );
 			const VectorRegister ViewOriginZ = VectorLoadFloat1( &ViewInfo.ViewOrigin.Z );
@@ -370,11 +402,12 @@ void FTextureInstanceAsyncView::UpdateBoundSizes_Async(const TArray<FStreamingVi
 
 			MaxNormalizedSize = VectorMax(ScreenSizeOverDistance, MaxNormalizedSize);
 
-			// Accumulate the view max amongst all. When PackedRelativeBox == 0, the entry is not valid and most not affet the max.
+			// Accumulate the view max amongst all. When PackedRelativeBox == 0, the entry is not valid and must not affet the max.
 			const VectorRegister CulledMaxNormalizedSize = VectorSelect(VectorCompareNE(PackedRelativeBox, VectorZero()), MaxNormalizedSize, VectorZero());
 			ViewMaxNormalizedSize = VectorMax(ViewMaxNormalizedSize, CulledMaxNormalizedSize);
 
 			// Now mask to zero if not in range, or not seen recently.
+			ScreenSizeOverDistance = VectorMultiply(ScreenSizeOverDistance, ExtraBoostForVisiblePrimitive);
 			ScreenSizeOverDistance = VectorSelect(InRangeMask, ScreenSizeOverDistance, VectorZero());
 			ScreenSizeOverDistance = VectorSelect(VectorCompareGT(LastRenderTime, LastUpdateTime4), ScreenSizeOverDistance, VectorZero());
 

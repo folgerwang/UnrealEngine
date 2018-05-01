@@ -83,7 +83,7 @@ void MaterialSetupCS(
 	 
 	float3 WorldPosition = ComputeCellWorldPosition(GridCoordinate, VoxelOffset);
 
-	float GlobalDensity = ExponentialFogParameters3.x * exp2(-ExponentialFogParameters.y * (WorldPosition.z - ExponentialFogParameters3.y));
+	float GlobalDensity = FogStruct.ExponentialFogParameters3.x * exp2(-FogStruct.ExponentialFogParameters.y * (WorldPosition.z - FogStruct.ExponentialFogParameters3.y));
 
 	float3 Albedo = GlobalAlbedo;
 
@@ -210,7 +210,8 @@ void InjectShadowedLocalLightPS(
 		LightData.SpotAnglesAndSourceRadius = float4(DeferredLightUniforms.SpotAngles, DeferredLightUniforms.SourceRadius, DeferredLightUniforms.SourceLength);
         LightData.SoftSourceRadius = DeferredLightUniforms.SoftSourceRadius;
 		LightData.MinRoughness = DeferredLightUniforms.MinRoughness;
-		LightData.ContactShadowLength = DeferredLightUniforms.ContactShadowLength;
+		LightData.ContactShadowLength = abs(DeferredLightUniforms.ContactShadowLength);
+		LightData.ContactShadowLengthInWS = DeferredLightUniforms.ContactShadowLength < 0.0f;
 		LightData.DistanceFadeMAD = DeferredLightUniforms.DistanceFadeMAD;
 		LightData.ShadowMapChannelMask = DeferredLightUniforms.ShadowMapChannelMask;
 		LightData.ShadowedBits = DeferredLightUniforms.ShadowedBits;
@@ -461,7 +462,7 @@ void LightScatteringCS(
 		float3 CameraVector = (WorldPosition - View.WorldCameraOrigin) / CameraVectorLength;
 
 		BRANCH
-		if (ForwardGlobalLightData.HasDirectionalLight)
+		if (ForwardLightData.HasDirectionalLight)
 		{
 			float ShadowFactor = 1;
 			
@@ -473,18 +474,18 @@ void LightScatteringCS(
 
 			ShadowFactor *= GetLightFunction(WorldPosition);
 
-			float3 DirectionalLightColor = ForwardGlobalLightData.DirectionalLightColor;
+			float3 DirectionalLightColor = ForwardLightData.DirectionalLightColor;
 
 			if (UseHeightFogColors > 0)
 			{
 				// Attempt to maintain intensity ratio between sky and sun
-				DirectionalLightColor = VolumetricFog.HeightFogDirectionalLightInscatteringColor * Luminance(ForwardGlobalLightData.DirectionalLightColor);
+				DirectionalLightColor = VolumetricFog.HeightFogDirectionalLightInscatteringColor * Luminance(ForwardLightData.DirectionalLightColor);
 			}
 
 			LightScattering += DirectionalLightColor
 				* (ShadowFactor 
-				* ForwardGlobalLightData.DirectionalLightVolumetricScatteringIntensity 
-				* PhaseFunction(PhaseG, dot(ForwardGlobalLightData.DirectionalLightDirection, -CameraVector)));
+				* ForwardLightData.DirectionalLightVolumetricScatteringIntensity 
+				* PhaseFunction(PhaseG, dot(ForwardLightData.DirectionalLightDirection, -CameraVector)));
 		}
 
 		FTwoBandSHVector RotatedHGZonalHarmonic;

@@ -8,13 +8,14 @@
 #include "GameFramework/Actor.h"
 #include "Engine/Blueprint.h"
 #include "PreviewScene.h"
+#include "TickableEditorObject.h"
 #include "Animation/SkeletalMeshActor.h"
 #include "ThumbnailHelpers.generated.h"
 
 class FSceneViewFamily;
 class USceneThumbnailInfo;
 
-class UNREALED_API FThumbnailPreviewScene : public FPreviewScene
+class UNREALED_API FThumbnailPreviewScene : public FPreviewScene, public FTickableEditorObject
 {
 public:
 	/** Constructor */
@@ -22,6 +23,12 @@ public:
 
 	/** Allocates then adds an FSceneView to the ViewFamily. */
 	void GetView(FSceneViewFamily* ViewFamily, int32 X, int32 Y, uint32 SizeX, uint32 SizeY) const;
+
+	/* Begin FTickableEditorObject */
+	virtual void Tick(float DeltaTime) override;
+	virtual ETickableTickType GetTickableTickType() const override { return ETickableTickType::Always; }
+	virtual TStatId GetStatId() const override;
+	/* End FTickableEditorObject */
 
 protected:
 	/** Helper function to get the bounds offset to display an asset */

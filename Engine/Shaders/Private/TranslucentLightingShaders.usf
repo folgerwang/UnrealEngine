@@ -47,7 +47,15 @@ void CopySceneAlphaMain(
 	out float OutAlpha : SV_Target0
 	)
 {
-    OutAlpha = Texture2DSample(SceneColorTexture, SceneColorTextureSampler, Input.UV).a;
+    OutAlpha = Texture2DSample(MobileSceneTextures.SceneColorTexture, MobileSceneTextures.SceneColorTextureSampler, Input.UV).a;
+}
+
+/** Encodes HDR linear scene color for storage in the 8 bit light attenuation texture. */
+MaterialFloat3 EncodeSceneColorForMaterialNode(MaterialFloat3 LinearSceneColor)
+{
+	// Preserving a range from [0, 10]
+	// Remap values to get more bits of precision in the darks
+	return pow(LinearSceneColor * .1f, .25f);
 }
 
 void CopySceneColorMain(
@@ -55,7 +63,7 @@ void CopySceneColorMain(
 	out float4 OutColor : SV_Target0
 	)
 {
-    float4 LinearColor = Texture2DSample(SceneColorTexture, SceneColorTextureSampler, Input.UV);
+    float4 LinearColor = Texture2DSample(SceneTexturesStruct.SceneColorTexture, SceneTexturesStruct.SceneColorTextureSampler, Input.UV);
 	OutColor = float4(EncodeSceneColorForMaterialNode(LinearColor.rgb), 0);
 }
 

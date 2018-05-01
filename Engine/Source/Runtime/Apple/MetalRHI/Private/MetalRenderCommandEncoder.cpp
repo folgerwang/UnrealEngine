@@ -57,10 +57,16 @@ static id <MTLRenderPipelineState> GetDebugVertexShaderState(id<MTLDevice> Devic
 		}
 		if (PassDesc.colorAttachments)
 		{
-			MTLRenderPassColorAttachmentDescriptor* CD = [PassDesc.colorAttachments objectAtIndexedSubscript:0];
-			MTLRenderPipelineColorAttachmentDescriptor* CD0 = [[MTLRenderPipelineColorAttachmentDescriptor new] autorelease];
-			CD0.pixelFormat = CD.texture.pixelFormat;
-			[Desc.colorAttachments setObject:CD0 atIndexedSubscript:0];
+			for (NSUInteger i = 0; i < 8; i++)
+			{
+				MTLRenderPassColorAttachmentDescriptor* CD = [PassDesc.colorAttachments objectAtIndexedSubscript:i];
+				if (CD.texture.pixelFormat != MTLPixelFormatInvalid)
+				{
+					MTLRenderPipelineColorAttachmentDescriptor* CD0 = [[MTLRenderPipelineColorAttachmentDescriptor new] autorelease];
+					CD0.pixelFormat = CD.texture.pixelFormat;
+					[Desc.colorAttachments setObject:CD0 atIndexedSubscript:i];
+				}
+			}
 		}
 		Desc.rasterizationEnabled = false;
 		
@@ -166,9 +172,9 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugRenderCommandEncoder)
 #if PLATFORM_MAC
 			[Inner textureBarrier];
 #endif
-			if (Pipeline && Pipeline.RenderPipelineState)
+			if (Pipeline && Pipeline->RenderPipelineState)
 			{
-				[Inner setRenderPipelineState:Pipeline.RenderPipelineState];
+				[Inner setRenderPipelineState:Pipeline->RenderPipelineState];
 			}
 			
 			if (ShaderBuffers[EMetalShaderVertex].Buffers[0])
@@ -1094,7 +1100,7 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugRenderCommandEncoder)
 		case EMetalDebugLevelWaitForComplete:
 		case EMetalDebugLevelLogOperations:
 		{
-			[Buffer draw:[NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]];
+			[Buffer draw:[NSString stringWithFormat:@"%s:%u,%u,%u,%u,%u", __PRETTY_FUNCTION__, (uint32)primitiveType, (uint32)vertexStart, (uint32)vertexCount, (uint32)instanceCount, (uint32)baseInstance]];
 		}
 		case EMetalDebugLevelValidation:
 		case EMetalDebugLevelResetOnBind:
@@ -1121,7 +1127,7 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugRenderCommandEncoder)
 		case EMetalDebugLevelWaitForComplete:
 		case EMetalDebugLevelLogOperations:
 		{
-			[Buffer draw:[NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]];
+			[Buffer draw:[NSString stringWithFormat:@"%s:%u,%u,%u,%u,%u,%u,%u", __PRETTY_FUNCTION__, (uint32)primitiveType, (uint32)indexCount, (uint32)indexType, (uint32)indexBufferOffset, (uint32)instanceCount, (uint32)baseVertex, (uint32)baseInstance]];
 		}
 		case EMetalDebugLevelValidation:
 		case EMetalDebugLevelResetOnBind:
@@ -1211,7 +1217,6 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugRenderCommandEncoder)
 
 #endif
 
-#if METAL_SUPPORTS_HEAPS
 - (void)updateFence:(id <MTLFence>)fence afterStages:(MTLRenderStages)stages
 {
 #if METAL_DEBUG_OPTIONS
@@ -1247,7 +1252,6 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugRenderCommandEncoder)
 		[Inner waitForFence:(id <MTLFence>)fence beforeStages:(MTLRenderStages)stages];
 	}
 }
-#endif
 
 -(void)setTessellationFactorBuffer:(nullable id <MTLBuffer>)buffer offset:(NSUInteger)offset instanceStride:(NSUInteger)instanceStride
 {
@@ -1469,7 +1473,7 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugRenderCommandEncoder)
 		{
 			check(Pipeline);
 
-			MTLRenderPipelineReflection* Reflection = Pipeline.RenderPipelineReflection;
+			MTLRenderPipelineReflection* Reflection = Pipeline->RenderPipelineReflection;
 			check(Reflection);
 			
 			NSArray<MTLArgument*>* Arguments = nil;
@@ -1604,13 +1608,13 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugRenderCommandEncoder)
     bool bOK = [self validateFunctionBindings:EMetalShaderVertex];
     if (!bOK)
     {
-        UE_LOG(LogMetal, Error, TEXT("Metal Validation failures for vertex shader:\n%s"), Pipeline && Pipeline.VertexSource ? *FString(Pipeline.VertexSource) : TEXT("nil"));
+        UE_LOG(LogMetal, Error, TEXT("Metal Validation failures for vertex shader:\n%s"), Pipeline && Pipeline->VertexSource ? *FString(Pipeline->VertexSource) : TEXT("nil"));
     }
 	
     bOK = [self validateFunctionBindings:EMetalShaderFragment];
     if (!bOK)
     {
-        UE_LOG(LogMetal, Error, TEXT("Metal Validation failures for fragment shader:\n%s"), Pipeline && Pipeline.FragmentSource ? *FString(Pipeline.FragmentSource) : TEXT("nil"));
+        UE_LOG(LogMetal, Error, TEXT("Metal Validation failures for fragment shader:\n%s"), Pipeline && Pipeline->FragmentSource ? *FString(Pipeline->FragmentSource) : TEXT("nil"));
     }
 #endif
 }
@@ -1745,23 +1749,5 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugRenderCommandEncoder)
 
 #endif
 @end
-
-#if !METAL_SUPPORTS_HEAPS
-@implementation FMetalDebugRenderCommandEncoder (MTLRenderCommandEncoderExtensions)
--(void) updateFence:(id <MTLFence>)fence afterStages:(MTLRenderStages)stages
-{
-#if METAL_DEBUG_OPTIONS
-	[self addUpdateFence:fence];
-#endif
-}
-
--(void) waitForFence:(id <MTLFence>)fence beforeStages:(MTLRenderStages)stages
-{
-#if METAL_DEBUG_OPTIONS
-	[self addWaitFence:fence];
-#endif
-}
-@end
-#endif
 
 NS_ASSUME_NONNULL_END

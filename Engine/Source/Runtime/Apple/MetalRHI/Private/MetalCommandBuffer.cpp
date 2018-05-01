@@ -29,6 +29,11 @@ NSString* GMetalDebugCommandTypeNames[EMetalDebugCommandTypeInvalid] = {
 
 extern int32 GMetalRuntimeDebugLevel;
 
+uint32 SafeGetRuntimeDebuggingLevel()
+{
+	return GIsRHIInitialized ? GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() : GMetalRuntimeDebugLevel;
+}
+
 @implementation NSObject (IMetalDebugGroupAssociation)
 @dynamic debugGroups;
 - (void)setDebugGroups:(NSMutableArray<NSString*>*)Data
@@ -54,7 +59,7 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugCommandBuffer)
 	if (Self)
 	{
         DebugLevel = (EMetalDebugLevel)GMetalRuntimeDebugLevel;
-		InnerBuffer = Buffer;
+		InnerBuffer = [Buffer retain];
 		DebugGroup = [NSMutableArray new];
 		ActiveEncoder = nil;
 		DebugInfoBuffer = nil;

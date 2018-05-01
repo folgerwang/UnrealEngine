@@ -6,7 +6,7 @@
 
 #include "Common.ush"
 #include "DeferredShadingCommon.ush"		// GBufferData
-
+#include "DBufferDecalShared.ush"
 
 half3 FrameBufferDecalBlendOp(half4 Source)
 {

@@ -92,7 +92,7 @@ namespace D3D12RHI
 }
 using namespace D3D12RHI;
 
-#if PLATFORM_SUPPORTS_MGPU
+#if WITH_SLI
 FD3D12FramePacing::FD3D12FramePacing(FD3D12Adapter* Parent)
 	: bKeepRunning(true)
 	, AvgFrameTimeMs(0.0f)
@@ -167,72 +167,95 @@ void FD3D12FramePacing::PrePresentQueued(ID3D12CommandQueue* Queue)
 	AvgFrameTimeMs = (Alpha * GPUMsForFrame) + ((1.0f - Alpha) * AvgFrameTimeMs);
 	LastFrameTimeMs = CurrTimeMs;
 
-	const float TargetFrameTime = AvgFrameTimeMs * FramePacingPercentage / GetParentAdapter()->GetNumGPUNodes();
+	const float TargetFrameTime = AvgFrameTimeMs * FramePacingPercentage / GNumActiveGPUsForRendering;
 
 	const uint32 WriteIndex = NextIndex % MaxFrames;
 	SleepTimes[WriteIndex] = (uint32)TargetFrameTime;
 	VERIFYD3D12RESULT(Queue->Wait(Fence, ++NextIndex));
 	ReleaseSemaphore(Semaphore, 1, nullptr);
 }
-#endif //PLATFORM_SUPPORTS_MGPU
+#endif //WITH_SLI
 
 /**
  * Creates a FD3D12Surface to represent a swap chain's back buffer.
  */
-FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFormat, IDXGISwapChain* SwapChain, const uint32 &backBufferIndex)
+FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFormat, IDXGISwapChain* SwapChain, uint32 BackBufferIndex)
 {
-	const GPUNodeMask Node = Parent->GetNodeMask();
+	FD3D12Adapter* Adapter = Parent->GetParentAdapter();
+	const FRHIGPUMask Node = Parent->GetNodeMask();
 
 	// Grab the back buffer
 	TRefCountPtr<ID3D12Resource> BackBufferResource;
-	VERIFYD3D12RESULT_EX(SwapChain->GetBuffer(backBufferIndex, IID_PPV_ARGS(BackBufferResource.GetInitReference())), Parent->GetDevice());
+	VERIFYD3D12RESULT_EX(SwapChain->GetBuffer(BackBufferIndex, IID_PPV_ARGS(BackBufferResource.GetInitReference())), Parent->GetDevice());
 
 	D3D12_RESOURCE_DESC BackBufferDesc = BackBufferResource->GetDesc();
 
-	FD3D12Texture2D* NewTexture = new FD3D12Texture2D(Parent,
-		(uint32)BackBufferDesc.Width,
-		BackBufferDesc.Height,
-		1,
-		1,
-		1,
-		PixelFormat,
-		false,
-		false,
-		FClearValueBinding());
+	FD3D12Texture2D* SwapChainTexture = Adapter->CreateLinkedObject<FD3D12Texture2D>(FRHIGPUMask::All(), [&](FD3D12Device* Device)
+	{
+		FD3D12Texture2D* NewTexture = new FD3D12Texture2D(Device,
+			(uint32)BackBufferDesc.Width,
+			BackBufferDesc.Height,
+			1,
+			1,
+			1,
+			PixelFormat,
+			false,
+			false,
+			FClearValueBinding());
 
-	const D3D12_RESOURCE_STATES State = D3D12_RESOURCE_STATE_COMMON;
+		const D3D12_RESOURCE_STATES State = D3D12_RESOURCE_STATE_COMMON;
 
-	FD3D12Resource* NewResourceWrapper = new FD3D12Resource(Parent, Node, BackBufferResource, State, BackBufferDesc);
-	NewResourceWrapper->AddRef();
-	NewTexture->ResourceLocation.AsStandAlone(NewResourceWrapper);
+		if (Device->GetGPUIndex() == Parent->GetGPUIndex())
+		{
+			FD3D12Resource* NewResourceWrapper = new FD3D12Resource(Device, Node, BackBufferResource, State, BackBufferDesc);
+			NewResourceWrapper->AddRef();
+			NewTexture->ResourceLocation.AsStandAlone(NewResourceWrapper);
+		}
+		else // If this is not the GPU which will hold the back buffer, create a compatible texture so that it can still render to the viewport.
+		{
+			FClearValueBinding ClearValueBinding;
+			SafeCreateTexture2D(Device,
+				Adapter,
+				BackBufferDesc,
+				nullptr, // &ClearValueBinding,
+				&NewTexture->ResourceLocation,
+				PixelFormat,
+				TexCreate_RenderTargetable |  TexCreate_ShaderResource,
+				D3D12_RESOURCE_STATE_PRESENT);
+		}
 
-	// create the render target view
-	D3D12_RENDER_TARGET_VIEW_DESC RTVDesc = {};
-	RTVDesc.Format = BackBufferDesc.Format;
-	RTVDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-	RTVDesc.Texture2D.MipSlice = 0;
+		// create the render target view
+		D3D12_RENDER_TARGET_VIEW_DESC RTVDesc = {};
+		RTVDesc.Format = BackBufferDesc.Format;
+		RTVDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+		RTVDesc.Texture2D.MipSlice = 0;
 
-	FD3D12RenderTargetView* BackBufferRenderTargetView = new FD3D12RenderTargetView(Parent, RTVDesc, NewTexture->ResourceLocation);
-	NewTexture->SetRenderTargetView(BackBufferRenderTargetView);
+		FD3D12RenderTargetView* BackBufferRenderTargetView = new FD3D12RenderTargetView(Device, RTVDesc, NewTexture->ResourceLocation);
+		NewTexture->SetRenderTargetView(BackBufferRenderTargetView);
 
-	// create a shader resource view to allow using the backbuffer as a texture
-	D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
-	SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	SRVDesc.Format = BackBufferDesc.Format;
-	SRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	SRVDesc.Texture2D.MostDetailedMip = 0;
-	SRVDesc.Texture2D.MipLevels = 1;
+		// create a shader resource view to allow using the backbuffer as a texture
+		D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+		SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		SRVDesc.Format = BackBufferDesc.Format;
+		SRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		SRVDesc.Texture2D.MostDetailedMip = 0;
+		SRVDesc.Texture2D.MipLevels = 1;
 
-	FD3D12ShaderResourceView* WrappedShaderResourceView = new FD3D12ShaderResourceView(Parent, SRVDesc, NewTexture->ResourceLocation);
-	NewTexture->SetShaderResourceView(WrappedShaderResourceView);
+		FD3D12ShaderResourceView* WrappedShaderResourceView = new FD3D12ShaderResourceView(Device, SRVDesc, NewTexture->ResourceLocation);
+		NewTexture->SetShaderResourceView(WrappedShaderResourceView);
 
-	FD3D12TextureStats::D3D12TextureAllocated2D(*NewTexture);
+		if (Device->GetGPUIndex() == Parent->GetGPUIndex())
+		{
+			NewTexture->DoNoDeferDelete();
+			BackBufferRenderTargetView->DoNoDeferDelete();
+			WrappedShaderResourceView->DoNoDeferDelete();
+		}
 
-	NewTexture->DoNoDeferDelete();
-	BackBufferRenderTargetView->DoNoDeferDelete();
-	WrappedShaderResourceView->DoNoDeferDelete();
+		return NewTexture;
+	});
 
-	return NewTexture;
+	FD3D12TextureStats::D3D12TextureAllocated2D(*SwapChainTexture);
+	return SwapChainTexture;
 }
 
 FD3D12Viewport::~FD3D12Viewport()
@@ -241,13 +264,13 @@ FD3D12Viewport::~FD3D12Viewport()
 
 	GetParentAdapter()->GetViewports().Remove(this);
 
-#if PLATFORM_SUPPORTS_MGPU
+#if WITH_SLI
 	if (FramePacerRunnable)
 	{
 		delete FramePacerRunnable;
 		FramePacerRunnable = nullptr;
 	}
-#endif //PLATFORM_SUPPORTS_MGPU
+#endif //WITH_SLI
 }
 
 DXGI_MODE_DESC FD3D12Viewport::SetupDXGI_MODE_DESC() const
@@ -268,7 +291,15 @@ DXGI_MODE_DESC FD3D12Viewport::SetupDXGI_MODE_DESC() const
 void FD3D12Viewport::CalculateSwapChainDepth(int32 DefaultSwapChainDepth)
 {
 	FD3D12Adapter* Adapter = GetParentAdapter();
-	NumBackBuffers = (Adapter->AlternateFrameRenderingEnabled()) ? (AFRNumBackBuffersPerNode * Adapter->GetNumGPUNodes()) : DefaultSwapChainDepth;
+
+	// This is a temporary helper to visualize what each GPU is rendering. 
+	// Not specifying a value will cycle swap chain through all GPUs.
+	DisplayedGPUIndex = INDEX_NONE;
+	if (GNumActiveGPUsForRendering > 1 && FParse::Value(FCommandLine::Get(), TEXT("mGPU="), DisplayedGPUIndex))
+	{
+		DisplayedGPUIndex = FMath::Clamp<int32>(DisplayedGPUIndex, 0, (int32)GNumActiveGPUsForRendering);
+	}
+	NumBackBuffers = (GNumActiveGPUsForRendering == 1 || DisplayedGPUIndex != INDEX_NONE) ? DefaultSwapChainDepth : (GNumActiveGPUsForRendering > 2 ? GNumActiveGPUsForRendering : 4);
 
 	BackBuffers.Empty();
 	BackBuffers.AddZeroed(NumBackBuffers);
@@ -280,7 +311,6 @@ void FD3D12Viewport::CalculateSwapChainDepth(int32 DefaultSwapChainDepth)
 void FD3D12Viewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen, EPixelFormat PreferredPixelFormat)
 {
 	FD3D12Adapter* Adapter = GetParentAdapter();
-	const uint32 NumGPUs = Adapter->GetNumGPUNodes();
 
 #if LOG_VIEWPORT_EVENTS
 	const FString ThreadName(FThreadManager::Get().GetThreadName(FPlatformTLS::GetCurrentThreadId()));
@@ -293,11 +323,14 @@ void FD3D12Viewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 	Adapter->BlockUntilIdle();
 
 	// Unbind any dangling references to resources.
-	for (size_t i = 0; i < NumGPUs; i++)
+	for (uint32 GPUIndex : FRHIGPUMask::All())
 	{
-		FD3D12Device* Device = Adapter->GetDevice(1 << i);
+		FD3D12Device* Device = Adapter->GetDevice(GPUIndex);
 		Device->GetDefaultCommandContext().ClearState();
-		Device->GetDefaultAsyncComputeContext().ClearState();
+		if (GEnableAsyncCompute)
+		{
+			Device->GetDefaultAsyncComputeContext().ClearState();
+		}
 	}
 
 	if (IsValidRef(CustomPresent))
@@ -561,36 +594,49 @@ void FD3D12Viewport::PresentWithVsyncDWM()
 bool FD3D12Viewport::Present(bool bLockToVsync)
 {
 	FD3D12Adapter* Adapter = GetParentAdapter();
-	FD3D12Device* Device = Adapter->GetCurrentDevice();
-
-	FD3D12CommandContext& DefaultContext = Device->GetDefaultCommandContext();
-
-	FD3D12DynamicRHI::TransitionResource(DefaultContext.CommandListHandle, GetBackBuffer_RHIThread()->GetShaderResourceView(), D3D12_RESOURCE_STATE_PRESENT);
-	if (SDRBackBuffer_RHIThread != nullptr)
+	
+	for (uint32 GPUIndex : FRHIGPUMask::All())
 	{
-		FD3D12DynamicRHI::TransitionResource(DefaultContext.CommandListHandle, GetSDRBackBuffer_RHIThread()->GetShaderResourceView(), D3D12_RESOURCE_STATE_PRESENT);
+		FD3D12Device* Device = Adapter->GetDevice(GPUIndex);
+		FD3D12CommandContext& DefaultContext = Device->GetDefaultCommandContext();
+
+		// Those are not necessarily the swap chain back buffer in case of multi-gpu
+		FD3D12Texture2D* DeviceBackBuffer = static_cast<FD3D12Texture2D*>(DefaultContext.RetrieveTextureBase(GetBackBuffer_RHIThread()));
+		FD3D12Texture2D* DeviceSDRBackBuffer = static_cast<FD3D12Texture2D*>(DefaultContext.RetrieveTextureBase(GetSDRBackBuffer_RHIThread()));
+
+		FD3D12DynamicRHI::TransitionResource(DefaultContext.CommandListHandle, DeviceBackBuffer->GetShaderResourceView(), D3D12_RESOURCE_STATE_PRESENT);
+		if (SDRBackBuffer_RHIThread != nullptr)
+		{
+			FD3D12DynamicRHI::TransitionResource(DefaultContext.CommandListHandle, DeviceSDRBackBuffer->GetShaderResourceView(), D3D12_RESOURCE_STATE_PRESENT);
+		}
+		DefaultContext.CommandListHandle.FlushResourceBarriers();
 	}
-	DefaultContext.CommandListHandle.FlushResourceBarriers();
 
 	// Stop Timing at the very last moment
-	Adapter->GetGPUProfiler().EndFrame(Device->GetOwningRHI());
+	Adapter->GetGPUProfiler().EndFrame(Adapter->GetOwningRHI());
 
-	// Execute the current command lists, and then open a new command list with a new command allocator.
-	DefaultContext.ReleaseCommandAllocator();
-	DefaultContext.FlushCommands();
-
-	// Reset the default context state
-	DefaultContext.ClearState();
-
-	if (GEnableAsyncCompute)
+	for (uint32 GPUIndex : FRHIGPUMask::All())
 	{
-		FD3D12CommandContext& DefaultAsyncComputeContext = Device->GetDefaultAsyncComputeContext();
-		DefaultAsyncComputeContext.ReleaseCommandAllocator();
-		DefaultAsyncComputeContext.ClearState();
+		FD3D12Device* Device = Adapter->GetDevice(GPUIndex);
+		FD3D12CommandContext& DefaultContext = Device->GetDefaultCommandContext();
+
+		// Execute the current command lists, and then open a new command list with a new command allocator.
+		DefaultContext.ReleaseCommandAllocator();
+		DefaultContext.FlushCommands();
+
+		// Reset the default context state
+		DefaultContext.ClearState();
+
+		if (GEnableAsyncCompute)
+		{
+			FD3D12CommandContext& DefaultAsyncComputeContext = Device->GetDefaultAsyncComputeContext();
+			DefaultAsyncComputeContext.ReleaseCommandAllocator();
+			DefaultAsyncComputeContext.ClearState();
+		}
 	}
 
-#if PLATFORM_SUPPORTS_MGPU
-	// When using AFR the GPUs must be synchronized so make the current GPU wait for the N-1 GPU's frame to finish
+#if WITH_SLI
+#if 0 // Multi-GPU support : figure out what kind of synchronization is needed.
 	if (Adapter->GetMultiGPUMode() == EMultiGPUMode::MGPU_AFR)
 	{
 		FD3D12Fence& FrameFence = Adapter->GetFrameFence();
@@ -615,12 +661,14 @@ bool FD3D12Viewport::Present(bool bLockToVsync)
 	
 		FramePacerRunnable->PrePresentQueued(Device->GetCommandListManager().GetD3DCommandQueue());
 	}
-	else if (FramePacerRunnable)
+	else
+#endif
+	if (FramePacerRunnable)
 	{
 		delete FramePacerRunnable;
 		FramePacerRunnable = nullptr;
 	}
-#endif //PLATFORM_SUPPORTS_MGPU
+#endif //WITH_SLI
 
 	const int32 SyncInterval = bLockToVsync ? RHIGetSyncInterval() : 0;
 	const bool bNativelyPresented = PresentChecked(SyncInterval);
@@ -645,7 +693,7 @@ void FD3D12Viewport::WaitForFrameEventCompletion()
 void FD3D12Viewport::IssueFrameEvent()
 {
 	// Signal the fence.
-	LastSignaledValue = Fence.Signal(pCommandQueue);
+	LastSignaledValue = Fence.Signal(ED3D12CommandQueueType::Default);
 }
 
 bool FD3D12Viewport::CheckHDRSupport()
@@ -725,18 +773,15 @@ void FD3D12DynamicRHI::RHITick(float DeltaTime)
  *	Viewport functions.
  *=============================================================================*/
 
-void FD3D12CommandContext::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI, FTextureRHIParamRef RenderTargetRHI)
+void FD3D12CommandContextBase::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI, FTextureRHIParamRef RenderTargetRHI)
 {
-	FD3D12Device* Device = GetParentDevice();
-	FD3D12Adapter* Adapter = Device->GetParentAdapter();
 	FD3D12Viewport* Viewport = FD3D12DynamicRHI::ResourceCast(ViewportRHI);
 
 	SCOPE_CYCLE_COUNTER(STAT_D3D12PresentTime);
 
 	// Set the viewport.
-	check(IsDefaultContext());
-	check(!Adapter->GetDrawingViewport());
-	Adapter->SetDrawingViewport(Viewport);
+	check(!ParentAdapter->GetDrawingViewport());
+	ParentAdapter->SetDrawingViewport(Viewport);
 
 	if (RenderTargetRHI == nullptr)
 	{
@@ -753,11 +798,9 @@ void FD3D12CommandContext::RHIBeginDrawingViewport(FViewportRHIParamRef Viewport
 	RHISetRenderTargets(1, &RTView, nullptr, 0, nullptr);
 }
 
-void FD3D12CommandContext::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI, bool bPresent, bool bLockToVsync)
+void FD3D12CommandContextBase::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI, bool bPresent, bool bLockToVsync)
 {
-	FD3D12Device* Device = GetParentDevice();
-	FD3D12Adapter* Adapter = Device->GetParentAdapter();
-	FD3D12DynamicRHI& RHI = *Device->GetOwningRHI();
+	FD3D12DynamicRHI& RHI = *ParentAdapter->GetOwningRHI();
 	FD3D12Viewport* Viewport = FD3D12DynamicRHI::ResourceCast(ViewportRHI);
 
 #if LOG_VIEWPORT_EVENTS
@@ -768,44 +811,37 @@ void FD3D12CommandContext::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRH
 
 	SCOPE_CYCLE_COUNTER(STAT_D3D12PresentTime);
 
-	check(Adapter->GetDrawingViewport() == Viewport);
-	Adapter->SetDrawingViewport(nullptr);
+	check(ParentAdapter->GetDrawingViewport() == Viewport);
+	ParentAdapter->SetDrawingViewport(nullptr);
 
 	const bool bNativelyPresented = Viewport->Present(bLockToVsync);
 
-	// Don't wait on the GPU when using SLI, let the driver determine how many frames behind the GPU should be allowed to get
-	if (Adapter->GetMultiGPUMode() == MGPU_Disabled)
+	// Multi-GPU support : here each GPU wait's for it's own frame completion. Note that even in AFR, each GPU renders an (empty) frame.
+	if (bNativelyPresented)
 	{
-		if (bNativelyPresented)
+		static const auto CFinishFrameVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.FinishCurrentFrame"));
+		if (!CFinishFrameVar->GetValueOnRenderThread())
 		{
-			static const auto CFinishFrameVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.FinishCurrentFrame"));
-			if (!CFinishFrameVar->GetValueOnRenderThread())
-			{
-				// Wait for the GPU to finish rendering the previous frame before finishing this frame.
-				Viewport->WaitForFrameEventCompletion();
-				Viewport->IssueFrameEvent();
-			}
-			else
-			{
-				// Finish current frame immediately to reduce latency
-				Viewport->IssueFrameEvent();
-				Viewport->WaitForFrameEventCompletion();
-			}
-		}
-
-		// If the input latency timer has been triggered, block until the GPU is completely
-		// finished displaying this frame and calculate the delta time.
-		if (GInputLatencyTimer.RenderThreadTrigger)
-		{
+			// Wait for the GPU to finish rendering the previous frame before finishing this frame.
 			Viewport->WaitForFrameEventCompletion();
-			uint32 EndTime = FPlatformTime::Cycles();
-			GInputLatencyTimer.DeltaTime = EndTime - GInputLatencyTimer.StartTime;
-			GInputLatencyTimer.RenderThreadTrigger = false;
+			Viewport->IssueFrameEvent();
+		}
+		else
+		{
+			// Finish current frame immediately to reduce latency
+			Viewport->IssueFrameEvent();
+			Viewport->WaitForFrameEventCompletion();
 		}
 	}
-	else
+
+	// If the input latency timer has been triggered, block until the GPU is completely
+	// finished displaying this frame and calculate the delta time.
+	if (GInputLatencyTimer.RenderThreadTrigger)
 	{
-		// When using AFR we signal at RHIEndFrame due to the slate thread
+		Viewport->WaitForFrameEventCompletion();
+		uint32 EndTime = FPlatformTime::Cycles();
+		GInputLatencyTimer.DeltaTime = EndTime - GInputLatencyTimer.StartTime;
+		GInputLatencyTimer.RenderThreadTrigger = false;
 	}
 }
 

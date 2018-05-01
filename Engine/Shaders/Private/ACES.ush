@@ -1,10 +1,5 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-// #todo-rco: Fix in the cross-compiler
-#if COMPILER_GLSL || COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1 || COMPILER_METAL || VULKAN_PROFILE || COMPILER_HLSLCC
-#define log10(x)  log(x) / log(10.0)
-#endif
-
 /*
 =============================================================================
 	ACES: Academy Color Encoding System
@@ -181,11 +176,11 @@ float glow_fwd( float ycIn, float glowGainIn, float glowMid)
    float glowGainOut;
 
    if (ycIn <= 2./3. * glowMid) {
-     glowGainOut = glowGainIn;
+	 glowGainOut = glowGainIn;
    } else if ( ycIn >= 2 * glowMid) {
-     glowGainOut = 0;
+	 glowGainOut = 0;
    } else {
-     glowGainOut = glowGainIn * (glowMid / ycIn - 0.5);
+	 glowGainOut = glowGainIn * (glowMid / ycIn - 0.5);
    }
 
    return glowGainOut;
@@ -193,17 +188,17 @@ float glow_fwd( float ycIn, float glowGainIn, float glowMid)
 
 float glow_inv( float ycOut, float glowGainIn, float glowMid)
 {
-    float glowGainOut;
+	float glowGainOut;
 
-    if (ycOut <= ((1 + glowGainIn) * 2./3. * glowMid)) {
-	    glowGainOut = -glowGainIn / (1 + glowGainIn);
-    } else if ( ycOut >= (2. * glowMid)) {
+	if (ycOut <= ((1 + glowGainIn) * 2./3. * glowMid)) {
+		glowGainOut = -glowGainIn / (1 + glowGainIn);
+	} else if ( ycOut >= (2. * glowMid)) {
 		glowGainOut = 0.;
 	} else {
 		glowGainOut = glowGainIn * (glowMid / ycOut - 1./2.) / (glowGainIn / 2. - 1.);
-    }
+	}
 
-    return glowGainOut;
+	return glowGainOut;
 }
 
 
@@ -242,7 +237,7 @@ float cubic_basis_shaper
 		float knot_coord = (x - knots[0]) * 4.0 / w;
 		int j = knot_coord;
 		float t = knot_coord - j;
-      
+	  
 		float monomials[4] = { t*t*t, t*t, t, 1.0 };
 
 		// (if/else structure required for compatibility with CTL < v1.5.)
@@ -344,7 +339,7 @@ float segmented_spline_c5_fwd( float x )
 		float t = knot_coord - j;
 
 		float3 cf = { C.coefsLow[ j], C.coefsLow[ j + 1], C.coefsLow[ j + 2]};
-    
+	
 		float3 monomials = { t * t, t, 1.0 };
 		logy = dot( monomials, mul( cf, M));
 	}
@@ -422,7 +417,7 @@ float segmented_spline_c5_rev( float y )
 		} else if ( logy > KNOT_Y_LOW[ 2] && logy <= KNOT_Y_LOW[ 3]) {
 			cf[ 0] = C.coefsLow[2];  cf[ 1] = C.coefsLow[3];  cf[ 2] = C.coefsLow[4];  j = 2;
 		} 
-    
+	
 		const float3 tmp = mul( cf, M);
 
 		float a = tmp[ 0];
@@ -447,7 +442,7 @@ float segmented_spline_c5_rev( float y )
 		} else if ( logy > KNOT_Y_HIGH[ 2] && logy <= KNOT_Y_HIGH[ 3]) {
 			cf[ 0] = C.coefsHigh[2];  cf[ 1] = C.coefsHigh[3];  cf[ 2] = C.coefsHigh[4];  j = 2;
 		} 
-    
+	
 		const float3 tmp = mul( cf, M);
 
 		float a = tmp[ 0];
@@ -559,7 +554,7 @@ float segmented_spline_c9_rev( float y, const SegmentedSplineParams_c9 C )
 		} else if ( logy > KNOT_Y_LOW[ 6] && logy <= KNOT_Y_LOW[ 7]) {
 			cf[ 0] = C.coefsLow[6];  cf[ 1] = C.coefsLow[7];  cf[ 2] = C.coefsLow[8];  j = 6;
 		}
-    
+	
 		const float3 tmp = mul( cf, M);
 
 		float a = tmp[ 0];
@@ -590,7 +585,7 @@ float segmented_spline_c9_rev( float y, const SegmentedSplineParams_c9 C )
 		} else if ( logy > KNOT_Y_HIGH[ 6] && logy <= KNOT_Y_HIGH[ 7]) {
 			cf[ 0] = C.coefsHigh[6];  cf[ 1] = C.coefsHigh[7];  cf[ 2] = C.coefsHigh[8];  j = 6;
 		}
-    
+	
 		const float3 tmp = mul( cf, M);
 
 		float a = tmp[ 0];
@@ -723,55 +718,55 @@ float3 Inverse_RRT( float3 oces )
 	const float RRT_GLOW_MID = 0.08;
 
 	// --- OCES to RGB rendering space --- //
-    float3 rgbPre = mul(AP0_2_AP1_MAT, oces);
+	float3 rgbPre = mul(AP0_2_AP1_MAT, oces);
 
 	// --- Apply the tonescale independently in rendering-space RGB --- //
-    float3 rgbPost;
-    rgbPost[0] = segmented_spline_c5_rev( rgbPre[0]);
-    rgbPost[1] = segmented_spline_c5_rev( rgbPre[1]);
-    rgbPost[2] = segmented_spline_c5_rev( rgbPre[2]);
+	float3 rgbPost;
+	rgbPost[0] = segmented_spline_c5_rev( rgbPre[0]);
+	rgbPost[1] = segmented_spline_c5_rev( rgbPre[1]);
+	rgbPost[2] = segmented_spline_c5_rev( rgbPre[2]);
 
 	// --- Global desaturation --- //
 	const float RRT_SAT_FACTOR = 0.96;
 	rgbPost = lerp( dot( rgbPost, AP1_RGB2Y ), rgbPost, rcp(RRT_SAT_FACTOR) );
 
-    rgbPost = clamp( rgbPost, 0., HALF_MAX);
+	rgbPost = clamp( rgbPost, 0., HALF_MAX);
 
 	// --- RGB rendering space to ACES --- //
-    float3 aces = mul( AP1_2_AP0_MAT, rgbPost);
+	float3 aces = mul( AP1_2_AP0_MAT, rgbPost);
 
-    aces = clamp( aces, 0., HALF_MAX);
+	aces = clamp( aces, 0., HALF_MAX);
 
 	// --- Red modifier --- //
 	const float RRT_RED_SCALE = 0.82;
 	const float RRT_RED_PIVOT = 0.03;
 	const float RRT_RED_HUE = 0;
 	const float RRT_RED_WIDTH = 135;
-    float hue = rgb_2_hue( aces);
-    float centeredHue = center_hue( hue, RRT_RED_HUE);
-    float hueWeight = cubic_basis_shaper( centeredHue, RRT_RED_WIDTH);
+	float hue = rgb_2_hue( aces);
+	float centeredHue = center_hue( hue, RRT_RED_HUE);
+	float hueWeight = cubic_basis_shaper( centeredHue, RRT_RED_WIDTH);
 
-    float minChan;
-    if (centeredHue < 0) { 
+	float minChan;
+	if (centeredHue < 0) { 
 		// min_f3(aces) = aces[1] (i.e. magenta-red)
 		minChan = aces[1];
-    } else { // min_f3(aces) = aces[2] (i.e. yellow-red)
+	} else { // min_f3(aces) = aces[2] (i.e. yellow-red)
 		minChan = aces[2];
-    }
+	}
 
-    float a = hueWeight * (1. - RRT_RED_SCALE) - 1.;
-    float b = aces[0] - hueWeight * (RRT_RED_PIVOT + minChan) * (1. - RRT_RED_SCALE);
-    float c = hueWeight * RRT_RED_PIVOT * minChan * (1. - RRT_RED_SCALE);
+	float a = hueWeight * (1. - RRT_RED_SCALE) - 1.;
+	float b = aces[0] - hueWeight * (RRT_RED_PIVOT + minChan) * (1. - RRT_RED_SCALE);
+	float c = hueWeight * RRT_RED_PIVOT * minChan * (1. - RRT_RED_SCALE);
 
-    aces[0] = ( -b - sqrt( b * b - 4. * a * c)) / ( 2. * a);
+	aces[0] = ( -b - sqrt( b * b - 4. * a * c)) / ( 2. * a);
 
 	// --- Glow module --- //
-    float saturation = rgb_2_saturation( aces);
-    float ycOut = rgb_2_yc( aces);
-    float s = sigmoid_shaper( (saturation - 0.4) / 0.2);
-    float reducedGlow = 1. + glow_inv( ycOut, RRT_GLOW_GAIN * s, RRT_GLOW_MID);
+	float saturation = rgb_2_saturation( aces);
+	float ycOut = rgb_2_yc( aces);
+	float s = sigmoid_shaper( (saturation - 0.4) / 0.2);
+	float reducedGlow = 1. + glow_inv( ycOut, RRT_GLOW_GAIN * s, RRT_GLOW_MID);
 
-    aces = reducedGlow * aces;
+	aces = reducedGlow * aces;
 
 	// Assign ACES RGB to output variables (ACES)
 	return aces;
@@ -988,11 +983,11 @@ float3 ODT_sRGB_D65( float3 oces )
 float3 Inverse_ODT_sRGB_D65(float3 linearCV)
 {  
 	// Convert from display primary encoding
-    // Display primaries to CIE XYZ
-    float3 XYZ = mul( sRGB_2_XYZ_MAT, linearCV);
+	// Display primaries to CIE XYZ
+	float3 XYZ = mul( sRGB_2_XYZ_MAT, linearCV);
 
-    // CIE XYZ to rendering space RGB
-    linearCV = mul( XYZ_2_AP1_MAT, XYZ);
+	// CIE XYZ to rendering space RGB
+	linearCV = mul( XYZ_2_AP1_MAT, XYZ);
 
 	// Apply CAT from ACES white point to assumed observer adapted white point
 	XYZ = mul( D65_2_D60_CAT, XYZ );
@@ -1002,17 +997,17 @@ float3 Inverse_ODT_sRGB_D65(float3 linearCV)
 	linearCV = lerp( dot( linearCV, AP1_RGB2Y ), linearCV, rcp(ODT_SAT_FACTOR) );
 
 	// Undo gamma adjustment to compensate for dim surround
-    linearCV = dimSurround_to_darkSurround( linearCV);
+	linearCV = dimSurround_to_darkSurround( linearCV);
 
 	// Target white and black points for cinema system tonescale
 	const float CINEMA_WHITE = 48.0;
 	const float CINEMA_BLACK = 0.02; // CINEMA_WHITE / 2400.
 
 	// Scale linear code value to luminance
-    float3 rgbPre;
-    rgbPre[0] = linCV_2_Y( linearCV[0], CINEMA_WHITE, CINEMA_BLACK);
-    rgbPre[1] = linCV_2_Y( linearCV[1], CINEMA_WHITE, CINEMA_BLACK);
-    rgbPre[2] = linCV_2_Y( linearCV[2], CINEMA_WHITE, CINEMA_BLACK);
+	float3 rgbPre;
+	rgbPre[0] = linCV_2_Y( linearCV[0], CINEMA_WHITE, CINEMA_BLACK);
+	rgbPre[1] = linCV_2_Y( linearCV[1], CINEMA_WHITE, CINEMA_BLACK);
+	rgbPre[2] = linCV_2_Y( linearCV[2], CINEMA_WHITE, CINEMA_BLACK);
 
 	const SegmentedSplineParams_c9 ODT_48nits =
 	{
@@ -1028,13 +1023,13 @@ float3 Inverse_ODT_sRGB_D65(float3 linearCV)
 	};
 
 	// Apply the tonescale independently in rendering-space RGB
-    float3 rgbPost;
-    rgbPost[0] = segmented_spline_c9_rev( rgbPre[0], ODT_48nits );
-    rgbPost[1] = segmented_spline_c9_rev( rgbPre[1], ODT_48nits );
-    rgbPost[2] = segmented_spline_c9_rev( rgbPre[2], ODT_48nits );
+	float3 rgbPost;
+	rgbPost[0] = segmented_spline_c9_rev( rgbPre[0], ODT_48nits );
+	rgbPost[1] = segmented_spline_c9_rev( rgbPre[1], ODT_48nits );
+	rgbPost[2] = segmented_spline_c9_rev( rgbPre[2], ODT_48nits );
 
 	// Rendering space RGB to OCES
-    float3 oces = mul(AP1_2_AP0_MAT, rgbPost);
+	float3 oces = mul(AP1_2_AP0_MAT, rgbPost);
 
 	return oces;
 }

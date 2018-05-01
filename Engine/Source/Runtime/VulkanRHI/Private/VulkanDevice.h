@@ -8,11 +8,11 @@
 
 #include "VulkanMemory.h"
 
-class FOLDVulkanDescriptorPool;
+class FVulkanDescriptorPool;
 #if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 class FVulkanDescriptorPoolsManager;
 #endif
-class FVulkanCommandListContext;
+class FVulkanCommandListContextImmediate;
 class FVulkanOcclusionQueryPool;
 class FOLDVulkanQueryPool;
 
@@ -34,6 +34,27 @@ public:
 	void Destroy();
 
 	void WaitUntilIdle();
+
+	inline bool HasAsyncComputeQueue() const
+	{
+		return bAsyncComputeQueue;
+	}
+
+	inline bool CanPresentOnComputeQueue() const
+	{
+		return bPresentOnComputeQueue;
+	}
+
+	inline bool IsRealAsyncComputeContext(const FVulkanCommandListContext* InContext) const
+	{
+		if (bAsyncComputeQueue)
+		{
+			ensure((FVulkanCommandListContext*)ImmediateContext != ComputeContext);
+			return InContext == ComputeContext;
+		}
+	
+		return false;
+	}
 
 	inline FVulkanQueue* GetGraphicsQueue()
 	{
@@ -75,6 +96,13 @@ public:
 	{
 		check(GetOptionalExtensions().HasKHRGetPhysicalDeviceProperties2);
 		return GpuIdProps;
+	}
+#endif
+
+#if VULKAN_SUPPORTS_VALIDATION_CACHE
+	inline VkValidationCacheEXT GetValidationCache() const
+	{
+		return ValidationCache;
 	}
 #endif
 
@@ -144,10 +172,13 @@ public:
 	}
 #endif
 
-	inline FVulkanCommandListContext& GetImmediateContext()
+	inline TMap<uint32, FSamplerStateRHIRef>& GetSamplerMap()
 	{
-		return *ImmediateContext;
+		return SamplerMap;
 	}
+
+
+	FVulkanCommandListContextImmediate& GetImmediateContext();
 
 	inline FVulkanCommandListContext& GetImmediateComputeContext()
 	{
@@ -160,17 +191,17 @@ public:
 #if VULKAN_ENABLE_DRAW_MARKERS
 	PFN_vkCmdDebugMarkerBeginEXT GetCmdDbgMarkerBegin() const
 	{
-		return CmdDbgMarkerBegin;
+		return DebugMarkers.CmdBegin;
 	}
 
 	PFN_vkCmdDebugMarkerEndEXT GetCmdDbgMarkerEnd() const
 	{
-		return CmdDbgMarkerEnd;
+		return DebugMarkers.CmdEnd;
 	}
 
 	PFN_vkDebugMarkerSetObjectNameEXT GetDebugMarkerSetObjectName() const
 	{
-		return DebugMarkerSetObjectName;
+		return DebugMarkers.CmdSetObjectName;
 	}
 #endif
 
@@ -223,13 +254,33 @@ public:
 	struct FOptionalVulkanDeviceExtensions
 	{
 		uint32 HasKHRMaintenance1 : 1;
+		uint32 HasKHRMaintenance2 : 1;
 		uint32 HasMirrorClampToEdge : 1;
 		uint32 HasKHRExternalMemoryCapabilities : 1;
 		uint32 HasKHRGetPhysicalDeviceProperties2 : 1;
+		uint32 HasKHRDedicatedAllocation : 1;
+		uint32 HasEXTValidationCache : 1;
+		uint32 HasAMDBufferMarker : 1;
 	};
-	inline const FOptionalVulkanDeviceExtensions& GetOptionalExtensions() const { return OptionalDeviceExtensions;  }
 
-	void SetupPresentQueue(const VkSurfaceKHR& Surface);
+	inline const FOptionalVulkanDeviceExtensions& GetOptionalExtensions() const
+	{
+		return OptionalDeviceExtensions;
+	}
+
+#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+	VkBuffer GetCrashMarkerBuffer() const
+	{
+		return CrashMarker.Buffer;
+	}
+
+	void* GetCrashMarkerMappedPointer() const
+	{
+		return CrashMarker.Allocation->GetMappedPointer();
+	}
+#endif
+
+	void SetupPresentQueue(VkSurfaceKHR Surface);
 
 private:
 	void MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat);
@@ -283,24 +334,43 @@ private:
 	FVulkanQueue* ComputeQueue;
 	FVulkanQueue* TransferQueue;
 	FVulkanQueue* PresentQueue;
+	bool bAsyncComputeQueue = false;
+	bool bPresentOnComputeQueue = false;
+
+#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+	struct
+	{
+		VkBuffer Buffer = VK_NULL_HANDLE;
+		VulkanRHI::FDeviceMemoryAllocation* Allocation = nullptr;
+	} CrashMarker;
+#endif
 
 	VkComponentMapping PixelFormatComponentMapping[PF_MAX];
 
-	FVulkanCommandListContext* ImmediateContext;
+	TMap<uint32, FSamplerStateRHIRef> SamplerMap;
+
+	FVulkanCommandListContextImmediate* ImmediateContext;
 	FVulkanCommandListContext* ComputeContext;
 	TArray<FVulkanCommandListContext*> CommandContexts;
 
-	void GetDeviceExtensions(TArray<const ANSICHAR*>& OutDeviceExtensions, TArray<const ANSICHAR*>& OutDeviceLayers, bool& bOutDebugMarkers);
+	void GetDeviceExtensionsAndLayers(TArray<const ANSICHAR*>& OutDeviceExtensions, TArray<const ANSICHAR*>& OutDeviceLayers, bool& bOutDebugMarkers);
 
 	void ParseOptionalDeviceExtensions(const TArray<const ANSICHAR*>& DeviceExtensions);
 	FOptionalVulkanDeviceExtensions OptionalDeviceExtensions;
 
 	void SetupFormats();
 
+#if VULKAN_SUPPORTS_VALIDATION_CACHE
+	VkValidationCacheEXT ValidationCache = VK_NULL_HANDLE;
+#endif
+
 #if VULKAN_ENABLE_DRAW_MARKERS
-	PFN_vkCmdDebugMarkerBeginEXT CmdDbgMarkerBegin;
-	PFN_vkCmdDebugMarkerEndEXT CmdDbgMarkerEnd;
-	PFN_vkDebugMarkerSetObjectNameEXT DebugMarkerSetObjectName;
+	struct
+	{
+		PFN_vkCmdDebugMarkerBeginEXT		CmdBegin = nullptr;
+		PFN_vkCmdDebugMarkerEndEXT			CmdEnd = nullptr;
+		PFN_vkDebugMarkerSetObjectNameEXT	CmdSetObjectName = nullptr;
+	} DebugMarkers;
 	friend class FVulkanCommandListContext;
 #endif
 

@@ -196,6 +196,23 @@ FORCEINLINE VectorRegister VectorSetFloat3( float X, float Y, float Z )
 }
 
 /**
+* Creates a vector out of three floats and leaves W undefined.
+*
+* @param X		float component
+* @return		VectorRegister(X, X, X, X)
+*/
+FORCEINLINE VectorRegister VectorSetFloat1(float X)
+{
+	union { VectorRegister V; float F[4]; } Tmp;
+	Tmp.F[0] = X;
+	Tmp.F[1] = X;
+	Tmp.F[2] = X;
+	Tmp.F[3] = X;
+	return Tmp.V;
+}
+
+
+/**
  * Creates a vector out of four floats.
  *
  * @param X		1st float component
@@ -930,6 +947,20 @@ FORCEINLINE VectorRegister VectorLoadByte4( const void* Ptr )
 }
 
 /**
+* Loads 4 int8s from unaligned memory and converts them into 4 floats.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar floats after you've used this intrinsic!
+*
+* @param Ptr			Unaligned memory pointer to the 4 uint8s.
+* @return				VectorRegister( float(Ptr[0]), float(Ptr[1]), float(Ptr[2]), float(Ptr[3]) )
+*/
+FORCEINLINE VectorRegister VectorLoadSignedByte4(const void* Ptr)
+{
+	// OPTIMIZE ME!
+	const int8 *P = (const int8 *)Ptr;
+	return MakeVectorRegister((float)P[0], (float)P[1], (float)P[2], (float)P[3]);
+}
+
+/**
  * Loads 4 uint8s from unaligned memory and converts them into 4 floats in reversed order.
  * IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar floats after you've used this intrinsic!
  *
@@ -1270,6 +1301,26 @@ FORCEINLINE VectorRegister VectorLoadURGBA16N(void* Ptr)
 	V[1] = float(E[1]) / 65535.0f;
 	V[2] = float(E[2]) / 65535.0f;
 	V[3] = float(E[3]) / 65535.0f;
+
+	return MakeVectorRegister(V[0], V[1], V[2], V[3]);
+}
+
+/**
+* Loads packed signed RGBA16(4 bytes) from unaligned memory and converts them into 4 FLOATs.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+*
+* @param Ptr			Unaligned memory pointer to the RGBA16(8 bytes).
+* @return				VectorRegister with 4 FLOATs loaded from Ptr.
+*/
+FORCEINLINE VectorRegister VectorLoadSRGBA16N(void* Ptr)
+{
+	float V[4];
+	int16* E = (int16*)Ptr;
+
+	V[0] = float(E[0]) / 32767.0;
+	V[1] = float(E[1]) / 32767.0;
+	V[2] = float(E[2]) / 32767.0;
+	V[3] = float(E[3]) / 32767.0;
 
 	return MakeVectorRegister(V[0], V[1], V[2], V[3]);
 }

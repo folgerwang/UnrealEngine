@@ -77,6 +77,9 @@ protected:
 	/** Should we build lighting for the packages we are saving? **/
 	bool bShouldBuildLighting;
 
+	/** Should we build reflection captures for the packages we are saving? **/
+	bool bShouldBuildReflectionCaptures;
+
 	/** Should we build texture streaming for the packages we are saving? **/
 	bool bShouldBuildTextureStreaming;
 

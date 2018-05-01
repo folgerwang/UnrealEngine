@@ -45,6 +45,7 @@
 #include "VectorField/VectorField.h"
 #include "Misc/CoreDelegates.h"
 #include "PipelineStateCache.h"
+#include "SceneRenderTargetParameters.h"
 
 DECLARE_CYCLE_STAT(TEXT("GPUSpriteEmitterInstance Init GT"), STAT_GPUSpriteEmitterInstance_Init, STATGROUP_Particles);
 DECLARE_GPU_STAT_NAMED(ParticleSimulation, TEXT("Particle Simulation"));
@@ -496,21 +497,21 @@ TGlobalResource<FParticleSortBuffers> GParticleSortBuffers(GParticleSimulationTe
  * Uniform buffer for GPU particle sprite emitters.
  */
 BEGIN_UNIFORM_BUFFER_STRUCT(FGPUSpriteEmitterUniformParameters,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, ColorCurve)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, ColorScale)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, ColorBias)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, MiscCurve)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, MiscScale)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, MiscBias)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, SizeBySpeed)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, SubImageSize)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, TangentSelector)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, CameraFacingBlend)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, RemoveHMDRoll)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, RotationRateScale)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, RotationBias)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, CameraMotionBlurAmount)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector2D, PivotOffset)
+	UNIFORM_MEMBER(FVector4, ColorCurve)
+	UNIFORM_MEMBER(FVector4, ColorScale)
+	UNIFORM_MEMBER(FVector4, ColorBias)
+	UNIFORM_MEMBER(FVector4, MiscCurve)
+	UNIFORM_MEMBER(FVector4, MiscScale)
+	UNIFORM_MEMBER(FVector4, MiscBias)
+	UNIFORM_MEMBER(FVector4, SizeBySpeed)
+	UNIFORM_MEMBER(FVector4, SubImageSize)
+	UNIFORM_MEMBER(FVector4, TangentSelector)
+	UNIFORM_MEMBER(FVector, CameraFacingBlend)
+	UNIFORM_MEMBER(float, RemoveHMDRoll)
+	UNIFORM_MEMBER(float, RotationRateScale)
+	UNIFORM_MEMBER(float, RotationBias)
+	UNIFORM_MEMBER(float, CameraMotionBlurAmount)
+	UNIFORM_MEMBER(FVector2D, PivotOffset)
 END_UNIFORM_BUFFER_STRUCT(FGPUSpriteEmitterUniformParameters)
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FGPUSpriteEmitterUniformParameters,TEXT("EmitterUniforms"));
@@ -521,11 +522,11 @@ typedef TUniformBufferRef<FGPUSpriteEmitterUniformParameters> FGPUSpriteEmitterU
  * Uniform buffer to hold dynamic parameters for GPU particle sprite emitters.
  */
 BEGIN_UNIFORM_BUFFER_STRUCT( FGPUSpriteEmitterDynamicUniformParameters, )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector2D, LocalToWorldScale )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, AxisLockRight )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, AxisLockUp )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, DynamicColor)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, MacroUVParameters )
+	UNIFORM_MEMBER( FVector2D, LocalToWorldScale )
+	UNIFORM_MEMBER( FVector4, AxisLockRight )
+	UNIFORM_MEMBER( FVector4, AxisLockUp )
+	UNIFORM_MEMBER( FVector4, DynamicColor)
+	UNIFORM_MEMBER( FVector4, MacroUVParameters )
 END_UNIFORM_BUFFER_STRUCT( FGPUSpriteEmitterDynamicUniformParameters )
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FGPUSpriteEmitterDynamicUniformParameters,TEXT("EmitterDynamicUniforms"));
@@ -791,27 +792,27 @@ IMPLEMENT_VERTEX_FACTORY_TYPE(FGPUSpriteVertexFactory,"/Engine/Private/ParticleG
  * Uniform buffer to hold parameters for particle simulation.
  */
 BEGIN_UNIFORM_BUFFER_STRUCT(FParticleSimulationParameters,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, AttributeCurve)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, AttributeCurveScale)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, AttributeCurveBias)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, AttributeScale)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, AttributeBias)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, MiscCurve)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, MiscScale)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, MiscBias)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, Acceleration)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, OrbitOffsetBase)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, OrbitOffsetRange)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, OrbitFrequencyBase)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, OrbitFrequencyRange)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, OrbitPhaseBase)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, OrbitPhaseRange)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, CollisionRadiusScale)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, CollisionRadiusBias)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, CollisionTimeBias)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, CollisionRandomSpread)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, CollisionRandomDistribution)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, OneMinusFriction)
+	UNIFORM_MEMBER(FVector4, AttributeCurve)
+	UNIFORM_MEMBER(FVector4, AttributeCurveScale)
+	UNIFORM_MEMBER(FVector4, AttributeCurveBias)
+	UNIFORM_MEMBER(FVector4, AttributeScale)
+	UNIFORM_MEMBER(FVector4, AttributeBias)
+	UNIFORM_MEMBER(FVector4, MiscCurve)
+	UNIFORM_MEMBER(FVector4, MiscScale)
+	UNIFORM_MEMBER(FVector4, MiscBias)
+	UNIFORM_MEMBER(FVector, Acceleration)
+	UNIFORM_MEMBER(FVector, OrbitOffsetBase)
+	UNIFORM_MEMBER(FVector, OrbitOffsetRange)
+	UNIFORM_MEMBER(FVector, OrbitFrequencyBase)
+	UNIFORM_MEMBER(FVector, OrbitFrequencyRange)
+	UNIFORM_MEMBER(FVector, OrbitPhaseBase)
+	UNIFORM_MEMBER(FVector, OrbitPhaseRange)
+	UNIFORM_MEMBER(float, CollisionRadiusScale)
+	UNIFORM_MEMBER(float, CollisionRadiusBias)
+	UNIFORM_MEMBER(float, CollisionTimeBias)
+	UNIFORM_MEMBER(float, CollisionRandomSpread)
+	UNIFORM_MEMBER(float, CollisionRandomDistribution)
+	UNIFORM_MEMBER(float, OneMinusFriction)
 END_UNIFORM_BUFFER_STRUCT(FParticleSimulationParameters)
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleSimulationParameters,TEXT("Simulation"));
@@ -918,12 +919,12 @@ FArchive& operator<<(FArchive& Ar, FParticlePerFrameSimulationShaderParameters& 
  * simulation.
  */
 BEGIN_UNIFORM_BUFFER_STRUCT( FVectorFieldUniformParameters,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( int32, Count )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY( FMatrix, WorldToVolume, [MAX_VECTOR_FIELDS] )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY( FMatrix, VolumeToWorld, [MAX_VECTOR_FIELDS] )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY( FVector4, IntensityAndTightness, [MAX_VECTOR_FIELDS] )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY( FVector4, VolumeSize, [MAX_VECTOR_FIELDS] )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY( FVector4, TilingAxes, [MAX_VECTOR_FIELDS] )
+	UNIFORM_MEMBER( int32, Count )
+	UNIFORM_MEMBER_ARRAY( FMatrix, WorldToVolume, [MAX_VECTOR_FIELDS] )
+	UNIFORM_MEMBER_ARRAY( FMatrix, VolumeToWorld, [MAX_VECTOR_FIELDS] )
+	UNIFORM_MEMBER_ARRAY( FVector4, IntensityAndTightness, [MAX_VECTOR_FIELDS] )
+	UNIFORM_MEMBER_ARRAY( FVector4, VolumeSize, [MAX_VECTOR_FIELDS] )
+	UNIFORM_MEMBER_ARRAY( FVector4, TilingAxes, [MAX_VECTOR_FIELDS] )
 END_UNIFORM_BUFFER_STRUCT( FVectorFieldUniformParameters )
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FVectorFieldUniformParameters,TEXT("VectorFields"));
@@ -1047,10 +1048,6 @@ public:
 			VectorFieldTextures[i].Bind(Initializer.ParameterMap, *FString::Printf(TEXT("VectorFieldTextures%d"), i));
 			VectorFieldTexturesSamplers[i].Bind(Initializer.ParameterMap, *FString::Printf(TEXT("VectorFieldTexturesSampler%d"), i));
 		}
-		SceneDepthTextureParameter.Bind(Initializer.ParameterMap,TEXT("SceneDepthTexture"));
-		SceneDepthTextureParameterSampler.Bind(Initializer.ParameterMap,TEXT("SceneDepthTextureSampler"));
-		GBufferATextureParameter.Bind(Initializer.ParameterMap,TEXT("GBufferATexture"));
-		GBufferATextureParameterSampler.Bind(Initializer.ParameterMap,TEXT("GBufferATextureSampler"));
 		CollisionDepthBounds.Bind(Initializer.ParameterMap,TEXT("CollisionDepthBounds"));
 		PerFrameParameters.Bind(Initializer.ParameterMap);
 		GlobalDistanceFieldParameters.Bind(Initializer.ParameterMap);
@@ -1075,10 +1072,6 @@ public:
 			Ar << VectorFieldTextures[i];
 			Ar << VectorFieldTexturesSamplers[i];
 		}
-		Ar << SceneDepthTextureParameter;
-		Ar << SceneDepthTextureParameterSampler;
-		Ar << GBufferATextureParameter;
-		Ar << GBufferATextureParameterSampler;
 		Ar << CollisionDepthBounds;
 		Ar << PerFrameParameters;
 		Ar << GlobalDistanceFieldParameters;
@@ -1094,9 +1087,10 @@ public:
 		const FParticleAttributesTexture& InAttributesTexture,
 		const FParticleAttributesTexture& InRenderAttributesTexture,
 		const FUniformBufferRHIParamRef ViewUniformBuffer,
+		ERHIFeatureLevel::Type FeatureLevel,
 		const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
-		FTexture2DRHIParamRef SceneDepthTexture,
-		FTexture2DRHIParamRef GBufferATexture
+		const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+		FUniformBufferRHIParamRef SceneTexturesUniformBuffer
 		)
 	{
 		FPixelShaderRHIParamRef PixelShaderRHI = GetPixelShader();
@@ -1111,22 +1105,8 @@ public:
 		{
 			check(ViewUniformBuffer != NULL);
 			FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, PixelShaderRHI, ViewUniformBuffer);
-			SetTextureParameter(
-				RHICmdList, 
-				PixelShaderRHI,
-				SceneDepthTextureParameter,
-				SceneDepthTextureParameterSampler,
-				TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-				SceneDepthTexture
-				);
-			SetTextureParameter(
-				RHICmdList, 
-				PixelShaderRHI,
-				GBufferATextureParameter,
-				GBufferATextureParameterSampler,
-				TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-				GBufferATexture
-				);
+
+			SetUniformBufferParameter(RHICmdList, PixelShaderRHI, GetUniformBufferParameter(SceneTexturesUniformBufferStruct), SceneTexturesUniformBuffer);
 			SetTextureParameter(
 				RHICmdList, 
 				PixelShaderRHI,
@@ -1216,12 +1196,6 @@ private:
 	/** Vector fields. */
 	FShaderResourceParameter VectorFieldTextures[MAX_VECTOR_FIELDS];
 	FShaderResourceParameter VectorFieldTexturesSamplers[MAX_VECTOR_FIELDS];
-	/** The SceneDepthTexture parameter for depth buffer collision. */
-	FShaderResourceParameter SceneDepthTextureParameter;
-	FShaderResourceParameter SceneDepthTextureParameterSampler;
-	/** The GBufferATexture parameter for depth buffer collision. */
-	FShaderResourceParameter GBufferATextureParameter;
-	FShaderResourceParameter GBufferATextureParameterSampler;
 	/** Per frame simulation parameters. */
 	FParticlePerFrameSimulationShaderParameters PerFrameParameters;
 	/** Collision depth bounds. */
@@ -1420,7 +1394,6 @@ struct FSimulationCommandGPU
  * @param TextureResources	The resources from which the current state can be read.
  * @param AttributeTexture	The texture from which particle simulation attributes can be read.
  * @param CollisionView		The view to use for collision, if any.
- * @param SceneDepthTexture The depth texture to use for collision, if any.
  */
 template <EParticleCollisionShaderMode CollisionMode>
 void ExecuteSimulationCommands(
@@ -1431,8 +1404,8 @@ void ExecuteSimulationCommands(
 	FParticleSimulationResources* ParticleSimulationResources,
 	const FUniformBufferRHIParamRef ViewUniformBuffer,
 	const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
-	FTexture2DRHIParamRef SceneDepthTexture,
-	FTexture2DRHIParamRef GBufferATexture,
+	const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+	FUniformBufferRHIParamRef SceneTexturesUniformBuffer,
 	bool bUseFixDT)
 {
 	if (!CVarSimulateGPUParticles.GetValueOnAnyThread())
@@ -1461,7 +1434,7 @@ void ExecuteSimulationCommands(
 
 	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-	PixelShader->SetParameters(RHICmdList, TextureResources, AttributeTexture, RenderAttributeTexture, ViewUniformBuffer, GlobalDistanceFieldParameterData, SceneDepthTexture, GBufferATexture);
+	PixelShader->SetParameters(RHICmdList, TextureResources, AttributeTexture, RenderAttributeTexture, ViewUniformBuffer, FeatureLevel, GlobalDistanceFieldParameterData, SceneTexturesUniformBufferStruct, SceneTexturesUniformBuffer);
 
 	// Draw tiles to perform the simulation step.
 	const int32 CommandCount = SimulationCommands.Num();
@@ -1491,8 +1464,8 @@ void ExecuteSimulationCommands(
 	FParticleSimulationResources* ParticleSimulationResources,
 	const FUniformBufferRHIParamRef ViewUniformBuffer,
 	const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
-	FTexture2DRHIParamRef SceneDepthTexture,
-	FTexture2DRHIParamRef GBufferATexture,
+	const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+	FUniformBufferRHIParamRef SceneTexturesUniformBuffer,
 	EParticleSimulatePhase::Type Phase,
 	bool bUseFixDT)
 {
@@ -1506,8 +1479,8 @@ void ExecuteSimulationCommands(
 			ParticleSimulationResources,
 			ViewUniformBuffer,
 			GlobalDistanceFieldParameterData,
-			SceneDepthTexture,
-			GBufferATexture,
+			SceneTexturesUniformBufferStruct,
+			SceneTexturesUniformBuffer,
 			bUseFixDT);
 	}
 	else if (Phase == EParticleSimulatePhase::CollisionDistanceField && GlobalDistanceFieldParameterData)
@@ -1520,8 +1493,8 @@ void ExecuteSimulationCommands(
 			ParticleSimulationResources,
 			ViewUniformBuffer,
 			GlobalDistanceFieldParameterData,
-			SceneDepthTexture,
-			GBufferATexture,
+			SceneTexturesUniformBufferStruct,
+			SceneTexturesUniformBuffer,
 			bUseFixDT);
 	}
 	else
@@ -1534,8 +1507,8 @@ void ExecuteSimulationCommands(
 			ParticleSimulationResources,
 			NULL,
 			GlobalDistanceFieldParameterData,
-			FTexture2DRHIParamRef(),
-			FTexture2DRHIParamRef(),
+			SceneTexturesUniformBufferStruct,
+			SceneTexturesUniformBuffer,
 			bUseFixDT);
 	}
 }
@@ -1594,7 +1567,7 @@ void ClearTiles(FRHICommandList& RHICmdList, FGraphicsPipelineStateInitializer& 
  * Uniform buffer to hold parameters for particle simulation.
  */
 BEGIN_UNIFORM_BUFFER_STRUCT( FParticleInjectionParameters, )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector2D, PixelScale )
+	UNIFORM_MEMBER( FVector2D, PixelScale )
 END_UNIFORM_BUFFER_STRUCT( FParticleInjectionParameters )
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleInjectionParameters,TEXT("ParticleInjection"));
@@ -1840,7 +1813,7 @@ void InjectNewParticles(FRHICommandList& RHICmdList, FGraphicsPipelineStateIniti
  * Uniform buffer to hold parameters for visualizing particle simulation.
  */
 BEGIN_UNIFORM_BUFFER_STRUCT( FParticleSimVisualizeParameters, )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, ScaleBias )
+	UNIFORM_MEMBER( FVector4, ScaleBias )
 END_UNIFORM_BUFFER_STRUCT( FParticleSimVisualizeParameters )
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleSimVisualizeParameters,TEXT("PSV"));
@@ -2102,9 +2075,9 @@ static void BuildParticleVertexBuffer( FVertexBufferRHIParamRef VertexBufferRHI,
  * Uniform buffer parameters for generating particle bounds.
  */
 BEGIN_UNIFORM_BUFFER_STRUCT( FParticleBoundsParameters, )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, ChunksPerGroup )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, ExtraChunkCount )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, ParticleCount )
+	UNIFORM_MEMBER( uint32, ChunksPerGroup )
+	UNIFORM_MEMBER( uint32, ExtraChunkCount )
+	UNIFORM_MEMBER( uint32, ParticleCount )
 END_UNIFORM_BUFFER_STRUCT( FParticleBoundsParameters )
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleBoundsParameters,TEXT("ParticleBounds"));
@@ -4522,7 +4495,7 @@ bool FFXSystem::UsesGlobalDistanceFieldInternal() const
 	return false;
 }
 
-void FFXSystem::PrepareGPUSimulation(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SceneDepthTexture)
+void FFXSystem::PrepareGPUSimulation(FRHICommandListImmediate& RHICmdList)
 {
 	// Grab resources.
 	FParticleStateTextures& CurrentStateTextures = ParticleSimulationResources->GetCurrentStateTextures();
@@ -4535,13 +4508,9 @@ void FFXSystem::PrepareGPUSimulation(FRHICommandListImmediate& RHICmdList, FText
 	};
 
 	RHICmdList.TransitionResources(EResourceTransitionAccess::EWritable, RenderTargets, 2);
-	if (SceneDepthTexture)
-	{
-		RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, SceneDepthTexture);
-	}
 }
 
-void FFXSystem::FinalizeGPUSimulation(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SceneDepthTexture)
+void FFXSystem::FinalizeGPUSimulation(FRHICommandListImmediate& RHICmdList)
 {
 	// Grab resources.
 	FParticleStateTextures& CurrentStateTextures = ParticleSimulationResources->GetVisualizeStateTextures();
@@ -4554,10 +4523,6 @@ void FFXSystem::FinalizeGPUSimulation(FRHICommandListImmediate& RHICmdList, FTex
 	};
 	
 	RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, RenderTargets, 2);
-	if (SceneDepthTexture)
-	{
-		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, SceneDepthTexture);
-	}
 }
 
 void FFXSystem::SimulateGPUParticles(
@@ -4565,8 +4530,8 @@ void FFXSystem::SimulateGPUParticles(
 	EParticleSimulatePhase::Type Phase,
 	const FUniformBufferRHIParamRef ViewUniformBuffer,
 	const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
-	FTexture2DRHIParamRef SceneDepthTexture,
-	FTexture2DRHIParamRef GBufferATexture
+	const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+	FUniformBufferRHIParamRef SceneTexturesUniformBuffer
 	)
 {
 	check(IsInRenderingThread());
@@ -4607,9 +4572,9 @@ void FFXSystem::SimulateGPUParticles(
 			RHICmdList.BeginUpdateMultiFrameResource(PreviousStateRenderTargets[1]);
 			
 			SetRenderTarget(RHICmdList, PrevStateTextures.PositionTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
-			RHICmdList.CopyToResolveTarget(PrevStateTextures.PositionTextureTargetRHI, PrevStateTextures.PositionTextureTargetRHI, true, FResolveParams());
+			RHICmdList.CopyToResolveTarget(PrevStateTextures.PositionTextureTargetRHI, PrevStateTextures.PositionTextureTargetRHI, FResolveParams());
 			SetRenderTarget(RHICmdList, PrevStateTextures.VelocityTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
-			RHICmdList.CopyToResolveTarget(PrevStateTextures.VelocityTextureTargetRHI, PrevStateTextures.VelocityTextureTargetRHI, true, FResolveParams());
+			RHICmdList.CopyToResolveTarget(PrevStateTextures.VelocityTextureTargetRHI, PrevStateTextures.VelocityTextureTargetRHI, FResolveParams());
 			
 			PrevStateTextures.bTexturesCleared = true;
 			
@@ -4777,8 +4742,8 @@ void FFXSystem::SimulateGPUParticles(
 						ParticleSimulationResources,
 						ViewUniformBuffer,
 						GlobalDistanceFieldParameterData,
-						SceneDepthTexture,
-						GBufferATexture,
+						SceneTexturesUniformBufferStruct,
+						SceneTexturesUniformBuffer,
 						Phase,
 						FixDeltaSeconds > 0
 						);
@@ -4827,13 +4792,11 @@ void FFXSystem::SimulateGPUParticles(
 		RHICmdList.CopyToResolveTarget(
 			ParticleSimulationResources->RenderAttributesTexture.TextureTargetRHI,
 			ParticleSimulationResources->RenderAttributesTexture.TextureRHI,
-			/*bKeepOriginalSurface=*/ false,
 			FResolveParams()
 			);
 		RHICmdList.CopyToResolveTarget(
 			ParticleSimulationResources->SimulationAttributesTexture.TextureTargetRHI,
 			ParticleSimulationResources->SimulationAttributesTexture.TextureRHI,
-			/*bKeepOriginalSurface=*/ false,
 			FResolveParams()
 			);
 
@@ -4877,8 +4840,8 @@ void FFXSystem::SimulateGPUParticles(
 					ParticleSimulationResources,
 					ViewUniformBuffer,
 					GlobalDistanceFieldParameterData,
-					SceneDepthTexture,
-					GBufferATexture,
+					SceneTexturesUniformBufferStruct,
+					SceneTexturesUniformBuffer,
 					Phase,
 					false
 					);
@@ -4928,13 +4891,11 @@ void FFXSystem::UpdateMultiGPUResources(FRHICommandListImmediate& RHICmdList)
 		RHICmdList.CopyToResolveTarget(
 			ParticleSimulationResources->RenderAttributesTexture.TextureTargetRHI,
 			ParticleSimulationResources->RenderAttributesTexture.TextureRHI,
-			/*bKeepOriginalSurface=*/ false,
 			FResolveParams()
 		);
 		RHICmdList.CopyToResolveTarget(
 			ParticleSimulationResources->SimulationAttributesTexture.TextureTargetRHI,
 			ParticleSimulationResources->SimulationAttributesTexture.TextureRHI,
-			/*bKeepOriginalSurface=*/ false,
 			FResolveParams()
 		);
 

@@ -14,34 +14,8 @@ NiagaraSimulationShader.usf:
 //TODO: Add common utility code for things such as reading data sources, reading from and writing to events.
 
 #if GPU_SIMULATION
-	/** Returns clip space W, which is world space distance along the View Z axis. Note if you need DeviceZ LookupDeviceZ() is the faster option */
-	float CalcSceneDepth(float2 ScreenUV)
-	{
-	#if SCENE_TEXTURES_DISABLED
-		return 0.0f;
-	#else
-		#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1 || MOBILE_FORCE_DEPTH_TEXTURE_READS
-			return ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);
-		#else
-			#if COMPILER_GLSL_ES2
-				#if IOS
-					// Only call FramebufferFetch when actually compiling for IOS ES2.
-					return FramebufferFetchES2().w;
-				#elif WEBGL
-					return Texture2DSampleLevel(SceneAlphaCopyTexture, SceneAlphaCopyTextureSampler, ScreenUV, 0).r;
-				#else 
-					float SceneW = ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);		
-					return DepthbufferFetchES2(SceneW, View.InvDeviceZToWorldZTransform[2], View.InvDeviceZToWorldZTransform[3]);
-				#endif 
-			#elif METAL_PROFILE && !MAC
-					return FramebufferFetchES2().w;
-			#else
-				return ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);
-			#endif
-		#endif
-	#endif
-	}
 
+	#include "SceneTexturesCommon.ush"
 
 	static uint3 GDispatchThreadId;
 	uint EmitterTickCounter;

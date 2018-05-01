@@ -974,6 +974,8 @@ public:
 
 	ENGINE_API void GenerateLodsInPackage();
 
+	ENGINE_API virtual void PostDuplicate(bool bDuplicateForPIE) override;
+
 	/** Get multicast delegate broadcast prior to mesh building */
 	FOnPreMeshBuild& OnPreMeshBuild() { return PreMeshBuild; }
 

@@ -249,6 +249,7 @@ public:
 	// the potential resources to refer to with the UAV object
 	TRefCountPtr<FEmptyStructuredBuffer> SourceStructuredBuffer;
 	TRefCountPtr<FEmptyVertexBuffer> SourceVertexBuffer;
+	TRefCountPtr<FEmptyIndexBuffer> SourceIndexBuffer;
 	TRefCountPtr<FRHITexture> SourceTexture;
 };
 

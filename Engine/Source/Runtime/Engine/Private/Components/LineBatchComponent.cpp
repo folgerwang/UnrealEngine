@@ -118,6 +118,9 @@ ULineBatchComponent::ULineBatchComponent(const FObjectInitializer& ObjectInitial
 	bUseEditorCompositing = true;
 	SetGenerateOverlapEvents(false);
 	bCalculateAccurateBounds = true;
+
+	// Ignore streaming updates since GetUsedMaterials() is not implemented.
+	bIgnoreStreamingManagerUpdate = true;
 }
 
 void ULineBatchComponent::DrawLine(const FVector& Start, const FVector& End, const FLinearColor& Color, uint8 DepthPriority, const float Thickness, const float LifeTime)

@@ -4197,6 +4197,15 @@ public:
 		{
 			ralloc_asprintf_append(buffer, "#define __METAL_MANUAL_TEXTURE_METADATA__ 1\n");
 		}
+		
+		if (Backend.bIsDesktop == EMetalGPUSemanticsImmediateDesktop)
+		{
+			ralloc_asprintf_append(buffer, "#define __METAL_USE_TEXTURE_CUBE_ARRAY__ 1\n");
+		}
+		else
+		{
+			ralloc_asprintf_append(buffer, "#define __METAL_USE_TEXTURE_CUBE_ARRAY__ 0\n");
+		}
         
         buffer = 0;
 
@@ -4219,13 +4228,23 @@ char* FMetalCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* sta
 {
 	// We'll need this Buffers info for the [[buffer()]] index
 	FBuffers Buffers;
+	
+	Buffers.MaxTextures = bIsDesktop != EMetalGPUSemanticsImmediateDesktop ? 31 : 128;
+	
 	FGenerateMetalVisitor visitor(*this, state, state->target, Buffers);
 
 	// At this point, all inputs and outputs are global uniforms, no structures.
 
 	// Promotes all inputs from half to float to avoid stage_in issues
 	PromoteInputsAndOutputsGlobalHalfToFloat(ir, state, Frequency);
-
+	
+	// For non-mobile shaders we need to support non-zero base-instance and base-vertex, which only works on Metal 1.1 and above
+	if (Version > 0)
+	{
+		// After stage_in type changes - add extra system for base instance / vertex
+		FixupMetalBaseOffsets(ir, state, Frequency);
+	}
+	
 	// Move all inputs & outputs to structs for Metal
 	PackInputsAndOutputs(ir, state, Frequency, visitor.input_variables);
 	
@@ -5862,6 +5881,8 @@ FMetalCodeBackend::FMetalCodeBackend(FMetalTessellationOutputs& TessOutputAttrib
 	bBoundsChecks = bInBoundsChecks;
 	bAllowFastIntriniscs = bInAllFastIntriniscs;
 	bForceInvariance = bInForceInvariance;
+	
+	PatchControlPointStructHash = 0;
 	
 	// For now only 31 typed-buffer slots are supported
 	TypedBufferFormats.SetNumZeroed(31);

@@ -87,5 +87,5 @@ private:
 	/** Denotes how many bytes the serialized script code is, stored in the archiver (NOTE: could be more compact than BytecodeBufferSize) */
 	int32 SerializedScriptSize;
 	/** Denotes where to offset the archiver to start reading in bytecode */
-	int32 ScriptSerializationOffset;
+	int64 ScriptSerializationOffset;
 }; 

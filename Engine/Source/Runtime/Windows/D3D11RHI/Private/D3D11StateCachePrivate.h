@@ -61,6 +61,11 @@ public:
 		SRV_Dynamic,
 		SRV_Static,
 	};
+
+	bool bDepthBoundsEnabled = false;
+	float DepthBoundsMin = 0.0f;
+	float DepthBoundsMax = 1.0f;
+
 protected:
 	ID3D11DeviceContext* Direct3DDeviceIMContext;
 

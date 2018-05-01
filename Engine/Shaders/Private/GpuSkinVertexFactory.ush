@@ -240,7 +240,7 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.VertexColor = Intermediates.Color;
 	Result.TangentToWorld = mul(TangentToLocal, GetLocalToWorld3x3());
 	Result.PreSkinnedPosition = Intermediates.UnpackedPosition.xyz;
-	Result.PreSkinnedNormal = Input.TangentZ.xyz * 2.f - 1.f;
+	Result.PreSkinnedNormal = Input.TangentZ.xyz;
 
 #if NUM_MATERIAL_TEXCOORDS_VERTEX
 	for(int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS_VERTEX; CoordinateIndex++)
@@ -426,9 +426,9 @@ float3x3 SkinTangents( FVertexFactoryInput Input, FVertexFactoryIntermediates In
 
 	// tangent
 	// -1..1
-	half3 LocalTangentX = TangentBias(Input.TangentX);
+	half3 LocalTangentX = Input.TangentX;
 	// -1..1 .xyz:normal, .w:contains sign of tangent basis determinant (left or right handed)
-	half4 LocalTangentZ = TangentBias(Input.TangentZ);
+	half4 LocalTangentZ = Input.TangentZ;
 
 #if GPUSKIN_MORPH_BLEND
 	// calc new normal by offseting it with the delta
@@ -585,7 +585,7 @@ void CalcTangentToWorld(FVertexFactoryInput Input, FVertexFactoryIntermediates I
 	float3x3 TangentToWorld = mul(Intermediates.TangentToLocal, LocalToWorld);
 
 	TangentToWorld0 = TangentToWorld[0];
-	TangentToWorld2 = float4(TangentToWorld[2], TangentBias(Input.TangentZ.w) * Primitive.LocalToWorldDeterminantSign);
+	TangentToWorld2 = float4(TangentToWorld[2], Input.TangentZ.w * Primitive.LocalToWorldDeterminantSign);
 }
 
 FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, FMaterialVertexParameters VertexParameters)

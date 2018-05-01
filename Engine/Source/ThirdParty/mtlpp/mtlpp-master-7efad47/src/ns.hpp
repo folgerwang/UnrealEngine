@@ -13,23 +13,6 @@
 
 MTLPP_BEGIN
 
-template<typename Interpose>
-struct IMPTable<IOSurfaceRef, Interpose>
-{
-	IMPTable()
-	{
-	}
-	
-	IMPTable(Class C)
-	{
-	}
-	
-	void RegisterInterpose(Class C) {}
-	
-	void Retain(IOSurfaceRef Surface) { CFRetain(Surface); }
-	void Release(IOSurfaceRef Surface) { CFRelease(Surface); }
-};
-
 namespace ns
 {
 #if __OBJC__
@@ -52,39 +35,48 @@ namespace ns
 	};
 #endif
 	
-	template<typename T, bool bAutoReleased = false>
+	enum class Ownership
+	{
+		/** Handle ownership is transfered and this object manages lifetime. Handle is assigned in the constructor and released in the destructor. */
+		Assign = 0,
+		/** Handle is owned and this object manages lifetime. Handle is retained in the constructor and released in the destructor. */
+		Retain = 1,
+		/** Handle is not owned, lifetime is externally managed. Handle is assigned in the constructor and ignored in the destructor. */
+		AutoRelease = 2,
+	};
+	
+	enum class CallingConvention
+	{
+		/** Invoke the Objective-C selector directly. */
+		ObjectiveC = 0,
+		/** Assert that an ITable is valid and invoke the underlying C-function. */
+		C = 1,
+		/** Mixed mode - will prefer an ITable if one is present but will fallback to Objective-C when there isn't. */
+		Mixed = 2
+	};
+	
+	template<typename T, CallingConvention C = CallingConvention::C>
 	class Object
     {
     public:
 		typedef T Type;
-		typedef IMPTable<T, void> ITable;
+		typedef ue4::ITable<T, void> ITable;
+		static constexpr CallingConvention Convention = C;
 		
         inline const T GetPtr() const { return m_ptr; }
 		inline T* GetInnerPtr() { return &m_ptr; }
+		
+#if MTLPP_CONFIG_IMP_CACHE
+		inline ITable* GetTable() { return m_table; }
+#else
+		inline ITable* GetTable() { return nullptr; }
+#endif
 
         inline operator bool() const { return m_ptr != nullptr; }
 		operator T() const { return m_ptr; }
-		
-		void Retain()
-		{
-#if __OBJC__
-			__sync_fetch_and_add(&RefCount, 1);
-#endif
-		}
-		
-		void Release()
-		{
-#if __OBJC__
-			if ((__sync_fetch_and_sub(&RefCount, 1) - 1) == 0)
-			{
-				delete this;
-			}
-#endif
-		}
 
-    protected:
-        Object();
-        Object(T const handle, bool const retain = true, ITable* table = nullptr);
+        Object(ns::Ownership const retain = ns::Ownership::Retain);
+        Object(T const handle, ns::Ownership const retain = ns::Ownership::Retain, ITable* table = nullptr);
         Object(const Object& rhs);
 #if MTLPP_CONFIG_RVALUE_REFERENCES
         Object(Object&& rhs);
@@ -97,95 +89,94 @@ namespace ns
 #endif
 
 #if MTLPP_CONFIG_VALIDATE
+		template<typename AssociatedObject>
+		AssociatedObject GetAssociatedObject(void const* Key) const
+		{
+			@autoreleasepool
+			{
+				typename AssociatedObject::Type Val = (typename AssociatedObject::Type)objc_getAssociatedObject((id)GetPtr(), Key);
+				return AssociatedObject(Val);
+			}
+		}
+		
+		template<typename AssociatedObject>
+		void SetAssociatedObject(void const* Key, AssociatedObject const& Assoc)
+		{
+			objc_setAssociatedObject((id)GetPtr(), Key, (id)Assoc.GetPtr(), (objc_AssociationPolicy)(01401));
+		}
+		
+		void ClearAssociatedObject(void const* Key)
+		{
+			objc_setAssociatedObject((id)GetPtr(), Key, (id)nullptr, (objc_AssociationPolicy)(01401));
+		}
+#endif
+		
         inline void Validate() const
         {
+#if MTLPP_CONFIG_VALIDATE
 			assert(m_ptr);
-			assert(m_table);
-        }
-#else
-	#define Validate()
+#if MTLPP_CONFIG_IMP_CACHE
+			assert(C != CallingConvention::C || m_table);
 #endif
+#endif
+        }
 
+	protected:
         T m_ptr = nullptr;
+#if MTLPP_CONFIG_IMP_CACHE
 		ITable* m_table = nullptr;
-		volatile uint64_t RefCount = 0;
+#endif
+		ns::Ownership Mode = ns::Ownership::Retain;
     };
 	
-	template<class T>
-	class Ref
+	/**
+	 * Auto-released classes are used to hold Objective-C that are retained by a parent or for out-results that are implicitly placed in an auto-release pool
+	 * For externally owned objects we can avoid retain/release pairs to increase our CPU efficiency dramatically.
+	 * For the out-results can't retain these objects safely unless done explicitly after the function that assigns them returns (or is called for handlers).
+	 * So we need a variant of the class that doesn't retain on copy/assign but that can be assigned from to our normal 'retained' class.
+	 */
+	template<typename T>
+	class AutoReleased : public T
 	{
-		T* Ptr;
 	public:
-		typedef typename T::Type Type;
-		
-		Ref() : Ptr(nullptr) {}
-		Ref(Type inner) : Ptr(new T(inner)) { Ptr->Retain(); }
-		Ref(T* Pointer) : Ptr(Pointer) { Ptr->Retain(); }
-		Ref(const Ref& rhs) : Ptr(nullptr) { operator=(rhs); }
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-		Ref(Ref&& rhs) : Ptr(rhs.Ptr) { rhs.Ptr = nullptr; }
-#endif
-		virtual ~Ref() { if(Ptr) { Ptr->Release(); Ptr = nullptr; } }
-		
-		inline operator bool() const { return (Ptr != nullptr && *Ptr); }
-		
-		Ref& operator=(const Ref& rhs)
+		AutoReleased() : T(ns::Ownership::AutoRelease) {}
+		explicit AutoReleased(typename T::Type handle, typename T::ITable* Table = nullptr);
+		explicit AutoReleased(T const& other) : T(ns::Ownership::AutoRelease) { operator=(other); }
+		AutoReleased(AutoReleased const& other) : T(ns::Ownership::AutoRelease) { operator=(other); }
+		AutoReleased& operator=(T const& other)
 		{
-			if (this != &rhs)
+			if (this != & other)
 			{
-				if (rhs.Ptr)
-				{
-					rhs.Ptr->Retain();
-				}
-				if (Ptr)
-				{
-					Ptr->Release();
-				}
-				Ptr = rhs.Ptr;
+				T::operator=(other);
+			}
+			return *this;
+		}
+		AutoReleased& operator=(AutoReleased const& other)
+		{
+			if (this != & other)
+			{
+				T::operator=(other);
 			}
 			return *this;
 		}
 		
+		AutoReleased& operator=(typename T::Type handle);
+
 #if MTLPP_CONFIG_RVALUE_REFERENCES
-		Ref& operator=(Ref&& rhs)
-		{
-			if (this != &rhs)
-			{
-				if (Ptr)
-				{
-					Ptr->Release();
-				}
-				Ptr = rhs.Ptr;
-				rhs.Ptr = nullptr;
-			}
-			return *this;
-		}
+		AutoReleased(AutoReleased&& other) : T(ns::Ownership::AutoRelease) { operator=(other); }
+		AutoReleased& operator=(AutoReleased&& other) { T::operator=((T&&)other); return *this; }
+		explicit AutoReleased(T&& other) : T(ns::Ownership::AutoRelease) { operator=(other); }
+		AutoReleased& operator=(T&& other) { T::operator=((T const&)other); return *this; }
 #endif
-		
-		T* operator->() const
-		{
-			return Ptr;
-		}
-		
-		operator T*() const
-		{
-			return Ptr;
-		}
-		
-		operator T const&() const
-		{
-			assert(Ptr);
-			return *Ptr;
-		}
-		
-		T* operator*() const
-		{
-			return Ptr;
-		}
 	};
 
     struct Range
     {
+		inline Range() :
+		Location(0),
+		Length(0)
+		{ }
+		
         inline Range(NSUInteger location, NSUInteger length) :
             Location(location),
             Length(length)
@@ -195,36 +186,45 @@ namespace ns
         NSUInteger Length;
     };
 
-	class ArrayBase : public Object<NSArray<id<NSObject>>*>
+	class ArrayBase
     {
     public:
-        ArrayBase() { }
-        ArrayBase(NSArray<id<NSObject>>* const handle, bool const bRetain) : Object<NSArray<id<NSObject>>*>(handle, bRetain) { }
-
-        NSUInteger GetSize() const;
-
-    protected:
-        void* GetItem(NSUInteger index) const;
+        static NSUInteger GetSize(NSArray<id<NSObject>>* const handle);
+        static void* GetItem(NSArray<id<NSObject>>* const handle, NSUInteger index);
     };
 
     template<typename T>
-    class Array : public ArrayBase
+    class Array : public Object<NSArray<typename T::Type>*, CallingConvention::ObjectiveC>
     {
     public:
-        Array() { }
-		Array(NSArray<typename T::Type>* const handle, bool const bRetain = true) : ArrayBase(handle, bRetain) { }
+		Array(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSArray<typename T::Type>*, CallingConvention::ObjectiveC>(retain) { }
+		Array(NSArray<typename T::Type>* const handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<NSArray<typename T::Type>*, CallingConvention::ObjectiveC>(handle, retain) { }
 
-        const T operator[](NSUInteger index) const
+        const AutoReleased<T> operator[](NSUInteger index) const
         {
+#if MTLPP_CONFIG_VALIDATE
+			this->Validate();
+#endif
 			typedef typename T::Type InnerType;
-			return (InnerType)GetItem(index);
+			return AutoReleased<T>((InnerType)ArrayBase::GetItem((NSArray<id<NSObject>> *)this->m_ptr, index));
         }
 
-        T operator[](NSUInteger index)
+        AutoReleased<T> operator[](NSUInteger index)
         {
+#if MTLPP_CONFIG_VALIDATE
+			this->Validate();
+#endif
 			typedef typename T::Type InnerType;
-			return (InnerType)GetItem(index);
+			return AutoReleased<T>((InnerType)ArrayBase::GetItem((NSArray<id<NSObject>> *)this->m_ptr, index));
         }
+		
+		NSUInteger GetSize() const
+		{
+#if MTLPP_CONFIG_VALIDATE
+			this->Validate();
+#endif
+			return ArrayBase::GetSize((NSArray<id<NSObject>> *)this->m_ptr);
+		}
 		
 		class Iterator
 		{
@@ -234,12 +234,12 @@ namespace ns
 			
 			bool operator!=(Iterator const& other) const { return (&array != &other.array) || (index != other.index); }
 			
-			const T operator*() const
+			const AutoReleased<T> operator*() const
 			{
 				if (index < array.GetSize())
 					return array[index];
 				else
-					return T();
+					return AutoReleased<T>();
 			}
 		private:
 			Array const& array;
@@ -260,8 +260,8 @@ namespace ns
     class DictionaryBase : public Object<NSDictionary<id<NSObject>, id<NSObject>>*>
     {
     public:
-        DictionaryBase() { }
-        DictionaryBase(NSDictionary<id<NSObject>, id<NSObject>>* const handle) : Object<NSDictionary<id<NSObject>, id<NSObject>>*>(handle) { }
+		DictionaryBase(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSDictionary<id<NSObject>, id<NSObject>>*>(retain) { }
+        DictionaryBase(NSDictionary<id<NSObject>, id<NSObject>>* const handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<NSDictionary<id<NSObject>, id<NSObject>>*>(handle, retain) { }
 
     protected:
 
@@ -271,15 +271,15 @@ namespace ns
     class Dictionary : public DictionaryBase
     {
     public:
-        Dictionary() { }
+        Dictionary(ns::Ownership const retain = ns::Ownership::Retain) : DictionaryBase(retain) { }
         Dictionary(NSDictionary<typename KeyT::Type, typename ValueT::Type>* const handle) : DictionaryBase(handle) { }
     };
 
-    class String : public Object<NSString*>
+    class String : public Object<NSString*, CallingConvention::ObjectiveC>
     {
     public:
-        String() { }
-        String(NSString* handle) : Object<NSString*>(handle) { }
+		String(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSString*, CallingConvention::ObjectiveC>(retain) { }
+        String(NSString* handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<NSString*, CallingConvention::ObjectiveC>(handle, retain) { }
         String(const char* cstr);
 
         const char* GetCStr() const;
@@ -289,80 +289,47 @@ namespace ns
 	class URL : public Object<NSURL*>
 	{
 	public:
-		URL() { }
-		URL(NSURL* const handle) : Object<NSURL*>(handle) { }
+		URL(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSURL*>(retain) { }
+		URL(NSURL* const handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<NSURL*>(handle, retain) { }
 	};
 
-	/**
-	 * Auto-released classes are used to hold Objective-C out-results that are implicitly placed in an auto-release pool
-	 * We can't retain these objects safely unless done explicitly after the function that assigns them returns (or is called for handlers).
-	 * Thus you need to have a non-released variant of the class that takes ownership of the pointer.
-	 */
-    class AutoReleasedError : public Object<NSError*, true>
-    {
-		AutoReleasedError(const AutoReleasedError& rhs) = delete;
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-		AutoReleasedError(AutoReleasedError&& rhs) = delete;
-#endif
-		AutoReleasedError& operator=(const AutoReleasedError& rhs) = delete;
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-		AutoReleasedError& operator=(AutoReleasedError&& rhs) = delete;
-#endif
-		
-		friend class Error;
-    public:
-        AutoReleasedError();
-        AutoReleasedError(NSError* const handle) : Object<NSError*, true>(handle) { }
-		AutoReleasedError& operator=(NSError* const handle);
-		
-        String   GetDomain() const;
-        NSUInteger GetCode() const;
-        //@property (readonly, copy) NSDictionary *userInfo;
-        String   GetLocalizedDescription() const;
-        String   GetLocalizedFailureReason() const;
-        String   GetLocalizedRecoverySuggestion() const;
-        Array<String>   GetLocalizedRecoveryOptions() const;
-        //@property (nullable, readonly, strong) id recoveryAttempter;
-        String   GetHelpAnchor() const;
-    };
-	
 	class Error : public Object<NSError*>
 	{
 	public:
-		Error();
-		Error(NSError* const handle) : Object<NSError*>(handle) { }
-		Error(const AutoReleasedError& rhs);
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-		Error(const AutoReleasedError&& rhs);
-#endif
-		Error& operator=(const AutoReleasedError& rhs);
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-		Error& operator=(AutoReleasedError&& rhs);
-#endif
+		Error(ns::Ownership const retain = ns::Ownership::Retain);
+		Error(NSError* const handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<NSError*>(handle, retain) { }
 		
-		String   GetDomain() const;
+		AutoReleased<String>   GetDomain() const;
 		NSUInteger GetCode() const;
 		//@property (readonly, copy) NSDictionary *userInfo;
-		String   GetLocalizedDescription() const;
-		String   GetLocalizedFailureReason() const;
-		String   GetLocalizedRecoverySuggestion() const;
-		Array<String>   GetLocalizedRecoveryOptions() const;
+		AutoReleased<String>   GetLocalizedDescription() const;
+		AutoReleased<String>   GetLocalizedFailureReason() const;
+		AutoReleased<String>   GetLocalizedRecoverySuggestion() const;
+		AutoReleased<Array<String>>   GetLocalizedRecoveryOptions() const;
 		//@property (nullable, readonly, strong) id recoveryAttempter;
-		String   GetHelpAnchor() const;
+		AutoReleased<String>   GetHelpAnchor() const;
 	};
+	typedef AutoReleased<Error> AutoReleasedError;
 	
 	class IOSurface : public Object<IOSurfaceRef>
 	{
 	public:
-		IOSurface() {}
-		IOSurface(IOSurfaceRef const handle) : Object<IOSurfaceRef>(handle) { }
+		IOSurface(ns::Ownership const retain = ns::Ownership::Retain) : Object<IOSurfaceRef>(retain) {}
+		IOSurface(IOSurfaceRef const handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<IOSurfaceRef>(handle, retain) { }
 	};
 	
 	class Bundle : public Object<NSBundle*>
 	{
 	public:
-		Bundle() {}
-		Bundle(NSBundle* const handle) : Object<NSBundle*>(handle) { }
+		Bundle(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSBundle*>(retain) {}
+		Bundle(NSBundle* const handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<NSBundle*>(handle, retain) { }
+	};
+	
+	class Condition : public Object<NSCondition*, CallingConvention::ObjectiveC>
+	{
+	public:
+		Condition(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSCondition*, CallingConvention::ObjectiveC>(retain) {}
+		Condition(NSCondition* const handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<NSCondition*, CallingConvention::ObjectiveC>(handle, retain) { }
 	};
 }
 

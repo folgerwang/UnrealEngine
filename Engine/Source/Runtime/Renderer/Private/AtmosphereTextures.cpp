@@ -26,7 +26,7 @@ void FAtmosphereTextures::InitDynamicRHI()
 			FRHIRenderTargetView View = FRHIRenderTargetView(AtmosphereTransmittance->GetRenderTargetItem().TargetableTexture, ERenderTargetLoadAction::EClear);
 			FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
 			RHICmdList.SetRenderTargetsAndClear(Info);
-			RHICmdList.CopyToResolveTarget(AtmosphereTransmittance->GetRenderTargetItem().TargetableTexture, AtmosphereTransmittance->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+			RHICmdList.CopyToResolveTarget(AtmosphereTransmittance->GetRenderTargetItem().TargetableTexture, AtmosphereTransmittance->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 		}
 
 		// Irradiance
@@ -37,7 +37,7 @@ void FAtmosphereTextures::InitDynamicRHI()
 			FRHIRenderTargetView View = FRHIRenderTargetView(AtmosphereIrradiance->GetRenderTargetItem().TargetableTexture, ERenderTargetLoadAction::EClear);
 			FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
 			RHICmdList.SetRenderTargetsAndClear(Info);
-			RHICmdList.CopyToResolveTarget(AtmosphereIrradiance->GetRenderTargetItem().TargetableTexture, AtmosphereIrradiance->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+			RHICmdList.CopyToResolveTarget(AtmosphereIrradiance->GetRenderTargetItem().TargetableTexture, AtmosphereIrradiance->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 		}
 		// DeltaE
 		GRenderTargetPool.FindFreeElement(RHICmdList, IrradianceDesc, AtmosphereDeltaE, TEXT("AtmosphereDeltaE"));

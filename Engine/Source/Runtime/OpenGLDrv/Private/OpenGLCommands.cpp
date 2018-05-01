@@ -3477,7 +3477,7 @@ void FOpenGLDynamicRHI::RHIExecuteCommandList(FRHICommandList*)
 	check(0);
 }
 
-void FOpenGLDynamicRHI::RHIEnableDepthBoundsTest(bool bEnable,float MinDepth,float MaxDepth)
+void FOpenGLDynamicRHI::RHIEnableDepthBoundsTest(bool bEnable)
 {
 	if (FOpenGL::SupportsDepthBoundsTest())
 	{
@@ -3489,13 +3489,21 @@ void FOpenGLDynamicRHI::RHIEnableDepthBoundsTest(bool bEnable,float MinDepth,flo
 		{
 			glDisable(GL_DEPTH_BOUNDS_TEST_EXT);
 		}
-		FOpenGL::DepthBounds(MinDepth,MaxDepth);
+	}
+}
+
+void FOpenGLDynamicRHI::RHISetDepthBounds(float MinDepth, float MaxDepth)
+{
+	if (FOpenGL::SupportsDepthBoundsTest())
+	{
+		FOpenGL::DepthBounds(MinDepth, MaxDepth);
 	}
 }
 
 void FOpenGLDynamicRHI::RHISubmitCommandsHint()
 {
 }
+
 IRHICommandContext* FOpenGLDynamicRHI::RHIGetDefaultContext()
 {
 	return this;

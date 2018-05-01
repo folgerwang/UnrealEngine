@@ -719,9 +719,6 @@ UParticleSystemComponent* UGameplayStatics::InternalSpawnEmitterAtLocation(UWorl
 	PSC->RegisterComponentWithWorld(World);
 	PSC->ActivateSystem(true);
 
-	// Notify the texture streamer so that PSC gets managed as a dynamic component.
-	IStreamingManager::Get().NotifyPrimitiveAttached(PSC, DPT_Spawned);
-
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if (PSC->Template && PSC->Template->IsImmortal())
 	{
@@ -810,9 +807,6 @@ UParticleSystemComponent* UGameplayStatics::SpawnEmitterAttached(UParticleSystem
 				PSC->RegisterComponentWithWorld(World);
 				PSC->ActivateSystem(true);
 				
-				// Notify the texture streamer so that PSC gets managed as a dynamic component.
-				IStreamingManager::Get().NotifyPrimitiveAttached(PSC, DPT_Spawned);
-
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 				if (PSC->Template && PSC->Template->IsImmortal())
 				{

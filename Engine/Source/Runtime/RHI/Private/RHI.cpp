@@ -34,11 +34,19 @@ DEFINE_STAT(STAT_GetOrCreatePSO);
 
 static FAutoConsoleVariable CVarUseVulkanRealUBs(
 	TEXT("r.Vulkan.UseRealUBs"),
-	0,
+	1,
 	TEXT("0: Emulate uniform buffers on Vulkan SM4/SM5 [default]\n")
 	TEXT("1: Use real uniform buffers"),
 	ECVF_ReadOnly
 	);
+
+static TAutoConsoleVariable<int32> CVarDisableEngineAndAppRegistration(
+	TEXT("r.DisableEngineAndAppRegistration"),
+	0,
+	TEXT("If true, disables engine and app registration, to disable GPU driver optimizations during debugging and development\n")
+	TEXT("Changes will only take effect in new game/editor instances - can't be changed at runtime.\n"),
+	ECVF_Default);
+
 
 const FString FResourceTransitionUtility::ResourceTransitionAccessStrings[(int32)EResourceTransitionAccess::EMaxAccess + 1] =
 {
@@ -294,8 +302,8 @@ bool GRHISupportsGPUTimestampBubblesRemoval = false;
 bool GRHISupportsFrameCyclesBubblesRemoval = false;
 bool GHardwareHiddenSurfaceRemoval = false;
 bool GRHISupportsAsyncTextureCreation = false;
-bool GSupportsQuads = false;
-bool GSupportsGenerateMips = false;
+bool GRHISupportsQuadTopology = false;
+bool GRHISupportsRectTopology = false;
 bool GSupportsParallelRenderingTasksWithSeparateRHIThread = true;
 bool GRHIThreadNeedsKicking = false;
 bool GSupportsVolumeTextureRendering = true;
@@ -350,7 +358,7 @@ uint64 GRHIPresentCounter = 1;
 bool GTriggerGPUHitchProfile = false;
 
 #if WITH_SLI
-int32 GNumActiveGPUsForRendering = 1;
+uint32 GNumActiveGPUsForRendering = 1;
 #endif
 
 FVertexElementTypeSupportInfo GVertexElementTypeSupport;
@@ -376,6 +384,9 @@ void RHIPrivateBeginFrame()
 	GNumPrimitivesDrawnRHI = GCurrentNumPrimitivesDrawnRHI;
 	GCurrentNumDrawCallsRHI = GCurrentNumPrimitivesDrawnRHI = 0;
 }
+
+/** Whether to initialize 3D textures using a bulk data (or through a mip update if false). */
+RHI_API bool GUseTexture3DBulkDataRHI = false;
 
 //
 // The current shader platform.
@@ -460,10 +471,12 @@ static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
 static FName NAME_GLSL_ES3_1_ANDROID(TEXT("GLSL_ES3_1_ANDROID"));
 static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
 static FName NAME_VULKAN_ES3_1_ANDROID(TEXT("SF_VULKAN_ES31_ANDROID"));
+static FName NAME_VULKAN_ES3_1_ANDROID_UB(TEXT("SF_VULKAN_ES31_ANDROID_UB"));
 static FName NAME_VULKAN_ES3_1(TEXT("SF_VULKAN_ES31"));
-static FName NAME_VULKAN_SM4_UB(TEXT("SF_VULKAN_SM4_UB"));
+static FName NAME_VULKAN_ES3_1_UB(TEXT("SF_VULKAN_ES31_UB"));
+static FName NAME_VULKAN_SM4_NOUB(TEXT("SF_VULKAN_SM4_NOUB"));
 static FName NAME_VULKAN_SM4(TEXT("SF_VULKAN_SM4"));
-static FName NAME_VULKAN_SM5_UB(TEXT("SF_VULKAN_SM5_UB"));
+static FName NAME_VULKAN_SM5_NOUB(TEXT("SF_VULKAN_SM5_NOUB"));
 static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
 static FName NAME_SF_METAL_SM5_NOTESS(TEXT("SF_METAL_SM5_NOTESS"));
 static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
@@ -523,13 +536,13 @@ FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
 	case SP_OPENGL_ES3_1_ANDROID:
 		return NAME_GLSL_ES3_1_ANDROID;
 	case SP_VULKAN_SM4:
-		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_SM4_UB : NAME_VULKAN_SM4;
+		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_SM4 : NAME_VULKAN_SM4_NOUB;
 	case SP_VULKAN_SM5:
-		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_SM5_UB : NAME_VULKAN_SM5;
+		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_SM5 : NAME_VULKAN_SM5_NOUB;
 	case SP_VULKAN_PCES3_1:
-		return NAME_VULKAN_ES3_1;
+		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_ES3_1_UB : NAME_VULKAN_ES3_1;
 	case SP_VULKAN_ES3_1_ANDROID:
-		return NAME_VULKAN_ES3_1_ANDROID;
+		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_ES3_1_ANDROID_UB : NAME_VULKAN_ES3_1_ANDROID;
 	case SP_SWITCH:
 		return NAME_GLSL_SWITCH;
 	case SP_SWITCH_FORWARD:
@@ -543,37 +556,39 @@ FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
 
 EShaderPlatform ShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 {
-	if (ShaderFormat == NAME_PCD3D_SM5)				return SP_PCD3D_SM5;	
-	if (ShaderFormat == NAME_PCD3D_SM4)				return SP_PCD3D_SM4;
-	if (ShaderFormat == NAME_PCD3D_ES3_1)			return SP_PCD3D_ES3_1;
-	if (ShaderFormat == NAME_PCD3D_ES2)				return SP_PCD3D_ES2;
-	if (ShaderFormat == NAME_GLSL_150)				return SP_OPENGL_SM4;
-	if (ShaderFormat == NAME_SF_PS4)				return SP_PS4;
-	if (ShaderFormat == NAME_SF_XBOXONE_D3D12)		return SP_XBOXONE_D3D12;
-	if (ShaderFormat == NAME_GLSL_430)				return SP_OPENGL_SM5;
-	if (ShaderFormat == NAME_GLSL_150_ES2)			return SP_OPENGL_PCES2;
-	if (ShaderFormat == NAME_GLSL_150_ES2_NOUB)		return SP_OPENGL_PCES2;
-	if (ShaderFormat == NAME_GLSL_150_ES31)			return SP_OPENGL_PCES3_1;
-	if (ShaderFormat == NAME_GLSL_ES2)				return SP_OPENGL_ES2_ANDROID;
-	if (ShaderFormat == NAME_GLSL_ES2_WEBGL)		return SP_OPENGL_ES2_WEBGL;
-	if (ShaderFormat == NAME_GLSL_ES2_IOS)			return SP_OPENGL_ES2_IOS;
-	if (ShaderFormat == NAME_SF_METAL)				return SP_METAL;
-	if (ShaderFormat == NAME_SF_METAL_MRT)			return SP_METAL_MRT;
-	if (ShaderFormat == NAME_SF_METAL_MRT_MAC)		return SP_METAL_MRT_MAC;
-	if (ShaderFormat == NAME_GLSL_310_ES_EXT)		return SP_OPENGL_ES31_EXT;
-	if (ShaderFormat == NAME_SF_METAL_SM5)			return SP_METAL_SM5;
-	if (ShaderFormat == NAME_VULKAN_SM4)			return SP_VULKAN_SM4;
-	if (ShaderFormat == NAME_VULKAN_SM5)			return SP_VULKAN_SM5;
-	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID)	return SP_VULKAN_ES3_1_ANDROID;
-	if (ShaderFormat == NAME_VULKAN_ES3_1)			return SP_VULKAN_PCES3_1;
-	if (ShaderFormat == NAME_VULKAN_SM4_UB)			return SP_VULKAN_SM4;
-	if (ShaderFormat == NAME_VULKAN_SM5_UB)			return SP_VULKAN_SM5;
-	if (ShaderFormat == NAME_SF_METAL_SM5_NOTESS)	return SP_METAL_SM5_NOTESS;
-	if (ShaderFormat == NAME_SF_METAL_MACES3_1)		return SP_METAL_MACES3_1;
-	if (ShaderFormat == NAME_SF_METAL_MACES2)		return SP_METAL_MACES2;
-	if (ShaderFormat == NAME_GLSL_ES3_1_ANDROID)	return SP_OPENGL_ES3_1_ANDROID;
-	if (ShaderFormat == NAME_GLSL_SWITCH)			return SP_SWITCH;
-	if (ShaderFormat == NAME_GLSL_SWITCH_FORWARD)	return SP_SWITCH_FORWARD;
+	if (ShaderFormat == NAME_PCD3D_SM5)					return SP_PCD3D_SM5;	
+	if (ShaderFormat == NAME_PCD3D_SM4)					return SP_PCD3D_SM4;
+	if (ShaderFormat == NAME_PCD3D_ES3_1)				return SP_PCD3D_ES3_1;
+	if (ShaderFormat == NAME_PCD3D_ES2)					return SP_PCD3D_ES2;
+	if (ShaderFormat == NAME_GLSL_150)					return SP_OPENGL_SM4;
+	if (ShaderFormat == NAME_SF_PS4)					return SP_PS4;
+	if (ShaderFormat == NAME_SF_XBOXONE_D3D12)			return SP_XBOXONE_D3D12;
+	if (ShaderFormat == NAME_GLSL_430)					return SP_OPENGL_SM5;
+	if (ShaderFormat == NAME_GLSL_150_ES2)				return SP_OPENGL_PCES2;
+	if (ShaderFormat == NAME_GLSL_150_ES2_NOUB)			return SP_OPENGL_PCES2;
+	if (ShaderFormat == NAME_GLSL_150_ES31)				return SP_OPENGL_PCES3_1;
+	if (ShaderFormat == NAME_GLSL_ES2)					return SP_OPENGL_ES2_ANDROID;
+	if (ShaderFormat == NAME_GLSL_ES2_WEBGL)			return SP_OPENGL_ES2_WEBGL;
+	if (ShaderFormat == NAME_GLSL_ES2_IOS)				return SP_OPENGL_ES2_IOS;
+	if (ShaderFormat == NAME_SF_METAL)					return SP_METAL;
+	if (ShaderFormat == NAME_SF_METAL_MRT)				return SP_METAL_MRT;
+	if (ShaderFormat == NAME_SF_METAL_MRT_MAC)			return SP_METAL_MRT_MAC;
+	if (ShaderFormat == NAME_GLSL_310_ES_EXT)			return SP_OPENGL_ES31_EXT;
+	if (ShaderFormat == NAME_SF_METAL_SM5)				return SP_METAL_SM5;
+	if (ShaderFormat == NAME_VULKAN_SM4)				return SP_VULKAN_SM4;
+	if (ShaderFormat == NAME_VULKAN_SM5)				return SP_VULKAN_SM5;
+	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID)		return SP_VULKAN_ES3_1_ANDROID;
+	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID_UB)	return SP_VULKAN_ES3_1_ANDROID;
+	if (ShaderFormat == NAME_VULKAN_ES3_1)				return SP_VULKAN_PCES3_1;
+	if (ShaderFormat == NAME_VULKAN_ES3_1_UB)			return SP_VULKAN_PCES3_1;
+	if (ShaderFormat == NAME_VULKAN_SM4_NOUB)			return SP_VULKAN_SM4;
+	if (ShaderFormat == NAME_VULKAN_SM5_NOUB)			return SP_VULKAN_SM5;
+	if (ShaderFormat == NAME_SF_METAL_SM5_NOTESS)		return SP_METAL_SM5_NOTESS;
+	if (ShaderFormat == NAME_SF_METAL_MACES3_1)			return SP_METAL_MACES3_1;
+	if (ShaderFormat == NAME_SF_METAL_MACES2)			return SP_METAL_MACES2;
+	if (ShaderFormat == NAME_GLSL_ES3_1_ANDROID)		return SP_OPENGL_ES3_1_ANDROID;
+	if (ShaderFormat == NAME_GLSL_SWITCH)				return SP_SWITCH;
+	if (ShaderFormat == NAME_GLSL_SWITCH_FORWARD)		return SP_SWITCH_FORWARD;
 	
 	return SP_NumPlatforms;
 }
@@ -677,6 +692,11 @@ RHI_API bool RHISupportsPixelShaderUAVs(const EShaderPlatform Platform)
 	return false;
 }
 
+RHI_API bool RHISupportsIndexBufferUAVs(const EShaderPlatform Platform)
+{
+	return Platform == SP_PCD3D_SM5 || IsVulkanPlatform(Platform) || Platform == SP_XBOXONE_D3D12 || Platform == SP_PS4;
+}
+
 static ERHIFeatureLevel::Type GRHIMobilePreviewFeatureLevel = ERHIFeatureLevel::Num;
 RHI_API void RHISetMobilePreviewFeatureLevel(ERHIFeatureLevel::Type MobilePreviewFeatureLevel)
 {
@@ -710,7 +730,7 @@ bool RHIGetPreviewFeatureLevel(ERHIFeatureLevel::Type& PreviewFeatureLevelOUT)
 	return true;
 }
 
-RHI_API void FRHIRenderPassInfo::ConvertToRenderTargetsInfo(FRHISetRenderTargetsInfo& OutRTInfo) const
+void FRHIRenderPassInfo::ConvertToRenderTargetsInfo(FRHISetRenderTargetsInfo& OutRTInfo) const
 {
 	for (int32 Index = 0; Index < MaxSimultaneousRenderTargets; ++Index)
 	{
@@ -737,29 +757,101 @@ RHI_API void FRHIRenderPassInfo::ConvertToRenderTargetsInfo(FRHISetRenderTargets
 	ERenderTargetLoadAction StencilLoadAction = GetLoadAction(StencilActions);
 	ERenderTargetStoreAction StencilStoreAction = GetStoreAction(StencilActions);
 
-	if (bDEPRECATEDHasEDS)
+	OutRTInfo.DepthStencilRenderTarget = FRHIDepthRenderTargetView(DepthStencilRenderTarget.DepthStencilTarget,
+		DepthLoadAction,
+		GetStoreAction(DepthActions),
+		StencilLoadAction,
+		GetStoreAction(StencilActions),
+		DepthStencilRenderTarget.ExclusiveDepthStencil);
+	OutRTInfo.bClearDepth = (DepthLoadAction == ERenderTargetLoadAction::EClear);
+	OutRTInfo.bClearStencil = (StencilLoadAction == ERenderTargetLoadAction::EClear);
+
+	if (NumUAVs > 0)
 	{
-		OutRTInfo.DepthStencilRenderTarget = FRHIDepthRenderTargetView(DepthStencilRenderTarget.DepthStencilTarget,
-			DepthLoadAction,
-			GetStoreAction(DepthActions),
-			StencilLoadAction,
-			GetStoreAction(StencilActions),
-			DEPRECATED_EDS);
+		check(UAVIndex != -1);
+		check(UAVIndex >= OutRTInfo.NumColorRenderTargets);
+		OutRTInfo.NumColorRenderTargets = UAVIndex;
+		for (int32 Index = 0; Index < NumUAVs; ++Index)
+		{
+			OutRTInfo.UnorderedAccessView[Index] = UAVs[Index];
+		}
+		OutRTInfo.NumUAVs = NumUAVs;
+	}
+}
+
+
+void FRHIRenderPassInfo::Validate() const
+{
+	int32 NumSamples = -1;	// -1 means nothing found yet
+	int32 ColorIndex = 0;
+	for (; ColorIndex < MaxSimultaneousRenderTargets; ++ColorIndex)
+	{
+		const FColorEntry& Entry = ColorRenderTargets[ColorIndex];
+		if (Entry.RenderTarget)
+		{
+			// Ensure NumSamples matches amongst all color RTs
+			if (NumSamples == -1)
+			{
+				NumSamples = Entry.RenderTarget->GetNumSamples();
+			}
+			else
+			{
+				ensure(Entry.RenderTarget->GetNumSamples() == NumSamples);
+			}
+
+			ERenderTargetStoreAction Store = GetStoreAction(Entry.Action);
+			// Don't try to resolve a non-msaa
+			ensure(Store != ERenderTargetStoreAction::EMultisampleResolve || Entry.RenderTarget->GetNumSamples() > 1);
+			// Don't resolve to null
+			ensure(Store != ERenderTargetStoreAction::EMultisampleResolve || Entry.ResolveTarget);
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	int32 NumColorRenderTargets = ColorIndex;
+	for (; ColorIndex < MaxSimultaneousRenderTargets; ++ColorIndex)
+	{
+		// Gap in the sequence of valid render targets (ie RT0, null, RT2, ...)
+		ensureMsgf(!ColorRenderTargets[ColorIndex].RenderTarget, TEXT("Missing color render target on slot %d"), ColorIndex - 1);
+	}
+
+	if (bGeneratingMips)
+	{
+		if (NumColorRenderTargets == 0)
+		{
+			ensureMsgf(0, TEXT("Missing color render target for which to generate mips!"));
+		}
+		else if (NumColorRenderTargets > 1)
+		{
+			ensureMsgf(0, TEXT("Too many color render targets for which to generate mips!"));
+		}
+	}
+
+	if (DepthStencilRenderTarget.DepthStencilTarget)
+	{
+		ensureMsgf(!bGeneratingMips, TEXT("Can't (currently) generate mip maps off a depth/stencil target!"));
+		// Ensure NumSamples matches with color RT
+		if (NumSamples != -1)
+		{
+			ensure(DepthStencilRenderTarget.DepthStencilTarget->GetNumSamples() == NumSamples);
+		}
+		ERenderTargetStoreAction DepthStore = GetStoreAction(GetDepthActions(DepthStencilRenderTarget.Action));
+		ERenderTargetStoreAction StencilStore = GetStoreAction(GetStencilActions(DepthStencilRenderTarget.Action));
+		bool bIsMSAAResolve = (DepthStore == ERenderTargetStoreAction::EMultisampleResolve) || (StencilStore == ERenderTargetStoreAction::EMultisampleResolve);
+		// Don't try to resolve a non-msaa
+		ensure(!bIsMSAAResolve || DepthStencilRenderTarget.DepthStencilTarget->GetNumSamples() > 1);
+		// Don't resolve to null
+		ensure(DepthStencilRenderTarget.ResolveTarget || DepthStore != ERenderTargetStoreAction::EStore);
+		// Don't write to depth if read-only
+		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite() || DepthStore != ERenderTargetStoreAction::EStore);
+		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsStencilWrite() || StencilStore != ERenderTargetStoreAction::EStore);
 	}
 	else
 	{
-		OutRTInfo.DepthStencilRenderTarget = FRHIDepthRenderTargetView(DepthStencilRenderTarget.DepthStencilTarget,
-			DepthLoadAction,
-			GetStoreAction(DepthActions),
-			StencilLoadAction,
-			GetStoreAction(StencilActions));
+		ensure(DepthStencilRenderTarget.Action == EDepthStencilTargetActions::DontLoad_DontStore);
+		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil == FExclusiveDepthStencil::DepthNop_StencilNop);
 	}
-	OutRTInfo.bClearDepth = (DepthLoadAction == ERenderTargetLoadAction::EClear);
-	OutRTInfo.bClearStencil = (StencilLoadAction == ERenderTargetLoadAction::EClear);
-}
-
-RHI_API bool RHIUseRenderPasses()
-{
-	static auto* RenderPassCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.RHIRenderPasses"));
-	return RenderPassCVar && RenderPassCVar->GetValueOnRenderThread() > 0;
 }

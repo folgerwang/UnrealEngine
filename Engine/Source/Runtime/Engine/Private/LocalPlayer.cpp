@@ -842,6 +842,11 @@ FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily,
 		//	NOTE: Matinee works through this channel
 		View->OverridePostProcessSettings(ViewInfo.PostProcessSettings, ViewInfo.PostProcessBlendWeight);
 
+		if (PlayerController->PlayerCameraManager)
+		{
+			PlayerController->PlayerCameraManager->UpdatePhotographyPostProcessing(View->FinalPostProcessSettings);
+		}
+
 		View->EndFinalPostprocessSettings(ViewInitOptions);
 	}
 

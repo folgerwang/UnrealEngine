@@ -6,6 +6,12 @@
 =============================================================================*/
 
 #include "Common.ush"
+
+// Reroute SceneTexturesStruct uniform buffer references to the appropriate base pass uniform buffer
+#if MATERIALBLENDING_TRANSLUCENT || MATERIALBLENDING_ADDITIVE || MATERIALBLENDING_MODULATE
+	#define SceneTexturesStruct TranslucentBasePass.SceneTextures
+#endif 
+
 #include "/Engine/Generated/Material.ush"
 #include "BasePassCommon.ush"
 #include "/Engine/Generated/VertexFactory.ush"

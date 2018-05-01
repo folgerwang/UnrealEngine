@@ -131,7 +131,7 @@ FAvfMediaVideoSampler::FAvfMediaVideoSampler(FMediaSamples& InSamples)
 	: Output(nil)
 	, Samples(InSamples)
 	, VideoSamplePool(new FAvfMediaTextureSamplePool)
-	, FrameRate(0.0f)
+	, FrameDuration(0.0f)
 #if WITH_ENGINE && COREVIDEO_SUPPORTS_METAL
 	, MetalTextureCache(nullptr)
 #endif
@@ -168,7 +168,7 @@ void FAvfMediaVideoSampler::SetOutput(AVPlayerItemVideoOutput* InOutput, float I
 	[Output release];
 	Output = InOutput;
 
-	FrameRate = InFrameRate;
+	FrameDuration = 1.f / InFrameRate;
 }
 
 
@@ -197,7 +197,7 @@ void FAvfMediaVideoSampler::Tick()
 		return;
 	}
 
-	const FTimespan SampleDuration = FTimespan::FromSeconds(FrameRate);
+	const FTimespan SampleDuration = FTimespan::FromSeconds(FrameDuration);
 	const FTimespan SampleTime = FTimespan::FromSeconds(CMTimeGetSeconds(OutputItemTime));
 
 	const int32 FrameHeight = CVPixelBufferGetHeight(Frame);
@@ -309,7 +309,7 @@ void FAvfMediaVideoSampler::Tick()
 
 				DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
 				
-				RHICmdList.CopyToResolveTarget(ShaderResource, ShaderResource, true, FResolveParams());
+				RHICmdList.CopyToResolveTarget(ShaderResource, ShaderResource, FResolveParams());
 			}
 			
 			CFRelease(YTextureRef);

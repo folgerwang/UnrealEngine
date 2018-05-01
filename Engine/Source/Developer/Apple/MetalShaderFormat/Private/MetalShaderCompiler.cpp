@@ -956,6 +956,17 @@ void BuildMetalShaderOutput(
 	
 	const ANSICHAR* USFSource = InShaderSource;
 	
+	uint32 NumLines = 0;
+	const ANSICHAR* Main = FCStringAnsi::Strstr(USFSource, "Main_");
+	while (Main && *Main)
+	{
+		if (*Main == '\n')
+		{
+			NumLines++;
+		}
+		Main++;
+	}
+	
 	FString const* UsingTessellationDefine = ShaderInput.Environment.GetDefinitions().Find(TEXT("USING_TESSELLATION"));
 	bool bUsingTessellation = (UsingTessellationDefine != nullptr && FString("1") == *UsingTessellationDefine);
 	
@@ -1358,7 +1369,7 @@ void BuildMetalShaderOutput(
 		// store data we can pickup later with ShaderCode.FindOptionalData('n'), could be removed for shipping
 		ShaderOutput.ShaderCode.AddOptionalData('n', TCHAR_TO_UTF8(*ShaderInput.GenerateShaderName()));
 
-		ShaderOutput.NumInstructions = 0;
+		ShaderOutput.NumInstructions = NumLines;
 		ShaderOutput.NumTextureSamplers = Header.Bindings.NumSamplers;
 		ShaderOutput.bSucceeded = true;
 	}
@@ -1601,6 +1612,7 @@ void BuildMetalShaderOutput(
 #if (PLATFORM_MAC && !UNIXLIKE_TO_MAC_REMOTE_BUILDING)				
 				FString Defines = Header.bDeviceFunctionConstants ? TEXT("-D__METAL_DEVICE_CONSTANT_INDEX__=1") : TEXT("");
 				Defines += FString::Printf(TEXT(" -D__METAL_MANUAL_TEXTURE_METADATA__=%d"), !(bUsingTessellation && (Frequency == SF_Vertex || Frequency == SF_Hull)));
+				Defines += FString::Printf(TEXT(" -D__METAL_USE_TEXTURE_CUBE_ARRAY__=%d"), !bIsMobile);
 				switch(TypeMode)
 				{
 					case EMetalTypeBufferModeRaw:
@@ -1770,7 +1782,7 @@ void BuildMetalShaderOutput(
 			ShaderOutput.NumTextureSamplers = Header.Bindings.NumSamplers;
 		}
 		
-		ShaderOutput.NumInstructions = 0;
+		ShaderOutput.NumInstructions = NumLines;
 		ShaderOutput.bSucceeded = bSucceeded;
 	}
 }
@@ -1778,28 +1790,6 @@ void BuildMetalShaderOutput(
 /*------------------------------------------------------------------------------
 	External interface.
 ------------------------------------------------------------------------------*/
-
-static FString CreateCommandLineHLSLCC( const FString& ShaderFile, const FString& OutputFile, const FString& EntryPoint, EHlslCompileTarget Target, EHlslShaderFrequency Frequency, uint32 CCFlags )
-{
-	const TCHAR* VersionSwitch = TEXT("-metal");
-	switch (Target)
-	{
-        case HCT_FeatureLevelES2:
-		case HCT_FeatureLevelES3_1:
-			VersionSwitch = TEXT("-metal");
-			break;
-		case HCT_FeatureLevelSM4:
-			VersionSwitch = TEXT("-metalsm4");
-			break;
-		case HCT_FeatureLevelSM5:
-			VersionSwitch = TEXT("-metalsm5");
-			break;
-			
-		default:
-			check(0);
-	}
-	return CrossCompiler::CreateBatchFileContents(ShaderFile, OutputFile, Frequency, EntryPoint, VersionSwitch, CCFlags, TEXT(""));
-}
 
 // For Metal <= 1.1
 static const EHlslShaderFrequency FrequencyTable1[] =
@@ -2121,10 +2111,7 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 
 
 	// This requires removing the HLSLCC_NoPreprocess flag later on!
-	if (!RemoveUniformBuffersFromSource(PreprocessedShader))
-	{
-		return;
-	}
+	RemoveUniformBuffersFromSource(Input.Environment, PreprocessedShader);
 
 	// Write out the preprocessed file and a batch file to compile it if requested (DumpDebugInfoPath is valid)
 	if (bDumpDebugInfo && !bDirectCompile)
@@ -2156,7 +2143,11 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 	}
 
 	uint32 CCFlags = HLSLCC_NoPreprocess | HLSLCC_PackUniforms | HLSLCC_FixAtomicReferences | HLSLCC_KeepSamplerAndImageNames;
-		
+	if (!bDirectCompile || UE_BUILD_DEBUG)
+	{
+		// Validation is expensive - only do it when compiling directly for debugging
+		CCFlags |= HLSLCC_NoValidation;
+	}
 	
 	FSHAHash GUIDHash;
 	if (!bDirectCompile)

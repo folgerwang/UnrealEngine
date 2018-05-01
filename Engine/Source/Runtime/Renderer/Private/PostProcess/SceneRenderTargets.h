@@ -81,33 +81,6 @@ inline int SelectTranslucencyVolumeTarget(ETranslucencyVolumeCascade InCascade)
 /** Number of surfaces used for translucent shadows. */
 static const int32 NumTranslucencyShadowSurfaces = 2;
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FGBufferResourceStruct, )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D,			GBufferATexture )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D,			GBufferBTexture )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D,			GBufferCTexture )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D,			GBufferDTexture )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D,			GBufferETexture )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D,			GBufferVelocityTexture )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D<float4>,	GBufferATextureNonMS )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D<float4>,	GBufferBTextureNonMS )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D<float4>,	GBufferCTextureNonMS )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D<float4>,	GBufferDTextureNonMS )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D<float4>,	GBufferETextureNonMS )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D<float4>,	GBufferVelocityTextureNonMS )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2DMS<float4>,	GBufferATextureMS )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2DMS<float4>,	GBufferBTextureMS )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2DMS<float4>,	GBufferCTextureMS )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2DMS<float4>,	GBufferDTextureMS )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2DMS<float4>,	GBufferETextureMS )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2DMS<float4>,	GBufferVelocityTextureMS )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER( SamplerState,			GBufferATextureSampler )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER( SamplerState,			GBufferBTextureSampler )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER( SamplerState,			GBufferCTextureSampler )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER( SamplerState,			GBufferDTextureSampler )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER( SamplerState,			GBufferETextureSampler )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER( SamplerState,			GBufferVelocityTextureSampler)
-END_UNIFORM_BUFFER_STRUCT( FGBufferResourceStruct )
-
 /*
 * Stencil layout during basepass / deferred decals:
 *		BIT ID    | USE
@@ -187,7 +160,6 @@ protected:
 		SeparateTranslucencyBufferSize(0, 0),
 		SeparateTranslucencyScale(1),
 		SmallColorDepthDownsampleFactor(2),
-		bLightAttenuationEnabled(true),
 		bUseDownsizedOcclusionQueries(true),
 		CurrentGBufferFormat(0),
 		CurrentSceneColorFormat(0),
@@ -373,22 +345,6 @@ public:
 	const FTexture2DRHIRef& GetGBufferETexture() const { return (const FTexture2DRHIRef&)GBufferE->GetRenderTargetItem().ShaderResourceTexture; }
 	const FTexture2DRHIRef& GetGBufferVelocityTexture() const { return (const FTexture2DRHIRef&)GBufferVelocity->GetRenderTargetItem().ShaderResourceTexture; }
 
-	/** 
-	* Allows substitution of a 1x1 white texture in place of the light attenuation buffer when it is not needed;
-	* this improves shader performance and removes the need for redundant Clears
-	*/
-	void SetLightAttenuationMode(bool bEnabled) { bLightAttenuationEnabled = bEnabled; }
-	const FTextureRHIRef& GetEffectiveLightAttenuationTexture(bool bReceiveDynamicShadows) const 
-	{
-		if( bLightAttenuationEnabled && bReceiveDynamicShadows )
-		{
-			return GetLightAttenuationTexture();
-		}
-		else
-		{
-			return GWhiteTexture->TextureRHI;
-		}
-	}
 	const FTextureRHIRef& GetLightAttenuationTexture() const
 	{
 		return *(FTextureRHIRef*)&GetLightAttenuation()->GetRenderTargetItem().ShaderResourceTexture;
@@ -440,28 +396,6 @@ public:
 	/** Get the current translucent directional lighting volume texture. Can vary depending on whether volume filtering is enabled */
 	IPooledRenderTarget* GetTranslucencyVolumeDirectional(ETranslucencyVolumeCascade Cascade) { return TranslucencyLightingVolumeDirectional[SelectTranslucencyVolumeTarget(Cascade)].GetReference(); }
 
-	bool IsValidGBufferResourcesUniformBuffer() const
-	{
-		return IsValidRef(GBufferResourcesUniformBuffer);
-	}
-
-	// ---
-	/** Get the uniform buffer containing GBuffer resources. */
-	FUniformBufferRHIParamRef GetGBufferResourcesUniformBuffer() const 
-	{ 
-		// if this triggers you need to make sure the GBuffer is not getting released before (using AdjustGBufferRefCount(1) and AdjustGBufferRefCount(-1))
-		// Maybe You use a SceneTexture material expression that should set MaterialCompilationOutput.bNeedsGBuffer
-		checkf(IsValidRef(GBufferResourcesUniformBuffer), TEXT("GBuffer required but not available. Failure often caused by incorrect custom code use in a post processing material."));
-
-		return GBufferResourcesUniformBuffer; 
-	}
-	/** Get the uniform buffer containing dummy GBuffer resources. */
-	FUniformBufferRHIParamRef GetDummyGBufferResourcesUniformBuffer() const
-	{
-		//we don't alloc the dummy by default as they aren't necessary for cooked builds.
-		checkf(IsValidRef(GBufferDummyResourcesUniformBuffer), TEXT("GBuffer dummies required but not available. Calling code must call AllocDummyGBufferTargets is these are required."));
-		return GBufferDummyResourcesUniformBuffer;
-	}
 	/** Returns the size of most screen space render targets e.g. SceneColor, SceneDepth, GBuffer, ... might be different from final RT or output Size because of ScreenPercentage use. */
 	FIntPoint GetBufferSizeXY() const { return BufferSize; }
 	/** */
@@ -521,7 +455,6 @@ public:
 	void PreallocGBufferTargets();
 	void GetGBufferADesc(FPooledRenderTargetDesc& Desc) const;
 	void AllocGBufferTargets(FRHICommandList& RHICmdList);
-	void AllocDummyGBufferTargets(FRHICommandList& RHICmdList);
 
 	void AllocLightAttenuation(FRHICommandList& RHICmdList);
 
@@ -532,6 +465,8 @@ public:
 	void AllocateLightingChannelTexture(FRHICommandList& RHICmdList);
 
 	void AllocateDebugViewModeTargets(FRHICommandList& RHICmdList);
+
+	void AllocateScreenShadowMask(FRHICommandList& RHICmdList, TRefCountPtr<IPooledRenderTarget>& ScreenShadowMaskTexture);
 
 	TRefCountPtr<IPooledRenderTarget>& GetReflectionBrightnessTarget();
 
@@ -733,9 +668,6 @@ private:
 	static FResolveRect GetDefaultRect(const FResolveRect& Rect, uint32 DefaultWidth, uint32 DefaultHeight);
 	static void ResolveDepthTexture(FRHICommandList& RHICmdList, const FTexture2DRHIRef& SourceTexture, const FTexture2DRHIRef& DestTexture, const FResolveParams& ResolveParams);
 
-	/** Uniform buffer containing GBuffer resources. */
-	FUniformBufferRHIRef GBufferResourcesUniformBuffer;
-	FUniformBufferRHIRef GBufferDummyResourcesUniformBuffer;
 	/** size of the back buffer, in editor this has to be >= than the biggest view port */
 	FIntPoint BufferSize;
 	/* Size of the first view, used for multiview rendertargets */
@@ -744,8 +676,6 @@ private:
 	float SeparateTranslucencyScale;
 	/** e.g. 2 */
 	uint32 SmallColorDepthDownsampleFactor;
-	/** if true we use the light attenuation buffer otherwise the 1x1 white texture is used */
-	bool bLightAttenuationEnabled;
 	/** Whether to use SmallDepthZ for occlusion queries. */
 	bool bUseDownsizedOcclusionQueries;
 	/** To detect a change of the CVar r.GBufferFormat */

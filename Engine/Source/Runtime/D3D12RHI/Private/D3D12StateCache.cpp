@@ -74,7 +74,7 @@ static FD3D12ToggleStateCacheExecHelper GD3D12ToggleStateCacheExecHelper;
 
 #endif	// D3D12_STATE_CACHE_RUNTIME_TOGGLE
 
-FD3D12StateCacheBase::FD3D12StateCacheBase(GPUNodeMask Node)
+FD3D12StateCacheBase::FD3D12StateCacheBase(FRHIGPUMask Node)
 	: DescriptorCache(Node)
 	, FD3D12SingleNodeGPUObject(Node)
 {}

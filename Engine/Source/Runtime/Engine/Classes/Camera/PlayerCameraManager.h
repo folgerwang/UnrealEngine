@@ -666,6 +666,11 @@ protected:
 	/** Updates the photography camera. Return true if a cut occurred */
 	virtual bool UpdatePhotographyCamera(FMinimalViewInfo& NewPOV);
 
+public:
+	/** Allows the photography system to override postprocessing */
+	virtual void UpdatePhotographyPostProcessing(FPostProcessSettings& InOutPostProcessing);
+
+protected:
 	/** Whether or not we allow photography mode */
 	virtual bool AllowPhotographyMode() const;
 	/** Internal. Applies appropriate audio fading to the audio system. */

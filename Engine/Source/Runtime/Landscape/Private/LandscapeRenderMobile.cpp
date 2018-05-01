@@ -42,6 +42,7 @@ public:
 	virtual void Bind(const FShaderParameterMap& ParameterMap) override
 	{
 		LodValuesParameter.Bind(ParameterMap,TEXT("LodValues"));
+		LodTessellationParameter.Bind(ParameterMap, TEXT("LodTessellationParams"));
 		NeighborSectionLodParameter.Bind(ParameterMap,TEXT("NeighborSectionLod"));
 		LodBiasParameter.Bind(ParameterMap,TEXT("LodBias"));
 		SectionLodsParameter.Bind(ParameterMap,TEXT("SectionLods"));
@@ -54,6 +55,7 @@ public:
 	virtual void Serialize(FArchive& Ar) override
 	{
 		Ar << LodValuesParameter;
+		Ar << LodTessellationParameter;
 		Ar << NeighborSectionLodParameter;
 		Ar << LodBiasParameter;
 		Ar << SectionLodsParameter;
@@ -100,6 +102,11 @@ public:
 
 		if (LODData != nullptr)
 		{
+			if (LodTessellationParameter.IsBound())
+			{
+				SetShaderValue(RHICmdList, VertexShader->GetVertexShader(), LodTessellationParameter, LODData->LodTessellationParams);
+			}
+
 			if (SectionLodsParameter.IsBound())
 			{
 				if (LODData->UseCombinedMeshBatch)
@@ -145,6 +152,7 @@ public:
 	}
 protected:
 	FShaderParameter LodValuesParameter;
+	FShaderParameter LodTessellationParameter;
 	FShaderParameter NeighborSectionLodParameter;
 	FShaderParameter LodBiasParameter;
 	FShaderParameter SectionLodsParameter;

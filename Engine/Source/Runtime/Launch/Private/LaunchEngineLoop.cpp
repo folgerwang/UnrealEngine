@@ -189,6 +189,7 @@ class FFeedbackContext;
 		#include "VisualLogger/VisualLogger.h"
 	#endif
 	#include "ProfilingDebugging/CsvProfiler.h"
+	#include "ProfilingDebugging/TracingProfiler.h"
 #endif
 
 #if defined(WITH_LAUNCHERCHECK) && WITH_LAUNCHERCHECK
@@ -1491,6 +1492,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	FCsvProfiler::Get()->Init();
 #endif
 
+#if WITH_ENGINE && TRACING_PROFILER
+	FTracingProfiler::Get()->Init();
+#endif
+
 	// Start the application
 	if (!AppInit())
 	{
@@ -1767,6 +1772,8 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 #if RHI_COMMAND_LIST_DEBUG_TRACES
 	EnableEmitDrawEventsOnlyOnCommandlist();
 #endif
+
+	FUniformBufferStruct::InitializeStructs();
 
 	// Initialize the RHI.
 	RHIInit(bHasEditorToken);
@@ -2899,6 +2906,10 @@ void FEngineLoop::Exit()
 	// AppPreExit() stops malloc profiler, do it here instead
 	MALLOC_PROFILER( GMalloc->Exec(nullptr, TEXT("MPROF STOP"), *GLog);	);
 #endif // !ANDROID
+
+#if WITH_PROFILEGPU
+	ClearLongGPUTaskQueries();
+#endif
 
 	// Stop the rendering thread.
 	StopRenderingThread();

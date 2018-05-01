@@ -18,7 +18,6 @@
 // the configuration will set up anything not set up by the platform
 #include "VulkanConfiguration.h"
 
-
 #if VULKAN_COMMANDWRAPPERS_ENABLE
 	#if VULKAN_DYNAMICALLYLOADED
 		// Vulkan API is defined in VulkanDynamicAPI namespace.
@@ -80,7 +79,8 @@ class FVulkanRenderTargetLayout
 {
 public:
 	FVulkanRenderTargetLayout(const FGraphicsPipelineStateInitializer& Initializer);
-	FVulkanRenderTargetLayout(const FRHISetRenderTargetsInfo& RTInfo);
+	FVulkanRenderTargetLayout(FVulkanDevice& InDevice, const FRHISetRenderTargetsInfo& RTInfo);
+	FVulkanRenderTargetLayout(FVulkanDevice& InDevice, const FRHIRenderPassInfo& RPInfo);
 
 	inline uint32 GetHash() const { return OldHash; }
 	inline uint32 GetRenderPassHash() const { return RenderPassHash; }
@@ -103,8 +103,6 @@ public:
 
 protected:
 	VkAttachmentReference ColorReferences[MaxSimultaneousRenderTargets];
-	uint16 MipLevels[MaxSimultaneousRenderTargets];
-	uint16 ArraySlices[MaxSimultaneousRenderTargets];
 	VkAttachmentReference ResolveReferences[MaxSimultaneousRenderTargets];
 	VkAttachmentReference DepthStencilReference;
 
@@ -129,8 +127,6 @@ protected:
 	FVulkanRenderTargetLayout()
 	{
 		FMemory::Memzero(ColorReferences);
-		FMemory::Memzero(MipLevels);
-		FMemory::Memzero(ArraySlices);
 		FMemory::Memzero(ResolveReferences);
 		FMemory::Memzero(DepthStencilReference);
 		FMemory::Memzero(Desc);
@@ -149,39 +145,6 @@ protected:
 
 private:
 	void CreateRenderPassHash();
-};
-
-struct FVulkanSemaphore
-{
-	FVulkanSemaphore(FVulkanDevice& InDevice):
-		Device(InDevice),
-		SemaphoreHandle(VK_NULL_HANDLE)
-	{
-		// Create semaphore
-		VkSemaphoreCreateInfo PresentCompleteSemaphoreCreateInfo;
-		FMemory::Memzero(PresentCompleteSemaphoreCreateInfo);
-		PresentCompleteSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		PresentCompleteSemaphoreCreateInfo.pNext = nullptr;
-		PresentCompleteSemaphoreCreateInfo.flags = 0;
-		VERIFYVULKANRESULT(VulkanRHI::vkCreateSemaphore(Device.GetInstanceHandle(), &PresentCompleteSemaphoreCreateInfo, nullptr, &SemaphoreHandle));
-	}
-
-	~FVulkanSemaphore()
-	{
-		check(SemaphoreHandle != VK_NULL_HANDLE);
-		Device.GetDeferredDeletionQueue().EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::Semaphore, SemaphoreHandle);
-		SemaphoreHandle = VK_NULL_HANDLE;
-	}
-
-	VkSemaphore GetHandle() const
-	{
-		check(SemaphoreHandle != VK_NULL_HANDLE);
-		return SemaphoreHandle;
-	}
-
-private:
-	FVulkanDevice& Device;
-	VkSemaphore SemaphoreHandle;
 };
 
 class FVulkanFramebuffer
@@ -276,25 +239,29 @@ private:
 	// Predefined set of barriers, when executes ensuring all writes are finished
 	TArray<VkImageMemoryBarrier> WriteBarriers;
 
-#if VULKAN_KEEP_CREATE_INFO
-	VkFramebufferCreateInfo CreateInfo;
-#endif
-
 	friend class FVulkanCommandListContext;
 };
 
 class FVulkanRenderPass
 {
 public:
-	const FVulkanRenderTargetLayout& GetLayout() const { return Layout; }
-	VkRenderPass GetHandle() const { check(RenderPass != VK_NULL_HANDLE); return RenderPass; }
-	uint32 GetNumUsedClearValues() const
+	inline const FVulkanRenderTargetLayout& GetLayout() const
+	{
+		return Layout;
+	}
+
+	inline VkRenderPass GetHandle() const
+	{
+		return RenderPass;
+	}
+
+	inline uint32 GetNumUsedClearValues() const
 	{
 		return NumUsedClearValues;
 	}
 
 private:
-	friend class FVulkanCommandListContext;
+	friend class FTransitionAndLayoutManager;
 	friend class FVulkanPipelineStateCache;
 
 	FVulkanRenderPass(FVulkanDevice& Device, const FVulkanRenderTargetLayout& RTLayout);
@@ -305,12 +272,6 @@ private:
 	VkRenderPass RenderPass;
 	uint32 NumUsedClearValues;
 	FVulkanDevice& Device;
-
-#if VULKAN_KEEP_CREATE_INFO
-	const FVulkanRenderTargetLayout& RTLayout;
-	VkSubpassDescription SubpassDesc;
-	VkRenderPassCreateInfo CreateInfo;
-#endif
 };
 
 namespace VulkanRHI
@@ -407,6 +368,7 @@ DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num DescSet Pools"), STAT_VulkanNumD
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Update DescriptorSets"), STAT_VulkanUpdateDescriptorSets, STATGROUP_VulkanRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Num Desc Sets Updated"), STAT_VulkanNumDescSets, STATGROUP_VulkanRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Num Desc Sets Redundantly Updated"), STAT_VulkanNumRedundantDescSets, STATGROUP_VulkanRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Num WriteDescriptors Cmd"), STAT_VulkanNumUpdateDescriptors, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Set unif Buffer"), STAT_VulkanSetUniformBufferTime, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("VkUpdate DS"), STAT_VulkanVkUpdateDS, STATGROUP_VulkanRHI, );
@@ -521,6 +483,11 @@ namespace VulkanRHI
 		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 			Flags = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 			break;
+#if VULKAN_SUPPORTS_MAINTENANCE_LAYER2
+		case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL_KHR:
+			Flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			break;
+#endif
 		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
 			Flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 			break;
@@ -559,6 +526,9 @@ namespace VulkanRHI
 		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 			Flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 			break;
+#if VULKAN_SUPPORTS_MAINTENANCE_LAYER2
+		case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL_KHR:
+#endif
 		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
 			Flags = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
 			break;
@@ -605,16 +575,20 @@ static inline VkAttachmentLoadOp RenderTargetLoadActionToVulkan(ERenderTargetLoa
 	return OutLoadAction;
 }
 
-static inline VkAttachmentStoreOp RenderTargetStoreActionToVulkan(ERenderTargetStoreAction InStoreAction)
+static inline VkAttachmentStoreOp RenderTargetStoreActionToVulkan(ERenderTargetStoreAction InStoreAction, bool bRealRenderPass = false)
 {
 	VkAttachmentStoreOp OutStoreAction = VK_ATTACHMENT_STORE_OP_MAX_ENUM;
 
 	switch (InStoreAction)
 	{
-	case ERenderTargetStoreAction::EStore:		OutStoreAction = VK_ATTACHMENT_STORE_OP_STORE;		break;
-	//#todo-rco: Temp until we have a better RenderPass system
-	case ERenderTargetStoreAction::ENoAction:	OutStoreAction = VK_ATTACHMENT_STORE_OP_STORE/*DONT_CARE*/;	break;
-	default:																						break;
+	case ERenderTargetStoreAction::EStore:		OutStoreAction = VK_ATTACHMENT_STORE_OP_STORE;
+		break;
+	//#todo-rco: Temp until we have fully switched to RenderPass system
+	case ERenderTargetStoreAction::ENoAction:
+		OutStoreAction = bRealRenderPass ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
+		break;
+	default:
+		break;
 	}
 
 	// Check for missing translation
@@ -679,7 +653,7 @@ static inline VkFormat UEToVkFormat(EVertexElementType Type)
 	case VET_Float3:
 		return VK_FORMAT_R32G32B32_SFLOAT;
 	case VET_PackedNormal:
-		return VK_FORMAT_R8G8B8A8_UNORM;
+		return VK_FORMAT_R8G8B8A8_SNORM;
 	case VET_UByte4:
 		return VK_FORMAT_R8G8B8A8_UINT;
 	case VET_UByte4N:
@@ -740,20 +714,60 @@ namespace VulkanRHI
 	{
 		return FPaths::ProjectSavedDir() / TEXT("VulkanPSO.cache");
 	}
-}
 
-#if 0
-namespace FRCLog
-{
-	void Printf(const FString& S);
-}
+	static inline FString GetValidationCacheFilename()
+	{
+		return FPaths::ProjectSavedDir() / TEXT("VulkanValidation.cache");
+	}
+
+#if VULKAN_ENABLE_DRAW_MARKERS
+	inline void SetDebugObjectName(PFN_vkDebugMarkerSetObjectNameEXT DebugMarkerSetObjectName, VkDevice VulkanDevice, VkImage Image, const char* ObjectName)
+	{
+		VkDebugMarkerObjectNameInfoEXT Info;
+		FMemory::Memzero(Info);
+		Info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		Info.objectType = VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT;
+		Info.object = (uint64)Image;
+		Info.pObjectName = ObjectName;
+		DebugMarkerSetObjectName(VulkanDevice, &Info);
+};
 #endif
 
+	// For cases when we want to use DepthRead_StencilDONTCARE
+	inline bool IsDepthReadOnly(FExclusiveDepthStencil DepthStencilAccess)
+	{
+		return DepthStencilAccess.IsUsingDepth() && !DepthStencilAccess.IsDepthWrite();
+	}
 
-#ifndef VK_KHR_maintenance1
-#define VK_KHR_maintenance1	0
+	// For cases when we want to use DepthRead_StencilWrite (when we want to read in a shader the current bound depth stencil render target)
+	inline bool IsStencilWrite(FExclusiveDepthStencil DepthStencilAccess)
+	{
+		return DepthStencilAccess.IsUsingStencil() && DepthStencilAccess.IsStencilWrite();
+	}
+
+	inline VkImageLayout GetDepthStencilLayout(FExclusiveDepthStencil RequestedDSAccess, FVulkanDevice& InDevice)
+	{
+		if (RequestedDSAccess == FExclusiveDepthStencil::DepthRead_StencilNop || RequestedDSAccess == FExclusiveDepthStencil::DepthRead_StencilRead)
+		{
+			return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+		}
+#if VULKAN_SUPPORTS_MAINTENANCE_LAYER2
+		else if (RequestedDSAccess == FExclusiveDepthStencil::DepthRead_StencilWrite && InDevice.GetOptionalExtensions().HasKHRMaintenance2)
+		{
+			return VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL_KHR;
+		}
 #endif
 
-#define SUPPORTS_MAINTENANCE_LAYER							VK_KHR_maintenance1
+		ensure(RequestedDSAccess.IsDepthWrite() || RequestedDSAccess.IsStencilWrite());
+		return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	}
+}
 
-//extern uint32 GVulkanRHIFrameNumber;
+extern int32 GVulkanSubmitAfterEveryEndRenderPass;
+extern int32 GWaitForIdleOnSubmit;
+
+#if VULKAN_HAS_DEBUGGING_ENABLED
+extern bool GRenderDocFound;
+#endif
+
+const int GMaxCrashBufferEntries = 2048;

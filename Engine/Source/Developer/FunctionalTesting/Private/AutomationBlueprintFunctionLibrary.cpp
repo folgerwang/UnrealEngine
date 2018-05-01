@@ -296,7 +296,7 @@ public:
 			{
 				if ( ErrorMessage.IsEmpty() )
 				{
-					UE_LOG(AutomationFunctionLibrary, Error, TEXT("Screenshot '%s' test failed, Screnshots were different!  Global Difference = %f, Max Local Difference = %f"), *Name, GlobalDifference, MaxLocalDifference);
+					UE_LOG(AutomationFunctionLibrary, Error, TEXT("Screenshot '%s' test failed, Screenshots were different!  Global Difference = %f, Max Local Difference = %f"), *Name, GlobalDifference, MaxLocalDifference);
 				}
 				else
 				{

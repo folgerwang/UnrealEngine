@@ -147,7 +147,11 @@ public:
 	virtual void PreInitViews() override;
 	virtual bool UsesGlobalDistanceField() const override;
 	virtual void PreRender(FRHICommandListImmediate& RHICmdList, const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData) override;
-	virtual void PostRenderOpaque(FRHICommandListImmediate& RHICmdList, const FUniformBufferRHIParamRef ViewUniformBuffer, FTexture2DRHIParamRef SceneDepthTexture, FTexture2DRHIParamRef GBufferATexture) override;
+	virtual void PostRenderOpaque(
+		FRHICommandListImmediate& RHICmdList, 
+		const FUniformBufferRHIParamRef ViewUniformBuffer, 
+		const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+		FUniformBufferRHIParamRef SceneTexturesUniformBuffer) override;
 	// End FFXSystemInterface.
 
 	/*--------------------------------------------------------------------------
@@ -191,8 +195,8 @@ public:
 	 */
 	int32 AddSortedGPUSimulation(FParticleSimulationGPU* Simulation, const FVector& ViewOrigin);
 
-	void PrepareGPUSimulation(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SceneDepthTexture = nullptr);
-	void FinalizeGPUSimulation(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SceneDepthTexture = nullptr);
+	void PrepareGPUSimulation(FRHICommandListImmediate& RHICmdList);
+	void FinalizeGPUSimulation(FRHICommandListImmediate& RHICmdList);
 
 private:
 
@@ -242,16 +246,14 @@ private:
 	 * Update particles simulated on the GPU.
 	 * @param Phase				Which emitters are being simulated.
 	 * @param CollisionView		View to be used for collision checks.
-	 * @param SceneDepthTexture Depth texture to use for collision checks.
-	 * @param GBufferATexture	GBuffer texture containing the world normal.
 	 */
 	void SimulateGPUParticles(
 		FRHICommandListImmediate& RHICmdList,
 		EParticleSimulatePhase::Type Phase,
 		const FUniformBufferRHIParamRef ViewUniformBuffer,
 		const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
-		FTexture2DRHIParamRef SceneDepthTexture,
-		FTexture2DRHIParamRef GBufferATexture
+		const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+		FUniformBufferRHIParamRef SceneTexturesUniformBuffer
 		);
 
 	/**

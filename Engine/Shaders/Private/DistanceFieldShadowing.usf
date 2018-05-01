@@ -115,8 +115,8 @@ void CullObjectsForShadowCS(
 	if (ObjectIndex < NumSceneObjects)
 	{
 		float4 ObjectBoundingSphere = LoadFloat4(SceneObjectBounds, SourceIndex);
-	
-		if (ShadowBoundingSphere.w == 0 && ShadowConvexHullIntersectSphere(ObjectBoundingSphere.xyz, ObjectBoundingSphere.w)
+        
+        if (ShadowBoundingSphere.w == 0 && ShadowConvexHullIntersectSphere(ObjectBoundingSphere.xyz, ObjectBoundingSphere.w)
 			|| ShadowBoundingSphere.w > 0 && dot(ShadowBoundingSphere.xyz - ObjectBoundingSphere.xyz, ShadowBoundingSphere.xyz - ObjectBoundingSphere.xyz) < Square(ShadowBoundingSphere.w + ObjectBoundingSphere.w))
 		{
 			// Assume ObjectBoundingSphere is located at (0, 0, 0) in local space

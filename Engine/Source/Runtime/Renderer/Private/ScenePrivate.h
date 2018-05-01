@@ -133,7 +133,7 @@ public:
 	}
 
 	template<class TOcclusionQueryPool> // here we use a template just to allow this to be inlined without sorting out the header order
-	FORCEINLINE void ReleaseQueries(FRHICommandListImmediate& RHICmdList, TOcclusionQueryPool& Pool, int32 NumBufferedFrames)
+	FORCEINLINE void ReleaseQueries(TOcclusionQueryPool& Pool, int32 NumBufferedFrames)
 	{
 		for (int32 QueryIndex = 0; QueryIndex < NumBufferedFrames; QueryIndex++)
 		{
@@ -209,7 +209,7 @@ public:
 
 
 	template<class TOcclusionQueryPool> // here we use a template just to allow this to be inlined without sorting out the header order
-	FORCEINLINE void ReleaseQueries(FRHICommandListImmediate& RHICmdList, TOcclusionQueryPool& Pool, int32 NumBufferedFrames)
+	FORCEINLINE void ReleaseQueries(TOcclusionQueryPool& Pool, int32 NumBufferedFrames)
 	{
 		for (int32 QueryIndex = 0; QueryIndex < NumBufferedFrames; QueryIndex++)
 		{
@@ -611,13 +611,18 @@ private:
 		/** Return current Render Target */
 		TRefCountPtr<IPooledRenderTarget>& GetCurrentRT(FRHICommandList& RHICmdList)
 		{
-			return GetRTRef(RHICmdList, CurrentBuffer);
+			return GetRTRef(&RHICmdList, CurrentBuffer);
+		}
+
+		TRefCountPtr<IPooledRenderTarget>& GetCurrentRT()
+		{
+			return GetRTRef(nullptr, CurrentBuffer);
 		}
 
 		/** Return old Render Target*/
 		TRefCountPtr<IPooledRenderTarget>& GetLastRT(FRHICommandList& RHICmdList)
 		{
-			return GetRTRef(RHICmdList, 1 - CurrentBuffer);
+			return GetRTRef(&RHICmdList, 1 - CurrentBuffer);
 		}
 
 		/** Reverse the current/last order of the targets */
@@ -629,7 +634,7 @@ private:
 	private:
 
 		/** Return one of two two render targets */
-		TRefCountPtr<IPooledRenderTarget>&  GetRTRef(FRHICommandList& RHICmdList, const int BufferNumber);
+		TRefCountPtr<IPooledRenderTarget>&  GetRTRef(FRHICommandList* RHICmdList, const int BufferNumber);
 
 	private:
 
@@ -744,7 +749,7 @@ public:
 	FTextureRHIRef SelectionOutlineCacheKey;
 	TRefCountPtr<FRHIShaderResourceView> SelectionOutlineCacheValue;
 
-	FForwardLightingViewResources ForwardLightingResources;
+	TUniquePtr<FForwardLightingViewResources> ForwardLightingResources;
 
 	FForwardLightingCullingResources ForwardLightingCullingResources;
 
@@ -918,7 +923,7 @@ public:
 	 *							visible and unoccluded since this time will be discarded.
 	 * @param MinQueryTime - The pending occlusion queries older than this will be discarded.
 	 */
-	void TrimOcclusionHistory(FRHICommandListImmediate& RHICmdList, float CurrentTime, float MinHistoryTime, float MinQueryTime, int32 FrameNumber);
+	void TrimOcclusionHistory(float CurrentTime, float MinHistoryTime, float MinQueryTime, int32 FrameNumber);
 
 	/**
 	 * Checks whether a shadow is occluded this frame.
@@ -941,6 +946,10 @@ public:
 	IPooledRenderTarget* GetCurrentEyeAdaptationRT(FRHICommandList& RHICmdList)
 	{
 		return EyeAdaptationRTManager.GetCurrentRT(RHICmdList).GetReference();
+	}
+	IPooledRenderTarget* GetCurrentEyeAdaptationRT()
+	{
+		return EyeAdaptationRTManager.GetCurrentRT().GetReference();
 	}
 	IPooledRenderTarget* GetLastEyeAdaptationRT(FRHICommandList& RHICmdList)
 	{
@@ -1230,12 +1239,6 @@ public:
 	uint32 GetOcclusionFrameCounter() const
 	{
 		return OcclusionFrameCounter;
-	}
-
-	// FDeferredCleanupInterface
-	virtual void FinishCleanup() override
-	{
-		delete this;
 	}
 
 	virtual SIZE_T GetSizeBytes() const override;
@@ -2222,7 +2225,6 @@ public:
 	virtual void GetWindParameters_GameThread(const FVector& Position, FVector& OutDirection, float& OutSpeed, float& OutMinGustAmt, float& OutMaxGustAmt) const override;
 	virtual void GetDirectionalWindParameters(FVector& OutDirection, float& OutSpeed, float& OutMinGustAmt, float& OutMaxGustAmt) const override;
 	virtual void AddSpeedTreeWind(FVertexFactory* VertexFactory, const UStaticMesh* StaticMesh) override;
-	virtual void RemoveSpeedTreeWind(FVertexFactory* VertexFactory, const UStaticMesh* StaticMesh) override;
 	virtual void RemoveSpeedTreeWind_RenderThread(FVertexFactory* VertexFactory, const UStaticMesh* StaticMesh) override;
 	virtual void UpdateSpeedTreeWind(double CurrentTime) override;
 	virtual FUniformBufferRHIParamRef GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) override;
@@ -2268,7 +2270,7 @@ public:
 	 * Gets the scene's cubemap array and index into that array for the given reflection proxy. 
 	 * If the proxy was not found in the scene's reflection state, the outputs are not written to.
 	 */
-	void GetCaptureParameters(const FReflectionCaptureProxy* ReflectionProxy, FTextureRHIParamRef& ReflectionCubemapArray, int32& ArrayIndex, float& AverageBrightness) const;
+	void GetCaptureParameters(const FReflectionCaptureProxy* ReflectionProxy, int32& ArrayIndex, float& AverageBrightness) const;
 
 	int64 GetCachedWholeSceneShadowMapsSize() const;
 

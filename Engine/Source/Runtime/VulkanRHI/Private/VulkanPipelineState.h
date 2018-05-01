@@ -23,7 +23,7 @@ class FVulkanCommonPipelineState : public VulkanRHI::FDeviceChild
 public:
 	FVulkanCommonPipelineState(FVulkanDevice* InDevice)
 		: VulkanRHI::FDeviceChild(InDevice)
-#if !VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
+#if !VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 		, DSRingBuffer(InDevice)
 #endif
 	{
@@ -37,18 +37,38 @@ protected:
 			BindPoint,
 			PipelineLayout,
 			0, DescriptorSetHandles.Num(), DescriptorSetHandles.GetData(),
-			0, nullptr);
+			(uint32)DynamicOffsets.Num(), DynamicOffsets.GetData());
 	}
 #endif
 	FVulkanDescriptorSetWriteContainer DSWriteContainer;
-#if !VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
+#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
+	const FVulkanDescriptorSetsLayout* DescriptorSetsLayout = nullptr;
+	FVulkanTypedDescriptorPoolSet* CurrentTypedDescriptorPoolSet = nullptr;
+	TArray<VkDescriptorSet> DescriptorSetHandles;
+
+	inline bool AcquirePoolSet(FVulkanCmdBuffer* CmdBuffer)
+	{
+		// Pipeline state has no current descriptor pools set or set owner is not current - acquire a new pool set
+		FVulkanDescriptorPoolSetContainer* CmdBufferPoolSet = CmdBuffer->CurrentDescriptorPoolSetContainer;
+		if (CurrentTypedDescriptorPoolSet == nullptr || CurrentTypedDescriptorPoolSet->GetOwner() != CmdBufferPoolSet)
+		{
+			check(CmdBufferPoolSet);
+			CurrentTypedDescriptorPoolSet = CmdBufferPoolSet->AcquireTypedPoolSet(*DescriptorSetsLayout);
+			return true;
+		}
+
+		return false;
+	}
+
+	inline bool AllocateDescriptorSets()
+	{
+		check(CurrentTypedDescriptorPoolSet);
+		return CurrentTypedDescriptorPoolSet->AllocateDescriptorSets(*DescriptorSetsLayout, DescriptorSetHandles.GetData());
+	}
+#else
 	FOLDVulkanDescriptorSetRingBuffer DSRingBuffer;
 #endif
-
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
-	FVulkanTypedDescriptorPoolSet* CurrentDescriptorPoolSet = nullptr;
-	TArray<VkDescriptorSet> DescriptorSetHandles;
-#endif
+	TArray<uint32> DynamicOffsets;
 };
 
 
@@ -64,11 +84,9 @@ public:
 	void Reset()
 	{
 		PackedUniformBuffersDirty = PackedUniformBuffersMask;
-#if VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
-#else
+#if !VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 		DSRingBuffer.Reset();
 #endif
-		DSWriter.ResetDirty();
 	}
 
 	inline void SetStorageBuffer(uint32 BindPoint, VkBuffer Buffer, uint32 Offset, uint32 Size, VkBufferUsageFlags UsageFlags)
@@ -88,11 +106,10 @@ public:
 		DSWriter.WriteStorageImage(BindPoint, TextureView.View, VK_IMAGE_LAYOUT_GENERAL);
 	}
 
-	inline void SetTexture(uint32 BindPoint, const FVulkanTextureBase* TextureBase)
+	inline void SetTexture(uint32 BindPoint, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
 	{
 		check(TextureBase);
-		DSWriter.WriteImage(BindPoint, TextureBase->PartialView->View,
-			(TextureBase->Surface.GetFullAspectMask() & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) != 0 ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		DSWriter.WriteImage(BindPoint, TextureBase->PartialView->View, Layout);
 	}
 
 	inline void SetSRVBufferViewState(uint32 BindPoint, FVulkanBufferView* View)
@@ -103,7 +120,6 @@ public:
 
 	inline void SetSRVTextureView(uint32 BindPoint, const FVulkanTextureView& TextureView, VkImageLayout Layout)
 	{
-		ensure(Layout == VK_IMAGE_LAYOUT_GENERAL);
 		DSWriter.WriteImage(BindPoint, TextureView.View, Layout);
 	}
 
@@ -127,23 +143,19 @@ public:
 	{
 		if ((UniformBuffersWithDataMask & (1ULL << (uint64)BindPoint)) != 0)
 		{
-			DSWriter.WriteUniformBuffer(BindPoint, UniformBuffer->GetHandle(), UniformBuffer->GetOffset(), UniformBuffer->GetSize());
+			extern TAutoConsoleVariable<int32> GDynamicGlobalUBs;
+			if (GDynamicGlobalUBs.GetValueOnRenderThread() > 1)
+			{
+				DSWriter.WriteDynamicUniformBuffer(BindPoint, UniformBuffer->GetHandle(), 0, UniformBuffer->GetSize(), UniformBuffer->GetOffset());
+			}
+			else
+			{
+				DSWriter.WriteUniformBuffer(BindPoint, UniformBuffer->GetHandle(), UniformBuffer->GetOffset(), UniformBuffer->GetSize());
+			}
 		}
 	}
 
-#if VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
-	TArrayView<VkDescriptorSet> UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer, FVulkanGlobalUniformPool* GlobalUniformPool);
-
-	inline void BindDescriptorSets(VkCommandBuffer CmdBuffer, const TArrayView<VkDescriptorSet>& DescriptorSets)
-	{
-		VulkanRHI::vkCmdBindDescriptorSets(CmdBuffer,
-			VK_PIPELINE_BIND_POINT_COMPUTE,
-			ComputePipeline->GetLayout().GetPipelineLayout(),
-			0, DescriptorSets.Num(), DescriptorSets.GetData(),
-			0, nullptr);
-	}
-#else
-	bool UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer, FVulkanGlobalUniformPool* GlobalUniformPool);
+	bool UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer);
 
 	inline void BindDescriptorSets(VkCommandBuffer CmdBuffer)
 	{
@@ -154,7 +166,6 @@ public:
 		DSRingBuffer.CurrDescriptorSets->Bind(CmdBuffer, ComputePipeline->GetLayout().GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE);
 #endif
 	}
-#endif
 
 protected:
 	FPackedUniformBuffers PackedUniformBuffers;
@@ -162,6 +173,7 @@ protected:
 	uint64 PackedUniformBuffersDirty;
 	FVulkanDescriptorSetWriter DSWriter;
 	uint64 UniformBuffersWithDataMask;
+	uint64 UnusedResourcesDirtyMask = 0;
 
 	FVulkanComputePipeline* ComputePipeline;
 
@@ -181,45 +193,57 @@ public:
 		BSS->Release();
 	}
 
+	template<VkDescriptorType Type>
+	inline void MarkDirty(EShaderFrequency Stage, bool bDirty)
+	{
+		ResourcesDirty[Stage] |= ((uint64)(bDirty ? 1 : 0)) << (uint64)Type;
+	}
+
 	inline void SetStorageBuffer(EShaderFrequency Stage, uint32 BindPoint, VkBuffer Buffer, uint32 Offset, uint32 Size, VkBufferUsageFlags UsageFlags)
 	{
 		check((UsageFlags & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) == VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		DSWriter[Stage].WriteStorageBuffer(BindPoint, Buffer, Offset, Size);
+		const bool bDirty = DSWriter[Stage].WriteStorageBuffer(BindPoint, Buffer, Offset, Size);
+		MarkDirty<VK_DESCRIPTOR_TYPE_STORAGE_BUFFER>(Stage, bDirty);
 	}
 
 	inline void SetUAVTexelBufferViewState(EShaderFrequency Stage, uint32 BindPoint, FVulkanBufferView* View)
 	{
 		check(View && (View->Flags & VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT) == VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT);
-		DSWriter[Stage].WriteStorageTexelBuffer(BindPoint, View);
+		const bool bDirty = DSWriter[Stage].WriteStorageTexelBuffer(BindPoint, View);
+		MarkDirty<VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER>(Stage, bDirty);
 	}
 
 	inline void SetUAVTextureView(EShaderFrequency Stage, uint32 BindPoint, const FVulkanTextureView& TextureView, VkImageLayout Layout)
 	{
-		DSWriter[Stage].WriteStorageImage(BindPoint, TextureView.View, Layout);
+		const bool bDirty = DSWriter[Stage].WriteStorageImage(BindPoint, TextureView.View, Layout);
+		MarkDirty<VK_DESCRIPTOR_TYPE_STORAGE_IMAGE>(Stage, bDirty);
 	}
 
-	inline void SetTexture(EShaderFrequency Stage, uint32 BindPoint, const FVulkanTextureBase* TextureBase)
+	inline void SetTexture(EShaderFrequency Stage, uint32 BindPoint, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
 	{
 		check(TextureBase);
-		DSWriter[Stage].WriteImage(BindPoint, TextureBase->PartialView->View,
-			(TextureBase->Surface.GetFullAspectMask() & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) != 0 ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		const bool bDirty = DSWriter[Stage].WriteImage(BindPoint, TextureBase->PartialView->View, Layout);
+		MarkDirty<VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE>(Stage, bDirty);
 	}
 
 	inline void SetSRVBufferViewState(EShaderFrequency Stage, uint32 BindPoint, FVulkanBufferView* View)
 	{
 		check(View && (View->Flags & VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT) == VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT);
-		DSWriter[Stage].WriteUniformTexelBuffer(BindPoint, View);
+		const bool bDirty = DSWriter[Stage].WriteUniformTexelBuffer(BindPoint, View);
+		MarkDirty<VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER>(Stage, bDirty);
 	}
 
 	inline void SetSRVTextureView(EShaderFrequency Stage, uint32 BindPoint, const FVulkanTextureView& TextureView, VkImageLayout Layout)
 	{
-		DSWriter[Stage].WriteImage(BindPoint, TextureView.View, Layout);
+		const bool bDirty = DSWriter[Stage].WriteImage(BindPoint, TextureView.View, Layout);
+		MarkDirty<VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE>(Stage, bDirty);
 	}
 
 	inline void SetSamplerState(EShaderFrequency Stage, uint32 BindPoint, FVulkanSamplerState* Sampler)
 	{
 		check(Sampler && Sampler->Sampler != VK_NULL_HANDLE);
-		DSWriter[Stage].WriteSampler(BindPoint, Sampler->Sampler);
+		const bool bDirty = DSWriter[Stage].WriteSampler(BindPoint, Sampler->Sampler);
+		MarkDirty<VK_DESCRIPTOR_TYPE_SAMPLER>(Stage, bDirty);
 	}
 
 	inline void SetShaderParameter(EShaderFrequency Stage, uint32 BufferIndex, uint32 ByteOffset, uint32 NumBytes, const void* NewValue)
@@ -236,23 +260,30 @@ public:
 	{
 		if ((UniformBuffersWithDataMask[Stage] & (1ULL << (uint64)BindPoint)) != 0)
 		{
-			DSWriter[Stage].WriteUniformBuffer(BindPoint, UniformBuffer->GetHandle(), UniformBuffer->GetOffset(), UniformBuffer->GetSize());
+			extern TAutoConsoleVariable<int32> GDynamicGlobalUBs;
+			if (GDynamicGlobalUBs.GetValueOnRenderThread() > 1)
+			{
+				const bool bDirty = DSWriter[Stage].WriteDynamicUniformBuffer(BindPoint, UniformBuffer->GetHandle(), 0, UniformBuffer->GetSize(), UniformBuffer->GetOffset());
+				MarkDirty<VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC>(Stage, bDirty);
+			}
+			else
+			{
+				const bool bDirty = DSWriter[Stage].WriteUniformBuffer(BindPoint, UniformBuffer->GetHandle(), UniformBuffer->GetOffset(), UniformBuffer->GetSize());
+				MarkDirty<VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER>(Stage, bDirty);
+			}
 		}
 	}
 
-#if VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
-	TArrayView<VkDescriptorSet> UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer, FVulkanGlobalUniformPool* GlobalUniformPool);
-
-	inline void BindDescriptorSets(VkCommandBuffer CmdBuffer, const TArrayView<VkDescriptorSet>& DescriptorSets)
+	inline void SetDynamicUniformBuffer(EShaderFrequency Stage, uint32 BindPoint, const FVulkanUniformBuffer* UniformBuffer)
 	{
-		VulkanRHI::vkCmdBindDescriptorSets(CmdBuffer,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			GfxPipeline->Pipeline->GetLayout().GetPipelineLayout(),
-			0, DescriptorSets.Num(), DescriptorSets.GetData(),
-			0, nullptr);
+		if ((UniformBuffersWithDataMask[Stage] & (1ULL << (uint64)BindPoint)) != 0)
+		{
+			const bool bDirty = DSWriter[Stage].WriteDynamicUniformBuffer(BindPoint, UniformBuffer->GetHandle(), UniformBuffer->GetOffset(), UniformBuffer->GetSize(), 0);
+			MarkDirty<VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC>(Stage, bDirty);
+		}
 	}
-#else
-	bool UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer, FVulkanGlobalUniformPool* GlobalUniformPool);
+
+	bool UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer);
 
 	inline void BindDescriptorSets(VkCommandBuffer CmdBuffer)
 	{
@@ -263,19 +294,14 @@ public:
 		DSRingBuffer.CurrDescriptorSets->Bind(CmdBuffer, GfxPipeline->Pipeline->GetLayout().GetPipelineLayout(), VK_PIPELINE_BIND_POINT_GRAPHICS);
 #endif
 	}
-#endif
 
 	void Reset()
 	{
 		FMemory::Memcpy(PackedUniformBuffersDirty, PackedUniformBuffersMask);
-#if VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
-#else
+		FMemory::Memcpy(ResourcesDirty, ResourcesDirtyMask);
+#if !VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 		DSRingBuffer.Reset();
 #endif
-		for (int32 Index = 0; Index < SF_Compute; ++Index)
-		{
-			DSWriter[Index].ResetDirty();
-		}
 	}
 
 	inline void Verify()
@@ -306,6 +332,15 @@ public:
 	}
 
 protected:
+	// Bitmask of stages that exist in this pipeline
+	uint32 UsedStagesMask = 0;
+	// Bitmask of stages that have descriptors
+	uint32 HasDescriptorsPerStageMask = 0;
+	const FVulkanCodeHeader* CodeHeaderPerStage[SF_Compute];
+
+	uint64 ResourcesDirty[SF_Compute];
+	uint64 ResourcesDirtyMask[SF_Compute];
+
 	FPackedUniformBuffers PackedUniformBuffers[SF_Compute];
 	uint64 PackedUniformBuffersMask[SF_Compute];
 	uint64 PackedUniformBuffersDirty[SF_Compute];
@@ -322,28 +357,44 @@ protected:
 	friend class FVulkanCommandListContext;
 };
 
-static inline void UpdatePackedUniformBuffers(VkDeviceSize UBOffsetAlignment, const FVulkanCodeHeader& CodeHeader, FPackedUniformBuffers& PackedUniformBuffers,
-	FVulkanDescriptorSetWriter& DescriptorWriteSet, FVulkanUniformBufferUploader* UniformBufferUploader, uint8* CPURingBufferBase, uint64 RemainingPackedUniformsMask)
+template <bool bIsDynamic>
+static inline bool UpdatePackedUniformBuffers(VkDeviceSize UBOffsetAlignment, const FVulkanCodeHeader* CodeHeader, const FPackedUniformBuffers& PackedUniformBuffers,
+	FVulkanDescriptorSetWriter& DescriptorWriteSet, FVulkanUniformBufferUploader* UniformBufferUploader, uint8* CPURingBufferBase, uint64 RemainingPackedUniformsMask,
+	FVulkanCmdBuffer* InCmdBuffer)
 {
+	bool bAnyUBDirty = false;
 	int32 PackedUBIndex = 0;
 	while (RemainingPackedUniformsMask)
 	{
 		if (RemainingPackedUniformsMask & 1)
 		{
 			const FPackedUniformBuffers::FPackedBuffer& StagedUniformBuffer = PackedUniformBuffers.GetBuffer(PackedUBIndex);
-			int32 BindingIndex = CodeHeader.NEWPackedUBToVulkanBindingIndices[PackedUBIndex].VulkanBindingIndex;
+			int32 BindingIndex = CodeHeader->NEWPackedUBToVulkanBindingIndices[PackedUBIndex].VulkanBindingIndex;
 
 			const int32 UBSize = StagedUniformBuffer.Num();
 
 			// get offset into the RingBufferBase pointer
-			uint64 RingBufferOffset = UniformBufferUploader->AllocateMemory(UBSize, UBOffsetAlignment);
+			uint64 RingBufferOffset = UniformBufferUploader->AllocateMemory(UBSize, UBOffsetAlignment, InCmdBuffer);
 
 			// get location in the ring buffer to use
 			FMemory::Memcpy(CPURingBufferBase + RingBufferOffset, StagedUniformBuffer.GetData(), UBSize);
 
-			DescriptorWriteSet.WriteUniformBuffer(BindingIndex, UniformBufferUploader->GetCPUBufferHandle(), RingBufferOffset + UniformBufferUploader->GetCPUBufferOffset(), UBSize);
+			if (bIsDynamic)
+			{
+				const bool bDirty = DescriptorWriteSet.WriteDynamicUniformBuffer(BindingIndex, UniformBufferUploader->GetCPUBufferHandle(), UniformBufferUploader->GetCPUBufferOffset(), UBSize, RingBufferOffset);
+				bAnyUBDirty = bAnyUBDirty || bDirty;
+
+			}
+			else
+			{
+				const bool bDirty = DescriptorWriteSet.WriteUniformBuffer(BindingIndex, UniformBufferUploader->GetCPUBufferHandle(), RingBufferOffset + UniformBufferUploader->GetCPUBufferOffset(), UBSize);
+				bAnyUBDirty = bAnyUBDirty || bDirty;
+
+			}
 		}
 		RemainingPackedUniformsMask = RemainingPackedUniformsMask >> 1;
 		++PackedUBIndex;
 	}
+
+	return bAnyUBDirty;
 }

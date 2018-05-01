@@ -1695,9 +1695,9 @@ private:
 			
 				check( TotalInfluence == 255 );
 				Vertex.TangentX = WeightedTangentX.GetSafeNormal();
-				uint8 WComponent = Vertex.TangentZ.Vector.W;
+				uint8 WComponent = Vertex.TangentZ.W;
 				Vertex.TangentZ = WeightedTangentZ.GetSafeNormal();
-				Vertex.TangentZ.Vector.W = WComponent;
+				Vertex.TangentZ.W = WComponent;
 				FVector FinalVert = GetConversionMatrix().TransformPosition(WeightedVertex);
 
 				//Vertex.Position.Z = -Vertex.Position.Z;

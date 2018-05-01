@@ -811,29 +811,6 @@ public:
 				ResourcesString += CustomExpressionImplementations[ExpressionIndex] + "\r\n\r\n";
 			}
 
-			// Per frame expressions
-			{
-				for (int32 Index = 0, Num = MaterialCompilationOutput.UniformExpressionSet.PerFrameUniformScalarExpressions.Num(); Index < Num; ++Index)
-				{
-					ResourcesString += FString::Printf(TEXT("float UE_Material_PerFrameScalarExpression%u;"), Index) + "\r\n\r\n";
-				}
-
-				for (int32 Index = 0, Num = MaterialCompilationOutput.UniformExpressionSet.PerFrameUniformVectorExpressions.Num(); Index < Num; ++Index)
-				{
-					ResourcesString += FString::Printf(TEXT("float4 UE_Material_PerFrameVectorExpression%u;"), Index) + "\r\n\r\n";
-				}
-
-				for (int32 Index = 0, Num = MaterialCompilationOutput.UniformExpressionSet.PerFramePrevUniformScalarExpressions.Num(); Index < Num; ++Index)
-				{
-					ResourcesString += FString::Printf(TEXT("float UE_Material_PerFramePrevScalarExpression%u;"), Index) + "\r\n\r\n";
-				}
-
-				for (int32 Index = 0, Num = MaterialCompilationOutput.UniformExpressionSet.PerFramePrevUniformVectorExpressions.Num(); Index < Num; ++Index)
-				{
-					ResourcesString += FString::Printf(TEXT("float4 UE_Material_PerFramePrevVectorExpression%u;"), Index) + "\r\n\r\n";
-				}
-			}
-
 			// Do Normal Chunk first
 			{
 				GetFixedParameterCode(
@@ -1372,6 +1349,7 @@ protected:
 		case MCT_Float:			return TEXT("float");
 		case MCT_Texture2D:		return TEXT("texture2D");
 		case MCT_TextureCube:	return TEXT("textureCube");
+		case MCT_VolumeTexture:	return TEXT("volumeTexture");
 		case MCT_StaticBool:	return TEXT("static bool");
 		case MCT_MaterialAttributes:	return TEXT("MaterialAttributes");
 		case MCT_TextureExternal:	return TEXT("TextureExternal");
@@ -1391,6 +1369,7 @@ protected:
 		case MCT_Float:			return TEXT("MaterialFloat");
 		case MCT_Texture2D:		return TEXT("texture2D");
 		case MCT_TextureCube:	return TEXT("textureCube");
+		case MCT_VolumeTexture:	return TEXT("volumeTexture");
 		case MCT_StaticBool:	return TEXT("static bool");
 		case MCT_MaterialAttributes:	return TEXT("MaterialAttributes");
 		case MCT_TextureExternal:	return TEXT("TextureExternal");
@@ -1671,26 +1650,10 @@ protected:
 		TCHAR FormattedCode[MAX_SPRINTF]=TEXT("");
 		if(CodeChunk.Type == MCT_Float)
 		{
-			if (CodeChunk.UniformExpression->IsChangingPerFrame())
-			{
-				if (bCompilingPreviousFrame)
-				{
-					const int32 ScalarInputIndex = MaterialCompilationOutput.UniformExpressionSet.PerFramePrevUniformScalarExpressions.AddUnique(CodeChunk.UniformExpression);
-					FCString::Sprintf(FormattedCode, TEXT("UE_Material_PerFramePrevScalarExpression%u"), ScalarInputIndex);
-				}
-				else
-				{
-				const int32 ScalarInputIndex = MaterialCompilationOutput.UniformExpressionSet.PerFrameUniformScalarExpressions.AddUnique(CodeChunk.UniformExpression);
-				FCString::Sprintf(FormattedCode, TEXT("UE_Material_PerFrameScalarExpression%u"), ScalarInputIndex);
-			}
-			}
-			else
-			{
-				const static TCHAR IndexToMask[] = {'x', 'y', 'z', 'w'};
-				const int32 ScalarInputIndex = MaterialCompilationOutput.UniformExpressionSet.UniformScalarExpressions.AddUnique(CodeChunk.UniformExpression);
-				// Update the above FMemory::Malloc if this FCString::Sprintf grows in size, e.g. %s, ...
-				FCString::Sprintf(FormattedCode, TEXT("Material.ScalarExpressions[%u].%c"), ScalarInputIndex / 4, IndexToMask[ScalarInputIndex % 4]);
-			}
+			const static TCHAR IndexToMask[] = {'x', 'y', 'z', 'w'};
+			const int32 ScalarInputIndex = MaterialCompilationOutput.UniformExpressionSet.UniformScalarExpressions.AddUnique(CodeChunk.UniformExpression);
+			// Update the above FMemory::Malloc if this FCString::Sprintf grows in size, e.g. %s, ...
+			FCString::Sprintf(FormattedCode, TEXT("Material.ScalarExpressions[%u].%c"), ScalarInputIndex / 4, IndexToMask[ScalarInputIndex % 4]);
 		}
 		else if(CodeChunk.Type & MCT_Float)
 		{
@@ -1704,28 +1667,11 @@ protected:
 			default: Mask = TEXT(""); break;
 			};
 
-			if (CodeChunk.UniformExpression->IsChangingPerFrame())
-			{
-				if (bCompilingPreviousFrame)
-				{
-					const int32 VectorInputIndex = MaterialCompilationOutput.UniformExpressionSet.PerFramePrevUniformVectorExpressions.AddUnique(CodeChunk.UniformExpression);
-					FCString::Sprintf(FormattedCode, TEXT("UE_Material_PerFramePrevVectorExpression%u%s"), VectorInputIndex, Mask);
-				}
-				else
-				{
-					const int32 VectorInputIndex = MaterialCompilationOutput.UniformExpressionSet.PerFrameUniformVectorExpressions.AddUnique(CodeChunk.UniformExpression);
-					FCString::Sprintf(FormattedCode, TEXT("UE_Material_PerFrameVectorExpression%u%s"), VectorInputIndex, Mask);
-				}
-			}
-			else
-			{
-				const int32 VectorInputIndex = MaterialCompilationOutput.UniformExpressionSet.UniformVectorExpressions.AddUnique(CodeChunk.UniformExpression);
-				FCString::Sprintf(FormattedCode, TEXT("Material.VectorExpressions[%u]%s"), VectorInputIndex, Mask);
-			}
+			const int32 VectorInputIndex = MaterialCompilationOutput.UniformExpressionSet.UniformVectorExpressions.AddUnique(CodeChunk.UniformExpression);
+			FCString::Sprintf(FormattedCode, TEXT("Material.VectorExpressions[%u]%s"), VectorInputIndex, Mask);
 		}
 		else if(CodeChunk.Type & MCT_Texture)
 		{
-			check(!CodeChunk.UniformExpression->IsChangingPerFrame());
 			int32 TextureInputIndex = INDEX_NONE;
 			const TCHAR* BaseName = TEXT("");
 			switch(CodeChunk.Type)
@@ -1737,6 +1683,10 @@ protected:
 			case MCT_TextureCube:
 				TextureInputIndex = MaterialCompilationOutput.UniformExpressionSet.UniformCubeTextureExpressions.AddUnique(TextureUniformExpression);
 				BaseName = TEXT("TextureCube");
+				break;
+			case MCT_VolumeTexture:
+				TextureInputIndex = MaterialCompilationOutput.UniformExpressionSet.UniformVolumeTextureExpressions.AddUnique(TextureUniformExpression);
+				BaseName = TEXT("VolumeTexture");
 				break;
 			case MCT_TextureExternal:
 				TextureInputIndex = MaterialCompilationOutput.UniformExpressionSet.UniformExternalTextureExpressions.AddUnique(ExternalTextureUniformExpression);
@@ -2341,13 +2291,16 @@ protected:
 			return Constant(0.0f);
 		}
 
-		return AddUniformExpression(
-			new FMaterialUniformExpressionFmod(
-				new FMaterialUniformExpressionTime(),
-				new FMaterialUniformExpressionConstant(FLinearColor(Period, Period, Period, Period), MCT_Float)
-				),
-			MCT_Float, TEXT("")
-			);
+		int32 PeriodChunk = Constant(Period);
+
+		if (bCompilingPreviousFrame)
+		{
+			return AddInlinedCodeChunk(MCT_Float, TEXT("fmod(View.PrevFrameGameTime,%s)"), *GetParameterCode(PeriodChunk));
+		}
+
+		// Note: not using FHLSLMaterialTranslator::Fmod(), which will emit MaterialFloat types which will be converted to fp16 on mobile.
+		// We want full 32 bit float precision until the fmod when using a period.
+		return AddInlinedCodeChunk(MCT_Float, TEXT("fmod(View.GameTime,%s)"), *GetParameterCode(PeriodChunk));
 	}
 
 	virtual int32 RealTime(bool bPeriodic, float Period) override
@@ -2366,13 +2319,14 @@ protected:
 			return Constant(0.0f);
 		}
 
-		return AddUniformExpression(
-			new FMaterialUniformExpressionFmod(
-				new FMaterialUniformExpressionRealTime(),
-				new FMaterialUniformExpressionConstant(FLinearColor(Period, Period, Period, Period), MCT_Float)
-				),
-			MCT_Float, TEXT("")
-			);
+		int32 PeriodChunk = Constant(Period);
+
+		if (bCompilingPreviousFrame)
+		{
+			return AddInlinedCodeChunk(MCT_Float, TEXT("fmod(View.PrevFrameRealTime,%s)"), *GetParameterCode(PeriodChunk));
+		}
+
+		return AddInlinedCodeChunk(MCT_Float, TEXT("fmod(View.RealTime,%s)"), *GetParameterCode(PeriodChunk));
 	}
 
 	virtual int32 PeriodicHint(int32 PeriodicCode) override
@@ -3225,7 +3179,7 @@ protected:
 
 		EMaterialValueType TextureType = GetParameterType(TextureIndex);
 
-		if(TextureType != MCT_Texture2D && TextureType != MCT_TextureCube && TextureType != MCT_TextureExternal)
+		if(TextureType != MCT_Texture2D && TextureType != MCT_TextureCube && TextureType != MCT_VolumeTexture  && TextureType != MCT_TextureExternal)
 		{
 			Errorf(TEXT("Sampling unknown texture type: %s"),DescribeType(TextureType));
 			return INDEX_NONE;
@@ -3310,14 +3264,25 @@ protected:
 			RequiresManualViewMipBias = false;
 		}
 
-		FString SampleCode =
-			(TextureType == MCT_TextureCube) ?
-			TEXT("TextureCubeSample") :
-			(TextureType == MCT_TextureExternal) ?
-			TEXT("TextureExternalSample") :
-			TEXT("Texture2DSample");
+		FString SampleCode;
+		if (TextureType == MCT_TextureCube)
+		{
+			SampleCode += TEXT("TextureCubeSample");
+		}
+		else if (TextureType == MCT_VolumeTexture)
+		{
+			SampleCode += TEXT("Texture3DSample");
+		}
+		else if (TextureType == MCT_TextureExternal)
+		{
+			SampleCode += TEXT("TextureExternalSample");
+		}
+		else // MCT_Texture2D
+		{
+			SampleCode += TEXT("Texture2DSample");
+		}
 		
-		EMaterialValueType UVsType = (TextureType == MCT_TextureCube) ? MCT_Float3 : MCT_Float2;
+		EMaterialValueType UVsType = (TextureType == MCT_TextureCube || TextureType == MCT_VolumeTexture) ? MCT_Float3 : MCT_Float2;
 	
 		if (RequiresManualViewMipBias)
 		{
@@ -3426,12 +3391,23 @@ protected:
 				break;
 		}
 
-		FString TextureName =
-			(TextureType == MCT_TextureCube) ?
-			CoerceParameter(TextureIndex, MCT_TextureCube) :
-			(TextureType == MCT_Texture2D) ?
-			CoerceParameter(TextureIndex, MCT_Texture2D) :
-			CoerceParameter(TextureIndex, MCT_TextureExternal);
+		FString TextureName;
+		if (TextureType == MCT_TextureCube)
+		{
+			TextureName = CoerceParameter(TextureIndex, MCT_TextureCube);
+		}
+		else if (TextureType == MCT_VolumeTexture)
+		{
+			TextureName = CoerceParameter(TextureIndex, MCT_VolumeTexture);
+		}
+		else if (TextureType == MCT_TextureExternal)
+		{
+			TextureName = CoerceParameter(TextureIndex, MCT_TextureExternal);
+		}
+		else // MCT_Texture2D
+		{
+			TextureName = CoerceParameter(TextureIndex, MCT_Texture2D);
+		}
 
 		FString UVs = CoerceParameter(CoordinateIndex, UVsType);
 
@@ -4206,7 +4182,7 @@ protected:
 		{
 			if (TypeA == MCT_Float && TypeB == MCT_Float)
 			{
-				return AddUniformExpression(new FMaterialUniformExpressionFoldedMath(ExpressionA,ExpressionB,FMO_Mul),MCT_Float,TEXT("mul(%s,%s)"),*GetParameterCode(A),*GetParameterCode(B));
+				return AddUniformExpression(new FMaterialUniformExpressionFoldedMath(ExpressionA,ExpressionB,FMO_Mul),MCT_Float,TEXT("(%s * %s)"),*GetParameterCode(A),*GetParameterCode(B));
 			}
 			else
 			{
@@ -5288,6 +5264,13 @@ protected:
 				InputParamDecl += InputNameStr;
 				InputParamDecl += TEXT("Sampler ");
 				break;
+			case MCT_VolumeTexture:
+				InputParamDecl += TEXT("Texture3D ");
+				InputParamDecl += InputNameStr;
+				InputParamDecl += TEXT(", SamplerState ");
+				InputParamDecl += InputNameStr;
+				InputParamDecl += TEXT("Sampler ");
+				break;
 			default:
 				return Errorf(TEXT("Bad type %s for %s input %s"),DescribeType(GetParameterType(CompiledInputs[i])), *Custom->Description, *InputNameStr);
 				break;
@@ -5321,7 +5304,7 @@ protected:
 
 			CodeChunk += TEXT(",");
 			CodeChunk += *ParamCode;
-			if (ParamType == MCT_Texture2D || ParamType == MCT_TextureCube || ParamType == MCT_TextureExternal)
+			if (ParamType == MCT_Texture2D || ParamType == MCT_TextureCube || ParamType == MCT_TextureExternal || ParamType == MCT_VolumeTexture)
 			{
 				CodeChunk += TEXT(",");
 				CodeChunk += *ParamCode;

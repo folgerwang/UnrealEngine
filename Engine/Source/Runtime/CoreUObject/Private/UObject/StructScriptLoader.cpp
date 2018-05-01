@@ -199,7 +199,7 @@ bool FStructScriptLoader::LoadStructWithScript(UStruct* DestScriptContainer, FAr
 	}
 
 	bool const bIsLinkerLoader = Ar.IsPersistent() && (Ar.GetLinker() != nullptr);
-	int32 const ScriptEndOffset = ScriptSerializationOffset + SerializedScriptSize;
+	int64 const ScriptEndOffset = ScriptSerializationOffset + SerializedScriptSize;
 
 	// to help us move development forward (and not have to support ancient 
 	// script code), we define a minimum script version

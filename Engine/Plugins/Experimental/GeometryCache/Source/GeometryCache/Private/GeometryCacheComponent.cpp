@@ -341,9 +341,8 @@ bool UGeometryCacheComponent::SetGeometryCache(UGeometryCache* NewGeomCache)
 	// Update physics representation right away
 	RecreatePhysicsState();
 	
-	// Notify the streaming system. Don't use Update(), because this may be the first time the geometry cache has been set
-	// and the component may have to be added to the streaming system for the first time.
-	IStreamingManager::Get().NotifyPrimitiveAttached(this, DPT_Spawned);
+	// Update this component streaming data.
+	IStreamingManager::Get().NotifyPrimitiveUpdated(this);
 
 	// Since we have new tracks, we need to update bounds
 	UpdateBounds();

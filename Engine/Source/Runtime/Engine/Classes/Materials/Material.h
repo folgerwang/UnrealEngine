@@ -457,6 +457,10 @@ public:
 	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Screen Space Reflections"))
 	uint32 bScreenSpaceReflections:1;
 
+	/** Contact shadows on translucency */
+	UPROPERTY(EditAnywhere, Category = Translucency, meta = (DisplayName = "Contact Shadows"))
+	uint32 bContactShadows : 1;
+
 	/** Indicates that the material should be rendered without backface culling and the normal should be flipped for backfaces. */
 	UPROPERTY(EditAnywhere, Category=Material)
 	uint32 TwoSided:1;

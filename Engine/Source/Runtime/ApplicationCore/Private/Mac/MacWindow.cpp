@@ -55,30 +55,30 @@ void FMacWindow::Initialize( FMacApplication* const Application, const TSharedRe
 	{
 		if( Definition->HasCloseButton )
 		{
-			WindowStyle = NSClosableWindowMask;
+			WindowStyle = NSWindowStyleMaskClosable;
 		}
 
 		// In order to support rounded, shadowed windows set the window to be titled - we'll set the content view to cover the whole window
-		WindowStyle |= NSTitledWindowMask | (FPlatformMisc::IsRunningOnMavericks() ? NSTexturedBackgroundWindowMask : NSFullSizeContentViewWindowMask);
+		WindowStyle |= NSWindowStyleMaskTitled | (FPlatformMisc::IsRunningOnMavericks() ? NSWindowStyleMaskTexturedBackground : NSWindowStyleMaskFullSizeContentView);
 		
 		if( Definition->SupportsMinimize )
 		{
-			WindowStyle |= NSMiniaturizableWindowMask;
+			WindowStyle |= NSWindowStyleMaskMiniaturizable;
 		}
 		if( Definition->SupportsMaximize || Definition->HasSizingFrame )
 		{
-			WindowStyle |= NSResizableWindowMask;
+			WindowStyle |= NSWindowStyleMaskResizable;
 		}
 	}
 	else
 	{
-		WindowStyle = NSBorderlessWindowMask;
+		WindowStyle = NSWindowStyleMaskBorderless;
 	}
 
 	if( Definition->HasOSWindowBorder )
 	{
-		WindowStyle |= NSTitledWindowMask;
-		WindowStyle &= FPlatformMisc::IsRunningOnMavericks() ? ~NSTexturedBackgroundWindowMask : ~NSFullSizeContentViewWindowMask;
+		WindowStyle |= NSWindowStyleMaskTitled;
+		WindowStyle &= FPlatformMisc::IsRunningOnMavericks() ? ~NSWindowStyleMaskTexturedBackground : ~NSWindowStyleMaskFullSizeContentView;
 	}
 
 	MainThreadCall(^{
@@ -160,7 +160,7 @@ void FMacWindow::Initialize( FMacApplication* const Application, const TSharedRe
 				{
 					[WindowHandle setCollectionBehavior: NSWindowCollectionBehaviorFullScreenPrimary|NSWindowCollectionBehaviorDefault|NSWindowCollectionBehaviorManaged|NSWindowCollectionBehaviorParticipatesInCycle];
 
-					// By default NSResizableWindowMask enables zoom button as well, so we need to disable it if that's what the project requests
+					// By default NSWindowStyleMaskResizable enables zoom button as well, so we need to disable it if that's what the project requests
 					if (Definition->HasSizingFrame && !Definition->SupportsMaximize)
 					{
 						[[WindowHandle standardWindowButton:NSWindowZoomButton] setEnabled:NO];
@@ -596,6 +596,12 @@ void FMacWindow::ApplySizeAndModeChanges(int32 X, int32 Y, int32 Width, int32 He
 		}
 
 		UpdateFullScreenState(bWantsFullScreen != bIsFullScreen);
+		
+		// It's possible for Window handle to be nil after a call to UpdateFullScreenState() in rare cases due to FPlatformApplicationMisc::PumpMessages
+		if(WindowHandle == nil)
+		{
+			return;
+		}
 
 		if (WindowMode == EWindowMode::Windowed && !NSEqualRects([WindowHandle frame], Rect))
 		{

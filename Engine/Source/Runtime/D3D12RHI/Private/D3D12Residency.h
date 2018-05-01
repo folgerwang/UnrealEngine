@@ -68,10 +68,10 @@ namespace D3DX12Residency
 #endif
 	}
 
-	inline void InitializeResidencyManager(ResidencyManager& ResidencyManager, ID3D12Device* Device, uint32 DeviceNodeMask, IDXGIAdapter3* Adapter, uint32 MaxLatency)
+	inline void InitializeResidencyManager(ResidencyManager& ResidencyManager, ID3D12Device* Device, uint32 GPUIndex, IDXGIAdapter3* Adapter, uint32 MaxLatency)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		VERIFYD3D12RESULT(ResidencyManager.Initialize(Device, DeviceNodeMask, Adapter, MaxLatency));
+		VERIFYD3D12RESULT(ResidencyManager.Initialize(Device, GPUIndex, Adapter, MaxLatency));
 #endif
 	}
 

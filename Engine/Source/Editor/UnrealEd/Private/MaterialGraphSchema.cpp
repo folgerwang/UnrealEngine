@@ -95,6 +95,9 @@ void FMaterialGraphSchemaAction_NewNode::SetFunctionInputType(UMaterialExpressio
 	case MCT_TextureExternal:
 		FunctionInput->InputType = FunctionInput_TextureExternal;
 		break;
+	case MCT_VolumeTexture:
+		FunctionInput->InputType = FunctionInput_VolumeTexture;
+		break;
 	case MCT_StaticBool:
 		FunctionInput->InputType = FunctionInput_StaticBool;
 		break;

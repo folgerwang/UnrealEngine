@@ -132,6 +132,7 @@ FMacCursor::FMacCursor()
 	// Set the default cursor
 	SetType(EMouseCursor::Default);
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	// Get the IOHIDSystem so we can disable mouse acceleration
 	mach_port_t MasterPort;
 	kern_return_t KernResult = IOMasterPort(MACH_PORT_NULL, &MasterPort);
@@ -160,6 +161,7 @@ FMacCursor::FMacCursor()
 			}
 		}
 	}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 FMacCursor::~FMacCursor()
@@ -342,11 +344,10 @@ bool FMacCursor::UpdateCursorClipping(FVector2D& CursorPosition)
 void FMacCursor::UpdateVisibility()
 {
 	SCOPED_AUTORELEASE_POOL;
+	// @TODO: Remove usage of deprecated functions
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	if ([NSApp isActive])
 	{
-		// @TODO: Remove usage of deprecated CGCursorIsVisible function
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		if (CurrentCursor && bIsVisible)
 		{
 			// Enable the cursor.
@@ -371,12 +372,12 @@ void FMacCursor::UpdateVisibility()
 				IOHIDSetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), -1);
 			}
 		}
-#pragma clang diagnostic pop
 	}
 	else if (GMacDisableMouseAcceleration && HIDInterface && bUseHighPrecisionMode && (!CurrentCursor || !bIsVisible))
 	{
 		IOHIDSetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), SavedAcceleration);
 	}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 void FMacCursor::UpdateCurrentPosition(const FVector2D &Position)
@@ -431,6 +432,7 @@ void FMacCursor::SetHighPrecisionMouseMode(const bool bEnable)
 			[NSEvent setMouseCoalescingEnabled:!bUseHighPrecisionMode];
 		}
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		if (HIDInterface && GMacDisableMouseAcceleration && (!CurrentCursor || !bIsVisible))
 		{
 			if (!bUseHighPrecisionMode)
@@ -452,6 +454,7 @@ void FMacCursor::SetHighPrecisionMouseMode(const bool bEnable)
 				IOHIDSetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), -1);
 			}
 		}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		UpdateVisibility();
 

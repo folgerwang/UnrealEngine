@@ -3776,32 +3776,35 @@ bool UEditorEngine::Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 			if( LightActor )
 			{
 				ULightComponent* LightComponent = LightActor->GetLightComponent();
-				AActor* ExistingLightActor = LightGuidToActorMap.FindRef( LightComponent->LightGuid );
-				if( ExistingLightActor )
+				if (LightComponent) // LightComponent component can be null, for example when creating a blueprint deriving from ALight.
 				{
+					AActor* ExistingLightActor = LightGuidToActorMap.FindRef( LightComponent->LightGuid );
+					if( ExistingLightActor )
 					{
-						FFormatNamedArguments Arguments;
-						Arguments.Add(TEXT("LightActor0"), FText::FromString(LightActor->GetName()));
-						Arguments.Add(TEXT("LightActor1"), FText::FromString(ExistingLightActor->GetName()));
-						FMessageLog("MapCheck").Warning()
-							->AddToken(FUObjectToken::Create(LightActor))
-							->AddToken(FTextToken::Create(FText::Format( LOCTEXT( "MapCheck_Message_MatchingLightGUID", "'{LightActor0}' has same light GUID as '{LightActor1}' (Duplicate and replace the orig with the new one)" ), Arguments ) ))
-							->AddToken(FMapErrorToken::Create(FMapErrors::MatchingLightGUID));
-					}
+						{
+							FFormatNamedArguments Arguments;
+							Arguments.Add(TEXT("LightActor0"), FText::FromString(LightActor->GetName()));
+							Arguments.Add(TEXT("LightActor1"), FText::FromString(ExistingLightActor->GetName()));
+							FMessageLog("MapCheck").Warning()
+								->AddToken(FUObjectToken::Create(LightActor))
+								->AddToken(FTextToken::Create(FText::Format( LOCTEXT( "MapCheck_Message_MatchingLightGUID", "'{LightActor0}' has same light GUID as '{LightActor1}' (Duplicate and replace the orig with the new one)" ), Arguments ) ))
+								->AddToken(FMapErrorToken::Create(FMapErrors::MatchingLightGUID));
+						}
 
-					{
-						FFormatNamedArguments Arguments;
-						Arguments.Add(TEXT("LightActor0"), FText::FromString(ExistingLightActor->GetName()));
-						Arguments.Add(TEXT("LightActor1"), FText::FromString(LightActor->GetName()));
-						FMessageLog("MapCheck").Warning()
-							->AddToken(FUObjectToken::Create(ExistingLightActor))
-							->AddToken(FTextToken::Create(FText::Format( LOCTEXT( "MapCheck_Message_MatchingLightGUID", "'{LightActor0}' has same light GUID as '{LightActor1}' (Duplicate and replace the orig with the new one)" ), Arguments ) ))
-							->AddToken(FMapErrorToken::Create(FMapErrors::MatchingLightGUID));
+						{
+							FFormatNamedArguments Arguments;
+							Arguments.Add(TEXT("LightActor0"), FText::FromString(ExistingLightActor->GetName()));
+							Arguments.Add(TEXT("LightActor1"), FText::FromString(LightActor->GetName()));
+							FMessageLog("MapCheck").Warning()
+								->AddToken(FUObjectToken::Create(ExistingLightActor))
+								->AddToken(FTextToken::Create(FText::Format( LOCTEXT( "MapCheck_Message_MatchingLightGUID", "'{LightActor0}' has same light GUID as '{LightActor1}' (Duplicate and replace the orig with the new one)" ), Arguments ) ))
+								->AddToken(FMapErrorToken::Create(FMapErrors::MatchingLightGUID));
+						}
 					}
-				}
-				else
-				{
-					LightGuidToActorMap.Add( LightComponent->LightGuid, LightActor );
+					else
+					{
+						LightGuidToActorMap.Add( LightComponent->LightGuid, LightActor );
+					}
 				}
 			}
 		}

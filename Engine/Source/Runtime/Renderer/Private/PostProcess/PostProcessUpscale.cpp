@@ -164,7 +164,7 @@ class FPostProcessUpscalePS : public FGlobalShader
 
 public:
 	FPostProcessPassParameters PostprocessParameter;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter UpscaleSoftness;
 	FShaderParameter SceneColorBilinearUVMinMax;
 
@@ -173,7 +173,7 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		UpscaleSoftness.Bind(Initializer.ParameterMap,TEXT("UpscaleSoftness"));
 		SceneColorBilinearUVMinMax.Bind(Initializer.ParameterMap, TEXT("SceneColorBilinearUVMinMax"));
 	}
@@ -190,7 +190,7 @@ public:
 		FilterTable[1] = TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI();
 			
 		PostprocessParameter.SetPS(RHICmdList, ShaderRHI, Context, 0, eFC_0000, FilterTable);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		{
 			float UpscaleSoftnessValue = FMath::Clamp(CVarUpscaleSoftness.GetValueOnRenderThread(), 0.0f, 1.0f);
@@ -213,7 +213,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << UpscaleSoftness << SceneColorBilinearUVMinMax;
+		Ar << PostprocessParameter << SceneTextureParameters << UpscaleSoftness << SceneColorBilinearUVMinMax;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -460,7 +460,7 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 		VertexShader,
 		bTessellatedQuad ? EDRF_UseTesselatedIndexBuffer: EDRF_UseTriangleOptimization);
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 
 	// Update scene color view rectangle for secondary upscale.
 	Context.SceneColorViewRect = DestRect;

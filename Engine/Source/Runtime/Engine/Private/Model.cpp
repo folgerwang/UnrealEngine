@@ -146,10 +146,34 @@ FArchive& operator<<( FArchive& Ar, FZoneProperties& P )
 FArchive& operator<<(FArchive& Ar,FModelVertex& V)
 {
 	Ar << V.Position;
-	Ar << V.TangentX;
-	Ar << V.TangentZ;	
+
+	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::IncreaseNormalPrecision)
+	{
+		FDeprecatedSerializedPackedNormal Temp;
+		Ar << Temp;
+		V.TangentX = Temp;
+		Ar << Temp;
+		V.TangentZ = Temp;
+	}
+	else
+	{
+		Ar << V.TangentX;
+		Ar << V.TangentZ;
+	}
+	
 	Ar << V.TexCoord;
 	Ar << V.ShadowTexCoord;	
+
+	return Ar;
+}
+
+FArchive& operator<<(FArchive& Ar, FDepecatedModelVertex& V)
+{
+	Ar << V.Position;
+	Ar << V.TangentX;
+	Ar << V.TangentZ;
+	Ar << V.TexCoord;
+	Ar << V.ShadowTexCoord;
 
 	return Ar;
 }
@@ -833,7 +857,7 @@ int32 UModel::BuildVertexBuffers()
 				DestVertex->TangentZ = TangentZ;
 
 				// store the sign of the determinant in TangentZ.W
-				DestVertex->TangentZ.Vector.W = GetBasisDeterminantSign( TangentX, TangentY, TangentZ ) < 0 ? 0 : 255;
+				DestVertex->TangentZ.W = GetBasisDeterminantSign( TangentX, TangentY, TangentZ );
 
 				DestVertex++;
 			}
@@ -852,7 +876,7 @@ int32 UModel::BuildVertexBuffers()
 					DestVertex->TangentZ = -TangentZ;
 
 					// store the sign of the determinant in TangentZ.W
-					DestVertex->TangentZ.Vector.W = GetBasisDeterminantSign( TangentX, TangentY, -TangentZ ) < 0 ? 0 : 255;
+					DestVertex->TangentZ.W = GetBasisDeterminantSign( TangentX, TangentY, -TangentZ );
 
 					DestVertex++;
 				}

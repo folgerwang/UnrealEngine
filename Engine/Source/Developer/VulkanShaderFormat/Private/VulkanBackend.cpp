@@ -1,5 +1,5 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// .
+// ..
 
 // This code is largely based on that in ir_print_glsl_visitor.cpp from
 // glsl-optimizer.
@@ -116,6 +116,10 @@ static inline std::string FixHlslName(const glsl_type* Type, bool bUseTextureIns
 	}
 	else if (Type->is_sampler() && !Type->sampler_buffer && bUseTextureInsteadOfSampler)
 	{
+		// if this assert fires, take a look at the calls to hash_table_insert(sampler_type, ...) at the top of glsl_type::get_templated_instance in glsl_types.cpp
+		//  if the last parameter of the "new glsl_type()" invocation for the current Type->name is nullptr, there's your problem.  You need to add a string there, and then handle it here.
+		// The point of this block is to replace things that say "uniform sampler pz0" with "uniform texture pz0", so that you can generate valid SPIR-V for sharing samplers across multiple textures.
+		check(Type->HlslName);
 		if (!FCStringAnsi::Strcmp(Type->HlslName, "texturecube"))
 		{
 			return "textureCube";
@@ -127,6 +131,10 @@ static inline std::string FixHlslName(const glsl_type* Type, bool bUseTextureIns
 		else if (!FCStringAnsi::Strcmp(Type->HlslName, "texture3d"))
 		{
 			return "texture3D";
+		}
+		else if (!FCStringAnsi::Strcmp(Type->HlslName, "texturecubearray"))
+		{
+			return "textureCubeArray";
 		}
 		else
 		{
@@ -423,7 +431,15 @@ struct FSamplerMapping
 				{
 					for (auto& Texture : Found->second)
 					{
-						CombinedSamplers.insert(Texture);
+						// Make sure this texture is not using multiple samplers
+						auto FoundTexture = GatherData.Entries.find(Texture);
+						check(FoundTexture != GatherData.Entries.end());
+						std::set<std::string>& SamplerStates = FoundTexture->second.SamplerStates;
+						uint32 NumSS = (uint32)SamplerStates.size();
+						if (NumSS <= 1)
+						{
+							CombinedSamplers.insert(Texture);
+						}
 					}
 				}
 			}
@@ -436,23 +452,16 @@ struct FSamplerMapping
 			bool bIsSharedSamplerState = CombinedSamplerStates.find(Pair.first) == CombinedSamplerStates.end();
 			for (auto Texture : Pair.second)
 			{
-				if (bIsSharedSamplerState)
+				if (CombinedSamplers.find(Texture) == CombinedSamplers.end())
 				{
-					if (CombinedSamplers.find(Texture) == CombinedSamplers.end())
-					{
-						StandaloneTextures.insert(Texture);
-						++NumStandaloneTexturesAdded;
-					}
-				}
-				else
-				{
-					ensure(CombinedSamplers.find(Texture) != CombinedSamplers.end());
+					StandaloneTextures.insert(Texture);
+					++NumStandaloneTexturesAdded;
 				}
 			}
 
 			if (bIsSharedSamplerState)
 			{
-				ensure(NumStandaloneTexturesAdded > 1);
+				check(NumStandaloneTexturesAdded > 1);
 				StandaloneSamplerStates.insert(Pair.first);
 			}
 		}
@@ -1500,7 +1509,8 @@ class FGenerateVulkanVisitor : public ir_visitor
 				}
 			};
 
-			ralloc_asprintf_append(buffer, "sampler%s(", GetSamplerSuffix(tex->sampler->type->sampler_dimensionality));
+			ralloc_asprintf_append(buffer, "sampler%s%s(", GetSamplerSuffix(tex->sampler->type->sampler_dimensionality),
+				tex->sampler->type->sampler_array ? "Array" : "");
 			tex->sampler->accept(this);
 			ralloc_asprintf_append(buffer, ", %s)", PackedName);
 		}
@@ -4210,11 +4220,11 @@ static ir_rvalue* GenShaderOutputSemantic(
 	if (Variable == NULL && Frequency == HSF_VertexShader)
 	{
 		const int PrefixLength = 15;
+		// Match SV_ClipDistance or SV_ClipDistanceN
 		if (FCStringAnsi::Strnicmp(Semantic, "SV_ClipDistance", PrefixLength) == 0
-			&& Semantic[PrefixLength] >= '0'
-			&& Semantic[PrefixLength] <= '9')
+			&& ((Semantic[PrefixLength] >= '0' && Semantic[PrefixLength] <= '9') || Semantic[PrefixLength] == 0))
 		{
-			int OutputIndex = Semantic[15] - '0';
+			int OutputIndex = Semantic[PrefixLength] ? Semantic[PrefixLength] - '0' : 0;
 			Variable = new(ParseState)ir_variable(
 				glsl_type::float_type,
 				ralloc_asprintf(ParseState, "gl_ClipDistance[%d]", OutputIndex),

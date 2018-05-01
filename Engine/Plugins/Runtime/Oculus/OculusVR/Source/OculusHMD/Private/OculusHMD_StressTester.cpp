@@ -25,7 +25,7 @@ namespace OculusHMD
 
 //This buffer should contain variables that never, or rarely change
 BEGIN_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderConstantParameters,)
-//DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, Name)
+//UNIFORM_MEMBER(FVector4, Name)
 END_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderConstantParameters)
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderConstantParameters, TEXT("PSConstants"))
@@ -35,7 +35,7 @@ typedef TUniformBufferRef<FOculusPixelShaderConstantParameters> FOculusPixelShad
 
 //This buffer is for variables that change very often (each frame for example)
 BEGIN_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderVariableParameters,)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, IterationsMultiplier)
+UNIFORM_MEMBER(int, IterationsMultiplier)
 END_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderVariableParameters)
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderVariableParameters, TEXT("PSVariables"))

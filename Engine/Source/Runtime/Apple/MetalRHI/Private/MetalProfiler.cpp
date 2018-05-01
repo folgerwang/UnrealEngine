@@ -6,53 +6,6 @@
 #include "StaticBoundShaderState.h"
 #include "MetalCommandBuffer.h"
 
-DEFINE_STAT(STAT_MetalMakeDrawableTime);
-DEFINE_STAT(STAT_MetalDrawCallTime);
-DEFINE_STAT(STAT_MetalPrepareDrawTime);
-DEFINE_STAT(STAT_MetalUniformBufferCleanupTime);
-DEFINE_STAT(STAT_MetalTotalUniformBufferMemory);
-DEFINE_STAT(STAT_MetalFreeUniformBufferMemory);
-DEFINE_STAT(STAT_MetalNumFreeUniformBuffers);
-DEFINE_STAT(STAT_MetalPipelineStateTime);
-DEFINE_STAT(STAT_MetalBoundShaderStateTime);
-DEFINE_STAT(STAT_MetalVertexDeclarationTime);
-DEFINE_STAT(STAT_MetalBufferPageOffTime);
-DEFINE_STAT(STAT_MetalTexturePageOffTime);
-DEFINE_STAT(STAT_MetalBufferCount);
-DEFINE_STAT(STAT_MetalTextureCount);
-DEFINE_STAT(STAT_MetalCommandBufferCount);
-DEFINE_STAT(STAT_MetalSamplerStateCount);
-DEFINE_STAT(STAT_MetalDepthStencilStateCount);
-DEFINE_STAT(STAT_MetalRenderPipelineStateCount);
-DEFINE_STAT(STAT_MetalRenderPipelineColorAttachmentDescriptor);
-DEFINE_STAT(STAT_MetalRenderPassDescriptorCount);
-DEFINE_STAT(STAT_MetalRenderPassColorAttachmentDescriptorCount);
-DEFINE_STAT(STAT_MetalRenderPassDepthAttachmentDescriptorCount);
-DEFINE_STAT(STAT_MetalRenderPassStencilAttachmentDescriptorCount);
-DEFINE_STAT(STAT_MetalVertexDescriptorCount);
-DEFINE_STAT(STAT_MetalComputePipelineStateCount);
-DEFINE_STAT(STAT_MetalFunctionCount);
-DEFINE_STAT(STAT_MetalFreePooledBufferCount);
-DEFINE_STAT(STAT_MetalPooledBufferCount);
-
-DEFINE_STAT(STAT_MetalPooledBufferMem);
-DEFINE_STAT(STAT_MetalUsedPooledBufferMem);
-DEFINE_STAT(STAT_MetalFreePooledBufferMem);
-DEFINE_STAT(STAT_MetalWastedPooledBufferMem);
-DEFINE_STAT(STAT_MetalBufferAlloctations);
-DEFINE_STAT(STAT_MetalBufferFreed);
-DEFINE_STAT(STAT_MetalBufferMemAlloc);
-DEFINE_STAT(STAT_MetalBufferMemFreed);
-DEFINE_STAT(STAT_MetalBufferNativeAlloctations);
-DEFINE_STAT(STAT_MetalBufferNativeFreed);
-DEFINE_STAT(STAT_MetalBufferNativeMemAlloc);
-DEFINE_STAT(STAT_MetalBufferNativeMemFreed);
-
-DEFINE_STAT(STAT_MetalPrepareVertexDescTime);
-DEFINE_STAT(STAT_MetalBoundShaderPrepareDrawTime);
-DEFINE_STAT(STAT_MetalBoundShaderLockTime);
-DEFINE_STAT(STAT_MetalPipelineLockTime);
-
 DEFINE_STAT(STAT_MetalUniformMemAlloc);
 DEFINE_STAT(STAT_MetalUniformMemFreed);
 DEFINE_STAT(STAT_MetalVertexMemAlloc);
@@ -60,22 +13,31 @@ DEFINE_STAT(STAT_MetalVertexMemFreed);
 DEFINE_STAT(STAT_MetalIndexMemAlloc);
 DEFINE_STAT(STAT_MetalIndexMemFreed);
 DEFINE_STAT(STAT_MetalTextureMemUpdate);
-DEFINE_STAT(STAT_MetalPrivateTextureCount);
-DEFINE_STAT(STAT_MetalManagedTextureCount);
+
+DEFINE_STAT(STAT_MetalDrawCallTime);
+DEFINE_STAT(STAT_MetalPipelineStateTime);
+DEFINE_STAT(STAT_MetalPrepareDrawTime);
+DEFINE_STAT(STAT_MetalMakeDrawableTime);
+DEFINE_STAT(STAT_MetalBufferPageOffTime);
 DEFINE_STAT(STAT_MetalTexturePageOnTime);
-DEFINE_STAT(STAT_MetalPrivateTextureMem);
-DEFINE_STAT(STAT_MetalManagedTextureMem);
+DEFINE_STAT(STAT_MetalTexturePageOffTime);
 DEFINE_STAT(STAT_MetalGPUWorkTime);
 DEFINE_STAT(STAT_MetalGPUIdleTime);
 DEFINE_STAT(STAT_MetalPresentTime);
+DEFINE_STAT(STAT_MetalCommandBufferCreatedPerFrame);
+DEFINE_STAT(STAT_MetalCommandBufferCommittedPerFrame);
+DEFINE_STAT(STAT_MetalBufferMemory);
+DEFINE_STAT(STAT_MetalTextureMemory);
+DEFINE_STAT(STAT_MetalBufferUnusedMemory);
+DEFINE_STAT(STAT_MetalTextureUnusedMemory);
+DEFINE_STAT(STAT_MetalBufferCount);
+DEFINE_STAT(STAT_MetalTextureCount);
 
 int64 volatile GMetalTexturePageOnTime = 0;
 int64 volatile GMetalGPUWorkTime = 0;
 int64 volatile GMetalGPUIdleTime = 0;
 int64 volatile GMetalPresentTime = 0;
 
-DEFINE_STAT(STAT_MetalCommandBufferCreatedPerFrame);
-DEFINE_STAT(STAT_MetalCommandBufferCommittedPerFrame);
 
 #if METAL_STATISTICS
 void FMetalEventNode::GetStats(FMetalPipelineStats& OutStats)
@@ -213,21 +175,22 @@ void FMetalEventNode::StartTiming()
 	Context->StartTiming(this);
 }
 
-MTLCommandBufferHandler FMetalEventNode::Start(void)
+mtlpp::CommandBufferHandler FMetalEventNode::Start(void)
 {
-    return Block_copy(^(id<MTLCommandBuffer> CompletedBuffer)
-    {
-        if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesGPUCommandBufferTimes))
-        {
-            const CFTimeInterval GpuTimeSeconds = ((id<IMetalCommandBufferExtensions>)CompletedBuffer).GPUStartTime;
-            const double CyclesPerSecond = 1.0 / FPlatformTime::GetSecondsPerCycle();
-            StartTime = GpuTimeSeconds * CyclesPerSecond;
-        }
-        else
-        {
-            StartTime = mach_absolute_time();
-        }
-    });
+	mtlpp::CommandBufferHandler Block = [this](mtlpp::CommandBuffer const& CompletedBuffer)
+	{
+		if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesGPUCommandBufferTimes))
+		{
+			const CFTimeInterval GpuTimeSeconds = CompletedBuffer.GetGpuStartTime();
+			const double CyclesPerSecond = 1.0 / FPlatformTime::GetSecondsPerCycle();
+			StartTime = GpuTimeSeconds * CyclesPerSecond;
+		}
+		else
+		{
+			StartTime = mach_absolute_time();
+		}
+	};
+    return Block_copy(Block);
 }
 
 void FMetalEventNode::StopTiming()
@@ -235,37 +198,38 @@ void FMetalEventNode::StopTiming()
 	Context->EndTiming(this);
 }
 
-MTLCommandBufferHandler FMetalEventNode::Stop(void)
+mtlpp::CommandBufferHandler FMetalEventNode::Stop(void)
 {
-    return Block_copy(^(id<MTLCommandBuffer> CompletedBuffer)
-    {
-        if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesGPUCommandBufferTimes))
-        {
-            // This is still used by ProfileGPU
-            const CFTimeInterval GpuTimeSeconds = ((id<IMetalCommandBufferExtensions>)CompletedBuffer).GPUEndTime;
-            const double CyclesPerSecond = 1.0 / FPlatformTime::GetSecondsPerCycle();
-            EndTime = GpuTimeSeconds * CyclesPerSecond;
-        }
-        else
-        {
-            EndTime = mach_absolute_time();
-        }
-        
-        if(bRoot)
-        {
-            // But we have a different mechanism for the overall frametime that works even with empty encoders and that doesn't report any GPU idle time between frames, we only use the fallback code below on older OSes.
-            if (!FMetalCommandQueue::SupportsFeature(EMetalFeaturesGPUCommandBufferTimes))
-            {
-                uint32 Time = FMath::TruncToInt( double(GetTiming()) / double(FPlatformTime::GetSecondsPerCycle()) );
-                FPlatformAtomics::InterlockedExchange((int32*)&GGPUFrameTime, (int32)Time);
-            }
-            
-            if(!bFullProfiling)
-            {
-                delete this;
-            }
-        }
-    });
+	mtlpp::CommandBufferHandler Block = [this](mtlpp::CommandBuffer const& CompletedBuffer)
+	{
+		if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesGPUCommandBufferTimes))
+		{
+			// This is still used by ProfileGPU
+			const CFTimeInterval GpuTimeSeconds = CompletedBuffer.GetGpuEndTime();
+			const double CyclesPerSecond = 1.0 / FPlatformTime::GetSecondsPerCycle();
+			EndTime = GpuTimeSeconds * CyclesPerSecond;
+		}
+		else
+		{
+			EndTime = mach_absolute_time();
+		}
+		
+		if(bRoot)
+		{
+			// But we have a different mechanism for the overall frametime that works even with empty encoders and that doesn't report any GPU idle time between frames, we only use the fallback code below on older OSes.
+			if (!FMetalCommandQueue::SupportsFeature(EMetalFeaturesGPUCommandBufferTimes))
+			{
+				uint32 Time = FMath::TruncToInt( double(GetTiming()) / double(FPlatformTime::GetSecondsPerCycle()) );
+				FPlatformAtomics::InterlockedExchange((int32*)&GGPUFrameTime, (int32)Time);
+			}
+			
+			if(!bFullProfiling)
+			{
+				delete this;
+			}
+		}
+	};
+	return Block_copy(Block);
 }
 
 #if METAL_STATISTICS
@@ -273,7 +237,7 @@ void FMetalEventNode::StartDraw(bool bActiveStats, uint32 StartPoint, uint32 End
 {
 	if(Context->GetCommandQueue().GetStatistics() && bActiveStats)
 	{
-		DrawStats.Add(Context->GetCommandQueue().GetStatistics()->CreateDrawStats(Context->GetCurrentCommandBuffer(), StartPoint, EndPoint, NumPrimitives, NumVertices));
+		DrawStats.Add(Context->GetCommandQueue().GetStatistics()->CreateDrawStats(Context->GetCurrentCommandBuffer().GetPtr(), StartPoint, EndPoint, NumPrimitives, NumVertices));
 	}
 }
 
@@ -535,15 +499,15 @@ void FMetalGPUProfiler::IncrementFrameIndex()
     }
 }
 
-void FMetalGPUProfiler::RecordFrame(id<MTLCommandBuffer> Buffer)
+void FMetalGPUProfiler::RecordFrame(mtlpp::CommandBuffer& Buffer)
 {
 	RecordCommandBuffer(Buffer);
 	
 	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesGPUCommandBufferTimes))
 	{
 		uint32 Existing = FrameTimeGPUIndex;
-		[Buffer addCompletedHandler:^(id <MTLCommandBuffer> InBuffer)
-		{
+		
+		Buffer.AddCompletedHandler([Existing](mtlpp::CommandBuffer const&){
 			uint32 Time = FMath::TruncToInt(FPlatformTime::ToSeconds64(FrameEndGPU[Existing] - FrameStartGPU[Existing]) / FPlatformTime::GetSecondsPerCycle64());
 			FPlatformAtomics::InterlockedExchange((int32*)&GGPUFrameTime, (int32)Time);
 #if STATS
@@ -553,40 +517,36 @@ void FMetalGPUProfiler::RecordFrame(id<MTLCommandBuffer> Buffer)
 			FPlatformAtomics::InterlockedExchange(&FrameIdleTime[Existing], (int32)Time);
 			FPlatformAtomics::InterlockedExchange(&GMetalGPUIdleTime, Time);
 #endif //STATS
-		}];
+		});
 	}
 }
 
-void FMetalGPUProfiler::RecordPresent(id<MTLCommandBuffer> Buffer)
+void FMetalGPUProfiler::RecordPresent(mtlpp::CommandBuffer& Buffer)
 {
 	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesGPUCommandBufferTimes))
 	{
 		uint32 Existing = FrameTimeGPUIndex;
-		[Buffer addCompletedHandler:^(id <MTLCommandBuffer> InBuffer)
-		{
-			id<IMetalCommandBufferExtensions> CB = (id<IMetalCommandBufferExtensions>)InBuffer;
-			const CFTimeInterval GpuStartTimeSeconds = CB.GPUStartTime;
-			const CFTimeInterval GpuEndTimeSeconds = CB.GPUEndTime;
+		Buffer.AddCompletedHandler([Existing](mtlpp::CommandBuffer const& InBuffer){
+			const CFTimeInterval GpuStartTimeSeconds = InBuffer.GetGpuStartTime();
+			const CFTimeInterval GpuEndTimeSeconds = InBuffer.GetGpuEndTime();
 			const double CyclesPerSecond = 1.0 / FPlatformTime::GetSecondsPerCycle();
 			uint64 StartTime = GpuStartTimeSeconds * CyclesPerSecond;
 			uint64 EndTime = GpuEndTimeSeconds * CyclesPerSecond;
 			uint32 Time = FMath::TruncToInt(FPlatformTime::ToSeconds64(EndTime - StartTime) / FPlatformTime::GetSecondsPerCycle64());
 			FPlatformAtomics::InterlockedExchange(&FramePresentTime[Existing], (int32)Time);
 			FPlatformAtomics::InterlockedExchange(&GMetalPresentTime, Time);
-		}];
+		});
 	}
 }
 
-void FMetalGPUProfiler::RecordCommandBuffer(id<MTLCommandBuffer> Buffer)
+void FMetalGPUProfiler::RecordCommandBuffer(mtlpp::CommandBuffer& Buffer)
 {
     if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesGPUCommandBufferTimes))
     {
 		uint32 Index = FrameTimeGPUIndex;
-        [Buffer addCompletedHandler:^(id <MTLCommandBuffer> InBuffer)
-        {
-            id<IMetalCommandBufferExtensions> CB = (id<IMetalCommandBufferExtensions>)InBuffer;
-
-            const CFTimeInterval GpuTimeSeconds = CB.GPUEndTime;
+		Buffer.AddCompletedHandler([Index](mtlpp::CommandBuffer const& InBuffer)
+		{
+            const CFTimeInterval GpuTimeSeconds = InBuffer.GetGpuEndTime();
             const double CyclesPerSecond = 1.0 / FPlatformTime::GetSecondsPerCycle();
             uint64 Time = GpuTimeSeconds * CyclesPerSecond;
             uint64 Existing, New;
@@ -596,7 +556,7 @@ void FMetalGPUProfiler::RecordCommandBuffer(id<MTLCommandBuffer> Buffer)
 				New = Existing > 0 ? FMath::Max(Existing, Time) : Time;
 			} while(FPlatformAtomics::InterlockedCompareExchange(&FrameEndGPU[Index], New, Existing) != Existing);
 			
-			const CFTimeInterval GpuStartTimeSeconds = CB.GPUStartTime;
+			const CFTimeInterval GpuStartTimeSeconds = InBuffer.GetGpuStartTime();
 			uint64 StartTime = GpuStartTimeSeconds * CyclesPerSecond;
 			do
 			{
@@ -606,7 +566,7 @@ void FMetalGPUProfiler::RecordCommandBuffer(id<MTLCommandBuffer> Buffer)
 			
 			Time = FMath::TruncToInt(FPlatformTime::ToSeconds64(Time - StartTime) / FPlatformTime::GetSecondsPerCycle64());
 			FPlatformAtomics::InterlockedAdd(&FrameGPUTime[Index], (int32)Time);
-        }];
+        });
     }
 }
 	

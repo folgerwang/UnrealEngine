@@ -8,30 +8,30 @@
 #include "MetalProfiler.h"
 #include "ShaderCache.h"
 
-static MTLVertexFormat TranslateElementTypeToMTLType(EVertexElementType Type)
+static mtlpp::VertexFormat TranslateElementTypeToMTLType(EVertexElementType Type)
 {
 	switch (Type)
 	{
-		case VET_Float1:		return MTLVertexFormatFloat;
-		case VET_Float2:		return MTLVertexFormatFloat2;
-		case VET_Float3:		return MTLVertexFormatFloat3;
-		case VET_Float4:		return MTLVertexFormatFloat4;
-		case VET_PackedNormal:	return MTLVertexFormatUChar4Normalized;
-		case VET_UByte4:		return MTLVertexFormatUChar4;
-		case VET_UByte4N:		return MTLVertexFormatUChar4Normalized;
-		case VET_Color:			return MTLVertexFormatUChar4Normalized;
-		case VET_Short2:		return MTLVertexFormatShort2;
-		case VET_Short4:		return MTLVertexFormatShort4;
-		case VET_Short2N:		return MTLVertexFormatShort2Normalized;
-		case VET_Half2:			return MTLVertexFormatHalf2;
-		case VET_Half4:			return MTLVertexFormatHalf4;
-		case VET_Short4N:		return MTLVertexFormatShort4Normalized;
-		case VET_UShort2:		return MTLVertexFormatUShort2;
-		case VET_UShort4:		return MTLVertexFormatUShort4;
-		case VET_UShort2N:		return MTLVertexFormatUShort2Normalized;
-		case VET_UShort4N:		return MTLVertexFormatUShort4Normalized;
-		case VET_URGB10A2N:		return MTLVertexFormatUInt1010102Normalized;
-		default:				UE_LOG(LogMetal, Fatal, TEXT("Unknown vertex element type!")); return MTLVertexFormatFloat;
+		case VET_Float1:		return mtlpp::VertexFormat::Float;
+		case VET_Float2:		return mtlpp::VertexFormat::Float2;
+		case VET_Float3:		return mtlpp::VertexFormat::Float3;
+		case VET_Float4:		return mtlpp::VertexFormat::Float4;
+		case VET_PackedNormal:	return mtlpp::VertexFormat::Char4Normalized;
+		case VET_UByte4:		return mtlpp::VertexFormat::UChar4;
+		case VET_UByte4N:		return mtlpp::VertexFormat::UChar4Normalized;
+		case VET_Color:			return mtlpp::VertexFormat::UChar4Normalized;
+		case VET_Short2:		return mtlpp::VertexFormat::Short2;
+		case VET_Short4:		return mtlpp::VertexFormat::Short4;
+		case VET_Short2N:		return mtlpp::VertexFormat::Short2Normalized;
+		case VET_Half2:			return mtlpp::VertexFormat::Half2;
+		case VET_Half4:			return mtlpp::VertexFormat::Half4;
+		case VET_Short4N:		return mtlpp::VertexFormat::Short4Normalized;
+		case VET_UShort2:		return mtlpp::VertexFormat::UShort2;
+		case VET_UShort4:		return mtlpp::VertexFormat::UShort4;
+		case VET_UShort2N:		return mtlpp::VertexFormat::UShort2Normalized;
+		case VET_UShort4N:		return mtlpp::VertexFormat::UShort4Normalized;
+		case VET_URGB10A2N:		return mtlpp::VertexFormat::UInt1010102Normalized;
+		default:				UE_LOG(LogMetal, Fatal, TEXT("Unknown vertex element type!")); return mtlpp::VertexFormat::Float;
 	};
 
 }
@@ -69,7 +69,7 @@ FMetalHashedVertexDescriptor::FMetalHashedVertexDescriptor()
 {
 }
 
-FMetalHashedVertexDescriptor::FMetalHashedVertexDescriptor(MTLVertexDescriptor* Desc, uint32 Hash)
+FMetalHashedVertexDescriptor::FMetalHashedVertexDescriptor(mtlpp::VertexDescriptor Desc, uint32 Hash)
 : VertexDescHash(Hash)
 , VertexDesc(Desc)
 {
@@ -84,16 +84,12 @@ FMetalHashedVertexDescriptor::FMetalHashedVertexDescriptor(FMetalHashedVertexDes
 
 FMetalHashedVertexDescriptor::~FMetalHashedVertexDescriptor()
 {
-	[VertexDesc release];
 }
 
 FMetalHashedVertexDescriptor& FMetalHashedVertexDescriptor::operator=(FMetalHashedVertexDescriptor const& Other)
 {
 	if (this != &Other)
 	{
-		[Other.VertexDesc retain];
-		[VertexDesc release];
-		
 		VertexDescHash = Other.VertexDescHash;
 		VertexDesc = Other.VertexDesc;
 	}
@@ -108,39 +104,39 @@ bool FMetalHashedVertexDescriptor::operator==(FMetalHashedVertexDescriptor const
 		if (VertexDescHash == Other.VertexDescHash)
 		{
 			bEqual = true;
-			if (VertexDesc != Other.VertexDesc)
+			if (VertexDesc.GetPtr() != Other.VertexDesc.GetPtr())
 			{
-				MTLVertexBufferLayoutDescriptorArray* Layouts = VertexDesc.layouts;
-				MTLVertexAttributeDescriptorArray* Attributes = VertexDesc.attributes;
+				ns::Array<mtlpp::VertexBufferLayoutDescriptor> Layouts = VertexDesc.GetLayouts();
+				ns::Array<mtlpp::VertexAttributeDescriptor> Attributes = VertexDesc.GetAttributes();
 				
-				MTLVertexBufferLayoutDescriptorArray* OtherLayouts = Other.VertexDesc.layouts;
-				MTLVertexAttributeDescriptorArray* OtherAttributes = Other.VertexDesc.attributes;
+				ns::Array<mtlpp::VertexBufferLayoutDescriptor> OtherLayouts = Other.VertexDesc.GetLayouts();
+				ns::Array<mtlpp::VertexAttributeDescriptor> OtherAttributes = Other.VertexDesc.GetAttributes();
 				check(Layouts && Attributes && OtherLayouts && OtherAttributes);
 				
 				for (uint32 i = 0; bEqual && i < MaxVertexElementCount; i++)
 				{
-					MTLVertexBufferLayoutDescriptor* LayoutDesc = [Layouts objectAtIndexedSubscript:(NSUInteger)i];
-					MTLVertexBufferLayoutDescriptor* OtherLayoutDesc = [OtherLayouts objectAtIndexedSubscript:(NSUInteger)i];
+					mtlpp::VertexBufferLayoutDescriptor LayoutDesc = Layouts[(NSUInteger)i];
+					mtlpp::VertexBufferLayoutDescriptor OtherLayoutDesc = OtherLayouts[(NSUInteger)i];
 					
 					bEqual &= ((LayoutDesc != nil) == (OtherLayoutDesc != nil));
 					
 					if (LayoutDesc && OtherLayoutDesc)
 					{
-						bEqual &= (LayoutDesc.stride == OtherLayoutDesc.stride);
-						bEqual &= (LayoutDesc.stepFunction == OtherLayoutDesc.stepFunction);
-						bEqual &= (LayoutDesc.stepRate == OtherLayoutDesc.stepRate);
+						bEqual &= (LayoutDesc.GetStride() == OtherLayoutDesc.GetStride());
+						bEqual &= (LayoutDesc.GetStepFunction() == OtherLayoutDesc.GetStepFunction());
+						bEqual &= (LayoutDesc.GetStepRate() == OtherLayoutDesc.GetStepRate());
 					}
 					
-					MTLVertexAttributeDescriptor* AttrDesc = [Attributes objectAtIndexedSubscript:(NSUInteger)i];
-					MTLVertexAttributeDescriptor* OtherAttrDesc = [OtherAttributes objectAtIndexedSubscript:(NSUInteger)i];
+					mtlpp::VertexAttributeDescriptor AttrDesc = Attributes[(NSUInteger)i];
+					mtlpp::VertexAttributeDescriptor OtherAttrDesc = OtherAttributes[(NSUInteger)i];
 					
 					bEqual &= ((AttrDesc != nil) == (OtherAttrDesc != nil));
 					
 					if (AttrDesc && OtherAttrDesc)
 					{
-						bEqual &= (AttrDesc.format == OtherAttrDesc.format);
-						bEqual &= (AttrDesc.offset == OtherAttrDesc.offset);
-						bEqual &= (AttrDesc.bufferIndex == OtherAttrDesc.bufferIndex);
+						bEqual &= (AttrDesc.GetFormat() == OtherAttrDesc.GetFormat());
+						bEqual &= (AttrDesc.GetOffset() == OtherAttrDesc.GetOffset());
+						bEqual &= (AttrDesc.GetBufferIndex() == OtherAttrDesc.GetBufferIndex());
 					}
 				}
 			}
@@ -190,8 +186,10 @@ FVertexDeclarationRHIRef FMetalDynamicRHI::RHICreateVertexDeclaration(const FVer
 
 void FMetalVertexDeclaration::GenerateLayout(const FVertexDeclarationElementList& InElements)
 {
-	MTLVertexDescriptor* NewLayout = [[MTLVertexDescriptor alloc] init];
-	TRACK_OBJECT(STAT_MetalVertexDescriptorCount, NewLayout);
+	mtlpp::VertexDescriptor NewLayout;
+	
+	ns::Array<mtlpp::VertexBufferLayoutDescriptor> Layouts = NewLayout.GetLayouts();
+	ns::Array<mtlpp::VertexAttributeDescriptor> Attributes = NewLayout.GetAttributes();
 
 	BaseHash = FCrc::MemCrc_DEPRECATED(InElements.GetData(),InElements.Num()*sizeof(FVertexElement));
 	uint32 StrideHash = BaseHash;
@@ -214,7 +212,7 @@ void FMetalVertexDeclaration::GenerateLayout(const FVertexDeclarationElementList
 		if (ExistingStride == NULL)
 		{
 			// handle 0 stride buffers
-			MTLVertexStepFunction Function = (Element.Stride == 0 ? MTLVertexStepFunctionConstant : (Element.bUseInstanceIndex ? MTLVertexStepFunctionPerInstance : MTLVertexStepFunctionPerVertex));
+			mtlpp::VertexStepFunction Function = (Element.Stride == 0 ? mtlpp::VertexStepFunction::Constant : (Element.bUseInstanceIndex ? mtlpp::VertexStepFunction::PerInstance : mtlpp::VertexStepFunction::PerVertex));
 			uint32 StepRate = (Element.Stride == 0 ? 0 : 1);
 			// even with MTLVertexStepFunctionConstant, it needs a non-zero stride (not sure why)
 			uint32 Stride = (Element.Stride == 0 ? TranslateElementTypeToSize(Element.Type) : Element.Stride);
@@ -227,9 +225,10 @@ void FMetalVertexDeclaration::GenerateLayout(const FVertexDeclarationElementList
 			}
 
 			// set the stride once per buffer
-			NewLayout.layouts[ShaderBufferIndex].stride = Stride;
-			NewLayout.layouts[ShaderBufferIndex].stepFunction = Function;
-			NewLayout.layouts[ShaderBufferIndex].stepRate = StepRate;
+			mtlpp::VertexBufferLayoutDescriptor VBLayout = Layouts[ShaderBufferIndex];
+			VBLayout.SetStride(Stride);
+			VBLayout.SetStepFunction(Function);
+			VBLayout.SetStepRate(StepRate);
 
 			// track this buffer and stride
 			BufferStrides.Add(ShaderBufferIndex, Element.Stride);
@@ -241,9 +240,10 @@ void FMetalVertexDeclaration::GenerateLayout(const FVertexDeclarationElementList
 		}
 
 		// set the format for each element
-		NewLayout.attributes[Element.AttributeIndex].format = TranslateElementTypeToMTLType(Element.Type);
-		NewLayout.attributes[Element.AttributeIndex].offset = Element.Offset;
-		NewLayout.attributes[Element.AttributeIndex].bufferIndex = ShaderBufferIndex;
+		mtlpp::VertexAttributeDescriptor Attrib = Attributes[Element.AttributeIndex];
+		Attrib.SetFormat(TranslateElementTypeToMTLType(Element.Type));
+		Attrib.SetOffset(Element.Offset);
+		Attrib.SetBufferIndex(ShaderBufferIndex);
 	}
 	
 	Layout = FMetalHashedVertexDescriptor(NewLayout, StrideHash);

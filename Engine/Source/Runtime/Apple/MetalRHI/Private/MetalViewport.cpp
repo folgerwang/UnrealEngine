@@ -14,6 +14,7 @@
 #include "RenderCommandFence.h"
 #include "Containers/Set.h"
 #include "MetalProfiler.h"
+#include "RenderUtils.h"
 
 extern int32 GMetalSupportsIntermediateBackBuffer;
 extern int32 GMetalSeparatePresentThread;
@@ -161,7 +162,7 @@ void FMetalViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 	uint32 Index = GetViewportIndex(EMetalViewportAccessGame);
 
 	Format = (Format == PF_FloatRGBA && bCanUseHDR) ? PF_FloatRGBA : PF_B8G8R8A8;
-	MTLPixelFormat MetalFormat = (Format == PF_FloatRGBA && bCanUseHDR) ? MTLPixelFormatRGBA16Float : MTLPixelFormatBGRA8Unorm;
+	mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[Format].PlatformFormat;
 	if (IsValidRef(BackBuffer[Index]) && Format != BackBuffer[Index]->GetFormat())
 	{
 		// Really need to flush the RHI thread & GPU here...
@@ -185,12 +186,12 @@ void FMetalViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 		
 		MetalLayer.drawableSize = CGSizeMake(InSizeX, InSizeY);
 		
-		if (MetalFormat != MetalLayer.pixelFormat)
+		if (MetalFormat != (mtlpp::PixelFormat)MetalLayer.pixelFormat)
 		{
-			MetalLayer.pixelFormat = MetalFormat;
+			MetalLayer.pixelFormat = (MTLPixelFormat)MetalFormat;
 		}
 		
-		BOOL bUsingHDR = MetalFormat == MTLPixelFormatRGBA16Float;
+		BOOL bUsingHDR = MetalFormat == mtlpp::PixelFormat::RGBA16Float;
 		if (bUsingHDR != MetalLayer.wantsExtendedDynamicRangeContent)
 		{
 			MetalLayer.wantsExtendedDynamicRangeContent = bUsingHDR;
@@ -257,13 +258,14 @@ TRefCountPtr<FMetalTexture2D> FMetalViewport::GetBackBuffer(EMetalViewportAccess
 @end
 #endif
 
-id<MTLDrawable> FMetalViewport::GetDrawable(EMetalViewportAccessFlag Accessor)
+mtlpp::Drawable FMetalViewport::GetDrawable(EMetalViewportAccessFlag Accessor)
 {
-	if (!Drawable
+	SCOPE_CYCLE_COUNTER(STAT_MetalMakeDrawableTime);
+    if (!Drawable
 #if !PLATFORM_MAC
-	|| (((id<CAMetalDrawable>)Drawable).texture.width != BackBuffer[GetViewportIndex(Accessor)]->GetSizeX() || ((id<CAMetalDrawable>)Drawable).texture.height != BackBuffer[GetViewportIndex(Accessor)]->GetSizeY())
+        || (((id<CAMetalDrawable>)Drawable.GetPtr()).texture.width != BackBuffer[GetViewportIndex(Accessor)]->GetSizeX() || ((id<CAMetalDrawable>)Drawable.GetPtr()).texture.height != BackBuffer[GetViewportIndex(Accessor)]->GetSizeY())
 #endif
-	)
+        )
 	{
 		@autoreleasepool
 		{
@@ -307,7 +309,7 @@ id<MTLDrawable> FMetalViewport::GetDrawable(EMetalViewportAccessFlag Accessor)
 	return Drawable;
 }
 
-id<MTLTexture> FMetalViewport::GetDrawableTexture(EMetalViewportAccessFlag Accessor)
+FMetalTexture FMetalViewport::GetDrawableTexture(EMetalViewportAccessFlag Accessor)
 {
 	id<CAMetalDrawable> CurrentDrawable = (id<CAMetalDrawable>)GetDrawable(Accessor);
 #if METAL_DEBUG_OPTIONS
@@ -364,7 +366,8 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesSupportsVSyncToggle))
 	{
 		FCAMetalLayer* CurrentLayer = (FCAMetalLayer*)[View layer];
-		CurrentLayer.displaySyncEnabled = bLockToVsync || !(IsRunningGame() && bIsFullScreen);
+		static bool sVSyncSafe = FPlatformMisc::MacOSXVersionCompare(10,13,4) >= 0;
+		CurrentLayer.displaySyncEnabled = bLockToVsync || (!sVSyncSafe && !(IsRunningGame() && bIsFullScreen));
 	}
 #endif
 	
@@ -391,7 +394,7 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 					
 					if (LocalDrawable && LocalDrawable.texture && (InDisplayID == 0 || !bIsInLiveResize))
 					{
-						id<MTLCommandBuffer> CurrentCommandBuffer = CommandQueue.CreateCommandBuffer();
+						mtlpp::CommandBuffer CurrentCommandBuffer = CommandQueue.CreateCommandBuffer();
 						check(CurrentCommandBuffer);
 						
 						if (GMetalSupportsIntermediateBackBuffer)
@@ -399,42 +402,48 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 							TRefCountPtr<FMetalTexture2D> Texture = LastCompleteFrame;
 							check(IsValidRef(Texture));
 							
-							id<MTLTexture> Src = [Texture->Surface.Texture retain];
-							id<MTLTexture> Dst = [LocalDrawable.texture retain];
+							FMetalTexture Src = Texture->Surface.Texture;
+							FMetalTexture Dst = LocalDrawable.texture;
 							
-							NSUInteger Width = FMath::Min(Src.width, Dst.width);
-							NSUInteger Height = FMath::Min(Src.height, Dst.height);
+							NSUInteger Width = FMath::Min(Src.GetWidth(), Dst.GetWidth());
+							NSUInteger Height = FMath::Min(Src.GetHeight(), Dst.GetHeight());
 							
-							id<MTLBlitCommandEncoder> Encoder = [CurrentCommandBuffer blitCommandEncoder];
-							check(Encoder);
+							mtlpp::BlitCommandEncoder Encoder = CurrentCommandBuffer.BlitCommandEncoder();
+							check(Encoder.GetPtr());
 							
-							[Encoder copyFromTexture:Src sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0, 0, 0) sourceSize:MTLSizeMake(Width, Height, 1) toTexture:Dst destinationSlice:0 destinationLevel:0 destinationOrigin:MTLOriginMake(0, 0, 0)];
+							Encoder.Copy(Src, 0, 0, mtlpp::Origin(0, 0, 0), mtlpp::Size(Width, Height, 1), Dst, 0, 0, mtlpp::Origin(0, 0, 0));
 							
-							[Encoder endEncoding];
+							Encoder.EndEncoding();
 							
-							[CurrentCommandBuffer addCompletedHandler:^(id<MTLCommandBuffer>) {
-								[Src release];
-								[Dst release];
-							}];
+							mtlpp::CommandBufferHandler H = [Src, Dst](const mtlpp::CommandBuffer &) {
+							};
+							
+							CurrentCommandBuffer.AddCompletedHandler(H);
 							
 							Drawable = nil;
 						}
       
 #if PLATFORM_MAC
-                        FCocoaWindow* Window = (FCocoaWindow*)GetWindow();
+						FMetalView* theView = View;
+						mtlpp::CommandBufferHandler C = [LocalDrawable, theView](const mtlpp::CommandBuffer &) {
+#else
+						mtlpp::CommandBufferHandler C = [LocalDrawable](const mtlpp::CommandBuffer &) {
 #endif
-                        [CurrentCommandBuffer addCompletedHandler:^(id<MTLCommandBuffer>) {
-                            [LocalDrawable release];
+							[LocalDrawable release];
 #if PLATFORM_MAC
-                            MainThreadCall(^{
-                                [Window startRendering];
-                            }, NSDefaultRunLoopMode, false);
+							MainThreadCall(^{
+								FCocoaWindow* Window = (FCocoaWindow*)[theView window];
+								[Window startRendering];
+							}, NSDefaultRunLoopMode, false);
 #endif
-                        }];                  
-                        
-                        [CurrentCommandBuffer addScheduledHandler:^(id<MTLCommandBuffer>) {
+						};
+						
+                       	mtlpp::CommandBufferHandler H = [LocalDrawable](mtlpp::CommandBuffer const&) {
 							[LocalDrawable present];
-						}];
+						};
+						
+						CurrentCommandBuffer.AddCompletedHandler(C);
+						CurrentCommandBuffer.AddScheduledHandler(H);
 						
 						FMetalGPUProfiler::RecordPresent(CurrentCommandBuffer);
 						

@@ -1298,6 +1298,8 @@ void FOpenGLFrontend::SetupPerVersionCompilationEnvironment(GLSLVersion Version,
 		default:
 			check(0);
 	}
+
+	AdditionalDefines.SetDefine(TEXT("OPENGL_PROFILE"), 1);
 }
 
 uint32 FOpenGLFrontend::GetMaxSamplers(GLSLVersion Version)
@@ -1469,10 +1471,7 @@ void FOpenGLFrontend::CompileShader(const FShaderCompilerInput& Input,FShaderCom
 	}
 
 	// This requires removing the HLSLCC_NoPreprocess flag later on!
-	if (!RemoveUniformBuffersFromSource(PreprocessedShader))
-	{
-		return;
-	}
+	RemoveUniformBuffersFromSource(Input.Environment, PreprocessedShader);
 
 	// Write out the preprocessed file and a batch file to compile it if requested (DumpDebugInfoPath is valid)
 	if (bDumpDebugInfo)

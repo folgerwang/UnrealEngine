@@ -64,8 +64,8 @@ APlayerCameraManager::APlayerCameraManager(const FObjectInitializer& ObjectIniti
 /// @cond DOXYGEN_WARNINGS
 
 void APlayerCameraManager::PhotographyCameraModify_Implementation(const FVector NewCameraLocation, const FVector PreviousCameraLocation, const FVector OriginalCameraLocation, FVector& OutCameraLocation)
-{	// let proposed camera through unmodified by default
-	OutCameraLocation = NewCameraLocation;
+{	
+	FCameraPhotographyManager::Get().DefaultConstrainCamera(NewCameraLocation, PreviousCameraLocation, OriginalCameraLocation, OutCameraLocation, this);
 }
 
 void APlayerCameraManager::OnPhotographySessionStart_Implementation()
@@ -1022,6 +1022,11 @@ void APlayerCameraManager::UpdateCameraPhotographyOnly()
 
 	// Cache results
 	FillCameraCache(NewPOV);
+}
+
+void APlayerCameraManager::UpdatePhotographyPostProcessing(FPostProcessSettings& InOutPostProcessingSettings)
+{
+	FCameraPhotographyManager::Get().UpdatePostProcessing(InOutPostProcessingSettings);
 }
 
 //! Overridable

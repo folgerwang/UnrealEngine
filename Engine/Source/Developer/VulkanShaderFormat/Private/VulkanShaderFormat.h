@@ -10,11 +10,12 @@ enum class EVulkanShaderVersion
 {
 	ES3_1,
 	ES3_1_UB,
-	SM4_UB,
+	ES3_1_ANDROID_UB,
+	SM4_NOUB,
 	ES3_1_ANDROID,
 	SM4,
 	SM5,
-	SM5_UB,
+	SM5_NOUB,
 };
 extern void CompileShader_Windows_Vulkan(const struct FShaderCompilerInput& Input,struct FShaderCompilerOutput& Output,const class FString& WorkingDirectory, EVulkanShaderVersion Version);
 

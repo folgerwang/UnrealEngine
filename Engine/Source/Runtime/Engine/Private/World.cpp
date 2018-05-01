@@ -509,14 +509,17 @@ bool UWorld::Rename(const TCHAR* InName, UObject* NewOuter, ERenameFlags Flags)
 	const bool bTestRename = (Flags & REN_Test) != 0;
 
 	// We're moving the world to a new package, rename UObjects which are map data but don't have the UWorld in their Outer chain.  There are two cases:
-	// 1) legacy lightmap textures and MapBuildData object will be in the same package as the UWorld
-	// 2) MapBuildData will be in a separate package with lightmap textures underneath it
+	// 1) legacy lightmap textures and MapBuildData object will be in the same package as the UWorld.  We need to move these to the new world package.
+	// 2) MapBuildData will be in a separate package with lightmap textures underneath it.  We need to move these to an appropriate build data package.
 	if (PersistentLevel->MapBuildData)
 	{
 		FName NewMapBuildDataName = PersistentLevel->MapBuildData->GetFName();
+		UObject* NewMapBuildDataOuter = nullptr;
 
 		if (PersistentLevel->MapBuildData->IsLegacyBuildData())
 		{
+			NewMapBuildDataOuter = NewOuter;
+
 			TArray<UTexture2D*> LightMapsAndShadowMaps;
 			GetLightMapsAndShadowMaps(PersistentLevel, LightMapsAndShadowMaps);
 
@@ -537,13 +540,12 @@ bool UWorld::Rename(const TCHAR* InName, UObject* NewOuter, ERenameFlags Flags)
 			NewMapBuildDataName = FPackageName::GetShortFName(*NewPackageName);
 			UPackage* BuildDataPackage = PersistentLevel->MapBuildData->GetOutermost();
 
-			if (!BuildDataPackage->Rename(*NewPackageName, NewOuter, Flags))
-			{
-				return false;
-			}
+			BuildDataPackage->Rename(*NewPackageName, nullptr, Flags);
+
+			NewMapBuildDataOuter = BuildDataPackage;
 		}
 
-		if (!PersistentLevel->MapBuildData->Rename(*NewMapBuildDataName.ToString(), NewOuter, Flags))
+		if (!PersistentLevel->MapBuildData->Rename(*NewMapBuildDataName.ToString(), NewMapBuildDataOuter, Flags))
 		{
 			return false;
 		}
@@ -1360,6 +1362,8 @@ void UWorld::InitWorld(const InitializationValues IVS)
 	PersistentLevel->PrecomputedVisibilityHandler.UpdateScene(Scene);
 	PersistentLevel->PrecomputedVolumeDistanceField.UpdateScene(Scene);
 	PersistentLevel->InitializeRenderingResources();
+
+	IStreamingManager::Get().AddLevel(PersistentLevel);
 
 	BroadcastLevelsChanged();
 }

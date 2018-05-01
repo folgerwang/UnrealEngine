@@ -13,6 +13,9 @@
 
 extern CORE_API bool GIsGPUCrashed;
 
+static FString		EventDeepString(TEXT("EventTooDeep"));
+static const uint32	EventDeepCRC = FCrc::StrCrc32<TCHAR>(*EventDeepString);
+
 /**
  * Initializes the static variables, if necessary.
  */
@@ -37,6 +40,49 @@ void FVulkanGPUTiming::PlatformStaticInitialize(void* UserData)
 		GTimingFrequency = 1;
 #endif
 	}
+}
+
+void FVulkanGPUTiming::CalibrateTimers(FVulkanCommandListContext& InCmdContext)
+{
+#if VULKAN_USE_NEW_QUERIES
+
+	// TODO: Implement VULKAN_USE_NEW_QUERIES version
+
+#else
+
+	FVulkanDevice* Device = InCmdContext.GetDevice();
+	FOLDVulkanRenderQuery* TimestampQuery = new FOLDVulkanRenderQuery(Device, RQT_AbsoluteTime);
+
+	{
+		FVulkanCmdBuffer* CmdBuffer = InCmdContext.GetCommandBufferManager()->GetUploadCmdBuffer();
+		InCmdContext.EndRenderQueryInternal(CmdBuffer, TimestampQuery);
+		InCmdContext.GetCommandBufferManager()->SubmitUploadCmdBuffer();
+	}
+
+	uint64 CPUTimestamp = 0;
+	uint64 GPUTimestampMicroseconds = 0;
+
+	const bool bWait = true;
+	if (TimestampQuery->GetResult(Device, GPUTimestampMicroseconds, bWait))
+	{
+		CPUTimestamp = FPlatformTime::Cycles64();
+
+		GCalibrationTimestamp.CPUMicroseconds = uint64(FPlatformTime::ToSeconds64(CPUTimestamp) * 1e6);
+		GCalibrationTimestamp.GPUMicroseconds = GPUTimestampMicroseconds;
+	}
+
+	delete TimestampQuery;
+
+#endif
+}
+
+void FVulkanDynamicRHI::RHICalibrateTimers()
+{
+	check(IsInRenderingThread());
+
+	FScopedRHIThreadStaller StallRHIThread(FRHICommandListExecutor::GetImmediateCommandList());
+
+	FVulkanGPUTiming::CalibrateTimers(GetDevice()->GetImmediateContext());
 }
 
 /**
@@ -287,6 +333,16 @@ float FVulkanEventNode::GetTiming()
 
 void FVulkanGPUProfiler::BeginFrame()
 {
+#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+	if (Device->GetOptionalExtensions().HasAMDBufferMarker)
+	{
+		static auto* CrashCollectionEnableCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.gpucrash.collectionenable"));
+		static auto* CrashCollectionDataDepth = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.gpucrash.datadepth"));
+		bTrackingGPUCrashData = CrashCollectionEnableCvar ? CrashCollectionEnableCvar->GetValueOnRenderThread() != 0 : false;
+		GPUCrashDataDepth = CrashCollectionDataDepth ? CrashCollectionDataDepth->GetValueOnRenderThread() : -1;
+	}
+#endif
+
 	bCommandlistSubmitted = false;
 	CurrentEventNode = NULL;
 	check(!bTrackingEvents);
@@ -389,6 +445,56 @@ void FVulkanGPUProfiler::EndFrame()
 		CurrentEventNodeFrame = nullptr;
 	}
 }
+
+#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+void FVulkanGPUProfiler::PushMarkerForCrash(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TCHAR* Name)
+{
+	uint32 CRC = 0;
+	if (GPUCrashDataDepth < 0 || PushPopStack.Num() < GPUCrashDataDepth)
+	{
+		CRC = FCrc::StrCrc32<TCHAR>(Name);
+
+		if (CachedStrings.Num() > 10000)
+		{
+			CachedStrings.Empty(10000);
+			CachedStrings.Emplace(EventDeepCRC, EventDeepString);
+		}
+
+		if (CachedStrings.Find(CRC) == nullptr)
+		{
+			CachedStrings.Emplace(CRC, FString(Name));
+		}
+	}
+	else
+	{
+		CRC = EventDeepCRC;
+	}
+
+	PushPopStack.Push(CRC);
+	FVulkanPlatform::WriteBufferMarkerAMD(CmdBuffer, DestBuffer, TArrayView<uint32>(PushPopStack), true);
+}
+
+void FVulkanGPUProfiler::PopMarkerForCrash(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer)
+{
+	if (PushPopStack.Num() > 0)
+	{
+		PushPopStack.Pop(false);
+		FVulkanPlatform::WriteBufferMarkerAMD(CmdBuffer, DestBuffer, TArrayView<uint32>(PushPopStack), false);
+	}
+}
+
+void FVulkanGPUProfiler::DumpCrashMarkers(void* BufferData)
+{
+	uint32* Entries = (uint32*)BufferData;
+	uint32 NumCRCs = *Entries++;
+	for (uint32 Index = 0; Index < NumCRCs; ++Index)
+	{
+		const FString* Frame = CachedStrings.Find(*Entries);
+		UE_LOG(LogVulkanRHI, Error, TEXT("[VK_AMD_buffer_info] %i: %s (CRC 0x%x)"), Index, Frame ? *(*Frame) : TEXT("<undefined>"), *Entries);
+		++Entries;
+	}
+}
+#endif
 
 #include "VulkanRHIBridge.h"
 namespace VulkanRHIBridge
@@ -494,9 +600,17 @@ namespace VulkanRHI
 		UE_LOG(LogVulkanRHI, Error, TEXT("%s failed, VkResult=%d\n at %s:%u \n with error %s"),
 			ANSI_TO_TCHAR(VkFunction), (int32)Result, ANSI_TO_TCHAR(Filename), Line, *ErrorString);
 
-		//#todo-rco: Don't need this yet...
-		//TerminateOnDeviceRemoved(Result);
-		//TerminateOnOutOfMemory(Result, false);
+#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+		if (GIsGPUCrashed)
+		{
+			FVulkanDynamicRHI* RHI = (FVulkanDynamicRHI*)GDynamicRHI;
+			FVulkanDevice* Device = RHI->GetDevice();
+			if (Device->GetOptionalExtensions().HasAMDBufferMarker)
+			{
+				Device->GetImmediateContext().GetGPUProfiler().DumpCrashMarkers(Device->GetCrashMarkerMappedPointer());
+			}
+		}
+#endif
 
 		UE_LOG(LogVulkanRHI, Fatal, TEXT("%s failed, VkResult=%d\n at %s:%u \n with error %s"),
 			ANSI_TO_TCHAR(VkFunction), (int32)Result, ANSI_TO_TCHAR(Filename), Line, *ErrorString);
@@ -541,6 +655,7 @@ DEFINE_STAT(STAT_VulkanDescriptorSetAllocator);
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 DEFINE_STAT(STAT_VulkanUpdateDescriptorSets);
 DEFINE_STAT(STAT_VulkanNumUpdateDescriptors);
+DEFINE_STAT(STAT_VulkanNumRedundantDescSets);
 DEFINE_STAT(STAT_VulkanNumDescSets);
 DEFINE_STAT(STAT_VulkanSetUniformBufferTime);
 DEFINE_STAT(STAT_VulkanVkUpdateDS);

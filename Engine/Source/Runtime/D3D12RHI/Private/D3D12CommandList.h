@@ -415,8 +415,14 @@ public:
 
 	bool IsComplete(uint64 Generation) const
 	{
-		check(CommandListData);
-		return CommandListData->IsComplete(Generation);
+		if (CommandListData) // Can be null with mGPU
+		{
+			return CommandListData->IsComplete(Generation);
+		}
+		else
+		{
+			return true;
+		}
 	}
 
 	void WaitForCompletion(uint64 Generation) const
@@ -525,6 +531,11 @@ public:
 #if DEBUG_RESOURCE_STATES
 		::LogResourceBarriers(CommandListData->ResourceBarriers.Num(), CommandListData->ResourceBarriers.GetData(), CommandList());
 #endif
+	}
+
+	FORCEINLINE uint32 GetGPUIndex() const 
+	{
+		return CommandListData ? CommandListData->GetGPUIndex() : 0;
 	}
 
 private:

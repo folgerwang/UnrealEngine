@@ -30,6 +30,7 @@
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #include "Interfaces/ITextureFormat.h"
 #include "Engine/TextureCube.h"
+#include "Engine/VolumeTexture.h"
 #include "ProfilingDebugging/CookStats.h"
 
 /*------------------------------------------------------------------------------
@@ -42,7 +43,7 @@
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID and set this new
 // guid as version
 
-#define TEXTURE_DERIVEDDATA_VER		TEXT("814DCC3DC72143F49509781513CB9855")
+#define TEXTURE_DERIVEDDATA_VER		TEXT("68A083899C6F4316B8CE0E2958EDE2C2")
 
 #if ENABLE_COOK_STATS
 namespace TextureCookStats
@@ -270,6 +271,9 @@ static void GetTextureBuildSettings(
 	OutBuildSettings.bComputeBokehAlpha = (Texture.LODGroup == TEXTUREGROUP_Bokeh);
 	OutBuildSettings.bReplicateAlpha = false;
 	OutBuildSettings.bReplicateRed = false;
+	OutBuildSettings.bVolume = false;
+	OutBuildSettings.bCubemap = false;
+
 	if (Texture.MaxTextureSize > 0)
 	{
 		OutBuildSettings.MaxTextureResolution = Texture.MaxTextureSize;
@@ -287,9 +291,14 @@ static void GetTextureBuildSettings(
 			OutBuildSettings.MaxTextureResolution = 512;
 		}
 	}
+	else if (Texture.IsA(UVolumeTexture::StaticClass()))
+	{
+		OutBuildSettings.bVolume = true;
+		OutBuildSettings.DiffuseConvolveMipLevel = 0;
+		OutBuildSettings.bLongLatSource = false;
+	}
 	else
 	{
-		OutBuildSettings.bCubemap = false;
 		OutBuildSettings.DiffuseConvolveMipLevel = 0;
 		OutBuildSettings.bLongLatSource = false;
 	}
@@ -704,7 +713,8 @@ static void BeginLoadDerivedMips(TIndirectArray<FTexture2DMipMap>& Mips, int32 F
 /** Asserts that MipSize is correct for the mipmap. */
 static void CheckMipSize(FTexture2DMipMap& Mip, EPixelFormat PixelFormat, int32 MipSize)
 {
-	if (MipSize != CalcTextureMipMapSize(Mip.SizeX, Mip.SizeY, PixelFormat, 0))
+	// Only volume can have SizeZ != 1
+	if (MipSize != Mip.SizeZ * CalcTextureMipMapSize(Mip.SizeX, Mip.SizeY, PixelFormat, 0))
 	{
 		UE_LOG(LogTexture, Warning,
 			TEXT("%dx%d mip of %s texture has invalid data in the DDC. Got %d bytes, expected %d. Key=%s"),
@@ -1548,8 +1558,8 @@ void UTexture::SerializeCookedPlatformData(FArchive& Ar)
 				PlatformDataToSave->FinishCache();
 				FName PixelFormatName = PixelFormatEnum->GetNameByValue(PlatformDataToSave->PixelFormat);
 				Ar << PixelFormatName;
-				int32 SkipOffsetLoc = Ar.Tell();
-				int32 SkipOffset = 0;
+				int64 SkipOffsetLoc = Ar.Tell();
+				int64 SkipOffset = 0;
 
 				{
 					FArchive::FScopeSetDebugSerializationFlags S(Ar,DSF_IgnoreDiff);
@@ -1587,7 +1597,7 @@ void UTexture::SerializeCookedPlatformData(FArchive& Ar)
 		while (PixelFormatName != NAME_None)
 		{
 			EPixelFormat PixelFormat = (EPixelFormat)PixelFormatEnum->GetValueByName(PixelFormatName);
-			int32 SkipOffset = 0;
+			int64 SkipOffset = 0;
 			Ar << SkipOffset;
 			bool bFormatSupported = GPixelFormats[PixelFormat].Supported;
 			if (RunningPlatformData->PixelFormat == PF_Unknown && bFormatSupported)

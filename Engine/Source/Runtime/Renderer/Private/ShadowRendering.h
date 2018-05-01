@@ -40,23 +40,23 @@ class FViewInfo;
 
 /** Uniform buffer for rendering deferred lights. */
 BEGIN_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector,LightPosition)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float,LightInvRadius)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector,LightColor)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float,LightFalloffExponent)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector,NormalizedLightDirection)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector,NormalizedLightTangent)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector2D,SpotAngles)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float,SourceRadius)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float,SoftSourceRadius)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float,SourceLength)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float,MinRoughness)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float,ContactShadowLength)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector2D,DistanceFadeMAD)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4,ShadowMapChannelMask)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,ShadowedBits)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,LightingChannelMask)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float,VolumetricScatteringIntensity)
+	UNIFORM_MEMBER(FVector,LightPosition)
+	UNIFORM_MEMBER(float,LightInvRadius)
+	UNIFORM_MEMBER(FVector,LightColor)
+	UNIFORM_MEMBER(float,LightFalloffExponent)
+	UNIFORM_MEMBER(FVector,NormalizedLightDirection)
+	UNIFORM_MEMBER(FVector,NormalizedLightTangent)
+	UNIFORM_MEMBER(FVector2D,SpotAngles)
+	UNIFORM_MEMBER(float,SourceRadius)
+	UNIFORM_MEMBER(float,SoftSourceRadius)
+	UNIFORM_MEMBER(float,SourceLength)
+	UNIFORM_MEMBER(float,MinRoughness)
+	UNIFORM_MEMBER(float,ContactShadowLength)
+	UNIFORM_MEMBER(FVector2D,DistanceFadeMAD)
+	UNIFORM_MEMBER(FVector4,ShadowMapChannelMask)
+	UNIFORM_MEMBER(uint32,ShadowedBits)
+	UNIFORM_MEMBER(uint32,LightingChannelMask)
+	UNIFORM_MEMBER(float,VolumetricScatteringIntensity)
 END_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct)
 
 extern uint32 GetShadowQuality();
@@ -123,6 +123,16 @@ void SetDeferredLightParameters(
 	if (ContactShadowsCVar && ContactShadowsCVar->GetValueOnRenderThread() != 0 && View.Family->EngineShowFlags.ContactShadows)
 	{
 		DeferredLightUniformsValue.ContactShadowLength = LightSceneInfo->Proxy->GetContactShadowLength();
+		if (LightSceneInfo->Proxy->IsContactShadowLengthInWS())
+		{ 
+			// Sign indicates if contact shadow length is in world space or screen space.
+			DeferredLightUniformsValue.ContactShadowLength = -DeferredLightUniformsValue.ContactShadowLength;
+		}
+		else
+		{
+			// Multiply by 2 in order to preserve old values after introducing multiply by View.ClipToView[1][1] in shader.
+			DeferredLightUniformsValue.ContactShadowLength *= 2.0f;
+		}
 	}
 
 	// When rendering reflection captures, the direct lighting of the light is actually the indirect specular from the main view
@@ -1325,9 +1335,10 @@ template<bool bModulatedShadows>
 class TShadowProjectionShaderParameters
 {
 public:
-	void Bind(const FShaderParameterMap& ParameterMap)
+	void Bind(const FShader::CompiledShaderInitializerType& Initializer)
 	{
-		DeferredParameters.Bind(ParameterMap);
+		const FShaderParameterMap& ParameterMap = Initializer.ParameterMap;
+		SceneTextureParameters.Bind(Initializer);
 		ScreenToShadowMatrix.Bind(ParameterMap,TEXT("ScreenToShadowMatrix"));
 		SoftTransitionScale.Bind(ParameterMap,TEXT("SoftTransitionScale"));
 		ShadowBufferSize.Bind(ParameterMap,TEXT("ShadowBufferSize"));
@@ -1343,7 +1354,7 @@ public:
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = Shader->GetPixelShader();
 
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_Surface);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		const FIntPoint ShadowBufferResolution = ShadowInfo->GetShadowBufferResolution();
 
@@ -1424,7 +1435,7 @@ public:
 	/** Serializer. */
 	friend FArchive& operator<<(FArchive& Ar, TShadowProjectionShaderParameters& P)
 	{
-		Ar << P.DeferredParameters;
+		Ar << P.SceneTextureParameters;
 		Ar << P.ScreenToShadowMatrix;
 		Ar << P.SoftTransitionScale;
 		Ar << P.ShadowBufferSize;
@@ -1439,7 +1450,7 @@ public:
 
 private:
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter ScreenToShadowMatrix;
 	FShaderParameter SoftTransitionScale;
 	FShaderParameter ShadowBufferSize;
@@ -1473,7 +1484,7 @@ public:
 	TShadowProjectionPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
 		FShadowProjectionPixelShaderInterface(Initializer)
 	{
-		ProjectionParameters.Bind(Initializer.ParameterMap);
+		ProjectionParameters.Bind(Initializer);
 		ShadowFadeFraction.Bind(Initializer.ParameterMap,TEXT("ShadowFadeFraction"));
 		ShadowSharpen.Bind(Initializer.ParameterMap,TEXT("ShadowSharpen"));
 	}
@@ -1818,7 +1829,7 @@ public:
 	TOnePassPointShadowProjectionPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
 		FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		OnePassShadowParameters.Bind(Initializer.ParameterMap);
 		ShadowDepthTextureSampler.Bind(Initializer.ParameterMap,TEXT("ShadowDepthTextureSampler"));
 		LightPosition.Bind(Initializer.ParameterMap,TEXT("LightPositionAndInvRadius"));
@@ -1849,7 +1860,7 @@ public:
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI,View.ViewUniformBuffer);
 
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_Surface);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 		OnePassShadowParameters.Set(RHICmdList, ShaderRHI, ShadowInfo);
 
 		const FLightSceneProxy& LightProxy = *(ShadowInfo->GetLightSceneInfo().Proxy);
@@ -1873,7 +1884,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << OnePassShadowParameters;
 		Ar << ShadowDepthTextureSampler;
 		Ar << LightPosition;
@@ -1884,7 +1895,7 @@ public:
 	}
 
 private:
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FOnePassPointShadowProjectionShaderParameters OnePassShadowParameters;
 	FShaderResourceParameter ShadowDepthTextureSampler;
 	FShaderParameter LightPosition;

@@ -219,7 +219,6 @@ void NiagaraEmitterInstanceBatcher::Run(FNiagaraDataSet *DataSet, uint32 Phase0S
 	CBufferLayout.ConstantBufferSize = Params.Num();
 	if (CBufferLayout.ConstantBufferSize)
 	{
-		CBufferLayout.ResourceOffset = 0;
 		check(CBufferLayout.Resources.Num() == 0);
 		const uint8* ParamData = Params.GetData();
 		FUniformBufferRHIRef CBuffer = RHICreateUniformBuffer(ParamData, CBufferLayout, EUniformBufferUsage::UniformBuffer_MultiFrame);

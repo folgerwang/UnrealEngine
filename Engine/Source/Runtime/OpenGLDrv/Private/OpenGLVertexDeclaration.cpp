@@ -50,7 +50,7 @@ struct FOpenGLVertexDeclarationKey
 				case VET_Float2:		SetupGLElement(GLElement, GL_FLOAT,			2,			false,	true); break;
 				case VET_Float3:		SetupGLElement(GLElement, GL_FLOAT,			3,			false,	true); break;
 				case VET_Float4:		SetupGLElement(GLElement, GL_FLOAT,			4,			false,	true); break;
-				case VET_PackedNormal:	SetupGLElement(GLElement, GL_UNSIGNED_BYTE,	4,			true,	true); break;
+				case VET_PackedNormal:	SetupGLElement(GLElement, GL_BYTE,			4,			true,	true); break;
 				case VET_UByte4:		SetupGLElement(GLElement, GL_UNSIGNED_BYTE,	4,			false,	false); break;
 				case VET_UByte4N:		SetupGLElement(GLElement, GL_UNSIGNED_BYTE,	4,			true,	true); break;
 				case VET_Color:	

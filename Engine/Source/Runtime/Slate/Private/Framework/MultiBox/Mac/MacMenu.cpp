@@ -497,21 +497,42 @@ NSString* FSlateMacMenu::GetMenuItemKeyEquivalent(const TSharedRef<const class F
 		{
 			if (Chord->NeedsControl())
 			{
-				*OutModifiers |= NSControlKeyMask;
+				*OutModifiers |= NSEventModifierFlagControl;
 			}
 			if (Chord->NeedsShift())
 			{
-				*OutModifiers |= NSShiftKeyMask;
+				*OutModifiers |= NSEventModifierFlagShift;
 			}
 			if (Chord->NeedsAlt())
 			{
-				*OutModifiers |= NSAlternateKeyMask;
+				*OutModifiers |= NSEventModifierFlagOption;
 			}
 			if (Chord->NeedsCommand())
 			{
-				*OutModifiers |= NSCommandKeyMask;
+				*OutModifiers |= NSEventModifierFlagCommand;
 			}
-
+			
+			// Compute Unicode character for Key
+			const uint32* KeyCodePtr = nullptr;
+			const uint32* CharCodePtr = nullptr;
+			FInputKeyManager::Get().GetCodesFromKey(Chord->Key, KeyCodePtr, CharCodePtr);
+			
+			unichar UniChar = 0;
+			if(CharCodePtr != nullptr)
+			{
+				UniChar = (unichar)(*CharCodePtr);
+			}
+			else if(KeyCodePtr != nullptr)
+			{
+				UniChar = FMacApplication::TranslateKeyCodeToUniCode(*KeyCodePtr, *OutModifiers);
+			}
+			
+			if(UniChar != 0)
+			{
+				return [[[NSString alloc] initWithCharacters:&UniChar length:1] autorelease];
+			}
+			
+			// Fall through to default old behaviour as a last resort
 			FString KeyString = Chord->GetKeyText().ToString().ToLower();
 			return KeyString.GetNSString();
 		}

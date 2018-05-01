@@ -126,7 +126,7 @@ FSamplerStateRHIRef FD3D12DynamicRHI::RHICreateSamplerState(const FSamplerStateI
 {
 	FD3D12Adapter* Adapter = &GetAdapter();
 
-	return Adapter->CreateLinkedObject<FD3D12SamplerState>([&](FD3D12Device* Device)
+	return Adapter->CreateLinkedObject<FD3D12SamplerState>(FRHIGPUMask::All(), [&](FD3D12Device* Device)
 	{
 		return Device->CreateSampler(Initializer);
 	});
@@ -325,7 +325,10 @@ FGraphicsPipelineStateRHIRef FD3D12DynamicRHI::RHICreateGraphicsPipelineState(co
 	GraphicsDesc.RasterizerState = &FD3D12DynamicRHI::ResourceCast(Initializer.RasterizerState)->Desc;
 	GraphicsDesc.DepthStencilState = &FD3D12DynamicRHI::ResourceCast(Initializer.DepthStencilState)->Desc;
 	GraphicsDesc.SampleMask = 0xFFFFFFFF;
-	GraphicsDesc.PrimitiveTopologyType = D3D12PrimitiveTypeToTopologyType(TranslatePrimitiveType(Initializer.PrimitiveType));
+
+	extern D3D_PRIMITIVE_TOPOLOGY GetD3D12PrimitiveType(uint32, bool);
+	bool bUseTessellation = GraphicsDesc.BoundShaderState->GetHullShader() && GraphicsDesc.BoundShaderState->GetDomainShader();
+	GraphicsDesc.PrimitiveTopologyType = D3D12PrimitiveTypeToTopologyType(GetD3D12PrimitiveType(Initializer.PrimitiveType, bUseTessellation));
 
 	TranslateRenderTargetFormats(Initializer, GraphicsDesc.RTVFormats, GraphicsDesc.DSVFormat);
 	GraphicsDesc.NumRenderTargets = Initializer.ComputeNumValidRenderTargets();

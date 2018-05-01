@@ -27,10 +27,11 @@ static TAutoConsoleVariable<int32> CVarMobileSeparateMaskedPass(
 	1,
 	TEXT("Draw masked primitives in separate pass after all opaque (default)"),
 	ECVF_RenderThreadSafe);
+IMPLEMENT_UNIFORM_BUFFER_STRUCT(FMobileBasePassUniformParameters, TEXT("MobileBasePass"));
 
 static TAutoConsoleVariable<int32> CVarMobileParallelBasePass(
 	TEXT("r.Mobile.ParallelBasePass"),
-	1,
+	0,
 	TEXT("Toggles parallel base pass rendering for the mobile renderer. Parallel rendering must be enabled for this to have an effect."),
 	ECVF_RenderThreadSafe
 );
@@ -310,7 +311,6 @@ public:
 				LightMapPolicy,
 				Parameters.NumMovablePointLights,
 				Parameters.BlendMode,
-				Parameters.TextureMode,
 				Parameters.ShadingModel != MSM_Unlit && Scene->ShouldRenderSkylightInBasePass(Parameters.BlendMode),
 				ComputeMeshOverrideSettings(Parameters.Mesh),
 				DVSM_None,
@@ -344,7 +344,6 @@ void FMobileBasePassOpaqueDrawingPolicyFactory::AddStaticMesh(FRHICommandList& R
 				Material,
 				StaticMesh->PrimitiveSceneInfo->Proxy,
 				true,
-				ESceneRenderTargetsMode::DontSet,
 				FeatureLevel
 			),
 			FDrawMobileBasePassStaticMeshAction(Scene, StaticMesh)
@@ -442,7 +441,6 @@ public:
 			LightMapPolicy,
 			Parameters.NumMovablePointLights,
 			Parameters.BlendMode,
-			Parameters.TextureMode,
 			Parameters.ShadingModel != MSM_Unlit && Scene && Scene->ShouldRenderSkylightInBasePass(Parameters.BlendMode),
 			ComputeMeshOverrideSettings(Parameters.Mesh),
 			View.Family->GetDebugViewShaderMode(),
@@ -500,7 +498,6 @@ bool FMobileBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(
 			Material, 
 			PrimitiveSceneProxy, 
 			true, 
-			DrawingContext.TextureMode, 
 			View.GetFeatureLevel()
 		),
 		FDrawMobileBasePassDynamicMeshAction(
@@ -660,7 +657,22 @@ static void DrawVisible(
 	}
 }
 
-void FMobileSceneRenderer::RenderMobileEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, FDrawingPolicyRenderState& DrawRenderState)
+void CreateMobileBasePassUniformBuffer(
+	FRHICommandListImmediate& RHICmdList, 
+	const FViewInfo& View,
+	bool bTranslucentPass,
+	TUniformBufferRef<FMobileBasePassUniformParameters>& BasePassUniformBuffer)
+{
+	FMobileBasePassUniformParameters BasePassParameters;
+	SetupFogUniformParameters(View, BasePassParameters.Fog);
+
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+	SetupMobileSceneTextureUniformParameters(SceneContext, View.FeatureLevel, bTranslucentPass, BasePassParameters.SceneTextures);
+
+	BasePassUniformBuffer = TUniformBufferRef<FMobileBasePassUniformParameters>::CreateUniformBufferImmediate(BasePassParameters, UniformBuffer_SingleFrame);
+}
+
+void FMobileSceneRenderer::RenderMobileEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_EditorDynamicPrimitiveDrawTime);
 	SCOPED_DRAW_EVENT(RHICmdList, DynamicEd);
@@ -672,13 +684,13 @@ void FMobileSceneRenderer::RenderMobileEditorPrimitives(FRHICommandList& RHICmdL
 		const bool bNeedToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(GShaderPlatformForFeatureLevel[FeatureLevel]) && !IsMobileHDR();
 
 		// Draw the base pass for the view's batched mesh elements.
-		DrawViewElements<FMobileBasePassOpaqueDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, FMobileBasePassOpaqueDrawingPolicyFactory::ContextType(ESceneRenderTargetsMode::DontSet), SDPG_World, true);
+		DrawViewElements<FMobileBasePassOpaqueDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, FMobileBasePassOpaqueDrawingPolicyFactory::ContextType(), SDPG_World, true);
 
 		// Draw the view's batched simple elements(lines, sprites, etc).
 		View.BatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false);
 
 		// Draw foreground objects last
-		DrawViewElements<FMobileBasePassOpaqueDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, FMobileBasePassOpaqueDrawingPolicyFactory::ContextType(ESceneRenderTargetsMode::DontSet), SDPG_Foreground, true);
+		DrawViewElements<FMobileBasePassOpaqueDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, FMobileBasePassOpaqueDrawingPolicyFactory::ContextType(), SDPG_Foreground, true);
 
 		// Draw the view's batched simple elements(lines, sprites, etc).
 		View.TopBatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false);
@@ -696,7 +708,7 @@ void FMobileSceneRenderer::RenderMobileBasePassDynamicData(FRHICommandList& RHIC
 	SCOPE_CYCLE_COUNTER(STAT_DynamicPrimitiveDrawTime);
 	SCOPED_DRAW_EVENT(RHICmdList, Dynamic);
 
-	FMobileBasePassOpaqueDrawingPolicyFactory::ContextType Context(ESceneRenderTargetsMode::DontSet);
+	FMobileBasePassOpaqueDrawingPolicyFactory::ContextType Context;
 
 	for (int32 Index = FirstElement; Index < AfterLastElement; Index++)
 	{
@@ -777,12 +789,17 @@ DECLARE_CYCLE_STAT(TEXT("MobileBasepass"), STAT_CLP_MobileBasepass, STATGROUP_Pa
 class FMobileBasePassParallelCommandListSet : public FParallelCommandListSet
 {
 public:
-
 	const FSceneViewFamily& ViewFamily;
 
-
-	FMobileBasePassParallelCommandListSet(const FViewInfo& InView, const FSceneRenderer* InSceneRenderer, FRHICommandListImmediate& InParentCmdList, bool bInParallelExecute, bool bInCreateSceneContext, const FSceneViewFamily& InViewFamily)
-		: FParallelCommandListSet(GET_STATID(STAT_CLP_MobileBasepass), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext)
+	FMobileBasePassParallelCommandListSet(
+		const FViewInfo& InView, 
+		const FSceneRenderer* InSceneRenderer, 
+		FRHICommandListImmediate& InParentCmdList, 
+		bool bInParallelExecute, 
+		bool bInCreateSceneContext, 
+		const FSceneViewFamily& InViewFamily, 
+		const FDrawingPolicyRenderState& InDrawRenderState)
+		: FParallelCommandListSet(GET_STATID(STAT_CLP_MobileBasepass), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext, InDrawRenderState)
 		, ViewFamily(InViewFamily)
 	{
 		SetStateOnCommandList(ParentCmdList);
@@ -848,10 +865,9 @@ public:
 	}
 };
 
-void FMobileSceneRenderer::RenderMobileBasePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, TArray<FViewInfo>& InViews)
+void FMobileSceneRenderer::RenderMobileBasePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, TArray<FViewInfo>& InViews, const FDrawingPolicyRenderState& DrawRenderState)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_RenderMobileBasePassViewParallel);
-	FDrawingPolicyRenderState DrawRenderState(View);
 	FMobileBasePassViewInfo VI(View, InViews);
 
 	bool bCreateContexts = false; // CVarRHICmdFlushRenderThreadTasksBasePass.GetValueOnRenderThread() == 0 && CVarRHICmdFlushRenderThreadTasks.GetValueOnRenderThread() == 0;
@@ -862,7 +878,8 @@ void FMobileSceneRenderer::RenderMobileBasePassViewParallel(const FViewInfo& Vie
 		FMobileBasePassParallelCommandListSet ParallelSet(View, this, ParentCmdList,
 			false, // no support for deferred contexts yet
 			bCreateContexts,
-			ViewFamily
+			ViewFamily,
+			DrawRenderState
 			);
 
 		if (bIsCSM)
@@ -907,7 +924,8 @@ void FMobileSceneRenderer::RenderMobileBasePassViewParallel(const FViewInfo& Vie
 		FMobileBasePassParallelCommandListSet ParallelSet(View, this, ParentCmdList,
 			false, // no support for deferred contexts yet
 			bCreateContexts,
-			ViewFamily
+			ViewFamily,
+			DrawRenderState
 		);
 
 		if (bIsCSM)
@@ -961,7 +979,12 @@ void FMobileSceneRenderer::RenderMobileBasePass(FRHICommandListImmediate& RHICmd
 			{
 				continue;
 			}
-			RenderMobileBasePassViewParallel(View, RHICmdList, Views);
+
+			TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
+			CreateMobileBasePassUniformBuffer(RHICmdList, View, false, BasePassUniformBuffer);
+			FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
+			SetupMobileBasePassView(RHICmdList, View, DrawRenderState);
+			RenderMobileBasePassViewParallel(View, RHICmdList, Views, DrawRenderState);
 		}
 	}
 	else
@@ -978,9 +1001,11 @@ void FMobileSceneRenderer::RenderMobileBasePass(FRHICommandListImmediate& RHICmd
 				continue;
 			}
 
-			FDrawingPolicyRenderState DrawRenderState(View);
-			SetupMobileBasePassView(RHICmdList, View, DrawRenderState);
+			TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
+			CreateMobileBasePassUniformBuffer(RHICmdList, View, false, BasePassUniformBuffer);
+			FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
 
+			SetupMobileBasePassView(RHICmdList, View, DrawRenderState);
 
 			FMobileBasePassViewInfo VI(View, Views);
 

@@ -9,16 +9,26 @@ D3D12RHICommon.h: Common D3D12 RHI definitions for Windows.
 DECLARE_STATS_GROUP(TEXT("D3D12RHI"), STATGROUP_D3D12RHI, STATCAT_Advanced);
 
 #include "Windows/WindowsHWrapper.h"
+#include "D3D12RHI.h"
+#include "MultiGPU.h"
 
 class FD3D12Adapter;
 class FD3D12Device;
 
 // MGPU defines.
+#if WITH_SLI
 #define MAX_NUM_LDA_NODES 4
-static const bool GEnableMGPU = false;
-typedef uint32 GPUNodeMask;
-static const GPUNodeMask GDefaultGPUMask = 1;
-static const GPUNodeMask GAllGPUsMask = MAXUINT32;
+#else
+#define MAX_NUM_LDA_NODES 1
+#endif
+
+// Defines a unique command queue type within a FD3D12Device (owner by the command list managers).
+enum class ED3D12CommandQueueType
+{
+	Default,
+	Copy,
+	Async
+};
 
 class FD3D12AdapterChild
 {
@@ -71,55 +81,46 @@ public:
 class FD3D12GPUObject
 {
 public:
-	FD3D12GPUObject(const GPUNodeMask& NodeMask, const GPUNodeMask& VisibiltyMask)
-		: m_NodeMask(NodeMask)
-		, m_VisibilityMask(VisibiltyMask)
+	FD3D12GPUObject(const FRHIGPUMask& InNodeMask, const FRHIGPUMask& InVisibiltyMask)
+		: NodeMask(InNodeMask)
+		, VisibilityMask(InVisibiltyMask)
 	{
-		check(NodeMask != 0);// GPU Objects must have some kind of affinity to a GPU Node
+		// Note that node mask can't be null.
 	}
 
-	FORCEINLINE const GPUNodeMask GetNodeMask() const { return m_NodeMask; }
-	FORCEINLINE const GPUNodeMask GetVisibilityMask() const { return m_VisibilityMask; }
+	FORCEINLINE const FRHIGPUMask& GetNodeMask() const { return NodeMask; }
+	FORCEINLINE const FRHIGPUMask& GetVisibilityMask() const { return VisibilityMask; }
 
 protected:
-	const GPUNodeMask m_NodeMask;
+	const FRHIGPUMask NodeMask;
 	// Which GPUs have direct access to this object
-	const GPUNodeMask m_VisibilityMask;
+	const FRHIGPUMask VisibilityMask;
 };
 
 class FD3D12SingleNodeGPUObject : public FD3D12GPUObject
 {
 public:
-	FD3D12SingleNodeGPUObject(const GPUNodeMask& NodeMask)
-		: m_DeviceIndex(DetermineGPUIndex(NodeMask))
+	FD3D12SingleNodeGPUObject(const FRHIGPUMask& NodeMask)
+		: GPUIndex(NodeMask.ToIndex())
 		, FD3D12GPUObject(NodeMask, NodeMask)
 	{}
 
-	static FORCEINLINE const uint32_t DetermineGPUIndex(const GPUNodeMask& NodeMask)
+	FORCEINLINE const uint32 GetGPUIndex() const
 	{
-		check(__popcnt(NodeMask) == 1);// Single Node GPU objects must only have 1 bit set in their Node Mask
-
-		unsigned long ReturnValue = 0;
-		BitScanForward(&ReturnValue, NodeMask);
-		return ReturnValue;
-	}
-
-	FORCEINLINE const uint32_t GetNodeIndex() const
-	{
-		return m_DeviceIndex;
+		return GPUIndex;
 	}
 
 private:
-	const uint32 m_DeviceIndex;
+	const uint32 GPUIndex;
 };
 
 class FD3D12MultiNodeGPUObject : public FD3D12GPUObject
 {
 public:
-	FD3D12MultiNodeGPUObject(GPUNodeMask NodeMask, GPUNodeMask VisibiltyMask)
+	FD3D12MultiNodeGPUObject(FRHIGPUMask NodeMask, FRHIGPUMask VisibiltyMask)
 		: FD3D12GPUObject(NodeMask, VisibiltyMask)
 	{
-		check((NodeMask & VisibiltyMask) != 0);// A GPU objects must be visible on the device it belongs to
+		check(NodeMask.Intersects(VisibiltyMask));// A GPU objects must be visible on the device it belongs to
 	}
 };
 
@@ -127,11 +128,25 @@ template<typename ObjectType>
 class FD3D12LinkedAdapterObject
 {
 public:
-	FD3D12LinkedAdapterObject() {};
+	FD3D12LinkedAdapterObject() : bIsHeadLink(true) {};
 
 	FORCEINLINE void SetNextObject(ObjectType* Object)
 	{
 		NextNode = Object;
+		if (Object)
+		{
+			Object->bIsHeadLink = false; 
+		}
+	}
+
+	FORCEINLINE bool IsHeadLink() const
+	{
+		return bIsHeadLink;
+	}
+
+	FORCEINLINE void SetIsHeadLink(bool InIsHeadLink)
+	{
+		bIsHeadLink = InIsHeadLink;
 	}
 
 	FORCEINLINE ObjectType* GetNextObject()
@@ -142,4 +157,6 @@ public:
 private:
 
 	TRefCountPtr<ObjectType> NextNode;
+	// True if this is the first object in the linked list.
+	bool bIsHeadLink;
 };

@@ -68,11 +68,7 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 	bool bAddReplayProxy = false;
 #endif // UE_USE_MALLOC_REPLAY_PROXY
 
-	if (USE_MALLOC_STOMP)
-	{
-		AllocatorToUse = EMemoryAllocatorToUse::Stomp;
-	}
-	else if (USE_MALLOC_BINNED2)
+	if (USE_MALLOC_BINNED2)
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::Binned2;
 	}
@@ -119,14 +115,19 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 					AllocatorToUse = EMemoryAllocatorToUse::Binned2;
 					break;
 				}
-
 #if UE_USE_MALLOC_REPLAY_PROXY
 				if (FCStringAnsi::Stricmp(Arg, "-mallocsavereplay") == 0)
 				{
 					bAddReplayProxy = true;
 				}
 #endif // UE_USE_MALLOC_REPLAY_PROXY
-
+#if WITH_MALLOC_STOMP
+				if (FCStringAnsi::Stricmp(Arg, "-stompmalloc") == 0)
+				{
+					AllocatorToUse = EMemoryAllocatorToUse::Stomp;
+					break;
+				}
+#endif // WITH_MALLOC_STOMP
 			}
 			free(Arg);
 			fclose(CmdLineFile);
@@ -141,7 +142,7 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 		Allocator = new FMallocAnsi();
 		break;
 
-#if USE_MALLOC_STOMP
+#if WITH_MALLOC_STOMP
 	case EMemoryAllocatorToUse::Stomp:
 		Allocator = new FMallocStomp();
 		break;

@@ -91,10 +91,15 @@ FReflectionCaptureMapBuildData* UReflectionCaptureComponent::GetMapBuildData() c
 			{
 				MapBuildData = OwnerLevel->MapBuildData;
 			}
-
+			 
 			if (MapBuildData)
 			{
-				return MapBuildData->GetReflectionCaptureBuildData(MapBuildDataId);
+				FReflectionCaptureMapBuildData* ReflectionBuildData = MapBuildData->GetReflectionCaptureBuildData(MapBuildDataId);
+
+				if (ReflectionBuildData && ReflectionBuildData->CubemapSize == UReflectionCaptureComponent::GetReflectionCaptureSize())
+				{
+					return ReflectionBuildData;
+				}
 			}
 		}
 	}
@@ -1040,7 +1045,7 @@ void UReflectionCaptureComponent::UpdateReflectionCaptureContents(UWorld* WorldT
 		{
 			UReflectionCaptureComponent* CaptureComponent = ReflectionCapturesToUpdate[CaptureIndex];
 
-			if (!CaptureComponent->GetOwner() || WorldToUpdate->ContainsActor(CaptureComponent->GetOwner()))
+			if (CaptureComponent->GetWorld() == WorldToUpdate)
 			{
 				WorldCombinedCaptures.Add(CaptureComponent);
 				ReflectionCapturesToUpdate.RemoveAt(CaptureIndex);
@@ -1054,7 +1059,7 @@ void UReflectionCaptureComponent::UpdateReflectionCaptureContents(UWorld* WorldT
 			{
 				UReflectionCaptureComponent* CaptureComponent = ReflectionCapturesToUpdateForLoad[CaptureIndex];
 
-				if (!CaptureComponent->GetOwner() || WorldToUpdate->ContainsActor(CaptureComponent->GetOwner()))
+				if (CaptureComponent->GetWorld() == WorldToUpdate)
 				{
 					WorldCombinedCaptures.Add(CaptureComponent);
 					ReflectionCapturesToUpdateForLoad.RemoveAt(CaptureIndex);

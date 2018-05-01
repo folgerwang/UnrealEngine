@@ -469,11 +469,29 @@ void FAvfMediaTracks::Initialize(AVPlayerItem* InPlayerItem, FString& OutInfo)
 			Track->Name = FString::Printf(TEXT("Video Track %i"), TrackIndex);
 			Track->Output = Output;
 			Track->Loaded = true;
+			
+			// NominalFrameRate can be zero (e.g HLS streams) - try again using min frame duration, otherwise it's unknown - possibly variable - use a default
+			Track->FrameRate = AssetTrack.nominalFrameRate;
+			if(Track->FrameRate <= 0.f)
+			{
+				CMTime frameDuration = AssetTrack.minFrameDuration;
+				if((frameDuration.flags & kCMTimeFlags_Valid) != 0)
+				{
+					Track->FrameRate = (float)frameDuration.timescale / (float)frameDuration.value;
+				}
+				else
+				{
+					Track->FrameRate = 24.f;
+				}
+			}
+			
+			CGSize NaturalFrameSize = AssetTrack.naturalSize;
+			Track->FrameSize = FIntPoint((int32)NaturalFrameSize.width, (int32)NaturalFrameSize.height);
 
 			CMFormatDescriptionRef DescRef = (CMFormatDescriptionRef)[AssetTrack.formatDescriptions objectAtIndex:0];
 			CMVideoCodecType CodecType = CMFormatDescriptionGetMediaSubType(DescRef);
 			OutInfo += FString::Printf(TEXT("    Codec: %s\n"), *AvfMedia::CodecTypeToString(CodecType));
-			OutInfo += FString::Printf(TEXT("    Dimensions: %i x %i\n"), (int32)AssetTrack.naturalSize.width, (int32)AssetTrack.naturalSize.height);
+			OutInfo += FString::Printf(TEXT("    Dimensions: %i x %i\n"), (int32)NaturalFrameSize.width, (int32)NaturalFrameSize.height);
 			OutInfo += FString::Printf(TEXT("    Frame Rate: %g fps\n"), AssetTrack.nominalFrameRate);
 			OutInfo += FString::Printf(TEXT("    BitRate: %i\n"), (int32)AssetTrack.estimatedDataRate);
 		}
@@ -794,7 +812,6 @@ FString FAvfMediaTracks::GetTrackName(EMediaTrackType TrackType, int32 TrackInde
 	return FString();
 }
 
-
 bool FAvfMediaTracks::GetVideoTrackFormat(int32 TrackIndex, int32 FormatIndex, FMediaVideoTrackFormat& OutFormat) const
 {
 	if ((FormatIndex != 0) || !VideoTracks.IsValidIndex(TrackIndex))
@@ -803,13 +820,9 @@ bool FAvfMediaTracks::GetVideoTrackFormat(int32 TrackIndex, int32 FormatIndex, F
 	}
 
 	const FTrack& Track = VideoTracks[TrackIndex];
-
-	OutFormat.Dim = FIntPoint(
-		[Track.AssetTrack naturalSize].width,
-		[Track.AssetTrack naturalSize].height
-	);
-
-	OutFormat.FrameRate = [Track.AssetTrack nominalFrameRate];
+	
+	OutFormat.Dim = Track.FrameSize;
+	OutFormat.FrameRate = Track.FrameRate;
 	OutFormat.FrameRates = TRange<float>(OutFormat.FrameRate);
 	OutFormat.TypeName = TEXT("BGRA"); // @todo trepka: fix me (should be input format, not output format)
 
@@ -977,7 +990,7 @@ bool FAvfMediaTracks::SelectTrack(EMediaTrackType TrackType, int32 TrackIndex)
 				SetOutputParams = {
 					(AVPlayerItemVideoOutput*)VideoTracks[SelectedVideoTrack].Output,
 					VideoSampler,
-					1.0f / [VideoTracks[TrackIndex].AssetTrack nominalFrameRate]
+					VideoTracks[TrackIndex].FrameRate
 				};
 
 				ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AvfMediaVideoSamplerSetOutput,

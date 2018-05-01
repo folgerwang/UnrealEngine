@@ -1743,11 +1743,10 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 						TVertexColorPropogationPosOctree::TConstIterator<> OctreeIter(VertPosOctree);
 						const FVector CurPosition = ApplyLOD.StaticVertexBuffers.PositionVertexBuffer.VertexPosition(VertexIndex);
 
-						FPackedNormal VertexTangentX, VertexTangentZ;
-						VertexTangentX = BaseLOD.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentY(VertexIndex);
+						FPackedNormal VertexTangentZ;
 						VertexTangentZ = BaseLOD.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(VertexIndex);
 						
-						FVector CurNormal = VertexTangentZ;
+						FVector CurNormal = VertexTangentZ.ToFVector();
 
 						// Iterate through the octree attempting to find the vertices closest to the current new point
 						while (OctreeIter.HasPendingNodes())
@@ -1791,7 +1790,7 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 						if (PointsToConsider.Num() > 0)
 						{
 							int32 BestVertexIndex = 0;
-							FVector BestVertexNormal = PointsToConsider[BestVertexIndex].Normal;
+							FVector BestVertexNormal = PointsToConsider[BestVertexIndex].Normal.ToFVector();
 
 							float BestDistanceSquared = (PointsToConsider[BestVertexIndex].Position - CurPosition).SizeSquared();
 							float BestNormalDot = BestVertexNormal | CurNormal;
@@ -1799,7 +1798,7 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 							for (int32 ConsiderationIndex = 1; ConsiderationIndex < PointsToConsider.Num(); ++ConsiderationIndex)
 							{
 								FPaintedMeshVertex& CheckVertex = PointsToConsider[ConsiderationIndex];
-								FVector VertexNormal = CheckVertex.Normal;
+								FVector VertexNormal = CheckVertex.Normal.ToFVector();
 
 								const float DistSqrd = (CheckVertex.Position - CurPosition).SizeSquared();
 								const float NormalDot = VertexNormal | CurNormal;

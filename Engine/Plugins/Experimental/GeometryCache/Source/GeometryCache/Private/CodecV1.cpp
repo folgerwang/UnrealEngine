@@ -1246,13 +1246,11 @@ void FCodecV1Decoder::ClearStream(FColor* Stream, uint64 ElementOffset, uint32 N
 
 void FCodecV1Decoder::ClearStream(FPackedNormal* Stream, uint64 ElementOffset, uint32 NumElements)
 {
-	const FPackedNormal ZeroValue(128, 128, 128, 128);
 	uint8* RawElementData = (uint8*)Stream;
 
 	for (uint32 ElementIdx = 0; ElementIdx < NumElements; ++ElementIdx, RawElementData += ElementOffset)
 	{
-		FPackedNormal& Value = *(FPackedNormal*)RawElementData;
-		Value = ZeroValue;
+		new (RawElementData) FPackedNormal(); //Zero initialize
 	}
 }
 

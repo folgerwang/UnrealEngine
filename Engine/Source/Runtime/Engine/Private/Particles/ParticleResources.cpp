@@ -5,9 +5,10 @@
 =============================================================================*/
 
 #include "ParticleResources.h"
+#include "ParticleCurveTexture.h"
 
-/** The size of the scratch vertex buffer. */
-const int32 GParticleScratchVertexBufferSize = 64 * (1 << 10); // 64KB
+/** The size of the scratch vertex buffer - must be large enough to update the whole ParticleTexture or you will scribble memory but we don't want it to be smaller than 64Kb if you use a smaller curve texture. */
+const int32 GParticleScratchVertexBufferSize = FMath::Max(64 * (1 << 10), (int32)(GParticleCurveTextureSizeX * GParticleCurveTextureSizeY * sizeof(FColor))); // Max(64KB, 256KB)
 
 /**
  * Creates a vertex buffer holding texture coordinates for the four corners of a sprite.

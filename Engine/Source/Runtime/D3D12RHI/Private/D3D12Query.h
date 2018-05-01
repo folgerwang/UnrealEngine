@@ -32,13 +32,17 @@ public:
 	// When the query result is ready on the GPU.
 	FD3D12CLSyncPoint CLSyncPoint;
 
+	// A timestamp so that LDA query results only handle object from the most recent frames.
+	uint64 Timestamp;
+
 	/** Initialization constructor. */
 	FD3D12RenderQuery(FD3D12Device* Parent, ID3D12QueryHeap* InQueryHeap, ID3D12Resource* InQueryResultBuffer, ERenderQueryType InQueryType) :
 		QueryHeap(InQueryHeap),
 		ResultBuffer(InQueryResultBuffer),
 		Result(0),
 		Type(InQueryType),
-		FD3D12DeviceChild(Parent)
+		FD3D12DeviceChild(Parent),
+		Timestamp(0)
 	{
 		Reset();
 	}
@@ -48,6 +52,7 @@ public:
 		HeapIndex = -1;
 		bResultIsCached = false;
 		OwningContext = nullptr;
+		Timestamp = 0;
 	}
 };
 

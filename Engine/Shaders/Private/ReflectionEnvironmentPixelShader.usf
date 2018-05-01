@@ -12,8 +12,6 @@
 #include "ShadingModels.ush"
 #include "LightGridCommon.ush"
 
-#define CompositeTileReflectionCaptureIndices CulledLightDataGrid
-#define InstancedCompositeTileReflectionCaptureIndices InstancedCulledLightDataGrid
 #define REFLECTION_COMPOSITE_USE_BLENDED_REFLECTION_CAPTURES 1
 #define REFLECTION_COMPOSITE_SUPPORT_SKYLIGHT_BLEND 1
 #include "ReflectionEnvironmentComposite.ush"
@@ -68,7 +66,7 @@ void ReflectionEnvironmentTiledDeferredMain(
 #if ENABLE_SKY_LIGHT && ALLOW_STATIC_LIGHTING
 	BRANCH
 	// Add in diffuse contribution from dynamic skylights so reflection captures will have something to mix with
-	if (SkyLightParameters.y > 0 && SkyLightParameters.z > 0)
+	if (ReflectionStruct.SkyLightParameters.y > 0 && ReflectionStruct.SkyLightParameters.z > 0)
 	{
 		float2 ScreenUV = ScreenPosition * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
 		IndirectIrradiance += GetDynamicSkyIndirectIrradiance(ScreenUV, GBuffer.WorldNormal);
@@ -107,7 +105,7 @@ void ReflectionEnvironmentTiledDeferredMain(
 #endif
 		}
 
-		float AO = ScreenSpaceData.AmbientOcclusion;
+		float AO = GBuffer.GBufferAO * ScreenSpaceData.AmbientOcclusion;
 		float RoughnessSq = GBuffer.Roughness * GBuffer.Roughness;
 		float SpecularOcclusion = GetSpecularOcclusion(NoV, RoughnessSq, AO);
 		Color.a *= SpecularOcclusion;
@@ -116,9 +114,9 @@ void ReflectionEnvironmentTiledDeferredMain(
 		float2 LocalPosition = SvPosition.xy - View.ViewRectMin.xy;
 
 		uint GridIndex = ComputeLightGridCellIndex(uint2(LocalPosition.x, LocalPosition.y), SceneDepth);
-		uint NumCulledEntryIndex = (ForwardGlobalLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE;
-		uint NumCulledReflectionCaptures = min(NumCulledLightsGrid[NumCulledEntryIndex + 0], ForwardGlobalLightData.NumReflectionCaptures);
-		uint DataStartIndex = NumCulledLightsGrid[NumCulledEntryIndex + 1];
+		uint NumCulledEntryIndex = (ForwardLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE;
+		uint NumCulledReflectionCaptures = min(ForwardLightData.NumCulledLightsGrid[NumCulledEntryIndex + 0], ForwardLightData.NumReflectionCaptures);
+		uint DataStartIndex = ForwardLightData.NumCulledLightsGrid[NumCulledEntryIndex + 1];
 #else
 		uint DataStartIndex = 0;
 		uint NumCulledReflectionCaptures = 0;

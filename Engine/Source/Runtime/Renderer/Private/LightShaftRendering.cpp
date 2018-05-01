@@ -317,7 +317,7 @@ public:
 	{
 		LightShaftParameters.Bind(Initializer.ParameterMap);
 		SampleOffsetsParameter.Bind(Initializer.ParameterMap,TEXT("SampleOffsets"));
-		SceneTextureParams.Bind(Initializer.ParameterMap);
+		SceneTextureParams.Bind(Initializer);
 	}
 
 	/** Serializer */
@@ -339,7 +339,7 @@ public:
 		const FIntPoint BufferSize = FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY();
 		FVector2D SampleOffsets(1.0f / BufferSize.X, 1.0f / BufferSize.Y);
 		SetShaderValue(RHICmdList, GetPixelShader(),SampleOffsetsParameter,SampleOffsets);
-		SceneTextureParams.Set(RHICmdList, GetPixelShader(), View);
+		SceneTextureParams.Set(RHICmdList, GetPixelShader(), View.FeatureLevel, ESceneTextureSetupMode::All);
 	}
 
 private:
@@ -554,7 +554,7 @@ void DownsamplePass(FRHICommandListImmediate& RHICmdList, const FViewInfo& View,
 		*DownsampleLightShaftsVertexShader,
 		EDRF_UseTriangleOptimization);
 
-	RHICmdList.CopyToResolveTarget(LightShaftsDest->GetRenderTargetItem().TargetableTexture, LightShaftsDest->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
+	RHICmdList.CopyToResolveTarget(LightShaftsDest->GetRenderTargetItem().TargetableTexture, LightShaftsDest->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 
 	Swap(LightShaftsSource, LightShaftsDest);
 }
@@ -573,58 +573,39 @@ void ApplyTemporalAA(
 	if (View.AntiAliasingMethod == AAM_TemporalAA
 		&& HistoryState)
 	{
-		if (HistoryState->IsValid() && !View.bCameraCut)
-		{
-			FMemMark Mark(FMemStack::Get());
-			FRenderingCompositePassContext CompositeContext(RHICmdList, View);
-			FPostprocessContext Context(RHICmdList, CompositeContext.Graph, View);
+		FMemMark Mark(FMemStack::Get());
+		FRenderingCompositePassContext CompositeContext(RHICmdList, View);
+		FPostprocessContext Context(RHICmdList, CompositeContext.Graph, View);
 
-			// Nodes for input render targets
-			FRenderingCompositePass* LightShaftSetup = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessInput( LightShaftsSource ) );
-			FRenderingCompositePass* HistoryInput = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessInput(
-				HistoryState->RT[0] ) );
+		// Nodes for input render targets
+		FRenderingCompositePass* LightShaftSetup = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessInput( LightShaftsSource ) );
+		FRenderingCompositePass* HistoryInput = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessInput(
+			HistoryState->RT[0] ) );
 
-			// Temporal AA node
-			FRenderingCompositePass* NodeTemporalAA = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessLightShaftTemporalAA(
-				*HistoryState) );
+		FTAAPassParameters TAAParameters(View);
+		TAAParameters.Pass = ETAAPassConfig::LightShaft;
+		TAAParameters.SetupViewRect(View, /** ResolutionDivisor = */ 2);
 
-			// Setup inputs on Temporal AA node as the shader expects
-			NodeTemporalAA->SetInput( ePId_Input0, LightShaftSetup );
-			NodeTemporalAA->SetInput( ePId_Input1, FRenderingCompositeOutputRef( HistoryInput ) );
+		// Temporal AA node
+		FRenderingCompositePass* NodeTemporalAA = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessTemporalAA(Context, TAAParameters,
+			*HistoryState, HistoryState) );
 
-			// Reuse a render target from the pool with a consistent name, for vis purposes
-			TRefCountPtr<IPooledRenderTarget> NewHistory;
-			AllocateOrReuseLightShaftRenderTarget(RHICmdList, NewHistory, HistoryRTName);
+		// Setup inputs on Temporal AA node as the shader expects
+		NodeTemporalAA->SetInput( ePId_Input0, LightShaftSetup );
 
-			// Setup the output to write to the new history render target
-			Context.FinalOutput = FRenderingCompositeOutputRef(NodeTemporalAA);
-			Context.FinalOutput.GetOutput()->RenderTargetDesc = NewHistory->GetDesc();
-			Context.FinalOutput.GetOutput()->PooledRenderTarget = NewHistory;
+		// Reuse a render target from the pool with a consistent name, for vis purposes
+		TRefCountPtr<IPooledRenderTarget> NewHistory;
+		AllocateOrReuseLightShaftRenderTarget(RHICmdList, NewHistory, HistoryRTName);
 
-			// Execute Temporal AA
-			CompositeContext.Process(Context.FinalOutput.GetPass(), TEXT("LightShaftTemporalAA"));
+		// Setup the output to write to the new history render target
+		Context.FinalOutput = FRenderingCompositeOutputRef(NodeTemporalAA);
+		Context.FinalOutput.GetOutput()->RenderTargetDesc = NewHistory->GetDesc();
+		Context.FinalOutput.GetOutput()->PooledRenderTarget = NewHistory;
 
-			// Update the view state's render target reference with the new history
-			HistoryState->SafeRelease();
-			HistoryState->RT[0] = NewHistory;
-			HistoryState->ReferenceBufferSize = FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY();
-			HistoryState->ViewportRect = View.ViewRect;
-			HistoryState->SceneColorPreExposure = View.PreExposure;
-			HistoryOutput = NewHistory;
-		}
-		else
-		{
-			// Use the current frame's mask for next frame's history, without invoking the Temporal AA shader
-			HistoryState->SafeRelease();
-			HistoryState->RT[0] = LightShaftsSource;
-			HistoryState->ReferenceBufferSize = FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY();
-			HistoryState->ViewportRect = View.ViewRect;
-			HistoryState->SceneColorPreExposure = View.PreExposure;
-			HistoryOutput = LightShaftsSource;
-			LightShaftsSource = NULL;
+		// Execute Temporal AA
+		CompositeContext.Process(Context.FinalOutput.GetPass(), TEXT("LightShaftTemporalAA"));
 
-			AllocateOrReuseLightShaftRenderTarget(RHICmdList, LightShaftsSource, HistoryRTName);
-		}
+		HistoryOutput = NewHistory;
 	}
 	else
 	{
@@ -693,7 +674,7 @@ void ApplyRadialBlurPasses(
 				EDRF_UseTriangleOptimization);
 		}
 
-		RHICmdList.CopyToResolveTarget(LightShaftsDest->GetRenderTargetItem().TargetableTexture, LightShaftsDest->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
+		RHICmdList.CopyToResolveTarget(LightShaftsDest->GetRenderTargetItem().TargetableTexture, LightShaftsDest->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 
 		// Swap input and output for the next pass
 		Swap(LightShaftsSource, LightShaftsDest);
@@ -744,7 +725,7 @@ void FinishOcclusionTerm(FRHICommandList& RHICmdList, const FViewInfo& View, con
 			EDRF_UseTriangleOptimization);
 	}
 
-	RHICmdList.CopyToResolveTarget(LightShaftsDest->GetRenderTargetItem().TargetableTexture, LightShaftsDest->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
+	RHICmdList.CopyToResolveTarget(LightShaftsDest->GetRenderTargetItem().TargetableTexture, LightShaftsDest->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 }
 
 bool DoesViewFamilyAllowLightShafts(const FSceneViewFamily& ViewFamily)

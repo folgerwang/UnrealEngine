@@ -154,8 +154,8 @@ namespace FNavMeshRenderingHelpers
 		Vertex->TextureCoordinate[0] = FVector2D::ZeroVector;
 		Vertex->TangentX = FVector(1.0f, 0.0f, 0.0f);
 		Vertex->TangentZ = FVector(0.0f, 1.0f, 0.0f);
-		// store the sign of the determinant in TangentZ.W (-1=0,+1=255)
-		Vertex->TangentZ.Vector.W = 255;
+		// store the sign of the determinant in TangentZ.W (-1=-128,+1=127)
+		Vertex->TangentZ.Vector.W = 127;
 		Vertex->Color = Color;
 	}
 

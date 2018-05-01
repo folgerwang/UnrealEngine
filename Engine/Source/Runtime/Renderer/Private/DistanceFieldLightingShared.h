@@ -577,7 +577,9 @@ public:
 
 	void GetUAVs(FLightTileIntersectionResources& TileIntersectionResources, TArray<FUnorderedAccessViewRHIParamRef>& UAVs)
 	{
-		int32 MaxIndex = FMath::Max(FMath::Max(FMath::Max(ShadowTileNumCulledObjects.GetUAVIndex(), ShadowTileStartOffsets.GetUAVIndex()), ShadowTileArrayData.GetUAVIndex()), NextStartOffset.GetUAVIndex());
+		int32 MaxIndex = FMath::Max(
+			FMath::Max(ShadowTileNumCulledObjects.GetUAVIndex(), ShadowTileStartOffsets.GetUAVIndex()), 
+			FMath::Max(NextStartOffset.GetUAVIndex(), ShadowTileArrayData.GetUAVIndex()));
 		UAVs.AddZeroed(MaxIndex + 1);
 
 		if (ShadowTileNumCulledObjects.IsUAVBound())

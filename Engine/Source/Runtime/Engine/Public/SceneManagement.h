@@ -920,7 +920,7 @@ public:
 	virtual FSphere GetBoundingSphere() const
 	{
 		// Directional lights will have a radius of WORLD_MAX
-		return FSphere(GetPosition(), FMath::Min(GetRadius(), (float)WORLD_MAX));
+		return FSphere(FVector::ZeroVector, WORLD_MAX);
 	}
 
 	/** @return radius of the light */
@@ -1052,6 +1052,7 @@ public:
 	inline FGuid GetLightGuid() const { return LightGuid; }
 	inline float GetShadowSharpen() const { return ShadowSharpen; }
 	inline float GetContactShadowLength() const { return ContactShadowLength; }
+	inline bool IsContactShadowLengthInWS() const { return bContactShadowLengthInWS; }
 	inline float GetMinRoughness() const { return MinRoughness; }
 	inline FVector GetLightFunctionScale() const { return LightFunctionScale; }
 	inline float GetLightFunctionFadeDistance() const { return LightFunctionFadeDistance; }
@@ -1141,6 +1142,9 @@ protected:
 
 	/** Length of screen space ray trace for sharp contact shadows. */
 	float ContactShadowLength;
+
+	/** True: length of screen space ray trace for sharp contact shadows is in world space. False: in screen space. */
+	bool bContactShadowLengthInWS : 1;
 
 	/** Min roughness */
 	float MinRoughness;

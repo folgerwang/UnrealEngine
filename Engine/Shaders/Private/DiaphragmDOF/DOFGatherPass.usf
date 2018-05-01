@@ -1,0 +1,396 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DiaphragmDOF/DOFGatherPass.usf: gather pass entry point for diaphragm DOF.
+=============================================================================*/
+
+#include "DOFGatherCommon.ush"
+#include "DOFGatherAccumulator.ush"
+#include "DOFGatherKernel.ush"
+#include "DOFGatherTileSuggest.ush"
+
+
+//------------------------------------------------------- COMPILE TIME CONSTANTS
+
+#define THREADGROUP_SIZEX		(COC_TILE_SIZE)
+#define THREADGROUP_SIZEY		(THREADGROUP_SIZEX)
+#define THREADGROUP_TOTALSIZE	(THREADGROUP_SIZEX * THREADGROUP_SIZEY)
+
+
+//------------------------------------------------------- PARAMETERS
+
+// Frame's temporal offset in pixels.
+float2 TemporalJitterPixels;
+
+// Coc boundaries with DIM_GATHER_RECURSION.
+// x = min; y = max.
+float2 CocRadiusMinMaxBoundaries;
+
+// Mip bias for the gathering kernel.
+float MipBias;
+
+float2 DispatchThreadIdToInputBufferUV;
+float MaxRecombineAbsCocRadius;
+
+//------------------------------------------------------- OUTPUTS
+
+RWTexture2D<float4>	Output0;
+
+#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_FOREGROUND_AND_BACKGROUND
+RWTexture2D<float4>	Output1;
+#endif
+
+#if CONFIG_GENERATE_SCATTER_OCCLUSION_BUFFER
+RWTexture2D<float4>	Output2;
+#endif
+
+
+
+//------------------------------------------------------- FUNCTION
+
+/** Store the accumulator output to RWTexture.
+ *
+ * This is implemented as separate function to be called in different branch of GatherMainCS to help
+ * the compiler reduce VGPR pressure that is critical for this amount of samples.
+ */
+void StoreAccumulatorOutput(in uint2 OutputPixelPosition, in FAccumulatorOutput AccumulatorOutput)
+{
+	// No alpha channel in post processing support, therefore:
+	//	pack the foreground alpha in OutForeground.a, and premultiply RGB so can be bilinear filtered;
+	//  pack the backrgound weight in OutBackground.a.
+	float4 OutForeground = float4(
+		AccumulatorOutput.ForegroundColor.rgb * AccumulatorOutput.ForegroundAlpha,
+		AccumulatorOutput.ForegroundAlpha);
+
+	float4 OutForegroundHoleFilling = float4(
+		AccumulatorOutput.ForegroundHoleFillingColor.rgb,
+		AccumulatorOutput.ForegroundHoleFillingAlpha);
+
+	float4 OutBackground = float4(AccumulatorOutput.BackgroundColor.rgb, AccumulatorOutput.BackgroundWeight);
+	float4 OutSlightFocus = float4(AccumulatorOutput.SlightFocusColor.rgb, AccumulatorOutput.SlightFocusWeight);
+
+	float4 OutScatterOcclusion = 0;
+	#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_BACKGROUND_ONLY && CONFIG_GENERATE_SCATTER_OCCLUSION_BUFFER
+	{
+		float CocRadiusAvg = AccumulatorOutput.BackgroundCocAvgAndSquareAvg.x;
+
+		// Max() coc variance to ensure sqrt() does not generate NaN simply on numerical errors.
+		float CocRadiusVariance = max(0.0,
+			AccumulatorOutput.BackgroundCocAvgAndSquareAvg.y -
+			AccumulatorOutput.BackgroundCocAvgAndSquareAvg.x * AccumulatorOutput.BackgroundCocAvgAndSquareAvg.x);
+		float CocRadiusStdDeviation = sqrt(CocRadiusVariance);
+		
+		#if 1
+			float OcclusionStepness = rcp(max(CocRadiusStdDeviation * (0.5 * CocRadiusAvg), 1));
+			float OcclusionOffset = AccumulatorOutput.BackgroundCocAvgAndSquareAvg.x * OcclusionStepness + 1;
+		
+			OutScatterOcclusion.x = OcclusionStepness;
+			OutScatterOcclusion.y = OcclusionOffset;
+		#else
+			OutScatterOcclusion.x = CocRadiusAvg;
+			OutScatterOcclusion.y = CocRadiusStdDeviation;
+		#endif
+	}
+	#endif
+
+	// Spetial output processing if the outputs is upscaled by recombine pass.
+	{
+		const bool bOutputCanBeUpscaled = (DIM_GATHER_RECURSION == GATHER_RECURSION_MODE_STANDALONE || DIM_GATHER_RECURSION == GATHER_RECURSION_MODE_HIGHEST_MIP);
+		if (bOutputCanBeUpscaled)
+		{
+			// Only output whether the background is rendered or not in the alpha channel.
+			OutBackground.a = AccumulatorOutput.BackgroundWeight > 0 ? 1 : 0;
+		}
+	}
+
+	if (all(OutputPixelPosition < ViewportRect.zw))
+	{
+		// Only output what we needs, trusting the compiler to compile out unecessary stuf.
+		#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_FOREGROUND_ONLY
+			Output0[OutputPixelPosition] = OutForeground;
+			
+		#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_FOREGROUND_HOLE_FILLING
+			Output0[OutputPixelPosition] = OutForegroundHoleFilling;
+
+		#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_BACKGROUND_ONLY
+			Output0[OutputPixelPosition] = OutBackground;
+		
+		#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
+			Output0[OutputPixelPosition] = OutSlightFocus;
+		
+		#else
+			Output0[OutputPixelPosition] = OutForeground;
+			Output1[OutputPixelPosition] = OutBackground;
+
+		#endif
+
+		#if CONFIG_GENERATE_SCATTER_OCCLUSION_BUFFER
+			Output2[OutputPixelPosition] = OutScatterOcclusion;
+
+		#endif
+	}
+}
+
+
+//------------------------------------------------------- LDS
+
+groupshared uint RequiresAccurateGather;
+
+
+//------------------------------------------------------- ENTRY POINT
+
+[numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
+void GatherMainCS(
+	uint2 DispatchThreadId : SV_DispatchThreadID,
+	uint2 GroupId : SV_GroupID) 
+{
+	// Get output's UVs.
+	float2 ViewportUV = (DispatchThreadId + 0.5) * ViewportSize.zw;
+	float2 InputBufferCenterUV = (DispatchThreadId + 0.5) * DispatchThreadIdToInputBufferUV;
+
+	// Sample color from larger convolution color that was gathered at lower resolution.
+	FLargerConvolution LargerConvolution;
+	LargerConvolution.Color = 0;
+	LargerConvolution.Weight = 0;
+	LargerConvolution.CocAvgAndSquareAvg = 0;
+	#if ACCUMULATOR_COMPOSE_LARGER_CONVOLUTION
+	{
+		LargerConvolution.Color = PostprocessInput2.SampleLevel(GlobalBilinearClampedSampler, InputBufferCenterUV, 0);
+		LargerConvolution.Weight = LargerConvolution.Color.a;
+	}
+	#endif
+	
+	// Sets the gather input compile time parameters.
+	FGatherInputParameters GatherParameters;
+	{
+		GatherParameters.CocRadiusBoundaryMode = DIM_GATHER_RECURSION;
+		GatherParameters.CocRadiusMinMaxBoundaries = 0;
+
+		#if DIM_GATHER_RECURSION != GATHER_RECURSION_MODE_STANDALONE
+			GatherParameters.CocRadiusMinMaxBoundaries = CocRadiusMinMaxBoundaries;
+		#endif
+
+		GatherParameters.MaxRingCount = DIM_GATHER_RING_COUNT;
+		GatherParameters.bFastGathering = false;
+
+		// TODO: variable number of ring.
+		GatherParameters.RingCount = GatherParameters.MaxRingCount;
+		
+		GatherParameters.KernelSamplingDensityMode = KERNEL_DENSITY_CONSTANT;
+		GatherParameters.bDoHighDensityGatheringAtCenter = false;
+	}
+
+	// Sets the per wave gather parameters
+	{
+		GatherParameters.DispatchThreadIdToInputBufferUV = DispatchThreadIdToInputBufferUV;
+		GatherParameters.MaxRecombineAbsCocRadius = MaxRecombineAbsCocRadius;
+	}
+	
+	// Sets the per wave line gather parameters
+	{
+		GatherParameters.InputBufferCenterUV = InputBufferCenterUV;
+
+		// Generate random signals
+		GatherParameters.Random[0] = InterleavedGradientNoise(DispatchThreadId, 0);
+		GatherParameters.Random[1] = InterleavedGradientNoise(DispatchThreadId, 1);
+	}
+
+	// Sample Coc tile texture.
+	FGatheringTileSuggestion TileSuggestion;
+	{
+		const FCocTileTexture2D CocTileTexture = CreateCocTileTexture2D(COC_TILE_LAYOUT_FGD_BGD, PostprocessInput1, PostprocessInput1);
+
+		// Actually sample the Coc tile buffer.
+		#if GROUP_SIZE_IS_LARGER_THAN_COC_TILE_SIZE
+			const uint2 TilePos = (DispatchThreadId * GATHER_HALF_RES_DIVISOR) / COC_TILE_SIZE;
+		#else
+			const uint2 TilePos = GroupId;
+		#endif
+		const FCocTileSample CocTileInfos = LoadCocTile(CocTileTexture, int2(TilePos));
+
+		TileSuggestion = InferGatherTileSuggestion(CocTileInfos,
+			/* LayerProcessing = */ DIM_LAYER_PROCESSING,
+			/* MinGatherRadius = */ (GatherParameters.MaxRecombineAbsCocRadius - 1));
+	}
+	
+	// Setup first gathering's radius.
+	{
+		// Kernel radius is simply set to the maximum absolute Coc size.
+		GatherParameters.ClosestCocRadius = TileSuggestion.ClosestCocRadius;
+		GatherParameters.KernelRadius = TileSuggestion.MaxCocRadiusAbs;
+
+		#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
+		{
+			GatherParameters.KernelRadius = GatherParameters.MaxRingCount;
+		}
+		#endif
+
+		// Max the kernel radius because compose larger gathering kernels.
+		#if ACCUMULATOR_COMPOSE_LARGER_CONVOLUTION
+		{
+			#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_BACKGROUND_ONLY
+				float KernelRadiusMax = CocRadiusMinMaxBoundaries.y;
+			#else
+				#error Fixme
+			#endif
+
+			GatherParameters.KernelRadius = min(GatherParameters.KernelRadius, KernelRadiusMax);
+
+			// Don't gather if we know all samples will have Coc larger that the max kernel radius.
+			if (TileSuggestion.MinCocRadiusAbs > KernelRadiusMax) GatherParameters.KernelRadius = 0;
+		}
+		#endif
+	}
+	
+	// Coc error accepted for fast gathering, set to 5% of the kernel size.
+	float FastGatheringCocError = GatherParameters.KernelRadius * 0.05;
+
+	// Whether can entirely skeep gathering.
+	bool bSkipGathering = TileSuggestion.bCanEarlyReturn;
+
+	// Whether can switch to fast gathering.
+	#if CONFIG_ENABLE_FAST_ACCUMULATOR && DEBUG_NO_FAST_ACCUMULATOR == 0
+	bool bDoFastGathering;
+	{
+		#if !GROUP_SIZE_IS_LARGER_THAN_COC_TILE_SIZE
+			bDoFastGathering = TileSuggestion.bCanDofastGathering;
+
+		#elif COMPILER_SUPPORTS_WAVE_VOTE
+			bDoFastGathering = WaveAllTrue(TileSuggestion.bCanDofastGathering || bSkipGathering);
+
+		#else
+			RequiresAccurateGather = 0;
+			GroupMemoryBarrierWithGroupSync();
+			{
+				uint Ignored;
+				InterlockedAdd(RequiresAccurateGather, uint(!TileSuggestion.bCanDofastGathering && !bSkipGathering), Ignored);
+			}
+			GroupMemoryBarrierWithGroupSync();
+			bDoFastGathering = (RequiresAccurateGather == 0);
+
+		#endif
+	}
+	#endif
+
+	#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_FOREGROUND_HOLE_FILLING && 0
+		if (all(DispatchThreadId < ViewportRect.zw) && bSkipGathering)
+		{
+			//Output0[DispatchThreadId] = float4(
+			//	GatherParameters.KernelRadius,
+			//	MaxCocRadiusAbs,
+			//	MinCocRadiusAbs,
+			//	1);
+			Output0[DispatchThreadId] = float4(1, 0, 0, 0);
+		}
+		return;
+	#endif
+
+	// Early return if there is no convolution to do.
+	BRANCH
+	if (bSkipGathering)
+	{	
+		FAccumulatorOutput AccumulatorOutput = CreateAccumulatorOutput();
+
+		// TODO: that is not fine for LARGEST_RING_FIRST == 0
+		AccumulatorOutput.BackgroundColor = LargerConvolution.Color;
+		AccumulatorOutput.BackgroundWeight = LargerConvolution.Weight;
+		AccumulatorOutput.BackgroundCocAvgAndSquareAvg = LargerConvolution.CocAvgAndSquareAvg;
+
+		StoreAccumulatorOutput(DispatchThreadId, AccumulatorOutput);
+	}
+
+	// Do fast gathering because all Coc in the neighborhood are same.
+	#if CONFIG_ENABLE_FAST_ACCUMULATOR && DEBUG_NO_FAST_ACCUMULATOR == 0
+	else if (bDoFastGathering)
+	{
+		// That is sad there is not function templating, so set at compile time in the gather parameters that
+		// we are actually fast gathering.
+		GatherParameters.bFastGathering = true;
+		GatherParameters.KernelSamplingDensityMode = CONFIG_FAST_ACCUMULATOR_KERNEL_DENSITY;
+		GatherParameters.MaxRingCount = CONFIG_FAST_ACCUMULATOR_RING_COUNT;
+		GatherParameters.RingCount = GatherParameters.MaxRingCount;
+
+		// Create an accumulator to make the compiler happy, but should be entirely compile out.
+		FGatherAccumulator UnusedAccumulator = CreateGatherAccumulator(GatherParameters, LargerConvolution);
+		FAccumulatorOutput UnusedAccumulatorOutput = CreateAccumulatorOutput();
+
+		// Gather the samples.
+		FFastAccumulatorOutput FastAccumulatorOutput;
+		GatherSamplesAndResolve(GatherParameters, UnusedAccumulator, UnusedAccumulatorOutput, FastAccumulatorOutput);
+
+		// Ignore Accumulator, just return the fast accumulator.
+		FAccumulatorOutput AccumulatorOutput = CreateAccumulatorOutput();
+		#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_FOREGROUND_ONLY
+			AccumulatorOutput.ForegroundColor = FastAccumulatorOutput.Color;
+			AccumulatorOutput.ForegroundAlpha = 1;
+
+		#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_BACKGROUND_ONLY
+			AccumulatorOutput.BackgroundColor = FastAccumulatorOutput.Color;
+			AccumulatorOutput.BackgroundWeight = 1;
+
+			AccumulatorOutput.BackgroundCocAvgAndSquareAvg.x = GatherParameters.KernelRadius;
+			AccumulatorOutput.BackgroundCocAvgAndSquareAvg.y = 0;
+
+		#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
+			AccumulatorOutput.SlightFocusColor = FastAccumulatorOutput.Color;
+			AccumulatorOutput.SlightFocusWeight = FastAccumulatorOutput.Weight;
+
+		#else
+			#error Fast gathering is not supported.
+		#endif
+		
+		#if DEBUG_FAST_ACCUMULATOR
+			AccumulatorOutput.ForegroundColor.rgb *= float3(0.5, 1, 0.5);
+			AccumulatorOutput.BackgroundColor.rgb *= float3(0.5, 1, 0.5);
+		#endif
+		
+		#if 1 // Lower VGPR footprint.
+			uint2 OutputPixelPosition = uint2(GatherParameters.InputBufferCenterUV * PostprocessInput0Size.xy);
+		#else
+			uint2 OutputPixelPosition = DispatchThreadId;
+		#endif
+
+		StoreAccumulatorOutput(OutputPixelPosition, AccumulatorOutput);
+	}
+	#endif // ALLOW_FAST_ACCUMULATOR
+
+	// Do gathering with FGatherAccumulator.
+	else
+	{
+		// Drives kernel sampling density.
+		#if CONFIG_KERNEL_SAMPLING_DENSITY_DRIVER == 1
+		{
+			#if DIM_GATHER_RECURSION != GATHER_RECURSION_MODE_STANDALONE
+				#error Kernel sampling density driver only available for standalone gather pass.
+			#elif DIM_LAYER_PROCESSING != LAYER_PROCESSING_BACKGROUND_ONLY
+				#error Kernel sampling density driver only available for background.
+			#endif
+
+			GatherParameters.KernelSamplingDensityMode = KERNEL_DENSITY_HIGHER_IN_CENTER_DISK;
+			GatherParameters.bDoHighDensityGatheringAtCenter = TileSuggestion.MaxCocRadiusAbs > 8.0 && TileSuggestion.MinCocRadiusAbs < 0.5 * TileSuggestion.MaxCocRadiusAbs;
+		}
+		#endif
+
+		// Create, use and resolve gather accumulator.
+		FAccumulatorOutput AccumulatorOutput = CreateAccumulatorOutput();
+		{
+			FFastAccumulatorOutput UnusedFastAccumulatorOutput;
+
+			FGatherAccumulator FirstAccumulator = CreateGatherAccumulator(GatherParameters, LargerConvolution);
+			GatherSamplesAndResolve(GatherParameters, FirstAccumulator, AccumulatorOutput, UnusedFastAccumulatorOutput);
+		}
+
+		#if DEBUG_FAST_ACCUMULATOR
+			AccumulatorOutput.ForegroundColor.rgb *= float3(1, 0.5, 0.5);
+			AccumulatorOutput.BackgroundColor.rgb *= float3(1, 0.5, 0.5);
+		#endif
+		
+		#if 1 // Lower VGPR footprint.
+			uint2 OutputPixelPosition = uint2(GatherParameters.InputBufferCenterUV * PostprocessInput0Size.xy);
+		#else
+			uint2 OutputPixelPosition = DispatchThreadId;
+		#endif
+
+		StoreAccumulatorOutput(OutputPixelPosition, AccumulatorOutput);
+	}
+}

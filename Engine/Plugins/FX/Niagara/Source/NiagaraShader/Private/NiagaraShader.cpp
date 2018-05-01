@@ -885,6 +885,8 @@ void FNiagaraShaderMap::Release()
 			bRegistered = false;
 		}
 
+		check(!bDeletedThroughDeferredCleanup);
+		bDeletedThroughDeferredCleanup = true;
 		BeginCleanup(this);
 	}
 }

@@ -27,13 +27,10 @@ FMetalShaderResourceView::~FMetalShaderResourceView()
 		
 		if(TextureView->Texture)
 		{
-			[TextureView->Texture release];
 			TextureView->Texture = nil;
 			
-			[TextureView->StencilTexture release];
 			TextureView->StencilTexture = nil;
 			
-			[TextureView->MSAATexture release];
 			TextureView->MSAATexture = nil;
 		}
 		delete TextureView;
@@ -44,9 +41,9 @@ FMetalShaderResourceView::~FMetalShaderResourceView()
 	SourceTexture = NULL;
 }
 
-id<MTLTexture> FMetalShaderResourceView::GetLinearTexture(bool const bUAV)
+ns::AutoReleased<FMetalTexture> FMetalShaderResourceView::GetLinearTexture(bool const bUAV)
 {
-	id<MTLTexture> NewLinearTexture = nil;
+	ns::AutoReleased<FMetalTexture> NewLinearTexture;
 	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures) && (!bUAV || FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextureUAVs)))
 	{
 		if (IsValidRef(SourceVertexBuffer))
@@ -56,7 +53,7 @@ id<MTLTexture> FMetalShaderResourceView::GetLinearTexture(bool const bUAV)
 		}
 		else if (IsValidRef(SourceIndexBuffer))
 		{
-			NewLinearTexture = SourceIndexBuffer->LinearTexture;
+			NewLinearTexture = SourceIndexBuffer->GetLinearTexture((EPixelFormat)Format);;
 			check(NewLinearTexture);
 		}
 	}
@@ -71,8 +68,8 @@ FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView_Render
 FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTextureRHIParamRef Texture, uint32 MipLevel)
 {
 	FMetalSurface* Surface = (FMetalSurface*)Texture->GetTextureBaseRHI();
-	id<MTLTexture> Tex = Surface->Texture;
-	if (ImmediateContext.Context->GetCommandQueue().SupportsFeature(EMetalFeaturesResourceOptions) && !(Tex.usage & MTLTextureUsagePixelFormatView))
+	FMetalTexture Tex = Surface->Texture;
+	if (ImmediateContext.Context->GetCommandQueue().SupportsFeature(EMetalFeaturesResourceOptions) && !(Tex.GetUsage() & mtlpp::TextureUsage::PixelFormatView))
 	{
 		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
 		return GDynamicRHI->RHICreateUnorderedAccessView(Texture, MipLevel);
@@ -85,12 +82,12 @@ FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView_Render
 
 FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint8 Format)
 {
-	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextureUAVs))
-	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-		return GDynamicRHI->RHICreateUnorderedAccessView(VertexBuffer, Format);
-	}
 	return GDynamicRHI->RHICreateUnorderedAccessView(VertexBuffer, Format);
+}
+
+FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef IndexBuffer, uint8 Format)
+{
+	return GDynamicRHI->RHICreateUnorderedAccessView(IndexBuffer, Format);
 }
 
 FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView(FStructuredBufferRHIParamRef StructuredBufferRHI, bool bUseUAVCounter, bool bAppendBuffer)
@@ -156,9 +153,6 @@ FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView(FVerte
 	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextureUAVs))
 	{
 		check(VertexBuffer->GetUsage() & BUF_UnorderedAccess);
-		
-		id<MTLTexture> Texture = VertexBuffer->GetLinearTexture((EPixelFormat)Format);
-		check(Texture);
 	}
 		
 	// create the UAV buffer to point to the structured buffer's memory
@@ -169,11 +163,36 @@ FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView(FVerte
 	}
 }
 
+FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView(FIndexBufferRHIParamRef IndexBufferRHI, uint8 Format)
+{
+	@autoreleasepool {
+		FMetalIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
+		
+		FMetalShaderResourceView* SRV = new FMetalShaderResourceView;
+		SRV->SourceVertexBuffer = nullptr;
+		SRV->TextureView = nullptr;
+		SRV->SourceIndexBuffer = IndexBuffer;
+		SRV->SourceStructuredBuffer = nullptr;
+		SRV->Format = Format;
+		
+		if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextureUAVs))
+		{
+			check(IndexBuffer->GetUsage() & BUF_UnorderedAccess);
+		}
+		
+		// create the UAV buffer to point to the structured buffer's memory
+		FMetalUnorderedAccessView* UAV = new FMetalUnorderedAccessView;
+		UAV->SourceView = SRV;
+		
+		return UAV;
+	}
+}
+
 FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture2DRHI, uint8 MipLevel)
 {
 	FMetalTexture2D* Texture = ResourceCast(Texture2DRHI);
-	id<MTLTexture> Tex = Texture->Surface.Texture;
-	if (ImmediateContext.Context->GetCommandQueue().SupportsFeature(EMetalFeaturesResourceOptions) && !(Tex.usage & MTLTextureUsagePixelFormatView))
+	FMetalTexture Tex = Texture->Surface.Texture;
+	if (ImmediateContext.Context->GetCommandQueue().SupportsFeature(EMetalFeaturesResourceOptions) && !(Tex.GetUsage() & mtlpp::TextureUsage::PixelFormatView))
 	{
 		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
 		return GDynamicRHI->RHICreateShaderResourceView(Texture2DRHI, MipLevel);
@@ -187,8 +206,8 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderTh
 FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture2DRHI, uint8 MipLevel, uint8 NumMipLevels, uint8 Format)
 {
 	FMetalTexture2D* Texture = ResourceCast(Texture2DRHI);
-	id<MTLTexture> Tex = Texture->Surface.Texture;
-	if (ImmediateContext.Context->GetCommandQueue().SupportsFeature(EMetalFeaturesResourceOptions) && !(Tex.usage & MTLTextureUsagePixelFormatView))
+	FMetalTexture Tex = Texture->Surface.Texture;
+	if (ImmediateContext.Context->GetCommandQueue().SupportsFeature(EMetalFeaturesResourceOptions) && !(Tex.GetUsage() & mtlpp::TextureUsage::PixelFormatView))
 	{
 		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
 		return GDynamicRHI->RHICreateShaderResourceView(Texture2DRHI, MipLevel, NumMipLevels, Format);
@@ -202,8 +221,8 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderTh
 FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture3DRHIParamRef Texture3DRHI, uint8 MipLevel)
 {
 	FMetalTexture3D* Texture = ResourceCast(Texture3DRHI);
-	id<MTLTexture> Tex = Texture->Surface.Texture;
-	if (ImmediateContext.Context->GetCommandQueue().SupportsFeature(EMetalFeaturesResourceOptions) && !(Tex.usage & MTLTextureUsagePixelFormatView))
+	FMetalTexture Tex = Texture->Surface.Texture;
+	if (ImmediateContext.Context->GetCommandQueue().SupportsFeature(EMetalFeaturesResourceOptions) && !(Tex.GetUsage() & mtlpp::TextureUsage::PixelFormatView))
 	{
 		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
 		return GDynamicRHI->RHICreateShaderResourceView(Texture3DRHI, MipLevel);
@@ -217,8 +236,8 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderTh
 FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DArrayRHIParamRef Texture2DArrayRHI, uint8 MipLevel)
 {
 	FMetalTexture2DArray* Texture = ResourceCast(Texture2DArrayRHI);
-	id<MTLTexture> Tex = Texture->Surface.Texture;
-	if (ImmediateContext.Context->GetCommandQueue().SupportsFeature(EMetalFeaturesResourceOptions) && !(Tex.usage & MTLTextureUsagePixelFormatView))
+	FMetalTexture Tex = Texture->Surface.Texture;
+	if (ImmediateContext.Context->GetCommandQueue().SupportsFeature(EMetalFeaturesResourceOptions) && !(Tex.GetUsage() & mtlpp::TextureUsage::PixelFormatView))
 	{
 		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
 		return GDynamicRHI->RHICreateShaderResourceView(Texture2DArrayRHI, MipLevel);
@@ -232,8 +251,8 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderTh
 FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTextureCubeRHIParamRef TextureCubeRHI, uint8 MipLevel)
 {
 	FMetalTextureCube* Texture = ResourceCast(TextureCubeRHI);
-	id<MTLTexture> Tex = Texture->Surface.Texture;
-	if (ImmediateContext.Context->GetCommandQueue().SupportsFeature(EMetalFeaturesResourceOptions) && !(Tex.usage & MTLTextureUsagePixelFormatView))
+	FMetalTexture Tex = Texture->Surface.Texture;
+	if (ImmediateContext.Context->GetCommandQueue().SupportsFeature(EMetalFeaturesResourceOptions) && !(Tex.GetUsage() & mtlpp::TextureUsage::PixelFormatView))
 	{
 		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
 		return GDynamicRHI->RHICreateShaderResourceView(TextureCubeRHI, MipLevel);
@@ -246,41 +265,21 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderTh
 
 FShaderResourceViewRHIRef FMetalDynamicRHI::CreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format)
 {
-	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures))
-	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-		return GDynamicRHI->RHICreateShaderResourceView(VertexBuffer, Stride, Format);
-	}
 	return GDynamicRHI->RHICreateShaderResourceView(VertexBuffer, Stride, Format);
 }
 
 FShaderResourceViewRHIRef FMetalDynamicRHI::CreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef Buffer)
 {
-	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures))
-	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-		return GDynamicRHI->RHICreateShaderResourceView(Buffer);
-	}
 	return GDynamicRHI->RHICreateShaderResourceView(Buffer);
 }
 
 FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format)
 {
-	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures))
-	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-		return GDynamicRHI->RHICreateShaderResourceView(VertexBuffer, Stride, Format);
-	}
 	return GDynamicRHI->RHICreateShaderResourceView(VertexBuffer, Stride, Format);
 }
 
 FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef Buffer)
 {
-	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures))
-	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-		return GDynamicRHI->RHICreateShaderResourceView(Buffer);
-	}
 	return GDynamicRHI->RHICreateShaderResourceView(Buffer);
 }
 
@@ -321,8 +320,7 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView(FVertexB
 		check(Stride == GPixelFormats[Format].BlockBytes);
 		check(VertexBuffer->GetUsage() & BUF_ShaderResource);
 		
-		id<MTLTexture> Texture = VertexBuffer->GetLinearTexture((EPixelFormat)Format);
-		check(Texture);
+		check(VertexBuffer->GetLinearTexture((EPixelFormat)Format));
 	}
 	
 	return SRV;
@@ -339,9 +337,9 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView(FIndexBu
 	SRV->SourceIndexBuffer = Buffer;
 	SRV->TextureView = nullptr;
 	SRV->SourceStructuredBuffer = nullptr;
-	SRV->Format = (Buffer->IndexType == MTLIndexTypeUInt16) ? PF_R16_UINT : PF_R32_UINT;
+	SRV->Format = (Buffer->IndexType == mtlpp::IndexType::UInt16) ? PF_R16_UINT : PF_R32_UINT;
 	
-	check(!FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures) || Buffer->LinearTexture);
+	check(!FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures) || Buffer->GetLinearTexture((EPixelFormat)SRV->Format));
 	
 	return SRV;
 	}
@@ -481,12 +479,27 @@ void FMetalRHICommandContext::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef Un
 {
 	@autoreleasepool {
 	FMetalUnorderedAccessView* UnorderedAccessView = ResourceCast(UnorderedAccessViewRHI);
-	if (UnorderedAccessView->SourceView->SourceStructuredBuffer || UnorderedAccessView->SourceView->SourceVertexBuffer)
+	if (UnorderedAccessView->SourceView->SourceStructuredBuffer || UnorderedAccessView->SourceView->SourceVertexBuffer || UnorderedAccessView->SourceView->SourceIndexBuffer)
 	{
-		check(UnorderedAccessView->SourceView->SourceStructuredBuffer || UnorderedAccessView->SourceView->SourceVertexBuffer);
+		check(UnorderedAccessView->SourceView->SourceStructuredBuffer || UnorderedAccessView->SourceView->SourceVertexBuffer || UnorderedAccessView->SourceView->SourceIndexBuffer);
 		
-		id<MTLBuffer> Buffer = UnorderedAccessView->SourceView->SourceVertexBuffer ? UnorderedAccessView->SourceView->SourceVertexBuffer->Buffer : UnorderedAccessView->SourceView->SourceStructuredBuffer->Buffer;
-		uint32 Size = UnorderedAccessView->SourceView->SourceVertexBuffer ? UnorderedAccessView->SourceView->SourceVertexBuffer->GetSize() : UnorderedAccessView->SourceView->SourceStructuredBuffer->GetSize();
+		FMetalBuffer Buffer;
+		uint32 Size = 0;
+		if (UnorderedAccessView->SourceView->SourceVertexBuffer)
+		{
+			Buffer = UnorderedAccessView->SourceView->SourceVertexBuffer->Buffer;
+			Size = UnorderedAccessView->SourceView->SourceVertexBuffer->GetSize();
+		}
+		else if (UnorderedAccessView->SourceView->SourceStructuredBuffer)
+		{
+			Buffer = UnorderedAccessView->SourceView->SourceStructuredBuffer->Buffer;
+			Size = UnorderedAccessView->SourceView->SourceStructuredBuffer->GetSize();
+		}
+		else if (UnorderedAccessView->SourceView->SourceIndexBuffer)
+		{
+			Buffer = UnorderedAccessView->SourceView->SourceIndexBuffer->Buffer;
+			Size = UnorderedAccessView->SourceView->SourceIndexBuffer->GetSize();
+		}
 		
 		uint32 NumComponents = 1;
 		uint32 NumBytes = 1;
@@ -506,19 +519,18 @@ void FMetalRHICommandContext::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef Un
 			// get the pointer to send back for writing
 			uint32 AlignedSize = Align(Size, BufferOffsetAlignment);
 			uint32 Offset = 0;
-			id<MTLBuffer> Temp = nil;
+			FMetalBuffer Temp = nil;
 			bool bBufferPooled = false;
 			
 			if (AlignedSize > (1024 * 1024))
 			{
-				FMetalPooledBufferArgs Args(GetMetalDeviceContext().GetDevice(), AlignedSize, MTLStorageModeShared);
+				FMetalPooledBufferArgs Args(GetMetalDeviceContext().GetDevice(), AlignedSize, mtlpp::StorageMode::Shared);
 				Temp = GetMetalDeviceContext().CreatePooledBuffer(Args);
 				bBufferPooled = true;
 			}
 			else
 			{
-				Offset = Context->AllocateFromRingBuffer(AlignedSize);
-				Temp = Context->GetRingBuffer();
+				Temp = Context->AllocateFromRingBuffer(AlignedSize);
 			}
 			
 			// Construct a pattern that can be encoded into the temporary buffer (handles packing & 2-byte formats).
@@ -678,12 +690,12 @@ void FMetalRHICommandContext::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef Un
 			{
 				case 1:
 				{
-					memset(((uint8*)[Temp contents]) + Offset, Pattern[0], AlignedSize);
+					memset(((uint8*)Temp.GetContents()) + Offset, Pattern[0], AlignedSize);
 					break;
 				}
 				case 2:
 				{
-					uint16* Dst = (uint16*)(((uint8*)[Temp contents]) + Offset);
+					uint16* Dst = (uint16*)(((uint8*)Temp.GetContents()) + Offset);
 					for (uint32 i = 0; i < AlignedSize / 2; i++, Dst++)
 					{
 						*Dst = (uint16)Pattern[0];
@@ -692,17 +704,17 @@ void FMetalRHICommandContext::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef Un
 				}
 				case 4:
 				{
-					memset_pattern4(((uint8*)[Temp contents]) + Offset, Values, AlignedSize);
+					memset_pattern4(((uint8*)Temp.GetContents()) + Offset, Values, AlignedSize);
 					break;
 				}
 				case 8:
 				{
-					memset_pattern8(((uint8*)[Temp contents]) + Offset, Values, AlignedSize);
+					memset_pattern8(((uint8*)Temp.GetContents()) + Offset, Values, AlignedSize);
 					break;
 				}
 				case 16:
 				{
-					memset_pattern16(((uint8*)[Temp contents]) + Offset, Values, AlignedSize);
+					memset_pattern16(((uint8*)Temp.GetContents()) + Offset, Values, AlignedSize);
 					break;
 				}
 				default:
@@ -716,13 +728,13 @@ void FMetalRHICommandContext::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef Un
 			
 			if(bBufferPooled)
 			{
-				GetMetalDeviceContext().ReleasePooledBuffer(Temp);
+				GetMetalDeviceContext().ReleaseBuffer(Temp);
 			}
 		}
 		else
 		{
 			// Fill the buffer via a blit encoder - I hope that is sufficient.
-			Context->FillBuffer(Buffer, NSMakeRange(0, Size), Values[0]);
+			Context->FillBuffer(Buffer, ns::Range(0, Size), Values[0]);
 		}
 		
 		// If there are problems you may need to add calls to restore the render command encoder at this point

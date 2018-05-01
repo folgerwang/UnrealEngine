@@ -25,36 +25,28 @@ float ComputeReflectionCaptureRoughnessFromMip(float Mip, half CubemapMaxMip)
 	return exp2( ( REFLECTION_CAPTURE_ROUGHEST_MIP - LevelFrom1x1 ) / REFLECTION_CAPTURE_ROUGHNESS_MIP_SCALE );
 }
 
-TextureCube SkyLightCubemap;
-SamplerState SkyLightCubemapSampler;
-
-/** X = max mip, Y = 1 if sky light should be rendered, 0 otherwise, Z = 1 if sky light is dynamic, 0 otherwise, W = blend fraction. */
-float4 SkyLightParameters;
-float SkyLightCubemapBrightness;
+// ReflectionStruct.SkyLightParameters: X = max mip, Y = 1 if sky light should be rendered, 0 otherwise, Z = 1 if sky light is dynamic, 0 otherwise, W = blend fraction. 
 
 float3 GetSkyLightReflection(float3 ReflectionVector, float Roughness, out float OutSkyAverageBrightness)
 {
-	float AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness, SkyLightParameters.x);
-	float3 Reflection = TextureCubeSampleLevel(SkyLightCubemap, SkyLightCubemapSampler, ReflectionVector, AbsoluteSpecularMip).rgb;
+	float AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness, ReflectionStruct.SkyLightParameters.x);
+	float3 Reflection = TextureCubeSampleLevel(ReflectionStruct.SkyLightCubemap, ReflectionStruct.SkyLightCubemapSampler, ReflectionVector, AbsoluteSpecularMip).rgb;
 
-	OutSkyAverageBrightness = SkyLightCubemapBrightness * Luminance( View.SkyLightColor.rgb );
+	OutSkyAverageBrightness = ReflectionStruct.SkyLightCubemapBrightness * Luminance( View.SkyLightColor.rgb );
 	return Reflection * View.SkyLightColor.rgb;
 }
-
-TextureCube SkyLightBlendDestinationCubemap;
-SamplerState SkyLightBlendDestinationCubemapSampler;
 
 float3 GetSkyLightReflectionSupportingBlend(float3 ReflectionVector, float Roughness, out float OutSkyAverageBrightness)
 {
 	float3 Reflection = GetSkyLightReflection(ReflectionVector, Roughness, OutSkyAverageBrightness);
 
 	BRANCH
-	if (SkyLightParameters.w > 0)
+	if (ReflectionStruct.SkyLightParameters.w > 0)
 	{
-		float AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness, SkyLightParameters.x);
-		float3 BlendDestinationReflection = TextureCubeSampleLevel(SkyLightBlendDestinationCubemap, SkyLightBlendDestinationCubemapSampler, ReflectionVector, AbsoluteSpecularMip).rgb;
+		float AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness, ReflectionStruct.SkyLightParameters.x);
+		float3 BlendDestinationReflection = TextureCubeSampleLevel(ReflectionStruct.SkyLightBlendDestinationCubemap, ReflectionStruct.SkyLightBlendDestinationCubemapSampler, ReflectionVector, AbsoluteSpecularMip).rgb;
 
-		Reflection = lerp(Reflection, BlendDestinationReflection * View.SkyLightColor.rgb, SkyLightParameters.w);
+		Reflection = lerp(Reflection, BlendDestinationReflection * View.SkyLightColor.rgb, ReflectionStruct.SkyLightParameters.w);
 	}
 
 	return Reflection;

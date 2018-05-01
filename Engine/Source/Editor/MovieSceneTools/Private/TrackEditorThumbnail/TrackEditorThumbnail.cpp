@@ -183,11 +183,9 @@ void FTrackEditorThumbnail::CopyTextureIn(FTexture2DRHIRef SourceTexture)
 			EDRF_Default);
 
 		// Asynchronously copy render target from GPU to CPU
-		const bool bKeepOriginalSurface = false;
 		RHICmdList.CopyToResolveTarget(
 			DestRenderTarget.TargetableTexture,
 			TargetTexture->GetTypedResource(),
-			bKeepOriginalSurface,
 			FResolveParams());
 
 		*bHasFinishedDrawingPtr = true;

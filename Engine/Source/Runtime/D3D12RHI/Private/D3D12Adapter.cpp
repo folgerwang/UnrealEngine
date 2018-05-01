@@ -8,11 +8,11 @@ D3D12Adapter.cpp:D3D12 Adapter implementation.
 
 struct FRHICommandSignalFrameFence final : public FRHICommand<FRHICommandSignalFrameFence>
 {
-	ID3D12CommandQueue* const pCommandQueue;
+	ED3D12CommandQueueType QueueType;
 	FD3D12ManualFence* const Fence;
 	const uint64 Value;
-	FORCEINLINE_DEBUGGABLE FRHICommandSignalFrameFence(ID3D12CommandQueue* pInCommandQueue, FD3D12ManualFence* InFence, uint64 InValue)
-		: pCommandQueue(pInCommandQueue)
+	FORCEINLINE_DEBUGGABLE FRHICommandSignalFrameFence(ED3D12CommandQueueType InQueueType, FD3D12ManualFence* InFence, uint64 InValue)
+		: QueueType(InQueueType)
 		, Fence(InFence)
 		, Value(InValue)
 	{
@@ -20,7 +20,7 @@ struct FRHICommandSignalFrameFence final : public FRHICommand<FRHICommandSignalF
 
 	void Execute(FRHICommandListBase& CmdList)
 	{
-		Fence->Signal(pCommandQueue, Value);
+		Fence->Signal(QueueType, Value);
 		check(Fence->GetLastSignaledFence() == Value);
 	}
 };
@@ -29,27 +29,23 @@ FD3D12Adapter::FD3D12Adapter(FD3D12AdapterDesc& DescIn)
 	: Desc(DescIn)
 	, bDeviceRemoved(false)
 	, OwningRHI(nullptr)
-	, ActiveGPUNodes(0)
 	, RootSignatureManager(this)
 	, PipelineStateCache(this)
 	, FenceCorePool(this)
-	, MultiGPUMode(MGPU_Disabled)
-	, UploadHeapAllocator(nullptr)
-	, CurrentGPUNode(GDefaultGPUMask)
-	, FrameFence(this, L"Adapter Frame Fence")
+	, FrameFence(nullptr)
 	, DeferredDeletionQueue(this)
 	, DefaultContextRedirector(this)
 	, DefaultAsyncComputeContextRedirector(this)
 	, GPUProfilingData(this)
 	, DebugFlags(0)
-{}
+{
+	FMemory::Memzero(&UploadHeapAllocator, sizeof(UploadHeapAllocator));
+	FMemory::Memzero(&Devices, sizeof(Devices));
+}
 
 void FD3D12Adapter::Initialize(FD3D12DynamicRHI* RHI)
 {
 	OwningRHI = RHI;
-
-	// Start off disabled as the engine does Initialization we can't do in AFR
-	MultiGPUMode = MGPU_Disabled;
 }
 
 void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
@@ -233,6 +229,15 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 		}
 	}
 #endif
+
+#if WITH_SLI
+	int32 DisplayedGPUIndex = INDEX_NONE;
+	if (Desc.NumDeviceNodes > 1 && !GIsEditor && FParse::Param(FCommandLine::Get(), TEXT("mGPU")) || FParse::Value(FCommandLine::Get(), TEXT("mGPU="), DisplayedGPUIndex))
+	{
+		GNumActiveGPUsForRendering = Desc.NumDeviceNodes;
+		UE_LOG(LogD3D12RHI, Log, TEXT("Enabling multi-GPU with %d nodes"), Desc.NumDeviceNodes);
+	}
+#endif
 }
 
 void FD3D12Adapter::InitializeDevices()
@@ -291,50 +296,52 @@ void FD3D12Adapter::InitializeDevices()
 		}
 		RootSignatureVersion = D3D12RootSignatureCaps.HighestVersion;
 
-		FrameFence.CreateFence();
+		FrameFence = new FD3D12ManualFence(this, FRHIGPUMask::All(), L"Adapter Frame Fence");
+		FrameFence->CreateFence();
 
 		CreateSignatures();
 
-		const uint32 NumGPUsToInit = GetNumGPUNodes();
-
 		//Create all of the FD3D12Devices
-		for (uint32 i = 0; i < NumGPUsToInit; i++)
+		for (uint32 GPUIndex : FRHIGPUMask::All())
 		{
-			GPUNodeMask Node = (1 << i);
-			ActiveGPUNodes |= Node;
+			Devices[GPUIndex] = new FD3D12Device(FRHIGPUMask::FromIndex(GPUIndex), this);
+			Devices[GPUIndex]->Initialize();
 
-			Devices[i] = new FD3D12Device(Node, this);
-			Devices[i]->Initialize();
-
-			// When using AFR we shim in a proxy between what the upper engine thinks is the 'default' context
-			// so that we can switch it out every frame. This points the proxy to each of the actual contexts.
+			// The redirectors allow to broadcast to any GPU set
+			DefaultContextRedirector.SetPhysicalContext(&Devices[GPUIndex]->GetDefaultCommandContext());
+			if (GEnableAsyncCompute)
 			{
-				DefaultContextRedirector.SetPhysicalContext(i, &Devices[i]->GetDefaultCommandContext());
-
-				if (GEnableAsyncCompute)
-				{
-					DefaultAsyncComputeContextRedirector.SetPhysicalContext(i, &Devices[i]->GetDefaultAsyncComputeContext());
-				}
+				DefaultAsyncComputeContextRedirector.SetPhysicalContext(&Devices[GPUIndex]->GetDefaultAsyncComputeContext());
 			}
 		}
+		DefaultContextRedirector.SetGPUNodeMask(FRHIGPUMask::All());
+		DefaultAsyncComputeContextRedirector.SetGPUNodeMask(FRHIGPUMask::All());
 
 		GPUProfilingData.Init();
 
 		const FString Name(L"Upload Buffer Allocator");
-		// Safe to init as we have a device;
-		UploadHeapAllocator = new FD3D12DynamicHeapAllocator(this,
-			Devices[0],
-			Name,
-			kManualSubAllocationStrategy,
-			DEFAULT_CONTEXT_UPLOAD_POOL_MAX_ALLOC_SIZE,
-			DEFAULT_CONTEXT_UPLOAD_POOL_SIZE,
-			DEFAULT_CONTEXT_UPLOAD_POOL_ALIGNMENT);
 
-		UploadHeapAllocator->Init();
+		for (uint32 GPUIndex : FRHIGPUMask::All())
+		{
+			// Safe to init as we have a device;
+			UploadHeapAllocator[GPUIndex] = new FD3D12DynamicHeapAllocator(this,
+				Devices[GPUIndex],
+				Name,
+				kManualSubAllocationStrategy,
+				DEFAULT_CONTEXT_UPLOAD_POOL_MAX_ALLOC_SIZE,
+				DEFAULT_CONTEXT_UPLOAD_POOL_SIZE,
+				DEFAULT_CONTEXT_UPLOAD_POOL_ALIGNMENT);
 
-		FString GraphicsCacheFile = PIPELINE_STATE_FILE_LOCATION / TEXT("D3DGraphics.ushaderprecache");
-		FString ComputeCacheFile = PIPELINE_STATE_FILE_LOCATION / TEXT("D3DCompute.ushaderprecache");
-		FString DriverBlobFilename = PIPELINE_STATE_FILE_LOCATION / TEXT("D3DDriverByteCodeBlob.ushaderprecache");
+			UploadHeapAllocator[GPUIndex]->Init();
+		}
+
+
+		// ID3D12Device1::CreatePipelineLibrary() requires each blob to be specific to the given adapter. To do this we create a unique file name with from the adpater desc. 
+		// Note that : "The uniqueness of an LUID is guaranteed only until the system is restarted" according to windows doc and thus can not be reused.
+		const FString UniqueDeviceCachePath = FString::Printf(TEXT("V%d_D%d_S%d_R%d.ushaderprecache"), Desc.Desc.VendorId, Desc.Desc.DeviceId, Desc.Desc.SubSysId, Desc.Desc.Revision);
+		FString GraphicsCacheFile = PIPELINE_STATE_FILE_LOCATION / FString::Printf(TEXT("D3DGraphics_%s"), *UniqueDeviceCachePath);
+	    FString ComputeCacheFile = PIPELINE_STATE_FILE_LOCATION / FString::Printf(TEXT("D3DCompute_%s"), *UniqueDeviceCachePath);
+		FString DriverBlobFilename = PIPELINE_STATE_FILE_LOCATION / FString::Printf(TEXT("D3DDriverByteCodeBlob_%s"), *UniqueDeviceCachePath);
 
 		PipelineStateCache.Init(GraphicsCacheFile, ComputeCacheFile, DriverBlobFilename);
 
@@ -353,18 +360,17 @@ void FD3D12Adapter::CreateSignatures()
 	D3D12_COMMAND_SIGNATURE_DESC commandSignatureDesc = {};
 	commandSignatureDesc.NumArgumentDescs = 1;
 	commandSignatureDesc.ByteStride = 20;
-	commandSignatureDesc.NodeMask = ActiveGPUNodes;
+	commandSignatureDesc.NodeMask = (uint32)FRHIGPUMask::All();
 
 	D3D12_INDIRECT_ARGUMENT_DESC indirectParameterDesc[1] = {};
-	indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
-
 	commandSignatureDesc.pArgumentDescs = indirectParameterDesc;
 
-	commandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
-
+	indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+	commandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_ARGUMENTS);
 	VERIFYD3D12RESULT(Device->CreateCommandSignature(&commandSignatureDesc, nullptr, IID_PPV_ARGS(DrawIndirectCommandSignature.GetInitReference())));
 
 	indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+	commandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
 	VERIFYD3D12RESULT(Device->CreateCommandSignature(&commandSignatureDesc, nullptr, IID_PPV_ARGS(DrawIndexedIndirectCommandSignature.GetInitReference())));
 
 	indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
@@ -422,11 +428,15 @@ void FD3D12Adapter::Cleanup()
 	// Cleanup resources
 	DeferredDeletionQueue.Clear();
 
-	for (SIZE_T i = 0; i < GetNumGPUNodes(); i++)
+	// First clean up everything before deleting as there are shared resource location between devices.
+	for (uint32 GPUIndex : FRHIGPUMask::All())
 	{
-		Devices[i]->Cleanup();
-		delete(Devices[i]);
-		Devices[i] = nullptr;
+		Devices[GPUIndex]->Cleanup();
+	}	
+	for (uint32 GPUIndex : FRHIGPUMask::All())
+	{
+		delete(Devices[GPUIndex]);
+		Devices[GPUIndex] = nullptr;
 	}
 
 	// Release buffered timestamp queries
@@ -435,9 +445,19 @@ void FD3D12Adapter::Cleanup()
 	Viewports.Empty();
 	DrawingViewport = nullptr;
 
-	UploadHeapAllocator->Destroy();
-	delete(UploadHeapAllocator);
-	UploadHeapAllocator = nullptr;
+	for (uint32 GPUIndex : FRHIGPUMask::All())
+	{
+		UploadHeapAllocator[GPUIndex]->Destroy();
+		delete(UploadHeapAllocator[GPUIndex]);
+		UploadHeapAllocator[GPUIndex] = nullptr;
+	}
+
+	if (FrameFence)
+	{
+		FrameFence->Destroy();
+		delete FrameFence;
+		FrameFence = nullptr;
+	}
 
 	PipelineStateCache.Close();
 	FenceCorePool.Destroy();
@@ -445,42 +465,30 @@ void FD3D12Adapter::Cleanup()
 
 void FD3D12Adapter::EndFrame()
 {
-	GetUploadHeapAllocator().CleanUpAllocations();
-	GetDeferredDeletionQueue().ReleaseResources();
-}
-
-void FD3D12Adapter::SwitchToNextGPU()
-{
-	if (MultiGPUMode == MGPU_AFR)
+	for (uint32 GPUIndex : FRHIGPUMask::All())
 	{
-		CurrentGPUNode <<= 1;
-		CurrentGPUNode &= ActiveGPUNodes;
-		// Wrap around
-		if (CurrentGPUNode == 0)
-		{
-			CurrentGPUNode = 1;
-		}
+		GetUploadHeapAllocator(GPUIndex).CleanUpAllocations();
 	}
+	GetDeferredDeletionQueue().ReleaseResources();
 }
 
 void FD3D12Adapter::SignalFrameFence_RenderThread(FRHICommandListImmediate& RHICmdList)
 {
 	check(IsInRenderingThread());
 	check(RHICmdList.IsImmediate());
-	ID3D12CommandQueue* const pCommandQueue = GetCurrentDevice()->GetCommandListManager().GetD3DCommandQueue();
 
 	// Increment the current fence (on render thread timeline).
-	const uint64 PreviousFence = FrameFence.IncrementCurrentFence();
+	const uint64 PreviousFence = FrameFence->IncrementCurrentFence();
 
 	// Queue a command to signal the frame fence is complete on the GPU (on the RHI thread timeline if using an RHI thread).
 	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
 	{
-		FRHICommandSignalFrameFence Cmd(pCommandQueue, &FrameFence, PreviousFence);
+		FRHICommandSignalFrameFence Cmd(ED3D12CommandQueueType::Default, FrameFence, PreviousFence);
 		Cmd.Execute(RHICmdList);
 	}
 	else
 	{
-		new (RHICmdList.AllocCommand<FRHICommandSignalFrameFence>()) FRHICommandSignalFrameFence(pCommandQueue, &GetFrameFence(), PreviousFence);
+		new (RHICmdList.AllocCommand<FRHICommandSignalFrameFence>()) FRHICommandSignalFrameFence(ED3D12CommandQueueType::Default, FrameFence, PreviousFence);
 	}
 }
 
@@ -498,11 +506,28 @@ FD3D12TemporalEffect* FD3D12Adapter::GetTemporalEffect(const FName& EffectName)
 	return Effect;
 }
 
+void FD3D12Adapter::GetLocalVideoMemoryInfo(DXGI_QUERY_VIDEO_MEMORY_INFO* LocalVideoMemoryInfo)
+{
+#if PLATFORM_WINDOWS
+	TRefCountPtr<IDXGIAdapter3> Adapter3;
+	VERIFYD3D12RESULT(GetAdapter()->QueryInterface(IID_PPV_ARGS(Adapter3.GetInitReference())));
+
+	VERIFYD3D12RESULT(Adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, LocalVideoMemoryInfo));
+
+	for (uint32 Index = 1; Index < GNumActiveGPUsForRendering; ++Index)
+	{
+		DXGI_QUERY_VIDEO_MEMORY_INFO TempVideoMemoryInfo;
+		VERIFYD3D12RESULT(Adapter3->QueryVideoMemoryInfo(Index, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &TempVideoMemoryInfo));
+		LocalVideoMemoryInfo->Budget = FMath::Min(LocalVideoMemoryInfo->Budget, TempVideoMemoryInfo.Budget);
+		LocalVideoMemoryInfo->Budget = FMath::Min(LocalVideoMemoryInfo->CurrentUsage, TempVideoMemoryInfo.CurrentUsage);
+	}
+#endif
+}
+
 void FD3D12Adapter::BlockUntilIdle()
 {
-	const uint32 NumGPUs = GetNumGPUNodes();
-	for (uint32 Index = 0; Index < NumGPUs; ++Index)
+	for (uint32 GPUIndex : FRHIGPUMask::All())
 	{
-		GetDeviceByIndex(Index)->BlockUntilIdle();
+		GetDevice(GPUIndex)->BlockUntilIdle();
 	}
 }

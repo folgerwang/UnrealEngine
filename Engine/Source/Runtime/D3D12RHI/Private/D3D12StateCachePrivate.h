@@ -840,7 +840,7 @@ public:
 		*PrimitiveTopology = PipelineState.Graphics.CurrentPrimitiveTopology;
 	}
 
-	FD3D12StateCacheBase(GPUNodeMask Node);
+	FD3D12StateCacheBase(FRHIGPUMask Node);
 
 	void Init(FD3D12Device* InParent, FD3D12CommandContext* InCmdContext, const FD3D12StateCacheBase* AncestralState, FD3D12SubAllocatedOnlineHeap::SubAllocationDesc& SubHeapDesc);
 

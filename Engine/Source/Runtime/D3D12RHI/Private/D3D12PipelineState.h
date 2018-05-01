@@ -208,18 +208,19 @@ public:
 
 	FD3D12PipelineState& operator=(const FD3D12PipelineState& other)
 	{
-		checkSlow(m_NodeMask == other.m_NodeMask);
-		checkSlow(m_VisibilityMask == other.m_VisibilityMask);
+		checkSlow(NodeMask == other.NodeMask);
+		checkSlow(VisibilityMask == other.VisibilityMask);
+		ensure(PendingWaitOnWorkerCalls == 0);
 
 		PipelineState = other.PipelineState;
 		Worker = other.Worker;
-
 		return *this;
 	}
 
 protected:
 	TRefCountPtr<ID3D12PipelineState> PipelineState;
 	FAsyncTask<FD3D12PipelineStateWorker>* Worker;
+	volatile int32 PendingWaitOnWorkerCalls;
 };
 
 struct FD3D12GraphicsPipelineState : public FRHIGraphicsPipelineState

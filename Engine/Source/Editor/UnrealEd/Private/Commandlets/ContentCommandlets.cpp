@@ -178,7 +178,7 @@ int32 UResavePackagesCommandlet::InitializeResaveParameters( const TArray<FStrin
 
 	}
 
-	if (bShouldBuildLighting && !bExplicitPackages)
+	if ((bShouldBuildLighting || bShouldBuildReflectionCaptures) && !bExplicitPackages)
 	{
 		UE_LOG(LogContentCommandlet, Display, TEXT("No maps found to save when building lighting, checking CommandletSettings:ResavePackages in EditorIni"));
 		// if we haven't specified any maps and we are building lighting check if there are packages setup in the ini file to build
@@ -827,6 +827,8 @@ int32 UResavePackagesCommandlet::Main( const FString& Params )
 	bAutoCheckIn = bAutoCheckOut && (Switches.Contains(TEXT("AutoCheckIn")) || Switches.Contains(TEXT("AutoSubmit")));
 	/** determine if we are building lighting for the map packages on the pass. **/
 	bShouldBuildLighting = Switches.Contains(TEXT("buildlighting"));
+	/** determine if we are building reflection captures for the map packages on the pass. **/
+	bShouldBuildReflectionCaptures = Switches.Contains(TEXT("buildreflectioncaptures"));
 	/** determine if we are building lighting for the map packages on the pass. **/
 	bShouldBuildTextureStreaming = Switches.Contains(TEXT("buildtexturestreaming"));
 	/** determine if we can skip the version changelist check */
@@ -861,7 +863,7 @@ int32 UResavePackagesCommandlet::Main( const FString& Params )
 		}
 	}
 
-	if ( bShouldBuildLighting || bShouldBuildHLOD)
+	if (bShouldBuildLighting || bShouldBuildHLOD || bShouldBuildReflectionCaptures)
 	{
 		check( Switches.Contains(TEXT("AllowCommandletRendering")) );
 		GarbageCollectionFrequency = 1;
@@ -1030,9 +1032,21 @@ FText UResavePackagesCommandlet::GetChangelistDescription() const
 {
 	FText ChangelistDescription;
 
-	if (bShouldBuildTextureStreaming && bShouldBuildLighting)
+	if (bShouldBuildTextureStreaming && bShouldBuildLighting && bShouldBuildReflectionCaptures)
+	{
+		ChangelistDescription = NSLOCTEXT("ContentCmdlets", "ChangelistDescriptionBuildLightingAndTextureStreamingAndReflectionCaptures", "Rebuild lightmaps & texture streaming & reflection captures.");
+	}
+	else if (bShouldBuildTextureStreaming && bShouldBuildLighting)
 	{
 		ChangelistDescription = NSLOCTEXT("ContentCmdlets", "ChangelistDescriptionBuildLightingAndTextureStreaming", "Rebuild lightmaps & texture streaming.");
+	}
+	else if (bShouldBuildTextureStreaming && bShouldBuildReflectionCaptures)
+	{
+		ChangelistDescription = NSLOCTEXT("ContentCmdlets", "ChangelistDescriptionBuildTextureStreamingAndReflectionCaptures", "Rebuild texture streaming & reflection captures.");
+	}
+	else if (bShouldBuildLighting && bShouldBuildReflectionCaptures)
+	{
+		ChangelistDescription = NSLOCTEXT("ContentCmdlets", "ChangelistDescriptionBuildLightingAndReflectionCaptures", "Rebuild lightmaps & reflection captures.");
 	}
 	else if (bShouldBuildLighting)
 	{
@@ -1041,6 +1055,10 @@ FText UResavePackagesCommandlet::GetChangelistDescription() const
 	else if (bShouldBuildTextureStreaming)
 	{
 		ChangelistDescription = NSLOCTEXT("ContentCmdlets", "ChangelistDescriptionBuildTextureStreaming", "Rebuild texture streaming.");
+	}
+	else if (bShouldBuildReflectionCaptures)
+	{
+		ChangelistDescription = NSLOCTEXT("ContentCmdlets", "ChangelistDescriptionBuildReflectionCaptures", "Rebuild reflection captures.");
 	}
 	else if (RedirectorsToFixup.Num() > 0)
 	{
@@ -1183,7 +1201,7 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 	}
 	ABrush::OnRebuildDone();
 
-	if (bShouldBuildLighting || bShouldBuildTextureStreaming || bShouldBuildHLOD)
+	if (bShouldBuildLighting || bShouldBuildTextureStreaming || bShouldBuildHLOD || bShouldBuildReflectionCaptures)
 	{
 		bool bShouldProceedWithRebuild = true;
 
@@ -1414,11 +1432,16 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 				GEditor->UpdateBuildLighting();
 			}
 
+			if (bShouldBuildReflectionCaptures)
+			{
+				GEditor->BuildReflectionCaptures();
+			}
+
 			FEditorDelegates::OnLightingBuildFailed.Remove(BuildFailedDelegateHandle);
 			}
 			auto SaveMapBuildData = [this, &SublevelFilenames](ULevel* InLevel)
 			{
-				if (InLevel && InLevel->MapBuildData && ( bShouldBuildLighting || bShouldBuildHLOD) )
+				if (InLevel && InLevel->MapBuildData && (bShouldBuildLighting || bShouldBuildHLOD || bShouldBuildReflectionCaptures) )
 				{
 					UPackage* MapBuildDataPackage = InLevel->MapBuildData->GetOutermost();
 					FString MapBuildDataPackageName = MapBuildDataPackage->GetName();

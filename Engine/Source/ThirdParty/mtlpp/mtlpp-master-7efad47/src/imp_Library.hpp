@@ -84,6 +84,7 @@ struct IMPTable<id<MTLLibrary>, void> : public IMPTableBase<id<MTLLibrary>>
 	, INTERPOSE_CONSTRUCTOR(NewFunctionWithName, C)
 	, INTERPOSE_CONSTRUCTOR(NewFunctionWithNameconstantValueserror, C)
 	, INTERPOSE_CONSTRUCTOR(NewFunctionWithNameconstantValuescompletionHandler, C)
+	, INTERPOSE_CONSTRUCTOR(FunctionNames, C)
 	{
 	}
 	

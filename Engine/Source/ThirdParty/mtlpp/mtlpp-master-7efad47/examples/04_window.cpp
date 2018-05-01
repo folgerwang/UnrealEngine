@@ -8,7 +8,7 @@ mtlpp::RenderPipelineState g_renderPipelineState;
 
 void Render(const Window& win)
 {
-    mtlpp::CommandBuffer commandBuffer = g_commandQueue.CommandBuffer();
+    mtlpp::CommandBuffer commandBuffer = g_commandQueue.CommandBufferWithUnretainedReferences();
     
     mtlpp::RenderPassDescriptor renderPassDesc = win.GetRenderPassDescriptor();
     if (renderPassDesc)
@@ -16,13 +16,30 @@ void Render(const Window& win)
         mtlpp::RenderCommandEncoder renderCommandEncoder = commandBuffer.RenderCommandEncoder(renderPassDesc);
         renderCommandEncoder.SetRenderPipelineState(g_renderPipelineState);
         renderCommandEncoder.SetVertexBuffer(g_vertexBuffer, 0, 0);
+		renderCommandEncoder.UseResource(g_vertexBuffer, mtlpp::ResourceUsage::Read);
         renderCommandEncoder.Draw(mtlpp::PrimitiveType::Triangle, 0, 3);
         renderCommandEncoder.EndEncoding();
         commandBuffer.Present(win.GetDrawable());
     }
 
+	const float vertexData[] =
+	{
+		0.0f,  1.0f, 0.0f,
+		-1.0f, -1.0f, 0.0f,
+		1.0f, -1.0f, 0.0f,
+	};
+	
     commandBuffer.Commit();
-    commandBuffer.WaitUntilCompleted();
+
+	// g_vertexBuffer = nil;
+	if (g_vertexBuffer.ValidateAccess(mtlpp::ResourceUsage::Read, false))
+		g_vertexBuffer.GetContents();
+
+	if (g_vertexBuffer.ValidateAccess(mtlpp::ResourceUsage::Write, false))
+		memcpy(g_vertexBuffer.GetContents(), vertexData, sizeof(vertexData));
+	
+	commandBuffer.WaitUntilCompleted();
+	
 }
 
 int main()
@@ -57,7 +74,8 @@ int main()
 //    g_device = mtlpp::Device::CreateSystemDefaultDevice();
     g_commandQueue = g_device->NewCommandQueue();
 
-    mtlpp::Library library = g_device->NewLibrary(shadersSrc, mtlpp::CompileOptions(), nullptr);
+	ns::AutoReleasedError Err;
+    mtlpp::Library library = g_device->NewLibrary(shadersSrc, mtlpp::CompileOptions(), &Err);
     mtlpp::Function vertFunc = library.NewFunction("vertFunc");
     mtlpp::Function fragFunc = library.NewFunction("fragFunc");
 
@@ -67,7 +85,7 @@ int main()
     renderPipelineDesc.SetVertexFunction(vertFunc);
     renderPipelineDesc.SetFragmentFunction(fragFunc);
     renderPipelineDesc.GetColorAttachments()[0].SetPixelFormat(mtlpp::PixelFormat::BGRA8Unorm);
-    g_renderPipelineState = g_device->NewRenderPipelineState(renderPipelineDesc, nullptr);
+    g_renderPipelineState = g_device->NewRenderPipelineState(renderPipelineDesc, &Err);
 
     Window win(g_device, &Render, 320, 240);
     Window::Run();

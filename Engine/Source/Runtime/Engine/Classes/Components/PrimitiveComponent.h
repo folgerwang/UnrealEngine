@@ -241,6 +241,8 @@ public:
 	mutable uint8 bAttachedToStreamingManagerAsDynamic : 1;
 	/** Whether this primitive is handled as dynamic, although it could have no references */
 	mutable uint8 bHandledByStreamingManagerAsDynamic : 1;
+	/** When true, texture streaming manager won't update the component state. Used to perform early exits when updating component. */
+	mutable uint8 bIgnoreStreamingManagerUpdate : 1;
 
 	/** Whether this primitive is referenced by the streaming manager and should sent callbacks when detached or destroyed */
 	FORCEINLINE bool IsAttachedToStreamingManager() const { return !!(bAttachedToStreamingManagerAsStatic | bAttachedToStreamingManagerAsDynamic); }
@@ -799,6 +801,11 @@ public:
 	 * @return							True if we can skip calling this in the future (i.e. no useful work is being done.)
 	 */
 	virtual bool UpdateOverlapsImpl(TArray<FOverlapInfo> const* NewPendingOverlaps=nullptr, bool bDoNotifies=true, const TArray<FOverlapInfo>* OverlapsAtEndLocation=nullptr) override;
+
+#if WITH_EDITOR
+	/** Update the Bounds of the component.*/
+	virtual void UpdateBounds() override;
+#endif
 
 	/** Update current physics volume for this component, if bShouldUpdatePhysicsVolume is true. Overridden to use the overlaps to find the physics volume. */
 	virtual void UpdatePhysicsVolume( bool bTriggerNotifiers ) override;

@@ -6,6 +6,8 @@
 #include "EditorStyleSet.h"
 #include "Factories/SlateBrushAssetFactory.h"
 #include "Slate/SlateBrushAsset.h"
+#include "Factories/VolumeTextureFactory.h"
+#include "Engine/VolumeTexture.h"
 #include "AssetTools.h"
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
@@ -16,20 +18,29 @@ void FAssetTypeActions_Texture2D::GetActions( const TArray<UObject*>& InObjects,
 {
 	FAssetTypeActions_Texture::GetActions(InObjects, MenuBuilder);
 
-	auto Textures = GetTypedWeakObjectPtrs<UTexture>(InObjects);
+	auto Textures = GetTypedWeakObjectPtrs<UTexture2D>(InObjects);
 
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("Texture2D_CreateSlateBrush", "Create Slate Brush"),
 		LOCTEXT("Texture2D_CreateSlateBrushToolTip", "Creates a new slate brush using this texture."),
 		FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.SlateBrushAsset"),
-		FUIAction(
-			FExecuteAction::CreateSP( this, &FAssetTypeActions_Texture2D::ExecuteCreateSlateBrush, Textures ),
-			FCanExecuteAction()
-			)
+		FUIAction(FExecuteAction::CreateSP( this, &FAssetTypeActions_Texture2D::ExecuteCreateSlateBrush, Textures ), FCanExecuteAction())
 		);
+
+	static const auto AllowVolumeTextureAssetCreationVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowVolumeTextureAssetCreation"));
+	if (InObjects.Num() == 1 && AllowVolumeTextureAssetCreationVar->GetValueOnGameThread() != 0)
+	{
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("Texture2D_CreateVolumeTexture", "Create Volume Texture"),
+			LOCTEXT("Texture2D_CreateSlateBrushToolTip", "Creates a new volume texture using this texture."),
+			FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.Sphere"),
+			FUIAction(FExecuteAction::CreateSP( this, &FAssetTypeActions_Texture2D::ExecuteCreateVolumeTexture, Textures ), FCanExecuteAction())
+			);
+	}
+
 }
 
-void FAssetTypeActions_Texture2D::ExecuteCreateSlateBrush(TArray<TWeakObjectPtr<UTexture>> Objects)
+void FAssetTypeActions_Texture2D::ExecuteCreateSlateBrush(TArray<TWeakObjectPtr<UTexture2D>> Objects)
 {
 	const FString DefaultSuffix = TEXT("_Brush");
 
@@ -46,7 +57,7 @@ void FAssetTypeActions_Texture2D::ExecuteCreateSlateBrush(TArray<TWeakObjectPtr<
 
 			// Create the factory used to generate the asset
 			USlateBrushAssetFactory* Factory = NewObject<USlateBrushAssetFactory>();
-			Factory->InitialTexture = CastChecked<UTexture2D>(Object);
+			Factory->InitialTexture = Object;
 			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
 			ContentBrowserModule.Get().CreateNewAsset(Name, FPackageName::GetLongPackagePath(PackagePath), USlateBrushAsset::StaticClass(), Factory);
 		}
@@ -67,7 +78,7 @@ void FAssetTypeActions_Texture2D::ExecuteCreateSlateBrush(TArray<TWeakObjectPtr<
 
 				// Create the factory used to generate the asset
 				USlateBrushAssetFactory* Factory = NewObject<USlateBrushAssetFactory>();
-				Factory->InitialTexture = CastChecked<UTexture2D>(Object);
+				Factory->InitialTexture = Object;
 
 				FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 				UObject* NewAsset = AssetToolsModule.Get().CreateAsset(Name, FPackageName::GetLongPackagePath(PackageName), USlateBrushAsset::StaticClass(), Factory);
@@ -85,5 +96,30 @@ void FAssetTypeActions_Texture2D::ExecuteCreateSlateBrush(TArray<TWeakObjectPtr<
 		}
 	}
 }
+
+void FAssetTypeActions_Texture2D::ExecuteCreateVolumeTexture(TArray<TWeakObjectPtr<UTexture2D>> Objects)
+{
+	const FString DefaultSuffix = TEXT("_Volume");
+
+	if( Objects.Num() == 1 )
+	{
+		auto Object = Objects[0].Get();
+
+		if( Object )
+		{
+			// Determine the asset name
+			FString Name;
+			FString PackagePath;
+			CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackagePath, Name);
+
+			// Create the factory used to generate the asset
+			UVolumeTextureFactory* Factory = NewObject<UVolumeTextureFactory>();
+			Factory->InitialTexture = CastChecked<UTexture2D>(Object);
+			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+			ContentBrowserModule.Get().CreateNewAsset(Name, FPackageName::GetLongPackagePath(PackagePath), UVolumeTexture::StaticClass(), Factory);
+		}
+	}
+}
+
 
 #undef LOCTEXT_NAMESPACE

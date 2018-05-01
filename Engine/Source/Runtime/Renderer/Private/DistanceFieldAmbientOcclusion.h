@@ -279,7 +279,7 @@ public:
 extern void GetSpacedVectors(uint32 FrameNumber, TArray<FVector, TInlineAllocator<9> >& OutVectors);
 
 BEGIN_UNIFORM_BUFFER_STRUCT(FAOSampleData2,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,SampleDirections,[NumConeSampleDirections])
+	UNIFORM_MEMBER_ARRAY(FVector4,SampleDirections,[NumConeSampleDirections])
 END_UNIFORM_BUFFER_STRUCT(FAOSampleData2)
 
 class FAOParameters

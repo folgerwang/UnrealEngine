@@ -79,12 +79,12 @@ void FSteamVRHMD::DrawVisibleAreaMesh_RenderThread(FRHICommandList& RHICmdList, 
 
 bool FSteamVRHMD::BridgeBaseImpl::NeedsNativePresent()
 {
-    if (Plugin->VRCompositor == nullptr)
-    {
-        return false;
-    }
-    
-    return true;
+	if (Plugin->VRCompositor == nullptr)
+	{
+		return false;
+	}
+	
+	return true;
 }
 
 bool FSteamVRHMD::BridgeBaseImpl::NeedsPostPresentHandoff() const
@@ -119,22 +119,22 @@ void FSteamVRHMD::D3D11Bridge::FinishRendering()
 	Texture.eColorSpace = vr::ColorSpace_Auto;
 
 	vr::VRTextureBounds_t LeftBounds;
-    LeftBounds.uMin = 0.0f;
+	LeftBounds.uMin = 0.0f;
 	LeftBounds.uMax = 0.5f;
-    LeftBounds.vMin = 0.0f;
-    LeftBounds.vMax = 1.0f;
+	LeftBounds.vMin = 0.0f;
+	LeftBounds.vMax = 1.0f;
 	
-    vr::EVRCompositorError Error = Plugin->VRCompositor->Submit(vr::Eye_Left, &Texture, &LeftBounds);
+	vr::EVRCompositorError Error = Plugin->VRCompositor->Submit(vr::Eye_Left, &Texture, &LeftBounds);
 
 	vr::VRTextureBounds_t RightBounds;
 	RightBounds.uMin = 0.5f;
-    RightBounds.uMax = 1.0f;
-    RightBounds.vMin = 0.0f;
-    RightBounds.vMax = 1.0f;
+	RightBounds.uMax = 1.0f;
+	RightBounds.vMin = 0.0f;
+	RightBounds.vMax = 1.0f;
 	   
 	Texture.handle = RenderTargetTexture;
 	Error = Plugin->VRCompositor->Submit(vr::Eye_Right, &Texture, &RightBounds);
-    if (Error != vr::VRCompositorError_None)
+	if (Error != vr::VRCompositorError_None)
 	{
 		UE_LOG(LogHMD, Log, TEXT("Warning:  SteamVR Compositor had an error on present (%d)"), (int32)Error);
 	}
@@ -214,10 +214,14 @@ void FSteamVRHMD::VulkanBridge::FinishRendering()
 	{
 		FVulkanTexture2D* Texture2D = (FVulkanTexture2D*)RenderTargetTexture.GetReference();
 		FVulkanCommandListContext& ImmediateContext = vlkRHI->GetDevice()->GetImmediateContext();
-		const VkImageLayout* CurrentLayout = ImmediateContext.GetTransitionState().CurrentLayout.Find(Texture2D->Surface.Image);
+		VkImageLayout& CurrentLayout = ImmediateContext.GetTransitionAndLayoutManager().FindOrAddLayoutRW(Texture2D->Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED);
+		bool bHadLayout = (CurrentLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 		FVulkanCmdBuffer* CmdBuffer = ImmediateContext.GetCommandBufferManager()->GetUploadCmdBuffer();
 		VkImageSubresourceRange SubresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-		vlkRHI->VulkanSetImageLayout( CmdBuffer->GetHandle(), Texture2D->Surface.Image, CurrentLayout ? *CurrentLayout : VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, SubresourceRange );
+		if (CurrentLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+		{
+			vlkRHI->VulkanSetImageLayout(CmdBuffer->GetHandle(), Texture2D->Surface.Image, CurrentLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, SubresourceRange);
+		}
 
 		vr::VRTextureBounds_t LeftBounds;
 		LeftBounds.uMin = 0.0f;
@@ -248,7 +252,16 @@ void FSteamVRHMD::VulkanBridge::FinishRendering()
 		Plugin->VRCompositor->Submit(vr::Eye_Left, &texture, &LeftBounds);
 		Plugin->VRCompositor->Submit(vr::Eye_Right, &texture, &RightBounds);
 
-		ImmediateContext.GetCommandBufferManager()->SubmitUploadCmdBuffer(false);
+		if (bHadLayout && CurrentLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+		{
+			vlkRHI->VulkanSetImageLayout(CmdBuffer->GetHandle(), Texture2D->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, CurrentLayout, SubresourceRange);
+		}
+		else
+		{
+			CurrentLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		}
+
+		ImmediateContext.GetCommandBufferManager()->SubmitUploadCmdBuffer();
 	}
 }
 

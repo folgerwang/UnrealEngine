@@ -41,7 +41,7 @@ struct FRHICommandDrawIndexedPrimitive;
 struct FRHICommandDrawIndexedPrimitiveIndirect;
 struct FRHICommandDrawPrimitive;
 struct FRHICommandDrawPrimitiveIndirect;
-struct FRHICommandEnableDepthBoundsTest;
+struct FRHICommandSetDepthBounds;
 struct FRHICommandEndDrawIndexedPrimitiveUP;
 struct FRHICommandEndDrawingViewport;
 struct FRHICommandEndDrawPrimitiveUP;
@@ -277,39 +277,25 @@ void FRHICommandSetScissorRect::Execute(FRHICommandListBase& CmdList)
 void FRHICommandBeginRenderPass::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(BeginRenderPass);
-	check(!LocalRenderPass->RenderPass.GetReference());
-	LocalRenderPass->RenderPass = INTERNAL_DECORATOR(RHIBeginRenderPass)(Info, Name);
+	INTERNAL_DECORATOR(RHIBeginRenderPass)(Info, Name);
 }
 
 void FRHICommandEndRenderPass::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(EndRenderPass);
-	check(LocalRenderPass->RenderPass.GetReference());
-	INTERNAL_DECORATOR(RHIEndRenderPass)(LocalRenderPass->RenderPass);
+	INTERNAL_DECORATOR(RHIEndRenderPass)();
 }
 
-void FRHICommandBeginParallelRenderPass::Execute(FRHICommandListBase& CmdList)
+void FRHICommandBeginComputePass::Execute(FRHICommandListBase& CmdList)
 {
-	RHISTAT(BeginParallelRenderPass);
-	LocalRenderPass->RenderPass = INTERNAL_DECORATOR(RHIBeginParallelRenderPass)(Info, Name);
+	RHISTAT(BeginComputePass);
+	INTERNAL_DECORATOR(RHIBeginComputePass)(Name);
 }
 
-void FRHICommandEndParallelRenderPass::Execute(FRHICommandListBase& CmdList)
+void FRHICommandEndComputePass::Execute(FRHICommandListBase& CmdList)
 {
-	RHISTAT(EndParallelRenderPass);
-	INTERNAL_DECORATOR(RHIEndParallelRenderPass)(LocalRenderPass->RenderPass);
-}
-
-void FRHICommandBeginRenderSubPass::Execute(FRHICommandListBase& CmdList)
-{
-	RHISTAT(BeginRenderSubPass);
-	LocalRenderSubPass->RenderSubPass = INTERNAL_DECORATOR(RHIBeginRenderSubPass)(LocalRenderPass->RenderPass);
-}
-
-void FRHICommandEndRenderSubPass::Execute(FRHICommandListBase& CmdList)
-{
-	RHISTAT(EndRenderSubPass);
-	INTERNAL_DECORATOR(RHIEndRenderSubPass)(LocalRenderPass->RenderPass, LocalRenderSubPass->RenderSubPass);
+	RHISTAT(EndComputePass);
+	INTERNAL_DECORATOR(RHIEndComputePass)();
 }
 
 void FRHICommandSetRenderTargets::Execute(FRHICommandListBase& CmdList)
@@ -444,10 +430,10 @@ void FRHICommandDrawIndexedPrimitiveIndirect::Execute(FRHICommandListBase& CmdLi
 	INTERNAL_DECORATOR(RHIDrawIndexedPrimitiveIndirect)(PrimitiveType, IndexBuffer, ArgumentsBuffer, ArgumentOffset);
 }
 
-void FRHICommandEnableDepthBoundsTest::Execute(FRHICommandListBase& CmdList)
+void FRHICommandSetDepthBounds::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(EnableDepthBoundsTest);
-	INTERNAL_DECORATOR(RHIEnableDepthBoundsTest)(bEnable, MinDepth, MaxDepth);
+	INTERNAL_DECORATOR(RHISetDepthBounds)(MinDepth, MaxDepth);
 }
 
 void FRHICommandClearTinyUAV::Execute(FRHICommandListBase& CmdList)
@@ -459,13 +445,13 @@ void FRHICommandClearTinyUAV::Execute(FRHICommandListBase& CmdList)
 void FRHICommandCopyToResolveTarget::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(CopyToResolveTarget);
-	INTERNAL_DECORATOR(RHICopyToResolveTarget)(SourceTexture, DestTexture, bKeepOriginalSurface, ResolveParams);
+	INTERNAL_DECORATOR(RHICopyToResolveTarget)(SourceTexture, DestTexture, ResolveParams);
 }
 
 void FRHICommandCopyTexture::Execute(FRHICommandListBase& CmdList)
 {
-	RHISTAT(CopyToResolveTarget);
-	INTERNAL_DECORATOR(RHICopyTexture)(SourceTexture, DestTexture, ResolveParams);
+	RHISTAT(CopyTexture);
+	INTERNAL_DECORATOR(RHICopyTexture)(SourceTexture, DestTexture, CopyInfo);
 }
 
 void FRHICommandTransitionTextures::Execute(FRHICommandListBase& CmdList)
@@ -575,18 +561,6 @@ void FRHICommandEndRenderQuery::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(EndRenderQuery);
 	INTERNAL_DECORATOR(RHIEndRenderQuery)(RenderQuery);
-}
-
-void FRHICommandBeginOcclusionQueryBatch::Execute(FRHICommandListBase& CmdList)
-{
-	RHISTAT(BeginOcclusionQueryBatch);
-	INTERNAL_DECORATOR(RHIBeginOcclusionQueryBatch)(NumQueriesInBatch);
-}
-
-void FRHICommandEndOcclusionQueryBatch::Execute(FRHICommandListBase& CmdList)
-{
-	RHISTAT(EndOcclusionQueryBatch);
-	INTERNAL_DECORATOR(RHIEndOcclusionQueryBatch)();
 }
 
 template<ECmdList CmdListType>

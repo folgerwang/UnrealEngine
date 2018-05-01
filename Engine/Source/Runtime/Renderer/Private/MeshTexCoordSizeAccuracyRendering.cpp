@@ -19,7 +19,8 @@ void FMeshTexCoordSizeAccuracyPS::SetParameters(
 	const FShader* OriginalPS, 
 	const FMaterialRenderProxy* MaterialRenderProxy,
 	const FMaterial& Material,
-	const FSceneView& View
+	const FSceneView& View,
+	const FDrawingPolicyRenderState& DrawRenderState
 	)
 {
 	const int32 NumEngineColors = FMath::Min<int32>(GEngine->StreamingAccuracyColors.Num(), NumStreamingAccuracyColors);

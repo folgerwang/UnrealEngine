@@ -69,13 +69,6 @@ public:
 	}
 
 	void Release();
-
-	// FDeferredCleanupInterface
-	virtual void FinishCleanup() override
-	{
-		delete this;
-	}
-
 private:
 
 	int32 Size;

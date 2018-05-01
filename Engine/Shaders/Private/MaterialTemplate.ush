@@ -4,6 +4,7 @@
  * MaterialTemplate.usf: Filled in by FHLSLMaterialTranslator::GetMaterialShaderCode for each material being compiled.
  */
 
+#include "/Engine/Private/SceneTexturesCommon.ush"
 #include "/Engine/Private/Random.ush"
 #include "/Engine/Private/MonteCarlo.ush"
 #include "/Engine/Generated/UniformBuffers/Material.ush"
@@ -1246,11 +1247,24 @@ MaterialFloat2 GetLightmapUVs(FMaterialPixelParameters Parameters)
 }
 
 #if USES_EYE_ADAPTATION
-#include "/Engine/Private/EyeAdaptationCommon.ush"
+
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+
+// Allow passes to reroute which uniform buffer struct EyeAdaptation comes from
+#ifndef EyeAdaptationStruct
+#define EyeAdaptationStruct SceneTexturesStruct
+#endif
+
+//Provides access to the EyeAdaptation RT. Only available in SM5.
+float EyeAdaptationLookup()
+{
+	return EyeAdaptationStruct.EyeAdaptation.Load(int3(0, 0, 0)).x;
+}
+#endif
+
 #endif
 
 #if NEEDS_SCENE_TEXTURES
-#include "/Engine/Private/DeferredShadingCommon.ush"		// GetGBufferData()
 
 float4 GetPostProcessInputMinMax(uint Index)
 {
@@ -1265,6 +1279,8 @@ float4 GetPostProcessInputMinMax(uint Index)
 #endif
 	return 1.0f;
 }
+
+#if SHADING_PATH_MOBILE
 
 MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameters, int SceneTextureId, float2 UV)
 {
@@ -1281,7 +1297,7 @@ MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameter
 		UV.y = 1.0 - UV.y; 
 		#endif
 		
-		MaterialFloat Depth = ConvertFromDeviceZ(Texture2DSample(SceneDepthTexture, SceneDepthTextureSampler, UV).r);
+		MaterialFloat Depth = ConvertFromDeviceZ(Texture2DSample(MobileSceneTextures.SceneDepthTexture, MobileSceneTextures.SceneDepthTextureSampler, UV).r);
 		return MaterialFloat4(Depth.rrr, 0.f);
 	}
 	//PPI_CustomDepth
@@ -1291,7 +1307,7 @@ MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameter
 		UV.y = 1.0 - UV.y; 
 		#endif
 
-		MaterialFloat Depth = ConvertFromDeviceZ(Texture2DSample(CustomDepthTexture, CustomDepthTextureSampler, UV).r);
+		MaterialFloat Depth = ConvertFromDeviceZ(Texture2DSample(MobileSceneTextures.CustomDepthTexture, MobileSceneTextures.CustomDepthTextureSampler, UV).r);
 		return MaterialFloat4(Depth.rrr, 0.f);
 	}
 	// PPI_PostprocessInput
@@ -1314,7 +1330,7 @@ MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameter
 		UV.y = 1.0 - UV.y; 
 		#endif
 
-		MaterialFloat Stencil = Texture2DSample(MobileCustomStencilTexture, MobileCustomStencilTextureSampler, UV).r*255.0;
+		MaterialFloat Stencil = Texture2DSample(MobileSceneTextures.MobileCustomStencilTexture, MobileSceneTextures.MobileCustomStencilTextureSampler, UV).r*255.0;
 		Stencil = floor(Stencil + 0.5);
 		return MaterialFloat4(Stencil.rrr, 0.f);
 	}
@@ -1322,6 +1338,12 @@ MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameter
 
 	return MaterialFloat4(0.0f, 0.0f, 0.0f, 0.0f);
 }
+
+#endif // SHADING_PATH_MOBILE
+
+#if SHADING_PATH_DEFERRED
+
+#include "/Engine/Private/DeferredShadingCommon.ush"		// GetGBufferData()
 
 /** Applies an offset to the scene texture lookup and decodes the HDR linear space color. */
 float4 SceneTextureLookup(float2 UV, int SceneTextureIndex, bool bFiltered)
@@ -1395,7 +1417,27 @@ float4 SceneTextureLookup(float2 UV, int SceneTextureIndex, bool bFiltered)
 			return float4(0, 0, 0, 0);
 	}
 }
+
+#endif // SHADING_PATH_DEFERRED
 #endif // NEEDS_SCENE_TEXTURES
+
+#if SHADING_PATH_DEFERRED
+
+/** Applies an offset to the scene texture lookup and decodes the HDR linear space color. */
+float3 DecodeSceneColorForMaterialNode(float2 ScreenUV)
+{
+#if SCENE_TEXTURES_DISABLED
+	// Hit proxies rendering pass doesn't have access to valid render buffers
+	return float3(0.0f, 0.0f, 0.0f);
+#else
+	float4 EncodedSceneColor = Texture2DSample(SceneTexturesStruct.SceneColorCopyTexture, SceneTexturesStruct.SceneColorCopyTextureSampler, ScreenUV);
+
+	// Undo the function in EncodeSceneColorForMaterialNode
+	return pow(EncodedSceneColor.rgb, 4) * 10;
+#endif
+}
+
+#endif // SHADING_PATH_DEFERRED
 
 // Uniform material expressions.
 %s

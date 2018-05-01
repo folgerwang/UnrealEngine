@@ -18,12 +18,12 @@ struct TStaticMeshVertexTangentDatum
 
 	FORCEINLINE FVector GetTangentX() const
 	{
-		return TangentX;
+		return TangentX.ToFVector();
 	}
 
 	FORCEINLINE FVector4 GetTangentZ() const
 	{
-		return TangentZ;
+		return TangentZ.ToFVector();
 	}
 
 	FORCEINLINE FVector GetTangentY() const
@@ -112,7 +112,7 @@ template<>
 struct TStaticMeshVertexTangentTypeSelector<EStaticMeshVertexTangentBasisType::HighPrecision>
 {
 	typedef FPackedRGBA16N TangentTypeT;
-	static const EVertexElementType VertexElementType = VET_UShort4N;
+	static const EVertexElementType VertexElementType = VET_Short4N;
 };
 
 template<EStaticMeshVertexUVType UVType>

@@ -33,16 +33,16 @@ static float RoundUpNearestEven(const float f)
 	return ret + isOdd;
 }
 
-static float RoundTessLevel(float TessFactor, MTLTessellationPartitionMode PartitionMode)
+static float RoundTessLevel(float TessFactor, mtlpp::TessellationPartitionMode PartitionMode)
 {
 	switch(PartitionMode)
 	{
-		case MTLTessellationPartitionModePow2:
+		case mtlpp::TessellationPartitionMode::ModePow2:
 			return FMath::RoundUpToPowerOfTwo((uint32)TessFactor);
-		case MTLTessellationPartitionModeInteger:
+		case mtlpp::TessellationPartitionMode::ModeInteger:
 			return FMath::CeilToFloat(TessFactor);
-		case MTLTessellationPartitionModeFractionalEven:
-		case MTLTessellationPartitionModeFractionalOdd: // these are handled the same way
+		case mtlpp::TessellationPartitionMode::ModeFractionalEven:
+		case mtlpp::TessellationPartitionMode::ModeFractionalOdd: // these are handled the same way
 			return RoundUpNearestEven(TessFactor);
 		default:
 			check(false);
@@ -56,28 +56,29 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalShaderPipeline)
 
 - (void)dealloc
 {
-	[_RenderPipelineState release];
-	[_ComputePipelineState release];
-	[_TessellationPipelineDesc release];
-#if METAL_DEBUG_OPTIONS
-	[_RenderPipelineReflection release];
-	[_ComputePipelineReflection release];
-	[_VertexSource release];
-	[_FragmentSource release];
-	[_ComputeSource release];
-#endif
 	[super dealloc];
 }
 
 #if METAL_DEBUG_OPTIONS
+- (instancetype)init
+{
+	id Self = [super init];
+	if (Self)
+	{
+		RenderPipelineReflection = mtlpp::RenderPipelineReflection(nil);
+		ComputePipelineReflection = mtlpp::ComputePipelineReflection(nil);
+	}
+	return Self;
+}
+
 - (void)initResourceMask
 {
-	if (self.RenderPipelineReflection)
+	if (RenderPipelineReflection)
 	{
 		[self initResourceMask:EMetalShaderVertex];
 		[self initResourceMask:EMetalShaderFragment];
 	}
-	if (self.ComputePipelineReflection)
+	if (ComputePipelineReflection)
 	{
 		[self initResourceMask:EMetalShaderCompute];
 	}
@@ -89,7 +90,7 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalShaderPipeline)
 	{
 		case EMetalShaderVertex:
 		{
-			MTLRenderPipelineReflection* Reflection = self.RenderPipelineReflection;
+			MTLRenderPipelineReflection* Reflection = RenderPipelineReflection;
 			check(Reflection);
 			
 			Arguments = Reflection.vertexArguments;
@@ -97,7 +98,7 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalShaderPipeline)
 		}
 		case EMetalShaderFragment:
 		{
-			MTLRenderPipelineReflection* Reflection = self.RenderPipelineReflection;
+			MTLRenderPipelineReflection* Reflection = RenderPipelineReflection;
 			check(Reflection);
 			
 			Arguments = Reflection.fragmentArguments;
@@ -105,7 +106,7 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalShaderPipeline)
 		}
 		case EMetalShaderCompute:
 		{
-			MTLComputePipelineReflection* Reflection = self.ComputePipelineReflection;
+			MTLComputePipelineReflection* Reflection = ComputePipelineReflection;
 			check(Reflection);
 			
 			Arguments = Reflection.arguments;
@@ -151,17 +152,6 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalShaderPipeline)
 	}
 }
 #endif
-@end
-
-@implementation FMetalTessellationPipelineDesc
-
-APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalTessellationPipelineDesc)
-
-- (void)dealloc
-{
-	[_DomainVertexDescriptor release];
-	[super dealloc];
-}
 @end
 
 struct FMetalGraphicsPipelineKey
@@ -230,14 +220,14 @@ struct FMetalGraphicsPipelineKey
 			EPixelFormat TargetFormat = Init.RenderTargetFormats[i];
 			if (TargetFormat == PF_Unknown) { continue; }
 
-			MTLPixelFormat MetalFormat = (MTLPixelFormat)GPixelFormats[TargetFormat].PlatformFormat;
+			mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[TargetFormat].PlatformFormat;
 			uint32 Flags = Init.RenderTargetFlags[i];
 			if (Flags & TexCreate_SRGB)
 			{
 #if PLATFORM_MAC // Expand as R8_sRGB is iOS only.
-				if (MetalFormat == MTLPixelFormatR8Unorm)
+				if (MetalFormat == mtlpp::PixelFormat::R8Unorm)
 				{
-					MetalFormat = MTLPixelFormatRGBA8Unorm;
+					MetalFormat = mtlpp::PixelFormat::RGBA8Unorm;
 				}
 #endif
 				MetalFormat = ToSRGBFormat(MetalFormat);
@@ -256,21 +246,21 @@ struct FMetalGraphicsPipelineKey
 		{
 			case PF_DepthStencil:
 			{
-				MTLPixelFormat MetalFormat = (MTLPixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
+				mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
 				if (Init.DepthTargetLoadAction != ERenderTargetLoadAction::ENoAction || Init.DepthTargetStoreAction != ERenderTargetStoreAction::ENoAction)
 				{
 					DepthFormatKey = GetMetalPixelFormatKey(MetalFormat);
 				}
 				if (Init.StencilTargetLoadAction != ERenderTargetLoadAction::ENoAction || Init.StencilTargetStoreAction != ERenderTargetStoreAction::ENoAction)
 				{
-					StencilFormatKey = GetMetalPixelFormatKey(MTLPixelFormatStencil8);
+					StencilFormatKey = GetMetalPixelFormatKey(mtlpp::PixelFormat::Stencil8);
 				}
 				bHasActiveTargets |= true;
 				break;
 			}
 			case PF_ShadowDepth:
 			{
-				DepthFormatKey = GetMetalPixelFormatKey((MTLPixelFormat)GPixelFormats[PF_ShadowDepth].PlatformFormat);
+				DepthFormatKey = GetMetalPixelFormatKey((mtlpp::PixelFormat)GPixelFormats[PF_ShadowDepth].PlatformFormat);
 				bHasActiveTargets |= true;
 				break;
 			}
@@ -285,7 +275,7 @@ struct FMetalGraphicsPipelineKey
 		FMetalPixelShader* PixelShader = (FMetalPixelShader*)Init.BoundShaderState.PixelShaderRHI;
 		if (PixelShader && (((PixelShader->Bindings.InOutMask & 0x8000) && (DepthFormatKey == 0)) || (bHasActiveTargets == false && PixelShader->Bindings.NumUAVs > 0)))
 		{
-			MTLPixelFormat MetalFormat = (MTLPixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
+			mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
 			DepthFormatKey = GetMetalPixelFormatKey(MetalFormat);
 		}
 			
@@ -363,15 +353,15 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
     FMetalDomainShader* DomainShader = (FMetalDomainShader*)Init.BoundShaderState.DomainShaderRHI;
     FMetalPixelShader* PixelShader = (FMetalPixelShader*)Init.BoundShaderState.PixelShaderRHI;
     
-    id<MTLFunction> vertexFunction = VertexShader->GetFunction(IndexType, VertexBufferTypes, Key.VertexBufferHash);
-    id<MTLFunction> fragmentFunction = PixelShader ? PixelShader->GetFunction(EMetalIndexType_None, PixelBufferTypes, Key.PixelBufferHash) : nil;
-    id<MTLFunction> domainFunction = DomainShader ? DomainShader->GetFunction(EMetalIndexType_None, DomainBufferTypes, Key.DomainBufferHash) : nil;
+    mtlpp::Function vertexFunction = VertexShader->GetFunction(IndexType, VertexBufferTypes, Key.VertexBufferHash);
+    mtlpp::Function fragmentFunction = PixelShader ? PixelShader->GetFunction(EMetalIndexType_None, PixelBufferTypes, Key.PixelBufferHash) : nil;
+    mtlpp::Function domainFunction = DomainShader ? DomainShader->GetFunction(EMetalIndexType_None, DomainBufferTypes, Key.DomainBufferHash) : nil;
     
     FMetalShaderPipeline* Pipeline = nil;
     if (vertexFunction && ((PixelShader != nullptr) == (fragmentFunction != nil)) && ((DomainShader != nullptr) == (domainFunction != nil)))
     {
-        NSError* Error = nil;
-        id<MTLDevice> Device = GetMetalDeviceContext().GetDevice();
+		ns::Error Error;
+		mtlpp::Device Device = GetMetalDeviceContext().GetDevice();
 
 		uint32 const NumActiveTargets = Init.ComputeNumValidRenderTargets();
         check(NumActiveTargets <= MaxSimultaneousRenderTargets);
@@ -389,11 +379,13 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 		Pipeline = [FMetalShaderPipeline new];
 		METAL_DEBUG_OPTION(FMemory::Memzero(Pipeline->ResourceMask, sizeof(Pipeline->ResourceMask)));
 
-		MTLRenderPipelineDescriptor* RenderPipelineDesc = [MTLRenderPipelineDescriptor new];
-		MTLComputePipelineDescriptor* ComputePipelineDesc = nil;
+		mtlpp::RenderPipelineDescriptor RenderPipelineDesc;
+		mtlpp::ComputePipelineDescriptor ComputePipelineDesc(nil);
 		
         FMetalBlendState* BlendState = (FMetalBlendState*)Init.BlendState;
-        
+		
+		ns::Array<mtlpp::RenderPipelineColorAttachmentDescriptor> ColorAttachments = RenderPipelineDesc.GetColorAttachments();
+		
         for (uint32 i = 0; i < NumActiveTargets; i++)
         {
             EPixelFormat TargetFormat = Init.RenderTargetFormats[i];
@@ -403,39 +395,39 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
                 continue;
             }
             
-            MTLPixelFormat MetalFormat = (MTLPixelFormat)GPixelFormats[TargetFormat].PlatformFormat;
+            mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[TargetFormat].PlatformFormat;
             uint32 Flags = Init.RenderTargetFlags[i];
             if (Flags & TexCreate_SRGB)
             {
         #if PLATFORM_MAC // Expand as R8_sRGB is iOS only.
-                if (MetalFormat == MTLPixelFormatR8Unorm)
+                if (MetalFormat == mtlpp::PixelFormat::R8Unorm)
                 {
-                    MetalFormat = MTLPixelFormatRGBA8Unorm;
+                    MetalFormat = mtlpp::PixelFormat::RGBA8Unorm;
                 }
         #endif
                 MetalFormat = ToSRGBFormat(MetalFormat);
             }
             
-            MTLRenderPipelineColorAttachmentDescriptor* Attachment = [RenderPipelineDesc.colorAttachments objectAtIndexedSubscript:i];
-            Attachment.pixelFormat = MetalFormat;
+            mtlpp::RenderPipelineColorAttachmentDescriptor Attachment = ColorAttachments[i];
+            Attachment.SetPixelFormat(MetalFormat);
             
-            MTLRenderPipelineColorAttachmentDescriptor* Blend = BlendState->RenderTargetStates[i].BlendState;
+            mtlpp::RenderPipelineColorAttachmentDescriptor Blend = BlendState->RenderTargetStates[i].BlendState;
             if(Attachment)
             {
                 // assign each property manually, would be nice if this was faster
-                Attachment.blendingEnabled = Blend.blendingEnabled;
-                Attachment.sourceRGBBlendFactor = Blend.sourceRGBBlendFactor;
-                Attachment.destinationRGBBlendFactor = Blend.destinationRGBBlendFactor;
-                Attachment.rgbBlendOperation = Blend.rgbBlendOperation;
-                Attachment.sourceAlphaBlendFactor = Blend.sourceAlphaBlendFactor;
-                Attachment.destinationAlphaBlendFactor = Blend.destinationAlphaBlendFactor;
-                Attachment.alphaBlendOperation = Blend.alphaBlendOperation;
-                Attachment.writeMask = Blend.writeMask;
+                Attachment.SetBlendingEnabled(Blend.IsBlendingEnabled());
+                Attachment.SetSourceRgbBlendFactor(Blend.GetSourceRgbBlendFactor());
+                Attachment.SetDestinationRgbBlendFactor(Blend.GetDestinationRgbBlendFactor());
+                Attachment.SetRgbBlendOperation(Blend.GetRgbBlendOperation());
+                Attachment.SetSourceAlphaBlendFactor(Blend.GetSourceAlphaBlendFactor());
+                Attachment.SetDestinationAlphaBlendFactor(Blend.GetDestinationAlphaBlendFactor());
+                Attachment.SetAlphaBlendOperation(Blend.GetAlphaBlendOperation());
+                Attachment.SetWriteMask(Blend.GetWriteMask());
             }
             else
             {
-                Attachment.blendingEnabled = NO;
-                Attachment.writeMask = 0;
+                Attachment.SetBlendingEnabled(NO);
+				Attachment.SetWriteMask(mtlpp::ColorWriteMask::None);
             }
         }
         
@@ -443,28 +435,28 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
         {
             case PF_DepthStencil:
             {
-                MTLPixelFormat MetalFormat = (MTLPixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
-                if(MetalFormat == MTLPixelFormatDepth32Float)
+                mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
+                if(MetalFormat == mtlpp::PixelFormat::Depth32Float)
                 {
                     if (Init.DepthTargetLoadAction != ERenderTargetLoadAction::ENoAction || Init.DepthTargetStoreAction != ERenderTargetStoreAction::ENoAction)
                     {
-                        RenderPipelineDesc.depthAttachmentPixelFormat = MetalFormat;
+                        RenderPipelineDesc.SetDepthAttachmentPixelFormat(MetalFormat);
                     }
                     if (Init.StencilTargetLoadAction != ERenderTargetLoadAction::ENoAction || Init.StencilTargetStoreAction != ERenderTargetStoreAction::ENoAction)
                     {
-                        RenderPipelineDesc.stencilAttachmentPixelFormat = MTLPixelFormatStencil8;
+                        RenderPipelineDesc.SetStencilAttachmentPixelFormat(mtlpp::PixelFormat::Stencil8);
                     }
                 }
                 else
                 {
-                    RenderPipelineDesc.depthAttachmentPixelFormat = MetalFormat;
-                    RenderPipelineDesc.stencilAttachmentPixelFormat = MetalFormat;
+                    RenderPipelineDesc.SetDepthAttachmentPixelFormat(MetalFormat);
+                    RenderPipelineDesc.SetStencilAttachmentPixelFormat(MetalFormat);
                 }
                 break;
             }
             case PF_ShadowDepth:
             {
-                RenderPipelineDesc.depthAttachmentPixelFormat = (MTLPixelFormat)GPixelFormats[PF_ShadowDepth].PlatformFormat;
+                RenderPipelineDesc.SetDepthAttachmentPixelFormat((mtlpp::PixelFormat)GPixelFormats[PF_ShadowDepth].PlatformFormat);
                 break;
             }
             default:
@@ -478,15 +470,15 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 
         FMetalHullShader* HullShader = (FMetalHullShader*)Init.BoundShaderState.HullShaderRHI;
         
-        if(RenderPipelineDesc.depthAttachmentPixelFormat == MTLPixelFormatInvalid && PixelShader && ((PixelShader->Bindings.InOutMask & 0x8000) || (NumActiveTargets == 0 && (PixelShader->Bindings.NumUAVs > 0))))
+        if(RenderPipelineDesc.GetDepthAttachmentPixelFormat() == mtlpp::PixelFormat::Invalid && PixelShader && ((PixelShader->Bindings.InOutMask & 0x8000) || (NumActiveTargets == 0 && (PixelShader->Bindings.NumUAVs > 0))))
         {
-            RenderPipelineDesc.depthAttachmentPixelFormat = (MTLPixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
-            RenderPipelineDesc.stencilAttachmentPixelFormat = (MTLPixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
+            RenderPipelineDesc.SetDepthAttachmentPixelFormat((mtlpp::PixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat);
+            RenderPipelineDesc.SetStencilAttachmentPixelFormat((mtlpp::PixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat);
         }
         
-        RenderPipelineDesc.sampleCount = FMath::Max(Init.NumSamples, 1u);
+        RenderPipelineDesc.SetSampleCount(FMath::Max(Init.NumSamples, (uint16)1u));
     #if PLATFORM_MAC
-        RenderPipelineDesc.inputPrimitiveTopology = TranslatePrimitiveTopology(Init.PrimitiveType);
+        RenderPipelineDesc.SetInputPrimitiveTopology(TranslatePrimitiveTopology(Init.PrimitiveType));
     #endif
         
         FMetalVertexDeclaration* VertexDecl = (FMetalVertexDeclaration*)Init.BoundShaderState.VertexDeclarationRHI;
@@ -494,35 +486,34 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
         if (Init.BoundShaderState.HullShaderRHI == nullptr)
         {
             check(Init.BoundShaderState.DomainShaderRHI == nullptr);
-            RenderPipelineDesc.vertexDescriptor = GetMaskedVertexDescriptor(VertexDecl->Layout.VertexDesc, VertexShader->Bindings.InOutMask);
-            RenderPipelineDesc.vertexFunction = vertexFunction;
-            RenderPipelineDesc.fragmentFunction = fragmentFunction;
+            RenderPipelineDesc.SetVertexDescriptor(GetMaskedVertexDescriptor(VertexDecl->Layout.VertexDesc, VertexShader->Bindings.InOutMask));
+            RenderPipelineDesc.SetVertexFunction(vertexFunction);
+            RenderPipelineDesc.SetFragmentFunction(fragmentFunction);
         }
         else
         {
             check(Init.BoundShaderState.DomainShaderRHI != nullptr);
             
-            RenderPipelineDesc.tessellationPartitionMode = GMetalTessellationForcePartitionMode == 0 ? DomainShader->TessellationPartitioning : (MTLTessellationPartitionMode)(GMetalTessellationForcePartitionMode - 1);
-            RenderPipelineDesc.tessellationFactorStepFunction = MTLTessellationFactorStepFunctionPerPatch;
-            RenderPipelineDesc.tessellationOutputWindingOrder = DomainShader->TessellationOutputWinding;
-            int FixedMaxTessFactor = (int)RoundTessLevel(VertexShader->TessellationMaxTessFactor, RenderPipelineDesc.tessellationPartitionMode);
-            RenderPipelineDesc.maxTessellationFactor = FixedMaxTessFactor;
-            RenderPipelineDesc.tessellationFactorScaleEnabled = NO;
-            RenderPipelineDesc.tessellationFactorFormat = MTLTessellationFactorFormatHalf;
-            RenderPipelineDesc.tessellationControlPointIndexType = MTLTessellationControlPointIndexTypeNone;
+            RenderPipelineDesc.SetTessellationPartitionMode(GMetalTessellationForcePartitionMode == 0 ? DomainShader->TessellationPartitioning : (mtlpp::TessellationPartitionMode)(GMetalTessellationForcePartitionMode - 1));
+			RenderPipelineDesc.SetTessellationFactorStepFunction(mtlpp::TessellationFactorStepFunction::PerPatch);
+            RenderPipelineDesc.SetTessellationOutputWindingOrder(DomainShader->TessellationOutputWinding);
+            int FixedMaxTessFactor = (int)RoundTessLevel(VertexShader->TessellationMaxTessFactor, RenderPipelineDesc.GetTessellationPartitionMode());
+            RenderPipelineDesc.SetMaxTessellationFactor(FixedMaxTessFactor);
+			RenderPipelineDesc.SetTessellationFactorScaleEnabled(NO);
+			RenderPipelineDesc.SetTessellationFactorFormat(mtlpp::TessellationFactorFormat::Half);
+			RenderPipelineDesc.SetTessellationControlPointIndexType(mtlpp::TessellationControlPointIndexType::None);
             
-            RenderPipelineDesc.vertexFunction = domainFunction;
-            RenderPipelineDesc.fragmentFunction = fragmentFunction;
+            RenderPipelineDesc.SetVertexFunction(domainFunction);
+            RenderPipelineDesc.SetFragmentFunction(fragmentFunction);
             
-            ComputePipelineDesc = [MTLComputePipelineDescriptor new];
+			ComputePipelineDesc = mtlpp::ComputePipelineDescriptor();
             check(ComputePipelineDesc);
-            
-            RenderPipelineDesc.vertexDescriptor = [[MTLVertexDescriptor new] autorelease];
-            
-            FMetalTessellationPipelineDesc* TessellationDesc = [[FMetalTessellationPipelineDesc new] autorelease];
-            Pipeline.TessellationPipelineDesc = TessellationDesc;
-            check(Pipeline.TessellationPipelineDesc);
-            
+			
+			mtlpp::VertexDescriptor DomainVertexDesc;
+			mtlpp::StageInputOutputDescriptor ComputeStageInOut;
+			ComputeStageInOut.SetIndexBufferIndex(VertexShader->TessellationControlPointIndexBuffer);
+			
+            FMetalTessellationPipelineDesc& TessellationDesc = Pipeline->TessellationPipelineDesc;
             TessellationDesc.TessellationInputControlPointBufferIndex = DomainShader->TessellationControlPointOutBuffer;
             TessellationDesc.TessellationOutputControlPointBufferIndex = VertexShader->TessellationControlPointOutBuffer;
             TessellationDesc.TessellationInputPatchConstBufferIndex = DomainShader->TessellationHSOutBuffer;
@@ -531,8 +522,8 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
             TessellationDesc.TessellationPatchCountBufferIndex = VertexShader->TessellationPatchCountBuffer;
             TessellationDesc.TessellationIndexBufferIndex = VertexShader->TessellationIndexBuffer;
             TessellationDesc.TessellationPatchConstOutSize = VertexShader->TessellationOutputAttribs.HSOutSize;
-            TessellationDesc.TessellationControlPointIndexBufferIndex = ComputePipelineDesc.stageInputDescriptor.indexBufferIndex = VertexShader->TessellationControlPointIndexBuffer;
-            TessellationDesc.DomainVertexDescriptor = RenderPipelineDesc.vertexDescriptor;
+			TessellationDesc.TessellationControlPointIndexBufferIndex = VertexShader->TessellationControlPointIndexBuffer;
+			TessellationDesc.DomainVertexDescriptor = DomainVertexDesc;
             TessellationDesc.DSNumUniformBuffers = DomainShader->Bindings.NumUniformBuffers;
             TessellationDesc.TessellationPatchControlPointOutSize = VertexShader->TessellationOutputAttribs.PatchControlPointOutSize;
             TessellationDesc.TessellationTessFactorOutSize = VertexShader->TessellationOutputAttribs.HSTFOutSize;
@@ -542,256 +533,273 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
             check(TessellationDesc.TessellationPatchCountBufferIndex < ML_MaxBuffers);
             check(TessellationDesc.TessellationTessFactorOutSize == 2*4 || TessellationDesc.TessellationTessFactorOutSize == 2*6);
             
-            MTLVertexStepFunction stepFunction = MTLVertexStepFunctionPerPatch;
+            mtlpp::VertexStepFunction stepFunction = mtlpp::VertexStepFunction::PerPatch;
             
-            static MTLVertexFormat Formats[(uint8)EMetalComponentType::Max][4] = {
-                {MTLVertexFormatUInt, MTLVertexFormatUInt2, MTLVertexFormatUInt3, MTLVertexFormatUInt4},
-                {MTLVertexFormatInt, MTLVertexFormatInt2, MTLVertexFormatInt3, MTLVertexFormatInt4},
-                {MTLVertexFormatInvalid, MTLVertexFormatHalf2, MTLVertexFormatHalf3, MTLVertexFormatHalf4},
-                {MTLVertexFormatFloat, MTLVertexFormatFloat2, MTLVertexFormatFloat3, MTLVertexFormatFloat4},
-                {MTLVertexFormatInvalid, MTLVertexFormatUChar2, MTLVertexFormatUChar3, MTLVertexFormatUChar4},
+            static mtlpp::VertexFormat Formats[(uint8)EMetalComponentType::Max][4] = {
+                {mtlpp::VertexFormat::UInt, mtlpp::VertexFormat::UInt2, mtlpp::VertexFormat::UInt3, mtlpp::VertexFormat::UInt4},
+                {mtlpp::VertexFormat::Int, mtlpp::VertexFormat::Int2, mtlpp::VertexFormat::Int3, mtlpp::VertexFormat::Int4},
+                {mtlpp::VertexFormat::Invalid, mtlpp::VertexFormat::Half2, mtlpp::VertexFormat::Half3, mtlpp::VertexFormat::Half4},
+                {mtlpp::VertexFormat::Float, mtlpp::VertexFormat::Float2, mtlpp::VertexFormat::Float3, mtlpp::VertexFormat::Float4},
+                {mtlpp::VertexFormat::Invalid, mtlpp::VertexFormat::UChar2, mtlpp::VertexFormat::UChar3, mtlpp::VertexFormat::UChar4},
             };
-            
+			
+			ns::Array<mtlpp::VertexBufferLayoutDescriptor> DomainVertexLayouts = DomainVertexDesc.GetLayouts();
+			
             if (DomainShader->TessellationHSOutBuffer != UINT_MAX)
             {
                 check(DomainShader->TessellationHSOutBuffer < ML_MaxBuffers);
                 uint32 bufferIndex = DomainShader->TessellationHSOutBuffer;
                 uint32 bufferSize = VertexShader->TessellationOutputAttribs.HSOutSize;
                
-                RenderPipelineDesc.vertexDescriptor.layouts[bufferIndex].stride = bufferSize;
-                RenderPipelineDesc.vertexDescriptor.layouts[bufferIndex].stepFunction = stepFunction;
-                RenderPipelineDesc.vertexDescriptor.layouts[bufferIndex].stepRate = 1;
-            
+                DomainVertexLayouts[bufferIndex].SetStride(bufferSize);
+                DomainVertexLayouts[bufferIndex].SetStepFunction(stepFunction);
+                DomainVertexLayouts[bufferIndex].SetStepRate(1);
+				
+				ns::Array<mtlpp::VertexAttributeDescriptor> Attribs = DomainVertexDesc.GetAttributes();
+				
                 for (FMetalAttribute const& Attrib : VertexShader->TessellationOutputAttribs.HSOut)
                 {
                     int attributeIndex = Attrib.Index;
                     check(attributeIndex >= 0 && attributeIndex <= 31);
                     check(Attrib.Components > 0 && Attrib.Components <= 4);
-                    MTLVertexFormat format = Formats[(uint8)Attrib.Type][Attrib.Components-1];
-                    check(format != MTLVertexFormatInvalid); // TODO support more cases
-                    RenderPipelineDesc.vertexDescriptor.attributes[attributeIndex].format = format;
-                    RenderPipelineDesc.vertexDescriptor.attributes[attributeIndex].offset = Attrib.Offset;
-                    RenderPipelineDesc.vertexDescriptor.attributes[attributeIndex].bufferIndex = bufferIndex;
+                    mtlpp::VertexFormat format = Formats[(uint8)Attrib.Type][Attrib.Components-1];
+                    check(format != mtlpp::VertexFormat::Invalid); // TODO support more cases
+                    Attribs[attributeIndex].SetFormat(format);
+                    Attribs[attributeIndex].SetOffset(Attrib.Offset);
+                    Attribs[attributeIndex].SetBufferIndex(bufferIndex);
                 }
             }
-            
-            stepFunction = MTLVertexStepFunctionPerPatchControlPoint;
+			
+            stepFunction = mtlpp::VertexStepFunction::PerPatchControlPoint;
             uint32 bufferIndex = DomainShader->TessellationControlPointOutBuffer;
             uint32 bufferSize = VertexShader->TessellationOutputAttribs.PatchControlPointOutSize;
             
-            RenderPipelineDesc.vertexDescriptor.layouts[bufferIndex].stride = bufferSize;
-            RenderPipelineDesc.vertexDescriptor.layouts[bufferIndex].stepFunction = stepFunction;
-            RenderPipelineDesc.vertexDescriptor.layouts[bufferIndex].stepRate = 1;
-            
+            DomainVertexLayouts[bufferIndex].SetStride(bufferSize);
+            DomainVertexLayouts[bufferIndex].SetStepFunction(stepFunction);
+            DomainVertexLayouts[bufferIndex].SetStepRate(1);
+			
+			ns::Array<mtlpp::VertexAttributeDescriptor> DomainVertexAttribs = DomainVertexDesc.GetAttributes();
             for (FMetalAttribute const& Attrib : VertexShader->TessellationOutputAttribs.PatchControlPointOut)
             {
                 int attributeIndex = Attrib.Index;
                 check(attributeIndex >= 0 && attributeIndex <= 31);
                 check(Attrib.Components > 0 && Attrib.Components <= 4);
-                MTLVertexFormat format = Formats[(uint8)Attrib.Type][Attrib.Components-1];
-                check(format != MTLVertexFormatInvalid); // TODO support more cases
-                RenderPipelineDesc.vertexDescriptor.attributes[attributeIndex].format = format;
-                RenderPipelineDesc.vertexDescriptor.attributes[attributeIndex].offset = Attrib.Offset;
-                RenderPipelineDesc.vertexDescriptor.attributes[attributeIndex].bufferIndex = bufferIndex;
+                mtlpp::VertexFormat format = Formats[(uint8)Attrib.Type][Attrib.Components-1];
+                check(format != mtlpp::VertexFormat::Invalid); // TODO support more cases
+				DomainVertexAttribs[attributeIndex].SetFormat(format);
+				DomainVertexAttribs[attributeIndex].SetOffset(Attrib.Offset);
+				DomainVertexAttribs[attributeIndex].SetBufferIndex(bufferIndex);
             }
+			
+			RenderPipelineDesc.SetVertexDescriptor(DomainVertexDesc);
             
             bool const bIsIndexed = (IndexType == EMetalIndexType_UInt16 || IndexType == EMetalIndexType_UInt32);
             
-            MTLVertexDescriptor* VertexDesc = GetMaskedVertexDescriptor(VertexDecl->Layout.VertexDesc, VertexShader->Bindings.InOutMask);
-            for(int onIndex = 0; onIndex < MaxMetalStreams; onIndex++)
+			mtlpp::VertexDescriptor VertexDesc = GetMaskedVertexDescriptor(VertexDecl->Layout.VertexDesc, VertexShader->Bindings.InOutMask);
+			ns::Array<mtlpp::VertexBufferLayoutDescriptor> VertexLayouts = VertexDesc.GetLayouts();
+			ns::Array<mtlpp::VertexAttributeDescriptor> VertexAttribs = VertexDesc.GetAttributes();
+			ns::Array<mtlpp::BufferLayoutDescriptor> ComputeLayouts = ComputeStageInOut.GetLayouts();
+			ns::Array<mtlpp::AttributeDescriptor> ComputeAttribs = ComputeStageInOut.GetAttributes();
+			for(int onIndex = 0; onIndex < MaxMetalStreams; onIndex++)
             {
                 // NOTE: accessing the VertexDesc like this will end up allocating layouts/attributes
-                auto stride = VertexDesc.layouts[onIndex].stride;
+                auto stride = VertexLayouts[onIndex].GetStride();
                 if(stride)
                 {
-                    ComputePipelineDesc.stageInputDescriptor.layouts[onIndex].stride = stride;
-                    auto InnerStepFunction = VertexDesc.layouts[onIndex].stepFunction;
+                    ComputeLayouts[onIndex].SetStride(stride);
+                    auto InnerStepFunction = VertexLayouts[onIndex].GetStepFunction();
                     switch(InnerStepFunction)
                     {
-                        case MTLVertexStepFunctionConstant:
-                            ComputePipelineDesc.stageInputDescriptor.layouts[onIndex].stepFunction = MTLStepFunctionConstant;
+                        case mtlpp::VertexStepFunction::Constant:
+							ComputeLayouts[onIndex].SetStepFunction(mtlpp::StepFunction::Constant);
                             break;
-                        case MTLVertexStepFunctionPerVertex:
-                            ComputePipelineDesc.stageInputDescriptor.layouts[onIndex].stepFunction = bIsIndexed ? MTLStepFunctionThreadPositionInGridXIndexed : MTLStepFunctionThreadPositionInGridX;
+                        case mtlpp::VertexStepFunction::PerVertex:
+                            ComputeLayouts[onIndex].SetStepFunction(bIsIndexed ? mtlpp::StepFunction::ThreadPositionInGridXIndexed : mtlpp::StepFunction::ThreadPositionInGridX);
                             break;
-                        case MTLVertexStepFunctionPerInstance:
-                            ComputePipelineDesc.stageInputDescriptor.layouts[onIndex].stepFunction = MTLStepFunctionThreadPositionInGridY;
+                        case mtlpp::VertexStepFunction::PerInstance:
+                            ComputeLayouts[onIndex].SetStepFunction(mtlpp::StepFunction::ThreadPositionInGridY);
                             break;
                         default:
                             check(0);
                     }
-                    ComputePipelineDesc.stageInputDescriptor.layouts[onIndex].stepRate = VertexDesc.layouts[onIndex].stepRate;
+                    ComputeLayouts[onIndex].SetStepRate(VertexLayouts[onIndex].GetStepRate());
                 }
-                auto format = VertexDesc.attributes[onIndex].format;
-                if(format == MTLVertexFormatInvalid) continue;
+                auto format = VertexAttribs[onIndex].GetFormat();
+                if(format == mtlpp::VertexFormat::Invalid) continue;
                 {
-                    ComputePipelineDesc.stageInputDescriptor.attributes[onIndex].format = (MTLAttributeFormat)format; // TODO FIXME currently these align perfectly (at least assert that is the case)
-                    ComputePipelineDesc.stageInputDescriptor.attributes[onIndex].offset = VertexDesc.attributes[onIndex].offset;
-                    ComputePipelineDesc.stageInputDescriptor.attributes[onIndex].bufferIndex = VertexDesc.attributes[onIndex].bufferIndex;
+					ComputeAttribs[onIndex].SetFormat((mtlpp::AttributeFormat)format); // TODO FIXME currently these align perfectly (at least assert that is the case)
+                    ComputeAttribs[onIndex].SetOffset(VertexAttribs[onIndex].GetOffset());
+                    ComputeAttribs[onIndex].SetBufferIndex(VertexAttribs[onIndex].GetBufferIndex());
                 }
             }
             
             // Disambiguated function name.
-            ComputePipelineDesc.computeFunction = vertexFunction;
-            check(ComputePipelineDesc.computeFunction);
+            ComputePipelineDesc.SetComputeFunction(vertexFunction);
+            check(ComputePipelineDesc.GetComputeFunction());
 
             // Don't set the index type if there isn't an index buffer.
             if (IndexType != EMetalIndexType_None)
             {
-                ComputePipelineDesc.stageInputDescriptor.indexType = GetMetalIndexType(IndexType);
+                ComputeStageInOut.SetIndexType(GetMetalIndexType(IndexType));
             }
+			ComputePipelineDesc.SetStageInputDescriptor(ComputeStageInOut);
             
             {
-                Pipeline.ComputePipelineState = [Device newComputePipelineStateWithDescriptor:ComputePipelineDesc options:MTLPipelineOptionNone reflection:nil error:&Error];
-                
-                MTLPipelineOption ComputeOption = MTLPipelineOptionNone;
- #if METAL_DEBUG_OPTIONS
-	            if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
-	            {
-	            	ComputeOption = MTLPipelineOptionArgumentInfo|MTLPipelineOptionBufferTypeInfo;
-	            }
-#endif                
-               	MTLAutoreleasedComputePipelineReflection Reflection = nil;
-				Pipeline.ComputePipelineState = [Device newComputePipelineStateWithDescriptor:ComputePipelineDesc options:ComputeOption reflection:&Reflection error:&Error];
+				ns::AutoReleasedError AutoError;
+				NSUInteger ComputeOption = mtlpp::PipelineOption::NoPipelineOption;
 #if METAL_DEBUG_OPTIONS
-				Pipeline.ComputePipelineReflection = Reflection;
+				if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
+				{
+					mtlpp::AutoReleasedComputePipelineReflection Reflection;
+					ComputeOption = mtlpp::PipelineOption::ArgumentInfo|mtlpp::PipelineOption::BufferTypeInfo;
+					Pipeline->ComputePipelineState = Device.NewComputePipelineState(ComputePipelineDesc, (mtlpp::PipelineOption)ComputeOption, &Reflection, &AutoError);
+					Pipeline->ComputePipelineReflection = Reflection;
+				}
+				else
 #endif
-				UE_CLOG((Pipeline.ComputePipelineState == nil), LogMetal, Error, TEXT("Failed to generate a pipeline state object: %s"), *FString(Error.description));
-				UE_CLOG((Pipeline.ComputePipelineState == nil), LogMetal, Error, TEXT("Vertex shader: %s"), *FString(VertexShader->GetSourceCode()));
-				UE_CLOG((Pipeline.ComputePipelineState == nil), LogMetal, Error, TEXT("Pixel shader: %s"), PixelShader ? *FString(PixelShader->GetSourceCode()) : TEXT("NULL"));
-				UE_CLOG((Pipeline.ComputePipelineState == nil), LogMetal, Error, TEXT("Hull shader: %s"), *FString(HullShader->GetSourceCode()));
-				UE_CLOG((Pipeline.ComputePipelineState == nil), LogMetal, Error, TEXT("Domain shader: %s"), *FString(DomainShader->GetSourceCode()));
-				UE_CLOG((Pipeline.ComputePipelineState == nil), LogMetal, Error, TEXT("Descriptor: %s"), *FString(ComputePipelineDesc.description));
-				UE_CLOG((Pipeline.ComputePipelineState == nil), LogMetal, Fatal, TEXT("Failed to generate a hull pipeline state object:\n\n %s\n\n"), *FString([Error localizedDescription]));
+				{
+					Pipeline->ComputePipelineState = Device.NewComputePipelineState(ComputePipelineDesc, (mtlpp::PipelineOption)ComputeOption, nullptr, &AutoError);
+				}
+				Error = AutoError;
+                
+				UE_CLOG((Pipeline->ComputePipelineState == nil), LogMetal, Error, TEXT("Failed to generate a pipeline state object: %s"), *FString([Error.GetPtr() description]));
+				UE_CLOG((Pipeline->ComputePipelineState == nil), LogMetal, Error, TEXT("Vertex shader: %s"), *FString(VertexShader->GetSourceCode()));
+				UE_CLOG((Pipeline->ComputePipelineState == nil), LogMetal, Error, TEXT("Pixel shader: %s"), PixelShader ? *FString(PixelShader->GetSourceCode()) : TEXT("NULL"));
+				UE_CLOG((Pipeline->ComputePipelineState == nil), LogMetal, Error, TEXT("Hull shader: %s"), *FString(HullShader->GetSourceCode()));
+				UE_CLOG((Pipeline->ComputePipelineState == nil), LogMetal, Error, TEXT("Domain shader: %s"), *FString(DomainShader->GetSourceCode()));
+				UE_CLOG((Pipeline->ComputePipelineState == nil), LogMetal, Error, TEXT("Descriptor: %s"), *FString(ComputePipelineDesc.GetPtr().description));
+				UE_CLOG((Pipeline->ComputePipelineState == nil), LogMetal, Fatal, TEXT("Failed to generate a hull pipeline state object:\n\n %s\n\n"), *FString(Error.GetLocalizedDescription()));
 				
-				TRACK_OBJECT(STAT_MetalRenderPipelineStateCount, Pipeline.ComputePipelineState);
 #if METAL_DEBUG_OPTIONS
-				if (Reflection)
+				if (Pipeline->ComputePipelineReflection)
 				{
 					bool found__HSTFOut = false;
-					for(MTLArgument* arg in Reflection.arguments)
+					for(mtlpp::Argument arg : Pipeline->ComputePipelineReflection.GetArguments())
 					{
 						bool addAttributes = false;
-						MTLVertexStepFunction StepFunction = (MTLVertexStepFunction)-1; // invalid
+						mtlpp::VertexStepFunction StepFunction = (mtlpp::VertexStepFunction)-1; // invalid
 						
 						uint32 BufferIndex = UINT_MAX;
 						
-						if([arg.name isEqualToString: @"PatchControlPointOutBuffer"])
+						if([arg.GetName() isEqualToString: @"PatchControlPointOutBuffer"])
 						{
-							check((arg.bufferAlignment & (arg.bufferAlignment - 1)) == 0); // must be pow2
-							check((arg.bufferDataSize & (arg.bufferAlignment - 1)) == 0); // must be aligned
+							check((arg.GetBufferAlignment() & (arg.GetBufferAlignment() - 1)) == 0); // must be pow2
+							check((arg.GetBufferDataSize() & (arg.GetBufferAlignment() - 1)) == 0); // must be aligned
 							
-							check(arg.bufferDataSize == VertexShader->TessellationOutputAttribs.PatchControlPointOutSize);
+							check(arg.GetBufferDataSize() == VertexShader->TessellationOutputAttribs.PatchControlPointOutSize);
 							
 							addAttributes = true;
 							BufferIndex = DomainShader->TessellationControlPointOutBuffer;
-							StepFunction = MTLVertexStepFunctionPerPatchControlPoint;
-							check(arg.index == VertexShader->TessellationControlPointOutBuffer);
+							StepFunction = mtlpp::VertexStepFunction::PerPatchControlPoint;
+							check(arg.GetIndex() == VertexShader->TessellationControlPointOutBuffer);
 						}
-						else if([arg.name isEqualToString: @"__HSOut"])
+						else if([arg.GetName() isEqualToString: @"__HSOut"])
 						{
-							check((arg.bufferAlignment & (arg.bufferAlignment - 1)) == 0); // must be pow2
-							check((arg.bufferDataSize & (arg.bufferAlignment - 1)) == 0); // must be aligned
+							check((arg.GetBufferAlignment() & (arg.GetBufferAlignment() - 1)) == 0); // must be pow2
+							check((arg.GetBufferDataSize() & (arg.GetBufferAlignment() - 1)) == 0); // must be aligned
 							
-							check(arg.bufferDataSize == VertexShader->TessellationOutputAttribs.HSOutSize);
+							check(arg.GetBufferDataSize() == VertexShader->TessellationOutputAttribs.HSOutSize);
 							
 							addAttributes = true;
 							BufferIndex = DomainShader->TessellationHSOutBuffer;
-							StepFunction = MTLVertexStepFunctionPerPatch;
-							check(arg.index == VertexShader->TessellationHSOutBuffer);
+							StepFunction = mtlpp::VertexStepFunction::PerPatch;
+							check(arg.GetIndex() == VertexShader->TessellationHSOutBuffer);
 						}
-						else if([arg.name isEqualToString: @"__HSTFOut"])
+						else if([arg.GetName() isEqualToString: @"__HSTFOut"])
 						{
 							found__HSTFOut = true;
-							check((arg.bufferAlignment & (arg.bufferAlignment - 1)) == 0); // must be pow2
-							check((arg.bufferDataSize & (arg.bufferAlignment - 1)) == 0); // must be aligned
+							check((arg.GetBufferAlignment() & (arg.GetBufferAlignment() - 1)) == 0); // must be pow2
+							check((arg.GetBufferDataSize() & (arg.GetBufferAlignment() - 1)) == 0); // must be aligned
 							
-							check(arg.bufferDataSize == VertexShader->TessellationOutputAttribs.HSTFOutSize);
+							check(arg.GetBufferDataSize() == VertexShader->TessellationOutputAttribs.HSTFOutSize);
 							
-							check(arg.index == VertexShader->TessellationHSTFOutBuffer);
+							check(arg.GetIndex() == VertexShader->TessellationHSTFOutBuffer);
 						}
-						else if([arg.name isEqualToString:@"patchCount"])
+						else if([arg.GetName() isEqualToString:@"patchCount"])
 						{
-							check(arg.index == VertexShader->TessellationPatchCountBuffer);
+							check(arg.GetIndex() == VertexShader->TessellationPatchCountBuffer);
 						}
-						else if([arg.name isEqualToString:@"indexBuffer"])
+						else if([arg.GetName() isEqualToString:@"indexBuffer"])
 						{
-							check(arg.index == VertexShader->TessellationIndexBuffer);
+							check(arg.GetIndex() == VertexShader->TessellationIndexBuffer);
 						}
 						
 						// build the vertexDescriptor
 						if(addAttributes)
 						{
-							check(RenderPipelineDesc.vertexDescriptor.layouts[BufferIndex].stride == arg.bufferDataSize);
-							check(RenderPipelineDesc.vertexDescriptor.layouts[BufferIndex].stepFunction == StepFunction);
-							check(RenderPipelineDesc.vertexDescriptor.layouts[BufferIndex].stepRate == 1);
-							for(MTLStructMember *attribute in arg.bufferStructType.members)
+							check(DomainVertexLayouts[BufferIndex].GetStride() == arg.GetBufferDataSize());
+							check(DomainVertexLayouts[BufferIndex].GetStepFunction() == StepFunction);
+							check(DomainVertexLayouts[BufferIndex].GetStepRate() == 1);
+							for(mtlpp::StructMember attribute : arg.GetBufferStructType().GetMembers())
 							{
 								int attributeIndex = -1;
-								sscanf([attribute.name UTF8String], "OUT_ATTRIBUTE%d_", &attributeIndex);
+								sscanf([attribute.GetName() UTF8String], "OUT_ATTRIBUTE%d_", &attributeIndex);
 								check(attributeIndex >= 0 && attributeIndex <= 31);
-								MTLVertexFormat format = MTLVertexFormatInvalid;
-								switch(attribute.dataType)
+								mtlpp::VertexFormat format = mtlpp::VertexFormat::Invalid;
+								switch(attribute.GetDataType())
 								{
-									case MTLDataTypeFloat:  format = MTLVertexFormatFloat; break;
-									case MTLDataTypeFloat2: format = MTLVertexFormatFloat2; break;
-									case MTLDataTypeFloat3: format = MTLVertexFormatFloat3; break;
-									case MTLDataTypeFloat4: format = MTLVertexFormatFloat4; break;
+									case mtlpp::DataType::Float:  format = mtlpp::VertexFormat::Float; break;
+									case mtlpp::DataType::Float2: format = mtlpp::VertexFormat::Float2; break;
+									case mtlpp::DataType::Float3: format = mtlpp::VertexFormat::Float3; break;
+									case mtlpp::DataType::Float4: format = mtlpp::VertexFormat::Float4; break;
 										
-									case MTLDataTypeInt:  format = MTLVertexFormatInt; break;
-									case MTLDataTypeInt2: format = MTLVertexFormatInt2; break;
-									case MTLDataTypeInt3: format = MTLVertexFormatInt3; break;
-									case MTLDataTypeInt4: format = MTLVertexFormatInt4; break;
+									case mtlpp::DataType::Int:  format = mtlpp::VertexFormat::Int; break;
+									case mtlpp::DataType::Int2: format = mtlpp::VertexFormat::Int2; break;
+									case mtlpp::DataType::Int3: format = mtlpp::VertexFormat::Int3; break;
+									case mtlpp::DataType::Int4: format = mtlpp::VertexFormat::Int4; break;
 										
-									case MTLDataTypeUInt:  format = MTLVertexFormatUInt; break;
-									case MTLDataTypeUInt2: format = MTLVertexFormatUInt2; break;
-									case MTLDataTypeUInt3: format = MTLVertexFormatUInt3; break;
-									case MTLDataTypeUInt4: format = MTLVertexFormatUInt4; break;
+									case mtlpp::DataType::UInt:  format = mtlpp::VertexFormat::UInt; break;
+									case mtlpp::DataType::UInt2: format = mtlpp::VertexFormat::UInt2; break;
+									case mtlpp::DataType::UInt3: format = mtlpp::VertexFormat::UInt3; break;
+									case mtlpp::DataType::UInt4: format = mtlpp::VertexFormat::UInt4; break;
 										
 									default: check(0); // TODO support more cases
 								}
-								check(RenderPipelineDesc.vertexDescriptor.attributes[attributeIndex].format == format);
-								check(RenderPipelineDesc.vertexDescriptor.attributes[attributeIndex].offset == attribute.offset);
-								check(RenderPipelineDesc.vertexDescriptor.attributes[attributeIndex].bufferIndex == BufferIndex);
+								check(DomainVertexAttribs[attributeIndex].GetFormat() == format);
+								check(DomainVertexAttribs[attributeIndex].GetOffset() == attribute.GetOffset());
+								check(DomainVertexAttribs[attributeIndex].GetBufferIndex() == BufferIndex);
 							}
 						}
 					}
 					check(found__HSTFOut);
 				}
 #endif
-				[ComputePipelineDesc release];
             }
         }
         
-        MTLPipelineOption RenderOption = MTLPipelineOptionNone;
+        NSUInteger RenderOption = mtlpp::PipelineOption::NoPipelineOption;
+		mtlpp::AutoReleasedRenderPipelineReflection* Reflection = nullptr;
 #if METAL_DEBUG_OPTIONS
+		mtlpp::AutoReleasedRenderPipelineReflection OutReflection;
+		Reflection = &OutReflection;
         if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
         {
-        	RenderOption = MTLPipelineOptionArgumentInfo|MTLPipelineOptionBufferTypeInfo;
+        	RenderOption = mtlpp::PipelineOption::ArgumentInfo|mtlpp::PipelineOption::BufferTypeInfo;
         }
 #endif
 
-		MTLAutoreleasedRenderPipelineReflection Reflection = nil;
-		Pipeline.RenderPipelineState = [Device newRenderPipelineStateWithDescriptor:RenderPipelineDesc options:RenderOption reflection:&Reflection error:&Error];
+		ns::AutoReleasedError RenderError;
+		Pipeline->RenderPipelineState = Device.NewRenderPipelineState(RenderPipelineDesc, (mtlpp::PipelineOption)RenderOption, Reflection, &RenderError);
 #if METAL_DEBUG_OPTIONS
-		Pipeline.RenderPipelineReflection = Reflection;
+		if (Reflection)
+		{
+			Pipeline->RenderPipelineReflection = *Reflection;
+		}
 #endif
+		Error = RenderError;
 		
-		UE_CLOG((Pipeline.RenderPipelineState == nil), LogMetal, Error, TEXT("Failed to generate a pipeline state object: %s"), *FString(Error.description));
-		UE_CLOG((Pipeline.RenderPipelineState == nil), LogMetal, Error, TEXT("Vertex shader: %s"), *FString(VertexShader->GetSourceCode()));
-		UE_CLOG((Pipeline.RenderPipelineState == nil), LogMetal, Error, TEXT("Pixel shader: %s"), PixelShader ? *FString(PixelShader->GetSourceCode()) : TEXT("NULL"));
-		UE_CLOG((Pipeline.RenderPipelineState == nil), LogMetal, Error, TEXT("Hull shader: %s"), HullShader ? *FString(HullShader->GetSourceCode()) : TEXT("NULL"));
-		UE_CLOG((Pipeline.RenderPipelineState == nil), LogMetal, Error, TEXT("Domain shader: %s"), DomainShader ? *FString(DomainShader->GetSourceCode()) : TEXT("NULL"));
-		UE_CLOG((Pipeline.RenderPipelineState == nil), LogMetal, Error, TEXT("Descriptor: %s"), *FString(RenderPipelineDesc.description));
-		UE_CLOG((Pipeline.RenderPipelineState == nil), LogMetal, Fatal, TEXT("Failed to generate a render pipeline state object:\n\n %s\n\n"), *FString([Error localizedDescription]));
+		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Failed to generate a pipeline state object: %s"), *FString(Error.GetPtr().description));
+		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Vertex shader: %s"), *FString(VertexShader->GetSourceCode()));
+		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Pixel shader: %s"), PixelShader ? *FString(PixelShader->GetSourceCode()) : TEXT("NULL"));
+		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Hull shader: %s"), HullShader ? *FString(HullShader->GetSourceCode()) : TEXT("NULL"));
+		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Domain shader: %s"), DomainShader ? *FString(DomainShader->GetSourceCode()) : TEXT("NULL"));
+		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Descriptor: %s"), *FString(RenderPipelineDesc.GetPtr().description));
+		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Fatal, TEXT("Failed to generate a render pipeline state object:\n\n %s\n\n"), *FString(Error.GetLocalizedDescription()));
 		
-		TRACK_OBJECT(STAT_MetalRenderPipelineStateCount, Pipeline.RenderPipelineState);
-		[RenderPipelineDesc release];
-        
     #if METAL_DEBUG_OPTIONS
-        Pipeline.ComputeSource = DomainShader ? VertexShader->GetSourceCode() : nil;
-        Pipeline.VertexSource = DomainShader ? DomainShader->GetSourceCode() : VertexShader->GetSourceCode();
-        Pipeline.FragmentSource = PixelShader ? PixelShader->GetSourceCode() : nil;
+        Pipeline->ComputeSource = DomainShader ? VertexShader->GetSourceCode() : nil;
+        Pipeline->VertexSource = DomainShader ? DomainShader->GetSourceCode() : VertexShader->GetSourceCode();
+        Pipeline->FragmentSource = PixelShader ? PixelShader->GetSourceCode() : nil;
     #endif
         
     #if 0
@@ -832,6 +840,8 @@ static FMetalShaderPipeline* GetMTLRenderPipeline(bool const bSync, FMetalGraphi
 {
 	static FRWLock PipelineMutex;
 	static TMap<FMetalGraphicsPipelineKey, FMetalShaderPipeline*> Pipelines;
+	
+	SCOPE_CYCLE_COUNTER(STAT_MetalPipelineStateTime);
 
 	FMetalGraphicsPipelineKey Key;
 	InitMetalGraphicsPipelineKey(Key, Init, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes);

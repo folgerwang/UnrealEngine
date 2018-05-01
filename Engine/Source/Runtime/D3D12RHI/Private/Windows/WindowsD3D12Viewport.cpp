@@ -10,7 +10,7 @@
 #include "Windows/AllowWindowsPlatformTypes.h"
 #include "Windows.h"
 
-extern FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFormat, IDXGISwapChain* SwapChain, const uint32 &backBufferIndex);
+extern FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFormat, IDXGISwapChain* SwapChain, uint32 BackBufferIndex);
 
 FD3D12Viewport::FD3D12Viewport(class FD3D12Adapter* InParent, HWND InWindowHandle, uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen, EPixelFormat InPreferredPixelFormat) :
 	LastFlipTime(0),
@@ -28,16 +28,16 @@ FD3D12Viewport::FD3D12Viewport(class FD3D12Adapter* InParent, HWND InWindowHandl
 	ColorSpace(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709),
 	bIsValid(true),
 	NumBackBuffers(DefaultNumBackBuffers),
+	DisplayedGPUIndex(0),
 	CurrentBackBufferIndex_RenderThread(0),
 	BackBuffer_RenderThread(nullptr),
 	CurrentBackBufferIndex_RHIThread(0),
 	BackBuffer_RHIThread(nullptr),
-	Fence(InParent, L"Viewport Fence"),
+	Fence(InParent, FRHIGPUMask::All(), L"Viewport Fence"),
 	LastSignaledValue(0),
-	pCommandQueue(nullptr),
-#if PLATFORM_SUPPORTS_MGPU
+#if WITH_SLI
 	FramePacerRunnable(nullptr),
-#endif //PLATFORM_SUPPORTS_MGPU
+#endif //WITH_SLI
 	SDRBackBuffer_RenderThread(nullptr),
 	SDRBackBuffer_RHIThread(nullptr),
 	SDRPixelFormat(PF_B8G8R8A8),
@@ -98,7 +98,8 @@ void FD3D12Viewport::Init()
 		SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 		SwapChainDesc.Flags = SwapChainFlags;
 
-		pCommandQueue = Adapter->GetDevice()->GetCommandListManager().GetD3DCommandQueue();
+		// The command queue used here is irrelevant in regard to multi-GPU as it gets overriden in the Resize
+		ID3D12CommandQueue* pCommandQueue = Adapter->GetDevice(0)->GetD3DCommandQueue();
 
 		TRefCountPtr<IDXGISwapChain> SwapChain;
 		VERIFYD3D12RESULT(Adapter->GetDXGIFactory2()->CreateSwapChain(pCommandQueue, &SwapChainDesc, SwapChain.GetInitReference()));
@@ -135,48 +136,49 @@ void FD3D12Viewport::ResizeInternal()
 		SwapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 	}
 
-#if PLATFORM_SUPPORTS_MGPU
-	if (Adapter->AlternateFrameRenderingEnabled())
+#if WITH_SLI
+	if (GNumActiveGPUsForRendering > 1)
 	{
 		TArray<ID3D12CommandQueue*> CommandQueues;
 		TArray<uint32> NodeMasks;
+		TArray<uint32> BackBufferGPUIndices;
 
-		uint32 GPUIndex = 0;
+		for (uint32 i = 0; i < NumBackBuffers; ++i)
+		{
+			// When DisplayedGPUIndex == INDEX_NONE, cycle through each GPU (for AFR or debugging).
+			const uint32 BackBufferGPUIndex = DisplayedGPUIndex >= 0 ? (uint32)DisplayedGPUIndex : (i % GNumActiveGPUsForRendering);
+			BackBufferGPUIndices.Add(BackBufferGPUIndex);
+		}
 
 		// Interleave the swapchains between the AFR devices
 		for (uint32 i = 0; i < NumBackBuffers; ++i)
 		{
-			FD3D12Device* Device = Adapter->GetDeviceByIndex(GPUIndex);
+			const uint32 GPUIndex = BackBufferGPUIndices[i];
+			FD3D12Device* Device = Adapter->GetDevice(GPUIndex);
 
-			CommandQueues.Add(Device->GetCommandListManager().GetD3DCommandQueue());
-			NodeMasks.Add(Device->GetNodeMask());
-
-			GPUIndex++;
-			GPUIndex %= Adapter->GetNumGPUNodes();
+			CommandQueues.Add(Device->GetD3DCommandQueue());
+			NodeMasks.Add((uint32)Device->GetNodeMask());
 		}
 
 		TRefCountPtr<IDXGISwapChain3> SwapChain3;
 		VERIFYD3D12RESULT(SwapChain1->QueryInterface(IID_PPV_ARGS(SwapChain3.GetInitReference())));
 		VERIFYD3D12RESULT_EX(SwapChain3->ResizeBuffers1(NumBackBuffers, SizeX, SizeY, GetRenderTargetFormat(PixelFormat), SwapChainFlags, NodeMasks.GetData(), (IUnknown**)CommandQueues.GetData()), Adapter->GetD3DDevice());
 
-		GPUIndex = 0;
 		for (uint32 i = 0; i < NumBackBuffers; ++i)
 		{
-			FD3D12Device* Device = Adapter->GetDeviceByIndex(GPUIndex);
+			const uint32 GPUIndex = BackBufferGPUIndices[i];
+			FD3D12Device* Device = Adapter->GetDevice(GPUIndex);
 
 			check(BackBuffers[i].GetReference() == nullptr);
 			BackBuffers[i] = GetSwapChainSurface(Device, PixelFormat, SwapChain1, i);
-
-			GPUIndex++;
-			GPUIndex %= Adapter->GetNumGPUNodes();
 		}
 	}
 	else
-#endif // PLATFORM_SUPPORTS_MGPU
+#endif // WITH_SLI
 	{
 		VERIFYD3D12RESULT_EX(SwapChain1->ResizeBuffers(NumBackBuffers, SizeX, SizeY, GetRenderTargetFormat(PixelFormat), SwapChainFlags), Adapter->GetD3DDevice());
 
-		FD3D12Device* Device = Adapter->GetDeviceByIndex(0);
+		FD3D12Device* Device = Adapter->GetDevice(0);
 		for (uint32 i = 0; i < NumBackBuffers; ++i)
 		{
 			check(BackBuffers[i].GetReference() == nullptr);

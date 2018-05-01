@@ -295,16 +295,15 @@ ID3D12CommandQueue* FD3D12DynamicRHI::CreateCommandQueue(FD3D12Device* Device, c
 IRHICommandContext* FD3D12DynamicRHI::RHIGetDefaultContext()
 {
 	FD3D12Adapter& Adapter = GetAdapter();
-	FD3D12Device* Device = Adapter.GetCurrentDevice();
 
-	IRHICommandContext* DefaultCommandContext = nullptr;
-	
-	if (Adapter.GetNumGPUNodes() > 1 && GRedirectDefaultContextForAFR)
+	IRHICommandContext* DefaultCommandContext = nullptr;	
+	if (GNumActiveGPUsForRendering > 1)
 	{
 		DefaultCommandContext = static_cast<IRHICommandContext*>(&Adapter.GetDefaultContextRedirector());
 	}
-	else
+	else // Single GPU path
 	{
+		FD3D12Device* Device = Adapter.GetDevice(0);
 		DefaultCommandContext = static_cast<IRHICommandContext*>(&Device->GetDefaultCommandContext());
 	}
 
@@ -315,18 +314,17 @@ IRHICommandContext* FD3D12DynamicRHI::RHIGetDefaultContext()
 IRHIComputeContext* FD3D12DynamicRHI::RHIGetDefaultAsyncComputeContext()
 {
 	FD3D12Adapter& Adapter = GetAdapter();
-	FD3D12Device* Device = Adapter.GetCurrentDevice();
 
 	IRHIComputeContext* DefaultAsyncComputeContext = nullptr;
-
-	if (Adapter.GetNumGPUNodes() > 1 && GRedirectDefaultContextForAFR)
+	if (GNumActiveGPUsForRendering > 1)
 	{
 		DefaultAsyncComputeContext = GEnableAsyncCompute ?
 			static_cast<IRHIComputeContext*>(&Adapter.GetDefaultAsyncComputeContextRedirector()) :
 			static_cast<IRHIComputeContext*>(&Adapter.GetDefaultContextRedirector());
 	}
-	else
+	else // Single GPU path
 	{
+		FD3D12Device* Device = Adapter.GetDevice(0);
 		DefaultAsyncComputeContext = GEnableAsyncCompute ?
 			static_cast<IRHIComputeContext*>(&Device->GetDefaultAsyncComputeContext()) :
 			static_cast<IRHIComputeContext*>(&Device->GetDefaultCommandContext());
@@ -480,7 +478,7 @@ void FD3D12DynamicRHI::GetBestSupportedMSAASetting(DXGI_FORMAT PlatformFormat, u
 		D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS multisampleQualityLevels = {};
 		multisampleQualityLevels.SampleCount = SampleCount;
 
-		if (SUCCEEDED(GetRHIDevice()->GetDevice()->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &multisampleQualityLevels, sizeof(multisampleQualityLevels))))
+		if (SUCCEEDED(GetAdapter().GetD3DDevice()->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &multisampleQualityLevels, sizeof(multisampleQualityLevels))))
 		{
 			OutBestMSAACount = SampleCount;
 			OutMSAAQualityLevels = multisampleQualityLevels.NumQualityLevels;
@@ -489,25 +487,6 @@ void FD3D12DynamicRHI::GetBestSupportedMSAASetting(DXGI_FORMAT PlatformFormat, u
 	}
 
 	return;
-}
-
-void FD3D12DynamicRHI::RHISwitchToAFRIfApplicable()
-{
-	FD3D12Adapter& Adapter = GetAdapter();
-
-	if (GEnableMGPU && Adapter.GetNumGPUNodes() > 1 && (GIsEditor == false) && Adapter.GetMultiGPUMode() != MGPU_AFR)
-	{
-		FlushRenderingCommands();
-
-		Adapter.SetAFRMode();
-
-		// Resize the Swapchain so it can be put in LDA mode
-		for (auto& ViewPort : Adapter.GetViewports())
-		{
-			FIntPoint Size = ViewPort->GetSizeXY();
-			ViewPort->Resize(Size.X, Size.Y, ViewPort->IsFullscreen(), PF_Unknown);
-		}
-	}
 }
 
 uint32 FD3D12DynamicRHI::GetDebugFlags()

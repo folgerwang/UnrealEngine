@@ -4,6 +4,8 @@
 	MobileBasePassCommon.usf: Base pass definitions used by both vertex and pixel shader
 =============================================================================*/
 
+#define FogStruct MobileBasePass.Fog
+
 #define USE_PS_CLIP_PLANE PROJECT_ALLOW_GLOBAL_CLIP_PLANE
 
 #undef NEEDS_LIGHTMAP_COORDINATE

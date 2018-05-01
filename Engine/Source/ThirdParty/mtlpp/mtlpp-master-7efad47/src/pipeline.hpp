@@ -8,6 +8,16 @@
 
 MTLPP_BEGIN
 
+namespace ue4
+{
+	template<>
+	inline ITable<MTLPipelineBufferDescriptor*, void>* CreateIMPTable(MTLPipelineBufferDescriptor* handle)
+	{
+		static ITable<MTLPipelineBufferDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+}
+
 namespace mtlpp
 {
 	enum class Mutability
@@ -22,7 +32,8 @@ namespace mtlpp
 	{
 	public:
 		PipelineBufferDescriptor();
-		PipelineBufferDescriptor(MTLPipelineBufferDescriptor* h) : ns::Object<MTLPipelineBufferDescriptor*>(h) {}
+		PipelineBufferDescriptor(ns::Ownership const retain) : ns::Object<MTLPipelineBufferDescriptor*>(retain) {}
+		PipelineBufferDescriptor(MTLPipelineBufferDescriptor* h, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLPipelineBufferDescriptor*>(h, retain) {}
 		
 		void SetMutability(Mutability m);
 		Mutability GetMutability() const;

@@ -26,7 +26,7 @@
 	#include "MetalCommon.ush"
 #endif
 
-#if VULKAN_PROFILE
+#if COMPILER_VULKAN
 	// Helps with iteration when changing Vulkan shader code generation backend.
 	#include "VulkanCommon.ush"
 #endif
@@ -79,6 +79,10 @@
 #define SM4_PROFILE 0
 #endif
 
+#ifndef OPENGL_PROFILE
+#define OPENGL_PROFILE 0
+#endif
+
 #ifndef ES2_PROFILE
 #define ES2_PROFILE 0
 #endif
@@ -103,6 +107,10 @@
 #define METAL_SM5_PROFILE 0
 #endif
 
+#ifndef COMPILER_VULKAN
+#define	COMPILER_VULKAN 0
+#endif
+
 #ifndef VULKAN_PROFILE
 #define	VULKAN_PROFILE 0
 #endif
@@ -124,7 +132,7 @@
 #endif
 
 // 'static' asserts
-#if COMPILER_GLSL || COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1 || VULKAN_PROFILE || METAL_PROFILE || METAL_MRT_PROFILE || METAL_SM5_NOTESS_PROFILE || METAL_SM5_PROFILE
+#if COMPILER_GLSL || COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1 || COMPILER_VULKAN || COMPILER_METAL
 #if !COMPILER_HLSLCC
 #error "Missing COMPILER_HLSLCC define!"
 #endif
@@ -320,7 +328,7 @@
 // When enabled, different texture lookups can share samplers to allow more artist samplers in the base pass
 // Ideally this would just be enabled for all SM4 and above feature level platforms
 // @todo metal mrt: No reason this can't work with Metal, once cross compiler is fixed
-#define SUPPORTS_INDEPENDENT_SAMPLERS (PS4_PROFILE || SM5_PROFILE || SM4_PROFILE || METAL_MRT_PROFILE || METAL_SM5_NOTESS_PROFILE || METAL_SM5_PROFILE || VULKAN_SM5_PROFILE || VULKAN_SM4_PROFILE || VULKAN_PROFILE)
+#define SUPPORTS_INDEPENDENT_SAMPLERS (PS4_PROFILE || SM5_PROFILE || SM4_PROFILE || METAL_MRT_PROFILE || METAL_SM5_NOTESS_PROFILE || METAL_SM5_PROFILE || VULKAN_PROFILE_SM5 || VULKAN_PROFILE_SM4 || VULKAN_PROFILE)
 
 // Whether the platform supports a global clip plane through SV_ClipDistance
 // Ideally this would just be enabled for all SM4 and above feature level platforms, but not tested everywhere yet
@@ -331,7 +339,7 @@
 
 // Must match C++ RHISupports4ComponentUAVReadWrite
 // D3D11 does not support multi-component loads from a UAV: "error X3676: typed UAV loads are only allowed for single-component 32-bit element types"
-#define PLATFORM_SUPPORTS_4COMPONENT_UAV_READ_WRITE (PS4_PROFILE || XBOXONE_PROFILE)
+#define PLATFORM_SUPPORTS_4COMPONENT_UAV_READ_WRITE (PS4_PROFILE || XBOXONE_PROFILE || COMPILER_METAL)
 
 
 // ---------------------------------------------------- Compiler specific defaults and fallbacks
@@ -346,9 +354,49 @@
 #define uniform
 #endif
 
-// If compiler does not exposes HLSL's SM6 wave vote instructions.
+// If compiler lane management in a wave.
+//	WaveGetLaneCount()
+//	WaveGetLaneIndex()
+//	if (WaveOnce()) { ... }
+#ifndef COMPILER_SUPPORTS_WAVE_ONCE
+#define COMPILER_SUPPORTS_WAVE_ONCE 0
+#endif
+
+// Whether the compiler exposes voting on all lanes:
+//	WaveAnyTrue(MyBool)
+//	WaveAnyTrue(MyBool)
+//	WaveAllEqual(MyBool)
 #ifndef COMPILER_SUPPORTS_WAVE_VOTE
 #define COMPILER_SUPPORTS_WAVE_VOTE 0
+#endif
+
+// Whether the compiler exposes min max instructions across all lane of the wave.
+//	WaveAllMin(MyFloat)
+//	WaveAllMin(MyInt)
+//	WaveAllMin(MyUint)
+//	WaveAllMax(MyFloat)
+//	WaveAllMax(MyInt)
+//	WaveAllMax(MyUint)
+#ifndef COMPILER_SUPPORTS_WAVE_MINMAX
+#define COMPILER_SUPPORTS_WAVE_MINMAX 0
+#endif
+
+// Whether the compiler exposes OR and AND bit operation all lanes:
+//	WaveAllBitAnd(MyMask)
+//	WaveAllBitOr(MyMask)
+#ifndef COMPILER_SUPPORTS_WAVE_BIT_ORAND
+#define COMPILER_SUPPORTS_WAVE_BIT_ORAND 0
+#endif
+
+// Whether the compiler exposes GCN's ds_swizzle_b32 instruction.
+//	float WaveLaneSwizzleGCN(float x, const uint and_mask, const uint or_mask, const uint xor_mask)
+#ifndef COMPILER_SUPPORTS_WAVE_SWIZZLE_GCN
+#define COMPILER_SUPPORTS_WAVE_SWIZZLE_GCN 0
+#endif
+
+// Mirrors GRHISupportsRectTopology.
+#ifndef PLATFORM_SUPPORTS_RECT_LIST
+#define PLATFORM_SUPPORTS_RECT_LIST 0
 #endif
 
 
@@ -416,6 +464,10 @@
 #define STRONG_TYPE
 #endif
 
+#ifndef StrongTypedBuffer
+#define StrongTypedBuffer Buffer
+#endif
+
 // ---------------------------------------------------- Interpolator attribute fallbacks
 
 #ifndef COMPRESSED_16_FLOAT
@@ -456,6 +508,18 @@
 #define USE_DEVELOPMENT_SHADERS (COMPILE_SHADERS_FOR_DEVELOPMENT && PLATFORM_SUPPORTS_DEVELOPMENT_SHADERS)
 
 
+// ---------------------------------------------------- Standard sizes of the indirect parameter structs
+
+// sizeof(FRHIDispatchIndirectParameters) / sizeof(uint)
+#define DISPATCH_INDIRECT_UINT_COUNT 3
+
+// sizeof(FRHIDrawIndirectParameters) / sizeof(uint)
+#define DRAW_INDIRECT_UINT_COUNT 4
+
+// sizeof(FRHIDrawIndexedIndirectParameters) / sizeof(uint)
+#define DRAW_INDEXED_INDIRECT_UINT_COUNT 5
+
+
 // ---------------------------------------------------- Compiler missing implementations
 
 #if COMPILER_GLSL_ES2 || (COMPILER_METAL && MAX_SHADER_LANGUAGE_VERSION < 2) || COMPILER_SWITCH
@@ -468,6 +532,10 @@
 			M[2][0] * (M[0][1] * M[1][2] - M[0][2] * M[1][1]);
 	}
 
+#endif
+
+#if COMPILER_HLSLCC
+#define log10(x)  log((x)) / log(10.0)
 #endif
 
 
@@ -511,6 +579,10 @@ float4 max3( float4 a, float4 b, float4 c )
 #define ddy_fine(y) ddy(y)
 #endif
 
+// Give hint to compiler to move one value to scalar unit.
+#ifndef ToScalarMemory
+	#define ToScalarMemory(x) (x)
+#endif
 
 #if FEATURE_LEVEL < FEATURE_LEVEL_ES3_1 && !COMPILER_METAL
 	// DX11 (feature levels >= 10) feature sets natively supports uints in shaders; we just use floats on other platforms.

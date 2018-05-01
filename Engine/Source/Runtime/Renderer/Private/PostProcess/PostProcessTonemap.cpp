@@ -14,6 +14,9 @@
 #include "ClearQuad.h"
 #include "PipelineStateCache.h"
 
+
+// ---------------------------------------------------- CVars
+
 static TAutoConsoleVariable<float> CVarTonemapperSharpen(
 	TEXT("r.Tonemapper.Sharpen"),
 	0,
@@ -47,6 +50,20 @@ static TAutoConsoleVariable<int32> CVarDisplayColorGamut(
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 // Note: These values are directly referenced in code, please update all paths if changing
+enum class FTonemapperOutputDevice
+{
+	sRGB,
+	Rec709,
+	ExplicitGammaMapping,
+	ACES1000nitST2084,
+	ACES2000nitST2084,
+	ACES1000nitScRGB,
+	ACES2000nitScRGB,
+	LinearEXR,
+
+	MAX
+};
+
 static TAutoConsoleVariable<int32> CVarDisplayOutputDevice(
 	TEXT("r.HDR.Display.OutputDevice"),
 	0,
@@ -77,615 +94,139 @@ static TAutoConsoleVariable<float> CVarTonemapperGamma(
 	TEXT("#: Use fixed gamma # instead of sRGB or Rec709 transform"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);	
 
+static TAutoConsoleVariable<float> CVarGamma(
+	TEXT("r.Gamma"),
+	1.0f,
+	TEXT("Gamma on output"),
+	ECVF_RenderThreadSafe);
+
+
+// ---------------------------------------------------- Constants
+
 const int32 GTonemapComputeTileSizeX = 8;
 const int32 GTonemapComputeTileSizeY = 8;
 
-//
-// TONEMAPPER PERMUTATION CONTROL
-//
 
-// Tonemapper option bitmask.
-// Adjusting this requires adjusting TonemapperCostTab[].
-typedef enum {
-	TonemapperGammaOnly         = (1<<0),
-	TonemapperColorMatrix       = (1<<1),
-	TonemapperShadowTint        = (1<<2),
-	TonemapperContrast          = (1<<3),
-	TonemapperGrainJitter       = (1<<4),
-	TonemapperGrainIntensity    = (1<<5),
-	TonemapperGrainQuantization = (1<<6),
-	TonemapperBloom             = (1<<7),
-	TonemapperDOF               = (1<<8),
-	TonemapperVignette          = (1<<9),
-	TonemapperLightShafts       = (1<<10),
-	Tonemapper32BPPHDR          = (1<<11),
-	TonemapperColorFringe       = (1<<12),
-	TonemapperMsaa              = (1<<13),
-	TonemapperSharpen           = (1<<14),
-} TonemapperOption;
+// ---------------------------------------------------- Shader permutation handling
 
-// Tonemapper option cost (0 = no cost, 255 = max cost).
-// Suggested cost should be 
-// These need a 1:1 mapping with TonemapperOption enum,
-static uint8 TonemapperCostTab[] = { 
-	1, //TonemapperGammaOnly
-	1, //TonemapperColorMatrix
-	1, //TonemapperShadowTint
-	1, //TonemapperContrast
-	1, //TonemapperGrainJitter
-	1, //TonemapperGrainIntensity
-	1, //TonemapperGrainQuantization
-	1, //TonemapperBloom
-	1, //TonemapperDOF
-	1, //TonemapperVignette
-	1, //TonemapperLightShafts
-	1, //TonemapperMosaic
-	1, //TonemapperColorFringe
-	1, //TonemapperMsaa
-	1, //TonemapperSharpen
-};
-
-// Edit the following to add and remove configurations.
-// This is a white list of the combinations which are compiled.
-// Place most common first (faster when searching in TonemapperFindLeastExpensive()).
-
-// List of configurations compiled for PC.
-static uint32 TonemapperConfBitmaskPC[10] = {
-
-	TonemapperBloom +
-	TonemapperGrainJitter +
-	TonemapperGrainIntensity +
-	TonemapperGrainQuantization +
-	TonemapperVignette +
-	TonemapperColorFringe +
-	TonemapperSharpen +
-	0,
-
-	TonemapperBloom +
-	TonemapperGrainJitter +
-	TonemapperGrainIntensity +
-	TonemapperGrainQuantization +
-	TonemapperVignette +
-	TonemapperSharpen +
-	0,
-
-	TonemapperBloom +
-	TonemapperGrainJitter +
-	TonemapperGrainIntensity +
-	TonemapperGrainQuantization +
-	TonemapperVignette +
-	TonemapperColorFringe +
-	0,
-
-	TonemapperBloom + 
-	TonemapperVignette +
-	TonemapperGrainQuantization +
-	TonemapperColorFringe +
-	0,
-
-	TonemapperBloom + 
-	TonemapperVignette +
-	TonemapperGrainQuantization +
-	0,
-
-	TonemapperBloom +
-	TonemapperSharpen +
-	0,
-
-	// same without TonemapperGrainQuantization
-
-	TonemapperBloom +
-	TonemapperGrainJitter +
-	TonemapperGrainIntensity +
-	TonemapperVignette +
-	TonemapperColorFringe +
-	0,
-
-	TonemapperBloom + 
-	TonemapperVignette +
-	TonemapperColorFringe +
-	0,
-
-	TonemapperBloom + 
-	TonemapperVignette +
-	0,
-
-	//
-
-	TonemapperGammaOnly +
-	0,
-};
-
-// List of configurations compiled for Mobile.
-static uint32 TonemapperConfBitmaskMobile[39] = { 
-
-	// 
-	//  15 for NON-MOSAIC 
-	//
-
-	TonemapperGammaOnly +
-	0,
-
-	// Not supporting grain jitter or grain quantization on mobile.
-
-	// Bloom, LightShafts, Vignette all off.
-	TonemapperContrast +
-	0,
-
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	0,
-
-	// Bloom, LightShafts, Vignette, and Vignette Color all use the same shader code in the tonemapper.
-	TonemapperContrast +
-	TonemapperBloom +
-	TonemapperLightShafts +
-	TonemapperVignette +
-	0,
-
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperBloom +
-	TonemapperLightShafts +
-	TonemapperVignette +
-	0,
-
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperShadowTint +
-	TonemapperBloom +
-	TonemapperLightShafts +
-	TonemapperVignette +
-	0,
-
-	// DOF enabled.
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperBloom +
-	TonemapperLightShafts +
-	TonemapperVignette +
-	TonemapperDOF +
-	0,
-
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperShadowTint +
-	TonemapperBloom +
-	TonemapperLightShafts +
-	TonemapperVignette +
-	TonemapperDOF +
-	0,
-
-	// Same with grain.
-
-	TonemapperContrast +
-	TonemapperGrainIntensity +
-	0,
-
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperGrainIntensity +
-	0,
-
-	TonemapperContrast +
-	TonemapperBloom +
-	TonemapperLightShafts +
-	TonemapperVignette +
-	TonemapperGrainIntensity +
-	0,
-
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperBloom +
-	TonemapperLightShafts +
-	TonemapperVignette +
-	TonemapperGrainIntensity +
-	0,
-
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperShadowTint +
-	TonemapperBloom +
-	TonemapperLightShafts +
-	TonemapperVignette +
-	TonemapperGrainIntensity +
-	0,
-
-	// DOF enabled.
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperBloom +
-	TonemapperLightShafts +
-	TonemapperVignette +
-	TonemapperDOF +
-	TonemapperGrainIntensity +
-	0,
-
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperShadowTint +
-	TonemapperBloom +
-	TonemapperLightShafts +
-	TonemapperVignette +
-	TonemapperDOF +
-	TonemapperGrainIntensity +
-	0,
-
-
-	//
-	// 14 for 32 bit HDR PATH
-	//
-
-	// This is 32bpp hdr without film post.
-	Tonemapper32BPPHDR +
-	TonemapperGammaOnly +
-	0,
-
-	Tonemapper32BPPHDR + 
-	0,
-
-	Tonemapper32BPPHDR + 
-	TonemapperContrast +
-	0,
-
-	Tonemapper32BPPHDR + 
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	0,
-
-	Tonemapper32BPPHDR + 
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperShadowTint +
-	TonemapperBloom +
-	0,
-
-	Tonemapper32BPPHDR + 
-	TonemapperContrast +
-	TonemapperVignette +
-	TonemapperBloom +
-	0,
-
-	Tonemapper32BPPHDR + 
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperVignette +
-	TonemapperBloom +
-	0,
-
-	Tonemapper32BPPHDR + 
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperShadowTint +
-	TonemapperVignette +
-	TonemapperBloom +
-	0,
-
-	// With grain
-
-	Tonemapper32BPPHDR + 
-	TonemapperContrast +
-	TonemapperGrainIntensity +
-	0,
-
-	Tonemapper32BPPHDR + 
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperGrainIntensity +
-	0,
-
-	Tonemapper32BPPHDR + 
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperShadowTint +
-	TonemapperGrainIntensity +
-	TonemapperBloom +
-	0,
-
-	Tonemapper32BPPHDR + 
-	TonemapperContrast +
-	TonemapperVignette +
-	TonemapperGrainIntensity +
-	TonemapperBloom +
-	0,
-
-	Tonemapper32BPPHDR + 
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperVignette +
-	TonemapperGrainIntensity +
-	TonemapperBloom +
-	0,
-
-	Tonemapper32BPPHDR + 
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperShadowTint +
-	TonemapperVignette +
-	TonemapperGrainIntensity +
-	TonemapperBloom +
-	0,
-
-
-	// 
-	//  10 for MSAA
-	//
-
-	TonemapperMsaa +
-	TonemapperContrast +
-	0,
-
-	TonemapperMsaa +
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	0,
-
-	TonemapperMsaa +
-	TonemapperContrast +
-	TonemapperBloom +
-	TonemapperVignette +
-	0,
-
-	TonemapperMsaa +
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperBloom +
-	TonemapperVignette +
-	0,
-
-	TonemapperMsaa +
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperShadowTint +
-	TonemapperBloom +
-	TonemapperVignette +
-	0,
-
-	// Same with grain.
-	TonemapperMsaa +
-	TonemapperContrast +
-	TonemapperGrainIntensity +
-	0,
-
-	TonemapperMsaa +
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperGrainIntensity +
-	0,
-
-	TonemapperMsaa +
-	TonemapperContrast +
-	TonemapperBloom +
-	TonemapperVignette +
-	TonemapperGrainIntensity +
-	0,
-
-	TonemapperMsaa +
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperBloom +
-	TonemapperVignette +
-	TonemapperGrainIntensity +
-	0,
-
-	TonemapperMsaa +
-	TonemapperContrast +
-	TonemapperColorMatrix +
-	TonemapperShadowTint +
-	TonemapperBloom +
-	TonemapperVignette +
-	TonemapperGrainIntensity +
-	0,
-
-};
-
-// Returns 1 if option is defined otherwise 0.
-static uint32 TonemapperIsDefined(uint32 ConfigBitmask, TonemapperOption Option)
+namespace
 {
-	return (ConfigBitmask & Option) ? 1 : 0;
+
+namespace TonemapperPermutation
+{
+
+// Shared permutation dimensions between deferred and mobile renderer.
+class FTonemapperBloomDim          : SHADER_PERMUTATION_BOOL("USE_BLOOM");
+class FTonemapperGammaOnlyDim      : SHADER_PERMUTATION_BOOL("USE_GAMMA_ONLY");
+class FTonemapperGrainIntensityDim : SHADER_PERMUTATION_BOOL("USE_GRAIN_INTENSITY");
+class FTonemapperVignetteDim       : SHADER_PERMUTATION_BOOL("USE_VIGNETTE");
+class FTonemapperSharpenDim        : SHADER_PERMUTATION_BOOL("USE_SHARPEN");
+class FTonemapperGrainJitterDim    : SHADER_PERMUTATION_BOOL("USE_GRAIN_JITTER");
+
+using FCommonDomain = TShaderPermutationDomain<
+	FTonemapperBloomDim,
+	FTonemapperGammaOnlyDim,
+	FTonemapperGrainIntensityDim,
+	FTonemapperVignetteDim,
+	FTonemapperSharpenDim,
+	FTonemapperGrainJitterDim>;
+
+FORCEINLINE bool ShouldCompileCommonPermutation(const FCommonDomain& PermutationVector)
+{
+	// If GammaOnly, don't compile any other dimmension == true.
+	if (PermutationVector.Get<FTonemapperGammaOnlyDim>())
+	{
+		return !PermutationVector.Get<FTonemapperBloomDim>() &&
+			!PermutationVector.Get<FTonemapperGrainIntensityDim>() &&
+			!PermutationVector.Get<FTonemapperVignetteDim>() &&
+			!PermutationVector.Get<FTonemapperSharpenDim>() &&
+			!PermutationVector.Get<FTonemapperGrainJitterDim>();
+	}
+	return true;
 }
 
-// This finds the least expensive configuration which supports all selected options in bitmask.
-static uint32 TonemapperFindLeastExpensive(uint32* RESTRICT Table, uint32 TableEntries, uint8* RESTRICT CostTable, uint32 RequiredOptionsBitmask) 
+// Common conversion of engine settings into.
+FCommonDomain BuildCommonPermutationDomain(const FViewInfo& View, bool bGammaOnly)
 {
-	// Custom logic to insure fail cases do not happen.
-	uint32 MustNotHaveBitmask = 0;
-	MustNotHaveBitmask += ((RequiredOptionsBitmask & TonemapperDOF) == 0) ? TonemapperDOF : 0;
-	MustNotHaveBitmask += ((RequiredOptionsBitmask & Tonemapper32BPPHDR) == 0) ? Tonemapper32BPPHDR : 0;
-	MustNotHaveBitmask += ((RequiredOptionsBitmask & TonemapperMsaa) == 0) ? TonemapperMsaa : 0;
+	const FSceneViewFamily* Family = View.Family;
 
-	// Search for exact match first.
-	uint32 Index;
-	for(Index = 0; Index < TableEntries; ++Index) 
-	{
-		if(Table[Index] == RequiredOptionsBitmask) 
-		{
-			return Index;
-		}
-	}
-	// Search through list for best entry.
-	uint32 BestIndex = TableEntries;
-	uint32 BestCost = ~0;
-	uint32 NotRequiredOptionsBitmask = ~RequiredOptionsBitmask;
-	for(Index = 0; Index < TableEntries; ++Index) 
-	{
-		uint32 Bitmask = Table[Index];
-		if((Bitmask & MustNotHaveBitmask) != 0)
-		{
-			continue; 
-		}
-		if((Bitmask & RequiredOptionsBitmask) != RequiredOptionsBitmask) 
-		{
-			// A match requires a minimum set of bits set.
-			continue;
-		}
-		uint32 BitExtra = Bitmask & NotRequiredOptionsBitmask;
-		uint32 Cost = 0;
-		while(BitExtra) 
-		{
-			uint32 Bit = FMath::FloorLog2(BitExtra);
-			Cost += CostTable[Bit];
-			if(Cost > BestCost)
-			{
-				// Poor match.
-				goto PoorMatch;
-			}
-			BitExtra &= ~(1<<Bit);
-		}
-		// Better match.
-		BestCost = Cost;
-		BestIndex = Index;
-	PoorMatch:
-		;
-	}
-	// Fail returns 0, the gamma only shader.
-	if(BestIndex == TableEntries) BestIndex = 0;
-	return BestIndex;
-}
+	FCommonDomain PermutationVector;
 
-// Common conversion of engine settings into a bitmask which describes the shader options required.
-static uint32 TonemapperGenerateBitmask(const FViewInfo* RESTRICT View, bool bGammaOnly, bool bMobile)
-{
-	check(View);
-
-	const FSceneViewFamily* RESTRICT Family = View->Family;
-	if(
-		bGammaOnly ||
-		(Family->EngineShowFlags.Tonemapper == 0) || 
+	// Gamma
+	if (bGammaOnly ||
+		(Family->EngineShowFlags.Tonemapper == 0) ||
 		(Family->EngineShowFlags.PostProcessing == 0))
 	{
-		return TonemapperGammaOnly;
+		PermutationVector.Set<FTonemapperGammaOnlyDim>(true);
+		return PermutationVector;
 	}
 
-	uint32 Bitmask = 0;
+	const FPostProcessSettings& Settings = View.FinalPostProcessSettings;
+	PermutationVector.Set<FTonemapperGrainIntensityDim>(Settings.GrainIntensity > 0.0f);
+	PermutationVector.Set<FTonemapperVignetteDim>(Settings.VignetteIntensity > 0.0f);
+	PermutationVector.Set<FTonemapperBloomDim>(Settings.BloomIntensity > 0.0);
+	PermutationVector.Set<FTonemapperGrainJitterDim>(Settings.GrainJitter > 0.0f);
+	PermutationVector.Set<FTonemapperSharpenDim>(CVarTonemapperSharpen.GetValueOnRenderThread() > 0.0f);
 
-	const FPostProcessSettings* RESTRICT Settings = &(View->FinalPostProcessSettings);
-
-	FVector MixerR(Settings->FilmChannelMixerRed);
-	FVector MixerG(Settings->FilmChannelMixerGreen);
-	FVector MixerB(Settings->FilmChannelMixerBlue);
-	uint32 useColorMatrix = 0;
-	if(
-		(Settings->FilmSaturation != 1.0f) || 
-		((MixerR - FVector(1.0f,0.0f,0.0f)).GetAbsMax() != 0.0f) || 
-		((MixerG - FVector(0.0f,1.0f,0.0f)).GetAbsMax() != 0.0f) || 
-		((MixerB - FVector(0.0f,0.0f,1.0f)).GetAbsMax() != 0.0f))
-	{
-		Bitmask += TonemapperColorMatrix;
-	}
-
-	FVector Tint(Settings->FilmWhitePoint);
-	FVector TintShadow(Settings->FilmShadowTint);
-
-	float Sharpen = CVarTonemapperSharpen.GetValueOnRenderThread();
-
-	Bitmask += (Settings->FilmShadowTintAmount > 0.0f) ? TonemapperShadowTint     : 0;	
-	Bitmask += (Settings->FilmContrast > 0.0f)         ? TonemapperContrast       : 0;
-	Bitmask += (Settings->GrainIntensity > 0.0f)       ? TonemapperGrainIntensity : 0;
-	Bitmask += (Settings->VignetteIntensity > 0.0f)    ? TonemapperVignette       : 0;
-	Bitmask += (Sharpen > 0.0f)                        ? TonemapperSharpen        : 0;
-
-	return Bitmask;
+	return PermutationVector;
 }
 
-// Common post.
-// These are separated because mosiac mode doesn't support them.
-static uint32 TonemapperGenerateBitmaskPost(const FViewInfo* RESTRICT View)
+
+// Desktop renderer permutation dimensions.
+class FTonemapperColorFringeDim       : SHADER_PERMUTATION_BOOL("USE_COLOR_FRINGE");
+class FTonemapperGrainQuantizationDim : SHADER_PERMUTATION_BOOL("USE_GRAIN_QUANTIZATION");
+class FTonemapperOutputDeviceDim      : SHADER_PERMUTATION_ENUM_CLASS("DIM_OUTPUT_DEVICE", FTonemapperOutputDevice);
+
+using FDesktopDomain = TShaderPermutationDomain<
+	FCommonDomain,
+	FTonemapperColorFringeDim,
+	FTonemapperGrainQuantizationDim,
+	FTonemapperOutputDeviceDim>;
+
+bool ShouldCompileDesktopPermutation(FDesktopDomain PermutationVector)
 {
-	const FPostProcessSettings* RESTRICT Settings = &(View->FinalPostProcessSettings);
-	const FSceneViewFamily* RESTRICT Family = View->Family;
+	auto CommonPermutationVector = PermutationVector.Get<FCommonDomain>();
+	if (!ShouldCompileCommonPermutation(CommonPermutationVector))
+	{
+		return false;
+	}
 
-	uint32 Bitmask = (Settings->GrainJitter > 0.0f) ? TonemapperGrainJitter : 0;
+	if (CommonPermutationVector.Get<FTonemapperGammaOnlyDim>())
+	{
+		return !PermutationVector.Get<FTonemapperColorFringeDim>() &&
+			!PermutationVector.Get<FTonemapperGrainQuantizationDim>();
+	}
 
-	Bitmask += (Settings->BloomIntensity > 0.0f) ? TonemapperBloom : 0;
-
-	return Bitmask;
+	return true;
 }
 
-// PC only.
-static uint32 TonemapperGenerateBitmaskPC(const FViewInfo* RESTRICT View, bool bGammaOnly)
+
+} // namespace TonemapperPermutation
+
+
+} // namespace
+
+
+// ---------------------------------------------------- Functions
+
+static FTonemapperOutputDevice GetOutputDeviceValue()
 {
-	uint32 Bitmask = TonemapperGenerateBitmask(View, bGammaOnly, false);
+	int32 OutputDeviceValue = CVarDisplayOutputDevice.GetValueOnRenderThread();
+	float Gamma = CVarTonemapperGamma.GetValueOnRenderThread();
 
-	// PC doesn't support these
-	Bitmask &= ~TonemapperContrast;
-	Bitmask &= ~TonemapperColorMatrix;
-	Bitmask &= ~TonemapperShadowTint;
-
-	// Must early exit if gamma only.
-	if(Bitmask == TonemapperGammaOnly) 
+	if (PLATFORM_APPLE && Gamma == 0.0f)
 	{
-		return Bitmask;
+		Gamma = 2.2f;
 	}
 
-	// Grain Quantization
+	if (Gamma > 0.0f)
 	{
-		static TConsoleVariableData<int32>* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Tonemapper.GrainQuantization"));
-		int32 Value = CVar->GetValueOnRenderThread();
-
-		if(Value > 0)
-		{
-			Bitmask |= TonemapperGrainQuantization;
-		}
+		// Enforce user-controlled ramp over sRGB or Rec709
+		OutputDeviceValue = FMath::Max(OutputDeviceValue, 2);
 	}
-
-	if( View->FinalPostProcessSettings.SceneFringeIntensity > 0.01f)
-	{
-		Bitmask |= TonemapperColorFringe;
-	}
-
-	return Bitmask + TonemapperGenerateBitmaskPost(View);
+	return FTonemapperOutputDevice(FMath::Clamp(OutputDeviceValue, 0, int32(FTonemapperOutputDevice::MAX) - 1));
 }
 
-// Mobile only.
-static uint32 TonemapperGenerateBitmaskMobile(const FViewInfo* RESTRICT View, bool bGammaOnly)
-{
-	check(View);
-
-	uint32 Bitmask = TonemapperGenerateBitmask(View, bGammaOnly, true);
-
-	bool bUse32BPPHDR = IsMobileHDR32bpp();
-	bool bUseMosaic = IsMobileHDRMosaic();
-
-	// Must early exit if gamma only.
-	if(Bitmask == TonemapperGammaOnly)
-	{
-		return Bitmask + (bUse32BPPHDR ? Tonemapper32BPPHDR : 0);
-	}
-
-	if (bUseMosaic)
-	{
-		return Bitmask + Tonemapper32BPPHDR;
-	}
-
-	static const auto CVarMobileMSAA = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
-	const EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[View->GetFeatureLevel()];
-	if ((GSupportsShaderFramebufferFetch && (ShaderPlatform == SP_METAL || ShaderPlatform == SP_VULKAN_PCES3_1)) && (CVarMobileMSAA ? CVarMobileMSAA->GetValueOnAnyThread() > 1 : false))
-	{
-		Bitmask += TonemapperMsaa;
-	}
-
-	if (bUse32BPPHDR)
-	{
-		// add limited post for 32 bit encoded hdr.
-		Bitmask += Tonemapper32BPPHDR;
-		Bitmask += TonemapperGenerateBitmaskPost(View);
-	}
-	else if (GSupportsRenderTargetFormat_PF_FloatRGBA)
-	{
-		// add full mobile post if FP16 is supported.
-		Bitmask += TonemapperGenerateBitmaskPost(View);
-
-		bool bUseDof = GetMobileDepthOfFieldScale(*View) > 0.0f && (!View->FinalPostProcessSettings.bMobileHQGaussian || (View->GetFeatureLevel() < ERHIFeatureLevel::ES3_1));
-
-		Bitmask += (bUseDof)					? TonemapperDOF : 0;
-		Bitmask += (View->bLightShaftUse)		? TonemapperLightShafts : 0;
-	}
-
-	// Mobile is not currently supporting these.
-	Bitmask &= ~(TonemapperGrainQuantization | TonemapperGrainJitter | TonemapperSharpen);
-	return Bitmask;
-}
 
 void GrainPostSettings(FVector* RESTRICT const Constant, const FPostProcessSettings* RESTRICT const Settings)
 {
@@ -697,12 +238,8 @@ void GrainPostSettings(FVector* RESTRICT const Constant, const FPostProcessSetti
 }
 
 // This code is shared by PostProcessTonemap and VisualizeHDR.
-void FilmPostSetConstants(FVector4* RESTRICT const Constants, const uint32 ConfigBitmask, const FPostProcessSettings* RESTRICT const FinalPostProcessSettings, bool bMobile)
+void FilmPostSetConstants(FVector4* RESTRICT const Constants, const FPostProcessSettings* RESTRICT const FinalPostProcessSettings, bool bMobile, bool UseColorMatrix, bool UseShadowTint, bool UseContrast)
 {
-	uint32 UseColorMatrix = TonemapperIsDefined(ConfigBitmask, TonemapperColorMatrix);
-	uint32 UseShadowTint  = TonemapperIsDefined(ConfigBitmask, TonemapperShadowTint);
-	uint32 UseContrast    = TonemapperIsDefined(ConfigBitmask, TonemapperContrast);
-
 	// Must insure inputs are in correct range (else possible generation of NaNs).
 	float InExposure = 1.0f;
 	FVector InWhitePoint(FinalPostProcessSettings->FilmWhitePoint);
@@ -760,7 +297,7 @@ void FilmPostSetConstants(FVector4* RESTRICT const Constants, const uint32 Confi
 		OutMatrixR = (ColorMatrixLuma + ((InMatrixR - ColorMatrixLuma) * InSaturation)) * InExposure;
 		OutMatrixG = (ColorMatrixLuma + ((InMatrixG - ColorMatrixLuma) * InSaturation)) * InExposure;
 		OutMatrixB = (ColorMatrixLuma + ((InMatrixB - ColorMatrixLuma) * InSaturation)) * InExposure;
-		if(UseShadowTint == 0)
+		if(!UseShadowTint)
 		{
 			OutMatrixR = OutMatrixR * InWhitePoint.X;
 			OutMatrixG = OutMatrixG * InWhitePoint.Y;
@@ -770,7 +307,7 @@ void FilmPostSetConstants(FVector4* RESTRICT const Constants, const uint32 Confi
 	else
 	{
 		// No color matrix fast path.
-		if(UseShadowTint == 0)
+		if(!UseShadowTint)
 		{
 			OutMatrixB = InExposure * InWhitePoint;
 		}
@@ -869,24 +406,15 @@ void FilmPostSetConstants(FVector4* RESTRICT const Constants, const uint32 Confi
 
 
 BEGIN_UNIFORM_BUFFER_STRUCT(FBloomDirtMaskParameters,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4,Tint)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE(Texture2D,Mask)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER(SamplerState,MaskSampler)
+	UNIFORM_MEMBER(FVector4,Tint)
+	UNIFORM_MEMBER_TEXTURE(Texture2D,Mask)
+	UNIFORM_MEMBER_SAMPLER(SamplerState,MaskSampler)
 END_UNIFORM_BUFFER_STRUCT(FBloomDirtMaskParameters)
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FBloomDirtMaskParameters,TEXT("BloomDirtMask"));
 
 
-static TAutoConsoleVariable<float> CVarGamma(
-	TEXT("r.Gamma"),
-	1.0f,
-	TEXT("Gamma on output"),
-	ECVF_RenderThreadSafe);
+// ---------------------------------------------------- Shared parameters for desktop's PS and CS
 
-/*-----------------------------------------------------------------------------
-FPostProcessTonemapShaderParameters
------------------------------------------------------------------------------*/
-
-template<uint32 ConfigIndex>
 class FPostProcessTonemapShaderParameters
 {
 public:
@@ -898,7 +426,6 @@ public:
 		ColorScale1.Bind(ParameterMap, TEXT("ColorScale1"));
 		NoiseTexture.Bind(ParameterMap,TEXT("NoiseTexture"));
 		NoiseTextureSampler.Bind(ParameterMap,TEXT("NoiseTextureSampler"));
-		TexScale.Bind(ParameterMap, TEXT("TexScale"));
 		TonemapperParams.Bind(ParameterMap, TEXT("TonemapperParams"));
 		GrainScaleBiasJitter.Bind(ParameterMap, TEXT("GrainScaleBiasJitter"));
 		ColorGradingLUT.Bind(ParameterMap, TEXT("ColorGradingLUT"));
@@ -906,22 +433,6 @@ public:
 		InverseGamma.Bind(ParameterMap,TEXT("InverseGamma"));
 		ChromaticAberrationParams.Bind(ParameterMap, TEXT("ChromaticAberrationParams"));
 		ScreenPosToScenePixel.Bind(ParameterMap, TEXT("ScreenPosToScenePixel"));
-		
-		ColorMatrixR_ColorCurveCd1.Bind(ParameterMap, TEXT("ColorMatrixR_ColorCurveCd1"));
-		ColorMatrixG_ColorCurveCd3Cm3.Bind(ParameterMap, TEXT("ColorMatrixG_ColorCurveCd3Cm3"));
-		ColorMatrixB_ColorCurveCm2.Bind(ParameterMap, TEXT("ColorMatrixB_ColorCurveCm2"));
-		ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.Bind(ParameterMap, TEXT("ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3"));
-		ColorCurve_Ch1_Ch2.Bind(ParameterMap, TEXT("ColorCurve_Ch1_Ch2"));
-		ColorShadow_Luma.Bind(ParameterMap, TEXT("ColorShadow_Luma"));
-		ColorShadow_Tint1.Bind(ParameterMap, TEXT("ColorShadow_Tint1"));
-		ColorShadow_Tint2.Bind(ParameterMap, TEXT("ColorShadow_Tint2"));
-		
-		OverlayColor.Bind(ParameterMap, TEXT("OverlayColor"));
-
-		OutputDevice.Bind(ParameterMap, TEXT("OutputDevice"));
-		OutputGamut.Bind(ParameterMap, TEXT("OutputGamut"));
-		EncodeHDROutput.Bind(ParameterMap, TEXT("EncodeHDROutput"));
-
 		SceneUVMinMax.Bind(ParameterMap, TEXT("SceneUVMinMax"));
 		SceneBloomUVMinMax.Bind(ParameterMap, TEXT("SceneBloomUVMinMax"));
 	}
@@ -931,8 +442,6 @@ public:
 	{
 		const FPostProcessSettings& Settings = Context.View.FinalPostProcessSettings;
 		const FSceneViewFamily& ViewFamily = *(Context.View.Family);
-
-		SetShaderValue(RHICmdList, ShaderRHI, OverlayColor, Context.View.OverlayColor);
 
 		{
 			FLinearColor Col = Settings.SceneColorTint;
@@ -953,52 +462,12 @@ public:
 		}
 
 		{
-			const FPooledRenderTargetDesc* InputDesc = Context.Pass->GetInputDesc(ePId_Input0);
-
-			// we assume the this pass runs in 1:1 pixel
-			FIntRect ViewRect = Context.SceneColorViewRect;
-
-			FVector2D TexScaleValue = FVector2D(InputDesc->Extent) / FVector2D(ViewRect.Size());
-
-			SetShaderValue(RHICmdList, ShaderRHI, TexScale, TexScaleValue);
-		}
-		
-		{
 			float Sharpen = FMath::Clamp(CVarTonemapperSharpen.GetValueOnRenderThread(), 0.0f, 10.0f);
 
 			// /6.0 is to save one shader instruction
 			FVector2D Value(Settings.VignetteIntensity, Sharpen / 6.0f);
 
 			SetShaderValue(RHICmdList, ShaderRHI, TonemapperParams, Value);
-		}
-
-		{		
-			static TConsoleVariableData<int32>* CVarOutputDevice = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.HDR.Display.OutputDevice"));
-			static TConsoleVariableData<float>* CVarOutputGamma = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.TonemapperGamma"));
-
-			int32 OutputDeviceValue = CVarOutputDevice->GetValueOnRenderThread();
-			float Gamma = CVarOutputGamma->GetValueOnRenderThread();
-
-			if (PLATFORM_APPLE && Gamma == 0.0f)
-			{
-				Gamma = 2.2f;
-			}
-
-			if (Gamma > 0.0f)
-			{
-				// Enforce user-controlled ramp over sRGB or Rec709
-				OutputDeviceValue = FMath::Max(OutputDeviceValue, 2);
-			}
-
-			SetShaderValue(RHICmdList, ShaderRHI, OutputDevice, OutputDeviceValue);
-
-			// Display format
-			int32 OutputGamutValue = CVarDisplayColorGamut.GetValueOnRenderThread();
-			SetShaderValue(RHICmdList, ShaderRHI, OutputGamut, OutputGamutValue);
-
-			// ScRGB output encoding
-			int32 HDROutputEncodingValue = (CVarHDROutputEnabled.GetValueOnRenderThread() != 0 && (OutputDeviceValue == 5 || OutputDeviceValue == 6)) ? 1 : 0;
-			SetShaderValue(RHICmdList, ShaderRHI, EncodeHDROutput, HDROutputEncodingValue);
 		}
 
 		FVector GrainValue;
@@ -1107,19 +576,6 @@ public:
 		}
 
 		{
-			FVector4 Constants[8];
-			FilmPostSetConstants(Constants, TonemapperConfBitmaskPC[ConfigIndex], &Context.View.FinalPostProcessSettings, false);
-			SetShaderValue(RHICmdList, ShaderRHI, ColorMatrixR_ColorCurveCd1, Constants[0]);
-			SetShaderValue(RHICmdList, ShaderRHI, ColorMatrixG_ColorCurveCd3Cm3, Constants[1]);
-			SetShaderValue(RHICmdList, ShaderRHI, ColorMatrixB_ColorCurveCm2, Constants[2]); 
-			SetShaderValue(RHICmdList, ShaderRHI, ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3, Constants[3]); 
-			SetShaderValue(RHICmdList, ShaderRHI, ColorCurve_Ch1_Ch2, Constants[4]);
-			SetShaderValue(RHICmdList, ShaderRHI, ColorShadow_Luma, Constants[5]);
-			SetShaderValue(RHICmdList, ShaderRHI, ColorShadow_Tint1, Constants[6]);
-			SetShaderValue(RHICmdList, ShaderRHI, ColorShadow_Tint2, Constants[7]);
-		}
-
-		{
 			float InvBufferSizeX = 1.f / float(Context.ReferenceBufferSize.X);
 			float InvBufferSizeY = 1.f / float(Context.ReferenceBufferSize.Y);
 			FVector4 SceneUVMinMaxValue(
@@ -1156,11 +612,9 @@ public:
 	friend FArchive& operator<<(FArchive& Ar,FPostProcessTonemapShaderParameters& P)
 	{
 		Ar << P.ColorScale0 << P.ColorScale1 << P.InverseGamma << P.NoiseTexture << P.NoiseTextureSampler;
-		Ar << P.TexScale << P.TonemapperParams << P.GrainScaleBiasJitter;
+		Ar << P.TonemapperParams << P.GrainScaleBiasJitter;
 		Ar << P.ColorGradingLUT << P.ColorGradingLUTSampler;
-		Ar << P.ColorMatrixR_ColorCurveCd1 << P.ColorMatrixG_ColorCurveCd3Cm3 << P.ColorMatrixB_ColorCurveCm2 << P.ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3 << P.ColorCurve_Ch1_Ch2 << P.ColorShadow_Luma << P.ColorShadow_Tint1 << P.ColorShadow_Tint2;
-		Ar << P.OverlayColor;
-		Ar << P.OutputDevice << P.OutputGamut << P.EncodeHDROutput << P.SceneUVMinMax << P.SceneBloomUVMinMax;
+		Ar << P.SceneUVMinMax << P.SceneBloomUVMinMax;
 		Ar << P.ChromaticAberrationParams << P.ScreenPosToScenePixel;
 
 		return Ar;
@@ -1170,7 +624,6 @@ public:
 	FShaderParameter ColorScale1;
 	FShaderResourceParameter NoiseTexture;
 	FShaderResourceParameter NoiseTextureSampler;
-	FShaderParameter TexScale;
 	FShaderParameter TonemapperParams;
 	FShaderParameter GrainScaleBiasJitter;
 	FShaderResourceParameter ColorGradingLUT;
@@ -1179,58 +632,34 @@ public:
 	FShaderParameter ChromaticAberrationParams;
 	FShaderParameter ScreenPosToScenePixel;
 
-	FShaderParameter ColorMatrixR_ColorCurveCd1;
-	FShaderParameter ColorMatrixG_ColorCurveCd3Cm3;
-	FShaderParameter ColorMatrixB_ColorCurveCm2;
-	FShaderParameter ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3;
-	FShaderParameter ColorCurve_Ch1_Ch2;
-	FShaderParameter ColorShadow_Luma;
-	FShaderParameter ColorShadow_Tint1;
-	FShaderParameter ColorShadow_Tint2;
-	
-
-	//@HACK
-	FShaderParameter OverlayColor;
-
-	FShaderParameter OutputDevice;
-	FShaderParameter OutputGamut;
-	FShaderParameter EncodeHDROutput;
-
 	FShaderParameter SceneUVMinMax;
 	FShaderParameter SceneBloomUVMinMax;
 };
 
-/**
- * Encapsulates the post processing tonemapper pixel shader.
- */
-template<uint32 ConfigIndex>
+
+// Vertex Shader permutations based on bool AutoExposure.
+IMPLEMENT_SHADER_TYPE(template<>, TPostProcessTonemapVS<true>, TEXT("/Engine/Private/PostProcessTonemap.usf"), TEXT("MainVS"), SF_Vertex);
+IMPLEMENT_SHADER_TYPE(template<>, TPostProcessTonemapVS<false>, TEXT("/Engine/Private/PostProcessTonemap.usf"), TEXT("MainVS"), SF_Vertex);
+
+
 class FPostProcessTonemapPS : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(FPostProcessTonemapPS, Global);
+	DECLARE_GLOBAL_SHADER(FPostProcessTonemapPS);
+
+	using FPermutationDomain = TonemapperPermutation::FDesktopDomain;
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::ES2);
+		if (!IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::ES2))
+		{
+			return false;
+		}
+		return TonemapperPermutation::ShouldCompileDesktopPermutation(FPermutationDomain(Parameters.PermutationId));
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
-
-		uint32 ConfigBitmask = TonemapperConfBitmaskPC[ConfigIndex];
-
-		OutEnvironment.SetDefine(TEXT("USE_GAMMA_ONLY"),         TonemapperIsDefined(ConfigBitmask, TonemapperGammaOnly));
-		OutEnvironment.SetDefine(TEXT("USE_COLOR_MATRIX"),       TonemapperIsDefined(ConfigBitmask, TonemapperColorMatrix));
-		OutEnvironment.SetDefine(TEXT("USE_SHADOW_TINT"),        TonemapperIsDefined(ConfigBitmask, TonemapperShadowTint));
-		OutEnvironment.SetDefine(TEXT("USE_CONTRAST"),           TonemapperIsDefined(ConfigBitmask, TonemapperContrast));
-		OutEnvironment.SetDefine(TEXT("USE_BLOOM"),              TonemapperIsDefined(ConfigBitmask, TonemapperBloom));
-		OutEnvironment.SetDefine(TEXT("USE_GRAIN_JITTER"),       TonemapperIsDefined(ConfigBitmask, TonemapperGrainJitter));
-		OutEnvironment.SetDefine(TEXT("USE_GRAIN_INTENSITY"),    TonemapperIsDefined(ConfigBitmask, TonemapperGrainIntensity));
-		OutEnvironment.SetDefine(TEXT("USE_GRAIN_QUANTIZATION"), TonemapperIsDefined(ConfigBitmask, TonemapperGrainQuantization));
-		OutEnvironment.SetDefine(TEXT("USE_VIGNETTE"),           TonemapperIsDefined(ConfigBitmask, TonemapperVignette));
-		OutEnvironment.SetDefine(TEXT("USE_COLOR_FRINGE"),		 TonemapperIsDefined(ConfigBitmask, TonemapperColorFringe));
-		OutEnvironment.SetDefine(TEXT("USE_SHARPEN"),	         TonemapperIsDefined(ConfigBitmask, TonemapperSharpen));
-		OutEnvironment.SetDefine(TEXT("USE_VOLUME_LUT"),		 UseVolumeTextureLUT(Parameters.Platform));
+		OutEnvironment.SetDefine(TEXT("USE_VOLUME_LUT"), UseVolumeTextureLUT(Parameters.Platform));
 	}
 
 	/** Default constructor. */
@@ -1238,7 +667,7 @@ class FPostProcessTonemapPS : public FGlobalShader
 
 public:
 	FPostProcessPassParameters PostprocessParameter;
-	FPostProcessTonemapShaderParameters<ConfigIndex> PostProcessTonemapShaderParameters;
+	FPostProcessTonemapShaderParameters PostProcessTonemapShaderParameters;
 
 	/** Initialization constructor. */
 	FPostProcessTonemapPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
@@ -1278,67 +707,36 @@ public:
 
 		PostProcessTonemapShaderParameters.Set(Context.RHICmdList, ShaderRHI, Context, GetUniformBufferParameter<FBloomDirtMaskParameters>());
 	}
-	
-	static const TCHAR* GetSourceFilename()
-	{
-		return TEXT("/Engine/Private/PostProcessTonemap.usf");
-	}
-
-	static const TCHAR* GetFunctionName()
-	{
-		return TEXT("MainPS");
-	}
 };
 
-#define VARIATION1(A)																	\
-	typedef FPostProcessTonemapPS<A> FPostProcessTonemapPS##A; 							\
-	IMPLEMENT_SHADER_TYPE2(FPostProcessTonemapPS##A, SF_Pixel);
-
-	VARIATION1(0)  VARIATION1(1)  VARIATION1(2)  VARIATION1(3)  VARIATION1(4)  VARIATION1(5) VARIATION1(6) VARIATION1(7) VARIATION1(8)
-	VARIATION1(9)
-
-#undef VARIATION1
-
-
-// Vertex Shader permutations based on bool AutoExposure.
-IMPLEMENT_SHADER_TYPE(template<>, TPostProcessTonemapVS<true>, TEXT("/Engine/Private/PostProcessTonemap.usf"), TEXT("MainVS"), SF_Vertex);
-IMPLEMENT_SHADER_TYPE(template<>, TPostProcessTonemapVS<false>, TEXT("/Engine/Private/PostProcessTonemap.usf"), TEXT("MainVS"), SF_Vertex);
-
 /** Encapsulates the post processing tonemap compute shader. */
-template<uint32 ConfigIndex, bool bDoEyeAdaptation>
 class FPostProcessTonemapCS : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(FPostProcessTonemapCS, Global);
+	DECLARE_GLOBAL_SHADER(FPostProcessTonemapCS);
+
+	class FEyeAdaptationDim : SHADER_PERMUTATION_BOOL("EYEADAPTATION_EXPOSURE_FIX");
+
+	using FPermutationDomain = TShaderPermutationDomain<
+		TonemapperPermutation::FDesktopDomain,
+		FEyeAdaptationDim>;
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5);
+		if (!IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5))
+		{
+			return false;
+		}
+
+		FPermutationDomain PermutationVector(Parameters.PermutationId);
+
+		return TonemapperPermutation::ShouldCompileDesktopPermutation(PermutationVector.Get<TonemapperPermutation::FDesktopDomain>());
 	}	
 	
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		// CS params
-		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("THREADGROUP_SIZEX"), GTonemapComputeTileSizeX);
 		OutEnvironment.SetDefine(TEXT("THREADGROUP_SIZEY"), GTonemapComputeTileSizeY);
-
-		// VS params
-		OutEnvironment.SetDefine(TEXT("EYEADAPTATION_EXPOSURE_FIX"), bDoEyeAdaptation ? 1 : 0);
-
-		// PS params
-		uint32 ConfigBitmask = TonemapperConfBitmaskPC[ConfigIndex];
-		OutEnvironment.SetDefine(TEXT("USE_GAMMA_ONLY"),         TonemapperIsDefined(ConfigBitmask, TonemapperGammaOnly));
-		OutEnvironment.SetDefine(TEXT("USE_COLOR_MATRIX"),       TonemapperIsDefined(ConfigBitmask, TonemapperColorMatrix));
-		OutEnvironment.SetDefine(TEXT("USE_SHADOW_TINT"),        TonemapperIsDefined(ConfigBitmask, TonemapperShadowTint));
-		OutEnvironment.SetDefine(TEXT("USE_CONTRAST"),           TonemapperIsDefined(ConfigBitmask, TonemapperContrast));
-		OutEnvironment.SetDefine(TEXT("USE_BLOOM"),              TonemapperIsDefined(ConfigBitmask, TonemapperBloom));
-		OutEnvironment.SetDefine(TEXT("USE_GRAIN_JITTER"),       TonemapperIsDefined(ConfigBitmask, TonemapperGrainJitter));
-		OutEnvironment.SetDefine(TEXT("USE_GRAIN_INTENSITY"),    TonemapperIsDefined(ConfigBitmask, TonemapperGrainIntensity));
-		OutEnvironment.SetDefine(TEXT("USE_GRAIN_QUANTIZATION"), TonemapperIsDefined(ConfigBitmask, TonemapperGrainQuantization));
-		OutEnvironment.SetDefine(TEXT("USE_VIGNETTE"),           TonemapperIsDefined(ConfigBitmask, TonemapperVignette));
-		OutEnvironment.SetDefine(TEXT("USE_COLOR_FRINGE"),		 TonemapperIsDefined(ConfigBitmask, TonemapperColorFringe));
-		OutEnvironment.SetDefine(TEXT("USE_SHARPEN"),	         TonemapperIsDefined(ConfigBitmask, TonemapperSharpen));
-		OutEnvironment.SetDefine(TEXT("USE_VOLUME_LUT"),		 UseVolumeTextureLUT(Parameters.Platform));
+		OutEnvironment.SetDefine(TEXT("USE_VOLUME_LUT"), UseVolumeTextureLUT(Parameters.Platform));
 	}
 
 	/** Default constructor. */
@@ -1356,7 +754,7 @@ public:
 	FShaderParameter DefaultEyeExposure;
 
 	// PS params
-	FPostProcessTonemapShaderParameters<ConfigIndex> PostProcessTonemapShaderParameters;
+	FPostProcessTonemapShaderParameters PostProcessTonemapShaderParameters;
 
 	/** Initialization constructor. */
 	FPostProcessTonemapCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
@@ -1402,8 +800,6 @@ public:
 		
 		SetTextureParameter(RHICmdList, ShaderRHI, EyeAdaptation, EyeAdaptationTex);
 
-		// Compile time template-based conditional
-		if (!bDoEyeAdaptation)
 		{
 			// Compute a CPU-based default.  NB: reverts to "1" if SM5 feature level is not supported
 			float FixedExposure = FRCPassPostProcessEyeAdaptation::GetFixedExposure(Context.View);
@@ -1449,28 +845,11 @@ public:
 		Ar << PostProcessTonemapShaderParameters;
 		return bShaderHasOutdatedParameters;
 	}
-
-	static const TCHAR* GetSourceFilename()
-	{
-		return TEXT("/Engine/Private/PostProcessTonemap.usf");
-	}
-
-	static const TCHAR* GetFunctionName()
-	{
-		return TEXT("MainCS");
-	}
 };
 
-// #define avoids a lot of code duplication
-#define VARIATION1(A)																\
-	typedef FPostProcessTonemapCS<A,true> FPostProcessTonemapCS_EyeAdaption##A;		\
-	IMPLEMENT_SHADER_TYPE2(FPostProcessTonemapCS_EyeAdaption##A, SF_Compute);		\
-	typedef FPostProcessTonemapCS<A,false> FPostProcessTonemapCS_NoEyeAdaption##A;	\
-	IMPLEMENT_SHADER_TYPE2(FPostProcessTonemapCS_NoEyeAdaption##A, SF_Compute);
+IMPLEMENT_GLOBAL_SHADER(FPostProcessTonemapPS, "/Engine/Private/PostProcessTonemap.usf", "MainPS", SF_Pixel);
+IMPLEMENT_GLOBAL_SHADER(FPostProcessTonemapCS, "/Engine/Private/PostProcessTonemap.usf", "MainCS", SF_Compute);
 
-	VARIATION1(0)  VARIATION1(1)  VARIATION1(2)  VARIATION1(3)  VARIATION1(4)  VARIATION1(5)  VARIATION1(6)  VARIATION1(7)
-	VARIATION1(8)  VARIATION1(9)
-#undef VARIATION1
 
 FRCPassPostProcessTonemap::FRCPassPostProcessTonemap(const FViewInfo& InView, bool bInDoGammaOnly, bool bInDoEyeAdaptation, bool bInHDROutput, bool bInIsComputePass)
 	: bDoGammaOnly(bInDoGammaOnly)
@@ -1479,72 +858,47 @@ FRCPassPostProcessTonemap::FRCPassPostProcessTonemap(const FViewInfo& InView, bo
 	, bHDROutput(bInHDROutput)
 	, View(InView)
 {
-	uint32 ConfigBitmask = TonemapperGenerateBitmaskPC(&InView, bDoGammaOnly);
-	ConfigIndexPC = TonemapperFindLeastExpensive(TonemapperConfBitmaskPC, sizeof(TonemapperConfBitmaskPC)/4, TonemapperCostTab, ConfigBitmask);
-
 	bIsComputePass = bInIsComputePass;
 	bPreferAsyncCompute = false;
 }
 
+namespace
+{
+
 namespace PostProcessTonemapUtil
 {
-	// Template implementation supports unique static BoundShaderState for each permutation of Vertex/Pixel Shaders 
-	template <uint32 ConfigIndex, bool bVSDoEyeAdaptation>
-	static inline void SetShaderTempl(const FRenderingCompositePassContext& Context)
-	{
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-		typedef TPostProcessTonemapVS<bVSDoEyeAdaptation>				VertexShaderType;
-		typedef FPostProcessTonemapPS<ConfigIndex>                      PixelShaderType;
-
-		TShaderMapRef<PixelShaderType>  PixelShader(Context.GetShaderMap());
-		TShaderMapRef<VertexShaderType> VertexShader(Context.GetShaderMap());
-
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-
-		VertexShader->SetVS(Context);
-		PixelShader->SetPS(Context);
-	}
-
-	template <uint32 ConfigIndex>
-	static inline void SetShaderTempl(const FRenderingCompositePassContext& Context, bool bDoEyeAdaptation)
-	{
-		if (bDoEyeAdaptation)
-		{
-            SetShaderTempl<ConfigIndex, true>(Context);
-		}
-		else
-		{
-			SetShaderTempl<ConfigIndex, false>(Context);
-		}
-	}
-
-	template <uint32 ConfigIndex, bool bDoEyeAdaptation, typename TRHICmdList>
-	static inline void DispatchComputeShaderTmpl(TRHICmdList& RHICmdList, FRenderingCompositePassContext& Context, const FIntRect& DestRect, FUnorderedAccessViewRHIParamRef DestUAV, FTextureRHIParamRef EyeAdaptationTex)
-	{
-		auto ShaderMap = Context.GetShaderMap();
-		TShaderMapRef<FPostProcessTonemapCS<ConfigIndex, bDoEyeAdaptation>> ComputeShader(ShaderMap);
-		RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());		
-
-		FIntPoint DestSize(DestRect.Width(), DestRect.Height());
-		ComputeShader->SetParameters(RHICmdList, Context, DestSize, DestUAV, EyeAdaptationTex);
-
-		uint32 GroupSizeX = FMath::DivideAndRoundUp(DestSize.X, GTonemapComputeTileSizeX);
-		uint32 GroupSizeY = FMath::DivideAndRoundUp(DestSize.Y, GTonemapComputeTileSizeY);
-		DispatchComputeShader(RHICmdList, *ComputeShader, GroupSizeX, GroupSizeY, 1);
-
-		ComputeShader->UnsetParameters(RHICmdList);
-	}
+template <bool bVSDoEyeAdaptation>
+static inline void ShaderTransitionResources(const FRenderingCompositePassContext& Context)
+{
+	typedef TPostProcessTonemapVS<bVSDoEyeAdaptation>				VertexShaderType;
+	TShaderMapRef<VertexShaderType> VertexShader(Context.GetShaderMap());
+	VertexShader->TransitionResources(Context);
 }
+
+} // PostProcessTonemapUtil
+
+template <typename TRHICmdList>
+inline void DispatchComputeShader(TRHICmdList& RHICmdList, FRenderingCompositePassContext& Context, const FIntRect& DestRect, FUnorderedAccessViewRHIParamRef DestUAV, const TonemapperPermutation::FDesktopDomain& DesktopPermutationVector, FTextureRHIParamRef EyeAdaptationTex, bool bDoEyeAdaptation)
+{
+	FPostProcessTonemapCS::FPermutationDomain PermutationVector;
+	PermutationVector.Set<TonemapperPermutation::FDesktopDomain>(DesktopPermutationVector);
+	PermutationVector.Set<FPostProcessTonemapCS::FEyeAdaptationDim>(bDoEyeAdaptation);
+
+	TShaderMapRef<FPostProcessTonemapCS> ComputeShader(Context.GetShaderMap(), PermutationVector);
+	RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());		
+
+	FIntPoint DestSize(DestRect.Width(), DestRect.Height());
+	ComputeShader->SetParameters(RHICmdList, Context, DestSize, DestUAV, EyeAdaptationTex);
+
+	uint32 GroupSizeX = FMath::DivideAndRoundUp(DestSize.X, GTonemapComputeTileSizeX);
+	uint32 GroupSizeY = FMath::DivideAndRoundUp(DestSize.Y, GTonemapComputeTileSizeY);
+	DispatchComputeShader(RHICmdList, *ComputeShader, GroupSizeX, GroupSizeY, 1);
+
+	ComputeShader->UnsetParameters(RHICmdList);
+}
+
+} // namespace
 
 static TAutoConsoleVariable<int32> CVarTonemapperOverride(
 	TEXT("r.Tonemapper.ConfigIndexOverride"),
@@ -1556,12 +910,6 @@ void FRCPassPostProcessTonemap::Process(FRenderingCompositePassContext& Context)
 {
 	const FPooledRenderTargetDesc* InputDesc = GetInputDesc(ePId_Input0);
 	AsyncEndFence = FComputeFenceRHIRef();
-
-	if(!InputDesc)
-	{
-		// input is not hooked up correctly
-		return;
-	}
 
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
@@ -1578,10 +926,31 @@ void FRCPassPostProcessTonemap::Process(FRenderingCompositePassContext& Context)
 	FIntPoint SrcSize = InputDesc->Extent;
 	FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
 
-	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessTonemap, TEXT("Tonemapper#%d%s GammaOnly=%d HandleScreenPercentage=%d  %dx%d"),
-		ConfigIndexPC, bIsComputePass ? TEXT("Compute") : TEXT(""), bDoGammaOnly, bDoScreenPercentageInTonemapper, DestRect.Width(), DestRect.Height());
+	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessTonemap, TEXT("Tonemapper(%s GammaOnly=%d HandleScreenPercentage=%d) %dx%d"),
+		bIsComputePass ? TEXT("CS") : TEXT("PS"), bDoGammaOnly, bDoScreenPercentageInTonemapper, DestRect.Width(), DestRect.Height());
 
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
+
+	// Generate permutation vector for the desktop tonemapper.
+	TonemapperPermutation::FDesktopDomain DesktopPermutationVector;
+	{
+		TonemapperPermutation::FCommonDomain CommonDomain = TonemapperPermutation::BuildCommonPermutationDomain(View, bDoGammaOnly);
+		DesktopPermutationVector.Set<TonemapperPermutation::FCommonDomain>(CommonDomain);
+
+		if (!CommonDomain.Get<TonemapperPermutation::FTonemapperGammaOnlyDim>())
+		{
+			// Grain Quantization
+			{
+				static TConsoleVariableData<int32>* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Tonemapper.GrainQuantization"));
+				int32 Value = CVar->GetValueOnRenderThread();
+				DesktopPermutationVector.Set<TonemapperPermutation::FTonemapperGrainQuantizationDim>(Value > 0);
+			}
+
+			DesktopPermutationVector.Set<TonemapperPermutation::FTonemapperColorFringeDim>(View.FinalPostProcessSettings.SceneFringeIntensity > 0.01f);
+		}
+
+		DesktopPermutationVector.Set<TonemapperPermutation::FTonemapperOutputDeviceDim>(GetOutputDeviceValue());
+	}
 
 	if (bIsComputePass)
 	{
@@ -1609,7 +978,7 @@ void FRCPassPostProcessTonemap::Process(FRenderingCompositePassContext& Context)
 				WaitForInputPassComputeFences(RHICmdListComputeImmediate);
 
 				RHICmdListComputeImmediate.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, DestRenderTarget.UAV);
-				DispatchCS(RHICmdListComputeImmediate, Context, DestRect, DestRenderTarget.UAV, EyeAdaptationTex);
+				DispatchComputeShader(RHICmdListComputeImmediate, Context, DestRect, DestRenderTarget.UAV, DesktopPermutationVector, EyeAdaptationTex, bDoEyeAdaptation);
 				RHICmdListComputeImmediate.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, DestRenderTarget.UAV, AsyncEndFence);
 			}
 			FRHIAsyncComputeCommandListImmediate::ImmediateDispatch(RHICmdListComputeImmediate);
@@ -1620,7 +989,7 @@ void FRCPassPostProcessTonemap::Process(FRenderingCompositePassContext& Context)
 			WaitForInputPassComputeFences(Context.RHICmdList);
 
 			Context.RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, DestRenderTarget.UAV);
-			DispatchCS(Context.RHICmdList, Context, DestRect, DestRenderTarget.UAV, EyeAdaptationTex);
+			DispatchComputeShader(Context.RHICmdList, Context, DestRect, DestRenderTarget.UAV, DesktopPermutationVector, EyeAdaptationTex, bDoEyeAdaptation);
 			Context.RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, DestRenderTarget.UAV, AsyncEndFence);
 		}
 	}
@@ -1629,6 +998,14 @@ void FRCPassPostProcessTonemap::Process(FRenderingCompositePassContext& Context)
 		WaitForInputPassComputeFences(Context.RHICmdList);
 
 		const EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[Context.GetFeatureLevel()];
+		if (bDoEyeAdaptation)
+		{
+			PostProcessTonemapUtil::ShaderTransitionResources<true>(Context);
+		}
+		else
+		{
+			PostProcessTonemapUtil::ShaderTransitionResources<false>(Context);
+		}
 
 		if (IsMobilePlatform(ShaderPlatform))
 		{
@@ -1662,36 +1039,44 @@ void FRCPassPostProcessTonemap::Process(FRenderingCompositePassContext& Context)
 
 		Context.SetViewportAndCallRHI(DestRect, 0.0f, 1.0f);
 
-		const int32 ConfigOverride = CVarTonemapperOverride->GetInt();
-		const uint32 FinalConfigIndex = ConfigOverride == -1 ? ConfigIndexPC : (int32)ConfigOverride;
-		switch (FinalConfigIndex)
-		{
-		using namespace PostProcessTonemapUtil;
-		case 0:	SetShaderTempl<0>(Context, bDoEyeAdaptation); break;
-		case 1:	SetShaderTempl<1>(Context, bDoEyeAdaptation); break;
-		case 2: SetShaderTempl<2>(Context, bDoEyeAdaptation); break;
-		case 3: SetShaderTempl<3>(Context, bDoEyeAdaptation); break;
-		case 4: SetShaderTempl<4>(Context, bDoEyeAdaptation); break;
-		case 5: SetShaderTempl<5>(Context, bDoEyeAdaptation); break;
-		case 6: SetShaderTempl<6>(Context, bDoEyeAdaptation); break;
-		case 7: SetShaderTempl<7>(Context, bDoEyeAdaptation); break;
-		case 8: SetShaderTempl<8>(Context, bDoEyeAdaptation); break;
-		case 9: SetShaderTempl<9>(Context, bDoEyeAdaptation); break;
-		default:
-			check(0);
-		}
-
 		FShader* VertexShader;
-		if (bDoEyeAdaptation)
 		{
-			// Use the vertex shader that passes on eye-adaptation values to the pixel shader
-			TShaderMapRef<TPostProcessTonemapVS<true>> VertexShaderMapRef(Context.GetShaderMap());
-			VertexShader = *VertexShaderMapRef;
-		}
-		else
-		{
-			TShaderMapRef<TPostProcessTonemapVS<false>> VertexShaderMapRef(Context.GetShaderMap());
-			VertexShader = *VertexShaderMapRef;
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+			if (bDoEyeAdaptation)
+			{
+				VertexShader = Context.GetShaderMap()->GetShader<TPostProcessTonemapVS<true>>();
+			}
+			else
+			{
+				VertexShader = Context.GetShaderMap()->GetShader<TPostProcessTonemapVS<false>>();
+			}
+
+			TShaderMapRef<FPostProcessTonemapPS> PixelShader(Context.GetShaderMap(), DesktopPermutationVector);
+
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = VertexShader->GetVertexShader();
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+			if (bDoEyeAdaptation)
+			{
+				TShaderMapRef<TPostProcessTonemapVS<true>> VertexShaderMapRef(Context.GetShaderMap());
+				VertexShaderMapRef->SetVS(Context);
+			}
+			else
+			{
+				TShaderMapRef<TPostProcessTonemapVS<false>> VertexShaderMapRef(Context.GetShaderMap());
+				VertexShaderMapRef->SetVS(Context);
+			}
+
+			PixelShader->SetPS(Context);
 		}
 
 		DrawPostProcessPass(
@@ -1707,7 +1092,7 @@ void FRCPassPostProcessTonemap::Process(FRenderingCompositePassContext& Context)
 			Context.HasHmdMesh(),
 			EDRF_UseTriangleOptimization);
 
-		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 
 		// We only release the SceneColor after the last view was processed (SplitScreen)
 		if(Context.View.Family->Views[Context.View.Family->Views.Num() - 1] == &Context.View && !GIsEditor)
@@ -1717,36 +1102,6 @@ void FRCPassPostProcessTonemap::Process(FRenderingCompositePassContext& Context)
 			SceneContext.SetSceneColor(0);
 		}
 	}
-}
-
-template <typename TRHICmdList>
-void FRCPassPostProcessTonemap::DispatchCS(TRHICmdList& RHICmdList, FRenderingCompositePassContext& Context, const FIntRect& DestRect, FUnorderedAccessViewRHIParamRef DestUAV, FTextureRHIParamRef EyeAdaptationTex)
-{
-#define DISPATCH_CASE(A)																				\
-	case A:	bDoEyeAdaptation																			\
-		? DispatchComputeShaderTmpl<A, true>(RHICmdList, Context, DestRect, DestUAV, EyeAdaptationTex)	\
-		: DispatchComputeShaderTmpl<A, false>(RHICmdList, Context, DestRect, DestUAV, EyeAdaptationTex);\
-	break;
-
-	const int32 ConfigOverride = CVarTonemapperOverride->GetInt();
-	const uint32 FinalConfigIndex = ConfigOverride == -1 ? ConfigIndexPC : (int32)ConfigOverride;
-	switch (FinalConfigIndex)
-	{
-	using namespace PostProcessTonemapUtil;
-	DISPATCH_CASE(0);
-	DISPATCH_CASE(1);
-	DISPATCH_CASE(2);
-	DISPATCH_CASE(3);
-	DISPATCH_CASE(4);
-	DISPATCH_CASE(5);
-	DISPATCH_CASE(6);
-	DISPATCH_CASE(7);
-	DISPATCH_CASE(8);
-	DISPATCH_CASE(9);
-	default: check(0);
-	}
-
-#undef DISPATCH_CASE
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessTonemap::ComputeOutputDesc(EPassOutputId InPassOutputId) const
@@ -1785,43 +1140,129 @@ FPooledRenderTargetDesc FRCPassPostProcessTonemap::ComputeOutputDesc(EPassOutput
 
 // ES2 version
 
-/**
- * Encapsulates the post processing tonemapper pixel shader.
- */
-template<uint32 ConfigIndex>
 class FPostProcessTonemapPS_ES2 : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(FPostProcessTonemapPS_ES2, Global);
+	DECLARE_GLOBAL_SHADER(FPostProcessTonemapPS_ES2);
+
+	// Mobile renderer specific permutation dimensions.
+	class FTonemapperMsaaDim        : SHADER_PERMUTATION_BOOL("USE_MSAA");
+	class FTonemapperDOFDim         : SHADER_PERMUTATION_BOOL("USE_DOF");
+	class FTonemapperLightShaftsDim : SHADER_PERMUTATION_BOOL("USE_LIGHT_SHAFTS");
+	class FTonemapper32BPPHDRDim    : SHADER_PERMUTATION_BOOL("USE_32BPP_HDR");
+	class FTonemapperColorMatrixDim : SHADER_PERMUTATION_BOOL("USE_COLOR_MATRIX");
+	class FTonemapperShadowTintDim  : SHADER_PERMUTATION_BOOL("USE_SHADOW_TINT");
+	class FTonemapperContrastDim    : SHADER_PERMUTATION_BOOL("USE_CONTRAST");
+
+	using FPermutationDomain = TShaderPermutationDomain<
+		TonemapperPermutation::FCommonDomain,
+		FTonemapperMsaaDim,
+		FTonemapperDOFDim,
+		FTonemapperLightShaftsDim,
+		FTonemapper32BPPHDRDim,
+		FTonemapperColorMatrixDim,
+		FTonemapperShadowTintDim,
+		FTonemapperContrastDim>;
+
+	static FPermutationDomain BuildPermutationVector(const FViewInfo& View)
+	{
+		TonemapperPermutation::FCommonDomain CommonPermutationVector = TonemapperPermutation::BuildCommonPermutationDomain(View, /* bGammaOnly = */ false);
+
+		FPostProcessTonemapPS_ES2::FPermutationDomain MobilePermutationVector;
+		MobilePermutationVector.Set<TonemapperPermutation::FCommonDomain>(CommonPermutationVector);
+
+		bool bUse32BPPHDR = IsMobileHDR32bpp();
+
+		// Must early exit if gamma only.
+		if (CommonPermutationVector.Get<TonemapperPermutation::FTonemapperGammaOnlyDim>())
+		{
+			MobilePermutationVector.Set<FTonemapper32BPPHDRDim>(bUse32BPPHDR);
+			return MobilePermutationVector;
+		}
+
+		const FFinalPostProcessSettings& Settings = View.FinalPostProcessSettings;
+		{
+			FVector MixerR(Settings.FilmChannelMixerRed);
+			FVector MixerG(Settings.FilmChannelMixerGreen);
+			FVector MixerB(Settings.FilmChannelMixerBlue);
+			if (
+				(Settings.FilmSaturation != 1.0f) ||
+				((MixerR - FVector(1.0f, 0.0f, 0.0f)).GetAbsMax() != 0.0f) ||
+				((MixerG - FVector(0.0f, 1.0f, 0.0f)).GetAbsMax() != 0.0f) ||
+				((MixerB - FVector(0.0f, 0.0f, 1.0f)).GetAbsMax() != 0.0f))
+			{
+				MobilePermutationVector.Set<FTonemapperColorMatrixDim>(true);
+			}
+		}
+		MobilePermutationVector.Set<FTonemapperShadowTintDim>(Settings.FilmShadowTintAmount > 0.0f);
+		MobilePermutationVector.Set<FTonemapperContrastDim>(Settings.FilmContrast > 0.0f);
+
+		if (IsMobileHDRMosaic())
+		{
+			MobilePermutationVector.Set<FTonemapper32BPPHDRDim>(true);
+			return MobilePermutationVector;
+		}
+
+		static const auto CVarMobileMSAA = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
+		const EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[View.GetFeatureLevel()];
+		if ((GSupportsShaderFramebufferFetch && (ShaderPlatform == SP_METAL || ShaderPlatform == SP_VULKAN_PCES3_1)) && (CVarMobileMSAA ? CVarMobileMSAA->GetValueOnAnyThread() > 1 : false))
+		{
+			MobilePermutationVector.Set<FTonemapperMsaaDim>(true);
+		}
+
+		if (bUse32BPPHDR)
+		{
+			// add limited post for 32 bit encoded hdr.
+			MobilePermutationVector.Set<FTonemapper32BPPHDRDim>(true);
+		}
+		else if (GSupportsRenderTargetFormat_PF_FloatRGBA)
+		{
+			bool bUseDof = GetMobileDepthOfFieldScale(View) > 0.0f && (!Settings.bMobileHQGaussian || (View.GetFeatureLevel() < ERHIFeatureLevel::ES3_1));
+
+			MobilePermutationVector.Set<FTonemapperDOFDim>(bUseDof);
+			MobilePermutationVector.Set<FTonemapperLightShaftsDim>(View.bLightShaftUse);
+		}
+		else
+		{
+			// Override Bloom because is not supported.
+			CommonPermutationVector.Set<TonemapperPermutation::FTonemapperBloomDim>(false);
+		}
+
+		// Mobile is not currently supporting these.
+		CommonPermutationVector.Set<TonemapperPermutation::FTonemapperGrainJitterDim>(false);
+		CommonPermutationVector.Set<TonemapperPermutation::FTonemapperSharpenDim>(false);
+		MobilePermutationVector.Set<TonemapperPermutation::FCommonDomain>(CommonPermutationVector);
+
+		return MobilePermutationVector;
+	}
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		const uint32 ConfigBitmask = TonemapperConfBitmaskMobile[ConfigIndex];
+		FPermutationDomain PermutationVector(Parameters.PermutationId);
+
+		auto CommonPermutationVector = PermutationVector.Get<TonemapperPermutation::FCommonDomain>();
+		if (!TonemapperPermutation::ShouldCompileCommonPermutation(CommonPermutationVector))
+		{
+			return false;
+		}
+		
+		if (CommonPermutationVector.Get<TonemapperPermutation::FTonemapperGammaOnlyDim>())
+		{
+			if (!PermutationVector.Get<FTonemapperMsaaDim>() &&
+				!PermutationVector.Get<FTonemapperDOFDim>() &&
+				!PermutationVector.Get<FTonemapperLightShaftsDim>() &&
+				!PermutationVector.Get<FTonemapperColorMatrixDim>() &&
+				!PermutationVector.Get<FTonemapperShadowTintDim>() &&
+				!PermutationVector.Get<FTonemapperContrastDim>()) return false;
+		}
 
 		// Only cache for ES2/3.1 shader platforms, and only compile 32bpp shaders for Android or PC emulation
-		return IsMobilePlatform(Parameters.Platform) && 
-			(!TonemapperIsDefined(ConfigBitmask, Tonemapper32BPPHDR) || Parameters.Platform == SP_OPENGL_ES2_ANDROID || (IsMobilePlatform(Parameters.Platform) && IsPCPlatform(Parameters.Platform)));
+		return (IsMobilePlatform(Parameters.Platform) && (!PermutationVector.Get<FTonemapper32BPPHDRDim>()))
+			|| Parameters.Platform == SP_OPENGL_ES2_ANDROID
+			|| (IsMobilePlatform(Parameters.Platform) && IsPCPlatform(Parameters.Platform));
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
-
-		const uint32 ConfigBitmask = TonemapperConfBitmaskMobile[ConfigIndex];
-
-		OutEnvironment.SetDefine(TEXT("USE_GAMMA_ONLY"),         TonemapperIsDefined(ConfigBitmask, TonemapperGammaOnly));
-		OutEnvironment.SetDefine(TEXT("USE_COLOR_MATRIX"),       TonemapperIsDefined(ConfigBitmask, TonemapperColorMatrix));
-		OutEnvironment.SetDefine(TEXT("USE_SHADOW_TINT"),        TonemapperIsDefined(ConfigBitmask, TonemapperShadowTint));
-		OutEnvironment.SetDefine(TEXT("USE_CONTRAST"),           TonemapperIsDefined(ConfigBitmask, TonemapperContrast));
-		OutEnvironment.SetDefine(TEXT("USE_32BPP_HDR"),          TonemapperIsDefined(ConfigBitmask, Tonemapper32BPPHDR));
-		OutEnvironment.SetDefine(TEXT("USE_BLOOM"),              TonemapperIsDefined(ConfigBitmask, TonemapperBloom));
-		OutEnvironment.SetDefine(TEXT("USE_GRAIN_JITTER"),       TonemapperIsDefined(ConfigBitmask, TonemapperGrainJitter));
-		OutEnvironment.SetDefine(TEXT("USE_GRAIN_INTENSITY"),    TonemapperIsDefined(ConfigBitmask, TonemapperGrainIntensity));
-		OutEnvironment.SetDefine(TEXT("USE_GRAIN_QUANTIZATION"), TonemapperIsDefined(ConfigBitmask, TonemapperGrainQuantization));
-		OutEnvironment.SetDefine(TEXT("USE_VIGNETTE"),           TonemapperIsDefined(ConfigBitmask, TonemapperVignette));
-		OutEnvironment.SetDefine(TEXT("USE_LIGHT_SHAFTS"),       TonemapperIsDefined(ConfigBitmask, TonemapperLightShafts));
-		OutEnvironment.SetDefine(TEXT("USE_DOF"),                TonemapperIsDefined(ConfigBitmask, TonemapperDOF));
-		OutEnvironment.SetDefine(TEXT("USE_MSAA"),               TonemapperIsDefined(ConfigBitmask, TonemapperMsaa));
-
 		//Need to hack in exposure scale for < SM5
 		OutEnvironment.SetDefine(TEXT("NO_EYEADAPTATION_EXPOSURE_FIX"), 1);
 	}
@@ -1897,7 +1338,7 @@ public:
 	}
 
 	template <typename TRHICmdList>
-	void SetPS(TRHICmdList& RHICmdList, const FRenderingCompositePassContext& Context, bool bSRGBAwareTarget)
+	void SetPS(TRHICmdList& RHICmdList, const FRenderingCompositePassContext& Context, const FPermutationDomain& PermutationVector, bool bSRGBAwareTarget)
 	{
 		const FPostProcessSettings& Settings = Context.View.FinalPostProcessSettings;
 		const FSceneViewFamily& ViewFamily = *(Context.View.Family);
@@ -1906,9 +1347,7 @@ public:
 		
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
 
-		const uint32 ConfigBitmask = TonemapperConfBitmaskMobile[ConfigIndex];
-
-		if (TonemapperIsDefined(ConfigBitmask, Tonemapper32BPPHDR) && IsMobileHDRMosaic())
+		if (PermutationVector.Get<FTonemapper32BPPHDRDim>() && IsMobileHDRMosaic())
 		{
 			PostprocessParameter.SetPS(RHICmdList, ShaderRHI, Context, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
 		}
@@ -1963,7 +1402,13 @@ public:
 
 		{
 			FVector4 Constants[8];
-			FilmPostSetConstants(Constants, TonemapperConfBitmaskMobile[ConfigIndex], &Context.View.FinalPostProcessSettings, true);
+
+			FilmPostSetConstants(Constants, &Context.View.FinalPostProcessSettings,
+				/* bMobile = */ true,
+				/* UseColorMatrix = */ PermutationVector.Get<FTonemapperColorMatrixDim>(),
+				/* UseShadowTint = */ PermutationVector.Get<FTonemapperShadowTintDim>(),
+				/* UseContrast = */ PermutationVector.Get<FTonemapperContrastDim>());
+
 			SetShaderValue(RHICmdList, ShaderRHI, ColorMatrixR_ColorCurveCd1, Constants[0]);
 			SetShaderValue(RHICmdList, ShaderRHI, ColorMatrixG_ColorCurveCd3Cm3, Constants[1]);
 			SetShaderValue(RHICmdList, ShaderRHI, ColorMatrixB_ColorCurveCm2, Constants[2]); 
@@ -1979,34 +1424,13 @@ public:
 		float FixedExposure = FRCPassPostProcessEyeAdaptation::GetFixedExposure(Context.View);
 		SetShaderValue(RHICmdList, ShaderRHI, DefaultEyeExposure, FixedExposure);
 	}
-	
-	static const TCHAR* GetSourceFilename()
-	{
-		return TEXT("/Engine/Private/PostProcessTonemap.usf");
-	}
-
-	static const TCHAR* GetFunctionName()
-	{
-		return TEXT("MainPS_ES2");
-	}
 };
-
-// #define avoids a lot of code duplication
-#define VARIATION2(A) typedef FPostProcessTonemapPS_ES2<A> FPostProcessTonemapPS_ES2##A; \
-	IMPLEMENT_SHADER_TYPE2(FPostProcessTonemapPS_ES2##A, SF_Pixel);
-
-	VARIATION2(0)  VARIATION2(1)  VARIATION2(2)  VARIATION2(3)	VARIATION2(4)  VARIATION2(5)  VARIATION2(6)  VARIATION2(7)  VARIATION2(8)  VARIATION2(9)  
-	VARIATION2(10) VARIATION2(11) VARIATION2(12) VARIATION2(13)	VARIATION2(14) VARIATION2(15) VARIATION2(16) VARIATION2(17) VARIATION2(18) VARIATION2(19)  
-	VARIATION2(20) VARIATION2(21) VARIATION2(22) VARIATION2(23)	VARIATION2(24) VARIATION2(25) VARIATION2(26) VARIATION2(27) VARIATION2(28) VARIATION2(29)
-	VARIATION2(30) VARIATION2(31) VARIATION2(32) VARIATION2(33)	VARIATION2(34) VARIATION2(35) VARIATION2(36) VARIATION2(37) VARIATION2(38)
-
-
-#undef VARIATION2
-	
 
 class FPostProcessTonemapVS_ES2 : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(FPostProcessTonemapVS_ES2,Global);
+	DECLARE_GLOBAL_SHADER(FPostProcessTonemapVS_ES2);
+
+	using FPermutationDomain = TShaderPermutationDomain<>;
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
@@ -2077,59 +1501,23 @@ public:
 	}
 };
 
-IMPLEMENT_SHADER_TYPE(,FPostProcessTonemapVS_ES2,TEXT("/Engine/Private/PostProcessTonemap.usf"),TEXT("MainVS_ES2"),SF_Vertex);
+IMPLEMENT_GLOBAL_SHADER(FPostProcessTonemapVS_ES2, "/Engine/Private/PostProcessTonemap.usf", "MainVS_ES2", SF_Vertex);
+IMPLEMENT_GLOBAL_SHADER(FPostProcessTonemapPS_ES2, "/Engine/Private/PostProcessTonemap.usf", "MainPS_ES2", SF_Pixel);
 
-namespace PostProcessTonemap_ES2Util
-{
-	// Template implementation supports unique static BoundShaderState for each permutation of Pixel Shaders 
-	template <uint32 ConfigIndex>
-	static inline void SetShaderTemplES2(const FRenderingCompositePassContext& Context, bool bUsedFramebufferFetch, bool bSRGBAwareTarget)
-	{
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-
-		TShaderMapRef<FPostProcessTonemapVS_ES2> VertexShader(Context.GetShaderMap());
-		TShaderMapRef<FPostProcessTonemapPS_ES2<ConfigIndex> > PixelShader(Context.GetShaderMap());
-
-		VertexShader->bUsedFramebufferFetch = bUsedFramebufferFetch;
-
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-
-		VertexShader->SetVS(Context);
-		PixelShader->SetPS(Context.RHICmdList, Context, bSRGBAwareTarget);
-	}
-}
 
 FRCPassPostProcessTonemapES2::FRCPassPostProcessTonemapES2(const FViewInfo& InView, bool bInUsedFramebufferFetch, bool bInSRGBAwareTarget)
 	: bDoScreenPercentageInTonemapper(false)
 	, View(InView)
 	, bUsedFramebufferFetch(bInUsedFramebufferFetch)
 	, bSRGBAwareTarget(bInSRGBAwareTarget)
-{
-	uint32 ConfigBitmask = TonemapperGenerateBitmaskMobile(&View, false);
-	ConfigIndexMobile = TonemapperFindLeastExpensive(TonemapperConfBitmaskMobile, sizeof(TonemapperConfBitmaskMobile)/4, TonemapperCostTab, ConfigBitmask);
-}
+{ }
 
 void FRCPassPostProcessTonemapES2::Process(FRenderingCompositePassContext& Context)
 {
-	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessTonemap, TEXT("Tonemapper#%d%s"), ConfigIndexMobile, bUsedFramebufferFetch ? TEXT(" FramebufferFetch=0") : TEXT("FramebufferFetch=1"));
+	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessTonemapES2, TEXT("Tonemapper(ES2 FramebufferFetch=%s)"), bUsedFramebufferFetch ? TEXT("0") : TEXT("1"));
 
 	const FPooledRenderTargetDesc* InputDesc = GetInputDesc(ePId_Input0);
 
-	if(!InputDesc)
-	{
-		// input is not hooked up correctly
-		return;
-	}
-	
 	const FSceneViewFamily& ViewFamily = *(View.Family);
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 	const FPooledRenderTargetDesc& OutputDesc = PassOutputs[0].RenderTargetDesc;
@@ -2158,57 +1546,30 @@ void FRCPassPostProcessTonemapES2::Process(FRenderingCompositePassContext& Conte
 
 	Context.SetViewportAndCallRHI(DestRect);
 
-	const int32 ConfigOverride = CVarTonemapperOverride->GetInt();
-	const uint32 FinalConfigIndex = ConfigOverride == -1 ? ConfigIndexMobile : (int32)ConfigOverride;
-	
-	switch(FinalConfigIndex)
-	{
-		using namespace PostProcessTonemap_ES2Util;
-		case 0:	SetShaderTemplES2<0>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 1:	SetShaderTemplES2<1>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 2:	SetShaderTemplES2<2>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 3:	SetShaderTemplES2<3>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 4:	SetShaderTemplES2<4>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 5:	SetShaderTemplES2<5>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 6:	SetShaderTemplES2<6>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 7:	SetShaderTemplES2<7>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 8:	SetShaderTemplES2<8>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 9:	SetShaderTemplES2<9>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 10: SetShaderTemplES2<10>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 11: SetShaderTemplES2<11>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 12: SetShaderTemplES2<12>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 13: SetShaderTemplES2<13>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 14: SetShaderTemplES2<14>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 15: SetShaderTemplES2<15>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 16: SetShaderTemplES2<16>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 17: SetShaderTemplES2<17>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 18: SetShaderTemplES2<18>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 19: SetShaderTemplES2<19>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 20: SetShaderTemplES2<20>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 21: SetShaderTemplES2<21>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 22: SetShaderTemplES2<22>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 23: SetShaderTemplES2<23>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 24: SetShaderTemplES2<24>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 25: SetShaderTemplES2<25>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 26: SetShaderTemplES2<26>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 27: SetShaderTemplES2<27>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 28: SetShaderTemplES2<28>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 29: SetShaderTemplES2<29>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 30: SetShaderTemplES2<30>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 31: SetShaderTemplES2<31>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 32: SetShaderTemplES2<32>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 33: SetShaderTemplES2<33>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 34: SetShaderTemplES2<34>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 35: SetShaderTemplES2<35>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 36: SetShaderTemplES2<36>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 37: SetShaderTemplES2<37>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		case 38: SetShaderTemplES2<38>(Context, bUsedFramebufferFetch, bSRGBAwareTarget); break;
-		default:
-			check(0);
-	}
+	auto PermutationVector = FPostProcessTonemapPS_ES2::BuildPermutationVector(View);
 
-	// Draw a quad mapping scene color to the view's render target
 	TShaderMapRef<FPostProcessTonemapVS_ES2> VertexShader(Context.GetShaderMap());
+	TShaderMapRef<FPostProcessTonemapPS_ES2> PixelShader(Context.GetShaderMap(), PermutationVector);
+
+	{
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+		VertexShader->bUsedFramebufferFetch = bUsedFramebufferFetch;
+
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+		VertexShader->SetVS(Context);
+		PixelShader->SetPS(Context.RHICmdList, Context, PermutationVector, bSRGBAwareTarget);
+	}
 
 	DrawRectangle(
 		Context.RHICmdList,
@@ -2221,7 +1582,7 @@ void FRCPassPostProcessTonemapES2::Process(FRenderingCompositePassContext& Conte
 		*VertexShader,
 		EDRF_UseTriangleOptimization);
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessTonemapES2::ComputeOutputDesc(EPassOutputId InPassOutputId) const

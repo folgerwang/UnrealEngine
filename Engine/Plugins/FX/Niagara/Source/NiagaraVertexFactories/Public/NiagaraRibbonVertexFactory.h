@@ -58,15 +58,15 @@ struct FNiagaraRibbonVertexDynamicParameter
 * Uniform buffer for particle beam/trail vertex factories.
 */
 BEGIN_UNIFORM_BUFFER_STRUCT(FNiagaraRibbonUniformParameters, NIAGARAVERTEXFACTORIES_API)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, CameraRight)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, CameraUp)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, ScreenAlignment)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, PositionDataOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, WidthDataOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, TwistDataOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, ColorDataOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, MaterialParamDataOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(bool, UseCustomFacing)
+	UNIFORM_MEMBER(FVector4, CameraRight)
+	UNIFORM_MEMBER(FVector4, CameraUp)
+	UNIFORM_MEMBER(FVector4, ScreenAlignment)
+	UNIFORM_MEMBER(int, PositionDataOffset)
+	UNIFORM_MEMBER(int, WidthDataOffset)
+	UNIFORM_MEMBER(int, TwistDataOffset)
+	UNIFORM_MEMBER(int, ColorDataOffset)
+	UNIFORM_MEMBER(int, MaterialParamDataOffset)
+	UNIFORM_MEMBER(bool, UseCustomFacing)
 	END_UNIFORM_BUFFER_STRUCT(FNiagaraRibbonUniformParameters)
 typedef TUniformBufferRef<FNiagaraRibbonUniformParameters> FNiagaraRibbonUniformBufferRef;
 

@@ -698,15 +698,12 @@ float3 EyeSubsurfaceShading( FGBufferData GBuffer, float3 L, float3 V, half3 N )
 	return (1 - F) * lerp( Sclera, Iris, IrisMask ) * GBuffer.DiffuseColor / PI;
 }
 
-Texture2D		PreIntegratedBRDF;
-SamplerState	PreIntegratedBRDFSampler;
-
 float3 SubsurfaceShadingPreintegratedSkin( FGBufferData GBuffer, float3 L, float3 V, half3 N )
 {
 	float3 SubsurfaceColor = ExtractSubsurfaceColor(GBuffer);
 	float Opacity = GBuffer.CustomData.a;
 
-	float3 PreintegratedBRDF = Texture2DSampleLevel(PreIntegratedBRDF, PreIntegratedBRDFSampler, float2(saturate(dot(N, L) * .5 + .5), 1 - Opacity), 0).rgb;
+	float3 PreintegratedBRDF = Texture2DSampleLevel(View.PreIntegratedBRDF, View.PreIntegratedBRDFSampler, float2(saturate(dot(N, L) * .5 + .5), 1 - Opacity), 0).rgb;
 	return PreintegratedBRDF * SubsurfaceColor;
 }
 

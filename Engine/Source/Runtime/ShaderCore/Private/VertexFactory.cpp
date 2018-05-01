@@ -173,9 +173,9 @@ FVertexFactoryType* FindVertexFactoryType(FName TypeName)
 	return NULL;
 }
 
-void FVertexFactory::Set(EShaderPlatform InShaderPlatform, FRHICommandList& RHICmdList) const
+void FVertexFactory::SetStreams(ERHIFeatureLevel::Type InFeatureLevel, FRHICommandList& RHICmdList) const
 {
-	bool bSupportsVertexFetch = SupportsManualVertexFetch(InShaderPlatform);
+	bool bSupportsVertexFetch = SupportsManualVertexFetch(InFeatureLevel);
 	check(IsInitialized());
 	for(int32 StreamIndex = 0;StreamIndex < Streams.Num();StreamIndex++)
 	{
@@ -364,7 +364,7 @@ bool operator<<(FArchive& Ar,FVertexFactoryParameterRef& Ref)
 	}
 
 	// Need to be able to skip over parameters for no longer existing vertex factories.
-	int32 SkipOffset = Ar.Tell();
+	int64 SkipOffset = Ar.Tell();
 	{
 		FArchive::FScopeSetDebugSerializationFlags S(Ar, DSF_IgnoreDiff);
 		// Write placeholder.
@@ -383,7 +383,7 @@ bool operator<<(FArchive& Ar,FVertexFactoryParameterRef& Ref)
 
 	if( Ar.IsSaving() )
 	{
-		int32 EndOffset = Ar.Tell();
+		int64 EndOffset = Ar.Tell();
 		Ar.Seek( SkipOffset );
 		Ar << EndOffset;
 		Ar.Seek( EndOffset );

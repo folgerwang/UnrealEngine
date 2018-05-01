@@ -269,5 +269,13 @@ float AngleBetweenVectorsFast(float3 A, float3 B)
 	return acosFast(CosBetweenVectors(A, B));
 }
 
+// Returns sign bit of floating point as either 1 or -1.
+int SignFastInt(float v)
+{
+	return 1 - int((asuint(v) & 0x7fffffff) >> 30);
+}
 
-
+int2 SignFastInt(float2 v)
+{
+	return int2(SignFastInt(v.x), SignFastInt(v.y));
+}

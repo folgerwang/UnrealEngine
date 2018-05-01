@@ -39,14 +39,14 @@ public:
 };
 static TGlobalResource<FVector4VertexDeclaration> GVector4VertexDeclaration;
 
-MTLPrimitiveType TranslatePrimitiveType(uint32 PrimitiveType)
+mtlpp::PrimitiveType TranslatePrimitiveType(uint32 PrimitiveType)
 {
 	switch (PrimitiveType)
 	{
-		case PT_TriangleList:	return MTLPrimitiveTypeTriangle;
-		case PT_TriangleStrip:	return MTLPrimitiveTypeTriangleStrip;
-		case PT_LineList:		return MTLPrimitiveTypeLine;
-		case PT_PointList:		return MTLPrimitiveTypePoint;
+		case PT_TriangleList:	return mtlpp::PrimitiveType::Triangle;
+		case PT_TriangleStrip:	return mtlpp::PrimitiveType::TriangleStrip;
+		case PT_LineList:		return mtlpp::PrimitiveType::Line;
+		case PT_PointList:		return mtlpp::PrimitiveType::Point;
 		// Metal doesn't actually actually draw in control-point patch-lists because of the way the compute shader stage works - it can handle any arbitrary patch size and will output triangles.
 		case PT_1_ControlPointPatchList:
 		case PT_2_ControlPointPatchList:
@@ -87,9 +87,9 @@ MTLPrimitiveType TranslatePrimitiveType(uint32 PrimitiveType)
 				Logged = 1;
 				UE_LOG(LogMetal, Warning, TEXT("Untested primitive type %d"), (int32)PrimitiveType);
 			}
-			return MTLPrimitiveTypeTriangle;
+			return mtlpp::PrimitiveType::Triangle;
 		}
-		default:				UE_LOG(LogMetal, Fatal, TEXT("Unsupported primitive type %d"), (int32)PrimitiveType); return MTLPrimitiveTypeTriangle;
+		default:				UE_LOG(LogMetal, Fatal, TEXT("Unsupported primitive type %d"), (int32)PrimitiveType); return mtlpp::PrimitiveType::Triangle;
 	}
 }
 
@@ -97,7 +97,7 @@ void FMetalRHICommandContext::RHISetStreamSource(uint32 StreamIndex,FVertexBuffe
 {
 	@autoreleasepool {
 		FMetalVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
-		Context->GetCurrentState().SetVertexStream(StreamIndex, VertexBuffer ? VertexBuffer->Buffer : nil, VertexBuffer ? VertexBuffer->Data : nil, Offset, VertexBuffer ? VertexBuffer->GetSize() : 0);
+		Context->GetCurrentState().SetVertexStream(StreamIndex, VertexBuffer ? &VertexBuffer->Buffer : nil, VertexBuffer ? VertexBuffer->Data : nil, Offset, VertexBuffer ? VertexBuffer->GetSize() : 0);
 	}
 }
 
@@ -166,7 +166,7 @@ void FMetalRHICommandContext::RHIDispatchIndirectComputeShader(FVertexBufferRHIP
 void FMetalRHICommandContext::RHISetViewport(uint32 MinX,uint32 MinY,float MinZ,uint32 MaxX,uint32 MaxY,float MaxZ)
 {
 	@autoreleasepool {
-	MTLViewport Viewport;
+	mtlpp::Viewport Viewport;
 	Viewport.originX = MinX;
 	Viewport.originY = MinY;
 	Viewport.width = MaxX - MinX;
@@ -185,7 +185,7 @@ void FMetalRHICommandContext::RHISetStereoViewport(uint32 LeftMinX, uint32 Right
 	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesMultipleViewports))
 	{
 		@autoreleasepool {
-		MTLViewport Viewport[2];
+		mtlpp::Viewport Viewport[2];
 		
 		Viewport[0].originX = LeftMinX;
 		Viewport[0].originY = LeftMinY;
@@ -219,7 +219,7 @@ void FMetalRHICommandContext::RHISetMultipleViewports(uint32 Count, const FViewp
 void FMetalRHICommandContext::RHISetScissorRect(bool bEnable,uint32 MinX,uint32 MinY,uint32 MaxX,uint32 MaxY)
 {
 	@autoreleasepool {
-	MTLScissorRect Scissor;
+	mtlpp::ScissorRect Scissor;
 	Scissor.x = MinX;
 	Scissor.y = MinY;
 	Scissor.width = MaxX - MinX;
@@ -228,7 +228,7 @@ void FMetalRHICommandContext::RHISetScissorRect(bool bEnable,uint32 MinX,uint32 
 	// metal doesn't support 0 sized scissor rect
 	if (bEnable == false || Scissor.width == 0 || Scissor.height == 0)
 	{
-		MTLViewport const& Viewport = Context->GetCurrentState().GetViewport(0);
+		mtlpp::Viewport const& Viewport = Context->GetCurrentState().GetViewport(0);
 		CGSize FBSize = Context->GetCurrentState().GetFrameBufferSize();
 		
 		Scissor.x = Viewport.originX;
@@ -500,10 +500,10 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FVertexShaderRHIParamRef
 
 	auto& Bindings = VertexShader->Bindings;
 	check(BufferIndex < Bindings.NumUniformBuffers);
-	if (Bindings.bHasRegularUniformBuffers)
+	if (Bindings.bHasRegularUniformBuffers && !(Bindings.LinearBuffer & 1 << BufferIndex))
 	{
 		auto* UB = (FMetalUniformBuffer*)BufferRHI;
-		Context->GetCurrentState().SetShaderBuffer(SF_Vertex, UB->Buffer, UB->Data, UB->Offset, UB->GetSize(), BufferIndex);
+		Context->GetCurrentState().SetShaderBuffer(SF_Vertex, UB->Buffer, UB->Data, 0, UB->GetSize(), BufferIndex);
 	}
 	}
 }
@@ -516,10 +516,10 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FHullShaderRHIParamRef H
 
 	auto& Bindings = HullShader->Bindings;
 	check(BufferIndex < Bindings.NumUniformBuffers);
-	if (Bindings.bHasRegularUniformBuffers)
+	if (Bindings.bHasRegularUniformBuffers && !(Bindings.LinearBuffer & 1 << BufferIndex))
 	{
 		auto* UB = (FMetalUniformBuffer*)BufferRHI;
-		Context->GetCurrentState().SetShaderBuffer(SF_Hull, UB->Buffer, UB->Data, UB->Offset, UB->GetSize(), BufferIndex);
+		Context->GetCurrentState().SetShaderBuffer(SF_Hull, UB->Buffer, UB->Data, 0, UB->GetSize(), BufferIndex);
 	}
 	}
 }
@@ -532,10 +532,10 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FDomainShaderRHIParamRef
 
 	auto& Bindings = DomainShader->Bindings;
 	check(BufferIndex < Bindings.NumUniformBuffers);
-	if (Bindings.bHasRegularUniformBuffers)
+	if (Bindings.bHasRegularUniformBuffers && !(Bindings.LinearBuffer & 1 << BufferIndex))
 	{
 		auto* UB = (FMetalUniformBuffer*)BufferRHI;
-		Context->GetCurrentState().SetShaderBuffer(SF_Domain, UB->Buffer, UB->Data, UB->Offset, UB->GetSize(), BufferIndex);
+		Context->GetCurrentState().SetShaderBuffer(SF_Domain, UB->Buffer, UB->Data, 0, UB->GetSize(), BufferIndex);
 	}
 	}
 }
@@ -553,10 +553,10 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FPixelShaderRHIParamRef 
 
 	auto& Bindings = PixelShader->Bindings;
 	check(BufferIndex < Bindings.NumUniformBuffers);
-	if (Bindings.bHasRegularUniformBuffers)
+	if (Bindings.bHasRegularUniformBuffers && !(Bindings.LinearBuffer & 1 << BufferIndex))
 	{
 		auto* UB = (FMetalUniformBuffer*)BufferRHI;
-		Context->GetCurrentState().SetShaderBuffer(SF_Pixel, UB->Buffer, UB->Data, UB->Offset, UB->GetSize(), BufferIndex);
+		Context->GetCurrentState().SetShaderBuffer(SF_Pixel, UB->Buffer, UB->Data, 0, UB->GetSize(), BufferIndex);
 	}
 	}
 }
@@ -569,10 +569,10 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FComputeShaderRHIParamRe
 
 	auto& Bindings = ComputeShader->Bindings;
 	check(BufferIndex < Bindings.NumUniformBuffers);
-	if (Bindings.bHasRegularUniformBuffers)
+	if (Bindings.bHasRegularUniformBuffers && !(Bindings.LinearBuffer & 1 << BufferIndex))
 	{
 		auto* UB = (FMetalUniformBuffer*)BufferRHI;
-		Context->GetCurrentState().SetShaderBuffer(SF_Compute, UB->Buffer, UB->Data, UB->Offset, UB->GetSize(), BufferIndex);
+		Context->GetCurrentState().SetShaderBuffer(SF_Compute, UB->Buffer, UB->Data, 0, UB->GetSize(), BufferIndex);
 	}
 	}
 }
@@ -666,8 +666,8 @@ void FMetalRHICommandContext::RHISetRenderTargetsAndClear(const FRHISetRenderTar
 			const FRHIRenderTargetView& RenderTargetView = RenderTargetsInfo.ColorRenderTarget[0];
 			FMetalSurface* RenderTarget = GetMetalSurfaceFromRHITexture(RenderTargetView.Texture);
 
-			uint32 Width = FMath::Max((uint32)(RenderTarget->Texture.width >> RenderTargetView.MipIndex), (uint32)1);
-			uint32 Height = FMath::Max((uint32)(RenderTarget->Texture.height >> RenderTargetView.MipIndex), (uint32)1);
+			uint32 Width = FMath::Max((uint32)(RenderTarget->Texture.GetWidth() >> RenderTargetView.MipIndex), (uint32)1);
+			uint32 Height = FMath::Max((uint32)(RenderTarget->Texture.GetHeight() >> RenderTargetView.MipIndex), (uint32)1);
 
 			RHISetViewport(0, 0, 0.0f, Width, Height, 1.0f);
 		}
@@ -678,10 +678,14 @@ void FMetalRHICommandContext::RHISetRenderTargetsAndClear(const FRHISetRenderTar
 }
 
 
-void FMetalRHICommandContext::RHIDrawPrimitive(uint32 PrimitiveType, uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances)
+void FMetalRHICommandContext::RHIDrawPrimitive(uint32 PrimitiveType_DEPRECATED, uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances)
 {
 	@autoreleasepool {
 	SCOPE_CYCLE_COUNTER(STAT_MetalDrawCallTime);
+		
+	uint32 PrimitiveType = Context->GetCurrentState().GetPrimitiveType();
+	
+		
 	//checkf(NumInstances == 1, TEXT("Currently only 1 instance is supported"));
 	
 	NumInstances = FMath::Max(NumInstances,1u);
@@ -702,15 +706,17 @@ void FMetalRHICommandContext::RHIDrawPrimitive(uint32 PrimitiveType, uint32 Base
 	}
 }
 
-void FMetalRHICommandContext::RHIDrawPrimitiveIndirect(uint32 PrimitiveType, FVertexBufferRHIParamRef VertexBufferRHI, uint32 ArgumentOffset)
+void FMetalRHICommandContext::RHIDrawPrimitiveIndirect(uint32 PrimitiveType_DEPRECATED, FVertexBufferRHIParamRef VertexBufferRHI, uint32 ArgumentOffset)
 {
 	@autoreleasepool {
 #if PLATFORM_IOS
 	NOT_SUPPORTED("RHIDrawPrimitiveIndirect");
 #else
 	SCOPE_CYCLE_COUNTER(STAT_MetalDrawCallTime);
-	RHI_DRAW_CALL_STATS(PrimitiveType,1);
+	uint32 PrimitiveType = Context->GetCurrentState().GetPrimitiveType();
 	
+	
+	RHI_DRAW_CALL_STATS(PrimitiveType,1);
 	FMetalVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 	
 	if(!FShaderCache::IsPredrawCall(Context->GetCurrentState().GetShaderCacheStateObject()))
@@ -723,7 +729,7 @@ void FMetalRHICommandContext::RHIDrawPrimitiveIndirect(uint32 PrimitiveType, FVe
 	}
 }
 
-void FMetalRHICommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBufferRHI, uint32 PrimitiveType, int32 BaseVertexIndex, uint32 FirstInstance,
+void FMetalRHICommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBufferRHI, uint32 PrimitiveType_DEPRECATED, int32 BaseVertexIndex, uint32 FirstInstance,
 	uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances)
 {
 	@autoreleasepool {
@@ -731,7 +737,9 @@ void FMetalRHICommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef In
 	//checkf(NumInstances == 1, TEXT("Currently only 1 instance is supported"));
 	checkf(GRHISupportsBaseVertexIndex || BaseVertexIndex == 0, TEXT("BaseVertexIndex must be 0, see GRHISupportsBaseVertexIndex"));
 	checkf(GRHISupportsFirstInstance || FirstInstance == 0, TEXT("FirstInstance must be 0, see GRHISupportsFirstInstance"));
+	uint32 PrimitiveType = Context->GetCurrentState().GetPrimitiveType();
 	
+		
 	RHI_DRAW_CALL_STATS(PrimitiveType,FMath::Max(NumInstances,1u)*NumPrimitives);
 
 	if(!FShaderCache::IsPredrawCall(Context->GetCurrentState().GetShaderCacheStateObject()))
@@ -745,7 +753,7 @@ void FMetalRHICommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef In
 	}
 }
 
-void FMetalRHICommandContext::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBufferRHI, uint32 PrimitiveType, FStructuredBufferRHIParamRef VertexBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances)
+void FMetalRHICommandContext::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBufferRHI, uint32 PrimitiveType_DEPRECATED, FStructuredBufferRHIParamRef VertexBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances)
 {
 	@autoreleasepool {
 	if (GetMetalDeviceContext().SupportsFeature(EMetalFeaturesIndirectBuffer))
@@ -753,8 +761,11 @@ void FMetalRHICommandContext::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef Ind
 		check(NumInstances > 1);
 		
 		SCOPE_CYCLE_COUNTER(STAT_MetalDrawCallTime);
-		RHI_DRAW_CALL_STATS(PrimitiveType,1);
 		
+		uint32 PrimitiveType = Context->GetCurrentState().GetPrimitiveType();
+		
+
+		RHI_DRAW_CALL_STATS(PrimitiveType,1);
 		FMetalIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 		FMetalStructuredBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 		
@@ -772,14 +783,17 @@ void FMetalRHICommandContext::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef Ind
 	}
 }
 
-void FMetalRHICommandContext::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FIndexBufferRHIParamRef IndexBufferRHI,FVertexBufferRHIParamRef VertexBufferRHI,uint32 ArgumentOffset)
+void FMetalRHICommandContext::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType_DEPRECATED,FIndexBufferRHIParamRef IndexBufferRHI,FVertexBufferRHIParamRef VertexBufferRHI,uint32 ArgumentOffset)
 {
 	@autoreleasepool {
 	if (GetMetalDeviceContext().SupportsFeature(EMetalFeaturesIndirectBuffer))
 	{
 		SCOPE_CYCLE_COUNTER(STAT_MetalDrawCallTime);
-		RHI_DRAW_CALL_STATS(PrimitiveType,1);
 		
+		uint32 PrimitiveType = Context->GetCurrentState().GetPrimitiveType();
+		
+
+		RHI_DRAW_CALL_STATS(PrimitiveType,1);
 		FMetalIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 		FMetalVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 		
@@ -798,18 +812,20 @@ void FMetalRHICommandContext::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveTy
 }
 
 
-void FMetalRHICommandContext::RHIBeginDrawPrimitiveUP( uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
+void FMetalRHICommandContext::RHIBeginDrawPrimitiveUP( uint32 PrimitiveType_DEPRECATED, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
 {
 	@autoreleasepool {
 	SCOPE_CYCLE_COUNTER(STAT_MetalDrawCallTime);
-	checkSlow(PendingVertexBufferOffset == 0xFFFFFFFF);
+	checkSlow(PendingVertexBuffer.GetPtr() == nil);
 
+	uint32 PrimitiveType = Context->GetCurrentState().GetPrimitiveType();
+	
+	
 	// allocate space
-	PendingVertexBufferOffset = Context->AllocateFromRingBuffer(VertexDataStride * NumVertices);
+	PendingVertexBuffer = Context->AllocateFromRingBuffer(VertexDataStride * NumVertices);
 
 	// get the pointer to send back for writing
-	uint8* RingBufferBytes = (uint8*)[Context->GetRingBuffer() contents];
-	OutVertexData = RingBufferBytes + PendingVertexBufferOffset;
+	OutVertexData = (uint8*)PendingVertexBuffer.GetContents();
 	
 	PendingPrimitiveType = PrimitiveType;
 	PendingNumPrimitives = NumPrimitives;
@@ -827,11 +843,11 @@ void FMetalRHICommandContext::RHIEndDrawPrimitiveUP()
 
 	// set the vertex buffer
 	uint32 NumVertices = GetVertexCountForPrimitiveCount(PendingNumPrimitives, PendingPrimitiveType);
-	Context->GetCurrentState().SetVertexStream(0, Context->GetRingBuffer(), nil, PendingVertexBufferOffset, PendingVertexDataStride * NumVertices);
+	Context->GetCurrentState().SetVertexStream(0, &PendingVertexBuffer, nil, 0, PendingVertexDataStride * NumVertices);
 	if(Context->GetCurrentState().GetUsingTessellation())
 	{
-		Context->GetCurrentState().SetShaderBuffer(SF_Hull, Context->GetRingBuffer(), nil, PendingVertexBufferOffset, PendingVertexDataStride * NumVertices, UNREAL_TO_METAL_BUFFER_INDEX(0));
-		Context->GetCurrentState().SetShaderBuffer(SF_Domain, Context->GetRingBuffer(), nil, PendingVertexBufferOffset, PendingVertexDataStride * NumVertices, UNREAL_TO_METAL_BUFFER_INDEX(0));
+		Context->GetCurrentState().SetShaderBuffer(SF_Hull, PendingVertexBuffer, nil, 0, PendingVertexDataStride * NumVertices, UNREAL_TO_METAL_BUFFER_INDEX(0));
+		Context->GetCurrentState().SetShaderBuffer(SF_Domain, PendingVertexBuffer, nil, 0, PendingVertexDataStride * NumVertices, UNREAL_TO_METAL_BUFFER_INDEX(0));
 	}
 	
 	// how many to draw
@@ -843,27 +859,29 @@ void FMetalRHICommandContext::RHIEndDrawPrimitiveUP()
 	Context->DrawPrimitive(PendingPrimitiveType, 0, PendingNumPrimitives, Context->GetCurrentState().GetRenderTargetArraySize());
 	
 	// mark temp memory as usable
-	PendingVertexBufferOffset = 0xFFFFFFFF;
+	PendingVertexBuffer = nil;
 	}
 }
 
-void FMetalRHICommandContext::RHIBeginDrawIndexedPrimitiveUP( uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
+void FMetalRHICommandContext::RHIBeginDrawIndexedPrimitiveUP( uint32 PrimitiveType_DEPRECATED, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
 {
 	@autoreleasepool {
 	SCOPE_CYCLE_COUNTER(STAT_MetalDrawCallTime);
-	checkSlow(PendingVertexBufferOffset == 0xFFFFFFFF);
-	checkSlow(PendingIndexBufferOffset == 0xFFFFFFFF);
+	checkSlow(PendingVertexBuffer.GetPtr() == nil);
+	checkSlow(PendingIndexBuffer.GetPtr() == nil);
 
+	uint32 PrimitiveType = Context->GetCurrentState().GetPrimitiveType();
+	
+		
 	// allocate space
 	uint32 VertexSize = Align(VertexDataStride * NumVertices, BufferOffsetAlignment);
 	uint32 IndexSize = Align(IndexDataStride * NumIndices, BufferOffsetAlignment);
-	PendingVertexBufferOffset = Context->AllocateFromRingBuffer(VertexSize + IndexSize);
-	PendingIndexBufferOffset = PendingVertexBufferOffset + VertexSize;
+	PendingVertexBuffer = Context->AllocateFromRingBuffer(VertexSize);
+	PendingIndexBuffer = Context->AllocateFromRingBuffer(IndexSize);
 	
 	// get the pointers to send back for writing
-	uint8* RingBufferBytes = (uint8*)[Context->GetRingBuffer() contents];
-	OutVertexData = RingBufferBytes + PendingVertexBufferOffset;
-	OutIndexData = RingBufferBytes + PendingIndexBufferOffset;
+	OutVertexData = (uint8*)PendingVertexBuffer.GetContents();
+	OutIndexData = (uint8*)PendingIndexBuffer.GetContents();
 	
 	PendingPrimitiveType = PrimitiveType;
 	PendingNumPrimitives = NumPrimitives;
@@ -881,7 +899,7 @@ void FMetalRHICommandContext::RHIEndDrawIndexedPrimitiveUP()
 	RHI_DRAW_CALL_STATS(PendingPrimitiveType,PendingNumPrimitives);
 
 	// set the vertex buffer
-	Context->GetCurrentState().SetVertexStream(0, Context->GetRingBuffer(), nil, PendingVertexBufferOffset, PendingIndexBufferOffset - PendingVertexBufferOffset);
+	Context->GetCurrentState().SetVertexStream(0, &PendingVertexBuffer, nil, 0, PendingVertexBuffer.GetLength());
 
 	// how many to draw
 	uint32 NumIndices = GetVertexCountForPrimitiveCount(PendingNumPrimitives, PendingPrimitiveType);
@@ -891,11 +909,11 @@ void FMetalRHICommandContext::RHIEndDrawIndexedPrimitiveUP()
 		RHI_PROFILE_DRAW_CALL_STATS(EMTLSamplePointBeforeDraw, EMTLSamplePointAfterDraw, PendingNumPrimitives,NumIndices);
 	}
 	
-	Context->DrawIndexedPrimitive(Context->GetRingBuffer(), PendingIndexDataStride, (PendingIndexDataStride == 2) ? MTLIndexTypeUInt16 : MTLIndexTypeUInt32, PendingPrimitiveType, 0, 0, NumIndices, PendingIndexBufferOffset/PendingIndexDataStride, PendingNumPrimitives, 1);
+	Context->DrawIndexedPrimitive(PendingIndexBuffer, PendingIndexDataStride, (PendingIndexDataStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32, PendingPrimitiveType, 0, 0, NumIndices, 0, PendingNumPrimitives, 1);
 	
 	// mark temp memory as usable
-	PendingVertexBufferOffset = 0xFFFFFFFF;
-	PendingIndexBufferOffset = 0xFFFFFFFF;
+	PendingVertexBuffer = nil;
+	PendingIndexBuffer = nil;
 	}
 }
 
@@ -1010,10 +1028,14 @@ void FMetalDynamicRHI::RHIExecuteCommandList(FRHICommandList* RHICmdList)
 	NOT_SUPPORTED("RHIExecuteCommandList");
 }
 
-void FMetalRHICommandContext::RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth)
+void FMetalRHICommandContext::RHIEnableDepthBoundsTest(bool bEnable)
 {
-    // not supported
-	NOT_SUPPORTED("RHIEnableDepthBoundsTest");
+	// Nothing required here
+}
+
+void FMetalRHICommandContext::RHISetDepthBounds(float MinDepth, float MaxDepth)
+{
+	// Nothing required here
 }
 
 void FMetalRHICommandContext::RHISubmitCommandsHint()

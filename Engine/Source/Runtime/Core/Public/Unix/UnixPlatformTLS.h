@@ -28,18 +28,21 @@ struct CORE_API FUnixTLS : public FGenericPlatformTLS
 		// note: cannot use pthread_self() without updating the rest of API to opaque (or at least 64-bit) thread handles
 #if defined(_GNU_SOURCE)
 
-	#if IS_MONOLITHIC
-		// syscall() is relatively heavy and shows up in the profiler, given that IsInGameThread() is used quite often. Cache thread id in TLS.
-		if (ThreadIdTLS == 0)
+		// syscall() is relatively heavy and the whole editor grinds to a halt. 
+		// Cache thread id in TLS, but allocate TLS slots dynamically for non-monolithic case since limit on dynamic libs with static per-thread variables (DTV_SURPLUS) is low
+	#if !IS_MONOLITHIC
+		uint32 ThreadIdTLS = static_cast<uint32>(reinterpret_cast<UPTRINT>(GetTlsValue(ThreadIdTLSKey)));
+	#endif
+		if (UNLIKELY(ThreadIdTLS == 0))
 		{
-	#else
-		uint32 ThreadIdTLS;
-		{
-	#endif // IS_MONOLITHIC
 			pid_t ThreadId = static_cast<pid_t>(syscall(SYS_gettid));
 			static_assert(sizeof(pid_t) <= sizeof(uint32), "pid_t is larger than uint32, reconsider implementation of GetCurrentThreadId()");
 			ThreadIdTLS = static_cast<uint32>(ThreadId);
 			checkf(ThreadIdTLS != 0, TEXT("ThreadId is 0 - reconsider implementation of GetCurrentThreadId() (syscall changed?)"));
+
+	#if !IS_MONOLITHIC
+			SetTlsValue(ThreadIdTLSKey, reinterpret_cast<void *>(static_cast<UPTRINT>(ThreadIdTLS)));
+	#endif
 		}
 		return ThreadIdTLS;
 
@@ -54,6 +57,8 @@ struct CORE_API FUnixTLS : public FGenericPlatformTLS
 	{
 #if IS_MONOLITHIC
 		ThreadIdTLS = 0;
+#else
+		SetTlsValue(ThreadIdTLSKey, nullptr);
 #endif
 	}
 
@@ -125,8 +130,13 @@ struct CORE_API FUnixTLS : public FGenericPlatformTLS
 	}
 
 private:
+
 #if IS_MONOLITHIC
+	/** per-thread static variable - cannot have that in a non-monolithic build because it eats into a precious OS limit. */
 	static __thread uint32 ThreadIdTLS;
+#else
+	/** TLS key to store TID */
+	static uint32 ThreadIdTLSKey;
 #endif
 };
 

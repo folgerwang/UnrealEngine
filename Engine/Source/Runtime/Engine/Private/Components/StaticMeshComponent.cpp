@@ -1473,12 +1473,6 @@ void UStaticMeshComponent::PreEditUndo()
 
 void UStaticMeshComponent::PostEditUndo()
 {
-	// If the StaticMesh was also involved in this transaction, it may need reinitialization first
-	if (GetStaticMesh())
-	{
-		GetStaticMesh()->InitResources();
-	}
-
 	// The component's light-maps are loaded from the transaction, so their resources need to be reinitialized.
 	InitResources();
 
@@ -1508,12 +1502,6 @@ void UStaticMeshComponent::PostEditChangeProperty(FPropertyChangedEvent& Propert
 			(PropertyThatChanged->GetName().Contains(TEXT("bOverrideLightMapRes")) ))
 		{
 			InvalidateLightingCache();
-		}
-
-		if ( PropertyThatChanged->GetName().Contains(TEXT("bIgnoreInstanceForTextureStreaming")) ||
-			 PropertyThatChanged->GetName().Contains(TEXT("StreamingDistanceMultiplier")) )
-		{
-			GEngine->TriggerStreamingDataRebuild();
 		}
 
 		if ( PropertyThatChanged->GetName() == TEXT("StaticMesh") )
@@ -1743,9 +1731,8 @@ bool UStaticMeshComponent::SetStaticMesh(UStaticMesh* NewMesh)
 	// update navigation relevancy
 	bNavigationRelevant = IsNavigationRelevant();
 
-	// Notify the streaming system. Don't use Update(), because this may be the first time the mesh has been set
-	// and the component may have to be added to the streaming system for the first time.
-	IStreamingManager::Get().NotifyPrimitiveAttached( this, DPT_Spawned );
+	// Update this component streaming data.
+	IStreamingManager::Get().NotifyPrimitiveUpdated(this);
 
 	// Since we have new mesh, we need to update bounds
 	UpdateBounds();
@@ -1764,6 +1751,7 @@ bool UStaticMeshComponent::SetStaticMesh(UStaticMesh* NewMesh)
 		StaticMeshImportVersion = GetStaticMesh()->ImportVersion;
 	}
 #endif
+
 	return true;
 }
 
@@ -2495,7 +2483,7 @@ void FStaticMeshComponentLODInfo::ExportText(FString& ValueStr)
 		FPaintedVertex& Vert = PaintedVertices[i];
 
 		ValueStr += FString::Printf(TEXT("((Position=(X=%.6f,Y=%.6f,Z=%.6f),"), Vert.Position.X, Vert.Position.Y, Vert.Position.Z);
-		ValueStr += FString::Printf(TEXT("(Normal=(X=%d,Y=%d,Z=%d,W=%d),"), Vert.Normal.Vector.X, Vert.Normal.Vector.Y, Vert.Normal.Vector.Z, Vert.Normal.Vector.W);
+		ValueStr += FString::Printf(TEXT("(Normal=(X=%d,Y=%d,Z=%d,W=%d),"), Vert.Normal.X, Vert.Normal.Y, Vert.Normal.Z, Vert.Normal.W);
 		ValueStr += FString::Printf(TEXT("(Color=(B=%d,G=%d,R=%d,A=%d))"), Vert.Color.B, Vert.Color.G, Vert.Color.R, Vert.Color.A);
 
 		// Seperate each vertex entry with a comma
@@ -2537,10 +2525,10 @@ void FStaticMeshComponentLODInfo::ImportText(const TCHAR** SourceText)
 			bValidInput &= FParse::Value(*Tokens[TokenIdx++], TEXT("Y="), PaintedVertices[Idx].Position.Y);
 			bValidInput &= FParse::Value(*Tokens[TokenIdx++], TEXT("Z="), PaintedVertices[Idx].Position.Z);
 			// Normal
-			bValidInput &= FParse::Value(*Tokens[TokenIdx++], TEXT("X="), PaintedVertices[Idx].Normal.Vector.X);
-			bValidInput &= FParse::Value(*Tokens[TokenIdx++], TEXT("Y="), PaintedVertices[Idx].Normal.Vector.Y);
-			bValidInput &= FParse::Value(*Tokens[TokenIdx++], TEXT("Z="), PaintedVertices[Idx].Normal.Vector.Z);
-			bValidInput &= FParse::Value(*Tokens[TokenIdx++], TEXT("W="), PaintedVertices[Idx].Normal.Vector.W);
+			bValidInput &= FParse::Value(*Tokens[TokenIdx++], TEXT("X="), PaintedVertices[Idx].Normal.X);
+			bValidInput &= FParse::Value(*Tokens[TokenIdx++], TEXT("Y="), PaintedVertices[Idx].Normal.Y);
+			bValidInput &= FParse::Value(*Tokens[TokenIdx++], TEXT("Z="), PaintedVertices[Idx].Normal.Z);
+			bValidInput &= FParse::Value(*Tokens[TokenIdx++], TEXT("W="), PaintedVertices[Idx].Normal.W);
 			// Color
 			bValidInput &= FParse::Value(*Tokens[TokenIdx++], TEXT("B="), PaintedVertices[Idx].Color.B);
 			bValidInput &= FParse::Value(*Tokens[TokenIdx++], TEXT("G="), PaintedVertices[Idx].Color.G);

@@ -715,7 +715,7 @@ void FSkeletalMeshMerge::GenerateLODModel( int32 LODIdx )
 	for (int i = 0; i < MergedVertexBuffer.Num(); i++)
 	{
 		MergeLODData.StaticVertexBuffers.PositionVertexBuffer.VertexPosition(i) = MergedVertexBuffer[i].Position;
-		MergeLODData.StaticVertexBuffers.StaticMeshVertexBuffer.SetVertexTangents(i, MergedVertexBuffer[i].TangentX, MergedVertexBuffer[i].GetTangentY(), MergedVertexBuffer[i].TangentZ);
+		MergeLODData.StaticVertexBuffers.StaticMeshVertexBuffer.SetVertexTangents(i, MergedVertexBuffer[i].TangentX.ToFVector(), MergedVertexBuffer[i].GetTangentY(), MergedVertexBuffer[i].TangentZ.ToFVector());
 		for (uint32 j = 0; j < TotalNumUVs; j++)
 		{
 			MergeLODData.StaticVertexBuffers.StaticMeshVertexBuffer.SetVertexUV(i, j, MergedVertexBuffer[i].UVs[j]);

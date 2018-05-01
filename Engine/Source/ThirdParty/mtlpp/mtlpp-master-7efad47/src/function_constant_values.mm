@@ -14,7 +14,7 @@ namespace mtlpp
 {
     FunctionConstantValues::FunctionConstantValues() :
 #if MTLPP_IS_AVAILABLE(10_12, 10_0)
-        ns::Object<MTLFunctionConstantValues*>([[MTLFunctionConstantValues alloc] init], false)
+        ns::Object<MTLFunctionConstantValues*>([[MTLFunctionConstantValues alloc] init], ns::Ownership::Assign)
 #else
         ns::Object<MTLFunctionConstantValues*>(nullptr)
 #endif

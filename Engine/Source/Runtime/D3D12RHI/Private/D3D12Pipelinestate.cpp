@@ -176,7 +176,8 @@ FD3D12PipelineStateCacheBase::~FD3D12PipelineStateCacheBase()
 FD3D12PipelineState::FD3D12PipelineState(FD3D12Adapter* Parent)
 	: Worker(nullptr)
 	, FD3D12AdapterChild(Parent)
-	, FD3D12MultiNodeGPUObject(Parent->ActiveGPUMask(), Parent->ActiveGPUMask()) //Create on all, visible on all
+	, FD3D12MultiNodeGPUObject(FRHIGPUMask::All(), FRHIGPUMask::All()) //Create on all, visible on all
+	, PendingWaitOnWorkerCalls(0)
 {
 	INC_DWORD_STAT(STAT_D3D12NumPSOs);
 }
@@ -185,6 +186,7 @@ FD3D12PipelineState::~FD3D12PipelineState()
 {
 	if (Worker)
 	{
+		ensure(PendingWaitOnWorkerCalls == 0);
 		Worker->EnsureCompletion(true);
 		delete Worker;
 		Worker = nullptr;
@@ -197,14 +199,51 @@ ID3D12PipelineState* FD3D12PipelineState::GetPipelineState()
 {
 	if (Worker)
 	{
-		Worker->EnsureCompletion(true);
+		const bool bIsSyncThread = (FPlatformAtomics::InterlockedIncrement(&PendingWaitOnWorkerCalls) == 1);
 
-		check(Worker->IsWorkDone());
-		PipelineState = Worker->GetTask().PSO;
+		// Cache the Worker ptr as the thread with bIsSyncThread cloud clear it at any time.
+		// MemoryBarrier() is required to prevent the compiler from caching Worker.
+		FPlatformMisc::MemoryBarrier();
+		FAsyncTask<FD3D12PipelineStateWorker>* WorkerRef = Worker;
+		if (WorkerRef)
+		{
+			WorkerRef->EnsureCompletion(true);
+			check(WorkerRef->IsWorkDone());		
 
-		delete Worker;
-		Worker = nullptr;
+			if (bIsSyncThread)
+			{
+				PipelineState = WorkerRef->GetTask().PSO;
+				
+				// Only set the worker to null after setting the PipelineState because of the initial branching.
+				// Note that only one thread must set the pipeline state as TRefCountPtr is not threadsafe.
+				Worker = nullptr;
+
+				// Decrement but also wait till 0 before deleting the worker as other threads could be referring it.
+				if (FPlatformAtomics::InterlockedDecrement(&PendingWaitOnWorkerCalls) != 0)
+				{
+					do
+					{
+						FPlatformProcess::Sleep(0);
+					}
+					while (PendingWaitOnWorkerCalls != 0);
+				}
+
+				delete WorkerRef;
+			}
+			else
+			{
+				// Cache the result before decrementing the counter because after the decrement, 
+				// the worker could be deleted at any time by the thread with bIsSyncThread.
+				// this allows to return immediately without having to wait for PendingWaitOnWorkerCalls to reach 0.
+				ID3D12PipelineState* Result = WorkerRef->GetTask().PSO.GetReference();
+				FPlatformAtomics::InterlockedDecrement(&PendingWaitOnWorkerCalls);
+				return Result;
+			}
+		}
+		else // Decrement but don't wait since if Worker is null, PipelineState is valid.
+		{
+			FPlatformAtomics::InterlockedDecrement(&PendingWaitOnWorkerCalls);
+		}
 	}
-
 	return PipelineState.GetReference();
 }

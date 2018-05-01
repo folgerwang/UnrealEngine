@@ -177,15 +177,13 @@ struct FRWBufferStructured
 	}
 };
 
-/** Encapsulates a GPU read/write ByteAddress buffer with its UAV and SRV. */
-struct FRWBufferByteAddress
+struct FByteAddressBuffer
 {
 	FStructuredBufferRHIRef Buffer;
-	FUnorderedAccessViewRHIRef UAV;
 	FShaderResourceViewRHIRef SRV;
 	uint32 NumBytes;
 
-	FRWBufferByteAddress(): NumBytes(0) {}
+	FByteAddressBuffer(): NumBytes(0) {}
 
 	void Initialize(uint32 InNumBytes, uint32 AdditionalUsage = 0)
 	{
@@ -193,8 +191,7 @@ struct FRWBufferByteAddress
 		check(GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5);
 		check( NumBytes % 4 == 0 );
 		FRHIResourceCreateInfo CreateInfo;
-		Buffer = RHICreateStructuredBuffer(4, NumBytes, BUF_UnorderedAccess | BUF_ShaderResource | BUF_ByteAddressBuffer | AdditionalUsage, CreateInfo);
-		UAV = RHICreateUnorderedAccessView(Buffer, false, false);
+		Buffer = RHICreateStructuredBuffer(4, NumBytes, BUF_ShaderResource | BUF_ByteAddressBuffer | AdditionalUsage, CreateInfo);
 		SRV = RHICreateShaderResourceView(Buffer);
 	}
 
@@ -202,8 +199,25 @@ struct FRWBufferByteAddress
 	{
 		NumBytes = 0;
 		Buffer.SafeRelease();
-		UAV.SafeRelease();
 		SRV.SafeRelease();
+	}
+};
+
+/** Encapsulates a GPU read/write ByteAddress buffer with its UAV and SRV. */
+struct FRWByteAddressBuffer : public FByteAddressBuffer
+{
+	FUnorderedAccessViewRHIRef UAV;
+
+	void Initialize(uint32 InNumBytes, uint32 AdditionalUsage = 0)
+	{
+		FByteAddressBuffer::Initialize(InNumBytes, BUF_UnorderedAccess | AdditionalUsage);
+		UAV = RHICreateUnorderedAccessView(Buffer, false, false);
+	}
+
+	void Release()
+	{
+		FByteAddressBuffer::Release();
+		UAV.SafeRelease();
 	}
 };
 
@@ -866,8 +880,7 @@ private:
 #define DUMP_TRANSITION(ResourceName, TransitionType)
 #endif
 
-extern RHI_API void EnableDepthBoundsTest(FRHICommandList& RHICmdList, float WorldSpaceDepthNear, float WorldSpaceDepthFar, const FMatrix& ProjectionMatrix);
-extern RHI_API void DisableDepthBoundsTest(FRHICommandList& RHICmdList);
+extern RHI_API void SetDepthBoundsTest(FRHICommandList& RHICmdList, float WorldSpaceDepthNear, float WorldSpaceDepthFar, const FMatrix& ProjectionMatrix);
 
 /** Returns the value of the rhi.SyncInterval CVar. */
 extern RHI_API uint32 RHIGetSyncInterval();

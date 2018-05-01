@@ -14,13 +14,23 @@
 
 MTLPP_BEGIN
 
+namespace ue4
+{
+	template<>
+	inline ITable<MTLFunctionConstantValues*, void>* CreateIMPTable(MTLFunctionConstantValues* handle)
+	{
+		static ITable<MTLFunctionConstantValues*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+}
+
 namespace mtlpp
 {
     class FunctionConstantValues : public ns::Object<MTLFunctionConstantValues*>
     {
     public:
         FunctionConstantValues();
-        FunctionConstantValues(MTLFunctionConstantValues* handle) : ns::Object<MTLFunctionConstantValues*>(handle) { }
+        FunctionConstantValues(MTLFunctionConstantValues* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLFunctionConstantValues*>(handle, retain) { }
 
         void SetConstantValue(const void* value, DataType type, NSUInteger index);
         void SetConstantValue(const void* value, DataType type, const ns::String& name);

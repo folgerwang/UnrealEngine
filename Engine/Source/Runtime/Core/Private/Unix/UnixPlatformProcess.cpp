@@ -35,6 +35,8 @@ namespace PlatformProcessLimits
 
 #if IS_MONOLITHIC
 __thread uint32 FUnixTLS::ThreadIdTLS = 0;
+#else
+uint32 FUnixTLS::ThreadIdTLSKey = FUnixTLS::AllocTlsSlot();
 #endif
 
 void* FUnixPlatformProcess::GetDllHandle( const TCHAR* Filename )

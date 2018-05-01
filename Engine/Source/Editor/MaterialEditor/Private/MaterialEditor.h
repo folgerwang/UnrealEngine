@@ -97,15 +97,16 @@ public:
 	////////////////
 	// FMaterialRenderProxy interface.
 
-	virtual const FMaterial* GetMaterial(ERHIFeatureLevel::Type FeatureLevel) const override
+	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const override
 	{
 		if(GetRenderingThreadShaderMap())
 		{
-			return this;
+			OutMaterialRenderProxy = this;
+			OutMaterial = this;
 		}
 		else
 		{
-			return UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterial(FeatureLevel);
+			UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterialWithFallback(FeatureLevel, OutMaterialRenderProxy, OutMaterial);
 		}
 	}
 
@@ -304,9 +305,9 @@ public:
 	void UpdatePreviewMaterial(bool bForce=false);
 
 	/**
-	* Updates the original material with the changes made in the editor
-	* @return true if the update was successful.  False if update was canceled (eg attempted to update Default Material with errors, which would cause a crash).
-	*/
+	 * Updates the original material with the changes made in the editor
+	 * @return true if the update was successful.  False if update was canceled (eg attempted to update Default Material with errors, which would cause a crash).
+	 */
 	bool UpdateOriginalMaterial();
 
 	/**

@@ -32,6 +32,20 @@ public:
 		NonInstancedDitherLODFactorParameter.Bind(Initializer.ParameterMap, TEXT("NonInstancedDitherLODFactor"));
 	}
 
+	FORCEINLINE void ValidateAfterBind()
+	{
+		checkfSlow(PassUniformBuffer.IsInitialized(), TEXT("FMeshMaterialShader must bind a pass uniform buffer, even if it is just FSceneTexturesUniformParameters: %s"), GetType()->GetName());
+	}
+
+	template< typename ShaderRHIParamRef >
+	void SetPassUniformBuffer(
+		FRHICommandList& RHICmdList,
+		const ShaderRHIParamRef ShaderRHI,
+		FUniformBufferRHIParamRef PassUniformBufferValue)
+	{
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, PassUniformBuffer, PassUniformBufferValue);
+	}
+
 	template< typename ShaderRHIParamRef >
 	void SetParameters(
 		FRHICommandList& RHICmdList,
@@ -40,14 +54,14 @@ public:
 		const FMaterial& Material,
 		const FSceneView& View,
 		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
-		ESceneRenderTargetsMode::Type TextureMode)
+		FUniformBufferRHIParamRef PassUniformBufferValue)
 	{
-		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, Material, View, ViewUniformBuffer, false, TextureMode);
-	}
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, PassUniformBuffer, PassUniformBufferValue);
 
-	void SetVFParametersOnly(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FMeshBatchElement& BatchElement)
-	{
-		VertexFactoryParameters.SetMesh(RHICmdList, this,VertexFactory,View,BatchElement, 0);
+		checkfSlow(!(PassUniformBuffer.IsBound() && SceneTextureParameters.IsBound()) || SceneTextureParameters.IsSameUniformParameter(PassUniformBuffer), TEXT("If the pass uniform buffer is bound, it should contain SceneTexturesStruct: %s"), GetType()->GetName());
+
+		SetViewParameters(RHICmdList, ShaderRHI, View, ViewUniformBuffer);
+		FMaterialShader::SetParametersInner(RHICmdList, ShaderRHI, MaterialRenderProxy, Material, View);
 	}
 
 	template< typename ShaderRHIParamRef >
@@ -62,42 +76,6 @@ public:
 		uint32 DataFlags = 0
 	);
 
-	//
-	// Set shader parameters specific to PSO
-	//
-	template< typename ShaderRHIParamRef >
-	void SetPolicyParameters(
-		FRHICommandList& RHICmdList,
-		const ShaderRHIParamRef ShaderRHI,
-		const FMaterial& Material,
-		const FSceneView& View,
-		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
-		ESceneRenderTargetsMode::Type TextureMode)
-	{
-		FMaterialShader::SetMaterialParameters(RHICmdList, ShaderRHI, Material, View, ViewUniformBuffer, false, TextureMode);
-	}
-
-	//
-	// Set shader parameters specific to Mesh
-	//
-	template< typename ShaderRHIParamRef >
-	void SetMeshBatchParameters(
-		FRHICommandList& RHICmdList,
-		const ShaderRHIParamRef ShaderRHI,
-		const FMaterial& Material,
-		const FSceneView& View,
-		const FVertexFactory* VertexFactory, 
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FPrimitiveSceneProxy* Proxy,
-		const FMeshBatchElement& BatchElement, 
-		const FDrawingPolicyRenderState& DrawRenderState,
-		uint32 DataFlags = 0
-	)
-	{
-		FMaterialShader::SetMaterialProxyParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, Material, View);
-		FMeshMaterialShader::SetMesh(RHICmdList, ShaderRHI, VertexFactory, View, Proxy, BatchElement, DrawRenderState, DataFlags);
-	}
-
 	/**
 	 * Retrieves the fade uniform buffer parameter from a FSceneViewState for the primitive
 	 * This code was moved from SetMesh() to work around the template first-use vs first-seen differences between MSVC and others
@@ -108,6 +86,9 @@ public:
 	virtual const FVertexFactoryParameterRef* GetVertexFactoryParameterRef() const override { return &VertexFactoryParameters; }
 	virtual bool Serialize(FArchive& Ar) override;
 	virtual uint32 GetAllocatedSize() const override;
+
+protected:
+	FShaderUniformBufferParameter PassUniformBuffer;
 
 private:
 	FVertexFactoryParameterRef VertexFactoryParameters;

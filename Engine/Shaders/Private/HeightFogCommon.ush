@@ -19,37 +19,25 @@
 static const float FLT_EPSILON = 0.001f;
 static const float FLT_EPSILON2 = 0.01f;
 
-/** FogDensity * exp2(-FogHeightFalloff * (CameraWorldPosition.z - FogHeight)) in x, FogHeightFalloff in y, CosTerminatorAngle in z, StartDistance in w. */
-float4 ExponentialFogParameters;
-float4 ExponentialFogColorParameter;
-/** FogDensity in x, FogHeight in y, whether to use cubemap fog color in z, FogCutoffDistance in w. */
-float4 ExponentialFogParameters3;
-float2 SinCosInscatteringColorCubemapRotation;
-half4 InscatteringLightDirection;
-half4 DirectionalInscatteringColor;
-float DirectionalInscatteringStartDistance;
-
-TextureCube FogInscatteringColorCubemap;
-SamplerState FogInscatteringColorSampler;
-/** mip distance scale in x, bias in y, num mips in z */
-float3 FogInscatteringTextureParameters;
-float ApplyVolumetricFog;
+// FogStruct.ExponentialFogParameters: FogDensity * exp2(-FogHeightFalloff * (CameraWorldPosition.z - FogHeight)) in x, FogHeightFalloff in y, CosTerminatorAngle in z, StartDistance in w. 
+// FogStruct.ExponentialFogParameters3: FogDensity in x, FogHeight in y, whether to use cubemap fog color in z, FogCutoffDistance in w. 
+// FogStruct.FogInscatteringTextureParameters: mip distance scale in x, bias in y, num mips in z 
 
 float3 ComputeInscatteringColor(float3 CameraToReceiver, float CameraToReceiverLength)
 {
-	half3 Inscattering = ExponentialFogColorParameter.xyz;
+	half3 Inscattering = FogStruct.ExponentialFogColorParameter.xyz;
 	half3 DirectionalInscattering = 0;
 
 #if SUPPORT_FOG_INSCATTERING_TEXTURE
 	BRANCH
-	if (ExponentialFogParameters3.z > 0)
+	if (FogStruct.ExponentialFogParameters3.z > 0)
 	{
-		float FadeAlpha = saturate(CameraToReceiverLength * FogInscatteringTextureParameters.x + FogInscatteringTextureParameters.y);
+		float FadeAlpha = saturate(CameraToReceiverLength * FogStruct.FogInscatteringTextureParameters.x + FogStruct.FogInscatteringTextureParameters.y);
 		float3 CubemapLookupVector = CameraToReceiver;
 		// Rotate around Z axis
-		CubemapLookupVector.xy = float2(dot(CubemapLookupVector.xy, float2(SinCosInscatteringColorCubemapRotation.y, -SinCosInscatteringColorCubemapRotation.x)), dot(CubemapLookupVector.xy, SinCosInscatteringColorCubemapRotation.xy));
-		float3 DirectionalColor = TextureCubeSampleLevel(FogInscatteringColorCubemap, FogInscatteringColorSampler, CubemapLookupVector, 0).xyz;
-		float3 NonDirectionalColor = TextureCubeSampleLevel(FogInscatteringColorCubemap, FogInscatteringColorSampler, CubemapLookupVector, FogInscatteringTextureParameters.z).xyz;
+		CubemapLookupVector.xy = float2(dot(CubemapLookupVector.xy, float2(FogStruct.SinCosInscatteringColorCubemapRotation.y, -FogStruct.SinCosInscatteringColorCubemapRotation.x)), dot(CubemapLookupVector.xy, FogStruct.SinCosInscatteringColorCubemapRotation.xy));
+		float3 DirectionalColor = TextureCubeSampleLevel(FogStruct.FogInscatteringColorCubemap, FogStruct.FogInscatteringColorSampler, CubemapLookupVector, 0).xyz;
+		float3 NonDirectionalColor = TextureCubeSampleLevel(FogStruct.FogInscatteringColorCubemap, FogStruct.FogInscatteringColorSampler, CubemapLookupVector, FogStruct.FogInscatteringTextureParameters.z).xyz;
 		Inscattering *= lerp(NonDirectionalColor, DirectionalColor, FadeAlpha);
 	}
 #endif
@@ -60,7 +48,7 @@ float3 ComputeInscatteringColor(float3 CameraToReceiver, float CameraToReceiverL
 // @param WorldPositionRelativeToCamera = WorldPosition - InCameraPosition
 half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera, float ExcludeDistance)
 {
-	const half MinFogOpacity = ExponentialFogColorParameter.w;
+	const half MinFogOpacity = FogStruct.ExponentialFogColorParameter.w;
 
 	float3 CameraToReceiver = WorldPositionRelativeToCamera;
 	float CameraToReceiverLengthSqr = dot(CameraToReceiver, CameraToReceiver);
@@ -68,12 +56,12 @@ half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera, float Exclud
 	float CameraToReceiverLength = CameraToReceiverLengthSqr * CameraToReceiverLengthInv;
 	half3 CameraToReceiverNormalized = CameraToReceiver * CameraToReceiverLengthInv;
 
-	float RayOriginTerms = ExponentialFogParameters.x;
+	float RayOriginTerms = FogStruct.ExponentialFogParameters.x;
 	float RayLength = CameraToReceiverLength;
 	float RayDirectionZ = CameraToReceiver.z;
 
 	// Factor in StartDistance
-	ExcludeDistance = max(ExcludeDistance, ExponentialFogParameters.w);
+	ExcludeDistance = max(ExcludeDistance, FogStruct.ExponentialFogParameters.w);
 	
 #if USE_GLOBAL_CLIP_PLANE
 
@@ -104,13 +92,13 @@ half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera, float Exclud
 		RayLength = (1.0f - ExcludeIntersectionTime) * CameraToReceiverLength;
 		RayDirectionZ = ExclusionIntersectionToReceiverZ;
 
-		float Exponent = max(-127.0f, ExponentialFogParameters.y * (ExclusionIntersectionZ - ExponentialFogParameters3.y));
-		RayOriginTerms = ExponentialFogParameters3.x * exp2(-Exponent);
+		float Exponent = max(-127.0f, FogStruct.ExponentialFogParameters.y * (ExclusionIntersectionZ - FogStruct.ExponentialFogParameters3.y));
+		RayOriginTerms = FogStruct.ExponentialFogParameters3.x * exp2(-Exponent);
 	}
 
 	// Calculate the line integral of the ray from the camera to the receiver position through the fog density function
 	// The exponential fog density function is d = GlobalDensity * exp(-HeightFalloff * z)
-	float Falloff = max(-127.0f, ExponentialFogParameters.y * RayDirectionZ);    // if it's lower than -127.0, then exp2() goes crazy in OpenGL's GLSL.
+	float Falloff = max(-127.0f, FogStruct.ExponentialFogParameters.y * RayDirectionZ);    // if it's lower than -127.0, then exp2() goes crazy in OpenGL's GLSL.
 	float LineIntegral = ( 1.0f - exp2(-Falloff) ) / Falloff;
 	float LineIntegralTaylor = log(2.0) - ( 0.5 * Pow2( log(2.0) ) ) * Falloff;		// Taylor expansion around 0
 	float ExponentialHeightLineIntegralShared = RayOriginTerms * ( abs(Falloff) > FLT_EPSILON2 ? LineIntegral : LineIntegralTaylor );
@@ -120,13 +108,13 @@ half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera, float Exclud
 	half3 DirectionalInscattering = 0;
 
 #if SUPPORT_FOG_DIRECTIONAL_LIGHT_INSCATTERING
-	if (InscatteringLightDirection.w > 0 && ExponentialFogParameters3.z == 0)
+	if (FogStruct.InscatteringLightDirection.w > 0 && FogStruct.ExponentialFogParameters3.z == 0)
 	{
 		// Setup a cosine lobe around the light direction to approximate inscattering from the directional light off of the ambient haze;
-		half3 DirectionalLightInscattering = DirectionalInscatteringColor.xyz * pow(saturate(dot(CameraToReceiverNormalized, InscatteringLightDirection.xyz)), DirectionalInscatteringColor.w);
+		half3 DirectionalLightInscattering = FogStruct.DirectionalInscatteringColor.xyz * pow(saturate(dot(CameraToReceiverNormalized, FogStruct.InscatteringLightDirection.xyz)), FogStruct.DirectionalInscatteringColor.w);
 
 		// Calculate the line integral of the eye ray through the haze, using a special starting distance to limit the inscattering to the distance
-		float DirExponentialHeightLineIntegral = ExponentialHeightLineIntegralShared * max(RayLength - DirectionalInscatteringStartDistance, 0.0f);
+		float DirExponentialHeightLineIntegral = ExponentialHeightLineIntegralShared * max(RayLength - FogStruct.DirectionalInscatteringStartDistance, 0.0f);
 		// Calculate the amount of light that made it through the fog using the transmission equation
 		half DirectionalInscatteringFogFactor = saturate(exp2(-DirExponentialHeightLineIntegral));
 		// Final inscattering from the light
@@ -138,7 +126,7 @@ half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera, float Exclud
 	half ExpFogFactor = max(saturate(exp2(-ExponentialHeightLineIntegral)), MinFogOpacity);
 
 	FLATTEN
-	if (ExponentialFogParameters3.w > 0 && CameraToReceiverLength > ExponentialFogParameters3.w)
+	if (FogStruct.ExponentialFogParameters3.w > 0 && CameraToReceiverLength > FogStruct.ExponentialFogParameters3.w)
 	{
 		ExpFogFactor = 1;
 		DirectionalInscattering = 0;
@@ -163,13 +151,10 @@ half4 CalculateHeightFog(float3 WorldPositionRelativeToCamera)
 	return FogInscatteringAndOpacity;
 }
 
-Texture3D IntegratedLightScattering;
-SamplerState IntegratedLightScatteringSampler;
-
 #if SUPPORTS_INDEPENDENT_SAMPLERS
 	#define SharedIntegratedLightScatteringSampler View.SharedBilinearClampedSampler
 #else
-	#define SharedIntegratedLightScatteringSampler IntegratedLightScatteringSampler
+	#define SharedIntegratedLightScatteringSampler FogStruct.IntegratedLightScatteringSampler
 #endif
 
 float4 CombineVolumetricFog(float4 GlobalFog, float3 VolumeUV)
@@ -177,9 +162,9 @@ float4 CombineVolumetricFog(float4 GlobalFog, float3 VolumeUV)
 	float4 VolumetricFogLookup = float4(0, 0, 0, 1);
 
 #if SUPPORT_VOLUMETRIC_FOG
-	if (ApplyVolumetricFog > 0)
+	if (FogStruct.ApplyVolumetricFog > 0)
 	{
-		VolumetricFogLookup = Texture3DSampleLevel(IntegratedLightScattering, SharedIntegratedLightScatteringSampler, VolumeUV, 0);
+		VolumetricFogLookup = Texture3DSampleLevel(FogStruct.IntegratedLightScattering, SharedIntegratedLightScatteringSampler, VolumeUV, 0);
 	}
 #endif
 

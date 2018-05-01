@@ -608,6 +608,12 @@ bool FGPUTiming::GIsSupported = false;
 /** Frequency for the timing values, in number of ticks per seconds, or 0 if the feature isn't supported. */
 uint64 FGPUTiming::GTimingFrequency = 0;
 
+/**
+* Two timestamps performed on GPU and CPU at nearly the same time.
+* This can be used to visualize GPU and CPU timing events on the same timeline.
+*/
+FGPUTimingCalibrationTimestamp FGPUTiming::GCalibrationTimestamp = {};
+
 /** Whether the static variables have been initialized. */
 bool FGPUTiming::GAreGlobalsInitialized = false;
 

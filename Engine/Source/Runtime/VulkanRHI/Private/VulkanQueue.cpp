@@ -6,10 +6,9 @@
 
 #include "VulkanRHIPrivate.h"
 #include "VulkanQueue.h"
-#include "VulkanSwapChain.h"
 #include "VulkanMemory.h"
 
-static int32 GWaitForIdleOnSubmit = 0;
+int32 GWaitForIdleOnSubmit = 0;
 static FAutoConsoleVariableRef CVarVulkanWaitForIdleOnSubmit(
 	TEXT("r.Vulkan.WaitForIdleOnSubmit"),
 	GWaitForIdleOnSubmit,
@@ -19,74 +18,20 @@ static FAutoConsoleVariableRef CVarVulkanWaitForIdleOnSubmit(
 	ECVF_Default
 	);
 
-FVulkanQueue::FVulkanQueue(FVulkanDevice* InDevice, uint32 InFamilyIndex, uint32 InQueueIndex)
+FVulkanQueue::FVulkanQueue(FVulkanDevice* InDevice, uint32 InFamilyIndex)
 	: Queue(VK_NULL_HANDLE)
 	, FamilyIndex(InFamilyIndex)
-	, QueueIndex(InQueueIndex)
 	, Device(InDevice)
 	, LastSubmittedCmdBuffer(nullptr)
 	, LastSubmittedCmdBufferFenceCounter(0)
 	, SubmitCounter(0)
 {
-	VulkanRHI::vkGetDeviceQueue(Device->GetInstanceHandle(), FamilyIndex, InQueueIndex, &Queue);
+	VulkanRHI::vkGetDeviceQueue(Device->GetInstanceHandle(), FamilyIndex, 0, &Queue);
 }
 
 FVulkanQueue::~FVulkanQueue()
 {
 	check(Device);
-}
-
-void FVulkanQueue::Submit(FVulkanCmdBuffer* CmdBuffer, FVulkanSemaphore* WaitSemaphore, VkPipelineStageFlags WaitStageFlags, FVulkanSemaphore* SignalSemaphore)
-{
-	check(CmdBuffer->HasEnded());
-
-	VulkanRHI::FFence* Fence = CmdBuffer->Fence;
-	check(!Fence->IsSignaled());
-
-	const VkCommandBuffer CmdBuffers[] = { CmdBuffer->GetHandle() };
-
-	VkSemaphore Semaphores[2];
-
-	VkSubmitInfo SubmitInfo;
-	FMemory::Memzero(SubmitInfo);
-	SubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	SubmitInfo.commandBufferCount = 1;
-	SubmitInfo.pCommandBuffers = CmdBuffers;
-	if (SignalSemaphore)
-	{
-		SubmitInfo.signalSemaphoreCount = 1;
-		Semaphores[0] = SignalSemaphore->GetHandle();
-		SubmitInfo.pSignalSemaphores = &Semaphores[0];
-	}
-	if (WaitSemaphore)
-	{
-		SubmitInfo.waitSemaphoreCount = 1;
-		Semaphores[1] = WaitSemaphore->GetHandle();
-		SubmitInfo.pWaitSemaphores = &Semaphores[1];
-		SubmitInfo.pWaitDstStageMask = &WaitStageFlags;
-	}
-	{
-		SCOPE_CYCLE_COUNTER(STAT_VulkanQueueSubmit)
-		VERIFYVULKANRESULT(VulkanRHI::vkQueueSubmit(Queue, 1, &SubmitInfo, Fence->GetHandle()));
-	}
-
-	CmdBuffer->State = FVulkanCmdBuffer::EState::Submitted;
-	CmdBuffer->SubmittedFenceCounter = CmdBuffer->FenceSignaledCounter;
-
-	if (GWaitForIdleOnSubmit != 0)
-	{
-		VERIFYVULKANRESULT(VulkanRHI::vkQueueWaitIdle(Queue));
-		CmdBuffer->GetOwner()->RefreshFenceStatus();
-		// 60 ms timeout
-		Device->GetFenceManager().WaitForFence(CmdBuffer->Fence, 1000 * 60000);
-		ensure(Device->GetFenceManager().IsFenceSignaled(CmdBuffer->Fence));
-	}
-
-	UpdateLastSubmittedCommandBuffer(CmdBuffer);
-
-	CmdBuffer->GetOwner()->RefreshFenceStatus();
-
-	Device->GetStagingManager().ProcessPendingFree(false, false);
 }
 
 void FVulkanQueue::Submit(FVulkanCmdBuffer* CmdBuffer, uint32 NumSignalSemaphores, VkSemaphore* SignalSemaphores)
@@ -106,26 +51,39 @@ void FVulkanQueue::Submit(FVulkanCmdBuffer* CmdBuffer, uint32 NumSignalSemaphore
 	SubmitInfo.signalSemaphoreCount = NumSignalSemaphores;
 	SubmitInfo.pSignalSemaphores = SignalSemaphores;
 
+	TArray<VkSemaphore> WaitSemaphores;
+	if (CmdBuffer->WaitSemaphores.Num() > 0)
+	{
+		WaitSemaphores.Empty((uint32)CmdBuffer->WaitSemaphores.Num());
+		for (VulkanRHI::FSemaphore* Semaphore : CmdBuffer->WaitSemaphores)
+		{
+			WaitSemaphores.Add(Semaphore->GetHandle());
+		}
+		SubmitInfo.waitSemaphoreCount = (uint32)CmdBuffer->WaitSemaphores.Num();
+		SubmitInfo.pWaitSemaphores = WaitSemaphores.GetData();
+		SubmitInfo.pWaitDstStageMask = CmdBuffer->WaitFlags.GetData();
+	}
 	{
 		SCOPE_CYCLE_COUNTER(STAT_VulkanQueueSubmit);
 		VERIFYVULKANRESULT(VulkanRHI::vkQueueSubmit(Queue, 1, &SubmitInfo, Fence->GetHandle()));
 	}
 
 	CmdBuffer->State = FVulkanCmdBuffer::EState::Submitted;
+	CmdBuffer->MarkSemaphoresAsSubmitted();
 	CmdBuffer->SubmittedFenceCounter = CmdBuffer->FenceSignaledCounter;
 
 	if (GWaitForIdleOnSubmit != 0)
 	{
-		VERIFYVULKANRESULT(VulkanRHI::vkQueueWaitIdle(Queue));
-		CmdBuffer->GetOwner()->RefreshFenceStatus();
-		// 60 ms timeout
-		Device->GetFenceManager().WaitForFence(CmdBuffer->Fence, 1000 * 60000);
+		// 200 ms timeout
+		bool bSuccess = Device->GetFenceManager().WaitForFence(CmdBuffer->Fence, 200 * 1000 * 1000);
+		ensure(bSuccess);
 		ensure(Device->GetFenceManager().IsFenceSignaled(CmdBuffer->Fence));
+		CmdBuffer->GetOwner()->RefreshFenceStatus();
 	}
 
 	UpdateLastSubmittedCommandBuffer(CmdBuffer);
 
-	CmdBuffer->GetOwner()->RefreshFenceStatus();
+	CmdBuffer->GetOwner()->RefreshFenceStatus(CmdBuffer);
 
 	Device->GetStagingManager().ProcessPendingFree(false, false);
 }
