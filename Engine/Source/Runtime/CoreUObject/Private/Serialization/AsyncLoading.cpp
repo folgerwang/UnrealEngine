@@ -100,6 +100,9 @@ static FName StaticGetNativeClassName(UClass* InClass)
 /** Returns true if we're inside a FGCScopeLock */
 bool IsGarbageCollectionLocked();
 
+/** Returns true if GC wants to run */
+bool IsGarbageCollectionWaiting();
+
 /** Global request ID counter */
 static FThreadSafeCounter GPackageRequestID;
 
@@ -262,7 +265,11 @@ static FORCEINLINE bool IsTimeLimitExceeded(double InTickStartTime, bool bUseTim
 		}
 		LastTestTime = CurrentTime;
 	}
-
+	if (!bTimeLimitExceeded)
+	{
+		bTimeLimitExceeded = IsGarbageCollectionWaiting();
+		UE_CLOG(bTimeLimitExceeded, LogStreaming, Verbose, TEXT("Timing out async loading due to Garbage Collection request"));
+	}
 	return bTimeLimitExceeded;
 }
 FORCEINLINE bool FAsyncPackage::IsTimeLimitExceeded()
@@ -4751,6 +4758,7 @@ EAsyncPackageState::Type FAsyncLoadingThread::TickAsyncLoading(bool bUseTimeLimi
 	LLM_SCOPE(ELLMTag::AsyncLoading);
 
 	check(IsInGameThread());
+	check(!IsGarbageCollecting());
 
 	const bool bLoadingSuspended = IsAsyncLoadingSuspended();
 	EAsyncPackageState::Type Result = bLoadingSuspended ? EAsyncPackageState::PendingImports : EAsyncPackageState::Complete;
@@ -4969,9 +4977,12 @@ uint32 FAsyncLoadingThread::Run()
 			{
 				bWasSuspendedLastFrame = false;
 				ThreadResumedEvent->Trigger();
-			}		
-			bool bDidSomething = false;
-			TickAsyncThread(false, true, 0.0f, bDidSomething);
+			}
+			if (!IsGarbageCollectionWaiting())
+			{
+				bool bDidSomething = false;
+				TickAsyncThread(false, true, 0.0f, bDidSomething);
+			}
 		}
 		else if (!bWasSuspendedLastFrame)
 		{
@@ -5026,7 +5037,10 @@ EAsyncPackageState::Type  FAsyncLoadingThread::TickAsyncThread(bool bUseTimeLimi
 			{
 				GetGEDLBootNotificationManager().FireCompletedCompiledInImports();
 			}
-			CreateAsyncPackagesFromQueue(bUseTimeLimit, bUseFullTimeLimit, TimeLimit, FlushTree);
+			{
+				FGCScopeGuard GCGuard;
+				CreateAsyncPackagesFromQueue(bUseTimeLimit, bUseFullTimeLimit, TimeLimit, FlushTree);
+			}
 			float TimeUsed = (float)(FPlatformTime::Seconds() - TickStartTime);
 			const float RemainingTimeLimit = FMath::Max(0.0f, TimeLimit - TimeUsed);
 			if (RemainingTimeLimit <= 0.0f && bUseTimeLimit && !IsMultithreaded())
@@ -5035,6 +5049,7 @@ EAsyncPackageState::Type  FAsyncLoadingThread::TickAsyncThread(bool bUseTimeLimi
 			}
 			else
 			{
+				FGCScopeGuard GCGuard;
 				Result = ProcessAsyncLoading(ProcessedRequests, bUseTimeLimit, bUseFullTimeLimit, RemainingTimeLimit, FlushTree);
 				bDidSomething = bDidSomething || ProcessedRequests > 0;
 			}
@@ -5047,9 +5062,9 @@ EAsyncPackageState::Type  FAsyncLoadingThread::TickAsyncThread(bool bUseTimeLimi
 
 				if (!GetGEDLBootNotificationManager().IsWaitingForSomething())
 				{
-				CheckForCycles();
-				IsTimeLimitExceeded(TickStartTime, bUseTimeLimit, TimeLimit, TEXT("CheckForCycles (non-shipping)"));
-			}
+					CheckForCycles();
+					IsTimeLimitExceeded(TickStartTime, bUseTimeLimit, TimeLimit, TEXT("CheckForCycles (non-shipping)"));
+				}
 				else
 				{
 					WaitTime = 1; // we are waiting for the game thread to deal with the boot constructors, so lets spin tighter
@@ -5623,7 +5638,7 @@ EAsyncPackageState::Type FAsyncPackage::TickAsyncPackage(bool InbUseTimeLimit, b
 		}
 	} while (!IsTimeLimitExceeded() && LoadingState == EAsyncPackageState::TimeOut);
 
-	check(bUseTimeLimit || LoadingState != EAsyncPackageState::TimeOut || AsyncLoadingThread.IsAsyncLoadingSuspended());
+	check(bUseTimeLimit || LoadingState != EAsyncPackageState::TimeOut || AsyncLoadingThread.IsAsyncLoadingSuspended() || IsGarbageCollectionWaiting());
 
 	if (LinkerRoot && LoadingState == EAsyncPackageState::Complete)
 	{

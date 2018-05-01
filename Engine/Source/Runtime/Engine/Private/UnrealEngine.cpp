@@ -997,6 +997,10 @@ static TAutoConsoleVariable<int32> CVarStressTestGCWhileStreaming(
 	TEXT("gc.StressTestGC"),
 	0,
 	TEXT("If set to 1, the engine will attempt to trigger GC each frame while async loading."));
+static TAutoConsoleVariable<int32> CVarForceCollectGarbageEveryFrame(
+	TEXT("gc.ForceCollectGarbageEveryFrame"),
+	0,
+	TEXT("If set to 1, the engine will force GC each frame."));
 #endif
 
 static TAutoConsoleVariable<int32> CVarCollectGarbageEveryFrame(
@@ -1085,6 +1089,10 @@ void UEngine::ConditionalCollectGarbage()
 		if (CVarStressTestGCWhileStreaming.GetValueOnGameThread() && IsAsyncLoading())
 		{
 			TryCollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS, true);
+		}
+		else if (CVarForceCollectGarbageEveryFrame.GetValueOnGameThread())
+		{
+			CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS, true);
 		}
 		else
 #endif

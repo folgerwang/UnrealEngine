@@ -92,6 +92,11 @@ bool IsGarbageCollectionLocked()
 	return GGarbageCollectionGuardCritical.IsAsyncLocked();
 }
 
+bool IsGarbageCollectionWaiting()
+{
+	return GGarbageCollectionGuardCritical.IsGCWaiting();
+}
+
 /** Called on shutdown to free GC memory */
 void CleanupGCArrayPools()
 {
@@ -1334,6 +1339,8 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 	SCOPE_TIME_GUARD(TEXT("Collect Garbage"));
 	SCOPED_NAMED_EVENT(CollectGarbageInternal, FColor::Red);
 
+	GGarbageCollectionGuardCritical.ResetGCIsWaiting();
+
 #if defined(WITH_CODE_GUARD_HANDLER) && WITH_CODE_GUARD_HANDLER
 	void CheckImageIntegrityAtRuntime();
 	CheckImageIntegrityAtRuntime();
@@ -1519,29 +1526,50 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 	STAT_ADD_CUSTOMMESSAGE_NAME( STAT_NamedMarker, TEXT( "GarbageCollection - End" ) );
 }
 
+static void AcquireGCLock()
+{
+	const double StartTime = FPlatformTime::Seconds();
+	GGarbageCollectionGuardCritical.GCLock();
+	const double ElapsedTime = FPlatformTime::Seconds() - StartTime;
+	if (ElapsedTime > 0.001)
+	{
+		UE_LOG(LogGarbage, Warning, TEXT("%f ms for acquiring GC lock"), ElapsedTime * 1000);
+	}
+}
+
+static void ReleaseGCLock()
+{
+	GGarbageCollectionGuardCritical.GCUnlock();
+}
+
 void CollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge)
 {
-	// No other thread may be performing UOBject operations while we're running
-	GGarbageCollectionGuardCritical.GCLock();
+	// No other thread may be performing UObject operations while we're running
+	AcquireGCLock();
 
 	// Perform actual garbage collection
 	CollectGarbageInternal(KeepFlags, bPerformFullPurge);
 
 	// Other threads are free to use UObjects
-	GGarbageCollectionGuardCritical.GCUnlock();
+	ReleaseGCLock();
 }
 
 bool TryCollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge)
 {
-	// No other thread may be performing UOBject operations while we're running
+	// No other thread may be performing UObject operations while we're running
 	bool bCanRunGC = GGarbageCollectionGuardCritical.TryGCLock();
 	if (!bCanRunGC)
 	{
+		// TryGCLock won't set the 'GC is waiting' flag so we do it here manually so that other threads that respect this flag
+		// have the time to finish working with UObjects
+		GGarbageCollectionGuardCritical.SetGCIsWaiting();
 		if (GNumRetriesBeforeForcingGC > 0 && GNumAttemptsSinceLastGC > GNumRetriesBeforeForcingGC)
 		{
-			// Force GC and block main thread
+			// Force GC and block main thread			
+			UE_LOG(LogGarbage, Warning, TEXT("TryCollectGarbage: forcing GC after %d skipped attempts."), GNumAttemptsSinceLastGC);
+			GNumAttemptsSinceLastGC = 0;
+			AcquireGCLock();
 			bCanRunGC = true;
-			UE_LOG(LogGarbage, Warning, TEXT("TryCollectGarbage: forcing GC after %d skipped attempts."), GNumAttemptsSinceLastGC)
 		}
 	}
 	if (bCanRunGC)
@@ -1550,7 +1578,7 @@ bool TryCollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge)
 		CollectGarbageInternal(KeepFlags, bPerformFullPurge);
 
 		// Other threads are free to use UObjects
-		GGarbageCollectionGuardCritical.GCUnlock();
+		ReleaseGCLock();
 	}
 	else
 	{
