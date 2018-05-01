@@ -3388,9 +3388,6 @@ void VerifyEDLCookInfo()
 	FEDLCookChecker::Verify();
 }
 
-
-extern FGCCSyncObject GGarbageCollectionGuardCritical;
-
 FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags TopLevelFlags, const TCHAR* Filename,
 	FOutputDevice* Error, FLinkerLoad* Conform, bool bForceByteSwapping, bool bWarnOfLongFilename, uint32 SaveFlags, 
 	const class ITargetPlatform* TargetPlatform, const FDateTime&  FinalTimeStamp, bool bSlowTask, FArchiveDiffMap* InOutDiffMap)
@@ -3683,7 +3680,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 						: bSavingConcurrent(InSavingConcurrent)
 					{
 						// We need the same lock as GC so that no StaticFindObject can happen in parallel to saveing a package
-						GGarbageCollectionGuardCritical.GCLock();
+						FGCCSyncObject::Get().GCLock();
 
 						// Do not change GIsSavingPackage while saving concurrently. It should have been set before and after all packages are saved
 						if (!bSavingConcurrent)
@@ -3697,7 +3694,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 						{
 							GIsSavingPackage = false;
 						}
-						GGarbageCollectionGuardCritical.GCUnlock();
+						FGCCSyncObject::Get().GCUnlock();
 					}
 
 					bool bSavingConcurrent;

@@ -42,7 +42,7 @@
 #include "Serialization/BulkData.h"
 #include "UObject/LinkerLoad.h"
 #include "Misc/RedirectCollector.h"
-
+#include "UObject/GCScopeLock.h"
 
 #include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 #include "Serialization/ArchiveDescribeReference.h"
@@ -4132,6 +4132,8 @@ void StaticExit();
 void InitUObject()
 {
 	LLM_SCOPE(ELLMTag::InitUObject);
+
+	FGCCSyncObject::Create();
 
 	// Initialize redirects map
 	for (const TPair<FString,FConfigFile>& It : *GConfig)

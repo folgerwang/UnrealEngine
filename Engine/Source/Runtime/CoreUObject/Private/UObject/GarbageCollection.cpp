@@ -71,15 +71,45 @@ FThreadSafeBool& FGCScopeLock::GetGarbageCollectingFlag()
 	return IsGarbageCollecting;
 }
 
-FGCCSyncObject GGarbageCollectionGuardCritical;
+TUniquePtr<FGCCSyncObject> FGCCSyncObject::Singleton;
+
+FGCCSyncObject::FGCCSyncObject()
+{
+	GCUnlockedEvent = FPlatformProcess::GetSynchEventFromPool(true);
+}
+FGCCSyncObject::~FGCCSyncObject()
+{
+	FPlatformProcess::ReturnSynchEventToPool(GCUnlockedEvent);
+	GCUnlockedEvent = nullptr;
+}
+
+void FGCCSyncObject::Create()
+{
+	check(!Singleton.IsValid());
+	Singleton = MakeUnique<FGCCSyncObject>();
+}
+
+#define UE_LOG_FGCScopeGuard_LockAsync_Time 0
 
 FGCScopeGuard::FGCScopeGuard()
 {
-	GGarbageCollectionGuardCritical.LockAsync();
+#if UE_LOG_FGCScopeGuard_LockAsync_Time
+	const double StartTime = FPlatformTime::Seconds();
+#endif
+	FGCCSyncObject::Get().LockAsync();
+#if UE_LOG_FGCScopeGuard_LockAsync_Time
+	const double ElapsedTime = FPlatformTime::Seconds() - StartTime;
+	if (ElapsedTime > 0.001)
+	{
+		// Note this is expected to take roughly the time it takes to collect garbage and verify GC assumptions, so up to 300ms in development
+		UE_LOG(LogGarbage, Warning, TEXT("%f ms for acquiring ASYNC lock"), ElapsedTime * 1000);
+	}
+#endif
 }
+
 FGCScopeGuard::~FGCScopeGuard()
 {
-	GGarbageCollectionGuardCritical.UnlockAsync();
+	FGCCSyncObject::Get().UnlockAsync();
 }
 
 bool IsGarbageCollecting()
@@ -89,12 +119,12 @@ bool IsGarbageCollecting()
 
 bool IsGarbageCollectionLocked()
 {
-	return GGarbageCollectionGuardCritical.IsAsyncLocked();
+	return FGCCSyncObject::Get().IsAsyncLocked();
 }
 
 bool IsGarbageCollectionWaiting()
 {
-	return GGarbageCollectionGuardCritical.IsGCWaiting();
+	return FGCCSyncObject::Get().IsGCWaiting();
 }
 
 /** Called on shutdown to free GC memory */
@@ -1339,7 +1369,7 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 	SCOPE_TIME_GUARD(TEXT("Collect Garbage"));
 	SCOPED_NAMED_EVENT(CollectGarbageInternal, FColor::Red);
 
-	GGarbageCollectionGuardCritical.ResetGCIsWaiting();
+	FGCCSyncObject::Get().ResetGCIsWaiting();
 
 #if defined(WITH_CODE_GUARD_HANDLER) && WITH_CODE_GUARD_HANDLER
 	void CheckImageIntegrityAtRuntime();
@@ -1362,9 +1392,9 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 		{
 			UE_LOG(LogGarbage, Log, TEXT("CollectGarbageInternal() is flushing async loading"));
 		}
-		GGarbageCollectionGuardCritical.GCUnlock();
+		FGCCSyncObject::Get().GCUnlock();
 		FlushAsyncLoading();
-		GGarbageCollectionGuardCritical.GCLock();
+		FGCCSyncObject::Get().GCLock();
 	}
 
 	// Route callbacks so we can ensure that we are e.g. not in the middle of loading something by flushing
@@ -1529,7 +1559,7 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 static void AcquireGCLock()
 {
 	const double StartTime = FPlatformTime::Seconds();
-	GGarbageCollectionGuardCritical.GCLock();
+	FGCCSyncObject::Get().GCLock();
 	const double ElapsedTime = FPlatformTime::Seconds() - StartTime;
 	if (ElapsedTime > 0.001)
 	{
@@ -1539,7 +1569,7 @@ static void AcquireGCLock()
 
 static void ReleaseGCLock()
 {
-	GGarbageCollectionGuardCritical.GCUnlock();
+	FGCCSyncObject::Get().GCUnlock();
 }
 
 void CollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge)
@@ -1557,12 +1587,12 @@ void CollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge)
 bool TryCollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge)
 {
 	// No other thread may be performing UObject operations while we're running
-	bool bCanRunGC = GGarbageCollectionGuardCritical.TryGCLock();
+	bool bCanRunGC = FGCCSyncObject::Get().TryGCLock();
 	if (!bCanRunGC)
 	{
 		// TryGCLock won't set the 'GC is waiting' flag so we do it here manually so that other threads that respect this flag
 		// have the time to finish working with UObjects
-		GGarbageCollectionGuardCritical.SetGCIsWaiting();
+		FGCCSyncObject::Get().SetGCIsWaiting();
 		if (GNumRetriesBeforeForcingGC > 0 && GNumAttemptsSinceLastGC > GNumRetriesBeforeForcingGC)
 		{
 			// Force GC and block main thread			

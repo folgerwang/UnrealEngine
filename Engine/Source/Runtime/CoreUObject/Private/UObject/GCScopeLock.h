@@ -11,6 +11,7 @@
 #include "HAL/PlatformProcess.h"
 #include "Misc/ScopeLock.h"
 #include "HAL/ThreadSafeBool.h"
+#include "HAL/Event.h"
 
 /** Locks all UObject hash tables when performing GC */
 class FGCScopeLock
@@ -58,8 +59,27 @@ class FGCCSyncObject
 	FThreadSafeCounter GCWantsToRunCounter;
 	/** Critical section for thread safe operations */
 	FCriticalSection Critical;
+	/** Event used to block non-game threads when GC is running */
+	FEvent* GCUnlockedEvent;
+
+	/** One and only global instance of FGCCSyncObject */
+	static TUniquePtr<FGCCSyncObject> Singleton;
 
 public:
+
+	FGCCSyncObject();
+	~FGCCSyncObject();
+
+	/** Creates the singleton object */
+	static void Create();
+
+	/** Gets the singleton object */
+	static FGCCSyncObject& Get()
+	{
+		check(Singleton.IsValid());
+		return *Singleton.Get();
+	}
+
 	/** Lock on non-game thread. Will block if GC is running. */
 	void LockAsync()
 	{
@@ -69,10 +89,10 @@ public:
 			int32 OldAsyncCounterValue = 0;
 			do
 			{
-				FPlatformProcess::ConditionalSleep([&]()
+				if (GCCounter.GetValue() > 0)
 				{
-					return GCCounter.GetValue() == 0;
-				});
+					GCUnlockedEvent->Wait();
+				}
 				{
 					FScopeLock CriticalLock(&Critical);
 					OldAsyncCounterValue = AsyncCounter.GetValue();
@@ -111,6 +131,7 @@ public:
 				OldGCCounterValue = GCCounter.GetValue();
 				if (AsyncCounter.GetValue() == 0)
 				{
+					GCUnlockedEvent->Reset();
 					int32 GCCounterValue = GCCounter.Increment();
 					check(GCCounterValue == 1); // GCLock doesn't support recursive locks
 					// At this point GC can run so remove the signal that it's waiting
@@ -133,7 +154,9 @@ public:
 		// If any other thread is currently locking we just exit
 		if (AsyncCounter.GetValue() == 0)
 		{
-			GCCounter.Increment();
+			GCUnlockedEvent->Reset();
+			int32 GCCounterValue = GCCounter.Increment();
+			check(GCCounterValue == 1); // GCLock doesn't support recursive locks
 			bSuccess = true;
 		}
 		return bSuccess;
@@ -141,6 +164,7 @@ public:
 	/** Unlock GC */
 	void GCUnlock()
 	{
+		GCUnlockedEvent->Trigger();
 		GCCounter.Decrement();
 	}
 
