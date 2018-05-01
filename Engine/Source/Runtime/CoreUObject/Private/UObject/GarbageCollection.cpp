@@ -23,6 +23,7 @@
 #include "UObject/UObjectClusters.h"
 #include "HAL/LowLevelMemTracker.h"
 #include "UObject/GarbageCollectionVerification.h"
+#include "Async/ParallelFor.h"
 
 /*-----------------------------------------------------------------------------
    Garbage collection.
@@ -33,9 +34,8 @@
 
 DEFINE_LOG_CATEGORY(LogGarbage);
 
-
 /** Object count during last mark phase																				*/
-int32		GObjectCountDuringLastMarkPhase			= 0;
+FThreadSafeCounter		GObjectCountDuringLastMarkPhase;
 /** Count of objects purged since last mark phase																	*/
 int32		GPurgedObjectCountSinceLastMarkPhase	= 0;
 /** Whether incremental object purge is in progress										*/
@@ -707,111 +707,146 @@ public:
 	 * Marks all objects that don't have KeepFlags and EInternalObjectFlags::GarbageCollectionKeepFlags as unreachable
 	 * This function is a template to speed up the case where we don't need to assemble the token stream (saves about 6ms on PS4)
 	 */
-	void MarkObjectsAsUnreachable(TArray<UObject*>& ObjectsToSerialize, const EObjectFlags KeepFlags)
+	void MarkObjectsAsUnreachable(TArray<UObject*>& ObjectsToSerialize, const EObjectFlags KeepFlags, bool bForceSingleThreaded)
 	{
 		const EInternalObjectFlags FastKeepFlags = EInternalObjectFlags::GarbageCollectionKeepFlags;
 
+		TLockFreePointerListFIFO<UObject, PLATFORM_CACHE_LINE_SIZE> ObjectsToSerializeList;
+		TLockFreePointerListFIFO<FUObjectItem, PLATFORM_CACHE_LINE_SIZE> ClustersToDissolveList;
+		TLockFreePointerListFIFO<FUObjectItem, PLATFORM_CACHE_LINE_SIZE> KeepClusterRefsList;
+
+		int32 MaxNumberOfObjects = GUObjectArray.GetObjectArrayNum() - GUObjectArray.GetFirstGCIndex();
+		int32 NumThreads = FMath::Max(1, FTaskGraphInterface::Get().GetNumWorkerThreads());
+		int32 NumberOfObjectsPerThread = (MaxNumberOfObjects / NumThreads) + 1;		
+
 		// Iterate over all objects. Note that we iterate over the UObjectArray and usually check only internal flags which
 		// are part of the array so we don't suffer from cache misses as much as we would if we were to check ObjectFlags.
-		TArray<FUObjectItem*> KeepClusterRefs;
-		for (FRawObjectIterator It(true); It; ++It)
+		ParallelFor(NumThreads, [&ObjectsToSerializeList, &ClustersToDissolveList, &KeepClusterRefsList, FastKeepFlags, KeepFlags, NumberOfObjectsPerThread, NumThreads, MaxNumberOfObjects](int32 ThreadIndex)
 		{
-			FUObjectItem* ObjectItem = *It;
-			checkSlow(ObjectItem);
-			UObject* Object = (UObject*)ObjectItem->Object;
+			int32 FirstObjectIndex = ThreadIndex * NumberOfObjectsPerThread + GUObjectArray.GetFirstGCIndex();
+			int32 NumObjects = (ThreadIndex < (NumThreads - 1)) ? NumberOfObjectsPerThread : (MaxNumberOfObjects - (NumThreads - 1) * NumberOfObjectsPerThread);
+			int32 LastObjectIndex = FMath::Min(GUObjectArray.GetObjectArrayNum() - 1, FirstObjectIndex + NumObjects - 1);
+			int32 ObjectCountDuringMarkPhase = 0;
 
-			// We can't collect garbage during an async load operation and by now all unreachable objects should've been purged.
-			checkf(!ObjectItem->IsUnreachable(), TEXT("%s"), *Object->GetFullName());
-
-			// Keep track of how many objects are around.
-			GObjectCountDuringLastMarkPhase++;
-			ObjectItem->ClearFlags(EInternalObjectFlags::ReachableInCluster);
-			// Special case handling for objects that are part of the root set.
-			if (ObjectItem->IsRootSet())
+			for (int32 ObjectIndex = FirstObjectIndex; ObjectIndex <= LastObjectIndex; ++ObjectIndex)
 			{
-				// IsValidLowLevel is extremely slow in this loop so only do it in debug
-				checkSlow(Object->IsValidLowLevel());
-				// We cannot use RF_PendingKill on objects that are part of the root set.
+				FUObjectItem* ObjectItem = &GUObjectArray.GetObjectItemArrayUnsafe()[ObjectIndex];
+				if (ObjectItem->Object)
+				{
+					UObject* Object = (UObject*)ObjectItem->Object;
+
+					// We can't collect garbage during an async load operation and by now all unreachable objects should've been purged.
+					checkf(!ObjectItem->IsUnreachable(), TEXT("%s"), *Object->GetFullName());
+
+					// Keep track of how many objects are around.
+					ObjectCountDuringMarkPhase++;
+					
+					ObjectItem->ClearFlags(EInternalObjectFlags::ReachableInCluster);
+					// Special case handling for objects that are part of the root set.
+					if (ObjectItem->IsRootSet())
+					{
+						// IsValidLowLevel is extremely slow in this loop so only do it in debug
+						checkSlow(Object->IsValidLowLevel());
+						// We cannot use RF_PendingKill on objects that are part of the root set.
 #if DO_GUARD_SLOW
-				checkCode(if (ObjectItem->IsPendingKill()) { UE_LOG(LogGarbage, Fatal, TEXT("Object %s is part of root set though has been marked RF_PendingKill!"), *Object->GetFullName()); });
+						checkCode(if (ObjectItem->IsPendingKill()) { UE_LOG(LogGarbage, Fatal, TEXT("Object %s is part of root set though has been marked RF_PendingKill!"), *Object->GetFullName()); });
 #endif
-				if (ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot) || ObjectItem->GetOwnerIndex() > 0)
-				{
-					KeepClusterRefs.Add(ObjectItem);
-				}
+						if (ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot) || ObjectItem->GetOwnerIndex() > 0)
+						{
+							KeepClusterRefsList.Push(ObjectItem);
+						}
 
-				ObjectsToSerialize.Add(Object);
+						ObjectsToSerializeList.Push(Object);
+					}
+					// Regular objects or cluster root objects
+					else if (ObjectItem->GetOwnerIndex() <= 0)
+					{
+						bool bMarkAsUnreachable = true;
+						if (!ObjectItem->IsPendingKill())
+						{
+							// Internal flags are super fast to check
+							if (ObjectItem->HasAnyFlags(FastKeepFlags))
+							{
+								bMarkAsUnreachable = false;
+							}
+							// If KeepFlags is non zero this is going to be very slow due to cache misses
+							else if (KeepFlags != RF_NoFlags && Object->HasAnyFlags(KeepFlags))
+							{
+								bMarkAsUnreachable = false;
+							}
+						}
+						else if (ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot))
+						{
+							ClustersToDissolveList.Push(ObjectItem);
+						}
+
+						// Mark objects as unreachable unless they have any of the passed in KeepFlags set and it's not marked for elimination..
+						if (!bMarkAsUnreachable)
+						{
+							// IsValidLowLevel is extremely slow in this loop so only do it in debug
+							checkSlow(Object->IsValidLowLevel());
+							ObjectsToSerializeList.Push(Object);
+
+							if (ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot))
+							{
+								KeepClusterRefsList.Push(ObjectItem);
+							}
+						}
+						else
+						{
+							ObjectItem->SetFlags(EInternalObjectFlags::Unreachable);
+						}
+					}
+				}
 			}
-			// Regular objects or cluster root objects
-			else if (ObjectItem->GetOwnerIndex() <= 0)
+
+			GObjectCountDuringLastMarkPhase.Add(ObjectCountDuringMarkPhase);
+		}, bForceSingleThreaded);
+		
+		ObjectsToSerializeList.PopAll(ObjectsToSerialize);
+
+		{
+			TArray<FUObjectItem*> ClustersToDissolve;
+			ClustersToDissolveList.PopAll(ClustersToDissolve);
+			for (FUObjectItem* ObjectItem : ClustersToDissolve)
 			{
-				bool bMarkAsUnreachable = true;
-				if (!ObjectItem->IsPendingKill())
-				{
-					// Internal flags are super fast to check
-					if (ObjectItem->HasAnyFlags(FastKeepFlags))
-					{
-						bMarkAsUnreachable = false;
-					}
-					// If KeepFlags is non zero this is going to be very slow due to cache misses
-					else if (KeepFlags != RF_NoFlags && Object->HasAnyFlags(KeepFlags))
-					{
-						bMarkAsUnreachable = false;
-					}
-				}
-				else if (ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot))
-				{
-					GUObjectClusters.DissolveClusterAndMarkObjectsAsUnreachable(It.GetIndex(), ObjectItem);
-					GUObjectClusters.SetClustersNeedDissolving();					
-				}
+				GUObjectClusters.DissolveClusterAndMarkObjectsAsUnreachable(ObjectItem);
+				GUObjectClusters.SetClustersNeedDissolving();
+			}
+		}
 
-				// Mark objects as unreachable unless they have any of the passed in KeepFlags set and it's not marked for elimination..
-				if (!bMarkAsUnreachable)
+		{
+			TArray<FUObjectItem*> KeepClusterRefs;
+			KeepClusterRefsList.PopAll(KeepClusterRefs);
+			for (FUObjectItem* ObjectItem : KeepClusterRefs)
+			{
+				if (ObjectItem->GetOwnerIndex() > 0)
 				{
-					// IsValidLowLevel is extremely slow in this loop so only do it in debug
-					checkSlow(Object->IsValidLowLevel());
-					ObjectsToSerialize.Add(Object);
-
-					if (ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot))
+					checkSlow(!ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot));
+					bool bNeedsDoing = !ObjectItem->HasAnyFlags(EInternalObjectFlags::ReachableInCluster);
+					if (bNeedsDoing)
 					{
-						KeepClusterRefs.Add(ObjectItem);
+						ObjectItem->SetFlags(EInternalObjectFlags::ReachableInCluster);
+						// Make sure cluster root object is reachable too
+						const int32 OwnerIndex = ObjectItem->GetOwnerIndex();
+						FUObjectItem* RootObjectItem = GUObjectArray.IndexToObjectUnsafeForGC(OwnerIndex);
+						checkSlow(RootObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot));
+						// if it is reachable via keep flags we will do this below (or maybe already have)
+						if (RootObjectItem->IsUnreachable()) 
+						{
+							RootObjectItem->ClearFlags(EInternalObjectFlags::Unreachable);
+							// Make sure all referenced clusters are marked as reachable too
+							FGCReferenceProcessorSinglethreaded::MarkReferencedClustersAsReachable(RootObjectItem->GetClusterIndex(), ObjectsToSerialize);
+						}
 					}
 				}
 				else
 				{
-					ObjectItem->SetFlags(EInternalObjectFlags::Unreachable);
+					checkSlow(ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot));
+					// this thing is definitely not marked unreachable, so don't test it here
+					// Make sure all referenced clusters are marked as reachable too
+					FGCReferenceProcessorSinglethreaded::MarkReferencedClustersAsReachable(ObjectItem->GetClusterIndex(), ObjectsToSerialize);
 				}
-			}
-		}
-
-		for (FUObjectItem* ObjectItem : KeepClusterRefs)
-		{
-			if (ObjectItem->GetOwnerIndex() > 0)
-			{
-				checkSlow(!ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot));
-				bool bNeedsDoing = !ObjectItem->HasAnyFlags(EInternalObjectFlags::ReachableInCluster);
-				if (bNeedsDoing)
-				{
-					ObjectItem->SetFlags(EInternalObjectFlags::ReachableInCluster);
-					// Make sure cluster root object is reachable too
-					const int32 OwnerIndex = ObjectItem->GetOwnerIndex();
-					FUObjectItem* RootObjectItem = GUObjectArray.IndexToObjectUnsafeForGC(OwnerIndex);
-					checkSlow(RootObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot));
-					// if it is reachable via keep flags we will do this below (or maybe already have)
-					if (RootObjectItem->IsUnreachable()) 
-					{
-						RootObjectItem->ClearFlags(EInternalObjectFlags::Unreachable);
-						// Make sure all referenced clusters are marked as reachable too
-						FGCReferenceProcessorSinglethreaded::MarkReferencedClustersAsReachable(RootObjectItem->GetClusterIndex(), ObjectsToSerialize);
-					}
-				}
-			}
-			else
-			{
-				checkSlow(ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot));
-				// this thing is definitely not marked unreachable, so don't test it here
-				// Make sure all referenced clusters are marked as reachable too
-				FGCReferenceProcessorSinglethreaded::MarkReferencedClustersAsReachable(ObjectItem->GetClusterIndex(), ObjectsToSerialize);
 			}
 		}
 	}
@@ -833,18 +868,25 @@ public:
 		TArray<UObject*>& ObjectsToSerialize = ArrayStruct->ObjectsToSerialize;
 
 		// Reset object count.
-		GObjectCountDuringLastMarkPhase = 0;
+		GObjectCountDuringLastMarkPhase.Reset();
 
-		// Presize array and add a bit of extra slack for prefetching.
-		ObjectsToSerialize.Reset( GUObjectArray.GetObjectArrayNumMinusPermanent() + 3 );
 		// Make sure GC referencer object is checked for references to other objects even if it resides in permanent object pool
 		if (FPlatformProperties::RequiresCookedData() && FGCObject::GGCObjectReferencer && GUObjectArray.IsDisregardForGC(FGCObject::GGCObjectReferencer))
 		{
 			ObjectsToSerialize.Add(FGCObject::GGCObjectReferencer);
 		}
 
-		MarkObjectsAsUnreachable(ObjectsToSerialize, KeepFlags);
-		PerformReachabilityAnalysisOnObjects(ArrayStruct, bForceSingleThreaded);
+		{
+			const double StartTime = FPlatformTime::Seconds();
+			MarkObjectsAsUnreachable(ObjectsToSerialize, KeepFlags, bForceSingleThreaded);
+			UE_LOG(LogGarbage, Verbose, TEXT("%f ms for Mark Phase (%d Objects To Serialize"), (FPlatformTime::Seconds() - StartTime) * 1000, ObjectsToSerialize.Num());
+		}
+
+		{
+			const double StartTime = FPlatformTime::Seconds();
+			PerformReachabilityAnalysisOnObjects(ArrayStruct, bForceSingleThreaded);
+			UE_LOG(LogGarbage, Verbose, TEXT("%f ms for Reachability Analysis"), (FPlatformTime::Seconds() - StartTime) * 1000);
+		}
         
 		// Allowing external systems to add object roots. This can't be done through AddReferencedObjects
 		// because it may require tracing objects (via FGarbageCollectionTracer) multiple times
@@ -1144,7 +1186,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 			GObjCurrentPurgeObjectIndexResetPastPermanent	= true;
 
 			// Log status information.
-			UE_LOG(LogGarbage, Log, TEXT("GC purged %i objects (%i -> %i)"), GPurgedObjectCountSinceLastMarkPhase, GObjectCountDuringLastMarkPhase, GObjectCountDuringLastMarkPhase - GPurgedObjectCountSinceLastMarkPhase );
+			UE_LOG(LogGarbage, Log, TEXT("GC purged %i objects (%i -> %i)"), GPurgedObjectCountSinceLastMarkPhase, GObjectCountDuringLastMarkPhase.GetValue(), GObjectCountDuringLastMarkPhase.GetValue() - GPurgedObjectCountSinceLastMarkPhase );
 
 #if PERF_DETAILED_PER_CLASS_GC_STATS
 			LogClassCountInfo( TEXT("objects of"), GClassToPurgeCountMap, 10, GPurgedObjectCountSinceLastMarkPhase );

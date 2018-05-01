@@ -3441,8 +3441,8 @@ public:
 	void PerformReachabilityAnalysis( EObjectFlags KeepFlags, EInternalObjectFlags InternalKeepFlags, EObjectFlags SearchFlags = RF_NoFlags, FReferencerInformationList* FoundReferences = NULL)
 	{
 		// Reset object count.
-		extern int32 GObjectCountDuringLastMarkPhase;
-		GObjectCountDuringLastMarkPhase = 0;
+		extern FThreadSafeCounter GObjectCountDuringLastMarkPhase;
+		GObjectCountDuringLastMarkPhase.Reset();
 		ReferenceSearchFlags = SearchFlags;
 		FoundReferencesList = FoundReferences;
 
@@ -3451,7 +3451,7 @@ public:
 		{
 			UObject* Object	= *It;
 			checkSlow(Object->IsValidLowLevel());
-			GObjectCountDuringLastMarkPhase++;
+			GObjectCountDuringLastMarkPhase.Increment();
 
 			// Special case handling for objects that are part of the root set.
 			if( Object->IsRooted() )

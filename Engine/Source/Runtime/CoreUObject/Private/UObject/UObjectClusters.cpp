@@ -163,7 +163,7 @@ void FUObjectClusterContainer::DissolveCluster(FUObjectCluster& Cluster)
 	}
 }
 
-void FUObjectClusterContainer::DissolveClusterAndMarkObjectsAsUnreachable(const int32 CurrentIndex, FUObjectItem* RootObjectItem)
+void FUObjectClusterContainer::DissolveClusterAndMarkObjectsAsUnreachable(FUObjectItem* RootObjectItem)
 {
 	const int32 OldClusterIndex = RootObjectItem->GetClusterIndex();
 	FUObjectCluster& Cluster = Clusters[OldClusterIndex];
@@ -180,10 +180,7 @@ void FUObjectClusterContainer::DissolveClusterAndMarkObjectsAsUnreachable(const 
 	{
 		FUObjectItem* ClusterObjectItem = GUObjectArray.IndexToObjectUnsafeForGC(ClusterObjectIndex);
 		ClusterObjectItem->SetOwnerIndex(0);
-		if (ClusterObjectIndex < CurrentIndex)
-		{
-			ClusterObjectItem->SetFlags(EInternalObjectFlags::Unreachable);
-		}
+		ClusterObjectItem->SetFlags(EInternalObjectFlags::Unreachable);
 	}
 
 #if !UE_GCCLUSTER_VERBOSE_LOGGING
@@ -199,11 +196,8 @@ void FUObjectClusterContainer::DissolveClusterAndMarkObjectsAsUnreachable(const 
 		FUObjectItem* ReferencedByClusterRootItem = GUObjectArray.IndexToObjectUnsafeForGC(ReferencedByClusterRootIndex);
 		if (ReferencedByClusterRootItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot))
 		{
-			if (ReferencedByClusterRootIndex < CurrentIndex)
-			{
-				ReferencedByClusterRootItem->SetFlags(EInternalObjectFlags::Unreachable);
-			}
-			DissolveClusterAndMarkObjectsAsUnreachable(CurrentIndex, ReferencedByClusterRootItem);
+			ReferencedByClusterRootItem->SetFlags(EInternalObjectFlags::Unreachable);
+			DissolveClusterAndMarkObjectsAsUnreachable(ReferencedByClusterRootItem);
 		}
 	}
 }

@@ -4218,8 +4218,8 @@ void StaticExit()
 	IncrementalPurgeGarbage( false );
 
 	// Keep track of how many objects there are for GC stats as we simulate a mark pass.
-	extern int32 GObjectCountDuringLastMarkPhase;
-	GObjectCountDuringLastMarkPhase = 0;
+	extern FThreadSafeCounter GObjectCountDuringLastMarkPhase;
+	GObjectCountDuringLastMarkPhase.Reset();
 
 	// Tag all non template & class objects as unreachable. We can't use object iterators for this as they ignore certain objects.
 	//
@@ -4231,7 +4231,7 @@ void StaticExit()
 	for ( FRawObjectIterator It; It; ++It )
 	{
 		// Valid object.
-		GObjectCountDuringLastMarkPhase++;
+		GObjectCountDuringLastMarkPhase.Increment();
 
 		FUObjectItem* ObjItem = *It;
 		checkSlow(ObjItem);
