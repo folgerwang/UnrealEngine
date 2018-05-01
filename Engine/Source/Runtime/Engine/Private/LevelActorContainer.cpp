@@ -189,15 +189,16 @@ void ULevelActorContainer::CreateCluster()
 	FGCArrayPool::Get().CheckLeaks();
 #endif
 
-	if (Cluster.Objects.Num())
+	check(RootItem->GetOwnerIndex() == 0);
+	RootItem->SetClusterIndex(ClusterIndex);
+	RootItem->SetFlags(EInternalObjectFlags::ClusterRoot);
+
+	if (Cluster.Objects.Num() >= GUObjectClusters.GetMinClusterSize())
 	{
 		// Sort all objects and set up the cluster root
 		Cluster.Objects.Sort();
 		Cluster.ReferencedClusters.Sort();
 		Cluster.MutableObjects.Sort();
-		check(RootItem->GetOwnerIndex() == 0);
-		RootItem->SetClusterIndex(ClusterIndex);
-		RootItem->SetFlags(EInternalObjectFlags::ClusterRoot);
 
 		UE_LOG(LogLevelActorContainer, Log, TEXT("Created LevelActorCluster (%d) for %s with %d objects, %d referenced clusters and %d mutable objects."),
 			ClusterIndex, *GetOuter()->GetPathName(), Cluster.Objects.Num(), Cluster.ReferencedClusters.Num(), Cluster.MutableObjects.Num());
@@ -208,9 +209,14 @@ void ULevelActorContainer::CreateCluster()
 	}
 	else
 	{
-		check(RootItem->GetOwnerIndex() == 0);
-		RootItem->SetClusterIndex(ClusterIndex);
+		for (int32 ClusterObjectIndex : Cluster.Objects)
+		{
+			FUObjectItem* ClusterObjectItem = GUObjectArray.IndexToObjectUnsafeForGC(ClusterObjectIndex);
+			ClusterObjectItem->SetOwnerIndex(0);
+		}
 		GUObjectClusters.FreeCluster(ClusterIndex);
+		check(RootItem->GetOwnerIndex() == 0);
+		check(!RootItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot));
 	}
 }
 

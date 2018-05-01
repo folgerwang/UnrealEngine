@@ -1060,6 +1060,9 @@ public:
 	/** Dissolve the specified cluster and all clusters that reference it */
 	void DissolveClusterAndMarkObjectsAsUnreachable(FUObjectItem* RootObjectItem);
 
+	/*** Returns the minimum cluster size as specified in ini settings */
+	int32 GetMinClusterSize() const;
+
 	/** Gets the clusters array (for internal use only!) */
 	TArray<FUObjectCluster>& GetClustersUnsafe() 
 	{ 

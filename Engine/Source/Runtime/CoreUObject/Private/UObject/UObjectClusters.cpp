@@ -35,6 +35,13 @@ static FAutoConsoleVariableRef CMergeGCClusters(
 	ECVF_Default
 	);
 
+int32 GMinGCClusterSize = 5;
+static FAutoConsoleVariableRef CMinGCClusterSize(
+	TEXT("gc.MinGCClusterSize"),
+	GMinGCClusterSize,
+	TEXT("Minimum GC cluster size"),
+	ECVF_Default
+);
 
 FUObjectClusterContainer::FUObjectClusterContainer()
 	: NumAllocatedClusters(0)
@@ -214,6 +221,11 @@ void FUObjectClusterContainer::DissolveClusters()
 	bClustersNeedDissolving = false;
 }
 
+int32 FUObjectClusterContainer::GetMinClusterSize() const
+{
+	return FMath::Max(1, GMinGCClusterSize);
+}
+
 #if !UE_BUILD_SHIPPING
 
 void DumpClusterToLog(const FUObjectCluster& Cluster, bool bHierarchy, bool bIndexOnly)
@@ -286,35 +298,67 @@ void DumpClusterToLog(const FUObjectCluster& Cluster, bool bHierarchy, bool bInd
 // Dumps all clusters to log.
 void ListClusters(const TArray<FString>& Args)
 {
-	const bool bHierarchy = Args.Num() && Args[0] == TEXT("Hierarchy");
+	const bool bHierarchy = Args.Contains(TEXT("Hierarchy"));
 	int32 MaxInterClusterReferences = 0;
 	int32 TotalInterClusterReferences = 0;
 	int32 MaxClusterSize = 0;
 	int32 TotalClusterObjects = 0;	
-	int32 NumClusters = 0;
 
-	for (const FUObjectCluster& Cluster : GUObjectClusters.GetClustersUnsafe())
+	TArray<FUObjectCluster*> AllClusters;
+	for (FUObjectCluster& Cluster : GUObjectClusters.GetClustersUnsafe())
 	{
-		if (Cluster.RootIndex == INDEX_NONE)
+		if (Cluster.RootIndex != INDEX_NONE)
 		{
-			continue;
+			AllClusters.Add(&Cluster);
 		}
-
-		NumClusters++;
-
-		MaxInterClusterReferences = FMath::Max(MaxInterClusterReferences, Cluster.ReferencedClusters.Num());
-		TotalInterClusterReferences += Cluster.ReferencedClusters.Num();
-		MaxClusterSize = FMath::Max(MaxClusterSize, Cluster.Objects.Num());
-		TotalClusterObjects += Cluster.Objects.Num();
-
-		DumpClusterToLog(Cluster, bHierarchy, false);
 	}
-	UE_LOG(LogObj, Display, TEXT("Number of clusters: %d"), NumClusters);
+
+	if (Args.Contains(TEXT("SortByName")))
+	{
+		Algo::SortBy(AllClusters, [](FUObjectCluster* A)
+		{
+			return GUObjectArray.IndexToObject(A->RootIndex)->Object->GetFName();
+		});
+	}
+	else if (Args.Contains(TEXT("SortByObjectCount")))
+	{
+		Algo::SortBy(AllClusters, [](FUObjectCluster* A)
+		{
+			return A->Objects.Num();
+		});
+	}
+	else if (Args.Contains(TEXT("SortByMutableObjectCount")))
+	{
+		Algo::SortBy(AllClusters, [](FUObjectCluster* A)
+		{
+			return A->MutableObjects.Num();
+		});
+	}
+	else if (Args.Contains(TEXT("SortByReferencedClustersCount")))
+	{
+		Algo::SortBy(AllClusters, [](FUObjectCluster* A)
+		{
+			return A->ReferencedClusters.Num();
+		});
+	}
+
+	for (FUObjectCluster* Cluster : AllClusters)
+	{
+		check(Cluster->RootIndex != INDEX_NONE);
+
+		MaxInterClusterReferences = FMath::Max(MaxInterClusterReferences, Cluster->ReferencedClusters.Num());
+		TotalInterClusterReferences += Cluster->ReferencedClusters.Num();
+		MaxClusterSize = FMath::Max(MaxClusterSize, Cluster->Objects.Num());
+		TotalClusterObjects += Cluster->Objects.Num();
+
+		DumpClusterToLog(*Cluster, bHierarchy, false);
+	}
+	UE_LOG(LogObj, Display, TEXT("Number of clusters: %d"), AllClusters.Num());
 	UE_LOG(LogObj, Display, TEXT("Maximum cluster size: %d"), MaxClusterSize);
-	UE_LOG(LogObj, Display, TEXT("Average cluster size: %d"), NumClusters ? (TotalClusterObjects / NumClusters) : 0);
+	UE_LOG(LogObj, Display, TEXT("Average cluster size: %d"), AllClusters.Num() ? (TotalClusterObjects / AllClusters.Num()) : 0);
 	UE_LOG(LogObj, Display, TEXT("Number of objects in GC clusters: %d"), TotalClusterObjects);
 	UE_LOG(LogObj, Display, TEXT("Maximum number of custer-to-cluster references: %d"), MaxInterClusterReferences);
-	UE_LOG(LogObj, Display, TEXT("Average number of custer-to-cluster references: %d"), NumClusters ? (TotalInterClusterReferences / NumClusters) : 0);
+	UE_LOG(LogObj, Display, TEXT("Average number of custer-to-cluster references: %d"), AllClusters.Num() ? (TotalInterClusterReferences / AllClusters.Num()) : 0);
 }
 
 void FindStaleClusters(const TArray<FString>& Args)
@@ -677,15 +721,16 @@ void UObjectBaseUtility::CreateCluster()
 	FGCArrayPool::Get().CheckLeaks();
 #endif
 
-	if (Cluster.Objects.Num())
+	check(RootItem->GetOwnerIndex() == 0);
+	RootItem->SetClusterIndex(ClusterIndex);
+	RootItem->SetFlags(EInternalObjectFlags::ClusterRoot);
+
+	if (Cluster.Objects.Num() >= GUObjectClusters.GetMinClusterSize())
 	{
 		// Add new cluster to the global cluster map.
 		Cluster.Objects.Sort();
 		Cluster.ReferencedClusters.Sort();		
 		Cluster.MutableObjects.Sort();		
-		check(RootItem->GetOwnerIndex() == 0);
-		RootItem->SetClusterIndex(ClusterIndex);
-		RootItem->SetFlags(EInternalObjectFlags::ClusterRoot);
 
 #if UE_GCCLUSTER_VERBOSE_LOGGING
 		UE_LOG(LogObj, Log, TEXT("Created Cluster (%d) with %d objects, %d referenced clusters and %d mutable objects."),
@@ -696,9 +741,14 @@ void UObjectBaseUtility::CreateCluster()
 	}
 	else
 	{
-		check(RootItem->GetOwnerIndex() == 0);
-		RootItem->SetClusterIndex(ClusterIndex);
+		for (int32 ClusterObjectIndex : Cluster.Objects)
+		{
+			FUObjectItem* ClusterObjectItem = GUObjectArray.IndexToObjectUnsafeForGC(ClusterObjectIndex);
+			ClusterObjectItem->SetOwnerIndex(0);
+		}
 		GUObjectClusters.FreeCluster(ClusterIndex);
+		check(RootItem->GetOwnerIndex() == 0);
+		check(!RootItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot));
 	}
 }
 
