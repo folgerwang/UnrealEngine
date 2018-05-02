@@ -1313,7 +1313,7 @@ static FAutoConsoleVariableRef CVarAllowParallelGC(
 static int32 GNumAttemptsSinceLastGC = 0;
 
 // Number of times GC can be skipped.
-static int32 GNumRetriesBeforeForcingGC = 0;
+static int32 GNumRetriesBeforeForcingGC = 10;
 static FAutoConsoleVariableRef CVarNumRetriesBeforeForcingGC(
 	TEXT("gc.NumRetriesBeforeForcingGC"),
 	GNumRetriesBeforeForcingGC,
@@ -1691,9 +1691,6 @@ bool TryCollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge)
 	bool bCanRunGC = FGCCSyncObject::Get().TryGCLock();
 	if (!bCanRunGC)
 	{
-		// TryGCLock won't set the 'GC is waiting' flag so we do it here manually so that other threads that respect this flag
-		// have the time to finish working with UObjects
-		FGCCSyncObject::Get().SetGCIsWaiting();
 		if (GNumRetriesBeforeForcingGC > 0 && GNumAttemptsSinceLastGC > GNumRetriesBeforeForcingGC)
 		{
 			// Force GC and block main thread			
