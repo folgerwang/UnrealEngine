@@ -105,14 +105,14 @@ void FUniformExpressionSet::Serialize(FArchive& Ar)
 	Ar << UniformScalarExpressions;
 	Ar << Uniform2DTextureExpressions;
 	Ar << UniformCubeTextureExpressions;
+	Ar << UniformVolumeTextureExpressions;
 	Ar << UniformExternalTextureExpressions;
 
-	Ar << ParameterCollections;
+	// Adding 2D texture array now to prevent bumping version when the feature gets added
+	TArray<TRefCountPtr<FMaterialUniformExpressionTexture> > Uniform2DTextureArrayExpressions;
+	Ar << Uniform2DTextureArrayExpressions;
 
-	Ar << PerFrameUniformScalarExpressions;
-	Ar << PerFrameUniformVectorExpressions;
-	Ar << PerFramePrevUniformScalarExpressions;
-	Ar << PerFramePrevUniformVectorExpressions;
+	Ar << ParameterCollections;
 
 	// Recreate the uniform buffer struct after loading.
 	if(Ar.IsLoading())
@@ -127,11 +127,8 @@ bool FUniformExpressionSet::IsEmpty() const
 		&& UniformScalarExpressions.Num() == 0
 		&& Uniform2DTextureExpressions.Num() == 0
 		&& UniformCubeTextureExpressions.Num() == 0
+		&& UniformVolumeTextureExpressions.Num() == 0
 		&& UniformExternalTextureExpressions.Num() == 0
-		&& PerFrameUniformScalarExpressions.Num() == 0
-		&& PerFrameUniformVectorExpressions.Num() == 0
-		&& PerFramePrevUniformScalarExpressions.Num() == 0
-		&& PerFramePrevUniformVectorExpressions.Num() == 0
 		&& ParameterCollections.Num() == 0;
 }
 
@@ -141,11 +138,8 @@ bool FUniformExpressionSet::operator==(const FUniformExpressionSet& ReferenceSet
 		|| UniformScalarExpressions.Num() != ReferenceSet.UniformScalarExpressions.Num()
 		|| Uniform2DTextureExpressions.Num() != ReferenceSet.Uniform2DTextureExpressions.Num()
 		|| UniformCubeTextureExpressions.Num() != ReferenceSet.UniformCubeTextureExpressions.Num()
+		|| UniformVolumeTextureExpressions.Num() != ReferenceSet.UniformVolumeTextureExpressions.Num()
 		|| UniformExternalTextureExpressions.Num() != ReferenceSet.UniformExternalTextureExpressions.Num()
-		|| PerFrameUniformScalarExpressions.Num() != ReferenceSet.PerFrameUniformScalarExpressions.Num()
-		|| PerFrameUniformVectorExpressions.Num() != ReferenceSet.PerFrameUniformVectorExpressions.Num()
-		|| PerFramePrevUniformScalarExpressions.Num() != ReferenceSet.PerFramePrevUniformScalarExpressions.Num()
-		|| PerFramePrevUniformVectorExpressions.Num() != ReferenceSet.PerFramePrevUniformVectorExpressions.Num()
 		|| ParameterCollections.Num() != ReferenceSet.ParameterCollections.Num())
 	{
 		return false;
@@ -183,41 +177,17 @@ bool FUniformExpressionSet::operator==(const FUniformExpressionSet& ReferenceSet
 		}
 	}
 
+	for (int32 i = 0; i < UniformVolumeTextureExpressions.Num(); i++)
+	{
+		if (!UniformVolumeTextureExpressions[i]->IsIdentical(ReferenceSet.UniformVolumeTextureExpressions[i]))
+		{
+			return false;
+		}
+	}
+
 	for (int32 i = 0; i < UniformExternalTextureExpressions.Num(); i++)
 	{
 		if (!UniformExternalTextureExpressions[i]->IsIdentical(ReferenceSet.UniformExternalTextureExpressions[i]))
-		{
-			return false;
-		}
-	}
-
-	for (int32 i = 0; i < PerFrameUniformScalarExpressions.Num(); i++)
-	{
-		if (!PerFrameUniformScalarExpressions[i]->IsIdentical(ReferenceSet.PerFrameUniformScalarExpressions[i]))
-		{
-			return false;
-		}
-	}
-
-	for (int32 i = 0; i < PerFrameUniformVectorExpressions.Num(); i++)
-	{
-		if (!PerFrameUniformVectorExpressions[i]->IsIdentical(ReferenceSet.PerFrameUniformVectorExpressions[i]))
-		{
-			return false;
-		}
-	}
-
-	for (int32 i = 0; i < PerFramePrevUniformScalarExpressions.Num(); i++)
-	{
-		if (!PerFramePrevUniformScalarExpressions[i]->IsIdentical(ReferenceSet.PerFramePrevUniformScalarExpressions[i]))
-		{
-			return false;
-		}
-	}
-
-	for (int32 i = 0; i < PerFramePrevUniformVectorExpressions.Num(); i++)
-	{
-		if (!PerFramePrevUniformVectorExpressions[i]->IsIdentical(ReferenceSet.PerFramePrevUniformVectorExpressions[i]))
 		{
 			return false;
 		}
@@ -236,14 +206,13 @@ bool FUniformExpressionSet::operator==(const FUniformExpressionSet& ReferenceSet
 
 FString FUniformExpressionSet::GetSummaryString() const
 {
-	return FString::Printf(TEXT("(%u vectors, %u scalars, %u 2d tex, %u cube tex, %u external tex, %u scalars/frame, %u vectors/frame, %u collections)"),
+	return FString::Printf(TEXT("(%u vectors, %u scalars, %u 2d tex, %u cube tex, %u 3d tex, %u external tex, %u collections)"),
 		UniformVectorExpressions.Num(), 
 		UniformScalarExpressions.Num(),
 		Uniform2DTextureExpressions.Num(),
 		UniformCubeTextureExpressions.Num(),
+		UniformVolumeTextureExpressions.Num(),
 		UniformExternalTextureExpressions.Num(),
-		PerFrameUniformScalarExpressions.Num(),
-		PerFrameUniformVectorExpressions.Num(),
 		ParameterCollections.Num()
 		);
 }
@@ -290,6 +259,8 @@ void FUniformExpressionSet::CreateBufferStruct()
 	static FString Texture2DSamplerNames[128];
 	static FString TextureCubeNames[128];
 	static FString TextureCubeSamplerNames[128];
+	static FString VolumeTextureNames[128];
+	static FString VolumeTextureSamplerNames[128];
 	static FString ExternalTextureNames[128];
 	static FString MediaTextureSamplerNames[128];
 	static bool bInitializedTextureNames = false;
@@ -302,6 +273,8 @@ void FUniformExpressionSet::CreateBufferStruct()
 			Texture2DSamplerNames[i] = FString::Printf(TEXT("Texture2D_%dSampler"), i);
 			TextureCubeNames[i] = FString::Printf(TEXT("TextureCube_%d"), i);
 			TextureCubeSamplerNames[i] = FString::Printf(TEXT("TextureCube_%dSampler"), i);
+			VolumeTextureNames[i] = FString::Printf(TEXT("VolumeTexture_%d"), i);
+			VolumeTextureSamplerNames[i] = FString::Printf(TEXT("VolumeTexture_%dSampler"), i);
 			ExternalTextureNames[i] = FString::Printf(TEXT("ExternalTexture_%d"), i);
 			MediaTextureSamplerNames[i] = FString::Printf(TEXT("ExternalTexture_%dSampler"), i);
 		}
@@ -309,6 +282,7 @@ void FUniformExpressionSet::CreateBufferStruct()
 
 	check(Uniform2DTextureExpressions.Num() <= 128);
 	check(UniformCubeTextureExpressions.Num() <= 128);
+	check(UniformVolumeTextureExpressions.Num() <= 128);
 
 	for (int32 i = 0; i < Uniform2DTextureExpressions.Num(); ++i)
 	{
@@ -328,6 +302,15 @@ void FUniformExpressionSet::CreateBufferStruct()
 		NextMemberOffset += 8;
 	}
 
+	for (int32 i = 0; i < UniformVolumeTextureExpressions.Num(); ++i)
+	{
+		check((NextMemberOffset & 0x7) == 0);
+		new(Members) FUniformBufferStruct::FMember(*VolumeTextureNames[i],TEXT("Texture3D"),NextMemberOffset,UBMT_TEXTURE,EShaderPrecisionModifier::Float,1,1,1,NULL);
+		NextMemberOffset += 8;
+		new(Members) FUniformBufferStruct::FMember(*VolumeTextureSamplerNames[i],TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
+		NextMemberOffset += 8;
+	}
+
 	for (int32 i = 0; i < UniformExternalTextureExpressions.Num(); ++i)
 	{
 		check((NextMemberOffset & 0x7) == 0);
@@ -336,7 +319,6 @@ void FUniformExpressionSet::CreateBufferStruct()
 		new(Members) FUniformBufferStruct::FMember(*MediaTextureSamplerNames[i], TEXT("SamplerState"), NextMemberOffset, UBMT_SAMPLER, EShaderPrecisionModifier::Float, 1, 1, 1, NULL);
 		NextMemberOffset += 8;
 	}
-
 
 	new(Members) FUniformBufferStruct::FMember(TEXT("Wrap_WorldGroupSettings"),TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
 	NextMemberOffset += 8;
@@ -388,10 +370,10 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 			TempScalarBuffer[ScalarIndex] = VectorValue.R;
 		}
 
-		void** ResourceTable = (void**)((uint8*)TempBuffer + UniformBufferStruct->GetLayout().ResourceOffset);
-		check(((UPTRINT)ResourceTable & 0x7) == 0);
+		const TArray<uint16>& ResourceTableOffsets = UniformBufferStruct->GetLayout().ResourceOffsets;
+		int32 ResourceIndex = 0;
 
-		check(UniformBufferStruct->GetLayout().Resources.Num() == Uniform2DTextureExpressions.Num() * 2 + UniformCubeTextureExpressions.Num() * 2 + UniformExternalTextureExpressions.Num() * 2 + 2);
+		check(UniformBufferStruct->GetLayout().Resources.Num() == Uniform2DTextureExpressions.Num() * 2 + UniformCubeTextureExpressions.Num() * 2 + UniformVolumeTextureExpressions.Num() * 2 + UniformExternalTextureExpressions.Num() * 2 + 2);
 
 		// Cache 2D texture uniform expressions.
 		for(int32 ExpressionIndex = 0;ExpressionIndex < Uniform2DTextureExpressions.Num();ExpressionIndex++)
@@ -425,6 +407,9 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 				}
 			}
 
+			void** ResourceTableTexturePtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex]);
+			void** ResourceTableSamplerPtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex + 1]);
+
 			if (Value && Value->Resource)
 			{
 				//@todo-rco: Help track down a invalid values
@@ -435,7 +420,8 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 					*Value->GetName(), *Value->GetClass()->GetName(),
 					*MaterialRenderContext.Material.GetFriendlyName(), ExpressionIndex);
 
-				*ResourceTable++ = Value->TextureReference.TextureReferenceRHI;
+				
+				*ResourceTableTexturePtr = Value->TextureReference.TextureReferenceRHI;
 				FSamplerStateRHIRef* SamplerSource = &Value->Resource->SamplerStateRHI;
 
 				if (SourceMode == SSM_Wrap_WorldGroupSettings)
@@ -450,15 +436,17 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 				checkf(*SamplerSource, TEXT("Texture %s of class %s had invalid sampler source. Material %s with texture expression in slot %i"),
 					*Value->GetName(), *Value->GetClass()->GetName(),
 					*MaterialRenderContext.Material.GetFriendlyName(), ExpressionIndex);
-				*ResourceTable++ = *SamplerSource;
+				*ResourceTableSamplerPtr = *SamplerSource;
 			}
 			else
 			{
 				check(GWhiteTexture->TextureRHI);
-				*ResourceTable++ = GWhiteTexture->TextureRHI;
+				*ResourceTableTexturePtr = GWhiteTexture->TextureRHI;
 				check(GWhiteTexture->SamplerStateRHI);
-				*ResourceTable++ = GWhiteTexture->SamplerStateRHI;
+				*ResourceTableSamplerPtr = GWhiteTexture->SamplerStateRHI;
 			}
+
+			ResourceIndex += 2;
 		}
 
 		// Cache cube texture uniform expressions.
@@ -467,10 +455,14 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 			const UTexture* Value;
 			ESamplerSourceMode SourceMode;
 			UniformCubeTextureExpressions[ExpressionIndex]->GetTextureValue(MaterialRenderContext,MaterialRenderContext.Material,Value,SourceMode);
+
+			void** ResourceTableTexturePtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex]);
+			void** ResourceTableSamplerPtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex + 1]);
+
 			if(Value && Value->Resource)
 			{
 				check(Value->TextureReference.TextureReferenceRHI);
-				*ResourceTable++ = Value->TextureReference.TextureReferenceRHI;
+				*ResourceTableTexturePtr = Value->TextureReference.TextureReferenceRHI;
 				FSamplerStateRHIRef* SamplerSource = &Value->Resource->SamplerStateRHI;
 
 				if (SourceMode == SSM_Wrap_WorldGroupSettings)
@@ -483,15 +475,56 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 				}
 
 				check(*SamplerSource);
-				*ResourceTable++ = *SamplerSource;
+				*ResourceTableSamplerPtr = *SamplerSource;
 			}
 			else
 			{
-				check(GWhiteTexture->TextureRHI);
-				*ResourceTable++ = GWhiteTexture->TextureRHI;
-				check(GWhiteTexture->SamplerStateRHI);
-				*ResourceTable++ = GWhiteTexture->SamplerStateRHI;
+				check(GWhiteTextureCube->TextureRHI);
+				*ResourceTableTexturePtr = GWhiteTextureCube->TextureRHI;
+				check(GWhiteTextureCube->SamplerStateRHI);
+				*ResourceTableSamplerPtr = GWhiteTextureCube->SamplerStateRHI;
 			}
+
+			ResourceIndex += 2;
+		}
+
+		// Cache volume texture uniform expressions.
+		for (int32 ExpressionIndex = 0;ExpressionIndex < UniformVolumeTextureExpressions.Num();ExpressionIndex++)
+		{
+			const UTexture* Value;
+			ESamplerSourceMode SourceMode;
+			UniformVolumeTextureExpressions[ExpressionIndex]->GetTextureValue(MaterialRenderContext,MaterialRenderContext.Material,Value,SourceMode);
+
+			void** ResourceTableTexturePtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex]);
+			void** ResourceTableSamplerPtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex + 1]);
+
+			if(Value && Value->Resource)
+			{
+				check(Value->TextureReference.TextureReferenceRHI);
+				*ResourceTableTexturePtr = Value->TextureReference.TextureReferenceRHI;
+				FSamplerStateRHIRef* SamplerSource = &Value->Resource->SamplerStateRHI;
+
+				if (SourceMode == SSM_Wrap_WorldGroupSettings)
+				{
+					SamplerSource = &Wrap_WorldGroupSettings->SamplerStateRHI;
+				}
+				else if (SourceMode == SSM_Clamp_WorldGroupSettings)
+				{
+					SamplerSource = &Clamp_WorldGroupSettings->SamplerStateRHI;
+				}
+
+				check(*SamplerSource);
+				*ResourceTableSamplerPtr = *SamplerSource;
+			}
+			else
+			{
+				check(GBlackVolumeTexture->TextureRHI);
+				*ResourceTableTexturePtr = GBlackVolumeTexture->TextureRHI;
+				check(GBlackVolumeTexture->SamplerStateRHI);
+				*ResourceTableSamplerPtr = GBlackVolumeTexture->SamplerStateRHI;
+			}
+
+			ResourceIndex += 2;
 		}
 
 		// Cache external texture uniform expressions.
@@ -499,24 +532,39 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 		{
 			FTextureRHIRef TextureRHI;
 			FSamplerStateRHIRef SamplerStateRHI;
+
+			void** ResourceTableTexturePtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex]);
+			void** ResourceTableSamplerPtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex + 1]);
+
 			if (UniformExternalTextureExpressions[ExpressionIndex]->GetExternalTexture(MaterialRenderContext, TextureRHI, SamplerStateRHI))
 			{
-				*ResourceTable++ = TextureRHI;
-				*ResourceTable++ = SamplerStateRHI;
+				*ResourceTableTexturePtr = TextureRHI;
+				*ResourceTableSamplerPtr = SamplerStateRHI;
 			}
 			else
 			{
-				check(GBlackTexture->TextureRHI);
-				*ResourceTable++ = GBlackTexture->TextureRHI;
-				check(GBlackTexture->SamplerStateRHI);
-				*ResourceTable++ = GBlackTexture->SamplerStateRHI;
+				check(GWhiteTexture->TextureRHI);
+				*ResourceTableTexturePtr = GWhiteTexture->TextureRHI;
+				check(GWhiteTexture->SamplerStateRHI);
+				*ResourceTableSamplerPtr = GWhiteTexture->SamplerStateRHI;
 			}
+
+			ResourceIndex += 2;
 		}
 
-		check(Wrap_WorldGroupSettings->SamplerStateRHI);
-		*ResourceTable++ = Wrap_WorldGroupSettings->SamplerStateRHI;
-		check(Clamp_WorldGroupSettings->SamplerStateRHI);
-		*ResourceTable++ = Clamp_WorldGroupSettings->SamplerStateRHI;
+		{
+			void** Wrap_WorldGroupSettingsSamplerPtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex]);
+			check(Wrap_WorldGroupSettings->SamplerStateRHI);
+			*Wrap_WorldGroupSettingsSamplerPtr = Wrap_WorldGroupSettings->SamplerStateRHI;
+			ResourceIndex++;
+		}
+
+		{
+			void** Clamp_WorldGroupSettingsSamplerPtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex]);
+			check(Clamp_WorldGroupSettings->SamplerStateRHI);
+			*Clamp_WorldGroupSettingsSamplerPtr = Clamp_WorldGroupSettings->SamplerStateRHI;
+			ResourceIndex++;
+		}
 
 		if (CommandListIfLocalMode)
 		{
@@ -842,8 +890,6 @@ void FMaterialUniformExpressionExternalTextureCoordinateOffset::GetNumberValue(c
 
 IMPLEMENT_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionTexture);
 IMPLEMENT_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionConstant);
-IMPLEMENT_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionTime);
-IMPLEMENT_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionRealTime);
 IMPLEMENT_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionVectorParameter);
 IMPLEMENT_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionScalarParameter);
 IMPLEMENT_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionTextureParameter);

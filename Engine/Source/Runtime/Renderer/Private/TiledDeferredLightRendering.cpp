@@ -60,17 +60,17 @@ static FAutoConsoleVariableRef CVarNumLightsBeforeUsingTiledDeferred(
  * Light data is split into two constant buffers to allow more lights per pass before hitting the d3d11 max constant buffer size of 4096 float4's
  */
 BEGIN_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,LightPositionAndInvRadius,[GMaxNumTiledDeferredLights])
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,LightColorAndFalloffExponent,[GMaxNumTiledDeferredLights])
+	UNIFORM_MEMBER_ARRAY(FVector4,LightPositionAndInvRadius,[GMaxNumTiledDeferredLights])
+	UNIFORM_MEMBER_ARRAY(FVector4,LightColorAndFalloffExponent,[GMaxNumTiledDeferredLights])
 END_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData)
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData,TEXT("TiledDeferred"));
 
 /** Second constant buffer of light data for tiled deferred. */
 BEGIN_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,LightDirectionAndSpotlightMaskAndMinRoughness,[GMaxNumTiledDeferredLights])
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,SpotAnglesAndSourceRadiusAndSimpleLighting,[GMaxNumTiledDeferredLights])
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,ShadowMapChannelMask,[GMaxNumTiledDeferredLights])
+	UNIFORM_MEMBER_ARRAY(FVector4,LightDirectionAndSpotlightMaskAndMinRoughness,[GMaxNumTiledDeferredLights])
+	UNIFORM_MEMBER_ARRAY(FVector4,SpotAnglesAndSourceRadiusAndSimpleLighting,[GMaxNumTiledDeferredLights])
+	UNIFORM_MEMBER_ARRAY(FVector4,ShadowMapChannelMask,[GMaxNumTiledDeferredLights])
 END_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2)
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2,TEXT("TiledDeferred2"));
@@ -101,13 +101,11 @@ public:
 	FTiledDeferredLightingCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		InTexture.Bind(Initializer.ParameterMap, TEXT("InTexture"));
 		OutTexture.Bind(Initializer.ParameterMap, TEXT("OutTexture"));
 		NumLights.Bind(Initializer.ParameterMap, TEXT("NumLights"));
 		ViewDimensions.Bind(Initializer.ParameterMap, TEXT("ViewDimensions"));
-		PreIntegratedBRDF.Bind(Initializer.ParameterMap, TEXT("PreIntegratedBRDF"));
-		PreIntegratedBRDFSampler.Bind(Initializer.ParameterMap, TEXT("PreIntegratedBRDFSampler"));
 	}
 
 	FTiledDeferredLightingCS()
@@ -131,7 +129,7 @@ public:
 		FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 		SetTextureParameter(RHICmdList, ShaderRHI, InTexture, InTextureValue.GetRenderTargetItem().ShaderResourceTexture);
 
 		FUnorderedAccessViewRHIParamRef OutUAV = OutTextureValue.GetRenderTargetItem().UAV;
@@ -139,15 +137,6 @@ public:
 		OutTexture.SetTexture(RHICmdList, ShaderRHI, 0, OutUAV);
 
 		SetShaderValue(RHICmdList, ShaderRHI, ViewDimensions, View.ViewRect);
-
-		SetTextureParameter(
-			RHICmdList, 
-			ShaderRHI,
-			PreIntegratedBRDF,
-			PreIntegratedBRDFSampler,
-			TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-			GEngine->PreIntegratedSkinBRDFTexture->Resource->TextureRHI
-			);
 
 		static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
 		const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnRenderThread() != 0);
@@ -237,13 +226,11 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{		
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << OutTexture;
 		Ar << InTexture;
 		Ar << NumLights;
 		Ar << ViewDimensions;
-		Ar << PreIntegratedBRDF;
-		Ar << PreIntegratedBRDFSampler;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -259,13 +246,11 @@ public:
 
 private:
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderResourceParameter InTexture;
 	FRWShaderParameter OutTexture;
 	FShaderParameter NumLights;
 	FShaderParameter ViewDimensions;
-	FShaderResourceParameter PreIntegratedBRDF;
-	FShaderResourceParameter PreIntegratedBRDFSampler;
 };
 
 // #define avoids a lot of code duplication

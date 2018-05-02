@@ -21,12 +21,18 @@
 #endif
 
 THIRD_PARTY_INCLUDES_START
+#if PLATFORM_APPLE
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+#endif
 #pragma push_macro("OVERRIDE")
 #	undef OVERRIDE // cef headers provide their own OVERRIDE macro
 #	include "include/internal/cef_ptr.h"
 #	include "include/cef_render_handler.h"
 #	include "include/cef_jsdialog_handler.h"
 #pragma pop_macro("OVERRIDE")
+#if PLATFORM_APPLE
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+#endif
 THIRD_PARTY_INCLUDES_END
 
 #if PLATFORM_WINDOWS

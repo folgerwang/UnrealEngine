@@ -72,6 +72,7 @@ struct FTextureStreamingSettings
 	int32 HLODStrategy;
 	float HiddenPrimitiveScale;
 	float PerTextureBiasViewBoostThreshold;
+	float MaxHiddenPrimitiveViewBoost;
 	int32 GlobalMipBias;
 	int32 PoolSize;
 	bool bLimitPoolSizeToVRAM;

@@ -43,7 +43,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 - (NSRect)openGLFrame
 {
 	SCOPED_AUTORELEASE_POOL;
-	if ([self styleMask] & NSTexturedBackgroundWindowMask)
+	if ([self styleMask] & NSWindowStyleMaskTexturedBackground)
 	{
 		return [self frame];
 	}
@@ -56,7 +56,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 - (NSView*)openGLView
 {
 	SCOPED_AUTORELEASE_POOL;
-	if (FPlatformMisc::IsRunningOnMavericks() && [self styleMask] & (NSTexturedBackgroundWindowMask))
+	if (FPlatformMisc::IsRunningOnMavericks() && [self styleMask] & (NSWindowStyleMaskTexturedBackground))
 	{
 		NSView* SuperView = [[self contentView] superview];
 		for (NSView* View in [SuperView subviews])
@@ -129,7 +129,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 - (BOOL)canBecomeKeyWindow
 {
 	SCOPED_AUTORELEASE_POOL;
-	return bAcceptsInput && ([self styleMask] != NSBorderlessWindowMask);
+	return bAcceptsInput && ([self styleMask] != NSWindowStyleMaskBorderless);
 }
 
 - (BOOL)validateMenuItem:(NSMenuItem*)MenuItem

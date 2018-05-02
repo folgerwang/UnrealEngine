@@ -69,25 +69,29 @@ void UCanvasRenderTarget2D::RepaintCanvas()
 	FCanvas RenderCanvas(GameThread_GetRenderTargetResource(), nullptr, FApp::GetCurrentTime() - GStartTime, FApp::GetDeltaTime(), FApp::GetCurrentTime() - GStartTime, FeatureLevel);
 
 	Canvas->Init(GetSurfaceWidth(), GetSurfaceHeight(), nullptr, &RenderCanvas);
-	Canvas->Update();
-
-	// Update the resource immediately to remove it from the deferred resource update list. This prevents the texture
-	// from being cleared each frame.
-	UpdateResourceImmediate(bShouldClearRenderTargetOnReceiveUpdate);
 
 	// Enqueue the rendering command to set up the rendering canvas.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER
-		(
-			CanvasRenderTargetMakeCurrentCommand,
-			FTextureRenderTarget2DResource*,
-			TextureRenderTarget,
-			(FTextureRenderTarget2DResource*)GameThread_GetRenderTargetResource(),
+	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER
+	(
+		CanvasRenderTargetMakeCurrentCommand,
+		FTextureRenderTarget2DResource*,
+		TextureRenderTarget,
+		(FTextureRenderTarget2DResource*)GameThread_GetRenderTargetResource(),
+		bool,
+		bClearRenderTarget,
+		bShouldClearRenderTargetOnReceiveUpdate,
+		{
+			RHICmdList.SetViewport(0, 0, 0.0f, TextureRenderTarget->GetSizeXY().X, TextureRenderTarget->GetSizeXY().Y, 1.0f);
+			if (bClearRenderTarget)
+			{
+				SetRenderTarget(RHICmdList, TextureRenderTarget->GetRenderTargetTexture(), FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorExistingDepth, FExclusiveDepthStencil::DepthWrite_StencilWrite, true);
+			}
+			else
 			{
 				SetRenderTarget(RHICmdList, TextureRenderTarget->GetRenderTargetTexture(), FTexture2DRHIRef(), true);
-				RHICmdList.SetViewport(0, 0, 0.0f, TextureRenderTarget->GetSizeXY().X, TextureRenderTarget->GetSizeXY().Y, 1.0f);
 			}
+		}
 	);
-
 
 	if (!IsPendingKill() && OnCanvasRenderTargetUpdate.IsBound())
 	{
@@ -100,18 +104,7 @@ void UCanvasRenderTarget2D::RepaintCanvas()
 	Canvas->Canvas = nullptr;
 	RenderCanvas.Flush_GameThread();
 
-	// Enqueue the rendering command to copy the freshly rendering texture resource back to the render target RHI 
-	// so that the texture is updated and available for rendering.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER
-		(
-			CanvasRenderTargetResolveCommand,
-			FTextureRenderTargetResource*,
-			RenderTargetResource,
-			GameThread_GetRenderTargetResource(),
-			{
-				RHICmdList.CopyToResolveTarget(RenderTargetResource->GetRenderTargetTexture(), RenderTargetResource->TextureRHI, true, FResolveParams());
-			}
-	);
+	UpdateResourceImmediate(false);
 }
 
 UCanvasRenderTarget2D* UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(UObject* WorldContextObject, TSubclassOf<UCanvasRenderTarget2D> CanvasRenderTarget2DClass, int32 Width, int32 Height)

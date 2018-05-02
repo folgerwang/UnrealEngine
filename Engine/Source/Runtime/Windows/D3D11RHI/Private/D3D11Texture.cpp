@@ -498,18 +498,18 @@ TD3D11Texture2D<BaseResourceType>* FD3D11DynamicRHI::CreateD3D11Texture2D(uint32
 
 	if (bCubeTexture)
 	{
-		check(SizeX <= GetMaxCubeTextureDimension());
+		checkf(SizeX <= GetMaxCubeTextureDimension(), TEXT("Requested cube texture size too large: %i, %i"), SizeX, GetMaxCubeTextureDimension());
 		check(SizeX == SizeY);
 	}
 	else
 	{
-		check(SizeX <= GetMax2DTextureDimension());
-		check(SizeY <= GetMax2DTextureDimension());
+		checkf(SizeX <= GetMax2DTextureDimension(), TEXT("Requested texture2d x size too large: %i, %i"), SizeX, GetMax2DTextureDimension());
+		checkf(SizeY <= GetMax2DTextureDimension(), TEXT("Requested texture2d y size too large: %i, %i"), SizeY, GetMax2DTextureDimension());
 	}
 
 	if (bTextureArray)
 	{
-		check(SizeZ <= GetMaxTextureArrayLayers());
+		checkf(SizeZ <= GetMaxTextureArrayLayers(), TEXT("Requested texture array size too large: %i, %i"), SizeZ, GetMaxTextureArrayLayers());
 	}
 
 	// Render target allocation with UAV flag will silently fail in feature level 10
@@ -1614,14 +1614,17 @@ void FD3D11DynamicRHI::RHIUpdateTexture3D(FTexture3DRHIParamRef TextureRHI,uint3
 {
 	FD3D11Texture3D* Texture = ResourceCast(TextureRHI);
 
+	// The engine calls this with the texture size in the region. 
+	// Some platforms like D3D11 needs that to be rounded up to the block size.
+	const FPixelFormatInfo& Format = GPixelFormats[Texture->GetFormat()];
+	const int32 NumBlockX = FMath::DivideAndRoundUp<int32>(UpdateRegion.Width, Format.BlockSizeX);
+	const int32 NumBlockY = FMath::DivideAndRoundUp<int32>(UpdateRegion.Height, Format.BlockSizeY);
+
 	D3D11_BOX DestBox =
 	{
 		UpdateRegion.DestX,                      UpdateRegion.DestY,                       UpdateRegion.DestZ,
-		UpdateRegion.DestX + UpdateRegion.Width, UpdateRegion.DestY + UpdateRegion.Height, UpdateRegion.DestZ + UpdateRegion.Depth
+		UpdateRegion.DestX + NumBlockX * Format.BlockSizeX, UpdateRegion.DestY + NumBlockY * Format.BlockSizeY, UpdateRegion.DestZ + UpdateRegion.Depth
 	};
-
-	check(GPixelFormats[Texture->GetFormat()].BlockSizeX == 1);
-	check(GPixelFormats[Texture->GetFormat()].BlockSizeY == 1);
 
 	Direct3DDeviceIMContext->UpdateSubresource(Texture->GetResource(), MipIndex, &DestBox, SourceData, SourceRowPitch, SourceDepthPitch);
 }

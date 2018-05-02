@@ -162,12 +162,6 @@ public:
 		VolumeTexture(*this)
 	{}
 
-	// Use the deferred cleanup interface to safely delete even when the rendering thread stores a reference to this volume data
-	virtual void FinishCleanup() override
-	{
-		delete this;
-	}
-
 	void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const
 	{
 		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(*this));

@@ -51,17 +51,20 @@ class RecordPerformance : BuildCommand
 			StatsToPresent = new string[] { "FrameTime", "GPUFrameTime", "RenderThreadTime", "GameThreadTime" };
 		}
 
-		// First cook and deploy all the platforms
-		foreach (var PlatformName in PlatformsToTest)
+		if (!ParseParam("SkipBuild"))
 		{
-			var Platform = GetPlatformByName(PlatformName);
-			if (Platform == null)
+			// First cook and deploy all the platforms
+			foreach (var PlatformName in PlatformsToTest)
 			{
-				Log("Cannot find platform '{0}'. Skipping.", PlatformName);
-				continue;
-			}
+				var Platform = GetPlatformByName(PlatformName);
+				if (Platform == null)
+				{
+					Log("Cannot find platform '{0}'. Skipping.", PlatformName);
+					continue;
+				}
 
-			BuildAndCookPlatform(Platform.PlatformType);
+				BuildAndCookPlatform(Platform.PlatformType);
+			}
 		}
 
 		// Now run tests
@@ -119,7 +122,7 @@ class RecordPerformance : BuildCommand
 	{
 		if (PlatformName == "Win64" || PlatformName == "Win32")
 		{
-			return new string[] { "d3d11", /*"d3d12",*/ "vulkan" };
+			return new string[] { "d3d11", "d3d12", "vulkan" };
 		}
 		else if (PlatformName == "Linux")
 		{

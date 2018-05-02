@@ -28,7 +28,7 @@ public:
 	/** Calculates the display size of the texture */
 	virtual void CalculateTextureDimensions(uint32& Width, uint32& Height) const = 0;
 
-	/** Accessors */
+	/** Accessors */ 
 	virtual int32 GetMipLevel() const = 0;
 	virtual ESimpleElementBlendMode GetColourChannelBlendMode() const = 0;
 	virtual bool GetUseSpecifiedMip() const = 0;
@@ -38,7 +38,11 @@ public:
 	virtual void ZoomOut() = 0;
 	virtual bool GetFitToViewport() const = 0;
 	virtual void SetFitToViewport( const bool bFitToViewport ) = 0;
-	
+	virtual float GetVolumeOpacity( ) const = 0;
+	virtual void SetVolumeOpacity( float ZoomValue ) = 0;
+	virtual const FRotator& GetVolumeOrientation( ) const = 0;
+	virtual void SetVolumeOrientation( const FRotator& InOrientation ) = 0;
+
 public:
 
 	/**

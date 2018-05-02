@@ -243,6 +243,7 @@ void FHTML5HttpRequest::ReceiveCallback(void *arg, void *buffer, uint32 size, vo
 					HeaderValue.TrimStartInline();
 					NewValue += HeaderValue;
 					Response->Headers.Add(HeaderKey, NewValue);
+					OnHeaderReceived().ExecuteIfBound(SharedThis(this), HeaderKey, HeaderValue);
 				}
 			}
 			if (!HeaderLeftovers.IsEmpty())
@@ -461,19 +462,6 @@ bool FHTML5HttpRequest::ProcessRequest()
 	UE_LOG(LogHttp, Verbose, TEXT("Request is waiting for processing"), this );
 
 	return true;
-}
-
-
-FHttpRequestCompleteDelegate& FHTML5HttpRequest::OnProcessRequestComplete()
-{
-	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::OnProcessRequestComplete()"));
-	return RequestCompleteDelegate;
-}
-
-FHttpRequestProgressDelegate& FHTML5HttpRequest::OnRequestProgress()
-{
-	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::OnRequestProgress()"));
-	return RequestProgressDelegate;
 }
 
 void FHTML5HttpRequest::FinishedRequest()

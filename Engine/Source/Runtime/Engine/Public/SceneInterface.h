@@ -263,7 +263,6 @@ public:
 	 * Removes a SpeedTree wind computation object to the scene.
 	 * @param StaticMesh - The SpeedTree static mesh whose wind to remove.
 	 */
-	virtual void RemoveSpeedTreeWind(class FVertexFactory* VertexFactory, const class UStaticMesh* StaticMesh) = 0;
 	virtual void RemoveSpeedTreeWind_RenderThread(class FVertexFactory* VertexFactory, const class UStaticMesh* StaticMesh) = 0;
 
 	/** Ticks the SpeedTree wind object and updates the uniform buffer. */

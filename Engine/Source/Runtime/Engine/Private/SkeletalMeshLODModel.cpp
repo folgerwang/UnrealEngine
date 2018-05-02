@@ -15,6 +15,7 @@
 #include "Rendering/SkeletalMeshVertexClothBuffer.h"
 #include "Rendering/SkinWeightVertexBuffer.h"
 #include "UObject/ReleaseObjectVersion.h"
+#include "UObject/RenderingObjectVersion.h"
 
 /*-----------------------------------------------------------------------------
 FSoftSkinVertex
@@ -30,7 +31,21 @@ FSoftSkinVertex
 FArchive& operator<<(FArchive& Ar, FSoftSkinVertex& V)
 {
 	Ar << V.Position;
-	Ar << V.TangentX << V.TangentY << V.TangentZ;
+
+	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::IncreaseNormalPrecision)
+	{
+		FDeprecatedSerializedPackedNormal Temp;
+		Ar << Temp;
+		V.TangentX = Temp;
+		Ar << Temp;
+		V.TangentY = Temp;
+		Ar << Temp;
+		V.TangentZ = Temp;
+	}
+	else
+	{
+		Ar << V.TangentX << V.TangentY << V.TangentZ;
+	}
 
 	for (int32 UVIdx = 0; UVIdx < MAX_TEXCOORDS; ++UVIdx)
 	{
@@ -128,9 +143,9 @@ uint8 FSoftSkinVertex::GetMaximumWeight() const
 struct FLegacyRigidSkinVertex
 {
 	FVector			Position;
-	FPackedNormal	TangentX,	// Tangent, U-direction
-		TangentY,	// Binormal, V-direction
-		TangentZ;	// Normal
+	FVector			TangentX;	// Tangent, U-direction
+	FVector			TangentY;	// Binormal, V-direction
+	FVector			TangentZ;	// Normal
 	FVector2D		UVs[MAX_TEXCOORDS]; // UVs
 	FColor			Color;		// Vertex color.
 	uint8			Bone;
@@ -138,7 +153,21 @@ struct FLegacyRigidSkinVertex
 	friend FArchive& operator<<(FArchive& Ar, FLegacyRigidSkinVertex& V)
 	{
 		Ar << V.Position;
-		Ar << V.TangentX << V.TangentY << V.TangentZ;
+
+		if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::IncreaseNormalPrecision)
+		{
+			FDeprecatedSerializedPackedNormal Temp;
+			Ar << Temp;
+			V.TangentX = Temp;
+			Ar << Temp;
+			V.TangentY = Temp;
+			Ar << Temp;
+			V.TangentZ = Temp;
+		}
+		else
+		{
+			Ar << V.TangentX << V.TangentY << V.TangentZ;
+		}
 
 		for (int32 UVIdx = 0; UVIdx < MAX_TEXCOORDS; ++UVIdx)
 		{
@@ -159,7 +188,7 @@ struct FLegacyRigidSkinVertex
 		DestVertex.TangentY = TangentY;
 		DestVertex.TangentZ = TangentZ;
 		// store the sign of the determinant in TangentZ.W
-		DestVertex.TangentZ.Vector.W = GetBasisDeterminantSignByte(TangentX, TangentY, TangentZ);
+		DestVertex.TangentZ.W = GetBasisDeterminantSign(TangentX, TangentY, TangentZ);
 
 		// copy all texture coordinate sets
 		FMemory::Memcpy(DestVertex.UVs, UVs, sizeof(FVector2D)*MAX_TEXCOORDS);
@@ -224,6 +253,7 @@ FArchive& operator<<(FArchive& Ar, FSkelMeshSection& S)
 {
 	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
 	Ar.UsingCustomVersion(FReleaseObjectVersion::GUID);
+	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
 
 	// When data is cooked for server platform some of the
 	// variables are not serialized so that they're always

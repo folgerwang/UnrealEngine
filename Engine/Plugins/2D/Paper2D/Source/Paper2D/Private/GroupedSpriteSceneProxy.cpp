@@ -77,7 +77,7 @@ FGroupedSpriteSceneProxy::FGroupedSpriteSceneProxy(UPaperGroupedSpriteComponent*
 
 			const FPackedNormal TangentX = InstanceData.Transform.GetUnitAxis(EAxis::X);
 			FPackedNormal TangentZ = InstanceData.Transform.GetUnitAxis(EAxis::Y);
-			TangentZ.Vector.W = (InstanceData.Transform.Determinant() < 0.0f) ? 0 : 255;
+			TangentZ.Vector.W = (InstanceData.Transform.Determinant() < 0.0f) ? -127 : 127;
 
 			const FColor VertColor(InstanceData.VertexColor);
 			for (const FVector4& SourceVert : Record.RenderVerts)
@@ -86,7 +86,7 @@ FGroupedSpriteSceneProxy::FGroupedSpriteSceneProxy(UPaperGroupedSpriteComponent*
 				const FVector ComponentSpacePos = InstanceData.Transform.TransformPosition(LocalPos);
 				const FVector2D UV(SourceVert.Z, SourceVert.W);
 
-				new (Vertices) FDynamicMeshVertex(ComponentSpacePos, TangentX, TangentZ, UV, VertColor);
+				new (Vertices) FDynamicMeshVertex(ComponentSpacePos, TangentX.ToFVector(), TangentZ.ToFVector(), UV, VertColor);
 			}
 
 			BodySetup = SourceSprite->BodySetup;

@@ -47,6 +47,7 @@ public:
 	FShaderResourceParameter MiniFontTexture;
 	FShaderParameter InverseGamma;
 	FShaderParameter HistogramParams;
+	FShaderParameter ViewportCenterUV;
 
 	FShaderParameter ColorMatrixR_ColorCurveCd1;
 	FShaderParameter ColorMatrixG_ColorCurveCd3Cm3;
@@ -67,7 +68,8 @@ public:
 		EyeAdaptationParams.Bind(Initializer.ParameterMap, TEXT("EyeAdaptationParams"));
 		MiniFontTexture.Bind(Initializer.ParameterMap, TEXT("MiniFontTexture"));
 		InverseGamma.Bind(Initializer.ParameterMap,TEXT("InverseGamma"));
-		HistogramParams.Bind(Initializer.ParameterMap,TEXT("HistogramParams"));
+		HistogramParams.Bind(Initializer.ParameterMap, TEXT("HistogramParams"));
+		ViewportCenterUV.Bind(Initializer.ParameterMap, TEXT("ViewportCenterUV"));
 
 		ColorMatrixR_ColorCurveCd1.Bind(Initializer.ParameterMap, TEXT("ColorMatrixR_ColorCurveCd1"));
 		ColorMatrixG_ColorCurveCd3Cm3.Bind(Initializer.ParameterMap, TEXT("ColorMatrixG_ColorCurveCd3Cm3"));
@@ -126,6 +128,16 @@ public:
 		}
 
 		{
+			FIntPoint CenterPixelCoord = Context.SceneColorViewRect.Min + Context.SceneColorViewRect.Size() / 2;
+
+			FVector2D Value;
+			Value.X = (CenterPixelCoord.X + 0.5f) / float(Context.ReferenceBufferSize.X);
+			Value.Y = (CenterPixelCoord.Y + 0.5f) / float(Context.ReferenceBufferSize.Y);
+
+			SetShaderValue(RHICmdList, ShaderRHI, ViewportCenterUV, Value);
+		}
+
+		{
 			FIntPoint GatherExtent = FRCPassPostProcessHistogram::ComputeGatherExtent(Context);
 
 			uint32 TexelPerThreadGroupX = FRCPassPostProcessHistogram::ThreadGroupSizeX * FRCPassPostProcessHistogram::LoopCountX;
@@ -144,7 +156,11 @@ public:
 
 		{
 			FVector4 Constants[8];
-			FilmPostSetConstants(Constants, ~0, &Context.View.FinalPostProcessSettings, false);
+			FilmPostSetConstants(Constants, &Context.View.FinalPostProcessSettings,
+				/* bMobile = */ false,
+				/* UseColorMatrix = */ true,
+				/* UseShadowTint = */ true,
+				/* UseContrast = */ true);
 			SetShaderValue(RHICmdList, ShaderRHI, ColorMatrixR_ColorCurveCd1, Constants[0]);
 			SetShaderValue(RHICmdList, ShaderRHI, ColorMatrixG_ColorCurveCd3Cm3, Constants[1]);
 			SetShaderValue(RHICmdList, ShaderRHI, ColorMatrixB_ColorCurveCm2, Constants[2]);
@@ -160,7 +176,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << EyeAdaptationParams << MiniFontTexture << InverseGamma << HistogramParams
+		Ar << PostprocessParameter << EyeAdaptationParams << MiniFontTexture << InverseGamma << HistogramParams << ViewportCenterUV
 			<< ColorMatrixR_ColorCurveCd1 << ColorMatrixG_ColorCurveCd3Cm3 << ColorMatrixB_ColorCurveCm2 << ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3 
 			<< ColorCurve_Ch1_Ch2 << ColorShadow_Luma << ColorShadow_Tint1 << ColorShadow_Tint2 << EyeAdaptationTexture;
 		return bShaderHasOutdatedParameters;
@@ -195,12 +211,12 @@ void FRCPassPostProcessVisualizeHDR::Process(FRenderingCompositePassContext& Con
 	const FViewInfo& View = Context.View;
 	const FViewInfo& ViewInfo = Context.View;
 	const FSceneViewFamily& ViewFamily = *(View.Family);
-	
-	FIntRect SrcRect = Context.SceneColorViewRect;
-	FIntRect DestRect = Context.SceneColorViewRect;
-	FIntPoint SrcSize = InputDesc->Extent;
 
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
+
+	FIntRect SrcRect = Context.SceneColorViewRect;
+	FIntRect DestRect = Context.GetSceneColorDestRect(DestRenderTarget);
+	FIntPoint SrcSize = InputDesc->Extent;
 
 	// Set the view family's render target/viewport.
 	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
@@ -227,7 +243,7 @@ void FRCPassPostProcessVisualizeHDR::Process(FRenderingCompositePassContext& Con
 	// Draw a quad mapping scene color to the view's render target
 	DrawRectangle(
 		Context.RHICmdList,
-		DestRect.Min.X, DestRect.Min.Y,
+		0, 0,
 		DestRect.Width(), DestRect.Height(),
 		SrcRect.Min.X, SrcRect.Min.Y,
 		SrcRect.Width(), SrcRect.Height(),
@@ -239,8 +255,8 @@ void FRCPassPostProcessVisualizeHDR::Process(FRenderingCompositePassContext& Con
 	FRenderTargetTemp TempRenderTarget(View, (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture);
 	FCanvas Canvas(&TempRenderTarget, NULL, ViewFamily.CurrentRealTime, ViewFamily.CurrentWorldTime, ViewFamily.DeltaWorldTime, Context.GetFeatureLevel());
 
-	float X = 30;
-	float Y = 28;
+	float X = DestRect.Min.X + 30;
+	float Y = DestRect.Min.Y + 28;
 	const float YStep = 14;
 	const float ColumnWidth = 250;
 
@@ -252,9 +268,9 @@ void FRCPassPostProcessVisualizeHDR::Process(FRenderingCompositePassContext& Con
 	
 	Y += 160;
 
-	float MinX = 64 + 10;
-	float MaxY = SrcRect.Max.Y - 64;
-	float SizeX = SrcRect.Size().X - 64 * 2 - 20;
+	float MinX = DestRect.Min.X + 64 + 10;
+	float MaxY = DestRect.Max.Y - 64;
+	float SizeX = DestRect.Size().X - 64 * 2 - 20;
 
 	for(uint32 i = 0; i <= 4; ++i)
 	{
@@ -316,7 +332,7 @@ void FRCPassPostProcessVisualizeHDR::Process(FRenderingCompositePassContext& Con
 
 	Canvas.Flush_RenderThread(Context.RHICmdList);
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessVisualizeHDR::ComputeOutputDesc(EPassOutputId InPassOutputId) const

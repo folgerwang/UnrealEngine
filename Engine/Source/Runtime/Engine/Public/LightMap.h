@@ -116,9 +116,6 @@ protected:
 
 private:
 	int32 NumRefs;
-	
-	// FDeferredCleanupInterface
-	virtual void FinishCleanup();
 };
 
 

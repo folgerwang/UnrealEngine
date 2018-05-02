@@ -1048,10 +1048,7 @@ void CompileD3D11Shader(const FShaderCompilerInput& Input,FShaderCompilerOutput&
 		}
 	}
 
-	if (!RemoveUniformBuffersFromSource(PreprocessedShaderSource))
-	{
-		return;
-	}
+	RemoveUniformBuffersFromSource(Input.Environment, PreprocessedShaderSource);
 
 	// Override default compiler path to newer dll
 	CompilerPath = FPaths::EngineDir();

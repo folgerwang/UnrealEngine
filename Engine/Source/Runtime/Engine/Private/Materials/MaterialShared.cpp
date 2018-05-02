@@ -498,6 +498,19 @@ const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >& FMaterial::GetUn
 	return EmptyExpressions;
 }
 
+const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >& FMaterial::GetUniformVolumeTextureExpressions() const 
+{ 
+	const FMaterialShaderMap* ShaderMapToUse = GetShaderMapToUse();
+
+	if (ShaderMapToUse)
+	{
+		return ShaderMapToUse->GetUniformExpressionSet().UniformVolumeTextureExpressions; 
+	}
+
+	static const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> > EmptyExpressions;
+	return EmptyExpressions;
+}
+
 const TArray<TRefCountPtr<FMaterialUniformExpression> >& FMaterial::GetUniformVectorParameterExpressions() const 
 { 
 	const FMaterialShaderMap* ShaderMapToUse = GetShaderMapToUse();
@@ -841,6 +854,7 @@ bool FMaterialResource::ShouldGenerateSphericalParticleNormals() const { return 
 bool FMaterialResource::ShouldDisableDepthTest() const { return Material->bDisableDepthTest; }
 bool FMaterialResource::ShouldEnableResponsiveAA() const { return Material->bEnableResponsiveAA; }
 bool FMaterialResource::ShouldDoSSR() const { return Material->bScreenSpaceReflections; }
+bool FMaterialResource::ShouldDoContactShadows() const { return Material->bContactShadows; }
 bool FMaterialResource::IsWireframe() const { return Material->Wireframe; }
 bool FMaterialResource::IsUIMaterial() const { return Material->MaterialDomain == MD_UI; }
 bool FMaterialResource::IsLightFunction() const { return Material->MaterialDomain == MD_LightFunction; }
@@ -1521,7 +1535,8 @@ void FMaterial::SetupMaterialEnvironment(
 	OutEnvironment.SetDefine(TEXT("MATERIAL_NONMETAL"), IsNonmetal());
 	OutEnvironment.SetDefine(TEXT("MATERIAL_USE_LM_DIRECTIONALITY"), UseLmDirectionality());
 	OutEnvironment.SetDefine(TEXT("MATERIAL_INJECT_EMISSIVE_INTO_LPV"), ShouldInjectEmissiveIntoLPV());
-	OutEnvironment.SetDefine(TEXT("MATERIAL_SSR"), ShouldDoSSR());
+	OutEnvironment.SetDefine(TEXT("MATERIAL_SSR"), ShouldDoSSR() && IsTranslucentBlendMode(GetBlendMode()));
+	OutEnvironment.SetDefine(TEXT("MATERIAL_CONTACT_SHADOWS"), ShouldDoContactShadows() && IsTranslucentBlendMode(GetBlendMode()));
 	OutEnvironment.SetDefine(TEXT("MATERIAL_BLOCK_GI"), ShouldBlockGI());
 	OutEnvironment.SetDefine(TEXT("MATERIAL_DITHER_OPACITY_MASK"), IsDitherMasked());
 	OutEnvironment.SetDefine(TEXT("MATERIAL_NORMAL_CURVATURE_TO_ROUGHNESS"), UseNormalCurvatureToRoughness() ? TEXT("1") : TEXT("0"));
@@ -1891,9 +1906,9 @@ bool FMaterial::ShouldCache(EShaderPlatform Platform, const FShaderType* ShaderT
 // FColoredMaterialRenderProxy implementation.
 //
 
-const FMaterial* FColoredMaterialRenderProxy::GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const
+void FColoredMaterialRenderProxy::GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const
 {
-	return Parent->GetMaterial(InFeatureLevel);
+	Parent->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
 }
 
 /**
@@ -2028,8 +2043,6 @@ FMaterialRenderContext::FMaterialRenderContext(
 	const FSceneView* InView)
 		: MaterialRenderProxy(InMaterialRenderProxy)
 		, Material(InMaterial)
-		, Time(0.0f)
-		, RealTime(0.0f)
 {
 	bShowSelection = GIsEditor && InView && InView->Family->EngineShowFlags.Selection;
 }
@@ -2247,9 +2260,9 @@ bool FLightingDensityMaterialRenderProxy::GetVectorValue(const FMaterialParamete
 	FOverrideSelectionColorMaterialRenderProxy
 -----------------------------------------------------------------------------*/
 
-const FMaterial* FOverrideSelectionColorMaterialRenderProxy::GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const
+void FOverrideSelectionColorMaterialRenderProxy::GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const
 {
-	return Parent->GetMaterial(InFeatureLevel);
+	Parent->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
 }
 
 bool FOverrideSelectionColorMaterialRenderProxy::GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const

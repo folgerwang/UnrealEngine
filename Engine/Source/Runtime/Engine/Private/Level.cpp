@@ -248,6 +248,7 @@ ULevel::ULevel( const FObjectInitializer& ObjectInitializer )
 	FixupOverrideVertexColorsCount = 0;
 #endif	
 	bActorClusterCreated = false;
+	bStaticComponentsRegisteredInStreamingManager = false;
 }
 
 void ULevel::Initialize(const FURL& InURL)
@@ -1835,6 +1836,9 @@ UMapBuildDataRegistry* ULevel::GetOrCreateMapBuildData()
 	{
 		if (MapBuildData)
 		{
+			// Release rendering data depending on MapBuildData, before we destroy MapBuildData
+			MapBuildData->InvalidateStaticLighting(GetWorld(), nullptr);
+
 			// Allow the legacy registry to be GC'ed
 			MapBuildData->ClearFlags(RF_Standalone);
 		}

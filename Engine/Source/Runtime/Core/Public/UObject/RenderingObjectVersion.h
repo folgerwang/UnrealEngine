@@ -72,6 +72,9 @@ struct CORE_API FRenderingObjectVersion
 		// Added per FShaderType permutation id.
 		ShaderPermutationId,
 
+		// Changed normal precision in imported data
+		IncreaseNormalPrecision,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

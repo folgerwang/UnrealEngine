@@ -71,6 +71,13 @@ MTLPP_CLASS(MTLVertexAttribute);
 MTLPP_CLASS(MTLVertexAttributeDescriptor);
 MTLPP_CLASS(MTLVertexBufferLayoutDescriptor);
 MTLPP_CLASS(MTLVertexDescriptor);
+MTLPP_CLASS(MTLBufferLayoutDescriptorArray);
+MTLPP_CLASS(MTLAttributeDescriptorArray);
+MTLPP_CLASS(MTLRenderPassColorAttachmentDescriptorArray);
+MTLPP_CLASS(MTLRenderPipelineColorAttachmentDescriptorArray);
+MTLPP_CLASS(MTLPipelineBufferDescriptorArray);
+MTLPP_CLASS(MTLVertexBufferLayoutDescriptorArray);
+MTLPP_CLASS(MTLVertexAttributeDescriptorArray);
 
 #if __OBJC__
 @class NSArray<__covariant ObjectType>;
@@ -81,11 +88,14 @@ template<typename K, typename V> class NSDictionary;
 #endif
 
 MTLPP_CLASS(NSBundle);
+MTLPP_CLASS(NSCondition);
 MTLPP_CLASS(NSError);
 MTLPP_CLASS(NSObject);
 MTLPP_CLASS(NSString);
 MTLPP_CLASS(NSTask);
 MTLPP_CLASS(NSURL);
+
+MTLPP_CLASS(MTLPPResourceUsageValidator);
 
 MTLPP_PROTOCOL(OS_dispatch_data);
 typedef NSObject<OS_dispatch_data>* dispatch_data_t;
@@ -129,6 +139,7 @@ MTLPP_OPTIONS(MTLResourceUsage, NSUInteger);
 MTLPP_OPTIONS(MTLStoreActionOptions, NSUInteger);
 MTLPP_OPTIONS(MTLTextureUsage, NSUInteger);
 MTLPP_OPTIONS(MTLPipelineOption, NSUInteger);
+MTLPP_OPTIONS(MTLColorWriteMask, NSUInteger);
 
 enum MTLAttributeFormat : NSUInteger;
 enum MTLCPUCacheMode : NSUInteger;
@@ -152,6 +163,22 @@ enum MTLPatchType : NSUInteger;
 enum MTLFunctionType : NSUInteger;
 enum MTLReadWriteTextureTier : NSUInteger;
 enum MTLArgumentBuffersTier : NSUInteger;
+enum MTLSamplerMinMagFilter : NSUInteger;
+enum MTLSamplerMipFilter : NSUInteger;
+enum MTLSamplerAddressMode : NSUInteger;
+enum MTLSamplerBorderColor : NSUInteger;
+enum MTLCompareFunction : NSUInteger;
+enum MTLStencilOperation : NSUInteger;
+enum MTLBlendFactor : NSUInteger;
+enum MTLBlendOperation : NSUInteger;
+enum MTLPrimitiveTopologyClass : NSUInteger;
+enum MTLTessellationPartitionMode : NSUInteger;
+enum MTLTessellationFactorFormat : NSUInteger;
+enum MTLTessellationControlPointIndexType : NSUInteger;
+enum MTLTessellationFactorStepFunction : NSUInteger;
+enum MTLVertexStepFunction : NSUInteger;
+enum MTLVertexFormat : NSUInteger;
+enum MTLMultisampleDepthResolveFilter : NSUInteger;
 
 struct MTLPPOrigin
 {
@@ -190,6 +217,14 @@ struct MTLPPSizeAndAlign
 	NSUInteger align;
 };
 
+struct MTLPPClearColor
+{
+	double red;
+	double green;
+	double blue;
+	double alpha;
+};
+
 struct _NSRange;
 typedef struct _NSRange NSRange;
 
@@ -211,12 +246,15 @@ typedef struct CGColorSpace * CGColorSpaceRef;
 
 typedef MTLArgument * MTLAutoreleasedArgument;
 
+enum objc_AssociationPolicy : uintptr_t;
+
 MTLPP_EXTERN const void* CFRetain(const void* cf);
 MTLPP_EXTERN void CFRelease(const void* cf);
 MTLPP_EXTERN Protocol* objc_getProtocol(const char* name);
 MTLPP_EXTERN Class objc_lookUpClass(const char* name);
 MTLPP_EXTERN Class object_getClass(id obj);
 MTLPP_EXTERN Class objc_getRequiredClass(const char * name);
+MTLPP_EXTERN Class class_getSuperclass(Class cls);
 MTLPP_EXTERN Method class_getInstanceMethod(Class cls, SEL name);
 MTLPP_EXTERN BOOL class_conformsToProtocol(Class cls, Protocol * protocol);
 MTLPP_EXTERN IMP class_getMethodImplementation(Class cls, SEL name);
@@ -224,6 +262,13 @@ MTLPP_EXTERN BOOL class_addMethod(Class cls, SEL name, IMP imp, const char * typ
 MTLPP_EXTERN IMP class_replaceMethod(Class cls, SEL name, IMP imp, const char * types);
 MTLPP_EXTERN BOOL class_respondsToSelector(Class cls, SEL sel);
 MTLPP_EXTERN const char * method_getTypeEncoding(Method m);
+MTLPP_EXTERN id objc_getAssociatedObject(id object, const void * key);
+MTLPP_EXTERN void objc_setAssociatedObject(id object, const void * key, id value, objc_AssociationPolicy policy);
+
+namespace mtlpp
+{
+	enum ResourceUsage : NSUInteger;
+}
 
 MTLPP_END
 

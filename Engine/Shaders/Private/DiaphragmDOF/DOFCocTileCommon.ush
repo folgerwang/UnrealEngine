@@ -1,0 +1,189 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DiaphragmDOF/DOFCocTileCommon.ush: Common code to read and write coc tile buffer.
+=============================================================================*/
+
+#pragma once
+
+//------------------------------------------------------- COMPILE TIME CONSTANTS.
+
+// Maximum number of buffer for Coc tile.
+#define COC_TILE_MAX_BUFFER_COUNT 2
+
+// Maximum number of Coc ranges per foreground/backrgound.
+#define MAX_COC_TILE_RANGES 2
+
+
+//------------------------------------------------------- ENUM VALUES
+
+/** Different layout of CocTile buffers. */
+
+// 1 foreground encoded in RG channels, and 1 background encoded in BA channels.
+#define COC_TILE_LAYOUT_FGD_BGD 0
+
+// 1 foreground encoded in RG channels. Use same as COC_TILE_LAYOUT_FGD_BGD because this would
+// be used fprergound only pass, which means all background code would be compiled out.
+#define COC_TILE_LAYOUT_FGD (COC_TILE_LAYOUT_FGD_BGD)
+
+// 1 background encoded in RG channels.
+#define COC_TILE_LAYOUT_BGD 1
+
+// 2 background encoded in RG & BA channels.
+#define COC_TILE_LAYOUT_2BGD 2
+
+// TODO: COC_TILE_LAYOUT_FGD_2BGD
+
+#define COC_TILE_LAYOUT_MAX 3
+
+
+/** Returns the number of buffers for a Coc tile layout. */
+uint GetBufferCountForCocTileLayour(uint Layout)
+{
+	return 1;
+}
+
+
+//------------------------------------------------------- STRUCTS
+
+/** Coc range. */
+struct FCocRange
+{
+	// The minimum Coc range.
+	float MinCoc;
+
+	// The maximum Coc range.
+	float MaxCoc;
+};
+
+/** Tile buffer. */
+struct FCocTileSample
+{
+	// Foreground Coc ranges.
+	FCocRange Foreground[MAX_COC_TILE_RANGES];
+
+	// Background Coc ranges.
+	FCocRange Background[MAX_COC_TILE_RANGES];
+};
+
+
+//------------------------------------------------------- Encoding/decoding.
+
+void InitCocTileSample(out FCocTileSample Sample)
+{
+	for (uint i = 0; i < MAX_COC_TILE_RANGES; i++)
+	{
+		Sample.Foreground[i].MinCoc = 0;
+		Sample.Foreground[i].MaxCoc = 0;
+		Sample.Background[i].MinCoc = 0;
+		Sample.Background[i].MaxCoc = 0;
+	}
+}
+
+/** Encode coc tile sample.
+ * @param <OutputLayout>: the layout of the coc buffer to output.
+ */
+void EncodeCocTileSample(in FCocTileSample Sample, in uint Layout, out float4 Raw[COC_TILE_MAX_BUFFER_COUNT])
+{
+	for (uint i = 0; i < COC_TILE_MAX_BUFFER_COUNT; i++)
+	{
+		Raw[i] = 0;
+	}
+	
+	if (static_condition(Layout == COC_TILE_LAYOUT_FGD_BGD))
+	{
+		Raw[0].rg = float2(Sample.Foreground[0].MinCoc, Sample.Foreground[0].MaxCoc);
+		Raw[0].ba = float2(Sample.Background[0].MinCoc, Sample.Background[0].MaxCoc);
+	}
+	else if (static_condition(Layout == COC_TILE_LAYOUT_BGD))
+	{
+		Raw[0].rg = float2(Sample.Background[0].MinCoc, Sample.Background[0].MaxCoc);
+	}
+	else if (static_condition(Layout == COC_TILE_LAYOUT_2BGD))
+	{
+		Raw[0].rg = float2(Sample.Background[0].MinCoc, Sample.Background[0].MaxCoc);
+		Raw[0].ba = float2(Sample.Background[1].MinCoc, Sample.Background[1].MaxCoc);
+	}
+}
+
+/** Gets the output. */
+float4 GetEncodedCocTileSample(in FCocTileSample Sample, in uint Layout, uint BufferId)
+{
+	float4 Raw[COC_TILE_MAX_BUFFER_COUNT];
+	EncodeCocTileSample(Sample, Layout, Raw);
+	return Raw[BufferId];
+}
+
+/** Decode coc tile sample.
+ * @param <InputLayout>: the layout of the coc buffer.
+ */
+void DecodeCocTileSample(in float4 Raw[COC_TILE_MAX_BUFFER_COUNT], in uint Layout, out FCocTileSample Sample)
+{
+	InitCocTileSample(Sample);
+
+	if (static_condition(Layout == COC_TILE_LAYOUT_FGD_BGD))
+	{
+		Sample.Foreground[0].MinCoc = Raw[0].r;
+		Sample.Foreground[0].MaxCoc = Raw[0].g;
+		Sample.Background[0].MinCoc = Raw[0].b;
+		Sample.Background[0].MaxCoc = Raw[0].a;
+	}
+	else if (static_condition(Layout == COC_TILE_LAYOUT_BGD))
+	{
+		Sample.Background[0].MinCoc = Raw[0].r;
+		Sample.Background[0].MaxCoc = Raw[0].g;
+	}
+	else if (static_condition(Layout == COC_TILE_LAYOUT_2BGD))
+	{
+		Sample.Background[0].MinCoc = Raw[0].r;
+		Sample.Background[0].MaxCoc = Raw[0].g;
+		Sample.Background[1].MinCoc = Raw[0].b;
+		Sample.Background[1].MaxCoc = Raw[0].a;
+	}
+}
+
+
+//------------------------------------------------------- Higher level API.
+
+/** Abstract texture that encapsulate the actual buffers. */
+struct FCocTileTexture2D
+{
+	// Compile time known layout of the Coc tile buffers.
+	uint Layout;
+
+	// Actualy texture 2D.
+	Texture2D Buffers[COC_TILE_MAX_BUFFER_COUNT];
+};
+
+FCocTileTexture2D CreateCocTileTexture2D(const uint Layout, Texture2D Buffer0, Texture2D Buffer1)
+{
+	// Actualy number of buffers to sample from.
+	const uint NumberOfBuffers = GetBufferCountForCocTileLayour(Layout);
+
+	FCocTileTexture2D Tex;
+	Tex.Layout = Layout;
+	Tex.Buffers[0] = Buffer0;
+	Tex.Buffers[1] = Buffer1;
+
+	// Trick to make the compiler understand that Buffer1 is not used.
+	if (static_condition(NumberOfBuffers == 1))
+	{
+		Tex.Buffers[1] = Buffer0;
+	}
+	return Tex;
+}
+
+/** Sample and decode tile buffer. */
+FCocTileSample LoadCocTile(in const FCocTileTexture2D Tex, int2 TilePos)
+{
+	float4 PackedSample[COC_TILE_MAX_BUFFER_COUNT];
+	for (uint i = 0; i < COC_TILE_MAX_BUFFER_COUNT; i++)
+	{
+		PackedSample[i] = 0;
+		PackedSample[i] = Tex.Buffers[i][TilePos];
+	}
+
+	FCocTileSample UnpackedSample;
+	DecodeCocTileSample(PackedSample, Tex.Layout, UnpackedSample);
+	return UnpackedSample;
+}

@@ -373,7 +373,7 @@ bool FAvfMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Options*/)
 	else
 	{
 		// Assume that this has been percent encoded for now - when we support HTTP Live Streaming we will need to check for that.
-		nsMediaUrl = [NSURL URLWithString: Path.GetNSString()];
+		nsMediaUrl = [NSURL URLWithString: Url.GetNSString()];
 	}
 
 	// open media file

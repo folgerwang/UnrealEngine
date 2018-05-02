@@ -634,21 +634,6 @@ void USkinnedMeshComponent::ClearMotionVector()
 }
 
 #if WITH_EDITOR
-void USkinnedMeshComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
-{
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-
-	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
-
-	if ( PropertyChangedEvent.Property != NULL )
-	{
-		if ( GIsEditor && PropertyThatChanged->GetFName() == GET_MEMBER_NAME_CHECKED(USkinnedMeshComponent, StreamingDistanceMultiplier) )
-		{
-			// Recalculate in a few seconds.
-			GEngine->TriggerStreamingDataRebuild();
-		}
-	}
-} 
 
 bool USkinnedMeshComponent::CanEditChange(const UProperty* InProperty) const
 {
@@ -1257,9 +1242,8 @@ void USkinnedMeshComponent::SetSkeletalMesh(USkeletalMesh* InSkelMesh, bool bRei
 		UpdateLODStatus(); 
 	}
 	
-	// Notify the streaming system. Don't use Update(), because this may be the first time the mesh has been set
-	// and the component may have to be added to the streaming system for the first time.
-	IStreamingManager::Get().NotifyPrimitiveAttached( this, DPT_Spawned );
+	// Update this component streaming data.
+	IStreamingManager::Get().NotifyPrimitiveUpdated(this);
 }
 
 FSkeletalMeshRenderData* USkinnedMeshComponent::GetSkeletalMeshRenderData() const

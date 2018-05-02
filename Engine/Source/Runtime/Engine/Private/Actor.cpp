@@ -3063,9 +3063,6 @@ void AActor::PostActorConstruction()
 		{
 			UpdateOverlaps();
 		}
-
-		// Notify the texture streaming manager about the new actor.
-		IStreamingManager::Get().NotifyActorSpawned(this);
 	}
 }
 

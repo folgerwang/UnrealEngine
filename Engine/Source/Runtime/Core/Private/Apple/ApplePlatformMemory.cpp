@@ -17,7 +17,6 @@
 #include "HAL/MallocAnsi.h"
 #include "HAL/MallocBinned.h"
 #include "HAL/MallocBinned2.h"
-#include "HAL/MallocStomp.h"
 #include "CoreGlobals.h"
 
 #include <stdlib.h>
@@ -26,6 +25,8 @@
 #include <sys/mount.h>
 #include <objc/runtime.h>
 #include <CoreFoundation/CFBase.h>
+#include "HAL/LowLevelMemTracker.h"
+#include "Apple/AppleLLM.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -182,6 +183,14 @@ void FApplePlatformMemory::ConfigureDefaultCFAllocator(void)
 	CFAllocatorSetDefault(Alloc);
 }
 
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+static uint64 GetProgramSize()
+{
+	uint64 ProgramSize = FApplePlatformMemory::GetStats().UsedPhysical;
+	return ProgramSize;
+}
+#endif
+
 void FApplePlatformMemory::Init()
 {
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
@@ -190,11 +199,9 @@ void FApplePlatformMemory::Init()
 #endif
     
 	FGenericPlatformMemory::Init();
-    
-#if ENABLE_LOW_LEVEL_MEM_TRACKER
-    FLowLevelMemTracker::Get().SetProgramSize(ProgramSize);
-#endif
-    
+	
+	LLM(FLowLevelMemTracker::Get().SetProgramSize(GetProgramSize()));
+	
 	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
 	UE_LOG(LogInit, Log, TEXT("Memory total: Physical=%.1fGB (%dGB approx) Pagefile=%.1fGB Virtual=%.1fGB"),
 		   float(MemoryConstants.TotalPhysical/1024.0/1024.0/1024.0),
@@ -208,13 +215,12 @@ void FApplePlatformMemory::Init()
 
 FMalloc* FApplePlatformMemory::BaseAllocator()
 {
+	LLM(GetProgramSize());
+	LLM(AppleLLM::Initialise());
+	
 	if (FORCE_ANSI_ALLOCATOR)
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::Ansi;
-	}
-	else if (USE_MALLOC_STOMP)
-	{
-		AllocatorToUse = EMemoryAllocatorToUse::Stomp;
 	}
 	else if (USE_MALLOC_BINNED2)
 	{
@@ -235,10 +241,7 @@ FMalloc* FApplePlatformMemory::BaseAllocator()
 	{
 		case EMemoryAllocatorToUse::Ansi:
 			return new FMallocAnsi();
-#if USE_MALLOC_STOMP
-		case EMemoryAllocatorToUse::Stomp:
-			return new FMallocStomp();
-#endif
+
 		case EMemoryAllocatorToUse::Binned2:
 			return new FMallocBinned2();
 			

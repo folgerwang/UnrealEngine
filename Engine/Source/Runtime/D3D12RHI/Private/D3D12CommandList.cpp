@@ -48,7 +48,7 @@ FD3D12CommandListHandle::FD3D12CommandListData::FD3D12CommandListData(FD3D12Devi
 	, FD3D12DeviceChild(ParentDevice)
 	, FD3D12SingleNodeGPUObject(ParentDevice->GetNodeMask())
 {
-	VERIFYD3D12RESULT(ParentDevice->GetDevice()->CreateCommandList(GetNodeMask(), CommandListType, CommandAllocator, nullptr, IID_PPV_ARGS(CommandList.GetInitReference())));
+	VERIFYD3D12RESULT(ParentDevice->GetDevice()->CreateCommandList((uint32)GetNodeMask(), CommandListType, CommandAllocator, nullptr, IID_PPV_ARGS(CommandList.GetInitReference())));
 	INC_DWORD_STAT(STAT_D3D12NumCommandLists);
 
 	// Initially start with all lists closed.  We'll open them as we allocate them.

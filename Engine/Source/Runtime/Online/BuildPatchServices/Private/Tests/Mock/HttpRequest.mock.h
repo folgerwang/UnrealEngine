@@ -111,6 +111,11 @@ namespace BuildPatchServices
 			return HttpRequestProgressDelegate;
 		}
 
+		virtual FHttpRequestHeaderReceivedDelegate& OnHeaderReceived() override
+		{
+			return HttpHeaderReceivedDelegate;
+		}
+
 		virtual void CancelRequest() override
 		{
 			++RxCancelRequest;
@@ -142,6 +147,8 @@ namespace BuildPatchServices
 	public:
 		FHttpRequestProgressDelegate HttpRequestProgressDelegate;
 		FHttpRequestCompleteDelegate HttpRequestCompleteDelegate;
+		FHttpRequestHeaderReceivedDelegate HttpHeaderReceivedDelegate;
+
 		TArray<FRxSetVerb> RxSetVerb;
 		TArray<FRxSetURL> RxSetURL;
 		int32 RxProcessRequest;

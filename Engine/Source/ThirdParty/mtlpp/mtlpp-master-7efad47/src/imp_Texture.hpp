@@ -8,6 +8,70 @@
 MTLPP_BEGIN
 
 template<>
+struct IMPTable<MTLTextureDescriptor*, void> : public IMPTableBase<MTLTextureDescriptor*>
+{
+	IMPTable()
+	{
+	}
+	
+	IMPTable(Class C)
+	: IMPTableBase<MTLTextureDescriptor*>(C)
+	, INTERPOSE_CONSTRUCTOR(Texturetype, C)
+	, INTERPOSE_CONSTRUCTOR(Pixelformat, C)
+	, INTERPOSE_CONSTRUCTOR(Width, C)
+	, INTERPOSE_CONSTRUCTOR(Height, C)
+	, INTERPOSE_CONSTRUCTOR(Depth, C)
+	, INTERPOSE_CONSTRUCTOR(Mipmaplevelcount, C)
+	, INTERPOSE_CONSTRUCTOR(Samplecount, C)
+	, INTERPOSE_CONSTRUCTOR(Arraylength, C)
+	, INTERPOSE_CONSTRUCTOR(ResourceOptions, C)
+	, INTERPOSE_CONSTRUCTOR(CpuCacheMode, C)
+	, INTERPOSE_CONSTRUCTOR(StorageMode, C)
+	, INTERPOSE_CONSTRUCTOR(Usage, C)
+	, INTERPOSE_CONSTRUCTOR(setTexturetype, C)
+	, INTERPOSE_CONSTRUCTOR(setPixelformat, C)
+	, INTERPOSE_CONSTRUCTOR(setWidth, C)
+	, INTERPOSE_CONSTRUCTOR(setHeight, C)
+	, INTERPOSE_CONSTRUCTOR(setDepth, C)
+	, INTERPOSE_CONSTRUCTOR(setMipmaplevelcount, C)
+	, INTERPOSE_CONSTRUCTOR(setSamplecount, C)
+	, INTERPOSE_CONSTRUCTOR(setArraylength, C)
+	, INTERPOSE_CONSTRUCTOR(setResourceOptions, C)
+	, INTERPOSE_CONSTRUCTOR(setCpuCacheMode, C)
+	, INTERPOSE_CONSTRUCTOR(setStorageMode, C)
+	, INTERPOSE_CONSTRUCTOR(setUsage, C)
+
+	{
+	}
+	
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, textureType, Texturetype, MTLTextureType);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, pixelFormat, Pixelformat, MTLPixelFormat);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, width, Width, NSUInteger);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, height, Height, NSUInteger);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, depth, Depth, NSUInteger);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, mipmapLevelCount, Mipmaplevelcount, NSUInteger);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, sampleCount, Samplecount, NSUInteger);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, arrayLength, Arraylength, NSUInteger);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, resourceOptions, ResourceOptions, MTLResourceOptions);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, cpuCacheMode, CpuCacheMode, MTLCPUCacheMode);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, storageMode, StorageMode, MTLStorageMode);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, usage, Usage, MTLTextureUsage);
+	
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, setTextureType:, setTexturetype, void, MTLTextureType);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, setPixelFormat:, setPixelformat, void, MTLPixelFormat);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, setWidth:, setWidth, void, NSUInteger);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, setHeight:, setHeight, void, NSUInteger);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, setDepth:, setDepth, void, NSUInteger);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, setMipmapLevelCount:, setMipmaplevelcount, void, NSUInteger);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, setSampleCount:, setSamplecount, void, NSUInteger);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, setArrayLength:, setArraylength, void, NSUInteger);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, setResourceOptions:, setResourceOptions, void, MTLResourceOptions);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, setCpuCacheMode:, setCpuCacheMode, void, MTLCPUCacheMode);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, setStorageMode:, setStorageMode, void, MTLStorageMode);
+	INTERPOSE_SELECTOR(MTLTextureDescriptor*, setUsage:, setUsage, void, MTLTextureUsage);
+};
+
+template<>
 struct IMPTable<id<MTLTexture>, void> : public IMPTableResource<id<MTLTexture>>
 {
 	IMPTable()

@@ -10,7 +10,7 @@
 #include "CoreGlobals.h"
 #include <sys/resource.h>
 
-int FUnixTime::ClockSource = FUnixTime::CalibrateAndSelectClock();
+int FUnixTime::ClockSource = -1;
 char FUnixTime::CalibrationLog[4096] = {0};
 
 namespace
@@ -24,6 +24,16 @@ namespace
 	{
 		return static_cast<uint64>(ts.tv_sec) * 1000000000ULL + static_cast<uint64>(ts.tv_nsec);
 	}
+}
+
+double FUnixTime::InitTiming()
+{
+	if (ClockSource == -1)
+	{
+		ClockSource = FUnixTime::CalibrateAndSelectClock();
+	}
+
+	return FGenericPlatformTime::InitTiming();
 }
 
 FCPUTime FUnixTime::GetCPUTime()

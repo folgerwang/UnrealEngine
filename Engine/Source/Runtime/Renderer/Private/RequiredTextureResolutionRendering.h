@@ -35,6 +35,7 @@ public:
 		AccuracyColorsParameter.Bind(Initializer.ParameterMap,TEXT("AccuracyColors"));
 		AnalysisParamsParameter.Bind(Initializer.ParameterMap,TEXT("AnalysisParams"));
 		PrimitiveAlphaParameter.Bind(Initializer.ParameterMap, TEXT("PrimitiveAlpha"));
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
 	FRequiredTextureResolutionPS() {}
@@ -62,7 +63,8 @@ public:
 		const FShader* OriginalPS, 
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FMaterial& Material,
-		const FSceneView& View
+		const FSceneView& View,
+		const FDrawingPolicyRenderState& DrawRenderState
 		) override;
 
 	virtual void SetMesh(

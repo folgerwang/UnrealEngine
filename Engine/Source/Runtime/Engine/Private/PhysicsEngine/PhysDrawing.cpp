@@ -235,9 +235,9 @@ void FKSphylElem::GetElemSolid(const FTransform& ElemTM, const FVector& Scale3D,
 			Verts[VIx].Position = ArcRot.TransformPosition(ArcVerts[VertIdx].Position);
 
 			Verts[VIx].SetTangents(
-				ArcRot.TransformVector(ArcVerts[VertIdx].TangentX),
+				ArcRot.TransformVector(ArcVerts[VertIdx].TangentX.ToFVector()),
 				ArcRot.TransformVector(ArcVerts[VertIdx].GetTangentY()),
-				ArcRot.TransformVector(ArcVerts[VertIdx].TangentZ)
+				ArcRot.TransformVector(ArcVerts[VertIdx].TangentZ.ToFVector())
 				);
 
 			Verts[VIx].TextureCoordinate[0].X = XTexCoord;
@@ -338,9 +338,9 @@ void FKSphylElem::DrawElemSolid(FPrimitiveDrawInterface* PDI, const FTransform& 
 			Verts[VIx].Position = ArcRot.TransformPosition(ArcVerts[VertIdx].Position);
 
 			Verts[VIx].SetTangents(
-				ArcRot.TransformVector(ArcVerts[VertIdx].TangentX),
+				ArcRot.TransformVector(ArcVerts[VertIdx].TangentX.ToFVector()),
 				ArcRot.TransformVector(ArcVerts[VertIdx].GetTangentY()),
-				ArcRot.TransformVector(ArcVerts[VertIdx].TangentZ)
+				ArcRot.TransformVector(ArcVerts[VertIdx].TangentZ.ToFVector())
 				);
 
 			Verts[VIx].TextureCoordinate[0].X = XTexCoord;
@@ -573,9 +573,9 @@ struct FScopedTaperedCapsuleBuilder
 				Verts[VIx].Position = ArcRot.TransformPosition(ArcVerts[VertIdx].Position);
 
 				Verts[VIx].SetTangents(
-					ArcRot.TransformVector(ArcVerts[VertIdx].TangentX),
+					ArcRot.TransformVector(ArcVerts[VertIdx].TangentX.ToFVector()),
 					ArcRot.TransformVector(ArcVerts[VertIdx].GetTangentY()),
-					ArcRot.TransformVector(ArcVerts[VertIdx].TangentZ)
+					ArcRot.TransformVector(ArcVerts[VertIdx].TangentZ.ToFVector())
 					);
 
 				Verts[VIx].TextureCoordinate[0].X = XTexCoord;

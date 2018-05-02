@@ -15,6 +15,29 @@
 
 MTLPP_BEGIN
 
+namespace ue4
+{
+	template<>
+	struct ITable<id<MTLSamplerState>, void> : public IMPTable<id<MTLSamplerState>, void>, public ITableCacheRef
+	{
+		ITable()
+		{
+		}
+		
+		ITable(Class C)
+		: IMPTable<id<MTLSamplerState>, void>(C)
+		{
+		}
+	};
+	
+	template<>
+	inline ITable<MTLSamplerDescriptor*, void>* CreateIMPTable(MTLSamplerDescriptor* handle)
+	{
+		static ITable<MTLSamplerDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+}
+
 namespace mtlpp
 {
     enum class SamplerMinMagFilter
@@ -54,7 +77,7 @@ namespace mtlpp
     {
     public:
         SamplerDescriptor();
-        SamplerDescriptor(MTLSamplerDescriptor* handle) : ns::Object<MTLSamplerDescriptor*>(handle) { }
+		SamplerDescriptor(MTLSamplerDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLSamplerDescriptor*>(handle, retain) { }
 
         SamplerMinMagFilter GetMinFilter() const;
         SamplerMinMagFilter GetMagFilter() const;
@@ -68,7 +91,7 @@ namespace mtlpp
         float               GetLodMinClamp() const;
         float               GetLodMaxClamp() const;
         CompareFunction     GetCompareFunction() const MTLPP_AVAILABLE(10_11, 9_0);
-        ns::String          GetLabel() const;
+        ns::AutoReleased<ns::String>          GetLabel() const;
 		
 		bool SupportArgumentBuffers() const MTLPP_AVAILABLE(10_13, 11_0);
 
@@ -92,10 +115,10 @@ namespace mtlpp
     {
     public:
         SamplerState() { }
-        SamplerState(ns::Protocol<id<MTLSamplerState>>::type handle) : ns::Object<ns::Protocol<id<MTLSamplerState>>::type>(handle) { }
+        SamplerState(ns::Protocol<id<MTLSamplerState>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLSamplerState>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetSamplerState(handle)) { }
 
-        ns::String GetLabel() const;
-        Device     GetDevice() const;
+        ns::AutoReleased<ns::String> GetLabel() const;
+        ns::AutoReleased<Device>     GetDevice() const;
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 }

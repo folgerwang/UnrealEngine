@@ -97,7 +97,7 @@ FMaterialInstanceResource::FMaterialInstanceResource(UMaterialInstance* InOwner,
 {
 }
 
-const FMaterial* FMaterialInstanceResource::GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const
+void FMaterialInstanceResource::GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const
 {
 	checkSlow(IsInParallelRenderingThread());
 
@@ -116,27 +116,31 @@ const FMaterial* FMaterialInstanceResource::GetMaterial(ERHIFeatureLevel::Type I
 					checkSlow(StaticPermutationResource->GetRenderingThreadShaderMap()->IsCompilationFinalized());
 					// The shader map reference should have been NULL'ed if it did not compile successfully
 					checkSlow(StaticPermutationResource->GetRenderingThreadShaderMap()->CompiledSuccessfully());
-					return StaticPermutationResource;
+					OutMaterialRenderProxy = this;
+					OutMaterial = StaticPermutationResource;
+					return;
 				}
 				else
 				{
 					EMaterialDomain Domain = (EMaterialDomain)StaticPermutationResource->GetMaterialDomain();
 					UMaterial* FallbackMaterial = UMaterial::GetDefaultMaterial(Domain);
 					//there was an error, use the default material's resource
-					return FallbackMaterial->GetRenderProxy(IsSelected(), IsHovered())->GetMaterial(InFeatureLevel);
+					FallbackMaterial->GetRenderProxy(IsSelected(), IsHovered())->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
+					return;
 				}
 			}
 		}
 		else
 		{
 			//use the parent's material resource
-			return Parent->GetRenderProxy(IsSelected(), IsHovered())->GetMaterial(InFeatureLevel);
+			Parent->GetRenderProxy(IsSelected(), IsHovered())->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
+			return;
 		}
 	}
 
 	// No Parent, or no StaticPermutationResource. This seems to happen if the parent is in the process of using the default material since it's being recompiled or failed to do so.
 	UMaterial* FallbackMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
-	return FallbackMaterial->GetRenderProxy(IsSelected(), IsHovered())->GetMaterial(InFeatureLevel);
+	FallbackMaterial->GetRenderProxy(IsSelected(), IsHovered())->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
 }
 
 FMaterial* FMaterialInstanceResource::GetMaterialNoFallback(ERHIFeatureLevel::Type InFeatureLevel) const
@@ -869,16 +873,17 @@ bool UMaterialInstance::GetRefractionSettings(float& OutBiasValue) const
 
 void UMaterialInstance::GetTextureExpressionValues(const FMaterialResource* MaterialResource, TArray<UTexture*>& OutTextures, TArray< TArray<int32> >* OutIndices) const
 {
-	const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[2];
+	const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[3];
 
 	check(MaterialResource);
 
 	ExpressionsByType[0] = &MaterialResource->GetUniform2DTextureExpressions();
 	ExpressionsByType[1] = &MaterialResource->GetUniformCubeTextureExpressions();
+	ExpressionsByType[2] = &MaterialResource->GetUniformVolumeTextureExpressions();
 
 	if (OutIndices) // Try to prevent resizing since this would be expensive.
 	{
-		OutIndices->Empty(ExpressionsByType[0]->Num() + ExpressionsByType[1]->Num());
+		OutIndices->Empty(ExpressionsByType[0]->Num() + ExpressionsByType[1]->Num() + ExpressionsByType[2]->Num());
 	}
 
 	for(int32 TypeIndex = 0;TypeIndex < ARRAY_COUNT(ExpressionsByType);TypeIndex++)
@@ -1107,7 +1112,7 @@ void UMaterialInstance::OverrideTexture(const UTexture* InTextureToOverride, UTe
 #if WITH_EDITOR
 	bool bShouldRecacheMaterialExpressions = false;
 	
-	const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[2];
+	const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[3];
 
 	const FMaterialResource* SourceMaterialResource = NULL;
 	if (bHasStaticPermutationResource)
@@ -1116,6 +1121,7 @@ void UMaterialInstance::OverrideTexture(const UTexture* InTextureToOverride, UTe
 		// Iterate over both the 2D textures and cube texture expressions.
 		ExpressionsByType[0] = &SourceMaterialResource->GetUniform2DTextureExpressions();
 		ExpressionsByType[1] = &SourceMaterialResource->GetUniformCubeTextureExpressions();
+		ExpressionsByType[2] = &SourceMaterialResource->GetUniformVolumeTextureExpressions();
 	}
 	else
 	{
@@ -1126,6 +1132,7 @@ void UMaterialInstance::OverrideTexture(const UTexture* InTextureToOverride, UTe
 		// Iterate over both the 2D textures and cube texture expressions.
 		ExpressionsByType[0] = &SourceMaterialResource->GetUniform2DTextureExpressions();
 		ExpressionsByType[1] = &SourceMaterialResource->GetUniformCubeTextureExpressions();
+		ExpressionsByType[2] = &SourceMaterialResource->GetUniformVolumeTextureExpressions();
 	}
 		
 	for(int32 TypeIndex = 0;TypeIndex < ARRAY_COUNT(ExpressionsByType);TypeIndex++)
@@ -1526,8 +1533,6 @@ void UMaterialInstance::CopyMaterialInstanceParameters(UMaterialInterface* Sourc
 
 FMaterialResource* UMaterialInstance::GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel)
 {
-	check(!IsInActualRenderingThread());
-
 	if (QualityLevel == EMaterialQualityLevel::Num)
 	{
 		QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
@@ -1545,8 +1550,6 @@ FMaterialResource* UMaterialInstance::GetMaterialResource(ERHIFeatureLevel::Type
 
 const FMaterialResource* UMaterialInstance::GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel) const
 {
-	//check(!IsInActualRenderingThread());
-
 	if (QualityLevel == EMaterialQualityLevel::Num)
 	{
 		QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;

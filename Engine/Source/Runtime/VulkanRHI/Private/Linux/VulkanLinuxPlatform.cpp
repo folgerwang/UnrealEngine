@@ -112,7 +112,10 @@ void FVulkanLinuxPlatform::GetInstanceExtensions(TArray<const ANSICHAR*>& OutExt
 
 void FVulkanLinuxPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExtensions)
 {
-	// Nothing here!
+#if VULKAN_SUPPORTS_DEDICATED_ALLOCATION
+	OutExtensions.Add(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
+	OutExtensions.Add(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
+#endif
 }
 
 void FVulkanLinuxPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)

@@ -550,7 +550,7 @@ const glsl_type * glsl_type::get_templated_instance(const glsl_type *base, const
 		hash_table_insert(sampler_types, new glsl_type(GLSL_SAMPLER_DIM_2D,   /*shadow=*/ false, /*array=*/ true,  /*multisample=*/ true,  /*samples=*/ 0, /*sampler_buffer=*/ false, /*type=*/ NULL, "sampler2DMSArray", nullptr), "Texture2DMSArray");
 		hash_table_insert(sampler_types, new glsl_type(GLSL_SAMPLER_DIM_3D,   /*shadow=*/ false, /*array=*/ false, /*multisample=*/ false, /*samples=*/ 0, /*sampler_buffer=*/ false, /*type=*/ NULL, "sampler3D", "texture3d"), "Texture3D");
 		hash_table_insert(sampler_types, new glsl_type(GLSL_SAMPLER_DIM_CUBE, /*shadow=*/ false, /*array=*/ false, /*multisample=*/ false, /*samples=*/ 0, /*sampler_buffer=*/ false, /*type=*/ NULL, "samplerCube", "texturecube"), "TextureCube");
-		hash_table_insert(sampler_types, new glsl_type(GLSL_SAMPLER_DIM_CUBE, /*shadow=*/ false, /*array=*/ true,  /*multisample=*/ false, /*samples=*/ 0, /*sampler_buffer=*/ false, /*type=*/ NULL, "samplerCubeArray", nullptr), "TextureCubeArray");
+		hash_table_insert(sampler_types, new glsl_type(GLSL_SAMPLER_DIM_CUBE, /*shadow=*/ false, /*array=*/ true,  /*multisample=*/ false, /*samples=*/ 0, /*sampler_buffer=*/ false, /*type=*/ NULL, "samplerCubeArray", "texturecubearray"), "TextureCubeArray");
 	}
 
 	if (outputstream_types == NULL)

@@ -53,7 +53,7 @@ void FD3D12DescriptorCache::HeapLoopedAround(D3D12_DESCRIPTOR_HEAP_TYPE Type)
 	}
 }
 
-FD3D12DescriptorCache::FD3D12DescriptorCache(GPUNodeMask Node)
+FD3D12DescriptorCache::FD3D12DescriptorCache(FRHIGPUMask Node)
 	: LocalViewHeap(nullptr)
 	, SubAllocatedViewHeap(nullptr, Node, this)
 	, LocalSamplerHeap(nullptr, Node, this)
@@ -888,7 +888,7 @@ void FD3D12GlobalOnlineHeap::Init(uint32 TotalSize, D3D12_DESCRIPTOR_HEAP_TYPE T
 	Desc.Flags = HeapFlags;
 	Desc.Type = Type;
 	Desc.NumDescriptors = TotalSize;
-	Desc.NodeMask = GetNodeMask();
+	Desc.NodeMask = (uint32)GetNodeMask();
 
 	//LLM_SCOPE(ELLMTag::DescriptorCache);
 
@@ -906,7 +906,7 @@ void FD3D12GlobalOnlineHeap::Init(uint32 TotalSize, D3D12_DESCRIPTOR_HEAP_TYPE T
 	}
 }
 
-FD3D12OnlineHeap::FD3D12OnlineHeap(FD3D12Device* Device, GPUNodeMask Node, bool CanLoopAround, FD3D12DescriptorCache* _Parent) :
+FD3D12OnlineHeap::FD3D12OnlineHeap(FD3D12Device* Device, FRHIGPUMask Node, bool CanLoopAround, FD3D12DescriptorCache* _Parent) :
 	DescriptorSize(0)
 	, Desc({})
 	, NextSlotIndex(0)
@@ -1020,7 +1020,7 @@ void FD3D12ThreadLocalOnlineHeap::Init(uint32 NumDescriptors, D3D12_DESCRIPTOR_H
 	Desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	Desc.Type = Type;
 	Desc.NumDescriptors = NumDescriptors;
-	Desc.NodeMask = GetNodeMask();
+	Desc.NodeMask = (uint32)GetNodeMask();
 
 	//LLM_SCOPE(ELLMTag::DescriptorCache);
 	VERIFYD3D12RESULT(GetParentDevice()->GetDevice()->CreateDescriptorHeap(&Desc, IID_PPV_ARGS(Heap.GetInitReference())));

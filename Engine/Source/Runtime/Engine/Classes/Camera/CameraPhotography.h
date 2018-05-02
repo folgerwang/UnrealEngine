@@ -8,6 +8,7 @@ class UWorld;
 class APlayerCameraManager;
 class ICameraPhotography;
 struct FMinimalViewInfo;
+struct FPostProcessSettings;
 
 /**
  * Free-camera photography manager
@@ -31,6 +32,22 @@ public:
 	* @param PCMgr - player camera manager (non-NULL)
 	* @return Returns whether camera was cut/non-contiguous/teleported */
 	ENGINE_API bool UpdateCamera(FMinimalViewInfo& InOutPOV, APlayerCameraManager* PCMgr);
+
+	/** Modify input postprocessing settings according to Photography requirements.
+	* Safe to call this even if IsSupported()==false, in which case it will do nothing.
+	* @param InOutPostProcessingSettings - the FPostProcessSettings to modify */
+	ENGINE_API void UpdatePostProcessing(FPostProcessSettings& InOutPostProcessingSettings);
+
+	/** Starts a photography session */
+	ENGINE_API void StartSession();
+
+	/** Stops a photography session */
+	ENGINE_API void StopSession();
+
+	/** Show or hide controls in the photography UI; see documentation for UAnselFunctionLibrary::SetUIControlVisibility */
+	ENGINE_API void SetUIControlVisibility(uint8 UIControlTarget, bool bIsVisible);
+
+	ENGINE_API void DefaultConstrainCamera(const FVector NewCameraLocation, const FVector PreviousCameraLocation, const FVector OriginalCameraLocation, FVector& OutCameraLocation, APlayerCameraManager* PCMgr);
 
 protected:
 	FCameraPhotographyManager();

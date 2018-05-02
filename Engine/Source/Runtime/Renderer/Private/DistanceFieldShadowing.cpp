@@ -189,7 +189,6 @@ private:
 
 IMPLEMENT_SHADER_TYPE(,FCullObjectsForShadowCS,TEXT("/Engine/Private/DistanceFieldShadowing.usf"),TEXT("CullObjectsForShadowCS"),SF_Compute);
 
-
 /**  */
 class FShadowObjectCullVS : public FGlobalShader
 {
@@ -358,7 +357,7 @@ public:
 		TanLightAngleAndNormalThreshold.Bind(Initializer.ParameterMap, TEXT("TanLightAngleAndNormalThreshold"));
 		ScissorRectMinAndSize.Bind(Initializer.ParameterMap, TEXT("ScissorRectMinAndSize"));
 		ObjectParameters.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		LightTileIntersectionParameters.Bind(Initializer.ParameterMap);
 		WorldToShadow.Bind(Initializer.ParameterMap, TEXT("WorldToShadow"));
 		TwoSidedMeshDistanceBias.Bind(Initializer.ParameterMap, TEXT("TwoSidedMeshDistanceBias"));
@@ -385,7 +384,7 @@ public:
 		ShadowFactors.SetTexture(RHICmdList, ShaderRHI, ShadowFactorsValue.ShaderResourceTexture, ShadowFactorsValue.UAV);
 
 		ObjectParameters.Set(RHICmdList, ShaderRHI, GShadowCulledObjectBuffers.Buffers);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		SetShaderValue(RHICmdList, ShaderRHI, NumGroups, NumGroupsValue);
 
@@ -439,7 +438,7 @@ public:
 	void UnsetParameters(TRHICommandList& RHICmdList, FSceneRenderTargetItem& ShadowFactorsValue)
 	{
 		ShadowFactors.UnsetUAV(RHICmdList, GetComputeShader());
-		RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, ShadowFactorsValue.UAV);
+		RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, ShadowFactorsValue.UAV);
 	}
 
 	// FShader interface.
@@ -455,7 +454,7 @@ public:
 		Ar << TanLightAngleAndNormalThreshold;
 		Ar << ScissorRectMinAndSize;
 		Ar << ObjectParameters;
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << LightTileIntersectionParameters;
 		Ar << WorldToShadow;
 		Ar << TwoSidedMeshDistanceBias;
@@ -476,7 +475,7 @@ private:
 	FShaderParameter TanLightAngleAndNormalThreshold;
 	FShaderParameter ScissorRectMinAndSize;
 	FDistanceFieldCulledObjectBufferParameters ObjectParameters;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FLightTileIntersectionParameters LightTileIntersectionParameters;
 	FShaderParameter WorldToShadow;
 	FShaderParameter TwoSidedMeshDistanceBias;
@@ -513,7 +512,7 @@ public:
 	TDistanceFieldShadowingUpsamplePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		ShadowFactorsTexture.Bind(Initializer.ParameterMap,TEXT("ShadowFactorsTexture"));
 		ShadowFactorsSampler.Bind(Initializer.ParameterMap,TEXT("ShadowFactorsSampler"));
 		ScissorRectMinAndSize.Bind(Initializer.ParameterMap,TEXT("ScissorRectMinAndSize"));
@@ -528,7 +527,7 @@ public:
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		SetTextureParameter(RHICmdList, ShaderRHI, ShadowFactorsTexture, ShadowFactorsSampler, TStaticSamplerState<SF_Bilinear>::GetRHI(), ShadowFactorsTextureValue->GetRenderTargetItem().ShaderResourceTexture);
 	
@@ -561,7 +560,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << ShadowFactorsTexture;
 		Ar << ShadowFactorsSampler;
 		Ar << ScissorRectMinAndSize;
@@ -574,7 +573,7 @@ public:
 
 private:
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderResourceParameter ShadowFactorsTexture;
 	FShaderResourceParameter ShadowFactorsSampler;
 	FShaderParameter ScissorRectMinAndSize;
@@ -728,10 +727,10 @@ void CullDistanceFieldObjectsForLight(
 	SCOPED_DRAW_EVENT(RHICmdList, CullObjectsForLight);
 
 	{
-		if ( !GShadowCulledObjectBuffers.IsInitialized()  
+		if (!GShadowCulledObjectBuffers.IsInitialized()  
 			|| GShadowCulledObjectBuffers.Buffers.MaxObjects < Scene->DistanceFieldSceneData.NumObjectsInBuffer
 			|| GShadowCulledObjectBuffers.Buffers.MaxObjects > 3 * Scene->DistanceFieldSceneData.NumObjectsInBuffer
-			|| GFastVRamConfig.bDirty )
+			|| GFastVRamConfig.bDirty)
 		{
 			GShadowCulledObjectBuffers.Buffers.bWantBoxBounds = true;
 			GShadowCulledObjectBuffers.Buffers.MaxObjects = Scene->DistanceFieldSceneData.NumObjectsInBuffer * 5 / 4;
@@ -779,7 +778,7 @@ void CullDistanceFieldObjectsForLight(
 
 			TileIntersectionResources->Initialize();
 		}
-		
+
 		{
 			SCOPED_DRAW_EVENT(RHICmdList, ComputeTileStartOffsets);
 
@@ -990,23 +989,18 @@ void FProjectedShadowInfo::RenderRayTracedDistanceFieldProjection(FRHICommandLis
 
 			FGraphicsPipelineStateInitializer GraphicsPSOInit;
 			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-    
+
 			RHICmdList.SetViewport(ScissorRect.Min.X, ScissorRect.Min.Y, 0.0f, ScissorRect.Max.X, ScissorRect.Max.Y, 1.0f);
 			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
 			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 				
 			SetBlendStateForProjection(GraphicsPSOInit, bProjectingForForwardShading, false);
 
-			//@todo - depth bounds test for local lights
-			if (bDirectionalLight)
-			{
-				EnableDepthBoundsTest(RHICmdList, CascadeSettings.SplitNear - CascadeSettings.SplitNearFadeRegion, CascadeSettings.SplitFar, View.ViewMatrices.GetProjectionMatrix());
-			}
-
 			TShaderMapRef<FPostProcessVS> VertexShader(View.ShaderMap);
 			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+			GraphicsPSOInit.bDepthBounds = bDirectionalLight;
 
 			if (GFullResolutionDFShadowing)
 			{
@@ -1025,6 +1019,12 @@ void FProjectedShadowInfo::RenderRayTracedDistanceFieldProjection(FRHICommandLis
 				PixelShader->SetParameters(RHICmdList, View, this, ScissorRect, RayTracedShadowsRT);
 			}
 
+			//@todo - depth bounds test for local lights
+			if (bDirectionalLight)
+			{
+				SetDepthBoundsTest(RHICmdList, CascadeSettings.SplitNear - CascadeSettings.SplitNearFadeRegion, CascadeSettings.SplitFar, View.ViewMatrices.GetProjectionMatrix());
+			}
+
 			DrawRectangle( 
 				RHICmdList,
 				0, 0, 
@@ -1034,11 +1034,6 @@ void FProjectedShadowInfo::RenderRayTracedDistanceFieldProjection(FRHICommandLis
 				FIntPoint(ScissorRect.Width(), ScissorRect.Height()),
 				GetBufferSizeForDFShadows(),
 				*VertexShader);
-
-			if (bDirectionalLight)
-			{
-				DisableDepthBoundsTest(RHICmdList);
-			}
 		}
 
 		RayTracedShadowsRT = NULL;

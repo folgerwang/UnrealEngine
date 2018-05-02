@@ -1,0 +1,153 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DiaphragmDOF/DOFDownsample.ush: Diaphragm DOF's downsampling code/
+=============================================================================*/
+
+#include "DOFCommon.ush"
+
+
+//------------------------------------------------------- COMPILE TIME CONFIG
+
+// Defines the COC operator to choose when downsampling.
+// Same as circle DOF.
+#define DOWNSAMPLE_COC_OPERATOR 2
+
+
+//------------------------------------------------------- COMMON FUNCTIONS.
+
+/** Operator to use to downsample 4 sample to 1. */
+// TODO: This as been fetched from Circle DOF, so redo this experiments, and try new ones.
+float DownsampleCoc(float CocRadii[4])
+{
+	// Doing a max depth reduction (erode the foreground). Less correct, but less artifacts.
+	// Perhaps need to re-open this in the future.
+	float mi = min(min(CocRadii[0], CocRadii[1]), min(CocRadii[2], CocRadii[3]));
+	float ma = max(max(CocRadii[0], CocRadii[1]), max(CocRadii[2], CocRadii[3]));
+	float ami = min(min(abs(CocRadii[0]), abs(CocRadii[1])), min(abs(CocRadii[2]), abs(CocRadii[3])));
+	float ama = max(max(abs(CocRadii[0]), abs(CocRadii[1])), max(abs(CocRadii[2]), abs(CocRadii[3])));
+
+	#if DOWNSAMPLE_COC_OPERATOR == 0
+		// Stuff max radius in alpha.
+		// bad erosion on TemporalDitherAA
+		float OutCocRadius = ma;
+
+	#elif DOWNSAMPLE_COC_OPERATOR == 1
+		// acceptable TemporalDitherAA
+		// requires DefaultWeight > 1
+		float OutCocRadius = (mi + ma) / 2;
+
+	#elif DOWNSAMPLE_COC_OPERATOR == 2
+		// This in theory is better but causes bleeding artifacts with temporal AA..
+		// This is important otherwise near thin objects disappear (leaves clamping artifacts in recombined pass).
+		// bad on TemporalDitherAA, flat opacity where it should transition
+		float OutCocRadius = CocRadii[0];
+		if(abs(OutCocRadius) > CocRadii[1]) OutCocRadius = CocRadii[1];
+		if(abs(OutCocRadius) > CocRadii[2]) OutCocRadius = CocRadii[2];
+		if(abs(OutCocRadius) > CocRadii[3]) OutCocRadius = CocRadii[3];
+
+	#elif DOWNSAMPLE_COC_OPERATOR == 3
+		// this should be better than the method before
+		// bad on TemporalDitherAA
+		float OutCocRadius = CocRadii[0];
+		if(abs(OutCocRadius) > abs(CocRadii[1])) OutCocRadius = CocRadii[1];
+		if(abs(OutCocRadius) > abs(CocRadii[2])) OutCocRadius = CocRadii[2];
+		if(abs(OutCocRadius) > abs(CocRadii[3])) OutCocRadius = CocRadii[3];
+
+	#elif DOWNSAMPLE_COC_OPERATOR == 4
+		// Stuff max radius in alpha.
+		float OutCocRadius = mi;
+
+	#elif DOWNSAMPLE_COC_OPERATOR == 5
+		// artifacts that look like negative colors (tb070) (with and without the 2nd line)
+		// bad erosion on TemporalDitherAA
+		float OutCocRadius = (ami + ama) / 2;
+
+	#elif DOWNSAMPLE_COC_OPERATOR == 6
+		// like #3 but with inverted comparison, ok?
+		// bad erosion on TemporalDitherAA
+		float OutCocRadius = CocRadii[0];
+		if(abs(OutCocRadius) < abs(CocRadii[1])) OutCocRadius = CocRadii[1];
+		if(abs(OutCocRadius) < abs(CocRadii[2])) OutCocRadius = CocRadii[2];
+		if(abs(OutCocRadius) < abs(CocRadii[3])) OutCocRadius = CocRadii[3];
+
+	#elif DOWNSAMPLE_COC_OPERATOR == 7
+		// requires DefaultWeight > 1
+		float A = CocRadii[0];
+		if(abs(A) < abs(CocRadii[1])) A = CocRadii[1];
+		if(abs(A) < abs(CocRadii[2])) A = CocRadii[2];
+		if(abs(A) < abs(CocRadii[3])) A = CocRadii[3];
+		float B = CocRadii[0];
+		if(abs(B) > abs(CocRadii[1])) B = CocRadii[1];
+		if(abs(B) > abs(CocRadii[2])) B = CocRadii[2];
+		if(abs(B) > abs(CocRadii[3])) B = CocRadii[3];
+		float OutCocRadius = (A + B) / 2;
+
+	#elif DOWNSAMPLE_COC_OPERATOR == 8
+		// broken near dof
+		float OutCocRadius = dot(0.25f, max(0, CocQuad));
+
+	#elif DOWNSAMPLE_COC_OPERATOR == 9
+		// mix between 2 and 8, seems to be best in most cases
+		// requires DefaultWeight > 1
+		float OutCocRadius = CocRadii[0];
+		if(abs(OutCocRadius) > CocRadii[1]) OutCocRadius = CocRadii[1];
+		if(abs(OutCocRadius) > CocRadii[2]) OutCocRadius = CocRadii[2];
+		if(abs(OutCocRadius) > CocRadii[3]) OutCocRadius = CocRadii[3];
+		if(OutCocRadius > 0)	OutCocRadius = dot(0.25f, max(0, CocQuad));
+
+	#else
+		#error unknown DOWNSAMPLE_COC_OPERATOR.
+
+	#endif
+
+	return OutCocRadius;
+}
+
+
+/** Operator to use to downsample 4 scene sample to 1. */
+void DownsampleSceneColorWithCoc(
+	float4 Color[4], float CocRadii[4],
+	out float4 OutColor, out float OutCocRadius,
+	in float CocRadiusMultiplier = 1.0)
+{
+	// Choose the best the coc to use.
+	OutCocRadius = DownsampleCoc(CocRadii);
+
+	// >1 to avoid /0 (resulting in dark outlines in level tb070)
+	// a bit laregr to avoid a specific leaking artifact in level tb080 
+	// TODO: why was it 1.4?
+	const float DefaultWeight = 1.0f;
+
+	// Remove samples which are outside the size.
+	// TODO: Tune the ScaleFactor. Looks like to large.
+	float ScaleFactor = 64.0 * CocRadiusMultiplier;
+
+	// TODO: make common function for this bilateral function.
+	float4 Weights = float4(
+		DefaultWeight - saturate(abs(OutCocRadius - CocRadii[0]) * ScaleFactor),
+		DefaultWeight - saturate(abs(OutCocRadius - CocRadii[1]) * ScaleFactor),
+		DefaultWeight - saturate(abs(OutCocRadius - CocRadii[2]) * ScaleFactor),
+		DefaultWeight - saturate(abs(OutCocRadius - CocRadii[3]) * ScaleFactor));
+
+	// Reduce the output weight if there was information loss on the oposite layer from the one chosen
+	// by DownsampleCoc(). This improve temporaly stability and low res aliasing of foreground out focus.
+	float OutputWeight = 0;
+	UNROLL
+	for (uint i = 0; i < 4; i++)
+	{
+		OutputWeight += IsForeground(OutCocRadius) == IsForeground(CocRadii[i]) ? 0.25 : 0.0;
+	}
+
+	float WeightSum = dot(float4(1, 1, 1, 1), Weights);
+
+	// Normalize weights.
+	float WeightNormalizationFactor = OutputWeight * rcp(WeightSum);
+
+	// Do the multiply of WeightNormalizationFactor, because save one mad when alpha channel is disabled.
+	OutColor = WeightNormalizationFactor * (
+		Color[0] * Weights.x +
+		Color[1] * Weights.y +
+		Color[2] * Weights.z +
+		Color[3] * Weights.w);
+}

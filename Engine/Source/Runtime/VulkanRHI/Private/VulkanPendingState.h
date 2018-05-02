@@ -24,11 +24,6 @@ public:
 
 	~FVulkanPendingComputeState();
 
-	inline FVulkanGlobalUniformPool& GetGlobalUniformPool()
-	{
-		return GlobalUniformPool;
-	}
-
 	void SetComputePipeline(FVulkanComputePipeline* InComputePipeline)
 	{
 		if (InComputePipeline != CurrentPipeline)
@@ -64,9 +59,9 @@ public:
 
 	void SetUAV(uint32 UAVIndex, FVulkanUnorderedAccessView* UAV);
 
-	inline void SetTexture(uint32 BindPoint, const FVulkanTextureBase* TextureBase)
+	inline void SetTexture(uint32 BindPoint, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
 	{
-		CurrentState->SetTexture(BindPoint, TextureBase);
+		CurrentState->SetTexture(BindPoint, TextureBase, Layout);
 	}
 
 	void SetSRV(uint32 BindIndex, FVulkanShaderResourceView* SRV);
@@ -92,7 +87,6 @@ public:
 	}
 
 protected:
-	FVulkanGlobalUniformPool GlobalUniformPool;
 	TArray<FVulkanUnorderedAccessView*> UAVListForAutoFlush;
 
 	FVulkanComputePipeline* CurrentPipeline;
@@ -117,11 +111,6 @@ public:
 	}
 
 	~FVulkanPendingGfxState();
-
-	inline FVulkanGlobalUniformPool& GetGlobalUniformPool()
-	{
-		return GlobalUniformPool;
-	}
 
 	void Reset()
 	{
@@ -186,26 +175,16 @@ public:
 		Scissor.extent.height = Height;
 	}
 
-	inline void SetStreamSource(uint32 StreamIndex, FVulkanResourceMultiBuffer* VertexBuffer, uint32 Offset)
-	{
-		//PendingStreams[StreamIndex].Stream = VertexBuffer;
-		PendingStreams[StreamIndex].Stream2  = VertexBuffer;
-		PendingStreams[StreamIndex].Stream3  = VK_NULL_HANDLE;
-		PendingStreams[StreamIndex].BufferOffset = Offset;
-		bDirtyVertexStreams = true;
-	}
-
 	inline void SetStreamSource(uint32 StreamIndex, VkBuffer VertexBuffer, uint32 Offset)
 	{
-		PendingStreams[StreamIndex].Stream2  = nullptr;
-		PendingStreams[StreamIndex].Stream3 = VertexBuffer;
+		PendingStreams[StreamIndex].Stream = VertexBuffer;
 		PendingStreams[StreamIndex].BufferOffset = Offset;
 		bDirtyVertexStreams = true;
 	}
 
-	inline void SetTexture(EShaderFrequency Stage, uint32 BindPoint, const FVulkanTextureBase* TextureBase)
+	inline void SetTexture(EShaderFrequency Stage, uint32 BindPoint, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
 	{
-		CurrentState->SetTexture(Stage, BindPoint, TextureBase);
+		CurrentState->SetTexture(Stage, BindPoint, TextureBase, Layout);
 	}
 
 	inline void SetUniformBufferConstantData(EShaderFrequency Stage, uint32 BindPoint, const TArray<uint8>& ConstantData)
@@ -232,7 +211,7 @@ public:
 		CurrentState->SetShaderParameter(Stage, BufferIndex, ByteOffset, NumBytes, NewValue);
 	}
 
-	void PrepareForDraw(FVulkanCmdBuffer* CmdBuffer, VkPrimitiveTopology Topology);
+	void PrepareForDraw(FVulkanCmdBuffer* CmdBuffer);
 
 	bool SetGfxPipeline(FVulkanGraphicsPipelineState* InGfxPipeline)
 	{
@@ -293,8 +272,6 @@ public:
 	}
 
 protected:
-	FVulkanGlobalUniformPool GlobalUniformPool;
-
 	VkViewport Viewport;
 	uint32 StencilRef;
 	bool bScissorEnable;
@@ -311,24 +288,15 @@ protected:
 	struct FVertexStream
 	{
 		FVertexStream() :
-			//Stream(nullptr),
-			Stream2(nullptr),
-			Stream3(VK_NULL_HANDLE),
+			Stream(VK_NULL_HANDLE),
 			BufferOffset(0)
 		{
 		}
 
-		//FVulkanBuffer* Stream;
-		FVulkanResourceMultiBuffer* Stream2;
-		VkBuffer Stream3;
+		VkBuffer Stream;
 		uint32 BufferOffset;
 	};
 	FVertexStream PendingStreams[MaxVertexElementCount];
-	struct FTemporaryIA
-	{
-		TArray<VkBuffer> VertexBuffers;
-		TArray<VkDeviceSize> VertexOffsets;
-	} TemporaryIA;
 	bool bDirtyVertexStreams;
 
 	void InternalUpdateDynamicStates(FVulkanCmdBuffer* Cmd);

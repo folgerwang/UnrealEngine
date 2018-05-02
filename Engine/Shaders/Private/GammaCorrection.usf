@@ -21,6 +21,9 @@ half3 ColorScale;
 half4 OverlayColor;
 half InverseGamma;
 
+Texture2D SceneColorTexture;
+SamplerState SceneColorTextureSampler;
+
 half3 TonemapAndGammaCorrect(half3 LinearColor)
 {
 	half3 GammaColor;

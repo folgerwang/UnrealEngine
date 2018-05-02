@@ -45,11 +45,6 @@ void FSlate3DRenderer::Cleanup()
 	BeginCleanup(this);
 }
 
-void FSlate3DRenderer::FinishCleanup()
-{
-	delete this;
-}
-
 void FSlate3DRenderer::SetUseGammaCorrection(bool bUseGammaCorrection)
 {
 	RenderTargetPolicy->SetUseGammaCorrection(bUseGammaCorrection);
@@ -204,7 +199,7 @@ void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate
 			FSlateEndDrawingWindowsCommand::EndDrawingWindows(RHICmdList, DrawBuffer, Policy);
 		});
 
-	InRHICmdList.CopyToResolveTarget(RenderTargetResource->GetTextureRHI(), RTResource, true, FResolveParams());
+	InRHICmdList.CopyToResolveTarget(RenderTargetResource->GetTextureRHI(), RTResource, FResolveParams());
 
 	ISlate3DRendererPtr Self = SharedThis(this);
 

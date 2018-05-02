@@ -64,7 +64,7 @@ void FMacConsoleOutputDevice::CreateConsole()
 
 	MainThreadCall(^{
 		ConsoleHandle = [[FMacConsoleWindow alloc] initWithContentRect: NSMakeRect(ConsolePosX, ConsolePosY, ConsoleWidth, ConsoleHeight)
-										styleMask: (NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask)
+										styleMask: (NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable)
 										  backing: NSBackingStoreBuffered
 											defer: NO];
 		[ConsoleHandle setDelegate:ConsoleHandle];

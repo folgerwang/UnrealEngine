@@ -60,7 +60,8 @@ public:
 		const FShader* OriginalPS, 
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FMaterial& Material,
-		const FSceneView& View
+		const FSceneView& View,
+		const FDrawingPolicyRenderState& DrawRenderState
 		) override;
 
 	virtual void SetMesh(

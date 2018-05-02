@@ -234,20 +234,6 @@ bool FAppleHttpRequest::ProcessRequest()
 	return bStarted;
 }
 
-
-FHttpRequestCompleteDelegate& FAppleHttpRequest::OnProcessRequestComplete()
-{
-	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpRequest::OnProcessRequestComplete()"));
-	return RequestCompleteDelegate;
-}
-
-FHttpRequestProgressDelegate& FAppleHttpRequest::OnRequestProgress() 
-{
-	UE_LOG(LogHttp, VeryVerbose, TEXT("FAppleHttpRequest::OnRequestProgress()"));
-	return RequestProgressDelegate;
-}
-
-
 bool FAppleHttpRequest::StartRequest()
 {
 	SCOPED_AUTORELEASE_POOL;
@@ -310,6 +296,8 @@ void FAppleHttpRequest::FinishedRequest()
 		UE_LOG(LogHttp, Verbose, TEXT("Request succeeded"));
 		CompletionStatus = EHttpRequestStatus::Succeeded;
 
+		// TODO: Try to broadcast OnHeaderReceived when we receive headers instead of here at the end
+		BroadcastResponseHeadersReceived();
 		OnProcessRequestComplete().ExecuteIfBound(SharedThis(this), Response, true);
 	}
 	else

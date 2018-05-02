@@ -117,9 +117,9 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugComputeCommandEncoder)
 			
 			[Inner dispatchThreadgroups:MTLSizeMake(1, 1, 1) threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
 
-			if (Pipeline && Pipeline.ComputePipelineState)
+			if (Pipeline && Pipeline->ComputePipelineState)
 			{
-				[Inner setComputePipelineState:Pipeline.ComputePipelineState];
+				[Inner setComputePipelineState:Pipeline->ComputePipelineState];
 			}
 			
 			if (ShaderBuffers.Buffers[0])
@@ -582,7 +582,6 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugComputeCommandEncoder)
     [Inner dispatchThreadgroupsWithIndirectBuffer:(id <MTLBuffer>)indirectBuffer indirectBufferOffset:(NSUInteger)indirectBufferOffset threadsPerThreadgroup:(MTLSize)threadsPerThreadgroup];
 }
 
-#if METAL_SUPPORTS_HEAPS
 - (void)updateFence:(id <MTLFence>)fence
 {
 #if METAL_DEBUG_OPTIONS
@@ -618,7 +617,6 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugComputeCommandEncoder)
 		[Inner waitForFence:(id <MTLFence>)fence];
 	}
 }
-#endif
 
 #if METAL_SUPPORTS_INDIRECT_ARGUMENT_BUFFERS
 - (void)useResource:(id <MTLResource>)resource usage:(MTLResourceUsage)usage
@@ -678,7 +676,7 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugComputeCommandEncoder)
 		{
 			check(Pipeline);
 			
-			MTLComputePipelineReflection* Reflection = Pipeline.ComputePipelineReflection;
+			MTLComputePipelineReflection* Reflection = Pipeline->ComputePipelineReflection;
 			check(Reflection);
 	
 			NSArray<MTLArgument*>* Arguments = Reflection.arguments;
@@ -789,7 +787,7 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugComputeCommandEncoder)
 	
     if (!bOK)
     {
-        UE_LOG(LogMetal, Error, TEXT("Metal Validation failures for compute shader:\n%s"), (Pipeline && Pipeline.ComputeSource) ? *FString(Pipeline.ComputeSource) : TEXT("nil"));
+        UE_LOG(LogMetal, Error, TEXT("Metal Validation failures for compute shader:\n%s"), (Pipeline && Pipeline->ComputeSource) ? *FString(Pipeline->ComputeSource) : TEXT("nil"));
     }
 #endif
 }
@@ -820,22 +818,5 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugComputeCommandEncoder)
 #endif
 
 @end
-
-#if !METAL_SUPPORTS_HEAPS
-@implementation FMetalDebugComputeCommandEncoder (MTLComputeCommandEncoderExtensions)
--(void) updateFence:(id <MTLFence>)fence
-{
-#if METAL_DEBUG_OPTIONS
-	[self addUpdateFence:fence];
-#endif
-}
--(void) waitForFence:(id <MTLFence>)fence
-{
-#if METAL_DEBUG_OPTIONS
-	[self addWaitFence:fence];
-#endif
-}
-@end
-#endif
 
 NS_ASSUME_NONNULL_END

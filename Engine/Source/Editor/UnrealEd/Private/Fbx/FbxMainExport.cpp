@@ -3015,9 +3015,9 @@ private:
 				Verts[VIx].Position = ArcRot.TransformPosition(ArcVerts[v].Position);
 
 				Verts[VIx].SetTangents(
-					ArcRot.TransformVector(ArcVerts[v].TangentX),
+					ArcRot.TransformVector(ArcVerts[v].TangentX.ToFVector()),
 					ArcRot.TransformVector(ArcVerts[v].GetTangentY()),
-					ArcRot.TransformVector(ArcVerts[v].TangentZ)
+					ArcRot.TransformVector(ArcVerts[v].TangentZ.ToFVector())
 					);
 			}
 		}
@@ -3047,19 +3047,19 @@ private:
 				if (r != 0)
 				{
 					int32 indexV = a0start + r + 0;
-					FVector TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ);
+					FVector TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ.ToFVector());
 					FbxVector4 FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a1start + r + 0;
-					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ);
+					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a0start + r + 1;
-					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ);
+					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
@@ -3067,19 +3067,19 @@ private:
 				if (r != SphereNumRings - 1)
 				{
 					int32 indexV = a1start + r + 0;
-					FVector TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ);
+					FVector TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ.ToFVector());
 					FbxVector4 FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a1start + r + 1;
-					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ);
+					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a0start + r + 1;
-					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ);
+					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
@@ -3173,9 +3173,9 @@ private:
 				Verts[VIx].Position = ArcRot.TransformPosition(ArcVerts[VertIdx].Position);
 
 				Verts[VIx].SetTangents(
-					ArcRot.TransformVector(ArcVerts[VertIdx].TangentX),
+					ArcRot.TransformVector(ArcVerts[VertIdx].TangentX.ToFVector()),
 					ArcRot.TransformVector(ArcVerts[VertIdx].GetTangentY()),
-					ArcRot.TransformVector(ArcVerts[VertIdx].TangentZ)
+					ArcRot.TransformVector(ArcVerts[VertIdx].TangentZ.ToFVector())
 					);
 			}
 		}
@@ -3206,19 +3206,19 @@ private:
 				if (RingIdx != 0)
 				{
 					int32 indexV = a0start + RingIdx + 0;
-					FVector TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ);
+					FVector TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ.ToFVector());
 					FbxVector4 FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a1start + RingIdx + 0;
-					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ);
+					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a0start + RingIdx + 1;
-					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ);
+					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
@@ -3226,19 +3226,19 @@ private:
 				if (RingIdx != CapsuleNumRings - 1)
 				{
 					int32 indexV = a1start + RingIdx + 0;
-					FVector TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ);
+					FVector TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ.ToFVector());
 					FbxVector4 FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a1start + RingIdx + 1;
-					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ);
+					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a0start + RingIdx + 1;
-					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ);
+					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);

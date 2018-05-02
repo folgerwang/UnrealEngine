@@ -59,10 +59,14 @@ private:
 	{
 		FMcppFileLoader* This = (FMcppFileLoader*)InUserData;
 
-		FShaderContents* CachedContents = This->CachedFileContents.Find(InVirtualFilePath);
+		FString VirtualFilePath = (ANSI_TO_TCHAR(InVirtualFilePath));
+		
+		// Collapse any relative directories to allow #include "../MyFile.ush"
+		FPaths::CollapseRelativeDirectories(VirtualFilePath);
+
+		FShaderContents* CachedContents = This->CachedFileContents.Find(VirtualFilePath);
 		if (!CachedContents)
 		{
-			FString VirtualFilePath = (ANSI_TO_TCHAR(InVirtualFilePath));
 			FString FileContents;
 
 			if (This->ShaderInput.Environment.IncludeVirtualPathToContentsMap.Contains(VirtualFilePath))
@@ -84,7 +88,7 @@ private:
 				// file path in error messages.
 				FileContents = FString::Printf(TEXT("#line 1 \"%s\"\n%s"), *VirtualFilePath, *FileContents);
 
-				CachedContents = &This->CachedFileContents.Add(InVirtualFilePath, StringToArray<ANSICHAR>(*FileContents, FileContents.Len()));
+				CachedContents = &This->CachedFileContents.Add(VirtualFilePath, StringToArray<ANSICHAR>(*FileContents, FileContents.Len()));
 			}
 		}
 

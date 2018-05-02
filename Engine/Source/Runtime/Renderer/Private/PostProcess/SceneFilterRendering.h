@@ -16,9 +16,9 @@
 
 /** Uniform buffer for computing the vertex positional and UV adjustments in the vertex shader. */
 BEGIN_UNIFORM_BUFFER_STRUCT( FDrawRectangleParameters,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, PosScaleBias )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, UVScaleBias )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, InvTargetSizeAndTextureSize )
+	UNIFORM_MEMBER( FVector4, PosScaleBias )
+	UNIFORM_MEMBER( FVector4, UVScaleBias )
+	UNIFORM_MEMBER( FVector4, InvTargetSizeAndTextureSize )
 END_UNIFORM_BUFFER_STRUCT( FDrawRectangleParameters )
 
 /**

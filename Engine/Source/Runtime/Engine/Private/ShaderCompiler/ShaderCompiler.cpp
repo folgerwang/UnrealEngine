@@ -2756,7 +2756,7 @@ void GlobalBeginCompileShader(
 				ShaderTypeName.RemoveAt(0);
 			}
 		}
-		Input.DebugGroupName = Input.DebugGroupName / ShaderTypeName;
+		Input.DebugGroupName = Input.DebugGroupName / ShaderTypeName / FString::Printf(TEXT("%i"), NewJob->PermutationId);
 		
 		if (GDumpShaderDebugInfoShort)
 		{
@@ -2843,6 +2843,16 @@ void GlobalBeginCompileShader(
 
 	// #defines get stripped out by the preprocessor without this. We can override with this
 	Input.Environment.SetDefine(TEXT("COMPILER_DEFINE"), TEXT("#define"));
+
+	if (FSceneInterface::GetShadingPath(GetMaxSupportedFeatureLevel((EShaderPlatform)Target.Platform)) == EShadingPath::Deferred)
+	{
+		Input.Environment.SetDefine(TEXT("SHADING_PATH_DEFERRED"), 1);
+	}
+
+	if (FSceneInterface::GetShadingPath(GetMaxSupportedFeatureLevel((EShaderPlatform)Target.Platform)) == EShadingPath::Mobile)
+	{
+		Input.Environment.SetDefine(TEXT("SHADING_PATH_MOBILE"), 1);
+	}
 
 	// Set VR definitions
 	{
@@ -3600,18 +3610,15 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 			continue;
 		}
 
+		int32 PermutationCountToCompile = 0;
 		for (int32 PermutationId = 0; PermutationId < GlobalShaderType->GetPermutationCount(); PermutationId++)
 		{
 			if (GlobalShaderType->ShouldCompilePermutation(Platform, PermutationId) && !GlobalShaderMap->HasShader(GlobalShaderType, PermutationId))
 			{
 				if (bErrorOnMissing)
 				{
-					UE_LOG(LogShaders, Fatal, TEXT("Missing global shader %s, Please make sure cooking was successful."), GlobalShaderType->GetName());
-				}
-
-				if (!bEmptyMap)
-				{
-					UE_LOG(LogShaders, Warning, TEXT("	%s"), GlobalShaderType->GetName());
+					UE_LOG(LogShaders, Fatal, TEXT("Missing global shader %s's permutation %i, Please make sure cooking was successful."),
+						GlobalShaderType->GetName(), PermutationId);
 				}
 
 				// Compile this global shader type.
@@ -3619,7 +3626,14 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 				TShaderTypePermutation<const FShaderType> ShaderTypePermutation(GlobalShaderType, PermutationId);
 				check(!SharedShaderJobs.Find(ShaderTypePermutation));
 				SharedShaderJobs.Add(ShaderTypePermutation, Job);
+				PermutationCountToCompile++;
 			}
+		}
+
+		if (!bEmptyMap && PermutationCountToCompile > 0)
+		{
+			UE_LOG(LogShaders, Warning, TEXT("	%s (%i out of %i)"),
+				GlobalShaderType->GetName(), PermutationCountToCompile, GlobalShaderType->GetPermutationCount());
 		}
 	}
 

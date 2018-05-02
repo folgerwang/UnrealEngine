@@ -249,7 +249,7 @@ public:
 		{
 			NewSection->TangentXZBuffer.InitResource();
 			//NewSection->TangentXZBuffer.InitRHIWith(Args.TangentXData);
-			NewSection->UVBufferSRV = RHICreateShaderResourceView(NewSection->TangentXZBuffer.VertexBufferRHI, 4, PF_R8G8B8A8);
+			NewSection->UVBufferSRV = RHICreateShaderResourceView(NewSection->TangentXZBuffer.VertexBufferRHI, 4, PF_R8G8B8A8_SNORM);
 		}
 
 		// NO COLOR

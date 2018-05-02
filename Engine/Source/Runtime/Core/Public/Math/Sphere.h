@@ -188,3 +188,21 @@ FORCEINLINE bool FMath::SphereAABBIntersection(const FSphere& Sphere,const FBox&
 	// If the distance is less than or equal to the radius, they intersect
 	return SphereAABBIntersection(Sphere.Center,RadiusSquared,AABB);
 }
+
+/**
+* Computes minimal bounding sphere encompassing given cone
+*/
+FORCEINLINE FSphere FMath::ComputeBoundingSphereForCone(FVector const& ConeOrigin, FVector const& ConeDirection, float ConeRadius, float CosConeAngle, float SinConeAngle)
+{
+	// Based on: https://bartwronski.com/2017/04/13/cull-that-cone/
+	const float COS_PI_OVER_4 = 0.707107f; // Cos(Pi/4);
+	if (CosConeAngle < COS_PI_OVER_4)
+	{
+		return FSphere(ConeOrigin + ConeDirection * ConeRadius * CosConeAngle, ConeRadius * SinConeAngle);
+	}
+	else
+	{
+		const float BoundingRadius = ConeRadius / (2.0f * CosConeAngle);
+		return FSphere(ConeOrigin + ConeDirection * BoundingRadius, BoundingRadius);
+	}
+}

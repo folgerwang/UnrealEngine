@@ -8,10 +8,10 @@
 #define VULKAN_ENABLE_DUMP_LAYER					0
 #define VULKAN_COMMANDWRAPPERS_ENABLE				0
 #define VULKAN_DYNAMICALLYLOADED					1
-#define VULKAN_SHOULD_ENABLE_DRAW_MARKERS			0
-#define VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS	0
+#define VULKAN_SHOULD_ENABLE_DRAW_MARKERS			(UE_BUILD_DEVELOPMENT || UE_BUILD_DEBUG)
 #define VULKAN_USE_DESCRIPTOR_POOL_MANAGER			0
 #define VULKAN_USE_IMAGE_ACQUIRE_FENCES				0
+#define VULKAN_USE_CREATE_ANDROID_SURFACE			1
 
 
 #define ENUM_VK_ENTRYPOINTS_PLATFORM_BASE(EnumMacro)
@@ -43,6 +43,15 @@ public:
 	static bool SupportsQuerySurfaceProperties() { return false; }
 
 	static bool SupportsDepthFetchDuringDepthTest() { return false; }
+	static bool SupportsTimestampRenderQueries() { return false; }
+
+	static bool RequiresMobileRenderer() { return true; }
+	static void OverrideCrashHandlers();
+
+	//#todo-rco: Detect Mali?
+	static bool RequiresPresentLayoutFix() { return true; }
+
+	static bool RegisterGPUWork() { return false; }
 
 protected:
 	static void* VulkanLib;

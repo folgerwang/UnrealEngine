@@ -8,7 +8,9 @@
 #pragma push_macro("OVERRIDE")
 #undef OVERRIDE // cef headers provide their own OVERRIDE macro
 THIRD_PARTY_INCLUDES_START
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 #import "include/cef_application_mac.h"
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 THIRD_PARTY_INCLUDES_END
 #pragma pop_macro("OVERRIDE")
 

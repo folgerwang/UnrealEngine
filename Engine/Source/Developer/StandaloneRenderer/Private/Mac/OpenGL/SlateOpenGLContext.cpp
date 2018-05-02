@@ -193,7 +193,7 @@ void FSlateOpenGLContext::Initialize(void* InWindow, const FSlateOpenGLContext* 
 			[View setWantsBestResolutionOpenGLSurface:YES];
 		}
 
-		if (FPlatformMisc::IsRunningOnMavericks() && ([Window styleMask] & NSTexturedBackgroundWindowMask))
+		if (FPlatformMisc::IsRunningOnMavericks() && ([Window styleMask] & NSWindowStyleMaskTexturedBackground))
 		{
 			NSView* SuperView = [[Window contentView] superview];
 			[SuperView addSubview:View];

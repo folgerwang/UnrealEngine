@@ -209,7 +209,7 @@ void FD3D11DynamicRHI::ResolveTextureUsingShader(
 * @param bKeepOriginalSurface - true if the original surface will still be used after this function so must remain valid
 * @param ResolveParams - optional resolve params
 */
-void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, bool bKeepOriginalSurface, const FResolveParams& ResolveParams)
+void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, const FResolveParams& ResolveParams)
 {
 	if (!SourceTextureRHI || !DestTextureRHI)
 	{

@@ -138,29 +138,17 @@ struct FStreamingManagerTexture : public ITextureStreamingManager
 
 	/* Notifies manager that level primitives were shifted */
 	virtual void NotifyLevelOffset(ULevel* Level, const FVector& Offset) override;
-	
-	/** Called when an actor is spawned. */
-	virtual void NotifyActorSpawned( AActor* Actor ) override;
 
 	/** Called when a spawned actor is destroyed. */
 	virtual void NotifyActorDestroyed( AActor* Actor ) override;
 
-	/**
-	 * Called when a primitive is attached to an actor or another component.
-	 * Replaces previous info, if the primitive was already attached.
-	 *
-	 * @param InPrimitive	Newly attached dynamic/spawned primitive
-	 */
-	virtual void NotifyPrimitiveAttached( const UPrimitiveComponent* Primitive, EDynamicPrimitiveType DynamicType ) override;
-
 	/** Called when a primitive is detached from an actor or another component. */
 	virtual void NotifyPrimitiveDetached( const UPrimitiveComponent* Primitive ) override;
 
-	/**
-	 * Called when a primitive has had its textured changed.
-	 * Only affects primitives that were already attached.
-	 * Replaces previous info.
-	 */
+	/** Called when a primitive streaming data needs to be updated. */
+	virtual void NotifyPrimitiveUpdated( const UPrimitiveComponent* Primitive ) override;
+
+	/**  Called when a primitive streaming data needs to be updated in the last stage of the frame. */
 	virtual void NotifyPrimitiveUpdated_Concurrent( const UPrimitiveComponent* Primitive ) override;
 
 	/** Returns the corresponding FStreamingTexture for a UTexture2D. */
@@ -323,9 +311,6 @@ protected:
 
 	/** Amount of memory to leave free in the texture pool. */
 	int64					MemoryMargin;
-
-	/** Minimum number of bytes to evict when we need to stream out textures because of a failed allocation. */
-	int64					MinEvictSize;
 
 	/** The actual memory pool size available to stream textures, excludes non-streaming texture, temp memory (for streaming mips), memory margin (allocator overhead). */
 	int64					EffectiveStreamingPoolSize;

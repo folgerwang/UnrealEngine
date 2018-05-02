@@ -68,7 +68,7 @@ MS_ALIGN(16) struct FSkinMatrix3x4
 } GCC_ALIGN(16);
 
 template<>
-class TUniformBufferTypeInfo<FSkinMatrix3x4>
+class TUniformBufferTypeInfo<FSkinMatrix3x4, false>
 {
 public:
 	enum { BaseType = UBMT_FLOAT32 };
@@ -90,7 +90,7 @@ enum
 };
 
 BEGIN_UNIFORM_BUFFER_STRUCT(FBoneMatricesUniformShaderParameters,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FSkinMatrix3x4, BoneMatrices, [MAX_GPU_BONE_MATRICES_UNIFORMBUFFER])
+	UNIFORM_MEMBER_ARRAY(FSkinMatrix3x4, BoneMatrices, [MAX_GPU_BONE_MATRICES_UNIFORMBUFFER])
 END_UNIFORM_BUFFER_STRUCT(FBoneMatricesUniformShaderParameters)
 
 #define SET_BONE_DATA(B, X) B.SetMatrixTranspose(X)

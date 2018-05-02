@@ -1511,7 +1511,6 @@ void FPaintModePainter::PaintTexture(const FMeshPaintParameters& InParams, TArra
 				RHICmdList.CopyToResolveTarget(
 					BrushRenderTargetResource->GetRenderTargetTexture(),	// Source texture
 					BrushRenderTargetResource->TextureRHI,
-					true,													// Do we need the source image content again?
 					FResolveParams());										// Resolve parameters
 			});
 	}
@@ -1530,7 +1529,6 @@ void FPaintModePainter::PaintTexture(const FMeshPaintParameters& InParams, TArra
 					RHICmdList.CopyToResolveTarget(
 						BrushMaskRenderTargetResource->GetRenderTargetTexture(),		// Source texture
 						BrushMaskRenderTargetResource->TextureRHI,
-						true,												// Do we need the source image content again?
 						FResolveParams());									// Resolve parameters
 				});
 
@@ -1633,7 +1631,6 @@ void FPaintModePainter::PaintTexture(const FMeshPaintParameters& InParams, TArra
 					RHICmdList.CopyToResolveTarget(
 						RenderTargetResource->GetRenderTargetTexture(),		// Source texture
 						RenderTargetResource->TextureRHI,
-						true,												// Do we need the source image content again?
 						FResolveParams());									// Resolve parameters
 				});
 

@@ -20,8 +20,25 @@
 #include "sampler.hpp"
 #include "texture.hpp"
 #include "stage_input_output_descriptor.hpp"
+#include "validation.hpp"
 
 MTLPP_BEGIN
+
+namespace ue4
+{
+	template<>
+	struct ITable<id<MTLRenderCommandEncoder>, void> : public IMPTable<id<MTLRenderCommandEncoder>, void>, public ITableCacheRef
+	{
+		ITable()
+		{
+		}
+		
+		ITable(Class C)
+		: IMPTable<id<MTLRenderCommandEncoder>, void>(C)
+		{
+		}
+	};
+}
 
 namespace mtlpp
 {
@@ -45,10 +62,44 @@ namespace mtlpp
 
 	struct ScissorRect : public MTLPPScissorRect
     {
+		ScissorRect()
+		{
+			x = y = width = height = 0;
+		}
+		
+		ScissorRect(NSUInteger _x, NSUInteger _y, NSUInteger _width, NSUInteger _height)
+		{
+			x = _x;
+			y = _y;
+			width = _width;
+			height = _height;
+		}
+		
+		ScissorRect(MTLPPScissorRect const& Rect)
+		: MTLPPScissorRect(Rect)
+		{}
     };
 
     struct Viewport : public MTLPPViewport
     {
+		Viewport()
+		{
+			originX = originY = width = height = znear = zfar = 0.0;
+		}
+		
+		Viewport(double _originX, double _originY, double _width, double _height, double _znear, double _zfar)
+		{
+			originX = _originX;
+			originY = _originY;
+			width = _width;
+			height = _height;
+			znear = _znear;
+			zfar = _zfar;
+		}
+		
+		Viewport(MTLPPViewport const& Rect)
+		: MTLPPViewport(Rect)
+		{}
     };
 
     enum class CullMode
@@ -117,7 +168,7 @@ namespace mtlpp
         uint16_t InsideTessellationFactor;
     };
 
-    enum class RenderStages
+    enum RenderStages
     {
         Vertex   = (1 << 0),
         Fragment = (1 << 1),
@@ -129,16 +180,18 @@ namespace mtlpp
 	class RenderCommandEncoder : public CommandEncoder<ns::Protocol<id<MTLRenderCommandEncoder>>::type>
     {
     public:
-        RenderCommandEncoder() { }
-        RenderCommandEncoder(ns::Protocol<id<MTLRenderCommandEncoder>>::type handle) : CommandEncoder<ns::Protocol<id<MTLRenderCommandEncoder>>::type>(handle) { }
+        RenderCommandEncoder(ns::Ownership const retain = ns::Ownership::Retain) : CommandEncoder<ns::Protocol<id<MTLRenderCommandEncoder>>::type>(retain) { }
+		RenderCommandEncoder(ns::Protocol<id<MTLRenderCommandEncoder>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : CommandEncoder<ns::Protocol<id<MTLRenderCommandEncoder>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetRenderCommandEncoder(handle)) { }
 
+		operator ns::Protocol<id<MTLRenderCommandEncoder>>::type() const = delete;
+		
         void SetRenderPipelineState(const RenderPipelineState& pipelineState);
         void SetVertexData(const void* bytes, NSUInteger length, NSUInteger index) MTLPP_AVAILABLE(10_11, 8_3);
         void SetVertexBuffer(const Buffer& buffer, NSUInteger offset, NSUInteger index);
         void SetVertexBufferOffset(NSUInteger offset, NSUInteger index) MTLPP_AVAILABLE(10_11, 8_3);
-        void SetVertexBuffers(const Buffer::Type* buffers, const uint64_t* offsets, const ns::Range& range);
+        void SetVertexBuffers(const Buffer* buffers, const NSUInteger* offsets, const ns::Range& range);
         void SetVertexTexture(const Texture& texture, NSUInteger index);
-        void SetVertexTextures(const Texture::Type* textures, const ns::Range& range);
+        void SetVertexTextures(const Texture* textures, const ns::Range& range);
         void SetVertexSamplerState(const SamplerState& sampler, NSUInteger index);
         void SetVertexSamplerStates(const SamplerState::Type* samplers, const ns::Range& range);
         void SetVertexSamplerState(const SamplerState& sampler, float lodMinClamp, float lodMaxClamp, NSUInteger index);
@@ -155,9 +208,9 @@ namespace mtlpp
         void SetFragmentData(const void* bytes, NSUInteger length, NSUInteger index);
         void SetFragmentBuffer(const Buffer& buffer, NSUInteger offset, NSUInteger index);
         void SetFragmentBufferOffset(NSUInteger offset, NSUInteger index) MTLPP_AVAILABLE(10_11, 8_3);
-        void SetFragmentBuffers(const Buffer::Type* buffers, const uint64_t* offsets, const ns::Range& range);
+        void SetFragmentBuffers(const Buffer* buffers, const NSUInteger* offsets, const ns::Range& range);
         void SetFragmentTexture(const Texture& texture, NSUInteger index);
-        void SetFragmentTextures(const Texture::Type* textures, const ns::Range& range);
+        void SetFragmentTextures(const Texture* textures, const ns::Range& range);
         void SetFragmentSamplerState(const SamplerState& sampler, NSUInteger index);
         void SetFragmentSamplerStates(const SamplerState::Type* samplers, const ns::Range& range);
         void SetFragmentSamplerState(const SamplerState& sampler, float lodMinClamp, float lodMaxClamp, NSUInteger index);
@@ -176,7 +229,7 @@ namespace mtlpp
         void Draw(PrimitiveType primitiveType, NSUInteger vertexStart, NSUInteger vertexCount);
         void Draw(PrimitiveType primitiveType, NSUInteger vertexStart, NSUInteger vertexCount, NSUInteger instanceCount) MTLPP_AVAILABLE(10_11, 9_0);
         void Draw(PrimitiveType primitiveType, NSUInteger vertexStart, NSUInteger vertexCount, NSUInteger instanceCount, NSUInteger baseInstance) MTLPP_AVAILABLE(10_11, 9_0);
-        void Draw(PrimitiveType primitiveType, Buffer indirectBuffer, NSUInteger indirectBufferOffset) MTLPP_AVAILABLE(10_11, 9_0);
+        void Draw(PrimitiveType primitiveType, Buffer const& indirectBuffer, NSUInteger indirectBufferOffset) MTLPP_AVAILABLE(10_11, 9_0);
         void DrawIndexed(PrimitiveType primitiveType, NSUInteger indexCount, IndexType indexType, const Buffer& indexBuffer, NSUInteger indexBufferOffset);
         void DrawIndexed(PrimitiveType primitiveType, NSUInteger indexCount, IndexType indexType, const Buffer& indexBuffer, NSUInteger indexBufferOffset, NSUInteger instanceCount) MTLPP_AVAILABLE(10_11, 9_0);
         void DrawIndexed(PrimitiveType primitiveType, NSUInteger indexCount, IndexType indexType, const Buffer& indexBuffer, NSUInteger indexBufferOffset, NSUInteger instanceCount, NSUInteger baseVertex, NSUInteger baseInstance) MTLPP_AVAILABLE(10_11, 9_0);
@@ -190,8 +243,8 @@ namespace mtlpp
         void DrawPatches(NSUInteger numberOfPatchControlPoints, const Buffer& patchIndexBuffer, NSUInteger patchIndexBufferOffset, const Buffer& indirectBuffer, NSUInteger indirectBufferOffset) MTLPP_AVAILABLE(10_12, NA);
         void DrawIndexedPatches(NSUInteger numberOfPatchControlPoints, NSUInteger patchStart, NSUInteger patchCount, const Buffer& patchIndexBuffer, NSUInteger patchIndexBufferOffset, const Buffer& controlPointIndexBuffer, NSUInteger controlPointIndexBufferOffset, NSUInteger instanceCount, NSUInteger baseInstance) MTLPP_AVAILABLE(10_12, 10_0);
         void DrawIndexedPatches(NSUInteger numberOfPatchControlPoints, const Buffer& patchIndexBuffer, NSUInteger patchIndexBufferOffset, const Buffer& controlPointIndexBuffer, NSUInteger controlPointIndexBufferOffset, const Buffer& indirectBuffer, NSUInteger indirectBufferOffset) MTLPP_AVAILABLE(10_12, NA);
-		void UseResource(Resource const& resource, ResourceUsage usage) MTLPP_AVAILABLE(10_13, 11_0);
-		void UseResources(Resource::Type const* resources, NSUInteger count, ResourceUsage usage) MTLPP_AVAILABLE(10_13, 11_0);
+		MTLPP_VALIDATED void UseResource(const Resource& resource, ResourceUsage usage) MTLPP_AVAILABLE(10_13, 11_0);
+		MTLPP_VALIDATED void UseResources(const Resource* resource, NSUInteger count, ResourceUsage usage) MTLPP_AVAILABLE(10_13, 11_0);
 		void UseHeap(Heap const& heap) MTLPP_AVAILABLE(10_13, 11_0);
 		void UseHeaps(Heap::Type const* heaps, NSUInteger count) MTLPP_AVAILABLE(10_13, 11_0);
 		
@@ -205,11 +258,11 @@ namespace mtlpp
 		
 		void SetTileBufferOffset(NSUInteger offset, NSUInteger index) MTLPP_AVAILABLE_IOS(11_0);
 		
-		void SetTileBuffers(const Buffer::Type* buffers, const uint64_t* offsets, const ns::Range& range) MTLPP_AVAILABLE_IOS(11_0);
+		void SetTileBuffers(const Buffer* buffers, const NSUInteger* offsets, const ns::Range& range) MTLPP_AVAILABLE_IOS(11_0);
 		
 		void SetTileTexture(const Texture& texture, NSUInteger index) MTLPP_AVAILABLE_IOS(11_0);
 		
-		void SetTileTextures(const Texture::Type* textures, const ns::Range& range) MTLPP_AVAILABLE_IOS(11_0);
+		void SetTileTextures(const Texture* textures, const ns::Range& range) MTLPP_AVAILABLE_IOS(11_0);
 		
 		void SetTileSamplerState(const SamplerState& sampler, NSUInteger index) MTLPP_AVAILABLE_IOS(11_0);
 		
@@ -225,6 +278,57 @@ namespace mtlpp
 
     }
     MTLPP_AVAILABLE(10_11, 8_0);
+	
+#if MTLPP_CONFIG_VALIDATE
+	class ValidatedRenderCommandEncoder : public ns::AutoReleased<RenderCommandEncoder>
+	{
+		CommandEncoderValidationTable Validator;
+		
+	public:
+		ValidatedRenderCommandEncoder()
+		: Validator(nullptr)
+		{
+		}
+		
+		ValidatedRenderCommandEncoder(RenderCommandEncoder& Wrapped)
+		: ns::AutoReleased<RenderCommandEncoder>(Wrapped)
+		, Validator(Wrapped.GetAssociatedObject<CommandEncoderValidationTable>(CommandEncoderValidationTable::kTableAssociationKey).GetPtr())
+		{
+		}
+		
+		MTLPP_VALIDATED void UseResource(const Resource& resource, ResourceUsage usage);
+		MTLPP_VALIDATED void UseResources(const Resource* resource, NSUInteger count, ResourceUsage usage);
+	};
+	
+	template <>
+	class Validator<RenderCommandEncoder>
+	{
+		public:
+		Validator(RenderCommandEncoder& Val, bool bEnable)
+		: Resource(Val)
+		{
+			if (bEnable)
+			{
+				Validation = ValidatedRenderCommandEncoder(Val);
+			}
+		}
+		
+		ValidatedRenderCommandEncoder& operator*()
+		{
+			assert(Validation.GetPtr() != nullptr);
+			return Validation;
+		}
+		
+		RenderCommandEncoder* operator->()
+		{
+			return Validation.GetPtr() == nullptr ? &Resource : &Validation;
+		}
+		
+		private:
+		RenderCommandEncoder& Resource;
+		ValidatedRenderCommandEncoder Validation;
+	};
+#endif
 }
 
 MTLPP_END

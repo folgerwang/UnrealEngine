@@ -5,7 +5,6 @@
 =============================================================================*/
 
 #include "LightRendering.h"
-#include "EngineGlobals.h"
 #include "DeferredShadingRenderer.h"
 #include "LightPropagationVolume.h"
 #include "ScenePrivate.h"
@@ -20,10 +19,10 @@ IMPLEMENT_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct,TEXT("DeferredLightU
 extern int32 GUseTranslucentLightingVolumes;
 
 
-static int32 bAllowDepthBoundsTest = 1;
+static int32 GAllowDepthBoundsTest = 1;
 static FAutoConsoleVariableRef CVarAllowDepthBoundsTest(
 	TEXT("r.AllowDepthBoundsTest"),
-	bAllowDepthBoundsTest,
+	GAllowDepthBoundsTest,
 	TEXT("If true, use enable depth bounds test when rendering defered lights.")
 	);
 
@@ -64,11 +63,9 @@ public:
 	TDeferredLightPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 	:	FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		LightAttenuationTexture.Bind(Initializer.ParameterMap, TEXT("LightAttenuationTexture"));
 		LightAttenuationTextureSampler.Bind(Initializer.ParameterMap, TEXT("LightAttenuationTextureSampler"));
-		PreIntegratedBRDF.Bind(Initializer.ParameterMap, TEXT("PreIntegratedBRDF"));
-		PreIntegratedBRDFSampler.Bind(Initializer.ParameterMap, TEXT("PreIntegratedBRDFSampler"));
 		IESTexture.Bind(Initializer.ParameterMap, TEXT("IESTexture"));
 		IESTextureSampler.Bind(Initializer.ParameterMap, TEXT("IESTextureSampler"));
 		LightingChannelsTexture.Bind(Initializer.ParameterMap, TEXT("LightingChannelsTexture"));
@@ -96,11 +93,9 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{		
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << LightAttenuationTexture;
 		Ar << LightAttenuationTextureSampler;
-		Ar << PreIntegratedBRDF;
-		Ar << PreIntegratedBRDFSampler;
 		Ar << IESTexture;
 		Ar << IESTextureSampler;
 		Ar << LightingChannelsTexture;
@@ -113,7 +108,7 @@ private:
 	void SetParametersBase(FRHICommandList& RHICmdList, const FPixelShaderRHIParamRef ShaderRHI, const FSceneView& View, IPooledRenderTarget* ScreenShadowMaskTexture, FTexture* IESTextureResource)
 	{
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI,View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		FSceneRenderTargets& SceneRenderTargets = FSceneRenderTargets::Get(RHICmdList);
 
@@ -128,15 +123,6 @@ private:
 				ScreenShadowMaskTexture ? ScreenShadowMaskTexture->GetRenderTargetItem().ShaderResourceTexture : GWhiteTexture->TextureRHI
 				);
 		}
-
-		SetTextureParameter(
-			RHICmdList, 
-			ShaderRHI,
-			PreIntegratedBRDF,
-			PreIntegratedBRDFSampler,
-			TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-			GEngine->PreIntegratedSkinBRDFTexture->Resource->TextureRHI
-			);
 
 		{
 			FTextureRHIParamRef TextureRHI = IESTextureResource ? IESTextureResource->TextureRHI : GSystemTextures.WhiteDummy->GetRenderTargetItem().TargetableTexture;
@@ -166,11 +152,9 @@ private:
 		}
 	}
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderResourceParameter LightAttenuationTexture;
 	FShaderResourceParameter LightAttenuationTextureSampler;
-	FShaderResourceParameter PreIntegratedBRDF;
-	FShaderResourceParameter PreIntegratedBRDFSampler;
 	FShaderResourceParameter IESTexture;
 	FShaderResourceParameter IESTextureSampler;
 	FShaderResourceParameter LightingChannelsTexture;
@@ -223,7 +207,7 @@ public:
 	:	FGlobalShader(Initializer)
 	{
 		HasValidChannel.Bind(Initializer.ParameterMap, TEXT("HasValidChannel"));
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 	}
 
 	TDeferredLightOverlapPS()
@@ -236,7 +220,7 @@ public:
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI,View.ViewUniformBuffer);
 		const float HasValidChannelValue = LightSceneInfo->Proxy->GetPreviewShadowMapChannel() == INDEX_NONE ? 0.0f : 1.0f;
 		SetShaderValue(RHICmdList, ShaderRHI, HasValidChannel, HasValidChannelValue);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 		SetDeferredLightParameters(RHICmdList, ShaderRHI, GetUniformBufferParameter<FDeferredLightUniformStruct>(), LightSceneInfo, View);
 	}
 
@@ -244,13 +228,13 @@ public:
 	{		
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << HasValidChannel;
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		return bShaderHasOutdatedParameters;
 	}
 
 private:
 	FShaderParameter HasValidChannel;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 };
 
 IMPLEMENT_SHADER_TYPE(template<>, TDeferredLightOverlapPS<true>, TEXT("/Engine/Private/StationaryLightOverlapShaders.usf"), TEXT("OverlapRadialPixelMain"), SF_Pixel);
@@ -358,6 +342,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 					SortedLightInfo->SortKey.Fields.bTextureProfile = ViewFamily.EngineShowFlags.TexturedLightProfiles && LightSceneInfo->Proxy->GetIESTextureResource();
 					SortedLightInfo->SortKey.Fields.bShadowed = bDynamicShadows && CheckForProjectedShadows(LightSceneInfo);
 					SortedLightInfo->SortKey.Fields.bLightFunction = ViewFamily.EngineShowFlags.LightFunctions && CheckForLightFunction(LightSceneInfo);
+					SortedLightInfo->SortKey.Fields.bUsesLightingChannels = Views[ViewIndex].bUsesLightingChannels && LightSceneInfo->Proxy->GetLightingChannelMask() != GetDefaultLightingChannelMask();
 					break;
 				}
 			}
@@ -390,6 +375,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 			bool bDrawShadows = SortedLightInfo.SortKey.Fields.bShadowed;
 			bool bDrawLightFunction = SortedLightInfo.SortKey.Fields.bLightFunction;
 			bool bTextureLightProfile = SortedLightInfo.SortKey.Fields.bTextureProfile;
+			bool bLightingChannels = SortedLightInfo.SortKey.Fields.bUsesLightingChannels;
 
 			if (bTextureLightProfile && SupportedByTiledDeferredLightEnd == SortedLights.Num())
 			{
@@ -397,7 +383,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 				SupportedByTiledDeferredLightEnd = LightIndex;
 			}
 
-			if( bDrawShadows || bDrawLightFunction )
+			if (bDrawShadows || bDrawLightFunction || bLightingChannels)
 			{
 				AttenuationLightStart = LightIndex;
 
@@ -579,10 +565,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 
 				if ((bDrawShadows || bDrawLightFunction || bDrawPreviewIndicator) && !ScreenShadowMaskTexture.IsValid())
 				{
-					FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(SceneContext.GetBufferSizeXY(), PF_B8G8R8A8, FClearValueBinding::White, TexCreate_None, TexCreate_RenderTargetable, false));
-					Desc.Flags |= GFastVRamConfig.ScreenSpaceShadowMask;
-					Desc.NumSamples = SceneContext.GetNumSceneColorMSAASamples(SceneContext.GetCurrentFeatureLevel());
-					GRenderTargetPool.FindFreeElement(RHICmdList, Desc, ScreenShadowMaskTexture, TEXT("ScreenShadowMaskTexture"));
+					SceneContext.AllocateScreenShadowMask(RHICmdList, ScreenShadowMaskTexture);
 				}
 
 				FString LightNameWithLevel;
@@ -620,8 +603,15 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 								ScissorRect = View.ViewRect;
 							}
 
-							RHICmdList.SetViewport(ScissorRect.Min.X, ScissorRect.Min.Y, 0.0f, ScissorRect.Max.X, ScissorRect.Max.Y, 1.0f);
-							DrawClearQuad(RHICmdList, true, FLinearColor(1, 1, 1, 1), false, 0, false, 0);
+							if (ScissorRect.Min.X < ScissorRect.Max.X && ScissorRect.Min.Y < ScissorRect.Max.Y)
+							{
+								RHICmdList.SetViewport(ScissorRect.Min.X, ScissorRect.Min.Y, 0.0f, ScissorRect.Max.X, ScissorRect.Max.Y, 1.0f);
+								DrawClearQuad(RHICmdList, true, FLinearColor(1, 1, 1, 1), false, 0, false, 0);
+							}
+							else
+							{
+								LightSceneInfo.Proxy->GetScissorRect(ScissorRect, View, View.ViewRect);
+							}
 						}
 					}
 
@@ -658,7 +648,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 			
 				if (bUsedShadowMaskTexture)
 				{
-					RHICmdList.CopyToResolveTarget(ScreenShadowMaskTexture->GetRenderTargetItem().TargetableTexture, ScreenShadowMaskTexture->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams(FResolveRect()));
+					RHICmdList.CopyToResolveTarget(ScreenShadowMaskTexture->GetRenderTargetItem().TargetableTexture, ScreenShadowMaskTexture->GetRenderTargetItem().ShaderResourceTexture, FResolveParams(FResolveRect()));
 				}
 			
 				if(bDirectLighting && !bInjectedTranslucentVolume)
@@ -883,7 +873,6 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 	GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One>::GetRHI();
 	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-	bool bStencilDirty = false;
 	const FSphere LightBounds = LightSceneInfo->Proxy->GetBoundingSphere();
 
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
@@ -906,9 +895,10 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 		// Set the device viewport for the view.
 		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
 
-		bool bClearCoatNeeded = (View.ShadingModelMaskInView & (1 << MSM_ClearCoat)) != 0;
 		if (LightSceneInfo->Proxy->GetLightType() == LightType_Directional)
 		{
+			// Turn DBT back off
+			GraphicsPSOInit.bDepthBounds = false;
 			TShaderMapRef<TDeferredLightVS<false> > VertexShader(View.ShaderMap);
 
 			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
@@ -951,6 +941,9 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 		}
 		else
 		{
+			// Use DBT to allow work culling on shadow lights
+			GraphicsPSOInit.bDepthBounds = (GSupportsDepthBoundsTest && GAllowDepthBoundsTest != 0);
+
 			TShaderMapRef<TDeferredLightVS<true> > VertexShader(View.ShaderMap);
 
 			SetBoundingGeometryRasterizerAndDepthState(GraphicsPSOInit, View, LightBounds);
@@ -993,8 +986,8 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 
 			VertexShader->SetParameters(RHICmdList, View, LightSceneInfo);
 
-			// NUse DBT to allow work culling on shadow lights
-			if (GSupportsDepthBoundsTest && bAllowDepthBoundsTest != 0)
+			// Use DBT to allow work culling on shadow lights
+			if (GSupportsDepthBoundsTest && GAllowDepthBoundsTest != 0)
 			{
 				// Can use the depth bounds test to skip work for pixels which won't be touched by the light (i.e outside the depth range)
 				float NearDepth = 1.f;
@@ -1008,7 +1001,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 				}
 
 				// UE4 uses reversed depth, so far < near
-				RHICmdList.EnableDepthBoundsTest(true,FarDepth,NearDepth);
+				RHICmdList.SetDepthBounds(FarDepth, NearDepth);
 			}
 
 			if (LightSceneInfo->Proxy->GetLightType() == LightType_Point)
@@ -1021,20 +1014,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 			{
 				StencilingGeometry::DrawCone(RHICmdList);
 			}
-
-			// Use DBT to allow work culling on shadow lights
-			if (GSupportsDepthBoundsTest && bAllowDepthBoundsTest != 0)
-			{
-				// Turn DBT back off
-				RHICmdList.EnableDepthBoundsTest(false, 0, 1);
-			}
 		}
-	}
-
-	if (bStencilDirty)
-	{
-		// Clear the stencil buffer to 0.
-		DrawClearQuad(RHICmdList, false, FLinearColor::Transparent, false, 0, true, 1);
 	}
 }
 

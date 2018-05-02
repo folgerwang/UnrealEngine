@@ -622,7 +622,6 @@ FORCEINLINE_DEBUGGABLE void EnqueueUniqueRenderCommand(LAMBDA& Lambda)
 class RENDERCORE_API FDeferredCleanupInterface
 {
 public:
-	virtual void FinishCleanup() = 0;
 	virtual ~FDeferredCleanupInterface() {}
 };
 

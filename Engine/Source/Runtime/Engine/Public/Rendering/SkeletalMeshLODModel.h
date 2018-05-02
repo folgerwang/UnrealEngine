@@ -23,11 +23,11 @@ struct FSoftSkinVertex
 	FVector			Position;
 
 	// Tangent, U-direction
-	FPackedNormal	TangentX;
+	FVector			TangentX;
 	// Binormal, V-direction
-	FPackedNormal	TangentY;
+	FVector			TangentY;
 	// Normal
-	FPackedNormal	TangentZ;
+	FVector4		TangentZ;
 
 	// UVs
 	FVector2D		UVs[MAX_TEXCOORDS];

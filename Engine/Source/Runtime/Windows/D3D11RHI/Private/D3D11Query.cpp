@@ -8,10 +8,15 @@
 
 void FD3D11DynamicRHI::RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch)
 {
+	check(RequestedOcclusionQueriesInBatch == 0);
+	ActualOcclusionQueriesInBatch = 0;
+	RequestedOcclusionQueriesInBatch = NumQueriesInBatch;
 }
 
 void FD3D11DynamicRHI::RHIEndOcclusionQueryBatch()
 {
+	checkf(ActualOcclusionQueriesInBatch <= RequestedOcclusionQueriesInBatch, TEXT("Expected %d total occlusion queries per RHIBeginOcclusionQueryBatch(); got %d total; this will break newer APIs"), RequestedOcclusionQueriesInBatch, ActualOcclusionQueriesInBatch);
+	RequestedOcclusionQueriesInBatch = 0;
 }
 
 FRenderQueryRHIRef FD3D11DynamicRHI::RHICreateRenderQuery(ERenderQueryType QueryType)
@@ -73,6 +78,7 @@ void FD3D11DynamicRHI::RHIBeginRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 
 	if(Query->QueryType == RQT_Occlusion)
 	{
+		++ActualOcclusionQueriesInBatch;
 		Query->bResultIsCached = false;
 		Direct3DDeviceIMContext->Begin(Query->Resource);
 	}
@@ -252,6 +258,118 @@ void FD3D11BufferedGPUTiming::PlatformStaticInitialize(void* UserData)
 	}
 
 	FreqQuery = NULL;
+}
+
+void FD3D11BufferedGPUTiming::CalibrateTimers(FD3D11DynamicRHI* InD3DRHI)
+{
+	// Attempt to generate a timestamp on GPU and CPU as closely to each other as possible.
+	// This works by first flushing any pending GPU work, then writing a GPU timestamp and waiting for GPU to finish.
+	// CPU timestamp is continuously captured while we are waiting on GPU.
+
+	HRESULT D3DResult = E_FAIL;
+
+	TRefCountPtr<ID3D11Query> DisjointQuery;
+	{
+		D3D11_QUERY_DESC QueryDesc;
+		QueryDesc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
+		QueryDesc.MiscFlags = 0;
+		D3DResult = InD3DRHI->GetDevice()->CreateQuery(&QueryDesc, DisjointQuery.GetInitReference());
+
+		if (D3DResult != S_OK) return;
+	}
+
+	TRefCountPtr<ID3D11Query> TimestampQuery;
+	{
+		D3D11_QUERY_DESC QueryDesc;
+		QueryDesc.Query = D3D11_QUERY_TIMESTAMP;
+		QueryDesc.MiscFlags = 0;
+		D3DResult = InD3DRHI->GetDevice()->CreateQuery(&QueryDesc, TimestampQuery.GetInitReference());
+
+		if (D3DResult != S_OK) return;
+	}
+
+	TRefCountPtr<ID3D11Query> PendingWorkDoneQuery;
+	TRefCountPtr<ID3D11Query> TimestampDoneQuery;
+	{
+		D3D11_QUERY_DESC QueryDesc;
+		QueryDesc.Query = D3D11_QUERY_EVENT;
+		QueryDesc.MiscFlags = 0;
+
+		D3DResult = InD3DRHI->GetDevice()->CreateQuery(&QueryDesc, PendingWorkDoneQuery.GetInitReference());
+		if (D3DResult != S_OK) return;
+
+		D3DResult = InD3DRHI->GetDevice()->CreateQuery(&QueryDesc, TimestampDoneQuery.GetInitReference());
+		if (D3DResult != S_OK) return;
+	}
+
+	ID3D11DeviceContext* D3D11DeviceContext = InD3DRHI->GetDeviceContext();
+
+	// Flush any currently pending GPU work and wait for it to finish
+	D3D11DeviceContext->End(PendingWorkDoneQuery);
+	D3D11DeviceContext->Flush();
+
+	for(;;)
+	{
+		BOOL EventComplete = false;
+		D3D11DeviceContext->GetData(PendingWorkDoneQuery, &EventComplete, sizeof(EventComplete), 0);
+		if (EventComplete) break;
+		FPlatformProcess::Sleep(0.001f);
+	}
+
+	const uint32 MaxCalibrationAttempts = 10;
+	for (uint32 CalibrationAttempt = 0; CalibrationAttempt < MaxCalibrationAttempts; ++CalibrationAttempt)
+	{
+		D3D11DeviceContext->Begin(DisjointQuery);
+		D3D11DeviceContext->End(TimestampQuery);
+		D3D11DeviceContext->End(DisjointQuery);
+		D3D11DeviceContext->End(TimestampDoneQuery);
+
+		D3D11DeviceContext->Flush();
+
+		uint64 CPUTimestamp = 0;
+		uint64 GPUTimestamp = 0;
+
+		// Busy-wait for GPU to finish and capture CPU timestamp approximately when GPU work is done
+		for (;;)
+		{
+			BOOL EventComplete = false;
+			CPUTimestamp = FPlatformTime::Cycles64();
+			D3D11DeviceContext->GetData(TimestampDoneQuery, &EventComplete, sizeof(EventComplete), 0);
+			if (EventComplete) break;
+		}
+
+		D3D11_QUERY_DATA_TIMESTAMP_DISJOINT DisjointQueryData = {};
+		D3DResult = D3D11DeviceContext->GetData(DisjointQuery, &DisjointQueryData, sizeof(DisjointQueryData), 0);
+
+		// If timestamp was unreliable, try again
+		if (D3DResult != S_OK || DisjointQueryData.Disjoint)
+		{
+			continue;
+		}
+
+		D3DResult = D3D11DeviceContext->GetData(TimestampQuery, &GPUTimestamp, sizeof(GPUTimestamp), 0);
+
+		// If we managed to get valid timestamps, save both of them (CPU & GPU) and return
+		if (D3DResult == S_OK && GPUTimestamp)
+		{
+			GCalibrationTimestamp.CPUMicroseconds = uint64(FPlatformTime::ToSeconds64(CPUTimestamp) * 1e6);
+			GCalibrationTimestamp.GPUMicroseconds = uint64(GPUTimestamp * (1e6 / GTimingFrequency));
+			break;
+		}
+		else
+		{
+			continue;
+		}
+	}
+}
+
+void FD3D11DynamicRHI::RHICalibrateTimers()
+{
+	check(IsInRenderingThread());
+
+	FScopedRHIThreadStaller StallRHIThread(FRHICommandListExecutor::GetImmediateCommandList());
+
+	FD3D11BufferedGPUTiming::CalibrateTimers(this);
 }
 
 /**

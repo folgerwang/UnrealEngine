@@ -544,7 +544,7 @@ void FProjectedShadowInfo::SetupFrustumForProjection(const FViewInfo* View, TArr
 		const FPlane Front(FrontTopRight, FrontTopLeft, FrontBottomLeft);
 		const float FrontDistance = Front.PlaneDot(ShadowViewOrigin);
 
-        const FPlane Right(BackBottomRight, BackTopRight, FrontTopRight);
+		const FPlane Right(BackBottomRight, BackTopRight, FrontTopRight);
 		const float RightDistance = Right.PlaneDot(ShadowViewOrigin);
 
 		const FPlane Back(BackTopLeft, BackTopRight, BackBottomRight);
@@ -880,10 +880,9 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 	// solid rasterization w/ back-face culling.
 	GraphicsPSOInit.RasterizerState = (View->bReverseCulling || IsWholeSceneDirectionalShadow()) ? TStaticRasterizerState<FM_Solid,CM_CCW>::GetRHI() : TStaticRasterizerState<FM_Solid,CM_CW>::GetRHI();
 
+	GraphicsPSOInit.bDepthBounds = bDepthBoundsTestEnabled;
 	if (bDepthBoundsTestEnabled)
 	{
-		EnableDepthBoundsTest(RHICmdList, CascadeSettings.SplitNear, CascadeSettings.SplitFar, View->ViewMatrices.GetProjectionMatrix());
-
 		// no depth test or writes
 		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 	}
@@ -961,8 +960,13 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(ShadowProjPS);
 
 		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-        
-        RHICmdList.SetStencilRef(0);
+
+		if (bDepthBoundsTestEnabled)
+		{
+			SetDepthBoundsTest(RHICmdList, CascadeSettings.SplitNear, CascadeSettings.SplitFar, View->ViewMatrices.GetProjectionMatrix());
+		}
+
+		RHICmdList.SetStencilRef(0);
 
 		ShadowProjVS->SetParameters(RHICmdList, *View, this);
 		ShadowProjPS->SetParameters(RHICmdList, ViewIndex, *View, this);
@@ -986,11 +990,7 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 		DrawIndexedPrimitiveUP(RHICmdList, PT_TriangleList, 0, 8, 12, GCubeIndices, sizeof(uint16), FrustumVertices.GetData(), sizeof(FVector4));
 	}
 
-	if (bDepthBoundsTestEnabled)
-	{
-		DisableDepthBoundsTest(RHICmdList);
-	}
-	else
+	if (!bDepthBoundsTestEnabled)
 	{
 		// Clear the stencil buffer to 0.
 		if (!GStencilOptimization)

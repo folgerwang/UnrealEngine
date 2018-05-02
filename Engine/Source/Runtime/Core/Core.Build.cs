@@ -60,7 +60,8 @@ public class Core : ModuleRules
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"IntelTBB",
 				"zlib",
-				"PLCrashReporter"
+				"PLCrashReporter",
+				"rd_route"
 				);
 			PublicFrameworks.AddRange(new string[] { "Cocoa", "Carbon", "IOKit", "Security" });
 			
@@ -176,5 +177,26 @@ public class Core : ModuleRules
         {
             PublicDefinitions.Add("WITH_DIRECTXMATH=0");
         }
+
+        // Decide if validating memory allocator (aka MallocStomp) can be used on the current platform.
+        // Run-time validation must be enabled through '-stompmalloc' command line argument.
+
+        bool bWithMallocStomp = false;
+        if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+        {
+            switch (Target.Platform)
+            {
+                case UnrealTargetPlatform.Mac:
+                case UnrealTargetPlatform.Linux:
+                //case UnrealTargetPlatform.Win32: // 32-bit windows can technically be supported, but will likely run out of virtual memory space quickly
+                //case UnrealTargetPlatform.XboxOne: // XboxOne could be supported, as it's similar enough to Win64
+                case UnrealTargetPlatform.Win64:
+                    bWithMallocStomp = true;
+                break;
+            }
+        }
+
+        PublicDefinitions.Add("WITH_MALLOC_STOMP=" + (bWithMallocStomp ? "1" : "0"));
+
     }
 }

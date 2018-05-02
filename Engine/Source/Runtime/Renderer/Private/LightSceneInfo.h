@@ -69,7 +69,7 @@ struct FSortedLightSceneInfo
 		struct
 		{
 			// Note: the order of these members controls the light sort order!
-			// Currently bShadowed is the MSB and LightType is LSB
+			// Currently bUsesLightingChannels is the MSB and LightType is LSB
 			/** The type of light. */
 			uint32 LightType : LightType_NumBits;
 			/** Whether the light has a texture profile. */
@@ -78,6 +78,8 @@ struct FSortedLightSceneInfo
 			uint32 bLightFunction : 1;
 			/** Whether the light casts shadows. */
 			uint32 bShadowed : 1;
+			/** Whether the light uses lighting channels. */
+			uint32 bUsesLightingChannels : 1;
 		} Fields;
 		/** Sort key bits packed into an integer. */
 		int32 Packed;
@@ -196,11 +198,8 @@ public:
 	/** Octree bounds setup. */
 	FORCEINLINE FBoxCenterAndExtent GetBoundingBox() const
 	{
-		const float Extent = Proxy->GetRadius();
-		return FBoxCenterAndExtent(
-			Proxy->GetOrigin(),
-			FVector(Extent,Extent,Extent)
-			);
+		FSphere BoundingSphere = Proxy->GetBoundingSphere();
+		return FBoxCenterAndExtent(BoundingSphere.Center, FVector(BoundingSphere.W, BoundingSphere.W, BoundingSphere.W));
 	}
 
 	bool ShouldRenderLight(const FViewInfo& View) const;

@@ -85,13 +85,13 @@ LANDSCAPE_API extern UMaterialInterface* GLandscapeLayerUsageMaterial;
 /** The uniform shader parameters for a landscape draw call. */
 BEGIN_UNIFORM_BUFFER_STRUCT(FLandscapeUniformShaderParameters, LANDSCAPE_API)
 /** vertex shader parameters */
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, HeightmapUVScaleBias)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, WeightmapUVScaleBias)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, LandscapeLightmapScaleBias)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, SubsectionSizeVertsLayerUVPan)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, SubsectionOffsetParams)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, LightmapSubsectionOffsetParams)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix, LocalToWorldNoScaling)
+UNIFORM_MEMBER(FVector4, HeightmapUVScaleBias)
+UNIFORM_MEMBER(FVector4, WeightmapUVScaleBias)
+UNIFORM_MEMBER(FVector4, LandscapeLightmapScaleBias)
+UNIFORM_MEMBER(FVector4, SubsectionSizeVertsLayerUVPan)
+UNIFORM_MEMBER(FVector4, SubsectionOffsetParams)
+UNIFORM_MEMBER(FVector4, LightmapSubsectionOffsetParams)
+UNIFORM_MEMBER(FMatrix, LocalToWorldNoScaling)
 END_UNIFORM_BUFFER_STRUCT(FLandscapeUniformShaderParameters)
 
 /* Data needed for the landscape vertex factory to set the render state for an individual batch element */
@@ -713,10 +713,11 @@ public:
 	{}
 
 	// FMaterialRenderProxy interface.
-	virtual const FMaterial* GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const
+	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const override
 	{
-		return Parent->GetMaterial(InFeatureLevel);
+		Parent->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
 	}
+
 	virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const
 	{
 		if (ParameterInfo.Name == FName(TEXT("Landscape_RedMask")))
@@ -782,9 +783,9 @@ public:
 	{}
 
 	// FMaterialRenderProxy interface.
-	virtual const FMaterial* GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const
+	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const override
 	{
-		return Parent->GetMaterial(InFeatureLevel);
+		Parent->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
 	}
 	virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const
 	{
@@ -831,9 +832,9 @@ public:
 	{}
 
 	// FMaterialRenderProxy interface.
-	virtual const FMaterial* GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const
+	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const override
 	{
-		return Parent->GetMaterial(InFeatureLevel);
+		Parent->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
 	}
 	virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const
 	{
@@ -878,9 +879,9 @@ public:
 	{}
 
 	// FMaterialRenderProxy interface.
-	virtual const FMaterial* GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const
+	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const override
 	{
-		return Parent->GetMaterial(InFeatureLevel);
+		Parent->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
 	}
 	virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const
 	{

@@ -45,16 +45,16 @@ public:
 	/** Reset cached state for reuse */
 	void Reset(void);
 
-	void SetScissorRect(bool const bEnable, MTLScissorRect const& Rect);
+	void SetScissorRect(bool const bEnable, mtlpp::ScissorRect const& Rect);
 	void SetBlendFactor(FLinearColor const& InBlendFactor);
 	void SetStencilRef(uint32 const InStencilRef);
 	void SetComputeShader(FMetalComputeShader* InComputeShader);
-	bool SetRenderTargetsInfo(FRHISetRenderTargetsInfo const& InRenderTargets, id<MTLBuffer> const QueryBuffer, bool const bRestart);
+	bool SetRenderTargetsInfo(FRHISetRenderTargetsInfo const& InRenderTargets, FMetalQueryBuffer* QueryBuffer, bool const bRestart);
 	void InvalidateRenderTargets(void);
 	void SetRenderTargetsActive(bool const bActive);
-	void SetViewport(const MTLViewport& InViewport);
-	void SetViewports(const MTLViewport InViewport[], uint32 Count);
-	void SetVertexStream(uint32 const Index, id<MTLBuffer> Buffer, FMetalBufferData* Bytes, uint32 const Offset, uint32 const Length);
+	void SetViewport(const mtlpp::Viewport& InViewport);
+	void SetViewports(const mtlpp::Viewport InViewport[], uint32 Count);
+	void SetVertexStream(uint32 const Index, FMetalBuffer* Buffer, FMetalBufferData* Bytes, uint32 const Offset, uint32 const Length);
 	void SetGraphicsPipelineState(FMetalGraphicsPipelineState* State);
 	void SetIndexType(EMetalIndexType IndexType);
 	void BindUniformBuffer(EShaderFrequency const Freq, uint32 const BufferIndex, FUniformBufferRHIParamRef BufferRHI);
@@ -65,7 +65,7 @@ public:
 	 * @param Mode Controls if the counter is disabled or moniters passing samples.
 	 * @param Offset The offset relative to the occlusion query buffer provided when the command encoder was created.  offset must be a multiple of 8.
 	 */
-	void SetVisibilityResultMode(MTLVisibilityResultMode const Mode, NSUInteger const Offset);
+	void SetVisibilityResultMode(mtlpp::VisibilityResultMode const Mode, NSUInteger const Offset);
 	
 #pragma mark - Public Shader Resource Mutators -
 	/*
@@ -78,7 +78,7 @@ public:
 	 * @param Index The index to modify.
 	 * @param Format The UAV pixel format.
 	 */
-	void SetShaderBuffer(EShaderFrequency const Frequency, id<MTLBuffer> const Buffer, FMetalBufferData* const Bytes, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index, EPixelFormat const Format = PF_Unknown);
+	void SetShaderBuffer(EShaderFrequency const Frequency, FMetalBuffer const& Buffer, FMetalBufferData* const Bytes, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index, EPixelFormat const Format = PF_Unknown);
 	
 	/*
 	 * Set a global texture for the specified shader frequency at the given bind point index.
@@ -86,7 +86,7 @@ public:
 	 * @param Texture The texture to bind or nil to clear.
 	 * @param Index The index to modify.
 	 */
-	void SetShaderTexture(EShaderFrequency const Frequency, id<MTLTexture> Texture, NSUInteger const Index);
+	void SetShaderTexture(EShaderFrequency const Frequency, FMetalTexture const& Texture, NSUInteger const Index);
 	
 	/*
 	 * Set a global sampler for the specified shader frequency at the given bind point index.
@@ -112,7 +112,7 @@ public:
 
 	void CommitComputeResources(FMetalCommandEncoder* Compute);
 	
-	void CommitResourceTable(EShaderFrequency const Frequency, MTLFunctionType const Type, FMetalCommandEncoder& CommandEncoder);
+	void CommitResourceTable(EShaderFrequency const Frequency, mtlpp::FunctionType const Type, FMetalCommandEncoder& CommandEncoder);
 	
 	bool PrepareToRestart(void);
 	
@@ -128,24 +128,25 @@ public:
 	int32 GetNumRenderTargets() { return bHasValidColorTarget ? RenderTargetsInfo.NumColorRenderTargets : -1; }
 	bool GetHasValidRenderTarget() const { return bHasValidRenderTarget; }
 	bool GetHasValidColorTarget() const { return bHasValidColorTarget; }
-	const MTLViewport& GetViewport(uint32 const Index) const { check(Index < ML_MaxViewports); return Viewport[Index]; }
+	const mtlpp::Viewport& GetViewport(uint32 const Index) const { check(Index < ML_MaxViewports); return Viewport[Index]; }
 	uint32 GetVertexBufferSize(uint32 const Index);
 	uint32 GetRenderTargetArraySize() const { return RenderTargetArraySize; }
 	TRefCountPtr<FRHIUniformBuffer>* GetBoundUniformBuffers(EShaderFrequency const Freq) { return BoundUniformBuffers[Freq]; }
 	uint32 GetDirtyUniformBuffers(EShaderFrequency const Freq) const { return DirtyUniformBuffers[Freq]; }
-	id<MTLBuffer> GetVisibilityResultsBuffer() const { return VisibilityResults; }
+	FMetalQueryBuffer* GetVisibilityResultsBuffer() const { return VisibilityResults; }
 	bool GetScissorRectEnabled() const { return bScissorRectEnabled; }
 	bool NeedsToSetRenderTarget(const FRHISetRenderTargetsInfo& RenderTargetsInfo);
 	bool HasValidDepthStencilSurface() const { return IsValidRef(DepthStencilSurface); }
 	EMetalIndexType GetIndexType() const { return IndexType; }
     bool GetUsingTessellation() const { return bUsingTessellation; }
     bool CanRestartRenderPass() const { return bCanRestartRenderPass; }
-	MTLRenderPassDescriptor* GetRenderPassDescriptor(void) const { return RenderPassDesc; }
+	mtlpp::RenderPassDescriptor GetRenderPassDescriptor(void) const { return RenderPassDesc; }
 	uint32 GetSampleCount(void) const { return SampleCount; }
     bool IsLinearBuffer(EShaderFrequency ShaderStage, uint32 BindIndex);
 	bool ValidateBufferFormat(EShaderFrequency ShaderStage, uint32 BindIndex, EPixelFormat Format);
     FMetalShaderPipeline* GetPipelineState(uint32 V, uint32 F, uint32 C, EPixelFormat const* const VS, EPixelFormat const* const PS, EPixelFormat const* const DS) const { return GraphicsPSO->GetPipeline(GetIndexType(), V, F, C, VS, PS, DS); }
     FMetalShaderPipeline* GetPipelineState(void) const { return GraphicsPSO->GetPipeline(GetIndexType(), ShaderBuffers[SF_Vertex].FormatHash, ShaderBuffers[SF_Pixel].FormatHash, ShaderBuffers[SF_Domain].FormatHash, nullptr, nullptr, nullptr); }
+	EPrimitiveType GetPrimitiveType() { check(IsValidRef(GraphicsPSO)); return GraphicsPSO->GetPrimitiveType(); }
 	
 	FTexture2DRHIRef CreateFallbackDepthStencilSurface(uint32 Width, uint32 Height);
 	bool GetFallbackDepthStencilBound(void) const { return bFallbackDepthStencilBound; }
@@ -155,13 +156,14 @@ public:
 	
     void SetRenderPipelineState(FMetalCommandEncoder& CommandEncoder, FMetalCommandEncoder* PrologueEncoder);
     void SetComputePipelineState(FMetalCommandEncoder& CommandEncoder);
+	void FlushVisibilityResults(FMetalCommandEncoder& CommandEncoder);
+
 private:
 	void ConditionalUpdateBackBuffer(FMetalSurface& Surface);
 	
 	void SetDepthStencilState(FMetalDepthStencilState* InDepthStencilState);
 	void SetRasterizerState(FMetalRasterizerState* InRasterizerState);
 
-private:
 	FORCEINLINE void SetResource(uint32 ShaderStage, uint32 BindIndex, FRHITexture* RESTRICT TextureRHI, float CurrentTime);
 	
 	FORCEINLINE void SetResource(uint32 ShaderStage, uint32 BindIndex, FMetalShaderResourceView* RESTRICT SRV, float CurrentTime);
@@ -176,16 +178,17 @@ private:
 	template <class ShaderType>
 	void SetResourcesFromTables(ShaderType Shader, uint32 ShaderStage);
 	
-	void SetViewport(uint32 Index, const MTLViewport& InViewport);
-	void SetScissorRect(uint32 Index, bool const bEnable, MTLScissorRect const& Rect);
+	void SetViewport(uint32 Index, const mtlpp::Viewport& InViewport);
+	void SetScissorRect(uint32 Index, bool const bEnable, mtlpp::ScissorRect const& Rect);
 
 private:
 #pragma mark - Private Type Declarations -
 	struct FMetalBufferBinding
 	{
+		FMetalBufferBinding() : Bytes(nil), Offset(0), Length(0) {}
 		/** The bound buffers or nil. */
-		id<MTLBuffer> Buffer;
-		/** Optional bytes buffer used instead of an id<MTLBuffer> */
+		ns::AutoReleased<FMetalBuffer> Buffer;
+		/** Optional bytes buffer used instead of an FMetalBuffer */
 		FMetalBufferData* Bytes;
 		/** The bound buffer offsets or 0. */
 		NSUInteger Offset;
@@ -196,6 +199,7 @@ private:
 	/** A structure of arrays for the current buffer binding settings. */
 	struct FMetalBufferBindings
 	{
+		FMetalBufferBindings() : FormatHash(0), Bound(0) {}
 		/** The bound buffers/bytes or nil. */
 		FMetalBufferBinding Buffers[ML_MaxBuffers];
 		/** The pixel formats for buffers bound so that we emulate [RW]Buffer<T> type conversion */
@@ -209,8 +213,9 @@ private:
 	/** A structure of arrays for the current texture binding settings. */
 	struct FMetalTextureBindings
 	{
+		FMetalTextureBindings() : Bound(0) {}
 		/** The bound textures or nil. */
-		id<MTLTexture> Textures[ML_MaxTextures];
+		ns::AutoReleased<FMetalTexture> Textures[ML_MaxTextures];
 		/** A bitmask for which textures were bound by the application where a bit value of 1 is bound and 0 is unbound. */
 		FMetalTextureMask Bound;
 	};
@@ -218,14 +223,13 @@ private:
 	/** A structure of arrays for the current sampler binding settings. */
 	struct FMetalSamplerBindings
 	{
+		FMetalSamplerBindings() : Bound(0) {}
 		/** The bound sampler states or nil. */
 		TRefCountPtr<FMetalSamplerState> Samplers[ML_MaxSamplers];
 		/** A bitmask for which samplers were bound by the application where a bit value of 1 is bound and 0 is unbound. */
 		uint16 Bound;
 	};
 	
-private:
-
     EMetalBufferType GetShaderBufferBindingType(FMetalBufferBindings& BufferBindings, uint32 BoundBuffers, uint32 ShaderBindingHash);
     
 private:
@@ -247,14 +251,15 @@ private:
 	FMetalTextureBindings ShaderTextures[SF_NumFrequencies];
 	FMetalSamplerBindings ShaderSamplers[SF_NumFrequencies];
 	
-	MTLStoreAction ColorStore[MaxSimultaneousRenderTargets];
-	MTLStoreAction DepthStore;
-	MTLStoreAction StencilStore;
+	mtlpp::StoreAction ColorStore[MaxSimultaneousRenderTargets];
+	mtlpp::StoreAction DepthStore;
+	mtlpp::StoreAction StencilStore;
 
-	id<MTLBuffer> VisibilityResults;
-	MTLVisibilityResultMode VisibilityMode;
+	FMetalQueryBuffer* VisibilityResults;
+	mtlpp::VisibilityResultMode VisibilityMode;
 	NSUInteger VisibilityOffset;
-	
+	NSUInteger VisibilityWritten;
+
 	TRefCountPtr<FMetalDepthStencilState> DepthStencilState;
 	TRefCountPtr<FMetalRasterizerState> RasterizerState;
 	TRefCountPtr<FMetalGraphicsPipelineState> GraphicsPSO;
@@ -266,8 +271,8 @@ private:
 	
 	uint32 RenderTargetArraySize;
 
-	MTLViewport Viewport[ML_MaxViewports];
-	MTLScissorRect Scissor[ML_MaxViewports];
+	mtlpp::Viewport Viewport[ML_MaxViewports];
+	mtlpp::ScissorRect Scissor[ML_MaxViewports];
 	
 	uint32 ActiveViewports;
 	uint32 ActiveScissors;
@@ -277,7 +282,7 @@ private:
 	FTextureRHIRef DepthStencilSurface;
 	/** A fallback depth-stencil surface for draw calls that write to depth without a depth-stencil surface bound. */
 	FTexture2DRHIRef FallbackDepthStencilSurface;
-	MTLRenderPassDescriptor* RenderPassDesc;
+	mtlpp::RenderPassDescriptor RenderPassDesc;
 	uint32 RasterBits;
     uint8 PipelineBits;
 	bool bIsRenderTargetActive;

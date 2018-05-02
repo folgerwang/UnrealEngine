@@ -227,7 +227,7 @@ namespace AutomationTool
 				// Check whether file or directory exists. Evaluate the argument as a subexpression.
 				Idx++;
 				string Argument = EvaluateScalar(Tokens, ref Idx);
-				Result = (File.Exists(Argument) || Directory.Exists(Argument))? "true" : "false";
+				Result = Exists(Argument)? "true" : "false";
 			}
 			else if(String.Compare(Tokens[Idx], "HasTrailingSlash", true) == 0 && Tokens[Idx + 1] == "(")
 			{
@@ -256,6 +256,24 @@ namespace AutomationTool
 				}
 			}
 			return Result;
+		}
+
+		/// <summary>
+		/// Checks whether a path exists
+		/// </summary>
+		/// <param name="Scalar">The path to check for</param>
+		/// <returns>True if the path exists, false otherwise.</returns>
+		static bool Exists(string Scalar)
+		{
+			try
+			{
+				string FullPath = Path.Combine(CommandUtils.RootDirectory.FullName, Scalar);
+				return CommandUtils.FileExists(FullPath) || CommandUtils.DirectoryExists(FullPath);
+			}
+			catch
+			{
+				return false;
+			}
 		}
 
 		/// <summary>

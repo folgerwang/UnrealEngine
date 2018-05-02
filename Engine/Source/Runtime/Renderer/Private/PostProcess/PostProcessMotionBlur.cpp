@@ -190,8 +190,8 @@ void FRCPassPostProcessVelocityFlatten::Process(FRenderingCompositePassContext& 
 	Context.RHICmdList.SetUAVParameter(ComputeShader->GetComputeShader(), ComputeShader->OutVelocityFlat.GetBaseIndex(), NULL);
 	Context.RHICmdList.SetUAVParameter(ComputeShader->GetComputeShader(), ComputeShader->OutMaxTileVelocity.GetBaseIndex(), NULL);
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget0.TargetableTexture, DestRenderTarget0.ShaderResourceTexture, false, FResolveParams());
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget1.TargetableTexture, DestRenderTarget1.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget0.TargetableTexture, DestRenderTarget0.ShaderResourceTexture, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget1.TargetableTexture, DestRenderTarget1.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessVelocityFlatten::ComputeOutputDesc(EPassOutputId InPassOutputId) const
@@ -388,7 +388,7 @@ void FRCPassPostProcessVelocityScatter::Process(FRenderingCompositePassContext& 
 		Context.RHICmdList.DrawIndexedPrimitive(GScatterQuadIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 32, 0, 2 * QuadsPerInstance, FMath::DivideAndRoundUp(TileCount.X * TileCount.Y, QuadsPerInstance));
 	}
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessVelocityScatter::ComputeOutputDesc(EPassOutputId InPassOutputId) const
@@ -483,7 +483,7 @@ void FRCPassPostProcessVelocityGather::Process(FRenderingCompositePassContext& C
 	// un-set destination
 	Context.RHICmdList.SetUAVParameter( ComputeShader->GetComputeShader(), ComputeShader->OutScatteredMaxVelocity.GetBaseIndex(), NULL );
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessVelocityGather::ComputeOutputDesc(EPassOutputId InPassOutputId) const
@@ -526,7 +526,7 @@ class FPostProcessMotionBlurPS : public FGlobalShader
 
 public:
 	FPostProcessPassParameters PostprocessParameter;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter MotionBlurParameters;
 	FShaderParameter SceneColorBufferUVToViewBufferUV;
 	FShaderParameter TileUVMax;
@@ -536,7 +536,7 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		MotionBlurParameters.Bind(Initializer.ParameterMap, TEXT("MotionBlurParameters"));
 		SceneColorBufferUVToViewBufferUV.Bind(Initializer.ParameterMap, TEXT("SceneColorBufferUVToViewBufferUV"));
 		TileUVMax.Bind(Initializer.ParameterMap, TEXT("TileUVMax"));
@@ -546,7 +546,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << MotionBlurParameters << SceneColorBufferUVToViewBufferUV << TileUVMax;
+		Ar << PostprocessParameter << SceneTextureParameters << MotionBlurParameters << SceneColorBufferUVToViewBufferUV << TileUVMax;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -556,7 +556,7 @@ public:
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(Context.RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
 
-		DeferredParameters.Set(Context.RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(Context.RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		{
 			bool bFiltered = false;
@@ -662,7 +662,7 @@ public:
 
 	// PS params
 	FPostProcessPassParameters PostprocessParameter;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter MotionBlurParameters;
 	FShaderParameter SceneColorBufferUVToViewBufferUV;
 	FShaderParameter TileUVMax;
@@ -677,7 +677,7 @@ public:
 
 		// PS params
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		MotionBlurParameters.Bind(Initializer.ParameterMap, TEXT("MotionBlurParameters"));
 		SceneColorBufferUVToViewBufferUV.Bind(Initializer.ParameterMap, TEXT("SceneColorBufferUVToViewBufferUV"));
 		TileUVMax.Bind(Initializer.ParameterMap, TEXT("TileUVMax"));
@@ -696,7 +696,7 @@ public:
 		SetShaderValue(RHICmdList, ShaderRHI, MotionBlurComputeParams, MotionBlurComputeValues);
 
 		// PS params
-		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		{
 			bool bFiltered = false;
@@ -754,7 +754,7 @@ public:
 		// CS params
 		Ar << OutComputeTex << MotionBlurComputeParams;
 		// PS params
-		Ar << PostprocessParameter << DeferredParameters << MotionBlurParameters << SceneColorBufferUVToViewBufferUV << TileUVMax;
+		Ar << PostprocessParameter << SceneTextureParameters << MotionBlurParameters << SceneColorBufferUVToViewBufferUV << TileUVMax;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -944,7 +944,7 @@ void FRCPassPostProcessMotionBlur::Process(FRenderingCompositePassContext& Conte
 			Context.HasHmdMesh(),
 			EDRF_UseTriangleOptimization);
 
-		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 	}
 }
 
@@ -1049,7 +1049,7 @@ class FPostProcessVisualizeMotionBlurPS : public FGlobalShader
 
 public:
 	FPostProcessPassParameters PostprocessParameter;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter PrevViewProjMatrix;
 
 	/** Initialization constructor. */
@@ -1057,7 +1057,7 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		PrevViewProjMatrix.Bind(Initializer.ParameterMap, TEXT("PrevViewProjMatrix"));
 	}
 
@@ -1065,7 +1065,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << PrevViewProjMatrix;
+		Ar << PostprocessParameter << SceneTextureParameters << PrevViewProjMatrix;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -1076,7 +1076,7 @@ public:
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
 
-		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		{
 			bool bFiltered = false;
@@ -1233,7 +1233,7 @@ void FRCPassPostProcessVisualizeMotionBlur::Process(FRenderingCompositePassConte
 
 	Canvas.Flush_RenderThread(Context.RHICmdList);
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessVisualizeMotionBlur::ComputeOutputDesc(EPassOutputId InPassOutputId) const

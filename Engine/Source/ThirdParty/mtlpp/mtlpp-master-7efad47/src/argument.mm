@@ -13,7 +13,7 @@ MTLPP_BEGIN
 namespace mtlpp
 {
 	Type::Type() :
-	ns::Object<MTLType*>([[MTLType alloc] init], false)
+	ns::Object<MTLType*>([[MTLType alloc] init], ns::Ownership::Assign)
 	{
 		
 	}
@@ -29,7 +29,7 @@ namespace mtlpp
 	}
 	
 	TextureReferenceType::TextureReferenceType() :
-	ns::Object<MTLTextureReferenceType*>([[MTLTextureReferenceType alloc] init], false)
+	ns::Object<MTLTextureReferenceType*>([[MTLTextureReferenceType alloc] init], ns::Ownership::Assign)
 	{
 		
 	}
@@ -75,7 +75,7 @@ namespace mtlpp
 	}
 	
 	PointerType::PointerType() :
-	ns::Object<MTLPointerType*>([[MTLPointerType alloc] init], false)
+	ns::Object<MTLPointerType*>([[MTLPointerType alloc] init], ns::Ownership::Assign)
 	{
 	}
 	
@@ -129,35 +129,35 @@ namespace mtlpp
 #endif
 	}
 	
-	StructType PointerType::GetElementStructType()
+	ns::AutoReleased<StructType> PointerType::GetElementStructType()
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return StructType([(MTLPointerType*)m_ptr elementStructType]);
+		return ns::AutoReleased<StructType>(StructType([(MTLPointerType*)m_ptr elementStructType]));
 #else
 		return StructType();
 #endif
 	}
 	
-	ArrayType PointerType::GetElementArrayType()
+	ns::AutoReleased<ArrayType> PointerType::GetElementArrayType()
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return ArrayType([(MTLArrayType*)m_ptr elementArrayType]);
+		return ns::AutoReleased<ArrayType>([(MTLArrayType*)m_ptr elementArrayType]);
 #else
 		return ArrayType();
 #endif
 	}
 	
     StructMember::StructMember() :
-        ns::Object<MTLStructMember*>([[MTLStructMember alloc] init], false)
+        ns::Object<MTLStructMember*>([[MTLStructMember alloc] init], ns::Ownership::Assign)
     {
     }
 
-    ns::String StructMember::GetName() const
+    ns::AutoReleased<ns::String> StructMember::GetName() const
     {
         Validate();
-        return [(MTLStructMember*)m_ptr name];
+        return ns::AutoReleased<ns::String>([(MTLStructMember*)m_ptr name]);
     }
 
     NSUInteger StructMember::GetOffset() const
@@ -172,33 +172,33 @@ namespace mtlpp
         return DataType([(MTLStructMember*)m_ptr dataType]);
     }
 
-    StructType StructMember::GetStructType() const
+    ns::AutoReleased<StructType> StructMember::GetStructType() const
     {
         Validate();
-        return [(MTLStructMember*)m_ptr structType];
+        return ns::AutoReleased<StructType>([(MTLStructMember*)m_ptr structType]);
     }
 
-    ArrayType StructMember::GetArrayType() const
+    ns::AutoReleased<ArrayType> StructMember::GetArrayType() const
     {
         Validate();
-        return [(MTLStructMember*)m_ptr arrayType];
+        return ns::AutoReleased<ArrayType>([(MTLStructMember*)m_ptr arrayType]);
     }
 
-	TextureReferenceType StructMember::GetTextureReferenceType() const
+	ns::AutoReleased<TextureReferenceType> StructMember::GetTextureReferenceType() const
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return [(MTLStructMember*)m_ptr textureReferenceType];
+		return ns::AutoReleased<TextureReferenceType>([(MTLStructMember*)m_ptr textureReferenceType]);
 #else
 		return TextureReferenceType();
 #endif
 	}
 	
-	PointerType StructMember::GetPointerType() const
+	ns::AutoReleased<PointerType> StructMember::GetPointerType() const
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return [(MTLStructMember*)m_ptr pointerType];
+		return ns::AutoReleased<PointerType>([(MTLStructMember*)m_ptr pointerType]);
 #else
 		return PointerType();
 #endif
@@ -215,7 +215,7 @@ namespace mtlpp
 	}
 	
     StructType::StructType() :
-        ns::Object<MTLStructType*>([[MTLStructType alloc] init], false)
+        ns::Object<MTLStructType*>([[MTLStructType alloc] init], ns::Ownership::Assign)
     {
     }
 
@@ -225,14 +225,14 @@ namespace mtlpp
         return [(MTLStructType*)m_ptr members];
     }
 
-    StructMember StructType::GetMember(const ns::String& name) const
+    ns::AutoReleased<StructMember> StructType::GetMember(const ns::String& name) const
     {
         Validate();
-        return [(MTLStructType*)m_ptr memberByName:(NSString*)name.GetPtr()];
+        return ns::AutoReleased<StructMember>([(MTLStructType*)m_ptr memberByName:(NSString*)name.GetPtr()]);
     }
 
     ArrayType::ArrayType() :
-        ns::Object<MTLArrayType*>([[MTLArrayType alloc] init], false)
+        ns::Object<MTLArrayType*>([[MTLArrayType alloc] init], ns::Ownership::Assign)
     {
     }
 
@@ -254,16 +254,16 @@ namespace mtlpp
         return NSUInteger([(MTLArrayType*)m_ptr stride]);
     }
 
-    StructType ArrayType::GetElementStructType() const
+    ns::AutoReleased<StructType> ArrayType::GetElementStructType() const
     {
         Validate();
-        return [(MTLArrayType*)m_ptr elementStructType];
+        return ns::AutoReleased<StructType>([(MTLArrayType*)m_ptr elementStructType]);
     }
 
-    ArrayType ArrayType::GetElementArrayType() const
+    ns::AutoReleased<ArrayType> ArrayType::GetElementArrayType() const
     {
         Validate();
-        return [(MTLArrayType*)m_ptr elementArrayType];
+        return ns::AutoReleased<ArrayType>([(MTLArrayType*)m_ptr elementArrayType]);
     }
 	
 	uint64_t ArrayType::GetArgumentIndexStride() const
@@ -276,35 +276,35 @@ namespace mtlpp
 #endif
 	}
 	
-	TextureReferenceType ArrayType::GetElementTextureReferenceType() const
+	ns::AutoReleased<TextureReferenceType> ArrayType::GetElementTextureReferenceType() const
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return [(MTLArrayType*)m_ptr elementTextureReferenceType];
+		return ns::AutoReleased<TextureReferenceType>([(MTLArrayType*)m_ptr elementTextureReferenceType]);
 #else
 		return TextureReferenceType();
 #endif
 	}
 	
-	PointerType ArrayType::GetElementPointerType() const
+	ns::AutoReleased<PointerType> ArrayType::GetElementPointerType() const
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return [(MTLArrayType*)m_ptr elementPointerType];
+		return ns::AutoReleased<PointerType>([(MTLArrayType*)m_ptr elementPointerType]);
 #else
 		return PointerType();
 #endif
 	}
 
     Argument::Argument() :
-        ns::Object<MTLArgument*>([[MTLArgument alloc] init], false)
+        ns::Object<MTLArgument*>([[MTLArgument alloc] init], ns::Ownership::Assign)
     {
     }
 
-    ns::String Argument::GetName() const
+    ns::AutoReleased<ns::String> Argument::GetName() const
     {
         Validate();
-        return [(MTLArgument*)m_ptr name];
+        return ns::AutoReleased<ns::String>([(MTLArgument*)m_ptr name]);
     }
 
     ArgumentType Argument::GetType() const
@@ -349,17 +349,17 @@ namespace mtlpp
         return DataType([(MTLArgument*)m_ptr bufferDataType]);
     }
 
-    StructType Argument::GetBufferStructType() const
+    ns::AutoReleased<StructType> Argument::GetBufferStructType() const
     {
         Validate();
-        return StructType([(MTLArgument*)m_ptr bufferStructType]);
+        return ns::AutoReleased<StructType>([(MTLArgument*)m_ptr bufferStructType]);
     }
 	
-	PointerType	   Argument::GetBufferPointerType() const
+	ns::AutoReleased<PointerType>	   Argument::GetBufferPointerType() const
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return [(MTLArgument*)m_ptr bufferPointerType];
+		return ns::AutoReleased<PointerType>([(MTLArgument*)m_ptr bufferPointerType]);
 #else
 		return PointerType();
 #endif

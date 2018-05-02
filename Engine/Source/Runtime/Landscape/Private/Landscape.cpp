@@ -123,6 +123,7 @@ ULandscapeComponent::ULandscapeComponent(const FObjectInitializer& ObjectInitial
 	CastShadow = true;
 	// by default we want to see the Landscape shadows even in the far shadow cascades
 	bCastFarShadow = true;
+	bAffectDistanceFieldLighting = true;
 	bUseAsOccluder = true;
 	bAllowCullDistanceVolume = false;
 	CollisionMipLevel = 0;
@@ -556,6 +557,7 @@ void ULandscapeComponent::UpdatedSharedPropertiesFromActor()
 	bCastStaticShadow = LandscapeProxy->bCastStaticShadow;
 	bCastShadowAsTwoSided = LandscapeProxy->bCastShadowAsTwoSided;
 	bCastFarShadow = LandscapeProxy->bCastFarShadow;
+	bAffectDistanceFieldLighting = LandscapeProxy->bAffectDistanceFieldLighting;
 	bRenderCustomDepth = LandscapeProxy->bRenderCustomDepth;
 	CustomDepthStencilValue = LandscapeProxy->CustomDepthStencilValue;
 	LightingChannels = LandscapeProxy->LightingChannels;
@@ -726,6 +728,7 @@ ALandscapeProxy::ALandscapeProxy(const FObjectInitializer& ObjectInitializer)
 	bCanBeDamaged = false;
 	// by default we want to see the Landscape shadows even in the far shadow cascades
 	bCastFarShadow = true;
+	bAffectDistanceFieldLighting = true;
 
 	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent0"));
 	RootComponent = SceneComponent;

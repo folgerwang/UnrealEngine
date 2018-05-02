@@ -955,7 +955,7 @@ uint32 UTexture::GetMaximumDimension() const
 }
 #endif // #if WITH_EDITOR
 
-FName GetDefaultTextureFormatName( const ITargetPlatform* TargetPlatform, const UTexture* Texture, const FConfigFile& EngineSettings, bool bSupportDX11TextureFormats )
+FName GetDefaultTextureFormatName( const ITargetPlatform* TargetPlatform, const UTexture* Texture, const FConfigFile& EngineSettings, bool bSupportDX11TextureFormats, bool bSupportCompressedVolumeTexture )
 {
 	FName TextureFormatName = NAME_None;
 
@@ -987,10 +987,15 @@ FName GetDefaultTextureFormatName( const ITargetPlatform* TargetPlatform, const 
 		|| (Texture->LODGroup == TEXTUREGROUP_ColorLookupTable)	// Textures in certain LOD groups should remain uncompressed.
 		|| (Texture->LODGroup == TEXTUREGROUP_Bokeh)
 		|| (Texture->LODGroup == TEXTUREGROUP_IESLightProfile)
-		|| (Texture->Source.GetSizeX() < 4) // Don't compress textures smaller than the DXT block size.
-		|| (Texture->Source.GetSizeY() < 4)
-		|| (Texture->Source.GetSizeX() % 4 != 0)
-		|| (Texture->Source.GetSizeY() % 4 != 0);
+		|| (Texture->GetMaterialType() == MCT_VolumeTexture && !bSupportCompressedVolumeTexture);
+
+	if (Texture->PowerOfTwoMode == ETexturePowerOfTwoSetting::None)
+	{
+		bNoCompression |= (Texture->Source.GetSizeX() < 4) // Don't compress textures smaller than the DXT block size.
+			|| (Texture->Source.GetSizeY() < 4)
+			|| (Texture->Source.GetSizeX() % 4 != 0)
+			|| (Texture->Source.GetSizeY() % 4 != 0);
+	}
 
 	bool bUseDXT5NormalMap = false;
 
@@ -1088,7 +1093,7 @@ FName GetDefaultTextureFormatName( const ITargetPlatform* TargetPlatform, const 
 		}
 		else if (TextureFormatName == NameBC7)
 		{
-			TextureFormatName = NameAutoDXT;
+			TextureFormatName = NameBGRA8;
 		}
 	}
 

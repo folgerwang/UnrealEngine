@@ -42,7 +42,7 @@ void FVirtualTextureFeedback::TransferGPUToCPU( FRHICommandListImmediate& RHICmd
 	GRenderTargetPool.FindFreeElement( RHICmdList, Desc, FeedbackTextureCPU, TEXT("VTFeedbackCPU") );
 
 	// Transfer memory GPU -> CPU
-	RHICmdList.CopyToResolveTarget( FeedbackTextureGPU->GetRenderTargetItem().TargetableTexture, FeedbackTextureCPU->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams() );
+	RHICmdList.CopyToResolveTarget( FeedbackTextureGPU->GetRenderTargetItem().TargetableTexture, FeedbackTextureCPU->GetRenderTargetItem().ShaderResourceTexture, FResolveParams() );
 
 	GRenderTargetPool.FreeUnusedResource( FeedbackTextureGPU );
 }

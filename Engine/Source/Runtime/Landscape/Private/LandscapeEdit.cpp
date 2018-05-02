@@ -3701,6 +3701,7 @@ void ALandscapeProxy::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 	else if(PropertyName == FName(TEXT("bCastStaticShadow")) ||
 		PropertyName == FName(TEXT("bCastShadowAsTwoSided")) ||
 		PropertyName == FName(TEXT("bCastFarShadow")) ||
+		PropertyName == FName(TEXT("bAffectDistanceFieldLighting")) ||
 		PropertyName == FName(TEXT("bRenderCustomDepth")) ||
 		PropertyName == FName(TEXT("CustomDepthStencilValue")) ||
 		PropertyName == FName(TEXT("LightingChannels"))

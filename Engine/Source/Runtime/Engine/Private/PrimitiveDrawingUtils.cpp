@@ -285,9 +285,9 @@ void GetOrientedHalfSphereMesh(const FVector& Center, const FRotator& Orientatio
 				Verts[VIx].Position = ArcRot.TransformPosition(ArcVerts[v].Position);
 
 				Verts[VIx].SetTangents(
-					ArcRot.TransformVector(ArcVerts[v].TangentX),
+					ArcRot.TransformVector(ArcVerts[v].TangentX.ToFVector()),
 					ArcRot.TransformVector(ArcVerts[v].GetTangentY()),
-					ArcRot.TransformVector(ArcVerts[v].TangentZ)
+					ArcRot.TransformVector(ArcVerts[v].TangentZ.ToFVector())
 					);
 
 				Verts[VIx].TextureCoordinate[0].X = XTexCoord;
@@ -386,9 +386,9 @@ void DrawSphere(FPrimitiveDrawInterface* PDI,const FVector& Center,const FRotato
 				Verts[VIx].Position = ArcRot.TransformPosition( ArcVerts[v].Position );
 				
 				Verts[VIx].SetTangents(
-					ArcRot.TransformVector( ArcVerts[v].TangentX ),
+					ArcRot.TransformVector( ArcVerts[v].TangentX.ToFVector()),
 					ArcRot.TransformVector( ArcVerts[v].GetTangentY() ),
-					ArcRot.TransformVector( ArcVerts[v].TangentZ )
+					ArcRot.TransformVector( ArcVerts[v].TangentZ.ToFVector())
 					);
 
 				Verts[VIx].TextureCoordinate[0].X = XTexCoord;

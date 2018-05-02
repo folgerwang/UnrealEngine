@@ -90,6 +90,10 @@ static TAutoConsoleVariable<int32> CVarSupportAllShaderPermutations(
 /** Whether to replace lightmap textures with solid colors to visualize the mip-levels. */
 bool GVisualizeMipLevels = false;
 
+IMPLEMENT_UNIFORM_BUFFER_STRUCT(FSharedBasePassUniformParameters, TEXT("BasePass"));
+IMPLEMENT_UNIFORM_BUFFER_STRUCT(FOpaqueBasePassUniformParameters, TEXT("OpaqueBasePass"));
+IMPLEMENT_UNIFORM_BUFFER_STRUCT(FTranslucentBasePassUniformParameters, TEXT("TranslucentBasePass"));
+
 // Typedef is necessary because the C preprocessor thinks the comma in the template parameter list is a comma in the macro parameter list.
 // BasePass Vertex Shader needs to include hull and domain shaders for tessellation, these only compile for D3D11
 #define IMPLEMENT_BASEPASS_VERTEXSHADER_TYPE(LightMapPolicyType,LightMapPolicyName) \
@@ -139,67 +143,6 @@ IMPLEMENT_BASEPASS_LIGHTMAPPED_SHADER_TYPE( TUniformLightMapPolicy<LMP_DISTANCE_
 
 DECLARE_GPU_STAT(Basepass);
 
-void FSkyLightReflectionParameters::GetSkyParametersFromScene(
-	const FScene* Scene, 
-	bool bApplySkyLight, 
-	FTexture*& OutSkyLightTextureResource, 
-	FTexture*& OutSkyLightBlendDestinationTextureResource, 
-	float& OutApplySkyLightMask, 
-	float& OutSkyMipCount, 
-	bool& bOutSkyLightIsDynamic, 
-	float& OutBlendFraction,
-	float& OutSkyAverageBrightness)
-{
-	OutSkyLightTextureResource = GBlackTextureCube;
-	OutSkyLightBlendDestinationTextureResource = GBlackTextureCube;
-	OutApplySkyLightMask = 0;
-	bOutSkyLightIsDynamic = false;
-	OutBlendFraction = 0;
-	OutSkyAverageBrightness = 1.0f;
-
-	if (Scene
-		&& Scene->SkyLight 
-		&& Scene->SkyLight->ProcessedTexture
-		&& bApplySkyLight)
-	{
-		const FSkyLightSceneProxy& SkyLight = *Scene->SkyLight;
-		OutSkyLightTextureResource = SkyLight.ProcessedTexture;
-		OutBlendFraction = SkyLight.BlendFraction;
-
-		if (SkyLight.BlendFraction > 0.0f && SkyLight.BlendDestinationProcessedTexture)
-		{
-			if (SkyLight.BlendFraction < 1.0f)
-			{
-				OutSkyLightBlendDestinationTextureResource = SkyLight.BlendDestinationProcessedTexture;
-			}
-			else
-			{
-				OutSkyLightTextureResource = SkyLight.BlendDestinationProcessedTexture;
-				OutBlendFraction = 0;
-			}
-		}
-		
-		OutApplySkyLightMask = 1;
-		bOutSkyLightIsDynamic = !SkyLight.bHasStaticLighting && !SkyLight.bWantsStaticShadowing;
-		OutSkyAverageBrightness = SkyLight.AverageBrightness;
-	}
-
-	OutSkyMipCount = 1;
-
-	if (OutSkyLightTextureResource)
-	{
-		int32 CubemapWidth = OutSkyLightTextureResource->GetSizeX();
-		OutSkyMipCount = FMath::Log2(CubemapWidth) + 1.0f;
-	}
-}
-
-void FBasePassReflectionParameters::Set(FRHICommandList& RHICmdList, FPixelShaderRHIParamRef PixelShaderRHI, const FViewInfo* View)
-{
-	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-
-	SkyLightReflectionParameters.SetParameters(RHICmdList, PixelShaderRHI, (const FScene*)(View->Family->Scene), View->Family->EngineShowFlags.SkyLighting);
-}
-
 void FBasePassReflectionParameters::SetMesh(FRHICommandList& RHICmdList, FPixelShaderRHIParamRef PixelShaderRHI, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, ERHIFeatureLevel::Type FeatureLevel)
 {
 	const FPrimitiveSceneInfo* PrimitiveSceneInfo = Proxy ? Proxy->GetPrimitiveSceneInfo() : NULL;
@@ -212,8 +155,6 @@ void FBasePassReflectionParameters::SetMesh(FRHICommandList& RHICmdList, FPixelS
 
 	PlanarReflectionParameters.SetParameters(RHICmdList, PixelShaderRHI, View, PlanarReflectionProxy);
 
-	// Note: GBlackCubeArrayTexture has an alpha of 0, which is needed to represent invalid data so the sky cubemap can still be applied
-	FTextureRHIParamRef CubeArrayTexture = FeatureLevel >= ERHIFeatureLevel::SM5 ? GBlackCubeArrayTexture->TextureRHI : GBlackTextureCube->TextureRHI;
 	int32 ArrayIndex = 0;
 	float AverageBrightness = 1.0f;
 	const FReflectionCaptureProxy* ReflectionProxy = PrimitiveSceneInfo ? PrimitiveSceneInfo->CachedReflectionCaptureProxy : nullptr;
@@ -223,123 +164,16 @@ void FBasePassReflectionParameters::SetMesh(FRHICommandList& RHICmdList, FPixelS
 
 	if (PrimitiveSceneInfo && ReflectionProxy && View.Family->EngineShowFlags.ReflectionEnvironment)
 	{
-		PrimitiveSceneInfo->Scene->GetCaptureParameters(ReflectionProxy, CubeArrayTexture, ArrayIndex, AverageBrightness);
+		PrimitiveSceneInfo->Scene->GetCaptureParameters(ReflectionProxy, ArrayIndex, AverageBrightness);
 		CaptureOffsetAndAverageBrightnessValue = FVector4(ReflectionProxy->CaptureOffset, AverageBrightness);
 		PositionAndRadius = FVector4(ReflectionProxy->Position, ReflectionProxy->InfluenceRadius);
 		Brightness = ReflectionProxy->Brightness;
 	}
 
-	SetTextureParameter(
-		RHICmdList, 
-		PixelShaderRHI, 
-		ReflectionCubemap, 
-		ReflectionCubemapSampler, 
-		TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
-		CubeArrayTexture);
-
 	SetShaderValue(RHICmdList, PixelShaderRHI, SingleCubemapArrayIndex, ArrayIndex);
 	SetShaderValue(RHICmdList, PixelShaderRHI, SingleCaptureOffsetAndAverageBrightness, CaptureOffsetAndAverageBrightnessValue);
 	SetShaderValue(RHICmdList, PixelShaderRHI, SingleCapturePositionAndRadius, PositionAndRadius);
 	SetShaderValue(RHICmdList, PixelShaderRHI, SingleCaptureBrightness, Brightness);
-}
-
-void FTranslucentLightingParameters::Set(FRHICommandList& RHICmdList, FPixelShaderRHIParamRef PixelShaderRHI, const FViewInfo* View)
-{
-	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-
-	TranslucentLightingVolumeParameters.Set(RHICmdList, PixelShaderRHI);
-
-	FSceneViewState* ViewState = View->ViewState;
-
-	float PrevSceneColorPreExposureInvValue = 1.0f / View->PreExposure;
-
-	if (View->HZB)
-	{
-		SetTextureParameter(
-			RHICmdList, 
-			PixelShaderRHI, 
-			HZBTexture, 
-			HZBSampler, 
-			TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
-			View->HZB->GetRenderTargetItem().ShaderResourceTexture );
-
-		const TRefCountPtr<IPooledRenderTarget>* PrevSceneColorRT = &GSystemTextures.BlackDummy;
-
-		if (View->PrevViewInfo.CustomSSRInput.IsValid())
-		{
-			PrevSceneColorRT = &View->PrevViewInfo.CustomSSRInput;
-			PrevSceneColorPreExposureInvValue = 1.0f / View->PrevViewInfo.TemporalAAHistory.SceneColorPreExposure;
-		}
-		else if (View->PrevViewInfo.TemporalAAHistory.IsValid())
-		{
-			PrevSceneColorRT = &View->PrevViewInfo.TemporalAAHistory.RT[0];
-			PrevSceneColorPreExposureInvValue = 1.0f / View->PrevViewInfo.TemporalAAHistory.SceneColorPreExposure;
-		}
-
-		SetTextureParameter(
-			RHICmdList, 
-			PixelShaderRHI, 
-			PrevSceneColor, 
-			PrevSceneColorSampler, 
-			TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
-			(*PrevSceneColorRT)->GetRenderTargetItem().ShaderResourceTexture );
-		
-		const FVector2D HZBUvFactor(
-			float(View->ViewRect.Width()) / float(2 * View->HZBMipmap0Size.X),
-			float(View->ViewRect.Height()) / float(2 * View->HZBMipmap0Size.Y)
-			);
-		const FVector4 HZBUvFactorAndInvFactorValue(
-			HZBUvFactor.X,
-			HZBUvFactor.Y,
-			1.0f / HZBUvFactor.X,
-			1.0f / HZBUvFactor.Y
-			);
-			
-		SetShaderValue(RHICmdList, PixelShaderRHI, HZBUvFactorAndInvFactor, HZBUvFactorAndInvFactorValue);
-	}
-	else
-	{
-		//set dummies for platforms that require bound resources.
-		SetTextureParameter(
-			RHICmdList,
-			PixelShaderRHI,
-			HZBTexture,
-			HZBSampler,
-			TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(),
-			GBlackTexture->TextureRHI);
-
-		SetTextureParameter(
-			RHICmdList,
-			PixelShaderRHI,
-			PrevSceneColor,
-			PrevSceneColorSampler,
-			TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(),
-			GBlackTexture->TextureRHI);
-	}
-
-	{
-		FIntPoint ViewportOffset = View->ViewRect.Min;
-		FIntPoint ViewportExtent = View->ViewRect.Size();
-		FIntPoint BufferSize = SceneContext.GetBufferSizeXY();
-
-		if (View->PrevViewInfo.TemporalAAHistory.IsValid())
-		{
-			ViewportOffset = View->PrevViewInfo.TemporalAAHistory.ViewportRect.Min;
-			ViewportExtent = View->PrevViewInfo.TemporalAAHistory.ViewportRect.Size();
-			BufferSize = View->PrevViewInfo.TemporalAAHistory.RT[0]->GetDesc().Extent;
-		}
-		
-		FVector2D InvBufferSize(1.0f / float(BufferSize.X), 1.0f / float(BufferSize.Y));
-
-		FVector4 ScreenPosToPixelValue(
-			ViewportExtent.X * 0.5f * InvBufferSize.X,
-			-ViewportExtent.Y * 0.5f * InvBufferSize.Y,
-			(ViewportExtent.X * 0.5f + ViewportOffset.X) * InvBufferSize.X,
-			(ViewportExtent.Y * 0.5f + ViewportOffset.Y) * InvBufferSize.Y);
-		SetShaderValue(RHICmdList, PixelShaderRHI, PrevScreenPositionScaleBias, ScreenPosToPixelValue);
-	}
-
-	SetShaderValue(RHICmdList, PixelShaderRHI, PrevSceneColorPreExposureInv, PrevSceneColorPreExposureInvValue);
 }
 
 static void SetDepthStencilStateForBasePass(FDrawingPolicyRenderState& DrawRenderState, const FSceneView& View, const FMeshBatch& Mesh, const FPrimitiveSceneProxy* PrimitiveSceneProxy, bool bEnableReceiveDecalOutput, bool bUseDebugViewPS, FDepthStencilStateRHIParamRef LodFadeOverrideDepthStencilState)
@@ -511,7 +345,6 @@ public:
 					Parameters.FeatureLevel,
 					LightMapPolicy,
 					Parameters.BlendMode,
-					Parameters.TextureMode,
 					bRenderSkylight,
 					bRenderAtmosphericFog,
 					ComputeMeshOverrideSettings(*StaticMesh),
@@ -540,7 +373,6 @@ void FBasePassOpaqueDrawingPolicyFactory::AddStaticMesh(FRHICommandList& RHICmdL
 				Material,
 				StaticMesh->PrimitiveSceneInfo->Proxy,
 				false,
-				ESceneRenderTargetsMode::DontSet,
 				Scene->GetFeatureLevel()),
 			FDrawBasePassStaticMeshAction(Scene,StaticMesh)
 			);
@@ -638,7 +470,6 @@ public:
 			Parameters.FeatureLevel,
 			LightMapPolicy,
 			Parameters.BlendMode,
-			Parameters.TextureMode,
 			bRenderSkylight,
 			bRenderAtmosphericFog,
 			ComputeMeshOverrideSettings(Parameters.Mesh),
@@ -713,7 +544,6 @@ bool FBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(
 				Material,
 				PrimitiveSceneProxy,
 				!bPreFog,
-				DrawingContext.TextureMode,
 				View.GetFeatureLevel(), 
 				bIsInstancedStereo
 				),
@@ -935,11 +765,117 @@ void GetBasePassShaders<FUniformLightMapPolicy>(
 	}
 }
 
+FTextureRHIRef& GetEyeAdaptation(const FViewInfo& View)
+{
+	if (View.HasValidEyeAdaptation())
+	{
+		IPooledRenderTarget* EyeAdaptationRT = View.GetEyeAdaptation();
+		if (EyeAdaptationRT)
+		{
+			return EyeAdaptationRT->GetRenderTargetItem().TargetableTexture;
+		}
+	}
+
+	return GWhiteTexture->TextureRHI;
+}
+
+void SetupSharedBasePassParameters(
+	const FViewInfo& View,
+	FSceneRenderTargets& SceneRenderTargets,
+	FSharedBasePassUniformParameters& SharedParameters)
+{
+	SharedParameters.Forward = View.ForwardLightingResources->ForwardLightData;
+
+	if (View.bIsInstancedStereoEnabled && View.StereoPass == EStereoscopicPass::eSSP_LEFT_EYE)
+	{
+		const FSceneView& RightEye = *View.Family->Views[1];
+		SharedParameters.ForwardISR = RightEye.ForwardLightingResources->ForwardLightData;
+	}
+	else
+	{
+		SharedParameters.ForwardISR = View.ForwardLightingResources->ForwardLightData;
+	}
+
+	SetupReflectionUniformParameters(View, SharedParameters.Reflection);
+	SetupFogUniformParameters(View, SharedParameters.Fog);
+}
+
+void CreateOpaqueBasePassUniformBuffer(
+	FRHICommandListImmediate& RHICmdList, 
+	const FViewInfo& View,
+	IPooledRenderTarget* ForwardScreenSpaceShadowMask, 
+	TUniformBufferRef<FOpaqueBasePassUniformParameters>& BasePassUniformBuffer)
+{
+	FSceneRenderTargets& SceneRenderTargets = FSceneRenderTargets::Get(RHICmdList);
+
+	FOpaqueBasePassUniformParameters BasePassParameters;
+	SetupSharedBasePassParameters(View, SceneRenderTargets, BasePassParameters.Shared);
+
+	// Forward shading
+	{
+		if (!ForwardScreenSpaceShadowMask)
+		{
+			ForwardScreenSpaceShadowMask = GSystemTextures.WhiteDummy.GetReference();
+		}
+		BasePassParameters.ForwardScreenSpaceShadowMaskTexture = ForwardScreenSpaceShadowMask->GetRenderTargetItem().ShaderResourceTexture;
+		BasePassParameters.ForwardScreenSpaceShadowMaskTextureSampler = TStaticSamplerState<SF_Point,AM_Wrap,AM_Wrap,AM_Wrap>::GetRHI();
+
+		IPooledRenderTarget* IndirectOcclusion = SceneRenderTargets.ScreenSpaceAO;
+
+		if (!SceneRenderTargets.bScreenSpaceAOIsValid)
+		{
+			IndirectOcclusion = GSystemTextures.WhiteDummy;
+		}
+
+		BasePassParameters.IndirectOcclusionTexture = IndirectOcclusion->GetRenderTargetItem().ShaderResourceTexture;
+		BasePassParameters.IndirectOcclusionTextureSampler = TStaticSamplerState<SF_Point,AM_Wrap,AM_Wrap,AM_Wrap>::GetRHI();
+
+		FTextureRHIParamRef ResolvedSceneDepthTextureValue = GSystemTextures.WhiteDummy->GetRenderTargetItem().ShaderResourceTexture;
+
+		if (SceneRenderTargets.GetMSAACount() > 1)
+		{
+			ResolvedSceneDepthTextureValue = SceneRenderTargets.SceneDepthZ->GetRenderTargetItem().ShaderResourceTexture;
+		}
+
+		BasePassParameters.ResolvedSceneDepthTexture = ResolvedSceneDepthTextureValue;
+	}
+
+	// DBuffer Decals
+	{
+		extern bool IsDBufferEnabled();
+		const bool bIsDBufferEnabled = IsDBufferEnabled();
+		IPooledRenderTarget* DBufferA = bIsDBufferEnabled && SceneRenderTargets.DBufferA ? SceneRenderTargets.DBufferA : GSystemTextures.BlackAlphaOneDummy;
+		IPooledRenderTarget* DBufferB = bIsDBufferEnabled && SceneRenderTargets.DBufferB ? SceneRenderTargets.DBufferB : GSystemTextures.DefaultNormal8Bit;
+		IPooledRenderTarget* DBufferC = bIsDBufferEnabled && SceneRenderTargets.DBufferC ? SceneRenderTargets.DBufferC : GSystemTextures.GreenDummy;
+
+		BasePassParameters.DBufferATexture = DBufferA->GetRenderTargetItem().ShaderResourceTexture;
+		BasePassParameters.DBufferBTexture = DBufferB->GetRenderTargetItem().ShaderResourceTexture;
+		BasePassParameters.DBufferCTexture = DBufferC->GetRenderTargetItem().ShaderResourceTexture;
+		BasePassParameters.DBufferATextureSampler = TStaticSamplerState<>::GetRHI();
+		BasePassParameters.DBufferBTextureSampler = TStaticSamplerState<>::GetRHI();
+		BasePassParameters.DBufferCTextureSampler = TStaticSamplerState<>::GetRHI();
+
+		if (GSupportsRenderTargetWriteMask && SceneRenderTargets.DBufferMask)
+		{
+			BasePassParameters.DBufferRenderMask = SceneRenderTargets.DBufferMask->GetRenderTargetItem().TargetableTexture;
+		}
+		else
+		{
+			BasePassParameters.DBufferRenderMask = GSystemTextures.WhiteDummy->GetRenderTargetItem().TargetableTexture;
+		}
+	}
+
+	// Misc
+	BasePassParameters.EyeAdaptation = GetEyeAdaptation(View);
+
+	BasePassUniformBuffer = TUniformBufferRef<FOpaqueBasePassUniformParameters>::CreateUniformBufferImmediate(BasePassParameters, UniformBuffer_SingleFrame);
+}
+
 /**
  * Renders the scene's base pass 
  * @return true if anything was rendered
  */
-bool FDeferredShadingSceneRenderer::RenderBasePass(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess)
+bool FDeferredShadingSceneRenderer::RenderBasePass(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, IPooledRenderTarget* ForwardScreenSpaceShadowMask)
 {
 	SCOPED_NAMED_EVENT(FDeferredShadingSceneRenderer_RenderBasePass, FColor::Emerald);
 
@@ -963,12 +899,18 @@ bool FDeferredShadingSceneRenderer::RenderBasePass(FRHICommandListImmediate& RHI
 			{
 				SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
 				FViewInfo& View = Views[ViewIndex];
+
+				TUniformBufferRef<FOpaqueBasePassUniformParameters> BasePassUniformBuffer;
+				CreateOpaqueBasePassUniformBuffer(RHICmdList, View, ForwardScreenSpaceShadowMask, BasePassUniformBuffer);
+
+				FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
+
 				if (View.ShouldRenderView())
 				{
-					RenderBasePassViewParallel(View, RHICmdList, BasePassDepthStencilAccess);
+					RenderBasePassViewParallel(View, RHICmdList, BasePassDepthStencilAccess, DrawRenderState);
 				}
 
-				RenderEditorPrimitives(RHICmdList, View, BasePassDepthStencilAccess, bDirty);
+				RenderEditorPrimitives(RHICmdList, View, BasePassDepthStencilAccess, DrawRenderState, bDirty);
 			}
 
 			bDirty = true; // assume dirty since we are not going to wait
@@ -979,12 +921,18 @@ bool FDeferredShadingSceneRenderer::RenderBasePass(FRHICommandListImmediate& RHI
 			{
 				SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
 				FViewInfo& View = Views[ViewIndex];
+
+				TUniformBufferRef<FOpaqueBasePassUniformParameters> BasePassUniformBuffer;
+				CreateOpaqueBasePassUniformBuffer(RHICmdList, View, ForwardScreenSpaceShadowMask, BasePassUniformBuffer);
+
+				FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
+
 				if (View.ShouldRenderView())
 				{
-					bDirty |= RenderBasePassView(RHICmdList, View, BasePassDepthStencilAccess);
+					bDirty |= RenderBasePassView(RHICmdList, View, BasePassDepthStencilAccess, DrawRenderState);
 				}
 
-				RenderEditorPrimitives(RHICmdList, View, BasePassDepthStencilAccess, bDirty);
+				RenderEditorPrimitives(RHICmdList, View, BasePassDepthStencilAccess, DrawRenderState, bDirty);
 			}
 		}	
 	}
@@ -1157,7 +1105,7 @@ void FDeferredShadingSceneRenderer::RenderBasePassDynamicData(FRHICommandList& R
 	SCOPE_CYCLE_COUNTER(STAT_DynamicPrimitiveDrawTime);
 	SCOPED_DRAW_EVENT(RHICmdList, Dynamic);
 
-	FBasePassOpaqueDrawingPolicyFactory::ContextType Context(ESceneRenderTargetsMode::DontSet);
+	FBasePassOpaqueDrawingPolicyFactory::ContextType Context;
 
 	for (int32 MeshBatchIndex = 0; MeshBatchIndex < View.DynamicMeshElements.Num(); MeshBatchIndex++)
 	{
@@ -1295,8 +1243,9 @@ public:
 		bool bInParallelExecute,
 		bool bInCreateSceneContext,
 		const FSceneRenderer* InSceneRenderer,
-		FExclusiveDepthStencil::Type InBasePassDepthStencilAccess)
-		: FParallelCommandListSet(GET_STATID(STAT_CLP_Basepass), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext)
+		FExclusiveDepthStencil::Type InBasePassDepthStencilAccess,
+		const FDrawingPolicyRenderState& InDrawRenderState)
+		: FParallelCommandListSet(GET_STATID(STAT_CLP_Basepass), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext, InDrawRenderState)
 		, BasePassDepthStencilAccess(InBasePassDepthStencilAccess)
 	{
 		SetStateOnCommandList(ParentCmdList);
@@ -1315,21 +1264,22 @@ public:
 	}
 };
 
-void FDeferredShadingSceneRenderer::RenderBasePassViewParallel(FViewInfo& View, FRHICommandListImmediate& ParentCmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess)
+void FDeferredShadingSceneRenderer::RenderBasePassViewParallel(FViewInfo& View, FRHICommandListImmediate& ParentCmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& InDrawRenderState)
 {
 	FBasePassParallelCommandListSet ParallelSet(View, ParentCmdList, 
 		CVarRHICmdBasePassDeferredContexts.GetValueOnRenderThread() > 0, 
 		CVarRHICmdFlushRenderThreadTasksBasePass.GetValueOnRenderThread() == 0 && CVarRHICmdFlushRenderThreadTasks.GetValueOnRenderThread() == 0,
 		this,
-		BasePassDepthStencilAccess);
+		BasePassDepthStencilAccess,
+		InDrawRenderState);
 
 	RenderBasePassStaticDataParallel(ParallelSet);
 	RenderBasePassDynamicDataParallel(ParallelSet);
 }
 
-void FDeferredShadingSceneRenderer::RenderEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, bool& bOutDirty) 
+void FDeferredShadingSceneRenderer::RenderEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& InDrawRenderState, bool& bOutDirty) 
 {
-	FDrawingPolicyRenderState DrawRenderState(View);
+	FDrawingPolicyRenderState DrawRenderState(InDrawRenderState);
 	SetupBasePassView(RHICmdList, View, this, DrawRenderState, BasePassDepthStencilAccess, ViewFamily.EngineShowFlags.ShaderComplexity, true);
 
 	View.SimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::OpaqueAndMasked);
@@ -1341,13 +1291,13 @@ void FDeferredShadingSceneRenderer::RenderEditorPrimitives(FRHICommandList& RHIC
 		const bool bNeedToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(ShaderPlatform);
 
 		// Draw the base pass for the view's batched mesh elements.
-		bDirty |= DrawViewElements<FBasePassOpaqueDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, FBasePassOpaqueDrawingPolicyFactory::ContextType(ESceneRenderTargetsMode::DontSet), SDPG_World, true) || bDirty;
+		bDirty |= DrawViewElements<FBasePassOpaqueDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, FBasePassOpaqueDrawingPolicyFactory::ContextType(), SDPG_World, true) || bDirty;
 
 		// Draw the view's batched simple elements(lines, sprites, etc).
 		bDirty |= View.BatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false) || bDirty;
 
 		// Draw foreground objects last
-		bDirty |= DrawViewElements<FBasePassOpaqueDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, FBasePassOpaqueDrawingPolicyFactory::ContextType(ESceneRenderTargetsMode::DontSet), SDPG_Foreground, true) || bDirty;
+		bDirty |= DrawViewElements<FBasePassOpaqueDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, FBasePassOpaqueDrawingPolicyFactory::ContextType(), SDPG_Foreground, true) || bDirty;
 
 		// Draw the view's batched simple elements(lines, sprites, etc).
 		bDirty |= View.TopBatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false) || bDirty;
@@ -1360,10 +1310,10 @@ void FDeferredShadingSceneRenderer::RenderEditorPrimitives(FRHICommandList& RHIC
 	}
 }
 
-bool FDeferredShadingSceneRenderer::RenderBasePassView(FRHICommandListImmediate& RHICmdList, FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess)
+bool FDeferredShadingSceneRenderer::RenderBasePassView(FRHICommandListImmediate& RHICmdList, FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& InDrawRenderState)
 {
 	bool bDirty = false; 
-	FDrawingPolicyRenderState DrawRenderState(View);
+	FDrawingPolicyRenderState DrawRenderState(InDrawRenderState);
 	SetupBasePassView(RHICmdList, View, this, DrawRenderState, BasePassDepthStencilAccess, ViewFamily.EngineShowFlags.ShaderComplexity);
 	bDirty |= RenderBasePassStaticData(RHICmdList, View, DrawRenderState);
 	RenderBasePassDynamicData(RHICmdList, View, DrawRenderState, bDirty);

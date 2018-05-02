@@ -93,7 +93,7 @@ public:
 	TUpdateHistoryDepthRejectionPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		BentNormalAOTexture.Bind(Initializer.ParameterMap, TEXT("BentNormalAOTexture"));
 		ConfidenceTexture.Bind(Initializer.ParameterMap, TEXT("ConfidenceTexture"));
 		ConfidenceSampler.Bind(Initializer.ParameterMap, TEXT("ConfidenceSampler"));
@@ -134,7 +134,7 @@ public:
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		SetTextureParameter(
 			RHICmdList,
@@ -248,7 +248,7 @@ public:
 	virtual bool Serialize(FArchive& Ar)
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << BentNormalAOTexture;
 		Ar << ConfidenceTexture;
 		Ar << ConfidenceSampler;
@@ -276,7 +276,7 @@ public:
 
 private:
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderResourceParameter BentNormalAOTexture;
 	FShaderResourceParameter ConfidenceTexture;
 	FShaderResourceParameter ConfidenceSampler;
@@ -573,12 +573,12 @@ void UpdateHistory(
 					SceneContext.GetBufferSizeXY() / FIntPoint(GAODownsampleFactor, GAODownsampleFactor),
 					*VertexShader);
 
-				RHICmdList.CopyToResolveTarget(NewBentNormalHistory->GetRenderTargetItem().TargetableTexture, NewBentNormalHistory->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
-				RHICmdList.CopyToResolveTarget(NewConfidenceHistory->GetRenderTargetItem().TargetableTexture, NewConfidenceHistory->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
+				RHICmdList.CopyToResolveTarget(NewBentNormalHistory->GetRenderTargetItem().TargetableTexture, NewBentNormalHistory->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
+				RHICmdList.CopyToResolveTarget(NewConfidenceHistory->GetRenderTargetItem().TargetableTexture, NewConfidenceHistory->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 			
 				if (bUseDistanceFieldGI)
 				{
-					RHICmdList.CopyToResolveTarget(NewIrradianceHistory->GetRenderTargetItem().TargetableTexture, NewIrradianceHistory->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
+					RHICmdList.CopyToResolveTarget(NewIrradianceHistory->GetRenderTargetItem().TargetableTexture, NewIrradianceHistory->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 				}
 			}
 
@@ -678,12 +678,12 @@ void UpdateHistory(
 						SceneContext.GetBufferSizeXY() / FIntPoint(GAODownsampleFactor, GAODownsampleFactor),
 						*VertexShader);
 
-					RHICmdList.CopyToResolveTarget((*BentNormalHistoryState)->GetRenderTargetItem().TargetableTexture, (*BentNormalHistoryState)->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
-					RHICmdList.CopyToResolveTarget((*ConfidenceHistoryState)->GetRenderTargetItem().TargetableTexture, (*ConfidenceHistoryState)->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
+					RHICmdList.CopyToResolveTarget((*BentNormalHistoryState)->GetRenderTargetItem().TargetableTexture, (*BentNormalHistoryState)->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
+					RHICmdList.CopyToResolveTarget((*ConfidenceHistoryState)->GetRenderTargetItem().TargetableTexture, (*ConfidenceHistoryState)->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 
 					if (bUseDistanceFieldGI)
 					{
-						RHICmdList.CopyToResolveTarget((*IrradianceHistoryState)->GetRenderTargetItem().TargetableTexture, (*IrradianceHistoryState)->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
+						RHICmdList.CopyToResolveTarget((*IrradianceHistoryState)->GetRenderTargetItem().TargetableTexture, (*IrradianceHistoryState)->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 					}
 				}
 
@@ -765,7 +765,7 @@ public:
 	TDistanceFieldAOUpsamplePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		BentNormalAOTexture.Bind(Initializer.ParameterMap,TEXT("BentNormalAOTexture"));
 		BentNormalAOSampler.Bind(Initializer.ParameterMap,TEXT("BentNormalAOSampler"));
 		IrradianceTexture.Bind(Initializer.ParameterMap,TEXT("IrradianceTexture"));
@@ -780,7 +780,7 @@ public:
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		SetTextureParameter(RHICmdList, ShaderRHI, BentNormalAOTexture, BentNormalAOSampler, TStaticSamplerState<SF_Bilinear>::GetRHI(), DistanceFieldAOBentNormal->GetRenderTargetItem().ShaderResourceTexture);
 
@@ -797,7 +797,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << BentNormalAOTexture;
 		Ar << BentNormalAOSampler;
 		Ar << IrradianceTexture;
@@ -810,7 +810,7 @@ public:
 
 private:
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderResourceParameter BentNormalAOTexture;
 	FShaderResourceParameter BentNormalAOSampler;
 	FShaderResourceParameter IrradianceTexture;

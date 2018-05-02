@@ -1221,7 +1221,7 @@ void FLevelEditorActionCallbacks::GoHere_Clicked( const FVector* Point )
 {
 	if( GCurrentLevelEditingViewportClient )
 	{
-		FVector ZoomToPoint;
+		FVector ZoomToPoint = FVector::ZeroVector;
 		if( !Point )
 		{
 			FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(

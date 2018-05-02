@@ -8,10 +8,6 @@
 
 #include "CoreMinimal.h"
 #include "VulkanConfiguration.h"
-#if VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
-#include "ArrayView.h"
-#include "VulkanDescriptorSets.h"
-#endif
 
 class FVulkanDevice;
 class FVulkanCommandBufferPool;
@@ -19,12 +15,13 @@ class FVulkanCommandBufferManager;
 class FVulkanRenderTargetLayout;
 class FVulkanQueue;
 #if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
-class FVulkanDescriptorPoolSet;
+class FVulkanDescriptorPoolSetContainer;
 #endif
 
 namespace VulkanRHI
 {
 	class FFence;
+	class FSemaphore;
 }
 
 class FVulkanCmdBuffer
@@ -73,17 +70,6 @@ public:
 		return CommandBufferHandle;
 	}
 
-	void BeginRenderPass(const FVulkanRenderTargetLayout& Layout, class FVulkanRenderPass* RenderPass, class FVulkanFramebuffer* Framebuffer, const VkClearValue* AttachmentClearValues);
-
-	void EndRenderPass()
-	{
-		checkf(IsInsideRenderPass(), TEXT("Can't EndRP as we're NOT inside one! CmdBuffer 0x%p State=%d"), CommandBufferHandle, (int32)State);
-		VulkanRHI::vkCmdEndRenderPass(CommandBufferHandle);
-		State = EState::IsInsideBegin;
-	}
-
-	void End();
-
 	inline volatile uint64 GetFenceSignaledCounter() const
 	{
 		return FenceSignaledCounter;
@@ -99,7 +85,10 @@ public:
 		return (Timing != nullptr) && (FMath::Abs((int64)FenceSignaledCounter - (int64)LastValidTiming) < 3);
 	}
 	
+	void AddWaitSemaphore(VkPipelineStageFlags InWaitFlags, VulkanRHI::FSemaphore* InWaitSemaphore);
+
 	void Begin();
+	void End();
 
 	enum class EState
 	{
@@ -120,19 +109,39 @@ public:
 	VkRect2D CurrentScissor;
 	uint32 CurrentStencilRef;
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
-	FVulkanDescriptorPoolSet* CurrentDescriptorPoolSet = nullptr;
-#endif
+	// You never want to call Begin/EndRenderPass directly as it will mess up with the FTransitionAndLayoutManager
+	void BeginRenderPass(const FVulkanRenderTargetLayout& Layout, class FVulkanRenderPass* RenderPass, class FVulkanFramebuffer* Framebuffer, const VkClearValue* AttachmentClearValues);
+	void EndRenderPass()
+	{
+		checkf(IsInsideRenderPass(), TEXT("Can't EndRP as we're NOT inside one! CmdBuffer 0x%p State=%d"), CommandBufferHandle, (int32)State);
+		VulkanRHI::vkCmdEndRenderPass(CommandBufferHandle);
+		State = EState::IsInsideBegin;
+	}
 
-#if VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
-	TArrayView<VkDescriptorSet> AllocateDescriptorSets(const FVulkanLayout& Layout);
-	void SetDescriptorSetsFence(const FVulkanLayout& Layout);
+#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
+	FVulkanDescriptorPoolSetContainer* CurrentDescriptorPoolSetContainer = nullptr;
 #endif
 
 private:
 	FVulkanDevice* Device;
 	VkCommandBuffer CommandBufferHandle;
 	EState State;
+
+	TArray<VkPipelineStageFlags> WaitFlags;
+	TArray<VulkanRHI::FSemaphore*> WaitSemaphores;
+	TArray<VulkanRHI::FSemaphore*> SubmittedWaitSemaphores;
+
+#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
+	void AcquirePoolSet();
+#endif
+
+	void MarkSemaphoresAsSubmitted()
+	{
+		WaitFlags.Reset();
+		// Move to pending delete list
+		SubmittedWaitSemaphores = WaitSemaphores;
+		WaitSemaphores.Reset();
+	}
 
 	// Do not cache this pointer as it might change depending on VULKAN_REUSE_FENCES
 	VulkanRHI::FFence* Fence;
@@ -151,6 +160,7 @@ private:
 	uint64 LastValidTiming;
 
 	friend class FVulkanDynamicRHI;
+	friend class FTransitionAndLayoutManager;
 };
 
 class FVulkanCommandBufferPool
@@ -160,58 +170,17 @@ public:
 
 	~FVulkanCommandBufferPool();
 
-/*
-	inline FVulkanCmdBuffer* GetActiveCmdBuffer()
-	{
-		if (UploadCmdBuffer)
-		{
-			SubmitUploadCmdBuffer(false);
-		}
+	void RefreshFenceStatus(FVulkanCmdBuffer* SkipCmdBuffer = nullptr);
 
-		return ActiveCmdBuffer;
-	}
-
-	inline bool HasPendingUploadCmdBuffer() const
-	{
-		return UploadCmdBuffer != nullptr;
-	}
-
-	inline bool HasPendingActiveCmdBuffer() const
-	{
-		return ActiveCmdBuffer != nullptr;
-	}
-
-	FVulkanCmdBuffer* GetUploadCmdBuffer();
-
-	void SubmitUploadCmdBuffer(bool bWaitForFence);
-	void SubmitActiveCmdBuffer(bool bWaitForFence);
-
-	void WaitForCmdBuffer(FVulkanCmdBuffer* CmdBuffer, float TimeInSecondsToWait = 1.0f);
-	*/
-	void RefreshFenceStatus();
-	/*
-	void PrepareForNewActiveCommandBuffer();
-*/
 	inline VkCommandPool GetHandle() const
 	{
 		check(Handle != VK_NULL_HANDLE);
 		return Handle;
 	}
 
-#if VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
-	TArrayView<VkDescriptorSet> AllocateDescriptorSets(FVulkanCmdBuffer* CmdBuffer, const FVulkanLayout& Layout);
-	void ResetDescriptors(FVulkanCmdBuffer* CmdBuffer);
-	void SetDescriptorSetsFence(FVulkanCmdBuffer* CmdBuffer, const FVulkanLayout& Layout);
-#endif
-
 private:
 	FVulkanDevice* Device;
 	VkCommandPool Handle;
-	//FVulkanCmdBuffer* ActiveCmdBuffer;
-
-#if VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
-	TMap<uint32, VulkanRHI::FDescriptorSetsAllocator*> DSAllocators;
-#endif
 
 	FVulkanCmdBuffer* Create();
 
@@ -231,7 +200,7 @@ public:
 	{
 		if (UploadCmdBuffer)
 		{
-			SubmitUploadCmdBuffer(false);
+			SubmitUploadCmdBuffer();
 		}
 
 		return ActiveCmdBuffer;
@@ -249,16 +218,16 @@ public:
 
 	VULKANRHI_API FVulkanCmdBuffer* GetUploadCmdBuffer();
 
-	VULKANRHI_API void SubmitUploadCmdBuffer(bool bWaitForFence);
-	VULKANRHI_API void SubmitUploadCmdBuffer(uint32 NumSignalSemaphore, VkSemaphore* Semaphores, bool bWaitForFence);
+	VULKANRHI_API void SubmitUploadCmdBuffer(uint32 NumSignalSemaphores = 0, VkSemaphore* SignalSemaphores = nullptr);
 
-	void SubmitActiveCmdBuffer(bool bWaitForFence);
+	void SubmitActiveCmdBuffer(VulkanRHI::FSemaphore* SignalSemaphore = nullptr);
 
 	void WaitForCmdBuffer(FVulkanCmdBuffer* CmdBuffer, float TimeInSecondsToWait = 1.0f);
 
-	void RefreshFenceStatus()
+	// Update the fences of all cmd buffers except SkipCmdBuffer
+	void RefreshFenceStatus(FVulkanCmdBuffer* SkipCmdBuffer = nullptr)
 	{
-		Pool.RefreshFenceStatus();
+		Pool.RefreshFenceStatus(SkipCmdBuffer);
 	}
 
 	void PrepareForNewActiveCommandBuffer();
@@ -277,16 +246,3 @@ private:
 	FVulkanCmdBuffer* ActiveCmdBuffer;
 	FVulkanCmdBuffer* UploadCmdBuffer;
 };
-
-
-#if VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
-inline TArrayView<VkDescriptorSet> FVulkanCmdBuffer::AllocateDescriptorSets(const FVulkanLayout& Layout)
-{
-	return CommandBufferPool->AllocateDescriptorSets(this, Layout);
-}
-
-inline void FVulkanCmdBuffer::SetDescriptorSetsFence(const FVulkanLayout& Layout)
-{
-	CommandBufferPool->SetDescriptorSetsFence(this, Layout);
-}
-#endif

@@ -17,59 +17,63 @@
 
 MTLPP_BEGIN
 
+namespace ue4
+{
+	template<>
+	struct ITable<id<MTLComputePipelineState>, void> : public IMPTable<id<MTLComputePipelineState>, void>, public ITableCacheRef
+	{
+		ITable()
+		{
+		}
+		
+		ITable(Class C)
+		: IMPTable<id<MTLComputePipelineState>, void>(C)
+		{
+		}
+	};
+	
+	template<>
+	inline ITable<MTLComputePipelineReflection*, void>* CreateIMPTable(MTLComputePipelineReflection* handle)
+	{
+		static ITable<MTLComputePipelineReflection*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	
+	template<>
+	inline ITable<MTLComputePipelineDescriptor*, void>* CreateIMPTable(MTLComputePipelineDescriptor* handle)
+	{
+		static ITable<MTLComputePipelineDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+}
+
 namespace mtlpp
 {
 	class PipelineBufferDescriptor;
 	
-    class AutoReleasedComputePipelineReflection : public ns::Object<MTLComputePipelineReflection*, true>
-    {
-		AutoReleasedComputePipelineReflection(const AutoReleasedComputePipelineReflection& rhs) = delete;
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-		AutoReleasedComputePipelineReflection(AutoReleasedComputePipelineReflection&& rhs) = delete;
-#endif
-		AutoReleasedComputePipelineReflection& operator=(const AutoReleasedComputePipelineReflection& rhs) = delete;
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-		AutoReleasedComputePipelineReflection& operator=(AutoReleasedComputePipelineReflection&& rhs) = delete;
-#endif
-		
-		friend class ComputePipelineReflection;
-    public:
-        AutoReleasedComputePipelineReflection();
-        AutoReleasedComputePipelineReflection(MTLComputePipelineReflection* handle) : ns::Object<MTLComputePipelineReflection*, true>(handle) { }
-
-        ns::Array<Argument> GetArguments() const;
-    }
-    MTLPP_AVAILABLE(10_11, 9_0);
-	
-	class ComputePipelineReflection : public ns::Object<MTLComputePipelineReflection*>
+    class ComputePipelineReflection : public ns::Object<MTLComputePipelineReflection*>
 	{
 	public:
 		ComputePipelineReflection();
-		ComputePipelineReflection(MTLComputePipelineReflection* handle) : ns::Object<MTLComputePipelineReflection*>(handle) { }
-		ComputePipelineReflection(const AutoReleasedComputePipelineReflection& rhs);
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-		ComputePipelineReflection(const AutoReleasedComputePipelineReflection&& rhs);
-#endif
-		ComputePipelineReflection& operator=(const AutoReleasedComputePipelineReflection& rhs);
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-		ComputePipelineReflection& operator=(AutoReleasedComputePipelineReflection&& rhs);
-#endif
+		ComputePipelineReflection(ns::Ownership const retain) : ns::Object<MTLComputePipelineReflection*>(retain) {}
+		ComputePipelineReflection(MTLComputePipelineReflection* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLComputePipelineReflection*>(handle, retain) { }
 		
-		ns::Array<Argument> GetArguments() const;
+		ns::AutoReleased<ns::Array<Argument>> GetArguments() const;
 	}
 	MTLPP_AVAILABLE(10_11, 9_0);
+	typedef ns::AutoReleased<ComputePipelineReflection> AutoReleasedComputePipelineReflection;
 
-    class ComputePipelineDescriptor : public ns::Object<MTLComputePipelineDescriptor*>
+	class ComputePipelineDescriptor : public ns::Object<MTLComputePipelineDescriptor*>
     {
     public:
         ComputePipelineDescriptor();
-        ComputePipelineDescriptor(MTLComputePipelineDescriptor* handle) : ns::Object<MTLComputePipelineDescriptor*>(handle) { }
+        ComputePipelineDescriptor(MTLComputePipelineDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLComputePipelineDescriptor*>(handle, retain) { }
 
-        ns::String                 GetLabel() const;
-        Function                   GetComputeFunction() const;
+        ns::AutoReleased<ns::String>                 GetLabel() const;
+        ns::AutoReleased<Function>                   GetComputeFunction() const;
         bool                       GetThreadGroupSizeIsMultipleOfThreadExecutionWidth() const;
-        StageInputOutputDescriptor GetStageInputDescriptor() const MTLPP_AVAILABLE(10_12, 10_0);
-		ns::Array<PipelineBufferDescriptor> GetBuffers() const MTLPP_AVAILABLE(10_13, 11_0);
+        ns::AutoReleased<StageInputOutputDescriptor> GetStageInputDescriptor() const MTLPP_AVAILABLE(10_12, 10_0);
+		ns::AutoReleased<ns::Array<PipelineBufferDescriptor>> GetBuffers() const MTLPP_AVAILABLE(10_13, 11_0);
 
         void SetLabel(const ns::String& label);
         void SetComputeFunction(const Function& function);
@@ -84,9 +88,9 @@ namespace mtlpp
     {
     public:
         ComputePipelineState() { }
-        ComputePipelineState(ns::Protocol<id<MTLComputePipelineState>>::type handle) : ns::Object<ns::Protocol<id<MTLComputePipelineState>>::type>(handle) { }
+		ComputePipelineState(ns::Protocol<id<MTLComputePipelineState>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLComputePipelineState>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetComputePipelineState(handle)) { }
 
-        Device   GetDevice() const;
+        ns::AutoReleased<Device>   GetDevice() const;
         NSUInteger GetMaxTotalThreadsPerThreadgroup() const;
         NSUInteger GetThreadExecutionWidth() const;
 		NSUInteger GetStaticThreadgroupMemoryLength() const MTLPP_AVAILABLE(10_13, 11_0);

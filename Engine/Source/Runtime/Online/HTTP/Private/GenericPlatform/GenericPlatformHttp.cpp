@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "GenericPlatform/GenericPlatformHttp.h"
-#include "Interfaces/IHttpRequest.h"
+#include "GenericPlatform/HttpRequestImpl.h"
 #include "Misc/Paths.h"
 #include "Misc/EngineVersion.h"
 #include "Misc/App.h"
@@ -9,7 +9,7 @@
 /**
  * A generic http request
  */
-class FGenericPlatformHttpRequest : public IHttpRequest
+class FGenericPlatformHttpRequest : public FHttpRequestImpl
 {
 public:
 	// IHttpBase
@@ -30,8 +30,6 @@ public:
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override {}
 	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override {}
 	virtual bool ProcessRequest() override { return false; }
-	virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override { static FHttpRequestCompleteDelegate RequestCompleteDelegate; return RequestCompleteDelegate; }
-	virtual FHttpRequestProgressDelegate& OnRequestProgress() override { static FHttpRequestProgressDelegate RequestProgressDelegate; return RequestProgressDelegate; }
 	virtual void CancelRequest() override {}
 	virtual EHttpRequestStatus::Type GetStatus() const override { return EHttpRequestStatus::NotStarted; }
 	virtual const FHttpResponsePtr GetResponse() const override { return nullptr; }

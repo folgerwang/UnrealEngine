@@ -333,13 +333,12 @@ EConvertFromTypeResult UStructProperty::ConvertFromType(const FPropertyTag& Tag,
 				DestValue->X = OldValue.X;
 				DestValue->Y = OldValue.Y;
 				DestValue->Z = OldValue.Z;
-			}
-			else
-			{
-				UE_LOG(LogClass, Warning, TEXT("Property %s of %s has a struct type mismatch (tag %s != prop %s) in package:  %s. If that struct got renamed, add an entry to ActiveStructRedirects."),
-					*Tag.Name.ToString(), *GetName(), *Tag.StructName.ToString(), *Struct->GetName(), *Ar.GetArchiveName());
+
+				return EConvertFromTypeResult::Converted;
 			}
 
+			UE_LOG(LogClass, Warning, TEXT("Property %s of %s has a struct type mismatch (tag %s != prop %s) in package:  %s. If that struct got renamed, add an entry to ActiveStructRedirects."),
+				*Tag.Name.ToString(), *GetName(), *Tag.StructName.ToString(), *Struct->GetName(), *Ar.GetArchiveName());
 			return EConvertFromTypeResult::CannotConvert;
 		}
 	}

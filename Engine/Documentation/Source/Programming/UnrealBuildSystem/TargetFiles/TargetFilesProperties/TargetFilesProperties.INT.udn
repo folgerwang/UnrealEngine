@@ -218,7 +218,7 @@ $ bCheckLicenseViolations (Boolean): Tells the UBT to check if module currently 
 
 $ bBreakBuildOnLicenseViolation (Boolean): Tells the UBT to break build if module currently being built is violating EULA.
 
-$ bUseFastPDBLinking (Boolean): Whether to use the :FASTLINK option when building with /DEBUG to create local PDBs on Windows. Fast, but currently seems to have problems finding symbols in the debugger.
+$ bUseFastPDBLinking (Nullable&lt;Boolean&gt;): Whether to use the :FASTLINK option when building with /DEBUG to create local PDBs on Windows. Fast, but currently seems to have problems finding symbols in the debugger.
 
 $ bCreateMapFile (Boolean): Outputs a map file as part of the build.
 
@@ -250,16 +250,22 @@ $ bAllowGeneratedIniWhenCooked (Boolean): Whether to load generated ini files in
 
 $ bLegacyPublicIncludePaths (Boolean): Add all the public folders as include paths for the compile environment.
 
+$ BuildVersion (String): The build version string
+
 $ GlobalDefinitions (List&lt;String&gt;): Macros to define globally across the whole target.
 
 $ ProjectDefinitions (List&lt;String&gt;): Macros to define across all macros in the project.
 
 $ ExtraModuleNames (List&lt;String&gt;): List of additional modules to be compiled into the target.
 
-$ BuildEnvironment (TargetBuildEnvironment): Specifies the build environment for this target. See TargetBuildEnvironment for more infomation on the available options.
+$ BuildEnvironment (TargetBuildEnvironment): Specifies the build environment for this target. See TargetBuildEnvironment for more information on the available options.
 
 $ PreBuildSteps (List&lt;String&gt;): Specifies a list of steps which should be executed before this target is built, in the context of the host platform's shell. The following variables will be expanded before execution: $(EngineDir), $(ProjectDir), $(TargetName), $(TargetPlatform), $(TargetConfiguration), $(TargetType), $(ProjectFile).
 
 $ PostBuildSteps (List&lt;String&gt;): Specifies a list of steps which should be executed after this target is built, in the context of the host platform's shell. The following variables will be expanded before execution: $(EngineDir), $(ProjectDir), $(TargetName), $(TargetPlatform), $(TargetConfiguration), $(TargetType), $(ProjectFile).
+
+$ AdditionalCompilerArguments (String): Additional arguments to pass to the compiler
+
+$ AdditionalLinkerArguments (String): Additional arguments to pass to the linker
 
 

@@ -36,11 +36,12 @@ ENUM_CLASS_FLAGS(EDrawingPolicyOverrideFlags);
 
 struct FDrawingPolicyRenderState
 {
-	FDrawingPolicyRenderState(const FSceneView& SceneView) : 
+	FDrawingPolicyRenderState(const FSceneView& SceneView, FUniformBufferRHIParamRef InPassUniformBuffer = nullptr) : 
 		  BlendState(nullptr)
 		, DepthStencilState(nullptr)
 		, DepthStencilAccess(FExclusiveDepthStencil::DepthRead_StencilRead)
 		, ViewUniformBuffer(SceneView.ViewUniformBuffer)
+		, PassUniformBuffer(InPassUniformBuffer)
 		, StencilRef(0)
 		, ViewOverrideFlags(EDrawingPolicyOverrideFlags::None)
 		, DitheredLODTransitionAlpha(0.0f)
@@ -53,6 +54,7 @@ struct FDrawingPolicyRenderState
 		BlendState(nullptr)
 		, DepthStencilState(nullptr)
 		, ViewUniformBuffer()
+		, PassUniformBuffer(nullptr)
 		, StencilRef(0)
 		, ViewOverrideFlags(EDrawingPolicyOverrideFlags::None)
 		, DitheredLODTransitionAlpha(0.0f)
@@ -64,6 +66,7 @@ struct FDrawingPolicyRenderState
 		, DepthStencilState(DrawRenderState.DepthStencilState)
 		, DepthStencilAccess(DrawRenderState.DepthStencilAccess)
 		, ViewUniformBuffer(DrawRenderState.ViewUniformBuffer)
+		, PassUniformBuffer(DrawRenderState.PassUniformBuffer)
 		, StencilRef(DrawRenderState.StencilRef)
 		, ViewOverrideFlags(DrawRenderState.ViewOverrideFlags)
 		, DitheredLODTransitionAlpha(DrawRenderState.DitheredLODTransitionAlpha)
@@ -121,6 +124,16 @@ public:
 		return ViewUniformBuffer;
 	}
 
+	FORCEINLINE_DEBUGGABLE void SetPassUniformBuffer(FUniformBufferRHIParamRef InPassUniformBuffer)
+	{
+		PassUniformBuffer = InPassUniformBuffer;
+	}
+
+	FORCEINLINE_DEBUGGABLE FUniformBufferRHIParamRef GetPassUniformBuffer() const
+	{
+		return PassUniformBuffer;
+	}
+
 	FORCEINLINE_DEBUGGABLE uint32 GetStencilRef() const
 	{
 		return StencilRef;
@@ -159,6 +172,7 @@ private:
 	FExclusiveDepthStencil::Type	DepthStencilAccess;
 
 	TUniformBufferRef<FViewUniformShaderParameters>	ViewUniformBuffer;
+	FUniformBufferRHIParamRef		PassUniformBuffer;
 	uint32							StencilRef;
 
 	//not sure if those should belong here

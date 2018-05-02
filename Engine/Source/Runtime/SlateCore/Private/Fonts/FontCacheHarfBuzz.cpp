@@ -18,6 +18,9 @@
 			#define snprintf _snprintf
 		#endif
 	#endif // #if PLATFORM_WINDOWS
+	#if PLATFORM_MAC || PLATFORM_IOS || PLATFORM_TVOS
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	#endif
 
 	// Include some private headers needed for our font implementation
 	THIRD_PARTY_INCLUDES_START
@@ -25,6 +28,9 @@
 	#include "hb-font-private.hh"
 	THIRD_PARTY_INCLUDES_END
 
+	#if PLATFORM_MAC || PLATFORM_IOS || PLATFORM_TVOS
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	#endif
 	#if PLATFORM_WINDOWS || PLATFORM_XBOXONE
 		#pragma warning(pop)
 	#endif // #if PLATFORM_WINDOWS

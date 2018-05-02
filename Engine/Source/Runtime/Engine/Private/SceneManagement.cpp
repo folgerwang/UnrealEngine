@@ -566,12 +566,12 @@ FViewUniformShaderParameters::FViewUniformShaderParameters()
 	SkyBentNormalTextureSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 	DirectionalLightShadowingTextureSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 
-	AtmosphereTransmittanceTexture_UB = GWhiteTexture->TextureRHI;
-	AtmosphereTransmittanceTextureSampler_UB = TStaticSamplerState<SF_Bilinear>::GetRHI();
-	AtmosphereIrradianceTexture_UB = GWhiteTexture->TextureRHI;
-	AtmosphereIrradianceTextureSampler_UB = TStaticSamplerState<SF_Bilinear>::GetRHI();
-	AtmosphereInscatterTexture_UB = BlackVolume;
-	AtmosphereInscatterTextureSampler_UB = TStaticSamplerState<SF_Bilinear>::GetRHI();
+	AtmosphereTransmittanceTexture = GWhiteTexture->TextureRHI;
+	AtmosphereTransmittanceTextureSampler = TStaticSamplerState<SF_Bilinear>::GetRHI();
+	AtmosphereIrradianceTexture = GWhiteTexture->TextureRHI;
+	AtmosphereIrradianceTextureSampler = TStaticSamplerState<SF_Bilinear>::GetRHI();
+	AtmosphereInscatterTexture = BlackVolume;
+	AtmosphereInscatterTextureSampler = TStaticSamplerState<SF_Bilinear>::GetRHI();
 
 	PerlinNoiseGradientTexture = GWhiteTexture->TextureRHI;
 	PerlinNoiseGradientTextureSampler = TStaticSamplerState<SF_Point, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
@@ -581,14 +581,14 @@ FViewUniformShaderParameters::FViewUniformShaderParameters()
 
 	SobolSamplingTexture = GWhiteTexture->TextureRHI;
 
-	GlobalDistanceFieldTexture0_UB = BlackVolume;
-	GlobalDistanceFieldSampler0_UB = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
-	GlobalDistanceFieldTexture1_UB = BlackVolume;
-	GlobalDistanceFieldSampler1_UB = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
-	GlobalDistanceFieldTexture2_UB = BlackVolume;
-	GlobalDistanceFieldSampler2_UB = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
-	GlobalDistanceFieldTexture3_UB = BlackVolume;
-	GlobalDistanceFieldSampler3_UB = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
+	GlobalDistanceFieldTexture0 = BlackVolume;
+	GlobalDistanceFieldSampler0 = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
+	GlobalDistanceFieldTexture1 = BlackVolume;
+	GlobalDistanceFieldSampler1 = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
+	GlobalDistanceFieldTexture2 = BlackVolume;
+	GlobalDistanceFieldSampler2 = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
+	GlobalDistanceFieldTexture3 = BlackVolume;
+	GlobalDistanceFieldSampler3 = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
 
 	SharedPointWrappedSampler = TStaticSamplerState<SF_Point, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
 	SharedPointClampedSampler = TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
@@ -596,6 +596,9 @@ FViewUniformShaderParameters::FViewUniformShaderParameters()
 	SharedBilinearClampedSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 	SharedTrilinearWrappedSampler = TStaticSamplerState<SF_Trilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
 	SharedTrilinearClampedSampler = TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+
+	PreIntegratedBRDF = GWhiteTexture->TextureRHI;
+	PreIntegratedBRDFSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 }
 
 FInstancedViewUniformShaderParameters::FInstancedViewUniformShaderParameters()

@@ -95,8 +95,8 @@ FMacApplication::FMacApplication()
 																											  queue:[NSOperationQueue mainQueue]
 																										 usingBlock:^(NSNotification* Notification){ OnActiveSpaceDidChange(); }];
 
-		MouseMovedEventMonitor = [NSEvent addGlobalMonitorForEventsMatchingMask:NSMouseMovedMask handler:^(NSEvent* Event) { DeferEvent(Event); }];
-		EventMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSAnyEventMask handler:^(NSEvent* Event) { return HandleNSEvent(Event); }];
+		MouseMovedEventMonitor = [NSEvent addGlobalMonitorForEventsMatchingMask:NSEventMaskMouseMoved handler:^(NSEvent* Event) { DeferEvent(Event); }];
+		EventMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskAny handler:^(NSEvent* Event) { return HandleNSEvent(Event); }];
 
 		CGDisplayRegisterReconfigurationCallback(FMacApplication::OnDisplayReconfiguration, this);
 	}, NSDefaultRunLoopMode, true);
@@ -359,9 +359,9 @@ void FMacApplication::DeferEvent(NSObject* Object)
 		DeferredEvent.ModifierFlags = [Event modifierFlags];
 		DeferredEvent.Timestamp = [Event timestamp];
 		DeferredEvent.WindowNumber = [Event windowNumber];
-		DeferredEvent.Context = [[Event context] retain];
+		DeferredEvent.Context = nil;
 
-		if (DeferredEvent.Type == NSKeyDown)
+		if (DeferredEvent.Type == NSEventTypeKeyDown)
 		{
 			// In UE4 the main window rather than key window is the current active window in Slate, so the main window may be the one we want to send immKeyDown to,
 			// for example in case of search text edit fields in context menus.
@@ -379,37 +379,37 @@ void FMacApplication::DeferEvent(NSObject* Object)
 
 		switch (DeferredEvent.Type)
 		{
-			case NSMouseMoved:
-			case NSLeftMouseDragged:
-			case NSRightMouseDragged:
-			case NSOtherMouseDragged:
+			case NSEventTypeMouseMoved:
+			case NSEventTypeLeftMouseDragged:
+			case NSEventTypeRightMouseDragged:
+			case NSEventTypeOtherMouseDragged:
 			case NSEventTypeSwipe:
 				DeferredEvent.Delta = (bIgnoreMouseMoveDelta != 0) ? FVector2D::ZeroVector : FVector2D([Event deltaX], [Event deltaY]);
 				break;
 
-			case NSLeftMouseDown:
-			case NSRightMouseDown:
-			case NSOtherMouseDown:
-			case NSLeftMouseUp:
-			case NSRightMouseUp:
-			case NSOtherMouseUp:
+			case NSEventTypeLeftMouseDown:
+			case NSEventTypeRightMouseDown:
+			case NSEventTypeOtherMouseDown:
+			case NSEventTypeLeftMouseUp:
+			case NSEventTypeRightMouseUp:
+			case NSEventTypeOtherMouseUp:
 				DeferredEvent.ButtonNumber = [Event buttonNumber];
 				DeferredEvent.ClickCount = [Event clickCount];
-				if (bIsRightClickEmulationEnabled && DeferredEvent.Type == NSLeftMouseDown && (DeferredEvent.ModifierFlags & NSControlKeyMask))
+				if (bIsRightClickEmulationEnabled && DeferredEvent.Type == NSEventTypeLeftMouseDown && (DeferredEvent.ModifierFlags & NSEventModifierFlagControl))
 				{
 					bEmulatingRightClick = true;
-					DeferredEvent.Type = NSRightMouseDown;
+					DeferredEvent.Type = NSEventTypeRightMouseDown;
 					DeferredEvent.ButtonNumber = 2;
 				}
-				else if (DeferredEvent.Type == NSLeftMouseUp && bEmulatingRightClick)
+				else if (DeferredEvent.Type == NSEventTypeLeftMouseUp && bEmulatingRightClick)
 				{
 					bEmulatingRightClick = false;
-					DeferredEvent.Type = NSRightMouseUp;
+					DeferredEvent.Type = NSEventTypeRightMouseUp;
 					DeferredEvent.ButtonNumber = 2;
 				}
 				break;
 
-			case NSScrollWheel:
+			case NSEventTypeScrollWheel:
 				DeferredEvent.Delta = FVector2D([Event deltaX], [Event deltaY]);
 				DeferredEvent.ScrollingDelta = FVector2D([Event scrollingDeltaX], [Event scrollingDeltaY]);
 				DeferredEvent.Phase = [Event phase];
@@ -425,8 +425,8 @@ void FMacApplication::DeferEvent(NSObject* Object)
 				DeferredEvent.Delta = FVector2D([Event rotation], [Event rotation]);
 				break;
 
-			case NSKeyDown:
-			case NSKeyUp:
+			case NSEventTypeKeyDown:
+			case NSEventTypeKeyUp:
 			{
 				if ([[Event characters] length] > 0)
 				{
@@ -509,7 +509,7 @@ NSEvent* FMacApplication::HandleNSEvent(NSEvent* Event)
 
 	if (MacApplication && !MacApplication->bSystemModalMode)
 	{
-		const bool bIsResentEvent = [Event type] == NSApplicationDefined && [Event subtype] == (NSEventSubtype)RESET_EVENT_SUBTYPE;
+		const bool bIsResentEvent = [Event type] == NSEventTypeApplicationDefined && [Event subtype] == (NSEventSubtype)RESET_EVENT_SUBTYPE;
 
 		if (bIsResentEvent)
 		{
@@ -519,7 +519,7 @@ NSEvent* FMacApplication::HandleNSEvent(NSEvent* Event)
 		{
 			MacApplication->DeferEvent(Event);
 
-			if ([Event type] == NSKeyDown || [Event type] == NSKeyUp)
+			if ([Event type] == NSEventTypeKeyDown || [Event type] == NSEventTypeKeyUp)
 			{
 				ReturnEvent = nil;
 			}
@@ -568,30 +568,30 @@ void FMacApplication::ProcessEvent(const FDeferredMacEvent& Event)
 	{
 		switch (Event.Type)
 		{
-			case NSMouseMoved:
-			case NSLeftMouseDragged:
-			case NSRightMouseDragged:
-			case NSOtherMouseDragged:
+			case NSEventTypeMouseMoved:
+			case NSEventTypeLeftMouseDragged:
+			case NSEventTypeRightMouseDragged:
+			case NSEventTypeOtherMouseDragged:
 				ConditionallyUpdateModifierKeys(Event);
 				ProcessMouseMovedEvent(Event, EventWindow);
 				FPlatformAtomics::InterlockedExchange(&bIgnoreMouseMoveDelta, 0);
 				break;
 
-			case NSLeftMouseDown:
-			case NSRightMouseDown:
-			case NSOtherMouseDown:
+			case NSEventTypeLeftMouseDown:
+			case NSEventTypeRightMouseDown:
+			case NSEventTypeOtherMouseDown:
 				ConditionallyUpdateModifierKeys(Event);
 				ProcessMouseDownEvent(Event, EventWindow);
 				break;
 
-			case NSLeftMouseUp:
-			case NSRightMouseUp:
-			case NSOtherMouseUp:
+			case NSEventTypeLeftMouseUp:
+			case NSEventTypeRightMouseUp:
+			case NSEventTypeOtherMouseUp:
 				ConditionallyUpdateModifierKeys(Event);
 				ProcessMouseUpEvent(Event, EventWindow);
 				break;
 
-			case NSScrollWheel:
+			case NSEventTypeScrollWheel:
 				ConditionallyUpdateModifierKeys(Event);
 				ProcessScrollWheelEvent(Event, EventWindow);
 				break;
@@ -605,22 +605,22 @@ void FMacApplication::ProcessEvent(const FDeferredMacEvent& Event)
 				ProcessGestureEvent(Event);
 				break;
 
-			case NSKeyDown:
+			case NSEventTypeKeyDown:
 				ConditionallyUpdateModifierKeys(Event);
 				ProcessKeyDownEvent(Event, EventWindow);
 				break;
 
-			case NSKeyUp:
+			case NSEventTypeKeyUp:
 				ConditionallyUpdateModifierKeys(Event);
 				ProcessKeyUpEvent(Event);
 				break;
 				
-			case NSFlagsChanged:
+			case NSEventTypeFlagsChanged:
 				ConditionallyUpdateModifierKeys(Event);
 				break;
 				
-			case NSMouseEntered:
-			case NSMouseExited:
+			case NSEventTypeMouseEntered:
+			case NSEventTypeMouseExited:
 				ConditionallyUpdateModifierKeys(Event);
 				break;
 		}
@@ -713,7 +713,7 @@ void FMacApplication::ProcessEvent(const FDeferredMacEvent& Event)
 void FMacApplication::ResendEvent(NSEvent* Event)
 {
 	MainThreadCall(^{
-		NSEvent* Wrapper = [NSEvent otherEventWithType:NSApplicationDefined location:[Event locationInWindow] modifierFlags:[Event modifierFlags] timestamp:[Event timestamp] windowNumber:[Event windowNumber] context:[Event context] subtype:RESET_EVENT_SUBTYPE data1:(NSInteger)Event data2:0];
+		NSEvent* Wrapper = [NSEvent otherEventWithType:NSEventTypeApplicationDefined location:[Event locationInWindow] modifierFlags:[Event modifierFlags] timestamp:[Event timestamp] windowNumber:[Event windowNumber] context:nil subtype:RESET_EVENT_SUBTYPE data1:(NSInteger)Event data2:0];
 		[NSApp sendEvent:Wrapper];
 	}, NSDefaultRunLoopMode, true);
 }
@@ -817,8 +817,8 @@ void FMacApplication::ProcessMouseMovedEvent(const FDeferredMacEvent& Event, TSh
 
 void FMacApplication::ProcessMouseDownEvent(const FDeferredMacEvent& Event, TSharedPtr<FMacWindow> EventWindow)
 {
-	EMouseButtons::Type Button = Event.Type == NSLeftMouseDown ? EMouseButtons::Left : EMouseButtons::Right;
-	if (Event.Type == NSOtherMouseDown)
+	EMouseButtons::Type Button = Event.Type == NSEventTypeLeftMouseDown ? EMouseButtons::Left : EMouseButtons::Right;
+	if (Event.Type == NSEventTypeOtherMouseDown)
 	{
 		switch (Event.ButtonNumber)
 		{
@@ -879,8 +879,8 @@ void FMacApplication::ProcessMouseDownEvent(const FDeferredMacEvent& Event, TSha
 
 void FMacApplication::ProcessMouseUpEvent(const FDeferredMacEvent& Event, TSharedPtr<FMacWindow> EventWindow)
 {
-	EMouseButtons::Type Button = Event.Type == NSLeftMouseUp ? EMouseButtons::Left : EMouseButtons::Right;
-	if (Event.Type == NSOtherMouseUp)
+	EMouseButtons::Type Button = Event.Type == NSEventTypeLeftMouseUp ? EMouseButtons::Left : EMouseButtons::Right;
+	if (Event.Type == NSEventTypeOtherMouseUp)
 	{
 		switch (Event.ButtonNumber)
 		{
@@ -918,8 +918,8 @@ void FMacApplication::ProcessMouseUpEvent(const FDeferredMacEvent& Event, TShare
 
 void FMacApplication::ProcessScrollWheelEvent(const FDeferredMacEvent& Event, TSharedPtr<FMacWindow> EventWindow)
 {
-	const float DeltaX = (Event.ModifierFlags & NSShiftKeyMask) ? Event.Delta.Y : Event.Delta.X;
-	const float DeltaY = (Event.ModifierFlags & NSShiftKeyMask) ? Event.Delta.X : Event.Delta.Y;
+	const float DeltaX = (Event.ModifierFlags & NSEventModifierFlagShift) ? Event.Delta.Y : Event.Delta.X;
+	const float DeltaY = (Event.ModifierFlags & NSEventModifierFlagShift) ? Event.Delta.X : Event.Delta.Y;
 
 	NSEventPhase Phase = Event.Phase;
 
@@ -1410,12 +1410,12 @@ FCocoaWindow* FMacApplication::FindEventWindow(NSEvent* Event) const
 
 	FCocoaWindow* EventWindow = [[Event window] isKindOfClass:[FCocoaWindow class]] ? (FCocoaWindow*)[Event window] : nullptr;
 
-	if ([Event type] != NSKeyDown && [Event type] != NSKeyUp)
+	if ([Event type] != NSEventTypeKeyDown && [Event type] != NSEventTypeKeyUp)
 	{
 		NSInteger WindowNumber = [NSWindow windowNumberAtPoint:[NSEvent mouseLocation] belowWindowWithWindowNumber:0];
 		NSWindow* WindowUnderCursor = [NSApp windowWithWindowNumber:WindowNumber];
 
-		if ([Event type] == NSMouseMoved && WindowUnderCursor == nullptr)
+		if ([Event type] == NSEventTypeMouseMoved && WindowUnderCursor == nullptr)
 		{
 			// Ignore windows owned by other applications
 			return nullptr;
@@ -1757,6 +1757,59 @@ TCHAR FMacApplication::ConvertChar(TCHAR Character) const
 		default:
 			return Character;
 	}
+}
+
+unichar FMacApplication::TranslateKeyCodeToUniCode(uint32 KeyCode, uint32 Modifier)
+{
+	// Some just don't work as expected
+	switch(KeyCode)
+	{
+		case kVK_PageUp:	return NSPageUpFunctionKey; 
+		case kVK_PageDown:	return NSPageDownFunctionKey;
+		case kVK_End:		return NSEndFunctionKey;
+		case kVK_Home:		return NSHomeFunctionKey;
+		case kVK_F1: 		return NSF1FunctionKey;
+		case kVK_F2: 		return NSF2FunctionKey;
+		case kVK_F3: 		return NSF3FunctionKey;
+		case kVK_F4: 		return NSF4FunctionKey;
+		case kVK_F5: 		return NSF5FunctionKey;
+		case kVK_F6: 		return NSF6FunctionKey;
+		case kVK_F7: 		return NSF7FunctionKey;
+		case kVK_F8: 		return NSF8FunctionKey;
+		case kVK_F9: 		return NSF9FunctionKey;
+		case kVK_F10:		return NSF10FunctionKey;
+		case kVK_F11: 		return NSF11FunctionKey;
+		case kVK_F12: 		return NSF12FunctionKey;
+		default:
+		{
+			// Everything else - use the system unicode function
+			TISInputSourceRef CurrentKeyboard = TISCopyCurrentKeyboardLayoutInputSource();
+			if (CurrentKeyboard)
+			{
+				CFDataRef CurrentLayoutData = (CFDataRef)TISGetInputSourceProperty(CurrentKeyboard, kTISPropertyUnicodeKeyLayoutData);
+				CFRelease(CurrentKeyboard);
+
+				if (CurrentLayoutData)
+				{
+					const UCKeyboardLayout *KeyboardLayout = (UCKeyboardLayout*)CFDataGetBytePtr(CurrentLayoutData);
+					if (KeyboardLayout)
+					{
+						UniChar Buffer[256] = { 0 };
+						UniCharCount BufferLength = 256;
+						uint32 DeadKeyState = 0;
+
+						OSStatus Status = UCKeyTranslate(KeyboardLayout, KeyCode, kUCKeyActionDown, ((Modifier) >> 8) & 0xFF, LMGetKbdType(), kUCKeyTranslateNoDeadKeysMask, &DeadKeyState, BufferLength, &BufferLength, Buffer);
+						if (Status == noErr)
+						{
+							return Buffer[0];
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	return 0;
 }
 
 TCHAR FMacApplication::TranslateCharCode(TCHAR CharCode, uint32 KeyCode) const

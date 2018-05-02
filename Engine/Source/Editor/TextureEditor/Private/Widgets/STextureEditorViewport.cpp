@@ -10,6 +10,7 @@
 #include "Widgets/SViewport.h"
 #include "Widgets/Input/SSlider.h"
 #include "Engine/Texture.h"
+#include "Engine/VolumeTexture.h"
 #include "Slate/SceneViewport.h"
 #include "TextureEditorConstants.h"
 #include "Widgets/STextureEditorViewportToolbar.h"
@@ -70,12 +71,17 @@ void STextureEditorViewport::Construct( const FArguments& InArgs, const TSharedR
 
 	FText TextureName = FText::GetEmpty();
 	
+	bool bIsVolumeTexture = false;
 	if (InToolkit->GetTexture() != nullptr)
 	{
 		FText FormattedText = InToolkit->HasValidTextureResource() ? FText::FromString(TEXT("{0}")) : LOCTEXT( "InvalidTexture", "{0} (Invalid Texture)");
-
 		TextureName = FText::Format(FormattedText, FText::FromName(InToolkit->GetTexture()->GetFName()));
+
+		bIsVolumeTexture = InToolkit->GetTexture()->IsA<UVolumeTexture>();
 	}
+
+
+	TSharedPtr<SHorizontalBox> HorizontalBox;
 
 	this->ChildSlot
 	[
@@ -118,6 +124,7 @@ void STextureEditorViewport::Construct( const FArguments& InArgs, const TSharedR
 											.AutoWidth()
 											[
 												SNew(STextureEditorViewportToolbar, InToolkit->GetToolkitCommands())
+													.IsVolumeTexture(bIsVolumeTexture)
 											]
 
 										+ SHorizontalBox::Slot()
@@ -157,7 +164,7 @@ void STextureEditorViewport::Construct( const FArguments& InArgs, const TSharedR
 			.AutoHeight()
 			.Padding(0.0f, 2.0f, 0.0f, 0.0f)
 			[
-				SNew(SHorizontalBox)
+				SAssignNew(HorizontalBox, SHorizontalBox)
 
 				// exposure bias
 				+ SHorizontalBox::Slot()
@@ -193,54 +200,83 @@ void STextureEditorViewport::Construct( const FArguments& InArgs, const TSharedR
 					[
 						SNullWidget::NullWidget
 					]
-
-				// zoom slider
-				+ SHorizontalBox::Slot()
-					.FillWidth(0.3f)
-					[
-						SNew(SHorizontalBox)
-
-						+ SHorizontalBox::Slot()
-							.AutoWidth()
-							.VAlign(VAlign_Center)
-							[
-								SNew(STextBlock)
-									.Text(LOCTEXT("ZoomLabel", "Zoom:"))
-							]
-
-						+ SHorizontalBox::Slot()
-							.FillWidth(1.0f)
-							.Padding(4.0f, 0.0f)
-							.VAlign(VAlign_Center)
-							[
-								SNew(SSlider)
-									.OnValueChanged(this, &STextureEditorViewport::HandleZoomSliderChanged)
-									.Value(this, &STextureEditorViewport::HandleZoomSliderValue)
-							]
-
-						+ SHorizontalBox::Slot()
-							.AutoWidth()
-							.VAlign(VAlign_Center)
-							[
-								SNew(STextBlock)
-									.Text(this, &STextureEditorViewport::HandleZoomPercentageText)
-							]
-
-						+ SHorizontalBox::Slot()
-							.AutoWidth()
-							.Padding(2.0f, 0.0f, 0.0f, 0.0f)
-							.VAlign(VAlign_Center)
-							[
-								SNew(SComboButton)
-									.ContentPadding(FMargin(0.0))
-									.MenuContent()
-									[
-										ZoomMenuBuilder.MakeWidget()
-									]
-							]
-					]
 			]
 	];
+
+
+	if (bIsVolumeTexture)
+	{
+		// opacity slider
+		HorizontalBox->AddSlot()
+			.FillWidth(0.3f)
+			[
+				SNew(SHorizontalBox)
+
+				+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+							.Text(LOCTEXT("OpacityLabel", "Opacity:"))
+					]
+
+				+ SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					.Padding(4.0f, 0.0f)
+					.VAlign(VAlign_Center)
+					[
+						SNew(SSlider)
+							.OnValueChanged(this, &STextureEditorViewport::HandleOpacitySliderChanged)
+							.Value(this, &STextureEditorViewport::HandleOpacitySliderValue)
+					]
+			];
+	}
+
+	// zoom slider
+	HorizontalBox->AddSlot()
+		.FillWidth(0.3f)
+		[
+			SNew(SHorizontalBox)
+
+			+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+						.Text(LOCTEXT("ZoomLabel", "Zoom:"))
+				]
+
+			+ SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				.Padding(4.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SSlider)
+						.OnValueChanged(this, &STextureEditorViewport::HandleZoomSliderChanged)
+						.Value(this, &STextureEditorViewport::HandleZoomSliderValue)
+				]
+
+			+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+						.Text(this, &STextureEditorViewport::HandleZoomPercentageText)
+				]
+
+			+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(2.0f, 0.0f, 0.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SComboButton)
+						.ContentPadding(FMargin(0.0))
+						.MenuContent()
+						[
+							ZoomMenuBuilder.MakeWidget()
+						]
+				]
+		];
 
 	ViewportClient = MakeShareable(new FTextureEditorViewportClient(ToolkitPtr, SharedThis(this)));
 
@@ -425,6 +461,16 @@ void STextureEditorViewport::HandleZoomSliderChanged( float NewValue )
 float STextureEditorViewport::HandleZoomSliderValue( ) const
 {
 	return (ToolkitPtr.Pin()->GetZoom() / MaxZoom);
+}
+
+void STextureEditorViewport::HandleOpacitySliderChanged(float NewValue)
+{
+	ToolkitPtr.Pin()->SetVolumeOpacity(NewValue);
+}
+
+float STextureEditorViewport::HandleOpacitySliderValue() const
+{
+	return ToolkitPtr.Pin()->GetVolumeOpacity();
 }
 
 

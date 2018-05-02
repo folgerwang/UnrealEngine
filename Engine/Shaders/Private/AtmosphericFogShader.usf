@@ -21,6 +21,7 @@
 =============================================================================*/
 
 #include "Common.ush"
+#include "SceneTexturesCommon.ush"
 #include "SHCommon.ush"
 #include "AtmosphereCommon.ush"
 

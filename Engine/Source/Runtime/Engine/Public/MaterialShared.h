@@ -93,11 +93,12 @@ enum EMaterialValueType
 	MCT_Float		= 8|4|2|1,
 	MCT_Texture2D	= 16,
 	MCT_TextureCube	= 32,
-	MCT_Texture		= 16|32|512,
-	MCT_StaticBool	= 64,
-	MCT_Unknown		= 128,
-	MCT_MaterialAttributes	= 256,
-	MCT_TextureExternal = 512,
+	MCT_VolumeTexture = 64,
+	MCT_StaticBool	= 128,
+	MCT_Unknown		= 256,
+	MCT_MaterialAttributes	= 512,
+	MCT_TextureExternal = 1024,
+	MCT_Texture		= 16|32|64|1024,
 };
 
 /**
@@ -151,10 +152,6 @@ struct ENGINE_API FMaterialRenderContext
 	const FMaterialRenderProxy* MaterialRenderProxy;
 	/** Material resource to use. */
 	const FMaterial& Material;
-
-	// Used only when evaluating expressions per frame
-	float Time;
-	float RealTime;
 
 	/** Whether or not selected objects should use their selection color. */
 	bool bShowSelection;
@@ -233,7 +230,6 @@ public:
 	virtual class FMaterialUniformExpressionTexture* GetTextureUniformExpression() { return nullptr; }
 	virtual class FMaterialUniformExpressionExternalTexture* GetExternalTextureUniformExpression() { return nullptr; }
 	virtual bool IsConstant() const { return false; }
-	virtual bool IsChangingPerFrame() const { return false; }
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const { return false; }
 
 	friend FArchive& operator<<(FArchive& Ar,class FMaterialUniformExpression*& Ref);
@@ -349,11 +345,8 @@ public:
 			+ UniformScalarExpressions.GetAllocatedSize()
 			+ Uniform2DTextureExpressions.GetAllocatedSize()
 			+ UniformCubeTextureExpressions.GetAllocatedSize()
+			+ UniformVolumeTextureExpressions.GetAllocatedSize()
 			+ UniformExternalTextureExpressions.GetAllocatedSize()
-			+ PerFrameUniformScalarExpressions.GetAllocatedSize()
-			+ PerFrameUniformVectorExpressions.GetAllocatedSize()
-			+ PerFramePrevUniformScalarExpressions.GetAllocatedSize()
-			+ PerFramePrevUniformVectorExpressions.GetAllocatedSize()
 			+ ParameterCollections.GetAllocatedSize()
 			+ (UniformBufferStruct ? (sizeof(FUniformBufferStruct) + UniformBufferStruct->GetMembers().GetAllocatedSize()) : 0);
 	}
@@ -364,12 +357,8 @@ protected:
 	TArray<TRefCountPtr<FMaterialUniformExpression> > UniformScalarExpressions;
 	TArray<TRefCountPtr<FMaterialUniformExpressionTexture> > Uniform2DTextureExpressions;
 	TArray<TRefCountPtr<FMaterialUniformExpressionTexture> > UniformCubeTextureExpressions;
+	TArray<TRefCountPtr<FMaterialUniformExpressionTexture> > UniformVolumeTextureExpressions;
 	TArray<TRefCountPtr<FMaterialUniformExpressionExternalTexture> > UniformExternalTextureExpressions;
-
-	TArray<TRefCountPtr<FMaterialUniformExpression> > PerFrameUniformScalarExpressions;
-	TArray<TRefCountPtr<FMaterialUniformExpression> > PerFrameUniformVectorExpressions;
-	TArray<TRefCountPtr<FMaterialUniformExpression> > PerFramePrevUniformScalarExpressions;
-	TArray<TRefCountPtr<FMaterialUniformExpression> > PerFramePrevUniformVectorExpressions;
 
 	/** Ids of parameter collections referenced by the material that was translated. */
 	TArray<FGuid> ParameterCollections;
@@ -761,13 +750,6 @@ public:
 	ENGINE_API void AddRef();
 	ENGINE_API void Release();
 
-	// FDeferredCleanupInterface
-	virtual void FinishCleanup()
-	{
-		bDeletedThroughDeferredCleanup = true;
-		delete this;
-	}
-
 	/**
 	 * Removes all entries in the cache with exceptions based on a shader type
 	 * @param ShaderType - The shader type to flush
@@ -1124,6 +1106,7 @@ public:
 	virtual	bool ShouldDisableDepthTest() const { return false; }
 	virtual	bool ShouldEnableResponsiveAA() const { return false; }
 	virtual bool ShouldDoSSR() const { return false; }
+	virtual bool ShouldDoContactShadows() const { return false; }
 	virtual bool IsLightFunction() const = 0;
 	virtual bool IsUsedWithEditorCompositing() const { return false; }
 	virtual bool IsDeferredDecal() const = 0;
@@ -1250,6 +1233,7 @@ public:
 	const TArray<UMaterialExpression*>& GetErrorExpressions() const { return ErrorExpressions; }
 	ENGINE_API const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >& GetUniform2DTextureExpressions() const;
 	ENGINE_API const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >& GetUniformCubeTextureExpressions() const;
+	ENGINE_API const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >& GetUniformVolumeTextureExpressions() const;
 	ENGINE_API const TArray<TRefCountPtr<FMaterialUniformExpression> >& GetUniformVectorParameterExpressions() const;
 	ENGINE_API const TArray<TRefCountPtr<FMaterialUniformExpression> >& GetUniformScalarParameterExpressions() const;
 	const FGuid& GetLegacyId() const { return Id_DEPRECATED; }
@@ -1599,9 +1583,16 @@ public:
 	void ENGINE_API InvalidateUniformExpressionCache();
 
 	// These functions should only be called by the rendering thread.
-
 	/** Returns the effective FMaterial, which can be a fallback if this material's shader map is invalid.  Always returns a valid material pointer. */
-	virtual const class FMaterial* GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const = 0;
+	const class FMaterial* GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const
+	{
+		const FMaterialRenderProxy* Unused;
+		const FMaterial* OutMaterial = nullptr;
+		GetMaterialWithFallback(InFeatureLevel, Unused, OutMaterial);
+		return OutMaterial;
+	}
+	
+	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const = 0;
 	/** Returns the FMaterial, without using a fallback if the FMaterial doesn't have a valid shader map. Can return NULL. */
 	virtual FMaterial* GetMaterialNoFallback(ERHIFeatureLevel::Type InFeatureLevel) const { return NULL; }
 	virtual UMaterialInterface* GetMaterialInterface() const { return NULL; }
@@ -1705,7 +1696,7 @@ public:
 	{}
 
 	// FMaterialRenderProxy interface.
-	ENGINE_API virtual const class FMaterial* GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const;
+	ENGINE_API virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const;
 	ENGINE_API virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const;
 	ENGINE_API virtual bool GetScalarValue(const FMaterialParameterInfo& ParameterInfo, float* OutValue, const FMaterialRenderContext& Context) const;
 	ENGINE_API virtual bool GetTextureValue(const FMaterialParameterInfo& ParameterInfo,const UTexture** OutValue, const FMaterialRenderContext& Context) const;
@@ -1747,7 +1738,7 @@ public:
 	{}
 
 	// FMaterialRenderProxy interface.
-	ENGINE_API virtual const class FMaterial* GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const;
+	ENGINE_API virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const;
 	ENGINE_API virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const;
 	ENGINE_API virtual bool GetScalarValue(const FMaterialParameterInfo& ParameterInfo, float* OutValue, const FMaterialRenderContext& Context) const;
 	ENGINE_API virtual bool GetTextureValue(const FMaterialParameterInfo& ParameterInfo,const UTexture** OutValue, const FMaterialRenderContext& Context) const;
@@ -1803,6 +1794,7 @@ public:
 	ENGINE_API virtual bool ShouldDisableDepthTest() const override;
 	ENGINE_API virtual bool ShouldEnableResponsiveAA() const override;
 	ENGINE_API virtual bool ShouldDoSSR() const override;
+	ENGINE_API virtual bool ShouldDoContactShadows() const override;
 	ENGINE_API virtual bool IsLightFunction() const override;
 	ENGINE_API virtual bool IsUsedWithEditorCompositing() const override;
 	ENGINE_API virtual bool IsDeferredDecal() const override;

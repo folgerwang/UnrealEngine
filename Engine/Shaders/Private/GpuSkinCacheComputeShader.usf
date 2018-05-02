@@ -29,7 +29,7 @@ STRONG_TYPE Buffer<float> MorphBuffer;
 uint MorphBufferOffset;
 	
 void GetMorphBuffer(uint VertexIndex, out float3 DeltaPosition, out half3 DeltaTangentZ)
-{
+ {
 	// see CPU code: "check(MorphStride == sizeof(float) * 6);"
 	// in floats
 	// 3 + 3 floats because of the format defined in InitMorphVertexFactoryComponents / FMorphGPUSkinVertex
@@ -47,7 +47,7 @@ void GetMorphBuffer(uint VertexIndex, out float3 DeltaPosition, out half3 DeltaT
 }
 #endif
 #if GPUSKIN_APEX_CLOTH
-Buffer<uint4> ClothBuffer;
+Buffer<float4> ClothBuffer;
 Buffer<float2> ClothPositionsAndNormalsBuffer;
 float ClothBlendWeight;
 float4x4 ClothLocalToWorld;
@@ -57,11 +57,11 @@ void GetClothBuffer(uint VertexIndex, out float4 PositionBaryCoordsAndDist, out 
 {
     uint Offset = VertexIndex * 4;
 
-    PositionBaryCoordsAndDist = asfloat(ClothBuffer[Offset]);
-    NormalBaryCoordsAndDist = asfloat(ClothBuffer[Offset + 1]);
-    TangentBaryCoordsAndDist = asfloat(ClothBuffer[Offset + 2]);
+    PositionBaryCoordsAndDist = ClothBuffer[Offset];
+    NormalBaryCoordsAndDist = ClothBuffer[Offset + 1];
+    TangentBaryCoordsAndDist = ClothBuffer[Offset + 2];
 
-    uint4 PackedIndices = ClothBuffer[Offset + 3];
+	uint4 PackedIndices = asuint(ClothBuffer[Offset + 3]);
     SourceMeshVertIndices.yw = (PackedIndices.xy >> 16) & 0xffff;
     SourceMeshVertIndices.xz = PackedIndices.xy & 0xffff;
 }
@@ -151,8 +151,8 @@ FVertexUnpacked UnpackedVertex(uint MorphIndex, uint ClothIndex, uint VertexInde
 {
 	FVertexUnpacked Unpacked;
 
-	Unpacked.TangentX = (TangentInputBuffer[2 * VertexIndex + GPUSKIN_VB_OFFSET_TANGENT_X] * 2.0f) - 1.0f;
-	Unpacked.TangentZ = (TangentInputBuffer[2 * VertexIndex + GPUSKIN_VB_OFFSET_TANGENT_Z] * 2.0f) - 1.0f;
+	Unpacked.TangentX = TangentBias(TangentInputBuffer[2 * VertexIndex + GPUSKIN_VB_OFFSET_TANGENT_X]);
+	Unpacked.TangentZ = TangentBias(TangentInputBuffer[2 * VertexIndex + GPUSKIN_VB_OFFSET_TANGENT_Z]);
 
 	uint BlendIndices = InputWeightStream[WeightOffset + GPUSKIN_VB_OFFSET_INFLUENCEBONES];
 	Unpacked.BlendIndices.x = BlendIndices & 0xff;
@@ -309,8 +309,8 @@ void SkinCacheUpdateBatchCS(uint3 GroupID : SV_GroupID,
 	PositionBufferUAV[OutputOffset * 3 + 1] = SPos.y;
 	PositionBufferUAV[OutputOffset * 3 + 2] = SPos.z;
 
-	TangentBufferUAV[2 * OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = float4((TangentX * 0.5f) + 0.5f, Unpacked.TangentX.w);
-	TangentBufferUAV[2 * OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = float4((TangentZ * 0.5f) + 0.5f, Unpacked.TangentZ.w);
+	TangentBufferUAV[2 * OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = TangentUnbias(float4(TangentX, Unpacked.TangentX.w));
+	TangentBufferUAV[2 * OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = TangentUnbias(float4(TangentZ, Unpacked.TangentZ.w));
 
 #if GPUSKIN_DEBUG_PASSTHROUGH
 	// Passthrough debug code

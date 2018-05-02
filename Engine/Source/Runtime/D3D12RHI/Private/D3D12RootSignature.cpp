@@ -357,7 +357,7 @@ void FD3D12RootSignature::Init(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& InDesc
 	VERIFYD3D12RESULT(SerializeHR);
 
 	// Create and analyze the root signature.
-	VERIFYD3D12RESULT(Device->CreateRootSignature(GetParentAdapter()->ActiveGPUMask(),
+	VERIFYD3D12RESULT(Device->CreateRootSignature((uint32)FRHIGPUMask::All(),
 		RootSignatureBlob->GetBufferPointer(),
 		RootSignatureBlob->GetBufferSize(),
 		IID_PPV_ARGS(RootSignature.GetInitReference())));
@@ -377,7 +377,7 @@ void FD3D12RootSignature::Init(ID3DBlob* const InBlob)
 	VERIFYD3D12RESULT(D3D12CreateVersionedRootSignatureDeserializer(RootSignatureBlob->GetBufferPointer(), RootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(Deserializer.GetInitReference())));
 
 	// Create and analyze the root signature.
-	VERIFYD3D12RESULT(Device->CreateRootSignature(GetParentAdapter()->ActiveGPUMask(),
+	VERIFYD3D12RESULT(Device->CreateRootSignature((uint32)FRHIGPUMask::All(),
 		RootSignatureBlob->GetBufferPointer(),
 		RootSignatureBlob->GetBufferSize(),
 		IID_PPV_ARGS(RootSignature.GetInitReference())));

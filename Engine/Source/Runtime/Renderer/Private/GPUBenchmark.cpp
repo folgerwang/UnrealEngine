@@ -20,6 +20,7 @@
 #include "PostProcess/SceneFilterRendering.h"
 #include "GPUProfiler.h"
 #include "PipelineStateCache.h"
+#include "LongGPUTask.h"
 
 static const uint32 GBenchmarkResolution = 512;
 static const uint32 GBenchmarkPrimitives = 200000;
@@ -420,6 +421,10 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 		return;
 	}
 
+	
+	MeasureLongGPUTaskExecutionTime(RHICmdList);
+	RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);	
+
 	TResourceArray<FBenchmarkVertex> Vertices;
 	Vertices.Reserve(GBenchmarkVertices);
 	for (uint32 Index = 0; Index < GBenchmarkVertices; ++Index)
@@ -538,6 +543,9 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 			return;
 		}
 
+		IssueScalableLongGPUTask(RHICmdList, -1);
+		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+
 		// TimingValues are in Seconds
 		FTimingSeries TimingSeries[MethodCount];
 		// in 1/1000000 Seconds
@@ -574,7 +582,7 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 
 				RunBenchmarkShader(RHICmdList, VertexBuffer, View, MethodId, RTItems[SrcRTIndex], LocalWorkScale[Iteration]);
 
-				RHICmdList.CopyToResolveTarget(RTItems[DestRTIndex]->GetRenderTargetItem().TargetableTexture, RTItems[DestRTIndex]->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
+				RHICmdList.CopyToResolveTarget(RTItems[DestRTIndex]->GetRenderTargetItem().TargetableTexture, RTItems[DestRTIndex]->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 
 				/*if(bGPUCPUSync)
 				{

@@ -90,6 +90,7 @@ void FxaaVS(
 		FxaaTex TextureAndSampler;
 		TextureAndSampler.tex = PostprocessInput0;
 		TextureAndSampler.smpl = PostprocessInput0Sampler;
+		TextureAndSampler.UVMinMax = PostprocessInput0MinMax;
 
 		OutColor = float4(FxaaPixelShader(
 			TexCenter, TexCorners,

@@ -155,7 +155,8 @@ namespace UnrealBuildTool
 			}
 
 			// Force using the ANSI allocator if ASan is enabled
-			if(Target.MacPlatform.bEnableAddressSanitizer)
+			string AddressSanitizer = Environment.GetEnvironmentVariable("ENABLE_ADDRESS_SANITIZER");
+			if(Target.MacPlatform.bEnableAddressSanitizer || (AddressSanitizer != null && AddressSanitizer == "YES"))
 			{
 				Target.GlobalDefinitions.Add("FORCE_ANSI_ALLOCATOR=1");
 			}
@@ -393,15 +394,20 @@ namespace UnrealBuildTool
 		public override UEToolChain CreateToolChain(CppPlatform CppPlatform, ReadOnlyTargetRules Target)
 		{
 			MacToolChainOptions Options = MacToolChainOptions.None;
-			if(Target.MacPlatform.bEnableAddressSanitizer)
+
+			string AddressSanitizer = Environment.GetEnvironmentVariable("ENABLE_ADDRESS_SANITIZER");
+			string ThreadSanitizer = Environment.GetEnvironmentVariable("ENABLE_THREAD_SANITIZER");
+			string UndefSanitizerMode = Environment.GetEnvironmentVariable("ENABLE_UNDEFINED_BEHAVIOR_SANITIZER");
+
+			if(Target.MacPlatform.bEnableAddressSanitizer || (AddressSanitizer != null && AddressSanitizer == "YES"))
 			{
 				Options |= MacToolChainOptions.EnableAddressSanitizer;
 			}
-			if(Target.MacPlatform.bEnableThreadSanitizer)
+			if(Target.MacPlatform.bEnableThreadSanitizer || (ThreadSanitizer != null && ThreadSanitizer == "YES"))
 			{
 				Options |= MacToolChainOptions.EnableThreadSanitizer;
 			}
-			if(Target.MacPlatform.bEnableUndefinedBehaviorSanitizer)
+			if(Target.MacPlatform.bEnableUndefinedBehaviorSanitizer || (UndefSanitizerMode != null && UndefSanitizerMode == "YES"))
 			{
 				Options |= MacToolChainOptions.EnableUndefinedBehaviorSanitizer;
 			}

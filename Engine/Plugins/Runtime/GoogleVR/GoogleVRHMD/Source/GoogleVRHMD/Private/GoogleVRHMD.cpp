@@ -129,11 +129,11 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeOnUiLayerBack(JNIEnv* 
 
 void AndroidThunkCpp_UiLayer_SetEnabled(bool bEnable)
 {
- 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
- 	{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
 		static jmethodID UiLayerMethod = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_UiLayer_SetEnabled", "(Z)V", false);
 		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, UiLayerMethod, bEnable);
- 	}
+	}
 }
 void AndroidThunkCpp_UiLayer_SetViewerName(const FString& ViewerName)
 {
@@ -142,41 +142,41 @@ void AndroidThunkCpp_UiLayer_SetViewerName(const FString& ViewerName)
 		return;
 	}
 
- 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
- 	{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
 		static jmethodID UiLayerMethod = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_UiLayer_SetViewerName", "(Ljava/lang/String;)V", false);
 		jstring NameJava = Env->NewStringUTF(TCHAR_TO_UTF8(*ViewerName));
 		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, UiLayerMethod, NameJava);
- 	}
+	}
 }
 
 gvr_context* AndroidThunkCpp_GetNativeGVRApi()
 {
- 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
- 	{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
 		static jmethodID Method = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_GetNativeGVRApi", "()J", false);
 		return reinterpret_cast<gvr_context*>(CallLongMethod(Env, FJavaWrapper::GameActivityThis, Method));
- 	}
+	}
 
 	return nullptr;
 }
 
 void AndroidThunkCpp_GvrLayout_SetFixedPresentationSurfaceSizeToCurrent()
 {
- 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
- 	{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
 		static jmethodID Method = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_GvrLayout_SetFixedPresentationSurfaceSizeToCurrent", "()V", false);
 		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, Method);
- 	}
+	}
 }
 
 bool AndroidThunkCpp_ProjectWantsCardboardOnlyMode()
 {
- 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
- 	{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
 		static jmethodID Method = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_ProjectWantsCardboardOnlyMode", "()Z", false);
 		return FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, Method);
- 	}
+	}
 
 	return false;
 }
@@ -1369,11 +1369,9 @@ void FGoogleVRHMD::PostRenderViewFamily_RenderThread(FRHICommandListImmediate& R
 			*VertexShader,
 			EDRF_Default);
 		// Asynchronously copy delayed render target from GPU to CPU
-		const bool bKeepOriginalSurface = false;
 		RHICmdList.CopyToResolveTarget(
 			DestRenderTarget.TargetableTexture,
 			ReadbackTextures[ReadbackTextureCount % kReadbackTextureCount],
-			bKeepOriginalSurface,
 			FResolveParams());
 		ReadbackReferencePoses[ReadbackTextureCount % kReadbackTextureCount] = RenderReferencePose;
 		RHICmdList.EndRenderQuery(ReadbackCopyQueries[ReadbackTextureCount % kReadbackTextureCount]);

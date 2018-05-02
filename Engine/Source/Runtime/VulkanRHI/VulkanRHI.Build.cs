@@ -180,7 +180,7 @@ public class VulkanRHI : ModuleRules
 		try
 		{
 			// Extract current version on ThirdParty
-			string Text = File.ReadAllText("ThirdParty/Vulkan/Windows/Include/vulkan/vulkan.h");
+			string Text = File.ReadAllText("ThirdParty/Vulkan/Include/vulkan/vulkan_core.h");
 			return GetVersionFromString(Text);
 		}
 		catch(Exception)
@@ -194,8 +194,12 @@ public class VulkanRHI : ModuleRules
 	{
 		try
 		{
-			// Extract current version on the SDK folder
-			string Header = Path.Combine(VulkanSDKPath, "Include/vulkan/vulkan.h");
+			// Extract current version on the SDK folder. Newer SDKs store the version in vulkan_core.h
+			string Header = Path.Combine(VulkanSDKPath, "Include/vulkan/vulkan_core.h");
+			if (!File.Exists(Header))
+			{
+				Header = Path.Combine(VulkanSDKPath, "Include/vulkan/vulkan.h");
+			}
 			string Text = File.ReadAllText(Header);
 			return GetVersionFromString(Text);
 		}

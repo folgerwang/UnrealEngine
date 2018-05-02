@@ -257,7 +257,7 @@ void FStaticMeshVertexBuffer::InitRHI()
 			TangentsVertexBuffer.VertexBufferRHI = RHICreateVertexBuffer(ResourceArray->GetResourceDataSize(), BUF_Static | BUF_ShaderResource, CreateInfo);
 			if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
 			{
-				TangentsSRV = RHICreateShaderResourceView(TangentsVertexBuffer.VertexBufferRHI, GetUseHighPrecisionTangentBasis() ? 8 : 4, GetUseHighPrecisionTangentBasis() ? PF_A16B16G16R16 : PF_R8G8B8A8);
+				TangentsSRV = RHICreateShaderResourceView(TangentsVertexBuffer.VertexBufferRHI, GetUseHighPrecisionTangentBasis() ? 8 : 4, GetUseHighPrecisionTangentBasis() ? PF_R16G16B16A16_SNORM : PF_R8G8B8A8_SNORM);
 			}
 		}
 	}
@@ -519,7 +519,9 @@ void FStaticMeshVertexBuffer::BindTexCoordVertexBuffer(const FVertexFactory* Ver
 
 void FStaticMeshVertexBuffer::BindLightMapVertexBuffer(const FVertexFactory* VertexFactory, FStaticMeshDataType& Data, int LightMapCoordinateIndex) const
 {
-	check(LightMapCoordinateIndex < (int)GetNumTexCoords() && LightMapCoordinateIndex >= 0);
+	LightMapCoordinateIndex = LightMapCoordinateIndex < (int32)GetNumTexCoords() ? LightMapCoordinateIndex : (int32)GetNumTexCoords() - 1;
+	check(LightMapCoordinateIndex >= 0);
+
 	Data.LightMapCoordinateIndex = LightMapCoordinateIndex;
 	Data.NumTexCoords = GetNumTexCoords();
 

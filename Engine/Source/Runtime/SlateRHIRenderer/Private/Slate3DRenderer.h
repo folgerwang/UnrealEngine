@@ -19,7 +19,6 @@ public:
 	FSlate3DRenderer( TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateRHIResourceManager> InResourceManager, bool bUseGammaCorrection = false );
 
 	void Cleanup();
-	virtual void FinishCleanup() override;
 
 	virtual void SetUseGammaCorrection(bool bUseGammaCorrection) override;
 	virtual FSlateDrawBuffer& GetDrawBuffer() override;

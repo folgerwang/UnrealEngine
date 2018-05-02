@@ -17,11 +17,6 @@
 #define HZB_LEVEL_OFFSET 0.0
 #endif
 
-float4 HZBUvFactorAndInvFactor;
-
-// Equivalent of View.ScreenPositionScaleBias, but for SSR.
-float4 PrevScreenPositionScaleBias;
-
 float4 SampleDepthTexture( Texture2D Texture, SamplerState Sampler, float Level, float4 SampleUV0, float4 SampleUV1 )
 {
 	float4 SampleDepth;
@@ -32,10 +27,10 @@ float4 SampleDepthTexture( Texture2D Texture, SamplerState Sampler, float Level,
 	SampleDepth.z = Texture2DSampleLevel( Texture, Sampler, SampleUV1.xy, Level ).r;
 	SampleDepth.w = Texture2DSampleLevel( Texture, Sampler, SampleUV1.zw, Level ).r;
 #else
-	SampleDepth.x = Texture2DSampleLevel( SceneDepthTexture, SceneDepthTextureSampler, SampleUV0.xy, 0 ).r;
-	SampleDepth.y = Texture2DSampleLevel( SceneDepthTexture, SceneDepthTextureSampler, SampleUV0.zw, 0 ).r;
-	SampleDepth.z = Texture2DSampleLevel( SceneDepthTexture, SceneDepthTextureSampler, SampleUV1.xy, 0 ).r;
-	SampleDepth.w = Texture2DSampleLevel( SceneDepthTexture, SceneDepthTextureSampler, SampleUV1.zw, 0 ).r;
+	SampleDepth.x = Texture2DSampleLevel( SceneTexturesStruct.SceneDepthTexture, SceneTexturesStruct.SceneDepthTextureSampler, SampleUV0.xy, 0 ).r;
+	SampleDepth.y = Texture2DSampleLevel( SceneTexturesStruct.SceneDepthTexture, SceneTexturesStruct.SceneDepthTextureSampler, SampleUV0.zw, 0 ).r;
+	SampleDepth.z = Texture2DSampleLevel( SceneTexturesStruct.SceneDepthTexture, SceneTexturesStruct.SceneDepthTextureSampler, SampleUV1.xy, 0 ).r;
+	SampleDepth.w = Texture2DSampleLevel( SceneTexturesStruct.SceneDepthTexture, SceneTexturesStruct.SceneDepthTextureSampler, SampleUV1.zw, 0 ).r;
 #endif
 	return SampleDepth;
 }
@@ -45,6 +40,8 @@ void RayCast(
 	float3 RayOriginTranslatedWorld, float3 RayDirection,
 	float Roughness, float ConeAngleWorld, float SceneDepth,
 	int NumSteps, float StepOffset,
+	float4 HZBUvFactorAndInvFactor, 
+	float4 PrevScreenPositionScaleBias,
 	out float4 OutHitUVzTime,
 	out float OutLevelHCB
 )
@@ -397,10 +394,10 @@ float4 RayCastCheap( Texture2D Texture, SamplerState Sampler, float3 R, float Sc
 	SampleDepth.z = Texture2DSampleLevel( Texture, Sampler, SampleUV1.xy, 1 ).r;
 	SampleDepth.w = Texture2DSampleLevel( Texture, Sampler, SampleUV1.zw, 1 ).r;
 #else
-	SampleDepth.x = Texture2DSampleLevel( SceneDepthTexture, SceneDepthTextureSampler, SampleUV0.xy, 0 ).r;
-	SampleDepth.y = Texture2DSampleLevel( SceneDepthTexture, SceneDepthTextureSampler, SampleUV0.zw, 0 ).r;
-	SampleDepth.z = Texture2DSampleLevel( SceneDepthTexture, SceneDepthTextureSampler, SampleUV1.xy, 0 ).r;
-	SampleDepth.w = Texture2DSampleLevel( SceneDepthTexture, SceneDepthTextureSampler, SampleUV1.zw, 0 ).r;
+	SampleDepth.x = Texture2DSampleLevel( SceneTexturesStruct.SceneDepthTexture, SceneTexturesStruct.SceneDepthTextureSampler, SampleUV0.xy, 0 ).r;
+	SampleDepth.y = Texture2DSampleLevel( SceneTexturesStruct.SceneDepthTexture, SceneTexturesStruct.SceneDepthTextureSampler, SampleUV0.zw, 0 ).r;
+	SampleDepth.z = Texture2DSampleLevel( SceneTexturesStruct.SceneDepthTexture, SceneTexturesStruct.SceneDepthTextureSampler, SampleUV1.xy, 0 ).r;
+	SampleDepth.w = Texture2DSampleLevel( SceneTexturesStruct.SceneDepthTexture, SceneTexturesStruct.SceneDepthTextureSampler, SampleUV1.zw, 0 ).r;
 #endif
 
 	#if 1
@@ -461,7 +458,7 @@ float ComputeHitVignetteFromScreenPos(float2 ScreenPos)
 	return SafeSaturate(1.0 - dot(Vignette, Vignette));
 }
 
-void ReprojectHit( float3 HitUVz, out float2 OutPrevUV, out float OutVignette)
+void ReprojectHit(float4 PrevScreenPositionScaleBias, float3 HitUVz, out float2 OutPrevUV, out float OutVignette)
 {
 	//return HitUVz.xy;
 	// Camera motion for pixel (in ScreenPos space).
@@ -475,7 +472,7 @@ void ReprojectHit( float3 HitUVz, out float2 OutPrevUV, out float OutVignette)
 	OutPrevUV = PrevUV;
 }
 
-void ReprojectHit( Texture2D Texture, SamplerState Sampler, float3 HitUVz, out float2 OutPrevUV, out float OutVignette)
+void ReprojectHit(float4 PrevScreenPositionScaleBias, Texture2D Texture, SamplerState Sampler, float3 HitUVz, out float2 OutPrevUV, out float OutVignette)
 {
 	//return HitUVz.xy;
 	// Camera motion for pixel (in ScreenPos space).
@@ -496,7 +493,7 @@ void ReprojectHit( Texture2D Texture, SamplerState Sampler, float3 HitUVz, out f
 	OutPrevUV = PrevUV;
 }
 
-float4 SampleScreenColor( Texture2D Texture, SamplerState Sampler, float2 UV )
+float4 SampleScreenColor(Texture2D Texture, SamplerState Sampler, float2 UV)
 {
 	float4 OutColor;
 
@@ -509,7 +506,7 @@ float4 SampleScreenColor( Texture2D Texture, SamplerState Sampler, float2 UV )
 	return OutColor;
 }
 
-float4 SampleHCBLevel( Texture2D Texture, SamplerState Sampler, float3 HitUVz, float Level )
+float4 SampleHCBLevel( Texture2D Texture, SamplerState Sampler, float3 HitUVz, float Level, float4 HZBUvFactorAndInvFactor )
 {
 	float4 OutColor;
 

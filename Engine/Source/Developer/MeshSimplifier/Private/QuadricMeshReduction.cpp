@@ -340,6 +340,24 @@ public:
 					TexCoordWeights[ 2 * TexCoordIndex + 0 ] = 0.0f;
 					TexCoordWeights[ 2 * TexCoordIndex + 1 ] = 0.0f;
 				}
+				else if (InMesh.WedgeTexCoords[TexCoordIndex].Num() > 0)
+				{
+					// Normalize TexCoordWeights using min/max TexCoord range, with assumption that value ranges above 2 aren't standard UV values
+
+					float MinVal = +FLT_MAX;
+					float MaxVal = -FLT_MAX;
+
+					for (int32 VertexIndex = 0; VertexIndex < InMesh.WedgeTexCoords[TexCoordIndex].Num(); ++VertexIndex)
+					{
+						MinVal = FMath::Min(MinVal, InMesh.WedgeTexCoords[TexCoordIndex][VertexIndex].X);
+						MinVal = FMath::Min(MinVal, InMesh.WedgeTexCoords[TexCoordIndex][VertexIndex].Y);
+						MaxVal = FMath::Max(MaxVal, InMesh.WedgeTexCoords[TexCoordIndex][VertexIndex].X);
+						MaxVal = FMath::Max(MaxVal, InMesh.WedgeTexCoords[TexCoordIndex][VertexIndex].Y);
+					}
+
+					TexCoordWeights[2 * TexCoordIndex + 0] = 1.0f / FMath::Max(2.0f, MaxVal - MinVal);
+					TexCoordWeights[2 * TexCoordIndex + 1] = 1.0f / FMath::Max(2.0f, MaxVal - MinVal);
+				}
 			}
 		}
 		

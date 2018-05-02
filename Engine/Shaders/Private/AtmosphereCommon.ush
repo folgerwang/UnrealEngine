@@ -80,12 +80,12 @@ const static int InscatterNuNum = 8;
 /** Textures for rendering */
 #if IS_MATERIAL_SHADER
     // for materials, these are in the view UB
-	#define AtmosphereTransmittanceTexture			View.AtmosphereTransmittanceTexture_UB
-	#define AtmosphereTransmittanceTextureSampler	View.AtmosphereTransmittanceTextureSampler_UB
-	#define AtmosphereIrradianceTexture				View.AtmosphereIrradianceTexture_UB
-	#define AtmosphereIrradianceTextureSampler		View.AtmosphereIrradianceTextureSampler_UB
-	#define AtmosphereInscatterTexture				View.AtmosphereInscatterTexture_UB
-	#define AtmosphereInscatterTextureSampler		View.AtmosphereInscatterTextureSampler_UB
+	#define AtmosphereTransmittanceTexture			View.AtmosphereTransmittanceTexture
+	#define AtmosphereTransmittanceTextureSampler	View.AtmosphereTransmittanceTextureSampler
+	#define AtmosphereIrradianceTexture				View.AtmosphereIrradianceTexture
+	#define AtmosphereIrradianceTextureSampler		View.AtmosphereIrradianceTextureSampler
+	#define AtmosphereInscatterTexture				View.AtmosphereInscatterTexture
+	#define AtmosphereInscatterTextureSampler		View.AtmosphereInscatterTextureSampler
 #else
 	// these are only used for the precomputation shader; which doesn't have a view UB
 	Texture2D AtmosphereTransmittanceTexture;

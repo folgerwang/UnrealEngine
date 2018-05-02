@@ -109,7 +109,7 @@ struct PAPER2D_API FSpriteRenderSection
 	{
 		const FVector Pos((PaperAxisX * X) + (PaperAxisY * Y) + Origin);
 
-		new (Vertices) FDynamicMeshVertex(Pos, TangentX, TangentZ, FVector2D(U, V), Color);
+		new (Vertices) FDynamicMeshVertex(Pos, TangentX.ToFVector(), TangentZ.ToFVector(), FVector2D(U, V), Color);
 		++NumVertices;
 	}
 };

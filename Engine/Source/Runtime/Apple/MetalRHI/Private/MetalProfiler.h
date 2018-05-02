@@ -15,47 +15,8 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("MakeDrawable time"),STAT_MetalMakeDrawableTime,S
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Draw call time"),STAT_MetalDrawCallTime,STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("PrepareDraw time"),STAT_MetalPrepareDrawTime,STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("PipelineState time"),STAT_MetalPipelineStateTime,STATGROUP_MetalRHI, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("BoundShaderState time"),STAT_MetalBoundShaderStateTime,STATGROUP_MetalRHI, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("VertexDeclaration time"),STAT_MetalVertexDeclarationTime,STATGROUP_MetalRHI, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Uniform buffer pool cleanup time"), STAT_MetalUniformBufferCleanupTime, STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Buffer Page-Off time"), STAT_MetalBufferPageOffTime, STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Texture Page-Off time"), STAT_MetalTexturePageOffTime, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Uniform buffer pool memory"), STAT_MetalTotalUniformBufferMemory, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Free Uniform pool memory"), STAT_MetalFreeUniformBufferMemory, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Uniform buffer pool num free"), STAT_MetalNumFreeUniformBuffers, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Buffer Count"), STAT_MetalBufferCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Texture Count"), STAT_MetalTextureCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Uncommitted Command Buffer Count"), STAT_MetalCommandBufferCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Sampler State Count"), STAT_MetalSamplerStateCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Depth Stencil State Count"), STAT_MetalDepthStencilStateCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pipeline State Count"), STAT_MetalRenderPipelineStateCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Compute Pipeline State Count"), STAT_MetalComputePipelineStateCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pipeline Color Desc Count"), STAT_MetalRenderPipelineColorAttachmentDescriptor, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pass Desc Count"), STAT_MetalRenderPassDescriptorCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pass Color Desc Count"), STAT_MetalRenderPassColorAttachmentDescriptorCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pass Depth Desc Count"), STAT_MetalRenderPassDepthAttachmentDescriptorCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pass Stencil Desc Count"), STAT_MetalRenderPassStencilAttachmentDescriptorCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Vertex Desc Count"), STAT_MetalVertexDescriptorCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Function Count"), STAT_MetalFunctionCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Free Pooled Buffer Count"), STAT_MetalFreePooledBufferCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Total Pooled Buffer Count"), STAT_MetalPooledBufferCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffers Allocated Per-Frame"), STAT_MetalBufferNativeAlloctations, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffers Freed Per-Frame"), STAT_MetalBufferNativeFreed, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Total Pooled Buffer Memory"), STAT_MetalPooledBufferMem, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Used Pooled Buffer Memory"), STAT_MetalUsedPooledBufferMem, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Free Pooled Buffer Memory"), STAT_MetalFreePooledBufferMem, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Wasted Pooled Buffer Memory"), STAT_MetalWastedPooledBufferMem, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Buffers Allocated Per-Frame"), STAT_MetalBufferAlloctations, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Buffers Freed Per-Frame"), STAT_MetalBufferFreed, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Buffer Memory Allocated Per-Frame"), STAT_MetalBufferMemAlloc, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Buffer Memory Freed Per-Frame"), STAT_MetalBufferMemFreed, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffer Memory Allocated Per-Frame"), STAT_MetalBufferNativeMemAlloc, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffer Memory Freed Per-Frame"), STAT_MetalBufferNativeMemFreed, STATGROUP_MetalRHI, );
-
-DECLARE_CYCLE_STAT_EXTERN(TEXT("PrepareVertexDesc time"),STAT_MetalPrepareVertexDescTime,STATGROUP_MetalRHI, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("BoundShaderPrepareDraw time"),STAT_MetalBoundShaderPrepareDrawTime,STATGROUP_MetalRHI, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("BoundShaderLock time"),STAT_MetalBoundShaderLockTime,STATGROUP_MetalRHI, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("PipelineLock time"),STAT_MetalPipelineLockTime,STATGROUP_MetalRHI, );
 
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Uniform Memory Allocated Per-Frame"), STAT_MetalUniformMemAlloc, STATGROUP_MetalRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Uniform Memory Freed Per-Frame"), STAT_MetalUniformMemFreed, STATGROUP_MetalRHI, );
@@ -63,11 +24,14 @@ DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Vertex Memory Allocated Per-Frame"), STA
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Vertex Memory Freed Per-Frame"), STAT_MetalVertexMemFreed, STATGROUP_MetalRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Index Memory Allocated Per-Frame"), STAT_MetalIndexMemAlloc, STATGROUP_MetalRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Index Memory Freed Per-Frame"), STAT_MetalIndexMemFreed, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Private Texture Count"), STAT_MetalPrivateTextureCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Managed Texture Count"), STAT_MetalManagedTextureCount, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Private Texture Memory"), STAT_MetalPrivateTextureMem, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Managed Texture Memory"), STAT_MetalManagedTextureMem, STATGROUP_MetalRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Texture Memory Updated Per-Frame"), STAT_MetalTextureMemUpdate, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Buffer Memory"), STAT_MetalBufferMemory, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Texture Memory"), STAT_MetalTextureMemory, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Unused Buffer Memory"), STAT_MetalBufferUnusedMemory, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Unused Texture Memory"), STAT_MetalTextureUnusedMemory, STATGROUP_MetalRHI, );
+
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Buffer Count"), STAT_MetalBufferCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Texture Count"), STAT_MetalTextureCount, STATGROUP_MetalRHI, );
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Texture Page-On time"), STAT_MetalTexturePageOnTime, STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("GPU Work time"), STAT_MetalGPUWorkTime, STATGROUP_MetalRHI, );
@@ -128,8 +92,8 @@ public:
 	
 	virtual void StopTiming() override;
 	
-	MTLCommandBufferHandler Start(void);
-	MTLCommandBufferHandler Stop(void);
+	mtlpp::CommandBufferHandler Start(void);
+	mtlpp::CommandBufferHandler Stop(void);
 
 	bool Wait() const { return bRoot && bFullProfiling; }
 	bool IsRoot() const { return bRoot; }
@@ -256,9 +220,9 @@ struct FMetalGPUProfiler : public FGPUProfiler
 	void FinishGPUWork(void);
 	
 	static void IncrementFrameIndex();
-	static void RecordFrame(id<MTLCommandBuffer> Buffer);
-	static void RecordPresent(id<MTLCommandBuffer> Buffer);
-	static void RecordCommandBuffer(id<MTLCommandBuffer> Buffer);
+	static void RecordFrame(mtlpp::CommandBuffer& Buffer);
+	static void RecordPresent(mtlpp::CommandBuffer& Buffer);
+	static void RecordCommandBuffer(mtlpp::CommandBuffer& Buffer);
 	
 	#define MAX_FRAME_HISTORY 3
 	static volatile int32 FrameTimeGPUIndex;

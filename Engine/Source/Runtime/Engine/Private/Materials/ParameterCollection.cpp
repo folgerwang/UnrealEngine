@@ -692,7 +692,6 @@ void FMaterialParameterCollectionInstanceResource::UpdateContents(const FGuid& I
 	if (InId != FGuid() && Data.Num() > 0)
 	{
 		UniformBufferLayout.ConstantBufferSize = Data.GetTypeSize() * Data.Num();
-		UniformBufferLayout.ResourceOffset = 0;
 		check(UniformBufferLayout.Resources.Num() == 0);
 		UniformBuffer = RHICreateUniformBuffer(Data.GetData(), UniformBufferLayout, UniformBuffer_MultiFrame);
 	}

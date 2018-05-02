@@ -993,7 +993,7 @@ public:
 	FComputeIrradianceScreenGridCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		ObjectParameters.Bind(Initializer.ParameterMap);
 		AOParameters.Bind(Initializer.ParameterMap);
 		ScreenGridParameters.Bind(Initializer.ParameterMap);
@@ -1017,7 +1017,7 @@ public:
 	{
 		FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		extern TGlobalResource<FDistanceFieldObjectBufferResource> GAOCulledObjectBuffers;
 		ObjectParameters.Set(RHICmdList, ShaderRHI, GAOCulledObjectBuffers.Buffers);
@@ -1053,7 +1053,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{		
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << ObjectParameters;
 		Ar << AOParameters;
 		Ar << ScreenGridParameters;
@@ -1068,7 +1068,7 @@ public:
 
 private:
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FDistanceFieldCulledObjectBufferParameters ObjectParameters;
 	FAOParameters AOParameters;
 	FScreenGridParameters ScreenGridParameters;

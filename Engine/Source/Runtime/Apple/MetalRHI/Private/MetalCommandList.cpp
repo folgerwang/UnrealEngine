@@ -10,6 +10,7 @@
 #include "MetalCommandQueue.h"
 #include "MetalProfiler.h"
 #include "MetalCommandBuffer.h"
+#include "ns.hpp"
 
 #pragma mark - Public C++ Boilerplate -
 
@@ -19,27 +20,24 @@ extern bool GIsSuspended;
 
 FMetalCommandList::FMetalCommandList(FMetalCommandQueue& InCommandQueue, bool const bInImmediate)
 : CommandQueue(InCommandQueue)
-, SubmittedBuffers(!bInImmediate ? [NSMutableArray<id<MTLCommandBuffer>> new] : nil)
 , bImmediate(bInImmediate)
 {
 }
 
 FMetalCommandList::~FMetalCommandList(void)
 {
-	[SubmittedBuffers release];
-	SubmittedBuffers = nil;
 }
 	
 #pragma mark - Public Command List Mutators -
 
-static void ReportMetalCommandBufferFailure(id <MTLCommandBuffer> CompletedBuffer, TCHAR const* ErrorType, bool bDoCheck=true)
+static void ReportMetalCommandBufferFailure(mtlpp::CommandBuffer const& CompletedBuffer, TCHAR const* ErrorType, bool bDoCheck=true)
 {
-	NSString* Label = CompletedBuffer.label;
-	int32 Code = CompletedBuffer.error.code;
-	NSString* Domain = CompletedBuffer.error.domain;
-	NSString* ErrorDesc = CompletedBuffer.error.localizedDescription;
-	NSString* FailureDesc = CompletedBuffer.error.localizedFailureReason;
-	NSString* RecoveryDesc = CompletedBuffer.error.localizedRecoverySuggestion;
+	NSString* Label = CompletedBuffer.GetLabel();
+	int32 Code = CompletedBuffer.GetError().GetCode();
+	NSString* Domain = CompletedBuffer.GetError().GetDomain();
+	NSString* ErrorDesc = CompletedBuffer.GetError().GetLocalizedDescription();
+	NSString* FailureDesc = CompletedBuffer.GetError().GetLocalizedFailureReason();
+	NSString* RecoveryDesc = CompletedBuffer.GetError().GetLocalizedRecoverySuggestion();
 	
 	FString LabelString = Label ? FString(Label) : FString(TEXT("Unknown"));
 	FString DomainString = Domain ? FString(Domain) : FString(TEXT("Unknown"));
@@ -50,18 +48,18 @@ static void ReportMetalCommandBufferFailure(id <MTLCommandBuffer> CompletedBuffe
 	if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() == EMetalDebugLevelLogDebugGroups)
 	{
 		NSMutableString* DescString = [NSMutableString new];
-		[DescString appendFormat:@"Command Buffer %p %@:", CompletedBuffer, Label ? Label : @"Unknown"];
+		[DescString appendFormat:@"Command Buffer %p %@:", CompletedBuffer.GetPtr(), Label ? Label : @"Unknown"];
 
-		for (NSString* String in ((NSObject<MTLCommandBuffer>*)CompletedBuffer).debugGroups)
+		for (NSString* String in ((NSObject<MTLCommandBuffer>*)CompletedBuffer.GetPtr()).debugGroups)
 		{
 			[DescString appendFormat:@"\n\tDebugGroup: %@", String];
 		}
 		
-		UE_LOG(LogMetal, Warning, TEXT("Command Buffer %p %s:%s"), CompletedBuffer, *LabelString, *FString(DescString));
+		UE_LOG(LogMetal, Warning, TEXT("Command Buffer %p %s:%s"), CompletedBuffer.GetPtr(), *LabelString, *FString(DescString));
 	}
 	else
 	{
-		NSString* Desc = CompletedBuffer.debugDescription;
+		NSString* Desc = CompletedBuffer.GetPtr().debugDescription;
 		UE_LOG(LogMetal, Warning, TEXT("%s"), *FString(Desc));
 	}
 	
@@ -75,45 +73,45 @@ static void ReportMetalCommandBufferFailure(id <MTLCommandBuffer> CompletedBuffe
     }
 }
 
-static __attribute__ ((optnone)) void MetalCommandBufferFailureInternal(id <MTLCommandBuffer> CompletedBuffer)
+static __attribute__ ((optnone)) void MetalCommandBufferFailureInternal(mtlpp::CommandBuffer const& CompletedBuffer)
 {
 	ReportMetalCommandBufferFailure(CompletedBuffer, TEXT("Internal"));
 }
 
-static __attribute__ ((optnone)) void MetalCommandBufferFailureTimeout(id <MTLCommandBuffer> CompletedBuffer)
+static __attribute__ ((optnone)) void MetalCommandBufferFailureTimeout(mtlpp::CommandBuffer const& CompletedBuffer)
 {
     ReportMetalCommandBufferFailure(CompletedBuffer, TEXT("Timeout"), PLATFORM_IOS);
 }
 
-static __attribute__ ((optnone)) void MetalCommandBufferFailurePageFault(id <MTLCommandBuffer> CompletedBuffer)
+static __attribute__ ((optnone)) void MetalCommandBufferFailurePageFault(mtlpp::CommandBuffer const& CompletedBuffer)
 {
 	ReportMetalCommandBufferFailure(CompletedBuffer, TEXT("PageFault"));
 }
 
-static __attribute__ ((optnone)) void MetalCommandBufferFailureBlacklisted(id <MTLCommandBuffer> CompletedBuffer)
+static __attribute__ ((optnone)) void MetalCommandBufferFailureBlacklisted(mtlpp::CommandBuffer const& CompletedBuffer)
 {
 	ReportMetalCommandBufferFailure(CompletedBuffer, TEXT("Blacklisted"));
 }
 
-static __attribute__ ((optnone)) void MetalCommandBufferFailureNotPermitted(id <MTLCommandBuffer> CompletedBuffer)
+static __attribute__ ((optnone)) void MetalCommandBufferFailureNotPermitted(mtlpp::CommandBuffer const& CompletedBuffer)
 {
 	// when iOS goes into the background, it can get a delayed NotPermitted error, so we can't crash in this case, just allow it to not be submitted
 	ReportMetalCommandBufferFailure(CompletedBuffer, TEXT("NotPermitted"), !PLATFORM_IOS);
 }
 
-static __attribute__ ((optnone)) void MetalCommandBufferFailureOutOfMemory(id <MTLCommandBuffer> CompletedBuffer)
+static __attribute__ ((optnone)) void MetalCommandBufferFailureOutOfMemory(mtlpp::CommandBuffer const& CompletedBuffer)
 {
 	ReportMetalCommandBufferFailure(CompletedBuffer, TEXT("OutOfMemory"));
 }
 
-static __attribute__ ((optnone)) void MetalCommandBufferFailureInvalidResource(id <MTLCommandBuffer> CompletedBuffer)
+static __attribute__ ((optnone)) void MetalCommandBufferFailureInvalidResource(mtlpp::CommandBuffer const& CompletedBuffer)
 {
 	ReportMetalCommandBufferFailure(CompletedBuffer, TEXT("InvalidResource"));
 }
 
-static void HandleMetalCommandBufferError(id <MTLCommandBuffer> CompletedBuffer)
+static void HandleMetalCommandBufferError(mtlpp::CommandBuffer const& CompletedBuffer)
 {
-	MTLCommandBufferError Code = (MTLCommandBufferError)CompletedBuffer.error.code;
+	MTLCommandBufferError Code = (MTLCommandBufferError)CompletedBuffer.GetError().GetCode();
 	switch(Code)
 	{
 		case MTLCommandBufferErrorInternal:
@@ -146,24 +144,24 @@ static void HandleMetalCommandBufferError(id <MTLCommandBuffer> CompletedBuffer)
 	}
 }
 
-static __attribute__ ((optnone)) void HandleAMDMetalCommandBufferError(id <MTLCommandBuffer> CompletedBuffer)
+static __attribute__ ((optnone)) void HandleAMDMetalCommandBufferError(mtlpp::CommandBuffer const& CompletedBuffer)
 {
 	HandleMetalCommandBufferError(CompletedBuffer);
 }
 
-static __attribute__ ((optnone)) void HandleNVIDIAMetalCommandBufferError(id <MTLCommandBuffer> CompletedBuffer)
+static __attribute__ ((optnone)) void HandleNVIDIAMetalCommandBufferError(mtlpp::CommandBuffer const& CompletedBuffer)
 {
 	HandleMetalCommandBufferError(CompletedBuffer);
 }
 
-static void HandleIntelMetalCommandBufferError(id <MTLCommandBuffer> CompletedBuffer)
+static void HandleIntelMetalCommandBufferError(mtlpp::CommandBuffer const& CompletedBuffer)
 {
 	HandleMetalCommandBufferError(CompletedBuffer);
 }
 
-void FMetalCommandList::HandleMetalCommandBufferFailure(id <MTLCommandBuffer> CompletedBuffer)
+void FMetalCommandList::HandleMetalCommandBufferFailure(mtlpp::CommandBuffer const& CompletedBuffer)
 {
-	if (CompletedBuffer.error.domain == MTLCommandBufferErrorDomain || [CompletedBuffer.error.domain isEqualToString:MTLCommandBufferErrorDomain])
+	if (CompletedBuffer.GetError().GetDomain() == MTLCommandBufferErrorDomain || [CompletedBuffer.GetError().GetDomain() isEqualToString:MTLCommandBufferErrorDomain])
 	{
 		if (GRHIVendorId && IsRHIDeviceAMD())
 		{
@@ -188,47 +186,39 @@ void FMetalCommandList::HandleMetalCommandBufferFailure(id <MTLCommandBuffer> Co
 	}
 }
 
-void FMetalCommandList::Commit(id<MTLCommandBuffer> Buffer, NSArray<MTLCommandBufferHandler>* CompletionHandlers, bool const bWait)
+void FMetalCommandList::Commit(mtlpp::CommandBuffer& Buffer, TArray<ns::Object<mtlpp::CommandBufferHandler>> CompletionHandlers, bool const bWait)
 {
 	check(Buffer);
 	
-	[CompletionHandlers retain];
-	[Buffer addCompletedHandler : ^ (id <MTLCommandBuffer> CompletedBuffer)
+	Buffer.AddCompletedHandler([CompletionHandlers](mtlpp::CommandBuffer const& CompletedBuffer)
 	{
-		if (CompletedBuffer.status == MTLCommandBufferStatusError)
+		if (CompletedBuffer.GetStatus() == mtlpp::CommandBufferStatus::Error)
 		{
-			HandleMetalCommandBufferFailure(Buffer);
+			HandleMetalCommandBufferFailure(CompletedBuffer);
 		}
-		if (CompletionHandlers)
+		if (CompletionHandlers.Num())
 		{
-			for (MTLCommandBufferHandler Handler in CompletionHandlers)
+			for (ns::Object<mtlpp::CommandBufferHandler> Handler : CompletionHandlers)
 			{
-				Handler(CompletedBuffer);
+				Handler.GetPtr()(CompletedBuffer);
 			}
-			[CompletionHandlers release];
 		}
-	}];
+	});
     
     FMetalGPUProfiler::RecordCommandBuffer(Buffer);
     
 	if (bImmediate)
 	{
-		if (bWait)
-		{
-			[Buffer retain];
-		}
 		CommandQueue.CommitCommandBuffer(Buffer);
 		if (bWait)
 		{
-			[Buffer waitUntilCompleted];
-			[Buffer release];
+			Buffer.WaitUntilCompleted();
 		}
 	}
 	else
 	{
-		check(SubmittedBuffers);
 		check(!bWait);
-		[SubmittedBuffers addObject: Buffer];
+		SubmittedBuffers.Add(Buffer);
 	}
 }
 
@@ -239,5 +229,5 @@ void FMetalCommandList::Submit(uint32 Index, uint32 Count)
 
 	// Command queue takes ownership of the array
 	CommandQueue.SubmitCommandBuffers(SubmittedBuffers, Index, Count);
-	SubmittedBuffers = [NSMutableArray new];
+	SubmittedBuffers.Empty();
 }

@@ -418,6 +418,10 @@ bool FHttpRetrySystem::FManager::Update(uint32* FileCount, uint32* FailingCount,
 
 		if (bWasCompleted)
 		{
+			if (bWasSuccessful)
+			{
+				HttpRetryRequest->BroadcastResponseHeadersReceived();
+			}
 			HttpRetryRequest->OnProcessRequestComplete().ExecuteIfBound(HttpRetryRequest, HttpRetryRequest->GetResponse(), bWasSuccessful);
 		}
 

@@ -226,7 +226,7 @@ void FSkeletalMeshObjectCPUSkin::CacheVertices(int32 LODIndex, bool bForce) cons
 		for (int i = 0; i < CachedFinalVertices.Num(); i++)
 		{
 			MeshLOD.PositionVertexBuffer.VertexPosition(i) = CachedFinalVertices[i].Position;
-			MeshLOD.StaticMeshVertexBuffer.SetVertexTangents(i, CachedFinalVertices[i].TangentX, CachedFinalVertices[i].GetTangentY(), CachedFinalVertices[i].TangentZ);
+			MeshLOD.StaticMeshVertexBuffer.SetVertexTangents(i, CachedFinalVertices[i].TangentX.ToFVector(), CachedFinalVertices[i].GetTangentY(), CachedFinalVertices[i].TangentZ.ToFVector());
 			MeshLOD.StaticMeshVertexBuffer.SetVertexUV(i, 0, FVector2D(CachedFinalVertices[i].U, CachedFinalVertices[i].V));
 		}
 
@@ -369,8 +369,8 @@ void FSkeletalMeshObjectCPUSkin::DrawVertexElements(FPrimitiveDrawInterface* PDI
 
 		const FVector WorldPos = ToWorldSpace.TransformPosition( Vert.Position );
 
-		const FVector Normal = Vert.TangentZ;
-		const FVector Tangent = Vert.TangentX;
+		const FVector Normal = Vert.TangentZ.ToFVector();
+		const FVector Tangent = Vert.TangentX.ToFVector();
 		const FVector Binormal = FVector(Normal) ^ FVector(Tangent);
 
 		const float Len = 1.0f;
@@ -490,8 +490,8 @@ FORCEINLINE void RebuildTangentBasis( VertexType& DestVertex )
 {
 	// derive the new tangent by orthonormalizing the new normal against
 	// the base tangent vector (assuming these are normalized)
-	FVector Tangent = DestVertex.TangentX;
-	FVector Normal = DestVertex.TangentZ;
+	FVector Tangent = DestVertex.TangentX.ToFVector();
+	FVector Normal = DestVertex.TangentZ.ToFVector();
 	Tangent = Tangent - ((Tangent | Normal) * Normal);
 	Tangent.Normalize();
 	DestVertex.TangentX = Tangent;
@@ -509,7 +509,7 @@ FORCEINLINE void ApplyMorphBlend( VertexType& DestVertex, const FMorphTargetDelt
 	// Save W before = operator. That overwrites W to be 127.
 	uint8 W = DestVertex.TangentZ.Vector.W;
 
-	FVector TanZ = DestVertex.TangentZ;
+	FVector TanZ = DestVertex.TangentZ.ToFVector();
 
 	// add normal offset. can only apply normal deltas up to a weight of 1
 	DestVertex.TangentZ = FVector(TanZ + SrcMorph.TangentZDelta * FMath::Min(Weight,1.0f)).GetUnsafeNormal();
@@ -828,8 +828,8 @@ static void SkinVertexSection(
 				ClothCPU::ClothingTangents(*ClothVertData, *ClothSimData, SimulatedPositionWorld, WorldToLocal, TangentX, TangentZ);
 
 				// Lerp between skinned and simulated tangents
-				FVector SkinnedTangentX = DestVertex->TangentX;
-				FVector4 SkinnedTangentZ = DestVertex->TangentZ;
+				FVector SkinnedTangentX = DestVertex->TangentX.ToFVector();
+				FVector4 SkinnedTangentZ = DestVertex->TangentZ.ToFVector4();
 				DestVertex->TangentX = (TangentX * ClothBlendWeight) + (SkinnedTangentX * (1.0f - ClothBlendWeight));
 				DestVertex->TangentZ = FVector4((TangentZ * ClothBlendWeight) + (SkinnedTangentZ * (1.0f - ClothBlendWeight)), SkinnedTangentZ.W);
 			}

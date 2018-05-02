@@ -304,7 +304,7 @@ void FPixelShaderInOut_MainPS(inout FPixelShaderIn In, inout FPixelShaderOut Out
 	GBufferData.GBufferAO = 1;
 	GBufferData.ShadingModelID = SHADINGMODELID_DEFAULT_LIT;
 	GBufferData.SelectiveOutputMask = 0;
-	GBufferData.PerObjectGBufferData = 1;
+	GBufferData.PerObjectGBufferData = 1; 
 
 	DecalCommonOutput(In, Out, Color, Opacity, GBufferData);
 }

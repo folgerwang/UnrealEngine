@@ -36,6 +36,8 @@ struct FTexture2DMipMap
 	int32 SizeX;
 	/** Height of the mip-map. */
 	int32 SizeY;
+	/** Depth of the mip-map. */
+	int32 SizeZ;
 	/** Bulk data if stored in the package. */
 	FByteBulkData BulkData;
 
@@ -43,6 +45,7 @@ struct FTexture2DMipMap
 	FTexture2DMipMap()
 		: SizeX(0)
 		, SizeY(0)
+		, SizeZ(0)
 	{
 	}
 
@@ -658,6 +661,6 @@ private:
 	ECubeFace CurrentTargetFace;
 };
 
-ENGINE_API FName GetDefaultTextureFormatName( const class ITargetPlatform* TargetPlatform, const class UTexture* Texture, const class FConfigFile& EngineSettings, bool bSupportDX11TextureFormats );
+ENGINE_API FName GetDefaultTextureFormatName( const class ITargetPlatform* TargetPlatform, const class UTexture* Texture, const class FConfigFile& EngineSettings, bool bSupportDX11TextureFormats, bool bSupportCompressedVolumeTexture = false);
 // returns all the texture formats which can be returned by GetDefaultTextureFormatName
 ENGINE_API void GetAllDefaultTextureFormats( const class ITargetPlatform* TargetPlatform, TArray<FName>& OutFormats, bool bSupportDX11TextureFormats);

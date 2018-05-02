@@ -251,6 +251,7 @@ public:
 	virtual FUnorderedAccessViewRHIRef RHICreateUnorderedAccessView(FStructuredBufferRHIParamRef StructuredBuffer, bool bUseUAVCounter, bool bAppendBuffer) final override;
 	virtual FUnorderedAccessViewRHIRef RHICreateUnorderedAccessView(FTextureRHIParamRef Texture, uint32 MipLevel) final override;
 	virtual FUnorderedAccessViewRHIRef RHICreateUnorderedAccessView(FVertexBufferRHIParamRef VertexBuffer, uint8 Format) final override;
+	virtual FUnorderedAccessViewRHIRef RHICreateUnorderedAccessView(FIndexBufferRHIParamRef IndexBuffer, uint8 Format) final override;
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FStructuredBufferRHIParamRef StructuredBuffer) final override;
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format) final override;
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FIndexBufferRHIParamRef Buffer) final override;
@@ -367,7 +368,7 @@ public:
 	virtual FTextureCubeRHIRef RHICreateTextureCubeArray_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Size, uint32 ArraySize, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo);
 	virtual FRenderQueryRHIRef RHICreateRenderQuery_RenderThread(class FRHICommandListImmediate& RHICmdList, ERenderQueryType QueryType);
 
-	virtual void RHISwitchToAFRIfApplicable();
+	void RHICalibrateTimers() override;
 
 	template<class BufferType>
 	void* LockBuffer(FRHICommandListImmediate* RHICmdList, BufferType* Buffer, uint32 Offset, uint32 Size, EResourceLockMode LockMode);
@@ -791,7 +792,7 @@ public:
 	inline FD3D12FastAllocator& GetHelperThreadDynamicUploadHeapAllocator()
 	{
 		FD3D12Device* Device = GetRHIDevice();
-		const GPUNodeMask Node = Device->GetNodeMask();
+		const FRHIGPUMask Node = Device->GetNodeMask();
 
 		check(!IsInActualRenderingThread());
 
@@ -878,7 +879,8 @@ protected:
 	// This should only be called by Dynamic RHI member functions
 	inline FD3D12Device* GetRHIDevice()
 	{
-		return GetAdapter().GetDevice();
+		 // Multi-GPU support : any code using this function needs validation.
+		return GetAdapter().GetDevice(0);
 	}
 
 	HANDLE FlipEvent;

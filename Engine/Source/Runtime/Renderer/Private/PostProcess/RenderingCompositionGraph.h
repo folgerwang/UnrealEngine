@@ -459,6 +459,8 @@ private:
 template <uint32 InputCount, uint32 OutputCount>
 struct TRenderingCompositePassBase :public FRenderingCompositePass
 {
+	static constexpr uint32 PassOutputCount = OutputCount;
+
 	TRenderingCompositePassBase()
 	{
 		for (uint32 i = 0; i < OutputCount; ++i)

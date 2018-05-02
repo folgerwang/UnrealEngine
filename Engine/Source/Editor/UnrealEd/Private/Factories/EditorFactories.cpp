@@ -161,6 +161,7 @@
 #include "Sound/SoundCue.h"
 #include "Sound/SoundMix.h"
 #include "Engine/TextureCube.h"
+#include "Engine/VolumeTexture.h"
 #include "Engine/TextureRenderTarget.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/CanvasRenderTarget2D.h"
@@ -3892,6 +3893,20 @@ UObject* UTextureFactory::FactoryCreateBinary
 
 	// Invalidate any materials using the newly imported texture. (occurs if you import over an existing texture)
 	Texture->PostEditChange();
+
+	// Invalidate any volume texture that was built on this texture.
+	if (Texture2D)
+	{
+		for (TObjectIterator<UVolumeTexture> It; It; ++It)
+		{
+			UVolumeTexture* VolumeTexture = *It;
+			if (VolumeTexture && VolumeTexture->Source2DTexture == Texture2D)
+			{
+				VolumeTexture->UpdateSourceFromSourceTexture();
+				VolumeTexture->UpdateResource();
+			}
+		}
+	}
 
 	// If we are automatically creating a material for this texture...
 	if( bCreateMaterial )

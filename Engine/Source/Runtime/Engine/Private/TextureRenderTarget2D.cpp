@@ -491,7 +491,7 @@ void FTextureRenderTarget2DResource::UpdateDeferredResource( FRHICommandListImme
 	}
 
  	// copy surface to the texture for use
-	RHICmdList.CopyToResolveTarget(RenderTargetTextureRHI, TextureRHI, true, FResolveParams());
+	RHICmdList.CopyToResolveTarget(RenderTargetTextureRHI, TextureRHI, FResolveParams());
 }
 
 /** 

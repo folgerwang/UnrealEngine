@@ -371,9 +371,9 @@ void GetTangents(FVertexFactoryInput Input, float3 WorldPosition, float3 OldWorl
 	float3 CustomFacingVector = Input.CustomFacingVector * CustomFacingVectorMask + CameraDirection * (float3(1.0,1.0,1.0)-CustomFacingVectorMask);
 	
 	float WeightDefaultCameraMode = ((ParticleAlignmentMode == ALIGNMENT_MODE_UNALIGNED) && (int)(ParticleFacingMode == FACING_MODE_FACECAMERA)) ?  1 : 0;
- 	float WeightPlaneFacing =  ((ParticleAlignmentMode == ALIGNMENT_MODE_UNALIGNED) && (ParticleFacingMode == FACING_MODE_FACECAMERAPLANE)) ?  1 : 0;
-	float WeightCustomFacing =  ((ParticleAlignmentMode == ALIGNMENT_MODE_UNALIGNED) && (ParticleFacingMode == FACING_MODE_CUSTOMFACINGVECTOR)) ?  1 : 0;
-	float WeightPositionFacing =  	 ((ParticleAlignmentMode == ALIGNMENT_MODE_UNALIGNED) && (ParticleFacingMode == FACING_MODE_FACECAMERAPOSITION)) ?  1 : 0;
+	float WeightPlaneFacing = ((ParticleAlignmentMode == ALIGNMENT_MODE_UNALIGNED) && (ParticleFacingMode == FACING_MODE_FACECAMERAPLANE)) ?  1 : 0;
+	float WeightCustomFacing = ((ParticleAlignmentMode == ALIGNMENT_MODE_UNALIGNED) && (ParticleFacingMode == FACING_MODE_CUSTOMFACINGVECTOR)) ?  1 : 0;
+	float WeightPositionFacing =  ((ParticleAlignmentMode == ALIGNMENT_MODE_UNALIGNED) && (ParticleFacingMode == FACING_MODE_FACECAMERAPOSITION)) ?  1 : 0;
 	float WeightVelocityAligned = ParticleAlignmentMode != ALIGNMENT_MODE_UNALIGNED;
 	
 	// Adjust weights if you are in the blend mode based off of camera distance.

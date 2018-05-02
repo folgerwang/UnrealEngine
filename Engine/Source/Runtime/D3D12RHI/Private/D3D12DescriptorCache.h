@@ -180,19 +180,19 @@ private: // Types
 	};
 	typedef TArray<SHeapEntry> THeapMap;
 
-	static D3D12_DESCRIPTOR_HEAP_DESC CreateDescriptor(GPUNodeMask Node, D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32 NumDescriptorsPerHeap)
+	static D3D12_DESCRIPTOR_HEAP_DESC CreateDescriptor(FRHIGPUMask Node, D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32 NumDescriptorsPerHeap)
 	{
 		D3D12_DESCRIPTOR_HEAP_DESC Desc = {};
 		Desc.Type = Type;
 		Desc.NumDescriptors = NumDescriptorsPerHeap;
 		Desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;// None as this heap is offline
-		Desc.NodeMask = Node;
+		Desc.NodeMask = (uint32)Node;
 
 		return Desc;
 	}
 
 public: // Methods
-	FD3D12OfflineDescriptorManager(GPUNodeMask Node, D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32 NumDescriptorsPerHeap)
+	FD3D12OfflineDescriptorManager(FRHIGPUMask Node, D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32 NumDescriptorsPerHeap)
 		: m_Desc(CreateDescriptor(Node, Type, NumDescriptorsPerHeap))
 		, m_DescriptorSize(0)
 		, m_pDevice(nullptr)
@@ -313,7 +313,7 @@ private: // Members
 class FD3D12OnlineHeap : public FD3D12DeviceChild, public FD3D12SingleNodeGPUObject
 {
 public:
-	FD3D12OnlineHeap(FD3D12Device* Device, GPUNodeMask Node, bool CanLoopAround, FD3D12DescriptorCache* _Parent = nullptr);
+	FD3D12OnlineHeap(FD3D12Device* Device, FRHIGPUMask Node, bool CanLoopAround, FD3D12DescriptorCache* _Parent = nullptr);
 	virtual ~FD3D12OnlineHeap() { }
 
 	FORCEINLINE D3D12_CPU_DESCRIPTOR_HANDLE GetCPUSlotHandle(uint32 Slot) const { return{ CPUBase.ptr + Slot * DescriptorSize }; }
@@ -377,7 +377,7 @@ protected:
 class FD3D12GlobalOnlineHeap : public FD3D12OnlineHeap
 {
 public:
-	FD3D12GlobalOnlineHeap(FD3D12Device* Device, GPUNodeMask Node)
+	FD3D12GlobalOnlineHeap(FD3D12Device* Device, FRHIGPUMask Node)
 		: bUniqueDescriptorTablesAreDirty(false)
 		, FD3D12OnlineHeap(Device, Node, false)
 	{ }
@@ -427,7 +427,7 @@ public:
 		uint32 Size;
 	};
 
-	FD3D12SubAllocatedOnlineHeap(FD3D12Device* Device, GPUNodeMask Node, FD3D12DescriptorCache* Parent) :
+	FD3D12SubAllocatedOnlineHeap(FD3D12Device* Device, FRHIGPUMask Node, FD3D12DescriptorCache* Parent) :
 		FD3D12OnlineHeap(Device, Node, false, Parent) {};
 
 	void Init(SubAllocationDesc _Desc);
@@ -453,7 +453,7 @@ private:
 class FD3D12ThreadLocalOnlineHeap : public FD3D12OnlineHeap
 {
 public:
-	FD3D12ThreadLocalOnlineHeap(FD3D12Device* Device, GPUNodeMask Node, FD3D12DescriptorCache* _Parent)
+	FD3D12ThreadLocalOnlineHeap(FD3D12Device* Device, FRHIGPUMask Node, FD3D12DescriptorCache* _Parent)
 		: FD3D12OnlineHeap(Device, Node, true, _Parent)
 	{ }
 
@@ -519,7 +519,7 @@ public:
 	FD3D12OnlineHeap* GetCurrentViewHeap() { return CurrentViewHeap; }
 	FD3D12OnlineHeap* GetCurrentSamplerHeap() { return CurrentSamplerHeap; }
 
-	FD3D12DescriptorCache(GPUNodeMask Node);
+	FD3D12DescriptorCache(FRHIGPUMask Node);
 
 	~FD3D12DescriptorCache()
 	{

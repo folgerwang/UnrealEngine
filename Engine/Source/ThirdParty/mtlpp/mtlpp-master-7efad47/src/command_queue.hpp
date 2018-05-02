@@ -11,8 +11,25 @@
 #include "declare.hpp"
 #include "imp_CommandQueue.hpp"
 #include "ns.hpp"
+#include "validation.hpp"
 
 MTLPP_BEGIN
+
+namespace ue4
+{
+	template<>
+	struct ITable<id<MTLCommandQueue>, void> : public IMPTable<id<MTLCommandQueue>, void>, public ITableCacheRef
+	{
+		ITable()
+		{
+		}
+		
+		ITable(Class C)
+		: IMPTable<id<MTLCommandQueue>, void>(C)
+		{
+		}
+	};
+}
 
 namespace mtlpp
 {
@@ -22,19 +39,66 @@ namespace mtlpp
     class CommandQueue : public ns::Object<ns::Protocol<id<MTLCommandQueue>>::type>
     {
     public:
-        CommandQueue() { }
-        CommandQueue(ns::Protocol<id<MTLCommandQueue>>::type handle) : ns::Object<ns::Protocol<id<MTLCommandQueue>>::type>(handle) { }
+		CommandQueue(ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLCommandQueue>>::type>(retain) { }
+		CommandQueue(ns::Protocol<id<MTLCommandQueue>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLCommandQueue>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetCommandQueue(handle)) { }
 
-        ns::String GetLabel() const;
-        Device     GetDevice() const;
+        ns::AutoReleased<ns::String> GetLabel() const;
+        ns::AutoReleased<Device>     GetDevice() const;
 
         void SetLabel(const ns::String& label);
 
-        class CommandBuffer CommandBufferWithUnretainedReferences();
-        class CommandBuffer CommandBuffer();
+        MTLPP_VALIDATED class CommandBuffer CommandBufferWithUnretainedReferences();
+        MTLPP_VALIDATED class CommandBuffer CommandBuffer();
         void                InsertDebugCaptureBoundary() MTLPP_DEPRECATED(10_11, 10_13, 8_0, 11_0);
     }
     MTLPP_AVAILABLE(10_11, 8_0);
+	
+#if MTLPP_CONFIG_VALIDATE
+	class ValidatedCommandQueue : public ns::AutoReleased<CommandQueue>
+	{
+	public:
+		ValidatedCommandQueue()
+		{
+		}
+		
+		ValidatedCommandQueue(CommandQueue& Wrapped)
+		: ns::AutoReleased<CommandQueue>(Wrapped)
+		{
+		}
+		
+		MTLPP_VALIDATED class CommandBuffer CommandBufferWithUnretainedReferences();
+		MTLPP_VALIDATED class CommandBuffer CommandBuffer();
+	};
+	
+	template <>
+	class Validator<CommandQueue>
+	{
+		public:
+		Validator(CommandQueue& Val, bool bEnable)
+		: Resource(Val)
+		{
+			if (bEnable)
+			{
+				Validation = ValidatedCommandQueue(Val);
+			}
+		}
+		
+		ValidatedCommandQueue& operator*()
+		{
+			assert(Validation.GetPtr() != nullptr);
+			return Validation;
+		}
+		
+		CommandQueue* operator->()
+		{
+			return Validation.GetPtr() == nullptr ? &Resource : &Validation;
+		}
+		
+		private:
+		CommandQueue& Resource;
+		ValidatedCommandQueue Validation;
+	};
+#endif
 }
 
 MTLPP_END

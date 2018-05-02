@@ -60,7 +60,7 @@ class FVelocityVS : public FMeshMaterialShader
 
 public:
 
-	void SetParameters(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FMaterialRenderProxy* MaterialRenderProxy, const FViewInfo& View, const bool bIsInstancedStereo)
+	void SetParameters(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FMaterialRenderProxy* MaterialRenderProxy, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, const bool bIsInstancedStereo)
 	{
 		if (IsInstancedStereoParameter.IsBound())
 		{
@@ -72,7 +72,7 @@ public:
 			SetShaderValue(RHICmdList, GetVertexShader(), InstancedEyeIndexParameter, 0);
 		}
 
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneRenderTargetsMode::DontSet);
+		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FMeshBatch& Mesh, int32 BatchElementIndex, const FDrawingPolicyRenderState& DrawRenderState, const FViewInfo& View, const FPrimitiveSceneProxy* Proxy, const FMatrix& InPreviousLocalToWorld)
@@ -122,6 +122,7 @@ protected:
 		PrevTransformBuffer.Bind(Initializer.ParameterMap, TEXT("PrevTransformBuffer"));
 		InstancedEyeIndexParameter.Bind(Initializer.ParameterMap, TEXT("InstancedEyeIndex"));
 		IsInstancedStereoParameter.Bind(Initializer.ParameterMap, TEXT("bIsInstancedStereo"));
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
 	FVelocityVS() {}
@@ -182,9 +183,9 @@ class FVelocityDS : public FBaseDS
 
 public:
 
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy,const FViewInfo& View)
+	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy,const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, (FDomainShaderRHIParamRef)GetDomainShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneRenderTargetsMode::DontSet);
+		FMeshMaterialShader::SetParameters(RHICmdList, (FDomainShaderRHIParamRef)GetDomainShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 	}
 
 protected:
@@ -234,11 +235,12 @@ public:
 	FVelocityPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FMeshMaterialShader(Initializer)
 	{
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FMaterialRenderProxy* MaterialRenderProxy,const FViewInfo& View)
+	void SetParameters(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FMaterialRenderProxy* MaterialRenderProxy,const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneRenderTargetsMode::DontSet);
+		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FMeshBatch& Mesh,int32 BatchElementIndex,const FDrawingPolicyRenderState& DrawRenderState,const FViewInfo& View, const FPrimitiveSceneProxy* Proxy)
@@ -333,13 +335,13 @@ void FVelocityDrawingPolicy::SetSharedState(FRHICommandList& RHICmdList, const F
 	// NOTE: Assuming this cast is always safe!
 	FViewInfo* View = (FViewInfo*)SceneView;
 
-	VertexShader->SetParameters(RHICmdList, VertexFactory, MaterialRenderProxy, *View, PolicyContext.bIsInstancedStereo);
-	PixelShader->SetParameters(RHICmdList, VertexFactory, MaterialRenderProxy, *View);
+	VertexShader->SetParameters(RHICmdList, VertexFactory, MaterialRenderProxy, *View, DrawRenderState, PolicyContext.bIsInstancedStereo);
+	PixelShader->SetParameters(RHICmdList, VertexFactory, MaterialRenderProxy, *View, DrawRenderState);
 
 	if(HullShader && DomainShader)
 	{
-		HullShader->SetParameters(RHICmdList, MaterialRenderProxy, *View);
-		DomainShader->SetParameters(RHICmdList, MaterialRenderProxy, *View);
+		HullShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
+		DomainShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, DrawRenderState);
 	}
 
 	// Set the shared mesh resources.
@@ -751,8 +753,9 @@ public:
 		FRHICommandListImmediate& InParentCmdList,
 		bool bInParallelExecute,
 		bool bInCreateSceneContext,
+		const FDrawingPolicyRenderState& InDrawRenderState,
 		TRefCountPtr<IPooledRenderTarget>& InVelocityRT)
-		: FParallelCommandListSet(GET_STATID(STAT_CLP_Velocity), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext)
+		: FParallelCommandListSet(GET_STATID(STAT_CLP_Velocity), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext, InDrawRenderState)
 		, VelocityRT(InVelocityRT)
 	{
 		SetStateOnCommandList(ParentCmdList);
@@ -787,11 +790,19 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInnerParallel(FRHICommandLis
 
 		if (View.ShouldRenderView())
 		{
+			FSceneTexturesUniformParameters SceneTextureParameters;
+			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+			SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
+			TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);	
+
+			FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
+
 			FVelocityPassParallelCommandListSet ParallelCommandListSet(View,
 				this,
 				RHICmdList,
 				CVarRHICmdVelocityPassDeferredContexts.GetValueOnRenderThread() > 0,
 				CVarRHICmdFlushRenderThreadTasksVelocityPass.GetValueOnRenderThread() == 0 && CVarRHICmdFlushRenderThreadTasks.GetValueOnRenderThread() == 0,
+				DrawRenderState,
 				VelocityRT);
 
 			if (!View.IsInstancedStereoPass())
@@ -840,8 +851,13 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInner(FRHICommandListImmedia
 	for(int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
 		const FViewInfo& View = Views[ViewIndex];
+		
+		FSceneTexturesUniformParameters SceneTextureParameters;
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+		SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
+		TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);	
 
-		FDrawingPolicyRenderState DrawRenderState(View);
+		FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
 
 		if (View.ShouldRenderView())
 		{
@@ -934,7 +950,7 @@ void FDeferredShadingSceneRenderer::RenderVelocities(FRHICommandListImmediate& R
 			RenderVelocitiesInner(RHICmdList, VelocityRT);
 		}
 
-		RHICmdList.CopyToResolveTarget(VelocityRT->GetRenderTargetItem().TargetableTexture, VelocityRT->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
+		RHICmdList.CopyToResolveTarget(VelocityRT->GetRenderTargetItem().TargetableTexture, VelocityRT->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 	}
 
 	// to be able to observe results with VisualizeTexture

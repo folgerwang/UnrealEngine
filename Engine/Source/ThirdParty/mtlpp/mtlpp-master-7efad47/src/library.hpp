@@ -15,6 +15,63 @@
 
 MTLPP_BEGIN
 
+namespace ue4
+{
+	template<>
+	struct ITable<id<MTLLibrary>, void> : public IMPTable<id<MTLLibrary>, void>, public ITableCacheRef
+	{
+		ITable()
+		{
+		}
+		
+		ITable(Class C)
+		: IMPTable<id<MTLLibrary>, void>(C)
+		{
+		}
+	};
+	
+	template<>
+	struct ITable<id<MTLFunction>, void> : public IMPTable<id<MTLFunction>, void>, public ITableCacheRef
+	{
+		ITable()
+		{
+		}
+		
+		ITable(Class C)
+		: IMPTable<id<MTLFunction>, void>(C)
+		{
+		}
+	};
+	
+	template<>
+	inline ITable<MTLVertexAttribute*, void>* CreateIMPTable(MTLVertexAttribute* handle)
+	{
+		static ITable<MTLVertexAttribute*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	
+	template<>
+	inline ITable<MTLAttribute*, void>* CreateIMPTable(MTLAttribute* handle)
+	{
+		static ITable<MTLAttribute*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	
+	template<>
+	inline ITable<MTLFunctionConstant*, void>* CreateIMPTable(MTLFunctionConstant* handle)
+	{
+		static ITable<MTLFunctionConstant*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	
+	template<>
+	inline ITable<MTLCompileOptions*, void>* CreateIMPTable(MTLCompileOptions* handle)
+	{
+		static ITable<MTLCompileOptions*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+}
+
 namespace mtlpp
 {
 	class ArgumentEncoder;
@@ -33,9 +90,10 @@ namespace mtlpp
     {
     public:
         VertexAttribute();
-        VertexAttribute(MTLVertexAttribute* handle) : ns::Object<MTLVertexAttribute*>(handle) { }
+		VertexAttribute(ns::Ownership const retain) : ns::Object<MTLVertexAttribute*>(retain) {}
+        VertexAttribute(MTLVertexAttribute* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLVertexAttribute*>(handle, retain) { }
 
-        ns::String   GetName() const;
+        ns::AutoReleased<ns::String>   GetName() const;
         NSUInteger     GetAttributeIndex() const;
         DataType     GetAttributeType() const MTLPP_AVAILABLE(10_11, 8_3);
         bool         IsActive() const;
@@ -48,9 +106,10 @@ namespace mtlpp
     {
     public:
         Attribute();
-        Attribute(MTLAttribute* handle) : ns::Object<MTLAttribute*>(handle) { }
+		Attribute(ns::Ownership const retain) : ns::Object<MTLAttribute*>(retain) {}
+        Attribute(MTLAttribute* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLAttribute*>(handle, retain) { }
 
-        ns::String   GetName() const;
+        ns::AutoReleased<ns::String>   GetName() const;
         NSUInteger     GetAttributeIndex() const;
         DataType     GetAttributeType() const MTLPP_AVAILABLE(10_11, 8_3);
         bool         IsActive() const;
@@ -61,9 +120,9 @@ namespace mtlpp
 
     enum class FunctionType
     {
-        TypeVertex   = 1,
-        TypeFragment = 2,
-        TypeKernel   = 3,
+        Vertex   = 1,
+        Fragment = 2,
+        Kernel   = 3,
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
@@ -71,9 +130,10 @@ namespace mtlpp
     {
     public:
         FunctionConstant();
-        FunctionConstant(MTLFunctionConstant* handle) : ns::Object<MTLFunctionConstant*>(handle) { }
+		FunctionConstant(ns::Ownership const retain) : ns::Object<MTLFunctionConstant*>(retain) {}
+        FunctionConstant(MTLFunctionConstant* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLFunctionConstant*>(handle, retain) { }
 
-        ns::String GetName() const;
+        ns::AutoReleased<ns::String> GetName() const;
         DataType   GetType() const;
         NSUInteger   GetIndex() const;
         bool       IsRequired() const;
@@ -83,18 +143,18 @@ namespace mtlpp
     class Function : public ns::Object<ns::Protocol<id<MTLFunction>>::type>
     {
     public:
-        Function() { }
-        Function(ns::Protocol<id<MTLFunction>>::type handle) : ns::Object<ns::Protocol<id<MTLFunction>>::type>(handle) { }
+		Function(ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLFunction>>::type>(retain) { }
+		Function(ns::Protocol<id<MTLFunction>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLFunction>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetFunction(handle)) { }
 
-        ns::String                                   GetLabel() const MTLPP_AVAILABLE(10_12, 10_0);
-        Device                                       GetDevice() const;
+        ns::AutoReleased<ns::String>                                   GetLabel() const MTLPP_AVAILABLE(10_12, 10_0);
+        ns::AutoReleased<Device>                                       GetDevice() const;
         FunctionType                                 GetFunctionType() const;
         PatchType                                    GetPatchType() const MTLPP_AVAILABLE(10_12, 10_0);
         NSInteger                                    GetPatchControlPointCount() const MTLPP_AVAILABLE(10_12, 10_0);
-        const ns::Array<VertexAttribute>             GetVertexAttributes() const;
-        const ns::Array<Attribute>                   GetStageInputAttributes() const MTLPP_AVAILABLE(10_12, 10_0);
-        ns::String                                   GetName() const;
-        ns::Dictionary<ns::String, FunctionConstant> GetFunctionConstants() const MTLPP_AVAILABLE(10_12, 10_0);
+        const ns::AutoReleased<ns::Array<VertexAttribute>>             GetVertexAttributes() const;
+        const ns::AutoReleased<ns::Array<Attribute>>                   GetStageInputAttributes() const MTLPP_AVAILABLE(10_12, 10_0);
+        ns::AutoReleased<ns::String>                                   GetName() const;
+        ns::AutoReleased<ns::Dictionary<ns::String, FunctionConstant>> GetFunctionConstants() const MTLPP_AVAILABLE(10_12, 10_0);
 
 		ArgumentEncoder NewArgumentEncoderWithBufferIndex(NSUInteger index) MTLPP_AVAILABLE(10_13, 11_0);
 		ArgumentEncoder NewArgumentEncoderWithBufferIndex(NSUInteger index, Argument* reflection) MTLPP_AVAILABLE(10_13, 11_0);
@@ -116,14 +176,15 @@ namespace mtlpp
     {
     public:
         CompileOptions();
-        CompileOptions(MTLCompileOptions* handle) : ns::Object<MTLCompileOptions*>(handle) { }
+        CompileOptions(MTLCompileOptions* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLCompileOptions*>(handle, retain) { }
 
-        ns::Dictionary<ns::String, ns::Object<NSObject*>> GetPreprocessorMacros() const;
+        ns::AutoReleased<ns::Dictionary<ns::String, ns::Object<NSObject*>>> GetPreprocessorMacros() const;
         bool                                   IsFastMathEnabled() const;
         LanguageVersion                        GetLanguageVersion() const MTLPP_AVAILABLE(10_11, 9_0);
 
         void SetFastMathEnabled(bool fastMathEnabled);
         void SetLanguageVersion(LanguageVersion languageVersion) MTLPP_AVAILABLE(10_11, 9_0);
+		void SetPreprocessorMacros(ns::Dictionary<ns::String, ns::Object<NSObject*>> macros);
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
@@ -146,17 +207,17 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-	typedef std::function<void(const Function&, const ns::AutoReleasedError&)> FunctionHandler;
+	MTLPP_CLOSURE(FunctionHandler, void, const Function&, const ns::Error&);
 	
     class Library : public ns::Object<ns::Protocol<id<MTLLibrary>>::type>
     {
     public:
         Library() { }
-        Library(ns::Protocol<id<MTLLibrary>>::type handle) : ns::Object<ns::Protocol<id<MTLLibrary>>::type>(handle) { }
+		Library(ns::Protocol<id<MTLLibrary>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLLibrary>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetLibrary(handle)) { }
 
-        ns::String            GetLabel() const;
-        Device                GetDevice() const;
-        ns::Array<ns::String> GetFunctionNames() const;
+        ns::AutoReleased<ns::String>            GetLabel() const;
+        ns::AutoReleased<Device>                GetDevice() const;
+        ns::AutoReleased<ns::Array<ns::String>> GetFunctionNames() const;
 
         void SetLabel(const ns::String& label);
 

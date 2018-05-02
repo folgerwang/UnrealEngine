@@ -89,10 +89,6 @@ FMalloc* FWindowsPlatformMemory::BaseAllocator()
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::Ansi;
 	}
-	else if (USE_MALLOC_STOMP)
-	{
-		AllocatorToUse = EMemoryAllocatorToUse::Stomp;
-	}
 	else if ((WITH_EDITORONLY_DATA || IS_PROGRAM) && TBB_ALLOCATOR_ALLOWED)
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::TBB;
@@ -126,13 +122,19 @@ FMalloc* FWindowsPlatformMemory::BaseAllocator()
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::Binned;
 	}
-#endif
+#if WITH_MALLOC_STOMP
+	else if (FCString::Stristr(CommandLine, TEXT("-stompmalloc")))
+	{
+		AllocatorToUse = EMemoryAllocatorToUse::Stomp;
+	}
+#endif // WITH_MALLOC_STOMP
+#endif // !UE_BUILD_SHIPPING
 
 	switch (AllocatorToUse)
 	{
 	case EMemoryAllocatorToUse::Ansi:
 		return new FMallocAnsi();
-#if USE_MALLOC_STOMP
+#if WITH_MALLOC_STOMP
 	case EMemoryAllocatorToUse::Stomp:
 		return new FMallocStomp();
 #endif

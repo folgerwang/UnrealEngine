@@ -32,6 +32,9 @@ public:
 	void GetReferencedComponents(TArray<const UPrimitiveComponent*>& Components) { StateSync.SyncAndGetState()->GetReferencedComponents(Components); }
 #endif
 
+	/** Remove all pending components that are marked for delete. This prevents searching in the pending list for each entry. */
+	void OnPreGarbageCollect(FRemovedTextureArray& RemovedTextures);
+
 	/*-----------------------------------
 	------ ITextureInstanceManager ------
 	-----------------------------------*/

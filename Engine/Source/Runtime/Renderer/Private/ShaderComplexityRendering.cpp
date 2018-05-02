@@ -18,7 +18,8 @@ void TComplexityAccumulatePS<bQuadComplexity>::SetParameters(
 	const FShader* OriginalPS, 
 	const FMaterialRenderProxy* MaterialRenderProxy,
 	const FMaterial& Material,
-	const FSceneView& View
+	const FSceneView& View,
+	const FDrawingPolicyRenderState& DrawRenderState
 	)
 {
 	EDebugViewShaderMode DebugViewShaderMode = View.Family->GetDebugViewShaderMode();

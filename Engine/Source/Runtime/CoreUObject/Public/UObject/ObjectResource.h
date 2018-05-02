@@ -247,14 +247,14 @@ struct FObjectExport : public FObjectResource
 	 * portion of this export's data that is serialized using script serialization.
 	 * Transient
 	 */
-	int32				ScriptSerializationStartOffset;
+	int64				ScriptSerializationStartOffset;
 
 	/**
 	 * The location (into the FLinker's underlying file reader archive) of the end of the
 	 * portion of this export's data that is serialized using script serialization.
 	 * Transient
 	 */
-	int32				ScriptSerializationEndOffset;
+	int64				ScriptSerializationEndOffset;
 
 	/**
 	 * The UObject represented by this export.  Assigned the first time CreateExport is called for this export.

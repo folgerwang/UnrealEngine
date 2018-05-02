@@ -941,13 +941,17 @@ static void InitRHICapabilitiesForGL()
 		SetupTextureFormat( PF_R16_SINT,		FOpenGLTextureFormat( GL_R16I,					GL_R16I,				GL_RED_INTEGER,	GL_SHORT,							false,	false));
 		SetupTextureFormat( PF_R8_UINT,			FOpenGLTextureFormat( GL_R8UI,					GL_R8UI,				GL_RED_INTEGER, GL_UNSIGNED_BYTE,					false,  false));
 		SetupTextureFormat( PF_FloatRGBA,		FOpenGLTextureFormat( GL_RGBA16F,				GL_RGBA16F,				GL_RGBA,		GL_HALF_FLOAT,						false,	false));
+
 		if (FOpenGL::GetShaderPlatform() == EShaderPlatform::SP_OPENGL_ES31_EXT)
 		{
 			SetupTextureFormat(PF_G8, FOpenGLTextureFormat(GL_R8, GL_R8, GL_RED, GL_UNSIGNED_BYTE, false, false));
 			SetupTextureFormat(PF_B8G8R8A8, FOpenGLTextureFormat(GL_RGBA8, GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE, false, true));
 			SetupTextureFormat(PF_R8G8B8A8, FOpenGLTextureFormat(GL_RGBA8, GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE, false, false));
 			SetupTextureFormat(PF_R8G8B8A8_UINT, FOpenGLTextureFormat(GL_RGBA8, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, false, false));
-			SetupTextureFormat(PF_R8G8B8A8_SNORM, FOpenGLTextureFormat(GL_RGBA8_SNORM, GL_RGBA8_SNORM, GL_RGBA, GL_BYTE, false, false));
+
+			// Should be GL_RGBA8_SNORM but it doesn't work with glTexBuffer -> mapping to Unorm and unpacking in the shader
+			SetupTextureFormat(PF_R8G8B8A8_SNORM, FOpenGLTextureFormat(GL_RGBA8, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, false, false));
+
 			if (FOpenGL::SupportsRG16UI())
 			{
 				// The user should check for support for PF_G16R16 and implement a fallback if it's not supported!
@@ -960,7 +964,10 @@ static void InitRHICapabilitiesForGL()
 			SetupTextureFormat(PF_B8G8R8A8, FOpenGLTextureFormat(GL_RGBA8, GL_SRGB8_ALPHA8, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, false, false));
 			SetupTextureFormat(PF_R8G8B8A8, FOpenGLTextureFormat(GL_RGBA8, GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, false, false));
 			SetupTextureFormat(PF_R8G8B8A8_UINT, FOpenGLTextureFormat(GL_RGBA8UI, GL_RGBA8UI, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, false, false));
-			SetupTextureFormat(PF_R8G8B8A8_SNORM, FOpenGLTextureFormat(GL_RGBA8_SNORM, GL_RGBA8_SNORM, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, false, false));
+
+			// Should be GL_RGBA8_SNORM but it doesn't work with glTexBuffer -> mapping to Unorm and unpacking in the shader
+			SetupTextureFormat(PF_R8G8B8A8_SNORM, FOpenGLTextureFormat(GL_RGBA8, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, false, false));
+
 			SetupTextureFormat(PF_G16R16, FOpenGLTextureFormat(GL_RG16, GL_RG16, GL_RG, GL_UNSIGNED_SHORT, false, false));
 		}
 		if (FOpenGL::SupportsPackedDepthStencil())

@@ -6,17 +6,18 @@
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
 #include "MetalViewport.h"
-#include "MetalBufferPools.h"
 #include "MetalCommandEncoder.h"
 #include "MetalCommandQueue.h"
 #include "MetalCommandList.h"
 #include "MetalRenderPass.h"
-#include "MetalHeap.h"
+#include "MetalBuffer.h"
+#include "MetalQuery.h"
 #include "MetalCaptureManager.h"
 #if PLATFORM_IOS
 #include "IOS/IOSView.h"
 #endif
 #include "Containers/LockFreeList.h"
+#include "device.hpp"
 
 #define NUM_SAFE_FRAMES 4
 
@@ -27,17 +28,18 @@ class FMetalContext
 {
 	friend class FMetalCommandContextContainer;
 public:
-	FMetalContext(FMetalCommandQueue& Queue, bool const bIsImmediate);
+	FMetalContext(mtlpp::Device InDevice, FMetalCommandQueue& Queue, bool const bIsImmediate);
 	virtual ~FMetalContext();
 	
-	id<MTLDevice> GetDevice();
+	mtlpp::Device& GetDevice();
 	FMetalCommandQueue& GetCommandQueue();
 	FMetalCommandList& GetCommandList();
-	id<MTLCommandBuffer> GetCurrentCommandBuffer();
+	mtlpp::CommandBuffer const& GetCurrentCommandBuffer() const;
+	mtlpp::CommandBuffer& GetCurrentCommandBuffer();
 	FMetalStateCache& GetCurrentState() { return StateCache; }
 	FMetalRenderPass& GetCurrentRenderPass() { return RenderPass; }
 	
-	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, MTLCommandBufferHandler Handler = nil);
+	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, mtlpp::CommandBufferHandler Handler = nil);
 
 	/**
 	 * Do anything necessary to prepare for any kind of draw call 
@@ -55,8 +57,7 @@ public:
 	/**
 	 * Allocate from a dynamic ring buffer - by default align to the allowed alignment for offset field when setting buffers
 	 */
-	uint32 AllocateFromRingBuffer(uint32 Size, uint32 Alignment=0);
-	id<MTLBuffer> GetRingBuffer();
+	FMetalBuffer AllocateFromRingBuffer(uint32 Size, uint32 Alignment=0);
 
 	TSharedRef<FMetalQueryBufferPool, ESPMode::ThreadSafe> GetQueryBufferPool()
 	{
@@ -71,39 +72,39 @@ public:
 	
 	void DrawPrimitiveIndirect(uint32 PrimitiveType, FMetalVertexBuffer* VertexBuffer, uint32 ArgumentOffset);
 	
-	void DrawIndexedPrimitive(id<MTLBuffer> IndexBuffer, uint32 IndexStride, MTLIndexType IndexType, uint32 PrimitiveType, int32 BaseVertexIndex, uint32 FirstInstance,
+	void DrawIndexedPrimitive(FMetalBuffer const& IndexBuffer, uint32 IndexStride, mtlpp::IndexType IndexType, uint32 PrimitiveType, int32 BaseVertexIndex, uint32 FirstInstance,
 							  uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances);
 	
 	void DrawIndexedIndirect(FMetalIndexBuffer* IndexBufferRHI, uint32 PrimitiveType, FMetalStructuredBuffer* VertexBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances);
 	
 	void DrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FMetalIndexBuffer* IndexBufferRHI,FMetalVertexBuffer* VertexBufferRHI,uint32 ArgumentOffset);
 	
-	void DrawPatches(uint32 PrimitiveType, id<MTLBuffer> IndexBuffer, uint32 IndexBufferStride, int32 BaseVertexIndex, uint32 FirstInstance, uint32 StartIndex,
+	void DrawPatches(uint32 PrimitiveType, FMetalBuffer const& IndexBuffer, uint32 IndexBufferStride, int32 BaseVertexIndex, uint32 FirstInstance, uint32 StartIndex,
 					 uint32 NumPrimitives, uint32 NumInstances);
 	
-	void CopyFromTextureToBuffer(id<MTLTexture> Texture, uint32 sourceSlice, uint32 sourceLevel, MTLOrigin sourceOrigin, MTLSize sourceSize, id<MTLBuffer> toBuffer, uint32 destinationOffset, uint32 destinationBytesPerRow, uint32 destinationBytesPerImage, MTLBlitOption options);
+	void CopyFromTextureToBuffer(FMetalTexture const& Texture, uint32 sourceSlice, uint32 sourceLevel, mtlpp::Origin sourceOrigin, mtlpp::Size sourceSize, FMetalBuffer const& toBuffer, uint32 destinationOffset, uint32 destinationBytesPerRow, uint32 destinationBytesPerImage, mtlpp::BlitOption options);
 	
-	void CopyFromBufferToTexture(id<MTLBuffer> Buffer, uint32 sourceOffset, uint32 sourceBytesPerRow, uint32 sourceBytesPerImage, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin, MTLBlitOption options);
+	void CopyFromBufferToTexture(FMetalBuffer const& Buffer, uint32 sourceOffset, uint32 sourceBytesPerRow, uint32 sourceBytesPerImage, mtlpp::Size sourceSize, FMetalTexture const& toTexture, uint32 destinationSlice, uint32 destinationLevel, mtlpp::Origin destinationOrigin, mtlpp::BlitOption options);
 	
-	void CopyFromTextureToTexture(id<MTLTexture> Texture, uint32 sourceSlice, uint32 sourceLevel, MTLOrigin sourceOrigin, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin);
+	void CopyFromTextureToTexture(FMetalTexture const& Texture, uint32 sourceSlice, uint32 sourceLevel, mtlpp::Origin sourceOrigin, mtlpp::Size sourceSize, FMetalTexture const& toTexture, uint32 destinationSlice, uint32 destinationLevel, mtlpp::Origin destinationOrigin);
 	
-	void CopyFromBufferToBuffer(id<MTLBuffer> SourceBuffer, NSUInteger SourceOffset, id<MTLBuffer> DestinationBuffer, NSUInteger DestinationOffset, NSUInteger Size);
+	void CopyFromBufferToBuffer(FMetalBuffer const& SourceBuffer, NSUInteger SourceOffset, FMetalBuffer const& DestinationBuffer, NSUInteger DestinationOffset, NSUInteger Size);
 	
-    void AsyncCopyFromBufferToTexture(id<MTLBuffer> Buffer, uint32 sourceOffset, uint32 sourceBytesPerRow, uint32 sourceBytesPerImage, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin, MTLBlitOption options);
+    bool AsyncCopyFromBufferToTexture(FMetalBuffer const& Buffer, uint32 sourceOffset, uint32 sourceBytesPerRow, uint32 sourceBytesPerImage, mtlpp::Size sourceSize, FMetalTexture const& toTexture, uint32 destinationSlice, uint32 destinationLevel, mtlpp::Origin destinationOrigin, mtlpp::BlitOption options);
     
-    void AsyncCopyFromTextureToTexture(id<MTLTexture> Texture, uint32 sourceSlice, uint32 sourceLevel, MTLOrigin sourceOrigin, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin);
+    bool AsyncCopyFromTextureToTexture(FMetalTexture const& Texture, uint32 sourceSlice, uint32 sourceLevel, mtlpp::Origin sourceOrigin, mtlpp::Size sourceSize, FMetalTexture const& toTexture, uint32 destinationSlice, uint32 destinationLevel, mtlpp::Origin destinationOrigin);
     
-    void AsyncCopyFromBufferToBuffer(id<MTLBuffer> SourceBuffer, NSUInteger SourceOffset, id<MTLBuffer> DestinationBuffer, NSUInteger DestinationOffset, NSUInteger Size);
+    void AsyncCopyFromBufferToBuffer(FMetalBuffer const& SourceBuffer, NSUInteger SourceOffset, FMetalBuffer const& DestinationBuffer, NSUInteger DestinationOffset, NSUInteger Size);
 	
-    void AsyncGenerateMipmapsForTexture(id<MTLTexture> Texture);
+    void AsyncGenerateMipmapsForTexture(FMetalTexture const& Texture);
     
-	void SubmitAsyncCommands(MTLCommandBufferHandler ScheduledHandler, MTLCommandBufferHandler CompletionHandler, bool const bWait);
+	void SubmitAsyncCommands(mtlpp::CommandBufferHandler ScheduledHandler, mtlpp::CommandBufferHandler CompletionHandler, bool const bWait);
 	
-	void SynchronizeTexture(id<MTLTexture> Texture, uint32 Slice, uint32 Level);
+	void SynchronizeTexture(FMetalTexture const& Texture, uint32 Slice, uint32 Level);
 	
-	void SynchroniseResource(id<MTLResource> Resource);
+	void SynchroniseResource(mtlpp::Resource const& Resource);
 	
-	void FillBuffer(id<MTLBuffer> Buffer, NSRange Range, uint8 Value);
+	void FillBuffer(FMetalBuffer const& Buffer, ns::Range Range, uint8 Value);
 
 	void Dispatch(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ);
 	void DispatchIndirect(FMetalVertexBuffer* ArgumentBuffer, uint32 ArgumentOffset);
@@ -116,14 +117,14 @@ public:
 	static FMetalContext* GetCurrentContext();
 #endif
 	
-	void SetParallelPassFences(id<MTLFence> Start, id<MTLFence> End);
+	void SetParallelPassFences(mtlpp::Fence Start, mtlpp::Fence End);
 	
 	void InitFrame(bool const bImmediateContext);
 	void FinishFrame();
 
 protected:
 	/** The underlying Metal device */
-	id<MTLDevice> Device;
+	mtlpp::Device Device;
 	
 	/** The wrapper around the device command-queue for creating & committing command buffers to */
 	FMetalCommandQueue& CommandQueue;
@@ -169,14 +170,15 @@ public:
 	
 	inline bool SupportsFeature(EMetalFeatures InFeature) { return CommandQueue.SupportsFeature(InFeature); }
 	
-	id<MTLTexture> CreateTexture(FMetalSurface* Surface, MTLTextureDescriptor* Descriptor);
-	id<MTLBuffer> CreatePooledBuffer(FMetalPooledBufferArgs const& Args);
-	void ReleasePooledBuffer(id<MTLBuffer> Buf);
+	FMetalResourceHeap& GetResourceHeap(void) { return Heap; }
+	
+	FMetalTexture CreateTexture(FMetalSurface* Surface, mtlpp::TextureDescriptor Descriptor);
+	FMetalBuffer CreatePooledBuffer(FMetalPooledBufferArgs const& Args);
+	void ReleaseBuffer(FMetalBuffer& Buf);
 	void ReleaseObject(id Object);
-	void ReleaseResource(id<MTLResource> Object);
-	void ReleaseTexture(FMetalSurface* Surface, id<MTLTexture> Texture);
-	void ReleaseFence(id<MTLFence> Fence);
-	void ReleaseHeap(id<MTLHeap> Heap);
+	void ReleaseTexture(FMetalSurface* Surface, FMetalTexture& Texture);
+	void ReleaseTexture(FMetalTexture& Texture);
+	void ReleaseFence(mtlpp::Fence Fence);
 	
 	void BeginFrame();
 	void FlushFreeList();
@@ -203,33 +205,37 @@ public:
 	
 	/** Get the index of the bound Metal device in the global list of rendering devices. */
 	uint32 GetDeviceIndex(void) const;
+    
+#if METAL_DEBUG_OPTIONS
+    void AddActiveBuffer(FMetalBuffer const& Buffer);
+    void RemoveActiveBuffer(FMetalBuffer const& Buffer);
+    bool ValidateIsInactiveBuffer(FMetalBuffer const& Buffer);
+#endif
 	
 private:
-	FMetalDeviceContext(id<MTLDevice> MetalDevice, uint32 DeviceIndex, FMetalCommandQueue* Queue);
+	FMetalDeviceContext(mtlpp::Device MetalDevice, uint32 DeviceIndex, FMetalCommandQueue* Queue);
 	
 private:
-	/** The chosen Metal device */
-	id<MTLDevice> Device;
-	
 	/** The index into the GPU device list for the selected Metal device */
 	uint32 DeviceIndex;
 	
 	/** Dynamic memory heap */
-	FMetalHeap Heap;
+	FMetalResourceHeap Heap;
 	
 	/** GPU Frame Capture Manager */
 	FMetalCaptureManager CaptureManager;
 	
 	/** Free lists for releasing objects only once it is safe to do so */
+	TSet<FMetalBuffer> UsedBuffers;
+	TSet<FMetalTexture> UsedTextures;
 	TSet<id> ObjectFreeList;
-	TSet<id<MTLResource>> ResourceFreeList;
-	TSet<id<MTLHeap>> HeapFreeList;
 	struct FMetalDelayedFreeList
 	{
-		dispatch_semaphore_t Signal;
+		bool IsComplete() const;
+		TArray<mtlpp::CommandBufferFence> Fences;
+		TSet<FMetalBuffer> UsedBuffers;
+		TSet<FMetalTexture> UsedTextures;
 		TSet<id> ObjectFreeList;
-		TSet<id<MTLResource>> ResourceFreeList;
-		TSet<id<MTLHeap>> HeapFreeList;
 #if METAL_DEBUG_OPTIONS
 		int32 DeferCount;
 #endif
@@ -238,14 +244,19 @@ private:
 	
 #if METAL_DEBUG_OPTIONS
 	/** The list of fences for the current frame */
-	NSMutableArray<id<MTLFence>>* FrameFences;
+	TArray<mtlpp::Fence> FrameFences;
+    
+    FCriticalSection ActiveBuffersMutex;
+    
+    /** These are the active buffers that cannot be CPU modified */
+    TMap<id<MTLBuffer>, TArray<NSRange>> ActiveBuffers;
 #endif
 	
 	/** Free-list of contexts for parallel encoding */
 	TLockFreePointerListLIFO<FMetalRHICommandContext> ParallelContexts;
 	
 	/** Fences for parallel execution */
-	TArray<id<MTLFence>> ParallelFences;
+	TArray<mtlpp::Fence> ParallelFences;
 	
 	/** Critical section for FreeList */
 	FCriticalSection FreeListMutex;

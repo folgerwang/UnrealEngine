@@ -200,6 +200,7 @@ public:
 		FMeshMaterialShader(Initializer)
 	{
 		ShadowParameters.Bind(Initializer.ParameterMap);
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -213,10 +214,11 @@ public:
 		FRHICommandList& RHICmdList, 
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FSceneView& View,
-		const FProjectedShadowInfo* ShadowInfo
+		const FProjectedShadowInfo* ShadowInfo, 
+		const FDrawingPolicyRenderState& DrawRenderState
 		)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneRenderTargetsMode::DontSet);
+		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 		ShadowParameters.SetVertexShader(RHICmdList, this, View, ShadowInfo, MaterialRenderProxy);
 	}
 
@@ -277,6 +279,7 @@ public:
 		TranslInvMaxSubjectDepth.Bind(Initializer.ParameterMap,TEXT("TranslInvMaxSubjectDepth"));
 		TranslucentShadowStartOffset.Bind(Initializer.ParameterMap,TEXT("TranslucentShadowStartOffset"));
 		TranslucencyProjectionParameters.Bind(Initializer.ParameterMap);
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
 	FTranslucencyShadowDepthPS() {}
@@ -285,16 +288,14 @@ public:
 		FRHICommandList& RHICmdList, 
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FSceneView& View,
-		const FProjectedShadowInfo* ShadowInfo
+		const FProjectedShadowInfo* ShadowInfo, 
+		const FDrawingPolicyRenderState& DrawRenderState
 		)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 		const auto FeatureLevel = View.GetFeatureLevel();
 
-		//@todo - scene depth can be bound by the material for use in depth fades
-		// This is incorrect when rendering a shadowmap as it's not from the camera's POV
-		// Set the scene depth texture to something safe when rendering shadow depths
-		FMeshMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(FeatureLevel), View, View.ViewUniformBuffer, ESceneRenderTargetsMode::DontSet);
+		FMeshMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(FeatureLevel), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 
 		SetShaderValue(RHICmdList, ShaderRHI, TranslInvMaxSubjectDepth, ShadowInfo->InvMaxSubjectDepth);
 
@@ -392,8 +393,8 @@ public:
 		// Set the shared mesh resources.
 		FMeshDrawingPolicy::SetSharedState(RHICmdList, DrawRenderState, View, PolicyContext);
 
-		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, PolicyContext.ShadowInfo);
-		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, PolicyContext.ShadowInfo);
+		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, PolicyContext.ShadowInfo, DrawRenderState);
+		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, PolicyContext.ShadowInfo, DrawRenderState);
 	}
 
 	/** 
@@ -532,7 +533,15 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 	checkSlow(!bWholeSceneShadow);
 	SCOPE_CYCLE_COUNTER(STAT_RenderPerObjectShadowDepthsTime);
 
-	FDrawingPolicyRenderState DrawRenderState(*ShadowDepthView);
+	// Note - scene depth can be bound by the material for use in depth fades
+	// This is incorrect when rendering a shadowmap as it's not from the camera's POV
+	// Set the scene depth texture to something safe when rendering shadow depths
+	FSceneTexturesUniformParameters SceneTextureParameters;
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+	SetupSceneTextureUniformParameters(SceneContext, ShadowDepthView->FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
+	TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);	
+
+	FDrawingPolicyRenderState DrawRenderState(*ShadowDepthView, PassUniformBuffer);
 	{
 #if WANTS_DRAW_MESH_EVENTS
 		FString EventName;
@@ -829,7 +838,7 @@ public:
 		
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
-		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialProxy, *MaterialProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, false, ESceneRenderTargetsMode::SetTextures);
+		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialProxy, *MaterialProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneTextureSetupMode::All);
 		
 		VolumeShadowingParameters.Set(RHICmdList, ShaderRHI, View, LightSceneInfo, ShadowMap, InnerSplitIndex, bDynamicallyShadowed);
 
@@ -1127,7 +1136,7 @@ void FDeferredShadingSceneRenderer::InjectAmbientCubemapTranslucentVolumeLightin
 			}
 
 			RHICmdList.CopyToResolveTarget(RT0->GetRenderTargetItem().TargetableTexture,
-			RT0->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+			RT0->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 		}
 	}
 }
@@ -1251,7 +1260,7 @@ void FDeferredShadingSceneRenderer::AccumulateTranslucentVolumeObjectShadowing(F
 				RasterizeToVolumeTexture(RHICmdList, VolumeBounds);
 
 				RHICmdList.CopyToResolveTarget(SceneContext.GetTranslucencyVolumeAmbient((ETranslucencyVolumeCascade)VolumeCascadeIndex)->GetRenderTargetItem().TargetableTexture,
-					SceneContext.GetTranslucencyVolumeAmbient((ETranslucencyVolumeCascade)VolumeCascadeIndex)->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+					SceneContext.GetTranslucencyVolumeAmbient((ETranslucencyVolumeCascade)VolumeCascadeIndex)->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 			}
 		}
 	}
@@ -1506,8 +1515,8 @@ static void InjectTranslucentLightArray(FRHICommandListImmediate& RHICmdList, co
 			}
 		}
 
-		RHICmdList.CopyToResolveTarget(RT0->GetRenderTargetItem().TargetableTexture, RT0->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
-		RHICmdList.CopyToResolveTarget(RT1->GetRenderTargetItem().TargetableTexture, RT1->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+		RHICmdList.CopyToResolveTarget(RT0->GetRenderTargetItem().TargetableTexture, RT0->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
+		RHICmdList.CopyToResolveTarget(RT1->GetRenderTargetItem().TargetableTexture, RT1->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 	}
 }
 
@@ -1688,8 +1697,8 @@ void FDeferredShadingSceneRenderer::InjectSimpleTranslucentVolumeLightingArray(F
 				}
 			}
 
-			RHICmdList.CopyToResolveTarget(RT0->GetRenderTargetItem().TargetableTexture, RT0->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
-			RHICmdList.CopyToResolveTarget(RT1->GetRenderTargetItem().TargetableTexture, RT1->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+			RHICmdList.CopyToResolveTarget(RT0->GetRenderTargetItem().TargetableTexture, RT0->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
+			RHICmdList.CopyToResolveTarget(RT1->GetRenderTargetItem().TargetableTexture, RT1->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 		}
 	}
 }
@@ -1707,8 +1716,8 @@ void FDeferredShadingSceneRenderer::FilterTranslucentVolumeLighting(FRHICommandL
 			const IPooledRenderTarget* RT1 = SceneContext.TranslucencyLightingVolumeDirectional[VolumeCascadeIndex];
 			FTextureRHIRef TargetTexture0 = RT0->GetRenderTargetItem().TargetableTexture;
 			FTextureRHIRef TargetTexture1 = RT1->GetRenderTargetItem().TargetableTexture;
-			RHICmdList.CopyToResolveTarget(TargetTexture0, TargetTexture0, true, FResolveParams());
-			RHICmdList.CopyToResolveTarget(TargetTexture1, TargetTexture1, true, FResolveParams());
+			RHICmdList.CopyToResolveTarget(TargetTexture0, TargetTexture0, FResolveParams());
+			RHICmdList.CopyToResolveTarget(TargetTexture1, TargetTexture1, FResolveParams());
 		}
 #endif
 
@@ -1726,6 +1735,8 @@ void FDeferredShadingSceneRenderer::FilterTranslucentVolumeLighting(FRHICommandL
 			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
 			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+
+			bool bTransitionedToWriteable = (GUseTranslucentLightingVolumes && GSupportsVolumeTextureRendering && View.FinalPostProcessSettings.ContributingCubemaps.Num());
 
 			// Filter each cascade
 			for (int32 VolumeCascadeIndex = 0; VolumeCascadeIndex < TVC_MAX; VolumeCascadeIndex++)
@@ -1750,7 +1761,7 @@ void FDeferredShadingSceneRenderer::FilterTranslucentVolumeLighting(FRHICommandL
 				static_assert(TVC_MAX == 2, "Final transition logic should change");
 
 				//the volume textures should still be writable from the injection phase on the first loop.
-				if (VolumeCascadeIndex > 0)
+				if (!bTransitionedToWriteable || VolumeCascadeIndex > 0)
 				{
 					RHICmdList.TransitionResources(EResourceTransitionAccess::EWritable, RenderTargets, 2);
 				}

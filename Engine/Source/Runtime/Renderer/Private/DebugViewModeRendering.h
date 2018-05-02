@@ -34,6 +34,7 @@ protected:
 	{
 		IsInstancedStereoParameter.Bind(Initializer.ParameterMap, TEXT("bIsInstancedStereo"));
 		InstancedEyeIndexParameter.Bind(Initializer.ParameterMap, TEXT("InstancedEyeIndex"));
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
 	FDebugViewModeVS() {}
@@ -45,9 +46,9 @@ public:
 		return AllowDebugViewVSDSHS(Platform) && (Material->IsDefaultMaterial() || Material->HasVertexPositionOffsetConnected() || Material->GetTessellationMode() != MTM_NoTessellation);
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy,const FMaterial& Material,const FSceneView& View)
+	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy,const FMaterial& Material,const FSceneView& View,const FDrawingPolicyRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(),MaterialRenderProxy,Material,View,View.ViewUniformBuffer,ESceneRenderTargetsMode::DontSet);
+		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(),MaterialRenderProxy,Material,View,DrawRenderState.GetViewUniformBuffer(),DrawRenderState.GetPassUniformBuffer());
 
 		if (IsInstancedStereoParameter.IsBound())
 		{
@@ -160,7 +161,8 @@ public:
 		const FShader* OriginalPS, 
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FMaterial& Material,
-		const FSceneView& View
+		const FSceneView& View,
+		const FDrawingPolicyRenderState& DrawRenderState
 		) = 0;
 
 	virtual void SetMesh(
@@ -194,7 +196,8 @@ struct FDebugViewMode
 		const FMaterial* Material, 
 		const FSceneView& View,
 		const FVertexFactory* VertexFactory,
-		bool bHasHullAndDomainShader
+		bool bHasHullAndDomainShader, 
+		const FDrawingPolicyRenderState& DrawRenderState
 		);
 
 	static void SetMeshVSHSDS(

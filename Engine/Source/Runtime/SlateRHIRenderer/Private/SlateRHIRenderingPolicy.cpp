@@ -930,7 +930,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 						}
 					}
 				}
-                
+				
 				{
 					QUICK_SCOPE_CYCLE_COUNTER(Slate_SetTextureShaderParams);
 

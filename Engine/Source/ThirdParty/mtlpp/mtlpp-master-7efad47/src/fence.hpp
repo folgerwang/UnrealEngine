@@ -15,16 +15,32 @@
 
 MTLPP_BEGIN
 
+namespace ue4
+{
+	template<>
+	struct ITable<id<MTLFence>, void> : public IMPTable<id<MTLFence>, void>, public ITableCacheRef
+	{
+		ITable()
+		{
+		}
+		
+		ITable(Class C)
+		: IMPTable<id<MTLFence>, void>(C)
+		{
+		}
+	};
+}
+
 namespace mtlpp
 {
     class Fence : public ns::Object<ns::Protocol<id<MTLFence>>::type>
     {
     public:
         Fence() { }
-        Fence(ns::Protocol<id<MTLFence>>::type handle) : ns::Object<ns::Protocol<id<MTLFence>>::type>(handle) { }
+		Fence(ns::Protocol<id<MTLFence>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLFence>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetFence(handle)) { }
 
-        Device    GetDevice() const;
-        ns::String GetLabel() const;
+        ns::AutoReleased<Device>    GetDevice() const;
+        ns::AutoReleased<ns::String> GetLabel() const;
 
         void SetLabel(const ns::String& label);
     }

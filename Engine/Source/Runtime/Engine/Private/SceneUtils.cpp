@@ -2,6 +2,7 @@
 
 #include "SceneUtils.h"
 #include "ProfilingDebugging/CsvProfiler.h"
+#include "ProfilingDebugging/TracingProfiler.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSceneUtils,All,All);
 
@@ -9,11 +10,6 @@ DEFINE_LOG_CATEGORY_STATIC(LogSceneUtils,All,All);
 #define RENDER_QUERY_POOLING_ENABLED 1
 
 #if HAS_GPU_STATS 
-
-// If this is enabled, the child stat timings will be included in their parents' times.
-// This presents problems for non-hierarchical stats if we're expecting them to add up
-// to the total GPU time, so we probably want this disabled
-#define GPU_STATS_CHILD_TIMES_INCLUDED 0
 
 CSV_DEFINE_CATEGORY_MODULE(ENGINE_API, GPU, true);
 
@@ -36,6 +32,19 @@ static TAutoConsoleVariable<int> CVarGPUCsvStatsEnabled(
 	TEXT("Enables or disables GPU stat recording to CSVs"));
 
 DECLARE_GPU_STAT_NAMED( Total, TEXT("[TOTAL]") );
+
+static TAutoConsoleVariable<int> CVarGPUTracingStatsEnabled(
+	TEXT("r.GPUTracingStatsEnabled"),
+	1,
+	TEXT("Enables or disables GPU stat recording to tracing profiler"));
+
+static TAutoConsoleVariable<int> CVarGPUStatsChildTimesIncluded(
+	TEXT("r.GPUStatsChildTimesIncluded"),
+	0,
+	TEXT("If this is enabled, the child stat timings will be included in their parents' times.\n")
+	TEXT("This presents problems for non-hierarchical stats if we're expecting them to add up\n")
+	TEXT("to the total GPU time, so we probably want this disabled.\n")
+);
 
 #endif //HAS_GPU_STATS
 
@@ -301,6 +310,21 @@ public:
 		return Name;
 	}
 
+	uint64 GetStartResultMicroseconds(uint32 GPUIndex = 0) const
+	{
+		return StartResultMicroseconds;
+	}
+
+	uint64 GetEndResultMicroseconds(uint32 GPUIndex = 0) const
+	{
+		return EndResultMicroseconds;
+	}
+
+	uint32 GetFrameNumber() const
+	{
+		return FrameNumber;
+	}
+
 private:
 	FRenderQueryRHIRef StartQuery;
 	FRenderQueryRHIRef EndQuery;
@@ -336,44 +360,35 @@ public:
 
 	void PushEvent(FRHICommandListImmediate& RHICmdList, const FName& Name, const FName& StatName)
 	{
-#if GPU_STATS_CHILD_TIMES_INCLUDED == 0
-		if (EventStack.Num() > 0)
-		{
-			// GPU Stats are not hierarchical. If we already have an event in the stack, 
-			// we need end it and resume it once the child event completes 
-			FRealtimeGPUProfilerEvent* ParentEvent = EventStack.Last();
-			ParentEvent->End(RHICmdList);
-		}
-#endif
-		FRealtimeGPUProfilerEvent* Event = CreateNewEvent(StatName,Name);
-		EventStack.Push(Event);
+		// TODO: this should really use a pool / free list
+		FRealtimeGPUProfilerEvent* Event = new FRealtimeGPUProfilerEvent(Name, StatName, RenderQueryPool);
+		const int32 EventIndex = GpuProfilerEvents.Num();
+
+		GpuProfilerEvents.Add(Event);
+
+		FRealtimeGPUProfilerTimelineEvent TimelineEvent = {};
+		TimelineEvent.Type = FRealtimeGPUProfilerTimelineEvent::EType::PushEvent;
+		TimelineEvent.EventIndex = EventIndex;
+
+		GpuProfilerTimelineEvents.Push(TimelineEvent);
+
+		EventStack.Push(EventIndex);
 		Event->Begin(RHICmdList);
 	}
 
 	void PopEvent(FRHICommandListImmediate& RHICmdList)
 	{
-		FRealtimeGPUProfilerEvent* Event = EventStack.Pop();
-		Event->End(RHICmdList);
+		int32 Index = EventStack.Pop();
 
-#if GPU_STATS_CHILD_TIMES_INCLUDED == 0
-		if (EventStack.Num() > 0)
-		{
-			// Resume the parent event (requires creation of a new FRealtimeGPUProfilerEvent)
-#if STATS
-			FName PrevStatName = EventStack.Last()->GetStatName();
-#else
-			FName PrevStatName = FName();
-#endif
-			FRealtimeGPUProfilerEvent* ResumedEvent = CreateNewEvent(
-				PrevStatName, EventStack.Last()->GetName());
-			EventStack.Last() = ResumedEvent;
-			ResumedEvent->Begin(RHICmdList);
-		}
-#endif
+		FRealtimeGPUProfilerTimelineEvent TimelineEvent = {};
+		TimelineEvent.Type = FRealtimeGPUProfilerTimelineEvent::EType::PopEvent;
+		TimelineEvent.EventIndex = Index;
+		GpuProfilerTimelineEvents.Push(TimelineEvent);
 
+		GpuProfilerEvents[Index]->End(RHICmdList);
 	}
 
-	void Clear(FRHICommandListImmediate* RHICommandListPtr )
+	void Clear(FRHICommandListImmediate* RHICommandListPtr)
 	{
 		EventStack.Empty();
 
@@ -386,11 +401,14 @@ public:
 			}
 		}
 		GpuProfilerEvents.Empty();
+		GpuProfilerTimelineEvents.Empty();
+		EventAggregates.Empty();
 	}
 
 	bool UpdateStats(FRHICommandListImmediate& RHICmdList)
 	{
-		bool bCsvStatsEnabled = !!CVarGPUCsvStatsEnabled.GetValueOnRenderThread();
+		const bool bCsvStatsEnabled = !!CVarGPUCsvStatsEnabled.GetValueOnRenderThread();
+		const bool bTracingStatsEnabled = !!CVarGPUTracingStatsEnabled.GetValueOnRenderThread();
 
 		// Gather any remaining results and check all the results are ready
 		bool bAllQueriesAllocated = true;
@@ -424,8 +442,40 @@ public:
 			}
 		}
 
-		float TotalMS = 0.0f;
+		// Calculate inclusive and exclusive time for all events
+
+		EventAggregates.Reserve(GpuProfilerEvents.Num());
+		TArray<int32, TInlineAllocator<32>> TimelineEventStack;
+
+		for (const FRealtimeGPUProfilerEvent* Event : GpuProfilerEvents)
+		{
+			FGPUEventTimeAggregate Aggregate;
+			Aggregate.InclusiveTime = Event->GetResultMS();
+			Aggregate.ExclusiveTime = Aggregate.InclusiveTime;
+			EventAggregates.Push(Aggregate);
+		}
+
+		for (const FRealtimeGPUProfilerTimelineEvent& TimelineEvent : GpuProfilerTimelineEvents)
+		{
+			if (TimelineEvent.Type == FRealtimeGPUProfilerTimelineEvent::EType::PushEvent)
+			{
+				if (TimelineEventStack.Num() != 0)
+				{
+					EventAggregates[TimelineEventStack.Last()].ExclusiveTime -= EventAggregates[TimelineEvent.EventIndex].InclusiveTime;
+				}
+				TimelineEventStack.Push(TimelineEvent.EventIndex);
+			}
+			else
+			{
+				TimelineEventStack.Pop();
+			}
+		}
+
 		// Update the stats
+
+		const bool GPUStatsChildTimesIncluded = !!CVarGPUStatsChildTimesIncluded.GetValueOnRenderThread();
+		float TotalMS = 0.0f;
+
 		TMap<FName, bool> StatSeenMap;
 		for (int Index = 0; Index < GpuProfilerEvents.Num(); Index++)
 		{
@@ -442,18 +492,35 @@ public:
 				bIsNew = false;
 			}
 
-			float ResultMS = Event->GetResultMS();
+			const float EventTime = GPUStatsChildTimesIncluded
+				? EventAggregates[Index].InclusiveTime
+				: EventAggregates[Index].ExclusiveTime;
+
 #if STATS
 			EStatOperation::Type StatOp = bIsNew ? EStatOperation::Set : EStatOperation::Add;
-			FThreadStats::AddMessage(Event->GetStatName(), StatOp, double(ResultMS));
+			FThreadStats::AddMessage(Event->GetStatName(), StatOp, double(EventTime));
 #endif
 
 			if (bCsvStatsEnabled)
 			{
 				ECsvCustomStatOp CsvStatOp = bIsNew ? ECsvCustomStatOp::Set : ECsvCustomStatOp::Accumulate;
-				FCsvProfiler::Get()->RecordCustomStat(Event->GetName(), CSV_CATEGORY_INDEX(GPU), ResultMS, CsvStatOp);
+				FCsvProfiler::Get()->RecordCustomStat(Event->GetName(), CSV_CATEGORY_INDEX(GPU), EventTime, CsvStatOp);
 			}
-			TotalMS += ResultMS;
+
+#if TRACING_PROFILER
+			if (bTracingStatsEnabled)
+			{
+				const uint32 GPUIndex = 0;
+				FTracingProfiler::Get()->AddGPUEvent(
+					Event->GetName().GetPlainANSIString(),
+					Event->GetStartResultMicroseconds(),
+					Event->GetEndResultMicroseconds(),
+					GPUIndex,
+					Event->GetFrameNumber());
+			}
+#endif //TRACING_PROFILER
+
+			TotalMS += EventAggregates[Index].ExclusiveTime;
 		}
 
 #if STATS
@@ -470,15 +537,28 @@ public:
 	}
 
 private:
-	FRealtimeGPUProfilerEvent* CreateNewEvent(const FName& StatName, const FName& Name)
-	{
-		FRealtimeGPUProfilerEvent* NewEvent = new FRealtimeGPUProfilerEvent(Name, StatName, RenderQueryPool);
-		GpuProfilerEvents.Add(NewEvent);
-		return NewEvent;
-	}
 
 	TArray<FRealtimeGPUProfilerEvent*> GpuProfilerEvents;
-	TArray<FRealtimeGPUProfilerEvent*> EventStack;
+	TArray<int32> EventStack;
+
+	struct FRealtimeGPUProfilerTimelineEvent
+	{
+		enum class EType { PushEvent, PopEvent };
+		EType Type;
+		int32 EventIndex;
+	};
+
+	// All profiler push and pop events are recorded to calculate inclusive and exclusive timing
+	// while maintaining hierarchy and not splitting events unnecessarily.
+	TArray<FRealtimeGPUProfilerTimelineEvent> GpuProfilerTimelineEvents;
+
+	struct FGPUEventTimeAggregate
+	{
+		float ExclusiveTime;
+		float InclusiveTime;
+	};
+	TArray<FGPUEventTimeAggregate> EventAggregates;
+
 	uint32 FrameNumber;
 	FRenderQueryPool* RenderQueryPool;
 };
@@ -622,7 +702,7 @@ void FScopedGPUStatEvent::Begin(FRHICommandList& InRHICmdList, const FName& Name
 		return;
 	}
 
-	// Non-immediate commandlists are not supported (silently fail)
+	// Non-immediate command lists are not supported (silently fail)
 	if (InRHICmdList.IsImmediate())
 	{
 		RHICmdList = (FRHICommandListImmediate*)&InRHICmdList;

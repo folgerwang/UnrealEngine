@@ -63,16 +63,16 @@ public:
 	 * Renders the scene's prepass for a particular view
 	 * @return true if anything was rendered
 	 */
-	bool RenderPrePassView(FRHICommandList& RHICmdList, const FViewInfo& View);
+	bool RenderPrePassView(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
 
 	/**
 	 * Renders the scene's prepass for a particular view in parallel
 	 * @return true if the depth was cleared
 	 */
-	bool RenderPrePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, TFunctionRef<void()> AfterTasksAreStarted, bool bDoPrePre);
+	bool RenderPrePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, const FDrawingPolicyRenderState& DrawRenderState, TFunctionRef<void()> AfterTasksAreStarted, bool bDoPrePre);
 
 	/** Culls local lights to a grid in frustum space.  Needed for forward shading or translucency using the Surface lighting mode. */
-	void ComputeLightGrid(FRHICommandListImmediate& RHICmdList);
+	void ComputeLightGrid(FRHICommandListImmediate& RHICmdList, bool bNeedLightGrid);
 
 	/** Renders the basepass for the static data of a given View. */
 	bool RenderBasePassStaticData(FRHICommandList& RHICmdList, FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
@@ -95,19 +95,19 @@ public:
 	void RenderBasePassDynamicDataParallel(FParallelCommandListSet& ParallelCommandListSet);
 
 	/** Renders the basepass for a given View, in parallel */
-	void RenderBasePassViewParallel(FViewInfo& View, FRHICommandListImmediate& ParentCmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess);
+	void RenderBasePassViewParallel(FViewInfo& View, FRHICommandListImmediate& ParentCmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& InDrawRenderState);
 
 	/** Renders the basepass for a given View. */
-	bool RenderBasePassView(FRHICommandListImmediate& RHICmdList, FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess);
+	bool RenderBasePassView(FRHICommandListImmediate& RHICmdList, FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& InDrawRenderState);
 
 	/** Renders editor primitives for a given View. */
-	void RenderEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, bool& bOutDirty);
-	
+	void RenderEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& DrawRenderState, bool& bOutDirty);
+
 	/** 
 	* Renders the scene's base pass 
 	* @return true if anything was rendered
 	*/
-	bool RenderBasePass(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess);
+	bool RenderBasePass(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, IPooledRenderTarget* ForwardScreenSpaceShadowMask);
 
 	/** Finishes the view family rendering. */
 	void RenderFinish(FRHICommandListImmediate& RHICmdList);
@@ -170,7 +170,7 @@ private:
 	*/
 	bool PreRenderPrePass(FRHICommandListImmediate& RHICmdList);
 
-	void RenderPrePassEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, FDepthDrawingPolicyFactory::ContextType Context);
+	void RenderPrePassEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, FDepthDrawingPolicyFactory::ContextType Context);
 
 	/**
 	 * Renders the scene's prepass and occlusion queries.
@@ -184,8 +184,12 @@ private:
 	 */
 	bool RenderPrePassHMD(FRHICommandListImmediate& RHICmdList);
 
+
 	/** Renders the scene's fogging. */
 	bool RenderFog(FRHICommandListImmediate& RHICmdList, const FLightShaftsOutput& LightShaftsOutput);
+	
+	/** Renders the scene's fogging for a view. */
+	void RenderViewFog(FRHICommandList& RHICmdList, const FViewInfo& View, const FLightShaftsOutput& LightShaftsOutput);
 
 	/** Renders the scene's atmosphere. */
 	void RenderAtmosphere(FRHICommandListImmediate& RHICmdList, const FLightShaftsOutput& LightShaftsOutput);
@@ -250,15 +254,17 @@ private:
 	/** Issues a timestamp query for the end of the separate translucency pass. */
 	void EndTimingSeparateTranslucencyPass(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
 
-
 	/** Setup the downsampled view uniform buffer if it was not already built */
-	void SetupDownsampledTranslucencyViewUniformBuffer(FRHICommandListImmediate& RHICmdList, FViewInfo& View);
+	void SetupDownsampledTranslucencyViewUniformBuffer(
+		FRHICommandListImmediate& RHICmdList, 
+		const FViewInfo& View,
+		TUniformBufferRef<FViewUniformShaderParameters>& DownsampledTranslucencyViewUniformBuffer);
 
 	/** Resolve the scene color if any translucent material needs it. */
-	void ConditionalResolveSceneColorForTranslucentMaterials(FRHICommandListImmediate& RHICmdList);
+	void ConditionalResolveSceneColorForTranslucentMaterials(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& SceneColorCopy);
 
 	/** Renders the scene's translucency. */
-	void RenderTranslucency(FRHICommandListImmediate& RHICmdList, ETranslucencyPass::Type TranslucencyPass);
+	void RenderTranslucency(FRHICommandListImmediate& RHICmdList, ETranslucencyPass::Type TranslucencyPass, IPooledRenderTarget* SceneColorCopy);
 
 	/** Renders the scene's light shafts */
 	void RenderLightShaftOcclusion(FRHICommandListImmediate& RHICmdList, FLightShaftsOutput& Output);
@@ -325,7 +331,7 @@ private:
 	bool RenderShadowProjections(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, IPooledRenderTarget* ScreenShadowMaskTexture, bool& bInjectedTranslucentVolume);
 
 	/** Render shadow projections when forward rendering. */
-	void RenderForwardShadingShadowProjections(FRHICommandListImmediate& RHICmdList);
+	void RenderForwardShadingShadowProjections(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& ForwardScreenSpaceShadowMask);
 
 	/**
 	  * Used by RenderLights to render a light function to the attenuation buffer.

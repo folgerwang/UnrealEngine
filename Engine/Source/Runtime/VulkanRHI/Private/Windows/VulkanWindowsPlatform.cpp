@@ -109,7 +109,11 @@ void FVulkanWindowsPlatform::GetInstanceExtensions(TArray<const ANSICHAR*>& OutE
 
 void FVulkanWindowsPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExtensions)
 {
-	// Nothing here
+#if VULKAN_SUPPORTS_DEDICATED_ALLOCATION
+	OutExtensions.Add(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
+	OutExtensions.Add(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
+#endif
+	OutExtensions.Add(VK_AMD_BUFFER_MARKER_EXTENSION_NAME);
 }
 
 void FVulkanWindowsPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)
@@ -120,4 +124,24 @@ void FVulkanWindowsPlatform::CreateSurface(void* WindowHandle, VkInstance Instan
 	SurfaceCreateInfo.hinstance = GetModuleHandle(nullptr);
 	SurfaceCreateInfo.hwnd = (HWND)WindowHandle;
 	VERIFYVULKANRESULT(VulkanDynamicAPI::vkCreateWin32SurfaceKHR(Instance, &SurfaceCreateInfo, nullptr, OutSurface));
+}
+
+bool FVulkanWindowsPlatform::SupportsDeviceLocalHostVisibleWithNoPenalty()
+{
+	static bool bIsWin10 = FWindowsPlatformMisc::VerifyWindowsVersion(10, 0) /*Win10*/;
+	return (IsRHIDeviceAMD() && bIsWin10);
+}
+
+
+void FVulkanWindowsPlatform::WriteBufferMarkerAMD(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TArrayView<uint32>& Entries, bool bAdding)
+{
+	ensure(Entries.Num() <= GMaxCrashBufferEntries);
+	// AMD API only allows updating one entry at a time. Assume buffer has entry 0 as num entries
+	VulkanDynamicAPI::vkCmdWriteBufferMarkerAMD(CmdBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, DestBuffer, 0, Entries.Num());
+	if (bAdding)
+	{
+		int32 LastIndex = Entries.Num() - 1;
+		// +1 size as entries start at index 1
+		VulkanDynamicAPI::vkCmdWriteBufferMarkerAMD(CmdBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, DestBuffer, (1 + LastIndex) * sizeof(uint32), Entries[LastIndex]);
+	}
 }

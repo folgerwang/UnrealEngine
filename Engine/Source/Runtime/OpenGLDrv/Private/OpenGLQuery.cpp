@@ -192,20 +192,20 @@ void BeginFrame_QueryBatchCleanup()
 	GBatcher.PerFrameFlush();
 }
 
-void FOpenGLDynamicRHI::RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch)
+void BeginOcclusionQueryBatch(uint32 NumOcclusionQueries)
 {
 	if (IsRunningRHIInSeparateThread())
 	{
 
-		GBatcher.StartNewBatch(*this);
+		GBatcher.StartNewBatch(*(FOpenGLDynamicRHI*)GDynamicRHI);
 	}
 }
 
-void FOpenGLDynamicRHI::RHIEndOcclusionQueryBatch()
+void EndOcclusionQueryBatch()
 {
 	if (IsRunningRHIInSeparateThread())
 	{
-		GBatcher.EndBatch(*this);
+		GBatcher.EndBatch(*(FOpenGLDynamicRHI*)GDynamicRHI);
 	}
 }
 

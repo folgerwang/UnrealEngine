@@ -265,6 +265,8 @@ void FTextureInstanceState::AddTextureElements(const UPrimitiveComponent* Compon
 
 EAddComponentResult FTextureInstanceState::AddComponent(const UPrimitiveComponent* Component, FStreamingTextureLevelContext& LevelContext, float MaxAllowedUIDensity)
 {
+	check(Component);
+
 	TArray<FStreamingTexturePrimitiveInfo> TextureInstanceInfos;
 	Component->GetStreamingTextureInfoWithNULLRemoval(LevelContext, TextureInstanceInfos);
 	// Texture entries are guarantied to be relevant here, except for bounds if the component is not registered.

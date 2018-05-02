@@ -696,15 +696,15 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 
 	ForceRefreshExpressionPreviews();
 
-	if (OriginalMaterial && OriginalMaterial->bUsedAsSpecialEngineMaterial)
+	if (OriginalMaterial->bUsedAsSpecialEngineMaterial)
 	{
 		FSuppressableWarningDialog::FSetupInfo Info(
-			NSLOCTEXT("UnrealEd", "Warning_EditingDefaultMaterial", "Editing this Default Material is an advanced workflow.\nDefault Materials must be available as a code fallback at all times, compilation errors are not handled gracefully.  Save your work."),
-			NSLOCTEXT("UnrealEd", "Warning_EditingDefaultMaterial_Title", "Warning: Editing Default Material"), "Warning_EditingDefaultMaterial");
+		NSLOCTEXT("UnrealEd", "Warning_EditingDefaultMaterial", "Editing this Default Material is an advanced workflow.\nDefault Materials must be available as a code fallback at all times, compilation errors are not handled gracefully.  Save your work."),
+		NSLOCTEXT("UnrealEd", "Warning_EditingDefaultMaterial_Title", "Warning: Editing Default Material" ), "Warning_EditingDefaultMaterial");
 		Info.ConfirmText = NSLOCTEXT("ModalDialogs", "EditingDefaultMaterialOk", "Ok");
 
-		FSuppressableWarningDialog EditingDefaultMaterial(Info);
-		EditingDefaultMaterial.ShowModal();
+		FSuppressableWarningDialog EditingDefaultMaterial( Info );
+		EditingDefaultMaterial.ShowModal();	
 	}
 }
 
@@ -1651,7 +1651,6 @@ bool FMaterialEditor::UpdateOriginalMaterial()
 
 				FSuppressableWarningDialog CompileErrors(Info);
 				CompileErrors.ShowModal();
-
 				return false;
 			}
 			else
@@ -2866,6 +2865,7 @@ UClass* FMaterialEditor::GetOnPromoteToParameterClass(UEdGraphPin* TargetPin)
 
 					case MCT_Texture2D:
 					case MCT_TextureCube: 
+					case MCT_VolumeTexture: 
 					case MCT_Texture: return UMaterialExpressionTextureObjectParameter::StaticClass();
 				}
 

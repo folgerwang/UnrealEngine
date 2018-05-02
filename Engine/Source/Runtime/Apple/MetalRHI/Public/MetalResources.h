@@ -1,13 +1,16 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	MetalResources.h: Metal resource RHI definitions.
+	MetalResources.h: Metal resource RHI definitions..
 =============================================================================*/
 
 #pragma once
 
 #include "BoundShaderStateCache.h"
 #include "MetalShaderResources.h"
+THIRD_PARTY_INCLUDES_START
+#include "mtlpp.hpp"
+THIRD_PARTY_INCLUDES_END
 
 /** Parallel execution is available on Mac but not iOS for the moment - it needs to be tested because it isn't cost-free */
 #define METAL_SUPPORTS_PARALLEL_RHI_EXECUTE 1
@@ -19,10 +22,10 @@ class FMetalContext;
 struct FMetalHashedVertexDescriptor
 {
 	NSUInteger VertexDescHash;
-	MTLVertexDescriptor* VertexDesc;
+	mtlpp::VertexDescriptor VertexDesc;
 	
 	FMetalHashedVertexDescriptor();
-	FMetalHashedVertexDescriptor(MTLVertexDescriptor* Desc, uint32 Hash);
+	FMetalHashedVertexDescriptor(mtlpp::VertexDescriptor Desc, uint32 Hash);
 	FMetalHashedVertexDescriptor(FMetalHashedVertexDescriptor const& Other);
 	~FMetalHashedVertexDescriptor();
 	
@@ -95,7 +98,7 @@ public:
 		Function[EMetalIndexType_None][EMetalBufferType_Static] = Function[EMetalIndexType_UInt16][EMetalBufferType_Static] = Function[EMetalIndexType_UInt32][EMetalBufferType_Static] = nil;
 	}
 	
-	void Init(const TArray<uint8>& InCode, FMetalCodeHeader& Header, id<MTLLibrary> InLibrary = nil);
+	void Init(const TArray<uint8>& InCode, FMetalCodeHeader& Header, mtlpp::Library InLibrary = nil);
 
 	/** Destructor */
 	virtual ~TMetalBaseShader();
@@ -106,6 +109,10 @@ public:
 		if (!GlslCodeNSString && CodeSize && CompressedSource.Num())
 		{
 			GlslCodeNSString = DecodeMetalSourceCode(CodeSize, CompressedSource);
+		}
+		if (!GlslCodeNSString)
+		{
+			GlslCodeNSString = [FString::Printf(TEXT("Hash: %s, Name: Main_%0.8x_%0.8x"), *BaseResourceType::GetHash().ToString(), SourceLen, SourceCRC).GetNSString() retain];
 		}
 		return GlslCodeNSString;
 	}
@@ -144,15 +151,15 @@ public:
     uint32 BufferTypeHash;
     
 protected:
-	id<MTLFunction> GetCompiledFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash, bool const bAsync = false);
+	mtlpp::Function GetCompiledFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash, bool const bAsync = false);
 	uint32 GetBufferBindingHash(EPixelFormat const* const BufferTypes) const;
 
     // this is the compiler shader
-    id<MTLFunction> Function[EMetalIndexType_Num][EMetalBufferType_Num];
+	mtlpp::Function Function[EMetalIndexType_Num][EMetalBufferType_Num];
     
 private:
 	// This is the MTLLibrary for the shader so we can dynamically refine the MTLFunction
-	id<MTLLibrary> Library;
+	mtlpp::Library Library;
 	
 	/** The debuggable text source */
 	NSString* GlslCodeNSString;
@@ -173,10 +180,10 @@ class FMetalVertexShader : public TMetalBaseShader<FRHIVertexShader, SF_Vertex>
 {
 public:
 	FMetalVertexShader(const TArray<uint8>& InCode);
-	FMetalVertexShader(const TArray<uint8>& InCode, id<MTLLibrary> InLibrary);
+	FMetalVertexShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary);
 	
 	uint32 GetBindingHash(EPixelFormat const* const BufferTypes) const;
-	id<MTLFunction> GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash);
+	mtlpp::Function GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash);
 	
 	// for VSHS
 	FMetalTessellationOutputs TessellationOutputAttribs;
@@ -197,33 +204,33 @@ class FMetalPixelShader : public TMetalBaseShader<FRHIPixelShader, SF_Pixel>
 {
 public:
 	FMetalPixelShader(const TArray<uint8>& InCode);
-	FMetalPixelShader(const TArray<uint8>& InCode, id<MTLLibrary> InLibrary);
+	FMetalPixelShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary);
 	
 	uint32 GetBindingHash(EPixelFormat const* const BufferTypes) const;
-	id<MTLFunction> GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash);
+	mtlpp::Function GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash);
 };
 
 class FMetalHullShader : public TMetalBaseShader<FRHIHullShader, SF_Hull>
 {
 public:
 	FMetalHullShader(const TArray<uint8>& InCode);
-	FMetalHullShader(const TArray<uint8>& InCode, id<MTLLibrary> InLibrary);
+	FMetalHullShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary);
 	
 	uint32 GetBindingHash(EPixelFormat const* const BufferTypes) const;
-	id<MTLFunction> GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash);
+	mtlpp::Function GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash);
 };
 
 class FMetalDomainShader : public TMetalBaseShader<FRHIDomainShader, SF_Domain>
 {
 public:
 	FMetalDomainShader(const TArray<uint8>& InCode);
-	FMetalDomainShader(const TArray<uint8>& InCode, id<MTLLibrary> InLibrary);
+	FMetalDomainShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary);
 	
 	uint32 GetBindingHash(EPixelFormat const* const BufferTypes) const;
-	id<MTLFunction> GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash);
+	mtlpp::Function GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash);
 	
-	MTLWinding TessellationOutputWinding;
-	MTLTessellationPartitionMode TessellationPartitioning;
+	mtlpp::Winding TessellationOutputWinding;
+	mtlpp::TessellationPartitionMode TessellationPartitioning;
 	uint32 TessellationHSOutBuffer;
 	uint32 TessellationControlPointOutBuffer;
 };
@@ -233,7 +240,7 @@ typedef TMetalBaseShader<FRHIGeometryShader, SF_Geometry> FMetalGeometryShader;
 class FMetalComputeShader : public TMetalBaseShader<FRHIComputeShader, SF_Compute>
 {
 public:
-	FMetalComputeShader(const TArray<uint8>& InCode, id<MTLLibrary> InLibrary = nil);
+	FMetalComputeShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary = nil);
 	virtual ~FMetalComputeShader();
 	
 	uint32 GetBindingHash(EPixelFormat const* const BufferTypes) const;
@@ -291,6 +298,8 @@ public:
 	TRefCountPtr<FMetalDepthStencilState> DepthStencilState;
 	TRefCountPtr<FMetalRasterizerState> RasterizerState;
 	
+	inline EPrimitiveType GetPrimitiveType() { return Initializer.PrimitiveType; }
+	
 private:
 	// Needed to runtime refine shaders currently.
 	FGraphicsPipelineStateInitializer Initializer;
@@ -317,6 +326,99 @@ private:
 	TRefCountPtr<FMetalComputeShader> ComputeShader;
 };
 
+class FMetalSubBufferHeap;
+class FMetalSubBufferMagazine;
+
+class FMetalBuffer : public mtlpp::Buffer
+{
+public:
+	FMetalBuffer(ns::Ownership retain = ns::Ownership::Retain) : mtlpp::Buffer(retain), Heap(nullptr), Magazine(nullptr), bPooled(false) { }
+	FMetalBuffer(ns::Protocol<id<MTLBuffer>>::type handle, ns::Ownership retain = ns::Ownership::Retain);
+	
+	FMetalBuffer(mtlpp::Buffer&& rhs, FMetalSubBufferHeap* heap);
+	FMetalBuffer(mtlpp::Buffer&& rhs, FMetalSubBufferMagazine* magazine);
+	FMetalBuffer(mtlpp::Buffer&& rhs, bool bInPooled);
+	
+	FMetalBuffer(const FMetalBuffer& rhs);
+	FMetalBuffer(FMetalBuffer&& rhs);
+	virtual ~FMetalBuffer();
+	
+	FMetalBuffer& operator=(const FMetalBuffer& rhs);
+	FMetalBuffer& operator=(FMetalBuffer&& rhs);
+	
+	inline bool operator==(FMetalBuffer const& rhs) const
+	{
+		return mtlpp::Buffer::operator==(rhs);
+	}
+	
+	inline bool IsPooled() const { return bPooled; }
+	inline bool IsSingleUse() const { return bSingleUse; }
+	inline void MarkSingleUse() { bSingleUse = true; }
+	void Release();
+	
+	friend uint32 GetTypeHash(FMetalBuffer const& Hash)
+	{
+		return HashCombine(GetTypeHash(Hash.GetPtr()), GetTypeHash((uint64)Hash.GetOffset()));
+	}
+	
+private:
+	FMetalSubBufferHeap* Heap;
+	FMetalSubBufferMagazine* Magazine;
+	bool bPooled;
+	bool bSingleUse;
+};
+
+class FMetalTexture : public mtlpp::Texture
+{
+public:
+	FMetalTexture(ns::Ownership retain = ns::Ownership::Retain) : mtlpp::Texture(retain) { }
+	FMetalTexture(ns::Protocol<id<MTLTexture>>::type handle, ns::Ownership retain = ns::Ownership::Retain)
+	: mtlpp::Texture(handle, nullptr, retain) {}
+	
+	FMetalTexture(mtlpp::Texture&& rhs)
+	: mtlpp::Texture((mtlpp::Texture&&)rhs)
+	{
+		
+	}
+	
+	FMetalTexture(const FMetalTexture& rhs)
+	: mtlpp::Texture(rhs)
+	{
+		
+	}
+	
+	FMetalTexture(FMetalTexture&& rhs)
+	: mtlpp::Texture((mtlpp::Texture&&)rhs)
+	{
+		
+	}
+	
+	FMetalTexture& operator=(const FMetalTexture& rhs)
+	{
+		if (this != &rhs)
+		{
+			mtlpp::Texture::operator=(rhs);
+		}
+		return *this;
+	}
+	
+	FMetalTexture& operator=(FMetalTexture&& rhs)
+	{
+		mtlpp::Texture::operator=((mtlpp::Texture&&)rhs);
+		return *this;
+	}
+	
+	inline bool operator==(FMetalTexture const& rhs) const
+	{
+		return mtlpp::Texture::operator==(rhs);
+	}
+	
+	friend uint32 GetTypeHash(FMetalTexture const& Hash)
+	{
+		return GetTypeHash(Hash.GetPtr());
+	}
+};
+
 /** Texture/RT wrapper. */
 class FMetalSurface
 {
@@ -340,10 +442,10 @@ public:
 	void PrepareTextureView();
 	
 	/** @returns A newly allocated buffer object large enough for the surface within the texture specified. */
-	id<MTLBuffer> AllocSurface(uint32 MipIndex, uint32 ArrayIndex, EResourceLockMode LockMode, uint32& DestStride);
+	FMetalBuffer AllocSurface(uint32 MipIndex, uint32 ArrayIndex, EResourceLockMode LockMode, uint32& DestStride);
 
 	/** Apply the data in Buffer to the surface specified. */
-	void UpdateSurface(id<MTLBuffer> Buffer, uint32 MipIndex, uint32 ArrayIndex);
+	void UpdateSurface(FMetalBuffer& Buffer, uint32 MipIndex, uint32 ArrayIndex);
 	
 	/**
 	 * Locks one of the texture's mip-maps.
@@ -383,10 +485,10 @@ public:
 	uint32 GetNumFaces();
 	
 	/** Gets the drawable texture if this is a back-buffer surface. */
-	id<MTLTexture> GetDrawableTexture();
+	FMetalTexture GetDrawableTexture();
 
-	id<MTLTexture> Reallocate(id<MTLTexture> Texture, MTLTextureUsage UsageModifier);
-	void ReplaceTexture(FMetalContext& Context, id<MTLTexture> OldTexture, id<MTLTexture> NewTexture);
+	FMetalTexture Reallocate(FMetalTexture Texture, mtlpp::TextureUsage UsageModifier);
+	void ReplaceTexture(FMetalContext& Context, FMetalTexture OldTexture, FMetalTexture NewTexture);
 	void MakeAliasable(void);
 	void MakeUnAliasable(void);
 	
@@ -394,9 +496,9 @@ public:
 	EPixelFormat PixelFormat;
 	uint8 FormatKey;
 	//texture used for store actions and binding to shader params
-	id<MTLTexture> Texture;
+	FMetalTexture Texture;
 	//if surface is MSAA, texture used to bind for RT
-	id<MTLTexture> MSAATexture;
+	FMetalTexture MSAATexture;
 
 	//texture used for a resolve target.  Same as texture on iOS.  
 	//Dummy target on Mac where RHISupportsSeparateMSAAAndResolveTextures is true.	In this case we don't always want a resolve texture but we
@@ -404,15 +506,15 @@ public:
 	// Mac / RHISupportsSeparateMSAAAndResolveTextures == true
 	// iOS A9+ where depth resolve is available
 	// iOS < A9 where depth resolve is unavailable.
-	id<MTLTexture> MSAAResolveTexture;
-	id<MTLTexture> StencilTexture;
+	FMetalTexture MSAAResolveTexture;
+	FMetalTexture StencilTexture;
 	uint32 SizeX, SizeY, SizeZ;
 	bool bIsCubemap;
 	int32 volatile Written;
 	
 	uint32 Flags;
 	// one per mip
-	id<MTLBuffer> LockedMemory[16];
+	FMetalBuffer LockedMemory[16];
 	uint32 WriteLock;
 
 	// how much memory is allocated for this texture
@@ -536,99 +638,23 @@ public:
 	}
 };
 
-template<typename T>
-class TMetalPtr
-{
-public:
-	TMetalPtr()
-	: Object(nil)
-	{
-		
-	}
-	
-	explicit TMetalPtr(T Obj)
-	: Object(Obj)
-	{
-		
-	}
-	
-	explicit TMetalPtr(TMetalPtr const& Other)
-	: Object(nil)
-	{
-		operator=(Other);
-	}
-	
-	~TMetalPtr()
-	{
-		[Object release];
-	}
-	
-	TMetalPtr& operator=(TMetalPtr const& Other)
-	{
-		if (&Other != this)
-		{
-			[Other.Object retain];
-			[Object release];
-			Object = Other.Object;
-		}
-		return *this;
-	}
-	
-	TMetalPtr& operator=(T const& Other)
-	{
-		if (Other != Object)
-		{
-			[Other retain];
-			[Object release];
-			Object = Other;
-		}
-		return *this;
-	}
-	
-	operator T() const
-	{
-		return Object;
-	}
-	
-	T operator*() const
-	{
-		return Object;
-	}
-	
-private:
-	T Object;
-};
-
-struct MTLCommandBufferRef
-{
-	MTLCommandBufferRef(id<MTLCommandBuffer> CmdBuf, NSCondition* Event)
-	: CommandBuffer(CmdBuf)
-	, Condition(Event)
-	, bFinished(false)
-	{}
-	
-	TMetalPtr<id<MTLCommandBuffer>> CommandBuffer;
-	TMetalPtr<NSCondition*> Condition;
-	bool bFinished;
-};
-
 struct FMetalCommandBufferFence
 {
 	bool Wait(uint64 Millis);
 	
-	TWeakPtr<MTLCommandBufferRef, ESPMode::ThreadSafe> CommandBufferRef;
+	mtlpp::CommandBufferFence CommandBufferFence;
 };
 
 struct FMetalQueryBuffer : public FRHIResource
 {
-	FMetalQueryBuffer(FMetalContext* InContext, id<MTLBuffer> InBuffer);
+	FMetalQueryBuffer(FMetalContext* InContext, FMetalBuffer InBuffer);
 	
 	virtual ~FMetalQueryBuffer();
 	
 	uint64 GetResult(uint32 Offset);
 	
 	TWeakPtr<struct FMetalQueryBufferPool, ESPMode::ThreadSafe> Pool;
-	id<MTLBuffer> Buffer;
+	FMetalBuffer Buffer;
 	uint32 WriteOffset;
 };
 typedef TRefCountPtr<FMetalQueryBuffer> FMetalQueryBufferRef;
@@ -678,49 +704,6 @@ public:
 	volatile bool bAvailable;
 };
 
-/** Index buffer resource class that stores stride information. */
-class FMetalIndexBuffer : public FRHIIndexBuffer
-{
-public:
-
-	/** Constructor */
-	FMetalIndexBuffer(uint32 InStride, uint32 InSize, uint32 InUsage);
-	~FMetalIndexBuffer();
-	
-	/**
-	 * Allocate the index buffer backing store.
-	 */
-	void Alloc(uint32 InSize);
-
-	/**
-	 * Prepare a CPU accessible buffer for uploading to GPU memory
-	 */
-	void* Lock(EResourceLockMode LockMode, uint32 Offset, uint32 Size=0);
-
-	/**
-	 * Prepare a CPU accessible buffer for uploading to GPU memory
-	 */
-	void Unlock();
-	
-	// balsa buffer memory
-	id<MTLBuffer> Buffer;
-	
-	// A temporary shared/CPU accessible buffer for upload/download
-	id<MTLBuffer> CPUBuffer;
-	
-	// The matching linear texture for this index buffer. 
-	id<MTLTexture> LinearTexture;
-
-	// offet into the buffer (for lock usage)
-	uint32 LockOffset;
-	
-	// Lock size
-	uint32 LockSize;
-	
-	// 16- or 32-bit
-	MTLIndexType IndexType;
-};
-
 @interface FMetalBufferData : FApplePlatformObject<NSObject>
 {
 @public
@@ -731,63 +714,98 @@ public:
 -(instancetype)initWithBytes:(void const*)Data length:(uint32)Size;
 @end
 
-/** Vertex buffer resource class that stores usage type. */
-class FMetalVertexBuffer : public FRHIVertexBuffer
+enum EMetalBufferUsage
+{
+	EMetalBufferUsage_GPUOnly = 0x80000000,
+	EMetalBufferUsage_LinearTex = 0x40000000,
+};
+
+class FMetalRHIBuffer
 {
 public:
-
-	/** Constructor */
-	FMetalVertexBuffer(uint32 InSize, uint32 InUsage);
-	~FMetalVertexBuffer();
+	FMetalRHIBuffer(uint32 InSize, uint32 InUsage, ERHIResourceType InType);
+	virtual ~FMetalRHIBuffer();
 	
 	/**
 	 * Allocate the index buffer backing store.
 	 */
-	void Alloc(uint32 InSize);
+	void Alloc(uint32 InSize, EResourceLockMode LockMode);
 	
 	/**
 	 * Allocate a linear texture for given format.
 	 */
-	id<MTLTexture> AllocLinearTexture(EPixelFormat Format);
+	FMetalTexture AllocLinearTexture(EPixelFormat Format);
 	
 	/**
 	 * Get a linear texture for given format.
 	 */
-	id<MTLTexture> GetLinearTexture(EPixelFormat Format);
-
+	ns::AutoReleased<FMetalTexture> GetLinearTexture(EPixelFormat Format);
+	
 	/**
 	 * Prepare a CPU accessible buffer for uploading to GPU memory
 	 */
 	void* Lock(EResourceLockMode LockMode, uint32 Offset, uint32 Size=0);
-
+	
 	/**
 	 * Prepare a CPU accessible buffer for uploading to GPU memory
 	 */
 	void Unlock();
 	
 	// balsa buffer memory
-	id<MTLBuffer> Buffer;
-
-	// A temporary shared/CPU accessible buffer for upload/download	
-	id<MTLBuffer> CPUBuffer;
+	FMetalBuffer Buffer;
 	
-	// The map of linear textures for this vertex buffer - may be more than one due to type conversion. 
-	TMap<EPixelFormat, id<MTLTexture>> LinearTextures;
+	// A temporary shared/CPU accessible buffer for upload/download
+	FMetalBuffer CPUBuffer;
+	
+	// The map of linear textures for this vertex buffer - may be more than one due to type conversion.
+	TMap<EPixelFormat, FMetalTexture> LinearTextures;
 	
 	/** Buffer for small buffers < 4Kb to avoid heap fragmentation. */
 	FMetalBufferData* Data;
-
+	
+	// Frame of last upload, if there was one.
+	uint32 LastUpdate;
+	
 	// offset into the buffer (for lock usage)
 	uint32 LockOffset;
 	
 	// Sizeof outstanding lock.
 	uint32 LockSize;
-
-	// if the buffer is a zero stride buffer, we need to duplicate and grow on demand, this is the size of one element to copy
-	uint32 ZeroStrideElementSize;
+	
+	// Initial buffer size.
+	uint32 Size;
+	
+	// Buffer usage.
+	uint32 Usage;
+	
+	// Resource type
+	ERHIResourceType Type;
 };
 
-class FMetalUniformBuffer : public FRHIUniformBuffer
+/** Index buffer resource class that stores stride information. */
+class FMetalIndexBuffer : public FRHIIndexBuffer, public FMetalRHIBuffer
+{
+public:
+	
+	/** Constructor */
+	FMetalIndexBuffer(uint32 InStride, uint32 InSize, uint32 InUsage);
+	virtual ~FMetalIndexBuffer();
+	
+	// 16- or 32-bit
+	mtlpp::IndexType IndexType;
+};
+
+/** Vertex buffer resource class that stores usage type. */
+class FMetalVertexBuffer : public FRHIVertexBuffer, public FMetalRHIBuffer
+{
+public:
+
+	/** Constructor */
+	FMetalVertexBuffer(uint32 InSize, uint32 InUsage);
+	virtual ~FMetalVertexBuffer();
+};
+
+class FMetalUniformBuffer : public FRHIUniformBuffer, public FMetalRHIBuffer
 {
 public:
 
@@ -795,29 +813,9 @@ public:
 	FMetalUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage);
 
 	// Destructor 
-	~FMetalUniformBuffer();
+	virtual ~FMetalUniformBuffer();
 	
-
-	bool IsConstantBuffer() const
-	{
-		return Buffer.length > 0;
-	}
-
 	void const* GetData();
-
-	/** The buffer containing the contents - either a fresh buffer or the ring buffer */
-	id<MTLBuffer> Buffer;
-	
-	/** CPU copy of data so that we can defer upload of smaller buffers */
-	FMetalBufferData* Data;
-	
-	/** This offset is used when passing to setVertexBuffer, etc */
-	uint32 Offset;
-
-	uint32 Size; // @todo zebra: HACK! This should be removed and the code that uses it should be changed to use GetSize() instead once we fix the problem with FRHIUniformBufferLayout being released too early
-
-	/** The intended usage of the uniform buffer. */
-	EUniformBufferUsage Usage;
 	
 	/** Resource table containing RHI references. */
 	TArray<TRefCountPtr<FRHIResource> > ResourceTable;
@@ -825,7 +823,7 @@ public:
 };
 
 
-class FMetalStructuredBuffer : public FRHIStructuredBuffer
+class FMetalStructuredBuffer : public FRHIStructuredBuffer, public FMetalRHIBuffer
 {
 public:
 	// Constructor
@@ -833,25 +831,6 @@ public:
 
 	// Destructor
 	~FMetalStructuredBuffer();
-
-	/**
-	 * Prepare a CPU accessible buffer for uploading to GPU memory
-	 */
-	void* Lock(EResourceLockMode LockMode, uint32 Offset, uint32 Size=0);
-	
-	/**
-	 * Prepare a CPU accessible buffer for uploading to GPU memory
-	 */
-	void Unlock();
-	
-	// offset into the buffer (for lock usage)
-	uint32 LockOffset;
-	
-	// Sizeof outstanding lock.
-	uint32 LockSize;
-	
-	// the actual buffer
-	id<MTLBuffer> Buffer;
 };
 
 
@@ -880,7 +859,7 @@ public:
 	FMetalShaderResourceView();
 	~FMetalShaderResourceView();
 	
-	id<MTLTexture> GetLinearTexture(bool const bUAV);
+	ns::AutoReleased<FMetalTexture> GetLinearTexture(bool const bUAV);
 };
 
 
@@ -909,6 +888,11 @@ public:
 			ResizeGlobalUniforms(TypeIndex, UniformArraySize);
 		}
 	}
+	
+	/**
+	 * Invalidates all existing data.
+	 */
+	void Reset();
 
 	/**
 	 * Marks all uniform arrays as dirty.
@@ -949,39 +933,35 @@ public:
 	
 	FMetalComputeFence(FName InName)
 	: FRHIComputeFence(InName)
-	, Fence(nil)
 	{}
 	
 	virtual ~FMetalComputeFence()
 	{
-		[Fence release];
-		Fence = nil;
 	}
 	
 	virtual void Reset() final override
 	{
 		FRHIComputeFence::Reset();
-		[Fence release];
 		Fence = nil;
 	}
 	
-	void Write(id InFence)
+	void Write(mtlpp::Fence InFence)
 	{
-		check(Fence == nil);
-		Fence = [InFence retain];
+		check(Fence.GetPtr() == nil);
+		Fence = InFence;
 		FRHIComputeFence::WriteFence();
 	}
 	
 	void Wait(FMetalContext& Context);
 	
 private:
-	id Fence;
+	mtlpp::Fence Fence;
 };
 
 class FMetalShaderLibrary final : public FRHIShaderLibrary
 {	
 public:
-	FMetalShaderLibrary(EShaderPlatform Platform, id<MTLLibrary> Library, FMetalShaderMap const& Map);
+	FMetalShaderLibrary(EShaderPlatform Platform, mtlpp::Library Library, FMetalShaderMap const& Map);
 	virtual ~FMetalShaderLibrary();
 	
 	virtual bool IsNativeLibrary() const override final {return true;}
@@ -1027,7 +1007,7 @@ private:
 	FComputeShaderRHIRef CreateComputeShader(const FSHAHash& Hash);
 	
 private:
-	TMetalPtr<id<MTLLibrary>> Library;
+	mtlpp::Library Library;
 	FMetalShaderMap Map;
 };
 

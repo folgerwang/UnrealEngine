@@ -35,23 +35,6 @@ void FSelfShadowedCachedPointIndirectLightingPolicy::ModifyCompilationEnvironmen
 	FSelfShadowedTranslucencyPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 }
 
-
-void FUniformLightMapPolicy::Set(
-	FRHICommandList& RHICmdList, 
-	const VertexParametersType* VertexShaderParameters,
-	const PixelParametersType* PixelShaderParameters,
-	FShader* VertexShader,
-	FShader* PixelShader,
-	const FVertexFactory* VertexFactory,
-	const FMaterialRenderProxy* MaterialRenderProxy,
-	const FSceneView* View
-	) const
-{
-	check(VertexFactory);
-
-	VertexFactory->Set(View->GetShaderPlatform(), RHICmdList);
-}
-
 void FUniformLightMapPolicy::SetMesh(
 	FRHICommandList& RHICmdList,
 	const FSceneView& View,

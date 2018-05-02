@@ -13,8 +13,6 @@
 #include "ShadowRendering.h"
 #include "SceneRendering.h"
 
-FTextureRHIRef& GetEyeAdaptation(FRHICommandList& RHICmdList, const FSceneView& View);
-
 template<typename ShaderRHIParamRef>
 void SetSimpleDeferredLightParameters(
 	FRHICommandList& RHICmdList, 

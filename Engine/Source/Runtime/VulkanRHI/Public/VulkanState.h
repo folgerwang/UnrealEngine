@@ -14,15 +14,11 @@ class FVulkanDevice;
 class FVulkanSamplerState : public FRHISamplerState
 {
 public:
-	FVulkanSamplerState(const FSamplerStateInitializerRHI& Initializer, FVulkanDevice& InDevice);
-	~FVulkanSamplerState();
+	FVulkanSamplerState(const VkSamplerCreateInfo& InInfo, FVulkanDevice& InDevice);
 
 	VkSampler Sampler;
-	FVulkanDevice& Device;
 
-#if VULKAN_KEEP_CREATE_INFO
-	VkSamplerCreateInfo SamplerInfo;
-#endif
+	static void SetupSamplerCreateInfo(const FSamplerStateInitializerRHI& Initializer, FVulkanDevice& InDevice, VkSamplerCreateInfo& OutSamplerInfo);
 };
 
 class FVulkanRasterizerState : public FRHIRasterizerState
@@ -44,9 +40,14 @@ public:
 class FVulkanDepthStencilState : public FRHIDepthStencilState
 {
 public:
-	FVulkanDepthStencilState(const FDepthStencilStateInitializerRHI& Initializer);
+	FVulkanDepthStencilState(const FDepthStencilStateInitializerRHI& InInitializer)
+	{
+		Initializer = InInitializer;
+	}
 
-	VkPipelineDepthStencilStateCreateInfo DepthStencilState;
+	void SetupCreateInfo(const FGraphicsPipelineStateInitializer& GfxPSOInit, VkPipelineDepthStencilStateCreateInfo& OutDepthStencilState);
+
+	FDepthStencilStateInitializerRHI Initializer;
 };
 
 class FVulkanBlendState : public FRHIBlendState

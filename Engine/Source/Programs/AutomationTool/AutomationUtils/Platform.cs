@@ -625,6 +625,8 @@ namespace AutomationTool
 					return "";
 				case UnrealTargetPlatform.HTML5:
 					return ".js";
+				case UnrealTargetPlatform.Mac:
+					return ".app";
 			}
 
 			return String.Empty;

@@ -143,6 +143,8 @@ public:
 		TRefCountPtr<ID3D12QueryHeap> Heap;
 	};
 
+	static void CalibrateTimers(FD3D12Adapter* ParentAdapter);
+
 private:
 	/**
 	* Initializes the static variables, if necessary.

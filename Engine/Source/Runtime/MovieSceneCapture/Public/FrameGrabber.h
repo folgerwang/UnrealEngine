@@ -24,13 +24,18 @@ struct MOVIESCENECAPTURE_API FViewportSurfaceReader
 	/** Wait for this reader to become available, if it's currently in use */
 	void BlockUntilAvailable();
 
+	/** Safely resets the state of the wait event. When doing latent surface reading sometimes we may want to just bail on reading a given frame.
+	  * Should only be performed after flushing rendering commands.
+	  */
+	void Reset();
+
 	/**
 	 * Resolve the specified viewport RHI, calling the specified callback with the result.
 	 *
 	 * @param	ViewportRHI		The viewport to resolve
 	 * @param	Callback 		Callback to call with the locked texture data. This will be called on an undefined thread.
 	 */
-	void ResolveRenderTarget(const FViewportRHIRef& ViewportRHI, TFunction<void(FColor*, int32, int32)> Callback);
+	void ResolveRenderTarget(FViewportSurfaceReader* RenderToReadback, const FViewportRHIRef& ViewportRHI, TFunction<void(FColor*, int32, int32)> Callback);
 
 	/** Get the current size of the texture */
 	FIntPoint GetCurrentSize() const;
@@ -40,6 +45,8 @@ struct MOVIESCENECAPTURE_API FViewportSurfaceReader
 
 	/** Set the window size that we expect from the BackBuffer */
 	void SetWindowSize(FIntPoint InWindowSize) { WindowSize = InWindowSize; }
+
+	bool WasEverQueued() const { return bQueuedForCapture; } 
 
 protected:
 
@@ -66,6 +73,8 @@ protected:
 
 	/** Whether this reader is enabled or not. */
 	bool bIsEnabled;
+
+	bool bQueuedForCapture;
 };
 
 struct IFramePayload
@@ -124,7 +133,7 @@ public:
 	 * @param InNumSurfaces			The number of destination surfaces contained in our buffer 
 	 * @param bAlwaysFlushOnDraw	The viewport will flush at everydraw (increase synchronization, reduce performance)
 	 */
-	FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat = PF_B8G8R8A8, uint32 NumSurfaces = 2, bool bAlwaysFlushOnDraw = true);
+	FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat = PF_B8G8R8A8, uint32 NumSurfaces = 3, bool bAlwaysFlushOnDraw = true);
 
 	/** Destructor */
 	~FFrameGrabber();
@@ -202,6 +211,8 @@ private:
 
 	/** Optional RAII shutdown functor */
 	TFunction<void()> OnShutdown;
+
+	int32 FrameGrabLatency;
 
 	/** The current state of the grabber */
 	enum class EFrameGrabberState

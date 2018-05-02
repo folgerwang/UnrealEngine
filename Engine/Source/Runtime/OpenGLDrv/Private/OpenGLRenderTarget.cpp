@@ -443,7 +443,7 @@ void FOpenGLDynamicRHI::PurgeFramebufferFromCaches( GLuint Framebuffer )
 	}
 }
 
-void FOpenGLDynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, bool bKeepOriginalSurface, const FResolveParams& ResolveParams)
+void FOpenGLDynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, const FResolveParams& ResolveParams)
 {
 	if (!SourceTextureRHI || !DestTextureRHI)
 	{
@@ -1084,5 +1084,25 @@ void FOpenGLDynamicRHI::BindPendingFramebuffer( FOpenGLContextState& ContextStat
 		}
 
 		ContextState.Framebuffer = PendingState.Framebuffer;
+	}
+}
+
+
+void FOpenGLDynamicRHI::RHIBeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* InName)
+{
+	IRHICommandContext::RHIBeginRenderPass(InInfo, InName);
+	if (InInfo.bOcclusionQueries)
+	{
+		extern void BeginOcclusionQueryBatch(uint32);
+		BeginOcclusionQueryBatch(InInfo.NumOcclusionQueries);
+	}
+}
+
+void FOpenGLDynamicRHI::RHIEndRenderPass()
+{
+	if (RenderPassInfo.bOcclusionQueries)
+	{
+		extern void EndOcclusionQueryBatch();
+		EndOcclusionQueryBatch();
 	}
 }

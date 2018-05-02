@@ -1,0 +1,254 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DiaphragmDOF/DOFCocFlatten.usf: Flatten Coc radius into coc tile buffer.
+=============================================================================*/
+
+#include "DOFCommon.ush"
+#include "DOFCocTileCommon.ush"
+
+
+//------------------------------------------------------- COMPILE TIME CONFIG
+
+// Method used to flatten CocRadius.
+	#define FLATTEN_METHOD_REDUCE_LDS 0
+	#define FLATTEN_METHOD_ATOMIC_LDS 1
+	#define FLATTEN_METHOD_WAVE_MINMAX 2
+
+#if COMPILER_SUPPORTS_WAVE_MINMAX && COMPILER_SUPPORTS_WAVE_ONCE
+	#define CONFIG_FLATTEN_METHOD (FLATTEN_METHOD_WAVE_MINMAX)
+#else
+	#define CONFIG_FLATTEN_METHOD (FLATTEN_METHOD_REDUCE_LDS)
+#endif
+
+
+//------------------------------------------------------- PARAMETERS.
+
+float2 ThreadIdToBufferUV;
+float2 MaxBufferUV;
+float PreProcessingToProcessingCocRadiusFactor;
+
+
+//------------------------------------------------------- OUTPUTS.
+
+RWTexture2D<float4>	Output0;
+RWTexture2D<float4>	Output1;
+
+
+//------------------------------------------------------- LDS.
+
+#define LDS_LAYOUT (COC_TILE_LAYOUT_FGD_BGD)
+
+#if  CONFIG_FLATTEN_METHOD == FLATTEN_METHOD_REDUCE_LDS
+
+// TODO: could technically only need half of it: would this be faster?
+groupshared float4 Shared[DEFAULT_GROUP_BORDER_SIZE * DEFAULT_GROUP_BORDER_SIZE];
+
+
+void ReduceOperator(inout FCocTileSample A, in const FCocTileSample B)
+{
+	for (uint i = 0; i < MAX_COC_TILE_RANGES; i++)
+	{
+		A.Foreground[i].MinCoc = min(A.Foreground[i].MinCoc, B.Foreground[i].MinCoc);
+		A.Foreground[i].MaxCoc = max(A.Foreground[i].MaxCoc, B.Foreground[i].MaxCoc);
+
+		A.Background[i].MinCoc = min(A.Background[i].MinCoc, B.Background[i].MinCoc);
+		A.Background[i].MaxCoc = max(A.Background[i].MaxCoc, B.Background[i].MaxCoc);
+	}
+}
+
+FCocTileSample LoadFromLds(uint i)
+{
+	float4 Raw[2];
+	Raw[0] = Shared[i];
+	Raw[1] = 0;
+
+	FCocTileSample Sample;
+	DecodeCocTileSample(Raw, LDS_LAYOUT, Sample);
+	return Sample;
+}
+
+void StoreToLds(uint i, in const FCocTileSample Sample)
+{
+	Shared[i] = GetEncodedCocTileSample(Sample, LDS_LAYOUT, /** BufferId = */ 0);
+}
+
+
+#else
+
+groupshared uint SharedForegroundMinCocRadius;
+groupshared uint SharedForegroundMaxCocRadius;
+groupshared uint SharedBackgroundMinCocRadius;
+groupshared uint SharedBackgroundMaxCocRadius;
+
+#endif
+
+
+//------------------------------------------------------- ENTRY POINT.
+
+[numthreads(DEFAULT_GROUP_BORDER_SIZE, DEFAULT_GROUP_BORDER_SIZE, 1)]
+void CocFlattenMainCS(
+	uint2 GroupId : SV_GroupID,
+	uint2 DispatchThreadId : SV_DispatchThreadID,
+	uint GroupIndex : SV_GroupIndex)
+{
+	#if DIM_DO_COC_GATHER4
+		float2 BufferUV = (DispatchThreadId + 0.5) * ThreadIdToBufferUV;
+
+		if (true)
+		{
+			BufferUV = min(BufferUV, MaxBufferUV);
+		}
+		
+		float4 CocRadii = PostprocessInput0.GatherAlpha(GlobalPointClampedSampler, BufferUV, 0);
+
+		float MinCocRadius = min(min(CocRadii.x, CocRadii.y), min(CocRadii.z, CocRadii.w));
+		float MaxCocRadius = max(max(CocRadii.x, CocRadii.y), max(CocRadii.z, CocRadii.w));
+
+	#else // !DIM_DO_COC_GATHER4
+		uint2 PixelPos = min(DispatchThreadId, ViewportRect.zw - 1);
+
+		// Read Coc radius from half res buffer.
+		float MinCocRadius = PostprocessInput0[PixelPos].w;
+		float MaxCocRadius = MinCocRadius;
+	#endif
+
+	#if  CONFIG_FLATTEN_METHOD == FLATTEN_METHOD_REDUCE_LDS
+	{
+		// Setup local sample.
+		FCocTileSample Local;
+		for (uint i = 0; i < MAX_COC_TILE_RANGES; i++)
+		{
+			Local.Foreground[i].MinCoc = min(MinCocRadius, 0);
+			Local.Foreground[i].MaxCoc = min(MaxCocRadius, 0);
+			Local.Background[i].MinCoc = max(MinCocRadius, 0);
+			Local.Background[i].MaxCoc = max(MaxCocRadius, 0);
+		}
+
+		// LDS setup.
+		StoreToLds(GroupIndex, Local);
+		GroupMemoryBarrierWithGroupSync();
+	
+		// Do reduction.
+		// TODO: atomics.
+		UNROLL
+		for (uint j = 0; j < 5; j++)
+		{
+			const uint BankSize = 1 << (5 - j);
+
+			BRANCH
+			if (GroupIndex < BankSize)
+			{
+				FCocTileSample Other = LoadFromLds(GroupIndex + BankSize);
+				ReduceOperator(Local, Other);
+				StoreToLds(GroupIndex, Local);
+			}
+		
+			GroupMemoryBarrierWithGroupSync();
+		}
+
+		if (GroupIndex == 0)
+		{	
+			// Final reduction.
+			ReduceOperator(Local, LoadFromLds(1));
+		
+			// Encode.
+			float4 RawOutput[COC_TILE_MAX_BUFFER_COUNT];
+			EncodeCocTileSample(Local, LDS_LAYOUT, RawOutput);
+	
+			// Output.
+			Output0[GroupId] = RawOutput[0];
+			if (static_condition(GetBufferCountForCocTileLayour(LDS_LAYOUT) > 1))
+			{
+				Output1[GroupId] = RawOutput[1];
+			}
+		}
+	}
+	#elif CONFIG_FLATTEN_METHOD == FLATTEN_METHOD_ATOMIC_LDS || CONFIG_FLATTEN_METHOD == FLATTEN_METHOD_WAVE_MINMAX
+	{
+		// Init LDS if the group size and wave size doesn't match.
+		if (WaveGetLaneCount() != DEFAULT_GROUP_BORDER_SIZE * DEFAULT_GROUP_BORDER_SIZE)
+		{
+			BRANCH
+			if (GroupIndex == 0)
+			{
+				SharedForegroundMinCocRadius = 0;
+				SharedForegroundMaxCocRadius = ~0;
+				SharedBackgroundMinCocRadius = ~0;
+				SharedBackgroundMaxCocRadius = 0;
+			}
+		
+			GroupMemoryBarrierWithGroupSync();
+		}
+
+		// Perform wave flattening first.
+		#if CONFIG_FLATTEN_METHOD == FLATTEN_METHOD_WAVE_MINMAX
+			MinCocRadius = WaveAllMin(MinCocRadius);
+			MaxCocRadius = WaveAllMax(MaxCocRadius);
+
+			if (WaveGetLaneCount() == DEFAULT_GROUP_BORDER_SIZE * DEFAULT_GROUP_BORDER_SIZE)
+			{
+				// NOP: because no need to gather the result of all waves of the group.
+			}
+			else if (WaveOnce())
+		#endif
+		
+		// Atomic LDS reduce by reinterpret casting float as uint.
+		{
+			const uint RangeId = 0;
+
+			uint Unused;
+			
+			// Foreground CoCRadius <= 0.0.
+			InterlockedMax(SharedForegroundMinCocRadius, asuint(min(MinCocRadius, 0)), Unused);
+			InterlockedMin(SharedForegroundMaxCocRadius, asuint(min(MaxCocRadius, 0)), Unused);
+
+			// Background CoCRadius >= 0.0.
+			InterlockedMin(SharedBackgroundMinCocRadius, asuint(max(MinCocRadius, 0)), Unused);
+			InterlockedMax(SharedBackgroundMaxCocRadius, asuint(max(MaxCocRadius, 0)), Unused);
+		}
+		
+		GroupMemoryBarrierWithGroupSync();
+	
+		// Output.
+		BRANCH
+		if (GroupIndex == 0)
+		{	
+			// Fetch from LDS.
+			FCocTileSample OutputTileSample;
+			#if CONFIG_FLATTEN_METHOD == FLATTEN_METHOD_WAVE_MINMAX
+				if (WaveGetLaneCount() == DEFAULT_GROUP_BORDER_SIZE * DEFAULT_GROUP_BORDER_SIZE)
+				{
+					OutputTileSample.Foreground[0].MinCoc = min(MinCocRadius, 0);
+					OutputTileSample.Foreground[0].MaxCoc = min(MaxCocRadius, 0);
+					OutputTileSample.Background[0].MinCoc = max(MinCocRadius, 0);
+					OutputTileSample.Background[0].MaxCoc = max(MaxCocRadius, 0);
+				}
+				else
+			#endif
+			{
+				OutputTileSample.Foreground[0].MinCoc = asfloat(SharedForegroundMinCocRadius);
+				OutputTileSample.Foreground[0].MaxCoc = asfloat(SharedForegroundMaxCocRadius);
+				OutputTileSample.Background[0].MinCoc = asfloat(SharedBackgroundMinCocRadius);
+				OutputTileSample.Background[0].MaxCoc = asfloat(SharedBackgroundMaxCocRadius);
+			}
+
+			OutputTileSample.Foreground[1] = OutputTileSample.Foreground[0];
+			OutputTileSample.Background[1] = OutputTileSample.Background[0];
+
+			// Encode.
+			float4 RawOutput[COC_TILE_MAX_BUFFER_COUNT];
+			EncodeCocTileSample(OutputTileSample, LDS_LAYOUT, RawOutput);
+	
+			// Output.
+			Output0[GroupId] = RawOutput[0];
+			if (static_condition(GetBufferCountForCocTileLayour(LDS_LAYOUT) > 1))
+			{
+				Output1[GroupId] = RawOutput[1];
+			}
+		}
+	}
+	#else
+		#error Unknown flatten method.
+	#endif
+}

@@ -208,7 +208,7 @@ public:
 			const FDynamicMeshVertex& Vertex = Vertices[i];
 
 			VertexBuffers.PositionVertexBuffer.VertexPosition(i) = Vertex.Position;
-			VertexBuffers.StaticMeshVertexBuffer.SetVertexTangents(i, Vertex.TangentX, Vertex.GetTangentY(), Vertex.TangentZ);
+			VertexBuffers.StaticMeshVertexBuffer.SetVertexTangents(i, Vertex.TangentX.ToFVector(), Vertex.GetTangentY(), Vertex.TangentZ.ToFVector());
 			VertexBuffers.StaticMeshVertexBuffer.SetVertexUV(i, 0, Vertex.TextureCoordinate[0]);
 			VertexBuffers.ColorVertexBuffer.VertexColor(i) = Vertex.Color;
 		}

@@ -22,69 +22,69 @@ public:
 	~FMetalRenderPass(void);
 	
 #pragma mark -
-    void Begin(id<MTLFence> Fence);
+    void Begin(mtlpp::Fence Fence);
 	
-	void Wait(id<MTLFence> Fence);
+	void Wait(mtlpp::Fence Fence);
 
-	void Update(id<MTLFence> Fence);
+	void Update(mtlpp::Fence Fence);
 	
-    void BeginRenderPass(MTLRenderPassDescriptor* const RenderPass);
+    void BeginRenderPass(mtlpp::RenderPassDescriptor RenderPass);
 
-    void RestartRenderPass(MTLRenderPassDescriptor* const RenderPass);
+    void RestartRenderPass(mtlpp::RenderPassDescriptor RenderPass);
     
     void DrawPrimitive(uint32 PrimitiveType, uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances);
     
     void DrawPrimitiveIndirect(uint32 PrimitiveType, FMetalVertexBuffer* VertexBuffer, uint32 ArgumentOffset);
     
-    void DrawIndexedPrimitive(id<MTLBuffer> IndexBuffer, uint32 IndexStride, uint32 PrimitiveType, int32 BaseVertexIndex, uint32 FirstInstance,
+    void DrawIndexedPrimitive(FMetalBuffer const& IndexBuffer, uint32 IndexStride, uint32 PrimitiveType, int32 BaseVertexIndex, uint32 FirstInstance,
                          uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances);
     
     void DrawIndexedIndirect(FMetalIndexBuffer* IndexBufferRHI, uint32 PrimitiveType, FMetalStructuredBuffer* VertexBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances);
     
     void DrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FMetalIndexBuffer* IndexBufferRHI,FMetalVertexBuffer* VertexBufferRHI,uint32 ArgumentOffset);
     
-    void DrawPatches(uint32 PrimitiveType, id<MTLBuffer> IndexBuffer, uint32 IndexBufferStride, int32 BaseVertexIndex, uint32 FirstInstance, uint32 StartIndex,
+    void DrawPatches(uint32 PrimitiveType, FMetalBuffer const& IndexBuffer, uint32 IndexBufferStride, int32 BaseVertexIndex, uint32 FirstInstance, uint32 StartIndex,
                      uint32 NumPrimitives, uint32 NumInstances);
     
     void Dispatch(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ);
     
     void DispatchIndirect(FMetalVertexBuffer* ArgumentBufferRHI, uint32 ArgumentOffset);
     
-    id<MTLFence> EndRenderPass(void);
+    mtlpp::Fence EndRenderPass(void);
     
-    void CopyFromTextureToBuffer(id<MTLTexture> Texture, uint32 sourceSlice, uint32 sourceLevel, MTLOrigin sourceOrigin, MTLSize sourceSize, id<MTLBuffer> toBuffer, uint32 destinationOffset, uint32 destinationBytesPerRow, uint32 destinationBytesPerImage, MTLBlitOption options);
+    void CopyFromTextureToBuffer(FMetalTexture const& Texture, uint32 sourceSlice, uint32 sourceLevel, mtlpp::Origin sourceOrigin, mtlpp::Size sourceSize, FMetalBuffer const& toBuffer, uint32 destinationOffset, uint32 destinationBytesPerRow, uint32 destinationBytesPerImage, mtlpp::BlitOption options);
     
-    void CopyFromBufferToTexture(id<MTLBuffer> Buffer, uint32 sourceOffset, uint32 sourceBytesPerRow, uint32 sourceBytesPerImage, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin, MTLBlitOption options);
+    void CopyFromBufferToTexture(FMetalBuffer const& Buffer, uint32 sourceOffset, uint32 sourceBytesPerRow, uint32 sourceBytesPerImage, mtlpp::Size sourceSize, FMetalTexture const& toTexture, uint32 destinationSlice, uint32 destinationLevel, mtlpp::Origin destinationOrigin, mtlpp::BlitOption options);
     
-    void CopyFromTextureToTexture(id<MTLTexture> Texture, uint32 sourceSlice, uint32 sourceLevel, MTLOrigin sourceOrigin, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin);
+    void CopyFromTextureToTexture(FMetalTexture const& Texture, uint32 sourceSlice, uint32 sourceLevel, mtlpp::Origin sourceOrigin, mtlpp::Size sourceSize, FMetalTexture const& toTexture, uint32 destinationSlice, uint32 destinationLevel, mtlpp::Origin destinationOrigin);
 	
-	void CopyFromBufferToBuffer(id<MTLBuffer> SourceBuffer, NSUInteger SourceOffset, id<MTLBuffer> DestinationBuffer, NSUInteger DestinationOffset, NSUInteger Size);
+	void CopyFromBufferToBuffer(FMetalBuffer const& SourceBuffer, NSUInteger SourceOffset, FMetalBuffer const& DestinationBuffer, NSUInteger DestinationOffset, NSUInteger Size);
 	
-	void PresentTexture(id<MTLTexture> Texture, uint32 sourceSlice, uint32 sourceLevel, MTLOrigin sourceOrigin, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin);
+	void PresentTexture(FMetalTexture const& Texture, uint32 sourceSlice, uint32 sourceLevel, mtlpp::Origin sourceOrigin, mtlpp::Size sourceSize, FMetalTexture const& toTexture, uint32 destinationSlice, uint32 destinationLevel, mtlpp::Origin destinationOrigin);
     
-    void SynchronizeTexture(id<MTLTexture> Texture, uint32 Slice, uint32 Level);
+    void SynchronizeTexture(FMetalTexture const& Texture, uint32 Slice, uint32 Level);
     
-    void SynchroniseResource(id<MTLResource> Resource);
+	void SynchroniseResource(mtlpp::Resource const& Resource);
     
-    void FillBuffer(id<MTLBuffer> Buffer, NSRange Range, uint8 Value);
+	void FillBuffer(FMetalBuffer const& Buffer, ns::Range Range, uint8 Value);
 	
-	void AsyncCopyFromBufferToTexture(id<MTLBuffer> Buffer, uint32 sourceOffset, uint32 sourceBytesPerRow, uint32 sourceBytesPerImage, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin, MTLBlitOption options);
+	bool AsyncCopyFromBufferToTexture(FMetalBuffer const& Buffer, uint32 sourceOffset, uint32 sourceBytesPerRow, uint32 sourceBytesPerImage, mtlpp::Size sourceSize, FMetalTexture const& toTexture, uint32 destinationSlice, uint32 destinationLevel, mtlpp::Origin destinationOrigin, mtlpp::BlitOption options);
 	
-	void AsyncCopyFromTextureToTexture(id<MTLTexture> Texture, uint32 sourceSlice, uint32 sourceLevel, MTLOrigin sourceOrigin, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin);
+	bool AsyncCopyFromTextureToTexture(FMetalTexture const& Texture, uint32 sourceSlice, uint32 sourceLevel, mtlpp::Origin sourceOrigin, mtlpp::Size sourceSize, FMetalTexture const& toTexture, uint32 destinationSlice, uint32 destinationLevel, mtlpp::Origin destinationOrigin);
 	
-	void AsyncCopyFromBufferToBuffer(id<MTLBuffer> SourceBuffer, NSUInteger SourceOffset, id<MTLBuffer> DestinationBuffer, NSUInteger DestinationOffset, NSUInteger Size);
+	void AsyncCopyFromBufferToBuffer(FMetalBuffer const& SourceBuffer, NSUInteger SourceOffset, FMetalBuffer const& DestinationBuffer, NSUInteger DestinationOffset, NSUInteger Size);
 	
-    void AsyncGenerateMipmapsForTexture(id<MTLTexture> Texture);
+	void AsyncGenerateMipmapsForTexture(FMetalTexture const& Texture);
 	
-    id<MTLFence> Submit(EMetalSubmitFlags SubmissionFlags);
+    mtlpp::Fence Submit(EMetalSubmitFlags SubmissionFlags);
     
-    id<MTLFence> End(void);
+    mtlpp::Fence End(void);
 	
-	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, MTLCommandBufferHandler Handler);
+	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, mtlpp::CommandBufferHandler Handler);
 	
-	void AddCompletionHandler(MTLCommandBufferHandler Handler);
+	void AddCompletionHandler(mtlpp::CommandBufferHandler Handler);
 	
-	void AddAsyncCommandBufferHandlers(MTLCommandBufferHandler Scheduled, MTLCommandBufferHandler Completion);
+	void AddAsyncCommandBufferHandlers(mtlpp::CommandBufferHandler Scheduled, mtlpp::CommandBufferHandler Completion);
 
 #pragma mark - Public Debug Support -
 	
@@ -92,13 +92,13 @@ public:
 	 * Inserts a debug string into the command buffer.  This does not change any API behavior, but can be useful when debugging.
 	 * @param string The name of the signpost. 
 	 */
-	void InsertDebugSignpost(NSString* const String);
+	void InsertDebugSignpost(ns::String const& String);
 	
 	/*
 	 * Push a new named string onto a stack of string labels.
 	 * @param string The name of the debug group. 
 	 */
-	void PushDebugGroup(NSString* const String);
+	void PushDebugGroup(ns::String const& String);
 	
 	/* Pop the latest named string off of the stack. */
 	void PopDebugGroup(void);
@@ -109,13 +109,14 @@ public:
 	 * Get the current internal command buffer.
 	 * @returns The current command buffer.
 	 */
-	id<MTLCommandBuffer> GetCurrentCommandBuffer(void) const;
+	mtlpp::CommandBuffer const& GetCurrentCommandBuffer(void) const;
+	mtlpp::CommandBuffer& GetCurrentCommandBuffer(void);
 	
 	/*
 	 * Get the internal ring-buffer used for temporary allocations.
 	 * @returns The temporary allocation buffer for the command-pass.
 	 */
-	FRingBuffer& GetRingBuffer(void);
+	FMetalSubBufferRing& GetRingBuffer(void);
 	
 private:
 #pragma mark -
@@ -156,8 +157,7 @@ private:
     FMetalFence CurrentEncoderFence;
     FMetalFence PrologueEncoderFence;
     
-    typedef TMetalPtr<MTLRenderPassDescriptor*> MTLRenderPassDescriptorRef;
-    MTLRenderPassDescriptorRef RenderPassDesc;
+    mtlpp::RenderPassDescriptor RenderPassDesc;
     
     uint32 NumOutstandingOps;
     bool bWithinRenderPass;

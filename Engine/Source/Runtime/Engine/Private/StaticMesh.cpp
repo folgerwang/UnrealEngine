@@ -547,7 +547,7 @@ void FStaticMeshVertexBuffers::InitFromDynamicVertex(FLocalVertexFactory* Vertex
 			const FDynamicMeshVertex& Vertex = Vertices[i];
 
 			PositionVertexBuffer.VertexPosition(i) = Vertex.Position;
-			StaticMeshVertexBuffer.SetVertexTangents(i, Vertex.TangentX, Vertex.GetTangentY(), Vertex.TangentZ);
+			StaticMeshVertexBuffer.SetVertexTangents(i, Vertex.TangentX.ToFVector(), Vertex.GetTangentY(), Vertex.TangentZ.ToFVector());
 			for (uint32 j = 0; j < NumTexCoords; j++)
 			{
 				StaticMeshVertexBuffer.SetVertexUV(i, j, Vertex.TextureCoordinate[j]);
@@ -1274,6 +1274,17 @@ void UStaticMesh::GetLODGroupsDisplayNames(TArray<FText>& OutLODGroupsDisplayNam
 	RunningPlatform->GetStaticMeshLODSettings().GetLODGroupDisplayNames(OutLODGroupsDisplayNames);
 }
 
+
+void UStaticMesh::PostDuplicate(bool bDuplicateForPIE)
+{
+	Super::PostDuplicate(bDuplicateForPIE);
+
+	if (!bDuplicateForPIE)
+	{
+		SetLightingGuid();
+	}
+}
+
 /*------------------------------------------------------------------------------
 	FStaticMeshRenderData
 ------------------------------------------------------------------------------*/
@@ -1333,7 +1344,7 @@ FArchive& operator<<(FArchive& Ar, FMeshBuildSettings& BuildSettings)
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define STATICMESH_DERIVEDDATA_VER TEXT("EAB28E38508F49109D98EED6C7CC9977")
+#define STATICMESH_DERIVEDDATA_VER TEXT("8E0EA6DAF46E4FD1BADBA2C47F334FB9")
 
 static const FString& GetStaticMeshDerivedDataVersion()
 {

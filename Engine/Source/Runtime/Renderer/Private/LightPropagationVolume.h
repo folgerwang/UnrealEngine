@@ -76,23 +76,23 @@ static const TCHAR * LpvGvVolumeTextureUAVNames[NUM_GV_TEXTURES] = {
 // LPV Read constant buffer
 //
 BEGIN_UNIFORM_BUFFER_STRUCT( FLpvReadUniformBufferParameters, )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FIntVector, mLpvGridOffset )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, LpvScale )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, OneOverLpvScale )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, SpecularIntensity )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, DiffuseIntensity )
+	UNIFORM_MEMBER( FIntVector, mLpvGridOffset )
+	UNIFORM_MEMBER( float, LpvScale )
+	UNIFORM_MEMBER( float, OneOverLpvScale )
+	UNIFORM_MEMBER( float, SpecularIntensity )
+	UNIFORM_MEMBER( float, DiffuseIntensity )
 
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, DirectionalOcclusionIntensity )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, DiffuseOcclusionExponent )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, SpecularOcclusionExponent )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, SpecularOcclusionIntensity )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, DiffuseOcclusionIntensity )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, PostprocessSpecularIntensityThreshold )
+	UNIFORM_MEMBER( float, DirectionalOcclusionIntensity )
+	UNIFORM_MEMBER( float, DiffuseOcclusionExponent )
+	UNIFORM_MEMBER( float, SpecularOcclusionExponent )
+	UNIFORM_MEMBER( float, SpecularOcclusionIntensity )
+	UNIFORM_MEMBER( float, DiffuseOcclusionIntensity )
+	UNIFORM_MEMBER( float, PostprocessSpecularIntensityThreshold )
 
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector, LpvGridOffsetSmooth )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector, DirectionalOcclusionDefaultValue )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, DirectionalOcclusionFadeRange )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, FadeRange )
+	UNIFORM_MEMBER( FVector, LpvGridOffsetSmooth )
+	UNIFORM_MEMBER( FVector, DirectionalOcclusionDefaultValue )
+	UNIFORM_MEMBER( float, DirectionalOcclusionFadeRange )
+	UNIFORM_MEMBER( float, FadeRange )
 END_UNIFORM_BUFFER_STRUCT( FLpvReadUniformBufferParameters )
 
 
@@ -100,25 +100,25 @@ END_UNIFORM_BUFFER_STRUCT( FLpvReadUniformBufferParameters )
  * Uniform buffer parameters for LPV write shaders
  */
 BEGIN_UNIFORM_BUFFER_STRUCT( FLpvWriteUniformBufferParameters, )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FMatrix, mRsmToWorld )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, mLightColour )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, GeometryVolumeCaptureLightDirection )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, mEyePos )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FIntVector, mOldGridOffset ) 
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FIntVector, mLpvGridOffset )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, ClearMultiplier )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, LpvScale )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, OneOverLpvScale )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, DirectionalOcclusionIntensity )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, DirectionalOcclusionRadius )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, RsmAreaIntensityMultiplier )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, RsmPixelToTexcoordMultiplier )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, SecondaryOcclusionStrength )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, SecondaryBounceStrength )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, VplInjectionBias )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, GeometryVolumeInjectionBias )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, EmissiveInjectionMultiplier )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( int,	 PropagationIndex )
+	UNIFORM_MEMBER( FMatrix, mRsmToWorld )
+	UNIFORM_MEMBER( FVector4, mLightColour )
+	UNIFORM_MEMBER( FVector4, GeometryVolumeCaptureLightDirection )
+	UNIFORM_MEMBER( FVector4, mEyePos )
+	UNIFORM_MEMBER( FIntVector, mOldGridOffset ) 
+	UNIFORM_MEMBER( FIntVector, mLpvGridOffset )
+	UNIFORM_MEMBER( float, ClearMultiplier )
+	UNIFORM_MEMBER( float, LpvScale )
+	UNIFORM_MEMBER( float, OneOverLpvScale )
+	UNIFORM_MEMBER( float, DirectionalOcclusionIntensity )
+	UNIFORM_MEMBER( float, DirectionalOcclusionRadius )
+	UNIFORM_MEMBER( float, RsmAreaIntensityMultiplier )
+	UNIFORM_MEMBER( float, RsmPixelToTexcoordMultiplier )
+	UNIFORM_MEMBER( float, SecondaryOcclusionStrength )
+	UNIFORM_MEMBER( float, SecondaryBounceStrength )
+	UNIFORM_MEMBER( float, VplInjectionBias )
+	UNIFORM_MEMBER( float, GeometryVolumeInjectionBias )
+	UNIFORM_MEMBER( float, EmissiveInjectionMultiplier )
+	UNIFORM_MEMBER( int,	 PropagationIndex )
 END_UNIFORM_BUFFER_STRUCT( FLpvWriteUniformBufferParameters )
 
 // ----------------------------------------------------------------------------
@@ -212,7 +212,7 @@ public:
 	FTextureRHIParamRef GetAOVolumeTextureSRV() { return AOVolumeTexture->GetRenderTargetItem().ShaderResourceTexture; }
 
 	TRefCountPtr<IPooledRenderTarget>	LpvVolumeTextures[2][7];		// double buffered
-	FRWBufferByteAddress*				mVplListHeadBuffer;
+	FRWByteAddressBuffer*				mVplListHeadBuffer;
 	FRWBufferStructured*				mVplListBuffer;
 
 	FIntVector							mGridOffset;
@@ -224,7 +224,7 @@ public:
 	uint32								mInjectedLightCount;
 
 	// Geometry volume
-	FRWBufferByteAddress*				GvListHeadBuffer;
+	FRWByteAddressBuffer*				GvListHeadBuffer;
 	FRWBufferStructured*				GvListBuffer;
 
 	FShaderResourceParameter			LpvVolumeTextureSampler;

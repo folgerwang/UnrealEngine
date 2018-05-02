@@ -59,11 +59,6 @@ FORCEINLINE_DEBUGGABLE FScopedRHIThreadStaller::~FScopedRHIThreadStaller()
 	}
 }
 
-FORCEINLINE_DEBUGGABLE void FRHIRenderPassCommandList::ApplyCachedRenderTargets(FGraphicsPipelineStateInitializer& GraphicsPSOInit)
-{
-	return GetParent().ApplyCachedRenderTargets(GraphicsPSOInit);
-}
-
 namespace PipelineStateCache
 {
 	/* Evicts unused state entries based on r.pso.evictiontime time. Called in RHICommandList::BeginFrame */

@@ -14,7 +14,7 @@ FMetalDeviceContext& GetMetalDeviceContext()
 
 void SafeReleaseMetalObject(id Object)
 {
-	if(GIsRHIInitialized && GDynamicRHI)
+	if(GIsMetalInitialized && GDynamicRHI && Object)
 	{
 		FMetalRHICommandContext* Context = static_cast<FMetalRHICommandContext*>(RHIGetDefaultContext());
 		if(Context)
@@ -26,35 +26,34 @@ void SafeReleaseMetalObject(id Object)
 	[Object release];
 }
 
-void SafeReleaseMetalResource(id<MTLResource> Object)
+void SafeReleaseMetalTexture(FMetalTexture& Object)
 {
-	if(GIsRHIInitialized && GDynamicRHI)
+	if(GIsMetalInitialized && GDynamicRHI && Object)
 	{
 		FMetalRHICommandContext* Context = static_cast<FMetalRHICommandContext*>(RHIGetDefaultContext());
 		if(Context)
 		{
-			((FMetalDeviceContext&)Context->GetInternalContext()).ReleaseResource(Object);
+			((FMetalDeviceContext&)Context->GetInternalContext()).ReleaseTexture(Object);
 			return;
 		}
 	}
-	[Object release];
 }
 
-void SafeReleasePooledBuffer(id<MTLBuffer> Buffer)
+void SafeReleaseMetalBuffer(FMetalBuffer& Buffer)
 {
-	if(GIsRHIInitialized && GDynamicRHI)
+	if(GIsMetalInitialized && GDynamicRHI && Buffer)
 	{
 		FMetalRHICommandContext* Context = static_cast<FMetalRHICommandContext*>(RHIGetDefaultContext());
 		if(Context)
 		{
-			((FMetalDeviceContext&)Context->GetInternalContext()).ReleasePooledBuffer(Buffer);
+			((FMetalDeviceContext&)Context->GetInternalContext()).ReleaseBuffer(Buffer);
 		}
 	}
 }
 
 void SafeReleaseMetalFence(id Object)
 {
-	if(GIsRHIInitialized && GDynamicRHI && Object)
+	if(GIsMetalInitialized && GDynamicRHI && Object)
 	{
 		FMetalRHICommandContext* Context = static_cast<FMetalRHICommandContext*>(RHIGetDefaultContext());
 		if(Context)
@@ -68,9 +67,7 @@ void SafeReleaseMetalFence(id Object)
 FMetalRHICommandContext::FMetalRHICommandContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext)
 : Context(WrapContext)
 , Profiler(InProfiler)
-, PendingVertexBufferOffset(0xFFFFFFFF)
 , PendingVertexDataStride(0)
-, PendingIndexBufferOffset(0xFFFFFFFF)
 , PendingIndexDataStride(0)
 , PendingPrimitiveType(0)
 , PendingNumPrimitives(0)
@@ -136,5 +133,78 @@ void FMetalRHIComputeContext::RHISubmitCommandsHint()
 
 FMetalRHIImmediateCommandContext::FMetalRHIImmediateCommandContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext)
 	: FMetalRHICommandContext(InProfiler, WrapContext)
+{
+}
+
+void FMetalRHICommandContext::RHIBeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* InName)
+{
+	// Fallback...
+	InInfo.Validate();
+	
+	if (InInfo.bGeneratingMips)
+	{
+		FRHITexture* Textures[MaxSimultaneousRenderTargets];
+		FRHITexture** LastTexture = Textures;
+		for (int32 Index = 0; Index < MaxSimultaneousRenderTargets; ++Index)
+		{
+			if (!InInfo.ColorRenderTargets[Index].RenderTarget)
+			{
+				break;
+			}
+			
+			*LastTexture = InInfo.ColorRenderTargets[Index].RenderTarget;
+			++LastTexture;
+		}
+		
+		//Use RWBarrier since we don't transition individual subresources.  Basically treat the whole texture as R/W as we walk down the mip chain.
+		int32 NumTextures = (int32)(LastTexture - Textures);
+		if (NumTextures)
+		{
+			IRHICommandContext::RHITransitionResources(EResourceTransitionAccess::ERWSubResBarrier, Textures, NumTextures);
+		}
+	}
+	
+	FRHISetRenderTargetsInfo RTInfo;
+	InInfo.ConvertToRenderTargetsInfo(RTInfo);
+	RHISetRenderTargetsAndClear(RTInfo);
+	
+	RenderPassInfo = InInfo;
+	if (InInfo.bOcclusionQueries)
+	{
+		RHIBeginOcclusionQueryBatch(InInfo.NumOcclusionQueries);
+	}
+}
+
+void FMetalRHICommandContext::RHIEndRenderPass()
+{
+	if (RenderPassInfo.bOcclusionQueries)
+	{
+		RHIEndOcclusionQueryBatch();
+	}
+	
+	for (int32 Index = 0; Index < MaxSimultaneousRenderTargets; ++Index)
+	{
+		if (!RenderPassInfo.ColorRenderTargets[Index].RenderTarget)
+		{
+			break;
+		}
+		if (RenderPassInfo.ColorRenderTargets[Index].ResolveTarget)
+		{
+			RHICopyToResolveTarget(RenderPassInfo.ColorRenderTargets[Index].RenderTarget, RenderPassInfo.ColorRenderTargets[Index].ResolveTarget, RenderPassInfo.ResolveParameters);
+		}
+	}
+	
+	if (RenderPassInfo.DepthStencilRenderTarget.DepthStencilTarget && RenderPassInfo.DepthStencilRenderTarget.ResolveTarget)
+	{
+		RHICopyToResolveTarget(RenderPassInfo.DepthStencilRenderTarget.DepthStencilTarget, RenderPassInfo.DepthStencilRenderTarget.ResolveTarget, RenderPassInfo.ResolveParameters);
+	}
+}
+
+void FMetalRHICommandContext::RHIBeginComputePass(const TCHAR* InName)
+{
+	RHISetRenderTargets(0, nullptr, nullptr, 0, nullptr);
+}
+
+void FMetalRHICommandContext::RHIEndComputePass()
 {
 }

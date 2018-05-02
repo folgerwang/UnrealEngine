@@ -38,7 +38,7 @@ static void GrainRandomFromFrame(FVector* RESTRICT const Constant, uint32 FrameN
 }
 
 
-void FilmPostSetConstants(FVector4* RESTRICT const Constants, const uint32 TonemapperType16, const FPostProcessSettings* RESTRICT const FinalPostProcessSettings, bool bMobile);
+void FilmPostSetConstants(FVector4* RESTRICT const Constants, const FPostProcessSettings* RESTRICT const FinalPostProcessSettings, bool bMobile, bool UseColorMatrix, bool UseShadowTint, bool UseContrast);
 
 // derives from TRenderingCompositePassBase<InputCount, OutputCount>
 // ePId_Input0: SceneColor
@@ -64,14 +64,8 @@ public:
 private:
 	bool bDoEyeAdaptation;
 	bool bHDROutput;
-	uint32 ConfigIndexPC;
 
 	const FViewInfo& View;
-
-	void SetShader(const FRenderingCompositePassContext& Context);
-
-	template <typename TRHICmdList>
-	void DispatchCS(TRHICmdList& RHICmdList, FRenderingCompositePassContext& Context, const FIntRect& DestRect, FUnorderedAccessViewRHIParamRef DestUAV, FTextureRHIParamRef EyeAdaptationTex);
 
 	FComputeFenceRHIRef AsyncEndFence;
 };
@@ -100,10 +94,6 @@ private:
 
 	bool bUsedFramebufferFetch;
 	bool bSRGBAwareTarget;
-	// set in constructor
-	uint32 ConfigIndexMobile;
-
-	void SetShader(const FRenderingCompositePassContext& Context);
 };
 
 
@@ -146,6 +136,19 @@ public:
 		OutEnvironment.SetDefine(TEXT("EYEADAPTATION_EXPOSURE_FIX"), (uint32)bUseAutoExposure);
 	}
 
+	void TransitionResources(const FRenderingCompositePassContext& Context)
+	{
+		if (Context.View.HasValidEyeAdaptation())
+		{
+			IPooledRenderTarget* EyeAdaptationRT = Context.View.GetEyeAdaptation(Context.RHICmdList);
+			FTextureRHIParamRef EyeAdaptationRTRef = EyeAdaptationRT->GetRenderTargetItem().TargetableTexture;
+			if (EyeAdaptationRTRef)
+			{
+				Context.RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, &EyeAdaptationRTRef, 1);
+			}
+		}
+	}
+
 	void SetVS(const FRenderingCompositePassContext& Context)
 	{
 		const FVertexShaderRHIParamRef ShaderRHI = GetVertexShader();
@@ -173,7 +176,7 @@ public:
 			FTextureRHIParamRef EyeAdaptationRTRef = EyeAdaptationRT->GetRenderTargetItem().TargetableTexture;
 			if (EyeAdaptationRTRef)
 			{
-				Context.RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, &EyeAdaptationRTRef, 1);
+				//Context.RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, &EyeAdaptationRTRef, 1);
 			}
 			SetTextureParameter(Context.RHICmdList, ShaderRHI, EyeAdaptation, EyeAdaptationRT->GetRenderTargetItem().TargetableTexture);
 		}

@@ -556,6 +556,39 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
 	float ClothBlendWeight;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    float EdgeStiffness;
+    
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+	float BendingStiffness;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    float AreaStiffness;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    float VolumeStiffness;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    float StrainLimitingStiffness;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    float ShapeTargetStiffness;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    bool bUseBendingElements;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    bool bUseTetrahedralConstraints;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    bool bUseThinShellVolumeConstraints;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    bool bUseSelfCollisions;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    bool bUseContinuousCollisionDetection;
+
 	/**
 	* Used for per poly collision. In 99% of cases you will be better off using a Physics Asset.
 	* This BodySetup is per instance because all modification of vertices is done in place */

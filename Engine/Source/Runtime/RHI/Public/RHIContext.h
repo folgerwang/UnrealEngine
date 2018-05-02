@@ -22,6 +22,7 @@ class FRHIRenderTargetView;
 class FRHISetRenderTargetsInfo;
 struct FResolveParams;
 struct FViewportBounds;
+struct FRHIGPUMask;
 enum class EAsyncComputeBudget;
 enum class EResourceTransitionAccess;
 enum class EResourceTransitionPipeline;
@@ -126,6 +127,12 @@ public:
 	 * Signal to RHI that cached state is no longer valid
 	 */
 	virtual void RHIInvalidateCachedState() {};
+
+	/** Get a context that will only execute on given GPUs. */ 
+	virtual IRHIComputeContext* GetContextForNodeMask(const FRHIGPUMask& NodeMask) 
+	{ 
+		return this; 
+	}
 };
 
 // These states are now set by the Pipeline State Object and are now deprecated
@@ -144,6 +151,8 @@ public:
 
 	// Allows to set the blend state, parameter can be created with RHICreateBlendState()
 	virtual void RHISetBlendState(FBlendStateRHIParamRef NewState, const FLinearColor& BlendFactor) = 0;
+
+	virtual void RHIEnableDepthBoundsTest(bool bEnable) = 0;
 };
 
 /** The interface RHI command context. Sometimes the RHI handles these. On platforms that can processes command lists in parallel, it is a separate object. */
@@ -195,10 +204,9 @@ public:
 	* Resolves from one texture to another.
 	* @param SourceTexture - texture to resolve from, 0 is silenty ignored
 	* @param DestTexture - texture to resolve to, 0 is silenty ignored
-	* @param bKeepOriginalSurface - true if the original surface will still be used after this function so must remain valid
 	* @param ResolveParams - optional resolve params
 	*/
-	virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, bool bKeepOriginalSurface, const FResolveParams& ResolveParams) = 0;
+	virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, const FResolveParams& ResolveParams) = 0;
 
 	/**
 	* Explicitly transition a texture resource from readable -> writable by the GPU or vice versa.
@@ -216,7 +224,7 @@ public:
 			const FResolveParams ResolveParams;
 			for (int32 i = 0; i < NumTextures; ++i)
 			{
-				RHICopyToResolveTarget(InTextures[i], InTextures[i], true, ResolveParams);
+				RHICopyToResolveTarget(InTextures[i], InTextures[i], ResolveParams);
 			}
 		}
 	}
@@ -249,10 +257,6 @@ public:
 	virtual void RHIBeginRenderQuery(FRenderQueryRHIParamRef RenderQuery) = 0;
 
 	virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) = 0;
-
-	virtual void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch) = 0;
-
-	virtual void RHIEndOcclusionQueryBatch() = 0;
 
 	virtual void RHISubmitCommandsHint() = 0;
 
@@ -349,6 +353,10 @@ public:
 		RHISetDepthStencilState(FallbackGraphicsState->Initializer.DepthStencilState, 0);
 		RHISetRasterizerState(FallbackGraphicsState->Initializer.RasterizerState);
 		RHISetBlendState(FallbackGraphicsState->Initializer.BlendState, FLinearColor(1.0f, 1.0f, 1.0f));
+		if (GSupportsDepthBoundsTest)
+		{
+			RHIEnableDepthBoundsTest(FallbackGraphicsState->Initializer.bDepthBounds);
+		}
 	}
 
 	/** Set the shader resource view of a surface.  This is used for binding TextureMS parameter types that need a multi sampled view. */
@@ -529,13 +537,12 @@ public:
 	virtual void RHIEndDrawIndexedPrimitiveUP() = 0;
 
 	/**
-	* Enabled/Disables Depth Bounds Testing with the given min/max depth.
-	* @param bEnable	Enable(non-zero)/disable(zero) the depth bounds test
+	* Sets Depth Bounds range with the given min/max depth.
 	* @param MinDepth	The minimum depth for depth bounds test
 	* @param MaxDepth	The maximum depth for depth bounds test.
 	*					The valid values for fMinDepth and fMaxDepth are such that 0 <= fMinDepth <= fMaxDepth <= 1
 	*/
-	virtual void RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth) = 0;
+	virtual void RHISetDepthBounds(float MinDepth, float MaxDepth) = 0;
 
 	virtual void RHIPushEvent(const TCHAR* Name, FColor Color) = 0;
 
@@ -543,57 +550,99 @@ public:
 
 	virtual void RHIUpdateTextureReference(FTextureReferenceRHIParamRef TextureRef, FTextureRHIParamRef NewTexture) = 0;
 
-	virtual TRefCountPtr<FRHIRenderPass> RHIBeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* InName)
+	virtual void RHIBeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* InName)
 	{
 		// Fallback...
 		InInfo.Validate();
 
+		if (InInfo.bGeneratingMips)
+		{
+			FRHITexture* Textures[MaxSimultaneousRenderTargets];
+			FRHITexture** LastTexture = Textures;
+			for (int32 Index = 0; Index < MaxSimultaneousRenderTargets; ++Index)
+			{
+				if (!InInfo.ColorRenderTargets[Index].RenderTarget)
+				{
+					break;
+				}
+
+				*LastTexture = InInfo.ColorRenderTargets[Index].RenderTarget;
+				++LastTexture;
+			}
+
+			//Use RWBarrier since we don't transition individual subresources.  Basically treat the whole texture as R/W as we walk down the mip chain.
+			int32 NumTextures = (int32)(LastTexture - Textures);
+			if (NumTextures)
+			{
+				RHITransitionResources(EResourceTransitionAccess::ERWSubResBarrier, Textures, NumTextures);
+			}
+		}
+
 		FRHISetRenderTargetsInfo RTInfo;
 		InInfo.ConvertToRenderTargetsInfo(RTInfo);
-		FRHIRenderPassFallback* RenderPass = new FRHIRenderPassFallback(InInfo, InName);
 		RHISetRenderTargetsAndClear(RTInfo);
-		return RenderPass;
+
+		RenderPassInfo = InInfo;
 	}
 
-	virtual void RHIEndRenderPass(FRHIRenderPass* RenderPass)
+	virtual void RHIEndRenderPass()
 	{
-		FRHIRenderPassFallback* Fallback = (FRHIRenderPassFallback*)RenderPass;
-		Fallback->SetEnded();
+		for (int32 Index = 0; Index < MaxSimultaneousRenderTargets; ++Index)
+		{
+			if (!RenderPassInfo.ColorRenderTargets[Index].RenderTarget)
+			{
+				break;
+			}
+			if (RenderPassInfo.ColorRenderTargets[Index].ResolveTarget)
+			{
+				RHICopyToResolveTarget(RenderPassInfo.ColorRenderTargets[Index].RenderTarget, RenderPassInfo.ColorRenderTargets[Index].ResolveTarget, RenderPassInfo.ResolveParameters);
+			}
+		}
+
+		if (RenderPassInfo.DepthStencilRenderTarget.DepthStencilTarget && RenderPassInfo.DepthStencilRenderTarget.ResolveTarget)
+		{
+			RHICopyToResolveTarget(RenderPassInfo.DepthStencilRenderTarget.DepthStencilTarget, RenderPassInfo.DepthStencilRenderTarget.ResolveTarget, RenderPassInfo.ResolveParameters);
+		}
 	}
 
-	virtual TRefCountPtr<FRHIParallelRenderPass> RHIBeginParallelRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* InName)
+	virtual void RHIBeginComputePass(const TCHAR* InName)
 	{
-		// Fallback...
-		InInfo.Validate();
-
-		FRHISetRenderTargetsInfo RTInfo;
-		InInfo.ConvertToRenderTargetsInfo(RTInfo);
-		RHISetRenderTargetsAndClear(RTInfo);
-		return new FRHIParallelRenderPassFallback(InInfo, InName);
+		RHISetRenderTargets(0, nullptr, nullptr, 0, nullptr);
 	}
 
-	virtual void RHIEndParallelRenderPass(FRHIParallelRenderPass* RenderPass)
+	virtual void RHIEndComputePass()
 	{
-		FRHIParallelRenderPassFallback* PassFallback = (FRHIParallelRenderPassFallback*)RenderPass;
-		PassFallback->SetEnded();
 	}
 
-	virtual TRefCountPtr<FRHIRenderSubPass> RHIBeginRenderSubPass(FRHIParallelRenderPass* RenderPass)
+	virtual void RHICopyTexture(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, const FRHICopyTextureInfo& CopyInfo)
 	{
-		FRHIParallelRenderPassFallback* Fallback = (FRHIParallelRenderPassFallback*)RenderPass;
-		return new FRHIRenderSubPassFallback(Fallback);
+		const bool bIsCube = SourceTexture->GetTextureCube() != nullptr;
+		const bool bAllCubeFaces = bIsCube && (CopyInfo.NumArraySlices % 6) == 0;
+		const int32 NumArraySlices = bAllCubeFaces ? CopyInfo.NumArraySlices / 6 : CopyInfo.NumArraySlices;
+		const int32 NumFaces = bAllCubeFaces ? 6 : 1;
+		for (int32 ArrayIndex = 0; ArrayIndex < NumArraySlices; ++ArrayIndex)
+		{
+			int32 SourceArrayIndex = CopyInfo.SourceArraySlice + ArrayIndex;
+			int32 DestArrayIndex = CopyInfo.DestArraySlice + ArrayIndex;
+			for (int32 FaceIndex = 0; FaceIndex < NumFaces; ++FaceIndex)
+			{
+				FResolveParams ResolveParams(FResolveRect(),
+					bIsCube ? (ECubeFace)FaceIndex : CubeFace_PosX,
+					CopyInfo.MipIndex,
+					SourceArrayIndex,
+					DestArrayIndex
+				);
+				RHICopyToResolveTarget(SourceTexture, DestTexture, ResolveParams);
+			}
+		}
 	}
 
-	virtual void RHIEndRenderSubPass(FRHIParallelRenderPass* RenderPass, FRHIRenderSubPass* RenderSubPass)
-	{
-		FRHIParallelRenderPassFallback* PassFallback = (FRHIParallelRenderPassFallback*)RenderPass;
-		FRHIRenderSubPassFallback* SubPassFallback = (FRHIRenderSubPassFallback*)RenderSubPass;
-		check(SubPassFallback->GetParent() == RenderPass);
-		SubPassFallback->SetEnded();
+	/** Get a context that will only execute on given GPUs. */ 
+	virtual IRHICommandContext* GetContextForNodeMask(const FRHIGPUMask& NodeMask) 
+	{ 
+		return this; 
 	}
 
-	virtual void RHICopyTexture(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, const FResolveParams& ResolveParams)
-	{
-		RHICopyToResolveTarget(SourceTexture, DestTexture, true, ResolveParams);
-	}
+	protected:
+		FRHIRenderPassInfo RenderPassInfo;
 };

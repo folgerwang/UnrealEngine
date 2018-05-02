@@ -1819,7 +1819,7 @@ void FScene::FindClosestReflectionCaptures(FVector Position, const FReflectionCa
 	}
 }
 
-void FScene::GetCaptureParameters(const FReflectionCaptureProxy* ReflectionProxy, FTextureRHIParamRef& ReflectionCubemapArray, int32& ArrayIndex, float& AverageBrightness) const
+void FScene::GetCaptureParameters(const FReflectionCaptureProxy* ReflectionProxy, int32& ArrayIndex, float& AverageBrightness) const
 {
 	ERHIFeatureLevel::Type LocalFeatureLevel = GetFeatureLevel();
 
@@ -1829,7 +1829,6 @@ void FScene::GetCaptureParameters(const FReflectionCaptureProxy* ReflectionProxy
 
 		if (FoundState)
 		{
-			ReflectionCubemapArray = ReflectionSceneData.CubemapArray.GetRenderTarget().ShaderResourceTexture;
 			ArrayIndex = FoundState->CaptureIndex;
 			AverageBrightness = FoundState->AverageBrightness;
 		}
@@ -2382,21 +2381,6 @@ void FScene::AddSpeedTreeWind(FVertexFactory* VertexFactory, const UStaticMesh* 
 					WindComputation->UniformBuffer.InitResource();
 					Scene->SpeedTreeWindComputationMap.Add(StaticMesh, WindComputation);
 				}
-			});
-	}
-}
-
-void FScene::RemoveSpeedTreeWind(class FVertexFactory* VertexFactory, const class UStaticMesh* StaticMesh)
-{
-	if (StaticMesh != NULL && StaticMesh->SpeedTreeWind.IsValid() && StaticMesh->RenderData.IsValid())
-	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			FRemoveSpeedTreeWindCommand,
-			FScene*,Scene,this,
-			const UStaticMesh*, StaticMesh, StaticMesh,
-			FVertexFactory*,VertexFactory,VertexFactory,
-			{
-				Scene->RemoveSpeedTreeWind_RenderThread(VertexFactory, StaticMesh);
 			});
 	}
 }
@@ -3212,7 +3196,6 @@ public:
 	virtual void GetWindParameters_GameThread(const FVector& Position, FVector& OutDirection, float& OutSpeed, float& OutMinGustAmt, float& OutMaxGustAmt) const override { OutDirection = FVector(1.0f, 0.0f, 0.0f); OutSpeed = 0.0f; OutMinGustAmt = 0.0f; OutMaxGustAmt = 0.0f; }
 	virtual void GetDirectionalWindParameters(FVector& OutDirection, float& OutSpeed, float& OutMinGustAmt, float& OutMaxGustAmt) const override { OutDirection = FVector(1.0f, 0.0f, 0.0f); OutSpeed = 0.0f; OutMinGustAmt = 0.0f; OutMaxGustAmt = 0.0f; }
 	virtual void AddSpeedTreeWind(class FVertexFactory* VertexFactory, const class UStaticMesh* StaticMesh) override {}
-	virtual void RemoveSpeedTreeWind(class FVertexFactory* VertexFactory, const class UStaticMesh* StaticMesh) override {}
 	virtual void RemoveSpeedTreeWind_RenderThread(class FVertexFactory* VertexFactory, const class UStaticMesh* StaticMesh) override {}
 	virtual void UpdateSpeedTreeWind(double CurrentTime) override {}
 	virtual FUniformBufferRHIParamRef GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) override { return FUniformBufferRHIParamRef(); }

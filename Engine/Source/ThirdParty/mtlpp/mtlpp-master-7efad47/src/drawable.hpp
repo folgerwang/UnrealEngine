@@ -17,13 +17,13 @@ MTLPP_BEGIN
 namespace mtlpp
 {
 	class Drawable;
-	typedef std::function<void(const Drawable&)> PresentHandler;
+	MTLPP_CLOSURE(PresentHandler, void, const Drawable&);
 	
     class Drawable : public ns::Object<ns::Protocol<id<MTLDrawable>>::type>
     {
     public:
         Drawable() { }
-        Drawable(ns::Protocol<id<MTLDrawable>>::type handle, ITable* table = nullptr) : ns::Object<ns::Protocol<id<MTLDrawable>>::type>(handle, true, table) { }
+        Drawable(ns::Protocol<id<MTLDrawable>>::type handle, ITable* table = nullptr) : ns::Object<ns::Protocol<id<MTLDrawable>>::type>(handle, ns::Ownership::Retain, table) { }
 
         double   GetPresentedTime() const MTLPP_AVAILABLE_AX(10_3);
         uint64_t GetDrawableID() const MTLPP_AVAILABLE_AX(10_3);

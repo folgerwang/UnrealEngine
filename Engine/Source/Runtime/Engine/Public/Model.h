@@ -273,8 +273,8 @@ enum EPolyFlags
 struct FModelVertex
 {
 	FVector Position;
-	FPackedNormal TangentX;
-	FPackedNormal TangentZ;
+	FVector TangentX;
+	FVector4 TangentZ;
 	FVector2D TexCoord;
 	FVector2D ShadowTexCoord;
 
@@ -283,7 +283,7 @@ struct FModelVertex
 		FVector TanX = TangentX;
 		FVector TanZ = TangentZ;
 
-		return (TanZ ^ TanX) * ((float)TangentZ.Vector.W / 127.5f - 1.0f);
+		return (TanZ ^ TanX) * TangentZ.W;
 	};
 	/**
 	* Serializer
@@ -293,6 +293,29 @@ struct FModelVertex
 	* @return archive that was used
 	*/
 	friend FArchive& operator<<(FArchive& Ar,FModelVertex& V);
+};
+
+
+struct FDepecatedModelVertex
+{
+	FVector Position;
+	FDeprecatedSerializedPackedNormal TangentX;
+	FDeprecatedSerializedPackedNormal TangentZ;
+	FVector2D TexCoord;
+	FVector2D ShadowTexCoord;
+
+	operator FModelVertex() const
+	{
+		FModelVertex Ret;
+		Ret.Position = Position;
+		Ret.TangentX = TangentX;
+		Ret.TangentZ = TangentZ;
+		Ret.TexCoord = TexCoord;
+		Ret.ShadowTexCoord = ShadowTexCoord;
+		return Ret;
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FDepecatedModelVertex& V);
 };
 
 /**

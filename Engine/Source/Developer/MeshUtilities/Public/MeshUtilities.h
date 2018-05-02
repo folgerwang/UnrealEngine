@@ -44,7 +44,8 @@ enum class ELightmapUVVersion : int32
 	Segments = 1,
 	SmallChartPacking = 2,
 	ScaleChartsOrderingFix = 3,
-	Latest = ScaleChartsOrderingFix
+	ChartJoiningLFix = 4,
+	Latest = ChartJoiningLFix
 };
 
 /**

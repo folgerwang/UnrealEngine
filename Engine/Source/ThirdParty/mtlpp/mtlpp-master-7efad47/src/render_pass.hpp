@@ -9,15 +9,47 @@
 
 
 #include "declare.hpp"
+#include "imp_RenderPass.hpp"
 #include "ns.hpp"
 
 MTLPP_BEGIN
+
+namespace ue4
+{
+	template<>
+	inline ITable<MTLRenderPassColorAttachmentDescriptor*, void>* CreateIMPTable(MTLRenderPassColorAttachmentDescriptor* handle)
+	{
+		static ITable<MTLRenderPassColorAttachmentDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	
+	template<>
+	inline ITable<MTLRenderPassDepthAttachmentDescriptor*, void>* CreateIMPTable(MTLRenderPassDepthAttachmentDescriptor* handle)
+	{
+		static ITable<MTLRenderPassDepthAttachmentDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	
+	template<>
+	inline ITable<MTLRenderPassStencilAttachmentDescriptor*, void>* CreateIMPTable(MTLRenderPassStencilAttachmentDescriptor* handle)
+	{
+		static ITable<MTLRenderPassStencilAttachmentDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	
+	template<>
+	inline ITable<MTLRenderPassDescriptor*, void>* CreateIMPTable(MTLRenderPassDescriptor* handle)
+	{
+		static ITable<MTLRenderPassDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+}
 
 namespace mtlpp
 {
     class Texture;
     class Buffer;
-	class SamplePosition;
+	struct SamplePosition;
 
     enum class LoadAction
     {
@@ -70,40 +102,41 @@ namespace mtlpp
     class RenderPassAttachmentDescriptor : public ns::Object<T>
     {
     public:
-        RenderPassAttachmentDescriptor();
-        RenderPassAttachmentDescriptor(T handle) : ns::Object<T>(handle) { }
+        inline RenderPassAttachmentDescriptor();
+        inline RenderPassAttachmentDescriptor(T handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<T>(handle, retain) { }
 
-        Texture     GetTexture() const;
-        NSUInteger    GetLevel() const;
-        NSUInteger    GetSlice() const;
-        NSUInteger    GetDepthPlane() const;
-        Texture     GetResolveTexture() const;
-        NSUInteger    GetResolveLevel() const;
-        NSUInteger    GetResolveSlice() const;
-        NSUInteger    GetResolveDepthPlane() const;
-        LoadAction  GetLoadAction() const;
-        StoreAction GetStoreAction() const;
-		StoreActionOptions GetStoreActionOptions() const MTLPP_AVAILABLE(10_13, 11_0);
+		inline ns::AutoReleased<Texture>     GetTexture() const;
+        inline NSUInteger    GetLevel() const;
+        inline NSUInteger    GetSlice() const;
+        inline NSUInteger    GetDepthPlane() const;
+        inline ns::AutoReleased<Texture>     GetResolveTexture() const;
+        inline NSUInteger    GetResolveLevel() const;
+        inline NSUInteger    GetResolveSlice() const;
+        inline NSUInteger    GetResolveDepthPlane() const;
+        inline LoadAction  GetLoadAction() const;
+        inline StoreAction GetStoreAction() const;
+		inline StoreActionOptions GetStoreActionOptions() const MTLPP_AVAILABLE(10_13, 11_0);
 
-        void SetTexture(const Texture& texture);
-        void SetLevel(NSUInteger level);
-        void SetSlice(NSUInteger slice);
-        void SetDepthPlane(NSUInteger depthPlane);
-        void SetResolveTexture(const Texture& texture);
-        void SetResolveLevel(NSUInteger resolveLevel);
-        void SetResolveSlice(NSUInteger resolveSlice);
-        void SetResolveDepthPlane(NSUInteger resolveDepthPlane);
-        void SetLoadAction(LoadAction loadAction);
-        void SetStoreAction(StoreAction storeAction);
-		void SetStoreActionOptions(StoreActionOptions options) MTLPP_AVAILABLE(10_13, 11_0);
+        inline void SetTexture(const Texture& texture);
+        inline void SetLevel(NSUInteger level);
+        inline void SetSlice(NSUInteger slice);
+        inline void SetDepthPlane(NSUInteger depthPlane);
+        inline void SetResolveTexture(const Texture& texture);
+        inline void SetResolveLevel(NSUInteger resolveLevel);
+        inline void SetResolveSlice(NSUInteger resolveSlice);
+        inline void SetResolveDepthPlane(NSUInteger resolveDepthPlane);
+        inline void SetLoadAction(LoadAction loadAction);
+        inline void SetStoreAction(StoreAction storeAction);
+		inline void SetStoreActionOptions(StoreActionOptions options) MTLPP_AVAILABLE(10_13, 11_0);
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
     class RenderPassColorAttachmentDescriptor : public RenderPassAttachmentDescriptor<MTLRenderPassColorAttachmentDescriptor*>
     {
     public:
-        RenderPassColorAttachmentDescriptor();
-        RenderPassColorAttachmentDescriptor(MTLRenderPassColorAttachmentDescriptor* handle) : RenderPassAttachmentDescriptor<MTLRenderPassColorAttachmentDescriptor*>(handle) { }
+		RenderPassColorAttachmentDescriptor(ns::Ownership const retain);
+		RenderPassColorAttachmentDescriptor();
+        RenderPassColorAttachmentDescriptor(MTLRenderPassColorAttachmentDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : RenderPassAttachmentDescriptor<MTLRenderPassColorAttachmentDescriptor*>(handle, retain) { }
 
         ClearColor GetClearColor() const;
 
@@ -114,8 +147,9 @@ namespace mtlpp
     class RenderPassDepthAttachmentDescriptor : public RenderPassAttachmentDescriptor<MTLRenderPassDepthAttachmentDescriptor*>
     {
     public:
-        RenderPassDepthAttachmentDescriptor();
-        RenderPassDepthAttachmentDescriptor(MTLRenderPassDepthAttachmentDescriptor* handle) : RenderPassAttachmentDescriptor<MTLRenderPassDepthAttachmentDescriptor*>(handle) { }
+        RenderPassDepthAttachmentDescriptor(ns::Ownership const retain);
+		RenderPassDepthAttachmentDescriptor();
+        RenderPassDepthAttachmentDescriptor(MTLRenderPassDepthAttachmentDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : RenderPassAttachmentDescriptor<MTLRenderPassDepthAttachmentDescriptor*>(handle, retain) { }
 
         double                        GetClearDepth() const;
         MultisampleDepthResolveFilter GetDepthResolveFilter() const MTLPP_AVAILABLE_AX(9_0);
@@ -128,8 +162,9 @@ namespace mtlpp
     class RenderPassStencilAttachmentDescriptor : public RenderPassAttachmentDescriptor<MTLRenderPassStencilAttachmentDescriptor*>
     {
     public:
-        RenderPassStencilAttachmentDescriptor();
-        RenderPassStencilAttachmentDescriptor(MTLRenderPassStencilAttachmentDescriptor* handle) : RenderPassAttachmentDescriptor<MTLRenderPassStencilAttachmentDescriptor*>(handle) { }
+        RenderPassStencilAttachmentDescriptor(ns::Ownership const retain);
+		RenderPassStencilAttachmentDescriptor();
+        RenderPassStencilAttachmentDescriptor(MTLRenderPassStencilAttachmentDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : RenderPassAttachmentDescriptor<MTLRenderPassStencilAttachmentDescriptor*>(handle, retain) { }
 
         NSUInteger GetClearStencil() const;
 
@@ -141,12 +176,12 @@ namespace mtlpp
     {
     public:
         RenderPassDescriptor();
-        RenderPassDescriptor(MTLRenderPassDescriptor* handle) : ns::Object<MTLRenderPassDescriptor*>(handle) { }
+        RenderPassDescriptor(MTLRenderPassDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLRenderPassDescriptor*>(handle, retain) { }
 
-        ns::Array<RenderPassColorAttachmentDescriptor> GetColorAttachments() const;
-        RenderPassDepthAttachmentDescriptor   GetDepthAttachment() const;
-        RenderPassStencilAttachmentDescriptor GetStencilAttachment() const;
-        Buffer                                GetVisibilityResultBuffer() const;
+        ns::AutoReleased<ns::Array<RenderPassColorAttachmentDescriptor>> GetColorAttachments() const;
+        ns::AutoReleased<RenderPassDepthAttachmentDescriptor>   GetDepthAttachment() const;
+        ns::AutoReleased<RenderPassStencilAttachmentDescriptor> GetStencilAttachment() const;
+        ns::AutoReleased<Buffer>                                GetVisibilityResultBuffer() const;
         NSUInteger                              GetRenderTargetArrayLength() const MTLPP_AVAILABLE_MAC(10_11);
 
         void SetDepthAttachment(const RenderPassDepthAttachmentDescriptor& depthAttachment);
@@ -171,9 +206,11 @@ namespace mtlpp
 		void SetRenderTargetHeight(NSUInteger Val) MTLPP_AVAILABLE_IOS(11_0);
 		
 		void SetSamplePositions(SamplePosition const* positions, NSUInteger count) MTLPP_AVAILABLE(10_13, 11_0);
-		NSUInteger GetSamplePositions(SamplePosition const* positions, NSUInteger count) MTLPP_AVAILABLE(10_13, 11_0);
+		NSUInteger GetSamplePositions(SamplePosition* positions, NSUInteger count) MTLPP_AVAILABLE(10_13, 11_0);
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 }
+
+#include "render_pass.inl"
 
 MTLPP_END

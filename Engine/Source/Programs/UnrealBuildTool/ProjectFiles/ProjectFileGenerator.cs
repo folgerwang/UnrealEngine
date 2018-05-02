@@ -240,6 +240,11 @@ namespace UnrealBuildTool
 		protected bool bIncludeEngineSource = true;
 
 		/// <summary>
+		/// Whether to include enterprise source in the generated solution
+		/// </summary>
+		protected bool bIncludeEnterpriseSource = true;
+
+		/// <summary>
 		/// True if shader source files should be included in the generated projects
 		/// </summary>
 		protected bool bIncludeShaderSource = true;
@@ -1117,6 +1122,16 @@ namespace UnrealBuildTool
 			{
 				// At least one extra argument was specified, but we weren't expected it.  Ignored.
 			}
+
+			// If we're generating a solution for only one project, only include the enterprise folder if it's an enterprise project
+			if(OnlyGameProject == null)
+			{
+				bIncludeEnterpriseSource = bIncludeEngineSource;
+			}
+			else
+			{
+				bIncludeEnterpriseSource = bIncludeEngineSource && ProjectDescriptor.FromFile(OnlyGameProject).IsEnterpriseProject;
+			}
 		}
 
 
@@ -1842,6 +1857,12 @@ namespace UnrealBuildTool
 					WantProjectFileForModule = false;
 				}
 
+				if( CurModuleFile.IsUnderDirectory(UnrealBuildTool.EnterpriseDirectory) && !bIncludeEnterpriseSource )
+				{
+					// We were asked to exclude enterprise modules from the generated projects
+					WantProjectFileForModule = false;
+				}
+
 				if( WantProjectFileForModule )
 				{
 					DirectoryReference BaseFolder;
@@ -2033,11 +2054,11 @@ namespace UnrealBuildTool
 
 					if(TargetFilePath.IsUnderDirectory(EnterpriseSourceProgramsDirectory))
 					{
-						WantProjectFileForTarget = IncludeEnginePrograms;
+						WantProjectFileForTarget = bIncludeEnterpriseSource && IncludeEnginePrograms;
 					}
-					else if(TargetFilePath.IsUnderDirectory(UnrealBuildTool.EnterpriseSourceDirectory))
+					else
 					{
-						WantProjectFileForTarget = bIncludeEngineSource;
+						WantProjectFileForTarget = bIncludeEnterpriseSource;
 					}
 				}
 

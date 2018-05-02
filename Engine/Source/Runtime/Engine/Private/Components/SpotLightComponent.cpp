@@ -160,9 +160,7 @@ public:
 
 	virtual FSphere GetBoundingSphere() const override
 	{
-		// Use the law of cosines to find the distance to the furthest edge of the spotlight cone from a position that is halfway down the spotlight direction
-		const float BoundsRadius = FMath::Sqrt(1.25f * Radius * Radius - Radius * Radius * CosOuterCone);
-		return FSphere(GetOrigin() + .5f * GetDirection() * Radius, BoundsRadius);
+		return FMath::ComputeBoundingSphereForCone(GetOrigin(), GetDirection(), Radius, CosOuterCone, SinOuterCone);
 	}
 
 	virtual float GetEffectiveScreenRadius(const FViewMatrices& ShadowViewMatrices) const override
@@ -203,11 +201,16 @@ USpotLightComponent::USpotLightComponent(const FObjectInitializer& ObjectInitial
 	OuterConeAngle = 44.0f;
 }
 
+float USpotLightComponent::GetHalfConeAngle() const
+{
+	const float ClampedInnerConeAngle = FMath::Clamp(InnerConeAngle, 0.0f, 89.0f) * (float)PI / 180.0f;
+	const float ClampedOuterConeAngle = FMath::Clamp(OuterConeAngle * (float)PI / 180.0f, ClampedInnerConeAngle + 0.001f, 89.0f * (float)PI / 180.0f + 0.001f);
+	return ClampedOuterConeAngle;
+}
+
 float USpotLightComponent::GetCosHalfConeAngle() const
 {
-	const float ClampedInnerConeAngle = FMath::Clamp(InnerConeAngle,0.0f,89.0f) * (float)PI / 180.0f;
-	const float ClampedOuterConeAngle = FMath::Clamp(OuterConeAngle * (float)PI / 180.0f, ClampedInnerConeAngle + 0.001f,89.0f * (float)PI / 180.0f + 0.001f);
-	return FMath::Cos(ClampedOuterConeAngle);
+	return FMath::Cos(GetHalfConeAngle());
 }
 
 void USpotLightComponent::SetInnerConeAngle(float NewInnerConeAngle)
@@ -269,9 +272,10 @@ FLightSceneProxy* USpotLightComponent::CreateSceneProxy() const
 
 FSphere USpotLightComponent::GetBoundingSphere() const
 {
-	// Use the law of cosines to find the distance to the furthest edge of the spotlight cone from a position that is halfway down the spotlight direction
-	const float BoundsRadius = FMath::Sqrt(1.25f * AttenuationRadius * AttenuationRadius - AttenuationRadius * AttenuationRadius * GetCosHalfConeAngle());
-	return FSphere(GetComponentTransform().GetLocation() + .5f * GetDirection() * AttenuationRadius, BoundsRadius);
+	float ConeAngle = GetHalfConeAngle();
+	float CosConeAngle = FMath::Cos(ConeAngle);
+	float SinConeAngle = FMath::Sin(ConeAngle);
+	return FMath::ComputeBoundingSphereForCone(GetComponentTransform().GetLocation(), GetDirection(), AttenuationRadius, CosConeAngle, SinConeAngle);
 }
 
 bool USpotLightComponent::AffectsBounds(const FBoxSphereBounds& InBounds) const

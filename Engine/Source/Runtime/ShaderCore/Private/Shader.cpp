@@ -614,11 +614,6 @@ void FShaderResource::GetAllShaderResourceId(TArray<FShaderResourceId>& Ids)
 	ShaderResourceIdMap.GetKeys(Ids);
 }
 
-void FShaderResource::FinishCleanup()
-{
-	delete this;
-}
-
 bool FShaderResource::ArePlatformsCompatible(EShaderPlatform CurrentPlatform, EShaderPlatform TargetPlatform)
 {
 	bool bFeatureLevelCompatible = CurrentPlatform == TargetPlatform;
@@ -1152,13 +1147,6 @@ void FShader::SetResource(FShaderResource* InResource)
 	check(InResource && InResource->Target == Target);
 	Resource = InResource;
 }
-
-
-void FShader::FinishCleanup()
-{
-	delete this;
-}
-
 
 bool FShaderPipelineType::bInitialized = false;
 
@@ -1957,7 +1945,7 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 			KeyString += (CVar && CVar->GetInt() != 0) ? TEXT("_BoundsChecking") : TEXT("");
 		}
 		{
-			KeyString += (!IsMobilePlatform(Platform) && (RHIGetShaderLanguageVersion(Platform) >= 2)) ? TEXT("_MVFetch") : TEXT("");
+			KeyString += RHISupportsManualVertexFetch(Platform) ? TEXT("_MVF_") : TEXT("");
 		}
 		
 		uint32 ShaderVersion = RHIGetShaderLanguageVersion(Platform);
@@ -2022,9 +2010,9 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 			}
 			else
 			{
-			KeyString += TEXT("_SA");
+				KeyString += TEXT("_SA");
+			}
 		}
-	}
 	}
 
 	{

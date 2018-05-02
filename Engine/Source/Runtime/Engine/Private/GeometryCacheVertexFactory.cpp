@@ -57,10 +57,6 @@ public:
 
 		FVertexShaderRHIParamRef VS = Shader->GetVertexShader();
 
-		// UserIndex and UserData are living on the same memory in a union. But only the UserIndex is initialized by the  FMeshBatchElement
-		// constructor. So we can't really check if VertexFactoryUserData is initialized (as the high 4 bytes are unitialized on 64 bit)
-		// so we check UserIndex instead.
-		check(BatchElement.UserIndex != -1);
 		FGeometryCacheVertexFactoryUserData* BatchData = (FGeometryCacheVertexFactoryUserData*)BatchElement.VertexFactoryUserData;
 
 		// Check the passed in vertex buffers make sense

@@ -15,6 +15,15 @@ struct FMeshBatchElement;
 	LocalVertexFactory.h: Local vertex factory definitions.
 =============================================================================*/
 
+BEGIN_UNIFORM_BUFFER_STRUCT(FLocalVertexFactoryUniformShaderParameters,ENGINE_API)
+	UNIFORM_MEMBER(FIntVector,VertexFetch_Parameters)
+	UNIFORM_MEMBER_SRV(Buffer<float2>, VertexFetch_TexCoordBuffer)
+	UNIFORM_MEMBER_SRV(Buffer<float4>, VertexFetch_PackedTangentsBuffer)
+	UNIFORM_MEMBER_SRV(Buffer<float4>, VertexFetch_ColorComponentsBuffer)
+END_UNIFORM_BUFFER_STRUCT(FLocalVertexFactoryUniformShaderParameters)
+
+extern TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateLocalVFUniformBuffer(const class FLocalVertexFactory* VertexFactory, class FColorVertexBuffer* OverrideColorVertexBuffer);
+
 /**
  * A vertex factory which simply transforms explicit vertex attributes from local to world space.
  */
@@ -65,7 +74,11 @@ public:
 
 	// FRenderResource interface.
 	virtual void InitRHI() override;
-
+	virtual void ReleaseRHI()
+	{
+		UniformBuffer.SafeRelease();
+		FVertexFactory::ReleaseRHI();
+	}
 
 	static bool SupportsTessellationShaders() { return true; }
 
@@ -113,11 +126,17 @@ public:
 		return StaticMeshDataType->NumTexCoords;
 	}
 
+	FUniformBufferRHIParamRef GetUniformBuffer() const
+	{
+		return UniformBuffer.GetReference();
+	}
+
 protected:
 	const FDataType& GetData() const { return Data; }
 
 	FDataType Data;
 	const FStaticMeshDataType* StaticMeshDataType;
+	TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> UniformBuffer;
 
 	int32 ColorStreamIndex;
 
@@ -152,13 +171,6 @@ public:
 
 	// SpeedTree LOD parameter
 	FShaderParameter LODParameter;
-
-	//Parameters to manually load TexCoords
-	FShaderParameter VertexFetch_VertexFetchParameters;
-	FShaderResourceParameter VertexFetch_PositionBufferParameter;
-	FShaderResourceParameter VertexFetch_TexCoordBufferParameter;
-	FShaderResourceParameter VertexFetch_PackedTangentsBufferParameter;
-	FShaderResourceParameter VertexFetch_ColorComponentsBufferParameter;
 
 	// True if LODParameter is bound, which puts us on the slow path in SetMesh
 	bool bAnySpeedTreeParamIsBound;

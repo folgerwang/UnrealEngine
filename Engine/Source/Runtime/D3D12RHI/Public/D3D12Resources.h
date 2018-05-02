@@ -66,7 +66,7 @@ private:
 class FD3D12Heap : public FD3D12RefCount, public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject
 {
 public:
-	FD3D12Heap(FD3D12Device* Parent, GPUNodeMask VisibleNodes);
+	FD3D12Heap(FD3D12Device* Parent, FRHIGPUMask VisibleNodes);
 	~FD3D12Heap();
 
 	inline ID3D12Heap* GetHeap() { return Heap.GetReference(); }
@@ -115,7 +115,7 @@ private:
 
 public:
 	explicit FD3D12Resource(FD3D12Device* ParentDevice,
-		GPUNodeMask VisibleNodes,
+		FRHIGPUMask VisibleNodes,
 		ID3D12Resource* InResource,
 		D3D12_RESOURCE_STATES InitialState,
 		D3D12_RESOURCE_DESC const& InDesc,
@@ -376,6 +376,7 @@ public:
 		eSubAllocation,
 		eFastAllocation,
 		eAliased, // Oculus is the only API that uses this
+		eNodeReference,
 		eHeapAliased, 
 	};
 
@@ -457,6 +458,7 @@ public:
 	// resource. We should avoid this as much as possible as it requires expensive reference counting and
 	// it complicates the resource ownership model.
 	static void Alias(FD3D12ResourceLocation& Destination, FD3D12ResourceLocation& Source);
+	static void ReferenceNode(FD3D12Device* NodeDevice, FD3D12ResourceLocation& Destination, FD3D12ResourceLocation& Source);
 
 	void SetTransient(bool bInTransient)
 	{
@@ -646,7 +648,8 @@ public:
 
 	virtual ~FD3D12IndexBuffer();
 
-	void Rename(FD3D12ResourceLocation& NewResource);
+	void Rename(FD3D12ResourceLocation& NewLocation);
+	void RenameLDAChain(FD3D12ResourceLocation& NewLocation);
 
 	// IRefCountedObject interface.
 	virtual uint32 AddRef() const
@@ -677,7 +680,8 @@ public:
 	{
 	}
 
-	void Rename(FD3D12ResourceLocation& NewResource);
+	void Rename(FD3D12ResourceLocation& NewLocation);
+	void RenameLDAChain(FD3D12ResourceLocation& NewLocation);
 
 	virtual ~FD3D12StructuredBuffer();
 
@@ -718,7 +722,8 @@ public:
 
 	virtual ~FD3D12VertexBuffer();
 
-	void Rename(FD3D12ResourceLocation& NewResource);
+	void Rename(FD3D12ResourceLocation& NewLocation);
+	void RenameLDAChain(FD3D12ResourceLocation& NewLocation);
 
 	void SetDynamicSRV(FD3D12ShaderResourceView* InSRV)
 	{

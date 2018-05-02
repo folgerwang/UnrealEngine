@@ -1546,8 +1546,8 @@ const TArray<FColor>& FViewport::GetRawHitProxyData(FIntRect InRect)
 			FHitProxyMap*, HitProxyMap, &HitProxyMap,
 			{
 			// Copy (resolve) the rendered thumbnail from the render target to its texture
-			RHICmdList.CopyToResolveTarget(HitProxyMap->GetRenderTargetTexture(), HitProxyMap->GetHitProxyTexture(), false, FResolveParams());
-			RHICmdList.CopyToResolveTarget(HitProxyMap->GetRenderTargetTexture(), HitProxyMap->GetHitProxyCPUTexture(), false, FResolveParams());
+			RHICmdList.CopyToResolveTarget(HitProxyMap->GetRenderTargetTexture(), HitProxyMap->GetHitProxyTexture(), FResolveParams());
+			RHICmdList.CopyToResolveTarget(HitProxyMap->GetRenderTargetTexture(), HitProxyMap->GetHitProxyCPUTexture(), FResolveParams());
 		});
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(

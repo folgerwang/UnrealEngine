@@ -30,11 +30,11 @@ static TAutoConsoleVariable<int32> CVarGraphicsAdapter(
 	TEXT("User request to pick a specific graphics adapter (e.g. when using a integrated graphics card with a descrete one)\n")
 	TEXT(" -2: Take the first one that fulfills the criteria\n")
 	TEXT(" -1: Favour non integrated because there are usually faster\n")
-	TEXT("  0: Adpater #0\n")
-	TEXT("  1: Adpater #1, ..."),
+	TEXT("  0: Adapter #0\n")
+	TEXT("  1: Adapter #1, ..."),
 	ECVF_RenderThreadSafe);
 
-int D3D12RHI_PreferAdaperVendor()
+static inline int D3D12RHI_PreferAdapterVendor()
 {
 	if (FParse::Param(FCommandLine::Get(), TEXT("preferAMD")))
 	{
@@ -120,7 +120,13 @@ static D3D_FEATURE_LEVEL GetAllowedD3DFeatureLevel()
 	// Default to feature level 11
 	D3D_FEATURE_LEVEL AllowedFeatureLevel = D3D_FEATURE_LEVEL_11_0;
 
-	// Use a feature level 10 if specified on the command line.
+	// Use a feature level 12 for multi GPU
+	if (FParse::Param(FCommandLine::Get(), TEXT("mGPU")) || FParse::Param(FCommandLine::Get(), TEXT("mGPU=")))
+	{
+		// AllowedFeatureLevel = D3D_FEATURE_LEVEL_12_0; // Not yet functional!
+	}
+
+	// Use a feature level 10 if specified on the command line.	
 	if (FParse::Param(FCommandLine::Get(), TEXT("d3d10")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("dx10")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("sm4")) ||
@@ -159,6 +165,9 @@ static bool SafeTestD3D12CreateDevice(IDXGIAdapter* Adapter, D3D_FEATURE_LEVEL M
 
 	D3D_FEATURE_LEVEL RequestedFeatureLevels[] =
 	{
+		D3D_FEATURE_LEVEL_12_1,
+		D3D_FEATURE_LEVEL_12_0,
+		D3D_FEATURE_LEVEL_11_1,
 		D3D_FEATURE_LEVEL_11_0,
 		D3D_FEATURE_LEVEL_10_0
 	};
@@ -277,6 +286,9 @@ namespace D3D12RHI
 		case D3D_FEATURE_LEVEL_10_0:	return TEXT("10_0");
 		case D3D_FEATURE_LEVEL_10_1:	return TEXT("10_1");
 		case D3D_FEATURE_LEVEL_11_0:	return TEXT("11_0");
+		case D3D_FEATURE_LEVEL_11_1:	return TEXT("11_1");
+		case D3D_FEATURE_LEVEL_12_0:	return TEXT("12_0");
+		case D3D_FEATURE_LEVEL_12_1:	return TEXT("12_1");
 		}
 		return TEXT("X_X");
 	}
@@ -335,7 +347,7 @@ void FD3D12DynamicRHIModule::FindAdapter()
 	bool bIsAnyNVIDIA = false;
 	bool bRequestedWARP = D3D12RHI_ShouldCreateWithWarp();
 
-	int PreferredVendor = D3D12RHI_PreferAdaperVendor();
+	int PreferredVendor = D3D12RHI_PreferAdapterVendor();
 	// Enumerate the DXGIFactory's adapters.
 	for (uint32 AdapterIndex = 0; DXGIFactory->EnumAdapters(AdapterIndex, TempAdapter.GetInitReference()) != DXGI_ERROR_NOT_FOUND; ++AdapterIndex)
 	{
@@ -353,10 +365,11 @@ void FD3D12DynamicRHIModule::FindAdapter()
 				uint32 OutputCount = CountAdapterOutputs(TempAdapter);
 
 				UE_LOG(LogD3D12RHI, Log,
-					TEXT("Found D3D12 adapter %u: %s (Feature Level %s)"),
+					TEXT("Found D3D12 adapter %u: %s (Feature Level %s, %d node[s])"),
 					AdapterIndex,
 					AdapterDesc.Description,
-					GetFeatureLevelString(ActualFeatureLevel)
+					GetFeatureLevelString(ActualFeatureLevel),
+					NumNodes
 					);
 				UE_LOG(LogD3D12RHI, Log,
 					TEXT("Adapter has %uMB of dedicated video memory, %uMB of dedicated system memory, and %uMB of shared system memory, %d output[s]"),
@@ -685,7 +698,7 @@ void FD3D12Device::Initialize()
 #if ENABLE_RESIDENCY_MANAGEMENT
 	IDXGIAdapter3* DxgiAdapter3 = nullptr;
 	VERIFYD3D12RESULT(GetParentAdapter()->GetAdapter()->QueryInterface(IID_PPV_ARGS(&DxgiAdapter3)));
-	D3DX12Residency::InitializeResidencyManager(ResidencyManager, GetDevice(), GetNodeIndex(), DxgiAdapter3, RESIDENCY_PIPELINE_DEPTH);
+	D3DX12Residency::InitializeResidencyManager(ResidencyManager, GetDevice(), GetGPUIndex(), DxgiAdapter3, RESIDENCY_PIPELINE_DEPTH);
 #endif // ENABLE_RESIDENCY_MANAGEMENT
 
 	SetupAfterDeviceCreation();
@@ -694,9 +707,9 @@ void FD3D12Device::Initialize()
 
 void FD3D12Device::InitPlatformSpecific()
 {
-	CommandListManager = new FD3D12CommandListManager(this, D3D12_COMMAND_LIST_TYPE_DIRECT);
-	CopyCommandListManager = new FD3D12CommandListManager(this, D3D12_COMMAND_LIST_TYPE_COPY);
-	AsyncCommandListManager = new FD3D12CommandListManager(this, D3D12_COMMAND_LIST_TYPE_COMPUTE);
+	CommandListManager = new FD3D12CommandListManager(this, D3D12_COMMAND_LIST_TYPE_DIRECT, ED3D12CommandQueueType::Default);
+	CopyCommandListManager = new FD3D12CommandListManager(this, D3D12_COMMAND_LIST_TYPE_COPY, ED3D12CommandQueueType::Copy);
+	AsyncCommandListManager = new FD3D12CommandListManager(this, D3D12_COMMAND_LIST_TYPE_COMPUTE, ED3D12CommandQueueType::Async);
 }
 
 void FD3D12Device::CreateSamplerInternal(const D3D12_SAMPLER_DESC& Desc, D3D12_CPU_DESCRIPTOR_HANDLE Descriptor)

@@ -695,30 +695,39 @@ namespace AutomationTool
 		}
 
 		/// <summary>
+		/// Returns true/false based on whether this is the only instance
+		/// running (checked at startup).
+		/// </summary>
+		public static bool IsSoleInstance { get; private set; }
+
+		/// <summary>
 		/// Runs the specified delegate checking if this is the only instance of the application.
 		/// </summary>
 		/// <param name="Main"></param>
 		/// <param name="Param"></param>
 		public static ExitCode RunSingleInstance(Func<ExitCode> Main)
 		{
-			if (Environment.GetEnvironmentVariable("uebp_UATMutexNoWait") == "1")
-			{
-				return Main();
-			}
+			bool AllowMultipleInsances = (Environment.GetEnvironmentVariable("uebp_UATMutexNoWait") == "1");
+	
 			var bCreatedMutex = false;
             var EntryAssemblyLocation = Assembly.GetEntryAssembly().GetOriginalLocation();
 			var LocationHash = EntryAssemblyLocation.GetHashCode();
             var MutexName = "Global/" + Path.GetFileNameWithoutExtension(EntryAssemblyLocation) + "_" + LocationHash.ToString() + "_Mutex";
 			using (Mutex SingleInstanceMutex = new Mutex(true, MutexName, out bCreatedMutex))
 			{
-				if (!bCreatedMutex)
-				{
-                    throw new AutomationException("A conflicting instance of AutomationTool is already running. Curent location: {0}. A process manager may be used to determine the conflicting process and what tool may have launched it", EntryAssemblyLocation);
+				IsSoleInstance = bCreatedMutex;
+
+				if (!IsSoleInstance && AllowMultipleInsances == false)
+				{ 
+					throw new AutomationException("A conflicting instance of AutomationTool is already running. Curent location: {0}. A process manager may be used to determine the conflicting process and what tool may have launched it", EntryAssemblyLocation);
 				}
 
 				ExitCode Result = Main();
 
-				SingleInstanceMutex.ReleaseMutex();
+				if (IsSoleInstance)
+				{
+					SingleInstanceMutex.ReleaseMutex();
+				}
 
 				return Result;
 			}

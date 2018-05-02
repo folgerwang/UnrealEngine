@@ -871,7 +871,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 					bool bQueriesOnLimit = true;
 					if (false && GOcclusionQueriesLimit > 0)
 					{
-						int32 NumQueries = View.GroupedOcclusionQueries.GetQueriesNum() + View.IndividualOcclusionQueries.GetQueriesNum();
+						int32 NumQueries = View.GroupedOcclusionQueries.GetNumBatchOcclusionQueries() + View.IndividualOcclusionQueries.GetNumBatchOcclusionQueries();
 						if (NumQueries >= GOcclusionQueriesLimit)
 						{
 							bQueriesOnLimit = false;
@@ -2939,9 +2939,8 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 			if (Proxy->GetLightType() == LightType_Point  
 				|| Proxy->GetLightType() == LightType_Spot)
 			{
-				const float Radius = Proxy->GetRadius();
-
-				if (View.ViewFrustum.IntersectSphere(Proxy->GetOrigin(), Radius))
+				FSphere const& BoundingSphere = Proxy->GetBoundingSphere();
+				if (View.ViewFrustum.IntersectSphere(BoundingSphere.Center, BoundingSphere.W))
 				{
 					if (View.IsPerspectiveProjection())
 					{
@@ -3020,7 +3019,7 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 					Proxy->GetParameters(LightParameters);
 
 					// Force to be at least 0.75 pixels
-					float CubemapSize = 128.0f;
+					float CubemapSize = (float)IConsoleManager::Get().FindTConsoleVariableDataInt( TEXT("r.ReflectionCaptureResolution") )->GetValueOnAnyThread();
 					float Distance = FMath::Sqrt( DistanceSqr );
 					float MinRadius = Distance * 0.75f / CubemapSize;
 					LightParameters.LightSourceRadius = FMath::Max( MinRadius, LightParameters.LightSourceRadius );
@@ -3134,7 +3133,20 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 		{
 			FViewInfo& View = Views[ViewIndex];
 
-			View.ForwardLightingResources = View.ViewState ? &View.ViewState->ForwardLightingResources : &View.ForwardLightingResourcesStorage;
+			if (View.ViewState)
+			{
+				if (!View.ViewState->ForwardLightingResources)
+				{
+					View.ViewState->ForwardLightingResources.Reset(new FForwardLightingViewResources());
+				}
+
+				View.ForwardLightingResources = View.ViewState->ForwardLightingResources.Get();
+			}
+			else
+			{
+				View.ForwardLightingResourcesStorage.Reset(new FForwardLightingViewResources());
+				View.ForwardLightingResources = View.ForwardLightingResourcesStorage.Get();
+			}
 
 			// Possible stencil dither optimization approach
 			View.bAllowStencilDither = bDitheredLODTransitionsUseStencil;

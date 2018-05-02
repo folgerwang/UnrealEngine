@@ -5,13 +5,13 @@
 #include "CoreMinimal.h"
 #include "Containers/UnrealString.h"
 #include "Containers/Map.h"
-#include "Interfaces/IHttpRequest.h"
+#include "GenericPlatform/HttpRequestImpl.h"
 #include "Interfaces/IHttpResponse.h"
 
 /**
 * HTML5 implementation of an Http request
 */
-class FHTML5HttpRequest : public IHttpRequest
+class FHTML5HttpRequest : public FHttpRequestImpl
 {
 public:
 	// implementation friends
@@ -36,8 +36,6 @@ public:
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override;
 	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override;
 	virtual bool ProcessRequest() override;
-	virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override;
-	virtual FHttpRequestProgressDelegate& OnRequestProgress() override;
 	virtual void CancelRequest() override;
 	virtual EHttpRequestStatus::Type GetStatus() const override;
 	virtual const FHttpResponsePtr GetResponse() const override;
@@ -97,12 +95,6 @@ private:
 
 	/** BYTE array payload to use with the request. Typically for a POST */
 	TArray<uint8> RequestPayload;
-
-	/** Delegate that will get called once request completes or on any error */
-	FHttpRequestCompleteDelegate RequestCompleteDelegate;
-
-	/** Delegate that will get called once per tick with bytes downloaded so far */
-	FHttpRequestProgressDelegate RequestProgressDelegate;
 
 	/** Current status of request being processed */
 	EHttpRequestStatus::Type CompletionStatus;

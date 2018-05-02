@@ -64,22 +64,22 @@ struct FNiagaraMeshInstanceVertexPrevTransform
 * Uniform buffer for mesh particle vertex factories.
 */
 BEGIN_UNIFORM_BUFFER_STRUCT(FNiagaraMeshUniformParameters, NIAGARAVERTEXFACTORIES_API)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FMatrix, LocalToWorld, EShaderPrecisionModifier::Half)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FMatrix, LocalToWorldInverseTransposed, EShaderPrecisionModifier::Half)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, SubImageSize)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32, TexCoordWeightA)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32, TexCoordWeightB)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32, PrevTransformAvailable)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, DeltaSeconds)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, PositionDataOffset)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, VelocityDataOffset)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, ColorDataOffset)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, TransformDataOffset)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, ScaleDataOffset)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, SizeDataOffset)
-DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, MaterialParamDataOffset)
-
+	UNIFORM_MEMBER_EX( FMatrix, LocalToWorld, EShaderPrecisionModifier::Half)
+	UNIFORM_MEMBER_EX( FMatrix, LocalToWorldInverseTransposed, EShaderPrecisionModifier::Half)
+	UNIFORM_MEMBER(FVector4, SubImageSize)
+	UNIFORM_MEMBER(uint32, TexCoordWeightA)
+	UNIFORM_MEMBER(uint32, TexCoordWeightB)
+	UNIFORM_MEMBER(uint32, PrevTransformAvailable)
+	UNIFORM_MEMBER(float, DeltaSeconds)
+	UNIFORM_MEMBER(int, PositionDataOffset)
+	UNIFORM_MEMBER(int, VelocityDataOffset)
+	UNIFORM_MEMBER(int, ColorDataOffset)
+	UNIFORM_MEMBER(int, TransformDataOffset)
+	UNIFORM_MEMBER(int, ScaleDataOffset)
+	UNIFORM_MEMBER(int, SizeDataOffset)
+	UNIFORM_MEMBER(int, MaterialParamDataOffset)
 END_UNIFORM_BUFFER_STRUCT(FNiagaraMeshUniformParameters)
+
 typedef TUniformBufferRef<FNiagaraMeshUniformParameters> FNiagaraMeshUniformBufferRef;
 
 class FNiagaraMeshInstanceVertices;

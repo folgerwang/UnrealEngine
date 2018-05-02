@@ -43,7 +43,7 @@ struct FMorphTargetDelta
 
 			if (Ar.IsLoading())
 			{
-				V.TangentZDelta = TangentZDelta_DEPRECATED;
+				V.TangentZDelta = TangentZDelta_DEPRECATED.ToFVector();
 			}
 		}
 		else

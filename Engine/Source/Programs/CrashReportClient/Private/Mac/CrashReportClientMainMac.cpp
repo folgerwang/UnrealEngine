@@ -3,6 +3,7 @@
 #include "CrashReportClientApp.h"
 #include "HAL/ExceptionHandling.h"
 #include "Mac/MacPlatformCrashContext.h"
+#include "Mac/MacPlatformProcess.h"
 #include "Mac/CocoaThread.h"
 #include "HAL/PlatformApplicationMisc.h"
 

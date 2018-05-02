@@ -398,6 +398,10 @@ struct FSceneRenderTargetItem
 		TargetableTexture.SafeRelease();
 		ShaderResourceTexture.SafeRelease();
 		UAV.SafeRelease();
+		for (int32 i = 0; i < MipUAVs.Num(); i++)
+		{
+			MipUAVs[i].SafeRelease();
+		}
 		for( int32 i = 0; i < MipSRVs.Num(); i++ )
 		{
 			MipSRVs[i].SafeRelease();
@@ -415,8 +419,11 @@ struct FSceneRenderTargetItem
 	FTextureRHIRef TargetableTexture;
 	/** The 2D or cubemap shader-resource 2D texture that the targetable textures may be resolved to. */
 	FTextureRHIRef ShaderResourceTexture;
-	/** only created if requested through the flag  */
+	/** only created if requested through the flag, same as MipUAVs[0] */
+	// TODO: refactor all the code to only use MipUAVs?
 	FUnorderedAccessViewRHIRef UAV;
+	/** only created if requested through the flag  */
+	TArray< FUnorderedAccessViewRHIRef, TInlineAllocator<1> > MipUAVs;
 	/** only created if requested through the flag  */
 	TArray< FShaderResourceViewRHIRef > MipSRVs;
 

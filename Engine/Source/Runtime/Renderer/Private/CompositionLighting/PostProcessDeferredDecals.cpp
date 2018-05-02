@@ -606,7 +606,7 @@ void FRCPassPostProcessDeferredDecals::DecodeRTWriteMask(FRenderingCompositePass
 
 	RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, SceneContext.DBufferMask->GetRenderTargetItem().UAV);
 	
-    FTextureRHIParamRef Textures[3] =
+	FTextureRHIParamRef Textures[3] =
 	{
 		SceneContext.DBufferA->GetRenderTargetItem().TargetableTexture,
 		SceneContext.DBufferB->GetRenderTargetItem().TargetableTexture,
@@ -642,7 +642,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 
 		// If we're rendering dbuffer decals but there are no decals in the scene, we avoid the 
 		// clears/decompresses and set the targets to NULL		
-		// The DBufferA-C will be replaced with dummy textures in FDeferredPixelShaderParameters
+		// The DBufferA-C will be replaced with dummy textures in FSceneTextureShaderParameters
 		if (ViewFamily.EngineShowFlags.Decals)
 		{
 			FScene& Scene = *(FScene*)ViewFamily.Scene;
@@ -780,7 +780,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 					// Here we assume that GBuffer can only be WorldNormal since it is the only GBufferTarget handled correctly.
 					if (RenderTargetManager.bGufferADirty && DecalData.MaterialResource->NeedsGBuffer())
 					{
-						RHICmdList.CopyToResolveTarget(SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture, SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture, true, FResolveParams());
+						RHICmdList.CopyToResolveTarget(SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture, SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture, FResolveParams());
 						RenderTargetManager.TargetsToResolve[FDecalRenderTargetManager::GBufferAIndex] = nullptr;
 						RenderTargetManager.bGufferADirty = false;
 					}
@@ -909,7 +909,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 	if (CurrentStage == DRS_BeforeBasePass && !bHasValidDBufferMask)
 	{
 		// Return the DBufferMask to the render target pool.
-		// FDeferredPixelShaderParameters will fall back to setting a white dummy mask texture.
+		// FSceneTextureShaderParameters will fall back to setting a white dummy mask texture.
 		// This allows us to ignore the DBufferMask on frames without decals, without having to explicitly clear the texture.
 		SceneContext.DBufferMask = nullptr;
 	}
@@ -949,7 +949,7 @@ void FDecalRenderTargetManager::ResolveTargets()
 	{
 		if (TargetsToResolve[i])
 		{
-			RHICmdList.CopyToResolveTarget(TargetsToResolve[i], TargetsToResolve[i], true, ResolveParams);
+			RHICmdList.CopyToResolveTarget(TargetsToResolve[i], TargetsToResolve[i], ResolveParams);
 		}
 	}
 }

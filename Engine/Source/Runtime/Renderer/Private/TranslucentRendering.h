@@ -14,7 +14,6 @@
 #include "SceneRendering.h"
 #include "VolumeRendering.h"
 
-
 bool UseNearestDepthNeighborUpsampleForSeparateTranslucency(const FSceneRenderTargets& SceneContext);
 
 /**
@@ -29,13 +28,11 @@ public:
 	{
 		const FProjectedShadowInfo* TranslucentSelfShadow;
 		ETranslucencyPass::Type TranslucencyPass;
-		ESceneRenderTargetsMode::Type TextureMode;
 		bool bPostAA;
 
-		ContextType(const FProjectedShadowInfo* InTranslucentSelfShadow, ETranslucencyPass::Type InTranslucencyPass, bool bPostAAIn = false, ESceneRenderTargetsMode::Type InTextureMode = ESceneRenderTargetsMode::SetTextures)
+		ContextType(const FProjectedShadowInfo* InTranslucentSelfShadow, ETranslucencyPass::Type InTranslucencyPass, bool bPostAAIn = false)
 			: TranslucentSelfShadow(InTranslucentSelfShadow)
 			, TranslucencyPass(InTranslucencyPass)
-			, TextureMode(InTextureMode)
 			, bPostAA(bPostAAIn)			
 		{}
 
@@ -74,10 +71,6 @@ public:
 		FHitProxyId HitProxyId
 		);
 
-	/**
-	* Resolves the scene color target and copies it for use as a source texture.
-	*/
-	static void CopySceneColor(FRHICommandList& RHICmdList, const FViewInfo& View);
 	static void UpsampleTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View, bool bOverwrite);
 
 private:
@@ -110,12 +103,10 @@ public:
 	enum { bAllowSimpleElements = true };
 	struct ContextType 
 	{
-		ESceneRenderTargetsMode::Type TextureMode;
 		ETranslucencyPass::Type TranslucencyPass;
 
-		ContextType(ESceneRenderTargetsMode::Type InTextureMode, ETranslucencyPass::Type InTranslucencyPass)
-		: TextureMode(InTextureMode)
-		, TranslucencyPass(InTranslucencyPass)
+		ContextType(ETranslucencyPass::Type InTranslucencyPass)
+		: TranslucencyPass(InTranslucencyPass)
 		{}
 	};
 

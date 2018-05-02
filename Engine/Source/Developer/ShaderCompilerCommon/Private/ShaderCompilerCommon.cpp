@@ -152,202 +152,364 @@ bool BuildResourceTableMapping(
 	return true;
 }
 
-// Specialized version of FString::ReplaceInline that checks that the search word is not inside a #line directive
-static void WholeWordReplaceInline(FString& String, TCHAR* StartPtr, const TCHAR* SearchText, const TCHAR* ReplacementText)
+const TCHAR* FindNextWhitespace(const TCHAR* StringPtr)
 {
-	if (String.Len() > 0
-		&&	SearchText != nullptr && *SearchText != 0
-		&&	ReplacementText != nullptr && FCString::Strcmp(SearchText, ReplacementText) != 0)
+	while (*StringPtr && !FChar::IsWhitespace(*StringPtr))
 	{
-		const int32 NumCharsToReplace = FCString::Strlen(SearchText);
-		const int32 NumCharsToInsert = FCString::Strlen(ReplacementText);
+		StringPtr++;
+	}
 
-		check(NumCharsToInsert == NumCharsToReplace);
-		check(*StartPtr);
-		TCHAR* Pos = FCString::Strstr(StartPtr, SearchText);
-		while (Pos != nullptr)
-		{
-			// Find a " character, indicating we might be inside a #line directive
-			TCHAR* FoundQuote = nullptr;
-			auto* ValidatePos = Pos;
-			do
-			{
-				--ValidatePos;
-				if (*ValidatePos == '\"')
-				{
-					FoundQuote = ValidatePos;
-					break;
-				}
-			}
-			while (ValidatePos >= StartPtr && *ValidatePos != '\n');
-
-			bool bReplace = true;
-			if (FoundQuote)
-			{
-				// Validate that we're indeed inside a #line directive by first finding the last \n character
-				TCHAR* FoundEOL = nullptr;
-				do 
-				{
-					--ValidatePos;
-					if (*ValidatePos == '\n')
-					{
-						FoundEOL = ValidatePos;
-						break;
-					}
-				}
-				while (ValidatePos > StartPtr);
-
-				// Finally make sure the directive is between the \n and the and the quote
-				if (FoundEOL)
-				{
-					auto* FoundInclude = FCString::Strstr(FoundEOL + 1, TEXT("#line"));
-					if (FoundInclude && FoundInclude < FoundQuote)
-					{
-						bReplace = false;
-					}
-				}
-			}
-			
-			// Make sure this is not part of an identifier
-			if (bReplace && Pos > StartPtr)
-			{
-				const auto Char = Pos[-1];
-				if ((Char >= 'a' && Char <= 'z') ||
-					(Char >= 'A' && Char <= 'Z') ||
-					(Char >= '0' && Char <= '9') ||
-					Char == '_')
-				{
-					bReplace = false;
-				}
-			}
-
-			if (bReplace)
-			{
-				// FCString::Strcpy inserts a terminating zero so can't use that
-				for (int32 i = 0; i < NumCharsToInsert; i++)
-				{
-					Pos[i] = ReplacementText[i];
-				}
-			}
-
-			if (Pos + NumCharsToReplace - *String < String.Len())
-			{
-				Pos = FCString::Strstr(Pos + NumCharsToReplace, SearchText);
-			}
-			else
-			{
-				break;
-			}
-		}
+	if (*StringPtr && FChar::IsWhitespace(*StringPtr))
+	{
+		return StringPtr;
+	}
+	else
+	{
+		return nullptr;
 	}
 }
 
-void RemoveParens(FString& SourceCode)
+const TCHAR* FindNextNonWhitespace(const TCHAR* StringPtr)
 {
-	// TODO(mlentine): Support nested parens
-	int32 OpenParenPos = SourceCode.Find("(", ESearchCase::CaseSensitive, ESearchDir::FromStart);
-	int32 CloseParenPos;
-	TArray<int32> PrevOpenParenPoss;
-	while (OpenParenPos != INDEX_NONE)
+	bool bFoundWhitespace = false;
+
+	while (*StringPtr && (FChar::IsWhitespace(*StringPtr) || !bFoundWhitespace))
 	{
-		CloseParenPos = SourceCode.Find(")", ESearchCase::CaseSensitive, ESearchDir::FromStart, OpenParenPos + 1);
-		check(CloseParenPos != INDEX_NONE); // Unmatched parens!
-		check(CloseParenPos > OpenParenPos);
-		if (CloseParenPos == SourceCode.Len() - 1)
+		bFoundWhitespace = true;
+		StringPtr++;
+	}
+
+	if (bFoundWhitespace && *StringPtr && !FChar::IsWhitespace(*StringPtr))
+	{
+		return StringPtr;
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+const TCHAR* FindMatchingClosingBrace(const TCHAR* OpeningBracePtr)
+{
+	const TCHAR* SearchPtr = OpeningBracePtr;
+	int32 Depth = 0;
+
+	while (*SearchPtr)
+	{
+		if (*SearchPtr == '{')
+		{
+			Depth++;
+		}
+		else if (*SearchPtr == '}')
+		{
+			if (Depth == 0)
+			{
+				return SearchPtr;
+			}
+
+			Depth--;
+		}
+		SearchPtr++;
+	}
+
+	return nullptr;
+}
+
+// See MSDN HLSL 'Symbol Name Restrictions' doc
+inline bool IsValidHLSLIdentifierCharacter(TCHAR Char)
+{
+	return (Char >= 'a' && Char <= 'z') ||
+		(Char >= 'A' && Char <= 'Z') ||
+		(Char >= '0' && Char <= '9') ||
+		Char == '_';
+}
+
+void ParseHLSLTypeName(const TCHAR* SearchString, const TCHAR*& TypeNameStartPtr, const TCHAR*& TypeNameEndPtr)
+{
+	TypeNameStartPtr = FindNextNonWhitespace(SearchString);
+	check(TypeNameStartPtr);
+
+	TypeNameEndPtr = TypeNameStartPtr;
+	int32 Depth = 0;
+
+	const TCHAR* NextWhitespace = FindNextWhitespace(TypeNameStartPtr);
+	const TCHAR* PotentialExtraTypeInfoPtr = NextWhitespace ? FindNextNonWhitespace(NextWhitespace) : nullptr;
+
+	// Find terminating whitespace, but skip over trailing ' < float4 >'
+	while (*TypeNameEndPtr)
+	{
+		if (*TypeNameEndPtr == '<')
+		{
+			Depth++;
+		}
+		else if (*TypeNameEndPtr == '>')
+		{
+			Depth--;
+		}
+		else if (Depth == 0 
+			&& FChar::IsWhitespace(*TypeNameEndPtr)
+			// If we found a '<', we must not accept any whitespace before it
+			&& (!PotentialExtraTypeInfoPtr || *PotentialExtraTypeInfoPtr != '<' || TypeNameEndPtr > PotentialExtraTypeInfoPtr))
 		{
 			break;
 		}
-		int32 CommaPos = SourceCode.Find(",", ESearchCase::CaseSensitive, ESearchDir::FromStart, OpenParenPos + 1);
-		int32 SpacePos = SourceCode.Find(" ", ESearchCase::CaseSensitive, ESearchDir::FromStart, OpenParenPos + 1);
-		int32 NextOpenParenPos = SourceCode.Find("(", ESearchCase::CaseSensitive, ESearchDir::FromStart, OpenParenPos + 1);
-		if ((NextOpenParenPos != INDEX_NONE && NextOpenParenPos < CloseParenPos))
+
+		TypeNameEndPtr++;
+	}
+
+	check(TypeNameEndPtr);
+}
+
+const TCHAR* ParseHLSLSymbolName(const TCHAR* SearchString, FString& SymboName)
+{
+	const TCHAR* SymbolNameStartPtr = FindNextNonWhitespace(SearchString);
+	check(SymbolNameStartPtr);
+
+	const TCHAR* SymbolNameEndPtr = SymbolNameStartPtr;
+	while (*SymbolNameEndPtr && IsValidHLSLIdentifierCharacter(*SymbolNameEndPtr))
+	{
+		SymbolNameEndPtr++;
+	}
+
+	SymboName = FString(SymbolNameEndPtr - SymbolNameStartPtr, SymbolNameStartPtr);
+
+	return SymbolNameEndPtr;
+}
+
+class FUniformBufferMemberInfo
+{
+public:
+	// eg View.WorldToClip
+	FString NameAsStructMember;
+	// eg View_WorldToClip
+	FString GlobalName;
+};
+
+const TCHAR* ParseStructRecursive(
+	const TCHAR* StructStartPtr,
+	FString& UniformBufferName,
+	int32 StructDepth,
+	const FString& StructNamePrefix, 
+	const FString& GlobalNamePrefix, 
+	TMap<FString, TArray<FUniformBufferMemberInfo>>& UniformBufferNameToMembers)
+{
+	const TCHAR* OpeningBracePtr = FCString::Strstr(StructStartPtr, TEXT("{"));
+	check(OpeningBracePtr);
+
+	const TCHAR* ClosingBracePtr = FindMatchingClosingBrace(OpeningBracePtr + 1);
+	check(ClosingBracePtr);
+
+	FString StructName;
+	const TCHAR* StructNameEndPtr = ParseHLSLSymbolName(ClosingBracePtr + 1, StructName);
+	check(StructName.Len() > 0);
+
+	FString NestedStructNamePrefix = StructNamePrefix + StructName + TEXT(".");
+	FString NestedGlobalNamePrefix = GlobalNamePrefix + StructName + TEXT("_");
+
+	if (StructDepth == 0)
+	{
+		UniformBufferName = StructName;
+	}
+
+	const TCHAR* LastMemberSemicolon = ClosingBracePtr;
+
+	// Search backward to find the last member semicolon so we know when to stop parsing members
+	while (LastMemberSemicolon > OpeningBracePtr && *LastMemberSemicolon != ';')
+	{
+		LastMemberSemicolon--;
+	}
+
+	const TCHAR* MemberSearchPtr = OpeningBracePtr + 1;
+
+	do
+	{
+		const TCHAR* MemberTypeStartPtr = nullptr;
+		const TCHAR* MemberTypeEndPtr = nullptr;
+		ParseHLSLTypeName(MemberSearchPtr, MemberTypeStartPtr, MemberTypeEndPtr);
+		FString MemberTypeName(MemberTypeEndPtr - MemberTypeStartPtr, MemberTypeStartPtr);
+
+		if (FCString::Strcmp(*MemberTypeName, TEXT("struct")) == 0)
 		{
-			PrevOpenParenPoss.Add(OpenParenPos);
-		}
-		bool PrevIsLetter = (OpenParenPos > 0 && (
-			((SourceCode[OpenParenPos - 1] - TCHAR('0')) >= 0 && (SourceCode[OpenParenPos - 1] - TCHAR('0')) < 10) ||
-			((SourceCode[OpenParenPos - 1] - TCHAR('a')) >= 0 && (SourceCode[OpenParenPos - 1] - TCHAR('a')) < 26) ||
-			((SourceCode[OpenParenPos - 1] - TCHAR('A')) >= 0 && (SourceCode[OpenParenPos - 1] - TCHAR('A')) < 26)));
-		if ((SourceCode[CloseParenPos + 1] == TCHAR('.') || SourceCode[CloseParenPos + 1] == TCHAR('[')) && !PrevIsLetter &&
-			(SpacePos == INDEX_NONE || SpacePos > CloseParenPos) && (CommaPos == INDEX_NONE || CommaPos > CloseParenPos) && (NextOpenParenPos == INDEX_NONE || NextOpenParenPos > CloseParenPos))
-		{
-			FString From = FString("") + SourceCode[OpenParenPos - 1] + SourceCode.Mid(OpenParenPos, CloseParenPos - OpenParenPos + 1) + SourceCode[CloseParenPos + 1];
-			FString To = FString("") + SourceCode[OpenParenPos - 1] + SourceCode.Mid(OpenParenPos + 1, CloseParenPos - OpenParenPos - 1) + SourceCode[CloseParenPos + 1];
-			SourceCode = SourceCode.Replace(*From, *To, ESearchCase::CaseSensitive);
-			OpenParenPos = PrevOpenParenPoss.Num() ? PrevOpenParenPoss.Pop() : SourceCode.Find("(", ESearchCase::CaseSensitive, ESearchDir::FromStart, CloseParenPos - 1);
+			MemberSearchPtr = ParseStructRecursive(MemberTypeStartPtr, UniformBufferName, StructDepth + 1, NestedStructNamePrefix, NestedGlobalNamePrefix, UniformBufferNameToMembers);
 		}
 		else
 		{
-			OpenParenPos = NextOpenParenPos;
+			FString MemberName;
+			const TCHAR* SymbolEndPtr = ParseHLSLSymbolName(MemberTypeEndPtr, MemberName);
+			check(MemberName.Len() > 0);
+			
+			MemberSearchPtr = SymbolEndPtr;
+
+			// Skip over trailing tokens '[1];'
+			while (*MemberSearchPtr && *MemberSearchPtr != ';')
+			{
+				MemberSearchPtr++;
+			}
+
+			// Add this member to the map
+			TArray<FUniformBufferMemberInfo>& UniformBufferMembers = UniformBufferNameToMembers.FindOrAdd(UniformBufferName);
+
+			FUniformBufferMemberInfo NewMemberInfo;
+			NewMemberInfo.NameAsStructMember = NestedStructNamePrefix + MemberName;
+			NewMemberInfo.GlobalName = NestedGlobalNamePrefix + MemberName;
+			UniformBufferMembers.Add(MoveTemp(NewMemberInfo));
 		}
+	} 
+	while (MemberSearchPtr < LastMemberSemicolon);
+
+	const TCHAR* StructEndPtr = StructNameEndPtr;
+
+	// Skip over trailing tokens '[1];'
+	while (*StructEndPtr && *StructEndPtr != ';')
+	{
+		StructEndPtr++;
 	}
+
+	return StructEndPtr;
 }
 
-bool RemoveUniformBuffersFromSource(FString& SourceCode, bool bWasParsed)
+bool MatchStructMemberName(const FString& SymbolName, const TCHAR* SearchPtr, const FString& PreprocessedShaderSource)
 {
-	if (bWasParsed)
+	// Only match whole symbol
+	if (IsValidHLSLIdentifierCharacter(*(SearchPtr - 1)) || *(SearchPtr - 1) == '.')
 	{
-		RemoveParens(SourceCode);
-		SourceCode = SourceCode.Replace(TEXT("sce::Gnm:: "), TEXT("sce::Gnm::Sampler "), ESearchCase::CaseSensitive);
-		// Hacks for min16float
-		//SourceCode = SourceCode.Replace(TEXT("asint("), TEXT("asint((half)"), ESearchCase::CaseSensitive);
-		//SourceCode = SourceCode.Replace(TEXT("asint((half)("), TEXT("asint(("), ESearchCase::CaseSensitive);
-		//SourceCode = SourceCode.Replace(TEXT("asuint("), TEXT("asuint((half)"), ESearchCase::CaseSensitive);
-		//SourceCode = SourceCode.Replace(TEXT("asuint((half)("), TEXT("asuint(("), ESearchCase::CaseSensitive);
-		// Hacks for half on console
-		SourceCode = SourceCode.Replace(TEXT("half3 SurfaceDimensions"), TEXT("float3 SurfaceDimensions"), ESearchCase::CaseSensitive);
+		return false;
 	}
-	static const FString StaticStructToken(TEXT("static const struct"));
-	int32 StaticStructTokenPos = SourceCode.Find(StaticStructToken, ESearchCase::CaseSensitive, ESearchDir::FromStart);
-	while (StaticStructTokenPos != INDEX_NONE)
+
+	for (int32 i = 0; i < SymbolName.Len(); i++)
 	{
-		static const FString CloseBraceSpaceToken(TEXT("} "));
-		int32 CloseBraceSpaceTokenPos = SourceCode.Find(CloseBraceSpaceToken, ESearchCase::CaseSensitive, ESearchDir::FromStart, StaticStructTokenPos + StaticStructToken.Len());
-		if (CloseBraceSpaceTokenPos == INDEX_NONE)
+		if (*SearchPtr != SymbolName[i])
 		{
-			check(0);	//@todo-rco: ERROR
 			return false;
 		}
+		
+		SearchPtr++;
 
-		int32 NamePos = CloseBraceSpaceTokenPos + CloseBraceSpaceToken.Len();
-		static const FString SpaceEqualsToken(TEXT(" ="));
-		int32 SpaceEqualsTokenPos = SourceCode.Find(SpaceEqualsToken, ESearchCase::CaseSensitive, ESearchDir::FromStart, NamePos);
-		if (SpaceEqualsTokenPos == INDEX_NONE)
+		if (i < SymbolName.Len() - 1)
 		{
-			check(0);	//@todo-rco: ERROR
-			return false;
+			// Skip whitespace within the struct member reference before the end
+			// eg 'View. ViewToClip'
+			while (FChar::IsWhitespace(*SearchPtr))
+			{
+				SearchPtr++;
+			}
 		}
+	}
 
-		FString UniformBufferName = SourceCode.Mid(NamePos, SpaceEqualsTokenPos - NamePos);
-		check(UniformBufferName.Len() > 0);
-
-		static const FString CloseBraceSemicolorToken(TEXT("};"));
-		int32 CloseBraceSemicolonTokenPos = SourceCode.Find(CloseBraceSemicolorToken, ESearchCase::CaseSensitive, ESearchDir::FromStart, SpaceEqualsTokenPos + SpaceEqualsToken.Len());
-		if (CloseBraceSemicolonTokenPos == INDEX_NONE)
-		{
-			check(0);	//@todo-rco: ERROR
-			return false;
-		}
-
-		// Comment out this UB
-		auto& SourceCharArray = SourceCode.GetCharArray();
-		SourceCharArray[StaticStructTokenPos] = TCHAR('/');
-		SourceCharArray[StaticStructTokenPos + 1] = TCHAR('*');
-		SourceCharArray[CloseBraceSemicolonTokenPos] = TCHAR('*');
-		SourceCharArray[CloseBraceSemicolonTokenPos + 1] = TCHAR('/');
-
-		// Find & Replace this UB
-		FString UBSource = UniformBufferName + FString(TEXT("."));
-		FString UBDest = UniformBufferName + FString(TEXT("_"));
-		WholeWordReplaceInline(SourceCode, &SourceCharArray[CloseBraceSemicolonTokenPos + 2], *UBSource, *UBDest);
-
-		// Find next UB
-		StaticStructTokenPos = SourceCode.Find(StaticStructToken, ESearchCase::CaseSensitive, ESearchDir::FromStart, CloseBraceSemicolonTokenPos + 2);
+	// Only match whole symbol
+	if (IsValidHLSLIdentifierCharacter(*SearchPtr))
+	{
+		return false;
 	}
 
 	return true;
 }
 
+TCHAR* FindNextUniformBufferReference(TCHAR* SearchPtr, const TCHAR* SearchString, const TCHAR* SearchStringWithSpace)
+{
+	TCHAR* SearchPtrNoSpace = FCString::Strstr(SearchPtr, SearchString);
+	TCHAR* SearchPtrWithSpace = FCString::Strstr(SearchPtr, SearchStringWithSpace);
+
+	if (SearchPtrNoSpace != nullptr && SearchPtrWithSpace != nullptr)
+	{
+		return SearchPtrNoSpace < SearchPtrWithSpace ? SearchPtrNoSpace : SearchPtrWithSpace;
+	}
+	else if (SearchPtrNoSpace != nullptr)
+	{
+		return SearchPtrNoSpace;
+	}
+
+	return SearchPtrWithSpace;
+}
+
+// The cross compiler doesn't yet support struct initializers needed to construct static structs for uniform buffers
+// Replace all uniform buffer struct member references (View.WorldToClip) with a flattened name that removes the struct dependency (View_WorldToClip)
+void RemoveUniformBuffersFromSource(const FShaderCompilerEnvironment& Environment, FString& PreprocessedShaderSource)
+{
+	TMap<FString, TArray<FUniformBufferMemberInfo>> UniformBufferNameToMembers;
+	UniformBufferNameToMembers.Reserve(Environment.ResourceTableLayoutHashes.Num());
+
+	// Build a mapping from uniform buffer name to its members
+	{
+		const TCHAR* UniformBufferStructIdentifier = TEXT("static const struct");
+		const int32 StructPrefixLen = FCString::Strlen(TEXT("static const "));
+		const int32 StructIdentifierLen = FCString::Strlen(UniformBufferStructIdentifier);
+		TCHAR* SearchPtr = FCString::Strstr(&PreprocessedShaderSource[0], UniformBufferStructIdentifier);
+
+		while (SearchPtr)
+		{
+			FString UniformBufferName;
+			const TCHAR* ConstStructEndPtr = ParseStructRecursive(SearchPtr + StructPrefixLen, UniformBufferName, 0, TEXT(""), TEXT(""), UniformBufferNameToMembers);
+			TCHAR* StructEndPtr = &PreprocessedShaderSource[ConstStructEndPtr - &PreprocessedShaderSource[0]];
+
+			// Comment out the uniform buffer struct and initializer
+			*SearchPtr = '/';
+			*(SearchPtr + 1) = '*';
+			*(StructEndPtr - 1) = '*';
+			*StructEndPtr = '/';
+
+			SearchPtr = FCString::Strstr(StructEndPtr, UniformBufferStructIdentifier);
+		}
+	}
+
+	// Replace all uniform buffer struct member references (View.WorldToClip) with a flattened name that removes the struct dependency (View_WorldToClip)
+	for (TMap<FString, TArray<FUniformBufferMemberInfo>>::TConstIterator It(UniformBufferNameToMembers); It; ++It)
+	{
+		const FString& UniformBufferName = It.Key();
+		FString UniformBufferAccessString = UniformBufferName + TEXT(".");
+		// MCPP inserts spaces after defines
+		FString UniformBufferAccessStringWithSpace = UniformBufferName + TEXT(" .");
+
+		// Search for the uniform buffer name first, as an optimization (instead of searching the entire source for every member)
+		TCHAR* SearchPtr = FindNextUniformBufferReference(&PreprocessedShaderSource[0], *UniformBufferAccessString, *UniformBufferAccessStringWithSpace);
+
+		while (SearchPtr)
+		{
+			const TArray<FUniformBufferMemberInfo>& UniformBufferMembers = It.Value();
+
+			// Find the matching member we are replacing
+			for (int32 MemberIndex = 0; MemberIndex < UniformBufferMembers.Num(); MemberIndex++)
+			{
+				const FString& MemberNameAsStructMember = UniformBufferMembers[MemberIndex].NameAsStructMember;
+
+				if (MatchStructMemberName(MemberNameAsStructMember, SearchPtr, PreprocessedShaderSource))
+				{
+					const FString& MemberNameGlobal = UniformBufferMembers[MemberIndex].GlobalName;
+					int32 NumWhitespacesToAdd = 0;
+
+					for (int32 i = 0; i < MemberNameAsStructMember.Len(); i++)
+					{
+						if (i < MemberNameAsStructMember.Len() - 1)
+						{
+							if (FChar::IsWhitespace(SearchPtr[i]))
+							{
+								NumWhitespacesToAdd++;
+							}
+						}
+
+						SearchPtr[i] = MemberNameGlobal[i];
+					}
+
+					// MCPP inserts spaces after defines
+					// #define ReflectionStruct OpaqueBasePass.Shared.Reflection
+					// 'ReflectionStruct.SkyLightCubemapBrightness' becomes 'OpaqueBasePass.Shared.Reflection .SkyLightCubemapBrightness' after MCPP
+					// In order to convert this struct member reference into a globally unique variable we move the spaces to the end
+					// 'OpaqueBasePass.Shared.Reflection .SkyLightCubemapBrightness' -> 'OpaqueBasePass_Shared_Reflection_SkyLightCubemapBrightness '
+					for (int32 i = 0; i < NumWhitespacesToAdd; i++)
+					{
+						// If we passed MatchStructMemberName, it should not be possible to overwrite the null terminator
+						check(SearchPtr[MemberNameAsStructMember.Len() + i] != 0);
+						SearchPtr[MemberNameAsStructMember.Len() + i] = ' ';
+					}
+							
+					break;
+				}
+			}
+
+			SearchPtr = FindNextUniformBufferReference(SearchPtr + UniformBufferAccessString.Len(), *UniformBufferAccessString, *UniformBufferAccessStringWithSpace);
+		}
+	}
+}
 
 FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& Input)
 {
@@ -516,63 +678,6 @@ namespace CrossCompiler
 			Entry.ResourceIndex = ResourceIndex;
 		}
 	}
-
-	FString CreateBatchFileContents(const FString& ShaderFile, const FString& OutputFile, uint32 Frequency, const FString& EntryPoint, const FString& VersionSwitch, uint32 CCFlags, const FString& ExtraArguments)
-	{
-		const TCHAR* FrequencySwitch = TEXT("");
-		switch (Frequency)
-		{
-		case HSF_PixelShader:		FrequencySwitch = TEXT(" -ps"); break;
-		case HSF_VertexShader:		FrequencySwitch = TEXT(" -vs"); break;
-		case HSF_HullShader:		FrequencySwitch = TEXT(" -hs"); break;
-		case HSF_DomainShader:		FrequencySwitch = TEXT(" -ds"); break;
-		case HSF_ComputeShader:		FrequencySwitch = TEXT(" -cs"); break;
-		case HSF_GeometryShader:	FrequencySwitch = TEXT(" -gs"); break;
-		default:					check(0); break;
-		}
-
-		FString CCTCmdLine = ExtraArguments;
-		CCTCmdLine += ((CCFlags & HLSLCC_NoValidation) == HLSLCC_NoValidation) ? TEXT(" -novalidate") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_DX11ClipSpace) == HLSLCC_DX11ClipSpace) ? TEXT(" -dx11clip") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_NoPreprocess) == HLSLCC_NoPreprocess) ? TEXT(" -nopp") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_FlattenUniformBuffers) == HLSLCC_FlattenUniformBuffers) ? TEXT(" -flattenub") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_FlattenUniformBufferStructures) == HLSLCC_FlattenUniformBufferStructures) ? TEXT(" -flattenubstruct") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_GroupFlattenedUniformBuffers) == HLSLCC_GroupFlattenedUniformBuffers) ? TEXT(" -groupflatub") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_ApplyCommonSubexpressionElimination) == HLSLCC_ApplyCommonSubexpressionElimination) ? TEXT(" -cse") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_ExpandSubexpressions) == HLSLCC_ExpandSubexpressions) ? TEXT(" -xpxpr") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_SeparateShaderObjects) == HLSLCC_SeparateShaderObjects) ? TEXT(" -separateshaders") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_PackUniformsIntoUniformBuffers) == HLSLCC_PackUniformsIntoUniformBuffers) ? TEXT(" -packintoubs") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_FixAtomicReferences) == HLSLCC_FixAtomicReferences) ? TEXT(" -fixatomics") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_UseFullPrecisionInPS) == HLSLCC_UseFullPrecisionInPS) ? TEXT(" -usefullprecision") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_UsesExternalTexture) == HLSLCC_UsesExternalTexture) ? TEXT(" -usesexternaltexture") : TEXT("");
-		FString BatchFile;
-		if (PLATFORM_MAC)
-		{
-			BatchFile = FPaths::RootDir() / FString::Printf(TEXT("Engine/Source/ThirdParty/hlslcc/hlslcc/bin/Mac/hlslcc_64 %s -o=%s %s -entry=%s %s %s"), *ShaderFile, *OutputFile, FrequencySwitch, *EntryPoint, *VersionSwitch, *CCTCmdLine);
-		}
-		else if (PLATFORM_LINUX)
-		{
-			BatchFile = TEXT("#!/bin/sh\n");
-			// add an extra '/' to the file name (which is absolute at this point) because CrossCompilerTool will strip out first '/' considering it a legacy DOS-style switch marker.
-			BatchFile += FPaths::RootDir() / FString::Printf(TEXT("Engine/Binaries/Linux/CrossCompilerTool /%s -o=%s %s -entry=%s %s %s"), *ShaderFile, *OutputFile, FrequencySwitch, *EntryPoint, *VersionSwitch, *CCTCmdLine);
-		}
-		else if (PLATFORM_WINDOWS)
-		{
-			BatchFile = TEXT("@echo off");
-			BatchFile += TEXT("\nif defined ue.hlslcc GOTO DONE\nset ue.hlslcc=");
-			BatchFile += FPaths::RootDir() / TEXT("Engine\\Binaries\\Win64\\CrossCompilerTool.exe");
-			BatchFile += TEXT("\n\n:DONE\n%ue.hlslcc% ");
-			BatchFile += FString::Printf(TEXT("\"%s\" -o=\"%s\" %s -entry=%s %s %s"), *ShaderFile, *OutputFile, FrequencySwitch, *EntryPoint, *VersionSwitch, *CCTCmdLine);
-			BatchFile += TEXT("\npause\n");
-		}
-		else
-		{
-			checkf(false, TEXT("CreateCrossCompilerBatchFileContents: unsupported platform!"));
-		}
-
-		return BatchFile;
-	}
-
 
 	/**
 	 * Parse an error emitted by the HLSL cross-compiler.

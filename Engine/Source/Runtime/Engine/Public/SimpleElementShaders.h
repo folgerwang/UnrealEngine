@@ -70,7 +70,6 @@ private:
 	FShaderResourceParameter InTextureSampler;
 	FShaderParameter TextureComponentReplicate;
 	FShaderParameter TextureComponentReplicateAlpha;
-	FShaderResourceParameter SceneDepthTextureNonMS;
 	FShaderParameter EditorCompositeDepthTestParameter;
 	FShaderParameter ScreenToPixel;
 };

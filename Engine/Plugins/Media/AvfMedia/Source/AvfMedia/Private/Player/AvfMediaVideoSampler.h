@@ -52,7 +52,7 @@ private:
 	/** Video sample object pool. */
 	FAvfMediaTextureSamplePool* VideoSamplePool;
 
-	float FrameRate;
+	float FrameDuration;
 
 #if WITH_ENGINE && COREVIDEO_SUPPORTS_METAL
 

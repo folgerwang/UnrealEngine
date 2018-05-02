@@ -150,7 +150,7 @@ public:
 			}
 			if (WithTangents)
 			{
-				Tangents.Initialize(4, NumVertices * 2, PF_R8G8B8A8, BUF_Static);
+				Tangents.Initialize(4, NumVertices * 2, PF_R8G8B8A8_SNORM, BUF_Static);
 			}
 		}
 

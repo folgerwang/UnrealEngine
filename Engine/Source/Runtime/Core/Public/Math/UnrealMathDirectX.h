@@ -646,6 +646,15 @@ FORCEINLINE VectorRegister VectorMergeVecXYZ_VecW(const VectorRegister& VecXYZ, 
  */
 #define VectorLoadByte4( Ptr )		DirectX::PackedVector::XMLoadUByte4((const DirectX::PackedVector::XMUBYTE4*)(Ptr) )
 
+ /**
+ * Loads 4 signed BYTEs from unaligned memory and converts them into 4 FLOATs.
+ * IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+ *
+ * @param Ptr			Unaligned memory pointer to the 4 BYTEs.
+ * @return				VectorRegister( float(Ptr[0]), float(Ptr[1]), float(Ptr[2]), float(Ptr[3]) )
+ */
+#define VectorLoadSignedByte4( Ptr )	DirectX::PackedVector::XMLoadByte4((const DirectX::PackedVector::XMBYTE4*)(Ptr) )
+
 /**
  * Loads 4 BYTEs from unaligned memory and converts them into 4 FLOATs in reversed order.
  * IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
@@ -694,6 +703,15 @@ FORCEINLINE VectorRegister VectorLoadByte4Reverse( const uint8* Ptr )
 * @return				VectorRegister with 4 FLOATs loaded from Ptr.
 */
 #define VectorLoadURGBA16N( Ptr )	DirectX::PackedVector::XMLoadUShortN4( (const DirectX::PackedVector::XMUSHORTN4*)(Ptr) )
+
+/**
+* Loads packed RGBA16(4 bytes) from unaligned memory and converts them into 4 FLOATs.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+*
+* @param Ptr			Unaligned memory pointer to the RGBA16(8 bytes).
+* @return				VectorRegister with 4 FLOATs loaded from Ptr.
+*/
+#define VectorLoadSRGBA16N( Ptr )	DirectX::PackedVector::XMLoadShortN4( (const DirectX::PackedVector::XMSHORTN4*)(Ptr) )
 
 /**
 * Converts the 4 FLOATs in the vector RGBA16, clamped to [0, 65535], and stores to unaligned memory.

@@ -266,7 +266,7 @@ public:
 	}
 
 	// FMaterialRenderProxy interface.
-	virtual const class FMaterial* GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const
+	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const
 	{
 		const FMaterialResource* MaterialResource = Material->GetMaterialResource(InFeatureLevel);
 		if (MaterialResource && MaterialResource->GetRenderingThreadShaderMap())
@@ -275,13 +275,15 @@ public:
 			checkSlow(MaterialResource->GetRenderingThreadShaderMap()->IsCompilationFinalized());
 			// The shader map reference should have been NULL'ed if it did not compile successfully
 			checkSlow(MaterialResource->GetRenderingThreadShaderMap()->CompiledSuccessfully());
-			return MaterialResource;
+			OutMaterialRenderProxy = this;
+			OutMaterial = MaterialResource;
+			return;
 		}
 
 		// If we are the default material, must not try to fall back to the default material in an error state as that will be infinite recursion
 		check(!Material->IsDefaultMaterial());
 
-		return GetFallbackRenderProxy().GetMaterial(InFeatureLevel);
+		GetFallbackRenderProxy().GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
 	}
 
 	virtual FMaterial* GetMaterialNoFallback(ERHIFeatureLevel::Type InFeatureLevel) const
@@ -803,6 +805,8 @@ UMaterial::UMaterial(const FObjectInitializer& ObjectInitializer)
 	bEnableSeparateTranslucency = true;
 	bEnableMobileSeparateTranslucency = false;
 	bEnableResponsiveAA = false;
+	bScreenSpaceReflections = false;
+	bContactShadows = false;
 	bTangentSpaceNormal = true;
 	bUseLightmapDirectionality = true;
 	bAutomaticallySetUsageInEditor = true;
@@ -887,10 +891,11 @@ void UMaterial::GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQuality
 				if (CurrentResource == nullptr || (FeatureLevelIndex != FeatureLevel && !bAllFeatureLevels))
 					continue;
 
-				const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[2] =
+				const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[3] =
 				{
 					&CurrentResource->GetUniform2DTextureExpressions(),
-					&CurrentResource->GetUniformCubeTextureExpressions()
+					&CurrentResource->GetUniformCubeTextureExpressions(),
+					&CurrentResource->GetUniformVolumeTextureExpressions()
 				};
 				for (int32 TypeIndex = 0; TypeIndex < ARRAY_COUNT(ExpressionsByType); TypeIndex++)
 				{
@@ -925,14 +930,15 @@ void UMaterial::GetUsedTexturesAndIndices(TArray<UTexture*>& OutTextures, TArray
 
 		if (CurrentResource)
 		{
-			const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[2] =
+			const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[3] =
 			{
 				&CurrentResource->GetUniform2DTextureExpressions(),
-				&CurrentResource->GetUniformCubeTextureExpressions()
+				&CurrentResource->GetUniformCubeTextureExpressions(),
+				&CurrentResource->GetUniformVolumeTextureExpressions()
 			};
 
 			// Try to prevent resizing since this would be expensive.
-			OutIndices.Empty(ExpressionsByType[0]->Num() + ExpressionsByType[1]->Num());
+			OutIndices.Empty(ExpressionsByType[0]->Num() + ExpressionsByType[1]->Num() + ExpressionsByType[2]->Num());
 
 			for (int32 TypeIndex = 0; TypeIndex < ARRAY_COUNT(ExpressionsByType); TypeIndex++)
 			{
@@ -981,7 +987,7 @@ void UMaterial::LogMaterialsAndTextures(FOutputDevice& Ar, int32 Indent) const
 				TArray<UTexture*> Textures;
 				// GetTextureExpressionValues(MaterialResource, Textures);
 				{
-					const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[2] = { &MaterialResource->GetUniform2DTextureExpressions(), &MaterialResource->GetUniformCubeTextureExpressions() };
+					const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[3] = { &MaterialResource->GetUniform2DTextureExpressions(), &MaterialResource->GetUniformCubeTextureExpressions(), &MaterialResource->GetUniformVolumeTextureExpressions() };
 					for (int32 TypeIndex = 0; TypeIndex < ARRAY_COUNT(ExpressionsByType); TypeIndex++)
 					{
 						for (FMaterialUniformExpressionTexture* Expression : *ExpressionsByType[TypeIndex])
@@ -1028,10 +1034,11 @@ void UMaterial::OverrideTexture(const UTexture* InTextureToOverride, UTexture* O
 	{
 		FMaterialResource* Resource = GetMaterialResource(FeatureLevelsToUpdate[i]);
 		// Iterate over both the 2D textures and cube texture expressions.
-		const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[2] =
+		const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >* ExpressionsByType[3] =
 		{
 			&Resource->GetUniform2DTextureExpressions(),
-			&Resource->GetUniformCubeTextureExpressions()
+			&Resource->GetUniformCubeTextureExpressions(),
+			&Resource->GetUniformVolumeTextureExpressions()
 		};
 		for(int32 TypeIndex = 0;TypeIndex < ARRAY_COUNT(ExpressionsByType);TypeIndex++)
 		{
@@ -3874,6 +3881,7 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bEnableSeparateTranslucency)
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bEnableResponsiveAA)
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bScreenSpaceReflections)
+			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bContactShadows)
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bDisableDepthTest)
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bUseTranslucencyVertexFog)
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bComputeFogPerPixel))

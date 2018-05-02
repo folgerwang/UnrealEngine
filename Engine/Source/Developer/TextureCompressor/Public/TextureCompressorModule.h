@@ -15,6 +15,7 @@ struct FCompressedImage2D
 	TArray<uint8> RawData;
 	int32 SizeX;
 	int32 SizeY;
+	int32 SizeZ; // Only for Volume Texture
 	uint8 PixelFormat; // EPixelFormat, opaque to avoid dependencies on Engine headers.
 };
 
@@ -84,6 +85,8 @@ struct FTextureBuildSettings
 	uint8 MipGenSettings; // TextureMipGenSettings, opaque to avoid dependencies on engine headers.
 	/** Whether the texture being built is a cubemap. */
 	uint32 bCubemap : 1;
+	/** Whether the texture being built is a volume. */
+	uint32 bVolume : 1;
 	/** Whether the texture being built from long/lat source to cubemap. */
 	uint32 bLongLatSource : 1;
 	/** Whether the texture contains color data in the sRGB colorspace. */
@@ -122,6 +125,8 @@ struct FTextureBuildSettings
 	uint32 LODBiasWithCinematicMips;
 	/** The texture's top mip size without LODBias applied, should be moved into a separate struct together with bImageHasAlphaChannel */
 	mutable FIntPoint TopMipSize;
+	/** The volume texture's top mip size Z without LODBias applied */
+	mutable int32 VolumeSizeZ;
 	/** Can the texture be streamed */
 	uint32 bStreamable : 1;
 	/** Whether to chroma key the image, replacing any pixels that match ChromaKeyColor with transparent black */
@@ -146,6 +151,7 @@ struct FTextureBuildSettings
 		, MaxTextureResolution(TNumericLimits<uint32>::Max())
 		, MipGenSettings(1 /*TMGS_SimpleAverage*/)
 		, bCubemap(false)
+		, bVolume(false)
 		, bLongLatSource(false)
 		, bSRGB(false)
 		, bUseLegacyGamma(false)
@@ -165,6 +171,7 @@ struct FTextureBuildSettings
 		, LODBias(0)
 		, LODBiasWithCinematicMips(0)
 		, TopMipSize(0, 0)
+		, VolumeSizeZ(0)
 		, bStreamable(false)
 		, bChromaKeyTexture(false)
 		, PowerOfTwoMode(0 /*ETexturePowerOfTwoSetting::None*/)

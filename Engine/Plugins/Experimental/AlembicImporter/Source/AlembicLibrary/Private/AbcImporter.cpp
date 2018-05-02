@@ -1317,7 +1317,7 @@ void FAbcImporter::GeometryCacheDataForMeshSample(FGeometryCacheMeshData &OutMes
 			OutMeshData.TangentsX[CornerIndex] = MeshSample->TangentX[CornerIndex];
 			OutMeshData.TangentsZ[CornerIndex] = MeshSample->Normals[CornerIndex];
 			// store determinant of basis in w component of normal vector
-			OutMeshData.TangentsZ[CornerIndex].Vector.W = GetBasisDeterminantSign(MeshSample->TangentX[CornerIndex], MeshSample->TangentY[CornerIndex], MeshSample->Normals[CornerIndex]) < 0.0f ? 0 : 255;
+			OutMeshData.TangentsZ[CornerIndex].Vector.W = GetBasisDeterminantSignByte(MeshSample->TangentX[CornerIndex], MeshSample->TangentY[CornerIndex], MeshSample->Normals[CornerIndex]);
 			OutMeshData.TextureCoordinates[CornerIndex] = MeshSample->UVs[0][CornerIndex];
 			OutMeshData.Colors[CornerIndex] = MeshSample->Colors[CornerIndex].ToFColor(false);
 

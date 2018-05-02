@@ -26,7 +26,54 @@ THIRD_PARTY_INCLUDES_START
 #include "Windows/HideWindowsPlatformTypes.h"
 THIRD_PARTY_INCLUDES_END
 
-class FD3D12CommandContext : public IRHICommandContext, public FD3D12DeviceChild, public FD3D12SingleNodeGPUObject
+// Base class used to define commands that are not device specific, or that broadcast to all devices.
+class FD3D12CommandContextBase : public IRHICommandContext, public FD3D12AdapterChild
+{
+public:
+
+	FD3D12CommandContextBase(class FD3D12Adapter* InParent, FRHIGPUMask InNodeMask);
+
+	void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) final override;
+	void RHIEndDrawingViewport(FViewportRHIParamRef Viewport, bool bPresent, bool bLockToVsync) final override;
+
+	void RHIBeginFrame() final override;
+	void RHIEndFrame() final override;
+
+	virtual void UpdateMemoryStats();
+
+	const FRHIGPUMask& GetGPUNodeMask() const { return NodeMask; }
+
+protected:
+
+	// State for begin/end draw primitive UP interface.
+	struct FUserPrimitiveData
+	{
+		FUserPrimitiveData() { FMemory::Memzero(*this); }
+		~FUserPrimitiveData() { check(!VertexData && !IndexData); }
+
+		uint32 PrimitiveType;
+		uint32 NumPrimitives;
+		uint32 NumVertices;
+		uint32 VertexDataStride;
+		void* VertexData;
+
+		uint32 MinVertexIndex;
+		uint32 NumIndices;
+		uint32 IndexDataStride;
+		void* IndexData;
+
+		operator bool() const { return NumVertices != 0; }
+		void Reset() { FMemory::Memzero(*this); }
+	};
+
+	FUserPrimitiveData PendingUP;
+
+protected:
+
+	FRHIGPUMask NodeMask;
+};
+
+class FD3D12CommandContext : public FD3D12CommandContextBase, public FD3D12DeviceChild
 {
 public:
 	FD3D12CommandContext(class FD3D12Device* InParent, FD3D12SubAllocatedOnlineHeap::SubAllocationDesc& SubHeapDesc, bool InIsDefaultContext, bool InIsAsyncComputeContext = false);
@@ -144,15 +191,6 @@ public:
 	FD3D12DynamicBuffer DynamicVB;
 	FD3D12DynamicBuffer DynamicIB;
 
-	// State for begin/end draw primitive UP interface.
-	uint32 PendingNumVertices;
-	uint32 PendingVertexDataStride;
-	uint32 PendingPrimitiveType;
-	uint32 PendingNumPrimitives;
-	uint32 PendingMinVertexIndex;
-	uint32 PendingNumIndices;
-	uint32 PendingIndexDataStride;
-
 	/** Constant buffers for Set*ShaderParameter calls. */
 	FD3D12ConstantBuffer VSConstantBuffer;
 	FD3D12ConstantBuffer HSConstantBuffer;
@@ -231,16 +269,12 @@ public:
 	virtual void RHIFlushComputeShaderCache() final override;
 	virtual void RHISetMultipleViewports(uint32 Count, const FViewportBounds* Data) final override;
 	virtual void RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const uint32* Values) final override;
-	virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, bool bKeepOriginalSurface, const FResolveParams& ResolveParams) final override;
+	virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, const FResolveParams& ResolveParams) final override;
 	virtual void RHITransitionResources(EResourceTransitionAccess TransitionType, FTextureRHIParamRef* InTextures, int32 NumTextures) final override;
 	virtual void RHIBeginRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
 	virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
-	virtual void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch) final override;
-	virtual void RHIEndOcclusionQueryBatch() final override;
-	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) final override;
-	virtual void RHIEndDrawingViewport(FViewportRHIParamRef Viewport, bool bPresent, bool bLockToVsync) final override;
-	virtual void RHIBeginFrame() final override;
-	virtual void RHIEndFrame() final override;
+	void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch);
+	void RHIEndOcclusionQueryBatch();
 	virtual void RHIBeginScene() final override;
 	virtual void RHIEndScene() final override;
 	virtual void RHISetStreamSource(uint32 StreamIndex, FVertexBufferRHIParamRef VertexBuffer, uint32 Offset) final override;
@@ -290,13 +324,31 @@ public:
 	virtual void RHIEndDrawPrimitiveUP() final override;
 	virtual void RHIBeginDrawIndexedPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData) final override;
 	virtual void RHIEndDrawIndexedPrimitiveUP() final override;
-	virtual void RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth) final override;
+	virtual void RHIEnableDepthBoundsTest(bool bEnable) final override;
+	virtual void RHISetDepthBounds(float MinDepth, float MaxDepth) final override;
 	virtual void RHIUpdateTextureReference(FTextureReferenceRHIParamRef TextureRef, FTextureRHIParamRef NewTexture) final override;
 
 	virtual void RHIClearMRTImpl(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil);
-	virtual void UpdateMemoryStats();
 
-	// When using Alternate Frame Rendering some temporal effects i.e. effects which consume GPU work from previous frames must sychronize their resources
+	virtual void RHIBeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* InName) final override
+	{
+		IRHICommandContext::RHIBeginRenderPass(InInfo, InName);
+		if (InInfo.bOcclusionQueries)
+		{
+			RHIBeginOcclusionQueryBatch(InInfo.NumOcclusionQueries);
+		}
+	}
+
+	virtual void RHIEndRenderPass() final override
+	{
+		if (RenderPassInfo.bOcclusionQueries)
+		{
+			RHIEndOcclusionQueryBatch();
+		}
+		IRHICommandContext::RHIEndRenderPass();
+	}
+
+	// When using Alternate Frame Rendering some temporal effects i.e. effects which consume GPU work from previous frames must synchronize their resources
 	// to prevent visual corruption.
 
 	// This should be called right before the effect consumes it's temporal resources.
@@ -308,7 +360,7 @@ public:
 	template<typename ObjectType, typename RHIType>
 	inline ObjectType* RetrieveObject(RHIType RHIObject)
 	{
-#if !PLATFORM_SUPPORTS_MGPU
+#if !WITH_SLI
 		return FD3D12DynamicRHI::ResourceCast(RHIObject);
 #else
 		ObjectType* Object = FD3D12DynamicRHI::ResourceCast(RHIObject);
@@ -337,7 +389,7 @@ public:
 			return nullptr;
 		}
 		
-#if !PLATFORM_SUPPORTS_MGPU
+#if !WITH_SLI
 		return ((FD3D12TextureBase*)Texture->GetTextureBaseRHI());
 #else
 		FD3D12TextureBase* Result((FD3D12TextureBase*)Texture->GetTextureBaseRHI());
@@ -369,6 +421,9 @@ public:
 	// The retrieve calls are very high frequency so we need to do the least work as possible.
 	const bool bIsMGPUAware;
 
+	IRHICommandContext* GetContextForNodeMask(const FRHIGPUMask& InNodeMask) final override;
+
+	uint32 GetGPUIndex() const { return NodeMask.ToIndex(); }
 private:
 	void RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil);
 };
@@ -378,14 +433,15 @@ private:
 // as the default context so that we can control when to swap which device we talk to.
 // Because IRHICommandContext is pure virtual we can return the normal FD3D12CommandContext when not using mGPU thus there
 // is no additional overhead for the common case i.e. 1 GPU.
-class FD3D12CommandContextRedirector : public IRHICommandContext, public FD3D12AdapterChild
+class FD3D12CommandContextRedirector final : public FD3D12CommandContextBase
 {
 public:
 	FD3D12CommandContextRedirector(class FD3D12Adapter* InParent);
 
-#define ContextRedirect(Call) PhysicalContexts[CurrentDeviceIndex]->##Call
+#define ContextRedirect(Call) { for (uint32 GPUIndex : NodeMask) PhysicalContexts[GPUIndex]->##Call; }
+#define ContextGPU0(Call) { PhysicalContexts[0]->##Call; }
 
-	FORCEINLINE virtual void RHIWaitComputeFence(FComputeFenceRHIParamRef InFence) final override
+	FORCEINLINE_DEBUGGABLE virtual void RHIWaitComputeFence(FComputeFenceRHIParamRef InFence) final override
 	{
 		ContextRedirect(RHIWaitComputeFence(InFence));
 	}
@@ -467,9 +523,9 @@ public:
 	{
 		ContextRedirect(RHIClearTinyUAV(UnorderedAccessViewRHI, Values));
 	}
-	FORCEINLINE virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, bool bKeepOriginalSurface, const FResolveParams& ResolveParams) final override
+	FORCEINLINE virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, const FResolveParams& ResolveParams) final override
 	{
-		ContextRedirect(RHICopyToResolveTarget(SourceTexture, DestTexture, bKeepOriginalSurface, ResolveParams));
+		ContextRedirect(RHICopyToResolveTarget(SourceTexture, DestTexture, ResolveParams));
 	}
 	FORCEINLINE virtual void RHITransitionResources(EResourceTransitionAccess TransitionType, FTextureRHIParamRef* InTextures, int32 NumTextures) final override
 	{
@@ -482,30 +538,6 @@ public:
 	FORCEINLINE virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override
 	{
 		ContextRedirect(RHIEndRenderQuery(RenderQuery));
-	}
-	FORCEINLINE virtual void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch) final override
-	{
-		ContextRedirect(RHIBeginOcclusionQueryBatch(NumQueriesInBatch));
-	}
-	FORCEINLINE virtual void RHIEndOcclusionQueryBatch() final override
-	{
-		ContextRedirect(RHIEndOcclusionQueryBatch());
-	}
-	FORCEINLINE virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) final override
-	{
-		ContextRedirect(RHIBeginDrawingViewport(Viewport, RenderTargetRHI));
-	}
-	FORCEINLINE virtual void RHIEndDrawingViewport(FViewportRHIParamRef Viewport, bool bPresent, bool bLockToVsync) final override
-	{
-		ContextRedirect(RHIEndDrawingViewport(Viewport, bPresent, bLockToVsync));
-	}
-	FORCEINLINE virtual void RHIBeginFrame() final override
-	{
-		ContextRedirect(RHIBeginFrame());
-	}
-	FORCEINLINE virtual void RHIEndFrame() final override
-	{
-		ContextRedirect(RHIEndFrame());
 	}
 	FORCEINLINE virtual void RHIBeginScene() final override
 	{
@@ -675,26 +707,24 @@ public:
 	{
 		ContextRedirect(RHIDrawIndexedPrimitiveIndirect(PrimitiveType, IndexBuffer, ArgumentBuffer, ArgumentOffset));
 	}
-	FORCEINLINE virtual void RHIBeginDrawPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData) final override
+	
+	virtual void RHIBeginDrawPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData) final override;
+	
+	virtual void RHIEndDrawPrimitiveUP() final override;
+	
+	virtual void RHIBeginDrawIndexedPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData) final override;
+	
+	virtual void RHIEndDrawIndexedPrimitiveUP() final override;
+
+	FORCEINLINE virtual void RHIEnableDepthBoundsTest(bool bEnable) final override
 	{
-		ContextRedirect(RHIBeginDrawPrimitiveUP(PrimitiveType, NumPrimitives, NumVertices, VertexDataStride, OutVertexData));
+		ContextRedirect(RHIEnableDepthBoundsTest(bEnable));
 	}
-	FORCEINLINE virtual void RHIEndDrawPrimitiveUP() final override
+	FORCEINLINE virtual void RHISetDepthBounds(float MinDepth, float MaxDepth) final override
 	{
-		ContextRedirect(RHIEndDrawPrimitiveUP());
+		ContextRedirect(RHISetDepthBounds(MinDepth, MaxDepth));
 	}
-	FORCEINLINE virtual void RHIBeginDrawIndexedPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData) final override
-	{
-		ContextRedirect(RHIBeginDrawIndexedPrimitiveUP(PrimitiveType, NumPrimitives, NumVertices, VertexDataStride, OutVertexData, MinVertexIndex, NumIndices, IndexDataStride, OutIndexData));
-	}
-	FORCEINLINE virtual void RHIEndDrawIndexedPrimitiveUP() final override
-	{
-		ContextRedirect(RHIEndDrawIndexedPrimitiveUP());
-	}
-	FORCEINLINE virtual void RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth) final override
-	{
-		ContextRedirect(RHIEnableDepthBoundsTest(bEnable, MinDepth, MaxDepth));
-	}
+
 	FORCEINLINE virtual void RHIUpdateTextureReference(FTextureReferenceRHIParamRef TextureRef, FTextureRHIParamRef NewTexture) final override
 	{
 		ContextRedirect(RHIUpdateTextureReference(TextureRef, NewTexture));
@@ -714,18 +744,36 @@ public:
 		ContextRedirect(RHIBroadcastTemporalEffect(InEffectName, InTextures, NumTextures));
 	}
 
-	FORCEINLINE void SetCurrentDeviceIndex(uint32 Index)
+	virtual void RHIBeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* InName) final override
 	{
-		CurrentDeviceIndex = Index;
+		ContextRedirect(RHIBeginRenderPass(InInfo, InName));
 	}
 
-	FORCEINLINE void SetPhysicalContext(uint32 Index, FD3D12CommandContext* Context)
+	virtual void RHIEndRenderPass() final override
 	{
-		PhysicalContexts[Index] = Context;
+		ContextRedirect(RHIEndRenderPass());
 	}
+
+	FORCEINLINE void SetPhysicalContext(FD3D12CommandContext* Context)
+	{
+		check(Context);
+		PhysicalContexts[Context->GetGPUIndex()] = Context;
+	}
+
+	FORCEINLINE FD3D12CommandContext* GetPhysicalContext(uint32 GPUIndex) const
+	{
+		return PhysicalContexts[GPUIndex];
+	}
+
+	FORCEINLINE void SetGPUNodeMask(const FRHIGPUMask InNodeMask)
+	{
+		NodeMask = InNodeMask;
+	}
+
+	IRHICommandContext* GetContextForNodeMask(const FRHIGPUMask& InNodeMask) final override;
 
 private:
-	uint32 CurrentDeviceIndex;
+
 	FD3D12CommandContext* PhysicalContexts[MAX_NUM_LDA_NODES];
 };
 
@@ -740,8 +788,8 @@ public:
 	void Init();
 	void Destroy();
 
-	void WaitForPrevious(ID3D12CommandQueue* Queue);
-	void SignalSyncComplete(ID3D12CommandQueue* Queue);
+	void WaitForPrevious(ED3D12CommandQueueType InQueueType);
+	void SignalSyncComplete(ED3D12CommandQueueType InQueueType);
 
 private:
 	FD3D12Fence EffectFence;

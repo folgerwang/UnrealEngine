@@ -38,6 +38,7 @@
 #include "Misc/RuntimeErrors.h"
 #include "UObject/AnimPhysObjectVersion.h"
 #include "Misc/ScopeExit.h"
+#include "ContentStreaming.h"
 
 
 #define LOCTEXT_NAMESPACE "SkeletalMeshComponent"
@@ -191,6 +192,18 @@ USkeletalMeshComponent::USkeletalMeshComponent(const FObjectInitializer& ObjectI
 	bClothingSimulationSuspended = false;
 
 #endif//#if WITH_APEX_CLOTHING
+
+	EdgeStiffness = 1.f;
+	BendingStiffness = 1.f;
+	AreaStiffness = 1.f;
+	VolumeStiffness = 0.f;
+	StrainLimitingStiffness = 1.f;
+	ShapeTargetStiffness = 0.f;
+	bUseBendingElements = false;
+	bUseTetrahedralConstraints = false;
+	bUseThinShellVolumeConstraints = false;
+	bUseSelfCollisions = false;
+	bUseContinuousCollisionDetection = false;
 
 #if WITH_EDITORONLY_DATA
 	DefaultPlayRate_DEPRECATED = 1.0f;
@@ -2409,6 +2422,9 @@ void USkeletalMeshComponent::SetSkeletalMesh(USkeletalMesh* InSkelMesh, bool bRe
 
 	// Mark cached material parameter names dirty
 	MarkCachedMaterialParameterNameIndicesDirty();
+
+	// Update this component streaming data.
+	IStreamingManager::Get().NotifyPrimitiveUpdated(this);
 }
 
 void USkeletalMeshComponent::SetSkeletalMeshWithoutResettingAnimation(USkeletalMesh* InSkelMesh)

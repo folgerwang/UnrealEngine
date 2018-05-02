@@ -9,8 +9,6 @@
 #include "Random.ush"
 #include "EyeAdaptationCommon.ush"
 
-// 1 / LastFrame.PreExposure
-float OneOverHistoryPreExposure;
 
 //------------------------------------------------------- COMPILER CONFIG
 
@@ -18,10 +16,56 @@ float OneOverHistoryPreExposure;
 #pragma warning(error: 3206)
 
 
+//------------------------------------------------------- ENUM VALUES
+
+/** Payload of the history. History might still have addtional TAA internals. */
+	// Only have RGB.
+	#define HISTORY_PAYLOAD_RGB 0
+	
+	// Have RGB and translucency in alpha.
+	#define HISTORY_PAYLOAD_RGB_TRANSLUCENCY 1
+	
+	// Have RGB and opacity in alpha.
+	#define HISTORY_PAYLOAD_RGB_OPACITY (HISTORY_PAYLOAD_RGB_TRANSLUCENCY)
+	
+	// Have RGB and DOF's CocRadius in alpha.
+	#define HISTORY_PAYLOAD_RGB_COC 2
+	
+	// TODO: Have RGB, translucency in alpha and DOF's CocRadius in separate's Red.
+	// #define HISTORY_PAYLOAD_RGB_TRANSLUCENCY_COC 3
+
+
+/** Caching method for scene color. */
+	// Disable any in code cache.
+	#define AA_SAMPLE_CACHE_METHOD_DISABLE 0
+	
+	// Caches 3x3 Neighborhood into VGPR (although my have corner optimised away).
+	#define AA_SAMPLE_CACHE_METHOD_VGPR_3X3 1
+	
+	// Prefetches scene color into 10x10 LDS tile (8x8 when screen percentage < 71%).
+	#define AA_SAMPLE_CACHE_METHOD_LDS 2
+	
+
+/** Caching method for scene color. */
+	// Min max neighboorhing samples.
+	#define HISTORY_CLAMPING_BOX_MIN_MAX 0
+	
+	// Variance computed from neighboorhing samples.
+	#define HISTORY_CLAMPING_BOX_VARIANCE 1
+
+	// Min max samples that are within distance from output pixel. 
+	#define HISTORY_CLAMPING_BOX_SAMPLE_DISTANCE 2
+
+
 //------------------------------------------------------- CONFIGS
 
+// Compute shaders always do responsive TAA in a single pass.
+#if COMPUTESHADER
+	#define AA_SINGLE_PASS_RESPONSIVE 1
+#endif
+
 #if TAA_PASS_CONFIG == 0 // Used for DOF
-	#define AA_ALPHA 1
+	#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB_TRANSLUCENCY) // This isn't right be do it anyway for legacy reasons.
 	#define AA_BORDER 1
 	#define AA_CROSS 4 // because running at half res.
 	#define AA_DYNAMIC 1
@@ -31,16 +75,11 @@ float OneOverHistoryPreExposure;
 	#define AA_YCOCG 1
 	#define AA_LOWER_RESOLUTION 1
 
-	#define AA_SAMPLE_CACHE_METHOD 1
-	#if COMPUTESHADER
-		#define AA_SINGLE_PASS_RESPONSIVE 1
-	#endif
-
 #elif TAA_PASS_CONFIG == 1 // Main
 	#if POST_PROCESS_ALPHA
-		#define AA_ALPHA 1
+		#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB_TRANSLUCENCY)
 	#else
-		#define AA_ALPHA 0
+		#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB)
 	#endif
 	#define AA_BICUBIC 1
 	#define AA_BORDER 1
@@ -56,37 +95,32 @@ float OneOverHistoryPreExposure;
 	#endif
 
 	#if COMPUTESHADER
-		#define AA_SINGLE_PASS_RESPONSIVE 1
-		#define AA_SAMPLE_CACHE_METHOD 2
-	#else
-		#define AA_SAMPLE_CACHE_METHOD 1
+		#define AA_SAMPLE_CACHE_METHOD (AA_SAMPLE_CACHE_METHOD_LDS)
 	#endif
 
 #elif TAA_PASS_CONFIG == 2 // Used for SSR
-	#define AA_ALPHA 1
+	#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB_OPACITY)
 	#define AA_DYNAMIC 1
 	#define AA_FILTERED 1
 	#define AA_LERP 8
 	#define AA_MANUALLY_CLAMP_HISTORY_UV 1
 	#define AA_YCOCG 1
-	#define AA_SAMPLE_CACHE_METHOD 1
 	#define AA_BORDER 1
 
 #elif TAA_PASS_CONFIG == 3 // Used for LightShaft
-	#define AA_ALPHA 1
+	#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB_OPACITY)
 	#define AA_FILTERED 1
 	#define AA_LERP 64
 	#define AA_MANUALLY_CLAMP_HISTORY_UV 1
 	#define AA_YCOCG 1
-	#define AA_SAMPLE_CACHE_METHOD 1
 	#define AA_LOWER_RESOLUTION 1
 	#define AA_BORDER 1
 
 #elif TAA_PASS_CONFIG == 4 // MainUpsampling
 	#if POST_PROCESS_ALPHA
-		#define AA_ALPHA 1
+		#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB_TRANSLUCENCY)
 	#else
-		#define AA_ALPHA 0
+		#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB)
 	#endif
 	#define AA_BICUBIC 1
 	#define AA_BORDER 2
@@ -94,30 +128,22 @@ float OneOverHistoryPreExposure;
 	#define AA_DYNAMIC 1
 	#define AA_FILTERED 1
 	#define AA_MANUALLY_CLAMP_HISTORY_UV 1
-	#define AA_SINGLE_PASS_RESPONSIVE 1
 	#define AA_TONE 1
 	#define AA_YCOCG 1
 	
 	#define AA_UPSAMPLE 1
 	#define AA_UPSAMPLE_ADAPTIVE_FILTERING 1
 	
-	#if TAA_SCREEN_PERCENTAGE_RANGE == 2
-		#define AA_DOWNSAMPLE 1
-	#else
-		#define AA_DOWNSAMPLE 0
-	#endif
-
 	#if TAA_FAST
 		// When doing TAA downsampling, still need the 9 samples.
 		#if AA_DOWNSAMPLE
 			#define AA_SAMPLES 9
 		#else
-			#define AA_UPSAMPLE_CLAMPING_METHOD 0
 			#define AA_SAMPLES 6
 		#endif
 
 	#else
-		#define AA_UPSAMPLE_CLAMPING_METHOD 3
+		#define AA_HISTORY_CLAMPING_BOX (HISTORY_CLAMPING_BOX_SAMPLE_DISTANCE)
 		#define AA_DYNAMIC_ANTIGHOST 1
 		#define AA_SAMPLES 9
 
@@ -125,18 +151,54 @@ float OneOverHistoryPreExposure;
 
 	// Do not use LDS caching for screen percentage > 100%.
 	#if TAA_SCREEN_PERCENTAGE_RANGE == 2
-		#define AA_SAMPLE_CACHE_METHOD 1
+		#define AA_SAMPLE_CACHE_METHOD (AA_SAMPLE_CACHE_METHOD_VGPR_3X3)
 	#else
-		#define AA_SAMPLE_CACHE_METHOD 2
+		#define AA_SAMPLE_CACHE_METHOD (AA_SAMPLE_CACHE_METHOD_LDS)
 	#endif
 
 	#if !COMPUTESHADER
 		#error "Upsampling is only available for CS because of the resceponsive stencil bit."
 	#endif
+	
+#elif TAA_PASS_CONFIG == 5 || TAA_PASS_CONFIG == 6 // Used for diaphragm DOF pre-filtering.
+	#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB_COC)
+	#define AA_CROSS 4 // because running at half res.
+	#define AA_DYNAMIC 1
+	#define AA_FORCE_ALPHA_CLAMP 1
+	#define AA_MANUALLY_CLAMP_HISTORY_UV 1
+	#define AA_LOWER_RESOLUTION 1
 
+	#if TAA_PASS_CONFIG == 6
+		#define AA_BORDER 2
+		#define AA_UPSAMPLE 1
+		#define AA_UPSAMPLE_ADAPTIVE_FILTERING 1
+	#else
+		#define AA_BORDER 1
+		#define AA_UPSAMPLE 0
+	#endif
+	
+	#if !TAA_FAST
+		#define AA_BICUBIC 1
+		#define AA_FILTERED 1
+		#define AA_YCOCG 1
+	#elif AA_UPSAMPLE
+		#define AA_BICUBIC 1
+		#define AA_FILTERED 1
+	#endif
+
+	#if TAA_SCREEN_PERCENTAGE_RANGE != 2 && AA_UPSAMPLE
+		//#define AA_SAMPLE_CACHE_METHOD (AA_SAMPLE_CACHE_METHOD_LDS) // TODO: doesn't work yet.
+	#endif
+	
 #else
-	#error Fixme!
+	#error Unknown TAA pass config. Have you changed ETAAPassConfig without updating me?
 
+#endif
+
+#if TAA_SCREEN_PERCENTAGE_RANGE == 2
+	#define AA_DOWNSAMPLE 1
+#else
+	#define AA_DOWNSAMPLE 0
 #endif
 
 
@@ -153,13 +215,6 @@ float OneOverHistoryPreExposure;
 	#define AA_CLIP 0
 #endif
 
-// 0 = Input doesn't have or need the alpha channel. Don't AA or preserve the alpha. Potentially use alpha channel of the output to improve quality.
-//     Leverages dead code removal to work in RGB instead of RGBA.
-// 1 = Anti-alias the alpha channel also. 
-#ifndef AA_ALPHA
-	#define AA_ALPHA 0
-#endif
-
 // Cross distance in pixels used in depth search X pattern.
 // 0 = Turn this feature off.
 // 2 = Is required for standard temporal AA pass.
@@ -171,12 +226,6 @@ float OneOverHistoryPreExposure;
 // 0 = Skip dynamic motion, currently required for half resolution passes.
 #ifndef AA_DYNAMIC
 	#define AA_DYNAMIC 0
-#endif
-
-// 1 = Use filtered sample.
-// 0 = Use center sample.
-#ifndef AA_FILTERED
-	#define AA_FILTERED 0
 #endif
 
 // 0 = Dynamic motion based lerp value (default).
@@ -221,11 +270,6 @@ float OneOverHistoryPreExposure;
 	#define AA_DYNAMIC_ANTIGHOST 0
 #endif
 
-// Variance clamping
-#ifndef AA_VARIANCE
-	#define AA_VARIANCE 0
-#endif
-
 // Sample the stencil buffer inline rather than multiple masked passes.
 #ifndef AA_SINGLE_PASS_RESPONSIVE
 	#define AA_SINGLE_PASS_RESPONSIVE	0
@@ -236,22 +280,14 @@ float OneOverHistoryPreExposure;
 	#define AA_UPSAMPLE 0
 #endif
 
-// Clamping method used for upsampling.
-#ifndef AA_UPSAMPLE_CLAMPING_METHOD
-	#define AA_UPSAMPLE_CLAMPING_METHOD 0
+// Method used for generating the history clamping box.
+#ifndef AA_HISTORY_CLAMPING_BOX
+	#define AA_HISTORY_CLAMPING_BOX (HISTORY_CLAMPING_BOX_MIN_MAX)
 #endif
 
 // Change the upsampling filter size when history is rejected that reduce blocky output pixels.
 #ifndef AA_UPSAMPLE_ADAPTIVE_FILTERING
 	#define AA_UPSAMPLE_ADAPTIVE_FILTERING 0
-#endif
-
-// Load scene color and depth into LDS.
-//  0: no sampling cache.
-//  1: cache neareast 3x3.
-//  2: LDS cache.
-#ifndef AA_SAMPLE_CACHE_METHOD
-	#define AA_SAMPLE_CACHE_METHOD 0
 #endif
 
 // Whether this pass run at lower resolution than main view rectangle.
@@ -267,6 +303,13 @@ float OneOverHistoryPreExposure;
 
 //------------------------------------------------------- CONFIG ENABLED DEFAULTS
 
+// Always enable scene color filtering
+// 1 = Use filtered sample.
+// 0 = Use center sample.
+#ifndef AA_FILTERED
+	#define AA_FILTERED 1
+#endif
+
 // Always enable AA_NAN to avoid all NAN in all TAA pass that is more convenient considering the amount of / 0 we can have.
 // 0 = Don't use.
 // 1 = Use extra clamp to avoid NANs
@@ -277,6 +320,28 @@ float OneOverHistoryPreExposure;
 // Neighborhood clamping. Disable for testing reprojection. Always enabled, well because TAA is totally broken otherwise.
 #ifndef AA_CLAMP
 	#define AA_CLAMP 1
+#endif
+
+// By default, always cache neighbooring samples into VGPR.
+#ifndef AA_SAMPLE_CACHE_METHOD
+	#define AA_SAMPLE_CACHE_METHOD (AA_SAMPLE_CACHE_METHOD_VGPR_3X3)
+#endif
+
+
+//------------------------------------------------------- MENDATORY CONFIG
+
+#ifndef AA_HISTORY_PAYLOAD
+	#error You forgot to defines the history payload.
+#endif
+
+
+//------------------------------------------------------- DERIVES
+
+// Defines number of component in history payload.
+#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB
+	#define HISTORY_PAYLOAD_COMPONENTS 3
+#else
+	#define HISTORY_PAYLOAD_COMPONENTS 4
 #endif
 
 
@@ -364,23 +429,34 @@ static const uint kNeighborsCount = 9;
 
 //------------------------------------------------------- PARAMETERS
 
+// 1 / LastFrame.PreExposure
+float OneOverHistoryPreExposure;
+
 float SampleWeights[9];
 float PlusWeights[5];
 float CurrentFrameWeight;
 
+float4 ViewportUVToInputBufferUV;
 float4 MaxViewportUVAndSvPositionToViewportUV;
+
 float2 ScreenPosAbsMax;
 float4 ScreenPosToHistoryBufferUV;
+
+Texture2D HistoryBuffer0;
+SamplerState HistoryBuffer0Sampler;
+float4 HistoryBufferSize;
 float4 HistoryBufferUVMinMax;
 
 #if COMPUTESHADER
-// x: bForceResponsiveFrame, y: Unused, zw: ThreadToUVScale
-float4 TemporalAAComputeParams;
 RWTexture2D<float4> OutComputeTex;
 #endif
 
 // Temporal upsample specific params.
 #if AA_UPSAMPLE
+
+float2 InputViewMin;
+float4 InputViewSize;
+
 // Temporal jitter at the pixel scale.
 float2 TemporalJitterPixels;
 
@@ -442,7 +518,7 @@ float HdrWeightY(float Color, float Exposure)
 float IntersectAABB(float3 Dir, float3 Org, float3 Box)
 {
 	#if PS4_PROFILE
-	    // This causes flicker, it should only be used on PS4 until proper fix is in.
+		// This causes flicker, it should only be used on PS4 until proper fix is in.
 		if(min(min(abs(Dir.x), abs(Dir.y)), abs(Dir.z)) < (1.0/65536.0)) return 1.0;
 	#endif
 	float3 RcpDir = rcp(Dir);
@@ -489,6 +565,24 @@ float4 WeightedLerp( float4 ColorA, float WeightA, float4 ColorB, float WeightB,
 	return ColorA * BlendA + ColorB * BlendB;
 }
 
+#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+
+// Computes the bilateral weight according to two Coc radii.
+float ComputeBilateralWeight(float RefCocRadius, float SampleCocRadius)
+{
+	#if 0
+		float ShapestCocRadius = abs(RefCocRadius) < abs(SampleCocRadius) ? RefCocRadius : SampleCocRadius;
+
+		return max(0, 1 - abs(RefCocRadius - SampleCocRadius) + abs(ShapestCocRadius));
+
+	#else
+		float Factor = (abs(RefCocRadius) > 1 ? rcp(abs(RefCocRadius)) : 1.0);
+		return max(0, 1 - abs(RefCocRadius - SampleCocRadius) * Factor);
+
+	#endif
+}
+
+#endif
 
 //------------------------------------------------------- TAA INTERMEDIARY STRUCTURES
 
@@ -521,7 +615,7 @@ struct FTAAInputParameters
 	float FrameExposureScale;
 	
 	// Cache of neightbors' transformed scene color.
-	#if AA_SAMPLE_CACHE_METHOD == 1
+	#if AA_SAMPLE_CACHE_METHOD == AA_SAMPLE_CACHE_METHOD_VGPR_3X3
 		float4 CachedNeighbors[kNeighborsCount];
 	#endif
 };
@@ -633,7 +727,7 @@ float GetSceneColorHdrWeight(
 //
 //		<Offset> parameter is meant to be compile time constant of the pixel offset from nearest input sample.
 
-#if AA_SAMPLE_CACHE_METHOD == 1
+#if AA_SAMPLE_CACHE_METHOD == AA_SAMPLE_CACHE_METHOD_VGPR_3X3
 //------------------------------------------------------- 3x3 NEIGHTBORS CACHING
 
 	#define AA_PRECACHE_SCENE_COLOR 1
@@ -662,7 +756,7 @@ float GetSceneColorHdrWeight(
 	}
 
 
-#elif AA_SAMPLE_CACHE_METHOD >= 2
+#elif AA_SAMPLE_CACHE_METHOD == AA_SAMPLE_CACHE_METHOD_LDS
 //-------------------------------- Generic LDS functions.
 
 // Returns SV_GroupIndex.
@@ -720,7 +814,7 @@ uint GetGroupIndex(in FTAAInputParameters InputParams)
 #define AA_PRECACHE_SCENE_COLOR 1
 
 // Precache GetSceneColorHdrWeight() into scene color's alpha channel.
-#define AA_PRECACHE_SCENE_HDR_WEIGHT (AA_TONE && !AA_ALPHA)
+#define AA_PRECACHE_SCENE_HDR_WEIGHT (AA_TONE && HISTORY_PAYLOAD_COMPONENTS == 3)
 
 // Layout of scene color in LDS.
 // 0: AoS
@@ -746,7 +840,7 @@ uint GetGroupIndex(in FTAAInputParameters InputParams)
 // TODO: shader permutation for screen percentage <= 75% with AA_UPSAMPLE to fit in 1k LDS.
 
 // Number of scene color component that gets cached.
-#if AA_ALPHA || AA_PRECACHE_SCENE_HDR_WEIGHT
+#if HISTORY_PAYLOAD_COMPONENTS == 4 || AA_PRECACHE_SCENE_HDR_WEIGHT
 #define LDS_COLOR_COMPONENT_COUNT 4
 #else
 #define LDS_COLOR_COMPONENT_COUNT 3
@@ -798,12 +892,12 @@ float2 GetGroupThread0InputPixelCoord(in FTAAInputParameters InputParams)
 	float2 Thread0ViewportUV = Thread0SvPosition * ViewportSize.zw;
 
 	// Pixel coordinate of the center of output pixel O in the input viewport.
-	float2 Thread0PPCo = Thread0ViewportUV * View.ViewSizeAndInvSize.xy + TemporalJitterPixels;
+	float2 Thread0PPCo = Thread0ViewportUV * InputViewSize.xy + TemporalJitterPixels;
 	
 	// Pixel coordinate of the center of the nearest input pixel K.
 	float2 Thread0PPCk = floor(Thread0PPCo) + 0.5;
 		
-	return View.ViewRectMin.xy + Thread0PPCk;
+	return InputViewMin.xy + Thread0PPCk;
 }
 
 #endif
@@ -833,7 +927,7 @@ uint GetTileArrayIndexFromPixelOffset(in FTAAInputParameters InputParams, int2 P
 		const float2 RowMultiplier = float2(1, TileBorderSize * 2 + LDS_BASE_TILE_WIDTH);
 
 		float2 Thread0PPCk = GetGroupThread0InputPixelCoord(InputParams);
-		float2 PPCk = InputParams.NearestBufferUV * View.BufferSizeAndInvSize.xy;
+		float2 PPCk = InputParams.NearestBufferUV * PostprocessInput0Size.xy;
 
 		float2 TilePos = floor(PPCk) - floor(Thread0PPCk);
 		return uint(dot(TilePos, RowMultiplier) + dot(float2(PixelOffset) + float(TileBorderSize), RowMultiplier));
@@ -873,7 +967,7 @@ void PrecacheInputSceneDepthToLDS(in FTAAInputParameters InputParams)
 				(i != LoadCount - 1) ||
 				(LDS_DEPTH_ARRAY_SIZE % THREADGROUP_TOTAL) == 0)
 			{
-				GroupSharedArray[LinearGroupThreadId] = SceneDepthTexture.Load(uint3(TexelLocation, 0)).x;
+				GroupSharedArray[LinearGroupThreadId] = SceneTexturesStruct.SceneDepthTexture.Load(uint3(TexelLocation, 0)).x;
 			}
 			LinearGroupThreadId += THREADGROUP_TOTAL;
 		}
@@ -903,7 +997,7 @@ void PrecacheInputSceneDepthToLDS(in FTAAInputParameters InputParams)
 				((LDS_DEPTH_ARRAY_SIZE / 4) % THREADGROUP_TOTAL) == 0)
 			{
 				float2 UV = float2(TexelLocation + 0.5) * PostprocessInput0Size.zw;
-				float4 Depth = SceneDepthTexture.Gather(SceneDepthTextureSampler, UV);
+				float4 Depth = SceneTexturesStruct.SceneDepthTexture.Gather(SceneTexturesStruct.SceneDepthTextureSampler, UV);
 				GroupSharedArray[DestI + 1 * LDS_DEPTH_TILE_WIDTH + 0] = Depth.x;
 				GroupSharedArray[DestI + 1 * LDS_DEPTH_TILE_WIDTH + 1] = Depth.y;
 				GroupSharedArray[DestI + 0 * LDS_DEPTH_TILE_WIDTH + 1] = Depth.z;
@@ -1028,7 +1122,7 @@ FTAASceneColorSample SampleCachedSceneColorTexture(
 		#if AA_PRECACHE_SCENE_HDR_WEIGHT
 			Sample.HdrWeight = Sample.Color.a;
 			Sample.Color.a = 0;
-		#elif !AA_ALPHA
+		#elif HISTORY_PAYLOAD_COMPONENTS != 4
 			#error LDS_USE_FLOAT4_ARRAY assumes 4 components.
 		#endif
 
@@ -1038,7 +1132,7 @@ FTAASceneColorSample SampleCachedSceneColorTexture(
 		Sample.Color.b = GroupSharedArray[GetSceneColorLDSIndex(ArrayPos, 2)];
 		Sample.Color.a = 0;
 	
-		#if AA_ALPHA
+		#if HISTORY_PAYLOAD_COMPONENTS == 4
 			Sample.Color.a = GroupSharedArray[GetSceneColorLDSIndex(ArrayPos, 3)];
 		#elif AA_PRECACHE_SCENE_HDR_WEIGHT
 			Sample.HdrWeight = GroupSharedArray[GetSceneColorLDSIndex(ArrayPos, 3)];
@@ -1079,7 +1173,7 @@ void PrecacheInputSceneColor(in FTAAInputParameters InputParams)
 }
 
 
-#endif // AA_SAMPLE_CACHE_METHOD >= 2
+#endif // AA_SAMPLE_CACHE_METHOD == AA_SAMPLE_CACHE_METHOD_LDS
 
 //------------------------------------------------------- FALLBACK TO NO CACHING IMPLEMENTATIONS.
 
@@ -1097,7 +1191,7 @@ void PrecacheInputSceneDepth(in FTAAInputParameters InputParams)
 // Sample scene color.
 float SampleCachedSceneDepthTexture(in FTAAInputParameters InputParams, int2 PixelOffset)
 {
-	return SceneDepthTexture.SampleLevel(SceneDepthTextureSampler, InputParams.NearestBufferUV, 0, PixelOffset).r;
+	return SceneTexturesStruct.SceneDepthTexture.SampleLevel(SceneTexturesStruct.SceneDepthTextureSampler, InputParams.NearestBufferUV, 0, PixelOffset).r;
 }
 
 
@@ -1148,7 +1242,7 @@ float ComputeSampleWeigth(in FTAAIntermediaryResult IntermediaryResult, float2 P
 
 	#if 1
 		// 1 - 1.9 * x^2 + 0.9 * x^4
-		float x2 = clamp(dot(PixelDelta, PixelDelta) * u2, -1, 1);
+		float x2 = saturate(u2 * dot(PixelDelta, PixelDelta));
 		return (0.905 * x2 - 1.9) * x2 + 1;
 
 	#else
@@ -1177,7 +1271,7 @@ float ComputePixelWeigth(in FTAAIntermediaryResult IntermediaryResult, float2 Pi
 
 	#if 1
 		// 1 - 1.9 * x^2 + 0.9 * x^4
-		float x2 = clamp(u2 * dot(PixelDelta, PixelDelta), -1, 1);
+		float x2 = saturate(u2 * dot(PixelDelta, PixelDelta));
 		float r = (0.905 * x2 - 1.9) * x2 + 1;
 
 	#else
@@ -1218,105 +1312,153 @@ void FilterCurrentFrameInputSamples(
 	}
 	#endif
 
-	#if AA_SAMPLES == 9
-		const uint SampleIndexes[9] = kSquareIndexes3x3;
-	#elif AA_SAMPLES == 5 || AA_SAMPLES == 6
-		const uint SampleIndexes[5] = kPlusIndexes3x3;
-	#endif
-
-	#if AA_UPSAMPLE // TODO: can collapse with AA_FILTERED
 	{
-		// Pixel coordinate of the center of output pixel O in the input viewport.
-		float2 PPCo = InputParams.ViewportUV * View.ViewSizeAndInvSize.xy + TemporalJitterPixels;
+		#if AA_UPSAMPLE
+			// Pixel coordinate of the center of output pixel O in the input viewport.
+			float2 PPCo = InputParams.ViewportUV * InputViewSize.xy + TemporalJitterPixels;
 
-		// Pixel coordinate of the center of the nearest input pixel K.
-		float2 PPCk = floor(PPCo) + 0.5;
+			// Pixel coordinate of the center of the nearest input pixel K.
+			float2 PPCk = floor(PPCo) + 0.5;
 		
-		// Vector in pixel between pixel K -> O.
-		float2 dKO = PPCo - PPCk;
+			// Vector in pixel between pixel K -> O.
+			float2 dKO = PPCo - PPCk;
+		#endif
 		
-		float TotalFilteredWeight = 0;
+		#if AA_SAMPLES == 9
+			const uint SampleIndexes[9] = kSquareIndexes3x3;
+		#elif AA_SAMPLES == 5 || AA_SAMPLES == 6
+			const uint SampleIndexes[5] = kPlusIndexes3x3;
+		#endif
+
+		#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+			// Fetches center pixel's Coc for the bilateral filtering.
+			float CenterCocRadius = SampleCachedSceneColorTexture(InputParams, int2(0, 0)).Color.a;
+		#endif
+
+		float NeighborsHdrWeight = 0;
+		float NeighborsFinalWeight = 0;
+		float4 NeighborsColor = 0;
+
 		UNROLL
 		for (uint i = 0; i < AA_SAMPLES; i++)
 		{
 			// Get the sample offset from the nearest input pixel.
 			int2 SampleOffset;
-			float2 fSampleOffset;
 			
-			if (AA_SAMPLES == 6 && i == 5)
-			{
-				fSampleOffset = sign(dKO);
-				SampleOffset = int2(fSampleOffset);
-			}
-			else
+			#if AA_UPSAMPLE && AA_SAMPLES == 6
+				if (i == 5)
+				{
+					SampleOffset = SignFastInt(dKO);
+				}
+				else
+			#endif
 			{
 				SampleOffset = kOffsets3x3[SampleIndexes[i]];
-				fSampleOffset = float2(SampleOffset);
 			}
-
-			// Compute the pixel delta between output pixels and input pixel I.
-			//  Note: abs() is unecessary because of the dot(dPP, dPP) latter on.
-			float2 dPP = fSampleOffset - dKO;
+			float2 fSampleOffset = float2(SampleOffset);
 			
-			// Compute the weigth of this input sample.
-			float SampleWeight = ComputeSampleWeigth(IntermediaryResult, dPP);
+			// When doing Coc bilateral, the center sample is accumulated last.
+			#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC && 0
+				if (all(SampleOffset == 0) && (AA_SAMPLES != 6 || i != 5))
+				{
+					continue;
+				}
+			#endif
 
+			// Finds out the spatial weight of this input sample.
+			#if AA_UPSAMPLE
+				// Compute the pixel delta between output pixels and input pixel I.
+				//  Note: abs() is unecessary because of the dot(dPP, dPP) latter on.
+				float2 dPP = fSampleOffset - dKO;
+
+				float SampleSpatialWeight = ComputeSampleWeigth(IntermediaryResult, dPP);
+
+			#elif AA_SAMPLES == 9
+				float SampleSpatialWeight = SampleWeights[i];
+
+			#elif AA_SAMPLES == 5
+				float SampleSpatialWeight = PlusWeights[i];
+
+			#else
+				#error Do not know how to compute filtering sample weight.
+
+			#endif
+
+			// Fetch sample.
 			FTAASceneColorSample Sample = SampleCachedSceneColorTexture(InputParams, SampleOffset);
 				
+			// Finds out the sample's HDR weight.
+			#if AA_TONE
+				float SampleHdrWeight = Sample.HdrWeight;
+			#else
+				float SampleHdrWeight = 1;
+			#endif
+
+			// Finds out the sample's bilateral weight according to the payload.
+			#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+				float SampleCocRadius = Sample.Color.a;
+
+				float BilateralWeight = ComputeBilateralWeight(CenterCocRadius, SampleCocRadius);
+
+			#else
+				float BilateralWeight = 1;
+
+			#endif
+
+			float SampleFinalWeight = SampleSpatialWeight * SampleHdrWeight * BilateralWeight;
+
+			// Apply pixel.
+			NeighborsColor       += SampleFinalWeight * Sample.Color;
+			NeighborsFinalWeight += SampleFinalWeight;
+
+			NeighborsHdrWeight   += SampleSpatialWeight * SampleHdrWeight;
+		}
+		
+		#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+		{
+			FTAASceneColorSample Sample = SampleCachedSceneColorTexture(InputParams, 0);
+			
+			#if AA_UPSAMPLE
+				float SampleWeight = ComputeSampleWeigth(IntermediaryResult, -dKO);
+
+			#elif AA_SAMPLES == 9
+				float SampleWeight = SampleWeights[4];
+
+			#else
+				float SampleWeight = PlusWeights[2];
+
+			#endif
+			
 			if (AA_TONE)
 			{
 				SampleWeight *= Sample.HdrWeight;
 			}
 
-			// Apply pixel.
-			Filtered += Sample.Color * SampleWeight;
-			TotalFilteredWeight += SampleWeight;
+			// TODO: it feels wrong...
+			//Filtered = NeighborsColor * (NeighborsHdrWeight * rcp(NeighborsFinalWeight)) + Sample.Color * SampleWeight;
+			Filtered = NeighborsColor * rcp(NeighborsFinalWeight);
 		}
-		
-		// Reweight because ComputeSampleWeigth() does not generate samples that have total sum = 1.
-		Filtered *= rcp(TotalFilteredWeight);
-		
-		// Compute the temporal weight of the output pixel.
-		IntermediaryResult.FilteredTemporalWeight = ComputePixelWeigth(IntermediaryResult, dKO);
-	}
-	#else
-	{
-		// Filter neighbors
-		float TotalWeight = 0;
-		UNROLL
-		for( uint i = 0; i < AA_SAMPLES; i++ )
+		#elif AA_TONE || AA_UPSAMPLE
 		{
-			FTAASceneColorSample Sample = SampleCachedSceneColorTexture(InputParams, kOffsets3x3[SampleIndexes[i]]);
-			#if AA_SAMPLES == 9
-				float SampleWeight = SampleWeights[i];
-			#else
-				float SampleWeight = PlusWeights[i];
-			#endif
-
-			if( AA_TONE )
-			{
-				SampleWeight *= Sample.HdrWeight;
-				TotalWeight += SampleWeight;
-			}
-
-			Filtered += Sample.Color * SampleWeight;
+			// Reweight because SampleFinalWeight does not that have total sum = 1.
+			Filtered = NeighborsColor * rcp(NeighborsFinalWeight);
 		}
-		if( AA_TONE )
-			Filtered *= rcp(TotalWeight);
+		#else
+		{
+			Filtered = NeighborsColor;
+		}
+		#endif
+		
+		#if AA_UPSAMPLE
+			// Compute the temporal weight of the output pixel.
+			IntermediaryResult.FilteredTemporalWeight = ComputePixelWeigth(IntermediaryResult, dKO);
+		#endif
 	}
-	#endif
 	
 	#if AA_BORDER == 1
 	{
 		#if AA_UPSAMPLE
 			#error AA_BORDER == 1 does not work for TAA upsample because also needs to be done in color clamping box.
-			float2 TestPos = abs(InputParams.ScreenPos + View.ViewSizeAndInvSize.zw * TemporalJitterPixels * float2(2, -2)) + View.ViewSizeAndInvSize.zw * 2.0;
-
-			if(max(TestPos.x, TestPos.y) >= 1.0) 
-			{
-				Filtered = SampleCachedSceneColorTexture(InputParams, -sign(TemporalJitterPixels)).Color;
-				Filtered = float4(1, 0, 0, 0);
-			}
 		#else
 			// Use unfiltered for 1 pixel border.
 			float2 TestPos = abs(InputParams.ScreenPos) + ViewportSize.zw * 2.0;
@@ -1351,7 +1493,7 @@ void ComputeNeighborhoodBoundingbox(
 		Neighbors[i] = SampleCachedSceneColorTexture(InputParams, kOffsets3x3[i]).Color;
 	}
 
-	#if AA_VARIANCE
+	#if AA_HISTORY_CLAMPING_BOX == HISTORY_CLAMPING_BOX_VARIANCE
 	{
 		#if AA_SAMPLES == 9
 			const uint SampleIndexes[9] = kSquareIndexes3x3;
@@ -1381,48 +1523,10 @@ void ComputeNeighborhoodBoundingbox(
 		NeighborMin = min( NeighborMin, IntermediaryResult.Filtered );
 		NeighborMax = max( NeighborMax, IntermediaryResult.Filtered );
 	}
-	#elif AA_UPSAMPLE_CLAMPING_METHOD == 2
-	// Do + clamping with additional sample on the nearest 3x3 corner.
-	{
-		NeighborMin = min3( Neighbors[1], Neighbors[3], Neighbors[4] );
-		NeighborMin = min3( NeighborMin,  Neighbors[5], Neighbors[7] );
-
-		NeighborMax = max3( Neighbors[1], Neighbors[3], Neighbors[4] );
-		NeighborMax = max3( NeighborMax,  Neighbors[5], Neighbors[7] );
-		
-		float2 dKO = frac(InputParams.ViewportUV * (ViewportSize.xy * ScreenPercentageAndUpscaleFactor.x) + 0*TemporalJitterPixels);
-
-		if (dKO.y < 0.5)
-		{
-			if (dKO.x < 0.5)
-			{
-				NeighborMin = min( NeighborMin,  Neighbors[0] );
-				NeighborMax = max( NeighborMax,  Neighbors[0] );
-			}
-			else
-			{
-				NeighborMin = min( NeighborMin,  Neighbors[2] );
-				NeighborMax = max( NeighborMax,  Neighbors[2] );
-			}
-		}
-		else
-		{
-			if (dKO.x < 0.5)
-			{
-				NeighborMin = min( NeighborMin,  Neighbors[6] );
-				NeighborMax = max( NeighborMax,  Neighbors[6] );
-			}
-			else
-			{
-				NeighborMin = min( NeighborMin,  Neighbors[8] );
-				NeighborMax = max( NeighborMax,  Neighbors[8] );
-			}
-		}
-	}
-	#elif AA_UPSAMPLE_CLAMPING_METHOD == 3
+	#elif AA_HISTORY_CLAMPING_BOX == HISTORY_CLAMPING_BOX_SAMPLE_DISTANCE
 	// Do color clamping only within a radius.
 	{
-		float2 PPCo = InputParams.ViewportUV * View.ViewSizeAndInvSize.xy + TemporalJitterPixels;
+		float2 PPCo = InputParams.ViewportUV * InputViewSize.xy + TemporalJitterPixels;
 		float2 PPCk = floor(PPCo) + 0.5;
 		float2 dKO = PPCo - PPCk;
 		
@@ -1457,7 +1561,7 @@ void ComputeNeighborhoodBoundingbox(
 			}
 		}
 	}
-	#else
+	#elif AA_HISTORY_CLAMPING_BOX == HISTORY_CLAMPING_BOX_MIN_MAX
 	{
 		NeighborMin = min3( Neighbors[1], Neighbors[3], Neighbors[4] );
 		NeighborMin = min3( NeighborMin,  Neighbors[5], Neighbors[7] );
@@ -1467,11 +1571,11 @@ void ComputeNeighborhoodBoundingbox(
 		
 		#if AA_SAMPLES == 6
 		{
-			float2 PPCo = InputParams.ViewportUV * View.ViewSizeAndInvSize.xy + TemporalJitterPixels;
+			float2 PPCo = InputParams.ViewportUV * InputViewSize.xy + TemporalJitterPixels;
 			float2 PPCk = floor(PPCo) + 0.5;
 			float2 dKO = PPCo - PPCk;
 			
-			int2 FifthNeighborOffset = int2(sign(dKO));
+			int2 FifthNeighborOffset = SignFastInt(dKO);
 			float4 FifthNeighbor = SampleCachedSceneColorTexture(InputParams, FifthNeighborOffset).Color;
 			
 			NeighborMin = min(NeighborMin, FifthNeighbor);
@@ -1496,6 +1600,8 @@ void ComputeNeighborhoodBoundingbox(
 		}
 		#endif
 	}
+	#else
+		#error Unknown history clamping box.
 	#endif
 
 	OutNeighborMin = NeighborMin;
@@ -1518,7 +1624,7 @@ float4 SampleHistory(in float2 HistoryScreenPosition)
 			HistoryBufferUV = clamp(HistoryBufferUV, HistoryBufferUVMinMax.xy, HistoryBufferUVMinMax.zw);
 		#endif
 
-		FCatmullRomSamples Samples = GetBicubic2DCatmullRomSamples(HistoryBufferUV, PostprocessInput1Size.xy, PostprocessInput1Size.zw);
+		FCatmullRomSamples Samples = GetBicubic2DCatmullRomSamples(HistoryBufferUV, HistoryBufferSize.xy, HistoryBufferSize.zw);
 		for (uint i = 0; i < Samples.Count; i++)
 		{
 			float2 SampleUV = Samples.UV[i];
@@ -1546,7 +1652,7 @@ float4 SampleHistory(in float2 HistoryScreenPosition)
 				}
 			}
 
-			RawHistoryColor += PostprocessInput1.SampleLevel(PostprocessInput1Sampler, SampleUV, 0) * Samples.Weight[i];
+			RawHistoryColor += HistoryBuffer0.SampleLevel(HistoryBuffer0Sampler, SampleUV, 0) * Samples.Weight[i];
 		}
 		RawHistoryColor *= Samples.FinalMultiplier;
 	}
@@ -1562,7 +1668,7 @@ float4 SampleHistory(in float2 HistoryScreenPosition)
 
 		float2 HistoryBufferUV = HistoryScreenPosition * ScreenPosToHistoryBufferUV.xy + ScreenPosToHistoryBufferUV.zw;
 
-		RawHistoryColor = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, HistoryBufferUV, 0);
+		RawHistoryColor = HistoryBuffer0.SampleLevel(HistoryBuffer0Sampler, HistoryBufferUV, 0);
 	}
 	#endif
 	
@@ -1610,7 +1716,7 @@ float4 ClampHistory(inout FTAAIntermediaryResult IntermediaryResult, float4 Hist
 float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadIndex, float2 ViewportUV, float FrameExposureScale)
 {
 	// SETUP
-    // -----
+	// -----
 	FTAAInputParameters InputParams;
 
 	// Per frame setup.
@@ -1623,7 +1729,7 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 		InputParams.GroupThreadIndex = GroupThreadIndex;
 		InputParams.ViewportUV = ViewportUV;
 		InputParams.ScreenPos = ViewportUVToScreenPos(ViewportUV);
-		InputParams.NearestBufferUV = ViewportUVToBufferUV(ViewportUV);
+		InputParams.NearestBufferUV = ViewportUV * ViewportUVToInputBufferUV.xy + ViewportUVToInputBufferUV.zw;
 
 		// Handle single or multi-pass responsive AA
 		#if AA_SINGLE_PASS_RESPONSIVE
@@ -1631,7 +1737,7 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 			const uint kResponsiveStencilMask = 1 << 3;
 			
 			int2 SceneStencilUV = (int2)trunc(InputParams.NearestBufferUV * PostprocessInput0Size.xy);
-			uint SceneStencilRef = SceneStencilTexture.Load(int3(SceneStencilUV, 0)) STENCIL_COMPONENT_SWIZZLE;
+			uint SceneStencilRef = SceneTexturesStruct.SceneStencilTexture.Load(int3(SceneStencilUV, 0)) STENCIL_COMPONENT_SWIZZLE;
 
 			InputParams.bIsResponsiveAAPixel = (SceneStencilRef & kResponsiveStencilMask) ? 1.f : 0.f;
 		}
@@ -1644,7 +1750,7 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 		#if AA_UPSAMPLE
 		{
 			// Pixel coordinate of the center of output pixel O in the input viewport.
-			float2 PPCo = ViewportUV * View.ViewSizeAndInvSize.xy + TemporalJitterPixels;
+			float2 PPCo = ViewportUV * InputViewSize.xy + TemporalJitterPixels;
 		
 			// Pixel coordinate of the center of the nearest input pixel K.
 			float2 PPCk = floor(PPCo) + 0.5;
@@ -1652,8 +1758,8 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 			// Pixel coordinate of the center of the nearest top left input pixel T.
 			float2 PPCt = floor(PPCo - 0.5) + 0.5;
 		
-			InputParams.NearestBufferUV = View.BufferSizeAndInvSize.zw * (View.ViewRectMin.xy + PPCk);
-			InputParams.NearestTopLeftBufferUV = View.BufferSizeAndInvSize.zw * (View.ViewRectMin.xy + PPCt);
+			InputParams.NearestBufferUV = PostprocessInput0Size.zw * (InputViewMin + PPCk);
+			InputParams.NearestTopLeftBufferUV = PostprocessInput0Size.zw * (InputViewMin + PPCt);
 
 			// TODO: because use nearest sampler, can be faster in this computation.
 		}
@@ -1664,7 +1770,7 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 	FTAAIntermediaryResult IntermediaryResult = CreateIntermediaryResult();
 
 	// FIND MOTION OF PIXEL AND NEAREST IN NEIGHBORHOOD
-    // ------------------------------------------------
+	// ------------------------------------------------
 	float3 PosN; // Position of this pixel, possibly later nearest pixel in neighborhood.
 	PosN.xy = InputParams.ScreenPos;
 
@@ -1721,10 +1827,12 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 	#endif	// AA_CROSS
 
 	// Camera motion for pixel or nearest pixel (in ScreenPos space).
-	bool OffScreen;
-	float Velocity;
-	float HistoryBlur;
-	float2 HistoryScreenPosition;
+	bool OffScreen = false;
+	float Velocity = 0;
+	float HistoryBlur = 0;
+	float2 HistoryScreenPosition = InputParams.ScreenPos;
+
+	#if 1
 	{
 		float4 ThisClip = float4( PosN.xy, PosN.z, 1 );
 		float4 PrevClip = mul( ThisClip, View.ClipToPrevClip );
@@ -1736,7 +1844,7 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 		#if AA_DYNAMIC
 		{
 			float2 VelocityN;
-			VelocityN = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, InputParams.NearestBufferUV + VelocityOffset, 0).xy;
+			VelocityN = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, InputParams.NearestBufferUV + VelocityOffset, 0).xy;
 			bool DynamicN = VelocityN.x > 0.0;
 			if(DynamicN)
 			{
@@ -1760,6 +1868,7 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 		// Detect if HistoryBufferUV would be outside of the viewport.
 		OffScreen = max(abs(HistoryScreenPosition.x), abs(HistoryScreenPosition.y)) >= 1.0;
 	}
+	#endif
 
 	// Precache input scene color.
 	PrecacheInputSceneColor(/* inout = */ InputParams);
@@ -1794,18 +1903,18 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 
 	// DYNAMIC ANTI GHOSTING
 	// ---------------------
-	#if AA_DYNAMIC_ANTIGHOST && AA_DYNAMIC && !AA_ALPHA
+	#if AA_DYNAMIC_ANTIGHOST && AA_DYNAMIC && HISTORY_PAYLOAD_COMPONENTS == 3
 	bool Dynamic4;
 	{
 		#if !AA_DYNAMIC
 			#error AA_DYNAMIC_ANTIGHOST requires AA_DYNAMIC
 		#endif
 		// TODO: try a 2x2 for AA_UPSAMPLE
-		bool Dynamic1 = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, InputParams.NearestBufferUV, 0, int2( 0, -1)).x > 0;
-		bool Dynamic3 = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, InputParams.NearestBufferUV, 0, int2(-1,  0)).x > 0;
-		Dynamic4 = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, InputParams.NearestBufferUV, 0).x > 0;
-		bool Dynamic5 = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, InputParams.NearestBufferUV, 0, int2( 1,  0)).x > 0;
-		bool Dynamic7 = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, InputParams.NearestBufferUV, 0, int2( 0,  1)).x > 0;
+		bool Dynamic1 = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, InputParams.NearestBufferUV, 0, int2( 0, -1)).x > 0;
+		bool Dynamic3 = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, InputParams.NearestBufferUV, 0, int2(-1,  0)).x > 0;
+		Dynamic4 = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, InputParams.NearestBufferUV, 0).x > 0;
+		bool Dynamic5 = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, InputParams.NearestBufferUV, 0, int2( 1,  0)).x > 0;
+		bool Dynamic7 = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, InputParams.NearestBufferUV, 0, int2( 0,  1)).x > 0;
 
 		bool Dynamic = Dynamic1 || Dynamic3 || Dynamic4 || Dynamic5 || Dynamic7;
 		IgnoreHistory = IgnoreHistory || !Dynamic && HistoryColor.a > 0;
@@ -1848,7 +1957,7 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 	#endif
 
 	// ADD BACK IN ALIASING TO SHARPEN
-    // -------------------------------
+	// -------------------------------
 	#if AA_FILTERED && !AA_BICUBIC
 	{
 		#if AA_UPSAMPLE
@@ -1869,7 +1978,7 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 	#endif
 	
 	// COMPUTE BLEND AMOUNT 
-    // --------------------
+	// --------------------
 	float BlendFinal;
 	if (TAA_CAMERA_CUT)
 	{
@@ -1907,13 +2016,22 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 		#if AA_LERP 
 			BlendFinal = 1.0/float(AA_LERP);
 		#endif
-	}
 	
+		#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+		{
+			float HistoryCocRadius = HistoryColor.a;
+			float FilteredCocRadius = IntermediaryResult.Filtered.a;
+			float BilateralWeight = ComputeBilateralWeight(FilteredCocRadius, HistoryCocRadius);
+			BlendFinal = lerp(1, BlendFinal, BilateralWeight);
+		}
+		#endif
+	}
+
 	// Offscreen feedback resets.
 	if (IgnoreHistory)
 	{
 		HistoryColor = IntermediaryResult.Filtered;
-		#if !AA_ALPHA
+		#if HISTORY_PAYLOAD_COMPONENTS == 3
 			HistoryColor.a = 0.0;
 		#endif
 	}
@@ -1935,17 +2053,20 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 	#if AA_NAN
 		// Transform NaNs to black, transform negative colors to black.
 		OutColor.rgb = -min(-OutColor.rgb, 0.0);
-		#if AA_ALPHA
-			OutColor.a = isnan(OutColor.a) ? 0.0 : OutColor.a; //-min(-OutColor.a, 0.0);
-			//OutColor.a = -min(-OutColor.a, 0.0);
-		#endif
 	#endif
 
-	#if AA_DYNAMIC_ANTIGHOST && AA_DYNAMIC && !AA_ALPHA
-		OutColor.a = Dynamic4 ? 1 : 0;
-	#elif !AA_ALPHA
-		// Zero out to remove any prior computation of alpha
-		OutColor.a = 0;
+	#if HISTORY_PAYLOAD_COMPONENTS == 3
+		#if  AA_DYNAMIC_ANTIGHOST && AA_DYNAMIC
+			OutColor.a = Dynamic4 ? 1 : 0;
+		#else
+			// Zero out to remove any prior computation of alpha
+			OutColor.a = 0;
+		#endif
+	#elif HISTORY_PAYLOAD_COMPONENTS == 4
+		#if AA_NAN
+			// Alpha channel can be negative for DOF that has Coc.
+			OutColor.a = isnan(OutColor.a) ? 0.0 : OutColor.a;
+		#endif
 	#endif
 
 	return OutColor;
@@ -1964,13 +2085,20 @@ void MainCS(
 	uint GroupThreadIndex : SV_GroupIndex)
 {
 	float2 ViewportUV = (float2(DispatchThreadId) + 0.5f) * ViewportSize.zw;
+	
+	#if AA_LOWER_RESOLUTION
+	{
+		ViewportUV = (float2(DispatchThreadId) + 0.5f) * MaxViewportUVAndSvPositionToViewportUV.zw;
+		ViewportUV = min(ViewportUV, MaxViewportUVAndSvPositionToViewportUV.xy);
+	}
+	#endif
+
 	float FrameExposureScale = EyeAdaptationLookup();
 	float4 OutColor = TemporalAASample(GroupId, GroupThreadId, GroupThreadIndex, ViewportUV, FrameExposureScale);
 
-	if (all(ViewportUV <= 1.0))
+	uint2 PixelPos = DispatchThreadId + ViewportRect.xy;
+	if (all(PixelPos < ViewportRect.zw))
 	{
-		uint2 PixelPos = DispatchThreadId + ViewportRect.xy;
-		//if (TAA_PASS_CONFIG == 0) OutColor = ViewportUV.xyyy;
 		OutComputeTex[PixelPos] = OutColor;
 	}
 }
@@ -1992,18 +2120,18 @@ void MainPS(
 	float4 SvPosition : SV_POSITION, // after all interpolators
 	out float4 OutColor : SV_Target0 )
 {
+	float2 ViewportUV = BufferUVToViewportUV(BufferUV);
+
 	#if AA_LOWER_RESOLUTION
 	{
-		float2 ViewportUV = (SvPosition.xy - ViewportRect.xy) * MaxViewportUVAndSvPositionToViewportUV.zw;
+		ViewportUV = (SvPosition.xy - ViewportRect.xy) * MaxViewportUVAndSvPositionToViewportUV.zw;
 		ViewportUV = min(ViewportUV, MaxViewportUVAndSvPositionToViewportUV.xy);
-		BufferUV = ViewportUVToBufferUV(ViewportUV);
 	}
 	#endif
 
 	uint2 GroupId = int2(0, 0);
 	uint2 GroupThreadId = int2(0, 0);
 	uint GroupThreadIndex = 0;
-	float2 ViewportUV = BufferUVToViewportUV(BufferUV);
 	float FrameExposureScale = InExposureScaleVignette.x;
 	OutColor = TemporalAASample(GroupId, GroupThreadId, GroupThreadIndex, ViewportUV, FrameExposureScale);
 }

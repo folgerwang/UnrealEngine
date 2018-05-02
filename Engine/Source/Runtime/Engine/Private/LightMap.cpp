@@ -104,11 +104,6 @@ void FLightMap::Cleanup()
 	BeginCleanup(this);
 }
 
-void FLightMap::FinishCleanup()
-{
-	delete this;
-}
-
 ULightMapTexture2D::ULightMapTexture2D(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {

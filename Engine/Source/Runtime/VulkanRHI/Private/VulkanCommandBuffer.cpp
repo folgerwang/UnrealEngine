@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanCommandBuffer.cpp: Vulkan device RHI implementation.
@@ -103,6 +103,14 @@ void FVulkanCmdBuffer::BeginRenderPass(const FVulkanRenderTargetLayout& Layout, 
 	VulkanRHI::vkCmdBeginRenderPass(CommandBufferHandle, &Info, VK_SUBPASS_CONTENTS_INLINE);
 
 	State = EState::IsInsideRenderPass;
+
+#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
+	// Acquire a descriptor pool set on a first render pass
+	if (CurrentDescriptorPoolSetContainer == nullptr)
+	{
+		AcquirePoolSet();
+	}
+#endif
 }
 
 void FVulkanCmdBuffer::End()
@@ -134,6 +142,14 @@ inline void FVulkanCmdBuffer::InitializeTimings(FVulkanCommandListContext* InCon
 	}
 }
 
+void FVulkanCmdBuffer::AddWaitSemaphore(VkPipelineStageFlags InWaitFlags, VulkanRHI::FSemaphore* InWaitSemaphore)
+{
+	WaitFlags.Add(InWaitFlags);
+	InWaitSemaphore->AddRef();
+	check(!WaitSemaphores.Contains(InWaitSemaphore));
+	WaitSemaphores.Add(InWaitSemaphore);
+}
+
 void FVulkanCmdBuffer::Begin()
 {
 	checkf(State == EState::ReadyForBegin, TEXT("Can't Begin as we're NOT ready! CmdBuffer 0x%p State=%d"), CommandBufferHandle, (int32)State);
@@ -153,10 +169,21 @@ void FVulkanCmdBuffer::Begin()
 			Timing->StartTiming(this);
 		}
 	}
+#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
+	check(!CurrentDescriptorPoolSetContainer);
+#endif
 
 	bNeedsDynamicStateSet = true;
 	State = EState::IsInsideBegin;
 }
+
+#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
+void FVulkanCmdBuffer::AcquirePoolSet()
+{
+	check(!CurrentDescriptorPoolSetContainer);
+	CurrentDescriptorPoolSetContainer = &Device->GetDescriptorPoolsManager().AcquirePoolSetContainer();
+}
+#endif
 
 void FVulkanCmdBuffer::RefreshFenceStatus()
 {
@@ -170,6 +197,12 @@ void FVulkanCmdBuffer::RefreshFenceStatus()
 			bHasViewport = false;
 			bHasScissor = false;
 			bHasStencilRef = false;
+
+			for (VulkanRHI::FSemaphore* Semaphore : SubmittedWaitSemaphores)
+			{
+				Semaphore->Release();
+			}
+			SubmittedWaitSemaphores.Reset();
 
 			FMemory::Memzero(CurrentViewport);
 			FMemory::Memzero(CurrentScissor);
@@ -186,15 +219,11 @@ void FVulkanCmdBuffer::RefreshFenceStatus()
 			++FenceSignaledCounter;
 
 #if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
-			if (CurrentDescriptorPoolSet)
+			if (CurrentDescriptorPoolSetContainer)
 			{
-				CurrentDescriptorPoolSet->SetUsed(false);
-				CurrentDescriptorPoolSet = nullptr;
+				Device->GetDescriptorPoolsManager().ReleasePoolSet(*CurrentDescriptorPoolSetContainer);
+				CurrentDescriptorPoolSetContainer = nullptr;
 			}
-#endif
-
-#if VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
-			CommandBufferPool->ResetDescriptors(this);
 #endif
 		}
 	}
@@ -212,14 +241,6 @@ FVulkanCommandBufferPool::FVulkanCommandBufferPool(FVulkanDevice* InDevice)
 
 FVulkanCommandBufferPool::~FVulkanCommandBufferPool()
 {
-#if VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
-	for (auto Pair : DSAllocators)
-	{
-		delete Pair.Value;
-	}
-	DSAllocators.Reset();
-#endif
-
 	for (int32 Index = 0; Index < CmdBuffers.Num(); ++Index)
 	{
 		FVulkanCmdBuffer* CmdBuffer = CmdBuffers[Index];
@@ -255,17 +276,6 @@ FVulkanCommandBufferManager::FVulkanCommandBufferManager(FVulkanDevice* InDevice
 	ActiveCmdBuffer = Pool.Create();
 	ActiveCmdBuffer->InitializeTimings(InContext);
 	ActiveCmdBuffer->Begin();
-
-	if (InContext->IsImmediate())
-	{
-		// Insert the Begin frame timestamp query. On EndDrawingViewport() we'll insert the End and immediately after a new Begin()
-		InContext->WriteBeginTimestamp(ActiveCmdBuffer);
-
-		// Flush the cmd buffer immediately to ensure a valid
-		// 'Last submitted' cmd buffer exists at frame 0.
-		SubmitActiveCmdBuffer(false);
-		PrepareForNewActiveCommandBuffer();
-	}
 }
 
 FVulkanCommandBufferManager::~FVulkanCommandBufferManager()
@@ -281,37 +291,23 @@ void FVulkanCommandBufferManager::WaitForCmdBuffer(FVulkanCmdBuffer* CmdBuffer, 
 }
 
 
-void FVulkanCommandBufferManager::SubmitUploadCmdBuffer(bool bWaitForFence)
+void FVulkanCommandBufferManager::SubmitUploadCmdBuffer(uint32 NumSignalSemaphores, VkSemaphore* SignalSemaphores)
 {
 	check(UploadCmdBuffer);
+#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
+	check(UploadCmdBuffer->CurrentDescriptorPoolSetContainer == nullptr);
+#endif
 	if (!UploadCmdBuffer->IsSubmitted() && UploadCmdBuffer->HasBegun())
 	{
 		check(UploadCmdBuffer->IsOutsideRenderPass());
 		UploadCmdBuffer->End();
-		Queue->Submit(UploadCmdBuffer, nullptr, 0, nullptr);
+		Queue->Submit(UploadCmdBuffer, NumSignalSemaphores, SignalSemaphores);
 	}
 
 	UploadCmdBuffer = nullptr;
 }
 
-void FVulkanCommandBufferManager::SubmitUploadCmdBuffer(uint32 NumSignalSemaphore, VkSemaphore* Semaphores, bool bWaitForFence)
-{
-	check(UploadCmdBuffer);
-	check(UploadCmdBuffer->IsOutsideRenderPass());
-	UploadCmdBuffer->End();
-	Device->GetGraphicsQueue()->Submit(UploadCmdBuffer, NumSignalSemaphore, Semaphores);
-	if (bWaitForFence)
-	{
-		if (UploadCmdBuffer->IsSubmitted())
-		{
-			WaitForCmdBuffer(UploadCmdBuffer);
-		}
-	}
-
-	UploadCmdBuffer = nullptr;
-}
-
-void FVulkanCommandBufferManager::SubmitActiveCmdBuffer(bool bWaitForFence)
+void FVulkanCommandBufferManager::SubmitActiveCmdBuffer(VulkanRHI::FSemaphore* SignalSemaphore)
 {
 	check(!UploadCmdBuffer);
 	check(ActiveCmdBuffer);
@@ -323,14 +319,13 @@ void FVulkanCommandBufferManager::SubmitActiveCmdBuffer(bool bWaitForFence)
 			ActiveCmdBuffer->EndRenderPass();
 		}
 		ActiveCmdBuffer->End();
-		Queue->Submit(ActiveCmdBuffer, nullptr, 0, nullptr);
-	}
-
-	if (bWaitForFence)
-	{
-		if (ActiveCmdBuffer->IsSubmitted())
+		if (SignalSemaphore)
 		{
-			WaitForCmdBuffer(ActiveCmdBuffer);
+			Queue->Submit(ActiveCmdBuffer, SignalSemaphore->GetHandle());
+		}
+		else
+		{
+			Queue->Submit(ActiveCmdBuffer);
 		}
 	}
 
@@ -346,12 +341,15 @@ FVulkanCmdBuffer* FVulkanCommandBufferPool::Create()
 	return CmdBuffer;
 }
 
-void FVulkanCommandBufferPool::RefreshFenceStatus()
+void FVulkanCommandBufferPool::RefreshFenceStatus(FVulkanCmdBuffer* SkipCmdBuffer)
 {
 	for (int32 Index = 0; Index < CmdBuffers.Num(); ++Index)
 	{
 		FVulkanCmdBuffer* CmdBuffer = CmdBuffers[Index];
-		CmdBuffer->RefreshFenceStatus();
+		if (CmdBuffer != SkipCmdBuffer)
+		{
+			CmdBuffer->RefreshFenceStatus();
+		}
 	}
 }
 
@@ -417,214 +415,3 @@ FVulkanCmdBuffer* FVulkanCommandBufferManager::GetUploadCmdBuffer()
 
 	return UploadCmdBuffer;
 }
-
-#if VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
-TArrayView<VkDescriptorSet> FVulkanCommandBufferPool::AllocateDescriptorSets(FVulkanCmdBuffer* CmdBuffer, const FVulkanLayout& Layout)
-{
-	SCOPE_CYCLE_COUNTER(STAT_VulkanDescriptorSetAllocator);
-	if (Layout.GetDescriptorSetsLayout().GetHandles().Num() == 0)
-	{
-		return TArrayView<VkDescriptorSet>();
-	}
-
-	VulkanRHI::FDescriptorSetsAllocator** Found = DSAllocators.Find(Layout.GetDescriptorSetLayoutHash());
-	// Should not happen as SetDescriptorSetsFence should have been called beforehand!
-	check(Found);
-	VulkanRHI::FDescriptorSetsAllocator* Allocator = *Found;
-
-	return Allocator->Allocate(Layout, 8);
-}
-
-static bool GDump = false;
-void FVulkanCommandBufferPool::ResetDescriptors(FVulkanCmdBuffer* CmdBuffer)
-{
-	if (GDump)
-	{
-		int32 NumPools = 0;
-		int32 UsedPools = 0;
-		int32 FreePools = 0;
-		for (auto Pair : DSAllocators)
-		{
-			VulkanRHI::FDescriptorSetsAllocator* Pool = Pair.Value;
-			UsedPools += Pool->UsedEntries.Num();
-			FreePools += Pool->FreeEntries.Num();
-			NumPools += Pool->FreeEntries.Num() + Pool->UsedEntries.Num();
-		}
-		UE_LOG(LogVulkanRHI, Log, TEXT("*** Descriptor Sets: %d unique layouts, %d used pools, %d total pools, Waste %.2f%%"), DSAllocators.Num(), UsedPools, NumPools, (float)FreePools * 100.0f / (float)NumPools);
-	}
-
-	for (auto Pair : DSAllocators)
-	{
-		Pair.Value->Reset(CmdBuffer);
-	}
-}
-
-void FVulkanCommandBufferPool::SetDescriptorSetsFence(FVulkanCmdBuffer* CmdBuffer, const FVulkanLayout& Layout)
-{
-	VulkanRHI::FDescriptorSetsAllocator** Found = DSAllocators.Find(Layout.GetDescriptorSetLayoutHash());
-	VulkanRHI::FDescriptorSetsAllocator* Allocator = nullptr;
-	if (Found)
-	{
-		Allocator = *Found;
-	}
-	else
-	{
-		Allocator = new VulkanRHI::FDescriptorSetsAllocator(Device, Layout, 8);
-		DSAllocators.Add(Layout.GetDescriptorSetLayoutHash(), Allocator);
-	}
-
-	Allocator->SetFence(CmdBuffer, CmdBuffer->GetFenceSignaledCounter());
-}
-
-namespace VulkanRHI
-{
-	FDescriptorSetsAllocator::FDescriptorSetsAllocator(FVulkanDevice* InDevice, const FVulkanLayout& InLayout, uint32 InNumAllocationsPerPool)
-		: VulkanRHI::FDeviceChild(InDevice)
-	{
-		check(InNumAllocationsPerPool > 0);
-		NumAllocationsPerPool = InNumAllocationsPerPool;
-		const FVulkanDescriptorSetsLayout& DSLayout = InLayout.GetDescriptorSetsLayout();
-		const uint32* LayoutTypes = DSLayout.GetLayoutTypes();
-		for (int32 Index = 0; Index < VK_DESCRIPTOR_TYPE_RANGE_SIZE; ++Index)
-		{
-			if (LayoutTypes[Index] > 0)
-			{
-				VkDescriptorPoolSize* Type = new(CreateInfoTypes) VkDescriptorPoolSize;
-				FMemory::Memzero(*Type);
-				Type->type = (VkDescriptorType)Index;
-				Type->descriptorCount = LayoutTypes[Index] * InNumAllocationsPerPool;
-			}
-		}
-
-		uint32 MaxDescriptorSets = DSLayout.GetHandles().Num() * InNumAllocationsPerPool;
-
-		FMemory::Memzero(CreateInfo);
-		CreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		CreateInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-		CreateInfo.poolSizeCount = CreateInfoTypes.Num();
-		CreateInfo.pPoolSizes = CreateInfoTypes.GetData();
-		CreateInfo.maxSets = MaxDescriptorSets;
-	}
-
-	FDescriptorSetsAllocator::~FDescriptorSetsAllocator()
-	{
-		DEC_DWORD_STAT_BY(STAT_VulkanNumDescPools, UsedEntries.Num() + FreeEntries.Num());
-		for (int32 Index = 0; Index < UsedEntries.Num(); ++Index)
-		{
-			FFencedPoolEntry& Entry = UsedEntries[Index];
-			VulkanRHI::vkDestroyDescriptorPool(Device->GetInstanceHandle(), Entry.Pool, nullptr);
-			delete [] Entry.Sets;
-		}
-		for (int32 Index = 0; Index < FreeEntries.Num(); ++Index)
-		{
-			FFreePoolEntry& Entry = FreeEntries[Index];
-			VulkanRHI::vkDestroyDescriptorPool(Device->GetInstanceHandle(), Entry.Pool, nullptr);
-			delete[] Entry.Sets;
-		}
-		FreeEntries.SetNum(0, false);
-	}
-
-	TArrayView<VkDescriptorSet> FDescriptorSetsAllocator::Allocate(const FVulkanLayout& Layout, uint32 InNumAllocations/*, FVulkanCmdBuffer* CmdBuffer*/)
-	{
-		int32 NumSets = Layout.GetDescriptorSetsLayout().GetHandles().Num();
-		if (NumSets == 0)
-		{
-			TArrayView<VkDescriptorSet> Out;
-			return Out;
-		}
-
-		if (UsedEntries.Num() > 0)
-		{
-			FFencedPoolEntry& Entry = UsedEntries.Last();
-			if (Entry.NumUsedSets + NumSets < Entry.MaxSets)
-			{
-				TArrayView<VkDescriptorSet> Out(Entry.Sets + Entry.NumUsedSets, NumSets);
-				Entry.NumUsedSets += NumSets;
-				check(Entry.NumUsedSets <= Entry.MaxSets);
-				Entry.CmdBuffer = CurrentCmdBuffer;
-				Entry.Fence = CurrentFence;
-				return Out;
-			}
-		}
-
-		if (FreeEntries.Num() > 0)
-		{
-			FPoolEntry& Entry = FreeEntries.Last();
-
-			TArrayView<VkDescriptorSet> Out(Entry.Sets, NumSets);
-			FFencedPoolEntry* NewEntry = new(UsedEntries) FFencedPoolEntry(Entry);
-			NewEntry->NumUsedSets = NumSets;
-			NewEntry->CmdBuffer = CurrentCmdBuffer;
-			NewEntry->Fence = CurrentFence;
-
-			FreeEntries.Pop(false);
-
-			return Out;
-		}
-
-		FFencedPoolEntry* Entry = CreatePool(Layout);
-		TArrayView<VkDescriptorSet> Out(Entry->Sets, NumSets);
-		Entry->NumUsedSets = NumSets;
-		Entry->CmdBuffer = CurrentCmdBuffer;
-		Entry->Fence = CurrentFence;
-		return Out;
-	}
-
-	FDescriptorSetsAllocator::FFencedPoolEntry* FDescriptorSetsAllocator::CreatePool(const FVulkanLayout& Layout)
-	{
-		FFencedPoolEntry* Entry = new(UsedEntries) FFencedPoolEntry;
-
-		{
-			SCOPE_CYCLE_COUNTER(STAT_VulkanVkCreateDescriptorPool);
-			INC_DWORD_STAT(STAT_VulkanNumDescPools);
-			VERIFYVULKANRESULT(VulkanRHI::vkCreateDescriptorPool(Device->GetInstanceHandle(), &CreateInfo, nullptr, &Entry->Pool));
-		}
-
-		const TArray<VkDescriptorSetLayout>& LayoutHandles = Layout.GetDescriptorSetsLayout().GetHandles();
-		int32 NumSets = LayoutHandles.Num();
-		Entry->Sets = new VkDescriptorSet[NumAllocationsPerPool * NumSets];
-		Entry->MaxSets = NumAllocationsPerPool * NumSets;
-
-		VkDescriptorSetAllocateInfo AllocateInfo;
-		FMemory::Memzero(AllocateInfo);
-		AllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		AllocateInfo.descriptorPool = Entry->Pool;
-		AllocateInfo.descriptorSetCount = LayoutHandles.Num();
-		AllocateInfo.pSetLayouts = LayoutHandles.GetData();
-		for (uint32 Index = 0; Index < NumAllocationsPerPool; ++Index)
-		{
-			VERIFYVULKANRESULT(VulkanRHI::vkAllocateDescriptorSets(Device->GetInstanceHandle(), &AllocateInfo, Entry->Sets + Index * NumSets));
-		}
-
-		return Entry;
-	}
-
-	void FDescriptorSetsAllocator::Reset(FVulkanCmdBuffer* CmdBuffer)
-	{
-		SCOPE_CYCLE_COUNTER(STAT_VulkanDescriptorSetAllocator);
-		uint32 CurrentFrame = GFrameNumberRenderThread;
-		for (int32 Index = FreeEntries.Num() - 1; Index >= 0; --Index)
-		{
-			FFreePoolEntry& Entry = FreeEntries[Index];
-			if (Entry.LastUsedFrame + GNumberOfFramesBeforeDeletingDescriptorPool < CurrentFrame)
-			{
-				DEC_DWORD_STAT(STAT_VulkanNumDescPools);
-				VulkanRHI::vkDestroyDescriptorPool(Device->GetInstanceHandle(), Entry.Pool, nullptr);
-				delete[] Entry.Sets;
-				FreeEntries.RemoveAtSwap(Index, 1, false);
-			}
-		}
-
-		for (int32 Index = UsedEntries.Num() - 1; Index >= 0; --Index)
-		{
-			FFencedPoolEntry& Entry = UsedEntries[Index];
-			if (Entry.CmdBuffer == CmdBuffer && Entry.Fence < CmdBuffer->GetFenceSignaledCounter())
-			{
-				FFreePoolEntry* FreeEntry = new(FreeEntries) FFreePoolEntry(Entry);
-				UsedEntries.RemoveAtSwap(Index, 1, false);
-				FreeEntry->LastUsedFrame = CurrentFrame;
-			}
-		}
-	}
-}
-#endif

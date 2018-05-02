@@ -18,7 +18,8 @@ void FMaterialTexCoordScalePS::SetParameters(
 	const FShader* OriginalPS, 
 	const FMaterialRenderProxy* MaterialRenderProxy,
 	const FMaterial& Material,
-	const FSceneView& View
+	const FSceneView& View,
+	const FDrawingPolicyRenderState& DrawRenderState
 	)
 {
 	const int32 NumEngineColors = FMath::Min<int32>(GEngine->StreamingAccuracyColors.Num(), NumStreamingAccuracyColors);
@@ -32,8 +33,8 @@ void FMaterialTexCoordScalePS::SetParameters(
 		SetShaderValue(RHICmdList, FMeshMaterialShader::GetPixelShader(), AccuracyColorsParameter, FLinearColor::Black, ColorIndex);
 	}
 
-	// Don't allow scene texture as this create issues when running command let.
-	FMeshMaterialShader::SetParameters(RHICmdList, FMeshMaterialShader::GetPixelShader(), MaterialRenderProxy, Material, View, View.ViewUniformBuffer, ESceneRenderTargetsMode::DontSet);
+	TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBufferValue = CreateSceneTextureUniformBufferSingleDraw(RHICmdList, ESceneTextureSetupMode::None, View.FeatureLevel);
+	FMeshMaterialShader::SetParameters(RHICmdList, FMeshMaterialShader::GetPixelShader(), MaterialRenderProxy, Material, View, DrawRenderState.GetViewUniformBuffer(), PassUniformBufferValue);
 }
 
 void FMaterialTexCoordScalePS::SetMesh(

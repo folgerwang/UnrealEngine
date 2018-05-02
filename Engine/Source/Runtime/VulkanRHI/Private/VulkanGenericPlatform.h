@@ -2,6 +2,8 @@
 
 #pragma once
 #include "CoreMinimal.h"
+#include "PixelFormat.h"
+#include "Containers/ArrayView.h"
 
 // the platform interface, and empty implementations for platforms that don't need em
 class FVulkanGenericPlatform 
@@ -25,5 +27,27 @@ public:
 	// most platforms can query the surface for the present mode, and size, etc
 	static bool SupportsQuerySurfaceProperties() { return true; }
 
+	static bool SupportsStandardSwapchain() { return true; }
+	static EPixelFormat GetPixelFormatForNonDefaultSwapchain()
+	{
+		checkf(0, TEXT("Platform Requires Standard Swapchain!"));
+		return PF_Unknown;
+	}
+
 	static bool SupportsDepthFetchDuringDepthTest() { return true; }
+	static bool SupportsTimestampRenderQueries() { return true; }
+
+	static bool RequiresMobileRenderer() { return false; }
+	static void OverrideCrashHandlers() {}
+
+	// Some platforms have issues with the access flags for the Present layout
+	static bool RequiresPresentLayoutFix() { return false; }
+
+	static bool SupportsMarkersWithoutExtension() { return false; }
+
+	static bool SupportsDeviceLocalHostVisibleWithNoPenalty() { return false; }
+
+	static bool RegisterGPUWork() { return true; }
+
+	static void WriteBufferMarkerAMD(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TArrayView<uint32>& Entries, bool bAdding) {}
 };

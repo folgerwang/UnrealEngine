@@ -217,6 +217,7 @@ protected:
 	: FMeshMaterialShader(Initializer)
 	{
 		RenderOffsetParameter.Bind(Initializer.ParameterMap, TEXT("RenderOffset"));
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
 public:
@@ -226,9 +227,10 @@ public:
 		return ShouldCacheLandscapeGrassShaders(Platform, Material, VertexFactoryType);
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& MaterialResource, const FSceneView& View, const FVector2D& RenderOffset)
+	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& MaterialResource, const FSceneView& View, const FDrawingPolicyRenderState& DrawRenderState, const FVector2D& RenderOffset)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, MaterialResource, View, View.ViewUniformBuffer, ESceneRenderTargetsMode::DontSet);
+		//TUniformBufferRef<FSceneTexturesUniformParameters> SceneTexturePassUniformBuffer = CreateSceneTextureUniformBufferSingleDraw(RHICmdList, ESceneTextureSetupMode::None, View.FeatureLevel);
+		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, MaterialResource, View, DrawRenderState.GetViewUniformBuffer(), nullptr);
 		SetShaderValue(RHICmdList, GetVertexShader(), RenderOffsetParameter, RenderOffset);
 	}
 
@@ -262,14 +264,16 @@ public:
 	: FMeshMaterialShader(Initializer)
 	{
 		OutputPassParameter.Bind(Initializer.ParameterMap, TEXT("OutputPass"));
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
 	FLandscapeGrassWeightPS()
 	{}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& MaterialResource, const FSceneView* View, int32 OutputPass)
+	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& MaterialResource, const FSceneView* View, const FDrawingPolicyRenderState& DrawRenderState, int32 OutputPass)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, MaterialResource, *View, View->ViewUniformBuffer, ESceneRenderTargetsMode::DontSet);
+		//TUniformBufferRef<FSceneTexturesUniformParameters> SceneTexturePassUniformBuffer = CreateSceneTextureUniformBufferSingleDraw(RHICmdList, ESceneTextureSetupMode::None, View->FeatureLevel);
+		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, MaterialResource, *View, DrawRenderState.GetViewUniformBuffer(), nullptr);
 		if (OutputPassParameter.IsBound())
 		{
 			SetShaderValue(RHICmdList, GetPixelShader(), OutputPassParameter, OutputPass);
@@ -324,8 +328,8 @@ public:
 	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, const ContextDataType PolicyContext, int32 OutputPass, const FVector2D& RenderOffset) const
 	{
 		// Set the shader parameters for the material.
-		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, *View, RenderOffset);
-		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View, OutputPass);
+		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, *View, DrawRenderState, RenderOffset);
+		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View, DrawRenderState, OutputPass);
 
 		// Set the shared mesh resources.
 		FMeshDrawingPolicy::SetSharedState(RHICmdList, DrawRenderState, View, PolicyContext);

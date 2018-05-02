@@ -399,6 +399,10 @@ namespace IncludeTool
 				{
 					continue;
 				}
+                if(Reader.Current.Text == "PRAGMA_DISABLE_DEPRECATION_WARNINGS" || Reader.Current.Text == "PRAGMA_ENABLE_DEPRECATION_WARNINGS")
+				{
+					continue;
+				}
 				return false;
 			}
 			return true;

@@ -125,11 +125,27 @@ namespace ERHIFeatureLevel
 	{
 		/** Feature level defined by the core capabilities of OpenGL ES2. */
 		ES2,
+
 		/** Feature level defined by the core capabilities of OpenGL ES3.1 & Metal/Vulkan. */
 		ES3_1,
-		/** Feature level defined by the capabilities of DX10 Shader Model 4. */
+
+		/** 
+		 * Feature level defined by the capabilities of DX10 Shader Model 4. 
+		 *    Shaders can reference 128 unique textures, 16 texture samplers, 14 constant buffers
+		 *    Rendering to cubemaps and volume textures
+		 * Geometry shaders are not required for Feature Level SM4, as long as vertex shader render target selection is supported
+		 */
 		SM4,
-		/** Feature level defined by the capabilities of DX11 Shader Model 5. */
+
+		/** 
+		 * Feature level defined by the capabilities of DX11 Shader Model 5. 
+		 *   Compute shaders with shared memory, group sync, UAV writes, integer atomics
+		 *   Indirect drawing
+		 *   Pixel shaders with UAV writes
+		 *   Cubemap arrays
+		 *   Read-only depth or stencil views (eg read depth buffer as SRV while depth test and stencil write)
+		 * Tessellation is not considered part of Feature Level SM5 and has a separate capability flag.
+		 */
 		SM5,
 		Num
 	};
@@ -442,11 +458,30 @@ static_assert((uint32)EPrimitiveTopologyType::Num <= (1 << (uint32)EPrimitiveTop
 
 enum EPrimitiveType
 {
+	// Topology that defines a triangle N with 3 vertex extremities: 3*N+0, 3*N+1, 3*N+2.
 	PT_TriangleList,
+
+	// Topology that defines a triangle N with 3 vertex extremities: N+0, N+1, N+2.
 	PT_TriangleStrip,
+
+	// Topology that defines a line with 2 vertex extremities: 2*N+0, 2*N+1.
 	PT_LineList,
+
+	// Topology that defines a quad N with 4 vertex extremities: 4*N+0, 4*N+1, 4*N+2, 4*N+3.
+	// Supported only if GRHISupportsQuadTopology == true.
 	PT_QuadList,
+
+	// Topology that defines a point N with a single vertex N.
 	PT_PointList,
+
+	// Topology that defines a screen aligned rectangle N with only 3 vertex corners:
+	//    3*N + 0 is upper-left corner,
+	//    3*N + 1 is upper-right corner,
+	//    3*N + 2 is the lower-left corner.
+	// Supported only if GRHISupportsRectTopology == true.
+	PT_RectList,
+
+	// Tesselation patch list. Supported only if tesselation is supported.
 	PT_1_ControlPointPatchList,
 	PT_2_ControlPointPatchList,
 	PT_3_ControlPointPatchList,
@@ -754,7 +789,7 @@ inline bool IsMobileOpenGlPlatform(const EShaderPlatform Platform)
 {
 	return IsES2Platform(Platform)
 		|| Platform == SP_PCD3D_ES3_1 || Platform == SP_OPENGL_PCES3_1 || Platform == SP_VULKAN_ES3_1_ANDROID
-		|| Platform == SP_VULKAN_PCES3_1 || Platform == SP_METAL_MACES3_1 || Platform == SP_OPENGL_ES3_1_ANDROID;
+		|| Platform == SP_VULKAN_PCES3_1 || Platform == SP_METAL || Platform == SP_METAL_MACES3_1 || Platform == SP_OPENGL_ES3_1_ANDROID;
 }
 
 /** Whether the shader platform corresponds to the ES2/ES3.1 feature level. */

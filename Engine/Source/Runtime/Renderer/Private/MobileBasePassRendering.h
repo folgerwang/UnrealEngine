@@ -25,6 +25,17 @@
 #include "PlanarReflectionRendering.h"
 #include "BasePassRendering.h"
 
+BEGIN_UNIFORM_BUFFER_STRUCT(FMobileBasePassUniformParameters, )
+	UNIFORM_MEMBER_STRUCT(FFogUniformParameters, Fog)
+	UNIFORM_MEMBER_STRUCT(FMobileSceneTextureUniformParameters, SceneTextures)
+END_UNIFORM_BUFFER_STRUCT(FMobileBasePassUniformParameters)
+
+extern void CreateMobileBasePassUniformBuffer(
+	FRHICommandListImmediate& RHICmdList,
+	const FViewInfo& View,
+	bool bTranslucentPass,
+	TUniformBufferRef<FMobileBasePassUniformParameters>& BasePassUniformBuffer);
+
 class FPlanarReflectionSceneProxy;
 class FScene;
 
@@ -73,8 +84,8 @@ protected:
 		FMeshMaterialShader(Initializer)
 	{
 		VertexParametersType::Bind(Initializer.ParameterMap);
-		HeightFogParameters.Bind(Initializer.ParameterMap);
 		MobileMultiViewMaskParameter.Bind(Initializer.ParameterMap, TEXT("MobileMultiViewMask"));
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FMobileBasePassUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
 public:
@@ -90,21 +101,18 @@ public:
 	{
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		VertexParametersType::Serialize(Ar);
-		Ar << HeightFogParameters;
 		Ar << MobileMultiViewMaskParameter;
 		return bShaderHasOutdatedParameters;
 	}
 
-	// Set parameters specific to PSO
 	void SetParameters(
 		FRHICommandList& RHICmdList,
-		const FMaterial& InMaterialResource,
-		const FSceneView& View,
-		ESceneRenderTargetsMode::Type TextureMode
-		)
+		const FViewInfo* View,
+		const FDrawingPolicyRenderState& DrawRenderState)
 	{
-		HeightFogParameters.Set(RHICmdList, GetVertexShader(), &View);
-		FMeshMaterialShader::SetPolicyParameters(RHICmdList, GetVertexShader(), InMaterialResource, View, View.ViewUniformBuffer, TextureMode);
+
+		FMaterialShader::SetViewParameters(RHICmdList, GetVertexShader(), *View, DrawRenderState.GetViewUniformBuffer());
+		FMeshMaterialShader::SetPassUniformBuffer(RHICmdList, GetVertexShader(), DrawRenderState.GetPassUniformBuffer());
 
 		if (MobileMultiViewMaskParameter.IsBound())
 		{
@@ -132,11 +140,12 @@ public:
 		const FMeshBatchElement& BatchElement, 
 		const FDrawingPolicyRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetMeshBatchParameters(RHICmdList, GetVertexShader(), InMaterialResource, View, InVertexFactory, InMaterialRenderProxy, Proxy, BatchElement, DrawRenderState);
+		FMaterialShader::SetParametersInner(RHICmdList, GetVertexShader(), InMaterialRenderProxy, InMaterialResource, View);
+		uint32 DataFlags = 0;
+		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(), InVertexFactory, View, Proxy, BatchElement, DrawRenderState, DataFlags);
 	}
 
 private:
-	FHeightFogShaderParameters HeightFogParameters;
 	FShaderParameter MobileMultiViewMaskParameter;
 };
 
@@ -219,6 +228,7 @@ public:
 		FMeshMaterialShader(Initializer)
 	{
 		PixelParametersType::Bind(Initializer.ParameterMap);
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FMobileBasePassUniformParameters::StaticStruct.GetShaderVariableName());
 		ReflectionCubemap.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemap"));
 		ReflectionSampler.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemapSampler"));
 		InvReflectionCubemapAverageBrightness.Bind(Initializer.ParameterMap, TEXT("InvReflectionCubemapAverageBrightness"));
@@ -239,19 +249,14 @@ public:
 	}
 	TMobileBasePassPSPolicyParamType() {}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* InMaterialRenderProxy, const FMaterial& MaterialResource, const FViewInfo* View, ESceneRenderTargetsMode::Type TextureMode)
-	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(),InMaterialRenderProxy,MaterialResource,*View,View->ViewUniformBuffer,TextureMode);
-	}
-
 	// Set parameters specific to PSO
 	void SetParameters(
 		FRHICommandList& RHICmdList, 
-		const FMaterial& MaterialResource, 
-		const FSceneView& View, 
-		ESceneRenderTargetsMode::Type TextureMode)
+		const FViewInfo* View, 
+		const FDrawingPolicyRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetPolicyParameters(RHICmdList, GetPixelShader(), MaterialResource, View, View.ViewUniformBuffer, TextureMode);
+		FMaterialShader::SetViewParameters(RHICmdList, GetPixelShader(), *View, DrawRenderState.GetViewUniformBuffer());
+		FMeshMaterialShader::SetPassUniformBuffer(RHICmdList, GetPixelShader(), DrawRenderState.GetPassUniformBuffer());
 	}
 
 	// Set parameters specific to Mesh
@@ -367,13 +372,16 @@ public:
 		const FPlanarReflectionSceneProxy* CachedPlanarReflectionProxy = PrimitiveSceneInfo ? PrimitiveSceneInfo->CachedPlanarReflectionProxy : nullptr;
 		PlanarReflectionParams.SetParameters(RHICmdList, PixelShader, View, CachedPlanarReflectionProxy );
 
-		FMeshMaterialShader::SetMeshBatchParameters(RHICmdList, PixelShader, InMaterialResource, View, InVertexFactory, InMaterialRenderProxy, Proxy, BatchElement, DrawRenderState);
+		FMaterialShader::SetParametersInner(RHICmdList, PixelShader, InMaterialRenderProxy, InMaterialResource, View);
+		uint32 DataFlags = 0;
+		FMeshMaterialShader::SetMesh(RHICmdList, PixelShader, InVertexFactory, View, Proxy, BatchElement, DrawRenderState, DataFlags);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		PixelParametersType::Serialize(Ar);
+		Ar << BasePassUniformBuffer;
 		Ar << ReflectionCubemap;
 		Ar << ReflectionSampler;
 		Ar << InvReflectionCubemapAverageBrightness;
@@ -397,6 +405,7 @@ private:
 
 	static bool ModifyCompilationEnvironmentForQualityLevel(EShaderPlatform Platform, EMaterialQualityLevel::Type QualityLevel, FShaderCompilerEnvironment& OutEnvironment);
 
+	FShaderUniformBufferParameter BasePassUniformBuffer;
 	FShaderResourceParameter ReflectionCubemap;
 	FShaderResourceParameter ReflectionSampler;
 	FShaderParameter InvReflectionCubemapAverageBrightness;
@@ -679,7 +688,6 @@ public:
 		LightMapPolicyType InLightMapPolicy,
 		int32 InNumMovablePointLights,
 		EBlendMode InBlendMode,
-		ESceneRenderTargetsMode::Type InSceneTextureMode,
 		bool bInEnableSkyLight,
 		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
 		EDebugViewShaderMode InDebugViewShaderMode,
@@ -691,7 +699,6 @@ public:
 		LightMapPolicy(InLightMapPolicy),
 		NumMovablePointLights(InNumMovablePointLights),
 		BlendMode(InBlendMode),
-		SceneTextureMode(InSceneTextureMode),
 		bEnableReceiveDecalOutput(bInEnableReceiveDecalOutput)
 	{
 		static_assert(MAX_BASEPASS_DYNAMIC_POINT_LIGHTS == 4, "If you change MAX_BASEPASS_DYNAMIC_POINT_LIGHTS, you need to change the switch statement below");
@@ -780,7 +787,6 @@ public:
 			DRAWING_POLICY_MATCH(PixelShader == Other.PixelShader) &&
 			DRAWING_POLICY_MATCH(LightMapPolicy == Other.LightMapPolicy) &&
 			DRAWING_POLICY_MATCH(NumMovablePointLights == Other.NumMovablePointLights) &&
-			DRAWING_POLICY_MATCH(SceneTextureMode == Other.SceneTextureMode) &&
 			DRAWING_POLICY_MATCH(bEnableReceiveDecalOutput == Other.bEnableReceiveDecalOutput) &&
 			DRAWING_POLICY_MATCH(UseDebugViewPS() == Other.UseDebugViewPS());
 		DRAWING_POLICY_MATCH_END 
@@ -794,7 +800,6 @@ public:
 	friend int32 CompareDrawingPolicy(const TMobileBasePassDrawingPolicy& A,const TMobileBasePassDrawingPolicy& B)
 	{
 		COMPAREDRAWINGPOLICYMEMBERS(MaterialResource);
-		COMPAREDRAWINGPOLICYMEMBERS(SceneTextureMode);
 		COMPAREDRAWINGPOLICYMEMBERS(NumMovablePointLights);
 		return CompareDrawingPolicy(A.LightMapPolicy,B.LightMapPolicy);
 	}
@@ -891,11 +896,11 @@ public:
 
 	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FViewInfo* View, const ContextDataType PolicyContext) const
 	{
-		VertexShader->SetParameters(RHICmdList, *MaterialResource, *View, SceneTextureMode);
+		VertexShader->SetParameters(RHICmdList, View, DrawRenderState);
 
 		if (!UseDebugViewPS())
 		{
-			PixelShader->SetParameters(RHICmdList, *MaterialResource, *View, SceneTextureMode);
+			PixelShader->SetParameters(RHICmdList, View, DrawRenderState);
 		}
 	}
 
@@ -936,9 +941,9 @@ public:
 		const FMaterialRenderProxy* MeshMaterialRenderProxy = Mesh.MaterialRenderProxy;
 		const FVertexFactory* MeshVertexFactory = Mesh.VertexFactory;
 
-		// Set the light-map policy. (sets vertex factory)
-		LightMapPolicy.Set(RHICmdList, VertexShader, !UseDebugViewPS() ? PixelShader : nullptr, VertexShader, PixelShader, MeshVertexFactory, MeshMaterialRenderProxy, &View);		
-						
+		check(MeshVertexFactory && MeshVertexFactory->IsInitialized());
+		MeshVertexFactory->SetStreams(View.FeatureLevel, RHICmdList);
+
 		// Set the light-map policy's mesh-specific settings.
 		LightMapPolicy.SetMesh(
 			RHICmdList, 
@@ -958,7 +963,7 @@ public:
 		if (UseDebugViewPS())
 		{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-			FDebugViewMode::GetPSInterface(View.ShaderMap, MaterialResource, GetDebugViewShaderMode())->SetParameters(RHICmdList, VertexShader, PixelShader, MeshMaterialRenderProxy, *MaterialResource, View);
+			FDebugViewMode::GetPSInterface(View.ShaderMap, MaterialResource, GetDebugViewShaderMode())->SetParameters(RHICmdList, VertexShader, PixelShader, MeshMaterialRenderProxy, *MaterialResource, View, DrawRenderState);
 			FDebugViewMode::GetPSInterface(View.ShaderMap, MaterialResource, GetDebugViewShaderMode())->SetMesh(RHICmdList, MeshVertexFactory, View, PrimitiveSceneProxy, Mesh.VisualizeLODIndex, BatchElement, DrawRenderState);
 #endif
 		}
@@ -990,7 +995,6 @@ protected:
 	LightMapPolicyType LightMapPolicy;
 	int32 NumMovablePointLights;
 	EBlendMode BlendMode;
-	ESceneRenderTargetsMode::Type SceneTextureMode;
 	uint32 bEnableReceiveDecalOutput : 1;
 };
 
@@ -1004,11 +1008,8 @@ public:
 	enum { bAllowSimpleElements = true };
 	struct ContextType 
 	{
-		ContextType(ESceneRenderTargetsMode::Type InTextureMode) :
-			TextureMode(InTextureMode)
+		ContextType()
 		{}
-
-		ESceneRenderTargetsMode::Type TextureMode;
 	};
 
 	static void AddStaticMesh(FRHICommandList& RHICmdList, FScene* Scene, FStaticMesh* StaticMesh);
@@ -1037,7 +1038,6 @@ public:
 	EBlendMode BlendMode;
 	EMaterialShadingModel ShadingModel;
 	const bool bAllowFog;
-	ESceneRenderTargetsMode::Type TextureMode;
 	ERHIFeatureLevel::Type FeatureLevel;
 	const bool bIsInstancedStereo;
 	const bool bUseMobileMultiViewMask;
@@ -1048,7 +1048,6 @@ public:
 		const FMaterial* InMaterial,
 		const FPrimitiveSceneProxy* InPrimitiveSceneProxy,
 		bool InbAllowFog,
-		ESceneRenderTargetsMode::Type InTextureMode,
 		ERHIFeatureLevel::Type InFeatureLevel,
 		const bool InbIsInstancedStereo = false,
 		const bool InbUseMobileMultiViewMask = false
@@ -1061,7 +1060,6 @@ public:
 		BlendMode(InMaterial->GetBlendMode()),
 		ShadingModel(InMaterial->GetShadingModel()),
 		bAllowFog(InbAllowFog),
-		TextureMode(InTextureMode),
 		FeatureLevel(InFeatureLevel),
 		bIsInstancedStereo(InbIsInstancedStereo),
 		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)
@@ -1075,7 +1073,6 @@ public:
 		const FMaterial* InMaterial,
 		const FPrimitiveSceneProxy* InPrimitiveSceneProxy,
 		bool InbAllowFog,
-		ESceneRenderTargetsMode::Type InTextureMode,
 		ERHIFeatureLevel::Type InFeatureLevel,
 		bool InbIsInstancedStereo = false,
 		bool InbUseMobileMultiViewMask = false
@@ -1088,7 +1085,6 @@ public:
 		BlendMode(InMaterial->GetBlendMode()),
 		ShadingModel(InMaterial->GetShadingModel()),
 		bAllowFog(InbAllowFog),
-		TextureMode(InTextureMode),
 		FeatureLevel(InFeatureLevel),
 		bIsInstancedStereo(InbIsInstancedStereo),
 		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)

@@ -105,6 +105,9 @@ RHI_API bool RHISupportsTessellation(const EShaderPlatform Platform);
 // helper to check that the shader platform supports writing to UAVs from pixel shaders.
 RHI_API bool RHISupportsPixelShaderUAVs(const EShaderPlatform Platform);
 
+// helper to check that the shader platform supports creating a UAV off an index buffer.
+RHI_API bool RHISupportsIndexBufferUAVs(const EShaderPlatform Platform);
+
 // helper to check if a preview feature level has been requested.
 RHI_API bool RHIGetPreviewFeatureLevel(ERHIFeatureLevel::Type& PreviewFeatureLevelOUT);
 
@@ -133,6 +136,15 @@ inline bool RHISupportsMSAA(EShaderPlatform Platform)
 		&& Platform != SP_METAL_MRT;
 }
 
+inline bool RHISupportsBufferLoadTypeConversion(EShaderPlatform Platform)
+{
+#if PLATFORM_MAC || PLATFORM_IOS
+	return !IsMetalPlatform(Platform);
+#else
+	return true;
+#endif
+}
+
 /** Whether the platform supports reading from volume textures (does not cover rendering to volume textures). */
 inline bool RHISupportsVolumeTextures(ERHIFeatureLevel::Type FeatureLevel)
 {
@@ -143,11 +155,11 @@ inline bool RHISupports4ComponentUAVReadWrite(EShaderPlatform Platform)
 {
 	// Must match usf PLATFORM_SUPPORTS_4COMPONENT_UAV_READ_WRITE
 	// D3D11 does not support multi-component loads from a UAV: "error X3676: typed UAV loads are only allowed for single-component 32-bit element types"
-	return Platform == SP_XBOXONE_D3D12 || Platform == SP_PS4;
+	return Platform == SP_XBOXONE_D3D12 || Platform == SP_PS4 || IsMetalPlatform(Platform);
 }
 
 /** Whether Manual Vertex Fetch is supported for the specified shader platform.
-    Shader Platform must not use the mobile renderer, and for Metal, the shader lanugage must be at least 2. */
+	Shader Platform must not use the mobile renderer, and for Metal, the shader lanugage must be at least 2. */
 inline bool RHISupportsManualVertexFetch(EShaderPlatform InShaderPlatform)
 {
 	return !IsMobilePlatform(InShaderPlatform) && (!IsMetalPlatform(InShaderPlatform) || RHIGetShaderLanguageVersion(InShaderPlatform) >= 2);
@@ -233,11 +245,11 @@ extern RHI_API bool GHardwareHiddenSurfaceRemoval;
 /** true if the RHI supports asynchronous creation of texture resources */
 extern RHI_API bool GRHISupportsAsyncTextureCreation;
 
-/** Can we handle quad primitives? */
-extern RHI_API bool GSupportsQuads;
+/** true if the RHI supports quad topology (PT_QuadList). */
+extern RHI_API bool GRHISupportsQuadTopology;
 
-/** Does the RHI provide a custom way to generate mips? */
-extern RHI_API bool GSupportsGenerateMips;
+/** true if the RHI supports rectangular topology (PT_RectList). */
+extern RHI_API bool GRHISupportsRectTopology;
 
 /** Temporary. When OpenGL is running in a separate thread, it cannot yet do things like initialize shaders that are first discovered in a rendering task. It is doable, it just isn't done. */
 extern RHI_API bool GSupportsParallelRenderingTasksWithSeparateRHIThread;
@@ -355,7 +367,7 @@ extern RHI_API class FVertexElementTypeSupportInfo GVertexElementTypeSupport;
 /** When greater than one, indicates that SLI rendering is enabled */
 #if PLATFORM_DESKTOP
 #define WITH_SLI (1)
-extern RHI_API int32 GNumActiveGPUsForRendering;
+extern RHI_API uint32 GNumActiveGPUsForRendering;
 #else
 #define WITH_SLI (0)
 #define GNumActiveGPUsForRendering (1)
@@ -1178,6 +1190,41 @@ struct FResolveParams
 		, SourceArrayIndex(Other.SourceArrayIndex)
 		, DestArrayIndex(Other.DestArrayIndex)
 	{}
+};
+
+
+struct FRHICopyTextureInfo
+{
+	// Number of texels to copy. Z Must be always be > 0.
+	FIntVector Size = {0, 0, 1};
+
+	/** The mip index to copy in both source and dest. */
+	int32 MipIndex = 0;
+
+	/** Array index or cube face to resolve in the source. For Cubemap arrays this would be ArraySlice * 6 + FaceIndex. */
+	int32 SourceArraySlice = 0;
+	/** Array index or cube face to resolve in the dest. */
+	int32 DestArraySlice = 0;
+	// How many slices or faces to copy.
+	int32 NumArraySlices = 1;
+
+	// 2D copy
+	FRHICopyTextureInfo(int32 InWidth, int32 InHeight)
+		: Size(InWidth, InHeight, 1)
+	{
+	}
+
+	FRHICopyTextureInfo(const FIntVector& InSize)
+		: Size(InSize)
+	{
+	}
+
+	void AdvanceMip()
+	{
+		++MipIndex;
+		Size.X = FMath::Max(Size.X / 2, 1);
+		Size.Y = FMath::Max(Size.Y / 2, 1);
+	}
 };
 
 enum class EResourceTransitionAccess

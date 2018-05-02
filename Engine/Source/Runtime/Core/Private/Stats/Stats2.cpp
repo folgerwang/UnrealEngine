@@ -315,16 +315,16 @@ void FStartupMessages::AddThreadMetadata( const FName InThreadName, uint32 InThr
 	// Make unique name.
 	const FString ThreadName = FStatsUtils::BuildUniqueThreadName( InThreadID );
 
-	FStartupMessages::AddMetadata( InThreadName, *ThreadName, STAT_GROUP_TO_FStatGroup( STATGROUP_Threads )::GetGroupName(), STAT_GROUP_TO_FStatGroup( STATGROUP_Threads )::GetGroupCategory(), STAT_GROUP_TO_FStatGroup( STATGROUP_Threads )::GetDescription(), true, EStatDataType::ST_int64, true );
+	FStartupMessages::AddMetadata( InThreadName, *ThreadName, STAT_GROUP_TO_FStatGroup( STATGROUP_Threads )::GetGroupName(), STAT_GROUP_TO_FStatGroup( STATGROUP_Threads )::GetGroupCategory(), STAT_GROUP_TO_FStatGroup( STATGROUP_Threads )::GetDescription(), true, EStatDataType::ST_int64, true, false );
 }
 
 
-void FStartupMessages::AddMetadata( FName InStatName, const TCHAR* InStatDesc, const char* InGroupName, const char* InGroupCategory, const TCHAR* InGroupDesc, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, bool bCycleStat, FPlatformMemory::EMemoryCounterRegion InMemoryRegion /*= FPlatformMemory::MCR_Invalid*/ )
+void FStartupMessages::AddMetadata( FName InStatName, const TCHAR* InStatDesc, const char* InGroupName, const char* InGroupCategory, const TCHAR* InGroupDesc, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, bool bCycleStat, bool bSortByName, FPlatformMemory::EMemoryCounterRegion InMemoryRegion /*= FPlatformMemory::MCR_Invalid*/ )
 {
 	FScopeLock Lock( &CriticalSection );
 
-	new (DelayedMessages)FStatMessage( InGroupName, EStatDataType::ST_None, "Groups", InGroupCategory, InGroupDesc, false, false );
-	new (DelayedMessages)FStatMessage( InStatName, InStatType, InGroupName, InGroupCategory, InStatDesc, bShouldClearEveryFrame, bCycleStat, InMemoryRegion );
+	new (DelayedMessages)FStatMessage( InGroupName, EStatDataType::ST_None, "Groups", InGroupCategory, InGroupDesc, false, false, bSortByName );
+	new (DelayedMessages)FStatMessage( InStatName, InStatType, InGroupName, InGroupCategory, InStatDesc, bShouldClearEveryFrame, bCycleStat, bSortByName, InMemoryRegion );
 }
 
 
@@ -343,14 +343,14 @@ FStartupMessages& FStartupMessages::Get()
 	FThreadSafeStaticStatBase
 -----------------------------------------------------------------------------*/
 
-const TStatIdData* FThreadSafeStaticStatBase::DoSetup(const char* InStatName, const TCHAR* InStatDesc, const char* InGroupName, const char* InGroupCategory, const TCHAR* InGroupDesc, bool bDefaultEnable, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, bool bCycleStat, FPlatformMemory::EMemoryCounterRegion InMemoryRegion) const
+const TStatIdData* FThreadSafeStaticStatBase::DoSetup(const char* InStatName, const TCHAR* InStatDesc, const char* InGroupName, const char* InGroupCategory, const TCHAR* InGroupDesc, bool bDefaultEnable, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, bool bCycleStat, bool bSortByName, FPlatformMemory::EMemoryCounterRegion InMemoryRegion) const
 {
 	FName TempName(InStatName);
 
 	// send meta data, we don't use normal messages because the stats thread might not be running yet
-	FStartupMessages::Get().AddMetadata(TempName, InStatDesc, InGroupName, InGroupCategory, InGroupDesc, bShouldClearEveryFrame, InStatType, bCycleStat, InMemoryRegion);
+	FStartupMessages::Get().AddMetadata(TempName, InStatDesc, InGroupName, InGroupCategory, InGroupDesc, bShouldClearEveryFrame, InStatType, bCycleStat, bSortByName, InMemoryRegion);
 
-	TStatIdData const* LocalHighPerformanceEnable(IStatGroupEnableManager::Get().GetHighPerformanceEnableForStat(FName(InStatName), InGroupName, InGroupCategory, bDefaultEnable, bShouldClearEveryFrame, InStatType, InStatDesc, bCycleStat, InMemoryRegion).GetRawPointer());
+	TStatIdData const* LocalHighPerformanceEnable(IStatGroupEnableManager::Get().GetHighPerformanceEnableForStat(FName(InStatName), InGroupName, InGroupCategory, bDefaultEnable, bShouldClearEveryFrame, InStatType, InStatDesc, bCycleStat, bSortByName, InMemoryRegion).GetRawPointer());
 	TStatIdData const* OldHighPerformanceEnable = HighPerformanceEnable.Exchange(LocalHighPerformanceEnable);
 	check(!OldHighPerformanceEnable || LocalHighPerformanceEnable == OldHighPerformanceEnable); // we are assigned two different groups?
 
@@ -507,13 +507,13 @@ public:
 		FThreadStats::MasterDisableChangeTagLockSubtract();
 	}
 
-	virtual TStatId GetHighPerformanceEnableForStat(FName StatShortName, const char* InGroup, const char* InCategory, bool bDefaultEnable, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, TCHAR const* InDescription, bool bCycleStat, FPlatformMemory::EMemoryCounterRegion MemoryRegion = FPlatformMemory::MCR_Invalid) override
+	virtual TStatId GetHighPerformanceEnableForStat(FName StatShortName, const char* InGroup, const char* InCategory, bool bDefaultEnable, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, TCHAR const* InDescription, bool bCycleStat, bool bSortByName, FPlatformMemory::EMemoryCounterRegion MemoryRegion = FPlatformMemory::MCR_Invalid) override
 	{
 		LLM_SCOPE(ELLMTag::Stats);
 
 		FScopeLock ScopeLock(&SynchronizationObject);
 
-		FStatNameAndInfo LongName(StatShortName, InGroup, InCategory, InDescription, InStatType, bShouldClearEveryFrame, bCycleStat, MemoryRegion);
+		FStatNameAndInfo LongName(StatShortName, InGroup, InCategory, InDescription, InStatType, bShouldClearEveryFrame, bCycleStat, bSortByName, MemoryRegion);
 
 		FName Stat = LongName.GetEncodedName();
 
@@ -705,7 +705,7 @@ IStatGroupEnableManager& IStatGroupEnableManager::Get()
 	FStatNameAndInfo
 -----------------------------------------------------------------------------*/
 
-FName FStatNameAndInfo::ToLongName(FName InStatName, char const* InGroup, char const* InCategory, TCHAR const* InDescription)
+FName FStatNameAndInfo::ToLongName(FName InStatName, char const* InGroup, char const* InCategory, TCHAR const* InDescription, bool InSortByName)
 {
 	FString LongName;
 	LongName.Reserve(255);
@@ -727,6 +727,12 @@ FName FStatNameAndInfo::ToLongName(FName InStatName, char const* InGroup, char c
 		LongName += TEXT("####");
 		LongName += InCategory;
 		LongName += TEXT("####");
+	}
+	if (InSortByName)
+	{
+		LongName += TEXT("/#/#");
+		LongName += TEXT("SortByName");
+		LongName += TEXT("/#/#");
 	}
 	return FName(*LongName);
 }
@@ -755,6 +761,11 @@ FName FStatNameAndInfo::GetShortNameFrom(FName InLongName)
 	if( DescIndexEnd == INDEX_NONE && CategoryIndexEnd != INDEX_NONE )
 	{
 		Input = Input.Left(CategoryIndexEnd);
+	}
+	const int32 SortByNameIndexEnd = Input.Find( TEXT( "/#/#" ), ESearchCase::CaseSensitive );
+	if( DescIndexEnd == INDEX_NONE && CategoryIndexEnd == INDEX_NONE && SortByNameIndexEnd != INDEX_NONE )
+	{
+		Input = Input.Left(SortByNameIndexEnd);
 	}
 	return FName(*Input);
 }
@@ -809,6 +820,24 @@ FName FStatNameAndInfo::GetGroupCategoryFrom(FName InLongName)
 		if (IndexEnd != INDEX_NONE)
 		{
 			return FName(*Input.Left(IndexEnd));
+		}
+		checkStats(0);
+	}
+	return NAME_None;
+}
+
+bool FStatNameAndInfo::GetSortByNameFrom(FName InLongName)
+{
+	FString Input(InLongName.ToString());
+
+	const int32 IndexStart = Input.Find(TEXT("/#/#"), ESearchCase::CaseSensitive);
+	if (IndexStart != INDEX_NONE)
+	{
+		Input = Input.RightChop(IndexStart + 4);
+		const int32 IndexEnd = Input.Find(TEXT("/#/#"), ESearchCase::CaseSensitive);
+		if (IndexEnd != INDEX_NONE)
+		{
+			return Input.Left(IndexEnd) == TEXT("SortByName");
 		}
 		checkStats(0);
 	}

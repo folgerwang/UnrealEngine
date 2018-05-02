@@ -4,6 +4,16 @@
 	BasePassCommon.usf: Base pass definitions used by both vertex and pixel shader
 =============================================================================*/
 
+#if MATERIALBLENDING_ANY_TRANSLUCENT
+	#define ForwardLightData TranslucentBasePass.Shared.Forward
+	#define ReflectionStruct TranslucentBasePass.Shared.Reflection
+	#define FogStruct TranslucentBasePass.Shared.Fog
+#else
+	#define ForwardLightData OpaqueBasePass.Shared.Forward
+	#define ReflectionStruct OpaqueBasePass.Shared.Reflection
+	#define FogStruct OpaqueBasePass.Shared.Fog
+#endif 
+
 #undef NEEDS_LIGHTMAP_COORDINATE
 
 #define NEEDS_LIGHTMAP_COORDINATE		(HQ_TEXTURE_LIGHTMAP || LQ_TEXTURE_LIGHTMAP)
@@ -116,21 +126,17 @@ struct FBasePassInterpolantsVSToDS : FSharedBasePassInterpolants
 
 #endif
 
-Texture3D TranslucencyLightingVolumeAmbientInner;
-Texture3D TranslucencyLightingVolumeAmbientOuter;
-Texture3D TranslucencyLightingVolumeDirectionalInner;
-Texture3D TranslucencyLightingVolumeDirectionalOuter;
 
 #if SUPPORTS_INDEPENDENT_SAMPLERS
-	#define TranslucencyLightingVolumeAmbientInnerSampler View.SharedBilinearClampedSampler
-	#define TranslucencyLightingVolumeAmbientOuterSampler View.SharedBilinearClampedSampler
-	#define TranslucencyLightingVolumeDirectionalInnerSampler View.SharedBilinearClampedSampler
-	#define TranslucencyLightingVolumeDirectionalOuterSampler View.SharedBilinearClampedSampler
+	#define SharedAmbientInnerSampler View.SharedBilinearClampedSampler
+	#define SharedAmbientOuterSampler View.SharedBilinearClampedSampler
+	#define SharedDirectionalInnerSampler View.SharedBilinearClampedSampler
+	#define SharedDirectionalOuterSampler View.SharedBilinearClampedSampler
 #else
-	SamplerState TranslucencyLightingVolumeAmbientInnerSampler;
-	SamplerState TranslucencyLightingVolumeAmbientOuterSampler;
-	SamplerState TranslucencyLightingVolumeDirectionalInnerSampler;
-	SamplerState TranslucencyLightingVolumeDirectionalOuterSampler;
+	#define SharedAmbientInnerSampler TranslucentBasePass.TranslucencyLightingVolumeAmbientInnerSampler
+	#define SharedAmbientOuterSampler TranslucentBasePass.TranslucencyLightingVolumeAmbientOuterSampler
+	#define SharedDirectionalInnerSampler TranslucentBasePass.TranslucencyLightingVolumeDirectionalInnerSampler
+	#define SharedDirectionalOuterSampler TranslucentBasePass.TranslucencyLightingVolumeDirectionalOuterSampler
 #endif
 
 void ComputeVolumeUVs(float3 WorldPosition, float3 LightingPositionOffset, out float3 InnerVolumeUVs, out float3 OuterVolumeUVs, out float FinalLerpFactor)
@@ -150,8 +156,8 @@ void ComputeVolumeUVs(float3 WorldPosition, float3 LightingPositionOffset, out f
 float4 GetAmbientLightingVectorFromTranslucentLightingVolume(float3 InnerVolumeUVs, float3 OuterVolumeUVs, float FinalLerpFactor)
 {
 	// Lookup the inner and outer cascade ambient lighting values
-	float4 InnerLighting = Texture3DSampleLevel(TranslucencyLightingVolumeAmbientInner, TranslucencyLightingVolumeAmbientInnerSampler, InnerVolumeUVs, 0);
-	float4 OuterLighting = Texture3DSampleLevel(TranslucencyLightingVolumeAmbientOuter, TranslucencyLightingVolumeAmbientOuterSampler, OuterVolumeUVs, 0);
+	float4 InnerLighting = Texture3DSampleLevel(TranslucentBasePass.TranslucencyLightingVolumeAmbientInner, SharedAmbientInnerSampler, InnerVolumeUVs, 0);
+	float4 OuterLighting = Texture3DSampleLevel(TranslucentBasePass.TranslucencyLightingVolumeAmbientOuter, SharedAmbientOuterSampler, OuterVolumeUVs, 0);
 
 	// Lerp between cascades
 	return lerp(OuterLighting, InnerLighting, FinalLerpFactor);
@@ -160,8 +166,8 @@ float4 GetAmbientLightingVectorFromTranslucentLightingVolume(float3 InnerVolumeU
 float3 GetDirectionalLightingVectorFromTranslucentLightingVolume(float3 InnerVolumeUVs, float3 OuterVolumeUVs, float FinalLerpFactor)
 {
 	// Fetch both the ambient and directional values for both cascades
-	float3 InnerVector1 = Texture3DSampleLevel(TranslucencyLightingVolumeDirectionalInner, TranslucencyLightingVolumeDirectionalInnerSampler, InnerVolumeUVs, 0).rgb;
-	float3 OuterVector1 = Texture3DSampleLevel(TranslucencyLightingVolumeDirectionalOuter, TranslucencyLightingVolumeDirectionalOuterSampler, OuterVolumeUVs, 0).rgb;
+	float3 InnerVector1 = Texture3DSampleLevel(TranslucentBasePass.TranslucencyLightingVolumeDirectionalInner, SharedDirectionalInnerSampler, InnerVolumeUVs, 0).rgb;
+	float3 OuterVector1 = Texture3DSampleLevel(TranslucentBasePass.TranslucencyLightingVolumeDirectionalOuter, SharedDirectionalOuterSampler, OuterVolumeUVs, 0).rgb;
 
 	// Lerp between cascades
 	return lerp(OuterVector1, InnerVector1, FinalLerpFactor);

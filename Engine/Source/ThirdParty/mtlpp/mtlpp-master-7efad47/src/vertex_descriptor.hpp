@@ -9,9 +9,34 @@
 
 
 #include "declare.hpp"
+#include "imp_VertexDesc.hpp"
 #include "ns.hpp"
 
 MTLPP_BEGIN
+
+namespace ue4
+{
+	template<>
+	inline ITable<MTLVertexBufferLayoutDescriptor*, void>* CreateIMPTable(MTLVertexBufferLayoutDescriptor* handle)
+	{
+		static ITable<MTLVertexBufferLayoutDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	
+	template<>
+	inline ITable<MTLVertexAttributeDescriptor*, void>* CreateIMPTable(MTLVertexAttributeDescriptor* handle)
+	{
+		static ITable<MTLVertexAttributeDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	
+	template<>
+	inline ITable<MTLVertexDescriptor*, void>* CreateIMPTable(MTLVertexDescriptor* handle)
+	{
+		static ITable<MTLVertexDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+}
 
 namespace mtlpp
 {
@@ -103,7 +128,8 @@ namespace mtlpp
     {
     public:
         VertexBufferLayoutDescriptor();
-        VertexBufferLayoutDescriptor(MTLVertexBufferLayoutDescriptor* handle) : ns::Object<MTLVertexBufferLayoutDescriptor*>(handle) { }
+		VertexBufferLayoutDescriptor(ns::Ownership const retain) : ns::Object<MTLVertexBufferLayoutDescriptor*>(retain) {}
+        VertexBufferLayoutDescriptor(MTLVertexBufferLayoutDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLVertexBufferLayoutDescriptor*>(handle, retain) { }
 
         NSUInteger           GetStride() const;
         VertexStepFunction GetStepFunction() const;
@@ -119,7 +145,8 @@ namespace mtlpp
     {
     public:
         VertexAttributeDescriptor();
-        VertexAttributeDescriptor(MTLVertexAttributeDescriptor* handle) : ns::Object<MTLVertexAttributeDescriptor*>(handle) { }
+		VertexAttributeDescriptor(ns::Ownership const retain) : ns::Object<MTLVertexAttributeDescriptor*>(retain) {}
+        VertexAttributeDescriptor(MTLVertexAttributeDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLVertexAttributeDescriptor*>(handle, retain) { }
 
         VertexFormat GetFormat() const;
         NSUInteger     GetOffset() const;
@@ -135,10 +162,11 @@ namespace mtlpp
     {
     public:
         VertexDescriptor();
-        VertexDescriptor(MTLVertexDescriptor* handle) : ns::Object<MTLVertexDescriptor*>(handle) { }
+		VertexDescriptor(ns::Ownership const retain) : ns::Object<MTLVertexDescriptor*>(retain) {}
+        VertexDescriptor(MTLVertexDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLVertexDescriptor*>(handle, retain) { }
 
-        ns::Array<VertexBufferLayoutDescriptor> GetLayouts() const;
-        ns::Array<VertexAttributeDescriptor>    GetAttributes() const;
+        ns::AutoReleased<ns::Array<VertexBufferLayoutDescriptor>> GetLayouts() const;
+        ns::AutoReleased<ns::Array<VertexAttributeDescriptor>>    GetAttributes() const;
 
         void Reset();
     }

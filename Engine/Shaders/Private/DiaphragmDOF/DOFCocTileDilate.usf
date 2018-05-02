@@ -1,0 +1,173 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DiaphragmDOF/DOFCocDilate.usf: Dilate the coc tile buffer.
+=============================================================================*/
+
+#include "DOFCommon.ush"
+#include "DOFCocTileCommon.ush"
+
+
+//------------------------------------------------------- PASSES.
+
+uint SampleOffsetMultipler = 1;
+
+// Multiplier to compare CocRadius and bucket distance.
+float CocRadiusToBucketDistance;
+
+
+//------------------------------------------------------- OUTPUTS.
+
+RWTexture2D<float4>	Output0;
+RWTexture2D<float4>	Output1;
+
+
+//------------------------------------------------------- ENTRY POINT.
+
+// TODO: could support larger radius with LDS.
+[numthreads(DEFAULT_GROUP_BORDER_SIZE, DEFAULT_GROUP_BORDER_SIZE, 1)]
+void CocDilateMainCS(uint2 DispatchThreadId : SV_DispatchThreadID) 
+{
+	const uint CocTileLayout = COC_TILE_LAYOUT_FGD_BGD;
+	const FCocTileTexture2D CocTileTexture = CreateCocTileTexture2D(CocTileLayout, PostprocessInput0, PostprocessInput1);
+	const int Radius = DIM_DILATE_RADIUS;
+
+	const uint2 PixelPos = DispatchThreadId;
+
+	// Different buckets of CocRadius per gathering radius.
+	FCocTileSample OutSampleBuckets[Radius];
+
+	// Whether OutSampleBuckets[BucketId] has been initialized. Going to be compile
+	// out at runtime tahnks to the UNROLL over x and y variables.
+	bool OutSampleBucketsisInitialized[Radius];
+	UNROLL
+	for (int j = 0; j < Radius; j++)
+	{
+		OutSampleBucketsisInitialized[j] = false;
+	}
+
+	// Iterate over all input tiles and assign them into their buckets.
+	UNROLL for (int x = -Radius; x <= Radius; x++)
+	UNROLL for (int y = -Radius; y <= Radius; y++)
+	{
+		// Don't sampling the center as we do this latter on.
+		if ( x == 0 && y == 0 )
+			continue;
+	
+		// Id of the bucket to dilate this sample into.
+		const uint BucketId = uint(max(abs(x), abs(y)) - 1);
+		
+		int2 Offset = asint(SampleOffsetMultipler) * int2(x, y);
+		int2 SampleIndex = PixelPos + Offset;
+			
+		// If sampling outside the tiles, ignore this sample.
+		bool2 bInsideViewport = SampleIndex >= 0 && uint2(SampleIndex) < uint2(ViewportRect.zw);
+		if (!all(bInsideViewport))
+			continue;
+			
+		// Minimal CoC radius to consider because done at full res.
+		const float MinimalCoC = 0.5 * kCocRadiusToFullResFactor;
+
+		// Closest distance from sampling tile to output tide.
+		float ClosestDistance = COC_TILE_SIZE * length(max(abs(float2(Offset)) - 1.0, 0.0)) + MinimalCoC;
+
+		// Sample tile.
+		const FCocTileSample NeightborSample = LoadCocTile(CocTileTexture, SampleIndex);
+
+		// TODO: Could be smarter here like in old code to optimise better the gather pass?
+		UNROLL
+		for (uint i = 0; i < MAX_COC_TILE_RANGES; i++)
+		{
+			if (OutSampleBucketsisInitialized[BucketId] == false)
+			{
+				OutSampleBucketsisInitialized[BucketId] = true;
+				OutSampleBuckets[BucketId] = NeightborSample;
+			}
+			else
+			{
+				OutSampleBuckets[BucketId].Foreground[i].MinCoc = min(
+					OutSampleBuckets[BucketId].Foreground[i].MinCoc, NeightborSample.Foreground[i].MinCoc);
+				OutSampleBuckets[BucketId].Foreground[i].MaxCoc = max(
+					OutSampleBuckets[BucketId].Foreground[i].MaxCoc, NeightborSample.Foreground[i].MaxCoc);
+
+				OutSampleBuckets[BucketId].Background[i].MinCoc = min(
+					OutSampleBuckets[BucketId].Background[i].MinCoc, NeightborSample.Background[i].MinCoc);
+				OutSampleBuckets[BucketId].Background[i].MaxCoc = max(
+					OutSampleBuckets[BucketId].Background[i].MaxCoc, NeightborSample.Background[i].MaxCoc);
+			}
+		}
+	}
+	
+	FCocTileSample OutSample;
+	
+	// Sample the center bucket.
+	FCocTileSample CenterSample = LoadCocTile(CocTileTexture, PixelPos);
+
+	UNROLL
+	for (uint i = 0; i < MAX_COC_TILE_RANGES; i++)
+	{
+		// First, find out what the maximum absolute Coc radii will be for the output sample.
+		float MinForegroundCocRadius = CenterSample.Foreground[i].MinCoc;
+		float MaxBackgroundCocRadius = CenterSample.Background[i].MaxCoc;
+		
+		int k;
+
+		UNROLL
+		for (k = 0; k < Radius; k++)
+		{
+			float BucketDistance = (float(SampleOffsetMultipler) * float(k + 1) - 1.0) * 8.0;
+			
+			FLATTEN
+			if (-OutSampleBuckets[k].Foreground[i].MinCoc * CocRadiusToBucketDistance > BucketDistance)
+			{
+				MinForegroundCocRadius = min(MinForegroundCocRadius, OutSampleBuckets[k].Foreground[i].MinCoc);
+			}
+			
+			FLATTEN
+			if (OutSampleBuckets[k].Background[i].MaxCoc * CocRadiusToBucketDistance > BucketDistance)
+			{
+				MaxBackgroundCocRadius = max(MaxBackgroundCocRadius, OutSampleBuckets[k].Background[i].MaxCoc);
+			}
+		}
+		
+		// Then, find out what is minimum absolute Coc radii that will be encountered for these maximum Coc radii.
+		float MaxForegroundCocRadius = CenterSample.Foreground[i].MaxCoc;
+		float MinBackgroundCocRadius = CenterSample.Background[i].MinCoc;
+		
+		UNROLL
+		for (k = 0; k < Radius; k++)
+		{
+			float BucketDistance = (float(SampleOffsetMultipler) * float(k + 1) - 1.0) * float(COC_TILE_SIZE);
+			
+			FLATTEN
+			if (-MinForegroundCocRadius * CocRadiusToBucketDistance > BucketDistance)
+			{
+				MaxForegroundCocRadius = max(MaxForegroundCocRadius, OutSampleBuckets[k].Foreground[i].MaxCoc);
+			}
+
+			FLATTEN
+			if (MaxBackgroundCocRadius * CocRadiusToBucketDistance > BucketDistance)
+			{
+				MinBackgroundCocRadius = min(MinBackgroundCocRadius, OutSampleBuckets[k].Background[i].MinCoc);
+			}
+		}
+		
+		OutSample.Foreground[i].MinCoc = MinForegroundCocRadius;
+		OutSample.Foreground[i].MaxCoc = MaxForegroundCocRadius;
+		OutSample.Background[i].MinCoc = MinBackgroundCocRadius;
+		OutSample.Background[i].MaxCoc = MaxBackgroundCocRadius;
+	}
+
+	// Output that.
+	if (all(PixelPos < ViewportRect.zw))
+	{
+		float4 RawOutput[COC_TILE_MAX_BUFFER_COUNT];
+		EncodeCocTileSample(OutSample, CocTileLayout, RawOutput);
+
+		Output0[PixelPos] = RawOutput[0];
+		if (static_condition(GetBufferCountForCocTileLayour(CocTileLayout) > 1))
+		{
+			Output1[PixelPos] = RawOutput[1];
+		}
+	}
+}

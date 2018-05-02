@@ -574,9 +574,8 @@ extern CORE_API bool GIsGPUCrashed;
 bool FD3DGPUProfiler::CheckGpuHeartbeat() const
 {
 #if NV_AFTERMATH
-	if (GDX11NVAfterMathEnabled)
+	if (GDX11NVAfterMathEnabled && bTrackingGPUCrashData)
 	{
-		auto AftermathContext = D3D11RHI->GetNVAftermathContext();
 		GFSDK_Aftermath_Device_Status Status;
 		auto Result = GFSDK_Aftermath_GetDeviceStatus(&Status);
 		if (Result == GFSDK_Aftermath_Result_Success)
@@ -587,27 +586,35 @@ bool FD3DGPUProfiler::CheckGpuHeartbeat() const
 				const TCHAR* AftermathReason[] = { TEXT("Active"), TEXT("Timeout"), TEXT("OutOfMemory"), TEXT("PageFault"), TEXT("Unknown") };
 				check(Status < 5);
 				UE_LOG(LogRHI, Error, TEXT("[Aftermath] Status: %s"), AftermathReason[Status]);
+				auto AftermathContext = D3D11RHI->GetNVAftermathContext();
 
-				GFSDK_Aftermath_ContextData ContextDataOut;
-				Result = GFSDK_Aftermath_GetData(1, &AftermathContext, &ContextDataOut);
-				if (Result == GFSDK_Aftermath_Result_Success)
+				if (AftermathContext)
 				{
-				UE_LOG(LogRHI, Error, TEXT("[Aftermath] GPU Stack Dump"));
-				uint32 NumCRCs = ContextDataOut.markerSize / sizeof(uint32);
-				uint32* Data = (uint32*)ContextDataOut.markerData;
-				for (uint32 i = 0; i < NumCRCs; i++)
-				{
-					const FString* Frame = CachedStrings.Find(Data[i]);
-					if (Frame != nullptr)
+					GFSDK_Aftermath_ContextData ContextDataOut;
+					Result = GFSDK_Aftermath_GetData(1, &AftermathContext, &ContextDataOut);
+					if (Result == GFSDK_Aftermath_Result_Success)
 					{
-						UE_LOG(LogRHI, Error, TEXT("[Aftermath] %i: %s"), i, *(*Frame));
+						UE_LOG(LogRHI, Error, TEXT("[Aftermath] GPU Stack Dump"));
+						uint32 NumCRCs = ContextDataOut.markerSize / sizeof(uint32);
+						uint32* Data = (uint32*)ContextDataOut.markerData;
+						for (uint32 i = 0; i < NumCRCs; i++)
+						{
+							const FString* Frame = CachedStrings.Find(Data[i]);
+							if (Frame != nullptr)
+							{
+								UE_LOG(LogRHI, Error, TEXT("[Aftermath] %i: %s"), i, *(*Frame));
+							}
+						}
+						UE_LOG(LogRHI, Error, TEXT("[Aftermath] GPU Stack Dump"));
 					}
-				}
-				UE_LOG(LogRHI, Error, TEXT("[Aftermath] GPU Stack Dump"));
+					else
+					{
+						UE_LOG(LogRHI, Error, TEXT("[Aftermath] GFSDK_Aftermath_GetData failed with result: 0x%08X"), (uint32)Result);
+					}
 				}
 				else
 				{
-					UE_LOG(LogRHI, Error, TEXT("[Aftermath] GFSDK_Aftermath_GetData failed with result: 0x%08X"), (uint32)Result);
+					UE_LOG(LogRHI, Error, TEXT("[Aftermath] Invalid context handle"));
 				}
 
 				return false;

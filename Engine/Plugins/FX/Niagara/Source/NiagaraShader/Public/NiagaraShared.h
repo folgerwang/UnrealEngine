@@ -307,13 +307,6 @@ public:
 	NIAGARASHADER_API  void AddRef();
 	NIAGARASHADER_API  void Release();
 
-	// FDeferredCleanupInterface
-	virtual void FinishCleanup()
-	{
-		bDeletedThroughDeferredCleanup = true;
-		delete this;
-	}
-
 	/**
 	* Removes all entries in the cache with exceptions based on a shader type
 	* @param ShaderType - The shader type to flush

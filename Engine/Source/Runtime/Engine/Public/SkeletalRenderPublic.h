@@ -29,10 +29,10 @@ struct FFinalSkinVertex
 
 	FVector GetTangentY() const
 	{
-		FVector TanX = TangentX;
-		FVector TanZ = TangentZ;
+		FVector TanX = TangentX.ToFVector();
+		FVector TanZ = TangentZ.ToFVector();
 
-		return (TanZ ^ TanX) * ((float)TangentZ.Vector.W / 127.5f - 1.0f);
+		return (TanZ ^ TanX) * ((float)TangentZ.Vector.W / 127.0f);
 	};
 };
 
@@ -145,12 +145,6 @@ public:
 
 	/** @return if per-bone motion blur is enabled for this object. This includes is the system overwrites the skeletal mesh setting. */
 	bool ShouldUsePerBoneMotionBlur() const { return bUsePerBoneMotionBlur; }
-
-	// FDeferredCleanupInterface
-	virtual void FinishCleanup()
-	{
-		delete this;
-	}
 	
 	/** Returns the size of memory allocated by render data */
 	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) = 0;

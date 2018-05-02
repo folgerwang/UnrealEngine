@@ -7,7 +7,6 @@
 #include "Common.ush"
 #include "SeparateTranslucency.ush"
 
-// Texture2D SceneDepthTexture
 Texture2D LowResColorTexture;
 float4 LowResColorTexelSize;
 

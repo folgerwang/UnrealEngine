@@ -43,8 +43,6 @@ enum EMultiGPUMode
 	MGPU_AFR
 };
 
-static const bool GRedirectDefaultContextForAFR = true;
-
 /// @cond DOXYGEN_WARNINGS
 
 void* FD3D12ThreadLocalObject<FD3D12FastConstantAllocator>::ThisThreadObject = nullptr;
@@ -94,107 +92,84 @@ public:
 	void InitializeDevices();
 
 	// Getters
-	inline const uint32 GetAdapterIndex() const { return Desc.AdapterIndex; }
-	inline const D3D_FEATURE_LEVEL GetFeatureLevel() const { return Desc.MaxSupportedFeatureLevel; }
-	inline ID3D12Device* GetD3DDevice() { return RootDevice.GetReference(); }
-	inline ID3D12Device1* GetD3DDevice1() { return RootDevice1.GetReference(); }
-	inline void SetDeviceRemoved(bool value) { bDeviceRemoved = value; }
-	inline const bool IsDeviceRemoved() const { return bDeviceRemoved; }
-	inline FD3D12DynamicRHI* GetOwningRHI() { return OwningRHI; }
-	inline const D3D12_RESOURCE_HEAP_TIER GetResourceHeapTier() const { return ResourceHeapTier; }
-	inline const D3D12_RESOURCE_BINDING_TIER GetResourceBindingTier() const { return ResourceBindingTier; }
-	inline const D3D_ROOT_SIGNATURE_VERSION GetRootSignatureVersion() const { return RootSignatureVersion; }
-	inline const DXGI_ADAPTER_DESC& GetD3DAdapterDesc() const { return Desc.Desc; }
-	inline IDXGIAdapter* GetAdapter() { return DxgiAdapter; }
-	inline const FD3D12AdapterDesc& GetDesc() const { return Desc; }
-	inline TArray<FD3D12Viewport*>& GetViewports() { return Viewports; }
-	inline FD3D12Viewport* GetDrawingViewport() { return DrawingViewport; }
-	inline void SetDrawingViewport(FD3D12Viewport* InViewport) { DrawingViewport = InViewport; }
+	FORCEINLINE const uint32 GetAdapterIndex() const { return Desc.AdapterIndex; }
+	FORCEINLINE const D3D_FEATURE_LEVEL GetFeatureLevel() const { return Desc.MaxSupportedFeatureLevel; }
+	FORCEINLINE ID3D12Device* GetD3DDevice() { return RootDevice.GetReference(); }
+	FORCEINLINE ID3D12Device1* GetD3DDevice1() { return RootDevice1.GetReference(); }
+	FORCEINLINE void SetDeviceRemoved(bool value) { bDeviceRemoved = value; }
+	FORCEINLINE const bool IsDeviceRemoved() const { return bDeviceRemoved; }
+	FORCEINLINE FD3D12DynamicRHI* GetOwningRHI() { return OwningRHI; }
+	FORCEINLINE const D3D12_RESOURCE_HEAP_TIER GetResourceHeapTier() const { return ResourceHeapTier; }
+	FORCEINLINE const D3D12_RESOURCE_BINDING_TIER GetResourceBindingTier() const { return ResourceBindingTier; }
+	FORCEINLINE const D3D_ROOT_SIGNATURE_VERSION GetRootSignatureVersion() const { return RootSignatureVersion; }
+	FORCEINLINE const DXGI_ADAPTER_DESC& GetD3DAdapterDesc() const { return Desc.Desc; }
+	FORCEINLINE IDXGIAdapter* GetAdapter() { return DxgiAdapter; }
+	FORCEINLINE const FD3D12AdapterDesc& GetDesc() const { return Desc; }
+	FORCEINLINE TArray<FD3D12Viewport*>& GetViewports() { return Viewports; }
+	FORCEINLINE FD3D12Viewport* GetDrawingViewport() { return DrawingViewport; }
+	FORCEINLINE void SetDrawingViewport(FD3D12Viewport* InViewport) { DrawingViewport = InViewport; }
 
-	inline ID3D12CommandSignature* GetDrawIndirectCommandSignature() { return DrawIndirectCommandSignature; }
-	inline ID3D12CommandSignature* GetDrawIndexedIndirectCommandSignature() { return DrawIndexedIndirectCommandSignature; }
-	inline ID3D12CommandSignature* GetDispatchIndirectCommandSignature() { return DispatchIndirectCommandSignature; }
+	FORCEINLINE ID3D12CommandSignature* GetDrawIndirectCommandSignature() { return DrawIndirectCommandSignature; }
+	FORCEINLINE ID3D12CommandSignature* GetDrawIndexedIndirectCommandSignature() { return DrawIndexedIndirectCommandSignature; }
+	FORCEINLINE ID3D12CommandSignature* GetDispatchIndirectCommandSignature() { return DispatchIndirectCommandSignature; }
 
-	inline FD3D12PipelineStateCache& GetPSOCache() { return PipelineStateCache; }
+	FORCEINLINE FD3D12PipelineStateCache& GetPSOCache() { return PipelineStateCache; }
 
-	inline FD3D12FenceCorePool& GetFenceCorePool() { return FenceCorePool; }
+	FORCEINLINE FD3D12FenceCorePool& GetFenceCorePool() { return FenceCorePool; }
 
 #if USE_STATIC_ROOT_SIGNATURE
-	inline const FD3D12RootSignature* GetStaticGraphicsRootSignature()
+	FORCEINLINE const FD3D12RootSignature* GetStaticGraphicsRootSignature()
 	{
 		static const FD3D12RootSignature StaticGraphicsRootSignature(this, FD3D12RootSignatureDesc::GetStaticGraphicsRootSignatureDesc());
 		return &StaticGraphicsRootSignature;
 	}
-	inline const FD3D12RootSignature* GetStaticComputeRootSignature()
+	FORCEINLINE const FD3D12RootSignature* GetStaticComputeRootSignature()
 	{
 		static const FD3D12RootSignature StaticComputeRootSignature(this, FD3D12RootSignatureDesc::GetStaticComputeRootSignatureDesc());
 		return &StaticComputeRootSignature;
 	}
 #else
-	inline const FD3D12RootSignature* GetStaticGraphicsRootSignature(){ return nullptr; }
-	inline const FD3D12RootSignature* GetStaticComputeRootSignature() { return nullptr; }
+	FORCEINLINE const FD3D12RootSignature* GetStaticGraphicsRootSignature(){ return nullptr; }
+	FORCEINLINE const FD3D12RootSignature* GetStaticComputeRootSignature() { return nullptr; }
 
-	inline FD3D12RootSignature* GetRootSignature(const FD3D12QuantizedBoundShaderState& QBSS) 
+	FORCEINLINE FD3D12RootSignature* GetRootSignature(const FD3D12QuantizedBoundShaderState& QBSS) 
 	{
 		return RootSignatureManager.GetRootSignature(QBSS);
 	}
 #endif
-	inline FD3D12RootSignatureManager* GetRootSignatureManager()
+	FORCEINLINE FD3D12RootSignatureManager* GetRootSignatureManager()
 	{
 		return &RootSignatureManager;
 	}
 
-	inline FD3D12DeferredDeletionQueue& GetDeferredDeletionQueue() { return DeferredDeletionQueue; }
+	FORCEINLINE FD3D12DeferredDeletionQueue& GetDeferredDeletionQueue() { return DeferredDeletionQueue; }
 
-	inline const GPUNodeMask ActiveGPUMask() const { return ActiveGPUNodes; }
-	inline const uint32 GetNumGPUNodes() const { return (!GIsEditor && GEnableMGPU) ? Desc.NumDeviceNodes : 1; }
-	inline const bool AlternateFrameRenderingEnabled() const { return MultiGPUMode == MGPU_AFR; }
-	
-	inline FD3D12ManualFence& GetFrameFence()  { return FrameFence; }
+	FORCEINLINE FD3D12ManualFence& GetFrameFence()  { check(FrameFence); return *FrameFence; }
 
-	void SwitchToNextGPU();
-
-	inline FD3D12Device* GetDevice(GPUNodeMask Node = GDefaultGPUMask)
+	FORCEINLINE FD3D12Device* GetDevice(uint32 GPUIndex)
 	{
-		return Devices[FD3D12SingleNodeGPUObject::DetermineGPUIndex(Node)];
+		check(GPUIndex < GNumActiveGPUsForRendering);
+		return Devices[GPUIndex];
 	}
 
-	inline FD3D12Device* GetCurrentDevice()
-	{
-		return GetDevice(CurrentGPUNode);
-	}
-
-	inline const GPUNodeMask GetCurrentNodeMask() const { return CurrentGPUNode; }
-	inline const GPUNodeMask GetPreviousNodeMask() const 
-	{
-		GPUNodeMask Node = CurrentGPUNode >> 1;
-		return  (Node == 0) ? (1 << (GetNumGPUNodes() - 1)) : Node;
-	}
-
-	inline FD3D12Device* GetDeviceByIndex(uint32 Index)
-	{
-		check(Index < GetNumGPUNodes());
-		return Devices[Index];
-	}
-
-	inline const EMultiGPUMode GetMultiGPUMode() const { return MultiGPUMode; }
-	inline void SetAFRMode() { MultiGPUMode = MGPU_AFR; }
-
-	inline void CreateDXGIFactory()
+	FORCEINLINE void CreateDXGIFactory()
 	{
 #if PLATFORM_WINDOWS
 		VERIFYD3D12RESULT(::CreateDXGIFactory(IID_PPV_ARGS(DxgiFactory.GetInitReference())));
 		VERIFYD3D12RESULT(DxgiFactory->QueryInterface(IID_PPV_ARGS(DxgiFactory2.GetInitReference())));
 #endif
 	}
-	inline IDXGIFactory* GetDXGIFactory() const { return DxgiFactory; }
-	inline IDXGIFactory2* GetDXGIFactory2() const { return DxgiFactory2; }
+	FORCEINLINE IDXGIFactory* GetDXGIFactory() const { return DxgiFactory; }
+	FORCEINLINE IDXGIFactory2* GetDXGIFactory2() const { return DxgiFactory2; }
 
-	inline FD3D12DynamicHeapAllocator& GetUploadHeapAllocator() { return *UploadHeapAllocator; }
+	FORCEINLINE FD3D12DynamicHeapAllocator& GetUploadHeapAllocator(uint32 GPUIndex) 
+	{ 
+		return *(UploadHeapAllocator[GPUIndex]); 
+	}
 
-	inline FD3DGPUProfiler& GetGPUProfiler() { return GPUProfilingData; }
+	FORCEINLINE FD3DGPUProfiler& GetGPUProfiler() { return GPUProfilingData; }
 
-	inline uint32 GetDebugFlags() const { return DebugFlags; }
+	FORCEINLINE uint32 GetDebugFlags() const { return DebugFlags; }
 
 	void Cleanup();
 
@@ -221,8 +196,8 @@ public:
 		FD3D12Resource** ppOutResource);
 
 	HRESULT CreateBuffer(D3D12_HEAP_TYPE HeapType,
-		GPUNodeMask CreationNode,
-		GPUNodeMask VisibleNodes,
+		FRHIGPUMask CreationNode,
+		FRHIGPUMask VisibleNodes,
 		uint64 HeapSize,
 		FD3D12Resource** ppOutResource,
 		D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE);
@@ -243,26 +218,23 @@ public:
 	void SignalFrameFence_RenderThread(FRHICommandListImmediate& RHICmdList);
 
 	template<typename ObjectType, typename CreationCoreFunction>
-	inline ObjectType* CreateLinkedObject(const CreationCoreFunction& pfnCreationCore)
+	inline ObjectType* CreateLinkedObject(FRHIGPUMask GPUMask, const CreationCoreFunction& pfnCreationCore)
 	{
-		// TODO: this should be a value specified by the Engine to tell which GPU node to create on
-		const uint32 NumGPUs = GetNumGPUNodes();
-
 		ObjectType* ObjectOut = nullptr;
 		ObjectType* Previous = nullptr;
 
-		for (size_t i = 0; i < NumGPUs; i++)
+		for (uint32 GPUIndex : GPUMask)
 		{
-			ObjectType* NewObject = pfnCreationCore(GetDevice(1 << i));
+			ObjectType* NewObject = pfnCreationCore(GetDevice(GPUIndex));
 
-			// For AFR link up the resources so they can be implicitly destroyed
-			if (i > 0) //-V547
-			{
-				Previous->SetNextObject(NewObject);
-			}
-			else
+			// For AFR link up the resources so they can be implicitly destroyed.
+			if (!Previous)
 			{
 				ObjectOut = NewObject;
+			}
+			else // This will also configure the head link flag.
+			{
+				Previous->SetNextObject(NewObject);
 			}
 
 			Previous = NewObject;
@@ -277,20 +249,18 @@ public:
 		ViewType* ViewOut = nullptr;
 		ViewType* Previous = nullptr;
 
-		uint32 i = 0;
 		while (Resource)
 		{
 			ViewType* NewView = pfnCreationCore(Resource);
 			// For AFR link up the resources so they can be implicitly destroyed
-			if (i > 0)
-			{
-				Previous->SetNextObject(NewView);
-			}
-			else
+			if (!Previous)
 			{
 				ViewOut = NewView;
 			}
-			i++;
+			else // This will also configure the head link flag.
+			{
+				Previous->SetNextObject(NewView);
+			}
 			Previous = NewView;
 			Resource = (ResourceType*)Resource->GetNextObject();
 		}
@@ -305,15 +275,18 @@ public:
 
 	FD3D12FastConstantAllocator& GetTransientUniformBufferAllocator() 
 	{
+		// Multi-GPU support : is using device 0 always appropriate here?
 		return *TransientUniformBufferAllocator.GetObjectForThisThread([this]() -> FD3D12FastConstantAllocator*
 		{
-			FD3D12FastConstantAllocator* Alloc = new FD3D12FastConstantAllocator(Devices[0], ActiveGPUMask(), 1024*1024*2);
+			FD3D12FastConstantAllocator* Alloc = new FD3D12FastConstantAllocator(Devices[0], FRHIGPUMask::All(), 1024*1024*2);
 			Alloc->Init();
 			return Alloc;
 		});
 	}
 
 	void BlockUntilIdle();
+
+	void GetLocalVideoMemoryInfo(DXGI_QUERY_VIDEO_MEMORY_INFO* LocalVideoMemoryInfo);
 
 protected:
 
@@ -330,10 +303,6 @@ protected:
 
 	// Creates default root and execute indirect signatures
 	void CreateSignatures();
-
-	GPUNodeMask CurrentGPUNode;
-	GPUNodeMask ActiveGPUNodes;
-	EMultiGPUMode MultiGPUMode;
 
 	FD3D12DynamicRHI* OwningRHI;
 
@@ -360,7 +329,7 @@ protected:
 
 	FD3D12FenceCorePool FenceCorePool;
 
-	FD3D12DynamicHeapAllocator*	UploadHeapAllocator;
+	FD3D12DynamicHeapAllocator*	UploadHeapAllocator[MAX_NUM_LDA_NODES];
 
 	/** A list of all viewport RHIs that have been created. */
 	TArray<FD3D12Viewport*> Viewports;
@@ -371,7 +340,7 @@ protected:
 	TRefCountPtr<IDXGIFactory2> DxgiFactory2;
 
 	/** A Fence whos value increases every frame*/
-	FD3D12ManualFence FrameFence;
+	FD3D12ManualFence* FrameFence;
 
 	FD3D12DeferredDeletionQueue DeferredDeletionQueue;
 

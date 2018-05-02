@@ -73,21 +73,23 @@ private:
 };
 
 // Automatically increments the current fence value after Signal.
-class FD3D12Fence : public FRHIComputeFence, public FNoncopyable, public FD3D12AdapterChild
+class FD3D12Fence : public FRHIComputeFence, public FD3D12AdapterChild, public FD3D12MultiNodeGPUObject, public FNoncopyable
 {
 public:
-	FD3D12Fence(FD3D12Adapter* Parent = nullptr, const FName& Name = L"<unnamed>");
+	FD3D12Fence(FD3D12Adapter* InParent, const FRHIGPUMask& InNodeMask, const FName& InName = L"<unnamed>");
 	~FD3D12Fence();
 
 	void CreateFence();
-	uint64 Signal(ID3D12CommandQueue* pCommandQueue);
-	void GpuWait(ID3D12CommandQueue* pCommandQueue, uint64 FenceValue);
+	uint64 Signal(ED3D12CommandQueueType InQueueType);
+	void GpuWait(ED3D12CommandQueueType InQueueType, uint64 FenceValue);
 	bool IsFenceComplete(uint64 FenceValue);
 	void WaitForFence(uint64 FenceValue);
 
 	uint64 GetCurrentFence() const { return CurrentFence; }
 	uint64 GetLastSignaledFence() const { return LastSignaledFence; }
-	uint64 GetLastCompletedFence();
+
+	uint64 PeekLastCompletedFence() const;
+	uint64 UpdateLastCompletedFence();
 
 	// Might not be the most up to date value but avoids querying the fence.
 	uint64 GetCachedLastCompletedFence() const { return LastCompletedFence; };
@@ -95,27 +97,30 @@ public:
 	void Destroy();
 
 protected:
-	void InternalSignal(ID3D12CommandQueue* pCommandQueue, uint64 FenceToSignal);
+	
+	void InternalSignal(ED3D12CommandQueueType InQueueType, uint64 FenceToSignal);
 
 protected:
+
 	uint64 CurrentFence;
-	uint64 LastSignaledFence;
-	uint64 LastCompletedFence;
+	uint64 LastSignaledFence; // 0 when not yet issued, otherwise the last value signaled to all GPU
+	uint64 LastCompletedFence; // The min value completed between all LastCompletedFences.
 	FCriticalSection WaitForFenceCS;
 
-	FD3D12FenceCore* FenceCore;
+	uint64 LastCompletedFences[MAX_NUM_LDA_NODES];
+	FD3D12FenceCore* FenceCores[MAX_NUM_LDA_NODES];
 };
 
 // Fence value must be incremented manually. Useful when you need incrementing and signaling to happen at different times.
 class FD3D12ManualFence : public FD3D12Fence
 {
 public:
-	explicit FD3D12ManualFence(FD3D12Adapter* Parent = nullptr, const FName& Name = L"<unnamed>")
-		: FD3D12Fence(Parent, Name)
+	explicit FD3D12ManualFence(FD3D12Adapter* InParent, const FRHIGPUMask& InNodeMask, const FName& InName = L"<unnamed>")
+		: FD3D12Fence(InParent, InNodeMask, InName)
 	{}
 
 	// Signals the specified fence value.
-	uint64 Signal(ID3D12CommandQueue* pCommandQueue, uint64 FenceToSignal);
+	uint64 Signal(ED3D12CommandQueueType InQueueType, uint64 FenceToSignal);
 
 	// Increments the current fence and returns the previous value.
 	inline uint64 IncrementCurrentFence() { return CurrentFence++; }
@@ -149,7 +154,7 @@ private:
 class FD3D12CommandListManager : public FD3D12DeviceChild, public FD3D12SingleNodeGPUObject
 {
 public:
-	FD3D12CommandListManager(FD3D12Device* InParent, D3D12_COMMAND_LIST_TYPE CommandListType);
+	FD3D12CommandListManager(FD3D12Device* InParent, D3D12_COMMAND_LIST_TYPE InCommandListType, ED3D12CommandQueueType InQueueType);
 	virtual ~FD3D12CommandListManager();
 
 	void Create(const TCHAR* Name, uint32 NumCommandLists = 0, uint32 Priority = 0);
@@ -179,17 +184,15 @@ public:
 		hSyncPoint.WaitForCompletion();
 	}
 
-	inline HRESULT GetTimestampFrequency(uint64* Frequency)
-	{
-		return D3DCommandQueue->GetTimestampFrequency(Frequency);
-	}
+	// Performs a GPU and CPU timestamp at nearly the same time.
+	// This allows aligning GPU and CPU events on the same timeline in profile visualization.
+	FGPUTimingCalibrationTimestamp GetCalibrationTimestamp();
 
-	inline ID3D12CommandQueue* GetD3DCommandQueue()
-	{
-		return D3DCommandQueue.GetReference();
-	}
+	FORCEINLINE HRESULT GetTimestampFrequency(uint64* Frequency) { return D3DCommandQueue->GetTimestampFrequency(Frequency); }
+	FORCEINLINE ID3D12CommandQueue* GetD3DCommandQueue() { return D3DCommandQueue.GetReference();}
+	FORCEINLINE ED3D12CommandQueueType GetQueueType() const { return QueueType; }
 
-	inline FD3D12Fence& GetFence() { return CommandListFence; }
+	FORCEINLINE FD3D12Fence& GetFence() { check(CommandListFence); return *CommandListFence; }
 
 	void WaitForCommandQueueFlush();
 
@@ -208,9 +211,10 @@ protected:
 	FD3D12CommandAllocatorManager ResourceBarrierCommandAllocatorManager;
 	FD3D12CommandAllocator* ResourceBarrierCommandAllocator;
 
-	FD3D12Fence CommandListFence;
+	FD3D12Fence* CommandListFence;
 
 	D3D12_COMMAND_LIST_TYPE					CommandListType;
+	ED3D12CommandQueueType					QueueType;
 	FCriticalSection						ResourceStateCS;
 	FCriticalSection						FenceCS;
 };

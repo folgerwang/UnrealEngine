@@ -28,7 +28,7 @@ public:
 		OutOfDate = -1,
 		SurfaceLost = -2,
 	};
-	EStatus Present(FVulkanQueue* GfxQueue, FVulkanQueue* PresentQueue, FVulkanSemaphore* BackBufferRenderingDoneSemaphore);
+	EStatus Present(FVulkanQueue* GfxQueue, FVulkanQueue* PresentQueue, VulkanRHI::FSemaphore* BackBufferRenderingDoneSemaphore);
 
 protected:
 	VkSwapchainKHR SwapChain;
@@ -41,12 +41,12 @@ protected:
 	uint32 NumPresentCalls;
 	uint32 NumAcquireCalls;
 	VkInstance Instance;
-	TArray<FVulkanSemaphore*> ImageAcquiredSemaphore;
+	TArray<VulkanRHI::FSemaphore*> ImageAcquiredSemaphore;
 #if VULKAN_USE_IMAGE_ACQUIRE_FENCES
 	TArray<VulkanRHI::FFence*> ImageAcquiredFences;
 #endif
 
-	int32 AcquireImageIndex(FVulkanSemaphore** OutSemaphore);
+	int32 AcquireImageIndex(VulkanRHI::FSemaphore** OutSemaphore);
 
 	friend class FVulkanViewport;
 	friend class FVulkanQueue;

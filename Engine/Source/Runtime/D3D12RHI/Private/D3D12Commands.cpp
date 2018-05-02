@@ -98,6 +98,7 @@ void FD3D12CommandContext::RHISetStreamSource(uint32 StreamIndex, FVertexBufferR
 // Stream-Out state.
 void FD3D12DynamicRHI::RHISetStreamOutTargets(uint32 NumTargets, const FVertexBufferRHIParamRef* VertexBuffers, const uint32* Offsets)
 {
+	// Multi-GPU support: this might need a node mask parameter or broadcast to all GPUs.
 	FD3D12CommandContext& CmdContext = GetRHIDevice()->GetDefaultCommandContext();
 	FD3D12Resource* D3DVertexBuffers[D3D12_SO_BUFFER_SLOT_COUNT] = { 0 };
 	uint32 D3DOffsets[D3D12_SO_BUFFER_SLOT_COUNT] = { 0 };
@@ -146,7 +147,7 @@ void FD3D12CommandContext::RHIWaitComputeFence(FComputeFenceRHIParamRef InFenceR
 		RHISubmitCommandsHint();
 
 		checkf(Fence->GetWriteEnqueued(), TEXT("ComputeFence: %s waited on before being written. This will hang the GPU."), *Fence->GetName().ToString());
-		Fence->GpuWait(GetCommandListManager().GetD3DCommandQueue(), Fence->GetLastSignaledFence());
+		Fence->GpuWait(GetCommandListManager().GetQueueType(), Fence->GetLastSignaledFence());
 	}
 }
 
@@ -388,7 +389,7 @@ void FD3D12CommandContext::RHITransitionResources(EResourceTransitionAccess Tran
 		FD3D12Fence* Fence = FD3D12DynamicRHI::ResourceCast(WriteComputeFenceRHI);
 		Fence->WriteFence();
 
-		Fence->Signal(GetCommandListManager().GetD3DCommandQueue());
+		Fence->Signal(ED3D12CommandQueueType::Default);
 	}
 }
 
@@ -462,6 +463,82 @@ void FD3D12CommandContext::RHISetBoundShaderState(FBoundShaderStateRHIParamRef B
 	CSConstantBuffer.Reset();	// Should this be here or in RHISetComputeShader? Might need a new bDiscardSharedConstants for CS.
 }
 
+D3D_PRIMITIVE_TOPOLOGY GetD3D12PrimitiveType(uint32 PrimitiveType, bool bUsingTessellation)
+{
+	if (bUsingTessellation)
+	{
+		switch (PrimitiveType)
+		{
+		case PT_1_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_1_CONTROL_POINT_PATCHLIST;
+		case PT_2_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_2_CONTROL_POINT_PATCHLIST;
+
+			// This is the case for tessellation without AEN or other buffers, so just flip to 3 CPs
+		case PT_TriangleList: return D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
+
+		case PT_LineList:
+		case PT_TriangleStrip:
+		case PT_QuadList:
+		case PT_RectList:
+		case PT_PointList:
+			UE_LOG(LogD3D12RHI, Fatal, TEXT("Invalid type specified for tessellated render, probably missing a case in FSkeletalMeshSceneProxy::DrawDynamicElementsByMaterial or FStaticMeshSceneProxy::GetMeshElement"));
+			break;
+		default:
+			// Other cases are valid.
+			break;
+		};
+	}
+
+	switch (PrimitiveType)
+	{
+	case PT_TriangleList: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	case PT_TriangleStrip: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
+	case PT_LineList: return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+	case PT_PointList: return D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+	#if defined(D3D12RHI_PRIMITIVE_TOPOLOGY_RECTLIST)
+		case PT_RectList: return D3D12RHI_PRIMITIVE_TOPOLOGY_RECTLIST;
+	#endif
+
+		// ControlPointPatchList types will pretend to be TRIANGLELISTS with a stride of N 
+		// (where N is the number of control points specified), so we can return them for
+		// tessellation and non-tessellation. This functionality is only used when rendering a 
+		// default material with something that claims to be tessellated, generally because the 
+		// tessellation material failed to compile for some reason.
+	case PT_3_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
+	case PT_4_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST;
+	case PT_5_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_5_CONTROL_POINT_PATCHLIST;
+	case PT_6_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_6_CONTROL_POINT_PATCHLIST;
+	case PT_7_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_7_CONTROL_POINT_PATCHLIST;
+	case PT_8_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_8_CONTROL_POINT_PATCHLIST;
+	case PT_9_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_9_CONTROL_POINT_PATCHLIST;
+	case PT_10_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_10_CONTROL_POINT_PATCHLIST;
+	case PT_11_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_11_CONTROL_POINT_PATCHLIST;
+	case PT_12_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_12_CONTROL_POINT_PATCHLIST;
+	case PT_13_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_13_CONTROL_POINT_PATCHLIST;
+	case PT_14_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_14_CONTROL_POINT_PATCHLIST;
+	case PT_15_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_15_CONTROL_POINT_PATCHLIST;
+	case PT_16_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_16_CONTROL_POINT_PATCHLIST;
+	case PT_17_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_17_CONTROL_POINT_PATCHLIST;
+	case PT_18_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_18_CONTROL_POINT_PATCHLIST;
+	case PT_19_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_19_CONTROL_POINT_PATCHLIST;
+	case PT_20_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_20_CONTROL_POINT_PATCHLIST;
+	case PT_21_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_21_CONTROL_POINT_PATCHLIST;
+	case PT_22_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_22_CONTROL_POINT_PATCHLIST;
+	case PT_23_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_23_CONTROL_POINT_PATCHLIST;
+	case PT_24_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_24_CONTROL_POINT_PATCHLIST;
+	case PT_25_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_25_CONTROL_POINT_PATCHLIST;
+	case PT_26_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_26_CONTROL_POINT_PATCHLIST;
+	case PT_27_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_27_CONTROL_POINT_PATCHLIST;
+	case PT_28_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_28_CONTROL_POINT_PATCHLIST;
+	case PT_29_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_29_CONTROL_POINT_PATCHLIST;
+	case PT_30_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_30_CONTROL_POINT_PATCHLIST;
+	case PT_31_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_31_CONTROL_POINT_PATCHLIST;
+	case PT_32_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_32_CONTROL_POINT_PATCHLIST;
+	default: UE_LOG(LogD3D12RHI, Fatal, TEXT("Unknown primitive type: %u"), PrimitiveType);
+	};
+
+	return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+}
+
 void FD3D12CommandContext::RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState)
 {
 	FD3D12GraphicsPipelineState* GraphicsPipelineState = FD3D12DynamicRHI::ResourceCast(GraphicsState);
@@ -493,8 +570,10 @@ void FD3D12CommandContext::RHISetGraphicsPipelineState(FGraphicsPipelineStateRHI
 		RHISetBlendState(PsoInit.BlendState, FLinearColor(1.0f, 1.0f, 1.0f));
 		RHISetRasterizerState(PsoInit.RasterizerState);
 		RHISetDepthStencilState(PsoInit.DepthStencilState, 0);
+		RHIEnableDepthBoundsTest(PsoInit.bDepthBounds);
 
-		StateCache.SetPrimitiveTopologyType(D3D12PrimitiveTypeToTopologyType(TranslatePrimitiveType(PsoInit.PrimitiveType)));
+		bool bUseTessellation = CurrentBoundShaderState->GetHullShader() && CurrentBoundShaderState->GetDomainShader();
+		StateCache.SetPrimitiveTopologyType(D3D12PrimitiveTypeToTopologyType(GetD3D12PrimitiveType(PsoInit.PrimitiveType, bUseTessellation)));
 		StateCache.SetRenderDepthStencilTargetFormats(NumTargets, RenderTargetFormats, DepthStencilFormat, PsoInit.NumSamples);
 	}
 
@@ -672,6 +751,7 @@ void FD3D12CommandContext::RHISetShaderUniformBuffer(FVertexShaderRHIParamRef Ve
 	{
 		BoundUniformBufferRefs[SF_Vertex][BufferIndex] = BufferRHI;
 	}
+
 	BoundUniformBuffers[SF_Vertex][BufferIndex] = Buffer;
 	DirtyUniformBuffers[SF_Vertex] |= (1 << BufferIndex);
 }
@@ -688,6 +768,7 @@ void FD3D12CommandContext::RHISetShaderUniformBuffer(FHullShaderRHIParamRef Hull
 	{
 		BoundUniformBufferRefs[SF_Hull][BufferIndex] = BufferRHI;
 	}
+	
 	BoundUniformBuffers[SF_Hull][BufferIndex] = Buffer;
 	DirtyUniformBuffers[SF_Hull] |= (1 << BufferIndex);
 }
@@ -704,6 +785,7 @@ void FD3D12CommandContext::RHISetShaderUniformBuffer(FDomainShaderRHIParamRef Do
 	{
 		BoundUniformBufferRefs[SF_Domain][BufferIndex] = BufferRHI;
 	}
+
 	BoundUniformBuffers[SF_Domain][BufferIndex] = Buffer;
 	DirtyUniformBuffers[SF_Domain] |= (1 << BufferIndex);
 }
@@ -720,6 +802,7 @@ void FD3D12CommandContext::RHISetShaderUniformBuffer(FGeometryShaderRHIParamRef 
 	{
 		BoundUniformBufferRefs[SF_Geometry][BufferIndex] = BufferRHI;
 	}
+
 	BoundUniformBuffers[SF_Geometry][BufferIndex] = Buffer;
 	DirtyUniformBuffers[SF_Geometry] |= (1 << BufferIndex);
 }
@@ -736,6 +819,7 @@ void FD3D12CommandContext::RHISetShaderUniformBuffer(FPixelShaderRHIParamRef Pix
 	{
 		BoundUniformBufferRefs[SF_Pixel][BufferIndex] = BufferRHI;
 	}
+
 	BoundUniformBuffers[SF_Pixel][BufferIndex] = Buffer;
 	DirtyUniformBuffers[SF_Pixel] |= (1 << BufferIndex);
 }
@@ -752,6 +836,7 @@ void FD3D12CommandContext::RHISetShaderUniformBuffer(FComputeShaderRHIParamRef C
 	{
 		BoundUniformBufferRefs[SF_Compute][BufferIndex] = BufferRHI;
 	}
+
 	BoundUniformBuffers[SF_Compute][BufferIndex] = Buffer;
 	DirtyUniformBuffers[SF_Compute] |= (1 << BufferIndex);
 }
@@ -1113,6 +1198,9 @@ void FD3D12CommandContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 		// Note: This occlusion query result really isn't ready until it's resolved. 
 		// This code assumes it will be resolved on the same command list.
 		Query->CLSyncPoint = CommandListHandle;
+		// Put a timestamp on the query, so that when reading the query results, we only read the query result for GPU where the query was last issued.
+		Query->Timestamp = GetParentDevice()->GetParentAdapter()->GetFrameFence().GetLastSignaledFence();
+		
 		Query->OwningContext = this;
 
 		CommandListHandle.UpdateResidency(pQueryHeap->GetResultBuffer());
@@ -1123,6 +1211,7 @@ void FD3D12CommandContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 	{
 		Query->bResultIsCached = false;
 		Query->CLSyncPoint = CommandListHandle;
+		Query->Timestamp = GetParentDevice()->GetParentAdapter()->GetFrameFence().GetLastSignaledFence();
 		Query->OwningContext = this;
 		this->otherWorkCounter += 2;	// +2 For the EndQuery and the ResolveQueryData
 		CommandListHandle->EndQuery(Query->QueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, Query->HeapIndex);
@@ -1140,78 +1229,6 @@ void FD3D12CommandContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 }
 
 // Primitive drawing.
-
-static D3D_PRIMITIVE_TOPOLOGY GetD3D12PrimitiveType(uint32 PrimitiveType, bool bUsingTessellation)
-{
-	if (bUsingTessellation)
-	{
-		switch (PrimitiveType)
-		{
-		case PT_1_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_1_CONTROL_POINT_PATCHLIST;
-		case PT_2_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_2_CONTROL_POINT_PATCHLIST;
-
-			// This is the case for tessellation without AEN or other buffers, so just flip to 3 CPs
-		case PT_TriangleList: return D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
-
-		case PT_LineList:
-		case PT_TriangleStrip:
-		case PT_QuadList:
-		case PT_PointList:
-			UE_LOG(LogD3D12RHI, Fatal, TEXT("Invalid type specified for tessellated render, probably missing a case in FSkeletalMeshSceneProxy::DrawDynamicElementsByMaterial or FStaticMeshSceneProxy::GetMeshElement"));
-			break;
-		default:
-			// Other cases are valid.
-			break;
-		};
-	}
-
-	switch (PrimitiveType)
-	{
-	case PT_TriangleList: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	case PT_TriangleStrip: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
-	case PT_LineList: return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
-	case PT_PointList: return D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
-
-		// ControlPointPatchList types will pretend to be TRIANGLELISTS with a stride of N 
-		// (where N is the number of control points specified), so we can return them for
-		// tessellation and non-tessellation. This functionality is only used when rendering a 
-		// default material with something that claims to be tessellated, generally because the 
-		// tessellation material failed to compile for some reason.
-	case PT_3_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
-	case PT_4_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST;
-	case PT_5_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_5_CONTROL_POINT_PATCHLIST;
-	case PT_6_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_6_CONTROL_POINT_PATCHLIST;
-	case PT_7_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_7_CONTROL_POINT_PATCHLIST;
-	case PT_8_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_8_CONTROL_POINT_PATCHLIST;
-	case PT_9_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_9_CONTROL_POINT_PATCHLIST;
-	case PT_10_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_10_CONTROL_POINT_PATCHLIST;
-	case PT_11_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_11_CONTROL_POINT_PATCHLIST;
-	case PT_12_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_12_CONTROL_POINT_PATCHLIST;
-	case PT_13_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_13_CONTROL_POINT_PATCHLIST;
-	case PT_14_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_14_CONTROL_POINT_PATCHLIST;
-	case PT_15_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_15_CONTROL_POINT_PATCHLIST;
-	case PT_16_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_16_CONTROL_POINT_PATCHLIST;
-	case PT_17_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_17_CONTROL_POINT_PATCHLIST;
-	case PT_18_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_18_CONTROL_POINT_PATCHLIST;
-	case PT_19_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_19_CONTROL_POINT_PATCHLIST;
-	case PT_20_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_20_CONTROL_POINT_PATCHLIST;
-	case PT_21_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_21_CONTROL_POINT_PATCHLIST;
-	case PT_22_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_22_CONTROL_POINT_PATCHLIST;
-	case PT_23_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_23_CONTROL_POINT_PATCHLIST;
-	case PT_24_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_24_CONTROL_POINT_PATCHLIST;
-	case PT_25_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_25_CONTROL_POINT_PATCHLIST;
-	case PT_26_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_26_CONTROL_POINT_PATCHLIST;
-	case PT_27_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_27_CONTROL_POINT_PATCHLIST;
-	case PT_28_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_28_CONTROL_POINT_PATCHLIST;
-	case PT_29_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_29_CONTROL_POINT_PATCHLIST;
-	case PT_30_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_30_CONTROL_POINT_PATCHLIST;
-	case PT_31_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_31_CONTROL_POINT_PATCHLIST;
-	case PT_32_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_32_CONTROL_POINT_PATCHLIST;
-	default: UE_LOG(LogD3D12RHI, Fatal, TEXT("Unknown primitive type: %u"), PrimitiveType);
-	};
-
-	return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-}
 
 void FD3D12CommandContext::CommitNonComputeShaderConstants()
 {
@@ -1637,13 +1654,13 @@ void FD3D12CommandContext::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType,
 */
 void FD3D12CommandContext::RHIBeginDrawPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
 {
-	checkSlow(PendingNumVertices == 0);
+	checkSlow(PendingUP.NumVertices == 0);
 
 	// Remember the parameters for the draw call.
-	PendingPrimitiveType = PrimitiveType;
-	PendingNumPrimitives = NumPrimitives;
-	PendingNumVertices = NumVertices;
-	PendingVertexDataStride = VertexDataStride;
+	PendingUP.PrimitiveType = PrimitiveType;
+	PendingUP.NumPrimitives = NumPrimitives;
+	PendingUP.NumVertices = NumVertices;
+	PendingUP.VertexDataStride = VertexDataStride;
 
 	// Map the dynamic buffer.
 	OutVertexData = DynamicVB.Lock(NumVertices * VertexDataStride);
@@ -1654,13 +1671,13 @@ void FD3D12CommandContext::RHIBeginDrawPrimitiveUP(uint32 PrimitiveType, uint32 
 */
 void FD3D12CommandContext::RHIEndDrawPrimitiveUP()
 {
-	RHI_DRAW_CALL_STATS(PendingPrimitiveType, PendingNumPrimitives);
+	RHI_DRAW_CALL_STATS(PendingUP.PrimitiveType, PendingUP.NumPrimitives);
 
-	checkSlow(!bUsingTessellation || PendingPrimitiveType == PT_TriangleList);
+	checkSlow(!bUsingTessellation || PendingUP.PrimitiveType == PT_TriangleList);
 
 	if (IsDefaultContext())
 	{
-		GetParentDevice()->RegisterGPUWork(PendingNumPrimitives, PendingNumVertices);
+		GetParentDevice()->RegisterGPUWork(PendingUP.NumPrimitives, PendingUP.NumVertices);
 	}
 
 	// Unmap the dynamic vertex buffer.
@@ -1670,21 +1687,18 @@ void FD3D12CommandContext::RHIEndDrawPrimitiveUP()
 	// Issue the draw call.
 	CommitGraphicsResourceTables();
 	CommitNonComputeShaderConstants();
-	StateCache.SetStreamSource(BufferLocation, 0, PendingVertexDataStride, VBOffset);
-	StateCache.SetPrimitiveTopology(GetD3D12PrimitiveType(PendingPrimitiveType, bUsingTessellation));
+	StateCache.SetStreamSource(BufferLocation, 0, PendingUP.VertexDataStride, VBOffset);
+	StateCache.SetPrimitiveTopology(GetD3D12PrimitiveType(PendingUP.PrimitiveType, bUsingTessellation));
 	StateCache.ApplyState();
 	numDraws++;
-	CommandListHandle->DrawInstanced(PendingNumVertices, 1, 0, 0);
+	CommandListHandle->DrawInstanced(PendingUP.NumVertices, 1, 0, 0);
 #if UE_BUILD_DEBUG	
 	OwningRHI.DrawCount++;
 #endif
 	DEBUG_EXECUTE_COMMAND_LIST(this);
 
 	// Clear these parameters.
-	PendingPrimitiveType = 0;
-	PendingNumPrimitives = 0;
-	PendingNumVertices = 0;
-	PendingVertexDataStride = 0;
+	PendingUP.Reset();
 }
 
 /**
@@ -1704,13 +1718,13 @@ void FD3D12CommandContext::RHIBeginDrawIndexedPrimitiveUP(uint32 PrimitiveType, 
 	checkSlow((sizeof(uint16) == IndexDataStride) || (sizeof(uint32) == IndexDataStride));
 
 	// Store off information needed for the draw call.
-	PendingPrimitiveType = PrimitiveType;
-	PendingNumPrimitives = NumPrimitives;
-	PendingMinVertexIndex = MinVertexIndex;
-	PendingIndexDataStride = IndexDataStride;
-	PendingNumVertices = NumVertices;
-	PendingNumIndices = NumIndices;
-	PendingVertexDataStride = VertexDataStride;
+	PendingUP.PrimitiveType = PrimitiveType;
+	PendingUP.NumPrimitives = NumPrimitives;
+	PendingUP.MinVertexIndex = MinVertexIndex;
+	PendingUP.IndexDataStride = IndexDataStride;
+	PendingUP.NumVertices = NumVertices;
+	PendingUP.NumIndices = NumIndices;
+	PendingUP.VertexDataStride = VertexDataStride;
 
 	// Map dynamic vertex and index buffers.
 	OutVertexData = DynamicVB.Lock(NumVertices * VertexDataStride);
@@ -1723,13 +1737,13 @@ void FD3D12CommandContext::RHIBeginDrawIndexedPrimitiveUP(uint32 PrimitiveType, 
 void FD3D12CommandContext::RHIEndDrawIndexedPrimitiveUP()
 {
 	// tessellation only supports trilists
-	checkSlow(!bUsingTessellation || PendingPrimitiveType == PT_TriangleList);
+	checkSlow(!bUsingTessellation || PendingUP.PrimitiveType == PT_TriangleList);
 
-	RHI_DRAW_CALL_STATS(PendingPrimitiveType, PendingNumPrimitives);
+	RHI_DRAW_CALL_STATS(PendingUP.PrimitiveType, PendingUP.NumPrimitives);
 
 	if (IsDefaultContext())
 	{
-		GetParentDevice()->RegisterGPUWork(PendingNumPrimitives, PendingNumVertices);
+		GetParentDevice()->RegisterGPUWork(PendingUP.NumPrimitives, PendingUP.NumVertices);
 	}
 
 	// Unmap the dynamic buffers.
@@ -1740,13 +1754,13 @@ void FD3D12CommandContext::RHIEndDrawIndexedPrimitiveUP()
 	// Issue the draw call.
 	CommitGraphicsResourceTables();
 	CommitNonComputeShaderConstants();
-	StateCache.SetStreamSource(VertexBufferLocation, 0, PendingVertexDataStride, VBOffset);
-	StateCache.SetIndexBuffer(IndexBufferLocation, PendingIndexDataStride == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
-	StateCache.SetPrimitiveTopology(GetD3D12PrimitiveType(PendingPrimitiveType, bUsingTessellation));
+	StateCache.SetStreamSource(VertexBufferLocation, 0, PendingUP.VertexDataStride, VBOffset);
+	StateCache.SetIndexBuffer(IndexBufferLocation, PendingUP.IndexDataStride == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
+	StateCache.SetPrimitiveTopology(GetD3D12PrimitiveType(PendingUP.PrimitiveType, bUsingTessellation));
 	StateCache.ApplyState();
 
 	numDraws++;
-	CommandListHandle->DrawIndexedInstanced(PendingNumIndices, 1, 0, PendingMinVertexIndex, 0);
+	CommandListHandle->DrawIndexedInstanced(PendingUP.NumIndices, 1, 0, PendingUP.MinVertexIndex, 0);
 #if UE_BUILD_DEBUG	
 	OwningRHI.DrawCount++;
 #endif
@@ -1757,13 +1771,7 @@ void FD3D12CommandContext::RHIEndDrawIndexedPrimitiveUP()
 	DynamicIB.ReleaseResourceLocation();
 
 	// Clear these parameters.
-	PendingPrimitiveType = 0;
-	PendingNumPrimitives = 0;
-	PendingMinVertexIndex = 0;
-	PendingIndexDataStride = 0;
-	PendingNumVertices = 0;
-	PendingNumIndices = 0;
-	PendingVertexDataStride = 0;
+	PendingUP.Reset();
 }
 
 // Raster operations.
@@ -1938,16 +1946,24 @@ void FD3D12CommandContext::RHIBindClearMRTValues(bool bClearColor, bool bClearDe
 // Blocks the CPU until the GPU catches up and goes idle.
 void FD3D12DynamicRHI::RHIBlockUntilGPUIdle()
 {
-	GetRHIDevice()->GetDefaultCommandContext().RHISubmitCommandsHint();
-
-	GetRHIDevice()->GetCommandListManager().WaitForCommandQueueFlush();
-	GetRHIDevice()->GetCopyCommandListManager().WaitForCommandQueueFlush();
-	GetRHIDevice()->GetAsyncCommandListManager().WaitForCommandQueueFlush();
+	FD3D12Adapter& Adapter = GetAdapter();
+	for (uint32 GPUIndex : FRHIGPUMask::All())
+	{
+		FD3D12Device* Device = Adapter.GetDevice(GPUIndex);
+		Device->GetDefaultCommandContext().RHISubmitCommandsHint();
+		Device->GetCommandListManager().WaitForCommandQueueFlush();
+		Device->GetCopyCommandListManager().WaitForCommandQueueFlush();
+		Device->GetAsyncCommandListManager().WaitForCommandQueueFlush();
+	}
 }
 
 void FD3D12DynamicRHI::RHISubmitCommandsAndFlushGPU()
 {
-	GetRHIDevice()->GetDefaultCommandContext().RHISubmitCommandsHint();
+	FD3D12Adapter& Adapter = GetAdapter();
+	for (uint32 GPUIndex : FRHIGPUMask::All())
+	{
+		Adapter.GetDevice(GPUIndex)->GetDefaultCommandContext().RHISubmitCommandsHint();
+	}
 }
 
 /*
@@ -1964,16 +1980,17 @@ void FD3D12DynamicRHI::RHIExecuteCommandList(FRHICommandList* CmdList)
 }
 
 
-void FD3D12CommandContext::RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth)
+void FD3D12CommandContext::RHIEnableDepthBoundsTest(bool bEnable)
 {
-	if (bEnable)
+	if (!bEnable)
 	{
-		StateCache.SetDepthBounds(MinDepth, MaxDepth);
+		StateCache.SetDepthBounds(0.0f, 1.0f);
 	}
-	else
-	{
-		StateCache.SetDepthBounds(0, 1.0f);
-	}
+}
+
+void FD3D12CommandContext::RHISetDepthBounds(float MinDepth, float MaxDepth)
+{
+	StateCache.SetDepthBounds(MinDepth, MaxDepth);
 }
 
 void FD3D12CommandContext::SetDepthBounds(float MinDepth, float MaxDepth)
@@ -2005,6 +2022,7 @@ void FD3D12CommandContext::RHIWaitForTemporalEffect(const FName& InEffectName)
 	FD3D12Device* Device = GetParentDevice();
 	FD3D12Adapter* Adapter = Device->GetParentAdapter();
 
+#if 0 // Multi-GPU support : this must depend on whether the current GPUs was also used or for rendering the last frame.
 	if (Adapter->AlternateFrameRenderingEnabled() && AFRSyncTemporalResources)
 	{
 		FD3D12TemporalEffect* Effect = Adapter->GetTemporalEffect(InEffectName);
@@ -2019,6 +2037,7 @@ void FD3D12CommandContext::RHIWaitForTemporalEffect(const FName& InEffectName)
 		Effect->WaitForPrevious(Manager.GetD3DCommandQueue());
 	}
 #endif
+#endif
 }
 
 void FD3D12CommandContext::RHIBroadcastTemporalEffect(const FName& InEffectName, FTextureRHIParamRef* InTextures, int32 NumTextures)
@@ -2028,6 +2047,7 @@ void FD3D12CommandContext::RHIBroadcastTemporalEffect(const FName& InEffectName,
 	FD3D12Adapter* Adapter = Device->GetParentAdapter();
 
 #if USE_COPY_QUEUE_FOR_RESOURCE_SYNC
+#if 0 // Multi-GPU support : we only need to broadcast to GPUs that will be used to render the next frame.
 	if (Adapter->AlternateFrameRenderingEnabled() && AFRSyncTemporalResources)
 	{
 		FD3D12TemporalEffect* Effect = Adapter->GetTemporalEffect(InEffectName);
@@ -2086,6 +2106,7 @@ void FD3D12CommandContext::RHIBroadcastTemporalEffect(const FName& InEffectName,
 			TextureStreamingCommandAllocatorManager.ReleaseCommandAllocator(CurrentCommandAllocator);
 		}
 	}
+#endif
 #else
 	for (size_t i = 0; i < NumTextures; i++)
 	{

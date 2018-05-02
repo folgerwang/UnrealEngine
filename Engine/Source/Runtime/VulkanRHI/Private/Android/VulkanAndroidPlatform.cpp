@@ -117,3 +117,9 @@ void FVulkanAndroidPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExt
 	OutExtensions.Add(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 }
 
+void FVulkanAndroidPlatform::OverrideCrashHandlers()
+{
+	// Want to see the actual crash report on Android so unregister signal handlers
+	FPlatformMisc::SetCrashHandler((void(*)(const FGenericCrashContext& Context)) -1);
+	FPlatformMisc::SetOnReInitWindowCallback(FVulkanDynamicRHI::RecreateSwapChain);
+}

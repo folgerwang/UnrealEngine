@@ -116,6 +116,10 @@ public:
 	/** Indicates which stereo pass this component is capturing for, if any */
     EStereoscopicPass CaptureStereoPass;
 
+	/** Name of the profiling event. */
+	UPROPERTY(EditAnywhere, interp, Category = SceneCapture)
+	FString ProfilingEventName;
+
 	//~ Begin UActorComponent Interface
 	virtual void OnRegister() override;
 	//~ End UActorComponent Interface

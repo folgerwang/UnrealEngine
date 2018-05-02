@@ -129,7 +129,7 @@ public:
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
-		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialProxy, *MaterialProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, true, ESceneRenderTargetsMode::SetTextures);
+		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialProxy, *MaterialProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneTextureSetupMode::All);
 
 		FTransform ComponentTrans = DecalProxy.ComponentTrans;
 
@@ -334,7 +334,8 @@ void FDecalRendering::SetShader(FRHICommandList& RHICmdList, FGraphicsPipelineSt
 
 		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit, EApplyRendertargetOption::ForceApply);
 
-		DebugPixelShader->SetParameters(RHICmdList, *VertexShader, PixelShader, DecalData.MaterialProxy, *DecalData.MaterialResource, View);
+		FDrawingPolicyRenderState DrawRenderState(View);
+		DebugPixelShader->SetParameters(RHICmdList, *VertexShader, PixelShader, DecalData.MaterialProxy, *DecalData.MaterialResource, View, DrawRenderState);
 		DebugPixelShader->SetMesh(RHICmdList, View);
 	}
 	else

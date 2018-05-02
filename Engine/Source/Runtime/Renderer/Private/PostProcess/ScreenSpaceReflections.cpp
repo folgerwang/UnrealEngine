@@ -168,7 +168,7 @@ class FPostProcessScreenSpaceReflectionsStencilPS : public FGlobalShader
 	FPostProcessScreenSpaceReflectionsStencilPS() {}
 
 	FPostProcessPassParameters PostprocessParameter;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter SSRParams;
 
 	/** Initialization constructor. */
@@ -176,7 +176,7 @@ class FPostProcessScreenSpaceReflectionsStencilPS : public FGlobalShader
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		SSRParams.Bind(Initializer.ParameterMap, TEXT("SSRParams"));
 	}
 
@@ -189,7 +189,7 @@ class FPostProcessScreenSpaceReflectionsStencilPS : public FGlobalShader
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(Context.RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
 
 		PostprocessParameter.SetPS(RHICmdList, ShaderRHI, Context, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
-		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		{
 			FLinearColor Value = ComputeSSRParams(Context, SSRQuality, EnableDiscard);
@@ -202,7 +202,7 @@ class FPostProcessScreenSpaceReflectionsStencilPS : public FGlobalShader
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << SSRParams;
+		Ar << PostprocessParameter << SceneTextureParameters << SSRParams;
 		return bShaderHasOutdatedParameters;
 	}
 };
@@ -243,7 +243,7 @@ class FPostProcessScreenSpaceReflectionsPS : public FGlobalShader
 	FPostProcessScreenSpaceReflectionsPS() {}
 
 	FPostProcessPassParameters PostprocessParameter;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter SSRParams;
 	FShaderParameter HZBUvFactorAndInvFactor;
 	FShaderParameter PrevScreenPositionScaleBias;
@@ -254,7 +254,7 @@ class FPostProcessScreenSpaceReflectionsPS : public FGlobalShader
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		SSRParams.Bind(Initializer.ParameterMap, TEXT("SSRParams"));
 		HZBUvFactorAndInvFactor.Bind(Initializer.ParameterMap, TEXT("HZBUvFactorAndInvFactor"));
 		PrevScreenPositionScaleBias.Bind(Initializer.ParameterMap, TEXT("PrevScreenPositionScaleBias"));
@@ -272,7 +272,7 @@ class FPostProcessScreenSpaceReflectionsPS : public FGlobalShader
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
 
 		PostprocessParameter.SetPS(RHICmdList, ShaderRHI, Context, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
-		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		{
 			FLinearColor Value = ComputeSSRParams(Context, SSRQuality, false);
@@ -333,7 +333,7 @@ class FPostProcessScreenSpaceReflectionsPS : public FGlobalShader
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << SSRParams << HZBUvFactorAndInvFactor << PrevScreenPositionScaleBias << PrevSceneColorPreExposureCorrection;
+		Ar << PostprocessParameter << SceneTextureParameters << SSRParams << HZBUvFactorAndInvFactor << PrevScreenPositionScaleBias << PrevSceneColorPreExposureCorrection;
 		return bShaderHasOutdatedParameters;
 	}
 };
@@ -503,7 +503,7 @@ void FRCPassPostProcessScreenSpaceReflections::Process(FRenderingCompositePassCo
 			Context.HasHmdMesh(),
 			EDRF_UseTriangleOptimization);
 	
-		RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+		RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 	} // ScreenSpaceReflections
 }
 
@@ -573,21 +573,14 @@ void RenderScreenSpaceReflections(FRHICommandListImmediate& RHICmdList, FViewInf
 	if( ViewState && bTemporalFilter )
 	{
 		{
-			FRenderingCompositeOutputRef HistoryInput;
-			if( ViewState->SSRHistory.IsValid() && !Context.View.bCameraCut )
-			{
-				HistoryInput = Context.Graph.RegisterPass( new FRCPassPostProcessInput( ViewState->SSRHistory.RT[0] ) );
-			}
-			else
-			{
-				// No history, use black
-				HistoryInput = Context.Graph.RegisterPass(new FRCPassPostProcessInput(GSystemTextures.BlackDummy));
-			}
+			FTAAPassParameters Parameters(Context.View);
+			Parameters.Pass = ETAAPassConfig::ScreenSpaceReflections;
 
-			FRenderingCompositePass* TemporalAAPass = Context.Graph.RegisterPass( new FRCPassPostProcessSSRTemporalAA(ViewState->SSRHistory, &ViewState->SSRHistory) );
+			FRenderingCompositePass* TemporalAAPass = Context.Graph.RegisterPass( new FRCPassPostProcessTemporalAA(
+				Context, Parameters,
+				ViewState->SSRHistory, &ViewState->SSRHistory) );
 			TemporalAAPass->SetInput( ePId_Input0, Context.FinalOutput );
-			TemporalAAPass->SetInput( ePId_Input1, HistoryInput );
-			TemporalAAPass->SetInput( ePId_Input2, VelocityInput );
+			TemporalAAPass->SetInput( ePId_Input1, VelocityInput );
 
 			Context.FinalOutput = FRenderingCompositeOutputRef( TemporalAAPass );
 		}

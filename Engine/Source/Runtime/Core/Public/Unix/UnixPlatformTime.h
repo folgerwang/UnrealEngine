@@ -14,6 +14,8 @@
  */
 struct CORE_API FUnixTime : public FGenericPlatformTime
 {
+	static double InitTiming();
+
 	static FORCEINLINE double Seconds()
 	{
 		struct timespec ts;

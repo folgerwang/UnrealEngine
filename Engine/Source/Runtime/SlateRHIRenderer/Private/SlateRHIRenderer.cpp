@@ -708,7 +708,7 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 				bClear = true; // Force a clear of the UI buffer to black
 
 				// Grab HDR backbuffer
-				RHICmdList.CopyToResolveTarget(FinalBuffer, ViewportInfo.HDRSourceRT, false, ResolveParams);
+				RHICmdList.CopyToResolveTarget(FinalBuffer, ViewportInfo.HDRSourceRT, ResolveParams);
 
 				// UI backbuffer is temp target
 				BackBuffer = ViewportInfo.UITargetRT;
@@ -719,26 +719,26 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 				bClear = true;
 			}
 
-		    RHICmdList.BeginDrawingViewport( ViewportInfo.ViewportRHI, FTextureRHIRef() );
-		    RHICmdList.SetViewport(0, 0, 0, ViewportWidth, ViewportHeight, 0.0f);
-		    RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, BackBuffer);
-    
-		    if( ViewportInfo.bRequiresStencilTest )
-		    {
-			    check(IsValidRef( ViewportInfo.DepthStencil ));
-    
-			    // Reset the backbuffer as our color render target and also set a depth stencil buffer
-			    FRHIRenderTargetView ColorView(BackBuffer, 0, -1, bClear ? ERenderTargetLoadAction::EClear : ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::EStore);
-				    FRHIDepthRenderTargetView DepthStencilView(ViewportInfo.DepthStencil, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::ENoAction, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore);
-				    FRHISetRenderTargetsInfo Info(1, &ColorView, DepthStencilView);
-    
-			    // Clear the stencil buffer
-			    RHICmdList.SetRenderTargetsAndClear(Info);
-		    }
-		    else
-		    {
-			    SetRenderTarget(RHICmdList, BackBuffer, FTextureRHIRef(), bClear ? ESimpleRenderTargetMode::EClearColorAndDepth : ESimpleRenderTargetMode::EExistingColorAndDepth);
-		    }
+			RHICmdList.BeginDrawingViewport( ViewportInfo.ViewportRHI, FTextureRHIRef() );
+			RHICmdList.SetViewport(0, 0, 0, ViewportWidth, ViewportHeight, 0.0f);
+			RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, BackBuffer);
+	
+			if( ViewportInfo.bRequiresStencilTest )
+			{
+				check(IsValidRef( ViewportInfo.DepthStencil ));
+	
+				// Reset the backbuffer as our color render target and also set a depth stencil buffer
+				FRHIRenderTargetView ColorView(BackBuffer, 0, -1, bClear ? ERenderTargetLoadAction::EClear : ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::EStore);
+					FRHIDepthRenderTargetView DepthStencilView(ViewportInfo.DepthStencil, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::ENoAction, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore);
+					FRHISetRenderTargetsInfo Info(1, &ColorView, DepthStencilView);
+	
+				// Clear the stencil buffer
+				RHICmdList.SetRenderTargetsAndClear(Info);
+			}
+			else
+			{
+				SetRenderTarget(RHICmdList, BackBuffer, FTextureRHIRef(), bClear ? ESimpleRenderTargetMode::EClearColorAndDepth : ESimpleRenderTargetMode::EExistingColorAndDepth);
+			}
 
 
 #if WITH_SLATE_VISUALIZERS
@@ -821,13 +821,13 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 					RasterizeToVolumeTexture(RHICmdList, VolumeBounds);
 
 					FResolveParams ResolveParams;
-					RHICmdList.CopyToResolveTarget(ViewportInfo.ColorSpaceLUTRT, ViewportInfo.ColorSpaceLUTSRV, false, ResolveParams);
+					RHICmdList.CopyToResolveTarget(ViewportInfo.ColorSpaceLUTRT, ViewportInfo.ColorSpaceLUTSRV, ResolveParams);
 				}
 
 				// Composition pass
 				{
 					FResolveParams ResolveParams;
-					RHICmdList.CopyToResolveTarget(ViewportInfo.UITargetRT, ViewportInfo.UITargetSRV, false, ResolveParams);
+					RHICmdList.CopyToResolveTarget(ViewportInfo.UITargetRT, ViewportInfo.UITargetSRV, ResolveParams);
 
 					SetRenderTarget(RHICmdList, FinalBuffer, FTextureRHIRef());
 

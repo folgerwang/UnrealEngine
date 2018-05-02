@@ -44,6 +44,7 @@ public:
 		OneOverCPUTexCoordScalesParameter.Bind(Initializer.ParameterMap,TEXT("OneOverCPUTexCoordScales"));
 		TexCoordIndicesParameter.Bind(Initializer.ParameterMap, TEXT("TexCoordIndices"));
 		PrimitiveAlphaParameter.Bind(Initializer.ParameterMap, TEXT("PrimitiveAlpha"));
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
 	FMaterialTexCoordScalePS() {}
@@ -75,7 +76,8 @@ public:
 		const FShader* OriginalPS, 
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FMaterial& Material,
-		const FSceneView& View
+		const FSceneView& View,
+		const FDrawingPolicyRenderState& DrawRenderState
 		) override;
 
 	virtual void SetMesh(

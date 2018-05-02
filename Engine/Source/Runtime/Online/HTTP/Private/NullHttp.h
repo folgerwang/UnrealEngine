@@ -3,13 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Interfaces/IHttpRequest.h"
+#include "GenericPlatform/HttpRequestImpl.h"
 #include "Interfaces/IHttpResponse.h"
 
 /**
  * Null (mock) implementation of an HTTP request
  */
-class FNullHttpRequest : public IHttpRequest
+class FNullHttpRequest : public FHttpRequestImpl
 {
 public:
 
@@ -30,8 +30,6 @@ public:
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override;
 	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override;
 	virtual bool ProcessRequest() override;
-	virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override;
-	virtual FHttpRequestProgressDelegate& OnRequestProgress() override;
 	virtual void CancelRequest() override;
 	virtual EHttpRequestStatus::Type GetStatus() const override;
 	virtual const FHttpResponsePtr GetResponse() const override;
@@ -50,8 +48,6 @@ private:
 	FString Url;
 	FString Verb;
 	TArray<uint8> Payload;
-	FHttpRequestCompleteDelegate RequestCompleteDelegate;
-	FHttpRequestProgressDelegate ReuestProgressDelegate;
 	EHttpRequestStatus::Type CompletionStatus;
 	TMap<FString, FString> Headers;
 	float ElapsedTime;

@@ -44,6 +44,17 @@ FUnorderedAccessViewRHIRef FEmptyDynamicRHI::RHICreateUnorderedAccessView(FVerte
 	return UAV;
 }
 
+FUnorderedAccessViewRHIRef FEmptyDynamicRHI::RHICreateUnorderedAccessView(FIndexBufferRHIParamRef IndexBufferRHI, uint8 Format)
+{
+	FEmptyIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
+
+	// create the UAV buffer to point to the structured buffer's memory
+	FEmptyUnorderedAccessView* UAV = new FEmptyUnorderedAccessView;
+	UAV->SourceIndexBuffer = IndexBuffer;
+
+	return UAV;
+}
+
 FShaderResourceViewRHIRef FEmptyDynamicRHI::RHICreateShaderResourceView(FStructuredBufferRHIParamRef StructuredBufferRHI)
 {
 	FEmptyStructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);

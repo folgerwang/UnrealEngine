@@ -22,6 +22,8 @@ void STextureEditorViewportToolbar::Construct( const FArguments& InArgs, const T
 {
 	ToolkitCommands = InToolkitCommands;
 
+	bIsVolumeTexture = InArgs._IsVolumeTexture;
+
 	ChildSlot
 	[
 		SNew(SHorizontalBox)
@@ -73,7 +75,7 @@ void STextureEditorViewportToolbar::Construct( const FArguments& InArgs, const T
 TSharedRef<SWidget> STextureEditorViewportToolbar::GenerateViewOptionsMenu( ) const
 {
 	FMenuBuilder MenuBuilder(true, ToolkitCommands);
-	FTextureEditorViewOptionsMenu::MakeMenu(MenuBuilder);
+	FTextureEditorViewOptionsMenu::MakeMenu(MenuBuilder, bIsVolumeTexture);
 
 	return MenuBuilder.MakeWidget();
 }

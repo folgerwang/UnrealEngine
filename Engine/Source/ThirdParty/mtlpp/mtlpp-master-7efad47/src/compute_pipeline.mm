@@ -12,169 +12,171 @@ MTLPP_BEGIN
 
 namespace mtlpp
 {
-    AutoReleasedComputePipelineReflection::AutoReleasedComputePipelineReflection() :
-        ns::Object<MTLComputePipelineReflection*, true>([[MTLComputePipelineReflection alloc] init], false)
-    {
-    }
+   ComputePipelineReflection::ComputePipelineReflection() :
+	ns::Object<MTLComputePipelineReflection*>([[MTLComputePipelineReflection alloc] init], ns::Ownership::Assign)
+	{
+	}
 	
-	ns::Array<Argument> AutoReleasedComputePipelineReflection::GetArguments() const
+	ns::AutoReleased<ns::Array<Argument>> ComputePipelineReflection::GetArguments() const
 	{
 		Validate();
-		return [m_ptr arguments];
+		return ns::AutoReleased<ns::Array<Argument>>([m_ptr arguments]);
 	}
-	ComputePipelineReflection::ComputePipelineReflection() :
-	ns::Object<MTLComputePipelineReflection*>([[MTLComputePipelineReflection alloc] init], false)
-	{
-	}
-	
-	ns::Array<Argument> ComputePipelineReflection::GetArguments() const
-	{
-		Validate();
-		return [m_ptr arguments];
-	}
-	
-	ComputePipelineReflection::ComputePipelineReflection(const AutoReleasedComputePipelineReflection& rhs)
-	{
-		operator=(rhs);
-	}
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-	ComputePipelineReflection::ComputePipelineReflection(const AutoReleasedComputePipelineReflection&& rhs)
-	{
-		operator=(rhs);
-	}
-#endif
-	ComputePipelineReflection& ComputePipelineReflection::operator=(const AutoReleasedComputePipelineReflection& rhs)
-	{
-		if (m_ptr != rhs.m_ptr)
-		{
-			if(rhs.m_ptr)
-			{
-				rhs.m_table->Retain(rhs.m_ptr);
-			}
-			if(m_ptr)
-			{
-				m_table->Release(m_ptr);
-			}
-			m_ptr = rhs.m_ptr;
-			m_table = rhs.m_table;
-		}
-		return *this;
-	}
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-	ComputePipelineReflection& ComputePipelineReflection::operator=(AutoReleasedComputePipelineReflection&& rhs)
-	{
-		if (m_ptr != rhs.m_ptr)
-		{
-			if(rhs.m_ptr)
-			{
-				rhs.m_table->Retain(rhs.m_ptr);
-			}
-			if(m_ptr)
-			{
-				m_table->Release(m_ptr);
-			}
-			m_ptr = rhs.m_ptr;
-			m_table = rhs.m_table;
-			rhs.m_ptr = nullptr;
-			rhs.m_table = nullptr;
-		}
-		return *this;
-	}
-#endif
-	
 
     ComputePipelineDescriptor::ComputePipelineDescriptor() :
-        ns::Object<MTLComputePipelineDescriptor*>([[MTLComputePipelineDescriptor alloc] init], false)
+        ns::Object<MTLComputePipelineDescriptor*>([[MTLComputePipelineDescriptor alloc] init], ns::Ownership::Assign)
     {
     }
 
-    ns::String ComputePipelineDescriptor::GetLabel() const
+    ns::AutoReleased<ns::String> ComputePipelineDescriptor::GetLabel() const
     {
         Validate();
-        return [(MTLComputePipelineDescriptor*)m_ptr label];
+#if MTLPP_CONFIG_IMP_CACHE
+        return ns::AutoReleased<ns::String>(m_table->label(m_ptr));
+#else
+        return ns::AutoReleased<ns::String>([(MTLComputePipelineDescriptor*)m_ptr label]);
+#endif
     }
 
-    Function ComputePipelineDescriptor::GetComputeFunction() const
+    ns::AutoReleased<Function> ComputePipelineDescriptor::GetComputeFunction() const
     {
         Validate();
-        return [(MTLComputePipelineDescriptor*)m_ptr computeFunction];
+#if MTLPP_CONFIG_IMP_CACHE
+        return ns::AutoReleased<Function>(m_table->computeFunction(m_ptr));
+#else
+        return ns::AutoReleased<Function>([(MTLComputePipelineDescriptor*)m_ptr computeFunction]);
+#endif
     }
 
     bool ComputePipelineDescriptor::GetThreadGroupSizeIsMultipleOfThreadExecutionWidth() const
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+        return m_table->threadGroupSizeIsMultipleOfThreadExecutionWidth(m_ptr);
+#else
         return [(MTLComputePipelineDescriptor*)m_ptr threadGroupSizeIsMultipleOfThreadExecutionWidth];
+#endif
     }
 
-    StageInputOutputDescriptor ComputePipelineDescriptor::GetStageInputDescriptor() const
+    ns::AutoReleased<StageInputOutputDescriptor> ComputePipelineDescriptor::GetStageInputDescriptor() const
     {
         Validate();
 #if MTLPP_IS_AVAILABLE(10_12, 10_0)
-        return [(MTLComputePipelineDescriptor*)m_ptr stageInputDescriptor];
+#if MTLPP_CONFIG_IMP_CACHE
+        return ns::AutoReleased<StageInputOutputDescriptor>(m_table->stageInputDescriptor(m_ptr));
 #else
-        return nullptr;
+        return ns::AutoReleased<StageInputOutputDescriptor>([(MTLComputePipelineDescriptor*)m_ptr stageInputDescriptor]);
+#endif
+#else
+        return ns::AutoReleased<StageInputOutputDescriptor>();
 #endif
     }
 	
-	ns::Array<PipelineBufferDescriptor> ComputePipelineDescriptor::GetBuffers() const
+	ns::AutoReleased<ns::Array<PipelineBufferDescriptor>> ComputePipelineDescriptor::GetBuffers() const
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return ns::Array<PipelineBufferDescriptor>((NSArray<MTLPipelineBufferDescriptor*>*)[(MTLComputePipelineDescriptor*)m_ptr buffers]);
+#if MTLPP_CONFIG_IMP_CACHE
+		return ns::AutoReleased<ns::Array<PipelineBufferDescriptor>>(ns::Array<PipelineBufferDescriptor>((NSArray<MTLPipelineBufferDescriptor*>*)m_table->buffers(m_ptr)));
 #else
-		return ns::Array<PipelineBufferDescriptor>();
+		return ns::AutoReleased<ns::Array<PipelineBufferDescriptor>>(ns::Array<PipelineBufferDescriptor>((NSArray*)[(MTLComputePipelineDescriptor*)m_ptr buffers]));
+#endif
+#else
+		return ns::AutoReleased<ns::Array<PipelineBufferDescriptor>>();
 #endif
 	}
 
     void ComputePipelineDescriptor::SetLabel(const ns::String& label)
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+        m_table->setLabel(m_ptr, (NSString*)label.GetPtr());
+#else
         [(MTLComputePipelineDescriptor*)m_ptr setLabel:(NSString*)label.GetPtr()];
+#endif
     }
 
     void ComputePipelineDescriptor::SetComputeFunction(const Function& function)
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+        m_table->setComputeFunction(m_ptr, (id<MTLFunction>)function.GetPtr());
+#else
         [(MTLComputePipelineDescriptor*)m_ptr setComputeFunction:(id<MTLFunction>)function.GetPtr()];
+#endif
     }
 
     void ComputePipelineDescriptor::SetThreadGroupSizeIsMultipleOfThreadExecutionWidth(bool value)
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+        m_table->setThreadGroupSizeIsMultipleOfThreadExecutionWidth(m_ptr, value);
+#else
         [(MTLComputePipelineDescriptor*)m_ptr setThreadGroupSizeIsMultipleOfThreadExecutionWidth:value];
+#endif
     }
 
     void ComputePipelineDescriptor::SetStageInputDescriptor(const StageInputOutputDescriptor& stageInputDescriptor) const
     {
         Validate();
 #if MTLPP_IS_AVAILABLE(10_12, 10_0)
+#if MTLPP_CONFIG_IMP_CACHE
+        m_table->setStageInputDescriptor(m_ptr, (MTLStageInputOutputDescriptor*)stageInputDescriptor.GetPtr());
+#else
         [(MTLComputePipelineDescriptor*)m_ptr setStageInputDescriptor:(MTLStageInputOutputDescriptor*)stageInputDescriptor.GetPtr()];
 #endif
+#endif
     }
+	
+	void ComputePipelineDescriptor::Reset()
+	{
+		Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->reset(m_ptr);
+#else
+		[(MTLComputePipelineDescriptor*)m_ptr reset];
+#endif
+	}
 
-    Device ComputePipelineState::GetDevice() const
+    ns::AutoReleased<Device> ComputePipelineState::GetDevice() const
     {
         Validate();
-		return m_table->Device(m_ptr);
+#if MTLPP_CONFIG_IMP_CACHE
+		return ns::AutoReleased<Device>(m_table->Device(m_ptr));
+#else
+        return ns::AutoReleased<Device>([(id<MTLComputePipelineState>)m_ptr device]);
+#endif
     }
 
     NSUInteger ComputePipelineState::GetMaxTotalThreadsPerThreadgroup() const
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
 		return m_table->maxTotalThreadsPerThreadgroup(m_ptr);
+#else
+        return NSUInteger([(id<MTLComputePipelineState>)m_ptr maxTotalThreadsPerThreadgroup]);
+#endif
     }
 
     NSUInteger ComputePipelineState::GetThreadExecutionWidth() const
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
 		return m_table->threadExecutionWidth(m_ptr);
+#else
+        return NSUInteger([(id<MTLComputePipelineState>)m_ptr threadExecutionWidth]);
+#endif
     }
 	
 	NSUInteger ComputePipelineState::GetStaticThreadgroupMemoryLength() const
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		return m_table->staticThreadgroupMemoryLength(m_ptr);
+#else
+		return NSUInteger([(id<MTLComputePipelineState>)m_ptr staticThreadgroupMemoryLength]);
+#endif
 #else
 		return 0;
 #endif
@@ -184,7 +186,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE_IOS(11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		return m_table->imageblockMemoryLengthForDimensions(m_ptr, imageblockDimensions);
+#else
+		return NSUInteger([(id<MTLComputePipelineState>)m_ptr imageblockMemoryLengthForDimensions:MTLSizeMake(imageblockDimensions.width, imageblockDimensions.height, imageblockDimensions.depth)]);
+#endif
 #else
 		return 0;
 #endif

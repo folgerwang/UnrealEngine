@@ -59,64 +59,6 @@ private:
 
 /**
  */
-class FMaterialUniformExpressionTime: public FMaterialUniformExpression
-{
-	DECLARE_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionTime);
-public:
-
-	// FMaterialUniformExpression interface.
-	virtual void Serialize(FArchive& Ar)
-	{
-	}
-	virtual void GetNumberValue(const FMaterialRenderContext& Context,FLinearColor& OutValue) const
-	{
-		OutValue.R = Context.Time;
-		OutValue.G = Context.Time;
-		OutValue.B = Context.Time;
-		OutValue.A = Context.Time;
-	}
-	virtual bool IsConstant() const
-	{
-		return false;
-	}
-	virtual bool IsChangingPerFrame() const { return true; }
-	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
-	{
-		return GetType() == OtherExpression->GetType();
-	}
-};
-
-/**
- */
-class FMaterialUniformExpressionRealTime: public FMaterialUniformExpression
-{
-	DECLARE_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionRealTime);
-public:
-
-	// FMaterialUniformExpression interface.
-	virtual void Serialize(FArchive& Ar)
-	{
-	}
-	virtual void GetNumberValue(const FMaterialRenderContext& Context,FLinearColor& OutValue) const
-	{
-		OutValue.R = Context.RealTime;
-		OutValue.G = Context.RealTime;
-		OutValue.B = Context.RealTime;
-		OutValue.A = Context.RealTime;
-	}
-	virtual bool IsConstant() const
-	{
-		return false;
-	}
-	virtual bool IsChangingPerFrame() const { return true; }
-	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
-	{
-		return GetType() == OtherExpression->GetType();
-	}
-};
-
-/**
- */
 class FMaterialUniformExpressionVectorParameter: public FMaterialUniformExpression
 {
 	DECLARE_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionVectorParameter);
@@ -484,10 +426,6 @@ public:
 	{
 		return X->IsConstant();
 	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return X->IsChangingPerFrame();
-	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
 		if (GetType() != OtherExpression->GetType())
@@ -573,10 +511,6 @@ public:
 	{
 		return X->IsConstant() && Y->IsConstant();
 	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return X->IsChangingPerFrame() && Y->IsChangingPerFrame();
-	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
 		if (GetType() != OtherExpression->GetType())
@@ -622,10 +556,6 @@ public:
 	virtual bool IsConstant() const
 	{
 		return X->IsConstant();
-	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return X->IsChangingPerFrame();
 	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
@@ -682,10 +612,6 @@ public:
 	{
 		return X->IsConstant();
 	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return X->IsChangingPerFrame();
-	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
 		if (GetType() != OtherExpression->GetType())
@@ -730,10 +656,6 @@ public:
 	bool IsConstant() const override
 	{
 		return X->IsConstant();
-	}
-	bool IsChangingPerFrame() const override
-	{
-		return X->IsChangingPerFrame();
 	}
 	bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const override
 	{
@@ -781,10 +703,6 @@ public:
 	bool IsConstant() const override
 	{
 		return X->IsConstant();
-	}
-	bool IsChangingPerFrame() const override
-	{
-		return X->IsChangingPerFrame();
 	}
 	bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const override
 	{
@@ -891,12 +809,6 @@ public:
 	{
 		return A->IsConstant() && B->IsConstant();
 	}
-	virtual bool IsChangingPerFrame() const
-	{
-		const bool AChangesPerFrame = A->IsChangingPerFrame();
-		const bool BChangesPerFrame = B->IsChangingPerFrame();
-		return AChangesPerFrame || BChangesPerFrame;
-	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
 		if (GetType() != OtherExpression->GetType())
@@ -946,10 +858,6 @@ public:
 	{
 		return X->IsConstant();
 	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return X->IsChangingPerFrame();
-	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
 		if (GetType() != OtherExpression->GetType())
@@ -998,12 +906,6 @@ public:
 	virtual bool IsConstant() const
 	{
 		return A->IsConstant() && B->IsConstant();
-	}
-	virtual bool IsChangingPerFrame() const
-	{
-		const bool AChangesPerFrame = A->IsChangingPerFrame();
-		const bool BChangesPerFrame = B->IsChangingPerFrame();
-		return AChangesPerFrame || BChangesPerFrame;
 	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
@@ -1055,12 +957,6 @@ public:
 	{
 		return A->IsConstant() && B->IsConstant();
 	}
-	virtual bool IsChangingPerFrame() const
-	{
-		const bool AChangesPerFrame = A->IsChangingPerFrame();
-		const bool BChangesPerFrame = B->IsChangingPerFrame();
-		return AChangesPerFrame || BChangesPerFrame;
-	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
 		if (GetType() != OtherExpression->GetType())
@@ -1109,12 +1005,6 @@ public:
 	virtual bool IsConstant() const
 	{
 		return A->IsConstant() && B->IsConstant();
-	}
-	virtual bool IsChangingPerFrame() const
-	{
-		const bool AChangesPerFrame = A->IsChangingPerFrame();
-		const bool BChangesPerFrame = B->IsChangingPerFrame();
-		return AChangesPerFrame || BChangesPerFrame;
 	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
@@ -1168,10 +1058,6 @@ public:
 	{
 		return Input->IsConstant() && Min->IsConstant() && Max->IsConstant();
 	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return Input->IsChangingPerFrame() || Min->IsChangingPerFrame() || Max->IsChangingPerFrame();
-	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
 		if (GetType() != OtherExpression->GetType())
@@ -1218,10 +1104,6 @@ public:
 	virtual bool IsConstant() const
 	{
 		return Input->IsConstant();
-	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return Input->IsChangingPerFrame();
 	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
@@ -1322,10 +1204,6 @@ public:
 	{
 		return X->IsConstant();
 	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return X->IsChangingPerFrame();
-	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
 		if (GetType() != OtherExpression->GetType())
@@ -1380,10 +1258,6 @@ public:
 	{
 		return X->IsConstant();
 	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return X->IsChangingPerFrame();
-	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
 		if (GetType() != OtherExpression->GetType())
@@ -1427,10 +1301,6 @@ public:
 	virtual bool IsConstant() const
 	{
 		return X->IsConstant();
-	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return X->IsChangingPerFrame();
 	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
@@ -1476,10 +1346,6 @@ public:
 	{
 		return X->IsConstant();
 	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return X->IsChangingPerFrame();
-	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
 		if (GetType() != OtherExpression->GetType())
@@ -1523,10 +1389,6 @@ public:
 	virtual bool IsConstant() const
 	{
 		return X->IsConstant();
-	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return X->IsChangingPerFrame();
 	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
@@ -1572,10 +1434,6 @@ public:
 	{
 		return X->IsConstant();
 	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return X->IsChangingPerFrame();
-	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
 		if (GetType() != OtherExpression->GetType())
@@ -1619,10 +1477,6 @@ public:
 	virtual bool IsConstant() const
 	{
 		return X->IsConstant();
-	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return X->IsChangingPerFrame();
 	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
@@ -1672,12 +1526,6 @@ public:
 	{
 		return A->IsConstant() && B->IsConstant();
 	}
-	virtual bool IsChangingPerFrame() const
-	{
-		const bool AChangesPerFrame = A->IsChangingPerFrame();
-		const bool BChangesPerFrame = B->IsChangingPerFrame();
-		return AChangesPerFrame || BChangesPerFrame;
-	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
 		if (GetType() != OtherExpression->GetType())
@@ -1722,10 +1570,6 @@ public:
 	virtual bool IsConstant() const
 	{
 		return X->IsConstant();
-	}
-	virtual bool IsChangingPerFrame() const
-	{
-		return X->IsChangingPerFrame();
 	}
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{

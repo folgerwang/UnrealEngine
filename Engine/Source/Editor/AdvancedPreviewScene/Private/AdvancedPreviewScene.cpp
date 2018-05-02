@@ -231,6 +231,7 @@ void FAdvancedPreviewScene::SetProfileIndex(const int32 InProfileIndex)
 void FAdvancedPreviewScene::Tick(float DeltaTime)
 {
 	checkf(DefaultSettings && DefaultSettings->Profiles.IsValidIndex(CurrentProfileIndex), TEXT("Invalid default settings pointer or current profile index"));
+	UpdateCaptureContents();
 
 	FPreviewSceneProfile& Profile = DefaultSettings->Profiles[CurrentProfileIndex];
 	if (Profile.bRotateLightingRig)

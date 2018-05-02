@@ -281,12 +281,13 @@ void FStaticMeshSceneProxy::AddSpeedTreeWind()
 void FStaticMeshSceneProxy::RemoveSpeedTreeWind()
 {
 #if STATICMESH_ENABLE_DEBUG_RENDERING
+	check(IsInRenderingThread());
 	if (StaticMesh && RenderData && StaticMesh->SpeedTreeWind.IsValid())
 	{
 		for (int32 LODIndex = 0; LODIndex < RenderData->LODVertexFactories.Num(); ++LODIndex)
 		{
-			GetScene().RemoveSpeedTreeWind(&RenderData->LODVertexFactories[LODIndex].VertexFactoryOverrideColorVertexBuffer, StaticMesh);
-			GetScene().RemoveSpeedTreeWind(&RenderData->LODVertexFactories[LODIndex].VertexFactory, StaticMesh);
+			GetScene().RemoveSpeedTreeWind_RenderThread(&RenderData->LODVertexFactories[LODIndex].VertexFactoryOverrideColorVertexBuffer, StaticMesh);
+			GetScene().RemoveSpeedTreeWind_RenderThread(&RenderData->LODVertexFactories[LODIndex].VertexFactory, StaticMesh);
 		}
 	}
 #endif
@@ -337,6 +338,7 @@ bool FStaticMeshSceneProxy::GetShadowMeshElement(int32 LODIndex, int32 BatchInde
 	const bool bUseReversedIndices = GUseReversedIndexBuffer && IsLocalToWorldDeterminantNegative() && LOD.bHasReversedDepthOnlyIndices;
 
 	FMeshBatchElement& OutBatchElement = OutMeshBatch.Elements[0];
+	OutBatchElement.VertexFactoryUserData = ProxyLODInfo.OverrideColorVertexBuffer ? ProxyLODInfo.OverrideColorVFUniformBuffer.GetReference() : VFs.VertexFactory.GetUniformBuffer();
 	OutMeshBatch.MaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false, false);
 	OutMeshBatch.VertexFactory = ProxyLODInfo.OverrideColorVertexBuffer ? &VFs.VertexFactoryOverrideColorVertexBuffer : &VFs.VertexFactory;
 	OutBatchElement.IndexBuffer = bUseReversedIndices ? &LOD.ReversedDepthOnlyIndexBuffer : &LOD.DepthOnlyIndexBuffer;
@@ -421,6 +423,8 @@ bool FStaticMeshSceneProxy::GetMeshElement(
 
 	FMeshBatchElement& OutBatchElement = OutMeshBatch.Elements[0];
 
+	OutBatchElement.VertexFactoryUserData = ProxyLODInfo.OverrideColorVertexBuffer ? ProxyLODInfo.OverrideColorVFUniformBuffer.GetReference() : VFs.VertexFactory.GetUniformBuffer();
+
 	// Has the mesh component overridden the vertex color stream for this mesh LOD?
 	if (ProxyLODInfo.OverrideColorVertexBuffer != NULL)
 	{
@@ -493,6 +497,7 @@ bool FStaticMeshSceneProxy::GetWireframeMeshElement(int32 LODIndex, int32 BatchI
 
 	FMeshBatchElement& OutBatchElement = OutMeshBatch.Elements[0];
 
+	OutBatchElement.VertexFactoryUserData = ProxyLODInfo.OverrideColorVertexBuffer ? ProxyLODInfo.OverrideColorVFUniformBuffer.GetReference() : VFs.VertexFactory.GetUniformBuffer();
 	OutMeshBatch.VertexFactory = ProxyLODInfo.OverrideColorVertexBuffer ? &VFs.VertexFactoryOverrideColorVertexBuffer : &VFs.VertexFactory;
 	OutMeshBatch.MaterialRenderProxy = WireframeRenderProxy;
 	OutBatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
@@ -1463,15 +1468,17 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 	FStaticMeshRenderData* MeshRenderData = InComponent->GetStaticMesh()->RenderData.Get();
 	FStaticMeshLODResources& LODModel = MeshRenderData->LODResources[LODIndex];
 	const FStaticMeshVertexFactories& VFs = InLODVertexFactories[LODIndex];
+
+	if (InComponent->LightmapType == ELightmapType::ForceVolumetric)
+	{
+		SetGlobalVolumeLightmap(true);
+	}
+
 	if (LODIndex < InComponent->LODData.Num())
 	{
 		const FStaticMeshComponentLODInfo& ComponentLODInfo = InComponent->LODData[LODIndex];
 
-		if (InComponent->LightmapType == ELightmapType::ForceVolumetric)
-		{
-			SetGlobalVolumeLightmap(true);
-		}
-		else
+		if (InComponent->LightmapType != ELightmapType::ForceVolumetric)
 		{
 			const FMeshMapBuildData* MeshMapBuildData = InComponent->GetMeshMapBuildData(ComponentLODInfo);
 			if (MeshMapBuildData)
@@ -1502,32 +1509,36 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 				// the instance should point to the loaded data to avoid copy and memory waste
 				OverrideColorVertexBuffer = ComponentLODInfo.OverrideVertexColors;
 				check(OverrideColorVertexBuffer->GetStride() == sizeof(FColor)); //assumed when we set up the stream
+
+				TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters>* UniformBufferPtr = &OverrideColorVFUniformBuffer;
+				const FLocalVertexFactory* LocalVF = &VFs.VertexFactoryOverrideColorVertexBuffer;
+				FColorVertexBuffer* VertexBuffer = OverrideColorVertexBuffer;
+				ENQUEUE_RENDER_COMMAND(FLocalVertexFactoryCopyData)(
+					[UniformBufferPtr, LocalVF, VertexBuffer](FRHICommandListImmediate& RHICmdList)
+					{
+						*UniformBufferPtr = CreateLocalVFUniformBuffer(LocalVF, VertexBuffer);
+					});
 			}
 		}
 	}
 
-	if (LODIndex > 0 && bLODsShareStaticLighting && InComponent->LODData.IsValidIndex(0))
+	if (LODIndex > 0 
+		&& bLODsShareStaticLighting 
+		&& InComponent->LODData.IsValidIndex(0)
+		&& InComponent->LightmapType != ELightmapType::ForceVolumetric)
 	{
 		const FStaticMeshComponentLODInfo& ComponentLODInfo = InComponent->LODData[0];
+		const FMeshMapBuildData* MeshMapBuildData = InComponent->GetMeshMapBuildData(ComponentLODInfo);
 
-		if (InComponent->LightmapType == ELightmapType::ForceVolumetric)
+		if (MeshMapBuildData)
 		{
-			SetGlobalVolumeLightmap(true);
-		}
-		else
-		{
-			const FMeshMapBuildData* MeshMapBuildData = InComponent->GetMeshMapBuildData(ComponentLODInfo);
-
-			if (MeshMapBuildData)
-			{
-				SetLightMap(MeshMapBuildData->LightMap);
-				SetShadowMap(MeshMapBuildData->ShadowMap);
-				IrrelevantLights = MeshMapBuildData->IrrelevantLights;
-			}
+			SetLightMap(MeshMapBuildData->LightMap);
+			SetShadowMap(MeshMapBuildData->ShadowMap);
+			IrrelevantLights = MeshMapBuildData->IrrelevantLights;
 		}
 	}
 
-	bool bHasStaticLighting = GetLightMap() != NULL || GetShadowMap() != NULL;
+	const bool bHasSurfaceStaticLighting = GetLightMap() != NULL || GetShadowMap() != NULL;
 
 	// Gather the materials applied to the LOD.
 	Sections.Empty(MeshRenderData->LODResources[LODIndex].Sections.Num());
@@ -1548,7 +1559,7 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 		}
 
 		// If there isn't an applied material, or if we need static lighting and it doesn't support it, fall back to the default material.
-		if(!SectionInfo.Material || (bHasStaticLighting && !SectionInfo.Material->CheckMaterialUsage_Concurrent(MATUSAGE_StaticLighting)))
+		if(!SectionInfo.Material || (bHasSurfaceStaticLighting && !SectionInfo.Material->CheckMaterialUsage_Concurrent(MATUSAGE_StaticLighting)))
 		{
 			SectionInfo.Material = UMaterial::GetDefaultMaterial(MD_Surface);
 		}

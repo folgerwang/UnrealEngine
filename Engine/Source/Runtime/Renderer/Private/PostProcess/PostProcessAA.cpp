@@ -251,14 +251,15 @@ void FRCPassPostProcessAA::Process(FRenderingCompositePassContext& Context)
 	const FViewInfo& View = Context.View;
 	const FSceneViewFamily& ViewFamily = *(View.Family);
 
-	FIntRect SrcRect = View.ViewRect;
-	FIntRect DestRect = View.ViewRect;
+	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
+
+	FIntRect SrcRect = Context.SceneColorViewRect;
+	FIntRect DestRect = Context.GetSceneColorDestRect(DestRenderTarget);
+
 	FIntPoint SrcSize = InputDesc->Extent;
 	FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
 
 	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessFXAA, TEXT("PostProcessFXAA %dx%d"), DestRect.Width(), DestRect.Height());
-
-	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	// Set the view family's render target/viewport.
 	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
@@ -288,7 +289,7 @@ void FRCPassPostProcessAA::Process(FRenderingCompositePassContext& Context)
 		Context.HasHmdMesh(),
 		EDRF_Default);
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessAA::ComputeOutputDesc(EPassOutputId InPassOutputId) const

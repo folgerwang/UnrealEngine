@@ -1709,40 +1709,66 @@ FTexture3DRHIRef FOpenGLDynamicRHI::RHICreateTexture3D(uint32 SizeX,uint32 SizeY
 
 	const bool bSRGB = (Flags&TexCreate_SRGB) != 0;
 	const FOpenGLTextureFormat& GLFormat = GOpenGLTextureFormats[Format];
+	const FPixelFormatInfo& FormatInfo = GPixelFormats[Format];
+
 	if (GLFormat.InternalFormat[bSRGB] == GL_NONE)
 	{
-		UE_LOG(LogRHI, Fatal,TEXT("Texture format '%s' not supported."), GPixelFormats[Format].Name);
+		UE_LOG(LogRHI, Fatal,TEXT("Texture format '%s' not supported."), FormatInfo.Name);
 	}
 
 	// Make sure PBO is disabled
 	CachedBindPixelUnpackBuffer(ContextState,0);
 
-	uint8* Data = CreateInfo.BulkData ? (uint8*)CreateInfo.BulkData->GetResourceBulkData() : NULL;
+	uint8* Data = CreateInfo.BulkData ? (uint8*)CreateInfo.BulkData->GetResourceBulkData() : nullptr;
+	uint32 DataSize = CreateInfo.BulkData ? CreateInfo.BulkData->GetResourceBulkDataSize() : 0;
 	uint32 MipOffset = 0;
 
 	FOpenGL::TexStorage3D( Target, NumMips, GLFormat.InternalFormat[bSRGB], SizeX, SizeY, SizeZ, GLFormat.Format, GLFormat.Type );
 
 	if (Data)
 	{
-		for(uint32 MipIndex = 0; MipIndex < NumMips; MipIndex++)
+		for (uint32 MipIndex = 0; MipIndex < NumMips; MipIndex++)
 		{
-			FOpenGL::TexSubImage3D(
-				/*Target=*/ Target,
-				/*Level=*/ MipIndex,
-				0,
-				0,
-				0,
-				/*SizeX=*/ FMath::Max<uint32>(1,(SizeX >> MipIndex)),
-				/*SizeY=*/ FMath::Max<uint32>(1,(SizeY >> MipIndex)),
-				/*SizeZ=*/ FMath::Max<uint32>(1,(SizeZ >> MipIndex)),
-				/*Format=*/ GLFormat.Format,
-				/*Type=*/ GLFormat.Type,
-				/*Data=*/ &Data[MipOffset]
-				);
+			const int32 MipSizeX = FMath::Max<int32>(1, (SizeX >> MipIndex));
+			const int32 MipSizeY = FMath::Max<int32>(1, (SizeY >> MipIndex));
+			const int32 MipSizeZ = FMath::Max<int32>(1, (SizeZ >> MipIndex));
 
-			uint32 SysMemPitch      =  FMath::Max<uint32>(1,SizeX >> MipIndex) * GPixelFormats[Format].BlockBytes;
-			uint32 SysMemSlicePitch =  FMath::Max<uint32>(1,SizeY >> MipIndex) * SysMemPitch;
-			MipOffset               += FMath::Max<uint32>(1,SizeZ >> MipIndex) * SysMemSlicePitch;
+			const uint32 MipLinePitch = FMath::DivideAndRoundUp(MipSizeX, FormatInfo.BlockSizeX) * FormatInfo.BlockBytes;
+			const uint32 MipSlicePitch = FMath::DivideAndRoundUp(MipSizeY, FormatInfo.BlockSizeY) * MipLinePitch;
+			const uint32 MipSize = MipSlicePitch * MipSizeZ;
+
+			if (MipOffset + MipSize > DataSize)
+			{
+				break; // Stop if the texture does not contain the mips.
+			}
+
+			if (GLFormat.bCompressed)
+			{
+				int32 RowLength = FMath::DivideAndRoundUp(MipSizeX, FormatInfo.BlockSizeX) * FormatInfo.BlockSizeX;
+				int32 ImageHeight = FMath::DivideAndRoundUp(MipSizeY, FormatInfo.BlockSizeY) * FormatInfo.BlockSizeY;
+
+				FOpenGL::CompressedTexSubImage3D(
+					Target,
+					MipIndex,
+					0, 0, 0,
+					MipSizeX, MipSizeY, MipSizeZ,
+					GLFormat.InternalFormat[bSRGB],
+					MipSize,
+					Data + MipOffset);
+			}
+			else
+			{
+				FOpenGL::TexSubImage3D(
+					/*Target=*/ Target,
+					/*Level=*/ MipIndex,
+					0, 0, 0, 
+					MipSizeX, MipSizeY, MipSizeZ,
+					/*Format=*/ GLFormat.Format,
+					/*Type=*/ GLFormat.Type,
+					/*Data=*/ Data + MipOffset);
+			}
+
+			MipOffset += MipSize;
 		}
 
 		CreateInfo.BulkData->Discard();
@@ -2280,30 +2306,43 @@ void FOpenGLDynamicRHI::RHIUpdateTexture3D(FTexture3DRHIParamRef TextureRHI,uint
 	CachedBindPixelUnpackBuffer(ContextState, 0);
 
 	EPixelFormat PixelFormat = Texture->GetFormat();
-	check(GPixelFormats[PixelFormat].BlockSizeX == 1);
-	check(GPixelFormats[PixelFormat].BlockSizeY == 1);
+	const FOpenGLTextureFormat& GLFormat = GOpenGLTextureFormats[PixelFormat];
+	const FPixelFormatInfo& FormatInfo = GPixelFormats[PixelFormat];
+	const uint32 FormatBPP = FormatInfo.BlockBytes;
 
+	check( FOpenGL::SupportsTexture3D() );
 	// TO DO - add appropriate offsets to source data when necessary
 	check(UpdateRegion.SrcX == 0);
 	check(UpdateRegion.SrcY == 0);
 	check(UpdateRegion.SrcZ == 0);
-
-	const FOpenGLTextureFormat& GLFormat = GOpenGLTextureFormats[PixelFormat];
-	const uint32 FormatBPP = GPixelFormats[PixelFormat].BlockBytes;
-	checkf(!GLFormat.bCompressed, TEXT("RHIUpdateTexture3D not currently supported for compressed (%s) textures by the OpenGL RHI"), GPixelFormats[PixelFormat].Name);
-
-	glPixelStorei(GL_UNPACK_ROW_LENGTH, SourceRowPitch / FormatBPP);
-
-	check( SourceDepthPitch % ( FormatBPP * UpdateRegion.Width ) == 0 );
-	glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, SourceDepthPitch / UpdateRegion.Width / FormatBPP);
-
+	
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	FOpenGL::TexSubImage3D(Texture->Target, MipIndex, UpdateRegion.DestX, UpdateRegion.DestY, UpdateRegion.DestZ, UpdateRegion.Width, UpdateRegion.Height, UpdateRegion.Depth,
-		GLFormat.Format, GLFormat.Type, SourceData);
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 
+	const bool bSRGB = (Texture->GetFlags() & TexCreate_SRGB) != 0;
+
+	if (GLFormat.bCompressed)
+	{
+		FOpenGL::CompressedTexSubImage3D(
+			Texture->Target,
+			MipIndex,
+			UpdateRegion.DestX, UpdateRegion.DestY, UpdateRegion.DestZ,
+			UpdateRegion.Width, UpdateRegion.Height, UpdateRegion.Depth,
+			GLFormat.InternalFormat[bSRGB],
+			SourceDepthPitch * UpdateRegion.Depth,
+			SourceData);
+	}
+	else
+	{
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, UpdateRegion.Width / FormatInfo.BlockSizeX);
+		glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, UpdateRegion.Height / FormatInfo.BlockSizeY);
+
+		FOpenGL::TexSubImage3D(Texture->Target, MipIndex, UpdateRegion.DestX, UpdateRegion.DestY, UpdateRegion.DestZ, UpdateRegion.Width, UpdateRegion.Height, UpdateRegion.Depth, GLFormat.Format, GLFormat.Type, SourceData);
+	}
+
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 	glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, 0);
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
 
 	// No need to restore texture stage; leave it like this,
 	// and the next draw will take care of cleaning it up; or

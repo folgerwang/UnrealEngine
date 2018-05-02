@@ -119,7 +119,16 @@ TAutoConsoleVariable<int32> CVarStreamingHLODStrategy(
 TAutoConsoleVariable<float> CVarStreamingPerTextureBiasViewBoostThreshold(
 	TEXT("r.Streaming.PerTextureBiasViewBoostThreshold"),
 	1.5,
-	TEXT("Maximum view boost at which per texture bias will be increased"),
+	TEXT("Maximum view boost at which per texture bias will be increased.\n")
+	TEXT("This prevents temporary small FOV from downgrading permanentely texture quality."),
+	ECVF_Default
+	);
+
+TAutoConsoleVariable<float> CVarStreamingMaxHiddenPrimitiveViewBoost(
+	TEXT("r.Streaming.MaxHiddenPrimitiveViewBoost"),
+	1.5,
+	TEXT("Maximum view boost that can affect hidden primitive.\n")
+	TEXT("This prevents temporary small FOV from streaming all textures to their highest mips."),
 	ECVF_Default
 	);
 
@@ -229,6 +238,7 @@ void FTextureStreamingSettings::Update()
 	bUseAllMips = CVarStreamingUseAllMips.GetValueOnAnyThread() != 0;
 	MinMipForSplitRequest = CVarStreamingMinMipForSplitRequest.GetValueOnAnyThread();
 	PerTextureBiasViewBoostThreshold = CVarStreamingPerTextureBiasViewBoostThreshold.GetValueOnAnyThread();
+	MaxHiddenPrimitiveViewBoost = FMath::Max<float>(1.f, CVarStreamingMaxHiddenPrimitiveViewBoost.GetValueOnAnyThread());
 	MinLevelTextureScreenSize = CVarStreamingMinLevelTextureScreenSize.GetValueOnAnyThread();
 	MaxTextureUVDensity = CVarStreamingMaxTextureUVDensity.GetValueOnAnyThread();
 

@@ -226,7 +226,7 @@ static void DrawUVDisplacementToRenderTarget_RenderThread(
 	RHICmdList.CopyToResolveTarget(
 		OutTextureRenderTargetResource->GetRenderTargetTexture(),
 		OutTextureRenderTargetResource->TextureRHI,
-		false, FResolveParams());
+		FResolveParams());
 }
 
 

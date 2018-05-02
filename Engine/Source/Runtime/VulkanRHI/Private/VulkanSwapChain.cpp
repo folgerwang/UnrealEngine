@@ -7,17 +7,20 @@
 #include "VulkanRHIPrivate.h"
 #include "VulkanSwapChain.h"
 #include "VulkanPlatform.h"
+#include "Engine/RendererSettings.h"
 
 int32 GShouldCpuWaitForFence = 1;
 static FAutoConsoleVariableRef CVarCpuWaitForFence(
-	TEXT("r.vulkan.CpuWaitForFence"),
+	TEXT("r.Vulkan.CpuWaitForFence"),
 	GShouldCpuWaitForFence,
 	TEXT("Whether to have the Cpu wait for the fence in AcquireImageIndex"),
 	ECVF_RenderThreadSafe
 );
 
-
 extern FAutoConsoleVariable GCVarDelayAcquireBackBuffer;
+extern TAutoConsoleVariable<int32> GAllowPresentOnComputeQueue;
+
+static TSet<EPixelFormat> GPixelFormatNotSupportedWarning;
 
 FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevice, void* WindowHandle, EPixelFormat& InOutPixelFormat, uint32 Width, uint32 Height,
 	uint32* InOutDesiredNumBackBuffers, TArray<VkImage>& OutImages)
@@ -30,6 +33,8 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 	, NumAcquireCalls(0)
 	, Instance(InInstance)
 {
+	check(FVulkanPlatform::SupportsStandardSwapchain());
+
 	// let the platform create the surface
 	FVulkanPlatform::CreateSurface(WindowHandle, Instance, &Surface);
 
@@ -44,6 +49,12 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 		TArray<VkSurfaceFormatKHR> Formats;
 		Formats.AddZeroed(NumFormats);
 		VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkGetPhysicalDeviceSurfaceFormatsKHR(Device.GetPhysicalHandle(), Surface, &NumFormats, Formats.GetData()));
+
+		if (InOutPixelFormat == PF_Unknown)
+		{
+			static const auto* CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
+			InOutPixelFormat = CVarDefaultBackBufferPixelFormat ? EDefaultBackBufferPixelFormat::Convert2PixelFormat(CVarDefaultBackBufferPixelFormat->GetValueOnGameThread()) : PF_Unknown;
+		}
 
 		if (InOutPixelFormat != PF_Unknown)
 		{
@@ -63,7 +74,11 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 
 				if (!bFound)
 				{
-					UE_LOG(LogVulkanRHI, Warning, TEXT("Requested PixelFormat %d not supported by this swapchain! Falling back to supported swapchain formats..."), (uint32)InOutPixelFormat);
+					if (!GPixelFormatNotSupportedWarning.Contains(InOutPixelFormat))
+					{
+						GPixelFormatNotSupportedWarning.Add(InOutPixelFormat);
+						UE_LOG(LogVulkanRHI, Warning, TEXT("Requested PixelFormat %d not supported by this swapchain! Falling back to supported swapchain formats..."), (uint32)InOutPixelFormat);
+					}
 					InOutPixelFormat = PF_Unknown;
 				}
 			}
@@ -156,23 +171,33 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 		VERIFYVULKANRESULT(VulkanRHI::vkGetPhysicalDeviceSurfacePresentModesKHR(Device.GetPhysicalHandle(), Surface, &NumFoundPresentModes, FoundPresentModes.GetData()));
 
 		bool bFoundDesiredMode = false;
-		for (size_t i = 0; i < NumFoundPresentModes; i++)
+		VkPresentModeKHR PotentialModes[] = {VK_PRESENT_MODE_MAILBOX_KHR, VK_PRESENT_MODE_FIFO_KHR};
+		for (VkPresentModeKHR PotentialMode : PotentialModes)
 		{
-			if (FoundPresentModes[i] == PresentMode)
+			for (size_t i = 0; i < NumFoundPresentModes; i++)
 			{
-				bFoundDesiredMode = true;
+				if (FoundPresentModes[i] == PotentialMode)
+				{
+					bFoundDesiredMode = true;
+					PresentMode = PotentialMode;
+					break;
+				}
+			}
+
+			if (bFoundDesiredMode)
+			{
 				break;
 			}
 		}
 		if (!bFoundDesiredMode)
 		{
-			UE_LOG(LogVulkanRHI, Warning, TEXT("Couldn't find Present Mode %d!"), (int32)PresentMode);
+			UE_LOG(LogVulkanRHI, Warning, TEXT("Couldn't find desired VkPresentModeKHR %d! Using %d"), (int32)PresentMode, FoundPresentModes[0]);
 			PresentMode = FoundPresentModes[0];
 		}
 	}
 
 	// Check the surface properties and formats
-	
+
 	VkSurfaceCapabilitiesKHR SurfProperties;
 	VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(Device.GetPhysicalHandle(),
 		Surface,
@@ -192,7 +217,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 	{
 		CompositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 	}
-	
+
 	// 0 means no limit, so use the requested number
 	uint32 DesiredNumBuffers = SurfProperties.maxImageCount > 0 ? FMath::Clamp(*InOutDesiredNumBackBuffers, SurfProperties.minImageCount, SurfProperties.maxImageCount) : *InOutDesiredNumBackBuffers;
 
@@ -263,12 +288,15 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 	ImageAcquiredSemaphore.AddUninitialized(DesiredNumBuffers);
 	for (uint32 BufferIndex = 0; BufferIndex < DesiredNumBuffers; ++BufferIndex)
 	{
-		ImageAcquiredSemaphore[BufferIndex] = new FVulkanSemaphore(Device);
+		ImageAcquiredSemaphore[BufferIndex] = new VulkanRHI::FSemaphore(Device);
+		ImageAcquiredSemaphore[BufferIndex]->AddRef();
 	}
 }
 
 void FVulkanSwapChain::Destroy()
 {
+	check(FVulkanPlatform::SupportsStandardSwapchain());
+
 	VulkanRHI::vkDestroySwapchainKHR(Device.GetInstanceHandle(), SwapChain, nullptr);
 	SwapChain = VK_NULL_HANDLE;
 
@@ -283,15 +311,17 @@ void FVulkanSwapChain::Destroy()
 	//#todo-rco: Enqueue for deletion as we first need to destroy the cmd buffers and queues otherwise validation fails
 	for (int BufferIndex = 0; BufferIndex < ImageAcquiredSemaphore.Num(); ++BufferIndex)
 	{
-		delete ImageAcquiredSemaphore[BufferIndex];
+		ImageAcquiredSemaphore[BufferIndex]->Release();
 	}
 
 	VulkanRHI::vkDestroySurfaceKHR(Instance, Surface, nullptr);
 	Surface = VK_NULL_HANDLE;
 }
 
-int32 FVulkanSwapChain::AcquireImageIndex(FVulkanSemaphore** OutSemaphore)
+int32 FVulkanSwapChain::AcquireImageIndex(VulkanRHI::FSemaphore** OutSemaphore)
 {
+	check(FVulkanPlatform::SupportsStandardSwapchain());
+
 	// Get the index of the next swapchain image we should render to.
 	// We'll wait with an "infinite" timeout, the function will block until an image is ready.
 	// The ImageAcquiredSemaphore[ImageAcquiredSemaphoreIndex] will get signaled when the image is ready (upon function return).
@@ -303,30 +333,23 @@ int32 FVulkanSwapChain::AcquireImageIndex(FVulkanSemaphore** OutSemaphore)
 	checkf(!(NumAcquireCalls == ImageAcquiredSemaphore.Num() - 1 && NumPresentCalls == 0), TEXT("vkAcquireNextImageKHR will fail as no images have been presented before acquiring all of them"));
 #if VULKAN_USE_IMAGE_ACQUIRE_FENCES
 	VulkanRHI::FFenceManager& FenceMgr = Device.GetFenceManager();
-	//#todo-rco: Is this the right place?
-	// Make sure the CPU doesn't get too ahead of the GPU
-	if (GShouldCpuWaitForFence)
-	{
-		SCOPE_CYCLE_COUNTER(STAT_VulkanWaitSwapchain);
-		if (!ImageAcquiredFences[SemaphoreIndex]->IsSignaled())
-		{
-			bool bResult = FenceMgr.WaitForFence(ImageAcquiredFences[SemaphoreIndex], UINT32_MAX);
-			ensure(bResult);
-		}
-	}
 	FenceMgr.ResetFence(ImageAcquiredFences[SemaphoreIndex]);
 #endif
-	VkResult Result = VulkanRHI::vkAcquireNextImageKHR(
-		Device.GetInstanceHandle(),
-		SwapChain,
-		UINT64_MAX,
-		ImageAcquiredSemaphore[SemaphoreIndex]->GetHandle(),
+	VkResult Result;
+	{
+		SCOPE_CYCLE_COUNTER(STAT_VulkanAcquireBackBuffer);
+		Result = VulkanRHI::vkAcquireNextImageKHR(
+			Device.GetInstanceHandle(),
+			SwapChain,
+			UINT64_MAX,
+			ImageAcquiredSemaphore[SemaphoreIndex]->GetHandle(),
 #if VULKAN_USE_IMAGE_ACQUIRE_FENCES
-		ImageAcquiredFences[SemaphoreIndex]->GetHandle(),
+			ImageAcquiredFences[SemaphoreIndex]->GetHandle(),
 #else
-		VK_NULL_HANDLE,
+			VK_NULL_HANDLE,
 #endif
-		&ImageIndex);
+			&ImageIndex);
+	}
 	if (Result == VK_ERROR_OUT_OF_DATE_KHR)
 	{
 		SemaphoreIndex = PrevSemaphoreIndex;
@@ -355,7 +378,7 @@ int32 FVulkanSwapChain::AcquireImageIndex(FVulkanSemaphore** OutSemaphore)
 		checkf(Result == VK_SUCCESS || Result == VK_SUBOPTIMAL_KHR, TEXT("vkAcquireNextImageKHR failed Result = %d"), int32(Result));
 	}
 	CurrentImageIndex = (int32)ImageIndex;
-	
+
 #if VULKAN_USE_IMAGE_ACQUIRE_FENCES
 	{
 		SCOPE_CYCLE_COUNTER(STAT_VulkanWaitSwapchain);
@@ -366,8 +389,10 @@ int32 FVulkanSwapChain::AcquireImageIndex(FVulkanSemaphore** OutSemaphore)
 	return CurrentImageIndex;
 }
 
-FVulkanSwapChain::EStatus FVulkanSwapChain::Present(FVulkanQueue* GfxQueue, FVulkanQueue* PresentQueue, FVulkanSemaphore* BackBufferRenderingDoneSemaphore)
+FVulkanSwapChain::EStatus FVulkanSwapChain::Present(FVulkanQueue* GfxQueue, FVulkanQueue* PresentQueue, VulkanRHI::FSemaphore* BackBufferRenderingDoneSemaphore)
 {
+	check(FVulkanPlatform::SupportsStandardSwapchain());
+
 	if (CurrentImageIndex == -1)
 	{
 		// Skip present silently if image has not been acquired
@@ -415,7 +440,7 @@ FVulkanSwapChain::EStatus FVulkanSwapChain::Present(FVulkanQueue* GfxQueue, FVul
 }
 
 
-void FVulkanDevice::SetupPresentQueue(const VkSurfaceKHR& Surface)
+void FVulkanDevice::SetupPresentQueue(VkSurfaceKHR Surface)
 {
 	if (!PresentQueue)
 	{
@@ -438,8 +463,10 @@ void FVulkanDevice::SetupPresentQueue(const VkSurfaceKHR& Surface)
 		{
 			SupportsPresent(Gpu, TransferQueue);
 		}
-		if (ComputeQueue->GetFamilyIndex() != GfxQueue->GetFamilyIndex() && bCompute)
+		if (GAllowPresentOnComputeQueue.GetValueOnAnyThread() != 0 && ComputeQueue->GetFamilyIndex() != GfxQueue->GetFamilyIndex() && bCompute)
 		{
+			//#todo-rco: Do other IHVs have a fast path here?
+			bPresentOnComputeQueue = IsRHIDeviceAMD();
 			PresentQueue = ComputeQueue;
 		}
 		else

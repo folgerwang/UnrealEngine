@@ -462,8 +462,14 @@ public:
 		: bUnbuildLighting( InUnbuildLighting ),
 		  bRefreshBounds( InRefreshBounds )
 	{
-		for ( TObjectIterator<UStaticMeshComponent> It;It;++It )
+		for (TObjectIterator<UStaticMeshComponent> It; It; ++It)
 		{
+			// First, flush all deferred render updates, as they may depend on InStaticMesh.
+			if (It->IsRenderStateDirty() && It->IsRegistered() && !It->IsTemplate() && !It->IsPendingKill())
+			{
+				It->DoDeferredRenderUpdates_Concurrent();
+			}
+
 			if ( It->GetStaticMesh() == InStaticMesh )
 			{
 				checkf( !It->IsUnreachable(), TEXT("%s"), *It->GetFullName() );
@@ -638,6 +644,8 @@ protected:
 
 		/** Vertex color data for this LOD (or NULL when not overridden), FStaticMeshComponentLODInfo handle the release of the memory */
 		FColorVertexBuffer* OverrideColorVertexBuffer;
+
+		TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> OverrideColorVFUniformBuffer;
 
 		const FRawStaticIndexBuffer* PreCulledIndexBuffer;
 

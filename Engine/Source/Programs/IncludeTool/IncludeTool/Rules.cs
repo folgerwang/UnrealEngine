@@ -205,6 +205,15 @@ namespace IncludeTool
 		}
 
 		/// <summary>
+		/// Determines whether to ignore parsing exported symbols from a file
+		/// </summary>
+		/// <returns>True to ignore exported symbols</returns>
+		public static bool ShouldIgnoreExports(string NormalizedPath)
+		{
+			return NormalizedPath.StartsWith("/engine/plugins/notforlicensees/uephysics/");
+		}
+
+		/// <summary>
 		/// Determines if the given file path is to a C++ source (or header) file
 		/// </summary>
 		/// <param name="NormalizedPath">Path to the file, from the branch root</param>
@@ -506,6 +515,10 @@ namespace IncludeTool
 			if(AllowMultipleFragmentFileNames.Contains(NormalizedPath))
 			{
 				Flags |= SourceFileFlags.AllowMultipleFragments;
+			}
+			if(ShouldIgnoreExports(NormalizedPath))
+			{
+				Flags |= SourceFileFlags.IgnoreExportedSymbols;
 			}
 			return Flags;
 		}

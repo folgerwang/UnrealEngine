@@ -7,31 +7,6 @@
 
 #pragma clang diagnostic ignored "-Wnullability-completeness"
 
-#if !METAL_SUPPORTS_HEAPS
-
-@protocol IMTLFence <NSObject>
-@property (nonnull, readonly) id <MTLDevice> device;
-@property (nullable, copy, atomic) NSString *label;
-@end
-
-/*!
- @abstract Point at which a fence may be waited on or signaled.
- @constant MTLRenderStageVertex All vertex work prior to rasterization has completed.
- @constant MTLRenderStageFragment All rendering work has completed.
- */
-typedef NS_OPTIONS(NSUInteger, EMTLRenderStages) {
-	EMTLRenderStageVertex   = (1UL << 0),
-	EMTLRenderStageFragment = (1UL << 1),
-};
-
-#define MTLRenderStages EMTLRenderStages
-#define MTLRenderStageVertex EMTLRenderStageVertex
-#define MTLRenderStageFragment EMTLRenderStageFragment
-
-#define MTLFence IMTLFence
-
-#endif
-
 @class FMetalDebugCommandEncoder;
 
 @interface FMetalDebugFence : FApplePlatformObject<MTLFence>
@@ -90,19 +65,17 @@ class FMetalFence
 {
 public:
 	FMetalFence()
-	: Object(nil)
 	{
 		
 	}
 	
-	explicit FMetalFence(id<MTLFence> Obj)
+	explicit FMetalFence(mtlpp::Fence Obj)
 	: Object(Obj)
 	{
 		
 	}
 	
 	explicit FMetalFence(FMetalFence const& Other)
-	: Object(nil)
 	{
 		operator=(Other);
 	}
@@ -121,24 +94,23 @@ public:
 		return *this;
 	}
 	
-	FMetalFence& operator=(id<MTLFence> const& Other)
+	FMetalFence& operator=(mtlpp::Fence const& Other)
 	{
-		if (Other != Object)
+		if (Other.GetPtr() != Object.GetPtr())
 		{
 			METAL_DEBUG_OPTION(Validate());
-			[Other retain];
 			SafeReleaseMetalFence(Object);
 			Object = Other;
 		}
 		return *this;
 	}
 	
-	operator id<MTLFence>() const
+	operator mtlpp::Fence() const
 	{
 		return Object;
 	}
 	
-	id<MTLFence> operator*() const
+	mtlpp::Fence operator*() const
 	{
 		return Object;
 	}
@@ -149,10 +121,14 @@ public:
 	
 	void Reset(void)
 	{
-		[Object release];
 		Object = nil;
 	}
 	
+	bool IsValid() const
+	{
+		return Object.GetPtr() != nil;
+	}
+	
 private:
-	id<MTLFence> Object;
+	mtlpp::Fence Object;
 };

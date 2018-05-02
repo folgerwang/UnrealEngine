@@ -117,6 +117,7 @@ public:
 	{
 		Reset(0, 0, 0, 0, 0);
 		MemoryBudget = 0;
+		PerfectWantedMipsBudgetResetThresold = 0;
 	}
 
 	/** Resets the state to start a new async job. */
@@ -206,4 +207,11 @@ private:
 
 	/** How much memory is available for textures. */
 	int64 MemoryBudget;
+
+	/**
+	 * The value of all required mips (without memory constraint) used to trigger a budget reset. 
+	 * Whenever the perfect wanted mips drops significantly, we reset the budget to avoid keeping 
+	 * resolution constraint used to fit that previous situation.
+	 */
+	int64 PerfectWantedMipsBudgetResetThresold;
 };

@@ -7,6 +7,8 @@
 #include "VulkanRHIPrivate.h"
 #include "VulkanPendingState.h"
 
+static FCriticalSection GSamplerHashLock;
+
 inline VkSamplerMipmapMode TranslateMipFilterMode(ESamplerFilter Filter)
 {
 	VkSamplerMipmapMode OutFilter = VK_SAMPLER_MIPMAP_MODE_MAX_ENUM;
@@ -220,50 +222,35 @@ static inline VkCullModeFlags RasterizerCullModeToVulkan(ERasterizerCullMode InC
 }
 
 
-FVulkanSamplerState::FVulkanSamplerState(const FSamplerStateInitializerRHI& Initializer, FVulkanDevice& InDevice) :
-	Sampler(VK_NULL_HANDLE),
-	Device(InDevice)
+void FVulkanSamplerState::SetupSamplerCreateInfo(const FSamplerStateInitializerRHI& Initializer, FVulkanDevice& InDevice, VkSamplerCreateInfo& OutSamplerInfo)
 {
-#if !VULKAN_KEEP_CREATE_INFO
-	VkSamplerCreateInfo SamplerInfo;
-#endif
-	FMemory::Memzero(SamplerInfo);
-	SamplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	FMemory::Memzero(OutSamplerInfo);
+	OutSamplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 
-	SamplerInfo.magFilter = TranslateMagFilterMode(Initializer.Filter);
-	SamplerInfo.minFilter = TranslateMinFilterMode(Initializer.Filter);
-	SamplerInfo.mipmapMode = TranslateMipFilterMode(Initializer.Filter);
-#if PLATFORM_ANDROID
-	// Some Android devices might not support this extension
+	OutSamplerInfo.magFilter = TranslateMagFilterMode(Initializer.Filter);
+	OutSamplerInfo.minFilter = TranslateMinFilterMode(Initializer.Filter);
+	OutSamplerInfo.mipmapMode = TranslateMipFilterMode(Initializer.Filter);
 	const bool bSupportsMirrorClampToEdge = InDevice.GetOptionalExtensions().HasMirrorClampToEdge;
-#else
-	// All major desktop devices supports this extension
-	const bool bSupportsMirrorClampToEdge = true;
-#endif
-	SamplerInfo.addressModeU = TranslateWrapMode(Initializer.AddressU, bSupportsMirrorClampToEdge);
-	SamplerInfo.addressModeV = TranslateWrapMode(Initializer.AddressV, bSupportsMirrorClampToEdge);
-	SamplerInfo.addressModeW = TranslateWrapMode(Initializer.AddressW, bSupportsMirrorClampToEdge);
-	
+	OutSamplerInfo.addressModeU = TranslateWrapMode(Initializer.AddressU, bSupportsMirrorClampToEdge);
+	OutSamplerInfo.addressModeV = TranslateWrapMode(Initializer.AddressV, bSupportsMirrorClampToEdge);
+	OutSamplerInfo.addressModeW = TranslateWrapMode(Initializer.AddressW, bSupportsMirrorClampToEdge);
 
-	SamplerInfo.mipLodBias = Initializer.MipBias;
-	SamplerInfo.maxAnisotropy = FMath::Clamp((float)ComputeAnisotropyRT(Initializer.MaxAnisotropy), 1.0f, InDevice.GetLimits().maxSamplerAnisotropy);
-	SamplerInfo.anisotropyEnable = SamplerInfo.maxAnisotropy > 1;
+	OutSamplerInfo.mipLodBias = Initializer.MipBias;
+	OutSamplerInfo.maxAnisotropy = FMath::Clamp((float)ComputeAnisotropyRT(Initializer.MaxAnisotropy), 1.0f, InDevice.GetLimits().maxSamplerAnisotropy);
+	OutSamplerInfo.anisotropyEnable = OutSamplerInfo.maxAnisotropy > 1;
 
-	// FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Using LOD Group %d / %d, MaxAniso = %f \n"), (int32)Initializer.Filter, Initializer.MaxAnisotropy, SamplerInfo.maxAnisotropy);
-
-	SamplerInfo.compareEnable = Initializer.SamplerComparisonFunction != SCF_Never ? VK_TRUE : VK_FALSE;
-	SamplerInfo.compareOp = TranslateSamplerCompareFunction(Initializer.SamplerComparisonFunction);
-	SamplerInfo.minLod = Initializer.MinMipLevel;
-	SamplerInfo.maxLod = Initializer.MaxMipLevel;
-	SamplerInfo.borderColor = Initializer.BorderColor == 0 ? VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK : VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-
-	VERIFYVULKANRESULT(VulkanRHI::vkCreateSampler(Device.GetInstanceHandle(), &SamplerInfo, nullptr, &Sampler));
+	OutSamplerInfo.compareEnable = Initializer.SamplerComparisonFunction != SCF_Never ? VK_TRUE : VK_FALSE;
+	OutSamplerInfo.compareOp = TranslateSamplerCompareFunction(Initializer.SamplerComparisonFunction);
+	OutSamplerInfo.minLod = Initializer.MinMipLevel;
+	OutSamplerInfo.maxLod = Initializer.MaxMipLevel;
+	OutSamplerInfo.borderColor = Initializer.BorderColor == 0 ? VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK : VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 }
 
-FVulkanSamplerState::~FVulkanSamplerState()
+
+FVulkanSamplerState::FVulkanSamplerState(const VkSamplerCreateInfo& InInfo, FVulkanDevice& InDevice) :
+	Sampler(VK_NULL_HANDLE)
 {
-	Device.GetDeferredDeletionQueue().EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::Sampler, Sampler);
-	Sampler = VK_NULL_HANDLE;
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateSampler(InDevice.GetInstanceHandle(), &InInfo, nullptr, &Sampler));
 }
 
 FVulkanRasterizerState::FVulkanRasterizerState(const FRasterizerStateInitializerRHI& Initializer)
@@ -286,44 +273,47 @@ FVulkanRasterizerState::FVulkanRasterizerState(const FRasterizerStateInitializer
 	//RasterizerState.lineWidth = 1.0f;
 }
 
-FVulkanDepthStencilState::FVulkanDepthStencilState(const FDepthStencilStateInitializerRHI& Initializer)
+void FVulkanDepthStencilState::SetupCreateInfo(const FGraphicsPipelineStateInitializer& GfxPSOInit, VkPipelineDepthStencilStateCreateInfo& OutDepthStencilState)
 {
-	FMemory::Memzero(DepthStencilState);
-	DepthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	FMemory::Memzero(OutDepthStencilState);
+	OutDepthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 
-	DepthStencilState.depthTestEnable = (Initializer.DepthTest != CF_Always || Initializer.bEnableDepthWrite) ? VK_TRUE : VK_FALSE;
-	DepthStencilState.depthCompareOp = CompareOpToVulkan(Initializer.DepthTest);
-	DepthStencilState.depthWriteEnable = Initializer.bEnableDepthWrite ? VK_TRUE : VK_FALSE;
+	OutDepthStencilState.depthTestEnable = (Initializer.DepthTest != CF_Always || Initializer.bEnableDepthWrite) ? VK_TRUE : VK_FALSE;
+	OutDepthStencilState.depthCompareOp = CompareOpToVulkan(Initializer.DepthTest);
+	OutDepthStencilState.depthWriteEnable = Initializer.bEnableDepthWrite ? VK_TRUE : VK_FALSE;
 
-	DepthStencilState.depthBoundsTestEnable = VK_FALSE;	// What is this?
-	DepthStencilState.minDepthBounds = 0;
-	DepthStencilState.maxDepthBounds = 0;
+	{
+		// This will be filled in from the PSO
+		OutDepthStencilState.depthBoundsTestEnable = GfxPSOInit.bDepthBounds;
+		OutDepthStencilState.minDepthBounds = 0.0f;
+		OutDepthStencilState.maxDepthBounds = 1.0f;
+	}
 
-	DepthStencilState.stencilTestEnable = (Initializer.bEnableFrontFaceStencil || Initializer.bEnableBackFaceStencil) ? VK_TRUE : VK_FALSE;
+	OutDepthStencilState.stencilTestEnable = (Initializer.bEnableFrontFaceStencil || Initializer.bEnableBackFaceStencil) ? VK_TRUE : VK_FALSE;
 
 	// Front
-	DepthStencilState.back.failOp = StencilOpToVulkan(Initializer.FrontFaceStencilFailStencilOp);
-	DepthStencilState.back.passOp = StencilOpToVulkan(Initializer.FrontFacePassStencilOp);
-	DepthStencilState.back.depthFailOp = StencilOpToVulkan(Initializer.FrontFaceDepthFailStencilOp);
-	DepthStencilState.back.compareOp = CompareOpToVulkan(Initializer.FrontFaceStencilTest);
-	DepthStencilState.back.compareMask = Initializer.StencilReadMask;
-	DepthStencilState.back.writeMask = Initializer.StencilWriteMask;
-	DepthStencilState.back.reference = 0;
+	OutDepthStencilState.back.failOp = StencilOpToVulkan(Initializer.FrontFaceStencilFailStencilOp);
+	OutDepthStencilState.back.passOp = StencilOpToVulkan(Initializer.FrontFacePassStencilOp);
+	OutDepthStencilState.back.depthFailOp = StencilOpToVulkan(Initializer.FrontFaceDepthFailStencilOp);
+	OutDepthStencilState.back.compareOp = CompareOpToVulkan(Initializer.FrontFaceStencilTest);
+	OutDepthStencilState.back.compareMask = Initializer.StencilReadMask;
+	OutDepthStencilState.back.writeMask = Initializer.StencilWriteMask;
+	OutDepthStencilState.back.reference = 0;
 
 	if (Initializer.bEnableBackFaceStencil)
 	{
 		// Back
-		DepthStencilState.front.failOp = StencilOpToVulkan(Initializer.BackFaceStencilFailStencilOp);
-		DepthStencilState.front.passOp = StencilOpToVulkan(Initializer.BackFacePassStencilOp);
-		DepthStencilState.front.depthFailOp = StencilOpToVulkan(Initializer.BackFaceDepthFailStencilOp);
-		DepthStencilState.front.compareOp = CompareOpToVulkan(Initializer.BackFaceStencilTest);
-		DepthStencilState.front.compareMask = Initializer.StencilReadMask;
-		DepthStencilState.front.writeMask = Initializer.StencilWriteMask;
-		DepthStencilState.front.reference = 0;
+		OutDepthStencilState.front.failOp = StencilOpToVulkan(Initializer.BackFaceStencilFailStencilOp);
+		OutDepthStencilState.front.passOp = StencilOpToVulkan(Initializer.BackFacePassStencilOp);
+		OutDepthStencilState.front.depthFailOp = StencilOpToVulkan(Initializer.BackFaceDepthFailStencilOp);
+		OutDepthStencilState.front.compareOp = CompareOpToVulkan(Initializer.BackFaceStencilTest);
+		OutDepthStencilState.front.compareMask = Initializer.StencilReadMask;
+		OutDepthStencilState.front.writeMask = Initializer.StencilWriteMask;
+		OutDepthStencilState.front.reference = 0;
 	}
 	else
 	{
-		DepthStencilState.front = DepthStencilState.back;
+		OutDepthStencilState.front = OutDepthStencilState.back;
 	}
 }
 
@@ -357,7 +347,24 @@ FVulkanBlendState::FVulkanBlendState(const FBlendStateInitializerRHI& Initialize
 
 FSamplerStateRHIRef FVulkanDynamicRHI::RHICreateSamplerState(const FSamplerStateInitializerRHI& Initializer)
 {
-	return new FVulkanSamplerState(Initializer, *Device);
+	VkSamplerCreateInfo SamplerInfo;
+	FVulkanSamplerState::SetupSamplerCreateInfo(Initializer, *Device, SamplerInfo);
+
+	uint32 CRC = FCrc::MemCrc32(&SamplerInfo, sizeof(SamplerInfo));
+
+	{
+		FScopeLock ScopeLock(&GSamplerHashLock);
+		TMap<uint32, FSamplerStateRHIRef>& SamplerMap = Device->GetSamplerMap();
+		FSamplerStateRHIRef* Found = SamplerMap.Find(CRC);
+		if (Found)
+		{
+			return *Found;
+		}
+
+		FSamplerStateRHIRef New = new FVulkanSamplerState(SamplerInfo, *Device);
+		SamplerMap.Add(CRC, New);
+		return New;
+	}
 }
 
 

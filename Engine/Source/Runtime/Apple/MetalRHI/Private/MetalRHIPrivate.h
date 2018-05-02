@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	MetalRHIPrivate.h: Private Metal RHI definitions.
+	MetalRHIPrivate.h: Private Metal RHI definitions.....
 =============================================================================*/
 
 #pragma once
@@ -11,25 +11,43 @@
 #include "Misc/CommandLine.h"
 #include "PixelFormat.h"
 
+// Dependencies
+#include "MetalRHI.h"
+#include "RHI.h"
+#import <Metal/Metal.h>
+#import <QuartzCore/CAMetalLayer.h>
+
+// Metal C++ wrapper
+THIRD_PARTY_INCLUDES_START
+#include "mtlpp.hpp"
+THIRD_PARTY_INCLUDES_END
+
+// Whether the Metal RHI is initialized sufficiently to handle resources
+extern bool GIsMetalInitialized;
+
 // Requirement for vertex buffer offset field
+#if PLATFORM_MAC
 const uint32 BufferOffsetAlignment = 256;
+#else
+const uint32 BufferOffsetAlignment = 16;
+#endif
 
 // The buffer page size that can be uploaded in a set*Bytes call
 const uint32 MetalBufferPageSize = 4096;
 
-#define BUFFER_CACHE_MODE MTLResourceCPUCacheModeDefaultCache
+#define BUFFER_CACHE_MODE mtlpp::ResourceOptions::CpuCacheModeDefaultCache
 
 #if PLATFORM_MAC
-#define BUFFER_MANAGED_MEM MTLResourceStorageModeManaged
-#define BUFFER_STORAGE_MODE MTLStorageModeManaged
-#define BUFFER_RESOURCE_STORAGE_MANAGED MTLResourceStorageModeManaged
+#define BUFFER_MANAGED_MEM mtlpp::ResourceOptions::StorageModeManaged
+#define BUFFER_STORAGE_MODE mtlpp::StorageMode::Managed
+#define BUFFER_RESOURCE_STORAGE_MANAGED mtlpp::ResourceOptions::StorageModeManaged
 #define BUFFER_DYNAMIC_REALLOC BUF_AnyDynamic
 // How many possible vertex streams are allowed
 const uint32 MaxMetalStreams = 31;
 #else
 #define BUFFER_MANAGED_MEM 0
-#define BUFFER_STORAGE_MODE MTLStorageModeShared
-#define BUFFER_RESOURCE_STORAGE_MANAGED MTLResourceStorageModeShared
+#define BUFFER_STORAGE_MODE mtlpp::StorageMode::Shared
+#define BUFFER_RESOURCE_STORAGE_MANAGED mtlpp::ResourceOptions::StorageModeShared
 #define BUFFER_DYNAMIC_REALLOC BUF_AnyDynamic
 // How many possible vertex streams are allowed
 const uint32 MaxMetalStreams = 30;
@@ -45,9 +63,8 @@ enum EMTLTextureType
 	EMTLTextureTypeCubeArray = 6
 };
 
-#define METAL_SUPPORTS_HEAPS !PLATFORM_MAC
 // This is the right VERSION check, see Availability.h in the SDK
-#define METAL_SUPPORTS_INDIRECT_ARGUMENT_BUFFERS (!PLATFORM_MAC && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000) && (__clang_major__ >= 9)
+#define METAL_SUPPORTS_INDIRECT_ARGUMENT_BUFFERS ((PLATFORM_MAC && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101300) || (!PLATFORM_MAC && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000)) && (__clang_major__ >= 9)
 #define METAL_SUPPORTS_CAPTURE_MANAGER (PLATFORM_MAC && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101300) || (!PLATFORM_MAC && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000) && (__clang_major__ >= 9)
 #define METAL_SUPPORTS_TILE_SHADERS (!PLATFORM_MAC && !PLATFORM_TVOS && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000) && (__clang_major__ >= 9)
 // In addition to compile-time SDK checks we also need a way to check if these are available on runtime
@@ -61,7 +78,7 @@ extern bool GMetalCommandBufferHasStartEndTimeAPI;
 struct FMetalBufferFormat
 {
 	// Valid linear texture pixel formats - potentially different than the actual texture formats
-	MTLPixelFormat LinearTextureFormat;
+	mtlpp::PixelFormat LinearTextureFormat;
 	// Metal buffer data types for manual ALU format conversions
 	uint8 DataFormat;
 };
@@ -77,8 +94,6 @@ extern FMetalBufferFormat GMetalBufferFormats[PF_MAX];
 
 extern bool GMetalSupportsTileShaders;
 
-#define SHOULD_TRACK_OBJECTS (UE_BUILD_DEBUG)
-
 /** Set to 1 to enable GPU events in Xcode frame debugger */
 #define ENABLE_METAL_GPUEVENTS	(UE_BUILD_DEBUG | UE_BUILD_DEVELOPMENT)
 #define ENABLE_METAL_GPUPROFILE	(ENABLE_METAL_GPUEVENTS & 1)
@@ -88,23 +103,17 @@ extern bool GMetalSupportsTileShaders;
 
 #define METAL_NEW_NONNULL_DECL (__clang_major__ >= 9)
 
-// Dependencies
-#include "MetalRHI.h"
-#include "RHI.h"
-#import <Metal/Metal.h>
-#import <QuartzCore/CAMetalLayer.h>
-
 // Access the internal context for the device-owning DynamicRHI object
 FMetalDeviceContext& GetMetalDeviceContext();
 
 // Safely release a metal object, correctly handling the case where the RHI has been destructed first
 void SafeReleaseMetalObject(id Object);
 
-// Safely release a metal resource, correctly handling the case where the RHI has been destructed first
-void SafeReleaseMetalResource(id<MTLResource> Object);
+// Safely release a metal texture, correctly handling the case where the RHI has been destructed first
+void SafeReleaseMetalTexture(FMetalTexture& Object);
 
-// Safely release a pooled buffer, correctly handling the case where the RHI has been destructed first
-void SafeReleasePooledBuffer(id<MTLBuffer> Buffer);
+// Safely release a metal buffer, correctly handling the case where the RHI has been destructed first
+void SafeReleaseMetalBuffer(FMetalBuffer& Buffer);
 
 // Safely release a fence, correctly handling cases where fences aren't supported or the debug implementation is used.
 void SafeReleaseMetalFence(id Object);
@@ -114,45 +123,27 @@ FMetalSurface* GetMetalSurfaceFromRHITexture(FRHITexture* Texture);
 
 #define NOT_SUPPORTED(Func) UE_LOG(LogMetal, Fatal, TEXT("'%s' is not supported"), L##Func);
 
-#if !METAL_SUPPORTS_HEAPS
-#define MTLResourceHazardTrackingModeUntracked 0
-#endif
-
-@protocol FMTLBufferExtensions <MTLBuffer>  // extend MTLBuffer.  This overrides the availability declared in MTLBuffer.
-- (id <MTLTexture>)newTextureWithDescriptor:(MTLTextureDescriptor*)descriptor offset:(NSUInteger)offset bytesPerRow:(NSUInteger)bytesPerRow;
-@end
-
-#if SHOULD_TRACK_OBJECTS
-void TrackMetalObject(NSObject* Object);
-void UntrackMetalObject(NSObject* Object);
-#define TRACK_OBJECT(Stat, Obj) INC_DWORD_STAT(Stat); TrackMetalObject(Obj)
-#define UNTRACK_OBJECT(Stat, Obj) DEC_DWORD_STAT(Stat); UntrackMetalObject(Obj)
-#else
-#define TRACK_OBJECT(Stat, Obj) INC_DWORD_STAT(Stat)
-#define UNTRACK_OBJECT(Stat, Obj) DEC_DWORD_STAT(Stat)
-#endif
-
-FORCEINLINE MTLIndexType GetMetalIndexType(EMetalIndexType IndexType)
+FORCEINLINE mtlpp::IndexType GetMetalIndexType(EMetalIndexType IndexType)
 {
 	switch (IndexType)
 	{
-		case EMetalIndexType_UInt16: return MTLIndexTypeUInt16;
-		case EMetalIndexType_UInt32: return MTLIndexTypeUInt32;
+		case EMetalIndexType_UInt16: return mtlpp::IndexType::UInt16;
+		case EMetalIndexType_UInt32: return mtlpp::IndexType::UInt32;
 		case EMetalIndexType_None:
 		default:
 		{
-			UE_LOG(LogMetal, Fatal, TEXT("There is not equivalent MTLIndexType for EMetalIndexType_None"));
-			return MTLIndexTypeUInt16;
+			UE_LOG(LogMetal, Fatal, TEXT("There is not equivalent mtlpp::IndexType for EMetalIndexType_None"));
+			return mtlpp::IndexType::UInt16;
 		}
 	}
 }
 
-FORCEINLINE EMetalIndexType GetRHIMetalIndexType(MTLIndexType IndexType)
+FORCEINLINE EMetalIndexType GetRHIMetalIndexType(mtlpp::IndexType IndexType)
 {
 	switch (IndexType)
 	{
-		case MTLIndexTypeUInt16: return EMetalIndexType_UInt16;
-		case MTLIndexTypeUInt32: return EMetalIndexType_UInt32;
+		case mtlpp::IndexType::UInt16: return EMetalIndexType_UInt16;
+		case mtlpp::IndexType::UInt32: return EMetalIndexType_UInt32;
 		default: return EMetalIndexType_None;
 	}
 }
@@ -172,34 +163,36 @@ FORCEINLINE int32 GetMetalCubeFace(ECubeFace Face)
 	}
 }
 
-FORCEINLINE MTLLoadAction GetMetalRTLoadAction(ERenderTargetLoadAction LoadAction)
+FORCEINLINE mtlpp::LoadAction GetMetalRTLoadAction(ERenderTargetLoadAction LoadAction)
 {
 	switch(LoadAction)
 	{
-		case ERenderTargetLoadAction::ENoAction: return MTLLoadActionDontCare;
-		case ERenderTargetLoadAction::ELoad: return MTLLoadActionLoad;
-		case ERenderTargetLoadAction::EClear: return MTLLoadActionClear;
-		default: return MTLLoadActionDontCare;
+		case ERenderTargetLoadAction::ENoAction: return mtlpp::LoadAction::DontCare;
+		case ERenderTargetLoadAction::ELoad: return mtlpp::LoadAction::Load;
+		case ERenderTargetLoadAction::EClear: return mtlpp::LoadAction::Clear;
+		default: return mtlpp::LoadAction::DontCare;
 	}
 }
 
 uint32 TranslateElementTypeToSize(EVertexElementType Type);
 
-MTLPrimitiveType TranslatePrimitiveType(uint32 PrimitiveType);
+mtlpp::PrimitiveType TranslatePrimitiveType(uint32 PrimitiveType);
 
 #if PLATFORM_MAC
-MTLPrimitiveTopologyClass TranslatePrimitiveTopology(uint32 PrimitiveType);
+mtlpp::PrimitiveTopologyClass TranslatePrimitiveTopology(uint32 PrimitiveType);
 #endif
 
-MTLPixelFormat ToSRGBFormat(MTLPixelFormat LinMTLFormat);
+mtlpp::PixelFormat ToSRGBFormat(mtlpp::PixelFormat LinMTLFormat);
 
-uint8 GetMetalPixelFormatKey(MTLPixelFormat Format);
+uint8 GetMetalPixelFormatKey(mtlpp::PixelFormat Format);
 
 template<typename TRHIType>
 static FORCEINLINE typename TMetalResourceTraits<TRHIType>::TConcreteType* ResourceCast(TRHIType* Resource)
 {
 	return static_cast<typename TMetalResourceTraits<TRHIType>::TConcreteType*>(Resource);
 }
+
+uint32 SafeGetRuntimeDebuggingLevel();
 
 #include "MetalStateCache.h"
 #include "MetalContext.h"

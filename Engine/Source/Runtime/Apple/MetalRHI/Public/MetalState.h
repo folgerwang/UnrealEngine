@@ -8,6 +8,9 @@
 
 #include "CoreMinimal.h"
 #include "RHI.h"
+THIRD_PARTY_INCLUDES_START
+#include "mtlpp.hpp"
+THIRD_PARTY_INCLUDES_END
 
 class FMetalSamplerState : public FRHISamplerState
 {
@@ -16,10 +19,10 @@ public:
 	/** 
 	 * Constructor/destructor
 	 */
-	FMetalSamplerState(id<MTLDevice> Device, const FSamplerStateInitializerRHI& Initializer);
+	FMetalSamplerState(mtlpp::Device Device, const FSamplerStateInitializerRHI& Initializer);
 	~FMetalSamplerState();
 
-	id <MTLSamplerState> State;
+	mtlpp::SamplerState State;
 };
 
 class FMetalRasterizerState : public FRHIRasterizerState
@@ -42,10 +45,10 @@ public:
 	/**
 	 * Constructor/destructor
 	 */
-	FMetalDepthStencilState(id<MTLDevice> Device, const FDepthStencilStateInitializerRHI& Initializer);
+	FMetalDepthStencilState(mtlpp::Device Device, const FDepthStencilStateInitializerRHI& Initializer);
 	~FMetalDepthStencilState();
 	
-	id<MTLDepthStencilState> State;
+	mtlpp::DepthStencilState State;
 	bool bIsDepthWriteEnabled;
 	bool bIsStencilWriteEnabled;
 	
@@ -64,7 +67,7 @@ public:
 
 	struct FBlendPerMRT
 	{
-		MTLRenderPipelineColorAttachmentDescriptor* BlendState;
+		mtlpp::RenderPipelineColorAttachmentDescriptor BlendState;
 		uint8 BlendStateKey;
 	};
 	FBlendPerMRT RenderTargetStates[MaxSimultaneousRenderTargets];

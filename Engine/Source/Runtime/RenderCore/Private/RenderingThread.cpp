@@ -1253,7 +1253,7 @@ FPendingCleanupObjects::~FPendingCleanupObjects()
 
 	for (int32 ObjectIndex = 0; ObjectIndex < CleanupArray.Num(); ObjectIndex++)
 	{
-		CleanupArray[ObjectIndex]->FinishCleanup();
+		delete CleanupArray[ObjectIndex];
 	}
 }
 
@@ -1282,7 +1282,7 @@ FPendingCleanupObjects::~FPendingCleanupObjects()
 
 	for (int32 ObjectIndex = 0; ObjectIndex < CleanupArray.Num(); ObjectIndex++)
 	{
-		CleanupArray[ObjectIndex]->FinishCleanup();
+		delete CleanupArray[ObjectIndex];
 	}
 }
 

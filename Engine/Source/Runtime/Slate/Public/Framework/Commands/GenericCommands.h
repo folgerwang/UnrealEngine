@@ -30,4 +30,14 @@ public:
 	TSharedPtr<FUICommandInfo> Delete;
 	TSharedPtr<FUICommandInfo> Rename;
 	TSharedPtr<FUICommandInfo> SelectAll;	
+	
+#if PLATFORM_MAC
+	TSharedPtr<FUICommandInfo> Preferences;	
+	TSharedPtr<FUICommandInfo> Help;
+	TSharedPtr<FUICommandInfo> Hide;
+	TSharedPtr<FUICommandInfo> HideOthers;
+	TSharedPtr<FUICommandInfo> Minimize;
+	TSharedPtr<FUICommandInfo> Close;
+	TSharedPtr<FUICommandInfo> Quit;
+#endif
 };

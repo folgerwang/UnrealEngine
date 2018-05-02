@@ -1,5 +1,5 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// ...
+// ..
 
 #include "VulkanShaderFormat.h"
 #include "VulkanCommon.h"
@@ -444,13 +444,13 @@ static void BuildShaderOutput(
 
 	// Packed Uniform Buffers
 	TMap<int, TMap<CrossCompiler::EPackedTypeName, uint16> > PackedUniformBuffersSize;
-	Header.NEWNumNonGlobalUBs = 0;
+	Header.UNUSED_NumNonGlobalUBs = 0;
 	for (auto& PackedUB : CCHeader.PackedUBs)
 	{
 		//check(PackedUB.Attribute.Index == Header.SerializedBindings.NumUniformBuffers);
-		check(!UsedUniformBufferSlots[Header.NEWNumNonGlobalUBs]);
-		UsedUniformBufferSlots[Header.NEWNumNonGlobalUBs] = true;
-		ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.NEWNumNonGlobalUBs++, PackedUB.Attribute.Index, 0);
+		check(!UsedUniformBufferSlots[Header.UNUSED_NumNonGlobalUBs]);
+		UsedUniformBufferSlots[Header.UNUSED_NumNonGlobalUBs] = true;
+		ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.UNUSED_NumNonGlobalUBs++, PackedUB.Attribute.Index, 0);
 	}
 
 	//#todo-rco: When using regular UBs, also set UsedUniformBufferSlots[] = 1
@@ -602,7 +602,28 @@ static void BuildShaderOutput(
 		return -1;
 	};
 
+	// shared samplers that are actually shared end up being generated as raw sampler uniforms by hlslcc, which follow special naming rules.  they are output as "pz0", "pz1", "pz2", etc...
+	//  take advantage of the FindHlslccBindingByIndex function someone already defined above (but never used?) and scrape these out of the file.
+	//  Note that hlslcc appears to *only* dump raw samplers to its SamplerStates array, and these raw samplers are in indexed order with the 'p'z enumeration.
 	TSet<FString> SharedSamplerStates;
+	for (int32 i = 0; i < CCHeader.SamplerStates.Num(); i++)
+	{
+		int32 HlslccBindingIndex = FindHlslccBindingByIndex(i, EVulkanBindingType::Sampler);
+		check(HlslccBindingIndex != -1);
+
+		const FString& Name = CCHeader.SamplerStates[i].Name;
+		SharedSamplerStates.Add(Name);
+		auto& Binding = HlslccBindings[HlslccBindingIndex];
+		int32 BindingIndex = Spirv.FindBinding(Binding.Name, true);
+		check(BindingIndex != -1);
+		ParameterMap.AddParameterAllocation(
+			*Name,
+			0,
+			BindingIndex,
+			1
+		);
+	}
+
 	for (auto& Sampler : CCHeader.Samplers)
 	{
 		int32 VulkanBindingIndex = Spirv.FindBinding(Sampler.Name, true);
@@ -621,23 +642,10 @@ static void BuildShaderOutput(
 
 		for (auto& SamplerState : Sampler.SamplerStates)
 		{
-			int32 SSBindingIndex = Spirv.FindBinding(SamplerState, true);
-			if (SSBindingIndex != -1)
+			if (!SharedSamplerStates.Contains(SamplerState))
 			{
-				// Non-shared sampler, make sure to just add it once
-				if (!SharedSamplerStates.Contains(SamplerState))
-				{
-					SharedSamplerStates.Add(SamplerState);
-					ParameterMap.AddParameterAllocation(
-						*SamplerState,
-						Sampler.Offset,
-						SSBindingIndex,
-						Sampler.Count
-					);
-				}
-			}
-			else
-			{
+				// ParameterMap does not use a TMultiMap, so we cannot push the same entry to it more than once!  if we try to, we've done something wrong...
+				check(!ParameterMap.ContainsParameterAllocation(*SamplerState));
 				ParameterMap.AddParameterAllocation(
 					*SamplerState,
 					Sampler.Offset,
@@ -731,10 +739,6 @@ static void BuildShaderOutput(
 	Ar << DebugNameArray;
 
 	Ar << Spirv.Data;
-
-	TArray<ANSICHAR> GlslSourceArray;
-	AppendCString(GlslSourceArray, InShaderSource);
-	Ar << GlslSourceArray;
 
 	// store data we can pickup later with ShaderCode.FindOptionalData('n'), could be removed for shipping
 	// Daniel L: This GenerateShaderName does not generate a deterministic output among shaders as the shader code can be shared. 
@@ -1081,8 +1085,8 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 	//	return;
 	//}
 
-	const bool bIsSM5 = (Version == EVulkanShaderVersion::SM5 || Version == EVulkanShaderVersion::SM5_UB);
-	const bool bIsSM4 = (Version == EVulkanShaderVersion::SM4 || Version == EVulkanShaderVersion::SM4_UB);
+	const bool bIsSM5 = (Version == EVulkanShaderVersion::SM5 || Version == EVulkanShaderVersion::SM5_NOUB);
+	const bool bIsSM4 = (Version == EVulkanShaderVersion::SM4 || Version == EVulkanShaderVersion::SM4_NOUB);
 
 	const EHlslShaderFrequency FrequencyTable[] =
 	{
@@ -1111,7 +1115,7 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 	EHlslCompileTarget HlslCompilerTargetES = HCT_FeatureLevelES3_1Ext;
 	AdditionalDefines.SetDefine(TEXT("COMPILER_HLSLCC"), 1);
 	AdditionalDefines.SetDefine(TEXT("COMPILER_VULKAN"), 1);
-	if (Version == EVulkanShaderVersion::ES3_1 || Version == EVulkanShaderVersion::ES3_1_ANDROID || Version == EVulkanShaderVersion::ES3_1_UB)
+	if (Version == EVulkanShaderVersion::ES3_1 || Version == EVulkanShaderVersion::ES3_1_ANDROID || Version == EVulkanShaderVersion::ES3_1_UB || Version == EVulkanShaderVersion::ES3_1_ANDROID_UB)
 	{
 		HlslCompilerTarget = HCT_FeatureLevelES3_1Ext;
 		HlslCompilerTargetES = HCT_FeatureLevelES3_1Ext;
@@ -1170,17 +1174,13 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 
 	FString EntryPointName = Input.EntryPointName;
 
-	if (!RemoveUniformBuffersFromSource(PreprocessedShaderSource))
-	{
-		return;
-	}
+	RemoveUniformBuffersFromSource(Input.Environment, PreprocessedShaderSource);
 
 	FCompilerInfo CompilerInfo(Input, WorkingDirectory, Frequency);
 
 	CompilerInfo.CCFlags |= HLSLCC_PackUniforms;
 	CompilerInfo.CCFlags |= HLSLCC_PackUniformsIntoUniformBuffers;
-
-	if (Version == EVulkanShaderVersion::SM4_UB || Version == EVulkanShaderVersion::SM5_UB || Version == EVulkanShaderVersion::ES3_1_UB)
+	if (Version == EVulkanShaderVersion::SM4 || Version == EVulkanShaderVersion::SM5 || Version == EVulkanShaderVersion::ES3_1_ANDROID_UB || Version == EVulkanShaderVersion::ES3_1_UB)
 	{
 		CompilerInfo.CCFlags |= HLSLCC_FlattenUniformBufferStructures;
 	}

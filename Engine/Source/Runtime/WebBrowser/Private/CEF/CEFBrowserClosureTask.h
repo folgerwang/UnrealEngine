@@ -12,7 +12,15 @@
 
 #pragma push_macro("OVERRIDE")
 #undef OVERRIDE // cef headers provide their own OVERRIDE macro
+THIRD_PARTY_INCLUDES_START
+#if PLATFORM_APPLE
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+#endif
 #include "include/cef_task.h"
+THIRD_PARTY_INCLUDES_END
+#if PLATFORM_APPLE
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+#endif
 #pragma pop_macro("OVERRIDE")
 
 #if PLATFORM_LINUX

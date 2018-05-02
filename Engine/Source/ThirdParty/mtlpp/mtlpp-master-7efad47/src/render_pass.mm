@@ -6,6 +6,7 @@
 // Modifications for Unreal Engine
 
 #include <Metal/MTLRenderPass.h>
+#include <Metal/MTLDepthStencil.h>
 #include "render_pass.hpp"
 #include "texture.hpp"
 
@@ -13,206 +14,68 @@ MTLPP_BEGIN
 
 namespace mtlpp
 {
-	template<typename T>
-    RenderPassAttachmentDescriptor<T>::RenderPassAttachmentDescriptor()
-    {
-    }
-
-	template<typename T>
-    Texture RenderPassAttachmentDescriptor<T>::GetTexture() const
-    {
-        this->Validate();
-        return [this->m_ptr texture];
-    }
-
-	template<typename T>
-    NSUInteger RenderPassAttachmentDescriptor<T>::GetLevel() const
-    {
-       this-> Validate();
-        return NSUInteger([this->m_ptr level]);
-    }
-
-	template<typename T>
-    NSUInteger RenderPassAttachmentDescriptor<T>::GetSlice() const
-    {
-        this->Validate();
-        return NSUInteger([this->m_ptr slice]);
-    }
-
-	template<typename T>
-    NSUInteger RenderPassAttachmentDescriptor<T>::GetDepthPlane() const
-    {
-        this->Validate();
-        return NSUInteger([this->m_ptr depthPlane]);
-    }
-
-	template<typename T>
-    Texture RenderPassAttachmentDescriptor<T>::GetResolveTexture() const
-    {
-        this->Validate();
-        return [this->m_ptr resolveTexture];
-    }
-
-	template<typename T>
-    NSUInteger RenderPassAttachmentDescriptor<T>::GetResolveLevel() const
-    {
-        this->Validate();
-        return NSUInteger([this->m_ptr resolveLevel]);
-    }
-
-	template<typename T>
-    NSUInteger RenderPassAttachmentDescriptor<T>::GetResolveSlice() const
-    {
-        this->Validate();
-        return NSUInteger([this->m_ptr resolveSlice]);
-    }
-
-	template<typename T>
-    NSUInteger RenderPassAttachmentDescriptor<T>::GetResolveDepthPlane() const
-    {
-        this->Validate();
-        return NSUInteger([this->m_ptr resolveDepthPlane]);
-    }
-
-	template<typename T>
-    LoadAction RenderPassAttachmentDescriptor<T>::GetLoadAction() const
-    {
-        this->Validate();
-        return LoadAction([this->m_ptr loadAction]);
-    }
-
-	template<typename T>
-    StoreAction RenderPassAttachmentDescriptor<T>::GetStoreAction() const
-    {
-        this->Validate();
-        return StoreAction([this->m_ptr storeAction]);
-    }
-	
-	template<typename T>
-	StoreActionOptions RenderPassAttachmentDescriptor<T>::GetStoreActionOptions() const
+	RenderPassColorAttachmentDescriptor::RenderPassColorAttachmentDescriptor(ns::Ownership const retain) :
+	RenderPassAttachmentDescriptor(nil, retain)
 	{
-		this->Validate();
-#if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return StoreActionOptions([this->m_ptr storeActionOptions]);
-#else
-		return 0;
-#endif
 	}
-
-	template<typename T>
-    void RenderPassAttachmentDescriptor<T>::SetTexture(const Texture& texture)
-    {
-        this->Validate();
-        [this->m_ptr setTexture:(id<MTLTexture>)texture.GetPtr()];
-    }
-
-	template<typename T>
-    void RenderPassAttachmentDescriptor<T>::SetLevel(NSUInteger level)
-    {
-        this->Validate();
-        [this->m_ptr setLevel:level];
-    }
-
-	template<typename T>
-    void RenderPassAttachmentDescriptor<T>::SetSlice(NSUInteger slice)
-    {
-        this->Validate();
-        [this->m_ptr setSlice:slice];
-    }
-
-	template<typename T>
-    void RenderPassAttachmentDescriptor<T>::SetDepthPlane(NSUInteger depthPlane)
-    {
-        this->Validate();
-        [this->m_ptr setDepthPlane:depthPlane];
-    }
-
-	template<typename T>
-    void RenderPassAttachmentDescriptor<T>::SetResolveTexture(const Texture& texture)
-    {
-        this->Validate();
-        [this->m_ptr setResolveTexture:(id<MTLTexture>)texture.GetPtr()];
-    }
-
-	template<typename T>
-    void RenderPassAttachmentDescriptor<T>::SetResolveLevel(NSUInteger resolveLevel)
-    {
-        this->Validate();
-        [this->m_ptr setResolveLevel:resolveLevel];
-    }
-
-	template<typename T>
-    void RenderPassAttachmentDescriptor<T>::SetResolveSlice(NSUInteger resolveSlice)
-    {
-        this->Validate();
-        [this->m_ptr setResolveSlice:resolveSlice];
-    }
-
-	template<typename T>
-    void RenderPassAttachmentDescriptor<T>::SetResolveDepthPlane(NSUInteger resolveDepthPlane)
-    {
-        this->Validate();
-        [this->m_ptr setResolveDepthPlane:resolveDepthPlane];
-    }
-
-	template<typename T>
-    void RenderPassAttachmentDescriptor<T>::SetLoadAction(LoadAction loadAction)
-    {
-        this->Validate();
-        [this->m_ptr setLoadAction:MTLLoadAction(loadAction)];
-    }
-
-	template<typename T>
-    void RenderPassAttachmentDescriptor<T>::SetStoreAction(StoreAction storeAction)
-    {
-        this->Validate();
-        [this->m_ptr setStoreAction:MTLStoreAction(storeAction)];
-    }
 	
-	template<typename T>
-	void RenderPassAttachmentDescriptor<T>::SetStoreActionOptions(StoreActionOptions options)
-	{
-		this->Validate();
-#if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		[this->m_ptr setStoreActionOptions:(MTLStoreActionOptions)options];
-#endif
-	}
-
-    RenderPassColorAttachmentDescriptor::RenderPassColorAttachmentDescriptor() :
-        RenderPassAttachmentDescriptor([[MTLRenderPassColorAttachmentDescriptor alloc] init])
+	RenderPassColorAttachmentDescriptor::RenderPassColorAttachmentDescriptor() :
+        RenderPassAttachmentDescriptor([[MTLRenderPassColorAttachmentDescriptor alloc] init], ns::Ownership::Assign)
     {
     }
 
     ClearColor RenderPassColorAttachmentDescriptor::GetClearColor() const
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+        MTLPPClearColor mtlClearColor = m_table->clearColor(m_ptr);
+#else
         MTLClearColor mtlClearColor = [(MTLRenderPassColorAttachmentDescriptor*)m_ptr clearColor];
+#endif
         return ClearColor(mtlClearColor.red, mtlClearColor.green, mtlClearColor.blue, mtlClearColor.alpha);
     }
 
     void RenderPassColorAttachmentDescriptor::SetClearColor(const ClearColor& clearColor)
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+        MTLPPClearColor mtlClearColor = { clearColor.Red, clearColor.Green, clearColor.Blue, clearColor.Alpha };
+		m_table->setClearColor(m_ptr, mtlClearColor);
+#else
         MTLClearColor mtlClearColor = { clearColor.Red, clearColor.Green, clearColor.Blue, clearColor.Alpha };
         [(MTLRenderPassColorAttachmentDescriptor*)m_ptr setClearColor:mtlClearColor];
+#endif
     }
 
-    RenderPassDepthAttachmentDescriptor::RenderPassDepthAttachmentDescriptor() :
-        RenderPassAttachmentDescriptor([[MTLRenderPassDepthAttachmentDescriptor alloc] init])
+    RenderPassDepthAttachmentDescriptor::RenderPassDepthAttachmentDescriptor(ns::Ownership const retain) :
+        RenderPassAttachmentDescriptor(nil, retain)
     {
     }
+	
+	RenderPassDepthAttachmentDescriptor::RenderPassDepthAttachmentDescriptor() :
+	RenderPassAttachmentDescriptor([[MTLRenderPassDepthAttachmentDescriptor alloc] init], ns::Ownership::Assign)
+	{
+	}
 
     double RenderPassDepthAttachmentDescriptor::GetClearDepth() const
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+        return m_table->clearDepth(m_ptr);
+#else
         return [(MTLRenderPassDepthAttachmentDescriptor*)m_ptr clearDepth];
+#endif
     }
 
     MultisampleDepthResolveFilter RenderPassDepthAttachmentDescriptor::GetDepthResolveFilter() const
     {
         Validate();
 #if MTLPP_IS_AVAILABLE_AX(9_0)
+#if MTLPP_CONFIG_IMP_CACHE
+        return MultisampleDepthResolveFilter(m_table->depthResolveFilter(m_ptr));
+#else
         return MultisampleDepthResolveFilter([(MTLRenderPassDepthAttachmentDescriptor*)m_ptr depthResolveFilter]);
+#endif
 #else
         return MultisampleDepthResolveFilter(0);
 #endif
@@ -221,7 +84,11 @@ namespace mtlpp
     void RenderPassDepthAttachmentDescriptor::SetClearDepth(double clearDepth)
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->setClearDepth(m_ptr, clearDepth);
+#else
         [(MTLRenderPassDepthAttachmentDescriptor*)m_ptr setClearDepth:clearDepth];
+#endif
     }
 
     void RenderPassDepthAttachmentDescriptor::SetDepthResolveFilter(MultisampleDepthResolveFilter depthResolveFilter)
@@ -232,57 +99,90 @@ namespace mtlpp
 #endif
     }
 
-    RenderPassStencilAttachmentDescriptor::RenderPassStencilAttachmentDescriptor() :
-        RenderPassAttachmentDescriptor([[MTLRenderPassStencilAttachmentDescriptor alloc] init])
+    RenderPassStencilAttachmentDescriptor::RenderPassStencilAttachmentDescriptor(ns::Ownership const retain) :
+        RenderPassAttachmentDescriptor(nil, retain)
     {
     }
+	
+	RenderPassStencilAttachmentDescriptor::RenderPassStencilAttachmentDescriptor() :
+	RenderPassAttachmentDescriptor([[MTLRenderPassStencilAttachmentDescriptor alloc] init], ns::Ownership::Assign)
+	{
+	}
 
     NSUInteger RenderPassStencilAttachmentDescriptor::GetClearStencil() const
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+		return m_table->clearStencil(m_ptr);
+#else
         return NSUInteger([(MTLRenderPassStencilAttachmentDescriptor*)m_ptr clearStencil]);
+#endif
     }
 
     void RenderPassStencilAttachmentDescriptor::SetClearStencil(uint32_t clearStencil)
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->setClearStencil(m_ptr, clearStencil);
+#else
         [(MTLRenderPassStencilAttachmentDescriptor*)m_ptr setClearStencil:clearStencil];
+#endif
     }
 
     RenderPassDescriptor::RenderPassDescriptor() :
-        ns::Object<MTLRenderPassDescriptor*>([[MTLRenderPassDescriptor alloc] init], false)
+        ns::Object<MTLRenderPassDescriptor*>([[MTLRenderPassDescriptor alloc] init], ns::Ownership::Assign)
     {
     }
 
-    ns::Array<RenderPassColorAttachmentDescriptor> RenderPassDescriptor::GetColorAttachments() const
+    ns::AutoReleased<ns::Array<RenderPassColorAttachmentDescriptor>> RenderPassDescriptor::GetColorAttachments() const
     {
         Validate();
-		return (NSArray<RenderPassColorAttachmentDescriptor::Type>*)[(MTLRenderPassDescriptor*)m_ptr colorAttachments];
+#if MTLPP_CONFIG_IMP_CACHE
+		return ns::AutoReleased<ns::Array<RenderPassColorAttachmentDescriptor>>((NSArray<RenderPassColorAttachmentDescriptor::Type>*)m_table->colorAttachments(m_ptr));
+#else
+        return ns::AutoReleased<ns::Array<RenderPassColorAttachmentDescriptor>>((NSArray<RenderPassColorAttachmentDescriptor::Type>*)[(MTLRenderPassDescriptor*)m_ptr colorAttachments]);
+#endif
     }
 
-    RenderPassDepthAttachmentDescriptor RenderPassDescriptor::GetDepthAttachment() const
+    ns::AutoReleased<RenderPassDepthAttachmentDescriptor> RenderPassDescriptor::GetDepthAttachment() const
     {
         Validate();
-        return [(MTLRenderPassDescriptor*)m_ptr depthAttachment];
+#if MTLPP_CONFIG_IMP_CACHE
+		return ns::AutoReleased< RenderPassDepthAttachmentDescriptor>(m_table->depthAttachment(m_ptr));
+#else
+        return ns::AutoReleased<RenderPassDepthAttachmentDescriptor>([(MTLRenderPassDescriptor*)m_ptr depthAttachment]);
+#endif
     }
 
-    RenderPassStencilAttachmentDescriptor RenderPassDescriptor::GetStencilAttachment() const
+    ns::AutoReleased<RenderPassStencilAttachmentDescriptor> RenderPassDescriptor::GetStencilAttachment() const
     {
         Validate();
-        return [(MTLRenderPassDescriptor*)m_ptr stencilAttachment];
+#if MTLPP_CONFIG_IMP_CACHE
+		return ns::AutoReleased<RenderPassStencilAttachmentDescriptor>(m_table->stencilAttachment(m_ptr));
+#else
+        return ns::AutoReleased<RenderPassStencilAttachmentDescriptor>([(MTLRenderPassDescriptor*)m_ptr stencilAttachment]);
+#endif
     }
 
-    Buffer RenderPassDescriptor::GetVisibilityResultBuffer() const
+    ns::AutoReleased<Buffer> RenderPassDescriptor::GetVisibilityResultBuffer() const
     {
         Validate();
-        return [(MTLRenderPassDescriptor*)m_ptr visibilityResultBuffer];
+#if MTLPP_CONFIG_IMP_CACHE
+		return ns::AutoReleased<Buffer>(m_table->visibilityResultBuffer(m_ptr));
+#else
+        return ns::AutoReleased<Buffer>([(MTLRenderPassDescriptor*)m_ptr visibilityResultBuffer]);
+#endif
     }
 
     NSUInteger RenderPassDescriptor::GetRenderTargetArrayLength() const
     {
         Validate();
 #if MTLPP_IS_AVAILABLE_MAC(10_11)
+#if MTLPP_CONFIG_IMP_CACHE
+		return m_table->renderTargetArrayLength(m_ptr);
+#else
         return NSUInteger([(MTLRenderPassDescriptor*)m_ptr renderTargetArrayLength]);
+#endif
 #else
         return 0;
 #endif
@@ -291,26 +191,43 @@ namespace mtlpp
     void RenderPassDescriptor::SetDepthAttachment(const RenderPassDepthAttachmentDescriptor& depthAttachment)
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->setDepthAttachment(m_ptr, depthAttachment.GetPtr());
+#else
         [(MTLRenderPassDescriptor*)m_ptr setDepthAttachment:(MTLRenderPassDepthAttachmentDescriptor*)depthAttachment.GetPtr()];
+#endif
     }
 
     void RenderPassDescriptor::SetStencilAttachment(const RenderPassStencilAttachmentDescriptor& stencilAttachment)
     {
         Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->setStencilAttachment(m_ptr, stencilAttachment.GetPtr());
+#else
         [(MTLRenderPassDescriptor*)m_ptr setStencilAttachment:(MTLRenderPassStencilAttachmentDescriptor*)stencilAttachment.GetPtr()];
+#endif
     }
 
     void RenderPassDescriptor::SetVisibilityResultBuffer(const Buffer& visibilityResultBuffer)
     {
         Validate();
+		assert(visibilityResultBuffer.GetPtr() == nil || visibilityResultBuffer.GetParentBuffer().GetPtr() == nil /* We can't support sub-range buffers for visibility results without overcomplicating mtlpp so you can't use them here. */);
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->setVisibilityResultBuffer(m_ptr, visibilityResultBuffer.GetPtr());
+#else
         [(MTLRenderPassDescriptor*)m_ptr setVisibilityResultBuffer:(id<MTLBuffer>)visibilityResultBuffer.GetPtr()];
+#endif
     }
 
     void RenderPassDescriptor::SetRenderTargetArrayLength(NSUInteger renderTargetArrayLength)
     {
         Validate();
 #if MTLPP_IS_AVAILABLE_MAC(10_11)
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->setRenderTargetArrayLength(m_ptr, renderTargetArrayLength);
+#else
         [(MTLRenderPassDescriptor*)m_ptr setRenderTargetArrayLength:renderTargetArrayLength];
+#endif
 #endif
     }
 	
@@ -318,15 +235,23 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->setSamplePositionscount(m_ptr, (const MTLPPSamplePosition *)positions, count);
+#else
 		[(MTLRenderPassDescriptor*)m_ptr setSamplePositions:(const MTLSamplePosition *)positions count:count];
+#endif
 #endif
 	}
 	
-	NSUInteger RenderPassDescriptor::GetSamplePositions(SamplePosition const* positions, NSUInteger count)
+	NSUInteger RenderPassDescriptor::GetSamplePositions(SamplePosition* positions, NSUInteger count)
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
+		return m_table->getSamplePositionscount(m_ptr, (MTLPPSamplePosition *)positions, count);
+#else
 		return [(MTLRenderPassDescriptor*)m_ptr getSamplePositions:(MTLSamplePosition *)positions count:count];
+#endif
 #else
 		return 0;
 #endif

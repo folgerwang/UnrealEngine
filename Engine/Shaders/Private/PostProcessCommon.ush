@@ -7,6 +7,8 @@
 #ifndef __POST_PROCESS_COMMON__
 #define __POST_PROCESS_COMMON__
 
+#include "SceneTexturesCommon.ush"
+
 /// e.g.
 //   PostprocessInput0.SampleLevel(PostprocessInput0Sampler, float2 UV, 0)
 //   Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, float2 UV)
@@ -170,7 +172,7 @@ float4 GatherSceneDepth(float2 UV, float2 InvBufferSize)
 {
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
 	// using Gather: xyzw in counter clockwise order starting with the sample to the lower left of the queried location
-	float4 DeviceZ = SceneDepthTextureNonMS.Gather(BilinearTextureSampler0, UV);
+	float4 DeviceZ = SceneTexturesStruct.SceneDepthTextureNonMS.Gather(BilinearTextureSampler0, UV);
 
 	return float4(
 		ConvertFromDeviceZ(DeviceZ.x),

@@ -3,13 +3,14 @@
 #pragma once
 
 #include <Metal/Metal.h>
-#include "MetalBufferPools.h"
+#include "MetalBuffer.h"
+#include "MetalQuery.h"
 #include "MetalDebugCommandEncoder.h"
 #include "MetalFence.h"
+#include "command_buffer.hpp"
 
 class FMetalCommandList;
 class FMetalCommandQueue;
-struct MTLCommandBufferRef;
 struct FMetalCommandBufferFence;
 
 /**
@@ -27,6 +28,8 @@ enum EMetalSubmitFlags
 	EMetalSubmitFlagsBreakCommandBuffer = 1 << 2,
 	/** Submit the prologue command-buffer only, leave the current command-buffer active.  */
 	EMetalSubmitFlagsAsyncCommandBuffer = 1 << 3,
+	/** Submit and reset all the cached encoder state.  */
+	EMetalSubmitFlagsResetState = 1 << 4,
 };
 
 /**
@@ -67,7 +70,10 @@ public:
 #pragma mark - Public Command Buffer Accessors -
 	
 	/** @returns the current command buffer */
-	id<MTLCommandBuffer> GetCommandBuffer() const { return CommandBuffer; }
+	mtlpp::CommandBuffer& GetCommandBuffer() { return CommandBuffer; }
+
+	/** @returns the current command buffer */
+	mtlpp::CommandBuffer const& GetCommandBuffer() const { return CommandBuffer; }
 
 #pragma mark - Public Command Encoder Accessors -
 	
@@ -90,21 +96,21 @@ public:
 	bool IsRenderPassDescriptorValid(void) const;
 	
 	/** @returns The active render command encoder or nil if there isn't one. */
-	id<MTLRenderCommandEncoder> GetRenderCommandEncoder(void) const;
+	mtlpp::RenderCommandEncoder& GetRenderCommandEncoder(void);
 	
 	/** @returns The active compute command encoder or nil if there isn't one. */
-	id<MTLComputeCommandEncoder> GetComputeCommandEncoder(void) const;
+	mtlpp::ComputeCommandEncoder& GetComputeCommandEncoder(void);
 	
 	/** @returns The active blit command encoder or nil if there isn't one. */
-	id<MTLBlitCommandEncoder> GetBlitCommandEncoder(void) const;
+	mtlpp::BlitCommandEncoder& GetBlitCommandEncoder(void);
 	
 	/** @returns The MTLFence for the current encoder or nil if there isn't one. */
-	id<MTLFence> GetEncoderFence(void) const;
+	mtlpp::Fence GetEncoderFence(void) const;
 	
 #pragma mark - Public Command Encoder Mutators -
 
 	/**
- 	 * Begins encoding rendering commands into the current command buffer. No other encoder may be active & the MTLRenderPassDescriptor must previously have been set.
+ 	 * Begins encoding rendering commands into the current command buffer. No other encoder may be active & the mtlpp::RenderPassDescriptor must previously have been set.
 	 */
 	void BeginRenderCommandEncoding(void);
 	
@@ -115,19 +121,19 @@ public:
 	void BeginBlitCommandEncoding(void);
 	
 	/** Declare that all command generation from this encoder is complete, and detach from the MTLCommandBuffer if there is an encoder active or does nothing if there isn't. */
-	id<MTLFence> EndEncoding(void);
+	mtlpp::Fence EndEncoding(void);
 	
 	/** Initialises a fence for the current command-buffer optionally adding a command-buffer completion handler to the command-buffer */
-	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, MTLCommandBufferHandler Handler);
+	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, mtlpp::CommandBufferHandler Handler);
 	
 	/** Adds a command-buffer completion handler to the command-buffer */
-	void AddCompletionHandler(MTLCommandBufferHandler Handler);
+	void AddCompletionHandler(mtlpp::CommandBufferHandler Handler);
 	
 	/** Update the event to capture all GPU work so far enqueued by this encoder. */
-	void UpdateFence(id<MTLFence> Fence);
+	void UpdateFence(mtlpp::Fence Fence);
 	
 	/** Prevent further GPU work until the event is reached. */
-	void WaitForFence(id<MTLFence> Fence);
+	void WaitForFence(mtlpp::Fence Fence);
 
 #pragma mark - Public Debug Support -
 	
@@ -135,13 +141,13 @@ public:
 	 * Inserts a debug string into the command buffer.  This does not change any API behavior, but can be useful when debugging.
 	 * @param string The name of the signpost. 
 	 */
-	void InsertDebugSignpost(NSString* const String);
+	void InsertDebugSignpost(ns::String const& String);
 	
 	/*
 	 * Push a new named string onto a stack of string labels.
 	 * @param string The name of the debug group. 
 	 */
-	void PushDebugGroup(NSString* const String);
+	void PushDebugGroup(ns::String const& String);
 	
 	/* Pop the latest named string off of the stack. */
 	void PopDebugGroup(void);
@@ -152,15 +158,15 @@ public:
 	 * Set the render pass descriptor - no encoder may be active when this function is called.
 	 * @param RenderPass The render pass descriptor to set. May be nil.
 	 */
-	void SetRenderPassDescriptor(MTLRenderPassDescriptor* const RenderPass);
+	void SetRenderPassDescriptor(mtlpp::RenderPassDescriptor RenderPass);
 	
 	/**
 	 * Set the render pass store actions, call after SetRenderPassDescriptor but before EndEncoding.
 	 * @param ColorStore The store actions for color targets.
-	 * @param DepthStore The store actions for the depth buffer - use MTLStoreActionUnknown if no depth-buffer bound.
-	 * @param StencilStore The store actions for the stencil buffer - use MTLStoreActionUnknown if no stencil-buffer bound.
+	 * @param DepthStore The store actions for the depth buffer - use mtlpp::StoreAction::Unknown if no depth-buffer bound.
+	 * @param StencilStore The store actions for the stencil buffer - use mtlpp::StoreAction::Unknown if no stencil-buffer bound.
 	 */
-	void SetRenderPassStoreActions(MTLStoreAction const* const ColorStore, MTLStoreAction const DepthStore, MTLStoreAction const StencilStore);
+	void SetRenderPassStoreActions(mtlpp::StoreAction const* const ColorStore, mtlpp::StoreAction const DepthStore, mtlpp::StoreAction const StencilStore);
 	
 	/*
 	 * Sets the current render pipeline state object.
@@ -173,19 +179,19 @@ public:
 	 * @param Viewport The array of viewport dimensions to use.
 	 * @param NumActive The number of active viewport dimensions to use.
 	 */
-	void SetViewport(MTLViewport const Viewport[], uint32 NumActive);
+	void SetViewport(mtlpp::Viewport const Viewport[], uint32 NumActive);
 	
 	/*
 	 * The winding order of front-facing primitives.
 	 * @param FrontFacingWinding The front face winding.
 	 */
-	void SetFrontFacingWinding(MTLWinding const FrontFacingWinding);
+	void SetFrontFacingWinding(mtlpp::Winding const FrontFacingWinding);
 	
 	/*
 	 * Controls if primitives are culled when front facing, back facing, or not culled at all.
 	 * @param CullMode The cull mode.
 	 */
-	void SetCullMode(MTLCullMode const CullMode);
+	void SetCullMode(mtlpp::CullMode const CullMode);
 	
 	/*
 	 * Depth Bias.
@@ -200,13 +206,13 @@ public:
 	 * @param Rect The array of scissor rect dimensions.
 	 * @param NumActive The number of active scissor rect dimensions.
 	 */
-	void SetScissorRect(MTLScissorRect const Rect[], uint32 NumActive);
+	void SetScissorRect(mtlpp::ScissorRect const Rect[], uint32 NumActive);
 	
 	/*
 	 * Set how to rasterize triangle and triangle strip primitives.
 	 * @param FillMode The fill mode.
 	 */
-	void SetTriangleFillMode(MTLTriangleFillMode const FillMode);
+	void SetTriangleFillMode(mtlpp::TriangleFillMode const FillMode);
 	
 	/*
 	 * Set the constant blend color used across all blending on all render targets
@@ -221,7 +227,7 @@ public:
 	 * Set the DepthStencil state object.
 	 * @param DepthStencilState The depth-stencil state, must not be nil.
 	 */
-	void SetDepthStencilState(id<MTLDepthStencilState> const DepthStencilState);
+	void SetDepthStencilState(mtlpp::DepthStencilState const& DepthStencilState);
 	
 	/*
 	 * Set the stencil reference value for both the back and front stencil buffers.
@@ -234,7 +240,7 @@ public:
 	 * @param Mode Controls if the counter is disabled or moniters passing samples.
 	 * @param Offset The offset relative to the occlusion query buffer provided when the command encoder was created.  offset must be a multiple of 8.
 	 */
-	void SetVisibilityResultMode(MTLVisibilityResultMode const Mode, NSUInteger const Offset);
+	void SetVisibilityResultMode(mtlpp::VisibilityResultMode const Mode, NSUInteger const Offset);
 	
 #pragma mark - Public Shader Resource Mutators -
 	
@@ -246,7 +252,7 @@ public:
 	 * @param Length The data length - caller is responsible for accounting for non-zero Offset.
 	 * @param Index The index to modify.
 	 */
-	void SetShaderBuffer(MTLFunctionType const FunctionType, id<MTLBuffer> const Buffer, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index, EPixelFormat const Format = PF_Unknown);
+	void SetShaderBuffer(mtlpp::FunctionType const FunctionType, FMetalBuffer const& Buffer, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index, EPixelFormat const Format = PF_Unknown);
 	
 	/*
 	 * Set an FMetalBufferData to the specified shader frequency at the given bind point index.
@@ -255,7 +261,7 @@ public:
 	 * @param Offset The offset in the buffer or 0 when Buffer is nil.
 	 * @param Index The index to modify.
 	 */
-	void SetShaderData(MTLFunctionType const FunctionType, FMetalBufferData* Data, NSUInteger const Offset, NSUInteger const Index, EPixelFormat const Format = PF_Unknown);
+	void SetShaderData(mtlpp::FunctionType const FunctionType, FMetalBufferData* Data, NSUInteger const Offset, NSUInteger const Index, EPixelFormat const Format = PF_Unknown);
 	
 	/*
 	 * Set bytes to the specified shader frequency at the given bind point index.
@@ -264,7 +270,7 @@ public:
 	 * @param Length The length of the buffer or 0 when Bytes is nil.
 	 * @param Index The index to modify.
 	 */
-	void SetShaderBytes(MTLFunctionType const FunctionType, uint8 const* Bytes, NSUInteger const Length, NSUInteger const Index);
+	void SetShaderBytes(mtlpp::FunctionType const FunctionType, uint8 const* Bytes, NSUInteger const Length, NSUInteger const Index);
 	
 	/*
 	 * Set a global texture for the specified shader frequency at the given bind point index.
@@ -272,7 +278,7 @@ public:
 	 * @param Texture The texture to bind or nil to clear.
 	 * @param Index The index to modify.
 	 */
-	void SetShaderTexture(MTLFunctionType const FunctionType, id<MTLTexture> const Texture, NSUInteger const Index);
+	void SetShaderTexture(mtlpp::FunctionType const FunctionType, FMetalTexture const& Texture, NSUInteger const Index);
 	
 	/*
 	 * Set a global sampler for the specified shader frequency at the given bind point index.
@@ -280,14 +286,14 @@ public:
 	 * @param Sampler The sampler state to bind or nil to clear.
 	 * @param Index The index to modify.
 	 */
-	void SetShaderSamplerState(MTLFunctionType const FunctionType, id<MTLSamplerState> const Sampler, NSUInteger const Index);
+	void SetShaderSamplerState(mtlpp::FunctionType const FunctionType, mtlpp::SamplerState const& Sampler, NSUInteger const Index);
 	
 	/*
 	 * Set the shader side-table data for FunctionType at Index.
 	 * @param FunctionType The shader function to modify.
 	 * @param Index The index to bind data to.
 	 */
-	void SetShaderSideTable(MTLFunctionType const FunctionType, NSUInteger const Index);
+	void SetShaderSideTable(mtlpp::FunctionType const FunctionType, NSUInteger const Index);
 	
 #pragma mark - Public Compute State Mutators -
 	
@@ -303,7 +309,16 @@ public:
 	 * Get the internal ring-buffer used for temporary allocations.
 	 * @returns The temporary allocation buffer for this command-encoder.
 	 */
-	FRingBuffer& GetRingBuffer(void);
+	FMetalSubBufferRing& GetRingBuffer(void);
+	
+#pragma mark - Public Resource query Access -
+
+	/*
+	 * Returns True if the Resource has been bound to a command encoder, otherwise false.  History will be cleared after a commit operation
+	 * @returns True if the Resource has been bound to a command encoder, otherwise false.
+	 */
+	bool HasTextureBindingHistory(FMetalTexture const& Texture) const;
+	bool HasBufferBindingHistory(FMetalBuffer const& Buffer) const;
 	
 private:
 #pragma mark - Private Functions -
@@ -314,9 +329,9 @@ private:
 	 * @param Length The data length - caller is responsible for accounting for non-zero Offset.
 	 * @param Index The index to modify.
 	 */
-	void SetShaderBufferOffset(MTLFunctionType const FunctionType, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index);
+	void SetShaderBufferOffset(mtlpp::FunctionType const FunctionType, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index);
 	
-	void SetShaderBufferInternal(MTLFunctionType Function, uint32 Index);
+	void SetShaderBufferInternal(mtlpp::FunctionType Function, uint32 Index);
 	
 #pragma mark - Private Type Declarations -
 private:
@@ -324,7 +339,7 @@ private:
     struct FMetalBufferBindings
     {
         /** The bound buffers or nil. */
-        id<MTLBuffer> Buffers[ML_MaxBuffers];
+		ns::AutoReleased<FMetalBuffer> Buffers[ML_MaxBuffers];
         /** The bound buffers or nil. */
         FMetalBufferData* Bytes[ML_MaxBuffers];
         /** The bound buffer offsets or 0. */
@@ -341,24 +356,28 @@ private:
     // Cache Queue feature
     bool bSupportsMetalFeaturesSetBytes;
     
-	FMetalBufferBindings ShaderBuffers[MTLFunctionTypeKernel+1];
+	FMetalBufferBindings ShaderBuffers[int(mtlpp::FunctionType::Kernel)+1];
 	
-	MTLStoreAction ColorStoreActions[MaxSimultaneousRenderTargets];
-	MTLStoreAction DepthStoreAction;
-	MTLStoreAction StencilStoreAction;
+	mtlpp::StoreAction ColorStoreActions[MaxSimultaneousRenderTargets];
+	mtlpp::StoreAction DepthStoreAction;
+	mtlpp::StoreAction StencilStoreAction;
 	
-	FRingBuffer RingBuffer;
+	FMetalSubBufferRing RingBuffer;
 	
-	MTLRenderPassDescriptor* RenderPassDesc;
+	mtlpp::RenderPassDescriptor RenderPassDesc;
 	NSUInteger RenderPassDescApplied;
 	
-	TSharedPtr<MTLCommandBufferRef, ESPMode::ThreadSafe> CommandBufferPtr;
-	id<MTLCommandBuffer> CommandBuffer;
-	id<MTLRenderCommandEncoder> RenderCommandEncoder;
-	id<MTLComputeCommandEncoder> ComputeCommandEncoder;
-	id<MTLBlitCommandEncoder> BlitCommandEncoder;
+	mtlpp::CommandBuffer CommandBuffer;
+	mtlpp::RenderCommandEncoder RenderCommandEncoder;
+	mtlpp::ComputeCommandEncoder ComputeCommandEncoder;
+	mtlpp::BlitCommandEncoder BlitCommandEncoder;
 	FMetalFence EncoderFence;
 	
-	NSMutableArray<MTLCommandBufferHandler>* CompletionHandlers;
+	TArray<ns::Object<mtlpp::CommandBufferHandler>> CompletionHandlers;
 	NSMutableArray* DebugGroups;
+    
+    TSet<ns::AutoReleased<FMetalBuffer>> ActiveBuffers;
+    
+	TSet<ns::AutoReleased<FMetalBuffer>> BufferBindingHistory;
+	TSet<ns::AutoReleased<FMetalTexture>> TextureBindingHistory;
 };

@@ -171,6 +171,14 @@ FORCEINLINE VectorRegisterInt MakeVectorRegisterInt(int32 X, int32 Y, int32 Z, i
  */
 #define VectorSetFloat3( X, Y, Z )		MakeVectorRegister( X, Y, Z, 0.0f )
 
+ /**
+ * Creates a vector out of three FLOATs and leaves W undefined.
+ *
+ * @param X		float component
+ * @return		VectorRegister(X, X, X, X)
+ */
+#define VectorSetFloat1( X )		MakeVectorRegister( X, X, X, X )
+
 /**
  * Creates a vector out of four FLOATs.
  *
@@ -983,6 +991,16 @@ FORCEINLINE VectorRegister VectorMergeVecXYZ_VecW(const VectorRegister& VecXYZ, 
  */
 #define VectorLoadByte4( Ptr )			MakeVectorRegister( float(((const uint8*)(Ptr))[0]), float(((const uint8*)(Ptr))[1]), float(((const uint8*)(Ptr))[2]), float(((const uint8*)(Ptr))[3]) )
 
+ /**
+ * Loads 4 signed BYTEs from unaligned memory and converts them into 4 FLOATs.
+ * IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+ *
+ * @param Ptr			Unaligned memory pointer to the 4 BYTEs.
+ * @return				VectorRegister( float(Ptr[0]), float(Ptr[1]), float(Ptr[2]), float(Ptr[3]) )
+ */
+#define VectorLoadSignedByte4( Ptr )			MakeVectorRegister( float(((const int8*)(Ptr))[0]), float(((const int8*)(Ptr))[1]), float(((const int8*)(Ptr))[2]), float(((const int8*)(Ptr))[3]) )
+
+
 /**
  * Loads 4 BYTEs from unaligned memory and converts them into 4 FLOATs in reversed order.
  * IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
@@ -1269,6 +1287,26 @@ FORCEINLINE VectorRegister VectorLoadURGBA16N(void* Ptr)
 	V[1] = float(E[1]) / 65535.0f;
 	V[2] = float(E[2]) / 65535.0f;
 	V[3] = float(E[3]) / 65535.0f;
+
+	return MakeVectorRegister(V[0], V[1], V[2], V[3]);
+}
+
+/**
+* Loads packed signed RGBA16(4 bytes) from unaligned memory and converts them into 4 FLOATs.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+*
+* @param Ptr			Unaligned memory pointer to the RGBA16(8 bytes).
+* @return				VectorRegister with 4 FLOATs loaded from Ptr.
+*/
+FORCEINLINE VectorRegister VectorLoadSRGBA16N(void* Ptr)
+{
+	float V[4];
+	int16* E = (int16*)Ptr;
+
+	V[0] = float(E[0]) / 32767.0;
+	V[1] = float(E[1]) / 32767.0;
+	V[2] = float(E[2]) / 32767.0;
+	V[3] = float(E[3]) / 32767.0;
 
 	return MakeVectorRegister(V[0], V[1], V[2], V[3]);
 }

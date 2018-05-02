@@ -493,6 +493,7 @@ void USceneComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 	const static FName ScaleName("RelativeScale3D");
 
 	const FName PropertyName = PropertyChangedEvent.Property ? PropertyChangedEvent.Property->GetFName() : FName();
+	const FName MemberPropertyName = PropertyChangedEvent.MemberProperty ? PropertyChangedEvent.MemberProperty->GetFName() : FName();
 
 	// Note: This must be called before UActorComponent::PostEditChangeChainProperty is called because this component will be reset when UActorComponent reruns construction scripts 
 	if (PropertyName == SceneComponentStatics::MobilityName)
@@ -506,9 +507,11 @@ void USceneComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	if (PropertyName == LocationName || PropertyName == RotationName || PropertyName == ScaleName)
+	const bool bLocationChanged = (PropertyName == LocationName || MemberPropertyName == LocationName);
+	if (bLocationChanged || (PropertyName == RotationName || MemberPropertyName == RotationName) || (PropertyName == ScaleName || MemberPropertyName == ScaleName))
 	{
 		FNavigationSystem::UpdateComponentData(*this);
+		InvalidateLightingCacheDetailed(true, bLocationChanged);
 	}
 }
 
@@ -1162,10 +1165,6 @@ void USceneComponent::UpdateBounds()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ComponentUpdateBounds);
 
-#if WITH_EDITOR
-	FBoxSphereBounds OriginalBounds = Bounds; // Save old bounds
-#endif
-
 	// if use parent bound if attach parent exists, and the flag is set
 	// since parents tick first before child, this should work correctly
 	if ( bUseAttachParentBound && GetAttachParent() != nullptr )
@@ -1184,15 +1183,6 @@ void USceneComponent::UpdateBounds()
 	{
 		logOrEnsureNanError(TEXT("Bounds contains NaN for %s"), *GetPathName());
 		Bounds.DiagnosticCheckNaN();
-	}
-#endif
-
-#if WITH_EDITOR
-	// If bounds have changed (in editor), trigger data rebuild
-	if ( IsRegistered() && (GetWorld() != nullptr) && !GetWorld()->IsGameWorld() &&
-		(OriginalBounds.Origin.Equals(Bounds.Origin) == false || OriginalBounds.BoxExtent.Equals(Bounds.BoxExtent) == false) )
-	{
-		GEngine->TriggerStreamingDataRebuild();
 	}
 #endif
 }
