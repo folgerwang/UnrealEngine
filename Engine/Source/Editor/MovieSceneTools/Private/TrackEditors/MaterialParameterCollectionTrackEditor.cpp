@@ -35,11 +35,12 @@ TSharedRef<ISequencerSection> FMaterialParameterCollectionTrackEditor::MakeSecti
 	return MakeShareable(new FParameterSection(*ParameterSection));
 }
 
-TSharedRef<SWidget> CreateAssetPicker(FOnAssetSelected OnAssetSelected)
+TSharedRef<SWidget> CreateAssetPicker(FOnAssetSelected OnAssetSelected, FOnAssetEnterPressed OnAssetEnterPressed)
 {
 	FAssetPickerConfig AssetPickerConfig;
 	{
 		AssetPickerConfig.OnAssetSelected = OnAssetSelected;
+		AssetPickerConfig.OnAssetEnterPressed = OnAssetEnterPressed;
 		AssetPickerConfig.bAllowNullSelection = false;
 		AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 		AssetPickerConfig.Filter.bRecursiveClasses = true;
@@ -72,9 +73,17 @@ void FMaterialParameterCollectionTrackEditor::BuildTrackContextMenu(FMenuBuilder
 		}
 	};
 
-	auto SubMenuCallback = [this, AssignAsset](FMenuBuilder& SubMenuBuilder)
+	auto AssignAssetEnterPressed = [AssignAsset](const TArray<FAssetData>& InAssetData)
 	{
-		SubMenuBuilder.AddWidget(CreateAssetPicker(FOnAssetSelected::CreateLambda(AssignAsset)), FText::GetEmpty(), true);
+		if (InAssetData.Num() > 0)
+		{
+			AssignAsset(InAssetData[0].GetAsset());
+		}
+	};
+
+	auto SubMenuCallback = [this, AssignAsset, AssignAssetEnterPressed](FMenuBuilder& SubMenuBuilder)
+	{
+		SubMenuBuilder.AddWidget(CreateAssetPicker(FOnAssetSelected::CreateLambda(AssignAsset), FOnAssetEnterPressed::CreateLambda(AssignAssetEnterPressed)), FText::GetEmpty(), true);
 	};
 
 	MenuBuilder.AddSubMenu(
@@ -89,7 +98,7 @@ void FMaterialParameterCollectionTrackEditor::BuildAddTrackMenu(FMenuBuilder& Me
 {
 	auto SubMenuCallback = [this](FMenuBuilder& SubMenuBuilder)
 	{
-		SubMenuBuilder.AddWidget(CreateAssetPicker(FOnAssetSelected::CreateRaw(this, &FMaterialParameterCollectionTrackEditor::AddTrackToSequence)), FText::GetEmpty(), true);
+		SubMenuBuilder.AddWidget(CreateAssetPicker(FOnAssetSelected::CreateRaw(this, &FMaterialParameterCollectionTrackEditor::AddTrackToSequence), FOnAssetEnterPressed::CreateRaw(this, &FMaterialParameterCollectionTrackEditor::AddTrackToSequenceEnterPressed)), FText::GetEmpty(), true);
 	};
 
 	MenuBuilder.AddSubMenu(
@@ -142,6 +151,14 @@ void FMaterialParameterCollectionTrackEditor::AddTrackToSequence(const FAssetDat
 		GetSequencer()->OnAddTrack(Track);
 	}
 	GetSequencer()->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
+}
+
+void FMaterialParameterCollectionTrackEditor::AddTrackToSequenceEnterPressed(const TArray<FAssetData>& InAssetData)
+{
+	if (InAssetData.Num() > 0)
+	{
+		AddTrackToSequence(InAssetData[0].GetAsset());
+	}
 }
 
 bool FMaterialParameterCollectionTrackEditor::SupportsType(TSubclassOf<UMovieSceneTrack> Type) const

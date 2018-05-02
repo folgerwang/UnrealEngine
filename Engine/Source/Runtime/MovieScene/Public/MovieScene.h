@@ -416,6 +416,14 @@ public:
 	 */
 	bool RemoveMasterTrack(UMovieSceneTrack& Track);
 
+	/**
+	 * Move all the contents (tracks, child bindings) of the specified binding ID onto another
+	 *
+	 * @param SourceBindingId The identifier of the binding ID to move all tracks and children from
+	 * @param DestinationBindingId The identifier of the binding ID to move the contents to
+	 */
+	void MoveBindingContents(const FGuid& SourceBindingId, const FGuid& DestinationBindingId);
+
 public:
 
 	// @todo sequencer: the following methods really shouldn't be here
@@ -476,35 +484,35 @@ public:
 	}
 
 	/**
-	 * Retrieve the frame resolution at which all frame numbers within this movie scene are defined
+	 * Retrieve the tick resolution at which all frame numbers within this movie scene are defined
 	 */
-	FFrameRate GetFrameResolution() const
+	FFrameRate GetTickResolution() const
 	{
-		return FrameResolution;
+		return TickResolution;
 	}
 
 	/**
-	 * Directly set the frame resolution for this movie scene without applying any conversion whatsoever, or modifying the data
+	 * Directly set the tick resolution for this movie scene without applying any conversion whatsoever, or modifying the data
 	 */
-	void SetFrameResolutionDirectly(FFrameRate InFrameResolution)
+	void SetTickResolutionDirectly(FFrameRate InTickResolution)
 	{
-		FrameResolution = InFrameResolution;
+		TickResolution = InTickResolution;
 	}
 
 	/**
-	 * Retrieve the frame resolution at which all frame numbers within this movie scene are defined
+	 * Retrieve the display frame rate for this data, in which frame numbers should be displayed on UI, and interacted with in movie scene players
 	 */
-	FFrameRate GetPlaybackFrameRate() const
+	FFrameRate GetDisplayRate() const
 	{
-		return PlayRate;
+		return DisplayRate;
 	}
 
 	/**
 	 * Set the play rate for this movie scene
 	 */
-	void SetPlaybackFrameRate(FFrameRate InPlayRate)
+	void SetDisplayRate(FFrameRate InDisplayRate)
 	{
-		PlayRate = InPlayRate;
+		DisplayRate = InDisplayRate;
 	}
 
 	/**
@@ -703,11 +711,11 @@ private:
 
 	/** The resolution at which all frame numbers within this movie-scene data are stored */
 	UPROPERTY()
-	FFrameRate FrameResolution;
+	FFrameRate TickResolution;
 
-	/** The rate at which to playback this moviescene data */
+	/** The rate at which we should interact with this moviescene data on UI, and to movie scene players. Also defines the frame locked frame rate. */
 	UPROPERTY()
-	FFrameRate PlayRate;
+	FFrameRate DisplayRate;
 
 	/** The type of evaluation to use when playing back this sequence */
 	UPROPERTY()

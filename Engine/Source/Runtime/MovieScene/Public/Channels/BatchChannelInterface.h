@@ -11,7 +11,7 @@ struct IBatchChannelInterface
 {
 	virtual ~IBatchChannelInterface() {}
 
-	virtual void ChangeFrameResolution_Batch(TArrayView<void* const> Ptrs, FFrameRate SourceRate, FFrameRate DestinationRate) const = 0;
+	virtual void ChangeTickResolution_Batch(TArrayView<void* const> Ptrs, FFrameRate SourceRate, FFrameRate DestinationRate) const = 0;
 	virtual TRange<FFrameNumber> ComputeEffectiveRange_Batch(TArrayView<void* const> Ptrs) const = 0;
 	virtual int32 GetNumKeys_Batch(TArrayView<void* const> Ptrs) const = 0;
 	virtual void Reset_Batch(TArrayView<void* const> Ptrs) const = 0;
@@ -39,14 +39,14 @@ struct TBatchChannelInterface : IBatchChannelInterface
 		return Range;
 	}
 
-	virtual void ChangeFrameResolution_Batch(TArrayView<void* const> Ptrs, FFrameRate SourceRate, FFrameRate DestinationRate) const override
+	virtual void ChangeTickResolution_Batch(TArrayView<void* const> Ptrs, FFrameRate SourceRate, FFrameRate DestinationRate) const override
 	{
 		using namespace MovieScene;
 		for (void* Ptr : Ptrs)
 		{
 			if (Ptr)
 			{
-				ChangeFrameResolution(static_cast<ChannelType*>(Ptr), SourceRate, DestinationRate);
+				ChangeTickResolution(static_cast<ChannelType*>(Ptr), SourceRate, DestinationRate);
 			}
 		}
 	}

@@ -10,7 +10,7 @@
 
 struct F2DTransformSectionEditorData
 {
-	F2DTransformSectionEditorData()
+	F2DTransformSectionEditorData(EMovieScene2DTransformChannel Mask)
 	{
 		FText TranslationGroup = NSLOCTEXT("MovieScene2DTransformSection", "Translation", "Translation");
 		FText RotationGroup = NSLOCTEXT("MovieScene2DTransformSection", "Rotation", "Rotation");
@@ -18,24 +18,31 @@ struct F2DTransformSectionEditorData
 		FText ShearGroup = NSLOCTEXT("MovieScene2DTransformSection", "Shear", "Shear");
 
 		CommonData[0].SetIdentifiers("Translation.X", FCommonChannelData::ChannelX, TranslationGroup);
+		CommonData[0].bEnabled = EnumHasAllFlags(Mask, EMovieScene2DTransformChannel::TranslationX);
 		CommonData[0].SortOrder = 0;
 
 		CommonData[1].SetIdentifiers("Translation.Y", FCommonChannelData::ChannelY, TranslationGroup);
+		CommonData[1].bEnabled = EnumHasAllFlags(Mask, EMovieScene2DTransformChannel::TranslationY);
 		CommonData[1].SortOrder = 1;
 
 		CommonData[2].SetIdentifiers("Angle", NSLOCTEXT("MovieScene2DTransformSection", "AngleText", "Angle"), RotationGroup);
+		CommonData[2].bEnabled = EnumHasAllFlags(Mask, EMovieScene2DTransformChannel::Rotation);
 		CommonData[2].SortOrder = 2;
 
 		CommonData[3].SetIdentifiers("Scale.X", FCommonChannelData::ChannelX, ScaleGroup);
+		CommonData[3].bEnabled = EnumHasAllFlags(Mask, EMovieScene2DTransformChannel::ScaleX);
 		CommonData[3].SortOrder = 3;
 		
 		CommonData[4].SetIdentifiers("Scale.Y", FCommonChannelData::ChannelY, ScaleGroup);
+		CommonData[4].bEnabled = EnumHasAllFlags(Mask, EMovieScene2DTransformChannel::ScaleY);
 		CommonData[4].SortOrder = 4;
 
 		CommonData[5].SetIdentifiers("Shear.X", FCommonChannelData::ChannelX, ShearGroup);
+		CommonData[5].bEnabled = EnumHasAllFlags(Mask, EMovieScene2DTransformChannel::ShearX);
 		CommonData[5].SortOrder = 5;
 		
 		CommonData[6].SetIdentifiers("Shear.Y", FCommonChannelData::ChannelY, ShearGroup);
+		CommonData[6].bEnabled = EnumHasAllFlags(Mask, EMovieScene2DTransformChannel::ShearY);
 		CommonData[6].SortOrder = 6;
 
 		ExternalValues[0].OnGetExternalValue = ExtractTranslationX;
@@ -94,13 +101,28 @@ UMovieScene2DTransformSection::UMovieScene2DTransformSection(const FObjectInitia
 			GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToProjectDefault ? 
 			EMovieSceneCompletionMode::RestoreState : 
 			EMovieSceneCompletionMode::ProjectDefault);
+
+	ProxyChannels = EMovieScene2DTransformChannel::None;
+	TransformMask = EMovieScene2DTransformChannel::AllTransform;
 	BlendType = EMovieSceneBlendType::Absolute;
+
+	UpdateChannelProxy();
+}
+
+void UMovieScene2DTransformSection::UpdateChannelProxy()
+{
+	if (ProxyChannels == TransformMask.GetChannels())
+	{
+		return;
+	}
+
+	ProxyChannels = TransformMask.GetChannels();
 
 	FMovieSceneChannelData Channels;
 
 #if WITH_EDITOR
 
-	static const F2DTransformSectionEditorData EditorData;
+	F2DTransformSectionEditorData EditorData(TransformMask.GetChannels());
 
 	Channels.Add(Translation[0], EditorData.CommonData[0], EditorData.ExternalValues[0]);
 	Channels.Add(Translation[1], EditorData.CommonData[1], EditorData.ExternalValues[1]);
@@ -123,4 +145,72 @@ UMovieScene2DTransformSection::UMovieScene2DTransformSection(const FObjectInitia
 #endif
 
 	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(MoveTemp(Channels));
+}
+
+void UMovieScene2DTransformSection::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsLoading())
+	{
+		UpdateChannelProxy();
+	}
+}
+
+
+FMovieScene2DTransformMask UMovieScene2DTransformSection::GetMask() const
+{
+	return TransformMask;
+}
+
+void UMovieScene2DTransformSection::SetMask(FMovieScene2DTransformMask NewMask)
+{
+	TransformMask = NewMask;
+	UpdateChannelProxy();
+}
+
+FMovieScene2DTransformMask UMovieScene2DTransformSection::GetMaskByName(const FName& InName) const
+{
+	if (InName == TEXT("Translation"))
+	{
+		return EMovieScene2DTransformChannel::Translation;
+	}
+	else if (InName == TEXT("Translation.X"))
+	{
+		return EMovieScene2DTransformChannel::TranslationX;
+	}
+	else if (InName == TEXT("Translation.Y"))
+	{
+		return EMovieScene2DTransformChannel::TranslationY;
+	}
+	else if (InName == TEXT("Angle"))
+	{
+		return EMovieScene2DTransformChannel::Rotation;
+	}
+	else if (InName == TEXT("Scale"))
+	{
+		return EMovieScene2DTransformChannel::Scale;
+	}
+	else if (InName == TEXT("Scale.X"))
+	{
+		return EMovieScene2DTransformChannel::ScaleX;
+	}
+	else if (InName == TEXT("Scale.Y"))
+	{
+		return EMovieScene2DTransformChannel::ScaleY;
+	}
+	else if (InName == TEXT("Shear"))
+	{
+		return EMovieScene2DTransformChannel::Shear;
+	}
+	else if (InName == TEXT("Shear.X"))
+	{
+		return EMovieScene2DTransformChannel::ShearX;
+	}
+	else if (InName == TEXT("Shear.Y"))
+	{
+		return EMovieScene2DTransformChannel::ShearY;
+	}
+
+	return EMovieScene2DTransformChannel::AllTransform;
 }

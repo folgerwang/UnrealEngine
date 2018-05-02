@@ -75,6 +75,7 @@ void SSequencerCurveEditorToolBar::Construct( const FArguments& InArgs, TSharedR
 
 	ToolBarBuilder.BeginSection( "Tangents" );
 	{
+		ToolBarBuilder.AddToolBarButton( FCurveEditorCommands::Get().InterpolationToggleWeighted );
 		ToolBarBuilder.AddToolBarButton( FCurveEditorCommands::Get().FlattenTangents );
 		ToolBarBuilder.AddToolBarButton( FCurveEditorCommands::Get().StraightenTangents );
 	}

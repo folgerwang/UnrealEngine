@@ -989,9 +989,9 @@ void SNiagaraSpreadsheetView::ResetColumns(EUITab Tab)
 
 FReply SNiagaraSpreadsheetView::OnCaptureRequestPressed()
 {
-	FFrameRate FrameResolution = SystemViewModel->GetSequencer()->GetFocusedFrameResolution();
+	FFrameRate TickResolution = SystemViewModel->GetSequencer()->GetFocusedTickResolution();
 	float LocalTime = SystemViewModel->GetSequencer()->GetLocalTime().AsSeconds();
-	float SnapInterval = SystemViewModel->GetSequencer()->GetFocusedPlayRate().AsInterval();
+	float SnapInterval = SystemViewModel->GetSequencer()->GetFocusedDisplayRate().AsInterval();
 	float TargetCaptureTime = LocalTime + SnapInterval;
 
 	TArray<TSharedRef<FNiagaraEmitterHandleViewModel>> SelectedEmitterHandles;
@@ -1028,12 +1028,12 @@ FReply SNiagaraSpreadsheetView::OnCaptureRequestPressed()
 
 	if (SystemViewModel->GetSequencer()->GetPlaybackStatus() == EMovieScenePlayerStatus::Stopped)
 	{
-		SystemViewModel->GetSequencer()->SetLocalTime(TargetCaptureTime * FrameResolution, STM_None);
+		SystemViewModel->GetSequencer()->SetLocalTime(TargetCaptureTime * TickResolution, STM_None);
 	}
 	else
 	{
 		SystemViewModel->GetSequencer()->SetPlaybackStatus(EMovieScenePlayerStatus::Stopped);
-		SystemViewModel->GetSequencer()->SetLocalTime(TargetCaptureTime * FrameResolution, STM_None);
+		SystemViewModel->GetSequencer()->SetLocalTime(TargetCaptureTime * TickResolution, STM_None);
 	}
 
 	return FReply::Handled();

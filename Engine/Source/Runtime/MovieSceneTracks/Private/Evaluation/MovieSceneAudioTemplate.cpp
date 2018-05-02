@@ -282,7 +282,7 @@ FMovieSceneAudioSectionTemplateData::FMovieSceneAudioSectionTemplateData(const U
 	, OnAudioFinished(Section.GetOnAudioFinished())
 	, OnAudioPlaybackPercent(Section.GetOnAudioPlaybackPercent())
 {
-	SectionStartTimeSeconds = (Section.HasStartFrame() ? Section.GetInclusiveStartFrame() : 0) / Section.GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	SectionStartTimeSeconds = (Section.HasStartFrame() ? Section.GetInclusiveStartFrame() : 0) / Section.GetTypedOuter<UMovieScene>()->GetTickResolution();
 }
 
 void FMovieSceneAudioSectionTemplateData::EnsureAudioIsPlaying(UAudioComponent& AudioComponent, FPersistentEvaluationData& PersistentData, const FMovieSceneContext& Context, bool bAllowSpatialization, IMovieScenePlayer& Player) const

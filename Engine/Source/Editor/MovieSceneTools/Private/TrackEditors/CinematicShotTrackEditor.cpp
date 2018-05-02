@@ -17,6 +17,7 @@
 #include "EditorStyleSet.h"
 #include "LevelEditorViewport.h"
 #include "MovieSceneToolHelpers.h"
+#include "FCPXML/FCPXMLMovieSceneTranslator.h"
 #include "Sections/CinematicShotSection.h"
 #include "SequencerUtilities.h"
 #include "IAssetTools.h"
@@ -37,7 +38,6 @@
 #include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "FCinematicShotTrackEditor"
-
 
 /* FCinematicShotTrackEditor structors
  *****************************************************************************/
@@ -210,6 +210,8 @@ void FCinematicShotTrackEditor::Tick(float DeltaTime)
 
 void FCinematicShotTrackEditor::BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track )
 {
+	MenuBuilder.BeginSection("Import/Export", NSLOCTEXT("Sequencer", "ImportExportMenuSectionName", "Import/Export"));
+
 	MenuBuilder.AddMenuEntry(
 		NSLOCTEXT( "Sequencer", "ImportEDL", "Import EDL..." ),
 		NSLOCTEXT( "Sequencer", "ImportEDLTooltip", "Import Edit Decision List (EDL) for non-linear editors." ),
@@ -223,6 +225,22 @@ void FCinematicShotTrackEditor::BuildTrackContextMenu( FMenuBuilder& MenuBuilder
 		FSlateIcon(),
 		FUIAction(
 		FExecuteAction::CreateRaw(this, &FCinematicShotTrackEditor::ExportEDL )));
+
+	MenuBuilder.AddMenuEntry(
+		NSLOCTEXT("Sequencer", "ImportFCPXML", "Import Final Cut Pro 7 XML..."),
+		NSLOCTEXT("Sequencer", "ImportFCPXMLTooltip", "Import Final Cut Pro 7 XML file for non-linear editors."),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateRaw(this, &FCinematicShotTrackEditor::ImportFCPXML )));
+
+	MenuBuilder.AddMenuEntry(
+		NSLOCTEXT("Sequencer", "ExportFCPXML", "Export Final Cut Pro 7 XML..."),
+		NSLOCTEXT("Sequencer", "ExportFCPXMLTooltip", "Export Final Cut Pro 7 XML file for non-linear editors."),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateRaw(this, &FCinematicShotTrackEditor::ExportFCPXML )));
+
+	MenuBuilder.EndSection();
 }
 
 
@@ -567,6 +585,7 @@ TSharedRef<SWidget> FCinematicShotTrackEditor::HandleAddCinematicShotComboButton
 	FAssetPickerConfig AssetPickerConfig;
 	{
 		AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateRaw( this, &FCinematicShotTrackEditor::HandleAddCinematicShotComboButtonMenuEntryExecute);
+		AssetPickerConfig.OnAssetEnterPressed = FOnAssetEnterPressed::CreateRaw( this, &FCinematicShotTrackEditor::HandleAddCinematicShotComboButtonMenuEntryEnterPressed);
 		AssetPickerConfig.bAllowNullSelection = false;
 		AssetPickerConfig.InitialAssetViewType = EAssetViewType::Tile;
 		AssetPickerConfig.Filter.ClassNames.Add(TEXT("LevelSequence"));
@@ -602,6 +621,13 @@ void FCinematicShotTrackEditor::HandleAddCinematicShotComboButtonMenuEntryExecut
 	}
 }
 
+void FCinematicShotTrackEditor::HandleAddCinematicShotComboButtonMenuEntryEnterPressed(const TArray<FAssetData>& AssetData)
+{
+	if (AssetData.Num() > 0)
+	{
+		HandleAddCinematicShotComboButtonMenuEntryExecute(AssetData[0].GetAsset());
+	}
+}
 
 FKeyPropertyResult FCinematicShotTrackEditor::AddKeyInternal(FFrameNumber KeyTime, UMovieSceneSequence* InMovieSceneSequence, int32 RowIndex)
 {	
@@ -613,9 +639,9 @@ FKeyPropertyResult FCinematicShotTrackEditor::AddKeyInternal(FFrameNumber KeyTim
 		
 		const FQualifiedFrameTime InnerDuration = FQualifiedFrameTime(
 			MovieScene::DiscreteSize(InMovieSceneSequence->GetMovieScene()->GetPlaybackRange()),
-			InMovieSceneSequence->GetMovieScene()->GetFrameResolution());
+			InMovieSceneSequence->GetMovieScene()->GetTickResolution());
 
-		const FFrameRate OuterFrameRate = CinematicShotTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		const FFrameRate OuterFrameRate = CinematicShotTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 		const int32      OuterDuration  = InnerDuration.ConvertTo(OuterFrameRate).FrameNumber.Value;
 
 		UMovieSceneSubSection* NewSection = CinematicShotTrack->AddSequenceOnRow(InMovieSceneSequence, KeyTime, OuterDuration, RowIndex);
@@ -762,9 +788,9 @@ FKeyPropertyResult FCinematicShotTrackEditor::HandleSequenceAdded(FFrameNumber K
 
 	const FQualifiedFrameTime InnerDuration = FQualifiedFrameTime(
 		MovieScene::DiscreteSize(Sequence->GetMovieScene()->GetPlaybackRange()),
-		Sequence->GetMovieScene()->GetFrameResolution());
+		Sequence->GetMovieScene()->GetTickResolution());
 
-	const FFrameRate OuterFrameRate = CinematicShotTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	const FFrameRate OuterFrameRate = CinematicShotTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	const int32      OuterDuration  = InnerDuration.ConvertTo(OuterFrameRate).FrameNumber.Value;
 
 	UMovieSceneSubSection* NewSection = CinematicShotTrack->AddSequenceOnRow(Sequence, KeyTime, OuterDuration, RowIndex);
@@ -807,7 +833,7 @@ void FCinematicShotTrackEditor::ImportEDL()
 	const FMovieSceneCaptureSettings& Settings = MovieSceneCapture->GetSettings();
 	FString SaveDirectory = FPaths::ConvertRelativePathToFull(Settings.OutputDirectory.Path);
 
-	if (MovieSceneToolHelpers::ShowImportEDLDialog(MovieScene, Settings.FrameRate, SaveDirectory))
+	if (MovieSceneToolHelpers::ShowImportEDLDialog(MovieScene, MovieScene->GetDisplayRate(), SaveDirectory))
 	{
 		GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemsChanged );
 	}
@@ -844,9 +870,88 @@ void FCinematicShotTrackEditor::ExportEDL()
 	FString SaveDirectory = FPaths::ConvertRelativePathToFull(Settings.OutputDirectory.Path);
 	int32 HandleFrames = Settings.HandleFrames;
 
-	// @todo: sequencer-timecode: resolution vs playrate
-	MovieSceneToolHelpers::ShowExportEDLDialog(MovieScene, MovieScene->GetFrameResolution(), SaveDirectory, HandleFrames);
+	MovieSceneToolHelpers::ShowExportEDLDialog(MovieScene, MovieScene->GetDisplayRate(), SaveDirectory, HandleFrames);
 }
+
+
+void FCinematicShotTrackEditor::ImportFCPXML()
+{
+	UMovieSceneSequence* FocusedSequence = GetSequencer()->GetFocusedMovieSceneSequence();
+	if (!FocusedSequence)
+	{
+		return;
+	}
+
+	UMovieScene* MovieScene = FocusedSequence->GetMovieScene();
+	if (!MovieScene)
+	{
+		return;
+	}
+
+	UAutomatedLevelSequenceCapture* MovieSceneCapture = Cast<UAutomatedLevelSequenceCapture>(IMovieSceneCaptureModule::Get().GetFirstActiveMovieSceneCapture());
+	if (!MovieSceneCapture)
+	{
+		MovieSceneCapture = NewObject<UAutomatedLevelSequenceCapture>(GetTransientPackage(), UAutomatedLevelSequenceCapture::StaticClass(), NAME_None, RF_Transient);
+		MovieSceneCapture->LoadFromConfig();
+	}
+
+	if (!MovieSceneCapture)
+	{
+		return;
+	}
+
+	const FMovieSceneCaptureSettings& Settings = MovieSceneCapture->GetSettings();
+	FString SaveDirectory = FPaths::ConvertRelativePathToFull(Settings.OutputDirectory.Path);
+
+	FFCPXMLImporter *Importer = new FFCPXMLImporter;
+
+	if (MovieSceneToolHelpers::MovieSceneTranslatorImport(Importer, MovieScene, MovieScene->GetDisplayRate(), SaveDirectory))
+	{
+		GetSequencer()->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemsChanged);
+	}
+
+	delete Importer;
+}
+
+
+void FCinematicShotTrackEditor::ExportFCPXML()
+{
+	UMovieSceneSequence* FocusedSequence = GetSequencer()->GetFocusedMovieSceneSequence();
+	if (!FocusedSequence)
+	{
+		return;
+	}
+
+	const UMovieScene* MovieScene = FocusedSequence->GetMovieScene();
+	if (!MovieScene)
+	{
+		return;
+	}
+
+	UAutomatedLevelSequenceCapture* MovieSceneCapture = Cast<UAutomatedLevelSequenceCapture>(IMovieSceneCaptureModule::Get().GetFirstActiveMovieSceneCapture());
+	if (!MovieSceneCapture)
+	{
+		MovieSceneCapture = NewObject<UAutomatedLevelSequenceCapture>(GetTransientPackage(), UAutomatedLevelSequenceCapture::StaticClass(), NAME_None, RF_Transient);
+		MovieSceneCapture->LoadFromConfig();
+	}
+
+	if (!MovieSceneCapture)
+	{
+		return;
+	}
+
+	const FMovieSceneCaptureSettings& Settings = MovieSceneCapture->GetSettings();
+	FString SaveDirectory = FPaths::ConvertRelativePathToFull(Settings.OutputDirectory.Path);
+	int32 HandleFrames = Settings.HandleFrames;
+
+	FFCPXMLExporter *Exporter = new FFCPXMLExporter;
+
+	MovieSceneToolHelpers::MovieSceneTranslatorExport(Exporter, MovieScene, MovieScene->GetDisplayRate(), SaveDirectory, HandleFrames);
+
+	delete Exporter;
+}
+
+
 
 
 #undef LOCTEXT_NAMESPACE

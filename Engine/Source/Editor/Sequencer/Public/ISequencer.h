@@ -66,6 +66,22 @@ enum class EAllowEditsMode : uint8
 	AllowLevelEditsOnly
 };
 
+/**
+* Defines set key gruops mode.
+*/
+UENUM()
+enum class EKeyGroupMode : uint8
+{
+	/** Key just changed channel */
+	KeyChanged,
+
+	/** Key just one, the parent translation, rotation or scale, when one changes */
+	KeyGroup,
+
+	/** Key All (translation, rotation, scale) when one changes */
+	KeyAll
+};
+
 
 /**
  * Enumerates types of UI Command bindings.
@@ -232,11 +248,15 @@ public:
 	/** Sets where edits are allowed */
 	virtual void SetAllowEditsMode(EAllowEditsMode AllowEditsMode) = 0;
 
-	/** @return Returns whether key all is enabled in this sequencer */
-	virtual bool GetKeyAllEnabled() const = 0;
+	/** @returns Returns what channels will get keyed when one channel changes */
+	virtual EKeyGroupMode GetKeyGroupMode() const = 0;
 
-	/** Sets whether key all is enabled in this sequencer. */
-	virtual void SetKeyAllEnabled(bool bKeyAllEnabled) = 0;
+	/** Sets which channels are keyed when a channel is keyed 
+	* @param Mode Specifies which channels to key, all (EKeyGroupMode::KeyAll), 
+	* just changed (EKeyGroup::KeyChanged), 
+	* just the group,e.g. Rotation X,Y and Z if any of those are changed (EKeyGroup::KeyGroup)
+	*/
+	virtual void SetKeyGroupMode(EKeyGroupMode Mode) = 0;
 
 	/** @return Returns whether or not to key only interp properties in this sequencer */
 	virtual bool GetKeyInterpPropertiesOnly() const = 0;
@@ -517,24 +537,24 @@ public:
 public:
 
 	/**
-	 * Get the frame resolution of the currently root sequence
+	 * Get the tick resolution of the currently root sequence
 	 */
-	SEQUENCER_API FFrameRate GetRootFrameResolution() const;
+	SEQUENCER_API FFrameRate GetRootTickResolution() const;
 
 	/**
-	 * Get the playback frame rate of the currently root sequence
+	 * Get the display rate of the currently root sequence
 	 */
-	SEQUENCER_API FFrameRate GetRootPlayRate() const;
+	SEQUENCER_API FFrameRate GetRootDisplayRate() const;
 
 	/**
-	 * Get the frame resolution of the currently focused sequence
+	 * Get the tick resolution of the currently focused sequence
 	 */
-	SEQUENCER_API FFrameRate GetFocusedFrameResolution() const;
+	SEQUENCER_API FFrameRate GetFocusedTickResolution() const;
 
 	/**
-	 * Get the playback frame rate of the currently focused sequence
+	 * Get the display rate of the currently focused sequence
 	 */
-	SEQUENCER_API FFrameRate GetFocusedPlayRate() const;
+	SEQUENCER_API FFrameRate GetFocusedDisplayRate() const;
 
 protected:
 	FOnInitializeDetailsPanel InitializeDetailsPanelEvent;

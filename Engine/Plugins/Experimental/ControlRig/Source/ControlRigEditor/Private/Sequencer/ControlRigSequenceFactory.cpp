@@ -23,8 +23,8 @@ UObject* UControlRigSequenceFactory::FactoryCreateNew(UClass* Class, UObject* In
 	// Set up some sensible defaults
 	const UMovieSceneToolsProjectSettings* ProjectSettings = GetDefault<UMovieSceneToolsProjectSettings>();
 
-	FFrameRate FrameResolution = NewSequence->GetMovieScene()->GetFrameResolution();
-	NewSequence->GetMovieScene()->SetPlaybackRange((ProjectSettings->DefaultStartTime*FrameResolution).FloorToFrame(), (ProjectSettings->DefaultDuration*FrameResolution).FloorToFrame().Value);
+	FFrameRate TickResolution = NewSequence->GetMovieScene()->GetTickResolution();
+	NewSequence->GetMovieScene()->SetPlaybackRange((ProjectSettings->DefaultStartTime*TickResolution).FloorToFrame(), (ProjectSettings->DefaultDuration*TickResolution).FloorToFrame().Value);
 
 	return NewSequence;
 }

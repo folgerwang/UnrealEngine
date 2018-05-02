@@ -31,6 +31,11 @@ public:
 
 	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const FGuid& InObjectBinding) override;
 
+	//~ ISequencerSection interface
+
+	virtual bool RequestDeleteCategory(const TArray<FName>& CategoryNamePath) override;
+	virtual bool RequestDeleteKeyArea(const TArray<FName>& KeyAreaNamePath) override;
+
 protected:
 
 	/** The sequencer which is controlling this section. */

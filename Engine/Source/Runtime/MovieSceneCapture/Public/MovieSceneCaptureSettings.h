@@ -59,7 +59,7 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 	UPROPERTY(config, EditAnywhere, Category=General, AdvancedDisplay )
 	bool bOverwriteExisting;
 
-	/** True if frame numbers in the output files should be relative to zero, rather than the actual frame numbers in the originating animation content */
+	/** True if frame numbers in the output files should be relative to zero, rather than the actual frame numbers in the originating animation content. */
 	UPROPERTY(config, EditAnywhere, Category=General, AdvancedDisplay)
 	bool bUseRelativeFrameNumbers;
 

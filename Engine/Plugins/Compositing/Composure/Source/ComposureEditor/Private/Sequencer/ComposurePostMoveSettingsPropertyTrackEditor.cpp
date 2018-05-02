@@ -50,7 +50,7 @@ void FComposurePostMoveSettingsPropertyTrackEditor::ShowImportPostMoveSettingsDi
 		if (TopLevelWindow.IsValid())
 		{
 			TSharedRef<SWindow> Dialog =
-				SNew(SComposurePostMoveSettingsImportDialog, ParentMovieScene->GetPlaybackFrameRate(), StartFrame)
+				SNew(SComposurePostMoveSettingsImportDialog, ParentMovieScene->GetDisplayRate(), StartFrame)
 				.OnImportSelected(this, &FComposurePostMoveSettingsPropertyTrackEditor::ImportPostMoveSettings, PostMoveSettingsTrack)
 				.OnImportCanceled(this, &FComposurePostMoveSettingsPropertyTrackEditor::ImportCanceled);
 			FSlateApplication::Get().AddWindowAsNativeChild(Dialog, TopLevelWindow.ToSharedRef());
@@ -110,11 +110,11 @@ void FComposurePostMoveSettingsPropertyTrackEditor::ImportPostMoveSettings(FStri
 	TArray<FString> ImportFileLines;
 	ImportFileContents.ParseIntoArray(ImportFileLines, TEXT("\n"), true);
 
-	FFrameRate MovieSceneRate = PostMoveSettingsSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate TickResolution = PostMoveSettingsSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	
 	FQualifiedFrameTime ImportTime(StartFrame, ImportFrameRate);
 
-	TRange<FFrameNumber> SectionRange(ImportTime.ConvertTo(MovieSceneRate).FloorToFrame());
+	TRange<FFrameNumber> SectionRange(ImportTime.ConvertTo(TickResolution).FloorToFrame());
 
 	int32 LineNumber = 1;
 	for (const FString& ImportFileLine : ImportFileLines)
@@ -132,7 +132,7 @@ void FComposurePostMoveSettingsPropertyTrackEditor::ImportPostMoveSettings(FStri
 				return;
 			}
 
-			const FFrameNumber Time = ImportTime.ConvertTo(MovieSceneRate).FloorToFrame();
+			const FFrameNumber Time = ImportTime.ConvertTo(TickResolution).FloorToFrame();
 
 			float PivotX = FCString::Atof(*ImportFileLineValues[0]);
 			float PivotY = FCString::Atof(*ImportFileLineValues[1]);

@@ -7,6 +7,8 @@
 #include "MovieSceneFwd.h"
 #include "Misc/PackageName.h"
 #include "Engine/World.h"
+#include "Animation/AnimInstance.h"
+#include "Components/SkeletalMeshComponent.h"
 
 FLevelSequenceBindingReference::FLevelSequenceBindingReference(UObject* InObject, UObject* InContext)
 {
@@ -183,17 +185,25 @@ bool FLevelSequenceObjectReferenceMap::Serialize(FArchive& Ar)
 
 bool FLevelSequenceBindingReferences::HasBinding(const FGuid& ObjectId) const
 {
-	return BindingIdToReferences.Contains(ObjectId);
+	return BindingIdToReferences.Contains(ObjectId) || AnimSequenceInstances.Contains(ObjectId);
 }
 
 void FLevelSequenceBindingReferences::AddBinding(const FGuid& ObjectId, UObject* InObject, UObject* InContext)
 {
-	BindingIdToReferences.FindOrAdd(ObjectId).References.Emplace(InObject, InContext);
+	if (InObject->IsA<UAnimInstance>())
+	{
+		AnimSequenceInstances.Add(ObjectId);
+	}
+	else
+	{
+		BindingIdToReferences.FindOrAdd(ObjectId).References.Emplace(InObject, InContext);
+	}
 }
 
 void FLevelSequenceBindingReferences::RemoveBinding(const FGuid& ObjectId)
 {
 	BindingIdToReferences.Remove(ObjectId);
+	AnimSequenceInstances.Remove(ObjectId);
 }
 
 void FLevelSequenceBindingReferences::ResolveBinding(const FGuid& ObjectId, UObject* InContext, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
@@ -201,6 +211,13 @@ void FLevelSequenceBindingReferences::ResolveBinding(const FGuid& ObjectId, UObj
 	const FLevelSequenceBindingReferenceArray* ReferenceArray = BindingIdToReferences.Find(ObjectId);
 	if (!ReferenceArray)
 	{
+		// If the object ID exists in the AnimSequenceInstances set, then this binding relates to an anim instance on a skeletal mesh component
+		USkeletalMeshComponent* SkeletalMesh = Cast<USkeletalMeshComponent>(InContext);
+		if (SkeletalMesh && AnimSequenceInstances.Contains(ObjectId) && SkeletalMesh->GetAnimInstance())
+		{
+			OutObjects.Add(SkeletalMesh->GetAnimInstance());
+		}
+
 		return;
 	}
 
@@ -212,6 +229,18 @@ void FLevelSequenceBindingReferences::ResolveBinding(const FGuid& ObjectId, UObj
 		if (ResolvedObject && ResolvedObject->GetWorld())
 		{
 			OutObjects.Add(ResolvedObject);
+		}
+	}
+}
+
+
+void FLevelSequenceBindingReferences::RemoveInvalidBindings(const TSet<FGuid>& ValidBindingIDs)
+{
+	for (auto It = BindingIdToReferences.CreateIterator(); It; ++It)
+	{
+		if (!ValidBindingIDs.Contains(It->Key))
+		{
+			It.RemoveCurrent();
 		}
 	}
 }

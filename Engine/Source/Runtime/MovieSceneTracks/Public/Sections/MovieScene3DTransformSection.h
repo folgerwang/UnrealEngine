@@ -246,6 +246,12 @@ class UMovieScene3DTransformSection
 
 public:
 
+	/* From UMovieSection*/
+	
+	virtual bool ShowCurveForChannel(const void *Channel) const override;
+
+public:
+
 	/**
 	 * Access the mask that defines which channels this track should animate
 	 */
@@ -255,6 +261,16 @@ public:
 	 * Set the mask that defines which channels this track should animate
 	 */
 	MOVIESCENETRACKS_API void SetMask(FMovieSceneTransformMask NewMask);
+
+	/**
+	 * Get the mask by name
+	 */
+	MOVIESCENETRACKS_API FMovieSceneTransformMask GetMaskByName(const FName& InName) const;
+
+	/**
+	* Get whether we should use quaternion interpolation for our rotations.
+	*/
+	MOVIESCENETRACKS_API bool GetUseQuaternionInterpolation() const;
 
 protected:
 
@@ -287,6 +303,10 @@ private:
 
 	/** Unserialized mask that defines the mask of the current channel proxy so we don't needlessly re-create it on post-undo */
 	EMovieSceneTransformChannel ProxyChannels;
+
+	/** Whether to use a quaternion linear interpolation between keys. This finds the 'shortest' distance between keys */
+	UPROPERTY(EditAnywhere, DisplayName = "Use Quaternion Interpolation", Category = "Rotation")
+	bool bUseQuaternionInterpolation;
 
 #if WITH_EDITORONLY_DATA
 

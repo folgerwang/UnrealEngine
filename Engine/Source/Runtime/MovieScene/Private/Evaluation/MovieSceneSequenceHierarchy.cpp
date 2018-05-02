@@ -26,7 +26,7 @@ FMovieSceneSubSequenceData::FMovieSceneSubSequenceData(const UMovieSceneSubSecti
 
 	checkf(MovieScenePtr, TEXT("Attempting to construct sub sequence data with a null sequence."));
 
-	FrameResolution = MovieScenePtr->GetFrameResolution();
+	TickResolution = MovieScenePtr->GetTickResolution();
 
 	TRange<FFrameNumber> SubRange = InSubSection.GetRange();
 	checkf(SubRange.GetLowerBound().IsClosed() && SubRange.GetUpperBound().IsClosed(), TEXT("Use of open (infinite) bounds with sub sections is not supported."));

@@ -334,7 +334,7 @@ void FMediaAudioResampler::Flush()
 }
 
 
-uint32 FMediaAudioResampler::Generate(float* Output, const uint32 FramesRequested, float Rate, FTimespan Time, FMediaAudioSampleSource& SampleSource)
+uint32 FMediaAudioResampler::Generate(float* Output, FTimespan& OutTime, const uint32 FramesRequested, float Rate, FTimespan Time, FMediaAudioSampleSource& SampleSource)
 {
 	if ((FramesRequested == 0) || (Output == nullptr) || (OutputSampleRate == 0))
 	{
@@ -363,7 +363,7 @@ uint32 FMediaAudioResampler::Generate(float* Output, const uint32 FramesRequeste
 				}
 
 				NextSampleTime -= FTimespan(1); // point into the previous sample
-				NextSampleTime -= FTimespan(1); // accommodate for duration rounding errors
+				NextSampleTime -= FTimespan(1); // account for duration rounding errors
 			}
 			else
 			{
@@ -374,7 +374,7 @@ uint32 FMediaAudioResampler::Generate(float* Output, const uint32 FramesRequeste
 				else
 				{
 					NextSampleTime = InputTime + InputDuration; // point into next sample
-					NextSampleTime += FTimespan(1); // accommodate for duration rounding errors
+					NextSampleTime += FTimespan(1); // account for duration rounding errors
 				}
 			}
 
@@ -404,6 +404,10 @@ uint32 FMediaAudioResampler::Generate(float* Output, const uint32 FramesRequeste
 
 			continue;
 		}
+
+		// calculate output time
+		const float InputOffset = (FrameIndex + FrameAlpha) / InputFrames;
+		OutTime = InputTime + InputOffset * InputDuration;
 
 		// invert buffer if rate reversed
 		if ((Rate * LastRate) < 0.0f)

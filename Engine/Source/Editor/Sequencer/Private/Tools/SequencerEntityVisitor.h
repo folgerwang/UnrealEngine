@@ -44,8 +44,8 @@ protected:
 /** A range specifying time (and possibly vertical) bounds in the sequencer */
 struct FSequencerEntityRange
 {
-	FSequencerEntityRange(const TRange<double>& InRange, FFrameRate InFrameResolution);
-	FSequencerEntityRange(FVector2D TopLeft, FVector2D BottomRight, FFrameRate InFrameResolution);
+	FSequencerEntityRange(const TRange<double>& InRange, FFrameRate InTickResolution);
+	FSequencerEntityRange(FVector2D TopLeft, FVector2D BottomRight, FFrameRate InTickResolution);
 
 	/** Check whether the specified section intersects this range */
 	bool IntersectSection(const UMovieSceneSection* InSection, const TSharedRef<FSequencerTrackNode>& InTrackNode, int32 MaxRowIndex) const;
@@ -56,8 +56,8 @@ struct FSequencerEntityRange
 	/** Check whether the specified node's key area intersects this range */
 	bool IntersectKeyArea(TSharedRef<FSequencerDisplayNode> InNode, float VirtualKeyHeight) const;
 
-	/** Frame resolution of the current time-base */
-	FFrameRate FrameResolution;
+	/** tick resolution of the current time-base */
+	FFrameRate TickResolution;
 
 	/** Start/end times */
 	TRange<double> Range;
@@ -70,7 +70,7 @@ struct FSequencerEntityRange
 struct FSequencerEntityWalker
 {
 	/** Construction from the range itself, and an optional virtual key size, where key bounds must be taken into consideration */
-	FSequencerEntityWalker(const FSequencerEntityRange& InRange, FVector2D InVirtualKeySize = FVector2D());
+	FSequencerEntityWalker(const FSequencerEntityRange& InRange, FVector2D InVirtualKeySize);
 
 	/** Visit the specified nodes (recursively) with this range and a user-supplied visitor */
 	void Traverse(const ISequencerEntityVisitor& Visitor, const TArray< TSharedRef<FSequencerDisplayNode> >& Nodes);

@@ -135,8 +135,8 @@ public:
 		auto* ProjectSettings = GetDefault<UMovieSceneToolsProjectSettings>();
 		UMovieScene* MovieScene = Sequence->GetMovieScene();
 		
-		FFrameNumber StartFrame = (ProjectSettings->DefaultStartTime * MovieScene->GetFrameResolution()).RoundToFrame();
-		int32        Duration   = (ProjectSettings->DefaultDuration * MovieScene->GetFrameResolution()).RoundToFrame().Value;
+		FFrameNumber StartFrame = (ProjectSettings->DefaultStartTime * MovieScene->GetTickResolution()).RoundToFrame();
+		int32        Duration   = (ProjectSettings->DefaultDuration * MovieScene->GetTickResolution()).RoundToFrame().Value;
 
 		MovieScene->SetPlaybackRange(StartFrame, Duration);
 	}

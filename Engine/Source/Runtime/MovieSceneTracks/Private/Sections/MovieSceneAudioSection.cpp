@@ -6,6 +6,7 @@
 #include "UObject/SequencerObjectVersion.h"
 #include "Channels/MovieSceneChannelProxy.h"
 #include "MovieScene.h"
+#include "MovieSceneCommonHelpers.h"
 
 #if WITH_EDITOR
 
@@ -67,7 +68,7 @@ FMovieSceneEvalTemplatePtr UMovieSceneAudioSection::GenerateTemplate() const
 
 TOptional<FFrameTime> UMovieSceneAudioSection::GetOffsetTime() const
 {
-	return TOptional<FFrameTime>(StartOffset * GetTypedOuter<UMovieScene>()->GetFrameResolution());
+	return TOptional<FFrameTime>(StartOffset * GetTypedOuter<UMovieScene>()->GetTickResolution());
 }
 
 void UMovieSceneAudioSection::PostLoad()
@@ -94,16 +95,56 @@ void UMovieSceneAudioSection::PostLoad()
 		// clip at the start of the section evaluation as such: Section Start Time - Start Time. 
 		if (AudioStartTime_DEPRECATED != 0.f && HasStartFrame())
 		{
-			StartOffset = GetInclusiveStartFrame() / GetTypedOuter<UMovieScene>()->GetFrameResolution() - AudioStartTime_DEPRECATED;
+			StartOffset = GetInclusiveStartFrame() / GetTypedOuter<UMovieScene>()->GetTickResolution() - AudioStartTime_DEPRECATED;
 		}
 		AudioStartTime_DEPRECATED = FLT_MAX;
 	}
 }
 
-
-UMovieSceneSection* UMovieSceneAudioSection::SplitSection(FFrameNumber SplitTime)
+float GetStartOffsetAtTrimTime(FQualifiedFrameTime TrimTime, float StartOffset, FFrameNumber StartFrame)
 {
-	const float NewOffset = HasStartFrame() ? StartOffset + (SplitTime - GetInclusiveStartFrame()) / GetTypedOuter<UMovieScene>()->GetFrameResolution() : 0;
+	return StartOffset + (TrimTime.Time - StartFrame) / TrimTime.Rate;
+}
+
+	
+TOptional<TRange<FFrameNumber> > UMovieSceneAudioSection::GetAutoSizeRange() const
+{
+	float SoundDuration = MovieSceneHelpers::GetSoundDuration(Sound);
+
+	FFrameRate FrameRate = GetTypedOuter<UMovieScene>()->GetTickResolution();
+
+	// determine initial duration
+	// @todo Once we have infinite sections, we can remove this
+	// @todo ^^ Why? Infinte sections would mean there's no starting time?
+	FFrameTime DurationToUse = 1.f * FrameRate; // if all else fails, use 1 second duration
+
+	if (SoundDuration != INDEFINITELY_LOOPING_DURATION)
+	{
+		DurationToUse = SoundDuration * FrameRate;
+	}
+
+	return TRange<FFrameNumber>(GetInclusiveStartFrame(), GetInclusiveStartFrame() + DurationToUse.FrameNumber);
+}
+
+	
+void UMovieSceneAudioSection::TrimSection(FQualifiedFrameTime TrimTime, bool bTrimLeft)
+{
+	SetFlags(RF_Transactional);
+
+	if (TryModify())
+	{
+		if (bTrimLeft)
+		{
+			StartOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(TrimTime, StartOffset, GetInclusiveStartFrame()) : 0;
+		}
+
+		Super::TrimSection(TrimTime, bTrimLeft);
+	}
+}
+
+UMovieSceneSection* UMovieSceneAudioSection::SplitSection(FQualifiedFrameTime SplitTime)
+{
+	const float NewOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(SplitTime, StartOffset, GetInclusiveStartFrame()) : 0;
 
 	UMovieSceneSection* NewSection = Super::SplitSection(SplitTime);
 	if (NewSection != nullptr)

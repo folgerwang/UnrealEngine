@@ -189,11 +189,12 @@ FMovieSceneEvaluationRange FMovieScenePlaybackPosition::PlayTo(FFrameTime InputP
 	FFrameTime OutputEvalPositionFrom = ConvertFrameTime(InputEvalPositionFrom, InputRate, OutputRate);
 	FFrameTime OutputEvalPositionTo   = ConvertFrameTime(InputPosition, InputRate, OutputRate);
 
+	LastRange = FMovieSceneEvaluationRange(OutputEvalPositionTo, OutputEvalPositionFrom, OutputRate, !PreviousPlayEvalPosition.IsSet());
+
 	// Assign the cached input values
 	CurrentPosition          = InputPosition;
 	PreviousPlayEvalPosition = InputPosition;
 
-	LastRange = FMovieSceneEvaluationRange(OutputEvalPositionTo, OutputEvalPositionFrom, OutputRate, !PreviousPlayEvalPosition.IsSet());
 	return LastRange.GetValue();
 }
 

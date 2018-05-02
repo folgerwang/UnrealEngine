@@ -248,6 +248,9 @@ public:
 	/** Set interpolation modes. */
 	void SetInterpTangentMode(ERichCurveInterpMode InterpMode, ERichCurveTangentMode TangentMode);
 
+	/** Toggle tangent weight mode. */
+	void ToggleInterpTangentWeightMode();
+
 	/** Snap the currently selected keys to frame. */
 	void SnapToFrame();
 
@@ -296,6 +299,11 @@ public:
 	 * Converts all the currently selected nodes to be possessables, if possible
 	 */
 	void ConvertSelectedNodesToPossessables();
+
+	/*
+	 * Set the spawnable level for the currently selected objects
+	 */
+	void SetSelectedNodesSpawnableLevel(FName InLevelName);
 
 protected:
 
@@ -469,6 +477,10 @@ public:
 	void SetKeyTime();
 	void OnSetKeyTimeTextCommitted(const FText& InText, ETextCommit::Type CommitInfo);
 
+	/** Called when a user executes the rekey for selected keys */
+	bool CanRekey() const;
+	void Rekey();
+
 	void SelectKey(UMovieSceneSection* InSection, TSharedPtr<IKeyArea> InKeyArea, FKeyHandle KeyHandle, bool bToggle);
 
 	FSequencerLabelManager& GetLabelManager()
@@ -611,8 +623,8 @@ public:
 	virtual void SetAutoChangeMode(EAutoChangeMode AutoChangeMode) override;
 	virtual EAllowEditsMode GetAllowEditsMode() const override;
 	virtual void SetAllowEditsMode(EAllowEditsMode AllowEditsMode) override;
-	virtual bool GetKeyAllEnabled() const override;
-	virtual void SetKeyAllEnabled(bool bKeyAllEnabled) override;
+	virtual EKeyGroupMode GetKeyGroupMode() const override;
+	virtual void SetKeyGroupMode(EKeyGroupMode) override;
 	virtual bool GetKeyInterpPropertiesOnly() const override;
 	virtual void SetKeyInterpPropertiesOnly(bool bKeyInterpPropertiesOnly) override;
 	virtual EMovieSceneKeyInterpolation GetKeyInterpolation() const override;
@@ -737,9 +749,11 @@ protected:
 	 * Called to get the nearest key
 	 *
 	 * @param InTime The time to get the nearest key to
+	 * @param bSearchAllTracks If true this will search all tracks for a potential nearest.
+	 *						 False will return keys only from the currently selected track.
 	 * @return NearestKey
 	 */
-	FFrameNumber OnGetNearestKey(FFrameTime InTime);
+	FFrameNumber OnGetNearestKey(FFrameTime InTime, bool bSearchAllTracks);
 
 	/**
 	 * Called when the scrub position is changed by the user
@@ -929,8 +943,15 @@ public:
 	/** Reset the timing manager to the clock source specified by the root movie scene */
 	void ResetTimeController();
 
-	/** Helper function which returns how many frames (in frame resolution) one display rate frame represents. */
-	double GetPlayRateDeltaFrameCount() const;
+	/** Helper function which returns how many frames (in tick resolution) one display rate frame represents. */
+	double GetDisplayRateDeltaFrameCount() const;
+
+	/** Retrieve the desired scrubber style for this instance. */
+	ESequencerScrubberStyle GetScrubStyle() const
+	{
+		return ScrubStyle;
+	}
+
 private:
 
 	/** Update the time bases for the current movie scene */
@@ -1022,6 +1043,9 @@ private:
 
 	/** Whether the sequence should be editable or read only */
 	bool bReadOnly;
+
+	/** Scrub style provided on construction */
+	ESequencerScrubberStyle ScrubStyle;
 
 	/** Generic Popup Entry */
 	TWeakPtr<IMenu> EntryPopupMenu;

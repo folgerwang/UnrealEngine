@@ -11,6 +11,8 @@
 #include "MovieSceneObjectBindingID.h"
 #include "MovieSceneObjectBindingIDPicker.h"
 #include "ISequencer.h"
+#include "Logging/TokenizedMessage.h"
+#include "MovieSceneTranslator.h"
 
 class ISequencer;
 class UMovieScene;
@@ -35,7 +37,7 @@ public:
 	 * @param Time	The time at which to trim
 	 * @param bTrimLeft Trim left or trim right
 	 */
-	static void TrimSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, FFrameNumber Time, bool bTrimLeft);
+	static void TrimSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, FQualifiedFrameTime Time, bool bTrimLeft);
 
 	/**
 	 * Splits sections at the given time
@@ -43,7 +45,7 @@ public:
 	 * @param Sections The sections to split
 	 * @param Time	The time at which to split
 	 */
-	static void SplitSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, FFrameNumber Time);
+	static void SplitSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, FQualifiedFrameTime Time);
 
 	/**
 	 * Parse a shot name into its components.
@@ -145,6 +147,37 @@ public:
 	static bool ShowExportEDLDialog(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveDirectory = TEXT(""), int32 InHandleFrames = 8);
 
 	/**
+	* Import movie scene formats
+	*
+	* @param InImporter The movie scene importer.
+	* @param InMovieScene The movie scene to import the format into
+	* @param InFrameRate The frame rate to import the format at
+	* @param InOpenDirectory Optional directory path to open from. If none given, a dialog will pop up to prompt the user
+	* @return Whether the import was successful
+	*/
+	static bool MovieSceneTranslatorImport(FMovieSceneImporter* InImporter, UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InOpenDirectory = TEXT(""));
+
+	/**
+	* Export movie scene formats
+	*
+	* @param InExporter The movie scene exporter.
+	* @param InMovieScene The movie scene with the cinematic shot track and audio tracks to export
+	* @param InFrameRate The frame rate to export the AAF at
+	* @param InSaveDirectory Optional directory path to save to. If none given, a dialog will pop up to prompt the user
+	* @param InHandleFrames The number of handle frames to include for each shot.
+	* @return Whether the export was successful
+	*/
+	static bool MovieSceneTranslatorExport(FMovieSceneExporter* InExporter, const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveDirectory = TEXT(""), int32 InHandleFrames = 8);
+
+	/** 
+	* Display error message window for MovieScene translators
+	*
+	* @param InTranslator The movie scene importer or exporter.
+	* @param InContext The context used to gather error, warning or info messages during import or export.
+	*/
+	static void MovieSceneTranslatorDisplayMessages(FMovieSceneTranslator* InTranslator,  TSharedRef<FMovieSceneTranslatorContext> InContext);
+
+	/**
 	 * Import FBX
 	 *
 	 * @param InMovieScene The movie scene to import the fbx into
@@ -178,6 +211,11 @@ public:
 	 * @return The exported camera anim asset
 	 */
 	static UObject* ExportToCameraAnim(UMovieScene* InMovieScene, FGuid& InObjectBinding);
+
+	/*
+	 * @return Whether this object class has hidden mobility and can't be animated
+	 */
+	static bool HasHiddenMobility(const UClass* ObjectClass);
 };
 
 class FTrackEditorBindingIDPicker : public FMovieSceneObjectBindingIDPicker
@@ -205,4 +243,5 @@ private:
 
 	FOnBindingPicked OnBindingPickedEvent;
 };
+
 

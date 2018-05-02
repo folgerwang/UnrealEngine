@@ -138,6 +138,9 @@ private:
 	/** Callback for executing a menu entry in the "Add Shot" combo button. */
 	void HandleAddCinematicShotComboButtonMenuEntryExecute(const FAssetData& AssetData);
 
+	/** Callback for executing a menu entry in the "Add Shot" combo button when enter pressed. */
+	void HandleAddCinematicShotComboButtonMenuEntryEnterPressed(const TArray<FAssetData>& AssetData);
+
 	/** Find or create a cinematic shot track in the currently focused movie scene. */
 	UMovieSceneCinematicShotTrack* FindOrCreateCinematicShotTrack();
 
@@ -175,6 +178,12 @@ private:
 	
 	/** Callback for ExportEDL. */
 	void ExportEDL();
+
+	/** Callback for ImportFCPXML. */
+	void ImportFCPXML();
+
+	/** Callback for ExportFCPXML. */
+	void ExportFCPXML();
 
 private:
 

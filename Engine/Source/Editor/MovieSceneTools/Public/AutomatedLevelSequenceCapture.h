@@ -15,14 +15,13 @@ class FSceneViewport;
 class ULevelSequenceBurnInOptions;
 
 UCLASS(config=EditorSettings)
-class MOVIESCENECAPTURE_API UAutomatedLevelSequenceCapture : public UMovieSceneCapture
+class MOVIESCENETOOLS_API UAutomatedLevelSequenceCapture : public UMovieSceneCapture
 {
 public:
 	UAutomatedLevelSequenceCapture(const FObjectInitializer&);
 
 	GENERATED_BODY()
 
-#if WITH_EDITORONLY_DATA
 	/** Set the level sequence asset that we are to record. We will spawn a new actor at runtime for this asset for playback. */
 	void SetLevelSequenceAsset(FString InAssetPath);
 
@@ -30,7 +29,7 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay)
 	bool bUseCustomStartFrame;
 
-	/** Frame number to start capturing.  The frame number range depends on whether the bUseRelativeFrameNumbers option is enabled. */
+	/** Frame number to start capturing. */
 	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomStartFrame", DisplayName="Start Frame"))
 	FFrameNumber CustomStartFrame;
 
@@ -38,7 +37,7 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay)
 	bool bUseCustomEndFrame;
 
-	/** Frame number to end capturing.  The frame number range depends on whether the bUseRelativeFrameNumbers option is enabled. */
+	/** Frame number to end capturing. */
 	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomEndFrame", DisplayName="End Frame"))
 	FFrameNumber CustomEndFrame;
 
@@ -186,6 +185,5 @@ private:
 	TOptional<FFrameNumber> CachedEndFrame;
 	TOptional<bool> bCachedUseCustomStartFrame;
 	TOptional<bool> bCachedUseCustomEndFrame;
-#endif
 };
 

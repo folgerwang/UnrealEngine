@@ -43,7 +43,5 @@ void FMovieSceneSpawnable::CopyObjectTemplate(UObject& InSourceObject, UMovieSce
 	check(ObjectTemplate);
 
 	MarkSpawnableTemplate(*ObjectTemplate);
-
-	// @todo: this will mark the package as dirty whenever a spawnable is destroyed. We should diff the duplicated object, and only mark dirty where the spawnable has actually changed
 	MovieSceneSequence.MarkPackageDirty();
 }

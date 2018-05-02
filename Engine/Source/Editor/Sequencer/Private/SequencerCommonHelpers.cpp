@@ -75,7 +75,7 @@ int32 SequencerHelpers::GetSectionFromTime(TArrayView<UMovieSceneSection* const>
 				}
 			}
 			// Check for nearby sections if there is nothing overlapping
-			else if (!MaxOverlapPriority.IsSet())
+			else if (!MaxOverlapPriority.IsSet() && SectionRange.HasLowerBound())
 			{
 				const FFrameNumber LowerBoundValue = SectionRange.GetLowerBoundValue();
 				// If this section exists beyond the current time, we can choose it if its closest to the time

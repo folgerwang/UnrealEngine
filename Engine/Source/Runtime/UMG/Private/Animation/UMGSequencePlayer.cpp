@@ -27,7 +27,7 @@ void UUMGSequencePlayer::InitSequencePlayer( UWidgetAnimation& InAnimation, UUse
 
 	// Cache the time range of the sequence to determine when we stop
 	Duration = MovieScene::DiscreteSize(MovieScene->GetPlaybackRange());
-	AnimationResolution = MovieScene->GetFrameResolution();
+	AnimationResolution = MovieScene->GetTickResolution();
 	AbsolutePlaybackStart = MovieScene::DiscreteInclusiveLower(MovieScene->GetPlaybackRange());
 }
 
@@ -122,7 +122,8 @@ void UUMGSequencePlayer::Tick(float DeltaTime)
 
 		if ( bCompleted )
 		{
-			if (RootTemplateInstance.IsValid())
+			// There was a bug where Finish wasn't called, assets were created expecting this behavior. At the time of fixing this bug, the object version was incremented so that newly created assets would finish evaluation.
+			if (RootTemplateInstance.IsValid() && Animation->GetLegacyFinishOnStop())
 			{
 				RootTemplateInstance.Finish(*this);
 			}

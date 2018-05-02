@@ -34,6 +34,8 @@ public:
 	 */
 	FCurveEditorSelection Selection;
 
+	
+
 public:
 
 	/** Attribute used to retrieve the current input snap rate (also used for display) */
@@ -270,6 +272,18 @@ public:
 	* Get A Vector for the given slope, usually a tangent, and length. Used to draw the tangent.
 	*/
 	static FVector2D GetVectorFromSlopeAndLength(float Slope, float Length);
+
+public:
+	/**
+	* Given the position of a tangent in screen space get it's position in normal time/value space.
+	*/
+	FVector2D GetTangentPositionInScreenSpace(const FVector2D &StartPos, float Tangent, float Weight) const;
+
+	/**
+	* Given point and tangent position in screen space, get the tangent and it's weight value in normal time/value space.
+	*/
+	void GetTangentAndWeightFromScreenPosition(const FVector2D &StartPos, const  FVector2D &TangentPos, float &Tangent, float &Weight) const;
+
 protected:
 
 	/**

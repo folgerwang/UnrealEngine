@@ -181,6 +181,7 @@ void SSequencerTreeView::Construct(const FArguments& InArgs, const TSharedRef<FS
 		.OnExpansionChanged(this, &SSequencerTreeView::OnExpansionChanged)
 		.AllowOverscroll(EAllowOverscroll::No)
 		.OnContextMenuOpening( this, &SSequencerTreeView::OnContextMenuOpening )
+		.OnSetExpansionRecursive(this, &SSequencerTreeView::SetItemExpansionRecursive)
 	);
 }
 
@@ -726,6 +727,11 @@ void SSequencerTreeView::OnExpansionChanged(FDisplayNodeRef InItem, bool bIsExpa
 			SetItemExpansion(Child, true);
 		}
 	}
+}
+
+void SSequencerTreeView::SetItemExpansionRecursive(FDisplayNodeRef InItem, bool bIsExpanded)
+{
+	ExpandCollapseNode(InItem, bIsExpanded, ETreeRecursion::Recursive);
 }
 
 void SSequencerTreeView::OnGetChildren(FDisplayNodeRef InParent, TArray<FDisplayNodeRef>& OutChildren) const

@@ -188,6 +188,7 @@ public class Engine : ModuleRules
 		{
 			PrivateIncludePathModuleNames.AddRange(
 				new string[] {
+					"Media",
 					"SlateNullRenderer",
 					"SlateRHIRenderer"
 				}
@@ -195,6 +196,7 @@ public class Engine : ModuleRules
 
 			DynamicallyLoadedModuleNames.AddRange(
 				new string[] {
+					"Media",
 					"SlateNullRenderer",
 					"SlateRHIRenderer"
 				}

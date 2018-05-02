@@ -647,6 +647,17 @@ public:
 	bool SelectTrack(EMediaPlayerTrack TrackType, int32 TrackIndex);
 
 	/**
+	 * Set the time on which to block.
+	 *
+	 * If set, this player will block in TickFetch until the video sample
+	 * for the specified time are actually available.
+	 *
+	 * @param Time The time to block on, or FTimespan::MinValue to disable.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Media|MediaPlayer")
+	void SetBlockOnTime(const FTimespan& Time);
+
+	/**
 	 * Set the name of the desired native player.
 	 *
 	 * @param PlayerName The name of the player to set.

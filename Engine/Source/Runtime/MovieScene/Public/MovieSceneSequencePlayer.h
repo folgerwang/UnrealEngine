@@ -201,7 +201,7 @@ public:
 	 */
 	DEPRECATED(4.20, "Please use PlayToFrame instead")
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
-	void SetPlaybackPosition(float NewPlaybackPosition) { PlayToSeconds(NewPlaybackPosition + StartTime / PlayPosition.GetInputRate()); }
+	void SetPlaybackPosition(float NewPlaybackPosition) { Status == EMovieScenePlayerStatus::Playing ? PlayToSeconds(NewPlaybackPosition + StartTime / PlayPosition.GetInputRate()) : JumpToSeconds(NewPlaybackPosition + StartTime / PlayPosition.GetInputRate()); }
 
 	/**
 	 * Sets the range in time to be played back by this player, overriding the default range stored in the asset
@@ -244,7 +244,7 @@ public:
 	int32 GetFrameDuration() const;
 
 	/**
-	 * Get this sequence's playback frame rate.
+	 * Get this sequence's display rate.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	FFrameRate GetFrameRate() const { return PlayPosition.GetInputRate(); }
@@ -347,6 +347,10 @@ public:
 	/** Check whether the sequence is paused. */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	bool IsPaused() const;
+
+	/** Check whether playback is reversed. */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	bool IsReversed() const;
 
 	/** Get the playback rate of this player. */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")

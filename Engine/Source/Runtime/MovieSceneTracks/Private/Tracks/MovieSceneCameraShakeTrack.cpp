@@ -18,7 +18,7 @@ UMovieSceneSection* UMovieSceneCameraShakeTrack::AddNewCameraShake(FFrameNumber 
 	if (NewSection)
 	{
 		// #fixme get length
-		FFrameTime Duration = 5.0 * GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameTime Duration = 5.0 * GetTypedOuter<UMovieScene>()->GetTickResolution();
 		NewSection->InitialPlacement(CameraShakeSections, KeyTime, Duration.FrameNumber.Value, SupportsMultipleRows());
 		NewSection->ShakeData.ShakeClass = ShakeClass;
 		

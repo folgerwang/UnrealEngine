@@ -500,7 +500,7 @@ namespace Sequencer
 
 		auto ForEachKey = [Section, PasteAt, &NewRange, &ChannelInterface, &OutPastedKeys, &SrcEnvironment, &DstEnvironment](const FMovieSceneClipboardKey& Key)
 		{
-			FFrameNumber Time = (PasteAt + FFrameRate::TransformTime(Key.GetTime(), SrcEnvironment.FrameResolution, DstEnvironment.FrameResolution)).FloorToFrame();
+			FFrameNumber Time = (PasteAt + FFrameRate::TransformTime(Key.GetTime(), SrcEnvironment.TickResolution, DstEnvironment.TickResolution)).FloorToFrame();
 
 			NewRange = TRange<FFrameNumber>::Hull(NewRange, TRange<FFrameNumber>(Time));
 

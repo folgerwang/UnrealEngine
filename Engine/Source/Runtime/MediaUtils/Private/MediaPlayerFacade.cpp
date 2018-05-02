@@ -4,6 +4,7 @@
 #include "MediaUtilsPrivate.h"
 
 #include "HAL/PlatformMath.h"
+#include "HAL/PlatformProcess.h"
 #include "IMediaCache.h"
 #include "IMediaControls.h"
 #include "IMediaModule.h"
@@ -11,6 +12,7 @@
 #include "IMediaPlayer.h"
 #include "IMediaPlayerFactory.h"
 #include "IMediaSamples.h"
+#include "IMediaTextureSample.h"
 #include "IMediaTracks.h"
 #include "IMediaView.h"
 #include "Math/NumericLimits.h"
@@ -22,6 +24,7 @@
 #include "MediaSampleCache.h"
 
 
+#define MEDIAPLAYERFACADE_DISABLE_BLOCKING 0
 #define MEDIAPLAYERFACADE_TRACE_SINKOVERFLOWS 0
 
 
@@ -71,8 +74,10 @@ namespace MediaPlayerFacade
 
 FMediaPlayerFacade::FMediaPlayerFacade()
 	: TimeDelay(FTimespan::Zero())
+	, BlockOnTime(FTimespan::MinValue())
 	, Cache(new FMediaSampleCache)
 	, LastRate(0.0f)
+	, NextVideoSampleTime(FTimespan::MinValue())
 { }
 
 
@@ -189,6 +194,7 @@ void FMediaPlayerFacade::Close()
 		Player->Close();
 	}
 
+	BlockOnTime = FTimespan::MinValue();
 	Cache->Empty();
 	CurrentUrl.Empty();
 	LastRate = 0.0f;
@@ -521,6 +527,12 @@ bool FMediaPlayerFacade::SelectTrack(EMediaTrackType TrackType, int32 TrackIndex
 }
 
 
+void FMediaPlayerFacade::SetBlockOnTime(const FTimespan& Time)
+{
+	BlockOnTime = Time;
+}
+
+
 void FMediaPlayerFacade::SetCacheWindow(FTimespan Ahead, FTimespan Behind)
 {
 	Cache->SetCacheWindow(Ahead, Behind);
@@ -589,6 +601,45 @@ bool FMediaPlayerFacade::SupportsRate(float Rate, bool Unthinned) const
 /* FMediaPlayerFacade implementation
 *****************************************************************************/
 
+bool FMediaPlayerFacade::BlockOnFetch() const
+{
+#if MEDIAPLAYERFACADE_DISABLE_BLOCKING
+	return false;
+#endif
+
+	check(Player.IsValid());
+
+	if (BlockOnTime == FTimespan::MinValue())
+	{
+		return false; // no blocking requested
+	}
+
+	if (!Player->GetControls().CanControl(EMediaControl::BlockOnFetch))
+	{
+		return false; // not supported by player plug-in
+	}
+
+	if (IsPreparing())
+	{
+		return true; // block on media opening
+	}
+
+	if (!IsPlaying() || (GetRate() < 0.0f))
+	{
+		return false; // block only in forward play
+	}
+
+	const bool VideoReady = (VideoSampleSinks.Num() == 0) || (BlockOnTime < NextVideoSampleTime);
+
+	if (VideoReady)
+	{
+		return false; // video is ready
+	}
+
+	return true;
+}
+
+
 void FMediaPlayerFacade::FlushSinks()
 {
 	UE_LOG(LogMediaUtils, Verbose, TEXT("PlayerFacade %p: Flushing sinks"), this);
@@ -605,6 +656,8 @@ void FMediaPlayerFacade::FlushSinks()
 	{
 		Player->GetSamples().FlushSamples();
 	}
+
+	NextVideoSampleTime = FTimespan::MinValue();
 }
 
 
@@ -849,27 +902,61 @@ void FMediaPlayerFacade::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 	// determine range of valid samples
 	TRange<FTimespan> TimeRange;
 
-	const FTimespan Time = GetTime();
+	const FTimespan CurrentTime = GetTime();
 	
 	if (Rate > 0.0f)
 	{
-		TimeRange = TRange<FTimespan>::AtMost(Time);
+		TimeRange = TRange<FTimespan>::AtMost(CurrentTime);
 	}
 	else if (Rate < 0.0f)
 	{
-		TimeRange = TRange<FTimespan>::AtLeast(Time);
+		TimeRange = TRange<FTimespan>::AtLeast(CurrentTime);
 	}
 	else
 	{
-		TimeRange = TRange<FTimespan>(Time);
+		TimeRange = TRange<FTimespan>(CurrentTime);
 	}
 
 	// process samples in range
 	IMediaSamples& Samples = Player->GetSamples();
 
-	ProcessCaptionSamples(Samples, TimeRange);
-	ProcessSubtitleSamples(Samples, TimeRange);
-	ProcessVideoSamples(Samples, TimeRange);
+	bool Blocked = false;
+	FDateTime BlockedTime;
+
+	while (true)
+	{
+		ProcessCaptionSamples(Samples, TimeRange);
+		ProcessSubtitleSamples(Samples, TimeRange);
+		ProcessVideoSamples(Samples, TimeRange);
+
+		if (!BlockOnFetch())
+		{
+			break;
+		}
+
+		if (Blocked)
+		{
+			if ((FDateTime::UtcNow() - BlockedTime) >= FTimespan::FromSeconds(MEDIAUTILS_MAX_BLOCKONFETCH_SECONDS))
+			{
+				UE_LOG(LogMediaUtils, Verbose, TEXT("PlayerFacade %p: Aborted block on fetch %s after %i seconds"),
+					this,
+					*BlockOnTime.ToString(TEXT("%h:%m:%s.%t")),
+					MEDIAUTILS_MAX_BLOCKONFETCH_SECONDS
+				);
+
+				break;
+			}
+		}
+		else
+		{
+			UE_LOG(LogMediaUtils, VeryVerbose, TEXT("PlayerFacade %p: Blocking on fetch %s"), this, *BlockOnTime.ToString(TEXT("%h:%m:%s.%t")));
+
+			Blocked = true;
+			BlockedTime = FDateTime::UtcNow();
+		}
+
+		FPlatformProcess::Sleep(0.0f);
+	}
 }
 
 
@@ -941,16 +1028,6 @@ void FMediaPlayerFacade::TickTickable()
 	
 	ProcessAudioSamples(Samples, AudioTimeRange);
 	ProcessMetadataSamples(Samples, MetadataTimeRange);	
-}
-
-
-/* IMediaEventSink interface
-*****************************************************************************/
-
-void FMediaPlayerFacade::ReceiveMediaEvent(EMediaEvent Event)
-{
-	UE_LOG(LogMediaUtils, VeryVerbose, TEXT("PlayerFacade %p: Received media event %s"), this, *MediaUtils::EventToString(Event));
-	QueuedEvents.Enqueue(Event);
 }
 
 
@@ -1027,11 +1104,36 @@ void FMediaPlayerFacade::ProcessVideoSamples(IMediaSamples& Samples, TRange<FTim
 
 	while (Samples.FetchVideo(TimeRange, Sample))
 	{
-		if (Sample.IsValid() && !VideoSampleSinks.Enqueue(Sample.ToSharedRef(), MediaPlayerFacade::MaxVideoSinkDepth))
+		if (!Sample.IsValid())
+		{
+			continue;
+		}
+
+		UE_LOG(LogMediaUtils, VeryVerbose, TEXT("PlayerFacade %p: Fetched video sample %s"), this, *Sample->GetTime().ToString(TEXT("%h:%m:%s.%t")));
+
+		if (VideoSampleSinks.Enqueue(Sample.ToSharedRef(), MediaPlayerFacade::MaxVideoSinkDepth))
+		{
+			if (GetRate() >= 0.0f)
+			{
+				NextVideoSampleTime = Sample->GetTime() + Sample->GetDuration();
+				UE_LOG(LogMediaUtils, VeryVerbose, TEXT("PlayerFacade %p: Next video sample time %s"), this, *NextVideoSampleTime.ToString(TEXT("%h:%m:%s.%t")));
+			}
+		}
+		else
 		{
 			#if MEDIAPLAYERFACADE_TRACE_SINKOVERFLOWS
 				UE_LOG(LogMediaUtils, VeryVerbose, TEXT("PlayerFacade %p: Video sample sink overflow"), this);
 			#endif
 		}
 	}
+}
+
+
+/* IMediaEventSink interface
+*****************************************************************************/
+
+void FMediaPlayerFacade::ReceiveMediaEvent(EMediaEvent Event)
+{
+	UE_LOG(LogMediaUtils, VeryVerbose, TEXT("PlayerFacade %p: Received media event %s"), this, *MediaUtils::EventToString(Event));
+	QueuedEvents.Enqueue(Event);
 }

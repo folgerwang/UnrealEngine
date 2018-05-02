@@ -192,11 +192,26 @@ FReply STimeRangeSlider::OnMouseMove( const FGeometry& MyGeometry, const FPointe
 		}
 		else if (bLeftHandleDragged || bRightHandleDragged)
 		{
-			double InDelta  = bLeftHandleDragged  ? DragDelta : 0.0;
-			double OutDelta = bRightHandleDragged ? DragDelta : 0.0;
+			double NewIn = 0.0f;
+			double NewOut = 0.0f;
 
-			double NewIn  = MouseDownViewRange.GetLowerBoundValue() + InDelta;
-			double NewOut = MouseDownViewRange.GetUpperBoundValue() + OutDelta;
+			if (bLeftHandleDragged)
+			{
+				NewIn = MouseDownViewRange.GetLowerBoundValue() + DragDelta;
+				NewOut = MouseDownViewRange.GetUpperBoundValue() - DragDelta;
+			}
+			else
+			{
+				NewIn = MouseDownViewRange.GetLowerBoundValue() - DragDelta;
+				NewOut = MouseDownViewRange.GetUpperBoundValue() + DragDelta;
+			}
+
+			// In cases of extreme zoom the drag delta will be greater than the difference between In/Out.
+			// This causes zooming to then become pan at extreme levels which is undesirable.
+			if (NewIn >= NewOut)
+			{
+				return FReply::Handled();
+			}
 
 			TimeSliderControllerPtr->SetViewRange(NewIn, NewOut, EViewRangeInterpolation::Immediate);
 		}

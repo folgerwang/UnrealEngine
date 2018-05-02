@@ -34,7 +34,8 @@ public class LevelSequenceEditor : ModuleRules
                 "Slate",
                 "SlateCore",
                 "UnrealEd",
-                "VREditor"
+                "VREditor",
+				"TimeManagement"
 			}
 		);
 

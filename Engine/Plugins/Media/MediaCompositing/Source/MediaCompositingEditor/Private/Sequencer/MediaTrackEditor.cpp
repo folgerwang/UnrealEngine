@@ -15,8 +15,6 @@
 #include "MovieSceneMediaSection.h"
 #include "MovieSceneMediaTrack.h"
 #include "MovieSceneToolsUserSettings.h"
-#include "MediaPlane.h"
-#include "MediaPlaneComponent.h"
 #include "SequencerUtilities.h"
 #include "TrackEditorThumbnail/TrackEditorThumbnailPool.h"
 #include "Widgets/SBoxPanel.h"
@@ -92,6 +90,7 @@ TSharedPtr<SWidget> FMediaTrackEditor::BuildOutlinerEditWidget(const FGuid& Obje
 		FAssetPickerConfig AssetPickerConfig;
 		{
 			AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateRaw(this, &FMediaTrackEditor::AddNewSection, MediaTrack);
+			AssetPickerConfig.OnAssetEnterPressed = FOnAssetEnterPressed::CreateRaw(this, &FMediaTrackEditor::AddNewSectionEnterPressed, MediaTrack);
 			AssetPickerConfig.bAllowNullSelection = false;
 			AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 			AssetPickerConfig.Filter.bRecursiveClasses = true;
@@ -156,6 +155,12 @@ TSharedRef<ISequencerSection> FMediaTrackEditor::MakeSectionInterface(UMovieScen
 {
 	check(SupportsType(SectionObject.GetOuter()->GetClass()));
 	return MakeShared<FMediaThumbnailSection>(*CastChecked<UMovieSceneMediaSection>(&SectionObject), ThumbnailPool, GetSequencer());
+}
+
+
+bool FMediaTrackEditor::SupportsSequence(UMovieSceneSequence* InSequence) const
+{
+	return (InSequence != nullptr) && (InSequence->GetClass()->GetName() == TEXT("LevelSequence"));
 }
 
 
@@ -265,6 +270,13 @@ void FMediaTrackEditor::AddNewSection(const FAssetData& AssetData, UMovieSceneMe
 	}
 }
 
+void FMediaTrackEditor::AddNewSectionEnterPressed(const TArray<FAssetData>& AssetData, UMovieSceneMediaTrack* Track)
+{
+	if (AssetData.Num() > 0)
+	{
+		AddNewSection(AssetData[0].GetAsset(), Track);
+	}
+}
 
 /* FMediaTrackEditor callbacks
  *****************************************************************************/

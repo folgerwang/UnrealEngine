@@ -33,7 +33,7 @@ FCinematicShotSection::FCinematicSectionCache::FCinematicSectionCache(UMovieScen
 		UMovieSceneSequence* InnerSequence = Section->GetSequence();
 		if (InnerSequence)
 		{
-			InnerFrameRate = InnerSequence->GetMovieScene()->GetFrameResolution();
+			InnerFrameRate = InnerSequence->GetMovieScene()->GetTickResolution();
 		}
 
 		InnerFrameOffset = Section->Parameters.GetStartFrameOffset();
@@ -72,7 +72,7 @@ FMargin FCinematicShotSection::GetContentPadding() const
 
 void FCinematicShotSection::SetSingleTime(double GlobalTime)
 {
-	double ReferenceOffsetSeconds = SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() / SectionObject.GetTypedOuter<UMovieScene>()->GetFrameResolution() : 0;
+	double ReferenceOffsetSeconds = SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() / SectionObject.GetTypedOuter<UMovieScene>()->GetTickResolution() : 0;
 	SectionObject.SetThumbnailReferenceOffset(GlobalTime - ReferenceOffsetSeconds);
 }
 
@@ -89,8 +89,8 @@ void FCinematicShotSection::ResizeSection(ESequencerSectionResizeMode ResizeMode
 	// Adjust the start offset when resizing from the beginning
 	if (ResizeMode == SSRM_LeadingEdge && InnerSequence)
 	{
-		const FFrameRate    OuterFrameRate   = SectionObject.GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetFrameResolution();
+		const FFrameRate    OuterFrameRate   = SectionObject.GetTypedOuter<UMovieScene>()->GetTickResolution();
+		const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetTickResolution();
 		const FFrameNumber  ResizeDifference = ResizeTime - InitialStartTimeDuringResize;
 		const FFrameTime    InnerFrameTime   = ConvertFrameTime(ResizeDifference, OuterFrameRate, InnerFrameRate);
 		const int32         NewStartOffset   = FFrameTime::FromDecimal(InnerFrameTime.AsDecimal() * SectionObject.Parameters.TimeScale).FrameNumber.Value;
@@ -114,8 +114,8 @@ void FCinematicShotSection::SlipSection(double SlipTime)
 	// Adjust the start offset when resizing from the beginning
 	if (InnerSequence)
 	{
-		const FFrameRate    OuterFrameRate   = SectionObject.GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetFrameResolution();
+		const FFrameRate    OuterFrameRate   = SectionObject.GetTypedOuter<UMovieScene>()->GetTickResolution();
+		const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetTickResolution();
 		const double        ResizeDifference = SlipTime - InitialStartTimeDuringResize / OuterFrameRate;
 		const int32         NewStartOffset   = ( (ResizeDifference * SectionObject.Parameters.TimeScale) * InnerFrameRate ).FrameNumber.Value;
 
@@ -139,7 +139,7 @@ void FCinematicShotSection::Tick(const FGeometry& AllottedGeometry, const FGeome
 	// Update single reference frame settings
 	if (GetDefault<UMovieSceneUserThumbnailSettings>()->bDrawSingleThumbnails && SectionObject.HasStartFrame())
 	{
-		double ReferenceTime = SectionObject.GetInclusiveStartFrame() / SectionObject.GetTypedOuter<UMovieScene>()->GetFrameResolution() + SectionObject.GetThumbnailReferenceOffset();
+		double ReferenceTime = SectionObject.GetInclusiveStartFrame() / SectionObject.GetTypedOuter<UMovieScene>()->GetTickResolution() + SectionObject.GetThumbnailReferenceOffset();
 		ThumbnailCache.SetSingleReferenceFrame(ReferenceTime);
 	}
 	else

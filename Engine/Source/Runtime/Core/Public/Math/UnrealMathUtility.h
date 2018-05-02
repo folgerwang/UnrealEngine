@@ -299,7 +299,9 @@ struct FMath : public FPlatformMath
 	template <class T>
 	static FORCEINLINE T DivideAndRoundNearest(T Dividend, T Divisor)
 	{
-		return (Dividend > 0) ? 1 + ((Dividend - 1) / Divisor) : (Dividend / Divisor);
+		return (Dividend >= 0)
+			? (Dividend + Divisor / 2) / Divisor
+			: (Dividend - Divisor / 2 + 1) / Divisor;
 	}
 
 	/**

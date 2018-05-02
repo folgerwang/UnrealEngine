@@ -180,10 +180,10 @@ FText FMovieSceneSectionDetailsCustomization::OnGetRangeStartText() const
 void FMovieSceneSectionDetailsCustomization::OnRangeStartTextCommitted(const FText& InText, ETextCommit::Type CommitInfo)
 {
 	// Find the new value for the start range.
-	TOptional<double> FrameResolution = NumericTypeInterface->FromString(InText.ToString(), 0.0);
+	TOptional<double> NewStart = NumericTypeInterface->FromString(InText.ToString(), 0.0);
 
 	// Early out if we couldn't parse it, no need to reset them all to zero.
-	if (!FrameResolution.IsSet())
+	if (!NewStart.IsSet())
 	{
 		return;
 	}
@@ -200,7 +200,7 @@ void FMovieSceneSectionDetailsCustomization::OnRangeStartTextCommitted(const FTe
 		FMovieSceneFrameRange* MovieSceneFrameRange = (FMovieSceneFrameRange*)RawData[i];
 		if (MovieSceneFrameRange && !MovieSceneFrameRange->Value.GetLowerBound().IsOpen())
 		{
-			MovieSceneFrameRange->Value.SetLowerBoundValue(FFrameTime::FromDecimal(FrameResolution.GetValue()).RoundToFrame());
+			MovieSceneFrameRange->Value.SetLowerBoundValue(FFrameTime::FromDecimal(NewStart.GetValue()).RoundToFrame());
 		}
 	}
 
@@ -368,10 +368,10 @@ FText FMovieSceneSectionDetailsCustomization::OnGetRangeEndText() const
 void FMovieSceneSectionDetailsCustomization::OnRangeEndTextCommitted(const FText& InText, ETextCommit::Type CommitInfo)
 {
 	// Find the new value for the start range.
-	TOptional<double> FrameResolution = NumericTypeInterface->FromString(InText.ToString(), 0.0);
+	TOptional<double> NewEnd = NumericTypeInterface->FromString(InText.ToString(), 0.0);
 
 	// Early out if we couldn't parse it, no need to reset them all to zero.
-	if (!FrameResolution.IsSet())
+	if (!NewEnd.IsSet())
 	{
 		return;
 	}
@@ -388,7 +388,7 @@ void FMovieSceneSectionDetailsCustomization::OnRangeEndTextCommitted(const FText
 		FMovieSceneFrameRange* MovieSceneFrameRange = (FMovieSceneFrameRange*)RawData[i];
 		if (MovieSceneFrameRange && !MovieSceneFrameRange->Value.GetUpperBound().IsOpen())
 		{
-			MovieSceneFrameRange->Value.SetUpperBoundValue(FFrameTime::FromDecimal(FrameResolution.GetValue()).RoundToFrame());
+			MovieSceneFrameRange->Value.SetUpperBoundValue(FFrameTime::FromDecimal(NewEnd.GetValue()).RoundToFrame());
 		}
 	}
 

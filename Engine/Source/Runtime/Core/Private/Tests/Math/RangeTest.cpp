@@ -13,7 +13,7 @@ PRAGMA_DISABLE_OPTIMIZATION
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRangeTest, "System.Core.Math.Range", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::SmokeFilter)
 
-bool FRangeTest::RunTest( const FString& Parameters )
+bool FRangeTest::RunTest(const FString& Parameters)
 {
 	// single element constructor
 	FFloatRange r1_1 = FFloatRange(3.0f);

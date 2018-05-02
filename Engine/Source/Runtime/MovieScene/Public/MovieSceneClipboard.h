@@ -268,8 +268,8 @@ struct FMovieSceneClipboardEnvironment
 	/** The date/time at which the copy operation was performed */
 	FDateTime DateTime;
 
-	/** The frame resolution within which all clipboard data is stored */
-	FFrameRate FrameResolution;
+	/** The tick resolution within which all clipboard data is stored */
+	FFrameRate TickResolution;
 };
 
 /** A clipboard representing serializable copied data for a movie scene */

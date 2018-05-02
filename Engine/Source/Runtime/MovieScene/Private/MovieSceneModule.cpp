@@ -14,7 +14,7 @@ DEFINE_LOG_CATEGORY(LogMovieScene);
 TAutoConsoleVariable<FString> CVarLegacyConversionFrameRate(
 	TEXT("MovieScene.LegacyConversionFrameRate"),
 	TEXT("60000fps"),
-	TEXT("Specifies default frame resolution for UMovieScene data saved before 4.20 (default: 60000fps). Examples: 60000 fps, 120/1 (120 fps), 30000/1001 (29.97), 0.01s (10ms)."),
+	TEXT("Specifies default tick resolution for UMovieScene data saved before 4.20 (default: 60000fps). Examples: 60000 fps, 120/1 (120 fps), 30000/1001 (29.97), 0.01s (10ms)."),
 	ECVF_Default);
 
 struct FCachedLegacyConversionFrameRate

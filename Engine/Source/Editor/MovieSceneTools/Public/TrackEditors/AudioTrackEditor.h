@@ -79,6 +79,9 @@ private:
 
 	/** Audio asset selected */
 	void OnAudioAssetSelected(const FAssetData& AssetData, UMovieSceneTrack* Track);
+
+	/** Audio asset enter pressed */
+	void OnAudioAssetEnterPressed(const TArray<FAssetData>& AssetData, UMovieSceneTrack* Track);
 };
 
 

@@ -47,8 +47,13 @@ struct FMovieSceneSkeletalAnimationParams
 	FName SlotName;
 
 	/** The weight curve for this animation section */
-	UPROPERTY( EditAnywhere, Category = "Animation" )
+	UPROPERTY( )
 	FMovieSceneFloatChannel Weight;
+
+	/** If on will skip sending animation notifies */
+	UPROPERTY(EditAnywhere, Category = "Animation")
+	bool bSkipAnimNotifiers;
+
 };
 
 /**
@@ -65,10 +70,15 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Animation", meta=(ShowOnlyInnerProperties))
 	FMovieSceneSkeletalAnimationParams Params;
 
+	/** Get Frame Time as Animation Time*/
+	MOVIESCENETRACKS_API float MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const;
+
 protected:
 
 	//~ UMovieSceneSection interface
-	virtual UMovieSceneSection* SplitSection(FFrameNumber SplitTime) override;
+	virtual TOptional<TRange<FFrameNumber> > GetAutoSizeRange() const override;
+	virtual void TrimSection(FQualifiedFrameTime TrimTime, bool bTrimLeft) override;
+	virtual UMovieSceneSection* SplitSection(FQualifiedFrameTime SplitTime) override;
 	virtual void GetSnapTimes(TArray<FFrameNumber>& OutSnapTimes, bool bGetSectionBorders) const override;
 	virtual TOptional<FFrameTime> GetOffsetTime() const override;
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;

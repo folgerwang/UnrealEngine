@@ -34,8 +34,8 @@ void FMovieScene3DAttachSectionRecorder::Record(float CurrentTime)
 	{
 		if(MovieSceneSection.IsValid())
 		{
-			FFrameRate FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-			FFrameNumber CurrentFrame = (CurrentTime * FrameResolution).FloorToFrame();
+			FFrameRate TickResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+			FFrameNumber CurrentFrame = (CurrentTime * TickResolution).FloorToFrame();
 
 			MovieSceneSection->ExpandToFrame(CurrentFrame);
 		}
@@ -60,8 +60,8 @@ void FMovieScene3DAttachSectionRecorder::Record(float CurrentTime)
 			{
 				MovieSceneSection = Cast<UMovieScene3DAttachSection>(AttachTrack->CreateNewSection());
 
-				FFrameRate FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-				FFrameNumber CurrentFrame = (CurrentTime * FrameResolution).FloorToFrame();
+				FFrameRate TickResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+				FFrameNumber CurrentFrame = (CurrentTime * TickResolution).FloorToFrame();
 
 				MovieSceneSection->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
 				MovieSceneSection->SetConstraintId(Guid);

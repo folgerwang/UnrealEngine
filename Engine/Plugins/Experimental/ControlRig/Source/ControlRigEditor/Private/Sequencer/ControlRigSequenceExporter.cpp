@@ -236,12 +236,12 @@ void Convert(UControlRigSequence* Sequence, UAnimSequence* AnimSequence, USkelet
 			AnimSequence->InitializeNotifyTrack();
 
 			// Now run our sequence
-			FFrameRate   FrameResolution  = Sequence->GetMovieScene()->GetFrameResolution();
+			FFrameRate   TickResolution    = Sequence->GetMovieScene()->GetTickResolution();
 			FFrameNumber StartFrame        = MovieScene::DiscreteInclusiveLower(Sequence->GetMovieScene()->GetPlaybackRange());
 			FFrameNumber SourceFrameCount  = MovieScene::DiscreteSize(Sequence->GetMovieScene()->GetPlaybackRange());
 
-			double       StartTime         = StartFrame / FrameResolution;
-			double       DurationSeconds   = SourceFrameCount / FrameResolution;
+			double       StartTime         = StartFrame / TickResolution;
+			double       DurationSeconds   = SourceFrameCount / TickResolution;
 			int32        FrameCount        = FMath::CeilToInt(DurationSeconds * Settings->FrameRate);
 
 			AnimSequence->SequenceLength = DurationSeconds;

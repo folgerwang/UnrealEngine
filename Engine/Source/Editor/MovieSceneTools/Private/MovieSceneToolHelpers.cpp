@@ -26,7 +26,9 @@
 #include "DesktopPlatformModule.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "MovieSceneCaptureHelpers.h"
+#include "MovieSceneTranslatorEDL.h"
+#include "MessageLogModule.h"
+#include "IMessageLogListing.h"
 #include "FbxImporter.h"
 #include "MatineeImportTools.h"
 #include "MovieSceneToolsProjectSettings.h"
@@ -51,7 +53,7 @@
 /* MovieSceneToolHelpers
  *****************************************************************************/
 
-void MovieSceneToolHelpers::TrimSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, FFrameNumber Time, bool bTrimLeft)
+void MovieSceneToolHelpers::TrimSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, FQualifiedFrameTime Time, bool bTrimLeft)
 {
 	for (auto Section : Sections)
 	{
@@ -63,7 +65,7 @@ void MovieSceneToolHelpers::TrimSection(const TSet<TWeakObjectPtr<UMovieSceneSec
 }
 
 
-void MovieSceneToolHelpers::SplitSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, FFrameNumber Time)
+void MovieSceneToolHelpers::SplitSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, FQualifiedFrameTime Time)
 {
 	for (auto Section : Sections)
 	{
@@ -487,7 +489,7 @@ int32 MovieSceneToolHelpers::FindAvailableRowIndex(UMovieSceneTrack* InTrack, UM
 		}
 	}
 
-	return InTrack->GetMaxRowIndex() + 1;
+	return InTrack->GetMaxRowIndex();
 }
 
 class SEnumCombobox : public SComboBox<TSharedPtr<int32>>
@@ -627,7 +629,7 @@ bool MovieSceneToolHelpers::ShowImportEDLDialog(UMovieScene* InMovieScene, FFram
 
 	const FScopedTransaction Transaction( NSLOCTEXT( "MovieSceneTools", "ImportEDLTransaction", "Import EDL" ) );
 
-	return MovieSceneCaptureHelpers::ImportEDL(InMovieScene, InFrameRate, OpenFilenames[0]);
+	return MovieSceneTranslatorEDL::ImportEDL(InMovieScene, InFrameRate, OpenFilenames[0]);
 }
 
 bool MovieSceneToolHelpers::ShowExportEDLDialog(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveDirectory, int32 InHandleFrames)
@@ -664,7 +666,7 @@ bool MovieSceneToolHelpers::ShowExportEDLDialog(const UMovieScene* InMovieScene,
 		return false;
 	}
 
-	if (MovieSceneCaptureHelpers::ExportEDL(InMovieScene, InFrameRate, SaveFilenames[0], InHandleFrames))
+	if (MovieSceneTranslatorEDL::ExportEDL(InMovieScene, InFrameRate, SaveFilenames[0], InHandleFrames))
 	{
 		const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(SaveFilenames[0]);
 		const FString SaveDirectory = FPaths::GetPath(AbsoluteFilename);
@@ -679,6 +681,131 @@ bool MovieSceneToolHelpers::ShowExportEDLDialog(const UMovieScene* InMovieScene,
 	}
 
 	return false;
+}
+
+bool MovieSceneToolHelpers::MovieSceneTranslatorImport(FMovieSceneImporter* InImporter, UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InOpenDirectory)
+{
+	TArray<FString> OpenFilenames;
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	bool bOpen = false;
+	if (DesktopPlatform)
+	{
+		FString FileTypeDescription = InImporter->GetFileTypeDescription().ToString();
+		FString DialogTitle = InImporter->GetDialogTitle().ToString();
+
+		bOpen = DesktopPlatform->OpenFileDialog(
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
+			DialogTitle,
+			InOpenDirectory,
+			TEXT(""),
+			FileTypeDescription,
+			EFileDialogFlags::None,
+			OpenFilenames
+		);
+	}
+
+	if (!bOpen || !OpenFilenames.Num())
+	{
+		return false;
+	}
+
+	FScopedTransaction Transaction(InImporter->GetTransactionDescription());
+
+	TSharedRef<FMovieSceneTranslatorContext> ImportContext(new FMovieSceneTranslatorContext);
+	ImportContext->Init();
+
+	bool bSuccess = InImporter->Import(InMovieScene, InFrameRate, OpenFilenames[0], ImportContext);
+
+	// Display any messages in context
+	MovieSceneTranslatorDisplayMessages(InImporter, ImportContext);
+
+	// Roll back transaction when import fails.
+	if (!bSuccess)
+	{
+		Transaction.Cancel();
+	}
+
+	return bSuccess;
+}
+
+bool MovieSceneToolHelpers::MovieSceneTranslatorExport(FMovieSceneExporter* InExporter, const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveDirectory, int32 InHandleFrames)
+{
+	if (InExporter == nullptr || InMovieScene == nullptr)
+	{
+		return false;
+	}
+
+	TArray<FString> SaveFilenames;
+	FString SequenceName = InMovieScene->GetOuter()->GetName();
+
+	// Pop open a dialog to request the location of the edl
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	bool bSave = false;
+	if (DesktopPlatform)
+	{
+		FString FileTypeDescription = InExporter->GetFileTypeDescription().ToString();
+		FString DialogTitle = InExporter->GetDialogTitle().ToString();
+		FString FileExtension = InExporter->GetDefaultFileExtension().ToString();
+
+		bSave = DesktopPlatform->SaveFileDialog(
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
+			DialogTitle,
+			InSaveDirectory,
+			SequenceName + TEXT(".") + FileExtension,
+			FileTypeDescription,
+			EFileDialogFlags::None,
+			SaveFilenames
+		);
+	}
+
+	if (!bSave || !SaveFilenames.Num())
+	{
+		return false;
+	}
+
+	TSharedRef<FMovieSceneTranslatorContext> ExportContext(new FMovieSceneTranslatorContext);
+	ExportContext->Init();
+
+	bool bSuccess = InExporter->Export(InMovieScene, InFrameRate, SaveFilenames[0], InHandleFrames, ExportContext);
+	
+	// Display any messages in context
+	MovieSceneTranslatorDisplayMessages(InExporter, ExportContext);
+
+	if (bSuccess)
+	{
+		const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(SaveFilenames[0]);
+		const FString SaveDirectory = FPaths::GetPath(AbsoluteFilename);
+
+		FNotificationInfo NotificationInfo(InExporter->GetNotificationExportFinished());
+		NotificationInfo.ExpireDuration = 5.f;
+		NotificationInfo.Hyperlink = FSimpleDelegate::CreateStatic([](FString InDirectory) { FPlatformProcess::ExploreFolder(*InDirectory); }, SaveDirectory);
+		NotificationInfo.HyperlinkText = InExporter->GetNotificationHyperlinkText();
+		FSlateNotificationManager::Get().AddNotification(NotificationInfo);
+	}
+
+	return bSuccess;
+}
+
+void MovieSceneToolHelpers::MovieSceneTranslatorDisplayMessages(FMovieSceneTranslator *InTranslator, TSharedRef<FMovieSceneTranslatorContext> InContext)
+{
+	if (InTranslator == nullptr || InContext->GetMessages().Num() == 0)
+	{
+		return;
+	}
+
+	// Clear any old messages after an import or export
+	const FName LogTitle = InTranslator->GetMessageLogWindowTitle();
+	FMessageLogModule& MessageLogModule = FModuleManager::LoadModuleChecked<FMessageLogModule>("MessageLog");
+	TSharedRef<IMessageLogListing> LogListing = MessageLogModule.GetLogListing(LogTitle);
+	LogListing->SetLabel(InTranslator->GetMessageLogLabel());
+	LogListing->ClearMessages();
+
+	for (TSharedRef<FTokenizedMessage> Message : InContext->GetMessages())
+	{
+		LogListing->AddMessage(Message);
+	}
+
+	MessageLogModule.OpenMessageLog(LogTitle);
 }
 
 bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid ObjectBinding, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene, ISequencer& InSequencer)
@@ -732,7 +859,7 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 
 			if (FloatTrack)
 			{
-				FFrameRate FrameRate = FloatTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+				FFrameRate FrameRate = FloatTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 
 				bool bSectionAdded = false;
 				UMovieSceneFloatSection* FloatSection = Cast<UMovieSceneFloatSection>(FloatTrack->FindOrAddSection(0, bSectionAdded));
@@ -740,6 +867,8 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 				{
 					continue;
 				}
+
+				FloatSection->Modify();
 
 				if (bSectionAdded)
 				{
@@ -756,18 +885,19 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 				TMovieSceneChannel<FMovieSceneFloatValue> ChannelInterface = Channel->GetInterface();
 
 				ChannelInterface.Reset();
+				double DecimalRate = FrameRate.AsDecimal();
 				for (int32 KeyIndex = 0; KeyIndex < CurveHandle.Points.Num(); ++KeyIndex)
 				{
 					float ArriveTangent = CurveHandle.Points[KeyIndex].ArriveTangent;
 					if (KeyIndex > 0)
 					{
-						ArriveTangent = ArriveTangent / (CurveHandle.Points[KeyIndex].InVal - CurveHandle.Points[KeyIndex-1].InVal);
+						ArriveTangent = ArriveTangent / ((CurveHandle.Points[KeyIndex].InVal - CurveHandle.Points[KeyIndex - 1].InVal) * DecimalRate);
 					}
 					
 					float LeaveTangent = CurveHandle.Points[KeyIndex].LeaveTangent;
 					if (KeyIndex < CurveHandle.Points.Num() - 1)
 					{
-						LeaveTangent = LeaveTangent / (CurveHandle.Points[KeyIndex+1].InVal - CurveHandle.Points[KeyIndex].InVal);
+						LeaveTangent = LeaveTangent / ((CurveHandle.Points[KeyIndex+1].InVal - CurveHandle.Points[KeyIndex].InVal) * DecimalRate);
 					}
 
 					FFrameNumber KeyTime = (CurveHandle.Points[KeyIndex].InVal * FrameRate).RoundToFrame();
@@ -777,9 +907,12 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 				if (ImportFBXSettings->bReduceKeys)
 				{
 					FKeyDataOptimizationParams Params;
-					Params.bAutoSetInterpolation = true;
-					MovieScene::Optimize(Channel, Params);
+					Params.Tolerance = ImportFBXSettings->ReduceKeysTolerance;
+					using namespace MovieScene;
+					Optimize(Channel, Params);
 				}
+				Channel->AutoSetTangents();
+
 
 				TArrayView<const FFrameNumber> AllTimes = ChannelInterface.GetTimes();
 				if (AllTimes.Num() > 0)
@@ -797,19 +930,19 @@ void ImportTransformChannel(const FInterpCurveFloat& Source, FMovieSceneFloatCha
 {
 	TMovieSceneChannel<FMovieSceneFloatValue> ChannelInterface = Dest->GetInterface();
 	ChannelInterface.Reset();
-
+	double DecimalRate = DestFrameRate.AsDecimal();
 	for (int32 KeyIndex = 0; KeyIndex < Source.Points.Num(); ++KeyIndex)
 	{
 		float ArriveTangent = Source.Points[KeyIndex].ArriveTangent;
 		if (KeyIndex > 0)
 		{
-			ArriveTangent = ArriveTangent / (Source.Points[KeyIndex].InVal - Source.Points[KeyIndex-1].InVal);
+			ArriveTangent = ArriveTangent / ((Source.Points[KeyIndex].InVal - Source.Points[KeyIndex-1].InVal) * DecimalRate);
 		}
 		
 		float LeaveTangent = Source.Points[KeyIndex].LeaveTangent;
 		if (KeyIndex < Source.Points.Num() - 1)
 		{
-			LeaveTangent = LeaveTangent / (Source.Points[KeyIndex+1].InVal - Source.Points[KeyIndex].InVal);
+			LeaveTangent = LeaveTangent / ((Source.Points[KeyIndex+1].InVal - Source.Points[KeyIndex].InVal) * DecimalRate);
 		}
 
 		if (bNegateTangents)
@@ -821,10 +954,15 @@ void ImportTransformChannel(const FInterpCurveFloat& Source, FMovieSceneFloatCha
 		FFrameNumber KeyTime = (Source.Points[KeyIndex].InVal * DestFrameRate).RoundToFrame();
 		FMatineeImportTools::SetOrAddKey(ChannelInterface, KeyTime, Source.Points[KeyIndex].OutVal, ArriveTangent, LeaveTangent, Source.Points[KeyIndex].InterpMode);
 	}
-
-	FKeyDataOptimizationParams Params;
-	Params.bAutoSetInterpolation = true;
-	MovieScene::Optimize(Dest, Params);
+	const UMovieSceneUserImportFBXSettings* ImportFBXSettings = GetDefault<UMovieSceneUserImportFBXSettings>();
+	if (ImportFBXSettings->bReduceKeys)
+	{
+		FKeyDataOptimizationParams Params;
+		Params.Tolerance = ImportFBXSettings->ReduceKeysTolerance;
+		using namespace MovieScene;
+		Optimize(Dest, Params);
+	}
+	Dest->AutoSetTangents();
 }
 
 bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene)
@@ -852,7 +990,10 @@ bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurves
 		return false;
 	}
 
-	FFrameRate FrameRate = TransformSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	TransformSection->Modify();
+
+	FFrameRate FrameRate = TransformSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+
 
 	if (bSectionAdded)
 	{
@@ -887,17 +1028,11 @@ bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurves
 	ImportTransformChannel(Scale[1],         Channels[7], FrameRate, false);
 	ImportTransformChannel(Scale[2],         Channels[8], FrameRate, false);
 
-
-	FKeyDataOptimizationParams Params;
-	Params.bAutoSetInterpolation = true;
-
 	TOptional<TRangeBound<FFrameNumber>> MinLower;
 	TOptional<TRangeBound<FFrameNumber>> MaxUpper;
 
 	for (int32 ChannelIndex = 0; ChannelIndex < 9; ++ChannelIndex)
 	{
-		MovieScene::Optimize(Channels[ChannelIndex], Params);
-
 		TArrayView<const FFrameNumber> AllTimes = Channels[ChannelIndex]->GetTimes();
 		if (AllTimes.Num() > 0)
 		{
@@ -1009,11 +1144,49 @@ FbxNode* RetrieveObjectFromName(const TCHAR* ObjectName, FbxNode* Root)
 	return nullptr;
 }
 
-
-void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene, ISequencer& InSequencer, TMap<FGuid, FString>& InObjectBindingMap)
+void CopyCameraProperties(FbxCamera* CameraNode, ACineCameraActor* CameraActor)
 {
-	const UMovieSceneUserImportFBXSettings* ImportFBXSettings = GetDefault<UMovieSceneUserImportFBXSettings>();
-	if (ImportFBXSettings->bCreateCameras)
+	float FieldOfView;
+	float FocalLength;
+
+	if (CameraNode->GetApertureMode() == FbxCamera::eFocalLength)
+	{
+		FocalLength = CameraNode->FocalLength.Get();
+		FieldOfView = CameraNode->ComputeFieldOfView(FocalLength);
+	}
+	else
+	{
+		FieldOfView = CameraNode->FieldOfView.Get();
+		FocalLength = CameraNode->ComputeFocalLength(FieldOfView);
+	}
+
+	float ApertureWidth = CameraNode->GetApertureWidth();
+	float ApertureHeight = CameraNode->GetApertureHeight();
+
+	UCineCameraComponent* CineCameraComponent = CameraActor->GetCineCameraComponent();
+
+	CineCameraComponent->SetProjectionMode(CameraNode->ProjectionType.Get() == FbxCamera::ePerspective ? ECameraProjectionMode::Perspective : ECameraProjectionMode::Orthographic);
+	CineCameraComponent->SetAspectRatio(CameraNode->AspectWidth.Get() / CameraNode->AspectHeight.Get());
+	CineCameraComponent->SetOrthoNearClipPlane(CameraNode->NearPlane.Get());
+	CineCameraComponent->SetOrthoFarClipPlane(CameraNode->FarPlane.Get());
+	CineCameraComponent->SetOrthoWidth(CameraNode->OrthoZoom.Get());
+	CineCameraComponent->SetFieldOfView(FieldOfView);
+	CineCameraComponent->FilmbackSettings.SensorWidth = FUnitConversion::Convert(ApertureWidth, EUnit::Inches, EUnit::Millimeters);
+	CineCameraComponent->FilmbackSettings.SensorHeight = FUnitConversion::Convert(ApertureHeight, EUnit::Inches, EUnit::Millimeters);
+	if (FocalLength < CineCameraComponent->LensSettings.MinFocalLength)
+	{
+		CineCameraComponent->LensSettings.MinFocalLength = FocalLength;
+	}
+	if (FocalLength > CineCameraComponent->LensSettings.MaxFocalLength)
+	{
+		CineCameraComponent->LensSettings.MaxFocalLength = FocalLength;
+	}
+	CineCameraComponent->CurrentFocalLength = FocalLength;
+}
+
+void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene, ISequencer& InSequencer, TMap<FGuid, FString>& InObjectBindingMap, bool bCreateCameras)
+{
+	if (bCreateCameras)
 	{
 		TArray<FbxCamera*> AllCameras;
 		GetCameras(FbxImporter->Scene->GetRootNode(), AllCameras);
@@ -1059,12 +1232,18 @@ void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 			ACineCameraActor* NewCamera = World->SpawnActor<ACineCameraActor>(SpawnParams);
 			NewCamera->SetActorLabel(*CameraName);
 
+			// Copy camera properties before adding default tracks so that initial camera properties match and can be restored after sequencer finishes
+			CopyCameraProperties(UnmatchedCamera, NewCamera);
+
 			TArray<TWeakObjectPtr<AActor> > NewCameras;
 			NewCameras.Add(NewCamera);
 			TArray<FGuid> NewCameraGuids = InSequencer.AddActors(NewCameras);
 
-			InObjectBindingMap.Add(NewCameraGuids[0]);
-			InObjectBindingMap[NewCameraGuids[0]] = CameraName;
+			if (NewCameraGuids.Num())
+			{
+				InObjectBindingMap.Add(NewCameraGuids[0]);
+				InObjectBindingMap[NewCameraGuids[0]] = CameraName;
+			}
 		}
 	}
 
@@ -1114,9 +1293,6 @@ void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 			FocalLength = CameraNode->ComputeFocalLength(FieldOfView);
 		}
 
-		float ApertureWidth = CameraNode->GetApertureWidth();
-		float ApertureHeight = CameraNode->GetApertureHeight();
-
 		for (TWeakObjectPtr<>& WeakObject : BoundObjects)
 		{
 			UObject* FoundObject = WeakObject.Get();
@@ -1124,23 +1300,7 @@ void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 			{
 				ACineCameraActor* CineCameraActor = Cast<ACineCameraActor>(FoundObject);
 				UCineCameraComponent* CineCameraComponent = CineCameraActor->GetCineCameraComponent();
-
-				CineCameraComponent->SetProjectionMode(CameraNode->ProjectionType.Get() == FbxCamera::ePerspective ? ECameraProjectionMode::Perspective : ECameraProjectionMode::Orthographic);
-				CineCameraComponent->SetAspectRatio(CameraNode->AspectWidth.Get() / CameraNode->AspectHeight.Get());
-				CineCameraComponent->SetOrthoNearClipPlane(CameraNode->NearPlane.Get());
-				CineCameraComponent->SetOrthoFarClipPlane(CameraNode->FarPlane.Get());
-				CineCameraComponent->SetOrthoWidth(CameraNode->OrthoZoom.Get());
-				CineCameraComponent->SetFieldOfView(FieldOfView);
-				CineCameraComponent->FilmbackSettings.SensorWidth = FUnitConversion::Convert(ApertureWidth, EUnit::Inches, EUnit::Millimeters);
-				CineCameraComponent->FilmbackSettings.SensorHeight = FUnitConversion::Convert(ApertureHeight, EUnit::Inches, EUnit::Millimeters);
-				if (FocalLength < CineCameraComponent->LensSettings.MinFocalLength)
-				{
-					CineCameraComponent->LensSettings.MinFocalLength = FocalLength;
-				}
-				if (FocalLength > CineCameraComponent->LensSettings.MaxFocalLength)
-				{
-					CineCameraComponent->LensSettings.MaxFocalLength = FocalLength;
-				}
+				CopyCameraProperties(CameraNode, CineCameraActor);
 
 				// Set the default value of the current focal length section
 				FGuid PropertyOwnerGuid = InSequencer.GetHandleToObject(CineCameraComponent);
@@ -1158,6 +1318,8 @@ void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 					{
 						continue;
 					}
+
+					FloatSection->Modify();
 
 					if (bSectionAdded)
 					{
@@ -1226,23 +1388,26 @@ void ImportCameraCut(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 	GetCameras(FbxImporter->Scene->GetRootNode(), AllCameras);
 
 	UMovieSceneCameraCutTrack* CameraCutTrack = GetCameraCutTrack(InMovieScene);
-	FFrameRate FrameRate = CameraCutTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate FrameRate = CameraCutTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 
 	FbxAnimCurve* AnimCurve = CameraSwitcher->CameraIndex.GetCurve(AnimLayer);
-	for (int i = 0; i < AnimCurve->KeyGetCount(); ++i)
+	if (AnimCurve)
 	{
-		FbxAnimCurveKey key = AnimCurve->KeyGet(i);
-		int value = (int)key.GetValue() - 1;
-		if (value >= 0 && value < AllCameras.Num())
+		for (int i = 0; i < AnimCurve->KeyGetCount(); ++i)
 		{
-			FGuid CameraGuid = FindCameraGuid(AllCameras[value], InObjectBindingMap);
-			if (CameraGuid != FGuid())
+			FbxAnimCurveKey key = AnimCurve->KeyGet(i);
+			int value = (int)key.GetValue() - 1;
+			if (value >= 0 && value < AllCameras.Num())
 			{
-				CameraCutTrack->AddNewCameraCut(FMovieSceneObjectBindingID(CameraGuid, MovieSceneSequenceID::Root), (((float)key.GetTime().GetSecondDouble()) * FrameRate).FloorToFrame());
+				FGuid CameraGuid = FindCameraGuid(AllCameras[value], InObjectBindingMap);
+				if (CameraGuid != FGuid())
+				{
+					CameraCutTrack->AddNewCameraCut(FMovieSceneObjectBindingID(CameraGuid, MovieSceneSequenceID::Root), (((float)key.GetTime().GetSecondDouble()) * FrameRate).FloorToFrame());
+				}
 			}
 		}
+		InSequencer.NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
 	}
-	InSequencer.NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
 }
 
 class SMovieSceneImportFBXSettings : public SCompoundWidget, public FGCObject
@@ -1342,8 +1507,9 @@ private:
 
 		const FScopedTransaction Transaction( NSLOCTEXT( "MovieSceneTools", "ImportFBXTransaction", "Import FBX" ) );
 
-		// Import static cameras first
-		ImportFBXCamera(FbxImporter, MovieScene, *Sequencer, ObjectBindingMap);
+		// Import static cameras first if not mapping to any particular object binding nodes
+		bool bCreateCameras = ImportFBXSettings->bCreateCameras && ObjectBindingMap.Num() == 0;
+		ImportFBXCamera(FbxImporter, MovieScene, *Sequencer, ObjectBindingMap, bCreateCameras);
 
 		UnFbx::FFbxCurvesAPI CurveAPI;
 		FbxImporter->PopulateAnimatedCurveData(CurveAPI);
@@ -1538,19 +1704,37 @@ UObject* MovieSceneToolHelpers::ExportToCameraAnim(UMovieScene* InMovieScene, FG
 			}
 			else
 			{
-				FFrameRate FrameResolution = InMovieScene->GetFrameResolution();
+				FFrameRate TickResolution = InMovieScene->GetTickResolution();
 				UMovieScene3DTransformSection* TransformSection = Cast<UMovieScene3DTransformSection>(Sections[0]);
 				TArrayView<FMovieSceneFloatChannel*> FloatChannels = TransformSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
 
-				CopyKeyDataToMoveAxis(FloatChannels[0]->GetInterface(), MoveAxies[AXIS_TranslationX], FrameResolution);
-				CopyKeyDataToMoveAxis(FloatChannels[1]->GetInterface(), MoveAxies[AXIS_TranslationY], FrameResolution);
-				CopyKeyDataToMoveAxis(FloatChannels[2]->GetInterface(), MoveAxies[AXIS_TranslationZ], FrameResolution);
-				CopyKeyDataToMoveAxis(FloatChannels[3]->GetInterface(), MoveAxies[AXIS_RotationX],    FrameResolution);
-				CopyKeyDataToMoveAxis(FloatChannels[4]->GetInterface(), MoveAxies[AXIS_RotationY],    FrameResolution);
-				CopyKeyDataToMoveAxis(FloatChannels[5]->GetInterface(), MoveAxies[AXIS_RotationZ],    FrameResolution);
+				CopyKeyDataToMoveAxis(FloatChannels[0]->GetInterface(), MoveAxies[AXIS_TranslationX], TickResolution);
+				CopyKeyDataToMoveAxis(FloatChannels[1]->GetInterface(), MoveAxies[AXIS_TranslationY], TickResolution);
+				CopyKeyDataToMoveAxis(FloatChannels[2]->GetInterface(), MoveAxies[AXIS_TranslationZ], TickResolution);
+				CopyKeyDataToMoveAxis(FloatChannels[3]->GetInterface(), MoveAxies[AXIS_RotationX],    TickResolution);
+				CopyKeyDataToMoveAxis(FloatChannels[4]->GetInterface(), MoveAxies[AXIS_RotationY],    TickResolution);
+				CopyKeyDataToMoveAxis(FloatChannels[5]->GetInterface(), MoveAxies[AXIS_RotationZ],    TickResolution);
 			}
 		}
 	}
 
 	return NewAsset;
+}
+
+
+bool MovieSceneToolHelpers::HasHiddenMobility(const UClass* ObjectClass)
+{
+	if (ObjectClass)
+	{
+		static const FName NAME_HideCategories(TEXT("HideCategories"));
+		if (ObjectClass->HasMetaData(NAME_HideCategories))
+		{
+			if (ObjectClass->GetMetaData(NAME_HideCategories).Contains(TEXT("Mobility")))
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
 }

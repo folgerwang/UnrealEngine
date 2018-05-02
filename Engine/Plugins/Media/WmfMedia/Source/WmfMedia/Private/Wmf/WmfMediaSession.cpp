@@ -183,7 +183,7 @@ bool FWmfMediaSession::SetTopology(const TComPtr<IMFTopology>& InTopology, FTime
 
 			if (FAILED(Result))
 			{
-				UE_LOG(LogWmfMedia, Verbose, TEXT("Session %p: Failed to set topology: %s"), this, *WmfMedia::ResultToString(Result));
+				UE_LOG(LogWmfMedia, Verbose, TEXT("Session %p: Failed to set partial topology %p: %s"), this, InTopology.Get(), *WmfMedia::ResultToString(Result));
 				
 				SessionState = EMediaState::Error;
 				DeferredEvents.Enqueue(EMediaEvent::MediaOpenFailed);
@@ -947,7 +947,7 @@ bool FWmfMediaSession::CommitTopology(IMFTopology* Topology)
 
 		if (FAILED(Result))
 		{
-			UE_LOG(LogWmfMedia, Verbose, TEXT("Session %p: Failed to set topology: %s"), this, *WmfMedia::ResultToString(Result));
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Session %p: Failed to set topology %p: %s"), Topology, this, *WmfMedia::ResultToString(Result));
 			return false;
 		}
 

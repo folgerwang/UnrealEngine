@@ -3,16 +3,14 @@
 #include "Tracks/MovieSceneAudioTrack.h"
 #include "Audio.h"
 #include "Sound/SoundWave.h"
-#include "Sound/SoundCue.h"
 #include "MovieScene.h"
 #include "Sections/MovieSceneAudioSection.h"
-#include "Sound/SoundNodeWavePlayer.h"
 #include "Kismet/GameplayStatics.h"
 #include "AudioDecompress.h"
 #include "Evaluation/MovieSceneSegment.h"
 #include "Compilation/MovieSceneSegmentCompiler.h"
 #include "Compilation/MovieSceneCompilerRules.h"
-
+#include "MovieSceneCommonHelpers.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneAudioTrack"
 
@@ -68,48 +66,19 @@ bool UMovieSceneAudioTrack::IsEmpty() const
 	return AudioSections.Num() == 0;
 }
 
-float UMovieSceneAudioTrack::GetSoundDuration(USoundBase* Sound)
-{
-	USoundWave* SoundWave = nullptr;
-
-	if (Sound->IsA<USoundWave>())
-	{
-		SoundWave = Cast<USoundWave>(Sound);
-	}
-	else if (Sound->IsA<USoundCue>())
-	{
-#if WITH_EDITORONLY_DATA
-		USoundCue* SoundCue = Cast<USoundCue>(Sound);
-
-		// @todo Sequencer - Right now for sound cues, we just use the first sound wave in the cue
-		// In the future, it would be better to properly generate the sound cue's data after forcing determinism
-		const TArray<USoundNode*>& AllNodes = SoundCue->AllNodes;
-		for (int32 i = 0; i < AllNodes.Num() && SoundWave == nullptr; ++i)
-		{
-			if (AllNodes[i]->IsA<USoundNodeWavePlayer>())
-			{
-				SoundWave = Cast<USoundNodeWavePlayer>(AllNodes[i])->GetSoundWave();
-			}
-		}
-#endif
-	}
-
-	const float Duration = (SoundWave ? SoundWave->GetDuration() : 0.f);
-	return Duration == INDEFINITELY_LOOPING_DURATION ? SoundWave->Duration : Duration;
-}
 
 UMovieSceneSection* UMovieSceneAudioTrack::AddNewSoundOnRow(USoundBase* Sound, FFrameNumber Time, int32 RowIndex)
 {
 	check(Sound);
 	
-	FFrameRate FrameRate = GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate FrameRate = GetTypedOuter<UMovieScene>()->GetTickResolution();
 
 	// determine initial duration
 	// @todo Once we have infinite sections, we can remove this
 	// @todo ^^ Why? Infinte sections would mean there's no starting time?
 	FFrameTime DurationToUse = 1.f * FrameRate; // if all else fails, use 1 second duration
 
-	float SoundDuration = GetSoundDuration(Sound);
+	float SoundDuration = MovieSceneHelpers::GetSoundDuration(Sound);
 	if (SoundDuration != INDEFINITELY_LOOPING_DURATION)
 	{
 		DurationToUse = SoundDuration * FrameRate;

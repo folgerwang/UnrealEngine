@@ -52,7 +52,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 	{
 		ViewRangeStart = SNew(SSpinBox<double>)
 		.Value(this, &STimeRange::ViewStartTime)
-		.ToolTipText(ViewStartTimeTooltip())
+		.ToolTipText(LOCTEXT("ViewStartTimeTooltip", "View Range Start Time"))
 		.OnValueCommitted( this, &STimeRange::OnViewStartTimeCommitted )
 		.OnValueChanged( this, &STimeRange::OnViewStartTimeChanged )
 		.MinValue(TOptional<double>())
@@ -66,7 +66,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 
 		ViewRangeEnd = SNew(SSpinBox<double>)
 		.Value(this, &STimeRange::ViewEndTime)
-		.ToolTipText(ViewEndTimeTooltip())
+		.ToolTipText(LOCTEXT("ViewEndTimeTooltip", "View Range End Time"))
 		.OnValueCommitted( this, &STimeRange::OnViewEndTimeCommitted )
 		.OnValueChanged( this, &STimeRange::OnViewEndTimeChanged )
 		.MinValue(this, &STimeRange::MinViewEndTime)
@@ -82,7 +82,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 	{
 		PlaybackRangeStart = SNew(SSpinBox<double>)
 		.Value(this, &STimeRange::PlayStartTime)
-		.ToolTipText(PlayStartTimeTooltip())
+		.ToolTipText(LOCTEXT("PlayStartTimeTooltip", "In Time"))
 		.OnValueCommitted(this, &STimeRange::OnPlayStartTimeCommitted)
 		.OnValueChanged(this, &STimeRange::OnPlayStartTimeChanged)
 		.MinValue(TOptional<double>())
@@ -96,7 +96,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 
 		PlaybackRangeEnd = SNew(SSpinBox<double>)
 		.Value(this, &STimeRange::PlayEndTime)
-		.ToolTipText(PlayEndTimeTooltip())
+		.ToolTipText(LOCTEXT("PlayEndTimeTooltip", "Out Time"))
 		.OnValueCommitted( this, &STimeRange::OnPlayEndTimeCommitted )
 		.OnValueChanged( this, &STimeRange::OnPlayEndTimeChanged )
 		.MinValue(TOptional<double>())
@@ -221,39 +221,39 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 
 double STimeRange::WorkingStartTime() const
 {
-	FFrameRate Rate = TimeSliderController->GetFrameResolution();
+	FFrameRate Rate = TimeSliderController->GetTickResolution();
 	FFrameTime Time = TimeSliderController->GetClampRange().GetLowerBoundValue() * Rate;
 	return Time.GetFrame().Value;
 }
 
 double STimeRange::WorkingEndTime() const
 {
-	FFrameRate Rate = TimeSliderController->GetFrameResolution();
+	FFrameRate Rate = TimeSliderController->GetTickResolution();
 	FFrameTime Time = TimeSliderController->GetClampRange().GetUpperBoundValue() * Rate;
 	return Time.GetFrame().Value;
 }
 
 double STimeRange::ViewStartTime() const
 {
-	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
+	FFrameRate TickResolution = TimeSliderController->GetTickResolution();
 
-	// View range is in seconds so we convert it to frame resolution
-	FFrameTime Time = TimeSliderController->GetViewRange().GetLowerBoundValue() * FrameResolution;
+	// View range is in seconds so we convert it to tick resolution
+	FFrameTime Time = TimeSliderController->GetViewRange().GetLowerBoundValue() * TickResolution;
 	return Time.GetFrame().Value;
 }
 
 double STimeRange::ViewEndTime() const
 {
-	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
+	FFrameRate TickResolution = TimeSliderController->GetTickResolution();
 
-	// View range is in seconds so we convert it to frame resolution
-	FFrameTime Time = TimeSliderController->GetViewRange().GetUpperBoundValue() * FrameResolution;
+	// View range is in seconds so we convert it to tick resolution
+	FFrameTime Time = TimeSliderController->GetViewRange().GetUpperBoundValue() * TickResolution;
 	return Time.GetFrame().Value;
 }
 
 double STimeRange::GetSpinboxDelta() const
 {
-	return TimeSliderController->GetFrameResolution().AsDecimal() * TimeSliderController->GetPlayRate().AsInterval();
+	return TimeSliderController->GetTickResolution().AsDecimal() * TimeSliderController->GetDisplayRate().AsInterval();
 }
 
 double STimeRange::PlayStartTime() const
@@ -340,9 +340,8 @@ void STimeRange::OnPlayEndTimeCommitted(double NewValue, ETextCommit::Type InTex
 
 void STimeRange::OnWorkingStartTimeChanged(double NewValue)
 {
-	FFrameRate PlayRate = TimeSliderController->GetPlayRate();
-	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
-	double Time = FrameResolution.AsSeconds(FFrameTime::FromDecimal(NewValue));
+	FFrameRate TickResolution = TimeSliderController->GetTickResolution();
+	double Time = TickResolution.AsSeconds(FFrameTime::FromDecimal(NewValue));
 
 	// Clamp range is in seconds
 	TimeSliderController->SetClampRange(Time, TimeSliderController->GetClampRange().GetUpperBoundValue());
@@ -355,9 +354,8 @@ void STimeRange::OnWorkingStartTimeChanged(double NewValue)
 
 void STimeRange::OnWorkingEndTimeChanged(double NewValue)
 {
-	FFrameRate PlayRate = TimeSliderController->GetPlayRate();
-	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
-	double Time = FrameResolution.AsSeconds(FFrameTime::FromDecimal(NewValue));
+	FFrameRate TickResolution = TimeSliderController->GetTickResolution();
+	double Time = TickResolution.AsSeconds(FFrameTime::FromDecimal(NewValue));
 
 	// Clamp range is in seconds
 	TimeSliderController->SetClampRange(TimeSliderController->GetClampRange().GetLowerBoundValue(), Time);
@@ -370,8 +368,8 @@ void STimeRange::OnWorkingEndTimeChanged(double NewValue)
 
 void STimeRange::OnViewStartTimeChanged(double NewValue)
 {
-	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
-	double Time = FrameResolution.AsSeconds(FFrameTime::FromDecimal(NewValue));
+	FFrameRate TickResolution = TimeSliderController->GetTickResolution();
+	double Time = TickResolution.AsSeconds(FFrameTime::FromDecimal(NewValue));
 
 	if (Time < TimeSliderController.Get()->GetClampRange().GetLowerBoundValue())
 	{
@@ -383,8 +381,8 @@ void STimeRange::OnViewStartTimeChanged(double NewValue)
 
 void STimeRange::OnViewEndTimeChanged(double NewValue)
 {
-	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
-	double Time = FrameResolution.AsSeconds(FFrameTime::FromDecimal(NewValue));
+	FFrameRate TickResolution = TimeSliderController->GetTickResolution();
+	double Time = TickResolution.AsSeconds(FFrameTime::FromDecimal(NewValue));
 
 	if (Time > TimeSliderController->GetClampRange().GetUpperBoundValue())
 	{
@@ -400,9 +398,9 @@ void STimeRange::OnPlayStartTimeChanged(double NewValue)
 	// UI adjustment to work in reasonable deltas, so instead we clamp it here.
 	NewValue = FMath::Clamp(NewValue, MinPlayStartTime().GetValue(), MaxPlayStartTime().GetValue());
 
-	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
+	FFrameRate TickResolution = TimeSliderController->GetTickResolution();
 	FFrameTime Time = FFrameTime::FromDecimal(NewValue);
-	double     TimeInSeconds = FrameResolution.AsSeconds(Time);
+	double     TimeInSeconds = TickResolution.AsSeconds(Time);
 
 	if (TimeInSeconds < TimeSliderController.Get()->GetClampRange().GetLowerBoundValue())
 	{
@@ -419,9 +417,9 @@ void STimeRange::OnPlayEndTimeChanged(double NewValue)
 	// UI adjustment to work in reasonable deltas, so instead we clamp it here.
 	NewValue = FMath::Clamp(NewValue, MinPlayEndTime().GetValue(), MaxPlayEndTime().GetValue());
 
-	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
+	FFrameRate TickResolution = TimeSliderController->GetTickResolution();
 	FFrameTime Time = FFrameTime::FromDecimal(NewValue);
-	double     TimeInSeconds = FrameResolution.AsSeconds(Time);
+	double     TimeInSeconds = TickResolution.AsSeconds(Time);
 
 	if (TimeInSeconds > TimeSliderController->GetClampRange().GetUpperBoundValue())
 	{
@@ -432,67 +430,6 @@ void STimeRange::OnPlayEndTimeChanged(double NewValue)
 	int32        PlayDuration = (Time.FrameNumber - StartFrame).Value;
 
 	TimeSliderController->SetPlayRange(StartFrame, PlayDuration);
-}
-
-FText STimeRange::PlayStartTimeTooltip() const
-{
-	// @todo sequencer-timecode We need a NumericTypeInterface independent way to get the current type of display.
-	// bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
-	// if (bShowFrameNumbers)
-	// {
-	// 	return LOCTEXT("PlayStartFrameTooltip", "In Frame");
-	// }
-	// else
-	// {
-	// 	return LOCTEXT("PlayStartTimeTooltip", "In Time");
-	// }
-	return LOCTEXT("PlayStartTimeTooltip", "In Time");
-}
-
-FText STimeRange::PlayEndTimeTooltip() const
-{
-	// @todo sequencer-timecode We need a NumericTypeInterface independent way to get the current type of display.
-	// bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
-	// if (bShowFrameNumbers)
-	// {
-	// 	return LOCTEXT("PlayEndFrameTooltip", "Out Frame");
-	// }
-	// else
-	// {
-	// 	return LOCTEXT("PlayEndTimeTooltip", "Out Time");
-	// }
-	return LOCTEXT("PlayEndTimeTooltip", "Out Time");
-}
-
-FText STimeRange::ViewStartTimeTooltip() const
-{
-	// @todo sequencer-timecode We need a NumericTypeInterface independent way to get the current type of display.
-	// bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
-	// if (bShowFrameNumbers)
-	// {
-	// 	return LOCTEXT("ViewStartFrameTooltip", "View Range Start Frame");
-	// }
-	// else
-	// {
-	// 	return LOCTEXT("ViewStartTimeTooltip", "View Range Start Time");
-	// }
-	return LOCTEXT("ViewStartTimeTooltip", "View Range Start Time");
-
-}
-
-FText STimeRange::ViewEndTimeTooltip() const
-{
-	// @todo sequencer-timecode We need a NumericTypeInterface independent way to get the current type of display.
-	// bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
-	// if (bShowFrameNumbers)
-	// {
-	// 	return LOCTEXT("ViewEndFrameTooltip", "View Range End Frame");
-	// }
-	// else
-	// {
-	// 	return LOCTEXT("ViewEndTimeTooltip", "View Range End Time");
-	// }
-	return LOCTEXT("ViewEndTimeTooltip", "View Range End Time");
 }
 
 #undef LOCTEXT_NAMESPACE

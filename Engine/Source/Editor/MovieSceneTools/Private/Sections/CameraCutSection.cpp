@@ -41,7 +41,7 @@ void FCameraCutSection::SetSingleTime(double GlobalTime)
 	UMovieSceneCameraCutSection* CameraCutSection = Cast<UMovieSceneCameraCutSection>(Section);
 	if (CameraCutSection && CameraCutSection->HasStartFrame())
 	{
-		double ReferenceOffsetSeconds = CameraCutSection->GetInclusiveStartFrame() / CameraCutSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		double ReferenceOffsetSeconds = CameraCutSection->GetInclusiveStartFrame() / CameraCutSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
 		CameraCutSection->SetThumbnailReferenceOffset(GlobalTime - ReferenceOffsetSeconds);
 	}
 }
@@ -53,7 +53,7 @@ void FCameraCutSection::Tick(const FGeometry& AllottedGeometry, const FGeometry&
 	{
 		if (GetDefault<UMovieSceneUserThumbnailSettings>()->bDrawSingleThumbnails && CameraCutSection->HasStartFrame())
 		{
-			double ReferenceOffsetSeconds = CameraCutSection->GetInclusiveStartFrame() / CameraCutSection->GetTypedOuter<UMovieScene>()->GetFrameResolution() + CameraCutSection->GetThumbnailReferenceOffset();
+			double ReferenceOffsetSeconds = CameraCutSection->GetInclusiveStartFrame() / CameraCutSection->GetTypedOuter<UMovieScene>()->GetTickResolution() + CameraCutSection->GetThumbnailReferenceOffset();
 			ThumbnailCache.SetSingleReferenceFrame(ReferenceOffsetSeconds);
 		}
 		else

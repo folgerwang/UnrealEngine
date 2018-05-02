@@ -13,9 +13,6 @@ class FQueuedThreadPool;
 /** The OpenEXR image reader is supported on macOS and Windows only. */
 #define IMGMEDIA_EXR_SUPPORTED_PLATFORM (PLATFORM_MAC || PLATFORM_WINDOWS)
 
-/** Default number of frames per second for image sequences. */
-#define IMGMEDIA_DEFAULT_FPS 24.0
-
 /** Whether to use a separate thread pool for image frame deallocations. */
 #define USE_IMGMEDIA_DEALLOC_POOL UE_BUILD_DEBUG
 
@@ -32,12 +29,15 @@ DECLARE_LOG_CATEGORY_EXTERN(LogImgMedia, Log, All);
 
 namespace ImgMedia
 {
-	/** Name of the FramesPerSecondAttribute media option. */
-	static FName FramesPerSecondAttributeOption("FramesPerSecondAttribute");
+	/** Default frame rate for image sequences (24 fps). */
+	static const FFrameRate DefaultFrameRate(24, 1);
 
-	/** Name of the FramesPerSecondOverride media option. */
-	static FName FramesPerSecondOverrideOption("FramesPerSecondOverride");
+	/** Name of the FramesRateOverrideDenonimator media option. */
+	static const FName FrameRateOverrideDenonimatorOption("FrameRateOverrideDenonimator");
+
+	/** Name of the FramesRateOverrideNumerator media option. */
+	static const FName FrameRateOverrideNumeratorOption("FrameRateOverrideNumerator");
 
 	/** Name of the ProxyOverride media option. */
-	static FName ProxyOverrideOption("ProxyOverride");
+	static const FName ProxyOverrideOption("ProxyOverride");
 }

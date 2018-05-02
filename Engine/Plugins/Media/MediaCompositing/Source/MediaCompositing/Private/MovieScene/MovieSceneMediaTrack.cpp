@@ -37,9 +37,8 @@ UMovieSceneMediaTrack::UMovieSceneMediaTrack(const FObjectInitializer& ObjectIni
 UMovieSceneSection* UMovieSceneMediaTrack::AddNewMediaSourceOnRow(UMediaSource& MediaSource, FFrameNumber Time, int32 RowIndex)
 {
 	const float DefaultMediaSectionDuration = 1.0f;
-	FFrameRate FrameRate = GetTypedOuter<UMovieScene>()->GetFrameResolution();
-
-	FFrameTime DurationToUse = DefaultMediaSectionDuration * FrameRate;
+	FFrameRate TickResolution = GetTypedOuter<UMovieScene>()->GetTickResolution();
+	FFrameTime DurationToUse  = DefaultMediaSectionDuration * TickResolution;
 
 	// add the section
 	UMovieSceneMediaSection* NewSection = NewObject<UMovieSceneMediaSection>(this);

@@ -8,7 +8,7 @@ struct FFrameRate;
 struct FFrameNumber;
 class UMovieScene;
 
-class MOVIESCENECAPTURE_API MovieSceneCaptureHelpers
+class MOVIESCENETOOLS_API MovieSceneTranslatorEDL
 {
 public:
 

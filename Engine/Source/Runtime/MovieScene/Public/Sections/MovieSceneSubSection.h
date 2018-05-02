@@ -133,9 +133,9 @@ public:
 public:
 
 	//~ UMovieSceneSection interface
-
-	virtual UMovieSceneSection* SplitSection( FFrameNumber SplitTime ) override;
-	virtual void TrimSection( FFrameNumber TrimTime, bool bTrimLeft ) override;
+	virtual TOptional<TRange<FFrameNumber> > GetAutoSizeRange() const override;
+	virtual UMovieSceneSection* SplitSection( FQualifiedFrameTime SplitTime ) override;
+	virtual void TrimSection( FQualifiedFrameTime TrimTime, bool bTrimLeft ) override;
 	virtual TOptional<FFrameTime> GetOffsetTime() const override { return TOptional<FFrameTime>(FFrameTime(Parameters.GetStartFrameOffset())); }
 
 public:

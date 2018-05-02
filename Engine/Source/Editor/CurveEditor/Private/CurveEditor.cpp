@@ -307,8 +307,8 @@ void FCurveEditor::ZoomToFitSelection(EAxisList::Type Axes)
 void FCurveEditor::ZoomToFitInternal(EAxisList::Type Axes, double InputMin, double InputMax, double OutputMin, double OutputMax)
 {
 	FCurveEditorSnapMetrics SnapMetrics = GetSnapMetrics();
-	double MinInputZoom = SnapMetrics.bSnapInputValues ? SnapMetrics.InputSnapRate.AsInterval() : 0.001;
-	double MinOutputZoom = SnapMetrics.bSnapOutputValues ? SnapMetrics.OutputSnapInterval : 0.001;
+	double MinInputZoom = SnapMetrics.bSnapInputValues ? SnapMetrics.InputSnapRate.AsInterval() : 0.00001;
+	double MinOutputZoom = SnapMetrics.bSnapOutputValues ? SnapMetrics.OutputSnapInterval : 0.00001;
 
 	InputMax = FMath::Max(InputMin + MinInputZoom, InputMax);
 	OutputMax = FMath::Max(OutputMin + MinOutputZoom, OutputMax);
@@ -374,6 +374,30 @@ FVector2D FCurveEditor::GetVectorFromSlopeAndLength(float Slope, float Length)
 	float x = Length / FMath::Sqrt(Slope*Slope + 1.f);
 	float y = Slope * x;
 	return FVector2D(x, y);
+}
+
+FVector2D  FCurveEditor::GetTangentPositionInScreenSpace(const FVector2D &StartPos, float Tangent, float Weight) const
+{
+	FCurveEditorScreenSpace ScreenSpace = GetScreenSpace();
+	const float Angle = FMath::Atan(-Tangent);
+	float X, Y;
+	FMath::SinCos(&Y, &X, Angle);
+	X *= Weight;
+	Y *= Weight;
+
+	X *= ScreenSpace.PixelsPerInput();
+	Y *= ScreenSpace.PixelsPerOutput();
+	return FVector2D(StartPos.X + X, StartPos.Y +Y);
+}
+
+void FCurveEditor::GetTangentAndWeightFromScreenPosition(const FVector2D &StartPos, const  FVector2D &TangentPos, float &Tangent, float &Weight) const
+{
+	FCurveEditorScreenSpace ScreenSpace = GetScreenSpace();
+	float X = ScreenSpace.ScreenToSeconds(TangentPos.X) - ScreenSpace.ScreenToSeconds(StartPos.X);
+	float Y = ScreenSpace.ScreenToValue(TangentPos.Y) - ScreenSpace.ScreenToValue(StartPos.Y);
+
+	Tangent = Y / X;
+	Weight = FMath::Sqrt(X*X + Y * Y);
 }
 
 void FCurveEditor::GetCurveDrawParams(TArray<FCurveDrawParams>& OutDrawParams) const
@@ -456,7 +480,18 @@ void FCurveEditor::GetCurveDrawParams(TArray<FCurveDrawParams>& OutDrawParams) c
 
 					FCurvePointInfo ArriveTangentPoint(KeyHandle);
 					ArriveTangentPoint.Type = ECurvePointType::ArriveTangent;
-					ArriveTangentPoint.ScreenPosition = Key.ScreenPosition + FCurveEditor::GetVectorFromSlopeAndLength(ArriveTangent * -DisplayRatio, -60.f);
+
+
+					if (Attributes.HasTangentWeightMode() && Attributes.HasArriveTangentWeight() &&
+						(Attributes.GetTangentWeightMode() == RCTWM_WeightedBoth || Attributes.GetTangentWeightMode() == RCTWM_WeightedArrive))
+					{
+						ArriveTangentPoint.ScreenPosition = GetTangentPositionInScreenSpace(Key.ScreenPosition, ArriveTangent, -Attributes.GetArriveTangentWeight());
+					}
+					else
+					{
+						float PixelLength = 60.0f; 
+						ArriveTangentPoint.ScreenPosition = Key.ScreenPosition + FCurveEditor::GetVectorFromSlopeAndLength(ArriveTangent * -DisplayRatio, -PixelLength);
+					}
 					ArriveTangentPoint.LineDelta = Key.ScreenPosition - ArriveTangentPoint.ScreenPosition;
 					ArriveTangentPoint.LayerBias = 1;
 
@@ -469,7 +504,19 @@ void FCurveEditor::GetCurveDrawParams(TArray<FCurveDrawParams>& OutDrawParams) c
 
 					FCurvePointInfo LeaveTangentPoint(KeyHandle);
 					LeaveTangentPoint.Type = ECurvePointType::LeaveTangent;
-					LeaveTangentPoint.ScreenPosition = Key.ScreenPosition + FCurveEditor::GetVectorFromSlopeAndLength(LeaveTangent * -DisplayRatio, 60.f);
+
+					if (Attributes.HasTangentWeightMode() && Attributes.HasLeaveTangentWeight() &&
+						(Attributes.GetTangentWeightMode() == RCTWM_WeightedBoth || Attributes.GetTangentWeightMode() == RCTWM_WeightedLeave))
+					{
+						LeaveTangentPoint.ScreenPosition = GetTangentPositionInScreenSpace(Key.ScreenPosition, LeaveTangent, Attributes.GetLeaveTangentWeight());
+					}
+					else
+					{
+						float PixelLength = 60.0f; 
+						LeaveTangentPoint.ScreenPosition = Key.ScreenPosition + FCurveEditor::GetVectorFromSlopeAndLength(LeaveTangent * -DisplayRatio, PixelLength);
+
+					}
+
 					LeaveTangentPoint.LineDelta = Key.ScreenPosition - LeaveTangentPoint.ScreenPosition;
 					LeaveTangentPoint.LayerBias = 1;
 

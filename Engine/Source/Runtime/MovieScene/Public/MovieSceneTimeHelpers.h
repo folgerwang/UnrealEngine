@@ -152,8 +152,8 @@ inline TRange<T> TranslateRange(const TRange<T>& InRange, T Amount)
  */
 inline FFrameTime ClampToDiscreteRange(FFrameTime InTime, const TRange<FFrameNumber>& InRange)
 {
-	FFrameTime MinTime = DiscreteInclusiveLower(InRange);
-	FFrameTime MaxTime = FFrameTime(DiscreteExclusiveUpper(InRange)-1, 0.99999994f);
+	FFrameTime MinTime = InRange.GetLowerBound().IsClosed() ? DiscreteInclusiveLower(InRange) : FFrameTime(TNumericLimits<int32>::Lowest());
+	FFrameTime MaxTime = FFrameTime(InRange.GetUpperBound().IsClosed() ? DiscreteExclusiveUpper(InRange)-1 : TNumericLimits<int32>::Max(), 0.99999994f);
 
 	return FMath::Clamp(InTime, MinTime, MaxTime);
 }

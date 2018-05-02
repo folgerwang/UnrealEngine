@@ -26,7 +26,7 @@ namespace EMovieScenePlayerStatus
 UENUM()
 enum class EMovieSceneEvaluationType : uint8
 {
-	/** Play the sequence frame-locked to its playback rate (snapped to the frame resolution - no sub-frames) */
+	/** Play the sequence frame-locked to its playback rate (snapped to the tick resolution - no sub-frames) */
 	FrameLocked,
 
 	/** Play the sequence in real-time, with sub-frame interpolation if necessary */

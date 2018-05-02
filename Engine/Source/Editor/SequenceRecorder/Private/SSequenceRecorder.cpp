@@ -207,6 +207,7 @@ void SSequenceRecorder::Construct(const FArguments& Args)
 	ToolBarBuilder.BeginSection(TEXT("RecordingManagement"));
 	{
 		ToolBarBuilder.AddToolBarButton(FSequenceRecorderCommands::Get().AddRecording);
+		ToolBarBuilder.AddToolBarButton(FSequenceRecorderCommands::Get().AddCurrentPlayerRecording);
 		ToolBarBuilder.AddToolBarButton(FSequenceRecorderCommands::Get().RemoveRecording);
 		ToolBarBuilder.AddToolBarButton(FSequenceRecorderCommands::Get().RemoveAllRecordings);
 	}
@@ -377,6 +378,11 @@ void SSequenceRecorder::BindCommands()
 		FCanExecuteAction::CreateSP(this, &SSequenceRecorder::CanAddRecording)
 		);
 
+	CommandList->MapAction(FSequenceRecorderCommands::Get().AddCurrentPlayerRecording,
+		FExecuteAction::CreateSP(this, &SSequenceRecorder::HandleAddCurrentPlayerRecording),
+		FCanExecuteAction::CreateSP(this, &SSequenceRecorder::CanAddCurrentPlayerRecording)
+		);
+
 	CommandList->MapAction(FSequenceRecorderCommands::Get().RemoveRecording,
 		FExecuteAction::CreateSP(this, &SSequenceRecorder::HandleRemoveRecording),
 		FCanExecuteAction::CreateSP(this, &SSequenceRecorder::CanRemoveRecording)
@@ -464,6 +470,16 @@ void SSequenceRecorder::HandleAddRecording()
 bool SSequenceRecorder::CanAddRecording() const
 {
 	return !FAnimationRecorderManager::Get().IsRecording();
+}
+
+void SSequenceRecorder::HandleAddCurrentPlayerRecording()
+{
+	FSequenceRecorder::Get().AddNewQueuedRecordingForCurrentPlayer();
+}
+
+bool SSequenceRecorder::CanAddCurrentPlayerRecording() const
+{
+	return FSequenceRecorder::Get().CanAddNewQueuedRecordingForCurrentPlayer();
 }
 
 void SSequenceRecorder::HandleRemoveRecording()

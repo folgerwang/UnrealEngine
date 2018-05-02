@@ -35,6 +35,10 @@ void FCurveEditorContextMenu::BuildMenu(FMenuBuilder& MenuBuilder, TWeakPtr<FCur
 			MenuBuilder.AddMenuEntry(FCurveEditorCommands::Get().InterpolationCubicBreak);
 			MenuBuilder.AddMenuEntry(FCurveEditorCommands::Get().InterpolationLinear);
 			MenuBuilder.AddMenuEntry(FCurveEditorCommands::Get().InterpolationConstant);
+
+			MenuBuilder.AddMenuSeparator();
+
+			MenuBuilder.AddMenuEntry(FCurveEditorCommands::Get().InterpolationToggleWeighted);
 		}
 		MenuBuilder.EndSection();
 	}

@@ -103,32 +103,32 @@ bool FUdpMessageTransportTest::RunTest(const FString& Parameters)
 	const auto& DiscoveredNodes2 = Transport2.GetDiscoveredNodes();
 
 	// test transport node discovery
-	Transport1.Start();
-	FPlatformProcess::Sleep(3.0f);
-
-	TestTrue(TEXT("A single message transport must not discover any remote nodes"), DiscoveredNodes1.Num() == 0);
-
-	Transport2.Start();
-	FPlatformProcess::Sleep(3.0f);
-
-	if (DiscoveredNodes1.Num() == 0)
 	{
-		AddError(TEXT("The first transport did not discover any nodes"));
+		Transport1.Start();
+		FPlatformProcess::Sleep(3.0f);
 
-		return false;
+		TestTrue(TEXT("A single message transport must not discover any remote nodes"), DiscoveredNodes1.Num() == 0);
+
+		Transport2.Start();
+		FPlatformProcess::Sleep(3.0f);
+
+		if (DiscoveredNodes1.Num() == 0)
+		{
+			AddError(TEXT("The first transport did not discover any nodes"));
+			return false;
+		}
+
+		if (DiscoveredNodes2.Num() == 0)
+		{
+			AddError(TEXT("The second transport did not discover any nodes"));
+			return false;
+		}
+
+		TestTrue(TEXT("The first transport must discover exactly one node"), DiscoveredNodes1.Num() == 1);
+		TestTrue(TEXT("The second transport must discover exactly one node"), DiscoveredNodes2.Num() == 1);
+		TestTrue(TEXT("The discovered node IDs must be valid"), DiscoveredNodes1[0].IsValid() && DiscoveredNodes2[0].IsValid());
+		TestTrue(TEXT("The discovered node IDs must be unique"), DiscoveredNodes1[0] != DiscoveredNodes2[0]);
 	}
-
-	if (DiscoveredNodes2.Num() == 0)
-	{
-		AddError(TEXT("The second transport did not discover any nodes"));
-
-		return false;
-	}
-
-	TestTrue(TEXT("The first transport must discover exactly one node"), DiscoveredNodes1.Num() == 1);
-	TestTrue(TEXT("The second transport must discover exactly one node"), DiscoveredNodes2.Num() == 1);
-	TestTrue(TEXT("The discovered node IDs must be valid"), DiscoveredNodes1[0].IsValid() && DiscoveredNodes2[0].IsValid());
-	TestTrue(TEXT("The discovered node IDs must be unique"), DiscoveredNodes1[0] != DiscoveredNodes2[0]);
 
 	if (HasAnyErrors())
 	{
@@ -136,28 +136,31 @@ bool FUdpMessageTransportTest::RunTest(const FString& Parameters)
 	}
 
 	// stress test message sending
-	FDateTime StartTime = FDateTime::UtcNow();
-
-	for (int32 Count = 0; Count < NumTestMessages; ++Count)
 	{
-		FUdpMockMessage* Message = new FUdpMockMessage(MessageSize);
-		TSharedRef<IMessageContext, ESPMode::ThreadSafe> Context = MakeShareable(new FUdpMockMessageContext(Message));
+		const FDateTime StartTime = FDateTime::UtcNow();
 
-		Transport1.Publish(Context);
+		for (int32 Count = 0; Count < NumTestMessages; ++Count)
+		{
+			FUdpMockMessage* Message = new FUdpMockMessage(MessageSize);
+			TSharedRef<IMessageContext, ESPMode::ThreadSafe> Context = MakeShareable(new FUdpMockMessageContext(Message, StartTime));
+
+			Transport1.Publish(Context);
+		}
+
+		AddInfo(FString::Printf(TEXT("Sent %i messages in %s"), NumTestMessages, *(FDateTime::UtcNow() - StartTime).ToString()));
+
+		while ((Transport2.GetNumReceivedMessages() < NumTestMessages) && ((FDateTime::UtcNow() - StartTime) < FTimespan::FromSeconds(120.0)))
+		{
+			FPlatformProcess::Sleep(0.0f);
+		}
+
+		AddInfo(FString::Printf(TEXT("Received %i messages in %s"), Transport2.GetNumReceivedMessages(), *(FDateTime::UtcNow() - StartTime).ToString()));
+		TestTrue(TEXT("All sent messages must have been received"), Transport2.GetNumReceivedMessages() == NumTestMessages);
 	}
-
-	AddInfo(FString::Printf(TEXT("Sent %i messages in %s"), NumTestMessages, *(FDateTime::UtcNow() - StartTime).ToString()));
-
-	while ((Transport2.GetNumReceivedMessages() < NumTestMessages) && ((FDateTime::UtcNow() - StartTime) < FTimespan::FromSeconds(120.0)))
-	{
-		FPlatformProcess::Sleep(0.0f);
-	}
-
-	AddInfo(FString::Printf(TEXT("Received %i messages in %s"), Transport2.GetNumReceivedMessages(), *(FDateTime::UtcNow() - StartTime).ToString()));
-	TestTrue(TEXT("All sent messages must have been received"), Transport2.GetNumReceivedMessages() == NumTestMessages);
 
 	return true;
 }
+
 
 void EmptyLinkFunctionForStaticInitializationUdpMessageTransportTest()
 {

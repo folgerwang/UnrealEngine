@@ -17,7 +17,7 @@ FMessageRouter::FMessageRouter()
 	, Tracer(MakeShareable(new FMessageTracer()))
 {
 	ActiveSubscriptions.FindOrAdd(NAME_All);
-	WorkEvent = FPlatformProcess::GetSynchEventFromPool(true);
+	WorkEvent = FPlatformProcess::GetSynchEventFromPool();
 }
 
 
@@ -45,17 +45,14 @@ bool FMessageRouter::Init()
 
 uint32 FMessageRouter::Run()
 {
-	CurrentTime = FDateTime::UtcNow();
-
 	while (!Stopping)
 	{
-		if (WorkEvent->Wait(CalculateWaitTime()))
-		{
-			ProcessCommands();
-			WorkEvent->Reset();
-		}
+		CurrentTime = FDateTime::UtcNow();
 
+		ProcessCommands();
 		ProcessDelayedMessages();
+
+		WorkEvent->Wait(CalculateWaitTime());
 	}
 
 	return 0;
@@ -208,7 +205,6 @@ void FMessageRouter::FilterSubscriptions(
 
 void FMessageRouter::ProcessCommands()
 {
-	CurrentTime = FDateTime::UtcNow();
 	CommandDelegate Command;
 
 	while (Commands.Dequeue(Command))
@@ -235,8 +231,10 @@ void FMessageRouter::ProcessDelayedMessages()
 
 void FMessageRouter::Tick()
 {
-	ProcessCommands();
+	CurrentTime = FDateTime::UtcNow();
+
 	ProcessDelayedMessages();
+	ProcessCommands();
 }
 
 
@@ -353,8 +351,7 @@ void FMessageRouter::HandleRouteMessage(TSharedRef<IMessageContext, ESPMode::Thr
 	}
 
 	// dispatch the message
-	// @todo gmp: implement time synchronization between networked message endpoints
-	if (false) //(Context->GetTimeSent() > CurrentTime)
+	if (Context->GetTimeSent() > CurrentTime)
 	{
 		DelayedMessages.HeapPush(FDelayedMessage(Context, ++DelayedMessagesSequence));
 	}

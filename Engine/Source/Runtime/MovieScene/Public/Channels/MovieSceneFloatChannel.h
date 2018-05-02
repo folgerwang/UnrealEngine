@@ -21,6 +21,9 @@ struct FMovieSceneTangentData
 	FMovieSceneTangentData()
 		: ArriveTangent(0.f)
 		, LeaveTangent(0.f)
+		, TangentWeightMode(RCTWM_WeightedNone)
+		, ArriveTangentWeight(0.f)
+		, LeaveTangentWeight(0.f)
 	{}
 
 	/** If RCIM_Cubic, the arriving tangent at this key */
@@ -30,6 +33,19 @@ struct FMovieSceneTangentData
 	/** If RCIM_Cubic, the leaving tangent at this key */
 	UPROPERTY(EditAnywhere, Category="Key")
 	float LeaveTangent;
+
+	/** If RCIM_Cubic, the tangent weight mode */
+	UPROPERTY(EditAnywhere, Category = "Key")
+	TEnumAsByte<ERichCurveTangentWeightMode> TangentWeightMode;
+
+	/** If RCTWM_WeightedArrive or RCTWM_WeightedBoth, the weight of the left tangent */
+	UPROPERTY(EditAnywhere, Category="Key")
+	float ArriveTangentWeight;
+
+	/** If RCTWM_WeightedLeave or RCTWM_WeightedBoth, the weight of the right tangent */
+	UPROPERTY(EditAnywhere, Category="Key")
+	float LeaveTangentWeight;
+
 };
 
 USTRUCT()
@@ -110,14 +126,20 @@ struct FMovieSceneFloatChannel
 		return Values;
 	}
 
+
+
+
 	/**
-	 * Evaluate this channel
-	 *
-	 * @param InTime     The time to evaluate at
-	 * @param OutValue   A value to receive the result
-	 * @return true if the channel was evaluated successfully, false otherwise
-	 */
+	* Evaluate this channel with the frame resolution 
+	*
+	* @param InTime     The time to evaluate at
+	* @param InTime     The Frame Rate the time to evaluate at
+	* @param OutValue   A value to receive the result
+	* @return true if the channel was evaluated successfully, false otherwise
+	*/
 	MOVIESCENE_API bool Evaluate(FFrameTime InTime, float& OutValue) const;
+
+
 
 	/**
 	 * Set the channel's times and values to the requested values
@@ -187,10 +209,10 @@ public:
 	 * @param EndTimeSeconds        The last time in seconds to include in the resulting array
 	 * @param TimeThreshold         A small time threshold in seconds below which we should stop adding new points
 	 * @param ValueThreshold        A small value threshold below which we should stop adding new points where the linear interpolation would suffice
-	 * @param FrameResolution       The frame resolution with which to interpret this channel's times
+	 * @param TickResolution        The tick resolution with which to interpret this channel's times
 	 * @param InOutPoints           An array to populate with the evaluated points
 	 */
-	MOVIESCENE_API void PopulateCurvePoints(double StartTimeSeconds, double EndTimeSeconds, double TimeThreshold, float ValueThreshold, FFrameRate FrameResolution, TArray<TTuple<double, double>>& InOutPoints) const;	
+	MOVIESCENE_API void PopulateCurvePoints(double StartTimeSeconds, double EndTimeSeconds, double TimeThreshold, float ValueThreshold, FFrameRate TickResolution, TArray<TTuple<double, double>>& InOutPoints) const;	
 
 public:
 
@@ -218,12 +240,12 @@ private:
 	/**
 	 * Adds median points between each of the supplied points if their evaluated value is significantly different than the linear interpolation of those points
 	 *
-	 * @param FrameResolution       The frame resolution with which to interpret this channel's times
+	 * @param TickResolution        The tick resolution with which to interpret this channel's times
 	 * @param TimeThreshold         A small time threshold in seconds below which we should stop adding new points
 	 * @param ValueThreshold        A small value threshold below which we should stop adding new points where the linear interpolation would suffice
 	 * @param InOutPoints           An array to populate with the evaluated points
 	 */
-	void RefineCurvePoints(FFrameRate FrameResolution, double TimeThreshold, float ValueThreshold, TArray<TTuple<double, double>>& InOutPoints) const;
+	void RefineCurvePoints(FFrameRate TickResolution, double TimeThreshold, float ValueThreshold, TArray<TTuple<double, double>>& InOutPoints) const;
 
 	UPROPERTY()
 	TArray<FFrameNumber> Times;
@@ -238,6 +260,16 @@ private:
 	bool bHasDefaultValue;
 
 	FMovieSceneKeyHandleMap KeyHandles;
+
+	UPROPERTY()
+	FFrameRate TickResolution;
+
+public:
+	//Set it's frame resolution
+	void SetTickResolution(FFrameRate InTickSolution)
+	{
+		TickResolution = InTickSolution;
+	}
 };
 
 template<>
@@ -268,12 +300,12 @@ inline bool ValueExistsAtTime(const FMovieSceneFloatChannel* Channel, FFrameNumb
 	const FFrameTime FrameTime(InFrameNumber);
 
 	float ExistingValue = 0.f;
-	return Channel->Evaluate(FrameTime, ExistingValue) && FMath::IsNearlyEqual(ExistingValue, Value, Tolerance);
+	return Channel->Evaluate(FrameTime,  ExistingValue) && FMath::IsNearlyEqual(ExistingValue, Value, Tolerance);
 }
 
 inline bool ValueExistsAtTime(const FMovieSceneFloatChannel* Channel, FFrameNumber InFrameNumber, const FMovieSceneFloatValue& InValue, float Tolerance = KINDA_SMALL_NUMBER)
 {
-	return ValueExistsAtTime(Channel, InFrameNumber, InValue.Value, Tolerance);
+	return ValueExistsAtTime(Channel, InFrameNumber,  InValue.Value, Tolerance);
 }
 
 inline void AssignValue(FMovieSceneFloatChannel* InChannel, int32 ValueIndex, float InValue)
@@ -300,6 +332,6 @@ MOVIESCENE_API void Dilate(FMovieSceneFloatChannel* InChannel, FFrameNumber Orig
 
 
 /**
- * Overload for Converting a float channel from one frame rate to another. Ensures that both key times and tangents are migrated correctly. See MovieScene::ChangeFrameResolution for default implementation
+ * Overload for Converting a float channel from one frame rate to another. Ensures that both key times and tangents are migrated correctly. See MovieScene::ChangeTickResolution for default implementation
  */
-MOVIESCENE_API void ChangeFrameResolution(FMovieSceneFloatChannel* InChannel, FFrameRate SourceRate, FFrameRate DestinationRate);
+MOVIESCENE_API void ChangeTickResolution(FMovieSceneFloatChannel* InChannel, FFrameRate SourceRate, FFrameRate DestinationRate);

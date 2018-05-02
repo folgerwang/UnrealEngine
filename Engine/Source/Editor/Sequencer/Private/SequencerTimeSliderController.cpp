@@ -19,6 +19,7 @@
 #include "MovieSceneTimeHelpers.h"
 #include "CommonFrameRates.h"
 #include "Sequencer.h"
+#include "SequencerDisplayNode.h"
 
 #define LOCTEXT_NAMESPACE "TimeSlider"
 
@@ -34,53 +35,6 @@ namespace ScrubConstants
 	const float ScrollPanFraction = 0.1f;
 }
 
-/** Utility struct for converting between scrub range space and local/absolute screen space */
-struct FSequencerTimeSliderController::FScrubRangeToScreen
-{
-	double ViewStart;
-	float  PixelsPerInput;
-
-	FScrubRangeToScreen(const TRange<double>& InViewInput, const FVector2D& InWidgetSize )
-	{
-		float ViewInputRange = InViewInput.Size<double>();
-
-		ViewStart      = InViewInput.GetLowerBoundValue();
-		PixelsPerInput = ViewInputRange > 0 ? ( InWidgetSize.X / ViewInputRange ) : 0;
-	}
-
-	/** Local Widget Space -> Curve Input domain. */
-	double LocalXToInput(float ScreenX) const
-	{
-		return PixelsPerInput > 0 ? (ScreenX/PixelsPerInput) + ViewStart : ViewStart;
-	}
-
-	/** Curve Input domain -> local Widget Space */
-	float InputToLocalX(double Input) const
-	{
-		return (Input - ViewStart) * PixelsPerInput;
-	}
-};
-
-
-/**
- * Gets the the next spacing value in the series 
- * to determine a good spacing value
- * E.g, .001,.005,.010,.050,.100,.500,1.000,etc
- */
-static float GetNextSpacing( uint32 CurrentStep )
-{
-	if(CurrentStep & 0x01) 
-	{
-		// Odd numbers
-		return FMath::Pow( 10.f, 0.5f*((float)(CurrentStep-1)) + 1.f );
-	}
-	else 
-	{
-		// Even numbers
-		return 0.5f * FMath::Pow( 10.f, 0.5f*((float)(CurrentStep)) + 1.f );
-	}
-}
-
 FSequencerTimeSliderController::FSequencerTimeSliderController( const FTimeSliderArgs& InArgs, TWeakPtr<FSequencer> InWeakSequencer )
 	: WeakSequencer(InWeakSequencer)
 	, TimeSliderArgs( InArgs )
@@ -88,11 +42,11 @@ FSequencerTimeSliderController::FSequencerTimeSliderController( const FTimeSlide
 	, MouseDragType( DRAG_NONE )
 	, bPanning( false )
 {
-	ScrubFillBrush              = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.ScrubFill" ) );
-	ScrubHandleUpBrush          = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.ScrubHandleUp" ) ); 
-	ScrubHandleDownBrush        = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.ScrubHandleDown" ) );
-	ClampedScrubHandleUpBrush   = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.ClampedScrubHandleUp" ) ); 
-	ClampedScrubHandleDownBrush = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.ClampedScrubHandleDown" ) );
+	ScrubFillBrush                 = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.ScrubFill" ) );
+	FrameBlockScrubHandleUpBrush   = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.FrameBlockScrubHandleUp" ) ); 
+	FrameBlockScrubHandleDownBrush = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.FrameBlockScrubHandleDown" ) );
+	VanillaScrubHandleUpBrush      = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.VanillaScrubHandleUp" ) ); 
+	VanillaScrubHandleDownBrush    = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.VanillaScrubHandleDown" ) );
 	ContextMenuSuppression = 0;
 }
 
@@ -100,17 +54,30 @@ FFrameTime FSequencerTimeSliderController::ComputeScrubTimeFromMouse(const FGeom
 {
 	FVector2D           CursorPos     = Geometry.AbsoluteToLocal( ScreenSpacePosition );
 	double              MouseSeconds  = RangeToScreen.LocalXToInput( CursorPos.X );
-	FFrameTime          ScrubTime     = MouseSeconds * GetFrameResolution();
+	FFrameTime          ScrubTime     = MouseSeconds * GetTickResolution();
 
 	if ( TimeSliderArgs.Settings->GetIsSnapEnabled() )
 	{
+		if (TimeSliderArgs.Settings->GetSnapPlayTimeToInterval())
+		{
+			// Set the style of the scrub handle
+			TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
+			if (Sequencer.IsValid() && Sequencer->GetScrubStyle() == ESequencerScrubberStyle::FrameBlock)
+			{
+				// Floor to the display frame
+				ScrubTime = ConvertFrameTime(ConvertFrameTime(ScrubTime, GetTickResolution(), GetDisplayRate()).FloorToFrame(), GetDisplayRate(), GetTickResolution());
+			}
+			else
+			{
+				// Snap (round) to display rate
+				ScrubTime = FFrameRate::Snap(ScrubTime, GetTickResolution(), GetDisplayRate());
+			}
+		}
+
 		if (TimeSliderArgs.Settings->GetSnapPlayTimeToKeys())
 		{
+			// SnapTimeToNearestKey will return ScrubTime unmodified if there is no key within range.
 			ScrubTime = SnapTimeToNearestKey(RangeToScreen, CursorPos.X, ScrubTime);
-		}
-		else if (TimeSliderArgs.Settings->GetSnapPlayTimeToInterval())
-		{
-			ScrubTime = FFrameRate::Snap(ScrubTime, GetFrameResolution(), GetPlayRate());
 		}
 	}
 
@@ -129,59 +96,67 @@ FFrameTime FSequencerTimeSliderController::ComputeFrameTimeFromMouse(const FGeom
 
 	if (CheckSnapping && TimeSliderArgs.Settings->GetIsSnapEnabled())
 	{
-		FFrameNumber        SnappedFrameNumber = (MouseValue * GetPlayRate()).FloorToFrame();
-		FQualifiedFrameTime RoundedPlayFrame   = FQualifiedFrameTime(SnappedFrameNumber, GetPlayRate());
-		return RoundedPlayFrame.ConvertTo(GetFrameResolution());
+		FFrameNumber        SnappedFrameNumber = (MouseValue * GetDisplayRate()).FloorToFrame();
+		FQualifiedFrameTime RoundedPlayFrame   = FQualifiedFrameTime(SnappedFrameNumber, GetDisplayRate());
+		return RoundedPlayFrame.ConvertTo(GetTickResolution());
 	}
 	else
 	{
-		return MouseValue * GetFrameResolution();
+		return MouseValue * GetTickResolution();
 	}
 }
 
-FSequencerTimeSliderController::FScrubPixelRange FSequencerTimeSliderController::GetHitTestScrubberPixelRange(FFrameTime ScrubTime, const FScrubRangeToScreen& RangeToScreen) const
+FSequencerTimeSliderController::FScrubberMetrics FSequencerTimeSliderController::GetHitTestScrubPixelMetrics(const FScrubRangeToScreen& RangeToScreen) const
 {
 	static const float DragToleranceSlateUnits = 2.f, MouseTolerance = 2.f;
-	return GetScrubberPixelRange(ScrubTime, GetFrameResolution(), GetPlayRate(), RangeToScreen, DragToleranceSlateUnits + MouseTolerance);
+	return GetScrubPixelMetrics(FQualifiedFrameTime(TimeSliderArgs.ScrubPosition.Get(), GetTickResolution()), RangeToScreen, DragToleranceSlateUnits + MouseTolerance);
 }
 
-FSequencerTimeSliderController::FScrubPixelRange FSequencerTimeSliderController::GetScrubberPixelRange(FFrameTime ScrubTime, const FScrubRangeToScreen& RangeToScreen) const
+FSequencerTimeSliderController::FScrubberMetrics FSequencerTimeSliderController::GetScrubPixelMetrics(const FQualifiedFrameTime& ScrubTime, const FScrubRangeToScreen& RangeToScreen, float DilationPixels) const
 {
-	return GetScrubberPixelRange(ScrubTime, GetFrameResolution(), GetPlayRate(), RangeToScreen);
-}
+	FFrameRate DisplayRate = GetDisplayRate();
 
-FSequencerTimeSliderController::FScrubPixelRange FSequencerTimeSliderController::GetScrubberPixelRange(FFrameTime ScrubTime, FFrameRate Resolution, FFrameRate PlayRate, const FScrubRangeToScreen& RangeToScreen, float DilationPixels) const
-{
-	const FFrameNumber Frame = ScrubTime.FloorToFrame();// ConvertFrameTime(ScrubTime, Resolution, PlayRate).FloorToFrame();
+	FScrubberMetrics Metrics;
 
-	float StartPixel = RangeToScreen.InputToLocalX(  Frame    / Resolution);
-	float EndPixel   = RangeToScreen.InputToLocalX( (Frame+1) / Resolution);
+	static float MinScrubSize = 14.f;
+
+	const FFrameNumber Frame = ScrubTime.ConvertTo(DisplayRate).FloorToFrame();
+
+	float FrameStartPixel = RangeToScreen.InputToLocalX(  Frame    / DisplayRate );
+	float FrameEndPixel   = RangeToScreen.InputToLocalX( (Frame+1) / DisplayRate ) - 1;
 
 	{
-		float RoundedStartPixel = FMath::RoundToInt(StartPixel);
-		EndPixel -= (StartPixel - RoundedStartPixel);
+		float RoundedStartPixel = FMath::RoundToInt(FrameStartPixel);
+		FrameEndPixel -= (FrameStartPixel - RoundedStartPixel);
 
-		StartPixel = RoundedStartPixel;
-		EndPixel = FMath::Max(EndPixel, StartPixel + 1);
+		FrameStartPixel = RoundedStartPixel;
+		FrameEndPixel   = FMath::Max(FrameEndPixel, FrameStartPixel + 1);
 	}
 
-	FScrubPixelRange Range;
+	// Store off the pixel width of the frame
+	Metrics.FrameExtentsPx = TRange<float>(FrameStartPixel, FrameEndPixel);
 
-	float MinScrubSize = 14.f;
-	Range.bClamped    = EndPixel - StartPixel < MinScrubSize;
-	Range.Range       = TRange<float>(StartPixel, EndPixel);
-	if (Range.bClamped)
+	// Set the style of the scrub handle
+	TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
+	Metrics.Style = Sequencer.IsValid() ? Sequencer->GetScrubStyle() : ESequencerScrubberStyle::Vanilla;
+
+	// Always draw the extents on the section area for frame block styles
+	Metrics.bDrawExtents = Metrics.Style == ESequencerScrubberStyle::FrameBlock;
+
+	// If it's vanilla style or too small to show the frame width, set that up
+	if (Metrics.Style == ESequencerScrubberStyle::Vanilla || FrameEndPixel - FrameStartPixel < MinScrubSize)
 	{
-		Range.HandleRange = TRange<float>(
-			(StartPixel + EndPixel - MinScrubSize) * .5f,
-			(StartPixel + EndPixel + MinScrubSize) * .5f);
+		Metrics.Style = ESequencerScrubberStyle::Vanilla;
+
+		float ScrubPixel = RangeToScreen.InputToLocalX(ScrubTime.AsSeconds());
+		Metrics.HandleRangePx = TRange<float>(ScrubPixel - MinScrubSize*.5f, ScrubPixel + MinScrubSize*.5f);
 	}
 	else
 	{
-		Range.HandleRange = Range.Range;
+		Metrics.HandleRangePx = Metrics.FrameExtentsPx;
 	}
 
-	return Range;
+	return Metrics;
 }
 
 struct FSequencerTimeSliderController::FDrawTickArgs
@@ -215,7 +190,8 @@ void FSequencerTimeSliderController::DrawTicks( FSlateWindowElementList& OutDraw
 		return;
 	}
 
-	FFrameRate     FrameResolution = GetFrameResolution();
+	FFrameRate     TickResolution  = GetTickResolution();
+	FFrameRate     DisplayRate     = GetDisplayRate();
 	FPaintGeometry PaintGeometry   = InArgs.AllottedGeometry.ToPaintGeometry();
 	FSlateFontInfo SmallLayoutFont = FCoreStyle::GetDefaultFontStyle("Regular", 8);
 
@@ -235,9 +211,11 @@ void FSequencerTimeSliderController::DrawTicks( FSlateWindowElementList& OutDraw
 	LinePoints.SetNumUninitialized(2);
 
 	const bool bAntiAliasLines = false;
+	
+	const double FirstMajorLine  = FMath::FloorToDouble(ViewRange.GetLowerBoundValue() / MajorGridStep) * MajorGridStep;
+	const double LastMajorLine   = FMath::CeilToDouble(ViewRange.GetUpperBoundValue() / MajorGridStep) * MajorGridStep;
 
-	const double FirstMajorLine = FMath::FloorToDouble(ViewRange.GetLowerBoundValue() / MajorGridStep) * MajorGridStep;
-	const double LastMajorLine  = FMath::CeilToDouble(ViewRange.GetUpperBoundValue() / MajorGridStep) * MajorGridStep;
+	const float  FlooredScrubPx  = RangeToScreen.InputToLocalX(ConvertFrameTime(TimeSliderArgs.ScrubPosition.Get(), TickResolution, GetDisplayRate()).FloorToFrame() / DisplayRate);
 
 	for (double CurrentMajorLine = FirstMajorLine; CurrentMajorLine < LastMajorLine; CurrentMajorLine += MajorGridStep)
 	{
@@ -257,12 +235,12 @@ void FSequencerTimeSliderController::DrawTicks( FSlateWindowElementList& OutDraw
 			bAntiAliasLines
 			);
 
-		if (!InArgs.bOnlyDrawMajorTicks)
+		if (!InArgs.bOnlyDrawMajorTicks && !FMath::IsNearlyEqual(MajorLinePx, FlooredScrubPx, 3.f))
 		{
-			FString FrameString = TimeSliderArgs.NumericTypeInterface->ToString((CurrentMajorLine * FrameResolution).RoundToFrame().Value);
+			FString FrameString = TimeSliderArgs.NumericTypeInterface->ToString((CurrentMajorLine * TickResolution).RoundToFrame().Value);
 
 			// Space the text between the tick mark but slightly above
-			FVector2D TextOffset( MajorLinePx + 5.f, InArgs.bMirrorLabels ? 3.f : FMath::Abs( InArgs.AllottedGeometry.Size.Y - (InArgs.MajorTickHeight+3.f) ) );
+			FVector2D TextOffset( MajorLinePx + 5.f, InArgs.bMirrorLabels ? 1.f : FMath::Abs( InArgs.AllottedGeometry.Size.Y - (InArgs.MajorTickHeight+3.f) ) );
 			FSlateDrawElement::MakeText(
 				OutDrawElements,
 				InArgs.StartLayer+1, 
@@ -345,10 +323,10 @@ int32 FSequencerTimeSliderController::OnPaintTimeSlider( bool bMirrorLabels, con
 		LayerId = DrawSelectionRange(AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, RangeToScreen, PlaybackRangeArgs);
 
 		// Draw the scrub handle
-		FFrameTime       ScrubPosition      = TimeSliderArgs.ScrubPosition.Get();
-		FScrubPixelRange ScrubberPixelRange = GetScrubberPixelRange(ScrubPosition, RangeToScreen);
-		const float      HandleStart        = ScrubberPixelRange.HandleRange.GetLowerBoundValue();
-		const float      HandleEnd          = ScrubberPixelRange.HandleRange.GetUpperBoundValue();
+		FQualifiedFrameTime ScrubPosition = FQualifiedFrameTime(TimeSliderArgs.ScrubPosition.Get(), GetTickResolution());
+		FScrubberMetrics    ScrubMetrics  = GetScrubPixelMetrics(ScrubPosition, RangeToScreen);
+		const float         HandleStart   = ScrubMetrics.HandleRangePx.GetLowerBoundValue();
+		const float         HandleEnd     = ScrubMetrics.HandleRangePx.GetUpperBoundValue();
 
 		const int32 ArrowLayer = LayerId + 2;
 		FPaintGeometry MyGeometry =	AllottedGeometry.ToPaintGeometry( FVector2D( HandleStart, 0 ), FVector2D( HandleEnd - HandleStart, AllottedGeometry.Size.Y ) );
@@ -360,9 +338,9 @@ int32 FSequencerTimeSliderController::OnPaintTimeSlider( bool bMirrorLabels, con
 			ScrubColor.G *= 0.2f;
 		}
 
-		const FSlateBrush* Brush = ScrubberPixelRange.bClamped
-			? ( bMirrorLabels ? ClampedScrubHandleUpBrush : ClampedScrubHandleDownBrush )
-			: ( bMirrorLabels ? ScrubHandleUpBrush        : ScrubHandleDownBrush );
+		const FSlateBrush* Brush = ScrubMetrics.Style == ESequencerScrubberStyle::Vanilla
+			? ( bMirrorLabels ? VanillaScrubHandleUpBrush    : VanillaScrubHandleDownBrush )
+			: ( bMirrorLabels ? FrameBlockScrubHandleUpBrush : FrameBlockScrubHandleDownBrush );
 
 		FSlateDrawElement::MakeBox(
 			OutDrawElements,
@@ -389,7 +367,7 @@ int32 FSequencerTimeSliderController::OnPaintTimeSlider( bool bMirrorLabels, con
 			bool  bDrawLeft    = (AllottedGeometry.Size.X - HandleEnd) < (TextSize.X + 14.f) - TextOffsetPx;
 			float TextPosition = bDrawLeft ? HandleStart - TextSize.X - TextOffsetPx : HandleEnd + TextOffsetPx;
 
-			FVector2D TextOffset( TextPosition, Args.bMirrorLabels ? TextSize.Y-6.f : Args.AllottedGeometry.Size.Y - (Args.MajorTickHeight+TextSize.Y) );
+			FVector2D TextOffset( TextPosition, Args.bMirrorLabels ? Args.AllottedGeometry.Size.Y - TextSize.Y : 0.f );
 
 			FSlateDrawElement::MakeText(
 				OutDrawElements,
@@ -404,7 +382,7 @@ int32 FSequencerTimeSliderController::OnPaintTimeSlider( bool bMirrorLabels, con
 		
 		if (MouseDragType == DRAG_SETTING_RANGE)
 		{
-			FFrameRate Resolution     = GetFrameResolution();
+			FFrameRate Resolution = GetTickResolution();
 			FFrameTime MouseDownTime[2];
 
 			FScrubRangeToScreen MouseDownRange(TimeSliderArgs.ViewRange.Get(), MouseDownGeometry.Size);
@@ -421,7 +399,7 @@ int32 FSequencerTimeSliderController::OnPaintTimeSlider( bool bMirrorLabels, con
 				OutDrawElements,
 				LayerId+1,
 				AllottedGeometry.ToPaintGeometry( FVector2D(RangePosX, 0.f), FVector2D(RangeSizeX, AllottedGeometry.Size.Y) ),
-				bMirrorLabels ? ClampedScrubHandleDownBrush : ClampedScrubHandleUpBrush,
+				bMirrorLabels ? VanillaScrubHandleDownBrush : VanillaScrubHandleUpBrush,
 				DrawEffects,
 				MouseStartPosX < MouseEndPosX ? FLinearColor(0.5f, 0.5f, 0.5f) : FLinearColor(0.25f, 0.3f, 0.3f)
 			);
@@ -436,7 +414,7 @@ int32 FSequencerTimeSliderController::OnPaintTimeSlider( bool bMirrorLabels, con
 
 int32 FSequencerTimeSliderController::DrawSelectionRange(const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FScrubRangeToScreen& RangeToScreen, const FPaintPlaybackRangeArgs& Args) const
 {
-	TRange<double> SelectionRange = TimeSliderArgs.SelectionRange.Get() / GetFrameResolution();
+	TRange<double> SelectionRange = TimeSliderArgs.SelectionRange.Get() / GetTickResolution();
 
 	if (!SelectionRange.IsEmpty())
 	{
@@ -488,9 +466,10 @@ int32 FSequencerTimeSliderController::DrawPlaybackRange(const FGeometry& Allotte
 
 	const uint8 OpacityBlend = TimeSliderArgs.SubSequenceRange.Get().IsSet() ? 128 : 255;
 
-	const TRange<double> PlaybackRange = TimeSliderArgs.PlaybackRange.Get() / GetFrameResolution();
-	const float PlaybackRangeL = RangeToScreen.InputToLocalX(PlaybackRange.GetLowerBoundValue()) - 1;
-	const float PlaybackRangeR = RangeToScreen.InputToLocalX(PlaybackRange.GetUpperBoundValue()) + 1;
+	TRange<FFrameNumber> PlaybackRange = TimeSliderArgs.PlaybackRange.Get();
+	FFrameRate TickResolution = GetTickResolution();
+	const float PlaybackRangeL = RangeToScreen.InputToLocalX(MovieScene::DiscreteInclusiveLower(PlaybackRange) / TickResolution);
+	const float PlaybackRangeR = RangeToScreen.InputToLocalX(MovieScene::DiscreteExclusiveUpper(PlaybackRange) / TickResolution) - 1;
 
 	FSlateDrawElement::MakeBox(
 		OutDrawElements,
@@ -542,7 +521,7 @@ int32 FSequencerTimeSliderController::DrawSubSequenceRange(const FGeometry& Allo
 		return LayerId;
 	}
 
-	const FFrameRate   Resolution = GetFrameResolution();
+	const FFrameRate   Resolution = GetTickResolution();
 	const FFrameNumber LowerFrame = MovieScene::DiscreteInclusiveLower(RangeValue.GetValue());
 	const FFrameNumber UpperFrame = MovieScene::DiscreteExclusiveUpper(RangeValue.GetValue());
 
@@ -697,7 +676,7 @@ FReply FSequencerTimeSliderController::OnMouseButtonUp( SWidget& WidgetOwner, co
 					// push the current value onto the stack
 					ViewRangeStack.Add(ViewRange);
 
-					ViewRange = TRange<double>(MouseDownStart.FrameNumber / GetFrameResolution(), MouseTime.FrameNumber / GetFrameResolution());
+					ViewRange = TRange<double>(MouseDownStart.FrameNumber / GetTickResolution(), MouseTime.FrameNumber / GetTickResolution());
 				}
 				
 				TimeSliderArgs.OnViewRangeChanged.ExecuteIfBound(ViewRange, EViewRangeInterpolation::Immediate);
@@ -782,13 +761,13 @@ FReply FSequencerTimeSliderController::OnMouseMove( SWidget& WidgetOwner, const 
 			{
 				FFrameTime MouseDownFree = ComputeFrameTimeFromMouse(MyGeometry, MouseDownPosition[0], RangeToScreen, false);
 
-				const FFrameRate FrameResolution    = GetFrameResolution();
+				const FFrameRate TickResolution     = GetTickResolution();
 				const bool       bLockedPlayRange   = TimeSliderArgs.IsPlaybackRangeLocked.Get();
-				const float      MouseDownPixel     = RangeToScreen.InputToLocalX(MouseDownFree / FrameResolution);
-				const bool       bHitScrubber       = GetHitTestScrubberPixelRange(TimeSliderArgs.ScrubPosition.Get(), RangeToScreen).HandleRange.Contains(MouseDownPixel);
+				const float      MouseDownPixel     = RangeToScreen.InputToLocalX(MouseDownFree / TickResolution);
+				const bool       bHitScrubber       = GetHitTestScrubPixelMetrics(RangeToScreen).HandleRangePx.Contains(MouseDownPixel);
 
-				TRange<double>   SelectionRange   = TimeSliderArgs.SelectionRange.Get() / FrameResolution;
-				TRange<double>   PlaybackRange    = TimeSliderArgs.PlaybackRange.Get()  / FrameResolution;
+				TRange<double>   SelectionRange   = TimeSliderArgs.SelectionRange.Get() / TickResolution;
+				TRange<double>   PlaybackRange    = TimeSliderArgs.PlaybackRange.Get()  / TickResolution;
 
 				// Disable selection range test if it's empty so that the playback range scrubbing gets priority
 				if (!SelectionRange.IsEmpty() && !bHitScrubber && HitTestRangeEnd(RangeToScreen, SelectionRange, MouseDownPixel))
@@ -839,7 +818,7 @@ FReply FSequencerTimeSliderController::OnMouseMove( SWidget& WidgetOwner, const 
 			// Set the end range time?
 			else if(MouseDragType == DRAG_PLAYBACK_END)
 			{
-				SetPlaybackRangeEnd(MouseTime.FrameNumber-1);
+				SetPlaybackRangeEnd(MouseTime.FrameNumber);
 			}
 			else if (MouseDragType == DRAG_SELECTION_START)
 			{
@@ -894,7 +873,7 @@ FReply FSequencerTimeSliderController::OnMouseWheel( SWidget& WidgetOwner, const
 		// If zooming on the current time, adjust mouse fractionX
 		if (TimeSliderArgs.Settings->GetZoomPosition() == ESequencerZoomPosition::SZP_CurrentTime)
 		{
-			const double ScrubPosition = TimeSliderArgs.ScrubPosition.Get() / GetFrameResolution();
+			const double ScrubPosition = TimeSliderArgs.ScrubPosition.Get() / GetTickResolution();
 			if (TimeSliderArgs.ViewRange.Get().Contains(ScrubPosition))
 			{
 				FScrubRangeToScreen RangeToScreen(TimeSliderArgs.ViewRange.Get(), MyGeometry.Size);
@@ -922,13 +901,13 @@ FCursorReply FSequencerTimeSliderController::OnCursorQuery( TSharedRef<const SWi
 {
 	FScrubRangeToScreen RangeToScreen(TimeSliderArgs.ViewRange.Get(), MyGeometry.Size);
 
-	const FFrameRate FrameResolution  = GetFrameResolution();
+	const FFrameRate TickResolution   = GetTickResolution();
 	const bool       bLockedPlayRange = TimeSliderArgs.IsPlaybackRangeLocked.Get();
 	const float      HitTestPixel     = MyGeometry.AbsoluteToLocal(CursorEvent.GetScreenSpacePosition()).X;
-	const bool       bHitScrubber     = GetHitTestScrubberPixelRange(TimeSliderArgs.ScrubPosition.Get(), RangeToScreen).HandleRange.Contains(HitTestPixel);
+	const bool       bHitScrubber     = GetHitTestScrubPixelMetrics(RangeToScreen).HandleRangePx.Contains(HitTestPixel);
 
-	TRange<double>   SelectionRange   = TimeSliderArgs.SelectionRange.Get() / FrameResolution;
-	TRange<double>   PlaybackRange    = TimeSliderArgs.PlaybackRange.Get()  / FrameResolution;
+	TRange<double>   SelectionRange   = TimeSliderArgs.SelectionRange.Get() / TickResolution;
+	TRange<double>   PlaybackRange    = TimeSliderArgs.PlaybackRange.Get()  / TickResolution;
 
 	if (MouseDragType == DRAG_SCRUBBING_TIME)
 	{
@@ -992,42 +971,41 @@ int32 FSequencerTimeSliderController::OnPaintSectionView( const FGeometry& Allot
 
 	if( Args.bDisplayScrubPosition )
 	{
-		FScrubPixelRange ScrubberPixelRange = GetScrubberPixelRange(TimeSliderArgs.ScrubPosition.Get(), RangeToScreen);
+		FQualifiedFrameTime ScrubPosition = FQualifiedFrameTime(TimeSliderArgs.ScrubPosition.Get(), GetTickResolution());
+		FScrubberMetrics    ScrubMetrics = GetScrubPixelMetrics(ScrubPosition, RangeToScreen);
 
-		if (ScrubberPixelRange.Range.Size<float>() < 2.f)
-		{
-			// Draw a line for the scrub position
-			const float LinePos = ScrubberPixelRange.Range.GetLowerBoundValue() + ScrubberPixelRange.Range.Size<float>() * .5f;
-
-			TArray<FVector2D> LinePoints;
-			{
-				LinePoints.AddUninitialized(2);
-				LinePoints[0] = FVector2D( 0.0f, 0.0f );
-				LinePoints[1] = FVector2D( 0.0f, FMath::FloorToFloat( AllottedGeometry.Size.Y ) );
-			}
-
-			FSlateDrawElement::MakeLines(
-				OutDrawElements,
-				LayerId+1,
-				AllottedGeometry.ToPaintGeometry( FVector2D(LinePos, 0.0f ), FVector2D(1.0f,1.0f) ),
-				LinePoints,
-				DrawEffects,
-				FLinearColor(1.f, 1.f, 1.f, .5f),
-				false
-			);
-		}
-		else
+		if (ScrubMetrics.bDrawExtents)
 		{
 			// Draw a box for the scrub position
 			FSlateDrawElement::MakeBox(
 				OutDrawElements,
-				LayerId+1,
-				AllottedGeometry.ToPaintGeometry( FVector2D(ScrubberPixelRange.Range.GetLowerBoundValue(), 0.0f ), FVector2D(ScrubberPixelRange.Range.Size<float>(), AllottedGeometry.Size.Y) ),
+				LayerId + 1,
+				AllottedGeometry.ToPaintGeometry(FVector2D(ScrubMetrics.FrameExtentsPx.GetLowerBoundValue(), 0.0f), FVector2D(ScrubMetrics.FrameExtentsPx.Size<float>(), AllottedGeometry.Size.Y)),
 				ScrubFillBrush,
-				DrawEffects, 
-				FLinearColor::White
+				DrawEffects,
+				FLinearColor::White.CopyWithNewOpacity(0.5f)
 			);
 		}
+
+		// Draw a line for the scrub position
+		TArray<FVector2D> LinePoints;
+		{
+			float LinePos = RangeToScreen.InputToLocalX(ScrubPosition.AsSeconds());
+
+			LinePoints.AddUninitialized(2);
+			LinePoints[0] = FVector2D( LinePos, 0.0f );
+			LinePoints[1] = FVector2D( LinePos, FMath::FloorToFloat( AllottedGeometry.Size.Y ) );
+		}
+
+		FSlateDrawElement::MakeLines(
+			OutDrawElements,
+			LayerId+1,
+			AllottedGeometry.ToPaintGeometry(),
+			LinePoints,
+			DrawEffects,
+			FLinearColor(1.f, 1.f, 1.f, .5f),
+			false
+		);
 	}
 
 	return LayerId;
@@ -1145,7 +1123,7 @@ void FSequencerTimeSliderController::ClampViewRange(double& NewRangeMin, double&
 void FSequencerTimeSliderController::SetViewRange( double NewRangeMin, double NewRangeMax, EViewRangeInterpolation Interpolation )
 {
 	// Clamp to a minimum size to avoid zero-sized or negative visible ranges
-	double MinVisibleTimeRange = FFrameNumber(1) / GetFrameResolution();
+	double MinVisibleTimeRange = FFrameNumber(1) / GetTickResolution();
 	TRange<double> ExistingViewRange  = TimeSliderArgs.ViewRange.Get();
 	TRange<double> ExistingClampRange = TimeSliderArgs.ClampRange.Get();
 
@@ -1261,10 +1239,21 @@ bool FSequencerTimeSliderController::HitTestRangeEnd(const FScrubRangeToScreen& 
 
 FFrameTime FSequencerTimeSliderController::SnapTimeToNearestKey(const FScrubRangeToScreen& RangeToScreen, float CursorPos, FFrameTime InTime) const
 {
+	if (!WeakSequencer.IsValid())
+	{
+		return InTime;
+	}
+
 	if (TimeSliderArgs.OnGetNearestKey.IsBound())
 	{
-		FFrameNumber NearestKey = TimeSliderArgs.OnGetNearestKey.Execute(InTime);
-		float LocalKeyPos = RangeToScreen.InputToLocalX( NearestKey / GetFrameResolution() );
+		// If there are any tracks selected we'll find the nearest key only on that track. If there are no keys selected,
+		// we will try to find the nearest keys on all tracks. This mirrors the behavior of the Jump to Next Keyframe commands.
+		const TSet< TSharedRef<FSequencerDisplayNode> >& SelectedNodes = WeakSequencer.Pin()->GetSelection().GetSelectedOutlinerNodes();
+		const bool bSearchAllTracks = SelectedNodes.Num() == 0;
+
+		FFrameNumber NearestKey = TimeSliderArgs.OnGetNearestKey.Execute(InTime, bSearchAllTracks);
+
+		float LocalKeyPos = RangeToScreen.InputToLocalX( NearestKey / GetTickResolution() );
 		static float MouseTolerance = 20.f;
 
 		if (FMath::IsNearlyEqual(LocalKeyPos, CursorPos, MouseTolerance))
@@ -1292,7 +1281,7 @@ void FSequencerTimeSliderController::SetPlaybackRangeEnd(FFrameNumber NewEnd)
 
 	if (NewEnd >= MovieScene::DiscreteInclusiveLower(PlaybackRange))
 	{
-		TimeSliderArgs.OnPlaybackRangeChanged.ExecuteIfBound(TRange<FFrameNumber>(PlaybackRange.GetLowerBound(), NewEnd));
+		TimeSliderArgs.OnPlaybackRangeChanged.ExecuteIfBound(TRange<FFrameNumber>(PlaybackRange.GetLowerBound(), TRangeBound<FFrameNumber>::Exclusive(NewEnd)));
 	}
 }
 

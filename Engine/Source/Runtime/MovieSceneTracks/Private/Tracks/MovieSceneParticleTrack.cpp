@@ -58,9 +58,6 @@ void UMovieSceneParticleTrack::AddNewSection( FFrameNumber SectionTime )
 	if ( MovieSceneHelpers::FindSectionAtTime( ParticleSections, SectionTime ) == nullptr )
 	{
 		UMovieSceneParticleSection* NewSection = Cast<UMovieSceneParticleSection>( CreateNewSection() );
-
-		NewSection->SetRange(TRange<FFrameNumber>::Inclusive(SectionTime, SectionTime));
-
 		ParticleSections.Add(NewSection);
 	}
 }

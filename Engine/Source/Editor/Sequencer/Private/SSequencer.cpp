@@ -10,6 +10,7 @@
 #include "Misc/FeedbackContext.h"
 #include "Modules/ModuleManager.h"
 #include "Editor.h"
+#include "IDetailsView.h"
 #include "Widgets/Layout/SBorder.h"
 #include "ISequencerEditTool.h"
 #include "Layout/WidgetPath.h"
@@ -55,8 +56,8 @@
 #include "SequencerContextMenus.h"
 #include "Math/UnitConversion.h"
 #include "Widgets/Input/NumericUnitTypeInterface.inl"
+#include "FrameNumberDetailsCustomization.h"
 #include "SequencerSettings.h"
-#include "SSequencerGotoBox.h"
 #include "SSequencerTransformBox.h"
 #include "SSequencerDebugVisualizer.h"
 #include "ISequencerModule.h"
@@ -69,8 +70,15 @@
 #include "MovieSceneTimeHelpers.h"
 #include "FrameNumberNumericInterface.h"
 #include "LevelSequence.h"
+#include "SequencerLog.h"
 
 #define LOCTEXT_NAMESPACE "Sequencer"
+
+TSharedRef<IPropertyTypeCustomization> CreateFrameNumberCustomization(TWeakPtr<FSequencer> WeakSequencer)
+{
+	TSharedPtr<ISequencer> SequencerPtr = WeakSequencer.Pin();
+	return MakeShared<FFrameNumberDetailsCustomization>(SequencerPtr->GetNumericTypeInterface());
+}
 
 /* SSequencer interface
  *****************************************************************************/
@@ -114,19 +122,19 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 		return 0;
 	});
 
-	auto GetFrameResolutionDelegate = FOnGetFrameRate::CreateSP(InSequencer, &FSequencer::GetFocusedFrameResolution);
-	auto GetPlayRateDelegate = FOnGetFrameRate::CreateSP(InSequencer, &FSequencer::GetFocusedPlayRate);
+	auto GetTickResolutionDelegate = FOnGetFrameRate::CreateSP(InSequencer, &FSequencer::GetFocusedTickResolution);
+	auto GetDisplayRateDelegate = FOnGetFrameRate::CreateSP(InSequencer, &FSequencer::GetFocusedDisplayRate);
 
 	// Create our numeric type interface so we can pass it to the time slider below.
-	NumericTypeInterface = MakeShareable(new FFrameNumberInterface(GetDisplayFormatDelegate, GetZeroPadFramesDelegate, GetFrameResolutionDelegate, GetPlayRateDelegate));
+	NumericTypeInterface = MakeShareable(new FFrameNumberInterface(GetDisplayFormatDelegate, GetZeroPadFramesDelegate, GetTickResolutionDelegate, GetDisplayRateDelegate));
 
 	FTimeSliderArgs TimeSliderArgs;
 	{
 		TimeSliderArgs.ViewRange = InArgs._ViewRange;
 		TimeSliderArgs.ClampRange = InArgs._ClampRange;
 		TimeSliderArgs.PlaybackRange = InArgs._PlaybackRange;
-		TimeSliderArgs.PlayRate = TAttribute<FFrameRate>(InSequencer, &FSequencer::GetFocusedPlayRate);
-		TimeSliderArgs.FrameResolution = TAttribute<FFrameRate>(InSequencer, &FSequencer::GetFocusedFrameResolution);
+		TimeSliderArgs.DisplayRate = TAttribute<FFrameRate>(InSequencer, &FSequencer::GetFocusedDisplayRate);
+		TimeSliderArgs.TickResolution = TAttribute<FFrameRate>(InSequencer, &FSequencer::GetFocusedTickResolution);
 		TimeSliderArgs.SelectionRange = InArgs._SelectionRange;
 		TimeSliderArgs.OnPlaybackRangeChanged = InArgs._OnPlaybackRangeChanged;
 		TimeSliderArgs.OnPlaybackRangeBeginDrag = OnPlaybackRangeBeginDrag;
@@ -188,7 +196,6 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 
 	TSharedRef<SScrollBar> ScrollBar = SNew(SScrollBar)
 		.Thickness(FVector2D(5.0f, 5.0f));
-
 	SAssignNew(TrackOutliner, SSequencerTrackOutliner);
 	SAssignNew(TrackArea, SSequencerTrackArea, TimeSliderControllerRef, InSequencer);
 	SAssignNew(TreeView, SSequencerTreeView, InSequencer->GetNodeTree(), TrackArea.ToSharedRef())
@@ -204,6 +211,8 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 		.Visibility(this, &SSequencer::GetCurveEditorVisibility)
 		// Grid lines match the color specified in FSequencerTimeSliderController::OnPaintSectionView
 		.GridLineTint(FLinearColor(0.f, 0.f, 0.f, 0.3f));
+
+	CurveEditorPanel->GetKeyDetailsView()->RegisterInstancedCustomPropertyTypeLayout("FrameNumber", FOnGetPropertyTypeCustomizationInstance::CreateStatic(CreateFrameNumberCustomization, SequencerPtr));
 
 	const int32 Column0 = 0, Column1 = 1;
 	const int32 Row0 = 0, Row1 = 1, Row2 = 2, Row3 = 3, Row4 = 4;
@@ -319,6 +328,32 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 								SAssignNew(SearchBox, SSearchBox)
 								.HintText(LOCTEXT("FilterNodesHint", "Filter"))
 								.OnTextChanged( this, &SSequencer::OnOutlinerSearchChanged )
+							]
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							.VAlign(VAlign_Center)
+							.HAlign(HAlign_Right)
+							.Padding(FMargin(CommonPadding + 2.0, 0.f, 0.f, 0.f))
+							[
+								SNew(SBorder)
+								.BorderImage(nullptr)
+								[
+									// Current Play Time 
+									SAssignNew(PlayTimeDisplay, SSpinBox<double>)
+									.Style(&FEditorStyle::GetWidgetStyle<FSpinBoxStyle>("Sequencer.PlayTimeSpinBox"))
+									.Value_Lambda([this]() -> double {
+										return SequencerPtr.Pin()->GetLocalTime().Time.GetFrame().Value;
+									})
+									.OnValueChanged(this, &SSequencer::SetPlayTimeClampedByWorkingRange)
+									.OnValueCommitted_Lambda([this](double InFrame, ETextCommit::Type) {
+										SetPlayTimeClampedByWorkingRange(InFrame);
+									})
+									.MinValue(TOptional<double>())
+									.MaxValue(TOptional<double>())
+									.TypeInterface(NumericTypeInterface)
+									.Delta(this, &SSequencer::GetSpinboxDelta)
+									.LinearDeltaSensitivity(25)
+								]
 							]
 						]
 					]
@@ -451,27 +486,14 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 						.HAlign(HAlign_Left)
 						.VAlign(VAlign_Top)
 					[
-						SNew(SHorizontalBox)
-
-						// Goto box
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SAssignNew(GotoBox, SSequencerGotoBox, SequencerPtr.Pin().ToSharedRef(), *Settings, NumericTypeInterface.ToSharedRef())
-						]
-
 						// Transform box
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SAssignNew(TransformBox, SSequencerTransformBox, SequencerPtr.Pin().ToSharedRef(), *Settings, NumericTypeInterface.ToSharedRef())
-						]
+						SAssignNew(TransformBox, SSequencerTransformBox, SequencerPtr.Pin().ToSharedRef(), *Settings, NumericTypeInterface.ToSharedRef())
 					]
 
 					+ SGridPanel::Slot(Column1, Row2, SGridPanel::Layer(50))
 					.Padding(ResizeBarPadding)
 					[
-						SAssignNew(FrameResolutionOverlay, SSequencerTimePanel, SequencerPtr)
+						SAssignNew(TickResolutionOverlay, SSequencerTimePanel, SequencerPtr)
 					]
 
 					// debug vis
@@ -533,7 +555,7 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 		]
 	];
 
-	HideFrameResolutionOverlay();
+	HideTickResolutionOverlay();
 
 	InSequencer->GetSelection().GetOnKeySelectionChanged().AddSP(this, &SSequencer::HandleKeySelectionChanged);
 	InSequencer->GetSelection().GetOnSectionSelectionChanged().AddSP(this, &SSequencer::HandleSectionSelectionChanged);
@@ -568,7 +590,7 @@ void SSequencer::BindCommands(TSharedRef<FUICommandList> SequencerCommandBinding
 
 	SequencerCommandBindings->MapAction(
 		FSequencerCommands::Get().ToggleShowGotoBox,
-		FExecuteAction::CreateLambda([this]{ GotoBox->ToggleVisibility(); })
+		FExecuteAction::CreateLambda([this] { FSlateApplication::Get().SetKeyboardFocus(PlayTimeDisplay, EFocusCause::SetDirectly); })
 	);
 
 	SequencerCommandBindings->MapAction(
@@ -577,14 +599,14 @@ void SSequencer::BindCommands(TSharedRef<FUICommandList> SequencerCommandBinding
 	);
 }
 
-void SSequencer::ShowFrameResolutionOverlay()
+void SSequencer::ShowTickResolutionOverlay()
 {
-	FrameResolutionOverlay->SetVisibility(EVisibility::Visible);
+	TickResolutionOverlay->SetVisibility(EVisibility::Visible);
 }
 
-void SSequencer::HideFrameResolutionOverlay()
+void SSequencer::HideTickResolutionOverlay()
 {
-	FrameResolutionOverlay->SetVisibility(EVisibility::Collapsed);
+	TickResolutionOverlay->SetVisibility(EVisibility::Collapsed);
 }
 
 const ISequencerEditTool* SSequencer::GetEditTool() const
@@ -784,15 +806,39 @@ TSharedRef<SWidget> SSequencer::MakeToolBar()
 
 			if( SequencerPtr.Pin()->IsLevelEditorSequencer() )
 			{
-				TAttribute<FSlateIcon> KeyAllIcon;
-				KeyAllIcon.Bind(TAttribute<FSlateIcon>::FGetter::CreateLambda([&]{
-					static FSlateIcon KeyAllEnabledIcon(FEditorStyle::GetStyleSetName(), "Sequencer.KeyAllEnabled");
-					static FSlateIcon KeyAllDisabledIcon(FEditorStyle::GetStyleSetName(), "Sequencer.KeyAllDisabled");
-
-					return SequencerPtr.Pin()->GetKeyAllEnabled() ? KeyAllEnabledIcon : KeyAllDisabledIcon;
+				TAttribute<FSlateIcon> KeyGroupModeIcon;
+				KeyGroupModeIcon.Bind(TAttribute<FSlateIcon>::FGetter::CreateLambda([&] {
+					switch (SequencerPtr.Pin()->GetKeyGroupMode())
+					{
+					case EKeyGroupMode::KeyAll:
+						return FSequencerCommands::Get().SetKeyAll->GetIcon();
+					case EKeyGroupMode::KeyGroup:
+						return FSequencerCommands::Get().SetKeyGroup->GetIcon();
+					default: // EKeyGroupMode::KeyChanged
+						return FSequencerCommands::Get().SetKeyChanged->GetIcon();
+					}
 				}));
 
-				ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().ToggleKeyAllEnabled, NAME_None, TAttribute<FText>(), TAttribute<FText>(), KeyAllIcon );
+				TAttribute<FText> KeyGroupModeToolTip;
+				KeyGroupModeToolTip.Bind(TAttribute<FText>::FGetter::CreateLambda([&] {
+					switch (SequencerPtr.Pin()->GetKeyGroupMode())
+					{
+					case EKeyGroupMode::KeyAll:
+						return FSequencerCommands::Get().SetKeyAll->GetDescription();
+					case EKeyGroupMode::KeyGroup:
+						return FSequencerCommands::Get().SetKeyGroup->GetDescription();
+					default: // EKeyGroupMode::KeyChanged
+						return FSequencerCommands::Get().SetKeyChanged->GetDescription();
+					}
+				}));
+
+				ToolBarBuilder.AddComboButton(
+					FUIAction(),
+					FOnGetContent::CreateSP(this, &SSequencer::MakeKeyGroupMenu),
+					LOCTEXT("KeyGroup", "Key All"),
+					KeyGroupModeToolTip,
+					KeyGroupModeIcon);
+
 			}
 
 			if (IVREditorModule::Get().IsVREditorModeActive() || (SequencerPtr.Pin()->IsLevelEditorSequencer() && ExactCast<ULevelSequence>(SequencerPtr.Pin()->GetFocusedMovieSceneSequence()) == nullptr))
@@ -1028,6 +1074,46 @@ void SSequencer::FillPlaybackSpeedMenu(FMenuBuilder& InMenuBarBuilder)
 	InMenuBarBuilder.EndSection();
 }
 
+void SSequencer::FillTimeDisplayFormatMenu(FMenuBuilder& MenuBuilder)
+{
+	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
+	bool bSupportsDropFormatDisplay = FTimecode::IsDropFormatTimecodeSupported(Sequencer->GetFocusedDisplayRate());
+
+	const UEnum* FrameNumberDisplayEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EFrameNumberDisplayFormats"), true);
+	check(FrameNumberDisplayEnum);
+
+	if (Settings)
+	{
+		EFrameNumberDisplayFormats CurrentDisplay = Settings->GetTimeDisplayFormat();
+
+		for (int32 Index = 0; Index < FrameNumberDisplayEnum->NumEnums() - 1; Index++)
+		{
+			if (!FrameNumberDisplayEnum->HasMetaData(TEXT("Hidden"), Index))
+			{
+				EFrameNumberDisplayFormats Value = (EFrameNumberDisplayFormats)FrameNumberDisplayEnum->GetValueByIndex(Index);
+
+				// Don't show Drop Frame Timecode when they're in a format that doesn't support it.
+				if (Value == EFrameNumberDisplayFormats::DropFrameTimecode && !bSupportsDropFormatDisplay)
+					continue;
+
+				bool bIsSet = CurrentDisplay == Value;
+				MenuBuilder.AddMenuEntry(
+					FrameNumberDisplayEnum->GetDisplayNameTextByIndex(Index),
+					FrameNumberDisplayEnum->GetToolTipTextByIndex(Index),
+					FSlateIcon(),
+					FUIAction(
+						FExecuteAction::CreateUObject(Settings, &USequencerSettings::SetTimeDisplayFormat, Value),
+						FCanExecuteAction(),
+						FIsActionChecked::CreateLambda([=] { return CurrentDisplay == Value; })
+					),
+					NAME_None,
+					EUserInterfaceActionType::RadioButton
+				);
+			}
+		}
+	}
+}
+
 TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 {
 	FMenuBuilder MenuBuilder( true, SequencerPtr.Pin()->GetCommandBindings() );
@@ -1036,9 +1122,17 @@ TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 	MenuBuilder.BeginSection("PlaybackThisSequence", LOCTEXT("PlaybackThisSequenceHeader", "Playback - This Sequence"));
 	{
 		// Menu entry for the start position
-		auto OnStartChanged = [=](FFrameNumber NewValue){
+		auto OnStartChanged = [=](double NewValue){
+
+			// We clamp the new value when the value is set. We can't clamp in the UI because we need an unset Min/Max for linear scaling to work.
+			double Min = (SequencerPtr.Pin()->GetClampRange().GetLowerBoundValue() * SequencerPtr.Pin()->GetFocusedTickResolution()).GetFrame().Value;
+			double Max = SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue().Value; 
+
+			NewValue = FMath::Clamp(NewValue, Min, Max);
+			FFrameNumber ValueAsFrame = FFrameTime::FromDecimal(NewValue).GetFrame();
+
 			FFrameNumber Upper = MovieScene::DiscreteExclusiveUpper(SequencerPtr.Pin()->GetPlaybackRange());
-			SequencerPtr.Pin()->SetPlaybackRange(TRange<FFrameNumber>(FMath::Min(NewValue, Upper-1), Upper));
+			SequencerPtr.Pin()->SetPlaybackRange(TRange<FFrameNumber>(FMath::Min(ValueAsFrame, Upper-1), Upper));
 		};
 
 		MenuBuilder.AddWidget(
@@ -1056,28 +1150,32 @@ TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 							return !SequencerPtr.Pin()->IsPlaybackRangeLocked();
 						})
 						.Style(&FEditorStyle::GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
-						.OnValueCommitted_Lambda([=](double Value, ETextCommit::Type){ OnStartChanged(FFrameTime::FromDecimal(Value).GetFrame()); })
-						.OnValueChanged_Lambda([=](double Value) { OnStartChanged(FFrameTime::FromDecimal(Value).GetFrame()); })
+						.OnValueCommitted_Lambda([=](double Value, ETextCommit::Type){ OnStartChanged(Value); })
+						.OnValueChanged_Lambda([=](double Value) { OnStartChanged(Value); })
 						.OnBeginSliderMovement(OnPlaybackRangeBeginDrag)
-						.OnEndSliderMovement_Lambda([=](double Value){ OnStartChanged(FFrameTime::FromDecimal(Value).GetFrame()); OnPlaybackRangeEndDrag.ExecuteIfBound(); })
-						.MinValue_Lambda([=]() -> double {
-							// Clamp range is in seconds so we need to convert it to frame resolution.
-							return (SequencerPtr.Pin()->GetClampRange().GetLowerBoundValue() * SequencerPtr.Pin()->GetFocusedFrameResolution()).GetFrame().Value;
-						})
-						.MaxValue_Lambda([=]() -> double {
-							return SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue().Value; 
-						})
+						.OnEndSliderMovement_Lambda([=](double Value){ OnStartChanged(Value); OnPlaybackRangeEndDrag.ExecuteIfBound(); })
+						.MinValue(TOptional<double>())
+						.MaxValue(TOptional<double>())
 						.Value_Lambda([=]() -> double {
 							return SequencerPtr.Pin()->GetPlaybackRange().GetLowerBoundValue().Value;
 						})
 						.Delta(this, &SSequencer::GetSpinboxDelta)
+						.LinearDeltaSensitivity(25)
 			],
 			LOCTEXT("PlaybackStartLabel", "Start"));
 
 		// Menu entry for the end position
-		auto OnEndChanged = [=](FFrameNumber NewValue){
+		auto OnEndChanged = [=](double NewValue) {
+
+			// We clamp the new value when the value is set. We can't clamp in the UI because we need an unset Min/Max for linear scaling to work.
+			double Min = SequencerPtr.Pin()->GetPlaybackRange().GetLowerBoundValue().Value;
+			double Max = (SequencerPtr.Pin()->GetClampRange().GetUpperBoundValue() * SequencerPtr.Pin()->GetFocusedTickResolution()).GetFrame().Value;
+
+			NewValue = FMath::Clamp(NewValue, Min, Max);
+			FFrameNumber ValueAsFrame = FFrameTime::FromDecimal(NewValue).GetFrame();
+
 			FFrameNumber Lower = MovieScene::DiscreteInclusiveLower(SequencerPtr.Pin()->GetPlaybackRange());
-			SequencerPtr.Pin()->SetPlaybackRange(TRange<FFrameNumber>(Lower, FMath::Max(NewValue, Lower)));
+			SequencerPtr.Pin()->SetPlaybackRange(TRange<FFrameNumber>(Lower, FMath::Max(ValueAsFrame, Lower)));
 		};
 
 		MenuBuilder.AddWidget(
@@ -1095,21 +1193,17 @@ TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 					 		return !SequencerPtr.Pin()->IsPlaybackRangeLocked();
 						})
 						.Style(&FEditorStyle::GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
-						.OnValueCommitted_Lambda([=](double Value, ETextCommit::Type){ OnEndChanged(FFrameTime::FromDecimal(Value).GetFrame()); })
-						.OnValueChanged_Lambda([=](double Value) { OnEndChanged(FFrameTime::FromDecimal(Value).GetFrame()); })
+						.OnValueCommitted_Lambda([=](double Value, ETextCommit::Type){ OnEndChanged(Value); })
+						.OnValueChanged_Lambda([=](double Value) { OnEndChanged(Value); })
 						.OnBeginSliderMovement(OnPlaybackRangeBeginDrag)
-						.OnEndSliderMovement_Lambda([=](double Value){ OnEndChanged(FFrameTime::FromDecimal(Value).GetFrame()); OnPlaybackRangeEndDrag.ExecuteIfBound(); })
-						.MinValue_Lambda([=]() -> double {
-					 		return SequencerPtr.Pin()->GetPlaybackRange().GetLowerBoundValue().Value;
-						})
-						.MaxValue_Lambda([=]() -> double {
-							// Clamp range is in seconds so we need to convert it to frame resolution.
-							return (SequencerPtr.Pin()->GetClampRange().GetUpperBoundValue() * SequencerPtr.Pin()->GetFocusedFrameResolution()).GetFrame().Value;
-						})
+						.OnEndSliderMovement_Lambda([=](double Value){ OnEndChanged(Value); OnPlaybackRangeEndDrag.ExecuteIfBound(); })
+						.MinValue(TOptional<double>())
+						.MaxValue(TOptional<double>())
 						.Value_Lambda([=]() -> double {
 					 		return SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue().Value;
 						})
 						.Delta(this, &SSequencer::GetSpinboxDelta)
+						.LinearDeltaSensitivity(25)
 				],
 			LOCTEXT("PlaybackStartEnd", "End"));
 
@@ -1269,6 +1363,18 @@ TSharedRef<SWidget> SSequencer::MakeAllowEditsMenu()
 	MenuBuilder.AddMenuEntry(FSequencerCommands::Get().AllowAllEdits);
 	MenuBuilder.AddMenuEntry(FSequencerCommands::Get().AllowSequencerEditsOnly);
 	MenuBuilder.AddMenuEntry(FSequencerCommands::Get().AllowLevelEditsOnly);
+
+	return MenuBuilder.MakeWidget();
+
+}
+
+TSharedRef<SWidget> SSequencer::MakeKeyGroupMenu()
+{
+	FMenuBuilder MenuBuilder(false, SequencerPtr.Pin()->GetCommandBindings());
+
+	MenuBuilder.AddMenuEntry(FSequencerCommands::Get().SetKeyAll);
+	MenuBuilder.AddMenuEntry(FSequencerCommands::Get().SetKeyGroup);
+	MenuBuilder.AddMenuEntry(FSequencerCommands::Get().SetKeyChanged);
 
 	return MenuBuilder.MakeWidget();
 
@@ -1454,7 +1560,6 @@ void SSequencer::UpdateLayoutTree()
 		// Add any additional paths that have been added by the user for nodes that may not exist yet but we want them to be selected
 		// after the node tree is updated and we restore selections.
 		SelectedPathNames.Append(AdditionalSelectionsToAdd);
-		AdditionalSelectionsToAdd.Empty();
 
 		// Suspend broadcasting selection changes because we don't want unnecessary rebuilds.
 		Sequencer->GetSelection().SuspendBroadcast();
@@ -1471,6 +1576,25 @@ void SSequencer::UpdateLayoutTree()
 
 		RestoreKeySelection(SelectedKeys, Sequencer->GetSelection(), *Sequencer->GetNodeTree());
 		RestoreSectionSelection(SelectedSections, Sequencer->GetSelection());
+		
+		// If we've manually specified an additional selection to add it's because the item was newly created.
+		// Now that the treeview has been refreshed and selection restored, we'll try to focus the first item
+		// so that the view scrolls down when things are added to the bottom.
+		if (AdditionalSelectionsToAdd.Num() > 0)
+		{
+			FString NodePath = AdditionalSelectionsToAdd[0];
+
+			for (TSharedRef<FSequencerDisplayNode> Node : Sequencer->GetNodeTree()->GetAllNodes())
+			{
+				if (Node->GetPathName() == NodePath)
+				{
+					TreeView->RequestScrollIntoView(Node);
+					break;
+				}
+			}
+		}
+
+		AdditionalSelectionsToAdd.Empty();
 
 		// Continue broadcasting selection changes
 		Sequencer->GetSelection().ResumeBroadcast();
@@ -1704,6 +1828,13 @@ void SSequencer::OnAssetsDropped( const FAssetDragDropOp& DragDropOp )
 
 		if (!SequencerRef.OnHandleAssetDropped(CurObject, TargetObjectGuid))
 		{
+			// Doesn't make sense to drop a level sequence asset into sequencer as a spawnable actor
+			if (CurObject->IsA<ULevelSequence>())
+			{
+				UE_LOG(LogSequencer, Warning, TEXT("Can't add '%s' as a spawnable"), *CurObject->GetName());
+				continue;
+			}
+
 			FGuid NewGuid = SequencerRef.MakeNewSpawnable( *CurObject, DragDropOp.GetActorFactory() );
 
 			UMovieScene* MovieScene = SequencerRef.GetFocusedMovieSceneSequence()->GetMovieScene();
@@ -2110,7 +2241,7 @@ FPasteContextMenuArgs SSequencer::GeneratePasteArgs(FFrameNumber PasteAtTime, TS
 	if (Settings->GetIsSnapEnabled())
 	{
 		// @todo: sequencer-timecode: play rate override
-		//PasteAtTime = FQualifiedFrameTime(PasteAtTime, GetFrameResolution()).ToFrameRate();
+		//PasteAtTime = FQualifiedFrameTime(PasteAtTime, GetTickResolution()).ToFrameRate();
 	}
 
 	// Open a paste menu at the current mouse position
@@ -2283,7 +2414,25 @@ void SSequencer::BuildCustomContextMenuForGuid(FMenuBuilder& MenuBuilder, FGuid 
 double SSequencer::GetSpinboxDelta() const
 {
 	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
-	return Sequencer->GetPlayRateDeltaFrameCount();
+	return Sequencer->GetDisplayRateDeltaFrameCount();
+}
+
+void SSequencer::SetPlayTimeClampedByWorkingRange(double Frame)
+{
+	if (SequencerPtr.IsValid())
+	{
+		TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
+		// Some of our spin boxes need to use an unbounded min/max so that they can drag linearly instead of based on the current value.
+		// We clamp the value here by the working range to emulate the behavior of the Cinematic Level Viewport
+		FFrameRate   PlayRate = Sequencer->GetLocalTime().Rate;
+		UMovieScene* MovieScene = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
+		double StartInSeconds = MovieScene->GetEditorData().WorkStart;
+		double EndInSeconds = MovieScene->GetEditorData().WorkEnd;
+
+		Frame = FMath::Clamp(Frame, (double)(StartInSeconds*PlayRate).GetFrame().Value, (double)(EndInSeconds*PlayRate).GetFrame().Value);
+
+		Sequencer->SetLocalTime(FFrameTime::FromDecimal(Frame));
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

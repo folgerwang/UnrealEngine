@@ -680,9 +680,9 @@ TSharedPtr<ISequencer>& FWidgetBlueprintEditor::GetSequencer()
 		FSequencerInitParams SequencerInitParams;
 		{
 			UWidgetAnimation* NullAnimation = UWidgetAnimation::GetNullAnimation();
-			FFrameRate FrameResolution = NullAnimation->MovieScene->GetFrameResolution();
-			FFrameNumber StartFrame = (InTime  * FrameResolution).FloorToFrame();
-			FFrameNumber EndFrame   = (OutTime * FrameResolution).CeilToFrame();
+			FFrameRate TickResolution = NullAnimation->MovieScene->GetTickResolution();
+			FFrameNumber StartFrame = (InTime  * TickResolution).FloorToFrame();
+			FFrameNumber EndFrame   = (OutTime * TickResolution).CeilToFrame();
 			NullAnimation->MovieScene->SetPlaybackRange(StartFrame, (EndFrame-StartFrame).Value);
 			FMovieSceneEditorData& EditorData = NullAnimation->MovieScene->GetEditorData();
 			EditorData.WorkStart = InTime;

@@ -17,7 +17,7 @@ struct FCameraLookatTrackingSettings
 	GENERATED_USTRUCT_BODY()
 
 	/** True to enable lookat tracking, false otherwise. */
-	UPROPERTY(/*Interp, */EditAnywhere, BlueprintReadWrite, Category = "LookAt")
+	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "LookAt")
 	uint8 bEnableLookAtTracking : 1;
 
 	/** True to draw a debug representation of the lookat location */

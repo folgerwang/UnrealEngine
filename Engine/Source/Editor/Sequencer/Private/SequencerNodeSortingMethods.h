@@ -18,28 +18,6 @@ struct FDisplayNodeTreePositionSorter
 };
 
 /**
-* This sorting delegate sorts based only on the sorting order specified by the node. This respects
-* a user-defined sorting order and ignores the node's type.
-*/
-struct FDisplayNodeSortingOrderSorter
-{
-	bool operator()(const TSharedRef<FSequencerDisplayNode>& A, const TSharedRef<FSequencerDisplayNode>& B) const
-	{
-		// If both nodes have been sorted before we just compare their sorting orders.
-		if (A->GetSortingOrder() >= 0 && B->GetSortingOrder() >= 0)
-		{
-			return A->GetSortingOrder() < B->GetSortingOrder();
-		}
-
-		// Otherwise if one of them has not placed before, we want the lower number higher so that
-		// the unsorted node shows up at the end of the list.
-		return A->GetSortingOrder() > B->GetSortingOrder();
-	}
-};
-
-
-
-/**
 * This sorting delegate sorts based on category and then alphabetically after that. This replicates
 * existing behavior where all folders come first, then all tracks, and finally all object bindings.
 * Within each category these are sorted by display name alphabetically.
@@ -112,6 +90,35 @@ struct FDisplayNodeCategoricalSorter
 	}
 };
 
+
+/**
+* This sorting delegate sorts based on the sorting order specified by the node. This sorter falls back to the 
+* FDisplayNodeCategoricalSorter for Object nodes because Object nodes do not support sorting order for child nodes.
+*/
+struct FDisplayNodeSortingOrderSorter
+{
+	bool operator()(const TSharedRef<FSequencerDisplayNode>& A, const TSharedRef<FSequencerDisplayNode>& B) const
+	{
+		// If the parent of the object is a Object Binding then we use legacy sorting as we don't allow the user
+		// to reorder tracks within object binding nodes. 
+		TSharedPtr<FSequencerDisplayNode> ParentNode = A->GetParent();
+		if (ParentNode.IsValid() && ParentNode->GetType() == ESequencerNode::Object)
+		{
+			FDisplayNodeCategoricalSorter CategoricalSorter;
+			return CategoricalSorter(A, B);
+		}
+		
+		// If both nodes have been sorted before we just compare their sorting orders.
+		if (A->GetSortingOrder() >= 0 && B->GetSortingOrder() >= 0)
+		{
+			return A->GetSortingOrder() < B->GetSortingOrder();
+		}
+
+		// Otherwise if one of them has not placed before, we want the lower number higher so that
+		// the unsorted node shows up at the end of the list.
+		return A->GetSortingOrder() > B->GetSortingOrder();
+	}
+};
 
 /**
 * Sorts the supplied unsorted nodes and inserts them into the existing sorted nodes before assigning

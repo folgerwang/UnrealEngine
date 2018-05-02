@@ -25,6 +25,7 @@ FMovieSceneSkeletalAnimationParams::FMovieSceneSkeletalAnimationParams()
 	bReverse = false;
 	SlotName = DefaultSlotName;
 	Weight.SetDefault(1.f);
+	bSkipAnimNotifiers = false;
 }
 
 UMovieSceneSkeletalAnimationSection::UMovieSceneSkeletalAnimationSection( const FObjectInitializer& ObjectInitializer )
@@ -61,7 +62,7 @@ UMovieSceneSkeletalAnimationSection::UMovieSceneSkeletalAnimationSection( const 
 
 TOptional<FFrameTime> UMovieSceneSkeletalAnimationSection::GetOffsetTime() const
 {
-	return TOptional<FFrameTime>(Params.StartOffset * GetTypedOuter<UMovieScene>()->GetFrameResolution());
+	return TOptional<FFrameTime>(Params.StartOffset * GetTypedOuter<UMovieScene>()->GetTickResolution());
 }
 
 void UMovieSceneSkeletalAnimationSection::Serialize(FArchive& Ar)
@@ -148,14 +149,47 @@ FMovieSceneEvalTemplatePtr UMovieSceneSkeletalAnimationSection::GenerateTemplate
 	return FMovieSceneSkeletalAnimationSectionTemplate(*this);
 }
 
-UMovieSceneSection* UMovieSceneSkeletalAnimationSection::SplitSection(FFrameNumber SplitTime)
+float GetStartOffsetAtTrimTime(FQualifiedFrameTime TrimTime, const FMovieSceneSkeletalAnimationParams& Params, FFrameNumber StartFrame)
 {
 	float AnimPlayRate = FMath::IsNearlyZero(Params.PlayRate) ? 1.0f : Params.PlayRate;
-	float AnimPosition = (SplitTime - GetRange().GetLowerBoundValue()) / GetTypedOuter<UMovieScene>()->GetFrameResolution() * AnimPlayRate;
+	float AnimPosition = (TrimTime.Time - StartFrame) / TrimTime.Rate * AnimPlayRate;
 	float SeqLength = Params.GetSequenceLength() - (Params.StartOffset + Params.EndOffset);
 
 	float NewOffset = FMath::Fmod(AnimPosition, SeqLength);
 	NewOffset += Params.StartOffset;
+
+	return NewOffset;
+}
+
+
+TOptional<TRange<FFrameNumber> > UMovieSceneSkeletalAnimationSection::GetAutoSizeRange() const
+{
+	FFrameRate FrameRate = GetTypedOuter<UMovieScene>()->GetTickResolution();
+
+	FFrameTime AnimationLength = Params.GetSequenceLength() * FrameRate;
+
+	return TRange<FFrameNumber>(GetInclusiveStartFrame(), GetInclusiveStartFrame() + AnimationLength.FrameNumber);
+}
+
+
+void UMovieSceneSkeletalAnimationSection::TrimSection(FQualifiedFrameTime TrimTime, bool bTrimLeft)
+{
+	SetFlags(RF_Transactional);
+
+	if (TryModify())
+	{
+		if (bTrimLeft)
+		{
+			Params.StartOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(TrimTime, Params, GetInclusiveStartFrame()) : 0;
+		}
+
+		Super::TrimSection(TrimTime, bTrimLeft);
+	}
+}
+
+UMovieSceneSection* UMovieSceneSkeletalAnimationSection::SplitSection(FQualifiedFrameTime SplitTime)
+{
+	const float NewOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(SplitTime, Params, GetInclusiveStartFrame()) : 0;
 
 	UMovieSceneSection* NewSection = Super::SplitSection(SplitTime);
 	if (NewSection != nullptr)
@@ -171,7 +205,7 @@ void UMovieSceneSkeletalAnimationSection::GetSnapTimes(TArray<FFrameNumber>& Out
 {
 	Super::GetSnapTimes(OutSnapTimes, bGetSectionBorders);
 
-	const FFrameRate   FrameRate  = GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	const FFrameRate   FrameRate  = GetTypedOuter<UMovieScene>()->GetTickResolution();
 	const FFrameNumber StartFrame = GetInclusiveStartFrame();
 	const FFrameNumber EndFrame   = GetExclusiveEndFrame() - 1; // -1 because we don't need to add the end frame twice
 
@@ -190,6 +224,13 @@ void UMovieSceneSkeletalAnimationSection::GetSnapTimes(TArray<FFrameNumber>& Out
 		}
 	}
 }
+
+float UMovieSceneSkeletalAnimationSection::MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const
+{
+	FMovieSceneSkeletalAnimationSectionTemplateParameters TemplateParams(Params, GetInclusiveStartFrame(), GetExclusiveEndFrame());
+	return TemplateParams.MapTimeToAnimation(InPosition, InFrameRate);
+}
+
 
 #if WITH_EDITOR
 void UMovieSceneSkeletalAnimationSection::PreEditChange(UProperty* PropertyAboutToChange)
@@ -210,9 +251,9 @@ void UMovieSceneSkeletalAnimationSection::PostEditChangeProperty(FPropertyChange
 
 		if (!FMath::IsNearlyZero(NewPlayRate))
 		{
-			float CurrentDuration = MovieScene::DiscreteSize(GetRange()) * PreviousPlayRate;
+			float CurrentDuration = MovieScene::DiscreteSize(GetRange());
 			float NewDuration = CurrentDuration * (PreviousPlayRate / NewPlayRate);
-			SetEndFrame( GetInclusiveStartFrame() + FMath::FloorToInt(NewDuration * NewPlayRate) );
+			SetEndFrame( GetInclusiveStartFrame() + FMath::FloorToInt(NewDuration) );
 
 			PreviousPlayRate = NewPlayRate;
 		}

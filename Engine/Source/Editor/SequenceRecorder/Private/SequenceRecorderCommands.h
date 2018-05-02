@@ -13,6 +13,7 @@ public:
 	TSharedPtr<FUICommandInfo> RecordAll;
 	TSharedPtr<FUICommandInfo> StopAll;
 	TSharedPtr<FUICommandInfo> AddRecording;
+	TSharedPtr<FUICommandInfo> AddCurrentPlayerRecording;
 	TSharedPtr<FUICommandInfo> RemoveRecording;
 	TSharedPtr<FUICommandInfo> RemoveAllRecordings;
 	TSharedPtr<FUICommandInfo> AddRecordingGroup;

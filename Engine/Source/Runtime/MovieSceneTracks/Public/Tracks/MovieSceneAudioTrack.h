@@ -41,8 +41,6 @@ public:
 	/** @return true if this is a master audio track */
 	bool IsAMasterTrack() const;
 
-	float GetSoundDuration(USoundBase* Sound);
-
 public:
 
 	// UMovieSceneTrack interface

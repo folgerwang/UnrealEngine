@@ -1052,6 +1052,8 @@ bool FWmfMediaTracks::AddTrackToTopology(const FTrack& Track, IMFTopology& Topol
 		return false;
 	}
 
+	UE_LOG(LogWmfMedia, Verbose, TEXT("Tracks %p: Added stream %i to topology"), this, Track.StreamIndex);
+
 	return true;
 }
 

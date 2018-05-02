@@ -139,7 +139,9 @@ public:
 public:
 
 	//~ UMovieSceneSection interface
-	virtual UMovieSceneSection* SplitSection(FFrameNumber SplitTime) override;
+	virtual TOptional<TRange<FFrameNumber> > GetAutoSizeRange() const override;
+	virtual void TrimSection(FQualifiedFrameTime TrimTime, bool bTrimLeft) override;
+	virtual UMovieSceneSection* SplitSection(FQualifiedFrameTime SplitTime) override;
 	virtual TOptional<FFrameTime> GetOffsetTime() const override;
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
 
@@ -166,11 +168,11 @@ private:
 	float AudioVolume_DEPRECATED;
 
 	/** The volume the sound will be played with. */
-	UPROPERTY( EditAnywhere, Category = "Audio" )
+	UPROPERTY( )
 	FMovieSceneFloatChannel SoundVolume;
 
 	/** The pitch multiplier the sound will be played with. */
-	UPROPERTY( EditAnywhere, Category = "Audio" )
+	UPROPERTY( )
 	FMovieSceneFloatChannel PitchMultiplier;
 
 	UPROPERTY( EditAnywhere, Category="Audio" )

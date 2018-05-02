@@ -55,7 +55,7 @@ struct FUIData
 	/** The text that represents the master end frame */
 	FText MasterEndText;
 
-	/** The frame resolution of the master */
+	/** The tick resolution of the master */
 	FFrameRate OuterResolution;
 	/** The play rate of the master */
 	FFrameRate OuterPlayRate;

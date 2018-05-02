@@ -29,7 +29,7 @@ void UMovieSceneControlRigTrack::AddNewControlRig(FFrameNumber KeyTime, UControl
 		UMovieScene* InnerMovieScene = InSequence->GetMovieScene();
 
 		int32      InnerSequenceLength = MovieScene::DiscreteSize(InnerMovieScene->GetPlaybackRange());
-		FFrameTime OuterSequenceLength = ConvertFrameTime(InnerSequenceLength, InnerMovieScene->GetFrameResolution(), OuterMovieScene->GetFrameResolution());
+		FFrameTime OuterSequenceLength = ConvertFrameTime(InnerSequenceLength, InnerMovieScene->GetTickResolution(), OuterMovieScene->GetTickResolution());
 
 		NewSection->InitialPlacement(Sections, KeyTime, OuterSequenceLength.FrameNumber.Value, SupportsMultipleRows());
 		NewSection->SetSequence(InSequence);

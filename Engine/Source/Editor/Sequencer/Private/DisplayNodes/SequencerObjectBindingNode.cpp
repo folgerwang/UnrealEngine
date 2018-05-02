@@ -39,6 +39,9 @@
 
 #include "Tracks/MovieSceneSpawnTrack.h"
 #include "Sections/MovieSceneSpawnSection.h"
+#include "LevelUtils.h"
+#include "Engine/LevelStreaming.h"
+#include "Engine/World.h"
 
 #define LOCTEXT_NAMESPACE "FObjectBindingNode"
 
@@ -161,15 +164,24 @@ void FSequencerObjectBindingNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 
 		if (Spawnable)
 		{
+			MenuBuilder.BeginSection("Spawnable", LOCTEXT("SpawnableMenuSectionName", "Spawnable"));
+	
 			MenuBuilder.AddSubMenu(
 				LOCTEXT("OwnerLabel", "Spawned Object Owner"),
 				LOCTEXT("OwnerTooltip", "Specifies how the spawned object is to be owned"),
 				FNewMenuDelegate::CreateSP(this, &FSequencerObjectBindingNode::AddSpawnOwnershipMenu)
 			);
 
-			MenuBuilder.AddMenuEntry( FSequencerCommands::Get().SaveCurrentSpawnableState );
+			MenuBuilder.AddSubMenu(
+				LOCTEXT("SubLevelLabel", "Spawnable Level"),
+				LOCTEXT("SubLevelTooltip", "Specifies which level the spawnable should be spawned into"),
+				FNewMenuDelegate::CreateSP(this, &FSequencerObjectBindingNode::AddSpawnLevelMenu)
+			);
 
+			MenuBuilder.AddMenuEntry( FSequencerCommands::Get().SaveCurrentSpawnableState );
 			MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ConvertToPossessable );
+
+			MenuBuilder.EndSection();
 		}
 		else
 		{
@@ -188,6 +200,8 @@ void FSequencerObjectBindingNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 			MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ConvertToSpawnable );
 		}
 
+		MenuBuilder.BeginSection("Import/Export", LOCTEXT("ImportExportMenuSectionName", "Import/Export"));
+		
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("Import FBX", "Import..."),
 			LOCTEXT("ImportFBXTooltip", "Import FBX animation to this object"),
@@ -211,6 +225,7 @@ void FSequencerObjectBindingNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 			FUIAction(
 				FExecuteAction::CreateLambda([=]{ GetSequencer().ExportToCameraAnim(); })
 			));
+		MenuBuilder.EndSection();
 	}
 
 	MenuBuilder.BeginSection("Organize", LOCTEXT("OrganizeContextMenuSectionName", "Organize"));
@@ -295,6 +310,51 @@ void FSequencerObjectBindingNode::AddSpawnOwnershipMenu(FMenuBuilder& MenuBuilde
 		NAME_None,
 		EUserInterfaceActionType::ToggleButton
 	);
+}
+
+
+void FSequencerObjectBindingNode::AddSpawnLevelMenu(FMenuBuilder& MenuBuilder)
+{
+	UMovieScene* MovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
+	FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(ObjectBinding);
+	if (!Spawnable)
+	{
+		return;
+	}
+
+	MenuBuilder.AddMenuEntry(
+		NSLOCTEXT("UnrealEd", "PersistentLevel", "Persistent Level"),
+		NSLOCTEXT("UnrealEd", "PersistentLevel", "Persistent Level"),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=] { GetSequencer().SetSelectedNodesSpawnableLevel(NAME_None); }),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateLambda([=] { return Spawnable->GetLevelName() == NAME_None; })
+		),
+		NAME_None,
+		EUserInterfaceActionType::ToggleButton
+	);
+
+	for (ULevelStreaming* LevelStreaming : GWorld->GetStreamingLevels())
+	{
+		if (LevelStreaming)
+		{
+			FName LevelName = FPackageName::GetShortFName( LevelStreaming->GetWorldAssetPackageFName() );
+
+			MenuBuilder.AddMenuEntry(
+				FText::FromName(LevelName),
+				FText::FromName(LevelName),
+				FSlateIcon(),
+				FUIAction(
+					FExecuteAction::CreateLambda([=] { GetSequencer().SetSelectedNodesSpawnableLevel(LevelName); }),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateLambda([=] { return Spawnable->GetLevelName() == LevelName; })
+				),
+				NAME_None,
+				EUserInterfaceActionType::ToggleButton
+			);
+		}
+	}
 }
 
 bool FSequencerObjectBindingNode::CanRenameNode() const
@@ -672,6 +732,8 @@ TSharedRef<SWidget> FSequencerObjectBindingNode::HandleAddTrackComboButtonGetMen
 	TSharedRef<FUICommandList> CommandList(new FUICommandList);
 	FMenuBuilder AddTrackMenuBuilder(true, nullptr, SequencerModule.GetAddTrackMenuExtensibilityManager()->GetAllExtenders(CommandList, TArrayBuilder<UObject*>().Add(BoundObject)));
 
+	const int32 NumStartingBlocks = AddTrackMenuBuilder.GetMultiBox()->GetBlocks().Num();
+
 	const UClass* ObjectClass = GetClassForObjectBinding();
 	AddTrackMenuBuilder.BeginSection(NAME_None, LOCTEXT("TracksMenuHeader" , "Tracks"));
 	GetSequencer().BuildObjectBindingTrackMenu(AddTrackMenuBuilder, ObjectBinding, ObjectClass);
@@ -760,6 +822,19 @@ TSharedRef<SWidget> FSequencerObjectBindingNode::HandleAddTrackComboButtonGetMen
 	}
 	AddTrackMenuBuilder.EndSection();
 
+	if (AddTrackMenuBuilder.GetMultiBox()->GetBlocks().Num() == NumStartingBlocks)
+	{
+		TSharedRef<SWidget> EmptyTip = SNew(SBox)
+			.Padding(FMargin(15.f, 7.5f))
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("NoKeyablePropertiesFound", "No keyable properties or tracks"))
+				.ColorAndOpacity(FSlateColor::UseSubduedForeground())
+			];
+
+		AddTrackMenuBuilder.AddWidget(EmptyTip, FText(), true, false);
+	}
+
 	return AddTrackMenuBuilder.MakeWidget();
 }
 
@@ -771,7 +846,8 @@ void FSequencerObjectBindingNode::HandleAddTrackSubMenuNew(FMenuBuilder& AddTrac
 	// [PostProcessSettings] [ColorGrading]
 
 	// Create property menu data based on keyable property paths
-	TSet<UProperty*> PropertiesTraversed;
+	TArray<UProperty*> PropertiesTraversed;
+	TArray<int32> ArrayIndicesTraversed;
 	TArray<PropertyMenuData> KeyablePropertyMenuData;
 	for (const FPropertyPath& KeyablePropertyPath : KeyablePropertyPaths)
 	{
@@ -783,14 +859,37 @@ void FSequencerObjectBindingNode::HandleAddTrackSubMenuNew(FMenuBuilder& AddTrac
 		{
 			const FPropertyInfo& PropertyInfo = KeyablePropertyPath.GetPropertyInfo(1);
 			UProperty* Property = PropertyInfo.Property.Get();
-			if (PropertiesTraversed.Find(Property) != nullptr)
+
+			// Search for any array elements
+			int32 ArrayIndex = INDEX_NONE;
+			for (int32 PropertyInfoIndex = 0; PropertyInfoIndex < KeyablePropertyPath.GetNumProperties(); ++PropertyInfoIndex)
+			{
+				const FPropertyInfo& ArrayPropertyInfo = KeyablePropertyPath.GetPropertyInfo(PropertyInfoIndex);
+				if (ArrayPropertyInfo.ArrayIndex != INDEX_NONE)
+				{
+					ArrayIndex = ArrayPropertyInfo.ArrayIndex;
+					break;
+				}
+			}
+
+			bool bFound = false;
+			for (int32 TraversedIndex = 0; TraversedIndex < PropertiesTraversed.Num(); ++TraversedIndex)
+			{
+				if (PropertiesTraversed[TraversedIndex] == Property && ArrayIndicesTraversed[TraversedIndex] == ArrayIndex)
+				{
+					bFound = true;
+					break;
+				}
+			}
+
+			if (bFound)
 			{
 				continue;
 			}
 
-			if (PropertyInfo.ArrayIndex != INDEX_NONE)
+			if (ArrayIndex != INDEX_NONE)
 			{
-				KeyableMenuData.MenuName = FText::Format(LOCTEXT("ArrayElementFormat", "Element {0}"), FText::AsNumber(PropertyInfo.ArrayIndex)).ToString();
+				KeyableMenuData.MenuName = FText::Format(LOCTEXT("ArrayElementFormat", "{0} [{1}]"), Property->GetDisplayNameText(), FText::AsNumber(ArrayIndex)).ToString();
 			}
 			else
 			{
@@ -798,6 +897,7 @@ void FSequencerObjectBindingNode::HandleAddTrackSubMenuNew(FMenuBuilder& AddTrac
 			}
 
 			PropertiesTraversed.Add(Property);
+			ArrayIndicesTraversed.Add(ArrayIndex);
 		}
 		else
 		{

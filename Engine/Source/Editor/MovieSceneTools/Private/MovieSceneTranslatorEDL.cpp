@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneCaptureHelpers.h"
+#include "MovieSceneTranslatorEDL.h"
 #include "MovieScene.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -13,6 +13,8 @@
 #include "AssetRegistryModule.h"
 #include "FrameRate.h"
 #include "MovieSceneTimeHelpers.h"
+#include "MovieSceneCaptureModule.h"
+#include "Timecode.h"
 
 /* MovieSceneCaptureHelpers
  *****************************************************************************/
@@ -61,22 +63,21 @@ struct FShotData
 	bool bWithinPlaybackRange;
 };
 
-FFrameNumber SMPTEToFrame(FString SMPTE, FFrameRate FrameRate)
+FFrameNumber SMPTEToFrame(FString SMPTE, FFrameRate TickResolution, FFrameRate FrameRate)
 {
 	TArray<FString> OutArray;
 	SMPTE.ParseIntoArray(OutArray, TEXT(":"));
 	
 	if (OutArray.Num() == 4)
 	{
-		const int64 Hours   = FCString::Atoi(*OutArray[0]);
-		const int64 Minutes = FCString::Atoi(*OutArray[1]);
-		const int64 Seconds = FCString::Atoi(*OutArray[2]);
+		const int32 Hours   = FCString::Atoi(*OutArray[0]);
+		const int32 Minutes = FCString::Atoi(*OutArray[1]);
+		const int32 Seconds = FCString::Atoi(*OutArray[2]);
 		const int32 Frames  = FCString::Atoi(*OutArray[3]);
 
-		int64 TotalSeconds = int64(Seconds) + Minutes*60 + Hours*3600;
+		FTimecode Timecode(Hours, Minutes, Seconds, Frames, false);
 
-		// @todo sequencer-timecode Redo this to take FTimeCode structs and consolidate duplication.
-		return Frames + int32(TotalSeconds * FrameRate.Denominator / FrameRate.Numerator);
+		return FFrameRate::TransformTime(Timecode.ToFrameNumber(FrameRate), FrameRate, TickResolution).RoundToFrame();
 	}
 	// The edl is in frames
 	else
@@ -85,22 +86,14 @@ FFrameNumber SMPTEToFrame(FString SMPTE, FFrameRate FrameRate)
 	}
 }
 
-FString TimeToSMPTE(FFrameNumber InTime, FFrameRate FrameRate)
+FString TimeToSMPTE(FFrameNumber InTime, FFrameRate TickResolution, FFrameRate FrameRate)
 {
-	// Divide by the framerate to get into seconds
-	const int64 TotalSeconds = int64(InTime.Value) * FrameRate.Denominator / FrameRate.Numerator;
-	const int32 MaxFrame     = FrameRate.Numerator / FrameRate.Denominator;
+	FFrameNumber PlayRateFrameNumber = FFrameRate::TransformTime(InTime, TickResolution, FrameRate).RoundToFrame();
 
-	int32 Hours   =  (TotalSeconds       ) / 3600;
-	int32 Minutes =  (TotalSeconds % 3600) / 60;
-	int32 Seconds =  (TotalSeconds % 60  );
-
-	FString OutputString = FString::Printf(TEXT("%02d:%02d:%02d:%02d"), Hours, Minutes, Seconds, InTime.Value % MaxFrame);
-
-	return OutputString;
+	return FTimecode::FromFrameNumber(PlayRateFrameNumber, FrameRate, false).ToString();
 }
 
-void ParseFromEDL(const FString& InputString, FFrameRate FrameRate, TArray<FShotData>& OutShotData)
+void ParseFromEDL(const FString& InputString, FFrameRate TickResolution, FFrameRate FrameRate, TArray<FShotData>& OutShotData)
 {
 	TArray<FString> InputLines;
 	InputString.ParseIntoArray(InputLines, TEXT("\n"));
@@ -130,8 +123,12 @@ void ParseFromEDL(const FString& InputString, FFrameRate FrameRate, TArray<FShot
 			{
 				EventName = InputChars[0];
 				AuxName = InputChars[1]; // Typically AX but unused in this case
-
-				if (InputChars[2] == TEXT("V"))
+				
+				if (InputChars[1] == TEXT("BL"))
+				{
+					TrackType = FShotData::ETrackType::TT_None;
+				}
+				else if (InputChars[2] == TEXT("V"))
 				{
 					TrackType = FShotData::ETrackType::TT_Video;
 				}
@@ -169,10 +166,10 @@ void ParseFromEDL(const FString& InputString, FFrameRate FrameRate, TArray<FShot
 				if (TrackType != FShotData::ETrackType::TT_None &&
 					EditType != FShotData::EEditType::ET_None)
 				{
-					SourceInFrame  = SMPTEToFrame(InputChars[4], FrameRate);
-					SourceOutFrame = SMPTEToFrame(InputChars[5], FrameRate);
-					EditInFrame    = SMPTEToFrame(InputChars[6], FrameRate);
-					EditOutFrame   = SMPTEToFrame(InputChars[7], FrameRate);
+					SourceInFrame  = SMPTEToFrame(InputChars[4], TickResolution, FrameRate);
+					SourceOutFrame = SMPTEToFrame(InputChars[5], TickResolution, FrameRate);
+					EditInFrame    = SMPTEToFrame(InputChars[6], TickResolution, FrameRate);
+					EditOutFrame   = SMPTEToFrame(InputChars[7], TickResolution, FrameRate);
 
 					bFoundEventLine = true;
 					continue; // Go to the next line
@@ -207,7 +204,7 @@ void ParseFromEDL(const FString& InputString, FFrameRate FrameRate, TArray<FShot
 	}
 }
 
-void FormatForEDL(FString& OutputString, const FString& SequenceName, FFrameRate FrameRate, const TArray<FShotData>& InShotData)
+void FormatForEDL(FString& OutputString, const FString& SequenceName, FFrameRate TickResolution, FFrameRate FrameRate, const TArray<FShotData>& InShotData)
 {
 	OutputString += TEXT("TITLE: ") + SequenceName + TEXT("\n");
 	OutputString += TEXT("FCM: NON-DROP FRAME\n\n");
@@ -223,10 +220,10 @@ void FormatForEDL(FString& OutputString, const FString& SequenceName, FFrameRate
 		TypeName = TEXT("V");
 		EditName = TEXT("C");
 
-		SourceSMPTEIn  = TimeToSMPTE(0, FrameRate);
-		SourceSMPTEOut = TimeToSMPTE(InShotData[0].EditInFrame, FrameRate);
-		EditSMPTEIn    = TimeToSMPTE(0, FrameRate);
-		EditSMPTEOut   = TimeToSMPTE(InShotData[0].EditInFrame, FrameRate);
+		SourceSMPTEIn  = TimeToSMPTE(0, TickResolution, FrameRate);
+		SourceSMPTEOut = TimeToSMPTE(InShotData[0].EditInFrame, TickResolution, FrameRate);
+		EditSMPTEIn    = TimeToSMPTE(0, TickResolution, FrameRate);
+		EditSMPTEOut   = TimeToSMPTE(InShotData[0].EditInFrame, TickResolution, FrameRate);
 
 		OutputString += EventName + TEXT(" ") + TEXT("BL ") + TypeName + TEXT(" ") + EditName + TEXT(" ");
 		OutputString += SourceSMPTEIn + TEXT(" ") + SourceSMPTEOut + TEXT(" ") + EditSMPTEIn + TEXT(" ") + EditSMPTEOut + TEXT("\n\n");
@@ -272,18 +269,18 @@ void FormatForEDL(FString& OutputString, const FString& SequenceName, FFrameRate
 			EditName = TEXT("K");
 		}
 
-		SourceSMPTEIn  = TimeToSMPTE(InShotData[ShotIndex].SourceInFrame, FrameRate);
-		SourceSMPTEOut = TimeToSMPTE(InShotData[ShotIndex].SourceOutFrame, FrameRate);
-		EditSMPTEIn    = TimeToSMPTE(InShotData[ShotIndex].EditInFrame, FrameRate);
-		EditSMPTEOut   = TimeToSMPTE(InShotData[ShotIndex].EditOutFrame, FrameRate);
-
+		SourceSMPTEIn  = TimeToSMPTE(InShotData[ShotIndex].SourceInFrame, TickResolution, FrameRate);
+		SourceSMPTEOut = TimeToSMPTE(InShotData[ShotIndex].SourceOutFrame, TickResolution, FrameRate);
+		EditSMPTEIn    = TimeToSMPTE(InShotData[ShotIndex].EditInFrame, TickResolution, FrameRate);
+		EditSMPTEOut   = TimeToSMPTE(InShotData[ShotIndex].EditOutFrame, TickResolution, FrameRate);
+	
 		OutputString += EventName + TEXT(" ") + TEXT("AX ") + TypeName + TEXT(" ") + EditName + TEXT(" ");
 		OutputString += SourceSMPTEIn + TEXT(" ") + SourceSMPTEOut + TEXT(" ") + EditSMPTEIn + TEXT(" ") + EditSMPTEOut + TEXT("\n");
 		OutputString += TEXT("* FROM CLIP NAME: ") + ReelName + TEXT("\n\n");
 	}
 }
 
-void FormatForRV(FString& OutputString, const FString& SequenceName, FFrameRate FrameRate, const TArray<FShotData>& InShotData)
+void FormatForRV(FString& OutputString, const FString& SequenceName, FFrameRate TickResolution, FFrameRate FrameRate, const TArray<FShotData>& InShotData)
 {
 	// Header
 	OutputString += TEXT("GTOa (3)\n\n");
@@ -311,8 +308,8 @@ void FormatForRV(FString& OutputString, const FString& SequenceName, FFrameRate 
 
 		FString SourceName = FString::Printf(TEXT("sourceGroup%06d"), EventIndex);
 
-		FFrameNumber SourceInFrame  = InShotData[EventIndex].SourceInFrame;
-		FFrameNumber SourceOutFrame = InShotData[EventIndex].SourceOutFrame;
+		FFrameTime SourceInTime = FFrameRate::TransformTime(InShotData[EventIndex].SourceInFrame, TickResolution, FrameRate);
+		FFrameTime SourceOutTime = FFrameRate::TransformTime(InShotData[EventIndex].SourceOutFrame, TickResolution, FrameRate);
 
 		OutputString += SourceName + TEXT(" : RVSourceGroup (1)\n");
 		OutputString += TEXT("{\n");
@@ -326,8 +323,8 @@ void FormatForRV(FString& OutputString, const FString& SequenceName, FFrameRate 
 		OutputString += TEXT("{\n");
 		OutputString += TEXT("\tcut\n");
 		OutputString += TEXT("\t{\n");
-		OutputString += TEXT("\t\tint in = ") + FString::FromInt(SourceInFrame.Value) + TEXT("\n");
-		OutputString += TEXT("\t\tint out = ") + FString::FromInt(SourceOutFrame.Value) + TEXT("\n");
+		OutputString += TEXT("\t\tint in = ") + FString::FromInt(SourceInTime.GetFrame().Value) + TEXT("\n");
+		OutputString += TEXT("\t\tint out = ") + FString::FromInt(SourceOutTime.GetFrame().Value) + TEXT("\n");
 		OutputString += TEXT("\t}\n\n");
 
 		OutputString += TEXT("\tgroup\n");
@@ -344,9 +341,9 @@ void FormatForRV(FString& OutputString, const FString& SequenceName, FFrameRate 
 	}
 }
 
-void FormatForRVBat(FString& OutputString, const FString& SequenceName, FFrameRate FrameRate, const TArray<FShotData>& InShotData)
+void FormatForRVBat(FString& OutputString, const FString& SequenceName, FFrameRate TickResolution, FFrameRate FrameRate, const TArray<FShotData>& InShotData)
 {
-	OutputString += TEXT("rv -nomb -fullscreen -noBorders -fps ") + FString::Printf(TEXT("%f"), FrameRate.AsInterval());
+	OutputString += TEXT("rv -nomb -fullscreen -noBorders -fps ") + FString::Printf(TEXT("%f"), FrameRate.AsDecimal());
 	for (int32 EventIndex = 0; EventIndex < InShotData.Num(); ++EventIndex)
 	{
 		if (InShotData[EventIndex].bWithinPlaybackRange)
@@ -357,7 +354,7 @@ void FormatForRVBat(FString& OutputString, const FString& SequenceName, FFrameRa
 }
 
 
-bool MovieSceneCaptureHelpers::ImportEDL(UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InFilename)
+bool MovieSceneTranslatorEDL::ImportEDL(UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InFilename)
 {
 	FString InputString;
 	if (!FFileHelper::LoadFileToString(InputString, *InFilename))
@@ -365,8 +362,10 @@ bool MovieSceneCaptureHelpers::ImportEDL(UMovieScene* InMovieScene, FFrameRate I
 		return false;
 	}
 
+	FFrameRate TickResolution = InMovieScene->GetTickResolution();
+
 	TArray<FShotData> ShotDataArray;
-	ParseFromEDL(InputString, InFrameRate, ShotDataArray);
+	ParseFromEDL(InputString, TickResolution, InFrameRate, ShotDataArray);
 
 	UMovieSceneCinematicShotTrack* CinematicShotTrack = InMovieScene->FindMasterTrack<UMovieSceneCinematicShotTrack>();
 	if (!CinematicShotTrack)
@@ -433,7 +432,7 @@ bool MovieSceneCaptureHelpers::ImportEDL(UMovieScene* InMovieScene, FFrameRate I
 	return true;
 }
 
-bool MovieSceneCaptureHelpers::ExportEDL(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveFilename, const int32 InHandleFrames)
+bool MovieSceneTranslatorEDL::ExportEDL(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveFilename, const int32 InHandleFrames)
 {
 	FString SequenceName = InMovieScene->GetOuter()->GetName();
 	FString SaveBasename = FPaths::GetPath(InSaveFilename) / FPaths::GetBaseFilename(InSaveFilename);
@@ -505,6 +504,8 @@ bool MovieSceneCaptureHelpers::ExportEDL(const UMovieScene* InMovieScene, FFrame
 
 	ShotDataArray.Sort();
 
+	FFrameRate TickResolution = InMovieScene->GetTickResolution();
+
 	for (auto SaveFilename : SaveFilenames)
 	{
 		FString OutputString;
@@ -512,15 +513,15 @@ bool MovieSceneCaptureHelpers::ExportEDL(const UMovieScene* InMovieScene, FFrame
 
 		if (SaveFilenameExtension == TEXT("EDL"))
 		{
-			FormatForEDL(OutputString, SequenceName, InFrameRate, ShotDataArray);
+			FormatForEDL(OutputString, SequenceName, TickResolution, InFrameRate, ShotDataArray);
 		}
 		else if (SaveFilenameExtension == TEXT("RV"))
 		{
-			FormatForRV(OutputString, SequenceName, InFrameRate, ShotDataArray);
+			FormatForRV(OutputString, SequenceName, TickResolution, InFrameRate, ShotDataArray);
 		}
 		else if (SaveFilenameExtension == TEXT("BAT"))
 		{
-			FormatForRVBat(OutputString, SequenceName, InFrameRate, ShotDataArray);
+			FormatForRVBat(OutputString, SequenceName, TickResolution, InFrameRate, ShotDataArray);
 		}
 
 		FFileHelper::SaveStringToFile(OutputString, *SaveFilename);

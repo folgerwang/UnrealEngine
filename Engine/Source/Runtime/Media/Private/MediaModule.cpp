@@ -6,6 +6,7 @@
 #include "HAL/RunnableThread.h"
 #include "Misc/ScopeLock.h"
 #include "Modules/ModuleManager.h"
+#include "Stats/Stats.h"
 
 #include "IMediaCaptureSupport.h"
 #include "IMediaPlayerFactory.h"
@@ -84,11 +85,20 @@ public:
 
 	virtual void TickPostEngine() override
 	{
-		Clock.TickFetch();
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_Media_TickFetch);
+			Clock.TickFetch();
+		}
+
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_Media_TickRender);
+			Clock.TickRender();
+		}
 	}
 
 	virtual void TickPostRender() override
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_Media_TickOutput);
 		Clock.TickOutput();
 	}
 
@@ -99,6 +109,7 @@ public:
 			Clock.UpdateTimecode(TimeSource->GetTimecode(), TimecodeLocked);
 		}
 
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_Media_TickInput);
 		Clock.TickInput();
 
 		OnTickPreEngineCompleted.Broadcast();
@@ -106,7 +117,7 @@ public:
 
 	virtual void TickPreSlate() override
 	{
-		Clock.TickRender();
+		// currently not used
 	}
 
 	virtual void UnregisterCaptureSupport(IMediaCaptureSupport& Support) override

@@ -24,6 +24,15 @@ namespace SequencerMenuExtensionPoints
 	static const FName AddTrackMenu_PropertiesSection("AddTrackMenu_PropertiesSection");
 }
 
+/** Enum representing supported scrubber styles */
+enum class ESequencerScrubberStyle : uint8
+{
+	/** Scrubber is represented as a single thin line for the current time, with a constant-sized thumb. */
+	Vanilla,
+
+	/** Scrubber thumb occupies a full 'display rate' frame, with a single thin line for the current time. Tailored to frame-accuracy scenarios. */
+	FrameBlock,
+};
 
 /** A delegate which will create an auto-key handler. */
 DECLARE_DELEGATE_RetVal_OneParam(TSharedRef<ISequencerTrackEditor>, FOnCreateTrackEditor, TSharedRef<ISequencer>);
@@ -64,9 +73,13 @@ struct FSequencerViewParams
 	/** Whether the sequencer is read-only */
 	bool bReadOnly;
 
+	/** Style of scrubber to use */
+	ESequencerScrubberStyle ScrubberStyle;
+
 	FSequencerViewParams(FString InName = FString())
 		: UniqueName(MoveTemp(InName))
 		, bReadOnly(false)
+		, ScrubberStyle(ESequencerScrubberStyle::Vanilla)
 	{ }
 };
 

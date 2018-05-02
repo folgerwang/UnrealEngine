@@ -88,6 +88,7 @@
 #include "Interfaces/IPluginManager.h"
 #include "UObject/PackageReload.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "IMediaModule.h"
 
 // needed for the RemotePropagator
 #include "AudioDevice.h"
@@ -1484,7 +1485,6 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		}
 	}
 
-
 	// Perform editor level streaming previs if no PIE session is currently in progress.
 	if( !PlayWorld )
 	{
@@ -1692,6 +1692,15 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 	if (bAWorldTicked)
 	{
 		FTickableGameObject::TickObjects(nullptr, TickType, false, DeltaSeconds);
+	}
+
+	// tick media framework
+	static const FName MediaModuleName(TEXT("Media"));
+	IMediaModule* MediaModule = FModuleManager::LoadModulePtr<IMediaModule>(MediaModuleName);
+
+	if (MediaModule != nullptr)
+	{
+		MediaModule->TickPostEngine();
 	}
 
 	if (bFirstTick)

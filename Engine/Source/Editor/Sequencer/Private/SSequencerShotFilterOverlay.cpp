@@ -24,7 +24,7 @@ int32 SSequencerShotFilterOverlay::OnPaint( const FPaintArgs& Args, const FGeome
 
 	if (Alpha > 0.f)
 	{
-		FTimeToPixel TimeToPixelConverter(AllottedGeometry, ViewRange.Get(), Sequencer.Pin()->GetFocusedFrameResolution());
+		FTimeToPixel TimeToPixelConverter(AllottedGeometry, ViewRange.Get(), Sequencer.Pin()->GetFocusedTickResolution());
 		
 		TRange<float> TimeBounds = TRange<float>(
 			TimeToPixelConverter.PixelToSeconds(0),

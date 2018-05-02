@@ -36,8 +36,8 @@ void FMovieSceneSpawnSectionRecorder::CreateSection(UObject* InObjectToRecord, U
 		BoolChannel->SetDefault(false);
 		BoolChannel->GetInterface().AddKey(0, false);
 
-		FFrameRate FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FFrameNumber CurrentFrame = (Time * FrameResolution).FloorToFrame();
+		FFrameRate TickResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber CurrentFrame = (Time * TickResolution).FloorToFrame();
 		MovieSceneSection->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
 	}
 
@@ -64,8 +64,8 @@ void FMovieSceneSpawnSectionRecorder::FinalizeSection()
 		{
 			double       OneFrameInterval = 1.0/GetDefault<USequenceRecorderSettings>()->DefaultAnimationSettings.SampleRate;
 
-			FFrameRate   FrameResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-			FFrameNumber StartTime        = MovieSceneSection->GetExclusiveEndFrame() - (OneFrameInterval * FrameResolution).CeilToFrame();
+			FFrameRate   TickResolution   = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+			FFrameNumber StartTime        = MovieSceneSection->GetExclusiveEndFrame() - (OneFrameInterval * TickResolution).CeilToFrame();
 
 			Channel->GetInterface().AddKey(StartTime, true);
 			MovieSceneSection->SetStartFrame(StartTime);
@@ -77,8 +77,8 @@ void FMovieSceneSpawnSectionRecorder::Record(float CurrentTime)
 {
 	if(ObjectToRecord.IsValid())
 	{
-		FFrameRate FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		MovieSceneSection->ExpandToFrame((CurrentTime * FrameResolution).FloorToFrame());
+		FFrameRate TickResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		MovieSceneSection->ExpandToFrame((CurrentTime * TickResolution).FloorToFrame());
 	}
 
 	const bool bSpawned = ObjectToRecord.IsValid();
@@ -87,8 +87,8 @@ void FMovieSceneSpawnSectionRecorder::Record(float CurrentTime)
 		FMovieSceneBoolChannel* Channel = MovieSceneSection->GetChannelProxy().GetChannel<FMovieSceneBoolChannel>(0);
 		if (ensure(Channel))
 		{
-			FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-			FFrameNumber KeyTime         = (CurrentTime * FrameResolution).FloorToFrame();
+			FFrameRate   TickResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+			FFrameNumber KeyTime         = (CurrentTime * TickResolution).FloorToFrame();
 
 			Channel->GetInterface().UpdateOrAddKey(KeyTime, bSpawned);
 		}

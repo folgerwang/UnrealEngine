@@ -59,9 +59,13 @@ private:
 
 	void SplitSection();
 
+	void AutoSizeSection();
+
 	void ReduceKeys();
 
 	bool IsTrimmable() const;
+
+	bool CanAutoSize() const;
 
 	bool CanReduceKeys() const;
 

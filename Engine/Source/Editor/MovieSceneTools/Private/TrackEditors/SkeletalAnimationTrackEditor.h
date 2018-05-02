@@ -68,11 +68,11 @@ private:
 	/** Animation asset selected */
 	void OnAnimationAssetSelected(const FAssetData& AssetData, FGuid ObjectBinding, UMovieSceneTrack* Track);
 
+	/** Animation asset enter pressed */
+	void OnAnimationAssetEnterPressed(const TArray<FAssetData>& AssetData, FGuid ObjectBinding, UMovieSceneTrack* Track);
+
 	/** Delegate for AnimatablePropertyChanged in AddKey */
 	FKeyPropertyResult AddKeyInternal(FFrameNumber KeyTime, UObject* Object, class UAnimSequenceBase* AnimSequence, UMovieSceneTrack* Track, int32 RowIndex);
-
-	/** Gets a skeleton from an object guid in the movie scene */
-	class USkeleton* AcquireSkeletonFromObjectGuid(const FGuid& Guid);
 };
 
 
@@ -84,7 +84,7 @@ class FSkeletalAnimationSection
 public:
 
 	/** Constructor. */
-	FSkeletalAnimationSection( UMovieSceneSection& InSection );
+	FSkeletalAnimationSection( UMovieSceneSection& InSection, TWeakPtr<ISequencer> InSequencer);
 
 	/** Virtual destructor. */
 	virtual ~FSkeletalAnimationSection() { }
@@ -101,11 +101,20 @@ public:
 	virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime) override;
 	virtual void BeginSlipSection() override;
 	virtual void SlipSection(double SlipTime) override;
+	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const FGuid& InObjectBinding) override;
+
+private:
+
+	bool CreatePoseAsset(const TArray<UObject*> NewAssets, FGuid InObjectBinding);
+	void HandleCreatePoseAsset(FGuid InObjectBinding);
 
 private:
 
 	/** The section we are visualizing */
 	UMovieSceneSkeletalAnimationSection& Section;
+
+	/** Used to draw animation frame, need selection state and local time*/
+	TWeakPtr<ISequencer> Sequencer;
 
 	/** Cached start offset value valid only during resize */
 	float InitialStartOffsetDuringResize;

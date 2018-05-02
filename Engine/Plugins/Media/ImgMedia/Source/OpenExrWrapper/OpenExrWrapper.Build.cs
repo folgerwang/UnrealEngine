@@ -11,7 +11,11 @@ namespace UnrealBuildTool.Rules
 
             bUseRTTI = true;
 
-            PublicDependencyModuleNames.Add("Core");
+            PublicDependencyModuleNames.AddRange(
+				new string[] {
+					"Core",
+					"TimeManagement",
+				});
 
             if ((Target.Platform == UnrealTargetPlatform.Win64) ||
                 (Target.Platform == UnrealTargetPlatform.Win32) ||

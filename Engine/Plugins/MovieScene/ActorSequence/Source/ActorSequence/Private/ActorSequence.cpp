@@ -21,10 +21,10 @@ static TAutoConsoleVariable<int32> CVarDefaultEvaluationType(
 	TEXT("0: Playback locked to playback frames\n1: Unlocked playback with sub frame interpolation"),
 	ECVF_Default);
 
-static TAutoConsoleVariable<FString> CVarDefaultFrameResolution(
-	TEXT("ActorSequence.DefaultFrameResolution"),
+static TAutoConsoleVariable<FString> CVarDefaultTickResolution(
+	TEXT("ActorSequence.DefaultTickResolution"),
 	TEXT("24000fps"),
-	TEXT("Specifies default a frame resolution for newly created level sequences. Examples: 30 fps, 120/1 (120 fps), 30000/1001 (29.97), 0.01s (10ms)."),
+	TEXT("Specifies default a tick resolution for newly created level sequences. Examples: 30 fps, 120/1 (120 fps), 30000/1001 (29.97), 0.01s (10ms)."),
 	ECVF_Default);
 
 static TAutoConsoleVariable<FString> CVarDefaultDisplayRate(
@@ -86,13 +86,13 @@ void UActorSequence::PostInitProperties()
 
 		MovieScene->SetEvaluationType( bFrameLocked ? EMovieSceneEvaluationType::FrameLocked : EMovieSceneEvaluationType::WithSubFrames );
 
-		FFrameRate FrameResolution(60000, 1);
-		TryParseString(FrameResolution, *CVarDefaultFrameResolution.GetValueOnGameThread());
-		MovieScene->SetFrameResolutionDirectly(FrameResolution);
+		FFrameRate TickResolution(60000, 1);
+		TryParseString(TickResolution, *CVarDefaultTickResolution.GetValueOnGameThread());
+		MovieScene->SetTickResolutionDirectly(TickResolution);
 
-		FFrameRate PlaybackFrameRate(30, 1);
-		TryParseString(PlaybackFrameRate, *CVarDefaultDisplayRate.GetValueOnGameThread());
-		MovieScene->SetPlaybackFrameRate(PlaybackFrameRate);
+		FFrameRate DisplayRate(30, 1);
+		TryParseString(DisplayRate, *CVarDefaultDisplayRate.GetValueOnGameThread());
+		MovieScene->SetDisplayRate(DisplayRate);
 
 		OnInitializeSequenceEvent.Broadcast(this);
 		bHasBeenInitialized = true;

@@ -29,6 +29,15 @@ struct FMovieSceneObjectCache
 	MOVIESCENE_API TArrayView<TWeakObjectPtr<>> FindBoundObjects(const FGuid& InBindingID, IMovieScenePlayer& Player);
 
 	/**
+	 * Find all objects that are bound to the specified binding ID
+	 * @note Does not update bindings if they are out of date, or invalid
+	 *
+	 * @param InBindingID		The object binding GUID for a spawnable or posessable in a UMovieScene
+	 * @return An iterable type of all objects bound to the specified ID.
+	 */
+	MOVIESCENE_API TArrayView<const TWeakObjectPtr<>> IterateBoundObjects(const FGuid& InBindingID) const;
+
+	/**
 	 * Set the sequence that this cache applies to
 	 *
 	 * @param InSequence		The sequence that this cache applies to

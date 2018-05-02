@@ -62,6 +62,10 @@ private:
 
 	bool CanAddRecording() const;
 
+	void HandleAddCurrentPlayerRecording();
+
+	bool CanAddCurrentPlayerRecording() const;
+
 	void HandleRemoveRecording();
 
 	bool CanRemoveRecording() const;

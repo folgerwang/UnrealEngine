@@ -4,6 +4,7 @@
 
 #include "Math/UnrealMathUtility.h"
 #include "MediaPlayer.h"
+#include "MediaPlayerFacade.h"
 #include "MediaSoundComponent.h"
 #include "MediaSource.h"
 #include "MediaTexture.h"
@@ -13,6 +14,9 @@
 #include "MovieSceneMediaData.h"
 #include "MovieSceneMediaSection.h"
 #include "MovieSceneMediaTrack.h"
+
+
+#define MOVIESCENEMEDIATEMPLATE_TRACE_EVALUATION 0
 
 
 /* Local helpers
@@ -81,6 +85,7 @@ struct FMediaSectionExecutionToken
 			return;
 		}
 
+		// seek on open if necessary
 		if (MediaPlayer->IsPreparing())
 		{
 			SectionData.SeekOnOpen(CurrentTime);
@@ -88,8 +93,19 @@ struct FMediaSectionExecutionToken
 			return;
 		}
 
+		const FTimespan MediaDuration = MediaPlayer->GetDuration();
+
+		if (MediaDuration.IsZero())
+		{
+			return; // media has no length
+		}
+
 		// update media player
-		const FTimespan MediaTime = CurrentTime % MediaPlayer->GetDuration();
+		const FTimespan MediaTime = CurrentTime % MediaDuration;
+
+		#if MOVIESCENEMEDIATEMPLATE_TRACE_EVALUATION
+			GLog->Logf(ELogVerbosity::Log, TEXT("Executing time %s, MediaTime %s"), *CurrentTime.ToString(TEXT("%h:%m:%s.%t")), *MediaTime.ToString(TEXT("%h:%m:%s.%t")));
+		#endif
 
 		if (Context.GetStatus() == EMovieScenePlayerStatus::Playing)
 		{
@@ -102,6 +118,8 @@ struct FMediaSectionExecutionToken
 			{
 				MediaPlayer->Seek(MediaTime);
 			}
+
+			MediaPlayer->SetBlockOnTime(MediaPlayer->GetTime());
 		}
 		else
 		{
@@ -111,6 +129,7 @@ struct FMediaSectionExecutionToken
 			}
 
 			MediaPlayer->Seek(MediaTime);
+			MediaPlayer->SetBlockOnTime(FTimespan::MinValue());
 		}
 	}
 
@@ -131,11 +150,11 @@ FMovieSceneMediaSectionTemplate::FMovieSceneMediaSectionTemplate(const UMovieSce
 	Params.MediaSource = InSection.GetMediaSource();
 	Params.MediaTexture = InSection.MediaTexture;
 
-	if (InSection.GetRange().GetLowerBound().IsClosed())
+	if (InSection.HasStartFrame())
 	{
 		Params.SectionStartFrame = InSection.GetRange().GetLowerBoundValue();
 	}
-	if (InSection.GetRange().GetUpperBound().IsClosed())
+	if (InSection.HasEndFrame())
 	{
 		Params.SectionEndFrame = InSection.GetRange().GetUpperBoundValue();
 	}
@@ -166,12 +185,23 @@ void FMovieSceneMediaSectionTemplate::Evaluate(const FMovieSceneEvaluationOperan
 	else if (!Context.IsPostRoll() && (Context.GetTime().FrameNumber < Params.SectionEndFrame))
 	{
 		const FFrameRate FrameRate = Context.GetFrameRate();
-		const FFrameTime CurrentTime(Context.GetTime().FrameNumber - Params.SectionStartFrame);
+		const FFrameTime FrameTime(Context.GetTime().FrameNumber - Params.SectionStartFrame);
 		const int64 DenominatorTicks = FrameRate.Denominator * ETimespan::TicksPerSecond;
-		const int64 CurrentTicks = FMath::DivideAndRoundNearest(int64(CurrentTime.GetFrame().Value * DenominatorTicks), int64(FrameRate.Numerator));
-		const int64 CurrentSubTicks = FMath::DivideAndRoundNearest(int64(CurrentTime.GetSubFrame() * DenominatorTicks), int64(FrameRate.Numerator));
+		const int64 FrameTicks = FMath::DivideAndRoundNearest(int64(FrameTime.GetFrame().Value * DenominatorTicks), int64(FrameRate.Numerator));
+		const int64 FrameSubTicks = FMath::DivideAndRoundNearest(int64(FrameTime.GetSubFrame() * DenominatorTicks), int64(FrameRate.Numerator));
 
-		ExecutionTokens.Add(FMediaSectionExecutionToken(Params.MediaSource, FTimespan(CurrentTicks + CurrentSubTicks)));
+		#if MOVIESCENEMEDIATEMPLATE_TRACE_EVALUATION
+			GLog->Logf(ELogVerbosity::Log, TEXT("Evaluating frame %i+%f, FrameRate %i/%i, FrameTicks %d+%d"),
+				Context.GetTime().GetFrame().Value,
+				Context.GetTime().GetSubFrame(),
+				FrameRate.Numerator,
+				FrameRate.Denominator,
+				FrameTicks,
+				FrameSubTicks
+			);
+		#endif
+
+		ExecutionTokens.Add(FMediaSectionExecutionToken(Params.MediaSource, FTimespan(FrameTicks + FrameSubTicks)));
 	}
 }
 
@@ -204,10 +234,18 @@ void FMovieSceneMediaSectionTemplate::Initialize(const FMovieSceneEvaluationOper
 	{
 		if (IsEvaluating)
 		{
+			#if MOVIESCENEMEDIATEMPLATE_TRACE_EVALUATION
+				GLog->Logf(ELogVerbosity::Log, TEXT("Setting media player %p on media sound component %p"), MediaPlayer, Params.MediaSoundComponent);
+			#endif
+
 			Params.MediaSoundComponent->SetMediaPlayer(MediaPlayer);
 		}
 		else if (Params.MediaSoundComponent->GetMediaPlayer() == MediaPlayer)
 		{
+			#if MOVIESCENEMEDIATEMPLATE_TRACE_EVALUATION
+				GLog->Logf(ELogVerbosity::Log, TEXT("Resetting media player on media sound component %p"), Params.MediaSoundComponent);
+			#endif
+
 			Params.MediaSoundComponent->SetMediaPlayer(nullptr);
 		}
 	}
@@ -216,10 +254,18 @@ void FMovieSceneMediaSectionTemplate::Initialize(const FMovieSceneEvaluationOper
 	{
 		if (IsEvaluating)
 		{
+			#if MOVIESCENEMEDIATEMPLATE_TRACE_EVALUATION
+				GLog->Logf(ELogVerbosity::Log, TEXT("Setting media player %p on media texture %p"), MediaPlayer, Params.MediaTexture);
+			#endif
+
 			Params.MediaTexture->SetMediaPlayer(MediaPlayer);
 		}
 		else if (Params.MediaTexture->GetMediaPlayer() == MediaPlayer)
 		{
+			#if MOVIESCENEMEDIATEMPLATE_TRACE_EVALUATION
+				GLog->Logf(ELogVerbosity::Log, TEXT("Resetting media player on media texture %p"), Params.MediaTexture);
+			#endif
+
 			Params.MediaTexture->SetMediaPlayer(nullptr);
 		}
 	}

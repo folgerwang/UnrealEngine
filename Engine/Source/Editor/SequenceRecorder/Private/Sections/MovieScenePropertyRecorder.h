@@ -53,8 +53,8 @@ public:
 	{
 		if (InObjectToRecord != nullptr)
 		{
-			FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-			FFrameNumber CurrentFrame    = (InCurrentTime * FrameResolution).FloorToFrame();
+			FFrameRate   TickResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+			FFrameNumber CurrentFrame    = (InCurrentTime * TickResolution).FloorToFrame();
 
 			MovieSceneSection->ExpandToFrame(CurrentFrame);
 
@@ -140,8 +140,8 @@ public:
 	{
 		if (InObjectToRecord != nullptr)
 		{
-			FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-			FFrameNumber CurrentFrame    = (InCurrentTime * FrameResolution).FloorToFrame();
+			FFrameRate   TickResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+			FFrameNumber CurrentFrame    = (InCurrentTime * TickResolution).FloorToFrame();
 
 			MovieSceneSection->ExpandToFrame(CurrentFrame);
 

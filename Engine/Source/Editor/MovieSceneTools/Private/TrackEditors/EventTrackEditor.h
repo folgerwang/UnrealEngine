@@ -49,6 +49,9 @@ public:
 	virtual const FSlateBrush* GetIconBrush() const override;
 	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override;
 
+	//~ FPropertyTrackEditor interface
+	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override;
+
 private:
 
 	/** Callback for executing the "Add Event Track" menu entry. */

@@ -184,6 +184,27 @@ TRange<FFrameNumber> UMovieSceneSection::ComputeEffectiveRange() const
 	return TRange<FFrameNumber>::Intersection(EffectiveRange, SectionRange.Value);
 }
 
+
+TOptional<TRange<FFrameNumber> > UMovieSceneSection::GetAutoSizeRange() const
+{
+	if (ChannelProxy.IsValid())
+	{
+		TRange<FFrameNumber> EffectiveRange = TRange<FFrameNumber>::Empty();
+	
+		for (const FMovieSceneChannelEntry& Entry : ChannelProxy->GetAllEntries())
+		{
+			EffectiveRange = TRange<FFrameNumber>::Hull(EffectiveRange, Entry.GetBatchChannelInterface().ComputeEffectiveRange_Batch(Entry.GetChannels()));
+		}
+
+		if (!EffectiveRange.IsEmpty())
+		{
+			return EffectiveRange;
+		}
+	}
+
+	return TOptional<TRange<FFrameNumber> >();
+}
+
 FMovieSceneBlendTypeField UMovieSceneSection::GetSupportedBlendTypes() const
 {
 	UMovieSceneTrack* Track = GetTypedOuter<UMovieSceneTrack>();
@@ -367,9 +388,9 @@ void UMovieSceneSection::InitialPlacementOnRow(const TArray<UMovieSceneSection*>
 	}
 }
 
-UMovieSceneSection* UMovieSceneSection::SplitSection(FFrameNumber SplitTime)
+UMovieSceneSection* UMovieSceneSection::SplitSection(FQualifiedFrameTime SplitTime)
 {
-	if (!SectionRange.Value.Contains(SplitTime))
+	if (!SectionRange.Value.Contains(SplitTime.Time.GetFrame()))
 	{
 		return nullptr;
 	}
@@ -379,8 +400,8 @@ UMovieSceneSection* UMovieSceneSection::SplitSection(FFrameNumber SplitTime)
 	if (TryModify())
 	{
 		TRange<FFrameNumber> StartingRange  = SectionRange.Value;
-		TRange<FFrameNumber> LeftHandRange  = TRange<FFrameNumber>(StartingRange.GetLowerBound(), TRangeBound<FFrameNumber>::Exclusive(SplitTime));
-		TRange<FFrameNumber> RightHandRange = TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(SplitTime), StartingRange.GetUpperBound());
+		TRange<FFrameNumber> LeftHandRange  = TRange<FFrameNumber>(StartingRange.GetLowerBound(), TRangeBound<FFrameNumber>::Exclusive(SplitTime.Time.GetFrame()));
+		TRange<FFrameNumber> RightHandRange = TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(SplitTime.Time.GetFrame()), StartingRange.GetUpperBound());
 
 		// Trim off the right
 		SectionRange = LeftHandRange;
@@ -402,20 +423,20 @@ UMovieSceneSection* UMovieSceneSection::SplitSection(FFrameNumber SplitTime)
 }
 
 
-void UMovieSceneSection::TrimSection(FFrameNumber TrimTime, bool bTrimLeft)
+void UMovieSceneSection::TrimSection(FQualifiedFrameTime TrimTime, bool bTrimLeft)
 {
-	if (SectionRange.Value.Contains(TrimTime))
+	if (SectionRange.Value.Contains(TrimTime.Time.GetFrame()))
 	{
 		SetFlags(RF_Transactional);
 		if (TryModify())
 		{
 			if (bTrimLeft)
 			{
-				SectionRange.Value.SetLowerBound(TRangeBound<FFrameNumber>::Inclusive(TrimTime));
+				SectionRange.Value.SetLowerBound(TRangeBound<FFrameNumber>::Inclusive(TrimTime.Time.GetFrame()));
 			}
 			else
 			{
-				SectionRange.Value.SetUpperBound(TRangeBound<FFrameNumber>::Exclusive(TrimTime));
+				SectionRange.Value.SetUpperBound(TRangeBound<FFrameNumber>::Exclusive(TrimTime.Time.GetFrame()));
 			}
 		}
 	}

@@ -120,7 +120,7 @@ void UMovieSceneSequencePlayer::PlayInternal()
 
 		if (!PlayPosition.GetLastPlayEvalPostition().IsSet() || PlayPosition.GetLastPlayEvalPostition() != PlayPosition.GetCurrentPosition())
 		{
-			UpdateMovieSceneInstance(PlayPosition.JumpTo(StartTime), Status);
+			UpdateMovieSceneInstance(PlayPosition.PlayTo(PlayPosition.GetCurrentPosition()), EMovieScenePlayerStatus::Playing);
 		}
 
 		if (MovieSceneSequence)
@@ -249,7 +249,7 @@ void UMovieSceneSequencePlayer::Stop()
 
 void UMovieSceneSequencePlayer::GoToEndAndStop()
 {
-	JumpToFrame(GetFrameDuration()-1);
+	JumpToFrame(GetLastValidTime());
 	Stop();
 }
 
@@ -274,9 +274,9 @@ void UMovieSceneSequencePlayer::SetFrameRate(FFrameRate FrameRate)
 	UMovieScene* MovieScene = Sequence ? Sequence->GetMovieScene() : nullptr;
 	if (MovieScene)
 	{
-		if (MovieScene->GetEvaluationType() == EMovieSceneEvaluationType::FrameLocked && !FrameRate.IsMultipleOf(MovieScene->GetFrameResolution()))
+		if (MovieScene->GetEvaluationType() == EMovieSceneEvaluationType::FrameLocked && !FrameRate.IsMultipleOf(MovieScene->GetTickResolution()))
 		{
-			UE_LOG(LogMovieScene, Warning, TEXT("Attempting to play back a sequence with resolution of %f ticks per second frame locked to %f fps, which is not a multiple of the resolution."), MovieScene->GetFrameResolution().AsDecimal(), FrameRate.AsDecimal());
+			UE_LOG(LogMovieScene, Warning, TEXT("Attempting to play back a sequence with tick resolution of %f ticks per second frame locked to %f fps, which is not a multiple of the resolution."), MovieScene->GetTickResolution().AsDecimal(), FrameRate.AsDecimal());
 		}
 	}
 
@@ -372,6 +372,11 @@ bool UMovieSceneSequencePlayer::IsPaused() const
 	return Status == EMovieScenePlayerStatus::Paused;
 }
 
+bool UMovieSceneSequencePlayer::IsReversed() const
+{
+	return bReversePlayback;
+}
+
 float UMovieSceneSequencePlayer::GetLength() const
 {
 	return GetDuration().AsSeconds();
@@ -428,14 +433,14 @@ void UMovieSceneSequencePlayer::Initialize(UMovieSceneSequence* InSequence, cons
 	if (MovieScene)
 	{
 		EMovieSceneEvaluationType EvaluationType    = MovieScene->GetEvaluationType();
-		FFrameRate                FrameResolution   = MovieScene->GetFrameResolution();
-		FFrameRate                PlaybackFrameRate = MovieScene->GetPlaybackFrameRate();
+		FFrameRate                TickResolution    = MovieScene->GetTickResolution();
+		FFrameRate                DisplayRate       = MovieScene->GetDisplayRate();
 
-		UE_LOG(LogMovieScene, Verbose, TEXT("Initialize - MovieSceneSequence: %s, FrameResolution: %f, PlaybackFrameRate: %d, CurrentTime: %d"), *InSequence->GetName(), FrameResolution.Numerator, PlaybackFrameRate.Numerator);
+		UE_LOG(LogMovieScene, Verbose, TEXT("Initialize - MovieSceneSequence: %s, TickResolution: %f, DisplayRate: %d, CurrentTime: %d"), *InSequence->GetName(), TickResolution.Numerator, DisplayRate.Numerator);
 
-		// We set the play position in terms of the playback frame rate,
-		// but want evaluation ranges in the moviescene's frame resolution
-		PlayPosition.SetTimeBase(PlaybackFrameRate, FrameResolution, EvaluationType);
+		// We set the play position in terms of the display rate,
+		// but want evaluation ranges in the moviescene's tick resolution
+		PlayPosition.SetTimeBase(DisplayRate, TickResolution, EvaluationType);
 
 		{
 			// Set up the default frame range from the sequence's play range
@@ -444,14 +449,14 @@ void UMovieSceneSequencePlayer::Initialize(UMovieSceneSequence* InSequence, cons
 			const FFrameNumber SrcStartFrame = MovieScene::DiscreteInclusiveLower(PlaybackRange);
 			const FFrameNumber SrcEndFrame   = MovieScene::DiscreteExclusiveUpper(PlaybackRange);
 
-			const FFrameNumber StartingFrame = ConvertFrameTime(SrcStartFrame, FrameResolution, PlaybackFrameRate).FloorToFrame();
-			const FFrameNumber EndingFrame   = ConvertFrameTime(SrcEndFrame,   FrameResolution, PlaybackFrameRate).FloorToFrame();
+			const FFrameNumber StartingFrame = ConvertFrameTime(SrcStartFrame, TickResolution, DisplayRate).FloorToFrame();
+			const FFrameNumber EndingFrame   = ConvertFrameTime(SrcEndFrame,   TickResolution, DisplayRate).FloorToFrame();
 
 			SetFrameRange(StartingFrame.Value, (EndingFrame - StartingFrame).Value);
 		}
 
 		// Reset the play position based on the user-specified start offset, or a random time
-		FFrameTime SpecifiedStartOffset = PlaybackSettings.StartTime * PlaybackFrameRate;
+		FFrameTime SpecifiedStartOffset = PlaybackSettings.StartTime * DisplayRate;
 
 		// Setup the starting time
 		FFrameTime StartingTimeOffset = PlaybackSettings.bRandomStartTime
@@ -511,9 +516,30 @@ void UMovieSceneSequencePlayer::UpdateTimeCursorPosition(FFrameTime NewPosition,
 	}
 }
 
+EMovieScenePlayerStatus::Type UpdateMethodToStatus(EUpdatePositionMethod Method)
+{
+	switch(Method)
+	{
+	case EUpdatePositionMethod::Scrub: return EMovieScenePlayerStatus::Scrubbing;
+	case EUpdatePositionMethod::Jump:  return EMovieScenePlayerStatus::Stopped;
+	case EUpdatePositionMethod::Play:  return EMovieScenePlayerStatus::Playing;
+	default:                           return EMovieScenePlayerStatus::Stopped;
+	}
+}
+
+FMovieSceneEvaluationRange UpdatePlayPosition(FMovieScenePlaybackPosition& InOutPlayPosition, FFrameTime NewTime, EUpdatePositionMethod Method)
+{
+	if (Method == EUpdatePositionMethod::Play)
+	{
+		return InOutPlayPosition.PlayTo(NewTime);
+	}
+
+	return InOutPlayPosition.JumpTo(NewTime);
+}
+
 void UMovieSceneSequencePlayer::UpdateTimeCursorPosition_Internal(FFrameTime NewPosition, EUpdatePositionMethod Method)
 {
-	EMovieScenePlayerStatus::Type StatusOverride = Method == EUpdatePositionMethod::Scrub ? EMovieScenePlayerStatus::Scrubbing : (EMovieScenePlayerStatus::Type)Status;
+	EMovieScenePlayerStatus::Type StatusOverride = UpdateMethodToStatus(Method);
 
 	const int32 Duration = DurationFrames;
 	if (Duration == 0)
@@ -524,7 +550,7 @@ void UMovieSceneSequencePlayer::UpdateTimeCursorPosition_Internal(FFrameTime New
 
 	FFrameTime PositionRelativeToStart = NewPosition.FrameNumber - StartTime;
 
-	if (ShouldStopOrLoop(NewPosition))
+	if (Method == EUpdatePositionMethod::Play && ShouldStopOrLoop(NewPosition))
 	{
 		const int32 NumTimesLooped    = FMath::Abs(PositionRelativeToStart.FrameNumber.Value / Duration);
 		const bool  bLoopIndefinitely = PlaybackSettings.LoopCount < 0;
@@ -563,7 +589,7 @@ void UMovieSceneSequencePlayer::UpdateTimeCursorPosition_Internal(FFrameTime New
 			// Clamp the position to the duration
 			NewPosition = FMath::Clamp(NewPosition, FFrameTime(StartTime), GetLastValidTime());
 
-			FMovieSceneEvaluationRange Range = PlayPosition.PlayTo(NewPosition);
+			FMovieSceneEvaluationRange Range = UpdatePlayPosition(PlayPosition, NewPosition, Method);
 			UpdateMovieSceneInstance(Range, StatusOverride);
 
 			if (PlaybackSettings.bPauseAtEnd)
@@ -589,7 +615,7 @@ void UMovieSceneSequencePlayer::UpdateTimeCursorPosition_Internal(FFrameTime New
 	else
 	{
 		// Just update the time and sequence
-		FMovieSceneEvaluationRange Range = PlayPosition.PlayTo(NewPosition);
+		FMovieSceneEvaluationRange Range = UpdatePlayPosition(PlayPosition, NewPosition, Method);
 		UpdateMovieSceneInstance(Range, StatusOverride);
 	}
 }

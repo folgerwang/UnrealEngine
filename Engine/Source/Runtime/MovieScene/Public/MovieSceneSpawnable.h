@@ -188,6 +188,26 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Actor)
 	FTransform SpawnTransform;
 
+	/**
+	 * Get the name of the level to spawn into.
+	 *
+	 * @return Level name.
+	 */
+	FName GetLevelName() const
+	{
+		return LevelName;
+	}
+
+	/**
+	 * Set the name of the level to spawn into.
+	 *
+	 * @InLevelName The desired spawnable level name.
+	 */
+	void SetLevelName(FName InLevelName)
+	{
+		LevelName = InLevelName;
+	}
+
 private:
 
 	/** Unique identifier of the spawnable object. */
@@ -219,4 +239,8 @@ public:
 	UPROPERTY()
 	UClass* GeneratedClass_DEPRECATED;
 #endif
+
+	/** Name of level to spawn into */
+	UPROPERTY()
+	FName LevelName;
 };

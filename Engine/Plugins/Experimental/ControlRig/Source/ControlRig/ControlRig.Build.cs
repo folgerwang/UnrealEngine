@@ -20,6 +20,7 @@ namespace UnrealBuildTool.Rules
                     "MovieScene",
                     "MovieSceneTracks",
                     "PropertyPath",
+					"TimeManagement"
                 }
             );
 

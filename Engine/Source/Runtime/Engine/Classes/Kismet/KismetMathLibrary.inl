@@ -829,7 +829,7 @@ FVector UKismetMathLibrary::VLerp(FVector A, FVector B, float V)
 KISMET_MATH_FORCEINLINE
 FVector UKismetMathLibrary::VInterpTo(FVector Current, FVector Target, float DeltaTime, float InterpSpeed)
 {
-	return FMath::VInterpTo( Current, Target, DeltaTime, InterpSpeed );
+	return FMath::VInterpTo(Current, Target, DeltaTime, InterpSpeed);
 }
 
 KISMET_MATH_FORCEINLINE
@@ -841,13 +841,13 @@ FVector UKismetMathLibrary::VInterpTo_Constant(FVector Current, FVector Target, 
 KISMET_MATH_FORCEINLINE
 FVector2D UKismetMathLibrary::Vector2DInterpTo(FVector2D Current, FVector2D Target, float DeltaTime, float InterpSpeed)
 {
-	return FMath::Vector2DInterpTo( Current, Target, DeltaTime, InterpSpeed );
+	return FMath::Vector2DInterpTo(Current, Target, DeltaTime, InterpSpeed);
 }
 
 KISMET_MATH_FORCEINLINE
 FVector2D UKismetMathLibrary::Vector2DInterpTo_Constant(FVector2D Current, FVector2D Target, float DeltaTime, float InterpSpeed)
 {
-	return FMath::Vector2DInterpConstantTo( Current, Target, DeltaTime, InterpSpeed );
+	return FMath::Vector2DInterpConstantTo(Current, Target, DeltaTime, InterpSpeed);
 }
 
 KISMET_MATH_INLINE
@@ -969,7 +969,7 @@ FRotator UKismetMathLibrary::Multiply_RotatorInt(FRotator A, int32 B)
 }	
 
 KISMET_MATH_FORCEINLINE
-FRotator UKismetMathLibrary::NegateRotator( FRotator A )
+FRotator UKismetMathLibrary::NegateRotator(FRotator A)
 {
 	return A.GetInverse();
 }
@@ -977,7 +977,7 @@ FRotator UKismetMathLibrary::NegateRotator( FRotator A )
 KISMET_MATH_FORCEINLINE
 FRotator UKismetMathLibrary::RInterpTo(FRotator Current, FRotator Target, float DeltaTime, float InterpSpeed)
 {
-	return FMath::RInterpTo( Current, Target, DeltaTime, InterpSpeed);
+	return FMath::RInterpTo(Current, Target, DeltaTime, InterpSpeed);
 }
 
 KISMET_MATH_FORCEINLINE
@@ -1001,7 +1001,7 @@ FLinearColor UKismetMathLibrary::LinearColorLerp(FLinearColor A, FLinearColor B,
 KISMET_MATH_FORCEINLINE
 FLinearColor UKismetMathLibrary::LinearColorLerpUsingHSV(FLinearColor A, FLinearColor B, float Alpha)
 {
-	return FLinearColor::LerpUsingHSV( A, B, Alpha );
+	return FLinearColor::LerpUsingHSV(A, B, Alpha);
 }
 
 KISMET_MATH_FORCEINLINE
@@ -1177,13 +1177,13 @@ bool UKismetMathLibrary::NotEqual_ClassClass(class UClass* A, class UClass* B)
 *****************************************************************************/
 
 KISMET_MATH_FORCEINLINE
-FDateTime UKismetMathLibrary::Add_DateTimeTimespan( FDateTime A, FTimespan B )
+FDateTime UKismetMathLibrary::Add_DateTimeTimespan(FDateTime A, FTimespan B)
 {
 	return A + B;
 }
 
 KISMET_MATH_FORCEINLINE
-FDateTime UKismetMathLibrary::Subtract_DateTimeTimespan( FDateTime A, FTimespan B )
+FDateTime UKismetMathLibrary::Subtract_DateTimeTimespan(FDateTime A, FTimespan B)
 {
 	return A - B;
 }
@@ -1195,115 +1195,115 @@ FTimespan UKismetMathLibrary::Subtract_DateTimeDateTime(FDateTime A, FDateTime B
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::EqualEqual_DateTimeDateTime( FDateTime A, FDateTime B )
+bool UKismetMathLibrary::EqualEqual_DateTimeDateTime(FDateTime A, FDateTime B)
 {
 	return A == B;
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::NotEqual_DateTimeDateTime( FDateTime A, FDateTime B )
+bool UKismetMathLibrary::NotEqual_DateTimeDateTime(FDateTime A, FDateTime B)
 {
 	return A != B;
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::Greater_DateTimeDateTime( FDateTime A, FDateTime B )
+bool UKismetMathLibrary::Greater_DateTimeDateTime(FDateTime A, FDateTime B)
 {
 	return A > B;
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::GreaterEqual_DateTimeDateTime( FDateTime A, FDateTime B )
+bool UKismetMathLibrary::GreaterEqual_DateTimeDateTime(FDateTime A, FDateTime B)
 {
 	return A >= B;
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::Less_DateTimeDateTime( FDateTime A, FDateTime B )
+bool UKismetMathLibrary::Less_DateTimeDateTime(FDateTime A, FDateTime B)
 {
 	return A < B;
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::LessEqual_DateTimeDateTime( FDateTime A, FDateTime B )
+bool UKismetMathLibrary::LessEqual_DateTimeDateTime(FDateTime A, FDateTime B)
 {
 	return A <= B;
 }
 
 KISMET_MATH_FORCEINLINE
-FDateTime UKismetMathLibrary::GetDate( FDateTime A )
+FDateTime UKismetMathLibrary::GetDate(FDateTime A)
 {
 	return A.GetDate();
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetDay( FDateTime A )
+int32 UKismetMathLibrary::GetDay(FDateTime A)
 {
 	return A.GetDay();
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetDayOfYear( FDateTime A )
+int32 UKismetMathLibrary::GetDayOfYear(FDateTime A)
 {
 	return A.GetDayOfYear();
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetHour( FDateTime A )
+int32 UKismetMathLibrary::GetHour(FDateTime A)
 {
 	return A.GetHour();
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetHour12( FDateTime A )
+int32 UKismetMathLibrary::GetHour12(FDateTime A)
 {
 	return A.GetHour12();
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetMillisecond( FDateTime A )
+int32 UKismetMathLibrary::GetMillisecond(FDateTime A)
 {
 	return A.GetMillisecond();
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetMinute( FDateTime A )
+int32 UKismetMathLibrary::GetMinute(FDateTime A)
 {
 	return A.GetMinute();
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetMonth( FDateTime A )
+int32 UKismetMathLibrary::GetMonth(FDateTime A)
 {
 	return A.GetMonth();
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetSecond( FDateTime A )
+int32 UKismetMathLibrary::GetSecond(FDateTime A)
 {
 	return A.GetSecond();
 }
 
 KISMET_MATH_FORCEINLINE
-FTimespan UKismetMathLibrary::GetTimeOfDay( FDateTime A )
+FTimespan UKismetMathLibrary::GetTimeOfDay(FDateTime A)
 {
 	return A.GetTimeOfDay();
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetYear( FDateTime A )
+int32 UKismetMathLibrary::GetYear(FDateTime A)
 {
 	return A.GetYear();
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::IsAfternoon( FDateTime A )
+bool UKismetMathLibrary::IsAfternoon(FDateTime A)
 {
 	return A.IsAfternoon();
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::IsMorning( FDateTime A )
+bool UKismetMathLibrary::IsMorning(FDateTime A)
 {
 	return A.IsMorning();
 }
@@ -1321,43 +1321,43 @@ int32 UKismetMathLibrary::DaysInMonth(int32 Year, int32 Month)
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::DaysInYear( int32 Year )
+int32 UKismetMathLibrary::DaysInYear(int32 Year)
 {
 	return FDateTime::DaysInYear(Year);
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::IsLeapYear( int32 Year )
+bool UKismetMathLibrary::IsLeapYear(int32 Year)
 {
 	return FDateTime::IsLeapYear(Year);
 }
 
 KISMET_MATH_FORCEINLINE
-FDateTime UKismetMathLibrary::DateTimeMaxValue( )
+FDateTime UKismetMathLibrary::DateTimeMaxValue()
 {
 	return FDateTime::MaxValue();
 }
 
 KISMET_MATH_FORCEINLINE
-FDateTime UKismetMathLibrary::DateTimeMinValue( )
+FDateTime UKismetMathLibrary::DateTimeMinValue()
 {
 	return FDateTime::MinValue();
 }
 
 KISMET_MATH_FORCEINLINE
-FDateTime UKismetMathLibrary::Now( )
+FDateTime UKismetMathLibrary::Now()
 {
 	return FDateTime::Now();
 }
 
 KISMET_MATH_FORCEINLINE
-FDateTime UKismetMathLibrary::Today( )
+FDateTime UKismetMathLibrary::Today()
 {
 	return FDateTime::Today();
 }
 
 KISMET_MATH_FORCEINLINE
-FDateTime UKismetMathLibrary::UtcNow( )
+FDateTime UKismetMathLibrary::UtcNow()
 {
 	return FDateTime::UtcNow();
 }
@@ -1378,19 +1378,19 @@ bool UKismetMathLibrary::DateTimeFromString(FString DateTimeString, FDateTime& R
 *****************************************************************************/
 
 KISMET_MATH_FORCEINLINE
-FTimespan UKismetMathLibrary::Add_TimespanTimespan( FTimespan A, FTimespan B )
+FTimespan UKismetMathLibrary::Add_TimespanTimespan(FTimespan A, FTimespan B)
 {
 	return A + B;
 }
 
 KISMET_MATH_FORCEINLINE
-FTimespan UKismetMathLibrary::Subtract_TimespanTimespan( FTimespan A, FTimespan B )
+FTimespan UKismetMathLibrary::Subtract_TimespanTimespan(FTimespan A, FTimespan B)
 {
 	return A - B;
 }
 
 KISMET_MATH_FORCEINLINE
-FTimespan UKismetMathLibrary::Multiply_TimespanFloat( FTimespan A, float Scalar )
+FTimespan UKismetMathLibrary::Multiply_TimespanFloat(FTimespan A, float Scalar)
 {
 	return A * Scalar;
 }
@@ -1402,127 +1402,127 @@ FTimespan UKismetMathLibrary::Divide_TimespanFloat(FTimespan A, float Scalar)
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::EqualEqual_TimespanTimespan( FTimespan A, FTimespan B )
+bool UKismetMathLibrary::EqualEqual_TimespanTimespan(FTimespan A, FTimespan B)
 {
 	return A == B;
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::NotEqual_TimespanTimespan( FTimespan A, FTimespan B )
+bool UKismetMathLibrary::NotEqual_TimespanTimespan(FTimespan A, FTimespan B)
 {
 	return A != B;
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::Greater_TimespanTimespan( FTimespan A, FTimespan B )
+bool UKismetMathLibrary::Greater_TimespanTimespan(FTimespan A, FTimespan B)
 {
 	return A > B;
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::GreaterEqual_TimespanTimespan( FTimespan A, FTimespan B )
+bool UKismetMathLibrary::GreaterEqual_TimespanTimespan(FTimespan A, FTimespan B)
 {
 	return A >= B;
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::Less_TimespanTimespan( FTimespan A, FTimespan B )
+bool UKismetMathLibrary::Less_TimespanTimespan(FTimespan A, FTimespan B)
 {
 	return A < B;
 }
 
 KISMET_MATH_FORCEINLINE
-bool UKismetMathLibrary::LessEqual_TimespanTimespan( FTimespan A, FTimespan B )
+bool UKismetMathLibrary::LessEqual_TimespanTimespan(FTimespan A, FTimespan B)
 {
 	return A <= B;
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetDays( FTimespan A )
+int32 UKismetMathLibrary::GetDays(FTimespan A)
 {
 	return A.GetDays();
 }
 
 KISMET_MATH_FORCEINLINE
-FTimespan UKismetMathLibrary::GetDuration( FTimespan A )
+FTimespan UKismetMathLibrary::GetDuration(FTimespan A)
 {
 	return A.GetDuration();
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetHours( FTimespan A )
+int32 UKismetMathLibrary::GetHours(FTimespan A)
 {
 	return A.GetHours();
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetMilliseconds( FTimespan A )
+int32 UKismetMathLibrary::GetMilliseconds(FTimespan A)
 {
 	return A.GetFractionMilli();
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetMinutes( FTimespan A )
+int32 UKismetMathLibrary::GetMinutes(FTimespan A)
 {
 	return A.GetMinutes();
 }
 
 KISMET_MATH_FORCEINLINE
-int32 UKismetMathLibrary::GetSeconds( FTimespan A )
+int32 UKismetMathLibrary::GetSeconds(FTimespan A)
 {
 	return A.GetSeconds();
 }
 
 KISMET_MATH_FORCEINLINE
-float UKismetMathLibrary::GetTotalDays( FTimespan A )
+float UKismetMathLibrary::GetTotalDays(FTimespan A)
 {
 	return A.GetTotalDays();
 }
 
 KISMET_MATH_FORCEINLINE
-float UKismetMathLibrary::GetTotalHours( FTimespan A )
+float UKismetMathLibrary::GetTotalHours(FTimespan A)
 {
 	return A.GetTotalHours();
 }
 
 KISMET_MATH_FORCEINLINE
-float UKismetMathLibrary::GetTotalMilliseconds( FTimespan A )
+float UKismetMathLibrary::GetTotalMilliseconds(FTimespan A)
 {
 	return A.GetTotalMilliseconds();
 }
 
 KISMET_MATH_FORCEINLINE
-float UKismetMathLibrary::GetTotalMinutes( FTimespan A )
+float UKismetMathLibrary::GetTotalMinutes(FTimespan A)
 {
 	return A.GetTotalMinutes();
 }
 
 KISMET_MATH_FORCEINLINE
-float UKismetMathLibrary::GetTotalSeconds( FTimespan A )
+float UKismetMathLibrary::GetTotalSeconds(FTimespan A)
 {
 	return A.GetTotalSeconds();
 }
 
 KISMET_MATH_FORCEINLINE
-FTimespan UKismetMathLibrary::TimespanMaxValue( )
+FTimespan UKismetMathLibrary::TimespanMaxValue()
 {
 	return FTimespan::MaxValue();
 }
 
 KISMET_MATH_FORCEINLINE
-FTimespan UKismetMathLibrary::TimespanMinValue( )
+FTimespan UKismetMathLibrary::TimespanMinValue()
 {
 	return FTimespan::MinValue();
 }
 
 KISMET_MATH_INLINE
-float UKismetMathLibrary::TimespanRatio( FTimespan A, FTimespan B )
+float UKismetMathLibrary::TimespanRatio(FTimespan A, FTimespan B)
 {
 	return FTimespan::Ratio(A, B);
 }
 
 KISMET_MATH_FORCEINLINE
-FTimespan UKismetMathLibrary::TimespanZeroValue( )
+FTimespan UKismetMathLibrary::TimespanZeroValue()
 {
 	return FTimespan::Zero();
 }

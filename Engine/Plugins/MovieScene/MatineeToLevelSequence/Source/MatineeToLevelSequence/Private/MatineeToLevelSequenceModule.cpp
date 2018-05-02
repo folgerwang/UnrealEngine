@@ -698,7 +698,7 @@ protected:
 			MatineeActor->InitInterp();
 
 			// Set the length
-			const int32 LengthInFrames = (MatineeActor->MatineeData->InterpLength * NewMovieScene->GetFrameResolution()).FrameNumber.Value;
+			const int32 LengthInFrames = (MatineeActor->MatineeData->InterpLength * NewMovieScene->GetTickResolution()).FrameNumber.Value;
 			NewMovieScene->SetPlaybackRange(FFrameNumber(0), LengthInFrames + 1);
 
 			// Convert the groups

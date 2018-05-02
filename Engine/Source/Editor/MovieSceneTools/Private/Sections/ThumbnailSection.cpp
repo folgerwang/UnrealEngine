@@ -278,10 +278,10 @@ TRange<double> FThumbnailSection::GetVisibleRange() const
 		return GlobalVisibleRange;
 	}
 
-	const FFrameRate FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	const FFrameRate TickResolution = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
 
-	const double     StartOffset = Section->HasStartFrame() ? Section->GetInclusiveStartFrame() / FrameResolution : 0.0;
-	const double     EndOffset   = Section->HasEndFrame()   ? Section->GetExclusiveEndFrame()   / FrameResolution : 0.0;
+	const double     StartOffset = Section->HasStartFrame() ? Section->GetInclusiveStartFrame() / TickResolution : 0.0;
+	const double     EndOffset   = Section->HasEndFrame()   ? Section->GetExclusiveEndFrame()   / TickResolution : 0.0;
 
 	return TRange<double>(
 		GlobalVisibleRange.GetLowerBoundValue() - StartOffset,
@@ -291,18 +291,18 @@ TRange<double> FThumbnailSection::GetVisibleRange() const
 
 TRange<double> FThumbnailSection::GetTotalRange() const
 {
-	TRange<FFrameNumber> SectionRange    = Section->GetRange();
-	FFrameRate           FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	TRange<FFrameNumber> SectionRange   = Section->GetRange();
+	FFrameRate           TickResolution = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
 
 	if (TimeSpace == ETimeSpace::Global)
 	{
-		return SectionRange / FrameResolution;
+		return SectionRange / TickResolution;
 	}
 	else
 	{
 		const bool bHasDiscreteSize = SectionRange.GetLowerBound().IsClosed() && SectionRange.GetUpperBound().IsClosed();
 		TRangeBound<double> UpperBound = bHasDiscreteSize
-			? TRangeBound<double>::Exclusive(FFrameNumber(MovieScene::DiscreteSize(SectionRange)) / FrameResolution)
+			? TRangeBound<double>::Exclusive(FFrameNumber(MovieScene::DiscreteSize(SectionRange)) / TickResolution)
 			: TRangeBound<double>::Open();
 
 		return TRange<double>(0, UpperBound);

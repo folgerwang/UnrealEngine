@@ -272,6 +272,7 @@ void FControlRigTrackEditor::AddControlRigSubMenu(FMenuBuilder& MenuBuilder, FGu
 		FAssetPickerConfig AssetPickerConfig;
 		{
 			AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateRaw(this, &FControlRigTrackEditor::OnSequencerAssetSelected, ObjectBinding, Track);
+			AssetPickerConfig.OnAssetEnterPressed = FOnAssetEnterPressed::CreateRaw(this, &FControlRigTrackEditor::OnSequencerAssetEnterPressed, ObjectBinding, Track);
 			AssetPickerConfig.bAllowNullSelection = false;
 			AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 			AssetPickerConfig.Filter.bRecursiveClasses = true;
@@ -302,6 +303,14 @@ void FControlRigTrackEditor::OnSequencerAssetSelected(const FAssetData& AssetDat
 	{
 		UControlRigSequence* Sequence = CastChecked<UControlRigSequence>(AssetData.GetAsset());
 		AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FControlRigTrackEditor::AddKeyInternal, ObjectBinding, Sequence, Track));
+	}
+}
+
+void FControlRigTrackEditor::OnSequencerAssetEnterPressed(const TArray<FAssetData>& AssetData, FGuid ObjectBinding, UMovieSceneTrack* Track)
+{
+	if (AssetData.Num() > 0)
+	{
+		OnSequencerAssetSelected(AssetData[0].GetAsset(), ObjectBinding, Track);
 	}
 }
 

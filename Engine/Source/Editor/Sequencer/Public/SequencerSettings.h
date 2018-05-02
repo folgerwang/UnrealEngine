@@ -12,6 +12,7 @@
 struct FPropertyChangedEvent;
 enum class EAutoChangeMode : uint8;
 enum class EAllowEditsMode : uint8;
+enum class EKeyGroupMode : uint8;
 enum class EMovieSceneKeyInterpolation : uint8;
 
 
@@ -121,10 +122,10 @@ public:
 	/** Gets the multicast delegate which is run whenever the allow edits mode is changed. */
 	FOnAllowEditsModeChanged& GetOnAllowEditsModeChanged() { return OnAllowEditsModeChangedEvent; }
 
-	/** Gets whether or not key all is enabled. */
-	bool GetKeyAllEnabled() const;
-	/** Sets whether or not key all is enabled. */
-	void SetKeyAllEnabled(bool InbKeyAllEnabled);
+	/** Returns what channels will get keyed when one channel changes */
+	EKeyGroupMode GetKeyGroupMode() const;
+	/** Sets which channels are keyed when a channel is keyed */
+	void SetKeyGroupMode(EKeyGroupMode);
 
 	/** Gets whether or not to key interp properties only. */
 	bool GetKeyInterpPropertiesOnly() const;
@@ -345,9 +346,9 @@ protected:
 	UPROPERTY( config, EditAnywhere, Category=Keyframing )
 	EAllowEditsMode AllowEditsMode;
 
-	/** Enable or disable keying all channels when any are keyed. */
-	UPROPERTY( config, EditAnywhere, Category=Keyframing )
-	bool bKeyAllEnabled;
+	/**Key group mode. */
+	UPROPERTY(config, EditAnywhere, Category = Keyframing)
+	EKeyGroupMode KeyGroupMode;
 
 	/** Enable or disable only keyframing properties marked with the 'Interp' keyword. */
 	UPROPERTY( config, EditAnywhere, Category=Keyframing )

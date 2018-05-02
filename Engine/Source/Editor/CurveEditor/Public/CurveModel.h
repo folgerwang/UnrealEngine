@@ -20,6 +20,7 @@ struct FCurveEditorScreenSpace;
 class FName;
 class SWidget;
 class FCurveEditor;
+class UObject;
 
 enum class ECurvePointType : uint8;
 
@@ -162,12 +163,13 @@ public:
 	}
 
 	/**
-	 * Create an edit interface for this curve
+	 * Create key proxy objects for the specified key handles. One object should be assigned to OutObjects per index within InKeyHandles
+	 *
+	 * @param InKeyHandles           Array of key handles to create edit objects for
+	 * @param OutObjects             (Out) Array to receive objects that should be used to edit each of the input key handles.
 	 */
-	virtual TSharedPtr<SWidget> CreateEditUI(TSharedPtr<FCurveEditor> InCurveEditor, FCurveModelID ThisCurveID)
-	{
-		return nullptr;
-	}
+	virtual void CreateKeyProxies(TArrayView<const FKeyHandle> InKeyHandles, TArrayView<UObject*> OutObjects)
+	{}
 
 public:
 

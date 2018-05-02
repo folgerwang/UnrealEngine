@@ -523,10 +523,10 @@ void FMovieSceneCompiler::PopulateMetaData(FCompiledGroupResult& OutResult, cons
 
 			UMovieSceneSequence* Sequence = SubData->GetSequence();
 
-			FGuid TemplateID = Sequence ? TemplateStore.AccessTemplate(*Sequence).TemplateSignature : FGuid();
+			uint32 TemplateSerialNumber = Sequence ? TemplateStore.AccessTemplate(*Sequence).TemplateSerialNumber.GetValue() : 0;
 
 			OutResult.MetaData.ActiveSequences.Add(SequenceID);
-			OutResult.MetaData.SubTemplateSignatures.Add(SequenceID, TemplateID);
+			OutResult.MetaData.SubTemplateSerialNumbers.Add(SequenceID, TemplateSerialNumber);
 		}
 
 		OutResult.MetaData.ActiveSequences.Sort();

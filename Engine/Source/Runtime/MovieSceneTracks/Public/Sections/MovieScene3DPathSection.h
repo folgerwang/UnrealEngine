@@ -64,7 +64,7 @@ public:
 private:
 
 	/** Timing Curve */
-	UPROPERTY(EditAnywhere, Category="Path")
+	UPROPERTY()
 	FMovieSceneFloatChannel TimingCurve;
 
 	/** Front Axis */

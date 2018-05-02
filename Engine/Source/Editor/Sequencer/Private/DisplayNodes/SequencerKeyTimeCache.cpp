@@ -8,22 +8,23 @@
 void FSequencerCachedKeys::Update(TSharedRef<IKeyArea> InKeyArea, FFrameRate SourceResolution)
 {
 	UMovieSceneSection* Section = InKeyArea->GetOwningSection();
-	if (!Section || !CachedSignature.IsValid() || Section->GetSignature() != CachedSignature || SourceResolution != CachedFrameResolution)
+	if (!Section || !CachedSignature.IsValid() || Section->GetSignature() != CachedSignature || SourceResolution != CachedTickResolution)
 	{
 		CachedSignature = Section ? Section->GetSignature() : FGuid();
-		CachedFrameResolution = SourceResolution;
+		CachedTickResolution = SourceResolution;
 
-		TArray<FFrameNumber> Times;
+		CachedKeyFrames.Reset();
+
 		TArray<FKeyHandle> Handles;
-		InKeyArea->GetKeyInfo(&Handles, &Times);
+		InKeyArea->GetKeyInfo(&Handles, &CachedKeyFrames);
 
-		CachedKeyTimes.Reset(Times.Num());
-		CachedKeyHandles.Reset(Times.Num());
+		CachedKeyTimes.Reset(CachedKeyFrames.Num());
+		CachedKeyHandles.Reset(CachedKeyFrames.Num());
 
 		// Generate and cache
-		for (int32 Index = 0; Index < Times.Num(); ++Index)
+		for (int32 Index = 0; Index < CachedKeyFrames.Num(); ++Index)
 		{
-			CachedKeyTimes.Add(Times[Index] / SourceResolution);
+			CachedKeyTimes.Add(CachedKeyFrames[Index] / SourceResolution);
 			CachedKeyHandles.Add(Handles[Index]);
 		}
 
@@ -31,7 +32,7 @@ void FSequencerCachedKeys::Update(TSharedRef<IKeyArea> InKeyArea, FFrameRate Sou
 	}
 }
 
-void FSequencerCachedKeys::GetKeysInRange(const TRange<double>& Range, TArrayView<const double>* OutTimes, TArrayView<const FKeyHandle>* OutHandles) const
+void FSequencerCachedKeys::GetKeysInRange(const TRange<double>& Range, TArrayView<const double>* OutTimes, TArrayView<const FFrameNumber>* OutKeyFrames, TArrayView<const FKeyHandle>* OutHandles) const
 {
 	// Binary search the first time that's >= the lower bound
 	int32 FirstVisibleIndex = Algo::LowerBound(CachedKeyTimes, Range.GetLowerBoundValue());
@@ -44,6 +45,11 @@ void FSequencerCachedKeys::GetKeysInRange(const TRange<double>& Range, TArrayVie
 		if (OutTimes)
 		{
 			*OutTimes = MakeArrayView(&CachedKeyTimes[FirstVisibleIndex], Num);
+		}
+
+		if (OutKeyFrames)
+		{
+			*OutKeyFrames = MakeArrayView(&CachedKeyFrames[FirstVisibleIndex], Num);
 		}
 
 		if (OutHandles)

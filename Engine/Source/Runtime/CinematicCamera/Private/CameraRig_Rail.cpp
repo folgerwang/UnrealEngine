@@ -17,6 +17,7 @@ ACameraRig_Rail::ACameraRig_Rail(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bStartWithTickEnabled = true;
 
 	CurrentPositionOnRail = 0.f;
+	bLockOrientationToRail = false;
 
 	// Create components
 	TransformComponent = CreateDefaultSubobject<USceneComponent>(TEXT("TransformComponent"));
@@ -154,6 +155,12 @@ void ACameraRig_Rail::UpdateRailComponents()
 		float const SplineLen = RailSplineComponent->GetSplineLength();
 		FVector const MountPos = RailSplineComponent->GetLocationAtDistanceAlongSpline(CurrentPositionOnRail*SplineLen, ESplineCoordinateSpace::World);
 		RailCameraMount->SetWorldLocation(MountPos);
+
+		if (bLockOrientationToRail)
+		{
+			FQuat const RailRot = RailSplineComponent->GetQuaternionAtDistanceAlongSpline(CurrentPositionOnRail*SplineLen, ESplineCoordinateSpace::World);
+			RailCameraMount->SetWorldRotation(RailRot);
+		}
 	}
 
 #if WITH_EDITOR

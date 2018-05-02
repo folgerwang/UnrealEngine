@@ -27,7 +27,7 @@ namespace SequencerSectionUtils
 	FGeometry GetSectionGeometry( const FGeometry& AllottedGeometry, int32 RowIndex, int32 MaxTracks, float NodeHeight, TSharedPtr<ISequencerSection> SectionInterface, const FTimeToPixel& TimeToPixelConverter )
 	{
 		const UMovieSceneSection* Section    = SectionInterface->GetSectionObject();
-		const FFrameRate          Resolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		const FFrameRate          Resolution = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
 
 		// Sections with an infite (open) start bound use the currently visible geometry and time range
 		float PixelStartX = Section->HasStartFrame() ? TimeToPixelConverter.FrameToPixel( Section->GetInclusiveStartFrame() )     : AllottedGeometry.Position.X;
@@ -186,7 +186,7 @@ void SSequencerSectionAreaView::OnArrangeChildren( const FGeometry& AllottedGeom
 FTimeToPixel SSequencerSectionAreaView::GetTimeToPixel( const FGeometry& AllottedGeometry ) const
 {
 	const UMovieSceneTrack* Track      = SectionAreaNode->GetTrack();
-	const FFrameRate        Resolution = Track->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	const FFrameRate        Resolution = Track->GetTypedOuter<UMovieScene>()->GetTickResolution();
 
 	return FTimeToPixel( AllottedGeometry, ViewRange.Get(), Resolution );
 }

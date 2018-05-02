@@ -229,7 +229,7 @@ void FSequencerEdMode::CleanUpMeshTrails()
 namespace SequencerEdMode_Draw3D
 {
 static const FColor	KeySelectedColor(255,128,0);
-static const int32	DrawTrackTimeRes = 10;
+static const float	DrawTrackTimeRes = 0.1f;
 static const float	CurveHandleScale = 0.5f;
 }
 
@@ -347,7 +347,7 @@ void FSequencerEdMode::GetLocationAtTime(FMovieSceneEvaluationTrack* Track, UObj
 	FMovieSceneInterrogationData InterrogationData;
 	Sequencer->GetEvaluationTemplate().CopyActuators(InterrogationData.GetAccumulator());
 
-	FMovieSceneContext Context(FMovieSceneEvaluationRange(KeyTime, Sequencer->GetFocusedFrameResolution()));
+	FMovieSceneContext Context(FMovieSceneEvaluationRange(KeyTime, Sequencer->GetFocusedTickResolution()));
 	Track->Interrogate(Context, InterrogationData, Object);
 
 	for (const FTransform& Transform : InterrogationData.Iterate<FTransform>(UMovieScene3DTransformTrack::GetInterrogationKey()))
@@ -398,7 +398,7 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 		}
 	);
 	
-	FFrameRate FrameResolution = Sequencer->GetFocusedFrameResolution();
+	FFrameRate TickResolution = Sequencer->GetFocusedTickResolution();
 	FMovieSceneEvaluationTemplate* Template = Sequencer->GetEvaluationTemplate().FindTemplate(Sequencer->GetFocusedTemplateID());
 	if (!bShowTrajectory || !Template || !TransformTrack->GetAllSections().ContainsByPredicate([](UMovieSceneSection* In){ return In->IsActive(); }))
 	{
@@ -435,10 +435,9 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 				// If not the first keypoint, draw a line to the last keypoint.
 				if(KeyTimeIndex > 0)
 				{
-					int32 NumSteps = ((NewKeyTime - OldKeyTime)*SequencerEdMode_Draw3D::DrawTrackTimeRes).CeilToFrame().Value;
+					int32 NumSteps = FMath::CeilToInt((TickResolution.AsSeconds(NewKeyTime) - TickResolution.AsSeconds(OldKeyTime)) / SequencerEdMode_Draw3D::DrawTrackTimeRes);
 					// Limit the number of steps to prevent a rendering performance hit
 					NumSteps = FMath::Min( 100, NumSteps );
-
 					FFrameTime DrawSubstep = NumSteps == 0 ? 0 : (NewKeyTime - OldKeyTime)*(1.f/NumSteps);
 
 					// Find position on first keyframe.
@@ -491,7 +490,7 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 								}
 								else if (TrailActor != nullptr)
 								{
-									TrailActor->AddFrameMeshComponent(NewTime / FrameResolution, FTransform(NewRot, NewPos, FVector(3.0f)));
+									TrailActor->AddFrameMeshComponent(NewTime / TickResolution, FTransform(NewRot, NewPos, FVector(3.0f)));
 								}
 							}
 							OldTime = NewTime;
@@ -543,7 +542,7 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 
 					for (UMovieScene3DTransformSection* Section : AllSections)
 					{
-						TrailActor->AddKeyMeshActor(NewKeyTime / FrameResolution, FTransform(NewKeyRot, NewKeyPos, FVector(3.0f)), Section);
+						TrailActor->AddKeyMeshActor(NewKeyTime / TickResolution, FTransform(NewKeyRot, NewKeyPos, FVector(3.0f)), Section);
 					}
 				}
 

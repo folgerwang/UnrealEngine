@@ -63,6 +63,9 @@ private:
 	/** Animation asset selected */
 	void OnCameraShakeAssetSelected(const FAssetData& AssetData, FGuid ObjectBinding);
 
+	/** Animation asset enter pressed */
+	void OnCameraShakeAssetEnterPressed(const TArray<FAssetData>& AssetData, FGuid ObjectBinding);
+
 	class UCameraComponent* AcquireCameraComponentFromObjectGuid(const FGuid& Guid);
 };
 

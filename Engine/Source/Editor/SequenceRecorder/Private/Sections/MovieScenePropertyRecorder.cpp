@@ -37,8 +37,8 @@ UMovieSceneSection* FMovieScenePropertyRecorder<bool>::AddSection(UObject* InObj
 
 		UMovieSceneBoolSection* Section         = Cast<UMovieSceneBoolSection>(Track->CreateNewSection());
 
-		FFrameRate   FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FFrameNumber CurrentFrame    = (InTime * FrameResolution).FloorToFrame();
+		FFrameRate   TickResolution  = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber CurrentFrame    = (InTime * TickResolution).FloorToFrame();
 
 		Section->SetRange(TRange<FFrameNumber>(CurrentFrame));
 
@@ -84,8 +84,8 @@ UMovieSceneSection* FMovieScenePropertyRecorder<uint8>::AddSection(UObject* InOb
 
 		UMovieSceneByteSection* Section = Cast<UMovieSceneByteSection>(Track->CreateNewSection());
 
-		FFrameRate   FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FFrameNumber CurrentFrame    = (InTime * FrameResolution).FloorToFrame();
+		FFrameRate   TickResolution  = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber CurrentFrame    = (InTime * TickResolution).FloorToFrame();
 
 		Section->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
 
@@ -129,8 +129,8 @@ UMovieSceneSection* FMovieScenePropertyRecorderEnum::AddSection(UObject* InObjec
 
 		UMovieSceneEnumSection* Section = Cast<UMovieSceneEnumSection>(Track->CreateNewSection());
 
-		FFrameRate   FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FFrameNumber CurrentFrame    = (InTime * FrameResolution).FloorToFrame();
+		FFrameRate   TickResolution  = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber CurrentFrame    = (InTime * TickResolution).FloorToFrame();
 
 		Section->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
 
@@ -174,8 +174,8 @@ UMovieSceneSection* FMovieScenePropertyRecorder<float>::AddSection(UObject* InOb
 
 		UMovieSceneFloatSection* Section = Cast<UMovieSceneFloatSection>(Track->CreateNewSection());
 
-		FFrameRate   FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FFrameNumber CurrentFrame    = (InTime * FrameResolution).FloorToFrame();
+		FFrameRate   TickResolution  = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber CurrentFrame    = (InTime * TickResolution).FloorToFrame();
 
 		Section->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
 
@@ -225,8 +225,8 @@ UMovieSceneSection* FMovieScenePropertyRecorder<FColor>::AddSection(UObject* InO
 
 		UMovieSceneColorSection* Section = Cast<UMovieSceneColorSection>(Track->CreateNewSection());
 
-		FFrameRate   FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FFrameNumber CurrentFrame    = (InTime * FrameResolution).FloorToFrame();
+		FFrameRate   TickResolution  = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber CurrentFrame    = (InTime * TickResolution).FloorToFrame();
 
 		Section->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
 
@@ -294,8 +294,8 @@ UMovieSceneSection* FMovieScenePropertyRecorder<FVector>::AddSection(UObject* In
 
 		UMovieSceneVectorSection* Section = Cast<UMovieSceneVectorSection>(Track->CreateNewSection());
 
-		FFrameRate   FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FFrameNumber CurrentFrame    = (InTime * FrameResolution).FloorToFrame();
+		FFrameRate   TickResolution  = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber CurrentFrame    = (InTime * TickResolution).FloorToFrame();
 
 		Section->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
 

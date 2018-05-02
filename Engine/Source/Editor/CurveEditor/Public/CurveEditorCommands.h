@@ -35,6 +35,8 @@ public:
 	TSharedPtr<FUICommandInfo> InterpolationCubicAuto;
 	TSharedPtr<FUICommandInfo> InterpolationCubicUser;
 	TSharedPtr<FUICommandInfo> InterpolationCubicBreak;
+	TSharedPtr<FUICommandInfo> InterpolationToggleWeighted;
+
 
 	TSharedPtr<FUICommandInfo> FlattenTangents;
 	TSharedPtr<FUICommandInfo> StraightenTangents;

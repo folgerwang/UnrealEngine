@@ -72,6 +72,14 @@ public:
 	/** Get Animation bindings of the animation */
 	const TArray<FWidgetAnimationBinding>& GetBindings() const { return AnimationBindings; }
 
+	/** Whether to finish evaluation on stop */
+	bool GetLegacyFinishOnStop() const { return bLegacyFinishOnStop; }
+
+protected:
+
+	/** Called after this object has been deserialized */
+	virtual void PostLoad() override;
+
 public:
 
 	/** Pointer to the movie scene that controls this animation. */
@@ -81,4 +89,10 @@ public:
 	/**  */
 	UPROPERTY()
 	TArray<FWidgetAnimationBinding> AnimationBindings;
+
+private:
+
+	/** Whether to finish evaluation on stop. This legacy value is to preserve existing asset behavior to NOT finish on stop since content was created with this bug. If this is removed, evaluation should always finish on stop. */
+	UPROPERTY()
+	bool bLegacyFinishOnStop;
 };

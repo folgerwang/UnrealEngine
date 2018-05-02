@@ -9,7 +9,7 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 {
 	AutoChangeMode = EAutoChangeMode::None;
 	AllowEditsMode = EAllowEditsMode::AllEdits;
-	bKeyAllEnabled = false;
+	KeyGroupMode = EKeyGroupMode::KeyChanged;
 	bKeyInterpPropertiesOnly = false;
 	KeyInterpolation = EMovieSceneKeyInterpolation::Auto;
 	bAutoSetTrackDefaults = false;
@@ -87,16 +87,16 @@ void USequencerSettings::SetAllowEditsMode(EAllowEditsMode InAllowEditsMode)
 	}
 }
 
-bool USequencerSettings::GetKeyAllEnabled() const
+EKeyGroupMode USequencerSettings::GetKeyGroupMode() const
 {
-	return bKeyAllEnabled;
+	return KeyGroupMode;
 }
 
-void USequencerSettings::SetKeyAllEnabled(bool InbKeyAllEnabled)
+void USequencerSettings::SetKeyGroupMode(EKeyGroupMode InKeyGroupMode)
 {
-	if ( bKeyAllEnabled != InbKeyAllEnabled )
+	if (KeyGroupMode != InKeyGroupMode)
 	{
-		bKeyAllEnabled = InbKeyAllEnabled;
+		KeyGroupMode = InKeyGroupMode;
 		SaveConfig();
 	}
 }

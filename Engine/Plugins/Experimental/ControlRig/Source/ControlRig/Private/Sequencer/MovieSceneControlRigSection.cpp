@@ -54,8 +54,14 @@ FMovieSceneSubSequenceData UMovieSceneControlRigSection::GenerateSubSequenceData
 
 	InstanceData.Weight = Weight;
 
-	MovieScene::Offset(&InstanceData.Weight, -GetInclusiveStartFrame());
-	MovieScene::Dilate(&InstanceData.Weight, 0, Parameters.TimeScale == 0.0f ? 0.0f : 1.0f / Parameters.TimeScale);
+	// Apply timescale and start offset so the weight curve is in the inner sequence's space
+	FMovieSceneSequenceTransform OuterToInner = OuterToInnerTransform();
+
+	TArrayView<FFrameNumber> Times = InstanceData.Weight.GetInterface().GetTimes();
+	for (FFrameNumber& Time : Times)
+	{
+		Time = (Time * OuterToInner).FloorToFrame();
+	}
 
 	SubData.InstanceData = FMovieSceneSequenceInstanceDataPtr(InstanceData);
 
