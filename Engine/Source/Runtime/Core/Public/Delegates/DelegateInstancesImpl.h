@@ -1062,7 +1062,7 @@ public:
 
 	virtual bool ExecuteIfSafe(ParamTypes... Params) const override final
 	{
-		if (IsSafeToExecute())
+		if (Super::IsSafeToExecute())
 		{
 			Super::Execute(Params...);
 			return true;
