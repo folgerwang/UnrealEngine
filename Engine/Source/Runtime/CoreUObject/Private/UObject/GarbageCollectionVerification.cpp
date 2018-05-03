@@ -317,3 +317,26 @@ void VerifyClustersAssumptions()
 }
 
 #endif // VERIFY_DISREGARD_GC_ASSUMPTIONS
+
+#if PROFILE_GCConditionalBeginDestroy
+
+TMap<FName, FCBDTime> CBDTimings;
+TMap<UObject*, FName> CBDNameLookup;
+
+void FScopedCBDProfile::DumpProfile()
+{
+	CBDTimings.ValueSort(TLess<FCBDTime>());
+	int32 NumPrint = 0;
+	for (auto& Item : CBDTimings)
+	{
+		UE_LOG(LogGarbage, Log, TEXT("    %6d cnt %6.2fus per   %6.2fms total  %s"), Item.Value.Items, 1000.0f * 1000.0f * Item.Value.TotalTime / float(Item.Value.Items), 1000.0f * Item.Value.TotalTime, *Item.Key.ToString());
+		if (NumPrint++ > 3000000000)
+		{
+			break;
+		}
+	}
+	CBDTimings.Empty();
+	CBDNameLookup.Empty();
+}
+
+#endif // PROFILE_GCConditionalBeginDestroy
