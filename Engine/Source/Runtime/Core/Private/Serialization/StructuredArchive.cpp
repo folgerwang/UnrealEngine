@@ -346,6 +346,34 @@ void FStructuredArchive::FSlot::operator<< (UObject*& Value)
 	Ar.LeaveSlot();
 }
 
+void FStructuredArchive::FSlot::operator<< (FWeakObjectPtr& Value)
+{
+	Ar.EnterSlot(ElementId);
+	Ar.Formatter.Serialize(Value);
+	Ar.LeaveSlot();
+}
+
+void FStructuredArchive::FSlot::operator<< (FLazyObjectPtr& Value)
+{
+	Ar.EnterSlot(ElementId);
+	Ar.Formatter.Serialize(Value);
+	Ar.LeaveSlot();
+}
+
+void FStructuredArchive::FSlot::operator<< (FSoftObjectPtr& Value)
+{
+	Ar.EnterSlot(ElementId);
+	Ar.Formatter.Serialize(Value);
+	Ar.LeaveSlot();
+}
+
+void FStructuredArchive::FSlot::operator<< (FSoftObjectPath& Value)
+{
+	Ar.EnterSlot(ElementId);
+	Ar.Formatter.Serialize(Value);
+	Ar.LeaveSlot();
+}
+
 void FStructuredArchive::FSlot::Serialize(TArray<uint8>& Data)
 {
 	Ar.EnterSlot(ElementId);

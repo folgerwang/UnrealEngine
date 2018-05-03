@@ -14,10 +14,11 @@ FArchiveFromStructuredArchive::FArchiveFromStructuredArchive(FStructuredArchive:
 	
 	if (IsTextFormat())
 	{
-		Record = Slot.EnterRecord();
+		Root = Slot.EnterRecord();
+
 		if (IsLoading())
 		{
-			SerializeInternal();
+			Commit();
 		}
 	}
 	else
@@ -28,18 +29,18 @@ FArchiveFromStructuredArchive::FArchiveFromStructuredArchive(FStructuredArchive:
 
 FArchiveFromStructuredArchive::~FArchiveFromStructuredArchive()
 {
-	SerializeInternal();
+	Commit();
 }
 
 void FArchiveFromStructuredArchive::Flush()
 {
-	SerializeInternal();
+	Commit();
 	FArchive::Flush();
 }
 
 bool FArchiveFromStructuredArchive::Close()
 {
-	SerializeInternal();
+	Commit();
 	return FArchive::Close();
 }
 
@@ -130,7 +131,7 @@ FArchive& FArchiveFromStructuredArchive::operator<<(class UObject*& Value)
 			}
 			else
 			{
-				TOptional<FStructuredArchive::FSlot> ObjectsSlot = Record->TryEnterField(FIELD_NAME_TEXT("Objects"), false);
+				TOptional<FStructuredArchive::FSlot> ObjectsSlot = Root->TryEnterField(FIELD_NAME_TEXT("Objects"), false);
 				if (ObjectsSlot.IsSet())
 				{
 					// We know exactly which stream index we want to load here, but because of the API we need to read through them
@@ -225,14 +226,22 @@ void FArchiveFromStructuredArchive::Serialize(void* V, int64 Length)
 	}
 }
 
-void FArchiveFromStructuredArchive::SerializeInternal()
+void FArchiveFromStructuredArchive::Commit()
 {
-	if (bPendingSerialize && IsTextFormat())
+	if (IsTextFormat())
 	{
-		FStructuredArchive::FSlot DataSlot = Record.GetValue().EnterField(FIELD_NAME_TEXT("Data"));
+		SerializeInternal(Root.GetValue());
+	}
+}
+
+void FArchiveFromStructuredArchive::SerializeInternal(FStructuredArchive::FRecord Record)
+{
+	if (bPendingSerialize)
+	{
+		FStructuredArchive::FSlot DataSlot = Record.EnterField(FIELD_NAME_TEXT("Data"));
 		DataSlot.Serialize(Buffer);
 
-		TOptional<FStructuredArchive::FSlot> ObjectsSlot = Record.GetValue().TryEnterField(FIELD_NAME_TEXT("Objects"), Objects.Num() > 0);
+		TOptional<FStructuredArchive::FSlot> ObjectsSlot = Record.TryEnterField(FIELD_NAME_TEXT("Objects"), Objects.Num() > 0);
 		if (ObjectsSlot.IsSet())
 		{
 			if (IsLoading())
@@ -256,7 +265,7 @@ void FArchiveFromStructuredArchive::SerializeInternal()
 			}
 		}
 
-		TOptional<FStructuredArchive::FSlot> NamesSlot = Record.GetValue().TryEnterField(FIELD_NAME_TEXT("Names"), Names.Num() > 0);
+		TOptional<FStructuredArchive::FSlot> NamesSlot = Record.TryEnterField(FIELD_NAME_TEXT("Names"), Names.Num() > 0);
 		if (NamesSlot.IsSet())
 		{
 			NamesSlot.GetValue() << Names;

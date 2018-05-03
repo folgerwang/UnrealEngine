@@ -4,6 +4,10 @@
 #include "Misc/Base64.h"
 #include "Misc/SecureHash.h"
 #include "UObject/Object.h"
+#include "UObject/WeakObjectPtr.h"
+#include "UObject/SoftObjectPtr.h"
+#include "UObject/SoftObjectPath.h"
+#include "UObject/LazyObjectPtr.h"
 
 #if WITH_TEXT_ARCHIVE_SUPPORT
 
@@ -232,6 +236,54 @@ void FJsonArchiveOutputFormatter::Serialize(UObject*& Value)
 	else
 	{
 		SerializeStringInternal(FString::Printf(TEXT("Object:%s"), *Value->GetFullName()));
+	}
+}
+
+void FJsonArchiveOutputFormatter::Serialize(FWeakObjectPtr& Value)
+{
+	if (Value.IsValid())
+	{
+		SerializeStringInternal(FString::Printf(TEXT("Object:%s"), *Value.Get()->GetFullName()));
+	}
+	else
+	{
+		WriteValue(TEXT("null"));
+	}
+}
+
+void FJsonArchiveOutputFormatter::Serialize(FSoftObjectPtr& Value)
+{
+	if (Value.IsValid())
+	{
+		SerializeStringInternal(FString::Printf(TEXT("Object:%s"), *Value.Get()->GetFullName()));
+	}
+	else
+	{
+		WriteValue(TEXT("null"));
+	}
+}
+
+void FJsonArchiveOutputFormatter::Serialize(FSoftObjectPath& Value)
+{
+	if (Value.IsValid())
+	{
+		SerializeStringInternal(FString::Printf(TEXT("Object:%s"), *Value.GetAssetPathName().ToString()));
+	}
+	else
+	{
+		WriteValue(TEXT("null"));
+	}
+}
+
+void FJsonArchiveOutputFormatter::Serialize(FLazyObjectPtr& Value)
+{
+	if (Value.IsValid())
+	{
+		SerializeStringInternal(FString::Printf(TEXT("Lazy:%s"), *Value.GetUniqueID().ToString()));
+	}
+	else
+	{
+		WriteValue(TEXT("null"));
 	}
 }
 

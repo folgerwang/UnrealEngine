@@ -100,6 +100,10 @@ public:
 	virtual void Serialize(FString& Value) = 0;
 	virtual void Serialize(FName& Value) = 0;
 	virtual void Serialize(UObject*& Value) = 0;
+	virtual void Serialize(struct FWeakObjectPtr& Value) = 0;
+	virtual void Serialize(struct FSoftObjectPtr& Value) = 0;
+	virtual void Serialize(struct FSoftObjectPath& Value) = 0;
+	virtual void Serialize(struct FLazyObjectPtr& Value) = 0;
 	virtual void Serialize(TArray<uint8>& Value) = 0;
 	virtual void Serialize(void* Data, uint64 DataSize) = 0;
 };

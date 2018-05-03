@@ -381,8 +381,7 @@ FArchive& FNetBitWriter::operator<<(FSoftObjectPath& Value)
 
 FArchive& FNetBitWriter::operator<<(struct FWeakObjectPtr& WeakObjectPtr)
 {
-	WeakObjectPtr.Serialize(*this);
-	return *this;
+	return FArchiveUObject::SerializeWeakObjectPtr(*this, WeakObjectPtr);
 }
 
 // ----------------------------------------------------------------
@@ -430,7 +429,7 @@ FArchive& FNetBitReader::operator<<(FSoftObjectPath& Value)
 
 FArchive& FNetBitReader::operator<<(struct FWeakObjectPtr& WeakObjectPtr)
 {
-	WeakObjectPtr.Serialize(*this);
+	return FArchiveUObject::SerializeWeakObjectPtr(*this, WeakObjectPtr);
 	return *this;
 }
 

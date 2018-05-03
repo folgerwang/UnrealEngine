@@ -1166,11 +1166,7 @@ void UObject::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 	}
 }
 
-void UObject::Serialize(FStructuredArchive::FRecord Record)
-{
-	FArchiveUObjectFromStructuredArchive Ar(Record.EnterField(FIELD_NAME_TEXT("BaseClassAutoGen")));
-	UObject::Serialize(Ar);
-}
+IMPLEMENT_FSTRUCTUREDARCHIVE_SERIALIZER(UObject)
 
 void UObject::Serialize( FArchive& Ar )
 {

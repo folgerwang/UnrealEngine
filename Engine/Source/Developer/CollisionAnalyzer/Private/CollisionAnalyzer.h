@@ -131,7 +131,6 @@ struct FCollisionAnalyzerProxyArchive : public FNameAsStringProxyArchive
 
 	 virtual FArchive& operator<< (struct FWeakObjectPtr& Value) override
 	 {
-		 Value.Serialize(*this);
-		 return *this;
+		 return FArchiveUObject::SerializeWeakObjectPtr(*this, Value);
 	 }
 };

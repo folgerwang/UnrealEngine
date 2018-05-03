@@ -14,7 +14,7 @@ class CORE_API FArchiveFromStructuredArchive : public FArchiveProxy
 {
 public:
 	FArchiveFromStructuredArchive(FStructuredArchive::FSlot Slot);
-	~FArchiveFromStructuredArchive();
+	virtual ~FArchiveFromStructuredArchive();
 
 	virtual void Flush() override;
 	virtual bool Close() override;
@@ -32,9 +32,15 @@ public:
 
 	virtual FArchive* GetCacheableArchive() override
 	{
-		return IsTextFormat() ? nullptr : Record->GetUnderlyingArchive().GetCacheableArchive();
+		return IsTextFormat() ? nullptr : Root->GetUnderlyingArchive().GetCacheableArchive();
 	}
-	
+
+protected:
+
+	TOptional<FStructuredArchive::FRecord> Root;
+	void Commit();
+	virtual void SerializeInternal(FStructuredArchive::FRecord Record);
+
 private:
 	static const int32 MaxBufferSize = 128;
 
@@ -49,8 +55,4 @@ private:
 	TArray<UObject*> Objects;
 	TBitArray<> ObjectsValid;
 	TMap<UObject*, int32> ObjectToIndex;
-
-	TOptional<FStructuredArchive::FRecord> Record;
-
-	void SerializeInternal();
 };

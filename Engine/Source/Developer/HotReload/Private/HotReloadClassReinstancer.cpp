@@ -185,8 +185,7 @@ void FHotReloadClassReinstancer::SerializeCDOProperties(UObject* InObject, FHotR
 		}
 		FArchive& operator<<(FWeakObjectPtr& WeakObjectPtr) override
 		{
-			WeakObjectPtr.Serialize(*this);
-			return *this;
+			return FArchiveUObject::SerializeWeakObjectPtr(*this, WeakObjectPtr);
 		}
 		/** Archive name, for debugging */
 		virtual FString GetArchiveName() const override { return TEXT("FCDOWriter"); }
@@ -425,8 +424,7 @@ void FHotReloadClassReinstancer::UpdateDefaultProperties()
 		}
 		FArchive& operator<<(FWeakObjectPtr& WeakObjectPtr) override
 		{
-			WeakObjectPtr.Serialize(*this);
-			return *this;
+			return FArchiveUObject::SerializeWeakObjectPtr(*this, WeakObjectPtr);
 		}
 	};
 

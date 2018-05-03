@@ -49,6 +49,10 @@ public:
 	virtual void Serialize(FString& Value) override;
 	virtual void Serialize(FName& Value) override;
 	virtual void Serialize(UObject*& Value) override;
+	virtual void Serialize(FWeakObjectPtr& Value) override;
+	virtual void Serialize(FSoftObjectPtr& Value) override;
+	virtual void Serialize(FSoftObjectPath& Value) override;
+	virtual void Serialize(FLazyObjectPtr& Value) override;
 	virtual void Serialize(TArray<uint8>& Value) override;
 	virtual void Serialize(void* Data, uint64 DataSize) override;
 
@@ -206,6 +210,26 @@ inline void FBinaryArchiveFormatter::Serialize(FName& Value)
 }
 
 inline void FBinaryArchiveFormatter::Serialize(UObject*& Value)
+{
+	Inner << Value;
+}
+
+inline void FBinaryArchiveFormatter::Serialize(FWeakObjectPtr& Value)
+{
+	Inner << Value;
+}
+
+inline void FBinaryArchiveFormatter::Serialize(FSoftObjectPtr& Value)
+{
+	Inner << Value;
+}
+
+inline void FBinaryArchiveFormatter::Serialize(FSoftObjectPath& Value)
+{
+	Inner << Value;
+}
+
+inline void FBinaryArchiveFormatter::Serialize(FLazyObjectPtr& Value)
 {
 	Inner << Value;
 }

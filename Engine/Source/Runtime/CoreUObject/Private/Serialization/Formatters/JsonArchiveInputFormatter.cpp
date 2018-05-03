@@ -6,6 +6,10 @@
 #include "Serialization/JsonSerializer.h"
 #include "Misc/Base64.h"
 #include "Misc/SecureHash.h"
+#include "UObject/SoftObjectPath.h"
+#include "UObject/SoftObjectPtr.h"
+#include "UObject/WeakObjectPtr.h"
+#include "UObject/LazyObjectPtr.h"
 
 #if WITH_TEXT_ARCHIVE_SUPPORT
 
@@ -276,6 +280,50 @@ void FJsonArchiveInputFormatter::Serialize(UObject*& Value)
 	else
 	{
 		Value = nullptr;
+	}
+}
+
+void FJsonArchiveInputFormatter::Serialize(FWeakObjectPtr& Value)
+{
+	UObject* Object = nullptr;
+	Serialize(Object);
+	Value = Object;
+}
+
+void FJsonArchiveInputFormatter::Serialize(FSoftObjectPtr& Value)
+{
+	FSoftObjectPath Path;
+	Serialize(Path);
+	Value = Path;
+}
+
+void FJsonArchiveInputFormatter::Serialize(FSoftObjectPath& Value)
+{
+	FString StringValue;
+	const TCHAR Prefix[] = TEXT("Object:");
+	if (ValueStack.Top()->TryGetString(StringValue) && StringValue.StartsWith(Prefix))
+	{
+		Value.SetPath(*StringValue + ARRAY_COUNT(Prefix) - 1);
+	}
+	else
+	{
+		Value.Reset();
+	}
+}
+
+void FJsonArchiveInputFormatter::Serialize(FLazyObjectPtr& Value)
+{
+	FString StringValue;
+	const TCHAR Prefix[] = TEXT("Lazy:");
+	if (ValueStack.Top()->TryGetString(StringValue) && StringValue.StartsWith(Prefix))
+	{
+		FUniqueObjectGuid Guid;
+		Guid.FromString(*StringValue + ARRAY_COUNT(Prefix) - 1);
+		Value = Guid;
+	}
+	else
+	{
+		Value.Reset();
 	}
 }
 

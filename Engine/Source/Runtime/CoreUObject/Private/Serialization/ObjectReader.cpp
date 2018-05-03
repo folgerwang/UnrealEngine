@@ -50,8 +50,7 @@ FArchive& FObjectReader::operator<<(FSoftObjectPath& Value)
 
 FArchive& FObjectReader::operator<<(FWeakObjectPtr& Value)
 {
-	Value.Serialize(*this);
-	return *this;
+	return FArchiveUObject::SerializeWeakObjectPtr(*this, Value);
 }
 
 FString FObjectReader::GetArchiveName() const

@@ -532,6 +532,7 @@ public:
 	/** Structured archive serializer. */
 	FORCEINLINE friend void operator<<(FStructuredArchive::FSlot Slot, TMapBase& InMap)
 	{
+		/*
 		if (Slot.GetUnderlyingArchive().IsTextFormat())
 		{
 			int32 Num = InMap.Num();
@@ -563,6 +564,7 @@ public:
 			}
 		}
 		else
+		*/
 		{
 			Slot << InMap.Pairs;
 		}
