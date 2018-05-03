@@ -235,27 +235,13 @@ void FCurveEditor::ZoomToFitCurves(TArrayView<const FCurveModelID> CurveModelIDs
 		{
 			if (const FCurveModel* Curve = FindCurve(CurveModelID))
 			{
-				KeyHandlesScratch.Reset();
-				Curve->GetKeys(*this,
-					TNumericLimits<double>::Lowest(),
-					TNumericLimits<double>::Max(),
-					TNumericLimits<double>::Lowest(),
-					TNumericLimits<double>::Max(),
-					KeyHandlesScratch);
-
-				if (KeyHandlesScratch.Num())
-				{
-					KeyPositionsScratch.SetNum(KeyHandlesScratch.Num());
-					Curve->GetKeyPositions(KeyHandlesScratch, KeyPositionsScratch);
-
-					for (FKeyPosition Key : KeyPositionsScratch)
-					{
-						InputMin  = FMath::Min(InputMin, Key.InputValue);
-						InputMax  = FMath::Max(InputMax, Key.InputValue);
-						OutputMin = FMath::Min(OutputMin, Key.OutputValue);
-						OutputMax = FMath::Max(OutputMax, Key.OutputValue);
-					}
-				}
+				double LocalMin, LocalMax;
+				Curve->GetTimeRange(LocalMin, LocalMax);
+				InputMin = FMath::Min(InputMin, LocalMin);
+				InputMax = FMath::Max(InputMax, LocalMax);
+				Curve->GetValueRange(LocalMin, LocalMax);
+				OutputMin = FMath::Min(OutputMin, LocalMin);
+				OutputMax = FMath::Max(OutputMax, LocalMax);
 			}
 		}
 
@@ -314,7 +300,7 @@ void FCurveEditor::ZoomToFitInternal(EAxisList::Type Axes, double InputMin, doub
 	OutputMax = FMath::Max(OutputMin + MinOutputZoom, OutputMax);
 
 	double InputPadding  = (InputMax - InputMin) * 0.1;
-	double OutputPadding = (OutputMax - OutputMin) * 0.1;
+	double OutputPadding = (OutputMax - OutputMin) * 0.05;
 
 	InputMin -= InputPadding;
 	InputMax += InputPadding;
