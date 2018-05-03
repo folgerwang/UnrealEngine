@@ -69,8 +69,8 @@ void FMovieSceneVisibilitySectionRecorder::CreateSection(UObject* InObjectToReco
 			bWasVisible = !Actor->bHidden;
 		}
 
-		FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FFrameNumber CurrentFrame    = (Time * FrameResolution).FloorToFrame();
+		FFrameRate   TickResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber CurrentFrame    = (Time * TickResolution).FloorToFrame();
 
 		if (ensure(Channel))
 		{
@@ -98,8 +98,8 @@ void FMovieSceneVisibilitySectionRecorder::Record(float CurrentTime)
 {
 	if(ObjectToRecord.IsValid())
 	{
-		FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FFrameNumber CurrentFrame    = (CurrentTime * FrameResolution).FloorToFrame();
+		FFrameRate   TickResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber CurrentFrame    = (CurrentTime * TickResolution).FloorToFrame();
 
 		MovieSceneSection->ExpandToFrame(CurrentFrame);
 

@@ -276,7 +276,24 @@ public:
 			}
 
 			IAMVideoCompression* CompressionImpl = nullptr;
-			if(EncodingFilter && SUCCEEDED(EncodingFilter->QueryInterface(IID_IAMVideoCompression, (void **)&CompressionImpl)))
+			if (EncodingFilter)
+			{
+				IEnumPins* pEnum = nullptr;
+				IPin* pPin = nullptr;
+				EncodingFilter->EnumPins(&pEnum);
+				while (S_OK == pEnum->Next(1, &pPin, NULL))
+				{
+					hr = pPin->QueryInterface(IID_IAMVideoCompression, (void**)&CompressionImpl);
+					pPin->Release();
+					if (SUCCEEDED(hr)) // Found the interface.
+					{
+						break;
+					}
+				}
+				pEnum->Release();
+			}
+
+			if (CompressionImpl)
 			{
 				CompressionImpl->put_Quality(Options.CompressionQuality.GetValue());
 				CompressionImpl->Release();

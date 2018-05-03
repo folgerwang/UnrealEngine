@@ -138,6 +138,9 @@ private:
 	/** Import an animation sequence's root transforms into a transform section */
 	static void ImportAnimSequenceTransforms(const FAssetData& Asset, TSharedRef<class ISequencer> Sequencer, UMovieScene3DTransformTrack* TransformTrack);
 
+	/** Import an animation sequence's root transforms into a transform section */
+	static void ImportAnimSequenceTransformsEnterPressed(const TArray<FAssetData>& Asset, TSharedRef<class ISequencer> Sequencer, UMovieScene3DTransformTrack* TransformTrack);
+
 private:
 
 	static FName TransformPropertyName;

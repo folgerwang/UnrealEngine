@@ -327,6 +327,7 @@ public:
 			SequencerInitParams.bEditWithinLevelEditor = false;
 			SequencerInitParams.ViewParams.AddMenuExtender = AddMenuExtender;
 			SequencerInitParams.ViewParams.UniqueName = "EmbeddedActorSequenceEditor";
+			SequencerInitParams.ViewParams.ScrubberStyle = ESequencerScrubberStyle::FrameBlock;
 			SequencerInitParams.ViewParams.OnReceivedFocus.BindRaw(this, &SActorSequenceEditorWidgetImpl::OnSequencerReceivedFocus);
 		}
 

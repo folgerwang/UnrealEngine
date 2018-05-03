@@ -1520,6 +1520,9 @@ public class AndroidPlatform : Platform
 
 			PackageNames.Add(PackageName);
 
+			// Message back to the UE4 Editor to correctly set the app id for each device
+            Console.WriteLine("Running Package@Device:{0}@{1}", PackageName, DeviceName);
+
 			// clear the log for the device
 			RunAdbCommand(Params, DeviceName, "logcat -c");
 

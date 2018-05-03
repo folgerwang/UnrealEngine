@@ -262,7 +262,7 @@ public:
 	 */
 	TSharedPtr<FSequencerDisplayNode> GetSectionAreaAuthority() const;
 
-	FFrameRate GetFrameResolution() const;
+	FFrameRate GetTickResolution() const;
 
 	/**
 	 * @return the path to this node starting with the outermost parent

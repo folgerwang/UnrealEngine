@@ -17,6 +17,7 @@ import java.text.DecimalFormat;
 
 import android.annotation.TargetApi;
 
+import android.app.Activity;
 import android.app.NativeActivity;
 import android.app.ActivityManager;
 import android.os.Bundle;
@@ -42,6 +43,8 @@ import android.text.Spanned;
 import android.text.method.PasswordTransformationMethod;
 import android.text.TextWatcher;
 import android.view.inputmethod.EditorInfo;
+import android.content.ClipboardManager;
+import android.content.ClipData;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -1075,6 +1078,8 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
         		}
         	}
         });
+
+		clipboardManager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
 
 //$${gameActivityOnCreateAdditions}$$
 		
@@ -3187,6 +3192,38 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		//Log.debug("VK: AndroidThunkJava_VirtualInputIgnoreClick false");
 		return false;
 	}
+	
+	public void AndroidThunkJava_RestartApplication() 
+	{
+		Context context = getApplicationContext();
+	
+		// get the launch intent
+		PackageManager packageManager = context.getPackageManager();
+		Intent intent = packageManager.getLaunchIntentForPackage(context.getPackageName());
+
+		// make an "restart intent", to be used to re-launch an application's task in its base state
+		intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+		context.startActivity(intent);
+
+		// kill the current application instance. Undefined behaviour after this!
+		Runtime.getRuntime().exit(0); 
+	}
+	
+	public void AndroidThunkJava_ClipboardCopy(String text) 
+	{
+		ClipData clip = ClipData.newPlainText("Copied Text", text);
+		clipboardManager.setPrimaryClip(clip);
+	}
+
+	public String AndroidThunkJava_ClipboardPaste() 
+	{
+		if(clipboardManager.hasPrimaryClip()) 
+		{
+			ClipData.Item item = clipboardManager.getPrimaryClip().getItemAt(0);
+			return item.getText().toString();
+		} 
+		return "";
+	}
 
 	public native int nativeGetCPUFamily();
 	public native boolean nativeSupportsNEON();
@@ -3225,5 +3262,8 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	}
 
 	public native void nativeHandleSensorEvents(float[] tilt, float[] rotation_rate, float[] gravity, float[] acceleration);
+
+	private static ClipboardManager clipboardManager;
+
 }
 

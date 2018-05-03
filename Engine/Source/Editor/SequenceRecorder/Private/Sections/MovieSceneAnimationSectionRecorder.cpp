@@ -103,8 +103,8 @@ void FMovieSceneAnimationSectionRecorder::CreateSection(UObject* InObjectToRecor
 					UMovieSceneSkeletalAnimationTrack* AnimTrack = MovieScene->AddTrack<UMovieSceneSkeletalAnimationTrack>(Guid);
 					if (AnimTrack)
 					{
-						FFrameRate   FrameResolution = AnimTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-						FFrameNumber CurrentFrame    = (Time * FrameResolution).FloorToFrame();
+						FFrameRate   TickResolution  = AnimTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
+						FFrameNumber CurrentFrame    = (Time * TickResolution).FloorToFrame();
 
 						AnimTrack->AddNewAnimation(CurrentFrame, AnimSequence.Get());
 						MovieSceneSection = Cast<UMovieSceneSkeletalAnimationSection>(AnimTrack->GetAllSections()[0]);
@@ -135,8 +135,8 @@ void FMovieSceneAnimationSectionRecorder::FinalizeSection()
 
 	if(MovieSceneSection.IsValid() && AnimSequence.IsValid() && MovieSceneSection->HasStartFrame())
 	{
-		FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FFrameNumber SequenceLength  = (AnimSequence->GetPlayLength() * FrameResolution).FloorToFrame();
+		FFrameRate   TickResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber SequenceLength  = (AnimSequence->GetPlayLength() * TickResolution).FloorToFrame();
 		
 		MovieSceneSection->SetEndFrame(TRangeBound<FFrameNumber>::Exclusive(MovieSceneSection->GetInclusiveStartFrame() + SequenceLength));
 	}

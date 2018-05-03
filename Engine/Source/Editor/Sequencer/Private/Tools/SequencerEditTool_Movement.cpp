@@ -144,9 +144,28 @@ TSharedPtr<ISequencerEditToolDragOperation> FSequencerEditTool_Movement::CreateD
 		{
 			return HotspotDrag;
 		}
-
-		// Ok, the hotspot doesn't know how to drag - let's decide for ourselves
 		auto HotspotType = DelayedDrag->Hotspot->GetType();
+
+		const bool bSectionsSelected = Selection.GetSelectedSections().Num() > 0;
+		const bool bKeySelected = Selection.GetSelectedKeys().Num() > 0;
+		// @todo sequencer: Make this a customizable UI command modifier?
+		const bool bIsDuplicateEvent = MouseEvent.IsAltDown() || MouseEvent.GetEffectingButton() == EKeys::MiddleMouseButton;
+		const bool bHotspotIsSection = HotspotType == ESequencerHotspot::Section;
+
+		// If they have both keys and sections selected then we only support moving them right now, so we
+		// check for that first before trying to figure out if they're resizing or dilating.
+		if (bSectionsSelected && bKeySelected && !bIsDuplicateEvent)
+		{
+			TArray<FSectionHandle> SelectedSectionHandles = SequencerWidget->GetSectionHandles(Selection.GetSelectedSections());
+			TSet<FSequencerSelectedKey> SelectedKeys = Selection.GetSelectedKeys();
+
+			return MakeShareable(new FMoveKeysAndSections(Sequencer, SelectedKeys, SelectedSectionHandles, bHotspotIsSection));
+		}
+		else if (bIsDuplicateEvent)
+		{
+			return MakeShareable(new FDuplicateKeysAndSections(Sequencer, Selection.GetSelectedKeys(), SequencerWidget->GetSectionHandles(Selection.GetSelectedSections()), bHotspotIsSection));
+		}
+
 
 		TOptional<FSectionHandle> SectionToDrag;
 		if (HotspotType == ESequencerHotspot::Section || HotspotType == ESequencerHotspot::EasingArea)
@@ -181,7 +200,8 @@ TSharedPtr<ISequencerEditToolDragOperation> FSequencerEditTool_Movement::CreateD
 			}
 			else
 			{
-				return MakeShareable( new FMoveSection( Sequencer, SectionHandles ) );
+				TSet<FSequencerSelectedKey> EmptyKeySet;
+				return MakeShareable( new FMoveKeysAndSections( Sequencer, EmptyKeySet, SectionHandles, true) );
 			}
 		}
 		// Moving key(s)?
@@ -207,23 +227,20 @@ TSharedPtr<ISequencerEditToolDragOperation> FSequencerEditTool_Movement::CreateD
 				SequencerHelpers::UpdateHoveredNodeFromSelectedKeys(Sequencer);
 			}
 
-			// @todo sequencer: Make this a customizable UI command modifier?
-			if (MouseEvent.IsAltDown() || MouseEvent.GetEffectingButton() == EKeys::MiddleMouseButton)
-			{
-				return MakeShareable( new FDuplicateKeys( Sequencer, Selection.GetSelectedKeys() ) );
-			}
-
-			return MakeShareable( new FMoveKeys( Sequencer, Selection.GetSelectedKeys() ) );
+			TArray<FSectionHandle> EmptySectionHandles;
+			return MakeShareable( new FMoveKeysAndSections( Sequencer, Selection.GetSelectedKeys(), EmptySectionHandles, false) );
 		}
 	}
 	// If we're not dragging a hotspot, sections take precedence over keys
 	else if (Selection.GetSelectedSections().Num())
 	{
-		return MakeShareable( new FMoveSection( Sequencer, SequencerWidget->GetSectionHandles(Selection.GetSelectedSections()) ) );
+		TSet<FSequencerSelectedKey> EmptyKeySet;
+		return MakeShareable( new FMoveKeysAndSections( Sequencer, EmptyKeySet, SequencerWidget->GetSectionHandles(Selection.GetSelectedSections()), true ) );
 	}
 	else if (Selection.GetSelectedKeys().Num())
 	{
-		return MakeShareable( new FMoveKeys( Sequencer, Selection.GetSelectedKeys() ) );
+		TArray<FSectionHandle> EmptySectionHandles;
+		return MakeShareable( new FMoveKeysAndSections( Sequencer, Selection.GetSelectedKeys(), EmptySectionHandles, false) );
 	}
 
 	return nullptr;
@@ -464,41 +481,41 @@ FString FSequencerEditTool_Movement::TimeToString(FFrameTime Time, bool IsDelta)
 	{
 		case EFrameNumberDisplayFormats::Seconds:
 		{
-			FFrameRate FrameResolution = Sequencer.GetFocusedFrameResolution();
-			double TimeInSeconds = FrameResolution.AsSeconds(Time);
+			FFrameRate TickResolution = Sequencer.GetFocusedTickResolution();
+			double TimeInSeconds = TickResolution.AsSeconds(Time);
 			return IsDelta ? FString::Printf(TEXT("[%+.2fs]"), TimeInSeconds) : FString::Printf(TEXT("%.2fs"), TimeInSeconds);
 		}
 		case EFrameNumberDisplayFormats::Frames:
 		{
-			FFrameRate FrameResolution = Sequencer.GetFocusedFrameResolution();
-			FFrameRate PlayRate = Sequencer.GetFocusedPlayRate();
+			FFrameRate TickResolution = Sequencer.GetFocusedTickResolution();
+			FFrameRate DisplayRate    = Sequencer.GetFocusedDisplayRate();
 
 			// Convert from sequence resolution into display rate frames.
-			FFrameTime DisplayTime = FFrameRate::TransformTime(Time, FrameResolution, PlayRate);
+			FFrameTime DisplayTime = FFrameRate::TransformTime(Time, TickResolution, DisplayRate);
 			FString SubframeIndicator = FMath::IsNearlyZero(DisplayTime.GetSubFrame()) ? TEXT("") : TEXT("*");
 			int32 ZeroPadFrames = Sequencer.GetSequencerSettings()->GetZeroPadFrames();
 			return IsDelta ? FString::Printf(TEXT("[%+0*d%s]"), ZeroPadFrames, DisplayTime.GetFrame().Value, *SubframeIndicator) : FString::Printf(TEXT("%0*d%s"), ZeroPadFrames, DisplayTime.GetFrame().Value, *SubframeIndicator);
 		}
 		case EFrameNumberDisplayFormats::NonDropFrameTimecode:
 		{
-			FFrameRate SourceFrameRate = Sequencer.GetFocusedFrameResolution();
-			FFrameRate DestinationFrameRate = Sequencer.GetFocusedPlayRate();
+			FFrameRate SourceFrameRate = Sequencer.GetFocusedTickResolution();
+			FFrameRate DestinationFrameRate = Sequencer.GetFocusedDisplayRate();
 
-			FFrameNumber PlayRateFrameNumber = FFrameRate::TransformTime(Time, SourceFrameRate, DestinationFrameRate).FloorToFrame();
+			FFrameNumber DisplayRateFrameNumber = FFrameRate::TransformTime(Time, SourceFrameRate, DestinationFrameRate).FloorToFrame();
 
-			FTimecode AsNonDropTimecode = FTimecode::FromFrameNumber(PlayRateFrameNumber, DestinationFrameRate, false);
+			FTimecode AsNonDropTimecode = FTimecode::FromFrameNumber(DisplayRateFrameNumber, DestinationFrameRate, false);
 
 			const bool bForceSignDisplay = IsDelta;
 			return IsDelta ? FString::Printf(TEXT("[%s]"), *AsNonDropTimecode.ToString(bForceSignDisplay)) : FString::Printf(TEXT("%s"), *AsNonDropTimecode.ToString(bForceSignDisplay));
 		}
 		case EFrameNumberDisplayFormats::DropFrameTimecode:
 		{
-			FFrameRate SourceFrameRate = Sequencer.GetFocusedFrameResolution();
-			FFrameRate DestinationFrameRate = Sequencer.GetFocusedPlayRate();
+			FFrameRate SourceFrameRate = Sequencer.GetFocusedTickResolution();
+			FFrameRate DestinationFrameRate = Sequencer.GetFocusedDisplayRate();
 
-			FFrameNumber PlayRateFrameNumber = FFrameRate::TransformTime(Time, SourceFrameRate, DestinationFrameRate).FloorToFrame();
+			FFrameNumber DisplayRateFrameNumber = FFrameRate::TransformTime(Time, SourceFrameRate, DestinationFrameRate).FloorToFrame();
 
-			FTimecode AsDropTimecode = FTimecode::FromFrameNumber(PlayRateFrameNumber, DestinationFrameRate, true);
+			FTimecode AsDropTimecode = FTimecode::FromFrameNumber(DisplayRateFrameNumber, DestinationFrameRate, true);
 
 			const bool bForceSignDisplay = IsDelta;
 			return IsDelta ? FString::Printf(TEXT("[%s]"), *AsDropTimecode.ToString(bForceSignDisplay)) : FString::Printf(TEXT("%s"), *AsDropTimecode.ToString(bForceSignDisplay));

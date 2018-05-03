@@ -293,7 +293,7 @@ void FMovieSceneRootEvaluationTemplateInstance::EvaluateGroup(const FMovieSceneE
 				SubContext = Context;
 				if (Instance.SubData)
 				{
-					SubContext = Context.Transform(Instance.SubData->RootToSequenceTransform, Instance.SubData->FrameResolution);
+					SubContext = Context.Transform(Instance.SubData->RootToSequenceTransform, Instance.SubData->TickResolution);
 
 					// Hittest against the sequence's pre and postroll ranges
 					SubContext.ReportOuterSectionRanges(Instance.SubData->PreRollRange.Value, Instance.SubData->PostRollRange.Value);
@@ -335,7 +335,7 @@ void FMovieSceneRootEvaluationTemplateInstance::EvaluateGroup(const FMovieSceneE
 				SubContext = Context;
 				if (Instance.SubData)
 				{
-					SubContext = Context.Transform(Instance.SubData->RootToSequenceTransform, Instance.SubData->FrameResolution);
+					SubContext = Context.Transform(Instance.SubData->RootToSequenceTransform, Instance.SubData->TickResolution);
 
 					// Hittest against the sequence's pre and postroll ranges
 					SubContext.ReportOuterSectionRanges(Instance.SubData->PreRollRange.Value, Instance.SubData->PostRollRange.Value);

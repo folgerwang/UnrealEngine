@@ -66,8 +66,8 @@ public:
 	SLATE_BEGIN_ARGS(SSequencerObjectTrack) {}
 		/** The view range of the section area */
 		SLATE_ATTRIBUTE( TRange<double>, ViewRange )
-		/** The frame resolution of the current sequence*/
-		SLATE_ATTRIBUTE( FFrameRate, FrameResolution )
+		/** The tick resolution of the current sequence*/
+		SLATE_ATTRIBUTE( FFrameRate, TickResolution )
 	SLATE_END_ARGS()
 
 	/** SLeafWidget Interface */
@@ -79,7 +79,7 @@ public:
 		RootNode = InRootNode;
 		
 		ViewRange = InArgs._ViewRange;
-		FrameResolution = InArgs._FrameResolution;
+		TickResolution = InArgs._TickResolution;
 
 		check(RootNode->GetType() == ESequencerNode::Object);
 	}
@@ -101,13 +101,13 @@ private:
 
 	/** The current view range */
 	TAttribute< TRange<double> > ViewRange;
-	/** The current frame resolution */
-	TAttribute< FFrameRate > FrameResolution;
+	/** The current tick resolution */
+	TAttribute< FFrameRate > TickResolution;
 
 	FSequencerKeyCollectionSignature KeyCollectionSignature;
 
-	/** The cached frame resolution these positions were generated with */
-	FFrameRate CachedFrameResolution;
+	/** The cached tick resolution these positions were generated with */
+	FFrameRate CachedTickResolution;
 	/** The time-range for which KeyDrawPositions was generated */
 	TRange<double> CachedViewRange;
 	/** Cached pixel positions for all keys in the current view range */
@@ -124,12 +124,12 @@ void SSequencerObjectTrack::Tick( const FGeometry& AllottedGeometry, const doubl
 	FSequencerKeyCollectionSignature NewCollectionSignature = FSequencerKeyCollectionSignature::FromNodesRecursive({ RootNode.Get() }, 0);
 
 	TRange<double> OldCachedViewRange = CachedViewRange;
-	FFrameRate OldCachedFrameResolution = CachedFrameResolution;
+	FFrameRate OldCachedTickResolution = CachedTickResolution;
 
 	CachedViewRange = ViewRange.Get();
-	CachedFrameResolution = FrameResolution.Get();
+	CachedTickResolution = TickResolution.Get();
 
-	if (NewCollectionSignature != KeyCollectionSignature || CachedViewRange != OldCachedViewRange || CachedFrameResolution != OldCachedFrameResolution)
+	if (NewCollectionSignature != KeyCollectionSignature || CachedViewRange != OldCachedViewRange || CachedTickResolution != OldCachedTickResolution)
 	{
 		KeyCollectionSignature = MoveTemp(NewCollectionSignature);
 		GenerateCachedKeyPositions(AllottedGeometry);
@@ -200,7 +200,7 @@ void SSequencerObjectTrack::GenerateCachedKeyPositions(const FGeometry& Allotted
 
 		// Generate a new cache
 		FSequencerCachedKeys TempCache;
-		TempCache.Update(KeyArea, CachedFrameResolution);
+		TempCache.Update(KeyArea, CachedTickResolution);
 
 		if (CacheKey.IsValid())
 		{
@@ -234,17 +234,17 @@ void SSequencerObjectTrack::GenerateCachedKeyPositions(const FGeometry& Allotted
 	for (auto& Pair : SectionToKeyTimeCache)
 	{
 		TArrayView<const double> Times;
-		Pair.Value.GetKeysInRange(CachedViewRange, &Times, nullptr);
+		Pair.Value.GetKeysInRange(CachedViewRange, &Times, nullptr, nullptr);
 		AllIterators.Add(Times);
 	}
 	for (auto& Uncached: UncachableKeyTimes)
 	{
 		TArrayView<const double> Times;
-		Uncached.GetKeysInRange(CachedViewRange, &Times, nullptr);
+		Uncached.GetKeysInRange(CachedViewRange, &Times, nullptr, nullptr);
 		AllIterators.Add(Times);
 	}
 
-	FTimeToPixel TimeToPixelConverter(AllottedGeometry, CachedViewRange, CachedFrameResolution);
+	FTimeToPixel TimeToPixelConverter(AllottedGeometry, CachedViewRange, CachedTickResolution);
 
 	// While any iterator is still valid, find and add the earliest time
 	while (AllIterators.ContainsByPredicate([](FIter& It){ return It; }))
@@ -494,7 +494,21 @@ FLinearColor FSequencerDisplayNode::GetDisplayNameColor() const
 			}
 			else
 			{
-				return EmptyNotActive;
+				if (TrackNode.GetSections().Num() > 0)
+				{
+					for (auto Section : TrackNode.GetSections())
+					{
+						if (Section->GetSectionObject() && Section->GetSectionObject()->IsActive())
+						{
+							// Stop traversing
+							return false;
+						}
+					}
+				}
+				else
+				{
+					return EmptyNotActive;
+				}
 			}
 		}
 		// Continue traversing
@@ -567,16 +581,16 @@ TSharedRef<SWidget> FSequencerDisplayNode::GenerateWidgetForSectionArea(const TA
 	{
 		return SNew(SSequencerObjectTrack, SharedThis(this))
 			.ViewRange(ViewRange)
-			.FrameResolution(this, &FSequencerDisplayNode::GetFrameResolution);
+			.TickResolution(this, &FSequencerDisplayNode::GetTickResolution);
 	}
 
 	// currently only section areas display widgets
 	return SNullWidget::NullWidget;
 }
 
-FFrameRate FSequencerDisplayNode::GetFrameResolution() const
+FFrameRate FSequencerDisplayNode::GetTickResolution() const
 {
-	return GetSequencer().GetFocusedFrameResolution();
+	return GetSequencer().GetFocusedTickResolution();
 }
 
 TSharedPtr<FSequencerDisplayNode> FSequencerDisplayNode::GetSectionAreaAuthority() const

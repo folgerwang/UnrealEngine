@@ -148,6 +148,9 @@ public:
 	/** Sets the interp tangent mode for the selected keys to break */
 	TSharedPtr< FUICommandInfo > SetInterpolationCubicBreak;
 
+	/** Toggles the interp tangent weight mode for the selected keys */
+	TSharedPtr< FUICommandInfo > ToggleWeightedTangents;
+
 	/** Sets the interp tangent mode for the selected keys to linear */
 	TSharedPtr< FUICommandInfo > SetInterpolationLinear;
 
@@ -193,8 +196,14 @@ public:
 	/** Turns autokey on and off. */
 	TSharedPtr< FUICommandInfo > ToggleAutoKeyEnabled;
 
-	/** Turns key all on and off. */
-	TSharedPtr< FUICommandInfo > ToggleKeyAllEnabled;
+	/** Set mode to just key changed attribute. */
+	TSharedPtr< FUICommandInfo > SetKeyChanged;
+
+	/** Set mode to key changed attribute and others in it's group. */
+	TSharedPtr< FUICommandInfo > SetKeyGroup;
+
+	/** Set mode to key all. */
+	TSharedPtr< FUICommandInfo > SetKeyAll;
 
 	/** Rotates through the supported formats for displaying times/frames/timecode. */
 	TSharedPtr< FUICommandInfo > ChangeTimeDisplayFormat;

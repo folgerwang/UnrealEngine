@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Animation/Sequencer2DTransformTrackEditor.h"
+#include "Animation/Sequencer2DTransformSection.h"
 #include "Slate/WidgetTransform.h"
 #include "ISectionLayoutBuilder.h"
 
@@ -15,6 +16,13 @@ FName F2DTransformTrackEditor::ChannelYName( "Y" );
 TSharedRef<ISequencerTrackEditor> F2DTransformTrackEditor::CreateTrackEditor( TSharedRef<ISequencer> InSequencer )
 {
 	return MakeShareable( new F2DTransformTrackEditor( InSequencer ) );
+}
+
+
+TSharedRef<ISequencerSection> F2DTransformTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
+{
+	check(SupportsType(SectionObject.GetOuter()->GetClass()));
+	return MakeShared<F2DTransformSection>(SectionObject, GetSequencer());
 }
 
 

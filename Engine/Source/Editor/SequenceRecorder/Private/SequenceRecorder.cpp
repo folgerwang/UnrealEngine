@@ -153,6 +153,57 @@ void FSequenceRecorder::AddNewQueuedRecordingsForSelectedActors()
 	}
 }
 
+/** Helper function - get the first PIE world (or first PIE client world if there is more than one) */
+static UWorld* GetFirstPIEWorld()
+{
+	for (const FWorldContext& Context : GEngine->GetWorldContexts())
+	{
+		if (Context.World()->IsPlayInEditor())
+		{
+			if(Context.World()->GetNetMode() == ENetMode::NM_Standalone ||
+				(Context.World()->GetNetMode() == ENetMode::NM_Client && Context.PIEInstance == 2))
+			{
+				return Context.World();
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+void FSequenceRecorder::AddNewQueuedRecordingForCurrentPlayer()
+{
+	if (UWorld* PIEWorld = GetFirstPIEWorld())
+	{
+		APlayerController* Controller = GEngine->GetFirstLocalPlayerController(PIEWorld);
+		if(Controller && Controller->GetPawn())
+		{
+			APawn* CurrentPlayer = Controller->GetPawn();
+			if (!FindRecording(CurrentPlayer))
+			{
+				AddNewQueuedRecording(CurrentPlayer);
+			}
+		}
+	}
+}
+
+bool FSequenceRecorder::CanAddNewQueuedRecordingForCurrentPlayer() const
+{
+	if (UWorld* PIEWorld = GetFirstPIEWorld())
+	{
+		APlayerController* Controller = GEngine->GetFirstLocalPlayerController(PIEWorld);
+		if(Controller && Controller->GetPawn())
+		{
+			APawn* CurrentPlayer = Controller->GetPawn();
+			if (!FindRecording(CurrentPlayer))
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 UActorRecording* FSequenceRecorder::AddNewQueuedRecording(AActor* Actor, UAnimSequence* AnimSequence, float Length)
 {
 	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
@@ -288,6 +339,11 @@ void FSequenceRecorder::Tick(float DeltaSeconds)
 		{
 			CurrentDelay = 0.0f;
 			StartRecordingInternal(nullptr);
+
+			if (!IsRecording())
+			{
+				RestoreImmersive();
+			}
 		}
 	}
 
@@ -474,23 +530,7 @@ bool FSequenceRecorder::StartRecording(const FString& InPathToRecordTo, const FS
 
 	CurrentTime = 0.0f;
 
-	if (Settings->bImmersiveMode)
-	{
-		FLevelEditorModule& LevelEditorModule = FModuleManager::Get().LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-		TSharedPtr< ILevelViewport > ActiveLevelViewport = LevelEditorModule.GetFirstActiveViewport();
-
-		if( ActiveLevelViewport.IsValid() )
-		{
-			bWasImmersive = ActiveLevelViewport->IsImmersive();
-
-			if (!ActiveLevelViewport->IsImmersive())
-			{
-				const bool bWantImmersive = true;
-				const bool bAllowAnimation = false;
-				ActiveLevelViewport->MakeImmersive( bWantImmersive, bAllowAnimation );
-			}
-		}
-	}
+	SetImmersive();
 
 	RefreshNextSequence();
 
@@ -732,28 +772,15 @@ void FSequenceRecorder::HandleEndPIE(bool bSimulating)
 
 bool FSequenceRecorder::StopRecording()
 {
+	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
+
+	RestoreImmersive();
+
 	if (!IsRecording())
 	{
 		CurrentDelay = 0.0f;
 	
 		return false;
-	}
-
-	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
-
-	if (Settings->bImmersiveMode)
-	{
-		FLevelEditorModule& LevelEditorModule = FModuleManager::Get().LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-		TSharedPtr< ILevelViewport > ActiveLevelViewport = LevelEditorModule.GetFirstActiveViewport();
-
-		if( ActiveLevelViewport.IsValid() )
-		{
-			if (ActiveLevelViewport->IsImmersive() != bWasImmersive)
-			{
-				const bool bAllowAnimation = false;
-				ActiveLevelViewport->MakeImmersive(bWasImmersive, bAllowAnimation);
-			}
-		}
 	}
 
 	// 1 step for the audio processing
@@ -792,11 +819,11 @@ bool FSequenceRecorder::StopRecording()
 
 			UMovieSceneAudioSection* NewAudioSection = NewObject<UMovieSceneAudioSection>(AudioTrack, UMovieSceneAudioSection::StaticClass());
 
-			FFrameRate FrameResolution = AudioTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+			FFrameRate TickResolution = AudioTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 
 			NewAudioSection->SetRowIndex(RowIndex + 1);
 			NewAudioSection->SetSound(RecordedAudio);
-			NewAudioSection->SetRange(TRange<FFrameNumber>(FFrameNumber(0), (RecordedAudio->GetDuration() * FrameResolution).CeilToFrame()));
+			NewAudioSection->SetRange(TRange<FFrameNumber>(FFrameNumber(0), (RecordedAudio->GetDuration() * TickResolution).CeilToFrame()));
 
 			AudioTrack->AddSection(*NewAudioSection);
 		}
@@ -893,7 +920,7 @@ bool FSequenceRecorder::StopRecording()
 				UPackage::SavePackage(Package, NULL, RF_Standalone, *PackageFileName, GError, nullptr, false, true, SAVE_NoError);
 			}
 
-			if(FSlateApplication::IsInitialized())
+			if(FSlateApplication::IsInitialized() && GIsEditor)
 			{
 				const FText NotificationText = FText::Format(LOCTEXT("RecordSequence", "'{0}' has been successfully recorded."), FText::FromString(LevelSequence->GetName()));
 					
@@ -955,11 +982,11 @@ void FSequenceRecorder::UpdateSequencePlaybackRange()
 			MovieScene->SetPlaybackRange(PlayRange);
 
 			// Initialize the working and view range with a little bit more space
-			FFrameRate  FrameResolution = MovieScene->GetFrameResolution();
-			const double OutputViewSize = PlayRange.Size<FFrameNumber>() / FrameResolution;
+			FFrameRate  TickResolution = MovieScene->GetTickResolution();
+			const double OutputViewSize = PlayRange.Size<FFrameNumber>() / TickResolution;
 			const double OutputChange   = OutputViewSize * 0.1;
 
-			TRange<double> NewRange = MovieScene::ExpandRange(PlayRange / FrameResolution, OutputChange);
+			TRange<double> NewRange = MovieScene::ExpandRange(PlayRange / TickResolution, OutputChange);
 			FMovieSceneEditorData& EditorData = MovieScene->GetEditorData();
 			EditorData.ViewStart = EditorData.WorkStart = NewRange.GetLowerBoundValue();
 			EditorData.ViewEnd   = EditorData.WorkEnd   = NewRange.GetUpperBoundValue();
@@ -1055,6 +1082,17 @@ void FSequenceRecorder::HandleActorDespawned(AActor* Actor)
 }
 
 void FSequenceRecorder::RefreshNextSequence()
+{
+	if (SequenceName.IsEmpty())
+	{
+		SequenceName = GetSequenceRecordingName().Len() > 0 ? GetSequenceRecordingName() : TEXT("RecordedSequence");
+	}
+
+	// Cache the name of the next sequence we will try to record to
+	NextSequenceName = SequenceRecorderUtils::MakeNewAssetName<ULevelSequence>(GetSequenceRecordingBasePath(), SequenceName);
+}
+
+void FSequenceRecorder::ForceRefreshNextSequence()
 {
 	SequenceName = GetSequenceRecordingName().Len() > 0 ? GetSequenceRecordingName() : TEXT("RecordedSequence");
 
@@ -1243,4 +1281,49 @@ FString FSequenceRecorder::GetSequenceRecordingName() const
 	// If no profile is loaded, just return the default value.
 	return GetDefault<USequenceRecorderActorGroup>()->SequenceName;
 }
+
+void FSequenceRecorder::SetImmersive()
+{
+	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
+
+	if (Settings->bImmersiveMode)
+	{
+		FLevelEditorModule& LevelEditorModule = FModuleManager::Get().LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+		TSharedPtr< ILevelViewport > ActiveLevelViewport = LevelEditorModule.GetFirstActiveViewport();
+
+		if( ActiveLevelViewport.IsValid() )
+		{
+			bWasImmersive = ActiveLevelViewport->IsImmersive();
+
+			if (!ActiveLevelViewport->IsImmersive())
+			{
+				const bool bWantImmersive = true;
+				const bool bAllowAnimation = false;
+				ActiveLevelViewport->MakeImmersive( bWantImmersive, bAllowAnimation );
+			}
+		}
+	}
+
+}
+
+void FSequenceRecorder::RestoreImmersive()
+{
+	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
+
+	if (Settings->bImmersiveMode)
+	{
+		FLevelEditorModule& LevelEditorModule = FModuleManager::Get().LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+		TSharedPtr< ILevelViewport > ActiveLevelViewport = LevelEditorModule.GetFirstActiveViewport();
+
+		if( ActiveLevelViewport.IsValid() )
+		{
+			if (ActiveLevelViewport->IsImmersive() != bWasImmersive)
+			{
+				const bool bAllowAnimation = false;
+				ActiveLevelViewport->MakeImmersive(bWasImmersive, bAllowAnimation);
+			}
+		}
+	}
+}
+
 #undef LOCTEXT_NAMESPACE

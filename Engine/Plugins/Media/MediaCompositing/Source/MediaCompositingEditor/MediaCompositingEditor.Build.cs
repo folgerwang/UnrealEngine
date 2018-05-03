@@ -24,6 +24,7 @@ namespace UnrealBuildTool.Rules
 					"Slate",
 					"SlateCore",
 					"UnrealEd",
+					"TimeManagement"
 				});
 
 			PrivateIncludePaths.AddRange(

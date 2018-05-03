@@ -134,7 +134,7 @@ ENGINE_API EMobileHDRMode GetMobileHDRMode()
 {
 	EMobileHDRMode HDRMode = EMobileHDRMode::EnabledFloat16;
 
-	if (IsMobileHDR() == false)
+	if (!IsMobileHDR() && !IsHTML5Platform())
 	{
 		HDRMode = EMobileHDRMode::Disabled;
 	}
@@ -161,6 +161,16 @@ ENGINE_API EMobileHDRMode GetMobileHDRMode()
 
 	return HDRMode;
 }
+
+ENGINE_API bool IsHTML5Platform()
+{
+#if PLATFORM_HTML5
+	return true;
+#else
+	return false;
+#endif
+}
+
 
 #if HAS_GPU_STATS
 static const int32 NumGPUProfilerBufferedFrames = 4;

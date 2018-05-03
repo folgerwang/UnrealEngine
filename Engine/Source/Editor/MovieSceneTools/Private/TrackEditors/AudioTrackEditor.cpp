@@ -324,7 +324,7 @@ void FAudioThumbnail::GenerateWaveformPreview(TArray<uint8>& OutData, TRange<flo
 		return;
 	}
 
-	FFrameRate FrameRate            = AudioSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate FrameRate            = AudioSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	float      PitchMultiplierValue = AudioSection->GetPitchMultiplierChannel().GetDefault().Get(1.f);
 	double     SectionStartTime     = AudioSection->GetInclusiveStartFrame() / FrameRate;
 
@@ -694,8 +694,8 @@ void FAudioSection::Tick( const FGeometry& AllottedGeometry, const FGeometry& Pa
 		const float LeftMostVisiblePixel = FMath::Max(ParentRect.Left, 0.f);
 		const float RightMostVisiblePixel = FMath::Min(ParentRect.Right, AllottedGeometry.GetLocalSize().X);
 
-		FFrameRate   FrameResolution = AudioSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FTimeToPixel TimeToPixel( AllottedGeometry, AudioSection->GetRange() / FrameResolution, FrameResolution );
+		FFrameRate   TickResolution = AudioSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FTimeToPixel TimeToPixel( AllottedGeometry, AudioSection->GetRange() / TickResolution, TickResolution );
 
 		TRange<float> DrawRange = TRange<float>(
 			TimeToPixel.PixelToSeconds(LeftMostVisiblePixel),
@@ -738,7 +738,7 @@ void FAudioSection::BeginSlipSection()
 {
 	UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(&Section);
 	InitialStartOffsetDuringResize = AudioSection->GetStartOffset();
-	InitialStartTimeDuringResize   = FFrameNumber(AudioSection->HasStartFrame() ? AudioSection->GetInclusiveStartFrame() : 0) / AudioSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	InitialStartTimeDuringResize   = FFrameNumber(AudioSection->HasStartFrame() ? AudioSection->GetInclusiveStartFrame() : 0) / AudioSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
 }
 
 void FAudioSection::SlipSection(double SlipTime)
@@ -1097,6 +1097,7 @@ TSharedRef<SWidget> FAudioTrackEditor::BuildAudioSubMenu(UMovieSceneTrack* Track
 	FAssetPickerConfig AssetPickerConfig;
 	{
 		AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateRaw( this, &FAudioTrackEditor::OnAudioAssetSelected, Track);
+		AssetPickerConfig.OnAssetEnterPressed = FOnAssetEnterPressed::CreateRaw( this, &FAudioTrackEditor::OnAudioAssetEnterPressed, Track);
 		AssetPickerConfig.bAllowNullSelection = false;
 		AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 		for (auto ClassName : DerivedClassNames)
@@ -1147,4 +1148,14 @@ void FAudioTrackEditor::OnAudioAssetSelected(const FAssetData& AssetData, UMovie
 		}
 	}
 }
+
+void FAudioTrackEditor::OnAudioAssetEnterPressed(const TArray<FAssetData>& AssetData, UMovieSceneTrack* Track)
+{
+	if (AssetData.Num() > 0)
+	{
+		OnAudioAssetSelected(AssetData[0].GetAsset(), Track);
+	}
+}
+
+
 #undef LOCTEXT_NAMESPACE

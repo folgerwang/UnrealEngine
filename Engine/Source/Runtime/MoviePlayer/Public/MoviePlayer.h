@@ -229,6 +229,10 @@ public:
 	virtual bool WillAutoCompleteWhenLoadFinishes() = 0;
 
 	virtual ~IGameMoviePlayer() {}
+
+	/** Check if the initial movie(s) is still playing */
+	virtual bool IsStartupMoviePlaying() const { return false; };
+	virtual void ForceCompletion() {};
 };
 
 /** Creates the movie player */

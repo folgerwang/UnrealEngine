@@ -81,6 +81,14 @@ void UMovieSceneTrack::UpdateEasing()
 				UMovieSceneSection* Other = RowSections[OtherIndex];
 				TRange<FFrameNumber> OtherSectionRange = Other->GetRange();
 
+				if (!OtherSectionRange.HasLowerBound() && !OtherSectionRange.HasUpperBound())
+				{
+					// If we're testing against an infinite range we want to use the PlayRange of the sequence
+					// instead so that blends stop at the end of a clip instead of a quarter of the length.
+					UMovieScene* OuterScene = OuterTrack->GetTypedOuter<UMovieScene>();
+					OtherSectionRange = OuterScene->GetPlaybackRange();
+				}
+
 				bIsEntirelyUnderlapped = OtherSectionRange.Contains(CurrentSectionRange);
 
 				// Check the lower bound of the current section against the other section's upper bound
@@ -94,7 +102,7 @@ void UMovieSceneTrack::UpdateEasing()
 
 				if (bSectionRangeContainsOtherLowerBound &&!bSectionRangeContainsOtherUpperBound)
 				{
-					const int32 Difference = MovieScene::DiscreteSize(TRange<FFrameNumber>(OtherSectionRange.GetLowerBoundValue(), CurrentSectionRange.GetUpperBoundValue()));
+					const int32 Difference = MovieScene::DiscreteSize(TRange<FFrameNumber>(OtherSectionRange.GetLowerBound(), CurrentSectionRange.GetUpperBound()));
 					MaxEaseOut = FMath::Max(MaxEaseOut, Difference);
 				}
 			}

@@ -19,7 +19,7 @@ struct FSequencerCachedKeys
 	void Update(TSharedRef<IKeyArea> KeyArea, FFrameRate SourceResolution);
 
 	/** Get an view of the cached array for keys that fall within the specified range */
-	void GetKeysInRange(const TRange<double>& Range, TArrayView<const double>* OutTimes, TArrayView<const FKeyHandle>* OutHandles) const;
+	void GetKeysInRange(const TRange<double>& Range, TArrayView<const double>* OutTimes, TArrayView<const FFrameNumber>* OutKeyFrames, TArrayView<const FKeyHandle>* OutHandles) const;
 
 	/** Get the key area this cache was generated for, or nullptr if the cache has never been updated */
 	TSharedPtr<IKeyArea> GetKeyArea() const
@@ -30,13 +30,14 @@ struct FSequencerCachedKeys
 private:
 	/** Cached key information */
 	TArray<double> CachedKeyTimes;
+	TArray<FFrameNumber> CachedKeyFrames;
 	TArray<FKeyHandle> CachedKeyHandles;
 
 	/** The guid with which the above array was generated */
 	FGuid CachedSignature;
 
-	/** The frame resolution of the sequence that this cache was generated with */
-	FFrameRate CachedFrameResolution;
+	/** The tick resolution of the sequence that this cache was generated with */
+	FFrameRate CachedTickResolution;
 
 	/** The key area this cache is for */
 	TSharedPtr<IKeyArea> KeyArea;

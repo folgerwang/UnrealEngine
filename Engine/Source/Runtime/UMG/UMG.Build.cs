@@ -32,7 +32,8 @@ public class UMG : ModuleRules
 				"MovieScene",
                 "MovieSceneTracks",
                 "PropertyPath",
-            }
+				"TimeManagement"
+			}
         );
 
         PrivateIncludePathModuleNames.AddRange(

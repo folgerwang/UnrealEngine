@@ -2200,6 +2200,13 @@ void FLevelEditorViewportClient::UpdateViewForLockedActor(float DeltaTime)
 					}
 				}
 			}
+
+			const float DistanceToCurrentLookAt = FVector::Dist( GetViewLocation() , GetLookAtLocation() );
+
+			const FQuat CameraOrientation = FQuat::MakeFromEuler( GetViewRotation().Euler() );
+			FVector Direction = CameraOrientation.RotateVector( FVector(1,0,0) );
+
+			SetLookAtLocation( GetViewLocation() + Direction * DistanceToCurrentLookAt );
 		}
 	}
 }

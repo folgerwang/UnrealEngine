@@ -62,6 +62,7 @@ public class UnrealEd : ModuleRules
 				"PhysicsAssetEditor",
 				"ClothingSystemEditorInterface",
 				"NavigationSystem",
+				"Media",
 			}
 		);
 
@@ -160,7 +161,8 @@ public class UnrealEd : ModuleRules
 				"ClothingSystemRuntime",
 				"ClothingSystemRuntimeInterface",
 				"PIEPreviewDeviceProfileSelector",
-            }
+				"TimeManagement",
+			}
 		);
 
 		DynamicallyLoadedModuleNames.AddRange(
@@ -221,6 +223,7 @@ public class UnrealEd : ModuleRules
 				"OverlayEditor",
 				"AnimationModifiers",
 				"ClothPainter",
+				"Media",
 			}
 		);
 

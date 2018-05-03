@@ -24,7 +24,8 @@ bool FUdpSerializeMessageTaskTest::RunTest(const FString& Parameters)
 {
 	using namespace UdpSerializeMessageTaskTest;
 
-	const auto Context = MakeShared<FUdpMockMessageContext, ESPMode::ThreadSafe>(new FUdpMockMessage);
+	const auto TimeSent = FDateTime(2015, 9, 17, 10, 59, 23, 666);
+	const auto Context = MakeShared<FUdpMockMessageContext, ESPMode::ThreadSafe>(new FUdpMockMessage, TimeSent);
 
 	// synchronous reference serialization
 	const auto Message1 = MakeShared<FUdpSerializedMessage, ESPMode::ThreadSafe>();

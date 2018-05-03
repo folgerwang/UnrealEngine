@@ -8,6 +8,8 @@
 #include "AssetData.h"
 #include "Components/PrimitiveComponent.h"
 #include "Editor.h"
+#include "Animation/AnimInstance.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Channels/MovieSceneChannelProxy.h"
 #include "Containers/ArrayBuilder.h"
 #include "Modules/ModuleManager.h"
@@ -244,6 +246,7 @@ void FLevelSequenceEditorToolkit::Initialize(const EToolkitMode::Type Mode, cons
 		SequencerInitParams.PlaybackContext.BindStatic(GetLevelSequenceEditorPlaybackContext);
 
 		SequencerInitParams.ViewParams.UniqueName = "LevelSequenceEditor";
+		SequencerInitParams.ViewParams.ScrubberStyle = ESequencerScrubberStyle::FrameBlock;
 		SequencerInitParams.ViewParams.OnReceivedFocus.BindRaw(this, &FLevelSequenceEditorToolkit::OnSequencerReceivedFocus);
 	}
 
@@ -287,10 +290,10 @@ void FLevelSequenceEditorToolkit::Initialize(const EToolkitMode::Type Mode, cons
 		{
 			VRMode->OnVREditingModeExit_Handler.BindSP(this, &FLevelSequenceEditorToolkit::HandleVREditorModeExit);
 			USequencerSettings& SavedSequencerSettings = *Sequencer->GetSequencerSettings();
-			VRMode->SaveSequencerSettings(Sequencer->GetKeyAllEnabled(), Sequencer->GetAutoChangeMode(), SavedSequencerSettings);
+			VRMode->SaveSequencerSettings(Sequencer->GetKeyGroupMode() == EKeyGroupMode::KeyAll, Sequencer->GetAutoChangeMode(), SavedSequencerSettings);
 			// Override currently set auto-change behavior to always autokey
 			Sequencer->SetAutoChangeMode(EAutoChangeMode::All);
-			Sequencer->SetKeyAllEnabled(true);
+			Sequencer->SetKeyGroupMode(EKeyGroupMode::KeyAll);
 			// Tell the VR Editor mode that Sequencer has refreshed
 			VRMode->RefreshVREditorSequencer(Sequencer.Get());
 		}
@@ -636,7 +639,7 @@ void FLevelSequenceEditorToolkit::HandleVREditorModeExit()
 
 	// Reset sequencer settings
 	Sequencer->SetAutoChangeMode(VRMode->GetSavedEditorState().AutoChangeMode);
-	Sequencer->SetKeyAllEnabled(VRMode->GetSavedEditorState().bKeyAllEnabled);
+	Sequencer->SetKeyGroupMode(VRMode->GetSavedEditorState().bKeyAllEnabled ? EKeyGroupMode::KeyAll : EKeyGroupMode::KeyChanged);
 	VRMode->OnVREditingModeExit_Handler.Unbind();
 }
 
@@ -765,13 +768,13 @@ void FLevelSequenceEditorToolkit::HandleMasterSequenceCreated(UObject* MasterSeq
 	UMovieSceneSequence* MasterSequence = Cast<UMovieSceneSequence>(MasterSequenceAsset);
 	UMovieSceneCinematicShotTrack* ShotTrack = MasterSequence->GetMovieScene()->AddMasterTrack<UMovieSceneCinematicShotTrack>();
 
-	FFrameRate FrameResolution = MasterSequence->GetMovieScene()->GetFrameResolution();
+	FFrameRate TickResolution = MasterSequence->GetMovieScene()->GetTickResolution();
 
 	// Create shots with a camera cut and a camera for each
-	FFrameNumber SequenceStartTime = (ProjectSettings->DefaultStartTime * FrameResolution).FloorToFrame();
+	FFrameNumber SequenceStartTime = (ProjectSettings->DefaultStartTime * TickResolution).FloorToFrame();
 	FFrameNumber ShotStartTime = SequenceStartTime;
 	FFrameNumber ShotEndTime   = ShotStartTime;
-	int32        ShotDuration  = (ProjectSettings->DefaultDuration * FrameResolution).RoundToFrame().Value;
+	int32        ShotDuration  = (ProjectSettings->DefaultDuration * TickResolution).RoundToFrame().Value;
 	FString FirstShotName; 
 	for (uint32 ShotIndex = 0; ShotIndex < NumShots; ++ShotIndex)
 	{
@@ -794,8 +797,8 @@ void FLevelSequenceEditorToolkit::HandleMasterSequenceCreated(UObject* MasterSeq
 	MasterSequence->GetMovieScene()->SetPlaybackRange(SequenceStartTime, (ShotEndTime - SequenceStartTime).Value);
 
 #if WITH_EDITORONLY_DATA
-	const double SequenceStartSeconds = SequenceStartTime / FrameResolution;
-	const double SequenceEndSeconds   = ShotEndTime / FrameResolution;
+	const double SequenceStartSeconds = SequenceStartTime / TickResolution;
+	const double SequenceEndSeconds   = ShotEndTime / TickResolution;
 	const double OutputChange = (SequenceEndSeconds - SequenceStartSeconds) * 0.1;
 
 	FMovieSceneEditorData& EditorData = MasterSequence->GetMovieScene()->GetEditorData();
@@ -882,17 +885,16 @@ void FLevelSequenceEditorToolkit::HandleTrackMenuExtensionAddTrack(FMenuBuilder&
 	}
 	else
 	{
-		UPrimitiveComponent* Component = Cast<UPrimitiveComponent>(ContextObjects[0]);
-		if (Component != nullptr)
+		if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(ContextObjects[0]))
 		{
-			int32 NumMaterials = Component->GetNumMaterials();
+			int32 NumMaterials = PrimitiveComponent->GetNumMaterials();
 			if (NumMaterials > 0)
 			{
 				AddTrackMenuBuilder.BeginSection("Materials", LOCTEXT("MaterialSection", "Materials"));
 				{
 					for (int32 MaterialIndex = 0; MaterialIndex < NumMaterials; MaterialIndex++)
 					{
-						FUIAction AddComponentMaterialAction(FExecuteAction::CreateSP(this, &FLevelSequenceEditorToolkit::HandleAddComponentMaterialActionExecute, Component, MaterialIndex));
+						FUIAction AddComponentMaterialAction(FExecuteAction::CreateSP(this, &FLevelSequenceEditorToolkit::HandleAddComponentMaterialActionExecute, PrimitiveComponent, MaterialIndex));
 						FText AddComponentMaterialLabel = FText::Format(LOCTEXT("ComponentMaterialIndexLabelFormat", "Element {0}"), FText::AsNumber(MaterialIndex));
 						FText AddComponentMaterialToolTip = FText::Format(LOCTEXT("ComponentMaterialIndexToolTipFormat", "Add material element {0}"), FText::AsNumber(MaterialIndex));
 						AddTrackMenuBuilder.AddMenuEntry(AddComponentMaterialLabel, AddComponentMaterialToolTip, FSlateIcon(), AddComponentMaterialAction);
@@ -901,7 +903,39 @@ void FLevelSequenceEditorToolkit::HandleTrackMenuExtensionAddTrack(FMenuBuilder&
 				AddTrackMenuBuilder.EndSection();
 			}
 		}
+
+		if (USkeletalMeshComponent* SkeletalComponent = Cast<USkeletalMeshComponent>(ContextObjects[0]))
+		{
+			UAnimInstance* AnimInstance = SkeletalComponent->GetAnimInstance();
+			
+			FText AnimInstanceLabel = LOCTEXT("AnimInstanceLabel", "Anim Instance");
+			FText DetailedInstanceText = AnimInstance
+				? FText::Format(LOCTEXT("AnimInstanceLabelFormat", "Anim Instance '{0}'"), FText::FromString(AnimInstance->GetName()))
+				: AnimInstanceLabel;
+
+			AddTrackMenuBuilder.BeginSection("Anim Instance", AnimInstanceLabel);
+			{
+				AddTrackMenuBuilder.AddMenuEntry(
+					DetailedInstanceText,
+					LOCTEXT("AnimInstanceToolTip", "Add this skeletal mesh component's animation instance."),
+					FSlateIcon(),
+					FUIAction(
+						FExecuteAction::CreateSP(this, &FLevelSequenceEditorToolkit::BindAnimationInstance, SkeletalComponent)
+					)
+				);
+			}
+			AddTrackMenuBuilder.EndSection();
+		}
 	}
+}
+
+void FLevelSequenceEditorToolkit::BindAnimationInstance(USkeletalMeshComponent* SkeletalComponent)
+{
+	UAnimInstance* AnimInstance = SkeletalComponent->GetAnimInstance();
+
+	// If there is no script instance at the moment, just use a dummy instance for the purposes of setting up the binding in the first place.
+	// This temporary object will get GC'd later on and is never actually applied to the anim instance
+	Sequencer->GetHandleToObject(AnimInstance ? AnimInstance : NewObject<UAnimInstance>(SkeletalComponent));
 }
 
 bool FLevelSequenceEditorToolkit::OnRequestClose()

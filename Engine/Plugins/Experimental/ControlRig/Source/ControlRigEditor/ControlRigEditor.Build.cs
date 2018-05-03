@@ -45,6 +45,7 @@ namespace UnrealBuildTool.Rules
                     "PropertyPath",
                     "Persona",
                     "UMG",
+					"TimeManagement",
                 }
             );
         }

@@ -42,7 +42,7 @@ public:
 			if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USequenceRecorderActorGroup, SequenceName) ||
 				PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USequenceRecorderActorGroup, SequenceRecordingBasePath))
 			{
-				FSequenceRecorder::Get().RefreshNextSequence();
+				FSequenceRecorder::Get().ForceRefreshNextSequence();
 			}
 		}
 	}

@@ -129,14 +129,14 @@ namespace MovieScene
 	}
 
 	/**
-	 * Convert the frame resolution of a movie scene channel by moving the key times to the equivalent frame time
+	 * Convert the tick resolution of a movie scene channel by moving the key times to the equivalent frame time
 	 *
 	 * @param InChannel       The channel to compute the range for
 	 * @param SourceRate      The frame rate the channel is currently in
 	 * @param DestinationRate The new frame rate to convert the channel to
 	 */
 	template<typename ChannelType>
-	void ChangeFrameResolution(ChannelType* InChannel, FFrameRate SourceRate, FFrameRate DestinationRate)
+	void ChangeTickResolution(ChannelType* InChannel, FFrameRate SourceRate, FFrameRate DestinationRate)
 	{
 		TArrayView<FFrameNumber> Times = InChannel->GetInterface().GetTimes();
 		for (int32 Index = 0; Index < Times.Num(); ++Index)

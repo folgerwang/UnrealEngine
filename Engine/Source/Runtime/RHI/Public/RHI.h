@@ -1419,11 +1419,11 @@ struct FTextureMemoryStats
 
 	bool AreHardwareStatsValid() const
 	{
-#if !PLATFORM_HTML5
-		return DedicatedVideoMemory >= 0 && DedicatedSystemMemory >= 0 && SharedSystemMemory >= 0;
-#else 
-		return false; 
-#endif 
+#if !PLATFORM_HTML5 // TODO: should this be tested with GRHISupportsRHIThread instead? -- seems this would be better done in SynthBenchmarkPrivate.cpp
+		return (DedicatedVideoMemory >= 0 && DedicatedSystemMemory >= 0 && SharedSystemMemory >= 0);
+#else
+		return false;
+#endif
 	}
 
 	bool IsUsingLimitedPoolSize() const

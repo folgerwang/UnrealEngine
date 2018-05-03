@@ -9,38 +9,32 @@ public class Launch : ModuleRules
 	{
 		PrivateIncludePaths.Add("Runtime/Launch/Private");
 
-		PrivateIncludePathModuleNames.AddRange(
-			new string[] {
-				"AutomationController",
-				"Media",
-                "MediaUtils",
-				"TaskGraph",
-			}
-		);
+		PrivateIncludePathModuleNames.AddRange(new string[] {
+			"AutomationController",
+			"TaskGraph",
+		});
 
-		PrivateDependencyModuleNames.AddRange(
-			new string[] {
-				"Core",
-				"CoreUObject",
-				"Engine",
-				"InputCore",
-				"MoviePlayer",
-				"Networking",
-				"PakFile",
-				"Projects",
-				"RenderCore",
-				"RHI",
-				"SandboxFile",
-				"Serialization",
-				"ShaderCore",
-				"ApplicationCore",
-				"Slate",
-				"SlateCore",
-				"Sockets",
-                "Overlay",
-				"UtilityShaders",
-			}
-		);
+		PrivateDependencyModuleNames.AddRange(new string[] {
+			"Core",
+			"CoreUObject",
+			"Engine",
+			"InputCore",
+			"MoviePlayer",
+			"Networking",
+			"PakFile",
+			"Projects",
+			"RenderCore",
+			"RHI",
+			"SandboxFile",
+			"Serialization",
+			"ShaderCore",
+			"ApplicationCore",
+			"Slate",
+			"SlateCore",
+			"Sockets",
+            "Overlay",
+			"UtilityShaders",
+		});
 
 		// Enable the LauncherCheck module to be used for platforms that support the Launcher.
 		// Projects should set Target.bUseLauncherChecks in their Target.cs to enable the functionality.
@@ -59,25 +53,28 @@ public class Launch : ModuleRules
 
 		if (Target.Type != TargetType.Server)
 		{
-			PrivateDependencyModuleNames.AddRange(
-				new string[] {
-					"HeadMountedDisplay",
-					"MRMesh",
-				}
-			);
+			PrivateDependencyModuleNames.AddRange(new string[] {
+				"HeadMountedDisplay",
+				"MediaUtils",
+				"MRMesh",
+			});
 
 			if ((Target.Platform == UnrealTargetPlatform.Win32) ||
 				(Target.Platform == UnrealTargetPlatform.Win64))
 			{
-				DynamicallyLoadedModuleNames.Add("D3D12RHI");
-				DynamicallyLoadedModuleNames.Add("D3D11RHI");
-				DynamicallyLoadedModuleNames.Add("XAudio2");
-				DynamicallyLoadedModuleNames.Add("AudioMixerXAudio2");
+				DynamicallyLoadedModuleNames.AddRange(new string[] {
+					"AudioMixerXAudio2",
+					"D3D11RHI",
+					"D3D12RHI",
+					"XAudio2",
+				});
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Mac)
 			{
-				DynamicallyLoadedModuleNames.Add("CoreAudio");
-				DynamicallyLoadedModuleNames.Add("AudioMixerAudioUnit");
+				DynamicallyLoadedModuleNames.AddRange(new string[] {
+					"AudioMixerAudioUnit",
+					"CoreAudio",
+				});
 			}
 			else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 			{
@@ -85,65 +82,66 @@ public class Launch : ModuleRules
 				PrivateDependencyModuleNames.Add("Json");
 			}
 
-			PrivateIncludePathModuleNames.AddRange(
-				new string[] {
-					"SlateNullRenderer",
-					"SlateRHIRenderer"
-				}
-			);
+			PrivateIncludePathModuleNames.AddRange(new string[] {
+				"Media",
+				"SlateNullRenderer",
+				"SlateRHIRenderer",
+			});
 
-			DynamicallyLoadedModuleNames.AddRange(
-				new string[] {
-					"SlateNullRenderer",
-					"SlateRHIRenderer"
-				}
-			);
+			DynamicallyLoadedModuleNames.AddRange(new string[] {
+				"Media",
+				"SlateNullRenderer",
+				"SlateRHIRenderer",
+			});
 		}
 
 		// UFS clients are not available in shipping builds
 		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
 		{
-			PrivateDependencyModuleNames.AddRange(
-				new string[] {
-					"NetworkFile",
-					"StreamingFile",
-					"CookedIterativeFile",
-					"AutomationWorker",
-				}
-			);
+			PrivateDependencyModuleNames.AddRange(new string[] {
+				"NetworkFile",
+				"StreamingFile",
+				"CookedIterativeFile",
+				"AutomationWorker",
+			});
 		}
 
-		DynamicallyLoadedModuleNames.AddRange(
-			new string[] {
-				"Media",
-				"Renderer",
-			}
-		);
+		DynamicallyLoadedModuleNames.AddRange(new string[] {
+			"Renderer",
+		});
 
 		if (Target.bCompileAgainstEngine)
 		{
-			PrivateIncludePathModuleNames.AddRange(
-				new string[] {
-					"MessagingCommon",
-					"MediaAssets"
-				}
-			);
+			PrivateIncludePathModuleNames.AddRange(new string[] {
+				"MessagingCommon",
+			});
 
 			PublicDependencyModuleNames.Add("SessionServices");
 			PrivateIncludePaths.Add("Developer/DerivedDataCache/Public");
 
 			// LaunchEngineLoop.cpp will still attempt to load XMPP but not all projects require it so it will silently fail unless referenced by the project's build.cs file.
 			// DynamicallyLoadedModuleNames.Add("XMPP");
-			DynamicallyLoadedModuleNames.Add("HTTP");
 
-			PrivateDependencyModuleNames.Add("ClothingSystemRuntimeInterface");
-			PrivateDependencyModuleNames.Add("ClothingSystemRuntime");
+			DynamicallyLoadedModuleNames.AddRange(new string[] {
+				"HTTP",
+				"MediaAssets",
+			});
+
+			PrivateDependencyModuleNames.AddRange(new string[] {
+				"ClothingSystemRuntime",
+				"ClothingSystemRuntimeInterface"
+			});
 		}
 
 		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
 		{
 			PublicIncludePathModuleNames.Add("ProfilerService");
-			DynamicallyLoadedModuleNames.AddRange(new string[] { "TaskGraph", "RealtimeProfiler", "ProfilerService" });
+
+			DynamicallyLoadedModuleNames.AddRange(new string[] {
+				"TaskGraph",
+				"RealtimeProfiler",
+				"ProfilerService"
+			});
 		}
 
 		// The engine can use AutomationController in any connfiguration besides shipping.  This module is loaded
@@ -157,35 +155,33 @@ public class Launch : ModuleRules
 		{
 			PublicIncludePathModuleNames.Add("ProfilerClient");
 
-			PrivateDependencyModuleNames.AddRange(
-				new string[] {
-					"SourceControl",
-					"UnrealEd",
-					"DesktopPlatform",
-					"PIEPreviewDeviceProfileSelector",
-				}
-			);
+			PrivateDependencyModuleNames.AddRange(new string[] {
+				"SourceControl",
+				"UnrealEd",
+				"DesktopPlatform",
+				"PIEPreviewDeviceProfileSelector",
+			});
 
 
 			// ExtraModules that are loaded when WITH_EDITOR=1 is true
-			DynamicallyLoadedModuleNames.AddRange(
-				new string[] {
-					"AutomationWindow",
-					"ProfilerClient",
-					"Toolbox",
-					"GammaUI",
-					"ModuleUI",
-					"OutputLog",
-					"TextureCompressor",
-					"MeshUtilities",
-					"SourceCodeAccess"
-				}
-			);
+			DynamicallyLoadedModuleNames.AddRange(new string[] {
+				"AutomationWindow",
+				"ProfilerClient",
+				"Toolbox",
+				"GammaUI",
+				"ModuleUI",
+				"OutputLog",
+				"TextureCompressor",
+				"MeshUtilities",
+				"SourceCodeAccess"
+			});
 
 			if (Target.Platform == UnrealTargetPlatform.Mac)
 			{
-				PrivateDependencyModuleNames.Add("MainFrame");
-				PrivateDependencyModuleNames.Add("Settings");
+				PrivateDependencyModuleNames.AddRange(new string[] {
+					"MainFrame",
+					"Settings",
+				});
 			}
 			else
 			{
@@ -196,25 +192,35 @@ public class Launch : ModuleRules
 		if (Target.Platform == UnrealTargetPlatform.IOS ||
 			Target.Platform == UnrealTargetPlatform.TVOS)
 		{
-			PrivateDependencyModuleNames.Add("OpenGLDrv");
-			PrivateDependencyModuleNames.Add("IOSAudio");
-			PrivateDependencyModuleNames.Add("AudioMixerAudioUnit");
-			DynamicallyLoadedModuleNames.Add("IOSRuntimeSettings");
-			DynamicallyLoadedModuleNames.Add("IOSLocalNotification");
+			PrivateDependencyModuleNames.AddRange(new string[] {
+				"AudioMixerAudioUnit",
+				"IOSAudio",
+				"LaunchDaemonMessages",
+				"OpenGLDrv",
+			});
+
+			DynamicallyLoadedModuleNames.AddRange(new string[] {
+				"IOSLocalNotification",
+				"IOSRuntimeSettings",
+			});
+
 			PublicFrameworks.Add("OpenGLES");
 			// this is weak for IOS8 support for CAMetalLayer that is in QuartzCore
 			PublicWeakFrameworks.Add("QuartzCore");
-
-			PrivateDependencyModuleNames.Add("LaunchDaemonMessages");
 		}
 
 		if (Target.Platform == UnrealTargetPlatform.Android)
 		{
-			PrivateDependencyModuleNames.Add("OpenGLDrv");
-			PrivateDependencyModuleNames.Add("AndroidAudio");
-			PrivateDependencyModuleNames.Add("AudioMixerAndroid");
-			DynamicallyLoadedModuleNames.Add("AndroidRuntimeSettings");
-			DynamicallyLoadedModuleNames.Add("AndroidLocalNotification");
+			PrivateDependencyModuleNames.AddRange(new string[] {
+				"AndroidAudio",
+				"AudioMixerAndroid",
+				"OpenGLDrv",
+			});
+
+			DynamicallyLoadedModuleNames.AddRange(new string[] {
+				"AndroidLocalNotification",
+				"AndroidRuntimeSettings",
+			});
 		}
 
 		if ((Target.Platform == UnrealTargetPlatform.Win32) ||
@@ -227,8 +233,14 @@ public class Launch : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.HTML5 )
 		{
-			PrivateDependencyModuleNames.Add("ALAudio");
-            PrivateDependencyModuleNames.Add("AudioMixerSDL");
+			PrivateDependencyModuleNames.AddRange(
+				new string[] {
+					"ALAudio",
+					"AudioMixerSDL",
+					"Analytics",
+					"AnalyticsET"
+				}
+			);
             AddEngineThirdPartyPrivateStaticDependencies(Target, "SDL2");
 		}
 
@@ -240,14 +252,10 @@ public class Launch : ModuleRules
 
 		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
-			PrivateDependencyModuleNames.AddRange(
-				new string[] {
-					"UnixCommonStartup"
-				}
-			);
+			PrivateDependencyModuleNames.Add("UnixCommonStartup");
 		}
 
-		if(Target.LinkType == TargetLinkType.Monolithic && !Target.bFormalBuild)
+		if (Target.LinkType == TargetLinkType.Monolithic && !Target.bFormalBuild)
 		{
 			PrivateDefinitions.Add(string.Format("COMPILED_IN_CL={0}", Target.Version.Changelist));
 			PrivateDefinitions.Add(string.Format("COMPILED_IN_COMPATIBLE_CL={0}", Target.Version.EffectiveCompatibleChangelist));

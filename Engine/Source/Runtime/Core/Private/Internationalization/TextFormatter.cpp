@@ -7,6 +7,7 @@
 #include "Internationalization/TextData.h"
 #include "Misc/ExpressionParser.h"
 #include "Stats/Stats.h"
+#include "HAL/PlatformProcess.h"
 
 #define LOCTEXT_NAMESPACE "TextFormatter"
 
@@ -881,7 +882,10 @@ FText FTextFormatter::Format(FTextFormat&& InFmt, TArray<FFormatArgumentData>&& 
 
 FString FTextFormatter::FormatStr(const FTextFormat& InFmt, const FFormatNamedArguments& InArguments, const bool bInRebuildText, const bool bInRebuildAsSource)
 {
-	checkf(FInternationalization::Get().IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
+	if (FPlatformProcess::SupportsMultithreading())
+	{
+		checkf(FInternationalization::Get().IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
+	}
 
 	int32 EstimatedArgumentValuesLength = 0;
 	for (const auto& Pair : InArguments)
@@ -906,7 +910,10 @@ FString FTextFormatter::FormatStr(const FTextFormat& InFmt, const FFormatNamedAr
 
 FString FTextFormatter::FormatStr(const FTextFormat& InFmt, const FFormatOrderedArguments& InArguments, const bool bInRebuildText, const bool bInRebuildAsSource)
 {
-	checkf(FInternationalization::Get().IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
+	if (FPlatformProcess::SupportsMultithreading())
+	{
+		checkf(FInternationalization::Get().IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
+	}
 
 	int32 EstimatedArgumentValuesLength = 0;
 	for (const auto& Arg : InArguments)
@@ -935,7 +942,10 @@ FString FTextFormatter::FormatStr(const FTextFormat& InFmt, const FFormatOrdered
 
 FString FTextFormatter::FormatStr(const FTextFormat& InFmt, const TArray<FFormatArgumentData>& InArguments, const bool bInRebuildText, const bool bInRebuildAsSource)
 {
-	checkf(FInternationalization::Get().IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
+	if (FPlatformProcess::SupportsMultithreading())
+	{
+		checkf(FInternationalization::Get().IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
+	}
 
 	int32 EstimatedArgumentValuesLength = 0;
 	for (const auto& Arg : InArguments)

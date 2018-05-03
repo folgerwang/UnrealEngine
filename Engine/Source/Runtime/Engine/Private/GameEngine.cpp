@@ -61,6 +61,10 @@
 #include "IPIEPreviewDeviceModule.h"
 #endif
 
+#if !UE_SERVER
+	#include "IMediaModule.h"
+#endif
+
 CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
 
 ENGINE_API bool GDisallowNetworkTravel = false;
@@ -1341,6 +1345,17 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_UGameEngine_Tick_GetWorldContextFromHandleChecked);
 		GWorld = GetWorldContextFromHandleChecked(OriginalGWorldContext).World();
 	}
+
+#if !UE_SERVER
+	// tick media framework
+	static const FName MediaModuleName(TEXT("Media"));
+	IMediaModule* MediaModule = FModuleManager::LoadModulePtr<IMediaModule>(MediaModuleName);
+
+	if (MediaModule != nullptr)
+	{
+		MediaModule->TickPostEngine();
+	}
+#endif
 
 	// Tick the viewport
 	if ( GameViewport != NULL && !bIdleMode )

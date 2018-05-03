@@ -47,7 +47,7 @@ void SSequencerDebugVisualizer::Refresh()
 		return;
 	}
 
-	const FFrameRate                  SequenceResolution = ActiveSequence->GetMovieScene()->GetFrameResolution();
+	const FFrameRate                  SequenceResolution = ActiveSequence->GetMovieScene()->GetTickResolution();
 	const FMovieSceneEvaluationField& EvaluationField    = ActiveTemplate->EvaluationField;
 
 	CachedSignature = EvaluationField.GetSignature();
@@ -222,7 +222,7 @@ void SSequencerDebugVisualizer::OnArrangeChildren( const FGeometry& AllottedGeom
 		return;
 	}
 
-	FTimeToPixel TimeToPixelConverter = FTimeToPixel(AllottedGeometry, ViewRange.Get(), ActiveSequence->GetMovieScene()->GetFrameResolution());
+	FTimeToPixel TimeToPixelConverter = FTimeToPixel(AllottedGeometry, ViewRange.Get(), ActiveSequence->GetMovieScene()->GetTickResolution());
 
 	for (int32 WidgetIndex = 0; WidgetIndex < Children.Num(); ++WidgetIndex)
 	{

@@ -52,8 +52,31 @@ class MEDIAASSETS_API UMediaSoundComponent
 public:
 
 	/** Media sound channel type. */
-	UPROPERTY(EditAnywhere, Category="MediaSoundComponent")
+	UPROPERTY(EditAnywhere, Category="Media")
 	EMediaSoundChannels Channels;
+
+	/** Dynamically adjust the sample rate if audio and media clock desynchronize. */
+	UPROPERTY(EditAnywhere, Category="Media", AdvancedDisplay)
+	bool DynamicRateAdjustment;
+
+	/**
+	 * Factor for calculating the sample rate adjustment.
+	 *
+	 * If dynamic rate adjustment is enabled, this number is multiplied with the drift
+	 * between the audio and media clock (in 100ns ticks) to determine the adjustment.
+	 * that is to be multiplied into the current playrate.
+	 */
+	UPROPERTY(EditAnywhere, Category="Media", AdvancedDisplay)
+	float RateAdjustmentFactor;
+
+	/**
+	 * The allowed range of dynamic rate adjustment.
+	 *
+	 * If dynamic rate adjustment is enabled, and the necessary adjustment
+	 * falls outside of this range, audio samples will be dropped.
+	 */
+	UPROPERTY(EditAnywhere, Category="Media", AdvancedDisplay)
+	FFloatRange RateAdjustmentRange;
 
 public:
 
@@ -175,6 +198,9 @@ private:
 
 	/** The player facade that's currently providing texture samples. */
 	TWeakPtr<FMediaPlayerFacade, ESPMode::ThreadSafe> CurrentPlayerFacade;
+
+	/** Adjusts the output sample rate to synchronize audio and media clock. */
+	float RateAdjustment;
 
 	/** The audio resampler. */
 	FMediaAudioResampler* Resampler;

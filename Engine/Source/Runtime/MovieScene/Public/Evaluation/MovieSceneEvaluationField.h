@@ -206,9 +206,9 @@ struct FMovieSceneEvaluationMetaData
 	UPROPERTY()
 	TArray<FMovieSceneOrderedEvaluationKey> ActiveEntities;
 
-	/** Map of sub sequence IDs to FMovieSceneEvaluationTemplate::TemplateSignature that this meta data was generated with (not including root). */
+	/** Map of sub sequence IDs to FMovieSceneEvaluationTemplate::TemplateSerialNumber that this meta data was generated with (not including root). */
 	UPROPERTY()
-	TMap<FMovieSceneSequenceID, FGuid> SubTemplateSignatures;
+	TMap<FMovieSceneSequenceID, uint32> SubTemplateSerialNumbers;
 };
 
 /**

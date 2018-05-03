@@ -3,14 +3,12 @@
 #pragma once
 
 #include "IMediaTimeSource.h"
-#include "Misc/App.h"
-#include "Misc/Timespan.h"
 
 
 /**
  * Implements the a media time source that derives its time from the application's global time.
  */
-class FAppMediaTimeSource
+class MEDIAUTILS_API FAppMediaTimeSource
 	: public IMediaTimeSource
 {
 public:
@@ -22,8 +20,5 @@ public:
 
 	//~ IMediaTimeSource interface
 
-	virtual FTimespan GetTimecode() override
-	{
-		return FTimespan::FromSeconds(FApp::GetCurrentTime());
-	}
+	virtual FTimespan GetTimecode() override;
 };

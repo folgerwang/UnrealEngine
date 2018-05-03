@@ -136,7 +136,7 @@ bool FMatineeImportTools::CopyInterpBoolTrack( UInterpTrackBoolProp* MatineeBool
 
 	BoolTrack->Modify();
 
-	FFrameRate   FrameRate    = BoolTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate   FrameRate    = BoolTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	FFrameNumber FirstKeyTime = (MatineeBoolTrack->GetKeyframeTime( 0 ) * FrameRate).RoundToFrame();
 
 	UMovieSceneBoolSection* Section = Cast<UMovieSceneBoolSection>( MovieSceneHelpers::FindSectionAtTime( BoolTrack->GetAllSections(), FirstKeyTime ) );
@@ -177,7 +177,7 @@ bool FMatineeImportTools::CopyInterpFloatTrack( UInterpTrackFloatBase* MatineeFl
 
 	FloatTrack->Modify();
 
-	FFrameRate   FrameRate    = FloatTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate   FrameRate    = FloatTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	FFrameNumber FirstKeyTime = (MatineeFloatTrack->GetKeyframeTime( 0 ) * FrameRate).RoundToFrame();;
 
 	UMovieSceneFloatSection* Section = Cast<UMovieSceneFloatSection>( MovieSceneHelpers::FindSectionAtTime( FloatTrack->GetAllSections(), FirstKeyTime ) );
@@ -222,7 +222,7 @@ bool FMatineeImportTools::CopyInterpVectorTrack( UInterpTrackVectorProp* Matinee
 
 	VectorTrack->Modify();
 
-	FFrameRate   FrameRate    = VectorTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate   FrameRate    = VectorTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	FFrameNumber FirstKeyTime = (MatineeVectorTrack->GetKeyframeTime( 0 ) * FrameRate).RoundToFrame();
 
 	UMovieSceneVectorSection* Section = Cast<UMovieSceneVectorSection>( MovieSceneHelpers::FindSectionAtTime( VectorTrack->GetAllSections(), FirstKeyTime ) );
@@ -275,7 +275,7 @@ bool FMatineeImportTools::CopyInterpColorTrack( UInterpTrackColorProp* ColorProp
 
 	ColorTrack->Modify();
 
-	FFrameRate   FrameRate    = ColorTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate   FrameRate    = ColorTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	FFrameNumber FirstKeyTime = (ColorPropTrack->GetKeyframeTime( 0 ) * FrameRate).RoundToFrame();
 
 	UMovieSceneColorSection* Section = Cast<UMovieSceneColorSection>( MovieSceneHelpers::FindSectionAtTime( ColorTrack->GetAllSections(), FirstKeyTime ) );
@@ -333,7 +333,7 @@ bool FMatineeImportTools::CopyInterpLinearColorTrack( UInterpTrackLinearColorPro
 
 	ColorTrack->Modify();
 
-	FFrameRate   FrameRate    = ColorTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate   FrameRate    = ColorTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	FFrameNumber FirstKeyTime = (LinearColorPropTrack->GetKeyframeTime( 0 ) * FrameRate).RoundToFrame();
 
 	UMovieSceneColorSection* Section = Cast<UMovieSceneColorSection>( MovieSceneHelpers::FindSectionAtTime( ColorTrack->GetAllSections(), FirstKeyTime ) );
@@ -392,7 +392,7 @@ bool FMatineeImportTools::CopyInterpMoveTrack( UInterpTrackMove* MoveTrack, UMov
 
 	TransformTrack->Modify();
 
-	FFrameRate   FrameRate    = TransformTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate   FrameRate    = TransformTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	FFrameNumber FirstKeyTime = (MoveTrack->GetKeyframeTime( 0 ) * FrameRate).RoundToFrame();
 
 	UMovieScene3DTransformSection* Section = Cast<UMovieScene3DTransformSection>( MovieSceneHelpers::FindSectionAtTime( TransformTrack->GetAllSections(), FirstKeyTime ) );
@@ -516,7 +516,7 @@ bool FMatineeImportTools::CopyInterpParticleTrack( UInterpTrackToggle* MatineeTo
 
 	ParticleTrack->Modify();
 
-	FFrameRate   FrameRate    = ParticleTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate   FrameRate    = ParticleTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	FFrameNumber FirstKeyTime = (MatineeToggleTrack->GetKeyframeTime( 0 ) * FrameRate).RoundToFrame();
 
 	UMovieSceneParticleSection* Section = Cast<UMovieSceneParticleSection>( MovieSceneHelpers::FindSectionAtTime( ParticleTrack->GetAllSections(), FirstKeyTime ) );
@@ -564,7 +564,7 @@ bool FMatineeImportTools::CopyInterpAnimControlTrack( UInterpTrackAnimControl* M
 	const FScopedTransaction Transaction( NSLOCTEXT( "Sequencer", "PasteMatineeAnimTrack", "Paste Matinee Anim Track" ) );
 	bool bSectionCreated = false;
 
-	FFrameRate FrameRate = SkeletalAnimationTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate FrameRate = SkeletalAnimationTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 
 	SkeletalAnimationTrack->Modify();
 	SkeletalAnimationTrack->RemoveAllAnimationData();
@@ -617,7 +617,7 @@ bool FMatineeImportTools::CopyInterpSoundTrack( UInterpTrackSound* MatineeSoundT
 	const FScopedTransaction Transaction( NSLOCTEXT( "Sequencer", "PasteMatineeSoundTrack", "Paste Matinee Sound Track" ) );
 	bool bSectionCreated = false;
 
-	FFrameRate FrameRate = AudioTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate FrameRate = AudioTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 
 	AudioTrack->Modify();
 
@@ -652,7 +652,7 @@ bool FMatineeImportTools::CopyInterpFadeTrack( UInterpTrackFade* MatineeFadeTrac
 
 	FadeTrack->Modify();
 
-	FFrameRate   FrameRate    = FadeTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate   FrameRate    = FadeTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	FFrameNumber FirstKeyTime = (MatineeFadeTrack->GetKeyframeTime( 0 ) * FrameRate).RoundToFrame();
 
 	UMovieSceneFadeSection* Section = Cast<UMovieSceneFadeSection>( MovieSceneHelpers::FindSectionAtTime( FadeTrack->GetAllSections(), FirstKeyTime ) );
@@ -695,7 +695,7 @@ bool FMatineeImportTools::CopyInterpDirectorTrack( UInterpTrackDirector* Directo
 	const FScopedTransaction Transaction( NSLOCTEXT( "Sequencer", "PasteMatineeDirectorTrack", "Paste Matinee Director Track" ) );
 	bool bCutsAdded = false;
 
-	FFrameRate FrameRate = CameraCutTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	FFrameRate FrameRate = CameraCutTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 
 	CameraCutTrack->Modify();
 	
@@ -735,7 +735,7 @@ bool FMatineeImportTools::CopyInterpEventTrack( UInterpTrackEvent* MatineeEventT
 
 	if (MatineeEventTrack->EventTrack.Num())
 	{
-		FFrameRate   FrameRate    = EventTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameRate   FrameRate    = EventTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 		FFrameNumber FirstKeyTime = (MatineeEventTrack->EventTrack[0].Time * FrameRate).RoundToFrame();
 
 		UMovieSceneEventSection* Section = Cast<UMovieSceneEventSection>( MovieSceneHelpers::FindSectionAtTime( EventTrack->GetAllSections(), FirstKeyTime ) );
@@ -781,7 +781,7 @@ bool FMatineeImportTools::CopyInterpVisibilityTrack( UInterpTrackVisibility* Mat
 
 	if (MatineeVisibilityTrack->VisibilityTrack.Num())
 	{
-		FFrameRate   FrameRate    = VisibilityTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameRate   FrameRate    = VisibilityTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 		FFrameNumber FirstKeyTime = (MatineeVisibilityTrack->GetKeyframeTime( 0 ) * FrameRate).RoundToFrame();
 
 		UMovieSceneBoolSection* Section = Cast<UMovieSceneBoolSection>( MovieSceneHelpers::FindSectionAtTime( VisibilityTrack->GetAllSections(), FirstKeyTime ) );

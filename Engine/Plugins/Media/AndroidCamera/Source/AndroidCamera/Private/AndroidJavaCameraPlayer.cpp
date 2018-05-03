@@ -496,6 +496,8 @@ bool FJavaAndroidCameraPlayer::GetAudioTracks(TArray<FAudioTrack>& AudioTracks)
 
 			AudioTrack.Channels = (int32)JEnv->GetIntField(Track, AudioTrackInfo_Channels);
 			AudioTrack.SampleRate = (int32)JEnv->GetIntField(Track, AudioTrackInfo_SampleRate);
+
+			JEnv->DeleteLocalRef(Track);
 		}
 		JEnv->DeleteGlobalRef(TrackArray);
 
@@ -544,6 +546,8 @@ bool FJavaAndroidCameraPlayer::GetCaptionTracks(TArray<FCaptionTrack>& CaptionTr
 			CaptionTrack.Language = FString(nativeLanguage);
 			JEnv->ReleaseStringUTFChars(jsLanguage, nativeLanguage);
 			JEnv->DeleteLocalRef(jsLanguage);
+
+			JEnv->DeleteLocalRef(Track);
 		}
 		JEnv->DeleteGlobalRef(TrackArray);
 
@@ -599,6 +603,8 @@ bool FJavaAndroidCameraPlayer::GetVideoTracks(TArray<FVideoTrack>& VideoTracks)
 			VideoTrack.FrameRates = TRange<float>(JEnv->GetFloatField(Track, VideoTrackInfo_FrameRateLow), JEnv->GetFloatField(Track, VideoTrackInfo_FrameRateHigh));
 			VideoTrack.Format = 0;
 
+			JEnv->DeleteLocalRef(Track);
+
 			for (int Index = 0; Index < ElementCount; ++Index)
 			{
 				jobject Format = JEnv->GetObjectArrayElement(TrackArray, Index);
@@ -609,6 +615,8 @@ bool FJavaAndroidCameraPlayer::GetVideoTracks(TArray<FVideoTrack>& VideoTracks)
 				VideoFormat.Dimensions = FIntPoint((int32)JEnv->GetIntField(Format, VideoTrackInfo_Width), (int32)JEnv->GetIntField(Format, VideoTrackInfo_Height));
 				VideoFormat.FrameRate = JEnv->GetFloatField(Format, VideoTrackInfo_FrameRateHigh);
 				VideoFormat.FrameRates = TRange<float>(JEnv->GetFloatField(Format, VideoTrackInfo_FrameRateLow), JEnv->GetFloatField(Format, VideoTrackInfo_FrameRateHigh));
+
+				JEnv->DeleteLocalRef(Format);
 
 				if (VideoTrack.Dimensions == VideoFormat.Dimensions)
 				{

@@ -102,7 +102,7 @@ public:
 	FAnimationRecordingSettings AnimationSettings;
 
 	/** Whether to record to 'possessable' (i.e. level-owned) or 'spawnable' (i.e. sequence-owned) actors. Defaults to the global setting. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Animation Recording")
+	UPROPERTY(EditAnywhere, Category = "Actor Recording")
 	bool bRecordToPossessable;
 
 	/** Whether this actor recording was triggered from an actor spawn */

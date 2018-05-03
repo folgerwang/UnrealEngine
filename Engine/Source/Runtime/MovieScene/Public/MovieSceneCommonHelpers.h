@@ -13,6 +13,7 @@ class AActor;
 class UCameraComponent;
 class UMovieSceneSection;
 class USceneComponent;
+class USoundBase;
 struct FRichCurve;
 enum class EMovieSceneKeyInterpolation : uint8;
 
@@ -81,6 +82,14 @@ public:
 	 * @param Mobility The mobility of the runtime object
 	 */
 	static void SetRuntimeObjectMobility(UObject* Object, EComponentMobility::Type ComponentMobility = EComponentMobility::Movable);
+
+	/*
+	 * Get the duration for the given sound
+
+	 * @param Sound The sound to get the duration for
+	 * @return The duration in seconds
+	 */
+	static float GetSoundDuration(USoundBase* Sound);
 
 	/**
 	 * Sort predicate that sorts lower bounds of a range

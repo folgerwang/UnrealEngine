@@ -524,7 +524,7 @@ bool UMediaPlayer::Rewind()
 
 bool UMediaPlayer::Seek(const FTimespan& Time)
 {
-	UE_LOG(LogMediaAssets, VeryVerbose, TEXT("%s.Seek %s"), *GetFName().ToString(), *Time.ToString());
+	UE_LOG(LogMediaAssets, VeryVerbose, TEXT("%s.Seek %s"), *GetFName().ToString(), *Time.ToString(TEXT("%h:%m:%s.%t")));
 	return PlayerFacade->Seek(Time);
 }
 
@@ -533,6 +533,13 @@ bool UMediaPlayer::SelectTrack(EMediaPlayerTrack TrackType, int32 TrackIndex)
 {
 	UE_LOG(LogMediaAssets, Verbose, TEXT("%s.SelectTrack %s %i"), *GetFName().ToString(), *UEnum::GetValueAsString(TEXT("MediaAssets.EMediaPlayerTrack"), TrackType), TrackIndex);
 	return PlayerFacade->SelectTrack((EMediaTrackType)TrackType, TrackIndex);
+}
+
+
+void UMediaPlayer::SetBlockOnTime(const FTimespan& Time)
+{
+	UE_LOG(LogMediaAssets, VeryVerbose, TEXT("%s.SetBlockOnTime %s"), *GetFName().ToString(), *Time.ToString(TEXT("%h:%m:%s.%t")));
+	return PlayerFacade->SetBlockOnTime(Time);
 }
 
 
@@ -708,13 +715,13 @@ void UMediaPlayer::PostInitProperties()
 	}
 }
 
+
 void UMediaPlayer::PostLoad()
 {
 	Super::PostLoad();
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		// Set the player GUID - required for UMediaPlayer assets
 		PlayerFacade->SetGuid(PlayerGuid);
 	}
 }

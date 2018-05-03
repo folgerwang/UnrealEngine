@@ -45,6 +45,23 @@ TArrayView<TWeakObjectPtr<>> FMovieSceneObjectCache::FindBoundObjects(const FGui
 	return TArrayView<TWeakObjectPtr<>>();
 }
 
+TArrayView<const TWeakObjectPtr<>> FMovieSceneObjectCache::IterateBoundObjects(const FGuid& InBindingID) const
+{
+	MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_IterateBoundObjects)
+
+	const FBoundObjects* Bindings = BoundObjects.Find(InBindingID);
+	if (Bindings && Bindings->bUpToDate)
+	{
+		return TArrayView<const TWeakObjectPtr<>>(
+			Bindings->Objects.GetData(),
+			Bindings->Objects.Num()
+			);
+	}
+
+	// Just return nothing
+	return TArrayView<TWeakObjectPtr<>>();
+}
+
 FGuid FMovieSceneObjectCache::FindObjectId(UObject& InObject, IMovieScenePlayer& Player)
 {
 	UMovieSceneSequence* Sequence = WeakSequence.Get();
@@ -99,6 +116,17 @@ void FMovieSceneObjectCache::InvalidateExpiredObjects()
 				Invalidate(Pair.Key);
 				break;
 			}
+		}
+	}
+
+	if (UMovieSceneSequence* Sequence = WeakSequence.Get())
+	{
+		TArray<FGuid> InvalidObjectIDs;
+		Sequence->GatherExpiredObjects(*this, InvalidObjectIDs);
+
+		for (const FGuid& ObjectID : InvalidObjectIDs)
+		{
+			Invalidate(ObjectID);
 		}
 	}
 }
@@ -158,7 +186,7 @@ void FMovieSceneObjectCache::UpdateBindings(const FGuid& InGuid, IMovieScenePlay
 
 	// Find the sequence for the current
 	UMovieSceneSequence* Sequence = WeakSequence.Get();
-	if (!ensure(Sequence))
+	if (!Sequence)
 	{
 		return;
 	}

@@ -77,8 +77,8 @@ void ASequencerKeyActor::PropagateKeyChange()
 		// Mark the track section as dirty
 		TrackSection->Modify();
 
-		FFrameRate   FrameResolution = TrackSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FFrameNumber FrameNumber     = (KeyTime * FrameResolution).RoundToFrame();
+		FFrameRate   TickResolution  = TrackSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber FrameNumber     = (KeyTime * TickResolution).RoundToFrame();
 
 		TArrayView<FMovieSceneFloatChannel*> FloatChannels = TrackSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
 

@@ -15,6 +15,8 @@
 #include "MovieSceneObjectBindingIDCustomization.h"
 #include "DetailCategoryBuilder.h"
 #include "IDetailPropertyRow.h"
+#include "Widgets/Layout/SBox.h"
+#include "Sections/EventSection.h"
 
 #define LOCTEXT_NAMESPACE "FEventTrackEditor"
 
@@ -25,6 +27,12 @@
 TSharedRef<ISequencerTrackEditor> FEventTrackEditor::CreateTrackEditor(TSharedRef<ISequencer> InSequencer)
 {
 	return MakeShareable(new FEventTrackEditor(InSequencer));
+}
+
+
+TSharedRef<ISequencerSection> FEventTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
+{
+	return MakeShared<FEventSection>(SectionObject, GetSequencer());
 }
 
 
@@ -96,7 +104,8 @@ void FEventTrackEditor::BuildTrackContextMenu(FMenuBuilder& MenuBuilder, UMovieS
 		FDetailsViewArgs DetailsViewArgs(false,false,false,FDetailsViewArgs::HideNameArea,true);
 		DetailsViewArgs.DefaultsOnlyVisibility = EEditDefaultsOnlyNodeVisibility::Automatic;
 		DetailsViewArgs.bShowOptions = false;
-		
+		DetailsViewArgs.ColumnWidth = 0.55f;
+
 		TSharedRef<IDetailsView> DetailsView = PropertyEditor.CreateDetailView(DetailsViewArgs);
 		
 		// Register the custom type layout for the class
@@ -109,7 +118,15 @@ void FEventTrackEditor::BuildTrackContextMenu(FMenuBuilder& MenuBuilder, UMovieS
 		DetailsView->SetObject(EventTrack, true);
 
 		// Add it to the menu
-		SubMenuBuilder.AddWidget(DetailsView, FText(), true, false);
+		TSharedRef< SWidget > DetailsViewWidget =
+			SNew(SBox)
+			.MaxDesiredHeight(400.0f)
+			.WidthOverride(450.0f)
+		[
+			DetailsView
+		];
+
+		SubMenuBuilder.AddWidget(DetailsViewWidget, FText(), true, false);
 	};
 
 	MenuBuilder.AddSubMenu(LOCTEXT("Properties_MenuText", "Properties"), FText(), FNewMenuDelegate::CreateLambda(PopulateSubMenu));

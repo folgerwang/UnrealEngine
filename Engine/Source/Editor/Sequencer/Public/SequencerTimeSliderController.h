@@ -6,11 +6,11 @@
 #include "Input/CursorReply.h"
 #include "Input/Reply.h"
 #include "Widgets/SWidget.h"
-#include "ITimeSlider.h"
+#include "Editor/SequencerWidgets/Public/ITimeSlider.h"
+#include "ISequencerModule.h"
 
 class FSlateWindowElementList;
 struct FContextMenuSuppressor;
-struct FScrubRangeToScreen;
 struct FSlateBrush;
 class FSequencer;
 
@@ -77,10 +77,10 @@ public:
 	/** End ITimeSliderController Interface */
 
 	/** Get the current play rate for this controller */
-	virtual FFrameRate GetPlayRate() const override { return TimeSliderArgs.PlayRate.Get(); }
+	virtual FFrameRate GetDisplayRate() const override { return TimeSliderArgs.DisplayRate.Get(); }
 
-	/** Get the current frame resolution for this controller */
-	virtual FFrameRate GetFrameResolution() const override { return TimeSliderArgs.FrameResolution.Get(); }
+	/** Get the current tick resolution for this controller */
+	virtual FFrameRate GetTickResolution() const override { return TimeSliderArgs.TickResolution.Get(); }
 
 	/** Get the current view range for this controller */
 	virtual FAnimatedRange GetViewRange() const override { return TimeSliderArgs.ViewRange.Get(); }
@@ -144,10 +144,50 @@ public:
 	 */
 	int32 OnPaintSectionView( const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, bool bEnabled, const FPaintSectionAreaViewArgs& Args ) const;
 
+public:
+
+	struct FScrubberMetrics
+	{
+		/** The extents of the current frame that the scrubber is on, in pixels */
+		TRange<float> FrameExtentsPx;
+		/** The pixel range that the scrubber handle (thumb) occupies */
+		TRange<float> HandleRangePx;
+		/** The style of the scrubber handle */
+		ESequencerScrubberStyle Style;
+		/** The style of the scrubber handle */
+		bool bDrawExtents;
+	};
+
+	/** Utility struct for converting between scrub range space and local/absolute screen space */
+	struct FScrubRangeToScreen
+	{
+		double ViewStart;
+		float  PixelsPerInput;
+
+		FScrubRangeToScreen(const TRange<double>& InViewInput, const FVector2D& InWidgetSize)
+		{
+			float ViewInputRange = InViewInput.Size<double>();
+
+			ViewStart = InViewInput.GetLowerBoundValue();
+			PixelsPerInput = ViewInputRange > 0 ? (InWidgetSize.X / ViewInputRange) : 0;
+		}
+
+		/** Local Widget Space -> Curve Input domain. */
+		double LocalXToInput(float ScreenX) const
+		{
+			return PixelsPerInput > 0 ? (ScreenX / PixelsPerInput) + ViewStart : ViewStart;
+		}
+
+		/** Curve Input domain -> local Widget Space */
+		float InputToLocalX(double Input) const
+		{
+			return (Input - ViewStart) * PixelsPerInput;
+		}
+	};
+
 private:
 	// forward declared as class members to prevent name collision with similar types defined in other units
 	struct FDrawTickArgs;
-	struct FScrubRangeToScreen;
 
 	/**
 	 * Call this method when the user's interaction has changed the scrub position
@@ -187,7 +227,7 @@ private:
 	 * @return the new layer ID
 	 */
 	int32 DrawSubSequenceRange(const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FScrubRangeToScreen& RangeToScreen, const FPaintPlaybackRangeArgs& Args) const;
-	
+
 private:
 
 	/**
@@ -211,19 +251,19 @@ private:
 	TSharedRef<SWidget> OpenSetPlaybackRangeMenu(FFrameNumber FrameNumber);
 	FFrameTime ComputeScrubTimeFromMouse(const FGeometry& Geometry, FVector2D ScreenSpacePosition, FScrubRangeToScreen RangeToScreen) const;
 	FFrameTime ComputeFrameTimeFromMouse(const FGeometry& Geometry, FVector2D ScreenSpacePosition, FScrubRangeToScreen RangeToScreen, bool CheckSnapping = true) const;
+
 private:
 
-	struct FScrubPixelRange
-	{
-		TRange<float> Range;
-		TRange<float> HandleRange;
-		bool bClamped;
-	};
+	/**
+	 * Get the pixel matrics of the Scrubber
+	 * @param ScrubTime			The qualified time of the scrubber
+	 * @param RangeToScreen		Range to screen helper
+	 * @param DilationPixels	Number of pixels to dilate the handle by
+	 * return FScrubberMetrics struct
+	 */
+	FScrubberMetrics GetScrubPixelMetrics(const FQualifiedFrameTime& ScrubTime, const FScrubRangeToScreen& RangeToScreen, float DilationPixels = 0.f) const;
 
-	FScrubPixelRange GetHitTestScrubberPixelRange(FFrameTime ScrubTime, const FScrubRangeToScreen& RangeToScreen) const;
-
-	FScrubPixelRange GetScrubberPixelRange(FFrameTime ScrubTime, const FScrubRangeToScreen& RangeToScreen) const;
-	FScrubPixelRange GetScrubberPixelRange(FFrameTime ScrubTime, FFrameRate Resolution, FFrameRate PlayRate, const FScrubRangeToScreen& RangeToScreen, float DilationPixels = 0.f) const;
+	FScrubberMetrics GetHitTestScrubPixelMetrics(const FScrubRangeToScreen& RangeToScreen) const;
 
 private:
 
@@ -236,10 +276,10 @@ private:
 	const FSlateBrush* ScrubFillBrush;
 
 	/** Brush for drawing an upwards facing scrub handles */
-	const FSlateBrush* ScrubHandleUpBrush, *ClampedScrubHandleUpBrush;
+	const FSlateBrush* FrameBlockScrubHandleUpBrush, *VanillaScrubHandleUpBrush;
 	
 	/** Brush for drawing a downwards facing scrub handle */
-	const FSlateBrush* ScrubHandleDownBrush, *ClampedScrubHandleDownBrush;
+	const FSlateBrush* FrameBlockScrubHandleDownBrush, *VanillaScrubHandleDownBrush;
 	
 	/** Total mouse delta during dragging **/
 	float DistanceDragged;
@@ -274,6 +314,7 @@ private:
 	int32 ContextMenuSuppression;
 	
 	friend FContextMenuSuppressor;
+	
 };
 
 struct FContextMenuSuppressor

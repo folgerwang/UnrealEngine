@@ -6,14 +6,14 @@
 #include "MovieSceneTrack.h"
 #include "MovieSceneTimeHelpers.h"
 
-FSequencerEntityRange::FSequencerEntityRange(const TRange<double>& InRange, FFrameRate InFrameResolution)
-	: FrameResolution(InFrameResolution)
+FSequencerEntityRange::FSequencerEntityRange(const TRange<double>& InRange, FFrameRate InTickResolution)
+	: TickResolution(InTickResolution)
 	, Range(InRange)
 {
 }
 
-FSequencerEntityRange::FSequencerEntityRange(FVector2D TopLeft, FVector2D BottomRight, FFrameRate InFrameResolution)
-	: FrameResolution(InFrameResolution)
+FSequencerEntityRange::FSequencerEntityRange(FVector2D TopLeft, FVector2D BottomRight, FFrameRate InTickResolution)
+	: TickResolution(InTickResolution)
 	, Range(TopLeft.X, BottomRight.X)
 	, VerticalTop(TopLeft.Y), VerticalBottom(BottomRight.Y)
 {
@@ -22,7 +22,7 @@ FSequencerEntityRange::FSequencerEntityRange(FVector2D TopLeft, FVector2D Bottom
 bool FSequencerEntityRange::IntersectSection(const UMovieSceneSection* InSection, const TSharedRef<FSequencerTrackNode>& InTrackNode, int32 MaxRowIndex) const
 {
 	// Test horizontal bounds
-	if (!(InSection->GetRange() / FrameResolution).Overlaps(Range))
+	if (!(InSection->GetRange() / TickResolution).Overlaps(Range))
 	{
 		return false;
 	}
@@ -231,9 +231,9 @@ void FSequencerEntityWalker::HandleKeyArea(const ISequencerEntityVisitor& Visito
 	TArray<FKeyHandle> Handles;
 	TArray<FFrameNumber> Times;
 
-	const FFrameTime HalfKeySizeFrames   = (VirtualKeySize.X*.5f) * Range.FrameResolution;
-	const FFrameTime RangeStartFrame     = Range.Range.GetLowerBoundValue() * Range.FrameResolution - FFrameTime(0, 0.5f);
-	const FFrameTime RangeEndFrame       = Range.Range.GetUpperBoundValue() * Range.FrameResolution - FFrameTime(0, 0.5f);
+	const FFrameTime HalfKeySizeFrames   = (VirtualKeySize.X*.5f) * Range.TickResolution;
+	const FFrameTime RangeStartFrame     = Range.Range.GetLowerBoundValue() * Range.TickResolution;
+	const FFrameTime RangeEndFrame       = Range.Range.GetUpperBoundValue() * Range.TickResolution;
 
 	TRange<FFrameNumber> VisitRangeFrames( (RangeStartFrame-HalfKeySizeFrames).CeilToFrame(), (RangeEndFrame+HalfKeySizeFrames).FloorToFrame() );
 	KeyArea->GetKeyInfo(&Handles, &Times, VisitRangeFrames);

@@ -134,7 +134,7 @@ FFrameNumber UMovieSceneCameraCutTrack::FindEndTimeForCameraCut( FFrameNumber St
 	if( StartTime == ExclusiveEndTime )
 	{
 		// Give the CameraCut a reasonable length of time to start out with.  A 0 time CameraCut is not usable
-		ExclusiveEndTime = (StartTime + .5f * OwnerScene->GetFrameResolution()).FrameNumber;
+		ExclusiveEndTime = (StartTime + .5f * OwnerScene->GetTickResolution()).FrameNumber;
 	}
 
 	return ExclusiveEndTime;

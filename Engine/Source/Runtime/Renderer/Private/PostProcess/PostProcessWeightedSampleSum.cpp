@@ -137,7 +137,7 @@ public:
 
 	/** Sets shader parameter values */
 	void SetParameters(
-		FRHICommandList& RHICmdList, FSamplerStateRHIParamRef SamplerStateRHI, FTextureRHIParamRef FilterTextureRHI, FTextureRHIParamRef AdditiveTextureRHI, 
+		FRHICommandList& RHICmdList, FSamplerStateRHIParamRef SamplerStateRHI, FTextureRHIParamRef FilterTextureRHI, FTextureRHIParamRef AdditiveTextureRHI,
 		const FLinearColor* SampleWeightValues, const FVector2D* SampleOffsetValues, uint32 NumSamples, const FVector4& FilteredBufferUVMinMaxValue, const FVector4& AdditiveBufferUVMinMaxValue )
 	{
 		check(CompileTimeNumSamples == 0 && NumSamples > 0 && NumSamples <= MAX_FILTER_SAMPLES || CompileTimeNumSamples == NumSamples);
@@ -366,7 +366,7 @@ public:
 	// CS params
 	FShaderParameter FilterComputeParams;
 	FShaderParameter OutComputeTex;
-	
+
 	// PS params
 	FShaderResourceParameter FilterTexture;
 	FShaderResourceParameter FilterTextureSampler;
@@ -383,7 +383,7 @@ public:
 		// CS params
 		FilterComputeParams.Bind(Initializer.ParameterMap, TEXT("FilterComputeParams"));
 		OutComputeTex.Bind(Initializer.ParameterMap, TEXT("OutComputeTex"));
-		
+
 		// PS params
 		FilterTexture.Bind(Initializer.ParameterMap,TEXT("FilterTexture"));
 		FilterTextureSampler.Bind(Initializer.ParameterMap,TEXT("FilterTextureSampler"));
@@ -391,7 +391,7 @@ public:
 		AdditiveTextureSampler.Bind(Initializer.ParameterMap,TEXT("AdditiveTextureSampler"));
 		SampleWeights.Bind(Initializer.ParameterMap,TEXT("SampleWeights"));
 		SampleOffsets.Bind(Initializer.ParameterMap,TEXT("SampleOffsets"));
-		
+
 		if (CompileTimeNumSamples == 0)
 		{
 			SampleCount.Bind(Initializer.ParameterMap,TEXT("SampleCount"));
@@ -449,7 +449,7 @@ public:
 		const FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 		RHICmdList.SetUAVParameter(ShaderRHI, OutComputeTex.GetBaseIndex(), NULL);
 	}
-	
+
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override
 	{
@@ -541,7 +541,7 @@ void SetFilterShaders(
 	if ((NumSamples > MAX_FILTER_COMPILE_TIME_SAMPLES && DynamicNumSample != 0) || (DynamicNumSample == 2))
 	{
 		// there is to many samples, so we use the dynamic sample count shader
-		
+
 		TShaderMapRef<FPostProcessVS> VertexShader(ShaderMap);
 		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
@@ -648,7 +648,7 @@ void SetFilterShaders(
 		VertexShader->SetParameters(RHICmdList, SampleOffsets); \
 		break; \
 	};
-	
+
 	check(NumSamples <= MAX_FILTER_COMPILE_TIME_SAMPLES);
 
 	// Set the appropriate filter shader for the given number of samples.
@@ -753,7 +753,7 @@ static float NormalDistributionUnscaled(float X,float Scale, EFilterShape Filter
 		float dxScaled = dxUnScaled * Scale;
 
 		// Constant is tweaked give a similar look to UE4 before we fix the scale bug (Some content tweaking might be needed).
-		// The value defines how much of the Gaussian clipped by the sample window. 
+		// The value defines how much of the Gaussian clipped by the sample window.
 		// r.Filter.SizeScale allows to tweak that for performance/quality.
 		Ret = FMath::Exp(-16.7f * FMath::Square(dxScaled));
 
@@ -864,7 +864,7 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 	AsyncEndFence = FComputeFenceRHIRef();
 
 	// input is not hooked up correctly
-	check(Input && InputDesc);	
+	check(Input && InputDesc);
 
 	FIntPoint SrcSize = InputDesc->Extent;
 	FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
@@ -973,11 +973,11 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 	if (bIsComputePass)
 	{
 		DestRect = {Context.SceneColorViewRect.Min, Context.SceneColorViewRect.Min + DestSize};
-		
+
 		// Common setup
 		SetRenderTarget(Context.RHICmdList, nullptr, nullptr);
 		Context.SetViewportAndCallRHI(DestRect, 0.0f, 1.0f);
-		
+
 		static FName AsyncEndFenceName(TEXT("AsyncWeightedSampleSumEndFence"));
 		AsyncEndFence = Context.RHICmdList.CreateComputeFence(AsyncEndFenceName);
 
@@ -986,9 +986,9 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 			// Async path
 			FRHIAsyncComputeCommandListImmediate& RHICmdListComputeImmediate = FRHICommandListExecutor::GetImmediateAsyncComputeCommandList();
 	{
- 				SCOPED_COMPUTE_EVENT(RHICmdListComputeImmediate, AsyncWeightedSampleSum);
+				SCOPED_COMPUTE_EVENT(RHICmdListComputeImmediate, AsyncWeightedSampleSum);
 				WaitForInputPassComputeFences(RHICmdListComputeImmediate);
-				
+
 				RHICmdListComputeImmediate.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, DestRenderTarget.UAV);
 				DispatchCS(RHICmdListComputeImmediate, Context, DestRect, DestRenderTarget.UAV,
 					FilterTexture, AdditiveTexture, CombineMethodInt, BlurWeights, BlurOffsets, NumSamples);
@@ -1021,7 +1021,7 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 		}
 		else
 		{
-			SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EExistingColorAndDepth);	
+			SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EExistingColorAndDepth);
 		}
 
 		Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
@@ -1096,7 +1096,7 @@ void FRCPassPostProcessWeightedSampleSum::DispatchCS(TRHICmdList& RHICmdList, FR
 
 	auto ShaderMap = Context.GetShaderMap();
 	const auto DynamicNumSample = CVarLoopMode.GetValueOnRenderThread();
-	
+
 	if ((NumSamples > MAX_FILTER_COMPILE_TIME_SAMPLES && DynamicNumSample != 0) || (DynamicNumSample == 2))
 	{
 		DISPATCH_METHODS(0);
@@ -1210,11 +1210,9 @@ bool FRCPassPostProcessWeightedSampleSum::DoFastBlur() const
 			// we scale by width because FOV is defined horizontally
 			float EffectiveBlurRadius = SizeScale * SrcSizeForThisAxis  * 2 / 100.0f;
 
-#if PLATFORM_HTML5
-			float FastBlurThreshold = CVarFastBlurThreshold.GetValueOnGameThread();
-#else
-			float FastBlurThreshold = CVarFastBlurThreshold.GetValueOnRenderThread();
-#endif
+			float FastBlurThreshold = FPlatformProcess::SupportsMultithreading()
+										? CVarFastBlurThreshold.GetValueOnRenderThread()
+										: CVarFastBlurThreshold.GetValueOnGameThread();
 
 			// small radius look too different with this optimization so we only to it for larger radius
 			bRet = EffectiveBlurRadius >= FastBlurThreshold;
@@ -1236,7 +1234,7 @@ bool FRCPassPostProcessWeightedSampleSum::DoFastBlur() const
 }
 
 void FRCPassPostProcessWeightedSampleSum::AdjustRectsForFastBlur(FIntRect& SrcRect, FIntRect& DestRect) const
-{	
+{
 	if (FilterShape == EFS_Horiz)
 	{
 		SrcRect.Min.X = DestRect.Min.X * 2;
@@ -1246,7 +1244,7 @@ void FRCPassPostProcessWeightedSampleSum::AdjustRectsForFastBlur(FIntRect& SrcRe
 	{
 		DestRect.Min.X = SrcRect.Min.X * 2;
 		DestRect.Max.X = SrcRect.Max.X * 2;
-	}	
+	}
 }
 
 void FRCPassPostProcessWeightedSampleSum::DrawClear(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, bool bDoFastBlur, FIntRect SrcRect, FIntRect DestRect, FIntPoint DestSize) const
@@ -1258,11 +1256,11 @@ void FRCPassPostProcessWeightedSampleSum::DrawClear(FRHICommandListImmediate& RH
 }
 
 void FRCPassPostProcessWeightedSampleSum::DrawQuad(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, bool bDoFastBlur, FIntRect SrcRect, FIntRect DestRect, FIntPoint DestSize, FIntPoint SrcSize, FShader* VertexShader) const
-{	
+{
 	if (bDoFastBlur)
 	{
 		AdjustRectsForFastBlur(SrcRect, DestRect);
-	}	
+	}
 
 	// Draw a quad mapping scene color to the view's render target
 	DrawRectangle(
@@ -1283,7 +1281,7 @@ uint32 FRCPassPostProcessWeightedSampleSum::GetMaxNumSamples(ERHIFeatureLevel::T
 	{
 		return MAX_FILTER_SAMPLES;
 	}
-	
+
 	uint32 MaxNumSamples = MAX_FILTER_COMPILE_TIME_SAMPLES;
 
 	if (InPlatform == SP_METAL_MRT || InPlatform == SP_METAL_MRT_MAC)

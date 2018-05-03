@@ -53,7 +53,7 @@ void FMovieSceneEvaluationTemplateGenerator::Generate()
 	Template.RemoveStaleData(CompiledSignatures);
 
 	Template.SequenceSignature = SourceSequence.GetSignature();
-	Template.TemplateSignature = FGuid::NewGuid();
+	Template.TemplateSerialNumber.Increment();
 }
 
 void FMovieSceneEvaluationTemplateGenerator::ProcessTrack(const UMovieSceneTrack& Track, const FGuid& ObjectBindingId)

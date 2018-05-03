@@ -628,8 +628,8 @@ void SCinematicLevelViewport::Tick(const FGeometry& AllottedGeometry, const doub
 		SubTrack = Cast<UMovieSceneSubTrack>(Sequence->GetMovieScene()->FindMasterTrack(UMovieSceneSubTrack::StaticClass()));
 	}
 
-	const FFrameRate OuterResolution = Sequencer->GetFocusedFrameResolution();
-	const FFrameRate OuterPlayRate   = Sequencer->GetFocusedPlayRate();
+	const FFrameRate OuterResolution = Sequencer->GetFocusedTickResolution();
+	const FFrameRate OuterPlayRate   = Sequencer->GetFocusedDisplayRate();
 
 	const FFrameTime OuterTime       = Sequencer->GetLocalTime().ConvertTo(OuterResolution);
 	UIData.OuterResolution = OuterResolution;
@@ -655,7 +655,7 @@ void SCinematicLevelViewport::Tick(const FGeometry& AllottedGeometry, const doub
 	UMovieSceneSequence* SubSequence = SubSection ? SubSection->GetSequence() : nullptr;
 	if (SubSequence)
 	{
-		FFrameRate                   InnerResolution       = SubSequence->GetMovieScene()->GetFrameResolution();
+		FFrameRate                   InnerResolution       = SubSequence->GetMovieScene()->GetTickResolution();
 		FMovieSceneSequenceTransform OuterToInnerTransform = SubSection->OuterToInnerTransform();
 		const FFrameTime             InnerShotPosition	   = OuterTime * OuterToInnerTransform;
 

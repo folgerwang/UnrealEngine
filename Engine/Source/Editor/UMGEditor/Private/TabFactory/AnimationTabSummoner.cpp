@@ -403,10 +403,10 @@ private:
 		NewAnimation->MovieScene = NewObject<UMovieScene>(NewAnimation, NewAnimation->GetFName(), RF_Transactional);
 
 		// Default to 20 fps display rate (as was the previous default in USequencerSettings)
-		NewAnimation->MovieScene->SetPlaybackFrameRate(FFrameRate(20, 1));
+		NewAnimation->MovieScene->SetDisplayRate(FFrameRate(20, 1));
 
-		const FFrameTime InFrame  = InTime  * NewAnimation->MovieScene->GetFrameResolution();
-		const FFrameTime OutFrame = OutTime * NewAnimation->MovieScene->GetFrameResolution();
+		const FFrameTime InFrame  = InTime  * NewAnimation->MovieScene->GetTickResolution();
+		const FFrameTime OutFrame = OutTime * NewAnimation->MovieScene->GetTickResolution();
 		NewAnimation->MovieScene->SetPlaybackRange(TRange<FFrameNumber>(InFrame.FrameNumber, OutFrame.FrameNumber+1));
 		NewAnimation->MovieScene->GetEditorData().WorkStart = InTime;
 		NewAnimation->MovieScene->GetEditorData().WorkEnd   = OutTime;

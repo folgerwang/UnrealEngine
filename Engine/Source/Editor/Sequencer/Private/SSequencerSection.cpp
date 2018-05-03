@@ -8,6 +8,7 @@
 #include "Editor.h"
 #include "Sequencer.h"
 #include "SequencerSectionPainter.h"
+#include "MovieSceneSequence.h"
 #include "CommonMovieSceneTools.h"
 #include "ISequencerEditTool.h"
 #include "ISequencerSection.h"
@@ -75,11 +76,11 @@ FTimeToPixel ConstructTimeConverterForSection(const FGeometry& InSectionGeometry
 {
 	TRange<double> ViewRange       = InSequencer.GetViewRange();
 
-	FFrameRate     FrameResolution = InSection.GetTypedOuter<UMovieScene>()->GetFrameResolution();
-	double         LowerTime       = InSection.HasStartFrame() ? InSection.GetInclusiveStartFrame() / FrameResolution : ViewRange.GetLowerBoundValue();
-	double         UpperTime       = InSection.HasEndFrame()   ? InSection.GetExclusiveEndFrame()   / FrameResolution : ViewRange.GetUpperBoundValue();
+	FFrameRate     TickResolution  = InSection.GetTypedOuter<UMovieScene>()->GetTickResolution();
+	double         LowerTime       = InSection.HasStartFrame() ? InSection.GetInclusiveStartFrame() / TickResolution : ViewRange.GetLowerBoundValue();
+	double         UpperTime       = InSection.HasEndFrame()   ? InSection.GetExclusiveEndFrame()   / TickResolution : ViewRange.GetUpperBoundValue();
 
-	return FTimeToPixel(InSectionGeometry, TRange<double>(LowerTime, UpperTime), FrameResolution);
+	return FTimeToPixel(InSectionGeometry, TRange<double>(LowerTime, UpperTime), TickResolution);
 }
 
 
@@ -400,7 +401,7 @@ struct FSequencerSectionPainterImpl : FSequencerSectionPainter
 		SectionHandle.GetSectionObject()->EvaluateEasing(Time, EaseInValue, EaseOutValue, &EaseInInterp, &EaseOutInterp);
 
 		return FEasingCurvePoint(
-			FVector2D(Time / TimeToPixelConverter.GetFrameResolution(), EaseInValue.Get(1.f) * EaseOutValue.Get(1.f)),
+			FVector2D(Time / TimeToPixelConverter.GetTickResolution(), EaseInValue.Get(1.f) * EaseOutValue.Get(1.f)),
 			FMath::Lerp(FinalTint, EaseSelectionColor, GetEaseHighlightAmount(SectionHandle, EaseInInterp, EaseOutInterp))
 		);
 	}
@@ -423,12 +424,12 @@ struct FSequencerSectionPainterImpl : FSequencerSectionPainter
 			if ((Upper.Location.X - Lower.Location.X)*.5f > MinTimeSize)
 			{
 				float      NewPointTime  = (Upper.Location.X + Lower.Location.X)*.5f;
-				FFrameTime FrameTime     = NewPointTime * TimeToPixelConverter.GetFrameResolution();
+				FFrameTime FrameTime     = NewPointTime * TimeToPixelConverter.GetTickResolution();
 				float      NewPointValue = SectionObject->EvaluateEasing(FrameTime);
 
 				// Check that the gradient is changing significantly
 				float LinearValue = (Upper.Location.Y + Lower.Location.Y) * .5f;
-				float PointGradient = NewPointValue - SectionObject->EvaluateEasing(FMath::Lerp(Lower.Location.X, NewPointTime, 0.9f) * TimeToPixelConverter.GetFrameResolution());
+				float PointGradient = NewPointValue - SectionObject->EvaluateEasing(FMath::Lerp(Lower.Location.X, NewPointTime, 0.9f) * TimeToPixelConverter.GetTickResolution());
 				float OuterGradient = Upper.Location.Y - Lower.Location.Y;
 				if (!FMath::IsNearlyEqual(OuterGradient, PointGradient, GradientThreshold) ||
 					!FMath::IsNearlyEqual(LinearValue, NewPointValue, ValueThreshold))
@@ -508,8 +509,8 @@ struct FSequencerSectionPainterImpl : FSequencerSectionPainter
 
 			for (const FEasingCurvePoint& Point : CurvePoints)
 			{
-				float SegmentStartTime = MovieScene::DiscreteInclusiveLower(Segment.Range) / TimeToPixelConverter.GetFrameResolution();
-				float U = (Point.Location.X - SegmentStartTime) / ( FFrameNumber(MovieScene::DiscreteSize(Segment.Range)) / TimeToPixelConverter.GetFrameResolution() );
+				float SegmentStartTime = MovieScene::DiscreteInclusiveLower(Segment.Range) / TimeToPixelConverter.GetTickResolution();
+				float U = (Point.Location.X - SegmentStartTime) / ( FFrameNumber(MovieScene::DiscreteSize(Segment.Range)) / TimeToPixelConverter.GetTickResolution() );
 
 				// Add verts top->bottom
 				FVector2D UV(U, 0.f);
@@ -720,14 +721,15 @@ void SSequencerSection::GetKeysUnderMouse( const FVector2D& MousePosition, const
 
 	UMovieSceneSection& Section = *SectionInterface->GetSectionObject();
 
-	FTimeToPixel TimeToPixelConverter = ConstructTimeConverterForSection(SectionGeometry, Section, GetSequencer());
-	const float  MousePixel           = SectionGeometry.AbsoluteToLocal( MousePosition ).X;
+	FTimeToPixel    TimeToPixelConverter = ConstructTimeConverterForSection(SectionGeometry, Section, GetSequencer());
+	const FVector2D MousePixel           = SectionGeometry.AbsoluteToLocal( MousePosition );
 
 	// HitTest 
 	const FFrameTime HalfKeySizeFrames = TimeToPixelConverter.PixelDeltaToFrame( SequencerSectionConstants::KeySize.X*.5f );
-	const FFrameTime MouseFrameTime    = TimeToPixelConverter.PixelToFrame( MousePixel ) - FFrameTime(0, 0.5f);
+	const FFrameTime MouseFrameTime    = TimeToPixelConverter.PixelToFrame( MousePixel.X );
 
 	TRange<FFrameNumber> HitTestRange = TRange<FFrameNumber>( (MouseFrameTime-HalfKeySizeFrames).CeilToFrame(), (MouseFrameTime+HalfKeySizeFrames).CeilToFrame());
+	
 	if (HitTestRange.IsEmpty())
 	{
 		return;
@@ -736,8 +738,14 @@ void SSequencerSection::GetKeysUnderMouse( const FVector2D& MousePosition, const
 	// Search every key area until we find the one under the mouse
 	for (const FSectionLayoutElement& Element : Layout->GetElements())
 	{
-		// Is the key area under the mouse
-		if( !GetKeyAreaGeometry( Element, AllottedGeometry ).IsUnderLocation( MousePosition ) )
+		const FGeometry KeyAreaGeometry = GetKeyAreaGeometry(Element, AllottedGeometry);
+		const FVector2D LocalMousePixel = KeyAreaGeometry.AbsoluteToLocal(MousePosition);
+		const float LocalKeyPosY = KeyAreaGeometry.GetLocalSize().Y * .5f;
+
+		// Check that this section is under our mouse, and discard it from potential selection if the mouse is higher than the key's height. We have to
+		// check keys on a per-section basis (and not for the overall SectionGeometry) because keys are offset on tracks that have expandable 
+		// ranges (ie: Audio, Animation) which otherwise makes them fail the height-threshold check.
+		if (!KeyAreaGeometry.IsUnderLocation(MousePosition) || FMath::Abs(LocalKeyPosY - LocalMousePixel.Y) > SequencerSectionConstants::KeySize.Y *.5f)
 		{
 			continue;
 		}
@@ -773,7 +781,7 @@ void SSequencerSection::CreateKeysUnderMouse( const FVector2D& MousePosition, co
 		Section.Modify();
 
 		// Offset by 1 pixel worth of time if possible
-		const FFrameTime TimeFuzz = (GetSequencer().GetViewRange().Size<double>() / ParentGeometry.GetLocalSize().X) * Section.GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		const FFrameTime TimeFuzz = (GetSequencer().GetViewRange().Size<double>() / ParentGeometry.GetLocalSize().X) * Section.GetTypedOuter<UMovieScene>()->GetTickResolution();
 
 		for (const FSequencerSelectedKey& PressedKey : InPressedKeys)
 		{
@@ -868,7 +876,7 @@ bool SSequencerSection::CheckForEasingHandleInteraction( const FPointerEvent& Mo
 		if (EasingSectionObj->HasStartFrame())
 		{
 			TRange<FFrameNumber> EaseInRange      = EasingSectionObj->GetEaseInRange();
-			double               HandlePositionIn = ( EaseInRange.IsEmpty() ? EasingSectionObj->GetInclusiveStartFrame() : EaseInRange.GetUpperBoundValue() ) / TimeToPixelConverter.GetFrameResolution();
+			double               HandlePositionIn = ( EaseInRange.IsEmpty() ? EasingSectionObj->GetInclusiveStartFrame() : EaseInRange.GetUpperBoundValue() ) / TimeToPixelConverter.GetTickResolution();
 
 			if (FMath::IsNearlyEqual(MouseTime, HandlePositionIn, HalfHandleSizeX))
 			{
@@ -880,7 +888,7 @@ bool SSequencerSection::CheckForEasingHandleInteraction( const FPointerEvent& Mo
 		if (EasingSectionObj->HasEndFrame())
 		{
 			TRange<FFrameNumber> EaseOutRange      = EasingSectionObj->GetEaseOutRange();
-			double               HandlePositionOut = (EaseOutRange.IsEmpty() ? EasingSectionObj->GetExclusiveEndFrame() : EaseOutRange.GetLowerBoundValue() ) / TimeToPixelConverter.GetFrameResolution();
+			double               HandlePositionOut = (EaseOutRange.IsEmpty() ? EasingSectionObj->GetExclusiveEndFrame() : EaseOutRange.GetLowerBoundValue() ) / TimeToPixelConverter.GetTickResolution();
 
 			if (FMath::IsNearlyEqual(MouseTime, HandlePositionOut, HalfHandleSizeX))
 			{
@@ -1040,6 +1048,8 @@ int32 SSequencerSection::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 	Painter.LayerId = LayerId;
 	Painter.bParentEnabled = bEnabled;
 	Painter.bIsHighlighted = IsSectionHighlighted(FSectionHandle(ParentSectionArea, SectionIndex), Hotspot);
+	auto& Selection = ParentSectionArea->GetSequencer().GetSelection();
+	Painter.bIsSelected = Selection.IsSelected(&SectionObject);
 
 	FSlateClippingZone ClippingZone(Painter.SectionClippingRect);
 	OutDrawElements.PushClip(ClippingZone);
@@ -1146,6 +1156,9 @@ void SSequencerSection::PaintKeys( FSequencerSectionPainter& InPainter, const FW
 	// draw all keys in each key area
 	UMovieSceneSection& SectionObject = *SectionInterface->GetSectionObject();
 
+	// Use the sub sequence range to draw valid keys, else use the current sequence's playback range
+	TRange<FFrameNumber> ValidKeyRange = Sequencer.GetSubSequenceRange().Get(Sequencer.GetFocusedMovieSceneSequence()->GetMovieScene()->GetPlaybackRange());
+
 	const ESlateDrawEffect DrawEffects = InPainter.bParentEnabled
 		? ESlateDrawEffect::None
 		: ESlateDrawEffect::DisabledEffect;
@@ -1238,17 +1251,15 @@ void SSequencerSection::PaintKeys( FSequencerSectionPainter& InPainter, const FW
 			);
 		}
 
-		double HalfFrameInterval = Sequencer.GetFocusedFrameResolution().AsInterval() * 0.5f;
-
 		// Gather keys for a region larger than the view range to ensure we draw keys that are only just offscreen.
 		TRange<double> PaddedViewRange;
 		{
 			// Compute visible range taking into account a half-frame offset for keys, plus half a key width for keys that are partially offscreen
 			TRange<FFrameNumber> SectionRange   = SectionObject.GetRange();
 			const double         HalfKeyWidth   = 0.5f * (TimeToPixelConverter.PixelToSeconds(SequencerSectionConstants::KeySize.X) - TimeToPixelConverter.PixelToSeconds(0));
-			TRange<double>       VisibleRange   = MovieScene::DilateRange(GetSequencer().GetViewRange(), -(HalfFrameInterval + HalfKeyWidth), -HalfFrameInterval + HalfKeyWidth);
+			TRange<double>       VisibleRange   = MovieScene::DilateRange(GetSequencer().GetViewRange(), -HalfKeyWidth, HalfKeyWidth);
 
-			PaddedViewRange = TRange<double>::Intersection(SectionRange / Sequencer.GetFocusedFrameResolution(), VisibleRange);
+			PaddedViewRange = TRange<double>::Intersection(SectionRange / Sequencer.GetFocusedTickResolution(), VisibleRange);
 		}
 
 		// For each key area, we gather draw params for the visible time range, then combine
@@ -1256,8 +1267,8 @@ void SSequencerSection::PaintKeys( FSequencerSectionPainter& InPainter, const FW
 		auto& Found = CachedKeyAreaPositions.FindChecked(LayoutElement);
 		TArrayView<const FSequencerCachedKeys> CachedKeys = Found;
 
-		// Can't do any of the rest if there are no keys
-		if (CachedKeys.Num() == 0)
+		// Can't do any of the rest if there are no keys, or there's no range to draw within
+		if (CachedKeys.Num() == 0 || PaddedViewRange.IsEmpty())
 		{
 			continue;
 		}
@@ -1275,6 +1286,7 @@ void SSequencerSection::PaintKeys( FSequencerSectionPainter& InPainter, const FW
 
 			int32 NextIndex;
 			TArrayView<const double> TimesInRange;
+			TArrayView<const FFrameNumber> FramesInRange;
 			TArrayView<const FKeyHandle> HandlesInRange;
 			TArray<FKeyDrawParams> DrawParams;
 		};
@@ -1286,7 +1298,7 @@ void SSequencerSection::PaintKeys( FSequencerSectionPainter& InPainter, const FW
 			// Gather all the key handles in this view range
 			FKeyDrawInformation KeyDrawInfo;
 
-			Cache.GetKeysInRange(PaddedViewRange, &KeyDrawInfo.TimesInRange, &KeyDrawInfo.HandlesInRange);
+			Cache.GetKeysInRange(PaddedViewRange, &KeyDrawInfo.TimesInRange, &KeyDrawInfo.FramesInRange, &KeyDrawInfo.HandlesInRange);
 
 			// Generate draw data for this key area
 			if (KeyDrawInfo.TimesInRange.Num())
@@ -1328,6 +1340,9 @@ void SSequencerSection::PaintKeys( FSequencerSectionPainter& InPainter, const FW
 			// and that we avoid floating point precision issues where there is only one key [(KeyTime + TimeOverlapThreshold) - KeyTime != TimeOverlapThreshold] for some floats
 			CardinalKeyTime += TimeOverlapThreshold*0.9994f;
 
+			// Generate the hull of frame numbers that contribute to this key so we can draw it enabled/disabled depending on whether it is outside of the valid range or not
+			TRange<FFrameNumber> KeyRange = TRange<FFrameNumber>::Empty();
+
 			float AverageKeyTime = 0.f;
 			int32 NumKeyTimes = 0;
 			int32 NumOverlaps = 0;
@@ -1345,12 +1360,14 @@ void SSequencerSection::PaintKeys( FSequencerSectionPainter& InPainter, const FW
 				{
 					int32 FinalIndexInThreshold = Info.NextIndex + 1;
 
+					KeyRange = TRange<FFrameNumber>::Hull(KeyRange, TRange<FFrameNumber>(Info.FramesInRange[Info.NextIndex]));
 					AverageKeyTime += Info.TimesInRange[Info.NextIndex];
 					++NumKeyTimes;
 
 					// Count the number of overlapping keys
 					while (FinalIndexInThreshold < Info.TimesInRange.Num() && FMath::IsNearlyEqual(Info.TimesInRange[FinalIndexInThreshold], CardinalKeyTime, TimeOverlapThreshold))
 					{
+						KeyRange = TRange<FFrameNumber>::Hull(KeyRange, TRange<FFrameNumber>(Info.FramesInRange[FinalIndexInThreshold]));
 						AverageKeyTime += Info.TimesInRange[FinalIndexInThreshold];
 						++NumKeyTimes;
 
@@ -1366,7 +1383,7 @@ void SSequencerSection::PaintKeys( FSequencerSectionPainter& InPainter, const FW
 				}
 			}
 
-			const float FinalKeyPosition = TimeToPixelConverter.SecondsToPixel((AverageKeyTime / NumKeyTimes) + HalfFrameInterval);
+			const float FinalKeyPosition = TimeToPixelConverter.SecondsToPixel(AverageKeyTime / NumKeyTimes);
 
 			static const FSlateBrush* PartialKeyBrush = FEditorStyle::GetBrush("Sequencer.PartialKey");
 
@@ -1464,6 +1481,8 @@ void SSequencerSection::PaintKeys( FSequencerSectionPainter& InPainter, const FW
 				KeyDrawParam->BorderTint = FLinearColor(0.83f, 0.12f, 0.12f, 1.0f); // Red
 			}
 
+			const ESlateDrawEffect KeyDrawEffects = ValidKeyRange.Contains(KeyRange) ? DrawEffects : ESlateDrawEffect::DisabledEffect;
+
 			// draw border
 			static FVector2D ThrobAmount(12.f, 12.f);
 			const FVector2D KeySize = bSelected ? SequencerSectionConstants::KeySize + ThrobAmount * KeyThrobScaleValue : SequencerSectionConstants::KeySize;
@@ -1481,7 +1500,7 @@ void SSequencerSection::PaintKeys( FSequencerSectionPainter& InPainter, const FW
 					KeySize
 				),
 				KeyDrawParam->BorderBrush,
-				DrawEffects,
+				KeyDrawEffects,
 				KeyDrawParam->BorderTint
 			);
 
@@ -1500,7 +1519,7 @@ void SSequencerSection::PaintKeys( FSequencerSectionPainter& InPainter, const FW
 					KeySize - 2.0f * BrushBorderWidth
 				),
 				KeyDrawParam->FillBrush,
-				DrawEffects,
+				KeyDrawEffects,
 				KeyDrawParam->FillTint
 			);
 		}
@@ -1773,7 +1792,7 @@ void SSequencerSection::Tick( const FGeometry& AllottedGeometry, const double In
 		TMap<FSectionLayoutElement, TArray<FSequencerCachedKeys, TInlineAllocator<1>>, FDefaultSetAllocator, FLayoutElementKeyFuncs> OldCachedKeyAreaPositions;
 		Swap(OldCachedKeyAreaPositions, CachedKeyAreaPositions);
 
-		FFrameRate FrameResolution = GetSequencer().GetFocusedFrameResolution();
+		FFrameRate TickResolution = GetSequencer().GetFocusedTickResolution();
 
 		// Move over any existing still valid caches 
 		for (const FSectionLayoutElement& LayoutElement : Layout->GetElements())
@@ -1786,7 +1805,7 @@ void SSequencerSection::Tick( const FGeometry& AllottedGeometry, const double In
 				for (TSharedRef<IKeyArea> KeyArea : LayoutElement.GetKeyAreas())
 				{
 					NewCachedKeys.Emplace();
-					NewCachedKeys.Last().Update(KeyArea, FrameResolution);
+					NewCachedKeys.Last().Update(KeyArea, TickResolution);
 				}
 				CachedKeyAreaPositions.Add(LayoutElement, MoveTemp(NewCachedKeys));
 			}
@@ -1795,7 +1814,7 @@ void SSequencerSection::Tick( const FGeometry& AllottedGeometry, const double In
 				// We can reuse this one
 				for (FSequencerCachedKeys& CachedKeys : *CacheArray)
 				{
-					CachedKeys.Update(CachedKeys.GetKeyArea().ToSharedRef(), FrameResolution);
+					CachedKeys.Update(CachedKeys.GetKeyArea().ToSharedRef(), TickResolution);
 				}
 				CachedKeyAreaPositions.Add(LayoutElement, MoveTemp(*CacheArray));
 			}
@@ -1804,7 +1823,7 @@ void SSequencerSection::Tick( const FGeometry& AllottedGeometry, const double In
 		UMovieSceneSection* Section = SectionInterface->GetSectionObject();
 		if (Section && Section->HasStartFrame() && Section->HasEndFrame())
 		{
-			FTimeToPixel TimeToPixelConverter(ParentGeometry, GetSequencer().GetViewRange(), FrameResolution);
+			FTimeToPixel TimeToPixelConverter(ParentGeometry, GetSequencer().GetViewRange(), TickResolution);
 
 			const int32 SectionLengthPx = FMath::Max(0,
 				FMath::RoundToInt(

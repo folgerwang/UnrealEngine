@@ -30,12 +30,11 @@ FLevelSequenceEditorSpawnRegister::FLevelSequenceEditorSpawnRegister()
 	FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
 	OnActorSelectionChangedHandle = LevelEditor.OnActorSelectionChanged().AddRaw(this, &FLevelSequenceEditorSpawnRegister::HandleActorSelectionChanged);
 
-	FAreObjectsEditable AreObjectsEditable = FAreObjectsEditable::CreateRaw(this, &FLevelSequenceEditorSpawnRegister::AreObjectsEditable);
-	OnAreObjectsEditableHandle = AreObjectsEditable.GetHandle();
-	LevelEditor.AddEditableObjectPredicate(AreObjectsEditable);
-
 #if WITH_EDITOR
 	GEditor->OnObjectsReplaced().AddRaw(this, &FLevelSequenceEditorSpawnRegister::OnObjectsReplaced);
+
+	OnObjectModifiedHandle = FCoreUObjectDelegates::OnObjectModified.AddRaw(this, &FLevelSequenceEditorSpawnRegister::OnObjectModified);
+	OnObjectSavedHandle    = FCoreUObjectDelegates::OnObjectSaved.AddRaw(this, &FLevelSequenceEditorSpawnRegister::OnPreObjectSaved);
 #endif
 }
 
@@ -45,7 +44,6 @@ FLevelSequenceEditorSpawnRegister::~FLevelSequenceEditorSpawnRegister()
 	if (FLevelEditorModule* LevelEditor = FModuleManager::GetModulePtr<FLevelEditorModule>("LevelEditor"))
 	{
 		LevelEditor->OnActorSelectionChanged().Remove(OnActorSelectionChangedHandle);
-		LevelEditor->RemoveEditableObjectPredicate(OnAreObjectsEditableHandle);
 	}
 
 	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
@@ -57,6 +55,8 @@ FLevelSequenceEditorSpawnRegister::~FLevelSequenceEditorSpawnRegister()
 
 #if WITH_EDITOR
 	GEditor->OnObjectsReplaced().RemoveAll(this);
+	FCoreUObjectDelegates::OnObjectModified.Remove(OnObjectModifiedHandle);
+	FCoreUObjectDelegates::OnObjectSaved.Remove(OnObjectSavedHandle);
 #endif
 }
 
@@ -72,8 +72,8 @@ UObject* FLevelSequenceEditorSpawnRegister::SpawnObject(FMovieSceneSpawnable& Sp
 	
 	if (AActor* NewActor = Cast<AActor>(NewObject))
 	{
-		// Cache the spawned object, and editable state first
-		SpawnedObjects.FindOrAdd(TemplateID).Add(NewActor);
+		// Add an entry to the modified objects map to keep track of when this object has been modified
+		ModifiedObjects.Add(NewActor, FTrackedObjectState(TemplateID, Spawnable.GetGuid()));
 
 		// Select the actor if we think it should be selected
 		if (SelectedSpawnedObjects.Contains(FMovieSceneSpawnRegisterKey(TemplateID, Spawnable.GetGuid())))
@@ -89,10 +89,24 @@ UObject* FLevelSequenceEditorSpawnRegister::SpawnObject(FMovieSceneSpawnable& Sp
 void FLevelSequenceEditorSpawnRegister::PreDestroyObject(UObject& Object, const FGuid& BindingId, FMovieSceneSequenceIDRef TemplateID)
 {
 	TGuardValue<bool> Guard(bShouldClearSelectionCache, false);
-	
+
 	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
 
-	SaveDefaultSpawnableState(BindingId, TemplateID);
+	UMovieSceneSequence*  Sequence      = Sequencer.IsValid() ? Sequencer->GetEvaluationTemplate().GetSequence(TemplateID) : nullptr;
+	FMovieSceneSpawnable* Spawnable     = Sequence ? Sequence->GetMovieScene()->FindSpawnable(BindingId) : nullptr;
+	UObject*              SpawnedObject = FindSpawnedObject(BindingId, TemplateID);
+
+	if (SpawnedObject && Spawnable)
+	{
+		const FTrackedObjectState* TrackedState = ModifiedObjects.Find(&Object);
+		if (TrackedState && TrackedState->bHasBeenModified)
+		{
+			// SaveDefaultSpawnableState will reset bHasBeenModified to false
+			SaveDefaultSpawnableStateImpl(*Spawnable, Sequence, SpawnedObject, *Sequencer);
+
+			Sequence->MarkPackageDirty();
+		}
+	}
 
 	// Cache its selection state
 	AActor* Actor = Cast<AActor>(&Object);
@@ -101,17 +115,9 @@ void FLevelSequenceEditorSpawnRegister::PreDestroyObject(UObject& Object, const 
 		SelectedSpawnedObjects.Add(FMovieSceneSpawnRegisterKey(TemplateID, BindingId));
 		GEditor->SelectActor(Actor, false /*bSelected*/, true /*bNotify*/);
 	}
-	
-	// Remove the spawned object (and anything that's null) from our cache
-	TSet<FObjectKey>* ExistingObjects = SpawnedObjects.Find(TemplateID);
-	if (ExistingObjects)
-	{
-		ExistingObjects->Remove(FObjectKey(&Object));
-		if (ExistingObjects->Num() == 0)
-		{
-			SpawnedObjects.Remove(TemplateID);
-		}
-	}
+
+	FObjectKey ThisObject(&Object);
+	ModifiedObjects.Remove(ThisObject);
 
 	FLevelSequenceSpawnRegister::PreDestroyObject(Object, BindingId, TemplateID);
 }
@@ -121,30 +127,11 @@ void FLevelSequenceEditorSpawnRegister::SaveDefaultSpawnableState(FMovieSceneSpa
 	UMovieSceneSequence* Sequence = Player.GetEvaluationTemplate().GetSequence(TemplateID);
 
 	UObject* Object = FindSpawnedObject(Spawnable.GetGuid(), TemplateID);
-	if (!Object || !Sequence)
+	if (Object && Sequence)
 	{
-		return;
+		SaveDefaultSpawnableStateImpl(Spawnable, Sequence, Object, Player);
+		Sequence->MarkPackageDirty();
 	}
-
-	auto RestorePredicate = [](FMovieSceneAnimTypeID TypeID){ return TypeID != FMovieSceneSpawnSectionTemplate::GetAnimTypeID(); };
-
-	if (AActor* Actor = Cast<AActor>(Object))
-	{
-		// Restore state on any components
-		for (UActorComponent* Component : TInlineComponentArray<UActorComponent*>(Actor))
-		{
-			if (Component)
-			{
-				Player.RestorePreAnimatedState(*Component, RestorePredicate);
-			}
-		}
-	}
-
-	// Restore state on the object itself
-	Player.RestorePreAnimatedState(*Object, RestorePredicate);
-
-	// Copy the template
-	Spawnable.CopyObjectTemplate(*Object, *Sequence);
 }
 
 void FLevelSequenceEditorSpawnRegister::SaveDefaultSpawnableState(const FGuid& BindingId, FMovieSceneSequenceIDRef TemplateID)
@@ -171,31 +158,41 @@ void FLevelSequenceEditorSpawnRegister::SaveDefaultSpawnableState(const FGuid& B
 
 	if (Spawnable)
 	{
-		SaveDefaultSpawnableState(*Spawnable, TemplateID, *Sequencer);
+		UObject* Object = FindSpawnedObject(Spawnable->GetGuid(), TemplateID);
+		if (Object)
+		{
+			SaveDefaultSpawnableStateImpl(*Spawnable, Sequence, Object, *Sequencer);
+			Sequence->MarkPackageDirty();
+		}
 	}
 }
 
-void FLevelSequenceEditorSpawnRegister::OnPreSaveMovieScene(ISequencer& InSequencer)
+void FLevelSequenceEditorSpawnRegister::SaveDefaultSpawnableStateImpl(FMovieSceneSpawnable& Spawnable, UMovieSceneSequence* Sequence, UObject* SpawnedObject, IMovieScenePlayer& Player)
 {
-	// We're about to save the movie scene(s), so we need to save default spawnable state for the currently focused movie scene sequence instance
+	auto RestorePredicate = [](FMovieSceneAnimTypeID TypeID){ return TypeID != FMovieSceneSpawnSectionTemplate::GetAnimTypeID(); };
 
-	UMovieSceneSequence* Sequence = InSequencer.GetFocusedMovieSceneSequence();
-	UMovieScene* MovieScene = Sequence ? Sequence->GetMovieScene() : nullptr;
-	if (!MovieScene)
+	if (AActor* Actor = Cast<AActor>(SpawnedObject))
 	{
-		return;
+		// Restore state on any components
+		for (UActorComponent* Component : TInlineComponentArray<UActorComponent*>(Actor))
+		{
+			if (Component)
+			{
+				Player.RestorePreAnimatedState(*Component, RestorePredicate);
+			}
+		}
 	}
 
-	for (int32 SpawnableIndex = 0; SpawnableIndex < MovieScene->GetSpawnableCount(); ++SpawnableIndex)
-	{
-		FMovieSceneSpawnable& Spawnable = MovieScene->GetSpawnable(SpawnableIndex);
-		SaveDefaultSpawnableState(Spawnable.GetGuid(), InSequencer.GetFocusedTemplateID());
-	}
-}
+	// Restore state on the object itself
+	Player.RestorePreAnimatedState(*SpawnedObject, RestorePredicate);
 
-void FLevelSequenceEditorSpawnRegister::OnSequenceInstanceActivated(FMovieSceneSequenceIDRef InTemplateID)
-{
-	ActiveSequence = InTemplateID;
+	// Copy the template
+	Spawnable.CopyObjectTemplate(*SpawnedObject, *Sequence);
+
+	if (FTrackedObjectState* TrackedState = ModifiedObjects.Find(SpawnedObject))
+	{
+		TrackedState->bHasBeenModified = false;
+	}
 }
 
 /* FLevelSequenceEditorSpawnRegister implementation
@@ -204,10 +201,6 @@ void FLevelSequenceEditorSpawnRegister::OnSequenceInstanceActivated(FMovieSceneS
 void FLevelSequenceEditorSpawnRegister::SetSequencer(const TSharedPtr<ISequencer>& Sequencer)
 {
 	WeakSequencer = Sequencer;
-	Sequencer->OnPreSave().AddRaw(this, &FLevelSequenceEditorSpawnRegister::OnPreSaveMovieScene);
-	Sequencer->OnActivateSequence().AddRaw(this, &FLevelSequenceEditorSpawnRegister::OnSequenceInstanceActivated);
-
-	ActiveSequence = Sequencer->GetFocusedTemplateID();
 }
 
 
@@ -218,61 +211,8 @@ void FLevelSequenceEditorSpawnRegister::HandleActorSelectionChanged(const TArray
 {
 	if (bShouldClearSelectionCache)
 	{
-		// @todo: arodham: how does this merge? SpawnedObject.Key relates to the old unique sequence instance ID, not the object binding ID. Not sure what's intended here. Source Ref: CL#3117184
-		// TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
-		// if (Sequencer.IsValid())
-		// {
-		// 	for (auto SpawnedObject : SpawnedObjects)
-		// 	{
-		// 		FMovieSceneSpawnRegisterKey SpawnRegisterKey(SpawnedObject.Key, Sequencer->GetFocusedMovieSceneSequenceInstance().Get());
-		// 		if (SelectedSpawnedObjects.Contains(SpawnRegisterKey))
-		// 		{
-		// 			SelectedSpawnedObjects.Remove(SpawnRegisterKey);
-		// 			break;
-		// 		}
-		// 	}
-		// }
-
 		SelectedSpawnedObjects.Reset();
 	}
-}
-
-bool FLevelSequenceEditorSpawnRegister::AreObjectsEditable(const TArray<TWeakObjectPtr<UObject>>& InObjects) const
-{
-	// Check that none of the objects specified are (or belong to) a spawned actor
-	for (const TWeakObjectPtr<UObject>& WeakObject : InObjects)
-	{
-		UObject* Object = WeakObject.Get();
-		if (!Object)
-		{
-			continue;
-		}
-
-		AActor* SourceActor = Cast<AActor>(Object);
-		if (!SourceActor)
-		{
-			UActorComponent* ActorComponent = Cast<UActorComponent>(Object);
-			if (ActorComponent)
-			{
-				SourceActor = ActorComponent->GetOwner();
-			}
-		}
-
-		if (!SourceActor)
-		{
-			continue;
-		}
-
-		FObjectKey ThisObject(SourceActor);
-		for (auto& Pair : SpawnedObjects)
-		{
-			if (Pair.Key != ActiveSequence && Pair.Value.Contains(ThisObject))
-			{
-				return false;
-			}
-		}
-	}
-	return true;
 }
 
 void FLevelSequenceEditorSpawnRegister::OnObjectsReplaced(const TMap<UObject*, UObject*>& OldToNewInstanceMap)
@@ -297,6 +237,67 @@ void FLevelSequenceEditorSpawnRegister::OnObjectsReplaced(const TMap<UObject*, U
 
 			// Invalidate the binding - it will be resolved if it's ever asked for again
 			Sequencer->State.Invalidate(Pair.Key.BindingId, Pair.Key.TemplateID);
+		}
+	}
+}
+
+void FLevelSequenceEditorSpawnRegister::OnObjectModified(UObject* ModifiedObject)
+{
+	FTrackedObjectState* TrackedState = ModifiedObjects.Find(ModifiedObject);
+	while (!TrackedState && ModifiedObject)
+	{
+		TrackedState = ModifiedObjects.Find(ModifiedObject);
+		ModifiedObject = ModifiedObject->GetOuter();
+	}
+
+	if (TrackedState)
+	{
+		TrackedState->bHasBeenModified = true;
+
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		UMovieSceneSequence*   OwningSequence = Sequencer.IsValid() ? Sequencer->GetEvaluationTemplate().GetSequence(TrackedState->TemplateID) : nullptr;
+		if (OwningSequence)
+		{
+			OwningSequence->MarkPackageDirty();
+			SequencesWithModifiedObjects.Add(OwningSequence);
+		}
+	}
+}
+
+void FLevelSequenceEditorSpawnRegister::OnPreObjectSaved(UObject* Object)
+{
+	UMovieSceneSequence* SequenceBeingSaved = Cast<UMovieSceneSequence>(Object);
+	if (SequenceBeingSaved && SequencesWithModifiedObjects.Contains(SequenceBeingSaved))
+	{
+		UMovieScene* MovieSceneBeingSaved = SequenceBeingSaved->GetMovieScene();
+
+		// The object being saved is a movie scene sequence that we've tracked as having a modified spawnable in the world.
+		// We need to go through all templates in the current sequence that reference this sequence, saving default state
+		// for any spawned objects that have been modified.
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+
+		if (Sequencer.IsValid())
+		{
+			TArray<FObjectKey> ObjectsThatHaveBeenSaved;
+
+			for (const TTuple<FObjectKey, FTrackedObjectState>& Pair : ModifiedObjects)
+			{
+				UObject* SpawnedObject = Pair.Key.ResolveObjectPtr();
+				UMovieSceneSequence*  ThisSequence = Sequencer->GetEvaluationTemplate().GetSequence(Pair.Value.TemplateID);
+				FMovieSceneSpawnable* Spawnable    = MovieSceneBeingSaved->FindSpawnable(Pair.Value.ObjectBindingID);
+
+				if (SpawnedObject && Spawnable && ThisSequence == SequenceBeingSaved)
+				{
+					SaveDefaultSpawnableStateImpl(*Spawnable, ThisSequence, SpawnedObject, *Sequencer);
+
+					ObjectsThatHaveBeenSaved.Add(Pair.Key);
+				}
+			}
+
+			for (FObjectKey ObjectKey : ObjectsThatHaveBeenSaved)
+			{
+				ModifiedObjects.Remove(ObjectKey);
+			}
 		}
 	}
 }

@@ -214,6 +214,7 @@ void FMovieSceneComponentTransformSectionTemplate::Interrogate(const FMovieScene
 FMovieScene3DTransformTemplateData::FMovieScene3DTransformTemplateData(const UMovieScene3DTransformSection& Section)
 	: BlendType(Section.GetBlendType().Get())
 	, Mask(Section.GetMask())
+	, bUseQuaternionInterpolation(Section.GetUseQuaternionInterpolation())
 {
 	EMovieSceneTransformChannel MaskChannels = Mask.GetChannels();
 	TArrayView<FMovieSceneFloatChannel*> FloatChannels = Section.GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
@@ -252,9 +253,131 @@ MovieScene::TMultiChannelValue<float, 9> FMovieScene3DTransformTemplateData::Eva
 	EvalChannel(1, EMovieSceneTransformChannel::TranslationY, TranslationCurve[1]);
 	EvalChannel(2, EMovieSceneTransformChannel::TranslationZ, TranslationCurve[2]);
 
-	EvalChannel(3, EMovieSceneTransformChannel::RotationX, RotationCurve[0]);
-	EvalChannel(4, EMovieSceneTransformChannel::RotationY, RotationCurve[1]);
-	EvalChannel(5, EMovieSceneTransformChannel::RotationZ, RotationCurve[2]);
+	if (!bUseQuaternionInterpolation)
+	{
+		EvalChannel(3, EMovieSceneTransformChannel::RotationX, RotationCurve[0]);
+		EvalChannel(4, EMovieSceneTransformChannel::RotationY, RotationCurve[1]);
+		EvalChannel(5, EMovieSceneTransformChannel::RotationZ, RotationCurve[2]);
+	}
+	else
+	{
+		//Use Quaternion Interpolation. This is complicated since unlike Matinee we may not have
+		//a key for each Euler angle at the same times. So we need a way to calculate which 'range'
+		//to perform the interpolation. To do this if finds the exclusive closest range of keys to encomposs
+		//the passed in time
+		auto SetFrameRange = [Time](TRange<FFrameNumber> &FrameRange, const TArrayView<const FFrameNumber> &Times)
+		{
+			int32 Index1, Index2;
+			Index2 = 0;
+			Index2 = Algo::UpperBound(Times, Time.FrameNumber);
+			Index1 = Index2 - 1;
+			Index1 = Index1 >= 0 ? Index1 : INDEX_NONE;
+			Index2 = Index2 < Times.Num() ? Index2 : INDEX_NONE;
+			if (Index1 != INDEX_NONE && Index2 != INDEX_NONE)
+			{
+				if (Times[Index1] != Time.FrameNumber && Times[Index1] > FrameRange.GetLowerBoundValue()) 
+				{
+					FrameRange.SetLowerBoundValue(Times[Index1]);
+				}
+				if (Times[Index2] != Time.FrameNumber && Times[Index1] < FrameRange.GetUpperBoundValue())
+				{
+					FrameRange.SetUpperBoundValue(Times[Index2]);
+				}
+			}
+		};
+
+		TRange<FFrameNumber> FrameRange(TNumericLimits<FFrameNumber>::Min(), TNumericLimits<FFrameNumber>::Max());
+		if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationX))
+		{
+			SetFrameRange(FrameRange, RotationCurve[0].GetTimes());
+		}
+		if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationY))
+		{
+			SetFrameRange(FrameRange, RotationCurve[1].GetTimes());
+		}
+		if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationZ))
+		{
+			SetFrameRange(FrameRange, RotationCurve[2].GetTimes());
+		}
+		FFrameNumber LowerBound = FrameRange.GetLowerBoundValue();
+		FFrameNumber UpperBound = FrameRange.GetUpperBoundValue();
+		if (LowerBound != TNumericLimits<FFrameNumber>::Min() && UpperBound != TNumericLimits<FFrameNumber>::Max())
+		{
+			float Value;
+			FVector FirstRot(0.0f, 0.0f, 0.0f);
+			FVector SecondRot(0.0f, 0.0f, 0.0f);
+			double U = (Time.AsDecimal() - (double) FrameRange.GetLowerBoundValue().Value) /
+				double(FrameRange.GetUpperBoundValue().Value - FrameRange.GetLowerBoundValue().Value);
+			U = FMath::Clamp(U, 0.0, 1.0);
+
+			if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationX))
+			{
+				if (RotationCurve[0].Evaluate(LowerBound, Value))
+				{
+					FirstRot[0] = Value;
+				}
+				if (RotationCurve[0].Evaluate(UpperBound, Value))
+				{
+					SecondRot[0] = Value;
+				}
+			}
+			if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationY))
+			{
+				if (RotationCurve[1].Evaluate(LowerBound, Value))
+				{
+					FirstRot[1] = Value;
+				}
+				if (RotationCurve[1].Evaluate(UpperBound, Value))
+				{
+					SecondRot[1] = Value;
+				}
+			}
+			if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationZ))
+			{
+				if (RotationCurve[2].Evaluate(LowerBound, Value))
+				{
+					FirstRot[2] = Value;
+				}
+				if (RotationCurve[2].Evaluate(UpperBound, Value))
+				{
+					SecondRot[2] = Value;
+				}
+			}
+
+			const FQuat Key1Quat = FQuat::MakeFromEuler(FirstRot);
+			const FQuat Key2Quat = FQuat::MakeFromEuler(SecondRot);
+
+			const FQuat SlerpQuat = FQuat::Slerp(Key1Quat, Key2Quat, U);
+			FVector Euler = FRotator(SlerpQuat).Euler();
+			AnimatedData.Set(3, Euler[0]);
+			AnimatedData.Set(4, Euler[1]);
+			AnimatedData.Set(5, Euler[2]);
+		}
+
+		else  //no range found default to regular, but still do RotToQuat
+		{
+			float Value;
+			FVector CurrentRot(0.0f, 0.0f, 0.0f);
+			FRotator Rotator;
+			if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationX) && RotationCurve[0].Evaluate(Time, Value))
+			{
+				CurrentRot[0] = Value;
+			}
+			if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationY) && RotationCurve[1].Evaluate(Time, Value))
+			{
+				CurrentRot[1] = Value;
+			}
+			if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationZ) && RotationCurve[2].Evaluate(Time, Value))
+			{
+				CurrentRot[2] = Value;
+			}
+			FQuat Quat = FQuat::MakeFromEuler(CurrentRot);
+			FVector Euler = FRotator(Quat).Euler();
+			AnimatedData.Set(3, Euler[0]);
+			AnimatedData.Set(4, Euler[1]);
+			AnimatedData.Set(5, Euler[2]);
+		}
+	}
 
 	EvalChannel(6, EMovieSceneTransformChannel::ScaleX, ScaleCurve[0]);
 	EvalChannel(7, EMovieSceneTransformChannel::ScaleY, ScaleCurve[1]);

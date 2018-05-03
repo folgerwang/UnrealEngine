@@ -421,6 +421,8 @@ bool FJavaAndroidMediaPlayer::GetAudioTracks(TArray<FAudioTrack>& AudioTracks)
 
 			AudioTrack.Channels = (int32)JEnv->GetIntField(Track, AudioTrackInfo_Channels);
 			AudioTrack.SampleRate = (int32)JEnv->GetIntField(Track, AudioTrackInfo_SampleRate);
+
+			JEnv->DeleteLocalRef(Track);
 		}
 		JEnv->DeleteGlobalRef(TrackArray);
 
@@ -469,6 +471,8 @@ bool FJavaAndroidMediaPlayer::GetCaptionTracks(TArray<FCaptionTrack>& CaptionTra
 			CaptionTrack.Language = FString(nativeLanguage);
 			JEnv->ReleaseStringUTFChars(jsLanguage, nativeLanguage);
 			JEnv->DeleteLocalRef(jsLanguage);
+
+			JEnv->DeleteLocalRef(Track);
 		}
 		JEnv->DeleteGlobalRef(TrackArray);
 
@@ -521,6 +525,8 @@ bool FJavaAndroidMediaPlayer::GetVideoTracks(TArray<FVideoTrack>& VideoTracks)
 			VideoTrack.BitRate = (int32)JEnv->GetIntField(Track, VideoTrackInfo_BitRate);
 			VideoTrack.Dimensions = FIntPoint((int32)JEnv->GetIntField(Track, VideoTrackInfo_Width), (int32)JEnv->GetIntField(Track, VideoTrackInfo_Height));
 			VideoTrack.FrameRate = JEnv->GetFloatField(Track, VideoTrackInfo_FrameRate);
+
+			JEnv->DeleteLocalRef(Track);
 		}
 		JEnv->DeleteGlobalRef(TrackArray);
 

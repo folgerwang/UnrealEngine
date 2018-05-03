@@ -174,8 +174,6 @@ UMovieSceneSection* UMovieScenePropertyTrack::FindOrAddSection(FFrameNumber Time
 		return FoundSection;
 	}
 
-	check(Sections.Num() == 0);
-
 	// Add a new section that starts and ends at the same time
 	UMovieSceneSection* NewSection = CreateNewSection();
 	NewSection->SetFlags(RF_Transactional);

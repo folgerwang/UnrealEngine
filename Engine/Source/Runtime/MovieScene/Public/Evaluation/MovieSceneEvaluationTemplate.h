@@ -125,19 +125,60 @@ template<> struct TStructOpsTypeTraits<FMovieSceneSubSectionFieldData> : public 
 
 
 /**
+ * Sereal number used to identify evaluation template state that can only ever increase over its lifetime.
+ * Only to be stored internally on FMovieSceneEvaluationTemplate.
+ */
+USTRUCT()
+struct FMovieSceneEvaluationTemplateSerialNumber
+{
+	GENERATED_BODY()
+
+	FMovieSceneEvaluationTemplateSerialNumber()
+		: Value(0)
+	{}
+
+	/**
+	 * Access this serial number's value
+	 */
+	uint32 GetValue() const
+	{
+		return Value;
+	}
+
+	/**
+	* Increment this serial number
+	*/
+	void Increment()
+	{
+		++Value;
+	}
+
+private:
+	
+	friend struct FMovieSceneEvaluationTemplate;
+
+	/**
+	 * Copy/move semantics only ever initialize to zero, or passthrough, to ensure that FMovieSceneEvaluationTemplate::TemplateSerialNumber cannot ever move backwards.
+	 */
+	FMovieSceneEvaluationTemplateSerialNumber(const FMovieSceneEvaluationTemplateSerialNumber&) : Value(0) {}
+	FMovieSceneEvaluationTemplateSerialNumber(FMovieSceneEvaluationTemplateSerialNumber&&)      : Value(0) {}
+
+	FMovieSceneEvaluationTemplateSerialNumber& operator=(const FMovieSceneEvaluationTemplateSerialNumber&) { return *this; }
+	FMovieSceneEvaluationTemplateSerialNumber& operator=(FMovieSceneEvaluationTemplateSerialNumber&&)      { return *this; }
+
+	/** The internal value of the serial number */
+	UPROPERTY()
+	uint32 Value;
+};
+template<> struct TStructOpsTypeTraits<FMovieSceneEvaluationTemplateSerialNumber> : public TStructOpsTypeTraitsBase2<FMovieSceneEvaluationTemplateSerialNumber> { enum { WithCopy = false }; };
+
+/**
  * Template that is used for efficient runtime evaluation of a movie scene sequence. Potentially serialized into the asset.
  */
 USTRUCT()
 struct FMovieSceneEvaluationTemplate
 {
 	GENERATED_BODY()
-
-	/**
-	 * Default construction
-	 */
-	FMovieSceneEvaluationTemplate()
-	{
-	}
 
 public:
 
@@ -293,9 +334,9 @@ public:
 	UPROPERTY()
 	FGuid SequenceSignature;
 
-	/** Signature that is re-generated every time this template is re-generated through FMovieSceneEvaluationTemplateGenerator */
+	/** Serial number that is incremented every time this template is re-generated through FMovieSceneEvaluationTemplateGenerator */
 	UPROPERTY()
-	FGuid TemplateSignature;
+	FMovieSceneEvaluationTemplateSerialNumber TemplateSerialNumber;
 
 private:
 

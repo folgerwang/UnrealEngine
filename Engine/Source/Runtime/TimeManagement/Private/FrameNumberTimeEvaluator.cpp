@@ -60,8 +60,11 @@ FFrameNumberTimeEvaluator::FFrameNumberTimeEvaluator()
 	TimeJumpTable.MapBinary<FStar>([](double A, double B) { return A * B; });
 }
 
-TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateTimecode(const TCHAR* InExpression, const FFrameRate& InDisplayFrameRate, const FFrameRate& InFrameResolution) const
+TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateTimecode(const TCHAR* InExpression, const FFrameRate& InDisplayFrameRate, const FFrameRate& InTickResolution, bool& OutDirectlyParsed) const
 {
+	OutDirectlyParsed = false;
+
+
 	using namespace ExpressionParser;
 
 	TValueOrError<TArray<FExpressionToken>, FExpressionError> LexResult = ExpressionParser::Lex(InExpression, TimecodeTokenDefinitions);
@@ -83,6 +86,11 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateT
 		if (Node.Cast<FDropcodeDelimiter>())
 		{
 			bIsDropcode = true;
+			OutDirectlyParsed = true;
+		}
+		else if (Node.Cast<FTimecodeDelimiter>())
+		{
+			OutDirectlyParsed = true;
 		}
 		else if (Node.Cast<FBracketStart>() || Node.Cast<FBracketEnd>() || Node.Cast<FPlus>() || Node.Cast<FMinus>())
 		{
@@ -100,6 +108,7 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateT
 	// There definitely can't be more than 7 tokens, but we do accept less tokens
 	if (Tokens.Num() > 7)
 	{
+		OutDirectlyParsed = false;
 		return MakeError(NSLOCTEXT("TimeManagement", "UnrecognizedTimecode", "Format not recognized as Timecode"));
 	}
 
@@ -119,6 +128,7 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateT
 			// Every other one should be a numeric, so if it's not, we're not sure what format it is.
 			if (!Node.Cast<double>())
 			{
+				OutDirectlyParsed = false;
 				return MakeError(NSLOCTEXT("TimeManagement", "UnrecognizedTimecode", "Format not recognized as Timecode"));
 			}
 
@@ -135,6 +145,7 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateT
 			// Every other one should be a delimiter, if it's not, we're not sure what they're putting in.
 			if (!(Node.Cast<FTimecodeDelimiter>() || Node.Cast<FDropcodeDelimiter>()))
 			{
+				OutDirectlyParsed = false;
 				return MakeError(NSLOCTEXT("TimeManagement", "UnrecognizedTimecode", "Format not recognized as Timecode"));
 			}
 		}
@@ -171,7 +182,7 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateT
 	bool bDropFrameSupported = FTimecode::IsDropFormatTimecodeSupported(InDisplayFrameRate);
 	FTimecode Timecode(Hours, Minutes, Seconds, Frames, bIsDropcode && bDropFrameSupported);
 
-	FFrameNumber TotalFrames = FFrameRate::TransformTime(FFrameTime(Timecode.ToFrameNumber(InDisplayFrameRate)), InDisplayFrameRate, InFrameResolution).RoundToFrame();
+	FFrameNumber TotalFrames = FFrameRate::TransformTime(FFrameTime(Timecode.ToFrameNumber(InDisplayFrameRate)), InDisplayFrameRate, InTickResolution).RoundToFrame();
 	if (bIsNegative)
 	{
 		TotalFrames = -TotalFrames;
@@ -180,7 +191,7 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateT
 	return MakeValue(TotalFrames);
 }
 
-TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateFrame(const TCHAR* InExpression, const FFrameRate& InDisplayFrameRate, const FFrameRate& InFrameResolution, bool& OutDirectlyParsed) const
+TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateFrame(const TCHAR* InExpression, const FFrameRate& InDisplayFrameRate, const FFrameRate& InTickResolution, bool& OutDirectlyParsed) const
 {
 	using namespace ExpressionParser;
 	OutDirectlyParsed = false;
@@ -217,6 +228,7 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateF
 	// If they're jumping to a specific frame so there should only be one token.
 	if (Tokens.Num() != 1)
 	{
+		OutDirectlyParsed = false;
 		return MakeError(NSLOCTEXT("TimeManagement", "UnrecognizedFrame", "Format not recognized as a Frame number"));
 	}
 
@@ -226,7 +238,7 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateF
 		Frame = -Frame;
 	}
 
-	FFrameTime Result = FFrameRate::TransformTime(Frame, InDisplayFrameRate, InFrameResolution);
+	FFrameTime Result = FFrameRate::TransformTime(Frame, InDisplayFrameRate, InTickResolution);
 	return MakeValue(Result);
 }
 
@@ -277,7 +289,6 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateT
 		{
 			FStringToken Context = Tokens[i].Context;
 			const FExpressionNode& Node = Tokens[i].Node;
-			UE_LOG(LogTemp, Log, TEXT("i: %d Token: %s"), i, *Tokens[i].Context.GetString());
 
 			if (!(Node.Cast<FHour>() || Node.Cast<FMinute>() || Node.Cast<FSecond>() || Node.Cast<FMillisecond>()))
 			{
@@ -354,12 +365,14 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateT
 		}
 
 		// There was only one token (or no valid tokens) and it wasn't a number, therefor we don't know what it is.
+		OutDirectlyParsed = false;
 		return MakeError(NSLOCTEXT("TimeManagement", "UnrecognizedTime", "Format not recognized as a time"));
 	}
 
 	TValueOrError<TArray<FCompiledToken>, FExpressionError> CompilationResult = ExpressionParser::Compile(MoveTemp(Tokens), TimeGrammar);
 	if (!CompilationResult.IsValid())
 	{
+		OutDirectlyParsed = false;
 		return MakeError(CompilationResult.StealError());
 	}
 
@@ -367,6 +380,7 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateT
 	TValueOrError<FExpressionNode, FExpressionError> MillisecondEvaluationResult = ExpressionParser::Evaluate(CompilationResult.GetValue(), Env);
 	if (!MillisecondEvaluationResult.IsValid())
 	{
+		OutDirectlyParsed = false;
 		return MakeError(MillisecondEvaluationResult.GetError());
 	}
 
@@ -380,6 +394,7 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateT
 		return MakeValue(Result);
 	}
 
+	OutDirectlyParsed = false;
 	return MakeError(NSLOCTEXT("TimeManagement", "UnrecognizedTimeResult", "Unrecognized result returned from expression"));
 
 }

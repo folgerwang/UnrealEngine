@@ -281,7 +281,7 @@ public:
 	virtual void BeginSlipSection() override
 	{
 		InitialStartOffsetDuringResize = SectionObject.Parameters.GetStartFrameOffset();
-		InitialStartTimeDuringResize   = ( SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() : 0 ) / SectionObject.GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		InitialStartTimeDuringResize   = ( SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() : 0 ) / SectionObject.GetTypedOuter<UMovieScene>()->GetTickResolution();
 	}
 
 	virtual void SlipSection(double SlipTime) override
@@ -291,7 +291,7 @@ public:
 		// Adjust the start offset when resizing from the beginning
 		if (InnerSequence)
 		{
-			const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetFrameResolution();
+			const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetTickResolution();
 			const double        ResizeDifference = SlipTime - InitialStartTimeDuringResize;
 			const int32         NewStartOffset   = ( (ResizeDifference * SectionObject.Parameters.TimeScale) * InnerFrameRate ).FrameNumber.Value;
 
@@ -629,6 +629,7 @@ TSharedRef<SWidget> FSubTrackEditor::HandleAddSubSequenceComboButtonGetMenuConte
 		FAssetPickerConfig AssetPickerConfig;
 		{
 			AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateRaw( this, &FSubTrackEditor::HandleAddSubSequenceComboButtonMenuEntryExecute, InTrack);
+			AssetPickerConfig.OnAssetEnterPressed = FOnAssetEnterPressed::CreateRaw( this, &FSubTrackEditor::HandleAddSubSequenceComboButtonMenuEntryEnterPressed, InTrack);
 			AssetPickerConfig.bAllowNullSelection = false;
 			AssetPickerConfig.InitialAssetViewType = EAssetViewType::Tile;
 			AssetPickerConfig.Filter.ClassNames.Add(TEXT("LevelSequence"));
@@ -665,6 +666,14 @@ void FSubTrackEditor::HandleAddSubSequenceComboButtonMenuEntryExecute(const FAss
 	}
 }
 
+void FSubTrackEditor::HandleAddSubSequenceComboButtonMenuEntryEnterPressed(const TArray<FAssetData>& AssetData, UMovieSceneTrack* InTrack)
+{
+	if (AssetData.Num() > 0)
+	{
+		HandleAddSubSequenceComboButtonMenuEntryExecute(AssetData[0].GetAsset(), InTrack);
+	}
+}
+
 FKeyPropertyResult FSubTrackEditor::AddKeyInternal(FFrameNumber KeyTime, UMovieSceneSequence* InMovieSceneSequence, UMovieSceneTrack* InTrack, int32 RowIndex)
 {	
 	FKeyPropertyResult KeyPropertyResult;
@@ -675,9 +684,9 @@ FKeyPropertyResult FSubTrackEditor::AddKeyInternal(FFrameNumber KeyTime, UMovieS
 
 		const FQualifiedFrameTime InnerDuration = FQualifiedFrameTime(
 			MovieScene::DiscreteSize(InMovieSceneSequence->GetMovieScene()->GetPlaybackRange()),
-			InMovieSceneSequence->GetMovieScene()->GetFrameResolution());
+			InMovieSceneSequence->GetMovieScene()->GetTickResolution());
 
-		const FFrameRate OuterFrameRate = SubTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		const FFrameRate OuterFrameRate = SubTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 		const int32      OuterDuration  = InnerDuration.ConvertTo(OuterFrameRate).FrameNumber.Value;
 
 		UMovieSceneSubSection* NewSection = SubTrack->AddSequenceOnRow(InMovieSceneSequence, KeyTime, OuterDuration, RowIndex);
@@ -705,9 +714,9 @@ FKeyPropertyResult FSubTrackEditor::HandleSequenceAdded(FFrameNumber KeyTime, UM
 
 	const FQualifiedFrameTime InnerDuration = FQualifiedFrameTime(
 		MovieScene::DiscreteSize(Sequence->GetMovieScene()->GetPlaybackRange()),
-		Sequence->GetMovieScene()->GetFrameResolution());
+		Sequence->GetMovieScene()->GetTickResolution());
 
-	const FFrameRate OuterFrameRate = SubTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	const FFrameRate OuterFrameRate = SubTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	const int32      OuterDuration  = InnerDuration.ConvertTo(OuterFrameRate).FrameNumber.Value;
 
 	UMovieSceneSubSection* NewSection = SubTrack->AddSequenceOnRow(Sequence, KeyTime, OuterDuration, RowIndex);

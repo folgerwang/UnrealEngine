@@ -63,6 +63,10 @@ public:
 
 	void AddNewQueuedRecordingsForSelectedActors();
 
+	void AddNewQueuedRecordingForCurrentPlayer();
+
+	bool CanAddNewQueuedRecordingForCurrentPlayer() const;
+
 	class UActorRecording* AddNewQueuedRecording(AActor* Actor = nullptr, UAnimSequence* AnimSequence = nullptr, float Length = 0.0f);
 
 	void RemoveQueuedRecording(AActor* Actor);
@@ -125,6 +129,9 @@ public:
 	/** Refresh the name of the next sequence we will be recording */
 	void RefreshNextSequence();
 
+	/** Force refresh the name of the next sequence, disregard the current sequence name */
+	void ForceRefreshNextSequence();
+
 	/** Multicast delegate fired when recording is started */
 	FOnRecordingStarted OnRecordingStartedDelegate;
 
@@ -143,6 +150,12 @@ private:
 
 	/** Keep sequence range up to date with sections that are being recorded */
 	void UpdateSequencePlaybackRange();
+
+	/** Set immersive mode and store whether viewports were immersive */
+	void SetImmersive();
+
+	/** Restore immersive mode to stored value */
+	void RestoreImmersive();
 
 private:
 	/** Constructor, private - use Get() function */

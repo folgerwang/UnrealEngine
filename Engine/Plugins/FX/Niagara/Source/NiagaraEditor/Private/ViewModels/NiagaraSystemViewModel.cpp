@@ -744,13 +744,13 @@ void FNiagaraSystemViewModel::RefreshSequencerTrack(UMovieSceneNiagaraEmitterTra
 				EndTime = EmitterHandleViewModel->GetEmitterViewModel()->GetEndTime();
 			}
 
-			FFrameRate FrameResolution = EmitterSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+			FFrameRate TickResolution = EmitterSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
 
 			EmitterSection->SetEmitterHandle(EmitterHandleViewModel.ToSharedRef());
 			EmitterSection->SetIsActive(EmitterHandleViewModel->GetIsEnabled());
 			if (bIsInfinite)
 			{
-				EmitterSection->SetRange(TRange<FFrameNumber>((StartTime * FrameResolution).FloorToFrame(), (EndTime * FrameResolution).FloorToFrame()));
+				EmitterSection->SetRange(TRange<FFrameNumber>((StartTime * TickResolution).FloorToFrame(), (EndTime * TickResolution).FloorToFrame()));
 			}
 			else
 			{
@@ -779,8 +779,8 @@ void FNiagaraSystemViewModel::SetupSequencer()
 
 	NiagaraSequence->Initialize(this, MovieScene);
 
-	FFrameTime StartTime = SequencerDefaultPlaybackRange.GetLowerBoundValue() * MovieScene->GetFrameResolution();
-	int32      Duration  = (SequencerDefaultPlaybackRange.Size<float>() * MovieScene->GetFrameResolution()).FrameNumber.Value;
+	FFrameTime StartTime = SequencerDefaultPlaybackRange.GetLowerBoundValue() * MovieScene->GetTickResolution();
+	int32      Duration  = (SequencerDefaultPlaybackRange.Size<float>() * MovieScene->GetTickResolution()).FrameNumber.Value;
 
 	MovieScene->SetPlaybackRange(StartTime.RoundToFrame(), Duration);
 
@@ -1103,12 +1103,12 @@ void FNiagaraSystemViewModel::SequencerDataChanged(EMovieSceneDataChangeType Dat
 // 				Emitter->Bursts.Empty();
 // 			}
 
-			FFrameRate FrameResolution = EmitterSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+			FFrameRate TickResolution = EmitterSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
 			for (int32 Index = 0; Index < Times.Num(); ++Index)
 			{
 				FNiagaraEmitterBurst Burst;
-				Burst.Time = Times[Index] / FrameResolution;
-				Burst.TimeRange    = Values[Index].TimeRange / FrameResolution;
+				Burst.Time = Times[Index] / TickResolution;
+				Burst.TimeRange    = Values[Index].TimeRange / TickResolution;
 				Burst.SpawnMinimum = Values[Index].SpawnMinimum;
 				Burst.SpawnMaximum = Values[Index].SpawnMaximum;
 // 				if (Emitter)

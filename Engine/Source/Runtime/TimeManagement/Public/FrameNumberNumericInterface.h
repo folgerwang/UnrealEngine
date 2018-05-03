@@ -31,20 +31,20 @@ DECLARE_DELEGATE_RetVal(FFrameRate, FOnGetFrameRate)
 */
 struct FFrameNumberInterface : public INumericTypeInterface<double>
 {
-	FFrameNumberInterface(FOnGetDisplayFormat InGetDisplayFormat, FOnGetZeroPad InOnGetZeroPadFrameNumber, FOnGetFrameRate InGetFrameResolution, FOnGetFrameRate InGetPlayRate)
+	FFrameNumberInterface(FOnGetDisplayFormat InGetDisplayFormat, FOnGetZeroPad InOnGetZeroPadFrameNumber, FOnGetFrameRate InGetTickResolution, FOnGetFrameRate InGetPlayRate)
 		: GetDisplayFormat(InGetDisplayFormat)
-		, GetFrameResolution(InGetFrameResolution)
+		, GetTickResolution(InGetTickResolution)
 		, GetPlayRate(InGetPlayRate)
 		, GetZeroPadFrames(InOnGetZeroPadFrameNumber)
 	{
 		check(InGetDisplayFormat.IsBound());
-		check(InGetFrameResolution.IsBound());
+		check(InGetTickResolution.IsBound());
 		check(InGetPlayRate.IsBound());
 	}
 
 private:
 	FOnGetDisplayFormat GetDisplayFormat;
-	FOnGetFrameRate GetFrameResolution;
+	FOnGetFrameRate GetTickResolution;
 	FOnGetFrameRate GetPlayRate;
 	FOnGetZeroPad GetZeroPadFrames;
 
@@ -65,7 +65,7 @@ private:
 
 	virtual FString ToString(const double& Value) const override
 	{
-		FFrameRate SourceFrameRate = GetFrameResolution.Execute();
+		FFrameRate SourceFrameRate = GetTickResolution.Execute();
 		FFrameRate DestinationFrameRate = GetPlayRate.Execute();
 		EFrameNumberDisplayFormats Format = GetDisplayFormat.Execute();
 
@@ -115,7 +115,7 @@ private:
 	virtual TOptional<double> FromString(const FString& InString, const double& InExistingValue) override
 	{
 		FFrameRate SourceFrameRate = GetPlayRate.Execute();
-		FFrameRate DestinationFrameRate = GetFrameResolution.Execute();
+		FFrameRate DestinationFrameRate = GetTickResolution.Execute();
 		EFrameNumberDisplayFormats FallbackFormat = GetDisplayFormat.Execute();
 
 		// We allow input in any format (time, frames or timecode) and we just convert it into into the internal sequence resolution.
@@ -124,20 +124,26 @@ private:
 
 		// All of these will convert into the frame resolution from the user's input before returning.
 		FFrameNumberTimeEvaluator Eval;
-		TValueOrError<FFrameTime, FExpressionError> TimecodeResult = Eval.EvaluateTimecode(*InString, SourceFrameRate, DestinationFrameRate);
+		bool bWasTimecodeText;
+		TValueOrError<FFrameTime, FExpressionError> TimecodeResult = Eval.EvaluateTimecode(*InString, SourceFrameRate, DestinationFrameRate, /*Out*/bWasTimecodeText);
 		bool bWasFrameText;
 		TValueOrError<FFrameTime, FExpressionError> FrameResult = Eval.EvaluateFrame(*InString, SourceFrameRate, DestinationFrameRate, /*Out*/ bWasFrameText);
 		bool bWasTimeText;
 		TValueOrError<FFrameTime, FExpressionError> TimeResult = Eval.EvaluateTime(*InString, DestinationFrameRate, /*Out*/ bWasTimeText);
 
-		if (TimecodeResult.IsValid())
+
+		// All three formats support ambiguous conversion where the user can enter "5" and wants it in the logical unit based on the current
+		// display format. This means 5 -> 5f, 5 ->5s, and 5 -> 5 frames (in timecode). We also support specifically specifying in a different
+		// format than your current display, ie if your display is in frames and you enter 1s, you get 1s in frames or 30 (at 30fps play rate).
+		if (!bWasTimecodeText && !bWasFrameText && !bWasTimeText)
 		{
-			return TOptional<double>(TimecodeResult.GetValue().GetFrame().Value);
-		}
-		else if (!bWasFrameText && !bWasTimeText)
-		{
-			// If the value was ambiguous ("5") and not specifically a frame ("5f") or a time "(5s") then we defer to the current display format.
-			if (TimeResult.IsValid() && FallbackFormat == EFrameNumberDisplayFormats::Seconds)
+			// They've entered an ambiguous number, so we'll check the display format and see if we did successfully parse as that type. If it
+			// was able to parse the input for the given display format, we return that.
+			if (TimecodeResult.IsValid() && (FallbackFormat == EFrameNumberDisplayFormats::DropFrameTimecode || FallbackFormat == EFrameNumberDisplayFormats::NonDropFrameTimecode))
+			{
+				return TOptional<double>(TimecodeResult.GetValue().GetFrame().Value);
+			}
+			else if (TimeResult.IsValid() && FallbackFormat == EFrameNumberDisplayFormats::Seconds)
 			{
 				return TOptional<double>(TimeResult.GetValue().GetFrame().Value);
 			}
@@ -145,20 +151,22 @@ private:
 			{
 				return TOptional<double>(FrameResult.GetValue().GetFrame().Value);
 			}
-			else
-			{ 
-				// We don't support ambiguous conversion to Timecode
-				return TOptional<double>();
-			}
+
+			// Whatever they entered wasn't understood by any of our parsers, so it was probably malformed or had letters, etc.
+			return TOptional<double>();
 		}
-		else if (TimeResult.IsValid() && !bWasFrameText)
+
+		// If we've gotten here then they did explicitly specify a timecode so we return that.
+		if (bWasTimecodeText)
 		{
-			// Both time and frames can parse "5" successfully, so if we know it's not specifically frame text
+			return TOptional<double>(TimecodeResult.GetValue().GetFrame().Value);
+		}
+		else if (bWasTimeText)
+		{
 			return TOptional<double>(TimeResult.GetValue().GetFrame().Value);
 		}
-		else if (FrameResult.IsValid() && !bWasTimeText)
+		else if (bWasFrameText)
 		{
-			// Both time and frames can parse "5" successfully and we know it's not specifically time
 			return TOptional<double>(FrameResult.GetValue().GetFrame().Value);
 		}
 

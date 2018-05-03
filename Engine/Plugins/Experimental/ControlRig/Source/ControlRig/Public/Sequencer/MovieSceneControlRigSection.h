@@ -37,7 +37,7 @@ public:
 	FInputBlendPose BoneFilter;
 
 	/** The weight curve for this animation controller section */
-	UPROPERTY(EditAnywhere, Category = "Animation")
+	UPROPERTY()
 	FMovieSceneFloatChannel Weight;
 
 public:

@@ -24,9 +24,6 @@ private:
 
 private:
 
-	/** Cardinal screen position to compute angles from (either a key position, or the starting mouse pixel) */
-	TOptional<FVector2D> CardinalPosition;
-
 	/** The type of tangents we're dragging */
 	ECurvePointType PointType;
 

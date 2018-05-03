@@ -15,13 +15,13 @@ int32 FBoolPropertySection::OnPaintSection( FSequencerSectionPainter& Painter ) 
 	// custom drawing for bool curves
 	UMovieSceneBoolSection* BoolSection = Cast<UMovieSceneBoolSection>( WeakSection.Get() );
 
-	TArray<float> SectionSwitchTimes;
+	TArray<FFrameTime> SectionSwitchTimes;
 
 	const FTimeToPixel& TimeConverter = Painter.GetTimeConverter();
 
 	// Add the start time
-	const float StartTime = TimeConverter.PixelToSeconds(0.f);
-	const float EndTime   = TimeConverter.PixelToSeconds(Painter.SectionGeometry.GetLocalSize().X);
+	const FFrameNumber StartTime = TimeConverter.PixelToFrame(0.f).FloorToFrame();
+	const FFrameNumber EndTime   = TimeConverter.PixelToFrame(Painter.SectionGeometry.GetLocalSize().X).CeilToFrame();
 	
 	SectionSwitchTimes.Add(StartTime);
 
@@ -35,10 +35,9 @@ int32 FBoolPropertySection::OnPaintSection( FSequencerSectionPainter& Painter ) 
 
 	for ( FFrameNumber Time : BoolChannel->GetTimes() )
 	{
-		double TimeInSeconds = Time / TimeConverter.GetFrameResolution();
-		if ( TimeInSeconds > StartTime && TimeInSeconds < EndTime )
+		if ( Time > StartTime && Time < EndTime )
 		{
-			SectionSwitchTimes.Add( TimeInSeconds );
+			SectionSwitchTimes.Add( Time );
 		}
 	}
 
@@ -55,15 +54,15 @@ int32 FBoolPropertySection::OnPaintSection( FSequencerSectionPainter& Painter ) 
 
 	for ( int32 i = 0; i < SectionSwitchTimes.Num() - 1; ++i )
 	{
-		float ThisTime = SectionSwitchTimes[i];
+		FFrameTime ThisTime = SectionSwitchTimes[i];
 
 		bool ValueAtTime = false;
-		BoolChannel->Evaluate(ThisTime * TimeConverter.GetFrameResolution(), ValueAtTime);
+		BoolChannel->Evaluate(ThisTime, ValueAtTime);
 
 		const FColor Color = ValueAtTime ? FColor(0, 255, 0, 125) : FColor(255, 0, 0, 125);
 		
-		FVector2D StartPos(TimeConverter.SecondsToPixel(ThisTime), VerticalOffset);
-		FVector2D Size(TimeConverter.SecondsToPixel(SectionSwitchTimes[i+1]) - StartPos.X, Height);
+		FVector2D StartPos(TimeConverter.FrameToPixel(ThisTime), VerticalOffset);
+		FVector2D Size(TimeConverter.FrameToPixel(SectionSwitchTimes[i+1]) - StartPos.X, Height);
 
 		FSlateDrawElement::MakeBox(
 			Painter.DrawElements,

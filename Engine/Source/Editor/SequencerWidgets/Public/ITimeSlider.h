@@ -28,7 +28,7 @@ DECLARE_DELEGATE_TwoParams( FOnScrubPositionChanged, FFrameTime, bool )
 DECLARE_DELEGATE_TwoParams( FOnViewRangeChanged, TRange<double>, EViewRangeInterpolation )
 DECLARE_DELEGATE_OneParam( FOnTimeRangeChanged, TRange<double> )
 DECLARE_DELEGATE_OneParam( FOnFrameRangeChanged, TRange<FFrameNumber> )
-DECLARE_DELEGATE_RetVal_OneParam( FFrameNumber, FOnGetNearestKey, FFrameTime )
+DECLARE_DELEGATE_RetVal_TwoParams( FFrameNumber, FOnGetNearestKey, FFrameTime, bool )
 
 /** Structure used to wrap up a range, and an optional animation target */
 struct FAnimatedRange : public TRange<double>
@@ -107,11 +107,11 @@ struct FTimeSliderArgs
 	/** Attribute defining the playback range for this controller */
 	TAttribute<TRange<FFrameNumber>> PlaybackRange;
 
-	/** Attribute for the current sequence's playback rate */
-	TAttribute<FFrameRate> PlayRate;
+	/** Attribute for the current sequence's display rate */
+	TAttribute<FFrameRate> DisplayRate;
 
-	/** Attribute for the current sequence's frame resolution */
-	TAttribute<FFrameRate> FrameResolution;
+	/** Attribute for the current sequence's tick resolution */
+	TAttribute<FFrameRate> TickResolution;
 
 	/** Delegate that is called when the playback range wants to change */
 	FOnFrameRangeChanged OnPlaybackRangeChanged;
@@ -163,10 +163,10 @@ public:
 	virtual FCursorReply OnCursorQuery( TSharedRef<const SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const = 0;
 
 	/** Get the current play rate for this controller */
-	virtual FFrameRate GetPlayRate() const = 0;
+	virtual FFrameRate GetDisplayRate() const = 0;
 
-	/** Get the current frame resolution for this controller */
-	virtual FFrameRate GetFrameResolution() const = 0;
+	/** Get the current tick resolution for this controller */
+	virtual FFrameRate GetTickResolution() const = 0;
 
 	/** Get the current view range for this controller */
 	virtual FAnimatedRange GetViewRange() const { return FAnimatedRange(); }

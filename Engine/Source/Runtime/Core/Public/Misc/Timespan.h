@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
+#include "Math/UnrealMathUtility.h"
 #include "Misc/AssertionMacros.h"
 #include "Math/Interval.h"
 
@@ -397,6 +398,16 @@ public:
 	}
 
 	/**
+	 * Gets the fractional ticks (in 100 nanosecond resolution).
+	 *
+	 * @return Number of ticks in fractional part.
+	 */
+	int32 GetFractionTicks() const
+	{
+		return (int32)(Ticks % ETimespan::TicksPerSecond);
+	}
+
+	/**
 	 * Gets the hours component of this time span.
 	 *
 	 * @return Hours component.
@@ -590,7 +601,7 @@ public:
 	 */
 	static FTimespan FromDays(double Days)
 	{
-		return FTimespan(Days * ETimespan::TicksPerDay);
+		return FTimespan(FMath::RoundToZero(Days * ETimespan::TicksPerDay + 0.5));
 	}
 
 	/**
@@ -602,7 +613,7 @@ public:
 	 */
 	static FTimespan FromHours(double Hours)
 	{
-		return FTimespan(Hours * ETimespan::TicksPerHour);
+		return FTimespan(FMath::RoundToZero(Hours * ETimespan::TicksPerHour + 0.5));
 	}
 
 	/**
@@ -614,7 +625,7 @@ public:
 	 */
 	static FTimespan FromMicroseconds(double Microseconds)
 	{
-		return FTimespan(Microseconds * ETimespan::TicksPerMicrosecond);
+		return FTimespan(FMath::RoundToZero(Microseconds * ETimespan::TicksPerMicrosecond + 0.5));
 	}
 
 	/**
@@ -626,7 +637,7 @@ public:
 	 */
 	static FTimespan FromMilliseconds(double Milliseconds)
 	{
-		return FTimespan(Milliseconds * ETimespan::TicksPerMillisecond);
+		return FTimespan(FMath::RoundToZero(Milliseconds * ETimespan::TicksPerMillisecond + 0.5));
 	}
 
 	/**
@@ -638,7 +649,7 @@ public:
 	 */
 	static FTimespan FromMinutes(double Minutes)
 	{
-		return FTimespan(Minutes * ETimespan::TicksPerMinute);
+		return FTimespan(FMath::RoundToZero(Minutes * ETimespan::TicksPerMinute + 0.5));
 	}
 
 	/**
@@ -650,7 +661,7 @@ public:
 	 */
 	static FTimespan FromSeconds(double Seconds)
 	{
-		return FTimespan(Seconds * ETimespan::TicksPerSecond);
+		return FTimespan(FMath::RoundToZero(Seconds * ETimespan::TicksPerSecond + 0.5));
 	}
 
 	/**

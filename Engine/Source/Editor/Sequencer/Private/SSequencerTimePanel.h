@@ -35,12 +35,12 @@ private:
 
 	EVisibility GetWarningVisibility() const;
 
-	FFrameRate OnGetFrameResolution() const;
+	FFrameRate GetCurrentTickResolution() const;
 	bool IsRecommendedResolution(FFrameRate InFrameRate) const;
 
 	FText GetSupportedTimeRange() const;
 
-	void OnSetFrameResolution(FFrameRate InFrameResolution);
+	void OnSetTickResolution(FFrameRate InTickResolution);
 
 	void UpdateCommonFrameRates();
 
@@ -50,7 +50,7 @@ private:
 	static void MigrateFrameTimes(FFrameRate SourceRate, FFrameRate DestinationRate, UMovieSceneTrack* Track);
 	static void MigrateFrameTimes(FFrameRate SourceRate, FFrameRate DestinationRate, UMovieSceneSection* Section);
 
-	FFrameRate CurrentFrameResolution;
+	TOptional<FFrameRate> CurrentTickResolution;
 	TSharedPtr<SVerticalBox> CommonFrameRates;
 	TWeakPtr<FSequencer> WeakSequencer;
 };

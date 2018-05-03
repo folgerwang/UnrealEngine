@@ -184,7 +184,7 @@ inline FFrameTime FFrameRate::AsFrameTime(double TimeInSeconds) const
 	double SubFrame = TimeAsFrame - FMath::FloorToDouble(TimeAsFrame);
 	if (SubFrame > 0 )
 	{
-		SubFrame = FMath::Min(SubFrame, 0.999999940);
+		SubFrame = FMath::Min(SubFrame, (double)FFrameTime::MaxSubframe);
 	}
 
 	return FFrameTime(FrameNumber, SubFrame);

@@ -14,6 +14,7 @@
 #include "ITimeSlider.h"
 #include "Framework/Commands/UICommandList.h"
 #include "Widgets/Input/NumericTypeInterface.h"
+#include "Widgets/Input/SSpinBox.h"
 #include "Sequencer.h"
 
 class FActorDragDropGraphEdOp;
@@ -234,9 +235,11 @@ public:
 	/** Access the currently active track area edit tool */
 	const ISequencerEditTool* GetEditTool() const;
 
-	void ShowFrameResolutionOverlay();
-	void HideFrameResolutionOverlay();
+	void ShowTickResolutionOverlay();
+	void HideTickResolutionOverlay();
 
+	/** Sets the play time for the sequence but clamped by the working range. This is useful for cases where we can't clamp via the UI control. */
+	void SetPlayTimeClampedByWorkingRange(double Frame);
 public:
 
 	// FNotifyHook overrides
@@ -308,8 +311,15 @@ private:
 	/** Makes the allow edits menu for the toolbar. */
 	TSharedRef<SWidget> MakeAllowEditsMenu();
 
+	/** Makes the key group menu for the toolbar. */
+	TSharedRef<SWidget> MakeKeyGroupMenu();
+
 	/** Makes the playback speed menu for the toolbar. */
 	void FillPlaybackSpeedMenu(FMenuBuilder& InMenuBuilder);
+
+public:
+	/** Makes the time display format menu for the toolbar and the play rate menu. */
+	void FillTimeDisplayFormatMenu(FMenuBuilder& MenuBuilder);
 
 public:	
 
@@ -463,6 +473,9 @@ private:
 	/** The search box for filtering tracks. */
 	TSharedPtr<SSearchBox> SearchBox;
 
+	/** The current playback time display.*/
+	TSharedPtr<SSpinBox<double>> PlayTimeDisplay;
+
 	/** The sequencer tree view responsible for the outliner and track areas */
 	TSharedPtr<SSequencerTreeView> TreeView;
 
@@ -525,7 +538,7 @@ private:
 	 * This can be used to highlight nodes that may not exist until the rebuild. Cleared after the tree is rebuilt
 	 * and the selection list is restored.
 	*/
-	TSet<FString> AdditionalSelectionsToAdd;
+	TArray<FString> AdditionalSelectionsToAdd;
 
-	TSharedPtr<SWidget> FrameResolutionOverlay;
+	TSharedPtr<SWidget> TickResolutionOverlay;
 };

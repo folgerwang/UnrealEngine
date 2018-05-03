@@ -87,6 +87,7 @@ protected:
 	void AddPropertyMenuItems(FMenuBuilder& AddTrackMenuBuilder, TArray<FPropertyPath> KeyableProperties, int32 PropertyNameIndexStart = 0, int32 PropertyNameIndexEnd = -1);
 
 	void AddSpawnOwnershipMenu(FMenuBuilder& MenuBuilder);
+	void AddSpawnLevelMenu(FMenuBuilder& MenuBuilder);
 
 	/** Get class for object binding */
 	const UClass* GetClassForObjectBinding() const;

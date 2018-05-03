@@ -24,6 +24,11 @@
 #include "Algo/Sort.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "Widgets/Input/STextEntryPopup.h"
+#include "CurveEditorEditObjectContainer.h"
+#include "Modules/ModuleManager.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
+
 #define LOCTEXT_NAMESPACE "SCurveEditorPanel"
 
 namespace
@@ -32,6 +37,11 @@ namespace
 	static float HoveredCurveThickness = 5.f;
 	static float UnHoveredCurveThickness = 1.f;
 	static bool  bAntiAliasCurves = true;
+
+	FReply HandledReply(const FGeometry&, const FPointerEvent&)
+	{
+		return FReply::Handled();
+	}
 }
 
 
@@ -55,6 +65,16 @@ public:
 	virtual bool IsEmpty() const override { return !bIsEnabled.Get(); }
 };
 
+SCurveEditorPanel::SCurveEditorPanel()
+{
+	EditObjects = MakeUnique<FCurveEditorEditObjectContainer>();
+	bSelectionSupportsWeightedTangents = false;
+}
+
+SCurveEditorPanel::~SCurveEditorPanel()
+{
+}
+
 void SCurveEditorPanel::Construct(const FArguments& InArgs, TSharedRef<FCurveEditor> InCurveEditor)
 {
 	GridLineTintAttribute = InArgs._GridLineTint;
@@ -72,11 +92,29 @@ void SCurveEditorPanel::Construct(const FArguments& InArgs, TSharedRef<FCurveEdi
 	BindCommands();
 	SetClipping(EWidgetClipping::ClipToBounds);
 
+	{
+		FPropertyEditorModule& EditModule = FModuleManager::Get().GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+		FDetailsViewArgs DetailsViewArgs(
+			/*bUpdateFromSelection=*/ false,
+			/*bLockable=*/ false,
+			/*bAllowSearch=*/ false,
+			FDetailsViewArgs::HideNameArea,
+			/*bHideSelectionTip=*/ true,
+			/*InNotifyHook=*/ nullptr,
+			/*InSearchInitialKeyFocus=*/ false,
+			/*InViewIdentifier=*/ NAME_None);
+		DetailsViewArgs.DefaultsOnlyVisibility = EEditDefaultsOnlyNodeVisibility::Automatic;
+		DetailsViewArgs.bShowOptions = false;
+
+		KeyDetailsView = EditModule.CreateDetailView(DetailsViewArgs);
+	}
+
 	ChildSlot
 	[
 		SNew(SOverlay)
 
 		+ SOverlay::Slot()
+		.VAlign(VAlign_Top)
 		[
 			SNew(SSplitter)
 			.Visibility(this, &SCurveEditorPanel::GetSplitterVisibility)
@@ -84,7 +122,15 @@ void SCurveEditorPanel::Construct(const FArguments& InArgs, TSharedRef<FCurveEdi
 			+ SSplitter::Slot()
 			.Value(0.25f)
 			[
-				SAssignNew(EditPanel, SScrollBox)
+				SNew(SBorder)
+				.Padding(FMargin(0))
+				.BorderImage(FEditorStyle::GetBrush("NoBorder"))
+				.OnMouseButtonDown_Static(HandledReply)
+				.OnMouseMove_Static(HandledReply)
+				.OnMouseButtonUp_Static(HandledReply)
+				[
+					KeyDetailsView.ToSharedRef()
+				]
 			]
 
 			+ SSplitter::Slot()
@@ -139,17 +185,23 @@ void SCurveEditorPanel::BindCommands()
 		FExecuteAction SetCubicUser  = FExecuteAction::CreateSP(this, &SCurveEditorPanel::SetKeyAttributes, FKeyAttributes().SetInterpMode(RCIM_Cubic).SetTangentMode(RCTM_User),    LOCTEXT("SetInterpUser",     "Set Interp User"));
 		FExecuteAction SetCubicBreak = FExecuteAction::CreateSP(this, &SCurveEditorPanel::SetKeyAttributes, FKeyAttributes().SetInterpMode(RCIM_Cubic).SetTangentMode(RCTM_Break),   LOCTEXT("SetInterpBreak",    "Set Interp Break"));
 
+		FExecuteAction    ToggleWeighted    = FExecuteAction::CreateSP(this, &SCurveEditorPanel::ToggleWeightedTangents);
+		FCanExecuteAction CanToggleWeighted = FCanExecuteAction::CreateSP(this, &SCurveEditorPanel::CanToggleWeightedTangents);
+
 		FIsActionChecked IsConstantCommon   = FIsActionChecked::CreateSP(this, &SCurveEditorPanel::CompareCommonInterpolationMode, RCIM_Constant);
 		FIsActionChecked IsLinearCommon     = FIsActionChecked::CreateSP(this, &SCurveEditorPanel::CompareCommonInterpolationMode, RCIM_Linear);
 		FIsActionChecked IsCubicAutoCommon  = FIsActionChecked::CreateSP(this, &SCurveEditorPanel::CompareCommonTangentMode, RCIM_Cubic, RCTM_Auto);
 		FIsActionChecked IsCubicUserCommon  = FIsActionChecked::CreateSP(this, &SCurveEditorPanel::CompareCommonTangentMode, RCIM_Cubic, RCTM_User);
 		FIsActionChecked IsCubicBreakCommon = FIsActionChecked::CreateSP(this, &SCurveEditorPanel::CompareCommonTangentMode, RCIM_Cubic, RCTM_Break);
+		FIsActionChecked IsCubicWeightCommon = FIsActionChecked::CreateSP(this, &SCurveEditorPanel::CompareCommonTangentWeightMode, RCIM_Cubic, RCTWM_WeightedBoth);
 
 		CommandList->MapAction(FCurveEditorCommands::Get().InterpolationConstant, SetConstant, FCanExecuteAction(), IsConstantCommon);
 		CommandList->MapAction(FCurveEditorCommands::Get().InterpolationLinear, SetLinear, FCanExecuteAction(), IsLinearCommon);
 		CommandList->MapAction(FCurveEditorCommands::Get().InterpolationCubicAuto, SetCubicAuto, FCanExecuteAction(), IsCubicAutoCommon);
 		CommandList->MapAction(FCurveEditorCommands::Get().InterpolationCubicUser, SetCubicUser, FCanExecuteAction(), IsCubicUserCommon);
 		CommandList->MapAction(FCurveEditorCommands::Get().InterpolationCubicBreak, SetCubicBreak, FCanExecuteAction(), IsCubicBreakCommon);
+		CommandList->MapAction(FCurveEditorCommands::Get().InterpolationToggleWeighted, ToggleWeighted, CanToggleWeighted, IsCubicWeightCommon);
+
 	}
 
 	// Pre Extrapolation Modes
@@ -208,6 +260,8 @@ void SCurveEditorPanel::Tick(const FGeometry& AllottedGeometry, const double InC
 
 	CachedDrawParams.Reset();
 	CurveEditor->GetCurveDrawParams(CachedDrawParams);
+
+	CachedSelectionSerialNumber = CurveEditor->Selection.GetSerialNumber();
 }
 
 void SCurveEditorPanel::UpdateCommonCurveInfo()
@@ -230,6 +284,7 @@ void SCurveEditorPanel::UpdateCommonCurveInfo()
 	}
 
 	// Reset the common curve and key info
+	bSelectionSupportsWeightedTangents = false;
 	CachedCommonCurveAttributes = AccumulatedCurveAttributes.Get(FCurveAttributes());
 
 	TOptional<FKeyAttributes> AccumulatedKeyAttributes;
@@ -246,6 +301,11 @@ void SCurveEditorPanel::UpdateCommonCurveInfo()
 			Curve->GetKeyAttributes(Pair.Value.AsArray(), AllKeyAttributes);
 			for (const FKeyAttributes& Attributes : AllKeyAttributes)
 			{
+				if (Attributes.HasTangentWeightMode())
+				{
+					bSelectionSupportsWeightedTangents = true;
+				}
+
 				if (!AccumulatedKeyAttributes.IsSet())
 				{
 					AccumulatedKeyAttributes = Attributes;
@@ -279,36 +339,70 @@ void SCurveEditorPanel::RebindContextualActions(FVector2D MousePosition)
 
 void SCurveEditorPanel::UpdateEditBox()
 {
-	const TMap<FCurveModelID, TUniquePtr<FCurveModel>>& AllCurves = CurveEditor->GetCurves();
-	for (const TTuple<FCurveModelID, TUniquePtr<FCurveModel>>& Pair : AllCurves)
+	const FCurveEditorSelection& Selection = CurveEditor->Selection;
+	for (TTuple<FCurveModelID, TMap<FKeyHandle, UObject*>>& OuterPair : EditObjects->CurveIDToKeyProxies)
 	{
-		if (!CurveToEditUI.Contains(Pair.Key))
+		const FKeyHandleSet* SelectedKeys = Selection.FindForCurve(OuterPair.Key);
+
+		for (TTuple<FKeyHandle, UObject*>& InnerPair : OuterPair.Value)
 		{
-			TSharedPtr<SWidget> EditUI = Pair.Value->CreateEditUI(CurveEditor, Pair.Key);
-			if (EditUI.IsValid())
+			if (ICurveEditorKeyProxy* Proxy = Cast<ICurveEditorKeyProxy>(InnerPair.Value))
 			{
-				EditPanel->AddSlot()
-				.Padding(FMargin(0,0,0,10))
-				[
-					EditUI.ToSharedRef()
-				];
+				Proxy->UpdateValuesFromRawData();
 			}
-			CurveToEditUI.Add(Pair.Key, EditUI);
 		}
 	}
 
-	for (auto It = CurveToEditUI.CreateIterator(); It; ++It)
+	if (CachedSelectionSerialNumber == Selection.GetSerialNumber())
 	{
-		if (!AllCurves.Contains(It.Key()))
-		{
-			if (It.Value().IsValid())
-			{
-				EditPanel->RemoveSlot(It.Value().ToSharedRef());
-			}
+		return;
+	}
 
-			It.RemoveCurrent();
+	TArray<FKeyHandle> KeyHandleScratch;
+	TArray<UObject*>   NewProxiesScratch;
+
+	TArray<UObject*> AllEditObjects;
+	for (const TTuple<FCurveModelID, FKeyHandleSet>& Pair : Selection.GetAll())
+	{
+		FCurveModel* Curve = CurveEditor->FindCurve(Pair.Key);
+		if (!Curve)
+		{
+			continue;
+		}
+
+		KeyHandleScratch.Reset();
+		NewProxiesScratch.Reset();
+
+		TMap<FKeyHandle, UObject*>& KeyHandleToEditObject = EditObjects->CurveIDToKeyProxies.FindOrAdd(Pair.Key);
+		for (FKeyHandle Handle : Pair.Value.AsArray())
+		{
+			if (UObject* Existing = KeyHandleToEditObject.FindRef(Handle))
+			{
+				AllEditObjects.Add(Existing);
+			}
+			else
+			{
+				KeyHandleScratch.Add(Handle);
+			}
+		}
+
+		if (KeyHandleScratch.Num() > 0)
+		{
+			NewProxiesScratch.SetNum(KeyHandleScratch.Num());
+			Curve->CreateKeyProxies(KeyHandleScratch, NewProxiesScratch);
+
+			for (int32 Index = 0; Index < KeyHandleScratch.Num(); ++Index)
+			{
+				if (UObject* NewObject = NewProxiesScratch[Index])
+				{
+					KeyHandleToEditObject.Add(KeyHandleScratch[Index], NewObject);
+					AllEditObjects.Add(NewObject);
+				}
+			}
 		}
 	}
+
+	KeyDetailsView->SetObjects(AllEditObjects);
 }
 
 void SCurveEditorPanel::UpdateCurveProximities(FVector2D MousePixel)
@@ -427,6 +521,65 @@ void SCurveEditorPanel::SetCurveAttributes(FCurveAttributes CurveAttributes, FTe
 		Pair.Value->Modify();
 		Pair.Value->SetCurveAttributes(CurveAttributes);
 	}
+}
+
+void SCurveEditorPanel::ToggleWeightedTangents()
+{
+	FScopedTransaction Transaction(LOCTEXT("ToggleWeightedTangents_Transaction", "Toggle Weighted Tangents"));
+
+	TMap<FCurveModelID, TArray<FKeyAttributes>> KeyAttributesPerCurve;
+
+	const TMap<FCurveModelID, FKeyHandleSet>& Selection = CurveEditor->Selection.GetAll();
+
+	// Disable weights unless we find something that doesn't have weights, then add them
+	FKeyAttributes KeyAttributesToAssign = FKeyAttributes().SetTangentWeightMode(RCTWM_WeightedNone);
+
+	// Gather current key attributes
+	for (const TTuple<FCurveModelID, FKeyHandleSet>& Pair : Selection)
+	{
+		FCurveModel* Curve = CurveEditor->FindCurve(Pair.Key);
+		if (Curve)
+		{
+			TArray<FKeyAttributes>& KeyAttributes = KeyAttributesPerCurve.Add(Pair.Key);
+			KeyAttributes.SetNum(Pair.Value.Num());
+			Curve->GetKeyAttributes(Pair.Value.AsArray(), KeyAttributes);
+
+			// Check all the key attributes if they support tangent weights, but don't have any. If we find any such keys, we'll enable weights on all.
+			if (KeyAttributesToAssign.GetTangentWeightMode() == RCTWM_WeightedNone)
+			{
+				for (const FKeyAttributes& Attributes : KeyAttributes)
+				{
+					if (Attributes.HasTangentWeightMode() && !(Attributes.HasArriveTangentWeight() || Attributes.HasLeaveTangentWeight()))
+					{
+						KeyAttributesToAssign.SetTangentWeightMode(RCTWM_WeightedBoth);
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	// Assign the new key attributes to all the selected curves
+	for (TTuple<FCurveModelID, TArray<FKeyAttributes>>& Pair : KeyAttributesPerCurve)
+	{
+		FCurveModel* Curve = CurveEditor->FindCurve(Pair.Key);
+		if (Curve)
+		{
+			for (FKeyAttributes& Attributes : Pair.Value)
+			{
+				Attributes = KeyAttributesToAssign;
+			}
+
+			TArrayView<const FKeyHandle> KeyHandles = Selection.FindChecked(Pair.Key).AsArray();
+			Curve->Modify();
+			Curve->SetKeyAttributes(KeyHandles, Pair.Value);
+		}
+	}
+}
+
+bool SCurveEditorPanel::CanToggleWeightedTangents() const
+{
+	return bSelectionSupportsWeightedTangents;
 }
 
 void SCurveEditorPanel::OnAddKey(FVector2D MousePixel)
@@ -834,7 +987,7 @@ int32 SCurveEditorPanel::OnPaint(const FPaintArgs& Args, const FGeometry& Allott
 	{
 		LayerId = DragOperation->DragImpl->Paint(AllottedGeometry, OutDrawElements, LayerId);
 	}
-	return SCompoundWidget::OnPaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
+	return SCompoundWidget::OnPaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId+2000, InWidgetStyle, bParentEnabled)-2000;
 }
 
 int32 SCurveEditorPanel::DrawGridLines(const FGeometry& AllottedGeometry, FSlateWindowElementList& OutDrawElements, int32 LayerId, ESlateDrawEffect DrawEffects) const

@@ -5,7 +5,7 @@
 #include "SequencerTrackNode.h"
 
 FVirtualTrackArea::FVirtualTrackArea(const FSequencer& InSequencer, SSequencerTreeView& InTreeView, const FGeometry& InTrackAreaGeometry)
-	: FTimeToPixel(InTrackAreaGeometry, InSequencer.GetViewRange(), InSequencer.GetFocusedFrameResolution())
+	: FTimeToPixel(InTrackAreaGeometry, InSequencer.GetViewRange(), InSequencer.GetFocusedTickResolution())
 	, TreeView(InTreeView)
 	, TrackAreaGeometry(InTrackAreaGeometry)
 {
@@ -121,7 +121,7 @@ FSequencerSelectedKey FVirtualTrackArea::HitTestKey(FVector2D InPhysicalPosition
 
 	const double   KeyLeft  = PixelToSeconds(InPhysicalPosition.X - SequencerSectionConstants::KeySize.X/2);
 	const double   KeyRight = PixelToSeconds(InPhysicalPosition.X + SequencerSectionConstants::KeySize.X/2);
-	TRange<FFrameNumber> KeyRange((KeyLeft * GetFrameResolution()).FloorToFrame(), (KeyRight * GetFrameResolution()).CeilToFrame());
+	TRange<FFrameNumber> KeyRange((KeyLeft * GetTickResolution()).FloorToFrame(), (KeyRight * GetTickResolution()).CeilToFrame());
 
 	TArray<TSharedRef<IKeyArea>> KeyAreas;
 

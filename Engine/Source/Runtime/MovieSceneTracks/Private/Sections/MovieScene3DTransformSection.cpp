@@ -275,6 +275,7 @@ void FMovieScene3DTransformKeyStruct::PropagateChanges(const FPropertyChangedEve
 
 UMovieScene3DTransformSection::UMovieScene3DTransformSection(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bUseQuaternionInterpolation(false)
 #if WITH_EDITORONLY_DATA
 	, Show3DTrajectory(EShow3DTrajectory::EST_OnlyWhenSelected)
 #endif
@@ -313,6 +314,60 @@ void UMovieScene3DTransformSection::SetMask(FMovieSceneTransformMask NewMask)
 {
 	TransformMask = NewMask;
 	UpdateChannelProxy();
+}
+
+FMovieSceneTransformMask UMovieScene3DTransformSection::GetMaskByName(const FName& InName) const
+{
+	if (InName == TEXT("Location"))
+	{
+		return EMovieSceneTransformChannel::Translation;
+	}
+	else if (InName == TEXT("Location.X"))
+	{
+		return EMovieSceneTransformChannel::TranslationX;
+	}
+	else if (InName == TEXT("Location.Y"))
+	{
+		return EMovieSceneTransformChannel::TranslationY;
+	}
+	else if (InName == TEXT("Location.Z"))
+	{
+		return EMovieSceneTransformChannel::TranslationZ;
+	}
+	else if (InName == TEXT("Rotation"))
+	{
+		return EMovieSceneTransformChannel::Rotation;
+	}
+	else if (InName == TEXT("Rotation.X"))
+	{
+		return EMovieSceneTransformChannel::RotationX;
+	}
+	else if (InName == TEXT("Rotation.Y"))
+	{
+		return EMovieSceneTransformChannel::RotationY;
+	}
+	else if (InName == TEXT("Rotation.Z"))
+	{
+		return EMovieSceneTransformChannel::RotationZ;
+	}
+	else if (InName == TEXT("Scale"))
+	{
+		return EMovieSceneTransformChannel::Scale;
+	}
+	else if (InName == TEXT("Scale.X"))
+	{
+		return EMovieSceneTransformChannel::ScaleX;
+	}
+	else if (InName == TEXT("Scale.Y"))
+	{
+		return EMovieSceneTransformChannel::ScaleY;
+	}
+	else if (InName == TEXT("Scale.Z"))
+	{
+		return EMovieSceneTransformChannel::ScaleZ;
+	}
+
+	return EMovieSceneTransformChannel::All;
 }
 
 void UMovieScene3DTransformSection::UpdateChannelProxy()
@@ -464,4 +519,23 @@ TSharedPtr<FStructOnScope> UMovieScene3DTransformSection::GetKeyStruct(TArrayVie
 FMovieSceneEvalTemplatePtr UMovieScene3DTransformSection::GenerateTemplate() const
 {
 	return FMovieSceneComponentTransformSectionTemplate(*this);
+}
+
+
+bool UMovieScene3DTransformSection::GetUseQuaternionInterpolation() const
+{
+	return bUseQuaternionInterpolation;
+}
+
+bool UMovieScene3DTransformSection::ShowCurveForChannel(const void *ChannelPtr) const
+{
+	if (GetUseQuaternionInterpolation())
+	{
+		TArrayView<FMovieSceneFloatChannel*> FloatChannels = ChannelProxy->GetChannels<FMovieSceneFloatChannel>();
+		if (static_cast<void *>(FloatChannels[3]) == ChannelPtr || static_cast<void *>(FloatChannels[4]) == ChannelPtr || static_cast<void *>(FloatChannels[5]) == ChannelPtr)
+		{
+			return false;
+		}
+	}
+	return true;
 }

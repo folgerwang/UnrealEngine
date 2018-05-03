@@ -171,7 +171,7 @@ void FMediaThumbnailSection::SetSingleTime(double GlobalTime)
 
 	if (MediaSection != nullptr)
 	{
-		double StartTime = MediaSection->GetInclusiveStartFrame() / MediaSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		double StartTime = MediaSection->GetInclusiveStartFrame() / MediaSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
 		MediaSection->SetThumbnailReferenceOffset(GlobalTime - StartTime);
 	}
 }
@@ -310,8 +310,8 @@ void FMediaThumbnailSection::DrawLoopIndicators(FSequencerSectionPainter& InPain
 {
 	static const FSlateBrush* GenericBrush = FCoreStyle::Get().GetBrush("GenericWhiteBox");
 
-	FFrameRate FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-	double SectionDuration = FFrameTime(MovieScene::DiscreteSize(Section->GetRange())) / FrameResolution;
+	FFrameRate TickResolution = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
+	double SectionDuration = FFrameTime(MovieScene::DiscreteSize(Section->GetRange())) / TickResolution;
 	const float MediaSizeX = MediaDuration.GetTotalSeconds() * SectionSize.X / SectionDuration;
 	float DrawOffset = 0.0f;
 
@@ -335,8 +335,8 @@ void FMediaThumbnailSection::DrawSampleStates(FSequencerSectionPainter& InPainte
 {
 	static const FSlateBrush* GenericBrush = FCoreStyle::Get().GetBrush("GenericWhiteBox");
 
-	FFrameRate FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-	double SectionDuration = FFrameTime(MovieScene::DiscreteSize(Section->GetRange())) / FrameResolution;
+	FFrameRate TickResolution = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
+	double SectionDuration = FFrameTime(MovieScene::DiscreteSize(Section->GetRange())) / TickResolution;
 	const float MediaSizeX = MediaDuration.GetTotalSeconds() * SectionSize.X / SectionDuration;
 
 	TArray<TRange<FTimespan>> Ranges;

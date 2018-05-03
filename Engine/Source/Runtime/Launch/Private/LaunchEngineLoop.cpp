@@ -3350,7 +3350,6 @@ void FEngineLoop::Tick()
 
 		if (MediaModule != nullptr)
 		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_MediaTickPreEngine);
 			MediaModule->TickPreEngine();
 		}
 #endif
@@ -3358,15 +3357,6 @@ void FEngineLoop::Tick()
 		// main game engine tick (world, game objects, etc.)
 		GEngine->Tick(FApp::GetDeltaTime(), bIdleMode);
 
-#if !UE_SERVER
-		// tick media framework
-		if (MediaModule != nullptr)
-		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_MediaTickPostEngine);
-			MediaModule->TickPostEngine();
-		}
-#endif
-		
 		// If a movie that is blocking the game thread has been playing,
 		// wait for it to finish before we continue to tick or tick again
 		// We do this right after GEngine->Tick() because that is where user code would initiate a load / movie.
@@ -3392,7 +3382,6 @@ void FEngineLoop::Tick()
 		// tick media framework
 		if (MediaModule != nullptr)
 		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_MediaTickPreSlate);
 			MediaModule->TickPreSlate();
 		}
 #endif

@@ -36,16 +36,15 @@ public:
 		const UMovieSceneFadeSection* FadeSection = Cast<const UMovieSceneFadeSection>( WeakSection.Get() );
 
 		FTimeToPixel TimeConverter    = Painter.GetTimeConverter();
-		FFrameRate   FrameResolution  = TimeConverter.GetFrameResolution();
+		FFrameRate   TickResolution   = TimeConverter.GetTickResolution();
 
-		const double HalfFrameTime    = FFrameTime(0, 0.5f) / FrameResolution;
-		const double StartTimeSeconds = TimeConverter.PixelToSeconds(1.f) - HalfFrameTime;
-		const double EndTimeSeconds   = TimeConverter.PixelToSeconds(Painter.SectionGeometry.GetLocalSize().X-2.f) - HalfFrameTime;
+		const double StartTimeSeconds = TimeConverter.PixelToSeconds(1.f);
+		const double EndTimeSeconds   = TimeConverter.PixelToSeconds(Painter.SectionGeometry.GetLocalSize().X-2.f);
 		const double TimeThreshold    = FMath::Max(0.0001, TimeConverter.PixelToSeconds(5) - TimeConverter.PixelToSeconds(0));
 		const double DurationSeconds  = EndTimeSeconds - StartTimeSeconds;
 
 		TArray<TTuple<double, double>> CurvePoints;
-		FadeSection->GetChannel().PopulateCurvePoints(StartTimeSeconds, EndTimeSeconds, TimeThreshold, 0.1f, FrameResolution, CurvePoints);
+		FadeSection->GetChannel().PopulateCurvePoints(StartTimeSeconds, EndTimeSeconds, TimeThreshold, 0.1f, TickResolution, CurvePoints);
 
 		TArray<FSlateGradientStop> GradientStops;
 		for (TTuple<double, double> Vector : CurvePoints)

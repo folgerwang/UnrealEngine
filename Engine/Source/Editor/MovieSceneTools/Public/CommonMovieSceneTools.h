@@ -12,9 +12,9 @@
 struct FTimeToPixel
 {
 public:
-	FTimeToPixel( const FGeometry& AllottedGeometry, const TRange<double>& InLocalViewRange, const FFrameRate& InFrameResolution )
+	FTimeToPixel( const FGeometry& AllottedGeometry, const TRange<double>& InLocalViewRange, const FFrameRate& InTickResolution )
 		: ViewRangeStartSeconds( InLocalViewRange.GetLowerBoundValue() )
-		, FrameResolution( InFrameResolution )
+		, TickResolution( InTickResolution )
 	{
 		double VisibleWidth = InLocalViewRange.Size<double>();
 
@@ -52,7 +52,7 @@ public:
 	 */
 	float FrameToPixel( const FFrameTime& Time ) const
 	{
-		return (Time / FrameResolution - ViewRangeStartSeconds) * PixelsPerSecond;
+		return (Time / TickResolution - ViewRangeStartSeconds) * PixelsPerSecond;
 	}
 
 	/**
@@ -63,7 +63,7 @@ public:
 	 */
 	FFrameTime PixelToFrame( float PixelX ) const
 	{
-		return ( PixelX / PixelsPerSecond + ViewRangeStartSeconds ) * FrameResolution;
+		return ( PixelX / PixelsPerSecond + ViewRangeStartSeconds ) * TickResolution;
 	}
 
 	/**
@@ -74,23 +74,23 @@ public:
 	 */
 	FFrameTime PixelDeltaToFrame( float PixelDelta ) const
 	{
-		return ( PixelDelta / PixelsPerSecond ) * FrameResolution;
+		return ( PixelDelta / PixelsPerSecond ) * TickResolution;
 	}
 
 	/**
-	 * Retrieve the frame resolution of the current sequence
+	 * Retrieve the tick resolution of the current sequence
 	 */
-	FFrameRate GetFrameResolution() const
+	FFrameRate GetTickResolution() const
 	{
-		return FrameResolution;
+		return TickResolution;
 	}
 
 private:
 
 	/** time range of the sequencer in seconds */
 	double ViewRangeStartSeconds;
-	/** The frame resolution of the current timeline */
-	FFrameRate FrameResolution;
+	/** The tick resolution of the current timeline */
+	FFrameRate TickResolution;
 	/** The number of pixels in the view range */
 	float PixelsPerSecond;
 };

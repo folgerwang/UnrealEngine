@@ -9,6 +9,7 @@
 #include "Channels/MovieSceneChannelTraits.h"
 #include "SequencerChannelTraits.h"
 #include "Channels/MovieSceneChannelHandle.h"
+#include "MovieSceneTimeHelpers.h"
 
 
 template<typename ChannelType, typename ValueType>
@@ -71,12 +72,13 @@ struct TSequencerKeyEditor
 
 		ChannelType* Channel = ChannelHandle.Get();
 		ISequencer* Sequencer = WeakSequencer.Pin().Get();
+		UMovieSceneSection* OwningSection = WeakSection.Get();
 
 		ValueType Result{};
 
-		if (Channel && Sequencer)
+		if (Channel && Sequencer && OwningSection)
 		{
-			const FFrameTime CurrentTime = Sequencer->GetLocalTime().Time;
+			const FFrameTime CurrentTime = MovieScene::ClampToDiscreteRange(Sequencer->GetLocalTime().Time, OwningSection->GetRange());
 			EvaluateChannel(Channel, CurrentTime, Result);
 		}
 

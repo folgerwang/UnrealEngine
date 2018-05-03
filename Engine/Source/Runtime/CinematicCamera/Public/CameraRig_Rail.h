@@ -31,6 +31,10 @@ public:
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Rail Controls", meta=(ClampMin="0.0", ClampMax = "1.0"))
 	float CurrentPositionOnRail;
 
+	/** Determines whether the orientation of the mount should be in the direction of the rail. */
+	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Rail Controls")
+	bool bLockOrientationToRail;
+
 	virtual class USceneComponent* GetDefaultAttachComponent() const override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

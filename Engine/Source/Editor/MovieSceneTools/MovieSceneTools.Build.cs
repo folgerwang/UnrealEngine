@@ -24,7 +24,8 @@ public class MovieSceneTools : ModuleRules
 				"CoreUObject",
 				"Engine",
                 "InputCore",
-				"UnrealEd",
+                "MovieSceneCapture",
+                "UnrealEd",
 				"Sequencer"
 			}
 		);
@@ -35,10 +36,12 @@ public class MovieSceneTools : ModuleRules
                 "CinematicCamera",
                 "CurveEditor",
                 "DesktopPlatform",
-				"LevelSequence",
+                "Json",
+                "JsonUtilities",
+                "LevelSequence",
+                "MessageLog",
 				"MovieScene",
-                "MovieSceneCapture",
-				"MovieSceneTracks",
+ 				"MovieSceneTracks",
 				"BlueprintGraph",
 				"KismetCompiler",
                 "GraphEditor",
@@ -54,6 +57,8 @@ public class MovieSceneTools : ModuleRules
 				"ShaderCore",
 				"SequenceRecorder",
                 "AnimationCore",
+				"TimeManagement",
+                "XmlParser",
 			}
 		);
 

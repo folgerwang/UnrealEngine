@@ -24,10 +24,10 @@ void UMovieSceneMediaSection::PostInitProperties()
 	Super::PostInitProperties();
 
 	UMovieScene* Outer = GetTypedOuter<UMovieScene>();
-	FFrameRate FrameRate = Outer ? Outer->GetFrameResolution() : FFrameRate(24, 1);
+	FFrameRate TickResolution = Outer ? Outer->GetTickResolution() : FFrameRate(24, 1);
 
 	// media tracks have some preroll by default to precache frames
-	SetPreRollFrames( (0.5 * FrameRate).RoundToFrame().Value );
+	SetPreRollFrames( (0.5 * TickResolution).RoundToFrame().Value );
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -31,8 +31,6 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePaths.AddRange(
 				new string[] {
 					"MediaCompositing/Private",
-					"MediaCompositing/Private/Actors",
-					"MediaCompositing/Private/Components",
 					"MediaCompositing/Private/MovieScene",
 				});
 		}

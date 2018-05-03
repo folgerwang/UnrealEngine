@@ -1162,6 +1162,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 
 				PostProcessor->BlurRect(RHICmdList, RendererModule, BlurParams, RectParams);
 			}
+
 		}
 		else
 		{
@@ -1199,6 +1200,10 @@ void FSlateRHIRenderingPolicy::DrawElements(
 
 	INC_DWORD_STAT_BY(STAT_SlateScissorClips, ScissorClips);
 	INC_DWORD_STAT_BY(STAT_SlateStencilClips, StencilClips);
+
+	// Disable scissor rect. 
+	// This fixes drawing on Metal when the last drawn element used a valid scissor rect
+	RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
 }
 
 ETextureSamplerFilter FSlateRHIRenderingPolicy::GetSamplerFilter(const UTexture* Texture) const

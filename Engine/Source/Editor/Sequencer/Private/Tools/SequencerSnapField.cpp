@@ -6,6 +6,7 @@
 #include "SSequencerTreeView.h"
 #include "MovieSceneTimeHelpers.h"
 #include "MovieSceneSequence.h"
+#include "ISequencerSection.h"
 
 struct FSnapGridVisitor : ISequencerEntityVisitor
 {
@@ -62,7 +63,9 @@ FSequencerSnapField::FSequencerSnapField(const ISequencer& InSequencer, ISequenc
 	}
 
 	TRange<double> ViewRange = InSequencer.GetViewRange();
-	FSequencerEntityWalker Walker(FSequencerEntityRange(ViewRange, InSequencer.GetFocusedFrameResolution()));
+	FSequencerEntityWalker Walker(
+		FSequencerEntityRange(ViewRange, InSequencer.GetFocusedTickResolution()),
+		FVector2D(SequencerSectionConstants::KeySize));
 
 	// Traverse the visible space, collecting snapping times as we go
 	FSnapGridVisitor Visitor(Candidate, EntityMask);
@@ -70,16 +73,22 @@ FSequencerSnapField::FSequencerSnapField(const ISequencer& InSequencer, ISequenc
 
 	// Add the playback range start/end bounds as potential snap candidates
 	TRange<FFrameNumber> PlaybackRange = InSequencer.GetFocusedMovieSceneSequence()->GetMovieScene()->GetPlaybackRange();
-	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::PlaybackRange, PlaybackRange.GetLowerBoundValue() });
-	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::PlaybackRange, PlaybackRange.GetUpperBoundValue() });
+	if(MovieScene::DiscreteSize(PlaybackRange) > 0)
+	{
+		Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::PlaybackRange, MovieScene::DiscreteInclusiveLower(PlaybackRange)});
+		Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::PlaybackRange, MovieScene::DiscreteExclusiveUpper(PlaybackRange) - 1});
+	}
 
 	// Add the current time as a potential snap candidate
 	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::CurrentTime, InSequencer.GetLocalTime().Time.FrameNumber });
 
 	// Add the selection range bounds as a potential snap candidate
 	TRange<FFrameNumber> SelectionRange = InSequencer.GetFocusedMovieSceneSequence()->GetMovieScene()->GetSelectionRange();
-	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::InOutRange, MovieScene::DiscreteInclusiveLower(SelectionRange) });
-	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::InOutRange, MovieScene::DiscreteExclusiveUpper(SelectionRange) });
+	if (MovieScene::DiscreteSize(SelectionRange) > 0)
+	{
+		Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::InOutRange, MovieScene::DiscreteInclusiveLower(SelectionRange)});
+		Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::InOutRange, MovieScene::DiscreteExclusiveUpper(SelectionRange) - 1});
+	}
 
 	// Sort
 	Visitor.Snaps.Sort([](const FSequencerSnapPoint& A, const FSequencerSnapPoint& B){

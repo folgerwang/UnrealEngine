@@ -91,7 +91,7 @@ EVisibility SSequencerPlayRateCombo::GetFrameLockedVisibility() const
 EVisibility SSequencerPlayRateCombo::GetFrameRateErrorVisibility() const
 {
 	TSharedPtr<FSequencer> Sequencer  = WeakSequencer.Pin();
-	if (!Sequencer.IsValid() || Sequencer->GetFocusedPlayRate().IsMultipleOf(Sequencer->GetFocusedFrameResolution()))
+	if (!Sequencer.IsValid() || Sequencer->GetFocusedDisplayRate().IsMultipleOf(Sequencer->GetFocusedTickResolution()))
 	{
 		return EVisibility::Collapsed;
 	}
@@ -103,16 +103,16 @@ FText SSequencerPlayRateCombo::GetFrameRateErrorDescription() const
 	TSharedPtr<FSequencer> Sequencer  = WeakSequencer.Pin();
 	if (Sequencer.IsValid())
 	{
-		FFrameRate PlayRate = Sequencer->GetFocusedPlayRate();
-		FFrameRate FrameResolution = Sequencer->GetFocusedFrameResolution();
+		FFrameRate DisplayRate = Sequencer->GetFocusedDisplayRate();
+		FFrameRate TickResolution = Sequencer->GetFocusedTickResolution();
 
-		const FCommonFrameRateInfo* PlayRateInfo        = FCommonFrameRates::Find(PlayRate);
-		const FCommonFrameRateInfo* FrameResolutionInfo = FCommonFrameRates::Find(FrameResolution);
+		const FCommonFrameRateInfo* DisplayRateInfo     = FCommonFrameRates::Find(DisplayRate);
+		const FCommonFrameRateInfo* TickResolutionInfo  = FCommonFrameRates::Find(TickResolution);
 
-		FText PlayRateText        = PlayRateInfo        ? PlayRateInfo->DisplayName        : FText::Format(LOCTEXT("PlayRateFormat", "{0} fps"), PlayRate.AsDecimal());
-		FText FrameResolutionText = FrameResolutionInfo ? FrameResolutionInfo->DisplayName : FText::Format(LOCTEXT("FrameResolutionFormat", "{0} ticks every second"), FrameResolution.AsDecimal());
+		FText DisplayRateText     = DisplayRateInfo     ? DisplayRateInfo->DisplayName    : FText::Format(LOCTEXT("DisplayRateFormat", "{0} fps"), DisplayRate.AsDecimal());
+		FText TickResolutionText  = TickResolutionInfo  ? TickResolutionInfo->DisplayName : FText::Format(LOCTEXT("TickResolutionFormat", "{0} ticks every second"), TickResolution.AsDecimal());
 
-		return FText::Format(LOCTEXT("FrameRateErrorDescription", "The current display rate of {0} is incompatible with this sequence's tick resolution of {1} ticks per second."), PlayRateText, FrameResolutionText);
+		return FText::Format(LOCTEXT("FrameRateErrorDescription", "The current display rate of {0} is incompatible with this sequence's tick resolution of {1} ticks per second."), DisplayRateText, TickResolutionText);
 	}
 
 	return FText();
@@ -129,12 +129,12 @@ TSharedRef<SWidget> SSequencerPlayRateCombo::OnCreateMenu()
 
 	FMenuBuilder MenuBuilder(true, nullptr);
 
-	FFrameRate FrameResolution = Sequencer->GetFocusedFrameResolution();
+	FFrameRate TickResolution = Sequencer->GetFocusedTickResolution();
 
 	TArray<FCommonFrameRateInfo> CompatibleRates;
 	for (const FCommonFrameRateInfo& Info : FCommonFrameRates::GetAll())
 	{
-		if (Info.FrameRate.IsMultipleOf(FrameResolution))
+		if (Info.FrameRate.IsMultipleOf(TickResolution))
 		{
 			CompatibleRates.Add(Info);
 		}
@@ -160,8 +160,8 @@ TSharedRef<SWidget> SSequencerPlayRateCombo::OnCreateMenu()
 			.MaxDesiredWidth(100.f)
 			[
 				SNew(SFrameRateEntryBox)
-				.Value(this, &SSequencerPlayRateCombo::GetPlaybackFrameRate)
-				.OnValueChanged(this, &SSequencerPlayRateCombo::SetPlaybackFrameRate)
+				.Value(this, &SSequencerPlayRateCombo::GetDisplayRate)
+				.OnValueChanged(this, &SSequencerPlayRateCombo::SetDisplayRate)
 			],
 			LOCTEXT("CustomFramerateDisplayLabel", "Custom")
 		);
@@ -170,7 +170,7 @@ TSharedRef<SWidget> SSequencerPlayRateCombo::OnCreateMenu()
 		{
 			MenuBuilder.AddSubMenu(
 				LOCTEXT("IncompatibleRates", "Incompatible Rates"),
-				FText::Format(LOCTEXT("IncompatibleRates_Description", "Choose from a list of display rates that are incompatible with a resolution of {0} ticks per second"), FrameResolution.AsDecimal()),
+				FText::Format(LOCTEXT("IncompatibleRates_Description", "Choose from a list of display rates that are incompatible with a resolution of {0} ticks per second"), TickResolution.AsDecimal()),
 				FNewMenuDelegate::CreateSP(this, &SSequencerPlayRateCombo::PopulateIncompatibleRatesMenu)
 				);
 		}
@@ -182,7 +182,12 @@ TSharedRef<SWidget> SSequencerPlayRateCombo::OnCreateMenu()
 	MenuBuilder.AddSubMenu(
 		LOCTEXT("ShowTimesAs", "Show Time As"),
 		LOCTEXT("ShowTimesAs_Description", "Change how to display times in Sequencer"),
-		FNewMenuDelegate::CreateSP(this, &SSequencerPlayRateCombo::PopulateTimeDisplayMenu)
+		FNewMenuDelegate::CreateLambda([this](FMenuBuilder& InMenuBuilder) {
+			if (WeakSequencerWidget.IsValid())
+			{
+				WeakSequencerWidget.Pin()->FillTimeDisplayFormatMenu(InMenuBuilder);
+			}
+		})
 	);
 
 	if (Sequencer->GetRootMovieSceneSequence() == Sequencer->GetFocusedMovieSceneSequence())
@@ -212,7 +217,7 @@ TSharedRef<SWidget> SSequencerPlayRateCombo::OnCreateMenu()
 		LOCTEXT("AdvancedOptions_Description", "Open advanced time-related properties for this sequence"),
 		FSlateIcon(),
 		FUIAction(
-			FExecuteAction::CreateSP(SequencerWidget.Get(), &SSequencer::ShowFrameResolutionOverlay)
+			FExecuteAction::CreateSP(SequencerWidget.Get(), &SSequencer::ShowTickResolutionOverlay)
 		)
 	);
 
@@ -224,12 +229,12 @@ void SSequencerPlayRateCombo::PopulateIncompatibleRatesMenu(FMenuBuilder& MenuBu
 	TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
 	if (Sequencer.IsValid())
 	{
-		FFrameRate FrameResolution = Sequencer->GetFocusedFrameResolution();
+		FFrameRate TickResolution = Sequencer->GetFocusedTickResolution();
 
 		TArray<FCommonFrameRateInfo> IncompatibleRates;
 		for (const FCommonFrameRateInfo& Info : FCommonFrameRates::GetAll())
 		{
-			if (!Info.FrameRate.IsMultipleOf(FrameResolution))
+			if (!Info.FrameRate.IsMultipleOf(TickResolution))
 			{
 				IncompatibleRates.Add(Info);
 			}
@@ -245,47 +250,6 @@ void SSequencerPlayRateCombo::PopulateIncompatibleRatesMenu(FMenuBuilder& MenuBu
 		for (const FCommonFrameRateInfo& Info : IncompatibleRates)
 		{
 			AddMenuEntry(MenuBuilder, Info);
-		}
-	}
-}
-
-void SSequencerPlayRateCombo::PopulateTimeDisplayMenu(FMenuBuilder& MenuBuilder)
-{
-	TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
-	USequencerSettings*    Settings = Sequencer.IsValid() ? Sequencer->GetSequencerSettings() : nullptr;
-	bool bSupportsDropFormatDisplay = FTimecode::IsDropFormatTimecodeSupported(Sequencer->GetFocusedPlayRate());
-
-	const UEnum* FrameNumberDisplayEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EFrameNumberDisplayFormats"), true);
-	check(FrameNumberDisplayEnum);
-
-	if (Settings)
-	{
-		EFrameNumberDisplayFormats CurrentDisplay = Settings->GetTimeDisplayFormat();
-
-		for (int32 Index = 0; Index < FrameNumberDisplayEnum->NumEnums() - 1; Index++)
-		{
-			if (!FrameNumberDisplayEnum->HasMetaData(TEXT("Hidden"), Index))
-			{
-				EFrameNumberDisplayFormats Value = (EFrameNumberDisplayFormats)FrameNumberDisplayEnum->GetValueByIndex(Index);
-
-				// Don't show Drop Frame Timecode when they're in a format that doesn't support it.
-				if (Value == EFrameNumberDisplayFormats::DropFrameTimecode && !bSupportsDropFormatDisplay)
-					continue;
-
-				bool bIsSet = CurrentDisplay == Value;
-				MenuBuilder.AddMenuEntry(
-					FrameNumberDisplayEnum->GetDisplayNameTextByIndex(Index),
-					FrameNumberDisplayEnum->GetToolTipTextByIndex(Index),
-					FSlateIcon(),
-					FUIAction(
-						FExecuteAction::CreateUObject(Settings, &USequencerSettings::SetTimeDisplayFormat, Value),
-						FCanExecuteAction(),
-						FIsActionChecked::CreateLambda([=]{ return CurrentDisplay == Value; })
-					),
-					NAME_None,
-					EUserInterfaceActionType::RadioButton
-				);
-			}
 		}
 	}
 }
@@ -334,9 +298,9 @@ void SSequencerPlayRateCombo::AddMenuEntry(FMenuBuilder& MenuBuilder, const FCom
 		Info.Description,
 		FSlateIcon(),
 		FUIAction(
-			FExecuteAction::CreateSP(this, &SSequencerPlayRateCombo::SetPlaybackFrameRate, Info.FrameRate),
+			FExecuteAction::CreateSP(this, &SSequencerPlayRateCombo::SetDisplayRate, Info.FrameRate),
 			FCanExecuteAction(),
-			FIsActionChecked::CreateSP(this, &SSequencerPlayRateCombo::IsSamePlaybackFrameRate, Info.FrameRate)
+			FIsActionChecked::CreateSP(this, &SSequencerPlayRateCombo::IsSameDisplayRate, Info.FrameRate)
 		),
 		NAME_None,
 		EUserInterfaceActionType::RadioButton
@@ -358,7 +322,7 @@ void SSequencerPlayRateCombo::SetClockSource(EUpdateClockSource NewClockSource)
 	}
 }
 
-void SSequencerPlayRateCombo::SetPlaybackFrameRate(FFrameRate InFrameRate)
+void SSequencerPlayRateCombo::SetDisplayRate(FFrameRate InFrameRate)
 {
 	TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
 	UMovieSceneSequence* FocusedSequence = Sequencer.IsValid() ? Sequencer->GetFocusedMovieSceneSequence() : nullptr;
@@ -367,26 +331,26 @@ void SSequencerPlayRateCombo::SetPlaybackFrameRate(FFrameRate InFrameRate)
 		FScopedTransaction ScopedTransaction(FText::Format(LOCTEXT("SetDisplayRate", "Set Display Rate to {0}"), InFrameRate.ToPrettyText()));
 
 		FocusedSequence->GetMovieScene()->Modify();
-		FocusedSequence->GetMovieScene()->SetPlaybackFrameRate(InFrameRate);
+		FocusedSequence->GetMovieScene()->SetDisplayRate(InFrameRate);
 	}
 }
 
-FFrameRate SSequencerPlayRateCombo::GetPlaybackFrameRate() const
+FFrameRate SSequencerPlayRateCombo::GetDisplayRate() const
 {
 	TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
-	return Sequencer.IsValid() ? Sequencer->GetFocusedPlayRate() : FFrameRate();
+	return Sequencer.IsValid() ? Sequencer->GetFocusedDisplayRate() : FFrameRate();
 }
 
-bool SSequencerPlayRateCombo::IsSamePlaybackFrameRate(FFrameRate InFrameRate) const
+bool SSequencerPlayRateCombo::IsSameDisplayRate(FFrameRate InFrameRate) const
 {
-	return GetPlaybackFrameRate() == InFrameRate;
+	return GetDisplayRate() == InFrameRate;
 }
 
 FText SSequencerPlayRateCombo::GetFrameRateText() const
 {
 	TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
 
-	return Sequencer.IsValid() ? Sequencer->GetFocusedPlayRate().ToPrettyText() : FText();
+	return Sequencer.IsValid() ? Sequencer->GetFocusedDisplayRate().ToPrettyText() : FText();
 }
 
 FText SSequencerPlayRateCombo::GetToolTipText() const
@@ -397,18 +361,18 @@ FText SSequencerPlayRateCombo::GetToolTipText() const
 
 	if (FocusedMovieScene)
 	{
-		FFrameRate PlayRate        = FocusedMovieScene->GetPlaybackFrameRate();
-		FFrameRate FrameResolution = FocusedMovieScene->GetFrameResolution();
+		FFrameRate DisplayRate     = FocusedMovieScene->GetDisplayRate();
+		FFrameRate TickResolution  = FocusedMovieScene->GetTickResolution();
 
-		const FCommonFrameRateInfo* PlayRateInfo        = FCommonFrameRates::Find(PlayRate);
-		const FCommonFrameRateInfo* FrameResolutionInfo = FCommonFrameRates::Find(FrameResolution);
+		const FCommonFrameRateInfo* DisplayRateInfo    = FCommonFrameRates::Find(DisplayRate);
+		const FCommonFrameRateInfo* TickResolutionInfo = FCommonFrameRates::Find(TickResolution);
 
-		FText PlayRateText        = PlayRateInfo        ? PlayRateInfo->DisplayName        : FText::Format(LOCTEXT("PlayRateFormat", "{0} fps"), PlayRate.AsDecimal());
-		FText FrameResolutionText = FrameResolutionInfo ? FrameResolutionInfo->DisplayName : FText::Format(LOCTEXT("FrameResolutionFormat", "{0} ticks every second"), FrameResolution.AsDecimal());
+		FText DisplayRateText     = DisplayRateInfo     ? DisplayRateInfo->DisplayName    : FText::Format(LOCTEXT("DisplayRateFormat", "{0} fps"), DisplayRate.AsDecimal());
+		FText TickResolutionText  = TickResolutionInfo  ? TickResolutionInfo->DisplayName : FText::Format(LOCTEXT("TickResolutionFormat", "{0} ticks every second"), TickResolution.AsDecimal());
 
 		return FocusedMovieScene->GetEvaluationType() == EMovieSceneEvaluationType::FrameLocked
-			? FText::Format(LOCTEXT("ToolTip_Format_FrameLocked", "This sequence is locked at runtime to {0} and uses an underlying tick resolution of {1}."), PlayRateText, FrameResolutionText)
-			: FText::Format(LOCTEXT("ToolTip_Format", "This sequence is being presented as {0} and uses an underlying tick resolution of {1}."), PlayRateText, FrameResolutionText);
+			? FText::Format(LOCTEXT("ToolTip_Format_FrameLocked", "This sequence is locked at runtime to {0} and uses an underlying tick resolution of {1}."), DisplayRateText, TickResolutionText)
+			: FText::Format(LOCTEXT("ToolTip_Format", "This sequence is being presented as {0} and uses an underlying tick resolution of {1}."), DisplayRateText, TickResolutionText);
 	}
 
 	return FText();

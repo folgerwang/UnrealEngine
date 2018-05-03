@@ -81,6 +81,7 @@ FString FTimespan::ToString(const TCHAR* Format) const
 			case TCHAR('s'): Result += FString::Printf(TEXT("%02i"), FMath::Abs(GetSeconds())); break;
 			case TCHAR('f'): Result += FString::Printf(TEXT("%03i"), FMath::Abs(GetFractionMilli())); break;
 			case TCHAR('u'): Result += FString::Printf(TEXT("%06i"), FMath::Abs(GetFractionMicro())); break;
+			case TCHAR('t'): Result += FString::Printf(TEXT("%07i"), FMath::Abs(GetFractionTicks())); break;
 			case TCHAR('n'): Result += FString::Printf(TEXT("%09i"), FMath::Abs(GetFractionNano())); break;
 			default:
 				Result += *Format;

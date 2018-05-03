@@ -23,10 +23,14 @@ struct FSelectionPreviewVisitor final
 	{
 		FSequencerSelectedKey Key(*Section, KeyArea, KeyHandle);
 
-		// If we're trying to change this key's selection state, we go into 'key selection mode', thus we reset the selection state of any nodes that weren't selected by keys
+		// Under default behavior keys have priority, so if a key is changing selection state then we remove any sections from the selection. The user can bypass this
+		// by holding down the control key which will allow selecting both keys and sections.
+		bool bKeySelectionHasPriority = !FSlateApplication::Get().GetModifierKeys().IsControlDown();
 		bool bKeyIsSelected = ExistingSelection.IsSelected(Key);
-		if ( (bKeyIsSelected && SetStateTo == ESelectionPreviewState::NotSelected) ||
-			(!bKeyIsSelected && SetStateTo == ESelectionPreviewState::Selected) )
+
+		if (bKeySelectionHasPriority && 
+			((bKeyIsSelected && SetStateTo == ESelectionPreviewState::NotSelected) ||
+			(!bKeyIsSelected && SetStateTo == ESelectionPreviewState::Selected)))
 		{
 			// Clear selected nodes
 			for (TSharedRef<FSequencerDisplayNode> SelectedNode : NodesSelectedBySections)
@@ -48,9 +52,12 @@ struct FSelectionPreviewVisitor final
 
 	virtual void VisitSection(UMovieSceneSection* Section, TSharedRef<FSequencerDisplayNode> Node) const
 	{
-		// Never select a combination of sections and keys
-		// Never allow infinite sections to be selected (they're only selectable through right click)
-		if (SelectionPreview.GetDefinedKeyStates().Num() == 0 && Section->GetRange() != TRange<FFrameNumber>::All())
+		// If key selection has priority then we check to see if there are any keys selected. If there are key selected, we don't add this section.
+		// Otherwise, we bypass this check and only care that the range isn't infinite (those are selectable via right click)
+		bool bKeySelectionHasPriority = !FSlateApplication::Get().GetModifierKeys().IsControlDown();
+		bool bKeyStateCheck = bKeySelectionHasPriority ? SelectionPreview.GetDefinedKeyStates().Num() == 0 : true;
+
+		if (bKeyStateCheck && Section->GetRange() != TRange<FFrameNumber>::All())
 		{
 			SelectionPreview.SetSelectionState(Section, SetStateTo);
 			SelectionPreview.SetSelectionState(Node, SetStateTo);
@@ -181,7 +188,7 @@ public:
 		const auto& RootNodes = SequencerWidget->GetTreeView()->GetNodeTree()->GetRootNodes();
 
 		// Now walk everything within the current marquee range, setting preview selection states as we go
-		FSequencerEntityWalker Walker(FSequencerEntityRange(TopLeft(), BottomRight(), VirtualTrackArea.GetFrameResolution()), VirtualKeySize);
+		FSequencerEntityWalker Walker(FSequencerEntityRange(TopLeft(), BottomRight(), VirtualTrackArea.GetTickResolution()), VirtualKeySize);
 		Walker.Traverse(FSelectionPreviewVisitor(SelectionPreview, Sequencer.GetSelection(), PreviewState), RootNodes);
 	}
 

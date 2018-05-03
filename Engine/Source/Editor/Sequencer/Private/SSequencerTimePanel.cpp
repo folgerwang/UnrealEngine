@@ -68,21 +68,15 @@ void SSequencerTimePanel::Construct(const FArguments& InArgs, TWeakPtr<FSequence
 {
 	WeakSequencer = InSequencer;
 
-	TSharedPtr<FSequencer> Sequencer = InSequencer.Pin();
-	if (Sequencer.IsValid())
-	{
-		CurrentFrameResolution = Sequencer->GetFocusedFrameResolution();
-	}
-
-	TArray<FCommonFrameRateInfo> FrameResolutionRates;
+	TArray<FCommonFrameRateInfo> TickResolutionRates;
 	{
 		TArrayView<const FCommonFrameRateInfo> CommonRates = FCommonFrameRates::GetAll();
-		FrameResolutionRates.Append(CommonRates.GetData(), CommonRates.Num());
+		TickResolutionRates.Append(CommonRates.GetData(), CommonRates.Num());
 
-		FrameResolutionRates.Add(FCommonFrameRateInfo{ FFrameRate(1000, 1),   LOCTEXT("1000_Name",   "1000 fps (ms precision)"),                       LOCTEXT("1000_Description",   "Allows placement of sequence keys and sections with millisecond precision") });
-		FrameResolutionRates.Add(FCommonFrameRateInfo{ FFrameRate(24000, 1),  LOCTEXT("24000_Name",  "24000 fps (all integer rates + 23.976)"),        LOCTEXT("24000_Description",  "A very high framerate that allows frame-accurate evaluation of all common integer frame rates as well as NTSC 24.") });
-		FrameResolutionRates.Add(FCommonFrameRateInfo{ FFrameRate(60000, 1),  LOCTEXT("60000_Name",  "60000 fps (all integer rates + 29.97 & 59.94)"), LOCTEXT("60000_Description",  "A very high framerate that allows frame-accurate evaluation of all common integer frame rates as well as NTSC 30 and 60.") });
-		FrameResolutionRates.Add(FCommonFrameRateInfo{ FFrameRate(120000, 1), LOCTEXT("120000_Name", "120000 fps (all common rates)"),                 LOCTEXT("120000_Description", "A very high framerate that allows frame-accurate evaluation of all common integer and NTSC frame rates.") });
+		TickResolutionRates.Add(FCommonFrameRateInfo{ FFrameRate(1000, 1),   LOCTEXT("1000_Name",   "1000 fps (ms precision)"),                       LOCTEXT("1000_Description",   "Allows placement of sequence keys and sections with millisecond precision") });
+		TickResolutionRates.Add(FCommonFrameRateInfo{ FFrameRate(24000, 1),  LOCTEXT("24000_Name",  "24000 fps (all integer rates + 23.976)"),        LOCTEXT("24000_Description",  "A very high framerate that allows frame-accurate evaluation of all common integer frame rates as well as NTSC 24.") });
+		TickResolutionRates.Add(FCommonFrameRateInfo{ FFrameRate(60000, 1),  LOCTEXT("60000_Name",  "60000 fps (all integer rates + 29.97 & 59.94)"), LOCTEXT("60000_Description",  "A very high framerate that allows frame-accurate evaluation of all common integer frame rates as well as NTSC 30 and 60.") });
+		TickResolutionRates.Add(FCommonFrameRateInfo{ FFrameRate(120000, 1), LOCTEXT("120000_Name", "120000 fps (all common rates)"),                 LOCTEXT("120000_Description", "A very high framerate that allows frame-accurate evaluation of all common integer and NTSC frame rates.") });
 	}
 
 	FText Description = LOCTEXT("Description", "Sequences store section start times and keys at points in time called 'ticks'.\n\nThe size of a single tick is defined per-sequence; it is recommended that you choose a tick-interval that fits into your desired display rate or content frame rates. Increasing the resolution will reduce the total supported time range.");
@@ -120,18 +114,19 @@ void SSequencerTimePanel::Construct(const FArguments& InArgs, TWeakPtr<FSequence
 						SNew(SVerticalBox)
 
 						+ SVerticalBox::Slot()
+						.AutoHeight()
+						[
+							SNew(STextBlock)
+							.TextStyle(FEditorStyle::Get(), "LargeText")
+							.Text(LOCTEXT("Title", "Advanced Time Properties"))
+						]
+
+						+ SVerticalBox::Slot()
 						[
 							SNew(SBox)
 							.MaxDesiredWidth(600.f)
 							[
 								SNew(SScrollBox)
-
-								+ SScrollBox::Slot()
-								[
-									SNew(STextBlock)
-									.TextStyle(FEditorStyle::Get(), "LargeText")
-									.Text(LOCTEXT("Title", "Advanced Time Properties"))
-								]
 
 								+ SScrollBox::Slot()
 								.Padding(FMargin(0.f, 0.f, 0.f, 10.f))
@@ -165,9 +160,9 @@ void SSequencerTimePanel::Construct(const FArguments& InArgs, TWeakPtr<FSequence
 										.NotRecommendedText(LOCTEXT("NotCompatibleWithDisplayRate", "Other"))
 										.NotRecommendedToolTip(LOCTEXT("NotCompatibleWithDisplayRate_Tip", "All other preset frame rates that are not compatible with the current display and tick rate"))
 										.IsPresetRecommended(this, &SSequencerTimePanel::IsRecommendedResolution)
-										.PresetValues(MoveTemp(FrameResolutionRates))
-										.Value(this, &SSequencerTimePanel::OnGetFrameResolution)
-										.OnValueChanged(this, &SSequencerTimePanel::OnSetFrameResolution)
+										.PresetValues(MoveTemp(TickResolutionRates))
+										.Value(this, &SSequencerTimePanel::GetCurrentTickResolution)
+										.OnValueChanged(this, &SSequencerTimePanel::OnSetTickResolution)
 									]
 
 									+ SGridPanel::Slot(0, 1)
@@ -249,11 +244,30 @@ void SSequencerTimePanel::Construct(const FArguments& InArgs, TWeakPtr<FSequence
 						.HAlign(HAlign_Center)
 						.VAlign(VAlign_Center)
 						[
-							SNew(SButton)
-							.OnClicked(this, &SSequencerTimePanel::Apply)
+							SNew(SHorizontalBox)
+
+							+SHorizontalBox::Slot()
+							.Padding(FMargin(0, 0, 2, 0))
+							.AutoWidth()
 							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("ApplyButtonText", "Apply"))
+								SNew(SButton)
+								.OnClicked(this, &SSequencerTimePanel::Apply)
+								[
+									SNew(STextBlock)
+									.Text(LOCTEXT("ApplyButtonText", "Apply"))
+								]
+							]
+
+							+SHorizontalBox::Slot()
+							.Padding(FMargin(2, 0, 0, 0))
+							.AutoWidth()
+							[
+								SNew(SButton)
+								.OnClicked(this, &SSequencerTimePanel::Close)
+								[
+									SNew(STextBlock)
+									.Text(LOCTEXT("CancelButtonText", "Cancel"))
+								]
 							]
 						]
 					]
@@ -281,6 +295,7 @@ FReply SSequencerTimePanel::OnBorderFadeClicked(const FGeometry& MyGeometry, con
 
 FReply SSequencerTimePanel::Close()
 {
+	CurrentTickResolution.Reset();
 	SetVisibility(EVisibility::Collapsed);
 	return FReply::Handled();
 }
@@ -292,8 +307,8 @@ FReply SSequencerTimePanel::Apply()
 
 	if (MovieScene)
 	{
-		FFrameRate Src = MovieScene->GetFrameResolution();
-		FFrameRate Dst = CurrentFrameResolution;
+		FFrameRate Src = MovieScene->GetTickResolution();
+		FFrameRate Dst = GetCurrentTickResolution();
 
 		FScopedTransaction ScopedTransaction(FText::Format(LOCTEXT("MigrateFrameTimes", "Convert sequence tick interval from {0} to {1}"), Src.ToPrettyText(), Dst.ToPrettyText()));
 
@@ -305,8 +320,8 @@ FReply SSequencerTimePanel::Apply()
 
 EVisibility SSequencerTimePanel::GetWarningVisibility() const
 {
-	TSharedPtr<FSequencer> Sequencer  = WeakSequencer.Pin();
-	return Sequencer.IsValid() && Sequencer->GetFocusedFrameResolution().IsMultipleOf(CurrentFrameResolution) ? EVisibility::Collapsed : EVisibility::Visible;
+	TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
+	return Sequencer.IsValid() && Sequencer->GetFocusedTickResolution().IsMultipleOf(GetCurrentTickResolution()) ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 void SSequencerTimePanel::UpdateCommonFrameRates()
@@ -314,7 +329,7 @@ void SSequencerTimePanel::UpdateCommonFrameRates()
 	TArray<FCommonFrameRateInfo> CompatibleRates;
 	for (const FCommonFrameRateInfo& Info : FCommonFrameRates::GetAll())
 	{
-		if (Info.FrameRate.IsMultipleOf(CurrentFrameResolution))
+		if (Info.FrameRate.IsMultipleOf(GetCurrentTickResolution()))
 		{
 			CompatibleRates.Add(Info);
 		}
@@ -340,7 +355,7 @@ void SSequencerTimePanel::UpdateCommonFrameRates()
 
 FText SSequencerTimePanel::GetSupportedTimeRange() const
 {
-	double FrameRate = CurrentFrameResolution.AsDecimal();
+	double FrameRate = GetCurrentTickResolution().AsDecimal();
 
 	int64 TotalMaxSeconds = static_cast<int64>(TNumericLimits<int32>::Max() / FrameRate);
 
@@ -365,17 +380,18 @@ UMovieSceneSequence* SSequencerTimePanel::GetFocusedSequence() const
 bool SSequencerTimePanel::IsRecommendedResolution(FFrameRate InFrameRate) const
 {
 	UMovieSceneSequence* Sequence = GetFocusedSequence();
-	return !Sequence || (InFrameRate.IsFactorOf(Sequence->GetMovieScene()->GetPlaybackFrameRate()) && InFrameRate.IsFactorOf(Sequence->GetMovieScene()->GetFrameResolution()));
+	return !Sequence || (InFrameRate.IsFactorOf(Sequence->GetMovieScene()->GetDisplayRate()) && InFrameRate.IsFactorOf(Sequence->GetMovieScene()->GetTickResolution()));
 }
 
-FFrameRate SSequencerTimePanel::OnGetFrameResolution() const
+FFrameRate SSequencerTimePanel::GetCurrentTickResolution() const
 {
-	return CurrentFrameResolution;
+	TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
+	return CurrentTickResolution.Get(Sequencer.IsValid() ? Sequencer->GetFocusedTickResolution() : FFrameRate(24000, 1));
 }
 
-void SSequencerTimePanel::OnSetFrameResolution(FFrameRate InFrameResolution)
+void SSequencerTimePanel::OnSetTickResolution(FFrameRate InTickResolution)
 {
-	CurrentFrameResolution = InFrameResolution;
+	CurrentTickResolution = InTickResolution;
 	UpdateCommonFrameRates();
 }
 
@@ -387,7 +403,7 @@ void SSequencerTimePanel::MigrateFrameTimes(FFrameRate SourceRate, FFrameRate De
 		TotalNumTracks += Binding.GetTracks().Num();
 	}
 
-	FScopedSlowTask SlowTask(TotalNumTracks, LOCTEXT("ChangingFrameResolution", "Migrating sequence frame timing"));
+	FScopedSlowTask SlowTask(TotalNumTracks, LOCTEXT("ChangingTickResolution", "Migrating sequence frame timing"));
 	SlowTask.MakeDialogDelayed(0.25f, true);
 
 	MovieScene->Modify();
@@ -416,7 +432,7 @@ void SSequencerTimePanel::MigrateFrameTimes(FFrameRate SourceRate, FFrameRate De
 		}
 	}
 
-	MovieScene->SetFrameResolutionDirectly(DestinationRate);
+	MovieScene->SetTickResolutionDirectly(DestinationRate);
 }
 
 void SSequencerTimePanel::MigrateFrameTimes(FFrameRate SourceRate, FFrameRate DestinationRate, UMovieSceneTrack* Track)
@@ -479,7 +495,7 @@ void SSequencerTimePanel::MigrateFrameTimes(FFrameRate SourceRate, FFrameRate De
 
 	for (const FMovieSceneChannelEntry& Entry : Section->GetChannelProxy().GetAllEntries())
 	{
-		Entry.GetBatchChannelInterface().ChangeFrameResolution_Batch(Entry.GetChannels(), SourceRate, DestinationRate);
+		Entry.GetBatchChannelInterface().ChangeTickResolution_Batch(Entry.GetChannels(), SourceRate, DestinationRate);
 	}
 }
 

@@ -76,10 +76,10 @@ void FFrameNumberDetailsCustomization::OnTimeTextCommitted(const FText& InText, 
 {
 	int32 ExistingValue = 0.0;
 	FrameNumberProperty->GetValue(ExistingValue);
-	TOptional<double> FrameResolution = NumericTypeInterface->FromString(InText.ToString(), ExistingValue);
-	if (FrameResolution.IsSet())
+	TOptional<double> TickResolution = NumericTypeInterface->FromString(InText.ToString(), ExistingValue);
+	if (TickResolution.IsSet())
 	{
-		double ClampedValue = FMath::Clamp(FrameResolution.GetValue(), (double)UIClampMin, (double)UIClampMax);
+		double ClampedValue = FMath::Clamp(TickResolution.GetValue(), (double)UIClampMin, (double)UIClampMax);
 		FrameNumberProperty->SetValue((int32)ClampedValue);
 	}
 }

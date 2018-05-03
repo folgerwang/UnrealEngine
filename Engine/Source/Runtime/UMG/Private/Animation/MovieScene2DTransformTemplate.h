@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Channels/MovieSceneFloatChannel.h"
+#include "Animation/MovieScene2DTransformSection.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Evaluation/MovieScenePropertyTemplate.h"
 #include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
@@ -49,6 +50,9 @@ private:
 	/** Blending method */
 	UPROPERTY()
 	EMovieSceneBlendType BlendType;
+
+	UPROPERTY()
+	FMovieScene2DTransformMask Mask;
 };
 
 /** Access the unique runtime type identifier for a widget transform. */

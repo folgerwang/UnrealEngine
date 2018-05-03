@@ -122,4 +122,55 @@ void FTransformSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const
 	MenuBuilder.EndSection();
 }
 
+bool FTransformSection::RequestDeleteCategory(const TArray<FName>& CategoryNamePaths)
+{
+	UMovieScene3DTransformSection* TransformSection = CastChecked<UMovieScene3DTransformSection>(WeakSection.Get());
+	TSharedPtr<ISequencer> SequencerPtr = WeakSequencer.Pin();
+		
+	const FScopedTransaction Transaction( LOCTEXT( "DeleteTransformCategory", "Delete transform category" ) );
+
+	if (TransformSection->TryModify())
+	{
+		FName CategoryName = CategoryNamePaths[CategoryNamePaths.Num()-1];
+		
+		EMovieSceneTransformChannel Channel = TransformSection->GetMask().GetChannels();
+		EMovieSceneTransformChannel ChannelToRemove = TransformSection->GetMaskByName(CategoryName).GetChannels();
+
+		Channel = Channel ^ ChannelToRemove;
+
+		TransformSection->SetMask(Channel);
+			
+		SequencerPtr->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemsChanged);
+		return true;
+	}
+
+	return false;
+}
+
+bool FTransformSection::RequestDeleteKeyArea(const TArray<FName>& KeyAreaNamePaths)
+{
+	UMovieScene3DTransformSection* TransformSection = CastChecked<UMovieScene3DTransformSection>(WeakSection.Get());
+	TSharedPtr<ISequencer> SequencerPtr = WeakSequencer.Pin();
+
+	const FScopedTransaction Transaction( LOCTEXT( "DeleteTransformChannel", "Delete transform channel" ) );
+
+	if (TransformSection->TryModify())
+	{
+		// Only delete the last key area path which is the channel. ie. TranslationX as opposed to Translation
+		FName KeyAreaName = KeyAreaNamePaths[KeyAreaNamePaths.Num()-1];
+
+		EMovieSceneTransformChannel Channel = TransformSection->GetMask().GetChannels();
+		EMovieSceneTransformChannel ChannelToRemove = TransformSection->GetMaskByName(KeyAreaName).GetChannels();
+
+		Channel = Channel ^ ChannelToRemove;
+
+		TransformSection->SetMask(Channel);
+					
+		SequencerPtr->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemsChanged);
+		return true;
+	}
+
+	return true;
+}
+
 #undef LOCTEXT_NAMESPACE

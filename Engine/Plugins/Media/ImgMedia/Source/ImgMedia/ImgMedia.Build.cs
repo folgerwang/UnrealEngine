@@ -41,6 +41,7 @@ namespace UnrealBuildTool.Rules
 			PublicDependencyModuleNames.AddRange(
 				new string[] {
 					"MediaAssets",
+					"TimeManagement",
 				});
 
 			if ((Target.Platform == UnrealTargetPlatform.Mac) ||

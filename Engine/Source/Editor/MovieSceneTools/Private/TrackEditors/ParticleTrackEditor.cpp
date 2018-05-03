@@ -125,7 +125,7 @@ int32 FParticleSection::OnPaintSection( FSequencerSectionPainter& InPainter ) co
 
 		for (int32 Index = 0; Index < Times.Num(); ++Index)
 		{
-			const double       Time  = Times[Index] / TimeToPixelConverter.GetFrameResolution();
+			const double       Time  = Times[Index] / TimeToPixelConverter.GetTickResolution();
 			const EParticleKey Value = (EParticleKey)Values[Index];
 
 			if ( Value == EParticleKey::Activate )

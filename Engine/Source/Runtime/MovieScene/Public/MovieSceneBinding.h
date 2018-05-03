@@ -111,6 +111,24 @@ struct FMovieSceneBinding
 		return Tracks;
 	}
 
+	/**
+	 * Reset all tracks in this binding, returning the previous array of tracks
+	 */
+	TArray<UMovieSceneTrack*> StealTracks()
+	{
+		TArray<UMovieSceneTrack*> Empty;
+		Swap(Empty, Tracks);
+		return Empty;
+	}
+
+	/**
+	 * Assign all tracks in this binding
+	 */
+	void SetTracks(TArray<UMovieSceneTrack*>&& InTracks)
+	{
+		Tracks = MoveTemp(InTracks);
+	}
+
 #if WITH_EDITOR
 	/**
 	 * Perform cook-time optimization on this object binding

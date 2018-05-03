@@ -7,6 +7,8 @@
 #include "Engine/World.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Engine/Engine.h"
+#include "Engine/LevelStreaming.h"
+#include "LevelUtils.h"
 
 static const FName SequencerActorTag(TEXT("SequencerActor"));
 
@@ -20,6 +22,25 @@ UClass* FLevelSequenceActorSpawner::GetSupportedTemplateType() const
 	return AActor::StaticClass();
 }
 
+ULevelStreaming* GetLevelStreaming(FString SafeLevelName, UWorld& World)
+{
+	if (FPackageName::IsShortPackageName(SafeLevelName))
+	{
+		// Make sure MyMap1 and Map1 names do not resolve to a same streaming level
+		SafeLevelName = TEXT("/") + SafeLevelName;
+	}
+
+	for (ULevelStreaming* LevelStreaming : World.GetStreamingLevels())
+	{
+		if (LevelStreaming && LevelStreaming->GetWorldAssetPackageName().EndsWith(SafeLevelName, ESearchCase::IgnoreCase))
+		{
+			return LevelStreaming;
+		}
+	}
+
+	return nullptr;
+}
+
 UObject* FLevelSequenceActorSpawner::SpawnObject(FMovieSceneSpawnable& Spawnable, FMovieSceneSequenceIDRef TemplateID, IMovieScenePlayer& Player)
 {
 	AActor* ObjectTemplate = Cast<AActor>(Spawnable.GetObjectTemplate());
@@ -27,9 +48,6 @@ UObject* FLevelSequenceActorSpawner::SpawnObject(FMovieSceneSpawnable& Spawnable
 	{
 		return nullptr;
 	}
-
-	// @todo sequencer: We should probably spawn these in a specific sub-level!
-	// World->CurrentLevel = ???;
 
 	const EObjectFlags ObjectFlags = RF_Transient;
 
@@ -42,6 +60,17 @@ UObject* FLevelSequenceActorSpawner::SpawnObject(FMovieSceneSpawnable& Spawnable
 	{
 		WorldContext = GWorld;
 	}
+
+	ULevelStreaming* LevelStreaming = GetLevelStreaming(Spawnable.GetLevelName().ToString(), *WorldContext);
+	if (LevelStreaming && LevelStreaming->GetWorldAsset().IsValid())
+	{
+		WorldContext = LevelStreaming->GetWorldAsset().Get();
+	}
+	else if (Spawnable.GetLevelName() != NAME_None)
+	{
+		UE_LOG(LogMovieScene, Warning, TEXT("Can't find sublevel '%s' to spawn '%s' into"), *Spawnable.GetLevelName().ToString(), *Spawnable.GetName());
+	}
+
 
 	// Spawn the puppet actor
 	FActorSpawnParameters SpawnInfo;

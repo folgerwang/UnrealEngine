@@ -11,7 +11,9 @@
 #include "CurveEditor.h"
 #include "CurveEditorTypes.h"
 
-class SScrollBox;
+struct FCurveEditorEditObjectContainer;
+
+class IDetailsView;
 
 /**
  * Curve editor widget that reflects the state of an FCurveEditor
@@ -26,6 +28,9 @@ class CURVEEDITOR_API SCurveEditorPanel : public SCompoundWidget
 		SLATE_ATTRIBUTE(FLinearColor, GridLineTint)
 
 	SLATE_END_ARGS()
+
+	SCurveEditorPanel();
+	~SCurveEditorPanel();
 
 	/**
 	 * Construct a new curve editor panel widget
@@ -46,6 +51,14 @@ class CURVEEDITOR_API SCurveEditorPanel : public SCompoundWidget
 	TSharedPtr<FUICommandList> GetCommands() const
 	{
 		return CommandList;
+	}
+
+	/**
+	 * Access the details view used for editing selected keys
+	 */
+	TSharedPtr<IDetailsView> GetKeyDetailsView() const
+	{
+		return KeyDetailsView;
 	}
 
 private:
@@ -128,6 +141,12 @@ private:
 		return CompareCommonInterpolationMode(InterpMode) && CachedCommonKeyAttributes.HasTangentMode() && CachedCommonKeyAttributes.GetTangentMode() == TangentMode;
 	}
 
+	/** Compare all the currently selected keys' tangent modes against the specified tangent mode */
+	bool CompareCommonTangentWeightMode(ERichCurveInterpMode InterpMode, ERichCurveTangentWeightMode TangentWeightMode) const
+	{
+		return CompareCommonInterpolationMode(InterpMode) && CachedCommonKeyAttributes.HasTangentWeightMode() && CachedCommonKeyAttributes.GetTangentWeightMode() == TangentWeightMode;
+	}
+
 	/** Compare all the visible curves' pre-extrapolation modes against the specified extrapolation mode */
 	bool CompareCommonPreExtrapolationMode(ERichCurveExtrapolation PreExtrapolationMode) const
 	{
@@ -140,6 +159,15 @@ private:
 		return CachedCommonCurveAttributes.HasPostExtrapolation() && CachedCommonCurveAttributes.GetPostExtrapolation() == PostExtrapolationMode;
 	}
 
+	/**
+	 * Toggle weighted tangents on the current selection
+	 */
+	void ToggleWeightedTangents();
+
+	/**
+	 * Check whether we can toggle weighted tangents on the current selection
+	 */
+	bool CanToggleWeightedTangents() const;
 
 	/**
 	*  Brings up Dialog to specify Tolerance before doing the key reduction.
@@ -193,11 +221,14 @@ private:
 	/** Cached key attributes that are common to all selected keys */
 	FKeyAttributes CachedCommonKeyAttributes;
 
+	/** True if the current selection supports weighted tangents, false otherwise */
+	bool bSelectionSupportsWeightedTangents;
+
 	/** Attribute used for retrieving the desired grid line color */
 	TAttribute<FLinearColor> GridLineTintAttribute;
 
-	/** Edit panel scroll box */
-	TSharedPtr<SScrollBox> EditPanel;
+	/** Edit panel */
+	TSharedPtr<IDetailsView> KeyDetailsView;
 
 	/** Map of edit UI widgets for each curve in the current selection set */
 	TMap<FCurveModelID, TSharedPtr<SWidget>> CurveToEditUI;
@@ -231,4 +262,7 @@ private:
 
 	/** Generic Popup Entry */
 	TWeakPtr<IMenu> EntryPopupMenu;
+
+	/** Container of objects that are being used to edit keys on the curve editor */
+	TUniquePtr<FCurveEditorEditObjectContainer> EditObjects;
 };

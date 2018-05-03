@@ -62,7 +62,12 @@ void FMovieSceneMediaData::HandleMediaPlayerEvent(EMediaEvent Event)
 {
 	if ((Event != EMediaEvent::MediaOpened) || (SeekOnOpenTime < FTimespan::Zero()))
 	{
-		return;
+		return; // we only care about seek on open
+	}
+
+	if (!MediaPlayer->SupportsSeeking())
+	{
+		return; // media can't seek
 	}
 
 	const FTimespan MediaTime = SeekOnOpenTime % MediaPlayer->GetDuration();

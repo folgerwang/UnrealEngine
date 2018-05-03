@@ -25,14 +25,14 @@ public:
 	}
 
 	/** IPropertyTypeCustomization interface */
-	virtual void CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils) override {};
+	virtual void CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils) override {}
 	virtual void CustomizeChildren(TSharedRef<IPropertyHandle> PropertyHandle, IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& CustomizationUtils) override;
 
 private:
 	FText OnGetTimeText() const;
 	void OnTimeTextCommitted(const FText& InText, ETextCommit::Type CommitInfo);
 
-	/** The Numeric Type interface used to convert between display formats and internal frame resolution. */
+	/** The Numeric Type interface used to convert between display formats and internal tick resolution. */
 	TSharedPtr<INumericTypeInterface<double>> NumericTypeInterface;
 
 	/** Store the property handle to the FrameNumber field so we can get/set the value on the object via text box callbacks. */

@@ -44,16 +44,15 @@ private:
 
 	TSharedRef<SWidget> OnCreateMenu();
 	void PopulateIncompatibleRatesMenu(FMenuBuilder& MenuBuilder);
-	void PopulateTimeDisplayMenu(FMenuBuilder& MenuBuilder);
 	void PopulateClockSourceMenu(FMenuBuilder& MenuBuilder);
 	void AddMenuEntry(FMenuBuilder& MenuBuilder, const FCommonFrameRateInfo& Info);
 
 	void OnToggleFrameLocked();
 	ECheckBoxState OnGetFrameLockedCheckState() const;
 
-	void SetPlaybackFrameRate(FFrameRate InFrameRate);
-	FFrameRate GetPlaybackFrameRate() const;
-	bool IsSamePlaybackFrameRate(FFrameRate InFrameRate) const;
+	void SetDisplayRate(FFrameRate InFrameRate);
+	FFrameRate GetDisplayRate() const;
+	bool IsSameDisplayRate(FFrameRate InFrameRate) const;
 
 	void SetClockSource(EUpdateClockSource NewClockSource);
 

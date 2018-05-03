@@ -23,7 +23,7 @@ public:
 	 * Add the given media sample sink to the collection.
 	 *
 	 * @param SampleSink The sink to add.
-	 * @see Remove
+	 * @see Num, Remove
 	 */
 	void Add(const TSharedRef<TMediaSampleSink<SampleType>, ESPMode::ThreadSafe>& SampleSink)
 	{
@@ -93,10 +93,21 @@ public:
 	}
 
 	/**
+	 * Get the number of sinks in this collection.
+	 *
+	 * @return Number of sinks.
+	 * @see Add, Remove
+	 */
+	int32 Num() const
+	{
+		return Sinks.Num();
+	}
+
+	/**
 	 * Remove the given media sample sink from the collection.
 	 *
 	 * @param SampleSink The sink to remove.
-	 * @see Add
+	 * @see Add, Num
 	 */
 	void Remove(const TSharedRef<TMediaSampleSink<SampleType>, ESPMode::ThreadSafe>& SampleSink)
 	{

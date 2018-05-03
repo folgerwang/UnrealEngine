@@ -37,7 +37,7 @@ UMovieScene::UMovieScene(const FObjectInitializer& ObjectInitializer)
 
 	if (!HasAnyFlags(RF_ClassDefaultObject) && GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::FloatToIntConversion)
 	{
-		FrameResolution = GetLegacyConversionFrameRate();
+		TickResolution = GetLegacyConversionFrameRate();
 	}
 
 #if WITH_EDITORONLY_DATA
@@ -85,20 +85,20 @@ void UMovieScene::Serialize( FArchive& Ar )
 		}
 
 		// Legacy fixed frame interval conversion to integer play rates
-		if      (FixedFrameInterval_DEPRECATED == 1 / 15.0f)  { PlayRate = FCommonFrameRates::FPS_15();  }
-		else if (FixedFrameInterval_DEPRECATED == 1 / 24.0f)  { PlayRate = FCommonFrameRates::FPS_24();  }
-		else if (FixedFrameInterval_DEPRECATED == 1 / 25.0f)  { PlayRate = FCommonFrameRates::FPS_25();  }
-		else if (FixedFrameInterval_DEPRECATED == 1 / 29.97)  { PlayRate = FCommonFrameRates::NTSC_30(); }
-		else if (FixedFrameInterval_DEPRECATED == 1 / 30.0f)  { PlayRate = FCommonFrameRates::FPS_30();  }
-		else if (FixedFrameInterval_DEPRECATED == 1 / 48.0f)  { PlayRate = FCommonFrameRates::FPS_48();  }
-		else if (FixedFrameInterval_DEPRECATED == 1 / 50.0f)  { PlayRate = FCommonFrameRates::FPS_50();  }
-		else if (FixedFrameInterval_DEPRECATED == 1 / 59.94)  { PlayRate = FCommonFrameRates::NTSC_60(); }
-		else if (FixedFrameInterval_DEPRECATED == 1 / 60.0f)  { PlayRate = FCommonFrameRates::FPS_60();  }
-		else if (FixedFrameInterval_DEPRECATED == 1 / 120.0f) { PlayRate = FCommonFrameRates::FPS_120(); }
+		if      (FixedFrameInterval_DEPRECATED == 1 / 15.0f)  { DisplayRate = FCommonFrameRates::FPS_15();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 24.0f)  { DisplayRate = FCommonFrameRates::FPS_24();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 25.0f)  { DisplayRate = FCommonFrameRates::FPS_25();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 29.97)  { DisplayRate = FCommonFrameRates::NTSC_30(); }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 30.0f)  { DisplayRate = FCommonFrameRates::FPS_30();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 48.0f)  { DisplayRate = FCommonFrameRates::FPS_48();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 50.0f)  { DisplayRate = FCommonFrameRates::FPS_50();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 59.94)  { DisplayRate = FCommonFrameRates::NTSC_60(); }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 60.0f)  { DisplayRate = FCommonFrameRates::FPS_60();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 120.0f) { DisplayRate = FCommonFrameRates::FPS_120(); }
 		else if (FixedFrameInterval_DEPRECATED != 0.f)
 		{
 			uint32 Numerator = FMath::RoundToInt(1.f / FixedFrameInterval_DEPRECATED);
-			PlayRate = FFrameRate(Numerator, 1);
+			DisplayRate = FFrameRate(Numerator, 1);
 		}
 		else
 		{
@@ -108,17 +108,17 @@ void UMovieScene::Serialize( FArchive& Ar )
 			if (Outer && Outer->GetClass()->GetFName() == "WidgetAnimation")
 			{
 				// Widget animations defaulted to 0.05s
-				PlayRate = FFrameRate(20, 1);
+				DisplayRate = FFrameRate(20, 1);
 			}
 			else if (Outer && Outer->GetClass()->GetFName() == "ActorSequence")
 			{
 				// Actor sequences defaulted to 0.1s
-				PlayRate = FFrameRate(10, 1);
+				DisplayRate = FFrameRate(10, 1);
 			}
 			else
 			{
 				// Level sequences defaulted to 30fps - this is the fallback default for anything else
-				PlayRate = FFrameRate(30, 1);
+				DisplayRate = FFrameRate(30, 1);
 			}
 		}
 	}
@@ -447,8 +447,8 @@ void UMovieScene::SetPlaybackRange(const TRange<FFrameNumber>& NewRange, bool bA
 
 #if WITH_EDITORONLY_DATA
 	// Update the working and view ranges to encompass the new range
-	const double RangeStartSeconds = NewRange.GetLowerBoundValue() / FrameResolution;
-	const double RangeEndSeconds   = NewRange.GetUpperBoundValue() / FrameResolution;
+	const double RangeStartSeconds = NewRange.GetLowerBoundValue() / TickResolution;
+	const double RangeEndSeconds   = NewRange.GetUpperBoundValue() / TickResolution;
 
 	// Initialize the working and view range with a little bit more space
 	const double OutputChange      = (RangeEndSeconds - RangeStartSeconds) * 0.1;
@@ -742,9 +742,9 @@ void UMovieScene::UpgradeTimeRanges()
 	{
 		// Finite range already defined in old data
 		PlaybackRange.Value = TRange<FFrameNumber>(
-			FrameResolution.AsFrameNumber(InTime_DEPRECATED),
+			TickResolution.AsFrameNumber(InTime_DEPRECATED),
 			// Prefer exclusive upper bounds for playback ranges so we stop at the next frame
-			++FrameResolution.AsFrameNumber(OutTime_DEPRECATED)
+			++TickResolution.AsFrameNumber(OutTime_DEPRECATED)
 			);
 		bFiniteRangeDefined = true;
 	}
@@ -814,14 +814,14 @@ void UMovieScene::UpgradeTimeRanges()
 	}
 	else if (EditorData.WorkStart >= EditorData.WorkEnd)
 	{
-		EditorData.WorkStart = PlaybackRange.Value.GetLowerBoundValue() / FrameResolution;
-		EditorData.WorkEnd   = PlaybackRange.Value.GetUpperBoundValue() / FrameResolution;
+		EditorData.WorkStart = PlaybackRange.Value.GetLowerBoundValue() / TickResolution;
+		EditorData.WorkEnd   = PlaybackRange.Value.GetUpperBoundValue() / TickResolution;
 	}
 
 	if (EditorData.ViewStart >= EditorData.ViewEnd)
 	{
-		EditorData.ViewStart = PlaybackRange.Value.GetLowerBoundValue() / FrameResolution;
-		EditorData.ViewEnd   = PlaybackRange.Value.GetUpperBoundValue() / FrameResolution;
+		EditorData.ViewStart = PlaybackRange.Value.GetLowerBoundValue() / TickResolution;
+		EditorData.ViewEnd   = PlaybackRange.Value.GetUpperBoundValue() / TickResolution;
 	}
 
 	if (SelectionRange.Value.GetLowerBound().IsOpen() || SelectionRange.Value.GetUpperBound().IsOpen())
@@ -942,6 +942,57 @@ void UMovieScene::ReplaceBinding(const FGuid& OldGuid, const FGuid& NewGuid, con
 				Track->Modify();
 			}
 			break;
+		}
+	}
+}
+
+
+void UMovieScene::MoveBindingContents(const FGuid& SourceBindingId, const FGuid& DestinationBindingId)
+{
+	FMovieSceneBinding* SourceBinding = nullptr;
+	FMovieSceneBinding* DestinationBinding = nullptr;
+
+	for (FMovieSceneBinding& Binding : ObjectBindings)
+	{
+		if (Binding.GetObjectGuid() == SourceBindingId)
+		{
+			SourceBinding = &Binding;
+		}
+		else if (Binding.GetObjectGuid() == DestinationBindingId)
+		{
+			DestinationBinding = &Binding;
+		}
+
+		if (SourceBinding && DestinationBinding)
+		{
+			break;
+		}
+	}
+
+	if (SourceBinding && DestinationBinding)
+	{
+		// Swap the tracks round
+		DestinationBinding->SetTracks(SourceBinding->StealTracks());
+
+		// Changing a binding guid invalidates any tracks contained within the binding
+		// Make sure they are written into the transaction buffer by calling modify
+		for (UMovieSceneTrack* Track : DestinationBinding->GetTracks())
+		{
+			Track->Modify();
+		}
+	}
+
+	FMovieSceneSpawnable* DestinationSpawnable = FindSpawnable(DestinationBindingId);
+
+	for (FMovieScenePossessable& Possessable : Possessables)
+	{
+		if (Possessable.GetParent() == SourceBindingId)
+		{
+			Possessable.SetParent(DestinationBindingId);
+			if (DestinationSpawnable)
+			{
+				DestinationSpawnable->AddChildPossessable(Possessable.GetGuid());
+			}
 		}
 	}
 }

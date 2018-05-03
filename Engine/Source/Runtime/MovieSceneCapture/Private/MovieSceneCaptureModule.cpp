@@ -4,6 +4,7 @@
 #include "Misc/CoreDelegates.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/Class.h"
+#include "UObject/CoreRedirects.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
 #include "EngineGlobals.h"
@@ -175,7 +176,18 @@ private:
 					UClass* Class = FindObject<UClass>(nullptr, *TypeName);
 					if (!Class)
 					{
-						return nullptr;
+						const FCoreRedirect* ValueRedirect = nullptr;
+						FCoreRedirectObjectName NewRedirectName;
+
+						if (FCoreRedirects::RedirectNameAndValues(ECoreRedirectFlags::Type_Class, TypeName, NewRedirectName, &ValueRedirect))
+						{
+							Class = FindObject<UClass>(nullptr, *NewRedirectName.ToString());
+						}
+
+						if (!Class)
+						{
+							return nullptr;
+						}
 					}
 
 					Capture = NewObject<UMovieSceneCapture>(GetTransientPackage(), Class);
@@ -208,7 +220,18 @@ private:
 			UClass* Class = FindObject<UClass>( nullptr, *TypeName );
 			if( !Class )
 			{
-				return nullptr;
+				const FCoreRedirect* ValueRedirect = nullptr;
+				FCoreRedirectObjectName NewRedirectName;
+
+				if (FCoreRedirects::RedirectNameAndValues(ECoreRedirectFlags::Type_Class, TypeName, NewRedirectName, &ValueRedirect))
+				{
+					Class = FindObject<UClass>(nullptr, *NewRedirectName.ToString());
+				}
+
+				if (!Class)
+				{
+					return nullptr;
+				}
 			}
 
 			Capture = NewObject<UMovieSceneCapture>( GetTransientPackage(), Class );

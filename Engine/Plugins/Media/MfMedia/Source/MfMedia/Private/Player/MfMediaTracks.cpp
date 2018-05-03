@@ -1156,48 +1156,31 @@ bool FMfMediaTracks::AddStreamToTracks(uint32 StreamIndex, FString& OutInfo)
 					SampleFormat = EMediaTextureSampleFormat::CharNV12;
 				}
 #if PLATFORM_WINDOWS
+				else if (OutputSubType == MFVideoFormat_RGB32)
+				{
+					BufferDim = OutputDim;
+					BufferStride = OutputDim.X * 4;
+					SampleFormat = EMediaTextureSampleFormat::CharBMP;
+				}
 				else
 				{
-					long SampleStride = ::MFGetAttributeUINT32(OutputType, MF_MT_DEFAULT_STRIDE, 0);
+					int32 AlignedOutputX = OutputDim.X;
 
-					if (OutputSubType == MFVideoFormat_RGB32)
+					if ((SubType == MFVideoFormat_H264) || (SubType == MFVideoFormat_H264_ES))
 					{
-						SampleFormat = EMediaTextureSampleFormat::CharBMP;
-
-						if (SampleStride == 0)
-						{
-							::MFGetStrideForBitmapInfoHeader(OutputSubType.Data1, OutputDim.X, &SampleStride);
-						}
-
-						if (SampleStride == 0)
-						{
-							SampleStride = OutputDim.X * 4;
-						}
+						AlignedOutputX = Align(AlignedOutputX, 16);
 					}
-					else
-					{
-						SampleFormat = EMediaTextureSampleFormat::CharYUY2;
 
-						if (SampleStride == 0)
-						{
-							int32 AlignedOutputX = OutputDim.X;
-
-							if ((SubType == MFVideoFormat_H264) || (SubType == MFVideoFormat_H264_ES))
-							{
-								AlignedOutputX = Align(AlignedOutputX, 16);
-							}
-
-							SampleStride = AlignedOutputX * 2;
-						}
-					}
+					int32 SampleStride = AlignedOutputX * 2; // 2 bytes per pixel
 
 					if (SampleStride < 0)
 					{
 						SampleStride = -SampleStride;
 					}
 
-					BufferDim = FIntPoint(SampleStride / 4, OutputDim.Y);
+					BufferDim = FIntPoint(AlignedOutputX / 2, OutputDim.Y); // 2 pixels per texel
 					BufferStride = SampleStride;
+					SampleFormat = EMediaTextureSampleFormat::CharYUY2;
 				}
 #endif //PLATFORM_WINDOWS
 			}

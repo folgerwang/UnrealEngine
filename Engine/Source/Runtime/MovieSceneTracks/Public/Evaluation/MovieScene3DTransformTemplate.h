@@ -19,7 +19,7 @@ struct FMovieScene3DTransformTemplateData
 {
 	GENERATED_BODY()
 
-	FMovieScene3DTransformTemplateData(){}
+	FMovieScene3DTransformTemplateData(): bUseQuaternionInterpolation(false) {}
 	FMovieScene3DTransformTemplateData(const UMovieScene3DTransformSection& Section);
 
 	MovieScene::TMultiChannelValue<float, 9> Evaluate(FFrameTime InTime) const;
@@ -41,6 +41,9 @@ struct FMovieScene3DTransformTemplateData
 
 	UPROPERTY()
 	FMovieSceneTransformMask Mask;
+
+	UPROPERTY()
+	bool bUseQuaternionInterpolation;
 };
 
 USTRUCT()

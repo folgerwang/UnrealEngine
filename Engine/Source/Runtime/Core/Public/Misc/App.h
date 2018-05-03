@@ -16,7 +16,7 @@
 #include "HAL/PlatformProcess.h"
 
 // platforms which can have runtime threading switches
-#define HAVE_RUNTIME_THREADING_SWITCHES			(PLATFORM_DESKTOP || PLATFORM_ANDROID || PLATFORM_IOS)
+#define HAVE_RUNTIME_THREADING_SWITCHES			(PLATFORM_DESKTOP || PLATFORM_ANDROID || PLATFORM_IOS || PLATFORM_HTML5)
 
 
 /**
@@ -420,11 +420,7 @@ public:
 #else
 	FORCEINLINE static bool ShouldUseThreadingForPerformance()
 	{
-	#if PLATFORM_HTML5
-		return false;
-	#else
 		return true;
-	#endif // PLATFORM_HTML5
 	}
 #endif // HAVE_RUNTIME_THREADING_SWITCHES
 

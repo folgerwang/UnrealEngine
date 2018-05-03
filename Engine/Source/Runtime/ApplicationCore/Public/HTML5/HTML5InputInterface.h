@@ -12,6 +12,8 @@ THIRD_PARTY_INCLUDES_START
 	#include <emscripten/html5.h>
 THIRD_PARTY_INCLUDES_END
 
+#define HTML5_INPUT_INTERFACE_MAX_CONTROLLERS 5
+#define HTML5_INPUT_INTERFACE_BUTTON_MAPPING_CAP 16
 
 /**
  * Interface class for HTML5 input devices
@@ -48,7 +50,7 @@ private:
 
 	TBitArray<FDefaultBitArrayAllocator> KeyStates;
 
-	EmscriptenGamepadEvent PrevGamePadState[5];
-	double LastPressedTime[5][15];
+	EmscriptenGamepadEvent PrevGamePadState[HTML5_INPUT_INTERFACE_MAX_CONTROLLERS];
+	double LastPressedTime[HTML5_INPUT_INTERFACE_MAX_CONTROLLERS][HTML5_INPUT_INTERFACE_BUTTON_MAPPING_CAP];
 
 };

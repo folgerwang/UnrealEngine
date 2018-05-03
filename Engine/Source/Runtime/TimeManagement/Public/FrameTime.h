@@ -12,9 +12,11 @@
  * Only the frame number part of this representation can be negative, sub frames are always a positive value between the frame number and its next logical frame
  */
 USTRUCT(BlueprintType)
-struct FFrameTime
+struct TIMEMANAGEMENT_API FFrameTime
 {
 	GENERATED_BODY()
+
+	static const float MaxSubframe;
 
 	/**
 	 * Default constructor initializing to zero
@@ -141,7 +143,7 @@ inline FFrameTime::FFrameTime(FFrameNumber InFrameNumber, float InSubFrame)
 {
 	// Hack to ensure that SubFrames are in a sensible range of precision to work around
 	// problems with FloorToXYZ returning the wrong thing for very small negative numbers
-	SubFrame = FMath::Clamp(SubFrame + 0.5f - 0.5f, 0.f, 0.99999994f);
+	SubFrame = FMath::Clamp(SubFrame + 0.5f - 0.5f, 0.f, MaxSubframe);
 	checkSlow(InSubFrame >= 0.f && InSubFrame < 1.f);
 }
 
@@ -271,5 +273,5 @@ FORCEINLINE_DEBUGGABLE FFrameTime FFrameTime::FromDecimal(double InDecimalFrame)
 
 	// Ensure fractional parts above the highest sub frame float precision do not round to 0.0
 	double Fraction = InDecimalFrame - FMath::FloorToDouble(InDecimalFrame);
-	return FFrameTime(NewFrame, FMath::Clamp(Fraction, 0.0, 0.999999940));
+	return FFrameTime(NewFrame, FMath::Clamp(Fraction, 0.0, (double)MaxSubframe));
 }

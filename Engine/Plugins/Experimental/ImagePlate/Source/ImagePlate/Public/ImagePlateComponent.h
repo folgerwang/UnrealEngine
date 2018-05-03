@@ -27,7 +27,7 @@ struct IMAGEPLATE_API FImagePlateParameters
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category="Image Plate")
 	FName TextureParameterName;
 
-	/** Automaticaly size the plate based on the active camera's lens and filmback settings. Target Camera is found by looking for an active camera component from this component's actor, through its attached parents. */
+	/** Automatically size the plate based on the active camera's lens and filmback settings. Target Camera is found by looking for an active camera component from this component's actor, through its attached parents. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Image Plate")
 	bool bFillScreen;
 

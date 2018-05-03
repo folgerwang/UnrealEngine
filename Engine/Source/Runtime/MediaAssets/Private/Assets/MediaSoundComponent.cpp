@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaSoundComponent.h"
+#include "MediaAssetsPrivate.h"
 
 #include "Components/BillboardComponent.h"
 #include "Engine/Texture2D.h"
@@ -20,6 +21,9 @@
 #endif
 
 
+#define MEDIASOUNDCOMPONENT_TRACE_RATEADJUSTMENT 0
+
+
 /* Static initialization
  *****************************************************************************/
 
@@ -32,8 +36,12 @@ USoundClass* UMediaSoundComponent::DefaultMediaSoundClassObject = nullptr;
 UMediaSoundComponent::UMediaSoundComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, Channels(EMediaSoundChannels::Stereo)
+	, DynamicRateAdjustment(true)
+	, RateAdjustmentFactor(0.00000001f)
+	, RateAdjustmentRange(FFloatRange(0.995f, 1.005f))
 	, CachedRate(0.0f)
 	, CachedTime(FTimespan::Zero())
+	, RateAdjustment(1.0f)
 	, Resampler(new FMediaAudioResampler)
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -271,6 +279,7 @@ bool UMediaSoundComponent::Init(int32& SampleRate)
 	}*/
 
 	Resampler->Initialize(NumChannels, SampleRate);
+
 	return true;
 }
 
@@ -285,8 +294,55 @@ void UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 
 	if (PinnedSampleQueue.IsValid() && (CachedRate != 0.0f))
 	{
-		const uint32 FramesRequested = NumSamples / NumChannels;
-		const uint32 FramesWritten = Resampler->Generate(OutAudio, FramesRequested, CachedRate, CachedTime, *PinnedSampleQueue);
+		const float Rate = CachedRate.Load();
+		const FTimespan Time = CachedTime.Load();
+
+		FTimespan OutTime = FTimespan::Zero();
+
+		while (true)
+		{
+			const uint32 FramesRequested = NumSamples / NumChannels;
+			const uint32 FramesWritten = Resampler->Generate(OutAudio, OutTime, FramesRequested, Rate * RateAdjustment, Time, *PinnedSampleQueue);
+
+			if (FramesWritten == 0)
+			{
+				return; // no samples available
+			}
+
+			if (DynamicRateAdjustment)
+			{
+				RateAdjustment = 1.0f + (CachedTime.Load().GetTicks() - OutTime.GetTicks()) * RateAdjustmentFactor;
+			}
+
+			if (RateAdjustmentRange.IsEmpty() || RateAdjustmentRange.Contains(RateAdjustment))
+			{
+				break; // valid sample
+			}
+
+			// drop sample (clocks are too out of sync)
+			RateAdjustment = 1.0f;
+
+			#if MEDIASOUNDCOMPONENT_TRACE_RATEADJUSTMENT
+				UE_LOG(LogMediaAssets, Verbose, TEXT("MediaSoundComponent %p: Sample dropped, Rate %f, Time %s, OutTime %s, Queue %i"),
+					this,
+					Rate,
+					*Time.ToString(TEXT("%h:%m:%s.%t")),
+					*OutTime.ToString(TEXT("%h:%m:%s.%t")),
+					PinnedSampleQueue->Num()
+				);
+			#endif
+		}
+
+		#if MEDIASOUNDCOMPONENT_TRACE_RATEADJUSTMENT
+			UE_LOG(LogMediaAssets, Verbose, TEXT("MediaSoundComponent %p: Sample rendered, Rate %f, Time %s, OutTime %s, RateAdjustment %f, Queue %i"),
+				this,
+				Rate,
+				*Time.ToString(TEXT("%h:%m:%s.%t")),
+				*OutTime.ToString(TEXT("%h:%m:%s.%t")),
+				RateAdjustment,
+				PinnedSampleQueue->Num()
+			);
+		#endif
 	}
 	else
 	{

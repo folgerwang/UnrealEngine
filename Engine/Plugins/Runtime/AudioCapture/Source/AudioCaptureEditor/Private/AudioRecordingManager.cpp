@@ -424,7 +424,8 @@ void FAudioRecordingManager::StopRecording(TArray<USoundWave*>& OutSoundWaves)
 					FMemory::Memcpy(NewSoundWave->RawPCMData, RawData, NumBytes);
 
 					// Calculate the duration of the sound wave
-					NewSoundWave->Duration = (float)(NumRecordedSamples / NumChannelsToSerialize) / WAVE_FILE_SAMPLERATE;
+					// Note: We use the NumInputChannels for duration calculation since NumChannelsToSerialize may be 1 channel while NumInputChannels is 2 for the "split stereo" feature.
+					NewSoundWave->Duration = (float)(NumRecordedSamples / NumInputChannels) / WAVE_FILE_SAMPLERATE;
 					NewSoundWave->SetSampleRate(WAVE_FILE_SAMPLERATE);
 					NewSoundWave->NumChannels = NumChannelsToSerialize;
 

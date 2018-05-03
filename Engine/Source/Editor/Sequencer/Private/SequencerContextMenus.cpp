@@ -167,6 +167,13 @@ void FKeyContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 				FCanExecuteAction::CreateSP(SequencerPtr, &FSequencer::CanSetKeyTime))
 		);
 
+		MenuBuilder.AddMenuEntry(LOCTEXT("Rekey", "Rekey"), LOCTEXT("RekeyTooltip", "Set the selected key's time to the current time"),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP(SequencerPtr, &FSequencer::Rekey),
+				FCanExecuteAction::CreateSP(SequencerPtr, &FSequencer::CanRekey))
+		);
+
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("SnapToFrame", "Snap to Frame"),
 			LOCTEXT("SnapToFrameToolTip", "Snap selected keys to frame"),
@@ -417,6 +424,15 @@ void FSectionContextMenu::AddEditMenu(FMenuBuilder& MenuBuilder)
 	);
 		
 	MenuBuilder.AddMenuEntry(
+		LOCTEXT("AutoSizeSection", "Auto Size"),
+		LOCTEXT("AutoSizeSectionTooltip", "Auto size the section length to the duration of the source of this section (ie. audio, animation or shot length)"),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=]{ Shared->AutoSizeSection(); }),
+			FCanExecuteAction::CreateLambda([=]{ return Shared->CanAutoSize(); }))
+	);
+		
+	MenuBuilder.AddMenuEntry(
 		LOCTEXT("ReduceKeysSection", "Reduce Keys"),
 		LOCTEXT("ReduceKeysTooltip", "Reduce keys in this section"),
 		FSlateIcon(),
@@ -490,6 +506,7 @@ void FSectionContextMenu::AddPropertiesMenu(FMenuBuilder& MenuBuilder)
 		DetailsViewArgs.bShowOptions = false;
 		DetailsViewArgs.bShowModifiedPropertiesOption = false;
 		DetailsViewArgs.NotifyHook = &DetailsNotifyWrapper.Get();
+		DetailsViewArgs.ColumnWidth = 0.45f;
 	}
 
 	TArray<TWeakObjectPtr<UObject>> Sections;
@@ -669,8 +686,7 @@ void FSectionContextMenu::TrimSection(bool bTrimLeft)
 {
 	FScopedTransaction TrimSectionTransaction(LOCTEXT("TrimSection_Transaction", "Trim Section"));
 
-	FFrameNumber CurrentFrame = Sequencer->GetLocalTime().Time.FrameNumber;
-	MovieSceneToolHelpers::TrimSection(Sequencer->GetSelection().GetSelectedSections(), CurrentFrame, bTrimLeft);
+	MovieSceneToolHelpers::TrimSection(Sequencer->GetSelection().GetSelectedSections(), Sequencer->GetLocalTime(), bTrimLeft);
 	Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 }
 
@@ -680,7 +696,30 @@ void FSectionContextMenu::SplitSection()
 	FScopedTransaction SplitSectionTransaction(LOCTEXT("SplitSection_Transaction", "Split Section"));
 
 	FFrameNumber CurrentFrame = Sequencer->GetLocalTime().Time.FrameNumber;
-	MovieSceneToolHelpers::SplitSection(Sequencer->GetSelection().GetSelectedSections(), CurrentFrame);
+	FQualifiedFrameTime SplitFrame = FQualifiedFrameTime(CurrentFrame, Sequencer->GetFocusedTickResolution());
+
+	MovieSceneToolHelpers::SplitSection(Sequencer->GetSelection().GetSelectedSections(), SplitFrame);
+	Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
+}
+
+
+void FSectionContextMenu::AutoSizeSection()
+{
+	FScopedTransaction AutoSizeSectionTransaction(LOCTEXT("AutoSizeSection_Transaction", "Auto Size Section"));
+
+	for (auto Section : Sequencer->GetSelection().GetSelectedSections())
+	{
+		if (Section.IsValid() && Section->GetAutoSizeRange().IsSet())
+		{
+			TOptional<TRange<FFrameNumber> > DefaultSectionLength = Section->GetAutoSizeRange();
+
+			if (DefaultSectionLength.IsSet())
+			{
+				Section->SetRange(DefaultSectionLength.GetValue());
+			}
+		}
+	}
+
 	Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
@@ -733,6 +772,18 @@ bool FSectionContextMenu::IsTrimmable() const
 	for (auto Section : Sequencer->GetSelection().GetSelectedSections())
 	{
 		if (Section.IsValid() && Section->IsTimeWithinSection(Sequencer->GetLocalTime().Time.FrameNumber))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool FSectionContextMenu::CanAutoSize() const
+{
+	for (auto Section : Sequencer->GetSelection().GetSelectedSections())
+	{
+		if (Section.IsValid() && Section->GetAutoSizeRange().IsSet())
 		{
 			return true;
 		}
@@ -1278,7 +1329,15 @@ void FPasteContextMenu::Setup()
 				continue;
 			}
 
-			const TArray<UMovieSceneSection*>& Sections = TrackNode->GetTrack()->GetAllSections();
+			TArray<UMovieSceneSection*> Sections;
+			for (auto Section : TrackNode->GetSections())
+			{
+				if (Section.Get().GetSectionObject())
+				{
+					Sections.Add(Section.Get().GetSectionObject());
+				}
+			}
+
 			UMovieSceneSection* Section = MovieSceneHelpers::FindNearestSectionAtTime(Sections, Args.PasteAtTime);
 			int32 SectionIndex = INDEX_NONE;
 			if (Section)
@@ -1419,7 +1478,7 @@ void FPasteContextMenu::PasteInto(int32 DestinationIndex, FName KeyAreaName)
 	TSet<FSequencerSelectedKey> NewSelection;
 
 	FSequencerPasteEnvironment PasteEnvironment;
-	PasteEnvironment.FrameResolution = Sequencer->GetFocusedFrameResolution();
+	PasteEnvironment.TickResolution = Sequencer->GetFocusedTickResolution();
 	PasteEnvironment.CardinalTime = Args.PasteAtTime;
 	PasteEnvironment.OnKeyPasted = [&](FKeyHandle Handle, IKeyArea& KeyArea){
 		NewSelection.Add(FSequencerSelectedKey(*KeyArea.GetOwningSection(), KeyArea.AsShared(), Handle));
@@ -1561,7 +1620,7 @@ void FEasingContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 					.MaxValue(TOptional<double>())
 					.MaxSliderValue(TOptional<double>())
 					.MinSliderValue(0.f)
-					.Delta_Lambda([=]() -> double { return Sequencer->GetPlayRateDeltaFrameCount(); })
+					.Delta_Lambda([=]() -> double { return Sequencer->GetDisplayRateDeltaFrameCount(); })
 					.Value_Lambda([=] {
 						TOptional<int32> Current = Shared->GetCurrentLength();
 						if (Current.IsSet())

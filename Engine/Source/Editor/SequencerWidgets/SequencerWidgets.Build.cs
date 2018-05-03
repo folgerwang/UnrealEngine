@@ -31,7 +31,8 @@ public class SequencerWidgets : ModuleRules
 				"Slate",
 				"SlateCore",
                 "MovieScene",
-                "UnrealEd"
+                "UnrealEd",
+				"TimeManagement"
 			}
 		);
 	}

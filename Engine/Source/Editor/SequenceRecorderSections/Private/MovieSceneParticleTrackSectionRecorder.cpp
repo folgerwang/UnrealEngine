@@ -36,8 +36,8 @@ void FMovieSceneParticleTrackSectionRecorder::CreateSection(UObject* InObjectToR
 
 		ParticleTrack->AddSection(*MovieSceneSection);
 
-		FFrameRate FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FFrameNumber CurrentFrame = (Time * FrameResolution).FloorToFrame();
+		FFrameRate TickResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber CurrentFrame = (Time * TickResolution).FloorToFrame();
 		MovieSceneSection->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
 
 		bWasTriggered = false;
@@ -59,8 +59,8 @@ void FMovieSceneParticleTrackSectionRecorder::Record(float CurrentTime)
 {
 	if(SystemToRecord.IsValid())
 	{
-		FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
-		FFrameNumber KeyTime         = (CurrentTime * FrameResolution).FloorToFrame();
+		FFrameRate   TickResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber KeyTime         = (CurrentTime * TickResolution).FloorToFrame();
 
 		MovieSceneSection->ExpandToFrame(KeyTime);
 

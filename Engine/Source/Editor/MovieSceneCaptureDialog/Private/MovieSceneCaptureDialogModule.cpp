@@ -604,7 +604,7 @@ private:
 			}
 		}
 
-		if (CaptureObject->Settings.GameModeOverride != nullptr)
+		if (CaptureObject->Settings.GameModeOverride != nullptr && CapturingFromWorld != nullptr)
 		{
 			CapturingFromWorld->GetWorldSettings()->DefaultGameMode = CachedGameMode;
 		}

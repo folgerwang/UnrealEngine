@@ -146,7 +146,7 @@ void FColorPropertySection::ConsolidateColorCurves( TArray< TTuple<float, FLinea
 			FloatChannels[2]->Evaluate(Time, ColorAtTime.B);
 			FloatChannels[3]->Evaluate(Time, ColorAtTime.A);
 
-			OutColorKeys.Add(MakeTuple(float(Time / TimeConverter.GetFrameResolution()), ColorAtTime));
+			OutColorKeys.Add(MakeTuple(float(Time / TimeConverter.GetTickResolution()), ColorAtTime));
 		}
 	}
 

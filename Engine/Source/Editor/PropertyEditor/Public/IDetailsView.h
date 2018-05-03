@@ -94,6 +94,8 @@ struct FDetailsViewArgs
 	uint32 bShowKeyablePropertiesOption : 1;
 	/** True if you want to show the 'Show Only Animated Properties'. Only valid in conjunction with bShowOptions */
 	uint32 bShowAnimatedPropertiesOption: 1;
+	/** The default column width */
+	float ColumnWidth;
 
 public:
 	/** Default constructor */
@@ -121,12 +123,13 @@ public:
 		, bShowDifferingPropertiesOption(false)
 		, bCustomNameAreaLocation(false)
 		, bCustomFilterAreaLocation(false)
-		, bAllowFavoriteSystem(true)
+		, bAllowFavoriteSystem(true)	
 		, bAllowMultipleTopLevelObjects(false)
 		, bShowScrollBar(true)
 		, bForceHiddenPropertyVisibility(false)
 		, bShowKeyablePropertiesOption(true)
 		, bShowAnimatedPropertiesOption(true)
+		, ColumnWidth(.65f)
 	{
 	}
 };

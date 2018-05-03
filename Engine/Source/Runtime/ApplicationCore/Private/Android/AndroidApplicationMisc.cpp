@@ -71,15 +71,16 @@ bool FAndroidApplicationMisc::IsControllerAssignedToGamepad(int32 ControllerId)
 	return FAndroidInputInterface::IsControllerAssignedToGamepad(ControllerId);
 }
 
+extern void AndroidThunkCpp_ClipboardCopy(const FString& Str);
 void FAndroidApplicationMisc::ClipboardCopy(const TCHAR* Str)
 {
-	//@todo Android
+	AndroidThunkCpp_ClipboardCopy(Str);
 }
 
+extern FString AndroidThunkCpp_ClipboardPaste();
 void FAndroidApplicationMisc::ClipboardPaste(class FString& Result)
 {
-	Result = TEXT("");
-	//@todo Android
+	Result = AndroidThunkCpp_ClipboardPaste();
 }
 
 struct FScreenDensity
