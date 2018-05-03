@@ -233,8 +233,14 @@ public class Launch : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.HTML5 )
 		{
-			PrivateDependencyModuleNames.Add("ALAudio");
-            PrivateDependencyModuleNames.Add("AudioMixerSDL");
+			PrivateDependencyModuleNames.AddRange(
+				new string[] {
+					"ALAudio",
+					"AudioMixerSDL",
+					"Analytics",
+					"AnalyticsET"
+				}
+			);
             AddEngineThirdPartyPrivateStaticDependencies(Target, "SDL2");
 		}
 

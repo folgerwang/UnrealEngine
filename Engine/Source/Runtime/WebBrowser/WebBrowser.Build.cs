@@ -23,7 +23,8 @@ public class WebBrowser : ModuleRules
             }
         );
 
-        if (Target.Platform == UnrealTargetPlatform.Android)
+        if (Target.Platform == UnrealTargetPlatform.Android ||
+            Target.Platform == UnrealTargetPlatform.IOS)
 		{
 			// We need these on Android for external texture support
 			PrivateDependencyModuleNames.AddRange(

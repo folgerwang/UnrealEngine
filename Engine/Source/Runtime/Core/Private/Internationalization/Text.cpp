@@ -18,6 +18,7 @@
 #include "Internationalization/FastDecimalFormat.h"
 
 #include "UObject/EditorObjectVersion.h"
+#include "HAL/PlatformProcess.h"
 
 //DEFINE_STAT(STAT_TextFormat);
 
@@ -1026,6 +1027,11 @@ bool FText::IsFromStringTable() const
 
 bool FText::ShouldGatherForLocalization() const
 {
+	if ( ! FPlatformProcess::SupportsMultithreading() )
+	{
+		return false;
+	}
+
 	const FString& SourceString = GetSourceString();
 
 	auto IsAllWhitespace = [](const FString& String) -> bool

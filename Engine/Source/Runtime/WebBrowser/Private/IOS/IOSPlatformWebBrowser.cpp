@@ -8,27 +8,42 @@
 #include "Widgets/SLeafWidget.h"
 
 #import <UIKit/UIKit.h>
+#import <MetalKit/MetalKit.h>
+#include <OpenGLES/ES2/glext.h>
+#include "ExternalTexture.h"
 
 @implementation IOSWebViewWrapper
 
 #if !PLATFORM_TVOS
 @synthesize WebView;
+@synthesize WebViewContainer;
 #endif
 @synthesize NextURL;
 @synthesize NextContent;
 
--(void)create:(TSharedPtr<SIOSWebBrowserWidget>)InWebBrowserWidget useTransparency:(bool)InUseTransparency;
+-(void)create:(TSharedPtr<SIOSWebBrowserWidget>)InWebBrowserWidget useTransparency:(bool)InUseTransparency 
+		supportsMetal:(bool)InSupportsMetal supportsMetalMRT:(bool)InSupportsMetalMRT;
 {
 	WebBrowserWidget = InWebBrowserWidget;
 	NextURL = nil;
 	NextContent = nil;
+	VideoTexture = nil;
 	bNeedsAddToView = true;
+	IsIOS3DBrowser = false;
+	bVideoTextureValid = false;
+	bSupportsMetal = InSupportsMetal;
+	bSupportsMetalMRT = InSupportsMetalMRT;
 
 #if !PLATFORM_TVOS
 	dispatch_async(dispatch_get_main_queue(), ^
 	{
-		WebView = [[UIWebView alloc]initWithFrame:CGRectMake(1, 1, 100, 100)];
-		WebView.delegate = self;
+		WebViewContainer = [[UIView alloc]initWithFrame:CGRectMake(1, 1, 100, 100)];
+		[self.WebViewContainer setOpaque : NO];
+		[self.WebViewContainer setBackgroundColor : [UIColor clearColor]];
+
+
+		WebView = [[WKWebView alloc]initWithFrame:CGRectMake(1, 1, 100, 100)];
+		WebView.navigationDelegate = self;
 
 		if (InUseTransparency)
 		{
@@ -39,6 +54,10 @@
 		{
 			[self.WebView setOpaque:YES];
 		}
+
+		[self.WebViewContainer addSubview : WebView];
+
+		[self setWebViewVisible];
 	});
 #endif
 }
@@ -46,11 +65,13 @@
 -(void)close;
 {
 #if !PLATFORM_TVOS
-	WebView.delegate = nil;
+	WebView.navigationDelegate = nil;
 	dispatch_async(dispatch_get_main_queue(), ^
 	{
+		[self.WebViewContainer removeFromSuperview];
 		[self.WebView removeFromSuperview];
 		WebView = nil;
+		WebViewContainer = nil;
 	});
 #endif
 }
@@ -68,7 +89,7 @@
 			if(bNeedsAddToView)
 			{
 				bNeedsAddToView = false;
-				[[IOSAppDelegate GetDelegate].IOSView addSubview:WebView];
+				[[IOSAppDelegate GetDelegate].IOSView addSubview: WebViewContainer];
 			}
 			else
 			{
@@ -98,7 +119,7 @@
 #if !PLATFORM_TVOS
 	dispatch_async(dispatch_get_main_queue(), ^
 	{
-		[self.WebView stringByEvaluatingJavaScriptFromString:InJavaScript];
+		[self.WebView evaluateJavaScript : InJavaScript completionHandler:nil];
 	});
 #endif
 }
@@ -120,6 +141,116 @@
 	});
 }
 
+-(void)set3D:(bool)InIsIOS3DBrowser;
+{
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+		if (IsIOS3DBrowser != InIsIOS3DBrowser)
+		{
+			IsIOS3DBrowser = InIsIOS3DBrowser;
+			[self setWebViewVisible];
+		}
+	});
+}
+
+-(void)setWebViewVisible;
+{
+#if !PLATFORM_TVOS
+	if (IsIOS3DBrowser)
+	{
+		[self.WebViewContainer setHidden : YES];
+	}
+	else
+	{
+		[self.WebViewContainer setHidden : NO];
+	}
+#endif
+}
+
+-(FTextureRHIRef)GetVideoTexture;
+{
+	return VideoTexture;
+}
+
+-(void)SetVideoTexture:(FTextureRHIRef)Texture;
+{
+	VideoTexture = Texture;
+}
+
+-(void)SetVideoTextureValid:(bool)Condition;
+{
+	bVideoTextureValid = Condition;
+}
+
+-(bool)IsVideoTextureValid;
+{
+	return bVideoTextureValid;
+}
+
+-(bool)UpdateVideoFrame:(void*)ptr;
+{
+#if !PLATFORM_TVOS
+		@synchronized(self) // Briefly block render thread
+		{
+			if (bSupportsMetal)
+			{
+				id<MTLTexture> ptrToMetalTexture = (id<MTLTexture>)ptr;
+				NSUInteger width = [ptrToMetalTexture width];
+				NSUInteger height = [ptrToMetalTexture height];
+
+				[self updateWebViewMetalTexture : ptrToMetalTexture];
+			}
+			else
+			{
+				GLuint glTexture = (GLuint)*reinterpret_cast<int32*>(ptr);
+				glBindTexture(GL_TEXTURE_2D, glTexture);
+				[self updateWebViewGLESTexture : glTexture];
+			}
+		}
+#endif
+	return true;
+}
+
+-(void)updateWebViewGLESTexture:(GLuint)gltexture
+{
+#if !PLATFORM_TVOS
+	// create a suitable CoreGraphics context
+	CGColorSpaceRef colourSpace = CGColorSpaceCreateDeviceRGB();
+	CGContextRef context =
+		CGBitmapContextCreate(&gltexture, WebView.bounds.size.width, WebView.bounds.size.height, 8, 4 * WebView.bounds.size.width, colourSpace, kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+	CGColorSpaceRelease(colourSpace);
+	// draw the view to the buffer
+	[WebView.layer renderInContext : context];
+	// upload to OpenGL
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WebView.bounds.size.width, WebView.bounds.size.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &gltexture);
+	// clean up
+	CGContextRelease(context);
+#endif
+}
+
+-(void)updateWebViewMetalTexture:(id<MTLTexture>)texture
+{
+#if !PLATFORM_TVOS
+	@autoreleasepool {
+		UIGraphicsBeginImageContextWithOptions(WebView.frame.size, NO, 1.0f);
+		[WebView drawViewHierarchyInRect : WebView.bounds afterScreenUpdates : NO];
+		UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+		UIGraphicsEndImageContext();
+		NSUInteger width = [texture width];
+		NSUInteger height = [texture height];
+		CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+		CGContextRef context = CGBitmapContextCreate(NULL, width, height, 8, 4 * width, colorSpace, (CGBitmapInfo)kCGImageAlphaPremultipliedLast);
+		CGContextDrawImage(context, CGRectMake(0, 0, width, height), image.CGImage);
+		[texture replaceRegion : MTLRegionMake2D(0, 0, width, height)
+			mipmapLevel : 0
+			withBytes : CGBitmapContextGetData(context)
+			bytesPerRow : 4 * width];
+		CGColorSpaceRelease(colorSpace);
+		CGContextRelease(context);
+		image = nil;
+	}
+#endif
+}
 @end
 
 class SIOSWebBrowserWidget : public SLeafWidget
@@ -131,6 +262,7 @@ class SIOSWebBrowserWidget : public SLeafWidget
 	
 		SLATE_ARGUMENT(FString, InitialURL);
 		SLATE_ARGUMENT(bool, UseTransparency);
+		SLATE_ARGUMENT(TSharedPtr<FWebBrowserWindow>, WebBrowserWindow);
 	
 	SLATE_END_ARGS()
 
@@ -140,15 +272,72 @@ class SIOSWebBrowserWidget : public SLeafWidget
 
 	void Construct(const FArguments& Args)
 	{
+		bool bSupportsMetalMRT = false;
+		GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsMetalMRT"), bSupportsMetalMRT, GEngineIni);
+
+		bool bSupportsMetal = false;
+		GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsMetal"), bSupportsMetal, GEngineIni);
+
 		WebViewWrapper = [IOSWebViewWrapper alloc];
-		[WebViewWrapper create: TSharedPtr<SIOSWebBrowserWidget>(this) useTransparency:Args._UseTransparency];
+		[WebViewWrapper create: TSharedPtr<SIOSWebBrowserWidget>(this) useTransparency:Args._UseTransparency supportsMetal:bSupportsMetal supportsMetalMRT: bSupportsMetalMRT];
+
+		WebBrowserWindowPtr = Args._WebBrowserWindow;
+		IsIOS3DBrowser = false;
+
+#if !PLATFORM_TVOS
+		TextureSamplePool = new FWebBrowserTextureSamplePool();
+		WebBrowserTextureSamplesQueue = MakeShared<FWebBrowserTextureSampleQueue, ESPMode::ThreadSafe>();
+		WebBrowserTexture = nullptr;
+		WebBrowserMaterial = nullptr;
+		WebBrowserBrush = nullptr;
+
+		// create external texture
+		WebBrowserTexture = NewObject<UWebBrowserTexture>((UObject*)GetTransientPackage(), NAME_None, RF_Transient | RF_Public);
+
+		if (WebBrowserTexture != nullptr)
+		{
+			WebBrowserTexture->UpdateResource();
+			WebBrowserTexture->AddToRoot();
+		}
+
+		// create wrapper material
+		UMaterial* Material = LoadObject<UMaterial>(nullptr, TEXT("/WebBrowserWidget/WebTexture_M"), nullptr, LOAD_None, nullptr);
+		if (Material)
+		{
+			// create wrapper material
+			WebBrowserMaterial = UMaterialInstanceDynamic::Create(Material, nullptr);
+
+			if (WebBrowserMaterial)
+			{
+				WebBrowserMaterial->SetTextureParameterValue("SlateUI", WebBrowserTexture);
+				WebBrowserMaterial->AddToRoot();
+
+				// create Slate brush
+				WebBrowserBrush = MakeShareable(new FSlateBrush());
+				{
+					WebBrowserBrush->SetResourceObject(WebBrowserMaterial);
+				}
+			}
+		}
+#endif
 		LoadURL(Args._InitialURL);
 	}
 
-	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override
+
+	void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 	{
 		if(WebViewWrapper != nil)
 		{
+			if (WebBrowserWindowPtr.IsValid() && WebBrowserWindowPtr.Pin()->GetParentWindow().IsValid())
+			{
+				bool ShouldSet3DBrowser = WebBrowserWindowPtr.Pin()->GetParentWindow().Get()->IsVirtualWindow();
+				if (IsIOS3DBrowser != ShouldSet3DBrowser)
+				{
+					IsIOS3DBrowser = ShouldSet3DBrowser;
+					[WebViewWrapper set3D : IsIOS3DBrowser];
+				}
+			}
+
 			UIView* View = [IOSAppDelegate GetDelegate].IOSView;
 			CGFloat contentScaleFactor = View.contentScaleFactor;
 			FVector2D Position = AllottedGeometry.GetAccumulatedRenderTransform().GetTranslation() / contentScaleFactor;
@@ -160,8 +349,91 @@ class SIOSWebBrowserWidget : public SLeafWidget
 			NewFrame.size.height = FMath::RoundToInt(Size.Y);
 
 			[WebViewWrapper updateframe:NewFrame];
+
+#if !PLATFORM_TVOS
+			if (IsIOS3DBrowser)
+			{
+				if (WebBrowserTexture)
+				{
+					TSharedPtr<FWebBrowserTextureSample, ESPMode::ThreadSafe> WebBrowserTextureSample;
+					WebBrowserTextureSamplesQueue->Peek(WebBrowserTextureSample);
+
+					WebBrowserTexture->TickResource(WebBrowserTextureSample);
+				}
+					
+				if ( WebBrowserTexture != nullptr)
+				{
+					struct FWriteWebBrowserParams
+					{
+						IOSWebViewWrapper* NativeWebBrowserPtr;
+						FGuid PlayerGuid;
+						FIntPoint Size;
+					};
+
+					FIntPoint viewportSize = WebBrowserWindowPtr.Pin()->GetViewportSize();
+
+					FWriteWebBrowserParams WriteWebBrowserParams = { WebViewWrapper, WebBrowserTexture->GetExternalTextureGuid(), viewportSize };
+
+					ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(WriteWebBrowser, FWriteWebBrowserParams, Params, WriteWebBrowserParams,
+					{
+						IOSWebViewWrapper* NativeWebBrowser = Params.NativeWebBrowserPtr;
+
+						if (NativeWebBrowser == nil)
+						{
+							return;
+						}
+
+						FTextureRHIRef VideoTexture = [NativeWebBrowser GetVideoTexture];
+						if (VideoTexture == nullptr)
+						{
+							FRHIResourceCreateInfo CreateInfo;
+							FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+							FIntPoint Size = Params.Size;
+							VideoTexture = RHICmdList.CreateTextureExternal2D(Size.X, Size.Y, PF_R8G8B8A8, 1, 1, 0, CreateInfo);
+							[NativeWebBrowser SetVideoTexture:VideoTexture];
+							//UE_LOG(LogIOS, Log, TEXT("NativeWebBrowser SetVideoTexture:VideoTexture!"));
+
+							if (VideoTexture == nullptr)
+							{
+								UE_LOG(LogIOS, Warning, TEXT("CreateTextureExternal2D failed!"));
+								return;
+							}
+
+							[NativeWebBrowser SetVideoTextureValid:false];
+					
+						}
+
+						if ([NativeWebBrowser UpdateVideoFrame: VideoTexture->GetNativeResource()])
+						{
+							// if region changed, need to reregister UV scale/offset
+							//UE_LOG(LogIOS, Log, TEXT("UpdateVideoFrame RT: %s"), *Params.PlayerGuid.ToString());
+						}
+
+						if (![NativeWebBrowser IsVideoTextureValid])
+						{
+							FSamplerStateInitializerRHI SamplerStateInitializer(SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp);
+							FSamplerStateRHIRef SamplerStateRHI = RHICreateSamplerState(SamplerStateInitializer);
+							FExternalTextureRegistry::Get().RegisterExternalTexture(Params.PlayerGuid, VideoTexture, SamplerStateRHI);
+							//UE_LOG(LogIOS, Log, TEXT("Fetch RT: Register Guid: %s"), *Params.PlayerGuid.ToString());
+
+							[NativeWebBrowser SetVideoTextureValid:true];
+						}
+					});
+				}
+			}
+#endif
 		}
 
+	}
+
+	int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
+	{
+#if !PLATFORM_TVOS
+		if (IsIOS3DBrowser && WebBrowserBrush.IsValid())
+		{
+			FSlateDrawElement::MakeBox(OutDrawElements, LayerId, AllottedGeometry.ToPaintGeometry(), WebBrowserBrush.Get(), ESlateDrawEffect::None);
+		}
+#endif
 		return LayerId;
 	}
 
@@ -201,6 +473,7 @@ class SIOSWebBrowserWidget : public SLeafWidget
 			[WebViewWrapper close];
 			WebViewWrapper = nil;
 		}
+		WebBrowserWindowPtr.Reset();
 	}
 
 	~SIOSWebBrowserWidget()
@@ -210,6 +483,28 @@ class SIOSWebBrowserWidget : public SLeafWidget
 	
 protected:
 	mutable __strong IOSWebViewWrapper* WebViewWrapper;
+private:
+	TWeakPtr<FWebBrowserWindow> WebBrowserWindowPtr;
+
+	/** Enable 3D appearance */
+	bool IsIOS3DBrowser;
+
+#if !PLATFORM_TVOS
+	/** The external texture to render the webbrowser output. */
+	UWebBrowserTexture* WebBrowserTexture;
+
+	/** The material for the external texture. */
+	UMaterialInstanceDynamic* WebBrowserMaterial;
+
+	/** The Slate brush that renders the material. */
+	TSharedPtr<FSlateBrush> WebBrowserBrush;
+
+	/** The sample queue. */
+	TSharedPtr<FWebBrowserTextureSampleQueue, ESPMode::ThreadSafe> WebBrowserTextureSamplesQueue;
+
+	/** Texture sample object pool. */
+	FWebBrowserTextureSamplePool* TextureSamplePool;
+#endif
 };
 
 
@@ -217,6 +512,7 @@ FWebBrowserWindow::FWebBrowserWindow(FString InUrl, TOptional<FString> InContent
 	: CurrentUrl(MoveTemp(InUrl))
 	, ContentsToLoad(MoveTemp(InContentsToLoad))
 	, bUseTransparency(InUseTransparency)
+	, IOSWindowSize(FIntPoint(500,500))
 {
 }
 
@@ -240,7 +536,8 @@ TSharedRef<SWidget> FWebBrowserWindow::CreateWidget()
 	TSharedRef<SIOSWebBrowserWidget> BrowserWidgetRef =
 		SNew(SIOSWebBrowserWidget)
 		.UseTransparency(bUseTransparency)
-		.InitialURL(CurrentUrl);
+		.InitialURL(CurrentUrl)
+		.WebBrowserWindow(SharedThis(this));
 
 	BrowserWidget = BrowserWidgetRef;
 	return BrowserWidgetRef;
@@ -248,6 +545,12 @@ TSharedRef<SWidget> FWebBrowserWindow::CreateWidget()
 
 void FWebBrowserWindow::SetViewportSize(FIntPoint WindowSize, FIntPoint WindowPos)
 {
+	IOSWindowSize = WindowSize;
+}
+
+FIntPoint FWebBrowserWindow::GetViewportSize() const
+{
+	return IOSWindowSize;
 }
 
 FSlateShaderResource* FWebBrowserWindow::GetTexture(bool bIsPopup /*= false*/)

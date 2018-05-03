@@ -175,7 +175,7 @@ public:
 		}
 
 		TaskCompleted.Broadcast(Name);
-		if (bSucceeded)
+		if (bSucceeded && !bCancelling)
 		{
 			ExecuteContinuations();
 		}
@@ -214,8 +214,8 @@ public:
 			{
 				Status = ELauncherTaskStatus::Canceled;
 			}
-			CancelContinuations();
 		}
+		CancelContinuations();
 	}
 
 	virtual FTimespan GetDuration( ) const override

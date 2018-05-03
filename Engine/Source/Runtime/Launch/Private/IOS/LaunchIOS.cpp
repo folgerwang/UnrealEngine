@@ -19,7 +19,7 @@
 #include "RenderingThread.h"
 #include "GenericPlatform/GenericApplication.h"
 #include "Misc/ConfigCacheIni.h"
-
+#include "MoviePlayer.h"
 
 FEngineLoop GEngineLoop;
 FGameLaunchDaemonMessageHandler GCommandSystem;
@@ -137,6 +137,11 @@ static void MainThreadInit()
 	[AppDelegate.IOSView CreateFramebuffer:YES];
 }
 
+
+bool FAppEntry::IsStartupMoviePlaying()
+{
+	return GEngine && GEngine->IsInitialized() && GetMoviePlayer() && GetMoviePlayer()->IsStartupMoviePlaying();
+}
 
 
 void FAppEntry::PlatformInit()

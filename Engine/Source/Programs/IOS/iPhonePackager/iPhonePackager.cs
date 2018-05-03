@@ -234,6 +234,9 @@ namespace iPhonePackager
 							case "-distribution":
 								Config.bForDistribution = true;
 								break;
+							case "-codebased":
+								Config.bIsCodeBasedProject = true;
+								break;
 							case "-createstub":
 								Config.bCreateStubSet = true;
 								break;
@@ -719,6 +722,7 @@ namespace iPhonePackager
 					Log("	 -strip					strip symbols during packaging");
 					Log("	 -config				   game configuration (e.g., Shipping, Development, etc...)");
 					Log("	 -distribution			 packaging for final distribution");
+					Log("	 -codebased				   packaging a c++ code based project");
 					Log("	 -createstub			   packaging stub IPA for later repackaging");
 					Log("	 -mac <MacName>			overrides the machine to use for any Mac operations");
 					Log("	 -arch <Architecture>	  sets the architecture to use (blank for default, -simulator for simulator builds)");

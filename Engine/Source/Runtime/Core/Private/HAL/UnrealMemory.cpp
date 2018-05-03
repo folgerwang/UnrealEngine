@@ -243,6 +243,13 @@ void FMemory::EnablePurgatoryTests()
 
 void FMemory::EnablePoisonTests()
 {
+#if PLATFORM_HTML5 // remove this guard for other platforms that can use this check...
+	if ( ! FPlatformProcess::SupportsMultithreading() )
+	{
+		UE_LOG(LogConsoleResponse, Display, TEXT("SKIPPING Poison proxy - platform does not support multithreads"));
+		return;
+	}
+#endif
 	if (PLATFORM_USES_FIXED_GMalloc_CLASS)
 	{
 		UE_LOG(LogMemory, Error, TEXT("Poison proxy cannot be turned on because we are using PLATFORM_USES_FIXED_GMalloc_CLASS"));
@@ -315,6 +322,13 @@ int FMemory_GCreateMalloc_ThreadUnsafe()
 	GMalloc = FPlatformMemory::BaseAllocator();
 	// Setup malloc crash as soon as possible.
 	FPlatformMallocCrash::Get( GMalloc );
+
+#if PLATFORM_HTML5 // remove this guard for other platforms that can use this check...
+	if ( ! FPlatformProcess::SupportsMultithreading() )
+	{
+		return 0;
+	}
+#endif
 
 #if PLATFORM_USES_FIXED_GMalloc_CLASS
 #if USE_MALLOC_PROFILER || MALLOC_VERIFY || MALLOC_LEAKDETECTION || UE_USE_MALLOC_FILL_BYTES

@@ -17,6 +17,8 @@ import android.media.MediaPlayer.TrackInfo;
 import java.util.ArrayList;
 import java.util.Random;
 import android.util.Log;
+import java.net.URL;
+import java.net.HttpURLConnection;
 
 /*
 	Custom media player that renders video to a frame buffer. This
@@ -221,6 +223,19 @@ public class MediaPlayer14
 		return null;
 	}
 
+	 public static boolean RemoteFileExists(String URLName){
+        try {
+            HttpURLConnection.setFollowRedirects(false);
+            HttpURLConnection con =  (HttpURLConnection) new URL(URLName).openConnection();
+            con.setRequestMethod("HEAD");
+            return (con.getResponseCode() == HttpURLConnection.HTTP_OK);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
 	public boolean setDataSourceURL(
 		String UrlPath)
 		throws IOException,
@@ -236,6 +251,11 @@ public class MediaPlayer14
 		AudioEnabled = true;
 		audioTracks.clear();
 		videoTracks.clear();
+
+		if(!RemoteFileExists(UrlPath))
+		{
+			return false;
+		}
 
 		try
 		{

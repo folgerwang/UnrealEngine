@@ -474,6 +474,10 @@ public class IOSPlatform : Platform
 						{
 							IPPArguments += " -distribution";
 						}
+						if (Params.IsCodeBasedProject)
+						{
+							IPPArguments += (" -codebased");
+						}
 					}
 
 					IPPArguments += (cookonthefly ? " -cookonthefly" : "");
@@ -508,6 +512,10 @@ public class IOSPlatform : Platform
 					IPPArguments.Add(SchemeName);
 					IPPArguments.Add("-schemeconfig");
 					IPPArguments.Add("\"" + SchemeConfiguration + "\"");
+					if (Params.IsCodeBasedProject)
+					{
+						IPPArguments.Add("-codebased");
+					}
 
 					if (TargetConfiguration == UnrealTargetConfiguration.Shipping)
 					{

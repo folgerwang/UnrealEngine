@@ -9,9 +9,9 @@
 #include "Math/UnrealMathUtility.h"
 #include "Templates/AlignmentTemplates.h"
 
-#if PLATFORM_UNIX
+#if PLATFORM_UNIX || PLATFORM_HTML5
 	#include <malloc.h>
-#endif // PLATFORM_UNIX
+#endif // PLATFORM_UNIX || PLATFORM_HTML5
 
 #if PLATFORM_IOS
 	#include "mach/mach.h"
@@ -48,7 +48,7 @@ void* FMallocAnsi::Malloc( SIZE_T Size, uint32 Alignment )
 
 #if USE_ALIGNED_MALLOC
 	void* Result = _aligned_malloc( Size, Alignment );
-#elif PLATFORM_UNIX
+#elif PLATFORM_UNIX || PLATFORM_HTML5
 	void* Result;
 	if (UNLIKELY(posix_memalign(&Result, Alignment, Size) != 0))
 	{
@@ -99,7 +99,7 @@ void* FMallocAnsi::Realloc( void* Ptr, SIZE_T NewSize, uint32 Alignment )
 		_aligned_free( Ptr );
 		Result = nullptr;
 	}
-#elif PLATFORM_UNIX
+#elif PLATFORM_UNIX || PLATFORM_HTML5
 	if( Ptr && NewSize )
 	{
 		SIZE_T UsableSize = malloc_usable_size( Ptr );
@@ -107,7 +107,7 @@ void* FMallocAnsi::Realloc( void* Ptr, SIZE_T NewSize, uint32 Alignment )
 		{
 			Result = nullptr;
 		}
-		if (LIKELY(UsableSize))
+		else if (LIKELY(UsableSize))
 		{
 			FMemory::Memcpy( Result, Ptr, FMath::Min( NewSize, UsableSize ) );
 		}
@@ -158,7 +158,7 @@ void FMallocAnsi::Free( void* Ptr )
 	IncrementTotalFreeCalls();
 #if USE_ALIGNED_MALLOC
 	_aligned_free( Ptr );
-#elif PLATFORM_UNIX
+#elif PLATFORM_UNIX || PLATFORM_HTML5
 	free( Ptr );
 #else
 	if( Ptr )
@@ -176,10 +176,10 @@ bool FMallocAnsi::GetAllocationSize( void *Original, SIZE_T &SizeOut )
 	}
 #if	USE_ALIGNED_MALLOC
 	SizeOut = _aligned_msize( Original,16,0 ); // Assumes alignment of 16
-#elif PLATFORM_UNIX
+#elif PLATFORM_UNIX || PLATFORM_HTML5
 	SizeOut = malloc_usable_size( Original );
 #else
-	SizeOut = *( (SIZE_T*)( (uint8*)Original - sizeof(void*) - sizeof(SIZE_T)) );	
+	SizeOut = *( (SIZE_T*)( (uint8*)Original - sizeof(void*) - sizeof(SIZE_T)) );
 #endif // USE_ALIGNED_MALLOC
 	return true;
 }

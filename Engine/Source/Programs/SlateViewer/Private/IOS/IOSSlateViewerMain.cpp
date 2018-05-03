@@ -26,6 +26,11 @@ void FAppEntry::SuspendTick()
 {
 }
 
+bool FAppEntry::IsStartupMoviePlaying()
+{
+	return false;
+}
+
 
 void FAppEntry::PreInit(IOSAppDelegate* AppDelegate, UIApplication* Application)
 {

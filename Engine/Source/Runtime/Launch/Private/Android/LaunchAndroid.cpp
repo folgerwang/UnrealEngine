@@ -31,6 +31,7 @@
 #include "Modules/ModuleManager.h"
 #include "IMessagingModule.h"
 #include "Android/AndroidStats.h"
+#include "MoviePlayer.h"
 
 // Function pointer for retrieving joystick events
 // Function has been part of the OS since Honeycomb, but only appeared in the
@@ -100,6 +101,7 @@ extern void AndroidThunkCpp_InitHMDs();
 extern void AndroidThunkCpp_ShowConsoleWindow();
 extern bool AndroidThunkCpp_VirtualInputIgnoreClick(int, int);
 extern bool AndroidThunkCpp_IsVirtuaKeyboardShown();
+extern void AndroidThunkCpp_RestartApplication();
 
 // Base path for file accesses
 extern FString GFilePathBase;
@@ -739,6 +741,12 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 	return 0;
 }
 
+static bool bShouldRestartFromInterrupt = false;
+static bool IsStartupMoviePlaying()
+{
+	return GEngine && GEngine->IsInitialized() && GetMoviePlayer() && GetMoviePlayer()->IsStartupMoviePlaying();
+}
+
 //Called from the event process thread
 static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 {
@@ -867,9 +875,16 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		 */
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Case APP_CMD_RESUME"));
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_RESUME"));
-
 		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_ON_RESUME);
 
+		/*
+		* On the initial loading the restart method must be called immediately
+		* in order to restart the app if the startup movie was playing
+		*/
+		if (bShouldRestartFromInterrupt)
+		{
+			AndroidThunkCpp_RestartApplication();
+		}
 		break;
 	case APP_CMD_PAUSE:
 		/**
@@ -878,6 +893,16 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Case APP_CMD_PAUSE"));
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_PAUSE"));
 		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_ON_PAUSE);
+
+		/*
+		 * On the initial loading the pause method must be called immediately
+		 * in order to stop the startup movie's sound
+		*/
+		if (IsStartupMoviePlaying())
+		{
+			bShouldRestartFromInterrupt = true;
+			GetMoviePlayer()->ForceCompletion();
+		}
 
 		bNeedToSync = true;
 		break;

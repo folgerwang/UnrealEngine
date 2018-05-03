@@ -103,13 +103,13 @@ namespace Audio
 		SDL_AudioSpec DesiredSpec;
 		DesiredSpec.freq = PlatformSettings.SampleRate;
 
-		// HTML5 supports s16 format only
-#if PLATFORM_HTML5
-		DesiredSpec.format = AUDIO_S16;
-		DesiredSpec.channels = 2;
-#else
+#if PLATFORM_LINUX
 		DesiredSpec.format = AUDIO_F32;
 		DesiredSpec.channels = 6;
+#else
+		// HTML5 supports s16 format only
+		DesiredSpec.format = AUDIO_S16;
+		DesiredSpec.channels = 2;
 #endif
 		
 		DesiredSpec.samples = PlatformSettings.CallbackBufferFrameSize;
@@ -145,11 +145,11 @@ namespace Audio
 		OutInfo.Name = OutInfo.DeviceId;
 		OutInfo.SampleRate = ActualSpec.freq;
 		
-		// HTML5 supports s16 format only
-#if PLATFORM_HTML5
-		OutInfo.Format = EAudioMixerStreamDataFormat::Int16;
-#else
+#if PLATFORM_LINUX
 		OutInfo.Format = EAudioMixerStreamDataFormat::Float;
+#else
+		// HTML5 supports s16 format only
+		OutInfo.Format = EAudioMixerStreamDataFormat::Int16;
 #endif
 		OutInfo.NumChannels = ActualSpec.channels;
 
@@ -192,11 +192,11 @@ namespace Audio
 			return false;
 		}
 
-		// HTML5 supports s16 format only
-#if PLATFORM_HTML5
-		AudioSpecPrefered.format = AUDIO_S16;
-#else
+#if PLATFORM_LINUX
 		AudioSpecPrefered.format = AUDIO_F32;
+#else
+		// HTML5 supports s16 format only
+		AudioSpecPrefered.format = AUDIO_S16;
 #endif
 		AudioSpecPrefered.freq = Params.SampleRate;
 		AudioSpecPrefered.channels = AudioStreamInfo.DeviceInfo.NumChannels;
@@ -224,10 +224,11 @@ namespace Audio
 		check(AudioSpecReceived.samples == OpenStreamParams.NumFrames);
 
 		// Compute the expected output byte length
-#if PLATFORM_HTML5
-		OutputBufferByteLength = OpenStreamParams.NumFrames * AudioStreamInfo.DeviceInfo.NumChannels * sizeof(int16);
-#else
+#if PLATFORM_LINUX
 		OutputBufferByteLength = OpenStreamParams.NumFrames * AudioStreamInfo.DeviceInfo.NumChannels * sizeof(float);
+#else
+		// HTML5 supports s16 format only
+		OutputBufferByteLength = OpenStreamParams.NumFrames * AudioStreamInfo.DeviceInfo.NumChannels * sizeof(int16);
 #endif
 		check(OutputBufferByteLength == AudioSpecReceived.size);
 

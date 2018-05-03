@@ -106,6 +106,7 @@ FDefaultGameMoviePlayer::FDefaultGameMoviePlayer()
 	, SyncMechanism(NULL)
 	, MovieStreamingIsDone(1)
 	, LoadingIsDone(1)
+	, IsMoviePlaying(false)
 	, bUserCalledFinish(false)
 	, LoadingScreenAttributes()
 	, LastPlayTime(0.0)
@@ -336,6 +337,7 @@ bool FDefaultGameMoviePlayer::PlayMovie()
 		{
 			MovieStreamingIsDone.Set(MovieStreamingIsPrepared() ? 0 : 1);
 			LoadingIsDone.Set(0);
+			IsMoviePlaying = true;
 
 			UserWidgetDPIScaler->SetDPIScale(GetViewportDPIScale());
 			
@@ -474,6 +476,7 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 		UserWidgetHolder->SetContent( SNullWidget::NullWidget );
 
 		LoadingIsDone.Set(1);
+		IsMoviePlaying = false;
 
 		IStereoLayers* StereoLayers;
 		if (GEngine && GEngine->StereoRenderingDevice.IsValid() && (StereoLayers = GEngine->StereoRenderingDevice->GetStereoLayers()) != nullptr && SyncMechanism == nullptr)
@@ -813,4 +816,14 @@ void FMoviePlayerWidgetRenderer::DrawWindow(float DeltaTime)
 float FDefaultGameMoviePlayer::GetViewportDPIScale() const
 {
 	return 1.f;
+}
+void FDefaultGameMoviePlayer::ForceCompletion()
+{
+	bUserCalledFinish = true;
+	MovieStreamingIsDone.Set(1);
+
+	if (MovieStreamer.IsValid())
+	{
+		MovieStreamer->ForceCompletion();
+	}
 }

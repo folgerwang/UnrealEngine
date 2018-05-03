@@ -23,7 +23,7 @@ typedef TFilterCollection< const FLevelModel* >		LevelFilterCollection;
 /**
  * Interface for non-UI presentation logic for a world
  */
-class FLevelCollectionModel
+class WORLDBROWSER_API FLevelCollectionModel
 	: public TSharedFromThis<FLevelCollectionModel>	
 	, public FTickableEditorObject
 {

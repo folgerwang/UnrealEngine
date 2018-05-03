@@ -16,6 +16,8 @@ float4x4 SvPositionToDecal;
 float4x4 DecalToWorld;
 // to transform position from world space to decal space, for normals use transpose of inverse
 float4x4 WorldToDecal;
+// decal orientation in world space, X axis. Used for ObjectOrientation material expression
+float3 DecalOrientation;
 
 // DECAL_PRIMITIVE informs material templates which functions to expose when rendering decals.
 #define DECAL_PRIMITIVE 1

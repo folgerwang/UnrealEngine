@@ -310,9 +310,14 @@ else:
             if self.returncode is None:
                 try:
                     _subprocess.TerminateProcess(int(self._handle), TERMINATE)
-                except WindowsError:
+                except WindowsError,e:
                     if self.wait(timeout=0.1) is None:
-                        raise
+                        # ERROR_ACCESS_DENIED (winerror 5) is received when the
+                        # process already died.
+                        if e.winerror != 5:
+                            raise
+                        else:
+                            print >> sys.stderr, "NICKNICK GOTCHA 1"
 
     #
     #

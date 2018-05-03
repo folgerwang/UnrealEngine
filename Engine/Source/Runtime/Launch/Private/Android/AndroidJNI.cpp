@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Android/AndroidJNI.h"
 #include "HAL/ExceptionHandling.h"
@@ -67,6 +67,8 @@ void FJavaWrapper::FindClassesAndMethods(JNIEnv* Env)
 	AndroidThunkJava_LaunchURL = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_LaunchURL", "(Ljava/lang/String;)V", bIsOptional);
 	AndroidThunkJava_GetAssetManager = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetAssetManager", "()Landroid/content/res/AssetManager;", bIsOptional);
 	AndroidThunkJava_Minimize = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_Minimize", "()V", bIsOptional);
+    AndroidThunkJava_ClipboardCopy = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_ClipboardCopy", "(Ljava/lang/String;)V", bIsOptional);
+    AndroidThunkJava_ClipboardPaste = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_ClipboardPaste", "()Ljava/lang/String;", bIsOptional);
 	AndroidThunkJava_ForceQuit = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_ForceQuit", "()V", bIsOptional);
 	AndroidThunkJava_GetFontDirectory = FindStaticMethod(Env, GameActivityClassID, "AndroidThunkJava_GetFontDirectory", "()Ljava/lang/String;", bIsOptional);
 	AndroidThunkJava_Vibrate = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_Vibrate", "(I)V", bIsOptional);
@@ -133,6 +135,8 @@ void FJavaWrapper::FindClassesAndMethods(JNIEnv* Env)
 	AndroidThunkJava_SetDesiredViewSize = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_SetDesiredViewSize", "(II)V", bIsOptional);
 
 	AndroidThunkJava_VirtualInputIgnoreClick = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_VirtualInputIgnoreClick", "(II)Z", bIsOptional);
+
+	AndroidThunkJava_RestartApplication = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_RestartApplication", "()V", bIsOptional);
 }
 
 void FJavaWrapper::FindGooglePlayMethods(JNIEnv* Env)
@@ -274,6 +278,8 @@ jmethodID FJavaWrapper::AndroidThunkJava_HideVirtualKeyboardInput;
 jmethodID FJavaWrapper::AndroidThunkJava_LaunchURL;
 jmethodID FJavaWrapper::AndroidThunkJava_GetAssetManager;
 jmethodID FJavaWrapper::AndroidThunkJava_Minimize;
+jmethodID FJavaWrapper::AndroidThunkJava_ClipboardCopy;
+jmethodID FJavaWrapper::AndroidThunkJava_ClipboardPaste;
 jmethodID FJavaWrapper::AndroidThunkJava_ForceQuit;
 jmethodID FJavaWrapper::AndroidThunkJava_GetFontDirectory;
 jmethodID FJavaWrapper::AndroidThunkJava_Vibrate;
@@ -333,6 +339,8 @@ jmethodID FJavaWrapper::AndroidThunkJava_UseSurfaceViewWorkaround;
 jmethodID FJavaWrapper::AndroidThunkJava_SetDesiredViewSize;
 
 jmethodID FJavaWrapper::AndroidThunkJava_VirtualInputIgnoreClick;
+
+jmethodID FJavaWrapper::AndroidThunkJava_RestartApplication;
 
 jclass FJavaWrapper::LaunchNotificationClass;
 jfieldID FJavaWrapper::LaunchNotificationUsed;
@@ -456,6 +464,14 @@ bool AndroidThunkCpp_VirtualInputIgnoreClick(int32 x, int32 y)
 		Result = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_VirtualInputIgnoreClick, x, y);
 	}
 	return Result;
+}
+
+void AndroidThunkCpp_RestartApplication()
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_RestartApplication);
+	}
 }
 
 //Set GVirtualKeyboardShown.This function is declared in the Java-defined class, GameActivity.java: "public native void nativeVirtualKeyboardVisible(boolean bShown)"
@@ -752,7 +768,10 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeVirtualKeyboardResult(
 			{
 				FGraphEventRef SetWidgetText = FFunctionGraphTask::CreateAndDispatchWhenReady([&]()
 				{
-					VirtualKeyboardWidget->SetTextFromVirtualKeyboard(FText::FromString(FString(UTF8_TO_TCHAR(javaChars))), ETextEntryType::TextEntryAccepted);
+					if (VirtualKeyboardWidget != NULL)
+					{
+						VirtualKeyboardWidget->SetTextFromVirtualKeyboard(FText::FromString(FString(UTF8_TO_TCHAR(javaChars))), ETextEntryType::TextEntryAccepted);
+					}
 				}, TStatId(), NULL, ENamedThreads::GameThread);
 				FTaskGraphInterface::Get().WaitUntilTaskCompletes(SetWidgetText);
 			}
@@ -777,7 +796,10 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeVirtualKeyboardChanged
 		{
 			FGraphEventRef SetWidgetText = FFunctionGraphTask::CreateAndDispatchWhenReady([&]()
 			{
-				VirtualKeyboardWidget->SetTextFromVirtualKeyboard(FText::FromString(FString(UTF8_TO_TCHAR(javaChars))), ETextEntryType::TextEntryUpdated);
+				if (VirtualKeyboardWidget != NULL)
+				{
+					VirtualKeyboardWidget->SetTextFromVirtualKeyboard(FText::FromString(FString(UTF8_TO_TCHAR(javaChars))), ETextEntryType::TextEntryUpdated);
+				}
 			}, TStatId(), NULL, ENamedThreads::GameThread);
 			FTaskGraphInterface::Get().WaitUntilTaskCompletes(SetWidgetText);
 		}
@@ -1416,4 +1438,29 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeHandleSensorEvents(JNI
 
 	FAndroidInputInterface::QueueMotionData(current_tilt, current_rotation_rate, current_gravity, current_acceleration);
 
+}
+
+void AndroidThunkCpp_ClipboardCopy(const FString& Str)
+{
+    if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+    {
+        jstring JStr = Env->NewStringUTF(TCHAR_TO_UTF8(*Str));
+        FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_ClipboardCopy, JStr);
+        Env->DeleteLocalRef(JStr);
+    }
+}
+
+FString AndroidThunkCpp_ClipboardPaste()
+{
+    FString PasteStringResult = FString("");
+    
+    if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+    {
+        jstring PasteString = (jstring)FJavaWrapper::CallObjectMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_ClipboardPaste);
+        const char *nativePasteString = Env->GetStringUTFChars(PasteString, 0);
+        PasteStringResult = FString(nativePasteString);
+        Env->ReleaseStringUTFChars(PasteString, nativePasteString);
+        Env->DeleteLocalRef(PasteString);
+    }
+    return PasteStringResult;
 }

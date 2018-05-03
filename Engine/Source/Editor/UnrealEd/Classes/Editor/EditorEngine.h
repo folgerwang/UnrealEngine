@@ -57,6 +57,7 @@ class USoundNode;
 class UTextureRenderTarget2D;
 struct FAnalyticsEventAttribute;
 class UEditorWorldExtensionManager;
+class ITargetDevice;
 
 //
 // Things to set in mapSetBrush.
@@ -2881,6 +2882,13 @@ protected:
 	void PlayStandaloneLocalPc(FString MapNameOverride = FString(), FIntPoint* WindowPos = NULL, int32 PIENum = 0, bool bIsServer = false);
 
 	void PlayUsingLauncher();
+
+	/** 
+	* Cancel Play using Launcher on error 
+	* 
+	* if the physical device is not authorized to be launched to, we need to pop an error instead of trying to launch
+	*/
+	void CancelPlayUsingLauncher();
 
 	/** Called when Matinee is opened */
 	virtual void OnOpenMatinee(){};
