@@ -6,7 +6,7 @@ FArchiveUObjectFromStructuredArchive::FArchiveUObjectFromStructuredArchive(FStru
 	: FArchiveFromStructuredArchive(Slot)
 	, bPendingSerialize(true)
 {
-	if (IsTextFormat() && IsLoading())
+	if (InnerArchive.IsTextFormat() && IsLoading())
 	{
 		Commit();
 	}
