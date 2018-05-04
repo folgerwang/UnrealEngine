@@ -96,3 +96,8 @@ UObject* FWeakObjectPtr::GetEvenIfUnreachable() const
 	}
 	return Result;
 }
+
+void FWeakObjectPtr::Serialize(FArchive& Ar)
+{
+	FArchiveUObject::SerializeWeakObjectPtr(Ar, *this);
+}

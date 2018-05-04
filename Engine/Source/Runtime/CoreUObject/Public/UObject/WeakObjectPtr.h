@@ -143,6 +143,14 @@ public:
 		return uint32(WeakObjectPtr.ObjectIndex ^ WeakObjectPtr.ObjectSerialNumber);
 	}
 
+	/**
+	 * Weak object pointer serialization.  Weak object pointers only have weak references to objects and
+	 * won't serialize the object when gathering references for garbage collection.  So in many cases, you
+	 * don't need to bother serializing weak object pointers.  However, serialization is required if you
+	 * want to load and save your object.
+	 */
+	COREUOBJECT_API void Serialize(FArchive& Ar);
+
 protected:
 
 	FORCEINLINE int32 GetObjectIndex() const
