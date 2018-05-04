@@ -89,6 +89,11 @@ struct COREUOBJECT_API FUniqueObjectGuid
 		return Ar;
 	}
 
+	friend void operator<<(FStructuredArchive::FSlot Slot, FUniqueObjectGuid& ObjectGuid)
+	{
+		Slot << ObjectGuid.Guid;
+	}
+
 	/** Code needed by FLazyPtr internals */
 	static int32 GetCurrentTag()
 	{
@@ -158,7 +163,7 @@ public:
 	}
 	
 	/** Called by UObject::Serialize so that we can save / load the Guid possibly associated with an object */
-	COREUOBJECT_API static void PossiblySerializeObjectGuid(UObject* Object, FArchive& Ar);
+	COREUOBJECT_API static void PossiblySerializeObjectGuid(UObject* Object, FStructuredArchive::FRecord Record);
 
 	/** Called when entering PIE to prepare it for PIE-specific fixups */
 	COREUOBJECT_API static void ResetPIEFixups();

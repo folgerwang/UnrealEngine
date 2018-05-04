@@ -785,6 +785,14 @@ public:
 	void SerializeScriptProperties( FArchive& Ar ) const;
 
 	/**
+	 * Serializes the script property data located at Data.  When saving, only saves those properties which differ from the corresponding
+	 * value in the specified 'DiffObject' (usually the object's archetype).
+	 *
+	 * @param	Slot				the archive slot to serialize to
+	 */
+	void SerializeScriptProperties( FStructuredArchive::FSlot Slot ) const;
+
+	/**
 	 * Wrapper function for InitProperties() which handles safely tearing down this object before re-initializing it
 	 * from the specified source object.
 	 *
