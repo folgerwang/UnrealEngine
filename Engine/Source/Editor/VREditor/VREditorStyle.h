@@ -10,8 +10,6 @@ class FVREditorStyle
 {
 public:
 
-	static void Initialize();
-
 	static void Shutdown();
 
 	/** reloads textures used by slate renderer */

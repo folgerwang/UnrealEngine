@@ -104,9 +104,8 @@ class ULandscapeSplineControlPoint : public UObject
 	UPROPERTY(EditAnywhere, Category=Mesh)
 	FVector MeshScale;
 
-	/** Whether to enable collision for the Control Point Mesh. */
-	UPROPERTY(EditAnywhere, Category=Mesh)
-	uint32 bEnableCollision:1;
+	UPROPERTY()
+	uint32 bEnableCollision_DEPRECATED:1;
 
 	/** Whether the Control Point Mesh should cast a shadow. */
 	UPROPERTY(EditAnywhere, Category=Mesh)
@@ -129,6 +128,10 @@ class ULandscapeSplineControlPoint : public UObject
 	/** Whether control point mesh should be placed in landscape proxy streaming level (true) or the spline's level (false) */
 	UPROPERTY(EditAnywhere, Category=Mesh, AdvancedDisplay)
 	uint32 bPlaceSplineMeshesInStreamingLevels : 1;
+
+	/** Mesh Collision Settings */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Collision, meta = (ShowOnlyInnerProperties))
+	FBodyInstance BodyInstance;
 
 protected:
 	UPROPERTY(Transient)

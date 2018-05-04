@@ -15,7 +15,7 @@ class FSceneView;
  * The base class that all drag tools inherit from.
  * The drag tools implement special behaviors for the user clicking and dragging in a viewport.
  */
-class FDragTool
+class UNREALED_API FDragTool
 {
 public:
 	FDragTool(FEditorModeTools* InModeTools);

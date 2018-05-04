@@ -502,7 +502,6 @@ private:
 		}
 
 		Polygon.PolygonGroupID = PolygonGroupID;
-		checkSlow( !PolygonGroupArray[ PolygonGroupID ].Polygons.Contains( PolygonID ) );
 		PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
 
 		PolygonAttributesSet.Insert( PolygonID );

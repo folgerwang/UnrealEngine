@@ -132,13 +132,6 @@ FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImport
 			.ClientSize(FbxImportWindowSize)
 			.ScreenPosition(WindowPosition);
 		
-		auto OnPreviewFbxImportLambda = ImportUI->MeshTypeToImport == FBXIT_Animation ? nullptr : FOnPreviewFbxImport::CreateLambda([=]
-		{
-			UnFbx::FFbxImporter* PreviewFbxImporter = UnFbx::FFbxImporter::GetPreviewInstance();
-			PreviewFbxImporter->ShowFbxReimportPreview(ReimportObject, ImportUI, FullPath);
-			UnFbx::FFbxImporter::DeletePreviewInstance();
-		});
-
 		TSharedPtr<SFbxOptionWindow> FbxOptionWindow;
 		Window->SetContent
 		(
@@ -150,7 +143,6 @@ FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImport
 			.IsObjFormat( bIsObjFormat )
 			.MaxWindowHeight(FbxImportWindowHeight)
 			.MaxWindowWidth(FbxImportWindowWidth)
-			.OnPreviewFbxImport(OnPreviewFbxImportLambda)
 		);
 
 		// @todo: we can make this slow as showing progress bar later
@@ -233,7 +225,6 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 {
 	check(ImportUI);
 	InOutImportOptions.bImportMaterials = ImportUI->bImportMaterials;
-	InOutImportOptions.bResetMaterialSlots = ImportUI->bResetMaterialSlots;
 	InOutImportOptions.bInvertNormalMap = ImportUI->TextureImportData->bInvertNormalMaps;
 	InOutImportOptions.MaterialSearchLocation = ImportUI->TextureImportData->MaterialSearchLocation;
 	UMaterialInterface* BaseMaterialInterface = Cast<UMaterialInterface>(ImportUI->TextureImportData->BaseMaterialName.TryLoad());
@@ -432,20 +423,6 @@ FFbxImporter* FFbxImporter::GetInstance()
 void FFbxImporter::DeleteInstance()
 {
 	StaticInstance.Reset();
-}
-
-FFbxImporter* FFbxImporter::GetPreviewInstance()
-{
-	if (!StaticPreviewInstance.IsValid())
-	{
-		StaticPreviewInstance = MakeShareable(new FFbxImporter());
-	}
-	return StaticPreviewInstance.Get();
-}
-
-void FFbxImporter::DeletePreviewInstance()
-{
-	StaticPreviewInstance.Reset();
 }
 
 //-------------------------------------------------------------------------
@@ -966,6 +943,34 @@ void FFbxImporter::FixMaterialClashName()
 	}
 }
 
+void FFbxImporter::EnsureNodeNameAreValid()
+{
+	TSet<FString> AllNodeName;
+	int32 CurrentNameIndex = 1;
+	for (int32 NodeIndex = 0; NodeIndex < Scene->GetNodeCount(); ++NodeIndex)
+	{
+		FbxNode* Node = Scene->GetNode(NodeIndex);
+		FString NodeName = UTF8_TO_TCHAR(Node->GetName());
+		if (NodeName.IsEmpty())
+		{
+			do
+			{
+				NodeName = TEXT("ncl1_") + FString::FromInt(CurrentNameIndex++);
+			} while (AllNodeName.Contains(NodeName));
+
+			Node->SetName(TCHAR_TO_UTF8(*NodeName));
+			if (!GIsAutomationTesting)
+			{
+				AddTokenizedErrorMessage(
+					FTokenizedMessage::Create(EMessageSeverity::Warning,
+					FText::Format(LOCTEXT("FbxImport_NodeNameClash", "FBX File Loading: Found node with no name, new node name is '{0}'"), FText::FromString(NodeName))),
+					FFbxErrors::Generic_LoadingSceneFailed);
+			}
+		}
+		AllNodeName.Add(NodeName);
+	}
+}
+
 #ifdef IOS_REF
 #undef  IOS_REF
 #define IOS_REF (*(SdkManager->GetIOSettings()))
@@ -1004,6 +1009,8 @@ bool FFbxImporter::ImportFile(FString Filename, bool bPreventMaterialNameClash /
 
 	// Import the scene.
 	bStatus = Importer->Import(Scene);
+
+	EnsureNodeNameAreValid();
 
 	//Make sure we don't have name clash for materials
 	if (bPreventMaterialNameClash)

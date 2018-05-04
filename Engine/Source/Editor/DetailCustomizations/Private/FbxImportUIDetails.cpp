@@ -337,13 +337,6 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 	}
 	else
 	{
-		//Show the reset Material slot only when re importing
-		TSharedRef<IPropertyHandle> ResetMaterialSlotHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bResetMaterialSlots));
-		if (!ImportUI->bIsReimport)
-		{
-			DetailBuilder.HideProperty(ResetMaterialSlotHandle);
-		}
-
 		TSharedRef<IPropertyHandle> TextureDataProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, TextureImportData));
 		DetailBuilder.HideProperty(TextureDataProp);
 

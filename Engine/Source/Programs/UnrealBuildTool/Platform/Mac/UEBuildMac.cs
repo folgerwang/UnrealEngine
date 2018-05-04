@@ -215,27 +215,23 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Get the extension to use for debug info for the given binary type
+		/// Get the extensions to use for debug info for the given binary type
 		/// </summary>
 		/// <param name="Target">Rules for the target being built</param>
 		/// <param name="InBinaryType"> The binary type being built</param>
-		/// <returns>string    The debug info extension (i.e. 'pdb')</returns>
-		public override string GetDebugInfoExtension(ReadOnlyTargetRules Target, UEBuildBinaryType InBinaryType)
+		/// <returns>string[]    The debug info extensions (i.e. 'pdb')</returns>
+		public override string[] GetDebugInfoExtensions(ReadOnlyTargetRules Target, UEBuildBinaryType InBinaryType)
 		{
 			switch (InBinaryType)
 			{
 				case UEBuildBinaryType.DynamicLinkLibrary:
-					return Target.bUsePDBFiles ? ".dSYM" : "";
 				case UEBuildBinaryType.Executable:
-					return Target.bUsePDBFiles ? ".dSYM" : "";
+					return Target.bUsePDBFiles ? new string[] {".dSYM"} : new string[] {};
 				case UEBuildBinaryType.StaticLibrary:
-					return "";
 				case UEBuildBinaryType.Object:
-					return "";
 				case UEBuildBinaryType.PrecompiledHeader:
-					return "";
 				default:
-					return "";
+					return new string [] {};
 			}
 		}
 

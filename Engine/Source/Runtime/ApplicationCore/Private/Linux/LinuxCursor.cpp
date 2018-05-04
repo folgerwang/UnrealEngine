@@ -280,58 +280,39 @@ void FLinuxCursor::Show( bool bShow )
 
 void FLinuxCursor::Lock( const RECT* const Bounds )
 {
-	LinuxApplication->OnMouseCursorLock( Bounds != NULL );
+	TSharedPtr< FLinuxWindow > CurrentFocusWindow = LinuxApplication->GetCurrentFocusWindow();
+	if(!CurrentFocusWindow.IsValid())
+	{
+		return;
+	}
 
 	// Lock/Unlock the cursor
-	if ( Bounds == NULL )
+	if ( Bounds == nullptr )
 	{
-		CursorClipRect = FIntRect();
+		SDL_ConfineCursor(CurrentFocusWindow->GetHWnd(), nullptr);
 	}
 	else
 	{
-		CursorClipRect.Min.X = FMath::TruncToInt(Bounds->left);
-		CursorClipRect.Min.Y = FMath::TruncToInt(Bounds->top);
-		CursorClipRect.Max.X = FMath::TruncToInt(Bounds->right) - 1;
-		CursorClipRect.Max.Y = FMath::TruncToInt(Bounds->bottom) - 1;
+		int Left = 0;
+		int Top = 0;
+		int Right = 0;
+		int Bottom = 0;
+		SDL_GetWindowBordersSize(CurrentFocusWindow->GetHWnd(), &Top, &Left, &Bottom, &Right);
+
+		CursorClipRect.x = FMath::TruncToInt(Bounds->left) + Left;
+		CursorClipRect.y = FMath::TruncToInt(Bounds->top) - Top;
+
+		// TODO. For some reason the values from Bounds seem not to cover the SDL's window area.
+		// The cursor exceeds the right and bottom border of the window. This can be troublesome
+		// when the cursor is outside the window and the user clicks the mouse button even the
+		// cursor is confined. To prevent that the workaround is to add -1 additionally to the 
+		// values used before.
+		const int ExceedingWindowPrevention = 1;
+		CursorClipRect.w = FMath::TruncToInt(Bounds->right) - FMath::TruncToInt(Bounds->left) - 1 - ExceedingWindowPrevention;
+		CursorClipRect.h = FMath::TruncToInt(Bounds->bottom) - FMath::TruncToInt(Bounds->top) - 1 - ExceedingWindowPrevention;
+
+		SDL_ConfineCursor(CurrentFocusWindow->GetHWnd(), &CursorClipRect);
 	}
-
-	FVector2D CurrentPosition = GetPosition();
-	if( UpdateCursorClipping( CurrentPosition ) )
-	{
-		SetPosition( CurrentPosition.X, CurrentPosition.Y );
-	}
-}
-
-bool FLinuxCursor::UpdateCursorClipping( FVector2D& CursorPosition )
-{
-	bool bAdjusted = false;
-
-	if (CursorClipRect.Area() > 0)
-	{
-		if (CursorPosition.X < CursorClipRect.Min.X)
-		{
-			CursorPosition.X = CursorClipRect.Min.X;
-			bAdjusted = true;
-		}
-		else if (CursorPosition.X > CursorClipRect.Max.X)
-		{
-			CursorPosition.X = CursorClipRect.Max.X;
-			bAdjusted = true;
-		}
-
-		if (CursorPosition.Y < CursorClipRect.Min.Y)
-		{
-			CursorPosition.Y = CursorClipRect.Min.Y;
-			bAdjusted = true;
-		}
-		else if (CursorPosition.Y > CursorClipRect.Max.Y)
-		{
-			CursorPosition.Y = CursorClipRect.Max.Y;
-			bAdjusted = true;
-		}
-	}
-
-	return bAdjusted;
 }
 
 bool FLinuxCursor::IsHidden()

@@ -397,6 +397,8 @@ void FDestructibleMeshEditorViewportClient::Draw( const FSceneView* View,FPrimit
 
 void FDestructibleMeshEditorViewportClient::AddReferencedObjects( FReferenceCollector& Collector )
 {
+	FEditorViewportClient::AddReferencedObjects(Collector);
+
 	for (int32 i=0; i < SelectedChunks.Num(); ++i)
 	{
 		Collector.AddReferencedObject(SelectedChunks[i]);

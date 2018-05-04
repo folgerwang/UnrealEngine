@@ -55,6 +55,10 @@ namespace UnrealBuildTool
 			{
 				XgConsole = "xgConsole.exe";
 			}
+			else if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux)
+			{
+				XgConsole = "ib_console";
+			}
 
 			// Search the path for it
 			string PathVariable = Environment.GetEnvironmentVariable("PATH");
@@ -133,24 +137,28 @@ namespace UnrealBuildTool
 				{
 					try
 					{
-						const string BuilderKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Xoreax\\IncrediBuild\\Builder";
+						// @todo: find a way to report that for other host platforms
+						if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+						{
+							const string BuilderKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Xoreax\\IncrediBuild\\Builder";
 
-						string CPUUtilization = Registry.GetValue(BuilderKey, "ForceCPUCount", "").ToString();
-						string AvoidTaskExecutionOnLocalMachine = Registry.GetValue(BuilderKey, "AvoidLocalExec", "").ToString();
-						string RestartRemoteProcessesOnLocalMachine = Registry.GetValue(BuilderKey, "AllowDoubleTargets", "").ToString();
-						string LimitMaxNumberOfCores = Registry.GetValue(BuilderKey, "MaxHelpers", "").ToString();
-						string WriteOutputToDiskInBackground = Registry.GetValue(BuilderKey, "LazyOutputWriter_Beta", "").ToString();
-						string MaxConcurrentPDBs = Registry.GetValue(BuilderKey, "MaxConcurrentPDBs", "").ToString();
-						string EnabledAsHelper = Registry.GetValue(BuilderKey, "LastEnabled", "").ToString();
+							string CPUUtilization = Registry.GetValue(BuilderKey, "ForceCPUCount", "").ToString();
+							string AvoidTaskExecutionOnLocalMachine = Registry.GetValue(BuilderKey, "AvoidLocalExec", "").ToString();
+							string RestartRemoteProcessesOnLocalMachine = Registry.GetValue(BuilderKey, "AllowDoubleTargets", "").ToString();
+							string LimitMaxNumberOfCores = Registry.GetValue(BuilderKey, "MaxHelpers", "").ToString();
+							string WriteOutputToDiskInBackground = Registry.GetValue(BuilderKey, "LazyOutputWriter_Beta", "").ToString();
+							string MaxConcurrentPDBs = Registry.GetValue(BuilderKey, "MaxConcurrentPDBs", "").ToString();
+							string EnabledAsHelper = Registry.GetValue(BuilderKey, "LastEnabled", "").ToString();
 
-						Telemetry.SendEvent("XGESettings.2",
-							"CPUUtilization", CPUUtilization,
-							"AvoidTaskExecutionOnLocalMachine", AvoidTaskExecutionOnLocalMachine,
-							"RestartRemoteProcessesOnLocalMachine", RestartRemoteProcessesOnLocalMachine,
-							"LimitMaxNumberOfCores", LimitMaxNumberOfCores,
-							"WriteOutputToDiskInBackground", WriteOutputToDiskInBackground,
-							"MaxConcurrentPDBs", MaxConcurrentPDBs,
-							"EnabledAsHelper", EnabledAsHelper);
+							Telemetry.SendEvent("XGESettings.2",
+								"CPUUtilization", CPUUtilization,
+								"AvoidTaskExecutionOnLocalMachine", AvoidTaskExecutionOnLocalMachine,
+								"RestartRemoteProcessesOnLocalMachine", RestartRemoteProcessesOnLocalMachine,
+								"LimitMaxNumberOfCores", LimitMaxNumberOfCores,
+								"WriteOutputToDiskInBackground", WriteOutputToDiskInBackground,
+								"MaxConcurrentPDBs", MaxConcurrentPDBs,
+								"EnabledAsHelper", EnabledAsHelper);
+						}
 					}
 					catch
 					{
@@ -449,7 +457,7 @@ namespace UnrealBuildTool
 			// @todo: There is a KB coming that will fix this. Once that KB is available, test if it is present. Stalls will not be a problem if it is.
 			//
 			// Stalls are possible. However there is a workaround in XGE build 1659 and newer that can avoid the issue.
-			string XGEVersion = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Xoreax\IncrediBuild\Builder", "Version", null);
+			string XGEVersion = (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64) ? (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Xoreax\IncrediBuild\Builder", "Version", null) : null;
 			if (XGEVersion != null)
 			{
 				int XGEBuildNumber;

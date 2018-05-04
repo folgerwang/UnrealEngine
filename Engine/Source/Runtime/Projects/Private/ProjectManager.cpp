@@ -41,6 +41,7 @@ bool FProjectManager::LoadProjectFile( const FString& InProjectFile )
 
 		// Create the project
 		CurrentProject = Descriptor;
+		CurrentProjectModuleContextInfos.Reset();
 		return true;
 	}
 	
@@ -448,6 +449,11 @@ void FProjectManager::SetIsEnterpriseProject(bool bValue)
 	{
 		CurrentProject->bIsEnterpriseProject = bValue;
 	}
+}
+
+TArray<FModuleContextInfo>& FProjectManager::GetCurrentProjectModuleContextInfos()
+{
+	return CurrentProjectModuleContextInfos;
 }
 
 IProjectManager& IProjectManager::Get()

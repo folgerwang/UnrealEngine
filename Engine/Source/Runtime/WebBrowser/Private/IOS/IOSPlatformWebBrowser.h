@@ -9,9 +9,7 @@
 #include "IWebBrowserWindow.h"
 #include "Widgets/SWindow.h"
 #import <UIKit/UIKit.h>
-#if !PLATFORM_TVOS
 #import "WebKit/WebKit.h"
-#endif
 
 #include "Engine/Texture2D.h"
 #include "Materials/MaterialInstanceDynamic.h"

@@ -10,6 +10,7 @@
 
 class IContentBrowserSingleton;
 struct FARFilter;
+class FMainMRUFavoritesList;
 
 /**
  * Content browser module
@@ -63,7 +64,18 @@ public:
 	FOnAssetSelectionChanged& GetOnAssetSelectionChanged() { return OnAssetSelectionChanged; } 
 	FOnSourcesViewChanged& GetOnSourcesViewChanged() { return OnSourcesViewChanged; }
 	FOnAssetPathChanged& GetOnAssetPathChanged() { return OnAssetPathChanged; }
-	
+
+	FMainMRUFavoritesList* GetRecentlyOpenedAssets() const
+	{
+		return RecentlyOpenedAssets.Get();
+	};
+
+	static const FName NumberOfRecentAssetsName;
+
+private:
+	/** Resize the recently opened asset list */
+	void ResizeRecentAssetList(FName InName);
+
 private:
 	IContentBrowserSingleton* ContentBrowserSingleton;
 	TSharedPtr<class FContentBrowserSpawner> ContentBrowserSpawner;
@@ -79,6 +91,8 @@ private:
 
 	/** All extender delegates for the drag-and-drop support of the asset view */
 	TArray<FAssetViewDragAndDropExtender> AssetViewDragAndDropExtenders;
+
+	TUniquePtr<FMainMRUFavoritesList> RecentlyOpenedAssets;
 
 	FOnFilterChanged OnFilterChanged;
 	FOnSearchBoxChanged OnSearchBoxChanged;

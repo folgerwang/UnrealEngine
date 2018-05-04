@@ -279,7 +279,9 @@ void FUnixCrashContext::CaptureStackTrace()
 		// Walk the stack and dump it to the allocated memory (do not ignore any stack frames to be consistent with check()/ensure() handling)
 		FPlatformStackWalk::StackWalkAndDump( StackTrace, StackTraceSize, 0, this);
 
+#if !PLATFORM_LINUX
 		printf("StackTrace:\n%s\n", StackTrace);
+#endif
 
 		FCString::Strncat( GErrorHist, UTF8_TO_TCHAR(StackTrace), ARRAY_COUNT(GErrorHist) - 1 );
 		CreateExceptionInfoString(Signal, Info, Context);
@@ -553,6 +555,7 @@ void PlatformCrashHandler(int32 Signal, siginfo_t* Info, void* Context)
 
 	FUnixCrashContext CrashContext;
 	CrashContext.InitFromSignal(Signal, Info, Context);
+	CrashContext.FirstCrashHandlerFrame = static_cast<uint64*>(__builtin_return_address(0));
 
 	if (GCrashHandlerPointer)
 	{

@@ -323,7 +323,7 @@ TSharedPtr< SWidget > SPackagesDialog::GetWidgetToFocusOnActivate() const
 	FChildren* ButtonBoxChildren = ButtonsBox->GetChildren();
 	for( int ButtonIndex = 0; ButtonIndex < ButtonBoxChildren->Num(); ++ButtonIndex )
 	{
-		TSharedPtr<SWidget> ButtonWidget = ButtonBoxChildren->GetChildAt(0);
+		TSharedPtr<SWidget> ButtonWidget = ButtonBoxChildren->GetChildAt(ButtonIndex);
 		if(ButtonWidget.IsValid() && ButtonWidget->GetVisibility() == EVisibility::Visible)
 		{
 			return ButtonWidget;

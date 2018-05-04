@@ -55,6 +55,8 @@ struct FSkeletalMeshCustomVersion
 		RemoveDuplicatedClothingSections = 14,
 		// Remove 'Disabled' flag from SkelMesh asset sections
 		DeprecateSectionDisabledFlag = 15,
+		// Add Section ignore by reduce
+		SectionIgnoreByReduceAdded = 16,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

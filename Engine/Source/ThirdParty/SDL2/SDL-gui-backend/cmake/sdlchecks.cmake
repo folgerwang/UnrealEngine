@@ -375,7 +375,11 @@ endmacro()
 # - HAVE_DLOPEN opt
 macro(CheckX11)
   if(VIDEO_X11)
-    foreach(_LIB X11 Xext Xcursor Xinerama Xi Xrandr Xrender Xss Xxf86vm)
+    foreach(_LIB X11 Xext Xcursor Xinerama Xi
+# EG BEGIN
+            Xfixes
+# EG END
+            Xrandr Xrender Xss Xxf86vm)
         FindLibraryAndSONAME("${_LIB}")
     endforeach()
 
@@ -388,6 +392,9 @@ macro(CheckX11)
     check_include_file(X11/extensions/Xinerama.h HAVE_XINERAMA_H)
     check_include_file(X11/extensions/XInput2.h HAVE_XINPUT_H)
     check_include_file(X11/extensions/Xrandr.h HAVE_XRANDR_H)
+# EG BEGIN
+    check_include_file(X11/extensions/Xfixes.h HAVE_XFIXES_H)
+# EG END
     check_include_file(X11/extensions/Xrender.h HAVE_XRENDER_H)
     check_include_file(X11/extensions/scrnsaver.h HAVE_XSS_H)
     check_include_file(X11/extensions/shape.h HAVE_XSHAPE_H)
@@ -511,6 +518,19 @@ macro(CheckX11)
           set(SDL_VIDEO_DRIVER_X11_XINPUT2_SUPPORTS_MULTITOUCH 1)
         endif()
       endif()
+
+# EG BEGIN
+      if(VIDEO_X11_XFIXES AND HAVE_XFIXES_H)
+        set(HAVE_VIDEO_X11_XFIXES TRUE)
+        if(HAVE_X11_SHARED AND XFIXES_LIB)
+          set(SDL_VIDEO_DRIVER_X11_DYNAMIC_XFIXES "\"${XFIXES_LIB_SONAME}\"")
+        else()
+          list(APPEND EXTRA_LIBS ${XFIXES_LIB})
+        endif()
+        set(SDL_VIDEO_DRIVER_X11_XFIXES 1)
+        set(HAVE_VIDEO_X11_XFIXES TRUE)
+      endif()
+# EG END
 
       if(VIDEO_X11_XRANDR AND HAVE_XRANDR_H)
         if(HAVE_X11_SHARED AND XRANDR_LIB)

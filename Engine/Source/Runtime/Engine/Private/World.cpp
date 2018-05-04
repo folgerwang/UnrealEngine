@@ -535,14 +535,19 @@ bool UWorld::Rename(const TCHAR* InName, UObject* NewOuter, ERenameFlags Flags)
 					}
 				}
 			}
+			NewMapBuildDataOuter = NewOuter;
 		}
 		else
 		{
-			FString NewPackageName = GetOutermost()->GetName() + TEXT("_BuiltData");
+			FString NewPackageName = NewOuter ? NewOuter->GetOutermost()->GetName() : GetOutermost()->GetName();
+			NewPackageName += TEXT("_BuiltData");
 			NewMapBuildDataName = FPackageName::GetShortFName(*NewPackageName);
 			UPackage* BuildDataPackage = PersistentLevel->MapBuildData->GetOutermost();
 
-			BuildDataPackage->Rename(*NewPackageName, nullptr, Flags);
+			if (!BuildDataPackage->Rename(*NewPackageName, nullptr, Flags))
+			{
+				return false;
+			}
 
 			NewMapBuildDataOuter = BuildDataPackage;
 		}
@@ -689,6 +694,7 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 			}
 			
 			UObject* NewBuildData = StaticDuplicateObject(PersistentLevel->MapBuildData, BuildDataPackage, NewMapBuildDataName);
+			NewBuildData->MarkPackageDirty();
 			ReplacementMap.Add(PersistentLevel->MapBuildData, NewBuildData);
 			ObjectsToFixReferences.Add(NewBuildData);
 
@@ -3746,14 +3752,19 @@ void UWorld::CleanupWorld(bool bSessionEnded, bool bCleanupResources, UWorld* Ne
 
 		if (WorldType != EWorldType::PIE)
 		{
-			for (int32 LevelIndex = 0; LevelIndex < GetNumLevels(); ++LevelIndex)
+			if (PersistentLevel && PersistentLevel->MapBuildData)
 			{
-				ULevel* Level = GetLevel(LevelIndex);
+				PersistentLevel->MapBuildData->ClearFlags(RF_Standalone);
 
-				if (Level->MapBuildData)
+				// Iterate over all objects to find ones that reside in the same package as the MapBuildData.
+				// Specifically the PackageMetaData
+				ForEachObjectWithOuter(PersistentLevel->MapBuildData->GetOutermost(), [this](UObject* CurrentObject)
 				{
-					Level->MapBuildData->ClearFlags(RF_Standalone);
-				}
+					if (CurrentObject != this)
+					{
+						CurrentObject->ClearFlags(RF_Standalone);
+					}
+				});
 			}
 		}
 	}

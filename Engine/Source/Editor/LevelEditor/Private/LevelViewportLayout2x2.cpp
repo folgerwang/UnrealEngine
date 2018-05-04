@@ -63,25 +63,25 @@ TSharedRef<SWidget> FLevelViewportLayout2x2::MakeViewportLayout(const FString& L
 
 	// Left viewport
 	Args.bRealtime = false;
-	Args.ConfigKey = TopLeftKey;
+	Args.ConfigKey = *TopLeftKey;
 	Args.ViewportType = LVT_OrthoYZ;
 	TSharedPtr< IViewportLayoutEntity > ViewportTL = LevelEditor.FactoryViewport(*TopLeftType, Args);
 
 	// Persp viewport
 	Args.bRealtime = !FPlatformMisc::IsRemoteSession();
-	Args.ConfigKey = BottomLeftKey;
+	Args.ConfigKey = *BottomLeftKey;
 	Args.ViewportType = LVT_Perspective;
 	TSharedPtr< IViewportLayoutEntity > ViewportBL = LevelEditor.FactoryViewport(*BottomLeftType, Args);
 
 	// Front viewport
 	Args.bRealtime = false;
-	Args.ConfigKey = TopRightKey;
+	Args.ConfigKey = *TopRightKey;
 	Args.ViewportType = LVT_OrthoXZ;
 	TSharedPtr< IViewportLayoutEntity > ViewportTR = LevelEditor.FactoryViewport(*TopRightType, Args);
 
 	// Top Viewport
 	Args.bRealtime = false;
-	Args.ConfigKey = BottomRightKey;
+	Args.ConfigKey = *BottomRightKey;
 	Args.ViewportType = LVT_OrthoXY;
 	TSharedPtr< IViewportLayoutEntity > ViewportBR = LevelEditor.FactoryViewport(*BottomRightType, Args);
 

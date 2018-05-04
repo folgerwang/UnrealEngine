@@ -82,7 +82,6 @@ FLinuxApplication::FLinuxApplication()
 	,	bInsideOwnWindow(false)
 	,	bIsDragWindowButtonPressed(false)
 	,	bActivateApp(false)
-	,	bLockToCurrentMouseType(false)
 	,	LastTimeCachedDisplays(-1.0)
 {
 	bUsingHighPrecisionMouseInput = false;
@@ -288,49 +287,26 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 			FLinuxCursor *LinuxCursor = (FLinuxCursor*)Cursor.Get();
 			LinuxCursor->InvalidateCaches();
 
-			if (LinuxCursor->IsHidden())
-			{
-				// Check if the mouse got locked for dragging in viewport.
-				if (bLockToCurrentMouseType == false)
-				{
-					int width, height;
-					if(bIsMouseCursorLocked && CurrentClipWindow.IsValid())
-					{
-						NativeWindow =  CurrentClipWindow->GetHWnd();
-					}
-					
-					SDL_GetWindowSize(NativeWindow, &width, &height);
-					if (motionEvent.x != (width / 2) || motionEvent.y != (height / 2))
-					{
-						int xOffset, yOffset;
-						GetWindowPositionInEventLoop(NativeWindow, &xOffset, &yOffset);
-						LinuxCursor->SetPosition(width / 2 + xOffset, height / 2 + yOffset);
-					}
-					else
-					{
-						break;
-					}
-				}
-			}
-			else
+			if (!LinuxCursor->IsHidden())
 			{
 				int xOffset, yOffset;
 				GetWindowPositionInEventLoop(NativeWindow, &xOffset, &yOffset);
 
-				int32 BorderSizeX, BorderSizeY;
-				CurrentEventWindow->GetNativeBordersSize(BorderSizeX, BorderSizeY);
-
-				LinuxCursor->SetCachedPosition(motionEvent.x + xOffset + BorderSizeX, motionEvent.y + yOffset + BorderSizeY);
-
-				FVector2D CurrentPosition = LinuxCursor->GetPosition();
-				if( LinuxCursor->UpdateCursorClipping( CurrentPosition ) )
+				// When bUsingHighPrecisionMouseInput=1, changing the position cache causes the cursor (inside top/left/right etc. ViewPort)
+				// to not move correct with the selection tool. The next part should be only run when not in Editor mode.
+				if(!GIsEditor)
 				{
-					LinuxCursor->SetPosition( CurrentPosition.X, CurrentPosition.Y );
+					int32 BorderSizeX, BorderSizeY;
+					CurrentEventWindow->GetNativeBordersSize(BorderSizeX, BorderSizeY);
+
+					LinuxCursor->SetCachedPosition(motionEvent.x + xOffset + BorderSizeX, motionEvent.y + yOffset + BorderSizeY);
 				}
+
 				if( !CurrentEventWindow->GetDefinition().HasOSWindowBorder )
 				{
 					if ( CurrentEventWindow->IsRegularWindow() )
 					{
+						FVector2D CurrentPosition = LinuxCursor->GetPosition();
 						MessageHandler->GetWindowZoneForPoint( CurrentEventWindow.ToSharedRef(), CurrentPosition.X - xOffset, CurrentPosition.Y - yOffset );
 						MessageHandler->OnCursorSet();
 					}
@@ -339,20 +315,7 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 
 			if(bUsingHighPrecisionMouseInput)
 			{
-				// hack to work around jumps (only matters when we have more than one window)
-				const int kTooFarAway = 250;
-				const int kTooFarAwaySquare = kTooFarAway * kTooFarAway;
-				if (Windows.Num() > 1 && motionEvent.xrel * motionEvent.xrel + motionEvent.yrel * motionEvent.yrel > kTooFarAwaySquare)
-				{
-					UE_LOG(LogLinuxWindowEvent, Warning, TEXT("Suppressing too large relative mouse movement due to an apparent bug (%d, %d is larger than threshold %d)"),
-						motionEvent.xrel, motionEvent.yrel,
-						kTooFarAway
-						);
-				}
-				else
-				{
-					MessageHandler->OnRawMouseMove(motionEvent.xrel, motionEvent.yrel);
-				}
+				MessageHandler->OnRawMouseMove(motionEvent.xrel, motionEvent.yrel);
 			}
 			else
 			{
@@ -394,9 +357,6 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 				
 				if (buttonEvent.button == SDL_BUTTON_LEFT)
 				{
-					// Unlock the mouse dragging type.
-					bLockToCurrentMouseType = false;
-
 					bIsDragWindowButtonPressed = false;
 				}
 			}
@@ -410,16 +370,6 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 
 				if (buttonEvent.button == SDL_BUTTON_LEFT)
 				{
-					// The user clicked an object and wants to drag maybe. We can use that to disable 
-					// the resetting of the cursor. Before the user can drag objects, the pointer will change.
-					// Usually it will be EMouseCursor::CardinalCross (Default added after IRC discussion how to fix selection in Front/Top/Side views). 
-					// If that happends and the user clicks the left mouse button, we know they want to move something.
-					// TODO Is this always true? Need more checks.
-					if (((FLinuxCursor*)Cursor.Get())->GetType() != EMouseCursor::None)
-					{
-						bLockToCurrentMouseType = true;
-					}
-
 					bIsDragWindowButtonPressed = true;
 				}
 
@@ -675,10 +625,10 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 				Button = FGamepadKeyNames::SpecialRight;
 				break;
 			case SDL_CONTROLLER_BUTTON_LEFTSTICK:
-				Button = FGamepadKeyNames::LeftStickDown;
+				Button = FGamepadKeyNames::LeftThumb;
 				break;
 			case SDL_CONTROLLER_BUTTON_RIGHTSTICK:
-				Button = FGamepadKeyNames::RightStickDown;
+				Button = FGamepadKeyNames::RightThumb;
 				break;
 			case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
 				Button = FGamepadKeyNames::LeftShoulder;
@@ -1112,9 +1062,6 @@ EWindowZone::Type FLinuxApplication::WindowHitTest(const TSharedPtr< FLinuxWindo
 
 void FLinuxApplication::ProcessDeferredEvents( const float TimeDelta )
 {
-	// delete pending destroy windows before, and not after processing events, to prolong their lifetime
-	DestroyPendingWindows();
-
 	// This function can be reentered when entering a modal tick loop.
 	// We need to make a copy of the events that need to be processed or we may end up processing the same messages twice
 	SDL_HWindow NativeWindow = NULL;
@@ -1125,25 +1072,6 @@ void FLinuxApplication::ProcessDeferredEvents( const float TimeDelta )
 	for( int32 Index = 0; Index < Events.Num(); ++Index )
 	{
 		ProcessDeferredMessage( Events[Index] );
-	}
-}
-
-void FLinuxApplication::DestroyPendingWindows()
-{
-	if (UNLIKELY(PendingDestroyWindows.Num()))
-	{
-		// destroy native windows that we deferred
-		const double Now = FPlatformTime::Seconds();
-		for(TMap<SDL_HWindow, double>::TIterator It(PendingDestroyWindows); It; ++It)
-		{
-			if (Now > It.Value())
-			{
-				SDL_HWindow Window = It.Key();
-				UE_LOG(LogLinuxWindow, Verbose, TEXT("Destroying SDL window %p"), Window);
-				SDL_DestroyWindow(Window);
-				It.RemoveCurrent();
-			}
-		}
 	}
 }
 
@@ -1403,8 +1331,7 @@ void FLinuxApplication::UpdateMouseCaptureWindow(SDL_HWindow TargetWindow)
 	FLinuxCursor *LinuxCursor = static_cast<FLinuxCursor*>(Cursor.Get());
 
 	// this is a hacky heuristic which makes QA-ClickHUD work while not ruining SlateViewer...
-	bool bShouldGrab = (IS_PROGRAM != 0 || GIsEditor) && !LinuxCursor->IsHidden();
-
+	bool bShouldGrab = (IS_PROGRAM != 0 || WITH_ENGINE != 0 || GIsEditor) && !LinuxCursor->IsHidden();
 	if (bEnable)
 	{
 		if (TargetWindow)
@@ -1427,6 +1354,7 @@ void FLinuxApplication::SetHighPrecisionMouseMode( const bool Enable, const TSha
 {
 	MessageHandler->OnCursorSet();
 	bUsingHighPrecisionMouseInput = Enable;
+	SDL_SetRelativeMouseMode(Enable ? SDL_TRUE : SDL_FALSE);
 }
 
 void FLinuxApplication::RefreshDisplayCache()
@@ -1488,25 +1416,6 @@ FPlatformRect FLinuxApplication::GetWorkArea( const FPlatformRect& CurrentWindow
 	WorkArea.Bottom	= BestDisplayBounds.y + BestDisplayBounds.h;
 
 	return WorkArea;
-}
-
-void FLinuxApplication::OnMouseCursorLock( bool bLockEnabled )
-{
-	if (UNLIKELY(!FApp::CanEverRender()))
-	{
-		return;
-	}
-
-	bIsMouseCursorLocked = bLockEnabled;
-	UpdateMouseCaptureWindow( NULL );
-	if(bLockEnabled)
-	{
-		CurrentClipWindow = CurrentlyActiveWindow;
-	}
-	else
-	{
-		CurrentClipWindow = nullptr;
-	}
 }
 
 void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
@@ -1828,22 +1737,6 @@ void FLinuxApplication::GetWindowPositionInEventLoop(SDL_HWindow NativeWindow, i
 		*x = 0;
 		*y = 0;
 	}
-}
-
-void FLinuxApplication::DestroyNativeWindow(SDL_HWindow NativeWindow)
-{
-	UE_LOG(LogLinuxWindow, Verbose, TEXT("Asked to destroy SDL window %p"), NativeWindow);
-
-	if (PendingDestroyWindows.Find(NativeWindow) != nullptr)
-	{
-		UE_LOG(LogLinuxWindow, Verbose, TEXT("  SDL window %p is already pending deletion!"), NativeWindow);
-		return;	// use the original 'deadline', do not renew it.
-	}
-
-	// Set deadline to make sure the window survives at least one tick.
-	PendingDestroyWindows.Add(NativeWindow, FPlatformTime::Seconds() + 0.1);
-
-	UE_LOG(LogLinuxWindow, Verbose, TEXT("  Deferring destroying of SDL window %p"), NativeWindow);
 }
 
 bool FLinuxApplication::IsMouseAttached() const

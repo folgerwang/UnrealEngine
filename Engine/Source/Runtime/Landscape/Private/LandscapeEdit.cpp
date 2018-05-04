@@ -48,6 +48,8 @@ LandscapeEdit.cpp: Landscape editing
 #include "LandscapeFileFormatInterface.h"
 #include "ComponentRecreateRenderStateContext.h"
 #include "Interfaces/ITargetPlatform.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "ScopedTransaction.h"
 #endif
 #include "Algo/Count.h"
 
@@ -3704,8 +3706,8 @@ void ALandscapeProxy::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		PropertyName == FName(TEXT("bAffectDistanceFieldLighting")) ||
 		PropertyName == FName(TEXT("bRenderCustomDepth")) ||
 		PropertyName == FName(TEXT("CustomDepthStencilValue")) ||
-		PropertyName == FName(TEXT("LightingChannels"))
-		)
+		PropertyName == FName(TEXT("LightingChannels")) ||
+		PropertyName == FName(TEXT("LDMaxDrawDistance")))
 	{
 		// Replicate shared properties to all components.
 		for (int32 ComponentIndex = 0; ComponentIndex < LandscapeComponents.Num(); ComponentIndex++)
@@ -5318,6 +5320,188 @@ void ALandscapeProxy::RemoveOverlappingComponent(ULandscapeComponent* Component)
 	}
 	LandscapeComponents.Remove(Component);
 	Component->DestroyComponent();
+}
+
+TArray<FLinearColor> ALandscapeProxy::SampleRTData(UTextureRenderTarget2D* InRenderTarget, FLinearColor InRect)
+{
+
+	if (!InRenderTarget)
+	{
+		FMessageLog("Blueprint").Warning(LOCTEXT("SampleRTData_InvalidRenderTarget", "SampleRTData: Render Target must be non-null."));
+		return { FLinearColor(0,0,0,0) };
+	}
+	else if (!InRenderTarget->Resource)
+	{
+		FMessageLog("Blueprint").Warning(LOCTEXT("SampleRTData_ReleasedRenderTarget", "SampleRTData: Render Target has been released."));
+		return { FLinearColor(0,0,0,0) };
+	}
+	else
+	{
+		ETextureRenderTargetFormat format = (InRenderTarget->RenderTargetFormat);
+
+		if ((format == (RTF_RGBA16f)) || (format == (RTF_RGBA32f)) || (format == (RTF_RGBA8)))
+		{
+
+			FTextureRenderTargetResource* RTResource = InRenderTarget->GameThread_GetRenderTargetResource();
+
+			InRect.R = FMath::Clamp(int(InRect.R), 0, InRenderTarget->SizeX - 1);
+			InRect.G = FMath::Clamp(int(InRect.G), 0, InRenderTarget->SizeY - 1);
+			InRect.B = FMath::Clamp(int(InRect.B), int(InRect.R + 1), InRenderTarget->SizeX);
+			InRect.A = FMath::Clamp(int(InRect.A), int(InRect.G + 1), InRenderTarget->SizeY);
+			FIntRect Rect = FIntRect(InRect.R, InRect.G, InRect.B, InRect.A);
+
+			FReadSurfaceDataFlags ReadPixelFlags(RCM_MinMax);
+
+			TArray<FColor> OutLDR;
+			TArray<FLinearColor> OutHDR;
+
+			TArray<FLinearColor> OutVals;
+
+			bool ishdr = ((format == (RTF_R16f)) || (format == (RTF_RG16f)) || (format == (RTF_RGBA16f)) || (format == (RTF_R32f)) || (format == (RTF_RG32f)) || (format == (RTF_RGBA32f)));
+
+			if (!ishdr)
+			{
+				RTResource->ReadPixels(OutLDR, ReadPixelFlags, Rect);
+				for (auto i : OutLDR)
+				{
+					OutVals.Add(FLinearColor(float(i.R), float(i.G), float(i.B), float(i.A)) / 255.0f);
+				}
+			}
+			else
+			{
+				RTResource->ReadLinearColorPixels(OutHDR, ReadPixelFlags, Rect);
+				return OutHDR;
+			}
+
+			return OutVals;
+		}
+	}
+	FMessageLog("Blueprint").Warning(LOCTEXT("SampleRTData_InvalidTexture", "SampleRTData: Currently only 4 channel formats are supported: RTF_RGBA8, RTF_RGBA16f, and RTF_RGBA32f."));
+
+	return { FLinearColor(0,0,0,0) };
+}
+
+bool ALandscapeProxy::LandscapeImportHeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget)
+{
+	ALandscape* Landscape = GetLandscapeActor();
+	if (Landscape != nullptr)
+	{
+		ULandscapeInfo* LandscapeInfo = Landscape->GetLandscapeInfo();
+
+		int32 MinX, MinY, MaxX, MaxY;
+		if (LandscapeInfo && LandscapeInfo->GetLandscapeExtent(MinX, MinY, MaxX, MaxY))
+		{
+			const uint32 LandscapeWidth = (uint32)(1 + MaxX - MinX);
+			const uint32 LandscapeHeight = (uint32)(1 + MaxY - MinY);
+			FLinearColor SampleRect = FLinearColor(0, 0, LandscapeWidth, LandscapeHeight);
+
+			const uint32 RTWidth = InRenderTarget->SizeX;
+			const uint32 RTHeight = InRenderTarget->SizeY;
+			ETextureRenderTargetFormat format = (InRenderTarget->RenderTargetFormat);
+			bool ishdr = ((format == (RTF_R16f)) || (format == (RTF_RG16f)) || (format == (RTF_RGBA16f)) || (format == (RTF_R32f)) || (format == (RTF_RG32f)) || (format == (RTF_RGBA32f)));
+			if (!ishdr)
+			{
+				FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_InvalidRenderTarget", "LandscapeImportHeightmapFromRenderTarget: Render target must be at least as large as landscape on each axis."));
+				return 0;
+			}
+
+			if (RTWidth >= LandscapeWidth && RTHeight >= LandscapeHeight)
+			{
+				TArray<FLinearColor> RTData;
+				RTData = SampleRTData(InRenderTarget, SampleRect);
+
+				TArray<uint16> HeightData;
+
+				for (auto i : RTData)
+				{
+					HeightData.Add((uint16)i.R);
+				}
+
+				FScopedTransaction Transaction(LOCTEXT("Undo_ImportHeightmap", "Importing Landscape Heightmap"));
+
+				FHeightmapAccessor<false> HeightmapAccessor(LandscapeInfo);
+				HeightmapAccessor.SetData(MinX, MinY, MaxX, MaxY, HeightData.GetData());
+				return 1;
+			}
+			else
+			{
+				FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_InvalidRenderTarget", "LandscapeImportHeightmapFromRenderTarget: Render target must be at least as large as landscape on each axis."));
+				return 0;
+			}
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_NullLandscape.", "LandscapeImportHeightmapFromRenderTarget: Landscape must be non-null."));
+	return 0;
+}
+
+bool ALandscapeProxy::LandscapeImportWeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget, FName InLayerName)
+{
+	ALandscape* Landscape = GetLandscapeActor();
+	if (Landscape != nullptr)
+	{
+		ULandscapeInfo* LandscapeInfo = Landscape->GetLandscapeInfo();
+
+		int32 MinX, MinY, MaxX, MaxY;
+		if (LandscapeInfo && LandscapeInfo->GetLandscapeExtent(MinX, MinY, MaxX, MaxY))
+		{
+			const uint32 LandscapeWidth = (uint32)(1 + MaxX - MinX);
+			const uint32 LandscapeHeight = (uint32)(1 + MaxY - MinY);
+			FLinearColor SampleRect = FLinearColor(0, 0, LandscapeWidth, LandscapeHeight);
+
+			const uint32 RTWidth = InRenderTarget->SizeX;
+			const uint32 RTHeight = InRenderTarget->SizeY;
+			ETextureRenderTargetFormat format = (InRenderTarget->RenderTargetFormat);
+
+			if (RTWidth >= LandscapeWidth && RTHeight >= LandscapeHeight)
+			{
+				TArray<FLinearColor> RTData;
+				RTData = SampleRTData(InRenderTarget, SampleRect);
+
+				TArray<uint8> LayerData;
+
+				for (auto i : RTData)
+				{
+					LayerData.Add((uint8)(FMath::Clamp((float)i.R, 0.0f, 1.0f) * 255));
+				}
+
+				FLandscapeInfoLayerSettings CurWeightmapInfo;
+
+				int32 Index = LandscapeInfo->GetLayerInfoIndex(InLayerName, LandscapeInfo->GetLandscapeProxy());
+
+				if (ensure(Index != INDEX_NONE))
+				{
+					CurWeightmapInfo = LandscapeInfo->Layers[Index];
+				}
+
+				if (CurWeightmapInfo.LayerInfoObj == nullptr)
+				{
+					FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_InvalidLayerInfoObject", "LandscapeImportWeightmapFromRenderTarget: Layers must first have Layer Info Objects assigned before importing."));
+					return 0;
+				}
+
+				FScopedTransaction Transaction(LOCTEXT("Undo_ImportWeightmap", "Importing Landscape Layer"));
+
+				FAlphamapAccessor<false, false> AlphamapAccessor(LandscapeInfo, CurWeightmapInfo.LayerInfoObj);
+				AlphamapAccessor.SetData(MinX, MinY, MaxX, MaxY, LayerData.GetData(), ELandscapeLayerPaintingRestriction::None);
+				return 1;
+			}
+			else
+			{
+				FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_InvalidRenderTarget", "LandscapeImportWeightmapFromRenderTarget: Render target must be at least as large as landscape on each axis."));
+				return 0;
+			}
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_NullLandscape.", "LandscapeImportWeightmapFromRenderTarget: Landscape must be non-null."));
+	return 0;
 }
 
 #endif //WITH_EDITOR

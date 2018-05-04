@@ -165,7 +165,7 @@ void SCinematicLevelViewport::Construct(const FArguments& InArgs)
 		.LevelEditorViewportClient(ViewportClient)
 		.ParentLevelEditor(InArgs._ParentLevelEditor)
 		.ParentLayout(ParentLayout.Pin())
-		.ConfigKey(LayoutName.ToString())
+		.ConfigKey(LayoutName)
 		.Realtime(true);
 
 	ViewportClient->SetViewportWidget(ViewportWidget);

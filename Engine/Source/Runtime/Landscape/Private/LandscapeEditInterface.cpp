@@ -2778,11 +2778,10 @@ void FLandscapeEditDataInterface::SetAlphaData(ULandscapeLayerInfoObject* const 
 									// Adjust other layers' weights accordingly
 									for (int32 LayerIdx = 0; LayerIdx < Component->WeightmapLayerAllocations.Num(); LayerIdx++)
 									{
-										const uint8 ExistingWeight = LayerDataPtrs[LayerIdx][TexDataIndex];
 										// Exclude bNoWeightBlend layers
 										if (LayerIdx != UpdateLayerIdx && LayerNoWeightBlends[LayerIdx] == false)
 										{
-											OtherLayerWeightSum += ExistingWeight;
+											OtherLayerWeightSum += LayerDataPtrs.IsValidIndex(LayerIdx) ? LayerDataPtrs[LayerIdx][TexDataIndex] : 0;
 										}
 									}
 

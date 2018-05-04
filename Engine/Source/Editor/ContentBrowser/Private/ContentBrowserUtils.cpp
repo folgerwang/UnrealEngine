@@ -796,7 +796,8 @@ bool ContentBrowserUtils::CopyFolders(const TArray<FString>& InSourcePathNames, 
 	for ( auto PathIt = SourcePathToLoadedAssets.CreateConstIterator(); PathIt; ++PathIt )
 	{
 		// Put dragged folders in a sub-folder under the destination path
-		FString SubFolderName = FPackageName::GetLongPackageAssetName(PathIt.Key());
+		const FString SourcePath = PathIt.Key();
+		FString SubFolderName = FPackageName::GetLongPackageAssetName(SourcePath);
 		FString Destination = DestPath + TEXT("/") + SubFolderName;
 
 		// Add the new path to notify sources views
@@ -810,7 +811,18 @@ bool ContentBrowserUtils::CopyFolders(const TArray<FString>& InSourcePathNames, 
 		if ( PathIt.Value().Num() > 0 )
 		{
 			// Copy assets and supply a source path to indicate it is relative
-			ObjectTools::DuplicateObjects( PathIt.Value(), PathIt.Key(), Destination, /*bOpenDialog=*/false );
+			ObjectTools::DuplicateObjects( PathIt.Value(), SourcePath, Destination, /*bOpenDialog=*/false );
+		}
+
+		// Attempt to copy the folder color to the new path location
+		if (FPaths::FileExists(GEditorPerProjectIni))
+		{
+			FString ColorStr;
+			if (GConfig->GetString(TEXT("PathColor"), *SourcePath, ColorStr, GEditorPerProjectIni))
+			{
+				// Add the new path
+				GConfig->SetString(TEXT("PathColor"), *Destination, *ColorStr, GEditorPerProjectIni);
+			}
 		}
 	}
 
@@ -872,6 +884,20 @@ bool ContentBrowserUtils::MoveFolders(const TArray<FString>& InSourcePathNames, 
 		if (DeleteEmptyFolderFromDisk(SourcePath))
 		{
 			AssetRegistryModule.Get().RemovePath(SourcePath);
+		}
+
+		// Attempt to move the folder color to the new path location
+		if (FPaths::FileExists(GEditorPerProjectIni))
+		{
+			FString ColorStr;
+			if (GConfig->GetString(TEXT("PathColor"), *SourcePath, ColorStr, GEditorPerProjectIni))
+			{
+				// Remove the old path
+				GConfig->RemoveKey(TEXT("PathColor"), *SourcePath, GEditorPerProjectIni);
+
+				// Add the new path
+				GConfig->SetString(TEXT("PathColor"), *Destination, *ColorStr, GEditorPerProjectIni);
+			}
 		}
 	}
 

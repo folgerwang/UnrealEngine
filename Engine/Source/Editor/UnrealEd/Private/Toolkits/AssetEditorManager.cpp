@@ -21,6 +21,8 @@
 #include "Interfaces/IAnalyticsProvider.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "ContentBrowserModule.h"
+#include "MRUFavoritesList.h"
 
 #define LOCTEXT_NAMESPACE "AssetEditorManager"
 
@@ -288,7 +290,7 @@ bool FAssetEditorManager::CloseAllAssetEditors()
 }
 
 
-bool FAssetEditorManager::OpenEditorForAsset(UObject* Asset, const EToolkitMode::Type ToolkitMode, TSharedPtr< IToolkitHost > OpenedFromLevelEditor )
+bool FAssetEditorManager::OpenEditorForAsset(UObject* Asset, const EToolkitMode::Type ToolkitMode, TSharedPtr< IToolkitHost > OpenedFromLevelEditor, const bool bShowProgressWindow)
 {
 	check(Asset);
 	// @todo toolkit minor: When "Edit Here" happens in a different level editor from the one that an asset is already
@@ -315,7 +317,10 @@ bool FAssetEditorManager::OpenEditorForAsset(UObject* Asset, const EToolkitMode:
 	}
 	else
 	{
-		GWarn->BeginSlowTask( LOCTEXT("OpenEditor", "Opening Editor..."), true);
+		if (bShowProgressWindow)
+		{
+			GWarn->BeginSlowTask(LOCTEXT("OpenEditor", "Opening Editor..."), true);
+		}
 	}
 
 
@@ -374,7 +379,20 @@ bool FAssetEditorManager::OpenEditorForAsset(UObject* Asset, const EToolkitMode:
 		FSimpleAssetEditor::CreateEditor(ActualToolkitMode, ActualToolkitMode == EToolkitMode::WorldCentric ? OpenedFromLevelEditor : TSharedPtr<IToolkitHost>(), Asset);
 	}
 
-	GWarn->EndSlowTask();
+	if (bShowProgressWindow)
+	{
+		GWarn->EndSlowTask();
+	}
+	if (Asset->IsAsset())
+	{
+		FString AssetPath = Asset->GetOuter()->GetPathName();
+		FContentBrowserModule& CBModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+		FMainMRUFavoritesList* RecentlyOpenedAssets = CBModule.GetRecentlyOpenedAssets();
+		if (RecentlyOpenedAssets)
+		{
+			RecentlyOpenedAssets->AddMRUItem(AssetPath);
+		}
+	}
 	return true;
 }
 

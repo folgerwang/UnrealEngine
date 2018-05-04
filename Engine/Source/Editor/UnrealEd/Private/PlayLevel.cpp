@@ -3208,7 +3208,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 							{
 								// restore previously minimized root window.
 								TSharedPtr<SWindow> RootWindow = FGlobalTabmanager::Get()->GetRootWindow();
-								if (RootWindow.IsValid())
+								if (RootWindow.IsValid() && RootWindow->IsWindowMinimized())
 								{
 									RootWindow->Restore();
 								}

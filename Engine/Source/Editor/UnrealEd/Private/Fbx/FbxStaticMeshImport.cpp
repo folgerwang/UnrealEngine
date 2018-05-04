@@ -47,7 +47,7 @@ using namespace UnFbx;
 struct ExistingStaticMeshData;
 extern ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, FBXImportOptions* ImportOptions, int32 LodIndex);
 extern void RestoreExistingMeshSettings(struct ExistingStaticMeshData* ExistingMesh, UStaticMesh* NewMesh, int32 LODIndex);
-extern void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr, UStaticMesh* NewMesh, int32 LodLevel, bool bResetMaterialSlots);
+extern void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr, UStaticMesh* NewMesh, int32 LodLevel, bool bCanShowDialog);
 extern void UpdateSomeLodsImportMeshData(UStaticMesh* NewMesh, TArray<int32> *ReimportLodList);
 
 static FbxString GetNodeNameWithoutNamespace( FbxNode* Node )
@@ -1059,7 +1059,9 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 				const char* FbxMeshPtr = FbxMeshName + FCStringAnsi::Strlen(FbxMeshName) - 1;
 				while (i < FCStringAnsi::Strlen(FbxMeshName))
 				{
-					if (*MeshPtr != *FbxMeshPtr)
+					bool bIsPointAndUnderscore = *FbxMeshPtr == '.' && *MeshPtr == '_';
+					
+					if (*MeshPtr != *FbxMeshPtr && !bIsPointAndUnderscore)
 					{
 						break;
 					}
@@ -1172,7 +1174,7 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 	if (NewMesh != nullptr)
 	{
 		UpdateSomeLodsImportMeshData(NewMesh, &ReimportLodList);
-		RestoreExistingMeshData(ExistMeshDataPtr, NewMesh, INDEX_NONE, ImportOptions->bResetMaterialSlots);
+		RestoreExistingMeshData(ExistMeshDataPtr, NewMesh, INDEX_NONE, ImportOptions->bCanShowDialog);
 	}
 	return NewMesh;
 }
@@ -1756,10 +1758,6 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 	{
 		//Generate a random GUID to be sure it rebuild the asset
 		StaticMesh->BuildCacheAutomationTestGuid = FGuid::NewGuid();
-	}
-
-	if (GIsAutomationTesting)
-	{
 		//Avoid distance field calculation in automation test setting this to false is not suffisant since the condition OR with the CVar
 		//But fbx automation test turn off the CVAR
 		StaticMesh->bGenerateMeshDistanceField = false;
@@ -1776,6 +1774,8 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 	{
 		MeshDescription->TriangulateMesh();
 	}
+	//Make sure the light map UVChannel is valid
+	StaticMesh->EnforceLightmapRestrictions();
 
 	//Prebuild the static mesh when we use LodGroup and we want to modify the LodNumber
 	if (!ImportOptions->bImportScene)

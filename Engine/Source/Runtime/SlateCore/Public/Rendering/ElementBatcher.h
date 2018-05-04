@@ -25,6 +25,8 @@ class FSlateDrawLines;
  */
 class SLATECORE_API FSlateElementBatcher
 {
+
+	friend struct FLineBuilder;
 public:
 
 	FSlateElementBatcher( TSharedRef<FSlateRenderingPolicy> InRenderingPolicy );
@@ -59,7 +61,7 @@ private:
 	void BatchShapedTextElements();
 	void BatchLineElements();
 	
-	FORCEINLINE FColor PackVertexColor(const FLinearColor& InLinearColor)
+	FORCEINLINE FColor PackVertexColor(const FLinearColor& InLinearColor) const
 	{
 		//NOTE: Using pow(x,2) instead of a full sRGB conversion has been tried, but it ended up
 		// causing too much loss of data in the lower levels of black.
@@ -99,7 +101,6 @@ private:
 	/** 
 	 * Creates vertices necessary to draw a spline (Bezier curve)
 	 */
-	template<ESlateVertexRounding Rounding>
 	void AddSplineElement( const FSlateDrawElement& DrawElement );
 
 	/** 

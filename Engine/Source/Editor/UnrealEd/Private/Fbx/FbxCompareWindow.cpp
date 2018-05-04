@@ -25,41 +25,57 @@
 #include "Toolkits/AssetEditorManager.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
+#include "Rendering/SkeletalMeshModel.h"
+#include "Materials/Material.h"
 
 
 #define LOCTEXT_NAMESPACE "FBXOption"
+bool SFbxCompareWindow::HasConflict()
+{
+	if (ResultObject->IsA(USkeletalMesh::StaticClass()))
+	{
+		for (TSharedPtr<FSkeletonCompareData> SkeletonCompareData : DisplaySkeletonTreeItem)
+		{
+			if (SkeletonCompareData->bChildConflict)
+			{
+				//We have at least one skeleton conflict
+				return true;
+			}
+		}
+	}
+	return false;
+}
 
 void SFbxCompareWindow::Construct(const FArguments& InArgs)
 {
-	CurrentDisplayOption = FMaterialCompareData::All;
-	bShowSectionFlag[EFBXCompareSection_General] = true;
-	bShowSectionFlag[EFBXCompareSection_Materials] = true;
+	bRevertReimport = false;
+
+	bShowSectionFlag[EFBXCompareSection_General] = false;
 	bShowSectionFlag[EFBXCompareSection_Skeleton] = true;
 
 	WidgetWindow = InArgs._WidgetWindow;
-	FullFbxPath = InArgs._FullFbxPath.ToString();
-	FbxSceneInfo = InArgs._FbxSceneInfo;
-	FbxGeneralInfo = InArgs._FbxGeneralInfo;
 	if (InArgs._AssetReferencingSkeleton != nullptr)
 	{
 		//Copy the aray
 		AssetReferencingSkeleton = *(InArgs._AssetReferencingSkeleton);
 	}
-	CurrentMeshData = InArgs._CurrentMeshData;
-	FbxMeshData = InArgs._FbxMeshData;
-	PreviewObject = InArgs._PreviewObject;
+	SourceData = InArgs._SourceData;
+	ResultData = InArgs._ResultData;
+	ResultObject = InArgs._ResultObject;
+	SourceObject = InArgs._SourceObject;
+	FbxGeneralInfo = InArgs._FbxGeneralInfo;
 
 	FillGeneralListItem();
-	FillMaterialListItem();
-	if (PreviewObject->IsA(USkeletalMesh::StaticClass()))
+
+
+	if (ResultObject->IsA(USkeletalMesh::StaticClass()))
 	{
 		FilSkeletonTreeItem();
 	}
 
 	SetMatchJointInfo();
 
-	// Material comparison
-	TSharedPtr<SWidget> MaterialCompareSection = ConstructMaterialComparison();
 	// Skeleton comparison
 	TSharedPtr<SWidget> SkeletonCompareSection = ConstructSkeletonComparison();
 	// General section
@@ -84,34 +100,6 @@ void SFbxCompareWindow::Construct(const FArguments& InArgs)
 					.BorderImage(FEditorStyle::GetBrush("ToolPanel.DarkGroupBorder"))
 					[
 						SNew(SVerticalBox)
-						+SVerticalBox::Slot()
-						.AutoHeight()
-						.Padding(2)
-						[
-							// Header with the file path
-							SNew(SBorder)
-							.Padding(FMargin(3))
-							.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
-							[
-								SNew(SHorizontalBox)
-								+SHorizontalBox::Slot()
-								.AutoWidth()
-								[
-									SNew(STextBlock)
-									.Font(FEditorStyle::GetFontStyle("CurveEd.LabelFont"))
-									.Text(LOCTEXT("Import_CurrentFileTitle", "Current File: "))
-								]
-								+SHorizontalBox::Slot()
-								.Padding(5, 0, 0, 0)
-								.AutoWidth()
-								.VAlign(VAlign_Center)
-								[
-									SNew(STextBlock)
-									.Font(FEditorStyle::GetFontStyle("CurveEd.InfoFont"))
-									.Text(InArgs._FullFbxPath)
-								]
-							]
-						]
 						+ SVerticalBox::Slot()
 						.FillHeight(1.0f)
 						.Padding(2)
@@ -121,8 +109,7 @@ void SFbxCompareWindow::Construct(const FArguments& InArgs)
 							.AutoHeight()
 							.Padding(2)
 							[
-								// Material Compare section
-								MaterialCompareSection.ToSharedRef()
+								GeneralInfoSection.ToSharedRef()
 							]
 							+ SVerticalBox::Slot()
 							.AutoHeight()
@@ -130,12 +117,6 @@ void SFbxCompareWindow::Construct(const FArguments& InArgs)
 							[
 								// Skeleton Compare section
 								SkeletonCompareSection.ToSharedRef()
-							]
-							+ SVerticalBox::Slot()
-							.AutoHeight()
-							.Padding(2)
-							[
-								GeneralInfoSection.ToSharedRef()
 							]
 						]
 					]
@@ -146,10 +127,16 @@ void SFbxCompareWindow::Construct(const FArguments& InArgs)
 			.HAlign(HAlign_Right)
 			.Padding(2)
 			[
-				SNew(SButton)
-				.HAlign(HAlign_Center)
-				.Text(LOCTEXT("SFbxCompareWindow_Preview_Done", "Done"))
-				.OnClicked(this, &SFbxCompareWindow::OnDone)
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(2.0f, 0.0f)
+				[
+					SNew(SButton)
+					.HAlign(HAlign_Center)
+					.Text(LOCTEXT("SFbxCompareWindow_Preview_Done", "Done"))
+					.OnClicked(this, &SFbxCompareWindow::OnDone)
+				]
 			]
 		]
 	];	
@@ -229,162 +216,6 @@ TSharedPtr<SWidget> SFbxCompareWindow::ConstructGeneralInfo()
 	];
 }
 
-TSharedPtr<SWidget> SFbxCompareWindow::ConstructMaterialComparison()
-{
-	return SNew(SBox)
-	.MaxDesiredHeight(500)
-	[
-		SNew(SBorder)
-		.Padding(FMargin(3))
-		.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
-		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(2)
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SNew(SButton)
-					.HAlign(HAlign_Center)
-					.VAlign(VAlign_Center)
-					.IsFocusable(false)
-					.ButtonStyle(FEditorStyle::Get(), "NoBorder")
-					.OnClicked(this, &SFbxCompareWindow::SetSectionVisible, EFBXCompareSection_Materials)
-					[
-						SNew(SImage).Image(this, &SFbxCompareWindow::GetCollapsableArrow, EFBXCompareSection_Materials)
-					]
-				]
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SNew(STextBlock)
-					.Font(FEditorStyle::GetFontStyle("DetailsView.CategoryFontStyle"))
-					.Text(LOCTEXT("SFbxCompareWindow_MaterialCompareHeader", "Materials"))
-				]
-			]
-			+SVerticalBox::Slot()
-			.FillHeight(1.0f)
-			.Padding(2)
-			[
-				SNew(SBox)
-				.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &SFbxCompareWindow::IsSectionVisible, EFBXCompareSection_Materials)))
-				[
-					SNew(SVerticalBox)
-					+SVerticalBox::Slot()
-					.FillHeight(1.0f)
-					.Padding(2)
-					[
-						//Show the Comparison of the meshes
-						SNew(SListView< TSharedPtr<FMaterialCompareData> >)
-						.ItemHeight(24)
-						.ListItemsSource(&CompareMaterialListItem)
-						.OnGenerateRow(this, &SFbxCompareWindow::OnGenerateRowForCompareMaterialList)
-						.HeaderRow
-						(
-							SNew(SHeaderRow)
-							+ SHeaderRow::Column("RowIndex")
-								.DefaultLabel(LOCTEXT("SFbxCompareWindow_RowIndex_ColumnHeader", ""))
-								.FixedWidth(25)
-							+ SHeaderRow::Column("Current")
-								.DefaultLabel(LOCTEXT("SFbxCompareWindow_Current_ColumnHeader", "Current Asset"))
-								.FillWidth(0.5f)
-							+ SHeaderRow::Column("Fbx")
-								.DefaultLabel(LOCTEXT("SFbxCompareWindow_Fbx_ColumnHeader", "Reimport Asset (Preview)"))
-								.FillWidth(0.5f)
-						)
-					]
-					+SVerticalBox::Slot()
-					.AutoHeight()
-					.Padding(2)
-					[
-						//Show the toggle button to display different re-import problem
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(SCheckBox)
-							.OnCheckStateChanged(this, &SFbxCompareWindow::ToggleMaterialDisplay, FMaterialCompareData::EMaterialCompareDisplayOption::All)
-							.IsChecked(this, &SFbxCompareWindow::IsToggleMaterialDisplayChecked, FMaterialCompareData::EMaterialCompareDisplayOption::All)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("SFbxCompareWindow_Display_Option_All", "All"))
-							]
-							
-						]
-						+SHorizontalBox::Slot()
-						.Padding(5, 0, 0, 0)
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						[
-							SNew(SCheckBox)
-							.OnCheckStateChanged(this, &SFbxCompareWindow::ToggleMaterialDisplay, FMaterialCompareData::EMaterialCompareDisplayOption::NoMatch)
-							.IsChecked(this, &SFbxCompareWindow::IsToggleMaterialDisplayChecked, FMaterialCompareData::EMaterialCompareDisplayOption::NoMatch)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("SFbxCompareWindow_Display_Option_NoMatch", "No Match"))
-								.ColorAndOpacity(FSlateColor(FLinearColor(0.7f, 0.3f, 0.0f)))
-								.ToolTipText(LOCTEXT("SFbxCompareWindow_Display_Option_NoMatch_tooltip", "Can impact gameplay code using material slot name."))
-							]
-						]
-						+SHorizontalBox::Slot()
-						.Padding(5, 0, 0, 0)
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						[
-							SNew(SCheckBox)
-							.OnCheckStateChanged(this, &SFbxCompareWindow::ToggleMaterialDisplay, FMaterialCompareData::EMaterialCompareDisplayOption::IndexChanged)
-							.IsChecked(this, &SFbxCompareWindow::IsToggleMaterialDisplayChecked, FMaterialCompareData::EMaterialCompareDisplayOption::IndexChanged)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("SFbxCompareWindow_Display_Option_IndexChanged", "Index Changed"))
-								.ColorAndOpacity(FSlateColor(FLinearColor::Yellow))
-								.ToolTipText(LOCTEXT("SFbxCompareWindow_Display_Option_IndexChanged_tooltip", "Can impact gameplay code using index base material."))
-							]
-						]
-						+SHorizontalBox::Slot()
-						.Padding(5, 0, 0, 0)
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						[
-							SNew(SCheckBox)
-							.OnCheckStateChanged(this, &SFbxCompareWindow::ToggleMaterialDisplay, FMaterialCompareData::EMaterialCompareDisplayOption::SkinxxError)
-							.IsChecked(this, &SFbxCompareWindow::IsToggleMaterialDisplayChecked, FMaterialCompareData::EMaterialCompareDisplayOption::SkinxxError)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("SFbxCompareWindow_Display_Option_SkinxxError", "SkinXX Error"))
-								.ColorAndOpacity(FSlateColor(FLinearColor::Red))
-								.ToolTipText(LOCTEXT("SFbxCompareWindow_Display_Option_SkinxxError_tooltip", "The list of materials will not be re-order correctly."))
-							]
-						]
-					]
-				]
-			]
-		]
-	];
-}
-
-void SFbxCompareWindow::ToggleMaterialDisplay(ECheckBoxState InNewValue, FMaterialCompareData::EMaterialCompareDisplayOption InDisplayOption)
-{
-	//Cannot uncheck a radio button
-	if (InNewValue != ECheckBoxState::Checked)
-	{
-		return;
-	}
-	CurrentDisplayOption = InDisplayOption;
-	for (TSharedPtr<FMaterialCompareData> CompareMaterial : CompareMaterialListItem)
-	{
-		CompareMaterial->CompareDisplayOption = CurrentDisplayOption;
-	}
-}
-
-ECheckBoxState SFbxCompareWindow::IsToggleMaterialDisplayChecked(FMaterialCompareData::EMaterialCompareDisplayOption InDisplayOption) const
-{
-	return CurrentDisplayOption == InDisplayOption ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-}
-
 TSharedRef<ITableRow> SFbxCompareWindow::OnGenerateRowGeneralFbxInfo(TSharedPtr<FString> InItem, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	int32 GeneralListIndex = GeneralListItem.Find(InItem);
@@ -393,13 +224,6 @@ TSharedRef<ITableRow> SFbxCompareWindow::OnGenerateRowGeneralFbxInfo(TSharedPtr<
 		[
 			SNew(STextBlock).Text(FText::FromString(*(InItem.Get())))
 		];
-}
-
-TSharedRef<ITableRow> SFbxCompareWindow::OnGenerateRowForCompareMaterialList(TSharedPtr<FMaterialCompareData> RowData, const TSharedRef<STableViewBase>& Table)
-{
-	TSharedRef< SCompareRowDataTableListViewRow > ReturnRow = SNew(SCompareRowDataTableListViewRow, Table)
-		.CompareRowData(RowData);
-	return ReturnRow;
 }
 
 FSlateColor FMaterialCompareData::GetCellColor(FCompMesh *DataA, int32 MaterialIndexA, int32 MaterialMatchA, FCompMesh *DataB, int32 MaterialIndexB, bool bSkinxxError) const
@@ -429,7 +253,7 @@ FSlateColor FMaterialCompareData::GetCellColor(FCompMesh *DataA, int32 MaterialI
 	return FSlateColor::UseForeground();
 }
 
-TSharedRef<SWidget> FMaterialCompareData::ConstructCell(FCompMesh *MeshData, int32 MeshMaterialIndex, bool bSkinxxDuplicate, bool bSkinxxMissing)
+TSharedRef<SWidget> FMaterialCompareData::ConstructCell(FCompMesh *MeshData, int32 MeshMaterialIndex)
 {
 	if (!MeshData->CompMaterials.IsValidIndex(MeshMaterialIndex))
 	{
@@ -440,8 +264,43 @@ TSharedRef<SWidget> FMaterialCompareData::ConstructCell(FCompMesh *MeshData, int
 				.Text(LOCTEXT("FMaterialCompareData_EmptyCell", ""))
 			];
 	}
-	FString CellContent = MeshData->CompMaterials[MeshMaterialIndex].ImportedMaterialSlotName.ToString();
-	FString CellTooltip = TEXT("Material Slot Name: ") + MeshData->CompMaterials[MeshMaterialIndex].MaterialSlotName.ToString();
+
+	return SNew(SBorder)
+		.Padding(FMargin(5.0f, 0.0f, 0.0f, 0.0f))
+		[
+			SNew(STextBlock)
+			.Text(this, &FMaterialCompareData::GetCellString, MeshData == FbxData)
+			.ToolTipText(this, &FMaterialCompareData::GetCellTooltipString, MeshData == FbxData)
+			.ColorAndOpacity(this, MeshData == CurrentData ? &FMaterialCompareData::GetCurrentCellColor : &FMaterialCompareData::GetFbxCellColor)
+		];
+}
+
+FText FMaterialCompareData::GetCellString(bool IsFbxData) const
+{
+	FCompMesh *MeshData = IsFbxData ? FbxData : CurrentData;
+	int32 MaterialIndex = IsFbxData ? FbxMaterialIndex : CurrentMaterialIndex;
+
+	if (!MeshData->CompMaterials.IsValidIndex(MaterialIndex))
+	{
+		return FText(LOCTEXT("GetCellString_InvalidIndex", "-"));
+	}
+
+	FString CellContent = MeshData->CompMaterials[MaterialIndex].ImportedMaterialSlotName.ToString();
+	return FText::FromString(CellContent);
+}
+
+FText FMaterialCompareData::GetCellTooltipString(bool IsFbxData) const
+{
+	FCompMesh *MeshData = IsFbxData ? FbxData : CurrentData;
+	int32 MaterialIndex = IsFbxData ? FbxMaterialIndex : CurrentMaterialIndex;
+	bool bSkinxxDuplicate = IsFbxData ? bFbxSkinxxDuplicate : bCurrentSkinxxDuplicate;
+	bool bSkinxxMissing = IsFbxData ? bFbxSkinxxMissing : bCurrentSkinxxMissing;
+	if (!MeshData->CompMaterials.IsValidIndex(MaterialIndex))
+	{
+		return FText(LOCTEXT("GetCellString_InvalidIndex", "-"));
+	}
+
+	FString CellTooltip = TEXT("Material Slot Name: ") + MeshData->CompMaterials[MaterialIndex].MaterialSlotName.ToString();
 	if (bSkinxxDuplicate)
 	{
 		CellTooltip += TEXT(" (skinxx duplicate)");
@@ -450,16 +309,9 @@ TSharedRef<SWidget> FMaterialCompareData::ConstructCell(FCompMesh *MeshData, int
 	{
 		CellTooltip += TEXT(" (skinxx missing)");
 	}
-
-	return SNew(SBox)
-		.Padding(FMargin(5.0f, 0.0f, 0.0f, 0.0f))
-		[
-			SNew(STextBlock)
-			.Text(FText::FromString(CellContent))
-		.ToolTipText(FText::FromString(CellTooltip))
-		.ColorAndOpacity(this, MeshData == CurrentData ? &FMaterialCompareData::GetCurrentCellColor : &FMaterialCompareData::GetFbxCellColor)
-		];
+	return FText::FromString(CellTooltip);
 }
+
 
 FSlateColor FMaterialCompareData::GetCurrentCellColor() const
 {
@@ -468,7 +320,7 @@ FSlateColor FMaterialCompareData::GetCurrentCellColor() const
 
 TSharedRef<SWidget> FMaterialCompareData::ConstructCellCurrent()
 {
-	return ConstructCell(CurrentData, CurrentMaterialIndex, bCurrentSkinxxDuplicate, bCurrentSkinxxMissing);
+	return ConstructCell(CurrentData, CurrentMaterialIndex);
 }
 
 FSlateColor FMaterialCompareData::GetFbxCellColor() const
@@ -478,7 +330,7 @@ FSlateColor FMaterialCompareData::GetFbxCellColor() const
 
 TSharedRef<SWidget> FMaterialCompareData::ConstructCellFbx()
 {
-	return ConstructCell(FbxData, FbxMaterialIndex, bFbxSkinxxDuplicate, bFbxSkinxxMissing);
+	return ConstructCell(FbxData, FbxMaterialIndex);
 }
 
 void SFbxCompareWindow::FillGeneralListItem()
@@ -489,159 +341,11 @@ void SFbxCompareWindow::FillGeneralListItem()
 	GeneralListItem.Add(MakeShareable(new FString(FbxGeneralInfo.FileVersion)));
 	GeneralListItem.Add(MakeShareable(new FString(FbxGeneralInfo.AxisSystem)));
 	GeneralListItem.Add(MakeShareable(new FString(FbxGeneralInfo.UnitSystem)));
-	GeneralListItem.Add(MakeShareable(new FString(TEXT("Unskinned Mesh Count:    ") + FString::FromInt(FbxSceneInfo->NonSkinnedMeshNum))));
-	GeneralListItem.Add(MakeShareable(new FString(TEXT("Skinned Count:    ") + FString::FromInt(FbxSceneInfo->SkinnedMeshNum))));
-	GeneralListItem.Add(MakeShareable(new FString(TEXT("Material Count:    ") + FString::FromInt(FbxSceneInfo->TotalMaterialNum))));
-	FString HasAnimationStr = TEXT("Has Animation:    ");
-	HasAnimationStr += FbxSceneInfo->bHasAnimation ? TEXT("True") : TEXT("False");
-	GeneralListItem.Add(MakeShareable(new FString(HasAnimationStr)));
-	if (FbxSceneInfo->bHasAnimation)
-	{
-		TArray<FStringFormatArg> Args;
-		Args.Add(FbxSceneInfo->TotalTime);
-		FString AnimationTimeStr = FString::Format(TEXT("Animation Time:    {0}"), Args);
-		GeneralListItem.Add(MakeShareable(new FString(AnimationTimeStr)));
-
-		Args.Empty();
-		Args.Add(FbxSceneInfo->FrameRate);
-		FString AnimationRateStr = FString::Format(TEXT("Animation Rate:    {0}"), Args);
-		GeneralListItem.Add(MakeShareable(new FString(AnimationRateStr)));
-	}
-}
-
-/*
-* Return true if there is some skinxx error. Both array will be allocate to the size of the materials array of MeshData
-*/
-bool SFbxCompareWindow::FindSkinxxErrors(FCompMesh *MeshData, TArray<bool> &DuplicateSkinxxMaterialNames, TArray<bool> &MissingSkinxxSuffixeMaterialNames)
-{
-	MissingSkinxxSuffixeMaterialNames.Empty();
-	MissingSkinxxSuffixeMaterialNames.AddZeroed(MeshData->CompMaterials.Num());
-	DuplicateSkinxxMaterialNames.Empty();
-	DuplicateSkinxxMaterialNames.AddZeroed(MeshData->CompMaterials.Num());
-	TArray<int32> SkinxxErrorIndexes;
-	bool bContainSkinxxIndex = false;
-	for (FCompMaterial CompMaterial : MeshData->CompMaterials)
-	{
-		if (CompMaterial.ImportedMaterialSlotName == NAME_None)
-		{
-			continue;
-		}
-		FString ImportedMaterialName = CompMaterial.ImportedMaterialSlotName.ToString();
-		int32 Offset = ImportedMaterialName.Find(TEXT("_SKIN"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
-		if (Offset != INDEX_NONE)
-		{
-			FString SkinXXNumber = ImportedMaterialName.Right(ImportedMaterialName.Len() - (Offset + 1)).RightChop(4);
-			if (SkinXXNumber.IsNumeric())
-			{
-				bContainSkinxxIndex = true;
-				break;
-			}
-		}
-	}
-
-	//There is no skinxx suffixe, so no skinxx error
-	if (!bContainSkinxxIndex)
-	{
-		return false;
-	}
-
-	bool bContainSkinxxError = false;
-	for (int32 MaterialNamesIndex = 0; MaterialNamesIndex < MeshData->CompMaterials.Num(); ++MaterialNamesIndex)
-	{
-		FName MaterialName = MeshData->CompMaterials[MaterialNamesIndex].ImportedMaterialSlotName;
-		if (MaterialName == NAME_None)
-		{
-			MissingSkinxxSuffixeMaterialNames[MaterialNamesIndex] = true;
-			bContainSkinxxError = true;
-			continue;
-		}
-
-		FString ImportedMaterialName = MaterialName.ToString();
-		int32 Offset = ImportedMaterialName.Find(TEXT("_SKIN"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
-		if (Offset != INDEX_NONE)
-		{
-			FString SkinXXNumber = ImportedMaterialName.Right(ImportedMaterialName.Len() - (Offset + 1)).RightChop(4);
-
-			if (SkinXXNumber.IsNumeric())
-			{
-				int32 TmpIndex = FPlatformString::Atoi(*SkinXXNumber);
-				if (SkinxxErrorIndexes.Contains(TmpIndex))
-				{
-					DuplicateSkinxxMaterialNames[MaterialNamesIndex] = true;
-					bContainSkinxxError = true;
-				}
-				SkinxxErrorIndexes.Add(TmpIndex);
-			}
-			else
-			{
-				MissingSkinxxSuffixeMaterialNames[MaterialNamesIndex] = true;
-				bContainSkinxxError = true;
-			}
-		}
-		else
-		{
-			MissingSkinxxSuffixeMaterialNames[MaterialNamesIndex] = true;
-			bContainSkinxxError = true;
-		}
-	}
-	return bContainSkinxxError;
-}
-
-void SFbxCompareWindow::FillMaterialListItem()
-{
-	TArray<bool> CurrentDuplicateSkinxx;
-	TArray<bool> CurrentMissingSkinxxSuffixe;
-	FindSkinxxErrors(CurrentMeshData, CurrentDuplicateSkinxx, CurrentMissingSkinxxSuffixe);
-	
-	TArray<bool> FbxDuplicateSkinxx;
-	TArray<bool> FbxMissingSkinxxSuffixe;
-	FindSkinxxErrors(FbxMeshData, FbxDuplicateSkinxx, FbxMissingSkinxxSuffixe);
-
-	//Build the compare data to show in the UI
-	int32 MaterialCompareRowNumber = FMath::Max(CurrentMeshData->CompMaterials.Num(), FbxMeshData->CompMaterials.Num());
-	for (int32 RowIndex = 0; RowIndex < MaterialCompareRowNumber; ++RowIndex)
-	{
-		TSharedPtr<FMaterialCompareData> CompareRowData = MakeShareable(new FMaterialCompareData());
-		CompareRowData->RowIndex = CompareMaterialListItem.Add(CompareRowData);
-		CompareRowData->CurrentData = CurrentMeshData;
-		CompareRowData->FbxData = FbxMeshData;
-		
-		CompareRowData->bCurrentSkinxxDuplicate = CurrentDuplicateSkinxx.IsValidIndex(RowIndex) && CurrentDuplicateSkinxx[RowIndex];
-		CompareRowData->bCurrentSkinxxMissing = CurrentMissingSkinxxSuffixe.IsValidIndex(RowIndex) && CurrentMissingSkinxxSuffixe[RowIndex];
-		CompareRowData->bFbxSkinxxDuplicate = FbxDuplicateSkinxx.IsValidIndex(RowIndex) && FbxDuplicateSkinxx[RowIndex];
-		CompareRowData->bFbxSkinxxDuplicate = FbxMissingSkinxxSuffixe.IsValidIndex(RowIndex) && FbxMissingSkinxxSuffixe[RowIndex];
-
-		CompareRowData->CompareDisplayOption = FMaterialCompareData::All;
-		if (CurrentMeshData->CompMaterials.IsValidIndex(RowIndex))
-		{
-			CompareRowData->CurrentMaterialIndex = RowIndex;
-			for (int32 FbxMaterialIndex = 0; FbxMaterialIndex < FbxMeshData->CompMaterials.Num(); ++FbxMaterialIndex)
-			{
-				if (FbxMeshData->CompMaterials[FbxMaterialIndex].ImportedMaterialSlotName == CurrentMeshData->CompMaterials[RowIndex].ImportedMaterialSlotName)
-				{
-					CompareRowData->CurrentMaterialMatch = FbxMaterialIndex;
-					break;
-				}
-			}
-		}
-		if (FbxMeshData->CompMaterials.IsValidIndex(RowIndex))
-		{
-			CompareRowData->FbxMaterialIndex = RowIndex;
-			for (int32 CurrentMaterialIndex = 0; CurrentMaterialIndex < CurrentMeshData->CompMaterials.Num(); ++CurrentMaterialIndex)
-			{
-				if (CurrentMeshData->CompMaterials[CurrentMaterialIndex].ImportedMaterialSlotName == FbxMeshData->CompMaterials[RowIndex].ImportedMaterialSlotName)
-				{
-					CompareRowData->FbxMaterialMatch = CurrentMaterialIndex;
-					break;
-				}
-			}
-		}
-	}
 }
 
 TSharedPtr<SWidget> SFbxCompareWindow::ConstructSkeletonComparison()
 {
-	if (!PreviewObject->IsA(USkeletalMesh::StaticClass()))
+	if (!ResultObject->IsA(USkeletalMesh::StaticClass()))
 	{
 		//Return an empty widget, we do not show the skeleton when the mesh is not a skeletal mesh
 		return SNew(SBox);
@@ -653,7 +357,7 @@ TSharedPtr<SWidget> SFbxCompareWindow::ConstructSkeletonComparison()
 		SkeletonStatusTooltip += TEXT("Skeleton is references by ") + FString::FromInt(AssetReferencingSkeleton.Num()) + TEXT(" assets.");
 	}
 	
-	FText SkeletonStatus = FText(FbxMeshData->CompSkeleton.bSkeletonFitMesh ? LOCTEXT("SFbxCompareWindow_ConstructSkeletonComparison_MatchAndMerge", "The skeleton can be merged") : LOCTEXT("SFbxCompareWindow_ConstructSkeletonComparison_CannotMatchAndMerge", "The skeleton must be regenerated, it cannot be merged"));
+	FText SkeletonStatus = FText(ResultData->CompSkeleton.bSkeletonFitMesh ? LOCTEXT("SFbxCompareWindow_ConstructSkeletonComparison_MatchAndMerge", "The skeleton can be merged") : LOCTEXT("SFbxCompareWindow_ConstructSkeletonComparison_CannotMatchAndMerge", "The skeleton must be regenerated, it cannot be merged"));
 	
 	CompareTree = SNew(STreeView< TSharedPtr<FSkeletonCompareData> >)
 		.ItemHeight(24)
@@ -717,7 +421,7 @@ TSharedPtr<SWidget> SFbxCompareWindow::ConstructSkeletonComparison()
 							.Font(FEditorStyle::GetFontStyle("DetailsView.CategoryFontStyle"))
 							.Text(SkeletonStatus)
 							.ToolTipText(FText::FromString(SkeletonStatusTooltip))
-							.ColorAndOpacity(FbxMeshData->CompSkeleton.bSkeletonFitMesh ? FSlateColor::UseForeground() : FSlateColor(FLinearColor(0.7f, 0.3f, 0.0f)))
+							.ColorAndOpacity(ResultData->CompSkeleton.bSkeletonFitMesh ? FSlateColor::UseForeground() : FSlateColor(FLinearColor(0.7f, 0.3f, 0.0f)))
 						]
 						+SVerticalBox::Slot()
 						.AutoHeight()
@@ -766,14 +470,14 @@ public:
 
 	SLATE_BEGIN_ARGS(SCompareSkeletonTreeViewItem)
 		: _SkeletonCompareData(nullptr)
-		, _CurrentMeshData(nullptr)
-		, _FbxMeshData(nullptr)
+		, _SourceData(nullptr)
+		, _ResultData(nullptr)
 	{}
 
 	/** The item content. */
 	SLATE_ARGUMENT(TSharedPtr<FSkeletonCompareData>, SkeletonCompareData)
-	SLATE_ARGUMENT(FCompMesh*, CurrentMeshData)
-	SLATE_ARGUMENT(FCompMesh*, FbxMeshData)
+	SLATE_ARGUMENT(FCompMesh*, SourceData)
+	SLATE_ARGUMENT(FCompMesh*, ResultData)
 	SLATE_END_ARGS()
 
 	/**
@@ -784,13 +488,13 @@ public:
 	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView)
 	{
 		SkeletonCompareData = InArgs._SkeletonCompareData;
-		CurrentMeshData = InArgs._CurrentMeshData;
-		FbxMeshData = InArgs._FbxMeshData;
+		SourceData = InArgs._SourceData;
+		ResultData = InArgs._ResultData;
 
 		//This is suppose to always be valid
 		check(SkeletonCompareData.IsValid());
-		check(CurrentMeshData != nullptr);
-		check(FbxMeshData != nullptr);
+		check(SourceData != nullptr);
+		check(ResultData != nullptr);
 
 		const FSlateBrush* JointIcon = SkeletonCompareData->bMatchJoint ? FEditorStyle::GetDefaultBrush() : SkeletonCompareData->FbxJointIndex != INDEX_NONE ? FEditorStyle::GetBrush("FBXIcon.ReimportCompareAdd") : FEditorStyle::GetBrush("FBXIcon.ReimportCompareRemoved");
 
@@ -836,8 +540,8 @@ public:
 private:
 	/** The node info to build the tree view row from. */
 	TSharedPtr<FSkeletonCompareData> SkeletonCompareData;
-	FCompMesh *CurrentMeshData;
-	FCompMesh *FbxMeshData;
+	FCompMesh *SourceData;
+	FCompMesh *ResultData;
 };
 
 
@@ -845,8 +549,8 @@ TSharedRef<ITableRow> SFbxCompareWindow::OnGenerateRowCompareTreeView(TSharedPtr
 {
 	TSharedRef< SCompareSkeletonTreeViewItem > ReturnRow = SNew(SCompareSkeletonTreeViewItem, Table)
 		.SkeletonCompareData(RowData)
-		.CurrentMeshData(CurrentMeshData)
-		.FbxMeshData(FbxMeshData);
+		.SourceData(SourceData)
+		.ResultData(ResultData);
 	return ReturnRow;
 }
 
@@ -881,24 +585,24 @@ TSharedRef<ITableRow> SFbxCompareWindow::OnGenerateRowAssetReferencingSkeleton(T
 void SFbxCompareWindow::FilSkeletonTreeItem()
 {
 	//Create all the entries
-	for (int32 RowIndex = 0; RowIndex < CurrentMeshData->CompSkeleton.Joints.Num(); ++RowIndex)
+	for (int32 RowIndex = 0; RowIndex < SourceData->CompSkeleton.Joints.Num(); ++RowIndex)
 	{
 		TSharedPtr<FSkeletonCompareData> CompareRowData = MakeShareable(new FSkeletonCompareData());
 		int32 AddedIndex = CurrentSkeletonTreeItem.Add(CompareRowData);
 		check(AddedIndex == RowIndex);
 		CompareRowData->CurrentJointIndex = RowIndex;
-		CompareRowData->JointName = CurrentMeshData->CompSkeleton.Joints[RowIndex].Name;
-		CompareRowData->ChildJointIndexes = CurrentMeshData->CompSkeleton.Joints[RowIndex].ChildIndexes;
+		CompareRowData->JointName = SourceData->CompSkeleton.Joints[RowIndex].Name;
+		CompareRowData->ChildJointIndexes = SourceData->CompSkeleton.Joints[RowIndex].ChildIndexes;
 	}
 
 	//Set the childrens and parent pointer
-	for (int32 RowIndex = 0; RowIndex < CurrentMeshData->CompSkeleton.Joints.Num(); ++RowIndex)
+	for (int32 RowIndex = 0; RowIndex < SourceData->CompSkeleton.Joints.Num(); ++RowIndex)
 	{
 		check(CurrentSkeletonTreeItem.IsValidIndex(RowIndex));
 		TSharedPtr<FSkeletonCompareData> CompareRowData = CurrentSkeletonTreeItem[RowIndex];
-		if (CurrentSkeletonTreeItem.IsValidIndex(CurrentMeshData->CompSkeleton.Joints[RowIndex].ParentIndex))
+		if (CurrentSkeletonTreeItem.IsValidIndex(SourceData->CompSkeleton.Joints[RowIndex].ParentIndex))
 		{
-			CompareRowData->ParentJoint = CurrentSkeletonTreeItem[CurrentMeshData->CompSkeleton.Joints[RowIndex].ParentIndex];
+			CompareRowData->ParentJoint = CurrentSkeletonTreeItem[SourceData->CompSkeleton.Joints[RowIndex].ParentIndex];
 		}
 		
 		for (int32 ChildJointIndex = 0; ChildJointIndex < CompareRowData->ChildJointIndexes.Num(); ++ChildJointIndex)
@@ -910,24 +614,24 @@ void SFbxCompareWindow::FilSkeletonTreeItem()
 		}
 	}
 
-	for (int32 RowIndex = 0; RowIndex < FbxMeshData->CompSkeleton.Joints.Num(); ++RowIndex)
+	for (int32 RowIndex = 0; RowIndex < ResultData->CompSkeleton.Joints.Num(); ++RowIndex)
 	{
 		TSharedPtr<FSkeletonCompareData> CompareRowData = MakeShareable(new FSkeletonCompareData());
 		int32 AddedIndex = FbxSkeletonTreeItem.Add(CompareRowData);
 		check(AddedIndex == RowIndex);
 		CompareRowData->FbxJointIndex = RowIndex;
-		CompareRowData->JointName = FbxMeshData->CompSkeleton.Joints[RowIndex].Name;
-		CompareRowData->ChildJointIndexes = FbxMeshData->CompSkeleton.Joints[RowIndex].ChildIndexes;
+		CompareRowData->JointName = ResultData->CompSkeleton.Joints[RowIndex].Name;
+		CompareRowData->ChildJointIndexes = ResultData->CompSkeleton.Joints[RowIndex].ChildIndexes;
 	}
 
 	//Set the childrens and parent pointer
-	for (int32 RowIndex = 0; RowIndex < FbxMeshData->CompSkeleton.Joints.Num(); ++RowIndex)
+	for (int32 RowIndex = 0; RowIndex < ResultData->CompSkeleton.Joints.Num(); ++RowIndex)
 	{
 		check(FbxSkeletonTreeItem.IsValidIndex(RowIndex));
 		TSharedPtr<FSkeletonCompareData> CompareRowData = FbxSkeletonTreeItem[RowIndex];
-		if (FbxSkeletonTreeItem.IsValidIndex(FbxMeshData->CompSkeleton.Joints[RowIndex].ParentIndex))
+		if (FbxSkeletonTreeItem.IsValidIndex(ResultData->CompSkeleton.Joints[RowIndex].ParentIndex))
 		{
-			CompareRowData->ParentJoint = FbxSkeletonTreeItem[FbxMeshData->CompSkeleton.Joints[RowIndex].ParentIndex];
+			CompareRowData->ParentJoint = FbxSkeletonTreeItem[ResultData->CompSkeleton.Joints[RowIndex].ParentIndex];
 		}
 
 		for (int32 ChildJointIndex = 0; ChildJointIndex < CompareRowData->ChildJointIndexes.Num(); ++ChildJointIndex)

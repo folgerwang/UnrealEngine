@@ -519,7 +519,6 @@ void UGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 	ApplyNonResolutionSettings();
 
 	SaveSettings();
-	UE_LOG(LogConsoleResponse, Display, TEXT(""));
 }
 
 void UGameUserSettings::LoadSettings( bool bForceReload/*=false*/ )

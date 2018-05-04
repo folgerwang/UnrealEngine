@@ -397,6 +397,12 @@ namespace UnrealBuildTool
 				Result += " -dynamiclib";
 			}
 
+			if (LinkEnvironment.Configuration == CppConfiguration.Debug)
+			{
+				// Apple's Clang is not supposed to run the de-duplication pass when linking in debug configs. Xcode adds this flag automatically, we need it as well, otherwise linking would take very long
+				Result += " -Wl,-no_deduplicate";
+			}
+
 			// Needed to make sure install_name_tool will be able to update paths in Mach-O headers
 			Result += " -headerpad_max_install_names";
 
@@ -1354,7 +1360,10 @@ namespace UnrealBuildTool
 				Settings.ToolchainDir,
 				InputFile.AbsolutePath,
 				DestFile.AbsolutePath);
-			GenDebugAction.PrerequisiteItems.Add(FixDylibOutputFile);
+			if (LinkEnvironment.bIsCrossReferenced)
+			{
+				GenDebugAction.PrerequisiteItems.Add(FixDylibOutputFile);
+			}
 			GenDebugAction.PrerequisiteItems.Add(LocalToRemoteFileItem(InputFile, false));
 			GenDebugAction.ProducedItems.Add(DestFile);
 			GenDebugAction.CommandDescription = "";
@@ -1500,17 +1509,18 @@ namespace UnrealBuildTool
 
 				foreach (KeyValuePair<FileReference, BuildProductType> BuildProductPair in BuildProductsArray)
 				{
-					string DebugExtension = "";
+					string[] DebugExtensions = new string[] {};
 					switch (BuildProductPair.Value)
 					{
 						case BuildProductType.Executable:
-							DebugExtension = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtension(Target, UEBuildBinaryType.Executable);
+							DebugExtensions = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtensions(Target, UEBuildBinaryType.Executable);
 							break;
 						case BuildProductType.DynamicLibrary:
-							DebugExtension = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtension(Target, UEBuildBinaryType.DynamicLinkLibrary);
+							DebugExtensions = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtensions(Target, UEBuildBinaryType.DynamicLinkLibrary);
 							break;
 					}
-					if (DebugExtension == ".dSYM")
+					string DSYMExtension = Array.Find(DebugExtensions, element => element == ".dSYM");
+					if (!string.IsNullOrEmpty(DSYMExtension))
 					{
 						string BinaryPath = BuildProductPair.Key.FullName;
 						if(BinaryPath.Contains(".app"))
@@ -1520,7 +1530,7 @@ namespace UnrealBuildTool
 								BinaryPath = Path.GetDirectoryName(BinaryPath);
 							}
 							BinaryPath = Path.Combine(BinaryPath, BuildProductPair.Key.GetFileName());
-							BinaryPath = Path.ChangeExtension(BinaryPath, DebugExtension);
+							BinaryPath = Path.ChangeExtension(BinaryPath, DSYMExtension);
 							FileReference Ref = new FileReference(BinaryPath);
 							BuildProducts[Ref] = BuildProductType.SymbolFile;
 						}
@@ -1615,8 +1625,8 @@ namespace UnrealBuildTool
 				{
 					BuiltBinaries.Add(Path.GetFullPath(Binary.ToString()));
 
-					string DebugExtension = UEBuildPlatform.GetBuildPlatform(InTarget.Platform).GetDebugInfoExtension(InTarget.Rules, Binary.Type);
-					if (DebugExtension == ".dSYM")
+					string[] DebugExtensions = UEBuildPlatform.GetBuildPlatform(InTarget.Platform).GetDebugInfoExtensions(InTarget.Rules, Binary.Type);
+					if (Array.Exists(DebugExtensions, element => element == ".dSYM"))
 					{
 						Dictionary<FileReference, BuildProductType> BuildProducts = AllBuildProducts[Binary];
 						foreach (KeyValuePair<FileReference, BuildProductType> BuildProductPair in BuildProducts)

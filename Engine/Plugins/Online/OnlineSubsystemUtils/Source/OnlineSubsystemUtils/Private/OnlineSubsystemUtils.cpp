@@ -160,7 +160,7 @@ void ApplyVoiceSettings(UVoipListenerSynthComponent* InSynthComponent, const FVo
 UWorld* GetWorldForOnline(FName InstanceName)
 {
 	UWorld* World = NULL;
-#ifdef WITH_EDITOR
+#if WITH_EDITOR
 	if (InstanceName != FOnlineSubsystemImpl::DefaultInstanceName && InstanceName != NAME_None)
 	{
 		FWorldContext& WorldContext = GEngine->GetWorldContextFromHandleChecked(InstanceName);

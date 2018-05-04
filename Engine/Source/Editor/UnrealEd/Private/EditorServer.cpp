@@ -3147,7 +3147,7 @@ bool UEditorEngine::CanCopySelectedActorsToClipboard( UWorld* InWorld, FCopySele
 	return false;
 }
 
-void UEditorEngine::CopySelectedActorsToClipboard( UWorld* InWorld, bool bShouldCut, bool bIsMove, bool bWarnAboutReferences)
+void UEditorEngine::CopySelectedActorsToClipboard( UWorld* InWorld, bool bShouldCut, bool bIsMove, bool bWarnAboutReferences )
 {
 	FCopySelectedInfo CopySelected;
 	if ( !CanCopySelectedActorsToClipboard( InWorld, &CopySelected ) )

@@ -24,7 +24,7 @@ UGraphEditorSettings::UGraphEditorSettings( const FObjectInitializer& ObjectInit
 	, ForwardSplineTangentFromVerticalDelta(1.0f, 0.0f)
 	, BackwardSplineHorizontalDeltaRange(200.0f)
 	, BackwardSplineVerticalDeltaRange(200.0f)
-	, BackwardSplineTangentFromHorizontalDelta(3.0f, 0.0f)
+	, BackwardSplineTangentFromHorizontalDelta(2.0f, 0.0f)
 	, BackwardSplineTangentFromVerticalDelta(1.5f, 0.0f)
 {
 	DataPinStyle = BPST_VariantA;
@@ -52,16 +52,16 @@ UGraphEditorSettings::UGraphEditorSettings( const FObjectInitializer& ObjectInit
 	TransformPinTypeColor = FLinearColor(1.0f, 0.172585f, 0.0f, 1.0f);			// orange
 	IndexPinTypeColor = FLinearColor(0.013575f, 0.770000f, 0.429609f, 1.0f);	// green-blue
 
-	DefaultDataWireThickness = 1.0f;
-	DefaultExecutionWireThickness = 3.0f;
+	DefaultDataWireThickness = 1.5f;
+	DefaultExecutionWireThickness = 2.5f;
 
 	// graph debugging visuals
 	TraceAttackColor = FLinearColor(1.0f, 0.05f, 0.0f, 1.0f);
-	TraceAttackWireThickness = 12.0f;
+	TraceAttackWireThickness = 6.0f;
 	TraceSustainColor = FLinearColor(1.0f, 0.7f, 0.4f, 1.0f);
-	TraceSustainWireThickness = 8.0f;
+	TraceSustainWireThickness = 3.5f;
 	TraceReleaseColor = FLinearColor(0.5f, 0.5f, 0.5f, 1.0f);
-	TraceReleaseWireThickness = 2.0f;
+	TraceReleaseWireThickness = 1.5f;
 
 	// graph debugging exec curve constants
 	TracePositionBonusPeriod = 0.5f;

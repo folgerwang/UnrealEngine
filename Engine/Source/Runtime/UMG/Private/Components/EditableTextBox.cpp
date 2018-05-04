@@ -138,6 +138,15 @@ void UEditableTextBox::SetIsReadOnly(bool bReadOnly)
 	}
 }
 
+void UEditableTextBox::SetIsPassword(bool bIsPassword)
+{
+	IsPassword = bIsPassword;
+	if (MyEditableTextBlock.IsValid())
+	{
+		MyEditableTextBlock->SetIsPassword(IsPassword);
+	}
+}
+
 void UEditableTextBox::ClearError()
 {
 	if ( MyEditableTextBlock.IsValid() )

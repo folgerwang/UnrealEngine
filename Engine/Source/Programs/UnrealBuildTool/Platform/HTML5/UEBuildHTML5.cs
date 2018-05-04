@@ -105,14 +105,14 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Get the extension to use for debug info for the given binary type
+		/// Get the extensions to use for debug info for the given binary type
 		/// </summary>
 		/// <param name="InTarget">The target being built</param>
 		/// <param name="InBinaryType"> The binary type being built</param>
-		/// <returns>string    The debug info extension (i.e. 'pdb')</returns>
-		public override string GetDebugInfoExtension(ReadOnlyTargetRules InTarget, UEBuildBinaryType InBinaryType)
+		/// <returns>string[]    The debug info extensions (i.e. 'pdb')</returns>
+		public override string[] GetDebugInfoExtensions(ReadOnlyTargetRules InTarget, UEBuildBinaryType InBinaryType)
 		{
-			return "";
+			return new string [] {};
 		}
 
 		/// <summary>

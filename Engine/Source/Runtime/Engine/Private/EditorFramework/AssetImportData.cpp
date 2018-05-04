@@ -191,7 +191,8 @@ FString UAssetImportData::SanitizeImportFilename(const FString& InPath) const
 		const FString	AbsolutePath = FPaths::ConvertRelativePathToFull(InPath);
 
 		if ((MountPoint == FName("Engine") && AbsolutePath.StartsWith(FPaths::ConvertRelativePathToFull(FPaths::EngineContentDir()))) ||
-			(MountPoint == FName("Game") &&	AbsolutePath.StartsWith(FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()))))
+			(MountPoint == FName("Game") &&	AbsolutePath.StartsWith(FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()))) ||
+			(AbsolutePath.StartsWith(FPaths::ConvertRelativePathToFull(FPaths::ProjectPluginsDir()).Append(MountPoint.ToString()))))
 		{
 			FString RelativePath = InPath;
 			FPaths::MakePathRelativeTo(RelativePath, *PackageFilename);

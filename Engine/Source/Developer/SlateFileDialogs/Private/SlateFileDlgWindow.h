@@ -163,6 +163,7 @@ private:
 	void OnItemDoubleClicked(TSharedPtr<FFileEntry> Item);
 
 	void OnFilterChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
+	bool IsAcceptEnabled() const;
 	FReply OnAcceptCancelClick(FSlateFileDlgWindow::EResult ButtonID);
 	FReply OnQuickLinkClick(FSlateFileDlgWindow::EResult ButtonID);
 	FReply OnDirSublevelClick(int32 Level);

@@ -16,6 +16,10 @@
 #include "ObjectTools.h"
 #include "AssetRegistryModule.h"
 #include "SAssetView.h"
+#include "Modules/ModuleManager.h"
+#include "ContentBrowserModule.h"
+#include "MRUFavoritesList.h"
+#include "Settings/ContentBrowserSettings.h"
 
 /** Helper functions for frontend filters */
 namespace FrontendFilterHelper
@@ -1127,4 +1131,49 @@ void FFrontendFilter_NotUsedInAnyLevel::ActiveStateChanged(bool bActive)
 bool FFrontendFilter_NotUsedInAnyLevel::PassesFilter(FAssetFilterType InItem) const
 {
 	return !LevelsDependencies.Contains(InItem.PackageName);
+}
+
+
+/////////////////////////////////////////
+// FFrontendFilter_Recent
+/////////////////////////////////////////
+
+FFrontendFilter_Recent::FFrontendFilter_Recent(TSharedPtr<FFrontendFilterCategory> InCategory)
+	: FFrontendFilter(InCategory)
+	, bIsCurrentlyActive(false)
+{
+	UContentBrowserSettings::OnSettingChanged().AddRaw(this, &FFrontendFilter_Recent::ResetFilter);
+}
+
+FFrontendFilter_Recent::~FFrontendFilter_Recent()
+{
+	UContentBrowserSettings::OnSettingChanged().RemoveAll(this);
+}
+
+void FFrontendFilter_Recent::ActiveStateChanged(bool bActive)
+{
+	bIsCurrentlyActive = bActive;
+}
+
+bool FFrontendFilter_Recent::PassesFilter(FAssetFilterType InItem) const
+{
+	FString PackagePath = InItem.PackageName.ToString();
+	FContentBrowserModule& CBModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+	FMainMRUFavoritesList* RecentlyOpenedAssets = CBModule.GetRecentlyOpenedAssets();
+	if (RecentlyOpenedAssets)
+	{
+		if (RecentlyOpenedAssets->FindMRUItemIdx(PackagePath) != INDEX_NONE)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void FFrontendFilter_Recent::ResetFilter(FName InName)
+{
+	if (InName == FContentBrowserModule::NumberOfRecentAssetsName)
+	{
+		BroadcastChangedEvent();
+	}
 }

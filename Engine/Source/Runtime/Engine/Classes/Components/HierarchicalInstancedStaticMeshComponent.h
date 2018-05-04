@@ -97,8 +97,13 @@ class ENGINE_API UHierarchicalInstancedStaticMeshComponent : public UInstancedSt
 	UPROPERTY()
 	uint32 bEnableDensityScaling:1;
 
-	// Which instances have been removed by foliage density scaling?
-	TBitArray<> ExcludedDueToDensityScaling;
+	// Current value of density scaling applied to this component
+	float CurrentDensityScaling;
+
+#if WITH_EDITOR
+	// in Editor mode we might disable the density scaling for edition
+	bool bCanEnableDensityScaling;
+#endif
 
 	// The number of nodes in the occlusion layer
 	UPROPERTY()
@@ -124,9 +129,9 @@ public:
 	//Begin UObject Interface
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void Serialize(FArchive& Ar) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
-	virtual void PostLoad() override;
 	virtual FBoxSphereBounds CalcBounds(const FTransform& BoundTransform) const override;
 #if WITH_EDITOR
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
@@ -155,21 +160,28 @@ public:
 
 	bool BuildTreeIfOutdated(bool Async, bool ForceUpdate);
 	static void BuildTreeAnyThread(TArray<FMatrix>& InstanceTransforms, const FBox& MeshBox, TArray<FClusterNode>& OutClusterTree, TArray<int32>& OutSortedInstances, TArray<int32>& OutInstanceReorderTable, int32& OutOcclusionLayerNum, int32 MaxInstancesPerLeaf );
-	void AcceptPrebuiltTree(TArray<FClusterNode>& InClusterTree, int InOcclusionLayerNumNodes);
+	void AcceptPrebuiltTree(TArray<FClusterNode>& InClusterTree, int32 InOcclusionLayerNumNodes, int32 InNumBuiltRenderInstances);
 	bool IsAsyncBuilding() const { return bIsAsyncBuilding; }
-	bool IsTreeFullyBuilt() const { return NumBuiltInstances == PerInstanceSMData.Num() && RemovedInstances.Num() == 0; }
+	bool IsTreeFullyBuilt() const { return NumBuiltInstances == PerInstanceSMData.Num(); }
 
 	/** Heuristic for the number of leaves in the tree **/
 	int32 DesiredInstancesPerLeaf();
 
 	virtual void ApplyComponentInstanceData(class FInstancedStaticMeshComponentInstanceData* InstancedMeshData) override;
+	
+	// Number of instances in the render-side instance buffer
+	virtual int32 GetNumRenderInstances() const { return SortedInstances.Num(); }
+
+	/** Will apply current density scaling, if enabled **/
+	void UpdateDensityScaling();
 
 protected:
 	void BuildTree();
 	void BuildTreeAsync();
+	void SetPerInstanceLightMapAndEditorData(FStaticMeshInstanceData& PerInstanceData, const TArray<TRefCountPtr<HHitProxy>>& HitProxies);
 
-	/** Removes a single instance without extra work such as rebuilding the tree or marking render state dirty. */
-	void RemoveInstanceInternal(int32 InstanceIndex);
+	/** Removes specified instances */ 
+	void RemoveInstancesInternal(const int32* InstanceIndices, int32 Num);
 	
 	/** Gets and approximate number of verts for each LOD to generate heuristics **/
 	int32 GetVertsForLOD(int32 LODIndex);
@@ -178,10 +190,14 @@ protected:
 	/** For testing, prints some stats after any kind of build **/
 	void PostBuildStats();
 
+	virtual void OnPostLoadPerInstanceData() override;
+
 	virtual void GetNavigationPerInstanceTransforms(const FBox& AreaBox, TArray<FTransform>& InstanceData) const override;
 	virtual void PartialNavigationUpdate(int32 InstanceIdx) override;
 	void FlushAccumulatedNavigationUpdates();
 	mutable FBox AccumulatedNavigationDirtyArea;
+
+	FGraphEventArray BuildTreeAsyncTasks;
 
 protected:
 	friend FStaticLightingTextureMapping_InstancedStaticMesh;

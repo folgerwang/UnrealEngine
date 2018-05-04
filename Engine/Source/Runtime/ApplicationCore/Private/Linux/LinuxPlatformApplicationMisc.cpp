@@ -233,7 +233,7 @@ void UngrabAllInputImpl()
 			SDL_SetWindowGrab(GrabbedWindow, SDL_FALSE);
 			SDL_SetKeyboardGrab(GrabbedWindow, SDL_FALSE);
 		}
-
+		SDL_ConfineCursor(nullptr, nullptr);
 		SDL_CaptureMouse(SDL_FALSE);
 	}
 }
@@ -272,6 +272,13 @@ bool FLinuxPlatformApplicationMisc::InitSDL()
 		UE_LOG(LogInit, Log, TEXT("Initializing SDL."));
 
 		SDL_SetHint("SDL_VIDEO_X11_REQUIRE_XRANDR", "1");  // workaround for misbuilt SDL libraries on X11.
+
+		// The following hints are needed when FLinuxApplication::SetHighPrecisionMouseMode is called and Enable = true.
+		// SDL_SetRelativeMouseMode when enabled is warping the mouse in default mode but we don't want that. 
+		// Furthermore SDL hides the mouse which we prevent with extending SDL with a new hint.
+		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_SHOW_CURSOR, "1"); // When relative mouse mode is acive, don't hide cursor.
+		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "0"); // Don't warp the cursor to the center in relative mouse mode.
+
 		// we don't use SDL for audio
 		if (SDL_Init((SDL_INIT_EVERYTHING ^ SDL_INIT_AUDIO) | SDL_INIT_NOPARACHUTE) != 0)
 		{
@@ -282,17 +289,6 @@ bool FLinuxPlatformApplicationMisc::InitSDL()
 				UE_LOG(LogInit, Warning, TEXT("Could not initialize SDL: %s"), *ErrorMessage);
 			}
 			return false;
-		}
-
-		if (FParse::Param(FCommandLine::Get(), TEXT("vulkan")))
-		{
-			GWindowStyleSDL = SDL_WINDOW_VULKAN;
-			UE_LOG(LogInit, Log, TEXT("Using SDL_WINDOW_VULKAN"));
-		}
-		else
-		{
-			GWindowStyleSDL = SDL_WINDOW_OPENGL;
-			UE_LOG(LogInit, Log, TEXT("Using SDL_WINDOW_OPENGL"));
 		}
 
 		// print out version information
@@ -307,6 +303,25 @@ bool FLinuxPlatformApplicationMisc::InitSDL()
 			SdlRevisionNum, *SdlRevision,
 			CompileTimeSDLVersion.major, CompileTimeSDLVersion.minor, CompileTimeSDLVersion.patch
 			);
+
+		if (FParse::Param(FCommandLine::Get(), TEXT("vulkan")))
+		{
+			GWindowStyleSDL = SDL_WINDOW_VULKAN;
+			UE_LOG(LogInit, Log, TEXT("Using SDL_WINDOW_VULKAN"));
+		}
+		else
+		{
+			GWindowStyleSDL = SDL_WINDOW_OPENGL;
+			UE_LOG(LogInit, Log, TEXT("Using SDL_WINDOW_OPENGL"));
+		}
+
+		char const* SdlVideoDriver = SDL_GetCurrentVideoDriver();
+		if (SdlVideoDriver)
+		{
+			UE_LOG(LogInit, Log, TEXT("Using SDL video driver '%s'"),
+				UTF8_TO_TCHAR(SdlVideoDriver)
+			);
+		}
 
 		// Used to make SDL push SDL_TEXTINPUT events.
 		SDL_StartTextInput();
@@ -353,7 +368,6 @@ void FLinuxPlatformApplicationMisc::LoadPreInitModules()
 void FLinuxPlatformApplicationMisc::LoadStartupModules()
 {
 #if !IS_PROGRAM && !UE_SERVER
-	FModuleManager::Get().LoadModule(TEXT("ALAudio"));	// added in Launch.Build.cs for non-server targets
 	FModuleManager::Get().LoadModule(TEXT("AudioMixerSDL"));	// added in Launch.Build.cs for non-server targets
 	FModuleManager::Get().LoadModule(TEXT("HeadMountedDisplay"));
 #endif // !IS_PROGRAM && !UE_SERVER

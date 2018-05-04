@@ -124,6 +124,10 @@ private:
 	void RemoveClothing(int32 InLodIndex, int32 InSectionIndex);
 	//////////////////////////////////////////////////////////////////////////
 
+	// Generate LOD sections menu handlers
+	void OnRemoveSectionFromLodAndBelowMenuItemClicked(int32 LodIndex, int32 SectionIndex);
+	//////////////////////////////////////////////////////////////////////////
+
 private:
 	void ExtendMenu();
 

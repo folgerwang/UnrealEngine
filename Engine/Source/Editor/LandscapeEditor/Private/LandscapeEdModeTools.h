@@ -596,137 +596,21 @@ private:
 	int32 ValidX1, ValidX2, ValidY1, ValidY2;
 };
 
-//
-// FHeightmapAccessor
-//
 template<bool bInUseInterp>
-struct FHeightmapAccessor
+struct FHeightmapAccessorTool : public FHeightmapAccessor<bInUseInterp>
 {
-	enum { bUseInterp = bInUseInterp };
-	FHeightmapAccessor(ULandscapeInfo* InLandscapeInfo)
-	{
-		LandscapeInfo = InLandscapeInfo;
-		LandscapeEdit = new FLandscapeEditDataInterface(InLandscapeInfo);
-	}
-
-	FHeightmapAccessor(const FLandscapeToolTarget& InTarget)
-		: FHeightmapAccessor(InTarget.LandscapeInfo.Get())
+	FHeightmapAccessorTool(const FLandscapeToolTarget& InTarget)
+	:	FHeightmapAccessor<bInUseInterp>(InTarget.LandscapeInfo.Get())
 	{
 	}
-
-	// accessors
-	void GetData(int32& X1, int32& Y1, int32& X2, int32& Y2, TMap<FIntPoint, uint16>& Data)
-	{
-		LandscapeEdit->GetHeightData(X1, Y1, X2, Y2, Data);
-	}
-
-	void GetDataFast(int32 X1, int32 Y1, int32 X2, int32 Y2, TMap<FIntPoint, uint16>& Data)
-	{
-		LandscapeEdit->GetHeightDataFast(X1, Y1, X2, Y2, Data);
-	}
-
-	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint16* Data, ELandscapeLayerPaintingRestriction PaintingRestriction = ELandscapeLayerPaintingRestriction::None)
-	{
-		TSet<ULandscapeComponent*> Components;
-		if (LandscapeInfo && LandscapeEdit->GetComponentsInRegion(X1, Y1, X2, Y2, &Components))
-		{
-			// Update data
-			ChangedComponents.Append(Components);
-
-			for (ULandscapeComponent* Component : Components)
-			{
-				Component->InvalidateLightingCache();
-			}
-
-			// Flush dynamic foliage (grass)
-			ALandscapeProxy::InvalidateGeneratedComponentData(Components);
-
-			// Notify foliage to move any attached instances
-			bool bUpdateFoliage = false;
-			for (ULandscapeComponent* Component : Components)
-			{
-				ULandscapeHeightfieldCollisionComponent* CollisionComponent = Component->CollisionComponent.Get();
-				if (CollisionComponent && AInstancedFoliageActor::HasFoliageAttached(CollisionComponent))
-				{
-					bUpdateFoliage = true;
-					break;
-				}
-			}
-
-			if (bUpdateFoliage)
-			{
-				// Calculate landscape local-space bounding box of old data, to look for foliage instances.
-				TArray<ULandscapeHeightfieldCollisionComponent*> CollisionComponents;
-				CollisionComponents.Empty(Components.Num());
-				TArray<FBox> PreUpdateLocalBoxes;
-				PreUpdateLocalBoxes.Empty(Components.Num());
-
-				for (ULandscapeComponent* Component : Components)
-				{
-					ULandscapeHeightfieldCollisionComponent* CollisionComponent = Component->CollisionComponent.Get();
-					if (CollisionComponent)
-					{
-						CollisionComponents.Add(CollisionComponent);
-						PreUpdateLocalBoxes.Add(FBox(FVector((float)X1, (float)Y1, Component->CachedLocalBox.Min.Z), FVector((float)X2, (float)Y2, Component->CachedLocalBox.Max.Z)));
-					}
-				}
-
-				// Update landscape.
-				LandscapeEdit->SetHeightData(X1, Y1, X2, Y2, Data, 0, true);
-
-				// Snap foliage for each component.
-				for (int32 Index = 0; Index < CollisionComponents.Num(); ++Index)
-				{
-					ULandscapeHeightfieldCollisionComponent* CollisionComponent = CollisionComponents[Index];
-					CollisionComponent->SnapFoliageInstances(PreUpdateLocalBoxes[Index].TransformBy(LandscapeInfo->GetLandscapeProxy()->LandscapeActorToWorld().ToMatrixWithScale()).ExpandBy(1.0f));
-				}
-			}
-			else
-			{
-				// No foliage, just update landscape.
-				LandscapeEdit->SetHeightData(X1, Y1, X2, Y2, Data, 0, true);
-			}
-		}
-	}
-
-	void Flush()
-	{
-		LandscapeEdit->Flush();
-	}
-
-	virtual ~FHeightmapAccessor()
-	{
-		delete LandscapeEdit;
-		LandscapeEdit = NULL;
-
-		// Update the bounds and navmesh for the components we edited
-		for (TSet<ULandscapeComponent*>::TConstIterator It(ChangedComponents); It; ++It)
-		{
-			(*It)->UpdateCachedBounds();
-			(*It)->UpdateComponentToWorld();
-
-			// Recreate collision for modified components to update the physical materials
-			ULandscapeHeightfieldCollisionComponent* CollisionComponent = (*It)->CollisionComponent.Get();
-			if (CollisionComponent)
-			{
-				CollisionComponent->RecreateCollision();
-				FNavigationSystem::UpdateComponentData(*CollisionComponent);
-			}
-		}
-	}
-
-private:
-	ULandscapeInfo* LandscapeInfo;
-	FLandscapeEditDataInterface* LandscapeEdit;
-	TSet<ULandscapeComponent*> ChangedComponents;
 };
 
-struct FLandscapeHeightCache : public TLandscapeEditCache<FHeightmapAccessor<true>, uint16>
+struct FLandscapeHeightCache : public TLandscapeEditCache<FHeightmapAccessorTool<true>, uint16>
 {
 	static uint16 ClampValue(int32 Value) { return FMath::Clamp(Value, 0, LandscapeDataAccess::MaxValue); }
 
 	FLandscapeHeightCache(const FLandscapeToolTarget& InTarget)
-		: TLandscapeEditCache<FHeightmapAccessor<true>, uint16>(InTarget)
+		: TLandscapeEditCache<FHeightmapAccessorTool<true>, uint16>(InTarget)
 	{
 	}
 };
@@ -889,119 +773,43 @@ struct FLandscapeXYOffsetCache : public TLandscapeEditCache<FXYOffsetmapAccessor
 	}
 };
 
-//
-// FAlphamapAccessor
-//
 template<bool bInUseInterp, bool bInUseTotalNormalize>
-struct FAlphamapAccessor
+struct FAlphamapAccessorTool : public FAlphamapAccessor<bInUseInterp, bInUseTotalNormalize>
 {
-	enum { bUseInterp = bInUseInterp };
-	enum { bUseTotalNormalize = bInUseTotalNormalize };
-	FAlphamapAccessor(ULandscapeInfo* InLandscapeInfo, ULandscapeLayerInfoObject* InLayerInfo)
-		: LandscapeInfo(InLandscapeInfo)
-		, LandscapeEdit(InLandscapeInfo)
-		, LayerInfo(InLayerInfo)
-		, bBlendWeight(true)
-	{
-		// should be no Layer change during FAlphamapAccessor lifetime...
-		if (InLandscapeInfo && InLayerInfo)
-		{
-			if (LayerInfo == ALandscapeProxy::VisibilityLayer)
-			{
-				bBlendWeight = false;
-			}
-			else
-			{
-				bBlendWeight = !LayerInfo->bNoWeightBlend;
-			}
-		}
-	}
+	FAlphamapAccessorTool(ULandscapeInfo* InLandscapeInfo, ULandscapeLayerInfoObject* InLayerInfo)
+	:	FAlphamapAccessor<bInUseInterp, bInUseTotalNormalize>(InLandscapeInfo, InLayerInfo)
+	{}
 
-	FAlphamapAccessor(const FLandscapeToolTarget& InTarget)
-		: FAlphamapAccessor(InTarget.LandscapeInfo.Get(), InTarget.LayerInfo.Get())
+	FAlphamapAccessorTool(const FLandscapeToolTarget& InTarget)
+	:	FAlphamapAccessor<bInUseInterp, bInUseTotalNormalize>(InTarget.LandscapeInfo.Get(), InTarget.LayerInfo.Get())
 	{
 	}
-
-	~FAlphamapAccessor()
-	{
-		// Recreate collision for modified components to update the physical materials
-		for (ULandscapeComponent* Component : ModifiedComponents)
-		{
-			ULandscapeHeightfieldCollisionComponent* CollisionComponent = Component->CollisionComponent.Get();
-			if (CollisionComponent)
-			{
-				CollisionComponent->RecreateCollision();
-
-				// We need to trigger navigation mesh build, in case user have painted holes on a landscape
-				if (LayerInfo == ALandscapeProxy::VisibilityLayer)
-				{
-					FNavigationSystem::UpdateComponentData(*CollisionComponent);
-				}
-			}
-		}
-	}
-
-	void GetData(int32& X1, int32& Y1, int32& X2, int32& Y2, TMap<FIntPoint, uint8>& Data)
-	{
-		LandscapeEdit.GetWeightData(LayerInfo, X1, Y1, X2, Y2, Data);
-	}
-
-	void GetDataFast(int32 X1, int32 Y1, int32 X2, int32 Y2, TMap<FIntPoint, uint8>& Data)
-	{
-		LandscapeEdit.GetWeightDataFast(LayerInfo, X1, Y1, X2, Y2, Data);
-	}
-
-	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint8* Data, ELandscapeLayerPaintingRestriction PaintingRestriction)
-	{
-		TSet<ULandscapeComponent*> Components;
-		if (LandscapeEdit.GetComponentsInRegion(X1, Y1, X2, Y2, &Components))
-		{
-			// Flush dynamic foliage (grass)
-			ALandscapeProxy::InvalidateGeneratedComponentData(Components);
-
-			LandscapeEdit.SetAlphaData(LayerInfo, X1, Y1, X2, Y2, Data, 0, PaintingRestriction, bBlendWeight, bUseTotalNormalize);
-			//LayerInfo->IsReferencedFromLoadedData = true;
-			ModifiedComponents.Append(Components);
-		}
-	}
-
-	void Flush()
-	{
-		LandscapeEdit.Flush();
-	}
-
-private:
-	ULandscapeInfo* LandscapeInfo;
-	FLandscapeEditDataInterface LandscapeEdit;
-	TSet<ULandscapeComponent*> ModifiedComponents;
-	ULandscapeLayerInfoObject* LayerInfo;
-	bool bBlendWeight;
 };
 
-struct FLandscapeAlphaCache : public TLandscapeEditCache<FAlphamapAccessor<true, false>, uint8>
+struct FLandscapeAlphaCache : public TLandscapeEditCache<FAlphamapAccessorTool<true, false>, uint8>
 {
 	static uint8 ClampValue(int32 Value) { return FMath::Clamp(Value, 0, 255); }
 
 	FLandscapeAlphaCache(const FLandscapeToolTarget& InTarget)
-		: TLandscapeEditCache<FAlphamapAccessor<true, false>, uint8>(InTarget)
+		: TLandscapeEditCache<FAlphamapAccessorTool<true, false>, uint8>(InTarget)
 	{
 	}
 };
 
-struct FVisibilityAccessor : public FAlphamapAccessor<false, false>
+struct FVisibilityAccessor : public FAlphamapAccessorTool<false, false>
 {
 	FVisibilityAccessor(const FLandscapeToolTarget& InTarget)
-		: FAlphamapAccessor<false, false>(InTarget.LandscapeInfo.Get(), ALandscapeProxy::VisibilityLayer)
+		: FAlphamapAccessorTool<false, false>(InTarget.LandscapeInfo.Get(), ALandscapeProxy::VisibilityLayer)
 	{
 	}
 };
 
-struct FLandscapeVisCache : public TLandscapeEditCache<FAlphamapAccessor<false, false>, uint8>
+struct FLandscapeVisCache : public TLandscapeEditCache<FAlphamapAccessorTool<false, false>, uint8>
 {
 	static uint8 ClampValue(int32 Value) { return FMath::Clamp(Value, 0, 255); }
 
 	FLandscapeVisCache(const FLandscapeToolTarget& InTarget)
-		: TLandscapeEditCache<FAlphamapAccessor<false, false>, uint8>(InTarget)
+		: TLandscapeEditCache<FAlphamapAccessorTool<false, false>, uint8>(InTarget)
 	{
 	}
 };

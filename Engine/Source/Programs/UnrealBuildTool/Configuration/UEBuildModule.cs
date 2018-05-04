@@ -593,6 +593,7 @@ namespace UnrealBuildTool
 						if (bIsExternalModule || bIsInStaticLibrary)
 						{
 							DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LibraryPaths, AdditionalLibraries, OutRuntimeDependencies, Frameworks, WeakFrameworks,
+
 								AdditionalFrameworks, AdditionalShadowFiles, AdditionalBundleResources, DelayLoadDLLs, BinaryDependencies, VisitedModules);
 						}
 					}

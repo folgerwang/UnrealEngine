@@ -409,6 +409,17 @@ void ULevelEditorPlaySettings::PostEditChangeProperty(struct FPropertyChangedEve
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
+void ULevelEditorPlaySettings::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	NewWindowWidth = FMath::Max(0, NewWindowWidth);
+	NewWindowHeight = FMath::Max(0, NewWindowHeight);
+	StandaloneWindowWidth = FMath::Max(0, StandaloneWindowWidth);
+	StandaloneWindowHeight = FMath::Max(0, StandaloneWindowHeight);
+
+}
+
 /* ULevelEditorViewportSettings interface
  *****************************************************************************/
 

@@ -1035,9 +1035,9 @@ FReply FSceneViewport::OnFocusReceived(const FFocusEvent& InFocusEvent)
 		{
 			FSlateApplication& SlateApp = FSlateApplication::Get();
 
-			const bool bPermanentCapture =
-				( ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently ) ||
-				( ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown );
+			const bool bPermanentCapture = !GIsEditor && 
+				(( ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently ) ||
+				( ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown ));
 
 			if ( SlateApp.IsActive() && !ViewportClient->IgnoreInput() && bPermanentCapture )
 			{
@@ -1112,8 +1112,8 @@ FReply FSceneViewport::OnViewportActivated(const FWindowActivateEvent& InActivat
 		
 		// Determine if we're in permanent capture mode.  This cannot be cached as part of bShouldCaptureMouseOnActivate because it could change between window activate and deactivate
 		const bool bPermanentCapture =
-			(ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently) ||
-			(ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown);
+			!GIsEditor && ((ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently) ||
+			(ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown));
 
 		// If we are activating and had Mouse Capture on deactivate then we should get focus again
 		// It's important to note in the case of:
@@ -1144,7 +1144,7 @@ void FSceneViewport::OnViewportDeactivated(const FWindowActivateEvent& InActivat
 	// This fixes the case where the application is deactivated, then the user click on the windows header
 	// this activates the window but we do not capture the mouse, then the User Alt-Tabs to the application.
 	// We properly acquire capture because we maintained the "true" through the activation where nothing was focuses
-	bShouldCaptureMouseOnActivate = bShouldCaptureMouseOnActivate || HasMouseCapture();
+	bShouldCaptureMouseOnActivate = !GIsEditor  && (bShouldCaptureMouseOnActivate || HasMouseCapture());
 
 	KeyStateMap.Empty();
 	if (ViewportClient != nullptr)

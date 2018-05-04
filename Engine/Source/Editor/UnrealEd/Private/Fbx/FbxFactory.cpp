@@ -299,7 +299,7 @@ UObject* UFbxFactory::FactoryCreateFile
 
 	if (ImportOptions)
 	{
-
+		ImportOptions->bCanShowDialog = !(GIsAutomationTesting || FApp::IsUnattended());
 		Warn->BeginSlowTask( NSLOCTEXT("FbxFactory", "BeginImportingFbxMeshTask", "Importing FBX mesh"), true );
 		if ( !FbxImporter->ImportFromFile( *UFactory::CurrentFilename, Type, true ) )
 		{

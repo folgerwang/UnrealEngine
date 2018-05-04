@@ -175,6 +175,7 @@ TSharedRef<const FCompositeFont> FLegacySlateFontInfoCache::GetDefaultFont()
 		}
 
 		#undef APPEND_FONT
+		#undef APPEND_EDITOR_FONT
 		#undef APPEND_RANGE
 
 		DefaultFont = MutableDefaultFont;

@@ -334,6 +334,7 @@ void FPersonaMeshDetails::OnCopySectionList(int32 LODIndex)
 				JSonSection->SetNumberField(TEXT("MaterialIndex"), ModelSection.MaterialIndex);
 				JSonSection->SetBoolField(TEXT("RecomputeTangent"), ModelSection.bRecomputeTangent);
 				JSonSection->SetBoolField(TEXT("CastShadow"), ModelSection.bCastShadow);
+				JSonSection->SetNumberField(TEXT("GenerateUpToLodIndex"), ModelSection.GenerateUpToLodIndex);
 
 				RootJsonObject->SetObjectField(FString::Printf(TEXT("Section_%d"), SectionIdx), JSonSection);
 			}
@@ -409,6 +410,10 @@ void FPersonaMeshDetails::OnPasteSectionList(int32 LODIndex)
 
 						(*JSonSection)->TryGetBoolField(TEXT("RecomputeTangent"), ModelSection.bRecomputeTangent);
 						(*JSonSection)->TryGetBoolField(TEXT("CastShadow"), ModelSection.bCastShadow);
+						if ((*JSonSection)->TryGetNumberField(TEXT("GenerateUpToLodIndex"), Value))
+						{
+							ModelSection.GenerateUpToLodIndex = (int8)Value;
+						}
 					}
 				}
 
@@ -439,6 +444,7 @@ void FPersonaMeshDetails::OnCopySectionItem(int32 LODIndex, int32 SectionIndex)
 				RootJsonObject->SetNumberField(TEXT("MaterialIndex"), ModelSection.MaterialIndex);
 				RootJsonObject->SetBoolField(TEXT("RecomputeTangent"), ModelSection.bRecomputeTangent);
 				RootJsonObject->SetBoolField(TEXT("CastShadow"), ModelSection.bCastShadow);
+				RootJsonObject->SetNumberField(TEXT("GenerateUpToLodIndex"), ModelSection.GenerateUpToLodIndex);
 			}
 
 			typedef TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR>> FStringWriter;
@@ -509,6 +515,10 @@ void FPersonaMeshDetails::OnPasteSectionItem(int32 LODIndex, int32 SectionIndex)
 
 					RootJsonObject->TryGetBoolField(TEXT("RecomputeTangent"), ModelSection.bRecomputeTangent);
 					RootJsonObject->TryGetBoolField(TEXT("CastShadow"), ModelSection.bCastShadow);
+					if (RootJsonObject->TryGetNumberField(TEXT("GenerateUpToLodIndex"), Value))
+					{
+						ModelSection.GenerateUpToLodIndex = (int8)Value;
+					}
 				}
 
 				Mesh->PostEditChange();
@@ -2115,6 +2125,48 @@ TSharedRef<SWidget> FPersonaMeshDetails::OnGenerateCustomNameWidgetsForSection(i
 					.Text(LOCTEXT("Isolate", "Isolate"))
 				]
 			]
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(0, 2, 0, 0)
+			[
+				SNew(SBox)
+				.Visibility(LodIndex == 0 ? EVisibility::All : EVisibility::Collapsed)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.FillWidth(1.0f)
+					[
+						SNew(SCheckBox)
+						.IsChecked(this, &FPersonaMeshDetails::IsGenerateUpToSectionEnabled, LodIndex, SectionIndex)
+						.OnCheckStateChanged(this, &FPersonaMeshDetails::OnSectionGenerateUpToChanged, LodIndex, SectionIndex)
+						.ToolTipText(FText::Format(LOCTEXT("GenerateUpTo_ToolTip", "Generated LODs will use section {0} up to the specified value, and ignore it for lower quality LODs"), SectionIndex))
+						[
+							SNew(STextBlock)
+							.Font(IDetailLayoutBuilder::GetDetailFont())
+							.ColorAndOpacity(FLinearColor(0.4f, 0.4f, 0.4f, 1.0f))
+							.Text(LOCTEXT("GenerateUpTo", "Generate Up To"))
+						]
+					]
+					+SHorizontalBox::Slot()
+					.Padding(5, 2, 5, 0)
+					.AutoWidth()
+					[
+						SNew(SNumericEntryBox<int8>)
+						.Visibility(this, &FPersonaMeshDetails::ShowSectionGenerateUpToSlider, LodIndex, SectionIndex)
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+						.MinDesiredValueWidth(40.0f)
+						.MinValue(LodIndex)
+						//.MaxValue(1)
+						.MinSliderValue(LodIndex)
+						.MaxSliderValue(FMath::Max(8, LODCount))
+						.AllowSpin(true)
+						.Value(this, &FPersonaMeshDetails::GetSectionGenerateUpToValue, LodIndex, SectionIndex)
+						.OnValueChanged(this, &FPersonaMeshDetails::SetSectionGenerateUpToValue, LodIndex, SectionIndex)
+						.OnValueCommitted(this, &FPersonaMeshDetails::SetSectionGenerateUpToValueCommitted, LodIndex, SectionIndex)
+					]
+				]
+			]
 		]
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -2283,6 +2335,94 @@ void FPersonaMeshDetails::OnSectionEnabledChanged(int32 LodIndex, int32 SectionI
 			}
 		}
 	}
+}
+
+TOptional<int8> FPersonaMeshDetails::GetSectionGenerateUpToValue(int32 LodIndex, int32 SectionIndex) const
+{
+	if (!SkeletalMeshPtr.IsValid() ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels.IsValidIndex(LodIndex) ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections.IsValidIndex(SectionIndex) )
+	{
+		return TOptional<int8>(-1);
+	}
+	int8 SpecifiedLodIndex = SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex;
+	check(SpecifiedLodIndex == -1 || SpecifiedLodIndex >= LodIndex);
+	return TOptional<int8>(SpecifiedLodIndex);
+}
+
+void FPersonaMeshDetails::SetSectionGenerateUpToValue(int8 Value, int32 LodIndex, int32 SectionIndex)
+{
+	if (!SkeletalMeshPtr.IsValid() ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels.IsValidIndex(LodIndex) ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections.IsValidIndex(SectionIndex))
+	{
+		return;
+	}
+	int64 ValueKey = ((int64)LodIndex << 32) | (int64)SectionIndex;
+	if (!OldGenerateUpToSliderValues.Contains(ValueKey))
+	{
+		OldGenerateUpToSliderValues.Add(ValueKey, SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex);
+	}
+	SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex = Value;
+}
+
+void FPersonaMeshDetails::SetSectionGenerateUpToValueCommitted(int8 Value, ETextCommit::Type CommitInfo, int32 LodIndex, int32 SectionIndex)
+{
+	int64 ValueKey = ((int64)LodIndex << 32) | (int64)SectionIndex;
+	int8 OldValue;
+	bool bHasOldValue = OldGenerateUpToSliderValues.RemoveAndCopyValue(ValueKey, OldValue);
+	if (!SkeletalMeshPtr.IsValid() ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels.IsValidIndex(LodIndex) ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections.IsValidIndex(SectionIndex))
+	{
+		return;
+	}
+	
+	if (bHasOldValue)
+	{
+		//Put back the original value before registering the undo transaction
+		SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex = OldValue;
+	}
+
+	if (CommitInfo == ETextCommit::OnCleared)
+	{
+		//If the user cancel is change early exit while the value is the same as the original
+		return;
+	}
+
+	FScopedTransaction Transaction(LOCTEXT("ChangeGenerateUpTo", "Set Generate Up To"));
+
+	SkeletalMeshPtr->Modify();
+	SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex = Value;
+	SkeletalMeshPtr->PostEditChange();
+	GetPersonaToolkit()->GetPreviewScene()->InvalidateViews();
+}
+
+EVisibility FPersonaMeshDetails::ShowSectionGenerateUpToSlider(int32 LodIndex, int32 SectionIndex) const
+{
+	if (!SkeletalMeshPtr.IsValid() ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels.IsValidIndex(LodIndex) ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections.IsValidIndex(SectionIndex))
+	{
+		return EVisibility::Collapsed;
+	}
+	return SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex == -1 ? EVisibility::Collapsed : EVisibility::All;
+}
+
+ECheckBoxState FPersonaMeshDetails::IsGenerateUpToSectionEnabled(int32 LodIndex, int32 SectionIndex) const
+{
+	if (!SkeletalMeshPtr.IsValid() ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels.IsValidIndex(LodIndex) ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections.IsValidIndex(SectionIndex))
+	{
+		return ECheckBoxState::Unchecked;
+	}
+	return SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex != -1 ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+void FPersonaMeshDetails::OnSectionGenerateUpToChanged(ECheckBoxState NewState, int32 LodIndex, int32 SectionIndex)
+{
+	SetSectionGenerateUpToValueCommitted(NewState == ECheckBoxState::Checked ? LodIndex : -1, ETextCommit::Type::Default , LodIndex, SectionIndex);
 }
 
 void FPersonaMeshDetails::SetCurrentLOD(int32 NewLodIndex)

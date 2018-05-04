@@ -161,12 +161,17 @@ public:
 	/**
 	 * Get the information about any modules referenced in the .uproject file of the currently loaded project
 	 */
-	static TArray<FModuleContextInfo> GetCurrentProjectModules();
+	static const TArray<FModuleContextInfo>& GetCurrentProjectModules();
 
 	/**
 	* Get the information about any modules in any of the plugins in the currently loaded project (Ignores Engine Plugins)
 	*/
 	static TArray<FModuleContextInfo> GetCurrentProjectPluginModules();
+
+	/**
+	 * Reset the cached result of information about any modules referenced in the .uproject file of the currently loaded project
+	 */
+	static void ResetCurrentProjectModulesCache();
 
 	/** 
 	 * Check to see if the given path is a valid place to put source code for this project (exists within the source root path) 

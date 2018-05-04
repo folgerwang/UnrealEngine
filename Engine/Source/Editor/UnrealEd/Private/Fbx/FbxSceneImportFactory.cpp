@@ -1019,6 +1019,8 @@ FFeedbackContext*	Warn
 	GlobalImportSettings = FbxImporter->GetImportOptions();
 	UnFbx::FBXImportOptions::ResetOptions(GlobalImportSettings);
 	
+	GlobalImportSettings->OriginalMeshCopy = nullptr;
+
 	//Always convert the scene
 	GlobalImportSettings->bConvertScene = true;
 	GlobalImportSettings->bConvertSceneUnit = true;
@@ -2117,13 +2119,17 @@ UObject* UFbxSceneImportFactory::RecursiveImportNode(void* VoidFbxImporter, void
 		//Find the deepest mesh child for the first LOD
 		TArray<FbxNode*> AllNodeInLod;
 		FFbxImporter->FindAllLODGroupNode(AllNodeInLod, Node, 0);
+		UObject* NewObject = nullptr;
 		//Combine LOD group
 		TArray<void*> TmpVoidArray;
-		for (FbxNode* LodNode : AllNodeInLod)
+		if (AllNodeInLod.Num() > 0)
 		{
-			TmpVoidArray.Add(LodNode);
+			for (FbxNode* LodNode : AllNodeInLod)
+			{
+				TmpVoidArray.Add(LodNode);
+			}
+			NewObject = ImportANode(VoidFbxImporter, TmpVoidArray, Flags, NodeIndex, SceneInfo, OutNodeInfo, PackagePath, Total);
 		}
-		UObject* NewObject = ImportANode(VoidFbxImporter, TmpVoidArray, Flags, NodeIndex, SceneInfo, OutNodeInfo, PackagePath, Total);
 		
 		if(NewObject)
 		{
@@ -2133,6 +2139,8 @@ UObject* UFbxSceneImportFactory::RecursiveImportNode(void* VoidFbxImporter, void
 			AllNewAssets.Add(OutNodeInfo->AttributeInfo, NewObject);
 			if (GlobalImportSettingsReference->bImportStaticMeshLODs)
 			{
+				//We use ImportedLodIndex in case there is an empty LOD (FindAllLODGroupNode do not find geometry for the LOD)
+				int32 ImportedLodIndex = 1;
 				// import LOD meshes
 				for (int32 LODIndex = 1; LODIndex < Node->GetChildCount(); LODIndex++)
 				{
@@ -2144,11 +2152,15 @@ UObject* UFbxSceneImportFactory::RecursiveImportNode(void* VoidFbxImporter, void
 					AllNodeInLod.Empty();
 					FFbxImporter->FindAllLODGroupNode(AllNodeInLod, Node, LODIndex);
 					TmpVoidArray.Empty();
-					for (FbxNode* LodNode : AllNodeInLod)
+					if (AllNodeInLod.Num() > 0)
 					{
-						TmpVoidArray.Add(LodNode);
+						for (FbxNode* LodNode : AllNodeInLod)
+						{
+							TmpVoidArray.Add(LodNode);
+						}
+						
+						ImportANode(VoidFbxImporter, TmpVoidArray, Flags, NodeIndex, SceneInfo, OutNodeInfo, PackagePath, Total, NewObject, ImportedLodIndex++);
 					}
-					ImportANode(VoidFbxImporter, TmpVoidArray, Flags, NodeIndex, SceneInfo, OutNodeInfo, PackagePath, Total, NewObject, LODIndex);
 				}
 			}
 			UStaticMesh *NewStaticMesh = Cast<UStaticMesh>(NewObject);

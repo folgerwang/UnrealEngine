@@ -1430,10 +1430,7 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 	}
 	
 	TArray<FName> LastImportedMaterialNames;
-	if (!ImportOptions->bResetMaterialSlots)
-	{
-		FillLastImportMaterialNames(LastImportedMaterialNames, ExistingSkelMesh, ImportSkeletalMeshArgs.OrderedMaterialNames);
-	}
+	FillLastImportMaterialNames(LastImportedMaterialNames, ExistingSkelMesh, ImportSkeletalMeshArgs.OrderedMaterialNames);
 
 	//////////////////////////////////////////////////////////////////////////
 	// We must do a maximum of fail test before backing up the data since the backup is destructive on the existing skeletal mesh.
@@ -1492,7 +1489,6 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 			Binding.Asset->UnbindFromSkeletalMesh(ExistingSkelMesh, Binding.LODIndex);
 		}
 
-		
 		//Release the Renderdata resources before reimporting the skeletal mesh
 		SkinnedMeshComponentRecreateRenderStateContext = MakeUnique<FSkinnedMeshComponentRecreateRenderStateContext>(ExistingSkelMesh);
 
@@ -1625,7 +1621,7 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 
 		if (ExistSkelMeshDataPtr)
 		{
-			RestoreExistingSkelMeshData(ExistSkelMeshDataPtr, SkeletalMesh, ImportSkeletalMeshArgs.LodIndex, ImportOptions->bResetMaterialSlots, ImportOptions->bIsReimportPreview);
+			RestoreExistingSkelMeshData(ExistSkelMeshDataPtr, SkeletalMesh, ImportSkeletalMeshArgs.LodIndex, ImportOptions->bCanShowDialog);
 		}
 
 		SkeletalMesh->CalculateInvRefMatrices();
@@ -1674,17 +1670,10 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 			bool bToastSaveMessage = false;
 			if(bFirstMesh || (LastMergeBonesChoice != EAppReturnType::NoAll && LastMergeBonesChoice != EAppReturnType::YesAll))
 			{
-				if (!ImportOptions->bIsReimportPreview)
-				{
 				LastMergeBonesChoice = FMessageDialog::Open(EAppMsgType::YesNoYesAllNoAllCancel,
 					LOCTEXT("SkeletonFailed_BoneMerge", "FAILED TO MERGE BONES:\n\n This could happen if significant hierarchical changes have been made\n"
-						"e.g. inserting a bone between nodes.\nWould you like to regenerate the Skeleton from this mesh?\n\n"
-						"***WARNING: THIS MAY INVALIDATE OR REQUIRE RECOMPRESSION OF ANIMATION DATA.***\n"));
-				}
-				else
-				{
-					LastMergeBonesChoice = EAppReturnType::NoAll;
-				}
+					"e.g. inserting a bone between nodes.\nWould you like to regenerate the Skeleton from this mesh?\n\n"
+					"***WARNING: THIS MAY INVALIDATE OR REQUIRE RECOMPRESSION OF ANIMATION DATA.***\n"));
 				bToastSaveMessage = true;
 			}
 			
@@ -3292,12 +3281,6 @@ void UnFbx::FFbxImporter::InsertNewLODToBaseSkeletalMesh(USkeletalMesh* InSkelet
 		// Add element to LODInfo array.
 		BaseSkeletalMesh->AddLODInfo();
 		check(BaseSkeletalMesh->GetLODNum() == DestImportedResource->LODModels.Num());
-		// AddLODInfo will create new one based on setting data
-		// don't have to copy zero base LOD info back again
-
-		// Set LOD Model's DisplayFactor
-		// if this LOD is newly added, then set DisplayFactor
-		BaseSkeletalMesh->GetLODInfo(DesiredLOD)->ScreenSize = 1.0f / (DestImportedResource->LODModels.Num() * DesiredLOD);
 	}
 
 	// Set up LODMaterialMap to number of materials in new mesh.
