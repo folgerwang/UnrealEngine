@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "UObject/UnrealType.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 
 DEFINE_LOG_CATEGORY(LogType);
 
@@ -171,4 +172,10 @@ void FPropertyValueIterator::GetPropertyChain(TArray<const UProperty*>& Property
 			Property = Cast<UProperty>(Property->GetOuter());
 		}
 	}
+}
+
+void UProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const
+{
+	FArchiveUObjectFromStructuredArchive Ar(Slot);
+	SerializeItem(Ar, Value, Defaults);
 }

@@ -204,7 +204,6 @@ void FPropertyTag::SerializeTaggedProperty(FStructuredArchive::FSlot Slot, UProp
 #endif
 		FSerializedPropertyScope SerializedProperty(UnderlyingArchive, Property);
 
-		FArchiveUObjectFromStructuredArchive Ar(Slot);
-		Property->SerializeItem(Ar, Value, Defaults);
+		Property->SerializeItem(Slot, Value, Defaults);
 	}
 }
