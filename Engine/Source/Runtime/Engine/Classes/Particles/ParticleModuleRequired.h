@@ -392,7 +392,7 @@ class UParticleModuleRequired : public UParticleModule
 	//~ Begin UObject Interface
 	virtual void PostLoad() override;
 	virtual void PostInitProperties() override;
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 #if WITH_EDITOR
 	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

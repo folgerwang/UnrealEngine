@@ -30,9 +30,9 @@ FString FSubUVDerivedData::GetDDCKeyString(const FGuid& StateId, int32 SizeX, in
 	return FDerivedDataCacheInterface::BuildCacheKey(TEXT("SUBUV_"), SUBUV_DERIVEDDATA_VER, *KeyString);
 }
 
-void FSubUVDerivedData::Serialize(FArchive& Ar)
+void FSubUVDerivedData::Serialize(FStructuredArchive::FSlot Slot)
 {
-	Ar << BoundingGeometry;
+	Slot << BoundingGeometry;
 }
 
 void FSubUVBoundingGeometryBuffer::InitRHI()
@@ -66,24 +66,26 @@ void USubUVAnimation::PostInitProperties()
 	}
 }
 
-void USubUVAnimation::Serialize(FArchive& Ar)
+void USubUVAnimation::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	bool bCooked = Ar.IsCooking();
+	Super::Serialize(Record);
+
+	bool bCooked = UnderlyingArchive.IsCooking();
 
 	// Save a bool indicating whether this is cooked data
 	// This is needed when loading cooked data, to know to serialize differently
-	Ar << bCooked;
+	Record << NAMED_FIELD(bCooked);
 
-	if (FPlatformProperties::RequiresCookedData() && !bCooked && Ar.IsLoading())
+	if (FPlatformProperties::RequiresCookedData() && !bCooked && UnderlyingArchive.IsLoading())
 	{
 		UE_LOG(LogParticles, Fatal, TEXT("This platform requires cooked packages, and this SubUV animation does not contain cooked data %s."), *GetName());
 	}
 
 	if (bCooked)
 	{
-		DerivedData.Serialize(Ar);
+		DerivedData.Serialize(Record.EnterField(FIELD_NAME_TEXT("DerivedData")));
 	}
 }
 

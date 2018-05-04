@@ -487,9 +487,24 @@ public:
 		return Ar << V.X << V.Y;
 	}
 
+	friend void operator<<(FStructuredArchive::FSlot Slot, FVector2D& V)
+	{
+		// @warning BulkSerialize: FVector2D is serialized as memory dump
+		// See TArray::BulkSerialize for detailed description of implied limitations.
+		FStructuredArchive::FStream Stream = Slot.EnterStream();
+		Stream.EnterElement() << V.X;
+		Stream.EnterElement() << V.Y;
+	}
+
 	bool Serialize(FArchive& Ar)
 	{
 		Ar << *this;
+		return true;
+	}
+
+	bool Serialize(FStructuredArchive::FSlot Slot)
+	{
+		Slot << *this;
 		return true;
 	}
 
