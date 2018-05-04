@@ -19,10 +19,14 @@ struct FQueuedDemoPacket
 	/** The size of the packet in bits */
 	int32 SizeBits;
 
+	/** Index of the level this packet is associated with. 0 indicates no association. */
+	uint32 SeenLevelIndex;
+
 public:
 	FORCEINLINE FQueuedDemoPacket(uint8* InData, int32 InSizeBytes, int32 InSizeBits)
 		: Data()
 		, SizeBits(InSizeBits)
+		, SeenLevelIndex(0)
 	{
 		Data.AddUninitialized(InSizeBytes);
 		FMemory::Memcpy(Data.GetData(), InData, InSizeBytes);

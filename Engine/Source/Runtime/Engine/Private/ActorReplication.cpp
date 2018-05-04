@@ -336,7 +336,10 @@ void AActor::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifeti
 	DOREPLIFETIME( AActor, Owner );
 	DOREPLIFETIME( AActor, bHidden );
 
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	DOREPLIFETIME( AActor, bTearOff );
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
 	DOREPLIFETIME( AActor, bCanBeDamaged );
 	DOREPLIFETIME_CONDITION( AActor, AttachmentReplication, COND_Custom );
 

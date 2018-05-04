@@ -1035,7 +1035,7 @@ FViewport::FViewport(FViewportClient* InViewportClient):
 	if (GIsEditor) 
 	{
 		GConfig->GetInt( TEXT("UnrealEd.HitProxy"), TEXT("HitProxySize"), (int32&)HitProxySize, GEditorIni );
-		FMath::Clamp( HitProxySize, (uint32)1, (uint32)MAX_HITPROXYSIZE );
+		HitProxySize = FMath::Clamp( HitProxySize, (uint32)1, (uint32)MAX_HITPROXYSIZE );
 	}
 
 	// Cache the viewport client's hit proxy storage requirement.

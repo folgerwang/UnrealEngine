@@ -4676,8 +4676,8 @@ void FMatinee::NormalizeVelocity()
 			SegmentEndTime = Dialog->IntervalEnd;
 			
 			// Make sure the user didnt enter any invalid values
-			FMath::Clamp(SegmentStartTime, FullStartTime, FullEndTime );
-			FMath::Clamp(SegmentEndTime, FullStartTime, FullEndTime );
+			SegmentStartTime = FMath::Clamp(SegmentStartTime, FullStartTime, FullEndTime );
+			SegmentEndTime = FMath::Clamp(SegmentEndTime, FullStartTime, FullEndTime );
 
 			// If we have a valid start and end time, normalize the track
 			if( SegmentStartTime != SegmentEndTime )

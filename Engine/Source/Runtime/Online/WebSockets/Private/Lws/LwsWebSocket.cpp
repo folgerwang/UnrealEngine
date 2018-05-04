@@ -441,12 +441,13 @@ void FLwsWebSocket::GameThreadTick()
 	}
 	if (CurrentState != LastGameThreadState)
 	{
+		LastGameThreadState = CurrentState;
+
 		// State changed, broadcast events
 		if (CurrentState == EState::Connected)
 		{
 			OnConnected().Broadcast();
 		}
-		LastGameThreadState = CurrentState;
 	}
 
 	// If we requested a close then we don't care about any messages we receive

@@ -2070,6 +2070,17 @@ int32 FCsvProfiler::GetCaptureFrameNumber()
 	return CaptureFrameNumber;
 }
 
+bool FCsvProfiler::EnableCategoryByString(const FString& CategoryName) const
+{
+	int32 Category = FCsvCategoryData::Get()->GetCategoryIndex(CategoryName);
+	if (Category >= 0)
+	{
+		GCsvCategoriesEnabled[Category] = true;
+		return true;
+	}
+	return false;
+}
+
 bool FCsvProfiler::IsCapturing_Renderthread()
 {
 	check(IsInRenderingThread());

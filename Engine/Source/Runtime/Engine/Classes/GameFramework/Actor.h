@@ -155,8 +155,14 @@ public:
 	 * If true, this actor is no longer replicated to new clients, and is "torn off" (becomes a ROLE_Authority) on clients to which it was being replicated.
 	 * @see TornOff()
 	 */
+	DEPRECATED(4.20, "Use GetTearOff() or TearOff() functions. This property will become private.")
 	UPROPERTY(Replicated)
-	uint8 bTearOff:1;    
+	uint8 bTearOff:1; 
+
+	/** returns TearOff status */
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	bool GetTearOff() const { return bTearOff; }
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	/** Networking - Server - TearOff this actor to stop replication to clients. Will set bTearOff to true. */
 	UFUNCTION(BlueprintCallable, Category=Replication)
@@ -180,6 +186,14 @@ public:
 	/** If true, this actor will be replicated to network replays (default is true) */
 	UPROPERTY()
 	uint8 bRelevantForNetworkReplays:1;
+
+	/**
+	 * If true, this actor will only be destroyed during scrubbing if the replay is set to a time before the actor existed.
+	 * Otherwise, RewindForReplay will be called if we detect the actor needs to be reset.
+	 * Note, this Actor must not be destroyed by gamecode, and RollbackViaDeletion may not be used. 
+	 */
+	UPROPERTY()
+	uint8 bReplayRewindable:1;
 
 	/**
 	 * Whether we allow this Actor to tick before it receives the BeginPlay event.
@@ -482,6 +496,12 @@ public:
 	 * Called for everyone when recording a Client Replay, including Simulated Proxies.
 	 */
 	virtual void PreReplicationForReplay(IRepChangedPropertyTracker & ChangedPropertyTracker);
+
+	/**
+	 * Called on the actor before checkpoint data is applied during a replay.
+	 * Only called if bReplayRewindable is set.
+	 */
+	virtual void RewindForReplay();
 
 	/** Called by the networking system to call PreReplication on this actor and its components using the given NetDriver to find or create RepChangedPropertyTrackers. */
 	void CallPreReplication(UNetDriver* NetDriver);	

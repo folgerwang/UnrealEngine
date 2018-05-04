@@ -873,7 +873,7 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	AssetRegistryModule.Get().OnInMemoryAssetCreated().AddUObject(this, &UEditorEngine::OnAssetCreated);
-	
+
 	FEditorDelegates::BeginPIE.AddLambda([](bool)
 	{
 		FTextLocalizationManager::Get().PushAutoEnableGameLocalizationPreview();
@@ -881,6 +881,14 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 
 		// Always make sure dynamic resolution starts with a clean history.
 		GEngine->GetDynamicResolutionState()->ResetHistory();
+	});
+
+	FEditorDelegates::PrePIEEnded.AddLambda([this](bool)
+	{
+		if (GetPIEWorldContext() != nullptr && GetPIEWorldContext()->World() != nullptr)
+		{
+			GetPIEWorldContext()->World()->DestroyDemoNetDriver();
+		}
 	});
 
 	FEditorDelegates::EndPIE.AddLambda([](bool)

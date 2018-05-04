@@ -8,9 +8,7 @@
 #include "Engine/NetConnection.h"
 #include "Engine/ControlChannel.h"
 
-static const int32 MAX_BUNCH_SIZE = 1024 * 1024; 
-
-
+const int32 MAX_BUNCH_SIZE = 1024 * 1024; 
 
 
 /*-----------------------------------------------------------------------------
@@ -33,6 +31,8 @@ FInBunch::FInBunch( UNetConnection* InConnection, uint8* Src, int64 CountBits )
 ,	bPartialInitial ( 0 )
 ,	bPartialFinal ( 0 )
 ,	bHasPackageMapExports ( 0 )
+,	bHasMustBeMappedGUIDs ( 0 )
+,	bIgnoreRPCs ( 0 )
 {
 	check(Connection);
 	// Match the byte swapping settings of the connection
@@ -68,6 +68,7 @@ FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 	bPartialFinal =	InBunch.bPartialFinal;
 	bHasPackageMapExports = InBunch.bHasPackageMapExports;
 	bHasMustBeMappedGUIDs =	InBunch.bHasMustBeMappedGUIDs;
+	bIgnoreRPCs = InBunch.bIgnoreRPCs;
 
 	// Copy network version info
 	ArEngineNetVer = InBunch.ArEngineNetVer;

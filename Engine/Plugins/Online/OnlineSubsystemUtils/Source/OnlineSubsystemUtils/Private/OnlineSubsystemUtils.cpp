@@ -490,7 +490,7 @@ static bool OnlineExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 					else if (FParse::Command(&Cmd, TEXT("LEADERBOARDS")))
 					{
 						// This class deletes itself once done
-						(new FTestLeaderboardInterface(SubName))->Test(InWorld);
+						(new FTestLeaderboardInterface(SubName))->Test(InWorld, FParse::Token(Cmd, false));
 						bWasHandled = true;
 					}
 					else if (FParse::Command(&Cmd, TEXT("PRESENCE")))

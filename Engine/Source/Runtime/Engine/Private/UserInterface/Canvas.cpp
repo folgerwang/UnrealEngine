@@ -2044,12 +2044,13 @@ void UCanvas::K2_DrawBorder(UTexture* BorderTexture, UTexture* BackgroundTexture
 	}
 }
 
-void UCanvas::K2_DrawBox(FVector2D ScreenPosition, FVector2D ScreenSize, float Thickness)
+void UCanvas::K2_DrawBox(FVector2D ScreenPosition, FVector2D ScreenSize, float Thickness, FLinearColor RenderColor)
 {
 	if (ScreenSize.X > 0.0f && ScreenSize.Y > 0.0f && Canvas)
 	{
 		FCanvasBoxItem BoxItem(ScreenPosition, ScreenSize);
 		BoxItem.LineThickness = Thickness;
+		BoxItem.SetColor(RenderColor);
 		DrawItem(BoxItem);
 	}
 }

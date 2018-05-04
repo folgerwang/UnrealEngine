@@ -247,6 +247,9 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 
 		int32 BytesRead = 0;
 
+		// Reset the address on every pass. Otherwise if there's an error receiving, the address may be from a previous packet.
+		FromAddr->SetAnyAddress();
+
 		// Get data, if any.
 		bool bOk = false;
 		{
@@ -256,10 +259,10 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 		
 		if (bOk)
 		{
-			// Immediately stop processing, for empty packets (usually a DDoS)
+			// Immediately stop processing (continuing to next receive), for empty packets (usually a DDoS)
 			if (BytesRead == 0)
 			{
-				break;
+				continue;
 			}
 
 			FPacketAudit::NotifyLowLevelReceive(DataRef, BytesRead);
@@ -267,8 +270,8 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 		else
 		{
 			ESocketErrors Error = SocketSubsystem->GetLastErrorCode();
-			if(Error == SE_EWOULDBLOCK ||
-			   Error == SE_NO_ERROR)
+
+			if(Error == SE_EWOULDBLOCK || Error == SE_NO_ERROR)
 			{
 				// No data or no error?
 				break;
@@ -297,7 +300,9 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 						(int32)Error,
 						SocketSubsystem->GetSocketError(Error),
 						*FromAddr->ToString(true));
-					break;
+
+					// Unexpected packet errors should continue to the next iteration, rather than block all further receives this tick
+					continue;
 				}
 			}
 		}

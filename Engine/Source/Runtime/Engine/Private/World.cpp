@@ -315,6 +315,8 @@ FWorldDelegates::FOnWorldPostActorTick FWorldDelegates::OnWorldPostActorTick;
 FWorldDelegates::FRefreshLevelScriptActionsEvent FWorldDelegates::RefreshLevelScriptActions;
 #endif // WITH_EDITOR
 
+UWorld::FOnWorldInitializedActors FWorldDelegates::OnWorldInitializedActors;
+
 UWorld::UWorld( const FObjectInitializer& ObjectInitializer )
 : UObject(ObjectInitializer)
 , ActiveLevelCollectionIndex(INDEX_NONE)
@@ -3614,6 +3616,14 @@ void UWorld::InitializeActorsForPlay(const FURL& InURL, bool bResetTime)
 		ViewportConsole->BuildRuntimeAutoCompleteList();
 	}
 
+	// Let others know the actors are initialized. There are two versions here for convenience.
+	FActorsInitializedParams OnActorInitParams(this, bResetTime);
+
+	OnActorsInitialized.Broadcast(OnActorInitParams);
+	FWorldDelegates::OnWorldInitializedActors.Broadcast(OnActorInitParams); // Global notification
+
+	// FIXME: Nav and AI system should now use above delegate
+
 	// let all subsystems/managers know:
 	// @note if UWorld starts to host more of these it might a be a good idea to create a generic IManagerInterface of some sort
 	if (NavigationSystem != nullptr)
@@ -3913,8 +3923,7 @@ void UWorld::AddNetworkActor( AActor* Actor )
 	{
 		if (Driver != nullptr)
 		{
-			// Special case the demo net driver, since actors currently only have one associated NetDriverName.
-			Driver->GetNetworkObjectList().FindOrAdd(Actor, Driver->NetDriverName);
+			Driver->AddNetworkActor(Actor);
 		}
 	});
 }
@@ -3927,7 +3936,7 @@ void UWorld::RemoveNetworkActor( AActor* Actor )
 		{
 			if (Driver != nullptr)
 			{
-				Driver->GetNetworkObjectList().Remove(Actor);
+				Driver->RemoveNetworkActor(Actor);
 			}
 		});
 	}

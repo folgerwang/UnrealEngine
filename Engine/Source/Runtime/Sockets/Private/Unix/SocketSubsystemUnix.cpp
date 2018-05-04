@@ -111,7 +111,7 @@ TSharedRef<FInternetAddr> FSocketSubsystemUnix::GetLocalHostAddr(FOutputDevice& 
 		TempAddr->SetIp(Home, bIsValid);
 		if (bIsValid)
 		{
-			return Addr;
+			return TempAddr;
 		}
 	}
 

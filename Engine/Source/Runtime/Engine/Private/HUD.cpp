@@ -38,6 +38,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogHUD, Log, All);
 #define LOCTEXT_NAMESPACE "HUD"
 
 FOnShowDebugInfo AHUD::OnShowDebugInfo;
+FOnHUDPostRender AHUD::OnHUDPostRender;
 
 // Should we visualize the safe zone? (and if so, title or action?)
 TAutoConsoleVariable<int32> GSafeZoneVisualizationModeCVar(
@@ -230,6 +231,8 @@ void AHUD::PostRender()
 	}
 
 	DrawSafeZoneOverlay();
+
+	OnHUDPostRender.Broadcast(this, DebugCanvas);
 
 	LastHUDRenderTime = GetWorld()->TimeSeconds;
 }

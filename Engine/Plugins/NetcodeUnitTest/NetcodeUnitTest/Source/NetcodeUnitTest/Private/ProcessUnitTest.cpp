@@ -390,75 +390,89 @@ bool UProcessUnitTest::IsTickable() const
 
 void UProcessUnitTest::PollProcessOutput()
 {
-	for (auto CurHandle : ActiveProcesses)
+	static bool bCheckedForceLogFlush = false;
+	static bool bForceLogFlush = false;
+
+	if (!bCheckedForceLogFlush)
 	{
-		if (CurHandle.IsValid())
+		bForceLogFlush = FParse::Param(FCommandLine::Get(), TEXT("ForceLogFlush"));
+
+		bCheckedForceLogFlush = true;
+	}
+
+	TMap<TSharedPtr<FUnitTestProcess>, FString> PendingLogDumps;
+	TMap<TSharedPtr<FUnitTestProcess>, FString> CompleteLogDumps;
+
+	for (TSharedPtr<FUnitTestProcess> CurHandle : ActiveProcesses)
+	{
+		PendingLogDumps.Add(CurHandle);
+	}
+
+	while (PendingLogDumps.Num() > 0)
+	{
+		// Split pipe reading and data processing into two steps, to reduce UI blockage due to thread sleeps
+		for (TMap<TSharedPtr<FUnitTestProcess>, FString>::TIterator It=PendingLogDumps.CreateIterator(); It; ++It)
 		{
-			// Process any log/stdout data
-			FString LogDump = TEXT("");
-			bool bProcessedPipeRead = false;
+			TSharedPtr<FUnitTestProcess> CurHandle = It.Key();
+			FString& CurValue = It.Value();
 
-			// Need to iteratively grab pipe data, as it has a buffer (can miss data near process-end, for large logs, e.g. stack dumps)
-			while (true)
+			if (CurHandle.IsValid())
 			{
-				FString CurStdOut = FPlatformProcess::ReadPipe(CurHandle->ReadPipe);
+				bool bProcessedPipeRead = false;
 
-				if (CurStdOut.Len() > 0)
+				// Need to iteratively grab data, as it has a buffer (can miss data near process-end, for large logs, e.g. stack dumps)
+				while (true)
 				{
-					LogDump += CurStdOut;
-					bProcessedPipeRead = true;
-				}
-				// Sometimes large reads (typically > 4096 on the write side) clog the pipe buffer,
-				// and even looped reads won't receive it all, so when a large enough amount of data gets read, sleep momentarily
-				// (not ideal, but it works - spent a long time trying to find a better solution)
-				else if (bProcessedPipeRead && LogDump.Len() > 2048)
-				{
-					bProcessedPipeRead = false;
+					FString CurStdOut = FPlatformProcess::ReadPipe(CurHandle->ReadPipe);
 
-					// Limit blocking pipe sleeps, to 5 seconds per every minute, to limit UI freezes
-					static double LastPipeCounterReset = 0.0;
-					static uint32 PipeCounter = 0;
-					const float PipeDelay = 0.1f;
-					const float MaxPipeDelay = 5.0f;
-
-					double CurTime = FPlatformTime::Seconds();
-
-					if ((CurTime - LastPipeCounterReset) - 60.0 >= 0)
+					if (CurStdOut.Len() > 0)
 					{
-						LastPipeCounterReset = CurTime;
-						PipeCounter = 0;
-					}
-
-					if (MaxPipeDelay - (PipeCounter * PipeDelay) > 0.0f)
-					{
-						FPlatformProcess::Sleep(PipeDelay);
-						PipeCounter++;
+						CurValue += CurStdOut;
+						bProcessedPipeRead = true;
 					}
 					else
 					{
-						// NOTE: This MUST be set to 0.0, because in extreme circumstances (such as DDoS outputting lots of log data),
-						//			this can actually block the current thread, due to the sleep being too long
-						FPlatformProcess::Sleep(0.0f);
+						break;
 					}
 				}
-				else
+
+				// Sometimes large reads (typically > 4096 on the write side) clog the pipe buffer,
+				// and even looped reads won't receive it all, so when a large enough amount of data gets read,
+				// sleep momentarily (not ideal, but it works - spent a long time trying to find a better solution)
+				if (!bProcessedPipeRead || CurValue.Len() < 2048)
 				{
-					break;
+					if (CurValue.Len() > 0)
+					{
+						CompleteLogDumps.Add(CurHandle, CurValue);
+					}
+
+					It.RemoveCurrent();
 				}
 			}
+		}
 
-			if (LogDump.Len() > 0)
+		double PostPipeTime = FPlatformTime::Seconds();
+
+
+		for (TMap<TSharedPtr<FUnitTestProcess>, FString>::TConstIterator It=CompleteLogDumps.CreateConstIterator(); It; ++It)
+		{
+			TSharedPtr<FUnitTestProcess> CurHandle = It.Key();
+			const FString& CurValue = It.Value();
+
+			if (CurHandle.IsValid() && CurValue.Len() > 0)
 			{
+				bool bStripErrorLogs = CurHandle->bStripErrorLogs;
+
 				// Every log line should start with an endline, so if one is missing, print that into the log as an error
-				bool bPartialRead = !LogDump.StartsWith(FString(LINE_TERMINATOR));
+				bool bPartialRead = !CurValue.StartsWith(FString(LINE_TERMINATOR));
 				FString PartialLog = FString::Printf(TEXT("--MISSING ENDLINE - PARTIAL PIPE READ (First 32 chars: %s)--"),
-														*LogDump.Left(32));
+														*CurValue.Left(32));
 
 				// @todo #JohnB: I don't remember why I implemented this with StartsWith, but it worked for ~3-4 years,
 				//					and now it is throwing up 'partial pipe read' errors for Fortnite,
 				//					and I can't figure out why it worked at all, and why it's not working now.
 #if 1
-				bPartialRead = !LogDump.EndsWith(FString(LINE_TERMINATOR));
+				bPartialRead = !CurValue.EndsWith(FString(LINE_TERMINATOR));
 #endif
 
 				// Now split up the log into multiple lines
@@ -466,9 +480,9 @@ void UProcessUnitTest::PollProcessOutput()
 				
 				// @todo #JohnB: Perhaps add support for both platforms line terminator, at some stage
 #if TARGET_UE4_CL < CL_STRINGPARSEARRAY
-				LogDump.ParseIntoArray(&LogLines, LINE_TERMINATOR, true);
+				CurValue.ParseIntoArray(&LogLines, LINE_TERMINATOR, true);
 #else
-				LogDump.ParseIntoArray(LogLines, LINE_TERMINATOR, true);
+				CurValue.ParseIntoArray(LogLines, LINE_TERMINATOR, true);
 #endif
 
 
@@ -488,7 +502,25 @@ void UProcessUnitTest::PollProcessOutput()
 
 				for (int LineIdx=0; LineIdx<LogLines.Num(); LineIdx++)
 				{
-					UE_LOG(NetCodeTestNone, Log, TEXT("%s%s"), *CurHandle->LogPrefix, *(LogLines[LineIdx]));
+					FString& CurLine = LogLines[LineIdx];
+
+					if (bStripErrorLogs)
+					{
+						static const TArray<FString> ErrorStrs = TArrayBuilder<FString>()
+							.Add(TEXT("Error: "))
+							.Add(TEXT("begin: stack for UAT"));
+
+						// If specified, strip 'Error: ' type entries from the log (e.g. in order to prevent automation test failures)
+						for (const FString& CurError : ErrorStrs)
+						{
+							if (CurLine.Contains(CurError))
+							{
+								CurLine = CurLine.Replace(*CurError, TEXT(""));
+							}
+						}
+					}
+
+					UE_LOG(NetCodeTestNone, Log, TEXT("%s%s"), *CurHandle->LogPrefix, *CurLine);
 				}
 
 				// Output to the unit log file
@@ -545,6 +577,47 @@ void UProcessUnitTest::PollProcessOutput()
 
 				// If the verification state has not changed, pass on the log lines to the error checking code
 				CheckOutputForError(CurHandle, LogLines);
+			}
+		}
+
+		CompleteLogDumps.Empty();
+
+
+		// If any pipe reads are still pending, then we need to sleep for a certain amount of time, to allow pending pipe data to arrive
+		if (PendingLogDumps.Num() > 0)
+		{
+			// Limit blocking pipe sleeps, to 5 seconds per every minute, to limit UI freezes
+			static double LastPipeCounterReset = 0.0;
+			static double PipeCounter = 0;
+			const double PipeDelay = 0.1;
+			const double MaxPipeDelay = 5.0;
+
+			double CurTime = FPlatformTime::Seconds();
+
+			if ((CurTime - LastPipeCounterReset) - 60.0 >= 0)
+			{
+				LastPipeCounterReset = CurTime;
+				PipeCounter = 0.0;
+			}
+
+			// Offset the pipe delay, by the time it took to process the last batch of log data
+			double CurPipeDelay = PipeDelay - (CurTime - PostPipeTime);
+
+			if ((float)CurPipeDelay > 0.f)
+			{
+				if (MaxPipeDelay - PipeCounter > 0.0)
+				{
+					FPlatformProcess::SleepNoStats(CurPipeDelay);
+
+					PipeCounter += CurPipeDelay;
+				}
+				// Do NOT sleep, if -ForceLogFlush is set, as that already triggers a sleep each log!
+				else if (!bForceLogFlush)
+				{
+					// NOTE: This MUST be set to 0.0, because in extreme circumstances (such as DDoS outputting lots of log data),
+					//			this can actually block the current thread, due to the sleep being too long
+					FPlatformProcess::SleepNoStats(0.0f);
+				}
 			}
 		}
 	}

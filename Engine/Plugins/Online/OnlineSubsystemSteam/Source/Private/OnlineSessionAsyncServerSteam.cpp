@@ -8,6 +8,7 @@
 #include "IPAddressSteam.h"
 #include "SteamSessionKeys.h"
 #include "SteamUtilities.h"
+#include "OnlineAuthInterfaceSteam.h"
 
 
 /** Turn on Steam filter generation output */
@@ -407,6 +408,14 @@ void FOnlineAsyncTaskSteamCreateServer::Finalize()
 				Session->OwningUserId = SessionInt->GameServerSteamId;
 				Session->OwningUserName = Session->OwningUserId->ToString();
 			}
+
+			bool bShouldUseAdvertise = true;
+			FOnlineAuthSteamPtr SteamAuth = Subsystem->GetAuthInterface();
+			if (SteamAuth.IsValid())
+			{
+				// Do not use the old advertisegame function because SteamAuth will handle it for us
+				bShouldUseAdvertise = !SteamAuth->IsSessionAuthEnabled();
+			}
 			
 			Session->SessionInfo = MakeShareable(NewSessionInfo);
 			Session->SessionSettings.bAntiCheatProtected = SteamGameServerPtr->BSecure() != 0 ? true : false;
@@ -417,10 +426,11 @@ void FOnlineAsyncTaskSteamCreateServer::Finalize()
 			UpdatePublishedSettings(World, Session);
 
 			SessionInt->RegisterLocalPlayers(Session);
-
-			if (SteamUser())
+			
+			if (SteamUser() && bShouldUseAdvertise)
 			{
-				SteamUser()->AdvertiseGame(NewSessionInfo->SessionId, SteamGameServerPtr->GetPublicIP(), Subsystem->GetGameServerGamePort());
+				UE_LOG_ONLINE(Warning, TEXT("AUTH: CreateServerSteam is calling the depricated AdvertiseGame call"));
+				SteamUser()->AdvertiseGame(k_steamIDNonSteamGS, SteamGameServerPtr->GetPublicIP(), Subsystem->GetGameServerGamePort());
 			}
 		}
 		else

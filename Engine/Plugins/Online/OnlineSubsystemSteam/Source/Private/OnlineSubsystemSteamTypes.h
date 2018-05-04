@@ -222,6 +222,11 @@ public:
 	{
 		return (const CSteamID*)&UniqueNetId;
 	}
+
+	friend FArchive& operator<<(FArchive& Ar, FUniqueNetIdSteam& UserId)
+	{
+		return Ar << UserId.UniqueNetId;
+	}
 };
 
 /** 

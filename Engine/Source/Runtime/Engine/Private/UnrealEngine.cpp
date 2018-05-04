@@ -8293,6 +8293,7 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				FScreenMessageString NewMessage;
 				NewMessage.CurrentTimeDisplayed = 0.0f;
 				NewMessage.Key = Key;
+				NewMessage.TextScale = TextScale;
 				NewMessage.DisplayColor = DisplayColor;
 				NewMessage.TimeToDisplay = TimeToDisplay;
 				NewMessage.ScreenMessage = DebugMessage;				
@@ -8303,6 +8304,7 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				// Set the message, and update the time to display and reset the current time.
 				Message->ScreenMessage = DebugMessage;
 				Message->DisplayColor = DisplayColor;
+				Message->TextScale = TextScale;
 				Message->TimeToDisplay = TimeToDisplay;
 				Message->CurrentTimeDisplayed = 0.0f;				
 			}

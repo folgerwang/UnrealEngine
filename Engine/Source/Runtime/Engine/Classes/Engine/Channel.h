@@ -82,8 +82,8 @@ public:
 	/** Set the closing flag. */
 	virtual void SetClosingFlag();
 
-	/** Close the base channel. */
-	virtual void Close();
+	/** Close the base channel. Returns how many bits were written to the send buffer */
+	virtual int64 Close();
 
 	/** Describe the channel. */
 	virtual FString Describe();

@@ -61,32 +61,3 @@ void USteamNetConnection::CleanUp()
 	}
 }
 
-void USteamNetConnection::DumpSteamConnection()
-{
-	if (!bIsPassthrough && RemoteAddr.IsValid())
-	{
-		UE_LOG_ONLINE(Verbose, TEXT("%s: Dumping Steam P2P connection details:"), *GetName());
-		FInternetAddrSteam& SteamAddr = (FInternetAddrSteam&)(*RemoteAddr); 
-		FUniqueNetIdSteam& SessionId = SteamAddr.SteamId;
-		UE_LOG_ONLINE(Verbose, TEXT("- Id: %s, IdleTime: %0.3f"), *SessionId.ToDebugString(), (Driver->Time - LastReceiveTime));
-	
-		if (Socket)
-		{
-			FSocketSteam* SteamSocket = (FSocketSteam*)Socket;
-
-			FSocketSubsystemSteam* SteamSockets = (FSocketSubsystemSteam*)ISocketSubsystem::Get(STEAM_SUBSYSTEM);
-			if (SteamSockets)
-			{
-				P2PSessionState_t SessionInfo;
-				if (SteamSocket->SteamNetworkingPtr != NULL && SteamSocket->SteamNetworkingPtr->GetP2PSessionState(SessionId, &SessionInfo))
-				{
-					SteamSockets->DumpSteamP2PSessionInfo(SessionInfo);
-				}
-				else
-				{
-					UE_LOG_ONLINE(Verbose, TEXT("Failed to get Steam P2P session state for Id: %s"), *SessionId.ToDebugString());
-				}
-			}
-		}
-	}
-}

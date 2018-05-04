@@ -910,7 +910,7 @@ void UGameplayCueManager::CheckForTooManyRPCs(FName FuncName, const FGameplayCue
 				{
 					if (ClientConnection)
 					{
-						UActorChannel** OwningActorChannelPtr = ClientConnection->ActorChannels.Find(Owner);
+						UActorChannel** OwningActorChannelPtr = ClientConnection->FindActorChannel(Owner);
 						TSharedRef<FObjectReplicator>* ComponentReplicatorPtr = (OwningActorChannelPtr && *OwningActorChannelPtr) ? (*OwningActorChannelPtr)->ReplicationMap.Find(PendingCue.OwningComponent) : nullptr;
 						if (ComponentReplicatorPtr)
 						{

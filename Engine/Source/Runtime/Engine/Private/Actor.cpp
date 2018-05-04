@@ -1030,6 +1030,10 @@ void AActor::PreReplicationForReplay(IRepChangedPropertyTracker & ChangedPropert
 {
 }
 
+void AActor::RewindForReplay()
+{
+}
+
 void AActor::PostActorCreated()
 {
 	// nothing at the moment
@@ -1827,12 +1831,15 @@ bool AActor::IsRelevancyOwnerFor(const AActor* ReplicatedActor, const AActor* Ac
 
 void AActor::ForceNetUpdate()
 {
-	if (NetDormancy > DORM_Awake)
+	if (UNetDriver* NetDriver = GetNetDriver())
 	{
-		FlushNetDormancy(); 
-	}
+		NetDriver->ForceNetUpdate(this);
 
-	SetNetUpdateTime(GetWorld()->TimeSeconds - 0.01f);
+		if (NetDormancy > DORM_Awake)
+		{
+			FlushNetDormancy(); 
+		}
+	}
 }
 
 bool AActor::IsReplicationPausedForConnection(const FNetViewer& ConnectionOwnerNetViewer)
@@ -1855,7 +1862,14 @@ void AActor::SetNetDormancy(ENetDormancy NewDormancy)
 	UNetDriver* NetDriver = GEngine->FindNamedNetDriver(MyWorld, NetDriverName);
 	if (NetDriver)
 	{
+		ENetDormancy OldDormancy = NetDormancy;
 		NetDormancy = NewDormancy;
+
+		// Tell driver about change
+		if (OldDormancy != NewDormancy)
+		{
+			NetDriver->NotifyActorDormancyChange(this, OldDormancy);
+		}
 
 		// If not dormant, flush actor from NetDriver's dormant list
 		if (NewDormancy <= DORM_Awake)
@@ -1881,10 +1895,12 @@ void AActor::FlushNetDormancy()
 		return;
 	}
 
+	bool bWasDormInitial = false;
 	if (NetDormancy == DORM_Initial)
 	{
 		// No longer initially dormant
 		NetDormancy = DORM_DormantAll;
+		bWasDormInitial = true;
 	}
 
 	// Don't proceed with network operations if not actually set to replicate
@@ -1905,7 +1921,7 @@ void AActor::FlushNetDormancy()
 
 		if (MyWorld->DemoNetDriver && MyWorld->DemoNetDriver!= NetDriver)
 		{
-			MyWorld->DemoNetDriver->FlushActorDormancy(this);
+			MyWorld->DemoNetDriver->FlushActorDormancy(this, bWasDormInitial);
 		}
 	}
 }
@@ -2064,7 +2080,13 @@ void AActor::TearOff()
 
 	if (NetMode == NM_ListenServer || NetMode == NM_DedicatedServer)
 	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		bTearOff = true;
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+		if (UNetDriver* NetDriver = GetNetDriver())
+		{
+			NetDriver->NotifyActorTearOff(this);
+		}
 	}
 }
 
@@ -2286,7 +2308,7 @@ void AActor::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 			// networking attributes
 			T = FString::Printf(TEXT("ROLE: %i RemoteRole: %i NetNode: %i"), (int32)Role, (int32)RemoteRole, (int32)GetNetMode());
 
-			if( bTearOff )
+			if( GetTearOff() )
 			{
 				T = T + FString(TEXT(" Tear Off"));
 			}
@@ -4417,7 +4439,7 @@ void AActor::SetLifeSpan( float InLifespan )
 	// Store the new value
 	InitialLifeSpan = InLifespan;
 	// Initialize a timer for the actors lifespan if there is one. Otherwise clear any existing timer
-	if ((Role == ROLE_Authority || bTearOff) && !IsPendingKill())
+	if ((Role == ROLE_Authority || GetTearOff()) && !IsPendingKill())
 	{
 		if( InLifespan > 0.0f)
 		{
