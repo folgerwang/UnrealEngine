@@ -53,18 +53,25 @@ EConvertFromTypeResult UObjectProperty::ConvertFromType(const FPropertyTag& Tag,
 	return EConvertFromTypeResult::UseSerializeItem;
 }
 
-void UObjectProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void UObjectProperty::SerializeItem(FArchive& Ar, void* Value, void const* Defaults) const
 {
-	if (Ar.IsObjectReferenceCollector())
+	SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), Value, Defaults);
+}
+
+void UObjectProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* Value, void const* Defaults ) const
+{
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
+	if (UnderlyingArchive.IsObjectReferenceCollector())
 	{
 		// Serialize in place
 		UObject** ObjectPtr = GetPropertyValuePtr(Value);
-		Ar << (*ObjectPtr);
+		Slot << (*ObjectPtr);
 	}
 	else
 	{
 		UObject* ObjectValue = GetObjectPropertyValue(Value);
-		Ar << ObjectValue;
+		Slot << ObjectValue;
 
 		UObject* CurrentValue = GetObjectPropertyValue(Value);
 		if (ObjectValue != CurrentValue)
