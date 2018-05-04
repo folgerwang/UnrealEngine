@@ -43,6 +43,12 @@ void ULazyObjectProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* V
 			CheckValidObject(Value);
 		}
 	}
+	else
+	{
+		// TODO: This isn't correct, but it keeps binary serialization happy. We should ALWAYS be serializing the pointer
+		// to the archive in this function, and allowing the underlying archive to ignore it if necessary
+		Slot.EnterStream();
+	}
 }
 
 bool ULazyObjectProperty::Identical( const void* A, const void* B, uint32 PortFlags ) const

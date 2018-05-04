@@ -61,6 +61,12 @@ void USoftObjectProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* V
 			}
 		}
 	}
+	else
+	{
+		// TODO: This isn't correct, but it keeps binary serialization happy. We should ALWAYS be serializing the pointer
+		// to the archive in this function, and allowing the underlying archive to ignore it if necessary
+		Slot.EnterStream();
+	}
 }
 
 void USoftObjectProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
