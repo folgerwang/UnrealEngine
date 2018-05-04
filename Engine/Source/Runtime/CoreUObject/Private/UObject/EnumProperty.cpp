@@ -70,23 +70,25 @@ void UEnumProperty::AddCppProperty(UProperty* Inner)
 	}
 }
 
-void UEnumProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void UEnumProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const
 {
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
 	check(UnderlyingProp);
 
-	if (Enum && Ar.UseToResolveEnumerators())
+	if (Enum && UnderlyingArchive.UseToResolveEnumerators())
 	{
 		int64 IntValue = UnderlyingProp->GetSignedIntPropertyValue(Value);
-		int64 ResolvedIndex = Enum->ResolveEnumerator(Ar, IntValue);
+		int64 ResolvedIndex = Enum->ResolveEnumerator(UnderlyingArchive, IntValue);
 		UnderlyingProp->SetIntPropertyValue(Value, ResolvedIndex);
 		return;
 	}
 
 	// Loading
-	if (Ar.IsLoading())
+	if (UnderlyingArchive.IsLoading())
 	{
 		FName EnumValueName;
-		Ar << EnumValueName;
+		Slot << EnumValueName;
 
 		int64 NewEnumValue = 0;
 
@@ -95,7 +97,7 @@ void UEnumProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaul
 			// Make sure enum is properly populated
 			if (Enum->HasAnyFlags(RF_NeedLoad))
 			{
-				Ar.Preload(Enum);
+				UnderlyingArchive.Preload(Enum);
 			}
 
 			// There's no guarantee EnumValueName is still present in Enum, in which case Value will be set to the enum's max value.
@@ -114,7 +116,7 @@ void UEnumProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaul
 		UnderlyingProp->SetIntPropertyValue(Value, NewEnumValue);
 	}
 	// Saving
-	else if (Ar.IsSaving())
+	else if (UnderlyingArchive.IsSaving())
 	{
 		FName EnumValueName;
 		if (Enum)
@@ -127,11 +129,11 @@ void UEnumProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaul
 			}
 		}
 
-		Ar << EnumValueName;
+		Slot << EnumValueName;
 	}
 	else
 	{
-		UnderlyingProp->SerializeItem(Ar, Value, Defaults);
+		UnderlyingProp->SerializeItem(Slot, Value, Defaults);
 	}
 }
 

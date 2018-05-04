@@ -736,7 +736,7 @@ bool UProperty::ShouldSerializeValue( FArchive& Ar ) const
 //
 bool UProperty::NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData ) const
 {
-	SerializeItem( Ar, Data, NULL );
+	SerializeItem( FStructuredArchiveFromArchive(Ar).GetSlot(), Data, NULL );
 	return 1;
 }
 

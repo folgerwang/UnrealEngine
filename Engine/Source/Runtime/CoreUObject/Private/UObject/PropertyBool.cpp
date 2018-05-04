@@ -319,12 +319,12 @@ bool UBoolProperty::Identical( const void* A, const void* B, uint32 PortFlags ) 
 	return ((*ByteValueA ^ (B ? *ByteValueB : 0)) & FieldMask) == 0;
 }
 
-void UBoolProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void UBoolProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* Value, void const* Defaults ) const
 {
 	check(FieldSize != 0);
 	uint8* ByteValue = (uint8*)Value + ByteOffset;
 	uint8 B = (*ByteValue & FieldMask) ? 1 : 0;
-	Ar << B;
+	Slot << B;
 	*ByteValue = ((*ByteValue) & ~FieldMask) | (B ? ByteMask : 0);
 }
 

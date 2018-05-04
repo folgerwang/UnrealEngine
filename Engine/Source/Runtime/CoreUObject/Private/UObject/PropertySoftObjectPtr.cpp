@@ -41,17 +41,19 @@ bool USoftObjectProperty::Identical( const void* A, const void* B, uint32 PortFl
 	return ObjectA.GetUniqueID() == ObjectB.GetUniqueID();
 }
 
-void USoftObjectProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void USoftObjectProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* Value, void const* Defaults ) const
 {
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
 	// We never serialize our reference while the garbage collector is harvesting references
 	// to objects, because we don't want soft object pointers to keep objects from being garbage collected
 	// Allow persistent archives so they can keep track of string references. (e.g. FArchiveSaveTagImports)
-	if( !Ar.IsObjectReferenceCollector() || Ar.IsModifyingWeakAndStrongReferences() || Ar.IsPersistent() )
+	if( !UnderlyingArchive.IsObjectReferenceCollector() || UnderlyingArchive.IsModifyingWeakAndStrongReferences() || UnderlyingArchive.IsPersistent() )
 	{
 		FSoftObjectPtr OldValue = *(FSoftObjectPtr*)Value;
-		Ar << *(FSoftObjectPtr*)Value;
+		Slot << *(FSoftObjectPtr*)Value;
 
-		if (Ar.IsLoading() || Ar.IsModifyingWeakAndStrongReferences()) 
+		if (UnderlyingArchive.IsLoading() || UnderlyingArchive.IsModifyingWeakAndStrongReferences()) 
 		{
 			if (OldValue.GetUniqueID() != ((FSoftObjectPtr*)Value)->GetUniqueID())
 			{

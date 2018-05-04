@@ -7,6 +7,7 @@
 #include "UObject/UnrealType.h"
 #include "UObject/PropertyHelper.h"
 #include "UObject/LinkerPlaceholderBase.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 
 static inline void PreloadInnerStructMembers(UStructProperty* StructProperty)
 {
@@ -105,7 +106,7 @@ uint32 UStructProperty::GetValueTypeHashInternal(const void* Src) const
 	return Struct->GetStructTypeHash(Src);
 }
 
-void UStructProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void UStructProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const
 {
 	check(Struct);
 
@@ -113,6 +114,7 @@ void UStructProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defa
 	FScopedPlaceholderPropertyTracker ImportPropertyTracker(this);
 #endif
 
+	FArchiveUObjectFromStructuredArchive Ar(Slot);
 	Struct->SerializeItem(Ar, Value, Defaults);
 }
 

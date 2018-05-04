@@ -8,6 +8,7 @@
 #include "UObject/LinkerLoad.h"
 #include "UObject/PropertyHelper.h"
 #include "Misc/ScopeExit.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 
 namespace UE4MapProperty_Private
 {
@@ -238,8 +239,10 @@ void UMapProperty::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 	OutDeps.Add(ValueProp);
 }
 
-void UMapProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults) const
+void UMapProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, const void* Defaults) const
 {
+	FArchiveUObjectFromStructuredArchive Ar(Slot);
+
 	// Ar related calls in this function must be mirrored in UMapProperty::ConvertFromType
 	checkSlow(KeyProp);
 	checkSlow(ValueProp);
@@ -283,7 +286,7 @@ void UMapProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 			for (; NumKeysToRemove; --NumKeysToRemove)
 			{
 				// Read key into temporary storage
-				KeyProp->SerializeItem(Ar, TempKeyStorage);
+				KeyProp->SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), TempKeyStorage);
 
 				// If the key is in the map, remove it
 				int32 Found = MapHelper.FindMapIndexWithKey(TempKeyStorage);
@@ -310,7 +313,7 @@ void UMapProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 			// Read key into temporary storage
 			{
 				FSerializedPropertyScope SerializedProperty(Ar, KeyProp, this);
-				KeyProp->SerializeItem(Ar, TempKeyStorage);
+				KeyProp->SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), TempKeyStorage);
 			}
 			
 			// Add a new default value if the key doesn't currently exist in the map
@@ -328,7 +331,7 @@ void UMapProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 			// Deserialize value
 			{
 				FSerializedPropertyScope SerializedProperty(Ar, ValueProp, this);
-				ValueProp->SerializeItem(Ar, NextPairPtr + MapLayout.ValueOffset);
+				ValueProp->SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), NextPairPtr + MapLayout.ValueOffset);
 			}
 		}
 
@@ -367,7 +370,7 @@ void UMapProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 			FSerializedPropertyScope SerializedProperty(Ar, KeyProp, this);
 			for (int32 Index : Indices)
 			{
-				KeyProp->SerializeItem(Ar, DefaultsHelper.GetPairPtr(Index));
+				KeyProp->SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), DefaultsHelper.GetPairPtr(Index));
 			}
 		}
 
@@ -400,11 +403,11 @@ void UMapProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 
 				{
 					FSerializedPropertyScope SerializedProperty(Ar, KeyProp, this);
-					KeyProp->SerializeItem(Ar, ValuePairPtr);
+					KeyProp->SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), ValuePairPtr);
 				}
 				{
 					FSerializedPropertyScope SerializedProperty(Ar, ValueProp, this);
-					ValueProp->SerializeItem(Ar, ValuePairPtr + MapLayout.ValueOffset);
+					ValueProp->SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), ValuePairPtr + MapLayout.ValueOffset);
 				}
 			}
 		}
@@ -420,11 +423,11 @@ void UMapProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 
 					{
 						FSerializedPropertyScope SerializedProperty(Ar, KeyProp, this);
-						KeyProp->SerializeItem(Ar, ValuePairPtr);
+						KeyProp->SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), ValuePairPtr);
 					}
 					{
 						FSerializedPropertyScope SerializedProperty(Ar, ValueProp, this);
-						ValueProp->SerializeItem(Ar, ValuePairPtr + MapLayout.ValueOffset);
+						ValueProp->SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), ValuePairPtr + MapLayout.ValueOffset);
 					}
 
 					--Num;
@@ -900,7 +903,7 @@ EConvertFromTypeResult UMapProperty::ConvertFromType(const FPropertyTag& Tag, FA
 		if(CurrentType->GetID() == InTag.Type)
 		{
 			uint8* DestAddress = CurrentType->ContainerPtrToValuePtr<uint8>(InData, InTag.ArrayIndex);
-			CurrentType->SerializeItem(InAr, DestAddress, nullptr);
+			CurrentType->SerializeItem(FStructuredArchiveFromArchive(InAr).GetSlot(), DestAddress, nullptr);
 			return true;
 		}
 		else if( CurrentType->ConvertFromType(InTag, InAr, InData, InDefaultsStruct) == EConvertFromTypeResult::Converted )

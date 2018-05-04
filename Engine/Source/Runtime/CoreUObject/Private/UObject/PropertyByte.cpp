@@ -6,6 +6,7 @@
 #include "UObject/PropertyPortFlags.h"
 #include "UObject/UnrealType.h"
 #include "UObject/UObjectThreadContext.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 #include "Algo/Find.h"
 
 /*-----------------------------------------------------------------------------
@@ -18,30 +19,32 @@ void UByteProperty::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 	OutDeps.Add(Enum);
 }
 
-void UByteProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void UByteProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* Value, void const* Defaults ) const
 {
-	if(Enum && Ar.UseToResolveEnumerators())
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
+	if(Enum && UnderlyingArchive.UseToResolveEnumerators())
 	{
-		 const int64 ResolvedIndex = Enum->ResolveEnumerator(Ar, *(uint8*)Value);
+		 const int64 ResolvedIndex = Enum->ResolveEnumerator(UnderlyingArchive, *(uint8*)Value);
 		 *(uint8*)Value = static_cast<uint8>(ResolvedIndex);
 		 return;
 	}
 
 	// Serialize enum values by name unless we're not saving or loading OR for backwards compatibility
-	const bool bUseBinarySerialization = (Enum == NULL) || (!Ar.IsLoading() && !Ar.IsSaving());
+	const bool bUseBinarySerialization = (Enum == NULL) || (!UnderlyingArchive.IsLoading() && !UnderlyingArchive.IsSaving());
 	if( bUseBinarySerialization )
 	{
-		Super::SerializeItem(Ar, Value, Defaults);
+		Super::SerializeItem(Slot, Value, Defaults);
 	}
 	// Loading
-	else if (Ar.IsLoading())
+	else if (UnderlyingArchive.IsLoading())
 	{
 		FName EnumValueName;
-		Ar << EnumValueName;
+		Slot << EnumValueName;
 		// Make sure enum is properly populated
 		if( Enum->HasAnyFlags(RF_NeedLoad) )
 		{
-			Ar.Preload(Enum);
+			UnderlyingArchive.Preload(Enum);
 		}
 
 		// There's no guarantee EnumValueName is still present in Enum, in which case Value will be set to the enum's max value.
@@ -72,7 +75,7 @@ void UByteProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaul
 		{
 			EnumValueName = NAME_None;
 		}
-		Ar << EnumValueName;
+		Slot << EnumValueName;
 	}
 }
 bool UByteProperty::NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData ) const

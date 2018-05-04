@@ -58,11 +58,6 @@ bool UArrayProperty::Identical( const void* A, const void* B, uint32 PortFlags )
 	return true;
 }
 
-void UArrayProperty::SerializeItem(FArchive& Ar, void* Value, void const* Defaults) const
-{
-	SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), Value, Defaults);
-}
-
 void UArrayProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const
 {
 	checkSlow(Inner);

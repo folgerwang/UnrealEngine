@@ -7,6 +7,7 @@
 #include "UObject/LinkerLoad.h"
 #include "UObject/PropertyHelper.h"
 #include "Misc/ScopeExit.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 
 namespace UE4SetProperty_Private
 {
@@ -212,8 +213,10 @@ void USetProperty::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 	OutDeps.Add(ElementProp);
 }
 
-void USetProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults) const
+void USetProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, const void* Defaults) const
 {
+	FArchiveUObjectFromStructuredArchive Ar(Slot);
+
 	// Ar related calls in this function must be mirrored in USetProperty::ConvertFromType
 	checkSlow(ElementProp);
 
@@ -255,7 +258,7 @@ void USetProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 			for (; NumElementsToRemove; --NumElementsToRemove)
 			{
 				// Read key into temporary storage
-				ElementProp->SerializeItem(Ar, TempElementStorage);
+				ElementProp->SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), TempElementStorage);
 
 				// If the key is in the map, remove it
 				const int32 Found = SetHelper.FindElementIndex(TempElementStorage);
@@ -281,7 +284,7 @@ void USetProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 		for (; Num; --Num)
 		{
 			// Read key into temporary storage
-			ElementProp->SerializeItem(Ar, TempElementStorage);
+			ElementProp->SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), TempElementStorage);
 
 			// Add a new entry if the element doesn't currently exist in the set
 			if (SetHelper.FindElementIndex(TempElementStorage) == INDEX_NONE)
@@ -329,7 +332,7 @@ void USetProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 			FSerializedPropertyScope SerializedProperty(Ar, ElementProp, this);
 			for (int32 Index : Indices)
 			{
-				ElementProp->SerializeItem(Ar, DefaultsHelper.GetElementPtr(Index));
+				ElementProp->SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), DefaultsHelper.GetElementPtr(Index));
 			}
 		}
 
@@ -362,7 +365,7 @@ void USetProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 			{
 				uint8* ElementPtr = SetHelper.GetElementPtrWithoutCheck(Index);
 
-				ElementProp->SerializeItem(Ar, ElementPtr);
+				ElementProp->SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), ElementPtr);
 			}
 		}
 		else
@@ -377,7 +380,7 @@ void USetProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 				{
 					uint8* ElementPtr = SetHelper.GetElementPtrWithoutCheck(Index);
 
-					ElementProp->SerializeItem(Ar, ElementPtr);
+					ElementProp->SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), ElementPtr);
 
 					--Num;
 				}

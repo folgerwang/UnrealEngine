@@ -7,6 +7,7 @@
 #include "Internationalization/TextNamespaceUtil.h"
 #include "Internationalization/TextPackageNamespaceUtil.h"
 #include "Internationalization/StringTableRegistry.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 
 EConvertFromTypeResult UTextProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
@@ -81,9 +82,11 @@ bool UTextProperty::Identical( const void* A, const void* B, uint32 PortFlags ) 
 	return FTextInspector::GetDisplayString(ValueA).IsEmpty();
 }
 
-void UTextProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void UTextProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const
 {
 	TCppType* TextPtr = GetPropertyValuePtr(Value);
+
+	FArchiveUObjectFromStructuredArchive Ar(Slot);
 	Ar << *TextPtr;
 }
 

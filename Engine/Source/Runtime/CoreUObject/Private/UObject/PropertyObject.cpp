@@ -53,11 +53,6 @@ EConvertFromTypeResult UObjectProperty::ConvertFromType(const FPropertyTag& Tag,
 	return EConvertFromTypeResult::UseSerializeItem;
 }
 
-void UObjectProperty::SerializeItem(FArchive& Ar, void* Value, void const* Defaults) const
-{
-	SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), Value, Defaults);
-}
-
 void UObjectProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* Value, void const* Defaults ) const
 {
 	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();

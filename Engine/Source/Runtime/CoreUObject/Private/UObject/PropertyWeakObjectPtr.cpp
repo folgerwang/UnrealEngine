@@ -33,11 +33,13 @@ FString UWeakObjectProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 	return TEXT("WEAKOBJECT");
 }
 
-void UWeakObjectProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void UWeakObjectProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* Value, void const* Defaults ) const
 {
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
 	UObject* ObjectValue = GetObjectPropertyValue(Value);
-	Ar << *(FWeakObjectPtr*)Value;
-	if ((Ar.IsLoading() || Ar.IsModifyingWeakAndStrongReferences()) && ObjectValue != GetObjectPropertyValue(Value))
+	Slot << *(FWeakObjectPtr*)Value;
+	if ((UnderlyingArchive.IsLoading() || UnderlyingArchive.IsModifyingWeakAndStrongReferences()) && ObjectValue != GetObjectPropertyValue(Value))
 	{
 		CheckValidObject(Value);
 	}

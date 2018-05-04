@@ -110,12 +110,13 @@ bool UInterfaceProperty::Identical( const void* A, const void* B, uint32 PortFla
 	return (InterfaceA->GetObject() == InterfaceB->GetObject() && InterfaceA->GetInterface() == InterfaceB->GetInterface());
 }
 
-void UInterfaceProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void UInterfaceProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* Value, void const* Defaults ) const
 {
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
 	FScriptInterface* InterfaceValue = (FScriptInterface*)Value;
 
-	Ar << InterfaceValue->GetObjectRef();
-	if ( Ar.IsLoading() || Ar.IsTransacting() || Ar.IsObjectReferenceCollector() )
+	Slot << InterfaceValue->GetObjectRef();
+	if (UnderlyingArchive.IsLoading() || UnderlyingArchive.IsTransacting() || UnderlyingArchive.IsObjectReferenceCollector())
 	{
 		if ( InterfaceValue->GetObject() != NULL )
 		{

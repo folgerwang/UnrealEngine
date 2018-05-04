@@ -173,9 +173,3 @@ void FPropertyValueIterator::GetPropertyChain(TArray<const UProperty*>& Property
 		}
 	}
 }
-
-void UProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const
-{
-	FArchiveUObjectFromStructuredArchive Ar(Slot);
-	SerializeItem(Ar, Value, Defaults);
-}
