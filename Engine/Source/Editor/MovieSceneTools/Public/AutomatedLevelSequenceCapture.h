@@ -61,6 +61,10 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Sequence)
 	bool bWriteEditDecisionList;
 
+	/** Whether to write Final Cut Pro XML files (XMLs) if the sequence contains shots */
+	UPROPERTY(config, EditAnywhere, Category=Sequence)
+	bool bWriteFinalCutProXML;
+
 public:
 	// UMovieSceneCapture interface
 	virtual void Initialize(TSharedPtr<FSceneViewport> InViewport, int32 PIEInstance = -1) override;
@@ -100,6 +104,9 @@ private:
 
 	/** Export EDL if requested */
 	void ExportEDL();
+
+	/** Export FCPXML if requested */
+	void ExportFCPXML();
 
 	/** Delegate binding for the above callback */
 	FDelegateHandle OnPlayerUpdatedBinding;

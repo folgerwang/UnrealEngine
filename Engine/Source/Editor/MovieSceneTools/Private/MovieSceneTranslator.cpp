@@ -16,7 +16,7 @@
 
 #define LOCTEXT_NAMESPACE "MovieSceneTranslator"
 
-FMovieSceneExportData::FMovieSceneExportData(const UMovieScene* InMovieScene, FFrameRate InFrameRate, int32 InHandleFrames, FString InSaveFilename, TSharedPtr<FMovieSceneTranslatorContext> InContext)
+FMovieSceneExportData::FMovieSceneExportData(const UMovieScene* InMovieScene, FFrameRate InFrameRate, uint32 InResX, uint32 InResY, int32 InHandleFrames, FString InSaveFilename, TSharedPtr<FMovieSceneTranslatorContext> InContext)
 {
 	if (InMovieScene == nullptr)
 	{
@@ -31,6 +31,8 @@ FMovieSceneExportData::FMovieSceneExportData(const UMovieScene* InMovieScene, FF
 	}
 
 	FrameRate = InFrameRate;
+	ResX = InResX;
+	ResY = InResY;
 	HandleFrames = ConvertFrameTime(FFrameTime(InHandleFrames), InMovieScene->GetTickResolution(), FrameRate);
 	SaveFilename = InSaveFilename;
 
@@ -76,13 +78,13 @@ bool FMovieSceneExportData::ConstructMovieSceneData(const UMovieScene* InMovieSc
 
 	MovieSceneData = MakeShared<FMovieSceneExportMovieSceneData>();
 
-	FFrameRate Resolution = InMovieScene->GetTickResolution();
+	FFrameRate TickResolution = InMovieScene->GetTickResolution();
 
 	TRange<FFrameNumber> PlaybackRange = InMovieScene->GetPlaybackRange();
 
 	if (PlaybackRange.HasLowerBound())
 	{
-		MovieSceneData->PlaybackRangeStartFrame = ConvertFrameTime(PlaybackRange.GetLowerBoundValue(), Resolution, FrameRate).CeilToFrame();
+		MovieSceneData->PlaybackRangeStartFrame = ConvertFrameTime(PlaybackRange.GetLowerBoundValue(), TickResolution, FrameRate).CeilToFrame();
 	}
 	else
 	{
@@ -92,7 +94,7 @@ bool FMovieSceneExportData::ConstructMovieSceneData(const UMovieScene* InMovieSc
 
 	if (PlaybackRange.HasUpperBound())
 	{
-		MovieSceneData->PlaybackRangeEndFrame = ConvertFrameTime(PlaybackRange.GetUpperBoundValue(), Resolution, FrameRate).CeilToFrame();
+		MovieSceneData->PlaybackRangeEndFrame = ConvertFrameTime(PlaybackRange.GetUpperBoundValue(), TickResolution, FrameRate).CeilToFrame();
 	}
 	else
 	{
@@ -102,8 +104,8 @@ bool FMovieSceneExportData::ConstructMovieSceneData(const UMovieScene* InMovieSc
 
 	MovieSceneData->Name = InMovieScene->GetOuter()->GetName();
 	MovieSceneData->Path = InMovieScene->GetOuter()->GetPathName();
-	MovieSceneData->Resolution = Resolution;
-	MovieSceneData->Duration = ConvertFrameTime(MovieScene::DiscreteSize(PlaybackRange), Resolution, FrameRate).FrameNumber.Value;
+	MovieSceneData->TickResolution = TickResolution;
+	MovieSceneData->Duration = ConvertFrameTime(MovieScene::DiscreteSize(PlaybackRange), TickResolution, FrameRate).FrameNumber.Value;
 
 	bool bFoundCinematicMasterTrack = false;
 
@@ -268,7 +270,7 @@ bool FMovieSceneExportData::ConstructSectionData(const UMovieScene* InMovieScene
 	if (InSection->HasStartFrame())
 	{
 		FFrameTime InclusiveStartFrame = InSection->GetInclusiveStartFrame();
-		FFrameTime ConvertedStartFrame = ConvertFrameTime(InclusiveStartFrame, MovieSceneData->Resolution, FrameRate);
+		FFrameTime ConvertedStartFrame = ConvertFrameTime(InclusiveStartFrame, MovieSceneData->TickResolution, FrameRate);
 		InSectionData->StartFrame = ConvertedStartFrame.CeilToFrame();
 
 		if (ExportContext.IsValid() && InSectionType == EMovieSceneTranslatorSectionType::Cinematic && ConvertedStartFrame.GetSubFrame() > 0.0f)
@@ -292,7 +294,7 @@ bool FMovieSceneExportData::ConstructSectionData(const UMovieScene* InMovieScene
 	if (InSection->HasEndFrame())
 	{
 		FFrameTime ExclusiveEndFrame = InSection->GetExclusiveEndFrame();
-		FFrameTime ConvertedEndFrame = ConvertFrameTime(ExclusiveEndFrame, MovieSceneData->Resolution, FrameRate);
+		FFrameTime ConvertedEndFrame = ConvertFrameTime(ExclusiveEndFrame, MovieSceneData->TickResolution, FrameRate);
 		InSectionData->EndFrame = ConvertedEndFrame.CeilToFrame();
 
 		if (ExportContext.IsValid() && InSectionType == EMovieSceneTranslatorSectionType::Cinematic && ConvertedEndFrame.GetSubFrame() > 0.0f)
@@ -336,6 +338,16 @@ FString FMovieSceneExportData::GetFilenamePath() const
 FFrameRate FMovieSceneExportData::GetFrameRate() const
 {
 	return FrameRate;
+}
+
+uint32 FMovieSceneExportData::GetResX() const
+{
+	return ResX;
+}
+
+uint32 FMovieSceneExportData::GetResY() const
+{
+	return ResY;
 }
 
 uint32 FMovieSceneExportData::GetNearestWholeFrameRate() const
@@ -451,10 +463,10 @@ TSharedPtr<FMovieSceneImportCinematicSectionData> FMovieSceneImportData::CreateC
 	}
 
 	// both FCP XML and Sequencer have inclusive start frame, exclusive end frame
-	FFrameRate Resolution = MovieSceneData->MovieScene->GetTickResolution();
-	FFrameNumber StartFrame = ConvertFrameTime(InStartFrame, InFrameRate, Resolution).RoundToFrame();
-	FFrameNumber StartOffsetFrame = ConvertFrameTime(InStartOffsetFrame, InFrameRate, Resolution).RoundToFrame();
-	FFrameNumber EndFrame = ConvertFrameTime(InEndFrame, InFrameRate, Resolution).RoundToFrame();
+	FFrameRate TickResolution = MovieSceneData->MovieScene->GetTickResolution();
+	FFrameNumber StartFrame = ConvertFrameTime(InStartFrame, InFrameRate, TickResolution).RoundToFrame();
+	FFrameNumber StartOffsetFrame = ConvertFrameTime(InStartOffsetFrame, InFrameRate, TickResolution).RoundToFrame();
+	FFrameNumber EndFrame = ConvertFrameTime(InEndFrame, InFrameRate, TickResolution).RoundToFrame();
 	int32 Duration = (EndFrame - StartFrame).Value;
 	
 	MasterTrack->Modify();
@@ -481,10 +493,10 @@ bool FMovieSceneImportData::SetCinematicSection(TSharedPtr<FMovieSceneImportCine
 		return false;
 	}
 
-	FFrameRate Resolution = MovieSceneData->MovieScene->GetTickResolution();
-	FFrameNumber StartFrame = ConvertFrameTime(InStartFrame, InFrameRate, Resolution).GetFrame();
-	FFrameNumber StartOffsetFrame = ConvertFrameTime(InStartOffsetFrame, InFrameRate, Resolution).GetFrame();
-	FFrameNumber EndFrame = ConvertFrameTime(InEndFrame, InFrameRate, Resolution).GetFrame();
+	FFrameRate TickResolution = MovieSceneData->MovieScene->GetTickResolution();
+	FFrameNumber StartFrame = ConvertFrameTime(InStartFrame, InFrameRate, TickResolution).GetFrame();
+	FFrameNumber StartOffsetFrame = ConvertFrameTime(InStartOffsetFrame, InFrameRate, TickResolution).GetFrame();
+	FFrameNumber EndFrame = ConvertFrameTime(InEndFrame, InFrameRate, TickResolution).GetFrame();
 
 	InSection->CinematicSection->Modify();
 	InSection->CinematicSection->Parameters.SetStartFrameOffset(StartOffsetFrame.Value);

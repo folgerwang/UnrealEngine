@@ -105,8 +105,6 @@ private:
 	bool GetMasterClipItemIdName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, FString& OutName);
 	/** Get master clip's file id name based on input name and id */
 	bool GetMasterClipFileIdName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, FString& OutName);
-	/** Get the default image resolution */
-	void GetDefaultImageResolution(int32& OutWidth, int32& OutHeight);
 	/** Return filename with path */
 	FString GetFilePathName(const FString& InSectionName) const;
 

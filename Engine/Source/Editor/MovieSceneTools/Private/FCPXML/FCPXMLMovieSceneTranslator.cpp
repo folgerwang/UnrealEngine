@@ -146,7 +146,7 @@ FText FFCPXMLExporter::GetMessageLogLabel() const
 	return LOCTEXT("FCPXMLExportLogLabel", "FCP 7 XML Export Log");
 }
 
-bool FFCPXMLExporter::Export(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveFilename, int32 InHandleFrames, TSharedRef<FMovieSceneTranslatorContext> InContext)
+bool FFCPXMLExporter::Export(const UMovieScene* InMovieScene, FFrameRate InFrameRate, uint32 InResX, uint32 InResY, int32 InHandleFrames, FString InSaveFilename, TSharedRef<FMovieSceneTranslatorContext> InContext)
 {
 	InContext->Init();
 
@@ -154,7 +154,7 @@ bool FFCPXMLExporter::Export(const UMovieScene* InMovieScene, FFrameRate InFrame
 	TSharedRef<FFCPXMLFile> FCPXMLFile = MakeShared<FFCPXMLFile>();
 	FCPXMLFile->ConstructFile(FPaths::GetBaseFilename(InSaveFilename, true));
 
-	TSharedRef<FMovieSceneExportData> ExportData = MakeShared<FMovieSceneExportData>(InMovieScene, InFrameRate, InHandleFrames, InSaveFilename, InContext);
+	TSharedRef<FMovieSceneExportData> ExportData = MakeShared<FMovieSceneExportData>(InMovieScene, InFrameRate, InResX, InResY, InHandleFrames, InSaveFilename, InContext);
 
 	// Export sequencer movie scene, merging with existing Xml structure.
 	FFCPXMLExportVisitor ExportVisitor(InSaveFilename, ExportData, InContext);

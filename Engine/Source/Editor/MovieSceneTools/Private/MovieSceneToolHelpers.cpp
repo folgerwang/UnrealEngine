@@ -728,12 +728,20 @@ bool MovieSceneToolHelpers::MovieSceneTranslatorImport(FMovieSceneImporter* InIm
 	return bSuccess;
 }
 
-bool MovieSceneToolHelpers::MovieSceneTranslatorExport(FMovieSceneExporter* InExporter, const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveDirectory, int32 InHandleFrames)
+bool MovieSceneToolHelpers::MovieSceneTranslatorExport(FMovieSceneExporter* InExporter, const UMovieScene* InMovieScene, const FMovieSceneCaptureSettings& Settings)
 {
 	if (InExporter == nullptr || InMovieScene == nullptr)
 	{
 		return false;
 	}
+
+	FString SaveDirectory = FPaths::ConvertRelativePathToFull(Settings.OutputDirectory.Path);
+	int32 HandleFrames = Settings.HandleFrames;
+	// @todo: generate filename based on filename format, currently outputs {shot}.avi
+	FString FilenameFormat = Settings.OutputFormat;
+	FFrameRate FrameRate = Settings.FrameRate;
+	uint32 ResX = Settings.Resolution.ResX;
+	uint32 ResY = Settings.Resolution.ResY;
 
 	TArray<FString> SaveFilenames;
 	FString SequenceName = InMovieScene->GetOuter()->GetName();
@@ -750,7 +758,7 @@ bool MovieSceneToolHelpers::MovieSceneTranslatorExport(FMovieSceneExporter* InEx
 		bSave = DesktopPlatform->SaveFileDialog(
 			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			DialogTitle,
-			InSaveDirectory,
+			SaveDirectory,
 			SequenceName + TEXT(".") + FileExtension,
 			FileTypeDescription,
 			EFileDialogFlags::None,
@@ -766,7 +774,7 @@ bool MovieSceneToolHelpers::MovieSceneTranslatorExport(FMovieSceneExporter* InEx
 	TSharedRef<FMovieSceneTranslatorContext> ExportContext(new FMovieSceneTranslatorContext);
 	ExportContext->Init();
 
-	bool bSuccess = InExporter->Export(InMovieScene, InFrameRate, SaveFilenames[0], InHandleFrames, ExportContext);
+	bool bSuccess = InExporter->Export(InMovieScene, FrameRate, ResX, ResY, HandleFrames, SaveFilenames[0], ExportContext);
 	
 	// Display any messages in context
 	MovieSceneTranslatorDisplayMessages(InExporter, ExportContext);
@@ -774,11 +782,11 @@ bool MovieSceneToolHelpers::MovieSceneTranslatorExport(FMovieSceneExporter* InEx
 	if (bSuccess)
 	{
 		const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(SaveFilenames[0]);
-		const FString SaveDirectory = FPaths::GetPath(AbsoluteFilename);
+		const FString ActualSaveDirectory = FPaths::GetPath(AbsoluteFilename);
 
 		FNotificationInfo NotificationInfo(InExporter->GetNotificationExportFinished());
 		NotificationInfo.ExpireDuration = 5.f;
-		NotificationInfo.Hyperlink = FSimpleDelegate::CreateStatic([](FString InDirectory) { FPlatformProcess::ExploreFolder(*InDirectory); }, SaveDirectory);
+		NotificationInfo.Hyperlink = FSimpleDelegate::CreateStatic([](FString InDirectory) { FPlatformProcess::ExploreFolder(*InDirectory); }, ActualSaveDirectory);
 		NotificationInfo.HyperlinkText = InExporter->GetNotificationHyperlinkText();
 		FSlateNotificationManager::Get().AddNotification(NotificationInfo);
 	}
