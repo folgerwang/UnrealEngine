@@ -1845,36 +1845,59 @@ void UEditorEngine::PlayUsingLauncher()
 		ITargetDeviceServicesModule& TargetDeviceServicesModule = FModuleManager::LoadModuleChecked<ITargetDeviceServicesModule>("TargetDeviceServices");
 
 		//if the device is not authorized to be launched to, we need to pop an error instead of trying to launch
-		ITargetPlatform* LaunchPlatform = GetTargetPlatformManagerRef().FindTargetPlatform(PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@"))));
-		if (LaunchPlatform != nullptr)
-		{
-			ITargetDevicePtr PlayDevice = LaunchPlatform->GetDefaultDevice();
-			if (PlayDevice.IsValid() && !PlayDevice->IsAuthorized())
-			{
-				CancelRequestPlaySession();
-
-				FText LaunchingText = LOCTEXT("LauncherTaskInProgressNotificationNotAuthorized", "Cannot launch to this device until this computer is authorized from the device");
-				FNotificationInfo Info(LaunchingText);
-				Info.ExpireDuration = 5.0f;
-				TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
-				if (Notification.IsValid())
-				{
-					Notification->SetCompletionState(SNotificationItem::CS_Fail);
-					Notification->ExpireAndFadeout();
-				}
-				return;
-			}
-		}
+		FString LaunchPlatformName = PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@")));
+		FString LaunchPlatformNameFromID = PlayUsingLauncherDeviceId.Right(PlayUsingLauncherDeviceId.Find(TEXT("@")));
+		ITargetPlatform* LaunchPlatform = GetTargetPlatformManagerRef().FindTargetPlatform(LaunchPlatformName);
 
 		// create a temporary device group and launcher profile
 		ILauncherDeviceGroupRef DeviceGroup = LauncherServicesModule.CreateDeviceGroup(FGuid::NewGuid(), TEXT("PlayOnDevices"));
-		DeviceGroup->AddDevice(PlayUsingLauncherDeviceId);
+		if (LaunchPlatform != nullptr)
+		{
+			if (LaunchPlatformNameFromID.Equals(LaunchPlatformName))
+			{
+				// create a temporary list of devices for the target platform
+				TArray<ITargetDevicePtr> TargetDevices;
+				LaunchPlatform->GetAllDevices(TargetDevices);
 
-		UE_LOG(LogPlayLevel, Log, TEXT("Launcher Device ID: %s"), *PlayUsingLauncherDeviceId);
-
+				for (const ITargetDevicePtr& PlayDevice : TargetDevices)
+				{
+					// compose the device id
+					FString PlayDeviceId = LaunchPlatformName + TEXT("@") + PlayDevice.Get()->GetId().GetDeviceName();
+					if (PlayDevice.IsValid() && !PlayDevice->IsAuthorized())
+					{
+						CancelPlayUsingLauncher();
+					}
+					else
+					{
+						DeviceGroup->AddDevice(PlayDeviceId);
+						UE_LOG(LogPlayLevel, Log, TEXT("Launcher Device ID: %s"), *PlayDeviceId);
+					}
+				}
+			}
+			else
+			{
+				ITargetDevicePtr PlayDevice = LaunchPlatform->GetDefaultDevice();
+				if (PlayDevice.IsValid() && !PlayDevice->IsAuthorized())
+				{
+					CancelPlayUsingLauncher();
+				}
+				else
+				{
+					
+					DeviceGroup->AddDevice(PlayUsingLauncherDeviceId);
+					UE_LOG(LogPlayLevel, Log, TEXT("Launcher Device ID: %s"), *PlayUsingLauncherDeviceId);
+				}
+			}
+			
+			if (DeviceGroup.Get().GetNumDevices() == 0)
+			{
+				return;
+			}
+		}
+		
 		// does the project have any code?
 		FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
-		bPlayUsingLauncherHasCode = GameProjectModule.Get().ProjectRequiresBuild(FName(*PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@")))));
+		bPlayUsingLauncherHasCode = GameProjectModule.Get().ProjectRequiresBuild(FName(*LaunchPlatformName));
 
 		const ULevelEditorPlaySettings* PlayInSettings = GetDefault<ULevelEditorPlaySettings>();
 		// Setup launch profile, keep the setting here to a minimum.
@@ -1928,7 +1951,7 @@ void UEditorEngine::PlayUsingLauncher()
 
 		// select the quickest cook mode based on which in editor cook mode is enabled
 		bool bIncrimentalCooking = true;
-		LauncherProfile->AddCookedPlatform(PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@"))));
+		LauncherProfile->AddCookedPlatform(LaunchPlatformName);
 		ELauncherProfileCookModes::Type CurrentLauncherCookMode = ELauncherProfileCookModes::ByTheBook;
 		bool bCanCookByTheBookInEditor = true;
 		bool bCanCookOnTheFlyInEditor = true;
@@ -1962,7 +1985,7 @@ void UEditorEngine::PlayUsingLauncher()
 		const FString DummyIOSDeviceName(FString::Printf(TEXT("All_iOS_On_%s"), FPlatformProcess::ComputerName()));
 		const FString DummyTVOSDeviceName(FString::Printf(TEXT("All_tvOS_On_%s"), FPlatformProcess::ComputerName()));
 
-		if ((PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@"))) != TEXT("IOS") && PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@"))) != TEXT("TVOS")) ||
+		if ((LaunchPlatformName != TEXT("IOS") && LaunchPlatformName != TEXT("TVOS")) ||
 			(!PlayUsingLauncherDeviceName.Contains(DummyIOSDeviceName) && !PlayUsingLauncherDeviceName.Contains(DummyTVOSDeviceName)))
 		{
 			LauncherProfile->SetLaunchMode(ELauncherProfileLaunchModes::DefaultRole);
@@ -3185,7 +3208,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 							{
 								// restore previously minimized root window.
 								TSharedPtr<SWindow> RootWindow = FGlobalTabmanager::Get()->GetRootWindow();
-								if (RootWindow.IsValid())
+								if (RootWindow.IsValid() && RootWindow->IsWindowMinimized())
 								{
 									RootWindow->Restore();
 								}
@@ -3825,4 +3848,23 @@ void UEditorEngine::AutomationPlayUsingLauncher(const FString& InLauncherDeviceI
 	PlayUsingLauncher();
 }
 
+/** 
+* Cancel Play using Launcher on error 
+* 
+* if the physical device is not authorized to be launched to, we need to pop an error instead of trying to launch
+*/
+void UEditorEngine::CancelPlayUsingLauncher()
+{
+	CancelRequestPlaySession();
+
+	FText LaunchingText = LOCTEXT("LauncherTaskInProgressNotificationNotAuthorized", "Cannot launch to this device until this computer is authorized from the device");
+	FNotificationInfo Info(LaunchingText);
+	Info.ExpireDuration = 5.0f;
+	TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
+	if (Notification.IsValid())
+	{
+		Notification->SetCompletionState(SNotificationItem::CS_Fail);
+		Notification->ExpireAndFadeout();
+	}
+}
 #undef LOCTEXT_NAMESPACE

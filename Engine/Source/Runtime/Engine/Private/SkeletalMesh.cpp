@@ -849,10 +849,9 @@ void USkeletalMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 	}
 
 	UpdateUVChannelData(true);
+	UpdateGenerateUpToData();
 
-#if WITH_EDITOR
 	OnMeshChanged.Broadcast();
-#endif
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
@@ -877,6 +876,23 @@ void USkeletalMesh::PostEditUndo()
 		InitMorphTargets();
 	}
 }
+
+void USkeletalMesh::UpdateGenerateUpToData()
+{
+	for (int32 LodIndex = 0; LodIndex < GetImportedModel()->LODModels.Num(); ++LodIndex)
+	{
+		FSkeletalMeshLODModel& LodModel = GetImportedModel()->LODModels[LodIndex];
+		for (int32 SectionIndex = 0; SectionIndex < LodModel.Sections.Num(); ++SectionIndex)
+		{
+			int32 SpecifiedLodIndex = LodModel.Sections[SectionIndex].GenerateUpToLodIndex;
+			if (SpecifiedLodIndex != -1 && SpecifiedLodIndex < LodIndex)
+			{
+				LodModel.Sections[SectionIndex].GenerateUpToLodIndex = LodIndex;
+			}
+		}
+	}
+}
+
 #endif // WITH_EDITOR
 
 void USkeletalMesh::BeginDestroy()
@@ -1563,6 +1579,10 @@ void USkeletalMesh::PostLoad()
 	}
 
 	bHasActiveClothingAssets = ComputeActiveClothingAssets();
+
+#if WITH_EDITOR
+	UpdateGenerateUpToData();
+#endif
 }
 
 #if WITH_EDITORONLY_DATA

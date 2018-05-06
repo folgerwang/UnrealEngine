@@ -2,6 +2,7 @@
 
 #include "ImageCore.h"
 #include "Modules/ModuleManager.h"
+#include "Async/ParallelFor.h"
 
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, ImageCore);
@@ -35,8 +36,15 @@ static void CopyImage(const FImage& SrcImage, FImage& DestImage)
 	check(SrcImage.SizeY == DestImage.SizeY);
 	check(SrcImage.NumSlices == DestImage.NumSlices);
 
+	const bool bDestIsGammaCorrected = DestImage.IsGammaCorrected();
 	const int32 NumTexels = SrcImage.SizeX * SrcImage.SizeY * SrcImage.NumSlices;
-	
+	const int32 NumJobs = FTaskGraphInterface::Get().GetNumWorkerThreads();
+	int32 TexelsPerJob = NumTexels / NumJobs;
+	if (TexelsPerJob * NumJobs < NumTexels)
+	{
+		++TexelsPerJob;
+	}
+
 	if (SrcImage.Format == DestImage.Format &&
 		SrcImage.GammaSpace == DestImage.GammaSpace)
 	{
@@ -52,30 +60,45 @@ static void CopyImage(const FImage& SrcImage, FImage& DestImage)
 		case ERawImageFormat::G8:
 			{
 				uint8* DestLum = DestImage.AsG8();
-				for (int32 TexelIndex = 0; TexelIndex < NumTexels; ++TexelIndex)
+				ParallelFor(NumJobs, [NumJobs, DestLum, SrcColors, TexelsPerJob, NumTexels, bDestIsGammaCorrected](int32 JobIndex)
 				{
-					DestLum[TexelIndex] = SrcColors[TexelIndex].ToFColor(DestImage.IsGammaCorrected()).R;
-				}
+					const int32 StartIndex = JobIndex * TexelsPerJob;
+					const int32 EndIndex = FMath::Min(StartIndex + TexelsPerJob, NumTexels);
+					for (int32 TexelIndex = StartIndex; TexelIndex < EndIndex; ++TexelIndex)
+					{
+						DestLum[TexelIndex] = SrcColors[TexelIndex].ToFColor(bDestIsGammaCorrected).R;
+					}
+				});
 			}
 			break;
 		
 		case ERawImageFormat::BGRA8:
 			{
 				FColor* DestColors = DestImage.AsBGRA8();
-				for (int32 TexelIndex = 0; TexelIndex < NumTexels; ++TexelIndex)
+				ParallelFor(NumJobs, [DestColors, SrcColors, TexelsPerJob, NumTexels, bDestIsGammaCorrected](int32 JobIndex)
 				{
-					DestColors[TexelIndex] = SrcColors[TexelIndex].ToFColor(DestImage.IsGammaCorrected());
-				}
+					const int32 StartIndex = JobIndex * TexelsPerJob;
+					const int32 EndIndex = FMath::Min(StartIndex + TexelsPerJob, NumTexels);
+					for (int32 TexelIndex = StartIndex; TexelIndex < EndIndex; ++TexelIndex)
+					{
+						DestColors[TexelIndex] = SrcColors[TexelIndex].ToFColor(bDestIsGammaCorrected);
+					}
+				});
 			}
 			break;
 		
 		case ERawImageFormat::BGRE8:
 			{
 				FColor* DestColors = DestImage.AsBGRE8();
-				for (int32 TexelIndex = 0; TexelIndex < NumTexels; ++TexelIndex)
+				ParallelFor(NumJobs, [DestColors, SrcColors, TexelsPerJob, NumTexels, bDestIsGammaCorrected](int32 JobIndex)
 				{
-					DestColors[TexelIndex] = SrcColors[TexelIndex].ToRGBE();
-				}
+					const int32 StartIndex = JobIndex * TexelsPerJob;
+					const int32 EndIndex = FMath::Min(StartIndex + TexelsPerJob, NumTexels);
+					for (int32 TexelIndex = StartIndex; TexelIndex < EndIndex; ++TexelIndex)
+					{
+						DestColors[TexelIndex] = SrcColors[TexelIndex].ToRGBE();
+					}
+				});
 			}
 			break;
 		
@@ -136,20 +159,31 @@ static void CopyImage(const FImage& SrcImage, FImage& DestImage)
 		case ERawImageFormat::BGRA8:
 			{
 				const FColor* SrcColors = SrcImage.AsBGRA8();
-				for (int32 TexelIndex = 0; TexelIndex < NumTexels; ++TexelIndex)
+				switch ( SrcImage.GammaSpace )
 				{
-					switch ( SrcImage.GammaSpace )
+				case EGammaSpace::Linear:
+					for (int32 TexelIndex = 0; TexelIndex < NumTexels; ++TexelIndex)
 					{
-					case EGammaSpace::Linear:
 						DestColors[TexelIndex] = SrcColors[TexelIndex].ReinterpretAsLinear();
-						break;
-					case EGammaSpace::sRGB:
-						DestColors[TexelIndex] = FLinearColor(SrcColors[TexelIndex]);
-						break;
-					case EGammaSpace::Pow22:
-						DestColors[TexelIndex] = FLinearColor::FromPow22Color(SrcColors[TexelIndex]);
-						break;
 					}
+					break;
+				case EGammaSpace::sRGB:
+					ParallelFor(NumJobs, [DestColors, SrcColors, TexelsPerJob, NumTexels](int32 JobIndex)
+					{
+						int32 StartIndex = JobIndex * TexelsPerJob;
+						int32 EndIndex = FMath::Min(StartIndex + TexelsPerJob, NumTexels);
+						for (int32 TexelIndex = StartIndex; TexelIndex < EndIndex; ++TexelIndex)
+						{
+							DestColors[TexelIndex] = FLinearColor(SrcColors[TexelIndex]);
+						}
+					});
+					break;
+				case EGammaSpace::Pow22:
+					for (int32 TexelIndex = 0; TexelIndex < NumTexels; ++TexelIndex)
+					{
+						DestColors[TexelIndex] = FLinearColor::FromPow22Color(SrcColors[TexelIndex]);
+					}
+					break;
 				}
 			}
 			break;

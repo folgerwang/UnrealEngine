@@ -1069,7 +1069,7 @@ bool FICUSanitizationTest::RunTest(const FString& Parameters)
 		auto TestCultureCodeSanitization = [this](const FString& InCode, const FString& InExpectedCode)
 		{
 			const FString SanitizedCode = ICUUtilities::SanitizeCultureCode(InCode);
-			if (SanitizedCode != InExpectedCode)
+			if (!SanitizedCode.Equals(InExpectedCode, ESearchCase::CaseSensitive))
 			{
 				AddError(FString::Printf(TEXT("SanitizeCultureCode did not produce the expected result (got '%s', expected '%s')"), *SanitizedCode, *InExpectedCode));
 			}
@@ -1086,7 +1086,7 @@ bool FICUSanitizationTest::RunTest(const FString& Parameters)
 		auto TestTimezoneCodeSanitization = [this](const FString& InCode, const FString& InExpectedCode)
 		{
 			const FString SanitizedCode = ICUUtilities::SanitizeTimezoneCode(InCode);
-			if (SanitizedCode != InExpectedCode)
+			if (!SanitizedCode.Equals(InExpectedCode, ESearchCase::CaseSensitive))
 			{
 				AddError(FString::Printf(TEXT("SanitizeTimezoneCode did not produce the expected result (got '%s', expected '%s')"), *SanitizedCode, *InExpectedCode));
 			}
@@ -1111,7 +1111,7 @@ bool FICUSanitizationTest::RunTest(const FString& Parameters)
 		auto TestCurrencyCodeSanitization = [this](const FString& InCode, const FString& InExpectedCode)
 		{
 			const FString SanitizedCode = ICUUtilities::SanitizeCurrencyCode(InCode);
-			if (SanitizedCode != InExpectedCode)
+			if (!SanitizedCode.Equals(InExpectedCode, ESearchCase::CaseSensitive))
 			{
 				AddError(FString::Printf(TEXT("SanitizeCurrencyCode did not produce the expected result (got '%s', expected '%s')"), *SanitizedCode, *InExpectedCode));
 			}
@@ -1121,6 +1121,39 @@ bool FICUSanitizationTest::RunTest(const FString& Parameters)
 		TestCurrencyCodeSanitization(TEXT("USD{}%"), TEXT("USD"));
 		TestCurrencyCodeSanitization(TEXT("U{}%SD"), TEXT("USD"));
 		TestCurrencyCodeSanitization(TEXT("USDUSD"), TEXT("USD"));
+	}
+
+	// Validate canonization of culture names
+	{
+		auto TestCultureCodeCanonization = [this](const FString& InCode, const FString& InExpectedCode)
+		{
+			const FString CanonizedCode = FCulture::GetCanonicalName(InCode);
+			if (!CanonizedCode.Equals(InExpectedCode, ESearchCase::CaseSensitive))
+			{
+				AddError(FString::Printf(TEXT("GetCanonicalName did not produce the expected result (got '%s', expected '%s')"), *CanonizedCode, *InExpectedCode));
+			}
+		};
+
+		// Valid codes
+		TestCultureCodeCanonization(TEXT(""), TEXT("en-US-POSIX"));
+		TestCultureCodeCanonization(TEXT("en"), TEXT("en"));
+		TestCultureCodeCanonization(TEXT("en_US"), TEXT("en-US"));
+		TestCultureCodeCanonization(TEXT("en_US_POSIX"), TEXT("en-US-POSIX"));
+		TestCultureCodeCanonization(TEXT("en_US@POSIX"), TEXT("en-US-POSIX"));
+		TestCultureCodeCanonization(TEXT("en_US.utf8"), TEXT("en-US"));
+		TestCultureCodeCanonization(TEXT("en_US.utf8@posix"), TEXT("en-US-POSIX"));
+		TestCultureCodeCanonization(TEXT("en_IE_PREEURO"), TEXT("en-IE@currency=IEP"));
+		TestCultureCodeCanonization(TEXT("en_IE@CURRENCY=IEP"), TEXT("en-IE@currency=IEP"));
+		TestCultureCodeCanonization(TEXT("fr@collation=phonebook;calendar=islamic-civil"), TEXT("fr@calendar=islamic-civil;collation=phonebook"));
+		TestCultureCodeCanonization(TEXT("sr_Latn_RS_REVISED@currency=USD"), TEXT("sr-Latn-RS-REVISED@currency=USD"));
+		
+		// Invalid codes
+		TestCultureCodeCanonization(TEXT("%%%"), TEXT("en-US-POSIX"));
+		TestCultureCodeCanonization(TEXT("en____US_POSIX"), TEXT("en----US-POSIX"));
+		TestCultureCodeCanonization(TEXT("en_POSIX"), TEXT("en--POSIX"));
+		TestCultureCodeCanonization(TEXT("en__POSIX"), TEXT("en--POSIX"));
+		TestCultureCodeCanonization(TEXT("en_US@wooble=USD"), TEXT("en-US@wooble=USD"));
+		TestCultureCodeCanonization(TEXT("fred_wooble_bob_wibble"), TEXT("fred--WOOBLE-BOB-WIBBLE"));
 	}
 
 	return true;

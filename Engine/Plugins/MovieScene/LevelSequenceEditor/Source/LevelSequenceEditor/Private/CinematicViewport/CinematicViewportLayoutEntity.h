@@ -20,7 +20,7 @@ public:
 			SNew(SCinematicLevelViewport)
 			.ParentLayout(Args.ParentLayout)
 			.ParentLevelEditor(Args.ParentLevelEditor)
-			.LayoutName(*Args.ConfigKey)
+			.LayoutName(Args.ConfigKey)
 			)
 	{}
 
@@ -45,6 +45,7 @@ public:
 		}
 	}
 	void SaveConfig(const FString& ConfigString){ return Widget->GetLevelViewport()->SaveConfig(ConfigString); }
+	void TakeHighResScreenShot() const {}
 
 protected:
 

@@ -183,9 +183,7 @@ void FOnlinePresenceSteam::QueryPresence(const FUniqueNetId& User, const FOnPres
 		return;
 	}
 
-	// If this function is given a FUniqueNetIdString to become a FUniqueNetIdSteam, the conversion
-	// will modify the bytes incorrectly.
-	const FUniqueNetIdSteam SteamId(User.ToString());
+	const FUniqueNetIdSteam SteamId(User);
 	if (!SteamId.IsValid())
 	{
 		UE_LOG_ONLINE(Warning, TEXT("User id %s is not valid, cannot query presence"), *SteamId.ToString());
@@ -262,8 +260,7 @@ void FOnlinePresenceSteam::UpdatePresenceForUser(const FUniqueNetId& User)
 
 EOnlineCachedResult::Type FOnlinePresenceSteam::GetCachedPresence(const FUniqueNetId& User, TSharedPtr<FOnlineUserPresence>& OutPresence)
 {
-	const FUniqueNetIdSteam SteamId(User.ToString());
-	TSharedRef<FOnlineUserPresenceSteam>* Found = CachedPresence.Find(SteamId);
+	TSharedRef<FOnlineUserPresenceSteam>* Found = CachedPresence.Find(FUniqueNetIdSteam(User));
 	if (Found == nullptr)
 	{
 		return EOnlineCachedResult::NotFound;

@@ -17,8 +17,6 @@ USteamNetDriver::USteamNetDriver(const FObjectInitializer& ObjectInitializer) :
 void USteamNetDriver::PostInitProperties()
 {
 	Super::PostInitProperties();
-	ConnectionDumpInterval = 10.0f;
-	ConnectionDumpCounter = 0.0f;
 }
 
 bool USteamNetDriver::IsAvailable() const
@@ -131,37 +129,6 @@ void USteamNetDriver::Shutdown()
 	}
 
 	Super::Shutdown();
-}
-
-void USteamNetDriver::TickFlush(float DeltaSeconds)
-{
-	Super::TickFlush(DeltaSeconds);
-
-	if (!bIsPassthrough)
-	{
-		// Debug connection state information
-		double CurSeconds = FPlatformTime::Seconds();
-		if ((CurSeconds - ConnectionDumpCounter) >= ConnectionDumpInterval)
-		{
-			ConnectionDumpCounter = CurSeconds;
-
-			USteamNetConnection* ServerConn = Cast<USteamNetConnection>(ServerConnection);
-			if (ServerConn != NULL)
-			{
-				ServerConn->DumpSteamConnection();	
-			}
-
-			USteamNetConnection* ClientConn = NULL;
-			for (int32 ConnIdx=0; ConnIdx < ClientConnections.Num(); ConnIdx++)
-			{
-				ClientConn = Cast<USteamNetConnection>(ClientConnections[ConnIdx]);
-				if (ClientConn != NULL)
-				{
-					ClientConn->DumpSteamConnection();
-				}
-			}
-		}
-	}
 }
 
 bool USteamNetDriver::IsNetResourceValid()

@@ -14,6 +14,11 @@ FMainMRUFavoritesList::FMainMRUFavoritesList()
 {
 }
 
+FMainMRUFavoritesList::FMainMRUFavoritesList(const FString& IniSectionOverride, const int32 InitMaxItems)
+	:FMRUList(IniSectionOverride, InitMaxItems)
+{
+}
+
 /** Destructor */
 FMainMRUFavoritesList::~FMainMRUFavoritesList()
 {

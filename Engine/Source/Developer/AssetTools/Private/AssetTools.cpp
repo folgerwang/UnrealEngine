@@ -1976,6 +1976,7 @@ void UAssetToolsImpl::ExportAssetsInternal(const TArray<UObject*>& ObjectsToExpo
 					ExporterToUse->SetBatchMode(ObjectsToExport.Num() > 1 && !bPromptIndividualFilenames);
 					ExporterToUse->SetCancelBatch(false);
 					ExporterToUse->SetShowExportOption(true);
+					ExporterToUse->AddToRoot();
 					UsedExporters.Add(ExporterToUse);
 				}
 
@@ -2007,6 +2008,7 @@ void UAssetToolsImpl::ExportAssetsInternal(const TArray<UObject*>& ObjectsToExpo
 		UsedExporter->SetBatchMode(false);
 		UsedExporter->SetCancelBatch(false);
 		UsedExporter->SetShowExportOption(true);
+		UsedExporter->RemoveFromRoot();
 	}
 	UsedExporters.Empty();
 

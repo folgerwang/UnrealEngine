@@ -5,6 +5,7 @@
 #include "Containers/IndirectArray.h"
 #include "Stats/Stats.h"
 #include "Async/AsyncWork.h"
+#include "Async/ParallelFor.h"
 #include "Modules/ModuleManager.h"
 #include "Engine/Texture.h"
 #include "Interfaces/ITargetPlatformManagerModule.h"
@@ -310,28 +311,52 @@ static FVector4 ComputeAlphaCoverage(const FVector4& Thresholds, const FVector4&
 {
 	FVector4 Coverage(0, 0, 0, 0);
 
-	for (int32 y = 0; y < SourceImageData.SizeY; ++y)
+	int32 NumJobs = FTaskGraphInterface::Get().GetNumWorkerThreads();
+	int32 NumRowsEachJob = SourceImageData.SizeY / NumJobs;
+	if (NumRowsEachJob * NumJobs < SourceImageData.SizeY)
 	{
-		for (int32 x = 0; x < SourceImageData.SizeX; ++x)
+		++NumRowsEachJob;
+	}
+
+	int32 CommonResults[4] = { 0, 0, 0, 0 };
+	ParallelFor(NumJobs, [&](int32 Index)
+	{
+		int32 StartIndex = Index * NumRowsEachJob;
+		int32 EndIndex = FMath::Min(StartIndex + NumRowsEachJob, SourceImageData.SizeY);
+		int32 LocalCoverage[4] = { 0, 0, 0, 0 };
+		for (int32 y = StartIndex; y < EndIndex; ++y)
 		{
-			// Sample channel values at pixel neighborhood
-			FVector4 PixelValue (LookupSourceMip<AddressMode>(SourceImageData, x, y));
-
-			// Calculate coverage for each channel (if being used as an alpha mask)
-			for (int32 i = 0; i < 4; ++i)
+			for (int32 x = 0; x < SourceImageData.SizeX; ++x)
 			{
-				// Skip channel if Threshold is 0
-				if (Thresholds[i] == 0)
-				{
-					continue;
-				}
+				// Sample channel values at pixel neighborhood
+				FVector4 PixelValue(LookupSourceMip<AddressMode>(SourceImageData, x, y));
 
-				if (PixelValue[i] * Scales[i] >= Thresholds[i])
+				// Calculate coverage for each channel (if being used as an alpha mask)
+				for (int32 i = 0; i < 4; ++i)
 				{
-					++Coverage[i];
+					// Skip channel if Threshold is 0
+					if (Thresholds[i] == 0)
+					{
+						continue;
+					}
+
+					if (PixelValue[i] * Scales[i] >= Thresholds[i])
+					{
+						++LocalCoverage[i];
+					}
 				}
 			}
 		}
+
+		for (int32 i = 0; i < 4; ++i)
+		{
+			FPlatformAtomics::InterlockedAdd(&CommonResults[i], LocalCoverage[i]);
+		}
+	});
+
+	for (int32 i = 0; i < 4; ++i)
+	{
+		Coverage[i] = float(CommonResults[i]);
 	}
 
 	return Coverage / float(SourceImageData.SizeX * SourceImageData.SizeY);
@@ -413,7 +438,7 @@ static void GenerateSharpenedMipB8G8R8A8Templ(
 		AlphaScale = ComputeAlphaScale<AddressMode>(AlphaCoverages, AlphaThresholds, SourceImageData);
 	}
 	
-	for ( int32 DestY = 0;DestY < DestImageData.SizeY; DestY++ )
+	ParallelFor(DestImageData.SizeY, [&](int32 DestY)
 	{
 		for ( int32 DestX = 0;DestX < DestImageData.SizeX; DestX++ )
 		{
@@ -496,7 +521,7 @@ static void GenerateSharpenedMipB8G8R8A8Templ(
 			FLinearColor& DestColor = DestImageData.Access(DestX, DestY);
 			DestColor = FilteredColor;
 		}
-	}
+	});
 }
 
 // to switch conveniently between different texture wrapping modes for the mip map generation

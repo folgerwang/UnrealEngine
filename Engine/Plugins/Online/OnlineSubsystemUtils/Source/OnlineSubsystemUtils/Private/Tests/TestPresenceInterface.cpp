@@ -1,9 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TestPresenceInterface.h"
+#include "EngineGlobals.h"
 #include "OnlineSubsystemUtils.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
+
+#define PRESENCE_TEST_LOG_KEY 50
 
 FTestPresenceInterface::~FTestPresenceInterface()
 {
@@ -33,7 +36,7 @@ void FTestPresenceInterface::CleanupTest()
 
 	if (GEngine)
 	{
-		GEngine->OnWorldDestroyed().RemoveAll(this);
+		GEngine->OnWorldDestroyed().RemoveAll(this);	
 	}
 }
 
@@ -101,6 +104,11 @@ bool FTestPresenceInterface::Tick(float DeltaTime)
 	if (EnumHasAllFlags(CompletedTasks, RequiredFlags) || (bHasFailed && EnumHasAllFlags(TasksAttempted, RequiredFlags)))
 	{
 		UE_LOG_ONLINE(Log, TEXT("Presence testing completed! Success: %d Failed Tasks: %s"), !bHasFailed, *PrintTestFailure());
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(PRESENCE_TEST_LOG_KEY, 5.f, (bHasFailed) ? FColor::Red : FColor::Green, 
+				TEXT("Presence Test has completed. See log for details."));
+		}
 		delete this;
 		return false;
 	}
@@ -185,6 +193,8 @@ void FTestPresenceInterface::Test(UWorld* InWorld, const FString& RandomUser)
 	}
 
 	World = InWorld;
+	// This test typically times out after two minutes. This timer is set for a bit longer than that, just in case.
+	GEngine->AddOnScreenDebugMessage(PRESENCE_TEST_LOG_KEY, 125.0f, FColor::Yellow, TEXT("Presence Test is running. Please wait until it completes."));
 	GEngine->OnWorldDestroyed().AddRaw(this, &FTestPresenceInterface::OnWorldDestroyed);
 
 	// Grab the user's friends
@@ -197,8 +207,16 @@ void FTestPresenceInterface::Test(UWorld* InWorld, const FString& RandomUser)
 	// Fetch a non-friend profile (if the platform supports it)
 	if (!RandomUser.IsEmpty())
 	{
-		PresenceInt->QueryPresence(FUniqueNetIdString(RandomUser), IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateRaw(this, &FTestPresenceInterface::OnRandomUserFetchComplete));
-		RequiredFlags |= EPresenceTestStatus::FetchRandom;
+		TSharedPtr<const FUniqueNetId> ArbitraryId = OnlineSub->GetIdentityInterface()->CreateUniquePlayerId(RandomUser);
+		if (ArbitraryId.IsValid())
+		{
+			PresenceInt->QueryPresence(*ArbitraryId, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateRaw(this, &FTestPresenceInterface::OnRandomUserFetchComplete));
+			RequiredFlags |= EPresenceTestStatus::FetchRandom;
+		}
+		else
+		{
+			UE_LOG_ONLINE(Warning, TEXT("Presence Interface Test could not create a player id for the given arbitrary user id! Skipping test!"));
+		}
 	}
 	else
 	{

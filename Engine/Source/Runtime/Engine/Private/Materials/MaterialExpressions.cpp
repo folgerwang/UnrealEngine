@@ -12094,11 +12094,6 @@ UMaterialExpressionObjectOrientation::UMaterialExpressionObjectOrientation(const
 #if WITH_EDITOR
 int32 UMaterialExpressionObjectOrientation::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
 {
-	if (Material && Material->MaterialDomain == MD_DeferredDecal)
-	{
-		return CompilerError(Compiler, TEXT("Expression not available in the deferred decal material domain."));
-	}
-
 	return Compiler->ObjectOrientation();
 }
 

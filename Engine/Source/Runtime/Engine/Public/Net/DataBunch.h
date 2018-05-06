@@ -13,6 +13,8 @@
 class UChannel;
 class UNetConnection;
 
+extern const int32 MAX_BUNCH_SIZE;
+
 //
 // A bunch of data to send.
 //
@@ -116,6 +118,7 @@ public:
 	uint8				bPartialFinal;			// The final bunch of a partial bunch
 	uint8				bHasPackageMapExports;	// This bunch has networkGUID name/id pairs
 	uint8				bHasMustBeMappedGUIDs;	// This bunch has guids that must be mapped before we can process this bunch
+	uint8				bIgnoreRPCs;
 
 	FString	ToString()
 	{
@@ -132,7 +135,9 @@ public:
 		Str += FString::Printf(TEXT("bIsReplicationPaused: %d "), bIsReplicationPaused);
 		Str += FString::Printf(TEXT("bReliable: %d "), bReliable);
 		Str += FString::Printf(TEXT("bPartial: %d//%d//%d "), bPartial, bPartialInitial, bPartialFinal);
-		Str += FString::Printf( TEXT( "bHasPackageMapExports: %d " ), bHasPackageMapExports );
+		Str += FString::Printf(TEXT("bHasPackageMapExports: %d "), bHasPackageMapExports );
+		Str += FString::Printf(TEXT("bHasMustBeMappedGUIDs: %d "), bHasMustBeMappedGUIDs );
+		Str += FString::Printf(TEXT("bIgnoreRPCs: %d "), bIgnoreRPCs );
 #else
 		FString Str = FString::Printf(TEXT("Channel[%d]. Seq %d. PacketId: %d"), ChIndex, ChSequence, PacketId);
 #endif

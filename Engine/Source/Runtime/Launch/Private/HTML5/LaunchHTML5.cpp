@@ -5,10 +5,13 @@
 #include "Misc/OutputDeviceError.h"
 #include "Templates/ScopedPointer.h"
 #include "LaunchEngineLoop.h"
+#include "EngineAnalytics.h"
+#include "Interfaces/IAnalyticsProvider.h"
 THIRD_PARTY_INCLUDES_START
 	#include <SDL.h>
 	#include <emscripten/emscripten.h>
 	#include <emscripten/trace.h>
+	#include <emscripten/html5.h>
 THIRD_PARTY_INCLUDES_END
 
 DEFINE_LOG_CATEGORY_STATIC(LogHTML5Launch, Log, All);
@@ -39,6 +42,15 @@ void HTML5_Tick()
 	++FrameCount;
 }
 
+const char *beforeunload_callback(int eventType, const void *reserved, void *userData)
+{
+	if (FEngineAnalytics::IsAvailable())
+	{
+		FEngineAnalytics::GetProvider().EndSession();
+	}
+	return ""; // don't show a confirmation dialog to not block
+}
+
 void HTML5_Init ()
 {
 	emscripten_trace_record_frame_start();
@@ -49,13 +61,17 @@ void HTML5_Init ()
 	GEngineLoop.PreInit(0, NULL, GCmdLine);
 	emscripten_trace_exit_context();
 	UE_LOG(LogHTML5Launch,Display,TEXT("PreInit Complete"));
+
 	UE_LOG(LogHTML5Launch,Display,TEXT("Init Start"));
 	emscripten_trace_enter_context("Init");
 	GEngineLoop.Init();
+	emscripten_set_beforeunload_callback(0, beforeunload_callback);
 	emscripten_trace_exit_context();
 	UE_LOG(LogHTML5Launch,Display,TEXT("Init Complete"));
-
+	
 	emscripten_trace_record_frame_end();
+
+	// main loop
 	emscripten_set_main_loop(HTML5_Tick, 0, true);
 }
 

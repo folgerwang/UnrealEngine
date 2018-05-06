@@ -14,20 +14,14 @@
 
 TSharedPtr< FSlateStyleSet > FVREditorStyle::VREditorStyleInstance = NULL;
 
-void FVREditorStyle::Initialize()
-{
-	if ( !VREditorStyleInstance.IsValid() )
-	{
-		VREditorStyleInstance = Create();
-		FSlateStyleRegistry::RegisterSlateStyle( *VREditorStyleInstance);
-	}
-}
-
 void FVREditorStyle::Shutdown()
 {
-	FSlateStyleRegistry::UnRegisterSlateStyle( *VREditorStyleInstance);
-	ensure(VREditorStyleInstance.IsUnique() );
-	VREditorStyleInstance.Reset();
+	if (VREditorStyleInstance.IsValid())
+	{
+		FSlateStyleRegistry::UnRegisterSlateStyle(*VREditorStyleInstance);
+		ensure(VREditorStyleInstance.IsUnique());
+		VREditorStyleInstance.Reset();
+	}
 }
 
 FName FVREditorStyle::GetStyleSetName()
@@ -240,6 +234,11 @@ void FVREditorStyle::ReloadTextures()
 
 const ISlateStyle& FVREditorStyle::Get()
 {
+	if (!VREditorStyleInstance.IsValid())
+	{
+		VREditorStyleInstance = Create();
+		FSlateStyleRegistry::RegisterSlateStyle(*VREditorStyleInstance);
+	}
 	return *VREditorStyleInstance;
 }
 

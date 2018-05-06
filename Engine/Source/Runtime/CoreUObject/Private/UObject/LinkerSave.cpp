@@ -42,7 +42,10 @@ FLinkerSave::FLinkerSave(UPackage* InParent, const TCHAR* InFilename, bool bForc
 		Summary.PackageFlags = Package ? (Package->GetPackageFlags() & ~PKG_NewlyCreated) : 0;
 
 #if USE_STABLE_LOCALIZATION_KEYS
-		Summary.LocalizationId = TextNamespaceUtil::GetPackageNamespace(LinkerRoot);
+		if (GIsEditor)
+		{
+			Summary.LocalizationId = TextNamespaceUtil::GetPackageNamespace(LinkerRoot);
+		}
 #endif // USE_STABLE_LOCALIZATION_KEYS
 
 		if (Package)
@@ -92,7 +95,10 @@ FLinkerSave::FLinkerSave(UPackage* InParent, FArchive *InSaver, bool bForceByteS
 		Summary.PackageFlags = Package ? (Package->GetPackageFlags() & ~PKG_NewlyCreated) : 0;
 
 #if USE_STABLE_LOCALIZATION_KEYS
-		Summary.LocalizationId = TextNamespaceUtil::GetPackageNamespace(LinkerRoot);
+		if (GIsEditor)
+		{
+			Summary.LocalizationId = TextNamespaceUtil::GetPackageNamespace(LinkerRoot);
+		}
 #endif // USE_STABLE_LOCALIZATION_KEYS
 
 		if (Package)
@@ -137,7 +143,10 @@ FLinkerSave::FLinkerSave(UPackage* InParent, bool bForceByteSwapping, bool bInSa
 		Summary.PackageFlags = Package ? (Package->GetPackageFlags() & ~PKG_NewlyCreated) : 0;
 
 #if USE_STABLE_LOCALIZATION_KEYS
-		Summary.LocalizationId = TextNamespaceUtil::GetPackageNamespace(LinkerRoot);
+		if (GIsEditor)
+		{
+			Summary.LocalizationId = TextNamespaceUtil::GetPackageNamespace(LinkerRoot);
+		}
 #endif // USE_STABLE_LOCALIZATION_KEYS
 
 		if (Package)

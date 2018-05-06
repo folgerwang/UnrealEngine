@@ -113,6 +113,7 @@ DEFINE_STAT(STAT_RuntimeMovieSceneTickTime);
 DEFINE_STAT(STAT_FinishAsyncTraceTickTime);
 DEFINE_STAT(STAT_NetBroadcastTickTime);
 DEFINE_STAT(STAT_NetServerRepActorsTime);
+DEFINE_STAT(STAT_NetServerGatherPrioritizeRepActorsTime);
 DEFINE_STAT(STAT_NetConsiderActorsTime);
 DEFINE_STAT(STAT_NetUpdateUnmappedObjectsTime);
 DEFINE_STAT(STAT_NetInitialDormantCheckTime);

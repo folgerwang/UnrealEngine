@@ -12,19 +12,6 @@
 struct FSlateBrush;
 struct FTemplateCategory;
 
-/** Context information used when validating that source code is being placed in the correct place for a given module */
-struct FModuleContextInfo
-{
-	/** Path to the Source folder of the module */
-	FString ModuleSourcePath;
-
-	/** Name of the module */
-	FString ModuleName;
-
-	/** Type of this module, eg, Runtime, Editor, etc */
-	enum EHostType::Type ModuleType;
-};
-
 /**
  * Game Project Generation module
  */
@@ -99,7 +86,7 @@ public:
 	virtual FString DetermineModuleIncludePath(const FModuleContextInfo& ModuleInfo, const FString& FileRelativeTo);
 
 	/** Get the information about any modules referenced in the .uproject file of the currently loaded project */
-	virtual TArray<FModuleContextInfo> GetCurrentProjectModules();
+	virtual const TArray<FModuleContextInfo>& GetCurrentProjectModules();
 
 	/** Returns true if the specified class is a valid base class for the given module */
 	virtual bool IsValidBaseClassForCreation(const UClass* InClass, const FModuleContextInfo& InModuleInfo);

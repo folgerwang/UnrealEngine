@@ -20,7 +20,6 @@ UFbxExportOption::UFbxExportOption(const FObjectInitializer& ObjectInitializer)
 	LevelOfDetail = true;
 	Collision = true;
 	VertexColor = true;
-	WeldedVertices = true; // By default we want to weld verts, but provide option to not weld
 	MapSkeletalMotionToRoot = false;
 }
 

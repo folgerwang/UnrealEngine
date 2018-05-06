@@ -643,21 +643,24 @@ UPanelWidget* UWidget::GetParent() const
 
 void UWidget::RemoveFromParent()
 {
-	UPanelWidget* CurrentParent = GetParent();
-	if ( CurrentParent )
+	if (!HasAnyFlags(RF_BeginDestroyed))
 	{
-		CurrentParent->RemoveChild(this);
-	}
-	else
-	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if ( GetCachedWidget().IsValid() )
+		UPanelWidget* CurrentParent = GetParent();
+		if (CurrentParent)
 		{
-			FText WarningMessage = FText::Format(LOCTEXT("RemoveFromParentWithNoParent", "UWidget::RemoveFromParent() called on '{0}' which has no UMG parent (if it was added directly to a native Slate widget via TakeWidget() then it must be removed explicitly rather than via RemoveFromParent())"), FText::AsCultureInvariant(GetPathName()));
-			// @todo: nickd - we need to switch this back to a warning in engine, but info for games
-			FMessageLog("PIE").Info(WarningMessage);
+			CurrentParent->RemoveChild(this);
 		}
+		else
+		{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			if (GetCachedWidget().IsValid())
+			{
+				FText WarningMessage = FText::Format(LOCTEXT("RemoveFromParentWithNoParent", "UWidget::RemoveFromParent() called on '{0}' which has no UMG parent (if it was added directly to a native Slate widget via TakeWidget() then it must be removed explicitly rather than via RemoveFromParent())"), FText::AsCultureInvariant(GetPathName()));
+				// @todo: nickd - we need to switch this back to a warning in engine, but info for games
+				FMessageLog("PIE").Info(WarningMessage);
+			}
 #endif
+		}
 	}
 }
 

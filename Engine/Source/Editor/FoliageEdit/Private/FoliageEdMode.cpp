@@ -421,6 +421,19 @@ void FEdModeFoliage::Enter()
 
 	// Make sure the brush is visible.
 	SphereBrushComponent->SetVisibility(true);
+
+	// Disable foliage engine scalability in foliage mode
+	for (AInstancedFoliageActor* Actor : InstanceFoliageActorList)
+	{
+		for (auto& FoliageMesh : Actor->FoliageMeshes)
+		{
+			if (FoliageMesh.Value->Component != nullptr)
+			{
+				FoliageMesh.Value->Component->bCanEnableDensityScaling = false;
+				FoliageMesh.Value->Component->UpdateDensityScaling();
+			}
+		}		
+	}
 }
 
 /** FEdMode: Called when the mode is exited */
@@ -508,6 +521,18 @@ void FEdModeFoliage::Exit()
 			if (MeshInfo != nullptr && MeshInfo->Component != nullptr && MeshInfo->Component->GetStaticMesh() != nullptr)
 			{
 				MeshInfo->Component->GetStaticMesh()->GetOnExtendedBoundsChanged().RemoveAll(MeshInfo);
+			}
+		}
+	}
+
+	for (AInstancedFoliageActor* Actor : InstanceFoliageActorList)
+	{
+		for (auto& FoliageMesh : Actor->FoliageMeshes)
+		{
+			if (FoliageMesh.Value->Component != nullptr)
+			{
+				FoliageMesh.Value->Component->bCanEnableDensityScaling = true;
+				FoliageMesh.Value->Component->UpdateDensityScaling();
 			}
 		}
 	}

@@ -345,7 +345,7 @@ Module['canvas'] = document.getElementById('canvas');
 // Canvas scaling mode should be set to one of: 1=STRETCH, 2=ASPECT, or 3=FIXED.
 // This dictates how the canvas size changes when the browser window is resized
 // by dragging from the corner.
-var canvasWindowedScaleMode = 2 /*ASPECT*/;
+var canvasWindowedScaleMode = %CANVASSCALEMODE%;
 
 // High DPI setting configures whether to match the canvas size 1:1 with
 // the physical pixels on the screen.
@@ -367,7 +367,7 @@ var canvasAspectRatioHeight = 768;
 // 1=STRETCH: The canvas is resized to the size of the whole screen, potentially changing aspect ratio.
 // 2=ASPECT: The canvas is resized to the size of the whole screen, but retaining current aspect ratio.
 // 3=FIXED: The canvas is centered on screen with a fixed resolution.
-Module['UE4_fullscreenScaleMode'] = canvasWindowedScaleMode;
+Module['UE4_fullscreenScaleMode'] = 1;//canvasWindowedScaleMode; // BUG: if using FIXED, fullscreen gets some strange padding on margin...
 
 // When entering fullscreen mode, should UE4 engine resize the canvas?
 // 0=No resizing (do it manually in resizeCanvas()), 1=Resize to standard DPI, 2=Resize to highDPI
@@ -416,7 +416,7 @@ function resizeCanvas(aboutToEnterFullscreen) {
 	var minimumCanvasHeightCssPixels = 480; // the visible size of the canvas should always be at least this high (in CSS pixels)
 	var minimumCanvasHeightFractionOfBrowserWindowHeight = 0.65; // and also vertically take up this much % of the total browser client area height.
 
-	if (aboutToEnterFullscreen) { // UE4 engine is calling this function right before entering fullscreen?
+	if (aboutToEnterFullscreen && !aboutToEnterFullscreen.type) { // UE4 engine is calling this function right before entering fullscreen?
 		// If you want to perform specific resolution setup here, do so by setting Module['canvas'].width x Module['canvas'].height now,
 		// and configure Module['UE4_fullscreenXXX'] fields above. Most of the time, the defaults are good, so no need to resize here.
 		// Return true here if you want to abort entering fullscreen mode altogether.
@@ -484,7 +484,7 @@ Module.arguments = [%UE4CMDLINE%];
 
 // we are serving via a server and it is unreal file server?
 if (location.host != "" && getHTMLGetParam("cookonthefly") == "true") {
-	Module.arguments.push("' -filehostIp=" + location.protocol + "//" + location.host + " '");
+	Module.arguments.push("'-filehostIp=" + location.protocol + "//" + location.host + "'");
 }
 
 function addLog(info, color) {
@@ -1076,7 +1076,7 @@ $(document).ready(function() {
 		if (shouldBrowserSupportWebGL2()) {
 			showWarningRibbon('Your GPU does not support WebGL 2. This affects graphics performance and quality. Please try updating your graphics driver and/or browser to latest version.<br>Error reason: ' + (Module['webGLErrorReason'] || 'Unknown') + '<br>Current renderer: ' + getGpuInfo());
 		} else {
-			showWarningRibbon('The current browser is too old and does not support WebGL 2. This affects graphics performance and quality. Please try updating your browser.<br>Error reason: ' + (Module['webGLErrorReason'] || 'Unknown') + '<br>Current renderer: ' + getGpuInfo());
+			showWarningRibbon('The current browser does not support WebGL 2. This affects graphics performance and quality.<br>Please try updating your browser (and/or video drivers).  NOTE: old hardware might have been blacklisted by this browser -- you may need to use a different browser.<br>Error reason: ' + (Module['webGLErrorReason'] || 'Unknown') + '<br>Current renderer: ' + getGpuInfo());
 		}
 	}
 

@@ -121,7 +121,7 @@ public:
 	bool ProcessQueuedBunches();
 
 	virtual void ReceivedNak( int32 NakPacketId ) override;
-	virtual void Close() override;
+	virtual int64 Close() override;
 	virtual FString Describe() override;
 
 public:
@@ -129,15 +129,15 @@ public:
 	/** UActorChannel interface and accessors. */
 	AActor* GetActor() {return Actor;}
 
-	/** Replicate this channel's actor differences. */
-	bool ReplicateActor();
+	/** Replicate this channel's actor differences. Returns how many bits were replicated (does not include non-bunch packet overhead) */
+	int64 ReplicateActor();
 
 	/** Allocate replication tables for the actor channel. */
 	void SetChannelActor( AActor* InActor );
 
 	virtual void NotifyActorChannelOpen(AActor* InActor, FInBunch& InBunch);
 
-	void SetChannelActorForDestroy( struct FActorDestructionInfo *DestructInfo );
+	int64 SetChannelActorForDestroy( struct FActorDestructionInfo *DestructInfo );
 
 	/** Append any export bunches */
 	virtual void AppendExportBunches( TArray< FOutBunch* >& OutExportBunches ) override;

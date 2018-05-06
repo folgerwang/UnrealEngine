@@ -2092,12 +2092,22 @@ void FPaintModePainter::Tick(FEditorViewportClient* ViewportClient, float DeltaT
 		}
 	}
 
+	// If this is true probably someone force deleted a texture out from under us
+	bool bBadAssetFound = false;
+
 	if (bDoRestoreRenTargets && PaintSettings->PaintMode == EPaintMode::Textures)
 	{
 		if (PaintingTexture2D == nullptr)
 		{
 			for (TMap< UTexture2D*, FPaintTexture2DData >::TIterator It(PaintTargetData); It; ++It)
 			{
+				
+				if (!It.Key())
+				{
+					bBadAssetFound = true;
+					break;
+				}
+
 				FPaintTexture2DData* TextureData = &It.Value();
 				if (TextureData->PaintRenderTargetTexture != nullptr)
 				{
@@ -2119,6 +2129,11 @@ void FPaintModePainter::Tick(FEditorViewportClient* ViewportClient, float DeltaT
 		}
 		// We attempted a restore of the rendertargets so go ahead and clear the flag
 		bDoRestoreRenTargets = false;
+	}
+
+	if (bBadAssetFound)
+	{
+		PaintTargetData.Empty();
 	}
 }
 

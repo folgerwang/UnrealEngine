@@ -22,6 +22,14 @@ class UPackageMapClient;
 // Properties will be copied in here so memory needs aligned to largest type
 typedef TArray< uint8, TAlignedHeapAllocator<16> > FRepStateStaticBuffer;
 
+enum class EDiffPropertiesFlags : uint32
+{
+	None							= 0,
+	Sync							= ( 1 << 0 ),
+	IncludeConditionalProperties	= ( 1 << 1 )
+};
+
+ENUM_CLASS_FLAGS(EDiffPropertiesFlags);
 
 class FRepChangedParent
 {
@@ -460,12 +468,12 @@ public:
 	void InitShadowData(
 		TArray< uint8, TAlignedHeapAllocator<16> >&	ShadowData,
 		UClass *									InObjectClass,
-		uint8 *										Src ) const;
+		const uint8 * const							Src ) const;
 
 	void InitRepState( 
 		FRepState *									RepState, 
 		UClass *									InObjectClass, 
-		uint8 *										Src, 
+		const uint8 * const							Src, 
 		TSharedPtr< FRepChangedPropertyTracker > &	InRepChangedPropertyTracker ) const;
 
 	void InitChangedTracker( FRepChangedPropertyTracker * ChangedTracker ) const;
@@ -512,20 +520,24 @@ public:
 
 	void MergeChangeList( const uint8* RESTRICT Data, const TArray< uint16 >& Dirty1, const TArray< uint16 >& Dirty2, TArray< uint16 >& MergedDirty ) const;
 
+	DEPRECATED(4.20, "Use the DiffProperties overload with the EDiffPropertiesFlags parameter")
 	bool DiffProperties( TArray<UProperty*>* RepNotifies, void* RESTRICT Destination, const void* RESTRICT Source, const bool bSync ) const;
+
+	bool DiffProperties( TArray<UProperty*>* RepNotifies, void* RESTRICT Destination, const void* RESTRICT Source, const EDiffPropertiesFlags Flags ) const;
+	bool DiffStableProperties( TArray<UProperty*>* RepNotifies, TArray<UObject*>* ObjReferences, void* RESTRICT Destination, const void* RESTRICT Source ) const;
 
 	void GetLifetimeCustomDeltaProperties(TArray< int32 > & OutCustom, TArray< ELifetimeCondition >	& OutConditions);
 
 	// RPC support
 	void InitFromFunction( UFunction * InFunction, const UNetConnection* ServerConnection = nullptr );
-	void SendPropertiesForRPC( UObject* Object, UFunction * Function, UActorChannel * Channel, FNetBitWriter & Writer, void* Data ) const;
+	void SendPropertiesForRPC( UFunction * Function, UActorChannel * Channel, FNetBitWriter & Writer, void* Data ) const;
 	void ReceivePropertiesForRPC( UObject* Object, UFunction * Function, UActorChannel * Channel, FNetBitReader & Reader, void* Data, TSet<FNetworkGUID>& UnmappedGuids) const;
 
 	// Builds shared serialization state for a multicast rpc
-	void BuildSharedSerializationForRPC( void* Data );
+	void ENGINE_API BuildSharedSerializationForRPC( void* Data );
 
 	// Clears shared serialization state for a multicast rpc
-	void ClearSharedSerializationForRPC();
+	void ENGINE_API ClearSharedSerializationForRPC();
 
 	// Struct support
 	ENGINE_API void SerializePropertiesForStruct( UStruct * Struct, FBitArchive & Ar, UPackageMap	* Map, void* Data, bool & bHasUnmapped ) const;	
@@ -725,7 +737,7 @@ private:
 	void BuildHandleToCmdIndexTable_r( const int32 CmdStart, const int32 CmdEnd, TArray< FHandleToCmdIndex >& HandleToCmdIndex );
 
 	void ConstructProperties( TArray< uint8, TAlignedHeapAllocator<16> >& ShadowData ) const;
-	void InitProperties( TArray< uint8, TAlignedHeapAllocator<16> >& ShadowData, uint8* Src ) const;
+	void InitProperties( TArray< uint8, TAlignedHeapAllocator<16> >& ShadowData, const uint8* const Src ) const;
 	void DestructProperties( FRepStateStaticBuffer& RepStateStaticBuffer ) const;
 
 	TArray< FRepParentCmd >		Parents;

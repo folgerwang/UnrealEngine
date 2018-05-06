@@ -117,6 +117,7 @@
 /*.xcodeproj
 /Makefile
 /CMakeLists.txt
+/cmake-build-debug
 *.target.xml
 *.dll.config
 *.exe.config
@@ -182,3 +183,6 @@ Engine/Binaries/DotNET/SwarmAgent.Options.xml
 # Ignore VS / VS Code settings directory
 .vs
 .vscode
+
+# Ignore CLion directory
+.idea/

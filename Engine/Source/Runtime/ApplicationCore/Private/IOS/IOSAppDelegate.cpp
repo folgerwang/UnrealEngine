@@ -550,7 +550,9 @@ bool GIsSuspended = 0;
 	{
 		// Don't deadlock here because a msg box may appear super early blocking the game thread and then the app may go into the background
 		double	startTime = FPlatformTime::Seconds();
-		while(!self.bHasSuspended && (FPlatformTime::Seconds() - startTime) < cMaxThreadWaitTime)
+
+		// don't wait for FDefaultGameMoviePlayer::WaitForMovieToFinish(), crash with 0x8badf00d if “Wait for Movies to Complete” is checked
+		while(!self.bHasSuspended && !FAppEntry::IsStartupMoviePlaying() &&  (FPlatformTime::Seconds() - startTime) < cMaxThreadWaitTime)
 		{
             FIOSPlatformRHIFramePacer::Suspend();
 			FPlatformProcess::Sleep(0.05f);

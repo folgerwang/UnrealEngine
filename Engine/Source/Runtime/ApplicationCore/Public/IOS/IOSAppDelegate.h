@@ -35,7 +35,8 @@ namespace FAppEntry
 	void Shutdown();
     void Suspend();
     void Resume();
-	
+	bool IsStartupMoviePlaying();
+
 	extern bool	gAppLaunchedWithLocalNotification;
 	extern FString	gLaunchLocalNotificationActivationEvent;
 	extern int32	gLaunchLocalNotificationFireDate;

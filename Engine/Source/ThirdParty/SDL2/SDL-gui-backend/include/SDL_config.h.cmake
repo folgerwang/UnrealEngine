@@ -39,6 +39,9 @@
 /* EG BEGIN */
 /* define this to include SDL functionality needed for Unreal Engine (Slate). */
 #cmakedefine SDL_WITH_EPIC_EXTENSIONS
+#cmakedefine HAVE_XFIXES_H @HAVE_XFIXES_H@
+#cmakedefine SDL_VIDEO_DRIVER_X11_DYNAMIC_XFIXES @SDL_VIDEO_DRIVER_X11_DYNAMIC_FIXES@
+#cmakedefine SDL_VIDEO_DRIVER_X11_XFIXES @SDL_VIDEO_DRIVER_X11_XFIXES@
 /* EG END */
 
 /* C datatypes */

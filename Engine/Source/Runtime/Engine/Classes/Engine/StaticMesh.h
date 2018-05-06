@@ -691,23 +691,6 @@ public:
 
 #if WITH_EDITORONLY_DATA
 	/**
-	 * The MeshDescription use to build the render data.
-	 * When building the render data we copy the original mesh description and modify it to
-	 * respect the build options (tangent, UVs, reduce, ...) we then keep the copy in this array in case we need it
-	 */
-	UPROPERTY(VisibleAnywhere, Category = MeshDescription)
-	TArray<UMeshDescription*> MeshDescriptions;
-
-	/**
-	 * Accessors for the mesh description use to build the render data
-	 * This is not the data imported it is a modified version to fit the build settings
-	 * Use GetOriginalMeshDescription to get the imported MeshDescription.
-	 * It can be null 
-	 */
-	ENGINE_API UMeshDescription* GetMeshDescription(int32 LodIndex=0) const;
-	ENGINE_API void SetMeshDescription(int32 LodIndex, UMeshDescription* InMeshDescription);
-
-	/**
 	 * Accessors for the original mesh description imported data
 	 * The original import data is necessary to start from the full data when applying build options.
 	 */
@@ -944,7 +927,8 @@ public:
 	/** Removes all vertex colors from this mesh and rebuilds it (Editor only */
 	ENGINE_API void RemoveVertexColors();
 
-	void EnforceLightmapRestrictions();
+	/** Make sure the Lightmap UV point on a valid UVChannel */
+	ENGINE_API void EnforceLightmapRestrictions();
 
 	/** Calculates the extended bounds */
 	ENGINE_API void CalculateExtendedBounds();

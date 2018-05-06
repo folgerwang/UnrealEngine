@@ -152,6 +152,13 @@ private:
 	EVisibility ShowDisabledSectionDetail(int32 LodIndex, int32 SectionIndex) const;
 	void OnSectionEnabledChanged(int32 LodIndex, int32 SectionIndex, bool bEnable);
 
+	TOptional<int8> GetSectionGenerateUpToValue(int32 LodIndex, int32 SectionIndex) const;
+	void SetSectionGenerateUpToValue(int8 Value, int32 LodIndex, int32 SectionIndex);
+	void SetSectionGenerateUpToValueCommitted(int8 Value, ETextCommit::Type CommitInfo, int32 LodIndex, int32 SectionIndex);
+	EVisibility ShowSectionGenerateUpToSlider(int32 LodIndex, int32 SectionIndex) const;
+	ECheckBoxState IsGenerateUpToSectionEnabled(int32 LodIndex, int32 SectionIndex) const;
+	void OnSectionGenerateUpToChanged(ECheckBoxState NewState, int32 LodIndex, int32 SectionIndex);
+
 	TSharedRef<SWidget> OnGenerateLodComboBoxForLodPicker();
 	EVisibility LodComboBoxVisibilityForLodPicker() const;
 	bool IsLodComboBoxEnabledForLodPicker() const;
@@ -449,6 +456,12 @@ private:
 
 	bool CustomLODEditMode;
 	TArray<bool> DetailDisplayLODs;
+
+	/*
+	 * Helper to keep the old GenerateUpTo slider value to register transaction correctly.
+	 * The key is the union of LOD index and section index.
+	 */
+	TMap<int64, int8> OldGenerateUpToSliderValues;
 
 private:
 

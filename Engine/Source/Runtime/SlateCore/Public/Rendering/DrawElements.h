@@ -55,11 +55,17 @@ public:
 	// Element tint
 	FLinearColor Tint;
 
-	// Spline Data
-	FVector2D StartPt;
-	FVector2D StartDir;
-	FVector2D EndPt;
-	FVector2D EndDir;
+	// Bezier Spline Data points. E.g.
+	//
+	//       P1 + - - - - + P2                P1 +
+	//         /           \                    / \
+	//     P0 *             * P3            P0 *   \   * P3
+	//                                              \ /
+	//                                               + P2	
+	FVector2D P0;
+	FVector2D P1;
+	FVector2D P2;
+	FVector2D P3;
 
 	// Brush data
 	const FSlateBrush* BrushResource;
@@ -138,23 +144,35 @@ public:
 		GradientType = InGradientType;
 	}
 
-	void SetSplinePayloadProperties( const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness, const FLinearColor& InTint )
+	void SetCubicBezierPayloadProperties(const FVector2D& InP0, const FVector2D& InP1, const FVector2D& InP2, const FVector2D& InP3, float InThickness, const FLinearColor& InTint)
 	{
 		Tint = InTint;
-		StartPt = InStart;
-		StartDir = InStartDir;
-		EndPt = InEnd;
-		EndDir = InEndDir;
+		P0 = InP0;
+		P1 = InP1;
+		P2 = InP2;
+		P3 = InP3;
+		BrushResource = nullptr;
+		Thickness = InThickness;
+	}
+	
+
+	void SetHermiteSplinePayloadProperties( const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness, const FLinearColor& InTint )
+	{
+		Tint = InTint;
+		P0 = InStart;
+		P1 = InStart + InStartDir / 3.0f;
+		P2 = InEnd - InEndDir / 3.0f;
+		P3 = InEnd;
 		BrushResource = nullptr;
 		Thickness = InThickness;
 	}
 
-	void SetGradientSplinePayloadProperties( const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness, const TArray<FSlateGradientStop>& InGradientStops )
+	void SetGradientHermiteSplinePayloadProperties( const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness, const TArray<FSlateGradientStop>& InGradientStops )
 	{
-		StartPt = InStart;
-		StartDir = InStartDir;
-		EndPt = InEnd;
-		EndDir = InEndDir;
+		P0 = InStart;
+		P1 = InStart + InStartDir / 3.0f;
+		P2 = InEnd - InEndDir / 3.0f;
+		P3 = InEnd;
 		BrushResource = nullptr;
 		Thickness = InThickness;
 		GradientStops = InGradientStops;
@@ -586,7 +604,7 @@ public:
 	}
 
 	/**
-	 * Creates a spline element
+	 * Creates a Hermite Spline element
 	 *
 	 * @param ElementList			The list in which to add elements
 	 * @param InLayer               The layer to draw the element on
@@ -600,6 +618,22 @@ public:
 	 * @param InTint                Color to tint the element
 	 */
 	SLATECORE_API static void MakeSpline( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint=FLinearColor::White );
+
+	/**
+	 * Creates a Bezier Spline element
+	 *
+	 * @param ElementList			The list in which to add elements
+	 * @param InLayer               The layer to draw the element on
+	 * @param PaintGeometry         DrawSpace position and dimensions; see FPaintGeometry
+	 * @param InStart               The start point of the spline (local space)
+	 * @param InStartDir            The direction of the spline from the start point
+	 * @param InEnd                 The end point of the spline (local space)
+	 * @param InEndDir              The direction of the spline to the end point
+	 * @param InClippingRect        Parts of the element are clipped if it falls outside of this rectangle
+	 * @param InDrawEffects         Optional draw effects to apply
+	 * @param InTint                Color to tint the element
+	 */
+	SLATECORE_API static void MakeCubicBezierSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FVector2D& P0, const FVector2D& P1, const FVector2D& P2, const FVector2D& P3, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White);
 
 	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
@@ -616,14 +650,13 @@ public:
 		MakeDrawSpaceSpline(ElementList, InLayer, InStart, InStartDir, InEnd, InEndDir, InThickness, InDrawEffects, InTint);
 	}
 
+	
 	/** Just like MakeSpline but in draw-space coordinates. This is useful for connecting already-transformed widgets together. */
+	DEPRECATED(4.20, "Splines with color gradients will not be supported in the future.")
 	SLATECORE_API static void MakeDrawSpaceGradientSpline( FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const TArray<FSlateGradientStop>& InGradientStops, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None );
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeDrawSpaceGradientSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, const TArray<FSlateGradientStop>& InGradientStops, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None)
-	{
-		MakeDrawSpaceGradientSpline(ElementList, InLayer, InStart, InStartDir, InEnd, InEndDir, InGradientStops, InThickness, InDrawEffects);
-	}
+	DEPRECATED(4.20, "Splines with color gradients will not be supported in the future.")
+	static void MakeDrawSpaceGradientSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, const TArray<FSlateGradientStop>& InGradientStops, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None);
 
 	/**
 	 * Creates a line defined by the provided points

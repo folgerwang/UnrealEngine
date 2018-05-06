@@ -792,8 +792,10 @@ bool ULandscapeComponent::IsGrassMapOutdated() const
 			++TestIndex;
 		}
 
+		UMaterial* MaterialBase = Cast<UMaterial>(Material);
+
 		// last one should be a UMaterial
-		if (TestIndex != MaterialStateIds.Num() - 1 || MaterialStateIds[TestIndex] != CastChecked<UMaterial>(Material)->StateId)
+		if (TestIndex != MaterialStateIds.Num() - 1 || (MaterialBase != nullptr && MaterialStateIds[TestIndex] != MaterialBase->StateId))
 		{
 			return true;
 		}
@@ -1494,7 +1496,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		, LightMapComponentScale(FVector2D::UnitVector)
 
 		// output
-		, InstanceBuffer(/*NeedsCPUAccess*/ false, /*bSupportsVertexHalfFloat*/ GVertexElementTypeSupport.IsSupported(VET_Half2))
+		, InstanceBuffer(/*bSupportsVertexHalfFloat*/ GVertexElementTypeSupport.IsSupported(VET_Half2))
 		, ClusterTree()
 		, OutOcclusionLayerNum(0)
 	{
@@ -1889,7 +1891,7 @@ void ALandscapeProxy::FlushGrassComponents(const TSet<ULandscapeComponent*>* Onl
 			}
 		}
 #if WITH_EDITOR
-		if (GIsEditor && bFlushGrassMaps)
+		if (GIsEditor && bFlushGrassMaps && GetWorld()->Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
 		{
 			for (ULandscapeComponent* Component : *OnlyForComponents)
 			{
@@ -1932,7 +1934,7 @@ void ALandscapeProxy::FlushGrassComponents(const TSet<ULandscapeComponent*>* Onl
 		}
 
 #if WITH_EDITOR
-		if (GIsEditor && bFlushGrassMaps)
+		if (GIsEditor && bFlushGrassMaps && GetWorld()->Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
 		{
 			// Clear GrassMaps
 			TInlineComponentArray<ULandscapeComponent*> LandComps;
@@ -2230,7 +2232,6 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 										HierarchicalInstancedStaticMeshComponent->SetCanEverAffectNavigation(false);
 										HierarchicalInstancedStaticMeshComponent->InstancingRandomSeed = FolSeed;
 										HierarchicalInstancedStaticMeshComponent->LightingChannels = GrassVariety.LightingChannels;
-										HierarchicalInstancedStaticMeshComponent->KeepInstanceBufferCPUAccess = true;
 										HierarchicalInstancedStaticMeshComponent->bCastStaticShadow = false;
 										HierarchicalInstancedStaticMeshComponent->CastShadow = GrassVariety.bCastDynamicShadow && !bDisableDynamicShadows;
 										HierarchicalInstancedStaticMeshComponent->bCastDynamicShadow = GrassVariety.bCastDynamicShadow && !bDisableDynamicShadows;
@@ -2470,7 +2471,8 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 				UHierarchicalInstancedStaticMeshComponent* HierarchicalInstancedStaticMeshComponent = Inner.Foliage.Get();
 				if (HierarchicalInstancedStaticMeshComponent && StillUsed.Contains(HierarchicalInstancedStaticMeshComponent))
 				{
-					if (Inner.Builder->InstanceBuffer.GetNumInstances())
+					int32 NumBuiltRenderInstances = Inner.Builder->InstanceBuffer.GetNumInstances();
+					if (NumBuiltRenderInstances > 0)
 					{
 						QUICK_SCOPE_CYCLE_COUNTER(STAT_FoliageGrassEndComp_AcceptPrebuiltTree);
 
@@ -2480,10 +2482,10 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 						}
 						else
 						{
-							HierarchicalInstancedStaticMeshComponent->PerInstanceRenderData->UpdateFromPreallocatedData(HierarchicalInstancedStaticMeshComponent, Inner.Builder->InstanceBuffer, HierarchicalInstancedStaticMeshComponent->KeepInstanceBufferCPUAccess);
+							HierarchicalInstancedStaticMeshComponent->PerInstanceRenderData->UpdateFromPreallocatedData(Inner.Builder->InstanceBuffer);
 						}
 
-						HierarchicalInstancedStaticMeshComponent->AcceptPrebuiltTree(Inner.Builder->ClusterTree, Inner.Builder->OutOcclusionLayerNum);
+						HierarchicalInstancedStaticMeshComponent->AcceptPrebuiltTree(Inner.Builder->ClusterTree, Inner.Builder->OutOcclusionLayerNum, NumBuiltRenderInstances);
 						if (bForceSync && GetWorld())
 						{
 							QUICK_SCOPE_CYCLE_COUNTER(STAT_FoliageGrassEndComp_SyncUpdate);

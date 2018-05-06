@@ -373,7 +373,6 @@ static void RHIExitAndStopRHIThread()
 #if HAS_GPU_STATS
 	FRealtimeGPUProfiler::Get()->Release();
 #endif
-
 	// Stop the RHI Thread (using GRHIThread_InternalUseOnly is unreliable since RT may be stopped)
 	if (FTaskGraphInterface::IsRunning() && FTaskGraphInterface::Get().IsThreadProcessingTasks(ENamedThreads::RHIThread))
 	{
@@ -2814,9 +2813,6 @@ int32 FEngineLoop::Init()
 		// hide a couple frames worth of rendering
 		FViewport::SetGameRenderingEnabled(true, 3);
 	}
-
-	// Begin the async platform hardware survey
-	GEngine->StartHardwareSurvey();
 
 	FCoreDelegates::StarvedGameLoop.BindStatic(&GameLoopIsStarved);
 

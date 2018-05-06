@@ -60,7 +60,7 @@ AVREditorAvatarActor::AVREditorAvatarActor() :
 	PostProcessComponent(nullptr),
 	VRMode( nullptr )
 {
-	if (UNLIKELY(IsRunningDedicatedServer()))   // @todo vreditor: Hack to avoid loading font assets in the cooker on Linux
+	if (UNLIKELY(IsRunningDedicatedServer()) || HasAnyFlags(RF_ClassDefaultObject))   // @todo vreditor: Hack to avoid loading font assets in the cooker on Linux
 	{
 		return;
 	}

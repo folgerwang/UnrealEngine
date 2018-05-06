@@ -218,7 +218,7 @@ void FMeshPaintGeometryAdapterForStaticMeshes::OnRemoved()
 		}
 		);
 
-		if(ensure(Index != INDEX_NONE))
+		if(Index != INDEX_NONE)
 		{
 			StaticMeshComponent->BodyInstance.SetCollisionEnabled(StaticMeshReferencers->Referencers[Index].CachedCollisionType, false);
 			StaticMeshComponent->RecreatePhysicsState();
@@ -231,6 +231,14 @@ void FMeshPaintGeometryAdapterForStaticMeshes::OnRemoved()
 				ReferencedStaticMesh->BodySetup = StaticMeshReferencers->RestoreBodySetup;
 				verify(MeshToComponentMap.Remove(ReferencedStaticMesh) == 1);
 			}
+		}
+		else
+		{
+			// Might be null components.  Remove them
+			StaticMeshReferencers->Referencers.RemoveAll([=](const FStaticMeshReferencers::FReferencersInfo& Info)
+			{
+				return Info.StaticMeshComponent == nullptr;
+			});
 		}
 	}
 }

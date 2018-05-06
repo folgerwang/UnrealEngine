@@ -308,12 +308,12 @@ bool FAssetRegistryState::GetAssets(const FARFilter& Filter, const TSet<FName>& 
 	TSet<FName> FilterObjectPaths(Filter.ObjectPaths);
 
 	// Form a set of assets matched by each filter
-	TArray<TArray<FAssetData*> > DiskFilterSets;
+	TArray<TSet<FAssetData*>> DiskFilterSets;
 
 	// On disk package names
 	if (FilterPackageNames.Num())
 	{
-		TArray<FAssetData*>& PackageNameFilter = DiskFilterSets[DiskFilterSets.AddDefaulted()];
+		TSet<FAssetData*>& PackageNameFilter = DiskFilterSets[DiskFilterSets.AddDefaulted()];
 
 		for (FName PackageName : FilterPackageNames)
 		{
@@ -329,7 +329,7 @@ bool FAssetRegistryState::GetAssets(const FARFilter& Filter, const TSet<FName>& 
 	// On disk package paths
 	if (FilterPackagePaths.Num())
 	{
-		TArray<FAssetData*>& PathFilter = DiskFilterSets[DiskFilterSets.AddDefaulted()];
+		TSet<FAssetData*>& PathFilter = DiskFilterSets[DiskFilterSets.AddDefaulted()];
 
 		for (FName PackagePath : FilterPackagePaths)
 		{
@@ -345,7 +345,7 @@ bool FAssetRegistryState::GetAssets(const FARFilter& Filter, const TSet<FName>& 
 	// On disk classes
 	if (FilterClassNames.Num())
 	{
-		TArray<FAssetData*>& ClassFilter = DiskFilterSets[DiskFilterSets.AddDefaulted()];
+		TSet<FAssetData*>& ClassFilter = DiskFilterSets[DiskFilterSets.AddDefaulted()];
 
 		for (FName ClassName : FilterClassNames)
 		{
@@ -361,7 +361,7 @@ bool FAssetRegistryState::GetAssets(const FARFilter& Filter, const TSet<FName>& 
 	// On disk object paths
 	if (FilterObjectPaths.Num())
 	{
-		TArray<FAssetData*>& ObjectPathsFilter = DiskFilterSets[DiskFilterSets.AddDefaulted()];
+		TSet<FAssetData*>& ObjectPathsFilter = DiskFilterSets[DiskFilterSets.AddDefaulted()];
 
 		for (FName ObjectPath : FilterObjectPaths)
 		{
@@ -377,7 +377,7 @@ bool FAssetRegistryState::GetAssets(const FARFilter& Filter, const TSet<FName>& 
 	// On disk tags and values
 	if (Filter.TagsAndValues.Num())
 	{
-		TArray<FAssetData*>& TagAndValuesFilter = DiskFilterSets[DiskFilterSets.AddDefaulted()];
+		TSet<FAssetData*>& TagAndValuesFilter = DiskFilterSets[DiskFilterSets.AddDefaulted()];
 
 		for (auto FilterTagIt = Filter.TagsAndValues.CreateConstIterator(); FilterTagIt; ++FilterTagIt)
 		{
@@ -407,60 +407,37 @@ bool FAssetRegistryState::GetAssets(const FARFilter& Filter, const TSet<FName>& 
 	if (DiskFilterSets.Num() > 0)
 	{
 		// Initialize the combined filter set to the first set, in case we can skip combining.
-		TArray<FAssetData*>* CombinedFilterSet = DiskFilterSets.GetData();
-		TArray<FAssetData*> Intersection;
+		TSet<FAssetData*>* CombinedFilterSetPtr = &DiskFilterSets[0];
+		TSet<FAssetData*> IntersectedFilterSet;
 
 		// If we have more than one set, we must combine them. We take the intersection
 		if (DiskFilterSets.Num() > 1)
 		{
-			// Sort each set for the intersection algorithm
-			struct FCompareFAssetData
+			IntersectedFilterSet = *CombinedFilterSetPtr;
+			CombinedFilterSetPtr = &IntersectedFilterSet;
+
+			for (int32 SetIdx = 1; SetIdx < DiskFilterSets.Num() && IntersectedFilterSet.Num() > 0; ++SetIdx)
 			{
-				FORCEINLINE bool operator()(const FAssetData& A, const FAssetData& B) const { return A.ObjectPath.Compare(B.ObjectPath) < 0; }
-			};
-
-			for (TArray<FAssetData*>& DiskFilter : DiskFilterSets)
-			{
-				DiskFilter.Sort(FCompareFAssetData());
-			}
-
-			// Set the "current" intersection set to the first filter set
-			Intersection = DiskFilterSets[0];
-
-			// Now iterate over every set beyond the first and intersect it with the current
-			for (int32 SetIdx = 1; SetIdx < DiskFilterSets.Num(); ++SetIdx)
-			{
-				TArray<FAssetData*> NewIntersection;
-				const TArray<FAssetData*>& SetA = Intersection;
-				const TArray<FAssetData*>& SetB = DiskFilterSets[SetIdx];
-				int32 AIdx = 0;
-				int32 BIdx = 0;
-
-				// Do intersection
-				while (AIdx < SetA.Num() && BIdx < SetB.Num())
+				// If the other set is smaller, swap it so we iterate the smaller set
+				TSet<FAssetData*> OtherFilterSet = DiskFilterSets[SetIdx];
+				if (OtherFilterSet.Num() < IntersectedFilterSet.Num())
 				{
-					if (SetA[AIdx]->ObjectPath.Compare(SetB[BIdx]->ObjectPath) < 0)
-						++AIdx;
-					else if (SetB[BIdx]->ObjectPath.Compare(SetA[AIdx]->ObjectPath) < 0)
-						++BIdx;
-					else
-					{
-						NewIntersection.Add(SetA[AIdx]);
-						AIdx++;
-						BIdx++;
-					}
+					Swap(OtherFilterSet, IntersectedFilterSet);
 				}
 
-				// Update the "current" intersection with the results
-				Intersection = NewIntersection;
+				for (auto It = IntersectedFilterSet.CreateIterator(); It; ++It)
+				{
+					if (!OtherFilterSet.Contains(*It))
+					{
+						It.RemoveCurrent();
+						continue;
+					}
+				}
 			}
-
-			// Set the CombinedFilterSet pointer to the full intersection of all sets
-			CombinedFilterSet = &Intersection;
 		}
 
 		// Iterate over the final combined filter set to add to OutAssetData
-		for (FAssetData* AssetData : *CombinedFilterSet)
+		for (const FAssetData* AssetData : *CombinedFilterSetPtr)
 		{
 			if (PackageNamesToSkip.Contains(AssetData->PackageName))
 			{

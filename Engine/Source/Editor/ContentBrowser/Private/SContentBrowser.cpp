@@ -882,7 +882,9 @@ void SContentBrowser::ToggleFolderFavorite(const TArray<FString>& FolderPaths)
 		FavoritePathViewPtr->SetSelectedPaths(FolderPaths);
 		if (GetFavoriteFolderVisibility() == EVisibility::Collapsed)
 		{
-			GetMutableDefault<UContentBrowserSettings>()->SetDisplayFavorites(true);
+			UContentBrowserSettings* Settings = GetMutableDefault<UContentBrowserSettings>();
+			Settings->SetDisplayFavorites(true);
+			Settings->SaveConfig();
 		}
 	}
 }
@@ -1535,6 +1537,9 @@ void SContentBrowser::NewAssetRequested(const FString& SelectedPath, TWeakObject
 	if ( ensure(SelectedPath.Len() > 0) && ensure(FactoryClass.IsValid()) )
 	{
 		UFactory* NewFactory = NewObject<UFactory>(GetTransientPackage(), FactoryClass.Get());
+		// This factory may get gc'd as a side effect of various delegates potentially calling CollectGarbage so protect against it from being gc'd out from under us
+		NewFactory->AddToRoot();
+
 		FEditorDelegates::OnConfigureNewAssetProperties.Broadcast(NewFactory);
 		if ( NewFactory->ConfigureProperties() )
 		{
@@ -1546,6 +1551,7 @@ void SContentBrowser::NewAssetRequested(const FString& SelectedPath, TWeakObject
 			AssetToolsModule.Get().CreateUniqueAssetName(SelectedPath + TEXT("/") + NewFactory->GetDefaultNewAssetName(), TEXT(""), PackageNameToUse, DefaultAssetName);
 			CreateNewAsset(DefaultAssetName, SelectedPath, NewFactory->GetSupportedClass(), NewFactory);
 		}
+		NewFactory->RemoveFromRoot();
 	}
 }
 

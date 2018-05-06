@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -36,7 +36,10 @@ namespace UnrealBuildTool
 		//public const string DefaultArchitecture = "arm-unknown-linux-gnueabihf";
 		//public const string DefaultArchitecture = "aarch64-unknown-linux-gnueabi";
 
-		LinuxPlatformSDK SDK;
+		/// <summary>
+		/// SDK in use by the platform
+		/// </summary>
+		protected LinuxPlatformSDK SDK;
 
 		/// <summary>
 		/// Constructor
@@ -137,7 +140,7 @@ namespace UnrealBuildTool
 		public override void ValidateTarget(TargetRules Target)
 		{
 			Target.bCompileSimplygon = false;
-            Target.bCompileSimplygonSSF = false;
+			Target.bCompileSimplygonSSF = false;
 			// depends on arch, APEX cannot be as of November'16 compiled for AArch32/64
 			Target.bCompileAPEX = Target.Architecture.StartsWith("x86_64");
 			Target.bCompileNvCloth = Target.Architecture.StartsWith("x86_64");
@@ -180,7 +183,8 @@ namespace UnrealBuildTool
 		public override bool CanUseXGE()
 		{
 			// XGE crashes with very high probability when v8_clang-3.9.0-centos cross-toolchain is used on Windows. Please make sure this is resolved before re-enabling it.
-			return BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux;
+			// [RCL] 2018-05-02: disabling XGE even during a native build because the support is not ready and you can have mysterious build failures when ib_console is installed.
+			return false;//BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux;
 		}
 
 		/// <summary>
@@ -229,14 +233,20 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Get the extension to use for debug info for the given binary type
+		/// Get the extensions to use for debug info for the given binary type
 		/// </summary>
 		/// <param name="InTarget">Rules for the target being built</param>
 		/// <param name="InBinaryType"> The binary type being built</param>
-		/// <returns>string    The debug info extension (i.e. 'pdb')</returns>
-		public override string GetDebugInfoExtension(ReadOnlyTargetRules InTarget, UEBuildBinaryType InBinaryType)
+		/// <returns>string[]    The debug info extensions (i.e. 'pdb')</returns>
+		public override string[] GetDebugInfoExtensions(ReadOnlyTargetRules InTarget, UEBuildBinaryType InBinaryType)
 		{
-			return "";
+			switch (InBinaryType)
+			{
+				case UEBuildBinaryType.DynamicLinkLibrary:
+				case UEBuildBinaryType.Executable:
+					return new string[] {".sym", ".debug"};
+			}
+			return new string [] {};
 		}
 
 		/// <summary>
@@ -344,7 +354,8 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");		//@todo linux: valid?
 
 			// During the native builds, check the system includes as well (check toolchain when cross-compiling?)
-			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux)
+			string BaseLinuxPath = SDK.GetBaseLinuxPathForArchitecture(Target.Architecture);
+			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux && String.IsNullOrEmpty(BaseLinuxPath))
 			{
 				CompileEnvironment.IncludePaths.SystemIncludePaths.Add(new DirectoryReference("/usr/include"));
 			}
@@ -401,7 +412,7 @@ namespace UnrealBuildTool
 		/// <returns>New toolchain instance.</returns>
 		public override UEToolChain CreateToolChain(CppPlatform CppPlatform, ReadOnlyTargetRules Target)
 		{
-			return new LinuxToolChain(Target.Architecture);
+			return new LinuxToolChain(Target.Architecture, SDK);
 		}
 
 		/// <summary>
@@ -424,6 +435,16 @@ namespace UnrealBuildTool
 		/// Platform name (embeds architecture for now)
 		/// </summary>
 		static private string TargetPlatformName = "Linux_x64";
+
+		/// <summary>
+		/// Whether to compile with the verbose flag
+		/// </summary>
+		public bool bVerboseCompiler = false;
+
+		/// <summary>
+		/// Whether to link with the verbose flag
+		/// </summary>
+		public bool bVerboseLinker = false;
 
 		/// <summary>
 		/// Whether platform supports switching SDKs during runtime
@@ -463,13 +484,13 @@ namespace UnrealBuildTool
 			return true;
 		}
 
-		public static string HaveLinuxDependenciesFile()
+		public string HaveLinuxDependenciesFile()
 		{
 			// This file must have no extension so that GitDeps considers it a binary dependency - it will only be pulled by the Setup script if Linux is enabled.
 			return "HaveLinuxDependencies";
 		}
 
-		public static string SDKVersionFileName()
+		public string SDKVersionFileName()
 		{
 			return "ToolchainVersion.txt";
 		}
@@ -498,7 +519,7 @@ namespace UnrealBuildTool
 			return -1;
 		}
 
-		public static bool CheckSDKCompatible(string VersionString, out string ErrorMessage)
+		public bool CheckSDKCompatible(string VersionString, out string ErrorMessage)
 		{
 			int Version = GetLinuxToolchainVersionFromString(VersionString);
 			int ExpectedVersion = GetLinuxToolchainVersionFromString(ExpectedSDKVersion);
@@ -525,42 +546,107 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Returns the in-tree root for the Linux Toolchain for this host platform.
+		/// </summary>
+		private static DirectoryReference GetInTreeSDKRoot()
+		{
+			return DirectoryReference.Combine(UnrealBuildTool.RootDirectory, "Engine/Extras/ThirdPartyNotUE/SDKs", "Host" + BuildHostPlatform.Current.Platform, TargetPlatformName);
+		}
+
+		/// <summary>
+		/// Whether a host can use its system sdk for this platform
+		/// </summary>
+		public virtual bool CanUseSystemCompiler()
+		{
+			return (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux);
+		}
+
+		/// <summary>
+		/// Returns the root SDK path for all architectures
+		/// WARNING: Do not cache this value - it may be changed after sourcing OutputEnvVars.txt
+		/// </summary>
+		/// <returns>Valid SDK string</returns>
+		public virtual string GetSDKLocation()
+		{
+			// if new multi-arch toolchain is used, prefer it
+			string MultiArchRoot = Environment.GetEnvironmentVariable("LINUX_MULTIARCH_ROOT");
+
+			if (String.IsNullOrEmpty(MultiArchRoot))
+			{
+				// check if in-tree SDK is available
+				DirectoryReference InTreeSDKVersionRoot = GetInTreeSDKRoot();
+				if (InTreeSDKVersionRoot != null)
+				{
+					DirectoryReference InTreeSDKVersionPath = DirectoryReference.Combine(InTreeSDKVersionRoot, ExpectedSDKVersion);
+					if (DirectoryReference.Exists(InTreeSDKVersionPath))
+					{
+						MultiArchRoot = InTreeSDKVersionPath.FullName;
+					}
+				}
+			}
+			return MultiArchRoot;
+		}
+
+		/// <summary>
+		/// Returns the SDK path for a specific architecture
+		/// WARNING: Do not cache this value - it may be changed after sourcing OutputEnvVars.txt
+		/// </summary>
+		/// <returns>Valid SDK string</returns>
+		public virtual string GetBaseLinuxPathForArchitecture(string Architecture)
+		{
+			// if new multi-arch toolchain is used, prefer it
+			string MultiArchRoot = GetSDKLocation();
+			string BaseLinuxPath;
+
+			if (!String.IsNullOrEmpty(MultiArchRoot))
+			{
+				BaseLinuxPath = Path.Combine(MultiArchRoot, Architecture);
+			}
+			else
+			{
+				// use cross linux toolchain if LINUX_ROOT is specified
+				BaseLinuxPath = Environment.GetEnvironmentVariable("LINUX_ROOT");
+			} 
+			return BaseLinuxPath;
+		}
+
+		/// <summary>
+		/// Whether the path contains a valid clang version
+		/// </summary>
+		private static bool IsValidClangPath(DirectoryReference BaseLinuxPath)
+		{
+			FileReference ClangPath = FileReference.Combine(BaseLinuxPath, @"bin", (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64) ? "clang++.exe" : "clang++");
+			return FileReference.Exists(ClangPath);
+		}
+
+		/// <summary>
 		/// Whether the required external SDKs are installed for this platform
 		/// </summary>
 		protected override SDKStatus HasRequiredManualSDKInternal()
 		{
-			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux)
+			// FIXME: UBT should loop across all the architectures and compile for all the selected ones.
+
+			// do not cache this value - it may be changed after sourcing OutputEnvVars.txt
+			string BaseLinuxPath = GetBaseLinuxPathForArchitecture(LinuxPlatform.DefaultArchitecture);
+
+			// BaseLinuxPath is specified
+			if (!String.IsNullOrEmpty(BaseLinuxPath))
 			{
-				return SDKStatus.Valid;
+				// paths to our toolchains
+				BaseLinuxPath = BaseLinuxPath.Replace("\"", "");
+
+				if (IsValidClangPath(new DirectoryReference(BaseLinuxPath)))
+				{
+					return SDKStatus.Valid;
+				}
 			}
 
-			string MultiArchRoot = Environment.GetEnvironmentVariable("LINUX_MULTIARCH_ROOT");
-			string BaseLinuxPath;
-
-			if (MultiArchRoot != null)
+			if (CanUseSystemCompiler())
 			{
-				// FIXME: UBT should loop across all the architectures and compile for all the selected ones.
-				BaseLinuxPath = Path.Combine(MultiArchRoot, LinuxPlatform.DefaultArchitecture);
-			}
-			else
-			{
-				// support the existing, non-multiarch toolchains for continuity
-				BaseLinuxPath = Environment.GetEnvironmentVariable("LINUX_ROOT");
-			}
-
-			// we don't have an LINUX_ROOT specified
-			if (String.IsNullOrEmpty(BaseLinuxPath))
-			{
-				return SDKStatus.Invalid;
-			}
-
-			// paths to our toolchains
-			BaseLinuxPath = BaseLinuxPath.Replace("\"", "");
-			string ClangPath = Path.Combine(BaseLinuxPath, @"bin\clang++.exe");
-
-			if (File.Exists(ClangPath))
-			{
-				return SDKStatus.Valid;
+				if (!String.IsNullOrEmpty(LinuxCommon.WhichClang()) || !String.IsNullOrEmpty(LinuxCommon.WhichGcc()))
+				{
+					return SDKStatus.Valid;
+				}
 			}
 
 			return SDKStatus.Invalid;

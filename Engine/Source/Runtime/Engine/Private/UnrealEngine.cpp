@@ -120,7 +120,6 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "Engine/LevelStreamingVolume.h"
 #include "Engine/WorldComposition.h"
 #include "Engine/LevelScriptActor.h"
-#include "IHardwareSurveyModule.h"
 #include "HAL/LowLevelMemTracker.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "DynamicResolutionState.h"
@@ -955,12 +954,6 @@ void GetFirstPlayerViewPoint(FVector& out_Location, FRotator& out_Rotation)
 #endif
 
 
-namespace EngineDefs
-{
-	// Time between successive runs of the hardware survey
-	static const FTimespan HardwareSurveyInterval(30, 0, 0, 0);	// 30 days
-}
-
 /*-----------------------------------------------------------------------------
 Engine init and exit.
 -----------------------------------------------------------------------------*/
@@ -1761,7 +1754,19 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 				// up our timeslice.
 				if( WaitTime > 5 / 1000.f )
 				{
-					FPlatformProcess::SleepNoStats( WaitTime - 0.002f );
+					// For improved handling of drag and drop, continue to pump messages while throttled down
+					if (GIsEditor && ShouldThrottleCPUUsage())
+					{
+						do
+						{
+							FPlatformProcess::SleepNoStats(0.005f);
+							FPlatformApplicationMisc::PumpMessages(true);
+						} while (ShouldThrottleCPUUsage() && FPlatformTime::Seconds() < (WaitEndTime - 0.005f));
+					}
+					else
+					{
+						FPlatformProcess::SleepNoStats( WaitTime - 0.002f );
+					}
 				}
 
 				// Give up timeslice for remainder of wait time.
@@ -7829,179 +7834,6 @@ void UEngine::OnLostFocusPause(bool EnablePause)
 	}
 }
 
-void UEngine::StartHardwareSurvey()
-{
-	// The hardware survey costs time and we don't want to slow down debug builds.
-	// This is mostly because of the CPU benchmark running in the survey and the results in debug are not being valid.
-	// Never run the survey in games, only in the editor.
-	if (FEngineAnalytics::IsAvailable() && FEngineAnalytics::IsEditorRun())
-	{
-		IHardwareSurveyModule::Get().StartHardwareSurvey(FEngineAnalytics::GetProvider());
-	}
-}
-
-void UEngine::InitHardwareSurvey()
-{
-	StartHardwareSurvey();
-}
-
-void UEngine::TickHardwareSurvey()
-{
-
-}
-
-bool UEngine::IsHardwareSurveyRequired()
-{
-	// Analytics must have been initialized FIRST.
-	if (!FEngineAnalytics::IsAvailable() || IsRunningDedicatedServer() || IsRunningCommandlet() || GIsAutomationTesting || GIsBuildMachine)
-	{
-		return false;
-	}
-
-#if PLATFORM_IOS || PLATFORM_ANDROID || PLATFORM_DESKTOP
-	bool bSurveyDone = false;
-	bool bSurveyExpired = false;
-
-	// platform agnostic code to get the last time we did a survey
-	FString LastRecordedTimeString;
-	if (FPlatformMisc::GetStoredValue(TEXT("Epic Games"), TEXT("Unreal Engine/Hardware Survey"), TEXT("HardwareSurveyDateTime"), LastRecordedTimeString))
-	{
-		// attempt to convert to FDateTime
-		FDateTime LastRecordedTime;
-		if (FDateTime::Parse(LastRecordedTimeString, LastRecordedTime))
-		{
-			bSurveyDone = true;
-
-			// make sure it was a month ago
-			FTimespan Diff = FDateTime::UtcNow() - LastRecordedTime;
-
-			if (Diff.GetTotalDays() > 30)
-			{
-				bSurveyExpired = true;
-			}
-		}
-	}
-
-	return !bSurveyDone || bSurveyExpired;
-#else
-	return false;
-#endif
-}
-
-FString UEngine::HardwareSurveyBucketRAM(uint32 MemoryMB)
-{
-	const float GBToMB = 1024.0f;
-	FString BucketedRAM;
-
-	if (MemoryMB < 2.0f * GBToMB) BucketedRAM = TEXT("<2GB");
-	else if (MemoryMB < 4.0f * GBToMB) BucketedRAM = TEXT("2GB-4GB");
-	else if (MemoryMB < 6.0f * GBToMB) BucketedRAM = TEXT("4GB-6GB");
-	else if (MemoryMB < 8.0f * GBToMB) BucketedRAM = TEXT("6GB-8GB");
-	else if (MemoryMB < 12.0f * GBToMB) BucketedRAM = TEXT("8GB-12GB");
-	else if (MemoryMB < 16.0f * GBToMB) BucketedRAM = TEXT("12GB-16GB");
-	else if (MemoryMB < 20.0f * GBToMB) BucketedRAM = TEXT("16GB-20GB");
-	else if (MemoryMB < 24.0f * GBToMB) BucketedRAM = TEXT("20GB-24GB");
-	else if (MemoryMB < 28.0f * GBToMB) BucketedRAM = TEXT("24GB-28GB");
-	else if (MemoryMB < 32.0f * GBToMB) BucketedRAM = TEXT("28GB-32GB");
-	else if (MemoryMB < 36.0f * GBToMB) BucketedRAM = TEXT("32GB-36GB");
-	else BucketedRAM = TEXT(">36GB");
-
-	return BucketedRAM;
-}
-
-FString UEngine::HardwareSurveyBucketVRAM(uint32 VidMemoryMB)
-{
-	const float GBToMB = 1024.0f;
-	FString BucketedVRAM;
-
-	if (VidMemoryMB < 0.25f * GBToMB) BucketedVRAM = TEXT("<256MB");
-	else if (VidMemoryMB < 0.5f * GBToMB) BucketedVRAM = TEXT("256MB-512MB");
-	else if (VidMemoryMB < 1.0f * GBToMB) BucketedVRAM = TEXT("512MB-1GB");
-	else if (VidMemoryMB < 1.5f * GBToMB) BucketedVRAM = TEXT("1GB-1.5GB");
-	else if (VidMemoryMB < 2.0f * GBToMB) BucketedVRAM = TEXT("1.5GB-2GB");
-	else if (VidMemoryMB < 2.5f * GBToMB) BucketedVRAM = TEXT("2GB-2.5GB");
-	else if (VidMemoryMB < 3.0f * GBToMB) BucketedVRAM = TEXT("2.5GB-3GB");
-	else if (VidMemoryMB < 4.0f * GBToMB) BucketedVRAM = TEXT("3GB-4GB");
-	else if (VidMemoryMB < 6.0f * GBToMB) BucketedVRAM = TEXT("4GB-6GB");
-	else if (VidMemoryMB < 8.0f * GBToMB) BucketedVRAM = TEXT("6GB-8GB");
-	else BucketedVRAM = TEXT(">8GB");
-
-	return BucketedVRAM;
-}
-
-FString UEngine::HardwareSurveyBucketResolution(uint32 DisplayWidth, uint32 DisplayHeight)
-{
-	FString BucketedRes;
-	float AspectRatio = (float)DisplayWidth / DisplayHeight;
-
-	if (AspectRatio < 1.5f)
-	{
-		// approx 4:3
-		if (DisplayWidth < 1150)
-		{
-			BucketedRes = TEXT("1024x768");
-		}
-		else if (DisplayHeight < 912)
-		{
-			BucketedRes = TEXT("1280x800");
-		}
-		else
-		{
-			BucketedRes = TEXT("1280x1024");
-		}
-	}
-	else
-	{
-		// widescreen
-		if (DisplayWidth < 1400)
-		{
-			BucketedRes = TEXT("1366x768");
-		}
-		else if (DisplayWidth < 1520)
-		{
-			BucketedRes = TEXT("1440x900");
-		}
-		else if (DisplayWidth < 1640)
-		{
-			BucketedRes = TEXT("1600x900");
-		}
-		else if (DisplayWidth < 1800)
-		{
-			BucketedRes = TEXT("1680x1050");
-		}
-		else if (DisplayHeight < 1140)
-		{
-			BucketedRes = TEXT("1920x1080");
-		}
-		else
-		{
-			BucketedRes = TEXT("1920x1200");
-		}
-	}
-
-	return BucketedRes;
-}
-
-FString UEngine::HardwareSurveyGetResolutionClass(uint32 LargestDisplayHeight)
-{
-	FString ResolutionClass = TEXT( "720" );
-
-	if( LargestDisplayHeight < 700 )
-	{
-		ResolutionClass = TEXT( "<720" );
-	}
-	else if( LargestDisplayHeight > 1024 )
-	{
-		ResolutionClass = TEXT( "1080+" );
-	}
-
-	return ResolutionClass;
-}
-
-void UEngine::OnHardwareSurveyComplete(const FHardwareSurveyResults& SurveyResults)
-{
-}
-
 static TAutoConsoleVariable<float> CVarMaxFPS(
 	TEXT("t.MaxFPS"),0.f,
 	TEXT("Caps FPS to the given value.  Set to <= 0 to be uncapped."));
@@ -8293,6 +8125,7 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				FScreenMessageString NewMessage;
 				NewMessage.CurrentTimeDisplayed = 0.0f;
 				NewMessage.Key = Key;
+				NewMessage.TextScale = TextScale;
 				NewMessage.DisplayColor = DisplayColor;
 				NewMessage.TimeToDisplay = TimeToDisplay;
 				NewMessage.ScreenMessage = DebugMessage;				
@@ -8303,6 +8136,7 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				// Set the message, and update the time to display and reset the current time.
 				Message->ScreenMessage = DebugMessage;
 				Message->DisplayColor = DisplayColor;
+				Message->TextScale = TextScale;
 				Message->TimeToDisplay = TimeToDisplay;
 				Message->CurrentTimeDisplayed = 0.0f;				
 			}

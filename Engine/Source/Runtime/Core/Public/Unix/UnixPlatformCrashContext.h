@@ -34,6 +34,9 @@ struct CORE_API FUnixCrashContext : public FGenericCrashContext
 	/** Fake siginfo used when handling ensure()s */
 	static __thread siginfo_t	FakeSiginfoForEnsures;
 
+	/** The PC of the first function used when handling a crash. Used to figure out the number of frames to ignore */
+	uint64* FirstCrashHandlerFrame = nullptr;
+
 	FUnixCrashContext()
 		:	Signal(0)
 		,	Info(nullptr)
@@ -95,6 +98,11 @@ struct CORE_API FUnixCrashContext : public FGenericCrashContext
 	 * Sets whether this crash represents a non-crash event like an ensure
 	 */
 	void SetIsEnsure(bool bInIsEnsure) { bIsEnsure = bInIsEnsure; }
+
+	/**
+	 * Sets the FirstCrashHandlerFrame only if it has not been set before
+	 */
+	void SetFirstCrashHandlerFrame(uint64* ProgramCounter);
 
 protected:
 	/**

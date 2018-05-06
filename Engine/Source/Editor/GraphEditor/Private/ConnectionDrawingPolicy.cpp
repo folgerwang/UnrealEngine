@@ -341,7 +341,7 @@ void FConnectionDrawingPolicy::DrawConnection(int32 LayerId, const FVector2D& St
 		{
 			const float BubbleSpacing = 64.f * ZoomFactor;
 			const float BubbleSpeed = 192.f * ZoomFactor;
-			const FVector2D BubbleSize = BubbleImage->ImageSize * ZoomFactor * 0.1f * Params.WireThickness;
+			const FVector2D BubbleSize = BubbleImage->ImageSize * ZoomFactor * 0.2f * Params.WireThickness;
 
 			float Time = (FPlatformTime::Seconds() - GStartTime);
 			const float BubbleOffset = FMath::Fmod(Time * BubbleSpeed, BubbleSpacing);
@@ -517,7 +517,7 @@ void FConnectionDrawingPolicy::ApplyHoverDeemphasis(UEdGraphPin* OutputPin, UEdG
 	const bool bEmphasize = bContainsBoth || (bContainsOutput && (InputPin == nullptr));
 	if (bEmphasize)
 	{
-		Thickness = FMath::Lerp(Thickness, Thickness * ((Thickness < 3.0f) ? 5.0f : 3.0f), TimeFraction);
+		Thickness = FMath::Lerp(Thickness, Thickness * ((Thickness < 2.5f) ? 3.5f : 2.5f), TimeFraction);
 		WireColor = FMath::Lerp<FLinearColor>(WireColor, LightenedColor, LightFraction * TimeFraction);
 	}
 	else

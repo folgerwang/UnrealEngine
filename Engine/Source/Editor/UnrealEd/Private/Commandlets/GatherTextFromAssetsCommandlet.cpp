@@ -582,17 +582,13 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		// Track the package localization ID of this package (if known) and detect duplicates
 		if (!PackageFileSummary.LocalizationId.IsEmpty())
 		{
-			FString LongPackageName;
-			if (FPackageName::TryConvertFilenameToLongPackageName(PackagePendingGather.PackageFilename, LongPackageName))
+			if (const FName* ExistingLongPackageName = AssignedPackageLocalizationIds.Find(PackageFileSummary.LocalizationId))
 			{
-				if (const FName* ExistingLongPackageName = AssignedPackageLocalizationIds.Find(PackageFileSummary.LocalizationId))
-				{
-					UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Package '%s' and '%s' have the same localization ID (%s). Please reset one of these (Asset Localization -> Reset Localization ID) to avoid conflicts."), *LongPackageName, *ExistingLongPackageName->ToString(), *PackageFileSummary.LocalizationId);
-				}
-				else
-				{
-					AssignedPackageLocalizationIds.Add(PackageFileSummary.LocalizationId, *LongPackageName);
-				}
+				UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Package '%s' and '%s' have the same localization ID (%s). Please reset one of these (Asset Localization -> Reset Localization ID) to avoid conflicts."), *PackagePendingGather.PackageName.ToString(), *ExistingLongPackageName->ToString(), *PackageFileSummary.LocalizationId);
+			}
+			else
+			{
+				AssignedPackageLocalizationIds.Add(PackageFileSummary.LocalizationId, PackagePendingGather.PackageName);
 			}
 		}
 

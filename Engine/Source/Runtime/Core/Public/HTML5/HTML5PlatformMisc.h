@@ -28,6 +28,12 @@ struct CORE_API FHTML5Misc : public FGenericPlatformMisc
 	static FString GetDefaultLocale();
 	static void SetCrashHandler(void (* CrashHandler)(const FGenericCrashContext& Context));
 	static EAppReturnType::Type MessageBoxExt( EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption );
+
+	static bool GetUseVirtualJoysticks()
+	{
+		return false;
+	}
+
 	FORCEINLINE static int32 NumberOfCores()
 	{
 		return 1;

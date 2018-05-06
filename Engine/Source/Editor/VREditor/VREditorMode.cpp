@@ -77,7 +77,7 @@ namespace VREd
 	static FAutoConsoleCommand ToggleDebugMode(TEXT("VREd.ToggleDebugMode"), TEXT("Toggles debug mode of the VR Mode"), FConsoleCommandDelegate::CreateStatic(&UVREditorMode::ToggleDebugMode));
 }
 
-const FString UVREditorMode::AssetContainerPath = FString("/Engine/VREditor/VREditorAssetContainerData");
+const TCHAR* UVREditorMode::AssetContainerPath = TEXT("/Engine/VREditor/VREditorAssetContainerData");
 bool UVREditorMode::bDebugModeEnabled = false;
 
 UVREditorMode::UVREditorMode() :
@@ -140,8 +140,11 @@ void UVREditorMode::Init()
 	}
 
 	// Setup the asset container.
-	AssetContainer = LoadObject<UVREditorAssetContainer>(nullptr, *UVREditorMode::AssetContainerPath);
+	AssetContainer = &LoadAssetContainer();
 	check(AssetContainer != nullptr);
+
+	// Setup slate style
+	FVREditorStyle::Get();
 
 	bIsFullyInitialized = true;
 }
@@ -1209,6 +1212,13 @@ bool UVREditorMode::GetStartedPlayFromVREditor() const
 
 const UVREditorAssetContainer& UVREditorMode::GetAssetContainer() const
 {
+	return *AssetContainer;
+}
+
+UVREditorAssetContainer& UVREditorMode::LoadAssetContainer()
+{
+	UVREditorAssetContainer* AssetContainer = LoadObject<UVREditorAssetContainer>(nullptr, UVREditorMode::AssetContainerPath);
+	checkf(AssetContainer, TEXT("Failed to load ViewportInteractionAssetContainer (%s). See log for reason."), UVREditorMode::AssetContainerPath);
 	return *AssetContainer;
 }
 

@@ -36,6 +36,17 @@ namespace
 			!!(FileInfo.st_mode & S_IWUSR)
 		);
 	}
+
+	// Wrapper around UE_LOG to avoid infinite logging if the act of logging causes an error
+	#define UE_LOG_UNIX_FILE(Verbosity, Format, ...) \
+	{ \
+		if (!bLoggingError) \
+		{ \
+			bLoggingError = true;  \
+			UE_LOG(LogUnixPlatformFile, Verbosity, Format, ##__VA_ARGS__); \
+			bLoggingError = false; \
+		} \
+	}
 }
 
 /**
@@ -418,7 +429,7 @@ public:
 	{
 		// Cannot log anything here, as this may result in infinite recursion when this function is called on log file itself
 
-		// We can get some "absolute" filenames like "D:/Blah/" here (e.g. non-Unix paths to source files embedded in assets).
+		// We can get some "absolute" filenames like "D:/Blah/" here (e.g. non-Linux paths to source files embedded in assets).
 		// In that case, fail silently.
 		if (PossiblyWrongFilename.IsEmpty() || PossiblyWrongFilename[0] != TEXT('/'))
 		{
@@ -460,7 +471,7 @@ public:
 	 */
 	int32 OpenCaseInsensitiveRead(const FString & Filename, FString & MappedToFilename)
 	{
-		// We can get some "absolute" filenames like "D:/Blah/" here (e.g. non-Unix paths to source files embedded in assets).
+		// We can get some "absolute" filenames like "D:/Blah/" here (e.g. non-Linux paths to source files embedded in assets).
 		// In that case, fail silently.
 		if (Filename.IsEmpty() || Filename[0] != TEXT('/'))
 		{
@@ -581,7 +592,7 @@ bool FUnixPlatformFile::DeleteFile(const TCHAR* Filename)
 	// removing mapped file is too dangerous
 	if (IntendedFilename != CaseSensitiveFilename)
 	{
-		UE_LOG(LogUnixPlatformFile, Warning, TEXT("Could not find file '%s', deleting file '%s' instead (for consistency with the rest of file ops)"), *IntendedFilename, *CaseSensitiveFilename);
+		UE_LOG_UNIX_FILE(Warning, TEXT("Could not find file '%s', deleting file '%s' instead (for consistency with the rest of file ops)"), *IntendedFilename, *CaseSensitiveFilename);
 	}
 	return unlink(TCHAR_TO_UTF8(*CaseSensitiveFilename)) == 0;
 }
@@ -786,8 +797,8 @@ IFileHandle* FUnixPlatformFile::OpenWrite(const TCHAR* Filename, bool bAppend, b
 			if (ftruncate(Handle, 0) != 0)
 			{
 				int ErrNo = errno;
-				UE_LOG(LogUnixPlatformFile, Warning, TEXT( "ftruncate() failed for '%s': errno=%d (%s)" ),
-															Filename, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
+				UE_LOG_UNIX_FILE(Warning, TEXT( "ftruncate() failed for '%s': errno=%d (%s)" ),
+												Filename, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
 				close(Handle);
 				return nullptr;
 			}
@@ -803,7 +814,7 @@ IFileHandle* FUnixPlatformFile::OpenWrite(const TCHAR* Filename, bool bAppend, b
 	}
 
 	int ErrNo = errno;
-	UE_LOG(LogUnixPlatformFile, Warning, TEXT( "open('%s', Flags=0x%08X) failed: errno=%d (%s)" ), *NormalizeFilename(Filename, true), Flags, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
+	UE_LOG_UNIX_FILE(Warning, TEXT( "open('%s', Flags=0x%08X) failed: errno=%d (%s)" ), *NormalizeFilename(Filename, true), Flags, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
 	return nullptr;
 }
 
@@ -826,7 +837,7 @@ bool FUnixPlatformFile::DirectoryExists(const TCHAR* Directory)
 
 bool FUnixPlatformFile::CreateDirectory(const TCHAR* Directory)
 {
-	return mkdir(TCHAR_TO_UTF8(*NormalizeFilename(Directory, true)), 0755) == 0;
+	return mkdir(TCHAR_TO_UTF8(*NormalizeFilename(Directory, true)), 0755) == 0 || (errno == EEXIST);
 }
 
 bool FUnixPlatformFile::DeleteDirectory(const TCHAR* Directory)
@@ -972,8 +983,7 @@ bool FUnixPlatformFile::CreateDirectoriesFromPath(const TCHAR* Path)
 				if (mkdir(SubPath, 0755) == -1)
 				{
 					int ErrNo = errno;
-					FPlatformMisc::LowLevelOutputDebugStringf(TEXT( "create dir('%s') failed: errno=%d (%s)" ),
-																DirPath, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
+					UE_LOG_UNIX_FILE(Warning, TEXT( "create dir('%s') failed: errno=%d (%s)" ), DirPath, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
 					FMemory::Free(DirPath);
 					FMemory::Free(SubPath);
 					return false;

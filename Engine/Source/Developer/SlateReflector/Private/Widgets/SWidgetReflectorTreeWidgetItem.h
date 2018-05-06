@@ -51,6 +51,7 @@ public:
 		this->WidgetInfo = InArgs._WidgetInfoToVisualize;
 		this->OnAccessSourceCode = InArgs._SourceCodeAccessor;
 		this->OnAccessAsset = InArgs._AssetAccessor;
+		this->SetPadding(0);
 
 		check(WidgetInfo.IsValid());
 		CachedWidgetType = WidgetInfo->GetWidgetType();
@@ -61,7 +62,7 @@ public:
 		CachedWidgetFile = WidgetInfo->GetWidgetFile();
 		CachedWidgetLineNumber = WidgetInfo->GetWidgetLineNumber();
 
-		SMultiColumnTableRow< TSharedRef<FWidgetReflectorNodeBase> >::Construct( SMultiColumnTableRow< TSharedRef<FWidgetReflectorNodeBase> >::FArguments().Padding(1), InOwnerTableView );
+		SMultiColumnTableRow< TSharedRef<FWidgetReflectorNodeBase> >::Construct( SMultiColumnTableRow< TSharedRef<FWidgetReflectorNodeBase> >::FArguments().Padding(0), InOwnerTableView );
 	}
 
 public:

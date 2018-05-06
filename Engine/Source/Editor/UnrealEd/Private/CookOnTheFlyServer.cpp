@@ -3091,7 +3091,23 @@ void UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uint32 SaveFlags,
 	check( SavePackageResults.Num() == 0);
 	check( bIsSavingPackage == false );
 	bIsSavingPackage = true;
+
+	const FString PackagePathName = Package->GetPathName();
 	FString Filename(GetCachedPackageFilename(Package));
+
+	// Also request any localized variants of this package
+	if (IsCookByTheBookMode() && !CookByTheBookOptions->bDisableUnsolicitedPackages && !FPackageName::IsLocalizedPackage(PackagePathName))
+	{
+		const TArray<FName>* LocalizedVariants = CookByTheBookOptions->SourceToLocalizedPackageVariants.Find(Package->GetFName());
+		if (LocalizedVariants)
+		{
+			for (const FName LocalizedPackageName : *LocalizedVariants)
+			{
+				const FName LocalizedPackageFile = GetCachedStandardPackageFileFName(LocalizedPackageName);
+				RequestPackage(LocalizedPackageFile, false);
+			}
+		}
+	}
 
 	// Don't resolve, just add to request list as needed
 	TSet<FName> SoftObjectPackages;
@@ -3128,8 +3144,6 @@ void UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uint32 SaveFlags,
 			UE_LOG(LogCook, Warning, TEXT("Package %s marked as reloading for cook by was requested to save"), *Package->GetPathName());
 			UE_LOG(LogCook, Fatal, TEXT("Package %s marked as reloading for cook by was requested to save"), *Package->GetPathName());
 		}
-
-		FString Name = Package->GetPathName();
 
 		// Use SandboxFile to do path conversion to properly handle sandbox paths (outside of standard paths in particular).
 		Filename = ConvertToFullSandboxPath(*Filename, true);
@@ -3183,7 +3197,7 @@ void UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uint32 SaveFlags,
 
 			// don't save Editor resources from the Engine if the target doesn't have editoronly data
 			if (IsCookFlagSet(ECookInitializationFlags::SkipEditorContent) &&
-				(Name.StartsWith(TEXT("/Engine/Editor")) || Name.StartsWith(TEXT("/Engine/VREditor"))) &&
+				(PackagePathName.StartsWith(TEXT("/Engine/Editor")) || PackagePathName.StartsWith(TEXT("/Engine/VREditor"))) &&
 				!Target->HasEditorOnlyData())
 			{
 				bCookPackage = false;
@@ -4807,7 +4821,7 @@ void UCookOnTheFlyServer::AddFileToCook( TArray<FName>& InOutFilesToCook, const 
 	}
 }
 
-void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const TArray<FString>& CookMaps, const TArray<FString>& InCookDirectories, const TArray<FString> &CookCultures, const TArray<FString> &IniMapSections, ECookByTheBookOptions FilesToCookFlags)
+void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const TArray<FString>& CookMaps, const TArray<FString>& InCookDirectories, const TArray<FString> &IniMapSections, ECookByTheBookOptions FilesToCookFlags)
 {
 #if OUTPUT_TIMING
 	SCOPE_TIMER(CollectFilesToCook);
@@ -5070,31 +5084,6 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const T
 				for (int32 TokenFileIndex = 0; TokenFileIndex < TokenFiles.Num(); ++TokenFileIndex)
 				{
 					AddFileToCook(FilesInPath, TokenFiles[TokenFileIndex]);
-				}
-			}
-		}
-
-		// Add any files of the desired cultures localized assets to cook.
-		for (const FString& CultureToCookName : CookCultures)
-		{
-			FCulturePtr CultureToCook = FInternationalization::Get().GetCulture(CultureToCookName);
-			if (!CultureToCook.IsValid())
-			{
-				continue;
-			}
-
-			const TArray<FString> CultureNamesToSearchFor = CultureToCook->GetPrioritizedParentCultureNames();
-
-			for (const FString& L10NSubdirectoryName : CultureNamesToSearchFor)
-			{
-				TArray<FString> Files;
-				const FString DirectoryToSearch = FPaths::Combine(*FPaths::ProjectContentDir(), *FString::Printf(TEXT("L10N/%s"), *L10NSubdirectoryName));
-				IFileManager::Get().FindFilesRecursive(Files, *DirectoryToSearch, *(FString(TEXT("*")) + FPackageName::GetAssetPackageExtension()), true, false);
-				for (FString StdFile : Files)
-				{
-					UE_LOG(LogCook, Verbose, TEXT("Including culture information %s "), *StdFile);
-					FPaths::MakeStandardFilename(StdFile);
-					AddFileToCook(FilesInPath, StdFile);
 				}
 			}
 		}
@@ -5808,7 +5797,6 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 	const TArray<ITargetPlatform*>& TargetPlatforms = CookByTheBookStartupOptions.TargetPlatforms;
 	const TArray<FString>& CookMaps = CookByTheBookStartupOptions.CookMaps;
 	const TArray<FString>& CookDirectories = CookByTheBookStartupOptions.CookDirectories;
-	const TArray<FString>& CookCultures = CookByTheBookStartupOptions.CookCultures;
 	const TArray<FString>& IniMapSections = CookByTheBookStartupOptions.IniMapSections;
 	const ECookByTheBookOptions& CookOptions = CookByTheBookStartupOptions.CookOptions;
 	const FString& DLCName = CookByTheBookStartupOptions.DLCName;
@@ -5833,6 +5821,42 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 	CookByTheBookOptions->bErrorOnEngineContentUse = CookByTheBookStartupOptions.bErrorOnEngineContentUse;
 
 	GenerateAssetRegistry();
+
+	// Find all the localized packages and map them back to their source package
+	{
+		UE_LOG(LogCook, Display, TEXT("Discovering localized assets"));
+
+		TArray<FString> AllCulturesToCook = CookByTheBookStartupOptions.CookCultures;
+		for (const FString& CultureName : CookByTheBookStartupOptions.CookCultures)
+		{
+			const TArray<FString> PrioritizedCultureNames = FInternationalization::Get().GetPrioritizedCultureNames(CultureName);
+			for (const FString& PrioritizedCultureName : PrioritizedCultureNames)
+			{
+				AllCulturesToCook.AddUnique(PrioritizedCultureName);
+			}
+		}
+		AllCulturesToCook.Sort();
+
+		TArray<FString> RootPaths;
+		FPackageName::QueryRootContentPaths(RootPaths);
+		for (const FString& RootPath : RootPaths)
+		{
+			for (const FString& CultureName : AllCulturesToCook)
+			{
+				TArray<FAssetData> AssetDataForCulture;
+				AssetRegistry->GetAssetsByPath(*(RootPath / TEXT("L10N") / CultureName), AssetDataForCulture, true);
+
+				for (const FAssetData& AssetData : AssetDataForCulture)
+				{
+					const FName LocalizedPackageName = AssetData.PackageName;
+					const FName SourcePackageName = *FPackageName::GetSourcePackagePath(LocalizedPackageName.ToString());
+
+					TArray<FName>& LocalizedPackageNames = CookByTheBookOptions->SourceToLocalizedPackageVariants.FindOrAdd(SourcePackageName);
+					LocalizedPackageNames.AddUnique(LocalizedPackageName);
+				}
+			}
+		}
+	}
 
 	const UProjectPackagingSettings* const PackagingSettings = GetDefault<UProjectPackagingSettings>();
 
@@ -6022,7 +6046,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 		GRedirectCollector.ProcessSoftObjectPathPackageList(StartupPackage, false, StartupSoftObjectPackages);
 	}
 
-	CollectFilesToCook(FilesInPath, CookMaps, CookDirectories, CookCultures, IniMapSections, CookOptions);
+	CollectFilesToCook(FilesInPath, CookMaps, CookDirectories, IniMapSections, CookOptions);
 
 	// Add string asset packages after collecting files, to avoid accidentally activating the behavior to cook all maps if none are specified
 	for (FName SoftObjectPackage : StartupSoftObjectPackages)

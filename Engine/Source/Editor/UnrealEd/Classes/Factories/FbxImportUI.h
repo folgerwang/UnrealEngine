@@ -26,7 +26,7 @@ enum EFBXImportType
 	FBXIT_MAX,
 };
 
-DECLARE_DELEGATE(FOnPreviewFbxImport);
+DECLARE_DELEGATE(FOnResolveFbxReImport);
 
 UCLASS(config=EditorPerProjectUserSettings, AutoExpandCategories=(FTransform), HideCategories=Object, MinimalAPI)
 class UFbxImportUI : public UObject, public IImportSettingsParser
@@ -146,10 +146,6 @@ public:
 	/** If true the automated import path should detect the import type.  If false the import type was specified by the user */
 	UPROPERTY(BlueprintReadWrite, Category = Miscellaneous)
 	bool bAutomatedImportShouldDetectType;
-
-	/** If true the existing material array will be reset by the incoming fbx file. The matching "material import name" will be restore properly but, the entries that has no match will use the material instance of the existing data at the same index. (Never enable this option if you have gameplay code that use a material slot)*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, AdvancedDisplay, Category = Material, meta = (OBJRestrict = "true", ImportType = "Mesh"))
-	uint32 bResetMaterialSlots : 1;
 
 	UFUNCTION(BlueprintCallable, Category = Miscellaneous)
 	void ResetToDefault();

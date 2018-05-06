@@ -4836,7 +4836,7 @@ protected:
 
 	virtual int32 ObjectOrientation() override
 	{ 
-		return GetPrimitiveProperty(MCT_Float3, TEXT("ObjectOrientation"), TEXT("ObjectOrientation.xyz"));
+		return AddInlinedCodeChunk(MCT_Float3,TEXT("GetObjectOrientation()"));
 	}
 
 	virtual int32 RotateAboutAxis(int32 NormalizedRotationAxisAndAngleIndex, int32 PositionOnAxisIndex, int32 PositionIndex) override

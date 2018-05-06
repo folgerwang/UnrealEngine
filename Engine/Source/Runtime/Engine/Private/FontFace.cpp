@@ -6,6 +6,7 @@
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Fonts/FontCache.h"
 #include "Misc/FileHelper.h"
 #include "UObject/Package.h"
 #include "Misc/PackageName.h"
@@ -53,6 +54,10 @@ void UFontFace::Serialize(FArchive& Ar)
 				FontFaceData->Serialize(Ar);
 			}
 		}
+
+#if WITH_EDITORONLY_DATA
+		CacheSubFaces();
+#endif // WITH_EDITORONLY_DATA
 	}
 	else
 	{
@@ -95,12 +100,20 @@ void UFontFace::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEve
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
+#if WITH_EDITORONLY_DATA
+	CacheSubFaces();
+#endif // WITH_EDITORONLY_DATA
+
 	FSlateApplication::Get().GetRenderer()->FlushFontCache();
 }
 
 void UFontFace::PostEditUndo()
 {
 	Super::PostEditUndo();
+
+#if WITH_EDITORONLY_DATA
+	CacheSubFaces();
+#endif // WITH_EDITORONLY_DATA
 
 	FSlateApplication::Get().GetRenderer()->FlushFontCache();
 }
@@ -135,6 +148,16 @@ void UFontFace::CookAdditionalFiles(const TCHAR* PackageFilename, const ITargetP
 #endif // WITH_EDITOR
 
 #if WITH_EDITORONLY_DATA
+void UFontFace::CacheSubFaces()
+{
+	if (FSlateApplication::IsInitialized())
+	{
+		SubFaces = FSlateApplication::Get().GetRenderer()->GetFontCache()->GetAvailableFontSubFaces(FontFaceData);
+	}
+}
+#endif // WITH_EDITORONLY_DATA
+
+#if WITH_EDITORONLY_DATA
 void UFontFace::InitializeFromBulkData(const FString& InFilename, const EFontHinting InHinting, const void* InBulkDataPtr, const int32 InBulkDataSizeBytes)
 {
 	check(InBulkDataPtr && InBulkDataSizeBytes > 0 && !FontFaceData->HasData());
@@ -146,6 +169,8 @@ void UFontFace::InitializeFromBulkData(const FString& InFilename, const EFontHin
 	TArray<uint8> FontData;
 	FontData.Append(static_cast<const uint8*>(InBulkDataPtr), InBulkDataSizeBytes);
 	FontFaceData->SetData(MoveTemp(FontData));
+
+	CacheSubFaces();
 }
 #endif // WITH_EDITORONLY_DATA
 

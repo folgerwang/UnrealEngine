@@ -362,3 +362,13 @@ private:
 	/** When true, a refresh should occur the next tick */
 	bool bItemsNeedRefresh;
 };
+
+
+namespace TableViewHelpers
+{
+	/**
+	 * Helper for implementing an efficient version of an item that is not in the tree
+	 * view, and therefore does not to know about parent wires.
+	 */
+	SLATE_API const TBitArray<>& GetEmptyBitArray();
+}

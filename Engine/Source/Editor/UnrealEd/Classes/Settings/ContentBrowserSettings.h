@@ -42,6 +42,10 @@ public:
 	UPROPERTY(config)
 	bool DisplayEmptyFolders;
 
+	/** The number of objects to keep in the Content Browser Recently Opened filter */
+	UPROPERTY(EditAnywhere, config, Category = ContentBrowser, meta = (DisplayName = "Number of Assets to Keep in the Recently Opened Filter", ClampMin = "1", ClampMax = "30"))
+	int32 NumObjectsInRecentList;
+
 public:
 
 	/** Sets whether we are allowed to display the engine folder or not, optional flag for setting override instead */

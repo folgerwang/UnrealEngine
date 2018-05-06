@@ -366,18 +366,6 @@ bool FHTML5HttpRequest::StartRequest()
 		return false;
 	}
 
-
-	//"User-Agent" && "Content-Length" are automatically set by the browser xhr request. We can't do much.
-
-	// make a fake header, so server has some idea this is UE
-	SetHeader(TEXT("X-UnrealEngine-Agent"), FString::Printf(TEXT("game=%s, engine=UE4, version=%s"), FApp::GetProjectName(), *FEngineVersion::Current().ToString()));
-
-	// Add "Pragma: no-cache" to mimic WinInet behavior
-	if (GetHeader("Pragma").IsEmpty())
-	{
-		SetHeader(TEXT("Pragma"), TEXT("no-cache"));
-	}
-
 	TArray<FString> AllHeaders = GetAllHeaders();
 
 	// Create a String which emscripten can understand.

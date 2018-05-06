@@ -6,8 +6,10 @@
 #include "HTML5NetworkingPrivate.h"
 #if !PLATFORM_HTML5
 #include "Runtime/Sockets/Private/BSDSockets/SocketSubsystemBSD.h"
+#define USE_LIBWEBSOCKET 1
 #else
 #include <netinet/in.h>
+#define USE_LIBWEBSOCKET 0
 #endif
 
 class FWebSocket
@@ -18,7 +20,7 @@ public:
 	// Initialize as client side socket.
 	FWebSocket(const FInternetAddr& ServerAddress);
 
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 	// Initialize as server side socket.
 	FWebSocket(WebSocketInternalContext* InContext, WebSocketInternal* Wsi);
 #endif
@@ -64,7 +66,7 @@ public:
 	TArray<uint8> RecievedBuffer;
 	TArray<TArray<uint8>> OutgoingBuffer;
 
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 	/** libwebsocket internal context*/
 	WebSocketInternalContext* Context;
 
@@ -73,7 +75,7 @@ public:
 
 	/** libwebsocket Protocols that can be serviced by this implemenation*/
 	WebSocketInternalProtocol* Protocols;
-#else
+#else // ! USE_LIBWEBSOCKET -- HTML5 uses BSD network API
 	int SockFd;
 #endif
 	struct sockaddr_in RemoteAddr;

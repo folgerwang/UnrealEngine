@@ -202,50 +202,25 @@ vec4 GetBorderElementColor()
 
 vec4 GetSplineElementColor()
 {
-	vec4 InTexCoords = TexCoords;
-	float Width = MarginUVs.x;
-	float Radius = MarginUVs.y;
+	float LineWidth = MarginUVs.x;
+	float FilterWidthScale = MarginUVs.y;
+
+	float Gradient = TexCoords.x;
+	vec2 GradientDerivative = vec2(abs(dFdx(Gradient)), abs(dFdy(Gradient)));
+	float PixelSizeInUV = sqrt(dot(GradientDerivative, GradientDerivative));
 	
-	vec2 StartPos = InTexCoords.xy;
-	vec2 EndPos = InTexCoords.zw;
-	
-	vec2 Diff = vec2( StartPos.y - EndPos.y, EndPos.x - StartPos.x ) ;
-	
-	float K = 2.0/( (2.0*Radius + Width)*sqrt( dot( Diff, Diff) ) );
-	
-	vec3 E0 = K*vec3( Diff.x, Diff.y, (StartPos.x*EndPos.y - EndPos.x*StartPos.y) );
-	E0.z += 1.0;
-	
-	vec3 E1 = K*vec3( -Diff.x, -Diff.y, (EndPos.x*StartPos.y - StartPos.x*EndPos.y) );
-	E1.z += 1.0;
-	
-    vec3 Pos = vec3(Position.xy,1);
-	
-	vec2 Distance = vec2( dot(E0,Pos), dot(E1,Pos) );
-	
-	if( any( lessThan(Distance, vec2(0.0)) ) )
+	float HalfLineWidthUV = 0.5f*PixelSizeInUV * LineWidth;	
+	float HalfFilterWidthUV = FilterWidthScale * PixelSizeInUV;
+	float DistanceToLineCenter = abs(0.5 - Gradient);
+	float LineCoverage = smoothstep(HalfLineWidthUV+HalfFilterWidthUV, HalfLineWidthUV-HalfFilterWidthUV, DistanceToLineCenter);
+
+	if (LineCoverage <= 0.0)
 	{
-		// using discard instead of clip because
-		// apparently clipped pixels are written into the stencil buffer but discards are not
 		discard;
 	}
-	
-	
+
 	vec4 InColor = Color;
-	
-	float Index = min(Distance.x,Distance.y);
-	
-	// Without this, the texture sample sometimes samples the next entry in the table.  Usually occurs when sampling the last entry in the table but instead
-	// samples the first and we get white pixels
-	const float HalfPixelOffset = 1.0/32.0;
-	
-	InColor.a *= smoothstep(0.3, 1.0f, Index);
-	
-	if( InColor.a < 0.05 )
-	{
-		discard;
-	}
-	
+	InColor.a *= LineCoverage;
 	return InColor;
 }
 

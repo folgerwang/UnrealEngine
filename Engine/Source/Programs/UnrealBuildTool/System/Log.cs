@@ -163,6 +163,15 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Allows code to check if the log system is using console output color.
+		/// </summary>
+		/// <returns></returns>
+		public static bool ColorConsoleOutput()
+		{
+			return bColorConsoleOutput;
+		}
+
+		/// <summary>
 		/// Allows us to change verbosity after initializing. This can happen since we initialize logging early, 
 		/// but then read the config and command line later, which could change this value.
 		/// </summary>

@@ -19,10 +19,6 @@ class USteamNetDriver : public UIpNetDriver
 {
 	GENERATED_UCLASS_BODY()
 
-	/** Time between connection detail output */
-	double ConnectionDumpInterval;
-	/** Tracks time before next connection output */
-	double ConnectionDumpCounter;
 	/** Should this net driver behave as a passthrough to normal IP */
 	bool bIsPassthrough;
 
@@ -38,7 +34,6 @@ class USteamNetDriver : public UIpNetDriver
 	virtual bool InitConnect(FNetworkNotify* InNotify, const FURL& ConnectURL, FString& Error) override;	
 	virtual bool InitListen(FNetworkNotify* InNotify, FURL& ListenURL, bool bReuseAddressAndPort, FString& Error) override;
 	virtual void Shutdown() override;
-	virtual void TickFlush(float DeltaSeconds) override;
 	virtual bool IsNetResourceValid() override;
 
 	//~ End UIpNetDriver Interface

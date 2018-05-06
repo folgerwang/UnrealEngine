@@ -616,10 +616,20 @@ MaterialFloat2 GetDefaultSceneTextureUV(FMaterialPixelParameters Parameters, con
 	{
 		return DecalToWorld[3].xyz;
 	}
+	
+	float3 GetObjectOrientation()
+	{
+		return DecalOrientation.xyz;
+	}
 #else
 	float3 GetActorWorldPosition()
 	{
 		return Primitive.ActorWorldPosition;
+	}
+	
+	float3 GetObjectOrientation()
+	{
+		return Primitive.ObjectOrientation.xyz;
 	}
 #endif // DECAL_PRIMITIVE
 

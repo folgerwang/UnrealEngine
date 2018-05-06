@@ -132,7 +132,7 @@ void SPropertyValueWidget::Construct( const FArguments& InArgs, TSharedPtr<FProp
 TSharedRef<SWidget> SPropertyValueWidget::ConstructPropertyEditorWidget( TSharedPtr<FPropertyEditor>& PropertyEditor, TSharedPtr<IPropertyUtilities> InPropertyUtilities, TSharedRef<SWidget> InResetDefaultWidget)
 {
 	const TSharedRef<FPropertyEditor> PropertyEditorRef = PropertyEditor.ToSharedRef();
-	const TSharedRef<IPropertyUtilities> PropertyUtilitiesRef = InPropertyUtilities.ToSharedRef();
+	//const TSharedRef<IPropertyUtilities> PropertyUtilitiesRef = InPropertyUtilities.ToSharedRef();
 
 	const TSharedRef< FPropertyNode > PropertyNode = PropertyEditorRef->GetPropertyNode();
 	const int32 NodeArrayIndex = PropertyNode->GetArrayIndex();
@@ -171,7 +171,7 @@ TSharedRef<SWidget> SPropertyValueWidget::ConstructPropertyEditorWidget( TShared
 		{
 			TSharedRef<SPropertyEditorAsset> AssetWidget = 
 				SAssignNew( PropertyWidget, SPropertyEditorAsset, PropertyEditorRef )
-				.ThumbnailPool( PropertyUtilitiesRef->GetThumbnailPool() )
+				.ThumbnailPool( InPropertyUtilities.IsValid() ? InPropertyUtilities->GetThumbnailPool() : nullptr )
 				.ResetToDefaultSlot()
 				[
 					InResetDefaultWidget

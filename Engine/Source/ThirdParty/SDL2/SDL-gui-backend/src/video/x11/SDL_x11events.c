@@ -35,6 +35,12 @@
 #include "../../events/SDL_mouse_c.h"
 #include "../../events/SDL_touch_c.h"
 
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+#include "SDL_x11xfixes.h"
+#endif // SDL_WITH_EPIC_EXTENSIONS
+/* EG END */
+
 #include "SDL_hints.h"
 #include "SDL_timer.h"
 #include "SDL_syswm.h"
@@ -883,6 +889,17 @@ X11_DispatchEvent(_THIS)
                 data->pending_focus_time = SDL_GetTicks() + PENDING_FOCUS_TIME;
             }
             data->last_focus_event_time = SDL_GetTicks();
+
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+            /* Yaakuro: Re-enable confinement for the window if it was deactivated 
+             * by FocusOut. */
+            if ((data->pointer_barrier_active == SDL_TRUE)) {
+                SDL_WindowData* windowdata = (SDL_WindowData *) data->window->driverdata;
+                X11_ConfineCursor(_this, windowdata->window, &windowdata->barrier_rect, X11_BARRIER_HANDLED_BY_EVENT);
+            }
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
         }
         break;
 
@@ -916,6 +933,15 @@ X11_DispatchEvent(_THIS)
                 data->pending_focus = PENDING_FOCUS_OUT;
                 data->pending_focus_time = SDL_GetTicks() + PENDING_FOCUS_TIME;
             }
+
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+            /* Disable confinement if it is activated. */
+            if (data->pointer_barrier_active == SDL_TRUE) {
+                X11_ConfineCursor(_this, data->window, NULL, X11_BARRIER_HANDLED_BY_EVENT);
+            }
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
         }
         break;
 
@@ -994,6 +1020,15 @@ X11_DispatchEvent(_THIS)
             printf("window %p: UnmapNotify!\n", data);
 #endif
             X11_DispatchUnmapNotify(data);
+
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+            /* Disable confiment if the window gets hidden. */
+            if (data->pointer_barrier_active == SDL_TRUE) {
+                X11_ConfineCursor(_this, data->window, NULL, X11_BARRIER_HANDLED_BY_EVENT);
+            }
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
         }
         break;
 
@@ -1003,6 +1038,15 @@ X11_DispatchEvent(_THIS)
             printf("window %p: MapNotify!\n", data);
 #endif
             X11_DispatchMapNotify(data);
+
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+            /* Enable confiment if it was activated. */
+            if (data->pointer_barrier_active == SDL_TRUE) {
+                X11_ConfineCursor(_this, data->window, &data->barrier_rect, X11_BARRIER_HANDLED_BY_EVENT);
+            }
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
         }
         break;
 

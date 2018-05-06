@@ -36,7 +36,7 @@ TSharedPtr<FNetworkObjectInfo> FNetworkObjectList::Find(AActor* const Actor)
 	return TSharedPtr<FNetworkObjectInfo>();
 }
 
-TSharedPtr<FNetworkObjectInfo>* FNetworkObjectList::FindOrAdd(AActor* const Actor, const FName NetDriverName)
+TSharedPtr<FNetworkObjectInfo>* FNetworkObjectList::FindOrAdd(AActor* const Actor, const FName NetDriverName, bool* OutWasAdded)
 {
 	if (Actor == nullptr || Actor->IsPendingKill() ||
 
@@ -59,11 +59,20 @@ TSharedPtr<FNetworkObjectInfo>* FNetworkObjectList::FindOrAdd(AActor* const Acto
 			ActiveNetworkObjects.Add(*NetworkObjectInfo);
 
 			UE_LOG(LogNetDormancy, VeryVerbose, TEXT("FNetworkObjectList::Add: Adding actor. Actor: %s, Total: %i, Active: %i, NetDriverName: %s"), *Actor->GetName(), AllNetworkObjects.Num(), ActiveNetworkObjects.Num(), *NetDriverName.ToString());
+
+			if (OutWasAdded)
+			{
+				*OutWasAdded = true;
+			}
 		}
 	}
 	else
 	{
 		UE_LOG(LogNetDormancy, VeryVerbose, TEXT("FNetworkObjectList::Add: Already contained. Actor: %s, Total: %i, Active: %i, NetDriverName: %s"), *Actor->GetName(), AllNetworkObjects.Num(), ActiveNetworkObjects.Num(), *NetDriverName.ToString());
+		if (OutWasAdded)
+		{
+			*OutWasAdded = false;
+		}
 	}
 	
 	check((ActiveNetworkObjects.Num() + ObjectsDormantOnAllConnections.Num()) == AllNetworkObjects.Num());

@@ -4,7 +4,7 @@
 #include "HTML5NetworkingPrivate.h"
 #include "WebSocket.h"
 
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 // Work around a conflict between a UI namespace defined by engine code and a typedef in OpenSSL
 #define UI UI_ST
 THIRD_PARTY_INCLUDES_START
@@ -20,7 +20,7 @@ struct PerSessionDataServer
 };
 
 
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 // real networking handler.
 static int unreal_networking_server(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len);
 
@@ -34,7 +34,7 @@ static int unreal_networking_server(struct lws *wsi, enum lws_callback_reasons r
 
 bool FWebSocketServer::Init(uint32 Port, FWebsocketClientConnectedCallBack CallBack)
 {
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 #if !UE_BUILD_SHIPPING
 	// setup log level.
 	lws_set_log_level(LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_DEBUG | LLL_INFO, lws_debugLog);
@@ -87,7 +87,7 @@ bool FWebSocketServer::Init(uint32 Port, FWebsocketClientConnectedCallBack CallB
 
 bool FWebSocketServer::Tick()
 {
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 	if (IsAlive)
 	{
 		lws_service(Context, 0);
@@ -102,7 +102,7 @@ FWebSocketServer::FWebSocketServer()
 
 FWebSocketServer::~FWebSocketServer()
 {
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 	if (Context)
 	{
 		lws_context_destroy(Context);
@@ -118,15 +118,15 @@ FWebSocketServer::~FWebSocketServer()
 
 FString FWebSocketServer::Info()
 {
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 	return FString::Printf(TEXT("%s:%i"), ANSI_TO_TCHAR(lws_canonical_hostname(Context)), ServerPort);
-#else 
+#else // ! USE_LIBWEBSOCKET -- i.e. HTML5 currently does not allow this...
 	return FString(TEXT("NOT SUPPORTED"));
 #endif
 }
 
 // callback.
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 static int unreal_networking_server
 	(
 		struct lws *Wsi,

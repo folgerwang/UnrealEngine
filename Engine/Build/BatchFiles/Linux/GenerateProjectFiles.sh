@@ -1,29 +1,27 @@
 #!/bin/bash
-
-SCRIPT_DIR=$(cd "$(dirname "$BASH_SOURCE")" ; pwd)
-
-set -e
-
-TOP_DIR=$(cd "$SCRIPT_DIR/../../.." ; pwd)
-cd "${TOP_DIR}"
-
-if [ ! -e Build/OneTimeSetupPerformed ]; then
-	echo
-	echo "******************************************************"
-	echo "You have not run Setup.sh, the build will likely fail."
-	echo "******************************************************"
-fi
+# Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 echo
 echo Setting up Unreal Engine 4 project files...
 echo
 
-set -x
-xbuild Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj \
-  /verbosity:quiet /nologo \
-  /p:TargetFrameworkVersion=v4.5 \
-  /p:Configuration="Development"
+# this is located inside an extra 'Linux' path unlike the Windows variant.
+
+if [ ! -d ../../../Binaries/DotNET ]; then
+ echo GenerateProjectFiles ERROR: It looks like you're missing some files that are required in order to generate projects.  Please check that you've downloaded and unpacked the engine source code, binaries, content and third-party dependencies before running this script.
+ exit 1
+fi
+
+if [ ! -d ../../../Source ]; then
+ echo GenerateProjectFiles ERROR: This script file does not appear to be located inside the Engine/Build/BatchFiles/Mac directory.
+ exit 1
+fi
+
+source SetupMono.sh "`dirname "$0"`"
+
+if [ -f ../../../Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj ]; then
+	xbuild ../../../Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj /property:Configuration="Development" /p:TargetFrameworkVersion=v4.5 /verbosity:quiet /nologo
+fi
 
 # pass all parameters to UBT
-mono Binaries/DotNET/UnrealBuildTool.exe -projectfiles "$@"
-set +x
+mono ../../../Binaries/DotNET/UnrealBuildTool.exe -projectfiles "$@"

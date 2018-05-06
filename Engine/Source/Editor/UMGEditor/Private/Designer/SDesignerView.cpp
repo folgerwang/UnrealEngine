@@ -1548,7 +1548,8 @@ void SDesignerView::ResolvePendingSelectedWidgets()
 	{
 		TSet<FWidgetReference> SelectedTemplates;
 		SelectedTemplates.Add(PendingSelectedWidget);
-		BlueprintEditor.Pin()->SelectWidgets(SelectedTemplates, FSlateApplication::Get().GetModifierKeys().IsControlDown());
+		bool AppendOrToggle = FSlateApplication::Get().GetModifierKeys().IsControlDown() || FSlateApplication::Get().GetModifierKeys().IsShiftDown();
+		BlueprintEditor.Pin()->SelectWidgets(SelectedTemplates, AppendOrToggle);
 
 		PendingSelectedWidget = FWidgetReference();
 	}
@@ -1644,6 +1645,8 @@ FReply SDesignerView::OnMouseMove(const FGeometry& MyGeometry, const FPointerEve
 	{
 		return FReply::Unhandled();
 	}
+
+	CachedMousePosition = MouseEvent.GetScreenSpacePosition();
 
 	FReply SurfaceHandled = SDesignSurface::OnMouseMove(MyGeometry, MouseEvent);
 	if ( SurfaceHandled.IsEventHandled() )
@@ -1746,8 +1749,25 @@ void SDesignerView::OnMouseLeave(const FPointerEvent& MouseEvent)
 
 FReply SDesignerView::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
 {
-	BlueprintEditor.Pin()->PasteDropLocation = SelectedWidgetContextMenuLocation;
+	UWidget* SelectedWidget = GetSelectedWidget().GetPreview();
 
+	//If the selected widget is a canvas panel, we'd like to drop the widget right under the cursor
+	//Otherwise, we'll just cascade it off the current selection
+	if(SelectedWidget)
+	{
+		if (SelectedWidget->IsA(UPanelWidget::StaticClass()))
+		{
+			BlueprintEditor.Pin()->PasteDropLocation = SelectedWidget->GetCachedGeometry().AbsoluteToLocal(CachedMousePosition);
+		}
+		else
+		{
+			UCanvasPanelSlot* WidgetSlot = Cast<UCanvasPanelSlot>(SelectedWidget->Slot);
+			if (WidgetSlot)
+			{
+				BlueprintEditor.Pin()->PasteDropLocation = WidgetSlot->GetPosition() + FVector2D(25, 25);
+			}
+		}
+	}
 	if ( BlueprintEditor.Pin()->DesignerCommandList->ProcessCommandBindings(InKeyEvent) )
 	{
 		return FReply::Handled();

@@ -49,7 +49,7 @@ void SNodeTitle::Construct(const FArguments& InArgs, UEdGraphNode* InNode)
 	{
 		TitleText = TAttribute<FText>(this, &SNodeTitle::GetNodeTitle);
 	}
-	NodeTitleCache.SetCachedText(TitleText.Get(), GraphNode);
+	NodeTitleCache.SetCachedText(TitleText.Get(), GraphNode.Get());
 	RebuildWidget();
 }
 
@@ -58,22 +58,22 @@ void SNodeTitle::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 	CachedSize = AllottedGeometry.GetLocalSize();
 
 	// Checks to see if the cached string is valid, and if not, updates it.
-	if (NodeTitleCache.IsOutOfDate(GraphNode))
+	if (NodeTitleCache.IsOutOfDate(GraphNode.Get()))
 	{
-		NodeTitleCache.SetCachedText(TitleText.Get(), GraphNode);
+		NodeTitleCache.SetCachedText(TitleText.Get(), GraphNode.Get());
 		RebuildWidget();
 	}
 }
 
 FText SNodeTitle::GetNodeTitle() const
 {
-	if (GetDefault<UBlueprintEditorSettings>()->bBlueprintNodeUniqueNames && GraphNode)
+	if (GetDefault<UBlueprintEditorSettings>()->bBlueprintNodeUniqueNames && GraphNode.IsValid())
 	{
 		return FText::FromName(GraphNode->GetFName());
 	}
 	else
 	{
-		return (GraphNode != NULL)
+		return GraphNode.IsValid()
 			? GraphNode->GetNodeTitle(ENodeTitleType::FullTitle)
 			: NSLOCTEXT("GraphEditor", "NullNode", "Null Node");
 	}
@@ -81,7 +81,7 @@ FText SNodeTitle::GetNodeTitle() const
 
 FText SNodeTitle::GetHeadTitle() const
 {
-	return (GraphNode && GraphNode->bCanRenameNode) ? GraphNode->GetNodeTitle(ENodeTitleType::EditableTitle) : CachedHeadTitle;
+	return (GraphNode.IsValid() && GraphNode->bCanRenameNode) ? GraphNode->GetNodeTitle(ENodeTitleType::EditableTitle) : CachedHeadTitle;
 }
 
 FVector2D SNodeTitle::GetTitleSize() const

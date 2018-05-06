@@ -124,7 +124,32 @@ bool ULocationServicesIOSImpl::InitLocationServices(ELocationAccuracy Accuracy, 
     
 	//CLLocationDistance is just a double, convert before calling the delegate function
 	CLLocationDistance distanceFilter = (CLLocationDistance)MinDistance;
-    return [LocationDelegate initLocationServices:kCLLocationAccuracyHundredMeters distanceFilterValue:distanceFilter];
+
+	CLLocationAccuracy locationAccuracy;
+
+	switch (Accuracy)
+	{
+	case ELocationAccuracy::LA_ThreeKilometers:
+		locationAccuracy = kCLLocationAccuracyThreeKilometers;
+		break;
+	case ELocationAccuracy::LA_OneKilometer:
+		locationAccuracy = kCLLocationAccuracyKilometer;
+		break;
+	case ELocationAccuracy::LA_TenMeters:
+		locationAccuracy = kCLLocationAccuracyNearestTenMeters;
+		break;
+	case ELocationAccuracy::LA_Best:
+		locationAccuracy = kCLLocationAccuracyBest;
+		break;
+	case ELocationAccuracy::LA_Navigation:
+		locationAccuracy = kCLLocationAccuracyBestForNavigation;
+		break;
+	default:
+		locationAccuracy = kCLLocationAccuracyHundredMeters;
+		break;
+	}
+
+    return [LocationDelegate initLocationServices:locationAccuracy distanceFilterValue:distanceFilter];
 }
 
 bool ULocationServicesIOSImpl::StartLocationService()

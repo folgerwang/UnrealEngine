@@ -931,6 +931,33 @@ void FModuleManager::FindModulePaths(const TCHAR* NamePattern, TMap<FName, FStri
 			OutModulePaths.Add(FName(NamePattern), *ModulePathPtr);
 			return;
 		}
+
+		// Wildcard for all items
+		if (FCString::Strcmp(NamePattern, TEXT("*")) == 0)
+		{
+			OutModulePaths = ModulePathsCache.GetValue();
+			return;
+		}
+		
+		// Wildcard search
+		if (FCString::Strchr(NamePattern, TEXT('*')) || FCString::Strchr(NamePattern, TEXT('?')))
+		{
+			bool bFoundItems = false;
+			FString NamePatternString(NamePattern);
+			for (const TPair<FName, FString>& CacheIt : ModulePathsCache.GetValue())
+			{
+				if (CacheIt.Key.ToString().MatchesWildcard(NamePatternString))
+				{
+					OutModulePaths.Add(CacheIt.Key, *CacheIt.Value);
+					bFoundItems = true;
+				}
+			}
+
+			if (bFoundItems)
+			{
+				return;
+			}
+		}
 	}
 
 	// Search through the engine directory
@@ -1103,6 +1130,8 @@ void FModuleManager::AddBinariesDirectory(const TCHAR *InDirectory, bool bIsGame
 			AddBinariesDirectory(*RestrictedFolder, bIsGameDirectory);
 		}
 	}
+
+	ResetModulePathsCache();
 }
 
 
@@ -1116,6 +1145,8 @@ void FModuleManager::SetGameBinariesDirectory(const TCHAR* InDirectory)
 
 	// Add it to the list of game directories to search
 	GameBinariesDirectories.Add(InDirectory);
+
+	ResetModulePathsCache();
 #endif
 }
 

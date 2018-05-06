@@ -1367,19 +1367,18 @@ uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, bool bC
 
 FGlslCodeBackend* FOpenGLFrontend::CreateBackend(GLSLVersion Version, uint32 CCFlags, EHlslCompileTarget HlslCompilerTarget)
 {
-	return new FGlslCodeBackend(CCFlags, HlslCompilerTarget);
+	return new FGlslCodeBackend(CCFlags, HlslCompilerTarget, Version == GLSL_ES2_WEBGL);
 }
 
 FGlslLanguageSpec* FOpenGLFrontend::CreateLanguageSpec(GLSLVersion Version)
 {
-#if PLATFORM_HTML5
-	// For backwards compatibility when targeting WebGL 2 shaders,
-	// generate GLES2/WebGL 1 style shaders but with GLES3/WebGL 2
-	// constructs available.
-	return new FGlslLanguageSpec(true);
-#else
-	return new FGlslLanguageSpec(IsES2Platform(Version) && !IsPCES2Platform(Version));
-#endif
+	bool bIsES2 = (IsES2Platform(Version) && !IsPCES2Platform(Version));
+	bool bIsWebGL = (Version == GLSL_ES2_WEBGL);
+					// For backwards compatibility when targeting WebGL 2 shaders,
+					// generate GLES2/WebGL 1 style shaders but with GLES3/WebGL 2
+					// constructs available.
+
+	return new FGlslLanguageSpec(bIsES2, bIsWebGL);
 }
 
 /**

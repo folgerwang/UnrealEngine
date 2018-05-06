@@ -22,6 +22,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "HAL/LowLevelMemTracker.h"
 #include "Engine/DemoNetDriver.h"
+#include "Serialization/MemoryReader.h"
+#include "Serialization/MemoryWriter.h"
 
 #if WITH_EDITOR
 #include "UObject/ObjectRedirector.h"
@@ -442,7 +444,7 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 			if ( Ar.IsSaving() )
 			{
 				FObjectReplicator * RepData = &Channel->GetActorReplicationData();
-				uint8* Recent = RepData && RepData->RepState != NULL && RepData->RepState->StaticBuffer.Num() ? RepData->RepState->StaticBuffer.GetData() : NULL;
+				uint8* Recent = RepData && RepData->RepState.IsValid() && RepData->RepState->StaticBuffer.Num() ? RepData->RepState->StaticBuffer.GetData() : NULL;
 				if ( Recent )
 				{
 					((AActor*)Recent)->ReplicatedMovement.Location = LocalLocation;
@@ -967,6 +969,31 @@ UObject* UPackageMapClient::ResolvePathAndAssignNetGUID( const FNetworkGUID& Net
 //
 //--------------------------------------------------------------------
 
+// MAX_BUNCH_SIZE is in bits, so shift to get bytes.
+// TODO: This limit might not actually need to be enforced anymore.
+static const int32 MAX_GUID_MEMORY = MAX_BUNCH_SIZE >> 3;
+static const int32 MAX_GUID_COUNT = 2048;
+
+bool UPackageMapClient::ExportNetGUIDForReplay(FNetworkGUID& NetGUID, const UObject* Object, FString& PathName, UObject* ObjOuter)
+{
+	{
+		TGuardValue<bool> ExportingGUID(GuidCache->IsExportingNetGUIDBunch, true);
+
+		TArray<uint8>& GUIDMemory = ExportGUIDArchives.Emplace_GetRef();
+		GUIDMemory.Reserve(MAX_GUID_MEMORY);
+
+		FMemoryWriter Writer(GUIDMemory);
+		InternalWriteObject(Writer, NetGUID, Object, PathName, ObjOuter);
+
+		check(!Writer.IsError());
+		ensureMsgf(GUIDMemory.Num() <= MAX_GUID_MEMORY, TEXT("ExportNetGUIDForReplay exceeded MAX_GUID_MEMORY. Max=%l Count=%l"), MAX_GUID_MEMORY, GUIDMemory.Num());
+	}
+
+	CurrentExportNetGUIDs.Empty();
+	ExportNetGUIDCount = 0;
+	return true;
+}
+
 /** Exports the NetGUID and paths needed to the CurrentExportBunch */
 bool UPackageMapClient::ExportNetGUID( FNetworkGUID NetGUID, const UObject* Object, FString PathName, UObject* ObjOuter )
 {
@@ -974,6 +1001,11 @@ bool UPackageMapClient::ExportNetGUID( FNetworkGUID NetGUID, const UObject* Obje
 	check( ( Object == NULL ) == !PathName.IsEmpty() );
 	check( !NetGUID.IsDefault() );
 	check( Object == NULL || ShouldSendFullPath( Object, NetGUID ) );
+
+	if (Connection->InternalAck)
+	{
+		return ExportNetGUIDForReplay(NetGUID, Object, PathName, ObjOuter);
+	}
 
 	// Two passes are used to export this net guid:
 	// 1. Attempt to append this net guid to current bunch
@@ -1112,22 +1144,22 @@ void UPackageMapClient::ReceiveNetGUIDBunch( FInBunch &InBunch )
 
 	if ( bHasRepLayoutExport )
 	{
+		// We need to keep this around to ensure we don't break backwards compatability.
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		ReceiveNetFieldExports( InBunch );
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 		return;
 	}
 
-	GuidCache->IsExportingNetGUIDBunch = true;
+	TGuardValue<bool> IsExportingGuard(GuidCache->IsExportingNetGUIDBunch, true);
 
 	int32 NumGUIDsInBunch = 0;
 	InBunch << NumGUIDsInBunch;
-
-	static const int32 MAX_GUID_COUNT = 2048;
 
 	if ( NumGUIDsInBunch > MAX_GUID_COUNT )
 	{
 		UE_LOG( LogNetPackageMap, Error, TEXT( "UPackageMapClient::ReceiveNetGUIDBunch: NumGUIDsInBunch > MAX_GUID_COUNT (%i)" ), NumGUIDsInBunch );
 		InBunch.SetError();
-		GuidCache->IsExportingNetGUIDBunch = false;
 		return;
 	}
 
@@ -1144,14 +1176,12 @@ void UPackageMapClient::ReceiveNetGUIDBunch( FInBunch &InBunch )
 		if ( InBunch.IsError() )
 		{
 			UE_LOG( LogNetPackageMap, Error, TEXT( "UPackageMapClient::ReceiveNetGUIDBunch: InBunch.IsError() after InternalLoadObject" ) );
-			GuidCache->IsExportingNetGUIDBunch = false;
 			return;
 		}
 		NumGUIDsRead++;
 	}
 
 	UE_LOG(LogNetPackageMap, Log, TEXT("UPackageMapClient::ReceiveNetGUIDBunch end. BitPos: %d"), InBunch.GetPosBits() );
-	GuidCache->IsExportingNetGUIDBunch = false;
 }
 
 TSharedPtr< FNetFieldExportGroup > UPackageMapClient::GetNetFieldExportGroup( const FString& PathName )
@@ -1194,10 +1224,15 @@ TSharedPtr< FNetFieldExportGroup > UPackageMapClient::GetNetFieldExportGroupChec
 	return GuidCache->NetFieldExportGroupMap.FindChecked( PathName );
 }
 
-void UPackageMapClient::SerializeNetFieldExportGroupMap( FArchive& Ar )
+void UPackageMapClient::SerializeNetFieldExportGroupMap( FArchive& Ar, bool bClearPendingExports )
 {
 	if ( Ar.IsSaving() )
 	{
+		if (bClearPendingExports)
+		{
+			NetFieldExports.Empty();
+		}
+
 		// Save the number of layouts
 		uint32 NumNetFieldExportGroups = GuidCache->NetFieldExportGroupMap.Num();
 		Ar << NumNetFieldExportGroups;
@@ -1356,6 +1391,158 @@ void UPackageMapClient::AppendNetFieldExports( TArray<FOutBunch *>& OutgoingBunc
 	NetFieldExports.Empty();
 }
 
+void UPackageMapClient::AppendExportData(FArchive& Archive)
+{
+	check(Connection->InternalAck);
+
+	AppendNetFieldExports(Archive);
+	AppendNetExportGUIDs(Archive);
+}
+
+void UPackageMapClient::ReceiveExportData(FArchive& Archive)
+{
+	ReceiveNetFieldExports(Archive);
+	ReceiveNetExportGUIDs(Archive);
+}
+
+void UPackageMapClient::AppendNetFieldExports(FArchive& Archive)
+{
+	check(Connection->InternalAck);
+
+	uint32 NetFieldCount = NetFieldExports.Num();
+	Archive.SerializeIntPacked(NetFieldCount);
+
+	if (0 == NetFieldCount)
+	{
+		return;
+	}
+
+	for (const uint64 FieldExport : NetFieldExports)
+	{
+		// Parse the path name index and cmd index out of the uint64
+		uint32 PathNameIndex = FieldExport >> 32;
+		uint32 NetFieldExportHandle = FieldExport & (((uint64)1 << 32) - 1);
+
+		check(PathNameIndex != 0);
+
+		FString PathName = GuidCache->NetFieldExportGroupIndexToPath.FindChecked(PathNameIndex);
+		TSharedPtr< FNetFieldExportGroup > NetFieldExportGroup = GuidCache->NetFieldExportGroupMap.FindChecked(PathName);
+		check(NetFieldExportHandle == NetFieldExportGroup->NetFieldExports[NetFieldExportHandle].Handle);
+
+		// Export the path if we need to
+		uint32 NeedsExport = OverrideAckState->NetFieldExportGroupPathAcked.Contains(PathNameIndex) ? 0 : 1;
+
+		Archive.SerializeIntPacked(PathNameIndex);
+		Archive.SerializeIntPacked(NeedsExport);
+
+		if (NeedsExport)
+		{
+			uint32 NumExports = NetFieldExportGroup->NetFieldExports.Num();
+
+			Archive << PathName;
+			Archive.SerializeIntPacked(NumExports);
+		}
+
+		Archive << NetFieldExportGroup->NetFieldExports[NetFieldExportHandle];
+	}
+
+	NetFieldExports.Empty();
+}
+
+void UPackageMapClient::ReceiveNetFieldExports(FArchive& Archive)
+{
+	check(Connection->InternalAck);
+
+	// Read number of net field exports
+	uint32 NumLayoutCmdExports = 0;
+	Archive.SerializeIntPacked(NumLayoutCmdExports);
+
+	for (int32 i = 0; i < (int32)NumLayoutCmdExports; i++)
+	{
+		uint32 PathNameIndex = 0;
+		uint32 WasExported = 0;
+
+		Archive.SerializeIntPacked(PathNameIndex);
+		Archive.SerializeIntPacked(WasExported);
+
+		TSharedPtr<FNetFieldExportGroup> NetFieldExportGroup;
+		if (!!WasExported)
+		{
+			FString PathName;
+			uint32 NumExports = 0;
+
+			Archive << PathName;
+			Archive.SerializeIntPacked(NumExports);
+
+			GEngine->NetworkRemapPath(Connection->Driver, PathName, true);
+			GuidCache->NetFieldExportGroupIndexToPath.Add(PathNameIndex, PathName);
+			GuidCache->NetFieldExportGroupPathToIndex.Add(PathName, PathNameIndex);
+
+			NetFieldExportGroup = GuidCache->NetFieldExportGroupMap.FindRef(PathName);
+			if (!NetFieldExportGroup.IsValid())
+			{
+				NetFieldExportGroup = TSharedPtr<FNetFieldExportGroup>(new FNetFieldExportGroup());
+				NetFieldExportGroup->PathName = PathName;
+				NetFieldExportGroup->PathNameIndex = PathNameIndex;
+				NetFieldExportGroup->NetFieldExports.SetNum(NumExports);
+				GuidCache->NetFieldExportGroupMap.Add(PathName, NetFieldExportGroup);
+			}
+		}
+		else
+		{
+			const FString& PathName = GuidCache->NetFieldExportGroupIndexToPath.FindChecked(PathNameIndex);
+			NetFieldExportGroup = GuidCache->NetFieldExportGroupMap.FindRef(PathName);
+		}
+
+		TArray<FNetFieldExport>& Exports = NetFieldExportGroup->NetFieldExports;
+		FNetFieldExport Export;
+		Archive << Export;
+
+		if (Exports.IsValidIndex(Export.Handle))
+		{
+			Exports[Export.Handle] = Export;
+		}
+		else
+		{
+			UE_LOG(LogNetPackageMap, Error, TEXT("ReceiveNetFieldExports: Invalid NetFieldExportHandle '%i', Max '%i'"), Export.Handle, Exports.Num());
+		}
+	}
+}
+
+void UPackageMapClient::AppendNetExportGUIDs(FArchive& Archive)
+{
+	check(Connection->InternalAck);
+
+	uint32 NumGUIDs = ExportGUIDArchives.Num();
+	Archive.SerializeIntPacked(NumGUIDs);
+
+	for (TArray<uint8>& GUIDData : ExportGUIDArchives)
+	{
+		Archive << GUIDData;
+	}
+
+	ExportGUIDArchives.Empty();
+}
+
+void UPackageMapClient::ReceiveNetExportGUIDs(FArchive& Archive)
+{
+	check(Connection->InternalAck);
+	TGuardValue<bool> IsExportingGuard(GuidCache->IsExportingNetGUIDBunch, true);
+
+	uint32 NumGUIDs = 0;
+	Archive.SerializeIntPacked(NumGUIDs);
+
+	for (uint32 i = 0; i < NumGUIDs; i++)
+	{
+		TArray<uint8> GUIDData;
+		Archive << GUIDData;
+
+		FMemoryReader Reader(GUIDData);
+		UObject* Object = nullptr;
+		InternalLoadObject(Reader, Object, 0);
+	}
+}
+
 void UPackageMapClient::ReceiveNetFieldExports( FInBunch &InBunch )
 {
 	// WARNING: If this code path is enabled for use beyond replay, it will need a security audit/rewrite
@@ -1452,11 +1639,8 @@ void UPackageMapClient::ReceiveNetFieldExports( FInBunch &InBunch )
 
 void UPackageMapClient::AppendExportBunches(TArray<FOutBunch *>& OutgoingBunches)
 {
-	// If we have rep layouts to export, handle those now
-	if ( NetFieldExports.Num() > 0 )
-	{
-		AppendNetFieldExports( OutgoingBunches );
-	}
+	check(!Connection->InternalAck);
+	check(NetFieldExports.Num() == 0);
 
 	// Finish current in progress bunch if necessary
 	if (ExportNetGUIDCount > 0)

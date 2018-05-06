@@ -315,6 +315,8 @@ FWorldDelegates::FOnWorldPostActorTick FWorldDelegates::OnWorldPostActorTick;
 FWorldDelegates::FRefreshLevelScriptActionsEvent FWorldDelegates::RefreshLevelScriptActions;
 #endif // WITH_EDITOR
 
+UWorld::FOnWorldInitializedActors FWorldDelegates::OnWorldInitializedActors;
+
 UWorld::UWorld( const FObjectInitializer& ObjectInitializer )
 : UObject(ObjectInitializer)
 , ActiveLevelCollectionIndex(INDEX_NONE)
@@ -533,14 +535,19 @@ bool UWorld::Rename(const TCHAR* InName, UObject* NewOuter, ERenameFlags Flags)
 					}
 				}
 			}
+			NewMapBuildDataOuter = NewOuter;
 		}
 		else
 		{
-			FString NewPackageName = GetOutermost()->GetName() + TEXT("_BuiltData");
+			FString NewPackageName = NewOuter ? NewOuter->GetOutermost()->GetName() : GetOutermost()->GetName();
+			NewPackageName += TEXT("_BuiltData");
 			NewMapBuildDataName = FPackageName::GetShortFName(*NewPackageName);
 			UPackage* BuildDataPackage = PersistentLevel->MapBuildData->GetOutermost();
 
-			BuildDataPackage->Rename(*NewPackageName, nullptr, Flags);
+			if (!BuildDataPackage->Rename(*NewPackageName, nullptr, Flags))
+			{
+				return false;
+			}
 
 			NewMapBuildDataOuter = BuildDataPackage;
 		}
@@ -687,6 +694,7 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 			}
 			
 			UObject* NewBuildData = StaticDuplicateObject(PersistentLevel->MapBuildData, BuildDataPackage, NewMapBuildDataName);
+			NewBuildData->MarkPackageDirty();
 			ReplacementMap.Add(PersistentLevel->MapBuildData, NewBuildData);
 			ObjectsToFixReferences.Add(NewBuildData);
 
@@ -3614,6 +3622,14 @@ void UWorld::InitializeActorsForPlay(const FURL& InURL, bool bResetTime)
 		ViewportConsole->BuildRuntimeAutoCompleteList();
 	}
 
+	// Let others know the actors are initialized. There are two versions here for convenience.
+	FActorsInitializedParams OnActorInitParams(this, bResetTime);
+
+	OnActorsInitialized.Broadcast(OnActorInitParams);
+	FWorldDelegates::OnWorldInitializedActors.Broadcast(OnActorInitParams); // Global notification
+
+	// FIXME: Nav and AI system should now use above delegate
+
 	// let all subsystems/managers know:
 	// @note if UWorld starts to host more of these it might a be a good idea to create a generic IManagerInterface of some sort
 	if (NavigationSystem != nullptr)
@@ -3736,14 +3752,19 @@ void UWorld::CleanupWorld(bool bSessionEnded, bool bCleanupResources, UWorld* Ne
 
 		if (WorldType != EWorldType::PIE)
 		{
-			for (int32 LevelIndex = 0; LevelIndex < GetNumLevels(); ++LevelIndex)
+			if (PersistentLevel && PersistentLevel->MapBuildData)
 			{
-				ULevel* Level = GetLevel(LevelIndex);
+				PersistentLevel->MapBuildData->ClearFlags(RF_Standalone);
 
-				if (Level->MapBuildData)
+				// Iterate over all objects to find ones that reside in the same package as the MapBuildData.
+				// Specifically the PackageMetaData
+				ForEachObjectWithOuter(PersistentLevel->MapBuildData->GetOutermost(), [this](UObject* CurrentObject)
 				{
-					Level->MapBuildData->ClearFlags(RF_Standalone);
-				}
+					if (CurrentObject != this)
+					{
+						CurrentObject->ClearFlags(RF_Standalone);
+					}
+				});
 			}
 		}
 	}
@@ -3913,8 +3934,7 @@ void UWorld::AddNetworkActor( AActor* Actor )
 	{
 		if (Driver != nullptr)
 		{
-			// Special case the demo net driver, since actors currently only have one associated NetDriverName.
-			Driver->GetNetworkObjectList().FindOrAdd(Actor, Driver->NetDriverName);
+			Driver->AddNetworkActor(Actor);
 		}
 	});
 }
@@ -3927,7 +3947,7 @@ void UWorld::RemoveNetworkActor( AActor* Actor )
 		{
 			if (Driver != nullptr)
 			{
-				Driver->GetNetworkObjectList().Remove(Actor);
+				Driver->RemoveNetworkActor(Actor);
 			}
 		});
 	}

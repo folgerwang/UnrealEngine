@@ -34,6 +34,7 @@ DECLARE_CYCLE_STAT(TEXT("Slate RT: Draw Batches"), STAT_SlateRTDrawBatches, STAT
 DECLARE_GPU_STAT_NAMED(SlateUI, TEXT("Slate UI"));
 
 // Defines the maximum size that a slate viewport will create
+#define MIN_VIEWPORT_SIZE 8
 #define MAX_VIEWPORT_SIZE 16384
 
 static TAutoConsoleVariable<float> CVarUILevel(
@@ -255,8 +256,16 @@ void FSlateRHIRenderer::CreateViewport( const TSharedRef<SWindow> Window )
 
 		// Clamp the window size to a reasonable default anything below 8 is a d3d warning and 8 is used anyway.
 		// @todo Slate: This is a hack to work around menus being summoned with 0,0 for window size until they are ticked.
-		const uint32 Width = FMath::Max(8,FMath::TruncToInt(WindowSize.X));
-		const uint32 Height = FMath::Max(8,FMath::TruncToInt(WindowSize.Y));
+		int32 Width = FMath::Max(MIN_VIEWPORT_SIZE, FMath::TruncToInt(WindowSize.X));
+		int32 Height = FMath::Max(MIN_VIEWPORT_SIZE, FMath::TruncToInt(WindowSize.Y));
+
+		// Sanity check dimensions
+		if (!ensureMsgf(Width <= MAX_VIEWPORT_SIZE && Height <= MAX_VIEWPORT_SIZE, TEXT("Invalid window with Width=%u and Height=%u"), Width, Height))
+		{
+			Width = FMath::Clamp(Width, MIN_VIEWPORT_SIZE, MAX_VIEWPORT_SIZE);
+			Height = FMath::Clamp(Height, MIN_VIEWPORT_SIZE, MAX_VIEWPORT_SIZE);
+		}
+
 
 		FViewportInfo* NewInfo = new FViewportInfo();
 		// Create Viewport RHI if it doesn't exist (this must be done on the game thread)
@@ -280,9 +289,6 @@ void FSlateRHIRenderer::CreateViewport( const TSharedRef<SWindow> Window )
 		{
 			NewInfo->PixelFormat = GRHIHDRDisplayOutputFormat;
 		}
-
-		// Sanity check dimensions
-		checkf(Width <= MAX_VIEWPORT_SIZE && Height <= MAX_VIEWPORT_SIZE, TEXT("Invalid window with Width=%u and Height=%u"), Width, Height);
 
 		bool bFullscreen = IsViewportFullscreen( *Window );
 		NewInfo->ViewportRHI = RHICreateViewport( NewInfo->OSWindow, Width, Height, bFullscreen, NewInfo->PixelFormat );

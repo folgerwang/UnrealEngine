@@ -865,6 +865,81 @@ TSharedRef< SWidget > FPlayWorldCommands::GeneratePlayMenuContent( TSharedRef<FU
 	return MenuBuilder.MakeWidget();
 }
 
+/* 
+ * Create an All_<platform>_devices_on_<host> submenu
+ * can be extended to any othe All <Platform> aggregate proxy
+*/
+static void MakeAllDevicesSubMenu(FMenuBuilder& InMenuBuilder, const PlatformInfo::FPlatformInfo* InPlatformInfo, const TSharedPtr<ITargetDeviceProxy> DeviceProxy)
+{
+	ITargetDeviceServicesModule* TargetDeviceServicesModule = static_cast<ITargetDeviceServicesModule*>(FModuleManager::Get().LoadModule(TEXT("TargetDeviceServices")));
+	IProjectTargetPlatformEditorModule& ProjectTargetPlatformEditorModule = FModuleManager::LoadModuleChecked<IProjectTargetPlatformEditorModule>("ProjectTargetPlatformEditor");
+
+	TArray<FName> PlatformVariants;
+	DeviceProxy->GetVariants(PlatformVariants);
+	for (auto It = PlatformVariants.CreateIterator(); It; ++It)
+	{
+		FName Variant = *It;
+
+		// for an aggregate (All_<platform>_devices_on_<host>) proxy, allow only the "Android_<texture_compression>" variants
+		const PlatformInfo::FPlatformInfo* platformInfo = PlatformInfo::FindPlatformInfo(Variant);
+		if (DeviceProxy->IsAggregated() && platformInfo != NULL &&
+			(Variant == platformInfo->VanillaPlatformName || platformInfo->PlatformType != PlatformInfo::EPlatformType::Game))
+		{
+			continue;
+		}
+		
+		FString DeviceListStr;
+		bool bVariantHasDevices = false;
+
+		const TSet<FString>& TargetDeviceIds = DeviceProxy->GetTargetDeviceIds(Variant);
+		for (TSet<FString>::TConstIterator ItDeviceId(TargetDeviceIds); ItDeviceId; ++ItDeviceId)
+		{
+			TSharedPtr<ITargetDeviceProxy> PhysicalDeviceProxy = TargetDeviceServicesModule->GetDeviceProxyManager()->FindProxyDeviceForTargetDevice(*ItDeviceId);
+
+			if (PhysicalDeviceProxy.IsValid())
+			{
+				DeviceListStr.AppendChar('\n');
+				DeviceListStr.Append(*PhysicalDeviceProxy->GetName());
+				bVariantHasDevices = true;
+			}
+		}
+
+		if (!bVariantHasDevices)
+		{
+			continue;
+		}
+
+		FString PlatformVariantStr = Variant.ToString();
+		FString PlatformId = PlatformVariantStr + TEXT("@") + PlatformVariantStr;
+
+		// create an action
+		FUIAction LaunchDeviceAction(
+			FExecuteAction::CreateStatic(&FInternalPlayWorldCommandCallbacks::HandleLaunchOnDeviceActionExecute, PlatformId, PlatformVariantStr),
+			FCanExecuteAction::CreateStatic(&FInternalPlayWorldCommandCallbacks::HandleLaunchOnDeviceActionCanExecute, PlatformVariantStr),
+			FIsActionChecked::CreateStatic(&FInternalPlayWorldCommandCallbacks::HandleLaunchOnDeviceActionIsChecked, PlatformVariantStr)
+		);
+
+		// generate display label
+		FFormatNamedArguments LabelArguments;
+		LabelArguments.Add(TEXT("PlatformName"), FText::FromString(PlatformVariantStr));
+		FText Label = FText::Format(LOCTEXT("LaunchDeviceLabel", "{PlatformName}"), LabelArguments);
+
+		// generate tooltip text with the devices' list
+		FFormatNamedArguments TooltipArguments;
+		TooltipArguments.Add(TEXT("DeviceList"), FText::FromString(DeviceListStr));
+		FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText", "Launch the game on:\n {DeviceList}"), TooltipArguments);
+
+		// add a submenu entry
+		InMenuBuilder.AddMenuEntry(
+			LaunchDeviceAction,
+			ProjectTargetPlatformEditorModule.MakePlatformMenuItemWidget(*InPlatformInfo, true, Label),
+			NAME_None,
+			Tooltip,
+			EUserInterfaceActionType::Check
+		);
+	}
+}
+
 TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<FUICommandList> InCommandList )
 {
 	const bool bShouldCloseWindowAfterMenuSelection = true;
@@ -906,7 +981,8 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 			{
 				// for each platform...
 				TArray<TSharedPtr<ITargetDeviceProxy>> DeviceProxies;
-				TargetDeviceServicesModule->GetDeviceProxyManager()->GetProxies(VanillaPlatform.PlatformInfo->VanillaPlatformName, false, DeviceProxies);
+				// the list of proxies include the "Al_Android" entry
+				TargetDeviceServicesModule->GetDeviceProxyManager()->GetAllProxies(VanillaPlatform.PlatformInfo->VanillaPlatformName, DeviceProxies);
 					
 				// if this platform had no devices, but we want to show an extra option if not installed right
 				if (DeviceProxies.Num() == 0)
@@ -923,6 +999,24 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 					for (auto DeviceProxyIt = DeviceProxies.CreateIterator(); DeviceProxyIt; ++DeviceProxyIt)
 					{
 						TSharedPtr<ITargetDeviceProxy> DeviceProxy = *DeviceProxyIt;
+
+						// create an All_<platform>_devices_on_<host> submenu
+						if (DeviceProxy->IsAggregated())
+						{
+							FString AggregateDevicedName(FString::Printf(TEXT("  %s"), *DeviceProxy->GetName())); //align with the other menu entries
+							FSlateIcon AggregateDeviceIcon(FEditorStyle::GetStyleSetName(), VanillaPlatform.PlatformInfo->GetIconStyleName(PlatformInfo::EPlatformIconSize::Normal));
+
+							FString SubMenuKey(FString::Printf(TEXT("%s_SubMenu"), *DeviceProxy->GetName()));
+							FString SubMenuToolTip(FString::Printf(TEXT("%s_SubMenuToolTip"), *DeviceProxy->GetName()));
+
+							MenuBuilder.AddSubMenu(
+								FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*AggregateDevicedName, TEXT(LOCTEXT_NAMESPACE), *SubMenuKey),
+								FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*AggregateDevicedName, TEXT(LOCTEXT_NAMESPACE), *SubMenuToolTip),
+								FNewMenuDelegate::CreateStatic(&MakeAllDevicesSubMenu, VanillaPlatform.PlatformInfo, DeviceProxy),
+								false, AggregateDeviceIcon, true
+							);
+							continue;
+						}
 
 						// ... create an action...
 						FUIAction LaunchDeviceAction(
@@ -1287,6 +1381,14 @@ void FInternalPlayWorldCommandCallbacks::Simulate_Clicked()
 {
 	// Is a simulation session already running?  If so, do nothing
 	if( HasPlayWorld() && GUnrealEd->bIsSimulatingInEditor )
+	{
+		return;
+	}
+
+	// Can only use SIE if in PIE
+	const ULevelEditorPlaySettings* PlaySettings = GetDefault<ULevelEditorPlaySettings>();
+	if (PlaySettings->LastExecutedPlayModeType != PlayMode_InViewPort &&
+		PlaySettings->LastExecutedPlayModeType != PlayMode_Simulate)
 	{
 		return;
 	}
@@ -2311,7 +2413,25 @@ bool FInternalPlayWorldCommandCallbacks::CanLaunchOnDevice(const FString& Device
 		if (DeviceProxyManager.IsValid())
 		{
 			TSharedPtr<ITargetDeviceProxy> DeviceProxy = DeviceProxyManager->FindProxy(DeviceName);
-			return (DeviceProxy.IsValid() && DeviceProxy->IsConnected());
+			if (DeviceProxy.IsValid() && DeviceProxy->IsConnected())
+			{
+				return true;
+			}
+
+			// check if this is an aggregate proxy
+			TArray<TSharedPtr<ITargetDeviceProxy>> Devices;
+			DeviceProxyManager->GetProxies(FName(*DeviceName), false, Devices);
+
+			// returns true if the game can be launched al least on 1 device
+			for (auto DevicesIt = Devices.CreateIterator(); DevicesIt; ++DevicesIt)
+			{
+				TSharedPtr<ITargetDeviceProxy> DeviceAggregateProxy = *DevicesIt;
+				if (DeviceAggregateProxy.IsValid() && DeviceAggregateProxy->IsConnected())
+				{
+					return true;
+				}
+			}
+
 		}
 	}
 

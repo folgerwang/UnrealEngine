@@ -106,6 +106,18 @@ FMaterialRelevance UMaterialInterface::GetRelevance_Internal(const UMaterial* Ma
 	if(Material)
 	{
 		const FMaterialResource* MaterialResource = GetMaterialResource(InFeatureLevel);
+
+		// If material is invalid e.g. unparented instance, fallback to the passed in material
+		if (!MaterialResource && Material)
+		{
+			MaterialResource = Material->GetMaterialResource(InFeatureLevel);	
+		}
+
+		if (!MaterialResource)
+		{
+			return FMaterialRelevance();
+		}
+
 		const EBlendMode BlendMode = (EBlendMode)GetBlendMode();
 		const bool bIsTranslucent = IsTranslucentBlendMode(BlendMode);
 

@@ -20,6 +20,8 @@ static TAutoConsoleVariable<int32> CVarGameplayDebuggerRepDetails(
 	TEXT("Enable or disable very verbose replication logs for gameplay debugger"),
 	ECVF_Cheat);
 
+FNotifyGameplayDebuggerOwnerChange AGameplayDebuggerCategoryReplicator::NotifyDebuggerOwnerChange;
+
 class FNetFastCategoryBaseState : public INetDeltaBaseState
 {
 public:
@@ -692,7 +694,9 @@ void AGameplayDebuggerCategoryReplicator::SetReplicatorOwner(APlayerController* 
 
 		if (NetMode != NM_Client)
 		{
+			APlayerController* OldOwner = OwnerPC;
 			OwnerPC = InOwnerPC;
+			NotifyDebuggerOwnerChange.Broadcast(this, OldOwner);
 		}
 	}
 }

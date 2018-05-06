@@ -122,6 +122,7 @@ public:
 		SvPositionToDecal.Bind(Initializer.ParameterMap,TEXT("SvPositionToDecal"));
 		DecalToWorld.Bind(Initializer.ParameterMap,TEXT("DecalToWorld"));
 		WorldToDecal.Bind(Initializer.ParameterMap,TEXT("WorldToDecal"));
+		DecalOrientation.Bind(Initializer.ParameterMap,TEXT("DecalOrientation"));
 		DecalParams.Bind(Initializer.ParameterMap, TEXT("DecalParams"));
 	}
 
@@ -173,6 +174,12 @@ public:
 
 		SetShaderValue(RHICmdList, ShaderRHI, WorldToDecal, WorldToComponent);
 
+		if (DecalOrientation.IsBound())
+		{
+			// can get DecalOrientation form DecalToWorld matrix, but it will require binding whole matrix and normalizing axis in the shader
+			SetShaderValue(RHICmdList, ShaderRHI, DecalOrientation, ComponentTrans.GetUnitAxis(EAxis::X));
+		}
+		
 		float LifetimeAlpha = FMath::Clamp(View.Family->CurrentWorldTime * -DecalProxy.InvFadeDuration + DecalProxy.FadeStartDelayNormalized, 0.0f, 1.0f);
 		SetShaderValue(RHICmdList, ShaderRHI, DecalParams, FVector2D(FadeAlphaValue, LifetimeAlpha));
 	}
@@ -180,7 +187,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMaterialShader::Serialize(Ar);
-		Ar << SvPositionToDecal << DecalToWorld << WorldToDecal << DecalParams;
+		Ar << SvPositionToDecal << DecalToWorld << WorldToDecal << DecalOrientation << DecalParams;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -188,6 +195,7 @@ private:
 	FShaderParameter SvPositionToDecal;
 	FShaderParameter DecalToWorld;
 	FShaderParameter WorldToDecal;
+	FShaderParameter DecalOrientation;
 	FShaderParameter DecalParams;
 };
 

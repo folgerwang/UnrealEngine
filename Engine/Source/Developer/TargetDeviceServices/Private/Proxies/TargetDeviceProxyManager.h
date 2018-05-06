@@ -40,6 +40,9 @@ public:
 	virtual TSharedPtr<ITargetDeviceProxy> FindProxy(const FString& Name) override;
 	virtual TSharedPtr<ITargetDeviceProxy> FindProxyDeviceForTargetDevice(const FString& DeviceId) override;
 	virtual void GetProxies(FName TargetPlatformName, bool IncludeUnshared, TArray<TSharedPtr<ITargetDeviceProxy>>& OutProxies) override;
+	
+	// the proxy list include aggregate (All_<platform>_devices_on_<host>) proxies
+	virtual void GetAllProxies(FName TargetPlatformName, TArray<TSharedPtr<ITargetDeviceProxy>>& OutProxies) override;
 
 	DECLARE_DERIVED_EVENT(FTargetDeviceProxyManager, ITargetDeviceProxyManager::FOnTargetDeviceProxyAdded, FOnTargetDeviceProxyAdded);
 	virtual FOnTargetDeviceProxyAdded& OnProxyAdded() override
@@ -66,9 +69,22 @@ private:
 	/** Handles FTargetDeviceServicePong messages. */
 	void HandlePongMessage(const FTargetDeviceServicePong& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
+	/** Add or update the proxy from the FTargetDeviceServicePong message */
+	void AddProxyFromPongMessage(const FTargetDeviceServicePong& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, bool InIsAggregated);
+
 	/** Handles ticks from the ticker. */
 	bool HandleTicker(float DeltaTime);
 
+	/**
+	* Gets a filtered list of proxies created by the device discovery routine
+	*
+	* @param PlatformName The the name of the target platform to get proxies for (or empty string for all proxies).
+	* @param IncludeUnshared Will hold the list of devices found by the locator.
+	* @param IncludeAggregate Will include the "All devices" entries.
+	* @param OutProxies Will hold the list of devices found by the locator.
+	* @see FindOrAddProxy, FindProxy, FindProxyDeviceForTargetDevice
+	*/
+	void GetProxyList(FName TargetPlatformName, bool IncludeUnshared, bool bIncludeAggregate, TArray<TSharedPtr<ITargetDeviceProxy>>& OutProxies);
 private:
 
 	/** Holds the message endpoint. */

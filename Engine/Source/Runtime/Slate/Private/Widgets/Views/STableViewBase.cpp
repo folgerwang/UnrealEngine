@@ -869,3 +869,10 @@ bool STableViewBase::CanUseInertialScroll( float ScrollAmount ) const
 	// Or if we are scrolling outwards of the overscroll region
 	return CurrentOverscroll == 0.f || FMath::Sign(CurrentOverscroll) != FMath::Sign(ScrollAmount);
 }
+
+static const TBitArray<> EmptyBitArray = TBitArray<>();
+
+const TBitArray<>& TableViewHelpers::GetEmptyBitArray()
+{
+	return EmptyBitArray;
+}

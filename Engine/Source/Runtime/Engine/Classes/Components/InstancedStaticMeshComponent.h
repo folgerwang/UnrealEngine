@@ -29,6 +29,46 @@ class FInstancedLightMap2D;
 class FInstancedShadowMap2D;
 class FStaticMeshInstanceData;
 
+struct FInstanceUpdateCmdBuffer
+{
+	enum EUpdateCommandType
+	{
+		Add,
+		Update,
+		Hide,
+		EditorData,
+	};
+	
+	struct FInstanceUpdateCommand
+	{
+		int32 InstanceIndex;
+		EUpdateCommandType Type;
+		FMatrix XForm;
+		
+		FColor HitProxyColor;
+		bool bSelected;
+	};
+	
+	FInstanceUpdateCmdBuffer();
+	
+	// Commands that can modify render data in place
+	void HideInstance(int32 RenderIndex);
+	void AddInstance(int32 RenderIndex, const FMatrix& InXForm);
+	void UpdateInstance(int32 RenderIndex, const FMatrix& InXForm);
+	void SetEditorData(int32 RenderIndex, const FColor& Color, bool bSelected);
+	void ResetInlineCommands();
+	int32 NumInlineCommands() const { return Cmds.Num(); }
+
+	// Command that can't be in-lined and should cause full buffer rebuild
+	void Edit();
+	void Reset();
+	int32 NumTotalCommands() const { return NumEdits; };
+	
+	TArray<FInstanceUpdateCommand> Cmds;
+	int32 NumAdds;
+	int32 NumEdits;
+};
+
 USTRUCT()
 struct FInstancedStaticMeshInstanceData
 {
@@ -74,57 +114,47 @@ UCLASS(ClassGroup = Rendering, meta = (BlueprintSpawnableComponent), Blueprintab
 class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 {
 	GENERATED_UCLASS_BODY()
-
-		virtual ~UInstancedStaticMeshComponent();
-
+	
+	/** Needs implementation in InstancedStaticMesh.cpp to compile UniquePtr for forward declared class */
+	UInstancedStaticMeshComponent(FVTableHelper& Helper);
+	virtual ~UInstancedStaticMeshComponent();
+	
 	/** Array of instances, bulk serialized. */
 	UPROPERTY(EditAnywhere, SkipSerialization, DisplayName="Instances", Category=Instances, meta=(MakeEditWidget=true, EditFixedOrder))
-		TArray<FInstancedStaticMeshInstanceData> PerInstanceSMData;
+	TArray<FInstancedStaticMeshInstanceData> PerInstanceSMData;
 
 	/** Value used to seed the random number stream that generates random numbers for each of this mesh's instances.
 	The random number is stored in a buffer accessible to materials through the PerInstanceRandom expression. If
 	this is set to zero (default), it will be populated automatically by the editor. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InstancedStaticMeshComponent)
-		int32 InstancingRandomSeed;
+	int32 InstancingRandomSeed;
 
 	/** Distance from camera at which each instance begins to fade out. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Culling)
-		int32 InstanceStartCullDistance;
+	int32 InstanceStartCullDistance;
 
 	/** Distance from camera at which each instance completely fades out. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Culling)
-		int32 InstanceEndCullDistance;
+	int32 InstanceEndCullDistance;
 
 	/** Mapping from PerInstanceSMData order to instance render buffer order. If empty, the PerInstanceSMData order is used. */
 	UPROPERTY()
-		TArray<int32> InstanceReorderTable;
-
-	// The render indices of any removed items we should not render.
-	UPROPERTY()
-		TArray<int32> RemovedInstances;
-
-	/** Set to true to permit updating the vertex buffer used in the instance buffer without recreating it completely. This should be used if you plan on dynamically changing the instances at run-time. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = InstancedStaticMeshComponent)
-		bool UseDynamicInstanceBuffer;
-
-	/** Set to true to keep instance buffer accessible by the CPU, otherwise it's discarded and considered never changing, only GPU has a copy of the data. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = InstancedStaticMeshComponent)
-		bool KeepInstanceBufferCPUAccess;
+	TArray<int32> InstanceReorderTable;
 
 	/** Tracks outstanding proxysize, as this is a bit hard to do with the fire-and-forget grass. */
 	SIZE_T ProxySize;
 
 	/** Add an instance to this component. Transform is given in local space of this component. */
 	UFUNCTION(BlueprintCallable, Category="Components|InstancedStaticMesh")
-		virtual int32 AddInstance(const FTransform& InstanceTransform);
+	virtual int32 AddInstance(const FTransform& InstanceTransform);
 
 	/** Add an instance to this component. Transform is given in world space. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
-		int32 AddInstanceWorldSpace(const FTransform& WorldTransform);
+	int32 AddInstanceWorldSpace(const FTransform& WorldTransform);
 
 	/** Get the transform for the instance specified. Instance is returned in local space of this component unless bWorldSpace is set.  Returns True on success. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
-		bool GetInstanceTransform(int32 InstanceIndex, FTransform& OutInstanceTransform, bool bWorldSpace = false) const;
+	bool GetInstanceTransform(int32 InstanceIndex, FTransform& OutInstanceTransform, bool bWorldSpace = false) const;
 
 	virtual void OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport) override;
 
@@ -148,44 +178,50 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 	* @return						True on success.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
-		virtual bool UpdateInstanceTransform(int32 InstanceIndex, const FTransform& NewInstanceTransform, bool bWorldSpace=false, bool bMarkRenderStateDirty=false, bool bTeleport=false);
+	virtual bool UpdateInstanceTransform(int32 InstanceIndex, const FTransform& NewInstanceTransform, bool bWorldSpace=false, bool bMarkRenderStateDirty=false, bool bTeleport=false);
 
 	/** Remove the instance specified. Returns True on success. Note that this will leave the array in order, but may shrink it. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
-		virtual bool RemoveInstance(int32 InstanceIndex);
+	virtual bool RemoveInstance(int32 InstanceIndex);
 
 	/** Clear all instances being rendered by this component. */
 	UFUNCTION(BlueprintCallable, Category="Components|InstancedStaticMesh")
-		virtual void ClearInstances();
+	virtual void ClearInstances();
 
 	/** Get the number of instances in this component. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
-		int32 GetInstanceCount() const;
+	int32 GetInstanceCount() const;
 
 	/** Sets the fading start and culling end distances for this component. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
-		void SetCullDistances(int32 StartCullDistance, int32 EndCullDistance);
+	void SetCullDistances(int32 StartCullDistance, int32 EndCullDistance);
 
 	/** Returns the instances with instance bounds overlapping the specified sphere. The return value is an array of instance indices. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
-		virtual TArray<int32> GetInstancesOverlappingSphere(const FVector& Center, float Radius, bool bSphereInWorldSpace=true) const;
+	virtual TArray<int32> GetInstancesOverlappingSphere(const FVector& Center, float Radius, bool bSphereInWorldSpace=true) const;
 
 	/** Returns the instances with instance bounds overlapping the specified box. The return value is an array of instance indices. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
-		virtual TArray<int32> GetInstancesOverlappingBox(const FBox& Box, bool bBoxInWorldSpace=true) const;
+	virtual TArray<int32> GetInstancesOverlappingBox(const FBox& Box, bool bBoxInWorldSpace=true) const;
 
 	virtual bool ShouldCreatePhysicsState() const override;
 
 	virtual void PostLoad() override;
 	virtual void OnComponentCreated() override;
-	virtual void OnRegister() override;
 
 public:
 	/** Render data will be initialized on PostLoad or on demand. Released on the rendering thread. */
 	TSharedPtr<FPerInstanceRenderData, ESPMode::ThreadSafe> PerInstanceRenderData;
-	TSet<int32> NeedUpdatingInstanceIndexList;
-	/** This was prebuilt, grass system use it, never destroy it. */
-	bool bPerInstanceRenderDataWasPrebuilt;
+
+	/** Recorded modifications to per-instance data */
+	FInstanceUpdateCmdBuffer InstanceUpdateCmdBuffer;
+
+	/** 
+	 *  Buffers with per-instance data laid out for rendering. 
+	 *  Serialized for cooked content. Used to create PerInstanceRenderData. 
+	 *  Alive between Serialize and PostLoad calls 
+	 */
+	TUniquePtr<FStaticMeshInstanceData> InstanceDataBuffers;
 
 #if WITH_EDITOR
 	/** One bit per instance if the instance is selected. */
@@ -248,9 +284,9 @@ public:
 
 	/** Transfers ownership of instance render data to a render thread. Instance render data will be released in scene proxy destructor or on render thread task. */
 	void ReleasePerInstanceRenderData();
-
+	
 	// Number of instances in the render-side instance buffer
-	virtual int32 GetNumRenderInstances() const { return PerInstanceSMData.Num() + RemovedInstances.Num(); }
+	virtual int32 GetNumRenderInstances() const { return PerInstanceSMData.Num(); }
 
 	virtual void PropagateLightingScenarioChange() override;
 
@@ -264,6 +300,9 @@ private:
 	/** Sets up new instance data to sensible defaults, creates physics counterparts if possible. */
 	void SetupNewInstanceData(FInstancedStaticMeshInstanceData& InOutNewInstanceData, int32 InInstanceIndex, const FTransform& InInstanceTransform);
 
+	/** Update instance body with a new transform */
+	void UpdateInstanceBodyTransform(int32 InstanceIndex, const FTransform& WorldSpaceInstanceTransform, bool bTeleport);
+
 protected:
 	/** Request to navigation system to update only part of navmesh occupied by specified instance. */
 	virtual void PartialNavigationUpdate(int32 InstanceIdx);
@@ -272,7 +311,7 @@ protected:
 	int32 AddInstanceInternal(int32 InstanceIndex, FInstancedStaticMeshInstanceData* InNewInstanceData, const FTransform& InstanceTransform);
 
 	/** Internal version of RemoveInstance */	
-	bool RemoveInstanceInternal(int32 InstanceIndex, bool ReorderInstances, bool InstanceAlreadyRemoved);
+	bool RemoveInstanceInternal(int32 InstanceIndex, bool InstanceAlreadyRemoved);
 
 	/** Handles request from navigation system to gather instance transforms in a specific area box. */
 	virtual void GetNavigationPerInstanceTransforms(const FBox& AreaBox, TArray<FTransform>& InstanceData) const;
@@ -282,13 +321,24 @@ protected:
 
 	/** Number of pending lightmaps still to be calculated (Apply()'d). */
 	UPROPERTY(Transient, DuplicateTransient, TextExportTransient)
-		int32 NumPendingLightmaps;
+	int32 NumPendingLightmaps;
 
 	/** The mappings for all the instances of this component. */
 	UPROPERTY(Transient, DuplicateTransient, TextExportTransient)
-		TArray<FInstancedStaticMeshMappingInfo> CachedMappings;
+	TArray<FInstancedStaticMeshMappingInfo> CachedMappings;
 
 	void ApplyLightMapping(FStaticLightingTextureMapping_InstancedStaticMesh* InMapping, ULevel* LightingScenario);
+	
+	void CreateHitProxyData(TArray<TRefCountPtr<HHitProxy>>& HitProxies);
+
+    /** Build instance buffer for rendering from current component data. */
+	void BuildRenderData(FStaticMeshInstanceData& OutData, TArray<TRefCountPtr<HHitProxy>>& OutHitProxies);
+	
+    /** Serialize instance buffer that is used for rendering. Only for cooked content */
+	void SerializeRenderData(FArchive& Ar);
+	
+	/** Creates rendering buffer from serialized data, if any */
+	virtual void OnPostLoadPerInstanceData();
 
 	friend FStaticLightingTextureMapping_InstancedStaticMesh;
 	friend FInstancedLightMap2D;

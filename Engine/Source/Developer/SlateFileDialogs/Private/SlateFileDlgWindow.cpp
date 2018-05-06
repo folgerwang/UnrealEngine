@@ -791,6 +791,7 @@ void SSlateFileOpenDlg::Construct(const FArguments& InArgs)
 					[
 						SNew(SButton)
 						.ContentPadding(FMargin(5.0f, 5.0f))
+						.IsEnabled(this, &SSlateFileOpenDlg::IsAcceptEnabled)
 						.OnClicked(this, &SSlateFileOpenDlg::OnAcceptCancelClick, FSlateFileDlgWindow::Accept)
 						.Text(AcceptText)
 					]
@@ -1116,6 +1117,17 @@ void SSlateFileOpenDlg::SetOutputFiles()
 			}
 		}
 	}
+}
+
+
+bool SSlateFileOpenDlg::IsAcceptEnabled() const
+{
+	if (!bDirectoriesOnly)
+	{
+		return !SaveFilename.IsEmpty();
+	}
+
+	return true;
 }
 
 

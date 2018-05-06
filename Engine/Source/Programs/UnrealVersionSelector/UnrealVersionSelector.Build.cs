@@ -9,6 +9,14 @@ public class UnrealVersionSelector : ModuleRules
 		PublicIncludePaths.Add("Runtime/Launch/Public");
 		PublicIncludePaths.Add("Runtime/Launch/Private"); // Yuck. Required for RequiredProgramMainCPPInclude.h. (Also yuck).
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "Core", "Projects", "DesktopPlatform", "ApplicationCore" });
+		if (Target.Platform == UnrealTargetPlatform.Linux)
+		{
+			PrivateDependencyModuleNames.AddRange(new string[] { "Core", "Projects", "DesktopPlatform", "CoreUObject", "ApplicationCore", "Slate", "SlateCore", "StandaloneRenderer", "SlateFileDialogs" });
+			PrivateDependencyModuleNames.AddRange(new string[] { "UnixCommonStartup" });
+ 		}
+		else
+		{
+			PrivateDependencyModuleNames.AddRange(new string[] { "Core", "Projects", "DesktopPlatform", "ApplicationCore" });
+		}
 	}
 }

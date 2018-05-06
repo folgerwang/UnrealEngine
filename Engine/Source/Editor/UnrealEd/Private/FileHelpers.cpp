@@ -636,6 +636,19 @@ static bool SaveWorld(UWorld* World,
 					
 					if (bWorldNeedsRename)
 					{
+						// Unload package of existing MapBuildData to allow overwrite
+						if (World->PersistentLevel->MapBuildData && !World->PersistentLevel->MapBuildData->IsLegacyBuildData())
+						{
+							FString NewBuiltPackageName = World->GetOutermost()->GetName() + TEXT("_BuiltData");
+							UObject* ExistingObject = StaticFindObject(nullptr, 0, *NewBuiltPackageName);
+							if (ExistingObject && ExistingObject != World->PersistentLevel->MapBuildData->GetOutermost())
+							{
+								TArray<UPackage*> AllPackagesToUnload;
+								AllPackagesToUnload.Add(Cast<UPackage>(ExistingObject));
+								PackageTools::UnloadPackages(AllPackagesToUnload);
+							}
+						}
+
 						World->Rename(*NewWorldAssetName, NULL, REN_NonTransactional | REN_DontCreateRedirectors | REN_ForceNoResetLoaders);
 					}
 				}
@@ -3858,6 +3871,19 @@ void FEditorFileUtils::GetDirtyWorldPackages(TArray<UPackage*>& OutDirtyPackages
 
 				if (BuiltDataPackage->IsDirty() && BuiltDataPackage != WorldPackage)
 				{
+					// If built data package does not have a name yet add the world package so a user is prompted to have a name chosen
+					if (!WorldPackage->IsDirty())
+					{
+						const FString WorldPackageName = WorldPackage->GetName();
+						const bool bIncludeReadOnlyRoots = false;
+						const bool bIsValidPath = FPackageName::IsValidLongPackageName(WorldPackageName, bIncludeReadOnlyRoots);
+						if (!bIsValidPath)
+						{
+							WorldPackage->MarkPackageDirty();
+							OutDirtyPackages.Add(WorldPackage);
+						}
+					}
+
 					OutDirtyPackages.Add(BuiltDataPackage);
 				}
 			}

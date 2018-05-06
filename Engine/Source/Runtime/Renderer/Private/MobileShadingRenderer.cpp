@@ -483,7 +483,7 @@ void FMobileSceneRenderer::ConditionalResolveSceneDepth(FRHICommandListImmediate
 
 	auto ShaderPlatform = ViewFamily.GetShaderPlatform();
 
-	if (IsMobileHDR() 
+	if ((IsMobileHDR() || IsHTML5Platform())
 		&& IsMobilePlatform(ShaderPlatform) 
 		&& !IsPCPlatform(ShaderPlatform) // exclude mobile emulation on PC
 		&& !View.bIsPlanarReflection)	// exclude depth resolve from planar reflection captures, can't do it reliably more than once per frame

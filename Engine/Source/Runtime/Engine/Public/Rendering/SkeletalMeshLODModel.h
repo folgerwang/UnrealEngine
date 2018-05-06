@@ -120,6 +120,12 @@ struct FSkelMeshSection
 	/** If disabled, we won't render this section */
 	bool bDisabled;
 
+	/*
+	 * The LOD index at which any generated lower quality LODs will include this section.
+	 * A value of -1 mean the section will always be include when generating a LOD
+	 */
+	int32 GenerateUpToLodIndex;
+
 	FSkelMeshSection()
 		: MaterialIndex(0)
 		, BaseIndex(0)
@@ -134,6 +140,7 @@ struct FSkelMeshSection
 		, MaxBoneInfluences(4)
 		, CorrespondClothAssetIndex(INDEX_NONE)
 		, bDisabled(false)
+		, GenerateUpToLodIndex(-1)
 	{}
 
 

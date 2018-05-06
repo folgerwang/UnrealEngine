@@ -662,6 +662,18 @@ void STypefaceEntryEditor::Construct(const FArguments& InArgs)
 	OnDeleteFont = InArgs._OnDeleteFont;
 	OnVerifyFontName = InArgs._OnVerifyFontName;
 
+	CacheSubFaceData();
+
+	TSharedPtr<FSubFaceInfo> InitiallySelectedSubFace;
+	if (FTypefaceEntry* const TypefaceEntryPtr = TypefaceEntry->GetTypefaceEntry())
+	{
+		const int32 SubFaceIndex = TypefaceEntryPtr->Font.GetSubFaceIndex();
+		if (SubFacesData.IsValidIndex(SubFaceIndex))
+		{
+			InitiallySelectedSubFace = SubFacesData[SubFaceIndex];
+		}
+	}
+
 	ChildSlot
 	[
 		SNew(SBorder)
@@ -715,6 +727,24 @@ void STypefaceEntryEditor::Construct(const FArguments& InArgs)
 						.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
 						.Text(FEditorFontGlyphs::Folder_Open)
 					]
+				]
+			]
+
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(FMargin(0.0f, 0.0f, 0.0f, 4.0f))
+			[
+				SAssignNew(SubFacesCombo, SComboBox<TSharedPtr<FSubFaceInfo>>)
+				.Visibility(this, &STypefaceEntryEditor::GetSubFaceVisibility)
+				.OptionsSource(&SubFacesData)
+				.InitiallySelectedItem(InitiallySelectedSubFace)
+				.ContentPadding(FMargin(4.0, 2.0))
+				.OnSelectionChanged(this, &STypefaceEntryEditor::OnSubFaceSelectionChanged)
+				.OnGenerateWidget(this, &STypefaceEntryEditor::MakeSubFaceSelectionWidget)
+				[
+					SNew(STextBlock)
+					.Text(this, &STypefaceEntryEditor::GetCurrentSubFaceSelectionDisplayName)
+					.ToolTipText(this, &STypefaceEntryEditor::GetCurrentSubFaceSelectionDisplayName)
 				]
 			]
 
@@ -841,6 +871,8 @@ void STypefaceEntryEditor::OnFontFaceAssetChanged(const FAssetData& InAssetData)
 
 		TypefaceEntryPtr->Font = FFontData(InAssetData.GetAsset());
 		CompositeFontEditorPtr->FlushCachedFont();
+
+		CacheSubFaceData();
 	}
 }
 
@@ -858,12 +890,12 @@ FReply STypefaceEntryEditor::OnBrowseTypefaceEntryFontPath()
 			: nullptr;
 
 		TArray<FString> OutFiles;
-		if(DesktopPlatform->OpenFileDialog(
-			ParentWindowHandle, 
-			LOCTEXT("FontPickerTitle", "Choose a font file...").ToString(), 
-			DefaultPath, 
-			TEXT(""), 
-			TEXT("All Font Files (*.ttf, *.otf)|*.ttf;*.otf|TrueType fonts (*.ttf)|*.ttf|OpenType fonts (*.otf)|*.otf"), 
+		if (DesktopPlatform->OpenFileDialog(
+			ParentWindowHandle,
+			LOCTEXT("FontPickerTitle", "Choose a font file...").ToString(),
+			DefaultPath,
+			TEXT(""),
+			TEXT("All Font Files (*.ttf, *.ttc, *.otf, *.otc)|*.ttf;*.ttc;*.otf;*.otc|TrueType fonts (*.ttf, *.ttc)|*.ttf;*.ttc|OpenType fonts (*.otf, *.otc)|*.otf;*.otc"),
 			EFileDialogFlags::None, 
 			OutFiles
 			))
@@ -906,6 +938,90 @@ FReply STypefaceEntryEditor::OnDeleteFontClicked()
 	OnDeleteFont.ExecuteIfBound(TypefaceEntry);
 
 	return FReply::Handled();
+}
+
+void STypefaceEntryEditor::CacheSubFaceData()
+{
+	FTypefaceEntry* const TypefaceEntryPtr = TypefaceEntry->GetTypefaceEntry();
+
+	SubFacesData.Reset();
+	if (TypefaceEntryPtr)
+	{
+		const UFontFace* FontFaceAsset = Cast<const UFontFace>(TypefaceEntryPtr->Font.GetFontFaceAsset());
+		if (FontFaceAsset)
+		{
+			SubFacesData.Reserve(FontFaceAsset->SubFaces.Num());
+			for (int32 SubFaceIndex = 0; SubFaceIndex < FontFaceAsset->SubFaces.Num(); ++SubFaceIndex)
+			{
+				TSharedPtr<FSubFaceInfo> SubFace = SubFacesData.Add_GetRef(MakeShared<FSubFaceInfo>());
+				SubFace->Index = SubFaceIndex;
+				SubFace->Description = FText::FromString(FontFaceAsset->SubFaces[SubFaceIndex]);
+			}
+		}
+	}
+
+	if (SubFacesCombo.IsValid())
+	{
+		SubFacesCombo->RefreshOptions();
+	}
+}
+
+EVisibility STypefaceEntryEditor::GetSubFaceVisibility() const
+{
+	FTypefaceEntry* const TypefaceEntryPtr = TypefaceEntry->GetTypefaceEntry();
+
+	if (TypefaceEntryPtr)
+	{
+		const UFontFace* FontFaceAsset = Cast<const UFontFace>(TypefaceEntryPtr->Font.GetFontFaceAsset());
+
+		// Only show for fonts with multiple sub-faces
+		if (FontFaceAsset && FontFaceAsset->SubFaces.Num() > 1)
+		{
+			return EVisibility::Visible;
+		}
+
+	}
+
+	return EVisibility::Collapsed;
+}
+
+FText STypefaceEntryEditor::GetCurrentSubFaceSelectionDisplayName() const
+{
+	FTypefaceEntry* const TypefaceEntryPtr = TypefaceEntry->GetTypefaceEntry();
+
+	if (TypefaceEntryPtr)
+	{
+		const int32 SubFaceIndex = TypefaceEntryPtr->Font.GetSubFaceIndex();
+		if (SubFacesData.IsValidIndex(SubFaceIndex))
+		{
+			return SubFacesData[SubFaceIndex]->Description;
+		}
+	}
+
+	return FText::GetEmpty();
+}
+
+void STypefaceEntryEditor::OnSubFaceSelectionChanged(TSharedPtr<FSubFaceInfo> InSubFace, ESelectInfo::Type)
+{
+	FTypefaceEntry* const TypefaceEntryPtr = TypefaceEntry->GetTypefaceEntry();
+
+	if (TypefaceEntryPtr && InSubFace.IsValid())
+	{
+		const FScopedTransaction Transaction(LOCTEXT("ChangeSubFace", "Change Sub-Face"));
+		CompositeFontEditorPtr->GetFontObject()->Modify();
+
+		TypefaceEntryPtr->Font.SetSubFaceIndex(InSubFace->Index);
+
+		CompositeFontEditorPtr->FlushCachedFont();
+	}
+}
+
+TSharedRef<SWidget> STypefaceEntryEditor::MakeSubFaceSelectionWidget(TSharedPtr<FSubFaceInfo> InSubFace)
+{
+	return 
+		SNew(STextBlock)
+		.Text(InSubFace->Description)
+		.ToolTipText(InSubFace->Description);
 }
 
 EVisibility STypefaceEntryEditor::GetUpgradeDataVisibility() const

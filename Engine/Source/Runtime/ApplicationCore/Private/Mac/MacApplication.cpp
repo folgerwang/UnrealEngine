@@ -430,10 +430,11 @@ void FMacApplication::DeferEvent(NSObject* Object)
 			{
 				if ([[Event characters] length] > 0)
 				{
-					DeferredEvent.Characters = [[Event characters] retain];
-					DeferredEvent.CharactersIgnoringModifiers = [[Event charactersIgnoringModifiers] retain];
-					DeferredEvent.IsRepeat = [Event isARepeat];
 					DeferredEvent.KeyCode = [Event keyCode];
+					DeferredEvent.Character = ConvertChar([[Event characters] characterAtIndex:0]);
+					DeferredEvent.CharCode = TranslateCharCode([[Event charactersIgnoringModifiers] characterAtIndex:0], DeferredEvent.KeyCode);
+					DeferredEvent.IsRepeat = [Event isARepeat];
+					DeferredEvent.IsPrintable = IsPrintableKey(DeferredEvent.Character);
 				}
 				else
 				{
@@ -966,19 +967,15 @@ void FMacApplication::ProcessGestureEvent(const FDeferredMacEvent& Event)
 void FMacApplication::ProcessKeyDownEvent(const FDeferredMacEvent& Event, TSharedPtr<FMacWindow> EventWindow)
 {
 	bool bHandled = false;
-	if (!bSystemModalMode && EventWindow.IsValid() && [Event.CharactersIgnoringModifiers length] > 0)
+	if (!bSystemModalMode && EventWindow.IsValid())
 	{
-		const TCHAR Character = ConvertChar([Event.Characters characterAtIndex:0]);
-		const TCHAR CharCode = [Event.CharactersIgnoringModifiers characterAtIndex:0];
-		const bool IsPrintable = IsPrintableKey(Character);
-
-		bHandled = MessageHandler->OnKeyDown(Event.KeyCode, TranslateCharCode(CharCode, Event.KeyCode), Event.IsRepeat);
+		bHandled = MessageHandler->OnKeyDown(Event.KeyCode, Event.CharCode, Event.IsRepeat);
 
 		// First KeyDown, then KeyChar. This is important, as in-game console ignores first character otherwise
 		bool bCmdKeyPressed = Event.ModifierFlags & 0x18;
-		if (!bCmdKeyPressed && IsPrintable)
+		if (!bCmdKeyPressed && Event.IsPrintable)
 		{
-			MessageHandler->OnKeyChar(Character, Event.IsRepeat);
+			MessageHandler->OnKeyChar(Event.Character, Event.IsRepeat);
 		}
 	}
 	if (bHandled)
@@ -999,12 +996,9 @@ void FMacApplication::ProcessKeyDownEvent(const FDeferredMacEvent& Event, TShare
 void FMacApplication::ProcessKeyUpEvent(const FDeferredMacEvent& Event)
 {
 	bool bHandled = false;
-	if (!bSystemModalMode && [Event.Characters length] > 0 && [Event.CharactersIgnoringModifiers length] > 0)
+	if (!bSystemModalMode)
 	{
-		const TCHAR Character = ConvertChar([Event.Characters characterAtIndex:0]);
-		const TCHAR CharCode = [Event.CharactersIgnoringModifiers characterAtIndex:0];
-
-		bHandled = MessageHandler->OnKeyUp(Event.KeyCode, TranslateCharCode(CharCode, Event.KeyCode), Event.IsRepeat);
+		bHandled = MessageHandler->OnKeyUp(Event.KeyCode, Event.CharCode, Event.IsRepeat);
 	}
 	if (!bHandled)
 	{

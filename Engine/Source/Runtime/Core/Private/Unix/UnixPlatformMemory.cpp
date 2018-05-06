@@ -38,6 +38,13 @@
 // Set rather to use BinnedMalloc2 for binned malloc, can be overridden below
 #define USE_MALLOC_BINNED2 (1)
 
+// Used in UnixPlatformStackwalk for now. Once the old crash symbolicator is gone remove this
+bool CORE_API GUseNewCrashSymbolicator = true;
+bool CORE_API GSuppressDwarfParsing    = false;
+
+// Used in UnixPlatformStackwalk to skip the crash handling callstack frames.
+bool CORE_API GFullCrashCallstack = false;
+
 void FUnixPlatformMemory::Init()
 {
 	FGenericPlatformMemory::Init();
@@ -115,6 +122,21 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 					AllocatorToUse = EMemoryAllocatorToUse::Binned2;
 					break;
 				}
+				if (FCStringAnsi::Stricmp(Arg, "-oldcrashsymbolicator") == 0)
+				{
+					GUseNewCrashSymbolicator = false;
+				}
+
+				if (FCStringAnsi::Stricmp(Arg, "-nodwarf") == 0)
+				{
+					GSuppressDwarfParsing = true;
+				}
+
+				if (FCStringAnsi::Stricmp(Arg, "-fullcrashcallstack") == 0)
+				{
+					GFullCrashCallstack = true;
+				}
+
 #if UE_USE_MALLOC_REPLAY_PROXY
 				if (FCStringAnsi::Stricmp(Arg, "-mallocsavereplay") == 0)
 				{
@@ -316,24 +338,35 @@ namespace UnixMemoryPool
 			MaxPooledAllocs += NumBlocks;
 		}
 
-		// do not scale for a non-editor
-		if (UE_EDITOR)
+		uint64 TotalPhysicalMemory = FPlatformMemory::GetConstants().TotalPhysical;
+		uint64 DesiredPoolSize = 0;
+
+		// do not scale up for a non-editor
+		if (UE_EDITOR && PoolSize < TotalPhysicalMemory)
 		{
-			// scale it so it is roughly 25% of total physical
-			uint64 DesiredPoolSize = FPlatformMemory::GetConstants().TotalPhysical / 4;
-			uint64 Multiplier = (DesiredPoolSize / PoolSize);
-			if (Multiplier >= 2)
+			// scale up it so it is roughly 25% of total physical memory
+			DesiredPoolSize = TotalPhysicalMemory / 4;
+		}
+		else if (PoolSize >= TotalPhysicalMemory)
+		{
+			// scale down to try to fit roughly 50% of the total physical memory
+			DesiredPoolSize = TotalPhysicalMemory / 2;
+		}
+
+		double Multiplier = FMath::Max(static_cast<double>(DesiredPoolSize) / static_cast<double>(PoolSize), 0.0);
+
+		// if we need to scale to a desired pool size
+		if (DesiredPoolSize > 0)
+		{
+			PoolSize = 0;
+			MaxPooledAllocs = 0;
+			for (int32* PoolPtr = InOutPoolTable; *PoolPtr != -1; PoolPtr += 2)
 			{
-				PoolSize = 0;
-				MaxPooledAllocs = 0;
-				for (int32* PoolPtr = InOutPoolTable; *PoolPtr != -1; PoolPtr += 2)
-				{
-					uint64 BlockSize = static_cast<uint64>(PoolPtr[0]);
-					PoolPtr[1] *= Multiplier;
-					uint64 NumBlocks = static_cast<uint64>(PoolPtr[1]);
-					PoolSize += (BlockSize * NumBlocks);
-					MaxPooledAllocs += NumBlocks;
-				}
+				uint64 BlockSize = static_cast<uint64>(PoolPtr[0]);
+				PoolPtr[1] = FMath::Max(static_cast<uint32>(PoolPtr[1] * Multiplier), 1u);
+				uint64 NumBlocks = static_cast<uint64>(PoolPtr[1]);
+				PoolSize += (BlockSize * NumBlocks);
+				MaxPooledAllocs += NumBlocks;
 			}
 		}
 

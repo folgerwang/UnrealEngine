@@ -390,11 +390,11 @@ public:
 					SNew(SHorizontalBox)
 					+SHorizontalBox::Slot()
 					.AutoWidth()
-					.VAlign(VAlign_Top)
 					[
 						SNew( SExpanderArrow, SharedThis(this) )
 					]
 					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
 					.AutoWidth()
 					[
 						CellContent
@@ -465,7 +465,7 @@ public:
 			.OnCanAcceptDrop(InArgs._OnCanAcceptDrop)
 			.OnAcceptDrop(InArgs._OnAcceptDrop)
 			.OnDragDetected(InArgs._OnDragDetected)
-			.Padding(1)
+			.Padding(0)
 		, InOwnerTableView);
 	}
 	

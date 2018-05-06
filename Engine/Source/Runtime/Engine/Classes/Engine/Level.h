@@ -569,7 +569,7 @@ public:
 	bool HasVisibilityRequestPending() const;
 
 	/** Whether the level is currently pending being made invisible or visible.				*/
-	bool HasVisibilityChangeRequestPending() const;
+	ENGINE_API bool HasVisibilityChangeRequestPending() const;
 
 	// Event on level transform changes
 	DECLARE_MULTICAST_DELEGATE_OneParam(FLevelTransformEvent, const FTransform&);
@@ -631,7 +631,7 @@ private:
 
 public:
 	// Used internally to determine which actors should go on the world's NetworkActor list
-	static bool IsNetActor(const AActor* Actor);
+	ENGINE_API static bool IsNetActor(const AActor* Actor);
 
 	/** Populate an entry for Actor in the DestroyedReplicatedStaticActors list */
 	void CreateReplicatedDestructionInfo(AActor* const Actor);

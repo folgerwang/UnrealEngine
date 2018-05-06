@@ -403,6 +403,35 @@ public:
 	 */
 	virtual ITargetDeviceOutputPtr CreateDeviceOutputRouter(FOutputDevice* Output) const { return nullptr; };
 
+	/**
+	* Cancel the application running on the device
+	* @param ProcessIdentifier The bundle id
+	*/
+	virtual bool TerminateLaunchedProcess(const FString & ProcessIdentifier) { return false;  };
+
+public:
+
+	/**
+	* Get the "All devices" flag for the platform
+	*
+	* @return true if the platform has an "All devices" proxy.
+	*/
+	virtual bool IsPlatformAggregated() const { return false; }
+
+	/**
+	* Get the "All devices" name
+	*
+	* @return "All devices" name.
+	*/
+	virtual FString GetAllDevicesName() const { return FString(); }
+
+	/**
+	* Get the "All devices" default variant
+	*
+	* @return "All devices" default variant.
+	*/
+	virtual FName GetAllDevicesDefaultVariant() const { return FName(); }
+
 public:
 	
 	/** Virtual destructor. */

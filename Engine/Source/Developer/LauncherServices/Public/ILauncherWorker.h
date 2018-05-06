@@ -121,6 +121,11 @@ public:
 	 */
 	virtual ILauncherProfilePtr GetLauncherProfile() const = 0;
 
+	/**
+	 * Set the app id running on the device
+	 */
+	virtual void AddDevicePackagePair(const FString& Device, const FString& Package) {};
+
 protected:
 
 	/** Virtual destructor. */

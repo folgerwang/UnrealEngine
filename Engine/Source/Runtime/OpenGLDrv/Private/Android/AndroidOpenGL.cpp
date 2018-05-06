@@ -849,6 +849,8 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 
 		// According to https://www.khronos.org/registry/gles/extensions/EXT/EXT_color_buffer_float.txt
 		bSupportsColorBufferHalfFloat = (bSupportsColorBufferHalfFloat || bSupportsColorBufferFloat);
+
+		GSupportsDepthRenderTargetWithoutColorRenderTarget = true;
 	}
 
 	if (bES30Support)

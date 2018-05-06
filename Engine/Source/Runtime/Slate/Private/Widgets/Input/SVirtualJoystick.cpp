@@ -79,7 +79,11 @@ bool SVirtualJoystick::ShouldDisplayTouchInterface()
 	GConfig->GetBool(TEXT("/Script/Engine.InputSettings"), TEXT("bAlwaysShowTouchInterface"), bAlwaysShowTouchInterface, GInputIni);
 
 	// do we want to show virtual joysticks?
-	return FPlatformMisc::GetUseVirtualJoysticks() || bAlwaysShowTouchInterface || FSlateApplication::Get().IsFakingTouchEvents();
+	return FPlatformMisc::GetUseVirtualJoysticks() || bAlwaysShowTouchInterface
+#if ! PLATFORM_HTML5 // make HTML5 support bAlwaysShowTouchInterface only
+		|| FSlateApplication::Get().IsFakingTouchEvents()
+#endif
+		;
 }
 
 static int32 ResolveRelativePosition(float Position, float RelativeTo, float ScaleFactor)

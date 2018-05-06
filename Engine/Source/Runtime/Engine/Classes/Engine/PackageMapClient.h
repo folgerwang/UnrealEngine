@@ -291,6 +291,9 @@ public:
 	void ReceiveNetGUIDBunch( FInBunch &InBunch );
 	void AppendExportBunches(TArray<FOutBunch *>& OutgoingBunches);
 
+	void AppendExportData(FArchive& Archive);
+	void ReceiveExportData(FArchive& Archive);
+
 	TMap<FNetworkGUID, int32>	NetGUIDExportCountMap;	// How many times we've exported each NetGUID on this connection. Public for ListNetGUIDExports 
 
 	void HandleUnAssignedObject( const UObject* Obj );
@@ -327,14 +330,23 @@ public:
 	void								AddNetFieldExportGroup( const FString& PathName, TSharedPtr< FNetFieldExportGroup > NewNetFieldExportGroup );
 	void								TrackNetFieldExport( FNetFieldExportGroup* NetFieldExportGroup, const int32 NetFieldExportHandle );
 	TSharedPtr< FNetFieldExportGroup >	GetNetFieldExportGroupChecked( const FString& PathName ) const;
-	void								SerializeNetFieldExportGroupMap( FArchive& Ar );
+	void								SerializeNetFieldExportGroupMap( FArchive& Ar, bool bClearPendingExports=true );
 
 protected:
 
 	/** Functions to help with exporting/importing net field export info */
+	DEPRECATED(4.20, "This method is deprecated. Please use AppendNetFieldExports(FArchive*) instead.")
 	void								AppendNetFieldExports( TArray<FOutBunch *>& OutgoingBunches );
-	void								ReceiveNetFieldExports( FInBunch &InBunch );
+	void								AppendNetFieldExports( FArchive& Archive );
 
+	DEPRECATED(4.20, "This method is deprecated. Please use ReceiveNetFieldExports(FArchive*) instead.")
+	void								ReceiveNetFieldExports( FInBunch &InBunch );
+	void								ReceiveNetFieldExports( FArchive& Archive );
+
+	void AppendNetExportGUIDs(FArchive& Archive);
+	void ReceiveNetExportGUIDs(FArchive& Archive);
+
+	bool	ExportNetGUIDForReplay( FNetworkGUID&, const UObject* Object, FString& PathName, UObject* ObjOuter );
 	bool	ExportNetGUID( FNetworkGUID NetGUID, const UObject* Object, FString PathName, UObject* ObjOuter );
 	void	ExportNetGUIDHeader();
 
@@ -351,6 +363,7 @@ protected:
 
 	bool ObjectLevelHasFinishedLoading(UObject* Obj);
 
+	TArray<TArray<uint8>>				ExportGUIDArchives;
 	TSet< FNetworkGUID >				CurrentExportNetGUIDs;				// Current list of NetGUIDs being written to the Export Bunch.
 	TSet< FNetworkGUID >				CurrentQueuedBunchNetGUIDs;			// List of NetGuids with currently queued bunches
 

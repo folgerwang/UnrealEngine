@@ -25,7 +25,7 @@ public:
 
 	static void CopyWidgets(UWidgetBlueprint* BP, TSet<FWidgetReference> Widgets);
 
-	static void PasteWidgets(TSharedRef<FWidgetBlueprintEditor> BlueprintEditor, UWidgetBlueprint* BP, FWidgetReference ParentWidget, FName SlotName, FVector2D PasteLocation);
+	static TArray<UWidget*> PasteWidgets(TSharedRef<FWidgetBlueprintEditor> BlueprintEditor, UWidgetBlueprint* BP, FWidgetReference ParentWidget, FName SlotName, FVector2D PasteLocation);
 
 	static void DeleteWidgets(UWidgetBlueprint* BP, TSet<FWidgetReference> Widgets);
 

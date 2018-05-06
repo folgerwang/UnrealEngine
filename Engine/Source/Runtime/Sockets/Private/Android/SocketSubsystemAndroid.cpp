@@ -133,7 +133,7 @@ TSharedRef<FInternetAddr> FSocketSubsystemAndroid::GetLocalHostAddr(FOutputDevic
 		if (bIsValid)
 		{
 			UE_LOG(LogSockets, Warning, TEXT("FSocketSubsystemAndroid::GetLocalHostAddr Using MULTIHOME"));
-			return Addr;
+			return TempAddr;
 		}
 	}
 

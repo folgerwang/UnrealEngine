@@ -447,9 +447,6 @@ AActor* UWorld::SpawnActor( UClass* Class, FTransform const* UserTransformPtr, c
 	LevelToSpawnIn->Actors.Add( Actor );
 	LevelToSpawnIn->ActorsForGC.Add(Actor);
 
-	// Add this newly spawned actor to the network actor list
-	AddNetworkActor( Actor );
-
 #if PERF_SHOW_MULTI_PAWN_SPAWN_FRAMES
 	if( Cast<APawn>(Actor) )
 	{
@@ -484,6 +481,9 @@ AActor* UWorld::SpawnActor( UClass* Class, FTransform const* UserTransformPtr, c
 		GEngine->BroadcastLevelActorAdded(Actor);
 	}
 #endif
+
+	// Add this newly spawned actor to the network actor list. Do this after PostSpawnInitialize so that actor has "finished" spawning.
+	AddNetworkActor( Actor );
 
 	return Actor;
 }

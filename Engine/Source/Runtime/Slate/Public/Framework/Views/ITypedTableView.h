@@ -151,6 +151,15 @@ public:
 	 */
 	virtual int32 Private_GetNestingDepth( int32 ItemIndexInList ) const = 0;
 
+	/**
+	 * @return a TBitArray in which each true bit indicates that a
+	 *           vertical wire is needed at this depth of the tree view.
+	 */
+	virtual const TBitArray<>& Private_GetWiresNeededByDepth( int32 ItemIndexInList ) const = 0;
+
+	/** @return true if this item is the last direct descendant of its parent. */
+	virtual bool Private_IsLastChild(int32 ItemIndexInList) const = 0;
+
 	/** Called when the item is right-clicked when not right mouse scrolling */
 	virtual void Private_OnItemRightClicked( ItemType TheItem, const FPointerEvent& MouseEvent ) = 0;
 

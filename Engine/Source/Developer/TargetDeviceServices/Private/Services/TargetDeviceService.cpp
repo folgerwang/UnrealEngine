@@ -47,6 +47,7 @@ FTargetDeviceService::FTargetDeviceService(const FString& InDeviceName, const TS
 		.Handling<FTargetDeviceServiceDeployCommit>(this, &FTargetDeviceService::HandleDeployCommitMessage)
 		.Handling<FTargetDeviceServiceDeployFile>(this, &FTargetDeviceService::HandleDeployFileMessage)
 		.Handling<FTargetDeviceServiceLaunchApp>(this, &FTargetDeviceService::HandleLaunchAppMessage)
+		.Handling<FTargetDeviceServiceTerminateLaunchedProcess>(this, &FTargetDeviceService::HandleTerminateLaunchedProcessMessage)
 		.Handling<FTargetDeviceServicePing>(this, &FTargetDeviceService::HandlePingMessage)
 		.Handling<FTargetDeviceServicePowerOff>(this, &FTargetDeviceService::HandlePowerOffMessage)
 		.Handling<FTargetDeviceServicePowerOn>(this, &FTargetDeviceService::HandlePowerOnMessage)
@@ -424,6 +425,20 @@ void FTargetDeviceService::HandleDeployCommitMessage(const FTargetDeviceServiceD
 	}
 }
 
+void FTargetDeviceService::HandleTerminateLaunchedProcessMessage(const FTargetDeviceServiceTerminateLaunchedProcess& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
+{
+	if (!Running)
+	{
+		return;
+	}
+
+	ITargetDevicePtr TargetDevice = GetDevice(Message.Variant);
+
+	if (TargetDevice.IsValid())
+	{
+		TargetDevice->TerminateLaunchedProcess(Message.AppID);
+	}
+}
 
 void FTargetDeviceService::HandleLaunchAppMessage(const FTargetDeviceServiceLaunchApp& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
@@ -483,6 +498,11 @@ void FTargetDeviceService::HandlePingMessage(const FTargetDeviceServicePing& InM
 		Message->SupportsReboot = DefaultDevice->SupportsFeature(ETargetDeviceFeatures::Reboot);
 		Message->SupportsVariants = DefaultDevice->GetTargetPlatform().SupportsVariants();
 		Message->DefaultVariant = FName(DefaultDevice->GetTargetPlatform().PlatformName().GetCharArray().GetData());
+
+		// Check if we should also create an aggregate (All_<platform>_devices_on_<host>) proxy
+		Message->Aggregated = DefaultDevice->IsPlatformAggregated();
+		Message->AllDevicesName = DefaultDevice->GetAllDevicesName().IsEmpty() ? VanillaInfo->VanillaPlatformName.ToString() : DefaultDevice->GetAllDevicesName();
+		Message->AllDevicesDefaultVariant = DefaultDevice->GetAllDevicesDefaultVariant().IsNone() ? Message->DefaultVariant : DefaultDevice->GetAllDevicesDefaultVariant();
 
 		// Add the data for all the flavors
 		Message->Variants.SetNumZeroed(TargetDevicePtrs.Num());
