@@ -158,6 +158,13 @@ static FAutoConsoleVariableRef CVarCheckForIllegalMarkPendingKill(
 	ECVF_Default
 );
 
+static int32 GIncrementalBeginDestroyEnabled = 1;
+static FAutoConsoleVariableRef CIncrementalBeginDestroyEnabled(
+	TEXT("gc.IncrementalBeginDestroyEnabled"),
+	GIncrementalBeginDestroyEnabled,
+	TEXT("If true, the engine will destroy objects incrementally using time limit each frame"),
+	ECVF_Default
+);
 
 #if PERF_DETAILED_PER_CLASS_GC_STATS
 /** Map from a UClass' FName to the number of objects that were purged during the last purge phase of this class.	*/
@@ -1524,7 +1531,7 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 
 			GatherUnreachableObjects(bForceSingleThreadedGC);
 
-			if (bPerformFullPurge)
+			if (bPerformFullPurge || !GIncrementalBeginDestroyEnabled)
 			{
 				UnhashUnreachableObjects(/**bUseTimeLimit = */ false);
 				FScopedCBDProfile::DumpProfile();

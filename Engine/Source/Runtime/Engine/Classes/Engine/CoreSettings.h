@@ -171,6 +171,11 @@ protected:
 	uint32 AllowParallelGC : 1;
 
 	UPROPERTY(EditAnywhere, config, Category = Optimization, meta = (
+		ConsoleVariable = "gc.IncrementalBeginDestroyEnabled", DisplayName = "Incremental BeginDestroy Enabled",
+		ToolTip = "If true, the engine will destroy objects incrementally using time limit each frame."))
+	uint32 IncrementalBeginDestroyEnabled : 1;
+
+	UPROPERTY(EditAnywhere, config, Category = Optimization, meta = (
 		ConsoleVariable = "gc.CreateGCClusters", DisplayName = "Create Garbage Collector UObject Clusters",
 		ToolTip = "If true, the engine will attempt to create clusters of objects for better garbage collection performance."))
 	uint32 CreateGCClusters : 1;
