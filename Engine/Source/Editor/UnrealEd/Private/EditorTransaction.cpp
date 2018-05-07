@@ -1074,18 +1074,23 @@ void UTransBuffer::Cancel( int32 StartIndex /*=0*/ )
 			GUndo = nullptr;
 			
 			UndoBuffer.Pop(false);
-
-			// replace the removed transactions
 			UndoBuffer.Reserve(UndoBuffer.Num() + RemovedTransactions.Num());
-			for (TSharedRef<FTransaction>& Transaction : RemovedTransactions)
+
+			if (PreviousUndoCount > 0)
 			{
-				UndoBuffer.Add(Transaction);
+				UndoBuffer.Append(RemovedTransactions);
 			}
+			else
+			{
+				UndoBuffer.Insert(RemovedTransactions, 0);
+			}
+
 			RemovedTransactions.Reset();
 
 			UndoCount = PreviousUndoCount;
 			PreviousUndoCount = INDEX_NONE;
 
+			UndoBufferChangedDelegate.Broadcast();
 		}
 		else
 		{

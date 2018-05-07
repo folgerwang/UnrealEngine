@@ -34,6 +34,9 @@ static FAutoConsoleVariable CVarLogSkippedRepNotifies(TEXT("Net.LogSkippedRepNot
 int32 MaxRepArraySize = UNetworkSettings::DefaultMaxRepArraySize;
 int32 MaxRepArrayMemory = UNetworkSettings::DefaultMaxRepArrayMemory;
 
+extern int32 GNumSharedSerializationHit;
+extern int32 GNumSharedSerializationMiss;
+
 FConsoleVariableSinkHandle CreateMaxArraySizeCVarAndRegisterSink()
 {
 	static FAutoConsoleVariable CVarMaxArraySize(TEXT("net.MaxRepArraySize"), MaxRepArraySize, TEXT("Maximum allowable size for replicated dynamic arrays (in number of elements). Value must be between 1 and 65535."));
@@ -1372,6 +1375,7 @@ void FRepLayout::SendProperties_r(
 		// Use shared serialization if was found
 		if (SharedPropInfo)
 		{
+			GNumSharedSerializationHit++;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 			if (CVarNetVerifyShareSerializedData->GetInt() != 0)
 			{
@@ -1409,6 +1413,7 @@ void FRepLayout::SendProperties_r(
 		}
 		else
 		{
+			GNumSharedSerializationMiss++;
 			WritePropertyHandle( Writer, HandleIterator.Handle, bDoChecksum );
 
 			const int32 NumStartBits = Writer.GetNumBits();
@@ -2771,10 +2776,120 @@ void FRepLayout::SanityCheckChangeList( const uint8* RESTRICT Data, TArray< uint
 class FDiffPropertiesImpl : public FRepLayoutCmdIterator< FDiffPropertiesImpl, FCmdIteratorBaseStackState >
 {
 public:
-	FDiffPropertiesImpl( const bool bInSync, TArray< UProperty * >*	InRepNotifies, const TArray< FRepParentCmd >& InParents, const TArray< FRepLayoutCmd >& InCmds ) : 
+	FDiffPropertiesImpl( const EDiffPropertiesFlags InFlags, TArray< UProperty * >*	InRepNotifies, const TArray< FRepParentCmd >& InParents, const TArray< FRepLayoutCmd >& InCmds ) : 
 		FRepLayoutCmdIterator( InParents, InCmds ),
-		bSync( bInSync ),
+		Flags( InFlags ),
+		ParentPropertyFlags( ERepParentFlags::IsLifetime ),
 		RepNotifies( InRepNotifies ),
+		bDifferent( false )
+	{
+		// Currently, only lifetime properties init from their defaults, so default to that,
+		// but also diff conditional properties if requested.
+		if ( (Flags & EDiffPropertiesFlags::IncludeConditionalProperties) != EDiffPropertiesFlags::None )
+		{
+			ParentPropertyFlags |= ERepParentFlags::IsConditional;
+		}
+	}
+
+	INIT_STACK( FCmdIteratorBaseStackState ) { }
+
+	SHOULD_PROCESS_NEXT_CMD() 
+	{ 
+		return true;
+	}
+
+	PROCESS_ARRAY_CMD( FCmdIteratorBaseStackState ) 
+	{
+		if ( StackState.DataArray->Num() != StackState.ShadowArray->Num() )
+		{
+			bDifferent = true;
+
+			if ( (Flags & EDiffPropertiesFlags::Sync) == EDiffPropertiesFlags::None )
+			{
+				UE_LOG( LogRep, Warning, TEXT( "FDiffPropertiesImpl: Array sizes different: %s %i / %i" ), *Cmd.Property->GetFullName(), StackState.DataArray->Num(), StackState.ShadowArray->Num() );
+				return;
+			}
+
+			if ( (Parents[Cmd.ParentIndex].Flags & ParentPropertyFlags) == ERepParentFlags::None )
+			{
+				return;
+			}
+
+			// Make the shadow state match the actual state
+			FScriptArrayHelper ShadowArrayHelper( (UArrayProperty *)Cmd.Property, ShadowData );
+			ShadowArrayHelper.Resize( StackState.DataArray->Num() );
+		}
+
+		StackState.BaseData			= (uint8*)StackState.DataArray->GetData();
+		StackState.ShadowBaseData	= (uint8*)StackState.ShadowArray->GetData();
+
+		// Loop over array
+		ProcessDataArrayElements_r( StackState, Cmd );
+	}
+
+	PROCESS_CMD( FCmdIteratorBaseStackState ) 
+	{
+		const FRepParentCmd& Parent = Parents[Cmd.ParentIndex];
+
+		// Make the shadow state match the actual state at the time of send
+		if ( (RepNotifies && Parent.RepNotifyCondition == REPNOTIFY_Always) || !PropertiesAreIdentical( Cmd, (const void*)( Data + Cmd.Offset ), (const void*)( ShadowData + Cmd.Offset ) ) )
+		{
+			bDifferent = true;
+
+			if ( (Flags & EDiffPropertiesFlags::Sync) == EDiffPropertiesFlags::None )
+			{			
+				UE_LOG( LogRep, Warning, TEXT( "FDiffPropertiesImpl: Property different: %s" ), *Cmd.Property->GetFullName() );
+				return;
+			}
+
+			if ( (Parents[Cmd.ParentIndex].Flags & ParentPropertyFlags) == ERepParentFlags::None )
+			{
+				return;
+			}
+
+			StoreProperty( Cmd, (void*)( Data + Cmd.Offset ), (const void*)( ShadowData + Cmd.Offset ) );
+
+			if ( RepNotifies && Parent.Property->HasAnyPropertyFlags( CPF_RepNotify ) )
+			{
+				RepNotifies->AddUnique( Parent.Property );
+			}
+		}
+		else
+		{
+			UE_CLOG( LogSkippedRepNotifies > 0, LogRep, Display, TEXT( "FDiffPropertiesImpl: Skipping RepNotify because values are the same: %s" ), *Cmd.Property->GetFullName() );
+		}
+	}
+
+	bool IsDifferent() const { return bDifferent; }
+
+private:
+	EDiffPropertiesFlags	Flags;
+	ERepParentFlags			ParentPropertyFlags;
+	TArray< UProperty * >*	RepNotifies;
+	bool					bDifferent;
+};
+
+bool FRepLayout::DiffProperties( TArray<UProperty*>* RepNotifies, void* RESTRICT Destination, const void* RESTRICT Source, const bool bSync ) const
+{
+	return DiffProperties(RepNotifies, Destination, Source, bSync ? EDiffPropertiesFlags::Sync : EDiffPropertiesFlags::None);
+}
+
+bool FRepLayout::DiffProperties( TArray<UProperty*>* RepNotifies, void* RESTRICT Destination, const void* RESTRICT Source, const EDiffPropertiesFlags Flags ) const
+{
+	FDiffPropertiesImpl DiffPropertiesImpl( Flags, RepNotifies, Parents, Cmds );
+
+	DiffPropertiesImpl.ProcessCmds( (uint8*)Destination, (uint8*)Source );
+
+	return DiffPropertiesImpl.IsDifferent();
+}
+
+class FDiffStablePropertiesImpl : public FRepLayoutCmdIterator< FDiffStablePropertiesImpl, FCmdIteratorBaseStackState >
+{
+public:
+	FDiffStablePropertiesImpl( TArray<UProperty*>* InRepNotifies, TArray<UObject*>* InObjReferences, const TArray< FRepParentCmd >& InParents, const TArray< FRepLayoutCmd >& InCmds ) : 
+		FRepLayoutCmdIterator( InParents, InCmds ),
+		RepNotifies(InRepNotifies),
+		ObjReferences(InObjReferences),
 		bDifferent( false )
 	{}
 
@@ -2790,12 +2905,6 @@ public:
 		if ( StackState.DataArray->Num() != StackState.ShadowArray->Num() )
 		{
 			bDifferent = true;
-
-			if ( !bSync )
-			{			
-				UE_LOG( LogRep, Warning, TEXT( "FDiffPropertiesImpl: Array sizes different: %s %i / %i" ), *Cmd.Property->GetFullName(), StackState.DataArray->Num(), StackState.ShadowArray->Num() );
-				return;
-			}
 
 			if ( (Parents[Cmd.ParentIndex].Flags & ERepParentFlags::IsLifetime) == ERepParentFlags::None )
 			{
@@ -2820,20 +2929,39 @@ public:
 		const FRepParentCmd& Parent = Parents[Cmd.ParentIndex];
 
 		// Make the shadow state match the actual state at the time of send
-		if ( Parent.RepNotifyCondition == REPNOTIFY_Always || !PropertiesAreIdentical( Cmd, (const void*)( Data + Cmd.Offset ), (const void*)( ShadowData + Cmd.Offset ) ) )
+		if ( !PropertiesAreIdentical( Cmd, (const void*)( Data + Cmd.Offset ), (const void*)( ShadowData + Cmd.Offset ) ) )
 		{
 			bDifferent = true;
-
-			if ( !bSync )
-			{			
-				UE_LOG( LogRep, Warning, TEXT( "FDiffPropertiesImpl: Property different: %s" ), *Cmd.Property->GetFullName() );
-				return;
-			}
 
 			if ( (Parent.Flags & ERepParentFlags::IsLifetime) == ERepParentFlags::None )
 			{
 				// Currently, only lifetime properties init from their defaults
 				return;
+			}
+
+			if (Cmd.Property->HasAnyPropertyFlags(CPF_Transient))
+			{
+				// skip transient properties
+				return;
+			}
+
+			if (Cmd.Type == ERepLayoutCmdType::PropertyObject)
+			{
+				UObjectPropertyBase * ObjProperty = CastChecked< UObjectPropertyBase>( Cmd.Property );
+				if (ObjProperty)
+				{
+					UObject* ObjValue = ObjProperty->GetObjectPropertyValue( (const void*)( ShadowData + Cmd.Offset ) );
+					if (ObjValue && !ObjValue->IsNameStableForNetworking())
+					{
+						// skip object references without a stable name
+						return;
+					}
+
+					if (ObjValue && ObjReferences)
+					{
+						ObjReferences->AddUnique(ObjValue);
+					}
+				}
 			}
 
 			StoreProperty( Cmd, (void*)( Data + Cmd.Offset ), (const void*)( ShadowData + Cmd.Offset ) );
@@ -2843,20 +2971,16 @@ public:
 				RepNotifies->AddUnique( Parent.Property );
 			}
 		}
-		else
-		{
-			UE_CLOG( LogSkippedRepNotifies > 0, LogRep, Display, TEXT( "FDiffPropertiesImpl: Skipping RepNotify because values are the same: %s" ), *Cmd.Property->GetFullName() );
-		}
 	}
 
-	bool					bSync;
-	TArray< UProperty * >*	RepNotifies;
-	bool					bDifferent;
+	TArray<UProperty*>* RepNotifies;
+	TArray<UObject*>* ObjReferences;
+	bool bDifferent;
 };
 
-bool FRepLayout::DiffProperties( TArray<UProperty*>* RepNotifies, void* RESTRICT Destination, const void* RESTRICT Source, const bool bSync ) const
-{	
-	FDiffPropertiesImpl DiffPropertiesImpl( bSync, RepNotifies, Parents, Cmds );
+bool FRepLayout::DiffStableProperties( TArray<UProperty*>* RepNotifies, TArray<UObject*>* ObjReferences, void* RESTRICT Destination, const void* RESTRICT Source ) const
+{
+	FDiffStablePropertiesImpl DiffPropertiesImpl( RepNotifies, ObjReferences, Parents, Cmds );
 
 	DiffPropertiesImpl.ProcessCmds( (uint8*)Destination, (uint8*)Source );
 
@@ -3387,6 +3511,7 @@ void FRepLayout::SerializeProperties_r(
 		// Not concerned with unmapped guids because object references can't be shared
 		if (SharedPropInfo)
 		{
+			GNumSharedSerializationHit++;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 			if (CVarNetVerifyShareSerializedData->GetInt() != 0 && Ar.IsSaving())
 			{
@@ -3418,6 +3543,7 @@ void FRepLayout::SerializeProperties_r(
 		}
 		else
 		{
+			GNumSharedSerializationMiss++;
 			if ( !Cmd.Property->NetSerializeItem( Ar, Map, (void*)( (uint8*)Data + Cmd.Offset ) ) )
 			{
 				bHasUnmapped = true;
@@ -3623,7 +3749,7 @@ void FRepLayout::ClearSharedSerializationForRPC()
 	SharedInfoRPCParentsChanged.Reset();
 }
 
-void FRepLayout::SendPropertiesForRPC( UObject* Object, UFunction * Function, UActorChannel * Channel, FNetBitWriter & Writer, void* Data ) const
+void FRepLayout::SendPropertiesForRPC( UFunction * Function, UActorChannel * Channel, FNetBitWriter & Writer, void* Data ) const
 {
 	check( Function == Owner );
 
@@ -3836,7 +3962,7 @@ void FRepLayout::InitChangedTracker(FRepChangedPropertyTracker * ChangedTracker)
 void FRepLayout::InitShadowData(
 	TArray< uint8, TAlignedHeapAllocator<16> >&	ShadowData,
 	UClass *									InObjectClass,
-	uint8 *										Src ) const
+	const uint8 * const							Src ) const
 {
 	ShadowData.Empty();
 	ShadowData.AddZeroed( InObjectClass->GetDefaultsCount() );
@@ -3851,7 +3977,7 @@ void FRepLayout::InitShadowData(
 void FRepLayout::InitRepState(
 	FRepState*									RepState,
 	UClass *									InObjectClass, 
-	uint8 *										Src, 
+	const uint8 * const							Src, 
 	TSharedPtr< FRepChangedPropertyTracker > &	InRepChangedPropertyTracker ) const
 {
 	InitShadowData( RepState->StaticBuffer, InObjectClass, Src );
@@ -3883,7 +4009,7 @@ void FRepLayout::ConstructProperties( TArray< uint8, TAlignedHeapAllocator<16> >
 	}
 }
 
-void FRepLayout::InitProperties( TArray< uint8, TAlignedHeapAllocator<16> >& ShadowData, uint8* Src ) const
+void FRepLayout::InitProperties( TArray< uint8, TAlignedHeapAllocator<16> >& ShadowData, const uint8* const Src ) const
 {
 	LLM_SCOPE(ELLMTag::Networking);
 

@@ -160,3 +160,16 @@ struct PROJECTS_API FModuleDescriptor
 	static bool CheckModuleCompatibility(const TArray<FModuleDescriptor>& Modules, TArray<FString>& OutIncompatibleFiles);
 #endif
 };
+
+/** Context information used when validating that source code is being placed in the correct place for a given module */
+struct FModuleContextInfo
+{
+	/** Path to the Source folder of the module */
+	FString ModuleSourcePath;
+
+	/** Name of the module */
+	FString ModuleName;
+
+	/** Type of this module, eg, Runtime, Editor, etc */
+	EHostType::Type ModuleType;
+};

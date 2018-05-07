@@ -318,6 +318,7 @@ namespace UnrealBuildTool
 			LibraryPaths.AddRange(Other.LibraryPaths);
 			ExcludedLibraries.AddRange(Other.ExcludedLibraries);
 			AdditionalLibraries.AddRange(Other.AdditionalLibraries);
+			RuntimeDependencies.AddRange(Other.RuntimeDependencies);
 			Frameworks.AddRange(Other.Frameworks);
 			AdditionalShadowFiles.AddRange(Other.AdditionalShadowFiles);
 			AdditionalFrameworks.AddRange(Other.AdditionalFrameworks);

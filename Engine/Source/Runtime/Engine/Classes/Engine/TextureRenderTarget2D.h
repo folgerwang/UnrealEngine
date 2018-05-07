@@ -81,7 +81,7 @@ class UTextureRenderTarget2D : public UTextureRenderTarget
 	int32 SizeY;
 
 	/** the color the texture is cleared to */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = TextureRenderTarget2D)
 	FLinearColor ClearColor;
 
 	/** The addressing mode to use for the X axis. */

@@ -1344,7 +1344,7 @@ FArchive& operator<<(FArchive& Ar, FMeshBuildSettings& BuildSettings)
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define STATICMESH_DERIVEDDATA_VER TEXT("8E0EA6DAF46E4FD1BADBA2C47F334FB9")
+#define STATICMESH_DERIVEDDATA_VER TEXT("C6BBBFF508784DAF85A95B95DC33FF82")
 
 static const FString& GetStaticMeshDerivedDataVersion()
 {
@@ -2584,26 +2584,6 @@ static FStaticMeshRenderData& GetPlatformStaticMeshRenderData(UStaticMesh* Mesh,
 
 #if WITH_EDITORONLY_DATA
 
-UMeshDescription* UStaticMesh::GetMeshDescription(int32 LodIndex) const
-{
-	if (!MeshDescriptions.IsValidIndex(LodIndex))
-	{
-		return nullptr;
-	}
-	return MeshDescriptions[LodIndex];
-}
-
-void UStaticMesh::SetMeshDescription(int32 LodIndex, class UMeshDescription* InMeshDescription)
-{
-	if (!MeshDescriptions.IsValidIndex(LodIndex) && LodIndex >= 0)
-	{
-		//Add nullptr missing entries
-		MeshDescriptions.AddZeroed(LodIndex - MeshDescriptions.Num() + 1);
-	}
-	//Set the original mesh description
-	MeshDescriptions[LodIndex] = InMeshDescription;
-}
-
 UMeshDescription* UStaticMesh::GetOriginalMeshDescription(int32 LodIndex)
 {
 	if (SourceModels.IsValidIndex(LodIndex))
@@ -2700,7 +2680,7 @@ void UStaticMesh::FixupMaterialSlotName()
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("97E0546FA0D747F4A1C78EC1EDF24CB3")
+#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("22DF8DBA439A45E0A0745FBE8415CEA2")
 
 static const FString& GetMeshDataKeyStaticMeshDerivedDataVersion()
 {

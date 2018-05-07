@@ -566,7 +566,7 @@ public:
 	 * @param Thickness					How many pixels thick the box lines should be.
 	 */
 	UFUNCTION(BlueprintCallable, Category=Canvas, meta=(DisplayName="Draw Box", ScriptName="DrawBox"))
-	void K2_DrawBox(FVector2D ScreenPosition, FVector2D ScreenSize, float Thickness=1.0f);
+	void K2_DrawBox(FVector2D ScreenPosition, FVector2D ScreenSize, float Thickness=1.0f, FLinearColor RenderColor=FLinearColor::White);
 
 	/**
 	 * Draws a set of triangles on the Canvas.

@@ -339,12 +339,42 @@ void FVulkanDynamicRHI::CreateInstance()
 	}
 	else if(Result == VK_ERROR_EXTENSION_NOT_PRESENT)
 	{
-		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, TEXT(
-			"Vulkan driver doesn't contain specified extension;\n"
-			"make sure your layers path is set appropriately."), TEXT("Incomplete Vulkan driver found!"));
-		FPlatformMisc::RequestExitWithStatus(true, 1);
-		// unreachable
-		return;
+		// Check for missing extensions 
+		FString MissingExtensions;
+
+		uint32_t PropertyCount;
+		VulkanRHI::vkEnumerateInstanceExtensionProperties(nullptr, &PropertyCount, nullptr);
+
+		TArray<VkExtensionProperties> Properties;
+		Properties.SetNum(PropertyCount);
+		VulkanRHI::vkEnumerateInstanceExtensionProperties(nullptr, &PropertyCount, Properties.GetData());
+
+		for (const ANSICHAR* Extension : InstanceExtensions)
+		{
+			bool bExtensionFound = false;
+
+			for (uint32_t PropertyIndex = 0; PropertyIndex < PropertyCount; PropertyIndex++)
+			{
+				const char* PropertyExtensionName = Properties[PropertyIndex].extensionName;
+
+				if (!FCStringAnsi::Strcmp(PropertyExtensionName, Extension))
+				{
+					bExtensionFound = true;
+					break;
+				}
+			}
+
+			if (!bExtensionFound)
+			{
+				FString ExtensionStr = ANSI_TO_TCHAR(Extension);
+				UE_LOG(LogVulkanRHI, Error, TEXT("Missing required Vulkan extension: %s"), *ExtensionStr);
+				MissingExtensions += ExtensionStr + TEXT("\n");
+			}
+		}
+
+		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *FString::Printf(TEXT(
+			"Vulkan driver doesn't contain specified extensions:\n%s;\n\
+			make sure your layers path is set appropriately."), *MissingExtensions), TEXT("Incomplete Vulkan driver found!"));
 	}
 	else if (Result != VK_SUCCESS)
 	{

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "UnitTests/UTT61_DebugReplicateData.h"
+#include "UnitTests/Obsolete/UTT61_DebugReplicateData.h"
 #include "UObject/Package.h"
 
 
@@ -46,6 +46,10 @@ UUTT61_DebugReplicateData::UUTT61_DebugReplicateData(const FObjectInitializer& O
 	SetFlags<EUnitTestFlags::LaunchServer | EUnitTestFlags::AcceptPlayerController | EUnitTestFlags::RequirePlayerController |
 				EUnitTestFlags::ExpectServerCrash | EUnitTestFlags::ExpectDisconnect,
 				EMinClientFlags::AcceptActors | EMinClientFlags::NotifyNetActors | EMinClientFlags::SendRPCs>();
+
+
+	// This unit test is based on a class which no longer exists
+	bObsolete = true;
 }
 
 void UUTT61_DebugReplicateData::InitializeEnvironmentSettings()

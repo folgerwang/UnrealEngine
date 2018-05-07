@@ -4,9 +4,8 @@
 
 #include "CoreTypes.h"
 #include "Math/Vector2D.h"
-#include "Math/IntRect.h"
 #include "GenericPlatform/ICursor.h"
-#include "Linux/LinuxWindow.h"
+#include "SDL.h"
 
 typedef SDL_Cursor*		SDL_HCursor;
 
@@ -45,8 +44,6 @@ public:
 	 */
 	virtual void SetCustomShape( SDL_HCursor CursorHandle );
 
-	bool UpdateCursorClipping( FVector2D& CursorPosition );
-
 	bool IsHidden();
 
 	/**
@@ -68,7 +65,7 @@ private:
 	/** Override Cursors */
 	SDL_HCursor CursorOverrideHandles[ EMouseCursor::TotalCursorCount ];
 
-	FIntRect CursorClipRect;
+	SDL_Rect CursorClipRect;
 
 	uint32 CursorEvent;
 

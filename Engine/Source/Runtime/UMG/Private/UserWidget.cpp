@@ -1075,32 +1075,35 @@ void UUserWidget::RemoveFromViewport()
 
 void UUserWidget::RemoveFromParent()
 {
-	if ( FullScreenWidget.IsValid() )
+	if (!HasAnyFlags(RF_BeginDestroyed))
 	{
-		TSharedPtr<SWidget> WidgetHost = FullScreenWidget.Pin();
-
-		// If this is a game world add the widget to the current worlds viewport.
-		UWorld* World = GetWorld();
-		if ( World && World->IsGameWorld() )
+		if (FullScreenWidget.IsValid())
 		{
-			if ( UGameViewportClient* ViewportClient = World->GetGameViewport() )
+			TSharedPtr<SWidget> WidgetHost = FullScreenWidget.Pin();
+
+			// If this is a game world add the widget to the current worlds viewport.
+			UWorld* World = GetWorld();
+			if (World && World->IsGameWorld())
 			{
-				TSharedRef<SWidget> WidgetHostRef = WidgetHost.ToSharedRef();
-
-				ViewportClient->RemoveViewportWidgetContent(WidgetHostRef);
-
-				if ( ULocalPlayer* LocalPlayer = GetOwningLocalPlayer() )
+				if (UGameViewportClient* ViewportClient = World->GetGameViewport())
 				{
-					ViewportClient->RemoveViewportWidgetForPlayer(LocalPlayer, WidgetHostRef);
-				}
+					TSharedRef<SWidget> WidgetHostRef = WidgetHost.ToSharedRef();
 
-				FWorldDelegates::LevelRemovedFromWorld.RemoveAll(this);
+					ViewportClient->RemoveViewportWidgetContent(WidgetHostRef);
+
+					if (ULocalPlayer* LocalPlayer = GetOwningLocalPlayer())
+					{
+						ViewportClient->RemoveViewportWidgetForPlayer(LocalPlayer, WidgetHostRef);
+					}
+
+					FWorldDelegates::LevelRemovedFromWorld.RemoveAll(this);
+				}
 			}
 		}
-	}
-	else
-	{
-		Super::RemoveFromParent();
+		else
+		{
+			Super::RemoveFromParent();
+		}
 	}
 }
 

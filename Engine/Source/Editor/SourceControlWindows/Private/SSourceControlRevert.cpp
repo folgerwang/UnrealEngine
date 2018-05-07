@@ -95,11 +95,11 @@ public:
 	//* @param	InPackageNames	Names of the packages to be potentially reverted
 	SLATE_BEGIN_ARGS( SSourceControlRevertWidget )
 		: _ParentWindow()
-		, _CheckedOutPackages()
+		, _PackagesToRevert()
 	{}
 
 		SLATE_ATTRIBUTE( TSharedPtr<SWindow>, ParentWindow )	
-		SLATE_ATTRIBUTE( TArray<FString>, CheckedOutPackages )
+		SLATE_ATTRIBUTE( TArray<FString>, PackagesToRevert )
 
 	SLATE_END_ARGS()
 
@@ -115,7 +115,7 @@ public:
 	{
 		ParentFrame = InArgs._ParentWindow.Get();
 
-		for ( TArray<FString>::TConstIterator PackageIter( InArgs._CheckedOutPackages.Get() ); PackageIter; ++PackageIter )
+		for ( TArray<FString>::TConstIterator PackageIter( InArgs._PackagesToRevert.Get() ); PackageIter; ++PackageIter )
 		{
 			ListViewItemSource.Add( MakeShareable(new FRevertCheckBoxListViewItem(*PackageIter) ));
 		}
@@ -403,19 +403,19 @@ bool FSourceControlWindows::PromptForRevert( const TArray<FString>& InPackageNam
 
 	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
 
-	// Only add packages that are actually already checked out to the prompt
-	TArray<FString> CheckedOutPackages;
+	// Only add packages that can actually be reverted
+	TArray<FString> InitialPackagesToRevert;
 	for ( TArray<FString>::TConstIterator PackageIter( InPackageNames ); PackageIter; ++PackageIter )
 	{
 		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(SourceControlHelpers::PackageFilename(*PackageIter), EStateCacheUsage::Use);
-		if( SourceControlState.IsValid() && SourceControlState->CanCheckIn() )
+		if( SourceControlState.IsValid() && SourceControlState->CanRevert() )
 		{
-			CheckedOutPackages.Add( *PackageIter );
+			InitialPackagesToRevert.Add( *PackageIter );
 		}
 	}
 
-	// If any of the packages are checked out, provide the revert prompt
-	if ( CheckedOutPackages.Num() > 0 )
+	// If any of the packages can be reverted, provide the revert prompt
+	if (InitialPackagesToRevert.Num() > 0 )
 	{
 		TSharedRef<SWindow> NewWindow = SNew(SWindow)
 			.Title( NSLOCTEXT("SourceControl.RevertWindow", "Title", "Revert Files") )
@@ -426,7 +426,7 @@ bool FSourceControlWindows::PromptForRevert( const TArray<FString>& InPackageNam
 		TSharedRef<SSourceControlRevertWidget> SourceControlWidget = 
 			SNew(SSourceControlRevertWidget)
 			.ParentWindow(NewWindow)
-			.CheckedOutPackages(CheckedOutPackages);
+			.PackagesToRevert(InitialPackagesToRevert);
 
 		NewWindow->SetContent(SourceControlWidget);
 
@@ -435,9 +435,9 @@ bool FSourceControlWindows::PromptForRevert( const TArray<FString>& InPackageNam
 		// If the user decided to revert some packages, go ahead and do revert the ones they selected
 		if ( SourceControlWidget->GetResult() == ERevertResults::REVERT_ACCEPTED )
 		{
-			TArray<FString> PackagesToRevert;
-			SourceControlWidget->GetPackagesToRevert( PackagesToRevert );
-			if (PackagesToRevert.Num() > 0)
+			TArray<FString> FinalPackagesToRevert;
+			SourceControlWidget->GetPackagesToRevert(FinalPackagesToRevert);
+			if (FinalPackagesToRevert.Num() > 0)
 			{
 				// attempt to unload the packages we are about to revert
 				TArray<UPackage*> LoadedPackages;
@@ -450,7 +450,7 @@ bool FSourceControlWindows::PromptForRevert( const TArray<FString>& InPackageNam
 					}
 				}
 
-				const TArray<FString> RevertPackageFilenames = SourceControlHelpers::PackageFilenames(PackagesToRevert);
+				const TArray<FString> RevertPackageFilenames = SourceControlHelpers::PackageFilenames(FinalPackagesToRevert);
 
 				// Prepare the packages to be reverted...
 				for (UPackage* Package : LoadedPackages)

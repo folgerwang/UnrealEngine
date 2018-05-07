@@ -227,11 +227,11 @@ public:
 	bool PIEAlwaysOnTop;
 
 	/** The width of the new view port window in pixels (0 = use the desktop's screen resolution). */
-	UPROPERTY(config, EditAnywhere, Category=PlayInNewWindow)
+	UPROPERTY(config, EditAnywhere, Category=PlayInNewWindow, meta=(ClampMin=0))
 	int32 NewWindowWidth;
 
 	/** The height of the new view port window in pixels (0 = use the desktop's screen resolution). */
-	UPROPERTY(config, EditAnywhere, Category=PlayInNewWindow)
+	UPROPERTY(config, EditAnywhere, Category=PlayInNewWindow, meta=(ClampMin=0))
 	int32 NewWindowHeight;
 
 	/** The position of the new view port window on the screen in pixels. */
@@ -245,11 +245,11 @@ public:
 public:
 
 	/** The width of the standalone game window in pixels (0 = use the desktop's screen resolution). */
-	UPROPERTY(config, EditAnywhere, Category=PlayInStandaloneGame)
+	UPROPERTY(config, EditAnywhere, Category=PlayInStandaloneGame, meta=(ClampMin = 0))
 	int32 StandaloneWindowWidth;
 
 	/** The height of the standalone game window in pixels (0 = use the desktop's screen resolution). */
-	UPROPERTY(config, EditAnywhere, Category=PlayInStandaloneGame)
+	UPROPERTY(config, EditAnywhere, Category=PlayInStandaloneGame, meta=(ClampMin = 0))
 	int32 StandaloneWindowHeight;
 
 	/** The position of the standalone game window on the screen in pixels. */
@@ -308,7 +308,7 @@ private:
 	uint16 ServerPort;
 
 	/** Width to use when spawning additional windows. */
-	UPROPERTY(config, EditAnywhere, Category=MultiplayerOptions)
+	UPROPERTY(config, EditAnywhere, Category=MultiplayerOptions, meta=(ClampMin=0))
 	int32 ClientWindowWidth;
 	
 	/**
@@ -340,7 +340,7 @@ private:
 	bool CreateAudioDeviceForEveryPlayer;
 
 	/** Height to use when spawning additional windows. */
-	UPROPERTY(config, EditAnywhere, Category=MultiplayerOptions)
+	UPROPERTY(config, EditAnywhere, Category=MultiplayerOptions, meta=(ClampMin = 0))
 	int32 ClientWindowHeight;
 
 	/** Additional options that will be passed to the server as URL parameters, in the format ?bIsLanMatch=1?listen - any additional command line switches should be passed in the Command Line Arguments field below. */
@@ -459,5 +459,7 @@ public:
 
 	// UObject interface
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostInitProperties() override;
 	// End of UObject interface
 };
+

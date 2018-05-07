@@ -289,6 +289,9 @@ private:
 
 	/** The current preview widget's slate widget */
 	TWeakPtr<SWidget> PreviewSlateWidget;
+
+	/** Cache last mouse position to be used as a paste drop location */
+	FVector2D CachedMousePosition;
 	
 	struct FDropPreview
 	{

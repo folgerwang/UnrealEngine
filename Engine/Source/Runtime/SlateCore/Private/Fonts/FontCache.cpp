@@ -727,8 +727,6 @@ FSlateFontCache::FSlateFontCache( TSharedRef<ISlateFontAtlasFactory> InFontAtlas
 	, MaxNonAtlasedTexturesBeforeFlushRequest( 1 )
 	, FrameCounterLastFlushRequest( 0 )
 {
-	UE_LOG(LogSlate, Log, TEXT("SlateFontCache - WITH_FREETYPE: %d, WITH_HARFBUZZ: %d"), WITH_FREETYPE, WITH_HARFBUZZ);
-
 	FInternationalization::Get().OnCultureChanged().AddRaw(this, &FSlateFontCache::HandleCultureChanged);
 }
 
@@ -1008,6 +1006,16 @@ bool FSlateFontCache::HasKerning( const FFontData& InFontData ) const
 const TSet<FName>& FSlateFontCache::GetFontAttributes( const FFontData& InFontData ) const
 {
 	return CompositeFontCache->GetFontAttributes(InFontData);
+}
+
+TArray<FString> FSlateFontCache::GetAvailableFontSubFaces(FFontFaceDataConstRef InMemory) const
+{
+	return FFreeTypeFace::GetAvailableSubFaces(FTLibrary.Get(), InMemory);
+}
+
+TArray<FString> FSlateFontCache::GetAvailableFontSubFaces(const FString& InFilename) const
+{
+	return FFreeTypeFace::GetAvailableSubFaces(FTLibrary.Get(), InFilename);
 }
 
 uint16 FSlateFontCache::GetLocalizedFallbackFontRevision() const

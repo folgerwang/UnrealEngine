@@ -21,6 +21,16 @@ FAutoConsoleVariableRef CVarOutlineFontRenderMethod(
 	OutlineFontRenderMethod,
 	TEXT("Changes the render method for outline fonts.  0 = freetype does everything and generates a bitmap for the base glyph (default).  1 = We override the freetype rasterizer.  Can help with some rendering anomalies on complicated fonts."));
 
+/**
+ * Enable or disable anti-aliasing for font rendering.
+ * Note: The font cache must be flushed if changing this in the middle of a running instance
+ */ 
+static int32 EnableFontAntiAliasing = 1;
+FAutoConsoleVariableRef CVarEnableFontAntiAliasing(
+	TEXT("Slate.EnableFontAntiAliasing"),
+	EnableFontAntiAliasing,
+	TEXT("Enable or disable anti-aliasing for font rendering (0 = off, 1 = on). Enabled by default."));
+
 namespace SlateFontRendererUtils
 {
 
@@ -31,14 +41,21 @@ void AppendGlyphFlags(const FFontData& InFontData, uint32& InOutGlyphFlags)
 	// Setup additional glyph flags
 	InOutGlyphFlags |= GlobalGlyphFlags;
 
-	switch(InFontData.GetHinting())
+	if(EnableFontAntiAliasing)
 	{
-	case EFontHinting::Auto:		InOutGlyphFlags |= FT_LOAD_FORCE_AUTOHINT; break;
-	case EFontHinting::AutoLight:	InOutGlyphFlags |= FT_LOAD_TARGET_LIGHT; break;
-	case EFontHinting::Monochrome:	InOutGlyphFlags |= FT_LOAD_TARGET_MONO | FT_LOAD_FORCE_AUTOHINT; break;
-	case EFontHinting::None:		InOutGlyphFlags |= FT_LOAD_NO_AUTOHINT | FT_LOAD_NO_HINTING; break;
-	case EFontHinting::Default:
-	default:						InOutGlyphFlags |= FT_LOAD_TARGET_NORMAL; break;
+		switch(InFontData.GetHinting())
+		{
+		case EFontHinting::Auto:		InOutGlyphFlags |= FT_LOAD_FORCE_AUTOHINT; break;
+		case EFontHinting::AutoLight:	InOutGlyphFlags |= FT_LOAD_TARGET_LIGHT; break;
+		case EFontHinting::Monochrome:	InOutGlyphFlags |= FT_LOAD_TARGET_MONO | FT_LOAD_FORCE_AUTOHINT; break;
+		case EFontHinting::None:		InOutGlyphFlags |= FT_LOAD_NO_AUTOHINT | FT_LOAD_NO_HINTING; break;
+		case EFontHinting::Default:
+		default:						InOutGlyphFlags |= FT_LOAD_TARGET_NORMAL; break;
+		}
+	}
+	else
+	{
+		InOutGlyphFlags |= FT_LOAD_TARGET_MONO | FT_LOAD_FORCE_AUTOHINT;
 	}
 }
 
@@ -357,8 +374,6 @@ bool FSlateFontRenderer::GetRenderDataInternal(const FFreeTypeFaceGlyphData& InF
 {
 	FT_Face Face = InFaceGlyphData.FaceAndMemory->GetFace();
 
-	FT_Bitmap* Bitmap = nullptr;
-
 	// Get the lot for the glyph.  This contains measurement info
 	FT_GlyphSlot Slot = Face->glyph;
 
@@ -465,69 +480,61 @@ bool FSlateFontRenderer::GetRenderDataInternal(const FFreeTypeFaceGlyphData& InF
 		FT_Done_Glyph(Glyph);
 
 		// Note: in order to render the stroke properly AND to get proper measurements this must be done after rendering the stroke
-		FT_Render_Glyph(Slot, FT_RENDER_MODE_NORMAL);
+		FT_Render_Glyph(Slot, EnableFontAntiAliasing ? FT_RENDER_MODE_NORMAL : FT_RENDER_MODE_MONO);
 	}
 	else
 	{
 		// This path renders a standard font with no outline.  This may occur if the outline failed to generate
+		FT_Render_Glyph(Slot, EnableFontAntiAliasing ? FT_RENDER_MODE_NORMAL : FT_RENDER_MODE_MONO);
 
-		FT_Render_Glyph(Slot, FT_RENDER_MODE_NORMAL);
-
-		// one byte per pixel 
-		const uint32 GlyphPixelSize = 1;
-
-		FT_Bitmap NewBitmap;
-		if(Slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO)
+		FT_Bitmap* Bitmap = nullptr;
+		FT_Bitmap TmpBitmap;
+		if(Slot->bitmap.pixel_mode != FT_PIXEL_MODE_GRAY)
 		{
-			FT_Bitmap_New(&NewBitmap);
-			// Convert the mono font to 8bbp from 1bpp
-			FT_Bitmap_Convert(FTLibrary->GetLibrary(), &Slot->bitmap, &NewBitmap, 4);
-
-			Bitmap = &NewBitmap;
+			// Convert the bitmap to 8bpp grayscale
+			FT_Bitmap_New(&TmpBitmap);
+			FT_Bitmap_Convert(FTLibrary->GetLibrary(), &Slot->bitmap, &TmpBitmap, 4);
+			Bitmap = &TmpBitmap;
 		}
 		else
 		{
 			Bitmap = &Slot->bitmap;
 		}
+		check(Bitmap && Bitmap->pixel_mode == FT_PIXEL_MODE_GRAY);
 
 		OutRenderData.RawPixels.Reset();
 		OutRenderData.RawPixels.AddUninitialized(Bitmap->rows * Bitmap->width);
-
 
 		// Nothing to do for zero width or height glyphs
 		if(OutRenderData.RawPixels.Num())
 		{
 			// Copy the rendered bitmap to our raw pixels array
-			if(Bitmap->pixel_mode != FT_PIXEL_MODE_MONO)
+			// This code assumes we're dealing with an 8bpp grayscale image (as asserted above)
+			for(uint32 Row = 0; Row < (uint32)Bitmap->rows; ++Row)
 			{
-				for(uint32 Row = 0; Row < (uint32)Bitmap->rows; ++Row)
-				{
-					// Copy a single row. Note Bitmap.pitch contains the offset (in bytes) between rows.  Not always equal to Bitmap.width!
-					FMemory::Memcpy(&OutRenderData.RawPixels[Row*Bitmap->width], &Bitmap->buffer[Row*Bitmap->pitch], Bitmap->width*GlyphPixelSize);
-				}
-
+				// Copy a single row. Note Bitmap.pitch contains the offset (in bytes) between rows.  Not always equal to Bitmap.width!
+				FMemory::Memcpy(&OutRenderData.RawPixels[Row*Bitmap->width], &Bitmap->buffer[Row*Bitmap->pitch], Bitmap->width);
 			}
-			else
+
+			// Grayscale images not using 256 colors need to convert their gray range to a 0-255 range
+			if(Bitmap->num_grays != 256)
 			{
-				// In Mono a value of 1 means the pixel is drawn and a value of zero means it is not. 
-				// So we must check each pixel and convert it to a color.
-				for(uint32 Height = 0; Height < (uint32)Bitmap->rows; ++Height)
+				const int32 GrayBoost = 255 / (Bitmap->num_grays - 1);
+				for(uint8& RawPixel : OutRenderData.RawPixels)
 				{
-					for(uint32 Width = 0; Width < (uint32)Bitmap->width; ++Width)
-					{
-						OutRenderData.RawPixels[Height*Bitmap->width+Width] = Bitmap->buffer[Height*Bitmap->pitch+Width] == 1 ? 255 : 0;
-					}
+					RawPixel *= GrayBoost;
 				}
 			}
 		}
 
-		if(Bitmap->pixel_mode == FT_PIXEL_MODE_MONO)
-		{
-			FT_Bitmap_Done(FTLibrary->GetLibrary(), Bitmap);
-
-		}
 		OutRenderData.MeasureInfo.SizeX = Bitmap->width;
 		OutRenderData.MeasureInfo.SizeY = Bitmap->rows;
+
+		if(Bitmap == &TmpBitmap)
+		{
+			FT_Bitmap_Done(FTLibrary->GetLibrary(), Bitmap);
+			Bitmap = nullptr;
+		}
 
 		// Reset the outline to zero.  If we are in this path, either the outline failed to generate because the font supported or there is no outline
 		// We do not want to take it into account if it failed to generate

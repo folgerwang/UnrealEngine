@@ -424,9 +424,10 @@ void FLinuxWindow::Destroy()
 	OwningApplication->RemoveEventWindow( HWnd );
 	OwningApplication->RemoveNotificationWindow( HWnd );
 
-	// We cannot destroy the window right now as it may be accessed by render thread, since Slate queued it for drawing earlier.
-	// To make sure no window gets destroyed while we're blitting into it, defer destroying the window to the app.
-	OwningApplication->DestroyNativeWindow(HWnd);
+	UE_LOG(LogLinuxWindow, Verbose, TEXT("Destroying SDL Window '%p'\n"), HWnd);
+
+	SDL_DestroyWindow( HWnd );
+	HWnd = nullptr;
 }
 
 /** Native window should implement this function by performing the equivalent of the Win32 minimize-to-taskbar operation */

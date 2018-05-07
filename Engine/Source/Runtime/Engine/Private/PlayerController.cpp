@@ -612,7 +612,7 @@ void APlayerController::ForceSingleNetUpdateFor(AActor* Target)
 				Conn = ((UChildConnection*)Conn)->Parent;
 				checkSlow(Conn != NULL);
 			}
-			UActorChannel* Channel = Conn->ActorChannels.FindRef(Target);
+			UActorChannel* Channel = Conn->FindActorChannelRef(Target);
 			if (Channel != NULL)
 			{
 				FNetworkObjectInfo* NetActor = Target->FindOrAddNetworkObjectInfo();
@@ -712,7 +712,7 @@ void APlayerController::ClientRestart_Implementation(APawn* NewPawn)
 	AcknowledgedPawn = NULL;
 
 	SetPawn(NewPawn);
-	if ( (GetPawn() != NULL) && GetPawn()->bTearOff )
+	if ( (GetPawn() != NULL) && GetPawn()->GetTearOff() )
 	{
 		UnPossess();
 		SetPawn(NULL);

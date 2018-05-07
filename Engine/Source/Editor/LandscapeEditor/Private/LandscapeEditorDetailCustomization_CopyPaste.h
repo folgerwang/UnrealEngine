@@ -25,15 +25,23 @@ public:
 	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
 public:
-	static FReply OnCopyToGizmoButtonClicked();
-	static FReply OnFitGizmoToSelectionButtonClicked();
-	static FReply OnFitHeightsToGizmoButtonClicked();
-	static FReply OnClearGizmoDataButtonClicked();
-	static FReply OnGizmoHeightmapFilenameButtonClicked(TSharedRef<IPropertyHandle> HeightmapPropertyHandle);
+	FReply OnCopyToGizmoButtonClicked();
+	FReply OnFitGizmoToSelectionButtonClicked();
+	FReply OnFitHeightsToGizmoButtonClicked();
+	FReply OnClearGizmoDataButtonClicked();
+	FReply OnGizmoHeightmapFilenameButtonClicked(TSharedRef<IPropertyHandle> HeightmapPropertyHandle);
 
 	bool GetGizmoImportButtonIsEnabled() const;
+	bool GetGizmoGuessSizeButtonIsEnabled() const;
+
 	FReply OnGizmoImportButtonClicked();
 	FReply OnGizmoExportButtonClicked();
+
+private:
+	TArray<TSharedPtr<FString>> GuessedDimensionComboList;
+	FString CurrentGuessedDimension;
+
+	void GenerateGuessDimensionList();
 };
 
 class FLandscapeEditorStructCustomization_FGizmoImportLayer : public FLandscapeEditorStructCustomization_Base
@@ -45,5 +53,5 @@ public:
 	virtual void CustomizeChildren(TSharedRef<IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils) override;
 
 public:
-	static FReply OnGizmoImportLayerFilenameButtonClicked(TSharedRef<IPropertyHandle> PropertyHandle_LayerFilename);
+	FReply OnGizmoImportLayerFilenameButtonClicked(TSharedRef<IPropertyHandle> PropertyHandle_LayerFilename);
 };

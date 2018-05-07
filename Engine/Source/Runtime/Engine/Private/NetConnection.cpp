@@ -30,6 +30,8 @@
 #include "GameDelegates.h"
 #include "Misc/PackageName.h"
 #include "UObject/LinkerLoad.h"
+#include "UObject/ObjectKey.h"
+#include "UObject/UObjectIterator.h"
 
 #if !UE_BUILD_SHIPPING
 static TAutoConsoleVariable<int32> CVarPingExcludeFrameTime( TEXT( "net.PingExcludeFrameTime" ), 0, TEXT( "Calculate RTT time between NIC's of server and client." ) );
@@ -497,7 +499,7 @@ void UNetConnection::CleanUp()
 		else
 		{
 			check(Driver->ServerConnection == NULL);
-			verify(Driver->ClientConnections.Remove(this) == 1);
+			Driver->RemoveClientConnection(this);
 
 #if USE_SERVER_PERF_COUNTERS
 			if (IPerfCountersModule::IsAvailable())
@@ -755,19 +757,21 @@ void UNetConnection::UpdateLevelVisibility(const FName& PackageName, bool bIsVis
 
 			// Any destroyed actors that were destroyed prior to the streaming level being unloaded for the client will not be in the connections
 			// destroyed actors list when the level is reloaded, so seek them out and add in
-			for (const TPair<FNetworkGUID, FActorDestructionInfo>& DestroyedPair : Driver->DestroyedStartupOrDormantActors)
+			for (const auto& DestroyedPair : Driver->DestroyedStartupOrDormantActors)
 			{
-				if (DestroyedPair.Value.StreamingLevelName == PackageName)
+				if (DestroyedPair.Value->StreamingLevelName == PackageName)
 				{
-					DestroyedStartupOrDormantActors.Add(DestroyedPair.Key);
+					AddDestructionInfo(DestroyedPair.Value.Get());
 				}
 			}
 
 			// Any dormant actor that has changes flushed or made before going dormant needs to be updated on the client 
 			// when the streaming level is loaded, so mark them active for this connection
+			UWorld* LevelWorld = nullptr;
 			if (TempPkg)
 			{
-				if (UWorld* LevelWorld = (UWorld*)FindObjectWithOuter(TempPkg, UWorld::StaticClass()))
+				LevelWorld = (UWorld*)FindObjectWithOuter(TempPkg, UWorld::StaticClass());
+				if (LevelWorld)
 				{
 					if (LevelWorld->PersistentLevel)
 					{
@@ -785,6 +789,12 @@ void UNetConnection::UpdateLevelVisibility(const FName& PackageName, bool bIsVis
 					}
 				}
 			}
+
+			if (ReplicationConnectionDriver)
+			{
+				ReplicationConnectionDriver->NotifyClientVisibleLevelNamesAdd(PackageName, LevelWorld);
+			}
+
 		}
 		else
 		{
@@ -796,6 +806,10 @@ void UNetConnection::UpdateLevelVisibility(const FName& PackageName, bool bIsVis
 	{
 		ClientVisibleLevelNames.Remove(PackageName);
 		UE_LOG( LogPlayerController, Verbose, TEXT("ServerUpdateLevelVisibility() Removed '%s'"), *PackageName.ToString() );
+		if (ReplicationConnectionDriver)
+		{
+			ReplicationConnectionDriver->NotifyClientVisibleLevelNamesRemove(PackageName);
+		}
 			
 		// Close any channels now that have actors that were apart of the level the client just unloaded
 		for ( auto It = ActorChannels.CreateIterator(); It; ++It )
@@ -957,6 +971,7 @@ void UNetConnection::ReceivedRawPacket( void* InData, int32 Count )
 	}
 }
 
+uint32 GNetOutBytes = 0;
 
 void UNetConnection::FlushNet(bool bIgnoreSimulation)
 {
@@ -1092,6 +1107,7 @@ void UNetConnection::FlushNet(bool bIgnoreSimulation)
 
 		OutBytes += PacketBytes;
 		Driver->OutBytes += PacketBytes;
+		GNetOutBytes += PacketBytes;
 		InitSendBuffer();
 	}
 
@@ -1183,6 +1199,7 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 		return;
 	}
 
+	const bool bIgnoreRPCs = Driver->ShouldIgnoreRPCs();
 
 	bool bSkipAck = false;
 
@@ -1483,6 +1500,50 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 			// Receiving data.
 			UChannel* Channel = Channels[Bunch.ChIndex];
 
+			// We're on a 100% reliable connection and we are rolling back some data.
+			// In that case, we can generally ignore these bunches.
+			if (InternalAck && Channel && bIgnoreAlreadyOpenedChannels)
+			{
+				// This was an open bunch for a channel that's already opened.
+				// We can ignore future bunches from this channel.
+				const bool bNewlyOpened = Bunch.bOpen && (!Bunch.bPartial || Bunch.bPartialInitial);
+				if (bNewlyOpened || IgnoringChannels.Contains(Bunch.ChIndex))
+				{
+					if (bNewlyOpened)
+					{
+						// NOTE: This could break if there are sufficient enough MustBeMapped GUIDs to have
+						//			prevented the actor GUID from being written.
+						//			Don't think that's currently handle by the normal system either, though.
+						if (Bunch.bHasMustBeMappedGUIDs)
+						{
+							// Skip passed any must be mapped guids.
+							uint16 NumMustBeMappedGUIDs = 0;
+							Bunch << NumMustBeMappedGUIDs;
+							for (int32 i = 0; i < NumMustBeMappedGUIDs; i++)
+							{
+								FNetworkGUID TempNetGUID;
+								Bunch << TempNetGUID;
+							}
+						}
+
+						FNetworkGUID ActorGUID;
+						Bunch << ActorGUID;
+						IgnoringChannels.Add(Bunch.ChIndex, ActorGUID);
+					}
+
+					if (Bunch.bClose && (!Bunch.bPartial || Bunch.bPartialFinal))
+					{
+						FNetworkGUID ActorGUID = IgnoringChannels.FindAndRemoveChecked(Bunch.ChIndex);
+						if (ActorGUID.IsStatic())
+						{
+							AActor* StaticActor = Cast<AActor>(Driver->GuidCache->GetObjectFromNetGUID(ActorGUID, false));
+							Driver->World->DestroyActor(StaticActor);
+						}
+					}
+					continue;
+				}
+			}
+
 			// Ignore if reliable packet has already been processed.
 			if ( Bunch.bReliable && Bunch.ChSequence <= InReliable[Bunch.ChIndex] )
 			{
@@ -1566,6 +1627,8 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 				}
 			}
 
+			Bunch.bIgnoreRPCs = bIgnoreRPCs;
+
 			// Dispatch the raw, unsequenced bunch to the channel.
 			bool bLocalSkipAck = false;
 			Channel->ReceivedRawBunch( Bunch, bLocalSkipAck ); //warning: May destroy channel.
@@ -1594,6 +1657,13 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 
 		SendAck(PacketId, true);
 	}
+}
+
+void UNetConnection::SetIgnoreAlreadyOpenedChannels(bool bInIgnoreAlreadyOpenedChannels)
+{
+	check(InternalAck);
+	bIgnoreAlreadyOpenedChannels = bInIgnoreAlreadyOpenedChannels;
+	IgnoringChannels.Reset();
 }
 
 int32 UNetConnection::WriteBitsToSendBuffer( 
@@ -2434,7 +2504,7 @@ bool UNetConnection::ShouldReplicateVoicePacketFrom(const FUniqueNetId& Sender)
 void UNetConnection::ResetGameWorldState()
 {
 	//Clear out references and do whatever else so that nothing holds onto references that it doesn't need to.
-	DestroyedStartupOrDormantActors.Empty();
+	ResetDestructionInfos();
 	ClientVisibleLevelNames.Empty();
 	KeepProcessingActorChannelBunchesMap.Empty();
 	DormantReplicatorMap.Empty();
@@ -2469,7 +2539,7 @@ void UNetConnection::FlushDormancy(class AActor* Actor)
 	// here, the server will not add the actor to the dormancy list when he closes the channel 
 	// after he gets the client ack. The result is the channel will close but be open again
 	// right away
-	UActorChannel* Ch = ActorChannels.FindRef(Actor);
+	UActorChannel* Ch = FindActorChannelRef(Actor);
 
 	if ( Ch != nullptr )
 	{
@@ -2483,7 +2553,7 @@ void UNetConnection::FlushDormancy(class AActor* Actor)
 
 void UNetConnection::ForcePropertyCompare( AActor* Actor )
 {
-	UActorChannel* Ch = ActorChannels.FindRef( Actor );
+	UActorChannel* Ch = FindActorChannelRef( Actor );
 
 	if ( Ch != nullptr )
 	{
@@ -2666,3 +2736,179 @@ void UNetConnection::SetPlayerOnlinePlatformName(const FName InPlayerOnlinePlatf
 {
 	PlayerOnlinePlatformName = InPlayerOnlinePlatformName;
 }
+
+/*-----------------------------------------------------------------------------
+	USimulatedClientNetConnection.
+-----------------------------------------------------------------------------*/
+
+USimulatedClientNetConnection::USimulatedClientNetConnection( const FObjectInitializer& ObjectInitializer ) : Super( ObjectInitializer )
+{
+	InternalAck = true;
+}
+
+void USimulatedClientNetConnection::HandleClientPlayer( class APlayerController* PC, class UNetConnection* NetConnection )
+{
+	State = USOCK_Open;
+	PlayerController = PC;
+	OwningActor = PC;
+}
+
+// ----------------------------------------------------------------
+
+static void	AddSimulatedNetConnections(const TArray<FString>& Args, UWorld* World)
+{
+	int32 ConnectionCount = 99;
+	if (Args.Num() > 0)
+	{
+		Lex::FromString(ConnectionCount, *Args[0]);
+	}
+
+	// Search for server game net driver. Do it this way so we can cheat in PIE
+	UNetDriver* BestNetDriver = nullptr;
+	for (TObjectIterator<UNetDriver> NetDriverIt; NetDriverIt; ++NetDriverIt)
+	{
+		if (NetDriverIt->NetDriverName == NAME_GameNetDriver && NetDriverIt->IsServer())
+		{
+			BestNetDriver = *NetDriverIt;
+			break;
+		}
+	}
+
+	if (!BestNetDriver)
+	{
+		return;
+	}
+
+	AActor* DefaultViewTarget = nullptr;
+	APlayerController* PC = nullptr;
+	for (auto Iterator = BestNetDriver->GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		PC = Cast<APlayerController>(*Iterator);
+		if (PC)
+		{
+			DefaultViewTarget = PC->GetViewTarget();
+			break;
+		}
+	}
+	
+
+	UE_LOG(LogNet, Display, TEXT("Adding %d Simulated Connections..."), ConnectionCount);
+	while(ConnectionCount-- > 0)
+	{
+		USimulatedClientNetConnection* Connection = NewObject<USimulatedClientNetConnection>();
+		Connection->InitConnection( BestNetDriver, USOCK_Open, BestNetDriver->GetWorld()->URL, 1000000 );
+		Connection->InitSendBuffer();
+		BestNetDriver->AddClientConnection( Connection );
+		Connection->HandleClientPlayer(PC, Connection);
+		Connection->SetClientWorldPackageName(BestNetDriver->GetWorldPackage()->GetFName());
+	}	
+}
+
+FAutoConsoleCommandWithWorldAndArgs AddimulatedConnectionsCmd(TEXT("net.SimulateConnections"), TEXT("Starts a Simulated Net Driver"),	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(AddSimulatedNetConnections) );
+
+// ----------------------------------------------------------------
+
+
+static void	PrintActorReportFunc(const TArray<FString>& Args, UWorld* InWorld)
+{
+	// Search for server game net driver. Do it this way so we can cheat in PIE
+	UNetDriver* BestNetDriver = nullptr;
+	for (TObjectIterator<UNetDriver> NetDriverIt; NetDriverIt; ++NetDriverIt)
+	{
+		if (NetDriverIt->NetDriverName == NAME_GameNetDriver && NetDriverIt->IsServer())
+		{
+			BestNetDriver = *NetDriverIt;
+			break;
+		}
+	}
+
+	int32 TotalCount = 0;
+	
+	TMap<UClass*, int32> ClassCount;
+	TMap<UClass*, int32> ActualClassCount;
+	TMap<ENetDormancy, int32> DormancyCount;
+	FBox BoundingBox;
+
+	TMap<AActor*, int32> RawActorPtrMap;
+	TMap<TWeakObjectPtr<AActor>, int32> WeakPtrMap;
+	TMap<FObjectKey, int32> ObjKeyMap;
+
+	UWorld* World = BestNetDriver ? BestNetDriver->GetWorld() : InWorld;
+	if (!World)
+		return;
+
+	
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		AActor* Actor = *It;
+		if (Actor->GetIsReplicated() == false)
+		{
+			continue;
+		}
+
+		TotalCount++;
+		DormancyCount.FindOrAdd(Actor->NetDormancy)++;
+
+		BoundingBox += Actor->GetActorLocation();
+
+		UClass* CurrentClass = Actor->GetClass();
+
+		ActualClassCount.FindOrAdd(CurrentClass)++;
+
+		while(CurrentClass)
+		{
+			ClassCount.FindOrAdd(CurrentClass)++;
+			CurrentClass = CurrentClass->GetSuperClass();
+		}
+
+		RawActorPtrMap.Add(Actor) = FMath::Rand();
+		WeakPtrMap.Add(Actor) = FMath::Rand();
+		ObjKeyMap.Add(FObjectKey(Actor)) = FMath::Rand();
+	}
+
+	ClassCount.ValueSort(TGreater<int32>());
+	ActualClassCount.ValueSort(TGreater<int32>());
+
+	UE_LOG(LogNet, Display, TEXT("Class Count (includes inheritance)"));
+	for (auto MapIt : ClassCount)
+	{
+		UE_LOG(LogNet, Display, TEXT("%s - %d"), *GetNameSafe(MapIt.Key), MapIt.Value);
+	}
+
+
+	UE_LOG(LogNet, Display, TEXT(""));
+	UE_LOG(LogNet, Display, TEXT("Class Count (actual clases)"));
+	for (auto MapIt : ActualClassCount)
+	{
+		UE_LOG(LogNet, Display, TEXT("%s - %d"), *GetNameSafe(MapIt.Key), MapIt.Value);
+	}
+
+	UE_LOG(LogNet, Display, TEXT(""));
+	UE_LOG(LogNet, Display, TEXT("Complete Bounding Box: %s"), *BoundingBox.ToString());
+	UE_LOG(LogNet, Display, TEXT("                 Size: %s"), *BoundingBox.GetSize().ToString());
+
+	UE_LOG(LogNet, Display, TEXT(""));
+
+	for (auto MapIt : DormancyCount)
+	{
+		UE_LOG(LogNet, Display, TEXT("%s - %d"), *UEnum::GetValueAsString(TEXT("/Script/Engine.ENetDormancy"), MapIt.Key), MapIt.Value);
+	}
+
+	UE_LOG(LogNet, Display, TEXT(""));
+	UE_LOG(LogNet, Display, TEXT("Total Replicated Actor Count: %d"), TotalCount);
+
+
+	UE_LOG(LogNet, Display, TEXT(""));
+	UE_LOG(LogNet, Display, TEXT("Raw Actor Map: "));
+	RawActorPtrMap.Dump(*GLog);
+
+	UE_LOG(LogNet, Display, TEXT(""));
+	UE_LOG(LogNet, Display, TEXT("Weak Ptr Map: "));
+	WeakPtrMap.Dump(*GLog);
+
+	UE_LOG(LogNet, Display, TEXT(""));
+	UE_LOG(LogNet, Display, TEXT("ObjectKey Map: "));
+	ObjKeyMap.Dump(*GLog);
+}
+
+FAutoConsoleCommandWithWorldAndArgs PrintActorReportCmd(TEXT("net.ActorReport"), TEXT(""),	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(PrintActorReportFunc) );

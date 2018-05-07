@@ -3276,6 +3276,8 @@ struct FReplicationFlags
 			uint32 bRepPhysics:1;
 			/** True if this actor is replicating on a replay connection. */
 			uint32 bReplay:1;
+			/** True if this actor's RPCs should be ignored. */
+			uint32 bIgnoreRPCs:1;
 		};
 
 		uint32	Value;

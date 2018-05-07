@@ -47,7 +47,7 @@ UENUM()
 enum class ESceneCapturePrimitiveRenderMode : uint8
 {
 	/** Legacy */
-	PRM_LegacySceneCapture UMETA(DisplayName = "Legacy"),
+	PRM_LegacySceneCapture UMETA(DisplayName = "Render Scene Primitives (Legacy)"),
 	/** Render primitives in the scene, minus HiddenActors. */
 	PRM_RenderScenePrimitives UMETA(DisplayName = "Render Scene Primitives"),
 	/** Render only primitives in the ShowOnlyActors list, or components specified with ShowOnlyComponent(). */
@@ -69,7 +69,7 @@ class ENGINE_API USceneCaptureComponent : public USceneComponent
  	TArray<TWeakObjectPtr<UPrimitiveComponent> > HiddenComponents;
 
 	/** The actors to hide in the scene capture. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SceneCapture)
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=SceneCapture)
 	TArray<AActor*> HiddenActors;
 
 	/** The only components to be rendered by this scene capture, if PrimitiveRenderMode is set to UseShowOnlyList. */
@@ -77,7 +77,7 @@ class ENGINE_API USceneCaptureComponent : public USceneComponent
  	TArray<TWeakObjectPtr<UPrimitiveComponent> > ShowOnlyComponents;
 
 	/** The only actors to be rendered by this scene capture, if PrimitiveRenderMode is set to UseShowOnlyList.*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SceneCapture)
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category=SceneCapture)
 	TArray<AActor*> ShowOnlyActors;
 
 	/** Whether to update the capture's contents every frame.  If disabled, the component will render once on load and then only when moved. */

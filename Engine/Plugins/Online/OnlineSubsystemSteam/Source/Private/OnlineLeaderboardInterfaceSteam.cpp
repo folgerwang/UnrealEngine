@@ -286,23 +286,17 @@ public:
 						{
 						case EOnlineKeyValuePairDataType::Int32:
 							{
-								int32 OldValue, Value;
+								int32 Value;
 								Stat.GetValue(Value);
-								if (SteamUserStatsPtr->GetUserStat(SteamUserId, TCHAR_TO_UTF8(*StatName), &OldValue))
-								{
-									bSuccess = SteamUserStatsPtr->SetStat(TCHAR_TO_UTF8(*StatName), OldValue + Value) ? true : false;
-								}
+								bSuccess = SteamUserStatsPtr->SetStat(TCHAR_TO_UTF8(*StatName), Value) ? true : false;
 								break;
 							}
 
 						case EOnlineKeyValuePairDataType::Float:
 							{
-								float OldValue, Value;
+								float Value;
 								Stat.GetValue(Value);
-								if (SteamUserStatsPtr->GetUserStat(SteamUserId, TCHAR_TO_UTF8(*StatName), &OldValue))
-								{
-									bSuccess = SteamUserStatsPtr->SetStat(TCHAR_TO_UTF8(*StatName), OldValue + Value) ? true : false;
-								}
+								bSuccess = SteamUserStatsPtr->SetStat(TCHAR_TO_UTF8(*StatName), Value) ? true : false;
 								break;
 							}
 						default:
@@ -776,12 +770,27 @@ public:
 };
 
 /**
- *	Async task to retrieve actual leaderboard entries from Steam (not the supporting stats/columns)
+ *	Async task to retrieve actual arbitrary leaderboard entries from Steam (not the supporting stats/columns)
  *  The game must first retrieve the Leaderboard handle from the backend before reading/writing
  */
 class FOnlineAsyncTaskSteamRetrieveLeaderboardEntries : public FOnlineAsyncTaskSteam
 {
 private:
+	enum RetrieveType
+	{
+		None,
+		// Fetch data about a group of arbitrary users
+		FetchUsers,
+		// Fetch data about the user's friends
+		FetchFriends,
+		// Fetch data around an arbitrary rank
+		FetchRank,
+		// Fetch data around the current user
+		FetchCurRankUser,
+		// Fetch data around an arbitrary user
+		FetchRankUser,
+		Max
+	};
 
 	/** Has this request been started */
 	bool bInit;
@@ -791,14 +800,80 @@ private:
 	FOnlineLeaderboardReadRef ReadObject;
 	/** Results from callback */
 	LeaderboardScoresDownloaded_t CallbackResults;
+	/** Type */
+	RetrieveType Type;
+	/** Rank/Range Query data */
+	int32 Rank;
+	int32 Range;
+	/** If delegates should be triggered */
+	bool bShouldTriggerDelegates;
+
 
 public:
 	FOnlineAsyncTaskSteamRetrieveLeaderboardEntries(FOnlineSubsystemSteam* InSteamSubsystem, const TArray< TSharedRef<const FUniqueNetId> >& InPlayers, const FOnlineLeaderboardReadRef& InReadObject) :
 		FOnlineAsyncTaskSteam(InSteamSubsystem, k_uAPICallInvalid),
 		bInit(false),
 		Players(InPlayers),
-		ReadObject(InReadObject)
+		ReadObject(InReadObject),
+		Type(RetrieveType::FetchUsers),
+		bShouldTriggerDelegates(false)
 	{
+	}
+
+	FOnlineAsyncTaskSteamRetrieveLeaderboardEntries(FOnlineSubsystemSteam* InSteamSubsystem, int32 InRank, int32 InRange, const FOnlineLeaderboardReadRef& InReadObject) :
+		FOnlineAsyncTaskSteam(InSteamSubsystem, k_uAPICallInvalid),
+		bInit(false),
+		ReadObject(InReadObject),
+		Type(RetrieveType::FetchRank),
+		Rank(InRank),
+		Range(InRange),
+		bShouldTriggerDelegates(false)
+	{
+	}
+
+	FOnlineAsyncTaskSteamRetrieveLeaderboardEntries(FOnlineSubsystemSteam* InSteamSubsystem, const FOnlineLeaderboardReadRef& InReadObject) :
+		FOnlineAsyncTaskSteam(InSteamSubsystem, k_uAPICallInvalid),
+		bInit(false),
+		ReadObject(InReadObject),
+		Type(RetrieveType::FetchFriends),
+		bShouldTriggerDelegates(false)
+	{
+	}
+
+	FOnlineAsyncTaskSteamRetrieveLeaderboardEntries(FOnlineSubsystemSteam* InSteamSubsystem, TSharedRef<const FUniqueNetId> InUser, int32 InRange, const FOnlineLeaderboardReadRef& InReadObject) :
+		FOnlineAsyncTaskSteam(InSteamSubsystem, k_uAPICallInvalid),
+		bInit(false),
+		ReadObject(InReadObject),
+		Range(InRange),
+		bShouldTriggerDelegates(false)
+	{
+		Players.Push(MakeShared<const FUniqueNetIdSteam>(*InUser));
+		Type = Subsystem->IsLocalPlayer(*Players[0]) ? RetrieveType::FetchCurRankUser : RetrieveType::FetchRankUser;
+	}
+
+	FString TaskTypeToString() const
+	{
+		switch (Type)
+		{
+			default:
+				return TEXT("Invalid");
+				break;
+			case FetchUsers:
+				return TEXT("Fetch Users");
+				break;
+			case FetchFriends:
+				return TEXT("Fetch Friends");
+				break;
+			case FetchRank:
+				return TEXT("Fetch Global Ranks");
+				break;
+			case FetchCurRankUser:
+				return TEXT("Fetch Rank around current user");
+				break;
+			case FetchRankUser:
+				return TEXT("Fetch Rank around the users");
+				break;
+		}
 	}
 
 	/**
@@ -806,7 +881,7 @@ public:
 	 */
 	FString ToString() const override
 	{
-		return FString::Printf(TEXT("FOnlineAsyncTaskSteamRetrieveLeaderboardEntries bWasSuccessful: %d"), WasSuccessful());
+		return FString::Printf(TEXT("FOnlineAsyncTaskSteamRetrieveLeaderboardEntries Task Type %s bWasSuccessful: %d"), *TaskTypeToString(), WasSuccessful());
 	}
 
 	/**
@@ -835,16 +910,43 @@ public:
 			if (LeaderboardHandle != -1)
 			{
 				ISteamUserStats* SteamUserStatsPtr = SteamUserStats();
-				// Max leaderboard entries is 100
-				int32 NumUsers = FPlatformMath::Min(Players.Num(), 100);
-				CSteamID* IdArray = new CSteamID[NumUsers];
-				for (int32 UserIdx=0; UserIdx<NumUsers; UserIdx++)
+				switch (Type)
 				{
-					IdArray[UserIdx] = *(uint64*)Players[UserIdx]->GetBytes();
-				}
-				CallbackHandle = SteamUserStatsPtr->DownloadLeaderboardEntriesForUsers(LeaderboardHandle, IdArray, NumUsers);
+					default:
+					case RetrieveType::FetchUsers:
+					case RetrieveType::FetchRankUser:
+					{
+						if (Players.Num() > 0)
+						{
+							// Max leaderboard entries is 100
+							int32 NumUsers = FPlatformMath::Min(Players.Num(), 100);
+							CSteamID* IdArray = new CSteamID[NumUsers];
+							for (int32 UserIdx = 0; UserIdx<NumUsers; UserIdx++)
+							{
+								IdArray[UserIdx] = *(uint64*)Players[UserIdx]->GetBytes();
+							}
+							CallbackHandle = SteamUserStatsPtr->DownloadLeaderboardEntriesForUsers(LeaderboardHandle, IdArray, NumUsers);
 
-				delete [] IdArray;
+							delete[] IdArray;
+						}
+					} break;
+					case RetrieveType::FetchCurRankUser:
+					{
+						CallbackHandle = SteamUserStatsPtr->DownloadLeaderboardEntries(LeaderboardHandle, k_ELeaderboardDataRequestGlobalAroundUser, -Range, Range);
+					} break;
+					case RetrieveType::FetchRank:
+					{
+						// Because of how Steam works, Start point will be just the rank itself, and range will only give you values after that rank
+						// To fit with the definition of the rank lookup function, we need to adjust the offsets so we get a nice even distribution.
+						int32 AdjustedStart = ((Rank - Range) <= 0) ? 1 : (Rank - Range);
+						CallbackHandle = SteamUserStatsPtr->DownloadLeaderboardEntries(LeaderboardHandle, k_ELeaderboardDataRequestGlobal, AdjustedStart, (Rank + Range));
+					} break;
+					case RetrieveType::FetchFriends:
+					{
+						CallbackHandle = SteamUserStatsPtr->DownloadLeaderboardEntries(LeaderboardHandle, k_ELeaderboardDataRequestFriends, 0, 0);
+					} break;
+				}
+
 				bInit = true;
 			}
 		}
@@ -903,10 +1005,37 @@ public:
 				// Only take the rank from here (stats grabs the actual ranked value)
 				UserRow->Rank = LeaderboardEntry.m_nGlobalRank;
 				PlayersHaveStats.Add(CurrentUser, 1);
+
+				// Start up tasks to get stats. We don't do this like arbitrary user fetch does because we don't have the user list known at original query time.
+				// This is fine to start now because we are still on the game thread.
+				if (Type != RetrieveType::FetchUsers && Type != RetrieveType::FetchRankUser)
+				{
+					FOnlineAsyncTaskSteamRetrieveStats* NewStatsTask = new FOnlineAsyncTaskSteamRetrieveStats(Subsystem, CurrentUser, 
+						ReadObject, (EntryIdx + 1 == CallbackResults.m_cEntryCount));
+
+					Subsystem->QueueAsyncTask(NewStatsTask);
+				}
+			}
+		}
+
+		// If we're looking for ranks around a user, we need to restart our query to get the actual entries.
+		if (Type == RetrieveType::FetchRankUser)
+		{
+			FOnlineLeaderboardsSteamPtr Leaderboards = StaticCastSharedPtr<FOnlineLeaderboardsSteam>(Subsystem->GetLeaderboardsInterface());
+			FOnlineStatsRow* UserRow = ReadObject->FindPlayerRecord(*Players[0]);
+
+			// Only try to fetch stats for users that exist in the table.
+			if (UserRow != NULL)
+			{
+				// This function will reset the current data we just got, this is fine 
+				// because the ordering would have been broken anyways.
+				Leaderboards->ReadLeaderboardsAroundRank(UserRow->Rank, Range, ReadObject);
+				return;
 			}
 		}
 
 		// Add placeholder stats for anyone who didn't show up on the leaderboard
+		FVariantData EmptyData;
  		for (int32 UserIdx=0; UserIdx<Players.Num(); UserIdx++)
  		{
  			FUniqueNetIdSteam CurrentUser(*(uint64*)Players[UserIdx]->GetBytes());
@@ -919,12 +1048,49 @@ public:
 					const FString NickName(UTF8_TO_TCHAR(SteamFriends()->GetFriendPersonaName(SteamId)));
 					TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdSteam(SteamId));
 					UserRow = new (ReadObject->Rows) FOnlineStatsRow(NickName, UserId);
+
+					// Don't process this for arbitrary list fetches as that automatically starts 
+					// FOnlineAsyncTaskSteamRetrieveStats tasks
+					if (Type != RetrieveType::FetchUsers)
+					{
+						// If the user is not on the leaderboard at all, push null stats for them.
+						for (int32 StatIdx = 0; StatIdx < ReadObject->ColumnMetadata.Num(); StatIdx++)
+						{
+							const FColumnMetaData& ColumnMeta = ReadObject->ColumnMetadata[StatIdx];
+							UserRow->Columns.Add(ColumnMeta.ColumnName, EmptyData);
+						}
+					}
 				}
 
 				// Only take the rank from here (stats grabs the actual ranked value)
 				UserRow->Rank = -1;
  			}
  		}
+
+		// If we have no data, we should mark that we're done processing here.
+		// Normally FOnlineAsyncTaskSteamRetrieveStats would handle our readstats 
+		// but if it never executes, then we should exit.
+		if (CallbackResults.m_cEntryCount == 0 && Type != RetrieveType::FetchUsers)
+		{
+			ReadObject->ReadState = EOnlineAsyncTaskState::Done;
+			bShouldTriggerDelegates = true;
+		}
+	}
+
+	/**
+	*	Async task is given a chance to trigger it's delegates
+	*/
+	virtual void TriggerDelegates() override
+	{
+		FOnlineAsyncTaskSteam::TriggerDelegates();
+
+		// This is almost always false as FOnlineAsyncTaskSteamRetrieveStats will be the one to call the delegates for us.
+		// This is only true if we have completely empty data.
+		if (bShouldTriggerDelegates)
+		{
+			FOnlineLeaderboardsSteamPtr Leaderboards = StaticCastSharedPtr<FOnlineLeaderboardsSteam>(Subsystem->GetLeaderboardsInterface());
+			Leaderboards->TriggerOnLeaderboardReadCompleteDelegates(bWasSuccessful);
+		}
 	}
 };
 
@@ -1291,42 +1457,59 @@ bool FOnlineLeaderboardsSteam::ReadLeaderboards(const TArray< TSharedRef<const F
 
 bool FOnlineLeaderboardsSteam::ReadLeaderboardsAroundRank(int32 Rank, uint32 Range, FOnlineLeaderboardReadRef& ReadObject)
 {
-	UE_LOG_ONLINE(Warning, TEXT("FOnlineLeaderboardsSteam::ReadLeaderboardsAroundRank is currently not supported."));
-	return false;
+	ReadObject->ReadState = EOnlineAsyncTaskState::InProgress;
+
+	// Clear out any existing data
+	ReadObject->Rows.Empty();
+
+	// Will retrieve the leaderboard, making async calls as appropriate
+	FindLeaderboard(ReadObject->LeaderboardName);
+
+	FOnlineAsyncTaskSteamRetrieveLeaderboardEntries* NewLeaderboardTask = new FOnlineAsyncTaskSteamRetrieveLeaderboardEntries(SteamSubsystem, Rank, Range, ReadObject);
+	SteamSubsystem->QueueAsyncTask(NewLeaderboardTask);
+
+	return true;
 }
 bool FOnlineLeaderboardsSteam::ReadLeaderboardsAroundUser(TSharedRef<const FUniqueNetId> Player, uint32 Range, FOnlineLeaderboardReadRef& ReadObject)
 {
-	UE_LOG_ONLINE(Warning, TEXT("FOnlineLeaderboardsSteam::ReadLeaderboardsAroundUser is currently not supported."));
-	return false;
-}
+	ReadObject->ReadState = EOnlineAsyncTaskState::InProgress;
 
-void FOnlineLeaderboardsSteam::QueryAchievementsInternal(const FUniqueNetIdSteam& UserId, const FOnQueryAchievementsCompleteDelegate& AchievementDelegate)
-{
-	FOnlineAsyncTaskSteamGetAchievements* NewStatsTask = new FOnlineAsyncTaskSteamGetAchievements( SteamSubsystem, UserId, AchievementDelegate );
+	// Clear out any existing data
+	ReadObject->Rows.Empty();
 
-	SteamSubsystem->QueueAsyncTask(NewStatsTask);
+	// Will retrieve the leaderboard, making async calls as appropriate
+	FindLeaderboard(ReadObject->LeaderboardName);
+
+	FOnlineAsyncTaskSteamRetrieveLeaderboardEntries* NewLeaderboardTask = new FOnlineAsyncTaskSteamRetrieveLeaderboardEntries(SteamSubsystem, Player, Range, ReadObject);
+
+	SteamSubsystem->QueueAsyncTask(NewLeaderboardTask);
+
+	return true;
 }
 
 bool FOnlineLeaderboardsSteam::ReadLeaderboardsForFriends(int32 LocalUserNum, FOnlineLeaderboardReadRef& ReadObject)
 {
-	ISteamFriends* SteamFriendsPtr = SteamFriends();
-	check(SteamFriendsPtr);
+	ReadObject->ReadState = EOnlineAsyncTaskState::InProgress;
 
-	TArray< TSharedRef<const FUniqueNetId> > FriendsList;
+	// Clear out any existing data
+	ReadObject->Rows.Empty();
 
-	// Include current user
-	FriendsList.Add(MakeShareable(new FUniqueNetIdSteam(SteamUser()->GetSteamID())));
+	// Will retrieve the leaderboard, making async calls as appropriate
+	FindLeaderboard(ReadObject->LeaderboardName);
 
-	// And all friends
-	int32 FriendCount = SteamFriendsPtr->GetFriendCount(k_EFriendFlagImmediate);
-	for (int32 FriendIdx=0; FriendIdx<FriendCount; FriendIdx++)
-	{
-		CSteamID SteamId = SteamFriendsPtr->GetFriendByIndex(FriendIdx, k_EFriendFlagImmediate);
-		FriendsList.Add(MakeShareable(new FUniqueNetIdSteam(SteamId)));
-	}
+	FOnlineAsyncTaskSteamRetrieveLeaderboardEntries* NewLeaderboardTask = new FOnlineAsyncTaskSteamRetrieveLeaderboardEntries(SteamSubsystem, ReadObject);
+	SteamSubsystem->QueueAsyncTask(NewLeaderboardTask);
 
-	return ReadLeaderboards(FriendsList, ReadObject);
+	return true;
 }
+
+void FOnlineLeaderboardsSteam::QueryAchievementsInternal(const FUniqueNetIdSteam& UserId, const FOnQueryAchievementsCompleteDelegate& AchievementDelegate)
+{
+	FOnlineAsyncTaskSteamGetAchievements* NewStatsTask = new FOnlineAsyncTaskSteamGetAchievements(SteamSubsystem, UserId, AchievementDelegate);
+
+	SteamSubsystem->QueueAsyncTask(NewStatsTask);
+}
+
 
 void FOnlineLeaderboardsSteam::FreeStats(FOnlineLeaderboardRead& ReadObject)
 {

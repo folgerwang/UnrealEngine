@@ -4,7 +4,7 @@
         <comment>Unreal Engine Project</comment>
         <glob-deleteall/>
         <glob pattern="*.uproject"/>
-	    <icon name="ue4editor"/>
+	    <icon name="uproject"/>
     </mime-type>
 </mime-info>
 

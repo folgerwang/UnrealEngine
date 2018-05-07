@@ -30,6 +30,11 @@ AVREditorFloatingUI::AVREditorFloatingUI()
 	UISystemID(NAME_None),
 	bClearWidgetOnHide(false)
 {
+	if (HasAnyFlags(RF_ClassDefaultObject))
+	{
+		return;
+	}
+
 	const bool bTransient = true;
 	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComponent"), bTransient);
 	check(SceneComponent != nullptr);

@@ -800,7 +800,7 @@ class BuildPhysX : BuildCommand
 
 		return NewPath;
 	}
-	private static void SetupBuildEnvironment()
+	private static void SetupStaticBuildEnvironment()
 	{
 		if (!Utils.IsRunningOnMono)
 		{
@@ -827,14 +827,19 @@ class BuildPhysX : BuildCommand
 				Environment.SetEnvironmentVariable("PATH", CMakePath + ";" + MakePath + ";" + Environment.GetEnvironmentVariable("PATH"));
 				Log("set {0}={1}", "PATH", Environment.GetEnvironmentVariable("PATH"));
 			}
-			// ================================================================================
-			// HTML5
-			// FIXME: only run this if GetTargetPlatforms() contains HTML5
+		}
+	}
 
+	private void SetupInstanceBuildEnvironment()
+	{
+		// ================================================================================
+		// HTML5
+		if (GetTargetPlatforms().Any(X => X.Platform == UnrealTargetPlatform.HTML5))
+		{
 			// override BuildConfiguration defaults - so we can use HTML5SDKInfo
 			string EngineSourceDir = GetProjectDirectory(PhysXTargetLib.PhysX, new TargetPlatformData(UnrealTargetPlatform.HTML5)).ToString();
-			EngineSourceDir = Regex.Replace(EngineSourceDir, @"\\" , "/");
-			EngineSourceDir = Regex.Replace(EngineSourceDir, ".*Engine/" , "");
+			EngineSourceDir = Regex.Replace(EngineSourceDir, @"\\", "/");
+			EngineSourceDir = Regex.Replace(EngineSourceDir, ".*Engine/", "");
 
 			if (!HTML5SDKInfo.IsSDKInstalled())
 			{
@@ -1462,7 +1467,8 @@ class BuildPhysX : BuildCommand
 
 	public override void ExecuteBuild()
 	{
-		SetupBuildEnvironment();
+		SetupStaticBuildEnvironment();
+		SetupInstanceBuildEnvironment();
 
 		bool bBuildSolutions = true;
 		if (ParseParam("SkipBuildSolutions"))

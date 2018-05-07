@@ -36,6 +36,8 @@ void SClassPickerDialog::Construct(const FArguments& InArgs)
 	bPressedOk = false;
 	ChosenClass = NULL;
 
+	TSharedPtr<SListView<TSharedPtr<FClassPickerDefaults>>> DefaultClassViewer;
+
 	ClassViewer = StaticCastSharedRef<SClassViewer>(FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer").CreateClassViewer(InArgs._Options, FOnClassPicked::CreateSP(this,&SClassPickerDialog::OnClassPicked)));
 
 	// Load in default settings
@@ -80,7 +82,7 @@ void SClassPickerDialog::Construct(const FArguments& InArgs)
 					.OnAreaExpansionChanged(this, &SClassPickerDialog::OnDefaultAreaExpansionChanged)
 					.BodyContent()
 					[
-						SNew(SListView < TSharedPtr<FClassPickerDefaults>  >)
+						SAssignNew(DefaultClassViewer, SListView < TSharedPtr<FClassPickerDefaults> >)
 						.ItemHeight(24)
 						.SelectionMode(ESelectionMode::None)
 						.ListItemsSource(&AssetDefaultClasses)
@@ -135,6 +137,18 @@ void SClassPickerDialog::Construct(const FArguments& InArgs)
 			]
 		]
 	];
+
+	if (WeakParentWindow.IsValid())
+	{
+		if (bExpandCustomClassPicker)
+		{
+			WeakParentWindow.Pin().Get()->SetWidgetToFocusOnActivate(ClassViewer);
+		}
+		else
+		{
+			WeakParentWindow.Pin().Get()->SetWidgetToFocusOnActivate(DefaultClassViewer);
+		}
+	}
 }
 
 bool SClassPickerDialog::PickClass(const FText& TitleText, const FClassViewerInitializationOptions& ClassViewerOptions, UClass*& OutChosenClass, UClass* AssetType)
@@ -320,6 +334,10 @@ FReply SClassPickerDialog::OnKeyDown( const FGeometry& MyGeometry, const FKeyEve
 	if (InKeyEvent.GetKey() == EKeys::Escape)
 	{
 		return OnClassPickerCanceled();
+	}
+	else if (InKeyEvent.GetKey() == EKeys::Enter)
+	{
+		OnClassPickerConfirmed();
 	}
 	else
 	{

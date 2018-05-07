@@ -155,13 +155,13 @@ public:
 	void SetText(FText InText);
 
 	UFUNCTION(BlueprintCallable, Category = "Widget")
-	void SetIsPassword(bool InbIsPassword);
+	void SetIsPassword(UPARAM(DisplayName="IsPassword") bool InbIsPassword);
 
 	UFUNCTION(BlueprintCallable, Category = "Widget")
 	void SetHintText(FText InHintText);
 
 	UFUNCTION(BlueprintCallable, Category = "Widget", meta=(DisplayName="SetIsReadOnly (Editable Text)"))
-	void SetIsReadOnly(bool InbIsReadyOnly);
+	void SetIsReadOnly(UPARAM(DisplayName="ReadyOnly") bool InbIsReadyOnly);
 
 public:
 	

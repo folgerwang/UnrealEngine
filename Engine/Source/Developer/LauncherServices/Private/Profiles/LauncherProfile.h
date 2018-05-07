@@ -1544,6 +1544,10 @@ public:
 		{
 			// Platform info for the given platform
 			const PlatformInfo::FPlatformInfo* PlatformInfo = PlatformInfo::FindPlatformInfo(FName(*InPlatforms[PlatformIndex]));
+			if (PlatformInfo == nullptr)
+			{
+				return false;
+			}
 
 			// switch server and no editor platforms to the proper type
 			if (PlatformInfo->TargetPlatformName == FName("LinuxServer"))

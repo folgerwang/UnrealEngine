@@ -5,16 +5,23 @@
 =============================================================================*/
 
 #include "Unix/UnixPlatformStackWalk.h"
+#include "CoreGlobals.h"
+#include "Misc/Paths.h"
 #include "Misc/Parse.h"
 #include "Misc/ScopeLock.h"
 #include "Misc/CommandLine.h"
 #include "Unix/UnixPlatformCrashContext.h"
 #include <cxxabi.h>
 #include "HAL/ExceptionHandling.h"
+#include "HAL/PlatformProcess.h"
 #include <execinfo.h>
 #include <dlfcn.h>
 #include <cxxabi.h>
 #include <stdio.h>
+
+// FIXME Remove this define once we remove the old way symbolicate
+#define _ELFDEFINITIONS_H_
+#include <link.h>
 
 // these are not actually system headers, but a TPS library (see ThirdParty/elftoolchain)
 THIRD_PARTY_INCLUDES_START
@@ -27,6 +34,13 @@ THIRD_PARTY_INCLUDES_END
 #ifndef DW_AT_MIPS_linkage_name
 	#define DW_AT_MIPS_linkage_name		0x2007			// common extension, used before DW_AT_linkage_name became standard
 #endif // DW_AT_MIPS_linkage_name
+
+// Init'ed in UnixPlatformMemory for now. Once the old crash symbolicator is gone remove this
+extern bool CORE_API GUseNewCrashSymbolicator;
+extern bool CORE_API GSuppressDwarfParsing;
+
+// Init'ed in UnixPlatformMemory. Once this is tested more we can remove this fallback flag
+extern bool CORE_API GFullCrashCallstack;
 
 namespace UnixStackWalkHelpers
 {
@@ -141,7 +155,7 @@ namespace UnixStackWalkHelpers
 		if (!Inited)
 		{
 			// open ourselves for examination
-			if (!FParse::Param( FCommandLine::Get(), TEXT(CMDARG_SUPPRESS_DWARF_PARSING)))
+			if (!GSuppressDwarfParsing)
 			{
 				char ElfPath[512] = { 0 };
 				char DebugPath[512] = { 0 };
@@ -838,7 +852,7 @@ namespace UnixStackWalkHelpers
 
 	void AppendFunctionNameIfAny(FUnixCrashContext & UnixContext, const char * FunctionName, uint64 ProgramCounter)
 	{
-		if (FunctionName)
+		if (FunctionName && FunctionName[0] != '\0')
 		{
 			FCStringAnsi::Strncat(UnixContext.MinidumpCallstackInfo, FunctionName, ARRAY_COUNT( UnixContext.MinidumpCallstackInfo ) - 1);
 			FCStringAnsi::Strncat(UnixContext.MinidumpCallstackInfo, " + some bytes", ARRAY_COUNT( UnixContext.MinidumpCallstackInfo ) - 1);	// this is just to conform to crashreporterue4 standard
@@ -867,38 +881,273 @@ namespace UnixStackWalkHelpers
 	}
 }
 
+namespace
+{
+	// These structures are copied from Engine/Source/Programs/BreakpadSymbolEncoder/BreakpadSymbolEncoder.h
+	// DO NOT CHANGE THE SIZE OF THESES STRUCTURES (Unless the BreakpadSymbolEncoder.h structures have changed)
+#pragma pack(push, 1)
+	struct RecordsHeader
+	{
+		uint32_t RecordCount;
+	};
+
+	struct Record
+	{
+		uint64_t Address    = static_cast<uint64_t>(-1);
+		uint32_t LineNumber = static_cast<uint32_t>(-1);
+		uint32_t FileRelativeOffset   = static_cast<uint32_t>(-1);
+		uint32_t SymbolRelativeOffset = static_cast<uint32_t>(-1);
+	};
+#pragma pack(pop)
+
+	class RecordReader
+	{
+	public:
+		explicit RecordReader(const char* Path)
+			: SymbolFile(fopen(Path, "r")),
+			  StartOffset(sizeof(RecordsHeader))
+		{
+			if (SymbolFile)
+			{
+				fread(static_cast<void*>(&RecordCount), sizeof(RecordsHeader), 1, SymbolFile);
+				StartOffset = sizeof(RecordsHeader);
+			}
+		}
+
+		~RecordReader()
+		{
+			if (SymbolFile)
+			{
+				fclose(SymbolFile);
+			}
+		}
+
+		bool IsValid() const
+		{
+			return SymbolFile != nullptr;
+		}
+
+		uint32_t GetRecordCount() const
+		{
+			return RecordCount;
+		}
+
+		Record GetRecord(int Index) const
+		{
+			if (Index > RecordCount || Index < 0)
+			{
+				return {};
+			}
+
+			Record Out;
+
+			fseek(SymbolFile, StartOffset + Index * sizeof(Record), SEEK_SET);
+			fread(static_cast<void*>(&Out), sizeof(Record), 1, SymbolFile);
+
+			return Out;
+		}
+
+		void ReadOffsetIntoMemory(char* Buffer, size_t MaxSize, uint32_t Offset)
+		{
+			// Offset unsigned -1 (0xffffffff) == Invalid
+			if (Offset == static_cast<uint32_t>(-1))
+			{
+				return;
+			}
+
+			fseek(SymbolFile, StartOffset + RecordCount * sizeof(Record) + Offset, SEEK_SET);
+			fread(Buffer, MaxSize, 1, SymbolFile);
+
+			// Read the max chunk we can read, then find the next '\n' and replace that with '\0'
+			for (int i = 0; i < MaxSize; i++)
+			{
+				if (Buffer[i] == '\n')
+				{
+					Buffer[i] = '\0';
+					return;
+				}
+			}
+
+			// We couldnt find the end of the line, lets assume we failed to read in a line
+			Buffer[0] = '\0';
+		}
+
+	private:
+		FILE* SymbolFile = nullptr;
+
+		// For now can only be up to 4GB
+		uint32_t StartOffset = 0;
+		uint32_t RecordCount = 0;
+	};
+
+	bool PopulateProgramCounterSymbolInfoFromSymbolFile(uint64 ProgramCounter, FProgramCounterSymbolInfo& out_SymbolInfo)
+	{
+		Dl_info info;
+		if (dladdr(reinterpret_cast<void*>(ProgramCounter), &info) != 0)
+		{
+			out_SymbolInfo.ProgramCounter = ProgramCounter;
+
+			if (UNLIKELY(info.dli_fname == nullptr))
+			{
+				// If we cannot find the Module name lets return early
+				return false;
+			}
+			else if (UNLIKELY(info.dli_fbase == nullptr))
+			{
+				// If we cannot find the module base lets return early
+				return false;
+			}
+
+			const ANSICHAR* SOPath = info.dli_fname;
+			const ANSICHAR* SOName = FCStringAnsi::Strrchr(SOPath, '/');
+			if (SOName)
+			{
+				SOName += 1;
+			}
+			else
+			{
+				SOName = SOPath;
+			}
+
+			FCStringAnsi::Strcpy(out_SymbolInfo.ModuleName, SOName);
+			out_SymbolInfo.OffsetInModule = ProgramCounter - reinterpret_cast<uint64>(info.dli_fbase);
+
+			if (info.dli_saddr != nullptr)
+			{
+				out_SymbolInfo.SymbolDisplacement = ProgramCounter - reinterpret_cast<uint64>(info.dli_saddr);
+			}
+			// If we cant find the function either lets just give it the offset into the module
+			else if (info.dli_sname == nullptr)
+			{
+				out_SymbolInfo.SymbolDisplacement = out_SymbolInfo.OffsetInModule;
+			}
+
+			if (info.dli_sname != nullptr)
+			{
+				FCStringAnsi::Strcpy(out_SymbolInfo.FunctionName, info.dli_sname);
+			}
+
+			char ModuleSymbolPath[MAX_PATH + 1];
+
+			// We cant assume if we are relative we have not chdir to a different working dir.
+			if (FPaths::IsRelative(info.dli_fname))
+			{
+				FCStringAnsi::Strcpy(ModuleSymbolPath, TCHAR_TO_ANSI(FPlatformProcess::BaseDir()));
+				FCStringAnsi::Strcat(ModuleSymbolPath, TCHAR_TO_ANSI(*FPaths::GetBaseFilename(out_SymbolInfo.ModuleName)));
+				FCStringAnsi::Strcat(ModuleSymbolPath, ".sym");
+			}
+			else
+			{
+				FCStringAnsi::Strcpy(ModuleSymbolPath, TCHAR_TO_ANSI(*FPaths::GetBaseFilename(info.dli_fname, false)));
+				FCStringAnsi::Strcat(ModuleSymbolPath, ".sym");
+			}
+
+			// TODO We should look at only opening the file once per entire callstack (but it depends on the module names)
+			RecordReader Reader(ModuleSymbolPath);
+
+			if (Reader.IsValid())
+			{
+				size_t Start = 0;
+				size_t End   = Reader.GetRecordCount() - 1;
+				bool bFound  = false;
+				uint64 AddressToFind = out_SymbolInfo.OffsetInModule;
+
+				// Make sure we arent not trying the same middle index over and over again
+				size_t LastMiddle = 1;
+				size_t Middle = 0;
+
+				while (End - Start > 0 && LastMiddle != Middle)
+				{
+					LastMiddle = Middle;
+					Middle     = (Start + End) / 2;
+
+					if (Middle + 1 >= Reader.GetRecordCount())
+					{
+						// We have placed a dummy record at the end of all the records. So if our Middle index
+						// happens to be that dummy record we are in a bad spot
+						break;
+					}
+
+					Record Current = Reader.GetRecord(Middle);
+					Record Next    = Reader.GetRecord(Middle + 1);
+					size_t Size    = Next.Address - Current.Address;
+
+					if (AddressToFind >= Current.Address && AddressToFind < Current.Address + Size)
+					{
+						Reader.ReadOffsetIntoMemory(out_SymbolInfo.Filename, sizeof(out_SymbolInfo.Filename), Current.FileRelativeOffset);
+						Reader.ReadOffsetIntoMemory(out_SymbolInfo.FunctionName, sizeof(out_SymbolInfo.FunctionName), Current.SymbolRelativeOffset);
+						out_SymbolInfo.LineNumber = Current.LineNumber;
+
+						// If we find a function but no sname from dladdr we cannot make assumptions about its symbol displacement.
+						// And a Function name is better then the OffsetInModule address
+						if (info.dli_sname == nullptr)
+						{
+							out_SymbolInfo.SymbolDisplacement = 0x0;
+						}
+
+						// If we dont have a file name we have to assume its just a public symbol and use the old way to demangle the backtrace info
+						if (out_SymbolInfo.Filename[0] == '\0')
+						{
+							return false;
+						}
+
+						return true;
+					}
+					else if (AddressToFind > Current.Address)
+					{
+						Start = Middle;
+					}
+					else
+					{
+						End = Middle;
+					}
+				}
+			}
+		}
+
+		return false;
+	}
+}
+
 void FUnixPlatformStackWalk::ProgramCounterToSymbolInfo( uint64 ProgramCounter, FProgramCounterSymbolInfo& out_SymbolInfo )
 {
-	// Set the program counter.
-	out_SymbolInfo.ProgramCounter = ProgramCounter;
-
-	// Get function, filename and line number.
-	const char* ModuleName = nullptr;
-	const char* FunctionName = nullptr;
-	const char* SourceFilename = nullptr;
-	int LineNumber = 0;
-
-	if (UnixStackWalkHelpers::GetBacktraceSymbols()->GetInfoForAddress(reinterpret_cast<void*>(ProgramCounter), &ModuleName, &FunctionName, &SourceFilename, &LineNumber))
+	if (GUseNewCrashSymbolicator)
 	{
-		out_SymbolInfo.LineNumber = LineNumber;
+		PopulateProgramCounterSymbolInfoFromSymbolFile(ProgramCounter, out_SymbolInfo);
+	}
+	else
+	{
+		// Set the program counter.
+		out_SymbolInfo.ProgramCounter = ProgramCounter;
 
-		if (LIKELY(ModuleName != nullptr))
-		{
-			FCStringAnsi::Strcpy(out_SymbolInfo.ModuleName, sizeof(out_SymbolInfo.ModuleName), ModuleName);
-		}
+		// Get function, filename and line number.
+		const char* ModuleName = nullptr;
+		const char* FunctionName = nullptr;
+		const char* SourceFilename = nullptr;
+		int LineNumber = 0;
 
-		if (LIKELY(SourceFilename != nullptr))
+		if (UnixStackWalkHelpers::GetBacktraceSymbols()->GetInfoForAddress(reinterpret_cast<void*>(ProgramCounter), &ModuleName, &FunctionName, &SourceFilename, &LineNumber))
 		{
-			FCStringAnsi::Strcpy(out_SymbolInfo.Filename, sizeof(out_SymbolInfo.Filename), SourceFilename);
-		}
+			out_SymbolInfo.LineNumber = LineNumber;
 
-		if (FunctionName != nullptr)
-		{
-			FCStringAnsi::Strcpy(out_SymbolInfo.FunctionName, sizeof(out_SymbolInfo.Filename), FunctionName);
-		}
-		else
-		{
-			sprintf(out_SymbolInfo.FunctionName, "0x%016llx", ProgramCounter);
+			if (LIKELY(ModuleName != nullptr))
+			{
+				FCStringAnsi::Strcpy(out_SymbolInfo.ModuleName, sizeof(out_SymbolInfo.ModuleName), ModuleName);
+			}
+
+			if (LIKELY(SourceFilename != nullptr))
+			{
+				FCStringAnsi::Strcpy(out_SymbolInfo.Filename, sizeof(out_SymbolInfo.Filename), SourceFilename);
+			}
+
+			if (FunctionName != nullptr)
+			{
+				FCStringAnsi::Strcpy(out_SymbolInfo.FunctionName, sizeof(out_SymbolInfo.Filename), FunctionName);
+			}
+			else
+			{
+				sprintf(out_SymbolInfo.FunctionName, "0x%016llx", ProgramCounter);
+			}
 		}
 	}
 }
@@ -951,40 +1200,109 @@ bool FUnixPlatformStackWalk::ProgramCounterToHumanReadableString( int32 CurrentC
 			FUnixCrashContext* UnixContext = static_cast< FUnixCrashContext* >( Context );
 			if (UnixContext)
 			{
-				const char * ModuleName = nullptr;
-				const char * FunctionName = nullptr;
-				const char * SourceFilename = nullptr;
-				int LineNumber;
-
 				// for ensure, use the fast path - do not even attempt to get detailed info as it will result in long hitch
 				bool bAddDetailedInfo = !UnixContext->GetIsEnsure();
 
-				// attempt to get the said detailed info
-				bAddDetailedInfo = bAddDetailedInfo && UnixStackWalkHelpers::GetBacktraceSymbols()->GetInfoForAddress(reinterpret_cast<void*>(ProgramCounter), &ModuleName, &FunctionName, &SourceFilename, &LineNumber);
-
-				if (bAddDetailedInfo)
+				if (GUseNewCrashSymbolicator)
 				{
-					// append FunctionName() [Source.cpp:X] to HumanReadableString
-					UnixStackWalkHelpers::AppendToString(HumanReadableString, HumanReadableStringSize, Context, FunctionName);
-					FCStringAnsi::Sprintf(TempArray, " [%s:%d]", SourceFilename, LineNumber);
-					UnixStackWalkHelpers::AppendToString(HumanReadableString, HumanReadableStringSize, Context, TempArray);
+					// Program counters in the backtrace point to the location from where the execution will be resumed (in all frames except the one where we crashed),
+					// which results in callstack pointing to the next lines in code. In order to determine the source line where the actual call happened, we need to go
+					// back to the line that had the "call" instruction. Since x86(-64) instructions vary in length, we cannot do it reliably without disassembling,
+					// just go back one byte - even if it's not the actual address of the call site.
+					int OffsetToCallsite = CurrentCallDepth > 0 ? 1 : 0;
 
-					// append Module!FunctioName [Source.cpp:X] to MinidumpCallstackInfo
-					FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, ModuleName, ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
-					FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, "!", ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
-					UnixStackWalkHelpers::AppendFunctionNameIfAny(*UnixContext, FunctionName, ProgramCounter);
-					FCStringAnsi::Sprintf(TempArray, " [%s:%d]", SourceFilename, LineNumber);
-					FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, TempArray, ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+					FProgramCounterSymbolInfo TempSymbolInfo;
+
+					// We can print detail info out during ensures, the only reason not to is if fail to populate the symbol info all the way
+					bAddDetailedInfo = PopulateProgramCounterSymbolInfoFromSymbolFile(ProgramCounter - OffsetToCallsite, TempSymbolInfo);
+
+					if (bAddDetailedInfo)
+					{
+						// append Module!FunctionName() [Source.cpp:X] to HumanReadableString
+						FCStringAnsi::Strncat(HumanReadableString, TempSymbolInfo.ModuleName, HumanReadableStringSize);
+						FCStringAnsi::Strncat(HumanReadableString, "!", HumanReadableStringSize);
+						FCStringAnsi::Strncat(HumanReadableString, TempSymbolInfo.FunctionName, HumanReadableStringSize);
+						FCStringAnsi::Sprintf(TempArray, " [%s:%d]", TempSymbolInfo.Filename, TempSymbolInfo.LineNumber);
+						FCStringAnsi::Strncat(HumanReadableString, TempArray, HumanReadableStringSize);
+
+						// append Module!FunctioName [Source.cpp:X] to MinidumpCallstackInfo
+						FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, TempSymbolInfo.ModuleName, ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+						FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, "!", ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+						FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, TempSymbolInfo.FunctionName, ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+						FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, TempArray, ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+					}
+					else
+					{
+						const char* ModuleName   = nullptr;
+						const char* FunctionName = nullptr;
+
+						// We have failed to fully populate the SymbolInfo, but we could still have basic information. Lets try to print as much info as possible
+						if (TempSymbolInfo.ModuleName[0] != '\0')
+						{
+							ModuleName = TempSymbolInfo.ModuleName;
+						}
+
+						if (TempSymbolInfo.FunctionName[0] != '\0')
+						{
+							FunctionName = TempSymbolInfo.FunctionName;
+						}
+
+						FCStringAnsi::Strncat(HumanReadableString, ModuleName != nullptr ? ModuleName : "", HumanReadableStringSize);
+						FCStringAnsi::Strncat(HumanReadableString, "!", HumanReadableStringSize);
+						FCStringAnsi::Strncat(HumanReadableString, FunctionName != nullptr ? FunctionName : "UnknownFunction", HumanReadableStringSize);
+						FCStringAnsi::Strncat(HumanReadableString, FunctionName && TempSymbolInfo.SymbolDisplacement ? "(+": "(", HumanReadableStringSize);
+
+						FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, ModuleName != nullptr ? ModuleName : "Unknown", ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+						FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, "!", ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+						FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, FunctionName != nullptr ? FunctionName : "UnknownFunction", ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+						FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, FunctionName && TempSymbolInfo.SymbolDisplacement ? "(+": "(", ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+
+						if (TempSymbolInfo.SymbolDisplacement > 0x0)
+						{
+							FCStringAnsi::Sprintf(TempArray, "%p", TempSymbolInfo.SymbolDisplacement);
+							FCStringAnsi::Strncat(HumanReadableString, TempArray, HumanReadableStringSize);
+							FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, TempArray, ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+						}
+
+						FCStringAnsi::Strncat(HumanReadableString, ")", HumanReadableStringSize);
+						FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, ")", ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+					}
+
 				}
 				else
 				{
-					// get the function name for backtrace, may be incorrect
-					FunctionName = UnixStackWalkHelpers::GetFunctionName(Context, CurrentCallDepth);
-				
-					UnixStackWalkHelpers::AppendToString(HumanReadableString, HumanReadableStringSize, Context, FunctionName != nullptr ? FunctionName : "UnknownFunction");	
+					const char * ModuleName = nullptr;
+					const char * FunctionName = nullptr;
+					const char * SourceFilename = nullptr;
+					int LineNumber;
 
-					FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, "Unknown!", ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
-					UnixStackWalkHelpers::AppendFunctionNameIfAny(*UnixContext, FunctionName, ProgramCounter);
+					// attempt to get the said detailed info
+					bAddDetailedInfo = bAddDetailedInfo && UnixStackWalkHelpers::GetBacktraceSymbols()->GetInfoForAddress(reinterpret_cast<void*>(ProgramCounter), &ModuleName, &FunctionName, &SourceFilename, &LineNumber);
+
+					if (bAddDetailedInfo)
+					{
+						// append FunctionName() [Source.cpp:X] to HumanReadableString
+						UnixStackWalkHelpers::AppendToString(HumanReadableString, HumanReadableStringSize, Context, FunctionName);
+						FCStringAnsi::Sprintf(TempArray, " [%s:%d]", SourceFilename, LineNumber);
+						UnixStackWalkHelpers::AppendToString(HumanReadableString, HumanReadableStringSize, Context, TempArray);
+
+						// append Module!FunctioName [Source.cpp:X] to MinidumpCallstackInfo
+						FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, ModuleName, ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+						FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, "!", ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+						UnixStackWalkHelpers::AppendFunctionNameIfAny(*UnixContext, FunctionName, ProgramCounter);
+						FCStringAnsi::Sprintf(TempArray, " [%s:%d]", SourceFilename, LineNumber);
+						FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, TempArray, ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+					}
+					else
+					{
+						// get the function name for backtrace, may be incorrect
+						FunctionName = UnixStackWalkHelpers::GetFunctionName(Context, CurrentCallDepth);
+					
+						UnixStackWalkHelpers::AppendToString(HumanReadableString, HumanReadableStringSize, Context, FunctionName != nullptr ? FunctionName : "UnknownFunction");	
+
+						FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, "Unknown!", ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);
+						UnixStackWalkHelpers::AppendFunctionNameIfAny(*UnixContext, FunctionName, ProgramCounter);
+					}
 				}
 
 				FCStringAnsi::Strncat(UnixContext->MinidumpCallstackInfo, "\r\n", ARRAY_COUNT( UnixContext->MinidumpCallstackInfo ) - 1);	// this one always uses Windows line terminators
@@ -1001,6 +1319,7 @@ void FUnixPlatformStackWalk::StackWalkAndDump( ANSICHAR* HumanReadableString, SI
 	{
 		FUnixCrashContext CrashContext;
 		CrashContext.InitFromSignal(0, nullptr, nullptr);
+		CrashContext.FirstCrashHandlerFrame = static_cast<uint64*>(__builtin_return_address(0));
 		FGenericPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, &CrashContext);
 	}
 	else
@@ -1016,6 +1335,7 @@ void FUnixPlatformStackWalk::StackWalkAndDumpEx(ANSICHAR* HumanReadableString, S
 	{
 		FUnixCrashContext CrashContext(bHandlingEnsure);
 		CrashContext.InitFromSignal(0, nullptr, nullptr);
+		CrashContext.FirstCrashHandlerFrame = static_cast<uint64*>(__builtin_return_address(0));
 		FPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, &CrashContext);
 	}
 	else
@@ -1043,29 +1363,65 @@ void FUnixPlatformStackWalk::StackWalkAndDumpEx(ANSICHAR* HumanReadableString, S
 	}
 }
 
+namespace
+{
+	uint32 OverwriteBacktraceWithRealCallstack(uint64* BackTrace, uint32 Size, uint64* FirstCrashHandlerFrame)
+	{
+		if (!GFullCrashCallstack && Size && FirstCrashHandlerFrame != nullptr)
+		{
+			for (int i = 0; i < Size - 1; i++)
+			{
+				if (FirstCrashHandlerFrame == reinterpret_cast<uint64*>(BackTrace[i]))
+				{
+					i++;
+					uint64* OverwriteBackTrace = BackTrace;
+
+					for (int j = i; j < Size; j++)
+					{
+						*OverwriteBackTrace = BackTrace[j];
+						OverwriteBackTrace++;
+					}
+
+					return Size - i;
+				}
+			}
+		}
+
+		return Size;
+	}
+}
+
 uint32 FUnixPlatformStackWalk::CaptureStackBackTrace( uint64* BackTrace, uint32 MaxDepth, void* Context )
 {
 	// Make sure we have place to store the information before we go through the process of raising
 	// an exception and handling it.
-	if( BackTrace == NULL || MaxDepth == 0 )
+	if( BackTrace == nullptr || MaxDepth == 0 )
 	{
 		return 0;
 	}
 
-	size_t size = backtrace(reinterpret_cast< void** >( BackTrace ), MaxDepth);
+	size_t Size = backtrace(reinterpret_cast<void**>(BackTrace), MaxDepth);
 
-	if (Context)
+	FUnixCrashContext* UnixContext = reinterpret_cast<FUnixCrashContext*>(Context);
+
+	if (GUseNewCrashSymbolicator)
 	{
-		FUnixCrashContext* UnixContext = reinterpret_cast< FUnixCrashContext* >( Context );
-
-		if (UnixContext->BacktraceSymbols == NULL)
+		if (UnixContext)
+		{
+			return OverwriteBacktraceWithRealCallstack(BackTrace, Size, UnixContext->FirstCrashHandlerFrame);
+		}
+	}
+	// Remove once we remove the old crash symbolicator
+	else
+	{
+		if (UnixContext->BacktraceSymbols == nullptr)
 		{
 			// #CrashReport: 2014-09-29 Replace with backtrace_symbols_fd due to malloc()
 			UnixContext->BacktraceSymbols = backtrace_symbols(reinterpret_cast< void** >( BackTrace ), MaxDepth);
 		}
 	}
 
-	return (uint32)size;
+	return (uint32)Size;
 }
 
 void FUnixPlatformStackWalk::ThreadStackWalkAndDump(ANSICHAR* HumanReadableString, SIZE_T HumanReadableStringSize, int32 IgnoreCount, uint32 ThreadId)
@@ -1081,6 +1437,94 @@ void FUnixPlatformStackWalk::ThreadStackWalkAndDump(ANSICHAR* HumanReadableStrin
 			}
 		}
 	}
+}
+
+namespace
+{
+	int NumberOfDynamicLibrariesCallback(struct dl_phdr_info* Info, size_t /*size*/, void* Data)
+	{
+		int* Size = static_cast<int*>(Data);
+		if (Info->dlpi_name)
+		{
+			(*Size)++;
+		}
+
+		// Continute until no more callbacks
+		return 0;
+	}
+}
+
+int32 FUnixPlatformStackWalk::GetProcessModuleCount()
+{
+	int Size = 0;
+	dl_iterate_phdr(NumberOfDynamicLibrariesCallback, &Size);
+
+	return Size;
+}
+
+namespace
+{
+	struct ProcessModuleSignatures
+	{
+		FStackWalkModuleInfo* ModuleSignatures;
+		int32 ModuleSignaturesSize;
+		int32 Index;
+	};
+
+	int CollectModuleSignatures(struct dl_phdr_info* Info, size_t /*size*/, void* Data)
+	{
+		ProcessModuleSignatures* Modules = static_cast<ProcessModuleSignatures*>(Data);
+
+		if (Info->dlpi_name)
+		{
+			int TotalMemSize = 0;
+			uint64 RealBase = 0;
+			bool bRealBaseSet = false;
+			for (int i = 0; i < Info->dlpi_phnum; i++)
+			{
+				TotalMemSize += Info->dlpi_phdr[i].p_memsz;
+
+				// Lets get our real base from the BASE + first LOAD segment
+				if (!bRealBaseSet && Info->dlpi_phdr[i].p_type == PT_LOAD)
+				{
+					RealBase = (uint64)(Info->dlpi_addr + Info->dlpi_phdr[i].p_vaddr);
+					bRealBaseSet = true;
+				}
+			}
+
+			FString ImageName = FPaths::GetCleanFilename(Info->dlpi_name);
+
+			// If Info->dlpi_name is empty then it is the binary name
+			if (ImageName.IsEmpty())
+			{
+				ImageName = FPlatformProcess::ExecutableName(false);
+			}
+
+			FStackWalkModuleInfo StackInfo;
+			memset(&StackInfo, 0, sizeof(StackInfo));
+			StackInfo.BaseOfImage = RealBase;
+			// TODO Check if ImageName is greater then 32 bytes, if so we need to look at increasing the struct size
+			FCString::Strcpy(StackInfo.ImageName, *ImageName);
+			StackInfo.ImageSize = TotalMemSize;
+			FCString::Strcpy(StackInfo.LoadedImageName, *ImageName);
+			FCString::Strcpy(StackInfo.ModuleName, *ImageName);
+			FMemory::Memzero(&StackInfo.PdbSig70, sizeof(StackInfo.PdbSig70));
+
+			Modules->ModuleSignatures[Modules->Index] = StackInfo;
+			Modules->Index++;
+		}
+
+		// Continute until our index is less then our size or no more callbacks
+		return Modules->Index >= Modules->ModuleSignaturesSize;
+	}
+}
+
+int32 FUnixPlatformStackWalk::GetProcessModuleSignatures(FStackWalkModuleInfo *ModuleSignatures, const int32 ModuleSignaturesSize)
+{
+	ProcessModuleSignatures Signatures{ModuleSignatures, ModuleSignaturesSize, 0};
+	dl_iterate_phdr(CollectModuleSignatures, &Signatures);
+
+	return Signatures.Index;
 }
 
 static FCriticalSection EnsureLock;

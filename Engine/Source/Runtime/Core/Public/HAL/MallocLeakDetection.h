@@ -270,3 +270,4 @@ public:
 #define MALLOCLEAK_SCOPED_CONTEXT(Context)
 
 #endif // MALLOC_LEAKDETECTION
+

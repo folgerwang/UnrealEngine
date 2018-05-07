@@ -238,4 +238,9 @@ public:
 	 * @param	bValue	The value to set the enterprise flag to
 	 */
 	virtual void SetIsEnterpriseProject(bool bValue) = 0;
+	
+	/**
+	 * Access array used to cache current project's list of module context infos
+	 */
+	virtual TArray<FModuleContextInfo>& GetCurrentProjectModuleContextInfos() = 0;
 };

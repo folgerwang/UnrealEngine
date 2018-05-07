@@ -623,7 +623,7 @@ UEngine::UEngine(const FObjectInitializer& ObjectInitializer)
 
 	bUseSound = true;
 
-	bHardwareSurveyEnabled_DEPRECATED = true;
+	bHardwareSurveyEnabled_DEPRECATED = false;
 	bIsInitialized = false;
 
 	BeginStreamingPauseDelegate = NULL;

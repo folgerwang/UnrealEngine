@@ -33,6 +33,11 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 	FadeDelay( 0.0f ),
 	InitialScale( 1.0f )
 {
+	if (HasAnyFlags(RF_ClassDefaultObject))
+	{
+		return;
+	}
+
 	const bool bTransient = true;
 	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>( TEXT( "SceneComponent" ), bTransient );
 	check( SceneComponent != nullptr );
@@ -40,7 +45,7 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 
 	DefaultGlowAmount = 2.0f;
 
-	UVREditorAssetContainer* AssetContainer = LoadObject<UVREditorAssetContainer>(nullptr, *UVREditorMode::AssetContainerPath);
+	const UVREditorAssetContainer& AssetContainer = UVREditorMode::LoadAssetContainer();
 
 	{
 		WindowMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WindowMesh"));
@@ -50,7 +55,7 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 		WindowMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		WindowMeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 
-		WindowMeshComponent->SetStaticMesh(AssetContainer->RadialMenuMainMesh);
+		WindowMeshComponent->SetStaticMesh(AssetContainer.RadialMenuMainMesh);
 		WindowMeshComponent->CreateAndSetMaterialInstanceDynamic(0);
 		UMaterialInstanceDynamic* DiskMaterial = Cast<UMaterialInstanceDynamic>(WindowMeshComponent->GetMaterial(0));
 		GlowAmount = DefaultGlowAmount;
@@ -75,7 +80,7 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 		ArrowMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		ArrowMeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 
-		ArrowMeshComponent->SetStaticMesh(AssetContainer->RadialMenuPointerMesh);
+		ArrowMeshComponent->SetStaticMesh(AssetContainer.RadialMenuPointerMesh);
 		ArrowMeshComponent->CreateAndSetMaterialInstanceDynamic(0);
 		UMaterialInstanceDynamic* ArrowMaterial = Cast<UMaterialInstanceDynamic>(ArrowMeshComponent->GetMaterial(0));
 		ArrowAlpha = 0.0f;

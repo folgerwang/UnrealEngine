@@ -1040,7 +1040,7 @@ FProcState::~FProcState()
 
 		FChildWaiterThread * WaiterRunnable = new FChildWaiterThread(GetProcessId());
 		// [RCL] 2015-03-11 @FIXME: do not leak
-		FRunnableThread * WaiterThread = FRunnableThread::Create(WaiterRunnable, *FString::Printf(TEXT("waitpid(%d)"), GetProcessId(), 32768 /* needs just a small stack */, TPri_BelowNormal));
+		FRunnableThread * WaiterThread = FRunnableThread::Create(WaiterRunnable, *FString::Printf(TEXT("waitpid(%d)"), GetProcessId()), 32768 /* needs just a small stack */, TPri_BelowNormal);
 	}
 }
 
@@ -1518,16 +1518,25 @@ bool FUnixPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, i
 
 		bInvoked = true;
 		bool bGotReturnCode = FPlatformProcess::GetProcReturnCode(ProcHandle, &ReturnCode);
-		check(bGotReturnCode);
-		*OutReturnCode = ReturnCode;
+		check(bGotReturnCode)
+		if (OutReturnCode != nullptr)
+		{
+			*OutReturnCode = ReturnCode;
+		}
 
 		FPlatformProcess::CloseProc(ProcHandle);
 	}
 	else
 	{
 		bInvoked = false;
-		*OutReturnCode = -1;
-		*OutStdOut = "";
+		if (OutReturnCode != nullptr)
+		{
+			*OutReturnCode = -1;
+		}
+		if (OutStdOut != nullptr)
+		{
+			*OutStdOut = "";
+		}
 		UE_LOG(LogHAL, Warning, TEXT("Failed to launch Tool. (%s)"), *ExecutableFileName);
 	}
 	FPlatformProcess::ClosePipe(PipeRead, PipeWrite);

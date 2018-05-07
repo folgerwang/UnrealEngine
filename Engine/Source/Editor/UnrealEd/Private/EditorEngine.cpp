@@ -873,7 +873,7 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	AssetRegistryModule.Get().OnInMemoryAssetCreated().AddUObject(this, &UEditorEngine::OnAssetCreated);
-	
+
 	FEditorDelegates::BeginPIE.AddLambda([](bool)
 	{
 		FTextLocalizationManager::Get().PushAutoEnableGameLocalizationPreview();
@@ -881,6 +881,14 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 
 		// Always make sure dynamic resolution starts with a clean history.
 		GEngine->GetDynamicResolutionState()->ResetHistory();
+	});
+
+	FEditorDelegates::PrePIEEnded.AddLambda([this](bool)
+	{
+		if (GetPIEWorldContext() != nullptr && GetPIEWorldContext()->World() != nullptr)
+		{
+			GetPIEWorldContext()->World()->DestroyDemoNetDriver();
+		}
 	});
 
 	FEditorDelegates::EndPIE.AddLambda([](bool)
@@ -6099,12 +6107,21 @@ bool UEditorEngine::ShouldThrottleCPUUsage() const
 			 bShouldThrottle = AreAllWindowsHidden();
 		}
 
-		static const FName AssetRegistryName(TEXT("AssetRegistry"));
-		FAssetRegistryModule* AssetRegistryModule = FModuleManager::GetModulePtr<FAssetRegistryModule>(AssetRegistryName);
-		// Don't throttle during amortized export, greatly increases export time
-		if (IsLightingBuildCurrentlyExporting() || GShaderCompilingManager->IsCompiling() || (AssetRegistryModule && AssetRegistryModule->Get().IsLoadingAssets()))
+		// Do not throttle during drag and drop
+		if (bShouldThrottle && FSlateApplication::Get().IsDragDropping())
 		{
 			bShouldThrottle = false;
+		}
+
+		if (bShouldThrottle)
+		{
+			static const FName AssetRegistryName(TEXT("AssetRegistry"));
+			FAssetRegistryModule* AssetRegistryModule = FModuleManager::GetModulePtr<FAssetRegistryModule>(AssetRegistryName);
+			// Don't throttle during amortized export, greatly increases export time
+			if (IsLightingBuildCurrentlyExporting() || GShaderCompilingManager->IsCompiling() || (AssetRegistryModule && AssetRegistryModule->Get().IsLoadingAssets()))
+			{
+				bShouldThrottle = false;
+			}
 		}
 	}
 

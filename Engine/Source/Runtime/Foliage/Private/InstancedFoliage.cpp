@@ -767,8 +767,6 @@ void FFoliageMeshInfo::CreateNewComponent(AInstancedFoliageActor* InIFA, const U
 	}
 
 	UFoliageInstancedStaticMeshComponent* FoliageComponent = NewObject<UFoliageInstancedStaticMeshComponent>(InIFA, ComponentClass, NAME_None, RF_Transactional);
-	FoliageComponent->KeepInstanceBufferCPUAccess = false;
-	FoliageComponent->InitPerInstanceRenderData(false);
 
 	Component = FoliageComponent;
 	Component->SetStaticMesh(InSettings->GetStaticMesh());
@@ -951,6 +949,9 @@ void FFoliageMeshInfo::UpdateComponentSettings(const UFoliageType* InSettings)
 		if (Component->bEnableDensityScaling != FoliageType->bEnableDensityScaling)
 		{
 			Component->bEnableDensityScaling = FoliageType->bEnableDensityScaling;
+
+			Component->UpdateDensityScaling();
+
 			bNeedsMarkRenderStateDirty = true;
 		}
 
@@ -1829,6 +1830,47 @@ void AInstancedFoliageActor::MoveInstancesForComponentToCurrentLevel(UActorCompo
 	}
 }
 
+void AInstancedFoliageActor::MoveInstancesToNewComponent(UPrimitiveComponent* InOldComponent, const FBox& InBoxWithInstancesToMove, UPrimitiveComponent* InNewComponent)
+{	
+	const auto OldBaseId = InstanceBaseCache.GetInstanceBaseId(InOldComponent);
+	if (OldBaseId == FFoliageInstanceBaseCache::InvalidBaseId)
+	{
+		// This foliage actor has no instances with specified base
+		return;
+	}
+
+	AInstancedFoliageActor* TargetIFA = AInstancedFoliageActor::GetInstancedFoliageActorForLevel(InNewComponent->GetTypedOuter<ULevel>(), true);
+	TArray<int32> InstancesToMove;
+
+	for (auto& MeshPair : FoliageMeshes)
+	{
+		FFoliageMeshInfo& MeshInfo = *MeshPair.Value;
+		
+		if (MeshInfo.Component != nullptr)
+		{
+			InstancesToMove = MeshInfo.Component->GetInstancesOverlappingBox(InBoxWithInstancesToMove);
+		}
+
+		FFoliageMeshInfo* TargetMeshInfo = nullptr;
+		UFoliageType* TargetFoliageType = TargetIFA->AddFoliageType(MeshPair.Key, &TargetMeshInfo);
+
+		// Add the foliage to the new level
+		for (int32 InstanceIndex : InstancesToMove)
+		{
+			FFoliageInstance NewInstance = MeshInfo.Instances[InstanceIndex];
+			TargetMeshInfo->AddInstance(TargetIFA, TargetFoliageType, NewInstance, InNewComponent, false);
+		}
+
+		if (TargetMeshInfo->Component != nullptr)
+		{
+			TargetMeshInfo->Component->BuildTreeIfOutdated(true, true);
+		}
+
+		// Remove from old level
+		MeshInfo.RemoveInstances(this, InstancesToMove, true);
+	}
+}
+
 void AInstancedFoliageActor::MoveInstancesToNewComponent(UPrimitiveComponent* InOldComponent, UPrimitiveComponent* InNewComponent)
 {
 	AInstancedFoliageActor* TargetIFA = AInstancedFoliageActor::GetInstancedFoliageActorForLevel(InNewComponent->GetTypedOuter<ULevel>(), true);
@@ -1892,6 +1934,15 @@ void AInstancedFoliageActor::MoveInstancesToNewComponent(UWorld* InWorld, UPrimi
 	{
 		AInstancedFoliageActor* IFA = (*It);
 		IFA->MoveInstancesToNewComponent(InOldComponent, InNewComponent);
+	}
+}
+
+void AInstancedFoliageActor::MoveInstancesToNewComponent(UWorld* InWorld, UPrimitiveComponent* InOldComponent, const FBox& InBoxWithInstancesToMove, UPrimitiveComponent* InNewComponent)
+{
+	for (TActorIterator<AInstancedFoliageActor> It(InWorld); It; ++It)
+	{
+		AInstancedFoliageActor* IFA = (*It);
+		IFA->MoveInstancesToNewComponent(InOldComponent, InBoxWithInstancesToMove, InNewComponent);
 	}
 }
 

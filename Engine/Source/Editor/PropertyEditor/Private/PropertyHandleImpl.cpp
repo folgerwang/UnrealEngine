@@ -2531,12 +2531,16 @@ FPropertyAccess::Result FPropertyHandleBase::GetNumChildren( uint32& OutNumChild
 
 uint32 FPropertyHandleBase::GetNumOuterObjects() const
 {
-	FObjectPropertyNode* ObjectNode = Implementation->GetPropertyNode()->FindObjectItemParent();
-
 	uint32 NumObjects = 0;
-	if( ObjectNode )
+	if (Implementation->GetPropertyNode().IsValid())
 	{
-		NumObjects = ObjectNode->GetNumObjects();
+		FObjectPropertyNode* ObjectNode = Implementation->GetPropertyNode()->FindObjectItemParent();
+
+
+		if (ObjectNode)
+		{
+			NumObjects = ObjectNode->GetNumObjects();
+		}
 	}
 
 	return NumObjects;
@@ -2544,12 +2548,15 @@ uint32 FPropertyHandleBase::GetNumOuterObjects() const
 
 void FPropertyHandleBase::GetOuterObjects( TArray<UObject*>& OuterObjects ) const
 {
-	FObjectPropertyNode* ObjectNode = Implementation->GetPropertyNode()->FindObjectItemParent();
-	if( ObjectNode )
+	if (Implementation->GetPropertyNode().IsValid())
 	{
-		for( int32 ObjectIndex = 0; ObjectIndex < ObjectNode->GetNumObjects(); ++ObjectIndex )
+		FObjectPropertyNode* ObjectNode = Implementation->GetPropertyNode()->FindObjectItemParent();
+		if (ObjectNode)
 		{
-			OuterObjects.Add( ObjectNode->GetUObject( ObjectIndex ) );
+			for (int32 ObjectIndex = 0; ObjectIndex < ObjectNode->GetNumObjects(); ++ObjectIndex)
+			{
+				OuterObjects.Add(ObjectNode->GetUObject(ObjectIndex));
+			}
 		}
 	}
 
@@ -2557,12 +2564,14 @@ void FPropertyHandleBase::GetOuterObjects( TArray<UObject*>& OuterObjects ) cons
 
 void FPropertyHandleBase::GetOuterPackages(TArray<UPackage*>& OuterPackages) const
 {
-	FComplexPropertyNode* ComplexNode = Implementation->GetPropertyNode()->FindComplexParent();
-	if (ComplexNode)
+	if(Implementation->GetPropertyNode().IsValid())
 	{
-		switch (ComplexNode->GetPropertyType())
+		FComplexPropertyNode* ComplexNode = Implementation->GetPropertyNode()->FindComplexParent();
+		if (ComplexNode)
 		{
-		case FComplexPropertyNode::EPT_Object:
+			switch (ComplexNode->GetPropertyType())
+			{
+			case FComplexPropertyNode::EPT_Object:
 			{
 				FObjectPropertyNode* ObjectNode = static_cast<FObjectPropertyNode*>(ComplexNode);
 				for (int32 ObjectIndex = 0; ObjectIndex < ObjectNode->GetNumObjects(); ++ObjectIndex)
@@ -2572,15 +2581,16 @@ void FPropertyHandleBase::GetOuterPackages(TArray<UPackage*>& OuterPackages) con
 			}
 			break;
 
-		case FComplexPropertyNode::EPT_StandaloneStructure:
+			case FComplexPropertyNode::EPT_StandaloneStructure:
 			{
 				FStructurePropertyNode* StructNode = static_cast<FStructurePropertyNode*>(ComplexNode);
 				OuterPackages.Add(StructNode->GetOwnerPackage());
 			}
 			break;
 
-		default:
-			break;
+			default:
+				break;
+			}
 		}
 	}
 }

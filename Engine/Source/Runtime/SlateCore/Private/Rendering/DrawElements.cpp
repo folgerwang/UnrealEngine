@@ -119,6 +119,14 @@ void FSlateDrawText::SetText(FSlateWindowElementList& ElementList, const FString
 void FSlateDrawLines::SetLines(FSlateWindowElementList& ElementList, const TArray<FVector2D>& InPoints, bool bInAntialias, const TArray<FLinearColor>* InPointColors)
 {
 	bAntialias = bInAntialias;
+
+	if (bInAntialias)
+	{
+		// If the line is to be anti-aliased, we cannot reliably snap
+		// the generated vertexes.
+		DrawEffects |= ESlateDrawEffect::NoPixelSnapping;
+	}
+
 	NumPoints = InPoints.Num();
 	if (NumPoints > 0)
 	{
@@ -407,11 +415,24 @@ void FSlateDrawElement::MakeSpline( FSlateWindowElementList& ElementList, uint32
 	{
 		return;
 	}
-
 	FSlateDrawElement& DrawElt = ElementList.AddUninitialized();
 	DrawElt.Init(ElementList, InLayer, PaintGeometry, InDrawEffects);
 	DrawElt.ElementType = ET_Spline;
-	DrawElt.DataPayload.SetSplinePayloadProperties( InStart, InStartDir, InEnd, InEndDir, InThickness, InTint );
+	DrawElt.DataPayload.SetHermiteSplinePayloadProperties( InStart, InStartDir, InEnd, InEndDir, InThickness, InTint );
+}
+
+void FSlateDrawElement::MakeCubicBezierSpline(FSlateWindowElementList & ElementList, uint32 InLayer, const FPaintGeometry & PaintGeometry, const FVector2D & P0, const FVector2D & P1, const FVector2D & P2, const FVector2D & P3, float InThickness, ESlateDrawEffect InDrawEffects, const FLinearColor & InTint)
+{
+	PaintGeometry.CommitTransformsIfUsingLegacyConstructor();
+
+	if (ShouldCull(ElementList))
+	{
+		return;
+	}
+	FSlateDrawElement& DrawElt = ElementList.AddUninitialized();
+	DrawElt.Init(ElementList, InLayer, PaintGeometry, InDrawEffects);
+	DrawElt.ElementType = ET_Spline;
+	DrawElt.DataPayload.SetCubicBezierPayloadProperties(P0, P1, P2, P3, InThickness, InTint);
 }
 
 
@@ -433,7 +454,23 @@ void FSlateDrawElement::MakeDrawSpaceGradientSpline(FSlateWindowElementList& Ele
 	FSlateDrawElement& DrawElt = ElementList.AddUninitialized();
 	DrawElt.Init(ElementList, InLayer, PaintGeometry, InDrawEffects);
 	DrawElt.ElementType = ET_Spline;
-	DrawElt.DataPayload.SetGradientSplinePayloadProperties(InStart, InStartDir, InEnd, InEndDir, InThickness, InGradientStops);
+	DrawElt.DataPayload.SetGradientHermiteSplinePayloadProperties(InStart, InStartDir, InEnd, InEndDir, InThickness, InGradientStops);
+}
+
+void FSlateDrawElement::MakeDrawSpaceGradientSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, const TArray<FSlateGradientStop>& InGradientStops, float InThickness, ESlateDrawEffect InDrawEffects)
+{
+	const FPaintGeometry PaintGeometry;
+	PaintGeometry.CommitTransformsIfUsingLegacyConstructor();
+
+	if (ShouldCull(ElementList))
+	{
+		return;
+	}
+
+	FSlateDrawElement& DrawElt = ElementList.AddUninitialized();
+	DrawElt.Init(ElementList, InLayer, PaintGeometry, InDrawEffects);
+	DrawElt.ElementType = ET_Spline;
+	DrawElt.DataPayload.SetGradientHermiteSplinePayloadProperties(InStart, InStartDir, InEnd, InEndDir, InThickness, InGradientStops);
 }
 
 

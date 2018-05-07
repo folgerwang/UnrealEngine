@@ -52,4 +52,7 @@ public:
 
 protected:
 	bool IterateDirectoryCommon(const TCHAR* Directory, const TFunctionRef<bool(struct dirent*)>& Visitor);
+
+	/** We're logging an error message. */
+	bool bLoggingError = false;
 };

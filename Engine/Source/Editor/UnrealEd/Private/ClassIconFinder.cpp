@@ -103,7 +103,7 @@ const UClass* FClassIconFinder::GetIconClassForAssetData(const FAssetData& InAss
 		*bOutIsClassType = false;
 	}
 
-	UClass* AssetClass = FindObject<UClass>(ANY_PACKAGE, *InAssetData.AssetClass.ToString());
+	UClass* AssetClass = FindObjectSafe<UClass>(ANY_PACKAGE, *InAssetData.AssetClass.ToString());
 	if ( !AssetClass )
 	{
 		return nullptr;

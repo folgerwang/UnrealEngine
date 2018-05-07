@@ -28,6 +28,7 @@
 #include "VoiceInterfaceSteam.h"
 #include "OnlineExternalUIInterfaceSteam.h"
 #include "OnlineAchievementsInterfaceSteam.h"
+#include "OnlineAuthInterfaceSteam.h"
 
 
 #if !UE_BUILD_SHIPPING
@@ -191,6 +192,11 @@ void ConfigureSteamInitDevOptions(bool& RequireRelaunch, int32& RelaunchAppId)
 #endif
 }
 
+FOnlineAuthSteamPtr FOnlineSubsystemSteam::GetAuthInterface() const
+{
+	return AuthInterface;
+}
+
 IOnlineSessionPtr FOnlineSubsystemSteam::GetSessionInterface() const
 {
 	return SessionInterface;
@@ -334,6 +340,12 @@ bool FOnlineSubsystemSteam::Tick(float DeltaTime)
 	{
 		VoiceInterface->Tick(DeltaTime);
 	}
+
+	if (AuthInterface.IsValid())
+	{
+		AuthInterface->Tick(DeltaTime);
+	}
+
 	return true;
 }
 
@@ -376,6 +388,8 @@ bool FOnlineSubsystemSteam::Init()
 		IdentityInterface = MakeShareable(new FOnlineIdentitySteam(this));
 
 		PresenceInterface = MakeShareable(new FOnlinePresenceSteam(this));
+		
+		AuthInterface = MakeShareable(new FOnlineAuthSteam(this));
 
 		if (!bIsServer)
 		{
@@ -448,6 +462,7 @@ bool FOnlineSubsystemSteam::Shutdown()
 	DESTRUCT_INTERFACE(UserCloudInterface);
 	DESTRUCT_INTERFACE(FriendInterface);
 	DESTRUCT_INTERFACE(IdentityInterface);
+	DESTRUCT_INTERFACE(AuthInterface);
 	DESTRUCT_INTERFACE(SessionInterface);
 	DESTRUCT_INTERFACE(PresenceInterface);
 
@@ -703,7 +718,7 @@ FOnlineLeaderboardsSteam * FOnlineSubsystemSteam::GetInternalLeaderboardsInterfa
 FSteamUserCloudData* FOnlineSubsystemSteam::GetUserCloudEntry(const FUniqueNetId& UserId)
 {
 	FScopeLock ScopeLock(&UserCloudDataLock);
-	for (int32 UserIdx=0; UserIdx < UserCloudData.Num(); UserIdx++)
+	for (int32 UserIdx = 0; UserIdx < UserCloudData.Num(); UserIdx++)
 	{
 		FSteamUserCloudData* UserMetadata = UserCloudData[UserIdx];
 		if (UserMetadata->UserId == UserId)
@@ -754,7 +769,7 @@ TMap<IOnlineUserCloud*, FDelegateHandle> GPerCloudDeleteFromEnumerateUserFilesCo
 static void DeleteFromEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& UserId)
 {
 	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
-	check(OnlineSub); 
+	check(OnlineSub);
 
 	IOnlineUserCloudPtr UserCloud = OnlineSub->GetUserCloudInterface();
 
@@ -765,14 +780,14 @@ static void DeleteFromEnumerateUserFilesComplete(bool bWasSuccessful, const FUni
 		TArray<FCloudFileHeader> UserFiles;
 		UserCloud->GetUserFileList(UserId, UserFiles);
 
-		for (int32 Idx=0; Idx < UserFiles.Num(); Idx++)
+		for (int32 Idx = 0; Idx < UserFiles.Num(); Idx++)
 		{
 			UserCloud->DeleteUserFile(UserId, UserFiles[Idx].FileName, true, true);
 		}
 	}
 }
 
-bool FOnlineSubsystemSteam::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) 
+bool FOnlineSubsystemSteam::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 {
 	if (FOnlineSubsystemImpl::Exec(InWorld, Cmd, Ar))
 	{
@@ -797,6 +812,13 @@ bool FOnlineSubsystemSteam::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevic
 		{
 			SessionInterface->SyncLobbies();
 			bWasHandled = true;
+		}
+	}
+	else if (FParse::Command(&Cmd, TEXT("AUTH")))
+	{
+		if (AuthInterface.IsValid())
+		{
+			bWasHandled = AuthInterface->Exec(Cmd);
 		}
 	}
 

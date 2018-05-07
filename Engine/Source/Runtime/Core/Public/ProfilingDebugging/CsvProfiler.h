@@ -174,6 +174,8 @@ public:
 
 	CORE_API int32 GetCaptureFrameNumber();
 
+	CORE_API bool EnableCategoryByString(const FString& CategoryName) const;
+
 	/** Per-frame update */
 	CORE_API void BeginFrame();
 	CORE_API void EndFrame();

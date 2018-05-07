@@ -24,6 +24,7 @@ FFontData::FFontData()
 	: FontFilename()
 	, Hinting(EFontHinting::Default)
 	, LoadingPolicy(EFontLoadingPolicy::LazyLoad)
+	, SubFaceIndex(0)
 	, FontFaceAsset(nullptr)
 #if WITH_EDITORONLY_DATA
 	, BulkDataPtr_DEPRECATED(nullptr)
@@ -32,10 +33,11 @@ FFontData::FFontData()
 {
 }
 
-FFontData::FFontData(const UObject* const InFontFaceAsset)
+FFontData::FFontData(const UObject* const InFontFaceAsset, const int32 InSubFaceIndex)
 	: FontFilename()
 	, Hinting(EFontHinting::Default)
 	, LoadingPolicy(EFontLoadingPolicy::LazyLoad)
+	, SubFaceIndex(InSubFaceIndex)
 	, FontFaceAsset(InFontFaceAsset)
 #if WITH_EDITORONLY_DATA
 	, BulkDataPtr_DEPRECATED(nullptr)
@@ -48,10 +50,11 @@ FFontData::FFontData(const UObject* const InFontFaceAsset)
 	}
 }
 
-FFontData::FFontData(FString InFontFilename, const EFontHinting InHinting, const EFontLoadingPolicy InLoadingPolicy)
+FFontData::FFontData(FString InFontFilename, const EFontHinting InHinting, const EFontLoadingPolicy InLoadingPolicy, const int32 InSubFaceIndex)
 	: FontFilename(MoveTemp(InFontFilename))
 	, Hinting(InHinting)
 	, LoadingPolicy(InLoadingPolicy)
+	, SubFaceIndex(InSubFaceIndex)
 	, FontFaceAsset(nullptr)
 #if WITH_EDITORONLY_DATA
 	, BulkDataPtr_DEPRECATED(nullptr)
@@ -95,6 +98,16 @@ EFontLoadingPolicy FFontData::GetLoadingPolicy() const
 		return FontFace->GetLoadingPolicy();
 	}
 	return LoadingPolicy;
+}
+
+int32 FFontData::GetSubFaceIndex() const
+{
+	return SubFaceIndex;
+}
+
+void FFontData::SetSubFaceIndex(const int32 InSubFaceIndex)
+{
+	SubFaceIndex = InSubFaceIndex;
 }
 
 EFontLayoutMethod FFontData::GetLayoutMethod() const
@@ -176,7 +189,8 @@ bool FFontData::operator==(const FFontData& Other) const
 	// Compare inline properties
 	return FontFilename == Other.FontFilename
 		&& Hinting == Other.Hinting
-		&& LoadingPolicy == Other.LoadingPolicy;
+		&& LoadingPolicy == Other.LoadingPolicy
+		&& SubFaceIndex == Other.SubFaceIndex;
 }
 
 bool FFontData::operator!=(const FFontData& Other) const
@@ -211,6 +225,8 @@ bool FFontData::Serialize(FArchive& Ar)
 			Ar << Hinting;
 			Ar << LoadingPolicy;
 		}
+
+		Ar << SubFaceIndex;
 	}
 	else
 	{

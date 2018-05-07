@@ -597,20 +597,20 @@ namespace UnrealBuildTool
 			return new IOSProvisioningData(ProjectSettings, bForDistribution);
 		}
 
-		public override string GetDebugInfoExtension(ReadOnlyTargetRules InTarget, UEBuildBinaryType InBinaryType)
+		public override string[] GetDebugInfoExtensions(ReadOnlyTargetRules InTarget, UEBuildBinaryType InBinaryType)
 		{
 			IOSProjectSettings ProjectSettings = ReadProjectSettings(InTarget.ProjectFile);
 
 			if(ProjectSettings.bGeneratedSYMBundle)
 			{
-				return ".dSYM.zip";
+				return new string[] {".dSYM.zip"};
 			}
 			else if (ProjectSettings.bGeneratedSYMFile)
             {
-                return ".dSYM";
+                return new string[] {".dSYM"};
             }
 
-            return "";
+            return new string [] {};
 		}
 
 		public override bool CanUseXGE()

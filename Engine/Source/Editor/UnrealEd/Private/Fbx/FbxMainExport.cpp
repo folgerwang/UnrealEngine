@@ -3405,21 +3405,8 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int3
 		TArray<int32> VertRemap;
 		TArray<int32> UniqueVerts;
 
-		if (GetExportOptions()->WeldedVertices)
-		{
-			// Weld verts
-			DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
-		}
-		else
-		{
-			// Do not weld verts
-			VertRemap.AddUninitialized(RenderMesh.VertexBuffers.StaticMeshVertexBuffer.GetNumVertices());
-			for (int32 i = 0; i < VertRemap.Num(); i++)
-			{
-				VertRemap[i] = i;
-			}
-			UniqueVerts = VertRemap;
-		}
+		// Weld verts
+		DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
 
 		// Create and fill in the vertex position data source.
 		// The position vertices are duplicated, for some reason, retrieve only the first half vertices.
@@ -3549,17 +3536,8 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int3
 
 			TArray<int32> UvsRemap;
 			TArray<int32> UniqueUVs;
-			if (GetExportOptions()->WeldedVertices)
-			{
-				// Weld UVs
-				DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffers.StaticMeshVertexBuffer, TexCoordSourceIndex);
-			}
-			else
-			{
-				// Do not weld UVs
-				UvsRemap = VertRemap;
-				UniqueUVs = UvsRemap;
-			}
+			// Weld UVs
+			DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffers.StaticMeshVertexBuffer, TexCoordSourceIndex);
 
 			// Create the texture coordinate data source.
 			for (int32 FbxVertIndex = 0; FbxVertIndex < UniqueUVs.Num(); FbxVertIndex++)
@@ -3753,21 +3731,8 @@ void FFbxExporter::ExportSplineMeshToFbx(const USplineMeshComponent* SplineMeshC
 	TArray<int32> VertRemap;
 	TArray<int32> UniqueVerts;
 
-	if (GetExportOptions()->WeldedVertices)
-	{
-		// Weld verts
-		DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
-	}
-	else
-	{
-		// Do not weld verts
-		VertRemap.AddUninitialized(RenderMesh.VertexBuffers.StaticMeshVertexBuffer.GetNumVertices());
-		for (int32 i = 0; i < VertRemap.Num(); i++)
-		{
-			VertRemap[i] = i;
-		}
-		UniqueVerts = VertRemap;
-	}
+	// Weld verts
+	DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
 
 	FbxMesh* Mesh = FbxMesh::Create(Scene, TCHAR_TO_UTF8(MeshName));
 
@@ -3873,17 +3838,8 @@ void FFbxExporter::ExportSplineMeshToFbx(const USplineMeshComponent* SplineMeshC
 
 		TArray<int32> UvsRemap;
 		TArray<int32> UniqueUVs;
-		if (GetExportOptions()->WeldedVertices)
-		{
-			// Weld UVs
-			DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffers.StaticMeshVertexBuffer, TexCoordSourceIndex);
-		}
-		else
-		{
-			// Do not weld UVs
-			UvsRemap = VertRemap;
-			UniqueUVs = UvsRemap;
-		}
+		// Weld UVs
+		DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffers.StaticMeshVertexBuffer, TexCoordSourceIndex);
 
 		// Create the texture coordinate data source.
 		for (int32 UnrealVertIndex : UniqueUVs)

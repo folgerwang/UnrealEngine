@@ -177,39 +177,40 @@ namespace UnrealBuildTool
 		/// Returns a project navigator group to which the file should belong based on its path.
 		/// Creates a group tree if it doesn't exist yet.
 		/// </summary>
-		public XcodeFileGroup FindGroupByRelativePath(ref Dictionary<string, XcodeFileGroup> Groups, string RelativePath)
+		public XcodeFileGroup FindGroupByAbsolutePath(ref Dictionary<string, XcodeFileGroup> Groups, string AbsolutePath)
 		{
-			string[] Parts = RelativePath.Split(Path.DirectorySeparatorChar);
-			string CurrentPath = "";
-			Dictionary<string, XcodeFileGroup> CurrentParent = Groups;
+			string[] Parts = AbsolutePath.Split(Path.DirectorySeparatorChar);
+			string CurrentPath = "/";
+			Dictionary<string, XcodeFileGroup> CurrentSubGroups = Groups;
 
-			foreach (string Part in Parts)
+			for (int Index = 1; Index < Parts.Count(); ++Index)
 			{
-				XcodeFileGroup CurrentGroup;
+				string Part = Parts[Index];
 
-				if (CurrentPath != "")
+				if (CurrentPath.Length > 1)
 				{
 					CurrentPath += Path.DirectorySeparatorChar;
 				}
 
 				CurrentPath += Part;
 
-				if (!CurrentParent.ContainsKey(CurrentPath))
+				XcodeFileGroup CurrentGroup;
+				if (!CurrentSubGroups.ContainsKey(CurrentPath))
 				{
 					CurrentGroup = new XcodeFileGroup(Path.GetFileName(CurrentPath), CurrentPath);
-					CurrentParent.Add(CurrentPath, CurrentGroup);
+					CurrentSubGroups.Add(CurrentPath, CurrentGroup);
 				}
 				else
 				{
-					CurrentGroup = CurrentParent[CurrentPath];
+					CurrentGroup = CurrentSubGroups[CurrentPath];
 				}
 
-				if (CurrentPath == RelativePath)
+				if (CurrentPath == AbsolutePath)
 				{
 					return CurrentGroup;
 				}
 
-				CurrentParent = CurrentGroup.Children;
+				CurrentSubGroups = CurrentGroup.Children;
 			}
 
 			return null;
@@ -266,6 +267,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		private void GenerateSectionsWithSourceFiles(StringBuilder PBXBuildFileSection, StringBuilder PBXFileReferenceSection, StringBuilder PBXSourcesBuildPhaseSection, string TargetAppGuid, string TargetName)
 		{
+			SourceFiles.Sort((x, y) => { return x.Reference.FullName.CompareTo(y.Reference.FullName); });
+
 			foreach (SourceFile CurSourceFile in SourceFiles)
 			{
 				XcodeSourceFile SourceFile = CurSourceFile as XcodeSourceFile;
@@ -294,14 +297,7 @@ namespace UnrealBuildTool
 					PBXSourcesBuildPhaseSection.Append("\t\t\t\t" + SourceFile.FileGuid + " /* " + FileName + " in Sources */," + ProjectFileGenerator.NewLine);
 				}
 
-				string ProjectRelativeSourceFile = CurSourceFile.Reference.MakeRelativeTo(ProjectFilePath.Directory);
-				string RelativeSourceDirectory = Path.GetDirectoryName(ProjectRelativeSourceFile);
-				// Use the specified relative base folder
-				if (CurSourceFile.BaseFolder != null)	// NOTE: We are looking for null strings, not empty strings!
-				{
-					RelativeSourceDirectory = Path.GetDirectoryName(CurSourceFile.Reference.MakeRelativeTo(CurSourceFile.BaseFolder));
-				}
-				XcodeFileGroup Group = FindGroupByRelativePath(ref Groups, RelativeSourceDirectory);
+				XcodeFileGroup Group = FindGroupByAbsolutePath(ref Groups, CurSourceFile.Reference.Directory.FullName);
 				if (Group != null)
 				{
 					Group.Files.Add(SourceFile);
@@ -311,20 +307,17 @@ namespace UnrealBuildTool
 			PBXFileReferenceSection.Append(string.Format("\t\t{0} /* {1} */ = {{isa = PBXFileReference; explicitFileType = wrapper.application; path = {1}; sourceTree = BUILT_PRODUCTS_DIR; }};" + ProjectFileGenerator.NewLine, TargetAppGuid, TargetName));
 		}
 
-		private void AppendGroup(XcodeFileGroup Group, StringBuilder Content, bool bFilesOnly)
+		private void AppendGroup(XcodeFileGroup Group, StringBuilder Content)
 		{
 			if (!Group.bIsReference)
 			{
-				if (!bFilesOnly)
-				{
-					Content.Append(string.Format("\t\t{0} = {{{1}", Group.GroupGuid, ProjectFileGenerator.NewLine));
-					Content.Append("\t\t\tisa = PBXGroup;" + ProjectFileGenerator.NewLine);
-					Content.Append("\t\t\tchildren = (" + ProjectFileGenerator.NewLine);
+				Content.Append(string.Format("\t\t{0} = {{{1}", Group.GroupGuid, ProjectFileGenerator.NewLine));
+				Content.Append("\t\t\tisa = PBXGroup;" + ProjectFileGenerator.NewLine);
+				Content.Append("\t\t\tchildren = (" + ProjectFileGenerator.NewLine);
 
-					foreach (XcodeFileGroup ChildGroup in Group.Children.Values)
-					{
-						Content.Append(string.Format("\t\t\t\t{0} /* {1} */,{2}", ChildGroup.GroupGuid, ChildGroup.GroupName, ProjectFileGenerator.NewLine));
-					}
+				foreach (XcodeFileGroup ChildGroup in Group.Children.Values)
+				{
+					Content.Append(string.Format("\t\t\t\t{0} /* {1} */,{2}", ChildGroup.GroupGuid, ChildGroup.GroupName, ProjectFileGenerator.NewLine));
 				}
 
 				foreach (XcodeSourceFile File in Group.Files)
@@ -332,18 +325,15 @@ namespace UnrealBuildTool
 					Content.Append(string.Format("\t\t\t\t{0} /* {1} */,{2}", File.FileRefGuid, File.Reference.GetFileName(), ProjectFileGenerator.NewLine));
 				}
 
-				if (!bFilesOnly)
-				{
-					Content.Append("\t\t\t);" + ProjectFileGenerator.NewLine);
-					Content.Append("\t\t\tname = \"" + Group.GroupName + "\";" + ProjectFileGenerator.NewLine);
-					Content.Append("\t\t\tpath = \"" + Group.GroupPath + "\";" + ProjectFileGenerator.NewLine);
-					Content.Append("\t\t\tsourceTree = \"<group>\";" + ProjectFileGenerator.NewLine);
-					Content.Append("\t\t};" + ProjectFileGenerator.NewLine);
+				Content.Append("\t\t\t);" + ProjectFileGenerator.NewLine);
+				Content.Append("\t\t\tname = \"" + Group.GroupName + "\";" + ProjectFileGenerator.NewLine);
+				Content.Append("\t\t\tpath = \"" + Group.GroupPath + "\";" + ProjectFileGenerator.NewLine);
+				Content.Append("\t\t\tsourceTree = \"<absolute>\";" + ProjectFileGenerator.NewLine);
+				Content.Append("\t\t};" + ProjectFileGenerator.NewLine);
 
-					foreach (XcodeFileGroup ChildGroup in Group.Children.Values)
-					{
-						AppendGroup(ChildGroup, Content, bFilesOnly: false);
-					}
+				foreach (XcodeFileGroup ChildGroup in Group.Children.Values)
+				{
+					AppendGroup(ChildGroup, Content);
 				}
 			}
 		}
@@ -376,8 +366,34 @@ namespace UnrealBuildTool
 			Content.Append("/* End PBXSourcesBuildPhase section */" + ProjectFileGenerator.NewLine + ProjectFileGenerator.NewLine);
 		}
 
+		private XcodeFileGroup FindRootFileGroup(Dictionary<string, XcodeFileGroup> GroupsDict)
+		{
+			foreach (XcodeFileGroup Group in GroupsDict.Values)
+			{
+				if (Group.Children.Count > 1 || Group.Files.Count > 0)
+				{
+					return Group;
+				}
+				else
+				{
+					XcodeFileGroup Found = FindRootFileGroup(Group.Children);
+					if (Found != null)
+					{
+						return Found;
+					}
+				}
+			}
+			return null;
+		}
+
 		private void AppendGroupSection(StringBuilder Content, string MainGroupGuid, string ProductRefGroupGuid, string TargetAppGuid, string TargetName)
 		{
+			XcodeFileGroup RootGroup = FindRootFileGroup(Groups);
+			if (RootGroup == null)
+			{
+				return;
+			}
+			
 			Content.Append("/* Begin PBXGroup section */" + ProjectFileGenerator.NewLine);
 
 			// Main group
@@ -385,17 +401,14 @@ namespace UnrealBuildTool
 			Content.Append("\t\t\tisa = PBXGroup;" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\tchildren = (" + ProjectFileGenerator.NewLine);
 
-			foreach (XcodeFileGroup Group in Groups.Values)
+			foreach (XcodeFileGroup Group in RootGroup.Children.Values)
 			{
-				if (!string.IsNullOrEmpty(Group.GroupName))
-				{
-					Content.Append(string.Format("\t\t\t\t{0} /* {1} */,{2}", Group.GroupGuid, Group.GroupName, ProjectFileGenerator.NewLine));
-				}
+				Content.Append(string.Format("\t\t\t\t{0} /* {1} */,{2}", Group.GroupGuid, Group.GroupName, ProjectFileGenerator.NewLine));
 			}
 
-			if (Groups.ContainsKey(""))
+			foreach (XcodeSourceFile File in RootGroup.Files)
 			{
-				AppendGroup(Groups[""], Content, bFilesOnly: true);
+				Content.Append(string.Format("\t\t\t\t{0} /* {1} */,{2}", File.FileRefGuid, File.Reference.GetFileName(), ProjectFileGenerator.NewLine));
 			}
 
 			Content.Append(string.Format("\t\t\t\t{0} /* Products */,{1}", ProductRefGroupGuid, ProjectFileGenerator.NewLine));
@@ -404,12 +417,9 @@ namespace UnrealBuildTool
 			Content.Append("\t\t};" + ProjectFileGenerator.NewLine);
 
 			// Sources groups
-			foreach (XcodeFileGroup Group in Groups.Values)
+			foreach (XcodeFileGroup Group in RootGroup.Children.Values)
 			{
-				if (Group.GroupName != "")
-				{
-					AppendGroup(Group, Content, bFilesOnly: false);
-				}
+				AppendGroup(Group, Content);
 			}
 
 			// Products group
@@ -591,6 +601,7 @@ namespace UnrealBuildTool
 			{
 				Content.Append("\t\t\t\t\t\"" + Definition.Replace("\"", "").Replace("\\", "") + "\"," + ProjectFileGenerator.NewLine);
 			}
+			Content.Append("\t\t\t\t\t\"__INTELLISENSE__\"," + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\t\t\t\"MONOLITHIC_BUILD=1\"," + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\t\t);" + ProjectFileGenerator.NewLine);
 
@@ -1310,7 +1321,6 @@ namespace UnrealBuildTool
 			Content.Append("      revealArchiveInOrganizer = \"YES\">" + ProjectFileGenerator.NewLine);
 			Content.Append("   </ArchiveAction>" + ProjectFileGenerator.NewLine);
 			Content.Append("</Scheme>" + ProjectFileGenerator.NewLine);
-
 
 			File.WriteAllText(SchemeFilePath, Content.ToString(), new UTF8Encoding());
 

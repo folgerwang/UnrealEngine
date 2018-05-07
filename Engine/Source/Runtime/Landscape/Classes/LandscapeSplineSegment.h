@@ -181,9 +181,8 @@ class ULandscapeSplineSegment : public UObject
 	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes)
 	TArray<FLandscapeSplineMeshEntry> SplineMeshes;
 
-	/** Whether to generate collision for the Spline Meshes. */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes)
-	uint32 bEnableCollision:1;
+	UPROPERTY()
+	uint32 bEnableCollision_DEPRECATED:1;
 
 	/** Whether the Spline Meshes should cast a shadow. */
 	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes)
@@ -210,6 +209,10 @@ class ULandscapeSplineSegment : public UObject
 	/** Whether spline meshes should be placed in landscape proxy streaming levels (true) or the spline's level (false) */
 	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes, AdvancedDisplay)
 	uint32 bPlaceSplineMeshesInStreamingLevels : 1;
+
+	/** Mesh Collision Settings */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Collision, meta = (ShowOnlyInnerProperties))
+	FBodyInstance BodyInstance;
 
 protected:
 	UPROPERTY(Transient)

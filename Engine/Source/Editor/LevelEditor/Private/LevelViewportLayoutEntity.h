@@ -24,6 +24,7 @@ public:
 	void SaveConfig(const FString& ConfigSection);
 	FLevelEditorViewportClient& GetLevelViewportClient() const;
 	FName GetType() const;
+	void TakeHighResScreenShot() const;
 
 protected:
 

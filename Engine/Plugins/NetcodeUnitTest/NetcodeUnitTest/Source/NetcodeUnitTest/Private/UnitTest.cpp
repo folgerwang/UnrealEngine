@@ -58,6 +58,7 @@ UUnitTest::UUnitTest(const FObjectInitializer& ObjectInitializer)
 	, UnitTestCLs()
 	, bWorkInProgress(false)
 	, bUnreliable(false)
+	, bObsolete(false)
 	, ExpectedResult()
 	, UnitTestTimeout(0)
 	, PeakMemoryUsage(0)
@@ -145,6 +146,11 @@ bool UUnitTest::UTStartUnitTest()
 	if (bWorkInProgress)
 	{
 		UNIT_LOG(ELogType::StatusWarning, TEXT("WARNING: Unit test marked as 'work in progress', not included in automated tests."));
+	}
+
+	if (bObsolete)
+	{
+		UNIT_LOG(ELogType::StatusError, TEXT("Unit test marked as 'obsolete', and will most likely fail."))
 	}
 
 	if (UnitEnv != nullptr)

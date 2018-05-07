@@ -654,57 +654,66 @@ void AActor::SetActorLabel( const FString& NewActorLabelDirty, bool bMarkDirty )
 	SetActorLabelInternal(NewActorLabelDirty, bMakeGloballyUniqueFName, bMarkDirty );
 }
 
-void AActor::SetActorLabelInternal( const FString& NewActorLabelDirty, bool bMakeGloballyUniqueFName, bool bMarkDirty )
+void AActor::SetActorLabelInternal(const FString& NewActorLabelDirty, bool bMakeGloballyUniqueFName, bool bMarkDirty)
 {
 	// Clean up the incoming string a bit
 	FString NewActorLabel = NewActorLabelDirty;
 	NewActorLabel.TrimStartAndEndInline();
 
-
-	// First, update the actor label
+	// Validate incoming string before proceeding
+	FText OutErrorMessage;
+	if (!FActorEditorUtils::ValidateActorName(FText::FromString(NewActorLabel), OutErrorMessage))
 	{
-		// Has anything changed?
-		if( FCString::Strcmp( *NewActorLabel, *GetActorLabel() ) != 0 )
-		{
-			// Store new label
-			Modify( bMarkDirty );
-			ActorLabel = NewActorLabel;
-		}
+		//Invalid actor name
+		UE_LOG(LogActor, Warning, TEXT("SetActorLabel failed: %s"), *OutErrorMessage.ToString());
 	}
-
-
-	// Next, update the actor's name
+	else
 	{
-		// Generate an object name for the actor's label
-		const FName OldActorName = GetFName();
-		FName NewActorName = MakeObjectNameFromDisplayLabel( GetActorLabel(), OldActorName );
-
-		// Has anything changed?
-		if( OldActorName != NewActorName )
+		// First, update the actor label
 		{
-			// Try to rename the object
-			UObject* NewOuter = NULL;		// Outer won't be changing
-			ERenameFlags RenFlags = bMakeGloballyUniqueFName ? (REN_DontCreateRedirectors | REN_ForceGlobalUnique) : REN_DontCreateRedirectors;
-			bool bCanRename = Rename( *NewActorName.ToString(), NewOuter, REN_Test | REN_DoNotDirty | REN_NonTransactional | RenFlags );
-			if( bCanRename )
+			// Has anything changed?
+			if (FCString::Strcmp(*NewActorLabel, *GetActorLabel()) != 0)
 			{
-				// NOTE: Will assert internally if rename fails
-				const bool bWasRenamed = Rename( *NewActorName.ToString(), NewOuter, RenFlags );
+				// Store new label
+				Modify(bMarkDirty);
+				ActorLabel = NewActorLabel;
 			}
-			else
-			{
-				// Unable to rename the object.  Use a unique object name variant.
-				NewActorName = MakeUniqueObjectName( bMakeGloballyUniqueFName ? ANY_PACKAGE : GetOuter(), GetClass(), NewActorName );
+		}
 
-				bCanRename = Rename( *NewActorName.ToString(), NewOuter, REN_Test | REN_DoNotDirty | REN_NonTransactional | RenFlags );
-				if( bCanRename )
+
+		// Next, update the actor's name
+		{
+			// Generate an object name for the actor's label
+			const FName OldActorName = GetFName();
+			FName NewActorName = MakeObjectNameFromDisplayLabel(GetActorLabel(), OldActorName);
+
+			// Has anything changed?
+			if (OldActorName != NewActorName)
+			{
+				// Try to rename the object
+				UObject* NewOuter = NULL;		// Outer won't be changing
+				ERenameFlags RenFlags = bMakeGloballyUniqueFName ? (REN_DontCreateRedirectors | REN_ForceGlobalUnique) : REN_DontCreateRedirectors;
+				bool bCanRename = Rename(*NewActorName.ToString(), NewOuter, REN_Test | REN_DoNotDirty | REN_NonTransactional | RenFlags);
+				if (bCanRename)
 				{
 					// NOTE: Will assert internally if rename fails
-					const bool bWasRenamed = Rename( *NewActorName.ToString(), NewOuter, RenFlags );
+					const bool bWasRenamed = Rename(*NewActorName.ToString(), NewOuter, RenFlags);
 				}
 				else
 				{
-					// Unable to rename the object.  Oh well, not a big deal.
+					// Unable to rename the object.  Use a unique object name variant.
+					NewActorName = MakeUniqueObjectName(bMakeGloballyUniqueFName ? ANY_PACKAGE : GetOuter(), GetClass(), NewActorName);
+
+					bCanRename = Rename(*NewActorName.ToString(), NewOuter, REN_Test | REN_DoNotDirty | REN_NonTransactional | RenFlags);
+					if (bCanRename)
+					{
+						// NOTE: Will assert internally if rename fails
+						const bool bWasRenamed = Rename(*NewActorName.ToString(), NewOuter, RenFlags);
+					}
+					else
+					{
+						// Unable to rename the object.  Oh well, not a big deal.
+					}
 				}
 			}
 		}
@@ -760,7 +769,7 @@ void AActor::CheckForDeprecated()
 	if ( GetClass()->HasAnyClassFlags(CLASS_Deprecated) )
 	{
 		FFormatNamedArguments Arguments;
-		Arguments.Add(TEXT("ActorName"), FText::FromString(GetName()));
+		Arguments.Add(TEXT("ActorName"), FText::FromString(GetPathName()));
 		FMessageLog("MapCheck").Warning()
 			->AddToken(FUObjectToken::Create(this))
 			->AddToken(FTextToken::Create(FText::Format(LOCTEXT( "MapCheck_Message_ActorIsObselete_Deprecated", "{ActorName} : Obsolete and must be removed! (Class is deprecated)" ), Arguments) ))
@@ -770,7 +779,7 @@ void AActor::CheckForDeprecated()
 	if ( !(GetFlags() & RF_ClassDefaultObject) && GetClass()->HasAnyClassFlags(CLASS_Abstract) )
 	{
 		FFormatNamedArguments Arguments;
-		Arguments.Add(TEXT("ActorName"), FText::FromString(GetName()));
+		Arguments.Add(TEXT("ActorName"), FText::FromString(GetPathName()));
 		FMessageLog("MapCheck").Warning()
 			->AddToken(FUObjectToken::Create(this))
 			->AddToken(FTextToken::Create(FText::Format(LOCTEXT( "MapCheck_Message_ActorIsObselete_Abstract", "{ActorName} : Obsolete and must be removed! (Class is abstract)" ), Arguments) ) )
@@ -791,7 +800,7 @@ void AActor::CheckForErrors()
 	if( PrimComp && (PrimComp->Mobility != EComponentMobility::Movable) && PrimComp->BodyInstance.bSimulatePhysics)
 	{
 		FFormatNamedArguments Arguments;
-		Arguments.Add(TEXT("ActorName"), FText::FromString(GetName()));
+		Arguments.Add(TEXT("ActorName"), FText::FromString(GetPathName()));
 		FMessageLog("MapCheck").Warning()
 			->AddToken(FUObjectToken::Create(this))
 			->AddToken(FTextToken::Create(FText::Format(LOCTEXT( "MapCheck_Message_StaticPhysNone", "{ActorName} : Static object with bSimulatePhysics set to true" ), Arguments) ))
@@ -801,7 +810,7 @@ void AActor::CheckForErrors()
 	if( RootComponent && FMath::IsNearlyZero( GetRootComponent()->RelativeScale3D.X * GetRootComponent()->RelativeScale3D.Y * GetRootComponent()->RelativeScale3D.Z ) )
 	{
 		FFormatNamedArguments Arguments;
-		Arguments.Add(TEXT("ActorName"), FText::FromString(GetName()));
+		Arguments.Add(TEXT("ActorName"), FText::FromString(GetPathName()));
 		FMessageLog("MapCheck").Error()
 			->AddToken(FUObjectToken::Create(this))
 			->AddToken(FTextToken::Create(FText::Format(LOCTEXT( "MapCheck_Message_InvalidDrawscale", "{ActorName} : Invalid DrawScale/DrawScale3D" ), Arguments) ))

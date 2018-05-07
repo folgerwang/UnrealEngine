@@ -385,10 +385,10 @@ namespace UnrealBuildTool
 			}
 
 			// Add the primary build products
-			string DebugExtension = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtension(Target, Type);
+			string[] DebugExtensions = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtensions(Target, Type);
 			foreach (FileReference OutputFilePath in OutputFilePaths)
 			{
-				AddBuildProductAndDebugFile(OutputFilePath, OutputType, DebugExtension, BuildProducts, ToolChain, bCreateDebugInfo);
+				AddBuildProductAndDebugFiles(OutputFilePath, OutputType, DebugExtensions, BuildProducts, ToolChain, bCreateDebugInfo);
 			}
 
 			// Add the console app, if there is one
@@ -396,7 +396,7 @@ namespace UnrealBuildTool
 			{
 				foreach (FileReference OutputFilePath in OutputFilePaths)
 				{
-					AddBuildProductAndDebugFile(GetAdditionalConsoleAppPath(OutputFilePath), OutputType, DebugExtension, BuildProducts, ToolChain, bCreateDebugInfo);
+					AddBuildProductAndDebugFiles(GetAdditionalConsoleAppPath(OutputFilePath), OutputType, DebugExtensions, BuildProducts, ToolChain, bCreateDebugInfo);
 				}
 			}
 
@@ -414,17 +414,20 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="OutputFile">Build product to add</param>
 		/// <param name="OutputType">The type of built product</param>
-		/// <param name="DebugExtension">Extension for the matching debug file (may be null).</param>
+		/// <param name="DebugExtensions">Extensions for the matching debug file (may be null).</param>
 		/// <param name="BuildProducts">Map of build products to their type</param>
 		/// <param name="ToolChain">The toolchain used to build these binaries</param>
 		/// <param name="bCreateDebugInfo">Whether creating debug info is enabled</param>
-		static void AddBuildProductAndDebugFile(FileReference OutputFile, BuildProductType OutputType, string DebugExtension, Dictionary<FileReference, BuildProductType> BuildProducts, UEToolChain ToolChain, bool bCreateDebugInfo)
+		static void AddBuildProductAndDebugFiles(FileReference OutputFile, BuildProductType OutputType, string[] DebugExtensions, Dictionary<FileReference, BuildProductType> BuildProducts, UEToolChain ToolChain, bool bCreateDebugInfo)
 		{
 			BuildProducts.Add(OutputFile, OutputType);
 
-			if (!String.IsNullOrEmpty(DebugExtension) && ToolChain.ShouldAddDebugFileToReceipt(OutputFile, OutputType) && bCreateDebugInfo)
+			foreach (string DebugExtension in DebugExtensions)
 			{
-				BuildProducts.Add(OutputFile.ChangeExtension(DebugExtension), BuildProductType.SymbolFile);
+				if (!String.IsNullOrEmpty(DebugExtension) && ToolChain.ShouldAddDebugFileToReceipt(OutputFile, OutputType) && bCreateDebugInfo)
+				{
+					BuildProducts.Add(OutputFile.ChangeExtension(DebugExtension), BuildProductType.SymbolFile);
+				}
 			}
 		}
 

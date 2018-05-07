@@ -1347,7 +1347,7 @@ void ULightComponent::ReassignStationaryLightChannels(UWorld* TargetWorld, bool 
 
 			if (CurrentLight->Channel == INDEX_NONE)
 			{
-				FMessageLog("LightingResults").Error()
+				FMessageLog("LightingResults").PerformanceWarning()
 					->AddToken(FUObjectToken::Create(CurrentLight->Light->GetOwner()))
 					->AddToken(FTextToken::Create( NSLOCTEXT("Lightmass", "LightmassError_FailedToAllocateShadowmapChannel", "Severe performance loss: Failed to allocate shadowmap channel for stationary light due to overlap - light will fall back to dynamic shadows!") ) );
 			}

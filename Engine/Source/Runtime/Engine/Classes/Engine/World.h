@@ -2001,6 +2001,16 @@ public:
 	/** Returns true if the actors have been initialized and are ready to start play */
 	bool AreActorsInitialized() const;
 
+	struct FActorsInitializedParams
+	{
+		FActorsInitializedParams(UWorld* InWorld, bool InResetTime) : World(InWorld), ResetTime(InResetTime) {}
+		UWorld* World;
+		bool ResetTime;
+	};
+
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnWorldInitializedActors, const FActorsInitializedParams&);
+	FOnWorldInitializedActors OnActorsInitialized;
+
 	/** Returns true if gameplay has already started, false otherwise. */
 	bool HasBegunPlay() const;
 
@@ -3372,6 +3382,9 @@ public:
 	// Called when changes in the levels require blueprint actions to be refreshed.
 	static FRefreshLevelScriptActionsEvent RefreshLevelScriptActions;
 #endif
+	
+	// Global Callback after actors have been initialized (on any world)
+	static UWorld::FOnWorldInitializedActors OnWorldInitializedActors;
 
 private:
 	FWorldDelegates() {}

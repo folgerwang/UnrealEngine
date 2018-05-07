@@ -2,6 +2,7 @@
 
 #include "Framework/Docking/FDockingDragOperation.h"
 #include "Framework/Application/SlateApplication.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 /**
  * Invoked when the drag and drop operation has ended.
@@ -298,6 +299,8 @@ void FDockingDragOperation::DroppedOntoNothing()
 
 	const FVector2D PositionToDrop = CursorDecoratorWindow->GetPositionInScreen();
 
+	const float DPIScale = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(PositionToDrop.X, PositionToDrop.Y);
+
 	TSharedRef<FTabManager> MyTabManager = TabBeingDragged->GetTabManager();
 
 	TSharedPtr<SWindow> NewWindowParent = MyTabManager->GetPrivateApi().GetParentWindow();
@@ -306,7 +309,8 @@ void FDockingDragOperation::DroppedOntoNothing()
 	TSharedRef<SWindow> NewWindow = SNew(SWindow)
 		.Title(FGlobalTabmanager::Get()->GetApplicationTitle())
 		.AutoCenter(EAutoCenter::None)
-		.ScreenPosition(PositionToDrop)
+		// Divide out scale, it is already factored into position
+		.ScreenPosition(PositionToDrop/DPIScale)
 		// Make room for the title bar; otherwise windows will get progressive smaller whenver you float them.
 		.ClientSize(SWindow::ComputeWindowSizeForContent(CursorDecoratorWindow->GetSizeInScreen()))
 		.CreateTitleBar(false);

@@ -559,6 +559,7 @@ void ULandscapeComponent::UpdatedSharedPropertiesFromActor()
 	bCastFarShadow = LandscapeProxy->bCastFarShadow;
 	bAffectDistanceFieldLighting = LandscapeProxy->bAffectDistanceFieldLighting;
 	bRenderCustomDepth = LandscapeProxy->bRenderCustomDepth;
+	LDMaxDrawDistance = LandscapeProxy->LDMaxDrawDistance;
 	CustomDepthStencilValue = LandscapeProxy->CustomDepthStencilValue;
 	LightingChannels = LandscapeProxy->LightingChannels;
 }
@@ -655,7 +656,7 @@ void ULandscapeComponent::PostLoad()
 		MaterialInstance_DEPRECATED = nullptr;
 
 #if WITH_EDITOR
-		if (GIsEditor && MaterialInstances.Num() > 0)
+		if (GIsEditor && MaterialInstances.Num() > 0 && MaterialInstances[0] != nullptr)
 		{
 			MaterialInstances[0]->ConditionalPostLoad();
 			UpdateMaterialInstances();
@@ -665,7 +666,7 @@ void ULandscapeComponent::PostLoad()
 #endif
 
 	// Be sure we have the appropriate material count
-	const bool bTessellationEnabled = (MaterialInstances.Num() > 0 && MaterialInstances[0]->Parent->GetMaterial()->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation);
+	const bool bTessellationEnabled = (MaterialInstances.Num() > 0 && MaterialInstances[0] != nullptr && MaterialInstances[0]->Parent != nullptr && MaterialInstances[0]->Parent->GetMaterial()->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation);
 
 	if (bTessellationEnabled && MaterialInstances.Num() < 2)
 	{
@@ -1076,7 +1077,7 @@ void ULandscapeComponent::OnRegister()
 
 			for (int32 i = 0; i < MaterialInstances.Num(); ++i)
 			{
-				MaterialInstancesDynamic.Add(CreateDynamicMaterialInstance(i, MaterialInstances[i]));
+				MaterialInstancesDynamic.Add(UMaterialInstanceDynamic::Create(MaterialInstances[i], this));
 			}
 		}
 
@@ -1673,6 +1674,7 @@ void ALandscapeProxy::GetSharedProperties(ALandscapeProxy* Landscape)
 		bCastShadowAsTwoSided = Landscape->bCastShadowAsTwoSided;
 		LightingChannels = Landscape->LightingChannels;
 		bRenderCustomDepth = Landscape->bRenderCustomDepth;
+		LDMaxDrawDistance = Landscape->LDMaxDrawDistance;		
 		CustomDepthStencilValue = Landscape->CustomDepthStencilValue;
 		ComponentSizeQuads = Landscape->ComponentSizeQuads;
 		NumSubsections = Landscape->NumSubsections;

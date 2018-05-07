@@ -850,6 +850,8 @@ private:
 		TArray<FChildCooker> ChildCookers;
 		TArray<FName> TargetPlatformNames;
 		TArray<FName> StartupPackages;
+		/** Mapping from source packages to their localized variants (based on the culture list in FCookByTheBookStartupOptions) */
+		TMap<FName, TArray<FName>> SourceToLocalizedPackageVariants;
 	};
 	FCookByTheBookOptions* CookByTheBookOptions;
 
@@ -1313,7 +1315,7 @@ private:
 	* Collect all the files which need to be cooked for a cook by the book session
 	*/
 	void CollectFilesToCook(TArray<FName>& FilesInPath, 
-		const TArray<FString>& CookMaps, const TArray<FString>& CookDirectories, const TArray<FString>& CookCultures, 
+		const TArray<FString>& CookMaps, const TArray<FString>& CookDirectories, 
 		const TArray<FString>& IniMapSections, ECookByTheBookOptions FilesToCookFlags);
 
 	/**

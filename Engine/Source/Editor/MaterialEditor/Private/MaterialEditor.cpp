@@ -3821,10 +3821,13 @@ void FMaterialEditor::PasteNodesHere(const FVector2D& Location)
 		}
 		else if (UMaterialGraphNode_Comment* CommentNode = Cast<UMaterialGraphNode_Comment>(Node))
 		{
-			CommentNode->MaterialDirtyDelegate = Material->MaterialGraph->MaterialDirtyDelegate;
-			CommentNode->MaterialExpressionComment->Material = Material;
-			CommentNode->MaterialExpressionComment->Function = MaterialFunction;
-			Material->EditorComments.Add(CommentNode->MaterialExpressionComment);
+			if (CommentNode->MaterialExpressionComment)
+			{
+				CommentNode->MaterialDirtyDelegate = Material->MaterialGraph->MaterialDirtyDelegate;
+				CommentNode->MaterialExpressionComment->Material = Material;
+				CommentNode->MaterialExpressionComment->Function = MaterialFunction;
+				Material->EditorComments.Add(CommentNode->MaterialExpressionComment);
+			}
 		}
 
 		// Select the newly pasted stuff

@@ -202,8 +202,9 @@ TOptional<EItemDropZone> ProcessHierarchyDragDrop(const FDragDropEvent& DragDrop
 
 					Blueprint->WidgetTree->SetFlags(RF_Transactional);
 					Blueprint->WidgetTree->Modify();
+					
+					Parent->SetFlags(RF_Transactional);
 					Parent->Modify();
-
 					UWidget* Widget = TemplateDragDropOp->Template->Create(Blueprint->WidgetTree);
 
 					UPanelSlot* NewSlot = nullptr;
@@ -306,7 +307,8 @@ TOptional<EItemDropZone> ProcessHierarchyDragDrop(const FDragDropEvent& DragDrop
 				for (const auto& DraggedWidget : HierarchyDragDropOp->DraggedWidgets)
 				{
 					UWidget* TemplateWidget = DraggedWidget.Widget.GetTemplate();
-
+					TemplateWidget->SetFlags(RF_Transactional);
+					TemplateWidget->Modify();
 					if (Index.IsSet())
 					{
 						// If we're inserting at an index, and the widget we're moving is already
@@ -358,7 +360,7 @@ TOptional<EItemDropZone> ProcessHierarchyDragDrop(const FDragDropEvent& DragDrop
 					}
 
 					TemplateWidget->RemoveFromParent();
-
+					
 					if (OriginalBP != nullptr && OriginalBP != Blueprint)
 					{
 						FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(OriginalBP);

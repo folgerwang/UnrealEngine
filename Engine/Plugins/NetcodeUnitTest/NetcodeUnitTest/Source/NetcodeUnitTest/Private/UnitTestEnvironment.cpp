@@ -98,6 +98,9 @@ FString FUnitTestEnvironment::GetDefaultServerParameters(FString InLogCmds/*=TEX
 	// sometimes it would occur within threads in the main UE4 process, which was not possible to detect, and which this disables
 	ReturnVal += TEXT(" -ini:Engine:[DevOptions.Shaders]:bAllowAsynchronousShaderCompiling=False");
 
+	// Need to disable Steam by default, on servers, to eliminate spurious warnings
+	ReturnVal += TEXT(" -NoSteam");
+
 	return ReturnVal;
 }
 

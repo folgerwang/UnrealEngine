@@ -26,6 +26,7 @@
 #include "AnimationRuntime.h"
 
 #include "MeshMergeData.h"
+#include "Rendering/MultiSizeIndexContainer.h"
 
 // Standard Simplygon channels have some issues with extracting color data back from simplification, 
 // so we use this workaround with user channels
@@ -231,7 +232,8 @@ public:
 		float &MaxDeviation, 
 		const FReferenceSkeleton& RefSkeleton, 
 		const FSkeletalMeshOptimizationSettings& Settings,
-		const TArray<FMatrix>& BoneMatrices
+		const TArray<FMatrix>& BoneMatrices,
+		const int32 LODIndex
 		)
 	{
 		const bool bUsingMaxDeviation = (Settings.ReductionMethod == SMOT_MaxDeviation && Settings.MaxDeviationPercentage > 0.0f);
@@ -254,7 +256,7 @@ public:
 			CreateSkeletalHierarchy(Scene, RefSkeleton, BoneTableIDs);
 
 			// Create a new scene mesh object
-			SimplygonSDK::spGeometryData GeometryData = CreateGeometryFromSkeletalLODModel( Scene, *SrcModel, BoneTableIDs, BoneMatrices);
+			SimplygonSDK::spGeometryData GeometryData = CreateGeometryFromSkeletalLODModel( Scene, *SrcModel, BoneTableIDs, BoneMatrices, LODIndex);
 
 			FDefaultEventHandler SimplygonEventHandler;
 			SimplygonSDK::spReductionProcessor ReductionProcessor = SDK->CreateReductionProcessor();
@@ -286,6 +288,68 @@ public:
 		}
 
 		return bOptimizeMesh;
+	}
+
+	bool RemoveMeshSection(FSkeletalMeshLODModel* Model, int32 SectionIndex)
+	{
+		// Need a valid section
+		if (!Model->Sections.IsValidIndex(SectionIndex))
+		{
+			return false;
+		}
+
+		FSkelMeshSection& SectionToRemove = Model->Sections[SectionIndex];
+
+		if (SectionToRemove.CorrespondClothAssetIndex != INDEX_NONE)
+		{
+			// Can't remove this, clothing currently relies on it
+			return false;
+		}
+
+		const uint32 NumVertsToRemove = SectionToRemove.GetNumVertices();
+		const uint32 BaseVertToRemove = SectionToRemove.BaseVertexIndex;
+		const uint32 NumIndicesToRemove = SectionToRemove.NumTriangles * 3;
+		const uint32 BaseIndexToRemove = SectionToRemove.BaseIndex;
+
+
+		// Strip indices
+		Model->IndexBuffer.RemoveAt(BaseIndexToRemove, NumIndicesToRemove);
+
+		Model->Sections.RemoveAt(SectionIndex);
+
+		// Fixup indices above base vert
+		for (uint32& Index : Model->IndexBuffer)
+		{
+			if (Index >= BaseVertToRemove)
+			{
+				Index -= NumVertsToRemove;
+			}
+		}
+
+		Model->NumVertices -= NumVertsToRemove;
+
+		// Fixup anything needing section indices
+		for (FSkelMeshSection& Section : Model->Sections)
+		{
+			// Push back clothing indices
+			if (Section.CorrespondClothAssetIndex > SectionIndex)
+			{
+				Section.CorrespondClothAssetIndex--;
+			}
+
+			// Removed indices, rebase further sections
+			if (Section.BaseIndex > BaseIndexToRemove)
+			{
+				Section.BaseIndex -= NumIndicesToRemove;
+			}
+
+			// Remove verts, rebase further sections
+			if (Section.BaseVertexIndex > BaseVertToRemove)
+			{
+				Section.BaseVertexIndex -= NumVertsToRemove;
+			}
+		}
+		return true;
 	}
 
 	/** internal only access function, so that you can use with register or with no-register */
@@ -416,7 +480,7 @@ public:
 		LODModels[LODIndex] = NewModel;
 		
 		// Reduce LOD model with SrcMesh
-		if (ReduceLODModel(SrcModel, NewModel, SkeletalMesh->GetImportedBounds(), MaxDeviation, SkeletalMesh->RefSkeleton, Settings, RelativeToRefPoseMatrices))
+		if (ReduceLODModel(SrcModel, NewModel, SkeletalMesh->GetImportedBounds(), MaxDeviation, SkeletalMesh->RefSkeleton, Settings, RelativeToRefPoseMatrices, LODIndex))
 		{
 			// See if we'd like to remove extra bones first
 			if (MeshBoneReductionInterface->GetBoneReductionData(SkeletalMesh, LODIndex, BonesToRemove))
@@ -463,6 +527,19 @@ public:
 			*NewModel = *SrcModel;
 			SrcModel->RawPointIndices.Unlock();
 			SrcModel->LegacyRawPointIndices.Unlock();
+
+			//Clean up some section data
+			for (int32 SectionIndex = SrcModel->Sections.Num()-1; SectionIndex >= 0; --SectionIndex)
+			{
+				//New model should be reset to -1 value
+				NewModel->Sections[SectionIndex].GenerateUpToLodIndex = -1;
+				int8 GenerateUpToLodIndex = SrcModel->Sections[SectionIndex].GenerateUpToLodIndex;
+				if (GenerateUpToLodIndex != -1 && GenerateUpToLodIndex < LODIndex)
+				{
+					//Remove the section
+					RemoveMeshSection(NewModel, SectionIndex);
+				}
+			}
 
 			// Required bones are recalculated later on.
 			NewModel->RequiredBones.Empty();
@@ -1584,23 +1661,32 @@ private:
 	 * @param BoneIDs A maps of Bone IDs from RefSkeleton to Simplygon BoneTable IDs
 	 * @returns a Simplygon geometry data representation of the skeletal mesh LOD.
 	 */
-	SimplygonSDK::spGeometryData CreateGeometryFromSkeletalLODModel( SimplygonSDK::spScene& Scene, const FSkeletalMeshLODModel& LODModel, const TArray<SimplygonSDK::rid>& BoneIDs, const TArray<FMatrix>& BoneMatrices)
+	SimplygonSDK::spGeometryData CreateGeometryFromSkeletalLODModel( SimplygonSDK::spScene& Scene, const FSkeletalMeshLODModel& LODModel, const TArray<SimplygonSDK::rid>& BoneIDs, const TArray<FMatrix>& BoneMatrices, const int32 LODIndex)
 	{
 		TArray<FSoftSkinVertex> Vertices;
 		LODModel.GetVertices( Vertices );
+		const uint32 SectionCount = (uint32)LODModel.Sections.Num();
+		auto SkipSection = [&LODModel, LODIndex](int32 SectionIndex)
+		{
+			int32 MaxLODIndex = LODModel.Sections[SectionIndex].GenerateUpToLodIndex;
+			return (MaxLODIndex != -1 && MaxLODIndex < LODIndex);
+		};
 
-		const uint32 VertexCount = LODModel.NumVertices;
+		uint32 VertexCount = 0;
+		uint32 TriCount = 0;
+		for (uint32 SectionIndex = 0; SectionIndex < SectionCount; ++SectionIndex)
+		{
+			const FSkelMeshSection& Section = LODModel.Sections[SectionIndex];
+
+			VertexCount += Section.SoftVertices.Num();
+			//Skipped section
+			if (!SkipSection(SectionIndex))
+			{
+				TriCount += LODModel.Sections[SectionIndex].NumTriangles;
+			}
+		}
 		const uint32 TexCoordCount = LODModel.NumTexCoords;
 		check( TexCoordCount <= MAX_TEXCOORDS );
-
-		uint32 TriCount = 0;
-
-		const uint32 SectionCount = (uint32)LODModel.Sections.Num();
-
-		for ( uint32 SectionIndex = 0; SectionIndex < SectionCount; ++SectionIndex )
-		{
-			TriCount += LODModel.Sections[ SectionIndex ].NumTriangles;
-		}
 
 		SimplygonSDK::spGeometryData GeometryData = SDK->CreateGeometryData();
 		GeometryData->SetVertexCount( VertexCount );
@@ -1629,11 +1715,11 @@ private:
 		SimplygonSDK::spRealArray Tangents = GeometryData->GetTangents(0);
 		SimplygonSDK::spRealArray Bitangents = GeometryData->GetBitangents(0);
 
-			GeometryData->AddBaseTypeUserTriangleVertexField( SimplygonSDK::TYPES_ID_UCHAR, SIMPLYGON_COLOR_CHANNEL, 4 );
-			SimplygonSDK::spValueArray ColorValues = GeometryData->GetUserTriangleVertexField( SIMPLYGON_COLOR_CHANNEL );
-			check( ColorValues );
+		GeometryData->AddBaseTypeUserTriangleVertexField( SimplygonSDK::TYPES_ID_UCHAR, SIMPLYGON_COLOR_CHANNEL, 4 );
+		SimplygonSDK::spValueArray ColorValues = GeometryData->GetUserTriangleVertexField( SIMPLYGON_COLOR_CHANNEL );
+		check( ColorValues );
 		SimplygonSDK::spUnsignedCharArray Colors = SimplygonSDK::IUnsignedCharArray::SafeCast( ColorValues );
-			check( Colors );
+		check( Colors );
 
 		// Per-triangle data.
 		GeometryData->AddMaterialIds();
@@ -1709,8 +1795,15 @@ private:
 		}
 
 		// Add per-vertex per-triangle data.
+		uint32 IndexCount = 0;
 		for ( uint32 SectionIndex = 0; SectionIndex < SectionCount; ++SectionIndex )
 		{
+			//Skipped section
+			if (SkipSection(SectionIndex))
+			{
+				continue;
+			}
+
 			const FSkelMeshSection& Section = LODModel.Sections[ SectionIndex ];
 			const uint32 FirstIndex = Section.BaseIndex;
 			const uint32 LastIndex = FirstIndex + Section.NumTriangles * 3;
@@ -1730,34 +1823,42 @@ private:
 				Bitangent = GetConversionMatrix().TransformVector(Bitangent);
 
 
-				Indices->SetItem( Index, VertexIndex );
-				Normals->SetTuple( Index, (float*)&Normal );
-				Tangents->SetTuple( Index, (float*)&Tangent );
-				Bitangents->SetTuple( Index, (float*)&Bitangent );
+				Indices->SetItem(IndexCount, VertexIndex );
+				Normals->SetTuple(IndexCount, (float*)&Normal );
+				Tangents->SetTuple(IndexCount, (float*)&Tangent );
+				Bitangents->SetTuple(IndexCount, (float*)&Bitangent );
 
 				for( uint32 TexCoordIndex = 0; TexCoordIndex < TexCoordCount; ++TexCoordIndex )
 				{
 					FVector2D TexCoord = Vertex.UVs[TexCoordIndex];
 					TexCoord.X = FMath::Clamp(TexCoord.X, -1024.0f, 1024.0f);
 					TexCoord.Y = FMath::Clamp(TexCoord.Y, -1024.0f, 1024.0f);
-					TexCoords[TexCoordIndex]->SetTuple( Index, (float*)&TexCoord );
+					TexCoords[TexCoordIndex]->SetTuple(IndexCount, (float*)&TexCoord );
 				}
 
-				Colors->SetTuple( Index, (UCHAR*)&Vertex.Color );
+				Colors->SetTuple(IndexCount, (UCHAR*)&Vertex.Color );
+				IndexCount++;
 			}
 		}
 
 		// Add per-triangle data.
+		uint32 TriangleCount = 0;
 		for ( uint32 SectionIndex = 0; SectionIndex < SectionCount; ++SectionIndex )
 		{
-			const FSkelMeshSection& Section = LODModel.Sections[ SectionIndex ];
-			const uint32 FirstTriIndex = Section.BaseIndex / 3;
-			const uint32 LastTriIndex = FirstTriIndex + Section.NumTriangles - 1;
-			const uint16 MaterialIndex = Section.MaterialIndex;
-			for ( uint32 TriIndex = FirstTriIndex; TriIndex <= LastTriIndex; ++TriIndex )
+			//Skipped section
+			if (SkipSection(SectionIndex))
 			{
-				MaterialIndices->SetItem( TriIndex, MaterialIndex );
-				check( MaterialIndices->GetItem( TriIndex) == MaterialIndex );
+				continue;
+			}
+			const FSkelMeshSection& Section = LODModel.Sections[SectionIndex];
+			const uint32 FirstTriIndex = Section.BaseIndex / 3;
+			const uint32 LastTriIndex = FirstTriIndex + Section.NumTriangles;
+			const uint16 MaterialIndex = Section.MaterialIndex;
+			for ( uint32 TriIndex = FirstTriIndex; TriIndex < LastTriIndex; ++TriIndex )
+			{
+				MaterialIndices->SetItem(TriangleCount, MaterialIndex );
+				check( MaterialIndices->GetItem(TriangleCount) == MaterialIndex );
+				TriangleCount++;
 			}
 		}
 

@@ -131,16 +131,16 @@ void FObjectReplicator::InitRecentProperties( uint8* Source )
 {
 	check( GetObject() != NULL );
 	check( Connection != NULL );
-	check( RepState == NULL );
+	check( !RepState.IsValid() );
 
 	UClass * InObjectClass = GetObject()->GetClass();
 
-	RepState = new FRepState;
+	RepState = MakeShareable(new FRepState());
 
 	// Initialize the RepState memory
 	TSharedPtr<FRepChangedPropertyTracker> RepChangedPropertyTracker = Connection->Driver->FindOrCreateRepChangedPropertyTracker( GetObject() );
 
-	RepLayout->InitRepState( RepState, InObjectClass, Source, RepChangedPropertyTracker );
+	RepLayout->InitRepState( RepState.Get(), InObjectClass, Source, RepChangedPropertyTracker );
 	RepState->RepLayout = RepLayout;
 
 	if ( !Connection->Driver->IsServer() )
@@ -184,13 +184,13 @@ bool FObjectReplicator::ValidateAgainstState( const UObject* ObjectState )
 		return false;
 	}
 
-	if ( RepState == NULL )
+	if ( !RepState.IsValid() )
 	{
-		UE_LOG(LogRep, Warning, TEXT("ValidateAgainstState: RepState == NULL"));
+		UE_LOG(LogRep, Warning, TEXT("ValidateAgainstState: RepState.IsValid() == false"));
 		return false;
 	}
 
-	if ( RepLayout->DiffProperties( &(RepState->RepNotifies), RepState->StaticBuffer.GetData(), ObjectState, false ) )
+	if ( RepLayout->DiffProperties( &(RepState->RepNotifies), RepState->StaticBuffer.GetData(), ObjectState, EDiffPropertiesFlags::None ) )
 	{
 		UE_LOG(LogRep, Warning, TEXT("ValidateAgainstState: Properties changed for %s"), *ObjectState->GetName());
 		return false;
@@ -206,7 +206,7 @@ void FObjectReplicator::InitWithObject( UObject* InObject, UNetConnection * InCo
 	check( bLastUpdateEmpty == false );
 	check( Connection == NULL );
 	check( OwningChannel == NULL );
-	check( RepState == NULL );
+	check( !RepState.IsValid() );
 	check( RemoteFunctions == NULL );
 	check( !RepLayout.IsValid() );
 
@@ -291,11 +291,7 @@ void FObjectReplicator::CleanUp()
 	LifetimeCustomDeltaProperties.Empty();
 	LifetimeCustomDeltaPropertyConditions.Empty();
 
-	if ( RepState != NULL )
-	{
-		delete RepState;
-		RepState = NULL;
-	}
+	RepState = nullptr;
 }
 
 void FObjectReplicator::StartReplicating( class UActorChannel * InActorChannel )
@@ -454,7 +450,7 @@ void FObjectReplicator::ReceivedNak( int32 NakPacketId )
 
 	if ( Object != NULL && ObjectClass != NULL )
 	{
-		RepLayout->ReceivedNak( RepState, NakPacketId );
+		RepLayout->ReceivedNak( RepState.Get(), NakPacketId );
 
 		for ( int32 i = Retirement.Num() - 1; i >= 0; i-- )
 		{
@@ -560,7 +556,7 @@ bool FObjectReplicator::ReceivedBunch( FNetBitReader& Bunch, const FReplicationF
 
 		bool bLocalHasUnmapped = false;
 
-		if ( !RepLayout->ReceiveProperties( OwningChannel, ObjectClass, RepState, ( void* )Object, Bunch, bLocalHasUnmapped, bShouldReceiveRepNotifies, bGuidsChanged ) )
+		if ( !RepLayout->ReceiveProperties( OwningChannel, ObjectClass, RepState.Get(), ( void* )Object, Bunch, bLocalHasUnmapped, bShouldReceiveRepNotifies, bGuidsChanged ) )
 		{
 			UE_LOG( LogRep, Error, TEXT( "RepLayout->ReceiveProperties FAILED: %s" ), *Object->GetFullName() );
 			return false;
@@ -801,7 +797,8 @@ bool FObjectReplicator::ReceivedRPC(FNetBitReader& Reader, const FReplicationFla
 	UE_LOG(LogRepTraffic, Log, TEXT("      Received RPC: %s"), *FunctionName.ToString());
 
 	// validate that the function is callable here
-	const bool bCanExecute = (!bIsServer || RepFlags.bNetOwner);		// we are client or net owner
+	// we are client or net owner and shouldn't be ignoring rpcs
+	const bool bCanExecute = ((!bIsServer || RepFlags.bNetOwner) && !RepFlags.bIgnoreRPCs);
 
 	if (bCanExecute)
 	{
@@ -892,9 +889,9 @@ void FObjectReplicator::UpdateGuidToReplicatorMap()
 	int32 LocalTrackedGuidMemoryBytes = 0;
 
 	// Gather guids on rep layout
-	if ( RepLayout.IsValid() && RepState )
+	if ( RepLayout.IsValid() && RepState.IsValid() )
 	{
-		RepLayout->GatherGuidReferences( RepState, LocalReferencedGuids, LocalTrackedGuidMemoryBytes );
+		RepLayout->GatherGuidReferences( RepState.Get(), LocalReferencedGuids, LocalTrackedGuidMemoryBytes );
 	}
 
 	UObject* Object = GetObject();
@@ -974,7 +971,7 @@ bool FObjectReplicator::MoveMappedObjectToUnmapped( const FNetworkGUID& GUID )
 
 	if ( RepLayout.IsValid() )
 	{
-		if ( RepLayout->MoveMappedObjectToUnmapped( RepState, GUID ) )
+		if ( RepLayout->MoveMappedObjectToUnmapped( RepState.Get(), GUID ) )
 		{
 			bFound = true;
 		}
@@ -1215,7 +1212,7 @@ bool FObjectReplicator::ReplicateProperties( FOutBunch & Bunch, FReplicationFlag
 	{
 		check( OwningChannel );
 		check( RepLayout.IsValid() );
-		check( RepState )
+		check( RepState.IsValid() )
 		check( RepState->StaticBuffer.Num() );
 	}
 
@@ -1227,7 +1224,7 @@ bool FObjectReplicator::ReplicateProperties( FOutBunch & Bunch, FReplicationFlag
 	ChangelistMgr->Update( Object, Connection->Driver->ReplicationFrame, RepState->LastCompareIndex, RepFlags, OwningChannel->bForceCompareProperties );
 
 	// Replicate properties in the layout
-	const bool bHasRepLayout = RepLayout->ReplicateProperties( RepState, ChangelistMgr->GetRepChangelistState(), ( uint8* )Object, ObjectClass, OwningChannel, Writer, RepFlags );
+	const bool bHasRepLayout = RepLayout->ReplicateProperties( RepState.Get(), ChangelistMgr->GetRepChangelistState(), ( uint8* )Object, ObjectClass, OwningChannel, Writer, RepFlags );
 
 	// Replicate all the custom delta properties (fast arrays, etc)
 	ReplicateCustomDeltaProperties( Writer, RepFlags );
@@ -1290,7 +1287,7 @@ void FObjectReplicator::ForceRefreshUnreliableProperties()
 
 	check( !bOpenAckCalled );
 
-	RepLayout->OpenAcked( RepState );
+	RepLayout->OpenAcked( RepState.Get() );
 
 	bOpenAckCalled = true;
 }
@@ -1313,7 +1310,7 @@ void FObjectReplicator::PostSendBunch( FPacketIdRange & PacketRange, uint8 bReli
 		// Don't call if reliable, since the bunch will be resent. We dont want this to end up in the changelist history
 		// But is that enough? How does it know to delta against this latest state?
 
-		RepLayout->PostReplicate( RepState, PacketRange, bReliable ? true : false );
+		RepLayout->PostReplicate( RepState.Get(), PacketRange, bReliable ? true : false );
 	}
 
 	for ( int32 i = 0; i < LifetimeCustomDeltaProperties.Num(); i++ )
@@ -1366,6 +1363,11 @@ void FObjectReplicator::Serialize(FArchive& Ar)
 
 void FObjectReplicator::QueueRemoteFunctionBunch( UFunction* Func, FOutBunch &Bunch )
 {
+	if (Connection == nullptr)
+	{
+		return;
+	}
+
 	// This is a pretty basic throttling method - just don't let same func be called more than
 	// twice in one network update period.
 	//
@@ -1391,19 +1393,22 @@ void FObjectReplicator::QueueRemoteFunctionBunch( UFunction* Func, FOutBunch &Bu
 	{
 		UE_LOG(LogRep, Verbose, TEXT("Too many calls (%d) to RPC %s within a single netupdate. Skipping. %s.  LastCallTime: %.2f. CurrentTime: %.2f. LastRelevantTime: %.2f. LastUpdateTime: %.2f "),
 			RemoteFuncInfo[InfoIdx].Calls, *Func->GetName(), *GetPathNameSafe(GetObject()), RemoteFuncInfo[InfoIdx].LastCallTime, OwningChannel->Connection->Driver->Time, OwningChannel->RelevantTime, OwningChannel->LastUpdateTime);
+
+		// The MustBeMappedGuids can just be dropped, because we aren't actually going to send a bunch. If we don't clear it, then we will get warnings when the next channel tries to replicate
+		CastChecked< UPackageMapClient >( Connection->PackageMap )->GetMustBeMappedGuidsInLastBunch().Reset();
 		return;
 	}
 	
 	RemoteFuncInfo[InfoIdx].LastCallTime = OwningChannel->Connection->Driver->Time;
 
-	if (RemoteFunctions == NULL)
+	if (RemoteFunctions == nullptr)
 	{
 		RemoteFunctions = new FOutBunch(OwningChannel, 0);
 	}
 
 	RemoteFunctions->SerializeBits( Bunch.GetData(), Bunch.GetNumBits() );
 
-	if ( Connection != NULL && Connection->PackageMap != NULL )
+	if ( Connection->PackageMap != nullptr )
 	{
 		UPackageMapClient * PackageMapClient = CastChecked< UPackageMapClient >( Connection->PackageMap );
 
@@ -1411,11 +1416,14 @@ void FObjectReplicator::QueueRemoteFunctionBunch( UFunction* Func, FOutBunch &Bu
 		if ( PackageMapClient->GetMustBeMappedGuidsInLastBunch().Num() )
 		{
 			OwningChannel->QueuedMustBeMappedGuidsInLastBunch.Append( PackageMapClient->GetMustBeMappedGuidsInLastBunch() );
-			PackageMapClient->GetMustBeMappedGuidsInLastBunch().Empty();
+			PackageMapClient->GetMustBeMappedGuidsInLastBunch().Reset();
 		}
 
-		// Copy over any exported bunches
-		PackageMapClient->AppendExportBunches( OwningChannel->QueuedExportBunches );
+		if (!Connection->InternalAck)
+		{
+			// Copy over any exported bunches
+			PackageMapClient->AppendExportBunches( OwningChannel->QueuedExportBunches );
+		}
 	}
 }
 
@@ -1451,7 +1459,7 @@ bool FObjectReplicator::ReadyForDormancy(bool suppressLogs)
 		}
 	}
 
-	return RepLayout->ReadyForDormancy( RepState );
+	return RepLayout->ReadyForDormancy( RepState.Get() );
 }
 
 void FObjectReplicator::StartBecomingDormant()
@@ -1484,7 +1492,7 @@ void FObjectReplicator::CallRepNotifies(bool bSkipIfChannelHasQueuedBunches)
 		return;
 	}
 
-	RepLayout->CallRepNotifies( RepState, Object );
+	RepLayout->CallRepNotifies( RepState.Get(), Object );
 
 	if ( RepNotifies.Num() > 0 )
 	{
@@ -1575,7 +1583,7 @@ void FObjectReplicator::UpdateUnmappedObjects( bool & bOutHasMoreUnmapped )
 	bool bSomeObjectsWereMapped = false;
 
 	// Let the rep layout update any unmapped properties
-	RepLayout->UpdateUnmappedObjects( RepState, Connection->PackageMap, Object, bSomeObjectsWereMapped, bOutHasMoreUnmapped );
+	RepLayout->UpdateUnmappedObjects( RepState.Get(), Connection->PackageMap, Object, bSomeObjectsWereMapped, bOutHasMoreUnmapped );
 
 	// Update unmapped objects for custom properties (currently just fast tarray)
 	for ( auto It = UnmappedCustomProperties.CreateIterator(); It; ++It )

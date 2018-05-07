@@ -163,6 +163,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget", meta=(DisplayName="SetIsReadOnly (Text Box)"))
 	void SetIsReadOnly(bool bReadOnly);
 
+	UFUNCTION(BlueprintCallable, Category = "Widget")
+	void SetIsPassword(bool bIsPassword);
+
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void ClearError();
 

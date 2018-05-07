@@ -1385,6 +1385,14 @@ void FInternalPlayWorldCommandCallbacks::Simulate_Clicked()
 		return;
 	}
 
+	// Can only use SIE if in PIE
+	const ULevelEditorPlaySettings* PlaySettings = GetDefault<ULevelEditorPlaySettings>();
+	if (PlaySettings->LastExecutedPlayModeType != PlayMode_InViewPort &&
+		PlaySettings->LastExecutedPlayModeType != PlayMode_Simulate)
+	{
+		return;
+	}
+
 	SetLastExecutedPlayMode( PlayMode_Simulate );
 
 	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>( TEXT("LevelEditor") );

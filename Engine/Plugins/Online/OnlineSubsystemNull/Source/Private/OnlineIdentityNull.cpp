@@ -148,6 +148,8 @@ bool FOnlineIdentityNull::AutoLogin(int32 LocalUserNum)
 	FParse::Value(FCommandLine::Get(), TEXT("AUTH_LOGIN="), LoginStr);
 	FParse::Value(FCommandLine::Get(), TEXT("AUTH_PASSWORD="), PasswordStr);
 	FParse::Value(FCommandLine::Get(), TEXT("AUTH_TYPE="), TypeStr);
+
+	bool bEnableWarning = LoginStr.Len() > 0 || PasswordStr.Len() > 0 || TypeStr.Len() > 0;
 	
 	if (!LoginStr.IsEmpty())
 	{
@@ -157,20 +159,21 @@ bool FOnlineIdentityNull::AutoLogin(int32 LocalUserNum)
 			{
 				return Login(0, FOnlineAccountCredentials(TypeStr, LoginStr, PasswordStr));
 			}
-			else
+			else if (bEnableWarning)
 			{
 				UE_LOG_ONLINE(Warning, TEXT("AutoLogin missing AUTH_TYPE=<type>."));
 			}
 		}
-		else
+		else if (bEnableWarning)
 		{
 			UE_LOG_ONLINE(Warning, TEXT("AutoLogin missing AUTH_PASSWORD=<password>."));
 		}
 	}
-	else
+	else if (bEnableWarning)
 	{
 		UE_LOG_ONLINE(Warning, TEXT("AutoLogin missing AUTH_LOGIN=<login id>."));
 	}
+
 	return false;
 }
 

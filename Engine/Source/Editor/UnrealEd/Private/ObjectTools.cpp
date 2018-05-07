@@ -544,6 +544,13 @@ namespace ObjectTools
 			// Notify the asset registry
 			FAssetRegistryModule::AssetCreated(DupObject);
 
+			// Notify the asset registry of world's duplicated MapBuildData
+			UWorld* DupWorld = Cast<UWorld>(DupObject);
+			if (DupWorld && DupWorld->PersistentLevel && DupWorld->PersistentLevel->MapBuildData)
+			{
+				FAssetRegistryModule::AssetCreated(DupWorld->PersistentLevel->MapBuildData);
+			}
+
 			ReturnObject = DupObject;
 		}
 
@@ -1775,7 +1782,23 @@ namespace ObjectTools
 		return NumPackagesToDelete + NumObjectsToDelete;
 	}
 
-	int32 DeleteObjects( const TArray< UObject* >& ObjectsToDelete, bool bShowConfirmation )
+	void AddExtraObjectsToDelete(const TArray< UObject* >& InObjectsToDelete, TArray< UObject* >& ObjectsToDelete)
+	{
+		ObjectsToDelete = InObjectsToDelete;
+		for (UObject *ObjectToDelete : InObjectsToDelete)
+		{
+			// Delete MapBuildData with maps
+			if (UWorld* World = Cast<UWorld>(ObjectToDelete))
+			{
+				if (World->PersistentLevel && World->PersistentLevel->MapBuildData)
+				{
+					ObjectsToDelete.AddUnique(World->PersistentLevel->MapBuildData);
+				}
+			}
+		}
+	}
+
+	int32 DeleteObjects( const TArray< UObject* >& InObjectsToDelete, bool bShowConfirmation )
 	{
 		// Allows deleting of sounds after they have been previewed
 		GEditor->ClearPreviewComponents();
@@ -1798,6 +1821,9 @@ namespace ObjectTools
 		}
 
 		const FScopedBusyCursor BusyCursor;
+
+		TArray<UObject*> ObjectsToDelete;
+		AddExtraObjectsToDelete(InObjectsToDelete, ObjectsToDelete);
 
 		// Make sure packages being saved are fully loaded.
 		if( !HandleFullyLoadingPackages( ObjectsToDelete, NSLOCTEXT("UnrealEd", "Delete", "Delete") ) )
@@ -1912,11 +1938,13 @@ namespace ObjectTools
 		return true;
 	}
 
-	int32 DeleteObjectsUnchecked(const TArray< UObject* >& ObjectsToDelete)
+	int32 DeleteObjectsUnchecked(const TArray< UObject* >& InObjectsToDelete)
 	{
 		GWarn->BeginSlowTask( NSLOCTEXT( "UnrealEd", "Deleting", "Deleting" ), true );
 
 		TArray<UObject*> ObjectsDeletedSuccessfully;
+		TArray<UObject*> ObjectsToDelete;
+		AddExtraObjectsToDelete(InObjectsToDelete, ObjectsToDelete);
 
 		bool bSawSuccessfulDelete = false;
 		bool bMakeWritable = false;
@@ -2041,8 +2069,11 @@ namespace ObjectTools
 	{
 		int32 NumDeletedObjects = 0;
 
+		TArray<UObject*> ShownObjectsToDelete;
+		AddExtraObjectsToDelete(InObjectsToDelete, ShownObjectsToDelete);
+
 		// Confirm that the delete was intentional
-		if ( ShowConfirmation && !ShowDeleteConfirmationDialog(InObjectsToDelete) )
+		if ( ShowConfirmation && !ShowDeleteConfirmationDialog(ShownObjectsToDelete) )
 		{
 			return 0;
 		}
@@ -2074,7 +2105,7 @@ namespace ObjectTools
 		// Clear audio components to allow previewed sounds to be consolidated
 		GEditor->ClearPreviewComponents();
 
-		for ( TArray<UObject*>::TConstIterator ObjectItr(InObjectsToDelete); ObjectItr; ++ObjectItr )
+		for ( TArray<UObject*>::TConstIterator ObjectItr(ShownObjectsToDelete); ObjectItr; ++ObjectItr )
 		{
 			UObject* CurrentObject = *ObjectItr;
 
@@ -3146,6 +3177,9 @@ namespace ObjectTools
 
 		uint32 IdxFilter = 1; // the type list will start by an all supported files wildcard value
 
+		// Keep track of added extensions to prevent duplicates
+		TArray<FString> AddedExtensions;
+
 		// Iterate over each unique map key, retrieving all of each key's associated values in order to populate the strings
 		for ( TArray<FString>::TConstIterator DescIter( DescriptionKeys ); DescIter; ++DescIter )
 		{
@@ -3166,13 +3200,14 @@ namespace ObjectTools
 					const FString& CurLine = FString::Printf( TEXT("%s (*.%s)|*.%s"), *CurDescription, *CurExtension, *CurExtension );
 
 					// The same extension could be used for multiple types (like with t3d), so ensure any given extension is only added to the string once
-					if ( !out_Extensions.Contains( CurExtension) )
+					if ( !AddedExtensions.Contains(CurExtension))
 					{
 						if ( out_Extensions.Len() > 0 )
 						{
 							out_Extensions += TEXT(";");
 						}
 						out_Extensions += FString::Printf(TEXT("*.%s"), *CurExtension);
+                       				AddedExtensions.Add(CurExtension);
 					}
 
 					// Each description-extension pair can only appear once in the map, so no need to check the string for duplicates

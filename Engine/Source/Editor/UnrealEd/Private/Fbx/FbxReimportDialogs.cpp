@@ -27,6 +27,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Interfaces/IMainFrameModule.h"
 #include "FbxCompareWindow.h"
+#include "FbxMaterialConflictWindow.h"
 
 //Meshes includes
 #include "MeshUtilities.h"
@@ -55,7 +56,6 @@
 #include "Engine/SkeletalMeshSocket.h"
 #include "Assets/ClothingAsset.h"
 #include "Factories/FbxSkeletalMeshImportData.h"
-#include "FbxCompareWindow.h"
 #include "Rendering/SkeletalMeshModel.h"
 
 
@@ -74,10 +74,12 @@ struct FCreateCompFromFbxArg
 void CreateCompFromSkeletalMesh(USkeletalMesh* SkeletalMesh, FCompMesh &CurrentData)
 {
 	//Fill the material array
-	for (const FSkeletalMaterial &Material : SkeletalMesh->Materials)
+	CurrentData.CompMaterials.AddZeroed(SkeletalMesh->Materials.Num());
+	for (int32 MaterialIndex = 0; MaterialIndex < SkeletalMesh->Materials.Num(); ++MaterialIndex)
 	{
+		const FSkeletalMaterial &Material = SkeletalMesh->Materials[MaterialIndex];
 		FCompMaterial CompMaterial(Material.MaterialSlotName, Material.ImportedMaterialSlotName);
-		CurrentData.CompMaterials.Add(CompMaterial);
+		CurrentData.CompMaterials[MaterialIndex] = CompMaterial;
 	}
 		
 	//Fill the section topology
@@ -132,10 +134,12 @@ void CreateCompFromSkeletalMesh(USkeletalMesh* SkeletalMesh, FCompMesh &CurrentD
 void CreateCompFromStaticMesh(UStaticMesh* StaticMesh, FCompMesh &CurrentData)
 {
 	//Fill the material array
-	for (const FStaticMaterial &Material : StaticMesh->StaticMaterials)
+	CurrentData.CompMaterials.AddZeroed(StaticMesh->StaticMaterials.Num());
+	for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->StaticMaterials.Num(); ++MaterialIndex)
 	{
+		const FStaticMaterial &Material = StaticMesh->StaticMaterials[MaterialIndex];
 		FCompMaterial CompMaterial(Material.MaterialSlotName, Material.ImportedMaterialSlotName);
-		CurrentData.CompMaterials.Add(CompMaterial);
+		CurrentData.CompMaterials[MaterialIndex] = CompMaterial;
 	}
 
 	//Fill the section topology
@@ -163,67 +167,6 @@ void CreateCompFromStaticMesh(UStaticMesh* StaticMesh, FCompMesh &CurrentData)
 			}
 		}
 	}
-}
-
-void GetSkeletalMeshCompData(FFbxImporter *FbxImporter, UFbxImportUI* ImportUI, const FCreateCompFromFbxArg &CreateCompFromFbxArg, FCompMesh &FbxData, const USkeletalMesh *SkeletalMeshRef, UObject **PreviewObject)
-{
-	USkeletalMesh *SkeletalMesh = Cast<USkeletalMesh>(StaticDuplicateObject(SkeletalMeshRef, GetTransientPackage()));
-
-	USkeletalMesh *NewMesh = nullptr;
-	if (SkeletalMesh != nullptr)
-	{
-		NewMesh = FbxImporter->ReimportSkeletalMesh(SkeletalMesh, ImportUI->SkeletalMeshImportData);
-		if (NewMesh)
-		{
-			if (GEditor->IsObjectInTransactionBuffer(NewMesh) || GEditor->IsObjectInTransactionBuffer(SkeletalMesh))
-			{
-				GEditor->ResetTransaction(LOCTEXT("PreviewReimportSkeletalMeshTransactionReset", "Preview Reimporting a skeletal mesh which was in the undo buffer"));
-			}
-			CreateCompFromSkeletalMesh(NewMesh, FbxData);
-		}
-	}
-
-	*PreviewObject = NewMesh != nullptr ? NewMesh : SkeletalMesh;
-}
-
-void GetStaticMeshCompData(FFbxImporter *FbxImporter, UFbxImportUI* ImportUI, const FCreateCompFromFbxArg &CreateCompFromFbxArg, FCompMesh &FbxData, const UStaticMesh* StaticMeshRef, UObject **PreviewObject)
-{
-	UStaticMesh *StaticMesh = Cast<UStaticMesh>(StaticDuplicateObject(StaticMeshRef, GetTransientPackage()));
-
-	UStaticMesh *NewMesh = nullptr;
-	if (StaticMesh != nullptr )
-	{
-		NewMesh = FbxImporter->ReimportStaticMesh(StaticMesh, ImportUI->StaticMeshImportData);
-		if (NewMesh)
-		{
-			FbxImporter->ImportStaticMeshGlobalSockets(NewMesh);
-			if (GEditor->IsObjectInTransactionBuffer(NewMesh) || GEditor->IsObjectInTransactionBuffer(StaticMesh))
-			{
-				GEditor->ResetTransaction(LOCTEXT("PreviewReimportStaticMeshTransactionReset", "Preview Reimporting a static mesh which was in the undo buffer"));
-			}
-			CreateCompFromStaticMesh(NewMesh, FbxData);
-		}
-	}
-
-	*PreviewObject = NewMesh != nullptr ? NewMesh : StaticMesh;
-}
-
-void CreateCompFromFbxData(FFbxImporter *FbxImporter, UFbxImportUI* ImportUI, const FString& FullPath, FCompMesh &FbxData, const FCreateCompFromFbxArg &CreateCompFromFbxArg, UStaticMesh *StaticMesh, USkeletalMesh *SkeletalMesh, UObject **PreviewObject)
-{
-	FbxImporter->ImportOptions->bIsReimportPreview = true;
-	//////////////////////////////////////////////////////////////////////////
-	//Static mesh reimport
-	if (CreateCompFromFbxArg.IsStaticMesh)
-	{
-		GetStaticMeshCompData(FbxImporter, ImportUI, CreateCompFromFbxArg, FbxData, StaticMesh, PreviewObject);
-		
-	}
-	//////////////////////////////////////////////////////////////////////////
-	else //Skeletal mesh reimport
-	{
-		GetSkeletalMeshCompData(FbxImporter, ImportUI, CreateCompFromFbxArg, FbxData, SkeletalMesh, PreviewObject);
-	}
-	FbxImporter->ImportOptions->bIsReimportPreview = false;
 }
 
 void FFbxImporter::FillGeneralFbxFileInformation(void *GeneralInfoPtr)
@@ -352,91 +295,42 @@ void FFbxImporter::FillGeneralFbxFileInformation(void *GeneralInfoPtr)
 		FbxGeneralInfo.UnitSystem += TEXT("Mile");
 	}
 }
-
-void FFbxImporter::ShowFbxReimportPreview(UObject *ReimportObj, UFbxImportUI* ImportUI, const FString& FullPath)
+void FFbxImporter::ShowFbxCompareWindow(UObject *SourceObj, UObject *ResultObj, bool &UserCancel)
 {
-	if (ReimportObj == nullptr || ImportUI == nullptr)
+	if (SourceObj == nullptr || ResultObj == nullptr)
 	{
 		return;
-	}
-	//Show a dialog
-	UStaticMesh *StaticMesh = Cast<UStaticMesh>(ReimportObj);
-	USkeletalMesh *SkeletalMesh = Cast<USkeletalMesh>(ReimportObj);
-	UObject *PreviewObject = nullptr;
-	FCompMesh CurrentData;
-	FCompMesh FbxData;
-	FCreateCompFromFbxArg CreateCompFromFbxArg;
-	FString Filename;
-	//Create the current data to compare from
-	if (StaticMesh)
-	{
-		CreateCompFromStaticMesh(StaticMesh, CurrentData);
-		CreateCompFromFbxArg.MeshName = StaticMesh->GetName();
-		CreateCompFromFbxArg.IsStaticMesh = true;
-		CreateCompFromFbxArg.IsStaticHasLodGroup = StaticMesh->LODGroup != NAME_None;
-		Filename = ImportUI->StaticMeshImportData->GetFirstFilename();
-	}
-	else if (SkeletalMesh)
-	{
-		CreateCompFromSkeletalMesh(SkeletalMesh, CurrentData);
-		CreateCompFromFbxArg.MeshName = SkeletalMesh->GetName();
-		CreateCompFromFbxArg.IsStaticMesh = false;
-		Filename = ImportUI->SkeletalMeshImportData->GetFirstFilename();
 	}
 	
-	//////////////////////////////////////////////////////////////////////////
-	// Set the import options
-	ApplyImportUIToImportOptions(ImportUI, *ImportOptions);
+	//Show a dialog if there is some conflict
+	UStaticMesh *SourceStaticMesh = Cast<UStaticMesh>(SourceObj);
+	UStaticMesh *ResultStaticMesh = Cast<UStaticMesh>(ResultObj);
 
-	// Set all reimport options
-	ImportOptions->bAutoComputeLodDistances = true;
-	ImportOptions->LodNumber = 0;
-	ImportOptions->MinimumLodNumber = 0;
-	ImportOptions->bImportRigidMesh = true;
-	ImportOptions->bImportMaterials = false;
-	ImportOptions->bImportTextures = false;
-	ImportOptions->bImportAnimations = false;
+	USkeletalMesh *SourceSkeletalMesh = Cast<USkeletalMesh>(SourceObj);
+	USkeletalMesh *ResultSkeletalMesh = Cast<USkeletalMesh>(ResultObj);
 
-	//////////////////////////////////////////////////////////////////////////
-	// Open the fbx file
+	FCompMesh SourceData;
+	FCompMesh ResultData;
 
-	const FString FileExtension = FPaths::GetExtension(Filename);
-	const bool bIsValidFile = FileExtension.Equals(TEXT("fbx"), ESearchCase::IgnoreCase) || FileExtension.Equals("obj", ESearchCase::IgnoreCase);
-	if (!bIsValidFile || !(Filename.Len()) || (IFileManager::Get().FileSize(*Filename) == INDEX_NONE) ||
-		!ImportFromFile(*Filename, FPaths::GetExtension(Filename), true))
+	//Create the current data to compare from
+	if (SourceStaticMesh && ResultStaticMesh)
 	{
-		return;
+		CreateCompFromStaticMesh(SourceStaticMesh, SourceData);
+		CreateCompFromStaticMesh(ResultStaticMesh, ResultData);
 	}
-
+	else if (SourceSkeletalMesh)
+	{
+		CreateCompFromSkeletalMesh(SourceSkeletalMesh, SourceData);
+		CreateCompFromSkeletalMesh(ResultSkeletalMesh, ResultData);
+	}
 	//Query general information
 	FGeneralFbxFileInfo FbxGeneralInfo;
 	FillGeneralFbxFileInformation(&FbxGeneralInfo);
-
-	//Apply the Transform to the scene
-	UFbxAssetImportData* ImportAssetData = nullptr;
-	if (CreateCompFromFbxArg.IsStaticMesh)
-	{
-		ImportAssetData = ImportUI->StaticMeshImportData;
-	}
-	else
-	{
-		ImportAssetData = ImportUI->SkeletalMeshImportData;
-	}
-	ApplyTransformSettingsToFbxNode(Scene->GetRootNode(), ImportAssetData);
-
-	UnFbx::FbxSceneInfo SceneInfo;
-	//Read the scene and found all instance with their scene information.
-	GetSceneInfo(Filename, SceneInfo, true);
-	//Convert old structure to the new scene export structure
-	TSharedPtr<FFbxSceneInfo> SceneInfoPtr = UFbxSceneImportFactory::ConvertSceneInfo(this, &SceneInfo);
-	//Get import material info
-	UFbxSceneImportFactory::ExtractMaterialInfo(this, SceneInfoPtr);
-
-	CreateCompFromFbxData(this, ImportUI, FullPath, FbxData, CreateCompFromFbxArg, StaticMesh, SkeletalMesh, &PreviewObject);
+	
 	TArray<TSharedPtr<FString>> AssetReferencingSkeleton;
-	if (SkeletalMesh != nullptr && SkeletalMesh->Skeleton != nullptr && !FbxData.CompSkeleton.bSkeletonFitMesh)
+	if (SourceSkeletalMesh != nullptr && SourceSkeletalMesh->Skeleton != nullptr && !ResultData.CompSkeleton.bSkeletonFitMesh)
 	{
-		UObject* SelectedObject = SkeletalMesh->Skeleton;
+		UObject* SelectedObject = SourceSkeletalMesh->Skeleton;
 		if (SelectedObject)
 		{
 			FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
@@ -478,35 +372,136 @@ void FFbxImporter::ShowFbxReimportPreview(UObject *ReimportObj, UFbxImportUI* Im
 	}
 
 	TSharedRef<SWindow> Window = SNew(SWindow)
-		.Title(NSLOCTEXT("UnrealEd", "FbxMaterialConflictOpionsTitle", "FBX Import Conflict"))
+		.Title(NSLOCTEXT("UnrealEd", "FbxCompareWindowTitle", "Reimport Reports"))
 		.AutoCenter(EAutoCenter::PreferredWorkArea)
 		.SizingRule(ESizingRule::UserSized)
 		.ClientSize(FVector2D(700, 650))
 		.MinWidth(700)
 		.MinHeight(650);
 
-	TSharedPtr<SFbxCompareWindow> FbxMaterialConflictWindow;
+	TSharedPtr<SFbxCompareWindow> FbxCompareWindow;
 	Window->SetContent
 		(
-			SNew(SFbxCompareWindow)
+			SAssignNew(FbxCompareWindow, SFbxCompareWindow)
 			.WidgetWindow(Window)
-			.FullFbxPath(FText::FromString(Filename))
-			.FbxSceneInfo(SceneInfoPtr)
 			.FbxGeneralInfo(FbxGeneralInfo)
 			.AssetReferencingSkeleton(&AssetReferencingSkeleton)
-			.CurrentMeshData(&CurrentData)
-			.FbxMeshData(&FbxData)
-			.PreviewObject(PreviewObject)
+			.SourceData(&SourceData)
+			.ResultData(&ResultData)
+			.SourceObject(SourceObj)
+			.ResultObject(ResultObj)
 			);
+
+	if (FbxCompareWindow->HasConflict())
+	{
+		// @todo: we can make this slow as showing progress bar later
+		FSlateApplication::Get().AddModalWindow(Window, ParentWindow, false);
+
+		UserCancel = false;
+	}
+}
+
+void FFbxImporter::ShowFbxMaterialConflictWindowSK(const TArray<FSkeletalMaterial>& InSourceMaterials, const TArray<FSkeletalMaterial>& InResultMaterials, TArray<int32>& RemapMaterials, TArray<bool>& AutoRemapMaterials, bool &UserCancel)
+{
+	TArray<FCompMaterial> SourceMaterials;
+	TArray<FCompMaterial> ResultMaterials;
+
+	SourceMaterials.Reserve(InSourceMaterials.Num());
+	for (int32 MaterialIndex = 0; MaterialIndex < InSourceMaterials.Num(); ++MaterialIndex)
+	{
+		SourceMaterials.Add(FCompMaterial(InSourceMaterials[MaterialIndex].MaterialSlotName, InSourceMaterials[MaterialIndex].ImportedMaterialSlotName));
+	}
+
+	ResultMaterials.Reserve(InResultMaterials.Num());
+	for (int32 MaterialIndex = 0; MaterialIndex < InResultMaterials.Num(); ++MaterialIndex)
+	{
+		ResultMaterials.Add(FCompMaterial(InResultMaterials[MaterialIndex].MaterialSlotName, InResultMaterials[MaterialIndex].ImportedMaterialSlotName));
+	}
+
+	//Create the modal dialog window to let the user see the result of the compare
+	TSharedPtr<SWindow> ParentWindow;
+
+	if (FModuleManager::Get().IsModuleLoaded("MainFrame"))
+	{
+		IMainFrameModule& MainFrame = FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame");
+		ParentWindow = MainFrame.GetParentWindow();
+	}
+
+	TSharedRef<SWindow> Window = SNew(SWindow)
+		.Title(NSLOCTEXT("UnrealEd", "FbxMaterialConflictOpionsTitle", "Reimport Material Conflicts Resolution"))
+		.AutoCenter(EAutoCenter::PreferredWorkArea)
+		.SizingRule(ESizingRule::UserSized)
+		.ClientSize(FVector2D(700, 370))
+		.MinWidth(700)
+		.MinHeight(370);
+
+	TSharedPtr<SFbxMaterialConflictWindow> FbxMaterialConflictWindow;
+	Window->SetContent
+	(
+		SAssignNew(FbxMaterialConflictWindow, SFbxMaterialConflictWindow)
+		.WidgetWindow(Window)
+		.SourceMaterials(&SourceMaterials)
+		.ResultMaterials(&ResultMaterials)
+		.RemapMaterials(&RemapMaterials)
+		.AutoRemapMaterials(&AutoRemapMaterials)
+	);
 
 	// @todo: we can make this slow as showing progress bar later
 	FSlateApplication::Get().AddModalWindow(Window, ParentWindow, false);
 
-	if (PreviewObject != nullptr)
-	{
-		FAssetEditorManager::Get().CloseAllEditorsForAsset(PreviewObject);
-		PreviewObject->MarkPendingKill();
-		PreviewObject = nullptr;
-	}
+	UserCancel = FbxMaterialConflictWindow->HasUserCancel();
 }
+
+void FFbxImporter::ShowFbxMaterialConflictWindowSM(const TArray<FStaticMaterial>& InSourceMaterials, const TArray<FStaticMaterial>& InResultMaterials, TArray<int32>& RemapMaterials, TArray<bool>& AutoRemapMaterials, bool &UserCancel)
+{
+	TArray<FCompMaterial> SourceMaterials;
+	TArray<FCompMaterial> ResultMaterials;
+
+	SourceMaterials.Reserve(InSourceMaterials.Num());
+	for (int32 MaterialIndex = 0; MaterialIndex < InSourceMaterials.Num(); ++MaterialIndex)
+	{
+		SourceMaterials.Add(FCompMaterial(InSourceMaterials[MaterialIndex].MaterialSlotName, InSourceMaterials[MaterialIndex].ImportedMaterialSlotName));
+	}
+
+	ResultMaterials.Reserve(InResultMaterials.Num());
+	for (int32 MaterialIndex = 0; MaterialIndex < InResultMaterials.Num(); ++MaterialIndex)
+	{
+		ResultMaterials.Add(FCompMaterial(InResultMaterials[MaterialIndex].MaterialSlotName, InResultMaterials[MaterialIndex].ImportedMaterialSlotName));
+	}
+
+	//Create the modal dialog window to let the user see the result of the compare
+	TSharedPtr<SWindow> ParentWindow;
+
+	if (FModuleManager::Get().IsModuleLoaded("MainFrame"))
+	{
+		IMainFrameModule& MainFrame = FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame");
+		ParentWindow = MainFrame.GetParentWindow();
+	}
+
+	TSharedRef<SWindow> Window = SNew(SWindow)
+		.Title(NSLOCTEXT("UnrealEd", "FbxMaterialConflictOpionsTitle", "Reimport Material Conflicts Resolution"))
+		.AutoCenter(EAutoCenter::PreferredWorkArea)
+		.SizingRule(ESizingRule::UserSized)
+		.ClientSize(FVector2D(700, 370))
+		.MinWidth(700)
+		.MinHeight(370);
+
+	TSharedPtr<SFbxMaterialConflictWindow> FbxMaterialConflictWindow;
+	Window->SetContent
+	(
+		SAssignNew(FbxMaterialConflictWindow, SFbxMaterialConflictWindow)
+		.WidgetWindow(Window)
+		.SourceMaterials(&SourceMaterials)
+		.ResultMaterials(&ResultMaterials)
+		.RemapMaterials(&RemapMaterials)
+		.AutoRemapMaterials(&AutoRemapMaterials)
+	);
+
+	// @todo: we can make this slow as showing progress bar later
+	FSlateApplication::Get().AddModalWindow(Window, ParentWindow, false);
+
+	UserCancel = FbxMaterialConflictWindow->HasUserCancel();
+}
+
+
 #undef LOCTEXT_NAMESPACE

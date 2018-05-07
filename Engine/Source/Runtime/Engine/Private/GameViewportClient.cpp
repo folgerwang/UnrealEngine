@@ -666,7 +666,7 @@ void UGameViewportClient::MouseEnter(FViewport* InViewport, int32 x, int32 y)
 	Super::MouseEnter(InViewport, x, y);
 
 #if PLATFORM_DESKTOP || PLATFORM_HTML5
-	if (GetDefault<UInputSettings>()->bUseMouseForTouch && !GetGameViewport()->GetPlayInEditorIsSimulate())
+	if (InViewport && GetDefault<UInputSettings>()->bUseMouseForTouch && !GetGameViewport()->GetPlayInEditorIsSimulate())
 	{
 		FSlateApplication::Get().SetGameIsFakingTouchEvents(true);
 	}
@@ -1609,6 +1609,26 @@ void UGameViewportClient::ProcessScreenShots(FViewport* InViewport)
 				if (GIsHighResScreenshot)
 				{
 					SourceRect = GetHighResScreenshotConfig().CaptureRegion;
+				}
+
+				// Clip the bitmap to just the capture region if valid
+				if (!SourceRect.IsEmpty())
+				{
+					FColor* const Data = Bitmap.GetData();
+					const int32 OldWidth = Size.X;
+					const int32 OldHeight = Size.Y;
+					const int32 NewWidth = SourceRect.Width();
+					const int32 NewHeight = SourceRect.Height();
+					const int32 CaptureTopRow = SourceRect.Min.Y;
+					const int32 CaptureLeftColumn = SourceRect.Min.X;
+
+					for (int32 Row = 0; Row < NewHeight; Row++)
+					{
+						FMemory::Memmove(Data + Row * NewWidth, Data + (Row + CaptureTopRow) * OldWidth + CaptureLeftColumn, NewWidth * sizeof(*Data));
+					}
+
+					Bitmap.RemoveAt(NewWidth * NewHeight, OldWidth * OldHeight - NewWidth * NewHeight, false);
+					Size = FIntVector(NewWidth, NewHeight, 0);
 				}
 
 				if (!FPaths::GetExtension(ScreenShotName).IsEmpty())

@@ -52,6 +52,12 @@ class SLATE_API ITableRow
 		/** @return Does this item have children? */
 		virtual int32 DoesItemHaveChildren() const = 0;
 
+		/** @return BitArray where each entry corresponds to whether this item needs a vertical wire draw for that depth. */
+		virtual TBitArray<> GetWiresNeededByDepth() const = 0;
+
+		/** @return true if this item is the last direct descendant of its parent. */
+		virtual bool IsLastChild() const = 0;
+		
 		/** @return this table row as a widget */
 		virtual TSharedRef<SWidget> AsWidget() = 0;
 
@@ -736,6 +742,16 @@ public:
 	virtual int32 DoesItemHaveChildren() const override
 	{
 		return OwnerTablePtr.Pin()->Private_DoesItemHaveChildren( IndexInList );
+	}
+
+	virtual TBitArray<> GetWiresNeededByDepth() const override
+	{
+		return OwnerTablePtr.Pin()->Private_GetWiresNeededByDepth(IndexInList);
+	}
+
+	virtual bool IsLastChild() const override
+	{
+		return OwnerTablePtr.Pin()->Private_IsLastChild(IndexInList);
 	}
 
 	virtual TSharedRef<SWidget> AsWidget() override

@@ -5866,7 +5866,7 @@ void FSlateEditorStyle::FStyle::SetupPersonaStyle()
 		Set( "ViewportPinnedCommandList.Separator.Padding", FMargin( 0.5f ) );
 
 		Set( "ViewportPinnedCommandList.Label", FTextBlockStyle(NormalText) .SetFont( DEFAULT_FONT( "Bold", 9 ) ).SetColorAndOpacity(FLinearColor::Black) );
-		Set( "ViewportPinnedCommandList.EditableText", FEditableTextBoxStyle(NormalEditableTextBoxStyle) .SetFont( DEFAULT_FONT( "Roboto-Bold", 9 ) ).SetForegroundColor(FLinearColor::Black) );
+		Set( "ViewportPinnedCommandList.EditableText", FEditableTextBoxStyle(NormalEditableTextBoxStyle) .SetFont( DEFAULT_FONT( "Bold", 9 ) ).SetForegroundColor(FLinearColor::Black) );
 		Set( "ViewportPinnedCommandList.Keybinding", FTextBlockStyle(NormalText) .SetFont( DEFAULT_FONT( "Regular", 8 ) ).SetColorAndOpacity(FLinearColor::Gray) );
 
 		Set( "ViewportPinnedCommandList.Heading", FTextBlockStyle(NormalText)

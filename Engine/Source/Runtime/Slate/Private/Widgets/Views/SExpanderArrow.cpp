@@ -13,6 +13,7 @@ void SExpanderArrow::Construct( const FArguments& InArgs, const TSharedPtr<class
 	StyleSet = InArgs._StyleSet;
 	IndentAmount = InArgs._IndentAmount;
 	BaseIndentLevel = InArgs._BaseIndentLevel;
+	ShouldDrawWires = InArgs._ShouldDrawWires;
 
 	this->ChildSlot
 	.Padding( TAttribute<FMargin>( this, &SExpanderArrow::GetExpanderPadding ) )
@@ -33,6 +34,106 @@ void SExpanderArrow::Construct( const FArguments& InArgs, const TSharedPtr<class
 			.ColorAndOpacity( FSlateColor::UseForeground() )
 		]
 	];
+}
+
+
+int32 SExpanderArrow::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
+{
+
+	static const float WireThickness = 1.0f;
+	static const float HalfWireThickness = WireThickness / 2.0f;
+
+	// We want to support drawing wires for the tree
+	//                 Needs Wire Array
+	//   v-[A]         {}
+	//   |-v[B]        {1}
+	//   | '-v[B]      {1,1}
+	//   |   |--[C]    {1,0,1}
+	//   |   |--[D]    {1,0,1}
+	//   |   '--[E]    {1,0,1} 
+	//   |>-[F]        {}
+	//   '--[G]        {}
+	//   
+	//
+
+	const float Indent = IndentAmount.Get(10.f);
+	const FSlateBrush* VerticalBarBrush = (StyleSet == nullptr) ? nullptr : StyleSet->GetBrush("WhiteBrush");
+
+	if (ShouldDrawWires.Get() == true && VerticalBarBrush != nullptr)
+	{
+		const TSharedPtr<ITableRow> OwnerRow = OwnerRowPtr.Pin();
+		FLinearColor WireTint = InWidgetStyle.GetForegroundColor();
+		WireTint.A = 0.275f;
+
+		// Draw vertical wires to indicate paths to parent nodes.
+		const TBitArray<>& NeedsWireByLevel = OwnerRow->GetWiresNeededByDepth();
+		const int32 NumLevels = NeedsWireByLevel.Num();
+		for (int32 Level = 0; Level < NumLevels; ++Level)
+		{
+			const float CurrentIndent = Indent * Level;
+
+			if (NeedsWireByLevel[Level])
+			{
+				FSlateDrawElement::MakeBox(
+					OutDrawElements,
+					LayerId,
+					AllottedGeometry.ToPaintGeometry(FVector2D(WireThickness, AllottedGeometry.Size.Y), FSlateLayoutTransform(FVector2D(CurrentIndent, 0))),
+					VerticalBarBrush,
+					ESlateDrawEffect::None,
+					WireTint
+				);
+			}
+		}
+
+		const float HalfCellHeight = 0.5f * AllottedGeometry.Size.Y;
+
+		// For items that are the last expanded child in a list, we need to draw a special angle connector wire.
+		if (const bool bIsLastChild = OwnerRow->IsLastChild())
+		{
+			const float CurrentIndent = Indent * (NumLevels-1);
+			FSlateDrawElement::MakeBox(
+				OutDrawElements,
+				LayerId,
+				AllottedGeometry.ToPaintGeometry(FVector2D(WireThickness, HalfCellHeight + HalfWireThickness), FSlateLayoutTransform(FVector2D(CurrentIndent, 0))),
+				VerticalBarBrush,
+				ESlateDrawEffect::None,
+				WireTint
+			);
+		}
+
+		// If this item is expanded, we need to draw a 1/2-height the line down to its first child cell.
+		if ( const bool bItemAppearsExpanded = OwnerRow->IsItemExpanded() && OwnerRow->DoesItemHaveChildren())
+		{
+			const float CurrentIndent = Indent * NumLevels;
+			FSlateDrawElement::MakeBox(
+				OutDrawElements,
+				LayerId,
+				AllottedGeometry.ToPaintGeometry(FVector2D(WireThickness, HalfCellHeight+ HalfWireThickness), FSlateLayoutTransform(FVector2D(CurrentIndent, HalfCellHeight- HalfWireThickness))),
+				VerticalBarBrush,
+				ESlateDrawEffect::None,
+				WireTint
+			);
+		}
+
+		// Draw horizontal connector from parent wire to child.
+		{
+			const float HorizontalWireStart = (NumLevels - 1)*Indent;
+			FSlateDrawElement::MakeBox(
+				OutDrawElements,
+				LayerId,
+				AllottedGeometry.ToPaintGeometry(
+					FVector2D(AllottedGeometry.Size.X - HorizontalWireStart - WireThickness, WireThickness),
+					FSlateLayoutTransform(FVector2D(HorizontalWireStart+WireThickness, 0.5f*(AllottedGeometry.Size.Y - WireThickness)))
+				),
+				VerticalBarBrush,
+				ESlateDrawEffect::None,
+				WireTint
+			);
+		}	
+	}
+
+	LayerId = SCompoundWidget::OnPaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
+	return LayerId;
 }
 
 /** Invoked when the expanded button is clicked (toggle item expansion) */

@@ -341,8 +341,10 @@ private:
 	FColor* HeightMipData;
 	FColor* XYOffsetMipData;
 
+	int32 ComponentSizeQuads;
 	int32 ComponentSizeVerts;
 	int32 SubsectionSizeVerts;
+	int32 SubsectionSizeQuads;
 	int32 ComponentNumSubsections;
 public:
 	const int32 MipLevel;

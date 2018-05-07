@@ -26,15 +26,22 @@ public:
 		: _StyleSet(&FCoreStyle::Get())
 		, _IndentAmount(10)
 		, _BaseIndentLevel(0)
+		, _ShouldDrawWires(false)
 	{ }
 		SLATE_ARGUMENT(const ISlateStyle*, StyleSet)
+		/** How many Slate Units to indent for every level of the tree. */
 		SLATE_ATTRIBUTE(float, IndentAmount)
+		/** The level that the root of the tree should start (e.g. 2 will shift the whole tree over by `IndentAmount*2`) */
 		SLATE_ATTRIBUTE(int32, BaseIndentLevel)
+		/** Whether to draw the wires that visually reinforce the tree hierarchy. */
+		SLATE_ATTRIBUTE(bool, ShouldDrawWires)
 	SLATE_END_ARGS()
 
 	void Construct( const FArguments& InArgs, const TSharedPtr<class ITableRow>& TableRow );
 
 protected:
+
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 
 	/** Invoked when the expanded button is clicked (toggle item expansion) */
 	FReply OnArrowClicked();
@@ -61,4 +68,7 @@ protected:
 
 	/** The level in the tree that begins the indention amount */
 	TAttribute<int32> BaseIndentLevel;
+
+	/** Whether to draw the wires that visually reinforce the tree hierarchy. */
+	TAttribute<bool> ShouldDrawWires;
 };

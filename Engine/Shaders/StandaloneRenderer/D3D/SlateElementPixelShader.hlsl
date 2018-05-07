@@ -116,49 +116,25 @@ float4 GetBorderElementColor( VertexOut InVertex )
 
 float4 GetSplineElementColor( VertexOut InVertex )
 {
-	float Width = ShaderParams.x;
-	float Radius = ShaderParams.y;
+	const float LineWidth = ShaderParams.x;
+	const float FilterWidthScale = ShaderParams.y;
 
-	float2 StartPos = InVertex.TextureCoordinates.xy;
-	float2 EndPos = InVertex.TextureCoordinates.zw;
+	const float Gradient = InVertex.TextureCoordinates.x;
+	const float2 GradientDerivative = float2( abs(ddx(Gradient)), abs(ddy(Gradient)) );
+	const float PixelSizeInUV = sqrt(dot(GradientDerivative, GradientDerivative));
+	
+	const float HalfLineWidthUV = 0.5f * PixelSizeInUV * LineWidth;	
+	const float HalfFilterWidthUV = FilterWidthScale * PixelSizeInUV;
+	const float DistanceToLineCenter = abs(0.5f - Gradient);
+	const float LineCoverage = smoothstep(HalfLineWidthUV + HalfFilterWidthUV, HalfLineWidthUV-HalfFilterWidthUV, DistanceToLineCenter);
 
-	float2 Diff = float2( StartPos.y - EndPos.y, EndPos.x - StartPos.x ) ;
-
-	float K = 2/( (2*Radius + Width)*sqrt( dot( Diff, Diff) ) );
-
-	float3 E0 = K*float3( Diff.x, Diff.y, (StartPos.x*EndPos.y - EndPos.x*StartPos.y) );
-	E0.z += 1;
-
-	float3 E1 = K*float3( -Diff.x, -Diff.y, (EndPos.x*StartPos.y - StartPos.x*EndPos.y) );
-	E1.z += 1;
-
-	float3 Pos = float3(InVertex.Position.xy,1);
-
-	float2 Distance = float2( dot(E0,Pos), dot(E1,Pos) );
-
-	if( any( Distance < 0 ) )
+	if (LineCoverage <= 0.0f)
 	{
-		// using discard instead of clip because
-		// apparently clipped pixels are written into the stencil buffer but discards are not
 		discard;
 	}
-	
 
 	float4 Color = InVertex.Color;
-	
-	float Index = min(Distance.x,Distance.y);
-
-	// Without this, the texture sample sometimes samples the next entry in the table.  Usually occurs when sampling the last entry in the table but instead	
-	// samples the first and we get white pixels 
-	const float HalfPixelOffset = 1/32.f;
-
-	Color.a *= smoothstep(0.3, 1.0f, Index);
-
-	if( Color.a < 0.05f )
-	{
-		discard;
-	}
-
+	Color.a *= LineCoverage;
 	return Color;
 }
 

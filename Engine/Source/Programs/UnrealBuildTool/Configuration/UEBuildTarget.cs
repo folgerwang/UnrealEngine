@@ -2173,7 +2173,7 @@ namespace UnrealBuildTool
 				bool IsCurrentPlatform;
 				if (Utils.IsRunningOnMono)
 				{
-					IsCurrentPlatform = Platform == UnrealTargetPlatform.Mac;
+					IsCurrentPlatform = Platform == UnrealTargetPlatform.Mac || (UEBuildPlatform.IsPlatformInGroup(Platform, UnrealPlatformGroup.Unix) && Platform == BuildHostPlatform.Current.Platform);
 				}
 				else
 				{

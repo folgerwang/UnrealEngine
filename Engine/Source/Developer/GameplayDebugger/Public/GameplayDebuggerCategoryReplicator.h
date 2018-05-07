@@ -61,6 +61,8 @@ struct FGameplayDebuggerDebugActor
 	int32 SyncCounter;
 };
 
+DECLARE_MULTICAST_DELEGATE_TwoParams(FNotifyGameplayDebuggerOwnerChange, AGameplayDebuggerCategoryReplicator*, APlayerController* /** Old Owner */);
+
 UCLASS(NotBlueprintable, NotBlueprintType, notplaceable, noteditinlinenew, hidedropdown, Transient)
 class GAMEPLAYDEBUGGER_API AGameplayDebuggerCategoryReplicator : public AActor
 {
@@ -79,6 +81,7 @@ public:
 
 	/** [AUTH] set new owner */
 	void SetReplicatorOwner(APlayerController* InOwnerPC);
+	static FNotifyGameplayDebuggerOwnerChange NotifyDebuggerOwnerChange;
 
 	/** [ALL] set replicator state */
 	void SetEnabled(bool bEnable);

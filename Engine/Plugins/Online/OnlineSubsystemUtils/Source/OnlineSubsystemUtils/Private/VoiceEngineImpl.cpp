@@ -119,6 +119,7 @@ FVoiceEngineImpl::FVoiceEngineImpl(IOnlineSubsystem* InSubsystem) :
 	bIsCapturing(false),
 	SerializeHelper(nullptr)
 {
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddRaw(this, &FVoiceEngineImpl::OnPostLoadMap);
 }
 
 FVoiceEngineImpl::~FVoiceEngineImpl()
@@ -127,6 +128,8 @@ FVoiceEngineImpl::~FVoiceEngineImpl()
 	{
 		VoiceCapture->Stop();
 	}
+
+	FCoreUObjectDelegates::PostLoadMapWithWorld.RemoveAll(this);
 
 	VoiceCapture = nullptr;
 	VoiceEncoder = nullptr;
@@ -588,6 +591,18 @@ void FVoiceEngineImpl::OnAudioFinished()
 		}
 	}
 	UE_LOG(LogVoiceEngine, Verbose, TEXT("Audio Finished"));
+}
+
+void FVoiceEngineImpl::OnPostLoadMap(UWorld*)
+{
+	for (FRemoteTalkerData::TIterator It(RemoteTalkerBuffers); It; ++It)
+	{
+		FRemoteTalkerDataImpl& RemoteData = It.Value();
+		if (RemoteData.VoipSynthComponent && RemoteData.VoipSynthComponent->GetAudioComponent() != nullptr)
+		{
+			RemoteData.VoipSynthComponent->GetAudioComponent()->Play();
+		}
+	}
 }
 
 FString FVoiceEngineImpl::GetVoiceDebugState() const

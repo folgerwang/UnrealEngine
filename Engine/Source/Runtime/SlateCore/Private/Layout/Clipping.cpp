@@ -295,7 +295,7 @@ const TArray< FSlateClippingState >& FSlateClippingManager::GetClippingStates() 
 
 void FSlateClippingManager::PopClip()
 {
-#ifdef WITH_EDITOR
+#if WITH_EDITOR
 	if (ClippingStack.Num() == 0)
 	{
 		UE_LOG(LogSlate, Log, TEXT("Attempting to pop clipping stack of size 0 due to a breakpoint."));

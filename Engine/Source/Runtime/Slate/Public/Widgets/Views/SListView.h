@@ -787,6 +787,16 @@ public:
 		return 0;
 	}
 
+	virtual const TBitArray<>& Private_GetWiresNeededByDepth( int32 ItemIndexInList ) const override
+	{
+		return TableViewHelpers::GetEmptyBitArray();
+	}
+
+	virtual bool Private_IsLastChild(int32 ItemIndexInList) const override
+	{
+		return false;
+	}
+
 	virtual ESelectionMode::Type Private_GetSelectionMode() const override
 	{
 		return SelectionMode.Get();

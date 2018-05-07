@@ -26,11 +26,6 @@ class USteamNetConnection : public UIpConnection
 	UPROPERTY()
 	bool bIsPassthrough;
 
-	/**
-	 * Debug output of Steam P2P connection information
-	 */
-	void DumpSteamConnection();
-
 	/** Access for monitoring / cleanup */
 	friend class FSocketSubsystemSteam;
 };
