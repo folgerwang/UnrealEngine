@@ -215,10 +215,6 @@ class ENGINE_API USoundWave : public USoundBase
 
 #endif // WITH_EDITORONLY_DATA
 
-	/** Size of RawPCMData, or what RawPCMData would be if the sound was fully decompressed */
-	UPROPERTY()
-	int32 RawPCMDataSize;
-
 	/**
 	 * Subtitle cues.  If empty, use SpokenText as the subtitle.  Will often be empty,
 	 * as the contents of the subtitle is commonly identical to what is spoken.
@@ -286,6 +282,9 @@ public:
 
 	/** Pointer to 16 bit PCM data - used to decompress data to and preview sounds */
 	uint8*						RawPCMData;
+
+	/** Size of RawPCMData, or what RawPCMData would be if the sound was fully decompressed */
+	int32						RawPCMDataSize;
 
 	/** Memory containing the data copied from the compressed bulk data */
 	uint8*						ResourceData;

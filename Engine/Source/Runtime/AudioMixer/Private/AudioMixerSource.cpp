@@ -63,6 +63,7 @@ namespace Audio
 
 		if (InWaveInstance->WaveData->DecompressionType != DTYPE_Procedural)
 		{
+			check(!InWaveInstance->WaveData->RawPCMData || InWaveInstance->WaveData->RawPCMDataSize);
 			const int32 NumBytes = InWaveInstance->WaveData->RawPCMDataSize;
 			NumFrames = NumBytes / (InWaveInstance->WaveData->NumChannels * sizeof(int16));
 		}

@@ -175,6 +175,7 @@ void UHapticFeedbackEffect_SoundWave::PrepareSoundWaveBuffer()
 	}
 	AD->Precache(SoundWave, true, false);
 	SoundWave->InitAudioResource(AD->GetRuntimeFormat(SoundWave));
+	check(!SoundWave->RawPCMData || SoundWave->RawPCMDataSize);
 	uint8* PCMData = SoundWave->RawPCMData;
 	int32 SampleRate = SoundWave->GetSampleRateForCurrentPlatform();
 	int TargetFrequency = 320;

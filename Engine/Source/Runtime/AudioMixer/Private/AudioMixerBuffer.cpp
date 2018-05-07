@@ -22,6 +22,7 @@ namespace Audio
 	{
 		if (InWave->DecompressionType == EDecompressionType::DTYPE_Native || InWave->DecompressionType == EDecompressionType::DTYPE_Preview)
 		{
+			check(!InWave->RawPCMData || InWave->RawPCMDataSize);
 			Data = InWave->RawPCMData;
 			DataSize = InWave->RawPCMDataSize;
  			InWave->RawPCMData = nullptr;

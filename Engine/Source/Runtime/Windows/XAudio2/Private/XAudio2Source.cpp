@@ -593,6 +593,8 @@ bool FXAudio2SoundSource::Init(FWaveInstance* InWaveInstance)
 
 			Update();
 
+			check(!InWaveInstance->WaveData->RawPCMData || InWaveInstance->WaveData->RawPCMDataSize);
+
 			// Initialize the total  number of frames of audio for this sound source
 			int32 NumBytes = InWaveInstance->WaveData->RawPCMDataSize;
 			NumTotalFrames = NumBytes / (Buffer->NumChannels * sizeof(int16));
