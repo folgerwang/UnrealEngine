@@ -94,12 +94,6 @@ void FUnixErrorOutputDevice::HandleError()
 
 		GLog->Flush();
 
-		// do not copy if graphics have not been initialized or if we're on the wrong thread
-		if (FApp::CanEverRender() && IsInGameThread())
-		{
-			FPlatformApplicationMisc::ClipboardCopy(GErrorHist);
-		}
-
 		FPlatformMisc::SubmitErrorReport(GErrorHist, EErrorReportMode::Interactive);
 		FCoreDelegates::OnShutdownAfterError.Broadcast();
 #if !PLATFORM_EXCEPTIONS_DISABLED

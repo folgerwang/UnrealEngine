@@ -904,27 +904,27 @@ namespace
 	{
 	public:
 		explicit RecordReader(const char* Path)
-			: SymbolFile(fopen(Path, "r")),
+			: SymbolFileFD(open(Path, O_RDONLY)),
 			  StartOffset(sizeof(RecordsHeader))
 		{
-			if (SymbolFile)
+			if (SymbolFileFD)
 			{
-				fread(static_cast<void*>(&RecordCount), sizeof(RecordsHeader), 1, SymbolFile);
-				StartOffset = sizeof(RecordsHeader);
+				// TODO check for EINTR
+				read(SymbolFileFD, static_cast<void*>(&RecordCount), sizeof(RecordsHeader));
 			}
 		}
 
 		~RecordReader()
 		{
-			if (SymbolFile)
+			if (SymbolFileFD != -1)
 			{
-				fclose(SymbolFile);
+				close(SymbolFileFD);
 			}
 		}
 
 		bool IsValid() const
 		{
-			return SymbolFile != nullptr;
+			return SymbolFileFD != -1 && RecordCount > 0;
 		}
 
 		uint32_t GetRecordCount() const
@@ -941,8 +941,8 @@ namespace
 
 			Record Out;
 
-			fseek(SymbolFile, StartOffset + Index * sizeof(Record), SEEK_SET);
-			fread(static_cast<void*>(&Out), sizeof(Record), 1, SymbolFile);
+			lseek(SymbolFileFD, StartOffset + Index * sizeof(Record), SEEK_SET);
+			read(SymbolFileFD, static_cast<void*>(&Out), sizeof(Record));
 
 			return Out;
 		}
@@ -955,8 +955,8 @@ namespace
 				return;
 			}
 
-			fseek(SymbolFile, StartOffset + RecordCount * sizeof(Record) + Offset, SEEK_SET);
-			fread(Buffer, MaxSize, 1, SymbolFile);
+			lseek(SymbolFileFD, StartOffset + RecordCount * sizeof(Record) + Offset, SEEK_SET);
+			read(SymbolFileFD, Buffer, MaxSize);
 
 			// Read the max chunk we can read, then find the next '\n' and replace that with '\0'
 			for (int i = 0; i < MaxSize; i++)
@@ -973,7 +973,7 @@ namespace
 		}
 
 	private:
-		FILE* SymbolFile = nullptr;
+		int SymbolFileFD;
 
 		// For now can only be up to 4GB
 		uint32_t StartOffset = 0;

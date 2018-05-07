@@ -430,10 +430,6 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 
 		// try launching the tool and wait for its exit, if at all
 		const TCHAR * RelativePathToCrashReporter = TEXT("../../../Engine/Binaries/Linux/CrashReportClient");	// FIXME: painfully hard-coded
-		if (!FPaths::FileExists(RelativePathToCrashReporter))
-		{
-			RelativePathToCrashReporter = TEXT("../../../engine/binaries/linux/crashreportclient");	// FIXME: even more painfully hard-coded
-		}
 
 		FString CrashReportLogFilename = LogBaseFilename + TEXT("-CRC") + LogExtension;
 		FString CrashReportLogFilepath = FPaths::Combine(*LogFolder, *CrashReportLogFilename);
