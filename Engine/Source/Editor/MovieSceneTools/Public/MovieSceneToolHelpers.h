@@ -171,12 +171,21 @@ public:
 	static bool MovieSceneTranslatorExport(FMovieSceneExporter* InExporter, const UMovieScene* InMovieScene, const FMovieSceneCaptureSettings& Settings);
 
 	/** 
-	* Display error message window for MovieScene translators
+	* Log messages and display error message window for MovieScene translators
+	*
+	* @param InTranslator The movie scene importer or exporter.
+	* @param InContext The context used to gather error, warning or info messages during import or export.
+	* @param bDisplayMessages Whether to open the message log window after adding the message.
+	*/
+	static void MovieSceneTranslatorLogMessages(FMovieSceneTranslator* InTranslator, TSharedRef<FMovieSceneTranslatorContext> InContext, bool bDisplayMessages);
+
+	/**
+	* Log error output for MovieScene translators
 	*
 	* @param InTranslator The movie scene importer or exporter.
 	* @param InContext The context used to gather error, warning or info messages during import or export.
 	*/
-	static void MovieSceneTranslatorDisplayMessages(FMovieSceneTranslator* InTranslator,  TSharedRef<FMovieSceneTranslatorContext> InContext);
+	static void MovieSceneTranslatorLogOutput(FMovieSceneTranslator* InTranslator, TSharedRef<FMovieSceneTranslatorContext> InContext);
 
 	/**
 	 * Import FBX
