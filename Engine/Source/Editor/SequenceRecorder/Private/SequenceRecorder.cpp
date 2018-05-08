@@ -357,7 +357,7 @@ void FSequenceRecorder::Tick(float DeltaSeconds)
 			bool bAllFinished = true;
 			for(UActorRecording* Recording : QueuedRecordings)
 			{
-				if(Recording->IsRecording())
+				if(Recording->GetActorToRecord() && Recording->IsRecording())
 				{
 					bAllFinished = false;
 					break;
