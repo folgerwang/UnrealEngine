@@ -346,6 +346,13 @@ void FStructuredArchive::FSlot::operator<< (UObject*& Value)
 	Ar.LeaveSlot();
 }
 
+void FStructuredArchive::FSlot::operator<< (FText& Value)
+{
+	Ar.EnterSlot(ElementId);
+	Ar.Formatter.Serialize(Value);
+	Ar.LeaveSlot();
+}
+
 void FStructuredArchive::FSlot::operator<< (FWeakObjectPtr& Value)
 {
 	Ar.EnterSlot(ElementId);

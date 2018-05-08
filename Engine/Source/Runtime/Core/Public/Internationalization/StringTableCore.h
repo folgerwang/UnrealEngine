@@ -175,11 +175,11 @@ public:
 	}
 
 	/** Collect a string table asset reference */
-	static void CollectStringTableAssetReferences(const FName InTableId, FArchive& InAr)
+	static void CollectStringTableAssetReferences(const FName InTableId, FStructuredArchive::FSlot Slot)
 	{
 		if (InstancePtr)
 		{
-			InstancePtr->CollectStringTableAssetReferencesImpl(InTableId, InAr);
+			InstancePtr->CollectStringTableAssetReferencesImpl(InTableId, Slot);
 		}
 	}
 
@@ -187,7 +187,7 @@ protected:
 	virtual ~IStringTableEngineBridge() {}
 
 	virtual void RedirectAndLoadStringTableAssetImpl(FName& InOutTableId, const EStringTableLoadingPolicy InLoadingPolicy) = 0;
-	virtual void CollectStringTableAssetReferencesImpl(const FName InTableId, FArchive& InAr) = 0;
+	virtual void CollectStringTableAssetReferencesImpl(const FName InTableId, FStructuredArchive::FSlot Slot) = 0;
 
 	/** Singleton instance, populated by the derived type */
 	static IStringTableEngineBridge* InstancePtr;
@@ -213,5 +213,5 @@ struct CORE_API FStringTableRedirects
 struct CORE_API FStringTableReferenceCollection
 {
 	/** Collect asset references from the given table ID */
-	static void CollectAssetReferences(const FName InTableId, FArchive& InAr);
+	static void CollectAssetReferences(const FName InTableId, FStructuredArchive::FRecord Record);
 };

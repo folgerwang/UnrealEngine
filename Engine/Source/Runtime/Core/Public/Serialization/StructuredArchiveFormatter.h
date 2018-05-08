@@ -100,6 +100,7 @@ public:
 	virtual void Serialize(FString& Value) = 0;
 	virtual void Serialize(FName& Value) = 0;
 	virtual void Serialize(UObject*& Value) = 0;
+	virtual void Serialize(FText& Value) = 0;
 	virtual void Serialize(struct FWeakObjectPtr& Value) = 0;
 	virtual void Serialize(struct FSoftObjectPtr& Value) = 0;
 	virtual void Serialize(struct FSoftObjectPath& Value) = 0;

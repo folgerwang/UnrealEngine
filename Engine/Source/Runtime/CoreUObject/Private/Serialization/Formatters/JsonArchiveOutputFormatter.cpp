@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Serialization/Formatters/JsonArchiveOutputFormatter.h"
+#include "Serialization/MemoryWriter.h"
 #include "Misc/Base64.h"
 #include "Misc/SecureHash.h"
 #include "UObject/Object.h"
@@ -237,6 +238,13 @@ void FJsonArchiveOutputFormatter::Serialize(UObject*& Value)
 	{
 		SerializeStringInternal(FString::Printf(TEXT("Object:%s"), *Value->GetFullName()));
 	}
+}
+
+void FJsonArchiveOutputFormatter::Serialize(FText& Value)
+{
+	FStructuredArchive ChildArchive(*this);
+	FText::SerializeText(ChildArchive.Open(), Value);
+	ChildArchive.Close();
 }
 
 void FJsonArchiveOutputFormatter::Serialize(FWeakObjectPtr& Value)

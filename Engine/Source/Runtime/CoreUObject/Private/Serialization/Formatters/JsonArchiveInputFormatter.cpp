@@ -283,6 +283,11 @@ void FJsonArchiveInputFormatter::Serialize(UObject*& Value)
 	}
 }
 
+void FJsonArchiveInputFormatter::Serialize(FText& Value)
+{
+	checkNoEntry();	// Implement me
+}
+
 void FJsonArchiveInputFormatter::Serialize(FWeakObjectPtr& Value)
 {
 	UObject* Object = nullptr;

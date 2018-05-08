@@ -85,9 +85,7 @@ bool UTextProperty::Identical( const void* A, const void* B, uint32 PortFlags ) 
 void UTextProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const
 {
 	TCppType* TextPtr = GetPropertyValuePtr(Value);
-
-	FArchiveUObjectFromStructuredArchive Ar(Slot);
-	Ar << *TextPtr;
+	Slot << *TextPtr;
 }
 
 void UTextProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const

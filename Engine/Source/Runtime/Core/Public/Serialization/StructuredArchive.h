@@ -126,6 +126,7 @@ public:
 		void operator << (FString& Value);
 		void operator << (FName& Value);
 		void operator << (UObject*& Value);
+		void operator << (FText& Value);
 		void operator << (FWeakObjectPtr& Value);
 		void operator << (FSoftObjectPtr& Value);
 		void operator << (FSoftObjectPath& Value);
@@ -593,6 +594,11 @@ private:
 	}
 
 	FORCEINLINE void FStructuredArchive::FSlot::operator<< (UObject*& Value)
+	{
+		Ar.Formatter.Serialize(Value);
+	}
+
+	FORCEINLINE void FStructuredArchive::FSlot::operator<< (FText& Value)
 	{
 		Ar.Formatter.Serialize(Value);
 	}
