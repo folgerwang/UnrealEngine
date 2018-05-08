@@ -26,6 +26,7 @@ protected:
 
 	void OnComboBoxOpened();
 	FReply OnAddButtonClicked();
+	bool IsAddButtonEnabled() const;
 	FReply OnRemoveButtonClicked();
 	void OnNameTextCommitted(const FText& InText, ETextCommit::Type CommitType);
 
@@ -34,5 +35,6 @@ private:
 	TSharedPtr<class SEditableTextBox> NameEntryWidget;
 
 	FText CurrentNameText;
+	FText OriginalNameText;
 	FGuid CurrentViewBookmarkId;
 };

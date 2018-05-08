@@ -2,6 +2,7 @@
 
 #include "SGraphTitleBarAddNewBookmark.h"
 #include "BlueprintEditor.h"
+#include "BlueprintEditorSettings.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "EditorStyleSet.h"
 #include "Framework/Application/SlateApplication.h"
@@ -63,7 +64,11 @@ void SGraphTitleBarAddNewBookmark::Construct(const FArguments& InArgs)
 						SAssignNew(NameEntryWidget, SEditableTextBox)
 						.SelectAllTextWhenFocused(true)
 						.OnTextCommitted(this, &SGraphTitleBarAddNewBookmark::OnNameTextCommitted)
-						.Text(this, &SGraphTitleBarAddNewBookmark::GetDefaultNameText)
+						.OnTextChanged(this, &SGraphTitleBarAddNewBookmark::OnNameTextCommitted, ETextCommit::Default)
+						.Text_Lambda([this]() -> FText
+						{
+							return CurrentNameText;
+						})
 					]
 				]
 				+ SVerticalBox::Slot()
@@ -114,6 +119,7 @@ void SGraphTitleBarAddNewBookmark::Construct(const FArguments& InArgs)
 							.TextStyle(FEditorStyle::Get(), "FlatButton.DefaultTextStyle")
 							.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
 							.OnClicked(this, &SGraphTitleBarAddNewBookmark::OnAddButtonClicked)
+							.IsEnabled(this, &SGraphTitleBarAddNewBookmark::IsAddButtonEnabled)
 						]
 					]
 				]
@@ -153,13 +159,23 @@ FText SGraphTitleBarAddNewBookmark::GetDefaultNameText() const
 
 		if (CurrentViewBookmarkId.IsValid())
 		{
-			for (const FBPEditorBookmarkNode& BookmarkNode : Blueprint->BookmarkNodes)
+			const FGuid& TargetNodeId = CurrentViewBookmarkId;
+			auto FindCurrentBookmarkNodeLambda = [TargetNodeId](const TArray<FBPEditorBookmarkNode>& InBookmarkNodesToSearch)
 			{
-				if (BookmarkNode.NodeGuid == CurrentViewBookmarkId)
-				{
-					ResultText = BookmarkNode.DisplayName;
-					break;
-				}
+				return InBookmarkNodesToSearch.FindByPredicate([TargetNodeId](const FBPEditorBookmarkNode& InNode) { return InNode.NodeGuid == TargetNodeId; });
+			};
+
+			// Check for a shared bookmark
+			const FBPEditorBookmarkNode* BookmarkNode = FindCurrentBookmarkNodeLambda(Blueprint->BookmarkNodes);
+			if (BookmarkNode == nullptr)
+			{
+				// No shared bookmark found, so check the local user settings
+				BookmarkNode = FindCurrentBookmarkNodeLambda(GetDefault<UBlueprintEditorSettings>()->BookmarkNodes);
+			}
+
+			if (ensure(BookmarkNode != nullptr))
+			{
+				ResultText = BookmarkNode->DisplayName;
 			}
 		}
 		else
@@ -220,7 +236,6 @@ FText SGraphTitleBarAddNewBookmark::GetAddButtonLabel() const
 
 void SGraphTitleBarAddNewBookmark::OnComboBoxOpened()
 {
-	CurrentNameText = FText::GetEmpty();
 	CurrentViewBookmarkId.Invalidate();
 
 	TSharedPtr<FBlueprintEditor> EditorContext = EditorContextPtr.Pin();
@@ -228,6 +243,19 @@ void SGraphTitleBarAddNewBookmark::OnComboBoxOpened()
 	{
 		EditorContext->GetViewBookmark(CurrentViewBookmarkId);
 	}
+
+	CurrentNameText = GetDefaultNameText();
+	if (CurrentViewBookmarkId.IsValid())
+	{
+		OriginalNameText = CurrentNameText;
+	}
+	else
+	{
+		OriginalNameText = FText::GetEmpty();
+	}
+
+	check(NameEntryWidget.IsValid());
+	NameEntryWidget->SetText(CurrentNameText);
 }
 
 FReply SGraphTitleBarAddNewBookmark::OnAddButtonClicked()
@@ -254,6 +282,11 @@ FReply SGraphTitleBarAddNewBookmark::OnAddButtonClicked()
 	SetIsOpen(false);
 
 	return FReply::Handled();
+}
+
+bool SGraphTitleBarAddNewBookmark::IsAddButtonEnabled() const
+{
+	return !CurrentNameText.IsEmpty() && CurrentNameText.CompareTo(OriginalNameText) != 0;
 }
 
 FReply SGraphTitleBarAddNewBookmark::OnRemoveButtonClicked()

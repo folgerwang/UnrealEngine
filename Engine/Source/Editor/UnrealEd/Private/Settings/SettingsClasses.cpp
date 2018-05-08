@@ -570,9 +570,30 @@ void UProjectPackagingSettings::PostInitProperties()
 	// Cache the current set of Blueprint assets selected for nativization.
 	CachedNativizeBlueprintAssets = NativizeBlueprintAssets;
 
+	FixCookingPaths();
+
 	Super::PostInitProperties();
 }
 
+void UProjectPackagingSettings::FixCookingPaths()
+{
+	// Fix AlwaysCook/NeverCook paths to use content root
+	for (FDirectoryPath& PathToFix : DirectoriesToAlwaysCook)
+	{
+		if (!PathToFix.Path.IsEmpty() && !PathToFix.Path.StartsWith(TEXT("/"), ESearchCase::CaseSensitive))
+		{
+			PathToFix.Path = FString::Printf(TEXT("/Game/%s"), *PathToFix.Path);
+		}
+	}
+
+	for (FDirectoryPath& PathToFix : DirectoriesToNeverCook)
+	{
+		if (!PathToFix.Path.IsEmpty() && !PathToFix.Path.StartsWith(TEXT("/"), ESearchCase::CaseSensitive))
+		{
+			PathToFix.Path = FString::Printf(TEXT("/Game/%s"), *PathToFix.Path);
+		}
+	}
+}
 
 void UProjectPackagingSettings::PostEditChangeProperty( FPropertyChangedEvent& PropertyChangedEvent )
 {
@@ -582,15 +603,10 @@ void UProjectPackagingSettings::PostEditChangeProperty( FPropertyChangedEvent& P
 		? PropertyChangedEvent.MemberProperty->GetFName()
 		: NAME_None;
 
-	if (Name == FName((TEXT("DirectoriesToAlwaysCook"))))
+	if (Name == FName(TEXT("DirectoriesToAlwaysCook")) || Name == FName(TEXT("DirectoriesToNeverCook")) || Name == NAME_None)
 	{
-		// fix up paths
-		for(int32 PathIndex = 0; PathIndex < DirectoriesToAlwaysCook.Num(); PathIndex++)
-		{
-			FString Path = DirectoriesToAlwaysCook[PathIndex].Path;
-			FPaths::MakePathRelativeTo(Path, FPlatformProcess::BaseDir());
-			DirectoriesToAlwaysCook[PathIndex].Path = Path;
-		}
+		// We need to fix paths for no name updates to catch the reloadconfig call
+		FixCookingPaths();
 	}
 	else if (Name == FName((TEXT("StagingDirectory"))))
 	{

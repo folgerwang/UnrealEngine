@@ -15,13 +15,19 @@ class AGameplayCueNotify_Actor;
 class UAbilitySystemComponent;
 class UGameplayCueSet;
 
+
+/** Describes what type of payload is attached to a cue execution, we only replicate what is needed */
 UENUM()
 enum class EGameplayCuePayloadType : uint8
 {
+	/** Uses FGameplayEffectContextHandle inside GameplayCueParameters */
 	EffectContext,
+	/** Uses FGameplayCueParameters */
 	CueParameters,
+	/** Uses FGameplayEffectSpecForRPC */
 	FromSpec,
 };
+
 
 /** Structure to keep track of pending gameplay cues that haven't been applied yet. */
 USTRUCT()
@@ -30,11 +36,12 @@ struct FGameplayCuePendingExecute
 	GENERATED_USTRUCT_BODY()
 
 	FGameplayCuePendingExecute()
-	: PayloadType(EGameplayCuePayloadType::EffectContext)
-	, OwningComponent(NULL)
+		: PayloadType(EGameplayCuePayloadType::EffectContext)
+		, OwningComponent(nullptr)
 	{
 	}
-	
+
+	/** List of tags, we allocate one as there is almost always exactly one tag */
 	TArray<FGameplayTag, TInlineAllocator<1> > GameplayCueTags;
 	
 	/** Prediction key that spawned this cue */
@@ -58,19 +65,24 @@ struct FGameplayCuePendingExecute
 	FGameplayCueParameters CueParameters;
 };
 
+
 /** Struct for pooling and preallocating gameplaycuenotify_actor classes. This data is per world and used to track what actors are available to recycle and which classes need to preallocate instances of those actors */
 USTRUCT()
 struct FPreallocationInfo
 {
 	GENERATED_USTRUCT_BODY()
 
+	/** Raw list of pooled instances. This relies on NotifyGameplayCueActorEndPlay always being called when actor is destroyed */
 	TMap<UClass*, TArray<AGameplayCueNotify_Actor*> >	PreallocatedInstances;
 
+	/** List of calsses that will be pooled */
 	UPROPERTY(transient)
 	TArray<TSubclassOf<AGameplayCueNotify_Actor>>	ClassesNeedingPreallocation;
 
+	/** World that owns this list */
 	FObjectKey OwningWorldKey;
 };
+
 
 /** Struct that is used by the gameplaycue manager to tie an instanced gameplaycue to the calling gamecode. Usually this is just the target actor, but can also be unique per instigator/sourceobject */
 struct FGCNotifyActorKey

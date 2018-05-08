@@ -1379,6 +1379,13 @@ void UBlueprint::ClearAllCachedCookedPlatformData()
 	}
 }
 
+void UBlueprint::BeginDestroy()
+{
+	Super::BeginDestroy();
+
+	FBlueprintEditorUtils::RemoveAllLocalBookmarks(this);
+}
+
 #endif // WITH_EDITOR
 
 UBlueprint* UBlueprint::GetBlueprintFromClass(const UClass* InClass)

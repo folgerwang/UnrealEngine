@@ -835,6 +835,33 @@ UEdGraphPin* FBlueprintEditorUtils::FindFirstCompilerRelevantLinkedPin(UEdGraphP
 	return RelevantNodeLinks.Num() > 0 ? RelevantNodeLinks[0].LinkedPin : nullptr;
 }
 
+void FBlueprintEditorUtils::RemoveAllLocalBookmarks(const UBlueprint* ForBlueprint)
+{
+	if (ForBlueprint)
+	{
+		bool bSaveConfig = false;
+		const FString BPPackageName = ForBlueprint->GetOutermost()->GetName();
+		UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>();
+		for (int32 i = 0; i < LocalSettings->BookmarkNodes.Num(); ++i)
+		{
+			const FBPEditorBookmarkNode& BookmarkNode = LocalSettings->BookmarkNodes[i];
+			const FEditedDocumentInfo* BookmarkInfo = LocalSettings->Bookmarks.Find(BookmarkNode.NodeGuid);
+			if (BookmarkInfo != nullptr && BookmarkInfo->EditedObjectPath.GetLongPackageName() == BPPackageName)
+			{
+				bSaveConfig = true;
+
+				LocalSettings->BookmarkNodes.RemoveAt(i--);
+				LocalSettings->Bookmarks.Remove(BookmarkNode.NodeGuid);
+			}
+		}
+
+		if (bSaveConfig)
+		{
+			LocalSettings->SaveConfig();
+		}
+	}
+}
+
 /** 
  * Check FKismetCompilerContext::SetCanEverTickForActor
  */

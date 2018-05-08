@@ -69,7 +69,10 @@ void SBlueprintBookmarks::Construct(const FArguments& InArgs)
 		NAME_None,
 		EUserInterfaceActionType::ToggleButton);
 
-	SAssignNew(SearchBoxWidget, SSearchBox);
+	SAssignNew(SearchBoxWidget, SSearchBox)
+	.SelectAllTextWhenFocused(true)
+	.OnTextCommitted(this, &SBlueprintBookmarks::OnFilterTextCommitted)
+	.OnTextChanged(this, &SBlueprintBookmarks::OnFilterTextCommitted, ETextCommit::Default);
 
 	SAssignNew(TreeViewWidget, STreeView<FTreeViewItemPtr>)
 	.TreeItemsSource(&TreeViewRootItems)
@@ -251,6 +254,13 @@ void SBlueprintBookmarks::STreeItemRow::OnNameTextCommitted(const FText& InNewNa
 	}
 }
 
+void SBlueprintBookmarks::OnFilterTextCommitted(const FText& InText, ETextCommit::Type CommitType)
+{
+	FilterText = InText;
+
+	RefreshBookmarksTree();
+}
+
 void SBlueprintBookmarks::OnDeleteSelectedTreeViewItems()
 {
 	TSharedPtr<FBlueprintEditor> BlueprintEditor = EditorContext.Pin();
@@ -405,17 +415,26 @@ void SBlueprintBookmarks::RefreshBookmarksTree()
 		const UEdGraph* FocusedGraph = BlueprintEditor->GetFocusedGraph();
 		const bool bCurrentGraphOnly = BlueprintEditorSettings->bShowBookmarksForCurrentDocumentOnlyInTab;
 
+		const FText& LocalFilterText = FilterText;
+		auto IsNodeFilteredOutLambda = [LocalFilterText](const FBPEditorBookmarkNode& InNode)
+		{
+			return !LocalFilterText.IsEmpty() && !InNode.DisplayName.ToString().Contains(LocalFilterText.ToString());
+		};
+
 		for (FBPEditorBookmarkNode& BookmarkNode : BlueprintEditorSettings->BookmarkNodes)
 		{
-			if (const FEditedDocumentInfo* BookmarkInfo = BlueprintEditorSettings->Bookmarks.Find(BookmarkNode.NodeGuid))
+			if (!IsNodeFilteredOutLambda(BookmarkNode))
 			{
-				if (const UEdGraph* GraphContext = Cast<UEdGraph>(BookmarkInfo->EditedObjectPath.ResolveObject()))
+				if (const FEditedDocumentInfo* BookmarkInfo = BlueprintEditorSettings->Bookmarks.Find(BookmarkNode.NodeGuid))
 				{
-					if (Blueprint == FBlueprintEditorUtils::FindBlueprintForGraph(GraphContext))
+					if (const UEdGraph* GraphContext = Cast<UEdGraph>(BookmarkInfo->EditedObjectPath.ResolveObject()))
 					{
-						if (!bCurrentGraphOnly || (GraphContext == FocusedGraph))
+						if (Blueprint == FBlueprintEditorUtils::FindBlueprintForGraph(GraphContext))
 						{
-							BookmarksTreeViewRoot->Children.Add(MakeShareable(new FTreeViewItem(ETreeViewNodeType::LocalBookmark, BookmarkNode, BookmarkInfo)));
+							if (!bCurrentGraphOnly || (GraphContext == FocusedGraph))
+							{
+								BookmarksTreeViewRoot->Children.Add(MakeShareable(new FTreeViewItem(ETreeViewNodeType::LocalBookmark, BookmarkNode, BookmarkInfo)));
+							}
 						}
 					}
 				}
@@ -424,10 +443,13 @@ void SBlueprintBookmarks::RefreshBookmarksTree()
 
 		for (FBPEditorBookmarkNode& BookmarkNode : Blueprint->BookmarkNodes)
 		{
-			const FEditedDocumentInfo* BookmarkInfo = Blueprint->Bookmarks.Find(BookmarkNode.NodeGuid);
-			if (!bCurrentGraphOnly || (BookmarkInfo && BookmarkInfo->EditedObjectPath.ResolveObject() == FocusedGraph))
+			if (!IsNodeFilteredOutLambda(BookmarkNode))
 			{
-				BookmarksTreeViewRoot->Children.Add(MakeShareable(new FTreeViewItem(ETreeViewNodeType::SharedBookmark, BookmarkNode, BookmarkInfo)));
+				const FEditedDocumentInfo* BookmarkInfo = Blueprint->Bookmarks.Find(BookmarkNode.NodeGuid);
+				if (!bCurrentGraphOnly || (BookmarkInfo && BookmarkInfo->EditedObjectPath.ResolveObject() == FocusedGraph))
+				{
+					BookmarksTreeViewRoot->Children.Add(MakeShareable(new FTreeViewItem(ETreeViewNodeType::SharedBookmark, BookmarkNode, BookmarkInfo)));
+				}
 			}
 		}
 
@@ -459,7 +481,10 @@ void SBlueprintBookmarks::RefreshBookmarksTree()
 					FEditedDocumentInfo& CommentInfo = CommentNodeInfo.Add(CommentNode.NodeGuid);
 					CommentInfo.EditedObjectPath = GraphCommentNode;
 					
-					CommentsTreeViewRoot->Children.Add(MakeShareable(new FTreeViewItem(ETreeViewNodeType::Comment, CommentNode, &CommentInfo)));
+					if (!IsNodeFilteredOutLambda(CommentNode))
+					{
+						CommentsTreeViewRoot->Children.Add(MakeShareable(new FTreeViewItem(ETreeViewNodeType::Comment, CommentNode, &CommentInfo)));
+					}
 				}
 			}
 

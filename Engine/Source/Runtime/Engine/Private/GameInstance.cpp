@@ -1236,3 +1236,13 @@ TSubclassOf<AGameModeBase> UGameInstance::OverrideGameModeClass(TSubclassOf<AGam
 {
 	 return GameModeClass;
 }
+
+void UGameInstance::RegisterReferencedObject(UObject* ObjectToReference)
+{
+	ReferencedObjects.AddUnique(ObjectToReference);
+}
+
+void UGameInstance::UnregisterReferencedObject(UObject* ObjectToReference)
+{
+	ReferencedObjects.RemoveSingleSwap(ObjectToReference);
+}

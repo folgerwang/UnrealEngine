@@ -47,7 +47,7 @@ FText INameValidatorInterface::GetErrorText(const FString& Name, EValidatorResul
 		ErrorText = LOCTEXT("NameTooLong_Error", "Names must have fewer than 100 characters!");
 		break;
 	case EValidatorResult::LocallyInUse:
-		ErrorText  = LOCTEXT("LocallyInUse_Error", "Conflicts with another another object in the same scope!");
+		ErrorText  = LOCTEXT("LocallyInUse_Error", "Conflicts with another object in the same scope!");
 		break;
 	case EValidatorResult::Ok:
 		break;

@@ -239,8 +239,31 @@ const TCHAR* UStructProperty::ImportText_Internal(const TCHAR* InBuffer, void* D
 {
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	FScopedPlaceholderPropertyTracker ImportPropertyTracker(this);
+
+	uint32 PropagatedLoadFlags = 0;
+	if (FLinkerLoad* Linker = GetLinker())
+	{
+		PropagatedLoadFlags |= (Linker->LoadFlags & LOAD_DeferDependencyLoads);
+	}
+
+	uint32 OldFlags = 0;
+	FLinkerLoad* StructLinker = Struct->GetLinker();
+	if (StructLinker)
+	{
+		OldFlags = StructLinker->LoadFlags;
+		StructLinker->LoadFlags |= OldFlags | PropagatedLoadFlags;
+	}
 #endif 
-	return Struct->ImportText(InBuffer, Data, Parent, PortFlags, ErrorText, GetName(), true);
+	const TCHAR* Result = Struct->ImportText(InBuffer, Data, Parent, PortFlags, ErrorText, GetName(), true);
+
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	if (StructLinker)
+	{
+		StructLinker->LoadFlags = OldFlags;
+	}
+#endif
+	
+	return Result;
 }
 
 const TCHAR* UStructProperty::ImportText_Static(UScriptStruct* InStruct, const FString& Name, const TCHAR* InBuffer, void* Data, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText)

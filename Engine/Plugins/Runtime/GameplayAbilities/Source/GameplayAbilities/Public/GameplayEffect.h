@@ -557,6 +557,7 @@ struct FGameplayEffectCue
 	}
 };
 
+/** Structure that is used to combine tags from parent and child blueprints in a safe way */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FInheritedTagContainer
 {

@@ -18,6 +18,7 @@ class UAttributeSet;
 struct FGameplayAbilityActorInfo;
 struct FAggregator;
 
+/** Place in an AttributeSet to create an attribute that can be accesed using FGameplayAttribute. It is strongly encouraged to use this instead of raw float attributes */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayAttributeData
 {
@@ -35,10 +36,16 @@ struct GAMEPLAYABILITIES_API FGameplayAttributeData
 	virtual ~FGameplayAttributeData()
 	{}
 
+	/** Returns the current value, which includes temporary buffs */
 	float GetCurrentValue() const;
+
+	/** Modifies current value, normally only called by ability system or during initialization */
 	virtual void SetCurrentValue(float NewValue);
 
+	/** Returns the base value which only includes permanent changes */
 	float GetBaseValue() const;
+
+	/** Modifies the permanent base value, normally only called by ability system or during initialization */
 	virtual void SetBaseValue(float NewValue);
 
 protected:
@@ -49,6 +56,7 @@ protected:
 	float CurrentValue;
 };
 
+/** Describes a FGameplayAttributeData or float property inside an attribute set. Using this provides editor UI and gelper functions */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayAttribute
 {
@@ -67,6 +75,7 @@ struct GAMEPLAYABILITIES_API FGameplayAttribute
 		return Attribute != nullptr;
 	}
 
+	/** Set up from a UProperty inside a set */
 	void SetUProperty(UProperty *NewProperty)
 	{
 		Attribute = NewProperty;
@@ -82,27 +91,33 @@ struct GAMEPLAYABILITIES_API FGameplayAttribute
 		}
 	}
 
+	/** Returns raw property */
 	UProperty* GetUProperty() const
 	{
 		return Attribute;
 	}
 
+	/** Returns the AttributeSet subclass holding this attribute */
 	UClass* GetAttributeSetClass() const
 	{
 		check(Attribute);
 		return CastChecked<UClass>(Attribute->GetOuter());
 	}
 
+	/** Returns true if this is one of the special attributes defined on the bBilitySystemComponent itself */
 	bool IsSystemAttribute() const;
 
 	/** Returns true if the variable associated with Property is of type FGameplayAttributeData or one of its subclasses */
 	static bool IsGameplayAttributeDataProperty(const UProperty* Property);
 
+	/** Modifies the current value of an attribute, will not modify base value if that is supported */
 	void SetNumericValueChecked(float& NewValue, class UAttributeSet* Dest) const;
 
+	/** Returns the current value of an attribute */
 	float GetNumericValue(const UAttributeSet* Src) const;
 	float GetNumericValueChecked(const UAttributeSet* Src) const;
 
+	/** Returns the AttributeData, will fail if this is a float attribute */
 	FGameplayAttributeData* GetGameplayAttributeData(UAttributeSet* Src) const;
 	FGameplayAttributeData* GetGameplayAttributeDataChecked(UAttributeSet* Src) const;
 	
@@ -116,17 +131,20 @@ struct GAMEPLAYABILITIES_API FGameplayAttribute
 		return PointerHash(InAttribute.Attribute);
 	}
 
+	/** Returns name of attribute, usually the same as the property */
 	FString GetName() const
 	{
 		return AttributeName.IsEmpty() ? *GetNameSafe(Attribute) : AttributeName;
 	}
 
+	/** Custom serialization */
 	void PostSerialize(const FArchive& Ar);
 
+	/** Name of the attribute, usually the same as property name */
 	UPROPERTY(Category = GameplayAttribute, VisibleAnywhere, BlueprintReadOnly)
 	FString AttributeName;
 
-	// In editor, this will filter out properties with meta tag "HideInDetailsView" or equal to FilterMetaStr. In non editor, it returns all properties.
+	/** In editor, this will filter out properties with meta tag "HideInDetailsView" or equal to FilterMetaStr. In non editor, it returns all properties */
 	static void GetAllAttributeProperties(TArray<UProperty*>& OutProperties, FString FilterMetaStr=FString(), bool UseEditorOnlyData=true);
 
 private:
@@ -148,19 +166,21 @@ struct TStructOpsTypeTraits< FGameplayAttribute > : public TStructOpsTypeTraitsB
 	};
 };
 
+/**
+ * Defines the set of all GameplayAttributes for your game
+ * Games should subclass this and add FGameplayAttributeData properties to represent attributes like health, damage, etc
+ * AttributeSets are added to the actors as subobjects, and then registered with the AbilitySystemComponent
+ * It often desired to have several sets per project that inherit from each other
+ * You could make a base health set, then have a player set that inherits from it and adds more attributes
+ */
 UCLASS(DefaultToInstanced, Blueprintable)
 class GAMEPLAYABILITIES_API UAttributeSet : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
 public:
-	bool IsNameStableForNetworking() const override;
 
-	bool IsSupportedForNetworking() const override
-	{
-		return true;
-	}
-
+	/** Override to disable initialization for specific properties */
 	virtual bool ShouldInitProperty(bool FirstInit, UProperty* PropertyToInit) const { return true; }
 
 	/**
@@ -168,7 +188,6 @@ public:
 	 *	Note this is only called during an 'execute'. E.g., a modification to the 'base value' of an attribute. It is not called during an application of a GameplayEffect, such as a 5 ssecond +10 movement speed buff.
 	 */	
 	virtual bool PreGameplayEffectExecute(struct FGameplayEffectModCallbackData &Data) { return true; }
-	
 	
 	/**
 	 *	Called just before a GameplayEffect is executed to modify the base value of an attribute. No more changes can be made.
@@ -180,7 +199,6 @@ public:
 	 *	An "On Aggregator Change" type of event could go here, and that could be called when active gameplay effects are added or removed to an attribute aggregator.
 	 *	It is difficult to give all the information in these cases though - aggregators can change for many reasons: being added, being removed, being modified, having a modifier change, immunity, stacking rules, etc.
 	 */
-
 
 	/**
 	 *	Called just before any modification happens to an attribute. This is lower level than PreAttributeModify/PostAttribute modify.
@@ -205,16 +223,21 @@ public:
 	/** This signifies the attribute set can be ID'd by name over the network. */
 	void SetNetAddressable();
 
+	/** Initializes attribute data from a meta DataTable */
 	virtual void InitFromMetaDataTable(const UDataTable* DataTable);
 
+	/** Gets information about owning actor */
 	FORCEINLINE AActor* GetOwningActor() const { return CastChecked<AActor>(GetOuter()); }
 	UAbilitySystemComponent* GetOwningAbilitySystemComponent() const;
 	FGameplayAbilityActorInfo* GetActorInfo() const;
 
+	/** Print debug information to the log */
 	virtual void PrintDebug();
 
+	// Overrides
+	virtual bool IsNameStableForNetworking() const override;
+	virtual bool IsSupportedForNetworking() const override;
 	virtual void PreNetReceive() override;
-	
 	virtual void PostNetReceive() override;
 
 protected:
@@ -222,18 +245,7 @@ protected:
 	uint32 bNetAddressable : 1;
 };
 
-USTRUCT()
-struct GAMEPLAYABILITIES_API FGlobalCurveDataOverride
-{
-	GENERATED_USTRUCT_BODY()
-
-	TArray<UCurveTable*>	Overrides;
-};
-
-
-/**
- *	Generic numerical value in the form Coeffecient * Curve[Level] 
- */
+/** Generic numerical value in the form Value * Curve[Level] */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FScalableFloat
 {
@@ -259,27 +271,28 @@ struct GAMEPLAYABILITIES_API FScalableFloat
 
 public:
 
+	/** Raw value, is multiplied by curve */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ScalableFloat)
 	float	Value;
 
+	/** Curve that is evaluated at a specific level. If found, it is multipled by Value */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ScalableFloat)
 	FCurveTableRowHandle	Curve;
 
+	/** Returns the scaled value at a given level */
 	float GetValueAtLevel(float Level, const FString* ContextString = nullptr) const;
 
+	/** True if there is no curve lookup */
 	bool IsStatic() const
 	{
 		return Curve.RowName.IsNone();
 	}
 
+	/** Sets raw value */
 	void SetValue(float NewValue);
 
+	/** Overrides raw value and curve reference */
 	void SetScalingValue(float InCoeffecient, FName InRowName, UCurveTable * InTable);
-
-	void LockValueAtLevel(float Level, FGlobalCurveDataOverride *GlobalOverrides, const FString* ContextString = nullptr)
-	{
-		SetValue(GetValueAtLevel(Level, ContextString));
-	}
 
 	float GetValueChecked() const
 	{
@@ -287,6 +300,7 @@ public:
 		return Value;
 	}
 
+	/** Outputs human readable string */
 	FString ToSimpleString() const
 	{
 		if (Curve.RowName != NAME_None)
@@ -296,9 +310,9 @@ public:
 		return FString::Printf(TEXT("%.2f"), Value);
 	}
 
+	/** Error checking: checks if we have a curve table specified but no valid curve entry */
 	bool IsValid() const
-	{
-		// Error checking: checks if we have a curve table specified but no valid curve entry
+	{	
 		static const FString ContextString = TEXT("FScalableFloat::IsValid");
 		GetValueAtLevel(1.f, &ContextString);
 		bool bInvalid = (Curve.CurveTable != nullptr || Curve.RowName != NAME_None ) && (FinalCurve == nullptr);
@@ -309,7 +323,7 @@ public:
 	bool operator==(const FScalableFloat& Other) const;
 	bool operator!=(const FScalableFloat& Other) const;
 
-	//copy operator to prevent duplicate handles
+	/** copy operator to prevent duplicate handles */
 	void operator=(const FScalableFloat& Src);
 
 	/* Used to upgrade a float or int8/int16/int32 property into an FScalableFloat */
@@ -475,3 +489,53 @@ private:
 	static UProperty* ThisProperty = FindFieldChecked<UProperty>(C::StaticClass(), GET_MEMBER_NAME_CHECKED(C, P)); \
 	GetOwningAbilitySystemComponent()->SetBaseAttributeValueFromReplication(P, FGameplayAttribute(ThisProperty)); \
 }
+
+/**
+ * This defines a set of helper functions for accessing and initializing attributes, to avoid having to manually write these functions.
+ * It would creates the following functions, for attribute Health
+ *
+ *	static FGameplayAttribute UMyHealthSet::GetHealthAttribute();
+ *	FORCEINLINE float UMyHealthSet::GetHealth() const;
+ *	FORCEINLINE void UMyHealthSet::SetHealth(float NewVal);
+ *	FORCEINLINE void UMyHealthSet::InitHealth(float NewVal);
+ *
+ * To use this in your game you can define something like this, and then add game-specific functions as necessary:
+ * 
+ *	#define ATTRIBUTE_ACCESSORS(ClassName, PropertyName) \
+ *	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(ClassName, PropertyName) \
+ *	GAMEPLAYATTRIBUTE_VALUE_GETTER(PropertyName) \
+ *	GAMEPLAYATTRIBUTE_VALUE_SETTER(PropertyName) \
+ *	GAMEPLAYATTRIBUTE_VALUE_INITTER(PropertyName)
+ * 
+ *	ATTRIBUTE_ACCESSORS(UMyHealthSet, Health)
+ */
+
+#define GAMEPLAYATTRIBUTE_PROPERTY_GETTER(ClassName, PropertyName) \
+	static FGameplayAttribute Get##PropertyName##Attribute() \
+	{ \
+		static UProperty* Prop = FindFieldChecked<UProperty>(ClassName::StaticClass(), GET_MEMBER_NAME_CHECKED(ClassName, PropertyName)); \
+		return Prop; \
+	}
+
+#define GAMEPLAYATTRIBUTE_VALUE_GETTER(PropertyName) \
+	FORCEINLINE float Get##PropertyName() const \
+	{ \
+		return PropertyName.GetCurrentValue(); \
+	}
+
+#define GAMEPLAYATTRIBUTE_VALUE_SETTER(PropertyName) \
+	FORCEINLINE void Set##PropertyName(float NewVal) \
+	{ \
+		UAbilitySystemComponent* AbilityComp = GetOwningAbilitySystemComponent(); \
+		if (ensure(AbilityComp)) \
+		{ \
+			AbilityComp->SetNumericAttributeBase(Get##PropertyName##Attribute(), NewVal); \
+		}; \
+	}
+
+#define GAMEPLAYATTRIBUTE_VALUE_INITTER(PropertyName) \
+	FORCEINLINE void Init##PropertyName(float NewVal) \
+	{ \
+		PropertyName.SetBaseValue(NewVal); \
+		PropertyName.SetCurrentValue(NewVal); \
+	}

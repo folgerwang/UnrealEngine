@@ -3597,7 +3597,7 @@ void UParticleSystemComponent::OnUnregister()
 		TEXT("OnUnregister %s Component=0x%p Scene=0x%p FXSystem=0x%p"),
 		Template != NULL ? *Template->GetName() : TEXT("NULL"), this, GetWorld()->Scene, FXSystem);
 
-	bWasActive = bIsActive;
+	bWasActive = bIsActive && !bWasDeactivated;
 
 	ResetParticles(true);
 	FXSystem = NULL;
