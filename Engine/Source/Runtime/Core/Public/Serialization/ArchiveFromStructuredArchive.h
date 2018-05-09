@@ -40,13 +40,11 @@ protected:
 	TOptional<FStructuredArchive::FRecord> Root;
 	void Commit();
 	virtual void SerializeInternal(FStructuredArchive::FRecord Record);
-	void OpenArchive();
 
 private:
 	static const int32 MaxBufferSize = 128;
 
 	bool bPendingSerialize;
-	bool bWasOpened;
 
 	TArray<uint8> Buffer;
 	int32 Pos;
@@ -57,6 +55,4 @@ private:
 	TArray<UObject*> Objects;
 	TBitArray<> ObjectsValid;
 	TMap<UObject*, int32> ObjectToIndex;
-
-	FStructuredArchive::FSlot RootSlot;
 };

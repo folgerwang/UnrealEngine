@@ -6,6 +6,10 @@ FArchiveUObjectFromStructuredArchive::FArchiveUObjectFromStructuredArchive(FStru
 	: FArchiveFromStructuredArchive(Slot)
 	, bPendingSerialize(true)
 {
+	if (InnerArchive.IsTextFormat() && IsLoading())
+	{
+		Commit();
+	}
 }
 
 FArchiveUObjectFromStructuredArchive::~FArchiveUObjectFromStructuredArchive()
@@ -15,8 +19,6 @@ FArchiveUObjectFromStructuredArchive::~FArchiveUObjectFromStructuredArchive()
 
 FArchive& FArchiveUObjectFromStructuredArchive::operator<<(FLazyObjectPtr& Value)
 {
-	OpenArchive();
-
 	if (InnerArchive.IsTextFormat())
 	{
 		if (IsLoading())
@@ -45,8 +47,6 @@ FArchive& FArchiveUObjectFromStructuredArchive::operator<<(FLazyObjectPtr& Value
 
 FArchive& FArchiveUObjectFromStructuredArchive::operator<<(FSoftObjectPtr& Value)
 {
-	OpenArchive();
-
 	if (InnerArchive.IsTextFormat())
 	{
 		if (IsLoading())
@@ -75,8 +75,6 @@ FArchive& FArchiveUObjectFromStructuredArchive::operator<<(FSoftObjectPtr& Value
 
 FArchive& FArchiveUObjectFromStructuredArchive::operator<<(FSoftObjectPath& Value)
 {
-	OpenArchive();
-
 	if (InnerArchive.IsTextFormat())
 	{
 		if (IsLoading())
@@ -105,8 +103,6 @@ FArchive& FArchiveUObjectFromStructuredArchive::operator<<(FSoftObjectPath& Valu
 
 FArchive& FArchiveUObjectFromStructuredArchive::operator<<(FWeakObjectPtr& Value)
 {
-	OpenArchive();
-
 	if (InnerArchive.IsTextFormat())
 	{
 		if (IsLoading())
