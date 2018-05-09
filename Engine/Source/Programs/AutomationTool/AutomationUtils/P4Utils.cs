@@ -426,6 +426,12 @@ namespace AutomationTool
 		/// </summary>
 		[Description("add into")]
 		AddInto,
+
+		/// <summary>
+		/// file was reverted to a previous revision
+		/// </summary>
+		[Description("undid")]
+		Undid,
 	}
 
 	/// <summary>
