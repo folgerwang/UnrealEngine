@@ -6,26 +6,14 @@
 FArchiveFromStructuredArchive::FArchiveFromStructuredArchive(FStructuredArchive::FSlot Slot)
 	: FArchiveProxy(Slot.GetUnderlyingArchive())
 	, bPendingSerialize(true)
+	, bWasOpened(false)
 	, Pos(0)
+	, RootSlot(Slot)
 {
 	// For some reason, the FArchive copy constructor will copy all the trivial members of the source archive, but then specifically set ArIsFilterEditorOnly to false, with a comment saying
 	// they don't know why it's doing this... make sure we inherit this flag here!
 	ArIsFilterEditorOnly = InnerArchive.ArIsFilterEditorOnly;
 	ArIsTextFormat = false;
-	
-	if (InnerArchive.IsTextFormat())
-	{
-		Root = Slot.EnterRecord();
-
-		if (IsLoading())
-		{
-			Commit();
-		}
-	}
-	else
-	{
-		Slot.EnterStream();
-	}
 }
 
 FArchiveFromStructuredArchive::~FArchiveFromStructuredArchive()
@@ -90,6 +78,8 @@ bool FArchiveFromStructuredArchive::AtEnd()
 
 FArchive& FArchiveFromStructuredArchive::operator<<(class FName& Value)
 {
+	OpenArchive();
+
 	if (InnerArchive.IsTextFormat())
 	{
 		if (IsLoading())
@@ -118,6 +108,8 @@ FArchive& FArchiveFromStructuredArchive::operator<<(class FName& Value)
 
 FArchive& FArchiveFromStructuredArchive::operator<<(class UObject*& Value)
 {
+	OpenArchive();
+
 	if(InnerArchive.IsTextFormat())
 	{
 		if (IsLoading())
@@ -187,6 +179,8 @@ FArchive& FArchiveFromStructuredArchive::operator<<(class UObject*& Value)
 
 FArchive& FArchiveFromStructuredArchive::operator<<(class FText& Value)
 {
+	OpenArchive();
+
 	if (InnerArchive.IsTextFormat())
 	{
 		FText::SerializeText(*this, Value);
@@ -200,6 +194,8 @@ FArchive& FArchiveFromStructuredArchive::operator<<(class FText& Value)
 
 void FArchiveFromStructuredArchive::Serialize(void* V, int64 Length)
 {
+	OpenArchive();
+
 	if (InnerArchive.IsTextFormat())
 	{
 		if (IsLoading())
@@ -229,7 +225,7 @@ void FArchiveFromStructuredArchive::Serialize(void* V, int64 Length)
 
 void FArchiveFromStructuredArchive::Commit()
 {
-	if (InnerArchive.IsTextFormat())
+	if (bWasOpened && InnerArchive.IsTextFormat())
 	{
 		SerializeInternal(Root.GetValue());
 	}
@@ -237,6 +233,8 @@ void FArchiveFromStructuredArchive::Commit()
 
 void FArchiveFromStructuredArchive::SerializeInternal(FStructuredArchive::FRecord Record)
 {
+	check(bWasOpened);
+
 	if (bPendingSerialize)
 	{
 		FStructuredArchive::FSlot DataSlot = Record.EnterField(FIELD_NAME_TEXT("Data"));
@@ -273,5 +271,27 @@ void FArchiveFromStructuredArchive::SerializeInternal(FStructuredArchive::FRecor
 		}
 
 		bPendingSerialize = false;
+	}
+}
+
+void FArchiveFromStructuredArchive::OpenArchive()
+{
+	if (!bWasOpened)
+	{
+		if (InnerArchive.IsTextFormat())
+		{
+			Root = RootSlot.EnterRecord();
+
+			if (IsLoading())
+			{
+				Commit();
+			}
+		}
+		else
+		{
+			RootSlot.EnterStream();
+		}
+
+		bWasOpened = true;
 	}
 }
