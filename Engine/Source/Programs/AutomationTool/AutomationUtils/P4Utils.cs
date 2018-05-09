@@ -3884,7 +3884,7 @@ namespace AutomationTool
 			P4IntegrateAction Action;
 			if(!DescriptionToIntegrationAction.Value.TryGetValue(ActionText, out Action))
 			{
-				throw new P4Exception("Invalid integration action '{0}'", Action);
+				throw new P4Exception("Invalid integration action '{0}'", ActionText);
 			}
 			return Action;
 		}
