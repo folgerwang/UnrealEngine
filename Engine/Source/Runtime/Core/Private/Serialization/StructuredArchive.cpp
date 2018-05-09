@@ -57,6 +57,11 @@ FStructuredArchiveChildReader::~FStructuredArchiveChildReader()
 
 FStructuredArchive::FStructuredArchive(FArchiveFormatterType& InFormatter)
 	: Formatter(InFormatter)
+#if DO_GUARD_SLOW
+	, bRequiresStructuralMetadata(true)
+#else
+	, bRequiresStructuralMetadata(InFormatter.RequiresStructuralMetadata())
+#endif
 	, NextElementId(RootElementId + 1)
 	, CurrentSlotElementId(INDEX_NONE)
 {
@@ -114,26 +119,29 @@ void FStructuredArchive::EnterSlot(int32 ElementId, EElementType ElementType)
 
 void FStructuredArchive::LeaveSlot()
 {
-	switch (CurrentScope.Top().Type)
+	if (bRequiresStructuralMetadata)
 	{
-	case EElementType::Record:
-		Formatter.LeaveField();
-		break;
-	case EElementType::Array:
-		Formatter.LeaveArrayElement();
+		switch (CurrentScope.Top().Type)
+		{
+		case EElementType::Record:
+			Formatter.LeaveField();
+			break;
+		case EElementType::Array:
+			Formatter.LeaveArrayElement();
 #if DO_GUARD_SLOW
-		CurrentContainer.Top()->Index++;
+			CurrentContainer.Top()->Index++;
 #endif
-		break;
-	case EElementType::Stream:
-		Formatter.LeaveStreamElement();
-		break;
-	case EElementType::Map:
-		Formatter.LeaveMapElement();
+			break;
+		case EElementType::Stream:
+			Formatter.LeaveStreamElement();
+			break;
+		case EElementType::Map:
+			Formatter.LeaveMapElement();
 #if DO_GUARD_SLOW
-		CurrentContainer.Top()->Index++;
+			CurrentContainer.Top()->Index++;
 #endif
-		break;
+			break;
+		}
 	}
 }
 
@@ -144,46 +152,54 @@ void FStructuredArchive::SetScope(int32 Depth, int32 ElementId)
 	checkf(CurrentSlotElementId == INDEX_NONE || GetUnderlyingArchive().IsLoading(), TEXT("Cannot change scope until having written a value to the current slot"));
 
 	// Roll back to the correct scope
-	for(int32 CurrentDepth = CurrentScope.Num() - 1; CurrentDepth > Depth; CurrentDepth--)
+	if (bRequiresStructuralMetadata)
 	{
-		// Leave the current element
-		const FElement& Element = CurrentScope[CurrentDepth];
-		switch (Element.Type)
+		for (int32 CurrentDepth = CurrentScope.Num() - 1; CurrentDepth > Depth; CurrentDepth--)
 		{
-		case EElementType::Record:
-			Formatter.LeaveRecord();
+			// Leave the current element
+			const FElement& Element = CurrentScope[CurrentDepth];
+			switch (Element.Type)
+			{
+			case EElementType::Record:
+				Formatter.LeaveRecord();
 #if DO_GUARD_SLOW
-			delete CurrentContainer.Pop(false);
+				delete CurrentContainer.Pop(false);
 #endif
-			break;
-		case EElementType::Array:
+				break;
+			case EElementType::Array:
 #if DO_GUARD_SLOW
-			checkf(GetUnderlyingArchive().IsLoading() || CurrentContainer.Top()->Index == CurrentContainer.Top()->Count, TEXT("Incorrect number of elements serialized in array"));
+				checkf(GetUnderlyingArchive().IsLoading() || CurrentContainer.Top()->Index == CurrentContainer.Top()->Count, TEXT("Incorrect number of elements serialized in array"));
 #endif
-			Formatter.LeaveArray();
+				Formatter.LeaveArray();
 #if DO_GUARD_SLOW
-			delete CurrentContainer.Pop(false);
+				delete CurrentContainer.Pop(false);
 #endif
-			break;
-		case EElementType::Stream:
-			Formatter.LeaveStream();
-			break;
-		case EElementType::Map:
+				break;
+			case EElementType::Stream:
+				Formatter.LeaveStream();
+				break;
+			case EElementType::Map:
 #if DO_GUARD_SLOW
-			checkf(CurrentContainer.Top()->Index == CurrentContainer.Top()->Count, TEXT("Incorrect number of elements serialized in map"));
+				checkf(CurrentContainer.Top()->Index == CurrentContainer.Top()->Count, TEXT("Incorrect number of elements serialized in map"));
 #endif
-			Formatter.LeaveMap();
+				Formatter.LeaveMap();
 #if DO_GUARD_SLOW
-			delete CurrentContainer.Pop(false);
+				delete CurrentContainer.Pop(false);
 #endif
-			break;
+				break;
+			}
+
+			// Remove the element from the stack
+			CurrentScope.RemoveAt(CurrentDepth, 1, false);
+
+			// Leave the slot containing it
+			LeaveSlot();
 		}
-
-		// Remove the element from the stack
-		CurrentScope.RemoveAt(CurrentDepth, 1, false);
-
-		// Leave the slot containing it
-		LeaveSlot();
+	}
+	else
+	{
+		// Remove all the top elements from the stack
+		CurrentScope.RemoveAt(Depth + 1, CurrentScope.Num() - (Depth + 1));
 	}
 }
 
