@@ -1093,7 +1093,7 @@ void operator<<(FStructuredArchive::FSlot Slot, FFormatArgumentValue& Value)
 	FStructuredArchive::FRecord Record = Slot.EnterRecord();
 	int8 TypeAsInt8 = Value.GetType();
 	Record << NAMED_ITEM("Type", TypeAsInt8);
-	Value  = (EFormatArgumentType::Type)TypeAsInt8;
+	Value.Type = (EFormatArgumentType::Type)TypeAsInt8;
 
 	switch(Value.Type)
 	{
