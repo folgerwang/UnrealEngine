@@ -10,12 +10,6 @@
 #include "Abilities/Tasks/AbilityTask.h"
 #include "GameplayCue_Types.h"
 
-// --------------------------------------------------------------------------------------------------------------------------------------------------------
-//
-//	UGameplayAbility
-//
-// --------------------------------------------------------------------------------------------------------------------------------------------------------
-
 UGameplayAbility::UGameplayAbility(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -71,20 +65,30 @@ UGameplayAbility::UGameplayAbility(const FObjectInitializer& ObjectInitializer)
 	ScopeLockCount = 0;
 }
 
+UWorld* UGameplayAbility::GetWorld() const
+{
+	if (!IsInstantiated())
+	{
+		// If we are a CDO, we must return nullptr instead of calling Outer->GetWorld() to fool UObject::ImplementsGetWorld.
+		return nullptr;
+	}
+	return GetOuter()->GetWorld();
+}
+
 int32 UGameplayAbility::GetFunctionCallspace(UFunction* Function, void* Parameters, FFrame* Stack)
 {
 	if (HasAnyFlags(RF_ClassDefaultObject))
 	{
 		return FunctionCallspace::Local;
 	}
-	check(GetOuter() != NULL);
+	check(GetOuter() != nullptr);
 	return GetOuter()->GetFunctionCallspace(Function, Parameters, Stack);
 }
 
 bool UGameplayAbility::CallRemoteFunction(UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack)
 {
 	check(!HasAnyFlags(RF_ClassDefaultObject));
-	check(GetOuter() != NULL);
+	check(GetOuter() != nullptr);
 
 	AActor* Owner = CastChecked<AActor>(GetOuter());
 	UNetDriver* NetDriver = Owner->GetNetDriver();
@@ -97,7 +101,6 @@ bool UGameplayAbility::CallRemoteFunction(UFunction* Function, void* Parameters,
 	return false;
 }
 
-// TODO: polymorphic payload
 void UGameplayAbility::SendGameplayEvent(FGameplayTag EventTag, FGameplayEventData Payload)
 {
 	UAbilitySystemComponent* AbilitySystemComponent = CurrentActorInfo->AbilitySystemComponent.Get();
@@ -114,7 +117,7 @@ void UGameplayAbility::PostNetInit()
 	 *  This may need to be updated further if we start having abilities live on different outers than player AbilitySystemComponents.
 	 */
 	
-	if (CurrentActorInfo == NULL)
+	if (CurrentActorInfo == nullptr)
 	{
 		AActor* OwnerActor = Cast<AActor>(GetOuter());
 		if (ensure(OwnerActor))
@@ -919,6 +922,15 @@ USkeletalMeshComponent* UGameplayAbility::GetOwningComponentFromActorInfo() cons
 	return CurrentActorInfo->SkeletalMeshComponent.Get();
 }
 
+UAbilitySystemComponent* UGameplayAbility::GetAbilitySystemComponentFromActorInfo() const
+{
+	if (!ensure(CurrentActorInfo))
+	{
+		return nullptr;
+	}
+	return CurrentActorInfo->AbilitySystemComponent.Get();
+}
+
 FGameplayEffectSpecHandle UGameplayAbility::MakeOutgoingGameplayEffectSpec(TSubclassOf<UGameplayEffect> GameplayEffectClass, float Level) const
 {
 	check(CurrentActorInfo && CurrentActorInfo->AbilitySystemComponent.IsValid());
@@ -1023,8 +1035,6 @@ void UGameplayAbility::K2_EndAbility()
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
-// --------------------------------------------------------------------
-
 void UGameplayAbility::MontageJumpToSection(FName SectionName)
 {
 	check(CurrentActorInfo);
@@ -1050,7 +1060,7 @@ void UGameplayAbility::MontageStop(float OverrideBlendOutTime)
 	check(CurrentActorInfo);
 
 	UAbilitySystemComponent* AbilitySystemComponent = CurrentActorInfo->AbilitySystemComponent.Get();
-	if (AbilitySystemComponent != NULL)
+	if (AbilitySystemComponent != nullptr)
 	{
 		// We should only stop the current montage if we are the animating ability
 		if (AbilitySystemComponent->IsAnimatingAbility(this))
@@ -1071,8 +1081,6 @@ UAnimMontage* UGameplayAbility::GetCurrentMontage() const
 	return CurrentMontage;
 }
 
-// --------------------------------------------------------------------
-
 FGameplayAbilityTargetingLocationInfo UGameplayAbility::MakeTargetLocationInfoFromOwnerActor()
 {
 	FGameplayAbilityTargetingLocationInfo ReturnLocation;
@@ -1091,8 +1099,6 @@ FGameplayAbilityTargetingLocationInfo UGameplayAbility::MakeTargetLocationInfoFr
 	ReturnLocation.SourceSocketName = SocketName;
 	return ReturnLocation;
 }
-
-//----------------------------------------------------------------------
 
 UGameplayTasksComponent* UGameplayAbility::GetGameplayTasksComponent(const UGameplayTask& Task) const
 {
@@ -1392,10 +1398,10 @@ void UGameplayAbility::RemoveGrantedByEffect()
 
 UObject* UGameplayAbility::GetSourceObject(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo) const
 {
-	if (ActorInfo != NULL)
+	if (ActorInfo != nullptr)
 	{
 		UAbilitySystemComponent* AbilitySystemComponent = ActorInfo->AbilitySystemComponent.Get();
-		if (AbilitySystemComponent != NULL)
+		if (AbilitySystemComponent != nullptr)
 		{
 			FGameplayAbilitySpec* AbilitySpec = AbilitySystemComponent->FindAbilitySpecFromHandle(Handle);
 			if (AbilitySpec)
@@ -1496,6 +1502,11 @@ bool UGameplayAbility::HasAuthorityOrPredictionKey(const FGameplayAbilityActorIn
 	return ActorInfo->AbilitySystemComponent->HasAuthorityOrPredictionKey(ActivationInfo);
 }
 
+bool UGameplayAbility::IsInstantiated() const
+{
+	return !HasAllFlags(RF_ClassDefaultObject);
+}
+
 void UGameplayAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
 {
 	SetCurrentActorInfo(Spec.Handle, ActorInfo);
@@ -1511,8 +1522,6 @@ void UGameplayAbility::OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, c
 {
 	// Projects may want to initiate passives or do other "BeginPlay" type of logic here.
 }
-
-// -------------------------------------------------------
 
 FActiveGameplayEffectHandle UGameplayAbility::BP_ApplyGameplayEffectToOwner(TSubclassOf<UGameplayEffect> GameplayEffectClass, int32 GameplayEffectLevel, int32 Stacks)
 {
@@ -1562,8 +1571,6 @@ FActiveGameplayEffectHandle UGameplayAbility::ApplyGameplayEffectSpecToOwner(con
 	}
 	return FActiveGameplayEffectHandle();
 }
-
-// -------------------------------
 
 TArray<FActiveGameplayEffectHandle> UGameplayAbility::BP_ApplyGameplayEffectToTarget(FGameplayAbilityTargetDataHandle Target, TSubclassOf<UGameplayEffect> GameplayEffectClass, int32 GameplayEffectLevel, int32 Stacks)
 {
@@ -1621,6 +1628,29 @@ TArray<FActiveGameplayEffectHandle> UGameplayAbility::ApplyGameplayEffectSpecToT
 		}
 	}
 	return EffectHandles;
+}
+
+void UGameplayAbility::SetCurrentActorInfo(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo) const
+{
+	if (IsInstantiated())
+	{
+		CurrentActorInfo = ActorInfo;
+		CurrentSpecHandle = Handle;
+	}
+}
+
+void UGameplayAbility::SetCurrentActivationInfo(const FGameplayAbilityActivationInfo ActivationInfo)
+{
+	if (IsInstantiated())
+	{
+		CurrentActivationInfo = ActivationInfo;
+	}
+}
+
+void UGameplayAbility::SetCurrentInfo(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo)
+{
+	SetCurrentActorInfo(Handle, ActorInfo);
+	SetCurrentActivationInfo(ActivationInfo);
 }
 
 void UGameplayAbility::IncrementListLock() const

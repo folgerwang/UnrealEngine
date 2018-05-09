@@ -872,7 +872,7 @@ bool FLinkerLoad::DeferPotentialCircularImport(const int32 Index)
 			ResolveDependencyPlaceholder(ImportPlaceholder, LoadClass);
 
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			const bool bIsStillPlaceholder = Import.XObject->IsA<ULinkerPlaceholderClass>() || Import.XObject->IsA<ULinkerPlaceholderFunction>();
+			const bool bIsStillPlaceholder = Import.XObject && (Import.XObject->IsA<ULinkerPlaceholderClass>() || Import.XObject->IsA<ULinkerPlaceholderFunction>());
 			DEFERRED_DEPENDENCY_CHECK(!bIsStillPlaceholder);
 			return bIsStillPlaceholder;
 #else 

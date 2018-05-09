@@ -5,8 +5,12 @@
 #include "Widgets/SCompoundWidget.h"
 #include "WorkflowOrientedApp/WorkflowTabFactory.h"
 
+class FTabManager;
+struct FFrame;
+
 namespace CallStackViewer
 {
 	void KISMET_API UpdateDisplayedCallstack(const TArray<const FFrame*>& ScriptStack);
-	void RegisterTabSpawner();
+	FName GetTabName();
+	void RegisterTabSpawner(FTabManager& TabManager);
 }

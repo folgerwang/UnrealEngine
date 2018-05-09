@@ -101,15 +101,15 @@ public:
 	mutable uint32 bLOSflag : 1;
 
 	/** Skip extra line of sight traces to extremities of target being checked. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
 	uint32 bSkipExtraLOSChecks : 1;
 
 	/** Is strafing allowed during movement? */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
 	uint32 bAllowStrafe : 1;
 
 	/** Specifies if this AI wants its own PlayerState. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
 	uint32 bWantsPlayerState : 1;
 
 	/** Copy Pawn rotation to ControlRotation, if there is no focus point. */

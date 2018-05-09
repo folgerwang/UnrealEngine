@@ -3647,10 +3647,14 @@ void FLinkerLoad::Preload( UObject* Object )
 				}
 			}
 		}
-		else if( Object->GetLinker() )
+		else if (FLinkerLoad* Linker = Object->GetLinker())
 		{
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+			uint32 const DeferredLoadFlag = (LoadFlags & LOAD_DeferDependencyLoads);
+			TGuardValue<uint32> LoadFlagsGuard(Linker->LoadFlags, Linker->LoadFlags | DeferredLoadFlag);
+#endif
 			// Send to the object's linker.
-			Object->GetLinker()->Preload( Object );
+			Linker->Preload(Object);
 		}
 	}
 }

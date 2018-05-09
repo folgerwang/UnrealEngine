@@ -240,7 +240,7 @@ protected:
 	explicit FGameplayTag(FName InTagName);
 
 	/** This Tags Name */
-	UPROPERTY(VisibleAnywhere, Category = GameplayTags)
+	UPROPERTY(VisibleAnywhere, Category = GameplayTags, SaveGame)
 	FName TagName;
 
 	friend class UGameplayTagsManager;
@@ -820,7 +820,7 @@ protected:
 	void FillParentTags();
 
 	/** Array of gameplay tags */
-	UPROPERTY(BlueprintReadWrite, Category=GameplayTags) // Change to VisibleAnywhere after fixing up games
+	UPROPERTY(BlueprintReadWrite, Category=GameplayTags, SaveGame) // Change to VisibleAnywhere after fixing up games
 	TArray<FGameplayTag> GameplayTags;
 
 	/** Array of expanded parent tags, in addition to GameplayTags. Used to accelerate parent searches. May contain duplicates in some cases */
@@ -1057,6 +1057,8 @@ public:
 	static FGameplayTagQuery MakeQuery_MatchAnyTags(FGameplayTagContainer const& InTags);
 	static FGameplayTagQuery MakeQuery_MatchAllTags(FGameplayTagContainer const& InTags);
 	static FGameplayTagQuery MakeQuery_MatchNoTags(FGameplayTagContainer const& InTags);
+
+	static FGameplayTagQuery MakeQuery_MatchTag(FGameplayTag const& InTag);
 
 	friend class FQueryEvaluator;
 };

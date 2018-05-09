@@ -568,6 +568,10 @@ void FKismetDebugUtilities::CheckBreakConditions(UEdGraphNode* NodeStoppedAt, bo
 				}
 			}
 		}
+		else if (NodeStoppedAt != Data.MostRecentStoppedNode)
+		{
+			Data.MostRecentStoppedNode = nullptr;
+		}
 	}
 	
 	if (InOutBreakExecution)
@@ -688,10 +692,11 @@ void FKismetDebugUtilities::AttemptToBreakExecution(UBlueprint* BlueprintObj, co
 	// Now enter within-the-frame debugging mode
 	if (bShouldInStackDebug)
 	{
+		const TArray<const FFrame*>& ScriptStack = FBlueprintExceptionTracker::Get().ScriptStack;
 		Data.LastExceptionMessage = Info.GetDescription();
 		FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(NodeStoppedAt);
-		CallStackViewer::UpdateDisplayedCallstack(FBlueprintExceptionTracker::Get().ScriptStack);
-		WatchViewer::UpdateDisplayedWatches(BlueprintObj);
+		CallStackViewer::UpdateDisplayedCallstack(ScriptStack);
+		WatchViewer::UpdateDisplayedWatches(ScriptStack);
 		FSlateApplication::Get().EnterDebuggingMode();
 	}
 }
@@ -736,8 +741,11 @@ void FKismetDebugUtilities::NotifyDebuggerOfEndOfGameFrame(UWorld* CurrentWorld)
 }
 
 bool FKismetDebugUtilities::IsSingleStepping()
-{ 
-	return FKismetDebugUtilitiesData::Get().bIsSingleStepping; 
+{
+	const FKismetDebugUtilitiesData& Data = FKismetDebugUtilitiesData::Get();
+	return Data.bIsSingleStepping
+		|| Data.bIsSteppingOut
+		|| Data.TargetGraphStackDepth != INDEX_NONE; 
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1151,7 +1159,7 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::FindDebuggingData
 				return EWTR_NoDebugObject;
 			}
 
-			void* PropertyBase = NULL;
+			void* PropertyBase = nullptr;
 
 			// Walk up the stack frame to see if we can find a function scope that contains the property as a local
 			for (const FFrame* TestFrame = Data.StackFrameAtIntraframeDebugging; TestFrame != NULL; TestFrame = TestFrame->PreviousFrame)
@@ -1227,6 +1235,35 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::FindDebuggingData
 								OutDelta = NodePtr;
 								OutParent = ActiveObject;
 								return EWTR_Valid;
+							}
+						}
+					}
+				}
+			}
+
+			// If we still haven't found a result, try changing the active object to whatever is passed into the self pin.
+			if (!PropertyBase)
+			{
+				UEdGraphNode* WatchNode = WatchPin->GetOwningNode();
+
+				if (WatchNode)
+				{
+					UEdGraphPin* SelfPin = WatchNode->FindPin(TEXT("self"));
+					if (SelfPin && SelfPin != WatchPin)
+					{
+						UProperty* SelfPinProperty = nullptr;
+						void* SelfPinData = nullptr;
+						void* SelfPinDelta = nullptr;
+						UObject* SelfPinParent = nullptr;
+						FKismetDebugUtilities::EWatchTextResult Result = FindDebuggingData(Blueprint, ActiveObject, SelfPin, SelfPinProperty, SelfPinData, SelfPinDelta, SelfPinParent);
+						UObjectPropertyBase* SelfPinPropertyBase = Cast<UObjectPropertyBase>(SelfPinProperty);
+						if (Result == EWTR_Valid && SelfPinPropertyBase != nullptr)
+						{
+							void* PropertyValue = SelfPinProperty->ContainerPtrToValuePtr<void>(SelfPinData);
+							UObject* TempActiveObject = SelfPinPropertyBase->GetObjectPropertyValue(PropertyValue);
+							if (TempActiveObject)
+							{
+								return FindDebuggingData(Blueprint, TempActiveObject, WatchPin, OutProperty, OutData, OutDelta, OutParent);
 							}
 						}
 					}

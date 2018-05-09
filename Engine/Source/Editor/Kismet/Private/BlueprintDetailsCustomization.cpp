@@ -1168,7 +1168,7 @@ void FBlueprintVarActionDetails::OnVarNameChanged(const FText& InNewText)
 	}
 	else if(ValidatorResult == EValidatorResult::LocallyInUse)
 	{
-		VarNameEditableTextBox->SetError(LOCTEXT("ConflictsWithProperty", "Conflicts with another another local variable or function parameter!"));
+		VarNameEditableTextBox->SetError(LOCTEXT("ConflictsWithProperty", "Conflicts with another local variable or function parameter!"));
 	}
 	else
 	{
@@ -3004,9 +3004,7 @@ void FBlueprintGraphArgumentLayout::OnRefCheckStateChanged(ECheckBoxState InStat
 {
 	FEdGraphPinType PinType = OnGetPinInfo();
 	PinType.bIsReference = (InState == ECheckBoxState::Checked)? true : false;
-	// Note: Container types are implicitly passed by reference. For custom event nodes, the reference flag is essentially
-	//  treated as being redundant on container inputs, but we also need to implicitly set the 'const' flag to avoid a compiler note.
-	PinType.bIsConst = (PinType.IsContainer() || PinType.bIsReference) && TargetNode && TargetNode->IsA<UK2Node_CustomEvent>();
+	
 	PinInfoChanged(PinType);
 }
 
@@ -3030,7 +3028,7 @@ void FBlueprintGraphArgumentLayout::PinInfoChanged(const FEdGraphPinType& PinTyp
 				{
 					if (Node)
 					{
-						TSharedPtr<FUserPinInfo>* UDPinPtr = Node->UserDefinedPins.FindByPredicate([&](TSharedPtr<FUserPinInfo>& UDPin)
+						TSharedPtr<FUserPinInfo>* UDPinPtr = Node->UserDefinedPins.FindByPredicate([PinName](TSharedPtr<FUserPinInfo>& UDPin)
 						{
 							return UDPin.IsValid() && (UDPin->PinName == PinName);
 						});
@@ -3038,8 +3036,14 @@ void FBlueprintGraphArgumentLayout::PinInfoChanged(const FEdGraphPinType& PinTyp
 						{
 							(*UDPinPtr)->PinType = PinType;
 
-							// Container types are implicitly passed by reference. For custom event nodes, since they are inputs, also implicitly treat them as 'const' so that they don't result in a compiler note.
-							(*UDPinPtr)->PinType.bIsConst = PinType.IsContainer() && Node->IsA<UK2Node_CustomEvent>();
+							// Inputs flagged as pass-by-reference will also be flagged as 'const' here to conform to the expected native C++
+							// declaration of 'const Type&' for input reference parameters on functions with no outputs (i.e. events). Array
+							// types are also flagged as 'const' here since they will always be implicitly passed by reference, regardless of
+							// the checkbox setting. See UEditablePinBase::PostLoad() for more details.
+							if(!PinType.bIsConst && Node->ShouldUseConstRefParams())
+							{
+								(*UDPinPtr)->PinType.bIsConst = PinType.IsArray() || PinType.bIsReference;
+							}
 
 							// Reset default value, it probably doesn't match
 							(*UDPinPtr)->PinDefaultValue.Reset();
@@ -4137,7 +4141,7 @@ bool FBaseBlueprintGraphActionDetails::OnVerifyPinRename(UK2Node_EditablePinBase
 		const UProperty* ExistingProperty = FindField<const UProperty>(FoundFunction, *InNewName);
 		if (ExistingProperty)
 		{
-			OutErrorMessage = LOCTEXT("ConflictsWithProperty", "Conflicts with another another local variable or function parameter!");
+			OutErrorMessage = LOCTEXT("ConflictsWithProperty", "Conflicts with another local variable or function parameter!");
 			return false;
 		}
 	}

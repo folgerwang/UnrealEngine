@@ -627,19 +627,19 @@ public:
 	float DemoPlayTimeDilation;
 
 	/** Lowest acceptable global time dilation. */
-	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay, meta = (UIMin = "0", ClampMin = "0"))
 	float MinGlobalTimeDilation;
 	
 	/** Highest acceptable global time dilation. */
-	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay, meta = (UIMin = "0", ClampMin = "0"))
 	float MaxGlobalTimeDilation;
 
 	/** Smallest possible frametime, not considering dilation. Equiv to 1/FastestFPS. */
-	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay, meta = (UIMin = "0", ClampMin = "0"))
 	float MinUndilatedFrameTime;
 
 	/** Largest possible frametime, not considering dilation. Equiv to 1/SlowestFPS. */
-	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay, meta = (UIMin = "0", ClampMin = "0"))
 	float MaxUndilatedFrameTime;
 
 	// If paused, FName of person pausing the game.

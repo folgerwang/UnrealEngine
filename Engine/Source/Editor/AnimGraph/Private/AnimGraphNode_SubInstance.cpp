@@ -199,18 +199,7 @@ void UAnimGraphNode_SubInstance::ReallocatePinsDuringReconstruction(TArray<UEdGr
 	for(FName& RemovedPropertyName : BeginExposableNames)
 	{
 		KnownExposableProperties.Remove(RemovedPropertyName);
-		ExposedPropertyNames.Remove(RemovedPropertyName);
 	}
-
-	// Make sure that any old pins that linked to properties are told not to be orphans
-	for(UEdGraphPin* OldPin : OldPins)
-	{
-		if(OldPin && !AnimGraphDefaultSchema->IsPosePin(OldPin->PinType))
-		{
-			OldPin->SetSavePinIfOrphaned(false);
-		}
-	}
-
 }
 
 void UAnimGraphNode_SubInstance::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)

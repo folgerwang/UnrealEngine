@@ -12818,6 +12818,7 @@ void UEngine::CreateGameUserSettings()
 {
 	UGameUserSettings::LoadConfigIni();
 	GameUserSettings = NewObject<UGameUserSettings>(GetTransientPackage(), GEngine->GameUserSettingsClass);
+	GameUserSettings->SetToDefaults();
 	GameUserSettings->LoadSettings();
 }
 

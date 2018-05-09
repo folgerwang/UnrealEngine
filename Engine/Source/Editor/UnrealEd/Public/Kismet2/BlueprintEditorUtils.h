@@ -659,6 +659,13 @@ public:
 	 */
 	static UEdGraphPin* FindFirstCompilerRelevantLinkedPin(UEdGraphPin* FromPin);
 
+	/**
+	 * Removes all local bookmarks that reference the given Blueprint asset.
+	 *
+	 * @param			ForBlueprint	The Blueprint asset for which to remove local Bookmarks.
+	 */
+	static void RemoveAllLocalBookmarks(const UBlueprint* ForBlueprint);
+
 	//////////////////////////////////////////////////////////////////////////
 	// Functions
 

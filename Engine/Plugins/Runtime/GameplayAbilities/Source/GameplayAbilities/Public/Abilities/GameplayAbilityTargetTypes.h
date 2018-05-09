@@ -20,15 +20,22 @@ struct FGameplayEffectSpec;
 UENUM(BlueprintType)
 namespace EGameplayTargetingConfirmation
 {
+	/** Describes how the targeting information is confirmed */
 	enum Type
 	{
-		Instant,			// The targeting happens instantly without special logic or user input deciding when to 'fire'.
-		UserConfirmed,		// The targeting happens when the user confirms the targeting.
-		Custom,				// The GameplayTargeting Ability is responsible for deciding when the targeting data is ready. Not supported by all TargetingActors.
-		CustomMulti,		// The GameplayTargeting Ability is responsible for deciding when the targeting data is ready. Not supported by all TargetingActors. Should not destroy upon data production.
+		/** The targeting happens instantly without special logic or user input deciding when to 'fire' */
+		Instant,
+
+		/** The targeting happens when the user confirms the targeting */
+		UserConfirmed,
+
+		/** The GameplayTargeting Ability is responsible for deciding when the targeting data is ready. Not supported by all TargetingActors */
+		Custom,
+
+		/** The GameplayTargeting Ability is responsible for deciding when the targeting data is ready. Not supported by all TargetingActors. Should not destroy upon data production */
+		CustomMulti,
 	};
 }
-
 
 /**
  *	A generic structure for targeting data. We want generic functions to produce this data and other generic
@@ -52,14 +59,9 @@ namespace EGameplayTargetingConfirmation
  * 		-Filter or merge TargetDatas
  *		-Spawn a new actor at a TargetData location
  *
- *
- *
  *	Maybe it is better to distinguish between actor list targeting vs positional targeting data?
  *		-AOE/aura type of targeting data blurs the line
- *
- *
  */
-
 USTRUCT()
 struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData
 {
@@ -67,77 +69,83 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData
 
 	virtual ~FGameplayAbilityTargetData() { }
 
+	/** Applies a gameplay effect to each target represented */
 	TArray<FActiveGameplayEffectHandle> ApplyGameplayEffect(const UGameplayEffect* GameplayEffect, const FGameplayEffectContextHandle& InEffectContext, float Level, FPredictionKey PredictionKey = FPredictionKey());
 
+	/** Applies a previously created gameplay effect spec to each target represented */
 	virtual TArray<FActiveGameplayEffectHandle> ApplyGameplayEffectSpec(FGameplayEffectSpec& Spec, FPredictionKey PredictionKey = FPredictionKey());
 
+	/** Modifies the context and adds this target data to the target data handle stored within */
 	virtual void AddTargetDataToContext(FGameplayEffectContextHandle& Context, bool bIncludeActorArray) const;
 
+	/** Modifies the cue parameters and adds this target data to the target data handle stored within */
 	virtual void AddTargetDataToGameplayCueParameters(FGameplayCueParameters& Parameters) const;
 
+	/** Returns all actors targeted, almost always overridden */
 	virtual TArray<TWeakObjectPtr<AActor>> GetActors() const
 	{
 		return TArray<TWeakObjectPtr<AActor>>();
 	}
 
+	/** Modify the actor list */
 	virtual bool SetActors(TArray<TWeakObjectPtr<AActor>> NewActorArray)
 	{
 		//By default, we don't keep this data, and therefore can't set it.
 		return false;
 	}
 
-	// -------------------------------------
-
+	/** Return true in subclasses if GetHitResult will work */
 	virtual bool HasHitResult() const
 	{
 		return false;
 	}
 
+	/** Override to return a hit result */
 	virtual const FHitResult* GetHitResult() const
 	{
 		return nullptr;
 	}
 
-	// -------------------------------------
-
+	/** Override to true if GetOrigin will work */
 	virtual bool HasOrigin() const
 	{
 		return false;
 	}
 
+	/** Override to return an origin point, which may be derived from other data */
 	virtual FTransform GetOrigin() const
 	{
 		return FTransform::Identity;
 	}
 
-	// -------------------------------------
-
+	/** Override to true if GetEndPoint/Transform will work */
 	virtual bool HasEndPoint() const
 	{
 		return false;
 	}
 
+	/** Override to return a target/end point */
 	virtual FVector GetEndPoint() const
 	{
 		return FVector::ZeroVector;
 	}
 
+	/** Override to return a transform, default will create one from just the location */
 	virtual FTransform GetEndPointTransform() const
 	{
 		return FTransform(GetEndPoint());
 	}
 
-	// -------------------------------------
-
+	/** Returns the serialization data, must always be overridden */
 	virtual UScriptStruct* GetScriptStruct() const
 	{
 		return FGameplayAbilityTargetData::StaticStruct();
 	}
 
+	/** Returns a debug string representation */
 	virtual FString ToString() const;
 
-	// -------------------------------------
-	//..See notes on delegate definition FOnTargetActorSwapped.
+	/** See notes on delegate definition FOnTargetActorSwapped */
 	virtual bool ShouldCheckForTargetActorSwap() const
 	{
 		return false;
@@ -145,91 +153,93 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData
 
 };
 
-
 UENUM(BlueprintType)
 namespace EGameplayAbilityTargetingLocationType
 {
-	/**
-	*	What type of location calculation to use when an ability asks for our transform.
-	*/
-
+	/** What type of location calculation to use when an ability asks for our transform */
 	enum Type
 	{
-		LiteralTransform		UMETA(DisplayName = "Literal Transform"),		// We report an actual raw transform. This is also the final fallback if other methods fail.
-		ActorTransform			UMETA(DisplayName = "Actor Transform"),			// We pull the transform from an associated actor directly.
-		SocketTransform			UMETA(DisplayName = "Socket Transform"),		// We aim from a named socket on the player's skeletal mesh component.
+		/** We report an actual raw transform. This is also the final fallback if other methods fail */
+		LiteralTransform		UMETA(DisplayName = "Literal Transform"),
+
+		/** We pull the transform from an associated actor directly */
+		ActorTransform			UMETA(DisplayName = "Actor Transform"),
+
+		/** We aim from a named socket on the player's skeletal mesh component */
+		SocketTransform			UMETA(DisplayName = "Socket Transform"),		
 	};
 }
 
 /**
-*	Handle for Targeting Data. This servers two main purposes:
-*		-Avoid us having to copy around the full targeting data structure in Blueprints
-*		-Allows us to leverage polymorphism in the target data structure
-*		-Allows us to implement NetSerialize and replicate by value between clients/server
-*
-*		-Avoid using UObjects could be used to give us polymorphism and by reference passing in blueprints.
-*		-However we would still be screwed when it came to replication
-*
-*		-Replication by value
-*		-Pass by reference in blueprints
-*		-Polymophism in TargetData structure
-*
-*/
-
+ *	Handle for Targeting Data. This servers two main purposes:
+ *		-Avoid us having to copy around the full targeting data structure in Blueprints
+ *		-Allows us to leverage polymorphism in the target data structure
+ *		-Allows us to implement NetSerialize and replicate by value between clients/server
+ *
+ *		-Avoid using UObjects could be used to give us polymorphism and by reference passing in blueprints.
+ *		-However we would still be screwed when it came to replication
+ *
+ *		-Replication by value
+ *		-Pass by reference in blueprints
+ *		-Polymophism in TargetData structure
+ */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayAbilityTargetDataHandle
 {
 	GENERATED_USTRUCT_BODY()
 
 	FGameplayAbilityTargetDataHandle() { }
-	FGameplayAbilityTargetDataHandle(struct FGameplayAbilityTargetData* DataPtr)
+	FGameplayAbilityTargetDataHandle(FGameplayAbilityTargetData* DataPtr)
 	{
 		Data.Add(TSharedPtr<FGameplayAbilityTargetData>(DataPtr));
 	}
 
+	/** Raw storage of target data, do not modify this directly */
 	TArray<TSharedPtr<FGameplayAbilityTargetData>, TInlineAllocator<1> >	Data;
 
+	/** Resets handle to have no targets */
 	void Clear()
 	{
 		Data.Reset();
 	}
 
+	/** Returns number of target data, not number of actors/targets as target data may contain multiple actors */
 	int32 Num() const
 	{
 		return Data.Num();
 	}
 
+	/** Returns true if there are any valid targets */
 	bool IsValid(int32 Index) const
 	{
 		return (Index < Data.Num() && Data[Index].IsValid());
 	}
 
+	/** Returns data at index, or nullptr if invalid */
 	const FGameplayAbilityTargetData* Get(int32 Index) const
 	{
 		return IsValid(Index) ? Data[Index].Get() : nullptr;
 	}
 
+	/** Returns data at index, or nullptr if invalid */
 	FGameplayAbilityTargetData* Get(int32 Index)
 	{
 		return IsValid(Index) ? Data[Index].Get() : nullptr;
 	}
 
-	void Add(struct FGameplayAbilityTargetData* DataPtr)
+	/** Adds a new target data to handle, it must have been created with new */
+	void Add(FGameplayAbilityTargetData* DataPtr)
 	{
 		Data.Add(TSharedPtr<FGameplayAbilityTargetData>(DataPtr));
 	}
 
-	DEPRECATED(4.11, "Pass Handle by reference, not pointer")
-	void Append(FGameplayAbilityTargetDataHandle* OtherHandle)
-	{
-		Append(*OtherHandle);
-	}
-
+	/** Does a shallow copy of target data from one handle to another */
 	void Append(const FGameplayAbilityTargetDataHandle& OtherHandle)
 	{
 		Data.Append(OtherHandle.Data);
 	}
 
+	/** Serialize for networking, handles polymorphism */
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
 	/** Comparison operator */
@@ -272,20 +282,20 @@ struct TStructOpsTypeTraits<FGameplayAbilityTargetDataHandle> : public TStructOp
 	};
 };
 
+/** Structure that stores a location in one of several different formats */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayAbilityTargetingLocationInfo
 {
 	GENERATED_USTRUCT_BODY()
 
 	FGameplayAbilityTargetingLocationInfo()
-	: LocationType(EGameplayAbilityTargetingLocationType::LiteralTransform)
-	, SourceActor(nullptr)
-	, SourceComponent(nullptr)
-	, SourceAbility(nullptr)
-	{
-	};
+		: LocationType(EGameplayAbilityTargetingLocationType::LiteralTransform)
+		, SourceActor(nullptr)
+		, SourceComponent(nullptr)
+		, SourceAbility(nullptr)
+	{ }
 
-	virtual ~FGameplayAbilityTargetingLocationInfo() {};
+	virtual ~FGameplayAbilityTargetingLocationInfo() {}
 
 	void operator=(const FGameplayAbilityTargetingLocationInfo& Other)
 	{
@@ -297,10 +307,10 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetingLocationInfo
 		SourceSocketName = Other.SourceSocketName;
 	}
 
-public:
+	/** Converts internal format into a literal world space transform */
 	FTransform GetTargetingTransform() const
 	{
-		//Return or calculate based on LocationType.
+		// Return or calculate based on LocationType.
 		switch (LocationType)
 		{
 		case EGameplayAbilityTargetingLocationType::ActorTransform:
@@ -312,21 +322,26 @@ public:
 		case EGameplayAbilityTargetingLocationType::SocketTransform:
 			if (SourceComponent)
 			{
-				return SourceComponent->GetSocketTransform(SourceSocketName);		//Bad socket name will just return component transform anyway, so we're safe
+				// Bad socket name will just return component transform anyway, so we're safe
+				return SourceComponent->GetSocketTransform(SourceSocketName);
 			}
 			break;
 		case EGameplayAbilityTargetingLocationType::LiteralTransform:
 			return LiteralTransform;
 		default:
-			check(false);		//This case should not happen
+			check(false);
 			break;
 		}
-		//Error
+
+		// It cannot get here
 		return FTransform::Identity;
 	}
 
+	/** Initializes new target data and fills in with hit results */
 	FGameplayAbilityTargetDataHandle MakeTargetDataHandleFromHitResult(TWeakObjectPtr<UGameplayAbility> Ability, const FHitResult& HitResult) const;
 	FGameplayAbilityTargetDataHandle MakeTargetDataHandleFromHitResults(TWeakObjectPtr<UGameplayAbility> Ability, const TArray<FHitResult>& HitResults) const;
+
+	/** Initializes new actor list target data, and sets this as the origin */
 	FGameplayAbilityTargetDataHandle MakeTargetDataHandleFromActors(const TArray<TWeakObjectPtr<AActor>>& TargetActors, bool OneActorPerHandle = false) const;
 
 	/** Type of location used - will determine what data is transmitted over the network and what fields are used when calculating position. */
@@ -353,19 +368,8 @@ public:
 	UPROPERTY(BlueprintReadWrite, meta = (ExposeOnSpawn = true), Category = Targeting)
 	FName SourceSocketName;
 
-	// -------------------------------------
-
-	virtual FString ToString() const
-	{
-		return TEXT("FGameplayAbilityTargetingLocationInfo");
-	}
-
+	/** Optimized serialize function */
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
-
-	virtual UScriptStruct* GetScriptStruct() const
-	{
-		return FGameplayAbilityTargetingLocationInfo::StaticStruct();
-	}
 };
 
 template<>
@@ -377,6 +381,7 @@ struct TStructOpsTypeTraits<FGameplayAbilityTargetingLocationInfo> : public TStr
 	};
 };
 
+/** Target data with just a source and target location in space */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData_LocationInfo : public FGameplayAbilityTargetData
 {
@@ -438,6 +443,7 @@ struct TStructOpsTypeTraits<FGameplayAbilityTargetData_LocationInfo> : public TS
 	};
 };
 
+/** Target data with a source location and a list of targeted actors, makes sense for AOE attacks */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData_ActorArray : public FGameplayAbilityTargetData
 {
@@ -540,6 +546,7 @@ struct TStructOpsTypeTraits<FGameplayAbilityTargetData_ActorArray> : public TStr
 	};
 };
 
+/** Target data with a single hit result, data is packed into the hit result */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData_SingleTargetHit : public FGameplayAbilityTargetData
 {
@@ -600,6 +607,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData_SingleTargetHit : public
 
 	// -------------------------------------
 
+	/** Hit result that stores data */
 	UPROPERTY()
 	FHitResult	HitResult;
 
@@ -622,9 +630,6 @@ struct TStructOpsTypeTraits<FGameplayAbilityTargetData_SingleTargetHit> : public
 
 /** Generic callback for returning when target data is available */
 DECLARE_MULTICAST_DELEGATE_OneParam(FAbilityTargetData, const FGameplayAbilityTargetDataHandle&);
-
-
-// ----------------------------------------------------
 
 /** Generic callback for returning when target data is available */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FAbilityTargetDataSetDelegate, const FGameplayAbilityTargetDataHandle&, FGameplayTag);
@@ -658,19 +663,22 @@ namespace EAbilityGenericReplicatedEvent
 	};
 }
 
+/** Payload for generic replicated events */
 struct FAbilityReplicatedData
 {
 	FAbilityReplicatedData() : bTriggered(false), VectorPayload(ForceInitToZero) {}
+
 	/** Event has triggered */
 	bool bTriggered;
 
 	/** Optional Vector payload for event */
 	FVector_NetQuantize100 VectorPayload;
 
+	/** Delegate that will be called on replication */
 	FSimpleMulticastDelegate Delegate;
 };
 
-/** Struct defining the cached data for a specific gameplay ability. This data is generally syncronized client->server in a network game. */
+/** Struct defining the cached data for a specific gameplay ability. This data is generally synchronized client->server in a network game. */
 struct FAbilityReplicatedDataCache
 {
 	/** What elements this activation is targeting */

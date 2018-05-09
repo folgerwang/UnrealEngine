@@ -20,22 +20,24 @@ class UGameplayAbility;
  *	GameplayEffect.h
  */
 
+/** Handle that points to a specific granted ability. These are globally unique */
 USTRUCT(BlueprintType)
 struct FGameplayAbilitySpecHandle
 {
 	GENERATED_USTRUCT_BODY()
 
 	FGameplayAbilitySpecHandle()
-	: Handle(INDEX_NONE)
+		: Handle(INDEX_NONE)
 	{
-
 	}
 
+	/** True if GenerateNewHandle was called on this handle */
 	bool IsValid() const
 	{
 		return Handle != INDEX_NONE;
 	}
 
+	/** Sets this to a valid handle */
 	void GenerateNewHandle()
 	{
 		static int32 GHandle = 1;
@@ -68,24 +70,25 @@ private:
 	int32 Handle;
 };
 
+/** Describes the status of activating this ability, this is updated as prediction is handled */
 UENUM(BlueprintType)
 namespace EGameplayAbilityActivationMode
 {
 	enum Type
 	{
-		// We are the authority activating this ability
+		/** We are the authority activating this ability */
 		Authority,
 
-		// We are not the authority but aren't predicting yet. This is a mostly invalid state to be in.
+		/** We are not the authority but aren't predicting yet. This is a mostly invalid state to be in */
 		NonAuthority,
 
-		// We are predicting the activation of this ability
+		/** We are predicting the activation of this ability */
 		Predicting,
 
-		// We are not the authority, but the authority has confirmed this activation
+		/** We are not the authority, but the authority has confirmed this activation */
 		Confirmed,
 
-		// We tried to activate it, and server told us we couldn't (even though we thought we could)
+		/** We tried to activate it, and server told us we couldn't (even though we thought we could) */
 		Rejected,
 	};
 }
@@ -98,7 +101,7 @@ enum class EGameplayEffectGrantedAbilityRemovePolicy : uint8
 	CancelAbilityImmediately,
 	/** Active abilities are allowed to finish, and then removed. */
 	RemoveAbilityOnEnd,
-	/** Granted abilties are left lone when the granting GameplayEffect is removed. */
+	/** Granted abilities are left lone when the granting GameplayEffect is removed. */
 	DoNothing,
 };
 
@@ -107,8 +110,7 @@ USTRUCT(BlueprintType)
 struct FGameplayAbilitySpecDef
 {
 	FGameplayAbilitySpecDef()
-		: Level(INDEX_NONE)
-		, InputID(INDEX_NONE)
+		: InputID(INDEX_NONE)
 		, RemovalPolicy(EGameplayEffectGrantedAbilityRemovePolicy::CancelAbilityImmediately)
 		, SourceObject(nullptr)
 	{
@@ -117,26 +119,27 @@ struct FGameplayAbilitySpecDef
 
 	GENERATED_USTRUCT_BODY()
 
+	/** What ability to grant */
 	UPROPERTY(EditDefaultsOnly, Category="Ability Definition", NotReplicated)
 	TSubclassOf<UGameplayAbility> Ability;
 	
-	// Deprecated for LevelScalableFloat
-	UPROPERTY(NotReplicated)
-	int32 Level; 
-
+	/** What level to grant this ability at */
 	UPROPERTY(EditDefaultsOnly, Category="Ability Definition", NotReplicated, DisplayName="Level")
 	FScalableFloat LevelScalableFloat; 
-	
+
+	/** Input ID to bind this ability to */
 	UPROPERTY(EditDefaultsOnly, Category="Ability Definition", NotReplicated)
 	int32 InputID;
 
+	/** What will remove this ability later */
 	UPROPERTY(EditDefaultsOnly, Category="Ability Definition", NotReplicated)
 	EGameplayEffectGrantedAbilityRemovePolicy RemovalPolicy;
-	
+
+	/** What granted this spec, not replicated or settable in editor */
 	UPROPERTY(NotReplicated)
 	UObject* SourceObject;
 
-	// SetbyCaller Magnitudes that were passed in to this ability by a GE (GE's that grant abilities). Made available so that 
+	/** SetbyCaller Magnitudes that were passed in to this ability by a GE (GE's that grant abilities) */
 	TMap<FGameplayTag, float>	SetByCallerTagMagnitudes;
 
 	/** This handle can be set if the SpecDef is used to create a real FGameplaybilitySpec */
@@ -162,7 +165,6 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityActivationInfo
 		: ActivationMode(EGameplayAbilityActivationMode::Authority)
 		, bCanBeEndedByOtherInstance(false)
 	{
-
 	}
 
 	FGameplayAbilityActivationInfo(AActor* InActor)
@@ -179,6 +181,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityActivationInfo
 	{
 	}	
 
+	/** Activation status of this ability */
 	UPROPERTY(BlueprintReadOnly, Category = "ActorInfo")
 	mutable TEnumAsByte<EGameplayAbilityActivationMode::Type>	ActivationMode;
 
@@ -186,8 +189,10 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityActivationInfo
 	UPROPERTY()
 	uint8 bCanBeEndedByOtherInstance:1;
 
+	/** Called on client when activation is confirmed on server */
 	void SetActivationConfirmed();
 
+	/** Called when activation was rejected by the server */
 	void SetActivationRejected();
 
 	/** Called on client to set this as a predicted ability */
@@ -196,20 +201,20 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityActivationInfo
 	/** Called on the server to set the key used by the client to predict this ability */
 	void ServerSetActivationPredictionKey(FPredictionKey PredictionKey);
 
+	/** Returns prediction key, const to avoid being able to modify it after creation */
 	const FPredictionKey& GetActivationPredictionKey() const { return PredictionKeyWhenActivated; }
 
 private:
 
-	// This was the prediction key used to activate this ability. It does not get updated
-	// if new prediction keys are generated over the course of the ability.
+	/** This was the prediction key used to activate this ability. It does not get updated if new prediction keys are generated over the course of the ability */
 	UPROPERTY()
 	FPredictionKey PredictionKeyWhenActivated;
 	
 };
 
-
-/** An activatable ability spec, hosted on the ability system component. This defines both what the ability is (what class, what level, input binding etc)
- *  and also holds runtime state that must be kept outside of the ability being instanced/activated.
+/**
+ * An activatable ability spec, hosted on the ability system component. This defines both what the ability is (what class, what level, input binding etc)
+ * and also holds runtime state that must be kept outside of the ability being instanced/activated.
  */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayAbilitySpec : public FFastArraySerializerItem
@@ -217,17 +222,16 @@ struct GAMEPLAYABILITIES_API FGameplayAbilitySpec : public FFastArraySerializerI
 	GENERATED_USTRUCT_BODY()
 
 	FGameplayAbilitySpec()
-	: Ability(nullptr), Level(1), InputID(INDEX_NONE), SourceObject(nullptr), ActiveCount(0), InputPressed(false), RemoveAfterActivation(false), PendingRemove(false)
-	{
-		
-	}
+		: Ability(nullptr), Level(1), InputID(INDEX_NONE), SourceObject(nullptr), ActiveCount(0), InputPressed(false), RemoveAfterActivation(false), PendingRemove(false)
+	{ }
 
-	FGameplayAbilitySpec(UGameplayAbility* InAbility, int32 InLevel=1, int32 InInputID=INDEX_NONE, UObject* InSourceObject=nullptr)
-		: Ability(InAbility), Level(InLevel), InputID(InInputID), SourceObject(InSourceObject), ActiveCount(0), InputPressed(false), RemoveAfterActivation(false), PendingRemove(false)
-	{
-		Handle.GenerateNewHandle();
-	}
-	
+	/** Version that takes an ability class */
+	FGameplayAbilitySpec(TSubclassOf<UGameplayAbility> InAbilityClass, int32 InLevel = 1, int32 InInputID = INDEX_NONE, UObject* InSourceObject = nullptr);
+
+	/** Version that takes an ability CDO, this exists for backward compatibility */
+	FGameplayAbilitySpec(UGameplayAbility* InAbility, int32 InLevel = 1, int32 InInputID = INDEX_NONE, UObject* InSourceObject = nullptr);
+
+	/** Version that takes an existing spec def */
 	FGameplayAbilitySpec(FGameplayAbilitySpecDef& InDef, int32 InGameplayEffectLevel, FActiveGameplayEffectHandle InGameplayEffectHandle = FActiveGameplayEffectHandle());
 
 	/** Handle for outside sources to refer to this spec by */
@@ -289,7 +293,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilitySpec : public FFastArraySerializerI
 	UGameplayAbility* GetPrimaryInstance() const;
 
 	/** interface function to see if the ability should replicated the ability spec or not */
-	bool ShouldReplicatedAbilitySpec() const;
+	bool ShouldReplicateAbilitySpec() const;
 
 	/** Returns all instances, which can include instance per execution abilities */
 	TArray<UGameplayAbility*> GetAbilityInstances() const
@@ -309,20 +313,26 @@ struct GAMEPLAYABILITIES_API FGameplayAbilitySpec : public FFastArraySerializerI
 	FString GetDebugString();
 };
 
-
 /** Fast serializer wrapper for above struct */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayAbilitySpecContainer : public FFastArraySerializer
 {
 	GENERATED_USTRUCT_BODY()
 
+	FGameplayAbilitySpecContainer()
+		: Owner(nullptr)
+	{
+	}
+
 	/** List of activatable abilities */
 	UPROPERTY()
 	TArray<FGameplayAbilitySpec> Items;
 
 	/** Component that owns this list */
+	UPROPERTY()
 	UAbilitySystemComponent* Owner;
 
+	/** Initializes Owner variable */
 	void RegisterWithOwner(UAbilitySystemComponent* Owner);
 
 	bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
@@ -334,7 +344,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilitySpecContainer : public FFastArraySe
 	bool ShouldWriteFastArrayItem(const Type& Item, const bool bIsWritingOnClient)
 	{
 		// if we do not want the FGameplayAbilitySpec to replicated return false;
-		if (!Item.ShouldReplicatedAbilitySpec())
+		if (!Item.ShouldReplicateAbilitySpec())
 		{
 			return false;
 		}
@@ -357,9 +367,7 @@ struct TStructOpsTypeTraits< FGameplayAbilitySpecContainer > : public TStructOps
 	};
 };
 
-// ----------------------------------------------------
-
-// Used to stop us from removing abilities from an ability system component while we're iterating through the abilities
+/** Used to stop us from removing abilities from an ability system component while we're iterating through the abilities */
 struct GAMEPLAYABILITIES_API FScopedAbilityListLock
 {
 	FScopedAbilityListLock(UAbilitySystemComponent& InContainer);
@@ -371,7 +379,7 @@ private:
 
 #define ABILITYLIST_SCOPE_LOCK()	FScopedAbilityListLock ActiveScopeLock(*this);
 
-// Used to stop us from canceling or ending an ability while we're iterating through its gameplay targets
+/** Used to stop us from canceling or ending an ability while we're iterating through its gameplay targets */
 struct GAMEPLAYABILITIES_API FScopedTargetListLock
 {
 	FScopedTargetListLock(UAbilitySystemComponent& InAbilitySystemComponent, const UGameplayAbility& InAbility);

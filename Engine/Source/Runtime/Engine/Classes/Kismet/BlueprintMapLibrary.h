@@ -23,7 +23,6 @@ public:
 	 * @param	TargetMap		The map to add the key and value to
 	 * @param	Key				The key that will be used to look the value up
 	 * @param	Value			The value to be retrieved later
-	 * @return	True if a Value was added, or False if the Key was already present and has been overwritten
 	 */
 	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Add", CompactNodeTitle = "ADD", MapParam = "TargetMap", MapKeyParam = "Key", MapValueParam = "Value", AutoCreateRefTerm = "Key, Value"), Category = "Utilities|Map")
 	static void Map_Add(const TMap<int32, int32>& TargetMap, const int32& Key, const int32& Value);

@@ -52,7 +52,6 @@ FTileMapEditorViewportClient::FTileMapEditorViewportClient(TWeakPtr<FTileMapEdit
 		RenderTileMapComponent = NewObject<UPaperTileMapComponent>();
 		UPaperTileMap* TileMap = GetTileMapBeingEdited();
 		RenderTileMapComponent->TileMap = TileMap;
-		RenderTileMapComponent->SelectionOverrideDelegate = UPrimitiveComponent::FSelectionOverride::CreateLambda([](const UPrimitiveComponent*) { return true; });
 
 		PreviewScene->AddComponent(RenderTileMapComponent, FTransform::Identity);
 	}
@@ -238,25 +237,25 @@ FLinearColor FTileMapEditorViewportClient::GetBackgroundColor() const
 void FTileMapEditorViewportClient::ToggleShowTileGrid()
 {
 	FComponentReregisterContext RefreshComponentHelper(RenderTileMapComponent);
-	RenderTileMapComponent->bShowPerTileGridWhenSelected = !RenderTileMapComponent->bShowPerTileGridWhenSelected;
+	RenderTileMapComponent->bShowPerTileGridWhenUnselected = !RenderTileMapComponent->bShowPerTileGridWhenUnselected;
 	Invalidate();
 }
 
 bool FTileMapEditorViewportClient::IsShowTileGridChecked() const
 {
-	return RenderTileMapComponent->bShowPerTileGridWhenSelected;
+	return RenderTileMapComponent->bShowPerTileGridWhenUnselected;
 }
 
 void FTileMapEditorViewportClient::ToggleShowLayerGrid()
 {
 	FComponentReregisterContext RefreshComponentHelper(RenderTileMapComponent);
-	RenderTileMapComponent->bShowPerLayerGridWhenSelected = !RenderTileMapComponent->bShowPerLayerGridWhenSelected;
+	RenderTileMapComponent->bShowPerLayerGridWhenUnselected = !RenderTileMapComponent->bShowPerLayerGridWhenUnselected;
 	Invalidate();
 }
 
 bool FTileMapEditorViewportClient::IsShowLayerGridChecked() const
 {
-	return RenderTileMapComponent->bShowPerLayerGridWhenSelected;
+	return RenderTileMapComponent->bShowPerLayerGridWhenUnselected;
 }
 
 void FTileMapEditorViewportClient::ToggleShowMeshEdges()

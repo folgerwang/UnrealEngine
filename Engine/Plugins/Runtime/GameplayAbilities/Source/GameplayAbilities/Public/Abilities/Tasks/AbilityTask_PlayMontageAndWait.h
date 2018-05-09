@@ -9,6 +9,7 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FMontageWaitSimpleDelegate);
 
+/** Ability task to simply play a montage. Many games will want to make a modified version of this task that looks for game-specific events */
 UCLASS()
 class GAMEPLAYABILITIES_API UAbilityTask_PlayMontageAndWait : public UAbilityTask
 {
@@ -58,9 +59,18 @@ private:
 	FOnMontageEnded MontageEndedDelegate;
 	FDelegateHandle InterruptedHandle;
 
+	UPROPERTY()
 	UAnimMontage* MontageToPlay;
-	float Rate;	
+
+	UPROPERTY()
+	float Rate;
+
+	UPROPERTY()
 	FName StartSection;
+
+	UPROPERTY()
 	float AnimRootMotionTranslationScale;
+
+	UPROPERTY()
 	bool bStopWhenAbilityEnds;
 };

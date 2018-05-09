@@ -446,7 +446,7 @@ public:
 
 	/** @return true if the widget is currently being hovered by a pointer device */
 	UFUNCTION(BlueprintCallable, Category="Widget")
-	bool IsHovered() const;
+	virtual bool IsHovered() const;
 
 	/**
 	 * Checks to see if this widget currently has the keyboard focus

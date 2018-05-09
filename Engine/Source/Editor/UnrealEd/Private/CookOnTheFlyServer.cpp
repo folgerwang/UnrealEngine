@@ -4911,17 +4911,26 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const T
 			}
 		}
 
-		// Also append any cookdirs from the project ini files; these dirs are relative to the game content directory
+		// Also append any cookdirs from the project ini files; these dirs are relative to the game content directory or start with a / root
 		{
 			const FString AbsoluteGameContentDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir());
 			for (const FDirectoryPath& DirToCook : PackagingSettings->DirectoriesToAlwaysCook)
 			{
 				UE_LOG(LogCook, Verbose, TEXT("Loading directory to always cook %s"), *DirToCook.Path);
-				CookDirectories.Add(AbsoluteGameContentDir / DirToCook.Path);
+
+				if (DirToCook.Path.StartsWith(TEXT("/"), ESearchCase::CaseSensitive))
+				{
+					// If this starts with /, this includes a root like /engine
+					FString RelativePath = FPackageName::LongPackageNameToFilename(DirToCook.Path / TEXT(""));
+					CookDirectories.Add(FPaths::ConvertRelativePathToFull(RelativePath));
+				}
+				else
+				{
+					// This is relative to /game
+					CookDirectories.Add(AbsoluteGameContentDir / DirToCook.Path);
+				}
 			}
 		}
-
-
 	}
 
 	if (!(FilesToCookFlags & ECookByTheBookOptions::NoGameAlwaysCookPackages))
@@ -5868,7 +5877,18 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 
 		for (const FDirectoryPath& DirToNotCook : PackagingSettings->DirectoriesToNeverCook)
 		{
-			NeverCookDirectories.Add(AbsoluteGameContentDir / DirToNotCook.Path);
+			if (DirToNotCook.Path.StartsWith(TEXT("/"), ESearchCase::CaseSensitive))
+			{
+				// If this starts with /, this includes a root like /engine
+				FString RelativePath = FPackageName::LongPackageNameToFilename(DirToNotCook.Path / TEXT(""));
+				NeverCookDirectories.Add(FPaths::ConvertRelativePathToFull(RelativePath));
+			}
+			else
+			{
+				// This is relative to /game
+				NeverCookDirectories.Add(AbsoluteGameContentDir / DirToNotCook.Path);
+			}
+
 		}
 
 		for (const FString& NeverCookDirectory : NeverCookDirectories)

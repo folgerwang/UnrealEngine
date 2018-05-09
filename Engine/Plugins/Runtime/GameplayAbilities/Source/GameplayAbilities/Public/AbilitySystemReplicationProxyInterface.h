@@ -11,9 +11,7 @@
 
 class UAbilitySystemComponent;
 
-// ---------------------------------------------------------
-
-/** Interface for actors that expose access to an ability system component */
+/** Interface for actors that act like an ability system component for replication. This can be used to group together different components for replication */
 UINTERFACE(MinimalAPI, meta = (CannotImplementInterfaceInBlueprint))
 class UAbilitySystemReplicationProxyInterface : public UInterface
 {

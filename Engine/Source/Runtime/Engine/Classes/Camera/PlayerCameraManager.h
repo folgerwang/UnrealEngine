@@ -405,6 +405,7 @@ public:
 	uint32 bEnableColorScaleInterp : 1;
 
 	/** True if clients are handling setting their own viewtarget and the server should not replicate it (e.g. during certain Matinee sequences) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PlayerCameraManager)
 	uint32 bClientSimulatingViewTarget : 1;
 
 	/** True if server will use camera positions replicated from the client instead of calculating them locally. */

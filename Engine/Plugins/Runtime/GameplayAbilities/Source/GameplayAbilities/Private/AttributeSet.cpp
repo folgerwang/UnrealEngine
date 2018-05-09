@@ -324,6 +324,11 @@ bool UAttributeSet::IsNameStableForNetworking() const
 	return bNetAddressable || Super::IsNameStableForNetworking();
 }
 
+bool UAttributeSet::IsSupportedForNetworking() const
+{
+	return true;
+}
+
 void UAttributeSet::SetNetAddressable()
 {
 	bNetAddressable = true;

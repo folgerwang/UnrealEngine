@@ -4030,14 +4030,15 @@ void FNativeClassHeaderGenerator::ExportNativeFunctionHeader(
 		}
 	}
 
-	if (UProperty* Return = Function->GetReturnProperty())
+	UProperty* ReturnProperty = Function->GetReturnProperty();
+	if (ReturnProperty != nullptr)
 	{
 		FString ExtendedReturnType;
-		FString ReturnType = Return->GetCPPType(&ExtendedReturnType, (FunctionHeaderStyle == EExportFunctionHeaderStyle::Definition && (FunctionType != EExportFunctionType::Interface) ? CPPF_Implementation : 0) | CPPF_ArgumentOrReturnValue);
-		OutFwdDecls.Add(Return->GetCPPTypeForwardDeclaration());
+		FString ReturnType = ReturnProperty->GetCPPType(&ExtendedReturnType, (FunctionHeaderStyle == EExportFunctionHeaderStyle::Definition && (FunctionType != EExportFunctionType::Interface) ? CPPF_Implementation : 0) | CPPF_ArgumentOrReturnValue);
+		OutFwdDecls.Add(ReturnProperty->GetCPPTypeForwardDeclaration());
 		FUHTStringBuilder ReplacementText;
 		ReplacementText += ReturnType;
-		ApplyAlternatePropertyExportText(Return, ReplacementText, EExportingState::Normal);
+		ApplyAlternatePropertyExportText(ReturnProperty, ReplacementText, EExportingState::Normal);
 		Out.Logf(TEXT("%s%s"), *ReplacementText, *ExtendedReturnType);
 	}
 	else
@@ -4109,7 +4110,29 @@ void FNativeClassHeaderGenerator::ExportNativeFunctionHeader(
 		if (bIsInterface && FunctionHeaderStyle == EExportFunctionHeaderStyle::Declaration)
 		{
 			// all methods in interface classes are pure virtuals
-			Out.Log(TEXT("=0"));
+			if (bIsK2Override)
+			{
+				// For BlueprintNativeEvent methods we use the PURE_VIRTUAL() expansion. This allows Blueprints that implement the interface class to be nativized.
+				FString ReturnValue;
+				if (ReturnProperty != nullptr)
+				{
+					UByteProperty* ByteProperty = Cast<UByteProperty>(ReturnProperty);
+					if (ByteProperty != nullptr && ByteProperty->Enum != nullptr && ByteProperty->Enum->GetCppForm() != UEnum::ECppForm::EnumClass)
+					{
+						ReturnValue = FString::Printf(TEXT(" return TEnumAsByte<%s>(%s);"), *ByteProperty->Enum->CppType, *GetNullParameterValue(ReturnProperty, false));
+					}
+					else
+					{
+						ReturnValue = FString::Printf(TEXT(" return %s;"), *GetNullParameterValue(ReturnProperty, false));
+					}
+				}
+
+				Out.Logf(TEXT(" PURE_VIRTUAL(%s::%s,%s)"), NameLookupCPP.GetNameCPP(CastChecked<UClass>(Function->GetOuter()), true), *FunctionName, *ReturnValue);
+			}
+			else
+			{
+				Out.Log(TEXT("=0"));
+			}
 		}
 	}
 }
