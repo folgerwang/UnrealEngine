@@ -13,10 +13,11 @@
 
 struct FRichCurve;
 struct FKeyDrawParams;
+struct FMovieSceneChannel;
 struct FMovieSceneChannelProxy;
 struct FSequencerPasteEnvironment;
 struct ISequencerChannelInterface;
-struct FMovieSceneChannelEditorData;
+struct FMovieSceneChannelMetaData;
 struct FMovieSceneClipboardEnvironment;
 
 class SWidget;
@@ -37,19 +38,10 @@ public:
 	/**
 	 * Constructor
 	 *
-	 * @param InChannelTypeID         The type ID of the channel (see FMovieSceneChannelEntry::GetChannelID)
-	 * @param InSection               The section that owns the channel that this key area represents
-	 * @param InChannel               Handle to the channel this key area represents
-	 * @param InCommonEditorData      The common editor data associated with this channel
-	 * @param InSpecializedData       Optional handle to the specialized data for this channel
+	 * @param InSection The section that owns the channel that this key area represents
+	 * @param InChannel Handle to the channel this key area represents
 	 */
-	IKeyArea(
-		uint32                               InChannelTypeID,
-		UMovieSceneSection&                  InSection,
-		TMovieSceneChannelHandle<void>       InChannel,
-		const FMovieSceneChannelEditorData&  InCommonEditorData,
-		TMovieSceneChannelHandle<const void> InSpecializedData
-		);
+	IKeyArea(UMovieSceneSection& InSection, FMovieSceneChannelHandle InChannel);
 
 public:
 
@@ -59,17 +51,34 @@ public:
 	 *
 	 * @return The channel interface, or nullptr if one was not found
 	 */
-	ISequencerChannelInterface* FindChannelInterface() const;
+	ISequencerChannelInterface* FindChannelEditorInterface() const;
 
 	/**
 	 * Access the channel type identifier for the channel that this key area wraps
 	 *
-	 * @return The unique runtime type identifier for the type of this key area's channel
+	 * @return The name of the channel type
 	 */
-	uint32 GetChannelTypeID() const
+	FName GetChannelTypeName() const
 	{
-		return ChannelTypeID;
+		return ChannelHandle.GetChannelTypeName();
 	}
+
+	/**
+	 * Access the channel handle that this key area represents
+	 *
+	 * @return The (potentially invalid) channel handle
+	 */
+	const FMovieSceneChannelHandle& GetChannel() const
+	{
+		return ChannelHandle;
+	}
+
+	/**
+	 * Resolve this key area's channel handle
+	 *
+	 * @return A (potentially invalid) interface to this key area's channel
+	 */
+	FMovieSceneChannel* ResolveChannel() const;
 
 	/**
 	 * Get this key area's name
@@ -96,20 +105,6 @@ public:
 	}
 
 	/**
-	 * Access the raw channel pointer that this key area represents
-	 *
-	 * @return The raw channel pointer, or nullptr if the channel proxy is no longer valid
-	 */
-	void* GetChannelPtr() const;
-
-	/**
-	 * Get the raw specialized editor data for the channel this represents
-	 *
-	 * @return A pointer to the specialized data, or nullptr if it's invalid or expired
-	 */
-	const void* GetSpecializedEditorData() const;
-
-	/**
 	 * Access section that owns the channel this key area represents
 	 *
 	 * @return The owning section, or nullptr if it has been destroyed
@@ -117,11 +112,6 @@ public:
 	UMovieSceneSection* GetOwningSection() const;
 
 public:
-
-	/**
-	 * Check whether this key area has any keys or not
-	 */
-	bool HasAnyKeys() const;
 
 	/**
 	 * Add a key at the specified time with the current value of the channel, updating an existing key if possible
@@ -275,17 +265,11 @@ public:
 
 private:
 
-	/** The type of the channel this key area represents (see FMovieSceneChannelEntry::GetChannelID) */
-	uint32 ChannelTypeID;
-
 	/** A weak pointer back to the originating UMovieSceneSection that owns this channel */
 	TWeakObjectPtr<UMovieSceneSection> WeakOwningSection;
 
 	/** Handle to the channel itself */
-	TMovieSceneChannelHandle<void> Channel;
-
-	/** Handle to the channel's specialized data as defined by TMovieSceneChannelTraits::EditorDataType */
-	TMovieSceneChannelHandle<const void> SpecializedData;
+	FMovieSceneChannelHandle ChannelHandle;
 
 	/** Optional property bindings class where the section resides inside a UMovieScenePropertyTrack */
 	TOptional<FTrackInstancePropertyBindings> PropertyBindings;

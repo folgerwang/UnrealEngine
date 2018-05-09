@@ -10,6 +10,7 @@
 #include "ActorRecordingSettings.h"
 #include "Channels/MovieSceneChannelProxy.h"
 #include "MovieSceneTimeHelpers.h"
+#include "SequenceRecorderUtils.h"
 
 static const FName ActorVisibilityTrackName = TEXT("bHidden");
 static const FName ComponentVisibilityTrackName = TEXT("bHiddenInGame");
@@ -35,7 +36,16 @@ void FMovieSceneVisibilitySectionRecorder::CreateSection(UObject* InObjectToReco
 {
 	ObjectToRecord = InObjectToRecord;
 
-	UMovieSceneVisibilityTrack* VisibilityTrack = MovieScene->AddTrack<UMovieSceneVisibilityTrack>(Guid);
+	UMovieSceneVisibilityTrack* VisibilityTrack = MovieScene->FindTrack<UMovieSceneVisibilityTrack>(Guid);
+	if (!VisibilityTrack)
+	{
+		VisibilityTrack = MovieScene->AddTrack<UMovieSceneVisibilityTrack>(Guid);
+	}
+	else
+	{
+		VisibilityTrack->RemoveAllAnimationData();
+	}
+
 	if(VisibilityTrack)
 	{
 		USceneComponent* SceneComponent = Cast<USceneComponent>(ObjectToRecord.Get());
@@ -80,17 +90,19 @@ void FMovieSceneVisibilitySectionRecorder::CreateSection(UObject* InObjectToReco
 			FFrameNumber LowerBoundValue = MovieScene->GetPlaybackRange().GetLowerBoundValue();
 			if (CurrentFrame != LowerBoundValue)
 			{
-				Channel->GetInterface().AddKey(LowerBoundValue, false);
+				Channel->GetData().AddKey(LowerBoundValue, false);
 			}
 
-			Channel->GetInterface().AddKey(CurrentFrame, bWasVisible);
+			Channel->GetData().AddKey(CurrentFrame, bWasVisible);
 		}
 
 		MovieSceneSection->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
+
+		MovieSceneSection->TimecodeSource = SequenceRecorderUtils::GetTimecodeSource();
 	}
 }
 
-void FMovieSceneVisibilitySectionRecorder::FinalizeSection()
+void FMovieSceneVisibilitySectionRecorder::FinalizeSection(float CurrentTime)
 {
 }
 
@@ -118,7 +130,7 @@ void FMovieSceneVisibilitySectionRecorder::Record(float CurrentTime)
 			FMovieSceneBoolChannel* Channel = MovieSceneSection->GetChannelProxy().GetChannel<FMovieSceneBoolChannel>(0);
 			if (ensure(Channel))
 			{
-				Channel->GetInterface().AddKey(CurrentFrame, bVisible);
+				Channel->GetData().AddKey(CurrentFrame, bVisible);
 			}
 		}
 		bWasVisible = bVisible;

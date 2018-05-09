@@ -217,6 +217,35 @@ bool FApp::IsEngineInstalled()
 	return EngineInstalledState == 1;
 }
 
+bool FApp::IsEnterpriseInstalled()
+{
+	static int32 EnterpriseInstalledState = -1;
+
+	if (EnterpriseInstalledState == -1)
+	{
+		bool bIsInstalledEnterprise = false;
+
+#if PLATFORM_DESKTOP
+		FString InstalledBuildFile = FPaths::RootDir() / TEXT("Enterprise/Build/InstalledBuild.txt");
+		FPaths::NormalizeFilename(InstalledBuildFile);
+		bIsInstalledEnterprise |= IFileManager::Get().FileExists(*InstalledBuildFile);
+#endif
+
+		// Allow commandline options to disable/enable installed engine behavior
+		if (bIsInstalledEnterprise)
+		{
+			bIsInstalledEnterprise = !FParse::Param(FCommandLine::Get(), TEXT("NotInstalledEnterprise"));
+		}
+		else
+		{
+			bIsInstalledEnterprise = FParse::Param(FCommandLine::Get(), TEXT("InstalledEnterprise"));
+		}
+		EnterpriseInstalledState = bIsInstalledEnterprise ? 1 : 0;
+	}
+
+	return EnterpriseInstalledState == 1;
+}
+
 #if PLATFORM_WINDOWS && defined(__clang__)
 bool FApp::IsUnattended() // @todo clang: Workaround for missing symbol export
 {

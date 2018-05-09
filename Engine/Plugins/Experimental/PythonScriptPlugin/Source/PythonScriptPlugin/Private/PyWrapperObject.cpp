@@ -3,9 +3,11 @@
 #include "PyWrapperObject.h"
 #include "PyWrapperOwnerContext.h"
 #include "PyWrapperTypeRegistry.h"
+#include "PyGIL.h"
 #include "PyCore.h"
 #include "PyUtil.h"
 #include "PyConversion.h"
+#include "PyReferenceCollector.h"
 #include "UObject/Package.h"
 #include "UObject/Class.h"
 #include "UObject/MetaData.h"
@@ -18,15 +20,13 @@
 
 #if WITH_PYTHON
 
-void InitializePyWrapperObject(PyObject* PyModule)
+void InitializePyWrapperObject(PyGenUtil::FNativePythonModule& ModuleInfo)
 {
 	if (PyType_Ready(&PyWrapperObjectType) == 0)
 	{
 		static FPyWrapperObjectMetaData MetaData;
 		FPyWrapperObjectMetaData::SetMetaData(&PyWrapperObjectType, &MetaData);
-
-		Py_INCREF(&PyWrapperObjectType);
-		PyModule_AddObject(PyModule, PyWrapperObjectType.tp_name, (PyObject*)&PyWrapperObjectType);
+		ModuleInfo.AddType(&PyWrapperObjectType);
 	}
 }
 
@@ -114,64 +114,25 @@ FPyWrapperObject* FPyWrapperObject::CastPyObject(PyObject* InPyObject, PyTypeObj
 	return nullptr;
 }
 
-PyObject* FPyWrapperObject::GetPropertyValueByName(FPyWrapperObject* InSelf, const FName InPropName, const char* InPythonAttrName)
+PyObject* FPyWrapperObject::GetPropertyValue(FPyWrapperObject* InSelf, const PyGenUtil::FGeneratedWrappedProperty& InPropDef, const char* InPythonAttrName)
 {
 	if (!ValidateInternalState(InSelf))
 	{
 		return nullptr;
 	}
 
-	UClass* Class = InSelf->ObjectInstance->GetClass();
-
-	UProperty* Prop = Class->FindPropertyByName(InPropName);
-	if (!Prop)
-	{
-		PyUtil::SetPythonError(PyExc_Exception, InSelf, *FString::Printf(TEXT("Failed to find property '%s' for attribute '%s' on '%s'"), *InPropName.ToString(), UTF8_TO_TCHAR(InPythonAttrName), *Class->GetName()));
-		return nullptr;
-	}
-
-	return PyUtil::GetUEPropValue(Class, InSelf->ObjectInstance, Prop, InPythonAttrName, (PyObject*)InSelf, *PyUtil::GetErrorContext(InSelf));
+	return PyGenUtil::GetPropertyValue(InSelf->ObjectInstance->GetClass(), InSelf->ObjectInstance, InPropDef, InPythonAttrName, (PyObject*)InSelf, *PyUtil::GetErrorContext(InSelf));
 }
 
-PyObject* FPyWrapperObject::GetPropertyValue(FPyWrapperObject* InSelf, const UProperty* InProp, const char* InPythonAttrName)
-{
-	if (!ValidateInternalState(InSelf))
-	{
-		return nullptr;
-	}
-
-	return PyUtil::GetUEPropValue(InSelf->ObjectInstance->GetClass(), InSelf->ObjectInstance, InProp, InPythonAttrName, (PyObject*)InSelf, *PyUtil::GetErrorContext(InSelf));
-}
-
-int FPyWrapperObject::SetPropertyValueByName(FPyWrapperObject* InSelf, PyObject* InValue, const FName InPropName, const char* InPythonAttrName, const bool InNotifyChange, const uint64 InReadOnlyFlags)
+int FPyWrapperObject::SetPropertyValue(FPyWrapperObject* InSelf, PyObject* InValue, const PyGenUtil::FGeneratedWrappedProperty& InPropDef, const char* InPythonAttrName, const bool InNotifyChange, const uint64 InReadOnlyFlags)
 {
 	if (!ValidateInternalState(InSelf))
 	{
 		return -1;
 	}
 
-	UClass* Class = InSelf->ObjectInstance->GetClass();
-
-	UProperty* Prop = Class->FindPropertyByName(InPropName);
-	if (!Prop)
-	{
-		PyUtil::SetPythonError(PyExc_Exception, InSelf, *FString::Printf(TEXT("Failed to find property '%s' for attribute '%s' on '%s'"), *InPropName.ToString(), UTF8_TO_TCHAR(InPythonAttrName), *Class->GetName()));
-		return -1;
-	}
-
-	const FPyWrapperOwnerContext ChangeOwner = InNotifyChange ? FPyWrapperOwnerContext((PyObject*)InSelf, Prop) : FPyWrapperOwnerContext();
-	return PyUtil::SetUEPropValue(Class, InSelf->ObjectInstance, InValue, Prop, InPythonAttrName, ChangeOwner, InReadOnlyFlags, *PyUtil::GetErrorContext(InSelf));
-}
-
-int FPyWrapperObject::SetPropertyValue(FPyWrapperObject* InSelf, PyObject* InValue, const UProperty* InProp, const char* InPythonAttrName, const bool InNotifyChange, const uint64 InReadOnlyFlags)
-{
-	if (!ValidateInternalState(InSelf))
-	{
-		return -1;
-	}
-
-	const FPyWrapperOwnerContext ChangeOwner = InNotifyChange ? FPyWrapperOwnerContext((PyObject*)InSelf, InProp) : FPyWrapperOwnerContext();
-	return PyUtil::SetUEPropValue(InSelf->ObjectInstance->GetClass(), InSelf->ObjectInstance, InValue, InProp, InPythonAttrName, ChangeOwner, InReadOnlyFlags, *PyUtil::GetErrorContext(InSelf));
+	const FPyWrapperOwnerContext ChangeOwner = InNotifyChange ? FPyWrapperOwnerContext((PyObject*)InSelf, InPropDef.Prop) : FPyWrapperOwnerContext();
+	return PyGenUtil::SetPropertyValue(InSelf->ObjectInstance->GetClass(), InSelf->ObjectInstance, InValue, InPropDef, InPythonAttrName, ChangeOwner, InReadOnlyFlags, InSelf->ObjectInstance->IsTemplate(), *PyUtil::GetErrorContext(InSelf));
 }
 
 PyObject* FPyWrapperObject::CallGetterFunction(FPyWrapperObject* InSelf, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef)
@@ -181,7 +142,7 @@ PyObject* FPyWrapperObject::CallGetterFunction(FPyWrapperObject* InSelf, const P
 		return nullptr;
 	}
 
-	return CallFunction_Impl(InSelf->ObjectInstance, InFuncDef, *PyUtil::GetErrorContext(InSelf));
+	return CallFunction_Impl(InSelf->ObjectInstance, InFuncDef, InFuncDef.Func ? TCHAR_TO_UTF8(*InFuncDef.Func->GetName()) : "null", *PyUtil::GetErrorContext(InSelf));
 }
 
 int FPyWrapperObject::CallSetterFunction(FPyWrapperObject* InSelf, PyObject* InValue, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef)
@@ -194,11 +155,9 @@ int FPyWrapperObject::CallSetterFunction(FPyWrapperObject* InSelf, PyObject* InV
 	if (ensureAlways(InFuncDef.Func))
 	{
 		// Deprecated functions emit a warning
+		if (InFuncDef.DeprecationMessage.IsSet())
 		{
-			FString DeprecationMessage;
-			if (PyGenUtil::IsDeprecatedFunction(InFuncDef.Func, &DeprecationMessage) &&
-				PyUtil::SetPythonWarning(PyExc_DeprecationWarning, InSelf, *FString::Printf(TEXT("Function '%s.%s' is deprecated: %s"), *InFuncDef.Func->GetOwnerClass()->GetName(), *InFuncDef.Func->GetName(), *DeprecationMessage)) == -1
-				)
+			if (PyUtil::SetPythonWarning(PyExc_DeprecationWarning, InSelf, *FString::Printf(TEXT("Function '%s.%s' is deprecated: %s"), *InFuncDef.Func->GetOwnerClass()->GetName(), *InFuncDef.Func->GetName(), *InFuncDef.DeprecationMessage.GetValue())) == -1)
 			{
 				// -1 from SetPythonWarning means the warning should be an exception
 				return -1;
@@ -221,17 +180,20 @@ int FPyWrapperObject::CallSetterFunction(FPyWrapperObject* InSelf, PyObject* InV
 				return -1;
 			}
 		}
-		PyUtil::InvokeFunctionCall(InSelf->ObjectInstance, InFuncDef.Func, FuncParams.GetStructMemory(), *PyUtil::GetErrorContext(InSelf));
+		if (!PyUtil::InvokeFunctionCall(InSelf->ObjectInstance, InFuncDef.Func, FuncParams.GetStructMemory(), *PyUtil::GetErrorContext(InSelf)))
+		{
+			return -1;
+		}
 	}
 
 	return 0;
 }
 
-PyObject* FPyWrapperObject::CallFunction(PyTypeObject* InType, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef)
+PyObject* FPyWrapperObject::CallFunction(PyTypeObject* InType, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const char* InPythonFuncName)
 {
 	UClass* Class = FPyWrapperObjectMetaData::GetClass(InType);
 	UObject* Obj = Class ? Class->GetDefaultObject() : nullptr;
-	return CallFunction_Impl(Obj, InFuncDef, *PyUtil::GetErrorContext(InType));
+	return CallFunction_Impl(Obj, InFuncDef, InPythonFuncName, *PyUtil::GetErrorContext(InType));
 }
 
 PyObject* FPyWrapperObject::CallFunction(PyTypeObject* InType, PyObject* InArgs, PyObject* InKwds, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const char* InPythonFuncName)
@@ -241,14 +203,14 @@ PyObject* FPyWrapperObject::CallFunction(PyTypeObject* InType, PyObject* InArgs,
 	return CallFunction_Impl(Obj, InArgs, InKwds, InFuncDef, InPythonFuncName, *PyUtil::GetErrorContext(InType));
 }
 
-PyObject* FPyWrapperObject::CallFunction(FPyWrapperObject* InSelf, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef)
+PyObject* FPyWrapperObject::CallFunction(FPyWrapperObject* InSelf, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const char* InPythonFuncName)
 {
 	if (!ValidateInternalState(InSelf))
 	{
 		return nullptr;
 	}
 
-	return CallFunction_Impl(InSelf->ObjectInstance, InFuncDef, *PyUtil::GetErrorContext(InSelf));
+	return CallFunction_Impl(InSelf->ObjectInstance, InFuncDef, InPythonFuncName, *PyUtil::GetErrorContext(InSelf));
 }
 
 PyObject* FPyWrapperObject::CallFunction(FPyWrapperObject* InSelf, PyObject* InArgs, PyObject* InKwds, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const char* InPythonFuncName)
@@ -261,16 +223,14 @@ PyObject* FPyWrapperObject::CallFunction(FPyWrapperObject* InSelf, PyObject* InA
 	return CallFunction_Impl(InSelf->ObjectInstance, InArgs, InKwds, InFuncDef, InPythonFuncName, *PyUtil::GetErrorContext(InSelf));
 }
 
-PyObject* FPyWrapperObject::CallFunction_Impl(UObject* InObj, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const TCHAR* InErrorCtxt)
+PyObject* FPyWrapperObject::CallFunction_Impl(UObject* InObj, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const char* InPythonFuncName, const TCHAR* InErrorCtxt)
 {
 	if (InObj && ensureAlways(InFuncDef.Func))
 	{
 		// Deprecated functions emit a warning
+		if (InFuncDef.DeprecationMessage.IsSet())
 		{
-			FString DeprecationMessage;
-			if (PyGenUtil::IsDeprecatedFunction(InFuncDef.Func, &DeprecationMessage) &&
-				PyUtil::SetPythonWarning(PyExc_DeprecationWarning, InErrorCtxt, *FString::Printf(TEXT("Function '%s.%s' is deprecated: %s"), *InFuncDef.Func->GetOwnerClass()->GetName(), *InFuncDef.Func->GetName(), *DeprecationMessage)) == -1
-				)
+			if (PyUtil::SetPythonWarning(PyExc_DeprecationWarning, InErrorCtxt, *FString::Printf(TEXT("Function '%s' on '%s' is deprecated: %s"), UTF8_TO_TCHAR(InPythonFuncName), *InFuncDef.Func->GetOwnerClass()->GetName(), *InFuncDef.DeprecationMessage.GetValue())) == -1)
 			{
 				// -1 from SetPythonWarning means the warning should be an exception
 				return nullptr;
@@ -280,13 +240,19 @@ PyObject* FPyWrapperObject::CallFunction_Impl(UObject* InObj, const PyGenUtil::F
 		if (InFuncDef.Func->Children == nullptr)
 		{
 			// No return value
-			PyUtil::InvokeFunctionCall(InObj, InFuncDef.Func, nullptr, InErrorCtxt);
+			if (!PyUtil::InvokeFunctionCall(InObj, InFuncDef.Func, nullptr, InErrorCtxt))
+			{
+				return nullptr;
+			}
 		}
 		else
 		{
 			// Return value requires that we create a params struct to hold the result
 			FStructOnScope FuncParams(InFuncDef.Func);
-			PyUtil::InvokeFunctionCall(InObj, InFuncDef.Func, FuncParams.GetStructMemory(), InErrorCtxt);
+			if (!PyUtil::InvokeFunctionCall(InObj, InFuncDef.Func, FuncParams.GetStructMemory(), InErrorCtxt))
+			{
+				return nullptr;
+			}
 			return PyGenUtil::PackReturnValues(FuncParams.GetStructMemory(), InFuncDef.OutputParams, InErrorCtxt, *FString::Printf(TEXT("function '%s.%s' on '%s'"), *InFuncDef.Func->GetOwnerClass()->GetName(), *InFuncDef.Func->GetName(), *InObj->GetName()));
 		}
 	}
@@ -305,11 +271,9 @@ PyObject* FPyWrapperObject::CallFunction_Impl(UObject* InObj, PyObject* InArgs, 
 	if (InObj && ensureAlways(InFuncDef.Func))
 	{
 		// Deprecated functions emit a warning
+		if (InFuncDef.DeprecationMessage.IsSet())
 		{
-			FString DeprecationMessage;
-			if (PyGenUtil::IsDeprecatedFunction(InFuncDef.Func, &DeprecationMessage) &&
-				PyUtil::SetPythonWarning(PyExc_DeprecationWarning, InErrorCtxt, *FString::Printf(TEXT("Function '%s.%s' is deprecated: %s"), *InFuncDef.Func->GetOwnerClass()->GetName(), *InFuncDef.Func->GetName(), *DeprecationMessage)) == -1
-				)
+			if (PyUtil::SetPythonWarning(PyExc_DeprecationWarning, InErrorCtxt, *FString::Printf(TEXT("Function '%s' on '%s' is deprecated: %s"), UTF8_TO_TCHAR(InPythonFuncName), *InFuncDef.Func->GetOwnerClass()->GetName(), *InFuncDef.DeprecationMessage.GetValue())) == -1)
 			{
 				// -1 from SetPythonWarning means the warning should be an exception
 				return nullptr;
@@ -332,7 +296,10 @@ PyObject* FPyWrapperObject::CallFunction_Impl(UObject* InObj, PyObject* InArgs, 
 				}
 			}
 		}
-		PyUtil::InvokeFunctionCall(InObj, InFuncDef.Func, FuncParams.GetStructMemory(), InErrorCtxt);
+		if (!PyUtil::InvokeFunctionCall(InObj, InFuncDef.Func, FuncParams.GetStructMemory(), InErrorCtxt))
+		{
+			return nullptr;
+		}
 		return PyGenUtil::PackReturnValues(FuncParams.GetStructMemory(), InFuncDef.OutputParams, InErrorCtxt, *FString::Printf(TEXT("function '%s.%s' on '%s'"), *InFuncDef.Func->GetOwnerClass()->GetName(), *InFuncDef.Func->GetName(), *InObj->GetName()));
 	}
 
@@ -342,7 +309,7 @@ PyObject* FPyWrapperObject::CallFunction_Impl(UObject* InObj, PyObject* InArgs, 
 PyObject* FPyWrapperObject::CallClassMethodNoArgs_Impl(PyTypeObject* InType, void* InClosure)
 {
 	const PyGenUtil::FGeneratedWrappedMethod* Closure = (PyGenUtil::FGeneratedWrappedMethod*)InClosure;
-	return CallFunction(InType, Closure->MethodFunc);
+	return CallFunction(InType, Closure->MethodFunc, Closure->MethodName.GetData());
 }
 
 PyObject* FPyWrapperObject::CallClassMethodWithArgs_Impl(PyTypeObject* InType, PyObject* InArgs, PyObject* InKwds, void* InClosure)
@@ -354,13 +321,90 @@ PyObject* FPyWrapperObject::CallClassMethodWithArgs_Impl(PyTypeObject* InType, P
 PyObject* FPyWrapperObject::CallMethodNoArgs_Impl(FPyWrapperObject* InSelf, void* InClosure)
 {
 	const PyGenUtil::FGeneratedWrappedMethod* Closure = (PyGenUtil::FGeneratedWrappedMethod*)InClosure;
-	return CallFunction(InSelf, Closure->MethodFunc);
+	return CallFunction(InSelf, Closure->MethodFunc, Closure->MethodName.GetData());
 }
 
 PyObject* FPyWrapperObject::CallMethodWithArgs_Impl(FPyWrapperObject* InSelf, PyObject* InArgs, PyObject* InKwds, void* InClosure)
 {
 	const PyGenUtil::FGeneratedWrappedMethod* Closure = (PyGenUtil::FGeneratedWrappedMethod*)InClosure;
 	return CallFunction(InSelf, InArgs, InKwds, Closure->MethodFunc, Closure->MethodName.GetData());
+}
+
+PyObject* FPyWrapperObject::CallDynamicFunction_Impl(FPyWrapperObject* InSelf, PyObject* InArgs, PyObject* InKwds, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const PyGenUtil::FGeneratedWrappedMethodParameter& InSelfParam, const char* InPythonFuncName)
+{
+	TArray<PyObject*> Params;
+	if ((InArgs || InKwds) && !PyGenUtil::ParseMethodParameters(InArgs, InKwds, InFuncDef.InputParams, InPythonFuncName, Params))
+	{
+		return nullptr;
+	}
+
+	if (ensureAlways(InFuncDef.Func))
+	{
+		UClass* Class = InFuncDef.Func->GetOwnerClass();
+		UObject* Obj = Class->GetDefaultObject();
+
+		// Deprecated functions emit a warning
+		if (InFuncDef.DeprecationMessage.IsSet())
+		{
+			if (PyUtil::SetPythonWarning(PyExc_DeprecationWarning, InSelf, *FString::Printf(TEXT("Function '%s' on '%s' is deprecated: %s"), UTF8_TO_TCHAR(InPythonFuncName), *Class->GetName(), *InFuncDef.DeprecationMessage.GetValue())) == -1)
+			{
+				// -1 from SetPythonWarning means the warning should be an exception
+				return nullptr;
+			}
+		}
+
+		FStructOnScope FuncParams(InFuncDef.Func);
+		PyGenUtil::ApplyParamDefaults(FuncParams.GetStructMemory(), InFuncDef.InputParams);
+		if (ensureAlways(Cast<UObjectPropertyBase>(InSelfParam.ParamProp)))
+		{
+			void* SelfArgInstance = InSelfParam.ParamProp->ContainerPtrToValuePtr<void>(FuncParams.GetStructMemory());
+			Cast<UObjectPropertyBase>(InSelfParam.ParamProp)->SetObjectPropertyValue(SelfArgInstance, InSelf->ObjectInstance);
+		}
+		for (int32 ParamIndex = 0; ParamIndex < Params.Num(); ++ParamIndex)
+		{
+			const PyGenUtil::FGeneratedWrappedMethodParameter& ParamDef = InFuncDef.InputParams[ParamIndex];
+
+			PyObject* PyValue = Params[ParamIndex];
+			if (PyValue)
+			{
+				if (!PyConversion::NativizeProperty_InContainer(PyValue, ParamDef.ParamProp, FuncParams.GetStructMemory(), 0))
+				{
+					PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert parameter '%s' when calling function '%s.%s' on '%s'"), UTF8_TO_TCHAR(ParamDef.ParamName.GetData()), *Class->GetName(), *InFuncDef.Func->GetName(), *Obj->GetName()));
+					return nullptr;
+				}
+			}
+		}
+		const FString ErrorCtxt = PyUtil::GetErrorContext(InSelf);
+		if (!PyUtil::InvokeFunctionCall(Obj, InFuncDef.Func, FuncParams.GetStructMemory(), *ErrorCtxt))
+		{
+			return nullptr;
+		}
+		return PyGenUtil::PackReturnValues(FuncParams.GetStructMemory(), InFuncDef.OutputParams, *ErrorCtxt, *FString::Printf(TEXT("function '%s.%s' on '%s'"), *Class->GetName(), *InFuncDef.Func->GetName(), *Obj->GetName()));
+	}
+
+	Py_RETURN_NONE;
+}
+
+PyObject* FPyWrapperObject::CallDynamicMethodNoArgs_Impl(FPyWrapperObject* InSelf, void* InClosure)
+{
+	if (!ValidateInternalState(InSelf))
+	{
+		return nullptr;
+	}
+
+	const PyGenUtil::FGeneratedWrappedDynamicMethod* Closure = (PyGenUtil::FGeneratedWrappedDynamicMethod*)InClosure;
+	return CallDynamicFunction_Impl(InSelf, nullptr, nullptr, Closure->MethodFunc, Closure->SelfParam, Closure->MethodName.GetData());
+}
+
+PyObject* FPyWrapperObject::CallDynamicMethodWithArgs_Impl(FPyWrapperObject* InSelf, PyObject* InArgs, PyObject* InKwds, void* InClosure)
+{
+	if (!ValidateInternalState(InSelf))
+	{
+		return nullptr;
+	}
+
+	const PyGenUtil::FGeneratedWrappedDynamicMethod* Closure = (PyGenUtil::FGeneratedWrappedDynamicMethod*)InClosure;
+	return CallDynamicFunction_Impl(InSelf, InArgs, InKwds, Closure->MethodFunc, Closure->SelfParam, Closure->MethodName.GetData());
 }
 
 PyObject* FPyWrapperObject::Getter_Impl(FPyWrapperObject* InSelf, void* InClosure)
@@ -430,8 +474,8 @@ PyTypeObject InitializePyWrapperObjectType()
 				// Deprecated classes emit a warning
 				{
 					FString DeprecationMessage;
-					if (PyGenUtil::IsDeprecatedClass(ObjClass, &DeprecationMessage) &&
-						PyUtil::SetPythonWarning(PyExc_DeprecationWarning, InSelf, *FString::Printf(TEXT("Class '%s' is deprecated: %s"), *ObjClass->GetName(), *DeprecationMessage)) == -1
+					if (FPyWrapperObjectMetaData::IsClassDeprecated(InSelf, &DeprecationMessage) &&
+						PyUtil::SetPythonWarning(PyExc_DeprecationWarning, InSelf, *FString::Printf(TEXT("Class '%s' is deprecated: %s"), UTF8_TO_TCHAR(Py_TYPE(InSelf)->tp_name), *DeprecationMessage)) == -1
 						)
 					{
 						// -1 from SetPythonWarning means the warning should be an exception
@@ -441,7 +485,7 @@ PyTypeObject InitializePyWrapperObjectType()
 
 				if (ObjClass->HasAnyClassFlags(CLASS_Abstract))
 				{
-					PyUtil::SetPythonError(PyExc_Exception, InSelf, *FString::Printf(TEXT("Class '%s' is abstract"), *ObjClass->GetName()));
+					PyUtil::SetPythonError(PyExc_Exception, InSelf, *FString::Printf(TEXT("Class '%s' is abstract"), UTF8_TO_TCHAR(Py_TYPE(InSelf)->tp_name)));
 					return -1;
 				}
 				else
@@ -685,6 +729,11 @@ PyTypeObject InitializePyWrapperObjectType()
 
 		static PyObject* GetEditorProperty(FPyWrapperObject* InSelf, PyObject* InArgs, PyObject* InKwds)
 		{
+			if (!FPyWrapperObject::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
 			PyObject* PyNameObj = nullptr;
 
 			static const char *ArgsKwdList[] = { "name", nullptr };
@@ -700,12 +749,46 @@ PyTypeObject InitializePyWrapperObjectType()
 				return nullptr;
 			}
 
+			const UClass* Class = InSelf->ObjectInstance->GetClass();
+
 			const FName ResolvedName = FPyWrapperObjectMetaData::ResolvePropertyName(InSelf, Name);
-			return FPyWrapperObject::GetPropertyValueByName(InSelf, ResolvedName, TCHAR_TO_UTF8(*Name.ToString()));
+			const UProperty* ResolvedProp = Class->FindPropertyByName(ResolvedName);
+			if (!ResolvedProp)
+			{
+				PyUtil::SetPythonError(PyExc_Exception, InSelf, *FString::Printf(TEXT("Failed to find property '%s' for attribute '%s' on '%s'"), *ResolvedName.ToString(), *Name.ToString(), *Class->GetName()));
+				return nullptr;
+			}
+
+			TOptional<FString> PropDeprecationMessage;
+			{
+				FString PropDeprecationMessageStr;
+				if (FPyWrapperObjectMetaData::IsPropertyDeprecated(InSelf, Name, &PropDeprecationMessageStr))
+				{
+					PropDeprecationMessage = MoveTemp(PropDeprecationMessageStr);
+				}
+			}
+
+			PyGenUtil::FGeneratedWrappedProperty WrappedPropDef;
+			if (PropDeprecationMessage.IsSet())
+			{
+				WrappedPropDef.SetProperty(ResolvedProp, PyGenUtil::FGeneratedWrappedProperty::SPF_None);
+				WrappedPropDef.DeprecationMessage = MoveTemp(PropDeprecationMessage);
+			}
+			else
+			{
+				WrappedPropDef.SetProperty(ResolvedProp);
+			}
+
+			return FPyWrapperObject::GetPropertyValue(InSelf, WrappedPropDef, TCHAR_TO_UTF8(*Name.ToString()));
 		}
 
 		static PyObject* SetEditorProperty(FPyWrapperObject* InSelf, PyObject* InArgs, PyObject* InKwds)
 		{
+			if (!FPyWrapperObject::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
 			PyObject* PyNameObj = nullptr;
 			PyObject* PyValueObj = nullptr;
 
@@ -722,8 +805,37 @@ PyTypeObject InitializePyWrapperObjectType()
 				return nullptr;
 			}
 
+			const UClass* Class = InSelf->ObjectInstance->GetClass();
+
 			const FName ResolvedName = FPyWrapperObjectMetaData::ResolvePropertyName(InSelf, Name);
-			const int Result = FPyWrapperObject::SetPropertyValueByName(InSelf, PyValueObj, ResolvedName, TCHAR_TO_UTF8(*Name.ToString()), /*InNotifyChange*/true, CPF_EditConst);
+			const UProperty* ResolvedProp = Class->FindPropertyByName(ResolvedName);
+			if (!ResolvedProp)
+			{
+				PyUtil::SetPythonError(PyExc_Exception, InSelf, *FString::Printf(TEXT("Failed to find property '%s' for attribute '%s' on '%s'"), *ResolvedName.ToString(), *Name.ToString(), *Class->GetName()));
+				return nullptr;
+			}
+
+			TOptional<FString> PropDeprecationMessage;
+			{
+				FString PropDeprecationMessageStr;
+				if (FPyWrapperObjectMetaData::IsPropertyDeprecated(InSelf, Name, &PropDeprecationMessageStr))
+				{
+					PropDeprecationMessage = MoveTemp(PropDeprecationMessageStr);
+				}
+			}
+
+			PyGenUtil::FGeneratedWrappedProperty WrappedPropDef;
+			if (PropDeprecationMessage.IsSet())
+			{
+				WrappedPropDef.SetProperty(ResolvedProp, PyGenUtil::FGeneratedWrappedProperty::SPF_None);
+				WrappedPropDef.DeprecationMessage = MoveTemp(PropDeprecationMessage);
+			}
+			else
+			{
+				WrappedPropDef.SetProperty(ResolvedProp);
+			}
+
+			const int Result = FPyWrapperObject::SetPropertyValue(InSelf, PyValueObj, WrappedPropDef, TCHAR_TO_UTF8(*Name.ToString()), /*InNotifyChange*/true, CPF_EditConst);
 			if (Result != 0)
 			{
 				return nullptr;
@@ -734,23 +846,23 @@ PyTypeObject InitializePyWrapperObjectType()
 	};
 
 	static PyMethodDef PyMethods[] = {
-		{ PyGenUtil::PostInitFuncName, PyCFunctionCast(&FMethods::PostInit), METH_NOARGS, "x._post_init() -- called during Unreal object initialization (equivalent to PostInitProperties in C++)" },
-		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_CLASS, "X.cast(object) -> UObject -- cast the given object to this Unreal object type" },
-		{ "get_default_object", PyCFunctionCast(&FMethods::GetDefaultObject), METH_NOARGS | METH_CLASS, "X.get_default_object() -> UObject -- get the Unreal class default object (CDO) of this type" },
-		{ "static_class", PyCFunctionCast(&FMethods::StaticClass), METH_NOARGS | METH_CLASS, "X.static_class() -> UClass -- get the Unreal class of this type" },
-		{ "get_class", PyCFunctionCast(&FMethods::GetClass), METH_NOARGS, "x.get_class() -> UClass -- get the Unreal class of this instance" },
-		{ "get_outer", PyCFunctionCast(&FMethods::GetOuter), METH_NOARGS, "x.get_outer() -> UObject -- get the outer object from this instance (if any)" },
+		{ PyGenUtil::PostInitFuncName, PyCFunctionCast(&FMethods::PostInit), METH_NOARGS, "x._post_init() -> None -- called during Unreal object initialization (equivalent to PostInitProperties in C++)" },
+		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_CLASS, "X.cast(object) -> Object -- cast the given object to this Unreal object type" },
+		{ "get_default_object", PyCFunctionCast(&FMethods::GetDefaultObject), METH_NOARGS | METH_CLASS, "X.get_default_object() -> Object -- get the Unreal class default object (CDO) of this type" },
+		{ "static_class", PyCFunctionCast(&FMethods::StaticClass), METH_NOARGS | METH_CLASS, "X.static_class() -> Class -- get the Unreal class of this type" },
+		{ "get_class", PyCFunctionCast(&FMethods::GetClass), METH_NOARGS, "x.get_class() -> Class -- get the Unreal class of this instance" },
+		{ "get_outer", PyCFunctionCast(&FMethods::GetOuter), METH_NOARGS, "x.get_outer() -> Object -- get the outer object from this instance (if any)" },
 		{ "get_typed_outer", PyCFunctionCast(&FMethods::GetTypedOuter), METH_VARARGS, "x.get_typed_outer(type) -> type() -- get the first outer object of the given type from this instance (if any)" },
-		{ "get_outermost", PyCFunctionCast(&FMethods::GetOutermost), METH_NOARGS, "x.get_outermost() -> UPackage -- get the outermost object (the package) from this instance" },
+		{ "get_outermost", PyCFunctionCast(&FMethods::GetOutermost), METH_NOARGS, "x.get_outermost() -> Package -- get the outermost object (the package) from this instance" },
 		{ "get_name", PyCFunctionCast(&FMethods::GetName), METH_NOARGS, "x.get_name() -> str -- get the name of this instance" },
 		{ "get_fname", PyCFunctionCast(&FMethods::GetFName), METH_NOARGS, "x.get_fname() -> FName -- get the name of this instance" },
 		{ "get_full_name", PyCFunctionCast(&FMethods::GetFullName), METH_NOARGS, "x.get_full_name() -> str -- get the full name (class name + full path) of this instance" },
 		{ "get_path_name", PyCFunctionCast(&FMethods::GetPathName), METH_NOARGS, "x.get_path_name() -> str -- get the path name of this instance" },
-		{ "get_world", PyCFunctionCast(&FMethods::GetWorld), METH_NOARGS, "x.get_world() -> UWorld -- get the world associated with this instance (if any)" },
+		{ "get_world", PyCFunctionCast(&FMethods::GetWorld), METH_NOARGS, "x.get_world() -> World -- get the world associated with this instance (if any)" },
 		{ "modify", PyCFunctionCast(&FMethods::Modify), METH_VARARGS, "x.modify(bool) -> bool -- inform that this instance is about to be modified (tracks changes for undo/redo if transactional)" },
 		{ "rename", PyCFunctionCast(&FMethods::Rename), METH_VARARGS | METH_KEYWORDS, "x.rename(name=None, outer=None) -> bool -- rename this instance" },
 		{ "get_editor_property", PyCFunctionCast(&FMethods::GetEditorProperty), METH_VARARGS | METH_KEYWORDS, "x.get_editor_property(name) -> object -- get the value of any property visible to the editor" },
-		{ "set_editor_property", PyCFunctionCast(&FMethods::SetEditorProperty), METH_VARARGS | METH_KEYWORDS, "x.set_editor_property(name, value) -- set the value of any property visible to the editor, ensuring that the pre/post change notifications are called" },
+		{ "set_editor_property", PyCFunctionCast(&FMethods::SetEditorProperty), METH_VARARGS | METH_KEYWORDS, "x.set_editor_property(name, value) -> None -- set the value of any property visible to the editor, ensuring that the pre/post change notifications are called" },
 		{ nullptr, nullptr, 0, nullptr }
 	};
 
@@ -796,6 +908,12 @@ void FPyWrapperObjectMetaData::AddReferencedObjects(FPyWrapperBase* Instance, FR
 			Self->ObjectInstance = nullptr;
 		}
 	}
+
+	// We also need to ARO delegates on this object to catch ones that are wrapping Python callables (also recursing into nested structs and containers)
+	if (Self->ObjectInstance)
+	{
+		FPyReferenceCollector::AddReferencedObjectsFromStruct(Collector, Self->ObjectInstance->GetClass(), Self->ObjectInstance, EPyReferenceCollectorFlags::IncludeDelegates | EPyReferenceCollectorFlags::IncludeStructs | EPyReferenceCollectorFlags::IncludeContainers);
+	}
 }
 
 UClass* FPyWrapperObjectMetaData::GetClass(PyTypeObject* PyType)
@@ -833,6 +951,34 @@ FName FPyWrapperObjectMetaData::ResolvePropertyName(FPyWrapperObject* Instance, 
 	return ResolvePropertyName(Py_TYPE(Instance), InPythonPropertyName);
 }
 
+bool FPyWrapperObjectMetaData::IsPropertyDeprecated(PyTypeObject* PyType, const FName InPythonPropertyName, FString* OutDeprecationMessage)
+{
+	if (FPyWrapperObjectMetaData* PyWrapperMetaData = FPyWrapperObjectMetaData::GetMetaData(PyType))
+	{
+		if (const FString* DeprecationMessage = PyWrapperMetaData->PythonDeprecatedProperties.Find(InPythonPropertyName))
+		{
+			if (OutDeprecationMessage)
+			{
+				*OutDeprecationMessage = *DeprecationMessage;
+			}
+			return true;
+		}
+
+		if (const UClass* SuperClass = PyWrapperMetaData->Class ? PyWrapperMetaData->Class->GetSuperClass() : nullptr)
+		{
+			PyTypeObject* SuperClassPyType = FPyWrapperTypeRegistry::Get().GetWrappedClassType(SuperClass);
+			return IsPropertyDeprecated(SuperClassPyType, InPythonPropertyName, OutDeprecationMessage);
+		}
+	}
+
+	return false;
+}
+
+bool FPyWrapperObjectMetaData::IsPropertyDeprecated(FPyWrapperObject* Instance, const FName InPythonPropertyName, FString* OutDeprecationMessage)
+{
+	return IsPropertyDeprecated(Py_TYPE(Instance), InPythonPropertyName, OutDeprecationMessage);
+}
+
 FName FPyWrapperObjectMetaData::ResolveFunctionName(PyTypeObject* PyType, const FName InPythonMethodName)
 {
 	if (FPyWrapperObjectMetaData* PyWrapperMetaData = FPyWrapperObjectMetaData::GetMetaData(PyType))
@@ -855,6 +1001,56 @@ FName FPyWrapperObjectMetaData::ResolveFunctionName(PyTypeObject* PyType, const 
 FName FPyWrapperObjectMetaData::ResolveFunctionName(FPyWrapperObject* Instance, const FName InPythonMethodName)
 {
 	return ResolveFunctionName(Py_TYPE(Instance), InPythonMethodName);
+}
+
+bool FPyWrapperObjectMetaData::IsFunctionDeprecated(PyTypeObject* PyType, const FName InPythonMethodName, FString* OutDeprecationMessage)
+{
+	if (FPyWrapperObjectMetaData* PyWrapperMetaData = FPyWrapperObjectMetaData::GetMetaData(PyType))
+	{
+		if (const FString* DeprecationMessage = PyWrapperMetaData->PythonDeprecatedMethods.Find(InPythonMethodName))
+		{
+			if (OutDeprecationMessage)
+			{
+				*OutDeprecationMessage = *DeprecationMessage;
+			}
+			return true;
+		}
+
+		if (const UClass* SuperClass = PyWrapperMetaData->Class ? PyWrapperMetaData->Class->GetSuperClass() : nullptr)
+		{
+			PyTypeObject* SuperClassPyType = FPyWrapperTypeRegistry::Get().GetWrappedClassType(SuperClass);
+			return IsFunctionDeprecated(SuperClassPyType, InPythonMethodName, OutDeprecationMessage);
+		}
+	}
+
+	return false;
+}
+
+bool FPyWrapperObjectMetaData::IsFunctionDeprecated(FPyWrapperObject* Instance, const FName InPythonMethodName, FString* OutDeprecationMessage)
+{
+	return IsFunctionDeprecated(Py_TYPE(Instance), InPythonMethodName, OutDeprecationMessage);
+}
+
+bool FPyWrapperObjectMetaData::IsClassDeprecated(PyTypeObject* PyType, FString* OutDeprecationMessage)
+{
+	if (FPyWrapperObjectMetaData* PyWrapperMetaData = FPyWrapperObjectMetaData::GetMetaData(PyType))
+	{
+		if (PyWrapperMetaData->DeprecationMessage.IsSet())
+		{
+			if (OutDeprecationMessage)
+			{
+				*OutDeprecationMessage = PyWrapperMetaData->DeprecationMessage.GetValue();
+			}
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool FPyWrapperObjectMetaData::IsClassDeprecated(FPyWrapperObject* Instance, FString* OutDeprecationMessage)
+{
+	return IsClassDeprecated(Py_TYPE(Instance), OutDeprecationMessage);
 }
 
 struct FPythonGeneratedClassUtil
@@ -931,9 +1127,9 @@ struct FPythonGeneratedClassUtil
 		PyGenUtil::FPropertyDef& PropDef = *InClass->PropertyDefs.Add_GetRef(MakeShared<PyGenUtil::FPropertyDef>());
 		PropDef.GeneratedWrappedGetSet.GetSetName = PyGenUtil::TCHARToUTF8Buffer(*InFieldName);
 		PropDef.GeneratedWrappedGetSet.GetSetDoc = PyGenUtil::TCHARToUTF8Buffer(*FString::Printf(TEXT("type: %s\n%s"), *PyGenUtil::GetPropertyPythonType(Prop), *PyGenUtil::GetFieldTooltip(Prop)));
-		PropDef.GeneratedWrappedGetSet.Prop = Prop;
-		PropDef.GeneratedWrappedGetSet.GetFunc.SetFunctionAndExtractParams(InClass->FindFunctionByName(GetterFuncName));
-		PropDef.GeneratedWrappedGetSet.SetFunc.SetFunctionAndExtractParams(InClass->FindFunctionByName(SetterFuncName));
+		PropDef.GeneratedWrappedGetSet.Prop.SetProperty(Prop);
+		PropDef.GeneratedWrappedGetSet.GetFunc.SetFunction(InClass->FindFunctionByName(GetterFuncName));
+		PropDef.GeneratedWrappedGetSet.SetFunc.SetFunction(InClass->FindFunctionByName(SetterFuncName));
 		PropDef.GeneratedWrappedGetSet.GetCallback = (getter)&FPyWrapperObject::Getter_Impl;
 		PropDef.GeneratedWrappedGetSet.SetCallback = (setter)&FPyWrapperObject::Setter_Impl;
 		PropDef.GeneratedWrappedGetSet.ToPython(PropDef.PyGetSet);
@@ -944,7 +1140,7 @@ struct FPythonGeneratedClassUtil
 			PyGenUtil::FPropertyDef& InternalPropDef = *InClass->PropertyDefs.Add_GetRef(MakeShared<PyGenUtil::FPropertyDef>());
 			InternalPropDef.GeneratedWrappedGetSet.GetSetName = PyGenUtil::TCHARToUTF8Buffer(*FString::Printf(TEXT("_%s"), *InFieldName));
 			InternalPropDef.GeneratedWrappedGetSet.GetSetDoc = PropDef.GeneratedWrappedGetSet.GetSetDoc;
-			InternalPropDef.GeneratedWrappedGetSet.Prop = Prop;
+			InternalPropDef.GeneratedWrappedGetSet.Prop.SetProperty(Prop);
 			InternalPropDef.GeneratedWrappedGetSet.GetCallback = (getter)&FPyWrapperObject::Getter_Impl;
 			InternalPropDef.GeneratedWrappedGetSet.SetCallback = (setter)&FPyWrapperObject::Setter_Impl;
 			InternalPropDef.GeneratedWrappedGetSet.ToPython(InternalPropDef.PyGetSet);
@@ -1116,8 +1312,8 @@ struct FPythonGeneratedClassUtil
 		}
 		// Apply the defaults to the function arguments and build the Python method params
 		PyGenUtil::FGeneratedWrappedFunction GeneratedWrappedFunction;
-		GeneratedWrappedFunction.SetFunctionAndExtractParams(Func);
-		// SetFunctionAndExtractParams doesn't always use the correct names or defaults for generated classes
+		GeneratedWrappedFunction.SetFunction(Func);
+		// SetFunction doesn't always use the correct names or defaults for generated classes
 		for (int32 InputArgIndex = 0; InputArgIndex < GeneratedWrappedFunction.InputParams.Num(); ++InputArgIndex)
 		{
 			PyGenUtil::FGeneratedWrappedMethodParameter& GeneratedWrappedMethodParam = GeneratedWrappedFunction.InputParams[InputArgIndex];
@@ -1209,7 +1405,7 @@ struct FPythonGeneratedClassUtil
 		InClass->PropertyDefs.Reserve(InOldClass->PropertyDefs.Num());
 		for (const TSharedPtr<PyGenUtil::FPropertyDef>& OldPropDef : InOldClass->PropertyDefs)
 		{
-			const UProperty* OldProp = OldPropDef->GeneratedWrappedGetSet.Prop;
+			const UProperty* OldProp = OldPropDef->GeneratedWrappedGetSet.Prop.Prop;
 			const UFunction* OldGetter = OldPropDef->GeneratedWrappedGetSet.GetFunc.Func;
 			const UFunction* OldSetter = OldPropDef->GeneratedWrappedGetSet.SetFunc.Func;
 
@@ -1225,14 +1421,14 @@ struct FPythonGeneratedClassUtil
 
 			PyGenUtil::FPropertyDef& PropDef = *InClass->PropertyDefs.Add_GetRef(MakeShared<PyGenUtil::FPropertyDef>());
 			PropDef.GeneratedWrappedGetSet = OldPropDef->GeneratedWrappedGetSet;
-			PropDef.GeneratedWrappedGetSet.Prop = Prop;
+			PropDef.GeneratedWrappedGetSet.Prop.SetProperty(Prop);
 			if (OldGetter)
 			{
-				PropDef.GeneratedWrappedGetSet.GetFunc.SetFunctionAndExtractParams(InClass->FindFunctionByName(OldGetter->GetFName()));
+				PropDef.GeneratedWrappedGetSet.GetFunc.SetFunction(InClass->FindFunctionByName(OldGetter->GetFName()));
 			}
 			if (OldSetter)
 			{
-				PropDef.GeneratedWrappedGetSet.SetFunc.SetFunctionAndExtractParams(InClass->FindFunctionByName(OldSetter->GetFName()));
+				PropDef.GeneratedWrappedGetSet.SetFunc.SetFunction(InClass->FindFunctionByName(OldSetter->GetFName()));
 			}
 			PropDef.GeneratedWrappedGetSet.ToPython(PropDef.PyGetSet);
 		}
@@ -1263,7 +1459,7 @@ struct FPythonGeneratedClassUtil
 
 			PyGenUtil::FFunctionDef& FuncDef = *InClass->FunctionDefs.Add_GetRef(MakeShared<PyGenUtil::FFunctionDef>());
 			FuncDef.GeneratedWrappedMethod = OldFuncDef->GeneratedWrappedMethod;
-			FuncDef.GeneratedWrappedMethod.MethodFunc.SetFunctionAndExtractParams(Func);
+			FuncDef.GeneratedWrappedMethod.MethodFunc.SetFunction(Func);
 			FuncDef.PyFunction = OldFuncDef->PyFunction;
 			FuncDef.bIsHidden = OldFuncDef->bIsHidden;
 			FuncDef.GeneratedWrappedMethod.ToPython(FuncDef.PyMethod);
@@ -1342,26 +1538,31 @@ void UPythonGeneratedClass::PostRename(UObject* OldOuter, const FName OldName)
 {
 	Super::PostRename(OldOuter, OldName);
 
-	FPyWrapperTypeRegistry::Get().RegisterWrappedClassType(OldName, nullptr);
-	FPyWrapperTypeRegistry::Get().RegisterWrappedClassType(GetFName(), PyType);
+	FPyWrapperTypeRegistry::Get().UnregisterWrappedClassType(OldName, PyType);
+	FPyWrapperTypeRegistry::Get().RegisterWrappedClassType(GetFName(), PyType, !HasAnyFlags(RF_NewerVersionExists));
 }
 
 void UPythonGeneratedClass::PostInitInstance(UObject* InObj)
 {
 	Super::PostInitInstance(InObj);
 
-	if (PyPostInitFunction)
+	// Execute Python code within this block
 	{
-		FPyObjectPtr PySelf = FPyObjectPtr::StealReference((PyObject*)FPyWrapperObjectFactory::Get().CreateInstance(InObj));
-		if (PySelf && ensureAlways(PySelf->ob_type == PyType))
-		{
-			FPyObjectPtr PyArgs = FPyObjectPtr::StealReference(PyTuple_New(1));
-			PyTuple_SetItem(PyArgs, 0, PySelf.Release()); // SetItem steals the reference
+		FPyScopedGIL GIL;
 
-			FPyObjectPtr Result = FPyObjectPtr::StealReference(PyObject_CallObject(PyPostInitFunction, PyArgs));
-			if (!Result)
+		if (PyPostInitFunction)
+		{
+			FPyObjectPtr PySelf = FPyObjectPtr::StealReference((PyObject*)FPyWrapperObjectFactory::Get().CreateInstance(InObj));
+			if (PySelf && ensureAlways(PySelf->ob_type == PyType))
 			{
-				PyUtil::LogPythonError();
+				FPyObjectPtr PyArgs = FPyObjectPtr::StealReference(PyTuple_New(1));
+				PyTuple_SetItem(PyArgs, 0, PySelf.Release()); // SetItem steals the reference
+
+				FPyObjectPtr Result = FPyObjectPtr::StealReference(PyObject_CallObject(PyPostInitFunction, PyArgs));
+				if (!Result)
+				{
+					PyUtil::ReThrowPythonError();
+				}
 			}
 		}
 	}
@@ -1555,6 +1756,7 @@ DEFINE_FUNCTION(UPythonGeneratedClass::CallPythonFunction)
 	FPyObjectPtr PySelf;
 	if (!Stack.Node->HasAnyFunctionFlags(FUNC_Static))
 	{
+		FPyScopedGIL GIL;
 		PySelf = FPyObjectPtr::StealReference((PyObject*)FPyWrapperObjectFactory::Get().CreateInstance(P_THIS_OBJECT));
 		if (!PySelf)
 		{
@@ -1636,9 +1838,14 @@ DEFINE_FUNCTION(UPythonGeneratedClass::CallPythonFunction)
 		return true;
 	};
 
-	if (!DoCall())
+	// Execute Python code within this block
 	{
-		PyUtil::LogPythonError();
+		FPyScopedGIL GIL;
+
+		if (!DoCall())
+		{
+			PyUtil::ReThrowPythonError();
+		}
 	}
 }
 

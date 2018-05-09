@@ -148,9 +148,6 @@ private:
 	/** Handle exiting cleanly from PIE */
 	void HandleEndPIE(bool bSimulating);
 
-	/** Keep sequence range up to date with sections that are being recorded */
-	void UpdateSequencePlaybackRange();
-
 	/** Set immersive mode and store whether viewports were immersive */
 	void SetImmersive();
 

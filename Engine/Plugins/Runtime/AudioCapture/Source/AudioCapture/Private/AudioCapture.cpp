@@ -84,7 +84,16 @@ bool FAudioCapture::GetStreamTime(double& OutStreamTime)
 	return false;
 }
 
-bool FAudioCapture::IsStreamOpen()
+int32 FAudioCapture::GetSampleRate() const
+{
+	if (Impl.IsValid())
+	{
+		return Impl->GetSampleRate();
+	}
+	return 0;
+}
+
+bool FAudioCapture::IsStreamOpen() const
 {
 	if (Impl.IsValid())
 	{
@@ -93,7 +102,7 @@ bool FAudioCapture::IsStreamOpen()
 	return false;
 }
 
-bool FAudioCapture::IsCapturing()
+bool FAudioCapture::IsCapturing() const
 {
 	if (Impl.IsValid())
 	{
@@ -102,11 +111,7 @@ bool FAudioCapture::IsCapturing()
 	return false;
 }
 
-static const float MAX_LOOK_AHEAD_DELAY_MSEC = 100.9f;
-
 FAudioCaptureSynth::FAudioCaptureSynth()
-	: bSreamOpened(false)
-	, bInitialized(false)
 {
 	CurrentInputWriteIndex.Set(1);
 	CurrentOutputReadIndex.Set(0);
@@ -170,23 +175,20 @@ void FAudioCaptureSynth::StopCapturing()
 	check(AudioCapture.IsStreamOpen());
 	check(AudioCapture.IsCapturing());
 	AudioCapture.StopStream();
-	bSreamOpened = false;
 }
 
 void FAudioCaptureSynth::AbortCapturing()
 {
 	AudioCapture.AbortStream();
 	AudioCapture.CloseStream();
-	bSreamOpened = false;
-	bInitialized = false;
 }
 
-bool FAudioCaptureSynth::IsStreamOpen()
+bool FAudioCaptureSynth::IsStreamOpen() const
 {
 	return AudioCapture.IsStreamOpen();
 }
 
-bool FAudioCaptureSynth::IsCapturing()
+bool FAudioCaptureSynth::IsCapturing() const
 {
 	return AudioCapture.IsCapturing();
 }

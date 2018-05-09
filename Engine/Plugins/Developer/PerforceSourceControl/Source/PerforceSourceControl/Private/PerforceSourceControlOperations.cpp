@@ -54,7 +54,7 @@ struct FBranchModification
 	FString FileName;
 	FString Action;
 	int32 ChangeList;
-	int64 ModTime;
+	int64 ModTime;									  
 
 	FString OtherUserCheckedOut;
 	TArray<FString> CheckedOutBranches;
@@ -65,7 +65,7 @@ struct FBranchModification
  * Remove redundant errors (that contain a particular string) and also
  * update the commands success status if all errors were removed.
  */
-static void RemoveRedundantErrors(FPerforceSourceControlCommand& InCommand, const FString& InFilter)
+static void RemoveRedundantErrors(FPerforceSourceControlCommand& InCommand, const FString& InFilter, bool bMoveToInfo = true)
 {
 	bool bFoundRedundantError = false;
 	for(auto Iter(InCommand.ResultInfo.ErrorMessages.CreateConstIterator()); Iter; Iter++)
@@ -74,7 +74,10 @@ static void RemoveRedundantErrors(FPerforceSourceControlCommand& InCommand, cons
 		// we get to the info list in this case
 		if(Iter->ToString().Contains(InFilter))
 		{
-			InCommand.ResultInfo.InfoMessages.Add(*Iter);
+			if (bMoveToInfo)
+			{
+				InCommand.ResultInfo.InfoMessages.Add(*Iter);
+			}
 			bFoundRedundantError = true;
 		}
 	}
@@ -1178,6 +1181,7 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 			ParseUpdateStatusResults(Records, InCommand.ResultInfo.ErrorMessages, OutStates, ContentRoot, BranchModifications);
 			RemoveRedundantErrors(InCommand, TEXT(" - no such file(s)."));
 			RemoveRedundantErrors(InCommand, TEXT("' is not under client's root '"));
+			RemoveRedundantErrors(InCommand, TEXT(" - protected namespace - access denied"), false);
 		}
 		else
 		{
@@ -1238,7 +1242,6 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 			RemoveRedundantErrors(InCommand, TEXT(" - file(s) not opened for edit"));
 			RemoveRedundantErrors(InCommand, TEXT("' is not under client's root '"));
 			RemoveRedundantErrors(InCommand, TEXT(" - file(s) not opened on this client"));
-			RemoveRedundantErrors(InCommand, TEXT(" - protected namespace - access denied"));
 		}
 	}
 #endif

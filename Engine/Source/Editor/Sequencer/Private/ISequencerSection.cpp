@@ -10,24 +10,18 @@
 /** Structure used during key area creation to group channels by their group name */
 struct FChannelData
 {
-	/** The channel's type ID (FMovieSceneChannelEntry::RegisterNewID) */
-	uint32 ChannelID;
-
 	/** Handle to the channel */
-	TMovieSceneChannelHandle<void> Channel;
+	FMovieSceneChannelHandle Channel;
 
-	/** The channel's common editor data */
-	const FMovieSceneChannelEditorData& EditorData;
-
-	/** Handle to the channel's specialized editor data */
-	TMovieSceneChannelHandle<const void> SpecializedData;
+	/** The channel's editor meta data */
+	const FMovieSceneChannelMetaData& MetaData;
 
 	/**
 	 * Make a key area out of this data
 	 */
 	TSharedRef<IKeyArea> MakeKeyArea(UMovieSceneSection& InSection) const
 	{
-		return MakeShared<IKeyArea>(ChannelID, InSection, Channel, EditorData, SpecializedData);
+		return MakeShared<IKeyArea>(InSection, Channel);
 	}
 };
 
@@ -41,9 +35,9 @@ struct FGroupData
 
 	void AddChannel(FChannelData&& InChannel)
 	{
-		if (InChannel.EditorData.SortOrder < SortOrder)
+		if (InChannel.MetaData.SortOrder < SortOrder)
 		{
-			SortOrder = InChannel.EditorData.SortOrder;
+			SortOrder = InChannel.MetaData.SortOrder;
 		}
 
 		Channels.Add(MoveTemp(InChannel));
@@ -73,30 +67,28 @@ void ISequencerSection::GenerateSectionLayout( ISectionLayoutBuilder& LayoutBuil
 	FMovieSceneChannelProxy& ChannelProxy = Section->GetChannelProxy();
 	for (const FMovieSceneChannelEntry& Entry : Section->GetChannelProxy().GetAllEntries())
 	{
-		const uint32 ChannelID = Entry.GetChannelID();
+		const FName ChannelTypeName = Entry.GetChannelTypeName();
 
 		// One editor data ptr per channel
-		TArrayView<void* const>                        Channels         = Entry.GetChannels();
-		TArrayView<const FMovieSceneChannelEditorData> CommonEditorData = Entry.GetCommonEditorData();
+		TArrayView<FMovieSceneChannel* const>        Channels    = Entry.GetChannels();
+		TArrayView<const FMovieSceneChannelMetaData> AllMetaData = Entry.GetMetaData();
 
 		for (int32 Index = 0; Index < Channels.Num(); ++Index)
 		{
-			TMovieSceneChannelHandle<void>       Channel         = ChannelProxy.MakeHandle(Channels[Index]);
-			TMovieSceneChannelHandle<const void> SpecializedData = ChannelProxy.MakeHandle(Entry.GetSpecializedEditorData(Index));
+			FMovieSceneChannelHandle Channel = ChannelProxy.MakeHandle(ChannelTypeName, Index);
 
-			const FMovieSceneChannelEditorData& EditorData = CommonEditorData[Index];
-			if (EditorData.bEnabled)
+			const FMovieSceneChannelMetaData& MetaData = AllMetaData[Index];
+			if (MetaData.bEnabled)
 			{
-				FName GroupName = *EditorData.Group.ToString();
+				FName GroupName = *MetaData.Group.ToString();
 
 				FGroupData* ExistingGroup = GroupToChannelsMap.Find(GroupName);
 				if (!ExistingGroup)
 				{
-					ExistingGroup = &GroupToChannelsMap.Add(GroupName, FGroupData(EditorData.Group));
+					ExistingGroup = &GroupToChannelsMap.Add(GroupName, FGroupData(MetaData.Group));
 				}
 
-				FChannelData NewChannel{ ChannelID, Channel, EditorData, SpecializedData };
-				ExistingGroup->AddChannel(MoveTemp(NewChannel));
+				ExistingGroup->AddChannel(FChannelData{ Channel, MetaData });
 			}
 		}
 	}
@@ -110,7 +102,7 @@ void ISequencerSection::GenerateSectionLayout( ISectionLayoutBuilder& LayoutBuil
 	if (GroupToChannelsMap.Num() == 1)
 	{
 		const TTuple<FName, FGroupData>& Pair = *GroupToChannelsMap.CreateIterator();
-		if (Pair.Value.Channels.Num() == 1 && Pair.Value.Channels[0].EditorData.bCanCollapseToTrack)
+		if (Pair.Value.Channels.Num() == 1 && Pair.Value.Channels[0].MetaData.bCanCollapseToTrack)
 		{
 			LayoutBuilder.SetSectionAsKeyArea(Pair.Value.Channels[0].MakeKeyArea(*Section));
 			return;
@@ -125,11 +117,11 @@ void ISequencerSection::GenerateSectionLayout( ISectionLayoutBuilder& LayoutBuil
 
 		// Sort by sort order then name
 		Pair.Value.Channels.Sort([](const FChannelData& A, const FChannelData& B){
-			if (A.EditorData.SortOrder == B.EditorData.SortOrder)
+			if (A.MetaData.SortOrder == B.MetaData.SortOrder)
 			{
-				return A.EditorData.Name < B.EditorData.Name;
+				return A.MetaData.Name < B.MetaData.Name;
 			}
-			return A.EditorData.SortOrder < B.EditorData.SortOrder;
+			return A.MetaData.SortOrder < B.MetaData.SortOrder;
 		});
 	}
 
@@ -164,7 +156,7 @@ void ISequencerSection::GenerateSectionLayout( ISectionLayoutBuilder& LayoutBuil
 		for (const FChannelData& ChannelAndData : ChannelData.Channels)
 		{
 			TSharedRef<IKeyArea> KeyArea = ChannelAndData.MakeKeyArea(*Section);
-			LayoutBuilder.AddKeyArea(ChannelAndData.EditorData.Name, ChannelAndData.EditorData.DisplayText, KeyArea);
+			LayoutBuilder.AddKeyArea(ChannelAndData.MetaData.Name, ChannelAndData.MetaData.DisplayText, KeyArea);
 		}
 
 		if (!GroupName.IsNone())

@@ -1,15 +1,17 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "DatasmithAssetImportData.h"
+
 #include "DatasmithContentModule.h"
+#include "DatasmithScene.h"
 
 #include "Engine/StaticMesh.h"
-
 #include "HAL/FileManager.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 
 #if WITH_EDITORONLY_DATA
+
 UDatasmithStaticMeshImportData* UDatasmithStaticMeshImportData::GetImportDataForStaticMesh( UStaticMesh* StaticMesh, TOptional< DefaultOptionsPair > DefaultImportOptions )
 {
 	check( StaticMesh );
@@ -158,4 +160,5 @@ void UDatasmithStaticMeshCADImportData::Serialize(FArchive& Ar)
 		}
 	}
 }
+
 #endif // WITH_EDITORONLY_DATA

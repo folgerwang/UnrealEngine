@@ -54,6 +54,17 @@ public:
 
 protected:
 
+#if WITH_EDITOR
+
+	virtual FGuid CreatePossessable(UObject* ObjectToPossess) override;
+	virtual FGuid CreateSpawnable(UObject* ObjectToSpawn) override;
+
+	FGuid FindOrAddBinding(UObject* ObjectToPossess);
+
+#endif // WITH_EDITOR
+
+protected:
+
 	/** Legacy object references - should be read-only. Not deprecated because they need to still be saved */
 	UPROPERTY()
 	FLevelSequenceObjectReferenceMap ObjectReferences;

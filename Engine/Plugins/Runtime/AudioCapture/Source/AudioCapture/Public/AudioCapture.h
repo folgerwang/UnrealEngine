@@ -38,7 +38,7 @@ namespace Audio
 	class FAudioCaptureImpl;
 
 	// Class which handles audio capture internally, implemented with a back-end per platform
-	class FAudioCapture
+	class AUDIOCAPTURE_API FAudioCapture
 	{
 	public:
 		FAudioCapture();
@@ -65,11 +65,14 @@ namespace Audio
 		// Get the stream time of the audio capture stream
 		bool GetStreamTime(double& OutStreamTime);
 
+		// Get the sample rate in use by the stream.
+		int32 GetSampleRate() const;
+
 		// Returns if the audio capture stream has been opened.
-		bool IsStreamOpen();
+		bool IsStreamOpen() const;
 
 		// Returns true if the audio capture stream is currently capturing audio
-		bool IsCapturing();
+		bool IsCapturing() const;
 
 	private:
 
@@ -105,10 +108,10 @@ namespace Audio
 		void AbortCapturing();
 
 		// Returned if the capture synth is closed
-		bool IsStreamOpen();
+		bool IsStreamOpen() const;
 
 		// Returns true if the capture synth is capturing audio
-		bool IsCapturing();
+		bool IsCapturing() const;
 
 		// Retrieves audio data from the capture synth.
 		// This returns audio only if there was non-zero audio since this function was last called.
@@ -132,12 +135,6 @@ namespace Audio
 
 		// The index we're going to capture to
 		FThreadSafeCounter CurrentInputWriteIndex;
-
-		// If a capture stream has already been opened
-		bool bSreamOpened;
-
-		// If the object has been initialized
-		bool bInitialized;
 	};
 
 } // namespace Audio

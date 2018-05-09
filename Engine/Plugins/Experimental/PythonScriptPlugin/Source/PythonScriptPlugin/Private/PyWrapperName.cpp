@@ -7,12 +7,11 @@
 
 #if WITH_PYTHON
 
-void InitializePyWrapperName(PyObject* PyModule)
+void InitializePyWrapperName(PyGenUtil::FNativePythonModule& ModuleInfo)
 {
 	if (PyType_Ready(&PyWrapperNameType) == 0)
 	{
-		Py_INCREF(&PyWrapperNameType);
-		PyModule_AddObject(PyModule, PyWrapperNameType.tp_name, (PyObject*)&PyWrapperNameType);
+		ModuleInfo.AddType(&PyWrapperNameType);
 	}
 }
 
@@ -160,13 +159,13 @@ PyTypeObject InitializePyWrapperNameType()
 	};
 
 	static PyMethodDef PyMethods[] = {
-		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_CLASS, "X.cast(object) -> FName -- cast the given object to this Unreal name type" },
+		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_CLASS, "X.cast(object) -> Name -- cast the given object to this Unreal name type" },
 		{ "is_valid", PyCFunctionCast(&FMethods::IsValid), METH_NOARGS, "x.is_valid() -> bool -- is this Unreal name valid?" },
 		{ "is_none", PyCFunctionCast(&FMethods::IsNone), METH_NOARGS, "x.is_none() -> bool -- is this Unreal name set to NAME_None?" },
 		{ nullptr, nullptr, 0, nullptr }
 	};
 
-	PyTypeObject PyType = InitializePyWrapperBasicType<FPyWrapperName>("Name", "Type for all UE4 exposed FName instances");
+	PyTypeObject PyType = InitializePyWrapperBasicType<FPyWrapperName>("Name", "Type for all UE4 exposed name instances");
 
 	PyType.tp_init = (initproc)&FFuncs::Init;
 	PyType.tp_str = (reprfunc)&FFuncs::Str;

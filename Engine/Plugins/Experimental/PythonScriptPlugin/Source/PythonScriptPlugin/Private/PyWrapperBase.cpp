@@ -18,12 +18,11 @@ struct FPyWrapperBaseMetaDataObject
 	FPyWrapperBaseMetaData* MetaData;
 };
 
-void InitializePyWrapperBase(PyObject* PyModule)
+void InitializePyWrapperBase(PyGenUtil::FNativePythonModule& ModuleInfo)
 {
 	if (PyType_Ready(&PyWrapperBaseType) == 0)
 	{
-		Py_INCREF(&PyWrapperBaseType);
-		PyModule_AddObject(PyModule, PyWrapperBaseType.tp_name, (PyObject*)&PyWrapperBaseType);
+		ModuleInfo.AddType(&PyWrapperBaseType);
 	}
 
 	PyType_Ready(&PyWrapperBaseMetaDataType);

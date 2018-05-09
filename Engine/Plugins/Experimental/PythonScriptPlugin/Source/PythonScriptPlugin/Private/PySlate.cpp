@@ -1,9 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PySlate.h"
+#include "PyGIL.h"
 #include "PyCore.h"
 #include "PyUtil.h"
+#include "PyGenUtil.h"
 #include "PyConversion.h"
+#include "PyWrapperTypeRegistry.h"
 
 #include "Framework/Application/SlateApplication.h"
 
@@ -17,12 +20,14 @@
 namespace PySlateUtil
 {
 
-FPyWrapperDelegateHandle* RegisterSlateTickCallback(FSlateApplication::FSlateTickEvent& InSlateTickEvent, PyObject* InPyCallable)
+FPyDelegateHandle* RegisterSlateTickCallback(FSlateApplication::FSlateTickEvent& InSlateTickEvent, PyObject* InPyCallable)
 {
 	// We copy the PyCallable into the lambda to keep the Python object alive as long as the delegate is bound
 	FPyObjectPtr PyCallable = FPyObjectPtr::NewReference(InPyCallable);
 	FDelegateHandle TickEventDelegateHandle = InSlateTickEvent.AddLambda([PyCallable](const float InDeltaTime) mutable
 	{
+		FPyScopedGIL GIL;
+
 		FPyObjectPtr PyArgs = FPyObjectPtr::StealReference(PyTuple_New(1));
 		PyTuple_SetItem(PyArgs, 0, PyConversion::Pythonize(InDeltaTime)); // SetItem steals the reference
 
@@ -33,12 +38,12 @@ FPyWrapperDelegateHandle* RegisterSlateTickCallback(FSlateApplication::FSlateTic
 		}
 	});
 
-	return FPyWrapperDelegateHandle::CreateInstance(TickEventDelegateHandle);
+	return FPyDelegateHandle::CreateInstance(TickEventDelegateHandle);
 }
 
 bool UnregisterSlateTickCallback(FSlateApplication::FSlateTickEvent& InSlateTickEvent, PyObject* InCallbackHandle)
 {
-	FPyWrapperDelegateHandlePtr PyTickEventDelegateHandle = FPyWrapperDelegateHandlePtr::StealReference(FPyWrapperDelegateHandle::CastPyObject(InCallbackHandle));
+	FPyDelegateHandlePtr PyTickEventDelegateHandle = FPyDelegateHandlePtr::StealReference(FPyDelegateHandle::CastPyObject(InCallbackHandle));
 	if (!PyTickEventDelegateHandle)
 	{
 		return false;
@@ -154,21 +159,26 @@ PyObject* ParentExternalWindowToSlate(PyObject* InSelf, PyObject* InArgs)
 
 PyMethodDef PySlateMethods[] = {
 	{ "register_slate_pre_tick_callback", PyCFunctionCast(&RegisterSlatePreTickCallback), METH_VARARGS, "x.register_slate_pre_tick_callback(callable) -> _DelegateHandle -- register the given callable (taking a single float) as a pre-tick callback in Slate" },
-	{ "unregister_slate_pre_tick_callback", PyCFunctionCast(&UnregisterSlatePreTickCallback), METH_VARARGS, "x.unregister_slate_pre_tick_callback(handle) -- unregister the given handle from a previous call to register_slate_pre_tick_callback" },
+	{ "unregister_slate_pre_tick_callback", PyCFunctionCast(&UnregisterSlatePreTickCallback), METH_VARARGS, "x.unregister_slate_pre_tick_callback(handle) -> None -- unregister the given handle from a previous call to register_slate_pre_tick_callback" },
 	{ "register_slate_post_tick_callback", PyCFunctionCast(&RegisterSlatePostTickCallback), METH_VARARGS, "x.register_slate_post_tick_callback(callable) -> _DelegateHandle -- register the given callable (taking a single float) as a pre-tick callback in Slate" },
-	{ "unregister_slate_post_tick_callback", PyCFunctionCast(&UnregisterSlatePostTickCallback), METH_VARARGS, "x.unregister_slate_post_tick_callback(handle) -- unregister the given handle from a previous call to register_slate_post_tick_callback" },
-	{ "parent_external_window_to_slate", PyCFunctionCast(&ParentExternalWindowToSlate), METH_VARARGS, "x.parent_external_window_to_slate(external_window, parent_search_method=SlateParentWindowSearchMethod.ACTIVE_WINDOW) -- parent the given OS specific external window handle to a suitable Slate window" },
+	{ "unregister_slate_post_tick_callback", PyCFunctionCast(&UnregisterSlatePostTickCallback), METH_VARARGS, "x.unregister_slate_post_tick_callback(handle) -> None -- unregister the given handle from a previous call to register_slate_post_tick_callback" },
+	{ "parent_external_window_to_slate", PyCFunctionCast(&ParentExternalWindowToSlate), METH_VARARGS, "x.parent_external_window_to_slate(external_window, parent_search_method=SlateParentWindowSearchMethod.ACTIVE_WINDOW) -> None -- parent the given OS specific external window handle to a suitable Slate window" },
 	{ nullptr, nullptr, 0, nullptr }
 };
 
 void InitializeModule()
 {
+	PyGenUtil::FNativePythonModule NativePythonModule;
+	NativePythonModule.PyModuleMethods = PySlateMethods;
+
 #if PY_MAJOR_VERSION >= 3
-	PyObject* PyModule = PyImport_AddModule("_unreal_slate");
-	PyModule_AddFunctions(PyModule, PySlateMethods);
+	NativePythonModule.PyModule = PyImport_AddModule("_unreal_slate");
+	PyModule_AddFunctions(NativePythonModule.PyModule, PySlateMethods);
 #else	// PY_MAJOR_VERSION >= 3
-	PyObject* PyModule = Py_InitModule("_unreal_slate", PySlateMethods);
+	NativePythonModule.PyModule = Py_InitModule("_unreal_slate", PySlateMethods);
 #endif	// PY_MAJOR_VERSION >= 3
+
+	FPyWrapperTypeRegistry::Get().RegisterNativePythonModule(MoveTemp(NativePythonModule));
 }
 
 }

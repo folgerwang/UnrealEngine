@@ -34,4 +34,11 @@ public:
 	/** Should Developer Mode be enabled on the Python interpreter (will enable extra warnings (eg, for deprecated code), and enable stub code generation for use with external IDEs). */
 	UPROPERTY(config, EditAnywhere, Category=Python, meta=(ConfigRestartRequired=true))
 	bool bDeveloperMode;
+
+	/**
+	* Should files used for Unreal Python API doc generation be created?
+	* [Also needs Developer Mode above enabled.]
+	*/
+	UPROPERTY(config, EditAnywhere, Category = Python, meta = (ConfigRestartRequired = true))
+	bool bGenerateOnlineDocs;
 };

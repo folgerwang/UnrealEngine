@@ -50,12 +50,6 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 		Formats.AddZeroed(NumFormats);
 		VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkGetPhysicalDeviceSurfaceFormatsKHR(Device.GetPhysicalHandle(), Surface, &NumFormats, Formats.GetData()));
 
-		if (InOutPixelFormat == PF_Unknown)
-		{
-			static const auto* CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
-			InOutPixelFormat = CVarDefaultBackBufferPixelFormat ? EDefaultBackBufferPixelFormat::Convert2PixelFormat(CVarDefaultBackBufferPixelFormat->GetValueOnGameThread()) : PF_Unknown;
-		}
-
 		if (InOutPixelFormat != PF_Unknown)
 		{
 			bool bFound = false;

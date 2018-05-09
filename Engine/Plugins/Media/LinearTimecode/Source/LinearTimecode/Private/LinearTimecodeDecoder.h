@@ -16,7 +16,6 @@ public:
 	/** TimeCode structure used by reader
 	*/
 	FLinearTimecodeDecoder();
-	virtual ~FLinearTimecodeDecoder();
 
 	/** Flush internal state of timecode reader 
 	*/

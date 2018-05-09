@@ -69,6 +69,12 @@ public:
 
 	UPROPERTY(meta=(DeprecatedProperty, DeprecationMessage="LegacyInt is deprecated. Please use Int instead."))
 	int32 LegacyInt_DEPRECATED;
+
+	UPROPERTY(EditInstanceOnly, Category = Python)
+	bool BoolInstanceOnly;
+
+	UPROPERTY(EditDefaultsOnly, Category = Python)
+	bool BoolDefaultsOnly;
 };
 
 /**
@@ -88,19 +94,22 @@ class UPyTestStructLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 
-	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMethod))
+	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMethod="IsBoolSet;IsBoolSetOld"))
 	static bool IsBoolSet(const FPyTestStruct& InStruct);
 
 	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMethod, DeprecatedFunction, DeprecationMessage="LegacyIsBoolSet is deprecated. Please use IsBoolSet instead."))
 	static bool LegacyIsBoolSet(const FPyTestStruct& InStruct);
 
-	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMathOp="+;+="))
+	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptConstant="ConstantValue", ScriptConstantHost="PyTestStruct"))
+	static int32 GetConstantValue();
+
+	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMethod, ScriptMethodSelfReturn, ScriptOperator="+;+="))
 	static FPyTestStruct AddInt(const FPyTestStruct& InStruct, const int32 InValue);
 
-	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMathOp="+;+="))
+	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMethod, ScriptMethodSelfReturn, ScriptOperator="+;+="))
 	static FPyTestStruct AddFloat(const FPyTestStruct& InStruct, const float InValue);
 
-	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMathOp="+;+="))
+	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMethod, ScriptMethodSelfReturn, ScriptOperator="+;+="))
 	static FPyTestStruct AddStr(const FPyTestStruct& InStruct, const FString& InValue);
 };
 
@@ -160,6 +169,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Python)
 	FPyTestChildStruct ChildStruct;
 
+	UPROPERTY(EditInstanceOnly, Category = Python)
+	bool BoolInstanceOnly;
+
+	UPROPERTY(EditDefaultsOnly, Category = Python)
+	bool BoolDefaultsOnly;
+
 	UFUNCTION(BlueprintImplementableEvent, Category = Python)
 	int32 FuncBlueprintImplementable(const int32 InValue) const;
 
@@ -189,6 +204,15 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Python)
 	void MulticastDelegatePropertyCallback(FString InStr) const;
+
+	UFUNCTION(BlueprintCallable, Category = Python)
+	static void EmitScriptError();
+
+	UFUNCTION(BlueprintCallable, Category = Python)
+	static void EmitScriptWarning();
+
+	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptConstant="ConstantValue"))
+	static int32 GetConstantValue();
 };
 
 /**
@@ -207,4 +231,19 @@ UCLASS(Blueprintable, deprecated, meta=(DeprecationMessage="LegacyPyTestObject i
 class UDEPRECATED_LegacyPyTestObject : public UPyTestObject
 {
 	GENERATED_BODY()
+};
+
+/**
+ * Function library containing methods that should be hoisted onto the test object in Python.
+ */
+UCLASS()
+class UPyTestObjectLibrary : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptMethod="IsBoolSet"))
+	static bool IsBoolSet(const UPyTestObject* InObj);
+
+	UFUNCTION(BlueprintPure, Category = Python, meta=(ScriptConstant="OtherConstantValue", ScriptConstantHost="PyTestObject"))
+	static int32 GetOtherConstantValue();
 };

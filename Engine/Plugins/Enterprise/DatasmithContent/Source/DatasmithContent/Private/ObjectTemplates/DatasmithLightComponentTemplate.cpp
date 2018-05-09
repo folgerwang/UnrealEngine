@@ -79,3 +79,27 @@ void UDatasmithLightComponentTemplate::Load( const UObject* Source )
 	IESBrightnessScale = LightComponent->IESBrightnessScale;
 #endif // #if WITH_EDITORONLY_DATA
 }
+
+bool UDatasmithLightComponentTemplate::Equals( const UDatasmithObjectTemplate* Other ) const
+{
+	const UDatasmithLightComponentTemplate* TypedOther = Cast< UDatasmithLightComponentTemplate >( Other );
+
+	if ( !TypedOther )
+	{
+		return false;
+	}
+
+	bool bEquals = bVisible == TypedOther->bVisible;
+	bEquals = bEquals && FMath::IsNearlyEqual( Intensity, TypedOther->Intensity );
+	bEquals = bEquals && ( CastShadows == TypedOther->CastShadows );
+	bEquals = bEquals && LightColor.Equals( TypedOther->LightColor );
+	bEquals = bEquals && ( LightFunctionMaterial == TypedOther->LightFunctionMaterial );
+
+	bEquals = bEquals && ( bUseTemperature == TypedOther->bUseTemperature );
+	bEquals = bEquals && FMath::IsNearlyEqual( Temperature, TypedOther->Temperature );
+
+	bEquals = bEquals && ( bUseIESBrightness == TypedOther->bUseIESBrightness );
+	bEquals = bEquals && FMath::IsNearlyEqual( IESBrightnessScale, TypedOther->IESBrightnessScale );
+
+	return bEquals;
+}

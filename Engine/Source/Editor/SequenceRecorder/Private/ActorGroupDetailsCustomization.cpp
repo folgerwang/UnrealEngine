@@ -15,6 +15,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "SSequenceRecorder.h"
 #include "SequenceRecorderActorGroup.h"
+#include "SequenceRecorderUtils.h"
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 
@@ -208,7 +209,14 @@ void FActorGroupDetailsCustomization::HandleRecordingGroupNameCommitted(const FT
 		TWeakObjectPtr<USequenceRecorderActorGroup> CurrentGroup = FSequenceRecorder::Get().GetRecordingGroup();
 		if (CurrentGroup.IsValid())
 		{
-			CurrentGroup->GroupName = FName(*InText.ToString());
+			TArray<FName> ExistingGroupNames = FSequenceRecorder::Get().GetRecordingGroupNames();
+			ExistingGroupNames.Remove(FName(*InText.ToString()));
+			FString NewName = SequenceRecorderUtils::MakeNewGroupName(*CurrentGroup.Get()->SequenceRecordingBasePath.Path, InText.ToString(), ExistingGroupNames);
+			CurrentGroup->GroupName = FName(*NewName);
+			CurrentGroup->SequenceName = NewName;
+
+			// cbb: Force load to update sequence names, etc
+			SequenceRecorder.Pin()->HandleLoadRecordingActorGroup(*NewName);
 		}
 	}
 }

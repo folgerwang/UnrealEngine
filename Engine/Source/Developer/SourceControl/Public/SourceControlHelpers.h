@@ -339,8 +339,8 @@ public:
 	 * Use currently set source control provider to copy a file.
 	 * @note	Blocks until action is complete.
 	 *
-	 * @param	InSourcePath	Source file string to copy from - can be either fully qualified path, relative path, long package name, asset path or export text path (often stored on clipboard)
-	 * @param	InDestPath		Source file string to copy to - can be either fully qualified path, relative path, long package name, asset path or export text path (often stored on clipboard). If package, then uses same extension as source file.
+	 * @param	InSourceFile	Source file string to copy from - can be either fully qualified path, relative path, long package name, asset path or export text path (often stored on clipboard)
+	 * @param	InDestFile		Source file string to copy to - can be either fully qualified path, relative path, long package name, asset path or export text path (often stored on clipboard). If package, then uses same extension as source file.
 	 * @param	bSilent			if false (default) then write out any error info to the Log. Any error text can be retrieved by LastErrorMsg() regardless.
 	 * @return	true if succeeded, false if failed and can call LastErrorMsg() for more info.
 	 */

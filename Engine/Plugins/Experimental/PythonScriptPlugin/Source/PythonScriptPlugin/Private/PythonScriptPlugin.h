@@ -95,11 +95,15 @@ private:
 
 	void ShutdownPython();
 
+	void ModulesChangedDelayedNotify();
+
 	void Tick(const float InDeltaTime);
 
 	void OnModuleDirtied(FName InModuleName);
 
 	void OnModulesChanged(FName InModuleName, EModuleChangeReason InModuleChangeReason);
+
+    void OnModulesChangedDelayedNotify();
 
 	void OnContentPathMounted(const FString& InAssetPath, const FString& InFilesystemPath);
 
@@ -112,11 +116,14 @@ private:
 	FPythonCommandExecutor CmdExec;
 	IPythonCommandMenu* CmdMenu;
 	FDelegateHandle TickHandle;
+	FDelegateHandle ModuleDelayedHandle;
 
 	PyUtil::FPyApiBuffer PyProgramName;
 	PyUtil::FPyApiBuffer PyHomePath;
-	FPyObjectPtr PyGlobalDict;
-	FPyObjectPtr PyLocalDict;
+	FPyObjectPtr PyDefaultGlobalDict;
+	FPyObjectPtr PyDefaultLocalDict;
+	FPyObjectPtr PyConsoleGlobalDict;
+	FPyObjectPtr PyConsoleLocalDict;
 	FPyObjectPtr PyUnrealModule;
 	bool bInitialized;
 	bool bHasTicked;

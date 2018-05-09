@@ -250,7 +250,7 @@ void FMovieSceneEvaluationMetaData::DiffEntities(const FMovieSceneEvaluationMeta
 	}
 }
 
-bool FMovieSceneEvaluationMetaData::IsDirty(UMovieSceneSequence& RootSequence, const FMovieSceneSequenceHierarchy& RootHierarchy, IMovieSceneSequenceTemplateStore& TemplateStore, TRange<FFrameNumber>* OutSubRangeToInvalidate) const
+bool FMovieSceneEvaluationMetaData::IsDirty(const FMovieSceneSequenceHierarchy& RootHierarchy, IMovieSceneSequenceTemplateStore& TemplateStore, TRange<FFrameNumber>* OutSubRangeToInvalidate, TSet<UMovieSceneSequence*>* OutDirtySequences) const
 {
 	bool bDirty = false;
 
@@ -266,6 +266,11 @@ bool FMovieSceneEvaluationMetaData::IsDirty(UMovieSceneSequence& RootSequence, c
 			FMovieSceneEvaluationTemplate& Template = TemplateStore.AccessTemplate(*SubSequence);
 
 			bThisSequenceIsDirty = Template.TemplateSerialNumber.GetValue() != Pair.Value || Template.SequenceSignature != SubSequence->GetSignature();
+
+			if (bThisSequenceIsDirty && OutDirtySequences)
+			{
+				OutDirtySequences->Add(SubSequence);
+			}
 		}
 
 		if (bThisSequenceIsDirty)

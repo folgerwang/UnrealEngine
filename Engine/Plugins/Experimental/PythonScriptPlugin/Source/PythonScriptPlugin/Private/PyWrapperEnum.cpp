@@ -17,6 +17,9 @@ struct FPyWrapperEnumValueDescrObject
 	/** Common Python Object */
 	PyObject_HEAD
 
+	/** The owner enum type */
+	PyTypeObject* EnumType;
+
 	/** The enum value */
 	int64 EnumValue;
 
@@ -27,11 +30,12 @@ struct FPyWrapperEnumValueDescrObject
 	PyObject* EnumValueDoc;
 
 	/** New an instance */
-	static FPyWrapperEnumValueDescrObject* New(const int64 InEnumValue, const char* InEnumValueName, const char* InEnumValueDoc)
+	static FPyWrapperEnumValueDescrObject* New(PyTypeObject* InEnumType, const int64 InEnumValue, const char* InEnumValueName, const char* InEnumValueDoc)
 	{
 		FPyWrapperEnumValueDescrObject* Self = (FPyWrapperEnumValueDescrObject*)PyWrapperEnumValueDescrType.tp_alloc(&PyWrapperEnumValueDescrType, 0);
 		if (Self)
 		{
+			Self->EnumType = InEnumType;
 			Self->EnumValue = InEnumValue;
 			Self->EnumValueName = PyUnicode_FromString(InEnumValueName);
 			Self->EnumValueDoc = InEnumValueDoc ? PyUnicode_FromString(InEnumValueDoc) : nullptr;
@@ -42,6 +46,8 @@ struct FPyWrapperEnumValueDescrObject
 	/** Free this instance */
 	static void Free(FPyWrapperEnumValueDescrObject* InSelf)
 	{
+		InSelf->EnumType = nullptr;
+
 		Py_XDECREF(InSelf->EnumValueName);
 		InSelf->EnumValueName = nullptr;
 
@@ -52,15 +58,13 @@ struct FPyWrapperEnumValueDescrObject
 	}
 };
 
-void InitializePyWrapperEnum(PyObject* PyModule)
+void InitializePyWrapperEnum(PyGenUtil::FNativePythonModule& ModuleInfo)
 {
 	if (PyType_Ready(&PyWrapperEnumType) == 0)
 	{
 		static FPyWrapperEnumMetaData MetaData;
 		FPyWrapperEnumMetaData::SetMetaData(&PyWrapperEnumType, &MetaData);
-
-		Py_INCREF(&PyWrapperEnumType);
-		PyModule_AddObject(PyModule, PyWrapperEnumType.tp_name, (PyObject*)&PyWrapperEnumType);
+		ModuleInfo.AddType(&PyWrapperEnumType);
 	}
 
 	PyType_Ready(&PyWrapperEnumValueDescrType);
@@ -74,7 +78,7 @@ int FPyWrapperEnum::Init(FPyWrapperEnum* InSelf)
 
 void FPyWrapperEnum::SetEnumEntryValue(PyTypeObject* InType, const int64 InEnumValue, const char* InEnumValueName, const char* InEnumValueDoc)
 {
-	FPyObjectPtr PyEnumValueDescr = FPyObjectPtr::StealReference((PyObject*)FPyWrapperEnumValueDescrObject::New(InEnumValue, InEnumValueName, InEnumValueDoc));
+	FPyObjectPtr PyEnumValueDescr = FPyObjectPtr::StealReference((PyObject*)FPyWrapperEnumValueDescrObject::New(InType, InEnumValue, InEnumValueName, InEnumValueDoc));
 	if (PyEnumValueDescr)
 	{
 		PyDict_SetItemString(InType->tp_dict, InEnumValueName, PyEnumValueDescr);
@@ -138,6 +142,18 @@ PyTypeObject InitializePyWrapperEnumValueDescrType()
 
 		static PyObject* DescrGet(FPyWrapperEnumValueDescrObject* InSelf, PyObject* InObj, PyObject* InType)
 		{
+			// Deprecated structs emit a warning
+			{
+				FString DeprecationMessage;
+				if (FPyWrapperEnumMetaData::IsEnumDeprecated(InSelf->EnumType, &DeprecationMessage) &&
+					PyUtil::SetPythonWarning(PyExc_DeprecationWarning, InSelf->EnumType, *FString::Printf(TEXT("Enum '%s' is deprecated: %s"), UTF8_TO_TCHAR(InSelf->EnumType->tp_name), *DeprecationMessage)) == -1
+					)
+				{
+					// -1 from SetPythonWarning means the warning should be an exception
+					return nullptr;
+				}
+			}
+
 			return PyConversion::Pythonize(InSelf->EnumValue);
 		}
 
@@ -206,9 +222,21 @@ UEnum* FPyWrapperEnumMetaData::GetEnum(PyTypeObject* PyType)
 	return PyWrapperMetaData ? PyWrapperMetaData->Enum : nullptr;
 }
 
-UEnum* FPyWrapperEnumMetaData::GetEnum(FPyWrapperEnum* Instance)
+bool FPyWrapperEnumMetaData::IsEnumDeprecated(PyTypeObject* PyType, FString* OutDeprecationMessage)
 {
-	return GetEnum(Py_TYPE(Instance));
+	if (FPyWrapperEnumMetaData* PyWrapperMetaData = FPyWrapperEnumMetaData::GetMetaData(PyType))
+	{
+		if (PyWrapperMetaData->DeprecationMessage.IsSet())
+		{
+			if (OutDeprecationMessage)
+			{
+				*OutDeprecationMessage = PyWrapperMetaData->DeprecationMessage.GetValue();
+			}
+			return true;
+		}
+	}
+
+	return false;
 }
 
 struct FPythonGeneratedEnumUtil

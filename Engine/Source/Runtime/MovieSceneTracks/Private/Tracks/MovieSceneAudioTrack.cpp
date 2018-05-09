@@ -39,7 +39,7 @@ bool UMovieSceneAudioTrack::SupportsMultipleRows() const
 
 void UMovieSceneAudioTrack::RemoveAllAnimationData()
 {
-	// do nothing
+	AudioSections.Empty();
 }
 
 

@@ -6,12 +6,13 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "FrameRate.h"
 #include "QualifiedFrameTime.h"
+#include "Timecode.h"
 #include "TimeManagementBlueprintLibrary.generated.h"
 
 /**
  * 
  */
-UCLASS(meta = (BlueprintThreadSafe))
+UCLASS(meta = (BlueprintThreadSafe, ScriptName = "TimeManagementLibrary"))
 class TIMEMANAGEMENT_API UTimeManagementBlueprintLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
@@ -27,4 +28,16 @@ public:
 	/** Multiplies a value in seconds against a FrameRate to get a new FrameTime. */
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "Seconds * FrameRate", CompactNodeTitle = "*"), Category = "Utilities|Time Management")
 	static FFrameTime Multiply_SecondsFrameRate(float TimeInSeconds, const FFrameRate& FrameRate);
+
+	/** Converts an Timecode to a string ie: hh:mm:ss */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Timecode to String", BlueprintAutocast), Category = "Utilities|Time Management")
+	static FString Conv_TimecodeToString(const FTimecode& InTimecode, bool bForceSignDisplay = false);
+
+public:
+	/**
+	 * Get the Timecode from the TimeManagement's TimecodeProvider.
+	 * @return true if the Timecode is valid. The timecode is valid when the TimecodeProfier is Synchronized.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Utilities|Timecode Provider")
+	static bool GetTimecode(FTimecode& OutTimecode);
 };

@@ -12,7 +12,7 @@
 extern PyTypeObject PyWrapperEnumType;
 
 /** Initialize the PyWrapperEnum types and add them to the given Python module */
-void InitializePyWrapperEnum(PyObject* PyModule);
+void InitializePyWrapperEnum(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Type for all UE4 exposed enum instances */
 struct FPyWrapperEnum : public FPyWrapperBase
@@ -34,11 +34,14 @@ struct FPyWrapperEnumMetaData : public FPyWrapperBaseMetaData
 	/** Get the UEnum from the given type */
 	static UEnum* GetEnum(PyTypeObject* PyType);
 
-	/** Get the UEnum from the type of the given instance */
-	static UEnum* GetEnum(FPyWrapperEnum* Instance);
+	/** Check to see if the enum is deprecated, and optionally return its deprecation message */
+	static bool IsEnumDeprecated(PyTypeObject* PyType, FString* OutDeprecationMessage = nullptr);
 
 	/** Unreal enum */
 	UEnum* Enum;
+
+	/** Set if this struct is deprecated and using it should emit a deprecation warning */
+	TOptional<FString> DeprecationMessage;
 };
 
 typedef TPyPtr<FPyWrapperEnum> FPyWrapperEnumPtr;

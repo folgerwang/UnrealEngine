@@ -7,24 +7,22 @@
 #include "ISequencerChannelInterface.h"
 #include "SequencerClipboardReconciler.h"
 #include "Tracks/MovieScenePropertyTrack.h"
+#include "Channels/MovieSceneChannel.h"
 #include "Channels/MovieSceneChannelProxy.h"
 #include "CurveModel.h"
 
-IKeyArea::IKeyArea(
-	uint32                               InChannelTypeID,
-	UMovieSceneSection&                  InSection,
-	TMovieSceneChannelHandle<void>       InChannel,
-	const FMovieSceneChannelEditorData&  InCommonEditorData,
-	TMovieSceneChannelHandle<const void> InSpecializedData
-)
-	: ChannelTypeID(InChannelTypeID)
-	, WeakOwningSection(&InSection)
-	, Channel(InChannel)
-	, SpecializedData(InSpecializedData)
-	, Color(InCommonEditorData.Color)
-	, ChannelName(InCommonEditorData.Name)
-	, DisplayText(InCommonEditorData.DisplayText)
+IKeyArea::IKeyArea(UMovieSceneSection& InSection, FMovieSceneChannelHandle InChannel)
+	: WeakOwningSection(&InSection)
+	, ChannelHandle(InChannel)
+	, Color(FLinearColor::White)
 {
+	if (const FMovieSceneChannelMetaData* MetaData = ChannelHandle.GetMetaData())
+	{
+		Color = MetaData->Color;
+		ChannelName = MetaData->Name;
+		DisplayText = MetaData->DisplayText;
+	}
+
 	UMovieScenePropertyTrack* PropertyTrack = InSection.GetTypedOuter<UMovieScenePropertyTrack>();
 	if (PropertyTrack && !PropertyTrack->GetPropertyPath().IsEmpty())
 	{
@@ -32,14 +30,9 @@ IKeyArea::IKeyArea(
 	}
 }
 
-void* IKeyArea::GetChannelPtr() const
+FMovieSceneChannel* IKeyArea::ResolveChannel() const
 {
-	return Channel.Get();
-}
-
-const void* IKeyArea::GetSpecializedEditorData() const
-{
-	return SpecializedData.Get();
+	return ChannelHandle.Get();
 }
 
 UMovieSceneSection* IKeyArea::GetOwningSection() const
@@ -57,34 +50,26 @@ void IKeyArea::SetName(FName InName)
 	ChannelName = InName;
 }
 
-ISequencerChannelInterface* IKeyArea::FindChannelInterface() const
+ISequencerChannelInterface* IKeyArea::FindChannelEditorInterface() const
 {
 	ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
-	ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelInterface(ChannelTypeID);
-	ensureMsgf(ChannelInterface, TEXT("No channel interface found for type ID 0x%08x. Did you forget to call ISequencerModule::RegisterChannelInterface<ChannelType>()?"), ChannelTypeID);
-	return ChannelInterface;
-}
-
-bool IKeyArea::HasAnyKeys() const
-{
-	ISequencerChannelInterface* ChannelInterface = FindChannelInterface();
-	void *const RawChannelPtr = GetChannelPtr();
-
-	return ChannelInterface && RawChannelPtr && ChannelInterface->HasAnyKeys_Raw(MakeArrayView(&RawChannelPtr, 1));
+	ISequencerChannelInterface* EditorInterface = SequencerModule.FindChannelEditorInterface(ChannelHandle.GetChannelTypeName());
+	ensureMsgf(EditorInterface, TEXT("No channel interface found for type '%s'. Did you forget to call ISequencerModule::RegisterChannelInterface<ChannelType>()?"), *ChannelHandle.GetChannelTypeName().ToString());
+	return EditorInterface;
 }
 
 FKeyHandle IKeyArea::AddOrUpdateKey(FFrameNumber Time, const FGuid& ObjectBindingID, ISequencer& InSequencer)
 {
-	ISequencerChannelInterface* ChannelInterface = FindChannelInterface();
-	void* RawChannelPtr = GetChannelPtr();
+	ISequencerChannelInterface* EditorInterface = FindChannelEditorInterface();
+	FMovieSceneChannel* Channel = ChannelHandle.Get();
 
-	// The specialized data may be null, but is passed to the interface regardless
-	const void* RawSpecializedData = GetSpecializedEditorData();
+	// The extended editor data may be null, but is passed to the interface regardless
+	const void* RawExtendedData = ChannelHandle.GetExtendedEditorData();
 
-	if (ChannelInterface && RawChannelPtr)
+	if (EditorInterface && Channel)
 	{
 		FTrackInstancePropertyBindings* BindingsPtr = PropertyBindings.IsSet() ? &PropertyBindings.GetValue() : nullptr;
-		return ChannelInterface->AddOrUpdateKey_Raw(RawChannelPtr, RawSpecializedData, Time, InSequencer, ObjectBindingID, BindingsPtr);
+		return EditorInterface->AddOrUpdateKey_Raw(Channel, RawExtendedData, Time, InSequencer, ObjectBindingID, BindingsPtr);
 	}
 
 	return FKeyHandle();
@@ -92,15 +77,13 @@ FKeyHandle IKeyArea::AddOrUpdateKey(FFrameNumber Time, const FGuid& ObjectBindin
 
 FKeyHandle IKeyArea::DuplicateKey(FKeyHandle InKeyHandle) const
 {
-	ISequencerChannelInterface* ChannelInterface = FindChannelInterface();
-
 	FKeyHandle NewHandle = FKeyHandle::Invalid();
 
-	void* RawChannelPtr = GetChannelPtr();
-	if (ChannelInterface && RawChannelPtr)
+	if (FMovieSceneChannel* Channel = ChannelHandle.Get())
 	{
-		ChannelInterface->DuplicateKeys_Raw(RawChannelPtr, TArrayView<const FKeyHandle>(&InKeyHandle, 1), TArrayView<FKeyHandle>(&NewHandle, 1));
+		Channel->DuplicateKeys(TArrayView<const FKeyHandle>(&InKeyHandle, 1), TArrayView<FKeyHandle>(&NewHandle, 1));
 	}
+
 	return NewHandle;
 }
 
@@ -108,44 +91,34 @@ void IKeyArea::SetKeyTimes(TArrayView<const FKeyHandle> InKeyHandles, TArrayView
 {
 	check(InKeyHandles.Num() == InKeyTimes.Num());
 
-	ISequencerChannelInterface* ChannelInterface = FindChannelInterface();
-	void* RawChannelPtr = GetChannelPtr();
-
-	if (ChannelInterface && RawChannelPtr)
+	if (FMovieSceneChannel* Channel = ChannelHandle.Get())
 	{
-		ChannelInterface->SetKeyTimes_Raw(RawChannelPtr, InKeyHandles, InKeyTimes);
+		Channel->SetKeyTimes(InKeyHandles, InKeyTimes);
 	}
 }
 
 void IKeyArea::GetKeyTimes(TArrayView<const FKeyHandle> InKeyHandles, TArrayView<FFrameNumber> OutTimes) const
 {
-	ISequencerChannelInterface* ChannelInterface = FindChannelInterface();
-
-	void* RawChannelPtr = GetChannelPtr();
-	if (ChannelInterface && RawChannelPtr)
+	if (FMovieSceneChannel* Channel = ChannelHandle.Get())
 	{
-		ChannelInterface->GetKeyTimes_Raw(RawChannelPtr, InKeyHandles, OutTimes);
+		Channel->GetKeyTimes(InKeyHandles, OutTimes);
 	}
 }
 
 void IKeyArea::GetKeyInfo(TArray<FKeyHandle>* OutHandles, TArray<FFrameNumber>* OutTimes, const TRange<FFrameNumber>& WithinRange) const
 {
-	ISequencerChannelInterface* ChannelInterface = FindChannelInterface();
-
-	void* RawChannelPtr = GetChannelPtr();
-	if (ChannelInterface && RawChannelPtr)
+	if (FMovieSceneChannel* Channel = ChannelHandle.Get())
 	{
-		ChannelInterface->GetKeys_Raw(RawChannelPtr, WithinRange, OutTimes, OutHandles);
+		Channel->GetKeys(WithinRange, OutTimes, OutHandles);
 	}
 }
 
 TSharedPtr<FStructOnScope> IKeyArea::GetKeyStruct(FKeyHandle KeyHandle) const
 {
-	ISequencerChannelInterface* ChannelInterface = FindChannelInterface();
-
-	if (ChannelInterface && Channel.Get())
+	ISequencerChannelInterface* EditorInterface = FindChannelEditorInterface();
+	if (EditorInterface)
 	{
-		return ChannelInterface->GetKeyStruct_Raw(Channel, KeyHandle);
+		return EditorInterface->GetKeyStruct_Raw(ChannelHandle, KeyHandle);
 	}
 	return nullptr;
 }
@@ -154,30 +127,27 @@ void IKeyArea::DrawKeys(TArrayView<const FKeyHandle> InKeyHandles, TArrayView<FK
 {
 	check(InKeyHandles.Num() == OutKeyDrawParams.Num());
 
-	ISequencerChannelInterface* ChannelInterface = FindChannelInterface();
+	ISequencerChannelInterface* EditorInterface = FindChannelEditorInterface();
+	FMovieSceneChannel* Channel = ChannelHandle.Get();
 
-	void* RawChannelPtr = GetChannelPtr();
-	if (ChannelInterface && RawChannelPtr)
+	if (EditorInterface && Channel)
 	{
-		return ChannelInterface->DrawKeys_Raw(RawChannelPtr, InKeyHandles, OutKeyDrawParams);
+		return EditorInterface->DrawKeys_Raw(Channel, InKeyHandles, OutKeyDrawParams);
 	}
 }
 
 bool IKeyArea::CanCreateKeyEditor() const
 {
-	ISequencerChannelInterface* ChannelInterface = FindChannelInterface();
-	void* RawChannelPtr = GetChannelPtr();
-	return ChannelInterface && RawChannelPtr && ChannelInterface->CanCreateKeyEditor_Raw(RawChannelPtr);
+	ISequencerChannelInterface* EditorInterface = FindChannelEditorInterface();
+	const FMovieSceneChannel* Channel = ChannelHandle.Get();
+
+	return EditorInterface && Channel && EditorInterface->CanCreateKeyEditor_Raw(Channel);
 }
 
 TSharedRef<SWidget> IKeyArea::CreateKeyEditor(TWeakPtr<ISequencer> Sequencer, const FGuid& ObjectBindingID)
 {
-	ISequencerChannelInterface* ChannelInterface = FindChannelInterface();
-	void* RawChannelPtr = GetChannelPtr();
+	ISequencerChannelInterface* EditorInterface = FindChannelEditorInterface();
 	UMovieSceneSection* OwningSection = GetOwningSection();
-
-	// The specialized data may be null, but is passed to the interface regardless
-	const void* RawSpecializedData = GetSpecializedEditorData();
 
 	TWeakPtr<FTrackInstancePropertyBindings> PropertyBindingsPtr;
 	if (PropertyBindings.IsSet())
@@ -185,33 +155,33 @@ TSharedRef<SWidget> IKeyArea::CreateKeyEditor(TWeakPtr<ISequencer> Sequencer, co
 		PropertyBindingsPtr = TSharedPtr<FTrackInstancePropertyBindings>(AsShared(), &PropertyBindings.GetValue());
 	}
 
-	if (ChannelInterface && RawChannelPtr && OwningSection)
+	if (EditorInterface && OwningSection)
 	{
-		return ChannelInterface->CreateKeyEditor_Raw(RawChannelPtr, RawSpecializedData, OwningSection, ObjectBindingID, PropertyBindingsPtr, Sequencer);
+		return EditorInterface->CreateKeyEditor_Raw(ChannelHandle, OwningSection, ObjectBindingID, PropertyBindingsPtr, Sequencer);
 	}
 	return SNullWidget::NullWidget;
 }
 
 void IKeyArea::CopyKeys(FMovieSceneClipboardBuilder& ClipboardBuilder, TArrayView<const FKeyHandle> KeyMask) const
 {
-	ISequencerChannelInterface* ChannelInterface = FindChannelInterface();
-	void* RawChannelPtr = GetChannelPtr();
+	ISequencerChannelInterface* EditorInterface = FindChannelEditorInterface();
+	FMovieSceneChannel* Channel = ChannelHandle.Get();
 	UMovieSceneSection* OwningSection = GetOwningSection();
-	if (ChannelInterface && RawChannelPtr && OwningSection)
+	if (EditorInterface && Channel && OwningSection)
 	{
-		ChannelInterface->CopyKeys_Raw(RawChannelPtr, OwningSection, ChannelName, ClipboardBuilder, KeyMask);
+		EditorInterface->CopyKeys_Raw(Channel, OwningSection, ChannelName, ClipboardBuilder, KeyMask);
 	}
 }
 
 void IKeyArea::PasteKeys(const FMovieSceneClipboardKeyTrack& KeyTrack, const FMovieSceneClipboardEnvironment& SrcEnvironment, const FSequencerPasteEnvironment& DstEnvironment)
 {
-	ISequencerChannelInterface* ChannelInterface = FindChannelInterface();
-	void* RawChannelPtr = GetChannelPtr();
+	ISequencerChannelInterface* EditorInterface = FindChannelEditorInterface();
+	FMovieSceneChannel* Channel = ChannelHandle.Get();
 	UMovieSceneSection* OwningSection = GetOwningSection();
-	if (ChannelInterface && RawChannelPtr && OwningSection)
+	if (EditorInterface && Channel && OwningSection)
 	{
 		TArray<FKeyHandle> PastedKeys;
-		ChannelInterface->PasteKeys_Raw(RawChannelPtr, OwningSection, KeyTrack, SrcEnvironment, DstEnvironment, PastedKeys);
+		EditorInterface->PasteKeys_Raw(Channel, OwningSection, KeyTrack, SrcEnvironment, DstEnvironment, PastedKeys);
 
 		for (FKeyHandle KeyHandle : PastedKeys)
 		{
@@ -222,12 +192,11 @@ void IKeyArea::PasteKeys(const FMovieSceneClipboardKeyTrack& KeyTrack, const FMo
 
 TUniquePtr<FCurveModel> IKeyArea::CreateCurveEditorModel(TSharedRef<ISequencer> InSequencer) const
 {
-	ISequencerChannelInterface* ChannelInterface = FindChannelInterface();
-	void* RawChannelPtr = GetChannelPtr();
+	ISequencerChannelInterface* EditorInterface = FindChannelEditorInterface();
 	UMovieSceneSection* OwningSection = GetOwningSection();
-	if (ChannelInterface && RawChannelPtr && OwningSection)
+	if (EditorInterface && OwningSection)
 	{
-		TUniquePtr<FCurveModel> CurveModel = ChannelInterface->CreateCurveEditorModel_Raw(OwningSection->GetChannelProxy().MakeHandle(RawChannelPtr), OwningSection, InSequencer);
+		TUniquePtr<FCurveModel> CurveModel = EditorInterface->CreateCurveEditorModel_Raw(ChannelHandle, OwningSection, InSequencer);
 		if (CurveModel.IsValid())
 		{
 			CurveModel->SetDisplayName(DisplayText);

@@ -722,7 +722,6 @@ FViewportRHIRef FD3D12DynamicRHI::RHICreateViewport(void* WindowHandle, uint32 S
 {
 	check(IsInGameThread());
 
-	// Use a default pixel format if none was specified	
 	if (PreferredPixelFormat == EPixelFormat::PF_Unknown)
 	{
 		static const auto CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));

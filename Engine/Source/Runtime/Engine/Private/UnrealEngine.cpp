@@ -1662,8 +1662,11 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 
 	if (CustomTimeStep)
 	{
-		CustomTimeStep->UpdateTimeStep(this);
-		return;
+		bool bRunEngineCode = CustomTimeStep->UpdateTimeStep(this);
+		if (!bRunEngineCode)
+		{
+			return;
+		}
 	}
 
 	// This is always in realtime and is not adjusted by fixed framerate. Start slightly below current real time

@@ -789,7 +789,7 @@ void AddUnwoundKey(FMovieSceneFloatChannel& Channel, FFrameNumber Time, float Va
 {
 	int32 Index = Channel.AddLinearKey(Time, Value);
 
-	TArrayView<FMovieSceneFloatValue> Values = Channel.GetInterface().GetValues();
+	TArrayView<FMovieSceneFloatValue> Values = Channel.GetData().GetValues();
 	if (Index >= 1)
 	{
 		const float PreviousValue = Values[Index - 1].Value;

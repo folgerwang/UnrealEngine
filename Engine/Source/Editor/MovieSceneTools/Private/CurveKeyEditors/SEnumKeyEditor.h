@@ -5,8 +5,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
 #include "SequencerKeyEditor.h"
-
-struct FMovieSceneByteChannel;
+#include "Channels/MovieSceneByteChannel.h"
 
 class SEnumCurveKeyEditor : public SCompoundWidget
 {

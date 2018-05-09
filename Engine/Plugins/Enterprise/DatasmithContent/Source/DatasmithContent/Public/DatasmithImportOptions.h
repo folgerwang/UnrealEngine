@@ -37,6 +37,19 @@ enum class EDatasmithImportAssetConflictPolicy : uint8
 };
 
 UENUM()
+enum class EDatasmithImportActorPolicy : uint8
+{
+	/** Import new actors, update and delete existing actors. Doesn't recreate actors that exist in the source both not in the destination. */
+	Update,
+
+	/** Same as update but recreates deleted actors so that the source and destination are the same. */
+	Full,
+
+	/** Skip importing a certain type of actors */
+	Ignore,
+};
+
+UENUM()
 enum class EDatasmithImportMaterialQuality : uint8
 {
 	UseNoFresnelCurves,
@@ -125,6 +138,23 @@ public:
 };
 
 USTRUCT(BlueprintType)
+struct DATASMITHCONTENT_API FDatasmithReimportOptions
+{
+	GENERATED_BODY()
+
+public:
+	FDatasmithReimportOptions();
+
+	/** Specifies whether geometry are to be imported or not */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SyncCurrentLevelActors", meta = (DisplayName = "Datasmith Scene Actors"))
+	bool bUpdateActors;
+
+	/** Specifies whether materials and textures are to be imported or not */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SyncCurrentLevelActors", meta = (DisplayName = "Re-Spawn Deleted Actors", EditCondition = "bUpdateActors"))
+	bool bRespawnDeletedActors;
+};
+
+USTRUCT(BlueprintType)
 struct DATASMITHCONTENT_API FDatasmithImportBaseOptions
 {
 	GENERATED_USTRUCT_BODY()
@@ -132,29 +162,29 @@ struct DATASMITHCONTENT_API FDatasmithImportBaseOptions
 	FDatasmithImportBaseOptions();
 
 	/** Specifies where to put the content */
-	UPROPERTY(BlueprintReadWrite, Category = Import)
-	EDatasmithImportScene SceneHandling; // Not displayed
+	UPROPERTY(BlueprintReadWrite, Category = Import, Transient)
+	EDatasmithImportScene SceneHandling; // Not displayed, not saved
 
 	/** Specifies whether geometry are to be imported or not */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Include, meta = (DisplayName = "Geometry"))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Geometry"))
 	bool bIncludeGeometry;
 
 	/** Specifies whether materials and textures are to be imported or not */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Include, meta = (DisplayName = "Materials & Textures"))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Materials & Textures"))
 	bool bIncludeMaterial;
 
 	/** Specifies whether lights are to be imported or not */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Include, meta = (DisplayName = "Lights"))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Lights"))
 	bool bIncludeLight;
 
 	/** Specifies whether cameras are to be imported or not */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Include, meta = (DisplayName = "Cameras"))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Cameras"))
 	bool bIncludeCamera;
 
-	UPROPERTY(BlueprintReadWrite, AdvancedDisplay, Category = Include, meta = (ShowOnlyInnerProperties))
+	UPROPERTY(BlueprintReadWrite, AdvancedDisplay, Category = Process, meta = (ShowOnlyInnerProperties))
 	FDatasmithAssetImportOptions AssetOptions;
 
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = Include, meta = (ShowOnlyInnerProperties))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = Process, meta = (ShowOnlyInnerProperties))
 	FDatasmithStaticMeshImportOptions StaticMeshOptions;
 };
 
@@ -203,7 +233,7 @@ public:
 	}
 };
 
-UCLASS(config = EditorPerProjectUserSettings, HideCategories = ("TessellationOff"))
+UCLASS(config = EditorPerProjectUserSettings, HideCategories = ("NotVisible"))
 class DATASMITHCONTENT_API UDatasmithImportOptions : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -223,15 +253,19 @@ public:
 
 	/** Specifies what to do when actor conflicts */
 	UPROPERTY(Transient, AdvancedDisplay)
-	EDatasmithImportAssetConflictPolicy ActorConflictPolicy; // Not displayed. Kept for future use
+	EDatasmithImportActorPolicy StaticMeshActorImportPolicy; // Not displayed. Kept for future use
 
 	/** Specifies what to do when light conflicts */
 	UPROPERTY(Transient, AdvancedDisplay)
-	EDatasmithImportAssetConflictPolicy LightConflictPolicy; // Not displayed. Kept for future use
+	EDatasmithImportActorPolicy LightImportPolicy; // Not displayed. Kept for future use
 
 	/** Specifies what to do when material conflicts */
 	UPROPERTY(Transient, AdvancedDisplay)
-	EDatasmithImportAssetConflictPolicy CameraConflictPolicy; // Not displayed. Kept for future use
+	EDatasmithImportActorPolicy CameraImportPolicy; // Not displayed. Kept for future use
+
+	/** Specifies what to do when actor conflicts */
+	UPROPERTY(Transient, AdvancedDisplay)
+	EDatasmithImportActorPolicy OtherActorImportPolicy; // Not displayed. Kept for future use
 
 	/** Specifies what to do when material conflicts */
 	UPROPERTY(Transient, AdvancedDisplay)
@@ -243,8 +277,12 @@ public:
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "Options", meta = (ShowOnlyInnerProperties))
 	FDatasmithImportBaseOptions BaseOptions;
 
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "TessellationOff", meta = (ShowOnlyInnerProperties))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "NotVisible", meta = (ShowOnlyInnerProperties))
 	FDatasmithTessellationOptions TessellationOptions;
+
+	/** Options specific to the reimport process */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "NotVisible", meta = (ShowOnlyInnerProperties))
+	FDatasmithReimportOptions ReimportOptions;
 
 	/** Name of the imported file without its path */
 	FString FileName;
@@ -253,5 +291,5 @@ public:
 	/** Whether to use or not the same options when loading multiple files. Default false */
 	bool bUseSameOptions;
 
-	void UpdateNotDisplayedConfig();
+	void UpdateNotDisplayedConfig( bool bIsAReimport );
 };
