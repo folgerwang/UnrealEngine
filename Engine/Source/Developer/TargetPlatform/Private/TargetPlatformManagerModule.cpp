@@ -37,6 +37,36 @@ DEFINE_LOG_CATEGORY_STATIC(LogTargetPlatformManager, Log, All);
 	#define AUTOSDKS_ENABLED 0
 #endif
 
+static const size_t MaxPlatformCount = 64;		// In the unlikely event that someone bumps this please note that there's
+												// an implicit assumption that there won't be more than 64 unique target
+												// platforms in the FTargetPlatformSet code since it uses one bit of an
+												// uint64 per platform.
+
+static const ITargetPlatform* TargetPlatformArray[MaxPlatformCount];
+
+static int32 PlatformCounter = 0;
+
+int32 
+ITargetPlatform::AssignPlatformOrdinal(const ITargetPlatform& Platform)
+{
+	check(PlatformCounter < MaxPlatformCount);
+
+	const int32 Ordinal = PlatformCounter++;
+
+	check(TargetPlatformArray[Ordinal] == nullptr);
+	TargetPlatformArray[Ordinal] = &Platform;
+
+	return Ordinal;
+}
+
+const ITargetPlatform* 
+ITargetPlatform::GetPlatformFromOrdinal(int32 Ordinal)
+{
+	check(Ordinal < PlatformCounter);
+
+	return TargetPlatformArray[Ordinal];
+}
+
 
 /**
  * Module for the target platform manager
