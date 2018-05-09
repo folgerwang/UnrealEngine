@@ -2298,7 +2298,8 @@ void FFbxExporter::ExportAnimatedFloat(FbxProperty* FbxProperty, FInterpCurveFlo
 }
 
 
-void RichCurveInterpolationToFbxInterpolation(ERichCurveInterpMode InInterpolation, ERichCurveTangentMode InTangentMode, FbxAnimCurveDef::EInterpolationType &OutInterpolation, FbxAnimCurveDef::ETangentMode &OutTangentMode)
+void RichCurveInterpolationToFbxInterpolation(ERichCurveInterpMode InInterpolation, ERichCurveTangentMode InTangentMode, ERichCurveTangentWeightMode InTangentWeightMode,
+	FbxAnimCurveDef::EInterpolationType &OutInterpolation, FbxAnimCurveDef::ETangentMode &OutTangentMode, FbxAnimCurveDef::EWeightedMode &OutTangentWeightMode)
 {
 	if (InInterpolation == ERichCurveInterpMode::RCIM_Cubic)
 	{
@@ -2310,28 +2311,53 @@ void RichCurveInterpolationToFbxInterpolation(ERichCurveInterpMode InInterpolati
 		{
 			OutTangentMode = FbxAnimCurveDef::eTangentBreak;
 		}
+		else if (InTangentMode == RCTM_Auto)
+		{
+			OutTangentMode = FbxAnimCurveDef::eTangentAuto;
+		}
+		
+		switch (InTangentWeightMode)
+		{
+		case ERichCurveTangentWeightMode::RCTWM_WeightedBoth:
+			OutTangentWeightMode = FbxAnimCurveDef::eWeightedAll;
+			break;
+		case ERichCurveTangentWeightMode::RCTWM_WeightedArrive:
+			OutTangentWeightMode = FbxAnimCurveDef::eWeightedNextLeft;
+			break;
+		case ERichCurveTangentWeightMode::RCTWM_WeightedLeave:
+			OutTangentWeightMode = FbxAnimCurveDef::eWeightedRight;
+			break;
+		case ERichCurveTangentWeightMode::RCTWM_WeightedNone:
+		default:
+			OutTangentWeightMode = FbxAnimCurveDef::eWeightedNone;
+			break;
+
+		};
 	}
 	else if (InInterpolation == ERichCurveInterpMode::RCIM_Linear)
 	{
 		OutInterpolation = FbxAnimCurveDef::eInterpolationLinear;
 		OutTangentMode = FbxAnimCurveDef::eTangentUser;
+		OutTangentWeightMode = FbxAnimCurveDef::eWeightedNone;
 	}
 	else if (InInterpolation == ERichCurveInterpMode::RCIM_Constant)
 	{
 		OutInterpolation = FbxAnimCurveDef::eInterpolationConstant;
 		OutTangentMode = (FbxAnimCurveDef::ETangentMode)FbxAnimCurveDef::eConstantStandard;
+		OutTangentWeightMode = FbxAnimCurveDef::eWeightedNone;
 	}
 	else
 	{
 		OutInterpolation = FbxAnimCurveDef::eInterpolationCubic;
 		OutTangentMode = FbxAnimCurveDef::eTangentUser;
+		OutTangentWeightMode = FbxAnimCurveDef::eWeightedNone;
 	}
 }
 
 void FFbxExporter::ExportChannelToFbxCurve(FbxAnimCurve& InFbxCurve, const FMovieSceneFloatChannel& InChannel, FFrameRate TickResolution, ERichCurveValueMode ValueMode, bool bNegative)
 {
 	const float NegateFactor = bNegative ? -1.f : 1.f;
-
+	const float kOneThird = 1.f / 3.f;
 	InFbxCurve.KeyModifyBegin();
 
 	TArrayView<const FFrameNumber>          Times  = InChannel.GetTimes();
@@ -2339,40 +2365,59 @@ void FFbxExporter::ExportChannelToFbxCurve(FbxAnimCurve& InFbxCurve, const FMovi
 
 	for (int32 Index = 0; Index < Times.Num(); ++Index)
 	{
-		FFrameNumber          KeyTime  = Times[Index];
-		FMovieSceneFloatValue KeyValue = Values[Index];
+		const FFrameNumber          KeyTime  = Times[Index];
+		const FMovieSceneFloatValue KeyValue = Values[Index];
 
 		const float Value = (ValueMode == ERichCurveValueMode::Fov ? DefaultCamera->ComputeFocalLength( KeyValue.Value ) : KeyValue.Value) * NegateFactor;
 
 		FbxTime FbxTime;
 		FbxAnimCurveKey FbxKey;
-		FbxTime.SetSecondDouble(KeyTime / TickResolution);
+		const double KeyTimeSeconds = KeyTime / TickResolution;
+		FbxTime.SetSecondDouble(KeyTimeSeconds);
 
-		int FbxKeyIndex = InFbxCurve.KeyAdd(FbxTime);
+		const int FbxKeyIndex = InFbxCurve.KeyAdd(FbxTime);
 
 		FbxAnimCurveDef::EInterpolationType Interpolation = FbxAnimCurveDef::eInterpolationCubic;
 		FbxAnimCurveDef::ETangentMode Tangent = FbxAnimCurveDef::eTangentAuto;
-
-		RichCurveInterpolationToFbxInterpolation(KeyValue.InterpMode, KeyValue.TangentMode, Interpolation, Tangent);
+		FbxAnimCurveDef::EWeightedMode WeightedMode = FbxAnimCurveDef::eWeightedNone;
+		RichCurveInterpolationToFbxInterpolation(KeyValue.InterpMode, KeyValue.TangentMode, KeyValue.Tangent.TangentWeightMode, Interpolation, Tangent, WeightedMode);
 
 		if (Interpolation == FbxAnimCurveDef::eInterpolationCubic)
 		{
 			if (Index < Times.Num() - 1)
 			{
+				float LeaveTangentWeight = kOneThird;
+				float NextArriveTangentWeight = kOneThird;
+				const double  NextTime = Times[Index + 1] / TickResolution;
+				const float TimeDiff = static_cast<float>(NextTime - KeyTimeSeconds);
+				
 				float LeaveTangent = KeyValue.Tangent.LeaveTangent * TickResolution.AsDecimal();
-				float NextArriveTangent = Values[Index+1].Tangent.ArriveTangent * TickResolution.AsDecimal();
+				float NextArriveTangent = Values[Index + 1].Tangent.ArriveTangent * TickResolution.AsDecimal();
 
+				//Need to convert Ue4 tangent weight which is the length of the hypotenuse to FBX normalized X(time) weight
+				if (WeightedMode == FbxAnimCurveDef::eWeightedAll || FbxAnimCurveDef::eWeightedRight)
+				{
+					const float XVal = FMath::Sqrt((KeyValue.Tangent.LeaveTangentWeight * KeyValue.Tangent.LeaveTangentWeight) / (1.0f + LeaveTangent * LeaveTangent));
+					LeaveTangentWeight = XVal / TimeDiff;
+				}
+
+				//make sure next tangent is weighted else use default weight
+				if ((Values[Index + 1].Tangent.TangentWeightMode == ERichCurveTangentWeightMode::RCTWM_WeightedBoth || Values[Index + 1].Tangent.TangentWeightMode == ERichCurveTangentWeightMode::RCTWM_WeightedArrive) )
+				{
+					const float XVal = FMath::Sqrt((Values[Index + 1].Tangent.ArriveTangentWeight * Values[Index + 1].Tangent.ArriveTangentWeight) / (1.0f + NextArriveTangent * NextArriveTangent));
+					NextArriveTangentWeight = XVal / TimeDiff;
+				}
 				if (bNegative)
 				{
 					LeaveTangent = -LeaveTangent;
 					NextArriveTangent = -NextArriveTangent;
 				}
 
-				InFbxCurve.KeySet(FbxKeyIndex, FbxTime, Value, Interpolation, Tangent, LeaveTangent, NextArriveTangent );
+				InFbxCurve.KeySet(FbxKeyIndex, FbxTime, Value, Interpolation, Tangent, LeaveTangent, NextArriveTangent, WeightedMode, LeaveTangentWeight, NextArriveTangentWeight );
 			}
 			else
 			{
-				InFbxCurve.KeySet(FbxKeyIndex, FbxTime, Value, Interpolation, Tangent);
+				InFbxCurve.KeySet(FbxKeyIndex, FbxTime, Value, Interpolation, Tangent, 0.f, 0.f, WeightedMode);
 			}
 		}
 		else

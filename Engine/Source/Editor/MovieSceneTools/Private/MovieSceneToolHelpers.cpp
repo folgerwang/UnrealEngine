@@ -909,31 +909,40 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 
 				const int32 ChannelIndex = 0;
 				const int32 CompositeIndex = 0;
-				FInterpCurveFloat CurveHandle;
+				FRichCurve Source;
 				const bool bNegative = false;
-				CurveAPI.GetCurveData(NodeName, AnimatedPropertyName, ChannelIndex, CompositeIndex, CurveHandle, bNegative);
+				CurveAPI.GetCurveData(NodeName, AnimatedPropertyName, ChannelIndex, CompositeIndex, Source, bNegative);
 
 				FMovieSceneFloatChannel* Channel = FloatSection->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(0);
 				TMovieSceneChannel<FMovieSceneFloatValue> ChannelInterface = Channel->GetInterface();
 
 				ChannelInterface.Reset();
 				double DecimalRate = FrameRate.AsDecimal();
-				for (int32 KeyIndex = 0; KeyIndex < CurveHandle.Points.Num(); ++KeyIndex)
+
+				for (auto SourceIt = Source.GetKeyHandleIterator(); SourceIt; ++SourceIt)
 				{
-					float ArriveTangent = CurveHandle.Points[KeyIndex].ArriveTangent;
-					if (KeyIndex > 0)
+					FRichCurveKey &Key = Source.GetKey(SourceIt.Key());
+					float ArriveTangent = Key.ArriveTangent;
+					FKeyHandle PrevKeyHandle = Source.GetPreviousKey(SourceIt.Key());
+					if (Source.IsKeyHandleValid(PrevKeyHandle))
 					{
-						ArriveTangent = ArriveTangent / ((CurveHandle.Points[KeyIndex].InVal - CurveHandle.Points[KeyIndex - 1].InVal) * DecimalRate);
+						FRichCurveKey &PrevKey = Source.GetKey(PrevKeyHandle);
+						ArriveTangent = ArriveTangent / ((Key.Time - PrevKey.Time) * DecimalRate);
+
 					}
-					
-					float LeaveTangent = CurveHandle.Points[KeyIndex].LeaveTangent;
-					if (KeyIndex < CurveHandle.Points.Num() - 1)
+					float LeaveTangent = Key.LeaveTangent;
+					FKeyHandle NextKeyHandle = Source.GetNextKey(SourceIt.Key());
+					if (Source.IsKeyHandleValid(NextKeyHandle))
 					{
-						LeaveTangent = LeaveTangent / ((CurveHandle.Points[KeyIndex+1].InVal - CurveHandle.Points[KeyIndex].InVal) * DecimalRate);
+						FRichCurveKey &NextKey = Source.GetKey(NextKeyHandle);
+						LeaveTangent = LeaveTangent / ((NextKey.Time - Key.Time) * DecimalRate);
 					}
 
-					FFrameNumber KeyTime = (CurveHandle.Points[KeyIndex].InVal * FrameRate).RoundToFrame();
-					FMatineeImportTools::SetOrAddKey(ChannelInterface, KeyTime, CurveHandle.Points[KeyIndex].OutVal, ArriveTangent, LeaveTangent, CurveHandle.Points[KeyIndex].InterpMode);
+					FFrameNumber KeyTime = (Key.Time * FrameRate).RoundToFrame();
+					FMatineeImportTools::SetOrAddKey(ChannelInterface, KeyTime, Key.Value, ArriveTangent, LeaveTangent,
+						MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation(Key.InterpMode, Key.TangentMode), Key.TangentWeightMode,
+						Key.ArriveTangentWeight, Key.LeaveTangentWeight);
+
 				}
 
 				if (ImportFBXSettings->bReduceKeys)
@@ -958,23 +967,29 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 	return false;
 }
 
-void ImportTransformChannel(const FInterpCurveFloat& Source, FMovieSceneFloatChannel* Dest, FFrameRate DestFrameRate, bool bNegateTangents)
+void ImportTransformChannel(const FRichCurve& Source, FMovieSceneFloatChannel* Dest, FFrameRate DestFrameRate, bool bNegateTangents)
 {
 	TMovieSceneChannel<FMovieSceneFloatValue> ChannelInterface = Dest->GetInterface();
 	ChannelInterface.Reset();
 	double DecimalRate = DestFrameRate.AsDecimal();
-	for (int32 KeyIndex = 0; KeyIndex < Source.Points.Num(); ++KeyIndex)
+
+	for (auto SourceIt = Source.GetKeyHandleIterator(); SourceIt; ++SourceIt)
 	{
-		float ArriveTangent = Source.Points[KeyIndex].ArriveTangent;
-		if (KeyIndex > 0)
+		const FRichCurveKey Key = Source.GetKey(SourceIt.Key());
+		float ArriveTangent = Key.ArriveTangent;
+		FKeyHandle PrevKeyHandle = Source.GetPreviousKey(SourceIt.Key());
+		if (Source.IsKeyHandleValid(PrevKeyHandle))
 		{
-			ArriveTangent = ArriveTangent / ((Source.Points[KeyIndex].InVal - Source.Points[KeyIndex-1].InVal) * DecimalRate);
+			const FRichCurveKey PrevKey = Source.GetKey(PrevKeyHandle);
+			ArriveTangent = ArriveTangent / ((Key.Time - PrevKey.Time) * DecimalRate);
+
 		}
-		
-		float LeaveTangent = Source.Points[KeyIndex].LeaveTangent;
-		if (KeyIndex < Source.Points.Num() - 1)
+		float LeaveTangent = Key.LeaveTangent;
+		FKeyHandle NextKeyHandle = Source.GetNextKey(SourceIt.Key());
+		if (Source.IsKeyHandleValid(NextKeyHandle))
 		{
-			LeaveTangent = LeaveTangent / ((Source.Points[KeyIndex+1].InVal - Source.Points[KeyIndex].InVal) * DecimalRate);
+			const FRichCurveKey NextKey = Source.GetKey(NextKeyHandle);
+			LeaveTangent = LeaveTangent / ((NextKey.Time - Key.Time) * DecimalRate);
 		}
 
 		if (bNegateTangents)
@@ -983,9 +998,14 @@ void ImportTransformChannel(const FInterpCurveFloat& Source, FMovieSceneFloatCha
 			LeaveTangent = -LeaveTangent;
 		}
 
-		FFrameNumber KeyTime = (Source.Points[KeyIndex].InVal * DestFrameRate).RoundToFrame();
-		FMatineeImportTools::SetOrAddKey(ChannelInterface, KeyTime, Source.Points[KeyIndex].OutVal, ArriveTangent, LeaveTangent, Source.Points[KeyIndex].InterpMode);
+		FFrameNumber KeyTime = (Key.Time * DestFrameRate).RoundToFrame();
+		FMatineeImportTools::SetOrAddKey(ChannelInterface, KeyTime, Key.Value, ArriveTangent, LeaveTangent,
+			MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation(Key.InterpMode, Key.TangentMode), Key.TangentWeightMode,
+			Key.ArriveTangentWeight, Key.LeaveTangentWeight);
+
 	}
+
+
 	const UMovieSceneUserImportFBXSettings* ImportFBXSettings = GetDefault<UMovieSceneUserImportFBXSettings>();
 	if (ImportFBXSettings->bReduceKeys)
 	{
@@ -1002,13 +1022,13 @@ bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurves
 	const UMovieSceneUserImportFBXSettings* ImportFBXSettings = GetDefault<UMovieSceneUserImportFBXSettings>();
 
 	// Look for transforms explicitly
-	FInterpCurveFloat Translation[3];
-	FInterpCurveFloat EulerRotation[3];
-	FInterpCurveFloat Scale[3];
+	FRichCurve Translation[3];
+	FRichCurve EulerRotation[3];
+	FRichCurve Scale[3];
 	FTransform DefaultTransform;
 	CurveAPI.GetConvertedTransformCurveData(NodeName, Translation[0], Translation[1], Translation[2], EulerRotation[0], EulerRotation[1], EulerRotation[2], Scale[0], Scale[1], Scale[2], DefaultTransform);
 
-	UMovieScene3DTransformTrack* TransformTrack = InMovieScene->FindTrack<UMovieScene3DTransformTrack>(ObjectBinding); 
+ 	UMovieScene3DTransformTrack* TransformTrack = InMovieScene->FindTrack<UMovieScene3DTransformTrack>(ObjectBinding); 
 	if (!TransformTrack)
 	{
 		InMovieScene->Modify();
@@ -1634,14 +1654,22 @@ bool MovieSceneToolHelpers::ImportFBX(UMovieScene* InMovieScene, ISequencer& InS
 }
 
 
-EInterpCurveMode MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation( ERichCurveInterpMode InterpMode )
+EInterpCurveMode MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation( ERichCurveInterpMode InterpMode, ERichCurveTangentMode TangentMode)
 {
 	switch ( InterpMode )
 	{
 	case ERichCurveInterpMode::RCIM_Constant:
 		return CIM_Constant;
 	case ERichCurveInterpMode::RCIM_Cubic:
-		return CIM_CurveAuto;
+		if (TangentMode == RCTM_Auto)
+		{
+			return CIM_CurveAuto;
+		}
+		else if (TangentMode == RCTM_Break)
+		{
+			return CIM_CurveBreak;
+		}
+		return CIM_CurveUser;  
 	case ERichCurveInterpMode::RCIM_Linear:
 		return CIM_Linear;
 	default:
@@ -1669,7 +1697,7 @@ void MovieSceneToolHelpers::CopyKeyDataToMoveAxis(const TMovieSceneChannel<FMovi
 		FInterpCurvePoint<float>& Point = MoveAxis->FloatTrack.Points[PointIndex];
 		Point.ArriveTangent = Value.Tangent.ArriveTangent;
 		Point.LeaveTangent = Value.Tangent.LeaveTangent;
-		Point.InterpMode = RichCurveInterpolationToMatineeInterpolation(Value.InterpMode);
+		Point.InterpMode = RichCurveInterpolationToMatineeInterpolation(Value.InterpMode, Value.TangentMode);
 	}
 }
 

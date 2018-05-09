@@ -114,7 +114,8 @@ bool FMatineeImportTools::TryConvertMatineeToggleToOutParticleKey( ETrackToggleA
 }
 
 
-void FMatineeImportTools::SetOrAddKey(TMovieSceneChannel<FMovieSceneFloatValue>& ChannelInterface, FFrameNumber Time, float Value, float ArriveTangent, float LeaveTangent, EInterpCurveMode MatineeInterpMode )
+void FMatineeImportTools::SetOrAddKey(TMovieSceneChannel<FMovieSceneFloatValue>& ChannelInterface, FFrameNumber Time, float Value, float ArriveTangent, float LeaveTangent, EInterpCurveMode MatineeInterpMode
+	, ERichCurveTangentWeightMode WeightedMode, float ArriveTangentWeight, float LeaveTangentWeight )
 {
 	if (ChannelInterface.FindKey(Time) == INDEX_NONE)
 	{
@@ -124,6 +125,9 @@ void FMatineeImportTools::SetOrAddKey(TMovieSceneChannel<FMovieSceneFloatValue>&
 		NewKey.TangentMode = MatineeInterpolationToRichCurveTangent( MatineeInterpMode );
 		NewKey.Tangent.ArriveTangent = ArriveTangent;
 		NewKey.Tangent.LeaveTangent = LeaveTangent;
+		NewKey.Tangent.TangentWeightMode = WeightedMode;
+		NewKey.Tangent.ArriveTangentWeight = ArriveTangentWeight;
+		NewKey.Tangent.LeaveTangentWeight = LeaveTangentWeight;
 		ChannelInterface.AddKey( Time, NewKey );
 	}
 }
