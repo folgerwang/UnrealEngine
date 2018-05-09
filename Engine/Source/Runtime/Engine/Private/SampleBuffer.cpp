@@ -442,6 +442,14 @@ namespace Audio
 	{
 		check(CurrentSoundWave != nullptr);
 		CurrentState = ESoundWavePCMWriterState::Generating;
+
+		if (CurrentBuffer.GetNumSamples() == 0)
+		{
+			UE_LOG(LogAudio, Error, TEXT("Writing out wav file failed- There was no audio data to write."));
+			CurrentState = ESoundWavePCMWriterState::Failed;
+			return;
+		}
+
 		SerializedWavData.Reset();
 		SerializeWaveFile(SerializedWavData, (const uint8*)CurrentBuffer.GetData(), CurrentBuffer.GetNumSamples() * sizeof(int16), CurrentBuffer.GetNumChannels(), CurrentBuffer.GetSampleRate());
 
@@ -468,6 +476,14 @@ namespace Audio
 	void FSoundWavePCMWriter::SerializeBufferToWavFile()
 	{
 		CurrentState = ESoundWavePCMWriterState::Generating;
+
+		if (CurrentBuffer.GetNumSamples() == 0)
+		{
+			UE_LOG(LogAudio, Error, TEXT("Writing out wav file failed- There was no audio data to write."));
+			CurrentState = ESoundWavePCMWriterState::Failed;
+			return;
+		}
+
 		SerializeWaveFile(SerializedWavData, (const uint8*) CurrentBuffer.GetData(), CurrentBuffer.GetNumSamples() * sizeof(int16), CurrentBuffer.GetNumChannels(), CurrentBuffer.GetSampleRate());
 		UE_LOG(LogAudio, Display, TEXT("Serializing %d sample file (%d bytes) to %s"), CurrentBuffer.GetNumSamples(), SerializedWavData.Num(), *AbsoluteFilePath);
 		if (SerializedWavData.Num() == 0)

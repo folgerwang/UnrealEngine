@@ -185,11 +185,6 @@ ESampleReadFlags AbcImporterUtilities::GenerateAbcMeshSampleReadFlags(const Alem
 		Flags |= ESampleReadFlags::Normals;
 	}
 
-	if (Schema.getFaceIndicesProperty().valid() && !Schema.getFaceIndicesProperty().isConstant())
-	{
-		Flags |= ESampleReadFlags::Indices;
-	}
-		
 	bool bConstantUVs = Schema.getUVsParam().valid() && Schema.getUVsParam().isConstant();
 		Alembic::AbcGeom::ICompoundProperty GeomParams = Schema.getArbGeomParams();
 	if (GeomParams.valid() && !bConstantUVs)
@@ -457,7 +452,6 @@ bool AbcImporterUtilities::GenerateAbcMeshSampleDataForFrame(const Alembic::AbcG
 			Sample->UVs[0].AddZeroed(Sample->Indices.Num());
 		}
 
-
 		if (GeomParams.valid())
 		{
 			const int32 NumGeomParams = GeomParams.getNumProperties();
@@ -506,14 +500,15 @@ bool AbcImporterUtilities::GenerateAbcMeshSampleDataForFrame(const Alembic::AbcG
 			}
 			else
 			{
+				if (bNeedsTriangulation)
+				{
+					TriangulateVertexAttributeBuffer(FaceCounts, Sample->Normals);
+				}
+
 				// For vertex only normals (and no normal indices available), expand using the regular indices
 				if (Sample->Normals.Num() != Sample->Indices.Num())
 				{
 					ExpandVertexAttributeArray<FVector>(Sample->Indices, Sample->Normals);
-				}
-				else if (bNeedsTriangulation)
-				{
-					TriangulateVertexAttributeBuffer(FaceCounts, Sample->Normals);
 				}
 			}
 		}
@@ -575,17 +570,18 @@ bool AbcImporterUtilities::GenerateAbcMeshSampleDataForFrame(const Alembic::AbcG
 				}
 
 				// Expand color array
-				ExpandVertexAttributeArray<FLinearColor>(ColorIndices, Sample->Colors);
+				ExpandVertexAttributeArray<FLinearColor>(ColorIndices.Num() ? ColorIndices : Sample->Indices, Sample->Colors);
 			}
 			else
 			{
+				if (bNeedsTriangulation)
+				{
+					TriangulateVertexAttributeBuffer(FaceCounts, Sample->Colors);
+				}
+
 				if (Sample->Colors.Num() != Sample->Indices.Num())
 				{
 					ExpandVertexAttributeArray<FLinearColor>(Sample->Indices, Sample->Colors);
-				}
-				else if (bNeedsTriangulation)
-				{
-					TriangulateVertexAttributeBuffer(FaceCounts, Sample->Colors);
 				}
 			}
 		}
@@ -609,17 +605,18 @@ bool AbcImporterUtilities::GenerateAbcMeshSampleDataForFrame(const Alembic::AbcG
 				}
 
 				// Expand color array
-				ExpandVertexAttributeArray<FLinearColor>(Indices, Sample->Colors);
+				ExpandVertexAttributeArray<FLinearColor>(Indices.Num() ? Indices : Sample->Indices, Sample->Colors);
 			}
 			else
 			{
+				if (bNeedsTriangulation)
+				{
+					TriangulateVertexAttributeBuffer(FaceCounts, Sample->Colors);
+				}
+
 				if (Sample->Colors.Num() != Sample->Indices.Num())
 				{
 					ExpandVertexAttributeArray<FLinearColor>(Sample->Indices, Sample->Colors);
-				}
-				else if (bNeedsTriangulation)
-				{
-					TriangulateVertexAttributeBuffer(FaceCounts, Sample->Colors);
 				}
 			}
 		}

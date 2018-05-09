@@ -56,7 +56,7 @@ public:
 	UPROPERTY(VisibleAnywhere, Instanced, Category = Thumbnail)
 	class UThumbnailInfo* ThumbnailInfo;
 #endif
-	UPROPERTY(VisibleAnywhere, Category = GeometryCache)
+	UPROPERTY(EditAnywhere, Category = GeometryCache)
 	TArray<UMaterialInterface*> Materials;
 	
 	/** GeometryCache track defining the samples/geometry data for this GeomCache instance */

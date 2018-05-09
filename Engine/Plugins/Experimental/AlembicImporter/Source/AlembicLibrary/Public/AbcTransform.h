@@ -11,7 +11,7 @@ public:
 	virtual ~FAbcTransform() {}
 
 	/** Begin IAbcObject overrides */
-	virtual void ReadFirstFrame(const float InTime, const int32 FrameIndex) final;
+	virtual bool ReadFirstFrame(const float InTime, const int32 FrameIndex) final;
 	virtual void SetFrameAndTime(const float InTime, const int32 FrameIndex, const EFrameReadFlags InFlags, const int32 TargetIndex = INDEX_NONE) final;
 	virtual FMatrix GetMatrix(const int32 FrameIndex) const final;
 	virtual bool HasConstantTransform() const final;

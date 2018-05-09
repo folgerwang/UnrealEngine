@@ -543,7 +543,7 @@ void FPaintModePainter::RegisterCommands(TSharedRef<FUICommandList> CommandList)
 			PaintSettings->VertexPaintSettings.EraseColor = Temp;
 		}
 	}));
-	
+
 	/** Map commit texture painting to commiting all the outstanding paint changes */
 	auto CanCommitLambda = [this]() -> bool { return GetNumberOfPendingPaintChanges() > 0; };
 	CommandList->MapAction(Commands.CommitTexturePainting, FExecuteAction::CreateLambda([this]() { CommitAllPaintedTextures(); }), FCanExecuteAction::CreateLambda([this]() -> bool { return GetNumberOfPendingPaintChanges() > 0; }));
@@ -1080,7 +1080,7 @@ void FPaintModePainter::LODPaintStateChanged(const bool bLODPaintingEnabled)
 				}
 			}
 		}
-
+	
 		//The user cancel the change, avoid changing the value
 		if (AbortChange)
 		{
@@ -1967,14 +1967,18 @@ void FPaintModePainter::PropagateVertexColorsToAsset()
 			UStaticMesh* Mesh = Component->GetStaticMesh();
 			for (int32 LODIndex = 0; LODIndex < Mesh->RenderData->LODResources.Num(); LODIndex++)
 			{
-				FStaticMeshComponentLODInfo& InstanceMeshLODInfo = Component->LODData[LODIndex];
-				if (InstanceMeshLODInfo.OverrideVertexColors)
+				// Will not be guaranteed to match render data as user can paint to a specific LOD index
+				if (Component->LODData.IsValidIndex(LODIndex))
 				{
-					Mesh->Modify();
-					// Try using the mapping generated when building the mesh.
-					if (MeshPaintHelpers::PropagateColorsToRawMesh(Mesh, LODIndex, InstanceMeshLODInfo))
+					FStaticMeshComponentLODInfo& InstanceMeshLODInfo = Component->LODData[LODIndex];
+					if (InstanceMeshLODInfo.OverrideVertexColors)
 					{
-						SomePaintWasPropagated = true;
+						Mesh->Modify();
+						// Try using the mapping generated when building the mesh.
+						if (MeshPaintHelpers::PropagateColorsToRawMesh(Mesh, LODIndex, InstanceMeshLODInfo))
+						{
+							SomePaintWasPropagated = true;
+						}
 					}
 				}
 			}

@@ -40,6 +40,7 @@ public:
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	virtual void SendRenderDynamicData_Concurrent() override;
 	virtual void CreateRenderState_Concurrent() override;
+	virtual void ApplyWorldOffset(const FVector& InOffset, bool bWorldShift) override;
 	//~ Begin UActorComponent Interface.
 
 	//~ Begin USceneComponent Interface.

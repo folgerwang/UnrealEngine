@@ -47,7 +47,7 @@ void UBlendSpaceBase::Serialize(FArchive& Ar)
 #if WITH_EDITOR
 	if (Ar.IsLoading() && (Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::BlendSpacePostLoadSnapToGrid))
 	{
-		// This will ensure that all grid points are in valid position and the bIsValid flag is set, other samples will be drawn with an error colour indicating that their are invalid
+		// This will ensure that all grid points are in valid position and the bIsSnapped flag is set
 		SnapSamplesToClosestGridPoint();
 	}
 
@@ -562,7 +562,7 @@ void UBlendSpaceBase::GetAnimationPose(TArray<FBlendSampleData>& BlendSampleData
 				const float Time = FMath::Clamp<float>(BlendSampleDataCache[I].Time, 0.f, Sample.Animation->SequenceLength);
 
 				// first one always fills up the source one
-				Sample.Animation->GetAnimationPose(Pose, ChildrenCurves[I], FAnimExtractContext(Time, true));
+Sample.Animation->GetAnimationPose(Pose, ChildrenCurves[I], FAnimExtractContext(Time, true));
 			}
 			else
 			{
@@ -661,12 +661,17 @@ bool UBlendSpaceBase::GetSamplesFromBlendInput(const FVector &BlendInput, TArray
 			{
 				//Calc New Sample Playrate
 				const float TotalWeight = FirstSample.GetWeight() + SecondSample.GetWeight();
-				const float OriginalWeightedPlayRate = FirstSample.SamplePlayRate * (FirstSample.GetWeight() / TotalWeight);
-				const float SecondSampleWeightedPlayRate = SecondSample.SamplePlayRate * (SecondSample.GetWeight() / TotalWeight);
-				FirstSample.SamplePlayRate = OriginalWeightedPlayRate + SecondSampleWeightedPlayRate;
 
-				// add weight
-				FirstSample.AddWeight(SecondSample.GetWeight());
+				// Only combine playrates if total weight > 0
+				if (!FMath::IsNearlyZero(TotalWeight))
+				{
+					const float OriginalWeightedPlayRate = FirstSample.SamplePlayRate * (FirstSample.GetWeight() / TotalWeight);
+					const float SecondSampleWeightedPlayRate = SecondSample.SamplePlayRate * (SecondSample.GetWeight() / TotalWeight);
+					FirstSample.SamplePlayRate = OriginalWeightedPlayRate + SecondSampleWeightedPlayRate;
+
+					// add weight
+					FirstSample.AddWeight(SecondSample.GetWeight());
+				}				
 
 				// as for time or previous time will be the master one(Index1)
 				OutSampleDataList.RemoveAtSwap(Index2, 1, false);
@@ -729,7 +734,7 @@ void UBlendSpaceBase::ValidateSampleData()
 	{
 		FBlendSample& Sample = SampleData[SampleIndex];
 
-		Sample.bIsValid = Sample.bIsValid && (Sample.Animation != nullptr);
+		Sample.bIsValid = ValidateSampleValue(Sample.SampleValue, SampleIndex) && (Sample.Animation != nullptr);
 
 		// see if same data exists, by same, same values
 		for (int32 ComparisonSampleIndex = SampleIndex + 1; ComparisonSampleIndex < SampleData.Num(); ++ComparisonSampleIndex)
@@ -802,14 +807,14 @@ bool UBlendSpaceBase::AddSample(UAnimSequence* AnimationSequence, const FVector&
 
 	if (bValidSampleData)
 	{
-		SampleData.Add(FBlendSample(AnimationSequence, SampleValue, bValidSampleData));		
+		SampleData.Add(FBlendSample(AnimationSequence, SampleValue, true, bValidSampleData));		
 		UpdatePreviewBasePose();
 	}
 
 	return bValidSampleData;
 }
 
-bool UBlendSpaceBase::EditSampleValue(const int32 BlendSampleIndex, const FVector& NewValue)
+bool UBlendSpaceBase::EditSampleValue(const int32 BlendSampleIndex, const FVector& NewValue, bool bSnap)
 {
 	const bool bValidValue = SampleData.IsValidIndex(BlendSampleIndex) && ValidateSampleValue(NewValue, BlendSampleIndex);
 	
@@ -818,7 +823,7 @@ bool UBlendSpaceBase::EditSampleValue(const int32 BlendSampleIndex, const FVecto
 		// Set new value if it passes the tests
 		SampleData[BlendSampleIndex].SampleValue = NewValue;
 		SampleData[BlendSampleIndex].bIsValid = bValidValue;
-
+		SampleData[BlendSampleIndex].bSnapToGrid = bSnap;
 	}
 
 	return bValidValue;

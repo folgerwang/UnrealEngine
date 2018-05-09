@@ -1394,7 +1394,6 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 	// Dynamically load engine runtime modules
 	{
 		FModuleManager::Get().LoadModuleChecked(TEXT("StreamingPauseRendering"));
-		FModuleManager::Get().LoadModuleChecked(TEXT("GeometryCache"));
 		FModuleManager::Get().LoadModuleChecked(TEXT("MovieScene"));
 		FModuleManager::Get().LoadModuleChecked(TEXT("MovieSceneTracks"));
 	}

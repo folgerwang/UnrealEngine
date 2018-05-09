@@ -36,8 +36,12 @@ void UGeometryCache::PostInitProperties()
 void UGeometryCache::Serialize(FArchive& Ar)
 {
 	Ar.UsingCustomVersion(FAnimPhysObjectVersion::GUID);
-
-	if (Ar.CustomVer(FAnimPhysObjectVersion::GUID) < FAnimPhysObjectVersion::GeometryCacheAssetDeprecation)
+		
+	if (Ar.CustomVer(FAnimPhysObjectVersion::GUID) >= FAnimPhysObjectVersion::GeometryCacheAssetDeprecation)
+	{
+		Super::Serialize(Ar);
+	}
+	else
 	{
 #if WITH_EDITORONLY_DATA
 		if (!Ar.IsCooking() || (Ar.CookingTarget() && Ar.CookingTarget()->HasEditorOnlyData()))
@@ -94,7 +98,6 @@ void UGeometryCache::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) co
 void UGeometryCache::BeginDestroy()
 {
 	Super::BeginDestroy();
-	Tracks.Empty();
 	ReleaseResourcesFence.BeginFence();
 }
 
@@ -114,9 +117,6 @@ bool UGeometryCache::IsReadyForFinishDestroy()
 #if WITH_EDITOR
 void UGeometryCache::PreEditChange(UProperty* PropertyAboutToChange)
 {
-	// Release the Geometry Cache resources.
-	Tracks.Empty();
-
 	// Flush the resource release commands to the rendering thread to ensure that the edit change doesn't occur while a resource is still allocated
 	ReleaseResourcesFence.Wait();
 }

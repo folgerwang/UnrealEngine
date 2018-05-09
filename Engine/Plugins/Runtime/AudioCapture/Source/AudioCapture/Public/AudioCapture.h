@@ -63,7 +63,7 @@ namespace Audio
 		bool AbortStream();
 
 		// Get the stream time of the audio capture stream
-		bool GetStreamTime(double& OutStreamTime);
+		bool GetStreamTime(double& OutStreamTime) const;
 
 		// Get the sample rate in use by the stream.
 		int32 GetSampleRate() const;
@@ -117,7 +117,13 @@ namespace Audio
 		// This returns audio only if there was non-zero audio since this function was last called.
 		bool GetAudioData(TArray<float>& OutAudioData);
 
+		// Returns the number of samples enqueued in the capture synth
+		int32 GetNumSamplesEnqueued();
+
 	private:
+
+		// Number of samples enqueued
+		int32 NumSamplesEnqueued;
 
 		// Information about the default capture device we're going to use
 		FCaptureDeviceInfo CaptureInfo;
@@ -125,16 +131,18 @@ namespace Audio
 		// Audio capture object dealing with getting audio callbacks
 		FAudioCapture AudioCapture;
 
-		static const int32 NumBuffers = 2;
+		// Critical section to prevent reading and writing from the captured buffer at the same time
+		FCriticalSection CaptureCriticalSection;
+		
+		// Buffer of audio capture data, yet to be copied to the output 
+		TArray<float> AudioCaptureData;
 
-		// Circular buffer of audio data
-		TArray<float> AudioDataBuffers[NumBuffers];
 
-		// Current buffer we're reading from
-		FThreadSafeCounter CurrentOutputReadIndex;
+		// If the object has been initialized
+		bool bInitialized;
 
-		// The index we're going to capture to
-		FThreadSafeCounter CurrentInputWriteIndex;
+		// If we're capturing data
+		bool bIsCapturing;
 	};
 
 } // namespace Audio

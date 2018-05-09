@@ -141,9 +141,6 @@ private:
 	FDelegateHandle ReconstructAllNodesDelegateHandle;
 	FDelegateHandle RenameVariableReferencesDelegateHandle;
 
-	/** Delegate handles for blueprint actions */
-	FDelegateHandle GetClassPropertyActionsDelegateHandle;
-
 	/** Delegate handler for BP Compiler Getter */
 	static TSharedPtr<FKismetCompilerContext> GetControlRigCompiler(UBlueprint* BP, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions);
 

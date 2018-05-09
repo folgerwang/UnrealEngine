@@ -670,6 +670,7 @@ public:
 		FCreateComponentParams(FAudioDevice* AudioDevice);
 
 		USoundAttenuation* AttenuationSettings;
+		TSubclassOf<UAudioComponent> AudioComponentClass = UAudioComponent::StaticClass();
 		USoundConcurrency* ConcurrencySettings;
 		bool bAutoDestroy;
 		bool bPlay;
@@ -1135,13 +1136,13 @@ public:
 	/** This is called by a USoundSubmix to start recording a submix instance on this device. */
 	virtual void StartRecording(USoundSubmix* InSubmix, float ExpectedRecordingDuration) 
 	{
-		UE_LOG(LogAudio, Fatal, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
+		UE_LOG(LogAudio, Error, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
 	}
 
 	/** This is called by a USoundSubmix when we stop recording a submix on this device. */
 	virtual Audio::AlignedFloatBuffer& StopRecording(USoundSubmix* InSubmix, float& OutNumChannels, float& OutSampleRate) 
 	{
-		UE_LOG(LogAudio, Fatal, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
+		UE_LOG(LogAudio, Error, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
 		
 		static Audio::AlignedFloatBuffer InvalidBuffer;
 		return InvalidBuffer;

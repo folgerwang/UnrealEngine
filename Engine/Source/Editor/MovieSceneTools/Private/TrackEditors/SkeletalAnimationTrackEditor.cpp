@@ -434,7 +434,7 @@ bool FSkeletalAnimationTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid
 	{
 		UAnimSequenceBase* AnimSequence = Cast<UAnimSequenceBase>(Asset);
 		
-		if (TargetObjectGuid.IsValid())
+		if (TargetObjectGuid.IsValid() && AnimSequence->CanBeUsedInComposition())
 		{
 			USkeleton* Skeleton = AcquireSkeletonFromObjectGuid(TargetObjectGuid, GetSequencer());
 
@@ -680,7 +680,8 @@ bool FSkeletalAnimationTrackEditor::OnAllowDrop(const FDragDropEvent& DragDropEv
 	{
 		UAnimSequenceBase* AnimSequence = Cast<UAnimSequenceBase>(AssetData.GetAsset());
 
-		if (AnimSequence && Skeleton && Skeleton == AnimSequence->GetSkeleton())
+		const bool bValidAnimSequence = AnimSequence && AnimSequence->CanBeUsedInComposition();
+		if (bValidAnimSequence && Skeleton && Skeleton == AnimSequence->GetSkeleton())
 		{
 			return true;
 		}
@@ -717,8 +718,8 @@ FReply FSkeletalAnimationTrackEditor::OnDrop(const FDragDropEvent& DragDropEvent
 	for (const FAssetData& AssetData : DragDropOp->GetAssets())
 	{
 		UAnimSequenceBase* AnimSequence = Cast<UAnimSequenceBase>(AssetData.GetAsset());
-
-		if (AnimSequence && Skeleton && Skeleton == AnimSequence->GetSkeleton())
+		const bool bValidAnimSequence = AnimSequence && AnimSequence->CanBeUsedInComposition();
+		if (bValidAnimSequence && Skeleton && Skeleton == AnimSequence->GetSkeleton())
 		{
 			UObject* Object = GetSequencer()->FindSpawnedObjectOrTemplate(TargetObjectGuid);
 				

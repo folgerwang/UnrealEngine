@@ -258,7 +258,8 @@ void FHierarchicalLODBuilder::BuildClusters(ULevel* InLevel, const bool bCreateM
 		FMessageLog MapCheck("HLODResults");
 		MapCheck.Warning()
 			->AddToken(FUObjectToken::Create(InLevel->GetWorldSettings()))
-			->AddToken(FTextToken::Create(LOCTEXT("MapCheck_Message_HLODSystemNotEnabled", "Hierarchical LOD System is disabled, unable to build LOD actors.")))
+			->AddToken(FTextToken::Create(LOCTEXT("MapCheck_Message_HLODSystemNotEnabled", "Hierarchical LOD System is disabled in (sub-)level, unable to build LOD actors.")))
+			->AddToken(FUObjectToken::Create(InLevel->GetOutermost()))
 			->AddToken(FMapErrorToken::Create(FMapErrors::HLODSystemNotEnabled));
 	}
 
