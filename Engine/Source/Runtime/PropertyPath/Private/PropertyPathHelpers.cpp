@@ -409,6 +409,12 @@ namespace PropertyPathHelpersInternal
 			{
 				DestProperty->CopyCompleteValue(InDestPropertyPath.GetCachedAddress(), InSrcPropertyPath.GetCachedAddress());
 			}
+			else if(UBoolProperty* DestBoolProperty = Cast<UBoolProperty>(DestProperty))
+			{
+				UBoolProperty* SrcBoolProperty = Cast<UBoolProperty>(InSrcPropertyPath.GetLastSegment().GetField());
+				const bool bValue = SrcBoolProperty->GetPropertyValue(InSrcPropertyPath.GetCachedAddress());
+				DestBoolProperty->SetPropertyValue(InDestPropertyPath.GetCachedAddress(), bValue);
+			}
 			else
 			{
 				DestProperty->CopySingleValue(InDestPropertyPath.GetCachedAddress(), InSrcPropertyPath.GetCachedAddress());
