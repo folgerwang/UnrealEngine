@@ -3043,7 +3043,7 @@ class FPakAsyncReadFileHandle final : public IAsyncReadFileHandle
 	FAsyncFileCallBack ReadCallbackFunction;
 	FCriticalSection CriticalSection;
 	int32 NumLiveRawRequests;
-	int32 CompressedChunkOffset;
+	int64 CompressedChunkOffset;
 
 	TMap<FCachedAsyncBlock*, FPakProcessedReadRequest*> OutstandingCancelMapBlock;
 
