@@ -22,7 +22,7 @@ bool UVoipListenerSynthComponent::Init(int32& SampleRate)
 	return true;
 }
 
-void UVoipListenerSynthComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
+int32 UVoipListenerSynthComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 {
 	if (PreDelaySampleCounter > 0)
 	{
@@ -40,6 +40,7 @@ void UVoipListenerSynthComponent::OnGenerateAudio(float* OutAudio, int32 NumSamp
 		OutAudio[Index] = 0.5 * OutAudio[Index] + 0.5 * FMath::FRand();
 	}
 #endif
+	return NumSamples;
 }
 
 UVoipListenerSynthComponent::~UVoipListenerSynthComponent()

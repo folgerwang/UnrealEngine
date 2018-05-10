@@ -530,8 +530,10 @@ EReimportResult::Type UAlembicImportFactory::ReimportGeometryCache(UGeometryCach
 		// Failed to read the file info, fail the re importing process 
 		return EReimportResult::Failed;
 	}
-
-
+	
+	ImportSettings->ImportType = EAlembicImportType::GeometryCache;
+	ImportSettings->SamplingSettings.FrameStart = 0;
+	ImportSettings->SamplingSettings.FrameEnd = Importer.GetEndFrameIndex();
 
 	if (Cache->AssetImportData && Cache->AssetImportData->IsA<UAbcAssetImportData>())
 	{
@@ -539,10 +541,6 @@ EReimportResult::Type UAlembicImportFactory::ReimportGeometryCache(UGeometryCach
 		PopulateOptionsWithImportData(ImportData);
 		Importer.RetrieveAssetImportData(ImportData);
 	}
-
-	ImportSettings->ImportType = EAlembicImportType::GeometryCache;
-	ImportSettings->SamplingSettings.FrameStart = 0;
-	ImportSettings->SamplingSettings.FrameEnd = Importer.GetEndFrameIndex();
 
 	if (bShowOption)
 	{
@@ -707,7 +705,7 @@ EReimportResult::Type UAlembicImportFactory::ReimportSkeletalMesh(USkeletalMesh*
 
 void UAlembicImportFactory::PopulateOptionsWithImportData(UAbcAssetImportData* ImportData)
 {
-
+	ImportSettings->SamplingSettings = ImportData->SamplingSettings;
 }
 
 EReimportResult::Type UAlembicImportFactory::ReimportStaticMesh(UStaticMesh* Mesh)

@@ -564,6 +564,8 @@ void FUnrealEdMisc::InitEngineAnalytics()
 			}
 			ProjectAttributes.Add( FAnalyticsEventAttribute( FString( "ObjectClasses" ), UObjectClasses ));
 			ProjectAttributes.Add( FAnalyticsEventAttribute( FString( "BlueprintClasses" ), UBlueprintClasses ));
+			ProjectAttributes.Emplace( TEXT("Enterprise"), IProjectManager::Get().IsEnterpriseProject() );
+
 			// Send project analytics
 			EngineAnalytics.RecordEvent( FString( "Editor.Usage.Project" ), ProjectAttributes );
 			// Trigger pending asset survey
@@ -631,6 +633,8 @@ void FUnrealEdMisc::EditorAnalyticsHeartbeat()
 		bWasDebuggerPresent = bIsDebuggerPresent;
 	}
 	const bool bInVRMode = IVREditorModule::Get().IsVREditorModeActive();
+	const bool bIsEnterprise = IProjectManager::Get().IsEnterpriseProject();
+
 	double LastInteractionTime = FSlateApplication::Get().GetLastUserInteractionTime();
 	
 	// Did the user interact since the last heartbeat
@@ -653,6 +657,8 @@ void FUnrealEdMisc::EditorAnalyticsHeartbeat()
 	Attributes.Add(FAnalyticsEventAttribute(TEXT("IsDebugger"), bIsDebuggerPresent));
 	Attributes.Add(FAnalyticsEventAttribute(TEXT("WasDebuggerPresent"), bWasDebuggerPresent));
 	Attributes.Add(FAnalyticsEventAttribute(TEXT("IsInVRMode"), bInVRMode));
+	Attributes.Add(FAnalyticsEventAttribute(TEXT("Enterprise"), bIsEnterprise));
+
 	FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.Heartbeat"), Attributes);
 	
 	LastHeartbeatTime = FPlatformTime::Seconds();
@@ -702,6 +708,8 @@ void FUnrealEdMisc::TickAssetAnalytics()
 			AssetAttributes.Add( FAnalyticsEventAttribute( FString( "ProjectId" ), *ProjectSettings.ProjectID.ToString() ));
 			AssetAttributes.Add( FAnalyticsEventAttribute( FString( "AssetPackageCount" ), PackageNames.Num() ));
 			AssetAttributes.Add( FAnalyticsEventAttribute( FString( "Maps" ), NumMapFiles ));
+			AssetAttributes.Emplace( TEXT("Enterprise"), IProjectManager::Get().IsEnterpriseProject() );
+
 			// Send project analytics
 			FEngineAnalytics::GetProvider().RecordEvent( FString( "Editor.Usage.AssetCounts" ), AssetAttributes );
 
@@ -843,6 +851,8 @@ void FUnrealEdMisc::OnExit()
 		{
 			AssetUpdateCountAttribs.Add(FAnalyticsEventAttribute(UpdatedAssetPair.Key.ToString(), UpdatedAssetPair.Value));
 		}
+		AssetUpdateCountAttribs.Emplace( TEXT("Enterprise"), IProjectManager::Get().IsEnterpriseProject() );
+
 		FEngineAnalytics::GetProvider().RecordEvent(FString("Editor.Usage.AssetsSaved"), AssetUpdateCountAttribs);
 
 		FSlateApplication::Get().GetPlatformApplication()->SendAnalytics(&FEngineAnalytics::GetProvider());
@@ -1707,7 +1717,12 @@ void FUnrealEdMisc::TickPerformanceAnalytics()
 		{
 			FString AveFrameRateString = FString::Printf( TEXT( "%.1f" ), AveFrameRate);
 			IAnalyticsProvider& EngineAnalytics = FEngineAnalytics::GetProvider();
-			EngineAnalytics.RecordEvent(TEXT( "Editor.Performance.FrameRate" ), TEXT( "MeanFrameRate" ), AveFrameRateString);
+
+			TArray< FAnalyticsEventAttribute > EventAttributes;
+			EventAttributes.Emplace( TEXT( "MeanFrameRate" ), AveFrameRateString );
+			EventAttributes.Emplace( TEXT( "Enterprise" ), IProjectManager::Get().IsEnterpriseProject() );
+
+			EngineAnalytics.RecordEvent(TEXT( "Editor.Performance.FrameRate" ), EventAttributes);
 		}
 
 		CancelPerformanceSurvey();

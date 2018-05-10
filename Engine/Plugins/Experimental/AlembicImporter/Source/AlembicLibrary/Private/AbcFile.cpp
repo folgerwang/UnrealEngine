@@ -177,17 +177,25 @@ EAbcImportError FAbcFile::Import(UAbcImportSettings* InImportSettings)
 	}
 
 	// Read first-frames for both the transforms and poly meshes
+
+	bool bValidFirstFrames = true;
 	for (FAbcTransform* Transform : Transforms)
 	{
-		Transform->ReadFirstFrame(StartFrameIndex * SecondsPerFrame, StartFrameIndex);
+		bValidFirstFrames &= Transform->ReadFirstFrame(StartFrameIndex * SecondsPerFrame, StartFrameIndex);
 	}
+
 	for (FAbcPolyMesh* PolyMesh : PolyMeshes)
 	{
 		if (PolyMesh->bShouldImport)
 		{
-			PolyMesh->ReadFirstFrame(StartFrameIndex * SecondsPerFrame, StartFrameIndex);
+			bValidFirstFrames &= PolyMesh->ReadFirstFrame(StartFrameIndex * SecondsPerFrame, StartFrameIndex);
 		}
 	}	
+
+	if (!bValidFirstFrames)
+	{
+		return AbcImportError_FailedToImportData;
+	}
 
 	// Add up all poly mesh bounds
 	FBoxSphereBounds MeshBounds(EForceInit::ForceInitToZero);

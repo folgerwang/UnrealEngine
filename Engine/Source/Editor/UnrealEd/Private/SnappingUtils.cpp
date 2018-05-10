@@ -425,57 +425,63 @@ TSharedPtr<FEditorViewportSnapping> FSnappingUtils::EditorViewportSnapper;
 
 bool FSnappingUtils::IsSnapToGridEnabled()
 {
-	return EditorViewportSnapper->IsSnapToGridEnabled();
+	return EditorViewportSnapper.IsValid() && EditorViewportSnapper->IsSnapToGridEnabled();
 }
 
 bool FSnappingUtils::IsRotationSnapEnabled()
 {
-	return EditorViewportSnapper->IsSnapRotationEnabled();
+	return EditorViewportSnapper.IsValid() && EditorViewportSnapper->IsSnapRotationEnabled();
 }
 
 bool FSnappingUtils::IsScaleSnapEnabled()
 {
-	return EditorViewportSnapper->IsSnapScaleEnabled();
+	return EditorViewportSnapper.IsValid() && EditorViewportSnapper->IsSnapScaleEnabled();
 }
 
 bool FSnappingUtils::IsSnapToActorEnabled()
 {
-	return EditorViewportSnapper->IsSnapToActorEnabled();
+	return EditorViewportSnapper.IsValid() && EditorViewportSnapper->IsSnapToActorEnabled();
 }
 
 void FSnappingUtils::EnableActorSnap(bool bEnable)
 {
-	EditorViewportSnapper->EnableActorSnap(bEnable);
+	if (EditorViewportSnapper.IsValid())
+	{
+		EditorViewportSnapper->EnableActorSnap(bEnable);
+	}
 }
 
 float FSnappingUtils::GetActorSnapDistance(bool bScalar)
 {
-	return EditorViewportSnapper->GetActorSnapDistance(bScalar);
+	return EditorViewportSnapper.IsValid() ? EditorViewportSnapper->GetActorSnapDistance(bScalar) : 0.0f;
 }
 
 void FSnappingUtils::SetActorSnapDistance(float Distance)
 {
-	EditorViewportSnapper->SetActorSnapDistance(Distance);
+	if (EditorViewportSnapper.IsValid())
+	{
+		EditorViewportSnapper->SetActorSnapDistance(Distance);
+	}
 }
 
 bool FSnappingUtils::SnapActorsToNearestActor(FVector& DragDelta, FLevelEditorViewportClient* ViewportClient)
 {
-	return EditorViewportSnapper->SnapActorsToNearestActor(DragDelta, ViewportClient);
+	return EditorViewportSnapper.IsValid() ? EditorViewportSnapper->SnapActorsToNearestActor(DragDelta, ViewportClient) : false;
 }
 
 bool FSnappingUtils::SnapDraggedActorsToNearestVertex(FVector& DragDelta, FLevelEditorViewportClient* ViewportClient)
 {
-	return EditorViewportSnapper->SnapDraggedActorsToNearestVertex(DragDelta, ViewportClient);
+	return EditorViewportSnapper.IsValid() ? EditorViewportSnapper->SnapDraggedActorsToNearestVertex(DragDelta, ViewportClient) : false;
 }
 
 bool FSnappingUtils::SnapDragLocationToNearestVertex(const FVector& BaseLocation, FVector& DragDelta, FLevelEditorViewportClient* ViewportClient)
 {
-	return EditorViewportSnapper->SnapDragLocationToNearestVertex(BaseLocation, DragDelta, ViewportClient);
+	return EditorViewportSnapper.IsValid() ? EditorViewportSnapper->SnapDragLocationToNearestVertex(BaseLocation, DragDelta, ViewportClient) : false;
 }
 
 bool FSnappingUtils::SnapLocationToNearestVertex(FVector& Location, const FVector2D& MouseLocation, FLevelEditorViewportClient* ViewportClient, FVector& OutVertexNormal, bool bDrawVertHelpers )
 {
-	return EditorViewportSnapper->SnapLocationToNearestVertex(Location, MouseLocation, ViewportClient, OutVertexNormal, bDrawVertHelpers );
+	return EditorViewportSnapper.IsValid() ? EditorViewportSnapper->SnapLocationToNearestVertex(Location, MouseLocation, ViewportClient, OutVertexNormal, bDrawVertHelpers ) : false;
 }
 
 void FSnappingUtils::SnapScale(FVector& Point, const FVector& GridBase)
@@ -495,7 +501,7 @@ void FSnappingUtils::SnapRotatorToGrid(FRotator& Rotation)
 
 bool FSnappingUtils::SnapToBSPVertex(FVector& Location, FVector GridBase, FRotator& Rotation)
 {
-	return EditorViewportSnapper->SnapToBSPVertex(Location, GridBase, Rotation);
+	return EditorViewportSnapper.IsValid() ? EditorViewportSnapper->SnapToBSPVertex(Location, GridBase, Rotation) : false;
 }
 
 void FSnappingUtils::ClearSnappingHelpers(bool bClearImmediately)

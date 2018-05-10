@@ -38,7 +38,7 @@ enum class EAnimCurveType : uint8
 	MaterialCurve, 
 	MorphTargetCurve, 
 	// make sure to update MaxCurve 
-	MaxAnimCurveType
+	MaxAnimCurveType UMETA(Hidden)
 };
 
 UENUM()
@@ -848,10 +848,18 @@ public:
 public:
 	/** Returns the value of a named curve. */
 	UFUNCTION(BlueprintPure, Category="Animation")
-	float GetCurveValue(FName CurveName);
+	float GetCurveValue(FName CurveName) const;
+
+	/** This returns last up-to-date list of active curve names */
+	UFUNCTION(BlueprintPure, Category = "Animation")
+	void GetActiveCurveNames(EAnimCurveType CurveType, TArray<FName>& OutNames) const;
+
+	/* This returns all curve names */
+	UFUNCTION(BlueprintPure, Category = "Animation")
+	void GetAllCurveNames(TArray<FName>& OutNames) const;
 
 	/** Returns value of named curved in OutValue, returns whether the curve was actually found or not. */
-	bool GetCurveValue(FName CurveName, float& OutValue);
+	bool GetCurveValue(FName CurveName, float& OutValue) const;
 
 	/** Returns the name of a currently active state in a state machine. */
 	UFUNCTION(BlueprintPure, Category="Animation", meta=(BlueprintInternalUseOnly = "true", AnimGetter = "true"))
@@ -1028,6 +1036,9 @@ private:
 public: 
 	/** Update all internal curves from Blended Curve */
 	void UpdateCurves(const FBlendedHeapCurve& InCurves);
+
+	/** Copy curves from external source */
+	void CopyCurveValues(const UAnimInstance& InSourceInstance);
 
 	/** Refresh currently existing curves */
 	void RefreshCurves(USkeletalMeshComponent* Component);

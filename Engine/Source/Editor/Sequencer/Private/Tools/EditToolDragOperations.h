@@ -85,10 +85,8 @@ private:
 	/********************************************************/
 	struct FPreDragChannelData
 	{
-		/** The ID of the type of the channel, for use with ISequencerModule::FindChannelInterface */
-		uint32 ChannelType;
-		/** Weak handle to the type-erased channel ptr */
-		TMovieSceneChannelHandle<void> Channel;
+		/** Weak handle to the base channel ptr */
+		FMovieSceneChannelHandle Channel;
 
 		/** Array of all the handles in the section at the start of the drag */
 		TArray<FKeyHandle> Handles;

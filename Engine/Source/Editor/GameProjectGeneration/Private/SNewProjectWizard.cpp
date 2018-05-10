@@ -1069,7 +1069,7 @@ FText SNewProjectWizard::GetNameAndLocationErrorLabelText() const
 TMap<FName, TArray<TSharedPtr<FTemplateItem>> >& SNewProjectWizard::FindTemplateProjects()
 {
 	// Default to showing the blueprint category
-	ActiveCategory = FTemplateCategory::BlueprintCategoryName;
+	ActiveCategory = FApp::IsEnterpriseInstalled() ? FTemplateCategory::EnterpriseCategoryName : FTemplateCategory::BlueprintCategoryName;
 	
 	// Clear the list out first - or we could end up with duplicates
 	Templates.Empty();
@@ -1405,7 +1405,7 @@ bool SNewProjectWizard::CreateProject( const FString& ProjectFile )
 	FProjectInformation ProjectInfo(ProjectFile, SelectedTemplate->bGenerateCode, bCopyStarterContent, SelectedTemplate->ProjectFile);
 	ProjectInfo.TargetedHardware = SelectedHardwareClassTarget;
 	ProjectInfo.DefaultGraphicsPerformance = SelectedGraphicsPreset;
-	ProjectInfo.bIsEnterpriseProject = (SelectedTemplate->Type == FTemplateCategory::EnterpriseCategoryName);
+	ProjectInfo.bIsEnterpriseProject = (SelectedTemplate->Type == FTemplateCategory::EnterpriseCategoryName) || FApp::IsEnterpriseInstalled();
 
 	if (!GameProjectUtils::CreateProject(ProjectInfo, FailReason, FailLog))
 	{

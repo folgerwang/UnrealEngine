@@ -12,6 +12,7 @@
 #include "Animation/EditorNotifyObject.h"
 #include "AssetSearchBoxUtilPersona.h"
 #include "Widgets/Input/STextComboBox.h"
+#include "Animation/AnimNotifies/AnimNotifyState.h"
 
 TSharedRef<IDetailCustomization> FAnimNotifyDetails::MakeInstance()
 {
@@ -129,7 +130,7 @@ void FAnimNotifyDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 
 	TriggerFilterModeHandle = DetailBuilder.GetProperty(TEXT("Event.NotifyFilterType"));
 
-	FPropVisPair TriggerSettingNames[] = { { TEXT("Event.NotifyTriggerChance"), TAttribute<EVisibility>(EVisibility::Visible) }
+	FPropVisPair TriggerSettingNames[] = { { TEXT("Event.NotifyTriggerChance"), Cast<UAnimNotifyState>(NotifyPtr) == nullptr ? EVisibility::Visible : EVisibility::Hidden }
 										 , { TEXT("Event.bTriggerOnDedicatedServer"), TAttribute<EVisibility>(EVisibility::Visible) }
 										 , { TEXT("Event.bTriggerOnFollower"), TAttribute<EVisibility>(EVisibility::Visible) }
 										 , { TEXT("Event.NotifyFilterType"), TAttribute<EVisibility>(EVisibility::Visible) }

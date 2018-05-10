@@ -757,7 +757,7 @@ void FNiagaraSystemViewModel::RefreshSequencerTrack(UMovieSceneNiagaraEmitterTra
 				EmitterSection->SetRange(TRange<FFrameNumber>::All());
 			}
 
-			TMovieSceneChannel<FMovieSceneBurstKey> Channel = EmitterSection->GetChannelProxy().GetChannel<FMovieSceneNiagaraEmitterChannel>(0)->GetInterface();
+			TMovieSceneChannelData<FMovieSceneBurstKey> Channel = EmitterSection->GetChannelProxy().GetChannel<FMovieSceneNiagaraEmitterChannel>(0)->GetData();
 
 // 			Channel.Reset();
 // 			for (const FNiagaraEmitterBurst& Burst : Emitter->Bursts)

@@ -10,6 +10,11 @@
 #include "Dom/JsonValue.h"
 #include "Dom/JsonObject.h"
 
+FDatasmithReimportOptions::FDatasmithReimportOptions()
+	: bUpdateActors(true)
+	, bRespawnDeletedActors(false)
+{
+}
 
 FDatasmithImportBaseOptions::FDatasmithImportBaseOptions()
 	: SceneHandling(EDatasmithImportScene::CurrentLevel)
@@ -25,25 +30,45 @@ UDatasmithImportOptions::UDatasmithImportOptions(const FObjectInitializer& Objec
 	, SearchPackagePolicy(EDatasmithImportSearchPackagePolicy::Current)
 	, MaterialConflictPolicy(EDatasmithImportAssetConflictPolicy::Replace)
 	, TextureConflictPolicy(EDatasmithImportAssetConflictPolicy::Replace)
-	, ActorConflictPolicy(EDatasmithImportAssetConflictPolicy::Replace)
-	, LightConflictPolicy(EDatasmithImportAssetConflictPolicy::Replace)
-	, CameraConflictPolicy(EDatasmithImportAssetConflictPolicy::Replace)
+	, StaticMeshActorImportPolicy(EDatasmithImportActorPolicy::Update)
+	, LightImportPolicy(EDatasmithImportActorPolicy::Update)
+	, CameraImportPolicy(EDatasmithImportActorPolicy::Update)
+	, OtherActorImportPolicy(EDatasmithImportActorPolicy::Update)
 	, MaterialQuality(EDatasmithImportMaterialQuality::UseNoFresnelCurves)
 	, HierarchyHandling(EDatasmithImportHierarchy::UseMultipleActors)
 	, bUseSameOptions(false)
 {
 }
 
-void UDatasmithImportOptions::UpdateNotDisplayedConfig()
+void UDatasmithImportOptions::UpdateNotDisplayedConfig( bool bIsAReimport )
 {
+	EDatasmithImportActorPolicy DefaultImportActorPolicy = EDatasmithImportActorPolicy::Update;
+
+	if ( bIsAReimport )
+	{
+		if ( !ReimportOptions.bUpdateActors )
+		{
+			BaseOptions.SceneHandling = EDatasmithImportScene::AssetsOnly;
+		}
+		else
+		{
+			BaseOptions.SceneHandling = EDatasmithImportScene::CurrentLevel;
+
+			if ( ReimportOptions.bRespawnDeletedActors )
+			{
+				DefaultImportActorPolicy = EDatasmithImportActorPolicy::Full;
+			}
+		}
+	}
+
 	// Update enum properties based on boolean values
 	if (BaseOptions.bIncludeGeometry == true)
 	{
-		ActorConflictPolicy = EDatasmithImportAssetConflictPolicy::Replace;
+		StaticMeshActorImportPolicy = DefaultImportActorPolicy;
 	}
 	else
 	{
-		ActorConflictPolicy = EDatasmithImportAssetConflictPolicy::Ignore;
+		StaticMeshActorImportPolicy = EDatasmithImportActorPolicy::Ignore;
 	}
 
 	if (BaseOptions.bIncludeMaterial == true)
@@ -59,20 +84,20 @@ void UDatasmithImportOptions::UpdateNotDisplayedConfig()
 
 	if (BaseOptions.bIncludeLight == true)
 	{
-		LightConflictPolicy = EDatasmithImportAssetConflictPolicy::Replace;
+		LightImportPolicy = DefaultImportActorPolicy;
 	}
 	else
 	{
-		LightConflictPolicy = EDatasmithImportAssetConflictPolicy::Ignore;
+		LightImportPolicy = EDatasmithImportActorPolicy::Ignore;
 	}
 
 	if (BaseOptions.bIncludeCamera == true)
 	{
-		CameraConflictPolicy = EDatasmithImportAssetConflictPolicy::Replace;
+		CameraImportPolicy = DefaultImportActorPolicy;
 	}
 	else
 	{
-		CameraConflictPolicy = EDatasmithImportAssetConflictPolicy::Ignore;
+		CameraImportPolicy = EDatasmithImportActorPolicy::Ignore;
 	}
 
 	MaterialQuality = EDatasmithImportMaterialQuality::UseRealFresnelCurves;

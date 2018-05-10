@@ -22,9 +22,10 @@ void FMovieScene3DAttachSectionRecorder::CreateSection(UObject* InObjectToRecord
 	ObjectGuid = Guid;
 	ActorToRecord = CastChecked<AActor>(InObjectToRecord);
 	MovieScene = InMovieScene;
+	TimecodeSource = SequenceRecorderUtils::GetTimecodeSource();
 }
 
-void FMovieScene3DAttachSectionRecorder::FinalizeSection()
+void FMovieScene3DAttachSectionRecorder::FinalizeSection(float CurrentTime)
 {
 }
 
@@ -67,6 +68,8 @@ void FMovieScene3DAttachSectionRecorder::Record(float CurrentTime)
 				MovieSceneSection->SetConstraintId(Guid);
 				MovieSceneSection->AttachSocketName = SocketName;
 				MovieSceneSection->AttachComponentName = ComponentName;
+
+				MovieSceneSection->TimecodeSource = TimecodeSource;
 			}
 
 			ActorAttachedTo = AttachedToActor;

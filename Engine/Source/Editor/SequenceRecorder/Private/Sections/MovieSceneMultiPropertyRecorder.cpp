@@ -87,11 +87,11 @@ void FMovieSceneMultiPropertyRecorder::CreateSection(UObject* InObjectToRecord, 
 	}
 }
 
-void FMovieSceneMultiPropertyRecorder::FinalizeSection()
+void FMovieSceneMultiPropertyRecorder::FinalizeSection(float CurrentTime)
 {
 	for (TSharedPtr<IMovieScenePropertyRecorder> PropertyRecorder : PropertyRecorders)
 	{
-		PropertyRecorder->Finalize(ObjectToRecord.Get());
+		PropertyRecorder->Finalize(ObjectToRecord.Get(), CurrentTime);
 	}
 }
 

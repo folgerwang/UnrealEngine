@@ -37,5 +37,6 @@ FString UAnimGraphNode_MakeDynamicAdditive::GetNodeCategory() const
 
 void UAnimGraphNode_MakeDynamicAdditive::ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog)
 {
+	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
 }
 #undef LOCTEXT_NAMESPACE

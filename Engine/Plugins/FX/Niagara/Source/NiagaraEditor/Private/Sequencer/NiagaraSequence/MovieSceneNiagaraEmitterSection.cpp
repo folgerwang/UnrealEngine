@@ -9,12 +9,6 @@
 
 #define LOCTEXT_NAMESPACE "MovieSceneNiagaraEmitterSection"
 
-uint32 FMovieSceneNiagaraEmitterChannel::GetChannelID()
-{
-	static uint32 ID = FMovieSceneChannelEntry::RegisterNewID();
-	return ID;
-}
-
 bool FMovieSceneNiagaraEmitterChannel::Evaluate(FFrameTime InTime, FMovieSceneBurstKey& OutValue) const
 {
 	if (Times.Num())
@@ -27,13 +21,65 @@ bool FMovieSceneNiagaraEmitterChannel::Evaluate(FFrameTime InTime, FMovieSceneBu
 	return false;
 }
 
+void FMovieSceneNiagaraEmitterChannel::GetKeys(const TRange<FFrameNumber>& WithinRange, TArray<FFrameNumber>* OutKeyTimes, TArray<FKeyHandle>* OutKeyHandles)
+{
+	GetData().GetKeys(WithinRange, OutKeyTimes, OutKeyHandles);
+}
+
+void FMovieSceneNiagaraEmitterChannel::GetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<FFrameNumber> OutKeyTimes)
+{
+	GetData().GetKeyTimes(InHandles, OutKeyTimes);
+}
+
+void FMovieSceneNiagaraEmitterChannel::SetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<const FFrameNumber> InKeyTimes)
+{
+	GetData().SetKeyTimes(InHandles, InKeyTimes);
+}
+
+void FMovieSceneNiagaraEmitterChannel::DuplicateKeys(TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyHandle> OutNewHandles)
+{
+	GetData().DuplicateKeys(InHandles, OutNewHandles);
+}
+
+void FMovieSceneNiagaraEmitterChannel::DeleteKeys(TArrayView<const FKeyHandle> InHandles)
+{
+	GetData().DeleteKeys(InHandles);
+}
+
+void FMovieSceneNiagaraEmitterChannel::ChangeFrameResolution(FFrameRate SourceRate, FFrameRate DestinationRate)
+{
+	GetData().ChangeFrameResolution(SourceRate, DestinationRate);
+}
+
+TRange<FFrameNumber> FMovieSceneNiagaraEmitterChannel::ComputeEffectiveRange() const
+{
+	return GetData().GetTotalRange();
+}
+
+int32 FMovieSceneNiagaraEmitterChannel::GetNumKeys() const
+{
+	return Times.Num();
+}
+
+void FMovieSceneNiagaraEmitterChannel::Reset()
+{
+	Times.Reset();
+	Values.Reset();
+	KeyHandles.Reset();
+}
+
+void FMovieSceneNiagaraEmitterChannel::Offset(FFrameNumber DeltaPosition)
+{
+	GetData().Offset(DeltaPosition);
+}
+
 UMovieSceneNiagaraEmitterSection::UMovieSceneNiagaraEmitterSection(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 #if WITH_EDITOR
 
-	static const FMovieSceneChannelEditorData EditorData;
-	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(Channel, EditorData);
+	static const FMovieSceneChannelMetaData MetaData;
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(Channel, MetaData);
 
 #else
 

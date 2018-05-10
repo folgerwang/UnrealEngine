@@ -559,7 +559,8 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh, 
 		ExistingMeshDataPtr->ExistingMorphTargets.Empty(ExistingSkelMesh->MorphTargets.Num());
 		ExistingMeshDataPtr->ExistingMorphTargets.Append(ExistingSkelMesh->MorphTargets);
 	
-		ExistingMeshDataPtr->bExistingUseFullPrecisionUVs = ExistingSkelMesh->bUseFullPrecisionUVs;	
+		ExistingMeshDataPtr->bExistingUseFullPrecisionUVs = ExistingSkelMesh->bUseFullPrecisionUVs;
+		ExistingMeshDataPtr->bExistingUseHighPrecisionTangentBasis = ExistingSkelMesh->bUseHighPrecisionTangentBasis;
 
 		ExistingMeshDataPtr->ExistingAssetImportData = ExistingSkelMesh->AssetImportData;
 		ExistingMeshDataPtr->ExistingThumbnailInfo = ExistingSkelMesh->ThumbnailInfo;
@@ -604,31 +605,19 @@ void TryRegenerateLODs(ExistingSkelMeshData* MeshData, USkeletalMesh* SkeletalMe
 	if (bAutoMeshReductionAvailable)
 	{
 		GWarn->BeginSlowTask(LOCTEXT("RegenLODs", "Generating new LODs"), true);
-		// warn users to see if they'd like to regen using the LOD
-		EAppReturnType::Type Ret = FMessageDialog::Open(EAppMsgType::YesNo,
-			LOCTEXT("LODDataWarningMessage", "Previous LODs exist, but the bone hierarchy is not compatible.\n\n This could cause crash if you keep the old LODs. Would you like to regenerate them using mesh reduction? Or the previous LODs will be lost.\n"));
+		FSkeletalMeshUpdateContext UpdateContext;
+		UpdateContext.SkeletalMesh = SkeletalMesh;
 
-		if (Ret == EAppReturnType::Yes)
+		for (int32 Index = 0; Index < TotalLOD; ++Index)
 		{
-			FSkeletalMeshUpdateContext UpdateContext;
-			UpdateContext.SkeletalMesh = SkeletalMesh;
-
-			for (int32 Index = 0; Index < TotalLOD; ++Index)
-			{
-				int32 LODIndex = Index + 1;
-				FSkeletalMeshLODInfo& LODInfo = MeshData->ExistingLODInfo[Index];
-				// reset material maps, it won't work anyway. 
-				LODInfo.LODMaterialMap.Empty();
-				// add LOD info back
-				SkeletalMesh->AddLODInfo(LODInfo);
-				// force it to regen
-				FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, LODIndex, false);
-			}
-		}
-		else
-		{
-			UnFbx::FFbxImporter* FFbxImporter = UnFbx::FFbxImporter::GetInstance();
-			FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, LOCTEXT("NoCompatibleSkeleton", "New base mesh is not compatible with previous LODs. LOD will be removed.")), FFbxErrors::SkeletalMesh_LOD_MissingBone);
+			int32 LODIndex = Index + 1;
+			FSkeletalMeshLODInfo& LODInfo = MeshData->ExistingLODInfo[Index];
+			// reset material maps, it won't work anyway. 
+			LODInfo.LODMaterialMap.Empty();
+			// add LOD info back
+			SkeletalMesh->AddLODInfo(LODInfo); 
+			// force it to regen
+			FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, LODIndex, false);
 		}
 
 		GWarn->EndSlowTask();
@@ -803,6 +792,10 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 		// We copy back and fix-up the LODs that still work with this skeleton.
 		if (MeshData->ExistingLODModels.Num() > 0)
 		{
+			// see if we have reduction avail
+			IMeshReductionManagerModule& Module = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface");
+			static bool bAutoMeshReductionAvailable = Module.GetSkeletalMeshReductionInterface() != NULL;
+
 			bool bRegenLODs = true;
 			if (SkeletonsAreCompatible(SkeletalMesh->RefSkeleton, MeshData->ExistingRefSkeleton))
 			{
@@ -819,7 +812,6 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 				{
 					FSkeletalMeshLODModel& LODModel = MeshData->ExistingLODModels[i];
 					FSkeletalMeshLODInfo& LODInfo = MeshData->ExistingLODInfo[i];
-
 
 					// Fix ActiveBoneIndices array.
 					bool bMissingBone = false;
@@ -902,9 +894,16 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 					}
 					else
 					{
-						FSkeletalMeshLODModel* NewLODModel = new(SkeletalMesh->GetImportedModel()->LODModels) FSkeletalMeshLODModel(LODModel);
-
-						SkeletalMesh->AddLODInfo(LODInfo);
+						// if it has been regenerated, it try to regen and if we have reduction available 
+						if (bAutoMeshReductionAvailable && LODInfo.bHasBeenSimplified && LODInfo.ReductionSettings.BaseLOD == 0)
+						{
+							bRegenLODs = true;
+						}
+						else
+						{
+							FSkeletalMeshLODModel* NewLODModel = new(SkeletalMesh->GetImportedModel()->LODModels) FSkeletalMeshLODModel(LODModel);
+							SkeletalMesh->AddLODInfo(LODInfo);
+						}
 					}
 				}
 			}
@@ -943,6 +942,7 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 		SkeletalMesh->InitMorphTargets();
 
 		SkeletalMesh->bUseFullPrecisionUVs = MeshData->bExistingUseFullPrecisionUVs;
+		SkeletalMesh->bUseHighPrecisionTangentBasis= MeshData->bExistingUseHighPrecisionTangentBasis;
 
 		SkeletalMesh->AssetImportData = MeshData->ExistingAssetImportData.Get();
 		SkeletalMesh->ThumbnailInfo = MeshData->ExistingThumbnailInfo.Get();

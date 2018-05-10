@@ -65,7 +65,7 @@ public:
 	*/
 	uint8* GetDataPointer() override
 	{
-		return (uint8*)&Data[0];
+		return (uint8*)Data.GetData();
 	}
 
 	/**

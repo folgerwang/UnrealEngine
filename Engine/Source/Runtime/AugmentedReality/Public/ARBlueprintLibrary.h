@@ -158,7 +158,7 @@ private:
 };
 
 
-UCLASS(meta=(ScriptName="ARLibrary"))
+UCLASS(meta=(ScriptName="ARTraceResultLibrary"))
 class AUGMENTEDREALITY_API UARTraceResultLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()

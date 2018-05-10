@@ -34,7 +34,7 @@ namespace EImportanceWeight
 * Texture processed for importance sampling
 * Holds marginal PDF of the rows, as well as the PDF of each row
 */
-USTRUCT(BlueprintType, meta = (HasNativeMake = "Engine.ImportanceLibrary.MakeImportanceTexture", HasNativeBreak = "Engine.ImportanceLibrary.BreakImportanceTexture"))
+USTRUCT(BlueprintType, meta = (HasNativeMake = "Engine.ImportanceSamplingLibrary.MakeImportanceTexture", HasNativeBreak = "Engine.ImportanceSamplingLibrary.BreakImportanceTexture"))
 struct FImportanceTexture
 {
 	GENERATED_BODY();

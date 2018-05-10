@@ -277,7 +277,6 @@ static void RenameVariableReferencesInGraph(UBlueprint* InBlueprint, UClass* InV
 }
 
 FBlueprintEditorUtils::FOnRenameVariableReferences FBlueprintEditorUtils::OnRenameVariableReferencesEvent;
-FBlueprintEditorUtils::FOnGetClassPropertyActions FBlueprintEditorUtils::OnGetClassPropertyActionsEvent;
 
 void FBlueprintEditorUtils::RenameVariableReferences(UBlueprint* Blueprint, UClass* VariableClass, const FName& OldVarName, const FName& NewVarName)
 {

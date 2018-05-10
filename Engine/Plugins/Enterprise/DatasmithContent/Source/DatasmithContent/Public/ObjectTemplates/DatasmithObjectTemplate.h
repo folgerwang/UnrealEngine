@@ -26,6 +26,11 @@ public:
 	 * Fills this template properties with the values from the Source object.
 	 */
 	virtual void Load( const UObject* Source ) {}
+
+	/**
+	 * Returns if this template equals another template of the same type.
+	 */
+	virtual bool Equals( const UDatasmithObjectTemplate* Other ) const { return false; }
 };
 
 // Sets Destination->MemberName with the value of MemberName only if PreviousTemplate is null or has the same value for MemberName as the Destination.

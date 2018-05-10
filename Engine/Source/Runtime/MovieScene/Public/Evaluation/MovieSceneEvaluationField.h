@@ -189,14 +189,14 @@ struct FMovieSceneEvaluationMetaData
 	/**
 	 * Check whether this meta-data entry is still up-to-date
 	 *
-	 * @param RootSequence				The sequence that corresponds to this meta-data's root sequence
 	 * @param RootHierarchy				The hierarchy that corresponds to this meta-data's root sequence
 	 * @param TemplateStore				The template store used to retrieve templates for sub sequences
 	 * @param OutSubRangeToInvalidate	(Optional) A range to fill with a range to invalidate in the sequence's evaluation field (in root space)
+	 * @param OutDirtySequences			(Optional) A set to populate with dirty sequences
 	 *
 	 * @return true if the meta-data needs re-generating, false otherwise
 	 */
-	bool IsDirty(UMovieSceneSequence& RootSequence, const FMovieSceneSequenceHierarchy& RootHierarchy, IMovieSceneSequenceTemplateStore& TemplateStore, TRange<FFrameNumber>* OutSubRangeToInvalidate = nullptr) const;
+	bool IsDirty(const FMovieSceneSequenceHierarchy& RootHierarchy, IMovieSceneSequenceTemplateStore& TemplateStore, TRange<FFrameNumber>* OutSubRangeToInvalidate = nullptr, TSet<UMovieSceneSequence*>* OutDirtySequences = nullptr) const;
 
 	/** Array of sequences that are active in this time range. */
 	UPROPERTY()

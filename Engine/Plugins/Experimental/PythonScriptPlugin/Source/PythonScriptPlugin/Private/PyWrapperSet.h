@@ -12,7 +12,7 @@
 extern PyTypeObject PyWrapperSetType;
 
 /** Initialize the PyWrapperSet types and add them to the given Python module */
-void InitializePyWrapperSet(PyObject* PyModule);
+void InitializePyWrapperSet(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Type for all UE4 exposed set instances */
 struct FPyWrapperSet : public FPyWrapperBase

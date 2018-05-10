@@ -1019,7 +1019,7 @@ namespace UM
 		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to display for this class, property, or function instead of auto-generating it from the name.
 		DisplayName,
 
-		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to use for this class, property, or function when exporting it to a scripting language.
+		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to use for this class, property, or function when exporting it to a scripting language. May include deprecated names as additional semi-colon separated entries.
 		ScriptName,
 
 		/// [ClassMetadata] Specifies that this class is an acceptable base class for creating blueprints.
@@ -1109,7 +1109,7 @@ namespace UM
 		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to display for this class, property, or function instead of auto-generating it from the name.
 		// DisplayName, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the property section)
 
-		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to use for this class, property, or function when exporting it to a scripting language.
+		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to use for this class, property, or function when exporting it to a scripting language. May include deprecated names as additional semi-colon separated entries.
 		//ScriptName, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the property section)
 
 		/// [PropertyMetadata] [FunctionMetadata] Flag set on a property or function to prevent it being exported to a scripting language.
@@ -1287,19 +1287,39 @@ namespace UM
 		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to display for this class, property, or function instead of auto-generating it from the name.
 		// DisplayName, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the function section)
 
-		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to use for this class, property, or function when exporting it to a scripting language.
+		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to use for this class, property, or function when exporting it to a scripting language. May include deprecated names as additional semi-colon separated entries.
 		//ScriptName, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the function section)
 
 		/// [PropertyMetadata] [FunctionMetadata] Flag set on a property or function to prevent it being exported to a scripting language.
 		//ScriptNoExport, (Commented out so as to avoid duplicate name with version in the Property section, but still show in the function section)
 
-		/// [FunctionMetadata] Flags a static function taking a struct as its first argument so that it "hoists" the function to be a method of the struct when exporting it to a scripting language.
-		/// The value is optional, and may specify a name override for the struct method.
+		/// [FunctionMetadata] Flags a static function taking a struct or or object as its first argument so that it "hoists" the function to be a method of the struct or class when exporting it to a scripting language.
+		/// The value is optional, and may specify a name override for the method. May include deprecated names as additional semi-colon separated entries.
 		ScriptMethod,
 
-		/// [FunctionMetadata] Flags a static function taking a struct as its first argument so that it "hoists" the function to be an mathematical operator of the struct when exporting it to a scripting language.
-		/// The value describes the kind of operator using C++ operator syntax (+, +=, -,-=, *, *=, /, /=, %, %=, &, &=, |, |=, ^, ^=, >>, >>=, <<, <<=).
-		ScriptMathOp,
+		/// [FunctionMetadata] Used with ScriptMethod to denote that the return value of the function should overwrite the value of the instance that made the call (structs only, equivalent to using UPARAM(self) on the struct argument).
+		ScriptMethodSelfReturn,
+
+		/// [FunctionMetadata] Flags a static function taking a struct as its first argument so that it "hoists" the function to be an operator of the struct when exporting it to a scripting language.
+		/// The value describes the kind of operator using C++ operator syntax (see below), and may contain multiple semi-colon separated values.
+		/// The signature of the function depends on the operator type, and additional parameters may be passed as long as they're defaulted and the basic signature requirements are met.
+		/// - For the bool conversion operator (bool) the signature must be:
+		///		bool FuncName(const FMyStruct&); // FMyStruct may be passed by value rather than const-ref
+		/// - For comparion operators (==, !=, <, <=, >, >=) the signature must be:
+		///		bool FuncName(const FMyStruct, OtherType); // OtherType can be any type, FMyStruct may be passed by value rather than const-ref
+		///	- For mathematical operators (+, -, *, /, %, &, |, ^, >>, <<) the signature must be:
+		///		ReturnType FuncName(const FMyStruct&, OtherType); // ReturnType and OtherType can be any type, FMyStruct may be passed by value rather than const-ref
+		///	- For mathematical assignment operators (+=, -=, *=, /=, %=, &=, |=, ^=, >>=, <<=) the signature must be:
+		///		FMyStruct FuncName(const FMyStruct&, OtherType); // OtherType can be any type, FMyStruct may be passed by value rather than const-ref
+		ScriptOperator,
+
+		/// [FunctionMetadata] Flags a static function returning a value so that it "hoists" the function to be a constant of its host type when exporting it to a scripting language.
+		/// The constant will be hosted on the class that owns the function, but ScriptConstantHost can be used to host it on a different type (struct or class).
+		/// The value is optional, and may specify a name override for the constant. May include deprecated names as additional semi-colon separated entries.
+		ScriptConstant,
+
+		/// [FunctionMetadata] Used with ScriptConstant to override the host type for a constant. Should be the name of a struct or class with no prefix, eg) Vector2D or Actor
+		ScriptConstantHost,
 
 		/// [FunctionMetadata] For BlueprintCallable functions indicates that the parameter pin should be hidden from the user's view.
 		HidePin,

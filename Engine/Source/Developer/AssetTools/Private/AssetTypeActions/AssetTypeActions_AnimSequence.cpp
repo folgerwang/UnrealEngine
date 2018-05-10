@@ -137,22 +137,25 @@ void FAssetTypeActions_AnimSequence::ExecuteNewPoseAsset(TArray<TWeakObjectPtr<U
 	CreateAnimationAssets(Objects, UPoseAsset::StaticClass(), Factory, DefaultSuffix, FOnConfigureFactory::CreateSP(this, &FAssetTypeActions_AnimSequence::ConfigureFactoryForPoseAsset));
 }
 
-void FAssetTypeActions_AnimSequence::ConfigureFactoryForAnimComposite(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const
+bool FAssetTypeActions_AnimSequence::ConfigureFactoryForAnimComposite(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const
 {
 	UAnimCompositeFactory* CompositeFactory = CastChecked<UAnimCompositeFactory>(AssetFactory);
 	CompositeFactory->SourceAnimation = SourceAnimation;
+	return true;
 }
 
-void FAssetTypeActions_AnimSequence::ConfigureFactoryForAnimMontage(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const
+bool FAssetTypeActions_AnimSequence::ConfigureFactoryForAnimMontage(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const
 {
 	UAnimMontageFactory* MontageFactory = CastChecked<UAnimMontageFactory>(AssetFactory);
 	MontageFactory->SourceAnimation = SourceAnimation;
+	return true;
 }
 
-void FAssetTypeActions_AnimSequence::ConfigureFactoryForPoseAsset(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const
+bool FAssetTypeActions_AnimSequence::ConfigureFactoryForPoseAsset(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const
 {
 	UPoseAssetFactory* CompositeFactory = CastChecked<UPoseAssetFactory>(AssetFactory);
 	CompositeFactory->SourceAnimation = SourceAnimation;
+	return CompositeFactory->ConfigureProperties();
 }
 void FAssetTypeActions_AnimSequence::CreateAnimationAssets(const TArray<TWeakObjectPtr<UAnimSequence>>& AnimSequences, TSubclassOf<UAnimationAsset> AssetClass, UFactory* AssetFactory, const FString& InSuffix, FOnConfigureFactory OnConfigureFactory) const
 {
@@ -167,10 +170,14 @@ void FAssetTypeActions_AnimSequence::CreateAnimationAssets(const TArray<TWeakObj
 			FString PackageName;
 			CreateUniqueAssetName(AnimSequence->GetOutermost()->GetName(), InSuffix, PackageName, Name);
 
-			OnConfigureFactory.ExecuteIfBound(AssetFactory, AnimSequence);
-
-			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-			ContentBrowserModule.Get().CreateNewAsset(Name, FPackageName::GetLongPackagePath(PackageName), AssetClass, AssetFactory);
+			if (OnConfigureFactory.IsBound())
+			{
+				if (OnConfigureFactory.Execute(AssetFactory, AnimSequence))
+				{
+					FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+					ContentBrowserModule.Get().CreateNewAsset(Name, FPackageName::GetLongPackagePath(PackageName), AssetClass, AssetFactory);
+				}
+			}
 		}
 	}
 	else
@@ -186,16 +193,20 @@ void FAssetTypeActions_AnimSequence::CreateAnimationAssets(const TArray<TWeakObj
 				FString PackageName;
 				CreateUniqueAssetName(AnimSequence->GetOutermost()->GetName(), InSuffix, PackageName, Name);
 
-				OnConfigureFactory.ExecuteIfBound(AssetFactory, AnimSequence);
-
-				// Create the asset, and assign it's skeleton
-				FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
-				UAnimationAsset* NewAsset = Cast<UAnimationAsset>(AssetToolsModule.Get().CreateAsset(Name, FPackageName::GetLongPackagePath(PackageName), AssetClass, AssetFactory));
-
-				if ( NewAsset )
+				if (OnConfigureFactory.IsBound())
 				{
-					NewAsset->MarkPackageDirty();
-					ObjectsToSync.Add(NewAsset);
+					if (OnConfigureFactory.Execute(AssetFactory, AnimSequence))
+					{
+						// Create the asset, and assign it's skeleton
+						FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
+						UAnimationAsset* NewAsset = Cast<UAnimationAsset>(AssetToolsModule.Get().CreateAsset(Name, FPackageName::GetLongPackagePath(PackageName), AssetClass, AssetFactory));
+
+						if (NewAsset)
+						{
+							NewAsset->MarkPackageDirty();
+							ObjectsToSync.Add(NewAsset);
+						}
+					}
 				}
 			}
 		}

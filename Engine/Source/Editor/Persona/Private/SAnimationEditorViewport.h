@@ -403,6 +403,11 @@ private:
 	bool CanUseInGameBound() const;
 	bool IsUsingInGameBound() const;
 
+	/** Called to toggle 'fixed bounds' option to preview */
+	void UseFixedBounds();
+	bool CanUseFixedBounds() const;
+	bool IsUsingFixedBounds() const;
+
 	/** Called by UV channel combo box on selection change */
 	void ComboBoxSelectionChanged( TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo );
 

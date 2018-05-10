@@ -27,8 +27,9 @@ namespace Audio
 		bool StopStream();
 		bool AbortStream();
 		bool GetStreamTime(double& OutStreamTime);
-		bool IsStreamOpen();
-		bool IsCapturing();
+		int32 GetSampleRate() const { return SampleRate; }
+		bool IsStreamOpen() const;
+		bool IsCapturing() const;
 
 		void OnAudioCapture(void* InBuffer, uint32 InBufferFrames, double StreamTime, bool bOverflow);
 
@@ -37,7 +38,6 @@ namespace Audio
 		int32 NumChannels;
 		int32 SampleRate;
 		RtAudio CaptureDevice;
-		TArray<float> FloatBuffer;
 	};
 }
 
@@ -58,8 +58,9 @@ namespace Audio
 		bool StopStream() { return false; }
 		bool AbortStream() { return false; }
 		bool GetStreamTime(double& OutStreamTime)  { return false; }
-		bool IsStreamOpen() { return false; }
-		bool IsCapturing() { return false; }
+		int32 GetSampleRate() const { return 0; }
+		bool IsStreamOpen() const { return false; }
+		bool IsCapturing() const { return false; }
 	};
 
 	// Return nullptr when creating impl

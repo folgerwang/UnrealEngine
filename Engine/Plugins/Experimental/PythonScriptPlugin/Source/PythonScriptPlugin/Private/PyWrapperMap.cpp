@@ -411,15 +411,13 @@ struct FPyWrapperMapValueView : public TPyWrapperMapView<FPyWrapperMapValueView>
 	}
 };
 
-void InitializePyWrapperMap(PyObject* PyModule)
+void InitializePyWrapperMap(PyGenUtil::FNativePythonModule& ModuleInfo)
 {
 	if (PyType_Ready(&PyWrapperMapType) == 0)
 	{
 		static FPyWrapperMapMetaData MetaData;
 		FPyWrapperMapMetaData::SetMetaData(&PyWrapperMapType, &MetaData);
-
-		Py_INCREF(&PyWrapperMapType);
-		PyModule_AddObject(PyModule, PyWrapperMapType.tp_name, (PyObject*)&PyWrapperMapType);
+		ModuleInfo.AddType(&PyWrapperMapType);
 	}
 
 	PyType_Ready(&PyWrapperMapItemIteratorType);
@@ -1558,16 +1556,16 @@ PyTypeObject InitializePyWrapperMapType()
 	};
 
 	static PyMethodDef PyMethods[] = {
-		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.cast(key, value, obj) -> TMap -- cast the given object to this Unreal map type" },
-		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> TMap -- copy this Unreal map" },
-		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> TMap -- copy this Unreal map" },
-		{ "clear", PyCFunctionCast(&FMethods::Clear), METH_NOARGS, "x.clear() -- remove all items from this Unreal map" },
-		{ "fromkeys", PyCFunctionCast(&FMethods::FromKeys), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.fromkeys(sequence, value=None) -> TMap -- returns a new Unreal map of keys from the sequence using the given value (types are inferred)" },
+		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.cast(key, value, obj) -> Map -- cast the given object to this Unreal map type" },
+		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> Map -- copy this Unreal map" },
+		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> Map -- copy this Unreal map" },
+		{ "clear", PyCFunctionCast(&FMethods::Clear), METH_NOARGS, "x.clear() -> None -- remove all items from this Unreal map" },
+		{ "fromkeys", PyCFunctionCast(&FMethods::FromKeys), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.fromkeys(sequence, value=None) -> Map -- returns a new Unreal map of keys from the sequence using the given value (types are inferred)" },
 		{ "get", PyCFunctionCast(&FMethods::Get), METH_VARARGS | METH_KEYWORDS, "x.get(key, default=None) -> value -- x[key] if key in x, otherwise default" },
 		{ "setdefault", PyCFunctionCast(&FMethods::SetDefault), METH_VARARGS | METH_KEYWORDS, "x.setdefault(key, default=None) -> value -- set key to default if key not in x and return the new value of key" },
 		{ "pop", PyCFunctionCast(&FMethods::Pop), METH_VARARGS | METH_KEYWORDS, "x.pop(key, default=None) -> value -- remove key and return its value, or default if key not present, or raise KeyError if no default" },
 		{ "popitem", PyCFunctionCast(&FMethods::PopItem), METH_NOARGS, "x.popitem() -> pair -- remove and return an arbitrary pair from this Unreal map, or raise KeyError if the map is empty" },
-		{ "update", PyCFunctionCast(&FMethods::Update), METH_VARARGS | METH_KEYWORDS, "x.update(...) -- update this Unreal map from the given mapping or sequence pairs type or key->value arguments" },
+		{ "update", PyCFunctionCast(&FMethods::Update), METH_VARARGS | METH_KEYWORDS, "x.update(...) -> None -- update this Unreal map from the given mapping or sequence pairs type or key->value arguments" },
 #if PY_MAJOR_VERSION < 3
 		{ "has_key", PyCFunctionCast(&FMethods::HasKey), METH_VARARGS, "x.has_key(k) -> bool -- does this Unreal map contain the given key? (equivalent to k in x)" },
 		{ "iteritems", PyCFunctionCast(&FMethods::IterItems), METH_NOARGS, "x.iteritems() -> iter -- an iterator over the key->value pairs of this Unreal map" },

@@ -9,7 +9,7 @@
 #include "UObject/Class.h"
 
 #include "MovieSceneKeyStruct.h"
-#include "ISequencerChannelInterface.h"
+#include "SequencerChannelTraits.h"
 #include "Channels/MovieSceneChannelHandle.h"
 
 #include "Channels/MovieSceneBoolChannel.h"
@@ -38,17 +38,17 @@ FKeyHandle AddOrUpdateKey(FMovieSceneFloatChannel* Channel, const TMovieSceneExt
 FKeyHandle AddOrUpdateKey(FMovieSceneActorReferenceData* Channel, FFrameNumber InTime, ISequencer& Sequencer, const FGuid& InObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings);
 
 /** Key editor overrides */
-bool CanCreateKeyEditor(FMovieSceneBoolChannel*    Channel);
-bool CanCreateKeyEditor(FMovieSceneByteChannel*    Channel);
-bool CanCreateKeyEditor(FMovieSceneIntegerChannel* Channel);
-bool CanCreateKeyEditor(FMovieSceneFloatChannel*   Channel);
-bool CanCreateKeyEditor(FMovieSceneStringChannel*  Channel);
+bool CanCreateKeyEditor(const FMovieSceneBoolChannel*    Channel);
+bool CanCreateKeyEditor(const FMovieSceneByteChannel*    Channel);
+bool CanCreateKeyEditor(const FMovieSceneIntegerChannel* Channel);
+bool CanCreateKeyEditor(const FMovieSceneFloatChannel*   Channel);
+bool CanCreateKeyEditor(const FMovieSceneStringChannel*  Channel);
 
-TSharedRef<SWidget> CreateKeyEditor(FMovieSceneBoolChannel*    Channel, const TMovieSceneExternalValue<bool>&    EditorData, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer);
-TSharedRef<SWidget> CreateKeyEditor(FMovieSceneByteChannel*    Channel, const TMovieSceneExternalValue<uint8>&   EditorData, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer);
-TSharedRef<SWidget> CreateKeyEditor(FMovieSceneIntegerChannel* Channel, const TMovieSceneExternalValue<int32>&   EditorData, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer);
-TSharedRef<SWidget> CreateKeyEditor(FMovieSceneFloatChannel*   Channel, const TMovieSceneExternalValue<float>&   EditorData, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer);
-TSharedRef<SWidget> CreateKeyEditor(FMovieSceneStringChannel*  Channel, const TMovieSceneExternalValue<FString>& EditorData, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer);
+TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneBoolChannel>    Channel, const TMovieSceneExternalValue<bool>&    EditorData, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer);
+TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneByteChannel>    Channel, const TMovieSceneExternalValue<uint8>&   EditorData, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer);
+TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneIntegerChannel> Channel, const TMovieSceneExternalValue<int32>&   EditorData, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer);
+TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneFloatChannel>   Channel, const TMovieSceneExternalValue<float>&   EditorData, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer);
+TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneStringChannel>  Channel, const TMovieSceneExternalValue<FString>& EditorData, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer);
 
 /** KeyStruct overrides */
 TSharedPtr<FStructOnScope> GetKeyStruct(TMovieSceneChannelHandle<FMovieSceneBoolChannel>     Channel, FKeyHandle InHandle);
@@ -63,7 +63,7 @@ void DrawKeys(FMovieSceneParticleChannel* Channel, TArrayView<const FKeyHandle> 
 
 /** Context menu overrides */
 void ExtendSectionMenu(FMenuBuilder& OuterMenuBuilder, TArray<TMovieSceneChannelHandle<FMovieSceneFloatChannel>>&& Channels, TArrayView<UMovieSceneSection* const> Sections, TWeakPtr<ISequencer> InSequencer);
-void ExtendKeyMenu(FMenuBuilder& OuterMenuBuilder, TArray<TChannelAndHandles<FMovieSceneFloatChannel>>&& Channels, TWeakPtr<ISequencer> InSequencer);
+void ExtendKeyMenu(FMenuBuilder& OuterMenuBuilder, TArray<TExtendKeyMenuParams<FMovieSceneFloatChannel>>&& Channels, TWeakPtr<ISequencer> InSequencer);
 
 /** Curve editor models */
 TUniquePtr<FCurveModel> CreateCurveEditorModel(TMovieSceneChannelHandle<FMovieSceneFloatChannel> FloatChannel, UMovieSceneSection* OwningSection, TSharedRef<ISequencer> InSequencer);

@@ -133,7 +133,7 @@ namespace EAutoExposureMethodUI
 	};
 }
 
-/** used by DefaultBackBufferPixelFormat*/
+/** used by GetDefaultBackBufferPixelFormat*/
 UENUM()
 namespace EDefaultBackBufferPixelFormat
 {

@@ -17,7 +17,7 @@ UMovieSceneIntegerSection::UMovieSceneIntegerSection( const FObjectInitializer& 
 	bSupportsInfiniteRange = true;
 #if WITH_EDITOR
 
-	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(IntegerCurve, FMovieSceneChannelEditorData(), TMovieSceneExternalValue<int32>::Make());
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(IntegerCurve, FMovieSceneChannelMetaData(), TMovieSceneExternalValue<int32>::Make());
 
 #else
 

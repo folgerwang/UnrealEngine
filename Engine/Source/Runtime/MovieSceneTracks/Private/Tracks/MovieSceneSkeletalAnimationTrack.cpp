@@ -89,7 +89,7 @@ bool UMovieSceneSkeletalAnimationTrack::SupportsMultipleRows() const
 
 UMovieSceneSection* UMovieSceneSkeletalAnimationTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSkeletalAnimationSection>(this);
+	return NewObject<UMovieSceneSkeletalAnimationSection>(this, NAME_None, RF_Transactional);
 }
 
 

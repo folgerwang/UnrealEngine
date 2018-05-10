@@ -109,6 +109,19 @@ public:
 	 */
 	virtual void GetKeyDrawInfo(ECurvePointType PointType, FKeyDrawInfo& OutDrawInfo) const = 0;
 
+	/** Get range of input time.
+	* @param MinTime Minimum Time
+	* @param MaxTime Minimum Time
+	*
+	*/
+	virtual void GetTimeRange(double& MinTime, double& MaxTime) const = 0;
+
+	/** Get range of output values.
+	* @param MinValue Minimum Value
+	* @param MaxValue Minimum Value
+	*/
+	virtual void GetValueRange(double& MinValue, double& MaxValue) const = 0;
+
 	/**
 	 * Evaluate this curve at the specified time
 	 *

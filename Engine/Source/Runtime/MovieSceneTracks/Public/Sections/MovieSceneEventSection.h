@@ -12,6 +12,8 @@
 #include "Engine/Engine.h"
 #include "UObject/SoftObjectPath.h"
 #include "Channels/MovieSceneChannel.h"
+#include "Channels/MovieSceneChannelData.h"
+#include "Channels/MovieSceneChannelTraits.h"
 #include "MovieSceneEventSection.generated.h"
 
 struct EventData;
@@ -127,16 +129,9 @@ struct FEventPayload
 
 /** A curve of events */
 USTRUCT()
-struct FMovieSceneEventSectionData
+struct FMovieSceneEventSectionData : public FMovieSceneChannel
 {
 	GENERATED_BODY()
-
-	/**
-	 * Access an integer that uniquely identifies this channel type.
-	 *
-	 * @return A static identifier that was allocated using FMovieSceneChannelEntry::RegisterNewID
-	 */
-	MOVIESCENETRACKS_API static uint32 GetChannelID();
 
 	/**
 	 * Called after this section data has been serialized to upgrade old data
@@ -144,23 +139,23 @@ struct FMovieSceneEventSectionData
 	MOVIESCENETRACKS_API void PostSerialize(const FArchive& Ar);
 
 	/**
-	 * Access a mutable interface for this channel
+	 * Access a mutable interface for this channel's data
 	 *
-	 * @return An object that is able to manipulate this channel
+	 * @return An object that is able to manipulate this channel's data
 	 */
-	FORCEINLINE TMovieSceneChannel<FEventPayload> GetInterface()
+	FORCEINLINE TMovieSceneChannelData<FEventPayload> GetData()
 	{
-		return TMovieSceneChannel<FEventPayload>(&Times, &KeyValues, &KeyHandles);
+		return TMovieSceneChannelData<FEventPayload>(&Times, &KeyValues, &KeyHandles);
 	}
 
 	/**
-	 * Access a constant interface for this channel
+	 * Access a constant interface for this channel's data
 	 *
-	 * @return An object that is able to interrogate this channel
+	 * @return An object that is able to interrogate this channel's data
 	 */
-	FORCEINLINE TMovieSceneChannel<const FEventPayload> GetInterface() const
+	FORCEINLINE TMovieSceneChannelData<const FEventPayload> GetData() const
 	{
-		return TMovieSceneChannel<const FEventPayload>(&Times, &KeyValues);
+		return TMovieSceneChannelData<const FEventPayload>(&Times, &KeyValues);
 	}
 
 	TArrayView<const FFrameNumber> GetKeyTimes() const
@@ -172,6 +167,22 @@ struct FMovieSceneEventSectionData
 	{
 		return KeyValues;
 	}
+
+public:
+
+	// ~ FMovieSceneChannel Interface
+	virtual void GetKeys(const TRange<FFrameNumber>& WithinRange, TArray<FFrameNumber>* OutKeyTimes, TArray<FKeyHandle>* OutKeyHandles) override;
+	virtual void GetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<FFrameNumber> OutKeyTimes) override;
+	virtual void SetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<const FFrameNumber> InKeyTimes) override;
+	virtual void DuplicateKeys(TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyHandle> OutNewHandles) override;
+	virtual void DeleteKeys(TArrayView<const FKeyHandle> InHandles) override;
+	virtual void ChangeFrameResolution(FFrameRate SourceRate, FFrameRate DestinationRate) override;
+	virtual TRange<FFrameNumber> ComputeEffectiveRange() const override;
+	virtual int32 GetNumKeys() const override;
+	virtual void Reset() override;
+	virtual void Offset(FFrameNumber DeltaPosition) override;
+	virtual void Optimize(const FKeyDataOptimizationParams& InParameters) override {}
+	virtual void ClearDefault() override {}
 
 private:
 
@@ -236,7 +247,11 @@ private:
 	FMovieSceneEventSectionData EventData;
 };
 
-
+template<>
+struct TMovieSceneChannelTraits<FMovieSceneEventSectionData> : TMovieSceneChannelTraitsBase<FMovieSceneEventSectionData>
+{
+	enum { SupportsDefaults = false };
+};
 
 /** Stub out unnecessary functions */
 inline bool EvaluateChannel(const FMovieSceneEventSectionData* InChannel, FFrameTime InTime, FEventPayload& OutValue)
@@ -245,17 +260,8 @@ inline bool EvaluateChannel(const FMovieSceneEventSectionData* InChannel, FFrame
 	return false;
 }
 
-inline bool ValueExistsAtTime(const FMovieSceneEventSectionData* InChannel, FFrameNumber Time, const FEventPayload& Value, int32 Tolerance = 0)
+inline bool ValueExistsAtTime(const FMovieSceneEventSectionData* InChannel, FFrameNumber Time, const FEventPayload& Value)
 {
 	// true if any value exists
-	return InChannel->GetInterface().FindKey(Time, Tolerance) != INDEX_NONE;
+	return InChannel->GetData().FindKey(Time) != INDEX_NONE;
 }
-
-inline void Optimize(FMovieSceneEventSectionData* InChannel, const FKeyDataOptimizationParams& Params)
-{}
-
-inline void SetChannelDefault(FMovieSceneEventSectionData* Channel, const FEventPayload& DefaultValue)
-{}
-
-inline void ClearChannelDefault(FMovieSceneEventSectionData* InChannel)
-{}

@@ -109,18 +109,18 @@ struct TSequencerKeyEditor
 		const FFrameNumber CurrentTime = Sequencer->GetLocalTime().Time.FloorToFrame();
 		const bool  bAutoSetTrackDefaults = Sequencer->GetAutoSetTrackDefaults();
 
-		auto ChannelInterface = Channel->GetInterface();
-
 		EMovieSceneKeyInterpolation Interpolation = Sequencer->GetKeyInterpolation();
 
-		int32 ExistingIndex = ChannelInterface.FindKey(CurrentTime);
-		if (ExistingIndex != INDEX_NONE)
+		TArray<FKeyHandle> KeysAtCurrentTime;
+		Channel->GetKeys(TRange<FFrameNumber>(CurrentTime), nullptr, &KeysAtCurrentTime);
+
+		if (KeysAtCurrentTime.Num() > 0)
 		{
-			AssignValue(Channel, ExistingIndex, InValue);
+			AssignValue(Channel, KeysAtCurrentTime[0], InValue);
 		}
 		else
 		{
-			const bool bHasAnyKeys = HasAnyKeys(Channel);
+			const bool bHasAnyKeys = Channel->GetNumKeys() != 0;
 
 			if (bHasAnyKeys || bAutoSetTrackDefaults == false)
 			{

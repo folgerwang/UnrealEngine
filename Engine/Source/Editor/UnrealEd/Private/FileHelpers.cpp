@@ -663,7 +663,7 @@ static bool SaveWorld(UWorld* World,
 			const FString KeepDirtyString = bPIESaving ? TEXT("true") : TEXT("false");
 			FSaveErrorOutputDevice SaveErrors;
 
-			bSuccess = GUnrealEd->Exec( NULL, *FString::Printf( TEXT("OBJ SAVEPACKAGE PACKAGE=\"%s\" FILE=\"%s\" SILENT=true AUTOSAVING=%s KEEPDIRTY=%s"), *Package->GetName(), *FinalFilename, *AutoSavingString, *KeepDirtyString ), SaveErrors );
+			bSuccess = GEditor->Exec( NULL, *FString::Printf( TEXT("OBJ SAVEPACKAGE PACKAGE=\"%s\" FILE=\"%s\" SILENT=true AUTOSAVING=%s KEEPDIRTY=%s"), *Package->GetName(), *FinalFilename, *AutoSavingString, *KeepDirtyString ), SaveErrors );
 			SaveErrors.Flush();
 		}
 
@@ -1237,12 +1237,12 @@ void FEditorFileUtils::Import(const FString& InFilename)
 
 		Args.Add(TEXT("MapFilename"), FText::FromString(FPaths::GetCleanFilename(InFilename)));
 		GWarn->BeginSlowTask(FText::Format(NSLOCTEXT("UnrealEd", "ImportingMap_F", "Importing map: {MapFilename}..."), Args), true);
-		GUnrealEd->Exec(GWorld, *FString::Printf(TEXT("MAP IMPORTADD FILE=\"%s\""), *InFilename));
+		GEditor->Exec(GWorld, *FString::Printf(TEXT("MAP IMPORTADD FILE=\"%s\""), *InFilename));
 
 		GWarn->EndSlowTask();
 	}
 
-	GUnrealEd->RedrawLevelEditingViewports();
+	GEditor->RedrawLevelEditingViewports();
 
 	FEditorDirectories::Get().SetLastDirectory(ELastDirectory::UNR, FPaths::GetPath(InFilename)); // Save path as default for next time.
 
@@ -1258,7 +1258,7 @@ void FEditorFileUtils::Export(bool bExportSelectedActorsOnly)
 	FString LastUsedPath = GetDefaultDirectory();
 	if( FileDialogHelpers::SaveFile( NSLOCTEXT("UnrealEd", "Export", "Export").ToString(), GetFilterString(FI_ExportScene), LastUsedPath, FPaths::GetBaseFilename(LevelFilename), ExportFilename ) )
 	{
-		GUnrealEd->ExportMap( World, *ExportFilename, bExportSelectedActorsOnly );
+		GEditor->ExportMap( World, *ExportFilename, bExportSelectedActorsOnly );
 		FEditorDirectories::Get().SetLastDirectory(ELastDirectory::UNR, FPaths::GetPath(ExportFilename)); // Save path as default for next time.
 	}
 }
@@ -1588,7 +1588,7 @@ bool FEditorFileUtils::PromptToCheckoutPackages(bool bCheckDirty, const TArray<U
 	ISourceControlModule::Get().QueueStatusUpdate(PackagesToCheckOut);
 
 	// If any files were just checked out, remove any pending flag to show a notification prompting for checkout.
-	if (PackagesToCheckOut.Num() > 0)
+	if (GUnrealEd && PackagesToCheckOut.Num() > 0)
 	{
 		for (UPackage* Package : PackagesToCheckOut)
 		{
@@ -2136,7 +2136,7 @@ bool FEditorFileUtils::AttemptUnloadInactiveWorldPackage(UPackage* PackageToUnlo
  */
 bool FEditorFileUtils::LoadMap()
 {
-	if (GUnrealEd->WarnIfLightingBuildIsCurrentlyRunning())
+	if (GEditor->WarnIfLightingBuildIsCurrentlyRunning())
 	{
 		return false;
 	}
@@ -2226,7 +2226,7 @@ static void NotifyBSPNeedsRebuild(const FString& PackageName)
 			{
 				if (Level.IsValid())
 				{
-					GUnrealEd->RebuildLevel(*Level.Get());
+					GEditor->RebuildLevel(*Level.Get());
 				}
 			}
 			ABrush::OnRebuildDone();
@@ -2277,7 +2277,7 @@ bool FEditorFileUtils::LoadMap(const FString& InFilename, bool LoadAsTemplate, b
 {
 	double LoadStartTime = FPlatformTime::Seconds();
 	
-	if (GUnrealEd->WarnIfLightingBuildIsCurrentlyRunning())
+	if (GEditor->WarnIfLightingBuildIsCurrentlyRunning())
 	{
 		return false;
 	}
@@ -2334,13 +2334,13 @@ bool FEditorFileUtils::LoadMap(const FString& InFilename, bool LoadAsTemplate, b
 	GLevelEditorModeTools().DeactivateAllModes();
 
 	FString LoadCommand = FString::Printf(TEXT("MAP LOAD FILE=\"%s\" TEMPLATE=%d SHOWPROGRESS=%d FEATURELEVEL=%d"), *Filename, LoadAsTemplate, bShowProgress, (int32)GEditor->DefaultWorldFeatureLevel);
-	const bool bResult = GUnrealEd->Exec( NULL, *LoadCommand );
+	const bool bResult = GEditor->Exec( NULL, *LoadCommand );
 
 	UWorld* World = GWorld;
 	// In case the load failed after GWorld was torn down, default to a new blank map
 	if( ( !World ) || ( bResult == false ) )
 	{
-		World = GUnrealEd->NewMap();
+		World = GEditor->NewMap();
 
 		ResetLevelFilenames();
 
@@ -2386,12 +2386,15 @@ bool FEditorFileUtils::LoadMap(const FString& InFilename, bool LoadAsTemplate, b
 	// Track time spent loading map.
 	UE_LOG(LogFileHelpers, Log, TEXT("Loading map '%s' took %.3f"), *FPaths::GetBaseFilename(Filename), FPlatformTime::Seconds() - LoadStartTime );
 
-	// Update volume actor visibility for each viewport since we loaded a level which could
-	// potentially contain volumes.
-	GUnrealEd->UpdateVolumeActorVisibility(NULL);
+	if (GUnrealEd)
+	{
+		// Update volume actor visibility for each viewport since we loaded a level which could
+		// potentially contain volumes.
+		GUnrealEd->UpdateVolumeActorVisibility(NULL);
 
-	// If there are any old mirrored brushes in the map with inverted polys, fix them here
-	GUnrealEd->FixAnyInvertedBrushes(World);
+		// If there are any old mirrored brushes in the map with inverted polys, fix them here
+		GUnrealEd->FixAnyInvertedBrushes(World);
+	}
 
 	// Request to rebuild BSP if the loading process flagged it as not up-to-date
 	if (ABrush::NeedsRebuild())
@@ -2595,7 +2598,7 @@ EAutosaveContentPackagesResult::Type FEditorFileUtils::AutosaveContentPackagesEx
 		SlowTask.EnterProgressFrame();
 
 		const FString AutosaveFilename = GetAutoSaveFilename(CurPackage, AbsoluteAutosaveDir, AutosaveIndex, FPackageName::GetAssetPackageExtension());
-		if (!GUnrealEd->Exec(nullptr, *FString::Printf(TEXT("OBJ SAVEPACKAGE PACKAGE=\"%s\" FILE=\"%s\" SILENT=false AUTOSAVING=true"), *CurPackage->GetName(), *AutosaveFilename)))
+		if (!GEditor->Exec(nullptr, *FString::Printf(TEXT("OBJ SAVEPACKAGE PACKAGE=\"%s\" FILE=\"%s\" SILENT=false AUTOSAVING=true"), *CurPackage->GetName(), *AutosaveFilename)))
 		{
 			return EAutosaveContentPackagesResult::Failure;
 		}
@@ -3697,7 +3700,7 @@ void FEditorFileUtils::LoadDefaultMapAtStartup()
 		FString MapFilenameToLoad = FPackageName::LongPackageNameToFilename( EditorStartupMap );
 
 		bIsLoadingDefaultStartupMap = true;
-		FEditorFileUtils::LoadMap( MapFilenameToLoad + FPackageName::GetMapPackageExtension(), GUnrealEd->IsTemplateMap(EditorStartupMap), true );
+		FEditorFileUtils::LoadMap( MapFilenameToLoad + FPackageName::GetMapPackageExtension(), GUnrealEd && GUnrealEd->IsTemplateMap(EditorStartupMap), true );
 		bIsLoadingDefaultStartupMap = false;
 	}
 }
@@ -3971,7 +3974,7 @@ UWorld* UEditorLoadingAndSavingUtils::NewBlankMap(bool bSaveExistingMap)
 		return nullptr;
 	}
 
-	UWorld* World = GUnrealEd->NewMap();
+	UWorld* World = GEditor->NewMap();
 
 	FEditorFileUtils::ResetLevelFilenames();
 

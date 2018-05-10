@@ -17,8 +17,8 @@ namespace physx
 /**
  *	Utility object for moving physics objects around.
  */
-UCLASS(collapsecategories, ClassGroup=Physics, hidecategories=Object, MinimalAPI, meta=(BlueprintSpawnableComponent))
-class UPhysicsHandleComponent : public UActorComponent
+UCLASS(collapsecategories, ClassGroup=Physics, hidecategories=Object, meta=(BlueprintSpawnableComponent))
+class ENGINE_API UPhysicsHandleComponent : public UActorComponent
 {
 	GENERATED_UCLASS_BODY()
 
@@ -77,8 +77,8 @@ protected:
 	physx::PxRigidDynamic* KinActorData;
 
 	//~ Begin UActorComponent Interface.
-	ENGINE_API virtual void OnUnregister() override;
-	ENGINE_API virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
+	virtual void OnUnregister() override;
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	//~ End UActorComponent Interface.
 
 public:
@@ -86,59 +86,59 @@ public:
 	/** Grab the specified component */
 	DEPRECATED(4.14, "Please use GrabComponentAtLocation or GrabComponentAtLocationWithRotation")
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsHandle", meta = (DeprecatedFunction, DeprecationMessage = "Please use GrabComponentAtLocation or GrabComponentAtLocationWithRotation"))
-	ENGINE_API virtual void GrabComponent(class UPrimitiveComponent* Component, FName InBoneName, FVector GrabLocation, bool bConstrainRotation);
+	virtual void GrabComponent(class UPrimitiveComponent* Component, FName InBoneName, FVector GrabLocation, bool bConstrainRotation);
 
 	/** Grab the specified component at a given location. Does NOT constraint rotation which means the handle will pivot about GrabLocation.*/
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
-	ENGINE_API void GrabComponentAtLocation(class UPrimitiveComponent* Component, FName InBoneName, FVector GrabLocation);
+	void GrabComponentAtLocation(class UPrimitiveComponent* Component, FName InBoneName, FVector GrabLocation);
 
 	/** Grab the specified component at a given location and rotation. Constrains rotation.*/
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
-	ENGINE_API void GrabComponentAtLocationWithRotation(class UPrimitiveComponent* Component, FName InBoneName, FVector Location, FRotator Rotation);
+	void GrabComponentAtLocationWithRotation(class UPrimitiveComponent* Component, FName InBoneName, FVector Location, FRotator Rotation);
 
 	/** Release the currently held component */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsHandle")
-	ENGINE_API virtual void ReleaseComponent();
+	virtual void ReleaseComponent();
 
 	/** Returns the currently grabbed component, or null if nothing is grabbed. */
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
-	ENGINE_API class UPrimitiveComponent* GetGrabbedComponent() const;
+	class UPrimitiveComponent* GetGrabbedComponent() const;
 
 	/** Set the target location */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsHandle")
-	ENGINE_API void SetTargetLocation(FVector NewLocation);
+	void SetTargetLocation(FVector NewLocation);
 
 	/** Set the target rotation */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsHandle")
-	ENGINE_API void SetTargetRotation(FRotator NewRotation);
+	void SetTargetRotation(FRotator NewRotation);
 
 	/** Set target location and rotation */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsHandle")
-	ENGINE_API void SetTargetLocationAndRotation(FVector NewLocation, FRotator NewRotation);
+	void SetTargetLocationAndRotation(FVector NewLocation, FRotator NewRotation);
 
 	/** Get the current location and rotation */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsHandle")
-	ENGINE_API void GetTargetLocationAndRotation(FVector& TargetLocation, FRotator& TargetRotation) const;
+	void GetTargetLocationAndRotation(FVector& TargetLocation, FRotator& TargetRotation) const;
 
 	/** Set linear damping */
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
-	ENGINE_API void SetLinearDamping(float NewLinearDamping);
+	void SetLinearDamping(float NewLinearDamping);
 
 	/** Set linear stiffness */
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
-	ENGINE_API void SetLinearStiffness(float NewLinearStiffness);
+	void SetLinearStiffness(float NewLinearStiffness);
 
 	/** Set angular damping */
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
-	ENGINE_API void SetAngularDamping(float NewAngularDamping);
+	void SetAngularDamping(float NewAngularDamping);
 
 	/** Set angular stiffness */
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
-	ENGINE_API void SetAngularStiffness(float NewAngularStiffness);
+	void SetAngularStiffness(float NewAngularStiffness);
 
 	/** Set interpolation speed */
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
-	ENGINE_API void SetInterpolationSpeed(float NewInterpolationSpeed);
+	void SetInterpolationSpeed(float NewInterpolationSpeed);
 
 protected:
 	/** Move the kinematic handle to the specified */
@@ -147,7 +147,7 @@ protected:
 	/** Update the underlying constraint drive settings from the params in this component */
 	virtual void UpdateDriveSettings();
 
-	ENGINE_API virtual void GrabComponentImp(class UPrimitiveComponent* Component, FName InBoneName, const FVector& Location, const FRotator& Rotation, bool bRotationConstrained);
+	virtual void GrabComponentImp(class UPrimitiveComponent* Component, FName InBoneName, const FVector& Location, const FRotator& Rotation, bool bRotationConstrained);
 
 };
 

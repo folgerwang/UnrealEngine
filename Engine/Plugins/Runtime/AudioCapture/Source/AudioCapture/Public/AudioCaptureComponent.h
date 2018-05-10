@@ -18,7 +18,7 @@ class AUDIOCAPTURE_API UAudioCaptureComponent : public USynthComponent
 	virtual bool Init(int32& SampleRate) override;
 	virtual void OnStart() override;
 	virtual void OnStop() override;
-	virtual void OnGenerateAudio(float* OutAudio, int32 NumSamples) override;
+	virtual int32 OnGenerateAudio(float* OutAudio, int32 NumSamples) override;
 	virtual void OnBeginGenerate() override;
 	virtual void OnEndGenerate() override;
 	//~ End USynthComponent interface
@@ -41,7 +41,7 @@ private:
 
 	Audio::FAudioCaptureSynth CaptureSynth;
 	TArray<float> CaptureAudioData;
-	int32 CaptureAudioDataSamples;
+	int32 CapturedAudioDataSamples;
 
 	bool bSuccessfullyInitialized;
 	bool bIsCapturing;

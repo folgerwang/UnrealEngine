@@ -648,7 +648,7 @@ namespace ObjectTools
 				FText Message = FText::Format( MessageFormatting, Arguments );
 
 				// Prompt the user to see if they'd like to remove the root set flag from the assets and attempt to replace them
-				EAppReturnType::Type UserRepsonse = OpenMsgDlgInt( EAppMsgType::YesNo, Message, NSLOCTEXT("ObjectTools", "ConsolidateAssetsRootSetDlg_Title", "Failed to Consolidate Assets") );
+				EAppReturnType::Type UserRepsonse = OpenMsgDlgInt( EAppMsgType::YesNo, EAppReturnType::No, Message, NSLOCTEXT("ObjectTools", "ConsolidateAssetsRootSetDlg_Title", "Failed to Consolidate Assets") );
 
 				// The user elected to not remove the root set flag, so cancel the replacement
 				if ( UserRepsonse == EAppReturnType::No )
@@ -889,12 +889,13 @@ namespace ObjectTools
 				// Note reloading the world via ReloadEditorWorldForReferenceReplacementIfNecessary will cause a garbage collect and potentially cause entries in the ObjectsToConsolidate list to become invalid
 				// We refresh the list here after reloading the editor world
 				TArray< TWeakObjectPtr<UObject> > ObjectsToConsolidateWeakList;
+				ObjectsToConsolidateWeakList.Reserve(ObjectsToConsolidate.Num());
 				for(UObject* Object : ObjectsToConsolidate)
 				{
 					ObjectsToConsolidateWeakList.Add(Object);
 				}
 
-				ObjectsToConsolidate.Empty();
+				ObjectsToConsolidate.Reset();
 
 				// If the current editor world is in this list, transition to a new map and reload the world to finish the delete
 				ReloadEditorWorldForReferenceReplacementIfNecessary(ObjectsToConsolidateWeakList);
@@ -3933,16 +3934,15 @@ namespace ThumbnailTools
 		CacheThumbnail( ObjectFullName, &EmptyThumbnail, DestPackage );
 	}
 
-
-
-	bool QueryPackageFileNameForObject( const FString& InFullName, FString& OutPackageFileName )
+	/** Returns the long path name of the package from InFullName */
+	FString GetPackageNameForObject( const FString& InFullName )
 	{
 		// First strip off the class name
 		int32 FirstSpaceIndex = InFullName.Find( TEXT( " " ) );
 		if( FirstSpaceIndex == INDEX_NONE || FirstSpaceIndex <= 0 )
 		{
 			// Malformed full name
-			return false;
+			return FString();
 		}
 
 		// Determine the package file path/name for the specified object
@@ -3953,15 +3953,21 @@ namespace ThumbnailTools
 		if( FirstDotIndex == INDEX_NONE || FirstDotIndex <= 0 )
 		{
 			// Malformed object path
-			return false;
+			return FString();
 		}
 
-		FString PackageName = ObjectPathName.Left( FirstDotIndex );
+		return ObjectPathName.Left( FirstDotIndex );
+	}
+
+	/** Returns the package file name on disk from InFullName */
+	bool QueryPackageFileNameForObject( const FString& InFullName, FString& OutPackageFileName )
+	{
+		FString PackageName = GetPackageNameForObject( InFullName );
 
 		// Ask the package file cache for the full path to this package
-		if( !FPackageName::DoesPackageExist( PackageName, NULL, &OutPackageFileName ) )
+		if( PackageName.IsEmpty() || !FPackageName::DoesPackageExist( PackageName, NULL, &OutPackageFileName ) )
 		{
-			// Couldn't find the package in our cache
+			// Couldn't find the package
 			return false;
 		}
 
@@ -4017,14 +4023,15 @@ namespace ThumbnailTools
 	const FObjectThumbnail* FindCachedThumbnail( const FString& InFullName )
 	{
 		// Determine the package file path/name for the specified object
-		FString PackageFilePathName;
-		if( !QueryPackageFileNameForObject( InFullName, PackageFilePathName ) )
+		FString PackageName = GetPackageNameForObject( InFullName );
+
+		if ( PackageName.IsEmpty() )
 		{
-			// Couldn't find the package in our cache
-			return NULL;
+			// Couldn't find the package
+			return nullptr;
 		}
 
-		return FindCachedThumbnailInPackage( PackageFilePathName, FName( *InFullName ) );
+		return FindCachedThumbnailInPackage( PackageName, FName( *InFullName ) );
 	}
 
 

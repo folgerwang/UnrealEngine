@@ -99,6 +99,11 @@ void UMovieSceneCameraCutTrack::RemoveSection(UMovieSceneSection& Section)
 }
 
 
+void UMovieSceneCameraCutTrack::RemoveAllAnimationData()
+{
+	Sections.Empty();
+}
+
 #if WITH_EDITORONLY_DATA
 FText UMovieSceneCameraCutTrack::GetDefaultDisplayName() const
 {

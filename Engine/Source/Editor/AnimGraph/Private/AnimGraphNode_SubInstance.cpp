@@ -54,6 +54,8 @@ FText UAnimGraphNode_SubInstance::GetNodeTitle(ENodeTitleType::Type TitleType) c
 
 void UAnimGraphNode_SubInstance::ValidateAnimNodeDuringCompilation(USkeleton* ForSkeleton, FCompilerResultsLog& MessageLog)
 {
+	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
+
 	UAnimBlueprint* AnimBP = CastChecked<UAnimBlueprint>(GetBlueprint());
 
 	UObject* OriginalNode = MessageLog.FindSourceObject(this);

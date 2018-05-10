@@ -264,7 +264,7 @@ public:
 	/**
 	 * @return Get an array of culture codes for all the cultures (native and foreign).
 	 */
-	TArray<FString> GetAllCultures() const;
+	TArray<FString> GetAllCultures(const bool bSingleCultureMode = false) const;
 
 	/**
 	 * Check to see whether we've loaded the manifest.

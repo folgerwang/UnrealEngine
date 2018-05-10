@@ -890,7 +890,7 @@ FSoftObjectPath UKismetSystemLibrary::MakeSoftObjectPath(const FString& PathStri
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("PathString"), FText::AsCultureInvariant(PathString));
-		LogRuntimeError(FText::Format(NSLOCTEXT("KismetSystemLibrary", "PathStringInvalid", "Object path {PathString} not valid for MakeSoftObjectPath."), Args));
+		LogRuntimeError(FText::Format(NSLOCTEXT("KismetSystemLibrary", "SoftObjectPath_PathStringInvalid", "Object path {PathString} not valid for MakeSoftObjectPath."), Args));
 	}
 
 	return SoftObjectPath;
@@ -899,6 +899,24 @@ FSoftObjectPath UKismetSystemLibrary::MakeSoftObjectPath(const FString& PathStri
 void UKismetSystemLibrary::BreakSoftObjectPath(FSoftObjectPath InSoftObjectPath, FString& PathString)
 {
 	PathString = InSoftObjectPath.ToString();
+}
+
+FSoftClassPath UKismetSystemLibrary::MakeSoftClassPath(const FString& PathString)
+{
+	FSoftClassPath SoftClassPath(PathString);
+	if (!PathString.IsEmpty() && !SoftClassPath.IsValid())
+	{
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("PathString"), FText::AsCultureInvariant(PathString));
+		LogRuntimeError(FText::Format(NSLOCTEXT("KismetSystemLibrary", "SoftClassPath_PathStringInvalid", "Object path {PathString} not valid for MakeSoftClassPath."), Args));
+	}
+
+	return SoftClassPath;
+}
+
+void UKismetSystemLibrary::BreakSoftClassPath(FSoftClassPath InSoftClassPath, FString& PathString)
+{
+	PathString = InSoftClassPath.ToString();
 }
 
 bool UKismetSystemLibrary::IsValidSoftObjectReference(const TSoftObjectPtr<UObject>& SoftObjectReference)

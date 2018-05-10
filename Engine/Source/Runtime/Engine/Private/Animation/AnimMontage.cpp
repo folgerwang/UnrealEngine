@@ -2743,7 +2743,7 @@ UAnimMontage* UAnimMontage::CreateSlotAnimationAsDynamicMontage(UAnimSequenceBas
 	}
 
 	USkeleton* AssetSkeleton = Asset->GetSkeleton();
-	if (!Asset->CanBeUsedInMontage())
+	if (!Asset->CanBeUsedInComposition())
 	{
 		UE_LOG(LogAnimMontage, Warning, TEXT("This animation isn't supported to play as montage"));
 		return nullptr;

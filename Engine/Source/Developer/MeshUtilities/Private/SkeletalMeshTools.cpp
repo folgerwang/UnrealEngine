@@ -294,32 +294,6 @@ namespace SkeletalMeshTools
 #endif // #if WITH_EDITORONLY_DATA
 	}
 
-	/**
-	 * Copies data out of Model so that the data can be processed in the background.
-	 */
-	void CopySkinnedModelData(FSkinnedModelData& OutData, FSkeletalMeshLODModel& Model)
-	{
-	#if WITH_EDITORONLY_DATA
-		Model.GetVertices(OutData.Vertices);
-		OutData.Indices = Model.IndexBuffer;
-		if (Model.RawPointIndices.GetElementCount() == OutData.Vertices.Num())
-		{
-			OutData.RawPointIndices.Empty(Model.RawPointIndices.GetElementCount());
-			OutData.RawPointIndices.AddUninitialized(Model.RawPointIndices.GetElementCount());
-			void* DestPtr = OutData.RawPointIndices.GetData();
-			Model.RawPointIndices.GetCopy(&DestPtr, /*bDiscardInternalCopy=*/false);
-			check(DestPtr == OutData.RawPointIndices.GetData());
-		}
-		OutData.MeshToImportVertexMap = Model.MeshToImportVertexMap;
-		OutData.Sections = Model.Sections;
-		for (int32 SectionIndex = 0; SectionIndex < Model.Sections.Num(); ++SectionIndex)
-		{
-			TArray<FBoneIndexType>& DestBoneMap = *new(OutData.BoneMaps) TArray<FBoneIndexType>();
-			DestBoneMap = Model.Sections[SectionIndex].BoneMap;
-		}
-		OutData.NumTexCoords = Model.NumTexCoords;
-	#endif // #if WITH_EDITORONLY_DATA
-	};
 	
 	// Find the most dominant bone for each vertex
 	int32 GetDominantBoneIndex(FSoftSkinVertex* SoftVert)

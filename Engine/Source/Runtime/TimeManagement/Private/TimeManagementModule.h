@@ -4,6 +4,8 @@
 
 #include "ITimeManagementModule.h"
 
+class ITimecodeProvider;
+
 class FTimeManagementModule : public ITimeManagementModule
 {
 public:
@@ -11,12 +13,10 @@ public:
 
 public:
 	//~ Begin ITimeManagementModule Interface
-	virtual ITimeSynchronizationManager* GetTimeSynchronizationManager() override { return TimeSyncManager; }
-	virtual ITimeSynchronizationManager* GetTimeSynchronizationManager() const override { return TimeSyncManager; }
-
-	virtual void SetTimeSynchronizationManager(ITimeSynchronizationManager* Manager) override { TimeSyncManager = Manager; }
+	virtual ITimecodeProvider* GetTimecodeProvider() override { return TimeSyncManager; }
+	virtual void SetTimecodeProvider(ITimecodeProvider* Provider) override { TimeSyncManager = Provider; }
 	//~ End ITimeManagementModule Interface
 
 private:
-	ITimeSynchronizationManager* TimeSyncManager;
+	ITimecodeProvider * TimeSyncManager;
 };

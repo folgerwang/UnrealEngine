@@ -3,11 +3,6 @@
 #include "Sections/MovieSceneActorReferenceSection.h"
 #include "Channels/MovieSceneChannelProxy.h"
 
-uint32 FMovieSceneActorReferenceData::GetChannelID()
-{
-	static uint32 ID = FMovieSceneChannelEntry::RegisterNewID();
-	return ID;
-}
 
 FMovieSceneActorReferenceKey FMovieSceneActorReferenceData::Evaluate(FFrameTime InTime) const
 {
@@ -20,12 +15,70 @@ FMovieSceneActorReferenceKey FMovieSceneActorReferenceData::Evaluate(FFrameTime 
 	return DefaultValue;
 }
 
+void FMovieSceneActorReferenceData::GetKeys(const TRange<FFrameNumber>& WithinRange, TArray<FFrameNumber>* OutKeyTimes, TArray<FKeyHandle>* OutKeyHandles)
+{
+	GetData().GetKeys(WithinRange, OutKeyTimes, OutKeyHandles);
+}
+
+void FMovieSceneActorReferenceData::GetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<FFrameNumber> OutKeyTimes)
+{
+	GetData().GetKeyTimes(InHandles, OutKeyTimes);
+}
+
+void FMovieSceneActorReferenceData::SetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<const FFrameNumber> InKeyTimes)
+{
+	GetData().SetKeyTimes(InHandles, InKeyTimes);
+}
+
+void FMovieSceneActorReferenceData::DuplicateKeys(TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyHandle> OutNewHandles)
+{
+	GetData().DuplicateKeys(InHandles, OutNewHandles);
+}
+
+void FMovieSceneActorReferenceData::DeleteKeys(TArrayView<const FKeyHandle> InHandles)
+{
+	GetData().DeleteKeys(InHandles);
+}
+
+void FMovieSceneActorReferenceData::ChangeFrameResolution(FFrameRate SourceRate, FFrameRate DestinationRate)
+{
+	GetData().ChangeFrameResolution(SourceRate, DestinationRate);
+}
+
+TRange<FFrameNumber> FMovieSceneActorReferenceData::ComputeEffectiveRange() const
+{
+	return GetData().GetTotalRange();
+}
+
+int32 FMovieSceneActorReferenceData::GetNumKeys() const
+{
+	return KeyTimes.Num();
+}
+
+void FMovieSceneActorReferenceData::Reset()
+{
+	KeyTimes.Reset();
+	KeyValues.Reset();
+	KeyHandles.Reset();
+	DefaultValue = FMovieSceneActorReferenceKey();
+}
+
+void FMovieSceneActorReferenceData::Offset(FFrameNumber DeltaPosition)
+{
+	GetData().Offset(DeltaPosition);
+}
+
+void FMovieSceneActorReferenceData::ClearDefault()
+{
+	DefaultValue = FMovieSceneActorReferenceKey();
+}
+
 UMovieSceneActorReferenceSection::UMovieSceneActorReferenceSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
 {
 #if WITH_EDITOR
 
-	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(ActorReferenceData, FMovieSceneChannelEditorData());
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(ActorReferenceData, FMovieSceneChannelMetaData());
 
 #else
 
