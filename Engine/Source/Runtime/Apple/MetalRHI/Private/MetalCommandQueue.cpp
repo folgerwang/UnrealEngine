@@ -327,7 +327,9 @@ mtlpp::ResourceOptions FMetalCommandQueue::GetCompatibleResourceOptions(mtlpp::R
 
 void FMetalCommandQueue::InsertDebugCaptureBoundary(void)
 {
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	CommandQueue.InsertDebugCaptureBoundary();
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 void FMetalCommandQueue::SetRuntimeDebuggingLevel(int32 const Level)

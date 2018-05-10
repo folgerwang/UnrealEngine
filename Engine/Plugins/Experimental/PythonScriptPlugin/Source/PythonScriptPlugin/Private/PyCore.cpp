@@ -2,8 +2,9 @@
 
 #include "PyCore.h"
 #include "PyUtil.h"
-#include "PyConversion.h"
+#include "PyGenUtil.h"
 #include "PyReferenceCollector.h"
+#include "PyWrapperTypeRegistry.h"
 
 #include "PyWrapperBase.h"
 #include "PyWrapperObject.h"
@@ -22,6 +23,7 @@
 #include "UObject/Class.h"
 #include "UObject/Package.h"
 #include "UObject/StrongObjectPtr.h"
+#include "Misc/SlowTask.h"
 #include "Misc/PackageName.h"
 #include "Misc/OutputDeviceRedirector.h"
 
@@ -91,12 +93,12 @@ UObject* GetPythonTypeContainer()
 }
 
 
-FPyWrapperDelegateHandle* FPyWrapperDelegateHandle::CreateInstance(const FDelegateHandle& InValue)
+FPyDelegateHandle* FPyDelegateHandle::CreateInstance(const FDelegateHandle& InValue)
 {
-	FPyWrapperDelegateHandlePtr NewInstance = FPyWrapperDelegateHandlePtr::StealReference(FPyWrapperDelegateHandle::New(&PyDelegateHandleType));
+	FPyDelegateHandlePtr NewInstance = FPyDelegateHandlePtr::StealReference(FPyDelegateHandle::New(&PyDelegateHandleType));
 	if (NewInstance)
 	{
-		if (FPyWrapperDelegateHandle::Init(NewInstance, InValue) != 0)
+		if (FPyDelegateHandle::Init(NewInstance, InValue) != 0)
 		{
 			PyUtil::LogPythonError();
 			return nullptr;
@@ -105,15 +107,168 @@ FPyWrapperDelegateHandle* FPyWrapperDelegateHandle::CreateInstance(const FDelega
 	return NewInstance.Release();
 }
 
-FPyWrapperDelegateHandle* FPyWrapperDelegateHandle::CastPyObject(PyObject* InPyObject)
+FPyDelegateHandle* FPyDelegateHandle::CastPyObject(PyObject* InPyObject)
 {
 	if (PyObject_IsInstance(InPyObject, (PyObject*)&PyDelegateHandleType) == 1)
 	{
 		Py_INCREF(InPyObject);
-		return (FPyWrapperDelegateHandle*)InPyObject;
+		return (FPyDelegateHandle*)InPyObject;
 	}
 
 	return nullptr;
+}
+
+
+FPyScopedSlowTask* FPyScopedSlowTask::New(PyTypeObject* InType)
+{
+	FPyScopedSlowTask* Self = (FPyScopedSlowTask*)InType->tp_alloc(InType, 0);
+	if (Self)
+	{
+		Self->SlowTask = nullptr;
+	}
+	return Self;
+}
+
+void FPyScopedSlowTask::Free(FPyScopedSlowTask* InSelf)
+{
+	Deinit(InSelf);
+
+	Py_TYPE(InSelf)->tp_free((PyObject*)InSelf);
+}
+
+int FPyScopedSlowTask::Init(FPyScopedSlowTask* InSelf, const float InAmountOfWork, const FText& InDefaultMessage, const bool InEnabled)
+{
+	Deinit(InSelf);
+
+	InSelf->SlowTask = new FSlowTask(InAmountOfWork, InDefaultMessage, InEnabled);
+
+	return 0;
+}
+
+void FPyScopedSlowTask::Deinit(FPyScopedSlowTask* InSelf)
+{
+	delete InSelf->SlowTask;
+	InSelf->SlowTask = nullptr;
+}
+
+bool FPyScopedSlowTask::ValidateInternalState(FPyScopedSlowTask* InSelf)
+{
+	if (!InSelf->SlowTask)
+	{
+		PyUtil::SetPythonError(PyExc_Exception, Py_TYPE(InSelf), TEXT("Internal Error - SlowTask is null!"));
+		return false;
+	}
+
+	return true;
+}
+
+
+template <typename ObjectType, typename SelfType>
+bool PyTypeIterator_PassesFilter(SelfType* InSelf)
+{
+	FObjectIterator& Iter = *InSelf->Iterator;
+	ObjectType* IterObj = CastChecked<ObjectType>(*Iter);
+	return !InSelf->IteratorFilter || IterObj->IsChildOf(InSelf->IteratorFilter);
+}
+
+
+bool FPyClassIterator::PassesFilter(FPyClassIterator* InSelf)
+{
+	return PyTypeIterator_PassesFilter<UClass, FPyClassIterator>(InSelf);
+}
+
+UClass* FPyClassIterator::ExtractFilter(FPyClassIterator* InSelf, PyObject* InPyFilter)
+{
+	UClass* IterFilter = nullptr;
+	if (!PyConversion::NativizeClass(InPyFilter, IterFilter, nullptr))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'type' (%s) to 'Class'"), *PyUtil::GetFriendlyTypename(InPyFilter)));
+	}
+	return IterFilter;
+}
+
+
+bool FPyStructIterator::PassesFilter(FPyStructIterator* InSelf)
+{
+	return PyTypeIterator_PassesFilter<UScriptStruct, FPyStructIterator>(InSelf);
+}
+
+UScriptStruct* FPyStructIterator::ExtractFilter(FPyStructIterator* InSelf, PyObject* InPyFilter)
+{
+	UScriptStruct* IterFilter = nullptr;
+	if (!PyConversion::NativizeStruct(InPyFilter, IterFilter, nullptr))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'type' (%s) to 'Struct'"), *PyUtil::GetFriendlyTypename(InPyFilter)));
+	}
+	return IterFilter;
+}
+
+
+PyObject* FPyTypeIterator::GetIterValue(FPyTypeIterator* InSelf)
+{
+	FObjectIterator& Iter = *InSelf->Iterator;
+	UStruct* IterObj = CastChecked<UStruct>(*Iter);
+
+	PyTypeObject* IterType = nullptr;
+	if (const UClass* IterClass = Cast<UClass>(IterObj))
+	{
+		IterType = FPyWrapperTypeRegistry::Get().GetWrappedClassType(IterClass);
+	}
+	if (const UScriptStruct* IterStruct = Cast<UScriptStruct>(IterObj))
+	{
+		IterType = FPyWrapperTypeRegistry::Get().GetWrappedStructType(IterStruct);
+	}
+	check(IterType);
+
+	Py_INCREF(IterType);
+	return (PyObject*)IterType;
+}
+
+bool FPyTypeIterator::PassesFilter(FPyTypeIterator* InSelf)
+{
+	if (!PyTypeIterator_PassesFilter<UStruct, FPyTypeIterator>(InSelf))
+	{
+		return false;
+	}
+
+	FObjectIterator& Iter = *InSelf->Iterator;
+	UStruct* IterObj = CastChecked<UStruct>(*Iter);
+
+	if (const UClass* IterClass = Cast<UClass>(IterObj))
+	{
+		return FPyWrapperTypeRegistry::Get().HasWrappedClassType(IterClass);
+	}
+	if (const UScriptStruct* IterStruct = Cast<UScriptStruct>(IterObj))
+	{
+		return FPyWrapperTypeRegistry::Get().HasWrappedStructType(IterStruct);
+	}
+
+	return false;
+}
+
+UStruct* FPyTypeIterator::ExtractFilter(FPyTypeIterator* InSelf, PyObject* InPyFilter)
+{
+	UStruct* IterFilter = nullptr;
+	if (PyType_Check(InPyFilter))
+	{
+		if (PyType_IsSubtype((PyTypeObject*)InPyFilter, &PyWrapperObjectType))
+		{
+			IterFilter = FPyWrapperObjectMetaData::GetClass((PyTypeObject*)InPyFilter);
+		}
+		else if (PyType_IsSubtype((PyTypeObject*)InPyFilter, &PyWrapperStructType))
+		{
+			IterFilter = FPyWrapperStructMetaData::GetStruct((PyTypeObject*)InPyFilter);
+		}
+	}
+	else
+	{
+		PyConversion::NativizeObject(InPyFilter, (UObject*&)IterFilter, nullptr);
+	}
+	if (!IterFilter || !(IterFilter->IsA<UClass>() || IterFilter->IsA<UScriptStruct>()))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'type' (%s) to 'Class' or 'Struct'"), *PyUtil::GetFriendlyTypename(InPyFilter)));
+	}
+	return IterFilter;
 }
 
 
@@ -286,6 +441,366 @@ void FPyUFunctionDef::ApplyMetaData(FPyUFunctionDef* InSelf, UFunction* InFunc)
 	{
 		InFunc->SetMetaData(*InMetaDataKey, *InMetaDataValue);
 	});
+}
+
+
+PyTypeObject InitializePyScopedSlowTaskType()
+{
+	struct FFuncs
+	{
+		static PyObject* New(PyTypeObject* InType, PyObject* InArgs, PyObject* InKwds)
+		{
+			return (PyObject*)FPyScopedSlowTask::New(InType);
+		}
+
+		static void Dealloc(FPyScopedSlowTask* InSelf)
+		{
+			FPyScopedSlowTask::Free(InSelf);
+		}
+
+		static int Init(FPyScopedSlowTask* InSelf, PyObject* InArgs, PyObject* InKwds)
+		{
+			PyObject* PyWorkObj = nullptr;
+			PyObject* PyDescObj = nullptr;
+			PyObject* PyEnabledObj = nullptr;
+
+			static const char *ArgsKwdList[] = { "work", "desc", "enabled", nullptr };
+			if (!PyArg_ParseTupleAndKeywords(InArgs, InKwds, "O|OO:call", (char**)ArgsKwdList, &PyWorkObj, &PyDescObj, &PyEnabledObj))
+			{
+				return -1;
+			}
+
+			float Work = 0.0f;
+			if (!PyConversion::Nativize(PyWorkObj, Work))
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'work' (%s) to 'float'"), *PyUtil::GetFriendlyTypename(PyWorkObj)));
+				return -1;
+			}
+
+			FText Desc;
+			if (PyDescObj && !PyConversion::Nativize(PyDescObj, Desc))
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'desc' (%s) to 'Text'"), *PyUtil::GetFriendlyTypename(PyDescObj)));
+				return -1;
+			}
+
+			bool bEnabled = true;
+			if (PyEnabledObj && !PyConversion::Nativize(PyEnabledObj, bEnabled))
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'enabled' (%s) to 'bool'"), *PyUtil::GetFriendlyTypename(PyEnabledObj)));
+				return -1;
+			}
+
+			return FPyScopedSlowTask::Init(InSelf, Work, Desc, bEnabled);
+		}
+	};
+
+	struct FMethods
+	{
+		static PyObject* EnterScope(FPyScopedSlowTask* InSelf)
+		{
+			if (!FPyScopedSlowTask::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
+			InSelf->SlowTask->Initialize();
+
+			Py_INCREF(InSelf);
+			return (PyObject*)InSelf;
+		}
+
+		static PyObject* ExitScope(FPyScopedSlowTask* InSelf, PyObject* InArgs, PyObject* InKwds)
+		{
+			if (!FPyScopedSlowTask::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+			
+			InSelf->SlowTask->Destroy();
+
+			Py_RETURN_NONE;
+		}
+
+		static PyObject* MakeDialogDelayed(FPyScopedSlowTask* InSelf, PyObject* InArgs, PyObject* InKwds)
+		{
+			if (!FPyScopedSlowTask::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
+			PyObject* PyDelayObj = nullptr;
+			PyObject* PyCanCancelObj = nullptr;
+			PyObject* PyAllowInPIEObj = nullptr;
+
+			static const char *ArgsKwdList[] = { "delay", "can_cancel", "allow_in_pie", nullptr };
+			if (!PyArg_ParseTupleAndKeywords(InArgs, InKwds, "O|OO:make_dialog_delayed", (char**)ArgsKwdList, &PyDelayObj, &PyCanCancelObj, &PyAllowInPIEObj))
+			{
+				return nullptr;
+			}
+
+			float Delay = 0.0f;
+			if (!PyConversion::Nativize(PyDelayObj, Delay))
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'delay' (%s) to 'float'"), *PyUtil::GetFriendlyTypename(PyDelayObj)));
+				return nullptr;
+			}
+
+			bool bCanCancel = false;
+			if (PyCanCancelObj && !PyConversion::Nativize(PyCanCancelObj, bCanCancel))
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'can_cancel' (%s) to 'bool'"), *PyUtil::GetFriendlyTypename(PyCanCancelObj)));
+				return nullptr;
+			}
+
+			bool bAllowInPIE = false;
+			if (PyAllowInPIEObj && !PyConversion::Nativize(PyAllowInPIEObj, bAllowInPIE))
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'allow_in_pie' (%s) to 'bool'"), *PyUtil::GetFriendlyTypename(PyAllowInPIEObj)));
+				return nullptr;
+			}
+
+			InSelf->SlowTask->MakeDialogDelayed(Delay, bCanCancel, bAllowInPIE);
+
+			Py_RETURN_NONE;
+		}
+
+		static PyObject* MakeDialog(FPyScopedSlowTask* InSelf, PyObject* InArgs, PyObject* InKwds)
+		{
+			if (!FPyScopedSlowTask::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
+			PyObject* PyCanCancelObj = nullptr;
+			PyObject* PyAllowInPIEObj = nullptr;
+
+			static const char *ArgsKwdList[] = { "can_cancel", "allow_in_pie", nullptr };
+			if (!PyArg_ParseTupleAndKeywords(InArgs, InKwds, "|OO:make_dialog", (char**)ArgsKwdList, &PyCanCancelObj, &PyAllowInPIEObj))
+			{
+				return nullptr;
+			}
+
+			bool bCanCancel = false;
+			if (PyCanCancelObj && !PyConversion::Nativize(PyCanCancelObj, bCanCancel))
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'can_cancel' (%s) to 'bool'"), *PyUtil::GetFriendlyTypename(PyCanCancelObj)));
+				return nullptr;
+			}
+
+			bool bAllowInPIE = false;
+			if (PyAllowInPIEObj && !PyConversion::Nativize(PyAllowInPIEObj, bAllowInPIE))
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'allow_in_pie' (%s) to 'bool'"), *PyUtil::GetFriendlyTypename(PyAllowInPIEObj)));
+				return nullptr;
+			}
+
+			InSelf->SlowTask->MakeDialog(bCanCancel, bAllowInPIE);
+
+			Py_RETURN_NONE;
+		}
+
+		static PyObject* EnterProgressFrame(FPyScopedSlowTask* InSelf, PyObject* InArgs, PyObject* InKwds)
+		{
+			if (!FPyScopedSlowTask::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
+			PyObject* PyWorkObj = nullptr;
+			PyObject* PyDescObj = nullptr;
+
+			static const char *ArgsKwdList[] = { "work", "desc", nullptr };
+			if (!PyArg_ParseTupleAndKeywords(InArgs, InKwds, "|OO:enter_progress_frame", (char**)ArgsKwdList, &PyWorkObj, &PyDescObj))
+			{
+				return nullptr;
+			}
+
+			float Work = 1.0f;
+			if (PyWorkObj && !PyConversion::Nativize(PyWorkObj, Work))
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'work' (%s) to 'float'"), *PyUtil::GetFriendlyTypename(PyWorkObj)));
+				return nullptr;
+			}
+
+			FText Desc;
+			if (PyDescObj && !PyConversion::Nativize(PyDescObj, Desc))
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'description' (%s) to 'Text'"), *PyUtil::GetFriendlyTypename(PyDescObj)));
+				return nullptr;
+			}
+
+			InSelf->SlowTask->EnterProgressFrame(Work, Desc);
+
+			Py_RETURN_NONE;
+		}
+
+		static PyObject* ShouldCancel(FPyScopedSlowTask* InSelf)
+		{
+			if (!FPyScopedSlowTask::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
+			const bool bShouldCancel = InSelf->SlowTask->ShouldCancel();
+			return PyConversion::Pythonize(bShouldCancel);
+		}
+	};
+
+	static PyMethodDef PyMethods[] = {
+		{ "__enter__", PyCFunctionCast(&FMethods::EnterScope), METH_NOARGS, "x.__enter__() -> self -- begin this slow task" },
+		{ "__exit__", PyCFunctionCast(&FMethods::ExitScope), METH_VARARGS | METH_KEYWORDS, "x.__exit__(type, value, traceback) -> None -- end this slow task" },
+		{ "make_dialog_delayed", PyCFunctionCast(&FMethods::MakeDialogDelayed), METH_VARARGS | METH_KEYWORDS, "x.make_dialog_delayed(delay, can_cancel=False, allow_in_pie=False) -> None -- creates a new dialog for this slow task after the given time threshold. If the task completes before this time, no dialog will be shown" },
+		{ "make_dialog", PyCFunctionCast(&FMethods::MakeDialog), METH_VARARGS | METH_KEYWORDS, "x.make_dialog(can_cancel=False, allow_in_pie=False) -> None -- creates a new dialog for this slow task, if there is currently not one open" },
+		{ "enter_progress_frame", PyCFunctionCast(&FMethods::EnterProgressFrame), METH_VARARGS | METH_KEYWORDS, "x.enter_progress_frame(work=1.0, desc=Text()) -> None -- indicate that we are to enter a frame that will take up the specified amount of work (completes any previous frames)" },
+		{ "should_cancel", PyCFunctionCast(&FMethods::ShouldCancel), METH_NOARGS, "x.should_cancel() -> bool -- True if the user has requested that the slow task be canceled" },
+		{ nullptr, nullptr, 0, nullptr }
+	};
+
+	PyTypeObject PyType = {
+		PyVarObject_HEAD_INIT(nullptr, 0)
+		"ScopedSlowTask", /* tp_name */
+		sizeof(FPyScopedSlowTask), /* tp_basicsize */
+	};
+
+	PyType.tp_new = (newfunc)&FFuncs::New;
+	PyType.tp_dealloc = (destructor)&FFuncs::Dealloc;
+	PyType.tp_init = (initproc)&FFuncs::Init;
+
+	PyType.tp_methods = PyMethods;
+
+	PyType.tp_flags = Py_TPFLAGS_DEFAULT;
+	PyType.tp_doc = "Type used to create and managed a scoped slow task in Python";
+
+	return PyType;
+}
+
+
+PyTypeObject InitializePyObjectIteratorType()
+{
+	struct FFuncs
+	{
+		static PyObject* New(PyTypeObject* InType, PyObject* InArgs, PyObject* InKwds)
+		{
+			return (PyObject*)FPyObjectIterator::New(InType);
+		}
+
+		static void Dealloc(FPyObjectIterator* InSelf)
+		{
+			FPyObjectIterator::Free(InSelf);
+		}
+
+		static int Init(FPyObjectIterator* InSelf, PyObject* InArgs, PyObject* InKwds)
+		{
+			PyObject* PyTypeObj = nullptr;
+
+			static const char *ArgsKwdList[] = { "type", nullptr };
+			if (!PyArg_ParseTupleAndKeywords(InArgs, InKwds, "|O:call", (char**)ArgsKwdList, &PyTypeObj))
+			{
+				return -1;
+			}
+
+			UClass* IterClass = UObject::StaticClass();
+			if (PyTypeObj && !PyConversion::NativizeClass(PyTypeObj, IterClass, nullptr))
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'type' (%s) to 'Class'"), *PyUtil::GetFriendlyTypename(PyTypeObj)));
+				return -1;
+			}
+
+			return FPyObjectIterator::Init(InSelf, IterClass, nullptr);
+		}
+
+		static FPyObjectIterator* GetIter(FPyObjectIterator* InSelf)
+		{
+			return FPyObjectIterator::GetIter(InSelf);
+		}
+
+		static PyObject* IterNext(FPyObjectIterator* InSelf)
+		{
+			return FPyObjectIterator::IterNext(InSelf);
+		}
+	};
+
+	PyTypeObject PyType = {
+		PyVarObject_HEAD_INIT(nullptr, 0)
+		"ObjectIterator", /* tp_name */
+		sizeof(FPyObjectIterator), /* tp_basicsize */
+	};
+
+	PyType.tp_new = (newfunc)&FFuncs::New;
+	PyType.tp_dealloc = (destructor)&FFuncs::Dealloc;
+	PyType.tp_init = (initproc)&FFuncs::Init;
+	PyType.tp_iter = (getiterfunc)&FFuncs::GetIter;
+	PyType.tp_iternext = (iternextfunc)&FFuncs::IterNext;
+
+	PyType.tp_flags = Py_TPFLAGS_DEFAULT;
+	PyType.tp_doc = "Type for iterating Unreal Object instances";
+
+	return PyType;
+}
+
+
+template <typename ObjectType, typename SelfType>
+PyTypeObject InitializePyTypeIteratorType(const char* InTypeName, const char* InTypeDoc)
+{
+	struct FFuncs
+	{
+		static PyObject* New(PyTypeObject* InType, PyObject* InArgs, PyObject* InKwds)
+		{
+			return (PyObject*)SelfType::New(InType);
+		}
+
+		static void Dealloc(SelfType* InSelf)
+		{
+			SelfType::Free(InSelf);
+		}
+
+		static int Init(SelfType* InSelf, PyObject* InArgs, PyObject* InKwds)
+		{
+			PyObject* PyTypeObj = nullptr;
+
+			static const char *ArgsKwdList[] = { "type", nullptr };
+			if (!PyArg_ParseTupleAndKeywords(InArgs, InKwds, "O:call", (char**)ArgsKwdList, &PyTypeObj))
+			{
+				return -1;
+			}
+
+			ObjectType* IterFilter = SelfType::ExtractFilter(InSelf, PyTypeObj);
+			if (!IterFilter)
+			{
+				return -1;
+			}
+
+			return SelfType::Init(InSelf, ObjectType::StaticClass(), IterFilter);
+		}
+
+		static SelfType* GetIter(SelfType* InSelf)
+		{
+			return SelfType::GetIter(InSelf);
+		}
+
+		static PyObject* IterNext(SelfType* InSelf)
+		{
+			return SelfType::IterNext(InSelf);
+		}
+	};
+
+	PyTypeObject PyType = {
+		PyVarObject_HEAD_INIT(nullptr, 0)
+		InTypeName, /* tp_name */
+		sizeof(SelfType), /* tp_basicsize */
+	};
+
+	PyType.tp_new = (newfunc)&FFuncs::New;
+	PyType.tp_dealloc = (destructor)&FFuncs::Dealloc;
+	PyType.tp_init = (initproc)&FFuncs::Init;
+	PyType.tp_iter = (getiterfunc)&FFuncs::GetIter;
+	PyType.tp_iternext = (iternextfunc)&FFuncs::IterNext;
+
+	PyType.tp_flags = Py_TPFLAGS_DEFAULT;
+	PyType.tp_doc = InTypeDoc;
+
+	return PyType;
 }
 
 
@@ -480,7 +995,12 @@ PyTypeObject InitializePyUFunctionDefType()
 }
 
 
-PyTypeObject PyDelegateHandleType = InitializePyWrapperBasicType<FPyWrapperDelegateHandle>("_DelegateHandle", "Type for all UE4 exposed FDelegateHandle instances");
+PyTypeObject PyDelegateHandleType = InitializePyWrapperBasicType<FPyDelegateHandle>("_DelegateHandle", "Type for all UE4 exposed FDelegateHandle instances");
+PyTypeObject PyScopedSlowTaskType = InitializePyScopedSlowTaskType();
+PyTypeObject PyObjectIteratorType = InitializePyObjectIteratorType();
+PyTypeObject PyClassIteratorType = InitializePyTypeIteratorType<UClass, FPyClassIterator>("ClassIterator", "Type for iterating Unreal class types");
+PyTypeObject PyStructIteratorType = InitializePyTypeIteratorType<UScriptStruct, FPyStructIterator>("StructIterator", "Type for iterating Unreal struct types");
+PyTypeObject PyTypeIteratorType = InitializePyTypeIteratorType<UStruct, FPyTypeIterator>("TypeIterator", "Type for iterating Python types");
 PyTypeObject PyUValueDefType = InitializePyUValueDefType();
 PyTypeObject PyUPropertyDefType = InitializePyUPropertyDefType();
 PyTypeObject PyUFunctionDefType = InitializePyUFunctionDefType();
@@ -624,7 +1144,7 @@ PyObject* FindOrLoadObjectImpl(PyObject* InSelf, PyObject* InArgs, PyObject* InK
 	}
 
 	UClass* ObjectType = UObject::StaticClass();
-	if (PyTypeObj && !PyConversion::NativizeClass(PyTypeObj, ObjectType, UObject::StaticClass()))
+	if (PyTypeObj && !PyConversion::NativizeClass(PyTypeObj, ObjectType, nullptr))
 	{
 		PyUtil::SetPythonError(PyExc_TypeError, InFuncName, *FString::Printf(TEXT("Failed to convert 'type' (%s) to 'Class'"), *PyUtil::GetFriendlyTypename(PyTypeObj)));
 		return nullptr;
@@ -659,20 +1179,12 @@ PyObject* LoadClass(PyObject* InSelf, PyObject* InArgs, PyObject* InKwds)
 
 PyObject* FindOrLoadAssetImpl(PyObject* InSelf, PyObject* InArgs, PyObject* InKwds, const TCHAR* InFuncName, const TFunctionRef<UObject*(UClass*, UObject*, const TCHAR*)>& InFunc)
 {
-	PyObject* PyOuterObj = nullptr;
 	PyObject* PyNameObj = nullptr;
 	PyObject* PyTypeObj = nullptr;
 
-	static const char *ArgsKwdList[] = { "outer", "name", "type", nullptr };
-	if (!PyArg_ParseTupleAndKeywords(InArgs, InKwds, TCHAR_TO_UTF8(*FString::Printf(TEXT("OO|O:%s"), InFuncName)), (char**)ArgsKwdList, &PyOuterObj, &PyNameObj, &PyTypeObj))
+	static const char *ArgsKwdList[] = { "name", "type", nullptr };
+	if (!PyArg_ParseTupleAndKeywords(InArgs, InKwds, TCHAR_TO_UTF8(*FString::Printf(TEXT("O|O:%s"), InFuncName)), (char**)ArgsKwdList, &PyNameObj, &PyTypeObj))
 	{
-		return nullptr;
-	}
-
-	UObject* ObjectOuter = nullptr;
-	if (!PyConversion::Nativize(PyOuterObj, ObjectOuter))
-	{
-		PyUtil::SetPythonError(PyExc_TypeError, InFuncName, *FString::Printf(TEXT("Failed to convert 'outer' (%s) to 'Object'"), *PyUtil::GetFriendlyTypename(PyOuterObj)));
 		return nullptr;
 	}
 
@@ -684,13 +1196,13 @@ PyObject* FindOrLoadAssetImpl(PyObject* InSelf, PyObject* InArgs, PyObject* InKw
 	}
 
 	UClass* ObjectType = UObject::StaticClass();
-	if (PyTypeObj && !PyConversion::NativizeClass(PyTypeObj, ObjectType, UObject::StaticClass()))
+	if (PyTypeObj && !PyConversion::NativizeClass(PyTypeObj, ObjectType, nullptr))
 	{
 		PyUtil::SetPythonError(PyExc_TypeError, InFuncName, *FString::Printf(TEXT("Failed to convert 'type' (%s) to 'Class'"), *PyUtil::GetFriendlyTypename(PyTypeObj)));
 		return nullptr;
 	}
 
-	UObject* PotentialAsset = InFunc(UObject::StaticClass(), ObjectOuter, *ObjectName);
+	UObject* PotentialAsset = InFunc(UObject::StaticClass(), nullptr, *ObjectName);
 	
 	// If we found a package, try and get the primary asset from it
 	if (UPackage* FoundPackage = Cast<UPackage>(PotentialAsset))
@@ -723,20 +1235,12 @@ PyObject* LoadAsset(PyObject* InSelf, PyObject* InArgs, PyObject* InKwds)
 	});
 }
 
-PyObject* FindOrLoadPackageImpl(PyObject* InSelf, PyObject* InArgs, const TCHAR* InFuncName, const TFunctionRef<UPackage*(UPackage*, const TCHAR*)>& InFunc)
+PyObject* FindOrLoadPackageImpl(PyObject* InSelf, PyObject* InArgs, const TCHAR* InFuncName, const TFunctionRef<UPackage*(const TCHAR*)>& InFunc)
 {
-	PyObject* PyOuterObj = nullptr;
 	PyObject* PyNameObj = nullptr;
 
-	if (!PyArg_ParseTuple(InArgs, TCHAR_TO_UTF8(*FString::Printf(TEXT("OO|O:%s"), InFuncName)), &PyOuterObj, &PyNameObj))
+	if (!PyArg_ParseTuple(InArgs, TCHAR_TO_UTF8(*FString::Printf(TEXT("O:%s"), InFuncName)), &PyNameObj))
 	{
-		return nullptr;
-	}
-
-	UPackage* PackageOuter = nullptr;
-	if (!PyConversion::Nativize(PyOuterObj, PackageOuter))
-	{
-		PyUtil::SetPythonError(PyExc_TypeError, InFuncName, *FString::Printf(TEXT("Failed to convert 'outer' (%s) to 'Package'"), *PyUtil::GetFriendlyTypename(PyOuterObj)));
 		return nullptr;
 	}
 
@@ -747,23 +1251,41 @@ PyObject* FindOrLoadPackageImpl(PyObject* InSelf, PyObject* InArgs, const TCHAR*
 		return nullptr;
 	}
 
-	return PyConversion::Pythonize(InFunc(PackageOuter, *PackageName));
+	return PyConversion::Pythonize(InFunc(*PackageName));
 }
 
 PyObject* FindPackage(PyObject* InSelf, PyObject* InArgs)
 {
-	return FindOrLoadPackageImpl(InSelf, InArgs, TEXT("find_package"), [](UPackage* PackageOuter, const TCHAR* PackageName)
+	return FindOrLoadPackageImpl(InSelf, InArgs, TEXT("find_package"), [](const TCHAR* PackageName)
 	{
-		return ::FindPackage(PackageOuter, PackageName);
+		return ::FindPackage(nullptr, PackageName);
 	});
 }
 
 PyObject* LoadPackage(PyObject* InSelf, PyObject* InArgs)
 {
-	return FindOrLoadPackageImpl(InSelf, InArgs, TEXT("load_package"), [](UPackage* PackageOuter, const TCHAR* PackageName)
+	return FindOrLoadPackageImpl(InSelf, InArgs, TEXT("load_package"), [](const TCHAR* PackageName)
 	{
-		return ::LoadPackage(PackageOuter, PackageName, LOAD_None);
+		return ::LoadPackage(nullptr, PackageName, LOAD_None);
 	});
+}
+
+PyObject* GetDefaultObject(PyObject* InSelf, PyObject* InArgs)
+{
+	PyObject* PyObj = nullptr;
+	if (!PyArg_ParseTuple(InArgs, "O:get_default_object", &PyObj))
+	{
+		return nullptr;
+	}
+
+	UClass* Class = nullptr;
+	if (!PyConversion::NativizeClass(PyObj, Class, nullptr))
+	{
+		return nullptr;
+	}
+
+	UObject* CDO = Class ? ::GetMutableDefault<UObject>(Class) : nullptr;
+	return PyConversion::Pythonize(CDO);
 }
 
 PyObject* PurgeObjectReferences(PyObject* InSelf, PyObject* InArgs, PyObject* InKwds)
@@ -892,6 +1414,69 @@ PyObject* GenerateEnum(PyObject* InSelf, PyObject* InArgs)
 	Py_RETURN_NONE;
 }
 
+PyObject* GetTypeFromClass(PyObject* InSelf, PyObject* InArgs)
+{
+	PyObject* PyObj = nullptr;
+	if (!PyArg_ParseTuple(InArgs, "O:get_type_from_class", &PyObj))
+	{
+		return nullptr;
+	}
+	check(PyObj);
+
+	UClass* Class = nullptr;
+	if (!PyConversion::NativizeClass(PyObj, Class, nullptr))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, TEXT("get_type_from_class"), *FString::Printf(TEXT("Parameter must be a 'Class' not '%s'"), *PyUtil::GetFriendlyTypename(PyObj)));
+		return nullptr;
+	}
+
+	PyTypeObject* PyType = FPyWrapperTypeRegistry::Get().GetWrappedClassType(Class);
+	Py_INCREF(PyType);
+	return (PyObject*)PyType;
+}
+
+PyObject* GetTypeFromStruct(PyObject* InSelf, PyObject* InArgs)
+{
+	PyObject* PyObj = nullptr;
+	if (!PyArg_ParseTuple(InArgs, "O:get_type_from_struct", &PyObj))
+	{
+		return nullptr;
+	}
+	check(PyObj);
+
+	UScriptStruct* Struct = nullptr;
+	if (!PyConversion::NativizeStruct(PyObj, Struct, nullptr))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, TEXT("get_type_from_struct"), *FString::Printf(TEXT("Parameter must be a 'Struct' not '%s'"), *PyUtil::GetFriendlyTypename(PyObj)));
+		return nullptr;
+	}
+
+	PyTypeObject* PyType = FPyWrapperTypeRegistry::Get().GetWrappedStructType(Struct);
+	Py_INCREF(PyType);
+	return (PyObject*)PyType;
+}
+
+PyObject* GetTypeFromEnum(PyObject* InSelf, PyObject* InArgs)
+{
+	PyObject* PyObj = nullptr;
+	if (!PyArg_ParseTuple(InArgs, "O:get_type_from_enum", &PyObj))
+	{
+		return nullptr;
+	}
+	check(PyObj);
+
+	UEnum* Enum = nullptr;
+	if (!PyConversion::Nativize(PyObj, Enum))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, TEXT("get_type_from_enum"), *FString::Printf(TEXT("Parameter must be a 'Enum' not '%s'"), *PyUtil::GetFriendlyTypename(PyObj)));
+		return nullptr;
+	}
+
+	PyTypeObject* PyType = FPyWrapperTypeRegistry::Get().GetWrappedEnumType(Enum);
+	Py_INCREF(PyType);
+	return (PyObject*)PyType;
+}
+
 PyObject* CreateLocalizedText(PyObject* InSelf, PyObject* InArgs)
 {
 	PyObject* PyNamespaceObj = nullptr;
@@ -948,25 +1533,29 @@ PyObject* CreateLocalizedTextFromStringTable(PyObject* InSelf, PyObject* InArgs)
 }
 
 PyMethodDef PyCoreMethods[] = {
-	{ "log", PyCFunctionCast(&Log), METH_VARARGS, "x.log(str) -- log the given argument as information in the LogPython category" },
-	{ "log_warning", PyCFunctionCast(&LogWarning), METH_VARARGS, "x.log_warning(str) -- log the given argument as a warning in the LogPython category" },
-	{ "log_error", PyCFunctionCast(&LogError), METH_VARARGS, "x.log_error(str) -- log the given argument as an error in the LogPython category" },
-	{ "log_flush", PyCFunctionCast(&LogFlush), METH_NOARGS, "x.log_flush() -- flush the log to disk" },
-	{ "reload", PyCFunctionCast(&Reload), METH_VARARGS, "x.reload(str) -- reload the given Unreal Python module" },
-	{ "load_module", PyCFunctionCast(&LoadModule), METH_VARARGS, "x.load_module(str) -- load the given Unreal module and generate any Python code for its reflected types" },
-	{ "find_object", PyCFunctionCast(&FindObject), METH_VARARGS | METH_KEYWORDS, "x.find_object(outer, name, type=Object) -> Object -- find an Unreal object with the given outer and name, optionally validating its type" },
+	{ "log", PyCFunctionCast(&Log), METH_VARARGS, "x.log(str) -> None -- log the given argument as information in the LogPython category" },
+	{ "log_warning", PyCFunctionCast(&LogWarning), METH_VARARGS, "x.log_warning(str) -> None -- log the given argument as a warning in the LogPython category" },
+	{ "log_error", PyCFunctionCast(&LogError), METH_VARARGS, "x.log_error(str) -> None -- log the given argument as an error in the LogPython category" },
+	{ "log_flush", PyCFunctionCast(&LogFlush), METH_NOARGS, "x.log_flush() -> None -- flush the log to disk" },
+	{ "reload", PyCFunctionCast(&Reload), METH_VARARGS, "x.reload(str) -> None -- reload the given Unreal Python module" },
+	{ "load_module", PyCFunctionCast(&LoadModule), METH_VARARGS, "x.load_module(str) -> None -- load the given Unreal module and generate any Python code for its reflected types" },
+	{ "find_object", PyCFunctionCast(&FindObject), METH_VARARGS | METH_KEYWORDS, "x.find_object(outer, name, type=Object) -> Object -- find an already loaded Unreal object with the given outer and name, optionally validating its type" },
 	{ "load_object", PyCFunctionCast(&LoadObject), METH_VARARGS | METH_KEYWORDS, "x.load_object(outer, name, type=Object) -> Object -- load an Unreal object with the given outer and name, optionally validating its type" },
 	{ "load_class", PyCFunctionCast(&LoadClass), METH_VARARGS | METH_KEYWORDS, "x.load_class(outer, name, type=Object) -> Class -- load an Unreal class with the given outer and name, optionally validating its base type" },
-	{ "find_asset", PyCFunctionCast(&FindAsset), METH_VARARGS | METH_KEYWORDS, "x.find_asset(outer, name, type=Object) -> Object -- find an Unreal asset with the given outer and name, optionally validating its type" },
-	{ "load_asset", PyCFunctionCast(&LoadAsset), METH_VARARGS | METH_KEYWORDS, "x.load_asset(outer, name, type=Object) -> Object -- load an Unreal asset with the given outer and name, optionally validating its type" },
-	{ "find_package", PyCFunctionCast(&FindPackage), METH_VARARGS, "x.find_package(outer, name) -> Package -- find an Unreal package with the given outer and name" },
-	{ "load_package", PyCFunctionCast(&LoadPackage), METH_VARARGS, "x.load_package(outer, name) -> Package -- load an Unreal package with the given outer and name" },
-	{ "purge_object_references", PyCFunctionCast(&PurgeObjectReferences), METH_VARARGS, "x.purge_object_references(obj, include_inners=True) -- purge all references to the given Unreal object from any living Python objects" },
-	{ "generate_class", PyCFunctionCast(&GenerateClass), METH_VARARGS, "x.generate_class(type) -- generate an Unreal class for the given Python type" },
-	{ "generate_struct", PyCFunctionCast(&GenerateStruct), METH_VARARGS, "x.generate_struct(type) -- generate an Unreal struct for the given Python type" },
-	{ "generate_enum", PyCFunctionCast(&GenerateEnum), METH_VARARGS, "x.generate_enum(type) -- generate an Unreal enum for the given Python type" },
-	{ "NSLOCTEXT", PyCFunctionCast(&CreateLocalizedText), METH_VARARGS, "x.NSLOCTEXT(ns, key, source) -> FText -- create a localized FText from the given namespace, key, and source string" },
-	{ "LOCTABLE", PyCFunctionCast(&CreateLocalizedTextFromStringTable), METH_VARARGS, "x.LOCTABLE(id, key) -> FText -- get a localized FText from the given string table id and key" },
+	{ "find_asset", PyCFunctionCast(&FindAsset), METH_VARARGS | METH_KEYWORDS, "x.find_asset(name, type=Object) -> Object -- find an already loaded Unreal asset with the given name, optionally validating its type" },
+	{ "load_asset", PyCFunctionCast(&LoadAsset), METH_VARARGS | METH_KEYWORDS, "x.load_asset(name, type=Object) -> Object -- load an Unreal asset with the given name, optionally validating its type" },
+	{ "find_package", PyCFunctionCast(&FindPackage), METH_VARARGS, "x.find_package(name) -> Package -- find an already loaded Unreal package with the given name" },
+	{ "load_package", PyCFunctionCast(&LoadPackage), METH_VARARGS, "x.load_package(name) -> Package -- load an Unreal package with the given name" },
+	{ "get_default_object", PyCFunctionCast(&GetDefaultObject), METH_VARARGS, "x.get_default_object(type) -> Object -- get the Unreal class default object (CDO) of the given type" },
+	{ "purge_object_references", PyCFunctionCast(&PurgeObjectReferences), METH_VARARGS | METH_KEYWORDS, "x.purge_object_references(obj, include_inners=True) -> None -- purge all references to the given Unreal object from any living Python objects" },
+	{ "generate_class", PyCFunctionCast(&GenerateClass), METH_VARARGS, "x.generate_class(type) -> None -- generate an Unreal class for the given Python type" },
+	{ "generate_struct", PyCFunctionCast(&GenerateStruct), METH_VARARGS, "x.generate_struct(type) -> None -- generate an Unreal struct for the given Python type" },
+	{ "generate_enum", PyCFunctionCast(&GenerateEnum), METH_VARARGS, "x.generate_enum(type) -> None -- generate an Unreal enum for the given Python type" },
+	{ "get_type_from_class", PyCFunctionCast(&GetTypeFromClass), METH_VARARGS, "x.get_type_from_class(class) -> type -- get the best matching Python type for the given Unreal class" },
+	{ "get_type_from_struct", PyCFunctionCast(&GetTypeFromStruct), METH_VARARGS, "x.get_type_from_struct(struct) -> type -- get the best matching Python type for the given Unreal struct" },
+	{ "get_type_from_enum", PyCFunctionCast(&GetTypeFromEnum), METH_VARARGS, "x.get_type_from_enum(enum) -> type -- get the best matching Python type for the given Unreal enum" },
+	{ "NSLOCTEXT", PyCFunctionCast(&CreateLocalizedText), METH_VARARGS, "x.NSLOCTEXT(ns, key, source) -> Text -- create a localized Text from the given namespace, key, and source string" },
+	{ "LOCTABLE", PyCFunctionCast(&CreateLocalizedTextFromStringTable), METH_VARARGS, "x.LOCTABLE(id, key) -> Text -- get a localized Text from the given string table id and key" },
 	{ nullptr, nullptr, 0, nullptr }
 };
 
@@ -977,45 +1566,72 @@ void InitializeModule()
 	GPythonTypeContainer.Reset(NewObject<UPackage>(nullptr, TEXT("/Engine/PythonTypes"), RF_Public));
 	GPythonTypeContainer->SetPackageFlags(PKG_CompiledIn | PKG_ContainsScript);
 
+	PyGenUtil::FNativePythonModule NativePythonModule;
+	NativePythonModule.PyModuleMethods = PyCoreMethods;
+
 #if PY_MAJOR_VERSION >= 3
-	PyObject* PyModule = PyImport_AddModule("_unreal_core");
-	PyModule_AddFunctions(PyModule, PyCoreMethods);
+	NativePythonModule.PyModule = PyImport_AddModule("_unreal_core");
+	PyModule_AddFunctions(NativePythonModule.PyModule, PyCoreMethods);
 #else	// PY_MAJOR_VERSION >= 3
-	PyObject* PyModule = Py_InitModule("_unreal_core", PyCoreMethods);
+	NativePythonModule.PyModule = Py_InitModule("_unreal_core", PyCoreMethods);
 #endif	// PY_MAJOR_VERSION >= 3
 
 	PyType_Ready(&PyDelegateHandleType);
 
+	if (PyType_Ready(&PyScopedSlowTaskType) == 0)
+	{
+		NativePythonModule.AddType(&PyScopedSlowTaskType);
+	}
+
+	if (PyType_Ready(&PyObjectIteratorType) == 0)
+	{
+		NativePythonModule.AddType(&PyObjectIteratorType);
+	}
+
+	if (PyType_Ready(&PyClassIteratorType) == 0)
+	{
+		NativePythonModule.AddType(&PyClassIteratorType);
+	}
+
+	if (PyType_Ready(&PyStructIteratorType) == 0)
+	{
+		NativePythonModule.AddType(&PyStructIteratorType);
+	}
+
+	if (PyType_Ready(&PyTypeIteratorType) == 0)
+	{
+		NativePythonModule.AddType(&PyTypeIteratorType);
+	}
+
 	if (PyType_Ready(&PyUValueDefType) == 0)
 	{
-		Py_INCREF(&PyUValueDefType);
-		PyModule_AddObject(PyModule, PyUValueDefType.tp_name, (PyObject*)&PyUValueDefType);
+		NativePythonModule.AddType(&PyUValueDefType);
 	}
 
 	if (PyType_Ready(&PyUPropertyDefType) == 0)
 	{
-		Py_INCREF(&PyUPropertyDefType);
-		PyModule_AddObject(PyModule, PyUPropertyDefType.tp_name, (PyObject*)&PyUPropertyDefType);
+		NativePythonModule.AddType(&PyUPropertyDefType);
 	}
 
 	if (PyType_Ready(&PyUFunctionDefType) == 0)
 	{
-		Py_INCREF(&PyUFunctionDefType);
-		PyModule_AddObject(PyModule, PyUFunctionDefType.tp_name, (PyObject*)&PyUFunctionDefType);
+		NativePythonModule.AddType(&PyUFunctionDefType);
 	}
 
-	InitializePyWrapperBase(PyModule);
-	InitializePyWrapperObject(PyModule);
-	InitializePyWrapperStruct(PyModule);
-	InitializePyWrapperEnum(PyModule);
-	InitializePyWrapperDelegate(PyModule);
-	InitializePyWrapperName(PyModule);
-	InitializePyWrapperText(PyModule);
-	InitializePyWrapperArray(PyModule);
-	InitializePyWrapperFixedArray(PyModule);
-	InitializePyWrapperSet(PyModule);
-	InitializePyWrapperMap(PyModule);
-	InitializePyWrapperMath(PyModule);
+	InitializePyWrapperBase(NativePythonModule);
+	InitializePyWrapperObject(NativePythonModule);
+	InitializePyWrapperStruct(NativePythonModule);
+	InitializePyWrapperEnum(NativePythonModule);
+	InitializePyWrapperDelegate(NativePythonModule);
+	InitializePyWrapperName(NativePythonModule);
+	InitializePyWrapperText(NativePythonModule);
+	InitializePyWrapperArray(NativePythonModule);
+	InitializePyWrapperFixedArray(NativePythonModule);
+	InitializePyWrapperSet(NativePythonModule);
+	InitializePyWrapperMap(NativePythonModule);
+	InitializePyWrapperMath(NativePythonModule);
+
+	FPyWrapperTypeRegistry::Get().RegisterNativePythonModule(MoveTemp(NativePythonModule));
 }
 
 }

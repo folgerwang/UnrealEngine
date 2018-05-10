@@ -426,10 +426,10 @@ void FFrame::KismetExecutionMessage(const TCHAR* Message, ELogVerbosity::Type Ve
 	FString ScriptStack;
 
 	// Tracking down some places that display warnings but no message..
-	ensure(Verbosity > ELogVerbosity::Warning || FCString::Strlen(Message) > 0);
+	ensureAlways(Verbosity > ELogVerbosity::Warning || FCString::Strlen(Message) > 0);
 
 #if DO_BLUEPRINT_GUARD
-	// Show the stackfor fatal/error, and on warning if that option is enabled
+	// Show the stack for fatal/error, and on warning if that option is enabled
 	if (Verbosity <= ELogVerbosity::Error || (ShowKismetScriptStackOnWarnings() && Verbosity == ELogVerbosity::Warning))
 	{
 		ScriptStack = TEXT("Script call stack:\n");
@@ -441,17 +441,14 @@ void FFrame::KismetExecutionMessage(const TCHAR* Message, ELogVerbosity::Type Ve
 	{
 		UE_LOG(LogScriptCore, Fatal, TEXT("Script Msg: %s\n%s"), Message, *ScriptStack);
 	}
-#if !NO_LOGGING
+#if NO_LOGGING
+	else
+#else
 	else if (!LogScriptCore.IsSuppressed(Verbosity))
-	{
-		// Call directly so we can pass verbosity through
-		FMsg::Logf_Internal(__FILE__, __LINE__, LogScriptCore.GetCategoryName(), Verbosity, TEXT("Script Msg: %s"), Message);
-		if (!ScriptStack.IsEmpty())
-		{
-			FMsg::Logf_Internal(__FILE__, __LINE__, LogScriptCore.GetCategoryName(), Verbosity, TEXT("%s"), *ScriptStack);
-		}
-	}	
 #endif
+	{
+		FScriptExceptionHandler::Get().HandleException(Verbosity, Message, *ScriptStack);
+	}
 }
 
 void FFrame::Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category )

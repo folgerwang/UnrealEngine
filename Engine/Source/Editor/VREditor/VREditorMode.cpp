@@ -36,6 +36,7 @@
 #include "IHeadMountedDisplay.h"
 #include "IXRTrackingSystem.h"
 #include "Interfaces/IAnalyticsProvider.h"
+#include "Interfaces/IProjectManager.h"
 
 #include "IViewportInteractionModule.h"
 #include "VREditorMotionControllerInteractor.h"
@@ -116,7 +117,7 @@ void UVREditorMode::Init()
 	// Take note of VREditor activation
 	if( FEngineAnalytics::IsAvailable() )
 	{
-		FEngineAnalytics::GetProvider().RecordEvent( TEXT( "Editor.Usage.InitVREditorMode" ) );
+		FEngineAnalytics::GetProvider().RecordEvent( TEXT( "Editor.Usage.InitVREditorMode" ), FAnalyticsEventAttribute( TEXT("Enterprise"), IProjectManager::Get().IsEnterpriseProject() ) );
 	}
 
 	// Setting up colors

@@ -1072,7 +1072,7 @@ float2 CalcScreenUVFromOffsetFraction(float4 ScreenPosition, float2 OffsetFracti
 	// Clamp to valid area of the screen to avoid reading garbage
 	//@todo - soft clamp
 	float2 OffsetNDC = clamp(NDC + OffsetFraction * float2(2, -2), -.999f, .999f);
-	return float2(OffsetNDC * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
+	return float2(OffsetNDC * ResolvedView.ScreenPositionScaleBias.xy + ResolvedView.ScreenPositionScaleBias.wz);
 }
 
 float4 GetPerPixelLightAttenuation(float2 UV)
@@ -1109,7 +1109,7 @@ float ConvertToDeviceZ(float SceneDepth)
 
 float2 ScreenPositionToBufferUV(float4 ScreenPosition)
 {
-	return float2(ScreenPosition.xy / ScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
+	return float2(ScreenPosition.xy / ScreenPosition.w * ResolvedView.ScreenPositionScaleBias.xy + ResolvedView.ScreenPositionScaleBias.wz);
 }
 
 float2 SvPositionToBufferUV(float4 SvPosition)

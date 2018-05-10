@@ -19,56 +19,56 @@ struct F3DTransformChannelEditorData
 		FText RotationGroup = NSLOCTEXT("MovieSceneTransformSection", "Rotation", "Rotation");
 		FText ScaleGroup    = NSLOCTEXT("MovieSceneTransformSection", "Scale",    "Scale");
 		{
-			CommonData[0].SetIdentifiers("Location.X", FCommonChannelData::ChannelX, LocationGroup);
-			CommonData[0].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::TranslationX);
-			CommonData[0].Color = FCommonChannelData::RedChannelColor;
-			CommonData[0].SortOrder = 0;
+			MetaData[0].SetIdentifiers("Location.X", FCommonChannelData::ChannelX, LocationGroup);
+			MetaData[0].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::TranslationX);
+			MetaData[0].Color = FCommonChannelData::RedChannelColor;
+			MetaData[0].SortOrder = 0;
 
-			CommonData[1].SetIdentifiers("Location.Y", FCommonChannelData::ChannelY, LocationGroup);
-			CommonData[1].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::TranslationY);
-			CommonData[1].Color = FCommonChannelData::GreenChannelColor;
-			CommonData[1].SortOrder = 1;
+			MetaData[1].SetIdentifiers("Location.Y", FCommonChannelData::ChannelY, LocationGroup);
+			MetaData[1].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::TranslationY);
+			MetaData[1].Color = FCommonChannelData::GreenChannelColor;
+			MetaData[1].SortOrder = 1;
 
-			CommonData[2].SetIdentifiers("Location.Z", FCommonChannelData::ChannelZ, LocationGroup);
-			CommonData[2].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::TranslationZ);
-			CommonData[2].Color = FCommonChannelData::BlueChannelColor;
-			CommonData[2].SortOrder = 2;
+			MetaData[2].SetIdentifiers("Location.Z", FCommonChannelData::ChannelZ, LocationGroup);
+			MetaData[2].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::TranslationZ);
+			MetaData[2].Color = FCommonChannelData::BlueChannelColor;
+			MetaData[2].SortOrder = 2;
 		}
 		{
-			CommonData[3].SetIdentifiers("Rotation.X", NSLOCTEXT("MovieSceneTransformSection", "RotationX", "Roll"), RotationGroup);
-			CommonData[3].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::RotationX);
-			CommonData[3].Color = FCommonChannelData::RedChannelColor;
-			CommonData[3].SortOrder = 3;
+			MetaData[3].SetIdentifiers("Rotation.X", NSLOCTEXT("MovieSceneTransformSection", "RotationX", "Roll"), RotationGroup);
+			MetaData[3].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::RotationX);
+			MetaData[3].Color = FCommonChannelData::RedChannelColor;
+			MetaData[3].SortOrder = 3;
 
-			CommonData[4].SetIdentifiers("Rotation.Y", NSLOCTEXT("MovieSceneTransformSection", "RotationY", "Pitch"), RotationGroup);
-			CommonData[4].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::RotationY);
-			CommonData[4].Color = FCommonChannelData::GreenChannelColor;
-			CommonData[4].SortOrder = 4;
+			MetaData[4].SetIdentifiers("Rotation.Y", NSLOCTEXT("MovieSceneTransformSection", "RotationY", "Pitch"), RotationGroup);
+			MetaData[4].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::RotationY);
+			MetaData[4].Color = FCommonChannelData::GreenChannelColor;
+			MetaData[4].SortOrder = 4;
 
-			CommonData[5].SetIdentifiers("Rotation.Z", NSLOCTEXT("MovieSceneTransformSection", "RotationZ", "Yaw"), RotationGroup);
-			CommonData[5].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::RotationZ);
-			CommonData[5].Color = FCommonChannelData::BlueChannelColor;
-			CommonData[5].SortOrder = 5;
+			MetaData[5].SetIdentifiers("Rotation.Z", NSLOCTEXT("MovieSceneTransformSection", "RotationZ", "Yaw"), RotationGroup);
+			MetaData[5].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::RotationZ);
+			MetaData[5].Color = FCommonChannelData::BlueChannelColor;
+			MetaData[5].SortOrder = 5;
 		}
 		{
-			CommonData[6].SetIdentifiers("Scale.X", FCommonChannelData::ChannelX, ScaleGroup);
-			CommonData[6].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::ScaleX);
-			CommonData[6].Color = FCommonChannelData::RedChannelColor;
-			CommonData[6].SortOrder = 6;
+			MetaData[6].SetIdentifiers("Scale.X", FCommonChannelData::ChannelX, ScaleGroup);
+			MetaData[6].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::ScaleX);
+			MetaData[6].Color = FCommonChannelData::RedChannelColor;
+			MetaData[6].SortOrder = 6;
 
-			CommonData[7].SetIdentifiers("Scale.Y", FCommonChannelData::ChannelY, ScaleGroup);
-			CommonData[7].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::ScaleY);
-			CommonData[7].Color = FCommonChannelData::GreenChannelColor;
-			CommonData[7].SortOrder = 7;
+			MetaData[7].SetIdentifiers("Scale.Y", FCommonChannelData::ChannelY, ScaleGroup);
+			MetaData[7].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::ScaleY);
+			MetaData[7].Color = FCommonChannelData::GreenChannelColor;
+			MetaData[7].SortOrder = 7;
 
-			CommonData[8].SetIdentifiers("Scale.Z", FCommonChannelData::ChannelZ, ScaleGroup);
-			CommonData[8].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::ScaleZ);
-			CommonData[8].Color = FCommonChannelData::BlueChannelColor;
-			CommonData[8].SortOrder = 8;
+			MetaData[8].SetIdentifiers("Scale.Z", FCommonChannelData::ChannelZ, ScaleGroup);
+			MetaData[8].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::ScaleZ);
+			MetaData[8].Color = FCommonChannelData::BlueChannelColor;
+			MetaData[8].SortOrder = 8;
 		}
 		{
-			CommonData[9].SetIdentifiers("Weight", NSLOCTEXT("MovieSceneTransformSection", "Weight", "Weight"));
-			CommonData[9].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::Weight);
+			MetaData[9].SetIdentifiers("Weight", NSLOCTEXT("MovieSceneTransformSection", "Weight", "Weight"));
+			MetaData[9].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::Weight);
 		}
 
 		ExternalValues[0].OnGetExternalValue = ExtractTranslationX;
@@ -226,7 +226,7 @@ struct F3DTransformChannelEditorData
 		return Scale.IsSet() ? Scale->Z : TOptional<float>();
 	}
 
-	FMovieSceneChannelEditorData    CommonData[10];
+	FMovieSceneChannelMetaData      MetaData[10];
 	TMovieSceneExternalValue<float> ExternalValues[10];
 };
 
@@ -379,22 +379,22 @@ void UMovieScene3DTransformSection::UpdateChannelProxy()
 
 	ProxyChannels = TransformMask.GetChannels();
 
-	FMovieSceneChannelData Channels;
+	FMovieSceneChannelProxyData Channels;
 
 #if WITH_EDITOR
 
 	F3DTransformChannelEditorData EditorData(TransformMask.GetChannels());
 
-	Channels.Add(Translation[0], EditorData.CommonData[0], EditorData.ExternalValues[0]);
-	Channels.Add(Translation[1], EditorData.CommonData[1], EditorData.ExternalValues[1]);
-	Channels.Add(Translation[2], EditorData.CommonData[2], EditorData.ExternalValues[2]);
-	Channels.Add(Rotation[0],    EditorData.CommonData[3], EditorData.ExternalValues[3]);
-	Channels.Add(Rotation[1],    EditorData.CommonData[4], EditorData.ExternalValues[4]);
-	Channels.Add(Rotation[2],    EditorData.CommonData[5], EditorData.ExternalValues[5]);
-	Channels.Add(Scale[0],       EditorData.CommonData[6], EditorData.ExternalValues[6]);
-	Channels.Add(Scale[1],       EditorData.CommonData[7], EditorData.ExternalValues[7]);
-	Channels.Add(Scale[2],       EditorData.CommonData[8], EditorData.ExternalValues[8]);
-	Channels.Add(ManualWeight,   EditorData.CommonData[9], EditorData.ExternalValues[9]);
+	Channels.Add(Translation[0], EditorData.MetaData[0], EditorData.ExternalValues[0]);
+	Channels.Add(Translation[1], EditorData.MetaData[1], EditorData.ExternalValues[1]);
+	Channels.Add(Translation[2], EditorData.MetaData[2], EditorData.ExternalValues[2]);
+	Channels.Add(Rotation[0],    EditorData.MetaData[3], EditorData.ExternalValues[3]);
+	Channels.Add(Rotation[1],    EditorData.MetaData[4], EditorData.ExternalValues[4]);
+	Channels.Add(Rotation[2],    EditorData.MetaData[5], EditorData.ExternalValues[5]);
+	Channels.Add(Scale[0],       EditorData.MetaData[6], EditorData.ExternalValues[6]);
+	Channels.Add(Scale[1],       EditorData.MetaData[7], EditorData.ExternalValues[7]);
+	Channels.Add(Scale[2],       EditorData.MetaData[8], EditorData.ExternalValues[8]);
+	Channels.Add(ManualWeight,   EditorData.MetaData[9], EditorData.ExternalValues[9]);
 
 #else
 
@@ -454,17 +454,17 @@ TSharedPtr<FStructOnScope> UMovieScene3DTransformSection::GetKeyStruct(TArrayVie
 		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DTransformKeyStruct::StaticStruct()));
 		auto Struct = (FMovieScene3DTransformKeyStruct*)KeyStruct->GetStructMemory();
 
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[0]), &Struct->Location.X,     LocationKeys[0]));
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[1]), &Struct->Location.Y,     LocationKeys[1]));
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[2]), &Struct->Location.Z,     LocationKeys[2]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(0), &Struct->Location.X,     LocationKeys[0]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(1), &Struct->Location.Y,     LocationKeys[1]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(2), &Struct->Location.Z,     LocationKeys[2]));
 
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[3]), &Struct->Rotation.Roll,  RotationKeys[0]));
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[4]), &Struct->Rotation.Pitch, RotationKeys[1]));
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[5]), &Struct->Rotation.Yaw,   RotationKeys[2]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(3), &Struct->Rotation.Roll,  RotationKeys[0]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(4), &Struct->Rotation.Pitch, RotationKeys[1]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(5), &Struct->Rotation.Yaw,   RotationKeys[2]));
 
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[6]), &Struct->Scale.X,        ScaleKeys[0]));
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[7]), &Struct->Scale.Y,        ScaleKeys[1]));
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[8]), &Struct->Scale.Z,        ScaleKeys[2]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(6), &Struct->Scale.X,        ScaleKeys[0]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(7), &Struct->Scale.Y,        ScaleKeys[1]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(8), &Struct->Scale.Z,        ScaleKeys[2]));
 
 		Struct->KeyStructInterop.SetStartingValues();
 		Struct->Time = Struct->KeyStructInterop.GetUnifiedKeyTime().Get(0);
@@ -476,9 +476,9 @@ TSharedPtr<FStructOnScope> UMovieScene3DTransformSection::GetKeyStruct(TArrayVie
 		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DLocationKeyStruct::StaticStruct()));
 		auto Struct = (FMovieScene3DLocationKeyStruct*)KeyStruct->GetStructMemory();
 
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[0]), &Struct->Location.X,     LocationKeys[0]));
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[1]), &Struct->Location.Y,     LocationKeys[1]));
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[2]), &Struct->Location.Z,     LocationKeys[2]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(0), &Struct->Location.X,     LocationKeys[0]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(1), &Struct->Location.Y,     LocationKeys[1]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(2), &Struct->Location.Z,     LocationKeys[2]));
 
 		Struct->KeyStructInterop.SetStartingValues();
 		Struct->Time = Struct->KeyStructInterop.GetUnifiedKeyTime().Get(0);
@@ -490,9 +490,9 @@ TSharedPtr<FStructOnScope> UMovieScene3DTransformSection::GetKeyStruct(TArrayVie
 		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DRotationKeyStruct::StaticStruct()));
 		auto Struct = (FMovieScene3DRotationKeyStruct*)KeyStruct->GetStructMemory();
 
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[3]), &Struct->Rotation.Roll,  RotationKeys[0]));
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[4]), &Struct->Rotation.Pitch, RotationKeys[1]));
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[5]), &Struct->Rotation.Yaw,   RotationKeys[2]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(3), &Struct->Rotation.Roll,  RotationKeys[0]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(4), &Struct->Rotation.Pitch, RotationKeys[1]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(5), &Struct->Rotation.Yaw,   RotationKeys[2]));
 
 		Struct->KeyStructInterop.SetStartingValues();
 		Struct->Time = Struct->KeyStructInterop.GetUnifiedKeyTime().Get(0);
@@ -504,9 +504,9 @@ TSharedPtr<FStructOnScope> UMovieScene3DTransformSection::GetKeyStruct(TArrayVie
 		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DScaleKeyStruct::StaticStruct()));
 		auto Struct = (FMovieScene3DScaleKeyStruct*)KeyStruct->GetStructMemory();
 
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[6]), &Struct->Scale.X,        ScaleKeys[0]));
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[7]), &Struct->Scale.Y,        ScaleKeys[1]));
-		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(FloatChannels[8]), &Struct->Scale.Z,        ScaleKeys[2]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(6), &Struct->Scale.X,        ScaleKeys[0]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(7), &Struct->Scale.Y,        ScaleKeys[1]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(8), &Struct->Scale.Z,        ScaleKeys[2]));
 
 		Struct->KeyStructInterop.SetStartingValues();
 		Struct->Time = Struct->KeyStructInterop.GetUnifiedKeyTime().Get(0);

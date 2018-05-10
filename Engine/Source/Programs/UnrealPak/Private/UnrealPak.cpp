@@ -9,7 +9,7 @@
 #include "KeyGenerator.h"
 #include "Misc/AES.h"
 #include "Templates/UniquePtr.h"
-#include "Serialization/BufferWriter.h"
+#include "Serialization/LargeMemoryWriter.h"
 #include "AssetRegistryModule.h"
 #include "ProfilingDebugging/DiagnosticTable.h"
 #include "Serialization/JsonSerializer.h"
@@ -1794,10 +1794,8 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2,
 			
 			//serialize and memcompare the two entries
 			{
-				void* PAKDATA1 = FMemory::Malloc(EntryInfo1.UncompressedSize);
-				void* PAKDATA2 = FMemory::Malloc(EntryInfo2.UncompressedSize);
-				FBufferWriter PAKWriter1(PAKDATA1, EntryInfo1.UncompressedSize, false);
-				FBufferWriter PAKWriter2(PAKDATA2, EntryInfo2.UncompressedSize, false);
+				FLargeMemoryWriter PAKWriter1(EntryInfo1.UncompressedSize);
+				FLargeMemoryWriter PAKWriter2(EntryInfo2.UncompressedSize);
 
 				if (EntryInfo1.CompressionMethod == COMPRESS_None)
 				{
@@ -1817,7 +1815,7 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2,
 					UncompressCopyFile(PAKWriter2, PakReader2, Entry2, PersistantCompressionBuffer, CompressionBufferSize, InEncryptionKey, PakFile2);
 				}
 
-				if (FMemory::Memcmp(PAKDATA1, PAKDATA2, EntryInfo1.UncompressedSize) != 0)
+				if (FMemory::Memcmp(PAKWriter1.GetData(), PAKWriter2.GetData(), EntryInfo1.UncompressedSize) != 0)
 				{
 					++NumDifferentContents;
 					UE_LOG(LogPakFile, Log, TEXT("ContentsDifferent, %s, %i, %i"), *PAK1FileName, EntryInfo1.UncompressedSize, EntryInfo2.UncompressedSize);
@@ -1826,8 +1824,6 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2,
 				{
 					++NumEqualContents;
 				}
-				FMemory::Free(PAKDATA1);
-				FMemory::Free(PAKDATA2);
 			}			
 		}
 		

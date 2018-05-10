@@ -53,12 +53,12 @@ bool FBackChannelTestOSCMessage::RunTest(const FString& Parameters)
 	const int RoundedStringSize = FBackChannelOSCMessage::RoundedArgumentSize(StringValue.Len() + 1);
 	const int RoundedArraySize = FBackChannelOSCMessage::RoundedArgumentSize(kArraySize);
 
-	const int ExpectedArgSize = 4 + 4 + RoundedStringSize + RoundedArraySize;
+	const int ExpectedArgSize = 4 + 4 + RoundedStringSize + 4 + RoundedArraySize;
 	const int ExpectedBufferSize = ExpectedArgSize + FBackChannelOSCMessage::RoundedArgumentSize(Address.Len() + 1) + FBackChannelOSCMessage::RoundedArgumentSize(Tags.Len() + 1);
 
 	// verify this address and tags...
 	check(Address == TEXT("/foo"));
-	check(Tags == TEXT("ifsb"));
+	check(Tags == TEXT("ifsib"));
 	check(ArgSize == ExpectedArgSize);
 
 	TArray<uint8> Buffer;

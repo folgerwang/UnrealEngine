@@ -42,3 +42,19 @@ void UDatasmithSkyLightComponentTemplate::Load( const UObject* Source )
 	Cubemap = SkyLightComponent->Cubemap;
 #endif // #if WITH_EDITORONLY_DATA
 }
+
+bool UDatasmithSkyLightComponentTemplate::Equals( const UDatasmithObjectTemplate* Other ) const
+{
+	const UDatasmithSkyLightComponentTemplate* TypedOther = Cast< UDatasmithSkyLightComponentTemplate >( Other );
+
+	if ( !TypedOther )
+	{
+		return false;
+	}
+
+	bool bEquals = SourceType == TypedOther->SourceType;
+	bEquals = bEquals && ( CubemapResolution == TypedOther->CubemapResolution );
+	bEquals = bEquals && ( Cubemap == TypedOther->Cubemap );
+
+	return bEquals;
+}

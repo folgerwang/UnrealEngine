@@ -13,6 +13,11 @@
 #include "AnimationGraph.h"
 #include "EditorModeManager.h"
 #include "Toolkits/AssetEditorManager.h"
+#include "AnimationEditorUtils.h"
+#include "UObject/UnrealType.h"
+#include "Kismet2/CompilerResultsLog.h"
+
+#define LOCTEXT_NAMESPACE "UAnimGraphNode_Base"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_Base
@@ -52,6 +57,33 @@ void UAnimGraphNode_Base::CreateOutputPins()
 	if (!IsSinkNode())
 	{
 		CreatePin(EGPD_Output, UAnimationGraphSchema::PC_Struct, FPoseLink::StaticStruct(), TEXT("Pose"));
+	}
+}
+
+void UAnimGraphNode_Base::ValidateAnimNodeDuringCompilation(USkeleton* ForSkeleton, FCompilerResultsLog& MessageLog)
+{
+	// Validate any bone references we have
+	for(const TPair<UStructProperty*, const void*> PropertyValuePair : TPropertyValueRange<UStructProperty>(GetClass(), this))
+	{
+		if(PropertyValuePair.Key->Struct == FBoneReference::StaticStruct())
+		{
+			const FBoneReference& BoneReference = *(const FBoneReference*)PropertyValuePair.Value;
+
+			// Temporary fix where skeleton is not fully loaded during AnimBP compilation and thus virtual bone name check is invalid UE-39499 (NEED FIX) 
+			if (ForSkeleton && !ForSkeleton->HasAnyFlags(RF_NeedPostLoad))
+			{
+				if (BoneReference.BoneName != NAME_None)
+				{
+					if (ForSkeleton->GetReferenceSkeleton().FindBoneIndex(BoneReference.BoneName) == INDEX_NONE)
+					{
+						FFormatNamedArguments Args;
+						Args.Add(TEXT("BoneName"), FText::FromName(BoneReference.BoneName));
+
+						MessageLog.Warning(*FText::Format(LOCTEXT("NoBoneFoundToModify", "@@ - Bone {BoneName} not found in Skeleton"), Args).ToString(), this);
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -383,3 +415,5 @@ bool UAnimGraphNode_Base::IsPinExposedAndLinked(const FString& InPinName, const 
 	UEdGraphPin* Pin = FindPin(InPinName, InDirection);
 	return Pin != nullptr && Pin->LinkedTo.Num() > 0 && Pin->LinkedTo[0] != nullptr;
 }
+
+#undef LOCTEXT_NAMESPACE

@@ -88,6 +88,9 @@ void FBlendSampleDetails::CustomizeDetails(class IDetailLayoutBuilder& DetailBui
 
 	TSharedPtr<IPropertyHandle> RateScaleProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(FBlendSample, RateScale), (UClass*)(FBlendSample::StaticStruct()));
 	CategoryBuilder.AddProperty(RateScaleProperty);
+
+	TSharedPtr<IPropertyHandle> SnappedProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(FBlendSample, bSnapToGrid), (UClass*)(FBlendSample::StaticStruct()));
+	CategoryBuilder.AddProperty(SnappedProperty);
 }
 
 void FBlendSampleDetails::GenerateBlendSampleWidget(TFunction<FDetailWidgetRow& (void)> InFunctor, FOnSampleMoved OnSampleMoved, const UBlendSpaceBase* BlendSpace, const int32 SampleIndex, bool bShowLabel)
@@ -101,18 +104,25 @@ void FBlendSampleDetails::GenerateBlendSampleWidget(TFunction<FDetailWidgetRow& 
 			const FBlendSample& Sample = BlendSpace->GetBlendSample(SampleIndex);
 			FVector SampleValue = Sample.SampleValue;
 
-			const float DeltaStep = (BlendParameter.Max - BlendParameter.Min) / BlendParameter.GridNum;
-			// Calculate snapped value
-			const float MinOffset = NewValue - BlendParameter.Min;
-			float GridSteps = MinOffset / DeltaStep;
-			int32 FlooredSteps = FMath::FloorToInt(GridSteps);
-			GridSteps -= FlooredSteps;
-			FlooredSteps = (GridSteps > .5f) ? FlooredSteps + 1 : FlooredSteps;
+			if(Sample.bSnapToGrid)
+			{
+				const float DeltaStep = (BlendParameter.Max - BlendParameter.Min) / BlendParameter.GridNum;
+				// Calculate snapped value
+				const float MinOffset = NewValue - BlendParameter.Min;
+				float GridSteps = MinOffset / DeltaStep;
+				int32 FlooredSteps = FMath::FloorToInt(GridSteps);
+				GridSteps -= FlooredSteps;
+				FlooredSteps = (GridSteps > .5f) ? FlooredSteps + 1 : FlooredSteps;
 
-			// Temporary snap this value to closest point on grid (since the spin box delta does not provide the desired functionality)
-			SampleValue[ParameterIndex] = BlendParameter.Min + (FlooredSteps * DeltaStep);
+				// Temporary snap this value to closest point on grid (since the spin box delta does not provide the desired functionality)
+				SampleValue[ParameterIndex] = BlendParameter.Min + (FlooredSteps * DeltaStep);
+			}
+			else
+			{
+				SampleValue[ParameterIndex] = NewValue;
+			}
 
-			OnSampleMoved.ExecuteIfBound(SampleIndex, SampleValue, bIsInteractive);
+			OnSampleMoved.ExecuteIfBound(SampleIndex, SampleValue, bIsInteractive, Sample.bSnapToGrid);
 		
 		};
 		

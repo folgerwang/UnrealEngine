@@ -29,9 +29,9 @@ public:
 	virtual void UseImplicitHMDPosition(bool bInImplicitHMDPosition) = 0;
 
 	/**
-	* Get the view offset mode
-	*/
-	virtual bool GetUseImplicitHMDPosition() = 0;
+	 * Gets the view offset mode to assume an implied HMD position
+	 */
+	virtual bool GetUseImplicitHMDPosition() const = 0;
 
 	/**
 	 * Optionally called by APlayerController to apply the orientation of the
@@ -51,9 +51,9 @@ public:
 	virtual void OverrideFOV(float& InOutFOV) = 0;
 
 	/** Setup state for applying the render thread late update */
-	virtual void SetupLateUpdate(const FTransform& ParentToWorld, USceneComponent* Component) = 0;
+	virtual void SetupLateUpdate(const FTransform& ParentToWorld, USceneComponent* Component, bool bSkipLateUpdate) = 0;
 
-	/** 
+	/**
 	 * Calculates the offset for the camera position, given the specified eye pass, position and rotation.
 	 * An XR plugin implementing stereo rendering should forward all calls of CalculateStereoViewOffset to this method.
 	 */

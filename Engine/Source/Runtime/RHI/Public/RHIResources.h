@@ -1340,10 +1340,7 @@ public:
 class FRHICustomPresent : public FRHIResource
 {
 public:
-	explicit FRHICustomPresent(FRHIViewport* InViewport) 
-		: ViewportRHI(InViewport) 
-	{
-	}
+	FRHICustomPresent() {}
 	
 	virtual ~FRHICustomPresent() {} // should release any references to D3D resources.
 	
@@ -1369,10 +1366,6 @@ public:
 	virtual void OnAcquireThreadOwnership() {}
 	// Called when rendering thread is released
 	virtual void OnReleaseThreadOwnership() {}
-
-protected:
-	// Weak reference, don't create a circular dependency that would prevent the viewport from being destroyed.
-	FRHIViewport* ViewportRHI;
 };
 
 

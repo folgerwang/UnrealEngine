@@ -630,7 +630,7 @@ public:
 	virtual void TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNotifyQueue& NotifyQueue, FAnimAssetTickContext& Context) const override;
 	virtual TArray<FName>* GetUniqueMarkerNames() override { return &MarkerData.UniqueMarkerNames; }
 	virtual void RefreshCacheData() override;
-	virtual bool CanBeUsedInMontage() const { return false; }
+	virtual bool CanBeUsedInComposition() const { return false; }
 	//~ End AnimSequenceBase Interface
 
 #if WITH_EDITOR

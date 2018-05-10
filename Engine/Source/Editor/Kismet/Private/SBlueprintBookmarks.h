@@ -92,6 +92,8 @@ protected:
 		TWeakPtr<FBlueprintEditor> EditorContext;
 	};
 
+	void OnFilterTextCommitted(const FText& InText, ETextCommit::Type CommitType);
+
 	void OnDeleteSelectedTreeViewItems();
 	bool CanDeleteSelectedTreeViewItems() const;
 	void OnRenameSelectedTreeViewItems();
@@ -122,4 +124,6 @@ private:
 	TSharedPtr<FUICommandList> CommandList;
 	TSharedPtr<SSearchBox> SearchBoxWidget;
 	TSharedPtr<STreeView<FTreeViewItemPtr> > TreeViewWidget;
+
+	FText FilterText;
 };

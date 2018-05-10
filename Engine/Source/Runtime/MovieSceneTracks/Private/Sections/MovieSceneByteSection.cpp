@@ -18,7 +18,7 @@ UMovieSceneByteSection::UMovieSceneByteSection( const FObjectInitializer& Object
 	bSupportsInfiniteRange = true;
 #if WITH_EDITOR
 
-	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(ByteCurve, FMovieSceneChannelEditorData(), TMovieSceneExternalValue<uint8>::Make());
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(ByteCurve, FMovieSceneChannelMetaData(), TMovieSceneExternalValue<uint8>::Make());
 
 #else
 

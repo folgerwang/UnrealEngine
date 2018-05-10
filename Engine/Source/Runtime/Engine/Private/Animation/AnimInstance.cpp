@@ -1236,6 +1236,14 @@ void UAnimInstance::ResetAnimationCurves()
 	}
 }
 
+void UAnimInstance::CopyCurveValues(const UAnimInstance& InSourceInstance)
+{
+	for (uint8 i = 0; i < (uint8)EAnimCurveType::MaxAnimCurveType; i++)
+	{
+		AnimationCurves[i] = InSourceInstance.AnimationCurves[i];
+	}
+}
+
 void UAnimInstance::UpdateCurves(const FBlendedHeapCurve& InCurve)
 {
 	SCOPE_CYCLE_COUNTER(STAT_UpdateCurves);
@@ -1430,16 +1438,16 @@ float UAnimInstance::CalcSlotMontageLocalWeight(const FName& SlotNodeName) const
 	return GetProxyOnAnyThread<FAnimInstanceProxy>().CalcSlotMontageLocalWeight(SlotNodeName);
 }
 
-float UAnimInstance::GetCurveValue(FName CurveName)
+float UAnimInstance::GetCurveValue(FName CurveName) const
 {
 	float Value = 0.f;
 	GetCurveValue(CurveName, Value);
 	return Value;
 }
 
-bool UAnimInstance::GetCurveValue(FName CurveName, float& OutValue)
+bool UAnimInstance::GetCurveValue(FName CurveName, float& OutValue) const
 {
-	float* Value = AnimationCurves[(uint8)EAnimCurveType::AttributeCurve].Find(CurveName);
+	const float* Value = AnimationCurves[(uint8)EAnimCurveType::AttributeCurve].Find(CurveName);
 	if (Value)
 	{
 		OutValue = *Value;
@@ -1447,6 +1455,29 @@ bool UAnimInstance::GetCurveValue(FName CurveName, float& OutValue)
 	}
 
 	return false;
+}
+
+void UAnimInstance::GetActiveCurveNames(EAnimCurveType CurveType, TArray<FName>& OutNames) const
+{
+	TMap<FName, float> ActiveCurves;
+
+	AppendAnimationCurveList(CurveType, ActiveCurves);
+	ActiveCurves.GetKeys(OutNames);
+}
+
+void UAnimInstance::GetAllCurveNames(TArray<FName>& OutNames) const
+{
+	USkeletalMeshComponent* SkelMeshComp = GetOwningComponent();
+	if (SkelMeshComp && SkelMeshComp->SkeletalMesh && SkelMeshComp->SkeletalMesh->Skeleton)
+	{
+		const USkeleton* CurSkeleton = SkelMeshComp->SkeletalMesh->Skeleton;
+
+		const FSmartNameMapping* Mapping = CurSkeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
+		if (Mapping)
+		{
+			Mapping->FillNameArray(OutNames);
+		}
+	}
 }
 
 void UAnimInstance::SetRootMotionMode(TEnumAsByte<ERootMotionMode::Type> Value)
@@ -1644,7 +1675,7 @@ float UAnimInstance::PlaySlotAnimation(UAnimSequenceBase* Asset, FName SlotNodeN
 		return 0.f;
 	}
 
-	if (!Asset->CanBeUsedInMontage())
+	if (!Asset->CanBeUsedInComposition())
 	{
 		UE_LOG(LogAnimMontage, Warning, TEXT("This animation isn't supported to play as montage"));
 		return 0.f;

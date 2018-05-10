@@ -2250,6 +2250,12 @@ void UParticleSystem::PostLoad()
 
 		if (!bCookedOut)
 		{
+			if (Emitter->LODLevels.Num() == 0)
+			{
+				UE_LOG(LogParticles, Warning, TEXT("ParticleSystem contains emitter with no lod levels - %s - %s"), *GetFullName(), *Emitter->GetFullName());
+				continue;
+			}
+
 			UParticleLODLevel* LODLevel = Emitter->LODLevels[0];
 			check(LODLevel);
 
@@ -3597,7 +3603,7 @@ void UParticleSystemComponent::OnUnregister()
 		TEXT("OnUnregister %s Component=0x%p Scene=0x%p FXSystem=0x%p"),
 		Template != NULL ? *Template->GetName() : TEXT("NULL"), this, GetWorld()->Scene, FXSystem);
 
-	bWasActive = bIsActive;
+	bWasActive = bIsActive && !bWasDeactivated;
 
 	ResetParticles(true);
 	FXSystem = NULL;

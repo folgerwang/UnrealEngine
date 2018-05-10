@@ -25,6 +25,12 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <returns>The targeted GPU architectures</returns>
 		List<string> GetAllGPUArchitectures();
+
+		/// <summary>
+		/// Finds the list of supported GPU architectures
+		/// </summary>
+		/// <returns>The targeted GPU architectures</returns>
+		int GetNdkApiLevelInt(int MinNDK);
 	}
 
 	/// <summary>

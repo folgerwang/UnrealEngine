@@ -27,7 +27,7 @@ UCLASS(ClassGroup = Media, editinlinenew, meta = (BlueprintSpawnableComponent))
 class LINEARTIMECODE_API ULinearTimecodeComponent
 	: public USceneComponent
 {
-	GENERATED_BODY()
+	GENERATED_UCLASS_BODY()
 
 public:
 	/** The media player asset associated with this component. */
@@ -67,16 +67,6 @@ public:
 	FOnTimecodeChange OnTimecodeChange;
 
 public:
-	/**
-	 * Create and initialize a new instance.
-	 * @param ObjectInitializer Initialization parameters.
-	 */
-	ULinearTimecodeComponent(const FObjectInitializer& ObjectInitializer);
-
-	/** Virtual destructor. */
-	~ULinearTimecodeComponent();
-
-public:
 	void UpdatePlayer();
 
 public:
@@ -92,7 +82,7 @@ protected:
 	void ProcessAudio(TSharedPtr<FMediaAudioSampleQueue, ESPMode::ThreadSafe> SampleQueue);
 
 protected:
-	/** The player facade that's currently providing texture samples. */
+	/** The player facade that's currently providing audio samples. */
 	TWeakPtr<FMediaPlayerFacade, ESPMode::ThreadSafe> CurrentPlayerFacade;
 
 	/** Audio sample queue. */
@@ -103,12 +93,12 @@ protected:
 };
 
 /**
-* Extend type conversions to handle FDropTimecode structure
-*/
+ * Extend type conversions to handle FDropTimecode structure
+ */
 UCLASS(meta = (BlueprintThreadSafe))
 class LINEARTIMECODE_API UDropTimecodeToStringConversion : public UBlueprintFunctionLibrary
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
 	/** Convert a timecode structure into a string */
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToString (DropTimecode)", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities|String")

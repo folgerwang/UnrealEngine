@@ -38,6 +38,8 @@ FString UAnimGraphNode_ApplyAdditive::GetNodeCategory() const
 
 void UAnimGraphNode_ApplyAdditive::ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog)
 {
+	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
+
 	if (UAnimationSettings::Get()->bEnablePerformanceLog)
 	{
 		if (Node.LODThreshold < 0)

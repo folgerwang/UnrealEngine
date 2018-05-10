@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "Containers/Queue.h"
 
+#if USE_ANDROID_EVENTS
+
 struct ANativeWindow;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAndroidEvents, Log, All);
@@ -98,3 +100,5 @@ private:
 	// mark the "destroy window" event to prevent "create window" with invalid data on the same frame
 	bool bDestroyWindowPending;
 };
+
+#endif

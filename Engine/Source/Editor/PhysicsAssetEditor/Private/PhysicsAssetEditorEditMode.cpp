@@ -287,6 +287,26 @@ bool FPhysicsAssetEditorEditMode::InputAxis(FEditorViewportClient* InViewportCli
 
 bool FPhysicsAssetEditorEditMode::InputDelta(FEditorViewportClient* InViewportClient, FViewport* InViewport, FVector& InDrag, FRotator& InRot, FVector& InScale)
 {
+	auto GetLocalRotation = [this](FEditorViewportClient* InLocalViewportClient, const FRotator& InRotation, const FTransform& InWidgetTM)
+	{
+		FRotator Rotation = InRotation;
+
+		if(InLocalViewportClient->GetWidgetCoordSystemSpace() == COORD_Local)
+		{
+			// When using local coords, we should rotate in EACH objects local space, not the space of the first selected.
+			// We receive deltas in the local coord space, so we need to transform back
+			FMatrix CoordSpace;
+			GetCustomInputCoordinateSystem(CoordSpace, nullptr);
+			FMatrix WidgetDeltaRotation = CoordSpace * FRotationMatrix(Rotation) * CoordSpace.Inverse();
+
+			// Now transform into this object's local space
+			FMatrix ObjectMatrix = InWidgetTM.ToMatrixNoScale().RemoveTranslation();
+			Rotation = (ObjectMatrix.Inverse() * WidgetDeltaRotation * ObjectMatrix).Rotator();
+		}
+
+		return Rotation;
+	};
+
 	bool bHandled = false;
 	const EAxisList::Type CurrentAxis = InViewportClient->GetCurrentWidgetAxis();
 	if (!SharedData->bRunningSimulation && SharedData->bManipulating && CurrentAxis != EAxisList::None)
@@ -316,9 +336,11 @@ bool FPhysicsAssetEditorEditMode::InputDelta(FEditorViewportClient* InViewportCl
 					}
 					else if (InViewportClient->GetWidgetMode() == FWidget::WM_Rotate)
 					{
+						FRotator RotatorToUse = GetLocalRotation(InViewportClient, InRot, SelectedObject.WidgetTM);
+
 						FVector Axis;
 						float Angle;
-						InRot.Quaternion().ToAxisAndAngle(Axis, Angle);
+						RotatorToUse.Quaternion().ToAxisAndAngle(Axis, Angle);
 
 						Axis = SelectedObject.WidgetTM.InverseTransformVectorNoScale(Axis);
 
@@ -384,9 +406,11 @@ bool FPhysicsAssetEditorEditMode::InputDelta(FEditorViewportClient* InViewportCl
 				}
 				else if (InViewportClient->GetWidgetMode() == FWidget::WM_Rotate)
 				{
+					FRotator RotatorToUse = GetLocalRotation(InViewportClient, InRot, SelectedObject.WidgetTM);
+
 					FVector Axis;
 					float Angle;
-					InRot.Quaternion().ToAxisAndAngle(Axis, Angle);
+					RotatorToUse.Quaternion().ToAxisAndAngle(Axis, Angle);
 
 					Axis = SelectedObject.WidgetTM.InverseTransformVectorNoScale(Axis);
 

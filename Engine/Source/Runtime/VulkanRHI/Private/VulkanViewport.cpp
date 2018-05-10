@@ -9,10 +9,11 @@
 #include "VulkanPendingState.h"
 #include "VulkanContext.h"
 
+//#todo-Lumin: Until we have LuminEngine.ini
 FAutoConsoleVariable GCVarDelayAcquireBackBuffer(
 	TEXT("r.Vulkan.DelayAcquireBackBuffer"),
-	1,
-	TEXT("Delay acquiring the back buffer until preset"),
+	(PLATFORM_ANDROID && !PLATFORM_LUMIN) ? 0 : 1,
+	TEXT("Delay acquiring the back buffer until present"),
 	ECVF_ReadOnly
 );
 
@@ -163,7 +164,13 @@ void FVulkanViewport::AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBac
 
 	FVulkanCommandBufferManager* CmdBufferManager = Context.GetCommandBufferManager();
 	FVulkanCmdBuffer* CmdBuffer = CmdBufferManager->GetActiveCmdBuffer();
-	check(CmdBuffer->IsOutsideRenderPass());
+	if (CmdBuffer->IsInsideRenderPass())
+	{
+		// This could happen due to a SetRT(AndClear) call lingering around (so emulated needs to be ended); however REAL render passes should already have been ended!
+		FTransitionAndLayoutManager& LayoutMgr = Context.GetTransitionAndLayoutManager();
+		checkf(!LayoutMgr.bInsideRealRenderPass, TEXT("Did not end Render Pass!"));
+		LayoutMgr.EndEmulatedRenderPass(CmdBuffer);
+	}
 
 	if (FVulkanPlatform::SupportsStandardSwapchain())
 	{
@@ -181,7 +188,7 @@ FVulkanTexture2D* FVulkanViewport::GetBackBuffer(FRHICommandList& RHICmdList)
 {
 	check(IsInRenderingThread());
 
-	if (!RenderingBackBuffer)
+	if (!RenderingBackBuffer && FVulkanPlatform::SupportsStandardSwapchain())
 	{
 		check(!DelayAcquireBackBuffer());
 

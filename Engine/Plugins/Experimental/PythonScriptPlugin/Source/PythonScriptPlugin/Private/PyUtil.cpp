@@ -19,6 +19,7 @@
 #include "Misc/Paths.h"
 #include "Misc/ScopeExit.h"
 #include "Misc/MessageDialog.h"
+#include "Misc/DefaultValueHelper.h"
 #include "UObject/UnrealType.h"
 #include "UObject/EnumProperty.h"
 #include "UObject/TextProperty.h"
@@ -119,6 +120,22 @@ bool FPropValueOnScope::SetValue(PyObject* InPyObj, const TCHAR* InErrorCtxt)
 
 	PyUtil::SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Failed to convert '%s' to '%s' (%s)"), *PyUtil::GetFriendlyTypename(InPyObj), *Prop->GetName(), *Prop->GetClass()->GetName()));
 	return false;
+}
+
+bool FPropValueOnScope::IsValid() const
+{
+	return Prop && Value;
+}
+
+const UProperty* FPropValueOnScope::GetProp() const
+{
+	return Prop;
+}
+
+void* FPropValueOnScope::GetValue(const int32 InArrayIndex) const
+{
+	check(InArrayIndex >= 0 && InArrayIndex < Prop->ArrayDim);
+	return ((uint8*)Value) + (Prop->ElementSize * InArrayIndex);
 }
 
 FFixedArrayElementOnScope::FFixedArrayElementOnScope(const UProperty* InProp)
@@ -423,8 +440,9 @@ UProperty* CreateProperty(PyObject* InPyObj, const int32 InArrayDim, UObject* In
 bool IsInputParameter(const UProperty* InParam)
 {
 	const bool bIsReturnParam = InParam->HasAnyPropertyFlags(CPF_ReturnParm);
+	const bool bIsReferenceParam = InParam->HasAnyPropertyFlags(CPF_ReferenceParm);
 	const bool bIsOutParam = InParam->HasAnyPropertyFlags(CPF_OutParm) && !InParam->HasAnyPropertyFlags(CPF_ConstParm);
-	return !(bIsReturnParam || bIsOutParam);
+	return !bIsReturnParam && (!bIsOutParam || bIsReferenceParam);
 }
 
 bool IsOutputParameter(const UProperty* InParam)
@@ -434,10 +452,77 @@ bool IsOutputParameter(const UProperty* InParam)
 	return !bIsReturnParam && bIsOutParam;
 }
 
-void InvokeFunctionCall(UObject* InObj, const UFunction* InFunc, void* InBaseParamsAddr, const TCHAR* InErrorCtxt)
+void ImportDefaultValue(const UProperty* InProp, void* InPropValue, const FString& InDefaultValue)
 {
+	if (!InDefaultValue.IsEmpty())
+	{
+		// Certain struct types export using a non-standard default value, so we have to import them manually rather than use ImportText
+		if (const UStructProperty* StructProp = Cast<UStructProperty>(InProp))
+		{
+			if (StructProp->Struct == TBaseStructure<FVector>::Get())
+			{
+				FVector* Vector = (FVector*)InPropValue;
+				FDefaultValueHelper::ParseVector(InDefaultValue, *Vector);
+				return;
+			}
+			else if (StructProp->Struct == TBaseStructure<FVector2D>::Get())
+			{
+				FVector2D* Vector2D = (FVector2D*)InPropValue;
+				FDefaultValueHelper::ParseVector2D(InDefaultValue, *Vector2D);
+				return;
+			}
+			else if (StructProp->Struct == TBaseStructure<FRotator>::Get())
+			{
+				FRotator* Rotator = (FRotator*)InPropValue;
+				FDefaultValueHelper::ParseRotator(InDefaultValue, *Rotator);
+				return;
+			}
+			else if (StructProp->Struct == TBaseStructure<FColor>::Get())
+			{
+				FColor* Color = (FColor*)InPropValue;
+				FDefaultValueHelper::ParseColor(InDefaultValue, *Color);
+				return;
+			}
+			else if (StructProp->Struct == TBaseStructure<FLinearColor>::Get())
+			{
+				FLinearColor* LinearColor = (FLinearColor*)InPropValue;
+				FDefaultValueHelper::ParseLinearColor(InDefaultValue, *LinearColor);
+				return;
+			}
+		}
+
+		InProp->ImportText(*InDefaultValue, InPropValue, PPF_None, nullptr);
+	}
+}
+
+bool InvokeFunctionCall(UObject* InObj, const UFunction* InFunc, void* InBaseParamsAddr, const TCHAR* InErrorCtxt)
+{
+	bool bThrewException = false;
+	FScopedScriptExceptionHandler ExceptionHandler([InErrorCtxt, &bThrewException](ELogVerbosity::Type Verbosity, const TCHAR* ExceptionMessage, const TCHAR* StackMessage)
+	{
+		if (Verbosity == ELogVerbosity::Error)
+		{
+			SetPythonError(PyExc_Exception, InErrorCtxt, ExceptionMessage);
+			bThrewException = true;
+		}
+		else if (Verbosity == ELogVerbosity::Warning)
+		{
+			if (SetPythonWarning(PyExc_RuntimeWarning, InErrorCtxt, ExceptionMessage) == -1)
+			{
+				// -1 from SetPythonWarning means the warning should be an exception
+				bThrewException = true;
+			}
+		}
+		else
+		{
+			FMsg::Logf_Internal(__FILE__, __LINE__, LogPython.GetCategoryName(), Verbosity, TEXT("%s"), ExceptionMessage);
+		}
+	});
+
 	FEditorScriptExecutionGuard ScriptGuard;
 	InObj->ProcessEvent((UFunction*)InFunc, InBaseParamsAddr);
+
+	return !bThrewException;
 }
 
 bool InspectFunctionArgs(PyObject* InFunc, TArray<FString>& OutArgNames, TArray<FPyObjectPtr>* OutArgDefaults)
@@ -552,20 +637,37 @@ int ValidateContainerIndexParam(const Py_ssize_t InIndex, const Py_ssize_t InLen
 	return 0;
 }
 
-PyObject* GetUEPropValue(const UStruct* InStruct, void* InStructData, const UProperty* InProp, const char *InAttributeName, PyObject* InOwnerPyObject, const TCHAR* InErrorCtxt)
+UObject* GetOwnerObject(PyObject* InPyObj)
+{
+	FPyWrapperOwnerContext OwnerContext = FPyWrapperOwnerContext(InPyObj);
+	while (OwnerContext.HasOwner())
+	{
+		PyObject* PyObj = OwnerContext.GetOwnerObject();
+
+		if (PyObject_IsInstance(PyObj, (PyObject*)&PyWrapperObjectType) == 1)
+		{
+			// Found an object, this is the end of the chain
+			return ((FPyWrapperObject*)PyObj)->ObjectInstance;
+		}
+
+		if (PyObject_IsInstance(PyObj, (PyObject*)&PyWrapperStructType) == 1)
+		{
+			// Found a struct, recurse up the chain
+			OwnerContext = ((FPyWrapperStruct*)PyObj)->OwnerContext;
+			continue;
+		}
+
+		// Unknown object type - just bail
+		break;
+	}
+
+	return nullptr;
+}
+
+PyObject* GetPropertyValue(const UStruct* InStruct, void* InStructData, const UProperty* InProp, const char *InAttributeName, PyObject* InOwnerPyObject, const TCHAR* InErrorCtxt)
 {
 	if (InStruct && InProp && ensureAlways(InStructData))
 	{
-		// Deprecated properties can no longer be accessed and cause an error rather than a warning
-		{
-			FString DeprecationMessage;
-			if (PyGenUtil::IsDeprecatedProperty(InProp, &DeprecationMessage))
-			{
-				SetPythonError(PyExc_DeprecationWarning, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is deprecated: %s"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName(), *DeprecationMessage));
-				return nullptr;
-			}
-		}
-
 		if (!InProp->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible))
 		{
 			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is protected and cannot be read"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
@@ -584,7 +686,7 @@ PyObject* GetUEPropValue(const UStruct* InStruct, void* InStructData, const UPro
 	Py_RETURN_NONE;
 }
 
-int SetUEPropValue(const UStruct* InStruct, void* InStructData, PyObject* InValue, const UProperty* InProp, const char *InAttributeName, const FPyWrapperOwnerContext& InChangeOwner, const uint64 InReadOnlyFlags, const TCHAR* InErrorCtxt)
+int SetPropertyValue(const UStruct* InStruct, void* InStructData, PyObject* InValue, const UProperty* InProp, const char *InAttributeName, const FPyWrapperOwnerContext& InChangeOwner, const uint64 InReadOnlyFlags, const bool InOwnerIsTemplate, const TCHAR* InErrorCtxt)
 {
 	if (!InValue)
 	{
@@ -594,20 +696,27 @@ int SetUEPropValue(const UStruct* InStruct, void* InStructData, PyObject* InValu
 
 	if (InStruct && InProp && ensureAlways(InStructData))
 	{
-		// Deprecated properties can no longer be accessed and cause an error rather than a warning
-		{
-			FString DeprecationMessage;
-			if (PyGenUtil::IsDeprecatedProperty(InProp, &DeprecationMessage))
-			{
-				SetPythonError(PyExc_DeprecationWarning, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is deprecated: %s"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName(), *DeprecationMessage));
-				return -1;
-			}
-		}
-
 		if (!InProp->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible))
 		{
 			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is protected and cannot be set"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
 			return -1;
+		}
+
+		if (InOwnerIsTemplate)
+		{
+			if (InProp->HasAnyPropertyFlags(CPF_DisableEditOnTemplate))
+			{
+				SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' cannot be edited on templates"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
+				return -1;
+			}
+		}
+		else
+		{
+			if (InProp->HasAnyPropertyFlags(CPF_DisableEditOnInstance))
+			{
+				SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' cannot be edited on instances"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
+				return -1;
+			}
 		}
 
 		if (InProp->HasAnyPropertyFlags(InReadOnlyFlags))
@@ -650,7 +759,7 @@ bool IsMappingType(PyTypeObject* InType)
 	return InType->tp_dict && PyDict_GetItemString(InType->tp_dict, "keys");
 }
 
-bool IsModuleAvailableForImport(const TCHAR* InModuleName)
+bool IsModuleAvailableForImport(const TCHAR* InModuleName, FString* OutResolvedFile)
 {
 	FPyObjectPtr PySysModule = FPyObjectPtr::StealReference(PyImport_ImportModule("sys"));
 	if (PySysModule)
@@ -672,6 +781,16 @@ bool IsModuleAvailableForImport(const TCHAR* InModuleName)
 						const FString CurModuleName = PyObjectToUEString(PyModuleKey);
 						if (FCString::Strcmp(InModuleName, *CurModuleName) == 0)
 						{
+							if (OutResolvedFile && PyModuleValue)
+							{
+								PyObject* PyModuleDict = PyModule_GetDict(PyModuleValue);
+								PyObject* PyModuleFile = PyDict_GetItemString(PyModuleDict, "__file__");
+								if (PyModuleFile)
+								{
+									*OutResolvedFile = PyObjectToUEString(PyModuleFile);
+								}
+							}
+
 							return true;
 						}
 					}
@@ -695,8 +814,23 @@ bool IsModuleAvailableForImport(const TCHAR* InModuleName)
 					{
 						const FString CurPath = PyObjectToUEString(PyPathItem);
 
-						if (FPaths::FileExists(CurPath / ModuleSingleFile) || FPaths::FileExists(CurPath / ModuleFolderName))
+						if (FPaths::FileExists(CurPath / ModuleSingleFile))
 						{
+							if (OutResolvedFile)
+							{
+								*OutResolvedFile = CurPath / ModuleSingleFile;
+							}
+
+							return true;
+						}
+
+						if (FPaths::FileExists(CurPath / ModuleFolderName))
+						{
+							if (OutResolvedFile)
+							{
+								*OutResolvedFile = CurPath / ModuleFolderName;
+							}
+
 							return true;
 						}
 					}
@@ -786,6 +920,30 @@ void RemoveSystemPath(const FString& InPath)
 	}
 }
 
+TArray<FString> GetSystemPaths()
+{
+	TArray<FString> Paths;
+
+	FPyObjectPtr PySysModule = FPyObjectPtr::StealReference(PyImport_ImportModule("sys"));
+	if (PySysModule)
+	{
+		PyObject* PySysDict = PyModule_GetDict(PySysModule);
+
+		PyObject* PyPathList = PyDict_GetItemString(PySysDict, "path");
+		if (PyPathList)
+		{
+			const Py_ssize_t PyPathLen = PyList_Size(PyPathList);
+			for (Py_ssize_t PyPathIndex = 0; PyPathIndex < PyPathLen; ++PyPathIndex)
+			{
+				PyObject* PyPathItem = PyList_GetItem(PyPathList, PyPathIndex);
+				Paths.Add(PyObjectToUEString(PyPathItem));
+			}
+		}
+	}
+
+	return Paths;
+}
+
 FString GetDocString(PyObject* InPyObj)
 {
 	FString DocString;
@@ -796,7 +954,7 @@ FString GetDocString(PyObject* InPyObj)
 	return DocString;
 }
 
-FString GetFriendlyStructValue(const UStruct* InStruct, const void* InStructValue, const uint32 InPortFlags)
+FString GetFriendlyStructValue(const UScriptStruct* InStruct, const void* InStructValue, const uint32 InPortFlags)
 {
 	FString FriendlyStructValue;
 
@@ -988,10 +1146,7 @@ bool EnableDeveloperWarnings()
 		PyObject* PySimpleFilterFunc = PyDict_GetItemString(PyWarningsDict, "simplefilter");
 		if (PySimpleFilterFunc)
 		{
-			char Arg1[] = "s";
-			char Arg2[] = "default";
-
-			FPyObjectPtr PySimpleFilterResult = FPyObjectPtr::StealReference(PyObject_CallFunction(PySimpleFilterFunc, Arg1, Arg2));
+			FPyObjectPtr PySimpleFilterResult = FPyObjectPtr::StealReference(PyObject_CallFunction(PySimpleFilterFunc, PyCStrCast("s"), "default"));
 			if (PySimpleFilterResult)
 			{
 				return true;
@@ -1002,77 +1157,77 @@ bool EnableDeveloperWarnings()
 	return false;
 }
 
-void LogPythonError(const bool bInteractive)
+FString BuildPythonError()
 {
-	auto BuildPythonError = []() -> FString
+	FString PythonErrorString;
+
+	// This doesn't just call PyErr_Print as it also needs to work before stderr redirection has been set-up in Python
+	FPyObjectPtr PyExceptionType;
+	FPyObjectPtr PyExceptionValue;
+	FPyObjectPtr PyExceptionTraceback;
+	PyErr_Fetch(&PyExceptionType.Get(), &PyExceptionValue.Get(), &PyExceptionTraceback.Get());
+	PyErr_NormalizeException(&PyExceptionType.Get(), &PyExceptionValue.Get(), &PyExceptionTraceback.Get());
+
+	bool bBuiltTraceback = false;
+	if (PyExceptionTraceback)
 	{
-		FString PythonErrorString;
-
-		// This doesn't just call PyErr_Print as it also needs to work before stderr redirection has been set-up in Python
-		FPyObjectPtr PyExceptionType;
-		FPyObjectPtr PyExceptionValue;
-		FPyObjectPtr PyExceptionTraceback;
-		PyErr_Fetch(&PyExceptionType.Get(), &PyExceptionValue.Get(), &PyExceptionTraceback.Get());
-		PyErr_NormalizeException(&PyExceptionType.Get(), &PyExceptionValue.Get(), &PyExceptionTraceback.Get());
-
-		bool bBuiltTraceback = false;
-		if (PyExceptionTraceback)
+		FPyObjectPtr PyTracebackModule = FPyObjectPtr::StealReference(PyImport_ImportModule("traceback"));
+		if (PyTracebackModule)
 		{
-			FPyObjectPtr PyTracebackModule = FPyObjectPtr::StealReference(PyImport_ImportModule("traceback"));
-			if (PyTracebackModule)
+			PyObject* PyTracebackDict = PyModule_GetDict(PyTracebackModule);
+			PyObject* PyFormatExceptionFunc = PyDict_GetItemString(PyTracebackDict, "format_exception");
+			if (PyFormatExceptionFunc)
 			{
-				PyObject* PyTracebackDict = PyModule_GetDict(PyTracebackModule);
-				PyObject* PyFormatExceptionFunc = PyDict_GetItemString(PyTracebackDict, "format_exception");
-				if (PyFormatExceptionFunc)
+				FPyObjectPtr PyFormatExceptionResult = FPyObjectPtr::StealReference(PyObject_CallFunctionObjArgs(PyFormatExceptionFunc, PyExceptionType.Get(), PyExceptionValue.Get(), PyExceptionTraceback.Get(), nullptr));
+				if (PyFormatExceptionResult)
 				{
-					FPyObjectPtr PyFormatExceptionResult = FPyObjectPtr::StealReference(PyObject_CallFunctionObjArgs(PyFormatExceptionFunc, PyExceptionType.Get(), PyExceptionValue.Get(), PyExceptionTraceback.Get(), nullptr));
-					if (PyFormatExceptionResult)
-					{
-						bBuiltTraceback = true;
+					bBuiltTraceback = true;
 
-						if (PyList_Check(PyFormatExceptionResult))
+					if (PyList_Check(PyFormatExceptionResult))
+					{
+						const Py_ssize_t FormatExceptionResultSize = PyList_Size(PyFormatExceptionResult);
+						for (Py_ssize_t FormatExceptionResultIndex = 0; FormatExceptionResultIndex < FormatExceptionResultSize; ++FormatExceptionResultIndex)
 						{
-							const Py_ssize_t FormatExceptionResultSize = PyList_Size(PyFormatExceptionResult);
-							for (Py_ssize_t FormatExceptionResultIndex = 0; FormatExceptionResultIndex < FormatExceptionResultSize; ++FormatExceptionResultIndex)
+							PyObject* PyFormatExceptionResultItem = PyList_GetItem(PyFormatExceptionResult, FormatExceptionResultIndex);
+							if (PyFormatExceptionResultItem)
 							{
-								PyObject* PyFormatExceptionResultItem = PyList_GetItem(PyFormatExceptionResult, FormatExceptionResultIndex);
-								if (PyFormatExceptionResultItem)
+								if (FormatExceptionResultIndex > 0)
 								{
-									if (FormatExceptionResultIndex > 0)
-									{
-										PythonErrorString += '\n';
-									}
-									PythonErrorString += PyObjectToUEString(PyFormatExceptionResultItem);
+									PythonErrorString += '\n';
 								}
+								PythonErrorString += PyObjectToUEString(PyFormatExceptionResultItem);
 							}
 						}
-						else
-						{
-							PythonErrorString += PyObjectToUEString(PyFormatExceptionResult);
-						}
+					}
+					else
+					{
+						PythonErrorString += PyObjectToUEString(PyFormatExceptionResult);
 					}
 				}
 			}
 		}
+	}
 
-		if (!bBuiltTraceback && PyExceptionValue)
+	if (!bBuiltTraceback && PyExceptionValue)
+	{
+		if (PyExceptionType && PyType_Check(PyExceptionType))
 		{
-			if (PyExceptionType && PyType_Check(PyExceptionType))
-			{
-				FPyObjectPtr PyExceptionTypeName = FPyObjectPtr::StealReference(PyObject_GetAttrString(PyExceptionType, "__name__"));
-				PythonErrorString += FString::Printf(TEXT("%s: %s"), PyExceptionTypeName ? *PyObjectToUEString(PyExceptionTypeName) : *PyObjectToUEString(PyExceptionType), *PyObjectToUEString(PyExceptionValue));
-			}
-			else
-			{
-				PythonErrorString += PyObjectToUEString(PyExceptionValue);
-			}
+			FPyObjectPtr PyExceptionTypeName = FPyObjectPtr::StealReference(PyObject_GetAttrString(PyExceptionType, "__name__"));
+			PythonErrorString += FString::Printf(TEXT("%s: %s"), PyExceptionTypeName ? *PyObjectToUEString(PyExceptionTypeName) : *PyObjectToUEString(PyExceptionType), *PyObjectToUEString(PyExceptionValue));
 		}
+		else
+		{
+			PythonErrorString += PyObjectToUEString(PyExceptionValue);
+		}
+	}
 
-		PyErr_Clear();
+	PyErr_Clear();
 
-		return PythonErrorString;
-	};
+	return PythonErrorString;
+}
 
+void LogPythonError(const bool bInteractive)
+{
 	const FString ErrorStr = BuildPythonError();
 
 	if (!ErrorStr.IsEmpty())
@@ -1094,6 +1249,16 @@ void LogPythonError(const bool bInteractive)
 			const FText DlgTitle = LOCTEXT("PythonErrorTitle", "Python Error");
 			FMessageDialog::Open(EAppMsgType::Ok, FText::AsCultureInvariant(ErrorStr), &DlgTitle);
 		}
+	}
+}
+
+void ReThrowPythonError()
+{
+	const FString ErrorStr = BuildPythonError();
+
+	if (!ErrorStr.IsEmpty())
+	{
+		FFrame::KismetExecutionMessage(*ErrorStr, ELogVerbosity::Error);
 	}
 }
 

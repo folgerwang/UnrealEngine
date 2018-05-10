@@ -445,7 +445,7 @@ static void IdenticalHelper(const UProperty* AProperty, const UProperty* BProper
 	if (APropAsStruct != nullptr)
 	{
 		const UStructProperty* BPropAsStruct = CastChecked<UStructProperty>(BProperty);
-		if (APropAsStruct->Struct->StructFlags & STRUCT_IdenticalNative || BPropAsStruct->Struct != APropAsStruct->Struct)
+		if (APropAsStruct->Struct->StructFlags & STRUCT_IdenticalNative && BPropAsStruct->Struct != APropAsStruct->Struct)
 		{
 			// If the struct uses CPP identical tests, then we can't dig into it, and we already know it's not identical from the test when we started
 			DifferingSubProperties.Push(RootPath);

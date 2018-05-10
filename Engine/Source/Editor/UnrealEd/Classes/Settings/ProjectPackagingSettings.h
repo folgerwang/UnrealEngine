@@ -283,19 +283,17 @@ public:
 
 	/**
 	 * Directories containing .uasset files that should always be cooked regardless of whether they're referenced by anything in your project
-	 * Note: These paths are relative to your project Content directory
+	 * These paths are stored relative to the project root so they can start with /game, /engine, or /pluginname
 	 */
-	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Additional Asset Directories to Cook", RelativeToGameContentDir))
+	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Additional Asset Directories to Cook", LongPackageName))
 	TArray<FDirectoryPath> DirectoriesToAlwaysCook;
-	
 
 	/**
-	* Directories containing .uasset files that should always be cooked regardless of whether they're referenced by anything in your project
-	* Note: These paths are relative to your project Content directory
-	*/
-	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Directories to never cook", RelativeToGameContentDir))
+	 * Directories containing .uasset files that should never be cooked even if they are referenced by your project
+	 * These paths are stored relative to the project root so they can start with /game, /engine, or /pluginname
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Directories to never cook", LongPackageName))
 	TArray<FDirectoryPath> DirectoriesToNeverCook;
-
 
 	/**
 	 * Directories containing files that should always be added to the .pak file (if using a .pak file; otherwise they're copied as individual files)
@@ -359,4 +357,7 @@ public:
 private:
 	/** Returns the index of the specified Blueprint in the exclusive nativization list (otherwise INDEX_NONE) */
 	int32 FindBlueprintInNativizationList(const UBlueprint* InBlueprint) const;
+
+	/** Fix up cooking paths after they've been edited or laoded */
+	void FixCookingPaths();
 };

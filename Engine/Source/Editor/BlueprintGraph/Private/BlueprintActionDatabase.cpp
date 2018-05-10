@@ -693,9 +693,6 @@ static void BlueprintActionDatabaseImpl::AddClassPropertyActions(UClass const* c
 			ActionListOut.Add(SetterSpawner);
 		}
 	}
-
-	// Now check to see if we have any class-specific actions to add over and above the defaults
-	FBlueprintEditorUtils::OnGetClassPropertyActionsEvent.Broadcast(Class, ActionListOut);
 }
 
 //------------------------------------------------------------------------------
@@ -1266,6 +1263,11 @@ void FBlueprintActionDatabase::RefreshClassActions(UClass* const Class)
 		GetNodeSpecificActions(Class, Registrar);
 		// don't worry, the registrar marks new actions for priming
 	}
+	else if (Class->IsChildOf<UBlueprint>())
+	{
+		FBlueprintActionDatabaseRegistrar Registrar(ActionRegistry, UnloadedActionRegistry, ActionPrimingQueue);
+		Cast<UBlueprint>(Class->ClassDefaultObject)->GetTypeActions(Registrar);
+	}
 	else
 	{
 		FActionList& ClassActionList = ActionRegistry.FindOrAdd(Class);
@@ -1338,6 +1340,16 @@ void FBlueprintActionDatabase::RefreshAssetActions(UObject* const AssetObject)
 		{
 			AddAnimBlueprintGraphActions( AnimBlueprint, AssetActionList );
 		}
+
+		FBlueprintActionDatabaseRegistrar Registrar(ActionRegistry, UnloadedActionRegistry, ActionPrimingQueue);
+		if (!bIsInitializing)
+		{
+			// if this a call to RefreshAssetActions() from somewhere other than 
+			// RefreshAll(), then we should only add actions for this class (the
+			// node could be adding actions, probably duplicate ones for assets)
+			Registrar.ActionKeyFilter = BlueprintAsset->GeneratedClass;
+		}
+		BlueprintAsset->GetInstanceActions(Registrar);
 
 		UBlueprint::FChangedEvent& OnBPChanged = BlueprintAsset->OnChanged();
 		UBlueprint::FCompiledEvent& OnBPCompiled = BlueprintAsset->OnCompiled();

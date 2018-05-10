@@ -648,7 +648,7 @@ namespace ObjectTools
 				FText Message = FText::Format( MessageFormatting, Arguments );
 
 				// Prompt the user to see if they'd like to remove the root set flag from the assets and attempt to replace them
-				EAppReturnType::Type UserRepsonse = OpenMsgDlgInt( EAppMsgType::YesNo, Message, NSLOCTEXT("ObjectTools", "ConsolidateAssetsRootSetDlg_Title", "Failed to Consolidate Assets") );
+				EAppReturnType::Type UserRepsonse = OpenMsgDlgInt( EAppMsgType::YesNo, EAppReturnType::No, Message, NSLOCTEXT("ObjectTools", "ConsolidateAssetsRootSetDlg_Title", "Failed to Consolidate Assets") );
 
 				// The user elected to not remove the root set flag, so cancel the replacement
 				if ( UserRepsonse == EAppReturnType::No )
@@ -889,12 +889,13 @@ namespace ObjectTools
 				// Note reloading the world via ReloadEditorWorldForReferenceReplacementIfNecessary will cause a garbage collect and potentially cause entries in the ObjectsToConsolidate list to become invalid
 				// We refresh the list here after reloading the editor world
 				TArray< TWeakObjectPtr<UObject> > ObjectsToConsolidateWeakList;
+				ObjectsToConsolidateWeakList.Reserve(ObjectsToConsolidate.Num());
 				for(UObject* Object : ObjectsToConsolidate)
 				{
 					ObjectsToConsolidateWeakList.Add(Object);
 				}
 
-				ObjectsToConsolidate.Empty();
+				ObjectsToConsolidate.Reset();
 
 				// If the current editor world is in this list, transition to a new map and reload the world to finish the delete
 				ReloadEditorWorldForReferenceReplacementIfNecessary(ObjectsToConsolidateWeakList);
@@ -911,11 +912,93 @@ namespace ObjectTools
 			FForceReplaceInfo ReplaceInfo;
 			FForceReplaceInfo GeneratedClassReplaceInfo;
 
+			bool bNeedsGarbageCollection = false;
+
 			// Scope the reregister context below to complete after object deletion and before garbage collection
 			{
 				// Replacing references inside already loaded objects could cause rendering issues, so globally detach all components from their scenes for now
 				FGlobalComponentRecreateRenderStateContext ReregisterContext;
-				
+
+				// First, make sure that the class we're consolidating to has its hierarchy fixed so
+				// that we don't create a cycle (e.g. directly or indirectly parent it to itself):
+				UClass* ClassToConsolidateTo = nullptr;
+				if (ObjectToConsolidateTo)
+				{
+					if (UBlueprint* BlueprintObject = Cast<UBlueprint>(ObjectToConsolidateTo))
+					{
+						ClassToConsolidateTo = BlueprintObject->GeneratedClass;
+
+						if (!ClassToConsolidateTo)
+						{
+							ClassToConsolidateTo = UObject::StaticClass();
+						}
+
+						// Don't parent a blueprint to itself, instead fall back to the part of the 
+						// hierarchy that is not being consolidated. Worst case, fall back to 
+						// UObject::StaticClass():
+						UClass* NewParent = BlueprintObject->ParentClass;
+						UClass* ParentIter = NewParent;
+						while (ParentIter)
+						{
+							if (ObjectsToConsolidate.Contains(ParentIter->ClassGeneratedBy))
+							{
+								NewParent = ParentIter->GetSuperClass();
+							}
+							ParentIter = ParentIter->GetSuperClass();
+						}
+
+						if (!NewParent || ObjectsToConsolidate.Contains(NewParent->ClassGeneratedBy))
+						{
+							NewParent = UObject::StaticClass();
+						}
+
+						BlueprintObject->ParentClass = NewParent;
+
+						// Recompile the child blueprint to fix up the generated class
+						FKismetEditorUtilities::CompileBlueprint(BlueprintObject, EBlueprintCompileOptions::SkipGarbageCollection);
+					}
+				}
+
+				// Then reparent any direct children to the class we're consolidating to:
+				for (UObject* Object : ObjectsToConsolidate)
+				{
+					if (UBlueprint* BlueprintObject = Cast<UBlueprint>(Object))
+					{
+						if (BlueprintObject->ParentClass != nullptr && BlueprintObject->GeneratedClass)
+						{
+							TArray<UClass*> ChildClasses;
+							GetDerivedClasses(BlueprintObject->GeneratedClass, ChildClasses, false);
+							for(UClass* ChildClass : ChildClasses)
+							{
+								UBlueprint* ChildBlueprint = Cast<UBlueprint>(ChildClass->ClassGeneratedBy);
+								if (ChildBlueprint != nullptr && !ChildClass->HasAnyClassFlags(CLASS_NewerVersionExists))
+								{
+									// Do not reparent and recompile a Blueprint that is going to be deleted.
+									if (ObjectsToConsolidate.Find(ChildBlueprint) == INDEX_NONE)
+									{
+										ChildBlueprint->Modify();
+
+										UClass* NewParent = ClassToConsolidateTo;
+
+										if (!NewParent)
+										{
+											NewParent = UObject::StaticClass();
+										}
+
+										ChildBlueprint->ParentClass = NewParent;
+
+										// Recompile the child blueprint to fix up the generated class
+										FKismetEditorUtilities::CompileBlueprint(ChildBlueprint, EBlueprintCompileOptions::SkipGarbageCollection);
+
+										// Defer garbage collection until after we're done processing the list of objects
+										bNeedsGarbageCollection = true;
+									}
+								}
+							}
+						}
+					}
+				}
+
 				ForceReplaceReferences(ObjectToConsolidateTo, ObjectsToConsolidate, ReplaceInfo);
 
 				if (UBlueprint* ObjectToConsolidateTo_BP = Cast<UBlueprint>(ObjectToConsolidateTo))
@@ -923,6 +1006,7 @@ namespace ObjectTools
 					// Replace all UClass/TSubClassOf properties of generated class.
 					TArray<UObject*> ObjectsToConsolidate_BP;
 					TArray<UClass*> OldGeneratedClasses;
+					TMap<UClass*, UClass*> OldChildClassToOldParentClass;
 					ObjectsToConsolidate_BP.Reserve(ObjectsToConsolidate.Num());
 					OldGeneratedClasses.Reserve(ObjectsToConsolidate.Num());
 					for (UObject* ObjectToConsolidate : ObjectsToConsolidate)
@@ -930,6 +1014,13 @@ namespace ObjectTools
 						UClass* OldGeneratedClass = Cast<UBlueprint>(ObjectToConsolidate)->GeneratedClass;
 						ObjectsToConsolidate_BP.Add(OldGeneratedClass);
 						OldGeneratedClasses.Add(OldGeneratedClass);
+
+						TArray<UClass*> OldChildClasses;
+						GetDerivedClasses(OldGeneratedClass, OldChildClasses, false);
+						for (UClass* OldChildClass : OldChildClasses)
+						{
+							OldChildClassToOldParentClass.Add(OldChildClass, OldGeneratedClass);
+						}
 					}
 
 					ForceReplaceReferences(ObjectToConsolidateTo_BP->GeneratedClass, ObjectsToConsolidate_BP, GeneratedClassReplaceInfo);
@@ -938,6 +1029,12 @@ namespace ObjectTools
 					for (int32 Index = 0, MaxIndex = ObjectsToConsolidate.Num(); Index < MaxIndex; ++Index)
 					{
 						Cast<UBlueprint>(ObjectsToConsolidate[Index])->GeneratedClass = OldGeneratedClasses[Index];
+					}
+
+					// repair superstruct references:
+					for (const TPair<UClass*,UClass*>& OldChild : OldChildClassToOldParentClass)
+					{
+						OldChild.Key->SetSuperStruct(OldChild.Value);
 					}
 
 					ReplaceInfo.AppendUnique(GeneratedClassReplaceInfo);
@@ -965,8 +1062,12 @@ namespace ObjectTools
 					}
 				}
 
-				// Clean up the actors we replaced
-				CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
+				bNeedsGarbageCollection = true;
+			}
+
+			if (bNeedsGarbageCollection)
+			{
+				CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 			}
 
 			FEditorDelegates::OnAssetsPreDelete.Broadcast(ReplaceInfo.ReplaceableObjects);
@@ -3833,16 +3934,15 @@ namespace ThumbnailTools
 		CacheThumbnail( ObjectFullName, &EmptyThumbnail, DestPackage );
 	}
 
-
-
-	bool QueryPackageFileNameForObject( const FString& InFullName, FString& OutPackageFileName )
+	/** Returns the long path name of the package from InFullName */
+	FString GetPackageNameForObject( const FString& InFullName )
 	{
 		// First strip off the class name
 		int32 FirstSpaceIndex = InFullName.Find( TEXT( " " ) );
 		if( FirstSpaceIndex == INDEX_NONE || FirstSpaceIndex <= 0 )
 		{
 			// Malformed full name
-			return false;
+			return FString();
 		}
 
 		// Determine the package file path/name for the specified object
@@ -3853,15 +3953,21 @@ namespace ThumbnailTools
 		if( FirstDotIndex == INDEX_NONE || FirstDotIndex <= 0 )
 		{
 			// Malformed object path
-			return false;
+			return FString();
 		}
 
-		FString PackageName = ObjectPathName.Left( FirstDotIndex );
+		return ObjectPathName.Left( FirstDotIndex );
+	}
+
+	/** Returns the package file name on disk from InFullName */
+	bool QueryPackageFileNameForObject( const FString& InFullName, FString& OutPackageFileName )
+	{
+		FString PackageName = GetPackageNameForObject( InFullName );
 
 		// Ask the package file cache for the full path to this package
-		if( !FPackageName::DoesPackageExist( PackageName, NULL, &OutPackageFileName ) )
+		if( PackageName.IsEmpty() || !FPackageName::DoesPackageExist( PackageName, NULL, &OutPackageFileName ) )
 		{
-			// Couldn't find the package in our cache
+			// Couldn't find the package
 			return false;
 		}
 
@@ -3917,14 +4023,15 @@ namespace ThumbnailTools
 	const FObjectThumbnail* FindCachedThumbnail( const FString& InFullName )
 	{
 		// Determine the package file path/name for the specified object
-		FString PackageFilePathName;
-		if( !QueryPackageFileNameForObject( InFullName, PackageFilePathName ) )
+		FString PackageName = GetPackageNameForObject( InFullName );
+
+		if ( PackageName.IsEmpty() )
 		{
-			// Couldn't find the package in our cache
-			return NULL;
+			// Couldn't find the package
+			return nullptr;
 		}
 
-		return FindCachedThumbnailInPackage( PackageFilePathName, FName( *InFullName ) );
+		return FindCachedThumbnailInPackage( PackageName, FName( *InFullName ) );
 	}
 
 

@@ -11,9 +11,25 @@ void InitializePyConstant()
 	PyType_Ready(&PyConstantDescrType);
 }
 
+bool FPyConstantDef::AddConstantToType(FPyConstantDef* InConstant, PyTypeObject* InType)
+{
+	return AddConstantToDict(InConstant, InType->tp_dict);
+}
+
 bool FPyConstantDef::AddConstantsToType(FPyConstantDef* InConstants, PyTypeObject* InType)
 {
 	return AddConstantsToDict(InConstants, InType->tp_dict);
+}
+
+bool FPyConstantDef::AddConstantToModule(FPyConstantDef* InConstant, PyObject* InModule)
+{
+	if (!PyModule_Check(InModule))
+	{
+		return false;
+	}
+
+	PyObject* ModuleDict = PyModule_GetDict(InModule);
+	return AddConstantToDict(InConstant, ModuleDict);
 }
 
 bool FPyConstantDef::AddConstantsToModule(FPyConstantDef* InConstants, PyObject* InModule)
@@ -27,6 +43,22 @@ bool FPyConstantDef::AddConstantsToModule(FPyConstantDef* InConstants, PyObject*
 	return AddConstantsToDict(InConstants, ModuleDict);
 }
 
+bool FPyConstantDef::AddConstantToDict(FPyConstantDef* InConstant, PyObject* InDict)
+{
+	FPyObjectPtr PyConstantDescr = FPyObjectPtr::StealReference((PyObject*)FPyConstantDescrObject::New(InConstant));
+	if (!PyConstantDescr)
+	{
+		return false;
+	}
+
+	if (PyDict_SetItemString(InDict, InConstant->ConstantName, PyConstantDescr) != 0)
+	{
+		return false;
+	}
+
+	return true;
+}
+
 bool FPyConstantDef::AddConstantsToDict(FPyConstantDef* InConstants, PyObject* InDict)
 {
 	if (!PyDict_Check(InDict))
@@ -36,13 +68,7 @@ bool FPyConstantDef::AddConstantsToDict(FPyConstantDef* InConstants, PyObject* I
 
 	for (FPyConstantDef* ConstantDef = InConstants; ConstantDef->ConstantName; ++ConstantDef)
 	{
-		FPyObjectPtr PyConstantDescr = FPyObjectPtr::StealReference((PyObject*)FPyConstantDescrObject::New(ConstantDef));
-		if (!PyConstantDescr)
-		{
-			return false;
-		}
-
-		if (PyDict_SetItemString(InDict, ConstantDef->ConstantName, PyConstantDescr) != 0)
+		if (!AddConstantToDict(ConstantDef, InDict))
 		{
 			return false;
 		}
@@ -88,7 +114,7 @@ PyTypeObject InitializePyConstantDescrType()
 
 		static PyObject* DescrGet(FPyConstantDescrObject* InSelf, PyObject* InObj, PyObject* InType)
 		{
-			return InSelf->ConstantDef->ConstantGetter(InSelf->ConstantDef->ConstantPtr);
+			return InSelf->ConstantDef->ConstantGetter((PyTypeObject*)InType, InSelf->ConstantDef->ConstantContext);
 		}
 
 		static int DescrSet(FPyConstantDescrObject* InSelf, PyObject* InObj, PyObject* InValue)

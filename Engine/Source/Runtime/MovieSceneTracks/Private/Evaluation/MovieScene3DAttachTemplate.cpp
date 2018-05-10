@@ -173,12 +173,9 @@ struct F3DAttachExecutionToken
 		FMovieSceneSequenceID SequenceID = Operand.SequenceID;
 		if (AttachBindingID.GetSequenceID().IsValid())
 		{
-			if (const FMovieSceneSubSequenceData* SubData = Player.GetEvaluationTemplate().GetHierarchy().FindSubData(SequenceID))
-			{
-				// Ensure that this ID is resolvable from the root, based on the current local sequence ID
-				FMovieSceneObjectBindingID RootBindingID = AttachBindingID.ResolveLocalToRoot(SequenceID, Player.GetEvaluationTemplate().GetHierarchy());
-				SequenceID = RootBindingID.GetSequenceID();
-			}
+			// Ensure that this ID is resolvable from the root, based on the current local sequence ID
+			FMovieSceneObjectBindingID RootBindingID = AttachBindingID.ResolveLocalToRoot(SequenceID, Player.GetEvaluationTemplate().GetHierarchy());
+			SequenceID = RootBindingID.GetSequenceID();
 		}
 
 		// If the transform is set, otherwise use the bound actor's transform

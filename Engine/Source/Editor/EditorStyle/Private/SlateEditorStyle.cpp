@@ -5738,6 +5738,7 @@ void FSlateEditorStyle::FStyle::SetupPersonaStyle()
 		Set("BlendSpaceKey.Drop", SelectionColor_Inactive);
 		Set("BlendSpaceKey.Invalid", LogColor_Error);
 		Set("BlendSpaceKey.Preview", LogColor_Command);
+		Set("BlendSpaceKey.UnSnapped", LogColor_Warning);
 	}
 
 	// Custom menu style for recent commands list
@@ -5961,6 +5962,13 @@ void FSlateEditorStyle::FStyle::SetupPersonaStyle()
 
 		/* The style of a menu bar button when it has a sub menu open */
 		Set( "ViewportPinnedCommandList.Button.SubMenuOpen", new BORDER_BRUSH( "Common/Selection", FMargin(4.f/16.f), FLinearColor(0.10f, 0.10f, 0.10f) ) );
+
+		Set( "ViewportPinnedCommandList.ComboButton", FComboButtonStyle()
+			.SetButtonStyle(NoBorder)
+			.SetDownArrowImage(IMAGE_BRUSH("Common/ComboArrow", Icon8x8))
+			.SetMenuBorderBrush(BOX_BRUSH("Old/Menu_Background", FMargin(8.0f/64.0f)))
+			.SetMenuBorderPadding(FMargin(0.0f))
+		);
 	}
 #endif // WITH_EDITOR
 }

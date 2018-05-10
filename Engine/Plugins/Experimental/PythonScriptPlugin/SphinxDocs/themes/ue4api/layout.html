@@ -1,0 +1,13 @@
+{#
+    ue4api/layout.html
+    ~~~~~~~~~~~~~~~~~~~
+
+    Sphinx layout template for the UE4 API theme.
+    
+    Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+#}
+{%- extends "classic/layout.html" %}
+
+{% if theme_collapsiblesidebar|tobool %}
+{% set script_files = script_files + ['_static/sidebar.js'] %}
+{% endif %}

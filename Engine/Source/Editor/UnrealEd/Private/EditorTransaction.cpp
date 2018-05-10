@@ -231,28 +231,21 @@ void FTransaction::FObjectRecord::Load(FTransaction* Owner)
 	{
 		bRestored = true;
 
-		if( CustomChange.IsValid() )
+		if (CustomChange.IsValid())
 		{
-			// @todo mesheditor debug
-			//GWarn->Logf( TEXT( "---------- Undoing Custom Change ----------" ) );
-			//CustomChange->PrintToLog( *GWarn );
-			
 			TUniquePtr<FChange> InvertedChange = CustomChange->Execute( Object.Get() );
-
-			// @todo mesheditor debug
-			//GWarn->Logf( TEXT( "-----(Here's what the Redo looks like)-----" ) );
-			//if( InvertedChange.IsValid() )
-			//{
-			//	InvertedChange->PrintToLog( *GWarn );
-			//}
-			//GWarn->Logf( TEXT( "-------------------------------------------" ) );
-
-			this->CustomChange = MoveTemp( InvertedChange );
+			CustomChange = MoveTemp( InvertedChange );
 		}
 		else
 		{
-			FReader Reader(Owner, SerializedObject, bWantsBinarySerialization);
-			SerializeContents(Reader, Oper);
+			// When objects are created outside the transaction system we can end up
+			// finding them but not having any data for them, so don't serialize 
+			// when that happens:
+			if (SerializedObject.Data.Num() > 0)
+			{
+				FReader Reader(Owner, SerializedObject, bWantsBinarySerialization);
+				SerializeContents(Reader, Oper);
+			}
 			SerializedObject.Swap(SerializedObjectFlip);
 		}
 		Oper *= -1;

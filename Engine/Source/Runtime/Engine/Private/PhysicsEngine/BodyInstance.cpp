@@ -3305,7 +3305,7 @@ PxMassProperties ComputeMassProperties(const FBodyInstance* OwningBodyInstance, 
 		NewMass = FMath::Pow(OldMass, UsePow);
 
 		// Apply user-defined mass scaling.
-		NewMass *= FMath::Clamp<float>(OwningBodyInstance->MassScale, 0.01f, 100.0f);
+		NewMass = FMath::Max(OwningBodyInstance->MassScale * NewMass, 0.001f);	//min weight of 1g
 	}
 	else
 	{

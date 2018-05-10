@@ -23,14 +23,21 @@
 
 #if WITH_PYTHON
 
-#define PYCONVERSION_RETURN(RESULT, ERROR_CTX, ERROR_MSG)									\
-	{																						\
-		const FPyConversionResult PyConversionReturnResult_Internal = (RESULT);				\
-		if (!PyConversionReturnResult_Internal && SetErrorState == ESetErrorState::Yes)		\
-		{																					\
-			PyUtil::SetPythonError(PyExc_TypeError, (ERROR_CTX), (ERROR_MSG));				\
-		}																					\
-		return PyConversionReturnResult_Internal;											\
+#define PYCONVERSION_RETURN(RESULT, ERROR_CTX, ERROR_MSG)							\
+	{																				\
+		const FPyConversionResult PyConversionReturnResult_Internal = (RESULT);		\
+		if (!PyConversionReturnResult_Internal)										\
+		{																			\
+			if (SetErrorState == ESetErrorState::Yes)								\
+			{																		\
+				PyUtil::SetPythonError(PyExc_TypeError, (ERROR_CTX), (ERROR_MSG));	\
+			}																		\
+			else																	\
+			{																		\
+				PyErr_Clear();														\
+			}																		\
+		}																			\
+		return PyConversionReturnResult_Internal;									\
 	}
 
 namespace PyConversion
@@ -39,13 +46,13 @@ namespace PyConversion
 namespace Internal
 {
 
-FPyConversionResult NativizeStruct(PyObject* PyObj, UScriptStruct* StructType, void* StructInstance, const ESetErrorState SetErrorState)
+FPyConversionResult NativizeStructInstance(PyObject* PyObj, UScriptStruct* StructType, void* StructInstance, const ESetErrorState SetErrorState)
 {
 	FPyConversionResult Result = FPyConversionResult::Failure();
 
 	PyTypeObject* PyStructType = FPyWrapperTypeRegistry::Get().GetWrappedStructType(StructType);
 	FPyWrapperStructPtr PyStruct = FPyWrapperStructPtr::StealReference(FPyWrapperStruct::CastPyObject(PyObj, PyStructType, &Result));
-	if (PyStruct)
+	if (PyStruct && ensureAlways(PyStruct->ScriptStruct->IsChildOf(StructType)))
 	{
 		StructType->CopyScriptStruct(StructInstance, PyStruct->StructInstance);
 	}
@@ -53,7 +60,7 @@ FPyConversionResult NativizeStruct(PyObject* PyObj, UScriptStruct* StructType, v
 	PYCONVERSION_RETURN(Result, TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), *StructType->GetName()));
 }
 
-FPyConversionResult PythonizeStruct(UScriptStruct* StructType, const void* StructInstance, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult PythonizeStructInstance(UScriptStruct* StructType, const void* StructInstance, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	OutPyObj = (PyObject*)FPyWrapperStructFactory::Get().CreateInstance(StructType, (void*)StructInstance, FPyWrapperOwnerContext(), EPyConversionMethod::Copy);
 	return FPyConversionResult::Success();
@@ -63,29 +70,27 @@ template <typename T>
 FPyConversionResult NativizeSigned(PyObject* PyObj, T& OutVal, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
 {
 	// Booleans subclass integer, so exclude those explicitly
-	if (PyBool_Check(PyObj))
+	if (!PyBool_Check(PyObj))
 	{
-		return FPyConversionResult::Failure();
-	}
-
 #if PY_MAJOR_VERSION < 3
-	if (PyInt_Check(PyObj))
-	{
-		OutVal = PyInt_AsLong(PyObj);
-		return FPyConversionResult::Success();
-	}
+		if (PyInt_Check(PyObj))
+		{
+			OutVal = PyInt_AsLong(PyObj);
+			return FPyConversionResult::Success();
+		}
 #endif	// PY_MAJOR_VERSION < 3
 
-	if (PyLong_Check(PyObj))
-	{
-		OutVal = PyLong_AsLongLong(PyObj);
-		return FPyConversionResult::Success();
-	}
+		if (PyLong_Check(PyObj))
+		{
+			OutVal = PyLong_AsLongLong(PyObj);
+			return FPyConversionResult::Success();
+		}
 
-	if (PyFloat_Check(PyObj))
-	{
-		OutVal = PyFloat_AsDouble(PyObj);
-		return FPyConversionResult::SuccessWithCoercion();
+		if (PyFloat_Check(PyObj))
+		{
+			OutVal = PyFloat_AsDouble(PyObj);
+			return FPyConversionResult::SuccessWithCoercion();
+		}
 	}
 
 	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), InErrorType));
@@ -95,29 +100,27 @@ template <typename T>
 FPyConversionResult NativizeUnsigned(PyObject* PyObj, T& OutVal, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
 {
 	// Booleans subclass integer, so exclude those explicitly
-	if (PyBool_Check(PyObj))
+	if (!PyBool_Check(PyObj))
 	{
-		return FPyConversionResult::Failure();
-	}
-
 #if PY_MAJOR_VERSION < 3
-	if (PyInt_Check(PyObj))
-	{
-		OutVal = PyInt_AsSsize_t(PyObj);
-		return FPyConversionResult::Success();
-	}
+		if (PyInt_Check(PyObj))
+		{
+			OutVal = PyInt_AsSsize_t(PyObj);
+			return FPyConversionResult::Success();
+		}
 #endif	// PY_MAJOR_VERSION < 3
 
-	if (PyLong_Check(PyObj))
-	{
-		OutVal = PyLong_AsUnsignedLongLong(PyObj);
-		return FPyConversionResult::Success();
-	}
+		if (PyLong_Check(PyObj))
+		{
+			OutVal = PyLong_AsUnsignedLongLong(PyObj);
+			return FPyConversionResult::Success();
+		}
 
-	if (PyFloat_Check(PyObj))
-	{
-		OutVal = PyFloat_AsDouble(PyObj);
-		return FPyConversionResult::SuccessWithCoercion();
+		if (PyFloat_Check(PyObj))
+		{
+			OutVal = PyFloat_AsDouble(PyObj);
+			return FPyConversionResult::SuccessWithCoercion();
+		}
 	}
 
 	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), InErrorType));
@@ -127,29 +130,27 @@ template <typename T>
 FPyConversionResult NativizeReal(PyObject* PyObj, T& OutVal, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
 {
 	// Booleans subclass integer, so exclude those explicitly
-	if (PyBool_Check(PyObj))
+	if (!PyBool_Check(PyObj))
 	{
-		return FPyConversionResult::Failure();
-	}
-
 #if PY_MAJOR_VERSION < 3
-	if (PyInt_Check(PyObj))
-	{
-		OutVal = PyInt_AsSsize_t(PyObj);
-		return FPyConversionResult::SuccessWithCoercion();
-	}
+		if (PyInt_Check(PyObj))
+		{
+			OutVal = PyInt_AsSsize_t(PyObj);
+			return FPyConversionResult::SuccessWithCoercion();
+		}
 #endif	// PY_MAJOR_VERSION < 3
 
-	if (PyLong_Check(PyObj))
-	{
-		OutVal = PyLong_AsUnsignedLongLong(PyObj);
-		return FPyConversionResult::SuccessWithCoercion();
-	}
+		if (PyLong_Check(PyObj))
+		{
+			OutVal = PyLong_AsUnsignedLongLong(PyObj);
+			return FPyConversionResult::SuccessWithCoercion();
+		}
 
-	if (PyFloat_Check(PyObj))
-	{
-		OutVal = PyFloat_AsDouble(PyObj);
-		return FPyConversionResult::Success();
+		if (PyFloat_Check(PyObj))
+		{
+			OutVal = PyFloat_AsDouble(PyObj);
+			return FPyConversionResult::Success();
+		}
 	}
 
 	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), InErrorType));
@@ -535,7 +536,7 @@ FPyConversionResult NativizeObject(PyObject* PyObj, UObject*& OutVal, UClass* Ex
 		return FPyConversionResult::Success();
 	}
 
-	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("NativizeObject"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Object*' (allowed Class type: '%s')"), *PyUtil::GetFriendlyTypename(PyObj), ExpectedType ? *ExpectedType->GetName() : TEXT("<any>")));
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("NativizeObject"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Object' (allowed Class type: '%s')"), *PyUtil::GetFriendlyTypename(PyObj), ExpectedType ? *ExpectedType->GetName() : TEXT("<any>")));
 }
 
 FPyConversionResult PythonizeObject(UObject* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
@@ -578,7 +579,7 @@ FPyConversionResult NativizeClass(PyObject* PyObj, UClass*& OutVal, UClass* Expe
 		}
 	}
 
-	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("NativizeClass"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Class*' (allowed Class type: '%s')"), *PyUtil::GetFriendlyTypename(PyObj), ExpectedType ? *ExpectedType->GetName() : TEXT("<any>")));
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("NativizeClass"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Class' (allowed Class type: '%s')"), *PyUtil::GetFriendlyTypename(PyObj), ExpectedType ? *ExpectedType->GetName() : TEXT("<any>")));
 }
 
 FPyConversionResult PythonizeClass(UClass* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
@@ -590,6 +591,39 @@ PyObject* PythonizeClass(UClass* Val, const ESetErrorState SetErrorState)
 {
 	PyObject* Obj = nullptr;
 	PythonizeClass(Val, Obj, SetErrorState);
+	return Obj;
+}
+
+FPyConversionResult NativizeStruct(PyObject* PyObj, UScriptStruct*& OutVal, UScriptStruct* ExpectedType, const ESetErrorState SetErrorState)
+{
+	UScriptStruct* Struct = nullptr;
+
+	if (PyType_Check(PyObj) && PyType_IsSubtype((PyTypeObject*)PyObj, &PyWrapperStructType))
+	{
+		Struct = FPyWrapperStructMetaData::GetStruct((PyTypeObject*)PyObj);
+	}
+
+	if (Struct || NativizeObject(PyObj, (UObject*&)Struct, UScriptStruct::StaticClass(), SetErrorState))
+	{
+		if (!Struct || !ExpectedType || Struct->IsChildOf(ExpectedType))
+		{
+			OutVal = Struct;
+			return FPyConversionResult::Success();
+		}
+	}
+
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("NativizeStruct"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Struct' (allowed Struct type: '%s')"), *PyUtil::GetFriendlyTypename(PyObj), ExpectedType ? *ExpectedType->GetName() : TEXT("<any>")));
+}
+
+FPyConversionResult PythonizeStruct(UScriptStruct* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+{
+	return PythonizeObject(Val, OutPyObj, SetErrorState);
+}
+
+PyObject* PythonizeStruct(UScriptStruct* Val, const ESetErrorState SetErrorState)
+{
+	PyObject* Obj = nullptr;
+	PythonizeStruct(Val, Obj, SetErrorState);
 	return Obj;
 }
 
@@ -753,7 +787,7 @@ FPyConversionResult NativizeProperty_Direct(PyObject* PyObj, const UProperty* Pr
 		FPyConversionResult Result = FPyConversionResult::Failure();
 		PyTypeObject* PyStructType = FPyWrapperTypeRegistry::Get().GetWrappedStructType(CastProp->Struct);
 		FPyWrapperStructPtr PyStruct = FPyWrapperStructPtr::StealReference(FPyWrapperStruct::CastPyObject(PyObj, PyStructType, &Result));
-		if (PyStruct)
+		if (PyStruct && ensureAlways(PyStruct->ScriptStruct->IsChildOf(CastProp->Struct)))
 		{
 			if (!CastProp->Identical(ValueAddr, PyStruct->StructInstance, PPF_None))
 			{

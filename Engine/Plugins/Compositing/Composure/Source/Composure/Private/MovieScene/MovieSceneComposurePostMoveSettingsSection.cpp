@@ -14,27 +14,27 @@ struct FPostMoveSettingsChannelEditorData
 		FText PivotGroup = NSLOCTEXT("PostMoves", "Pivot", "Pivot");
 		FText TranslationGroup = NSLOCTEXT("PostMoves", "Translation", "Translation");
 
-		CommonData[0].SetIdentifiers("Pivot.X", FCommonChannelData::ChannelX, PivotGroup);
-		CommonData[0].SortOrder = 0;
-		CommonData[0].Color = FCommonChannelData::RedChannelColor;
+		MetaData[0].SetIdentifiers("Pivot.X", FCommonChannelData::ChannelX, PivotGroup);
+		MetaData[0].SortOrder = 0;
+		MetaData[0].Color = FCommonChannelData::RedChannelColor;
 
-		CommonData[1].SetIdentifiers("Pivot.Y", FCommonChannelData::ChannelY, PivotGroup);
-		CommonData[1].SortOrder = 1;
-		CommonData[1].Color = FCommonChannelData::GreenChannelColor;
+		MetaData[1].SetIdentifiers("Pivot.Y", FCommonChannelData::ChannelY, PivotGroup);
+		MetaData[1].SortOrder = 1;
+		MetaData[1].Color = FCommonChannelData::GreenChannelColor;
 
-		CommonData[2].SetIdentifiers("Translation.X", FCommonChannelData::ChannelX, TranslationGroup);
-		CommonData[2].SortOrder = 2;
-		CommonData[2].Color = FCommonChannelData::RedChannelColor;
+		MetaData[2].SetIdentifiers("Translation.X", FCommonChannelData::ChannelX, TranslationGroup);
+		MetaData[2].SortOrder = 2;
+		MetaData[2].Color = FCommonChannelData::RedChannelColor;
 
-		CommonData[3].SetIdentifiers("Translation.Y", FCommonChannelData::ChannelY, TranslationGroup);
-		CommonData[3].SortOrder = 3;
-		CommonData[3].Color = FCommonChannelData::GreenChannelColor;
+		MetaData[3].SetIdentifiers("Translation.Y", FCommonChannelData::ChannelY, TranslationGroup);
+		MetaData[3].SortOrder = 3;
+		MetaData[3].Color = FCommonChannelData::GreenChannelColor;
 
-		CommonData[4].SetIdentifiers("Rotation", NSLOCTEXT("PostMoves", "Rotation", "Rotation"));
-		CommonData[4].SortOrder = 4;
+		MetaData[4].SetIdentifiers("Rotation", NSLOCTEXT("PostMoves", "Rotation", "Rotation"));
+		MetaData[4].SortOrder = 4;
 
-		CommonData[5].SetIdentifiers("Scale", NSLOCTEXT("PostMoves", "Scale", "Scale"));
-		CommonData[5].SortOrder = 5;
+		MetaData[5].SetIdentifiers("Scale", NSLOCTEXT("PostMoves", "Scale", "Scale"));
+		MetaData[5].SortOrder = 5;
 
 		ExternalValues[0].OnGetExternalValue = ExtractPivotX;
 		ExternalValues[1].OnGetExternalValue = ExtractPivotY;
@@ -72,7 +72,7 @@ struct FPostMoveSettingsChannelEditorData
 		return Bindings ? Bindings->GetCurrentValue<FComposurePostMoveSettings>(InObject).Scale : TOptional<float>();
 	}
 
-	FMovieSceneChannelEditorData CommonData[6];
+	FMovieSceneChannelMetaData MetaData[6];
 	TMovieSceneExternalValue<float> ExternalValues[6];
 };
 
@@ -89,18 +89,18 @@ UMovieSceneComposurePostMoveSettingsSection::UMovieSceneComposurePostMoveSetting
 	BlendType = EMovieSceneBlendType::Absolute;
 
 	// Initialize this section's channel proxy
-	FMovieSceneChannelData Channels;
+	FMovieSceneChannelProxyData Channels;
 
 #if WITH_EDITOR
 
 	static const FPostMoveSettingsChannelEditorData EditorData;
 
-	Channels.Add(Pivot[0],       EditorData.CommonData[0], EditorData.ExternalValues[0]);
-	Channels.Add(Pivot[1],       EditorData.CommonData[1], EditorData.ExternalValues[1]);
-	Channels.Add(Translation[0], EditorData.CommonData[2], EditorData.ExternalValues[2]);
-	Channels.Add(Translation[1], EditorData.CommonData[3], EditorData.ExternalValues[3]);
-	Channels.Add(RotationAngle,  EditorData.CommonData[4], EditorData.ExternalValues[4]);
-	Channels.Add(Scale,          EditorData.CommonData[5], EditorData.ExternalValues[5]);
+	Channels.Add(Pivot[0],       EditorData.MetaData[0], EditorData.ExternalValues[0]);
+	Channels.Add(Pivot[1],       EditorData.MetaData[1], EditorData.ExternalValues[1]);
+	Channels.Add(Translation[0], EditorData.MetaData[2], EditorData.ExternalValues[2]);
+	Channels.Add(Translation[1], EditorData.MetaData[3], EditorData.ExternalValues[3]);
+	Channels.Add(RotationAngle,  EditorData.MetaData[4], EditorData.ExternalValues[4]);
+	Channels.Add(Scale,          EditorData.MetaData[5], EditorData.ExternalValues[5]);
 
 #else
 

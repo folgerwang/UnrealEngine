@@ -2893,7 +2893,7 @@ void FEngineLoop::Exit()
 #endif // WITH_EDITOR
 	FModuleManager::Get().UnloadModule("AssetRegistry", true);
 
-#if !PLATFORM_ANDROID 	// AppPreExit doesn't work on Android
+#if !PLATFORM_ANDROID || PLATFORM_LUMIN 	// AppPreExit doesn't work on Android
 	AppPreExit();
 
 	TermGamePhys();
@@ -2920,7 +2920,7 @@ void FEngineLoop::Exit()
 	// Tear down the RHI.
 	RHIExitAndStopRHIThread();
 
-#if !PLATFORM_ANDROID // UnloadModules doesn't work on Android
+#if !PLATFORM_ANDROID || PLATFORM_LUMIN // UnloadModules doesn't work on Android
 #if WITH_ENGINE
 	// Save the hot reload state
 	IHotReloadInterface* HotReload = IHotReloadInterface::GetPtr();
@@ -3358,7 +3358,7 @@ void FEngineLoop::Tick()
 		// We do this right after GEngine->Tick() because that is where user code would initiate a load / movie.
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_WaitForMovieToFinish);
-			GetMoviePlayer()->WaitForMovieToFinish();
+			GetMoviePlayer()->WaitForMovieToFinish(true);
 		}
 
 		if (GShaderCompilingManager)

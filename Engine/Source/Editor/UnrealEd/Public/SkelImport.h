@@ -237,6 +237,7 @@ struct ExistingSkelMeshData
 	TSubclassOf<UAnimInstance>				ExistingPostProcessAnimBlueprint;
 
 	bool									bExistingUseFullPrecisionUVs;
+	bool									bExistingUseHighPrecisionTangentBasis;
 
 	TArray<FBoneMirrorExport>				ExistingMirrorTable;
 

@@ -623,7 +623,7 @@ void InitDefaultGLContextState(void)
 		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 	}
 
-#if PLATFORM_WINDOWS || PLATFORM_LINUX
+#if PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMINGL4
 	if (OpenGLConsoleVariables::bUseGlClipControlIfAvailable && ExtensionsString.Contains(TEXT("GL_ARB_clip_control")) && !FOpenGL::IsAndroidGLESCompatibilityModeEnabled())
 	{
 		FOpenGL::EnableSupportsClipControl();

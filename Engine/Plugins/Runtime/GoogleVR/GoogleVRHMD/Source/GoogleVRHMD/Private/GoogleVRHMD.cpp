@@ -1620,14 +1620,17 @@ void FGoogleVRHMD::GetEyeRenderParams_RenderThread(const struct FRenderingCompos
 	}
 }
 
-void FGoogleVRHMD::UpdateViewportRHIBridge(bool bUseSeparateRenderTarget, const class FViewport& InViewport, FRHIViewport* const ViewportRHI)
+FXRRenderBridge* FGoogleVRHMD::GetActiveRenderBridge_GameThread(bool /* bUseSeparateRenderTarget */)
 {
+	check(IsInGameThread());
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
 	check(CustomPresent);
-	CustomPresent->UpdateViewport(InViewport, ViewportRHI);
-
+	if (CustomPresent->IsInitialized())
+	{
+		return CustomPresent;
+	}
 #endif // GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	return nullptr;
 }
 
 void FGoogleVRHMD::CalculateRenderTargetSize(const class FViewport& Viewport, uint32& InOutSizeX, uint32& InOutSizeY)
@@ -2332,6 +2335,8 @@ void FGoogleVRHMD::SetTrackingOrigin(EHMDTrackingOrigin::Type InOrigin)
 		return;
 	}
 	TrackingOrigin = InOrigin;
+
+	OnTrackingOriginChanged();
 }
 
 EHMDTrackingOrigin::Type FGoogleVRHMD::GetTrackingOrigin()

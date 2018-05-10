@@ -104,6 +104,26 @@ void AWorldSettings::PostInitProperties()
 	{
 		NavigationSystemConfig = NewObject<UNavigationSystemConfig>(this);
 	}
+
+	if (MinGlobalTimeDilation < 0)
+	{
+		MinGlobalTimeDilation = 0;
+	}
+
+	if (MaxGlobalTimeDilation < 0)
+	{
+		MaxGlobalTimeDilation = 0;
+	}
+
+	if (MinUndilatedFrameTime < 0)
+	{
+		MinUndilatedFrameTime = 0;
+	}
+
+	if (MaxUndilatedFrameTime < 0)
+	{
+		MaxUndilatedFrameTime = 0;
+	}
 }
 
 void AWorldSettings::PreInitializeComponents()

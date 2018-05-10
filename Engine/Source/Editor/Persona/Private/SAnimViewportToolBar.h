@@ -12,6 +12,7 @@
 #include "Editor/UnrealEd/Public/SViewportToolBar.h"
 
 class FMenuBuilder;
+class SComboButton;
 
 /**
  * A level viewport toolbar widget that is placed in a viewport
@@ -153,6 +154,13 @@ private:
 
 	/** Build the FOV widget */
 	TSharedRef<SWidget> MakeFOVWidget() const;
+
+	/** Build the follow bone widget */
+	TSharedRef<SWidget> MakeFollowBoneWidget() const;
+	TSharedRef<SWidget> MakeFollowBoneWidget(TWeakPtr<SComboButton> InWeakComboButton) const;
+
+	/** Build the follow bone widget (as a combo button) */
+	TSharedRef<SWidget> MakeFollowBoneComboWidget() const;
 
 private:
 	/** Build the main toolbar */

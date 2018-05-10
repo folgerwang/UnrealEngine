@@ -3,6 +3,8 @@
 #include "Android/AndroidJava.h"
 #include "Android/AndroidJavaEnv.h"
 
+#if USE_ANDROID_JNI
+
 FJavaClassObject::FJavaClassObject(FName ClassName, const char* CtorSig, ...)
 {
 	JNIEnv*	JEnv = AndroidJavaEnv::GetJavaEnv();
@@ -151,3 +153,5 @@ void FJavaClassObject::VerifyException()
 		verify(false && "Java JNI call failed with an exception.");
 	}
 }
+
+#endif

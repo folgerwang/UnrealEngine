@@ -418,33 +418,41 @@ public:
 
 		DrawingPolicy.SetupPipelineState(DrawRenderState, View);
 		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
-		DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, typename TBasePassDrawingPolicy<LightMapPolicyType>::ContextDataType());
+		DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, typename TBasePassDrawingPolicy<LightMapPolicyType>::ContextDataType(Parameters.bIsInstancedStereo));
 
 		int32 BatchElementIndex = 0;
 		uint64 BatchElementMask = Parameters.BatchElementMask;
 		do
 		{
-			if(BatchElementMask & 1)
+			if (BatchElementMask & 1)
 			{
-				TDrawEvent<FRHICommandList> MeshEvent;
-				BeginMeshDrawEvent(RHICmdList, Parameters.PrimitiveSceneProxy, Parameters.Mesh, MeshEvent, EnumHasAnyFlags(EShowMaterialDrawEventTypes(GShowMaterialDrawEventTypes), EShowMaterialDrawEventTypes::Translucent));
+				const bool bIsInstanceMesh = Parameters.Mesh.Elements[BatchElementIndex].bIsInstancedMesh;
+				const uint32 InstancedStereoDrawCount = (Parameters.bIsInstancedStereo && bIsInstanceMesh) ? 2 : 1;
+				for (uint32 DrawCountIter = 0; DrawCountIter < InstancedStereoDrawCount; ++DrawCountIter)
+				{
+					DrawingPolicy.SetInstancedEyeIndex(RHICmdList, DrawCountIter);
 
-				DrawingPolicy.SetMeshRenderState(
-					RHICmdList, 
-					View,
-					Parameters.PrimitiveSceneProxy,
-					Parameters.Mesh,
-					BatchElementIndex,
-					DrawRenderState,
-					typename TBasePassDrawingPolicy<LightMapPolicyType>::ElementDataType(LightMapElementData),
-					typename TBasePassDrawingPolicy<LightMapPolicyType>::ContextDataType()
+					TDrawEvent<FRHICommandList> MeshEvent;
+					BeginMeshDrawEvent(RHICmdList, Parameters.PrimitiveSceneProxy, Parameters.Mesh, MeshEvent, EnumHasAnyFlags(EShowMaterialDrawEventTypes(GShowMaterialDrawEventTypes), EShowMaterialDrawEventTypes::Translucent));
+
+					DrawingPolicy.SetMeshRenderState(
+						RHICmdList,
+						View,
+						Parameters.PrimitiveSceneProxy,
+						Parameters.Mesh,
+						BatchElementIndex,
+						DrawRenderState,
+						typename TBasePassDrawingPolicy<LightMapPolicyType>::ElementDataType(LightMapElementData),
+						typename TBasePassDrawingPolicy<LightMapPolicyType>::ContextDataType()
 					);
-				DrawingPolicy.DrawMesh(RHICmdList,View,Parameters.Mesh,BatchElementIndex);
+
+					DrawingPolicy.DrawMesh(RHICmdList, View, Parameters.Mesh, BatchElementIndex, Parameters.bIsInstancedStereo);
+				}
 			}
 
 			BatchElementMask >>= 1;
 			BatchElementIndex++;
-		} while(BatchElementMask);
+		} while (BatchElementMask);
 	}
 };
 
@@ -521,7 +529,8 @@ bool FTranslucencyDrawingPolicyFactory::DrawMesh(
 				Material,
 				PrimitiveSceneProxy, 
 				!bPreFog,
-				FeatureLevel
+				FeatureLevel,
+				View.IsInstancedStereoPass()
 			),
 			FDrawTranslucentMeshAction(
 				RHICmdList,
@@ -667,11 +676,11 @@ public:
 		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 		if (SceneContext.IsSeparateTranslucencyPass())
 		{
-			SceneContext.BeginRenderingSeparateTranslucency(RHICmdList, View, false);
+			SceneContext.BeginRenderingSeparateTranslucency(RHICmdList, View, Renderer, false);
 		}
 		else
 		{
-			SceneContext.BeginRenderingTranslucency(RHICmdList, View, false);
+			SceneContext.BeginRenderingTranslucency(RHICmdList, View, Renderer, false);
 		}
 
 		PrimSet.DrawAPrimitive(RHICmdList, View, DrawRenderState, Renderer, TranslucencyPass, Index);
@@ -979,11 +988,11 @@ public:
 		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(CmdList);
 		if (bRenderInSeparateTranslucency)
 		{
-			SceneContext.BeginRenderingSeparateTranslucency(CmdList, View, false);
+			SceneContext.BeginRenderingSeparateTranslucency(CmdList, View, *SceneRenderer, false);
 		}
 		else
 		{
-			SceneContext.BeginRenderingTranslucency(CmdList, View, false);
+			SceneContext.BeginRenderingTranslucency(CmdList, View, *SceneRenderer, false);
 		}
 	}
 };
@@ -1296,10 +1305,22 @@ void CreateTranslucentBasePassUniformBuffer(
 
 	// Translucency Lighting Volume
 	{
-		BasePassParameters.TranslucencyLightingVolumeAmbientInner = SceneRenderTargets.GetTranslucencyVolumeAmbient(TVC_Inner)->GetRenderTargetItem().ShaderResourceTexture;
-		BasePassParameters.TranslucencyLightingVolumeAmbientOuter = SceneRenderTargets.GetTranslucencyVolumeAmbient(TVC_Outer)->GetRenderTargetItem().ShaderResourceTexture;
-		BasePassParameters.TranslucencyLightingVolumeDirectionalInner = SceneRenderTargets.GetTranslucencyVolumeDirectional(TVC_Inner)->GetRenderTargetItem().ShaderResourceTexture;
-		BasePassParameters.TranslucencyLightingVolumeDirectionalOuter = SceneRenderTargets.GetTranslucencyVolumeDirectional(TVC_Outer)->GetRenderTargetItem().ShaderResourceTexture;
+		if (SceneRenderTargets.GetTranslucencyVolumeAmbient(TVC_Inner) != nullptr)
+		{
+			BasePassParameters.TranslucencyLightingVolumeAmbientInner = SceneRenderTargets.GetTranslucencyVolumeAmbient(TVC_Inner)->GetRenderTargetItem().ShaderResourceTexture;
+			BasePassParameters.TranslucencyLightingVolumeAmbientOuter = SceneRenderTargets.GetTranslucencyVolumeAmbient(TVC_Outer)->GetRenderTargetItem().ShaderResourceTexture;
+			BasePassParameters.TranslucencyLightingVolumeDirectionalInner = SceneRenderTargets.GetTranslucencyVolumeDirectional(TVC_Inner)->GetRenderTargetItem().ShaderResourceTexture;
+			BasePassParameters.TranslucencyLightingVolumeDirectionalOuter = SceneRenderTargets.GetTranslucencyVolumeDirectional(TVC_Outer)->GetRenderTargetItem().ShaderResourceTexture;
+		}
+		else
+		{
+			const FTextureRHIRef DummyTLV = GSystemTextures.BlackDummy->GetRenderTargetItem().ShaderResourceTexture;
+			BasePassParameters.TranslucencyLightingVolumeAmbientInner = DummyTLV;
+			BasePassParameters.TranslucencyLightingVolumeAmbientOuter = DummyTLV;
+			BasePassParameters.TranslucencyLightingVolumeDirectionalInner = DummyTLV;
+			BasePassParameters.TranslucencyLightingVolumeDirectionalOuter = DummyTLV;
+		}
+
 		BasePassParameters.TranslucencyLightingVolumeAmbientInnerSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 		BasePassParameters.TranslucencyLightingVolumeAmbientOuterSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 		BasePassParameters.TranslucencyLightingVolumeDirectionalInnerSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
@@ -1336,6 +1357,10 @@ void FDeferredShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate&
 		SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
 
 		FViewInfo& View = Views[ViewIndex];
+		if (!View.ShouldRenderView())
+		{
+			continue;
+		}
 
 #if STATS
 		if (View.ViewState && IsMainTranslucencyPass(TranslucencyPass))
@@ -1365,7 +1390,7 @@ void FDeferredShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate&
 			{
 				BeginTimingSeparateTranslucencyPass(RHICmdList, View);
 			}
-			SceneContext.BeginRenderingSeparateTranslucency(RHICmdList, View, ViewIndex == 0);
+			SceneContext.BeginRenderingSeparateTranslucency(RHICmdList, View, *this, ViewIndex == 0);
 
 			// Draw only translucent prims that are in the SeparateTranslucency pass
 			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
@@ -1391,7 +1416,7 @@ void FDeferredShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate&
 		}
 		else
 		{
-			SceneContext.BeginRenderingTranslucency(RHICmdList, View, ViewIndex == 0);
+			SceneContext.BeginRenderingTranslucency(RHICmdList, View, *this, ViewIndex == 0);
 			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
 	
 			if (bUseParallel)

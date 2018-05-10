@@ -57,6 +57,16 @@ public:
 	void SetOnARTrackingStateChanged( const FOnARTrackingStateChanged& InHandler );
 	
 	void SetOnARTransformUpdated( const FOnARTransformUpdated& InHandler );
+
+	void SetNativeResource(void* InNativeResource)
+	{
+		NativeResource = InNativeResource;
+	}
+
+	void* GetNativeResource()
+	{
+		return NativeResource;
+	}
 	
 public:
 	
@@ -103,4 +113,6 @@ private:
 	UPROPERTY(BlueprintAssignable, Category="AR AugmentedReality|Pin")
 	FOnARTransformUpdated OnARTransformUpdated;
 	
+	// The native resource pointer on the AR platform.
+	void* NativeResource;
 };

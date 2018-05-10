@@ -202,10 +202,12 @@ FPlatformMemoryStats FAndroidPlatformMemory::GetStats()
 	MemoryStats.PeakUsedPhysical = FMath::Max(MemoryStats.PeakUsedPhysical, MemoryStats.UsedPhysical);
 
 	// get this value from Java instead (DO NOT INTEGRATE at this time) - skip this if JavaVM not set up yet!
+#if USE_ANDROID_JNI
 	if (GJavaVM)
 	{
 //		MemoryStats.UsedPhysical = static_cast<uint64>(AndroidThunkCpp_GetMetaDataInt(TEXT("ue4.getUsedMemory"))) * 1024ULL;
 	}
+#endif
 
 	return MemoryStats;
 }

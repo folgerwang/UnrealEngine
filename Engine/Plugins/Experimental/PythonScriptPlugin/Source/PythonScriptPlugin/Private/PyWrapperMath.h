@@ -23,7 +23,7 @@ extern PyTypeObject PyWrapperQuatType;
 extern PyTypeObject PyWrapperLinearColorType;
 
 /** Initialize the PyWrapperMath types and add them to the given Python module */
-void InitializePyWrapperMath(PyObject* PyModule);
+void InitializePyWrapperMath(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Type for all UE4 exposed FVector instances */
 typedef TPyWrapperInlineStruct<FVector> FPyWrapperVector;

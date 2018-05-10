@@ -93,7 +93,7 @@ void UOculusFunctionLibrary::GetRawSensorData(FVector& AngularAcceleration, FVec
 	if (OculusHMD != nullptr && OculusHMD->IsHMDActive())
 	{
 		ovrpPoseStatef state;
-		if (OVRP_SUCCESS(ovrp_GetNodePoseState2(ovrpStep_Game, OculusHMD::ToOvrpNode(DeviceType), &state)))
+		if (OVRP_SUCCESS(ovrp_GetNodePoseState3(ovrpStep_Render, OVRP_CURRENT_FRAMEINDEX, OculusHMD::ToOvrpNode(DeviceType), &state)))
 		{
 			AngularAcceleration = OculusHMD::ToFVector(state.AngularAcceleration);
 			LinearAcceleration = OculusHMD::ToFVector(state.Acceleration);

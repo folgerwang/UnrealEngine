@@ -200,7 +200,15 @@ public:
 	 * @param Section The sub-movie scene section containing the sequence instance to get.
 	 */
 	virtual void FocusSequenceInstance(UMovieSceneSubSection& Section) = 0;
-	
+
+	/**
+	 * Suppresses automatic evaluation the specified sequence and signature are the only difference that would prompt a re-evaluation
+	 * 
+	 * @param Sequence        The sequence that the signature relates to
+	 * @param InSignature     The signature to suppress
+	 */
+	virtual void SuppressAutoEvaluation(UMovieSceneSequence* Sequence, const FGuid& InSignature) = 0;
+
 	/**
 	 * Create a new binding for the specified object
 	 */

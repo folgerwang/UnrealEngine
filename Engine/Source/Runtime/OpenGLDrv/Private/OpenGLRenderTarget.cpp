@@ -129,7 +129,7 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 	glBindFramebuffer(GL_FRAMEBUFFER, Framebuffer);
 	VERIFY_GL(glBindFramebuffer)
 
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	static const auto CVarMobileMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView"));
 
 	// Allocate mobile multi-view frame buffer if enabled and supported.
@@ -197,12 +197,12 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 			switch (RenderTarget->Target)
 			{
 			case GL_TEXTURE_2D:
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 			case GL_TEXTURE_EXTERNAL_OES:
 #endif
 			case GL_TEXTURE_2D_MULTISAMPLE:
 			{
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 				FOpenGLTexture2D* RenderTarget2D = (FOpenGLTexture2D*)RenderTarget;
 				const uint32 NumSamplesTileMem = RenderTarget2D->GetNumSamplesTileMem();
 				if (NumSamplesTileMem > 1 && glFramebufferTexture2DMultisampleEXT)
@@ -236,13 +236,13 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 			switch( RenderTarget->Target )
 			{
 			case GL_TEXTURE_2D:
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 			case GL_TEXTURE_EXTERNAL_OES:
 #endif
 			case GL_TEXTURE_2D_MULTISAMPLE:
 			{
 				check(ArrayIndices[RenderTargetIndex] == 0);
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 				FOpenGLTexture2D* RenderTarget2D = (FOpenGLTexture2D*)RenderTarget;
 				const uint32 NumSamplesTileMem = RenderTarget2D->GetNumSamplesTileMem();
 				if (NumSamplesTileMem > 1 && glFramebufferTexture2DMultisampleEXT)
@@ -284,12 +284,12 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 		switch (DepthStencilTarget->Target)
 		{
 		case GL_TEXTURE_2D:
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 		case GL_TEXTURE_EXTERNAL_OES:
 #endif
 		case GL_TEXTURE_2D_MULTISAMPLE:
 		{
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 			FOpenGLTexture2D* DepthStencilTarget2D = (FOpenGLTexture2D*)DepthStencilTarget;
 			const uint32 NumSamplesTileMem = DepthStencilTarget2D->GetNumSamplesTileMem();
 			if (NumSamplesTileMem > 1)
@@ -813,7 +813,7 @@ void FOpenGLDynamicRHI::ReadSurfaceDataRaw(FOpenGLContextState& ContextState, FT
 
 		FMemory::Free( FloatBGRAData );
 	}
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	else
 	{
 		// OpenGL ES is limited in what it can do with ReadPixels
@@ -1065,15 +1065,28 @@ void FOpenGLDynamicRHI::BindPendingFramebuffer( FOpenGLContextState& ContextStat
 
 			if ( FOpenGL::SupportsMultipleRenderTargets() )
 			{
-				FOpenGL::ReadBuffer( PendingState.FirstNonzeroRenderTarget >= 0 ? GL_COLOR_ATTACHMENT0 + PendingState.FirstNonzeroRenderTarget : GL_NONE);
+				//if (ContextState.FirstNonzeroRenderTarget != PendingState.FirstNonzeroRenderTarget)
+				//{
+					FOpenGL::ReadBuffer( PendingState.FirstNonzeroRenderTarget >= 0 ? GL_COLOR_ATTACHMENT0 + PendingState.FirstNonzeroRenderTarget : GL_NONE);
+					//ContextState.FirstNonzeroRenderTarget = PendingState.FirstNonzeroRenderTarget;
+				//}
 				GLenum DrawFramebuffers[MaxSimultaneousRenderTargets];
 				const GLint MaxDrawBuffers = GMaxOpenGLDrawBuffers;
 
+				bool bNeedToDrawBuffers = false;
 				for (int32 RenderTargetIndex = 0; RenderTargetIndex < MaxDrawBuffers; ++RenderTargetIndex)
 				{
 					DrawFramebuffers[RenderTargetIndex] = PendingState.RenderTargets[RenderTargetIndex] ? GL_COLOR_ATTACHMENT0 + RenderTargetIndex : GL_NONE;
+					if (ContextState.DrawFramebuffers[RenderTargetIndex] != DrawFramebuffers[RenderTargetIndex])
+					{
+						bNeedToDrawBuffers = true;
+						ContextState.DrawFramebuffers[RenderTargetIndex] = DrawFramebuffers[RenderTargetIndex];
+					}
 				}
-				FOpenGL::DrawBuffers(MaxDrawBuffers, DrawFramebuffers);
+				if (bNeedToDrawBuffers)
+				{
+					FOpenGL::DrawBuffers(MaxDrawBuffers, DrawFramebuffers);
+				}
 			}
 		}
 		else

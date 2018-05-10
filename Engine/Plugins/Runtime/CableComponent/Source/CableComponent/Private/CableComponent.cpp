@@ -663,6 +663,17 @@ void UCableComponent::CreateRenderState_Concurrent()
 	SendRenderDynamicData_Concurrent();
 }
 
+void UCableComponent::ApplyWorldOffset(const FVector & InOffset, bool bWorldShift)
+{
+	Super::ApplyWorldOffset(InOffset, bWorldShift);
+
+	for (FCableParticle& Particle : Particles)
+	{
+		Particle.Position += InOffset;
+		Particle.OldPosition += InOffset;
+	}
+}
+
 void UCableComponent::SendRenderDynamicData_Concurrent()
 {
 	if(SceneProxy)

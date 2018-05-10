@@ -4,16 +4,15 @@
 #include "Algo/BinarySearch.h"
 
 
-uint32 FMovieSceneChannelEntry::RegisterNewID()
+FMovieSceneChannelHandle FMovieSceneChannelProxy::MakeHandle(FName ChannelTypeName, int32 Index)
 {
-	static FThreadSafeCounter CurrentID = 0;
-	check(CurrentID.GetValue() < TNumericLimits<int32>::Max());
-	return CurrentID.Increment();
+	TWeakPtr<FMovieSceneChannelProxy> WeakProxy = TSharedPtr<FMovieSceneChannelProxy>(AsShared());
+	return FMovieSceneChannelHandle(WeakProxy, ChannelTypeName, Index);
 }
 
-const FMovieSceneChannelEntry* FMovieSceneChannelProxy::FindEntry(uint32 ChannelTypeID) const
+const FMovieSceneChannelEntry* FMovieSceneChannelProxy::FindEntry(FName ChannelTypeName) const
 {
-	const int32 ChannelTypeIndex = Algo::BinarySearchBy(Entries, ChannelTypeID, &FMovieSceneChannelEntry::ChannelID);
+	const int32 ChannelTypeIndex = Algo::BinarySearchBy(Entries, ChannelTypeName, &FMovieSceneChannelEntry::ChannelTypeName);
 
 	if (ChannelTypeIndex != INDEX_NONE)
 	{
@@ -23,9 +22,9 @@ const FMovieSceneChannelEntry* FMovieSceneChannelProxy::FindEntry(uint32 Channel
 	return nullptr;
 }
 
-int32 FMovieSceneChannelProxy::FindIndex(uint32 ChannelTypeID, void* ChannelPtr) const
+int32 FMovieSceneChannelProxy::FindIndex(FName ChannelTypeName, const FMovieSceneChannel* ChannelPtr) const
 {
-	const FMovieSceneChannelEntry* FoundEntry = FindEntry(ChannelTypeID);
+	const FMovieSceneChannelEntry* FoundEntry = FindEntry(ChannelTypeName);
 	if (FoundEntry)
 	{
 		return FoundEntry->GetChannels().IndexOfByKey(ChannelPtr);
@@ -34,11 +33,11 @@ int32 FMovieSceneChannelProxy::FindIndex(uint32 ChannelTypeID, void* ChannelPtr)
 	return INDEX_NONE;
 }
 
-void* FMovieSceneChannelProxy::GetChannel(uint32 ChannelTypeID, int32 ChannelIndex) const
+FMovieSceneChannel* FMovieSceneChannelProxy::GetChannel(FName ChannelTypeName, int32 ChannelIndex) const
 {
-	if (const FMovieSceneChannelEntry* Entry = FindEntry(ChannelTypeID))
+	if (const FMovieSceneChannelEntry* Entry = FindEntry(ChannelTypeName))
 	{
-		TArrayView<void* const> Channels = Entry->GetChannels();
+		TArrayView<FMovieSceneChannel* const> Channels = Entry->GetChannels();
 		return Channels.IsValidIndex(ChannelIndex) ? Channels[ChannelIndex] : nullptr;
 	}
 	return nullptr;

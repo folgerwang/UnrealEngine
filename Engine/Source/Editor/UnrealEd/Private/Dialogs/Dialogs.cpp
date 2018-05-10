@@ -2,6 +2,8 @@
 
 
 #include "Dialogs/Dialogs.h"
+#include "Misc/App.h"
+#include "Misc/AssertionMacros.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/ConfigCacheIni.h"
 #include "SlateOptMacros.h"
@@ -19,6 +21,7 @@
 #include "DesktopPlatformModule.h"
 #include "Widgets/Input/SHyperlink.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "HAL/PlatformMisc.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDialogs, Log, All);
 
@@ -294,16 +297,69 @@ void CreateMsgDlgWindow(TSharedPtr<SWindow>& OutWindow, TSharedPtr<SChoiceDialog
 
 EAppReturnType::Type OpenMsgDlgInt(EAppMsgType::Type InMessageType, const FText& InMessage, const FText& InTitle)
 {
-	TSharedPtr<SWindow> MsgWindow = NULL;
-	TSharedPtr<SChoiceDialog> MsgDialog = NULL;
+	EAppReturnType::Type DefaultValue = EAppReturnType::Yes;
+	switch (InMessageType)
+	{
+	case EAppMsgType::Ok:
+		DefaultValue = EAppReturnType::Ok;
+		break;
+	case EAppMsgType::YesNo:
+		DefaultValue = EAppReturnType::No;
+		break;
+	case EAppMsgType::OkCancel:
+		DefaultValue = EAppReturnType::Cancel;
+		break;
+	case EAppMsgType::YesNoCancel:
+		DefaultValue = EAppReturnType::Cancel;
+		break;
+	case EAppMsgType::CancelRetryContinue:
+		DefaultValue = EAppReturnType::Cancel;
+		break;
+	case EAppMsgType::YesNoYesAllNoAll:
+		DefaultValue = EAppReturnType::No;
+		break;
+	case EAppMsgType::YesNoYesAllNoAllCancel:
+	default:
+		DefaultValue = EAppReturnType::Yes;
+		break;
+	}
 
-	CreateMsgDlgWindow(MsgWindow, MsgDialog, InMessageType, InMessage, InTitle);
+	if (GIsRunningUnattendedScript && InMessageType != EAppMsgType::Ok)
+	{
+		UE_LOG(LogDialogs, Error, TEXT("Message Dialog was triggered in unattended script mode without a default value. %d will be used."), (int32)DefaultValue);
+		if (FPlatformMisc::IsDebuggerPresent())
+		{
+			UE_DEBUG_BREAK();
+		}
+		else
+		{
+			FDebug::DumpStackTraceToLog();
+		}
+	}
 
-	GEditor->EditorAddModalWindow(MsgWindow.ToSharedRef());
+	return OpenMsgDlgInt(InMessageType, DefaultValue, InMessage, InTitle);
+}
 
-	EAppReturnType::Type Response = MsgDialog->GetResponse();
+EAppReturnType::Type OpenMsgDlgInt(EAppMsgType::Type InMessageType, EAppReturnType::Type InDefaultValue, const FText& InMessage, const FText& InTitle)
+{
+	if (FApp::IsUnattended() == true || GIsRunningUnattendedScript)
+	{
+		UE_LOG(LogDialogs, Log, TEXT("Message Dialog was triggered in unattended script mode without a default value. %d will be used."), (int32)InDefaultValue);
+		return InDefaultValue;
+	}
+	else
+	{
+		TSharedPtr<SWindow> MsgWindow = NULL;
+		TSharedPtr<SChoiceDialog> MsgDialog = NULL;
 
-	return Response;
+		CreateMsgDlgWindow(MsgWindow, MsgDialog, InMessageType, InMessage, InTitle);
+
+		GEditor->EditorAddModalWindow(MsgWindow.ToSharedRef());
+
+		EAppReturnType::Type Response = MsgDialog->GetResponse();
+
+		return Response;
+	}
 }
 
 TSharedRef<SWindow> OpenMsgDlgInt_NonModal(EAppMsgType::Type InMessageType, const FText& InMessage, const FText& InTitle,

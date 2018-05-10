@@ -1104,6 +1104,7 @@ public:
 	virtual bool ShouldBlockGI() const { return false; }
 	virtual bool ShouldGenerateSphericalParticleNormals() const { return false; }
 	virtual	bool ShouldDisableDepthTest() const { return false; }
+	virtual	bool ShouldWriteOnlyAlpha() const { return false; }
 	virtual	bool ShouldEnableResponsiveAA() const { return false; }
 	virtual bool ShouldDoSSR() const { return false; }
 	virtual bool ShouldDoContactShadows() const { return false; }
@@ -1792,6 +1793,7 @@ public:
 	ENGINE_API virtual bool ShouldBlockGI() const override;
 	ENGINE_API virtual bool ShouldGenerateSphericalParticleNormals() const override;
 	ENGINE_API virtual bool ShouldDisableDepthTest() const override;
+	ENGINE_API virtual bool ShouldWriteOnlyAlpha() const override;
 	ENGINE_API virtual bool ShouldEnableResponsiveAA() const override;
 	ENGINE_API virtual bool ShouldDoSSR() const override;
 	ENGINE_API virtual bool ShouldDoContactShadows() const override;

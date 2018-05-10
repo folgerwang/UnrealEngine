@@ -566,8 +566,14 @@ EVoiceCaptureState::Type FVoiceCaptureWindows::GetVoiceData(uint8* OutVoiceBuffe
 			NewMicState = EVoiceCaptureState::BufferTooSmall;
 		}
 	}
-	check(OutBytesWritten > 0);
+
 	return NewMicState;
+}
+
+EVoiceCaptureState::Type FVoiceCaptureWindows::GetVoiceData(uint8* OutVoiceBuffer, uint32 InVoiceBufferSize, uint32& OutAvailableVoiceData)
+{
+	uint64 UnusedSampleCounter = 0;
+	return GetVoiceData(OutVoiceBuffer, InVoiceBufferSize, OutAvailableVoiceData, UnusedSampleCounter);
 }
 
 int32 FVoiceCaptureWindows::GetBufferSize() const

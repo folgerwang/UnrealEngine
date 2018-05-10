@@ -278,15 +278,12 @@ void FControlRigEditorModule::StartupModule()
 	RefreshAllNodesDelegateHandle = FBlueprintEditorUtils::OnRefreshAllNodesEvent.AddStatic(&FControlRigBlueprintUtils::HandleRefreshAllNodes);
 	RenameVariableReferencesDelegateHandle = FBlueprintEditorUtils::OnRenameVariableReferencesEvent.AddStatic(&FControlRigBlueprintUtils::HandleRenameVariableReferencesEvent);
 
-	GetClassPropertyActionsDelegateHandle = FBlueprintEditorUtils::OnGetClassPropertyActionsEvent.AddStatic(&FControlRigBlueprintUtils::HandleGetClassPropertyActions);
-
 	// register rig unit base editor class
 	RegisterRigUnitEditorClass("RigUnit_TwoBoneIKFK", URigUnitEditor_TwoBoneIKFK::StaticClass());
 }
 
 void FControlRigEditorModule::ShutdownModule()
 {
-	FBlueprintEditorUtils::OnGetClassPropertyActionsEvent.Remove(GetClassPropertyActionsDelegateHandle);
 	FBlueprintEditorUtils::OnRefreshAllNodesEvent.Remove(RefreshAllNodesDelegateHandle);
 	FBlueprintEditorUtils::OnReconstructAllNodesEvent.Remove(ReconstructAllNodesDelegateHandle);
 	FBlueprintEditorUtils::OnRenameVariableReferencesEvent.Remove(RenameVariableReferencesDelegateHandle);

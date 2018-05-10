@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "DatasmithContentModule.h"
-#include "Modules/ModuleManager.h"
 
 #include "HAL/FileManager.h"
 #include "HAL/PlatformProcess.h"
+#include "Modules/ModuleManager.h"
 #include "Misc/Paths.h"
 
 /**
@@ -30,6 +30,7 @@ public:
 	{
 		return TempDir;
 	}
+
 private:
 	FString TempDir;
 };

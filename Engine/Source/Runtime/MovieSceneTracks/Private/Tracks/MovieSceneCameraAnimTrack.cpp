@@ -47,7 +47,7 @@ const TArray<UMovieSceneSection*>& UMovieSceneCameraAnimTrack::GetAllSections() 
 
 UMovieSceneSection* UMovieSceneCameraAnimTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneCameraAnimSection>(this);
+	return NewObject<UMovieSceneCameraAnimSection>(this, NAME_None, RF_Transactional);
 }
 
 

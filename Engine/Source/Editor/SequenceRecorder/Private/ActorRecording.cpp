@@ -9,13 +9,19 @@
 #include "Animation/SkeletalMeshActor.h"
 #include "LevelSequenceBindingReference.h"
 #include "SequenceRecorderSettings.h"
+#include "SequenceRecorderUtils.h"
 #include "Sections/MovieScene3DTransformSectionRecorderSettings.h"
+#include "Sections/MovieSceneSubSection.h"
+#include "Tracks/MovieSceneSubTrack.h"
 #include "MovieSceneFolder.h"
+#include "MovieSceneTimeHelpers.h"
 #include "CameraRig_Crane.h"
 #include "CameraRig_Rail.h"
 #include "SequenceRecorder.h"
 #include "Features/IModularFeatures.h"
 #include "Toolkits/AssetEditorManager.h"
+#include "IAssetTools.h"
+#include "AssetToolsModule.h"
 
 static const FName SequencerActorTag(TEXT("SequencerActor"));
 static const FName MovieSceneSectionRecorderFactoryName("MovieSceneSectionRecorderFactory");
@@ -24,7 +30,9 @@ UActorRecording::UActorRecording(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, ActorSettings(this)
 {
+	TakeNumber = 1;
 	bActive = true;
+	bCreateLevelSequence = false;
 	bWasSpawnedPostRecord = false;
 	Guid.Invalidate();
 	bNewComponentAddedWhileRecording = false;
@@ -61,21 +69,66 @@ bool UActorRecording::IsRelevantForRecording(AActor* Actor)
 	return false;
 }
 
-bool UActorRecording::StartRecording(ULevelSequence* CurrentSequence, float CurrentSequenceTime)
+bool UActorRecording::StartRecording(ULevelSequence* CurrentSequence, float CurrentSequenceTime, const FString& BaseAssetPath, const FString& SessionName)
 {
 	if (!bActive)
 	{
 		return false;
 	}
 
+	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
+	
+	AActor* Actor = GetActorToRecord();
+
+	if (Actor && bCreateLevelSequence)
+	{
+		FString AssetPath = BaseAssetPath / GetTargetName(Actor);
+
+		TakeNumber = SequenceRecorderUtils::GetNewTakeNumber(AssetPath, GetTargetName(Actor), SessionName, TakeNumber);
+		FString TakeName = SequenceRecorderUtils::MakeTakeName(GetTargetName(Actor), SessionName, TakeNumber);
+
+		if (TargetLevelSequence != nullptr)
+		{
+			CurrentSequence = TargetLevelSequence;
+
+			if (ShouldDuplicateLevelSequence())
+			{
+				IAssetTools& AssetTools = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools").Get();
+
+				CurrentSequence = CastChecked<ULevelSequence>(SequenceRecorderUtils::DuplicateAsset(AssetPath, TakeName, TargetLevelSequence));
+					
+				TargetLevelSequence = CurrentSequence;
+			}
+		}
+		else
+		{
+			CurrentSequence = SequenceRecorderUtils::MakeNewAsset<ULevelSequence>(AssetPath, TakeName);
+
+			if (CurrentSequence)
+			{
+				CurrentSequence->Initialize();
+			}
+
+			if (bCreateLevelSequence)
+			{
+				TargetLevelSequence = CurrentSequence;
+			}
+		}
+
+		if (CurrentSequence)
+		{			
+			FAssetRegistryModule::AssetCreated(CurrentSequence);
+		}
+	}
+
 	bNewComponentAddedWhileRecording = false;
 	DuplicatedDynamicComponents.Reset();
 
-	if(GetActorToRecord() != nullptr)
+	if(Actor)
 	{
-		if (TargetAnimation.IsValid())
+		if (TargetAnimation != nullptr)
 		{
-			IAssetEditorInstance* EditorInstance = FAssetEditorManager::Get().FindEditorForAsset(TargetAnimation.Get(), false);
+			IAssetEditorInstance* EditorInstance = FAssetEditorManager::Get().FindEditorForAsset(TargetAnimation, false);
 			if (EditorInstance)
 			{
 				UE_LOG(LogAnimation, Log, TEXT("Closing '%s' so we don't invalidate the open version when unloading it."), *TargetAnimation->GetName());
@@ -89,7 +142,19 @@ bool UActorRecording::StartRecording(ULevelSequence* CurrentSequence, float Curr
 		}
 		else
 		{
-			TSharedPtr<FMovieSceneAnimationSectionRecorder> AnimationRecorder = MakeShareable(new FMovieSceneAnimationSectionRecorder(AnimationSettings, TargetAnimation.Get()));
+			FString AnimAssetPath;
+			FString AnimAssetName;
+			if (TargetLevelSequence != nullptr)
+			{
+				AnimAssetName = TargetLevelSequence->GetName();
+				AnimAssetPath = FPaths::GetPath(TargetLevelSequence->GetPathName());
+				if (Settings->AnimationSubDirectory.Len() > 0)
+				{
+					AnimAssetPath /= Settings->AnimationSubDirectory;
+				}
+			}
+
+			TSharedPtr<FMovieSceneAnimationSectionRecorder> AnimationRecorder = MakeShareable(new FMovieSceneAnimationSectionRecorder(AnimationSettings, TargetAnimation, AnimAssetPath, AnimAssetName));
 			AnimationRecorder->CreateSection(GetActorToRecord(), nullptr, FGuid(), 0.0f);
 			AnimationRecorder->Record(0.0f);
 			SectionRecorders.Add(AnimationRecorder);			
@@ -277,8 +342,86 @@ void UActorRecording::FindOrAddFolder(UMovieScene* MovieScene)
 	FolderToUse->AddChildObjectBinding(Guid);
 }
 
+ULevelSequence* UActorRecording::GetActiveLevelSequence(ULevelSequence* InLevelSequence)
+{
+	if (TargetLevelSequence != nullptr)
+	{
+		return TargetLevelSequence;
+	}
+
+	return InLevelSequence;
+}
+
+bool UActorRecording::ShouldDuplicateLevelSequence()
+{
+	// Duplicate the level sequence if the take number we're trying to write to is not the same as our existing take number
+	if (TargetLevelSequence != nullptr)
+	{
+		FString TakeName = TargetLevelSequence->GetName();
+		FString TargetActorName;
+		FString TargetSessionName;
+		uint32 TargetTakeNumber;
+		if (SequenceRecorderUtils::ParseTakeName(TakeName, TargetActorName, TargetSessionName, TargetTakeNumber))
+		{
+			if (TargetTakeNumber != TakeNumber)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+
+FString UActorRecording::GetTargetName(AActor* InActor)
+{
+	if (!TargetName.IsEmpty())
+	{
+		return TargetName.ToString();
+	}
+
+	if (InActor)
+	{
+		return InActor->GetActorLabel();
+	}
+
+	return FString();
+}
+
+
+FGuid UActorRecording::GetActorInSequence(AActor* InActor, ULevelSequence* CurrentSequence)
+{
+	FString ActorTargetName = GetTargetName(InActor);
+
+	CurrentSequence = GetActiveLevelSequence(CurrentSequence);
+
+	UMovieScene* MovieScene = CurrentSequence->GetMovieScene();
+	
+	for (int32 SpawnableCount = 0; SpawnableCount < MovieScene->GetSpawnableCount(); ++SpawnableCount)
+	{
+		const FMovieSceneSpawnable& Spawnable = MovieScene->GetSpawnable(SpawnableCount);
+		if (Spawnable.GetName() == ActorTargetName || Spawnable.Tags.Contains(*InActor->GetActorLabel()))
+		{
+			return Spawnable.GetGuid();
+		}
+	}
+
+	for (int32 PossessableCount = 0; PossessableCount < MovieScene->GetPossessableCount(); ++PossessableCount)
+	{
+		const FMovieScenePossessable& Possessable = MovieScene->GetPossessable(PossessableCount);
+		if (Possessable.GetName() == ActorTargetName || Possessable.Tags.Contains(*InActor->GetActorLabel()))
+		{
+			return Possessable.GetGuid();
+		}
+	}
+	return FGuid();
+}
+
 void UActorRecording::StartRecordingActorProperties(ULevelSequence* CurrentSequence, float CurrentSequenceTime)
 {
+	CurrentSequence = GetActiveLevelSequence(CurrentSequence);
+
 	if(CurrentSequence != nullptr)
 	{
 		// set up our spawnable or possessable for this actor
@@ -286,43 +429,70 @@ void UActorRecording::StartRecordingActorProperties(ULevelSequence* CurrentSeque
 
 		AActor* Actor = GetActorToRecord();
 
-		if (bRecordToPossessable)
-		{ 
-			Guid = MovieScene->AddPossessable(Actor->GetActorLabel(), Actor->GetClass());
-			CurrentSequence->BindPossessableObject(Guid, *Actor, Actor->GetWorld());
-		}
-		else
+		// Look for an existing guid in the current sequence to record to 
+		FString ObjectBindingName = GetTargetName(Actor);
+		Guid = GetActorInSequence(Actor, CurrentSequence);
+
+
+		if (!Guid.IsValid())
 		{
-			FString TemplateName = GetUniqueSpawnableName(MovieScene, Actor->GetName());
-
-			AActor* ObjectTemplate = CastChecked<AActor>(CurrentSequence->MakeSpawnableTemplateFromInstance(*Actor, *TemplateName));
-
-			if (ObjectTemplate)
+			if (bRecordToPossessable)
+			{ 
+				Guid = MovieScene->AddPossessable(ObjectBindingName, Actor->GetClass());
+				CurrentSequence->BindPossessableObject(Guid, *Actor, Actor->GetWorld());
+			}
+			else
 			{
-				TInlineComponentArray<USkeletalMeshComponent*> SkeletalMeshComponents;
-				ObjectTemplate->GetComponents(SkeletalMeshComponents);
-				for (USkeletalMeshComponent* SkeletalMeshComponent : SkeletalMeshComponents)
-				{
-					SkeletalMeshComponent->SetAnimationMode(EAnimationMode::AnimationSingleNode);
-					SkeletalMeshComponent->bEnableUpdateRateOptimizations = false;
-					SkeletalMeshComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
-					SkeletalMeshComponent->ForcedLodModel = 1;
-				}
+				FString TemplateName = GetUniqueSpawnableName(MovieScene, Actor->GetName());
 
-				// Disable possession of pawns otherwise the recorded character will auto possess the player
-				if (ObjectTemplate->IsA(APawn::StaticClass()))
-				{
-					APawn* Pawn = CastChecked<APawn>(ObjectTemplate);
-					Pawn->AutoPossessPlayer = EAutoReceiveInput::Disabled;
-				}
+				AActor* ObjectTemplate = CastChecked<AActor>(CurrentSequence->MakeSpawnableTemplateFromInstance(*Actor, *TemplateName));
 
-				Guid = MovieScene->AddSpawnable(TemplateName, *ObjectTemplate);
+				if (ObjectTemplate)
+				{
+					TInlineComponentArray<USkeletalMeshComponent*> SkeletalMeshComponents;
+					ObjectTemplate->GetComponents(SkeletalMeshComponents);
+					for (USkeletalMeshComponent* SkeletalMeshComponent : SkeletalMeshComponents)
+					{
+						SkeletalMeshComponent->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+						SkeletalMeshComponent->bEnableUpdateRateOptimizations = false;
+						SkeletalMeshComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+						SkeletalMeshComponent->ForcedLodModel = 1;
+					}
+
+					// Disable possession of pawns otherwise the recorded character will auto possess the player
+					if (ObjectTemplate->IsA(APawn::StaticClass()))
+					{
+						APawn* Pawn = CastChecked<APawn>(ObjectTemplate);
+						Pawn->AutoPossessPlayer = EAutoReceiveInput::Disabled;
+					}
+
+					Guid = MovieScene->AddSpawnable(ObjectBindingName, *ObjectTemplate);
+				}
 			}
 		}
 
 		// now add tracks to record
 		if(Guid.IsValid())
 		{
+			// Tag the possessable/spawnable with the original actor label so we can find it later
+			if (FMovieScenePossessable* Possessable = MovieScene->FindPossessable(Guid))
+			{
+				if (!Possessable->Tags.Contains(*Actor->GetActorLabel()))
+				{
+					Possessable->Tags.Add(FName(*Actor->GetActorLabel()));
+				}
+				Possessable->SetName(ObjectBindingName);
+			}
+
+			if (FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(Guid))
+			{
+				if (!Spawnable->Tags.Contains(*Actor->GetActorLabel()))
+				{
+					Spawnable->Tags.Add(FName(*Actor->GetActorLabel()));
+				}
+				Spawnable->SetName(ObjectBindingName);
+			}
+
 			// add our folder
 			FindOrAddFolder(MovieScene);
 
@@ -365,7 +535,7 @@ void UActorRecording::StartRecordingActorProperties(ULevelSequence* CurrentSeque
 			TSharedPtr<FMovieSceneAnimationSectionRecorder> FirstAnimRecorder = nullptr;
 			for(USceneComponent* SceneComponent : ValidSceneComponents)
 			{
-				TSharedPtr<FMovieSceneAnimationSectionRecorder> AnimRecorder = StartRecordingComponentProperties(SceneComponent->GetFName(), SceneComponent, GetActorToRecord(), CurrentSequence, CurrentSequenceTime, AnimationSettings, TargetAnimation.Get());
+				TSharedPtr<FMovieSceneAnimationSectionRecorder> AnimRecorder = StartRecordingComponentProperties(SceneComponent->GetFName(), SceneComponent, GetActorToRecord(), CurrentSequence, CurrentSequenceTime, AnimationSettings, TargetAnimation);
 				if(!FirstAnimRecorder.IsValid() && AnimRecorder.IsValid() && GetActorToRecord()->IsA<ACharacter>())
 				{
 					FirstAnimRecorder = AnimRecorder;
@@ -404,10 +574,26 @@ void UActorRecording::StartRecordingActorProperties(ULevelSequence* CurrentSeque
 
 TSharedPtr<FMovieSceneAnimationSectionRecorder> UActorRecording::StartRecordingComponentProperties(const FName& BindingName, USceneComponent* SceneComponent, UObject* BindingContext, ULevelSequence* CurrentSequence, float CurrentSequenceTime, const FAnimationRecordingSettings& InAnimationSettings, UAnimSequence* InTargetSequence)
 {
+	CurrentSequence = GetActiveLevelSequence(CurrentSequence);
+
 	// first create a possessable for this component to be controlled by
 	UMovieScene* OwnerMovieScene = CurrentSequence->GetMovieScene();
 
-	const FGuid PossessableGuid = OwnerMovieScene->AddPossessable(BindingName.ToString(), SceneComponent->GetClass());
+	FGuid PossessableGuid;
+	for (int32 PossessableCount = 0; PossessableCount < OwnerMovieScene->GetPossessableCount(); ++PossessableCount)
+	{
+		const FMovieScenePossessable& Possessable = OwnerMovieScene->GetPossessable(PossessableCount);
+		if (Possessable.GetParent() == Guid && Possessable.GetName() == BindingName.ToString() && Possessable.GetPossessedObjectClass() == SceneComponent->GetClass())
+		{
+			PossessableGuid = Possessable.GetGuid();
+			break;
+		}
+	}
+	
+	if (!PossessableGuid.IsValid())
+	{
+		PossessableGuid = OwnerMovieScene->AddPossessable(BindingName.ToString(), SceneComponent->GetClass());
+	}
 
 	// Set up parent/child guids for possessables within spawnables
 	FMovieScenePossessable* ChildPossessable = OwnerMovieScene->FindPossessable(PossessableGuid);
@@ -424,11 +610,25 @@ TSharedPtr<FMovieSceneAnimationSectionRecorder> UActorRecording::StartRecordingC
 
 	CurrentSequence->BindPossessableObject(PossessableGuid, *SceneComponent, BindingContext);
 
+	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
+	
 	// First try built-in animation recorder...
 	TSharedPtr<FMovieSceneAnimationSectionRecorder> AnimationRecorder = nullptr;
 	if (FSequenceRecorder::Get().GetAnimationRecorderFactory().CanRecordObject(SceneComponent))
 	{
-		AnimationRecorder = FSequenceRecorder::Get().GetAnimationRecorderFactory().CreateSectionRecorder(InTargetSequence, InAnimationSettings);
+		FString AnimAssetPath;
+		FString AnimAssetName;
+		if (TargetLevelSequence != nullptr)
+		{
+			AnimAssetName = TargetLevelSequence->GetName();
+			AnimAssetPath = FPaths::GetPath(TargetLevelSequence->GetPathName());
+			if (Settings->AnimationSubDirectory.Len() > 0)
+			{
+				AnimAssetPath /= Settings->AnimationSubDirectory;
+			}
+		}
+
+		AnimationRecorder = FSequenceRecorder::Get().GetAnimationRecorderFactory().CreateSectionRecorder(InTargetSequence, InAnimationSettings, AnimAssetPath, AnimAssetName);
 		AnimationRecorder->CreateSection(SceneComponent, OwnerMovieScene, PossessableGuid, CurrentSequenceTime);
 		AnimationRecorder->Record(CurrentSequenceTime);
 		SectionRecorders.Add(AnimationRecorder);
@@ -469,6 +669,8 @@ void UActorRecording::Tick(float DeltaSeconds, ULevelSequence* CurrentSequence, 
 {
 	if (IsRecording())
 	{
+		CurrentSequence = GetActiveLevelSequence(CurrentSequence);
+
 		if(CurrentSequence)
 		{
 			// check our components to see if they have changed
@@ -488,8 +690,15 @@ void UActorRecording::Tick(float DeltaSeconds, ULevelSequence* CurrentSequence, 
 	}
 }
 
-bool UActorRecording::StopRecording(ULevelSequence* CurrentSequence)
+bool UActorRecording::StopRecording(ULevelSequence* OriginalSequence, float CurrentSequenceTime)
 {
+	if (!bActive)
+	{
+		return false;
+	}
+
+	ULevelSequence* CurrentSequence = GetActiveLevelSequence(OriginalSequence);
+
 	FString ActorName;
 	if(CurrentSequence)
 	{
@@ -510,12 +719,94 @@ bool UActorRecording::StopRecording(ULevelSequence* CurrentSequence)
 	{
 		SlowTask.EnterProgressFrame();
 
-		SectionRecorder->FinalizeSection();
+		SectionRecorder->FinalizeSection(CurrentSequenceTime);
 	}
 
 	SlowTask.EnterProgressFrame();
 
 	SectionRecorders.Empty();
+
+	if (TargetLevelSequence != nullptr)
+	{
+		// set movie scene playback range to encompass all sections
+		SequenceRecorderUtils::ExtendSequencePlaybackRange(TargetLevelSequence);
+
+		const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
+		if(Settings->bAutoSaveAsset || GEditor == nullptr)
+		{
+			SequenceRecorderUtils::SaveLevelSequence(TargetLevelSequence);
+		}
+	}
+
+	// Add this sequence as a subtrack
+	if (CurrentSequence && OriginalSequence && OriginalSequence != CurrentSequence)
+	{
+		UMovieScene* MovieScene = OriginalSequence->GetMovieScene();
+		UMovieSceneSubTrack* SubTrack = Cast<UMovieSceneSubTrack>(MovieScene->FindMasterTrack(UMovieSceneSubTrack::StaticClass()));
+		if (!SubTrack)
+		{
+			SubTrack = Cast<UMovieSceneSubTrack>(MovieScene->AddMasterTrack(UMovieSceneSubTrack::StaticClass()));
+		}
+
+		// Remove the current take if it exists
+		FString CurrentActorName;
+		FString CurrentSessionName;
+		uint32 CurrentTakeNumber;
+		TOptional<int32> RowIndex;
+		TOptional<int32> NewTakeNumber;
+		if (SequenceRecorderUtils::ParseTakeName(CurrentSequence->GetName(), CurrentActorName, CurrentSessionName, CurrentTakeNumber))
+		{
+			NewTakeNumber = CurrentTakeNumber + 1;
+
+			for (UMovieSceneSection* Section : SubTrack->GetAllSections())
+			{
+				UMovieSceneSubSection* SubSection = Cast<UMovieSceneSubSection>(Section);
+				UMovieSceneSequence* SubSequence = SubSection->GetSequence();
+				if (SubSequence)
+				{
+					FString SubActorName;
+					FString SubSessionName;
+					uint32 SubTakeNumber;
+					if (SequenceRecorderUtils::ParseTakeName(SubSequence->GetName(), SubActorName, SubSessionName, SubTakeNumber))
+					{
+						if (SubActorName == CurrentActorName && SubSessionName == CurrentSessionName)
+						{
+							RowIndex = Section->GetRowIndex();
+							SubTrack->RemoveSection(*Section);
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		// Add new take sub section
+		if (!RowIndex.IsSet())
+		{
+			RowIndex = SubTrack->GetMaxRowIndex() + 1;
+		}
+
+		FFrameNumber RecordStartTime = OriginalSequence->GetMovieScene()->GetPlaybackRange().GetLowerBoundValue();
+		UMovieSceneSubSection* SubSection = SubTrack->AddSequence(CurrentSequence, RecordStartTime,  MovieScene::DiscreteSize(CurrentSequence->GetMovieScene()->GetPlaybackRange()));
+		SubSection->SetRowIndex(RowIndex.GetValue());		
+
+		SubTrack->FixRowIndices();
+
+		// Increment the take number for the next recording
+		if (NewTakeNumber.IsSet())
+		{
+			TakeNumber = NewTakeNumber.GetValue();
+		}
+	}
+
+	// Swap to editor actor in case the actor was set while in PIE
+	if (ActorToRecord.IsValid())
+	{
+		if (AActor* EditorActor = EditorUtilities::GetEditorWorldCounterpartActor(ActorToRecord.Get()))
+		{
+			ActorToRecord = EditorActor;
+		}
+	}
 
 	return true;
 }
@@ -659,6 +950,8 @@ void UActorRecording::ProcessNewComponentArray(TInlineComponentArray<USceneCompo
 
 void UActorRecording::StartRecordingNewComponents(ULevelSequence* CurrentSequence, float CurrentSequenceTime)
 {
+	CurrentSequence = GetActiveLevelSequence(CurrentSequence);
+
 	if (GetActorToRecord() != nullptr)
 	{
 		// find the new component(s)

@@ -26,7 +26,7 @@ public class GoogleARCoreSDK : ModuleRules
 			PublicLibraryPaths.Add(ARCoreSDKArmLibPath);
 			PublicLibraryPaths.Add(ARCoreSDKArm64LibPath);
 
-			PublicAdditionalLibraries.Add("arcore_sdk");
+			PublicAdditionalLibraries.Add("arcore_sdk_c");
 		}
 	}
 }

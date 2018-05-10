@@ -240,7 +240,7 @@ struct FDynamicReadBuffer : public FReadBuffer
 	virtual void Initialize(uint32 BytesPerElement, uint32 NumElements, EPixelFormat Format, uint32 AdditionalUsage = 0)
 	{
 		ensure(
-			AdditionalUsage & (BUF_Dynamic | BUF_Volatile) &&								// buffer should be Dynamic or Volatile
+			AdditionalUsage & (BUF_Dynamic | BUF_Volatile | BUF_Static) &&								// buffer should be Dynamic or Volatile or Static
 			(AdditionalUsage & (BUF_Dynamic | BUF_Volatile)) ^ (BUF_Dynamic | BUF_Volatile) // buffer should not be both
 			);
 

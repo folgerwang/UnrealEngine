@@ -412,7 +412,7 @@ public:
 	AActor* K2_FindPlayerStart(AController* Player, const FString& IncomingName = TEXT(""));
 
 	/** Returns true if it's valid to call RestartPlayer. By default will call Player->CanRestartPlayer */
-	UFUNCTION(BlueprintNativeEvent, Category=Game)
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category=Game)
 	bool PlayerCanRestart(APlayerController* Player);
 
 	/** Tries to spawn the player's pawn, at the location returned by FindPlayerStart */

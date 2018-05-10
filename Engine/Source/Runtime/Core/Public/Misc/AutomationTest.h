@@ -2500,6 +2500,82 @@ class CommandName : public IAutomationLatentCommand \
 	ParamType ParamName; \
 }
 
+#define DEFINE_LATENT_AUTOMATION_COMMAND_TWO_PARAMETER(CommandName,ParamType0,ParamName0,ParamType1,ParamName1)	\
+class CommandName : public IAutomationLatentCommand \
+	{ \
+	public: \
+	CommandName(ParamType0 InputParam0, ParamType1 InputParam1) \
+	: ParamName0(InputParam0) \
+	, ParamName1(InputParam1) \
+		{} \
+		virtual ~CommandName() \
+		{} \
+		virtual bool Update() override; \
+	private: \
+	ParamType0 ParamName0; \
+	ParamType1 ParamName1; \
+}
+
+#define DEFINE_LATENT_AUTOMATION_COMMAND_THREE_PARAMETER(CommandName,ParamType0,ParamName0,ParamType1,ParamName1,ParamType2,ParamName2)	\
+class CommandName : public IAutomationLatentCommand \
+	{ \
+	public: \
+		CommandName(ParamType0 InputParam0, ParamType1 InputParam1, ParamType2 InputParam2) \
+		: ParamName0(InputParam0) \
+		, ParamName1(InputParam1) \
+		, ParamName2(InputParam2) \
+		{} \
+		virtual ~CommandName() \
+		{} \
+		virtual bool Update() override; \
+	private: \
+	ParamType0 ParamName0; \
+	ParamType1 ParamName1; \
+	ParamType2 ParamName2; \
+}
+
+#define DEFINE_LATENT_AUTOMATION_COMMAND_FOUR_PARAMETER(CommandName,ParamType0,ParamName0,ParamType1,ParamName1,ParamType2,ParamName2,ParamType3,ParamName3)	\
+class CommandName : public IAutomationLatentCommand \
+	{ \
+	public: \
+		CommandName(ParamType0 InputParam0, ParamType1 InputParam1, ParamType2 InputParam2, ParamType3 InputParam3) \
+		: ParamName0(InputParam0) \
+		, ParamName1(InputParam1) \
+		, ParamName2(InputParam2) \
+		, ParamName3(InputParam3) \
+		{} \
+		virtual ~CommandName() \
+		{} \
+		virtual bool Update() override; \
+	private: \
+	ParamType0 ParamName0; \
+	ParamType1 ParamName1; \
+	ParamType2 ParamName2; \
+	ParamType3 ParamName3; \
+}
+
+#define DEFINE_LATENT_AUTOMATION_COMMAND_FIVE_PARAMETER(CommandName,ParamType0,ParamName0,ParamType1,ParamName1,ParamType2,ParamName2,ParamType3,ParamName3,ParamType4,ParamName4)	\
+class CommandName : public IAutomationLatentCommand \
+	{ \
+	public: \
+		CommandName(ParamType0 InputParam0, ParamType1 InputParam1, ParamType2 InputParam2, ParamType3 InputParam3, ParamType4 InputParam4) \
+		: ParamName0(InputParam0) \
+		, ParamName1(InputParam1) \
+		, ParamName2(InputParam2) \
+		, ParamName3(InputParam3) \
+		, ParamName4(InputParam4) \
+		{} \
+		virtual ~CommandName() \
+		{} \
+		virtual bool Update() override; \
+	private: \
+	ParamType0 ParamName0; \
+	ParamType1 ParamName1; \
+	ParamType2 ParamName2; \
+	ParamType3 ParamName3; \
+	ParamType4 ParamName4; \
+}
+
 #define DEFINE_EXPORTED_LATENT_AUTOMATION_COMMAND(EXPORT_API, CommandName)	\
 class EXPORT_API CommandName : public IAutomationLatentCommand \
 	{ \

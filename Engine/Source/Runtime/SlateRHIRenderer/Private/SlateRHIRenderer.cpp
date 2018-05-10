@@ -276,6 +276,10 @@ void FSlateRHIRenderer::CreateViewport( const TSharedRef<SWindow> Window )
 		NewInfo->DesiredWidth = Width;
 		NewInfo->DesiredHeight = Height;
 		NewInfo->ProjectionMatrix = CreateProjectionMatrix( Width, Height );
+		if (FPlatformMisc::IsStandaloneStereoOnlyDevice())
+		{
+			NewInfo->PixelFormat = PF_B8G8R8A8;
+		}
 #if ALPHA_BLENDED_WINDOWS		
 		if( Window->GetTransparencySupport() == EWindowTransparency::PerPixel )
 		{
@@ -289,6 +293,9 @@ void FSlateRHIRenderer::CreateViewport( const TSharedRef<SWindow> Window )
 		{
 			NewInfo->PixelFormat = GRHIHDRDisplayOutputFormat;
 		}
+
+		// Sanity check dimensions
+		checkf(Width <= MAX_VIEWPORT_SIZE && Height <= MAX_VIEWPORT_SIZE, TEXT("Invalid window with Width=%u and Height=%u"), Width, Height);
 
 		bool bFullscreen = IsViewportFullscreen( *Window );
 		NewInfo->ViewportRHI = RHICreateViewport( NewInfo->OSWindow, Width, Height, bFullscreen, NewInfo->PixelFormat );

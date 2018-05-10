@@ -969,7 +969,7 @@ struct FSoftObjectPath
 };
 
 /** Subclass of FSoftObjectPath that is only valid to use with UClass* */
-USTRUCT(noexport)
+USTRUCT(noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetSystemLibrary.MakeSoftClassPath", HasNativeBreak="Engine.KismetSystemLibrary.BreakSoftClassPath"))
 struct FSoftClassPath : public FSoftObjectPath
 {
 };

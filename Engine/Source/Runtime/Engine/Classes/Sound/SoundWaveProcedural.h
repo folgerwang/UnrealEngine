@@ -68,7 +68,8 @@ public:
 	//~ End USoundWave Interface.
 
 	// Virtual function to generate PCM audio from the audio render thread. 
-	virtual bool OnGeneratePCMAudio(TArray<uint8>& OutAudio, int32 NumSamples) { return false; }
+	// Returns number of samples generated
+	virtual int32 OnGeneratePCMAudio(TArray<uint8>& OutAudio, int32 NumSamples) { return 0; }
 
 	// Called  when the procedural sound wave begins on the render thread. Only used in the audio mixer.
 	virtual void OnBeginGenerate() {}

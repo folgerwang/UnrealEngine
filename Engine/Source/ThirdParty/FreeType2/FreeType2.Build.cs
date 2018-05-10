@@ -86,7 +86,7 @@ public class FreeType2 : ModuleRules
 
 			PublicAdditionalLibraries.Add("freetype2412");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Android)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			// filtered out in the toolchain
 			PublicLibraryPaths.Add(FreeType2LibPath + "Android/ARMv7");

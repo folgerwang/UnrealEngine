@@ -284,8 +284,26 @@ namespace OculusHMD
 		return true;
 	}
 
-	bool FOculusHMD::GetCurrentPose(int32 InDeviceId, FQuat& OutOrientation, FVector& OutPosition)
+	void FOculusHMD::UpdateRTPoses()
+	{
+		CheckInRenderThread();
+		FGameFrame* CurrentFrame = GetFrame_RenderThread();
+		if (CurrentFrame)
 		{
+			if (!CurrentFrame->Flags.bRTLateUpdateDone)
+			{
+				ovrp_Update3(ovrpStep_Render, CurrentFrame->FrameNumber, 0.0);
+				CurrentFrame->Flags.bRTLateUpdateDone = true;
+			}
+
+		}
+		// else, Frame_RenderThread has already been reset/rendered (or not created yet).
+		// This can happen when DoEnableStereo() is called, as SetViewportSize (which it calls) enques a render
+		// immediately - meaning two render frames were enqueued in the span of one game tick.
+	}
+
+	bool FOculusHMD::GetCurrentPose(int32 InDeviceId, FQuat& OutOrientation, FVector& OutPosition)
+	{
 		OutOrientation = FQuat::Identity;
 		OutPosition = FVector::ZeroVector;
 
@@ -295,19 +313,17 @@ namespace OculusHMD
 		}
 
 		ovrpNode Node = OculusHMD::ToOvrpNode(InDeviceId);
-		ovrpStep Step;
 		const FSettings* CurrentSettings;
 		FGameFrame* CurrentFrame;
 
 		if (InRenderThread())
 		{
-			Step = ovrpStep_Render;
 			CurrentSettings = GetSettings_RenderThread();
 			CurrentFrame = GetFrame_RenderThread();
+			UpdateRTPoses();
 		}
 		else if(InGameThread())
 		{
-			Step = ovrpStep_Game;
 			CurrentSettings = GetSettings();
 			CurrentFrame = NextFrameToRender.Get();
 		}
@@ -324,7 +340,7 @@ namespace OculusHMD
 		ovrpPoseStatef PoseState;
 		FPose Pose;
 
-		if (OVRP_FAILURE(ovrp_GetNodePoseState2(Step, Node, &PoseState)) ||
+		if (OVRP_FAILURE(ovrp_GetNodePoseState3(ovrpStep_Render, CurrentFrame->FrameNumber, Node, &PoseState)) ||
 			!ConvertPose_Internal(PoseState.Pose, Pose, CurrentSettings, CurrentFrame->WorldToMetersScale))
 		{
 			return false;
@@ -363,19 +379,17 @@ namespace OculusHMD
 			return false;
 		}
 
-		ovrpStep Step;
 		const FSettings* CurrentSettings;
 		FGameFrame* CurrentFrame;
 
 		if (InRenderThread())
 		{
-			Step = ovrpStep_Render;
 			CurrentSettings = GetSettings_RenderThread();
 			CurrentFrame = GetFrame_RenderThread();
+			UpdateRTPoses();
 		}
 		else if(InGameThread())
 		{
-			Step = ovrpStep_Game;
 			CurrentSettings = GetSettings();
 			CurrentFrame = NextFrameToRender.Get();
 		}
@@ -391,8 +405,8 @@ namespace OculusHMD
 
 		ovrpPoseStatef HmdPoseState, EyePoseState;
 
-		if (OVRP_FAILURE(ovrp_GetNodePoseState2(Step, ovrpNode_Head, &HmdPoseState)) ||
-			OVRP_FAILURE(ovrp_GetNodePoseState2(Step, Node, &EyePoseState)))
+		if (OVRP_FAILURE(ovrp_GetNodePoseState3(ovrpStep_Render, CurrentFrame->FrameNumber, ovrpNode_Head, &HmdPoseState)) ||
+			OVRP_FAILURE(ovrp_GetNodePoseState3(ovrpStep_Render, CurrentFrame->FrameNumber, Node, &EyePoseState)))
 		{
 			return false;
 		}
@@ -425,7 +439,7 @@ namespace OculusHMD
 		FPose Pose;
 		ovrpFrustum2f Frustum;
 
-		if (OVRP_FAILURE(ovrp_GetNodePoseState2(ovrpStep_Game, Node, &PoseState)) || !ConvertPose(PoseState.Pose, Pose) ||
+		if (OVRP_FAILURE(ovrp_GetNodePoseState3(ovrpStep_Render, OVRP_CURRENT_FRAMEINDEX, Node, &PoseState)) || !ConvertPose(PoseState.Pose, Pose) ||
 			OVRP_FAILURE(ovrp_GetNodeFrustum2(Node, &Frustum)))
 		{
 			return false;
@@ -467,6 +481,8 @@ namespace OculusHMD
 		{
 			OCFlags.NeedSetTrackingOrigin = true;
 		}
+
+		OnTrackingOriginChanged();
 	}
 
 
@@ -492,6 +508,14 @@ namespace OculusHMD
 		return rv;
 	}
 
+	bool FOculusHMD::GetFloorToEyeTrackingTransform(FTransform& OutFloorToEye) const
+	{
+		float EyeHeight = 0.f;
+		const bool bSuccess = ovrp_GetInitialized() && OVRP_SUCCESS(ovrp_GetUserEyeHeight2(&EyeHeight));
+		OutFloorToEye = FTransform( FVector(0.f, 0.f, -ConvertFloat_M2U(EyeHeight)) );
+
+		return bSuccess;
+	}
 
 	void FOculusHMD::ResetOrientationAndPosition(float yaw)
 	{
@@ -892,7 +916,7 @@ namespace OculusHMD
 			// Update tracking
 			if (!Splash->IsShown())
 			{
-				ovrp_Update3(ovrpStep_Game, Frame->FrameNumber, 0.0);
+				ovrp_Update3(ovrpStep_Render, Frame->FrameNumber, 0.0);
 			}
 		}
 
@@ -1569,17 +1593,20 @@ namespace OculusHMD
 	}
 
 
-	void FOculusHMD::UpdateViewportRHIBridge(bool bUseSeparateRenderTarget, const class FViewport& Viewport, FRHIViewport* const ViewportRHI)
+	FXRRenderBridge* FOculusHMD::GetActiveRenderBridge_GameThread(bool bUseSeparateRenderTarget)
 	{
 		CheckInGameThread();
-		check(ViewportRHI);
 
-		if (bUseSeparateRenderTarget && Frame.IsValid())
+		if (bUseSeparateRenderTarget && NextFrameToRender.IsValid())
 		{
-			CustomPresent->UpdateViewport(ViewportRHI);
+			return CustomPresent;
 		}
-	}
+		else
+		{
+			return nullptr;
+		}
 
+	}
 
 	void FOculusHMD::UpdateHMDWornState()
 	{
@@ -2337,66 +2364,73 @@ void FOculusHMD::RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneVie
 
 		if (ovrp_GetInitialized())
 		{
-			return true; // already created and present
+			// Already created and present
+			return true;
 		}
 
 		if (!IsHMDConnected())
 		{
-			return false; // don't bother if HMD is not connected
+			// Don't bother if HMD is not connected
+			return false;
 		}
 
 		LoadFromIni();
 
-		if (InitializeSession())
-		{
-			OCFlags.NeedSetFocusToGameViewport = true;
-
-			if (CustomPresent->IsUsingCorrectDisplayAdapter())
-			{
-				if (OVRP_FAILURE(ovrp_GetSystemHeadsetType2(&Settings->SystemHeadset)))
-				{
-					Settings->SystemHeadset = ovrpSystemHeadset_None;
-				}
-
-				UpdateHmdRenderInfo();
-				UpdateStereoRenderingParams();
-
-				ExecuteOnRenderThread([this](FRHICommandListImmediate& RHICmdList)
-				{
-					InitializeEyeLayer_RenderThread(RHICmdList);
-				});
-
-				ovrp_Update3(ovrpStep_Game, 0, 0.0);
-
-				if (!HiddenAreaMeshes[0].IsValid() || !HiddenAreaMeshes[1].IsValid())
-				{
-					SetupOcclusionMeshes();
-				}
-
-#if !UE_BUILD_SHIPPING
-				DrawDebugDelegateHandle = UDebugDrawService::Register(TEXT("Game"), FDebugDrawDelegate::CreateRaw(this, &FOculusHMD::DrawDebug));
-#endif
-
-				// Do not set VR focus in Editor by just creating a device; Editor may have it created w/o requiring focus.
-				// Instead, set VR focus in OnBeginPlay (VR Preview will run there first).
-				if (!GIsEditor)
-				{
-					FApp::SetUseVRFocus(true);
-					FApp::SetHasVRFocus(true);
-				}
-			}
-			else
-			{
-				// UNDONE Message that you need to restart application to use correct adapter
-				ShutdownSession();
-			}
-		}
-		else
+		if (!InitializeSession())
 		{
 			UE_LOG(LogHMD, Log, TEXT("HMD initialization failed"));
+			return false;
 		}
 
-		return ovrp_GetInitialized() != ovrpBool_False;
+		OCFlags.NeedSetFocusToGameViewport = true;
+
+		if (!CustomPresent->IsUsingCorrectDisplayAdapter())
+		{
+			UE_LOG(LogHMD, Error, TEXT("Using incorrect display adapter for HMD."));
+			ShutdownSession();
+			return false;
+		}
+
+		if (OVRP_FAILURE(ovrp_GetSystemHeadsetType2(&Settings->SystemHeadset)))
+		{
+			Settings->SystemHeadset = ovrpSystemHeadset_None;
+		}
+
+		UpdateHmdRenderInfo();
+		UpdateStereoRenderingParams();
+
+		ExecuteOnRenderThread([this](FRHICommandListImmediate& RHICmdList)
+		{
+			InitializeEyeLayer_RenderThread(RHICmdList);
+		});
+
+		if (!EyeLayer_RenderThread.IsValid() || !EyeLayer_RenderThread->GetTextureSetProxy().IsValid())
+		{
+			UE_LOG(LogHMD, Error, TEXT("Failed to create eye layer texture set."));
+			ShutdownSession();
+			return false;
+		}
+
+		ovrp_Update3(ovrpStep_Render, 0, 0.0);
+
+		if (!HiddenAreaMeshes[0].IsValid() || !HiddenAreaMeshes[1].IsValid())
+		{
+			SetupOcclusionMeshes();
+		}
+
+#if !UE_BUILD_SHIPPING
+		DrawDebugDelegateHandle = UDebugDrawService::Register(TEXT("Game"), FDebugDrawDelegate::CreateRaw(this, &FOculusHMD::DrawDebug));
+#endif
+
+		// Do not set VR focus in Editor by just creating a device; Editor may have it created w/o requiring focus.
+		// Instead, set VR focus in OnBeginPlay (VR Preview will run there first).
+		if (!GIsEditor)
+		{
+			FApp::SetUseVRFocus(true);
+			FApp::SetHasVRFocus(true);
+		}
+
+		return true;
 	}
 
 
@@ -3179,7 +3213,11 @@ void FOculusHMD::RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneVie
 				StartGameFrame_GameThread();
 				StartRenderFrame_GameThread();
 
+				ovrp_Update3(ovrpStep_Render, Frame->FrameNumber, 0.0);
+
+
 				// Set viewport size to Rift resolution
+				// NOTE: this can enqueue a render frame right away as a result (calling into FOculusHMD::BeginRenderViewFamily)
 				SceneVP->SetViewportSize(Settings->RenderTargetSize.X, Settings->RenderTargetSize.Y);
 
 				if (Settings->Flags.bPauseRendering)
@@ -3313,11 +3351,6 @@ void FOculusHMD::RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneVie
 			}
 
 			XLayers.Sort(FLayerPtr_CompareId());
-
-			if (!XFrame->Flags.bSplashIsShown)
-			{
-				ovrp_Update3(ovrpStep_Render, NextFrameToRender->FrameNumber, 0.0);
-			}
 
 			ExecuteOnRenderThread_DoNotWait([this, XSettings, XFrame, XLayers](FRHICommandListImmediate& RHICmdList)
 			{

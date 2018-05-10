@@ -9,6 +9,7 @@
 //#include "PostProcess/SceneFilterRendering.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "HeadMountedDisplayTypes.h" // for LogHMD
+#include "XRThreadUtils.h"
 
 
 namespace OculusHMD

@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
+#if USE_ANDROID_LAUNCH
 #include "Misc/App.h"
 #include "Misc/OutputDeviceError.h"
 #include "LaunchEngineLoop.h"
 #include <string.h>
-#include <jni.h>
 #include <pthread.h>
 #include "Android/AndroidJNI.h"
 #include "Android/AndroidEventManager.h"
@@ -32,6 +32,8 @@
 #include "IMessagingModule.h"
 #include "Android/AndroidStats.h"
 #include "MoviePlayer.h"
+#include <jni.h>
+#include <android/sensor.h>
 
 // Function pointer for retrieving joystick events
 // Function has been part of the OS since Honeycomb, but only appeared in the
@@ -45,7 +47,7 @@ static GetAxesType GetAxes = NULL;
 static const int32_t AxisList[] =
 {
 	AMOTION_EVENT_AXIS_X,
-    AMOTION_EVENT_AXIS_Y,
+	AMOTION_EVENT_AXIS_Y,
 	AMOTION_EVENT_AXIS_Z,
 	AMOTION_EVENT_AXIS_RX,
 	AMOTION_EVENT_AXIS_RY,
@@ -259,7 +261,7 @@ extern void AndroidThunkCpp_DismissSplashScreen();
 //Main function called from the android entry point
 int32 AndroidMain(struct android_app* state)
 {
-	FPlatformMisc::LowLevelOutputDebugString(L"Entered AndroidMain()");
+	FPlatformMisc::LowLevelOutputDebugString(L"Entered AndroidMain()\n");
 
 	// Force the first call to GetJavaEnv() to happen on the game thread, allowing subsequent calls to occur on any thread
 	FAndroidApplication::GetJavaEnv();
@@ -334,7 +336,7 @@ int32 AndroidMain(struct android_app* state)
 	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Final commandline: %s\n"), FCommandLine::Get());
 
 	EventHandlerEvent = FPlatformProcess::GetSynchEventFromPool(false);
-	FPlatformMisc::LowLevelOutputDebugString(L"Created sync event");
+	FPlatformMisc::LowLevelOutputDebugString(L"Created sync event\n");
 	FAppEventManager::GetInstance()->SetEventHandlerEvent(EventHandlerEvent);
 
 	// ready for onCreate to complete
@@ -1018,3 +1020,5 @@ bool WaitForAndroidLoseFocusEvent(double TimeoutSeconds)
 {
 	return FAppEventManager::GetInstance()->WaitForEventInQueue(EAppEventState::APP_EVENT_STATE_WINDOW_LOST_FOCUS, TimeoutSeconds);
 }
+
+#endif

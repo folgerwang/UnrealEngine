@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "SlateFwd.h"
 #include "UObject/ObjectMacros.h"
+#include "Containers/SortedMap.h"
 #include "Misc/Guid.h"
 #include "InputCoreTypes.h"
 #include "Templates/SubclassOf.h"
@@ -60,6 +61,8 @@ namespace EDynamicForceFeedbackAction
 		Stop,
 	};
 }
+
+typedef uint64 FDynamicForceFeedbackHandle;
 
 struct FDynamicForceFeedbackDetails
 {
@@ -338,8 +341,39 @@ public:
 	TArray<FForceFeedbackEffectHistoryEntry> ForceFeedbackEffectHistoryEntries;
 #endif
 
-	/** Map of active force feedback effects */
-	TMap<int32, FDynamicForceFeedbackDetails> DynamicForceFeedbacks;
+private:
+
+	struct FDynamicForceFeedbackAction
+	{
+		/** Time over which interpolation should happen */
+		float TotalTime;
+		/** Time so far elapsed for the interpolation */
+		float TimeElapsed;
+		/** Current feedback intensity values */
+		FDynamicForceFeedbackDetails ForceFeedbackDetails;
+		/** Unique ID for the action */
+		FDynamicForceFeedbackHandle Handle;
+		/** Unique ID generation static */
+		static FDynamicForceFeedbackHandle HandleAllocator;
+
+		/** 
+		 * Updates Values with this action's details.
+		 * @param DeltaTime	Time since last update
+		 * @param Values	Values structure to update
+		 * @return Returns false if the elapsed time has exceeded the total time.
+		 */
+		bool Update(const float DeltaTime, FForceFeedbackValues& Values);
+	};
+
+	/** Map of dynamic force feedback effects invoked from native */
+	TSortedMap<FDynamicForceFeedbackHandle, FDynamicForceFeedbackAction> DynamicForceFeedbacks;
+
+	/** Map of dynamic force feedback effects invoked from blueprints */
+	TSortedMap<int32, FDynamicForceFeedbackDetails*> LatentDynamicForceFeedbacks;
+
+	friend class FLatentDynamicForceFeedbackAction;
+
+public:
 
 	/** Currently playing haptic effects for both the left and right hand */
 	TSharedPtr<struct FActiveHapticFeedbackEffect> ActiveHapticEffect_Left;
@@ -1016,6 +1050,7 @@ public:
 	UFUNCTION(reliable, client, BlueprintCallable, Category="Game|Feedback")
 	void ClientStopForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FName Tag);
 
+private:
 	/** 
 	 * Latent action that controls the playing of force feedback 
 	 * Begins playing when Start is called.  Calling Update or Stop if the feedback is not active will have no effect.
@@ -1030,6 +1065,24 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, meta=(Latent, LatentInfo="LatentInfo", ExpandEnumAsExecs="Action", Duration="-1", bAffectsLeftLarge="true", bAffectsLeftSmall="true", bAffectsRightLarge="true", bAffectsRightSmall="true", AdvancedDisplay="bAffectsLeftLarge,bAffectsLeftSmall,bAffectsRightLarge,bAffectsRightSmall"), Category="Game|Feedback")
 	void PlayDynamicForceFeedback(float Intensity, float Duration, bool bAffectsLeftLarge, bool bAffectsLeftSmall, bool bAffectsRightLarge, bool bAffectsRightSmall, TEnumAsByte<EDynamicForceFeedbackAction::Type> Action, FLatentActionInfo LatentInfo);
+
+public:
+	/** 
+	 * Allows playing of a dynamic force feedback event from native code
+	 * Begins playing when Start is called.  Calling with Action set to Update or Stop if the feedback is not active will have no effect.
+	 * When Update is called the Intensity, Duration, and affect values will be updated
+	 * @param	Intensity				How strong the feedback should be.  Valid values are between 0.0 and 1.0
+	 * @param	Duration				How long the feedback should play for.  If the value is negative it will play until stopped
+	 * @param   bAffectsLeftLarge		Whether the intensity should be applied to the large left servo
+	 * @param   bAffectsLeftSmall		Whether the intensity should be applied to the small left servo
+	 * @param   bAffectsRightLarge		Whether the intensity should be applied to the large right servo
+	 * @param   bAffectsRightSmall		Whether the intensity should be applied to the small right servo
+	 * @param   Action					Whether to (re)start, update, or stop the action
+	 * @param	UniqueID				The ID returned by the start action when wanting to restart, update, or stop the action
+	 * @return  The index to pass in to the function to update the latent action in the future if needed. Returns 0 if the feedback was stopped
+	 *          or the specified UniqueID did not map to an action that can be started/updated.
+	 */
+	FDynamicForceFeedbackHandle PlayDynamicForceFeedback(float Intensity, float Duration, bool bAffectsLeftLarge, bool bAffectsLeftSmall, bool bAffectsRightLarge, bool bAffectsRightSmall, EDynamicForceFeedbackAction::Type Action = EDynamicForceFeedbackAction::Start, FDynamicForceFeedbackHandle ActionHandle = 0);
 
 	/**
 	 * Play a haptic feedback curve on the player's controller
@@ -1632,6 +1685,7 @@ public:
 	virtual void ViewAPlayer(int32 dir);
 
 	/** @return true if this controller thinks it's able to restart. Called from GameModeBase::PlayerCanRestart */
+	UFUNCTION(BlueprintCallable, Category = "Game")
 	virtual bool CanRestartPlayer();
 
 	/**

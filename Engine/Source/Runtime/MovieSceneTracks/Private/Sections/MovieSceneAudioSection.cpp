@@ -18,7 +18,7 @@ struct FAudioChannelEditorData
 		Data[1].SetIdentifiers("Pitch", NSLOCTEXT("MovieSceneAudioSection", "PitchText", "Pitch"));
 	}
 
-	FMovieSceneChannelEditorData Data[2];
+	FMovieSceneChannelMetaData Data[2];
 };
 
 #endif // WITH_EDITOR
@@ -43,7 +43,7 @@ UMovieSceneAudioSection::UMovieSceneAudioSection( const FObjectInitializer& Obje
 	PitchMultiplier.SetDefault(1.f);
 
 	// Set up the channel proxy
-	FMovieSceneChannelData Channels;
+	FMovieSceneChannelProxyData Channels;
 
 #if WITH_EDITOR
 

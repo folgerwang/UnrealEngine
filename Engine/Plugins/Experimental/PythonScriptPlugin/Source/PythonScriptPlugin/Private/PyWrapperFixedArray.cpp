@@ -102,15 +102,13 @@ struct FPyWrapperFixedArrayIterator
 	}
 };
 
-void InitializePyWrapperFixedArray(PyObject* PyModule)
+void InitializePyWrapperFixedArray(PyGenUtil::FNativePythonModule& ModuleInfo)
 {
 	if (PyType_Ready(&PyWrapperFixedArrayType) == 0)
 	{
 		static FPyWrapperFixedArrayMetaData MetaData;
 		FPyWrapperFixedArrayMetaData::SetMetaData(&PyWrapperFixedArrayType, &MetaData);
-
-		Py_INCREF(&PyWrapperFixedArrayType);
-		PyModule_AddObject(PyModule, PyWrapperFixedArrayType.tp_name, (PyObject*)&PyWrapperFixedArrayType);
+		ModuleInfo.AddType(&PyWrapperFixedArrayType);
 	}
 
 	PyType_Ready(&PyWrapperFixedArrayIteratorType);
@@ -793,9 +791,9 @@ PyTypeObject InitializePyWrapperFixedArrayType()
 	};
 
 	static PyMethodDef PyMethods[] = {
-		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.cast(type, obj) -> TFixedArray -- cast the given object to this Unreal fixed-array type" },
-		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> TFixedArray -- copy this Unreal fixed-array" },
-		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> TFixedArray -- copy this Unreal fixed-array" },
+		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.cast(type, obj) -> FixedArray -- cast the given object to this Unreal fixed-array type" },
+		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> FixedArray -- copy this Unreal fixed-array" },
+		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> FixedArray -- copy this Unreal fixed-array" },
 		{ nullptr, nullptr, 0, nullptr }
 	};
 

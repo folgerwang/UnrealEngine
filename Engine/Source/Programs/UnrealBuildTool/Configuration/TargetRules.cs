@@ -1106,6 +1106,11 @@ namespace UnrealBuildTool
 		public AndroidTargetRules AndroidPlatform = new AndroidTargetRules();
 
 		/// <summary>
+		/// Lumin-specific target settings.
+		/// </summary>
+		public LuminTargetRules LuminPlatform = new LuminTargetRules();
+
+		/// <summary>
 		/// Mac-specific target settings.
 		/// </summary>
 		public MacTargetRules MacPlatform = new MacTargetRules();
@@ -1325,6 +1330,7 @@ namespace UnrealBuildTool
 		{
 			yield return this;
 			yield return AndroidPlatform;
+			yield return LuminPlatform;
 			yield return MacPlatform;
 			yield return PS4Platform;
 			yield return WindowsPlatform;
@@ -1375,6 +1381,7 @@ namespace UnrealBuildTool
 		{
 			this.Inner = Inner;
 			AndroidPlatform = new ReadOnlyAndroidTargetRules(Inner.AndroidPlatform);
+			LuminPlatform = new ReadOnlyLuminTargetRules(Inner.LuminPlatform);
 			MacPlatform = new ReadOnlyMacTargetRules(Inner.MacPlatform);
 			PS4Platform = new ReadOnlyPS4TargetRules(Inner.PS4Platform);
 			WindowsPlatform = new ReadOnlyWindowsTargetRules(Inner.WindowsPlatform);
@@ -2036,6 +2043,11 @@ namespace UnrealBuildTool
 		}
 
 		public ReadOnlyAndroidTargetRules AndroidPlatform
+		{
+			get;
+			private set;
+		}
+		public ReadOnlyLuminTargetRules LuminPlatform
 		{
 			get;
 			private set;

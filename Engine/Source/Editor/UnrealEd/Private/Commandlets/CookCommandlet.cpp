@@ -724,15 +724,24 @@ bool UCookCommandlet::CookByTheBook( const TArray<ITargetPlatform*>& Platforms, 
 		CmdLineCultEntries += GetSwitchValueElements(TEXT("COOKCULTURES"));
 	}
 
-	// Also append any cookdirs from the project ini files; these dirs are relative to the game content directory
+	// Also append any cookdirs from the project ini files; these dirs are relative to the game content directory or start with a / root
 	{
 		const FString AbsoluteGameContentDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir());
 		const UProjectPackagingSettings* const PackagingSettings = GetDefault<UProjectPackagingSettings>();
-		for (const auto& DirToCook : PackagingSettings->DirectoriesToAlwaysCook)
+		for (const FDirectoryPath& DirToCook : PackagingSettings->DirectoriesToAlwaysCook)
 		{
-			CmdLineDirEntries.Add(AbsoluteGameContentDir / DirToCook.Path);
+			if (DirToCook.Path.StartsWith(TEXT("/"), ESearchCase::CaseSensitive))
+			{
+				// If this starts with /, this includes a root like /engine
+				FString RelativePath = FPackageName::LongPackageNameToFilename(DirToCook.Path / TEXT(""));
+				CmdLineDirEntries.Add(FPaths::ConvertRelativePathToFull(RelativePath));
+			}
+			else
+			{
+				// This is relative to /game
+				CmdLineDirEntries.Add(AbsoluteGameContentDir / DirToCook.Path);
+			}
 		}
-
 	}
 
 	CookOnTheFlyServer->Initialize(ECookMode::CookByTheBook, CookFlags, OutputDirectoryOverride);

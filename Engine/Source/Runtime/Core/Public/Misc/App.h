@@ -388,6 +388,13 @@ public:
 	static bool IsEngineInstalled();
 
 	/**
+	 * Checks whether the enterprise components of this application have been installed.
+	 *
+	 * @return true if the enterprise components are installed, false otherwise.
+	 */
+	static bool IsEnterpriseInstalled();
+
+	/**
 	 * Checks whether this application runs unattended.
 	 *
 	 * Unattended applications are not monitored by anyone or are unable to receive user input.

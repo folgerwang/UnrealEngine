@@ -215,8 +215,9 @@ FOpenGLViewport::FOpenGLViewport(FOpenGLDynamicRHI* InOpenGLRHI,void* InWindowHa
 	, FrameSyncEvent(InOpenGLRHI)
 {
 	check(OpenGLRHI);
-    //@to-do spurious check for HTML5, will need to go away. 
-#if !PLATFORM_HTML5
+	//@to-do spurious check for HTML5, will need to go away. 
+	// @todo lumin: Add a "PLATFORM_HAS_NO_NATIVE_WINDOW" or something
+#if !PLATFORM_HTML5 && !PLATFORM_LUMIN
 	check(InWindowHandle);
 #endif 
 	check(IsInGameThread());

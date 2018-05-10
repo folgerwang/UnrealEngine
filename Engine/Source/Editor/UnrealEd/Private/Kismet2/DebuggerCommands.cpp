@@ -232,14 +232,17 @@ static void LeaveDebuggingMode()
 		GUnrealEd->PlayWorld->bDebugPauseExecution = false;
 	}
 
-	if( FSlateApplication::Get().InKismetDebuggingMode() )
+	// Determine whether or not we are resuming play.
+	const bool bIsResumingPlay = !FKismetDebugUtilities::IsSingleStepping() && !GEditor->ShouldEndPlayMap();
+
+	if( FSlateApplication::Get().InKismetDebuggingMode() && bIsResumingPlay )
 	{
-		// Focus the game view port when resuming from debugging
+		// Focus the game view port when resuming from debugging.
 		FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor").FocusPIEViewport();
 	}
 
-	// Tell the application to stop ticking in this stack frame
-	FSlateApplication::Get().LeaveDebuggingMode( FKismetDebugUtilities::IsSingleStepping() );
+	// Tell the application to stop ticking in this stack frame. The parameter controls whether or not to recapture the mouse to the game viewport.
+	FSlateApplication::Get().LeaveDebuggingMode( !bIsResumingPlay );
 }
 
 
@@ -1975,7 +1978,7 @@ bool FInternalPlayWorldCommandCallbacks::IsReadyToLaunchOnDevice(FString DeviceI
 	FString PlatformName = DeviceId.Left(Index);
 
 	const PlatformInfo::FPlatformInfo* const PlatformInfo = PlatformInfo::FindPlatformInfo(FName(*PlatformName));
-	check(PlatformInfo);
+	checkf(PlatformInfo, TEXT("Unable to find PlatformInfo for %s"), *PlatformName);
 
 	FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
 	bool bHasCode = GameProjectModule.Get().ProjectRequiresBuild(FName(*PlatformName));

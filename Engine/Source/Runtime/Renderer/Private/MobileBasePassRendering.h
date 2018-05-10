@@ -855,7 +855,11 @@ public:
 					// Masked materials are rendered together in the base pass, where the blend state is set at a higher level
 					break;
 				case BLEND_Translucent:
-					if (bIsMobileMonoscopic)
+					if (MaterialResource->ShouldWriteOnlyAlpha())
+					{
+						DrawRenderState.SetBlendState(TStaticBlendState<CW_ALPHA, BO_Add, BF_Zero, BF_Zero, BO_Add, BF_One, BF_Zero>::GetRHI());
+					} 
+					else if (bIsMobileMonoscopic)
 					{
 						DrawRenderState.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_One>::GetRHI());
 					}

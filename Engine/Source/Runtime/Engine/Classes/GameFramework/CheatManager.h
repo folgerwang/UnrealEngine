@@ -308,11 +308,11 @@ class ENGINE_API UCheatManager : public UObject
 
 	/** Exec function to return the mouse sensitivity to its default value */
 	UFUNCTION(exec)
-	void SetMouseSensitivityToDefault();
+	virtual void SetMouseSensitivityToDefault();
 
 	/** Backwards compatibility exec function for people used to it instead of using InvertAxisKey */
 	UFUNCTION(exec)
-	void InvertMouse();
+	virtual void InvertMouse();
 
 	/** Executes commands listed in CheatScript.ScriptName ini section of DefaultGame.ini */
 	UFUNCTION(exec)

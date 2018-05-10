@@ -19,8 +19,16 @@ FAndroidApplication* FAndroidApplication::CreateAndroidApplication()
 }
 
 FAndroidApplication::FAndroidApplication()
-	: GenericApplication( NULL )
-	, InputInterface( FAndroidInputInterface::Create( MessageHandler ) )
+	: GenericApplication(NULL)
+	, InputInterface(FAndroidInputInterface::Create(MessageHandler))
+	, bHasLoadedInputPlugins(false)
+{
+	_application = this;
+}
+
+FAndroidApplication::FAndroidApplication(TSharedPtr<class FAndroidInputInterface> InInputInterface)
+	: GenericApplication(NULL)
+	, InputInterface(InInputInterface)
 	, bHasLoadedInputPlugins(false)
 {
 	_application = this;

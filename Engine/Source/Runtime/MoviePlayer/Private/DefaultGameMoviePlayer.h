@@ -73,7 +73,7 @@ public:
 	virtual bool PlayEarlyStartupMovies() override;
 	virtual bool PlayMovie() override;
 	virtual void StopMovie() override;
-	virtual void WaitForMovieToFinish() override;
+	virtual void WaitForMovieToFinish(bool bAllowEngineTick = false) override;
 	virtual bool IsLoadingFinished() const override;
 	virtual bool IsMovieCurrentlyPlaying() const override;
 	virtual bool LoadingScreenIsPrepared() const override;

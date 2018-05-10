@@ -6,6 +6,8 @@
 #include "GoogleARCoreFunctionLibrary.h"
 
 UGoogleARCorePointCloudRendererComponent::UGoogleARCorePointCloudRendererComponent()
+	: PointColor(FColor::Red)
+	, PointSize(0.1f)
 {
 	PreviousPointCloudTimestamp = 0.0;
 	PrimaryComponentTick.bCanEverTick = true;

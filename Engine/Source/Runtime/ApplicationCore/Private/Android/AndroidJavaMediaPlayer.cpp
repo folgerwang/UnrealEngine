@@ -3,6 +3,8 @@
 #include "Android/AndroidJavaMediaPlayer.h"
 #include "Android/AndroidApplication.h"
 
+#if USE_ANDROID_JNI
+
 #if UE_BUILD_SHIPPING
 // always clear any exceptions in SHipping
 #define CHECK_JNI_RESULT(Id) if (Id == 0) { JEnv->ExceptionClear(); }
@@ -43,6 +45,9 @@ FJavaAndroidMediaPlayer::FJavaAndroidMediaPlayer(bool swizzlePixels, bool vulkan
 	, GetVideoWidthMethod(GetClassMethod("getVideoWidth", "()I"))
 	, SetVideoEnabledMethod(GetClassMethod("setVideoEnabled", "(Z)V"))
 	, SetAudioEnabledMethod(GetClassMethod("setAudioEnabled", "(Z)V"))
+#if PLATFORM_LUMIN
+	, SetAudioVolumeMethod(GetClassMethod("setAudioVolume", "(F)V"))
+#endif
 	, GetVideoLastFrameDataMethod(GetClassMethod("getVideoLastFrameData", "()Ljava/nio/Buffer;"))
 	, StartMethod(GetClassMethod("start", "()V"))
 	, PauseMethod(GetClassMethod("pause", "()V"))
@@ -241,6 +246,13 @@ void FJavaAndroidMediaPlayer::SetVideoEnabled(bool enabled /*= true*/)
 void FJavaAndroidMediaPlayer::SetAudioEnabled(bool enabled /*= true*/)
 {
 	CallMethod<void>(SetAudioEnabledMethod, enabled);
+}
+
+void FJavaAndroidMediaPlayer::SetAudioVolume(float Volume)
+{
+#if PLATFORM_LUMIN
+	CallMethod<void>(SetAudioVolumeMethod, Volume);
+#endif
 }
 
 bool FJavaAndroidMediaPlayer::GetVideoLastFrameData(void* & outPixels, int64 & outCount)
@@ -534,3 +546,5 @@ bool FJavaAndroidMediaPlayer::GetVideoTracks(TArray<FVideoTrack>& VideoTracks)
 	}
 	return false;
 }
+
+#endif

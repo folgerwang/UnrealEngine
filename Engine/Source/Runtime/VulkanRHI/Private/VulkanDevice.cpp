@@ -131,7 +131,7 @@ void FVulkanDevice::CreateDevice()
 
 		if ((CurrProps.queueFlags & VK_QUEUE_COMPUTE_BIT) == VK_QUEUE_COMPUTE_BIT)
 		{
-			if (ComputeQueueFamilyIndex == -1 && 
+			if (ComputeQueueFamilyIndex == -1 &&
 				(GRHIAllowAsyncComputeCvar.GetValueOnAnyThread() != 0 || GAllowPresentOnComputeQueue.GetValueOnAnyThread() != 0) && GfxQueueFamilyIndex != FamilyIndex)
 			{
 				ComputeQueueFamilyIndex = FamilyIndex;
@@ -264,7 +264,7 @@ void FVulkanDevice::CreateDevice()
 		EnableDrawMarkers();
 	}
 #endif
-	
+
 #if VULKAN_ENABLE_DUMP_LAYER
 	EnableDrawMarkers();
 #endif
@@ -524,7 +524,7 @@ void FVulkanDevice::MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanForma
 	FormatInfo.PlatformFormat = VulkanFormat;
 	FormatInfo.Supported = IsFormatSupported(VulkanFormat);
 
-	if(!FormatInfo.Supported)
+	if (!FormatInfo.Supported)
 	{
 		UE_LOG(LogVulkanRHI, Warning, TEXT("EPixelFormat(%d) is not supported with Vk format %d"), (int32)UEFormat, (int32)VulkanFormat);
 	}

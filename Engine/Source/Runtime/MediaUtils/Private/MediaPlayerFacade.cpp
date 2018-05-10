@@ -561,6 +561,17 @@ bool FMediaPlayerFacade::SetRate(float Rate)
 }
 
 
+bool FMediaPlayerFacade::SetNativeVolume(float Volume)
+{
+	if (!Player.IsValid())
+	{
+		return false;
+	}
+
+	return Player->SetNativeVolume(Volume);
+}
+
+
 bool FMediaPlayerFacade::SetTrackFormat(EMediaTrackType TrackType, int32 TrackIndex, int32 FormatIndex)
 {
 	return Player.IsValid() ? Player->GetTracks().SetTrackFormat((EMediaTrackType)TrackType, TrackIndex, FormatIndex) : false;

@@ -139,8 +139,10 @@ public:
 
 	/**
 	 * Check whether the evaluation template is dirty based on the last evaluated frame's meta-data
+	 *
+	 * @param OutDirtySequences		(Optional) A set to populate with dirty sequences
 	 */
-	MOVIESCENE_API bool IsDirty() const;
+	MOVIESCENE_API bool IsDirty(TSet<UMovieSceneSequence*>* OutDirtySequences = nullptr) const;
 
 public:
 

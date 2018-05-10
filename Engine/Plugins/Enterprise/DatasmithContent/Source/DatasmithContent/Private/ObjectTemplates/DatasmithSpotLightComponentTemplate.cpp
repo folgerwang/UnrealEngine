@@ -42,3 +42,18 @@ void UDatasmithSpotLightComponentTemplate::Load( const UObject* Source )
 	OuterConeAngle = SpotLightComponent->OuterConeAngle;
 #endif // #if WITH_EDITORONLY_DATA
 }
+
+bool UDatasmithSpotLightComponentTemplate::Equals( const UDatasmithObjectTemplate* Other ) const
+{
+	const UDatasmithSpotLightComponentTemplate* TypedOther = Cast< UDatasmithSpotLightComponentTemplate >( Other );
+
+	if ( !TypedOther )
+	{
+		return false;
+	}
+
+	bool bEquals = FMath::IsNearlyEqual( InnerConeAngle, TypedOther->InnerConeAngle );
+	bEquals = bEquals && FMath::IsNearlyEqual( OuterConeAngle, TypedOther->OuterConeAngle );
+
+	return bEquals;
+}

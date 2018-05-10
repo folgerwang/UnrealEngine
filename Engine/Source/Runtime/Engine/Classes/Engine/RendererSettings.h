@@ -133,7 +133,7 @@ namespace EAutoExposureMethodUI
 	};
 }
 
-/** used by DefaultBackBufferPixelFormat*/
+/** used by GetDefaultBackBufferPixelFormat*/
 UENUM()
 namespace EDefaultBackBufferPixelFormat
 {
@@ -507,6 +507,12 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ToolTip = "Enable monoscopic far field rendering (only available for mobile).",
 		ConfigRestartRequired = true))
 		uint32 bMonoscopicFarField : 1;
+
+	UPROPERTY(config, EditAnywhere, Category = Experimental, meta = (
+		ConsoleVariable = "vr.ODSCapture", DisplayName = "Omni-directional Stereo Capture",
+		ToolTip = "Enable Omni-directional Stereo Capture.",
+		ConfigRestartRequired = true))
+		uint32 bODSCapture : 1;
 
 	UPROPERTY(config, EditAnywhere, Category = VR, meta = (
 		ConsoleVariable = "vr.DebugCanvasInLayer", DisplayName = "Debug Canvas in Layer",

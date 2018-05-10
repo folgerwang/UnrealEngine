@@ -1,10 +1,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Android/AndroidPlatformInput.h"
+#if USE_ANDROID_INPUT
 #include <android/keycodes.h>
-
+#endif
 uint32 FAndroidPlatformInput::GetCharKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings)
 {
+#if USE_ANDROID_INPUT
+
 #define ADDKEYMAP(KeyCode, KeyName)		if (NumMappings<MaxMappings) { KeyCodes[NumMappings]=KeyCode; if(KeyNames) { KeyNames[NumMappings]=KeyName; } ++NumMappings; };
 
 	uint32 NumMappings = 0;
@@ -127,10 +130,16 @@ uint32 FAndroidPlatformInput::GetCharKeyMap(uint32* KeyCodes, FString* KeyNames,
 	return NumMappings;
 #undef ADDKEYMAP
 
+#else
+	// by default use the standard printable keys for chars
+	return FGenericPlatformInput::GetStandardPrintableKeyMap(KeyCodes, KeyNames, MaxMappings, true, true);
+#endif
 }
 
 uint32 FAndroidPlatformInput::GetKeyMap( uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings )
 {
+#if USE_ANDROID_INPUT
+
 #define ADDKEYMAP(KeyCode, KeyName)		if (NumMappings<MaxMappings) { KeyCodes[NumMappings]=KeyCode; if(KeyNames) { KeyNames[NumMappings]=KeyName; } ++NumMappings; };
 
 	uint32 NumMappings = 0;
@@ -261,4 +270,9 @@ uint32 FAndroidPlatformInput::GetKeyMap( uint32* KeyCodes, FString* KeyNames, ui
 	check(NumMappings < MaxMappings);
 	return NumMappings;
 #undef ADDKEYMAP
+
+#else
+	// nothing we can do by default here - sub-platforms may need to do stuff here
+	return 0;
+#endif
 }

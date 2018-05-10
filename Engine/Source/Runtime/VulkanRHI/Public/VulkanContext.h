@@ -41,7 +41,6 @@ class FTransitionAndLayoutManager : public FTransitionAndLayoutManagerData
 public:
 	FTransitionAndLayoutManager()
 		: CurrentRenderPass(nullptr)
-		, PreviousRenderPass(nullptr)
 		, CurrentFramebuffer(nullptr)
 	{
 	}
@@ -106,7 +105,6 @@ public:
 	bool bInsideRealRenderPass = false;
 
 	FVulkanRenderPass* CurrentRenderPass;
-	FVulkanRenderPass* PreviousRenderPass;
 	FVulkanFramebuffer* CurrentFramebuffer;
 
 	FCriticalSection RenderPassesCS;
@@ -294,11 +292,6 @@ public:
 	inline FVulkanRenderPass* GetCurrentRenderPass()
 	{
 		return TransitionAndLayoutManager.CurrentRenderPass;
-	}
-
-	inline FVulkanRenderPass* GetPreviousRenderPass()
-	{
-		return TransitionAndLayoutManager.PreviousRenderPass;
 	}
 
 	inline uint64 GetFrameCounter() const

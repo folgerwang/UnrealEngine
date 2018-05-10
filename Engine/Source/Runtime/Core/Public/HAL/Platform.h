@@ -46,6 +46,15 @@
 #if !defined(PLATFORM_ANDROIDESDEFERRED)
 	#define PLATFORM_ANDROIDESDEFERRED 0
 #endif
+#if !defined(PLATFORM_ANDROIDGL4)
+	#define PLATFORM_ANDROIDGL4 0
+#endif
+#if !defined(PLATFORM_LUMINGL4)
+	#define PLATFORM_LUMINGL4 0
+#endif
+#if !defined(PLATFORM_LUMIN)
+	#define PLATFORM_LUMIN 0
+#endif
 #if !defined(PLATFORM_APPLE)
 	#define PLATFORM_APPLE 0
 #endif

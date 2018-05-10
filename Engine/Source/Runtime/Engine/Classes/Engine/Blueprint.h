@@ -20,6 +20,7 @@ class ITargetPlatform;
 class UActorComponent;
 class UEdGraph;
 class UInheritableComponentHandler;
+class FBlueprintActionDatabaseRegistrar;
 
 /**
  * Enumerates states a blueprint can be in.
@@ -782,6 +783,7 @@ public:
 	virtual void BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPlatform) override;
 	virtual bool IsCachedCookedPlatformDataLoaded(const ITargetPlatform* TargetPlatform) override;
 	virtual void ClearAllCachedCookedPlatformData() override;
+	virtual void BeginDestroy() override;
 	//~ End UObject Interface
 
 	/** Consigns the GeneratedClass and the SkeletonGeneratedClass to oblivion, and nulls their references */
@@ -910,6 +912,26 @@ public:
 
 	/** Get all graphs in this blueprint */
 	void GetAllGraphs(TArray<UEdGraph*>& Graphs) const;
+
+	/**
+	* Allow each blueprint type (AnimBlueprint or ControlRigBlueprint) to add specific
+	* UBlueprintNodeSpawners pertaining to the sub-class type. Serves as an
+	* extensible way for new nodes, and game module nodes to add themselves to
+	* context menus.
+	*
+	* @param  ActionRegistrar	BlueprintActionDataBaseRetistrar 
+	*/
+	virtual void GetTypeActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const {}
+
+	/**
+	* Allow each blueprint instance to add specific 
+	* UBlueprintNodeSpawners pertaining to the sub-class type. Serves as an
+	* extensible way for new nodes, and game module nodes to add themselves to
+	* context menus.
+	*
+	* @param  ActionRegistrar	BlueprintActionDataBaseRetistrar
+	*/
+	virtual void GetInstanceActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const {}
 
 private:
 

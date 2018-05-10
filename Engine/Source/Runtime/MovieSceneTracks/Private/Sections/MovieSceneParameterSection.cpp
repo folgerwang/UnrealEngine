@@ -43,50 +43,50 @@ void UMovieSceneParameterSection::Serialize(FArchive& Ar)
 
 void UMovieSceneParameterSection::ReconstructChannelProxy()
 {
-	FMovieSceneChannelData Channels;
+	FMovieSceneChannelProxyData Channels;
 
 #if WITH_EDITOR
 
 	for ( FScalarParameterNameAndCurve& Scalar : GetScalarParameterNamesAndCurves() )
 	{
-		FMovieSceneChannelEditorData EditorData(Scalar.ParameterName, FText::FromName(Scalar.ParameterName));
+		FMovieSceneChannelMetaData MetaData(Scalar.ParameterName, FText::FromName(Scalar.ParameterName));
 		// Prevent single channels from collapsing to the track node
-		EditorData.bCanCollapseToTrack = false;
-		Channels.Add(Scalar.ParameterCurve, EditorData, TMovieSceneExternalValue<float>());
+		MetaData.bCanCollapseToTrack = false;
+		Channels.Add(Scalar.ParameterCurve, MetaData, TMovieSceneExternalValue<float>());
 	}
 	for ( FVectorParameterNameAndCurves& Vector : GetVectorParameterNamesAndCurves() )
 	{
 		FString ParameterString = Vector.ParameterName.ToString();
 		FText Group = FText::FromString(ParameterString);
 
-		Channels.Add(Vector.XCurve, FMovieSceneChannelEditorData(*(ParameterString + TEXT(".X")), FCommonChannelData::ChannelX, Group), TMovieSceneExternalValue<float>());
-		Channels.Add(Vector.YCurve, FMovieSceneChannelEditorData(*(ParameterString + TEXT(".Y")), FCommonChannelData::ChannelY, Group), TMovieSceneExternalValue<float>());
-		Channels.Add(Vector.ZCurve, FMovieSceneChannelEditorData(*(ParameterString + TEXT(".Z")), FCommonChannelData::ChannelZ, Group), TMovieSceneExternalValue<float>());
+		Channels.Add(Vector.XCurve, FMovieSceneChannelMetaData(*(ParameterString + TEXT(".X")), FCommonChannelData::ChannelX, Group), TMovieSceneExternalValue<float>());
+		Channels.Add(Vector.YCurve, FMovieSceneChannelMetaData(*(ParameterString + TEXT(".Y")), FCommonChannelData::ChannelY, Group), TMovieSceneExternalValue<float>());
+		Channels.Add(Vector.ZCurve, FMovieSceneChannelMetaData(*(ParameterString + TEXT(".Z")), FCommonChannelData::ChannelZ, Group), TMovieSceneExternalValue<float>());
 	}
 	for ( FColorParameterNameAndCurves& Color : GetColorParameterNamesAndCurves() )
 	{
 		FString ParameterString = Color.ParameterName.ToString();
 		FText Group = FText::FromString(ParameterString);
 
-		FMovieSceneChannelEditorData RChannelData(*(ParameterString + TEXT("R")), FCommonChannelData::ChannelR, Group);
-		RChannelData.SortOrder = 0;
-		RChannelData.Color = FCommonChannelData::RedChannelColor;
+		FMovieSceneChannelMetaData MetaData_R(*(ParameterString + TEXT("R")), FCommonChannelData::ChannelR, Group);
+		MetaData_R.SortOrder = 0;
+		MetaData_R.Color = FCommonChannelData::RedChannelColor;
 
-		FMovieSceneChannelEditorData GChannelData(*(ParameterString + TEXT("G")), FCommonChannelData::ChannelG, Group);
-		GChannelData.SortOrder = 1;
-		GChannelData.Color = FCommonChannelData::GreenChannelColor;
+		FMovieSceneChannelMetaData MetaData_G(*(ParameterString + TEXT("G")), FCommonChannelData::ChannelG, Group);
+		MetaData_G.SortOrder = 1;
+		MetaData_G.Color = FCommonChannelData::GreenChannelColor;
 
-		FMovieSceneChannelEditorData BChannelData(*(ParameterString + TEXT("B")), FCommonChannelData::ChannelB, Group);
-		BChannelData.SortOrder = 2;
-		BChannelData.Color = FCommonChannelData::BlueChannelColor;
+		FMovieSceneChannelMetaData MetaData_B(*(ParameterString + TEXT("B")), FCommonChannelData::ChannelB, Group);
+		MetaData_B.SortOrder = 2;
+		MetaData_B.Color = FCommonChannelData::BlueChannelColor;
 
-		FMovieSceneChannelEditorData AChannelData(*(ParameterString + TEXT("A")), FCommonChannelData::ChannelA, Group);
-		AChannelData.SortOrder = 3;
+		FMovieSceneChannelMetaData MetaData_A(*(ParameterString + TEXT("A")), FCommonChannelData::ChannelA, Group);
+		MetaData_A.SortOrder = 3;
 
-		Channels.Add(Color.RedCurve,   RChannelData, TMovieSceneExternalValue<float>());
-		Channels.Add(Color.GreenCurve, GChannelData, TMovieSceneExternalValue<float>());
-		Channels.Add(Color.BlueCurve,  BChannelData, TMovieSceneExternalValue<float>());
-		Channels.Add(Color.AlphaCurve, AChannelData, TMovieSceneExternalValue<float>());
+		Channels.Add(Color.RedCurve,   MetaData_R, TMovieSceneExternalValue<float>());
+		Channels.Add(Color.GreenCurve, MetaData_G, TMovieSceneExternalValue<float>());
+		Channels.Add(Color.BlueCurve,  MetaData_B, TMovieSceneExternalValue<float>());
+		Channels.Add(Color.AlphaCurve, MetaData_A, TMovieSceneExternalValue<float>());
 	}
 
 #else

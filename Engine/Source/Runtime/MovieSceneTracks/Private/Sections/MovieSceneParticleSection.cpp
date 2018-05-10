@@ -11,12 +11,6 @@ FMovieSceneParticleChannel::FMovieSceneParticleChannel()
 	SetEnum(FindObject<UEnum>(ANY_PACKAGE, TEXT("EParticleKey")));
 }
 
-uint32 FMovieSceneParticleChannel::GetChannelID()
-{
-	static const uint32 ID = FMovieSceneChannelEntry::RegisterNewID();
-	return ID;
-}
-
 UMovieSceneParticleSection::UMovieSceneParticleSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
 {
@@ -35,7 +29,7 @@ UMovieSceneParticleSection::UMovieSceneParticleSection( const FObjectInitializer
 
 #if WITH_EDITOR
 
-	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(ParticleKeys, FMovieSceneChannelEditorData(), TMovieSceneExternalValue<uint8>());
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(ParticleKeys, FMovieSceneChannelMetaData(), TMovieSceneExternalValue<uint8>());
 
 #else
 

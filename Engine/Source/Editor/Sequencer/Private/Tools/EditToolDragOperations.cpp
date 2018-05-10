@@ -11,6 +11,7 @@
 #include "Algo/AllOf.h"
 #include "MovieSceneTimeHelpers.h"
 #include "Modules/ModuleManager.h"
+#include "Channels/MovieSceneChannel.h"
 #include "Channels/MovieSceneChannelProxy.h"
 #include "ISequencerModule.h"
 
@@ -192,15 +193,14 @@ void FResizeSection::OnBeginDrag(const FPointerEvent& MouseEvent, FVector2D Loca
 			FMovieSceneChannelProxy& Proxy = Section->GetChannelProxy();
 			for (const FMovieSceneChannelEntry& Entry : Proxy.GetAllEntries())
 			{
-				ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelInterface(Entry.GetChannelID());
-
-				for (void* Channel : Entry.GetChannels())
+				TArrayView<FMovieSceneChannel* const> ChannelPtrs = Entry.GetChannels();
+				for (int32 Index = 0; Index < ChannelPtrs.Num(); ++Index)
 				{
 					// Populate the cached state of this channel
 					FPreDragChannelData& ChannelData = ResizeData.Channels[ResizeData.Channels.Emplace()];
-					ChannelData.ChannelType = Entry.GetChannelID();
-					ChannelData.Channel = Proxy.MakeHandle(Channel);
-					ChannelInterface->GetKeys_Raw(Channel, TRange<FFrameNumber>::All(), &ChannelData.FrameNumbers, &ChannelData.Handles);
+					ChannelData.Channel = Proxy.MakeHandle(Entry.GetChannelTypeName(), Index);
+
+					ChannelPtrs[Index]->GetKeys(TRange<FFrameNumber>::All(), &ChannelData.FrameNumbers, &ChannelData.Handles);
 				}
 			}
 			PreDragSectionData.Emplace(ResizeData);
@@ -326,8 +326,6 @@ void FResizeSection::OnDrag(const FPointerEvent& MouseEvent, FVector2D LocalMous
 			TArray<FFrameNumber> NewFrameNumbers;
 			for (const FPreDragChannelData& ChannelData : Data.Channels)
 			{
-				ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelInterface(ChannelData.ChannelType);
-
 				// Compute new frame times for each key
 				NewFrameNumbers.Reset(ChannelData.FrameNumbers.Num());
 				for (FFrameNumber StartFrame : ChannelData.FrameNumbers)
@@ -337,10 +335,10 @@ void FResizeSection::OnDrag(const FPointerEvent& MouseEvent, FVector2D LocalMous
 				}
 
 				// Apply the key times to the channel
-				void* RawChannelPtr = ChannelData.Channel.Get();
-				if (RawChannelPtr)
+				FMovieSceneChannel* Channel = ChannelData.Channel.Get();
+				if (Channel)
 				{
-					ChannelInterface->SetKeyTimes_Raw(RawChannelPtr, ChannelData.Handles, NewFrameNumbers);
+					Channel->SetKeyTimes(ChannelData.Handles, NewFrameNumbers);
 				}
 			}
 		}

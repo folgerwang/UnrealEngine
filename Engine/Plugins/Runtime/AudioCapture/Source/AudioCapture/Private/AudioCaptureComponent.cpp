@@ -7,12 +7,12 @@ UAudioCaptureComponent::UAudioCaptureComponent(const FObjectInitializer& ObjectI
 {
 	bSuccessfullyInitialized = false;
 	bIsCapturing = false;
-	CaptureAudioDataSamples = 0;
+	CapturedAudioDataSamples = 0;
 	ReadSampleIndex = 0;
 	bIsDestroying = false;
 	bIsReadyForForFinishDestroy = true;
 	bIsStreamOpen = false;
-	bOutputToBusOnly = true;
+	CaptureAudioData.Reserve(2 * 48000 * 5);
 }
 
 bool UAudioCaptureComponent::Init(int32& SampleRate)
@@ -22,15 +22,19 @@ bool UAudioCaptureComponent::Init(int32& SampleRate)
 	{
 		SampleRate = DeviceInfo.PreferredSampleRate;
 		NumChannels = DeviceInfo.InputChannels;
+
 		// Only support mono and stereo mic inputs for now...
 		if (NumChannels == 1 || NumChannels == 2)
 		{
+			// This may fail if capture synths aren't supported on a given platform or if something went wrong with the capture device
+			bIsStreamOpen = CaptureSynth.OpenDefaultStream();
 			return true;
 		}
 		else
 		{
 			UE_LOG(LogAudio, Warning, TEXT("Audio capture components only support mono and stereo mic input."));
 		}
+
 	}
 	return false;
 }
@@ -59,89 +63,105 @@ void UAudioCaptureComponent::FinishDestroy()
 	bIsCapturing = false;
 	bIsDestroying = false;
 	bIsStreamOpen = false;
-	bOutputToBusOnly = true;
 }
 
 void UAudioCaptureComponent::OnBeginGenerate()
 {
-	if (!CaptureSynth.IsStreamOpen())
+	if (bIsStreamOpen)
 	{
-		// This may fail if capture synths aren't supported on a given platform or if something went wrong with the capture device
-		bIsStreamOpen = CaptureSynth.OpenDefaultStream();
-		if (bIsStreamOpen)
-		{
-			check(CaptureSynth.IsStreamOpen());
-			CaptureSynth.StartCapturing();
-			check(CaptureSynth.IsCapturing());
+		CaptureSynth.StartCapturing();
+		check(CaptureSynth.IsCapturing());
 
-			// Don't allow this component to be destroyed until the stream is closed again
-			bIsReadyForForFinishDestroy = false;
+		// Don't allow this component to be destroyed until the stream is closed again
+		bIsReadyForForFinishDestroy = false;
 
-			FramesSinceStarting = 0;
-			ReadSampleIndex = 0;
-		}
-		else
-		{
-			UE_LOG(LogAudio, Warning, TEXT("Was not able to open a default capture stream."));
-		}
+		FramesSinceStarting = 0;
+		ReadSampleIndex = 0;
+	}
+	else
+	{
+		UE_LOG(LogAudio, Warning, TEXT("Was not able to open a default capture stream."));
 	}
 }
 
 void UAudioCaptureComponent::OnEndGenerate()
 {
-	if (bIsStreamOpen && CaptureSynth.IsStreamOpen())
+	if (bIsStreamOpen)
 	{
+		check(CaptureSynth.IsStreamOpen());
 		CaptureSynth.AbortCapturing();
-		check(!CaptureSynth.IsCapturing());
 		check(!CaptureSynth.IsStreamOpen());
+
+		bIsReadyForForFinishDestroy = true;
 	}
-	bIsStreamOpen = false;
-	bIsReadyForForFinishDestroy = true;
 }
 
 // Called when synth is about to start playing
 void UAudioCaptureComponent::OnStart() 
 {
+	CapturedAudioDataSamples = 0;
+	ReadSampleIndex = 0;
+	CaptureAudioData.Reset();
 }
 
 void UAudioCaptureComponent::OnStop()
 {
 }
 
-void UAudioCaptureComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
+int32 UAudioCaptureComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 {
 	// Don't do anything if the stream isn't open
 	if (!bIsStreamOpen || !CaptureSynth.IsStreamOpen() || !CaptureSynth.IsCapturing())
 	{
-		return;
+		// Just return NumSamples, which uses zero'd buffer
+		return NumSamples;
 	}
 
-	// Allow the mic capture to buffer up some audio before starting to consume it
-	if (FramesSinceStarting >= JitterLatencyFrames)
+	int32 OutputSamplesGenerated = 0;
+
+	if (CapturedAudioDataSamples > 0 || CaptureSynth.GetNumSamplesEnqueued() > 1024)
 	{
-		// Check if we need to get more audio
-		if (ReadSampleIndex >= CaptureAudioDataSamples)
+		// Check if we need to read more audio data from capture synth
+		if (ReadSampleIndex + NumSamples > CaptureAudioData.Num())
 		{
-			ReadSampleIndex = 0;
+			// but before we do, copy off the remainder of the capture audio data buffer if there's data in it
+			int32 SamplesLeft = FMath::Max(0, CaptureAudioData.Num() - ReadSampleIndex);
+			if (SamplesLeft > 0)
+			{
+				float* CaptureDataPtr = CaptureAudioData.GetData();
+				FMemory::Memcpy(OutAudio, &CaptureDataPtr[ReadSampleIndex], SamplesLeft * sizeof(float));
+
+				// Track samples generated
+				OutputSamplesGenerated += SamplesLeft;
+			}
+
+			// Get another block of audio from the capture synth
+			CaptureAudioData.Reset();
 			CaptureSynth.GetAudioData(CaptureAudioData);
 
-			CaptureAudioDataSamples = CaptureAudioData.Num();
+			// Reset the read sample index since we got a new buffer of audio data
+			ReadSampleIndex = 0;
 		}
 
-		// If there was audio available, copy it out
-		if (CaptureAudioDataSamples > 0)
+		// note it's possible we didn't get any more audio in our last attempt to get it
+		if (CaptureAudioData.Num() > 0)
 		{
-			// Only need to copy over the non-zero audio buffer. The OutAudio ptr has already been zeroed. 
-			float* CaptureAudioDataPtr = CaptureAudioData.GetData();
-			int32 NumSamplesToCopy = FMath::Min(CaptureAudioDataSamples, NumSamples);
-			float* SrcBufferPtr = CaptureAudioDataPtr + ReadSampleIndex;
-			FMemory::Memcpy(OutAudio, SrcBufferPtr, NumSamplesToCopy * sizeof(float));
+			// Compute samples to copy
+			int32 NumSamplesToCopy = FMath::Min(NumSamples - OutputSamplesGenerated, CaptureAudioData.Num() - ReadSampleIndex);
 
+			float* CaptureDataPtr = CaptureAudioData.GetData();
+			FMemory::Memcpy(&OutAudio[OutputSamplesGenerated], &CaptureDataPtr[ReadSampleIndex], NumSamplesToCopy * sizeof(float));
 			ReadSampleIndex += NumSamplesToCopy;
+			OutputSamplesGenerated += NumSamplesToCopy;
 		}
+
+		CapturedAudioDataSamples += OutputSamplesGenerated;
 	}
 	else
 	{
-		FramesSinceStarting += (NumSamples * NumChannels);
+		// Say we generated the full samples, this will result in silence
+		OutputSamplesGenerated = NumSamples;
 	}
+
+	return OutputSamplesGenerated;
 }

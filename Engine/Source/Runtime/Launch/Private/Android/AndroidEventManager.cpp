@@ -1,6 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Android/AndroidEventManager.h"
+
+#if USE_ANDROID_EVENTS
 #include "Android/AndroidApplication.h"
 #include "AudioDevice.h"
 #include "Misc/CallbackDevice.h"
@@ -609,3 +611,4 @@ void FAppEventManager::WaitForEmptyQueue()
 	}
 }
 
+#endif

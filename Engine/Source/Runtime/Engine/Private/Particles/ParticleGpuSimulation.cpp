@@ -4586,18 +4586,25 @@ void FFXSystem::SimulateGPUParticles(
 	// Simulations that don't use vector fields can share some state.
 	FVectorFieldUniformBufferRef EmptyVectorFieldUniformBuffer;
 	{
-		FVectorFieldUniformParameters VectorFieldParameters;
-		FTexture3DRHIParamRef BlackVolumeTextureRHI = (FTexture3DRHIParamRef)(FTextureRHIParamRef)GBlackVolumeTexture->TextureRHI;
-		for (int32 Index = 0; Index < MAX_VECTOR_FIELDS; ++Index)
+		// We would like to perform a null check on the iterator for GPU simulations
+		// to avoid usage of CreateUniformBufferImmediate() when we don't need it.
+		// TGD shows a large ~15ms gap when this function is called when we don't have 
+		// any particles to simulate.
+		if (GPUSimulations.Num() > 0)
 		{
-			VectorFieldParameters.WorldToVolume[Index] = FMatrix::Identity;
-			VectorFieldParameters.VolumeToWorld[Index] = FMatrix::Identity;
-			VectorFieldParameters.VolumeSize[Index] = FVector4(1.0f);
-			VectorFieldParameters.IntensityAndTightness[Index] = FVector4(0.0f);
+			FVectorFieldUniformParameters VectorFieldParameters;
+			FTexture3DRHIParamRef BlackVolumeTextureRHI = (FTexture3DRHIParamRef)(FTextureRHIParamRef)GBlackVolumeTexture->TextureRHI;
+			for (int32 Index = 0; Index < MAX_VECTOR_FIELDS; ++Index)
+			{
+				VectorFieldParameters.WorldToVolume[Index] = FMatrix::Identity;
+				VectorFieldParameters.VolumeToWorld[Index] = FMatrix::Identity;
+				VectorFieldParameters.VolumeSize[Index] = FVector4(1.0f);
+				VectorFieldParameters.IntensityAndTightness[Index] = FVector4(0.0f);
+			}
+			VectorFieldParameters.Count = 0;
+			EmptyVectorFieldUniformBuffer = FVectorFieldUniformBufferRef::CreateUniformBufferImmediate(VectorFieldParameters, UniformBuffer_SingleFrame);	
 		}
-		VectorFieldParameters.Count = 0;
-			EmptyVectorFieldUniformBuffer = FVectorFieldUniformBufferRef::CreateUniformBufferImmediate(VectorFieldParameters, UniformBuffer_SingleFrame);
-		}
+	}
 
 	// Gather simulation commands from all active simulations.
 	static TArray<FSimulationCommandGPU> SimulationCommands;
