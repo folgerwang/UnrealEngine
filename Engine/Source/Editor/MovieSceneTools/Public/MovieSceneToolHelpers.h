@@ -23,7 +23,7 @@ struct FMovieSceneObjectBindingID;
 class UMovieSceneTrack;
 
 struct FMovieSceneFloatValue;
-template<typename ChannelType> struct TMovieSceneChannel;
+template<typename ChannelType> struct TMovieSceneChannelData;
 
 DECLARE_DELEGATE_TwoParams(FOnEnumSelectionChanged, int32 /*Selection*/, ESelectInfo::Type /*SelectionType*/);
 
@@ -211,7 +211,7 @@ public:
 	 * @param MoveAxis The move axis to copy to
 	 * @param FrameRate The frame rate of the source channel
 	 */
-	static void CopyKeyDataToMoveAxis(const TMovieSceneChannel<FMovieSceneFloatValue>& KeyData, UInterpTrackMoveAxis* MoveAxis, FFrameRate FrameRate);
+	static void CopyKeyDataToMoveAxis(const TMovieSceneChannelData<FMovieSceneFloatValue>& KeyData, UInterpTrackMoveAxis* MoveAxis, FFrameRate FrameRate);
 
 	/*
 	 * Export the object binding to a camera anim

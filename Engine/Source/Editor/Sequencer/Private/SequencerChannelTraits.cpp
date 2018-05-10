@@ -7,7 +7,7 @@ namespace Sequencer
 {
 
 
-void DrawKeys(void* Channel, TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyDrawParams> OutKeyDrawParams)
+void DrawKeys(FMovieSceneChannel* Channel, TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyDrawParams> OutKeyDrawParams)
 {
 	// By default just render diamonds for keys
 	FKeyDrawParams DefaultParams;

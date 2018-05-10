@@ -64,7 +64,7 @@ void UMovieSceneBoolSection::ReconstructChannelProxy()
 	TMovieSceneExternalValue<bool> ExternalValue;
 	ExternalValue.OnGetExternalValue = bIsExternallyInverted ? FGetInvertedBool::GetValue :TMovieSceneExternalValue<bool>::GetValue;
 
-	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(BoolCurve, FMovieSceneChannelEditorData(), ExternalValue);
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(BoolCurve, FMovieSceneChannelMetaData(), ExternalValue);
 
 #else
 

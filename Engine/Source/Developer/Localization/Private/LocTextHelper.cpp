@@ -378,10 +378,14 @@ const TArray<FString>& FLocTextHelper::GetForeignCultures() const
 	return ForeignCultures;
 }
 
-TArray<FString> FLocTextHelper::GetAllCultures() const
+TArray<FString> FLocTextHelper::GetAllCultures(const bool bSingleCultureMode) const
 {
+	// Single-culture mode is a hack for the Localization commandlets
+	// In this mode we only include the native culture if we have no foreign cultures
+	const bool bIncludeNativeCulture = (!bSingleCultureMode || ForeignCultures.Num() == 0) && !NativeCulture.IsEmpty();
+
 	TArray<FString> AllCultures;
-	if (!NativeCulture.IsEmpty())
+	if (bIncludeNativeCulture)
 	{
 		AllCultures.Add(NativeCulture);
 	}

@@ -21,6 +21,11 @@ bool UPyTestStructLibrary::LegacyIsBoolSet(const FPyTestStruct& InStruct)
 	return IsBoolSet(InStruct);
 }
 
+int32 UPyTestStructLibrary::GetConstantValue()
+{
+	return 10;
+}
+
 FPyTestStruct UPyTestStructLibrary::AddInt(const FPyTestStruct& InStruct, const int32 InValue)
 {
 	FPyTestStruct Result = InStruct;
@@ -97,4 +102,29 @@ void UPyTestObject::MulticastDelegatePropertyCallback(FString InStr) const
 	{
 		UE_LOG(LogPython, Error, TEXT("Given value (%s) did not match the String property value (%s)"), *InStr, *String);
 	}
+}
+
+void UPyTestObject::EmitScriptError()
+{
+	FFrame::KismetExecutionMessage(TEXT("EmitScriptError was called"), ELogVerbosity::Error);
+}
+
+void UPyTestObject::EmitScriptWarning()
+{
+	FFrame::KismetExecutionMessage(TEXT("EmitScriptWarning was called"), ELogVerbosity::Warning);
+}
+
+int32 UPyTestObject::GetConstantValue()
+{
+	return 10;
+}
+
+bool UPyTestObjectLibrary::IsBoolSet(const UPyTestObject* InObj)
+{
+	return InObj->Bool;
+}
+
+int32 UPyTestObjectLibrary::GetOtherConstantValue()
+{
+	return 20;
 }

@@ -108,6 +108,10 @@ public:
 		ParentGuid = InParentGuid;
 	}
 
+	/** Array of tags that can be used for grouping and categorizing. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Actor)
+	TArray<FName> Tags;
+
 private:
 
 	/** Unique identifier of the possessable object. */

@@ -113,7 +113,6 @@ public:
 	static UAsyncTask_OpenMRCaptureDevice* OpenMRCaptureDevice(const FMediaCaptureDeviceInfo& DeviceId, UMediaPlayer* Target, FMRCaptureFeedDelegate::FDelegate OpenedCallback);
 
 private:
-	UFUNCTION()
 	virtual void OnVideoFeedOpened(FString DeviceUrl) override;
 };
 
@@ -132,7 +131,6 @@ public:
 	static UAsyncTask_OpenMRCaptureFeed* OpenMRCaptureFeed(const FMRCaptureDeviceIndex& FeedRef, UMediaPlayer* Target, FMRCaptureFeedDelegate::FDelegate OpenedCallback);
 
 private:
-	UFUNCTION()
 	virtual void OnVideoFeedOpened(FString DeviceUrl) override;
 
 	FMRCaptureDeviceIndex DesiredFeedRef;

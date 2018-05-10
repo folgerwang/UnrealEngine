@@ -309,6 +309,8 @@ EAnimAssetHandlerType UAnimGraphNode_SequencePlayer::SupportsAssetClass(const UC
 
 void UAnimGraphNode_SequencePlayer::ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog)
 {
+	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
+
 	UAnimSequenceBase* SequenceToCheck = Node.Sequence;
 	UEdGraphPin* SequencePin = FindPin(GET_MEMBER_NAME_STRING_CHECKED(FAnimNode_SequencePlayer, Sequence));
 	if (SequencePin != nullptr && SequenceToCheck == nullptr)

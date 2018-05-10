@@ -6,6 +6,7 @@
 #include "UObject/WeakObjectPtr.h"
 #include "UObject/WeakObjectPtrTemplates.h"
 #include "CurveModel.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "Channels/MovieSceneChannelHandle.h"
 
 struct FMovieSceneFloatChannel;

@@ -230,7 +230,7 @@ public:
 	 *
 	 * @return	True if the project is an Enterprise project
 	 */
-	virtual bool IsEnterpriseProject() = 0;
+	PROJECTS_API virtual bool IsEnterpriseProject() = 0;
 
 	/**
 	 * Sets the enterprise flag value on the current project

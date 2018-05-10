@@ -5,8 +5,8 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
 #include "SequencerKeyEditor.h"
+#include "Channels/MovieSceneBoolChannel.h"
 
-struct FMovieSceneBoolChannel;
 enum class ECheckBoxState : uint8;
 
 /**

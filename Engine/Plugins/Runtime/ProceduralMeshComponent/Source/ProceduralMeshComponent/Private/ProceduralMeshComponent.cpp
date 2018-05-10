@@ -89,6 +89,9 @@ static void ConvertProcMeshToDynMeshVertex(FDynamicMeshVertex& Vert, const FProc
 	Vert.Position = ProcVert.Position;
 	Vert.Color = ProcVert.Color;
 	Vert.TextureCoordinate[0] = ProcVert.UV0;
+	Vert.TextureCoordinate[1] = ProcVert.UV1;
+	Vert.TextureCoordinate[2] = ProcVert.UV2;
+	Vert.TextureCoordinate[3] = ProcVert.UV3;
 	Vert.TangentX = ProcVert.Tangent.TangentX;
 	Vert.TangentZ = ProcVert.Normal;
 	Vert.TangentZ.Vector.W = ProcVert.Tangent.bFlipTangentY ? -127 : 127;
@@ -137,7 +140,7 @@ public:
 				// Copy index buffer
 				NewSection->IndexBuffer.Indices = SrcSection.ProcIndexBuffer;
 
-				NewSection->VertexBuffers.InitFromDynamicVertex(&NewSection->VertexFactory, Vertices);
+				NewSection->VertexBuffers.InitFromDynamicVertex(&NewSection->VertexFactory, Vertices, 4);
 
 				// Enqueue initialization of render resource
 				BeginInitResource(&NewSection->VertexBuffers.PositionVertexBuffer);
@@ -207,6 +210,9 @@ public:
 					Section->VertexBuffers.PositionVertexBuffer.VertexPosition(i) = Vertex.Position;
 					Section->VertexBuffers.StaticMeshVertexBuffer.SetVertexTangents(i, Vertex.TangentX.ToFVector(), Vertex.GetTangentY(), Vertex.TangentZ.ToFVector());
 					Section->VertexBuffers.StaticMeshVertexBuffer.SetVertexUV(i, 0, Vertex.TextureCoordinate[0]);
+					Section->VertexBuffers.StaticMeshVertexBuffer.SetVertexUV(i, 1, Vertex.TextureCoordinate[1]);
+					Section->VertexBuffers.StaticMeshVertexBuffer.SetVertexUV(i, 2, Vertex.TextureCoordinate[2]);
+					Section->VertexBuffers.StaticMeshVertexBuffer.SetVertexUV(i, 3, Vertex.TextureCoordinate[3]);
 					Section->VertexBuffers.ColorVertexBuffer.VertexColor(i) = Vertex.Color;
 				}
 

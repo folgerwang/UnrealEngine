@@ -20,8 +20,8 @@ UMovieSceneControlRigSection::UMovieSceneControlRigSection()
 
 #if WITH_EDITOR
 
-	static const FMovieSceneChannelEditorData EditorData("Weight", LOCTEXT("WeightChannelText", "Weight"));
-	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(Weight, EditorData, TMovieSceneExternalValue<float>());
+	static const FMovieSceneChannelMetaData MetaData("Weight", LOCTEXT("WeightChannelText", "Weight"));
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(Weight, MetaData, TMovieSceneExternalValue<float>());
 
 #else
 
@@ -57,7 +57,7 @@ FMovieSceneSubSequenceData UMovieSceneControlRigSection::GenerateSubSequenceData
 	// Apply timescale and start offset so the weight curve is in the inner sequence's space
 	FMovieSceneSequenceTransform OuterToInner = OuterToInnerTransform();
 
-	TArrayView<FFrameNumber> Times = InstanceData.Weight.GetInterface().GetTimes();
+	TArrayView<FFrameNumber> Times = InstanceData.Weight.GetData().GetTimes();
 	for (FFrameNumber& Time : Times)
 	{
 		Time = (Time * OuterToInner).FloorToFrame();

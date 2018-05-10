@@ -16,6 +16,14 @@ void FDatasmithCameraFilmbackSettingsTemplate::Load( const FCameraFilmbackSettin
 	SensorHeight = Source.SensorHeight;
 }
 
+bool FDatasmithCameraFilmbackSettingsTemplate::Equals( const FDatasmithCameraFilmbackSettingsTemplate& Other ) const
+{
+	bool bEquals = FMath::IsNearlyEqual( SensorWidth, Other.SensorWidth);
+	bEquals = bEquals && FMath::IsNearlyEqual( SensorHeight, Other.SensorHeight);
+
+	return bEquals;
+}
+
 FDatasmithPostProcessSettingsTemplate::FDatasmithPostProcessSettingsTemplate()
 {
 	Load( FPostProcessSettings() );
@@ -34,6 +42,12 @@ void FDatasmithPostProcessSettingsTemplate::Apply( FPostProcessSettings* Destina
 
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bOverride_ColorSaturation, Destination, PreviousTemplate );
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( ColorSaturation, Destination, PreviousTemplate );
+
+	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bOverride_AutoExposureMethod, Destination, PreviousTemplate );
+	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( AutoExposureMethod, Destination, PreviousTemplate );
+
+	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bOverride_CameraISO, Destination, PreviousTemplate );
+	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( CameraISO, Destination, PreviousTemplate );
 }
 
 void FDatasmithPostProcessSettingsTemplate::Load( const FPostProcessSettings& Source )
@@ -49,6 +63,35 @@ void FDatasmithPostProcessSettingsTemplate::Load( const FPostProcessSettings& So
 
 	bOverride_ColorSaturation = Source.bOverride_ColorSaturation;
 	ColorSaturation = Source.ColorSaturation;
+
+	bOverride_AutoExposureMethod = Source.bOverride_AutoExposureMethod;
+	AutoExposureMethod = Source.AutoExposureMethod;
+
+	bOverride_CameraISO = Source.bOverride_CameraISO;
+	CameraISO = Source.CameraISO;
+}
+
+bool FDatasmithPostProcessSettingsTemplate::Equals( const FDatasmithPostProcessSettingsTemplate& Other ) const
+{
+	bool bEquals = bOverride_WhiteTemp == Other.bOverride_WhiteTemp;
+	bEquals = bEquals && FMath::IsNearlyEqual( WhiteTemp, Other.WhiteTemp );
+
+	bEquals = bEquals && bOverride_VignetteIntensity == Other.bOverride_VignetteIntensity;
+	bEquals = bEquals && FMath::IsNearlyEqual( VignetteIntensity, Other.VignetteIntensity );
+
+	bEquals = bEquals && bOverride_FilmWhitePoint == Other.bOverride_FilmWhitePoint;
+	bEquals = bEquals && FilmWhitePoint.Equals( Other.FilmWhitePoint );
+
+	bEquals = bEquals && bOverride_ColorSaturation == Other.bOverride_ColorSaturation;
+	bEquals = bEquals && ColorSaturation.Equals( Other.ColorSaturation );
+
+	bEquals = bEquals && bOverride_AutoExposureMethod == Other.bOverride_AutoExposureMethod;
+	bEquals = bEquals && AutoExposureMethod == Other.AutoExposureMethod;
+
+	bEquals = bEquals && bOverride_CameraISO == Other.bOverride_CameraISO;
+	bEquals = bEquals && FMath::IsNearlyEqual( CameraISO, Other.CameraISO );
+
+	return bEquals;
 }
 
 void FDatasmithCameraLensSettingsTemplate::Apply( FCameraLensSettings* Destination, const FDatasmithCameraLensSettingsTemplate* PreviousTemplate )
@@ -61,6 +104,13 @@ void FDatasmithCameraLensSettingsTemplate::Load( const FCameraLensSettings& Sour
 	MaxFStop = Source.MaxFStop;
 }
 
+bool FDatasmithCameraLensSettingsTemplate::Equals( const FDatasmithCameraLensSettingsTemplate& Other ) const
+{
+	bool bEquals = FMath::IsNearlyEqual( MaxFStop, Other.MaxFStop);
+
+	return bEquals;
+}
+
 void FDatasmithCameraFocusSettingsTemplate::Apply( FCameraFocusSettings* Destination, const FDatasmithCameraFocusSettingsTemplate* PreviousTemplate )
 {
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( ManualFocusDistance, Destination, PreviousTemplate );
@@ -69,6 +119,13 @@ void FDatasmithCameraFocusSettingsTemplate::Apply( FCameraFocusSettings* Destina
 void FDatasmithCameraFocusSettingsTemplate::Load( const FCameraFocusSettings& Source )
 {
 	ManualFocusDistance = Source.ManualFocusDistance;
+}
+
+bool FDatasmithCameraFocusSettingsTemplate::Equals( const FDatasmithCameraFocusSettingsTemplate& Other ) const
+{
+	bool bEquals = FMath::IsNearlyEqual( ManualFocusDistance, Other.ManualFocusDistance);
+
+	return bEquals;
 }
 
 void UDatasmithCineCameraComponentTemplate::Apply( UObject* Destination, bool bForce )
@@ -115,4 +172,22 @@ void UDatasmithCineCameraComponentTemplate::Load( const UObject* Source )
 
 	PostProcessSettings.Load( CineCameraComponent->PostProcessSettings );
 #endif // #if WITH_EDITORONLY_DATA
+}
+
+bool UDatasmithCineCameraComponentTemplate::Equals( const UDatasmithObjectTemplate* Other ) const
+{
+	const UDatasmithCineCameraComponentTemplate* TypedOther = Cast< UDatasmithCineCameraComponentTemplate >( Other );
+
+	if ( !TypedOther )
+	{
+		return false;
+	}
+
+	bool bEquals = FMath::IsNearlyEqual( CurrentFocalLength, TypedOther->CurrentFocalLength );
+	bEquals = bEquals && FMath::IsNearlyEqual( CurrentAperture, TypedOther->CurrentAperture );
+	bEquals = bEquals && FilmbackSettings.Equals( TypedOther->FilmbackSettings );
+	bEquals = bEquals && LensSettings.Equals( TypedOther->LensSettings );
+	bEquals = bEquals && FocusSettings.Equals( TypedOther->FocusSettings );
+
+	return bEquals;
 }

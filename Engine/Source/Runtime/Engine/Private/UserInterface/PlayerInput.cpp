@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PlayerInput.cpp: Unreal input system.
@@ -967,7 +967,7 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 	// must be called non-recursively and on the game thread
 	check(IsInGameThread() && !AxisDelegates.Num() && !VectorAxisDelegates.Num() && !NonAxisDelegates.Num() && !KeysToConsume.Num() && !FoundChords.Num() && !EventIndices.Num() && !KeysWithEvents.Num() && !PotentialActions.Num());
 
-	// @todo, if input is coming in asynchronously, we should buffer anyhting that comes in during playerinput() and not include it
+	// @todo, if input is coming in asynchronously, we should buffer anything that comes in during playerinput() and not include it
 	// in this processing batch
 
 	APlayerController* PlayerController = GetOuterAPlayerController();

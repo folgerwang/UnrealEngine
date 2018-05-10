@@ -75,6 +75,11 @@ void UMovieSceneSpawnTrack::RemoveSection(UMovieSceneSection& Section)
 	Sections.RemoveAll([&](const UMovieSceneSection* In){ return In == &Section; });
 }
 
+void UMovieSceneSpawnTrack::RemoveAllAnimationData()
+{
+	Sections.Empty();
+}
+
 
 bool UMovieSceneSpawnTrack::IsEmpty() const
 {
@@ -119,8 +124,8 @@ ECookOptimizationFlags UMovieSceneSpawnTrack::GetCookOptimizationFlags() const
 	// Since the spawn track denotes the lifetime of a spawnable, if the object is never spawned, we can remove the entire object
 	for (UMovieSceneSection* Section : Sections)
 	{
-		UMovieSceneSpawnSection* BoolSection = CastChecked<UMovieSceneSpawnSection>(Section);
-		TMovieSceneChannel<bool> BoolChannel = BoolSection->GetChannel().GetInterface();
+		UMovieSceneSpawnSection*     BoolSection = CastChecked<UMovieSceneSpawnSection>(Section);
+		TMovieSceneChannelData<bool> BoolChannel = BoolSection->GetChannel().GetData();
 
 		if (!BoolSection->IsActive())
 		{

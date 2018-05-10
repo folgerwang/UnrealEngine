@@ -3358,7 +3358,7 @@ void FEngineLoop::Tick()
 		// We do this right after GEngine->Tick() because that is where user code would initiate a load / movie.
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_WaitForMovieToFinish);
-			GetMoviePlayer()->WaitForMovieToFinish();
+			GetMoviePlayer()->WaitForMovieToFinish(true);
 		}
 
 		if (GShaderCompilingManager)

@@ -67,7 +67,7 @@ enum class EARTrackingQuality : uint8
 /**
  * Describes the current status of the AR session.
  */
-UENUM(BlueprintType)
+UENUM(BlueprintType, meta=(ScriptName="ARSessionStatusType"))
 enum class EARSessionStatus : uint8
 {
 	/** Unreal AR session has not started yet.*/

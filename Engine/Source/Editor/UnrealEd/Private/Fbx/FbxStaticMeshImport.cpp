@@ -1577,9 +1577,6 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 
 	if (StaticMesh)
 	{
-		//warnings based on geometry
-		VerifyGeometry(StaticMesh);
-
 		ImportStaticMeshLocalSockets(StaticMesh, MeshNodeArray);
 	}
 

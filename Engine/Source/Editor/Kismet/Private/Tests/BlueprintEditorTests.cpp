@@ -253,7 +253,7 @@ namespace BlueprintEditorPromotionUtils
 		check(OldParent);
 
 		//Remove the new root from its old parent and 
-		OldParent->ChildNodes.Remove(NewRoot);
+		OldParent->RemoveChildNode(NewRoot);
 		NewRoot->Modify();
 		NewRoot->AttachToName = NAME_None;
 

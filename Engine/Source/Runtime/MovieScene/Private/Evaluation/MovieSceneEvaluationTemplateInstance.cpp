@@ -203,7 +203,7 @@ const FMovieSceneEvaluationGroup* FMovieSceneRootEvaluationTemplateInstance::Set
 
 		// Verify that this field entry is still valid (all its cached signatures are still the same)
 		TRange<FFrameNumber> InvalidatedSubSequenceRange = TRange<FFrameNumber>::Empty();
-		if (FieldMetaData.IsDirty(*RootOverrideInstance.Sequence, RootOverrideInstance.Template->Hierarchy, *TemplateStore, &InvalidatedSubSequenceRange))
+		if (FieldMetaData.IsDirty(RootOverrideInstance.Template->Hierarchy, *TemplateStore, &InvalidatedSubSequenceRange))
 		{
 			TemplateFieldIndex = INDEX_NONE;
 
@@ -449,16 +449,27 @@ void FMovieSceneRootEvaluationTemplateInstance::CallSetupTearDown(IMovieScenePla
 	}
 }
 
-bool FMovieSceneRootEvaluationTemplateInstance::IsDirty() const
+bool FMovieSceneRootEvaluationTemplateInstance::IsDirty(TSet<UMovieSceneSequence*>* OutDirtySequences) const
 {
 	if (TransientInstances.RootInstance.IsValid())
 	{
+		bool bIsDirty = false;
 		if (TransientInstances.RootInstance.Template->SequenceSignature != TransientInstances.RootInstance.Sequence->GetSignature())
 		{
-			return true;
+			if (OutDirtySequences)
+			{
+				OutDirtySequences->Add(TransientInstances.RootInstance.Sequence);
+			}
+
+			bIsDirty = true;
 		}
 
-		return LastFrameMetaData.IsDirty(*TransientInstances.RootInstance.Sequence, TransientInstances.RootInstance.Template->Hierarchy, *TemplateStore);
+		if (LastFrameMetaData.IsDirty(TransientInstances.RootInstance.Template->Hierarchy, *TemplateStore, nullptr, OutDirtySequences))
+		{
+			bIsDirty = true;
+		}
+
+		return bIsDirty;
 	}
 
 	return true;

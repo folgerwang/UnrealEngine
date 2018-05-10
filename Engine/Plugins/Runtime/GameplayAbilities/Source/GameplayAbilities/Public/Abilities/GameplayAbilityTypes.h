@@ -22,10 +22,13 @@ class UAnimInstance;
 class UAnimMontage;
 class UGameplayAbility;
 class UMovementComponent;
+class UDataTable;
+class UGameplayTask;
 
 GAMEPLAYABILITIES_API DECLARE_LOG_CATEGORY_EXTERN(LogAbilitySystemComponent, Log, All);
 
 #define ENABLE_ABILITYTASK_DEBUGMSG !(UE_BUILD_SHIPPING | UE_BUILD_TEST)
+
 
 UENUM(BlueprintType)
 namespace EGameplayAbilityInstancingPolicy
@@ -34,7 +37,6 @@ namespace EGameplayAbilityInstancingPolicy
 	 *	How the ability is instanced when executed. This limits what an ability can do in its implementation. For example, a NonInstanced
 	 *	Ability cannot have state. It is probably unsafe for an InstancedPerActor ability to have latent actions, etc.
 	 */
-
 	enum Type
 	{
 		// This ability is never instanced. Anything that executes the ability is operating on the CDO.
@@ -51,10 +53,7 @@ namespace EGameplayAbilityInstancingPolicy
 UENUM(BlueprintType)
 namespace EGameplayAbilityNetExecutionPolicy
 {
-	/**
-	 *	How does an ability execute on the network. Does a client "ask and predict", "ask and wait", "don't ask (just do it)"
-	 */
-
+	/** How does an ability execute on the network. Does a client "ask and predict", "ask and wait", "don't ask (just do it)" */
 	enum Type
 	{
 		// Part of this ability runs predictively on the local client if there is one
@@ -74,10 +73,7 @@ namespace EGameplayAbilityNetExecutionPolicy
 UENUM(BlueprintType)
 namespace EGameplayAbilityReplicationPolicy
 {
-	/**
-	 *	How an ability replicates state/events to everyone on the network.
-	 */
-
+	/** How an ability replicates state/events to everyone on the network */
 	enum Type
 	{
 		// We don't replicate the instance of the ability to anyone.
@@ -88,12 +84,10 @@ namespace EGameplayAbilityReplicationPolicy
 	};
 }
 
-
 UENUM(BlueprintType)
 namespace EGameplayAbilityTriggerSource
 {
 	/**	Defines what type of trigger will activate the ability, paired to a tag */
-
 	enum Type
 	{
 		// Triggered from a gameplay event, will come with payload
@@ -107,8 +101,6 @@ namespace EGameplayAbilityTriggerSource
 	};
 }
 
-
-// ----------------------------------------------------
 
 /**
  *	FGameplayAbilityActorInfo
@@ -176,15 +168,15 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityActorInfo
 	virtual void ClearActorInfo();
 };
 
-// ----------------------------------------------------
 
+/** Used as a key for storing internal ability data */
 USTRUCT()
 struct FGameplayAbilitySpecHandleAndPredictionKey
 {
 	GENERATED_USTRUCT_BODY()
 
 	FGameplayAbilitySpecHandleAndPredictionKey()
-	: PredictionKeyAtCreation(0)
+		: PredictionKeyAtCreation(0)
 	{}
 
 	FGameplayAbilitySpecHandleAndPredictionKey(const FGameplayAbilitySpecHandle& HandleRef, const FPredictionKey& PredictionKeyAtCreationRef)
@@ -214,9 +206,6 @@ private:
 	UPROPERTY()
 	int32 PredictionKeyAtCreation;
 };
-
-
-// ----------------------------------------------------
 
 
 /** Data about montages that is replicated to simulated clients */
@@ -253,6 +242,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityRepAnimMontage
 	UPROPERTY()
 	uint8 ForcePlayBit : 1;
 
+	/** Stops montage position from replicating at all to save bandwidth */
 	UPROPERTY()
 	uint8 SkipPositionCorrection : 1;
 
@@ -272,6 +262,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityRepAnimMontage
 	FPredictionKey PredictionKey;
 };
 
+
 /** Data about montages that were played locally (all montages in case of server. predictive montages in case of client). Never replicated directly. */
 USTRUCT()
 struct GAMEPLAYABILITIES_API FGameplayAbilityLocalAnimMontage
@@ -279,16 +270,19 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityLocalAnimMontage
 	GENERATED_USTRUCT_BODY()
 
 	FGameplayAbilityLocalAnimMontage()
-	: AnimMontage(nullptr), PlayBit(false), AnimatingAbility(nullptr)
+		: AnimMontage(nullptr), PlayBit(false), AnimatingAbility(nullptr)
 	{
 	}
 
+	/** What montage is being played */
 	UPROPERTY()
 	UAnimMontage* AnimMontage;
 
+	/** Rather the montage is actively playing */
 	UPROPERTY()
 	bool PlayBit;
 
+	/** Prediction key that started the montage play */
 	UPROPERTY()
 	FPredictionKey PredictionKey;
 
@@ -297,71 +291,76 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityLocalAnimMontage
 	UGameplayAbility* AnimatingAbility;
 };
 
-// ----------------------------------------------------
 
+/** Metadata for a tag-based Gameplay Event, that can activate other abilities or run ability-specific logic */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayEventData
 {
 	GENERATED_USTRUCT_BODY()
 
 	FGameplayEventData()
-	: Instigator(nullptr)
-	, Target(nullptr)
-	, OptionalObject(nullptr)
-	, OptionalObject2(nullptr)
-	, EventMagnitude(0.f)
+		: Instigator(nullptr)
+		, Target(nullptr)
+		, OptionalObject(nullptr)
+		, OptionalObject2(nullptr)
+		, EventMagnitude(0.f)
 	{
 	}
 	
-	// Tag of the event that triggered this
+	/** Tag of the event that triggered this */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
 	FGameplayTag EventTag;
 
-	// The instigator of the event
+	/** The instigator of the event */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
 	const AActor* Instigator;
 
-	// The target of the event
+	/** The target of the event */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
 	const AActor* Target;
 
-	// An optional ability-specific object to be passed though the event
+	/** An optional ability-specific object to be passed though the event */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
 	const UObject* OptionalObject;
 
-	// A second optional ability-specific object to be passed though the event
+	/** A second optional ability-specific object to be passed though the event */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
 	const UObject* OptionalObject2;
 
-	// Polymorphic context information
+	/** Polymorphic context information */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
 	FGameplayEffectContextHandle ContextHandle;
 
-	// Tags that the instigator has
+	/** Tags that the instigator has */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
 	FGameplayTagContainer InstigatorTags;
 
-	// Tags that the target has
+	/** Tags that the target has */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
 	FGameplayTagContainer TargetTags;
 
-	// The magnitude of the triggering event
+	/** The magnitude of the triggering event */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
 	float EventMagnitude;
 
-	// The magnitude of the triggering event
+	/** The polymorphic target information for the event */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
-	FGameplayAbilityTargetDataHandle	TargetData;
+	FGameplayAbilityTargetDataHandle TargetData;
 };
 
-/** Used for cleaning up predicted data on network clients */
+/** Delegate for handling gameplay event data */
 DECLARE_MULTICAST_DELEGATE_OneParam(FGameplayEventMulticastDelegate, const FGameplayEventData*);
+
+/** Delegate for handling gameplay event data, includes tag as the Event Data does not always have it filled out */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FGameplayEventTagMulticastDelegate, FGameplayTag, const FGameplayEventData*);
+
 
 /** Ability Ended Data */
 USTRUCT(BlueprintType)
 struct FAbilityEndedData
 {
 	GENERATED_USTRUCT_BODY()
+
 	FAbilityEndedData()
 		: AbilityThatEnded(nullptr)
 		, bReplicateEndAbility(false)
@@ -377,15 +376,19 @@ struct FAbilityEndedData
 	{
 	}
 
+	/** Ability that ended, normally instance but could be CDO */
 	UPROPERTY()
 	UGameplayAbility* AbilityThatEnded;
 
+	/** Specific ability spec that ended */
 	UPROPERTY()
 	FGameplayAbilitySpecHandle AbilitySpecHandle;
 
+	/** Rather to replicate the ability to ending */
 	UPROPERTY()
 	bool bReplicateEndAbility;
 
+	/** True if this was cancelled deliberately, false if it ended normally */
 	UPROPERTY()
 	bool bWasCancelled;
 };
@@ -393,18 +396,16 @@ struct FAbilityEndedData
 /** Notification delegate definition for when the gameplay ability ends */
 DECLARE_MULTICAST_DELEGATE_OneParam(FGameplayAbilityEndedDelegate, const FAbilityEndedData&);
 
-/** 
- *	Structure that tells AbilitySystemComponent what to bind to an InputComponent (see BindAbilityActivationToInputComponent) 
- *	
- */
+
+/** Structure that tells AbilitySystemComponent what to bind to an InputComponent (see BindAbilityActivationToInputComponent) */
 struct FGameplayAbilityInputBinds
 {
 	FGameplayAbilityInputBinds(FString InConfirmTargetCommand, FString InCancelTargetCommand, FString InEnumName, int32 InConfirmTargetInputID = INDEX_NONE, int32 InCancelTargetInputID = INDEX_NONE)
-	: ConfirmTargetCommand(InConfirmTargetCommand)
-	, CancelTargetCommand(InCancelTargetCommand)
-	, EnumName(InEnumName)
-	, ConfirmTargetInputID(InConfirmTargetInputID)
-	, CancelTargetInputID(InCancelTargetInputID)
+		: ConfirmTargetCommand(InConfirmTargetCommand)
+		, CancelTargetCommand(InCancelTargetCommand)
+		, EnumName(InEnumName)
+		, ConfirmTargetInputID(InConfirmTargetInputID)
+		, CancelTargetInputID(InCancelTargetInputID)
 	{ }
 
 	/** Defines command string that will be bound to Confirm Targeting */
@@ -419,32 +420,45 @@ struct FGameplayAbilityInputBinds
 	/** If >=0, Confirm is bound to an entry in the enum */
 	int32 ConfirmTargetInputID;
 
-	/** If >=0, Confirm is bound to an entry in the enum */
+	/** If >=0, Cancel is bound to an entry in the enum */
 	int32 CancelTargetInputID;
 
 	UEnum* GetBindEnum() { return FindObject<UEnum>(ANY_PACKAGE, *EnumName); }
 };
 
+
+/** Used to initialize default values for attributes */
 USTRUCT()
 struct GAMEPLAYABILITIES_API FAttributeDefaults
 {
 	GENERATED_USTRUCT_BODY()
 
+	FAttributeDefaults()
+		: DefaultStartingTable(nullptr)
+	{ }
+
 	UPROPERTY(EditAnywhere, Category = "AttributeTest")
 	TSubclassOf<UAttributeSet> Attributes;
 
 	UPROPERTY(EditAnywhere, Category = "AttributeTest")
-	class UDataTable*	DefaultStartingTable;
+	UDataTable* DefaultStartingTable;
 };
 
+
+/** Debug message emitted by ability tasks */
 USTRUCT()
 struct GAMEPLAYABILITIES_API FAbilityTaskDebugMessage
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY()
-	class UGameplayTask*	FromTask;
+	FAbilityTaskDebugMessage()
+		: FromTask(nullptr)
+	{ }
 
+	UPROPERTY()
+	UGameplayTask*	FromTask;
+
+	UPROPERTY()
 	FString Message;
 };
 
@@ -454,7 +468,6 @@ DECLARE_MULTICAST_DELEGATE(FAbilitySystemComponentPredictionKeyClear);
 /** Generic delegate for ability 'events'/notifies */
 DECLARE_MULTICAST_DELEGATE_OneParam(FGenericAbilityDelegate, UGameplayAbility*);
 
-// ----------------------------------------------------
 
 /** This struct holds state to batch server RPC calls: ServerTryActivateAbility, ServerSetReplicatedTargetData, ServerEndAbility.  */
 USTRUCT()
@@ -492,6 +505,7 @@ struct FServerAbilityRPCBatch
 		return AbilitySpecHandle == InHandle;
 	}
 };
+
 
 /** Helper struct for defining ServerRPC batch windows. If null ASC is passed in, this becomes a noop. */
 struct GAMEPLAYABILITIES_API FScopedServerAbilityRPCBatcher

@@ -3705,8 +3705,23 @@ void APlayerController::ClientStopForceFeedback_Implementation( UForceFeedbackEf
 
 /// @endcond
 
+uint64 APlayerController::FDynamicForceFeedbackAction::HandleAllocator = 0;
+
+bool APlayerController::FDynamicForceFeedbackAction::Update(const float DeltaTime, FForceFeedbackValues& Values)
+{
+	TimeElapsed += DeltaTime;
+
+	if (TotalTime >= 0.f && TimeElapsed >= TotalTime)
+	{
+		return false;
+	}
+
+	ForceFeedbackDetails.Update(Values);
+	return true;
+}
+
 /** Action that interpolates a component over time to a desired position */
-class FDynamicForceFeedbackAction : public FPendingLatentAction
+class FLatentDynamicForceFeedbackAction : public FPendingLatentAction
 {
 public:
 	/** Time over which interpolation should happen */
@@ -3714,8 +3729,10 @@ public:
 	/** Time so far elapsed for the interpolation */
 	float TimeElapsed;
 	/** If we are currently running. If false, update will complete */
-	uint32 bRunning:1;
-	
+	uint8 bRunning:1;
+	/** Whether the latent action is currently in the player controller's array */
+	uint8 bAddedToPlayerController:1;
+
 	TWeakObjectPtr<APlayerController> PlayerController;
 
 	FDynamicForceFeedbackDetails ForceFeedbackDetails;
@@ -3729,16 +3746,28 @@ public:
 	/** Object to call callback on upon completion */
 	FWeakObjectPtr CallbackTarget;
 
-	FDynamicForceFeedbackAction(APlayerController* InPlayerController, const float InDuration, const FLatentActionInfo& LatentInfo)
+	FLatentDynamicForceFeedbackAction(APlayerController* InPlayerController, const float InDuration, const FLatentActionInfo& LatentInfo)
 		: TotalTime(InDuration)
 		, TimeElapsed(0.f)
 		, bRunning(true)
+		, bAddedToPlayerController(false)
 		, PlayerController(InPlayerController)
 		, ExecutionFunction(LatentInfo.ExecutionFunction)
 		, OutputLink(LatentInfo.Linkage)
 		, LatentUUID(LatentInfo.UUID)
 		, CallbackTarget(LatentInfo.CallbackTarget)
 	{
+	}
+
+	~FLatentDynamicForceFeedbackAction()
+	{
+		if (bAddedToPlayerController)
+		{
+			if (APlayerController* PC = PlayerController.Get())
+			{
+				PC->LatentDynamicForceFeedbacks.Remove(LatentUUID);
+			}
+		}
 	}
 
 	virtual void UpdateOperation(FLatentResponse& Response) override
@@ -3752,11 +3781,13 @@ public:
 		{
 			if (bComplete)
 			{
-				PC->DynamicForceFeedbacks.Remove(LatentUUID);
+				PC->LatentDynamicForceFeedbacks.Remove(LatentUUID);
+				bAddedToPlayerController = false;
 			}
 			else
 			{
-				PC->DynamicForceFeedbacks.Add(LatentUUID, ForceFeedbackDetails);
+				PC->LatentDynamicForceFeedbacks.Add(LatentUUID, &ForceFeedbackDetails);
+				bAddedToPlayerController = true;
 			}
 		}
 
@@ -3767,7 +3798,8 @@ public:
 	{
 		if (APlayerController* PC = PlayerController.Get())
 		{
-			PC->DynamicForceFeedbacks.Remove(LatentUUID);
+			PC->LatentDynamicForceFeedbacks.Remove(LatentUUID);
+			bAddedToPlayerController = false;
 		}
 	}
 
@@ -3775,7 +3807,8 @@ public:
 	{
 		if (APlayerController* PC = PlayerController.Get())
 		{
-			PC->DynamicForceFeedbacks.Remove(LatentUUID);
+			PC->LatentDynamicForceFeedbacks.Remove(LatentUUID);
+			bAddedToPlayerController = false;
 		}
 	}
 };
@@ -3783,7 +3816,7 @@ public:
 void APlayerController::PlayDynamicForceFeedback(float Intensity, float Duration, bool bAffectsLeftLarge, bool bAffectsLeftSmall, bool bAffectsRightLarge, bool bAffectsRightSmall, TEnumAsByte<EDynamicForceFeedbackAction::Type> Action, FLatentActionInfo LatentInfo)
 {
 	FLatentActionManager& LatentActionManager = GetWorld()->GetLatentActionManager();
-	FDynamicForceFeedbackAction* LatentAction = LatentActionManager.FindExistingAction<FDynamicForceFeedbackAction>(LatentInfo.CallbackTarget, LatentInfo.UUID);
+	FLatentDynamicForceFeedbackAction* LatentAction = LatentActionManager.FindExistingAction<FLatentDynamicForceFeedbackAction>(LatentInfo.CallbackTarget, LatentInfo.UUID);
 
 	if (LatentAction)
 	{
@@ -3809,7 +3842,7 @@ void APlayerController::PlayDynamicForceFeedback(float Intensity, float Duration
 	}
 	else if (Action == EDynamicForceFeedbackAction::Start)
 	{
-		LatentAction = new FDynamicForceFeedbackAction(this, Duration, LatentInfo);
+		LatentAction = new FLatentDynamicForceFeedbackAction(this, Duration, LatentInfo);
 
 		LatentAction->ForceFeedbackDetails.Intensity = Intensity;
 		LatentAction->ForceFeedbackDetails.bAffectsLeftLarge = bAffectsLeftLarge;
@@ -3819,6 +3852,64 @@ void APlayerController::PlayDynamicForceFeedback(float Intensity, float Duration
 
 		LatentActionManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, LatentAction);
 	}
+}
+
+FDynamicForceFeedbackHandle APlayerController::PlayDynamicForceFeedback(float Intensity, float Duration, bool bAffectsLeftLarge, bool bAffectsLeftSmall, bool bAffectsRightLarge, bool bAffectsRightSmall, EDynamicForceFeedbackAction::Type Action, FDynamicForceFeedbackHandle ActionHandle)
+{
+	FDynamicForceFeedbackHandle FeedbackHandle = 0;
+
+	if (Action == EDynamicForceFeedbackAction::Stop)
+	{
+		if (ActionHandle > 0)
+		{
+			DynamicForceFeedbacks.Remove(ActionHandle);
+		}
+	}
+	else
+	{
+		FDynamicForceFeedbackAction* FeedbackAction = (ActionHandle > 0 ? DynamicForceFeedbacks.Find(ActionHandle) : nullptr);
+
+		if (FeedbackAction == nullptr && Action == EDynamicForceFeedbackAction::Start)
+		{
+			if (ActionHandle > 0)
+			{
+				if (ActionHandle <= FDynamicForceFeedbackAction::HandleAllocator)
+				{
+					// Restarting a stopped/finished index, this is fine
+					FeedbackAction = &DynamicForceFeedbacks.Add(ActionHandle);
+					FeedbackAction->Handle = ActionHandle;
+				}
+				else
+				{
+					UE_LOG(LogPlayerController, Error, TEXT("Specifying an ID to start a dynamic force feedback with that has not yet been assigned is unsafe. No action has been started."));
+				}
+			}
+			else
+			{
+				FeedbackAction = &DynamicForceFeedbacks.Add(++FDynamicForceFeedbackAction::HandleAllocator);
+				FeedbackAction->Handle = FDynamicForceFeedbackAction::HandleAllocator;
+			}
+		}
+
+		if (FeedbackAction)
+		{
+			if (Action == EDynamicForceFeedbackAction::Start)
+			{
+				FeedbackAction->TotalTime = Duration;
+				FeedbackAction->TimeElapsed = 0.f;
+			}
+
+			FeedbackAction->ForceFeedbackDetails.Intensity = Intensity;
+			FeedbackAction->ForceFeedbackDetails.bAffectsLeftLarge = bAffectsLeftLarge;
+			FeedbackAction->ForceFeedbackDetails.bAffectsLeftSmall = bAffectsLeftSmall;
+			FeedbackAction->ForceFeedbackDetails.bAffectsRightLarge = bAffectsRightLarge;
+			FeedbackAction->ForceFeedbackDetails.bAffectsRightSmall = bAffectsRightSmall;
+
+			FeedbackHandle = FeedbackAction->Handle;
+		}
+	}
+
+	return FeedbackHandle;
 }
 
 void APlayerController::PlayHapticEffect(UHapticFeedbackEffect_Base* HapticEffect, EControllerHand Hand, float Scale, bool bLoop)
@@ -3962,9 +4053,17 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 			}
 		}
 
-		for (const TPair<int32, FDynamicForceFeedbackDetails>& DynamicEntry : DynamicForceFeedbacks)
+		for (TSortedMap<uint64, FDynamicForceFeedbackAction>::TIterator It(DynamicForceFeedbacks.CreateIterator()); It; ++It)
 		{
-			DynamicEntry.Value.Update(ForceFeedbackValues);
+			if (!It.Value().Update(DeltaTime, ForceFeedbackValues))
+			{
+				It.RemoveCurrent();
+			}
+		}
+
+		for (const TPair<int32, FDynamicForceFeedbackDetails*>& DynamicEntry : LatentDynamicForceFeedbacks)
+		{
+			DynamicEntry.Value->Update(ForceFeedbackValues);
 		}
 
 		if (FForceFeedbackManager* ForceFeedbackManager = FForceFeedbackManager::Get(World))

@@ -119,7 +119,8 @@ struct ESkeletalMeshVertexFlags
 	{
 		None = 0x0,
 		UseFullPrecisionUVs = 0x1,
-		HasVertexColors = 0x2
+		HasVertexColors = 0x2,
+		UseHighPrecisionTangentBasis = 0x4
 	};
 };
 

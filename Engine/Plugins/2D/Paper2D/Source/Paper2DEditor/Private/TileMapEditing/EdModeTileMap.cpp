@@ -170,7 +170,9 @@ void FEdModeTileMap::Enter()
 	CursorPreviewComponent->TileMap->InitializeNewEmptyTileMap();
 	CursorPreviewComponent->TranslucencySortPriority = 99999;
 	CursorPreviewComponent->bShowPerTileGridWhenSelected = false;
+	CursorPreviewComponent->bShowPerTileGridWhenUnselected = false;
 	CursorPreviewComponent->bShowPerLayerGridWhenSelected = false;
+	CursorPreviewComponent->bShowPerLayerGridWhenUnselected = false;
 	CursorPreviewComponent->bShowOutlineWhenUnselected = false;
 	CursorPreviewComponent->UpdateBounds();
 	CursorPreviewComponent->AddToRoot();

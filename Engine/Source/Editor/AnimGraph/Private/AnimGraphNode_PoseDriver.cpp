@@ -96,7 +96,7 @@ void UAnimGraphNode_PoseDriver::ValidateAnimNodeDuringCompilation(USkeleton* For
 {
 	if (Node.SourceBones.Num() == 0)
 	{
-		MessageLog.Warning(*LOCTEXT("PoseDriver_NoSourceBone", "You must specify at least one Source Bone").ToString(), this);
+		MessageLog.Warning(*LOCTEXT("PoseDriver_NoSourceBone", "@@ - You must specify at least one Source Bone").ToString(), this);
 	}
 
 	FName MissingBoneName = NAME_None;
@@ -111,7 +111,7 @@ void UAnimGraphNode_PoseDriver::ValidateAnimNodeDuringCompilation(USkeleton* For
 
 	if(MissingBoneName != NAME_None)
 	{
-		MessageLog.Warning(*LOCTEXT("SourceBoneNotFound", "Entry in SourceBones not found").ToString(), this);
+		MessageLog.Warning(*LOCTEXT("SourceBoneNotFound", "@@ - Entry in SourceBones not found").ToString(), this);
 	}
 
 	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);

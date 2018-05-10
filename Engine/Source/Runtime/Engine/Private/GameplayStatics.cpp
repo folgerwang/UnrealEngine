@@ -2355,7 +2355,7 @@ bool UGameplayStatics::ProjectWorldToScreen(APlayerController const* Player, con
 				ScreenPosition -= FVector2D(ProjectionData.GetConstrainedViewRect().Min);
 			}
 
-			bResult = Player->PostProcessWorldToScreen(WorldPosition, ScreenPosition, bPlayerViewportRelative);
+			bResult = bResult && Player->PostProcessWorldToScreen(WorldPosition, ScreenPosition, bPlayerViewportRelative);
 			return bResult;
 		}
 	}

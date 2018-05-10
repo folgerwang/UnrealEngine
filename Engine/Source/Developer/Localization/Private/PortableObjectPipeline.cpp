@@ -552,7 +552,8 @@ bool PortableObjectPipeline::Import(FLocTextHelper& InLocTextHelper, const FStri
 bool PortableObjectPipeline::ImportAll(FLocTextHelper& InLocTextHelper, const FString& InPOCultureRootPath, const FString& InPOFilename, const ELocalizedTextCollapseMode InTextCollapseMode, const bool bUseCultureDirectory)
 {
 	// We may only have a single culture if using this setting
-	if (!bUseCultureDirectory && InLocTextHelper.GetAllCultures().Num() > 1)
+	const bool bSingleCultureMode = !bUseCultureDirectory;
+	if (bSingleCultureMode && InLocTextHelper.GetAllCultures(bSingleCultureMode).Num() != 1)
 	{
 		UE_LOG(LogPortableObjectPipeline, Error, TEXT("bUseCultureDirectory may only be used with a single culture."));
 		return false;
@@ -564,7 +565,7 @@ bool PortableObjectPipeline::ImportAll(FLocTextHelper& InLocTextHelper, const FS
 
 	// Process the desired cultures
 	bool bSuccess = true;
-	for (const FString& CultureName : InLocTextHelper.GetAllCultures())
+	for (const FString& CultureName : InLocTextHelper.GetAllCultures(bSingleCultureMode))
 	{
 		// Which path should we use for the PO?
 		FString POFilePath;
@@ -595,7 +596,8 @@ bool PortableObjectPipeline::Export(FLocTextHelper& InLocTextHelper, const FStri
 bool PortableObjectPipeline::ExportAll(FLocTextHelper& InLocTextHelper, const FString& InPOCultureRootPath, const FString& InPOFilename, const ELocalizedTextCollapseMode InTextCollapseMode, const bool bShouldPersistComments, const bool bUseCultureDirectory)
 {
 	// We may only have a single culture if using this setting
-	if (!bUseCultureDirectory && InLocTextHelper.GetAllCultures().Num() > 1)
+	const bool bSingleCultureMode = !bUseCultureDirectory;
+	if (bSingleCultureMode && InLocTextHelper.GetAllCultures(bSingleCultureMode).Num() != 1)
 	{
 		UE_LOG(LogPortableObjectPipeline, Error, TEXT("bUseCultureDirectory may only be used with a single culture."));
 		return false;
@@ -614,7 +616,7 @@ bool PortableObjectPipeline::ExportAll(FLocTextHelper& InLocTextHelper, const FS
 
 	// Process the desired cultures
 	bool bSuccess = true;
-	for (const FString& CultureName : InLocTextHelper.GetAllCultures())
+	for (const FString& CultureName : InLocTextHelper.GetAllCultures(bSingleCultureMode))
 	{
 		// Which path should we use for the PO?
 		FString POFilePath;

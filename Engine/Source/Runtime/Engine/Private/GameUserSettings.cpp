@@ -56,6 +56,7 @@ enum EGameUserSettingsVersion
 UGameUserSettings::UGameUserSettings(const FObjectInitializer& ObjectInitializer)
 :	Super(ObjectInitializer)
 {
+	// this will only call the base version of SetToDefaults but some constructors may rely on it being set
 	SetToDefaults();
 }
 

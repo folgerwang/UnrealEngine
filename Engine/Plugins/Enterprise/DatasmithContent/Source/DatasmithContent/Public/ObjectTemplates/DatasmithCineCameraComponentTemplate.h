@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Engine/Scene.h"
 #include "ObjectTemplates/DatasmithObjectTemplate.h"
 
 #include "DatasmithCineCameraComponentTemplate.generated.h"
@@ -23,6 +24,7 @@ struct FDatasmithCameraFilmbackSettingsTemplate
 
 	void Apply( FCameraFilmbackSettings* Destination, const FDatasmithCameraFilmbackSettingsTemplate* PreviousTemplate );
 	void Load( const FCameraFilmbackSettings& Source );
+	bool Equals( const FDatasmithCameraFilmbackSettingsTemplate& Other ) const;
 };
 
 USTRUCT()
@@ -35,6 +37,7 @@ struct FDatasmithCameraLensSettingsTemplate
 
 	void Apply( FCameraLensSettings* Destination, const FDatasmithCameraLensSettingsTemplate* PreviousTemplate );
 	void Load( const FCameraLensSettings& Source );
+	bool Equals( const FDatasmithCameraLensSettingsTemplate& Other ) const;
 };
 
 USTRUCT()
@@ -47,6 +50,7 @@ struct FDatasmithCameraFocusSettingsTemplate
 
 	void Apply( FCameraFocusSettings* Destination, const FDatasmithCameraFocusSettingsTemplate* PreviousTemplate );
 	void Load( const FCameraFocusSettings& Source );
+	bool Equals( const FDatasmithCameraFocusSettingsTemplate& Other ) const;
 };
 
 USTRUCT()
@@ -70,6 +74,12 @@ public:
 	uint32 bOverride_FilmWhitePoint:1;
 
 	UPROPERTY()
+	uint32 bOverride_AutoExposureMethod:1;
+
+	UPROPERTY()
+	uint32 bOverride_CameraISO:1;
+
+	UPROPERTY()
 	float WhiteTemp;
 
 	UPROPERTY()
@@ -81,8 +91,15 @@ public:
 	UPROPERTY()
 	FVector4 ColorSaturation;
 
+	UPROPERTY()
+	TEnumAsByte< enum EAutoExposureMethod > AutoExposureMethod;
+
+	UPROPERTY()
+	float CameraISO;
+
 	void Apply( struct FPostProcessSettings* Destination, const FDatasmithPostProcessSettingsTemplate* PreviousTemplate );
 	void Load( const FPostProcessSettings& Source );
+	bool Equals( const FDatasmithPostProcessSettingsTemplate& Other ) const;
 };
 
 UCLASS()
@@ -111,4 +128,5 @@ public:
 
 	virtual void Apply( UObject* Destination, bool bForce = false ) override;
 	virtual void Load( const UObject* Source ) override;
+	virtual bool Equals( const UDatasmithObjectTemplate* Other ) const override;
 };

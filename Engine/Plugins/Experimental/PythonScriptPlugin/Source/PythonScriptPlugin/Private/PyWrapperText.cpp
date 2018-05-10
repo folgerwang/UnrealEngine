@@ -149,12 +149,11 @@ bool ExtractFormatArguments(FPyWrapperText* InSelf, PyObject* InObj, const int32
 
 } // PyTextUtil
 
-void InitializePyWrapperText(PyObject* PyModule)
+void InitializePyWrapperText(PyGenUtil::FNativePythonModule& ModuleInfo)
 {
 	if (PyType_Ready(&PyWrapperTextType) == 0)
 	{
-		Py_INCREF(&PyWrapperTextType);
-		PyModule_AddObject(PyModule, PyWrapperTextType.tp_name, (PyObject*)&PyWrapperTextType);
+		ModuleInfo.AddType(&PyWrapperTextType);
 	}
 }
 
@@ -448,23 +447,23 @@ PyTypeObject InitializePyWrapperTextType()
 	};
 
 	static PyMethodDef PyMethods[] = {
-		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_CLASS, "X.cast(object) -> FText -- cast the given object to this Unreal text type" },
-		{ "as_number", PyCFunctionCast(&FMethods::AsNumber), METH_VARARGS | METH_CLASS, "X.as_number(num) -> FText -- convert the given number to a culture correct Unreal text representation" },
-		{ "as_percent", PyCFunctionCast(&FMethods::AsPercent), METH_VARARGS | METH_CLASS, "X.as_percent(num) -> FText -- convert the given number to a culture correct Unreal text percentgage representation" },
-		{ "as_currency", PyCFunctionCast(&FMethods::AsCurrency), METH_VARARGS | METH_CLASS, "X.as_currency(val, code) -> FText -- convert the given number (specified in the smallest unit for the given currency) to a culture correct Unreal text currency representation" },
+		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_CLASS, "X.cast(object) -> Text -- cast the given object to this Unreal text type" },
+		{ "as_number", PyCFunctionCast(&FMethods::AsNumber), METH_VARARGS | METH_CLASS, "X.as_number(num) -> Text -- convert the given number to a culture correct Unreal text representation" },
+		{ "as_percent", PyCFunctionCast(&FMethods::AsPercent), METH_VARARGS | METH_CLASS, "X.as_percent(num) -> Text -- convert the given number to a culture correct Unreal text percentgage representation" },
+		{ "as_currency", PyCFunctionCast(&FMethods::AsCurrency), METH_VARARGS | METH_CLASS, "X.as_currency(val, code) -> Text -- convert the given number (specified in the smallest unit for the given currency) to a culture correct Unreal text currency representation" },
 		// todo: datetime?
 		{ "is_empty", PyCFunctionCast(&FMethods::IsEmpty), METH_NOARGS, "x.is_empty() -> bool -- is this Unreal text empty?" },
 		{ "is_empty_or_whitespace", PyCFunctionCast(&FMethods::IsEmptyOrWhitespace), METH_NOARGS, "x.is_empty_or_whitespace() -> bool -- is this Unreal text empty or only whitespace?" },
 		{ "is_transient", PyCFunctionCast(&FMethods::IsTransient), METH_NOARGS, "x.is_transient() -> bool -- is this Unreal text transient?" },
 		{ "is_culture_invariant", PyCFunctionCast(&FMethods::IsEmptyOrWhitespace), METH_NOARGS, "x.is_culture_invariant() -> bool -- is this Unreal text culture invariant?" },
 		{ "is_from_string_table", PyCFunctionCast(&FMethods::IsFromStringTable), METH_NOARGS, "x.is_from_string_table() -> bool -- is this Unreal text referencing a string table entry?" },
-		{ "to_lower", PyCFunctionCast(&FMethods::ToLower), METH_NOARGS, "x.to_lower() -> FText -- convert this Unreal text to lowercase in a culture correct way" },
-		{ "to_upper", PyCFunctionCast(&FMethods::ToUpper), METH_NOARGS, "x.to_upper() -> FText -- convert this Unreal text to uppercase in a culture correct way" },
-		{ "format", PyCFunctionCast(&FMethods::Format), METH_VARARGS | METH_KEYWORDS, "x.format(...) -> FText -- use this Unreal text as a format pattern and generate a new text using the format arguments (may be a mapping, sequence, or set of (optionally named) arguments)" },
+		{ "to_lower", PyCFunctionCast(&FMethods::ToLower), METH_NOARGS, "x.to_lower() -> Text -- convert this Unreal text to lowercase in a culture correct way" },
+		{ "to_upper", PyCFunctionCast(&FMethods::ToUpper), METH_NOARGS, "x.to_upper() -> Text -- convert this Unreal text to uppercase in a culture correct way" },
+		{ "format", PyCFunctionCast(&FMethods::Format), METH_VARARGS | METH_KEYWORDS, "x.format(...) -> Text -- use this Unreal text as a format pattern and generate a new text using the format arguments (may be a mapping, sequence, or set of (optionally named) arguments)" },
 		{ nullptr, nullptr, 0, nullptr }
 	};
 
-	PyTypeObject PyType = InitializePyWrapperBasicType<FPyWrapperText>("Text", "Type for all UE4 exposed FText instances");
+	PyTypeObject PyType = InitializePyWrapperBasicType<FPyWrapperText>("Text", "Type for all UE4 exposed text instances");
 
 	PyType.tp_init = (initproc)&FFuncs::Init;
 	PyType.tp_str = (reprfunc)&FFuncs::Str;

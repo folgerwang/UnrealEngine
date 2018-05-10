@@ -49,9 +49,9 @@ UMovieSceneSkeletalAnimationSection::UMovieSceneSkeletalAnimationSection( const 
 
 	PreviousPlayRate = Params.PlayRate;
 
-	static FMovieSceneChannelEditorData EditorData("Weight", LOCTEXT("WeightChannelName", "Weight"));
-	EditorData.bCanCollapseToTrack = false;
-	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(Params.Weight, EditorData, TMovieSceneExternalValue<float>());
+	static FMovieSceneChannelMetaData MetaData("Weight", LOCTEXT("WeightChannelName", "Weight"));
+	MetaData.bCanCollapseToTrack = false;
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(Params.Weight, MetaData, TMovieSceneExternalValue<float>());
 
 #else
 

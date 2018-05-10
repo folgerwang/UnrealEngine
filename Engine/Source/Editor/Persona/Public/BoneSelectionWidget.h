@@ -56,8 +56,8 @@ public:
 	*/
 	void Construct(const FArguments& InArgs);
 
-	//Filter text widget
-	TSharedPtr<SSearchBox> FilterTextWidget;
+	/** Get the filter text widget, e.g. for focus */
+	TSharedPtr<SWidget> GetFilterTextWidget();
 
 private:
 
@@ -83,9 +83,11 @@ private:
 	// Text to filter bone tree with
 	FText FilterText;
 
-
 	// Tree view used in the button menu
 	TSharedPtr<STreeView<TSharedPtr<FBoneNameInfo>>> TreeView;
+
+	//Filter text widget
+	TSharedPtr<SSearchBox> FilterTextWidget;
 
 	FOnBoneSelectionChanged OnSelectionChangedDelegate;
 	FGetReferenceSkeleton	OnGetReferenceSkeletonDelegate;

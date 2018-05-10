@@ -17,13 +17,10 @@ class ENGINE_API UBlueprintSetLibrary : public UBlueprintFunctionLibrary
 
 public:
 	/** 
-	 * Adds item to set. Output value indicates whether the item was successfully added, meaning an 
-	 * output of False indicates the item was already in the Set.
+	 * Adds item to set
 	 *
 	 * @param	TargetSet		The set to add item to
 	 * @param	NewItem			The item to add to the set
-	 * @return	True if NewItem was added to the set (False indicates an equivalent item was present)
-	 * 
 	 */
 	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Add", CompactNodeTitle = "ADD", SetParam = "TargetSet|NewItem", AutoCreateRefTerm = "NewItem"), Category="Utilities|Set")
 	static void Set_Add(const TSet<int32>& TargetSet, const int32& NewItem);

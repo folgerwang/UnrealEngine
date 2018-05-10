@@ -141,6 +141,8 @@ void UAnimGraphNode_AimOffsetLookAt::SetAnimationAsset(UAnimationAsset* Asset)
 
 void UAnimGraphNode_AimOffsetLookAt::ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog)
 {
+	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
+
 	UBlendSpaceBase* BlendSpaceToCheck = Node.BlendSpace;
 	UEdGraphPin* BlendSpacePin = FindPin(GET_MEMBER_NAME_STRING_CHECKED(FAnimNode_AimOffsetLookAt, BlendSpace));
 	if (BlendSpacePin != nullptr && BlendSpaceToCheck == nullptr)

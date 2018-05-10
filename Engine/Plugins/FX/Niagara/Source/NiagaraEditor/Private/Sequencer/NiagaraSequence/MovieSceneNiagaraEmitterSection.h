@@ -7,6 +7,7 @@
 #include "MovieSceneKeyStruct.h"
 #include "MovieSceneClipboard.h"
 #include "Channels/MovieSceneChannel.h"
+#include "Channels/MovieSceneChannelData.h"
 #include "FrameNumber.h"
 #include "MovieSceneNiagaraEmitterSection.generated.h"
 
@@ -59,25 +60,18 @@ namespace MovieSceneClipboard
 }
 
 USTRUCT()
-struct FMovieSceneNiagaraEmitterChannel
+struct FMovieSceneNiagaraEmitterChannel : public FMovieSceneChannel
 {
 	GENERATED_BODY()
-
-	/**
-	 * Access an integer that uniquely identifies this channel type.
-	 *
-	 * @return A static identifier that was allocated using FMovieSceneChannelEntry::RegisterNewID
-	 */
-	NIAGARAEDITOR_API static uint32 GetChannelID();
 
 	/**
 	 * Access a mutable interface for this channel
 	 *
 	 * @return An object that is able to manipulate this channel
 	 */
-	FORCEINLINE TMovieSceneChannel<FMovieSceneBurstKey> GetInterface()
+	FORCEINLINE TMovieSceneChannelData<FMovieSceneBurstKey> GetData()
 	{
-		return TMovieSceneChannel<FMovieSceneBurstKey>(&Times, &Values, &KeyHandles);
+		return TMovieSceneChannelData<FMovieSceneBurstKey>(&Times, &Values, &KeyHandles);
 	}
 
 	/**
@@ -85,9 +79,9 @@ struct FMovieSceneNiagaraEmitterChannel
 	 *
 	 * @return An object that is able to interrogate this channel
 	 */
-	FORCEINLINE TMovieSceneChannel<const FMovieSceneBurstKey> GetInterface() const
+	FORCEINLINE TMovieSceneChannelData<const FMovieSceneBurstKey> GetData() const
 	{
-		return TMovieSceneChannel<const FMovieSceneBurstKey>(&Times, &Values);
+		return TMovieSceneChannelData<const FMovieSceneBurstKey>(&Times, &Values);
 	}
 
 	/**
@@ -115,6 +109,22 @@ struct FMovieSceneNiagaraEmitterChannel
 	 */
 	bool Evaluate(FFrameTime InTime, FMovieSceneBurstKey& OutValue) const;
 
+public:
+
+	// ~ FMovieSceneChannel Interface
+	virtual void GetKeys(const TRange<FFrameNumber>& WithinRange, TArray<FFrameNumber>* OutKeyTimes, TArray<FKeyHandle>* OutKeyHandles) override;
+	virtual void GetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<FFrameNumber> OutKeyTimes) override;
+	virtual void SetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<const FFrameNumber> InKeyTimes) override;
+	virtual void DuplicateKeys(TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyHandle> OutNewHandles) override;
+	virtual void DeleteKeys(TArrayView<const FKeyHandle> InHandles) override;
+	virtual void ChangeFrameResolution(FFrameRate SourceRate, FFrameRate DestinationRate) override;
+	virtual TRange<FFrameNumber> ComputeEffectiveRange() const override;
+	virtual int32 GetNumKeys() const override;
+	virtual void Reset() override;
+	virtual void Offset(FFrameNumber DeltaPosition) override;
+	virtual void Optimize(const FKeyDataOptimizationParams& InParameters) override {}
+	virtual void ClearDefault() override {}
+
 private:
 	/** Storage for the key times in the burst curve. */
 	TArray<FFrameNumber> Times;
@@ -125,13 +135,12 @@ private:
 	FMovieSceneKeyHandleMap KeyHandles;
 };
 
-/** Stub out unnecessary functions */
-inline void Optimize(FMovieSceneNiagaraEmitterChannel* InChannel, const FKeyDataOptimizationParams& Params)
-{}
-inline void SetChannelDefault(FMovieSceneNiagaraEmitterChannel* Channel, const FMovieSceneBurstKey& DefaultValue)
-{}
-inline void ClearChannelDefault(FMovieSceneNiagaraEmitterChannel* InChannel)
-{}
+
+template<>
+struct TMovieSceneChannelTraits<FMovieSceneNiagaraEmitterChannel> : TMovieSceneChannelTraitsBase<FMovieSceneNiagaraEmitterChannel>
+{
+	enum { SupportsDefaults = false };
+};
 
 /** 
  *	Niagara editor movie scene section; represents one emitter in the timeline

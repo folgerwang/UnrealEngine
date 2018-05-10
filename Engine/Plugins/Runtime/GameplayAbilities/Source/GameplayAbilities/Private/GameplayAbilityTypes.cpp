@@ -158,9 +158,9 @@ UGameplayAbility* FGameplayAbilitySpec::GetPrimaryInstance() const
 	return nullptr;
 }
 
-bool FGameplayAbilitySpec::ShouldReplicatedAbilitySpec() const
+bool FGameplayAbilitySpec::ShouldReplicateAbilitySpec() const
 {
-	if (Ability && Ability->ShouldReplicatedAbilitySpec(*this))
+	if (Ability && Ability->ShouldReplicateAbilitySpec(*this))
 	{
 		return true;
 	}
@@ -195,6 +195,32 @@ void FGameplayAbilitySpecContainer::RegisterWithOwner(UAbilitySystemComponent* I
 }
 
 // ----------------------------------------------------
+
+FGameplayAbilitySpec::FGameplayAbilitySpec(UGameplayAbility* InAbility, int32 InLevel, int32 InInputID, UObject* InSourceObject)
+	: Ability(InAbility)
+	, Level(InLevel)
+	, InputID(InInputID)
+	, SourceObject(InSourceObject)
+	, ActiveCount(0)
+	, InputPressed(false)
+	, RemoveAfterActivation(false)
+	, PendingRemove(false)
+{
+	Handle.GenerateNewHandle();
+}
+
+FGameplayAbilitySpec::FGameplayAbilitySpec(TSubclassOf<UGameplayAbility> InAbilityClass, int32 InLevel, int32 InInputID, UObject* InSourceObject)
+	: Ability(InAbilityClass ? InAbilityClass.GetDefaultObject() : nullptr)
+	, Level(InLevel)
+	, InputID(InInputID)
+	, SourceObject(InSourceObject)
+	, ActiveCount(0)
+	, InputPressed(false)
+	, RemoveAfterActivation(false)
+	, PendingRemove(false)
+{
+	Handle.GenerateNewHandle();
+}
 
 FGameplayAbilitySpec::FGameplayAbilitySpec(FGameplayAbilitySpecDef& InDef, int32 InGameplayEffectLevel, FActiveGameplayEffectHandle InGameplayEffectHandle)
 	: Ability(InDef.Ability ? InDef.Ability->GetDefaultObject<UGameplayAbility>() : nullptr)

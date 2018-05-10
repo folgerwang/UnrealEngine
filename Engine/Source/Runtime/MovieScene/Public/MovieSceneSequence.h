@@ -147,6 +147,16 @@ public:
 	 */
 	virtual bool CanAnimateObject(UObject& InObject) const { return true; }
 
+	/**
+	 * Called to add a new possessable for the specified object
+	 */
+	virtual FGuid CreatePossessable(UObject* ObjectToPossess) { return FGuid(); }
+
+	/**
+	 * Called to add a new spawnable for the specified object
+	 */
+	virtual FGuid CreateSpawnable(UObject* ObjectToSpawn) { return FGuid(); }
+
 public:
 
 	MOVIESCENE_API virtual void PostLoad() override;

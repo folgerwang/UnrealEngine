@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
 #include "AppleARKitLiveLinkSource.h"
 #include "UObject/Package.h"
@@ -108,6 +108,9 @@ static FName ParseEnumName(FName EnumName)
 	return FName(*EnumString.Right(EnumString.Len() - BlendShapeEnumNameLength));
 }
 
+// Temporary for 4.20
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
 void FAppleARKitLiveLinkSource::PublishBlendShapes(FName SubjectName, double Timestamp, uint32 FrameNumber, const FARBlendShapeMap& FaceBlendShapes)
 {
 	check(Client != nullptr);
@@ -152,6 +155,8 @@ void FAppleARKitLiveLinkSource::PublishBlendShapes(FName SubjectName, double Tim
 		}
 	}
 }
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 const uint8 BLEND_SHAPE_PACKET_VER = 1;
 

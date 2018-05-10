@@ -19,7 +19,7 @@
 #if SKILL_SYSTEM_AGGREGATOR_DEBUG
 	#define SKILL_AGG_DEBUG( Format, ... ) *FString::Printf(Format, ##__VA_ARGS__)
 #else
-	#define SKILL_AGG_DEBUG( Format, ... ) NULL
+	#define SKILL_AGG_DEBUG( Format, ... ) nullptr
 #endif
 
 class Error;
@@ -29,13 +29,12 @@ struct FActiveGameplayEffect;
 struct FGameplayEffectModCallbackData;
 struct FGameplayEffectSpec;
 
+/** Wrappers to convert enum to string. These are fairly slow */
 GAMEPLAYABILITIES_API FString EGameplayModOpToString(int32 Type);
-
 GAMEPLAYABILITIES_API FString EGameplayModToString(int32 Type);
-
 GAMEPLAYABILITIES_API FString EGameplayModEffectToString(int32 Type);
-
 GAMEPLAYABILITIES_API FString EGameplayCueEventToString(int32 Type);
+
 
 /** Valid gameplay modifier evaluation channels; Displayed and renamed via game-specific aliases and options */
 UENUM()
@@ -55,6 +54,7 @@ enum class EGameplayModEvaluationChannel : uint8
 	// Always keep last
 	Channel_MAX UMETA(Hidden)
 };
+
 
 /** Struct representing evaluation channel settings for a gameplay modifier */
 USTRUCT()
@@ -89,9 +89,11 @@ protected:
 	friend class FGameplayModEvaluationChannelSettingsDetails;
 };
 
+
 UENUM(BlueprintType)
 namespace EGameplayModOp
 {
+	/** Defines the ways that mods will modify attributes. Numeric ones operate on the existing value, override ignores it */
 	enum Type
 	{		
 		/** Numeric. */
@@ -155,6 +157,7 @@ enum class EGameplayEffectStackingType : uint8
 	AggregateByTarget,
 };
 
+
 /**
  * This handle is required for things outside of FActiveGameplayEffectsContainer to refer to a specific active GameplayEffect
  *	For example if a skill needs to create an active effect and then destroy that specific effect that it created, it has to do so
@@ -179,23 +182,29 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffectHandle
 
 	}
 
+	/** True if this is tracking an active ongoing gameplay effect */
 	bool IsValid() const
 	{
 		return Handle != INDEX_NONE;
 	}
 
+	/** True if this applied a gameplay effect. This can be true when it is not valid if it applied an instant effect */
 	bool WasSuccessfullyApplied() const
 	{
 		return bPassedFiltersAndWasExecuted;
 	}
 
+	/** Creates a new handle, will be set to successfully applied */
 	static FActiveGameplayEffectHandle GenerateNewHandle(UAbilitySystemComponent* OwningComponent);
 
+	/** Resets the map that supports GetOwningAbilitySystemComponent */
 	static void ResetGlobalHandleMap();
 
+	/** Returns the ability system component that created this handle */
 	UAbilitySystemComponent* GetOwningAbilitySystemComponent();
 	const UAbilitySystemComponent* GetOwningAbilitySystemComponent() const;
 
+	/** Remove this from the GetOwningAbilitySystemComponent map */
 	void RemoveFromGlobalMap();
 
 	bool operator==(const FActiveGameplayEffectHandle& Other) const
@@ -232,6 +241,8 @@ private:
 	bool bPassedFiltersAndWasExecuted;
 };
 
+
+/** Data that describes what happened in an attribute modification. This is passed to ability set callbacks */
 USTRUCT(BlueprintType)
 struct FGameplayModifierEvaluatedData
 {
@@ -254,6 +265,7 @@ struct FGameplayModifierEvaluatedData
 	{
 	}
 
+	/** What attribute was modified */
 	UPROPERTY()
 	FGameplayAttribute Attribute;
 
@@ -261,6 +273,7 @@ struct FGameplayModifierEvaluatedData
 	UPROPERTY()
 	TEnumAsByte<EGameplayModOp::Type> ModifierOp;
 
+	/** The raw magnitude of the applied attribute, this is generally before being clamped */
 	UPROPERTY()
 	float Magnitude;
 
@@ -268,6 +281,7 @@ struct FGameplayModifierEvaluatedData
 	UPROPERTY()
 	FActiveGameplayEffectHandle	Handle;
 
+	/** True if something was evaluated */
 	UPROPERTY()
 	bool IsValid;
 
@@ -276,6 +290,7 @@ struct FGameplayModifierEvaluatedData
 		return FString::Printf(TEXT("%s %s EvalMag: %f"), *Attribute.GetName(), *EGameplayModOpToString(ModifierOp), Magnitude);
 	}
 };
+
 
 /** Struct defining gameplay attribute capture options for gameplay effects */
 USTRUCT(BlueprintType)
@@ -328,10 +343,11 @@ struct GAMEPLAYABILITIES_API FGameplayEffectAttributeCaptureDefinition
 	FString ToSimpleString() const;
 };
 
+
 /**
- * FGameplayEffectContext
- *	Data struct for an instigator and related data. This is still being fleshed out. We will want to track actors but also be able to provide some level of tracking for actors that are destroyed.
- *	We may need to store some positional information as well.
+ * Data structure that stores an instigator and related data, such as positions and targets
+ * Games can subclass this structure and add game-specific information
+ * It is passed throughout effect execution so it is a great place to track transient information about an execution
  */
 USTRUCT()
 struct GAMEPLAYABILITIES_API FGameplayEffectContext
@@ -372,11 +388,13 @@ struct GAMEPLAYABILITIES_API FGameplayEffectContext
 		return Instigator.Get();
 	}
 
-	/** returns the CDO of the ability used to instigate this context */
+	/** Returns the CDO of the ability used to instigate this context */
 	const UGameplayAbility* GetAbility() const;
 
+	/** Returns the specific instance that instigated this, may not always be set */
 	const UGameplayAbility* GetAbilityInstance_NotReplicated() const;
 
+	/** Gets the ability level this was evaluated at */
 	int32 GetAbilityLevel() const
 	{
 		return AbilityLevel;
@@ -394,6 +412,7 @@ struct GAMEPLAYABILITIES_API FGameplayEffectContext
 		return EffectCauser.Get();
 	}
 
+	/** Modify the effect causer actor, useful when that information is added after creation */
 	void SetEffectCauser(AActor* InEffectCauser)
 	{
 		EffectCauser = InEffectCauser;
@@ -424,42 +443,52 @@ struct GAMEPLAYABILITIES_API FGameplayEffectContext
 		return SourceObject.Get();
 	}
 
+	/** Add actors to the stored actor list */
 	virtual void AddActors(const TArray<TWeakObjectPtr<AActor>>& IActor, bool bReset = false);
 
+	/** Add a hit result for targeting */
 	virtual void AddHitResult(const FHitResult& InHitResult, bool bReset = false);
 
+	/** Returns actor list, may be empty */
 	virtual const TArray<TWeakObjectPtr<AActor>>& GetActors() const
 	{
 		return Actors;
 	}
 
+	/** Returns hit result, this can be null */
 	virtual const FHitResult* GetHitResult() const
 	{
 		return const_cast<FGameplayEffectContext*>(this)->GetHitResult();
 	}
 
+	/** Returns hit result, this can be null */
 	virtual FHitResult* GetHitResult()
 	{
 		return HitResult.Get();
 	}
 
+	/** Adds an origin point */
 	virtual void AddOrigin(FVector InOrigin);
 
+	/** Returns origin point, may be invalid if HasOrigin is false */
 	virtual const FVector& GetOrigin() const
 	{
 		return WorldOrigin;
 	}
 
+	/** Returns true if GetOrigin will give valid information */
 	virtual bool HasOrigin() const
 	{
 		return bHasWorldOrigin;
 	}
 
+	/** Returns debug string */
 	virtual FString ToString() const
 	{
 		return Instigator.IsValid() ? Instigator->GetName() : FString(TEXT("NONE"));
 	}
 
+	/** Returns the actual struct used for serialization, subclasses must override this! */
 	virtual UScriptStruct* GetScriptStruct() const
 	{
 		return FGameplayEffectContext::StaticStruct();
@@ -479,10 +508,13 @@ struct GAMEPLAYABILITIES_API FGameplayEffectContext
 		return NewContext;
 	}
 
+	/** True if this was instigated by a locally controlled actor */
 	virtual bool IsLocallyControlled() const;
 
+	/** True if this was instigated by a locally controlled player */
 	virtual bool IsLocallyControlledPlayer() const;
 
+	/** Custom serialization, subclasses must override this */
 	virtual bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
 protected:
@@ -496,14 +528,15 @@ protected:
 	UPROPERTY()
 	TWeakObjectPtr<AActor> EffectCauser;
 
-	/** the ability CDO that is responsible for this effect context (replicated) */
+	/** The ability CDO that is responsible for this effect context (replicated) */
 	UPROPERTY()
 	TWeakObjectPtr<UGameplayAbility> AbilityCDO;
 
-	/** the ability instance that is responsible for this effect context (NOT replicated) */
+	/** The ability instance that is responsible for this effect context (NOT replicated) */
 	UPROPERTY(NotReplicated)
 	TWeakObjectPtr<UGameplayAbility> AbilityInstanceNotReplicated;
 
+	/** The level this was executed at */
 	UPROPERTY()
 	int32 AbilityLevel;
 
@@ -515,12 +548,14 @@ protected:
 	UPROPERTY(NotReplicated)
 	TWeakObjectPtr<UAbilitySystemComponent> InstigatorAbilitySystemComponent;
 
+	/** Actors referenced by this context */
 	UPROPERTY()
 	TArray<TWeakObjectPtr<AActor>> Actors;
 
-	/** Trace information - may be NULL in many cases */
+	/** Trace information - may be nullptr in many cases */
 	TSharedPtr<FHitResult>	HitResult;
 
+	/** Stored origin, may be invalid if bHasWorldOrigin is false */
 	UPROPERTY()
 	FVector	WorldOrigin;
 
@@ -541,6 +576,7 @@ struct TStructOpsTypeTraits< FGameplayEffectContext > : public TStructOpsTypeTra
 		WithCopy = true		// Necessary so that TSharedPtr<FHitResult> Data is copied around
 	};
 };
+
 
 /**
  * Handle that wraps a FGameplayEffectContext or subclass, to allow it to be polymorphic and replicate properly
@@ -580,14 +616,14 @@ struct FGameplayEffectContextHandle
 		return Data.IsValid();
 	}
 
+	/** Returns Raw effet context, may be null */
 	FGameplayEffectContext* Get()
 	{
-		return IsValid() ? Data.Get() : NULL;
+		return IsValid() ? Data.Get() : nullptr;
 	}
-
 	const FGameplayEffectContext* Get() const
 	{
-		return IsValid() ? Data.Get() : NULL;
+		return IsValid() ? Data.Get() : nullptr;
 	}
 
 	/** Returns the list of gameplay tags applicable to this effect, defaults to the owner's tags */
@@ -608,6 +644,7 @@ struct FGameplayEffectContextHandle
 		}
 	}
 
+	/** Sets Abilit instance and CDO parameters on context */
 	void SetAbility(const UGameplayAbility* InGameplayAbility)
 	{
 		if (IsValid())
@@ -623,7 +660,7 @@ struct FGameplayEffectContextHandle
 		{
 			return Data->GetInstigator();
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	/** Returns the Ability CDO */
@@ -646,6 +683,7 @@ struct FGameplayEffectContextHandle
 		return nullptr;
 	}
 
+	/** Returns level this was executed at */
 	int32 GetAbilityLevel() const
 	{
 		if (IsValid())
@@ -662,7 +700,7 @@ struct FGameplayEffectContextHandle
 		{
 			return Data->GetInstigatorAbilitySystemComponent();
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	/** Returns the physical actor tied to the application of this effect */
@@ -672,7 +710,7 @@ struct FGameplayEffectContextHandle
 		{
 			return Data->GetEffectCauser();
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	/** Should always return the original instigator that started the whole chain. Subclasses can override what this does */
@@ -682,7 +720,7 @@ struct FGameplayEffectContextHandle
 		{
 			return Data->GetOriginalInstigator();
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	/** Returns the ability system component of the instigator that started the whole chain */
@@ -692,7 +730,7 @@ struct FGameplayEffectContextHandle
 		{
 			return Data->GetOriginalInstigatorAbilitySystemComponent();
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	/** Sets the object this effect was created from. */
@@ -724,6 +762,7 @@ struct FGameplayEffectContextHandle
 		return false;
 	}
 
+	/** Returns if the instigator is locally controlled and a player */
 	bool IsLocallyControlledPlayer() const
 	{
 		if (IsValid())
@@ -733,6 +772,7 @@ struct FGameplayEffectContextHandle
 		return false;
 	}
 
+	/** Add actors to the stored actor list */
 	void AddActors(const TArray<TWeakObjectPtr<AActor>>& InActors, bool bReset = false)
 	{
 		if (IsValid())
@@ -741,6 +781,7 @@ struct FGameplayEffectContextHandle
 		}
 	}
 
+	/** Add a hit result for targeting */
 	void AddHitResult(const FHitResult& InHitResult, bool bReset = false)
 	{
 		if (IsValid())
@@ -749,11 +790,13 @@ struct FGameplayEffectContextHandle
 		}
 	}
 
+	/** Returns actor list, may be empty */
 	const TArray<TWeakObjectPtr<AActor>> GetActors()
 	{
 		return Data->GetActors();
 	}
 
+	/** Returns hit result, this can be null */
 	const FHitResult* GetHitResult() const
 	{
 		if (IsValid())
@@ -763,6 +806,7 @@ struct FGameplayEffectContextHandle
 		return nullptr;
 	}
 
+	/** Adds an origin point */
 	void AddOrigin(FVector InOrigin)
 	{
 		if (IsValid())
@@ -771,6 +815,7 @@ struct FGameplayEffectContextHandle
 		}
 	}
 
+	/** Returns origin point, may be invalid if HasOrigin is false */
 	virtual const FVector& GetOrigin() const
 	{
 		if (IsValid())
@@ -780,6 +825,7 @@ struct FGameplayEffectContextHandle
 		return FVector::ZeroVector;
 	}
 
+	/** Returns true if GetOrigin will give valid information */
 	virtual bool HasOrigin() const
 	{
 		if (IsValid())
@@ -789,6 +835,7 @@ struct FGameplayEffectContextHandle
 		return false;
 	}
 
+	/** Returns debug string */
 	FString ToString() const
 	{
 		return IsValid() ? Data->ToString() : FString(TEXT("NONE"));
@@ -828,10 +875,10 @@ struct FGameplayEffectContextHandle
 		return !(FGameplayEffectContextHandle::operator==(Other));
 	}
 
+	/** Custom serializer, handles polymorphism of context */
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
 private:
-
 	TSharedPtr<FGameplayEffectContext> Data;
 };
 
@@ -847,10 +894,7 @@ struct TStructOpsTypeTraits<FGameplayEffectContextHandle> : public TStructOpsTyp
 };
 
 
-/**
- * FGameplayEffectRemovalInfo
- *	Data struct for containing information pertinent to GameplayEffects as they are removed.
- */
+/** Data struct for containing information pertinent to GameplayEffects as they are removed */
 USTRUCT(BlueprintType)
 struct FGameplayEffectRemovalInfo
 {
@@ -868,9 +912,9 @@ struct FGameplayEffectRemovalInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Removal")
 	FGameplayEffectContextHandle EffectContext;
 };
-// -----------------------------------------------------------
 
 
+/** Metadata about a gameplay cue execution */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayCueParameters
 {
@@ -887,7 +931,6 @@ struct GAMEPLAYABILITIES_API FGameplayCueParameters
 
 	/** Projects can override this via UAbilitySystemGlobals */
 	FGameplayCueParameters(const struct FGameplayEffectSpecForRPC &Spec);
-
 	FGameplayCueParameters(const struct FGameplayEffectContextHandle& EffectContext);
 
 	/** Magnitude of source gameplay effect, normalzed from 0-1. Use this for "how strong is the gameplay effect" (0=min, 1=,max) */
@@ -918,9 +961,11 @@ struct GAMEPLAYABILITIES_API FGameplayCueParameters
 	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
 	FGameplayTagContainer AggregatedTargetTags;
 
+	/** Location cue took place at */
 	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
 	FVector_NetQuantize10 Location;
 
+	/** Normal of impact that caused cue */
 	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
 	FVector_NetQuantizeNormal Normal;
 
@@ -952,17 +997,22 @@ struct GAMEPLAYABILITIES_API FGameplayCueParameters
 	UPROPERTY(BlueprintReadWrite, Category = GameplayCue)
 	TWeakObjectPtr<USceneComponent> TargetAttachComponent;
 
+	/** Optimized serializer */
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
-	bool IsInstigatorLocallyControlled() const;
+	/** Returns true if this is locally controlled, using fallback actor if nothing else available */
+	bool IsInstigatorLocallyControlled(AActor* FallbackActor = nullptr) const;
 
-	// Fallback actor is used if the parameters have nullptr for instigator and effect causer
+	/** Fallback actor is used if the parameters have nullptr for instigator and effect causer */
 	bool IsInstigatorLocallyControlledPlayer(AActor* FallbackActor=nullptr) const;
 
+	/** Returns the actor that instigated this originally, generally attached to an ability system component */
 	AActor* GetInstigator() const;
 
+	/** Returns the actor that physically caused the damage, could be a projectile or weapon */
 	AActor* GetEffectCauser() const;
 
+	/** Returns the object that originally caused this, game-specific but usually not an actor */
 	const UObject* GetSourceObject() const;
 };
 
@@ -975,15 +1025,24 @@ struct TStructOpsTypeTraits<FGameplayCueParameters> : public TStructOpsTypeTrait
 	};
 };
 
+
 UENUM(BlueprintType)
 namespace EGameplayCueEvent
 {
+	/** Indicates what type of action happend to a specific gameplay cue tag. Sometimes you will get multiple events at once */
 	enum Type
 	{
-		OnActive,		// Called when GameplayCue is activated.
-		WhileActive,	// Called when GameplayCue is active, even if it wasn't actually just applied (Join in progress, etc)
-		Executed,		// Called when a GameplayCue is executed: instant effects or periodic tick
-		Removed			// Called when GameplayCue is removed
+		/** Called when GameplayCue is activated */
+		OnActive,
+
+		/** Called when GameplayCue is active, even if it wasn't actually just applied (Join in progress, etc) */
+		WhileActive,
+
+		/** Called when a GameplayCue is executed: instant effects or periodic tick */
+		Executed,
+
+		/** Called when GameplayCue is removed */
+		Removed
 	};
 }
 
@@ -998,6 +1057,7 @@ DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnActiveGameplayEffectStackChange, FActi
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnActiveGameplayEffectTimeChange, FActiveGameplayEffectHandle, float /*NewStartTime*/, float /*NewDuration*/);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActiveGameplayEffectInhibitionChanged, FActiveGameplayEffectHandle, bool /*bIsInhibited*/);
 
+/** Callback struct for different types of gameplay effect changes */
 struct FActiveGameplayEffectEvents
 {
 	FOnActiveGameplayEffectRemoved DEPRECATED_OnEffectRemoved;
@@ -1010,8 +1070,16 @@ struct FActiveGameplayEffectEvents
 // This is deprecated, use FOnGameplayAttributeValueChange
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnGameplayAttributeChange, float, const FGameplayEffectModCallbackData*);
 
+
+/** Temporary parameter struct used when an attribute has changed */
 struct FOnAttributeChangeData
 {
+	FOnAttributeChangeData()
+		: NewValue(0.0f)
+		, OldValue(0.0f)
+		, GEModData(nullptr)
+	{ }
+
 	FGameplayAttribute Attribute;
 
 	float	NewValue;
@@ -1025,12 +1093,11 @@ DECLARE_DELEGATE_RetVal(FGameplayTagContainer, FGetGameplayTags);
 
 DECLARE_DELEGATE_RetVal_OneParam(FOnGameplayEffectTagCountChanged&, FRegisterGameplayTagChangeDelegate, FGameplayTag);
 
-// -----------------------------------------------------------
-
 
 UENUM(BlueprintType)
 namespace EGameplayTagEventType
 {
+	/** Rather a tag was added or removed, used in callbacks */
 	enum Type
 	{		
 		/** Event only happens when tag is new or completely removed */
@@ -1046,7 +1113,6 @@ namespace EGameplayTagEventType
  * while simultaneously tracking the count of parent tags as well. Events/delegates are fired whenever the tag counts
  * of any tag (explicit or parent) are modified.
  */
-
 struct GAMEPLAYABILITIES_API FGameplayTagCountContainer
 {	
 	FGameplayTagCountContainer()
@@ -1255,8 +1321,6 @@ private:
 };
 
 
-// -----------------------------------------------------------
-
 /** Encapsulate require and ignore tags */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayTagRequirements
@@ -1271,14 +1335,18 @@ struct GAMEPLAYABILITIES_API FGameplayTagRequirements
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayModifier)
 	FGameplayTagContainer IgnoreTags;
 
+	/** True if all required tags and no ignore tags found */
 	bool	RequirementsMet(const FGameplayTagContainer& Container) const;
+
+	/** True if neither RequireTags or IgnoreTags has any tags */
 	bool	IsEmpty() const;
 
-	static FGetGameplayTags	SnapshotTags(FGetGameplayTags TagDelegate);
-
+	/** Return debug string */
 	FString ToString() const;
 };
 
+
+/** Structure used to combine tags from different sources during effect execution */
 USTRUCT()
 struct GAMEPLAYABILITIES_API FTagContainerAggregator
 {
@@ -1324,12 +1392,15 @@ struct GAMEPLAYABILITIES_API FTagContainerAggregator
 		return *this;
 	}
 
+	/** Returns tags from the source or target actor */
 	FGameplayTagContainer& GetActorTags();
 	const FGameplayTagContainer& GetActorTags() const;
 
+	/** Get tags that came from the effect spec */
 	FGameplayTagContainer& GetSpecTags();
 	const FGameplayTagContainer& GetSpecTags() const;
 
+	/** Returns combination of spec and actor tags */
 	const FGameplayTagContainer* GetAggregatedTags() const;
 
 private:
@@ -1357,9 +1428,8 @@ struct GAMEPLAYABILITIES_API FGameplayEffectSpecHandle
 	FGameplayEffectSpecHandle();
 	FGameplayEffectSpecHandle(FGameplayEffectSpec* DataPtr);
 
+	/** Internal pointer to effect spec */
 	TSharedPtr<FGameplayEffectSpec>	Data;
-
-	bool IsValidCache;
 
 	void Clear()
 	{
@@ -1404,9 +1474,8 @@ struct TStructOpsTypeTraits<FGameplayEffectSpecHandle> : public TStructOpsTypeTr
 	};
 };
 
-// -----------------------------------------------------------
 
-
+/** Map that stores count of tags, in a form that is optimized for replication */
 USTRUCT()
 struct GAMEPLAYABILITIES_API FMinimalReplicationTagCountMap
 {

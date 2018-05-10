@@ -6,7 +6,7 @@ namespace UnrealBuildTool.Rules
 	{
         public CustomMeshComponent(ReadOnlyTargetRules Target) : base(Target)
 		{
-			PrivateIncludePaths.Add("CustommeshComponent/Private");
+			PrivateIncludePaths.Add("CustomMeshComponent/Private");
 
 			PublicDependencyModuleNames.AddRange(
 				new string[]

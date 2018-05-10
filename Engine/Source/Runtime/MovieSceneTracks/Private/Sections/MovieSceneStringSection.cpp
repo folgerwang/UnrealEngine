@@ -17,7 +17,7 @@ UMovieSceneStringSection::UMovieSceneStringSection( const FObjectInitializer& Ob
 
 #if WITH_EDITOR
 
-	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(StringCurve, FMovieSceneChannelEditorData(), TMovieSceneExternalValue<FString>::Make());
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(StringCurve, FMovieSceneChannelMetaData(), TMovieSceneExternalValue<FString>::Make());
 
 #else
 

@@ -10,6 +10,8 @@
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "Framework/MultiBox/MultiBoxDefs.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Views/SListView.h"
@@ -21,6 +23,7 @@
 #include "DragAndDrop/ActorDragDropOp.h"
 #include "SequenceRecorderCommands.h"
 #include "SequenceRecorderSettings.h"
+#include "SequenceRecorderUtils.h"
 #include "SequenceRecorder.h"
 #include "SDropTarget.h"
 #include "EditorFontGlyphs.h"
@@ -40,8 +43,9 @@
 
 static const FName ActiveColumnName(TEXT("Active"));
 static const FName ActorColumnName(TEXT("Actor"));
+static const FName TargetNameColumnName(TEXT("Name"));
 static const FName AnimationColumnName(TEXT("Animation"));
-static const FName LengthColumnName(TEXT("Length"));
+static const FName TakeColumnName(TEXT("Take"));
 
 /** A widget to display information about an animation recording in the list view */
 class SSequenceRecorderListRow : public SMultiColumnTableRow<UActorRecording*>
@@ -86,21 +90,51 @@ public:
 		}
 		else if (ColumnName == ActorColumnName)
 		{
-			return
-				SNew(STextBlock)
-				.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SSequenceRecorderListRow::GetRecordingActorName)));
+			return SNew( SHorizontalBox )
+				+SHorizontalBox::Slot()
+				.Padding( 2.0f, 0.0f, 2.0f, 0.0f )
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SSequenceRecorderListRow::GetRecordingActorName)))
+				];
+		}
+		else if (ColumnName == TargetNameColumnName)
+		{
+			return SNew( SHorizontalBox )
+				+SHorizontalBox::Slot()
+				.Padding( 2.0f, 0.0f, 2.0f, 0.0f )
+				.VAlign(VAlign_Center)
+				[
+					SNew(SEditableTextBox)
+					.ToolTipText(LOCTEXT("TargetNameToolTip", "Optional target track name to record to"))
+					.Text(this, &SSequenceRecorderListRow::GetRecordingTargetName)
+					.OnTextChanged(this, &SSequenceRecorderListRow::SetRecordingTargetName)
+				];
 		}
 		else if (ColumnName == AnimationColumnName)
 		{
-			return
-				SNew(STextBlock)
-				.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SSequenceRecorderListRow::GetRecordingAnimationName)));
+			return SNew( SHorizontalBox )
+				+SHorizontalBox::Slot()
+				.Padding( 2.0f, 0.0f, 2.0f, 0.0f )
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SSequenceRecorderListRow::GetRecordingAnimationName)))
+				];
 		}
-		else if (ColumnName == LengthColumnName)
+		else if (ColumnName == TakeColumnName)
 		{
 			return
-				SNew(STextBlock)
-				.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SSequenceRecorderListRow::GetRecordingLengthText)));
+				SNew(SBorder)
+				.BorderImage(FEditorStyle::GetBrush("WhiteBrush"))
+				.BorderBackgroundColor(this, &SSequenceRecorderListRow::GetRecordingTakeBorderColor)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SNumericEntryBox<int32>)
+					.Value(this, &SSequenceRecorderListRow::GetRecordingTake)
+					.OnValueChanged(this, &SSequenceRecorderListRow::SetRecordingTake)
+				];
 		}
 
 		return SNullWidget::NullWidget;
@@ -140,6 +174,39 @@ private:
 		return ActorName;
 	}
 
+	FText GetRecordingTargetName() const
+	{
+		FText TargetName(LOCTEXT("InvalidActorName", "None"));
+		if (RecordingPtr.IsValid())
+		{
+			if (RecordingPtr.Get()->TargetName.IsEmpty())
+			{
+				if (RecordingPtr.Get()->GetActorToRecord() != nullptr)
+				{
+					TargetName = FText::FromString(RecordingPtr.Get()->GetActorToRecord()->GetActorLabel());
+				}
+			}
+			else
+			{
+				TargetName = RecordingPtr.Get()->TargetName;
+			}
+		}
+
+		return TargetName;
+	}
+
+	void SetRecordingTargetName(const FText& InText)
+	{
+		if (RecordingPtr.IsValid())
+		{
+			RecordingPtr.Get()->TargetName = InText;
+
+			// Reset take number and target level sequence
+			RecordingPtr.Get()->TakeNumber = 1;
+			RecordingPtr.Get()->TargetLevelSequence = nullptr;
+		}
+	}
+
 	FText GetRecordingAnimationName() const
 	{
 		FText AnimationName(LOCTEXT("InvalidAnimationName", "None"));
@@ -147,26 +214,56 @@ private:
 		{
 			if(!RecordingPtr.Get()->bSpecifyTargetAnimation)
 			{
-				AnimationName = LOCTEXT("AutoCreatedAnimationName", "Auto-created");
+				AnimationName = LOCTEXT("AutoCreatedAnimationName", "Auto");
 			}
-			else if(RecordingPtr.Get()->TargetAnimation.IsValid())
+			else if(RecordingPtr.Get()->TargetAnimation != nullptr)
 			{
-				AnimationName = FText::FromString(RecordingPtr.Get()->TargetAnimation.Get()->GetName());
+				AnimationName = FText::FromString(RecordingPtr.Get()->TargetAnimation->GetName());
 			}
 		}
 
 		return AnimationName;
 	}
 
-	FText GetRecordingLengthText() const
+	TOptional<int32> GetRecordingTake() const
 	{
-		FText LengthText(LOCTEXT("InvalidLengthName", "None"));
 		if (RecordingPtr.IsValid())
 		{
-			LengthText = FText::AsNumber(RecordingPtr.Get()->AnimationSettings.Length);
+			return RecordingPtr.Get()->TakeNumber;
 		}
 
-		return LengthText;
+		return 1;
+	}
+	
+	FSlateColor GetRecordingTakeBorderColor() const
+	{
+		if (RecordingPtr.IsValid())
+		{
+			const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
+
+			const FString SequenceName = FSequenceRecorder::Get().GetSequenceRecordingName();
+			TOptional<int32> TakeNumber = GetRecordingTake();
+			FString TargetName = GetRecordingTargetName().ToString();
+			FString SessionName = !SequenceName.IsEmpty() ? SequenceName : TEXT("RecordedSequence");
+			FString AssetPath = FSequenceRecorder::Get().GetSequenceRecordingBasePath() / SessionName / TargetName;
+
+			FString TakeName = SequenceRecorderUtils::MakeTakeName(TargetName, SessionName, TakeNumber.GetValue());
+
+			if (SequenceRecorderUtils::DoesTakeExist(AssetPath, TargetName, SessionName, TakeNumber.GetValue()))
+			{
+				return FLinearColor::Red;
+			}
+		}
+
+		return FLinearColor::White;
+	}
+
+	void SetRecordingTake(int32 InTakeNumber)
+	{
+		if (RecordingPtr.IsValid())
+		{
+			RecordingPtr.Get()->TakeNumber = InTakeNumber;
+		}
 	}
 
 	TWeakObjectPtr<UActorRecording> RecordingPtr;
@@ -256,17 +353,24 @@ void SSequenceRecorder::Construct(const FArguments& Args)
 								(
 									SNew(SHeaderRow)
 									+ SHeaderRow::Column(ActiveColumnName)
-									.FillWidth(14.0f)
+									.FillWidth(10.0f)
 									.DefaultLabel(LOCTEXT("ActiveColumnName", "Active"))
+
 									+ SHeaderRow::Column(ActorColumnName)
-									.FillWidth(43.0f)
+									.FillWidth(30.0f)
 									.DefaultLabel(LOCTEXT("ActorHeaderName", "Actor"))
+
+									+ SHeaderRow::Column(TargetNameColumnName)
+									.FillWidth(30.0f)
+									.DefaultLabel(LOCTEXT("TargetNameHeaderName", "Name"))
+
 									+ SHeaderRow::Column(AnimationColumnName)
-									.FillWidth(43.0f)
-									.DefaultLabel(LOCTEXT("AnimationHeaderName", "Animation"))
-									+ SHeaderRow::Column(LengthColumnName)
-									.FillWidth(14.0f)
-									.DefaultLabel(LOCTEXT("LengthHeaderName", "Length"))
+									.FillWidth(20.0f)
+									.DefaultLabel(LOCTEXT("AnimationHeaderName", "Anim"))
+
+									+ SHeaderRow::Column(TakeColumnName)
+									.FillWidth(10.0f)
+									.DefaultLabel(LOCTEXT("TakeHeaderName", "Take"))
 								)
 							]
 						]

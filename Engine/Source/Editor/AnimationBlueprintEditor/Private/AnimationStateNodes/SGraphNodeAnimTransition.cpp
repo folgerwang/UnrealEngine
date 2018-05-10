@@ -126,7 +126,20 @@ TSharedRef<SWidget> SGraphNodeAnimTransition::GenerateRichTooltip()
 			.Text(TooltipDesc)
 		];
 
-	Widget->AddSlot()
+	if(TransNode->bAutomaticRuleBasedOnSequencePlayerInState)
+	{
+		Widget->AddSlot()
+			.AutoHeight()
+			.Padding( 2.0f )
+			[
+				SNew(STextBlock)
+				.TextStyle( FEditorStyle::Get(), TEXT("Graph.TransitionNode.TooltipRule") )
+				.Text(LOCTEXT("AnimGraphNodeAutomaticRule_ToolTip", "Automatic Rule"))
+			];
+	}
+	else
+	{
+		Widget->AddSlot()
 		.AutoHeight()
 		.Padding( 2.0f )
 		[
@@ -135,12 +148,13 @@ TSharedRef<SWidget> SGraphNodeAnimTransition::GenerateRichTooltip()
 			.Text(LOCTEXT("AnimGraphNodeTransitionRule_ToolTip", "Transition Rule (in words)"))
 		];
 
-	Widget->AddSlot()
-		.AutoHeight()
-		.Padding( 2.0f )
-		[
-			SNew(SKismetLinearExpression, CanExecPin)
-		];
+		Widget->AddSlot()
+			.AutoHeight()
+			.Padding( 2.0f )
+			[
+				SNew(SKismetLinearExpression, CanExecPin)
+			];
+	}
 
 	Widget->AddSlot()
 		.AutoHeight()

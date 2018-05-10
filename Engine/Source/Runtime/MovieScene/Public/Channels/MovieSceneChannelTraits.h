@@ -31,6 +31,14 @@ struct FKeyDataOptimizationParams
 template<typename ChannelType>
 struct TMovieSceneChannelTraitsBase
 {
+	enum { SupportsDefaults = true };
+
+#if WITH_EDITOR
+
+	/** Type that specifies what editor data should be associated with ChannelType. Void (default) implies no extended data. */
+	typedef void ExtendedEditorDataType;
+
+#endif
 };
 
 /**
@@ -39,12 +47,6 @@ struct TMovieSceneChannelTraitsBase
 template<typename ChannelType>
 struct TMovieSceneChannelTraits : TMovieSceneChannelTraitsBase<ChannelType>
 {
-#if WITH_EDITOR
-
-	/** Type that specifies what editor data should be associated with ChannelType */
-	typedef void EditorDataType;
-
-#endif
 };
 
 namespace MovieScene
@@ -67,13 +69,19 @@ namespace MovieScene
 	 * Called to assign a specific value in a channel.
 	 *
 	 * @param InChannel     The channel the value is contained within
-	 * @param InValueIndex  The index of the value to set
+	 * @param InKeyHandle   The handle of the key to assign to
 	 * @param InValue       The new value
 	 */
 	template<typename ChannelType, typename ValueType>
-	void AssignValue(ChannelType* InChannel, int32 InValueIndex, ValueType&& InValue)
+	void AssignValue(ChannelType* InChannel, FKeyHandle InKeyHandle, ValueType&& InValue)
 	{
-		InChannel->GetInterface().GetValues()[InValueIndex] = Forward<ValueType>(InValue);
+		auto ChannelData = InChannel->GetData();
+		int32 ValueIndex = ChannelData.GetIndex(InKeyHandle);
+
+		if (ValueIndex != INDEX_NONE)
+		{
+			ChannelData.GetValues()[ValueIndex] = Forward<ValueType>(InValue);
+		}
 	}
 
 	/**
@@ -87,17 +95,23 @@ namespace MovieScene
 	template<typename ChannelType, typename ValueType>
 	FKeyHandle AddKeyToChannel(ChannelType* InChannel, FFrameNumber InTime, ValueType&& Value, EMovieSceneKeyInterpolation Interpolation)
 	{
-		auto ChannelInterface = InChannel->GetInterface();
+		auto ChannelInterface = InChannel->GetData();
 		int32 ExistingIndex = ChannelInterface.FindKey(InTime);
+
+		FKeyHandle Handle = FKeyHandle::Invalid();
+
 		if (ExistingIndex != INDEX_NONE)
 		{
-			AssignValue(InChannel, ExistingIndex, Forward<ValueType>(Value));
+			Handle = ChannelInterface.GetHandle(ExistingIndex);
+			AssignValue(InChannel, Handle, Forward<ValueType>(Value));
 		}
 		else
 		{
 			ExistingIndex = ChannelInterface.AddKey(InTime, Forward<ValueType>(Value));
+			Handle = ChannelInterface.GetHandle(ExistingIndex);
 		}
-		return ChannelInterface.GetHandle(ExistingIndex);
+
+		return Handle;
 	}
 
 	/**
@@ -116,114 +130,19 @@ namespace MovieScene
 	}
 
 	/**
-	 * Compute the effective range of the specified channel. Generally just means the range of its keys.
-	 *
-	 * @param InChannel     The channel to compute the range for
-	 * @return The range of this channel
-	 */
-	template<typename ChannelType>
-	TRange<FFrameNumber> ComputeEffectiveRange(const ChannelType* InChannel)
-	{
-		TArrayView<const FFrameNumber> Times = InChannel->GetInterface().GetTimes();
-		return Times.Num() ? TRange<FFrameNumber>(Times[0], TRangeBound<FFrameNumber>::Inclusive(Times[Times.Num()-1])) : TRange<FFrameNumber>::Empty();
-	}
-
-	/**
-	 * Convert the tick resolution of a movie scene channel by moving the key times to the equivalent frame time
-	 *
-	 * @param InChannel       The channel to compute the range for
-	 * @param SourceRate      The frame rate the channel is currently in
-	 * @param DestinationRate The new frame rate to convert the channel to
-	 */
-	template<typename ChannelType>
-	void ChangeTickResolution(ChannelType* InChannel, FFrameRate SourceRate, FFrameRate DestinationRate)
-	{
-		TArrayView<FFrameNumber> Times = InChannel->GetInterface().GetTimes();
-		for (int32 Index = 0; Index < Times.Num(); ++Index)
-		{
-			Times[Index] = ConvertFrameTime(Times[Index], SourceRate, DestinationRate).RoundToFrame();
-		}
-	}
-
-	/**
-	 * Get the number of keys contained within the specified channel
-	 *
-	 * @param InChannel     The channel to get the number of keys for
-	 * @return The number of keys in this channel
-	 */
-	template<typename ChannelType>
-	int32 GetNumKeys(const ChannelType* InChannel)
-	{
-		return InChannel->GetInterface().GetTimes().Num();
-	}
-
-	/**
-	 * Reset the specified channel back to its default state
-	 *
-	 * @param InChannel     The channel to reset
-	 */
-	template<typename ChannelType>
-	void Reset(ChannelType* InChannel)
-	{
-		*InChannel = ChannelType();
-	}
-
-	/**
-	 * Offset the specified channel by a given delta time
-	 *
-	 * @param InChannel     The channel to offset
-	 * @param DeltaTime     The time to offset by
-	 */
-	template<typename ChannelType>
-	void Offset(ChannelType* InChannel, FFrameNumber DeltaTime)
-	{
-		TArrayView<FFrameNumber> Times = InChannel->GetInterface().GetTimes();
-		for (FFrameNumber& Time : Times)
-		{
-			Time += DeltaTime;
-		}
-	}
-
-	/**
-	 * Dilate the specified channel with a given factor and origin
-	 *
-	 * @param InChannel      The channel to offset
-	 * @param Origin         The origin around which key times should scale
-	 * @param DilationFactor The amount to dilate by
-	 */
-	template<typename ChannelType>
-	void Dilate(ChannelType* InChannel, FFrameNumber Origin, float DilationFactor)
-	{
-		// @todo: sequencer-timecode: need to rethink this
-		// TArrayView<FFrameNumber> Times = InChannel->GetInterface().GetTimes();
-		// for (FFrameNumber& Time : Times)
-		// {
-		// 	Time = Origin + (Time - Origin) * DilationFactor;
-		// }
-	}
-
-	/**
 	 * Set a channel's default value
 	 *
 	 * @param InChannel      The channel to set the default on
 	 * @param DefaultValue   The new default value
 	 */
 	template<typename ChannelType, typename ValueType>
-	void SetChannelDefault(ChannelType* Channel, ValueType&& DefaultValue)
+	typename TEnableIf<TMovieSceneChannelTraits<ChannelType>::SupportsDefaults>::Type SetChannelDefault(ChannelType* Channel, ValueType&& DefaultValue)
 	{
 		Channel->SetDefault(DefaultValue);
 	}
-
-	/**
-	 * Clear a channel's default value
-	 *
-	 * @param InChannel      The channel to clear the default on
-	 */
-	template<typename ChannelType>
-	void ClearChannelDefault(ChannelType* InChannel)
-	{
-		InChannel->RemoveDefault();
-	}
+	template<typename ChannelType, typename ValueType>
+	typename TEnableIf<!TMovieSceneChannelTraits<ChannelType>::SupportsDefaults>::Type SetChannelDefault(ChannelType* Channel, ValueType&& DefaultValue)
+	{}
 
 	/**
 	 * Optimize the specified channel by removing any redundant keys
@@ -236,7 +155,7 @@ namespace MovieScene
 	{
 		using namespace MovieScene;
 
-		auto ChannelInterface = InChannel->GetInterface();
+		auto ChannelInterface = InChannel->GetData();
 		if (ChannelInterface.GetTimes().Num() > 1)
 		{
 			int32 StartIndex = 0;

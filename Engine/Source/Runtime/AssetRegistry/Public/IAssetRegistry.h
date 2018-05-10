@@ -239,18 +239,23 @@ public:
 	virtual bool RemovePath(const FString& PathToRemove) = 0;
 
 	/** Scan the supplied paths recursively right now and populate the asset registry. If bForceRescan is true, the paths will be scanned again, even if they were previously scanned */
+	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
 	virtual void ScanPathsSynchronous(const TArray<FString>& InPaths, bool bForceRescan = false) = 0;
 
 	/** Scan the specified individual files right now and populate the asset registry. If bForceRescan is true, the paths will be scanned again, even if they were previously scanned */
+	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
 	virtual void ScanFilesSynchronous(const TArray<FString>& InFilePaths, bool bForceRescan = false) = 0;
 
 	/** Look for all assets on disk (can be async or synchronous) */
+	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
 	virtual void SearchAllAssets(bool bSynchronousSearch) = 0;
 
 	/** If assets are currently being asynchronously scanned in the specified path, this will cause them to be scanned before other assets. */
+	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
 	virtual void PrioritizeSearchPath(const FString& PathToPrioritize) = 0;
 
 	/** Forces a rescan of specific filenames, call this when you need to refresh from disk */
+	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
 	virtual void ScanModifiedAssetFiles(const TArray<FString>& InFilePaths) = 0;
 
 	/** Event for when paths are added to the registry */

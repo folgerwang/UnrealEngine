@@ -7,7 +7,7 @@
 	"Category": "Unreal Studio",
 	"CreatedBy": "Epic Games, Inc.",
 	"CreatedByURL": "http://epicgames.com",
-	"DocsURL": "",
+	"DocsURL": "https://docs.unrealengine.com/en-US/Studio/Datasmith",
 	"MarketplaceURL": "",
 	"SupportURL": "",
 	"EnabledByDefault" : true,
@@ -19,6 +19,11 @@
 		{
 			"Name" : "DatasmithContent",
 			"Type" : "Runtime",
+			"LoadingPhase" : "Default"
+		},
+		{
+			"Name" : "DatasmithContentEditor",
+			"Type" : "Editor",
 			"LoadingPhase" : "Default"
 		}
 	]

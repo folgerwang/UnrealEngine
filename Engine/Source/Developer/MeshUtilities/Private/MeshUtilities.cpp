@@ -941,14 +941,14 @@ protected:
 	inline FMeshEdge* FindOppositeEdge(int32 Index1, int32 Index2)
 	{
 		FMeshEdge* Edge = NULL;
-		TArray<FMeshEdge*> EdgeList;
 		// Search the hash for a corresponding vertex
-		VertexToEdgeList.MultiFind(Vertices[Index2].Position, EdgeList);
+		WorkingEdgeList.Reset();
+		VertexToEdgeList.MultiFind(Vertices[Index2].Position, WorkingEdgeList);
 		// Now search through the array for a match or not
-		for (int32 EdgeIndex = 0; EdgeIndex < EdgeList.Num() && Edge == NULL;
+		for (int32 EdgeIndex = 0; EdgeIndex < WorkingEdgeList.Num() && Edge == NULL;
 			EdgeIndex++)
 		{
-			FMeshEdge* OtherEdge = EdgeList[EdgeIndex];
+			FMeshEdge* OtherEdge = WorkingEdgeList[EdgeIndex];
 			// See if this edge matches the passed in edge
 			if (OtherEdge != NULL && DoesEdgeMatch(Index1, Index2, OtherEdge))
 			{
@@ -1035,6 +1035,9 @@ public:
 			AddEdge(Index3, Index1, Triangle);
 		}
 	}
+
+private:
+	TArray<FMeshEdge*> WorkingEdgeList;
 };
 
 /**
@@ -2310,12 +2313,10 @@ static float GetComparisonThreshold(FMeshBuildSettings const& BuildSettings)
 Static mesh building.
 ------------------------------------------------------------------------------*/
 
-static FStaticMeshBuildVertex BuildStaticMeshVertex(FRawMesh const& RawMesh, int32 WedgeIndex, FVector BuildScale)
+static void BuildStaticMeshVertex(const FRawMesh& RawMesh, const FMatrix& ScaleMatrix, const FVector& Position, int32 WedgeIndex, FStaticMeshBuildVertex& Vertex)
 {
-	FStaticMeshBuildVertex Vertex;
-	Vertex.Position = GetPositionForWedge(RawMesh, WedgeIndex) * BuildScale;
+	Vertex.Position = Position;
 
-	const FMatrix ScaleMatrix = FScaleMatrix(BuildScale).Inverse().GetTransposed();
 	Vertex.TangentX = ScaleMatrix.TransformVector(RawMesh.WedgeTangentX[WedgeIndex]).GetSafeNormal();
 	Vertex.TangentY = ScaleMatrix.TransformVector(RawMesh.WedgeTangentY[WedgeIndex]).GetSafeNormal();
 	Vertex.TangentZ = ScaleMatrix.TransformVector(RawMesh.WedgeTangentZ[WedgeIndex]).GetSafeNormal();
@@ -2329,7 +2330,7 @@ static FStaticMeshBuildVertex BuildStaticMeshVertex(FRawMesh const& RawMesh, int
 		Vertex.Color = FColor::White;
 	}
 
-	int32 NumTexCoords = FMath::Min<int32>(MAX_MESH_TEXTURE_COORDS, MAX_STATIC_TEXCOORDS);
+	static const int32 NumTexCoords = FMath::Min<int32>(MAX_MESH_TEXTURE_COORDS, MAX_STATIC_TEXCOORDS);
 	for (int32 i = 0; i < NumTexCoords; ++i)
 	{
 		if (RawMesh.WedgeTexCoords[i].IsValidIndex(WedgeIndex))
@@ -2341,7 +2342,6 @@ static FStaticMeshBuildVertex BuildStaticMeshVertex(FRawMesh const& RawMesh, int
 			Vertex.UVs[i] = FVector2D(0.0f, 0.0f);
 		}
 	}
-	return Vertex;
 }
 
 static bool AreVerticesEqual(
@@ -2385,6 +2385,15 @@ void FMeshUtilities::BuildStaticMeshVertexAndIndexBuffers(
 {
 	TMap<int32, int32> FinalVerts;
 	int32 NumFaces = RawMesh.WedgeIndices.Num() / 3;
+	OutWedgeMap.Reset(RawMesh.WedgeIndices.Num());
+	FMatrix ScaleMatrix(FScaleMatrix(BuildScale).Inverse().GetTransposed());
+
+	// Estimate how many vertices there will be to reduce number of re-allocations required
+	OutVertices.Reserve((int32)(NumFaces * 1.2) + 16);
+
+	// Work with vertex in OutVertices array directly for improved performance
+	OutVertices.AddUninitialized(1);
+	FStaticMeshBuildVertex *ThisVertex = &OutVertices.Last();
 
 	// Process each face, build vertex buffer and per-section index buffers.
 	for (int32 FaceIndex = 0; FaceIndex < NumFaces; FaceIndex++)
@@ -2412,7 +2421,7 @@ void FMeshUtilities::BuildStaticMeshVertexAndIndexBuffers(
 		for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 		{
 			int32 WedgeIndex = FaceIndex * 3 + CornerIndex;
-			FStaticMeshBuildVertex ThisVertex = BuildStaticMeshVertex(RawMesh, WedgeIndex, BuildScale);
+			BuildStaticMeshVertex(RawMesh, ScaleMatrix, CornerPositions[CornerIndex] * BuildScale, WedgeIndex, *ThisVertex);
 
 			const TArray<int32>& DupVerts = OverlappingCorners.FindIfOverlapping(WedgeIndex);
 
@@ -2427,7 +2436,7 @@ void FMeshUtilities::BuildStaticMeshVertexAndIndexBuffers(
 
 				int32 *Location = FinalVerts.Find(DupVerts[k]);
 				if (Location != NULL
-					&& AreVerticesEqual(ThisVertex, OutVertices[*Location], ComparisonThreshold))
+					&& AreVerticesEqual(*ThisVertex, OutVertices[*Location], ComparisonThreshold))
 				{
 					Index = *Location;
 					break;
@@ -2435,8 +2444,13 @@ void FMeshUtilities::BuildStaticMeshVertexAndIndexBuffers(
 			}
 			if (Index == INDEX_NONE)
 			{
-				Index = OutVertices.Add(ThisVertex);
+				// Commit working vertex
+				Index = OutVertices.Num() - 1;
 				FinalVerts.Add(WedgeIndex, Index);
+
+				// Setup next working vertex
+				OutVertices.AddUninitialized(1);
+				ThisVertex = &OutVertices.Last();
 			}
 			VertexIndices[CornerIndex] = Index;
 		}
@@ -2470,6 +2484,9 @@ void FMeshUtilities::BuildStaticMeshVertexAndIndexBuffers(
 			OutWedgeMap.Add(VertexIndices[CornerIndex]);
 		}
 	}
+
+	// Remove working vertex
+	OutVertices.Pop(false);
 }
 
 void FMeshUtilities::CacheOptimizeVertexAndIndexBuffer(

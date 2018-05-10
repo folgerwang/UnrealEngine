@@ -368,7 +368,7 @@ void UAnimSequence::PreSave(const class ITargetPlatform* TargetPlatform)
 	// make sure to not trigger ensure if RawAnimationData is also null
 	
 	// Why should we not be able to have empty transform curves?
-	ensure(!DoesContainTransformCurves() || (RawAnimationData.Num()==0 || SourceRawAnimationData.Num() != 0));
+	ensureMsgf(!DoesContainTransformCurves() || (RawAnimationData.Num()==0 || SourceRawAnimationData.Num() != 0), TEXT("Animation : %s"), *GetName());
 
 	if (DoesNeedRecompress())
 	{

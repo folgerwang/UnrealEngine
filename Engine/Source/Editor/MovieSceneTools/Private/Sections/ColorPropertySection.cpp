@@ -172,7 +172,7 @@ FLinearColor FColorPropertySection::GetPropertyValueAsLinearColor() const
 			if (UObject* Object = WeakObject.Get())
 			{
 				// Access the editor data for the float channels which define how to extract the property value from the object
-				TArrayView<const TMovieSceneExternalValue<float>> ExternalValues = Section->GetChannelProxy().GetAllSpecializedEditorData<FMovieSceneFloatChannel>();
+				TArrayView<const TMovieSceneExternalValue<float>> ExternalValues = Section->GetChannelProxy().GetAllExtendedEditorData<FMovieSceneFloatChannel>();
 
 				FTrackInstancePropertyBindings* BindingsPtr = PropertyBindings.IsSet() ? &PropertyBindings.GetValue() : nullptr;
 

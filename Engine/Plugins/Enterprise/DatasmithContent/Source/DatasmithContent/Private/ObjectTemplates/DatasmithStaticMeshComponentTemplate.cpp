@@ -65,3 +65,18 @@ void UDatasmithStaticMeshComponentTemplate::Load( const UObject* Source )
 	OverrideMaterials = SourceComponent->OverrideMaterials;
 #endif // #if WITH_EDITORONLY_DATA
 }
+
+bool UDatasmithStaticMeshComponentTemplate::Equals( const UDatasmithObjectTemplate* Other ) const
+{
+	const UDatasmithStaticMeshComponentTemplate* TypedOther = Cast< UDatasmithStaticMeshComponentTemplate >( Other );
+
+	if ( !TypedOther )
+	{
+		return false;
+	}
+
+	bool bEquals = StaticMesh == TypedOther->StaticMesh;
+	bEquals = bEquals && ( OverrideMaterials == TypedOther->OverrideMaterials );
+
+	return bEquals;
+}

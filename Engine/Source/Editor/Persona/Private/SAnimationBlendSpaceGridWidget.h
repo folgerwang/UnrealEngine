@@ -20,7 +20,7 @@ class FSlateWindowElementList;
 class UAnimSequence;
 class UBlendSpaceBase;
 
-DECLARE_DELEGATE_ThreeParams(FOnSampleMoved, const int32, const FVector&, bool);
+DECLARE_DELEGATE_FourParams(FOnSampleMoved, const int32 /*SampleIndex*/, const FVector& /*SampleValue*/, bool /*bIsInteractive*/, bool /*bSnap*/);
 DECLARE_DELEGATE_OneParam(FOnSampleRemoved, const int32 );
 DECLARE_DELEGATE_TwoParams(FOnSampleAdded, UAnimSequence*, const FVector&);
 DECLARE_DELEGATE_TwoParams(FOnSampleAnimationChanged, UAnimSequence*, const FVector&);
@@ -277,6 +277,7 @@ private:
 	FSlateColor PreDragKeyColor;
 	FSlateColor DragKeyColor;
 	FSlateColor InvalidColor;
+	FSlateColor UnSnappedColor;
 	FSlateColor DropKeyColor;
 	FSlateColor PreviewKeyColor;
 

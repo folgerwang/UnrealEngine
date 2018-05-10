@@ -434,6 +434,7 @@ void FSkeletalMeshLODRenderData::ReleaseResources()
 void FSkeletalMeshLODRenderData::BuildFromLODModel(const FSkeletalMeshLODModel* ImportedModel, uint32 BuildFlags)
 {
 	bool bUseFullPrecisionUVs = (BuildFlags & ESkeletalMeshVertexFlags::UseFullPrecisionUVs) != 0;
+	bool bUseHighPrecisionTangentBasis = (BuildFlags & ESkeletalMeshVertexFlags::UseHighPrecisionTangentBasis) != 0;
 	bool bHasVertexColors = (BuildFlags & ESkeletalMeshVertexFlags::HasVertexColors) != 0;
 
 	// Copy required info from source sections
@@ -463,8 +464,10 @@ void FSkeletalMeshLODRenderData::BuildFromLODModel(const FSkeletalMeshLODModel* 
 	TArray<FSoftSkinVertex> Vertices;
 	ImportedModel->GetVertices(Vertices);
 
-	// match UV precision for mesh vertex buffer to setting from parent mesh
+	// match UV and tangent precision for mesh vertex buffer to setting from parent mesh
 	StaticVertexBuffers.StaticMeshVertexBuffer.SetUseFullPrecisionUVs(bUseFullPrecisionUVs);
+	StaticVertexBuffers.StaticMeshVertexBuffer.SetUseHighPrecisionTangentBasis(bUseHighPrecisionTangentBasis);
+
 	// init vertex buffer with the vertex array
 	StaticVertexBuffers.PositionVertexBuffer.Init(Vertices.Num());
 	StaticVertexBuffers.StaticMeshVertexBuffer.Init(Vertices.Num(), ImportedModel->NumTexCoords);

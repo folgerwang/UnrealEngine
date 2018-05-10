@@ -6,12 +6,6 @@
 #include "MovieSceneFrameMigration.h"
 
 
-uint32 FMovieSceneFloatChannel::GetChannelID()
-{
-	static uint32 ID = FMovieSceneChannelEntry::RegisterNewID();
-	return ID;
-}
-
 bool FMovieSceneFloatChannel::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar)
 {
 	static const FName RichCurveName("RichCurve");
@@ -703,13 +697,120 @@ void FMovieSceneFloatChannel::RefineCurvePoints(FFrameRate InTickResolution, dou
 	}
 }
 
+void FMovieSceneFloatChannel::GetKeys(const TRange<FFrameNumber>& WithinRange, TArray<FFrameNumber>* OutKeyTimes, TArray<FKeyHandle>* OutKeyHandles)
+{
+	GetData().GetKeys(WithinRange, OutKeyTimes, OutKeyHandles);
+}
+
+void FMovieSceneFloatChannel::GetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<FFrameNumber> OutKeyTimes)
+{
+	GetData().GetKeyTimes(InHandles, OutKeyTimes);
+}
+
+void FMovieSceneFloatChannel::SetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<const FFrameNumber> InKeyTimes)
+{
+	GetData().SetKeyTimes(InHandles, InKeyTimes);
+}
+
+void FMovieSceneFloatChannel::DuplicateKeys(TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyHandle> OutNewHandles)
+{
+	GetData().DuplicateKeys(InHandles, OutNewHandles);
+}
+
+void FMovieSceneFloatChannel::DeleteKeys(TArrayView<const FKeyHandle> InHandles)
+{
+	GetData().DeleteKeys(InHandles);
+}
+
+void FMovieSceneFloatChannel::ChangeFrameResolution(FFrameRate SourceRate, FFrameRate DestinationRate)
+{
+	check(Times.Num() == Values.Num());
+
+	float IntervalFactor = DestinationRate.AsInterval() / SourceRate.AsInterval();
+	for (int32 Index = 0; Index < Times.Num(); ++Index)
+	{
+		Times[Index] = ConvertFrameTime(Times[Index], SourceRate, DestinationRate).RoundToFrame();
+
+		FMovieSceneFloatValue& Value = Values[Index];
+		Value.Tangent.ArriveTangent *= IntervalFactor;
+		Value.Tangent.LeaveTangent  *= IntervalFactor;
+	}
+}
+
+TRange<FFrameNumber> FMovieSceneFloatChannel::ComputeEffectiveRange() const
+{
+	return GetData().GetTotalRange();
+}
+
+int32 FMovieSceneFloatChannel::GetNumKeys() const
+{
+	return Times.Num();
+}
+
+void FMovieSceneFloatChannel::Reset()
+{
+	Times.Reset();
+	Values.Reset();
+	KeyHandles.Reset();
+	bHasDefaultValue = false;
+}
+
+void FMovieSceneFloatChannel::Offset(FFrameNumber DeltaPosition)
+{
+	GetData().Offset(DeltaPosition);
+}
+
+void FMovieSceneFloatChannel::Optimize(const FKeyDataOptimizationParams& Params)
+{
+	TMovieSceneChannelData<FMovieSceneFloatValue> ChannelData = GetData();
+	if (Times.Num() > 1)
+	{
+		int32 StartIndex = 0;
+		int32 EndIndex = 0;
+
+		{
+			StartIndex = Params.Range.GetLowerBound().IsClosed() ? Algo::LowerBound(Times, Params.Range.GetLowerBoundValue()) : 0;
+			EndIndex   = Params.Range.GetUpperBound().IsClosed() ? Algo::UpperBound(Times, Params.Range.GetUpperBoundValue()) : Times.Num();
+		}
+
+		for (int32 Index = StartIndex; Index < EndIndex; ++Index)
+		{
+			FFrameNumber Time = Times[Index];
+			FMovieSceneFloatValue OriginalValue = Values[Index];
+
+			// If the channel evaluates the same with this key removed, we can leave it out
+			ChannelData.RemoveKey(Index);
+
+			float NewValue = 0.f;
+			if (Evaluate(Time, NewValue) && FMath::IsNearlyEqual(NewValue, OriginalValue.Value, Params.Tolerance))
+			{
+				Index--;
+			}
+			else
+			{
+				ChannelData.AddKey(Time, OriginalValue);
+			}
+		}
+
+		if (Params.bAutoSetInterpolation)
+		{
+			AutoSetTangents();
+		}
+	}
+}
+
+void FMovieSceneFloatChannel::ClearDefault()
+{
+	bHasDefaultValue = false;
+}
+
 FKeyHandle AddKeyToChannel(FMovieSceneFloatChannel* Channel, FFrameNumber InFrameNumber, float InValue, EMovieSceneKeyInterpolation Interpolation)
 {
-	auto ChannelInterface = Channel->GetInterface();
-	int32 ExistingIndex = ChannelInterface.FindKey(InFrameNumber);
+	TMovieSceneChannelData<FMovieSceneFloatValue> ChannelData = Channel->GetData();
+	int32 ExistingIndex = ChannelData.FindKey(InFrameNumber);
 	if (ExistingIndex != INDEX_NONE)
 	{
-		FMovieSceneFloatValue& Value = ChannelInterface.GetValues()[ExistingIndex]; //-V758
+		FMovieSceneFloatValue& Value = ChannelData.GetValues()[ExistingIndex]; //-V758
 		Value.Value = InValue;
 		switch (Interpolation)
 		{
@@ -748,73 +849,15 @@ FKeyHandle AddKeyToChannel(FMovieSceneFloatChannel* Channel, FFrameNumber InFram
 		case EMovieSceneKeyInterpolation::Constant: ExistingIndex = Channel->AddConstantKey(InFrameNumber, InValue);          break;
 	}
 
-	return Channel->GetInterface().GetHandle(ExistingIndex);
-}
-
-void Optimize(FMovieSceneFloatChannel* InChannel,  const FKeyDataOptimizationParams& Params)
-{
-	auto ChannelInterface = InChannel->GetInterface();
-	if (ChannelInterface.GetTimes().Num() > 1)
-	{
-		int32 StartIndex = 0;
-		int32 EndIndex = 0;
-
-		{
-			TArrayView<const FFrameNumber> Times = ChannelInterface.GetTimes();
-			StartIndex = Params.Range.GetLowerBound().IsClosed() ? Algo::LowerBound(Times, Params.Range.GetLowerBoundValue()) : 0;
-			EndIndex   = Params.Range.GetUpperBound().IsClosed() ? Algo::UpperBound(Times, Params.Range.GetUpperBoundValue()) : Times.Num();
-		}
-
-		for (int32 Index = StartIndex; Index < EndIndex && Index < ChannelInterface.GetTimes().Num(); ++Index)
-		{
-			// Reget times and values as they may be reallocated
-			FFrameNumber Time                   = ChannelInterface.GetTimes()[Index];
-			FMovieSceneFloatValue OriginalValue = ChannelInterface.GetValues()[Index];
-
-			// If the channel evaluates the same with this key removed, we can leave it out
-			ChannelInterface.RemoveKey(Index);
-			if (ValueExistsAtTime(InChannel, Time, OriginalValue.Value, Params.Tolerance))
-			{
-				Index--;
-			}
-			else
-			{
-				ChannelInterface.AddKey(Time, OriginalValue);
-			}
-		}
-
-		if (Params.bAutoSetInterpolation)
-		{
-			InChannel->AutoSetTangents();
-		}
-	}
+	return Channel->GetData().GetHandle(ExistingIndex);
 }
 
 void Dilate(FMovieSceneFloatChannel* InChannel, FFrameNumber Origin, float DilationFactor)
 {
-	TArrayView<FFrameNumber> Times = InChannel->GetInterface().GetTimes();
+	TArrayView<FFrameNumber> Times = InChannel->GetData().GetTimes();
 	for (FFrameNumber& Time : Times)
 	{
 		Time = Origin + FFrameNumber(FMath::FloorToInt((Time - Origin).Value * DilationFactor));
 	}
 	InChannel->AutoSetTangents();
-}
-
-void ChangeTickResolution(FMovieSceneFloatChannel* InChannel, FFrameRate SourceRate, FFrameRate DestinationRate)
-{
-	TArrayView<FFrameNumber>          Times  = InChannel->GetInterface().GetTimes();
-	TArrayView<FMovieSceneFloatValue> Values = InChannel->GetInterface().GetValues();
-
-	check(Times.Num() == Values.Num());
-
-	float IntervalFactor = DestinationRate.AsInterval() / SourceRate.AsInterval();
-	for (int32 Index = 0; Index < Times.Num(); ++Index)
-	{
-		Times[Index] = ConvertFrameTime(Times[Index], SourceRate, DestinationRate).RoundToFrame();
-
-		FMovieSceneFloatValue& Value = Values[Index];
-		Value.Tangent.ArriveTangent *= IntervalFactor;
-		Value.Tangent.LeaveTangent  *= IntervalFactor;
-	}
-	InChannel->SetTickResolution(DestinationRate);
 }

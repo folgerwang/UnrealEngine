@@ -379,7 +379,7 @@ void FDefaultGameMoviePlayer::StopMovie()
 	}
 }
 
-void FDefaultGameMoviePlayer::WaitForMovieToFinish()
+void FDefaultGameMoviePlayer::WaitForMovieToFinish(bool bAllowEngineTick)
 {
 	const bool bEnforceMinimumTime = LoadingScreenAttributes.MinimumLoadingScreenDisplayTime >= 0.0f;
 
@@ -444,6 +444,11 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 				SlateApp.FinishedInputThisFrame();
 
 				float DeltaTime = SlateApp.GetDeltaTime();				
+
+				if (GEngine && bAllowEngineTick && LoadingScreenAttributes.bAllowEngineTick)
+				{
+					GEngine->Tick(DeltaTime, false);
+				}
 
 				ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 					BeginLoadingMovieFrameAndTickMovieStreamer,
@@ -739,7 +744,11 @@ void FDefaultGameMoviePlayer::OnPreLoadMap(const FString& LevelName)
 
 void FDefaultGameMoviePlayer::OnPostLoadMap(UWorld* LoadedWorld)
 {
-	WaitForMovieToFinish();
+	if (!LoadingScreenAttributes.bAllowEngineTick)
+	{
+		// If engine tick is enabled, we don't want to tick here and instead want to run from the WaitForMovieToFinish call in LaunchEngineLoop
+		WaitForMovieToFinish();
+	}
 }
 
 void FDefaultGameMoviePlayer::SetSlateOverlayWidget(TSharedPtr<SWidget> NewOverlayWidget)

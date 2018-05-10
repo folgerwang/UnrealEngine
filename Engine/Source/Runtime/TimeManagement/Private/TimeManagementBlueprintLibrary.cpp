@@ -2,6 +2,9 @@
 
 #include "TimeManagementBlueprintLibrary.h"
 
+#include "ITimeManagementModule.h"
+#include "ITimecodeProvider.h"
+
 float UTimeManagementBlueprintLibrary::Conv_FrameRateToSeconds(const FFrameRate& InFrameRate)
 {
 	// Accept the loss of precision from conversion when in use with Blueprints.
@@ -17,4 +20,23 @@ float UTimeManagementBlueprintLibrary::Conv_QualifiedFrameTimeToSeconds(const FQ
 FFrameTime UTimeManagementBlueprintLibrary::Multiply_SecondsFrameRate(float TimeInSeconds, const FFrameRate& FrameRate)
 {
 	return FrameRate.AsFrameTime(TimeInSeconds);
+}
+
+FString UTimeManagementBlueprintLibrary::Conv_TimecodeToString(const FTimecode& InTimecode, bool bForceSignDisplay)
+{
+	return InTimecode.ToString(bForceSignDisplay);
+}
+
+bool UTimeManagementBlueprintLibrary::GetTimecode(FTimecode& OutTimecode)
+{
+	bool bResult = false;
+	if (const ITimecodeProvider* Manager = ITimeManagementModule::Get().GetTimecodeProvider())
+	{
+		bResult = Manager->IsSynchronized();
+		if (bResult)
+		{
+			OutTimecode = Manager->GetCurrentTimecode();
+		}
+	}
+	return bResult;
 }

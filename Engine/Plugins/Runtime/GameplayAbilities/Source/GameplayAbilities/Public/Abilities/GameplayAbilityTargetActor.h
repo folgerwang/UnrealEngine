@@ -14,18 +14,13 @@ class APlayerController;
 class UAbilitySystemComponent;
 class UGameplayAbility;
 
-UENUM(BlueprintType)
-namespace ETargetAbilitySelfSelection
-{
-	enum Type
-	{
-		TASS_Permit			UMETA(DisplayName = "Allow self-selection"),
-		TASS_Forbid			UMETA(DisplayName = "Forbid self-selection"),
-		TASS_Require 		UMETA(DisplayName = "Force self-selection (add to final data)")
-	};
-}
-
-/** TargetActors are spawned to assist with ability targeting. They are spawned by ability tasks and create/determine the outgoing targeting data passed from one task to another. */
+/**
+ * TargetActors are spawned to assist with ability targeting. They are spawned by ability tasks and create/determine the outgoing targeting data passed from one task to another
+ *
+ * WARNING: These actors are spawned once per ability activation and in their default form are not very efficient
+ * For most games you will need to subclass and heavily modify this actor, or you will want to implement similar functions in a game-specific actor or blueprint to avoid actor spawn costs
+ * This class is not well tested by internal games, but it is a useful class to look at to learn how target replication occurs
+ */
 UCLASS(Blueprintable, abstract, notplaceable)
 class GAMEPLAYABILITIES_API AGameplayAbilityTargetActor : public AActor
 {
@@ -66,10 +61,6 @@ public:
 
 	/** Replicated target data was received from a client. Possibly sanitize/verify. return true if data is good and we should broadcast it as valid data. */
 	virtual bool OnReplicatedTargetDataReceived(FGameplayAbilityTargetDataHandle& Data) const;
-
-	/** Accessor for checking, before instantiating, if this TargetActor will replicate. */
-	DEPRECATED(4.12, "Call AActor::GetIsReplicated instead")
-	bool GetReplicates() const { return GetIsReplicated(); }
 
 	// ------------------------------
 	

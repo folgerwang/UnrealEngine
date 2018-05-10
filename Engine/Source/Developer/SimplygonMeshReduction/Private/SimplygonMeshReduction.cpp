@@ -1777,10 +1777,12 @@ private:
 				// transform position
 				FVector WeightedVertex = BlendedMatrix.TransformPosition(Vertex.Position);
 				FVector WeightedTangentX = BlendedMatrix.TransformVector(Vertex.TangentX);
+				FVector WeightedTangentY = BlendedMatrix.TransformVector(Vertex.TangentY);
 				FVector WeightedTangentZ = BlendedMatrix.TransformVector(Vertex.TangentZ);
 			
 				check( TotalInfluence == 255 );
 				Vertex.TangentX = WeightedTangentX.GetSafeNormal();
+				Vertex.TangentY = WeightedTangentY.GetSafeNormal();
 				uint8 WComponent = Vertex.TangentZ.W;
 				Vertex.TangentZ = WeightedTangentZ.GetSafeNormal();
 				Vertex.TangentZ.W = WComponent;

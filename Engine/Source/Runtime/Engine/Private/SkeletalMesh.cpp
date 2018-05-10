@@ -1152,6 +1152,10 @@ uint32 USkeletalMesh::GetVertexBufferFlags() const
 	{
 		VertexFlags |= ESkeletalMeshVertexFlags::HasVertexColors;
 	}
+	if (bUseHighPrecisionTangentBasis)
+	{
+		VertexFlags |= ESkeletalMeshVertexFlags::UseHighPrecisionTangentBasis;
+	}
 	return VertexFlags;
 }
 

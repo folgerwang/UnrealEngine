@@ -4,7 +4,7 @@
 
 DEFINE_LOG_CATEGORY(LogType);
 
-bool FPropertyValueIterator::NextValue(EPropertyValueIteratorFlags InRecursionFlags)
+bool FPropertyValueIterator::NextValue(EPropertyValueIteratorFlags InRecursionFlags, bool bReturningFromStruct)
 {
 	if (PropertyIteratorStack.Num() == 0)
 	{
@@ -13,6 +13,12 @@ bool FPropertyValueIterator::NextValue(EPropertyValueIteratorFlags InRecursionFl
 	}
 
 	FPropertyValueStackEntry& Entry = PropertyIteratorStack.Last();
+
+	// If we are returning from struct, increment value index as we delayed incrementing it when entering recursion
+	if (bReturningFromStruct)
+	{
+		Entry.ValueIndex++;
+	}
 
 	// If we have pending values, deal with them
 	if (Entry.ValueIndex < Entry.ValueArray.Num())
@@ -78,15 +84,18 @@ bool FPropertyValueIterator::NextValue(EPropertyValueIteratorFlags InRecursionFl
 				// And child to stack and rerun. This invalidates Entry. We leave ValueIndex the same so it can be used for recursive property lookup
 				PropertyIteratorStack.Emplace(StructProperty->Struct, PropertyValue, DeprecatedPropertyFlags);
 
-				return NextValue(InRecursionFlags);
+				return NextValue(InRecursionFlags, false);
 			}
 		}
 
 		// Else this is a normal property and has nothing to expand
 		// We don't expand enum properties because EnumProperty handles value wrapping for us
 
-		// We didn't recurse into a struct, so increment next value to check
-		Entry.ValueIndex++;
+		// We didn't recurse into a struct, so increment next value to check, unless we we just popped a struct off the stack
+		if (!bReturningFromStruct)
+		{
+			Entry.ValueIndex++;
+		}
 	}
 
 	// Out of pending values, try to add more
@@ -99,10 +108,7 @@ bool FPropertyValueIterator::NextValue(EPropertyValueIteratorFlags InRecursionFl
 
 			if (PropertyIteratorStack.Num() > 0)
 			{
-				// Increment value index as we delayed incrementing it when entering recursion
-				PropertyIteratorStack.Last().ValueIndex++;
-			
-				return NextValue(InRecursionFlags);
+				return NextValue(InRecursionFlags, true);
 			}
 
 			return false;
@@ -139,7 +145,7 @@ void FPropertyValueIterator::IterateToNext()
 		bSkipRecursionOnce = false;
 	}
 
-	while (NextValue(LocalRecursionFlags))
+	while (NextValue(LocalRecursionFlags, false))
 	{
 		// If this property is valid type, stop iteration
 		FPropertyValueStackEntry& Entry = PropertyIteratorStack.Last();

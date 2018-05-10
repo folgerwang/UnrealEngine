@@ -1465,6 +1465,17 @@ FGameplayTagQuery FGameplayTagQuery::MakeQuery_MatchNoTags(FGameplayTagContainer
 		);
 }
 
+// static
+FGameplayTagQuery FGameplayTagQuery::MakeQuery_MatchTag(FGameplayTag const & InTag)
+{
+	return FGameplayTagQuery::BuildQuery
+	(
+		FGameplayTagQueryExpression()
+		.AllTagsMatch()
+		.AddTag(InTag)
+	);
+}
+
 
 #if WITH_EDITOR
 

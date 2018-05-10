@@ -130,7 +130,7 @@ public:
 	uint8 RemoteViewPitch;
 
 	/** Controller of the last Actor that caused us damage. */
-	UPROPERTY(transient)
+	UPROPERTY(BlueprintReadOnly, transient, Category="Pawn")
 	AController* LastHitBy;
 
 	/** Controller currently possessing this Actor */

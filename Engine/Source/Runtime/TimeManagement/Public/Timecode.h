@@ -52,23 +52,14 @@ public:
 		const int32 NumberOfFramesInHour = NumberOfFramesInMinute * 60;
 
 		// Do a quick pre-pass to take any overflow values and move them into bigger time units.
-		while (Frames >= NumberOfFramesInSecond)
-		{
-			Frames -= NumberOfFramesInSecond;
-			Seconds += 1;
-		}
+		Seconds += Frames / NumberOfFramesInSecond;
+		Frames = Frames % NumberOfFramesInSecond;
 
-		while (Seconds >= 60)
-		{
-			Seconds -= 60;
-			Minutes += 1;
-		}
+		Minutes += Seconds / 60;
+		Seconds = Seconds % 60;
 
-		while (Minutes >= 60)
-		{
-			Minutes -= 60;
-			Hours += 1;
-		}
+		Hours += Minutes / 60;
+		Minutes = Minutes % 60;
 
 		if (bDropFrameFormat)
 		{

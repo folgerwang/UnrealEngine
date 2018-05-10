@@ -10,6 +10,8 @@
 #include "MovieSceneSection.h"
 #include "Curves/IntegralCurve.h"
 #include "Channels/MovieSceneChannel.h"
+#include "Channels/MovieSceneChannelData.h"
+#include "Channels/MovieSceneChannelTraits.h"
 #include "MovieSceneActorReferenceSection.generated.h"
 
 USTRUCT()
@@ -40,7 +42,7 @@ struct FMovieSceneActorReferenceKey
 
 /** A curve of events */
 USTRUCT()
-struct FMovieSceneActorReferenceData
+struct FMovieSceneActorReferenceData : public FMovieSceneChannel
 {
 	GENERATED_BODY()
 
@@ -49,30 +51,23 @@ struct FMovieSceneActorReferenceData
 	{}
 
 	/**
-	 * Access an integer that uniquely identifies this channel type.
+	 * Access a mutable interface for this channel's data
 	 *
-	 * @return A static identifier that was allocated using FMovieSceneChannelEntry::RegisterNewID
+	 * @return An object that is able to manipulate this channel's data
 	 */
-	MOVIESCENETRACKS_API static uint32 GetChannelID();
-
-	/**
-	 * Access a mutable interface for this channel
-	 *
-	 * @return An object that is able to manipulate this channel
-	 */
-	FORCEINLINE TMovieSceneChannel<FMovieSceneActorReferenceKey> GetInterface()
+	FORCEINLINE TMovieSceneChannelData<FMovieSceneActorReferenceKey> GetData()
 	{
-		return TMovieSceneChannel<FMovieSceneActorReferenceKey>(&KeyTimes, &KeyValues, &KeyHandles);
+		return TMovieSceneChannelData<FMovieSceneActorReferenceKey>(&KeyTimes, &KeyValues, &KeyHandles);
 	}
 
 	/**
-	 * Access a constant interface for this channel
+	 * Access a constant interface for this channel's data
 	 *
-	 * @return An object that is able to interrogate this channel
+	 * @return An object that is able to interrogate this channel's data
 	 */
-	FORCEINLINE TMovieSceneChannel<const FMovieSceneActorReferenceKey> GetInterface() const
+	FORCEINLINE TMovieSceneChannelData<const FMovieSceneActorReferenceKey> GetData() const
 	{
-		return TMovieSceneChannel<const FMovieSceneActorReferenceKey>(&KeyTimes, &KeyValues);
+		return TMovieSceneChannelData<const FMovieSceneActorReferenceKey>(&KeyTimes, &KeyValues);
 	}
 
 	/**
@@ -82,6 +77,21 @@ struct FMovieSceneActorReferenceData
 	 * @return the result of the evaluation
 	 */
 	MOVIESCENETRACKS_API FMovieSceneActorReferenceKey Evaluate(FFrameTime InTime) const;
+
+public:
+
+	// ~ FMovieSceneChannel Interface
+	virtual void GetKeys(const TRange<FFrameNumber>& WithinRange, TArray<FFrameNumber>* OutKeyTimes, TArray<FKeyHandle>* OutKeyHandles) override;
+	virtual void GetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<FFrameNumber> OutKeyTimes) override;
+	virtual void SetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<const FFrameNumber> InKeyTimes) override;
+	virtual void DuplicateKeys(TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyHandle> OutNewHandles) override;
+	virtual void DeleteKeys(TArrayView<const FKeyHandle> InHandles) override;
+	virtual void ChangeFrameResolution(FFrameRate SourceRate, FFrameRate DestinationRate) override;
+	virtual TRange<FFrameNumber> ComputeEffectiveRange() const override;
+	virtual int32 GetNumKeys() const override;
+	virtual void Reset() override;
+	virtual void Offset(FFrameNumber DeltaPosition) override;
+	virtual void ClearDefault() override;
 
 public:
 
@@ -171,6 +181,3 @@ inline bool EvaluateChannel(const FMovieSceneActorReferenceData* InChannel, FFra
 	OutValue = InChannel->Evaluate(InTime);
 	return true;
 }
-
-inline void ClearChannelDefault(FMovieSceneActorReferenceData* InChannel)
-{}

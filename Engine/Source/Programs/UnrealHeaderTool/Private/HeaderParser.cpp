@@ -6051,17 +6051,8 @@ void FHeaderParser::ParseParameterList(FClasses& AllClasses, UFunction* Function
 						FError::Throwf(TEXT("C++ Default parameter not parsed: %s \"%s\" "), *Prop->GetName(), *DefaultArgText);
 					}
 
-					if (InnerDefaultValue.IsEmpty())
-					{
-						static int32 SkippedCounter = 0;
-						UE_LOG(LogCompile, Verbose, TEXT("C++ Default parameter skipped/empty [%i]: %s \"%s\" "), SkippedCounter, *Prop->GetName(), *DefaultArgText );
-						++SkippedCounter;
-					}
-					else
-					{
-						MetaData->Add(KeyName, InnerDefaultValue);
-						UE_LOG(LogCompile, Verbose, TEXT("C++ Default parameter parsed: %s \"%s\" -> \"%s\" "), *Prop->GetName(), *DefaultArgText, *InnerDefaultValue );
-					}
+					MetaData->Add(KeyName, InnerDefaultValue);
+					UE_LOG(LogCompile, Verbose, TEXT("C++ Default parameter parsed: %s \"%s\" -> \"%s\" "), *Prop->GetName(), *DefaultArgText, *InnerDefaultValue);
 				}
 			}
 		}
@@ -6704,7 +6695,7 @@ void FHeaderParser::CompileFunctionDeclaration(FClasses& AllClasses)
 		}
 	}
 
-	// Check to see if there is a function in the super class with the same name but a different signature
+	// Check to see if there is a function in the super class with the same name
 	UStruct* SuperStruct = GetCurrentClass();
 	if (SuperStruct)
 	{
@@ -6714,10 +6705,8 @@ void FHeaderParser::CompileFunctionDeclaration(FClasses& AllClasses)
 	{
 		if (UFunction* OverriddenFunction = ::FindField<UFunction>(SuperStruct, FuncInfo.Function.Identifier))
 		{
-			if (!AreFunctionSignaturesEqual(TopFunction, OverriddenFunction))
-			{
-				FError::Throwf(TEXT("Function '%s' has a different signature from the one defined in base class '%s'"), FuncInfo.Function.Identifier, *OverriddenFunction->GetOuter()->GetName());
-			}
+			// Native function overrides should be done in CPP text, not in a UFUNCTION() declaration (you can't change flags, and it'd otherwise be a burden to keep them identical)
+			UE_LOG_ERROR_UHT(TEXT("%s: Override of UFUNCTION in parent class (%s) cannot have a UFUNCTION() declaration above it; it will use the same parameters as the original declaration."), FuncInfo.Function.Identifier, *OverriddenFunction->GetOuter()->GetName());
 		}
 	}
 
@@ -6803,114 +6792,6 @@ void FHeaderParser::CompileFunctionDeclaration(FClasses& AllClasses)
 	//@TODO: UCREMOVAL: Ideally the flags didn't get copied midway thru parsing the function declaration, and we could avoid this
 	TopFunction->FunctionFlags |= FuncInfo.FunctionFlags;
 	StoredFuncData->UpdateFunctionData(FuncInfo);
-
-	// Verify parameter list and return type compatibility within the
-	// function, if any, that it overrides.
-	auto FunctionIterator = GetCurrentScope()->GetTypeIterator<UFunction>();
-	while (FunctionIterator.MoveNext())
-	{
-		UFunction* Function = *FunctionIterator;
-		if (Function->GetFName() != TopFunction->GetFName() || Function == TopFunction)
-			continue;
-
-		// Don't allow private functions to be redefined.
-		if (Function->FunctionFlags & FUNC_Private)
-			FError::Throwf(TEXT("Can't override private function '%s'"), FuncInfo.Function.Identifier);
-
-		// see if they both either have a return value or don't
-		if ((TopFunction->GetReturnProperty() != NULL) != (Function->GetReturnProperty() != NULL))
-		{
-			ReturnToLocation(FuncNameRetry);
-			FError::Throwf(TEXT("Redefinition of '%s %s' differs from original: return value mismatch"), TypeOfFunction, FuncInfo.Function.Identifier );
-		}
-
-		// See if all parameters match.
-		if (TopFunction->NumParms!=Function->NumParms)
-		{
-			ReturnToLocation(FuncNameRetry);
-			FError::Throwf(TEXT("Redefinition of '%s %s' differs from original; different number of parameters"), TypeOfFunction, FuncInfo.Function.Identifier );
-		}
-
-		// Check all individual parameters.
-		int32 Count=0;
-		for( TFieldIterator<UProperty> CurrentFuncParam(TopFunction),SuperFuncParam(Function); Count<Function->NumParms; ++CurrentFuncParam,++SuperFuncParam,++Count )
-		{
-			if( !FPropertyBase(*CurrentFuncParam).MatchesType(FPropertyBase(*SuperFuncParam), 1) )
-			{
-				if( CurrentFuncParam->PropertyFlags & CPF_ReturnParm )
-				{
-					ReturnToLocation(FuncNameRetry);
-					FError::Throwf(TEXT("Redefinition of %s %s differs only by return type"), TypeOfFunction, FuncInfo.Function.Identifier );
-				}
-				else
-				{
-					ReturnToLocation(FuncNameRetry);
-					FError::Throwf(TEXT("Redefinition of '%s %s' differs from original"), TypeOfFunction, FuncInfo.Function.Identifier );
-				}
-				break;
-			}
-			else if ( CurrentFuncParam->HasAnyPropertyFlags(CPF_OutParm) != SuperFuncParam->HasAnyPropertyFlags(CPF_OutParm) )
-			{
-				ReturnToLocation(FuncNameRetry);
-				FError::Throwf(TEXT("Redefinition of '%s %s' differs from original - 'out' mismatch on parameter %i"), TypeOfFunction, FuncInfo.Function.Identifier, Count + 1);
-			}
-			else if ( CurrentFuncParam->HasAnyPropertyFlags(CPF_ReferenceParm) != SuperFuncParam->HasAnyPropertyFlags(CPF_ReferenceParm) )
-			{
-				ReturnToLocation(FuncNameRetry);
-				FError::Throwf(TEXT("Redefinition of '%s %s' differs from original - 'ref' mismatch on parameter %i"), TypeOfFunction, FuncInfo.Function.Identifier, Count + 1);
-			}
-		}
-
-		if( Count<TopFunction->NumParms )
-		{
-			continue;
-		}
-
-		// if super version is event, overridden version must be defined as event (check before inheriting FUNC_Event)
-		if ( (Function->FunctionFlags & FUNC_Event) && !(FuncInfo.FunctionFlags & FUNC_Event) )
-		{
-			FError::Throwf(TEXT("Superclass version is defined as an event so '%s' should be!"), FuncInfo.Function.Identifier);
-		}
-		// Function flags to copy from parent.
-		FuncInfo.FunctionFlags |= (Function->FunctionFlags & FUNC_FuncInherit);
-
-		// Make sure the replication conditions aren't being redefined
-		if ((FuncInfo.FunctionFlags & FUNC_NetFuncFlags) != (Function->FunctionFlags & FUNC_NetFuncFlags))
-		{
-			FError::Throwf(TEXT("Redefinition of replication conditions for function '%s'"), FuncInfo.Function.Identifier);
-		}
-		FuncInfo.FunctionFlags |= (Function->FunctionFlags & FUNC_NetFuncFlags);
-
-		// Are we overriding a function?
-		if (TopFunction == Function->GetOuter())
-		{
-			// Duplicate.
-			ReturnToLocation( FuncNameRetry );
-			FError::Throwf(TEXT("Duplicate function '%s'"), *Function->GetName() );
-		}
-		// Overriding an existing function.
-		else if( Function->FunctionFlags & FUNC_Final )
-		{
-			ReturnToLocation(FuncNameRetry);
-			FError::Throwf(TEXT("%s: Can't override a 'final' function"), *Function->GetName() );
-		}
-		// Native function overrides should be done in CPP text, not in a UFUNCTION() declaration (you can't change flags, and it'd otherwise be a burden to keep them identical)
-		else if( Cast<UClass>(TopFunction->GetOuter()) != NULL )
-		{
-			//ReturnToLocation(FuncNameRetry);
-			FError::Throwf(TEXT("%s: An override of a function cannot have a UFUNCTION() declaration above it; it will use the same parameters as the original base declaration."), *Function->GetName() );
-		}
-
-		// Balk if required specifiers differ.
-		if ((Function->FunctionFlags & FUNC_FuncOverrideMatch) != (FuncInfo.FunctionFlags & FUNC_FuncOverrideMatch))
-		{
-			FError::Throwf(TEXT("Function '%s' specifiers differ from original"), *Function->GetName());
-		}
-
-		// Here we have found the original.
-		TopFunction->SetSuperStruct(Function);
-		break;
-	}
 
 	// Bind the function.
 	TopFunction->Bind();
@@ -8773,7 +8654,12 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 
 	if (Property->IsA(UClassProperty::StaticClass()) || Property->IsA(UObjectPropertyBase::StaticClass()))
 	{
-		return FDefaultValueHelper::Is(CppForm, TEXT("NULL")) || FDefaultValueHelper::Is(CppForm, TEXT("nullptr")) || FDefaultValueHelper::Is(CppForm, TEXT("0"));
+		const bool bIsNull = FDefaultValueHelper::Is(CppForm, TEXT("NULL")) || FDefaultValueHelper::Is(CppForm, TEXT("nullptr")) || FDefaultValueHelper::Is(CppForm, TEXT("0"));
+		if (bIsNull)
+		{
+			OutForm = TEXT("None");
+		}
+		return bIsNull; // always return as null is the only the processing we can do for object defaults
 	}
 
 	if( !Property->IsA(UStructProperty::StaticClass()) )

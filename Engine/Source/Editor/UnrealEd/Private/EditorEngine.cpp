@@ -339,13 +339,6 @@ UEditorEngine::UEditorEngine(const FObjectInitializer& ObjectInitializer)
 	EditorWorldExtensionsManager = nullptr;
 
 	ActorGroupingUtilsClassName = UActorGroupingUtils::StaticClass();
-
-#if !UE_BUILD_SHIPPING
-	if (!AutomationCommon::OnEditorAutomationMapLoadDelegate().IsBound())
-	{
-		AutomationCommon::OnEditorAutomationMapLoadDelegate().AddUObject(this, &UEditorEngine::AutomationLoadMap);
-	}
-#endif
 }
 
 
@@ -625,7 +618,7 @@ void UEditorEngine::InitEditor(IEngineLoop* InEngineLoop)
 	GEngine->HoverHighlightIntensity = ViewportSettings->HoverHighlightIntensity;
 
 	// Set navigation system property indicating whether navigation is supposed to rebuild automatically 
-	FWorldContext &EditorContext = GEditor->GetEditorWorldContext();
+	FWorldContext &EditorContext = GetEditorWorldContext();
 	FNavigationSystem::SetNavigationAutoUpdateEnabled(GetDefault<ULevelEditorMiscSettings>()->bNavigationAutoUpdate, EditorContext.World()->GetNavigationSystem());
 
 	// Allocate temporary model.
@@ -777,8 +770,11 @@ void UEditorEngine::HandlePackageReloaded(const EPackageReloadPhase InPackageRel
 
 	if (InPackageReloadPhase == EPackageReloadPhase::PostBatchPreGC)
 	{
-		// Make sure we don't have any lingering transaction buffer references.
-		GEditor->Trans->Reset(NSLOCTEXT("UnrealEd", "ReloadedPackage", "Reloaded Package"));
+		if (Trans)
+		{
+			// Make sure we don't have any lingering transaction buffer references.
+			Trans->Reset(NSLOCTEXT("UnrealEd", "ReloadedPackage", "Reloaded Package"));
+		}
 
 		// Recompile any BPs that had their references updated
 		if (BlueprintsToRecompileThisBatch.Num() > 0)
@@ -836,6 +832,13 @@ void UEditorEngine::InitializeObjectReferences()
 	{
 		PlayFromHerePlayerStartClass = LoadClass<ANavigationObjectBase>(NULL, *GetDefault<ULevelEditorPlaySettings>()->PlayFromHerePlayerStartClassName, NULL, LOAD_None, NULL);
 	}
+
+#if !UE_BUILD_SHIPPING
+	if (!AutomationCommon::OnEditorAutomationMapLoadDelegate().IsBound())
+	{
+		AutomationCommon::OnEditorAutomationMapLoadDelegate().AddUObject(this, &UEditorEngine::AutomationLoadMap);
+	}
+#endif
 }
 
 bool UEditorEngine::ShouldDrawBrushWireframe( AActor* InActor )
@@ -1785,7 +1788,7 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 	// Redraw viewports.
 
 	// Do not redraw if the application is hidden
-	bool bAllWindowsHidden = !bHasFocus && GEditor->AreAllWindowsHidden();
+	bool bAllWindowsHidden = !bHasFocus && AreAllWindowsHidden();
 	if( !bAllWindowsHidden )
 	{
 		FPixelInspectorModule& PixelInspectorModule = FModuleManager::LoadModuleChecked<FPixelInspectorModule>(TEXT("PixelInspectorModule"));
@@ -2153,7 +2156,7 @@ void UEditorEngine::Cleanse( bool ClearSelection, bool Redraw, const FText& Tran
 {
 	check( !TransReset.IsEmpty() );
 
-	if (GIsRunning)
+	if (GIsRunning || IsRunningCommandlet())
 	{
 		if( ClearSelection )
 		{
@@ -2320,7 +2323,7 @@ void UEditorEngine::PlayEditorSound( const FString& SoundAssetName )
 
 		if( Sound != NULL )
 		{
-			GEditor->PlayPreviewSound( Sound );
+			PlayPreviewSound( Sound );
 		}
 	}
 }
@@ -2332,7 +2335,7 @@ void UEditorEngine::PlayEditorSound( USoundBase* InSound )
 	{
 		if (InSound != nullptr)
 		{
-			GEditor->PlayPreviewSound(InSound);
+			PlayPreviewSound(InSound);
 		}
 	}
 }
@@ -2668,7 +2671,7 @@ void UEditorEngine::ApplyDeltaToActor(AActor* InActor,
 			FVector ModifiedScale = InDeltaScale;
 
 			// Note: With the new additive scaling method, this is handled in FLevelEditorViewportClient::ModifyScale
-			if( GEditor->UsePercentageBasedScaling() )
+			if( UsePercentageBasedScaling() )
 			{
 				// Get actor box extents
 				const FBox BoundingBox = InActor->GetComponentsBoundingBox( true );
@@ -2699,7 +2702,7 @@ void UEditorEngine::ApplyDeltaToActor(AActor* InActor,
 			{
 				// Flag actors to use old-style scaling or not
 				// @todo: Remove this hack once we have decided on the scaling method to use.
-				AActor::bUsePercentageBasedScaling = GEditor->UsePercentageBasedScaling();
+				AActor::bUsePercentageBasedScaling = UsePercentageBasedScaling();
 
 				InActor->EditorApplyScale( 
 					ModifiedScale,
@@ -2952,7 +2955,7 @@ void UEditorEngine::GetObjectsToSyncToContentBrowser( TArray<UObject*>& Objects 
 	// Otherwise, assemble a list of resources from selected actors.
 	if( !bFoundSurfaceMaterial )
 	{
-		for ( FSelectionIterator It( GEditor->GetSelectedActorIterator() ) ; It ; ++It )
+		for ( FSelectionIterator It( GetSelectedActorIterator() ) ; It ; ++It )
 		{
 			AActor* Actor = static_cast<AActor*>( *It );
 			checkSlow( Actor->IsA(AActor::StaticClass()) );
@@ -3028,7 +3031,7 @@ void UEditorEngine::GetReferencedAssetsForEditorSelection(TArray<UObject*>& Obje
 		}
 	}
 
-	for ( FSelectionIterator It( GEditor->GetSelectedActorIterator() ) ; It ; ++It )
+	for ( FSelectionIterator It( GetSelectedActorIterator() ) ; It ; ++It )
 	{
 		AActor* Actor = static_cast<AActor*>( *It );
 		checkSlow( Actor->IsA(AActor::StaticClass()) );
@@ -3113,7 +3116,7 @@ void UEditorEngine::SelectLevelInLevelBrowser( bool bDeselectOthers )
 {
 	if( bDeselectOthers )
 	{
-		AActor* Actor = Cast<AActor>( *FSelectionIterator(*GEditor->GetSelectedActors()) );
+		AActor* Actor = Cast<AActor>( *FSelectionIterator(*GetSelectedActors()) );
 		if(Actor)
 		{
 			TArray<class ULevel*> EmptyLevelsList;
@@ -3121,7 +3124,7 @@ void UEditorEngine::SelectLevelInLevelBrowser( bool bDeselectOthers )
 		}
 	}
 
-	for ( FSelectionIterator Itor(*GEditor->GetSelectedActors()) ; Itor ; ++Itor )
+	for ( FSelectionIterator Itor(*GetSelectedActors()) ; Itor ; ++Itor )
 	{
 		AActor* Actor = Cast<AActor>( *Itor);
 		if ( Actor )
@@ -3136,7 +3139,7 @@ void UEditorEngine::SelectLevelInLevelBrowser( bool bDeselectOthers )
 
 void UEditorEngine::DeselectLevelInLevelBrowser()
 {
-	for ( FSelectionIterator Itor(*GEditor->GetSelectedActors()) ; Itor ; ++Itor )
+	for ( FSelectionIterator Itor(*GetSelectedActors()) ; Itor ; ++Itor )
 	{
 		AActor* Actor = Cast<AActor>( *Itor);
 		if ( Actor )
@@ -3164,12 +3167,12 @@ void UEditorEngine::SelectAllActorsControlledByMatinee()
 		}
 	}
 
-	GUnrealEd->SelectNone(false, true, false);
+	SelectNone(false, true, false);
 	for(int32 i=0; i<AllActors.Num(); i++)
 	{
-		GUnrealEd->SelectActor( AllActors[i], true, false, true );
+		SelectActor( AllActors[i], true, false, true );
 	}
-	GUnrealEd->NoteSelectionChange();
+	NoteSelectionChange();
 }
 
 void UEditorEngine::SelectAllActorsWithClass( bool bArchetype )
@@ -3185,7 +3188,7 @@ void UEditorEngine::SelectAllActorsWithClass( bool bArchetype )
 		UWorld* CurrentEditorWorld = GetEditorWorldContext().World();
 		for (UClass* Class : SelectedClasses)
 		{
-			GUnrealEd->Exec(CurrentEditorWorld, *FString::Printf(TEXT("ACTOR SELECT OFCLASS CLASS=%s"), *Class->GetName()));
+			Exec(CurrentEditorWorld, *FString::Printf(TEXT("ACTOR SELECT OFCLASS CLASS=%s"), *Class->GetName()));
 		}
 	}
 	else
@@ -3226,7 +3229,7 @@ void UEditorEngine::SelectAllActorsWithClass( bool bArchetype )
 
 		// If all the selected actors have the same class and archetype, then go ahead and select all other actors
 		// matching the same class and archetype
-		if ( bAllSameClassAndArchetype )
+		if ( GUnrealEd && bAllSameClassAndArchetype )
 		{
 			FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "SelectOfClassAndArchetype", "Select of Class and Archetype") );
 			GUnrealEd->edactSelectOfClassAndArchetype( IteratorWorld, FirstClass, FirstArchetype );
@@ -3237,7 +3240,7 @@ void UEditorEngine::SelectAllActorsWithClass( bool bArchetype )
 
 void UEditorEngine::FindSelectedActorsInLevelScript()
 {
-	AActor* Actor = GEditor->GetSelectedActors()->GetTop<AActor>();
+	AActor* Actor = GetSelectedActors()->GetTop<AActor>();
 	if(Actor != NULL)
 	{
 		FKismetEditorUtilities::ShowActorReferencesInLevelScript(Actor);
@@ -3246,7 +3249,7 @@ void UEditorEngine::FindSelectedActorsInLevelScript()
 
 bool UEditorEngine::AreAnySelectedActorsInLevelScript()
 {
-	AActor* Actor = GEditor->GetSelectedActors()->GetTop<AActor>();
+	AActor* Actor = GetSelectedActors()->GetTop<AActor>();
 	if(Actor != NULL)
 	{
 		ULevelScriptBlueprint* LSB = Actor->GetLevel()->GetLevelScriptBlueprint(true);
@@ -3266,7 +3269,7 @@ bool UEditorEngine::AreAnySelectedActorsInLevelScript()
 void UEditorEngine::ConvertSelectedBrushesToVolumes( UClass* VolumeClass )
 {
 	TArray<ABrush*> BrushesToConvert;
-	for ( FSelectionIterator SelectedActorIter( GEditor->GetSelectedActorIterator() ); SelectedActorIter; ++SelectedActorIter )
+	for ( FSelectionIterator SelectedActorIter( GetSelectedActorIterator() ); SelectedActorIter; ++SelectedActorIter )
 	{
 		AActor* CurSelectedActor = Cast<AActor>( *SelectedActorIter );
 		check( CurSelectedActor );
@@ -3281,7 +3284,7 @@ void UEditorEngine::ConvertSelectedBrushesToVolumes( UClass* VolumeClass )
 
 	if (BrushesToConvert.Num())
 	{
-		GEditor->GetSelectedActors()->BeginBatchSelectOperation();
+		GetSelectedActors()->BeginBatchSelectOperation();
 
 		const FScopedTransaction Transaction( FText::Format( NSLOCTEXT("UnrealEd", "Transaction_ConvertToVolume", "Convert to Volume: {0}"), FText::FromString( VolumeClass->GetName() ) ) );
 		checkSlow( VolumeClass && VolumeClass->IsChildOf( AVolume::StaticClass() ) );
@@ -3324,21 +3327,24 @@ void UEditorEngine::ConvertSelectedBrushesToVolumes( UClass* VolumeClass )
 				}
 
 				// Select the new actor
-				GEditor->SelectActor( CurBrushActor, false, true );
-				GEditor->SelectActor( NewVolume, true, true );
+				SelectActor( CurBrushActor, false, true );
+				SelectActor( NewVolume, true, true );
 
 				NewVolume->PostEditChange();
 				NewVolume->PostEditMove( true );
 				NewVolume->Modify();
 
 				// Destroy the old actor.
-				GEditor->Layers->DisassociateActorFromLayers( CurBrushActor );
+				if (Layers.IsValid())
+				{
+					Layers->DisassociateActorFromLayers( CurBrushActor );
+				}
 				World->EditorDestroyActor( CurBrushActor, true );
 			}
 		}
 
-		GEditor->GetSelectedActors()->EndBatchSelectOperation();
-		GEditor->RedrawLevelEditingViewports();
+		GetSelectedActors()->EndBatchSelectOperation();
+		RedrawLevelEditingViewports();
 
 		// Broadcast a message that the levels in these worlds have changed
 		for (UWorld* ChangedWorld : WorldsAffected)
@@ -3349,7 +3355,7 @@ void UEditorEngine::ConvertSelectedBrushesToVolumes( UClass* VolumeClass )
 		// Rebuild BSP for any levels affected
 		for (ULevel* ChangedLevel : LevelsAffected)
 		{
-			GEditor->RebuildLevel(*ChangedLevel);
+			RebuildLevel(*ChangedLevel);
 		}
 	}
 }
@@ -3650,14 +3656,14 @@ void UEditorEngine::ConvertActorsFromClass( UClass* FromClass, UClass* ToClass )
 	TArray<FConvertStaticMeshActorInfo>	ConvertInfo;
 
 	// Provide the option to abort up-front.
-	if ( !bFoundTarget || GUnrealEd->ShouldAbortActorDeletion() )
+	if ( !bFoundTarget || (GUnrealEd && GUnrealEd->ShouldAbortActorDeletion()) )
 	{
 		return;
 	}
 
 	const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "ConvertMeshes", "Convert Meshes") );
 	// Iterate over selected Actors.
-	for ( FSelectionIterator It( GEditor->GetSelectedActorIterator() ) ; It ; ++It )
+	for ( FSelectionIterator It( GetSelectedActorIterator() ) ; It ; ++It )
 	{
 		AActor* Actor				= static_cast<AActor*>( *It );
 		checkSlow( Actor->IsA(AActor::StaticClass()) );
@@ -3701,19 +3707,19 @@ void UEditorEngine::ConvertActorsFromClass( UClass* FromClass, UClass* ToClass )
 
 	if (SourceActors.Num())
 	{
-		GEditor->GetSelectedActors()->BeginBatchSelectOperation();
+		GetSelectedActors()->BeginBatchSelectOperation();
 
 		// Then clear selection, select and delete the source actors.
-		GEditor->SelectNone( false, false );
+		SelectNone( false, false );
 		UWorld* World = NULL;
 		for( int32 ActorIndex = 0 ; ActorIndex < SourceActors.Num() ; ++ActorIndex )
 		{
 			AActor* SourceActor = SourceActors[ActorIndex];
-			GEditor->SelectActor( SourceActor, true, false );
+			SelectActor( SourceActor, true, false );
 			World = SourceActor->GetWorld();
 		}
 		
-		if ( World && GUnrealEd->edactDeleteSelected( World, false ) )
+		if ( World && GUnrealEd && GUnrealEd->edactDeleteSelected( World, false ) )
 		{
 			// Now we need to spawn some new actors at the desired locations.
 			for( int32 i = 0 ; i < ConvertInfo.Num() ; ++i )
@@ -3735,7 +3741,7 @@ void UEditorEngine::ConvertActorsFromClass( UClass* FromClass, UClass* ToClass )
 					SMActor->UnregisterAllComponents();
 					Info.SetToActor(SMActor, SMActor->GetStaticMeshComponent());
 					SMActor->RegisterAllComponents();
-					GEditor->SelectActor( SMActor, true, false );
+					SelectActor( SMActor, true, false );
 					Actor = SMActor;
 				}
 				else if(bToInteractiveFoliage)
@@ -3745,7 +3751,7 @@ void UEditorEngine::ConvertActorsFromClass( UClass* FromClass, UClass* ToClass )
 					FoliageActor->UnregisterAllComponents();
 					Info.SetToActor(FoliageActor, FoliageActor->GetStaticMeshComponent());
 					FoliageActor->RegisterAllComponents();
-					GEditor->SelectActor( FoliageActor, true, false );
+					SelectActor( FoliageActor, true, false );
 					Actor = FoliageActor;
 				}
 				else if (bToSkeletalMesh)
@@ -3756,7 +3762,7 @@ void UEditorEngine::ConvertActorsFromClass( UClass* FromClass, UClass* ToClass )
 					SkeletalMeshActor->UnregisterAllComponents();
 					Info.SetToActor(SkeletalMeshActor, SkeletalMeshActor->GetSkeletalMeshComponent());
 					SkeletalMeshActor->RegisterAllComponents();
-					GEditor->SelectActor( SkeletalMeshActor, true, false );
+					SelectActor( SkeletalMeshActor, true, false );
 					Actor = SkeletalMeshActor;
 				}
 
@@ -3772,7 +3778,7 @@ void UEditorEngine::ConvertActorsFromClass( UClass* FromClass, UClass* ToClass )
 			}
 		}
 
-		GEditor->GetSelectedActors()->EndBatchSelectOperation();
+		GetSelectedActors()->EndBatchSelectOperation();
 	}
 }
 
@@ -3798,7 +3804,7 @@ bool UEditorEngine::ShouldOpenMatinee(AMatineeActor* MatineeActor) const
 	}
 
 	// Don't let you open Matinee if a transaction is currently active.
-	if( GEditor->IsTransactionActive() )
+	if( IsTransactionActive() )
 	{
 		FMessageDialog::Open( EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "TransactionIsActive", "Undo Transaction Is Active - Cannot Open Matinee.") );
 		return false;
@@ -4090,7 +4096,7 @@ bool UEditorEngine::DetachSelectedActors()
 	FScopedTransaction Transaction( NSLOCTEXT("Editor", "UndoAction_PerformDetach", "Detach actors") );
 
 	bool bDetachOccurred = false;
-	for ( FSelectionIterator It( GEditor->GetSelectedActorIterator() ) ; It ; ++It )
+	for ( FSelectionIterator It( GetSelectedActorIterator() ) ; It ; ++It )
 	{
 		AActor* Actor = Cast<AActor>( *It );
 		checkSlow( Actor );
@@ -4221,7 +4227,7 @@ bool UEditorEngine::IsPackageValidForAutoAdding(UPackage* InPackage, const FStri
 		if ( bPackageIsValid )
 		{
 			const bool bIsPIEOrScriptPackage = InPackage->RootPackageHasAnyFlags( PKG_ContainsScript | PKG_PlayInEditor );
-			const bool bIsAutosave = GUnrealEd->GetPackageAutoSaver().IsAutoSaving();
+			const bool bIsAutosave = GUnrealEd && GUnrealEd->GetPackageAutoSaver().IsAutoSaving();
 
 			if ( bIsPIEOrScriptPackage || bIsAutosave || GIsAutomationTesting )
 			{
@@ -4458,7 +4464,7 @@ void UEditorEngine::OnPreSaveWorld(uint32 SaveFlags, UWorld* World)
 		else
 		{
 			// Normal non-pie and non-autosave codepath
-			FWorldContext &EditorContext = GEditor->GetEditorWorldContext();
+			FWorldContext &EditorContext = GetEditorWorldContext();
 
 			// Check that this world is GWorld to avoid stomping on the saved views of sub-levels.
 			if ( World == EditorContext.World() )
@@ -4530,7 +4536,7 @@ void UEditorEngine::OnPostSaveWorld(uint32 SaveFlags, UWorld* World, uint32 Orig
 		else
 		{
 			// Normal non-pie and non-autosave codepath
-			FWorldContext &EditorContext = GEditor->GetEditorWorldContext();
+			FWorldContext &EditorContext = GetEditorWorldContext();
 
 			const bool bIsPersistentLevel = (World == EditorContext.World());
 			if ( bSuccess )
@@ -4565,11 +4571,7 @@ void UEditorEngine::OnPostSaveWorld(uint32 SaveFlags, UWorld* World, uint32 Orig
 
 			if ( bIsPersistentLevel )
 			{
-				if ( GUnrealEd )
-				{
-					GUnrealEd->ResetTransaction( NSLOCTEXT("UnrealEd", "MapSaved", "Map Saved") );
-				}
-
+				ResetTransaction( NSLOCTEXT("UnrealEd", "MapSaved", "Map Saved") );
 				FPlatformProcess::SetCurrentWorkingDirectoryToBaseDir();
 			}
 		}
@@ -4628,7 +4630,7 @@ EAppReturnType::Type UEditorEngine::OnModalMessageDialog(EAppMsgType::Type InMes
 
 bool UEditorEngine::OnShouldLoadOnTop( const FString& Filename )
 {
-	 return GEditor && (FPaths::GetBaseFilename(Filename) == FPaths::GetBaseFilename(GEditor->UserOpenedFile));
+	 return FPaths::GetBaseFilename(Filename) == FPaths::GetBaseFilename(UserOpenedFile);
 }
 
 TSharedPtr<SViewport> UEditorEngine::GetGameViewportWidget() const
@@ -4740,9 +4742,9 @@ AActor* UEditorEngine::UseActorFactory( UActorFactory* Factory, const FAssetData
 	UWorld* OldWorld = nullptr;
 
 	// The play world needs to be selected if it exists
-	if (GIsEditor && GEditor->PlayWorld && !GIsPlayInEditorWorld)
+	if (GIsEditor && PlayWorld && !GIsPlayInEditorWorld)
 	{
-		OldWorld = SetPlayInEditorWorld(GEditor->PlayWorld);
+		OldWorld = SetPlayInEditorWorld(PlayWorld);
 	}
 
 	AActor* Actor = NULL;
@@ -5112,7 +5114,10 @@ void UEditorEngine::ReplaceActors(UActorFactory* Factory, const FAssetData& Asse
 			}
 
 			NewActor->Layers.Empty();
-			GEditor->Layers->AddActorToLayers( NewActor, OldActor->Layers );
+			if (Layers.IsValid())
+			{
+				Layers->AddActorToLayers( NewActor, OldActor->Layers );
+			}
 
 			// Preserve the label and tags from the old actor
 			NewActor->SetActorLabel( OldActor->GetActorLabel() );
@@ -5151,7 +5156,10 @@ void UEditorEngine::ReplaceActors(UActorFactory* Factory, const FAssetData& Asse
 				FBlueprintEditorUtils::ReplaceAllActorRefrences(LSB, OldActor, NewActor);
 			}
 
-			GEditor->Layers->DisassociateActorFromLayers( OldActor );
+			if (Layers.IsValid())
+			{
+				Layers->DisassociateActorFromLayers( OldActor );
+			}
 			World->EditorDestroyActor(OldActor, true);
 		}
 		else
@@ -5362,7 +5370,7 @@ static void CopyLightComponentProperties( const AActor& InOldActor, AActor& InNe
 void UEditorEngine::ConvertLightActors( UClass* ConvertToClass )
 {
 	// Provide the option to abort the conversion
-	if ( GEditor->ShouldAbortActorDeletion() )
+	if ( ShouldAbortActorDeletion() )
 	{
 		return;
 	}
@@ -5371,7 +5379,7 @@ void UEditorEngine::ConvertLightActors( UClass* ConvertToClass )
 	TArray< AActor* > ActorsToConvert;
 
 	// Get a list of valid actors to convert.
-	for( FSelectionIterator It( GEditor->GetSelectedActorIterator() ) ; It ; ++It )
+	for( FSelectionIterator It( GetSelectedActorIterator() ) ; It ; ++It )
 	{
 		AActor* ActorToConvert = static_cast<AActor*>( *It );
 		// Prevent non light actors from being converted
@@ -5384,7 +5392,7 @@ void UEditorEngine::ConvertLightActors( UClass* ConvertToClass )
 
 	if (ActorsToConvert.Num())
 	{
-		GEditor->GetSelectedActors()->BeginBatchSelectOperation();
+		GetSelectedActors()->BeginBatchSelectOperation();
 
 		// Undo/Redo support
 		const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "ConvertLights", "Convert Light") );
@@ -5426,14 +5434,17 @@ void UEditorEngine::ConvertLightActors( UClass* ConvertToClass )
 			CopyLightComponentProperties( *ActorToConvert, *NewActor );
 
 			// Select the new actor
-			GEditor->SelectActor( ActorToConvert, false, true );
+			SelectActor( ActorToConvert, false, true );
 	
 
 			NewActor->InvalidateLightingCache();
 			NewActor->PostEditChange();
 			NewActor->PostEditMove( true );
 			NewActor->Modify();
-			GEditor->Layers->InitializeNewActorLayers( NewActor );
+			if (Layers.IsValid())
+			{
+				Layers->InitializeNewActorLayers( NewActor );
+			}
 
 			// We have converted another light.
 			++NumLightsConverted;
@@ -5441,18 +5452,21 @@ void UEditorEngine::ConvertLightActors( UClass* ConvertToClass )
 			UE_LOG(LogEditor, Log, TEXT("Converted: %s to %s"), *ActorToConvert->GetName(), *NewActor->GetName() );
 
 			// Destroy the old actor.
-			GEditor->Layers->DisassociateActorFromLayers( ActorToConvert );
+			if (Layers.IsValid())
+			{
+				Layers->DisassociateActorFromLayers(ActorToConvert);
+			}
 			World->EditorDestroyActor( ActorToConvert, true );
 
 			if (NewActor->IsPendingKillOrUnreachable())
 			{
 				UE_LOG(LogEditor, Log, TEXT("Newly converted actor ('%s') is pending kill"), *NewActor->GetName());
 			}
-			GEditor->SelectActor(NewActor, true, true);
+			SelectActor(NewActor, true, true);
 		}
 
-		GEditor->GetSelectedActors()->EndBatchSelectOperation();
-		GEditor->RedrawLevelEditingViewports();
+		GetSelectedActors()->EndBatchSelectOperation();
+		RedrawLevelEditingViewports();
 
 		ULevel::LevelDirtiedEvent.Broadcast();
 	}
@@ -5618,8 +5632,8 @@ AActor* UEditorEngine::ConvertBrushesToStaticMesh(const FString& InStaticMeshPac
 		InBrushesToConvert[BrushesIdx]->TeleportTo(Location - InPivotLocation, Rotation, false, true);
 	}
 
-	GEditor->RebuildModelFromBrushes(ConversionTempModel, true, true );
-	GEditor->bspBuildFPolys(ConversionTempModel, true, 0);
+	RebuildModelFromBrushes(ConversionTempModel, true, true );
+	bspBuildFPolys(ConversionTempModel, true, 0);
 
 	if (0 < ConversionTempModel->Polys->Element.Num())
 	{
@@ -5632,7 +5646,10 @@ AActor* UEditorEngine::ConvertBrushesToStaticMesh(const FString& InStaticMeshPac
 		NewActor->PostEditChange();
 		NewActor->PostEditMove( true );
 		NewActor->Modify();
-		GEditor->Layers->InitializeNewActorLayers( NewActor );
+		if (Layers.IsValid())
+		{
+			Layers->InitializeNewActorLayers(NewActor);
+		}
 
 		// Teleport the new actor to the old location but not the old rotation. The static mesh is built to the rotation already.
 		NewActor->TeleportTo(InPivotLocation, FRotator(0.0f, 0.0f, 0.0f), false, true);
@@ -5640,7 +5657,10 @@ AActor* UEditorEngine::ConvertBrushesToStaticMesh(const FString& InStaticMeshPac
 		// Destroy the old brushes.
 		for( int32 BrushIdx = 0; BrushIdx < InBrushesToConvert.Num(); ++BrushIdx )
 		{
-			GEditor->Layers->DisassociateActorFromLayers( InBrushesToConvert[BrushIdx] );
+			if (Layers.IsValid())
+			{
+				Layers->DisassociateActorFromLayers(InBrushesToConvert[BrushIdx]);
+			}
 			GWorld->EditorDestroyActor( InBrushesToConvert[BrushIdx], true );
 		}
 
@@ -5649,8 +5669,8 @@ AActor* UEditorEngine::ConvertBrushesToStaticMesh(const FString& InStaticMeshPac
 	}
 
 	ConversionTempModel->EmptyModel(1, 1);
-	GEditor->RebuildAlteredBSP();
-	GEditor->RedrawLevelEditingViewports();
+	RebuildAlteredBSP();
+	RedrawLevelEditingViewports();
 
 	return NewActor;
 }
@@ -5699,12 +5719,12 @@ namespace ConvertHelpers
 void UEditorEngine::ConvertActors( const TArray<AActor*>& ActorsToConvert, UClass* ConvertToClass, const TSet<FString>& ComponentsToConsider, bool bUseSpecialCases )
 {
 	// Early out if actor deletion is currently forbidden
-	if (GEditor->ShouldAbortActorDeletion())
+	if (ShouldAbortActorDeletion())
 	{
 		return;
 	}
 
-	GEditor->SelectNone(true, true);
+	SelectNone(true, true);
 
 	// List of brushes being converted.
 	TArray<ABrush*> BrushList;
@@ -5750,7 +5770,7 @@ void UEditorEngine::ConvertActors( const TArray<AActor*>& ActorsToConvert, UClas
 void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UClass* ConvertToClass, const TSet<FString>& ComponentsToConsider, bool bUseSpecialCases, const FString& InStaticMeshPackageName )
 {
 	// Early out if actor deletion is currently forbidden
-	if (GEditor->ShouldAbortActorDeletion())
+	if (ShouldAbortActorDeletion())
 	{
 		return;
 	}
@@ -5761,7 +5781,7 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 	{
 		const FScopedTransaction Transaction( NSLOCTEXT("EditorEngine", "ConvertActors", "Convert Actors") );
 
-		GEditor->GetSelectedActors()->BeginBatchSelectOperation();
+		GetSelectedActors()->BeginBatchSelectOperation();
 
 		TArray<AActor*> ConvertedActors;
 		int32 NumActorsToConvert = ActorsToConvert.Num();
@@ -5772,7 +5792,7 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 		// Maps actors from old to new for quick look-up.
 		TMap<AActor*, AActor*> ConvertedMap;
 
-		GEditor->SelectNone(true, true);
+		SelectNone(true, true);
 		ReattachActorsHelper::CacheAttachments(ActorsToConvert, AttachmentInfo);
 
 		// List of brushes being converted.
@@ -5781,13 +5801,13 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 		// The index of a brush, utilized for re-attachment purposes when a single brush is being converted.
 		int32 BrushIndexForReattachment = 0;
 
-		FVector CachePivotLocation = GEditor->GetPivotLocation();
+		FVector CachePivotLocation = GetPivotLocation();
 		for( int32 ActorIdx = 0; ActorIdx < ActorsToConvert.Num(); ++ActorIdx )
 		{
 			AActor* ActorToConvert = ActorsToConvert[ActorIdx];
 			if (!ActorToConvert->IsPendingKill() && ActorToConvert->GetClass()->IsChildOf(ABrush::StaticClass()) && ConvertToClass == AStaticMeshActor::StaticClass())
 			{
-				GEditor->SelectActor(ActorToConvert, true, true);
+				SelectActor(ActorToConvert, true, true);
 				BrushList.Add(Cast<ABrush>(ActorToConvert));
 
 				// If this is a single brush conversion then this index will be used for re-attachment.
@@ -5846,8 +5866,8 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 
 				UActorGroupingUtils::SetGroupingActive(false);
 
-				GEditor->SelectNone(true, true);
-				GEditor->SelectActor(ActorToConvert, true, true);
+				SelectNone(true, true);
+				SelectActor(ActorToConvert, true, true);
 
 				// Each of the following 'special case' conversions will convert ActorToConvert to ConvertToClass if possible.
 				// If it does it will mark the original for delete and select the new actor
@@ -5870,8 +5890,8 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 				if (ActorToConvert->IsPendingKill())
 				{
 					// Converted by one of the above
-					check (1 == GEditor->GetSelectedActorCount());
-					NewActor = Cast< AActor >(GEditor->GetSelectedActors()->GetSelectedObject(0));
+					check (1 == GetSelectedActorCount());
+					NewActor = Cast< AActor >(GetSelectedActors()->GetSelectedObject(0));
 					if (ensureMsgf(NewActor, TEXT("Actor conversion of %s to %s failed"), *ActorToConvert->GetFullName(), *ConvertToClass->GetName()))
 					{
 						// Caches information for finding the new actor using the pre-converted actor.
@@ -5882,7 +5902,7 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 				else
 				{
 					// Failed to convert, make sure the actor is unselected
-					GEditor->SelectActor(ActorToConvert, false, true);
+					SelectActor(ActorToConvert, false, true);
 				}
 
 				// Restore previous grouping setting
@@ -5942,11 +5962,17 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 						NewActor->InvalidateLightingCache();
 						NewActor->PostEditChange();
 						NewActor->PostEditMove( true );
-						GEditor->Layers->InitializeNewActorLayers( NewActor );
+						if (Layers.IsValid())
+						{
+							Layers->InitializeNewActorLayers( NewActor );
+						}
 
 						// Destroy the old actor.
 						ActorToConvert->Modify();
-						GEditor->Layers->DisassociateActorFromLayers( ActorToConvert );
+						if (Layers.IsValid())
+						{
+							Layers->DisassociateActorFromLayers(ActorToConvert);
+						}
 						World->EditorDestroyActor( ActorToConvert, true );	
 					}
 				}
@@ -5982,15 +6008,15 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 		ReattachActorsHelper::ReattachActors(ConvertedMap, AttachmentInfo);
 
 		// Select the new actors
-		GEditor->SelectNone( false, true );
+		SelectNone( false, true );
 		for( TArray<AActor*>::TConstIterator it(ConvertedActors); it; ++it )
 		{
-			GEditor->SelectActor(*it, true, true);
+			SelectActor(*it, true, true);
 		}
 
-		GEditor->GetSelectedActors()->EndBatchSelectOperation();
-
-		GEditor->RedrawLevelEditingViewports();
+		GetSelectedActors()->EndBatchSelectOperation();
+		
+		RedrawLevelEditingViewports();
 
 		ULevel::LevelDirtiedEvent.Broadcast();
 		
@@ -6225,7 +6251,10 @@ AActor* UEditorEngine::AddActor(ULevel* InLevel, UClass* Class, const FTransform
 	if( Actor )
 	{
 		// If this actor is part of any layers (set in its default properties), add them into the visible layers list.
-		GEditor->Layers->SetLayersVisibility( Actor->Layers, true );
+		if (Layers.IsValid())
+		{
+			Layers->SetLayersVisibility(Actor->Layers, true);
+		}
 
 		// Clean up.
 		Actor->MarkPackageDirty();
@@ -6260,12 +6289,12 @@ TArray<AActor*> UEditorEngine::AddExportTextActors(const FString& ExportText, bo
 			Transaction.Cancel();
 		}
 		// Remove the selection to detect the actors that were created during FactoryCreateText. They will be selected when the operation in complete
-		GEditor->SelectNone( false, true );
+		SelectNone( false, true );
 		const TCHAR* Text = *ExportText;
 		if ( Factory->FactoryCreateText( ULevel::StaticClass(), CurrentLevel, CurrentLevel->GetFName(), InObjectFlags, nullptr, TEXT("paste"), Text, Text + FCString::Strlen(Text), GWarn ) != nullptr )
 		{
 			// Now get the selected actors and calculate a center point between all their locations.
-			USelection* ActorSelection = GEditor->GetSelectedActors();
+			USelection* ActorSelection = GetSelectedActors();
 			FVector Origin = FVector::ZeroVector;
 			for ( int32 ActorIdx = 0; ActorIdx < ActorSelection->Num(); ++ActorIdx )
 			{
@@ -6280,10 +6309,10 @@ TArray<AActor*> UEditorEngine::AddExportTextActors(const FString& ExportText, bo
 				Origin /= NewActors.Num();
 
 				// Set up the spawn location
-				FSnappingUtils::SnapPointToGrid( GEditor->ClickLocation, FVector(0, 0, 0) );
-				Location = GEditor->ClickLocation;
+				FSnappingUtils::SnapPointToGrid( ClickLocation, FVector(0, 0, 0) );
+				Location = ClickLocation;
 				FVector Collision = NewActors[0]->GetPlacementExtent();
-				Location += GEditor->ClickPlane * (FVector::BoxPushOut(GEditor->ClickPlane, Collision) + 0.1f);
+				Location += ClickPlane * (FVector::BoxPushOut(ClickPlane, Collision) + 0.1f);
 				FSnappingUtils::SnapPointToGrid( Location, FVector(0, 0, 0) );
 
 				// For every spawned actor, teleport to the target loction, preserving the relative translation to the other spawned actors.
@@ -6296,14 +6325,17 @@ TArray<AActor*> UEditorEngine::AddExportTextActors(const FString& ExportText, bo
 					Actor->InvalidateLightingCache();
 					Actor->PostEditMove( true );
 
-					GEditor->Layers->SetLayersVisibility( Actor->Layers, true );
+					if (Layers.IsValid())
+					{
+						Layers->SetLayersVisibility( Actor->Layers, true );
+					}
 
 					Actor->MarkPackageDirty();
 				}
 
 				// Send notification about a new actor being created
 				ULevel::LevelDirtiedEvent.Broadcast();
-				GEditor->NoteSelectionChange();
+				NoteSelectionChange();
 			}
 		}
 	}
@@ -6399,7 +6431,7 @@ void UEditorEngine::SetPreviewMeshMode( bool bState )
 		// could be valid mesh names provided in the INI. 
 		if( !bHavePreviewMesh )
 		{
-			bHavePreviewMesh = LoadPreviewMesh( GUnrealEd->PreviewMeshIndex );
+			bHavePreviewMesh = LoadPreviewMesh( PreviewMeshIndex );
 		}
 
 		// If we have a	preview mesh, change it's visibility based on the preview state. 
@@ -6457,7 +6489,7 @@ void UEditorEngine::CyclePreviewMesh()
 		return;
 	}
 
-	const int32 StartingPreviewMeshIndex = FMath::Min(GUnrealEd->PreviewMeshIndex, ViewportSettings.PreviewMeshes.Num() - 1);
+	const int32 StartingPreviewMeshIndex = FMath::Min(PreviewMeshIndex, ViewportSettings.PreviewMeshes.Num() - 1);
 	int32 CurrentPreviewMeshIndex = StartingPreviewMeshIndex;
 	bool bPreviewMeshFound = false;
 
@@ -6478,7 +6510,7 @@ void UEditorEngine::CyclePreviewMesh()
 		if( bPreviewMeshFound )
 		{
 			// Save off the index so we can reference it later when toggling the preview mesh mode. 
-			GUnrealEd->PreviewMeshIndex = CurrentPreviewMeshIndex;
+			PreviewMeshIndex = CurrentPreviewMeshIndex;
 		}
 
 		// Keep doing this until we found another valid mesh, or we cycled through all possible preview meshes. 
@@ -6581,7 +6613,10 @@ void UEditorEngine::OnLevelRemovedFromWorld(ULevel* InLevel, UWorld* InWorld)
 		{
 			// Each additional instance of PIE in a multiplayer game will add another barrier, so if the event is triggered then this is the case and we need to lift it
 			// Otherwise there will be an imbalance between barriers set and barriers removed and we won't be able to undo when we return.
-			Trans->RemoveUndoBarrier();
+			if (Trans)
+			{
+				Trans->RemoveUndoBarrier();
+			}
 		}
 		else
 		{	
@@ -7208,7 +7243,7 @@ void UEditorEngine::AutomationLoadMap(const FString& MapName, FString* OutError)
 	{
 		if (bPieRunning)
 		{
-			GEditor->EndPlayMap();
+			EndPlayMap();
 		}
 		FEditorFileUtils::LoadMap(*MapName, bLoadAsTemplate, bShowProgress);
 		bNeedPieStart = true;
@@ -7218,7 +7253,7 @@ void UEditorEngine::AutomationLoadMap(const FString& MapName, FString* OutError)
 	if (bNeedPieStart)
 	{
 		FFailedGameStartHandler FailHandler;
-		GEditor->PlayInEditor(GWorld, /*bInSimulateInEditor=*/false);
+		PlayInEditor(GWorld, /*bInSimulateInEditor=*/false);
 		if (!FailHandler.CanProceed())
 		{
 			*OutError = TEXT("Error encountered.");

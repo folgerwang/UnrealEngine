@@ -1394,7 +1394,6 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 	// Dynamically load engine runtime modules
 	{
 		FModuleManager::Get().LoadModuleChecked(TEXT("StreamingPauseRendering"));
-		FModuleManager::Get().LoadModuleChecked(TEXT("GeometryCache"));
 		FModuleManager::Get().LoadModuleChecked(TEXT("MovieScene"));
 		FModuleManager::Get().LoadModuleChecked(TEXT("MovieSceneTracks"));
 	}
@@ -1662,8 +1661,11 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 
 	if (CustomTimeStep)
 	{
-		CustomTimeStep->UpdateTimeStep(this);
-		return;
+		bool bRunEngineCode = CustomTimeStep->UpdateTimeStep(this);
+		if (!bRunEngineCode)
+		{
+			return;
+		}
 	}
 
 	// This is always in realtime and is not adjusted by fixed framerate. Start slightly below current real time
@@ -12810,6 +12812,7 @@ void UEngine::CreateGameUserSettings()
 {
 	UGameUserSettings::LoadConfigIni();
 	GameUserSettings = NewObject<UGameUserSettings>(GetTransientPackage(), GEngine->GameUserSettingsClass);
+	GameUserSettings->SetToDefaults();
 	GameUserSettings->LoadSettings();
 }
 

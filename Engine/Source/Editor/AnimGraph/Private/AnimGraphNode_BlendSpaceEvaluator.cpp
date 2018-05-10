@@ -95,6 +95,8 @@ void UAnimGraphNode_BlendSpaceEvaluator::GetMenuActions(FBlueprintActionDatabase
 
 void UAnimGraphNode_BlendSpaceEvaluator::ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog)
 {
+	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
+
 	UBlendSpaceBase* BlendSpaceToCheck = Node.BlendSpace;
 	UEdGraphPin* BlendSpacePin = FindPin(GET_MEMBER_NAME_STRING_CHECKED(FAnimNode_BlendSpaceEvaluator, BlendSpace));
 	if (BlendSpacePin != nullptr && BlendSpaceToCheck == nullptr)

@@ -116,6 +116,7 @@
 // Debugging
 #include "Debugging/SKismetDebuggingView.h"
 #include "Debugging/KismetDebugCommands.h"
+#include "WatchPointViewer.h"
 // End of debugging
 
 // Misc diagnostics
@@ -1690,6 +1691,7 @@ void FBlueprintEditor::LoadLibrariesFromAssetRegistry()
 						if (BlueprintLibPtr )
 						{
 							StandardLibraries.AddUnique(BlueprintLibPtr);
+							WatchViewer::UpdateWatchListFromBlueprint(BlueprintLibPtr);
 						}
 					}
 				}
@@ -1748,6 +1750,7 @@ void FBlueprintEditor::InitBlueprintEditor(
 	const TSharedRef<FTabManager::FLayout> DummyLayout = FTabManager::NewLayout("NullLayout")->AddArea(FTabManager::NewPrimaryArea());
 	const bool bCreateDefaultStandaloneMenu = true;
 	const bool bCreateDefaultToolbar = true;
+	const FName BlueprintEditorAppName = FName(TEXT("BlueprintEditorApp"));
 	InitAssetEditor(Mode, InitToolkitHost, BlueprintEditorAppName, DummyLayout, bCreateDefaultStandaloneMenu, bCreateDefaultToolbar, Objects);
 	
 	CommonInitialization(InBlueprints);

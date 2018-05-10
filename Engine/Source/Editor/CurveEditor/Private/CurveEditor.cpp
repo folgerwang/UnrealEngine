@@ -515,7 +515,7 @@ void FCurveEditor::GetCurveDrawParams(TArray<FCurveDrawParams>& OutDrawParams) c
 	}
 }
 
-void FCurveEditor::ConstructInputGridLines(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines) const
+void FCurveEditor::ConstructXGridLines(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines, TArray<FText>& MajorGridLabels) const
 {
 	FCurveEditorScreenSpace ScreenSpace = GetScreenSpace();
 
@@ -529,6 +529,7 @@ void FCurveEditor::ConstructInputGridLines(TArray<float>& MajorGridLines, TArray
 		for (double CurrentMajorLine = FirstMajorLine; CurrentMajorLine < LastMajorLine; CurrentMajorLine += MajorGridStep)
 		{
 			MajorGridLines.Add( ScreenSpace.SecondsToScreen(CurrentMajorLine) );
+			MajorGridLabels.Add( FText::Format(LOCTEXT("GridXLabelFormat", "{0}s"), FText::AsNumber(CurrentMajorLine)) );
 
 			for (int32 Step = 1; Step < MinorDivisions; ++Step)
 			{
@@ -538,7 +539,7 @@ void FCurveEditor::ConstructInputGridLines(TArray<float>& MajorGridLines, TArray
 	}
 }
 
-void FCurveEditor::ConstructOutputGridLines(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines, uint8 MinorDivisions) const
+void FCurveEditor::ConstructYGridLines(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines, TArray<FText>&MajorGridLabels, uint8 MinorDivisions) const
 {
 	FCurveEditorSnapMetrics SnapMetrics = GetSnapMetrics();
 	FCurveEditorScreenSpace ScreenSpace = GetScreenSpace();
@@ -560,10 +561,11 @@ void FCurveEditor::ConstructOutputGridLines(TArray<float>& MajorGridLines, TArra
 	for (double CurrentMajorLine = FirstMajorLine; CurrentMajorLine < LastMajorLine; CurrentMajorLine += MajorGridStep)
 	{
 		MajorGridLines.Add( ScreenSpace.ValueToScreen(CurrentMajorLine) );
+		MajorGridLabels.Add(FText::Format(LOCTEXT("GridYLabelFormat", "{0}"), FText::AsNumber(CurrentMajorLine)));
 
 		for (int32 Step = 1; Step < MinorDivisions; ++Step)
 		{
-			MinorGridLines.Add( ScreenSpace.SecondsToScreen(CurrentMajorLine + Step*MajorGridStep/MinorDivisions) );
+			MinorGridLines.Add( ScreenSpace.ValueToScreen(CurrentMajorLine + Step*MajorGridStep/MinorDivisions) );
 		}
 	}
 }

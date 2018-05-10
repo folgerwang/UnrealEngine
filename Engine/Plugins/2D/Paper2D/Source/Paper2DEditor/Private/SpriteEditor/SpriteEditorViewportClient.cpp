@@ -633,10 +633,10 @@ void FSpriteEditorViewportClient::Tick(float DeltaSeconds)
 		}
 
 		const FVector2D BoxSize(Sprite->GetSourceSize());
-		const FVector2D BoxLocation(Sprite->GetSourceUV() + (BoxSize * 0.5f));
+		const FVector2D BoxLocation(Sprite->GetSourceUV());
 		FBox2D SpriteBounds(ForceInitToZero);
-		SpriteBounds.Min = BoxSize - BoxLocation * 0.5f;
-		SpriteBounds.Max = BoxSize + BoxLocation * 0.5f;
+		SpriteBounds.Min = BoxLocation;
+		SpriteBounds.Max = BoxLocation + BoxSize;
 
 		if (FSpriteGeometryEditMode* GeometryEditMode = ModeTools->GetActiveModeTyped<FSpriteGeometryEditMode>(FSpriteGeometryEditMode::EM_SpriteGeometry))
 		{

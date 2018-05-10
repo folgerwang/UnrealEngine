@@ -95,11 +95,16 @@ namespace PyConversion
 	FPyConversionResult PythonizeClass(UClass* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState = ESetErrorState::Yes);
 	PyObject* PythonizeClass(UClass* Val, const ESetErrorState SetErrorState = ESetErrorState::Yes);
 
+	/** Conversion for struct types, including optional type checking */
+	FPyConversionResult NativizeStruct(PyObject* PyObj, UScriptStruct*& OutVal, UScriptStruct* ExpectedType, const ESetErrorState SetErrorState = ESetErrorState::Yes);
+	FPyConversionResult PythonizeStruct(UScriptStruct* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState = ESetErrorState::Yes);
+	PyObject* PythonizeStruct(UScriptStruct* Val, const ESetErrorState SetErrorState = ESetErrorState::Yes);
+
 	namespace Internal
 	{
-		/** Internal version of NativizeStruct/PythonizeStruct that work on the type-erased data */
-		FPyConversionResult NativizeStruct(PyObject* PyObj, UScriptStruct* StructType, void* StructInstance, const ESetErrorState SetErrorState);
-		FPyConversionResult PythonizeStruct(UScriptStruct* StructType, const void* StructInstance, PyObject*& OutPyObj, const ESetErrorState SetErrorState);
+		/** Internal version of NativizeStructInstance/PythonizeStructInstance that work on the type-erased data */
+		FPyConversionResult NativizeStructInstance(PyObject* PyObj, UScriptStruct* StructType, void* StructInstance, const ESetErrorState SetErrorState);
+		FPyConversionResult PythonizeStructInstance(UScriptStruct* StructType, const void* StructInstance, PyObject*& OutPyObj, const ESetErrorState SetErrorState);
 
 		/** Dummy catch-all for type conversions that aren't yet implemented */
 		template <typename T, typename Spec = void>
@@ -165,24 +170,24 @@ namespace PyConversion
 
 	/** Conversion for known struct types */
 	template <typename T>
-	FPyConversionResult NativizeStruct(PyObject* PyObj, T& OutVal, const ESetErrorState SetErrorState = ESetErrorState::Yes)
+	FPyConversionResult NativizeStructInstance(PyObject* PyObj, T& OutVal, const ESetErrorState SetErrorState = ESetErrorState::Yes)
 	{
-		return Internal::NativizeStruct(PyObj, TBaseStructure<T>::Get(), &OutVal, SetErrorState);
+		return Internal::NativizeStructInstance(PyObj, TBaseStructure<T>::Get(), &OutVal, SetErrorState);
 	}
 
 	/** Conversion for known struct types */
 	template <typename T>
-	FPyConversionResult PythonizeStruct(const T& Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState = ESetErrorState::Yes)
+	FPyConversionResult PythonizeStructInstance(const T& Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState = ESetErrorState::Yes)
 	{
-		return Internal::PythonizeStruct(TBaseStructure<T>::Get(), &Val, OutPyObj, SetErrorState);
+		return Internal::PythonizeStructInstance(TBaseStructure<T>::Get(), &Val, OutPyObj, SetErrorState);
 	}
 
 	/** Conversion for known struct types that returns a PyObject rather than a bool */
 	template <typename T>
-	PyObject* PythonizeStruct(const T& Val, const ESetErrorState SetErrorState = ESetErrorState::Yes)
+	PyObject* PythonizeStructInstance(const T& Val, const ESetErrorState SetErrorState = ESetErrorState::Yes)
 	{
 		PyObject* Obj = nullptr;
-		Internal::PythonizeStruct(TBaseStructure<T>::Get(), &Val, Obj, SetErrorState);
+		Internal::PythonizeStructInstance(TBaseStructure<T>::Get(), &Val, Obj, SetErrorState);
 		return Obj;
 	}
 

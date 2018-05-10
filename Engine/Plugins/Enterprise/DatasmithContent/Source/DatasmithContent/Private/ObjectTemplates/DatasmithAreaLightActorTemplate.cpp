@@ -55,3 +55,21 @@ void UDatasmithAreaLightActorTemplate::Load( const UObject* Source )
 	bHidden = AreaLightActor->bHidden;
 #endif // #if WITH_EDITORONLY_DATA
 }
+
+bool UDatasmithAreaLightActorTemplate::Equals( const UDatasmithObjectTemplate* Other ) const
+{
+	const UDatasmithAreaLightActorTemplate* TypedOther = Cast< UDatasmithAreaLightActorTemplate >( Other );
+
+	if ( !TypedOther )
+	{
+		return false;
+	}
+
+	bool bEquals = ( LightShape == TypedOther->LightShape );
+	bEquals = bEquals && Dimensions.Equals( TypedOther->Dimensions );
+	bEquals = bEquals && Color.Equals( TypedOther->Color );
+	bEquals = bEquals && FMath::IsNearlyEqual( Intensity, TypedOther->Intensity );
+	bEquals = bEquals && ( bHidden == TypedOther->bHidden );
+
+	return bEquals;
+}

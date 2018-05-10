@@ -488,6 +488,8 @@ struct FMeshMergingSettings
 /** Struct to store per section info used to populate data after (multiple) meshes are merged together */
 struct FSectionInfo
 {
+	FSectionInfo() : Material(nullptr), MaterialSlotName(NAME_None), MaterialIndex(INDEX_NONE), StartIndex(INDEX_NONE), EndIndex(INDEX_NONE), bProcessed(false)	{}
+
 	/** Material used by the section */
 	class UMaterialInterface* Material;
 	/** Name value for the section */

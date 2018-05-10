@@ -307,11 +307,6 @@ bool FMovieSceneEventParameters::Serialize(FArchive& Ar)
 	return true;
 }
 
-uint32 FMovieSceneEventSectionData::GetChannelID()
-{
-	static uint32 ID = FMovieSceneChannelEntry::RegisterNewID();
-	return ID;
-}
 
 void FMovieSceneEventSectionData::PostSerialize(const FArchive& Ar)
 {
@@ -334,6 +329,58 @@ void FMovieSceneEventSectionData::PostSerialize(const FArchive& Ar)
 #endif
 }
 
+void FMovieSceneEventSectionData::GetKeys(const TRange<FFrameNumber>& WithinRange, TArray<FFrameNumber>* OutKeyTimes, TArray<FKeyHandle>* OutKeyHandles)
+{
+	GetData().GetKeys(WithinRange, OutKeyTimes, OutKeyHandles);
+}
+
+void FMovieSceneEventSectionData::GetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<FFrameNumber> OutKeyTimes)
+{
+	GetData().GetKeyTimes(InHandles, OutKeyTimes);
+}
+
+void FMovieSceneEventSectionData::SetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<const FFrameNumber> InKeyTimes)
+{
+	GetData().SetKeyTimes(InHandles, InKeyTimes);
+}
+
+void FMovieSceneEventSectionData::DuplicateKeys(TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyHandle> OutNewHandles)
+{
+	GetData().DuplicateKeys(InHandles, OutNewHandles);
+}
+
+void FMovieSceneEventSectionData::DeleteKeys(TArrayView<const FKeyHandle> InHandles)
+{
+	GetData().DeleteKeys(InHandles);
+}
+
+void FMovieSceneEventSectionData::ChangeFrameResolution(FFrameRate SourceRate, FFrameRate DestinationRate)
+{
+	GetData().ChangeFrameResolution(SourceRate, DestinationRate);
+}
+
+TRange<FFrameNumber> FMovieSceneEventSectionData::ComputeEffectiveRange() const
+{
+	return GetData().GetTotalRange();
+}
+
+int32 FMovieSceneEventSectionData::GetNumKeys() const
+{
+	return Times.Num();
+}
+
+void FMovieSceneEventSectionData::Reset()
+{
+	Times.Reset();
+	KeyValues.Reset();
+	KeyHandles.Reset();
+}
+
+void FMovieSceneEventSectionData::Offset(FFrameNumber DeltaPosition)
+{
+	GetData().Offset(DeltaPosition);
+}
+
 /* UMovieSceneSection structors
  *****************************************************************************/
 
@@ -347,7 +394,7 @@ UMovieSceneEventSection::UMovieSceneEventSection()
 
 #if WITH_EDITOR
 
-	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(EventData, FMovieSceneChannelEditorData());
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(EventData, FMovieSceneChannelMetaData());
 
 #else
 
@@ -360,14 +407,14 @@ void UMovieSceneEventSection::PostLoad()
 {
 	if (Events_DEPRECATED.GetKeys().Num())
 	{
-		TMovieSceneChannel<FEventPayload> Channel = EventData.GetInterface();
+		TMovieSceneChannelData<FEventPayload> ChannelData = EventData.GetData();
 
 		FFrameRate LegacyFrameRate = GetLegacyConversionFrameRate();
 
 		for (FNameCurveKey EventKey : Events_DEPRECATED.GetKeys())
 		{
 			FFrameNumber KeyTime = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, EventKey.Time);
-			Channel.AddKey(KeyTime, FEventPayload(EventKey.Value));
+			ChannelData.AddKey(KeyTime, FEventPayload(EventKey.Value));
 		}
 
 		MarkAsChanged();
