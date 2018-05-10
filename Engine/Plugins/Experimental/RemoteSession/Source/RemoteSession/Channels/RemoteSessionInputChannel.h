@@ -3,7 +3,7 @@
 #pragma once
 
 #include "RemoteSessionChannel.h"
-#include "MessageHandler/RecordingMessageHandler.h"
+#include "../Private/MessageHandler/RecordingMessageHandler.h"
 
 class FBackChannelOSCMessage;
 class FBackChannelOSCDispatch;
@@ -23,6 +23,8 @@ public:
 	void OnRemoteMessage(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch & Dispatch);
 
 	void SetPlaybackWindow(TWeakPtr<SWindow> InWindow, TWeakPtr<FSceneViewport> InViewport);
+
+	void SetInputRect(const FVector2D& TopLeft, const FVector2D& Extents);
 
 	static FString StaticType();
 	virtual FString GetType() const override { return StaticType(); }

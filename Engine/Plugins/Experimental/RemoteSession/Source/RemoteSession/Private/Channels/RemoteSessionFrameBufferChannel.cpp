@@ -202,9 +202,9 @@ void FRemoteSessionFrameBufferChannel::Tick(const float InDeltaTime)
 			FUpdateTextureRegion2D* Region = new FUpdateTextureRegion2D(0, 0, 0, 0, QueuedImage->Width, QueuedImage->Height);
 			TArray<uint8>* TextureData = new TArray<uint8>(MoveTemp(QueuedImage->ImageData));
 
-			DecodedTextures[NextImage]->UpdateTextureRegions(0, 1, Region, 4 * QueuedImage->Width, 8, TextureData->GetData(), [this, NextImage](auto InTextureData, auto InRegions) {
+			DecodedTextures[NextImage]->UpdateTextureRegions(0, 1, Region, 4 * QueuedImage->Width, 8, TextureData->GetData(), [this, NextImage, TextureData](auto InTextureData, auto InRegions) {
 				DecodedTextureIndex = NextImage;
-				delete InTextureData;
+				delete TextureData; // delete array, not underlying data that UpdateTextureRegions passes us
 				delete InRegions;
 			});
 

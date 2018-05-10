@@ -27,8 +27,10 @@ protected:
 	int32								Framerate;
 
 	bool bAutoHostWithPIE;
+	bool bAutoHostWithGame;
 	FDelegateHandle PostPieDelegate;
 	FDelegateHandle EndPieDelegate;
+	FDelegateHandle GameStartDelegate;
 
 public:
 
@@ -39,11 +41,12 @@ public:
 
 	void StartupModule()
 	{
-		bool bAutoHostWithGame = false;
+		// set defaults
 		DefaultPort = IRemoteSessionModule::kDefaultPort;
 		Quality = 85;
 		Framerate = 30;
-		bAutoHostWithPIE = false;
+		bAutoHostWithPIE = true;
+		bAutoHostWithGame = true;
 
 		GConfig->GetBool(TEXT("RemoteSession"), TEXT("bAutoHostWithGame"), bAutoHostWithGame, GEngineIni);
 		GConfig->GetBool(TEXT("RemoteSession"), TEXT("bAutoHostWithPIE"), bAutoHostWithPIE, GEngineIni);
@@ -51,19 +54,16 @@ public:
 		GConfig->GetInt(TEXT("RemoteSession"), TEXT("Quality"), Quality, GEngineIni);
 		GConfig->GetInt(TEXT("RemoteSession"), TEXT("Framerate"), Framerate, GEngineIni);
 
-		if (PLATFORM_DESKTOP)
+
+		if (PLATFORM_DESKTOP 
+			&& IsRunningDedicatedServer() == false 
+			&& IsRunningCommandlet() == false)
 		{
-			if (GIsEditor)
-			{
 #if WITH_EDITOR
-				PostPieDelegate = FEditorDelegates::PostPIEStarted.AddRaw(this, &FRemoteSessionModule::OnPIEStarted);
-				EndPieDelegate = FEditorDelegates::EndPIE.AddRaw(this, &FRemoteSessionModule::OnPIEEnded);
+			PostPieDelegate = FEditorDelegates::PostPIEStarted.AddRaw(this, &FRemoteSessionModule::OnPIEStarted);
+			EndPieDelegate = FEditorDelegates::EndPIE.AddRaw(this, &FRemoteSessionModule::OnPIEEnded);
 #endif
-			}
-			else if (bAutoHostWithGame)
-			{
-				InitHost();
-			}
+			GameStartDelegate = FCoreDelegates::OnFEngineLoopInitComplete.AddRaw(this, &FRemoteSessionModule::OnGameStarted);
 		}
 	}
 
@@ -82,6 +82,38 @@ public:
 			FEditorDelegates::EndPIE.Remove(EndPieDelegate);
 		}
 #endif
+
+		if (GameStartDelegate.IsValid())
+		{
+			FCoreDelegates::OnFEngineLoopInitComplete.Remove(GameStartDelegate);
+		}
+	}
+
+	void OnGameStarted()
+	{
+		bool IsHostGame = PLATFORM_DESKTOP
+			&& GIsEditor == false
+			&& IsRunningDedicatedServer() == false
+			&& IsRunningCommandlet() == false;
+
+		if (IsHostGame && bAutoHostWithGame)
+		{
+			InitHost();
+		}
+	}
+
+	void OnPIEStarted(bool bSimulating)
+	{
+		if (bAutoHostWithPIE)
+		{
+			InitHost();
+		}
+	}
+
+	void OnPIEEnded(bool bSimulating)
+	{
+		// always stop, incase it was started via the console
+		StopHost();
 	}
 
 	virtual void InitClient(const TCHAR* RemoteAddress) override
@@ -112,11 +144,21 @@ public:
 
 	virtual void InitHost(const int16 Port = 0) override
 	{
-#if !UE_BUILD_SHIPPING
 		if (Host.IsValid())
 		{
 			Host = nullptr;
 		}
+
+#if UE_BUILD_SHIPPING
+		bool bAllowInShipping = false;
+		GConfig->GetBool(TEXT("RemoteSession"), TEXT("bAllowInShipping"), bAllowInShipping, GEngineIni);
+
+		if (bAllowInShipping == false)
+		{
+			UE_LOG(LogRemoteSession, Log, TEXT("RemoteSession is disabled. Shipping=1"));
+			return;
+		}
+#endif
 
 		TSharedPtr<FRemoteSessionHost> NewHost = MakeShareable(new FRemoteSessionHost(Quality, Framerate));
 
@@ -131,9 +173,6 @@ public:
 		{
 			UE_LOG(LogRemoteSession, Error, TEXT("Failed to start host listening on port %d"), SelectedPort);
 		}
-#else
-		UE_LOG(LogRemoteSession, Log, TEXT("RemoteSession is disabled. Shipping=1"));
-#endif
 	}
 
 	virtual bool IsHostRunning() const override
@@ -154,20 +193,6 @@ public:
 	virtual TSharedPtr<IRemoteSessionRole>	GetHost() const override
 	{
 		return Host;
-	}
-
-	void OnPIEStarted(bool bSimulating)
-	{
-		if (bAutoHostWithPIE)
-		{
-			InitHost();
-		}
-	}
-
-	void OnPIEEnded(bool bSimulating)
-	{
-		// always stop, incase it was started via the console
-		StopHost();
 	}
 
 	virtual TStatId GetStatId() const override

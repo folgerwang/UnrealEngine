@@ -198,21 +198,37 @@ void FProxyMessageHandler::OnEndGesture()
 	}
 }
 
+#if REMOTE_WITH_FORCE_PARAM
+bool FProxyMessageHandler::OnTouchStarted(const TSharedPtr< FGenericWindow >& Window, const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId)
+#else
 bool FProxyMessageHandler::OnTouchStarted(const TSharedPtr< FGenericWindow >& Window, const FVector2D& Location, int32 TouchIndex, int32 ControllerId)
+#endif // REMOTE_WITH_FORCE_PARAM
 {
 	if (TargetHandler.IsValid())
 	{
+#if REMOTE_WITH_FORCE_PARAM
+		return TargetHandler->OnTouchStarted(Window, Location, Force, TouchIndex, ControllerId);
+#else
 		return TargetHandler->OnTouchStarted(Window, Location, TouchIndex, ControllerId);
+#endif
 	}
 
 	return false;
 }
 
+#if REMOTE_WITH_FORCE_PARAM
+bool FProxyMessageHandler::OnTouchMoved(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId)
+#else
 bool FProxyMessageHandler::OnTouchMoved(const FVector2D& Location, int32 TouchIndex, int32 ControllerId)
+#endif // REMOTE_WITH_FORCE_PARAM
 {
 	if (TargetHandler.IsValid())
 	{
+#if REMOTE_WITH_FORCE_PARAM
+		return TargetHandler->OnTouchMoved(Location, Force, TouchIndex, ControllerId);
+#else
 		return TargetHandler->OnTouchMoved(Location, TouchIndex, ControllerId);
+#endif
 	}
 
 	return false;
