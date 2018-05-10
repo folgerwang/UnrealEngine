@@ -914,9 +914,9 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 				CurveAPI.GetCurveData(NodeName, AnimatedPropertyName, ChannelIndex, CompositeIndex, Source, bNegative);
 
 				FMovieSceneFloatChannel* Channel = FloatSection->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(0);
-				TMovieSceneChannel<FMovieSceneFloatValue> ChannelInterface = Channel->GetInterface();
+				TMovieSceneChannelData<FMovieSceneFloatValue> ChannelData = Channel->GetData();
 
-				ChannelInterface.Reset();
+				ChannelData.Reset();
 				double DecimalRate = FrameRate.AsDecimal();
 
 				for (auto SourceIt = Source.GetKeyHandleIterator(); SourceIt; ++SourceIt)
@@ -939,7 +939,7 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 					}
 
 					FFrameNumber KeyTime = (Key.Time * FrameRate).RoundToFrame();
-					FMatineeImportTools::SetOrAddKey(ChannelInterface, KeyTime, Key.Value, ArriveTangent, LeaveTangent,
+					FMatineeImportTools::SetOrAddKey(ChannelData, KeyTime, Key.Value, ArriveTangent, LeaveTangent,
 						MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation(Key.InterpMode, Key.TangentMode), Key.TangentWeightMode,
 						Key.ArriveTangentWeight, Key.LeaveTangentWeight);
 
@@ -954,8 +954,7 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 				}
 				Channel->AutoSetTangents();
 
-
-				TArrayView<const FFrameNumber> AllTimes = ChannelInterface.GetTimes();
+				TArrayView<const FFrameNumber> AllTimes = ChannelData.GetTimes();
 				if (AllTimes.Num() > 0)
 				{
 					FloatSection->SetRange(TRange<FFrameNumber>(AllTimes[0], TRangeBound<FFrameNumber>::Inclusive(AllTimes.Last())));
@@ -969,8 +968,8 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 
 void ImportTransformChannel(const FRichCurve& Source, FMovieSceneFloatChannel* Dest, FFrameRate DestFrameRate, bool bNegateTangents)
 {
-	TMovieSceneChannel<FMovieSceneFloatValue> ChannelInterface = Dest->GetInterface();
-	ChannelInterface.Reset();
+	TMovieSceneChannelData<FMovieSceneFloatValue> ChannelData = Dest->GetData();
+	ChannelData.Reset();
 	double DecimalRate = DestFrameRate.AsDecimal();
 
 	for (auto SourceIt = Source.GetKeyHandleIterator(); SourceIt; ++SourceIt)
@@ -999,7 +998,7 @@ void ImportTransformChannel(const FRichCurve& Source, FMovieSceneFloatChannel* D
 		}
 
 		FFrameNumber KeyTime = (Key.Time * DestFrameRate).RoundToFrame();
-		FMatineeImportTools::SetOrAddKey(ChannelInterface, KeyTime, Key.Value, ArriveTangent, LeaveTangent,
+		FMatineeImportTools::SetOrAddKey(ChannelData, KeyTime, Key.Value, ArriveTangent, LeaveTangent,
 			MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation(Key.InterpMode, Key.TangentMode), Key.TangentWeightMode,
 			Key.ArriveTangentWeight, Key.LeaveTangentWeight);
 
@@ -1677,7 +1676,7 @@ EInterpCurveMode MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpola
 	}
 }
 
-void MovieSceneToolHelpers::CopyKeyDataToMoveAxis(const TMovieSceneChannel<FMovieSceneFloatValue>& Channel, UInterpTrackMoveAxis* MoveAxis, FFrameRate InFrameRate)
+void MovieSceneToolHelpers::CopyKeyDataToMoveAxis(const TMovieSceneChannelData<FMovieSceneFloatValue>& Channel, UInterpTrackMoveAxis* MoveAxis, FFrameRate InFrameRate)
 {
 	MoveAxis->FloatTrack.Points.Reset();
 
@@ -1768,12 +1767,12 @@ UObject* MovieSceneToolHelpers::ExportToCameraAnim(UMovieScene* InMovieScene, FG
 				UMovieScene3DTransformSection* TransformSection = Cast<UMovieScene3DTransformSection>(Sections[0]);
 				TArrayView<FMovieSceneFloatChannel*> FloatChannels = TransformSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
 
-				CopyKeyDataToMoveAxis(FloatChannels[0]->GetInterface(), MoveAxies[AXIS_TranslationX], TickResolution);
-				CopyKeyDataToMoveAxis(FloatChannels[1]->GetInterface(), MoveAxies[AXIS_TranslationY], TickResolution);
-				CopyKeyDataToMoveAxis(FloatChannels[2]->GetInterface(), MoveAxies[AXIS_TranslationZ], TickResolution);
-				CopyKeyDataToMoveAxis(FloatChannels[3]->GetInterface(), MoveAxies[AXIS_RotationX],    TickResolution);
-				CopyKeyDataToMoveAxis(FloatChannels[4]->GetInterface(), MoveAxies[AXIS_RotationY],    TickResolution);
-				CopyKeyDataToMoveAxis(FloatChannels[5]->GetInterface(), MoveAxies[AXIS_RotationZ],    TickResolution);
+				CopyKeyDataToMoveAxis(FloatChannels[0]->GetData(), MoveAxies[AXIS_TranslationX], TickResolution);
+				CopyKeyDataToMoveAxis(FloatChannels[1]->GetData(), MoveAxies[AXIS_TranslationY], TickResolution);
+				CopyKeyDataToMoveAxis(FloatChannels[2]->GetData(), MoveAxies[AXIS_TranslationZ], TickResolution);
+				CopyKeyDataToMoveAxis(FloatChannels[3]->GetData(), MoveAxies[AXIS_RotationX],    TickResolution);
+				CopyKeyDataToMoveAxis(FloatChannels[4]->GetData(), MoveAxies[AXIS_RotationY],    TickResolution);
+				CopyKeyDataToMoveAxis(FloatChannels[5]->GetData(), MoveAxies[AXIS_RotationZ],    TickResolution);
 			}
 		}
 	}
