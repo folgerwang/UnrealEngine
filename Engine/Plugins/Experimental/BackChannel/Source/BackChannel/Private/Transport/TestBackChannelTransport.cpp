@@ -70,7 +70,7 @@ public:
 
 			FPlatformProcess::SleepNoStats(0.5);
 
-		} while (!ClientConnected || !AcceptConnected);
+		} while (!ClientConnected);
 
 		return AcceptedConnection.IsValid();
 	}

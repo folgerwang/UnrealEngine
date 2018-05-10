@@ -9,24 +9,20 @@
 #include "Channels/RemoteSessionXRTrackingChannel.h"
 #include "Channels/RemoteSessionFrameBufferChannel.h"
 #include "Engine/GameEngine.h"
-#include "Framework/Application/SlateApplication.h"
 
 #if WITH_EDITOR
 	#include "Editor.h"
 	#include "Editor/EditorEngine.h"
 #endif
 
-namespace RemoteSessionEd
-{
-	static FAutoConsoleVariable SlateDragDistanceOverride(TEXT("RemoteSessionEd.SlateDragDistanceOverride"), 10.0f, TEXT("How many pixels you need to drag before a drag and drop operation starts in remote app"));
-};
+PRAGMA_DISABLE_OPTIMIZATION
+
 
 
 FRemoteSessionHost::FRemoteSessionHost(int32 InQuality, int32 InFramerate)
 {
 	Quality = InQuality;
 	Framerate = InFramerate;
-	SavedEditorDragTriggerDistance = FSlateApplication::Get().GetDragTriggerDistance();
 }
 
 FRemoteSessionHost::~FRemoteSessionHost()
@@ -39,17 +35,6 @@ FRemoteSessionHost::~FRemoteSessionHost()
 	}
 
 	Close();
-}
-
-
-void FRemoteSessionHost::Close()
-{
-	FRemoteSessionRole::Close();
-
-	if (FSlateApplication::IsInitialized())
-	{
-		FSlateApplication::Get().SetDragTriggerDistance(SavedEditorDragTriggerDistance);
-	}
 }
 
 void FRemoteSessionHost::SetScreenSharing(const bool bEnabled)
@@ -75,10 +60,7 @@ bool FRemoteSessionHost::StartListening(const uint16 InPort)
 	{
 		Listener = Transport->CreateConnection(IBackChannelTransport::TCP);
 
-		if (Listener->Listen(InPort) == false)
-		{
-			Listener = nullptr;
-		}
+		Listener->Listen(InPort);
 	}
 
 	return Listener.IsValid();
@@ -113,9 +95,7 @@ bool FRemoteSessionHost::ProcessIncomingConnection(TSharedRef<IBackChannelConnec
 				}
 			}
 		}
-
-		SavedEditorDragTriggerDistance = FSlateApplication::Get().GetDragTriggerDistance();
-		FSlateApplication::Get().SetDragTriggerDistance(RemoteSessionEd::SlateDragDistanceOverride->GetFloat());
+		
 	}
 	else
 #endif
@@ -149,10 +129,14 @@ void FRemoteSessionHost::Tick(float DeltaTime)
 	// non-threaded listener
 	if (IsConnected() == false)
 	{
-		Listener->WaitForConnection(0, [this](TSharedRef<IBackChannelConnection> InConnection) {
-			return ProcessIncomingConnection(InConnection);
+		Listener->WaitForConnection(0, [this](TSharedRef<IBackChannelConnection> NewConnection) {
+			return ProcessIncomingConnection(NewConnection);
 		});
 	}
 	
 	FRemoteSessionRole::Tick(DeltaTime);
 }
+
+
+
+PRAGMA_ENABLE_OPTIMIZATION

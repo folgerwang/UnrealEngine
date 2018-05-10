@@ -1,20 +1,22 @@
 {
-	"FileVersion": 3,
-	"FriendlyName": "BackChannel",
-	"Version": 1.0,
+	"FileVersion" : 3,
+	"FriendlyName" : "BackChannel",
+	"Version" : 1.0,
 	"VersionName": "1",
-	"Description": "BackChannel is an experimetal plugin that allows external tools and apps to query for and push data into a running Unreal session.",
-	"Category": "Experimental",
-	"CreatedBy": "Andrew Grant",
-	"CreatedByURL": "",
+	"Description" : "BackChannel is an experimetal plugin that allows external tools and apps to query for and push data into a running Unreal session.",
+	"Category" : "Other",
+	"CreatedBy" : "Andrew Grant",
+	"CreatedByURL" : "",
 	"EnabledByDefault": true,
-
-	"Modules": [
+ 
+	"Modules" :
+	[
 		{
-			"Name": "BackChannel",
-			"Type": "RuntimeNoCommandlet",
-			"LoadingPhase": "Default",
-			"BlacklistPlatforms": [
+			"Name" : "BackChannel",
+			"Type" : "RuntimeNoCommandlet",
+			"LoadingPhase" : "Default",
+			"BlacklistPlatforms" :
+			[
 				"HTML5"
 			]
 		}

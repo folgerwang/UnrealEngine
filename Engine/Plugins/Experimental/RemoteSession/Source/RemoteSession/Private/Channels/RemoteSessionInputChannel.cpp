@@ -71,14 +71,6 @@ void FRemoteSessionInputChannel::SetPlaybackWindow(TWeakPtr<SWindow> InWindow, T
 	PlaybackHandler->SetPlaybackWindow(InWindow, InViewport);
 }
 
-void FRemoteSessionInputChannel::SetInputRect(const FVector2D& TopLeft, const FVector2D& Extents)
-{
-	if (RecordingHandler.IsValid())
-	{
-		RecordingHandler->SetInputRect(TopLeft, Extents);
-	}
-}
-
 void FRemoteSessionInputChannel::Tick(const float InDeltaTime)
 {
 	// everything happens via messaging.

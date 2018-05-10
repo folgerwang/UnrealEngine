@@ -17,8 +17,6 @@ public:
 	FRemoteSessionHost(int32 InQuality, int32 InFramerate);
 	~FRemoteSessionHost();
 
-	virtual void Close() override;
-
 	bool StartListening(const uint16 Port);
 
 	void SetScreenSharing(const bool bEnabled);
@@ -35,7 +33,4 @@ protected:
 
 	int32		Quality;
 	int32		Framerate;
-
-	/** Saved information about the editor and viewport we possessed, so we can restore it after exiting VR mode */
-	float SavedEditorDragTriggerDistance;
 };

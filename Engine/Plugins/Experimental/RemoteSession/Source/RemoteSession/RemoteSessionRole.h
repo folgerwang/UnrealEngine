@@ -11,8 +11,6 @@ class REMOTESESSION_API IRemoteSessionRole
 public:
 	virtual~IRemoteSessionRole() {}
 
-	virtual bool IsConnected() const = 0;
-
 	virtual TSharedPtr<IRemoteSessionChannel> GetChannel(const FString& Type) = 0;
 
 	template<class T>
