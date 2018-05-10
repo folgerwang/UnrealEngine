@@ -9,6 +9,16 @@ void UARBasicLightEstimate::SetLightEstimate(float InAmbientIntensityLumens, flo
 {
 	AmbientIntensityLumens = InAmbientIntensityLumens;
 	AmbientColorTemperatureKelvin = InColorTemperatureKelvin;
+	AmbientColor = 	FLinearColor::MakeFromColorTemperature(GetAmbientColorTemperatureKelvin());
+}
+
+void UARBasicLightEstimate::SetLightEstimate(FVector InRGBScaleFactor, float InPixelIntensity)
+{
+	// Try to convert ARCore average pixel intensity to lumen and set the color tempature to pure white.
+	AmbientIntensityLumens = InPixelIntensity / 0.18f * 1000;
+	AmbientColor = FLinearColor(InRGBScaleFactor);
+	
+	// TODO: Try to convert ambient color to color tempature?
 }
 
 float UARBasicLightEstimate::GetAmbientIntensityLumens() const
@@ -23,5 +33,5 @@ float UARBasicLightEstimate::GetAmbientColorTemperatureKelvin() const
 
 FLinearColor UARBasicLightEstimate::GetAmbientColor() const
 {
-	return FLinearColor::MakeFromColorTemperature(GetAmbientColorTemperatureKelvin());
+	return AmbientColor;
 }

@@ -58,6 +58,16 @@ class ENGINE_API UApplicationLifecycleComponent : public UActorComponent
 	UPROPERTY(BlueprintAssignable)
 	FApplicationLifetimeDelegate ApplicationWillTerminateDelegate;
 
+	// Called when the OS is running low on resources and asks the application to free up any cached resources, drop graphics quality etc.
+	UPROPERTY(BlueprintAssignable)
+	FApplicationLifetimeDelegate ApplicationShouldUnloadResourcesDelegate;
+
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FApplicationStartupArgumentsDelegate, const TArray<FString>&, StartupArguments);
+
+	// Called with arguments passed to the application on statup, perhaps meta data passed on by another application which launched this one.
+	UPROPERTY(BlueprintAssignable)
+	FApplicationStartupArgumentsDelegate ApplicationReceivedStartupArgumentsDelegate;
+
 	// Called when temperature level has changed, and receives the severity 
 	UPROPERTY(BlueprintAssignable)
 	FOnTemperatureChangeDelegate OnTemperatureChangeDelegate;
@@ -73,6 +83,8 @@ private:
 	void ApplicationWillEnterBackgroundDelegate_Handler() { ApplicationWillEnterBackgroundDelegate.Broadcast(); }
 	void ApplicationHasEnteredForegroundDelegate_Handler() { ApplicationHasEnteredForegroundDelegate.Broadcast(); }
 	void ApplicationWillTerminateDelegate_Handler() { ApplicationWillTerminateDelegate.Broadcast(); }
+	void ApplicationShouldUnloadResourcesDelegate_Handler() { ApplicationShouldUnloadResourcesDelegate.Broadcast(); }
+	void ApplicationReceivedStartupArgumentsDelegate_Handler(const TArray<FString>& StartupArguments) { ApplicationReceivedStartupArgumentsDelegate.Broadcast(StartupArguments); }
 	void OnTemperatureChangeDelegate_Handler(FCoreDelegates::ETemperatureSeverity Severity) { OnTemperatureChangeDelegate.Broadcast((ETemperatureSeverityType)Severity); }
 };
 

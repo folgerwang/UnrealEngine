@@ -2829,13 +2829,15 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 			int32 NumOccludedPrimitivesInView = ViewState->SceneSoftwareOcclusion->Process(RHICmdList, Scene, View);
 			STAT(NumOccludedPrimitives += NumOccludedPrimitivesInView);
 		}
-		
+
 		MarkAllPrimitivesForReflectionProxyUpdate(Scene);
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_ViewVisibilityTime_ConditionalMarkStaticMeshElementsForUpdate);
 			Scene->ConditionalMarkStaticMeshElementsForUpdate();
 		}
 
+		// ISR views can't compute relevance until all views are frustum culled
+		if (!View.IsInstancedStereoPass())
 		{
 			SCOPE_CYCLE_COUNTER(STAT_ViewRelevance);
 			ComputeAndMarkRelevanceForViewParallel(RHICmdList, Scene, View, ViewBit, HasDynamicMeshElementsMasks, HasDynamicEditorMeshElementsMasks, HasViewCustomDataMasks);
@@ -2866,6 +2868,35 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 		// TODO: right now decals visibility computed right before rendering them, ideally it should be done in InitViews and this flag should be replaced with list of visible decals  
 	    // Currently used to disable stencil operations in forward base pass when scene has no any decals
 		View.bSceneHasDecals = (Scene->Decals.Num() > 0);
+	}
+
+	if (Views.Num() > 1 && Views[0].IsInstancedStereoPass())
+	{
+		// Ensure primitives from the right-eye view are visible in the left-eye (instanced) view
+		FSceneBitArray& LeftView = Views[0].PrimitiveVisibilityMap;
+		const FSceneBitArray& RightView = Views[1].PrimitiveVisibilityMap;
+
+		check(LeftView.Num() == RightView.Num())
+
+		const uint32 NumWords = FMath::DivideAndRoundUp(LeftView.Num(), NumBitsPerDWORD);
+		uint32* const LeftData = LeftView.GetData();
+		const uint32* const RightData = RightView.GetData();
+
+		for (uint32 Index = 0; Index < NumWords; ++Index)
+		{
+			LeftData[Index] |= RightData[Index];
+		}
+	}
+
+	ViewBit = 0x1;
+	for (FViewInfo& View : Views)
+	{
+		if (View.IsInstancedStereoPass())
+		{
+			SCOPE_CYCLE_COUNTER(STAT_ViewRelevance);
+			ComputeAndMarkRelevanceForViewParallel(RHICmdList, Scene, View, ViewBit, HasDynamicMeshElementsMasks, HasDynamicEditorMeshElementsMasks, HasViewCustomDataMasks);
+		}
+		ViewBit <<= 1;
 	}
 
 	GatherDynamicMeshElements(Views, Scene, ViewFamily, HasDynamicMeshElementsMasks, HasDynamicEditorMeshElementsMasks, HasViewCustomDataMasks, MeshCollector);

@@ -362,9 +362,10 @@ public:
 	virtual void SetPreCaptureMousePosFromSlateCursor() {}
 
 	/**
-	 *	Starts a new rendering frame. Called from the game thread thread.
+	 * Starts a new rendering frame. Called from the game thread thread.
+	 * @param bShouldPresent Whether the frame will be presented to the screen
 	 */
-	ENGINE_API virtual void	EnqueueBeginRenderFrame();
+	ENGINE_API virtual void	EnqueueBeginRenderFrame(const bool bShouldPresent);
 
 	/**
 	 *	Starts a new rendering frame. Called from the rendering thread.

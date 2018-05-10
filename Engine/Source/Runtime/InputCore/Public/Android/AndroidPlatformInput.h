@@ -11,4 +11,6 @@ struct INPUTCORE_API FAndroidPlatformInput : FGenericPlatformInput
 	static uint32 GetKeyMap( uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings );
 };
 
+#if !PLATFORM_LUMIN
 typedef FAndroidPlatformInput FPlatformInput;
+#endif

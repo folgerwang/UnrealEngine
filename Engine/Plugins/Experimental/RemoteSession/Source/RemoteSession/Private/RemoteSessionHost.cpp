@@ -7,6 +7,7 @@
 #include "BackChannel/Utils/BackChannelThreadedConnection.h"
 #include "Channels/RemoteSessionInputChannel.h"
 #include "Channels/RemoteSessionXRTrackingChannel.h"
+#include "Channels/RemoteSessionARCameraChannel.h"
 #include "Channels/RemoteSessionFrameBufferChannel.h"
 #include "Engine/GameEngine.h"
 
@@ -112,6 +113,8 @@ bool FRemoteSessionHost::ProcessIncomingConnection(TSharedRef<IBackChannelConnec
 
 	if (SceneViewport.IsValid())
 	{
+		Channels.Add(MakeShareable(new FRemoteSessionARCameraChannel(ERemoteSessionChannelMode::Receive, OSCConnection)));
+
 		TSharedPtr<FRemoteSessionFrameBufferChannel> FramebufferChannel = MakeShareable(new FRemoteSessionFrameBufferChannel(ERemoteSessionChannelMode::Send, OSCConnection));
 		FramebufferChannel->SetCaptureViewport(SceneViewport.ToSharedRef());
 		FramebufferChannel->SetCaptureQuality(Quality, Framerate);

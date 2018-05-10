@@ -624,6 +624,18 @@ namespace UnrealBuildTool
 				}
 			}
 
+			//  Lumin debugger is only supported on game projects for now.
+			if (OnlyGameProject != null)
+			{
+				// TODO: Restrict this to only the Lumin platform targets.
+				string LuminDebuggerItemGroup =
+						"	<ItemGroup>" + ProjectFileGenerator.NewLine +
+						"		<ProjectCapability Include=\"MLProject\" />" + ProjectFileGenerator.NewLine +
+						"		<PropertyPageSchema Include=\"$(LOCALAPPDATA)\\Microsoft\\VisualStudio\\MagicLeap\\debugger.xaml\" />" + ProjectFileGenerator.NewLine +
+						"	</ItemGroup>" + ProjectFileGenerator.NewLine;
+				VCProjectFileContent.Append(LuminDebuggerItemGroup);
+			}
+
 			// Write each project configuration PreDefaultProps section
 			foreach (Tuple<string, UnrealTargetConfiguration> ConfigurationTuple in ProjectConfigurationNameAndConfigurations)
 			{

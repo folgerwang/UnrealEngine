@@ -67,7 +67,7 @@ namespace UnrealBuildTool.Rules
 				PublicFrameworks.AddRange(new string[] { "AVFoundation", "CoreVideo", "CoreMedia" });
 			}
 
-			if (Target.Platform == UnrealTargetPlatform.Android)
+			if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 			{
 				AddEngineThirdPartyPrivateStaticDependencies(Target,
 					"UEOgg",

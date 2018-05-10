@@ -25,7 +25,7 @@ public:
 	
 	virtual bool IsReconstructionPaused() const override;
 
-	virtual FMRMeshConfiguration ConnectMRMesh(UMRMeshComponent* Mesh) override;
+	virtual void ConnectMRMesh(UMRMeshComponent* Mesh) override;
 
 	virtual void DisconnectMRMesh() override;
 	//~ UMeshReconstructorBase

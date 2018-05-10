@@ -33,11 +33,13 @@ namespace UnrealBuildTool
 			{ "-arm64", "a8" },
 			{ "-x86", "x3" },
 			{ "-x64", "x6" },
-			{ "-es2", "" } // since there's only one gpu arch now, we can strip it
+			{ "-es2", "" }, // since there's only one gpu arch now, we can strip it
+			//LUMIN_MERGE
+			{ "-gl4", "" }
 		};
 
 
-		private FileReference ProjectFile;
+		protected FileReference ProjectFile;
 		private bool bUseLdGold;
 		private List<string> AdditionalArches;
 		private List<string> AdditionalGPUArches;
@@ -48,33 +50,33 @@ namespace UnrealBuildTool
 		static int ClangVersionPatch = -1;
 
 		// the list of architectures we will compile for
-		private List<string> Arches = null;
+		protected List<string> Arches = null;
 		// the list of GPU architectures we will compile for
-		private List<string> GPUArchitectures = null;
+		protected List<string> GPUArchitectures = null;
 		// a list of all architecture+GPUArchitecture names (-armv7-es2, etc)
-		private List<string> AllComboNames = null;
+		protected List<string> AllComboNames = null;
 		// whether to enable NEON support for armv7 builds
 		private bool bUseNEONForArmV7 = false;
 
 		static private Dictionary<string, string[]> AllArchNames = new Dictionary<string, string[]> {
-			{ "-armv7", new string[] { "armv7", "armeabi-v7a", } }, 
-			{ "-arm64", new string[] { "arm64", "arm64-v8a", } }, 
-			{ "-x86",   new string[] { "x86", } }, 
-			{ "-x64",   new string[] { "x64", "x86_64", } }, 
+			{ "-armv7", new string[] { "armv7", "armeabi-v7a", } },
+			{ "-arm64", new string[] { "arm64", "arm64-v8a", } },
+			{ "-x86",   new string[] { "x86", } },
+			{ "-x64",   new string[] { "x64", "x86_64", } },
 		};
 
 		static private Dictionary<string, string[]> LibrariesToSkip = new Dictionary<string, string[]> {
-			{ "-armv7", new string[] { } }, 
+			{ "-armv7", new string[] { } },
 			{ "-arm64", new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "OVRPlugin", "vrapi", "vrintegrationloader", "ovrkernel", "systemutils", "openglloader", "ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/libovrplatformloader.so" } },
-			{ "-x86",   new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "OVRPlugin", "vrapi", "vrintegrationloader", "ovrkernel", "systemutils", "openglloader", "ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/libovrplatformloader.so", "opus", "speex_resampler", } }, 
-			{ "-x64",   new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "OVRPlugin", "vrapi", "vrintegrationloader", "ovrkernel", "systemutils", "openglloader", "ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/libovrplatformloader.so", "gpg", } }, 
+			{ "-x86",   new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "OVRPlugin", "vrapi", "vrintegrationloader", "ovrkernel", "systemutils", "openglloader", "ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/libovrplatformloader.so", "opus", "speex_resampler", } },
+			{ "-x64",   new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "OVRPlugin", "vrapi", "vrintegrationloader", "ovrkernel", "systemutils", "openglloader", "ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/libovrplatformloader.so", "gpg", } },
 		};
 
 		static private Dictionary<string, string[]> ModulesToSkip = new Dictionary<string, string[]> {
-			{ "-armv7", new string[] {  } }, 
-			{ "-arm64", new string[] { "OnlineSubsystemOculus", } }, 
-			{ "-x86",   new string[] { "OnlineSubsystemOculus", } }, 
-			{ "-x64",   new string[] { "OnlineSubsystemOculus", "OnlineSubsystemGooglePlay", } }, 
+			{ "-armv7", new string[] {  } },
+			{ "-arm64", new string[] { "OnlineSubsystemOculus", } },
+			{ "-x86",   new string[] { "OnlineSubsystemOculus", } },
+			{ "-x64",   new string[] { "OnlineSubsystemOculus", "OnlineSubsystemGooglePlay", } },
 		};
 
 		static private Dictionary<string, string[]> GeneratedModulesToSkip = new Dictionary<string, string[]> {
@@ -88,7 +90,7 @@ namespace UnrealBuildTool
 		public string NDKDefine;
 		public int NDKDefineInt;
 
-		private void SetClangVersion(int Major, int Minor, int Patch)
+		protected void SetClangVersion(int Major, int Minor, int Patch)
 		{
 			ClangVersionMajor = Major;
 			ClangVersionMinor = Minor;
@@ -123,9 +125,13 @@ namespace UnrealBuildTool
 		[CommandLine("-Architectures=", ListSeparator = '+')]
 		public List<string> ArchitectureArg = new List<string>();
 
-
 		public AndroidToolChain(FileReference InProjectFile, bool bInUseLdGold, IReadOnlyList<string> InAdditionalArches, IReadOnlyList<string> InAdditionalGPUArches)
-			: base(CppPlatform.Android)
+			: this(CppPlatform.Android, InProjectFile, bInUseLdGold, InAdditionalArches, InAdditionalGPUArches, false)
+		{
+		}
+
+		protected AndroidToolChain(CppPlatform InCppPlatform, FileReference InProjectFile, bool bInUseLdGold, IReadOnlyList<string> InAdditionalArches, IReadOnlyList<string> InAdditionalGPUArches, bool bAllowMissingNDK)
+			: base(InCppPlatform)
 		{
 			ProjectFile = InProjectFile;
 			bUseLdGold = bInUseLdGold;
@@ -156,6 +162,10 @@ namespace UnrealBuildTool
 			// don't register if we don't have an NDKROOT specified
 			if (String.IsNullOrEmpty(NDKPath))
 			{
+				if (bAllowMissingNDK)
+				{
+					return;
+				}
 				throw new BuildException("NDKROOT is not specified; cannot use Android toolchain.");
 			}
 
@@ -241,7 +251,7 @@ namespace UnrealBuildTool
 			}
 
 			// prefer clang 3.6, but fall back if needed for now
-            if (Directory.Exists(Path.Combine(NDKPath, @"toolchains/llvm-3.6")))
+			if (Directory.Exists(Path.Combine(NDKPath, @"toolchains/llvm-3.6")))
 			{
 				SetClangVersion(3, 6, 0);
 				ClangVersion = "-3.6";
@@ -265,8 +275,8 @@ namespace UnrealBuildTool
 				ClangVersion = "-3.1";
 				GccVersion = "4.6";
 			}
-            else if (Directory.Exists(Path.Combine(NDKPath, @"toolchains/llvm")))
-            {
+			else if (Directory.Exists(Path.Combine(NDKPath, @"toolchains/llvm")))
+			{
 				// look for version in AndroidVersion.txt (fail if not found)
 				string VersionFilename = Path.Combine(NDKPath, @"toolchains/llvm/", ArchitecturePath, @"AndroidVersion.txt");
 				if (!File.Exists(VersionFilename))
@@ -286,9 +296,9 @@ namespace UnrealBuildTool
 
 			// set up the path to our toolchains
 			ClangPath = Utils.CollapseRelativeDirectories(Path.Combine(NDKPath, @"toolchains/llvm" + ClangVersion, ArchitecturePath, @"bin/clang++" + ExeExtension));
-			ArPathArm = Path.Combine(NDKPath, @"toolchains/arm-linux-androideabi-" + GccVersion, ArchitecturePath, @"bin/arm-linux-androideabi-ar" + ExeExtension);		//@todo android: use llvm-ar.exe instead?
-			ArPathArm64 = Path.Combine(NDKPath, @"toolchains/aarch64-linux-android-" + GccVersion, ArchitecturePath, @"bin/aarch64-linux-android-ar" + ExeExtension);	//@todo android: use llvm-ar.exe instead?
-			ArPathx86 = Path.Combine(NDKPath, @"toolchains/x86-" + GccVersion, ArchitecturePath, @"bin/i686-linux-android-ar" + ExeExtension);							//@todo android: verify x86 toolchain
+			ArPathArm = Path.Combine(NDKPath, @"toolchains/arm-linux-androideabi-" + GccVersion, ArchitecturePath, @"bin/arm-linux-androideabi-ar" + ExeExtension);     //@todo android: use llvm-ar.exe instead?
+			ArPathArm64 = Path.Combine(NDKPath, @"toolchains/aarch64-linux-android-" + GccVersion, ArchitecturePath, @"bin/aarch64-linux-android-ar" + ExeExtension);   //@todo android: use llvm-ar.exe instead?
+			ArPathx86 = Path.Combine(NDKPath, @"toolchains/x86-" + GccVersion, ArchitecturePath, @"bin/i686-linux-android-ar" + ExeExtension);                          //@todo android: verify x86 toolchain
 			ArPathx64 = Path.Combine(NDKPath, @"toolchains/x86_64-" + GccVersion, ArchitecturePath, @"bin/x86_64-linux-android-ar" + ExeExtension);                     //@todo android: verify x64 toolchain
 
 			// NDK setup (use no less than 21 for 64-bit targets)
@@ -345,7 +355,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public void ParseArchitectures()
+		public virtual void ParseArchitectures()
 		{
 			// look in ini settings for what platforms to compile for
 			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(ProjectFile), UnrealTargetPlatform.Android);
@@ -472,7 +482,7 @@ namespace UnrealBuildTool
 			return NDKVersionInt;
 		}
 
-		private bool ValidateNDK(string PlatformsDir, string ApiString)
+		protected virtual bool ValidateNDK(string PlatformsDir, string ApiString)
 		{
 			if (!Directory.Exists(PlatformsDir))
 			{
@@ -553,7 +563,7 @@ namespace UnrealBuildTool
 			return LargestString;
 		}
 
-		string GetCLArguments_Global(CppCompileEnvironment CompileEnvironment, string Architecture)
+		protected virtual string GetCLArguments_Global(CppCompileEnvironment CompileEnvironment, string Architecture)
 		{
 			string Result = "";
 
@@ -581,12 +591,12 @@ namespace UnrealBuildTool
 			Result += " -Wno-tautological-compare";
 			//This will prevent the issue of warnings for unused private variables.
 			Result += " -Wno-unused-private-field";
-			Result += " -Wno-local-type-template-args";	// engine triggers this
-			Result += " -Wno-return-type-c-linkage";	// needed for PhysX
-			Result += " -Wno-reorder";					// member initialization order
-			Result += " -Wno-unknown-pragmas";			// probably should kill this one, sign of another issue in PhysX?
-			Result += " -Wno-invalid-offsetof";			// needed to suppress warnings about using offsetof on non-POD types.
-			Result += " -Wno-logical-op-parentheses";	// needed for external headers we can't change
+			Result += " -Wno-local-type-template-args"; // engine triggers this
+			Result += " -Wno-return-type-c-linkage";    // needed for PhysX
+			Result += " -Wno-reorder";                  // member initialization order
+			Result += " -Wno-unknown-pragmas";          // probably should kill this one, sign of another issue in PhysX?
+			Result += " -Wno-invalid-offsetof";         // needed to suppress warnings about using offsetof on non-POD types.
+			Result += " -Wno-logical-op-parentheses";   // needed for external headers we can't change
 			if (BuildWithHiddenSymbolVisibility(CompileEnvironment))
 			{
 				Result += " -fvisibility=hidden -fvisibility-inlines-hidden"; // Symbols default to hidden.
@@ -613,8 +623,8 @@ namespace UnrealBuildTool
 
 			if (CompilerVersionGreaterOrEqual(3, 6, 0))
 			{
-				Result += " -Wno-unused-local-typedef";				// clang is being overly strict here? PhysX headers trigger this.
-				Result += " -Wno-inconsistent-missing-override";	// these have to be suppressed for UE 4.8, should be fixed later.
+				Result += " -Wno-unused-local-typedef";             // clang is being overly strict here? PhysX headers trigger this.
+				Result += " -Wno-inconsistent-missing-override";    // these have to be suppressed for UE 4.8, should be fixed later.
 			}
 
 			if (CompilerVersionGreaterOrEqual(3, 8, 275480))
@@ -623,10 +633,10 @@ namespace UnrealBuildTool
 				Result += " -Wno-nonportable-include-path";         // not all of these are real
 			}
 
-			if (CompilerVersionGreaterOrEqual(4, 0, 0))
+            if (CompilerVersionGreaterOrEqual(4, 0, 0))
 			{
 				Result += " -Wno-unused-lambda-capture";            // probably should fix the code
-//				Result += " -Wno-nonportable-include-path";         // not all of these are real
+																	//				Result += " -Wno-nonportable-include-path";         // not all of these are real
 			}
 
 			// shipping builds will cause this warning with "ensure", so disable only in those case
@@ -685,14 +695,14 @@ namespace UnrealBuildTool
 			if (Architecture == "-armv7")
 			{
 				//		Result += " -mthumb-interwork";			// Generates code which supports calling between ARM and Thumb instructions, w/o it you can't reliability use both together 
-				Result += " -funwind-tables";			// Just generates any needed static data, affects no code 
-				Result += " -fstack-protector";			// Emits extra code to check for buffer overflows
-				//		Result += " -mlong-calls";				// Perform function calls by first loading the address of the function into a reg and then performing the subroutine call
-				Result += " -fno-strict-aliasing";		// Prevents unwanted or invalid optimizations that could produce incorrect code
-				Result += " -fpic";						// Generates position-independent code (PIC) suitable for use in a shared library
-				Result += " -fno-short-enums";			// Do not allocate to an enum type only as many bytes as it needs for the declared range of possible values
-				//		Result += " -finline-limit=64";			// GCC limits the size of functions that can be inlined, this flag allows coarse control of this limit
-				//		Result += " -Wno-psabi";				// Warn when G++ generates code that is probably not compatible with the vendor-neutral C++ ABI
+				Result += " -funwind-tables";           // Just generates any needed static data, affects no code 
+				Result += " -fstack-protector";         // Emits extra code to check for buffer overflows
+														//		Result += " -mlong-calls";				// Perform function calls by first loading the address of the function into a reg and then performing the subroutine call
+				Result += " -fno-strict-aliasing";      // Prevents unwanted or invalid optimizations that could produce incorrect code
+				Result += " -fpic";                     // Generates position-independent code (PIC) suitable for use in a shared library
+				Result += " -fno-short-enums";          // Do not allocate to an enum type only as many bytes as it needs for the declared range of possible values
+														//		Result += " -finline-limit=64";			// GCC limits the size of functions that can be inlined, this flag allows coarse control of this limit
+														//		Result += " -Wno-psabi";				// Warn when G++ generates code that is probably not compatible with the vendor-neutral C++ ABI
 
 				Result += " -march=armv7-a";
 				Result += " -mfloat-abi=softfp";
@@ -712,7 +722,7 @@ namespace UnrealBuildTool
 					Result += " -fno-omit-frame-pointer";   // Disable removing the save/restore frame pointer for better debugging
 					if (CompilerVersionGreaterOrEqual(3, 6, 0))
 					{
-						Result += " -fno-function-sections";	// Improve breakpoint location
+						Result += " -fno-function-sections";    // Improve breakpoint location
 					}
 				}
 
@@ -723,16 +733,16 @@ namespace UnrealBuildTool
 					Result += " -fdata-sections"; // Places each data item in its own section of the output file, linker may be able to perform opts to improve locality of reference
 				}
 
-				Result += " -fsigned-char";				// Treat chars as signed //@todo android: any concerns about ABI compatibility with libs here?
+				Result += " -fsigned-char";             // Treat chars as signed //@todo android: any concerns about ABI compatibility with libs here?
 			}
 			else if (Architecture == "-arm64")
 			{
-				Result += " -funwind-tables";			// Just generates any needed static data, affects no code 
-				Result += " -fstack-protector";			// Emits extra code to check for buffer overflows
-				Result += " -fno-strict-aliasing";		// Prevents unwanted or invalid optimizations that could produce incorrect code
-				Result += " -fpic";						// Generates position-independent code (PIC) suitable for use in a shared library
+				Result += " -funwind-tables";           // Just generates any needed static data, affects no code 
+				Result += " -fstack-protector";         // Emits extra code to check for buffer overflows
+				Result += " -fno-strict-aliasing";      // Prevents unwanted or invalid optimizations that could produce incorrect code
+				Result += " -fpic";                     // Generates position-independent code (PIC) suitable for use in a shared library
 				Result += " -fno-short-enums";          // Do not allocate to an enum type only as many bytes as it needs for the declared range of possible values
-				Result += " -D__arm64__";				// for some reason this isn't defined and needed for PhysX
+				Result += " -D__arm64__";               // for some reason this isn't defined and needed for PhysX
 
 				Result += " -march=armv8-a";
 				//Result += " -mfloat-abi=softfp";
@@ -744,7 +754,7 @@ namespace UnrealBuildTool
 					Result += " -ffunction-sections";   // Places each function in its own section of the output file, linker may be able to perform opts to improve locality of reference
 				}
 
-				Result += " -fsigned-char";				// Treat chars as signed //@todo android: any concerns about ABI compatibility with libs here?
+				Result += " -fsigned-char";             // Treat chars as signed //@todo android: any concerns about ABI compatibility with libs here?
 			}
 			else if (Architecture == "-x86")
 			{
@@ -825,7 +835,7 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		string GetLinkArguments(LinkEnvironment LinkEnvironment, string Architecture)
+		protected virtual string GetLinkArguments(LinkEnvironment LinkEnvironment, string Architecture)
 		{
 			string Result = "";
 
@@ -869,7 +879,7 @@ namespace UnrealBuildTool
 
 			if (bUseLdGold && CompilerVersionGreaterOrEqual(3, 6, 0) && CompilerVersionLessThan(3, 8, 0))
 			{
-				Result += " -fuse-ld=gold";				// ld.gold is available in r10e (clang 3.6)
+				Result += " -fuse-ld=gold";             // ld.gold is available in r10e (clang 3.6)
 			}
 
 			// make sure the DT_SONAME field is set properly (or we can a warning toast at startup on new Android)
@@ -879,6 +889,22 @@ namespace UnrealBuildTool
 			// Result += " -v";
 
 			return Result;
+		}
+
+
+		protected virtual void ModifyLibraries(LinkEnvironment LinkEnvironment)
+		{
+			// @todo Lumin: verify this works with base android
+			if (GetNdkApiLevelInt() >= 21)
+			{
+				// this file was added in NDK11 so use existence to detect (RELEASE.TXT no longer present)
+				string NDKRoot = Environment.GetEnvironmentVariable("NDKROOT").Replace("\\", "/");
+				if (File.Exists(Path.Combine(NDKRoot, "source.properties")))
+				{
+					LinkEnvironment.AdditionalLibraries.Add(Path.Combine(UnrealBuildTool.EngineDirectory.FullName, "Build/Android/Prebuilt/bsdsignal/lib/armeabi-v7a/libbsdsignal.a"));
+					LinkEnvironment.AdditionalLibraries.Add(Path.Combine(UnrealBuildTool.EngineDirectory.FullName, "Build/Android/Prebuilt/bsdsignal/lib/x86/libbsdsignal.a"));
+				}
+			}
 		}
 
 		static string GetArArguments(LinkEnvironment LinkEnvironment)
@@ -956,17 +982,17 @@ namespace UnrealBuildTool
 			return false;
 		}
 
-        static private string GetNativeGluePath()
+		static private string GetNativeGluePath()
 		{
 			return Environment.GetEnvironmentVariable("NDKROOT") + "/sources/android/native_app_glue/android_native_app_glue.c";
 		}
 
-		static void ConditionallyAddNDKSourceFiles(List<FileItem> SourceFiles, string ModuleName, string NativeGluePath)
+		protected virtual void ModifySourceFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName)
 		{
 			// We need to add the extra glue and cpu code only to Launch module.
 			if (ModuleName.Equals("Launch"))
 			{
-				SourceFiles.Add(FileItem.GetItemByPath(NativeGluePath));
+				SourceFiles.Add(FileItem.GetItemByPath(GetNativeGluePath()));
 
 				// Newer NDK cpu_features.c uses getauxval() which causes a SIGSEGV in libhoudini.so (ARM on Intel translator) in older versions of Houdini
 				// so we patch the file to use alternative methods of detecting CPU features if libhoudini.so is detected
@@ -1111,19 +1137,19 @@ namespace UnrealBuildTool
 		}
 
 		// cache the location of NDK tools
-		static string ClangPath;
-		static string ToolchainParamsArm;
-		static string ToolchainParamsArm64;
-		static string ToolchainParamsx86;
-		static string ToolchainParamsx64;
-		static string ToolchainLinkParamsArm;
-		static string ToolchainLinkParamsArm64;
-		static string ToolchainLinkParamsx86;
-		static string ToolchainLinkParamsx64;
-		static string ArPathArm;
-		static string ArPathArm64;
-		static string ArPathx86;
-		static string ArPathx64;
+		protected static string ClangPath;
+		protected static string ToolchainParamsArm;
+		protected static string ToolchainParamsArm64;
+		protected static string ToolchainParamsx86;
+		protected static string ToolchainParamsx64;
+		protected static string ToolchainLinkParamsArm;
+		protected static string ToolchainLinkParamsArm64;
+		protected static string ToolchainLinkParamsx86;
+		protected static string ToolchainLinkParamsx64;
+		protected static string ArPathArm;
+		protected static string ArPathArm64;
+		protected static string ArPathx86;
+		protected static string ArPathx64;
 
 		static public string GetStripExecutablePath(string UE4Arch)
 		{
@@ -1189,8 +1215,7 @@ namespace UnrealBuildTool
 			if (!bHasHandledLaunchModule && ModuleName.Equals("Launch"))
 			{
 				// Directly added NDK files for NDK extensions
-				ConditionallyAddNDKSourceFiles(InputFiles, ModuleName, NativeGluePath);
-
+				ModifySourceFiles(CompileEnvironment, InputFiles, ModuleName);
 				// Deal with dynamic modules removed by architecture
 				GenerateEmptyLinkFunctionsForRemovedModules(InputFiles, ModuleName, OutputDir);
 
@@ -1203,10 +1228,12 @@ namespace UnrealBuildTool
 				BaseArguments += string.Format(" -D \"{0}\"", Definition);
 			}
 
-			string NDKRoot = Environment.GetEnvironmentVariable("NDKROOT").Replace("\\", "/");
+			//LUMIN_MERGE
+			//string NDKRoot = Environment.GetEnvironmentVariable("NDKROOT").Replace("\\", "/");
 
 			string BasePCHName = "";
-			string PCHExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Android).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
+			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(UEBuildPlatform.CPPTargetPlatformToUnrealTargetPlatform(CompileEnvironment.Platform));
+			string PCHExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
 			if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
 			{
 				BasePCHName = RemoveArchName(CompileEnvironment.PrecompiledHeaderFile.AbsolutePath).Replace(PCHExtension, "");
@@ -1239,6 +1266,8 @@ namespace UnrealBuildTool
 						Arguments += " -DPLATFORM_ENABLE_VECTORINTRINSICS_NEON=1";
 					}
 
+					Arguments += " -DPLATFORM_ANDROIDGL4=" + ((GPUArchitecture == "-gl4") ? "1" : "0");
+
 					// which PCH file to include
 					string PCHArguments = "";
 					if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
@@ -1248,7 +1277,7 @@ namespace UnrealBuildTool
 						PCHArguments += string.Format(" -include \"{0}\"", InlineArchName(BasePCHName, Arch, GPUArchitecture));
 					}
 
-					foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
+					foreach (FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
 					{
 						PCHArguments += string.Format(" -include \"{0}\"", ForceIncludeFile.Location);
 					}
@@ -1297,8 +1326,8 @@ namespace UnrealBuildTool
 						{
 							FileArguments += GetCompileArguments_C(bDisableOptimizations);
 
-							// remove shadow variable warnings for NDK files
-							if (SourceFile.AbsolutePath.Replace("\\", "/").StartsWith(NDKRoot))
+							// remove shadow variable warnings for externally included files
+							if (!SourceFile.AbsolutePath.Replace("\\", "/").StartsWith(Path.GetFullPath(UnrealBuildTool.RootDirectory.CanonicalName)))
 							{
 								bDisableShadowWarning = true;
 							}
@@ -1339,7 +1368,7 @@ namespace UnrealBuildTool
 								CompileAction.PrerequisiteItems.Add(ArchPrecompiledHeaderFile);
 							}
 
-							string ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Android).GetBinaryExtension(UEBuildBinaryType.Object);
+							string ObjectFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.Object);
 
 							// Add the object file to the produced item list.
 							FileItem ObjectFile = FileItem.GetItemByFileReference(
@@ -1409,7 +1438,7 @@ namespace UnrealBuildTool
 			return null;
 		}
 
-		static public string InlineArchName(string Pathname, string Arch, string GPUArchitecture, bool bUseShortNames=false)
+		static public string InlineArchName(string Pathname, string Arch, string GPUArchitecture, bool bUseShortNames = false)
 		{
 			string FinalArch = Arch;
 			string FinalGPUArch = GPUArchitecture;
@@ -1438,33 +1467,15 @@ namespace UnrealBuildTool
 		{
 			List<FileItem> Outputs = new List<FileItem>();
 
-			string NDKRoot = Environment.GetEnvironmentVariable("NDKROOT").Replace("\\", "/");
-			int NDKApiLevelInt = GetNdkApiLevelInt();
-			string OptionalLinkArguments;
+			if (!LinkEnvironment.bIsBuildingLibrary)
+			{
+				// @todo Lumin: will this add them multiple times?
+				ModifyLibraries(LinkEnvironment);
+			}
 
 			for (int ArchIndex = 0; ArchIndex < Arches.Count; ArchIndex++)
 			{
 				string Arch = Arches[ArchIndex];
-
-				// 32-bit ABI may need fixup for removed bsd_signal in NDK11 for android-21+
-				OptionalLinkArguments = "";
-				if (NDKApiLevelInt >= 21)
-				{
-					// this file was added in NDK11 so use existence to detect (RELEASE.TXT no longer present)
-					if (File.Exists(Path.Combine(NDKRoot, "source.properties")))
-					{
-						switch (Arch)
-						{
-							case "-armv7":
-								OptionalLinkArguments = string.Format(" \"{0}\"", Path.Combine(UnrealBuildTool.EngineDirectory.FullName, "Build/Android/Prebuilt/bsdsignal/lib/armeabi-v7a/libbsdsignal.a"));
-								break;
-
-							case "-x86":
-								OptionalLinkArguments = string.Format(" \"{0}\"", Path.Combine(UnrealBuildTool.EngineDirectory.FullName, "Build/Android/Prebuilt/bsdsignal/lib/x86/libbsdsignal.a"));
-								break;
-						}
-					}
-				}
 
 				for (int GPUArchIndex = 0; GPUArchIndex < GPUArchitectures.Count; GPUArchIndex++)
 				{
@@ -1532,7 +1543,7 @@ namespace UnrealBuildTool
 						if (Path.GetFileNameWithoutExtension(InputFile.AbsolutePath).EndsWith(ShortArchNames[Arch] + ShortArchNames[GPUArchitecture]))
 						{
 							string InputPath;
-							if(InputFile.Location.IsUnderDirectory(LinkEnvironment.IntermediateDirectory))
+							if (InputFile.Location.IsUnderDirectory(LinkEnvironment.IntermediateDirectory))
 							{
 								InputPath = InputFile.Location.MakeRelativeTo(LinkEnvironment.IntermediateDirectory);
 							}
@@ -1555,7 +1566,7 @@ namespace UnrealBuildTool
 						foreach (DirectoryReference LibraryPath in LinkEnvironment.LibraryPaths)
 						{
 							// LinkerPaths could be relative or absolute
-							string AbsoluteLibraryPath = LibraryPath.FullName;
+							string AbsoluteLibraryPath = ActionThread.ExpandEnvironmentVariables(LibraryPath.FullName);
 							if (IsDirectoryForArch(AbsoluteLibraryPath, Arch))
 							{
 								// environment variables aren't expanded when using the $( style
@@ -1585,7 +1596,6 @@ namespace UnrealBuildTool
 								}
 							}
 						}
-						LinkResponseArguments += OptionalLinkArguments;
 						LinkResponseArguments += string.Format(" -Wl,--end-group");
 
 						// Write the MAP file to the output directory.
@@ -1677,7 +1687,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public static string GetStripPath(FileReference SourceFile)
+		public virtual string GetStripPath(FileReference SourceFile)
 		{
 			string StripExe;
 			if (SourceFile.FullName.Contains("-armv7"))
@@ -1686,17 +1696,17 @@ namespace UnrealBuildTool
 			}
 			else
 			if (SourceFile.FullName.Contains("-arm64"))
-            {
+			{
 				StripExe = ArPathArm64;
 			}
 			else
 			if (SourceFile.FullName.Contains("-x86"))
-            {
+			{
 				StripExe = ArPathx86;
 			}
 			else
 			if (SourceFile.FullName.Contains("-x64"))
-            {
+			{
 				StripExe = ArPathx64;
 			}
 			else

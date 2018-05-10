@@ -1740,13 +1740,6 @@ void FStatsThreadState::FindOrAddMetaData(FStatMessage const& Item)
 			GET_STATID(STAT_FSimpleDelegateGraphTask_StatsGroupToGame), nullptr, ENamedThreads::GameThread
 		);
 	}
-	else
-	{
-		if (LongName != Result->NameAndInfo.GetRawName())
-		{
-			UE_LOG(LogStats, Warning, TEXT("MetaData mismatch. Did you assign a stat to two groups? New %s old %s"), *LongName.ToString(), *Result->NameAndInfo.GetRawName().ToString());
-		}
-	}
 }
 
 void FStatsThreadState::AddMissingStats(TArray<FStatMessage>& Dest, TSet<FName> const& EnabledItems) const

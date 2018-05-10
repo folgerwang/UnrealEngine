@@ -81,7 +81,15 @@ public:
 	/** @return a list of all the real-world geometry as currently seen by the Augmented Reality system */
 	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Tracking", meta = (Keywords = "ar augmentedreality augmented reality tracking geometry anchor"))
 	static TArray<UARTrackedGeometry*> GetAllGeometries();
-	
+
+	/** @return the current camera image from the Augmented Reality system */
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Camera", meta = (Keywords = "ar augmentedreality augmented reality camera image"))
+	static UARTextureCameraImage* GetCameraImage();
+
+	/** @return the current camera depth data from the Augmented Reality system */
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Camera", meta = (Keywords = "ar augmentedreality augmented reality camera image depth"))
+	static UARTextureCameraDepth* GetCameraDepth();
+
 	/**
 	 * Test whether this type of session is supported by the current Augmented Reality platform.
 	 * e.g. is your device capable of doing positional tracking or orientation only?

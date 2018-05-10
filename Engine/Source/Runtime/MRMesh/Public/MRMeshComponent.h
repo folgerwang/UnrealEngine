@@ -9,32 +9,41 @@
 
 #include "MRMeshComponent.generated.h"
 
-
-
-
 class UMaterial;
 class FBaseMeshReconstructorModule;
 class UMeshReconstructorBase;
 struct FDynamicMeshVertex;
 
 DECLARE_STATS_GROUP(TEXT("MRMesh"), STATGROUP_MRMESH, STATCAT_Advanced);
-
-DECLARE_DELEGATE(FOnProcessingComplete)
+DEFINE_LOG_CATEGORY_STATIC(LogMrMesh, Warning, All);
 
 class IMRMesh
 {
 public:
-	struct FSendBrickDataArgs
+	struct FBrickDataReceipt
 	{
-		FIntVector BrickCoords;
-		TArray<FVector>& PositionData;
-		//TArray<FVector2D>& UVData;
-		//TArray<FPackedNormal>& TangentXZData;
-		TArray<FColor>& ColorData;
-		TArray<uint32>& Indices;
+		// Optionally subclass and use receipt.  For example: to release the buffers FSendBrickDataArgs has references to.
+		virtual ~FBrickDataReceipt() {}
 	};
 
-	virtual void SendBrickData(FSendBrickDataArgs Args, const FOnProcessingComplete& OnProcessingComplete = FOnProcessingComplete()) = 0;
+	typedef uint64 FBrickId;
+	struct FSendBrickDataArgs
+	{
+		TSharedPtr<FBrickDataReceipt, ESPMode::ThreadSafe> BrickDataReceipt;
+		const FBrickId BrickId;
+		const TArray<FVector>& PositionData;
+		const TArray<FVector2D>& UVData;
+		const TArray<FPackedNormal>& TangentXZData;
+		const TArray<FColor>& ColorData;
+		const TArray<uint32>& Indices;
+	};
+
+	virtual void SetConnected(bool value) = 0;
+	virtual bool IsConnected() const = 0;
+
+	virtual void SendRelativeTransform(const FTransform& Transform) = 0;
+	virtual void SendBrickData(FSendBrickDataArgs Args) = 0;
+	virtual void Clear() = 0;
 	virtual void ClearAllBrickData() = 0;
 };
 
@@ -48,47 +57,59 @@ public:
 
 	GENERATED_UCLASS_BODY()
 
-	UFUNCTION(BlueprintCallable, Category = "Mesh Reconstruction")
-	void ConnectReconstructor( UMeshReconstructorBase* Reconstructor );
+	virtual void BeginPlay() override;
+
+	UFUNCTION(BlueprintPure, Category = "Mesh Reconstruction")
+	bool IsConnected() const override { return bConnected; }
+
+	void SetConnected(bool value) override { bConnected = value; }
+	virtual void SendRelativeTransform(const FTransform& Transform) override { SetRelativeTransform(Transform); }
 
 	UFUNCTION(BlueprintCallable, Category = "Mesh Reconstruction")
-	UMeshReconstructorBase* GetReconstructor() const;
+	void ForceNavMeshUpdate();
+
+	UFUNCTION(BlueprintCallable, Category = "Mesh Reconstruction")
+	void Clear() override;
 
 private:
 	//~ UPrimitiveComponent
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
-	virtual void BeginPlay() override;
-	virtual void BeginDestroy() override;
 	virtual void SetMaterial(int32 ElementIndex, class UMaterialInterface* InMaterial) override;
+	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
 	//~ UPrimitiveComponent
 
 	//~ IMRMesh
-	virtual void SendBrickData(FSendBrickDataArgs Args, const FOnProcessingComplete& OnProcessingComplete = FOnProcessingComplete()) override;
+	virtual void SendBrickData(FSendBrickDataArgs Args) override;
 	virtual void ClearAllBrickData() override;
 	//~ IMRMesh
 
 private:
-	void SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args, FOnProcessingComplete OnProcessingComplete);
+	void SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args);
 
 	void RemoveBodyInstance(int32 BodyIndex);
+	void OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport) override;
 
 	void ClearAllBrickData_Internal();
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	UMaterialInterface* Material;
 
-	UPROPERTY(EditAnywhere, Category = "Mesh Reconstruction")
-	UMeshReconstructorBase* MeshReconstructor;
+	/** If true, MRMesh will create a renderable mesh proxy.  If false it will not, but could still provide collision. */
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	bool bCreateMeshProxySections = true;
 
-	UPROPERTY(EditAnywhere, Category = "Mesh Reconstruction")
+	/** If true, MRMesh will automatically update its navmesh whenever any Mesh section is updated. This may be expensive. If this is disabled use ForceNavMeshUpdate to trigger a navmesh update when necessary.  Moving the component will also trigger a navmesh update.*/
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	bool bUpdateNavMeshOnMeshUpdate = true;
+
 	bool bEnableCollision = false;
+	bool bConnected = false;
 
 	UPROPERTY(transient)
 	TArray<UBodySetup*> BodySetups;
+
 	TArray<FBodyInstance*> BodyInstances;
-	TArray<FIntVector> BodyIds;
-
-
+	TArray<IMRMesh::FBrickId> BodyIds;
 };

@@ -276,6 +276,10 @@ void FSlateRHIRenderer::CreateViewport( const TSharedRef<SWindow> Window )
 		NewInfo->DesiredWidth = Width;
 		NewInfo->DesiredHeight = Height;
 		NewInfo->ProjectionMatrix = CreateProjectionMatrix( Width, Height );
+		if (FPlatformMisc::IsStandaloneStereoOnlyDevice())
+		{
+			NewInfo->PixelFormat = PF_B8G8R8A8;
+		}
 #if ALPHA_BLENDED_WINDOWS		
 		if( Window->GetTransparencySupport() == EWindowTransparency::PerPixel )
 		{

@@ -15,23 +15,23 @@ public:
 
 	/** Render the plane quad when set to true. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GoogleARCore|TrackablePlaneRenderer")
-	bool bRenderPlane = true;
+	bool bRenderPlane;
 
 	/** Render the plane boundary polygon lines when set to true. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GoogleARCore|TrackablePlaneRenderer")
-	bool bRenderBoundaryPolygon = true;
+	bool bRenderBoundaryPolygon;
 
 	/** The color of the plane. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GoogleARCore|TrackablePlaneRenderer")
-	FLinearColor PlaneColor = FLinearColor::Green;
+	FColor PlaneColor;
 
 	/** The color of the boundary polygon. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GoogleARCore|TrackablePlaneRenderer")
-	FLinearColor BoundaryPolygonColor = FLinearColor::Blue;
+	FColor BoundaryPolygonColor;
 
 	/** The line thickness for the plan boundary polygon. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GoogleARCore|TrackablePlaneRenderer")
-	float BoundaryPolygonThickness = 0.5f;
+	float BoundaryPolygonThickness;
 
 	UGoogleARCorePlaneRendererComponent();
 

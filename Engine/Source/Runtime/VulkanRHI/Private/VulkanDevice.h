@@ -119,7 +119,7 @@ public:
 	bool IsFormatSupported(VkFormat Format) const;
 
 	const VkComponentMapping& GetFormatComponentMapping(EPixelFormat UEFormat) const;
-	
+
 	inline VkDevice GetInstanceHandle() const
 	{
 		return Device;
@@ -295,7 +295,7 @@ private:
 	VkPhysicalDeviceIDPropertiesKHR GpuIdProps;
 #endif
 	VkPhysicalDeviceFeatures Features;
-	
+
 	VkDevice Device;
 
 	VulkanRHI::FDeviceMemoryManager MemoryManager;

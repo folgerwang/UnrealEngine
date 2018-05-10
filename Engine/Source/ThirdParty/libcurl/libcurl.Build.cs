@@ -27,7 +27,7 @@ public class libcurl : ModuleRules
 			PrivateDependencyModuleNames.Add("SSL");
 		}
 
-		else if (Target.Platform == UnrealTargetPlatform.Android)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			// toolchain will filter properly
             PublicIncludePaths.Add(AndroidLibCurlPath + "include/Android/ARMv7");

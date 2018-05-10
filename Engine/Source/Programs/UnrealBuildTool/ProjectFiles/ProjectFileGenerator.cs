@@ -136,6 +136,7 @@ namespace UnrealBuildTool
 		XCode,
 		Eddie,
 		VisualStudioCode,
+		CLion
 	}
 
 	/// <summary>
@@ -535,10 +536,30 @@ namespace UnrealBuildTool
 			string PreferredAccessor;
 			if (Ini.GetString("/Script/SourceCodeAccess.SourceCodeAccessSettings", "PreferredAccessor", out PreferredAccessor))
 			{
-				ProjectFileFormat PreferredFormat;
-				if (Enum.TryParse(PreferredAccessor, out PreferredFormat))
+				PreferredAccessor = PreferredAccessor.ToLowerInvariant();
+				if (PreferredAccessor == "clionsourcecodeaccessor")
 				{
-					Format = PreferredFormat;
+					Format = ProjectFileFormat.CLion;
+					return true;
+				}
+				else if (PreferredAccessor == "codelitesourcecodeaccessor")
+				{
+					Format = ProjectFileFormat.CodeLite;
+					return true;
+				}
+				else if (PreferredAccessor == "xcodesourcecodeaccessor")
+				{
+					Format = ProjectFileFormat.XCode;
+					return true;
+				}
+				else if (PreferredAccessor == "visualstudiocodesourcecodeaccessor")
+				{
+					Format = ProjectFileFormat.VisualStudioCode;
+					return true;
+				}
+				else if (PreferredAccessor == "kdevelopsourcecodeaccessor")
+				{
+					Format = ProjectFileFormat.KDevelop;
 					return true;
 				}
 			}

@@ -22,6 +22,11 @@
 #include "Runtime/OpenGLDrv/Private/Linux/OpenGLLinux.h"
 #elif PLATFORM_IOS
 #include "IOS/IOSOpenGL.h"
+#elif PLATFORM_LUMIN
+// these guys will self-select
+#include "Lumin/LuminESDeferredOpenGL.h"
+#include "Lumin/LuminOpenGL.h"
+#include "Lumin/LuminGL4.h"
 #elif PLATFORM_ANDROIDESDEFERRED
 #include "Android/AndroidESDeferredOpenGL.h"
 #elif PLATFORM_ANDROID
@@ -586,6 +591,8 @@ public:
 	
 	FRHITexture* CreateOpenGLRHITextureOnly(const uint32 SizeX, const uint32 SizeY, const bool bCubeTexture, const bool bArrayTexture, const bool bIsExternal, uint8& Format, uint32& NumMips, uint32& NumSamples, const uint32 ArraySize, uint32& Flags, const FClearValueBinding& InClearValue, FResourceBulkDataInterface* BulkData = nullptr);
 	void InitializeGLTexture(FRHITexture* Texture, uint32 SizeX, const uint32 SizeY, const bool bCubeTexture, const bool bArrayTexture, const bool bIsExternal, const uint8 Format, const uint32 NumMips, const uint32 NumSamples, const uint32 ArraySize, const uint32 Flags, const FClearValueBinding& InClearValue, FResourceBulkDataInterface* BulkData = nullptr);
+
+	void* GetOpenGLCurrentContextHandle();
 
 	void SetCustomPresent(class FRHICustomPresent* InCustomPresent);
 

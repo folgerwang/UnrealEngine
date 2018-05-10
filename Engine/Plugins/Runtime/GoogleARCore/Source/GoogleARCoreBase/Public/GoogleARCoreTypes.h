@@ -128,6 +128,12 @@ struct FGoogleARCoreLightEstimate
 	/** The average pixel intensity of the passthrough camera image. */
 	UPROPERTY(BlueprintReadOnly, Category = "GoogleARCore|LightEstimate")
 	float PixelIntensity;
+	
+	/**
+	 * The RGB scale to match the color of the light in the real environment.
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = "GoogleARCore|LightEstimate")
+	FVector RGBScaleFactor;
 };
 
 /**

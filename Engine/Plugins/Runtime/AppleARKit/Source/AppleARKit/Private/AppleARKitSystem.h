@@ -7,13 +7,14 @@
 #include "ARSystem.h"
 #include "AppleARKitHitTestResult.h"
 #include "AppleARKitLiveLinkSourceFactory.h"
+#include "AppleARKitTextures.h"
 #include "Kismet/BlueprintPlatformLibrary.h"
 
 // ARKit
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-#import <ARKit/ARKit.h>
-#include "AppleARKitSessionDelegate.h"
-#endif // ARKIT_SUPPORT
+#if SUPPORTS_ARKIT_1_0
+	#import <ARKit/ARKit.h>
+	#include "AppleARKitSessionDelegate.h"
+#endif
 
 
 DECLARE_STATS_GROUP(TEXT("AppleARKit"), STATGROUP_APPLEARKIT, STATCAT_Advanced);
@@ -46,6 +47,9 @@ public:
 	void OnBeginRendering_GameThread() override;
 	bool OnStartGameFrame(FWorldContext& WorldContext) override;
 	//~ IXRTrackingSystem
+
+	void* GetARSessionRawPointer() override;
+	void* GetGameThreadARFrameRawPointer() override;
 	
 	// @todo arkit : this is for the blueprint library only; try to get rid of this method
 	bool GetCurrentFrame(FAppleARKitFrame& OutCurrentFrame) const;
@@ -69,6 +73,8 @@ protected:
 	virtual UARLightEstimate* OnGetCurrentLightEstimate() const override;
 	virtual UARPin* OnPinComponent(USceneComponent* ComponentToPin, const FTransform& PinToWorldTransform, UARTrackedGeometry* TrackedGeometry = nullptr, const FName DebugName = NAME_None) override;
 	virtual void OnRemovePin(UARPin* PinToRemove) override;
+	virtual UARTextureCameraImage* OnGetCameraImage() override;
+	virtual UARTextureCameraDepth* OnGetCameraDepth() override;
 	//~IARSystemSupport
 
 private:
@@ -83,7 +89,7 @@ public:
 	// Session delegate callbacks
 	void SessionDidUpdateFrame_DelegateThread( TSharedPtr< FAppleARKitFrame, ESPMode::ThreadSafe > Frame );
 	void SessionDidFailWithError_DelegateThread( const FString& Error );
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 	void SessionDidAddAnchors_DelegateThread( NSArray<ARAnchor*>* anchors );
 	void SessionDidUpdateAnchors_DelegateThread( NSArray<ARAnchor*>* anchors );
 	void SessionDidRemoveAnchors_DelegateThread( NSArray<ARAnchor*>* anchors );
@@ -91,7 +97,7 @@ private:
 	void SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnchorData> AnchorData );
 	void SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKitAnchorData> AnchorData );
 	void SessionDidRemoveAnchors_Internal( FGuid AnchorGuid );
-#endif // ARKIT_SUPPORT
+#endif
 	void SessionDidUpdateFrame_Internal( TSharedRef< FAppleARKitFrame, ESPMode::ThreadSafe > Frame );
 
 	
@@ -122,8 +128,8 @@ private:
 	
 	/** A rotation from ARKit TrackingSpace to Unreal Space. It is re-derived based on other parameters; users should not set it directly. */
 	FRotator DerivedTrackingToUnrealRotation;
-	
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+
+#if SUPPORTS_ARKIT_1_0
 
 	// ARKit Session
 	ARSession* Session = nullptr;
@@ -133,8 +139,11 @@ private:
 	
 	/** The Metal texture cache for unbuffered texture uploads. */
 	CVMetalTextureCacheRef MetalTextureCache = nullptr;
-	
-#endif // ARKIT_SUPPORT
+
+	/** Cache of images that we've converted previously to prevent repeated conversion */
+	TMap< FString, CGImage* > ConvertedCandidateImages;
+
+#endif
 
 	//
 	// PROPERTIES REPORTED TO FGCObject
@@ -142,10 +151,17 @@ private:
 	TMap< FGuid, UARTrackedGeometry* > TrackedGeometries;
 	TArray<UARPin*> Pins;
 	UARLightEstimate* LightEstimate;
+	UAppleARKitTextureCameraImage* CameraImage;
+	UAppleARKitTextureCameraDepth* CameraDepth;
+	TMap< FString, UARCandidateImage* > CandidateImages;
 	// ...
 	// PROPERTIES REPORTED TO FGCObject
 	//
 	
+	/** Controls whether we can use the existing wrapper object instead of creating a new one to cut down on UObject churn */
+	bool bCanReuseCameraImage;
+	/** Controls whether we can use the existing wrapper object instead of creating a new one to cut down on UObject churn */
+	bool bCanReuseCameraDepth;
 
 	/** The ar frame number when LastReceivedFrame was last updated */
 	uint32 GameThreadFrameNumber;

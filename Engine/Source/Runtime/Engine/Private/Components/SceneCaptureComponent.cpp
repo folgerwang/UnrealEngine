@@ -511,7 +511,7 @@ void USceneCaptureComponent2D::CaptureScene()
 	{
 		// We must push any deferred render state recreations before causing any rendering to happen, to make sure that deleted resource references are updated
 		World->SendAllEndOfFrameUpdates();
-		World->Scene->UpdateSceneCaptureContents(this);
+		UpdateSceneCaptureContents(World->Scene);
 	}	
 
 	if (bCaptureEveryFrame)
@@ -859,6 +859,7 @@ USceneCaptureComponentCube::USceneCaptureComponentCube(const FObjectInitializer&
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.TickGroup = TG_DuringPhysics;
 	bTickInEditor = true;
+	IPD = 6.2f;
 }
 
 void USceneCaptureComponentCube::OnRegister()
@@ -911,7 +912,7 @@ void USceneCaptureComponentCube::CaptureScene()
 	{
 		// We must push any deferred render state recreations before causing any rendering to happen, to make sure that deleted resource references are updated
 		World->SendAllEndOfFrameUpdates();
-		World->Scene->UpdateSceneCaptureContents(this);
+		UpdateSceneCaptureContents(World->Scene);
 	}	
 
 	if (bCaptureEveryFrame)

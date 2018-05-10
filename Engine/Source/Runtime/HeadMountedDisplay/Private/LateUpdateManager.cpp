@@ -9,21 +9,37 @@ FLateUpdateManager::FLateUpdateManager()
 	: LateUpdateGameWriteIndex(0)
 	, LateUpdateRenderReadIndex(0)
 {
+	SkipLateUpdate[0] = false;
+	SkipLateUpdate[1] = false;
 }
 
-void FLateUpdateManager::Setup(const FTransform& ParentToWorld, USceneComponent* Component)
+void FLateUpdateManager::Setup(const FTransform& ParentToWorld, USceneComponent* Component, bool bSkipLateUpdate)
 {
 	check(IsInGameThread());
+
 	LateUpdateParentToWorld[LateUpdateGameWriteIndex] = ParentToWorld;
 	LateUpdatePrimitives[LateUpdateGameWriteIndex].Reset();
 	GatherLateUpdatePrimitives(Component);
+	SkipLateUpdate[LateUpdateGameWriteIndex] = bSkipLateUpdate;
+
 	LateUpdateGameWriteIndex = (LateUpdateGameWriteIndex + 1) % 2;
+}
+
+bool FLateUpdateManager::GetSkipLateUpdate_RenderThread() const
+{
+	return SkipLateUpdate[LateUpdateRenderReadIndex];
 }
 
 void FLateUpdateManager::Apply_RenderThread(FSceneInterface* Scene, const FTransform& OldRelativeTransform, const FTransform& NewRelativeTransform)
 {
 	check(IsInRenderingThread());
+
 	if (!LateUpdatePrimitives[LateUpdateRenderReadIndex].Num())
+	{
+		return;
+	}
+
+	if (GetSkipLateUpdate_RenderThread())
 	{
 		return;
 	}
@@ -48,6 +64,7 @@ void FLateUpdateManager::Apply_RenderThread(FSceneInterface* Scene, const FTrans
 void FLateUpdateManager::PostRender_RenderThread()
 {
 	LateUpdatePrimitives[LateUpdateRenderReadIndex].Reset();
+	SkipLateUpdate[LateUpdateRenderReadIndex] = false;
 	LateUpdateRenderReadIndex = (LateUpdateRenderReadIndex + 1) % 2;
 }
 

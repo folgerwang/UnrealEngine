@@ -342,7 +342,7 @@ void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdLi
 
 			if (!bGammaSpace)
 			{
-				FSceneRenderTargets::Get(RHICmdList).BeginRenderingTranslucency(RHICmdList, View, false);
+				FSceneRenderTargets::Get(RHICmdList).BeginRenderingTranslucency(RHICmdList, View, *this, false);
 			}
 			else
 			{
@@ -685,7 +685,7 @@ bool FMobileSceneRenderer::RenderInverseOpacity(FRHICommandListImmediate& RHICmd
 		{
 			if (!bGammaSpace)
 			{
-				FSceneRenderTargets::Get(RHICmdList).BeginRenderingTranslucency(RHICmdList, View);
+				FSceneRenderTargets::Get(RHICmdList).BeginRenderingTranslucency(RHICmdList, View, *this);
 			}
 			else
 			{

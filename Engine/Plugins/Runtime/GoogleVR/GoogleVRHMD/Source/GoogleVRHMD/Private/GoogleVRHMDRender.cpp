@@ -325,18 +325,6 @@ void FGoogleVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdLi
 	}
 }
 
-FRHICustomPresent* FGoogleVRHMD::GetCustomPresent()
-{
-#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	if(bUseOffscreenFramebuffers)
-	{
-		return CustomPresent;
-	}
-#endif
-
-	return nullptr;
-}
-
 bool FGoogleVRHMD::AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 InFlags, uint32 TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples)
 {
 	check(Index == 0);
@@ -429,8 +417,7 @@ FGoogleVRHMDTexture2DSet* FGoogleVRHMDTexture2DSet::CreateTexture2DSet(
 }
 
 FGoogleVRHMDCustomPresent::FGoogleVRHMDCustomPresent(FGoogleVRHMD* InHMD)
-	: FRHICustomPresent(nullptr)
-	, CurrentFrame(nullptr)
+	: CurrentFrame(nullptr)
 	, HMD(InHMD)
 	, SwapChain(nullptr)
 	, CurrentFrameViewportList(nullptr)
@@ -541,17 +528,6 @@ void FGoogleVRHMDCustomPresent::UpdateRenderingViewportList(const gvr_buffer_vie
 void FGoogleVRHMDCustomPresent::UpdateRenderingPose(gvr_mat4f InHeadPose)
 {
 	RenderingHeadPoseQueue.Enqueue(InHeadPose);
-}
-
-void FGoogleVRHMDCustomPresent::UpdateViewport(const FViewport& Viewport, FRHIViewport* ViewportRHI)
-{
-	check(IsInGameThread());
-	check(ViewportRHI);
-
-	if(SwapChain)
-	{
-		ViewportRHI->SetCustomPresent(this);
-	}
 }
 
 void FGoogleVRHMDCustomPresent::BeginRendering()

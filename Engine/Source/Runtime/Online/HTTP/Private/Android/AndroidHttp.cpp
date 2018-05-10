@@ -28,6 +28,7 @@ TOptional<FString> FAndroidPlatformHttp::GetOperatingSystemProxyAddress()
 {
 	FString ProxyAddress;
 
+#if USE_ANDROID_JNI
 	extern int32 AndroidThunkCpp_GetMetaDataInt(const FString& Key);
 	extern FString AndroidThunkCpp_GetMetaDataString(const FString& Key);
 
@@ -38,6 +39,7 @@ TOptional<FString> FAndroidPlatformHttp::GetOperatingSystemProxyAddress()
 	{
 		ProxyAddress = FString::Printf(TEXT("%s:%d"), *ProxyHost, ProxyPort);
 	}
+#endif
 
 	return ProxyAddress;
 }

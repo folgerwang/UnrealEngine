@@ -19,4 +19,6 @@ struct APPLICATIONCORE_API FAndroidApplicationMisc : public FGenericPlatformAppl
 	static EScreenPhysicalAccuracy ComputePhysicalScreenDensity(int32& OutScreenDensity);
 };
 
+#if !PLATFORM_LUMIN
 typedef FAndroidApplicationMisc FPlatformApplicationMisc;
+#endif

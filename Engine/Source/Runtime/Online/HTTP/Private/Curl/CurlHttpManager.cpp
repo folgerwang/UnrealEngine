@@ -233,7 +233,7 @@ void FCurlHttpManager::InitCurl()
 			UE_LOG(LogInit, Log, TEXT(" Libcurl: did not find a cert bundle in any of known locations, TLS may not work"));
 		}
 	}
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && USE_ANDROID_FILE
 	// used #if here to protect against GExternalFilePath only available on Android
 	else
 	if (PLATFORM_ANDROID)

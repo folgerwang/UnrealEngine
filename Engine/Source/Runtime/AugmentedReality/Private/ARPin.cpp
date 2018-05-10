@@ -22,6 +22,14 @@ void UARPin::InitARPin( const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& In
 	TrackingState = EARTrackingState::Tracking;
 	TrackedGeometry = InTrackedGeometry;
 	PinnedComponent = InComponentToPin;
+
+	// Move the component to match the Pin's new location
+	if (PinnedComponent)
+	{
+		const FTransform NewLocalToWorldTransform = GetLocalToWorldTransform();
+		PinnedComponent->SetWorldTransform(NewLocalToWorldTransform);
+	}
+
 	DebugName = (InDebugName != NAME_None)
 	? InDebugName
 	: FName(*FString::Printf(TEXT("PIN %02d"), DebugPinId++));

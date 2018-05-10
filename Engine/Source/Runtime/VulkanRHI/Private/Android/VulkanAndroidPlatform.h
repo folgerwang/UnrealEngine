@@ -42,6 +42,9 @@ public:
 	static bool SupportsASTCTextureFormats() { return true; }
 	static bool SupportsQuerySurfaceProperties() { return false; }
 
+	static bool SupportsStandardSwapchain();
+	static EPixelFormat GetPixelFormatForNonDefaultSwapchain();
+
 	static bool SupportsDepthFetchDuringDepthTest() { return false; }
 	static bool SupportsTimestampRenderQueries() { return false; }
 

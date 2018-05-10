@@ -168,7 +168,9 @@ public:
 	
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::ES3_1);
+		// MLCHANGES BEGIN
+		return true;
+		// MLCHANGES END
 	}
 };
 

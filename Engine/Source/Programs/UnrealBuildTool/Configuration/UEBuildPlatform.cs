@@ -443,6 +443,7 @@ namespace UnrealBuildTool
 				case CppPlatform.TVOS:			return UnrealTargetPlatform.TVOS;
 				case CppPlatform.Switch: 		return UnrealTargetPlatform.Switch;
 				case CppPlatform.Quail:			return UnrealTargetPlatform.Quail;
+				case CppPlatform.Lumin:			return UnrealTargetPlatform.Lumin;
 			}
 			throw new BuildException("CPPTargetPlatformToUnrealTargetPlatform: Unknown CPPTargetPlatform {0}", InCPPPlatform.ToString());
 		}
@@ -882,6 +883,16 @@ namespace UnrealBuildTool
 		/// <param name="Target">The target being built</param>
 		/// <returns>New toolchain instance.</returns>
 		public abstract UEToolChain CreateToolChain(CppPlatform CppPlatform, ReadOnlyTargetRules Target);
+
+		/// <summary>
+		/// Creates a temp toolchain instance for the given project - will not be used to compile with, and is only needed on some platforms
+		/// </summary>
+		/// <param name="ProjectFile">The project to make the toolchain for</param>
+		/// <returns>New toolchain instance.</returns>
+		public virtual UEToolChain CreateTempToolChainForProject(FileReference ProjectFile)
+		{
+			return null;
+		}
 
 		/// <summary>
 		/// Deploys the given target

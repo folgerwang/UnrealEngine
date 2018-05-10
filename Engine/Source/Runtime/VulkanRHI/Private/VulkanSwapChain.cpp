@@ -19,7 +19,6 @@ static FAutoConsoleVariableRef CVarCpuWaitForFence(
 
 extern FAutoConsoleVariable GCVarDelayAcquireBackBuffer;
 extern TAutoConsoleVariable<int32> GAllowPresentOnComputeQueue;
-
 static TSet<EPixelFormat> GPixelFormatNotSupportedWarning;
 
 FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevice, void* WindowHandle, EPixelFormat& InOutPixelFormat, uint32 Width, uint32 Height,

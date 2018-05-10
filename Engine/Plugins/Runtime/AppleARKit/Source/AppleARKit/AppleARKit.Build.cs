@@ -41,7 +41,8 @@ public class AppleARKit : ModuleRules
                 "LiveLink",
                 "LiveLinkInterface",
 //                "OnlineSubsystem",
-                "Sockets"
+                "Sockets",
+                "AppleImageUtils"
 				// ... add private dependencies that you statically link with here ...
 			}
 			);
@@ -56,12 +57,7 @@ public class AppleARKit : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.IOS)
 		{
-			PublicDefinitions.Add("ARKIT_SUPPORT=1");
 			PublicFrameworks.Add( "ARKit" );
-		}
-		else
-		{
-			PublicDefinitions.Add("ARKIT_SUPPORT=0");
 		}
 	}
 }

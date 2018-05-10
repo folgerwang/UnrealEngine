@@ -2,6 +2,7 @@
 
 #include "Framework/Text/Android/AndroidPlatformTextField.h"
 
+#if USE_ANDROID_JNI
 #include "HAL/IConsoleManager.h"
 #include "Widgets/Input/IVirtualKeyboardEntry.h"
 #include "Misc/ConfigCacheIni.h"
@@ -125,3 +126,4 @@ bool FAndroidPlatformTextField::EnableNewKeyboardConfig() const
 	// use integrated keyboard if the runtime setting is set or the console variable is set to 1
 	return bEnableNewKeyboardConfig;
 }
+#endif

@@ -5,7 +5,9 @@
 #include "GenericPlatform/GenericWindow.h"
 #include "GenericPlatform/GenericApplication.h"
 #include <android/native_window.h> 
-#include <android/native_window_jni.h> 
+#if USE_ANDROID_JNI
+#include <android/native_window_jni.h>
+#endif
 
 
 /**

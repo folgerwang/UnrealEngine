@@ -299,32 +299,30 @@ namespace UnrealBuildTool
 		/// <param name="ExitCode">The return code from the process after it exits</param>
 		public static string RunLocalProcessAndReturnStdOut(string Command, string Args, out int ExitCode)
 		{
-			StringBuilder OutputBuilder = new StringBuilder();
-			StringBuilder ErrorBuilder = new StringBuilder();
-			using (Process LocalProcess = new Process())
+			//LUMIN_MERGE
+			ProcessStartInfo StartInfo = new ProcessStartInfo(Command, Args);
+			StartInfo.UseShellExecute = false;
+			StartInfo.RedirectStandardOutput = true;
+			StartInfo.RedirectStandardError = true;
+			StartInfo.CreateNoWindow = true;
+
+			string FullOutput = "";
+			string ErrorOutput = "";
+			using (Process LocalProcess = Process.Start(StartInfo))
 			{
-				LocalProcess.StartInfo.FileName = Command;
-				LocalProcess.StartInfo.Arguments = Args;
-				LocalProcess.StartInfo.UseShellExecute = false;
-				LocalProcess.StartInfo.RedirectStandardOutput = true;
-				LocalProcess.StartInfo.RedirectStandardError = true;
-				LocalProcess.StartInfo.CreateNoWindow = true;
-				LocalProcess.OutputDataReceived += (sender, e) => OutputBuilder.Append(e.Data);
-				LocalProcess.ErrorDataReceived += (sender, e) => ErrorBuilder.Append(e.Data);
-				LocalProcess.EnableRaisingEvents = true;
-				LocalProcess.Start();
-				LocalProcess.BeginOutputReadLine();
-				LocalProcess.BeginErrorReadLine();
+				StreamReader OutputReader = LocalProcess.StandardOutput;
+				// trim off any extraneous new lines, helpful for those one-line outputs
+				FullOutput = OutputReader.ReadToEnd().Trim();
+
+				StreamReader ErrorReader = LocalProcess.StandardError;
+				// trim off any extraneous new lines, helpful for those one-line outputs
+				ErrorOutput = ErrorReader.ReadToEnd().Trim();
 
 				LocalProcess.WaitForExit();
 				ExitCode = LocalProcess.ExitCode;
 			}
 
 			// trim off any extraneous new lines, helpful for those one-line outputs
-			string FullOutput = OutputBuilder.ToString().Trim();
-
-			// trim off any extraneous new lines, helpful for those one-line outputs
-			string ErrorOutput = ErrorBuilder.ToString().Trim();
 			if (ErrorOutput.Length > 0)
 			{
 				if (FullOutput.Length > 0)
@@ -333,7 +331,6 @@ namespace UnrealBuildTool
 				}
 				FullOutput += ErrorOutput;
 			}
-
 			return FullOutput;
 		}
 

@@ -206,6 +206,7 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "ProfilingDebugging/CsvProfiler.h"
 #include "ProfilingDebugging/TracingProfiler.h"
 #include "Engine/CoreSettings.h"
+#include "IEyeTrackerModule.h"
 
 #if !UE_BUILD_SHIPPING
 #include "Interfaces/IPluginManager.h"
@@ -1229,6 +1230,9 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 
 	// Initialize the HMDs and motion controllers, if any
 	InitializeHMDDevice();
+
+	// Initialize attached eye tracking devices, if any
+	InitializeEyeTrackingDevice();
 
 	// Disable the screensaver when running the game.
 	if( GIsClient && !GIsEditor )
@@ -2738,6 +2742,100 @@ bool UEngine::InitializeHMDDevice()
 	}
 
 	return StereoRenderingDevice.IsValid();
+}
+
+bool UEngine::InitializeEyeTrackingDevice()
+{
+	if (!IsRunningCommandlet() && !EyeTrackingDevice.IsValid())
+	{
+		// No reason to connect an eye tracking on a dedicated server.
+		if (!FParse::Param(FCommandLine::Get(), TEXT("noeyetracking")) && !IsRunningDedicatedServer())
+		{
+			IModularFeatures& ModularFeatures = IModularFeatures::Get();
+
+			// Get a list of modules that implement this feature
+			//FName const ModularFeatureName = IEyeTrackerModule::Get().GetModularFeatureName();
+			//LUMIN_MERGE - Circular dependency doesn't allow this
+			FName const ModularFeatureName = TEXT("EyeTracker");// IEyeTrackerModule::Get().GetModularFeatureName();
+			TArray<IEyeTrackerModule*> ETModules = ModularFeatures.GetModularFeatureImplementations<IEyeTrackerModule>(ModularFeatureName);
+
+			// Check whether the user passed in an explicit HMD module on the command line
+			FString ExplicitETName;
+			bool const bUseExplicitETDevice = FParse::Value(FCommandLine::Get(), TEXT("eyetracking="), ExplicitETName);
+
+			// #todo: ask the HMD if it had a preferred eyetracker and prioritize that, since some have built-in eyetracking devices
+			// Sort modules by priority
+			//LUMIN_MERGE - Circular dependency doesn't allow this
+			//ETModules.Sort(IEyeTrackerModule::FCompareModulePriority());
+
+			// Select first module with a connected eyetracker able to create a device
+			IEyeTrackerModule* ETModuleSelected = nullptr;
+			TArray<IEyeTrackerModule*> ETModulesDisconnected;
+
+			for (auto ETModuleIt = ETModules.CreateIterator(); ETModuleIt; ++ETModuleIt)
+			{
+				IEyeTrackerModule* const ETModule = *ETModuleIt;
+
+				// Skip all non-matching modules when an explicit module name has been specified on the command line
+				if (bUseExplicitETDevice && !ExplicitETName.Equals(ETModule->GetModuleKeyName(), ESearchCase::IgnoreCase))
+				{
+					continue;
+				}
+ 
+ 				if (ETModule->IsEyeTrackerConnected())
+ 				{
+ 					EyeTrackingDevice = ETModule->CreateEyeTracker();
+ 
+ 					if (EyeTrackingDevice.IsValid())
+ 					{
+						ETModuleSelected = ETModule;
+ 						break;
+ 					}
+ 				}
+ 				else
+ 				{
+					ETModulesDisconnected.Add(ETModule);
+ 				}
+			}
+
+			// If no module selected yet, just select first module able to create a device, even if HMD is not connected.
+			if (!ETModuleSelected)
+			{
+				for (auto ETModuleIt = ETModulesDisconnected.CreateIterator(); ETModuleIt; ++ETModuleIt)
+				{
+					IEyeTrackerModule* const ETModule = *ETModuleIt;
+					EyeTrackingDevice = ETModule->CreateEyeTracker();
+					if (EyeTrackingDevice.IsValid())
+					{
+						ETModuleSelected = ETModule;
+						break;
+					}
+				}
+			}
+
+			// Unregister modules which were not selected, since they will not be used.
+			for (auto ETModuleIt = ETModules.CreateIterator(); ETModuleIt; ++ETModuleIt)
+			{
+				IEyeTrackerModule* const ETModule = *ETModuleIt;
+				if (ETModule != ETModuleSelected)
+				{
+					ModularFeatures.UnregisterModularFeature(ModularFeatureName, ETModule);
+				}
+			}
+
+			// If we found a valid HMDDevice, use this as our StereoRenderingDevice
+			if (EyeTrackingDevice.IsValid() == false)
+			{
+				// log an error if we got an explicit module name on the command line
+				if (bUseExplicitETDevice)
+				{
+					UE_LOG(LogInit, Error, TEXT("Failed to find or initialize EyeTracker module named '%s'. Eye tracking will be disabled."), *ExplicitETName);
+				}
+			}
+		}
+	}
+
+	return EyeTrackingDevice.IsValid();
 }
 
 

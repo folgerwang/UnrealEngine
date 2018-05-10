@@ -98,6 +98,16 @@ TArray<UARPin*> FARSystemBase::GetAllPins() const
 	return OnGetAllPins();
 }
 
+UARTextureCameraImage* FARSystemBase::GetCameraImage()
+{
+	return OnGetCameraImage();
+}
+
+UARTextureCameraDepth* FARSystemBase::GetCameraDepth()
+{
+	return OnGetCameraDepth();
+}
+
 bool FARSystemBase::IsSessionTypeSupported(EARSessionType SessionType) const
 {
 	return OnIsTrackingTypeSupported(SessionType);
@@ -105,7 +115,9 @@ bool FARSystemBase::IsSessionTypeSupported(EARSessionType SessionType) const
 
 void FARSystemBase::SetAlignmentTransform( const FTransform& InAlignmentTransform )
 {
-	return OnSetAlignmentTransform(InAlignmentTransform);
+	OnSetAlignmentTransform(InAlignmentTransform);
+	OnAlignmentTransformUpdated.Broadcast(InAlignmentTransform);
+
 }
 
 
