@@ -811,13 +811,6 @@ private:
 					.FillHeight(0.25f)
 					.Padding(Padding)
 					[
-						//empty for spacing
-						SNullWidget::NullWidget
-					]
-					+SVerticalBox::Slot()
-					.FillHeight(0.25f)
-					.Padding(Padding)
-					[
 						SNew(STextBlock)
 						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Changelist", "Changelist:"))
 					]
@@ -849,13 +842,6 @@ private:
 				[
 					//Data column
 					SNew(SVerticalBox)
-					+SVerticalBox::Slot()
-					.FillHeight(0.25f)
-					.Padding(Padding)
-					[
-						//empty for spacing
-						SNullWidget::NullWidget
-					]
 					+SVerticalBox::Slot()
 					.FillHeight(0.25f)
 					.Padding(Padding)
