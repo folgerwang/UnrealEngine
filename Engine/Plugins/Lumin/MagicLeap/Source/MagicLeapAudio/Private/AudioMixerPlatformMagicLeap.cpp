@@ -322,7 +322,8 @@ namespace Audio
 			return false;
 		}
 
-		if (AudioStreamInfo.StreamState != EAudioOutputStreamState::Stopped)
+		//we have already returned if we're not running.  Therefore, if here, we are both initialized AND running.
+		//if (AudioStreamInfo.StreamState != EAudioOutputStreamState::Stopped)
 		{
 			if (!MLAudioStopSound(StreamHandle, &Result))
 			{
