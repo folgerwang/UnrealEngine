@@ -30,6 +30,7 @@ class USoundAttenuation;
 class USoundBase;
 class USoundConcurrency;
 class UStaticMesh;
+class FMemoryReader;
 
 struct FDialogueContext;
 
@@ -825,6 +826,16 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game")
 	static USaveGame* LoadGameFromSlot(const FString& SlotName, const int32 UserIndex);
+
+	/** 
+	 *	Takes the provided buffer and consumes it, parsing past the internal header data, returning a MemoryReader
+	 *  that has: 1) been set up with all the related header information, and 2) offset to where tagged USaveGame object 
+	 *  serialization begins. NOTE: that the returned object has a reference to the supplied data - scope them 
+	 *  accordingly.
+	 *	@param  SaveData	A byte array, presumably produced by one of the SaveGame functions here.
+	 *	@return				A memory reader, wrapping SaveData, offset to the point past the header data.
+	 */
+	static FMemoryReader StripSaveGameHeader(const TArray<uint8>& SaveData);
 
 	/**
 	 * Delete a save game in a particular slot.

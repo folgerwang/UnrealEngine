@@ -11,53 +11,20 @@
 #include "RenderingThread.h"
 #include "BaseMeshReconstructorModule.h"
 #include "MeshReconstructorBase.h"
+#include "AI/NavigationSystemHelpers.h"
+#include "PackedNormal.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/BodyInstance.h"
 #include "PhysicsPublic.h"
 #include "Physics/IPhysXCooking.h"
 #include "PhysXCookHelper.h"
 #include "Misc/RuntimeErrors.h"
-
-/**
- * A vertex buffer with some dummy data to send down for MRMesh vertex components that we aren't feeding at the moment.
- */
-class FNullVertexBuffer : public FVertexBuffer
-{
-public:
-	/**
-	* Initialize the RHI for this rendering resource
-	*/
-	virtual void InitRHI() override
-	{
-		static const int32 NUM_ELTS = 4;
-
-		// create a static vertex buffer
-		FRHIResourceCreateInfo CreateInfo;
-
-		void* LockedData = nullptr;
-		VertexBufferRHI = RHICreateAndLockVertexBuffer(NUM_ELTS*sizeof(uint32), BUF_Static | BUF_ZeroStride | BUF_ShaderResource, CreateInfo, LockedData);
-		uint32* Vertices = (uint32*)LockedData;
-		Vertices[0] = FColor(255, 255, 255, 255).DWColor();
-		Vertices[1] = FColor(255, 255, 255, 255).DWColor();
-		Vertices[2] = FColor(255, 255, 255, 255).DWColor();
-		Vertices[3] = FColor(255, 255, 255, 255).DWColor();
-		RHIUnlockVertexBuffer(VertexBufferRHI);
-		VertexBufferSRV = RHICreateShaderResourceView(VertexBufferRHI, NUM_ELTS*sizeof(FColor), PF_R8G8B8A8);
-	}
-
-	virtual void ReleaseRHI() override
-	{
-		VertexBufferSRV.SafeRelease();
-		FVertexBuffer::ReleaseRHI();
-	}
-
-	FShaderResourceViewRHIRef VertexBufferSRV;
-};
+#include "Engine/Engine.h"
 
 class FMRMeshVertexResourceArray : public FResourceArrayInterface
 {
 public:
-	FMRMeshVertexResourceArray(void* InData, uint32 InSize)
+	FMRMeshVertexResourceArray(const void* InData, uint32 InSize)
 		: Data(InData)
 		, Size(InSize)
 	{
@@ -71,7 +38,7 @@ public:
 	virtual void SetAllowCPUAccess(bool bInNeedsCPUAccess) override { }
 
 private:
-	void* Data;
+	const void* Data;
 	uint32 Size;
 };
 
@@ -81,7 +48,7 @@ class FMRMeshVertexBuffer : public FVertexBuffer
 {
 public:
 	int32 NumVerts = 0;
-	void InitRHIWith( TArray<DataType>& PerVertexData )
+	void InitRHIWith( const TArray<DataType>& PerVertexData )
 	{
 		NumVerts = PerVertexData.Num();
 
@@ -89,7 +56,7 @@ public:
 
 		FMRMeshVertexResourceArray ResourceArray(PerVertexData.GetData(), SizeInBytes);
 		FRHIResourceCreateInfo CreateInfo(&ResourceArray);
-		VertexBufferRHI = RHICreateVertexBuffer(SizeInBytes, BUF_Static, CreateInfo);
+		VertexBufferRHI = RHICreateVertexBuffer(SizeInBytes, BUF_Static | BUF_ShaderResource, CreateInfo);
 	}
 
 };
@@ -118,13 +85,13 @@ struct FMRMeshProxySection;
 struct FMRMeshProxySection
 {
 	/** Which brick this section represents */
-	FIntVector BrickId;
+	IMRMesh::FBrickId BrickId;
 	/** Position buffer */
 	FMRMeshVertexBuffer<FVector> PositionBuffer;
 	/** Texture coordinates buffer */
-	FNullVertexBuffer UVBuffer;
+	FMRMeshVertexBuffer<FVector2D> UVBuffer;
 	/** Tangent space buffer */
-	FNullVertexBuffer TangentXZBuffer;
+	FMRMeshVertexBuffer<FPackedNormal> TangentXZBuffer;
 	/** We don't need color */
 	FMRMeshVertexBuffer<FColor> ColorBuffer;
 	/** Index buffer for this section */
@@ -137,7 +104,7 @@ struct FMRMeshProxySection
 	FShaderResourceViewRHIRef TangentXZBufferSRV;
 	FShaderResourceViewRHIRef ColorBufferSRV;
 
-	FMRMeshProxySection(FIntVector InBrickId, ERHIFeatureLevel::Type InFeatureLevel)
+	FMRMeshProxySection(IMRMesh::FBrickId InBrickId, ERHIFeatureLevel::Type InFeatureLevel)
 		: BrickId(InBrickId)
 		, VertexFactory(InFeatureLevel, "FMRMeshProxySection")
 	{
@@ -160,7 +127,7 @@ struct FMRMeshProxySection
 static void InitVertexFactory(FLocalVertexFactory* VertexFactory, const FMRMeshProxySection& MRMeshSection)
 {
 	ENQUEUE_RENDER_COMMAND(InitProcMeshVertexFactory)(
-		[VertexFactory, MRMeshSection](FRHICommandListImmediate& RHICmdList)
+		[VertexFactory, &MRMeshSection](FRHICommandListImmediate& RHICmdList)
 	{
 		check(IsInRenderingThread());
 
@@ -169,20 +136,30 @@ static void InitVertexFactory(FLocalVertexFactory* VertexFactory, const FMRMeshP
 
 		{
 			NewData.PositionComponentSRV = MRMeshSection.PositionBufferSRV;
-			NewData.TextureCoordinatesSRV = MRMeshSection.UVBufferSRV;
-			NewData.TangentsSRV = MRMeshSection.TangentXZBufferSRV;
-			NewData.ColorComponentsSRV = MRMeshSection.ColorBufferSRV;
+			NewData.PositionComponent = FVertexStreamComponent(&MRMeshSection.PositionBuffer, 0, sizeof(FVector), VET_Float3, EVertexStreamUsage::Default);
 		}
 		
+		//{
+		//	NewData.TextureCoordinatesSRV = MRMeshSection.UVBufferSRV;
+		//	NewData.TextureCoordinates.Add(FVertexStreamComponent(&MRMeshSection.UVBuffer, 0, sizeof(FVector2D), VET_Float2, EVertexStreamUsage::ManualFetch));
+		//	NewData.NumTexCoords = 1;
+		//}
+
+		if (MRMeshSection.TangentXZBuffer.NumVerts != 0)
 		{
-			NewData.PositionComponent = FVertexStreamComponent(&MRMeshSection.PositionBuffer, 0, sizeof(FVector), VET_Float3, EVertexStreamUsage::ManualFetch);
-			NewData.TextureCoordinates.Add(FVertexStreamComponent(&MRMeshSection.UVBuffer, 0, sizeof(FVector2D), VET_Float2, EVertexStreamUsage::ManualFetch));
+			NewData.TangentsSRV = MRMeshSection.TangentXZBufferSRV;
 			NewData.TangentBasisComponents[0] = FVertexStreamComponent(&MRMeshSection.TangentXZBuffer, 0, 2 * sizeof(FPackedNormal), VET_PackedNormal, EVertexStreamUsage::ManualFetch);
 			NewData.TangentBasisComponents[1] = FVertexStreamComponent(&MRMeshSection.TangentXZBuffer, sizeof(FPackedNormal), 2 * sizeof(FPackedNormal), VET_PackedNormal, EVertexStreamUsage::ManualFetch);
+		}
+
+		if (MRMeshSection.ColorBuffer.NumVerts != 0)
+		{
+			NewData.ColorComponentsSRV = MRMeshSection.ColorBufferSRV;
 			NewData.ColorComponent = FVertexStreamComponent(&MRMeshSection.ColorBuffer, 0, sizeof(FColor), VET_Color, EVertexStreamUsage::ManualFetch);
 		}
 
 		VertexFactory->SetData(NewData);
+		VertexFactory->InitResource();
 	});
 }
 
@@ -197,7 +174,7 @@ public:
 	}
 
 	FMRMeshProxy(const UMRMeshComponent* InComponent)
-	: FPrimitiveSceneProxy(InComponent)
+	: FPrimitiveSceneProxy(InComponent, InComponent->GetFName())
 	, MaterialToUse((InComponent->Material!=nullptr) ? InComponent->Material : UMaterial::GetDefaultMaterial(MD_Surface) )
 	, FeatureLevel(GetScene().GetFeatureLevel())
 	{
@@ -219,44 +196,51 @@ public:
 	{
 		check(IsInRenderingThread() || IsInRHIThread());
 
-		FMRMeshProxySection* NewSection = new FMRMeshProxySection(Args.BrickCoords, FeatureLevel);
+		FMRMeshProxySection* NewSection = new FMRMeshProxySection(Args.BrickId, FeatureLevel);
 		ProxySections.Add(NewSection);
 
-		check(Args.PositionData.Num() == Args.ColorData.Num() || Args.ColorData.Num() == 0
-			//&& Args.PositionData.Num() == Args.UVData.Num()
-			//&& Args.PositionData.Num() == Args.TangentXData.Num()
-			//&& Args.PositionData.Num() == Args.TangentZData.Num()
-		);
+		check((Args.PositionData.Num() == Args.ColorData.Num()) || Args.ColorData.Num() == 0);
+		check((Args.PositionData.Num() == Args.UVData.Num()) || Args.UVData.Num() == 0);
+		check(((Args.PositionData.Num() * 2) == Args.TangentXZData.Num()) || Args.TangentXZData.Num() == 0);
 
 		// POSITION BUFFER
 		{
 			NewSection->PositionBuffer.InitResource();
 			NewSection->PositionBuffer.InitRHIWith(Args.PositionData);
 			NewSection->PositionBufferSRV = RHICreateShaderResourceView(NewSection->PositionBuffer.VertexBufferRHI, sizeof(float), PF_R32_FLOAT);
-			//FStructuredBufferRHIRef StructuredBuffer = RHICreateStructuredBuffer(sizeof(FVector), ResourceArray->GetResourceDataSize(), BUF_Static | BUF_ShaderResource, CreateInfo);
-			//PositionComponentSRV = RHICreateShaderResourceView(StructuredBuffer);
-			//NewSection->PositionBuffer.VertexBufferRHI = StructuredBuffer;
 		}
 
 		// TEXTURE COORDS BUFFER
 		{
 			NewSection->UVBuffer.InitResource();
-			//NewSection->UVBuffer.InitRHIWith(Args.UVData);
-			NewSection->UVBufferSRV = RHICreateShaderResourceView(NewSection->UVBuffer.VertexBufferRHI, 8, PF_G32R32F);
+			if (Args.UVData.Num())
+			{
+				NewSection->UVBuffer.InitRHIWith(Args.UVData);
+				NewSection->UVBufferSRV = RHICreateShaderResourceView(NewSection->UVBuffer.VertexBufferRHI, 8, PF_G32R32F);
+			}
 		}
 
 		// TANGENTS BUFFER
 		{
 			NewSection->TangentXZBuffer.InitResource();
-			//NewSection->TangentXZBuffer.InitRHIWith(Args.TangentXData);
-			NewSection->UVBufferSRV = RHICreateShaderResourceView(NewSection->TangentXZBuffer.VertexBufferRHI, 4, PF_R8G8B8A8_SNORM);
+			if (Args.TangentXZData.Num())
+			{
+				NewSection->TangentXZBuffer.InitRHIWith(Args.TangentXZData);
+				if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
+				{
+					NewSection->TangentXZBufferSRV = RHICreateShaderResourceView(NewSection->TangentXZBuffer.VertexBufferRHI, 4, PF_R8G8B8A8_SNORM);
+				}
+			}
 		}
 
-		// NO COLOR
+		// COLOR
 		{
 			NewSection->ColorBuffer.InitResource();
-			NewSection->ColorBuffer.InitRHIWith(Args.ColorData);
-			NewSection->ColorBufferSRV = RHICreateShaderResourceView(NewSection->ColorBuffer.VertexBufferRHI, 4, PF_R8G8B8A8);
+			if (Args.ColorData.Num())
+			{
+				NewSection->ColorBuffer.InitRHIWith(Args.ColorData);
+				NewSection->ColorBufferSRV = RHICreateShaderResourceView(NewSection->ColorBuffer.VertexBufferRHI, 4, PF_R8G8B8A8);
+			}
 		}
 
 		// INDEX BUFFER
@@ -268,16 +252,15 @@ public:
 		// VERTEX FACTORY
 		{
 			InitVertexFactory(&NewSection->VertexFactory, *NewSection);
-			NewSection->VertexFactory.InitResource();
 		}
 	}
 
-	bool RenderThread_RemoveSection(FIntVector BrickCoords)
+	bool RenderThread_RemoveSection(IMRMesh::FBrickId BrickId)
 	{
 		check(IsInRenderingThread() || IsInRHIThread());
 		for (int32 i = 0; i < ProxySections.Num(); ++i)
 		{
-			if (ProxySections[i]->BrickId == BrickCoords)
+			if (ProxySections[i]->BrickId == BrickId)
 			{
 				ProxySections[i]->ReleaseResources();
 				delete ProxySections[i];
@@ -301,10 +284,6 @@ public:
 
 private:
 	//~ FPrimitiveSceneProxy
-	virtual uint32 GetMemoryFootprint(void) const override
-	{
-		return 0;
-	}
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, class FMeshElementCollector& Collector) const override
 	{
@@ -359,7 +338,15 @@ private:
 		//MaterialRelevance.SetPrimitiveViewRelevance(Result);
 		return Result;
 	}
-	//~ FPrimitiveSceneProxy
+	virtual uint32 GetMemoryFootprint(void) const
+	{
+		return(sizeof(*this) + GetAllocatedSize());
+	}
+
+	uint32 GetAllocatedSize(void) const
+	{
+		return(FPrimitiveSceneProxy::GetAllocatedSize());
+	}
 
 private:
 	TArray<FMRMeshProxySection*> ProxySections;
@@ -370,26 +357,14 @@ private:
 
 UMRMeshComponent::UMRMeshComponent(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
-, MeshReconstructor(nullptr)
 {
-
 }
 
-void UMRMeshComponent::ConnectReconstructor(UMeshReconstructorBase* Reconstructor)
+void UMRMeshComponent::BeginPlay()
 {
-	if (ensureAsRuntimeWarning(Reconstructor != nullptr))
-	{
-		if (ensure(MeshReconstructor == nullptr))
-		{
-			MeshReconstructor = Reconstructor;
-			MeshReconstructor->ConnectMRMesh(this);
-		}
-	}
-}
+	Super::BeginPlay();
 
-UMeshReconstructorBase* UMRMeshComponent::GetReconstructor() const
-{
-	return MeshReconstructor;
+	SetCustomNavigableGeometry(bCanEverAffectNavigation ? EHasCustomNavigableGeometry::Yes : EHasCustomNavigableGeometry::No);
 }
 
 FPrimitiveSceneProxy* UMRMeshComponent::CreateSceneProxy()
@@ -412,16 +387,15 @@ FBoxSphereBounds UMRMeshComponent::CalcBounds(const FTransform& LocalToWorld) co
 	return FBoxSphereBounds(FSphere(FVector::ZeroVector, HALF_WORLD_MAX));
 }
 
-void UMRMeshComponent::SendBrickData(IMRMesh::FSendBrickDataArgs Args, const FOnProcessingComplete& OnProcessingComplete /*= FOnProcessingComplete()*/)
+void UMRMeshComponent::SendBrickData(IMRMesh::FSendBrickDataArgs Args)
 {
-	auto BrickDataTask = FSimpleDelegateGraphTask::FDelegate::CreateUObject(this, &UMRMeshComponent::SendBrickData_Internal, Args, OnProcessingComplete);
+	auto BrickDataTask = FSimpleDelegateGraphTask::FDelegate::CreateUObject(this, &UMRMeshComponent::SendBrickData_Internal, Args);
 
 	DECLARE_CYCLE_STAT(TEXT("UMRMeshComponent.SendBrickData"),
 		STAT_UMRMeshComponent_SendBrickData,
 		STATGROUP_MRMESH);
 
 	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(BrickDataTask, GET_STATID(STAT_UMRMeshComponent_SendBrickData), nullptr, ENamedThreads::GameThread);
-
 }
 
 void UMRMeshComponent::ClearAllBrickData()
@@ -445,10 +419,12 @@ UBodySetup* CreateBodySetupHelper(UMRMeshComponent* Outer)
 	return NewBS;
 }
 
-void UMRMeshComponent::SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args, FOnProcessingComplete OnProcessingComplete)
+void UMRMeshComponent::SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args)
 {
 #if WITH_PHYSX
 	check(IsInGameThread());
+
+	UE_LOG(LogMrMesh, Log, TEXT("SendBrickData_Internal() processing brick %llu with %i triangles"), Args.BrickId, Args.Indices.Num() / 3);
 
 	if (!IsPendingKill() && this->GetCollisionEnabled())
 	{
@@ -456,13 +432,13 @@ void UMRMeshComponent::SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args, 
 		UWorld* MyWorld = GetWorld();
 		if ( MyWorld && MyWorld->GetPhysicsScene() )
 		{
-			int32 BodyIndex = BodyIds.Find(Args.BrickCoords);
+			int32 BodyIndex = BodyIds.Find(Args.BrickId);
 
 			if (const bool bBrickHasData = Args.Indices.Num() > 0)
 			{
 				if (BodyIndex == INDEX_NONE)
 				{
-					BodyIds.Add(Args.BrickCoords);
+					BodyIds.Add(Args.BrickId);
 					BodySetups.Add(CreateBodySetupHelper(this));
 					BodyInstances.Add(new FBodyInstance());
 					BodyIndex = BodyIds.Num() - 1;
@@ -499,7 +475,7 @@ void UMRMeshComponent::SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args, 
 
 				FBodyInstance* MyBI = BodyInstances[BodyIndex];
 				MyBI->TermBody();
-				MyBI->InitBody(MyBS, FTransform::Identity, this, MyWorld->GetPhysicsScene());
+				MyBI->InitBody(MyBS, GetComponentTransform(), this, MyWorld->GetPhysicsScene());
 			}
 			else
 			{
@@ -513,40 +489,39 @@ void UMRMeshComponent::SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args, 
 				}
 			}
 		}
-
+		if (bUpdateNavMeshOnMeshUpdate && bHasCustomNavigableGeometry)
+		{
+			UpdateNavigationData();
+		}
 	}
 #endif // WITH_PHYSX
 
-
-	if (SceneProxy != nullptr && GRenderingThread != nullptr)
+	if (bCreateMeshProxySections)
 	{
-		check(GRenderingThread != nullptr);
-		check(SceneProxy != nullptr);
+		if (SceneProxy != nullptr && GRenderingThread != nullptr)
+		{
+			check(GRenderingThread != nullptr);
+			check(SceneProxy != nullptr);
 
-		// Graphics update
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			FSendBrickDataLambda,
-			UMRMeshComponent*, This, this,
-			IMRMesh::FSendBrickDataArgs, Args, Args,
-			FOnProcessingComplete, OnProcessingComplete, OnProcessingComplete,
-			{
-				FMRMeshProxy* MRMeshProxy = static_cast<FMRMeshProxy*>(This->SceneProxy);
-				if (MRMeshProxy)
+			// Graphics update
+			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+				FSendBrickDataLambda,
+				UMRMeshComponent*, This, this,
+				IMRMesh::FSendBrickDataArgs, Args, Args,
 				{
-					MRMeshProxy->RenderThread_RemoveSection(Args.BrickCoords);
-
-					if (const bool bBrickHasData = Args.Indices.Num() > 0)
+					FMRMeshProxy* MRMeshProxy = static_cast<FMRMeshProxy*>(This->SceneProxy);
+					if (MRMeshProxy)
 					{
-						MRMeshProxy->RenderThread_UploadNewSection(Args);
-					}
+						MRMeshProxy->RenderThread_RemoveSection(Args.BrickId);
 
-					if (OnProcessingComplete.IsBound())
-					{
-						OnProcessingComplete.Execute();
+						if (const bool bBrickHasData = Args.Indices.Num() > 0)
+						{
+							MRMeshProxy->RenderThread_UploadNewSection(Args);
+						}
 					}
 				}
-			}
-		);
+			);
+		}
 	}
 }
 
@@ -557,6 +532,17 @@ void UMRMeshComponent::RemoveBodyInstance(int32 BodyIndex)
 	BodyInstances[BodyIndex]->TermBody();
 	delete BodyInstances[BodyIndex];
 	BodyInstances.RemoveAtSwap(BodyIndex);
+}
+
+void UMRMeshComponent::OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport)
+{
+	Super::OnUpdateTransform(UpdateTransformFlags, Teleport);
+
+	for (FBodyInstance* BI : BodyInstances)
+	{
+		BI->SetBodyTransform(GetComponentTransform(), Teleport);
+		BI->UpdateBodyScale(GetComponentTransform().GetScale3D());
+	}
 }
 
 void UMRMeshComponent::ClearAllBrickData_Internal()
@@ -591,21 +577,33 @@ void UMRMeshComponent::SetMaterial(int32 ElementIndex, class UMaterialInterface*
 	}
 }
 
-void UMRMeshComponent::BeginPlay()
+bool UMRMeshComponent::DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const
 {
-	UE_LOG(LogTemp, Log, TEXT("MRMesh: MeshReconstructor: %p"), MeshReconstructor);
-	if (MeshReconstructor != nullptr)
+	check(bHasCustomNavigableGeometry);
+	
+	for (UBodySetup* BodySetup : BodySetups)
 	{
-		FMRMeshConfiguration MRMeshConfig = MeshReconstructor->ConnectMRMesh(this);
+		check(BodySetup);
+		GeomExport.ExportRigidBodySetup(*BodySetup, GetComponentTransform());
+	}
+
+	return false;
+}
+
+void UMRMeshComponent::ForceNavMeshUpdate()
+{
+	if (bHasCustomNavigableGeometry)
+	{
+		UpdateNavigationData();
+	}
+	else
+	{
+		UE_LOG(LogMrMesh, Log, TEXT("ForceNavMeshUpdate() called, but this MRMesh component has bCanEverAffectNavigation==false.  Ignoring forced update."));
 	}
 }
 
-void UMRMeshComponent::BeginDestroy()
+void UMRMeshComponent::Clear()
 {
-	if (MeshReconstructor != nullptr)
-	{
-		MeshReconstructor->DisconnectMRMesh();
-	}
-	Super::BeginDestroy();
+	ClearAllBrickData();
+	UE_LOG(LogMrMesh, Log, TEXT("Clearing all brick data"));
 }
-

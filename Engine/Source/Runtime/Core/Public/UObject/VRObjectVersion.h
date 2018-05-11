@@ -15,6 +15,8 @@ struct CORE_API FVRObjectVersion
 		// Change UMotionControllerComponent from using EControllerHand to FName for motion source
 		UseFNameInsteadOfEControllerHandForMotionSource,
 
+		// Change how ARSessionConfig stores plane detection configuration from bitmask to bools
+		UseBoolsForARSessionConfigPlaneDetectionConfiguration,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

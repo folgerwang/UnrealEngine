@@ -4,7 +4,7 @@
 #include "AppleARKitLightEstimate.h"
 
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 FAppleARKitLightEstimate::FAppleARKitLightEstimate( ARLightEstimate* InARLightEstimate )
 : bIsValid( InARLightEstimate != nullptr )
@@ -14,4 +14,4 @@ FAppleARKitLightEstimate::FAppleARKitLightEstimate( ARLightEstimate* InARLightEs
 
 }
 
-#endif // #ARKIT_SUPPORT
+#endif

@@ -1029,6 +1029,72 @@ struct FRHICommandEndRenderPass final : public FRHICommand<FRHICommandEndRenderP
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
 
+struct FLocalCmdListParallelRenderPass
+{
+	TRefCountPtr<struct FRHIParallelRenderPass> RenderPass;
+};
+
+struct FRHICommandBeginParallelRenderPass final : public FRHICommand<FRHICommandBeginParallelRenderPass>
+{
+	FRHIRenderPassInfo Info;
+	FLocalCmdListParallelRenderPass* LocalRenderPass;
+	const TCHAR* Name;
+
+	FRHICommandBeginParallelRenderPass(const FRHIRenderPassInfo& InInfo, FLocalCmdListParallelRenderPass* InLocalRenderPass, const TCHAR* InName)
+		: Info(InInfo)
+		, LocalRenderPass(InLocalRenderPass)
+		, Name(InName)
+	{
+	}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FRHICommandEndParallelRenderPass final : public FRHICommand<FRHICommandEndParallelRenderPass>
+{
+	FLocalCmdListParallelRenderPass* LocalRenderPass;
+
+	FRHICommandEndParallelRenderPass(FLocalCmdListParallelRenderPass* InLocalRenderPass)
+		: LocalRenderPass(InLocalRenderPass)
+	{
+	}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FLocalCmdListRenderSubPass
+{
+	TRefCountPtr<struct FRHIRenderSubPass> RenderSubPass;
+};
+
+struct FRHICommandBeginRenderSubPass final : public FRHICommand<FRHICommandBeginRenderSubPass>
+{
+	FLocalCmdListParallelRenderPass* LocalRenderPass;
+	FLocalCmdListRenderSubPass* LocalRenderSubPass;
+
+	FRHICommandBeginRenderSubPass(FLocalCmdListParallelRenderPass* InLocalRenderPass, FLocalCmdListRenderSubPass* InLocalRenderSubPass)
+		: LocalRenderPass(InLocalRenderPass)
+		, LocalRenderSubPass(InLocalRenderSubPass)
+	{
+	}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FRHICommandEndRenderSubPass final : public FRHICommand<FRHICommandEndRenderSubPass>
+{
+	FLocalCmdListParallelRenderPass* LocalRenderPass;
+	FLocalCmdListRenderSubPass* LocalRenderSubPass;
+
+	FRHICommandEndRenderSubPass(FLocalCmdListParallelRenderPass* InLocalRenderPass, FLocalCmdListRenderSubPass* InLocalRenderSubPass)
+		: LocalRenderPass(InLocalRenderPass)
+		, LocalRenderSubPass(InLocalRenderSubPass)
+	{
+	}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
 struct FRHICommandBeginComputePass final : public FRHICommand<FRHICommandBeginComputePass>
 {
 	const TCHAR* Name;
@@ -2598,6 +2664,7 @@ public:
 			TCHAR* NameCopy  = AllocString(Name);
 			new (AllocCommand<FRHICommandBeginRenderPass>()) FRHICommandBeginRenderPass(InInfo, NameCopy);
 		}
+		Data.bInsideRenderPass = true;
 
 		CacheActiveRenderTargets(InInfo);
 		Data.bInsideRenderPass = true;
@@ -2632,6 +2699,7 @@ public:
 			TCHAR* NameCopy  = AllocString(Name);
 			new (AllocCommand<FRHICommandBeginComputePass>()) FRHICommandBeginComputePass(NameCopy);
 		}
+		Data.bInsideComputePass = true;
 
 		Data.bInsideComputePass = true;
 	}

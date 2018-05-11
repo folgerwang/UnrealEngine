@@ -906,6 +906,17 @@ public:
 		return PLATFORM_HAS_TOUCH_MAIN_SCREEN;
 	}
 
+	/** 
+	 * Returns whether this is a 'stereo only' platform. In general, stereo only platforms will not 
+	 * support on-screen touch input nor require virtual joysticks (though you should use those query 
+	 * functions to verify). The screen is always used for stereo output, and isn't a mode that is 
+	 * enabled/disabled.
+	 */
+	static bool IsStandaloneStereoOnlyDevice()
+	{
+		return false;
+	}
+
 	/*
 	 * Returns whether the volume buttons are handled by the system
 	 */

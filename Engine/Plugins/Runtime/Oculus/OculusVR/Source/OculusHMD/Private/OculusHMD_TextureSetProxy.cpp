@@ -4,6 +4,7 @@
 
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
 #include "OculusHMD_CustomPresent.h"
+#include "XRThreadUtils.h"
 
 
 namespace OculusHMD

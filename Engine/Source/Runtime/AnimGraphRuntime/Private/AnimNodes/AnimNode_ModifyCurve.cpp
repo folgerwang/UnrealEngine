@@ -14,6 +14,13 @@ void FAnimNode_ModifyCurve::Initialize_AnyThread(const FAnimationInitializeConte
 {
 	Super::Initialize_AnyThread(Context);
 	SourcePose.Initialize(Context);
+
+	// Init our last values array to be the right size
+	if (ApplyMode == EModifyCurveApplyMode::WeightedMovingAverage)
+	{
+		LastCurveValues.Reset(CurveValues.Num());
+		LastCurveValues.AddZeroed(CurveValues.Num());
+	}
 }
 
 void FAnimNode_ModifyCurve::CacheBones_AnyThread(const FAnimationCacheBonesContext& Context)
@@ -51,6 +58,23 @@ void FAnimNode_ModifyCurve::Evaluate_AnyThread(FPoseContext& Output)
 			else if (ApplyMode == EModifyCurveApplyMode::Scale)
 			{
 				Output.Curve.Set(NameUID, CurrentValue * CurveValue);
+			}
+			else if (ApplyMode == EModifyCurveApplyMode::WeightedMovingAverage)
+			{
+				check(LastCurveValues.Num() == CurveValues.Num());
+
+				const float LastCurveValue = LastCurveValues[ModIdx];
+				const float WAvg = (CurrentValue * Alpha) + (LastCurveValue * (1.f - Alpha));
+				// Update the last curve value for next run
+				LastCurveValues[ModIdx] = WAvg;
+
+				Output.Curve.Set(NameUID, WAvg);
+			}
+			else if (ApplyMode == EModifyCurveApplyMode::RemapCurve)
+			{
+				const float RemapScale = 1.f / FMath::Max(1.f - CurveValue, 0.01f);
+				const float RemappedValue = FMath::Min(FMath::Max(CurrentValue - CurveValue, 0.f) * RemapScale, 1.f);
+				Output.Curve.Set(NameUID, RemappedValue);
 			}
 			else // Blend
 			{

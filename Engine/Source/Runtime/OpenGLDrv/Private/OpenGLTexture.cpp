@@ -321,6 +321,7 @@ FRHITexture* FOpenGLDynamicRHI::CreateOpenGLRHITextureOnly(const uint32 SizeX, c
 		}
 		check(SizeX == SizeY);
 	}
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	else if (bIsExternal)
 	{
 		if (FOpenGL::SupportsImageExternal())
@@ -333,6 +334,7 @@ FRHITexture* FOpenGLDynamicRHI::CreateOpenGLRHITextureOnly(const uint32 SizeX, c
 			Target = GL_TEXTURE_2D;
 		}
 	}
+#endif
 	else
 	{
 		Target =  (NumSamples > 1) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
@@ -415,7 +417,13 @@ void FOpenGLDynamicRHI::InitializeGLTexture(FRHITexture* Texture, uint32 SizeX, 
 		}
 		if ( FOpenGL::SupportsTextureMaxLevel() && Target != GL_TEXTURE_EXTERNAL_OES )
 		{
-			glTexParameteri(Target, GL_TEXTURE_MAX_LEVEL, NumMips - 1);
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
+			// Do not use GL_TEXTURE_MAX_LEVEL if external texture on Android
+			if (Target != GL_TEXTURE_EXTERNAL_OES)
+#endif
+			{
+				glTexParameteri(Target, GL_TEXTURE_MAX_LEVEL, NumMips - 1);
+			}
 		}
 		
 		TextureMipLimits.Add(TextureID, TPair<GLenum, GLenum>(0, NumMips - 1));
@@ -970,7 +978,7 @@ void TOpenGLTexture<RHIResourceType>::Unlock(uint32 MipIndex,uint32 ArrayIndex)
 	bool const bUseClientStorage = FOpenGL::SupportsClientStorage() && !FOpenGL::SupportsTextureView() && !bRenderable && !this->GetSizeZ() && !GLFormat.bCompressed;
 	check(bUseClientStorage || IsValidRef(PixelBuffers[BufferIndex]));
 	
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	// check for FloatRGBA to RGBA8 conversion needed
 	if (this->GetFormat() == PF_FloatRGBA && GLFormat.Type == GL_UNSIGNED_BYTE)
 	{

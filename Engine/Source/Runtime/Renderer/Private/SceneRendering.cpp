@@ -135,6 +135,13 @@ static TAutoConsoleVariable<int32> CVarUsePreExposure(
 	TEXT("0 to disable pre-exposure (default), 1 to enable."),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarODSCapture(
+	TEXT("vr.ODSCapture"),
+	0,
+	TEXT("Experimental")
+	TEXT("0 to disable Omni-directional stereo capture (default), 1 to enable."),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe);
+
 static TAutoConsoleVariable<int32> CVarDebugCanvasInLayer(
 	TEXT("vr.DebugCanvasInLayer"),
 	0,
@@ -1320,7 +1327,8 @@ void FViewInfo::SetupUniformBufferParameters(
 	ViewUniformShaderParameters.ReflectionEnvironmentRoughnessMixingScaleBiasAndLargestWeight = GetReflectionEnvironmentRoughnessMixingScaleBiasAndLargestWeight();
 
 	ViewUniformShaderParameters.StereoPassIndex = (StereoPass <= eSSP_LEFT_EYE) ? 0 : (StereoPass == eSSP_RIGHT_EYE) ? 1 : StereoPass - eSSP_MONOSCOPIC_EYE + 1;
-
+	ViewUniformShaderParameters.StereoIPD = StereoIPD;
+	
 	ViewUniformShaderParameters.PreIntegratedBRDF = GEngine->PreIntegratedSkinBRDFTexture->Resource->TextureRHI;
 }
 

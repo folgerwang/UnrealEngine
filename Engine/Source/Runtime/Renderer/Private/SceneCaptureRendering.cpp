@@ -15,6 +15,7 @@
 #include "SceneInterface.h"
 #include "LegacyScreenPercentageDriver.h"
 #include "GameFramework/Actor.h"
+#include "GameFramework/WorldSettings.h"
 #include "RHIStaticStates.h"
 #include "SceneView.h"
 #include "Shader.h"
@@ -106,6 +107,76 @@ IMPLEMENT_SHADER_TYPE(template<>,TSceneCapturePS<SCS_SceneDepth>,TEXT("/Engine/P
 IMPLEMENT_SHADER_TYPE(template<>, TSceneCapturePS<SCS_DeviceDepth>, TEXT("/Engine/Private/SceneCapturePixelShader.usf"), TEXT("Main"), SF_Pixel);
 IMPLEMENT_SHADER_TYPE(template<>,TSceneCapturePS<SCS_Normal>,TEXT("/Engine/Private/SceneCapturePixelShader.usf"),TEXT("Main"),SF_Pixel);
 IMPLEMENT_SHADER_TYPE(template<>,TSceneCapturePS<SCS_BaseColor>,TEXT("/Engine/Private/SceneCapturePixelShader.usf"),TEXT("Main"),SF_Pixel);
+
+class FODSCapturePS : public FGlobalShader
+{
+	DECLARE_SHADER_TYPE(FODSCapturePS, Global);
+public:
+
+	static bool ShouldCache(EShaderPlatform Platform)
+	{
+		return true;
+	}
+
+	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
+	}
+
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	{
+		return true;
+	}
+
+	FODSCapturePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer) :
+		FGlobalShader(Initializer)
+	{
+		LeftEyeTexture.Bind(Initializer.ParameterMap, TEXT("LeftEyeTexture"));
+		RightEyeTexture.Bind(Initializer.ParameterMap, TEXT("RightEyeTexture"));
+		LeftEyeTextureSampler.Bind(Initializer.ParameterMap, TEXT("LeftEyeTextureSampler"));
+		RightEyeTextureSampler.Bind(Initializer.ParameterMap, TEXT("RightEyeTextureSampler"));
+	}
+
+	FODSCapturePS() {}
+
+	void SetParameters(FRHICommandList& RHICmdList, const FTextureRHIRef InLeftEyeTexture, const FTextureRHIRef InRightEyeTexture)
+	{
+		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
+		
+		SetTextureParameter(
+			RHICmdList,
+			ShaderRHI,
+			LeftEyeTexture,
+			LeftEyeTextureSampler,
+			TStaticSamplerState<SF_Bilinear>::GetRHI(),
+			InLeftEyeTexture);
+
+		SetTextureParameter(
+			RHICmdList,
+			ShaderRHI,
+			RightEyeTexture,
+			RightEyeTextureSampler,
+			TStaticSamplerState<SF_Bilinear>::GetRHI(),
+			InRightEyeTexture);
+	}
+
+	virtual bool Serialize(FArchive& Ar) override
+	{
+		const bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+		Ar << LeftEyeTexture;
+		Ar << RightEyeTexture;
+		Ar << LeftEyeTextureSampler;
+		Ar << RightEyeTextureSampler;
+		return bShaderHasOutdatedParameters;
+	}
+
+	FShaderResourceParameter LeftEyeTexture;
+	FShaderResourceParameter RightEyeTexture;
+	FShaderResourceParameter LeftEyeTextureSampler;
+	FShaderResourceParameter RightEyeTextureSampler;
+};
+
+IMPLEMENT_SHADER_TYPE(, FODSCapturePS, TEXT("/Engine/Private/ODSCapture.usf"), TEXT("MainPS"), SF_Pixel);
 
 void FDeferredShadingSceneRenderer::CopySceneCaptureComponentToTarget(FRHICommandListImmediate& RHICmdList)
 {
@@ -270,6 +341,50 @@ static void UpdateSceneCaptureContentDeferred_RenderThread(
 	FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(RHICmdList, SceneRenderer);
 }
 
+static void ODSCapture_RenderThread(
+	FRHICommandListImmediate& RHICmdList,
+	const FTexture* const LeftEyeTexture,
+	const FTexture* const RightEyeTexture,
+	FRenderTarget* const RenderTarget, 
+	const ERHIFeatureLevel::Type FeatureLevel)
+{
+	SetRenderTarget(RHICmdList, RenderTarget->GetRenderTargetTexture(), nullptr, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthNop_StencilNop, true);
+
+	FGraphicsPipelineStateInitializer GraphicsPSOInit;
+	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+	const auto ShaderMap = GetGlobalShaderMap(FeatureLevel);	
+	TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
+	TShaderMapRef<FODSCapturePS> PixelShader(ShaderMap);
+	extern TGlobalResource<FFilterVertexDeclaration> GFilterVertexDeclaration;
+
+	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+	PixelShader->SetParameters(RHICmdList, LeftEyeTexture->TextureRHI->GetTextureCube(), RightEyeTexture->TextureRHI->GetTextureCube());
+
+	const FIntPoint& TargetSize = RenderTarget->GetSizeXY();
+	RHICmdList.SetViewport(0, 0, 0.0f, TargetSize.X, TargetSize.Y, 1.0f);
+
+	DrawRectangle(
+		RHICmdList,
+		0, 0,
+		static_cast<float>(TargetSize.X), static_cast<float>(TargetSize.Y),
+		0, 0,
+		TargetSize.X, TargetSize.Y,
+		TargetSize,
+		TargetSize,
+		*VertexShader,
+		EDRF_UseTriangleOptimization);
+}
+
 static void UpdateSceneCaptureContent_RenderThread(
 	FRHICommandListImmediate& RHICmdList,
 	FSceneRenderer* SceneRenderer,
@@ -312,21 +427,8 @@ static void UpdateSceneCaptureContent_RenderThread(
 
 void BuildProjectionMatrix(FIntPoint RenderTargetSize, ECameraProjectionMode::Type ProjectionType, float FOV, float InOrthoWidth, FMatrix& ProjectionMatrix)
 {
-	float XAxisMultiplier;
-	float YAxisMultiplier;
-
-	if (RenderTargetSize.X > RenderTargetSize.Y)
-	{
-		// if the viewport is wider than it is tall
-		XAxisMultiplier = 1.0f;
-		YAxisMultiplier = RenderTargetSize.X / (float)RenderTargetSize.Y;
-	}
-	else
-	{
-		// if the viewport is taller than it is wide
-		XAxisMultiplier = RenderTargetSize.Y / (float)RenderTargetSize.X;
-		YAxisMultiplier = 1.0f;
-	}
+	float const XAxisMultiplier = 1.0f;
+	float const YAxisMultiplier = RenderTargetSize.X / (float)RenderTargetSize.Y;
 
 	if (ProjectionType == ECameraProjectionMode::Orthographic)
 	{
@@ -403,6 +505,12 @@ void SetupViewVamilyForSceneCapture(
 		ViewInitOptions.SceneViewStateInterface = SceneCaptureComponent->GetViewState(ViewIndex);
 		ViewInitOptions.ProjectionMatrix = SceneCaptureViewInfo.ProjectionMatrix;
 		ViewInitOptions.LODDistanceFactor = FMath::Clamp(SceneCaptureComponent->LODDistanceFactor, .01f, 100.0f);
+
+		if (ViewFamily.Scene->GetWorld() != nullptr && ViewFamily.Scene->GetWorld()->GetWorldSettings() != nullptr)
+		{
+			ViewInitOptions.WorldToMetersScale = ViewFamily.Scene->GetWorld()->GetWorldSettings()->WorldToMeters;
+		}
+		ViewInitOptions.StereoIPD = SceneCaptureViewInfo.StereoIPD * (ViewInitOptions.WorldToMetersScale / 100.0f);
 
 		if (bCaptureSceneColor)
 		{
@@ -502,13 +610,15 @@ static FSceneRenderer* CreateSceneRendererForSceneCapture(
 	bool bCaptureSceneColor,
 	FPostProcessSettings* PostProcessSettings,
 	float PostProcessBlendWeight,
-	const AActor* ViewActor)
+	const AActor* ViewActor, 
+	const float StereoIPD = 0.0f)
 {
 	FSceneCaptureViewInfo SceneCaptureViewInfo;
 	SceneCaptureViewInfo.ViewRotationMatrix = ViewRotationMatrix;
 	SceneCaptureViewInfo.ViewLocation = ViewLocation;
 	SceneCaptureViewInfo.ProjectionMatrix = ProjectionMatrix;
 	SceneCaptureViewInfo.StereoPass = EStereoscopicPass::eSSP_FULL;
+	SceneCaptureViewInfo.StereoIPD = StereoIPD;
 	SceneCaptureViewInfo.ViewRect = FIntRect(0, 0, RenderTargetSize.X, RenderTargetSize.Y);
 
 	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
@@ -683,40 +793,74 @@ void FScene::UpdateSceneCaptureContents(USceneCaptureComponentCube* CaptureCompo
 
 	check(CaptureComponent);
 
-	if (GetFeatureLevel() >= ERHIFeatureLevel::SM4 && CaptureComponent->TextureTarget)
-	{
-		const float FOV = 90 * (float)PI / 360.0f;
-		for (int32 faceidx = 0; faceidx < (int32)ECubeFace::CubeFace_MAX; faceidx++)
-		{
-			const ECubeFace TargetFace = (ECubeFace)faceidx;
-			const FVector Location = CaptureComponent->GetComponentToWorld().GetTranslation();
-			const FMatrix ViewRotationMatrix = FLocal::CalcCubeFaceTransform(TargetFace);
-			FIntPoint CaptureSize(CaptureComponent->TextureTarget->GetSurfaceWidth(), CaptureComponent->TextureTarget->GetSurfaceHeight());
-			FMatrix ProjectionMatrix;
-			BuildProjectionMatrix(CaptureSize, ECameraProjectionMode::Perspective, FOV, 1.0f, ProjectionMatrix);
-			FPostProcessSettings PostProcessSettings;
+	const bool bIsODS = CaptureComponent->TextureTargetLeft && CaptureComponent->TextureTargetRight && CaptureComponent->TextureTargetODS;
+	const uint32 StartIndex = (bIsODS) ? 1 : 0;
+	const uint32 EndIndex = (bIsODS) ? 3 : 1;
+	
+	UTextureRenderTargetCube* const TextureTargets[] = {
+		CaptureComponent->TextureTarget, 
+		CaptureComponent->TextureTargetLeft, 
+		CaptureComponent->TextureTargetRight
+	};
 
-			FSceneRenderer* SceneRenderer = CreateSceneRendererForSceneCapture(this, CaptureComponent, CaptureComponent->TextureTarget->GameThread_GetRenderTargetResource(), CaptureSize, ViewRotationMatrix, Location, ProjectionMatrix, CaptureComponent->MaxViewDistanceOverride, true, &PostProcessSettings, 0, CaptureComponent->GetViewOwner());
+	for (uint32 CaptureIter = StartIndex; CaptureIter < EndIndex; ++CaptureIter)
+	{
+		UTextureRenderTargetCube* const TextureTarget = TextureTargets[CaptureIter];
+
+		if (GetFeatureLevel() >= ERHIFeatureLevel::SM4 && TextureTarget)
+		{
+			const float FOV = 90 * (float)PI / 360.0f;
+			for (int32 faceidx = 0; faceidx < (int32)ECubeFace::CubeFace_MAX; faceidx++)
+			{
+				const ECubeFace TargetFace = (ECubeFace)faceidx;
+				const FVector Location = CaptureComponent->GetComponentToWorld().GetTranslation();
+				const FMatrix ViewRotationMatrix = FLocal::CalcCubeFaceTransform(TargetFace);
+				FIntPoint CaptureSize(TextureTarget->GetSurfaceWidth(), TextureTarget->GetSurfaceHeight());
+				FMatrix ProjectionMatrix;
+				BuildProjectionMatrix(CaptureSize, ECameraProjectionMode::Perspective, FOV, 1.0f, ProjectionMatrix);
+				FPostProcessSettings PostProcessSettings;
+
+				float StereoIPD = 0.0f;
+				if (bIsODS)
+				{
+					StereoIPD = (CaptureIter == 1) ? CaptureComponent->IPD * -0.5f : CaptureComponent->IPD * 0.5f;
+				}
+
+			FSceneRenderer* SceneRenderer = CreateSceneRendererForSceneCapture(this, CaptureComponent, TextureTarget->GameThread_GetRenderTargetResource(), CaptureSize, ViewRotationMatrix, Location, ProjectionMatrix, CaptureComponent->MaxViewDistanceOverride, true, &PostProcessSettings, 0, CaptureComponent->GetViewOwner(), StereoIPD);
 			SceneRenderer->ViewFamily.SceneCaptureSource = SCS_SceneColorHDR;
 
-			FTextureRenderTargetCubeResource* TextureRenderTarget = static_cast<FTextureRenderTargetCubeResource*>(CaptureComponent->TextureTarget->GameThread_GetRenderTargetResource());
-
-			FString EventName;
-			if (!CaptureComponent->ProfilingEventName.IsEmpty())
-			{
-				EventName = CaptureComponent->ProfilingEventName;
-			}
-			else if (CaptureComponent->GetOwner())
-			{
-				CaptureComponent->GetOwner()->GetFName().ToString(EventName);
-			}
-
-			ENQUEUE_RENDER_COMMAND(CaptureCommand)(
-				[SceneRenderer, TextureRenderTarget, EventName, TargetFace](FRHICommandListImmediate& RHICmdList)
+				FTextureRenderTargetCubeResource* TextureRenderTarget = static_cast<FTextureRenderTargetCubeResource*>(TextureTarget->GameThread_GetRenderTargetResource());
+				FString EventName;
+				if (!CaptureComponent->ProfilingEventName.IsEmpty())
+				{
+					EventName = CaptureComponent->ProfilingEventName;
+				}
+				else if (CaptureComponent->GetOwner())
+				{
+					CaptureComponent->GetOwner()->GetFName().ToString(EventName);
+				}
+				ENQUEUE_RENDER_COMMAND(CaptureCommand)(
+					[SceneRenderer, TextureRenderTarget, EventName, TargetFace](FRHICommandListImmediate& RHICmdList)
 				{
 					UpdateSceneCaptureContent_RenderThread(RHICmdList, SceneRenderer, TextureRenderTarget, TextureRenderTarget, EventName, FResolveParams(FResolveRect(), TargetFace));
 				}
-			);
+				);
+			}
 		}
+	}
+
+	if (bIsODS)
+	{
+		const FTextureRenderTargetCubeResource* const LeftEye = static_cast<FTextureRenderTargetCubeResource*>(CaptureComponent->TextureTargetLeft->GameThread_GetRenderTargetResource());
+		const FTextureRenderTargetCubeResource* const RightEye = static_cast<FTextureRenderTargetCubeResource*>(CaptureComponent->TextureTargetRight->GameThread_GetRenderTargetResource());
+		FTextureRenderTargetResource* const RenderTarget = CaptureComponent->TextureTargetODS->GameThread_GetRenderTargetResource();
+		const ERHIFeatureLevel::Type InFeatureLevel = FeatureLevel;
+
+		ENQUEUE_RENDER_COMMAND(ODSCaptureCommand)(
+			[LeftEye, RightEye, RenderTarget, InFeatureLevel](FRHICommandListImmediate& RHICmdList)
+		{
+			ODSCapture_RenderThread(RHICmdList, LeftEye, RightEye, RenderTarget, InFeatureLevel);
+		}
+		);
 	}
 }

@@ -14,6 +14,8 @@
 #include "Mac/MacPlatformApplicationMisc.h"
 #elif PLATFORM_IOS
 #include "IOS/IOSPlatformApplicationMisc.h"
+#elif PLATFORM_LUMIN
+#include "Lumin/LuminPlatformApplicationMisc.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidApplicationMisc.h"
 #elif PLATFORM_HTML5

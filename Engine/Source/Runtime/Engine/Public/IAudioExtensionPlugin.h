@@ -24,6 +24,7 @@ enum class EAudioPlatform : uint8
 	Playstation4,
 	Switch,
 	HTML5,
+	Lumin,
 	Unknown
 };
 

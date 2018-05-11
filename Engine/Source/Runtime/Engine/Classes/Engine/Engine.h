@@ -1685,6 +1685,9 @@ public:
 	/** Extensions that can modify view parameters on the render thread. */
 	TSharedPtr<FSceneViewExtensions> ViewExtensions;
 
+	/** Reference to the HMD device that is attached, if any */
+	TSharedPtr< class IEyeTracker, ESPMode::ThreadSafe > EyeTrackingDevice;
+	
 	/** Triggered when a world is added. */	
 	DECLARE_EVENT_OneParam( UEngine, FWorldAddedEvent , UWorld* );
 	
@@ -2506,6 +2509,13 @@ protected:
 	 */
 	virtual bool InitializeHMDDevice();
 
+	/**
+	 *	Detects and initializes any attached eye-tracking devices
+	 *
+	 *	@return true if there is an initialized device, false otherwise
+	 */
+	virtual bool InitializeEyeTrackingDevice();
+
 	/**	Record EngineAnalytics information for attached HMD devices. */
 	virtual void RecordHMDAnalytics();
 
@@ -2770,7 +2780,7 @@ public:
 	 */
 	virtual void LoadMapRedrawViewports(void)
 	{
-		RedrawViewports();
+		RedrawViewports(false);
 	}
 
 	void ClearDebugDisplayProperties();

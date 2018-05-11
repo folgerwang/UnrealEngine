@@ -574,6 +574,11 @@ void PlatformRebindResources(FPlatformOpenGLDevice* Device)
 	// @todo: Figure out if we need to rebind frame & renderbuffers after switching contexts
 }
 
+FPlatformOpenGLContext* PlatformGetOpenGLRenderingContext(FPlatformOpenGLDevice* Device)
+{
+	return &Device->RenderingContext;
+}
+
 void PlatformRenderingContextSetup(FPlatformOpenGLDevice* Device)
 {
 	check(Device && Device->RenderingContext.DeviceContext && Device->RenderingContext.OpenGLContext);
@@ -898,6 +903,11 @@ EOpenGLCurrentContext PlatformOpenGLCurrentContext(FPlatformOpenGLDevice* Device
 	{
 		return CONTEXT_Invalid;
 	}
+}
+
+void* PlatformOpenGLCurrentContextHandle(FPlatformOpenGLDevice* Device)
+{
+	return GetCurrentContext();
 }
 
 void PlatformGetBackbufferDimensions( uint32& OutWidth, uint32& OutHeight )

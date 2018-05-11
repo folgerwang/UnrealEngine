@@ -144,7 +144,7 @@ void UPendingNetGame::LoadMapCompleted(UEngine* Engine, FWorldContext& Context, 
 		// Show connecting message, cause precaching to occur.
 		Engine->TransitionType = TT_Connecting;
 
-		Engine->RedrawViewports();
+		Engine->RedrawViewports(false);
 
 		// Send join.
 		Context.PendingNetGame->SendJoin();

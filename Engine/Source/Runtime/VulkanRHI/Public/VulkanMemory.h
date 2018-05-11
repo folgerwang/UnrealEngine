@@ -695,6 +695,7 @@ namespace VulkanRHI
 		FOldResourceAllocation* AllocateDedicatedImage(VkImage Image, uint32 Size, uint32 Alignment, const char* File, uint32 Line);
 #endif
 
+
 		friend class FResourceHeapManager;
 	};
 

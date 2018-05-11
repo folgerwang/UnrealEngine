@@ -714,7 +714,17 @@ void FAndroidTargetPlatform::AddTextureFormatIfSupports( FName Format, TArray<FN
 	}
 }
 
-
+void FAndroidTargetPlatform::InitializeDeviceDetection()
+{
+	DeviceDetection = FModuleManager::LoadModuleChecked<IAndroidDeviceDetectionModule>("AndroidDeviceDetection").GetAndroidDeviceDetection();
+	DeviceDetection->Initialize(TEXT("ANDROID_HOME"),
+#if PLATFORM_WINDOWS
+		TEXT("platform-tools\\adb.exe"),
+#else
+		TEXT("platform-tools/adb"),
+#endif
+		TEXT("shell getprop"), true);
+}
 /* FAndroidTargetPlatform callbacks
  *****************************************************************************/
 
@@ -724,7 +734,8 @@ bool FAndroidTargetPlatform::HandleTicker( float DeltaTime )
 
 	if (DeviceDetection == nullptr)
 	{
-		DeviceDetection = FModuleManager::LoadModuleChecked<IAndroidDeviceDetectionModule>("AndroidDeviceDetection").GetAndroidDeviceDetection();
+		InitializeDeviceDetection();
+		checkf(DeviceDetection != nullptr, TEXT("A target platform didn't create a device detection object in InitializeDeviceDetection()!"));
 	}
 
 	TArray<FString> ConnectedDeviceIds;

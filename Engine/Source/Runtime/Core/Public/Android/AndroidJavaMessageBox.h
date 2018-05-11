@@ -3,7 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Android/AndroidJava.h"
+
+#if USE_ANDROID_JNI
+
+#include "AndroidJava.h"
 
 // Wrapper for com/epicgames/ue4/MessageBox*.java.
 class FJavaAndroidMessageBox : public FJavaClassObject
@@ -25,3 +28,5 @@ private:
 	FJavaClassMethod ClearMethod;
 	FJavaClassMethod ShowMethod;
 };
+
+#endif

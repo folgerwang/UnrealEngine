@@ -34,8 +34,8 @@ public class HTTP : ModuleRules
 			bWithCurl = true;
         }
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) ||
-			Target.Platform == UnrealTargetPlatform.Android ||
-			Target.Platform == UnrealTargetPlatform.Switch)
+				Target.IsInPlatformGroup(UnrealPlatformGroup.Android) ||
+				Target.Platform == UnrealTargetPlatform.Switch)
 		{
             AddEngineThirdPartyPrivateStaticDependencies(Target, "libcurl");
 

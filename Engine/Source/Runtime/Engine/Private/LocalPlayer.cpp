@@ -1048,16 +1048,16 @@ bool ULocalPlayer::GetProjectionData(FViewport* Viewport, EStereoscopicPass Ster
     {
 		auto XRCamera = GEngine->XRSystem.IsValid() ? GEngine->XRSystem->GetXRCamera() : nullptr;
 		if (XRCamera.IsValid())
-    {
-		AActor* ViewTarget = PlayerController->GetViewTarget();
-		const bool bHasActiveCamera = ViewTarget && ViewTarget->HasActiveCameraComponent();
+		{
+			AActor* ViewTarget = PlayerController->GetViewTarget();
+			const bool bHasActiveCamera = ViewTarget && ViewTarget->HasActiveCameraComponent();
 			XRCamera->UseImplicitHMDPosition(bHasActiveCamera);
 		}
 
 		if (GEngine->StereoRenderingDevice.IsValid())
 		{
-        GEngine->StereoRenderingDevice->CalculateStereoViewOffset(StereoPass, ViewInfo.Rotation, GetWorld()->GetWorldSettings()->WorldToMeters, StereoViewLocation);
-    }
+			GEngine->StereoRenderingDevice->CalculateStereoViewOffset(StereoPass, ViewInfo.Rotation, GetWorld()->GetWorldSettings()->WorldToMeters, StereoViewLocation);
+		}
     }
 
 	// Create the view matrix

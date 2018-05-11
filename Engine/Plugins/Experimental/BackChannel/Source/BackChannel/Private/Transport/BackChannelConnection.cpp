@@ -6,6 +6,13 @@
 #include "Common/TcpSocketBuilder.h"
 #include "HAL/IConsoleManager.h"
 #include "Misc/ScopeLock.h"
+#include "CoreGlobals.h"
+#include "Misc/ConfigCacheIni.h"
+
+DECLARE_DWORD_COUNTER_STAT(TEXT("BCBytesSent"), STAT_BackChannelBytesSent, STATGROUP_Game);
+DECLARE_DWORD_COUNTER_STAT(TEXT("BCBytesRecv"), STAT_BackChannelBytesRecv, STATGROUP_Game);
+
+static const int32 DefaultBufferSize = 2 * 1024 * 1024;
 
 int32 GBackChannelLogPackets = 0;
 static FAutoConsoleVariableRef BCCVarLogPackets(
@@ -104,14 +111,22 @@ bool FBackChannelConnection::Connect(const TCHAR* InEndPoint)
 
 	FString Description = FString::Printf(TEXT("%s"), InEndPoint);
 
-	FSocket* NewSocket = FTcpSocketBuilder(*Description);
+	int32 ReceiveBufferSize = DefaultBufferSize;
+	int32 SendBufferSize = DefaultBufferSize;
+	// Allow the app to override
+	GConfig->GetInt(TEXT("BackChannel"), TEXT("SendBufferSize"), SendBufferSize, GEngineIni);
+	GConfig->GetInt(TEXT("BackChannel"), TEXT("RecvBufferSize"), ReceiveBufferSize, GEngineIni);
+
+	FSocket* NewSocket = FTcpSocketBuilder(*Description)
+		.WithSendBufferSize(SendBufferSize)
+		.WithReceiveBufferSize(ReceiveBufferSize);
 
 	if (NewSocket)
 	{
 		FIPv4Endpoint EndPoint;
 		FIPv4Endpoint::Parse(LocalEndPoint, EndPoint);
         
-        bool Success =NewSocket->Connect(*EndPoint.ToInternetAddr());
+        bool Success = NewSocket->Connect(*EndPoint.ToInternetAddr());
         
         if (!Success)
         {
@@ -146,11 +161,16 @@ bool FBackChannelConnection::Listen(const int16 Port)
     
     FSocket* NewSocket = nullptr;
 
-    
+	int32 ReceiveBufferSize = DefaultBufferSize;
+	int32 SendBufferSize = DefaultBufferSize;
+	// Allow the app to override
+	GConfig->GetInt(TEXT("BackChannel"), TEXT("SendBufferSize"), SendBufferSize, GEngineIni);
+	GConfig->GetInt(TEXT("BackChannel"), TEXT("RecvBufferSize"), ReceiveBufferSize, GEngineIni);
+
 	NewSocket = FTcpSocketBuilder(TEXT("FBackChannelConnection ListenSocket"))
 		.BoundToEndpoint(Endpoint)
 		.Listening(8)
-		.WithSendBufferSize(2 * 1024 * 1024);
+		.WithSendBufferSize(DefaultBufferSize);
     
     ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
     
@@ -185,10 +205,7 @@ bool FBackChannelConnection::Listen(const int16 Port)
             if (!Error)
             {
                 int32 OutNewSize;
-                
-                int32 ReceiveBufferSize = 2 * 1024 * 1024;
-                int32 SendBufferSize = ReceiveBufferSize;
-                
+
                 if (ReceiveBufferSize > 0) //-V547
                 {
                     NewSocket->SetReceiveBufferSize(ReceiveBufferSize, OutNewSize);
@@ -343,6 +360,8 @@ int32 FBackChannelConnection::SendData(const void* InData, const int32 InSize)
 	}
 	else
 	{
+		INC_DWORD_STAT_BY(STAT_BackChannelBytesSent, BytesSent);
+
 		UE_CLOG(GBackChannelLogPackets, LogBackChannel, Log, TEXT("Sent %d bytes of data"), BytesSent);
 	}
 	return BytesSent;
@@ -362,6 +381,8 @@ int32 FBackChannelConnection::ReceiveData(void* OutBuffer, const int32 BufferSiz
 	// todo - close connection on certain errors
 	if (BytesRead > 0)
 	{
+		INC_DWORD_STAT_BY(STAT_BackChannelBytesRecv, BytesRead);
+
 		PacketsReceived++;
 		UE_CLOG(GBackChannelLogPackets, LogBackChannel, Log, TEXT("Received %d bytes of data"), BytesRead);
 	}

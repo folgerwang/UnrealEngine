@@ -48,6 +48,10 @@ namespace ResonanceAudio
 			{
 				return true;
 			}
+			else if (Platform == EAudioPlatform::Lumin)
+			{
+				return true;
+			}
 			else
 			{
 				return false;
@@ -95,6 +99,10 @@ namespace ResonanceAudio
 				return true;
 			}
 			else if (Platform == EAudioPlatform::Windows)
+			{
+				return true;
+			}
+			else if (Platform == EAudioPlatform::Lumin)
 			{
 				return true;
 			}

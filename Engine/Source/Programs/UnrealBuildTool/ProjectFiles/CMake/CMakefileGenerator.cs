@@ -282,6 +282,7 @@ namespace UnrealBuildTool
 			string CMakeGameProjectFile = "";
 
 			string HostArchitecture;
+			string SetCompiler = "";
 			switch (BuildHostPlatform.Current.Platform)
 			{
 				case UnrealTargetPlatform.Win64:
@@ -302,6 +303,13 @@ namespace UnrealBuildTool
 				{
 					HostArchitecture = "Linux";
 					BuildCommand = "cd \"" + UE4RootPath + "\" && bash \"" + UE4RootPath + "/Engine/Build/BatchFiles/" + HostArchitecture + "/Build.sh\"";
+
+					string CompilerPath = LinuxCommon.WhichClang();
+					if (CompilerPath == null)
+					{
+						CompilerPath = LinuxCommon.WhichGcc();
+					}
+					SetCompiler = "set(CMAKE_CXX_COMPILER " + CompilerPath + ")\n\n";
 					break;
 				}
 				default:
@@ -341,6 +349,7 @@ namespace UnrealBuildTool
 				"set(CMAKE_CXX_STANDARD 14)\n" + // Need to keep this updated
 				"set(CMAKE_CXX_USE_RESPONSE_FILE_FOR_OBJECTS 1 CACHE BOOL \"\" FORCE)\n" +
 				"set(CMAKE_CXX_USE_RESPONSE_FILE_FOR_INCLUDES 1 CACHE BOOL \"\" FORCE)\n\n" +
+				SetCompiler +
 				"# Standard Includes\n" +
 				"include(\"" + IncludeFilePath + "\")\n" +
 				"include(\"" + DefinitionsFilePath + "\")\n" +
@@ -384,7 +393,7 @@ namespace UnrealBuildTool
 
 				foreach (string PreProcessorDefinition in CurProject.IntelliSensePreprocessorDefinitions)
 				{
-					string Definition = PreProcessorDefinition;
+					string Definition = PreProcessorDefinition.Replace("TEXT(\"", "").Replace("\")", "").Replace("()=", "=");
 					string AlternateDefinition = Definition.Contains("=0") ? Definition.Replace("=0", "=1") : Definition.Replace("=1", "=0");
 
 					if (Definition.Equals("WITH_EDITORONLY_DATA=0") || Definition.Equals("WITH_DATABASE_SUPPORT=1"))
@@ -548,7 +557,7 @@ namespace UnrealBuildTool
 								}
 
 								string ConfName = Enum.GetName(typeof(UnrealTargetConfiguration), CurConfiguration);
-								CMakefileContent.Append(String.Format("add_custom_target({0}-{3}-{1} {5} {0} {3} {1} {2}{4} VERBATIM)\n", TargetName, ConfName, CMakeProjectCmdArg, HostArchitecture, UBTArguements, BuildCommand));
+								CMakefileContent.Append(String.Format("add_custom_target({0}-{3}-{1} {5} {0} {3} {1} {2}{4} -buildscw VERBATIM)\n", TargetName, ConfName, CMakeProjectCmdArg, HostArchitecture, UBTArguements, BuildCommand));
 
 								// Add iOS and TVOS targets if valid
 								if (bIncludeIOSTargets && !IsTargetExcluded(TargetName, UnrealTargetPlatform.IOS, CurConfiguration))
@@ -569,7 +578,7 @@ namespace UnrealBuildTool
                             CMakeProjectCmdArg = "\"-project=" + CMakeGameProjectFile + "\"";
                         }
 
-                        CMakefileContent.Append(String.Format("add_custom_target({0} {4} {0} {2} Development {1}{3} VERBATIM)\n\n", TargetName, CMakeProjectCmdArg, HostArchitecture, UBTArguements, BuildCommand));
+                        CMakefileContent.Append(String.Format("add_custom_target({0} {4} {0} {2} Development {1}{3} -buildscw VERBATIM)\n\n", TargetName, CMakeProjectCmdArg, HostArchitecture, UBTArguements, BuildCommand));
 
                         // Add iOS and TVOS targets if valid
                         if (bIncludeIOSTargets && !IsTargetExcluded(TargetName, UnrealTargetPlatform.IOS, UnrealTargetConfiguration.Development))

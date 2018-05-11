@@ -71,6 +71,7 @@ class ENGINE_API UPlatformGameInstance : public UGameInstance
 public:
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FPlatformDelegate);
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPlatformStartupArgumentsDelegate, const TArray<FString>&, StartupArguments);
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPlatformRegisteredForRemoteNotificationsDelegate, const TArray<uint8>&, inArray);
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPlatformRegisteredForUserNotificationsDelegate, int32, inInt);
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPlatformFailedToRegisterForRemoteNotificationsDelegate, FString, inString);
@@ -103,6 +104,14 @@ public:
 	// save state when ApplicationWillEnterBackgroundDelegate is called instead.  
 	UPROPERTY(BlueprintAssignable)
 	FPlatformDelegate ApplicationWillTerminateDelegate;
+
+	// Called when the OS is running low on resources and asks the application to free up any cached resources, drop graphics quality etc.
+	UPROPERTY(BlueprintAssignable)
+	FPlatformDelegate ApplicationShouldUnloadResourcesDelegate;
+
+	// Called with arguments passed to the application on statup, perhaps meta data passed on by another application which launched this one.
+	UPROPERTY(BlueprintAssignable)
+	FPlatformStartupArgumentsDelegate ApplicationReceivedStartupArgumentsDelegate;
 
 	// called when the user grants permission to register for remote notifications
     UPROPERTY(BlueprintAssignable)
@@ -140,6 +149,8 @@ private:
 	void ApplicationWillEnterBackgroundDelegate_Handler() { ApplicationWillEnterBackgroundDelegate.Broadcast(); }
 	void ApplicationHasEnteredForegroundDelegate_Handler() { ApplicationHasEnteredForegroundDelegate.Broadcast(); }
 	void ApplicationWillTerminateDelegate_Handler() { ApplicationWillTerminateDelegate.Broadcast(); }
+	void ApplicationShouldUnloadResourcesDelegate_Handler() { ApplicationShouldUnloadResourcesDelegate.Broadcast(); }
+	void ApplicationReceivedStartupArgumentsDelegate_Handler(const TArray<FString>& StartupArguments) { ApplicationReceivedStartupArgumentsDelegate.Broadcast(StartupArguments); }
     void ApplicationRegisteredForRemoteNotificationsDelegate_Handler(TArray<uint8> inArray) { ApplicationRegisteredForRemoteNotificationsDelegate.Broadcast(inArray); }
     void ApplicationRegisteredForUserNotificationsDelegate_Handler(int32 inInt) { ApplicationRegisteredForUserNotificationsDelegate.Broadcast(inInt); }
     void ApplicationFailedToRegisterForRemoteNotificationsDelegate_Handler(FString inFString) { ApplicationFailedToRegisterForRemoteNotificationsDelegate.Broadcast(inFString); }

@@ -379,6 +379,14 @@ void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex V
 		}
 	}
 
+	{
+		static const auto ICVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SkyLightingQuality"));
+		if (ICVar->GetValueOnGameThread() <= 0)
+		{
+			EngineShowFlags.SkyLighting = 0;
+		}
+	}
+
 	// some view modes want some features off or on (no state)
 	{
 		if( ViewModeIndex == VMI_BrushWireframe ||

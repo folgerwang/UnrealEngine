@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "AppleARKitAvailability.h"
 #include "ARSystem.h"
 #include "ProceduralMeshComponent.h"
 #include "AppleARKitLiveLinkSourceFactory.h"

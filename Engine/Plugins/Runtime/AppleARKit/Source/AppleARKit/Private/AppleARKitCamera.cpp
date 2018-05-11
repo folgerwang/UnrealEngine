@@ -11,7 +11,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Rendering/RenderingCommon.h"
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 FAppleARKitCamera::FAppleARKitCamera( ARCamera* InARCamera )
 {
@@ -51,7 +51,7 @@ FAppleARKitCamera::FAppleARKitCamera( ARCamera* InARCamera )
 	
 }
 
-#endif // #ARKIT_SUPPORT
+#endif
 
 float FAppleARKitCamera::GetAspectRatio() const
 {

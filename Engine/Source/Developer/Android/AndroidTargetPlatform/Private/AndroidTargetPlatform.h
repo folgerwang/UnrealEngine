@@ -83,7 +83,7 @@ namespace AndroidTexFormat
 /**
  * FAndroidTargetPlatform, abstraction for cooking Android platforms
  */
-class FAndroidTargetPlatform : public TTargetPlatformBase<FAndroidPlatformProperties>
+class ANDROIDTARGETPLATFORM_API FAndroidTargetPlatform : public TTargetPlatformBase<FAndroidPlatformProperties>
 {
 public:
 
@@ -95,7 +95,7 @@ public:
 	/**
 	 * Destructor
 	 */
-	~FAndroidTargetPlatform();
+	virtual ~FAndroidTargetPlatform();
 
 public:
 
@@ -240,6 +240,8 @@ public:
 
 	//~ End ITargetPlatform Interface
 
+	virtual void InitializeDeviceDetection();
+	
 protected:
 
 	/**
@@ -274,7 +276,7 @@ protected:
 	FConfigFile EngineSettings;
 #endif //WITH_ENGINE
 
-private:
+protected:
 
 	// Handles when the ticker fires.
 	bool HandleTicker( float DeltaTime );

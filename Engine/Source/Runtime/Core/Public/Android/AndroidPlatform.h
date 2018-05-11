@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "GenericPlatform/GenericPlatform.h"
+#include "Misc/Build.h"
+
 /** Define the android platform to be the active one **/
 #define PLATFORM_ANDROID				1
 
@@ -62,6 +65,26 @@ typedef FAndroidTypes FPlatformTypes;
 	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1
 #else
 	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 0
+#endif
+
+// some android platform overrides that sub-platforms can disable
+#ifndef USE_ANDROID_JNI
+	#define USE_ANDROID_JNI							1
+#endif
+#ifndef USE_ANDROID_FILE
+	#define USE_ANDROID_FILE						1
+#endif
+#ifndef USE_ANDROID_LAUNCH
+	#define USE_ANDROID_LAUNCH						1
+#endif
+#ifndef USE_ANDROID_INPUT
+	#define USE_ANDROID_INPUT						1
+#endif
+#ifndef USE_ANDROID_EVENTS
+	#define USE_ANDROID_EVENTS						1
+#endif
+#ifndef USE_ANDROID_OPENGL
+	#define USE_ANDROID_OPENGL						1
 #endif
 
 // Function type macros.

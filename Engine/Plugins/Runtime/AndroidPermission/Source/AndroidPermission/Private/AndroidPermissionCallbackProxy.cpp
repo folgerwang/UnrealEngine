@@ -4,7 +4,6 @@
 #include "AndroidPermission.h"
 
 #if PLATFORM_ANDROID
-#include "Android/AndroidJNI.h"
 #include "Android/AndroidApplication.h"
 #endif
 
@@ -21,7 +20,7 @@ UAndroidPermissionCallbackProxy *UAndroidPermissionCallbackProxy::GetInstance()
 	return pProxy;
 }
 
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && USE_ANDROID_JNI
 JNI_METHOD void Java_com_google_vr_sdk_samples_permission_PermissionHelper_onAcquirePermissions(JNIEnv *env, jclass clazz, jobjectArray permissions, jintArray grantResults) 
 {
 	if (!pProxy) return;
