@@ -126,9 +126,10 @@ struct FPlaceableItem
 	{
 		const bool bIsClass = AssetData.GetClass() == UClass::StaticClass();
 		const bool bIsVolume = bIsClass ? CastChecked<UClass>(AssetData.GetAsset())->IsChildOf(AVolume::StaticClass()) : false;
+		const bool bIsShape = bIsClass ? false : AssetData.GetClass()->IsChildOf(UStaticMesh::StaticClass());
 		const bool bIsActor = bIsClass ? CastChecked<UClass>(AssetData.GetAsset())->IsChildOf(AActor::StaticClass()) : false;
 
-		if (Factory && !bIsVolume) // Factories give terrible names for volumes
+		if (Factory && !bIsVolume && !bIsShape) // Factories give terrible names for volumes and basic shapes
 		{
 			DisplayName = Factory->GetDisplayName();
 		}
