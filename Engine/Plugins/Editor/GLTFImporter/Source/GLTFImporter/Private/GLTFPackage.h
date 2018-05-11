@@ -38,7 +38,7 @@ UPackage* GetAssetPackageAndName(UObject* Parent, const FString& PreferredName, 
 	}
 	else
 	{
-		const FString Suffix(0, nullptr); // empty
+		const FString Suffix; // empty
 
 		static FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
 		FString FinalPackageName;
