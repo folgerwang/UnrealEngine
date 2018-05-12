@@ -72,7 +72,7 @@ struct FCameraLensSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens")
 	float MinFStop;
 
-	/** Minimum aperture for this lens (e.g. 2.8 for an f/2.8 lens) */
+	/** Maximum aperture for this lens (e.g. 2.8 for an f/2.8 lens) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens")
 	float MaxFStop;
 
