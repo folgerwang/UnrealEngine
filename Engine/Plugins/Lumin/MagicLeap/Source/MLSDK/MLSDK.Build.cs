@@ -54,29 +54,6 @@ public class MLSDK : ModuleRules
 			string IncludePath = Path.Combine(MLSDKPath, "include");
 			string LibraryPath = Path.Combine(MLSDKPath, "lib");
 			string VirtualDeviceLibraryPath = Path.Combine(MLSDKPath, "VirtualDevice", "lib");
-
-			bIsMLSDKInstalled = Directory.Exists(IncludePath);
-
-			string ProjectFileName = null != Target.ProjectFile ? Target.ProjectFile.FullName : "";
-			DirectoryReference ProjectDir =
-				string.IsNullOrEmpty(ProjectFileName) ? (DirectoryReference)null : Target.ProjectFile.Directory;
-			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, ProjectDir, Target.Platform);
-
-			PublicIncludePaths.Add(IncludePath);
-			if (Target.Platform != UnrealTargetPlatform.Lumin)
-			{
-				string VirtualDeviceIncludePath = "";
-				if (!Ini.TryGetValue("MLSDK", "IncludePath", out VirtualDeviceIncludePath))
-				{
-					VirtualDeviceIncludePath = Path.Combine(MLSDKPath, "VirtualDevice", "include");
-				}
-				PublicIncludePaths.Add(VirtualDeviceIncludePath);
-			}
-			PublicIncludePaths.Add(Path.Combine(MLSDKPath, "lumin/usr/include/vulkan"));
-
-			string MLSDKLibraryPath = "";
-			Ini.TryGetValue("MLSDK", "LibraryPath", out MLSDKLibraryPath);
-
 			string LibraryPlatformFolder = string.Empty;
 			switch (Target.Platform)
 			{
@@ -93,47 +70,68 @@ public class MLSDK : ModuleRules
 					LibraryPlatformFolder = "lumin";
 					break;
 			}
-
 			LibraryPath = Path.Combine(LibraryPath, LibraryPlatformFolder);
-			PublicLibraryPaths.Add(LibraryPath);
-			if (!string.IsNullOrEmpty(MLSDKLibraryPath))
-			{
-				PublicLibraryPaths.Add(MLSDKLibraryPath);
-			}
 
-			if (Target.Platform != UnrealTargetPlatform.Lumin)
-			{
-				PublicLibraryPaths.Add(VirtualDeviceLibraryPath);
-			}
-
-			string[] MLSDKLibraryList = new string[] {
-				"ml_audio",
-				"ml_camera_metadata",
-				"ml_camera",
-				"ml_dispatch",
-				"ml_ext_logging",
-				"ml_graphics",
-				"ml_identity",
-				"ml_input",
-				"ml_lifecycle",
-				"ml_mediacodeclist",
-				"ml_mediacodec",
-				"ml_mediacrypto",
-				"ml_mediadrm",
-				"ml_mediaerror",
-				"ml_mediaextractor",
-				"ml_mediaformat",
-				"ml_mediaplayer",
-				"ml_musicservice",
-				"ml_perception_client",
-				"ml_privileges",
-				"ml_screens",
-				"ml_secure_storage",
-				"ml_sharedfile"
-			};
-
+			bIsMLSDKInstalled = Directory.Exists(IncludePath) && Directory.Exists(LibraryPath);
 			if (bIsMLSDKInstalled)
 			{
+				string ProjectFileName = null != Target.ProjectFile ? Target.ProjectFile.FullName : "";
+				DirectoryReference ProjectDir =
+					string.IsNullOrEmpty(ProjectFileName) ? (DirectoryReference)null : Target.ProjectFile.Directory;
+				ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, ProjectDir, Target.Platform);
+
+				PublicIncludePaths.Add(IncludePath);
+				if (Target.Platform != UnrealTargetPlatform.Lumin)
+				{
+					string VirtualDeviceIncludePath = "";
+					if (!Ini.TryGetValue("MLSDK", "IncludePath", out VirtualDeviceIncludePath))
+					{
+						VirtualDeviceIncludePath = Path.Combine(MLSDKPath, "VirtualDevice", "include");
+					}
+					PublicIncludePaths.Add(VirtualDeviceIncludePath);
+				}
+				PublicIncludePaths.Add(Path.Combine(MLSDKPath, "lumin/usr/include/vulkan"));
+
+				string MLSDKLibraryPath = "";
+				Ini.TryGetValue("MLSDK", "LibraryPath", out MLSDKLibraryPath);
+
+				PublicLibraryPaths.Add(LibraryPath);
+				if (!string.IsNullOrEmpty(MLSDKLibraryPath))
+				{
+					PublicLibraryPaths.Add(MLSDKLibraryPath);
+				}
+
+				if (Target.Platform != UnrealTargetPlatform.Lumin)
+				{
+					PublicLibraryPaths.Add(VirtualDeviceLibraryPath);
+				}
+
+				string[] MLSDKLibraryList = new string[] {
+					"ml_audio",
+					"ml_camera_metadata",
+					"ml_camera",
+					"ml_dispatch",
+					"ml_ext_logging",
+					"ml_graphics",
+					"ml_identity",
+					"ml_input",
+					"ml_lifecycle",
+					"ml_mediacodeclist",
+					"ml_mediacodec",
+					"ml_mediacrypto",
+					"ml_mediadrm",
+					"ml_mediaerror",
+					"ml_mediaextractor",
+					"ml_mediaformat",
+					"ml_mediaplayer",
+					"ml_musicservice",
+					"ml_perception_client",
+					"ml_privileges",
+					"ml_screens",
+					"ml_secure_storage",
+					"ml_sharedfile"
+				};
+
 				if (Target.Platform == UnrealTargetPlatform.Win64)
 				{
 					foreach (string libname in MLSDKLibraryList)

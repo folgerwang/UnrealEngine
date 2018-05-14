@@ -11,22 +11,13 @@ public class VulkanRHI : ModuleRules
 		bOutputPubliclyDistributable = true;
 
 		PrivateIncludePaths.Add("Runtime/VulkanRHI/Private");
-
-		if(Target.Platform == UnrealTargetPlatform.Android)
-		{
-			PrivateIncludePaths.Add("Runtime/VulkanRHI/Private/Android");
-		}
-		else if(Target.Platform == UnrealTargetPlatform.Linux)
-		{
-			PrivateIncludePaths.Add("Runtime/VulkanRHI/Private/Linux");
-		}
-		else if(Target.Platform == UnrealTargetPlatform.Quail)
-		{
-			PrivateIncludePaths.Add("Runtime/VulkanRHI/Private/Quail");
-		}
-		else if(Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
+		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 		{
 			PrivateIncludePaths.Add("Runtime/VulkanRHI/Private/Windows");
+		}
+		else
+		{
+			PrivateIncludePaths.Add("Runtime/VulkanRHI/Private/" + Target.Platform);
 		}
 
 		PrivateDependencyModuleNames.AddRange(

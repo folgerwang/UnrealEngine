@@ -565,6 +565,7 @@ void SystemResolutionSinkCallback()
 
 			if(GEngine && GEngine->GameViewport && GEngine->GameViewport->ViewportFrame)
 			{
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Resizing viewport due to setres change, %d x %d"), ResX, ResY);
 				GEngine->GameViewport->ViewportFrame->ResizeFrame(ResX, ResY, WindowMode);
 			}
 		}
@@ -13390,7 +13391,7 @@ void FSystemResolution::RequestResolutionChange(int32 InResX, int32 InResY, EWin
 	}
 
 	FString NewValue = FString::Printf(TEXT("%dx%d%s"), InResX, InResY, *WindowModeSuffix);
-	CVarSystemResolution->Set(*NewValue, ECVF_SetByConsole);
+	CVarSystemResolution->SetWithCurrentPriority(*NewValue);
 }
 
 //////////////////////////////////////////////////////////////////////////

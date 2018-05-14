@@ -29,7 +29,8 @@
 				"Win64",
 				"Linux",
 				"PS4",
-				"XboxOne"
+				"XboxOne",
+				"Switch" 
 			]
 		}
 	],
@@ -47,7 +48,8 @@
 				"Win64",
 				"Linux",
 				"PS4",
-				"XboxOne"
+				"XboxOne",
+				"Switch" 
 			]
 		}
 	]

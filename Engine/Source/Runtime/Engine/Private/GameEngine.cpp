@@ -1099,20 +1099,10 @@ float UGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing
 {
 	float MaxTickRate = 0.f;
 
-	if (FPlatformProperties::SupportsWindowedMode() == false && !IsRunningDedicatedServer())
+	if (FPlatformProperties::SupportsWindowedMode() || IsRunningDedicatedServer())
 	{
-		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VSync"));
-		// Limit framerate on console if VSYNC is enabled to avoid jumps from 30 to 60 and back.
-		if( CVar->GetValueOnGameThread() != 0 )
-		{
-			if (SmoothedFrameRateRange.HasUpperBound())
-			{
-				MaxTickRate = SmoothedFrameRateRange.GetUpperBoundValue();
-			}
-		}
-	}
-	else 
-	{
+		// This applies for "non-console" platforms...
+
 		UWorld* World = NULL;
 
 		for (int32 WorldIndex = 0; WorldIndex < WorldList.Num(); ++WorldIndex)

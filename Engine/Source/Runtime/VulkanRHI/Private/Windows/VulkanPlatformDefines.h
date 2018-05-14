@@ -2,4 +2,5 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "VulkanWindowsPlatform.h"
+

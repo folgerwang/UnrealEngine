@@ -3,12 +3,4 @@
 
 #pragma once
 
-#if PLATFORM_WINDOWS
-#include "Windows/VulkanWindowsPlatform.h"
-#elif PLATFORM_LUMIN
-#include "Lumin/VulkanLuminPlatform.h"
-#elif PLATFORM_ANDROID
-#include "Android/VulkanAndroidPlatform.h"
-#elif PLATFORM_LINUX
-#include "Linux/VulkanLinuxPlatform.h"
-#endif
+#include "VulkanPlatformDefines.h"

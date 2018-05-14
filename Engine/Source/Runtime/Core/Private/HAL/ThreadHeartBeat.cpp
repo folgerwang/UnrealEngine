@@ -13,6 +13,10 @@
 #include "Misc/CommandLine.h"
 #include "HAL/ExceptionHandling.h"
 
+// When enabled, the heart beat thread will call abort() when a hang
+// is detected, rather than performing stack back-traces and logging.
+#define MINIMAL_FATAL_HANG_DETECTION	((PLATFORM_PS4 || PLATFORM_XBOXONE) && 1)
+
 #ifndef UE_ASSERT_ON_HANG
 #define UE_ASSERT_ON_HANG 0
 #endif
@@ -24,22 +28,15 @@
 FThreadHeartBeat::FThreadHeartBeat()
 	: Thread(nullptr)
 	, bReadyToCheckHeartbeat(false)
-	, HangDuration(25.0)
+	, ConfigHangDuration(0)
+	, CurrentHangDuration(0)
+	, HangDurationMultiplier(1.0)
 	, LastHangCallstackCRC(0)
 	, LastHungThreadId(0)
 {
-	if (GConfig)
-	{
-		GConfig->GetDouble(TEXT("Core.System"), TEXT("HangDuration"), HangDuration, GEngineIni);
-		const double MinHangDuration = 5.0;
-		if (HangDuration > 0.0 && HangDuration < 5.0)
-		{
-			UE_LOG(LogCore, Warning, TEXT("HangDuration is set to %.4llfs which is a very short time for hang detection. Changing to %.2llfs."), HangDuration, MinHangDuration);
-			HangDuration = MinHangDuration;
-		}
-	}
+	InitSettings();
 
-	const bool bAllowThreadHeartBeat = FPlatformMisc::AllowThreadHeartBeat() && HangDuration > 0.0;
+	const bool bAllowThreadHeartBeat = FPlatformMisc::AllowThreadHeartBeat() && ConfigHangDuration > 0.0;
 
 	// We don't care about programs for now so no point in spawning the extra thread
 #if USE_HANG_DETECTION
@@ -52,7 +49,7 @@ FThreadHeartBeat::FThreadHeartBeat()
 	if (!bAllowThreadHeartBeat)
 	{
 		// Disable the check
-		HangDuration = 0.0;
+		ConfigHangDuration = 0.0;
 	}
 }
 
@@ -110,7 +107,8 @@ uint32 FThreadHeartBeat::Run()
 #if USE_HANG_DETECTION
 	while (StopTaskCounter.GetValue() == 0 && !GIsRequestingExit)
 	{
-		uint32 ThreadThatHung = CheckHeartBeat();
+		double HangDuration;
+		uint32 ThreadThatHung = CheckHeartBeat(HangDuration);
 
 		if (ThreadThatHung == FThreadHeartBeat::InvalidThreadId)
 		{
@@ -118,6 +116,17 @@ uint32 FThreadHeartBeat::Run()
 		}
 		else if (InHungState == false)
 		{
+#if MINIMAL_FATAL_HANG_DETECTION
+
+			InHungState = true;
+			LastHungThreadId = ThreadThatHung;
+
+			// We want to avoid all memory allocations if a hang is detected.
+			// Force a crash in a way that will generate a crash report.
+			FPlatformMisc::RaiseException(0xe0000001);
+
+#else // MINIMAL_FATAL_HANG_DETECTION == 0
+
 			// Only want to call this once per hang (particularly if we're just ensuring).
 			InHungState = true;
 
@@ -144,7 +153,7 @@ uint32 FThreadHeartBeat::Run()
 				{
 					ThreadName = FString::Printf(TEXT("unknown thread (%u)"), ThreadThatHung);
 				}
-				UE_LOG(LogCore, Error, TEXT("Hang detected on %s (thread hasn't sent a heartbeat for %.2llf seconds):"), *ThreadName, HangDuration);
+				UE_LOG(LogCore, Error, TEXT("Hang detected on %s (thread hasn't sent a heartbeat for %.2llf seconds):"), *ThreadName,  HangDuration);
 				for (FString& StackLine : StackLines)
 				{
 					UE_LOG(LogCore, Error, TEXT("  %s"), *StackLine);
@@ -164,6 +173,7 @@ uint32 FThreadHeartBeat::Run()
 				UE_LOG(LogCore, Fatal, TEXT("%s"), *ErrorMessage);
 #else
 				UE_LOG(LogCore, Error, TEXT("%s"), *ErrorMessage);
+
 #if PLATFORM_DESKTOP
 				GLog->PanicFlushThreadedLogs();
 				// GErrorMessage here is very unfortunate but it's used internally by the crash context code.
@@ -171,18 +181,20 @@ uint32 FThreadHeartBeat::Run()
 				// Skip macros and FDebug, we always want this to fire
 				NewReportEnsure(*ErrorMessage);
 				GErrorMessage[0] = '\0';
-#endif
-#endif
+#endif // PLATFORM_DESKTOP
+
+#endif // UE_ASSERT_ON_HANG == 0
 			}
 
 			GMalloc->Free(StackTrace);
+#endif // MINIMAL_FATAL_HANG_DETECTION == 0
 		}
 		if (StopTaskCounter.GetValue() == 0 && !GIsRequestingExit)
 		{
 			FPlatformProcess::SleepNoStats(0.5f);
 		}
 	}
-#endif
+#endif // USE_HANG_DETECTION
 
 	return 0;
 }
@@ -198,6 +210,27 @@ void FThreadHeartBeat::Start()
 	bReadyToCheckHeartbeat = true;
 }
 
+void FThreadHeartBeat::InitSettings()
+{
+	// Default to 25 seconds if not overridden in config.
+	double NewHangDuration = 25.0;
+
+	if (GConfig)
+	{
+		GConfig->GetDouble(TEXT("Core.System"), TEXT("HangDuration"), NewHangDuration, GEngineIni);
+
+		const double MinHangDuration = 5.0;
+		if (NewHangDuration > 0.0 && NewHangDuration < 5.0)
+		{
+			UE_LOG(LogCore, Warning, TEXT("HangDuration is set to %.4llfs which is a very short time for hang detection. Changing to %.2llfs."), NewHangDuration, MinHangDuration);
+			NewHangDuration = MinHangDuration;
+		}
+	}
+
+	ConfigHangDuration = NewHangDuration;
+	CurrentHangDuration = ConfigHangDuration * HangDurationMultiplier;
+}
+
 void FThreadHeartBeat::HeartBeat(bool bReadConfig)
 {
 #if USE_HANG_DETECTION
@@ -211,20 +244,21 @@ void FThreadHeartBeat::HeartBeat(bool bReadConfig)
 	FScopeLock HeartBeatLock(&HeartBeatCritical);
 	if (bReadConfig && ThreadId == GGameThreadId && GConfig)
 	{
-		GConfig->GetDouble(TEXT("Core.System"), TEXT("HangDuration"), HangDuration, GEngineIni);
+		InitSettings();
 	}
 	FHeartBeatInfo& HeartBeatInfo = ThreadHeartBeat.FindOrAdd(ThreadId);
 	HeartBeatInfo.LastHeartBeatTime = FPlatformTime::Seconds();
+	HeartBeatInfo.HangDuration = CurrentHangDuration;
 #endif
 }
 
-uint32 FThreadHeartBeat::CheckHeartBeat()
+uint32 FThreadHeartBeat::CheckHeartBeat(double& OutHangDuration)
 {
 	// Editor and debug builds run too slow to measure them correctly
 #if USE_HANG_DETECTION
 	static bool bDisabled = FParse::Param(FCommandLine::Get(), TEXT("nothreadtimeout"));
 
-	bool CheckBeats = HangDuration > 0.0
+	bool CheckBeats = ConfigHangDuration > 0.0
 		&& bReadyToCheckHeartbeat
 		&& !GIsRequestingExit
 		&& !FPlatformMisc::IsDebuggerPresent()
@@ -238,9 +272,10 @@ uint32 FThreadHeartBeat::CheckHeartBeat()
 		for (TPair<uint32, FHeartBeatInfo>& LastHeartBeat : ThreadHeartBeat)
 		{
 			FHeartBeatInfo& HeartBeatInfo =  LastHeartBeat.Value;
-			if (HeartBeatInfo.SuspendedCount == 0 && (CurrentTime - HeartBeatInfo.LastHeartBeatTime) > HangDuration)
+			if (HeartBeatInfo.SuspendedCount == 0 && (CurrentTime - HeartBeatInfo.LastHeartBeatTime) > HeartBeatInfo.HangDuration)
 			{
 				HeartBeatInfo.LastHeartBeatTime = CurrentTime;
+				OutHangDuration = HeartBeatInfo.HangDuration;
 				return LastHeartBeat.Key;
 			}
 		}
@@ -300,25 +335,49 @@ bool FThreadHeartBeat::IsBeating()
 	return false;
 }
 
-bool GHitchDetectionStackWalk = false;
+void FThreadHeartBeat::SetDurationMultiplier(double NewMultiplier)
+{
+	check(IsInGameThread());
+
+#if USE_HANG_DETECTION
+	if (NewMultiplier < 1.0)
+	{
+		UE_LOG(LogCore, Warning, TEXT("Cannot set the hang duration multiplier to less than 1.0. Specified value was %.4llfs."), NewMultiplier);
+		NewMultiplier = 1.0;
+	}
+
+	FScopeLock HeartBeatLock(&HeartBeatCritical);
+
+	HangDurationMultiplier = NewMultiplier;
+	InitSettings();
+
+	UE_LOG(LogCore, Display, TEXT("Setting hang detector multiplier to %.4llfs. New hang duration: %.4llfs."), NewMultiplier, CurrentHangDuration);
+
+	// Update the existing thread's hang durations.
+	for (TPair<uint32, FHeartBeatInfo>& Pair : ThreadHeartBeat)
+	{
+		// Only increase existing thread's heartbeats.
+		// We don't want to decrease here, otherwise reducing the multiplier could cause a false detection.
+		// Threads will pick up a smaller hang duration the next time they call HeartBeat().
+		if (Pair.Value.HangDuration < CurrentHangDuration)
+		{
+			Pair.Value.HangDuration = CurrentHangDuration;
+		}
+	}
+#endif
+}
 
 FGameThreadHitchHeartBeat::FGameThreadHitchHeartBeat()
 	: Thread(nullptr)
 	, HangDuration(-1.f)
+	, bWalkStackOnHitch(false)
 	, FirstStartTime(0.0)
 	, FrameStartTime(0.0)
 	, LastReportTime(0.0)
-
 {
 	// We don't care about programs for now so no point in spawning the extra thread
 #if USE_HITCH_DETECTION
-	FParse::Value(FCommandLine::Get(), TEXT("hitchdetection="), HangDuration);
-	GHitchDetectionStackWalk = FParse::Param(FCommandLine::Get(), TEXT("hitchdetectionstackwalk"));
-
-	if (FPlatformProcess::SupportsMultithreading() && HangDuration > 0)
-	{
-		Thread = FRunnableThread::Create(this, TEXT("FGameThreadHitchHeartBeat"), 0, TPri_AboveNormal);
-	}
+	InitSettings();
 #endif
 }
 
@@ -340,9 +399,77 @@ bool FGameThreadHitchHeartBeat::Init()
 	return true;
 }
 
+void FGameThreadHitchHeartBeat::InitSettings()
+{
+#if USE_HITCH_DETECTION
+	static bool bFirst = true;
+	static bool bHasCmdLine = false;
+	static float CmdLine_HangDuration = 0.0f;
+	static bool CmdLine_StackWalk = false;
+
+	if (bFirst)
+	{
+		bHasCmdLine = FParse::Value(FCommandLine::Get(), TEXT("hitchdetection="), CmdLine_HangDuration);
+		CmdLine_StackWalk = FParse::Param(FCommandLine::Get(), TEXT("hitchdetectionstackwalk"));
+		bFirst = false;
+	}
+
+	if (bHasCmdLine)
+	{
+		// Command line takes priority over config
+		HangDuration = CmdLine_HangDuration;
+		bWalkStackOnHitch = CmdLine_StackWalk;
+	}
+	else
+	{
+		float Config_Duration = -1.0f;
+		bool Config_StackWalk = false;
+
+		// Read from config files
+		bool bReadFromConfig = false;
+		if (GConfig)
+		{
+			bReadFromConfig |= GConfig->GetFloat(TEXT("Core.System"), TEXT("GameThreadHeartBeatHitchDuration"), Config_Duration, GEngineIni);
+			bReadFromConfig |= GConfig->GetBool(TEXT("Core.System"), TEXT("GameThreadHeartBeatStackWalk"), Config_StackWalk, GEngineIni);
+		}
+
+		if (bReadFromConfig)
+		{
+			HangDuration = Config_Duration;
+			bWalkStackOnHitch = Config_StackWalk;
+		}
+		else
+		{
+			// No config provided. Use defaults to disable.
+			HangDuration = -1.0f;
+			bWalkStackOnHitch = false;
+		}
+	}
+
+	// Start the heart beat thread if it hasn't already been started.
+	if (Thread == nullptr && FPlatformProcess::SupportsMultithreading() && HangDuration > 0)
+	{
+		Thread = FRunnableThread::Create(this, TEXT("FGameThreadHitchHeartBeat"), 0, TPri_AboveNormal);
+	}
+#endif
+}
+
 uint32 FGameThreadHitchHeartBeat::Run()
 {
 #if USE_HITCH_DETECTION
+#if WALK_STACK_ON_HITCH_DETECTED
+	if (bWalkStackOnHitch)
+	{
+		// Perform a stack trace immediately, so we pay the first time setup cost
+		// during engine boot, rather than during game play. The results are discarded.
+#if LOOKUP_SYMBOLS_IN_HITCH_STACK_WALK
+		FPlatformStackWalk::ThreadStackWalkAndDump(StackTrace, StackTraceSize, 0, GGameThreadId);
+#else
+		FPlatformStackWalk::CaptureThreadStackBackTrace(GGameThreadId, StackTrace, MaxStackDepth);
+#endif
+	}
+#endif
+
 	while (StopTaskCounter.GetValue() == 0 && !GIsRequestingExit)
 	{
 		if (!GIsRequestingExit && !GHitchDetected && UE_LOG_ACTIVE(LogCore, Error)) // && !FPlatformMisc::IsDebuggerPresent())
@@ -366,12 +493,13 @@ uint32 FGameThreadHitchHeartBeat::Run()
 						//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Hitch detected on GameThread (frame hasn't finished for %8.2fms):"), float(CurrentTime - LocalFrameStartTime) * 1000.0f);
 
 #if WALK_STACK_ON_HITCH_DETECTED
-						if (GHitchDetectionStackWalk)
+						if (bWalkStackOnHitch)
 						{
-							const SIZE_T StackTraceSize = 65535;
-							ANSICHAR* StackTrace = (ANSICHAR*)GMalloc->Malloc(StackTraceSize);
+							double StartTime = FPlatformTime::Seconds();
+
+#if LOOKUP_SYMBOLS_IN_HITCH_STACK_WALK
+							// Walk the stack and dump it to the temp buffer. This process usually allocates a lot of memory.
 							StackTrace[0] = 0;
-							// Walk the stack and dump it to the allocated memory. This process usually allocates a lot of memory.
 							FPlatformStackWalk::ThreadStackWalkAndDump(StackTrace, StackTraceSize, 0, GGameThreadId);
 							FString StackTraceText(StackTrace);
 							TArray<FString> StackLines;
@@ -383,6 +511,25 @@ uint32 FGameThreadHitchHeartBeat::Run()
 								UE_LOG(LogCore, Error, TEXT("  %s"), *StackLine);
 							}
 							UE_LOG(LogCore, Error, TEXT("------Stack end"));
+
+#else // LOOKUP_SYMBOLS_IN_HITCH_STACK_WALK == 0
+
+							// Only do a thread stack back trace and print the raw addresses to the log.
+							uint32 Depth = FPlatformStackWalk::CaptureThreadStackBackTrace(GGameThreadId, StackTrace, MaxStackDepth);
+
+							UE_LOG(LogCore, Error, TEXT("------Stack start"));
+							for (uint32 Index = 0; Index < Depth; ++Index)
+							{
+								UE_LOG(LogCore, Error, TEXT("  0x%016llx"), StackTrace[Index]);
+							}
+							UE_LOG(LogCore, Error, TEXT("------Stack end"));
+
+#endif // LOOKUP_SYMBOLS_IN_HITCH_STACK_WALK == 0
+
+
+							double EndTime = FPlatformTime::Seconds();
+							double Duration = EndTime - StartTime;
+							UE_LOG(LogCore, Error, TEXT(" ## Stack tracing took %f seconds."), Duration);
 						}
 #endif
 						UE_LOG(LogCore, Error, TEXT("Leaving hitch detector (+%8.2fms)"), float(FPlatformTime::Seconds() - LocalFrameStartTime) * 1000.0f);
@@ -410,9 +557,9 @@ void FGameThreadHitchHeartBeat::FrameStart(bool bSkipThisFrame)
 	check(IsInGameThread());
 	FScopeLock HeartBeatLock(&HeartBeatCritical);
 	// Grab this everytime to handle hotfixes
-	if (GConfig && !bSkipThisFrame)
+	if (!bSkipThisFrame)
 	{
-		GConfig->GetFloat(TEXT("Core.System"), TEXT("GameThreadHeartBeatHitchDuration"), HangDuration, GEngineIni);
+		InitSettings();
 	}
 	double Now = FPlatformTime::Seconds();
 	if (FirstStartTime == 0.0)

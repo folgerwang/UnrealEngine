@@ -27,6 +27,7 @@
 	#define XGE_CONTROL_WORKER_NAME		TEXT("XGEControlWorker")
 	#define XGE_CONTROL_WORKER_FILENAME	TEXT("XGEControlWorker.exe")
 	#define XGE_CONTROL_WORKER_REL_DIR	TEXT("../../../Engine/Binaries/Win64/")
+	#define XGE_CONTROL_WORKER_EXE_PATH TEXT("../../../Engine/Binaries/Win64/XGEControlWorker.exe")
 
 #else
 #error XGE Controller is not supported on non-Windows platforms.
@@ -396,6 +397,13 @@ void FXGEControllerModule::WriteOutThreadProc()
 		{
 			UE_LOG(LogXGEController, Fatal, TEXT("Failed to launch the XGE control worker process."));
 		}
+
+		// If the engine crashes, we don't get a chance to kill the build process.
+		// Start up the build monitor process to monitor for engine crashes.
+		uint32 BuildMonitorProcessID;
+		FString XGMonitorArgs = FString::Printf(TEXT("-xgemonitor %d %d"), FPlatformProcess::GetCurrentProcessId(), XGConsoleProcID);
+		FProcHandle BuildMonitorHandle = FPlatformProcess::CreateProc(XGE_CONTROL_WORKER_EXE_PATH, *XGMonitorArgs, true, false, false, &BuildMonitorProcessID, 0, nullptr, nullptr);
+		FPlatformProcess::CloseProc(BuildMonitorHandle);
 
 		// Wait for the controller to connect to the output pipe
 		if (!OutputNamedPipe.OpenConnection())
