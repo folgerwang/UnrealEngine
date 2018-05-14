@@ -35,8 +35,12 @@
 #include "MagicLeapCustomPresent.h"
 #include "MagicLeapHMD.h"
 #include "RenderingThread.h"
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
+
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_lifecycle.h>
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 #if PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMIN

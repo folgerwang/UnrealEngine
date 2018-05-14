@@ -3,8 +3,12 @@
 #pragma once
 
 #include "AudioMixer.h"
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
+
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_audio.h>
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 // Any platform defines

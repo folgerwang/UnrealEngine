@@ -47,13 +47,16 @@
 #if WITH_EDITOR
 #include "Editor.h"
 #endif
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_image_tracking.h>
 #include <ml_perception.h>
 #include <ml_snapshot.h>
 #include <ml_head_tracking.h>
 #include <ml_coordinate_frame_uid.h>
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 class FImageTrackerEngineInterface : public MagicLeap::IAppEventHandler
