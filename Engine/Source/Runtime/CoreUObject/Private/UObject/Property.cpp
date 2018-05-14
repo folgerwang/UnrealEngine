@@ -224,6 +224,7 @@ struct TStructOpsTypeTraits<FGuid> : public TStructOpsTypeTraitsBase2<FGuid>
 		WithImportTextItem = true,
 		WithZeroConstructor = true,
 		WithSerializer = true,
+		WithStructuredSerializer = true,
 	};
 };
 IMPLEMENT_STRUCT(Guid);

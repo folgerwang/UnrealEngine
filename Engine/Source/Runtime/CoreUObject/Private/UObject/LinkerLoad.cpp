@@ -3448,9 +3448,7 @@ void FLinkerLoad::Preload( UObject* Object )
 						{
 							FString ObjectName = Object->GetPathName(Object->GetOutermost());
 							FStructuredArchive::FSlot ExportSlot = StructuredArchiveRootRecord->EnterField(FIELD_NAME(*ObjectName));
-
-							FArchiveUObjectFromStructuredArchive Adapter(ExportSlot);
-							Object->GetClass()->SerializeDefaultObject(Object, Adapter);
+							Object->GetClass()->SerializeDefaultObject(Object, ExportSlot);
 						}
 						else
 #endif

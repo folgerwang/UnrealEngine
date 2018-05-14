@@ -836,34 +836,42 @@ void UStruct::DestroyStruct(void* Dest, int32 ArrayDim) const
 	}
 }
 
+void UStruct::SerializeBin(FArchive& Ar, void* Data) const
+{
+	SerializeBin(FStructuredArchiveFromArchive(Ar).GetSlot(), Data);
+}
 //
 // Serialize all of the class's data that belongs in a particular
 // bin and resides in Data.
 //
-void UStruct::SerializeBin( FArchive& Ar, void* Data ) const
+void UStruct::SerializeBin( FStructuredArchive::FSlot Slot, void* Data ) const
 {
-	if( Ar.IsObjectReferenceCollector() )
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
+	FStructuredArchive::FStream PropertyStream = Slot.EnterStream();
+
+	if( UnderlyingArchive.IsObjectReferenceCollector() )
 	{
 		for( UProperty* RefLinkProperty=RefLink; RefLinkProperty!=NULL; RefLinkProperty=RefLinkProperty->NextRef )
 		{
-			RefLinkProperty->SerializeBinProperty( Ar, Data );
+			RefLinkProperty->SerializeBinProperty(PropertyStream.EnterElement(), Data );
 		}
 	}
-	else if( Ar.ArUseCustomPropertyList )
+	else if( UnderlyingArchive.ArUseCustomPropertyList )
 	{
-		const FCustomPropertyListNode* CustomPropertyList = Ar.ArCustomPropertyList;
+		const FCustomPropertyListNode* CustomPropertyList = UnderlyingArchive.ArCustomPropertyList;
 		for (auto PropertyNode = CustomPropertyList; PropertyNode; PropertyNode = PropertyNode->PropertyListNext)
 		{
 			UProperty* Property = PropertyNode->Property;
 			if( Property )
 			{
 				// Temporarily set to the sub property list, in case we're serializing a UStruct property.
-				Ar.ArCustomPropertyList = PropertyNode->SubPropertyList;
+				UnderlyingArchive.ArCustomPropertyList = PropertyNode->SubPropertyList;
 
-				Property->SerializeBinProperty(Ar, Data, PropertyNode->ArrayIndex);
+				Property->SerializeBinProperty(PropertyStream.EnterElement(), Data, PropertyNode->ArrayIndex);
 
 				// Restore the original property list.
-				Ar.ArCustomPropertyList = CustomPropertyList;
+				UnderlyingArchive.ArCustomPropertyList = CustomPropertyList;
 			}
 		}
 	}
@@ -871,22 +879,22 @@ void UStruct::SerializeBin( FArchive& Ar, void* Data ) const
 	{
 		for (UProperty* Property = PropertyLink; Property != NULL; Property = Property->PropertyLinkNext)
 		{
-			Property->SerializeBinProperty(Ar, Data);
+			Property->SerializeBinProperty(PropertyStream.EnterElement(), Data);
 		}
 	}
 }
 
-void UStruct::SerializeBinEx( FArchive& Ar, void* Data, void const* DefaultData, UStruct* DefaultStruct ) const
+void UStruct::SerializeBinEx( FStructuredArchive::FSlot Slot, void* Data, void const* DefaultData, UStruct* DefaultStruct ) const
 {
 	if ( !DefaultData || !DefaultStruct )
 	{
-		SerializeBin(Ar, Data);
+		SerializeBin(Slot, Data);
 		return;
 	}
 
 	for( TFieldIterator<UProperty> It(this); It; ++It )
 	{
-		It->SerializeNonMatchingBinProperty(Ar, Data, DefaultData, DefaultStruct);
+		It->SerializeNonMatchingBinProperty(Slot, Data, DefaultData, DefaultStruct);
 	}
 }
 
@@ -1171,7 +1179,12 @@ void UStruct::SerializeTaggedProperties(FStructuredArchive::FSlot Slot, uint8* D
 							UnderlyingArchive.ArCustomPropertyList = CustomPropertyNode->SubPropertyList;
 						}
 
-						Tag.SerializeTaggedProperty(PropertyRecord.EnterField(FIELD_NAME_TEXT("Value")), Property, DataPtr, DefaultValue);
+						FStructuredArchive::FSlot PropertyField = PropertyRecord.EnterField(FIELD_NAME_TEXT("Value"));
+						Tag.SerializeTaggedProperty(PropertyField, Property, DataPtr, DefaultValue);
+						if (!PropertyField.IsFilled())
+						{
+							Tag.SerializeTaggedProperty(PropertyField, Property, DataPtr, DefaultValue);
+						}
 
 						// restore the original custom property list after serializing
 						if (SavedCustomPropertyList)
@@ -1216,6 +1229,9 @@ void UStruct::FinishDestroy()
 	Script.Empty();
 	Super::FinishDestroy();
 }
+
+IMPLEMENT_FSTRUCTUREDARCHIVE_SERIALIZER(UStruct);
+
 void UStruct::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
@@ -2025,6 +2041,8 @@ void UScriptStruct::PrepareCppStructOps()
 	bPrepareCppStructOpsCompleted = true;
 }
 
+IMPLEMENT_FSTRUCTUREDARCHIVE_SERIALIZER(UScriptStruct);
+
 void UScriptStruct::Serialize( FArchive& Ar )
 {
 	Super::Serialize(Ar);
@@ -2048,13 +2066,20 @@ bool UScriptStruct::UseBinarySerialization(const FArchive& Ar) const
 
 void UScriptStruct::SerializeItem(FArchive& Ar, void* Value, void const* Defaults)
 {
-	const bool bUseBinarySerialization = UseBinarySerialization(Ar);
+	SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), Value, Defaults);
+}
+
+void UScriptStruct::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults)
+{
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
+	const bool bUseBinarySerialization = UseBinarySerialization(UnderlyingArchive);
 	const bool bUseNativeSerialization = UseNativeSerialization();
 
 	// Preload struct before serialization tracking to not double count time.
 	if (bUseBinarySerialization || bUseNativeSerialization)
 	{
-		Ar.Preload(this);
+		UnderlyingArchive.Preload(this);
 	}
 
 	bool bItemSerialized = false;
@@ -2062,7 +2087,20 @@ void UScriptStruct::SerializeItem(FArchive& Ar, void* Value, void const* Default
 	{
 		UScriptStruct::ICppStructOps* TheCppStructOps = GetCppStructOps();
 		check(TheCppStructOps); // else should not have STRUCT_SerializeNative
-		bItemSerialized = TheCppStructOps->Serialize(Ar, Value);
+
+		if (TheCppStructOps->HasStructuredSerializer())
+		{
+			bItemSerialized = TheCppStructOps->Serialize(Slot, Value);
+		}
+		else
+		{
+			FArchiveUObjectFromStructuredArchive Ar(Slot);
+			bItemSerialized = TheCppStructOps->Serialize(Ar, Value);
+			if (bItemSerialized && !Slot.IsFilled())
+			{
+				Slot.EnterStream();
+			}
+		}		
 	}
 
 	if (!bItemSerialized)
@@ -2070,18 +2108,18 @@ void UScriptStruct::SerializeItem(FArchive& Ar, void* Value, void const* Default
 		if (bUseBinarySerialization)
 		{
 			// Struct is already preloaded above.
-			if (!Ar.IsPersistent() && Ar.GetPortFlags() != 0 && !ShouldSerializeAtomically(Ar) && !Ar.ArUseCustomPropertyList)
+			if (!UnderlyingArchive.IsPersistent() && UnderlyingArchive.GetPortFlags() != 0 && !ShouldSerializeAtomically(UnderlyingArchive) && !UnderlyingArchive.ArUseCustomPropertyList)
 			{
-				SerializeBinEx(Ar, Value, Defaults, this);
+				SerializeBinEx(Slot, Value, Defaults, this);
 			}
 			else
 			{
-				SerializeBin(Ar, Value);
+				SerializeBin(Slot, Value);
 			}
 		}
 		else
 		{
-			SerializeTaggedProperties(Ar, (uint8*)Value, this, (uint8*)Defaults);
+			SerializeTaggedProperties(Slot, (uint8*)Value, this, (uint8*)Defaults);
 		}
 	}
 
@@ -2089,7 +2127,7 @@ void UScriptStruct::SerializeItem(FArchive& Ar, void* Value, void const* Default
 	{
 		UScriptStruct::ICppStructOps* TheCppStructOps = GetCppStructOps();
 		check(TheCppStructOps); // else should not have STRUCT_PostSerializeNative
-		TheCppStructOps->PostSerialize(Ar, Value);
+		TheCppStructOps->PostSerialize(UnderlyingArchive, Value);
 	}
 }
 
@@ -3776,31 +3814,38 @@ bool UClass::ImplementsInterface( const class UClass* SomeInterface ) const
 	return false;
 }
 
+void UClass::SerializeDefaultObject(UObject* Object, FArchive& Ar)
+{
+	SerializeDefaultObject(Object, FStructuredArchiveFromArchive(Ar).GetSlot());
+}
+
 /** serializes the passed in object as this class's default object using the given archive
  * @param Object the object to serialize as default
  * @param Ar the archive to serialize from
  */
-void UClass::SerializeDefaultObject(UObject* Object, FArchive& Ar)
+void UClass::SerializeDefaultObject(UObject* Object, FStructuredArchive::FSlot Slot)
 {
 	// tell the archive that it's allowed to load data for transient properties
-	Ar.StartSerializingDefaults();
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
 
-	if( ((Ar.IsLoading() || Ar.IsSaving()) && !Ar.WantBinaryPropertySerialization()) )
+	UnderlyingArchive.StartSerializingDefaults();
+
+	if( ((UnderlyingArchive.IsLoading() || UnderlyingArchive.IsSaving()) && !UnderlyingArchive.WantBinaryPropertySerialization()) )
 	{
 	    // class default objects do not always have a vtable when saved
 		// so use script serialization as opposed to native serialization to
 	    // guarantee that all property data is loaded into the correct location
-	    SerializeTaggedProperties(Ar, (uint8*)Object, GetSuperClass(), (uint8*)Object->GetArchetype());
+	    SerializeTaggedProperties(Slot, (uint8*)Object, GetSuperClass(), (uint8*)Object->GetArchetype());
 	}
-	else if ( Ar.GetPortFlags() != 0 )
+	else if (UnderlyingArchive.GetPortFlags() != 0 )
 	{
-		SerializeBinEx(Ar, Object, Object->GetArchetype(), GetSuperClass() );
+		SerializeBinEx(Slot, Object, Object->GetArchetype(), GetSuperClass() );
 	}
 	else
 	{
-		SerializeBin(Ar, Object);
+		SerializeBin(Slot, Object);
 	}
-	Ar.StopSerializingDefaults();
+	UnderlyingArchive.StopSerializingDefaults();
 }
 
 

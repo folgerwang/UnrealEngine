@@ -61,8 +61,7 @@ bool UDelegateProperty::Identical( const void* A, const void* B, uint32 PortFlag
 
 void UDelegateProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const
 {
-	FArchiveUObjectFromStructuredArchive Ar(Slot);
-	Ar << *GetPropertyValuePtr(Value);
+	Slot << *GetPropertyValuePtr(Value);
 }
 
 

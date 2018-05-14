@@ -262,17 +262,18 @@ public:
 	 * @param	Data			pointer to the location of the beginning of the struct's property data
 	 * @param	ArrayIdx		if not -1 (default), only this array slot will be serialized
 	 */
-	void SerializeBinProperty( FArchive& Ar, void* Data, int32 ArrayIdx = -1 )
+	void SerializeBinProperty( FStructuredArchive::FSlot Slot, void* Data, int32 ArrayIdx = -1 )
 	{
-		if( ShouldSerializeValue(Ar) )
+		FStructuredArchive::FStream Stream = Slot.EnterStream();
+		if( ShouldSerializeValue(Slot.GetUnderlyingArchive()) )
 		{
 			const int32 LoopMin = ArrayIdx < 0 ? 0 : ArrayIdx;
 			const int32 LoopMax = ArrayIdx < 0 ? ArrayDim : ArrayIdx + 1;
 			for (int32 Idx = LoopMin; Idx < LoopMax; Idx++)
 			{
 				// Keep setting the property in case something inside of SerializeItem changes it
-				FSerializedPropertyScope SerializedProperty(Ar, this);
-				SerializeItem( FStructuredArchiveFromArchive(Ar).GetSlot(), ContainerPtrToValuePtr<void>(Data, Idx) );
+				FSerializedPropertyScope SerializedProperty(Slot.GetUnderlyingArchive(), this);
+				SerializeItem(Stream.EnterElement(), ContainerPtrToValuePtr<void>(Data, Idx));
 			}
 		}
 	}
@@ -284,18 +285,21 @@ public:
 	 * @param	DefaultData		pointer to the location of the beginning of the data that should be compared against
 	 * @param	DefaultStruct	struct corresponding to the block of memory located at DefaultData 
 	 */
-	void SerializeNonMatchingBinProperty( FArchive& Ar, void* Data, void const* DefaultData, UStruct* DefaultStruct)
+	void SerializeNonMatchingBinProperty( FStructuredArchive::FSlot Slot, void* Data, void const* DefaultData, UStruct* DefaultStruct)
 	{
-		if( ShouldSerializeValue(Ar) )
+		FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+		FStructuredArchive::FStream Stream = Slot.EnterStream();
+
+		if( ShouldSerializeValue(UnderlyingArchive) )
 		{
 			for (int32 Idx = 0; Idx < ArrayDim; Idx++)
 			{
 				void *Target = ContainerPtrToValuePtr<void>(Data, Idx);
 				void const* Default = ContainerPtrToValuePtrForDefaults<void>(DefaultStruct, DefaultData, Idx);
-				if ( !Identical(Target, Default, Ar.GetPortFlags()) )
+				if ( !Identical(Target, Default, UnderlyingArchive.GetPortFlags()) )
 				{
-					FSerializedPropertyScope SerializedProperty(Ar, this);
-					SerializeItem( FStructuredArchiveFromArchive(Ar).GetSlot(), Target, Default );
+					FSerializedPropertyScope SerializedProperty(UnderlyingArchive, this);
+					SerializeItem( Stream.EnterElement(), Target, Default );
 				}
 			}
 		}

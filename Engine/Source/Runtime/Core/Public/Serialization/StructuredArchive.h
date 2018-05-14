@@ -140,6 +140,15 @@ public:
 			return Ar.GetUnderlyingArchive();
 		}
 
+		FORCEINLINE bool IsFilled() const
+		{
+#if WITH_TEXT_ARCHIVE_SUPPORT
+			return Ar.CurrentSlotElementId != ElementId;
+#else
+			return true;
+#endif
+		}
+
 	private:
 		friend FStructuredArchive;
 		friend class FStructuredArchiveChildReader;

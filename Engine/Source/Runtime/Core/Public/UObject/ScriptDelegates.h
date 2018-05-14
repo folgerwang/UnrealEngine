@@ -141,6 +141,13 @@ public:
 		return Ar;
 	}
 
+	/** Delegate serialization */
+	friend void operator<<(FStructuredArchive::FSlot Slot, TScriptDelegate& D)
+	{
+		FStructuredArchive::FRecord Record = Slot.EnterRecord();
+		Record << NAMED_ITEM("Object", D.Object) << NAMED_ITEM("FunctionName",D.FunctionName);
+	}
+
 	/** Comparison operators */
 	FORCEINLINE bool operator==( const TScriptDelegate& Other ) const
 	{
@@ -440,6 +447,25 @@ public:
 		}
 
 		return Ar;
+	}
+
+	friend void operator<<(FStructuredArchive::FSlot Slot, TMulticastScriptDelegate<TWeakPtr>& D)
+	{
+		FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
+		if (UnderlyingArchive.IsSaving())
+		{
+			// When saving the delegate, clean up the list to make sure there are no bad object references
+			D.CompactInvocationList();
+		}
+
+		Slot << D.InvocationList;
+
+		if (UnderlyingArchive.IsLoading())
+		{
+			// After loading the delegate, clean up the list to make sure there are no bad object references
+			D.CompactInvocationList();
+		}
 	}
 
 	/**

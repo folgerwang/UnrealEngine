@@ -114,8 +114,7 @@ void UStructProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value,
 	FScopedPlaceholderPropertyTracker ImportPropertyTracker(this);
 #endif
 
-	FArchiveUObjectFromStructuredArchive Ar(Slot);
-	Struct->SerializeItem(Ar, Value, Defaults);
+	Struct->SerializeItem(Slot, Value, Defaults);
 }
 
 bool UStructProperty::NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData ) const

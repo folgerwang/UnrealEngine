@@ -1290,7 +1290,6 @@ void UObject::SerializeScriptProperties( FStructuredArchive::FSlot Slot ) const
 	}
 
 	UClass *ObjClass = GetClass();
-	bool bSlotEntered = false;
 
 	if(UnderlyingArchive.IsTextFormat() || ((UnderlyingArchive.IsLoading() || UnderlyingArchive.IsSaving()) && !UnderlyingArchive.WantBinaryPropertySerialization()))
 	{
@@ -1313,7 +1312,6 @@ void UObject::SerializeScriptProperties( FStructuredArchive::FSlot Slot ) const
 #endif
 
 		ObjClass->SerializeTaggedProperties(Slot, (uint8*)this, HasAnyFlags(RF_ClassDefaultObject) ? ObjClass->GetSuperClass() : ObjClass, (uint8*)DiffObject, bBreakSerializationRecursion ? this : NULL);
-		bSlotEntered = true;
 	}
 	else if (UnderlyingArchive.GetPortFlags() != 0 && !UnderlyingArchive.ArUseCustomPropertyList )
 	{
@@ -1323,11 +1321,11 @@ void UObject::SerializeScriptProperties( FStructuredArchive::FSlot Slot ) const
 		{
 			DiffObject = GetArchetype();
 		}
-		ObjClass->SerializeBinEx( UnderlyingArchive, const_cast<UObject *>(this), DiffObject, DiffObject ? DiffObject->GetClass() : NULL );
+		ObjClass->SerializeBinEx(Slot, const_cast<UObject *>(this), DiffObject, DiffObject ? DiffObject->GetClass() : NULL);
 	}
 	else
 	{
-		ObjClass->SerializeBin(UnderlyingArchive, const_cast<UObject *>(this) );
+		ObjClass->SerializeBin(Slot, const_cast<UObject *>(this));
 	}
 
 	if( HasAnyFlags(RF_ClassDefaultObject) )
@@ -1335,11 +1333,6 @@ void UObject::SerializeScriptProperties( FStructuredArchive::FSlot Slot ) const
 		UnderlyingArchive.StopSerializingDefaults();
 	}
 	UnderlyingArchive.MarkScriptSerializationEnd(this);
-
-	if (!bSlotEntered)
-	{
-		Slot.EnterStream();
-	}
 }
 
 
