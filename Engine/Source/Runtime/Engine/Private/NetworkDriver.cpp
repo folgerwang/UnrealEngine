@@ -4250,6 +4250,11 @@ void UNetDriver::ResetGameWorldState()
 	{
 		(*It)->ResetGameWorldState();
 	}
+
+	if (ReplicationDriver)
+	{
+		ReplicationDriver->ResetGameWorldState();
+	}
 }
 
 void UNetDriver::CleanPackageMaps()
