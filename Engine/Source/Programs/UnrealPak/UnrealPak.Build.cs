@@ -8,7 +8,7 @@ public class UnrealPak : ModuleRules
 	{
 		PublicIncludePaths.Add("Runtime/Launch/Public");
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "PakFile", "Json", "Projects", "ApplicationCore" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "PakFile", "Json", "Projects", "ApplicationCore", "PakFileUtilities" });
 
 		PrivateIncludePaths.Add("Runtime/Launch/Private");      // For LaunchEngineLoop.cpp include
 
