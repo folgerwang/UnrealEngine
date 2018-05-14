@@ -886,6 +886,7 @@ namespace FramePro
 #define FRAMEPRO_PLATFORM_UNIX 		PLATFORM_LINUX
 #define FRAMEPRO_PLATFORM_ANDROID 	PLATFORM_ANDROID
 #define FRAMEPRO_PLATFORM_IOS 		PLATFORM_IOS
+#define FRAMEPRO_PLATFORM_SWITCH	PLATFORM_SWITCH
 // END EPIC
 
 // START EPIC
@@ -893,6 +894,12 @@ namespace FramePro
 	#define FRAMEPRO_WIN_BASED_PLATFORM 1
 #else
 	#define FRAMEPRO_WIN_BASED_PLATFORM 0
+#endif
+
+#if FRAMEPRO_PLATFORM_SWITCH //#TODO: could add others here...
+	#define FRAMEPRO_UE4_BASED_PLATFORM 1
+#else
+	#define FRAMEPRO_UE4_BASED_PLATFORM 0
 #endif
 // END EPIC
 
@@ -947,7 +954,7 @@ namespace FramePro
 
 //------------------------------------------------------------------------
 // START EPIC
-#define FRAMEPRO_BREAK() FPlatformMisc::DebugBreak()
+#define FRAMEPRO_BREAK() UE_DEBUG_BREAK()
 // END EPIC
 
 //------------------------------------------------------------------------
@@ -959,8 +966,15 @@ namespace FramePro
 
 //------------------------------------------------------------------------
 // START EPIC
-// Remove int types and timers
+// Remove UNIX inttypes.h and sys/signal.h includes
+//------------------------------------------------------------------------
+// typedefs
+namespace FramePro
+{
+	typedef uint32 uint;
+}
 // END EPIC
+
 #if FRAMEPRO_PLATFORM_WIN
 	#define FRAMEPRO_EVENT_TRACE_WIN32 1
 #else
@@ -974,7 +988,7 @@ namespace FramePro
 #elif FRAMEPRO_PLATFORM_XBOXONE
 	#define FRAMEPRO_PORT "4420"
 // START EPIC
-#elif FRAMEPRO_PLATFORM_UNIX || FRAMEPRO_PLATFORM_ANDROID || FRAMEPRO_PLATFORM_IOS
+#elif FRAMEPRO_PLATFORM_UNIX || FRAMEPRO_PLATFORM_ANDROID || FRAMEPRO_PLATFORM_IOS || FRAMEPRO_PLATFORM_SWITCH
 // END EPIC
 	#define FRAMEPRO_PORT "8428"
 #else
@@ -1088,9 +1102,7 @@ namespace FramePro
 	FRAMEPRO_API void AddCustomStat(StringId name, double value, const wchar_t* p_graph, const wchar_t* p_unit);
 	// END EPIC
 
-	// START EPIC 
-	FRAMEPRO_API void AddEvent(const char* p_name, uint32 colour);
-	// END EPIC
+	FRAMEPRO_API void AddEvent(const char* p_name, uint colour);
 
 	FRAMEPRO_API void AddWaitEvent(int64 event_id, int64 start_time, int64 end_time);
 
@@ -1624,10 +1636,8 @@ namespace FramePro
 			FramePro::AddGlobalHiResTimer(this);
 		}
 
-// START EPIC 
-		void Add(uint32 value)
+		void Add(uint value)
 		{
-// END EPIC 
 			uint64 existing_value = m_Value.load(std::memory_order_relaxed);
 			uint64 new_value;
 			do
@@ -1644,10 +1654,8 @@ namespace FramePro
 			} while (!m_Value.compare_exchange_weak(existing_value, new_value, std::memory_order_relaxed, std::memory_order_relaxed));
 		}
 
-// START EPIC 
-		void GetAndClear(uint64& value, uint32& count)
+		void GetAndClear(uint64& value, uint& count)
 		{
-// END EPIC 
 			uint64 existing_value = m_Value.load(std::memory_order_relaxed);
 			while (!m_Value.compare_exchange_weak(existing_value, 0, std::memory_order_relaxed, std::memory_order_relaxed))
 				;
@@ -1690,9 +1698,7 @@ namespace FramePro
 				int64 end_time;
 				FRAMEPRO_GET_CLOCK_COUNT(end_time);
 
-// START EPIC 
-				m_Timer.Add((uint32)(end_time - m_StartTime));
-// END EPIC 
+				m_Timer.Add((uint)(end_time - m_StartTime));
 			}
 		}
 

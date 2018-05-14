@@ -288,7 +288,7 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 		{
 			{
 #if SLATE_VERBOSE_NAMED_EVENTS
-				FScopedNamedEvent CacheEvent(FColor::Red, *(DebugPaintName + "_Invalidation"));
+				SCOPED_NAMED_EVENT_F(TEXT("%s_Invalidation"), FColor::Red, *DebugPaintName);
 #endif
 				SInvalidationPanel* MutableThis = const_cast<SInvalidationPanel*>(this);
 				TSharedRef<SInvalidationPanel> SharedMutableThis = SharedThis(MutableThis);
@@ -402,7 +402,6 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 
 		// Record Hit Test Geometry
 		{
-
 			// The hit test grid is actually populated during the initial cache phase, so don't bother
 			// recording the hit test geometry on the same frame that we regenerate the cache.
 			if (bWasCachingNeeded == false)
@@ -435,7 +434,7 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 		if ( CachedWindowElements.IsValid() )
 		{
 #if SLATE_VERBOSE_NAMED_EVENTS
-			FScopedNamedEvent PaintVolatileEvent(FColor::Cyan, TEXT("Paint Volatile Widgets"));
+			SCOPED_NAMED_EVENT_TEXT("Paint Volatile Widgets", FColor::Cyan);
 #endif
 			const TArray<TSharedPtr<FSlateWindowElementList::FVolatilePaint>>& VolatileElements = CachedWindowElements->GetVolatileElements();
 			INC_DWORD_STAT_BY(STAT_SlateNumVolatileWidgets, VolatileElements.Num());

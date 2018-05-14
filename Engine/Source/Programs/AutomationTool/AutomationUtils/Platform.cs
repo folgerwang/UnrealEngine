@@ -182,6 +182,15 @@ namespace AutomationTool
 			LogWarning("{0} does not implement GetConnectedDevices", PlatformType);
 		}
 
+        /// <summary>
+        /// Allow platform specific work prior to touching the staging directory
+        /// </summary>
+        /// <param name="Params"></param>
+        /// <param name="SC"></param>
+        public virtual void PreStage(ProjectParams Params, DeploymentContext SC)
+        {
+            // do nothing on most platforms
+        }
 
 
 		/// <summary>
@@ -526,6 +535,16 @@ namespace AutomationTool
 		public virtual string[] SymbolServerDirectoryStructure
 		{
 			get { return null; }
+		}
+
+		/// <summary>
+		/// If true, indicates the platform's symbol server directory must be locked for
+		/// exclusive access before any operation is performed on it. Platforms may override
+		/// this to disable if their tools support concurrent access to the symbol server directory.
+		/// </summary>
+		public virtual bool SymbolServerRequiresLock
+		{
+			get { return true; }
 		}
 
 		#region Hooks

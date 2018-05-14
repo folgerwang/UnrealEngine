@@ -3249,6 +3249,9 @@ void FEngineLoop::Tick()
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_TickFPSChart);
 			GEngine->TickPerformanceMonitoring( FApp::GetDeltaTime() );
+
+			extern COREUOBJECT_API void ResetAsyncLoadingStats();
+			ResetAsyncLoadingStats();
 		}
 
 		// update memory allocator stats

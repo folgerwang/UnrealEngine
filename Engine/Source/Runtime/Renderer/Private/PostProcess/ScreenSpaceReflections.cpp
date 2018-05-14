@@ -514,8 +514,9 @@ FPooledRenderTargetDesc FRCPassPostProcessScreenSpaceReflections::ComputeOutputD
 	Ret.ClearValue = FClearValueBinding(FLinearColor(0, 0, 0, 0));
 	Ret.DebugName = TEXT("ScreenSpaceReflections");
 	Ret.AutoWritable = false;
+	Ret.Flags |= GFastVRamConfig.SSR; 
 	return Ret;
-}
+} 
 
 void RenderScreenSpaceReflections(FRHICommandListImmediate& RHICmdList, FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& SSROutput, TRefCountPtr<IPooledRenderTarget>& VelocityRT)
 {

@@ -384,6 +384,52 @@ void FCrc::Init()
 #endif // !UE_BUILD_SHIPPING
 }
 
+#if PLATFORM_HAS_CRC_INTRINSICS
+// Need to include the header file with the intrinsic definitions per platform until conformity comes
+#if PLATFORM_SWITCH
+#include <arm_acle.h>
+#endif // PLATFORM_SWITCH
+
+uint32 FCrc::MemCrc32(const void* InData, int32 Length, uint32 CRC/*=0 */)
+{
+	CRC = ~CRC;
+
+	const uint8_t* __restrict Data = reinterpret_cast<const uint8_t*>(InData);
+
+	// First we need to align to 32-bits
+	int32 InitBytes = Align(Data, 4) - Data;
+
+	if (Length > InitBytes)
+	{
+		Length -= InitBytes;
+
+		for (; InitBytes; --InitBytes)
+		{
+			CRC = (CRC >> 8) ^ __crc32b(CRC & 0xFF, *Data++);
+		}
+
+		auto Data8 = reinterpret_cast<const uint64_t*>(Data);
+
+		for (uint32 Repeat = Length / 8; Repeat; --Repeat)
+		{
+			CRC = __crc32d(CRC, *Data8++);
+		}
+
+		Data = reinterpret_cast<const uint8_t*>(Data8);
+
+		Length %= 8;
+	}
+
+	for (; Length; --Length)
+	{
+		CRC = (CRC >> 8) ^ __crc32b(CRC & 0xFF, *Data++);
+	}
+
+	return ~CRC;
+}
+
+#else
+
 uint32 FCrc::MemCrc32( const void* InData, int32 Length, uint32 CRC/*=0 */ )
 {
 	// Based on the Slicing-by-8 implementation found here:
@@ -432,6 +478,7 @@ uint32 FCrc::MemCrc32( const void* InData, int32 Length, uint32 CRC/*=0 */ )
 
 	return ~CRC;
 }
+#endif
 
 uint32 FCrc::MemCrc_DEPRECATED(const void* InData, int32 Length, uint32 CRC/*=0 */)
 {

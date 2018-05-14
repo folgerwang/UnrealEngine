@@ -1318,6 +1318,8 @@ FGraphicsPipelineStateRHIRef FVulkanDynamicRHI::RHICreateGraphicsPipelineState(c
 		return Found;
 	}
 
+	UE_LOG(LogVulkanRHI, Display, TEXT("PSO not found in cache, compiling..."));
+
 	// Not found, need to actually create one, so prepare a compatible render pass
 	FVulkanRenderPass* RenderPass = Device->GetImmediateContext().PrepareRenderPassForPSOCreation(PSOInitializer);
 

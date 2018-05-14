@@ -60,6 +60,18 @@
 	#include <tchar.h>
 #endif
 
+// BEGIN EPIC
+#if FRAMEPRO_UE4_BASED_PLATFORM
+	#include "HAL/PlatformProcess.h"
+	#include "HAL/PlatformTLS.h"
+	#include "HAL/Event.h"
+	#include "HAL/CriticalSection.h"
+	#include "HAL/Runnable.h"
+	#include "HAL/RunnableThread.h"
+	#include "Templates/UniquePtr.h"
+#endif
+// END EPIC
+
 // BEGIN EPIC 
 // Remove FRAMEPRO_UNIX_BASED_PLATFORM and FRAMEPRO_TIMER_QUERY_PERFORMANCE_COUNTER blocks
 // END EPIC
@@ -81,6 +93,10 @@
 			#include "Windows/HideWindowsPlatformTypes.h"
 			// END EPIC
 		#endif
+	// BEGIN EPIC
+	#elif FRAMEPRO_PLATFORM_SWITCH
+		#include "Switch/SwitchPlatformFramePro.h"
+	// END EPIC
 	#else
 		#include <sys/socket.h>
 		#include <netinet/in.h>
@@ -100,13 +116,11 @@
 #endif
 
 //------------------------------------------------------------------------
-#if FRAMEPRO_WIN_BASED_PLATFORM
-	#define FRAMEPRO_THREAD_LOCAL __declspec(thread)
-// BEGIN EPIC 
-#else
-	#define FRAMEPRO_THREAD_LOCAL __thread
+// BEGIN EPIC
+//#if FRAMEPRO_WIN_BASED_PLATFORM
+//	#define FRAMEPRO_THREAD_LOCAL __declspec(thread)
+//#endif
 // END EPIC
-#endif
 
 //------------------------------------------------------------------------
 // BEGIN EPIC 
@@ -144,14 +158,27 @@ namespace FramePro
 	class FrameProTLS;
 
 	//------------------------------------------------------------------------
-	extern FRAMEPRO_THREAD_LOCAL FrameProTLS* gp_FrameProTLS;
+// BEGIN EPIC
+//	extern FRAMEPRO_THREAD_LOCAL FrameProTLS* gp_FrameProTLS;
+// END EPIC
 	extern FRAMEPRO_NO_INLINE FrameProTLS* CreateFrameProTLS();
 	extern FRAMEPRO_NO_INLINE void DestroyFrameProTLS(FrameProTLS* p_framepro_tls);
 
-	//------------------------------------------------------------------------
-	FRAMEPRO_FORCE_INLINE FrameProTLS* GetFrameProTLS()
+// BEGIN EPIC
+	static uint32 GetFrameProTLSSlot()
 	{
-		FrameProTLS* p_framepro_tls = gp_FrameProTLS;
+		static uint32 TlsSlot = FPlatformTLS::AllocTlsSlot();
+		return TlsSlot;
+	}
+// END EPIC
+
+	//------------------------------------------------------------------------
+	FrameProTLS* GetFrameProTLS()
+	{
+// BEGIN EPIC
+//		FrameProTLS* p_framepro_tls = gp_FrameProTLS;
+		FrameProTLS* p_framepro_tls = (FrameProTLS*)FPlatformTLS::GetTlsValue(GetFrameProTLSSlot());
+// END EPIC
 		return p_framepro_tls ? p_framepro_tls : CreateFrameProTLS();
 	}
 
@@ -344,7 +371,13 @@ namespace FramePro
 
 		inline uint64 GetCurrentThreadId()
 		{
+// START EPIC
+#if FRAMEPRO_UE4_BASED_PLATFORM
+			return FPlatformTLS::GetCurrentThreadId();
+#else
 			return (uint64)pthread_self();
+#endif
+// END EPIC
 		}
 
 		inline int fopen_s(FILE **pp_file, const char* p_filename, const char* p_mode)
@@ -355,7 +388,13 @@ namespace FramePro
 
 		inline int GetCurrentProcessId()
 		{
+// START EPIC
+#if FRAMEPRO_UE4_BASED_PLATFORM
+			return FPlatformProcess::GetCurrentProcessId();
+#else
 			return getpid();
+#endif
+// END EPIC
 		}
 
 		inline void localtime_s(struct tm* p_tm, const time_t *p_time)
@@ -455,6 +494,10 @@ namespace FramePro
 		{
 #if FRAMEPRO_WIN_BASED_PLATFORM
 			InitializeSRWLock(&lock);
+// START EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+			//...
+// END EPIC
 #else
 			pthread_mutexattr_t attr;
 			pthread_mutexattr_init(&attr);
@@ -473,9 +516,11 @@ namespace FramePro
 
 		~CriticalSection()
 		{
-#if !FRAMEPRO_WIN_BASED_PLATFORM
+// START EPIC
+#if !FRAMEPRO_WIN_BASED_PLATFORM && !FRAMEPRO_UE4_BASED_PLATFORM
 			pthread_mutex_destroy(&cs);
 #endif
+// END EPIC
 		}
 
 		void Enter()
@@ -486,6 +531,10 @@ namespace FramePro
 
 #if FRAMEPRO_WIN_BASED_PLATFORM
 			AcquireSRWLockExclusive(&lock);
+// START EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+			cs.Lock();
+// END EPIC
 #else
 			pthread_mutex_lock(&cs);
 #endif
@@ -509,6 +558,10 @@ namespace FramePro
 
 #if FRAMEPRO_WIN_BASED_PLATFORM
 			ReleaseSRWLockExclusive(&lock);
+// START EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+			cs.Unlock();
+// END EPIC
 #else
 			pthread_mutex_unlock(&cs);
 #endif
@@ -527,6 +580,10 @@ namespace FramePro
 	private:
 #if FRAMEPRO_WIN_BASED_PLATFORM
 		SRWLOCK lock;
+// START EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+		FCriticalSection cs;
+// END EPIC
 #else
 		pthread_mutex_t cs;
 #endif
@@ -3441,6 +3498,12 @@ namespace FramePro
 		{
 #if FRAMEPRO_WIN_BASED_PLATFORM
 			m_Handle = CreateEvent(NULL, !auto_reset, initial_state, NULL);
+// START EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+			m_Event = FPlatformProcess::CreateSynchEvent( !auto_reset );
+			if( initial_state )
+				Set();
+// END EPIC
 #else
 			pthread_cond_init(&m_Cond, NULL);
 			pthread_mutex_init(&m_Mutex, NULL);
@@ -3457,6 +3520,11 @@ namespace FramePro
 		{
 #if FRAMEPRO_WIN_BASED_PLATFORM
 			CloseHandle(m_Handle);
+// START EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+			delete m_Event;
+			m_Event = nullptr;
+// END EPIC
 #else
 			pthread_mutex_destroy(&m_Mutex);
 			pthread_cond_destroy(&m_Cond);
@@ -3468,6 +3536,10 @@ namespace FramePro
 		{
 #if FRAMEPRO_WIN_BASED_PLATFORM
 			SetEvent(m_Handle);
+// START EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+			m_Event->Trigger();
+// END EPIC
 #else
 			pthread_mutex_lock(&m_Mutex);
 			m_Signalled = true;
@@ -3481,6 +3553,10 @@ namespace FramePro
 		{
 #if FRAMEPRO_WIN_BASED_PLATFORM
 			ResetEvent(m_Handle);
+// START EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+			m_Event->Reset();
+// END EPIC
 #else
 			pthread_mutex_lock(&m_Mutex);
 			m_Signalled = false;
@@ -3493,6 +3569,10 @@ namespace FramePro
 		{
 #if FRAMEPRO_WIN_BASED_PLATFORM
 			return WaitForSingleObject(m_Handle, timeout) == 0/*WAIT_OBJECT_0*/;
+// START EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+			return (timeout==-1) ? m_Event->Wait() : m_Event->Wait( timeout );
+// END EPIC
 #else
 			pthread_mutex_lock(&m_Mutex);
 	
@@ -3554,6 +3634,10 @@ namespace FramePro
 	private:
 #if FRAMEPRO_WIN_BASED_PLATFORM
 		HANDLE m_Handle;
+// START EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+		FEvent* m_Event;
+// END EPIC
 #else
 		mutable pthread_cond_t  m_Cond;
 		mutable pthread_mutex_t m_Mutex;
@@ -3591,6 +3675,12 @@ namespace FramePro
 
 	//------------------------------------------------------------------------
 	class Thread
+// BEGIN EPIC
+#if FRAMEPRO_UE4_BASED_PLATFORM
+	: public FRunnable
+#endif		
+// END EPIC
+
 	{
 	public:
 		Thread();
@@ -3608,6 +3698,10 @@ namespace FramePro
 	private:
 		#if FRAMEPRO_WIN_BASED_PLATFORM
 			static unsigned long WINAPI PlatformThreadMain(void* p_param);
+		// BEGIN EPIC
+		#elif FRAMEPRO_UE4_BASED_PLATFORM
+			virtual uint32 Run() override;
+		// END EPIC
 		#else
 			static void* PlatformThreadMain(void* p_param);
 		#endif
@@ -3617,6 +3711,10 @@ namespace FramePro
 	private:
 #if FRAMEPRO_WIN_BASED_PLATFORM
 		mutable HANDLE m_Handle;
+// BEGIN EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+		mutable TUniquePtr<FRunnableThread> m_Runnable;
+// END EPIC
 #else
 		mutable pthread_t m_Thread;
 #endif
@@ -3967,6 +4065,8 @@ namespace FramePro
 		return (!err) ? (int)cpu : 0;
 	#elif FRAMEPRO_PLATFORM_IOS
 		return 0; // TODO
+	#elif FRAMEPRO_UE4_BASED_PLATFORM
+		return FPlatformProcess::GetCurrentCoreNumber();
 	#else
 		#error
 	#endif
@@ -3981,7 +4081,9 @@ namespace FramePro
 	}
 		
 	//------------------------------------------------------------------------
-	FRAMEPRO_THREAD_LOCAL FrameProTLS* gp_FrameProTLS = NULL;
+// BEGIN EPIC
+//	FRAMEPRO_THREAD_LOCAL FrameProTLS* gp_FrameProTLS = NULL;
+// END EPIC
 
 	//------------------------------------------------------------------------
 	FRAMEPRO_NO_INLINE FrameProTLS* CreateFrameProTLS()
@@ -3995,7 +4097,10 @@ namespace FramePro
 
 		framepro_session.AddFrameProTLS(p_framepro_tls);
 
-		gp_FrameProTLS = p_framepro_tls;
+// BEGIN EPIC
+		FPlatformTLS::SetTlsValue(GetFrameProTLSSlot(), (void*)p_framepro_tls);
+//		gp_FrameProTLS = p_framepro_tls;
+// END EPIC
 
 		return p_framepro_tls;
 	}
@@ -5719,7 +5824,7 @@ namespace FramePro
 #elif FRAMEPRO_PLATFORM_XBOX360
 		return Platform::XBox360;
 // START EPIC
-#elif FRAMEPRO_PLATFORM_ANDROID || FRAMEPRO_PLATFORM_UNIX || FRAMEPRO_PLATFORM_IOS
+#elif FRAMEPRO_PLATFORM_ANDROID || FRAMEPRO_PLATFORM_UNIX || FRAMEPRO_PLATFORM_IOS || FRAMEPRO_PLATFORM_SWITCH
 // END EPIC
 		return Platform::Unix;
 #else
@@ -5923,7 +6028,12 @@ namespace FramePro
 				#else
 					strcpy_s(p_module_packet->m_SymbolFilename, tchar_filename);
 				#endif
-
+// BEGIN EPIC
+			#elif FRAMEPRO_UE4_BASED_PLATFORM
+				p_module_packet->m_UseLookupFunctionForBaseAddress = 1;
+				p_module_packet->m_ModuleBase = (int64)BaseAddressLookupFunction;
+				strcpy_s( p_module_packet->m_SymbolFilename, FRAMEPRO_MAX_INLINE_STRING_LENGTH-1, TCHAR_TO_ANSI(FPlatformProcess::ExecutableName(false)) );
+// END EPIC
 			#else
 				p_module_packet->m_UseLookupFunctionForBaseAddress = 1;
 
@@ -6114,25 +6224,28 @@ namespace FramePro
 		// send the send buffers
 		for(SendBuffer* p_send_buffer = send_buffer_list.GetHead(); p_send_buffer; p_send_buffer = p_send_buffer->GetNext())
 		{
-			if(mp_RecordingFile)
-			{
-				CriticalSectionScope lock2(m_CriticalSection);
-				WriteSendBuffer(p_send_buffer, mp_RecordingFile, m_RecordingFileSize);
-			}
-			else
-			{
+// START EPIC
+            CriticalSectionScope lock2(m_CriticalSection);
+                
+            if(mp_RecordingFile)
+            {
+                WriteSendBuffer(p_send_buffer, mp_RecordingFile, m_RecordingFileSize);
+            }
+            else
+            {
 #if FRAMEPRO_SOCKETS_ENABLED
-				if(m_Interactive)
-				{
-					if(!SendSendBuffer(p_send_buffer, m_ClientSocket))
-						break;		// disconnected
-				}
-				else
-				{
-					WriteSendBuffer(p_send_buffer, mp_NonInteractiveRecordingFile, m_NonInteractiveRecordingFileSize);
-				}
+                if(m_Interactive)
+                {
+                    if(!SendSendBuffer(p_send_buffer, m_ClientSocket))
+                        break;        // disconnected
+                }
+                else
+                {
+                    WriteSendBuffer(p_send_buffer, mp_NonInteractiveRecordingFile, m_NonInteractiveRecordingFileSize);
+                }
 #endif
-			}
+            }
+// END EPIC
 		}
 
 		// give the empty send buffers back to the TLS objects
@@ -6257,13 +6370,16 @@ namespace FramePro
 
 		m_InitialiseConnectionNextFrame = false;
 
-		if(mp_RecordingFile)
-		{
-// START EPIC
-			delete mp_RecordingFile;
-// END EPIC
-			mp_RecordingFile = NULL;
-		}
+        {
+            CriticalSectionScope lock2(m_CriticalSection);
+            if(mp_RecordingFile)
+            {
+                // START EPIC
+                delete mp_RecordingFile;
+                // END EPIC
+                mp_RecordingFile = NULL;
+            }
+        }
 
 #if FRAMEPRO_SOCKETS_ENABLED
 		// start listening for new connections
@@ -6521,7 +6637,8 @@ namespace FramePro
 		}
 
 		// stop recording if the file has become too big
-		if (mp_RecordingFile && m_RecordingFileSize > m_MaxRecordingFileSize)
+		//if (mp_RecordingFile && m_RecordingFileSize > m_MaxRecordingFileSize)
+		if (false)
 		{
 			StopRecording();
 		}
@@ -8173,6 +8290,15 @@ bool FramePro::Socket::InitialiseWSA()
 			return false;
 		}
 #endif
+// BEGIN EPIC
+#if FRAMEPRO_PLATFORM_SWITCH
+		if( !FramePro::PlatformDebugNetInit() )
+		{
+			return false;
+		}
+#endif
+// END EPIC
+
 	}
 
 	++g_InitialiseCount;
@@ -8436,6 +8562,11 @@ FramePro::Thread::Thread()
 	:	m_Handle(0),
 		m_Alive(false),
 		m_ThreadTerminatedEvent(false, false)
+// BEGIN EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+	:	m_Alive(false),
+		m_ThreadTerminatedEvent(false,false)
+// END EPIC
 #else
 	:	m_Alive(false),
 		m_ThreadTerminatedEvent(false, false)
@@ -8451,6 +8582,10 @@ void FramePro::Thread::CreateThread(ThreadMain p_thread_main, void* p_param)
 
 #if FRAMEPRO_WIN_BASED_PLATFORM
 	m_Handle = ::CreateThread(NULL, 0, PlatformThreadMain, this, 0, NULL);
+// BEGIN EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+	m_Runnable = TUniquePtr<FRunnableThread>( FRunnableThread::Create( this, TEXT("FramePro") ) );
+// END EPIC
 #else
 	pthread_create(&m_Thread, NULL, PlatformThreadMain, this);
 #endif
@@ -8467,6 +8602,17 @@ unsigned long WINAPI FramePro::Thread::PlatformThreadMain(void* p_param)
 	p_thread->m_ThreadTerminatedEvent.Set();
 	return ret;
 }
+// BEGIN EPIC
+#elif FRAMEPRO_UE4_BASED_PLATFORM
+uint32 FramePro::Thread::Run()
+{
+	m_Alive = true;
+	mp_ThreadMain(mp_Param);
+	m_Alive = false;
+	m_ThreadTerminatedEvent.Set();
+	return 0;
+}
+// END EPIC
 #else
 void* FramePro::Thread::PlatformThreadMain(void* p_param)
 {

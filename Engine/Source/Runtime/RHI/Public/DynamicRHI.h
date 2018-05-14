@@ -767,6 +767,9 @@ public:
 	// FlushType: Flush Immediate (copied from RHIBlockUntilGPUIdle)
 	virtual void RHISubmitCommandsAndFlushGPU() {};
 
+	// Tells the RHI we're about to suspend it
+	virtual void RHIBeginSuspendRendering() {};
+
 	// Operations to suspend title rendering and yield control to the system
 	// FlushType: Thread safe
 	virtual void RHISuspendRendering() {};
@@ -1072,6 +1075,11 @@ FORCEINLINE void RHIResizeViewport(FViewportRHIParamRef Viewport, uint32 SizeX, 
 FORCEINLINE void RHITick(float DeltaTime)
 {
 	GDynamicRHI->RHITick(DeltaTime);
+}
+
+FORCEINLINE void RHIBeginSuspendRendering()
+{
+	GDynamicRHI->RHIBeginSuspendRendering();
 }
 
 FORCEINLINE void RHISuspendRendering()

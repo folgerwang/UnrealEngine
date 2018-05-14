@@ -649,6 +649,9 @@ enum ETextureCreateFlags
 	TexCreate_BiasNormalMap			= 1<<11,
 	// Create the texture with the flag that allows mip generation later, only applicable to D3D11
 	TexCreate_GenerateMipCapable	= 1<<12,
+
+	// The texture can be partially allocated in fastvram
+	TexCreate_FastVRAMPartialAlloc  = 1<<13,
 	// UnorderedAccessView (DX11 only)
 	// Warning: Causes additional synchronization between draw calls when using a render target allocated with this flag, use sparingly
 	// See: GCNPerformanceTweets.pdf Tip 37

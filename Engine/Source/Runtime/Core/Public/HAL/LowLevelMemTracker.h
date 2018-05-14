@@ -17,7 +17,7 @@
 #else
 	#include "Stats/Stats.h"
 
-	#define LLM_SUPPORTED_PLATFORM (PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_WINDOWS || PLATFORM_IOS || PLATFORM_MAC || PLATFORM_ANDROID || PLATFORM_SWITCH)
+	#define LLM_SUPPORTED_PLATFORM (PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_WINDOWS || PLATFORM_IOS || PLATFORM_MAC || PLATFORM_ANDROID || PLATFORM_SWITCH || PLATFORM_UNIX)
 
 	// *** enable/disable LLM here ***
 #ifndef ENABLE_LOW_LEVEL_MEM_TRACKER
@@ -37,6 +37,11 @@
 #ifndef LLM_COMMANDLINE_ENABLES_FUNCTIONALITY
 	#define LLM_COMMANDLINE_ENABLES_FUNCTIONALITY 1
 #endif 
+
+	// when set to 1, forces LLM to be enabled without having to parse the command line.
+#ifndef LLM_AUTO_ENABLE
+	#define LLM_AUTO_ENABLE 0
+#endif
 
 	#if STATS
 		#define DECLARE_LLM_MEMORY_STAT(CounterName,StatId,GroupId) \
@@ -100,71 +105,72 @@ enum class ELLMTagSet : uint8
 	Max,	// note: check out FLowLevelMemTracker::ShouldReduceThreads and IsAssetTagForAssets if you add any asset-style tagsets
 };
 
+#define LLM_ENUM_GENERIC_TAGS(macro) \
+	macro(Untagged,								"Untagged",						NAME_None,													NAME_None)									\
+	macro(Paused,								"Paused",						NAME_None,													NAME_None)									\
+	macro(Total,								"Total",						GET_STATFNAME(STAT_TotalLLM),								GET_STATFNAME(STAT_TrackedTotalSummaryLLM))	\
+	macro(Untracked,							"Untracked",					GET_STATFNAME(STAT_UntrackedLLM),							GET_STATFNAME(STAT_TrackedTotalSummaryLLM))	\
+	macro(PlatformTotal,						"Total",						GET_STATFNAME(STAT_PlatformTotalLLM),						NAME_None)									\
+	macro(TrackedTotal,							"TrackedTotal",					GET_STATFNAME(STAT_TrackedTotalLLM),						GET_STATFNAME(STAT_TrackedTotalSummaryLLM))	\
+	macro(UntaggedTotal,						"Untagged",						GET_STATFNAME(STAT_UntaggedTotalLLM),						NAME_None)									\
+	macro(PlatformTrackedTotal,					"TrackedTotal",					GET_STATFNAME(STAT_PlatformTrackedTotalLLM),				NAME_None)									\
+	macro(PlatformUntaggedTotal,				"Untagged",						GET_STATFNAME(STAT_PlatformUntaggedTotalLLM),				NAME_None)									\
+	macro(PlatformUntracked,					"Untracked",					GET_STATFNAME(STAT_PlatformUntrackedLLM),					NAME_None)									\
+	macro(FMalloc,								"FMalloc",						GET_STATFNAME(STAT_FMallocLLM),								NAME_None)									\
+	macro(FMallocUnused,						"FMallocUnused",				GET_STATFNAME(STAT_FMallocUnusedLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(ThreadStack,							"ThreadStack",					GET_STATFNAME(STAT_ThreadStackLLM),							GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(ThreadStackPlatform,					"ThreadStack",					GET_STATFNAME(STAT_ThreadStackPlatformLLM),					NAME_None)									\
+	macro(ProgramSizePlatform,					"ProgramSize",					GET_STATFNAME(STAT_ProgramSizePlatformLLM),					NAME_None)									\
+	macro(ProgramSize,							"ProgramSize",					GET_STATFNAME(STAT_ProgramSizeLLM),							GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(BackupOOMMemoryPoolPlatform,			"OOMBackupPool",				GET_STATFNAME(STAT_OOMBackupPoolPlatformLLM),				NAME_None)									\
+	macro(BackupOOMMemoryPool,					"OOMBackupPool",				GET_STATFNAME(STAT_OOMBackupPoolLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(GenericPlatformMallocCrash,			"GenericPlatformMallocCrash",	GET_STATFNAME(STAT_GenericPlatformMallocCrashLLM),			GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(GenericPlatformMallocCrashPlatform,	"GenericPlatformMallocCrash",	GET_STATFNAME(STAT_GenericPlatformMallocCrashPlatformLLM),	GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(EngineMisc,							"EngineMisc",					GET_STATFNAME(STAT_EngineMiscLLM),							GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(TaskGraphTasksMisc,					"TaskGraphMiscTasks",			GET_STATFNAME(STAT_TaskGraphTasksMiscLLM),					GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(Audio,								"Audio",						GET_STATFNAME(STAT_AudioLLM),								GET_STATFNAME(STAT_AudioSummaryLLM))		\
+	macro(FName,								"FName",						GET_STATFNAME(STAT_FNameLLM),								GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(Networking,							"Networking",					GET_STATFNAME(STAT_NetworkingLLM),							GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(Meshes,								"Meshes",						GET_STATFNAME(STAT_MeshesLLM),								GET_STATFNAME(STAT_MeshesSummaryLLM))		\
+	macro(Stats,								"Stats",						GET_STATFNAME(STAT_StatsLLM),								GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(Shaders,								"Shaders",						GET_STATFNAME(STAT_ShadersLLM),								GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(Textures,								"Textures",						GET_STATFNAME(STAT_TexturesLLM),							GET_STATFNAME(STAT_TexturesSummaryLLM))		\
+	macro(RenderTargets,						"RenderTargets",				GET_STATFNAME(STAT_RenderTargetsLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(RHIMisc,								"RHIMisc",						GET_STATFNAME(STAT_RHIMiscLLM),								GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(PhysXTriMesh,							"PhysXTriMesh",					GET_STATFNAME(STAT_PhysXTriMeshLLM),						GET_STATFNAME(STAT_PhysXSummaryLLM))		\
+	macro(PhysXConvexMesh,						"PhysXConvexMesh",				GET_STATFNAME(STAT_PhysXConvexMeshLLM),						GET_STATFNAME(STAT_PhysXSummaryLLM))		\
+	macro(AsyncLoading,							"AsyncLoading",					GET_STATFNAME(STAT_AsyncLoadingLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(UObject,								"UObject",						GET_STATFNAME(STAT_UObjectLLM),								GET_STATFNAME(STAT_UObjectSummaryLLM))		\
+	macro(Animation,							"Animation",					GET_STATFNAME(STAT_AnimationLLM),							GET_STATFNAME(STAT_AnimationSummaryLLM))	\
+	macro(StaticMesh,							"StaticMesh",					GET_STATFNAME(STAT_StaticMeshLLM),							GET_STATFNAME(STAT_StaticMeshSummaryLLM))	\
+	macro(Materials,							"Materials",					GET_STATFNAME(STAT_MaterialsLLM),							GET_STATFNAME(STAT_MaterialsSummaryLLM))	\
+	macro(Particles,							"Particles",					GET_STATFNAME(STAT_ParticlesLLM),							GET_STATFNAME(STAT_ParticlesSummaryLLM))	\
+	macro(GC,									"GC",							GET_STATFNAME(STAT_GCLLM),									GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(UI,									"UI",							GET_STATFNAME(STAT_UILLM),									GET_STATFNAME(STAT_UISummaryLLM))			\
+	macro(PhysX,								"PhysX",						GET_STATFNAME(STAT_PhysXLLM),								GET_STATFNAME(STAT_PhysXSummaryLLM))		\
+	macro(EnginePreInitMemory,					"EnginePreInit",				GET_STATFNAME(STAT_EnginePreInitLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(EngineInitMemory,						"EngineInit",					GET_STATFNAME(STAT_EngineInitLLM),							GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(RenderingThreadMemory,				"RenderingThread",				GET_STATFNAME(STAT_RenderingThreadLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(LoadMapMisc,							"LoadMapMisc",					GET_STATFNAME(STAT_LoadMapMiscLLM),							GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(StreamingManager,						"StreamingManager",				GET_STATFNAME(STAT_StreamingManagerLLM),					GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(GraphicsPlatform,						"Graphics",						GET_STATFNAME(STAT_GraphicsPlatformLLM),					NAME_None)									\
+	macro(FileSystem,							"FileSystem",					GET_STATFNAME(STAT_FileSystemLLM),							GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(Localization,							"Localization",					GET_STATFNAME(STAT_LocalizationLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(VertexBuffer,							"VertexBuffer",					GET_STATFNAME(STAT_VertexBufferLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(IndexBuffer,							"IndexBuffer",					GET_STATFNAME(STAT_IndexBufferLLM),							GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(UniformBuffer,						"UniformBuffer",				GET_STATFNAME(STAT_UniformBufferLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(AssetRegistry,						"AssetRegistry",				GET_STATFNAME(STAT_AssetRegistryLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(ConfigSystem,							"ConfigSystem",					GET_STATFNAME(STAT_ConfigSystemLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(InitUObject,							"InitUObject",					GET_STATFNAME(STAT_InitUObjectLLM),							GET_STATFNAME(STAT_EngineSummaryLLM))
+
 /*
  * Enum values to be passed in to LLM_SCOPE() macro
- * *** This enum must be kept in sync with ELLMTagNames ***
  */
 enum class ELLMTag : LLM_TAG_TYPE
 {
-	Untagged = 0,
-	Paused,					// special tag that indicates the thread is paused, and that the tracking code should ignore the alloc
-	
-	Total,
-	Untracked,
-	PlatformTotal,
-	TrackedTotal,
-	UntaggedTotal,
-	PlatformTrackedTotal,
-	PlatformUntaggedTotal,
-	PlatformUntracked,
-	FMalloc,
-	FMallocUnused,
-	ThreadStack,
-	ThreadStackPlatform,
-	ProgramSizePlatform,
-	ProgramSize,
-	BackupOOMMemoryPoolPlatform,
-	BackupOOMMemoryPool,
-	GenericPlatformMallocCrash,
-	GenericPlatformMallocCrashPlatform,
-	EngineMisc,
-	TaskGraphTasksMisc,
-	Audio,
-	FName,
-	Networking,
-	Meshes,
-	Stats,
-	Shaders,
-	Textures,
-	RenderTargets,
-	RHIMisc,
-	PhysXTriMesh,
-	PhysXConvexMesh,
-	AsyncLoading,
-	UObject,
-	Animation,
-	StaticMesh,
-	Materials,
-	Particles,
-	GC,
-	UI,
-	PhysX,
-	EnginePreInitMemory,
-	EngineInitMemory,
-	RenderingThreadMemory,
-	LoadMapMisc,
-	StreamingManager,
-	GraphicsPlatform,
-	FileSystem,
-    Localization,
-    VertexBuffer,
-    IndexBuffer,
-    UniformBuffer,
-	AssetRegistry,
-	ConfigSystem,
-	InitUObject,
-
-	// Some quick and dirty tags that 
+#define LLM_ENUM(Enum,Str,Stat,Group) Enum,
+	LLM_ENUM_GENERIC_TAGS(LLM_ENUM)
+#undef LLM_ENUM
 
 	GenericTagCount,
 
@@ -188,6 +194,11 @@ enum class ELLMAllocType
 
 	Count
 };
+
+extern const ANSICHAR* LLMGetTagNameANSI(ELLMTag Tag);
+extern const TCHAR* LLMGetTagName(ELLMTag Tag);
+extern FName LLMGetTagStatGroup(ELLMTag Tag);
+extern FName LLMGetTagStat(ELLMTag Tag);
 
 /**
  * LLM utility macros
@@ -353,6 +364,9 @@ public:
     int64 GetActiveTag(ELLMTracker Tracker);
     
 	void RegisterPlatformTag(int32 Tag, const TCHAR* Name, FName StatName, FName SummaryStatName);
+
+	// look up the tag associated with the given name
+	bool FindTagByName( const TCHAR* Name, uint64& OutTag ) const;
 
 private:
 	FLowLevelMemTracker();

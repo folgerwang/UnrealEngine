@@ -784,6 +784,13 @@ FMoviePlayerWidgetRenderer::FMoviePlayerWidgetRenderer(TSharedPtr<SWindow> InMai
 
 void FMoviePlayerWidgetRenderer::DrawWindow(float DeltaTime)
 {
+	if (GDynamicRHI && GDynamicRHI->RHIIsRenderingSuspended())
+	{
+		// This avoids crashes if we Suspend rendering whilst the loading screen is up
+		// as we don't want Slate to submit any more draw calls until we Resume.
+		return;
+	}
+
 	FVector2D DrawSize = VirtualRenderWindow->GetClientSizeInScreen();
 
 	FSlateApplication::Get().Tick(ESlateTickType::TimeOnly);
