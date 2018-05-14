@@ -1,7 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "KeyGenerator.h"
-#include "UnrealPak.h"
 #include "IPlatformFilePak.h"
 #include "Misc/SecureHash.h"
 #include "Math/BigInt.h"
