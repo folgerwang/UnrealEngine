@@ -712,6 +712,8 @@ void FSteamVRHMD::SetTrackingOrigin(EHMDTrackingOrigin::Type NewOrigin)
 		}
 
 		VRCompositor->SetTrackingSpace(NewSteamOrigin);
+
+		OnTrackingOriginChanged();
 	}
 }
 
@@ -733,6 +735,42 @@ EHMDTrackingOrigin::Type FSteamVRHMD::GetTrackingOrigin()
 
 	// By default, assume standing
 	return EHMDTrackingOrigin::Floor;
+}
+
+bool FSteamVRHMD::GetFloorToEyeTrackingTransform(FTransform& OutStandingToSeatedTransform) const
+{
+	bool bSuccess = false;
+	if (VRSystem && ensure(IsInGameThread()))
+	{
+		vr::TrackedDevicePose_t SeatedPoses[vr::k_unMaxTrackedDeviceCount];
+		VRSystem->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseOrigin::TrackingUniverseSeated, 0.0f, SeatedPoses, ARRAYSIZE(SeatedPoses));
+		vr::TrackedDevicePose_t StandingPoses[vr::k_unMaxTrackedDeviceCount];
+		VRSystem->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseOrigin::TrackingUniverseStanding, 0.0f, StandingPoses, ARRAYSIZE(StandingPoses));
+
+		const vr::TrackedDevicePose_t& SeatedHmdPose = SeatedPoses[vr::k_unTrackedDeviceIndex_Hmd];
+		const vr::TrackedDevicePose_t& StandingHmdPose = StandingPoses[vr::k_unTrackedDeviceIndex_Hmd];
+		if (SeatedHmdPose.bPoseIsValid && StandingHmdPose.bPoseIsValid)
+		{
+			const float WorldToMeters = GetWorldToMetersScale();
+
+			FVector SeatedHmdPosition = FVector::ZeroVector;
+			FQuat SeatedHmdOrientation = FQuat::Identity;
+			PoseToOrientationAndPosition(SeatedHmdPose.mDeviceToAbsoluteTracking, WorldToMeters, SeatedHmdOrientation, SeatedHmdPosition);
+
+			FVector StandingHmdPosition = FVector::ZeroVector;
+			FQuat StandingHmdOrientation = FQuat::Identity;
+			PoseToOrientationAndPosition(StandingHmdPose.mDeviceToAbsoluteTracking, WorldToMeters, StandingHmdOrientation, StandingHmdPosition);
+
+			const FVector SeatedHmdFwd   = SeatedHmdOrientation.GetForwardVector();
+			const FVector SeatedHmdRight = SeatedHmdOrientation.GetRightVector();
+			const FQuat StandingToSeatedRot = FRotationMatrix::MakeFromXY(SeatedHmdFwd, SeatedHmdRight).ToQuat() * StandingHmdOrientation.Inverse();
+
+			const FVector StandingToSeatedOffset = SeatedHmdPosition - StandingToSeatedRot.RotateVector(StandingHmdPosition);
+			OutStandingToSeatedTransform = FTransform(StandingToSeatedRot, StandingToSeatedOffset);
+			bSuccess = true;
+		}
+	}
+	return bSuccess;
 }
 
 
@@ -1395,33 +1433,14 @@ void FSteamVRHMD::OnBeginRendering_GameThread()
 	SpectatorScreenController->BeginRenderViewFamily();
 }
 
-struct FRHICommandExecute_BeginRendering final : public FRHICommand<FRHICommandExecute_BeginRendering>
-{
-	FSteamVRHMD::BridgeBaseImpl *pBridge;
-	FRHICommandExecute_BeginRendering(FSteamVRHMD::BridgeBaseImpl* pInBridge)
-		: pBridge(pInBridge)
-	{
-	}
-	
-	void Execute(FRHICommandListBase& /* unused */)
-	{
-		check(pBridge->IsUsingExplicitTimingMode());
-		pBridge->BeginRendering_RHI();
-	}
-};
-
 void FSteamVRHMD::OnBeginRendering_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& ViewFamily)
 {
 	check(IsInRenderingThread());
 	UpdatePoses();
 
-	if(pBridge && pBridge->IsUsingExplicitTimingMode())
-	{
-		new (RHICmdList.AllocCommand<FRHICommandExecute_BeginRendering>()) FRHICommandExecute_BeginRendering(GetActiveRHIBridgeImpl());
-	}
+	check(pBridge);
+	pBridge->BeginRendering_RenderThread(RHICmdList);
 	
-	GetActiveRHIBridgeImpl()->BeginRendering();
-
 	check(SpectatorScreenController);
 	SpectatorScreenController->UpdateSpectatorScreenMode_RenderThread();
 
@@ -1431,15 +1450,10 @@ void FSteamVRHMD::OnBeginRendering_RenderThread(FRHICommandListImmediate& RHICmd
 	PlayerOrientation = ViewOrientation * MainView->BaseHmdOrientation.Inverse();
 }
 
-void FSteamVRHMD::UpdateViewportRHIBridge(bool /* bUseSeparateRenderTarget */, const class FViewport& Viewport, FRHIViewport* const ViewportRHI)
+FXRRenderBridge* FSteamVRHMD::GetActiveRenderBridge_GameThread(bool /* bUseSeparateRenderTarget */)
 {
 	check(IsInGameThread());
 
-	GetActiveRHIBridgeImpl()->UpdateViewport(Viewport, ViewportRHI);
-}
-
-FSteamVRHMD::BridgeBaseImpl* FSteamVRHMD::GetActiveRHIBridgeImpl()
-{
 	return pBridge;
 }
 
@@ -1772,3 +1786,4 @@ const FSteamVRHMD::FTrackingFrame& FSteamVRHMD::GetTrackingFrame() const
 }
 
 #endif //STEAMVR_SUPPORTED_PLATFORMS
+

@@ -19,6 +19,8 @@ class AUGMENTEDREALITY_API UARBasicLightEstimate : public UARLightEstimate
 public:
 	void SetLightEstimate(float InAmbientIntensityLumens, float InColorTemperatureKelvin);
 	
+	void SetLightEstimate(FVector InRGBScaleFactor, float InPixelIntensity);
+	
 	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Light Estimation")
 	float GetAmbientIntensityLumens() const;
 	
@@ -34,4 +36,7 @@ private:
 	
 	UPROPERTY()
 	float AmbientColorTemperatureKelvin;
+	
+	UPROPERTY()
+	FLinearColor AmbientColor;
 };

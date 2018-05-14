@@ -1485,7 +1485,7 @@ void FSceneViewport::UpdateViewportRHI(bool bDestroyed, uint32 NewSizeX, uint32 
 	}
 }
 
-void FSceneViewport::EnqueueBeginRenderFrame()
+void FSceneViewport::EnqueueBeginRenderFrame(const bool bShouldPresent)
 {
 	check( IsInGameThread() );
 	const bool bStereoRenderingAvailable = GEngine->StereoRenderingDevice.IsValid() && IsStereoRenderingAllowed();
@@ -1551,9 +1551,9 @@ void FSceneViewport::EnqueueBeginRenderFrame()
 		Viewport->SetRenderTargetTextureRenderThread(RT);			
 	});		
 
-	FViewport::EnqueueBeginRenderFrame();
+	FViewport::EnqueueBeginRenderFrame(bShouldPresent);
 
-	if (StereoRenderTargetManager != nullptr)
+	if (StereoRenderTargetManager != nullptr && bShouldPresent)
 	{
 		StereoRenderTargetManager->UpdateViewport(UseSeparateRenderTarget(), *this, ViewportWidget.Pin().Get());
 	}
@@ -1787,7 +1787,7 @@ void FSceneViewport::InitDynamicRHI()
 		for (int32 i = 0; i < NumBufferedFrames; ++i)
 		{
 			// try to allocate texture via StereoRenderingDevice; if not successful, use the default way
-			if (StereoRenderTargetManager == nullptr || !StereoRenderTargetManager->AllocateRenderTargetTexture(i, TexSizeX, TexSizeY, PF_B8G8R8A8, 1, TexCreate_None, TexCreate_RenderTargetable, BufferedRTRHI, BufferedSRVRHI))
+			if (StereoRenderTargetManager == nullptr || !StereoRenderTargetManager->AllocateRenderTargetTexture(i, TexSizeX, TexSizeY, SceneTargetFormat, 1, TexCreate_None, TexCreate_RenderTargetable, BufferedRTRHI, BufferedSRVRHI))
 			{
 				RHICreateTargetableShaderResource2D(TexSizeX, TexSizeY, SceneTargetFormat, 1, TexCreate_None, TexCreate_RenderTargetable, false, CreateInfo, BufferedRTRHI, BufferedSRVRHI);
 			}

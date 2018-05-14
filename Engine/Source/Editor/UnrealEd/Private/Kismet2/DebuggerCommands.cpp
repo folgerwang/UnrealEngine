@@ -1978,7 +1978,7 @@ bool FInternalPlayWorldCommandCallbacks::IsReadyToLaunchOnDevice(FString DeviceI
 	FString PlatformName = DeviceId.Left(Index);
 
 	const PlatformInfo::FPlatformInfo* const PlatformInfo = PlatformInfo::FindPlatformInfo(FName(*PlatformName));
-	check(PlatformInfo);
+	checkf(PlatformInfo, TEXT("Unable to find PlatformInfo for %s"), *PlatformName);
 
 	FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
 	bool bHasCode = GameProjectModule.Get().ProjectRequiresBuild(FName(*PlatformName));

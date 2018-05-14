@@ -65,9 +65,9 @@ void FDefaultXRCamera::OverrideFOV(float& InOutFOV)
 	// The default camera does not override the FOV
 }
 
-void FDefaultXRCamera::SetupLateUpdate(const FTransform& ParentToWorld, USceneComponent* Component)
+void FDefaultXRCamera::SetupLateUpdate(const FTransform& ParentToWorld, USceneComponent* Component, bool bSkipLateUpdate)
 {
-	LateUpdate.Setup(ParentToWorld, Component);
+	LateUpdate.Setup(ParentToWorld, Component, bSkipLateUpdate);
 }
 
 void FDefaultXRCamera::CalculateStereoCameraOffset(const enum EStereoscopicPass StereoPassType, FRotator& ViewRotation, FVector& ViewLocation)
@@ -100,7 +100,8 @@ void FDefaultXRCamera::PreRenderView_RenderThread(FRHICommandListImmediate& RHIC
 	check(IsInRenderingThread());
 
 	// Disable late update for day dream, their compositor doesn't support it.
-	const bool bDoLateUpdate = (TrackingSystem->GetSystemName() != DayDreamHMD);
+	// Also disable it if we are set to skip it.
+	const bool bDoLateUpdate = (!LateUpdate.GetSkipLateUpdate_RenderThread()) && (TrackingSystem->GetSystemName() != DayDreamHMD);
 	if (bDoLateUpdate)
 	{
 		FQuat DeviceOrientation;

@@ -323,6 +323,8 @@ struct FOpenGLContextState : public FOpenGLCommonState
 	FLinearColor					ClearColor;
 	uint16							ClearStencil;
 	float							ClearDepth;
+	int32							FirstNonzeroRenderTarget;
+	GLenum							DrawFramebuffers[MaxSimultaneousRenderTargets];
 
 	// @todo-mobile: Used to cache the last color attachment to optimize logical buffer loads
 	GLuint							LastES2ColorRTResource;
@@ -352,7 +354,8 @@ struct FOpenGLContextState : public FOpenGLCommonState
 	,	ClearColor(-1, -1, -1, -1)
 	,	ClearStencil(0xFFFF)
 	,	ClearDepth(-1.0f)
-#if PLATFORM_ANDROID
+	,	FirstNonzeroRenderTarget(0)
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	,	LastES2ColorRTResource(0xFFFFFFFF)
 #else
 	,	LastES2ColorRTResource(0)
@@ -367,6 +370,7 @@ struct FOpenGLContextState : public FOpenGLCommonState
 		Viewport.Min.X = Viewport.Min.Y = Viewport.Max.X = Viewport.Max.Y = 0;
 		FMemory::Memzero(UniformBuffers, sizeof(UniformBuffers));
 		FMemory::Memzero(UniformBufferOffsets, sizeof(UniformBufferOffsets));
+		FMemory::Memzero(DrawFramebuffers, sizeof(DrawFramebuffers));
 	}
 
 	virtual void InitializeResources(int32 NumCombinedTextures, int32 NumComputeUAVUnits) override

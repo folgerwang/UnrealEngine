@@ -35,7 +35,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		private List<string> PossibleApiLevels = null;
 
-		private FileReference ProjectFile;
+		protected FileReference ProjectFile;
 
 		/// <summary>
 		/// Determines whether we package data inside the APK. Based on and  OR of "-ForcePackageData" being
@@ -3646,8 +3646,7 @@ namespace UnrealBuildTool
 
 		public override bool PrepTargetForDeployment(UEBuildDeployTarget InTarget)
 		{
-			//Log.TraceInformation("$$$$$$$$$$$$$$ PrepTargetForDeployment $$$$$$$$$$$$$$$$$ {0}", InTarget.TargetName);
-			AndroidToolChain ToolChain = new AndroidToolChain(InTarget.ProjectFile, false, InTarget.AndroidArchitectures, InTarget.AndroidGPUArchitectures); 
+			AndroidToolChain ToolChain = UEBuildPlatform.GetBuildPlatform(InTarget.Platform).CreateTempToolChainForProject(InTarget.ProjectFile) as AndroidToolChain;
 
 			// we need to strip architecture from any of the output paths
 			string BaseSoName = ToolChain.RemoveArchName(InTarget.OutputPaths[0].FullName);

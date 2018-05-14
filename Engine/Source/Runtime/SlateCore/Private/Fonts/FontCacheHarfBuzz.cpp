@@ -23,10 +23,12 @@
 	#endif
 
 	// Include some private headers needed for our font implementation
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	THIRD_PARTY_INCLUDES_START
 	#include "hb-private.hh"
 	#include "hb-font-private.hh"
 	THIRD_PARTY_INCLUDES_END
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	#if PLATFORM_MAC || PLATFORM_IOS || PLATFORM_TVOS
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS

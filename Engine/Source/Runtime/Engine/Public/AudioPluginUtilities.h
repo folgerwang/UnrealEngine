@@ -26,6 +26,8 @@ struct ENGINE_API AudioPluginUtilities
 	static const EAudioPlatform CurrentPlatform = EAudioPlatform::Switch;
 #elif PLATFORM_HTML5
 	static const EAudioPlatform CurrentPlatform = EAudioPlatform::HTML5;
+#elif PLATFORM_LUMIN
+	static const EAudioPlatform CurrentPlatform = EAudioPlatform::Lumin;
 #else
 	static const EAudioPlatform CurrentPlatform = EAudioPlatform::Unknown;
 #endif

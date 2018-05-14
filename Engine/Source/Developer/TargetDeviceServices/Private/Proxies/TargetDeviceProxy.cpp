@@ -67,7 +67,8 @@ void FTargetDeviceProxy::UpdateFromMessage( const FTargetDeviceServicePong& Mess
 	SupportsPowerOn = Message.SupportsPowerOn;
 	SupportsReboot = Message.SupportsReboot;
 	SupportsVariants = Message.SupportsVariants;
-	DefaultVariant = Aggregated ? Message.AllDevicesDefaultVariant: Message.DefaultVariant;
+	//Temp disabling the all devices default variant due to Lumin devices deriving off of Android.  When Lumin is plugged in alone, there was a crash in GetTargetDeviceIds.
+	DefaultVariant = Message.DefaultVariant;// Aggregated ? Message.AllDevicesDefaultVariant : Message.DefaultVariant;
 
 	// Update the map of flavors.
 	for (int Index = 0; Index < Message.Variants.Num(); Index++)

@@ -471,9 +471,9 @@ static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
 static FName NAME_GLSL_ES3_1_ANDROID(TEXT("GLSL_ES3_1_ANDROID"));
 static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
 static FName NAME_VULKAN_ES3_1_ANDROID(TEXT("SF_VULKAN_ES31_ANDROID"));
-static FName NAME_VULKAN_ES3_1_ANDROID_UB(TEXT("SF_VULKAN_ES31_ANDROID_UB"));
+static FName NAME_VULKAN_ES3_1_ANDROID_NOUB(TEXT("SF_VULKAN_ES31_ANDROID_NOUB"));
 static FName NAME_VULKAN_ES3_1(TEXT("SF_VULKAN_ES31"));
-static FName NAME_VULKAN_ES3_1_UB(TEXT("SF_VULKAN_ES31_UB"));
+static FName NAME_VULKAN_ES3_1_NOUB(TEXT("SF_VULKAN_ES31_NOUB"));
 static FName NAME_VULKAN_SM4_NOUB(TEXT("SF_VULKAN_SM4_NOUB"));
 static FName NAME_VULKAN_SM4(TEXT("SF_VULKAN_SM4"));
 static FName NAME_VULKAN_SM5_NOUB(TEXT("SF_VULKAN_SM5_NOUB"));
@@ -540,9 +540,9 @@ FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
 	case SP_VULKAN_SM5:
 		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_SM5 : NAME_VULKAN_SM5_NOUB;
 	case SP_VULKAN_PCES3_1:
-		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_ES3_1_UB : NAME_VULKAN_ES3_1;
+		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_ES3_1 : NAME_VULKAN_ES3_1_NOUB;
 	case SP_VULKAN_ES3_1_ANDROID:
-		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_ES3_1_ANDROID_UB : NAME_VULKAN_ES3_1_ANDROID;
+		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_ES3_1_ANDROID : NAME_VULKAN_ES3_1_ANDROID_NOUB;
 	case SP_SWITCH:
 		return NAME_GLSL_SWITCH;
 	case SP_SWITCH_FORWARD:
@@ -578,9 +578,9 @@ EShaderPlatform ShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 	if (ShaderFormat == NAME_VULKAN_SM4)				return SP_VULKAN_SM4;
 	if (ShaderFormat == NAME_VULKAN_SM5)				return SP_VULKAN_SM5;
 	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID)		return SP_VULKAN_ES3_1_ANDROID;
-	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID_UB)	return SP_VULKAN_ES3_1_ANDROID;
+	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID_NOUB)	return SP_VULKAN_ES3_1_ANDROID;
 	if (ShaderFormat == NAME_VULKAN_ES3_1)				return SP_VULKAN_PCES3_1;
-	if (ShaderFormat == NAME_VULKAN_ES3_1_UB)			return SP_VULKAN_PCES3_1;
+	if (ShaderFormat == NAME_VULKAN_ES3_1_NOUB)			return SP_VULKAN_PCES3_1;
 	if (ShaderFormat == NAME_VULKAN_SM4_NOUB)			return SP_VULKAN_SM4;
 	if (ShaderFormat == NAME_VULKAN_SM5_NOUB)			return SP_VULKAN_SM5;
 	if (ShaderFormat == NAME_SF_METAL_SM5_NOTESS)		return SP_METAL_SM5_NOTESS;

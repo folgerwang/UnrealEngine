@@ -915,14 +915,14 @@ private:
 
 IMPLEMENT_SHADER_TYPE(,FApplyLightShaftsPixelShader,TEXT("/Engine/Private/LightShaftShader.usf"),TEXT("ApplyLightShaftsPixelMain"),SF_Pixel);
 
-void ApplyLightShaftBloom(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FLightSceneInfo* const LightSceneInfo, TRefCountPtr<IPooledRenderTarget>& LightShaftsSource)
+void ApplyLightShaftBloom(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FSceneRenderer& Renderer, const FLightSceneInfo* const LightSceneInfo, TRefCountPtr<IPooledRenderTarget>& LightShaftsSource)
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
 	bool bUseSeparateTranslucency = false;
 	if (View.Family->AllowTranslucencyAfterDOF() && GLightShaftRenderAfterDOF)
 	{
-		SceneContext.BeginRenderingSeparateTranslucency(RHICmdList, View, false);
+		SceneContext.BeginRenderingSeparateTranslucency(RHICmdList, View, Renderer, false);
 		bUseSeparateTranslucency = true;
 	}
 	else
@@ -1069,7 +1069,7 @@ void FDeferredShadingSceneRenderer::RenderLightShaftBloom(FRHICommandListImmedia
 							ApplyRadialBlurPasses(RHICmdList, View, LightSceneInfo, HistoryOutput, LightShafts0, LightShafts1);
 						
 							// Add light shaft bloom to scene color in full res
-							ApplyLightShaftBloom(RHICmdList, View, LightSceneInfo, LightShafts0);
+							ApplyLightShaftBloom(RHICmdList, View, *this, LightSceneInfo, LightShafts0);
 						}
 					}
 				}

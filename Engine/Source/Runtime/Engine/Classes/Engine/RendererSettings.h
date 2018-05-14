@@ -508,6 +508,12 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConfigRestartRequired = true))
 		uint32 bMonoscopicFarField : 1;
 
+	UPROPERTY(config, EditAnywhere, Category = Experimental, meta = (
+		ConsoleVariable = "vr.ODSCapture", DisplayName = "Omni-directional Stereo Capture",
+		ToolTip = "Enable Omni-directional Stereo Capture.",
+		ConfigRestartRequired = true))
+		uint32 bODSCapture : 1;
+
 	UPROPERTY(config, EditAnywhere, Category = VR, meta = (
 		ConsoleVariable = "vr.DebugCanvasInLayer", DisplayName = "Debug Canvas in Layer",
 		ToolTip = "Enables debug canvases to be rendered in HMD layers"))

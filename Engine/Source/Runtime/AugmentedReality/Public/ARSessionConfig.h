@@ -25,15 +25,18 @@ enum class EARSessionType : uint8
 	Face
 };
 
-UENUM(BlueprintType, Category = "AR AugmentedReality", meta = (Experimental))
+UENUM(BlueprintType, Category = "AR AugmentedReality", meta = (Experimental, Bitflags))
 enum class EARPlaneDetectionMode : uint8
 {
-	/** No Geometry Detection */
 	None = 0,
-
+	
 	/* Detect Horizontal Surfaces */
-	HorizontalPlaneDetection = 1
+	HorizontalPlaneDetection = 1,
+
+	/* Detects Vertical Surfaces */
+	VerticalPlaneDetection = 2
 };
+ENUM_CLASS_FLAGS(EARPlaneDetectionMode);
 
 UENUM(BlueprintType, Category = "AR AugmentedReality", meta = (Experimental))
 enum class EARLightEstimationMode : uint8
@@ -86,15 +89,38 @@ public:
 	/** @see bEnableAutomaticCameraTracking */
 	bool ShouldEnableCameraTracking() const;
 
+	/** @see bEnableAutoFocus */
+	bool ShouldEnableAutoFocus() const;
+
+	/** @see CandidateImages */
+	const TArray<UARCandidateImage*>& GetCandidateImageList() const;
+
 private:
+	//~ UObject interface
+	virtual void Serialize(FArchive& Ar) override;
+	//~ UObject interface
+
+protected:
 	
 	/** @see EARSessionType */
 	UPROPERTY(EditAnywhere, Category = "AR Settings")
 	EARSessionType SessionType;
 
 	/** @see EARPlaneDetectionMode */
+	UPROPERTY()
+	EARPlaneDetectionMode PlaneDetectionMode_DEPRECATED;
+	
+	/** Should we detect flat horizontal surfaces: e.g. table tops, windows sills */
 	UPROPERTY(EditAnywhere, Category = "AR Settings")
-	EARPlaneDetectionMode PlaneDetectionMode;
+	bool bHorizontalPlaneDetection;
+	
+	/** Should we detect flat vertical surfaces: e.g. paintings, monitors, book cases */
+	UPROPERTY(EditAnywhere, Category = "AR Settings")
+	bool bVerticalPlaneDetection;
+
+	/** Whether the camera should use autofocus or not (can cause subtle shifts in position for small objects at macro camera distance) */
+	UPROPERTY(EditAnywhere, Category = "AR Settings")
+	bool bEnableAutoFocus;
 
 	/** @see EARLightEstimationMode */
 	UPROPERTY(EditAnywhere, Category = "AR Settings")
@@ -111,4 +137,8 @@ private:
 	/** Whether the game camera should track the device movement or not. Defaults to true. */
 	UPROPERTY(EditAnywhere, Category="AR Settings")
 	bool bEnableAutomaticCameraTracking;
+
+	/** The list of candidate images to detect within the AR camera view */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	TArray<UARCandidateImage*> CandidateImages;
 };

@@ -163,7 +163,7 @@ void FOpenGLDynamicRHI::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef Unordere
 {
 	FOpenGLUnorderedAccessView* Texture = ResourceCast(UnorderedAccessViewRHI);
 
-#if OPENGL_GL4
+#if OPENGL_GL4 || PLATFORM_LUMINGL4
 	glBindBuffer(GL_TEXTURE_BUFFER, Texture->BufferResource);
 	FOpenGL::ClearBufferData(GL_TEXTURE_BUFFER, Texture->Format, GL_RED_INTEGER, GL_UNSIGNED_INT, Values);
 	GPUProfilingData.RegisterGPUWork(1);
@@ -183,5 +183,3 @@ void FOpenGLDynamicRHI::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef Unordere
 	UE_LOG(LogRHI, Fatal, TEXT("Only OpenGL4 supports RHIClearUAV."));
 #endif
 }
-
-

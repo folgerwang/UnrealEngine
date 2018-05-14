@@ -128,7 +128,7 @@ void FStreamingPauseRenderingModule::BeginStreamingPause( FViewport* GameViewpor
 
 			SceneViewport->UpdateViewportRHI(false, SizeXY.X, SizeXY.Y, EWindowMode::Fullscreen, PF_Unknown);
 
-			SceneViewport->EnqueueBeginRenderFrame();
+			SceneViewport->EnqueueBeginRenderFrame(false);
 
 			FCanvas Canvas(SceneViewport.Get(), nullptr, ViewportClient->GetWorld(), ViewportClient->GetWorld()->FeatureLevel);
 			{

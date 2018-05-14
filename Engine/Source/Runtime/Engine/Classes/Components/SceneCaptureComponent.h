@@ -23,6 +23,7 @@ struct FSceneCaptureViewInfo
 	FMatrix ProjectionMatrix;
 	FIntRect ViewRect;
 	EStereoscopicPass StereoPass;
+	float StereoIPD;
 };
 
 USTRUCT(BlueprintType)

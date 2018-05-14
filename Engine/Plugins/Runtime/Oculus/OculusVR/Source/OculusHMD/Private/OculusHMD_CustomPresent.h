@@ -10,6 +10,7 @@
 #include "RHI.h"
 #include "RendererInterface.h"
 #include "IStereoLayers.h"
+#include "XRRenderBridge.h"
 
 #if PLATFORM_WINDOWS
 #include "Windows/WindowsHWrapper.h"
@@ -31,26 +32,22 @@ namespace OculusHMD
 // FCustomPresent
 //-------------------------------------------------------------------------------------------------
 
-class FCustomPresent : public FRHICustomPresent
+class FCustomPresent : public FXRRenderBridge
 {
 public:
 	FCustomPresent(class FOculusHMD* InOculusHMD, ovrpRenderAPIType InRenderAPI, EPixelFormat InDefaultPixelFormat, bool InSupportsSRGB, bool InSupportsDepth);
 
-	// FRHICustomPresent
-	virtual void OnBackBufferResize() override;
+	// FXRRenderBridge/FRHICustomPresent
 	virtual bool NeedsNativePresent() override;
 	virtual bool Present(int32& SyncInterval) override;
-	// virtual void PostPresent() override;
+	virtual void FinishRendering_RHIThread();
 
 	ovrpRenderAPIType GetRenderAPI() const { return RenderAPI; }
 	virtual bool IsUsingCorrectDisplayAdapter() const { return true; }
 
 	void UpdateMirrorTexture_RenderThread();
-	void FinishRendering_RHIThread();
 	void ReleaseResources_RHIThread();
 	void Shutdown();
-
-	void UpdateViewport(FRHIViewport* InViewportRHI);
 
 	FTexture2DRHIRef GetMirrorTexture() { return MirrorTextureRHI; }
 

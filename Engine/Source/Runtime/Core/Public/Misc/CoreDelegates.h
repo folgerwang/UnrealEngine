@@ -241,6 +241,14 @@ public:
 	// save state when ApplicationWillEnterBackgroundDelegate is called instead.
 	static FApplicationLifetimeDelegate ApplicationWillTerminateDelegate;
 
+	// Called when the OS is running low on resources and asks the application to free up any cached resources, drop graphics quality etc.
+	static FApplicationLifetimeDelegate ApplicationShouldUnloadResourcesDelegate;
+
+	DECLARE_MULTICAST_DELEGATE_OneParam(FApplicationStartupArgumentsDelegate, const TArray<FString>&);
+
+	// Called with arguments passed to the application on statup, perhaps meta data passed on by another application which launched this one.
+	static FApplicationStartupArgumentsDelegate ApplicationReceivedStartupArgumentsDelegate;
+
 	/** IOS-style push notification delegates */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FApplicationRegisteredForRemoteNotificationsDelegate, TArray<uint8>);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FApplicationRegisteredForUserNotificationsDelegate, int);

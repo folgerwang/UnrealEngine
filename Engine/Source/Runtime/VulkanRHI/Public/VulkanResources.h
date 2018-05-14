@@ -254,6 +254,8 @@ public:
 
 	inline uint32 GetNumMips() const { return NumMips; }
 
+	inline uint32 GetNumSamples() const { return NumSamples; }
+
 	inline uint32 GetNumberOfArrayLevels() const
 	{
 		switch (ViewType)
@@ -294,6 +296,18 @@ public:
 	inline bool IsImageOwner() const
 	{
 		return bIsImageOwner;
+	}
+
+	inline VkDeviceMemory GetAllocationHandle() const
+	{
+		if (ResourceAllocation.IsValid())
+		{
+			return ResourceAllocation->GetHandle();
+		}
+		else
+		{
+			return VK_NULL_HANDLE;
+		}
 	}
 
 	FVulkanDevice* Device;
@@ -371,7 +385,7 @@ struct FVulkanTextureBase : public FVulkanBaseShaderResource
 
 
 	FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, bool bArray, uint32 ArraySize, uint32 NumMips, uint32 NumSamples, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
-	FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint32 NumMips, uint32 NumSamples, VkImage InImage, VkDeviceMemory InMem, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo = FRHIResourceCreateInfo());
+	FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint32 NumMips, uint32 NumSamples, uint32 NumSamplesTileMem, VkImage InImage, VkDeviceMemory InMem, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo = FRHIResourceCreateInfo());
 	virtual ~FVulkanTextureBase();
 
 	VkImageView CreateRenderTargetView(uint32 MipIndex, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices);
@@ -401,7 +415,7 @@ class FVulkanTexture2D : public FRHITexture2D, public FVulkanTextureBase
 {
 public:
 	FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
-	FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, VkImage Image, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
+	FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, uint32 NumSamplesTileMem, VkImage Image, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
 	virtual ~FVulkanTexture2D();
 
 	// IRefCountedObject interface.
@@ -550,7 +564,7 @@ class FVulkanTextureReference : public FRHITextureReference, public FVulkanTextu
 public:
 	explicit FVulkanTextureReference(FVulkanDevice& Device, FLastRenderTimeContainer* InLastRenderTime)
 	:	FRHITextureReference(InLastRenderTime)
-	,	FVulkanTextureBase(Device, VK_IMAGE_VIEW_TYPE_MAX_ENUM, PF_Unknown, 0, 0, 0, 1, 1, VK_NULL_HANDLE, VK_NULL_HANDLE, 0)
+	,	FVulkanTextureBase(Device, VK_IMAGE_VIEW_TYPE_MAX_ENUM, PF_Unknown, 0, 0, 0, 1, 1, 1, VK_NULL_HANDLE, VK_NULL_HANDLE, 0)
 	{}
 
 	// IRefCountedObject interface.

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+ÿþ// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include <windows.h>
 #include "Runtime/Launch/Resources/Version.h"
@@ -50,4 +50,4 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDICON_UE4Game          ICON                    "BlankProgram.ico"
+IDICON_UE4Game          ICON                    "BlankProgram.ico"

@@ -48,7 +48,7 @@ public class VorbisFile : ModuleRules
 			}
 			PublicAdditionalLibraries.Add(VorbisLibPath + "libvorbisfile" + OpimizationSuffix + ".bc");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Android)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			// filtered in toolchain
 			PublicLibraryPaths.Add(VorbisPath + "Lib/Android/ARMv7");

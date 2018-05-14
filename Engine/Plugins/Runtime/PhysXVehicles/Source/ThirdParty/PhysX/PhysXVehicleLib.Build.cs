@@ -96,8 +96,8 @@ public class PhysXVehicleLib : ModuleRules
 
             PublicAdditionalLibraries.Add(String.Format(PhysXLibDir + "Mac/libPhysX3Vehicle{0}.a", LibrarySuffix));
         }
-        else if (Target.Platform == UnrealTargetPlatform.Android)
-        {
+        else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
+		{
             PublicLibraryPaths.Add(PhysXLibDir + "Android/ARMv7");
             PublicLibraryPaths.Add(PhysXLibDir + "Android/x86");
             PublicLibraryPaths.Add(PhysXLibDir + "Android/ARM64");

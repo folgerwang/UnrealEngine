@@ -92,7 +92,7 @@ public class Core : ModuleRules
 				PublicFrameworks.AddRange(new string[] { "iAD" });
 			}
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Android)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"cxademangle",

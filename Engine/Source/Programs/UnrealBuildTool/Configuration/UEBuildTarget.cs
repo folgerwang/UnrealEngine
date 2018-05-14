@@ -88,6 +88,11 @@ namespace UnrealBuildTool
 		/// NDA'd platform Quail
 		/// </summary>
 		Quail,
+
+		/// <summary>
+		/// Confidential platform
+		/// </summary>
+		Lumin,
 	}
 
 	/// <summary>

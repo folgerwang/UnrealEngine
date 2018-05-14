@@ -108,6 +108,7 @@ USynthComponent::USynthComponent(const FObjectInitializer& ObjectInitializer)
 
 	// Set the default sound class
 	SoundClass = USoundBase::DefaultSoundClassObject;
+	Synth = nullptr;
 
 	PreferredBufferLength = DEFAULT_PROCEDURAL_SOUNDWAVE_BUFFER_SIZE;
 

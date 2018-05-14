@@ -60,7 +60,7 @@ public class UEOgg : ModuleRules
 			}
 			PublicAdditionalLibraries.Add(OggLibPath + "HTML5/libogg" + OpimizationSuffix + ".bc");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Android)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			// Filtered in the toolchain.
 			PublicLibraryPaths.Add(OggLibPath + "Android/ARMv7");

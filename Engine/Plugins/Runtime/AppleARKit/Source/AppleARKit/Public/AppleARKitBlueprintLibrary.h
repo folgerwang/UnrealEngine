@@ -14,7 +14,8 @@ UCLASS(meta=(ScriptName="AppleARKitLibrary"))
 class APPLEARKIT_API UAppleARKitBlueprintLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
-	
+
+public:
 	/**
 	 * Returns the last processed FAppleARKitFrame from the session.
 	 *

@@ -24,10 +24,11 @@ public class WebBrowser : ModuleRules
         );
 
         if (Target.Platform == UnrealTargetPlatform.Android ||
-            Target.Platform == UnrealTargetPlatform.IOS)
+            Target.Platform == UnrealTargetPlatform.IOS ||
+            Target.Platform == UnrealTargetPlatform.TVOS)
 		{
-			// We need these on Android for external texture support
-			PrivateDependencyModuleNames.AddRange(
+            // We need these on mobile for external texture support
+            PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
 					"WebBrowserTexture",
@@ -37,6 +38,10 @@ public class WebBrowser : ModuleRules
 
 			// We need this one on Android for URL decoding
 			PrivateDependencyModuleNames.Add("HTTP");
+		}
+		if (Target.Platform == UnrealTargetPlatform.Lumin)
+		{
+			PrecompileForTargets = PrecompileTargetsType.None;
 		}
 
 		if (Target.Platform == UnrealTargetPlatform.Win64

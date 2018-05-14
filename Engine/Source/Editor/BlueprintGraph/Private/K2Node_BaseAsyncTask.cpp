@@ -17,6 +17,7 @@
 #include "K2Node_Self.h"
 #include "K2Node_TemporaryVariable.h"
 #include "Kismet2/BlueprintEditorUtils.h"
+#include "Engine/MemberReference.h"
 
 #include "KismetCompiler.h"
 #include "BlueprintNodeSpawner.h"
@@ -88,7 +89,7 @@ void UK2Node_BaseAsyncTask::AllocateDefaultPins()
 		CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Object, ProxyClass, FBaseAsyncTaskHelper::GetAsyncTaskProxyName());
 	}
 
-	UFunction* Function = ProxyFactoryClass ? ProxyFactoryClass->FindFunctionByName(ProxyFactoryFunctionName) : nullptr;
+	UFunction* Function = GetFactoryFunction();
 	if (!bHideThen && Function)
 	{
 		for (TFieldIterator<UProperty> PropIt(Function); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
@@ -503,12 +504,15 @@ UFunction* UK2Node_BaseAsyncTask::GetFactoryFunction() const
 		return nullptr;
 	}
 	
-	UFunction* FactoryFunction = ProxyFactoryClass->FindFunctionByName(ProxyFactoryFunctionName);
+	FMemberReference FunctionReference;
+	FunctionReference.SetExternalMember(ProxyFactoryFunctionName, ProxyFactoryClass);
+
+	UFunction* FactoryFunction = FunctionReference.ResolveMember<UFunction>(GetBlueprint());
 	
 	if (FactoryFunction == nullptr)
 	{
-		UE_LOG(LogBlueprint, Error, TEXT("FactoryFunction %s null in %s. Was a class deleted or saved on a non promoted build?"), *ProxyFactoryFunctionName.ToString(), *GetFullName());
-		return nullptr;
+		FactoryFunction = ProxyFactoryClass->FindFunctionByName(ProxyFactoryFunctionName);
+		UE_CLOG(FactoryFunction == nullptr, LogBlueprint, Error, TEXT("FactoryFunction %s null in %s. Was a class deleted or saved on a non promoted build?"), *ProxyFactoryFunctionName.ToString(), *GetFullName());
 	}
 
 	return FactoryFunction;

@@ -209,18 +209,24 @@ public class Launch : ModuleRules
 			PublicWeakFrameworks.Add("QuartzCore");
 		}
 
-		if (Target.Platform == UnrealTargetPlatform.Android)
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
-			PrivateDependencyModuleNames.AddRange(new string[] {
-				"AndroidAudio",
-				"AudioMixerAndroid",
-				"OpenGLDrv",
-			});
-
-			DynamicallyLoadedModuleNames.AddRange(new string[] {
-				"AndroidLocalNotification",
-				"AndroidRuntimeSettings",
-			});
+			PrivateDependencyModuleNames.Add("OpenGLDrv");
+			if (Target.Platform != UnrealTargetPlatform.Lumin)
+			{
+				PrivateDependencyModuleNames.Add("AndroidAudio");
+				PrivateDependencyModuleNames.Add("AudioMixerAndroid");
+			}
+			// these are, for now, only for basic android
+			if (Target.Platform == UnrealTargetPlatform.Android)
+			{
+				DynamicallyLoadedModuleNames.Add("AndroidRuntimeSettings");
+				DynamicallyLoadedModuleNames.Add("AndroidLocalNotification");
+			}
+			else if (Target.Platform == UnrealTargetPlatform.Lumin)
+			{
+				DynamicallyLoadedModuleNames.Add("LuminRuntimeSettings");
+			}
 		}
 
 		if ((Target.Platform == UnrealTargetPlatform.Win32) ||

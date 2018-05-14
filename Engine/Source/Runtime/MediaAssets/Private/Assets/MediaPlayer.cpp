@@ -567,6 +567,12 @@ bool UMediaPlayer::SetRate(float Rate)
 }
 
 
+bool UMediaPlayer::SetNativeVolume(float Volume)
+{
+	return PlayerFacade->SetNativeVolume(Volume);
+}
+
+
 bool UMediaPlayer::SetTrackFormat(EMediaPlayerTrack TrackType, int32 TrackIndex, int32 FormatIndex)
 {
 	UE_LOG(LogMediaAssets, Verbose, TEXT("%s.SetTrackFormat %s %i %i"), *GetFName().ToString(), *UEnum::GetValueAsString(TEXT("MediaAssets.EMediaPlayerTrack"), TrackType), TrackIndex, FormatIndex);

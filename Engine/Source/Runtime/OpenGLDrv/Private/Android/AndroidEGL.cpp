@@ -1,13 +1,17 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#if PLATFORM_ANDROID
+#include "Android/AndroidPlatform.h"
+
+#if USE_ANDROID_OPENGL
 
 #include "OpenGLDrvPrivate.h"
 #include "AndroidEGL.h"
 #include "Android/AndroidApplication.h"
 #include "Android/AndroidWindow.h"
 #include <android/native_window.h>
+#if USE_ANDROID_JNI
 #include <android/native_window_jni.h>
+#endif
 #include "OpenGLDrvPrivate.h"
 
 

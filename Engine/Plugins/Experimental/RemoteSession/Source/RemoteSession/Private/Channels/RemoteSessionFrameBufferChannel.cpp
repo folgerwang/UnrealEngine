@@ -135,15 +135,16 @@ void FRemoteSessionFrameBufferChannel::Tick(const float InDeltaTime)
 			const double ElapsedImageTimeMS = (FPlatformTime::Seconds() - LastSentImageTime) * 1000;
 			const int32 DesiredFrameTimeMS = 1000 / FramerateMasterSetting;
 
-			if (ElapsedImageTimeMS >= DesiredFrameTimeMS)
+			// Encoding/decoding can take longer than a frame, so skip if we're still processing the previous frame
+			if (NumDecodingTasks.GetValue() == 0 && ElapsedImageTimeMS >= DesiredFrameTimeMS)
 			{
+				NumDecodingTasks.Increment();
+
 				FCapturedFrameData& LastFrame = Frames.Last();
 
 				TArray<FColor>* ColorData = new TArray<FColor>(MoveTemp(LastFrame.ColorBuffer));
 
 				FIntPoint Size = LastFrame.BufferSize;
-
-				NumDecodingTasks.Increment();
 
 				AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this, Size, ColorData]()
 				{

@@ -1279,7 +1279,7 @@ TRefCountPtr<IPooledRenderTarget>& FSceneRenderTargets::GetDownsampledTranslucen
 	return DownsampledTranslucencyDepthRT;
 }
 
-void FSceneRenderTargets::BeginRenderingTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View, bool bFirstTimeThisFrame)
+void FSceneRenderTargets::BeginRenderingTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View, const FSceneRenderer& Renderer, bool bFirstTimeThisFrame)
 {
 	// Use the scene color buffer.
 	BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
@@ -1287,15 +1287,39 @@ void FSceneRenderTargets::BeginRenderingTranslucency(FRHICommandList& RHICmdList
 	if (bFirstTimeThisFrame)
 	{
 		// Clear the stencil buffer for ResponsiveAA
-		const FTexture2DRHIRef& DepthSurface = GetSceneDepthSurface();
-		DrawClearQuad(RHICmdList, false, FLinearColor(), false, 0, true, 0, FIntPoint(DepthSurface->GetSizeX(), DepthSurface->GetSizeY()), View.ViewRect);
+		DrawClearQuad(RHICmdList, false, FLinearColor(), false, 0, true, 0);
 	}
-		
+
 	// viewport to match view size
-	RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
+	if (View.IsInstancedStereoPass())
+	{
+		if (View.bIsMultiViewEnabled)
+		{
+			const FViewInfo* LeftView = static_cast<const FViewInfo*>(View.Family->Views[0]);
+			const FViewInfo* RightView = static_cast<const FViewInfo*>(View.Family->Views[1]);
+
+			const uint32 LeftMinX = LeftView->ViewRect.Min.X;
+			const uint32 LeftMaxX = LeftView->ViewRect.Max.X;
+			const uint32 RightMinX = RightView->ViewRect.Min.X;
+			const uint32 RightMaxX = RightView->ViewRect.Max.X;
+
+			const uint32 LeftMaxY = LeftView->ViewRect.Max.Y;
+			const uint32 RightMaxY = RightView->ViewRect.Max.Y;
+
+			RHICmdList.SetStereoViewport(LeftMinX, RightMinX, 0, 0, 0.0f, LeftMaxX, RightMaxX, LeftMaxY, RightMaxY, 1.0f);
+		}
+		else
+		{
+			RHICmdList.SetViewport(0, 0, 0, Renderer.InstancedStereoWidth, View.ViewRect.Max.Y, 1);
+		}
+	}
+	else
+	{
+		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
+	}
 }
 
-void FSceneRenderTargets::BeginRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View, bool bFirstTimeThisFrame)
+void FSceneRenderTargets::BeginRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View, const FSceneRenderer& Renderer, bool bFirstTimeThisFrame)
 {
 	bSeparateTranslucencyPass = true;
 
@@ -1325,7 +1349,33 @@ void FSceneRenderTargets::BeginRenderingSeparateTranslucency(FRHICommandList& RH
 		RHICmdList.BindClearMRTValues(true, false, true);
 	}
 
-	RHICmdList.SetViewport(View.ViewRect.Min.X * SeparateTranslucencyScale, View.ViewRect.Min.Y * SeparateTranslucencyScale, 0.0f, View.ViewRect.Max.X * SeparateTranslucencyScale, View.ViewRect.Max.Y * SeparateTranslucencyScale, 1.0f);
+	// viewport to match view size
+	if (View.IsInstancedStereoPass())
+	{
+		if (View.bIsMultiViewEnabled)
+		{
+			const FViewInfo* LeftView = static_cast<const FViewInfo*>(View.Family->Views[0]);
+			const FViewInfo* RightView = static_cast<const FViewInfo*>(View.Family->Views[1]);
+
+			const uint32 LeftMinX = LeftView->ViewRect.Min.X * SeparateTranslucencyScale;
+			const uint32 LeftMaxX = LeftView->ViewRect.Max.X * SeparateTranslucencyScale;
+			const uint32 RightMinX = RightView->ViewRect.Min.X * SeparateTranslucencyScale;
+			const uint32 RightMaxX = RightView->ViewRect.Max.X * SeparateTranslucencyScale;
+
+			const uint32 LeftMaxY = LeftView->ViewRect.Max.Y * SeparateTranslucencyScale;
+			const uint32 RightMaxY = RightView->ViewRect.Max.Y * SeparateTranslucencyScale;
+
+			RHICmdList.SetStereoViewport(LeftMinX, RightMinX, 0, 0, 0.0f, LeftMaxX, RightMaxX, LeftMaxY, RightMaxY, 1.0f);
+		}
+		else
+		{
+			RHICmdList.SetViewport(0, 0, 0, Renderer.InstancedStereoWidth * SeparateTranslucencyScale, View.ViewRect.Max.Y * SeparateTranslucencyScale, 1.0f);
+		}	
+	}
+	else
+	{
+		RHICmdList.SetViewport(View.ViewRect.Min.X * SeparateTranslucencyScale, View.ViewRect.Min.Y * SeparateTranslucencyScale, 0.0f, View.ViewRect.Max.X * SeparateTranslucencyScale, View.ViewRect.Max.Y * SeparateTranslucencyScale, 1.0f);
+	}
 }
 
 void FSceneRenderTargets::FinishRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View)

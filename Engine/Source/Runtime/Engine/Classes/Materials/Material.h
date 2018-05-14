@@ -538,6 +538,10 @@ public:
 	UPROPERTY(EditAnywhere, Category=Translucency, AdvancedDisplay)
 	uint32 bDisableDepthTest:1;
 
+	/** Whether the transluency pass should write its alpha, and only the alpha, into the framebuffer */
+	UPROPERTY(EditAnywhere, Category = Translucency, AdvancedDisplay)
+	uint32 bWriteOnlyAlpha : 1;
+
 	/** Whether to generate spherical normals for particles that use this material. */
 	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)
 	uint32 bGenerateSphericalParticleNormals:1;

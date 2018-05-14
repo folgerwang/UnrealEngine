@@ -27,6 +27,7 @@ namespace UnrealBuildTool
 		TVOS,
 		Switch,
 		Quail,
+		Lumin,
 	}
 
 	/// <summary>

@@ -10,8 +10,12 @@
 class UARPin;
 class UARTrackedGeometry;
 class UARSessionConfig;
+class UARTextureCameraImage;
+class UARTextureCameraDepth;
 struct FARTraceResult;
 
+DECLARE_MULTICAST_DELEGATE(FARSystemOnSessionStarted);
+DECLARE_MULTICAST_DELEGATE_OneParam(FARSystemOnAlignmentTransformUpdated, const FTransform&);
 
 /**
  * Implement IARSystemSupport for any platform that wants to be an Unreal Augmented Reality System. e.g. AppleARKit, GoogleARCore.
@@ -109,7 +113,13 @@ public:
 	 * The component in question will continue to track with the world, but will not get updates specific to a TrackedGeometry.
 	 */
 	virtual void OnRemovePin(UARPin* PinToRemove) = 0;
-	
+
+	/** @return the last camera image the AR system has seen */
+	virtual UARTextureCameraImage* OnGetCameraImage() = 0;
+
+	/** @return the last camera depth information the AR system has seen */
+	virtual UARTextureCameraDepth* OnGetCameraDepth() = 0;
+
 public:
 	virtual ~IARSystemSupport(){}
 };
@@ -165,6 +175,10 @@ public:
 	TArray<UARTrackedGeometry*> GetAllTrackedGeometries() const;
 	/** \see UARBlueprintLibrary::GetAllPins() */
 	TArray<UARPin*> GetAllPins() const;
+	/** \see UARBlueprintLibrary::GetCameraImage() */
+	UARTextureCameraImage* GetCameraImage();
+	/** \see UARBlueprintLibrary::GetCameraDepth() */
+	UARTextureCameraDepth* GetCameraDepth();
 
 	/** \see UARBlueprintLibrary::GetCurrentLightEstimate() */
 	UARLightEstimate* GetCurrentLightEstimate() const;
@@ -175,11 +189,17 @@ public:
 	UARPin* PinComponent( USceneComponent* ComponentToPin, const FARTraceResult& HitResult, const FName DebugName = NAME_None );
 	/** \see UARBlueprintLibrary::RemovePin() */
 	void RemovePin( UARPin* PinToRemove );
+
+	virtual void* GetARSessionRawPointer() = 0;
+	virtual void* GetGameThreadARFrameRawPointer() = 0;
 	
 public:
 	const FTransform& GetAlignmentTransform() const;
 	const UARSessionConfig& GetSessionConfig() const;
 	UARSessionConfig& AccessSessionConfig();
+
+	FARSystemOnSessionStarted OnARSessionStarted;
+	FARSystemOnAlignmentTransformUpdated OnAlignmentTransformUpdated;
 
 protected:
 	void SetAlignmentTransform_Internal(const FTransform& NewAlignmentTransform);

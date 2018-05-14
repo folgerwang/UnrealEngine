@@ -5,7 +5,9 @@
 =============================================================================*/
 #pragma once
 
-#if PLATFORM_ANDROID
+#include "Android/AndroidPlatform.h"
+
+#if USE_ANDROID_OPENGL
 
 #include "CoreMinimal.h"
 #include "Logging/LogMacros.h"

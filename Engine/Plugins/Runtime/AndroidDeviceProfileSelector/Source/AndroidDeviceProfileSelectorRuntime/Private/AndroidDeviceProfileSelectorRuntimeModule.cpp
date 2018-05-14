@@ -21,7 +21,13 @@ void FAndroidDeviceProfileSelectorRuntimeModule::ShutdownModule()
 
 FString const FAndroidDeviceProfileSelectorRuntimeModule::GetRuntimeDeviceProfileName()
 {
-	static FString ProfileName; 
+#if PLATFORM_LUMIN
+	// @todo Lumin: when removing this, also remove Lumin from the .uplugin
+	UE_LOG(LogAndroid, Log, TEXT("Selected Device Profile: [Lumin]"));
+	return TEXT("Lumin");
+#endif
+
+	static FString ProfileName;
 	
 	if (ProfileName.IsEmpty())
 	{
@@ -68,10 +74,9 @@ FString const FAndroidDeviceProfileSelectorRuntimeModule::GetRuntimeDeviceProfil
 	return ProfileName;
 }
 
-extern void AndroidThunkCpp_UseSurfaceViewWorkaround();
-
 void FAndroidDeviceProfileSelectorRuntimeModule::CheckForJavaSurfaceViewWorkaround(const FString& DeviceMake, const FString& DeviceModel) const
 {
+#if USE_ANDROID_JNI
 	// We need to initialize the class early as device profiles need to be evaluated before ProcessNewlyLoadedUObjects can be called.
 	extern UClass* Z_Construct_UClass_UAndroidJavaSurfaceViewDevices();
 	Z_Construct_UClass_UAndroidJavaSurfaceViewDevices();
@@ -83,8 +88,10 @@ void FAndroidDeviceProfileSelectorRuntimeModule::CheckForJavaSurfaceViewWorkarou
 	{
 		if(Device.Manufacturer == DeviceMake && Device.Model == DeviceModel)
 		{
+			extern void AndroidThunkCpp_UseSurfaceViewWorkaround();
 			AndroidThunkCpp_UseSurfaceViewWorkaround();
 			return;
 		}
 	}
+#endif
 }

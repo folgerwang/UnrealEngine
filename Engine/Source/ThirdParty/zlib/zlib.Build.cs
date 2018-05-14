@@ -43,7 +43,7 @@ public class zlib : ModuleRules
 			PublicAdditionalLibraries.Add("z");
 		}
 
-		else if (Target.Platform == UnrealTargetPlatform.Android)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			PublicIncludePaths.Add(OldzlibPath + "Inc");
 			PublicAdditionalLibraries.Add("z");

@@ -5,6 +5,7 @@
 #include "Framework/Application/SlateApplication.h"	
 #include "Channels/RemoteSessionInputChannel.h"
 #include "Channels/RemoteSessionXRTrackingChannel.h"
+#include "Channels/RemoteSessionARCameraChannel.h"
 #include "Channels/RemoteSessionFrameBufferChannel.h"
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
@@ -108,6 +109,9 @@ void FRemoteSessionClient::CheckConnection()
 
 		Channels.Add(MakeShareable(new FRemoteSessionInputChannel(ERemoteSessionChannelMode::Send, OSCConnection)));
 		Channels.Add(MakeShareable(new FRemoteSessionXRTrackingChannel(ERemoteSessionChannelMode::Send, OSCConnection)));
+#if PLATFORM_IOS // Client side sending only works on iOS with Android coming in the future
+		Channels.Add(MakeShareable(new FRemoteSessionARCameraChannel(ERemoteSessionChannelMode::Send, OSCConnection)));
+#endif
 		Channels.Add(MakeShareable(new FRemoteSessionFrameBufferChannel(ERemoteSessionChannelMode::Receive, OSCConnection)));
 
 		UE_LOG(LogRemoteSession, Log, TEXT("Connected to host at %s (ReceiveSize=%dkb)"), *HostAddress, ActualSize / 1024);

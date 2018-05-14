@@ -19,11 +19,11 @@ AResonanceAudioDirectivityVisualizer::AResonanceAudioDirectivityVisualizer()
 
 	RootComponent = Mesh;
 
-	static ConstructorHelpers::FObjectFinder<UMaterial> FoundMaterial(TEXT("Material'/ResonanceAudio/VisualizationMeshMaterial'"));
-	if (FoundMaterial.Succeeded())
-	{
-		Material = FoundMaterial.Object;
-	}
+// 	static ConstructorHelpers::FObjectFinder<UMaterial> FoundMaterial(TEXT("Material'/ResonanceAudio/VisualizationMeshMaterial.VisualizationMeshMaterial'"));
+// 	if (FoundMaterial.Succeeded())
+// 	{
+// 		Material = FoundMaterial.Object;
+// 	}
 }
 
 void AResonanceAudioDirectivityVisualizer::DrawPattern()

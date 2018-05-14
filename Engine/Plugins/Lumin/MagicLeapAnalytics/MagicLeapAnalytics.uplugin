@@ -1,0 +1,42 @@
+{
+	"FileVersion" : 3,
+	"Version" : 1,
+	"VersionName": "1.0",
+	"FriendlyName" : "Magic Leap Analytics",
+	"CreatedBy" : "Magic Leap, Inc.",
+	"CreatedByURL" : "http://magicleap.com",
+	"EngineVersion" : "4.20.0",
+	"Description" : "Writes analytic API calls to Magic Leap cloud server.",
+	"Category" : "Analytics",
+	"EnabledByDefault" : false,
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"CanContainContent" : false,
+	"IsBetaVersion" : false,
+	"Installed" : false,
+	"SupportedTargetPlatforms": [
+		"Lumin"
+	],
+	"Modules" :
+	[
+		{
+			"Name" : "MagicLeapAnalytics",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PreDefault",
+			"BlacklistPlatforms" :
+			[
+				"Win64",
+				"Mac",
+				"Lumin"
+			]			
+		}
+	],
+	"Plugins":
+	[
+		{
+			"Name": "MagicLeap",
+			"Enabled": true
+		}
+	]
+}

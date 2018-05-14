@@ -28,11 +28,13 @@ limitations under the License.
 #endif
 
 #define OVRP_MAJOR_VERSION 1
-#define OVRP_MINOR_VERSION 22
+#define OVRP_MINOR_VERSION 23
 #define OVRP_PATCH_VERSION 0
 
 #define OVRP_VERSION OVRP_MAJOR_VERSION, OVRP_MINOR_VERSION, OVRP_PATCH_VERSION
 #define OVRP_VERSION_STR OVRP_STRINGIFY(OVRP_MAJOR_VERSION.OVRP_MINOR_VERSION.OVRP_PATCH_VERSION)
+
+#define OVRP_CURRENT_FRAMEINDEX -1
 
 #ifndef OVRP_EXPORT
 #ifdef _WIN32
@@ -657,8 +659,6 @@ typedef enum {
 
 /// A timestep type corresponding to a use case for tracking data.
 typedef enum {
-  /// Updated from game thread at start of frame.
-  ovrpStep_Game = -2,
   /// Updated from game thread at end of frame, to hand-off state to Render thread.
   ovrpStep_Render = -1,
   /// Updated from physics thread, once per simulation step.
@@ -719,6 +719,8 @@ typedef enum {
   ovrpLayerFlag_ChromaticAberrationCorrection = (1 << 4),
   /// Does not allocate texture space within the swapchain
   ovrpLayerFlag_NoAllocation = (1 << 5),
+  /// Enable protected content, added in 1.23
+  ovrpLayerFlag_ProtectedContent = (1 << 6),
 } ovrpLayerFlags;
 
 /// Layer description used by ovrp_SetupLayer to create the layer

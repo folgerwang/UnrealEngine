@@ -647,8 +647,10 @@ void FIOSPlatformMisc::RegisterForRemoteNotifications()
 	if ([application respondsToSelector : @selector(registerUserNotificationSettings:)])
 	{
 #ifdef __IPHONE_8_0
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		UIUserNotificationSettings * settings = [UIUserNotificationSettings settingsForTypes : (UIUserNotificationTypeBadge | UIUserNotificationTypeSound | UIUserNotificationTypeAlert) categories:nil];
 		[application registerUserNotificationSettings : settings];
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 #endif
 	}
 	else

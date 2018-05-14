@@ -25,9 +25,8 @@ bool UMeshReconstructorBase::IsReconstructionPaused() const
 	return false;
 }
 
-FMRMeshConfiguration UMeshReconstructorBase::ConnectMRMesh(class UMRMeshComponent* Mesh)
+void UMeshReconstructorBase::ConnectMRMesh(class UMRMeshComponent* Mesh)
 {
-	return FMRMeshConfiguration();
 }
 
 void UMeshReconstructorBase::DisconnectMRMesh()

@@ -249,7 +249,7 @@ static void MotionDelayService_Impl::SyncDelayBuffers(uint32 FrameId)
 
 			const USceneComponent* AttachParent = Component->GetAttachParent();
 			FTransform ParentTransform = AttachParent ? AttachParent->GetComponentTransform() : FTransform::Identity;
-			Target.LateUpdate.Setup(ParentTransform, Component);
+			Target.LateUpdate.Setup(ParentTransform, Component, false);
 		};
 		ForEachTarget(RemovedUsedSource);
 

@@ -16,6 +16,7 @@
 #include "GoogleVRSplash.h"
 #include "Containers/Queue.h"
 #include "XRRenderTargetManager.h"
+#include "XRRenderBridge.h"
 #include "IXRInput.h"
 
 
@@ -95,7 +96,7 @@ public:
 		uint32 InFlags);
 };
 
-class FGoogleVRHMDCustomPresent : public FRHICustomPresent
+class FGoogleVRHMDCustomPresent : public FXRRenderBridge
 {
 public:
 
@@ -132,7 +133,8 @@ public:
 	// Frame operations
 	void UpdateRenderingViewportList(const gvr_buffer_viewport_list* BufferViewportList);
 	void UpdateRenderingPose(gvr_mat4f InHeadPose);
-	void UpdateViewport(const FViewport& Viewport, FRHIViewport* ViewportRHI);
+	/** Return true if the render bridge is ready to accept frames */
+	bool IsInitialized() { return SwapChain != nullptr; }
 
 	void BeginRendering();
 	void BeginRendering(const gvr_mat4f& RenderingHeadPose);
@@ -513,21 +515,16 @@ public:
 	// through RHI bridge is implemented.
 	virtual void RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdList, class FRHITexture2D* BackBuffer, class FRHITexture2D* SrcTexture, FVector2D WindowSize) const override;
 
-	/**
-	 * Returns currently active custom present.
-	 */
-	virtual FRHICustomPresent* GetCustomPresent() override;
-
 	virtual IStereoRenderTargetManager* GetRenderTargetManager() override { return this; }
 
 	////////////////////////////////////////////
 	// Begin FXRRenderTargetManager Interface //
 	////////////////////////////////////////////
 
-	/**
-	 * Updates viewport for direct rendering of distortion. Should be called on a game thread.
+	/** 
+	 * Returns an instance of the currently active render bridge (aka. custom present)
 	 */
-	virtual void UpdateViewportRHIBridge(bool bUseSeparateRenderTarget, const class FViewport& Viewport, FRHIViewport* const ViewportRHI) override;
+	virtual FXRRenderBridge* GetActiveRenderBridge_GameThread(bool bUseSeparateRenderTarget) override;
 
 	/**
 	 * Calculates dimensions of the render target texture for direct rendering of distortion.

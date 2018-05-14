@@ -649,8 +649,8 @@ public:
 	const TArray<FListener>& GetListeners() const { check(IsInAudioThread()); return Listeners; }
 
 	/**
-	 * Get ambisonics mixer, if one is available
-	 */
+	* Get ambisonics mixer, if one is available
+	*/
 	TAmbisonicsMixerPtr GetAmbisonicsMixer() { return AmbisonicsMixer; };
 
 	/** 

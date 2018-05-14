@@ -60,7 +60,7 @@ public class UElibPNG : ModuleRules
 
 			PublicAdditionalLibraries.Add("png152");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Android)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			libPNGPath = Target.UEThirdPartySourceDirectory + "libPNG/libPNG-1.5.27";
 
