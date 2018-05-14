@@ -41,10 +41,13 @@
 #include "MagicLeapEyeTrackerTypes.h"
 #include "Containers/Ticker.h"
 #include "GameFramework/HUD.h"
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_api.h>
 #include <ml_eye_tracking.h>
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 class FMagicLeapVREyeTracker : public IMagicLeapVREyeTracker, public FTickerObjectBase

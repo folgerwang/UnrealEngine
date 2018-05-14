@@ -43,9 +43,12 @@
 #include "MagicLeapControllerFunctionLibrary.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Haptics/HapticFeedbackEffect_Base.h"
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_input.h>
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 DEFINE_LOG_CATEGORY_STATIC(LogMagicLeapControllerTest, Display, All);

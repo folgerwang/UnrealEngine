@@ -68,7 +68,10 @@
 #include "OpenGLDrv.h"
 #endif
 
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
+
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_perception.h>
 
 #if !PLATFORM_LUMIN
@@ -87,6 +90,7 @@
 #include <ml_graphics.h>
 #endif // PLATFORM_LUMIN
 
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 #if WITH_EDITOR
