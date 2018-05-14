@@ -963,6 +963,7 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 	PlatformsToMaybeInstallLinksFor.Add(TEXT("Android"));
 	PlatformsToMaybeInstallLinksFor.Add(TEXT("IOS"));
 	PlatformsToMaybeInstallLinksFor.Add(TEXT("Linux"));
+	PlatformsToMaybeInstallLinksFor.Add(TEXT("Lumin"));
 	TArray<FString> PlatformsToCheckFlavorsFor;
 	PlatformsToCheckFlavorsFor.Add(TEXT("Android"));
 	PlatformsToCheckFlavorsFor.Add(TEXT("IOS"));

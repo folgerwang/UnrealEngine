@@ -378,14 +378,7 @@ void FIntroTutorials::HandleSDKNotInstalled(const FString& PlatformName, const F
 	}
 	else
 	{
-		if (PlatformName.Equals(TEXT("Lumin")))
-		{
-			IDocumentation::Get()->Open(TEXT("https://docs.unrealengine.com/en-us/Platforms/MagicLeap"));
-		}
-		else
-		{
-			IDocumentation::Get()->Open(InTutorialAsset);
-		}
+		IDocumentation::Get()->Open(InTutorialAsset);
 	}
 }
 
