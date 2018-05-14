@@ -1,20 +1,18 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "CoreMinimal.h"
-#include "FrameNumber.h"
-#include "FrameRate.h"
-#include "Timecode.generated.h"
+
+#include "Containers/UnrealString.h"
+#include "GenericPlatform/GenericPlatformMath.h"
+#include "Misc/FrameNumber.h"
+#include "Misc/FrameRate.h"
 
 /**
-* A timecode that stores time in HH:MM:SS format with the remainder
-* of time represented by an integer frame count.
-*/
-USTRUCT(BlueprintType)
+ * A timecode that stores time in HH:MM:SS format with the remainder
+ * of time represented by an integer frame count.
+ */
 struct FTimecode
 {
-	GENERATED_BODY()
-
 	/**
 	* Default construction for UObject purposes
 	*/
@@ -208,22 +206,17 @@ public:
 public:
 
 	/** How many hours does this timecode represent */
-	UPROPERTY(BlueprintReadWrite, Category = "Time")
 	int32 Hours;
 
 	/** How many minutes does this timecode represent */
-	UPROPERTY(BlueprintReadWrite, Category = "Time")
 	int32 Minutes;
 
 	/** How many seconds does this timecode represent */
-	UPROPERTY(BlueprintReadWrite, Category = "Time")
 	int32 Seconds;
 
 	/** How many frames does this timecode represent */
-	UPROPERTY(BlueprintReadWrite, Category = "Time")
 	int32 Frames;
 
 	/** If true, this Timecode represents a Drop Frame timecode used to account for fractional frame rates in NTSC play rates. */
-	UPROPERTY(BlueprintReadWrite, Category = "Time")
 	bool bDropFrameFormat;
 };

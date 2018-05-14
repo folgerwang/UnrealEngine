@@ -5,6 +5,7 @@
 #include "Aja/Aja.h"
 #include "AjaCustomTimeStep.h"
 #include "AjaMediaPlayer.h"
+#include "AjaTimecodeProvider.h"
 
 #include "Engine/Engine.h"
 #include "ITimeManagementModule.h"
@@ -54,6 +55,7 @@ public:
 	}
 
 	TStrongObjectPtr<UAjaCustomTimeStep> CustomTimeStep;
+	TStrongObjectPtr<UAjaTimecodeProvider> TimecodeProvider;
 	virtual bool Exec(UWorld* Inworld, const TCHAR* Cmd, FOutputDevice& Ar) override
 	{
 		if (FParse::Command(&Cmd, TEXT("AJA")))
@@ -72,20 +74,48 @@ public:
 
 					{
 						GEngine->SetCustomTimeStep(CustomTimeStep.Get());
-						ITimeManagementModule::Get().SetTimecodeProvider(CustomTimeStep.Get());
 					}
 				}
 				else if (FParse::Command(&Cmd, TEXT("Stop")))
 				{
-					if (CustomTimeStep.IsValid())
+					if (GEngine->GetCustomTimeStep() == CustomTimeStep.Get())
 					{
-						CustomTimeStep->Shutdown(GEngine);
-						CustomTimeStep.Reset();
-						ITimeManagementModule::Get().SetTimecodeProvider(nullptr);
 						GEngine->SetCustomTimeStep(nullptr);
 					}
+					CustomTimeStep.Reset();
 				}
+				return true;
+			}
 
+			if (FParse::Command(&Cmd, TEXT("TimecodeProvider")))
+			{
+				if (FParse::Command(&Cmd, TEXT("Start")))
+				{
+					TimecodeProvider.Reset(NewObject<UAjaTimecodeProvider>());
+
+					TimecodeProvider->MediaPort.PortIndex = 0;
+					TimecodeProvider->MediaPort.DeviceIndex = 0;
+					FParse::Value(Cmd, TEXT("Port="), TimecodeProvider->MediaPort.PortIndex);
+					FParse::Value(Cmd, TEXT("Device="), TimecodeProvider->MediaPort.DeviceIndex);
+					FParse::Value(Cmd, TEXT("Numerator="), TimecodeProvider->FrameRate.Numerator);
+					FParse::Value(Cmd, TEXT("Denominator="), TimecodeProvider->FrameRate.Denominator);
+					int32 TimecodeFormatInt = 1;
+					if (FParse::Value(Cmd, TEXT("TimecodeFormat="), TimecodeFormatInt))
+					{
+						TimecodeFormatInt = FMath::Clamp(TimecodeFormatInt, 0, (int32)EAjaMediaTimecodeFormat::VITC);
+						TimecodeProvider->TimecodeFormat = (EAjaMediaTimecodeFormat)TimecodeFormatInt;
+					}
+
+					GEngine->SetTimecodeProvider(TimecodeProvider.Get());
+				}
+				else if (FParse::Command(&Cmd, TEXT("Stop")))
+				{
+					if (GEngine->GetTimecodeProvider() == TimecodeProvider.Get())
+					{
+						GEngine->SetTimecodeProvider(nullptr);
+					}
+					TimecodeProvider.Reset();
+				}
 				return true;
 			}
 		}

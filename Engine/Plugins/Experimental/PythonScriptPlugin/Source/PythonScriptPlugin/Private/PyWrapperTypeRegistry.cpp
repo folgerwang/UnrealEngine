@@ -1936,8 +1936,6 @@ void FPyWrapperTypeRegistry::GatherWrappedTypesForPropertyReferences(const UProp
 
 void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes() const
 {
-	// todo: delete the PythonStub directory?
-
 	FPyFileWriter PythonScript;
 
 	TUniquePtr<FPyOnlineDocsWriter> OnlineDocsWriter;
@@ -2122,8 +2120,8 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 			return TEXT("None");
 		}
 		
-		// We use strict typing for return values to aid auto-complete
-		static const bool bUseStrictTyping = true;
+		// We use strict typing for return values to aid auto-complete (we also only care about the type and not the value, so structs can be default constructed)
+		static const uint32 PythonizeValueFlags = PyGenUtil::EPythonizeValueFlags::UseStrictTyping | PyGenUtil::EPythonizeValueFlags::DefaultConstructStructs;
 
 		// If we have multiple return values and the main return value is a bool, skip it (to mimic PyGenUtils::PackReturnValues)
 		int32 ReturnPropIndex = 0;
@@ -2137,7 +2135,7 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 		if (NumPropertiesToPack == 1)
 		{
 			const PyGenUtil::FGeneratedWrappedMethodParameter& ReturnParam = InOutputParams[ReturnPropIndex];
-			return PyGenUtil::PythonizeValue(ReturnParam.ParamProp, ReturnParam.ParamProp->ContainerPtrToValuePtr<void>(InBaseParamsAddr), /*IncludeUnrealNamespace*/false, bUseStrictTyping);
+			return PyGenUtil::PythonizeValue(ReturnParam.ParamProp, ReturnParam.ParamProp->ContainerPtrToValuePtr<void>(InBaseParamsAddr), PythonizeValueFlags);
 		}
 		else
 		{
@@ -2149,7 +2147,7 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 					FunctionReturnStr += TEXT(", ");
 				}
 				const PyGenUtil::FGeneratedWrappedMethodParameter& ReturnParam = InOutputParams[ReturnPropIndex];
-				FunctionReturnStr += PyGenUtil::PythonizeValue(ReturnParam.ParamProp, ReturnParam.ParamProp->ContainerPtrToValuePtr<void>(InBaseParamsAddr), /*IncludeUnrealNamespace*/false, bUseStrictTyping);
+				FunctionReturnStr += PyGenUtil::PythonizeValue(ReturnParam.ParamProp, ReturnParam.ParamProp->ContainerPtrToValuePtr<void>(InBaseParamsAddr), PythonizeValueFlags);
 			}
 			FunctionReturnStr += TEXT(")");
 			return FunctionReturnStr;
@@ -2266,15 +2264,35 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 
 	auto ExportGeneratedGetSet = [&ExportGetSet](const PyGenUtil::FGeneratedWrappedGetSet& InGetSet)
 	{
-		// We use strict typing for return values to aid auto-complete
-		static const bool bUseStrictTyping = true;
-		const FString GetReturnValue = PyGenUtil::PythonizeDefaultValue(InGetSet.Prop.Prop, FString(), /*IncludeUnrealNamespace*/false, bUseStrictTyping);
+		// We use strict typing for return values to aid auto-complete (we also only care about the type and not the value, so structs can be default constructed)
+		static const uint32 PythonizeValueFlags = PyGenUtil::EPythonizeValueFlags::UseStrictTyping | PyGenUtil::EPythonizeValueFlags::DefaultConstructStructs;
+		const FString GetReturnValue = PyGenUtil::PythonizeDefaultValue(InGetSet.Prop.Prop, FString(), PythonizeValueFlags);
 		const bool bIsReadOnly = InGetSet.Prop.Prop->HasAnyPropertyFlags(CPF_BlueprintReadOnly | CPF_EditConst);
 		ExportGetSet(UTF8_TO_TCHAR(InGetSet.GetSetName.GetData()), UTF8_TO_TCHAR(InGetSet.GetSetDoc.GetData()), *GetReturnValue, bIsReadOnly);
 	};
 
 	auto ExportGeneratedOperator = [&OutPythonScript](const PyGenUtil::FGeneratedWrappedOperatorStack& InOpStack, const PyGenUtil::FGeneratedWrappedOperatorSignature& InOpSignature)
 	{
+		auto AppendFunctionTooltip = [](const UFunction* InFunc, const TCHAR* InIdentation, FString& OutStr)
+		{
+			const FString FuncTooltip = PyGenUtil::GetFieldTooltip(InFunc);
+			TArray<FString> FuncTooltipLines;
+			FuncTooltip.ParseIntoArrayLines(FuncTooltipLines, /*bCullEmpty*/false);
+
+			bool bMultipleLines = false;
+			for (const FString& FuncTooltipLine : FuncTooltipLines)
+			{
+				if (bMultipleLines)
+				{
+					OutStr += LINE_TERMINATOR;
+					OutStr += InIdentation;
+				}
+				bMultipleLines = true;
+
+				OutStr += FuncTooltipLine;
+			}
+		};
+
 		FString OpDocString;
 		if (InOpSignature.OtherType != PyGenUtil::FGeneratedWrappedOperatorSignature::EType::None)
 		{
@@ -2283,27 +2301,16 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 			{
 				if (OpFunc.OtherParam.ParamProp)
 				{
-					const FString FuncTooltip = PyGenUtil::GetFieldTooltip(OpFunc.Func);
-					TArray<FString> FuncTooltipLines;
-					FuncTooltip.ParseIntoArrayLines(FuncTooltipLines, /*bCullEmpty*/false);
-
 					OpDocString += LINE_TERMINATOR TEXT("- ``");  // add as a list and code style
 					OpDocString += PyGenUtil::GetPropertyTypePythonName(OpFunc.OtherParam.ParamProp);
 					OpDocString += TEXT("`` ");
-
-					bool bMultipleLines = false;
-					for (const FString& FuncTooltipLine : FuncTooltipLines)
-					{
-						if (bMultipleLines)
-						{
-							OpDocString += LINE_TERMINATOR TEXT("  ");
-						}
-						bMultipleLines = true;
-
-						OpDocString += FuncTooltipLine;
-					}
+					AppendFunctionTooltip(OpFunc.Func, TEXT("  "), OpDocString);
 				}
 			}
+		}
+		else if (InOpStack.Funcs.Num() > 0)
+		{
+			AppendFunctionTooltip(InOpStack.Funcs[0].Func, TEXT(""), OpDocString);
 		}
 
 		OutPythonScript.WriteLine(FString::Printf(TEXT("def %s(self%s):"), InOpSignature.PyFuncName, (InOpSignature.OtherType == PyGenUtil::FGeneratedWrappedOperatorSignature::EType::None ? TEXT("") : TEXT(", other"))));
@@ -2338,6 +2345,9 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 				TSharedPtr<const FPyWrapperStructMetaData> StructMetaData = StaticCastSharedPtr<FPyWrapperStructMetaData>(GeneratedTypeData->MetaData);
 				check(StructMetaData.IsValid());
 				
+				// Don't export FDateTime values for struct __init__ as they can be non-deterministic
+				static const uint32 PythonizeValueFlags = PyGenUtil::EPythonizeValueFlags::DefaultConstructDateTime;
+
 				// Python can only support 255 parameters, so if we have more than that for this struct just use the generic __init__ function
 				FString InitParamsStr;
 				if (StructMetaData->MakeFunc.Func)
@@ -2351,7 +2361,7 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 						if (InitParam.ParamDefaultValue.IsSet())
 						{
 							InitParamsStr += TEXT("=");
-							InitParamsStr += PyGenUtil::PythonizeDefaultValue(InitParam.ParamProp, InitParam.ParamDefaultValue.GetValue());
+							InitParamsStr += PyGenUtil::PythonizeDefaultValue(InitParam.ParamProp, InitParam.ParamDefaultValue.GetValue(), PythonizeValueFlags);
 						}
 					}
 				}
@@ -2367,7 +2377,7 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 						if (InitParam.ParamDefaultValue.IsSet())
 						{
 							InitParamsStr += TEXT("=");
-							InitParamsStr += PyGenUtil::PythonizeValue(InitParam.ParamProp, InitParam.ParamProp->ContainerPtrToValuePtr<void>(StructData.GetStructMemory()));
+							InitParamsStr += PyGenUtil::PythonizeValue(InitParam.ParamProp, InitParam.ParamProp->ContainerPtrToValuePtr<void>(StructData.GetStructMemory()), PythonizeValueFlags);
 						}
 					}
 				}

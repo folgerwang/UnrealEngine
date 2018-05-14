@@ -1,7 +1,7 @@
 ﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LiveLinkBlueprintStructs.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 
 // FCachedSubjectFrame
 
@@ -317,4 +317,9 @@ void FSubjectFrameHandle::GetTransformByIndex(int TransformIndex, FLiveLinkTrans
 void FSubjectFrameHandle::SetCachedFrame(TSharedPtr<FCachedSubjectFrame> InCachedFrame)
 {
 	CachedFrame = InCachedFrame;
+};
+
+void FLiveLinkSourceHandle::SetSourcePointer(TSharedPtr<ILiveLinkSource> InSourcePointer)
+{
+	SourcePointer = InSourcePointer;
 };

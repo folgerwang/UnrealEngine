@@ -12,18 +12,6 @@
 #include "IMediaOptions.h"
 #include "Misc/ScopeLock.h"
 
-#include "Engine/GameEngine.h"
-#include "Slate/SceneViewport.h"
-
-#include "ITimecodeProvider.h"
-#include "ITimeManagementModule.h"
-
-#if WITH_EDITOR
-#include "Editor/UnrealEd/Classes/Editor/EditorEngine.h"
-#include "Editor/UnrealEdEngine.h"
-#include "UnrealEdGlobals.h"
-#endif
-
 #include "AjaMediaAudioSample.h"
 #include "AjaMediaBinarySample.h"
 #include "AjaMediaSettings.h"
@@ -338,9 +326,7 @@ void FAjaMediaPlayer::ProcessFrame()
 	if (CurrentState == EMediaState::Playing)
 	{
 		//If Asset is setup to use time synchronization, use it only if it can provide a valid time.
-		ITimecodeProvider* Provider = ITimeManagementModule::Get().GetTimecodeProvider();
-		const bool bCanUseTimeSynchronization = bUseTimeSynchronization && Provider && (Provider->IsSynchronizing() || Provider->IsSynchronized());
-		if (bUseFrameTimecode && !bCanUseTimeSynchronization)
+		if (bUseFrameTimecode && !bUseTimeSynchronization)
 		{
 			// We want to atomically read the FTimespan.GetTick()
 			static_assert(sizeof(AjaThreadCurrentTime) == sizeof(int64), "The size of a FTimespan is not a int64");

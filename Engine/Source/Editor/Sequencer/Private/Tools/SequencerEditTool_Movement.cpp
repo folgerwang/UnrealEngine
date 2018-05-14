@@ -15,7 +15,7 @@
 #include "IKeyArea.h"
 #include "Widgets/Layout/SBox.h"
 #include "Framework/Application/SlateApplication.h"
-#include "Timecode.h"
+#include "Misc/Timecode.h"
 
 const FName FSequencerEditTool_Movement::Identifier = "Movement";
 

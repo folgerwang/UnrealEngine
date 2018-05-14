@@ -3211,3 +3211,8 @@ template<> struct TBaseStructure<FPrimaryAssetId>
 	COREUOBJECT_API static UScriptStruct* Get();
 };
 
+struct FDateTime;
+template<> struct TBaseStructure<FDateTime>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};

@@ -6,7 +6,7 @@
 #include "Containers/ArrayView.h"
 #include "Containers/Array.h"
 #include "Templates/Function.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 
 #include "UObject/SequencerObjectVersion.h"
 

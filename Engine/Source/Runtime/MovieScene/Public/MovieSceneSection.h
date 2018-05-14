@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "FrameTime.h"
+#include "Misc/FrameTime.h"
 #include "UObject/ObjectMacros.h"
 #include "MovieSceneFwd.h"
 #include "KeyParams.h"
@@ -12,7 +12,7 @@
 #include "Evaluation/Blending/MovieSceneBlendType.h"
 #include "Generators/MovieSceneEasingFunction.h"
 #include "MovieSceneFrameMigration.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 #include "MovieSceneSection.generated.h"
 
 class FStructOnScope;

@@ -9,7 +9,7 @@
 #include "MovieScene.h"
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 #include "MovieSceneBindingOverridesInterface.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 #include "MovieSceneTimeController.h"
 #include "MovieSceneSequencePlayer.generated.h"
 

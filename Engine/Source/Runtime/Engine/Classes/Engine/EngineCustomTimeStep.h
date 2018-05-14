@@ -8,6 +8,25 @@
 #include "EngineCustomTimeStep.generated.h"
 
 /**
+ * Possible states of CustomTimeStep.
+ */
+UENUM()
+enum class ECustomTimeStepSynchronizationState
+{
+	/** CustomTimeStep has not been initialized or has been shutdown. */
+	Closed,
+
+	/** CustomTimeStep error occurred during Synchronization. */
+	Error,
+
+	/** CustomTimeStep is currently synchronized with the source. */
+	Synchronized,
+
+	/** CustomTimeStep is initialized and being prepared for synchronization. */
+	Synchronizing,
+};
+
+/**
  * A CustomTimeStep control the Engine Framerate/Timestep.
  * This will update the FApp::CurrentTime/FApp::DeltaTime.
  * This is useful when you want the engine to be synchronized with an external clock (genlock).
@@ -29,6 +48,9 @@ public:
 	 * @return	true if the Engine's TimeStep should also be performed; false otherwise.
 	 */
 	virtual bool UpdateTimeStep(class UEngine* InEngine) PURE_VIRTUAL(UEngineCustomTimeStep::UpdateTimeStep, return true;);
+
+	/** The state of the CustomTimeStep. */
+	virtual ECustomTimeStepSynchronizationState GetSynchronizationState() const PURE_VIRTUAL(UEngineCustomTimeStep::GetSynchronizationState, return ECustomTimeStepSynchronizationState::Closed;);
 
 public:
 	/** Default behaviour of the engine. Update FApp::LastTime */

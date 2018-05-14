@@ -9,6 +9,7 @@
 #include "PyWrapperStruct.h"
 #include "Internationalization/BreakIterator.h"
 #include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 #include "UObject/Class.h"
 #include "UObject/Package.h"
 #include "UObject/EnumProperty.h"
@@ -1807,17 +1808,21 @@ FString PythonizeTooltip(const FString& InTooltip, const FPythonizeTooltipContex
 	return PythonizedTooltip;
 }
 
-void PythonizeStructValueImpl(const UScriptStruct* InStruct, const void* InStructValue, const bool InIncludeUnrealNamespace, const bool InUseStrictTyping, FString& OutPythonDefaultValue);
+void PythonizeStructValueImpl(const UScriptStruct* InStruct, const void* InStructValue, const uint32 InFlags, FString& OutPythonDefaultValue);
 
-void PythonizeValueImpl(const UProperty* InProp, const void* InPropValue, const bool InIncludeUnrealNamespace, const bool InUseStrictTyping, FString& OutPythonDefaultValue)
+void PythonizeValueImpl(const UProperty* InProp, const void* InPropValue, const uint32 InFlags, FString& OutPythonDefaultValue)
 {
 	static const bool bIsForDocString = false;
-	const TCHAR* UnrealNamespace = InIncludeUnrealNamespace ? TEXT("unreal.") : TEXT("");
+
+	const bool bIncludeUnrealNamespace = !!(InFlags & EPythonizeValueFlags::IncludeUnrealNamespace);
+	const bool bUseStrictTyping = !!(InFlags & EPythonizeValueFlags::UseStrictTyping);
+
+	const TCHAR* UnrealNamespace = bIncludeUnrealNamespace ? TEXT("unreal.") : TEXT("");
 
 	if (InProp->ArrayDim > 1)
 	{
-		OutPythonDefaultValue += InUseStrictTyping
-			? FString::Printf(TEXT("%sFixedArray.cast(%s, ["), UnrealNamespace, *GetPropertyTypePythonName(InProp, InIncludeUnrealNamespace, bIsForDocString))
+		OutPythonDefaultValue += bUseStrictTyping
+			? FString::Printf(TEXT("%sFixedArray.cast(%s, ["), UnrealNamespace, *GetPropertyTypePythonName(InProp, bIncludeUnrealNamespace, bIsForDocString))
 			: TEXT("[");
 	}
 	for (int32 ArrIndex = 0; ArrIndex < InProp->ArrayDim; ++ArrIndex)
@@ -1855,7 +1860,7 @@ void PythonizeValueImpl(const UProperty* InProp, const void* InPropValue, const 
 		else if (const UNameProperty* NameProp = Cast<const UNameProperty>(InProp))
 		{
 			const FString NameStrValue = NameProp->GetPropertyValue(PropArrValue).ToString();
-			OutPythonDefaultValue += InUseStrictTyping
+			OutPythonDefaultValue += bUseStrictTyping
 				? FString::Printf(TEXT("%sName(\"%s\")"), UnrealNamespace, *NameStrValue)
 				: FString::Printf(TEXT("\"%s\""), *NameStrValue);
 		}
@@ -1863,7 +1868,7 @@ void PythonizeValueImpl(const UProperty* InProp, const void* InPropValue, const 
 		{
 			const FString* TextStrValue = FTextInspector::GetSourceString(TextProp->GetPropertyValue(PropArrValue));
 			check(TextStrValue);
-			OutPythonDefaultValue += InUseStrictTyping
+			OutPythonDefaultValue += bUseStrictTyping
 				? FString::Printf(TEXT("%sText(\"%s\")"), UnrealNamespace, **TextStrValue)
 				: FString::Printf(TEXT("\"%s\""), **TextStrValue);
 		}
@@ -1877,7 +1882,7 @@ void PythonizeValueImpl(const UProperty* InProp, const void* InPropValue, const 
 		}
 		else if (const UStructProperty* StructProp = Cast<const UStructProperty>(InProp))
 		{
-			PythonizeStructValueImpl(StructProp->Struct, PropArrValue, InIncludeUnrealNamespace, InUseStrictTyping, OutPythonDefaultValue);
+			PythonizeStructValueImpl(StructProp->Struct, PropArrValue, InFlags, OutPythonDefaultValue);
 		}
 		else if (const UDelegateProperty* DelegateProp = Cast<const UDelegateProperty>(InProp))
 		{
@@ -1889,8 +1894,8 @@ void PythonizeValueImpl(const UProperty* InProp, const void* InPropValue, const 
 		}
 		else if (const UArrayProperty* ArrayProperty = Cast<const UArrayProperty>(InProp))
 		{
-			OutPythonDefaultValue += InUseStrictTyping
-				? FString::Printf(TEXT("%sArray.cast(%s, ["), UnrealNamespace, *GetPropertyTypePythonName(ArrayProperty->Inner, InIncludeUnrealNamespace, bIsForDocString))
+			OutPythonDefaultValue += bUseStrictTyping
+				? FString::Printf(TEXT("%sArray.cast(%s, ["), UnrealNamespace, *GetPropertyTypePythonName(ArrayProperty->Inner, bIncludeUnrealNamespace, bIsForDocString))
 				: TEXT("[");
 			{
 				FScriptArrayHelper ScriptArrayHelper(ArrayProperty, PropArrValue);
@@ -1901,17 +1906,17 @@ void PythonizeValueImpl(const UProperty* InProp, const void* InPropValue, const 
 					{
 						OutPythonDefaultValue += TEXT(", ");
 					}
-					PythonizeValueImpl(ArrayProperty->Inner, ScriptArrayHelper.GetRawPtr(ElementIndex), InIncludeUnrealNamespace, InUseStrictTyping, OutPythonDefaultValue);
+					PythonizeValueImpl(ArrayProperty->Inner, ScriptArrayHelper.GetRawPtr(ElementIndex), InFlags, OutPythonDefaultValue);
 				}
 			}
-			OutPythonDefaultValue += InUseStrictTyping
+			OutPythonDefaultValue += bUseStrictTyping
 				? TEXT("])")
 				: TEXT("]");
 		}
 		else if (const USetProperty* SetProperty = Cast<const USetProperty>(InProp))
 		{
-			OutPythonDefaultValue += InUseStrictTyping
-				? FString::Printf(TEXT("%sSet.cast(%s, ["), UnrealNamespace, *GetPropertyTypePythonName(SetProperty->ElementProp, InIncludeUnrealNamespace, bIsForDocString))
+			OutPythonDefaultValue += bUseStrictTyping
+				? FString::Printf(TEXT("%sSet.cast(%s, ["), UnrealNamespace, *GetPropertyTypePythonName(SetProperty->ElementProp, bIncludeUnrealNamespace, bIsForDocString))
 				: TEXT("[");
 			{
 				FScriptSetHelper ScriptSetHelper(SetProperty, PropArrValue);
@@ -1923,18 +1928,18 @@ void PythonizeValueImpl(const UProperty* InProp, const void* InPropValue, const 
 						{
 							OutPythonDefaultValue += TEXT(", ");
 						}
-						PythonizeValueImpl(ScriptSetHelper.GetElementProperty(), ScriptSetHelper.GetElementPtr(SparseElementIndex), InIncludeUnrealNamespace, InUseStrictTyping, OutPythonDefaultValue);
+						PythonizeValueImpl(ScriptSetHelper.GetElementProperty(), ScriptSetHelper.GetElementPtr(SparseElementIndex), InFlags, OutPythonDefaultValue);
 					}
 				}
 			}
-			OutPythonDefaultValue += InUseStrictTyping
+			OutPythonDefaultValue += bUseStrictTyping
 				? TEXT("])")
 				: TEXT("]");
 		}
 		else if (const UMapProperty* MapProperty = Cast<const UMapProperty>(InProp))
 		{
-			OutPythonDefaultValue += InUseStrictTyping
-				? FString::Printf(TEXT("%sMap.cast(%s, %s, {"), UnrealNamespace, *GetPropertyTypePythonName(MapProperty->KeyProp, InIncludeUnrealNamespace, bIsForDocString), *GetPropertyTypePythonName(MapProperty->ValueProp, InIncludeUnrealNamespace, bIsForDocString))
+			OutPythonDefaultValue += bUseStrictTyping
+				? FString::Printf(TEXT("%sMap.cast(%s, %s, {"), UnrealNamespace, *GetPropertyTypePythonName(MapProperty->KeyProp, bIncludeUnrealNamespace, bIsForDocString), *GetPropertyTypePythonName(MapProperty->ValueProp, bIncludeUnrealNamespace, bIsForDocString))
 				: TEXT("{");
 			{
 				FScriptMapHelper ScriptMapHelper(MapProperty, PropArrValue);
@@ -1946,13 +1951,13 @@ void PythonizeValueImpl(const UProperty* InProp, const void* InPropValue, const 
 						{
 							OutPythonDefaultValue += TEXT(", ");
 						}
-						PythonizeValueImpl(ScriptMapHelper.GetKeyProperty(), ScriptMapHelper.GetKeyPtr(SparseElementIndex), InIncludeUnrealNamespace, InUseStrictTyping, OutPythonDefaultValue);
+						PythonizeValueImpl(ScriptMapHelper.GetKeyProperty(), ScriptMapHelper.GetKeyPtr(SparseElementIndex), InFlags, OutPythonDefaultValue);
 						OutPythonDefaultValue += TEXT(": ");
-						PythonizeValueImpl(ScriptMapHelper.GetValueProperty(), ScriptMapHelper.GetValuePtr(SparseElementIndex), InIncludeUnrealNamespace, InUseStrictTyping, OutPythonDefaultValue);
+						PythonizeValueImpl(ScriptMapHelper.GetValueProperty(), ScriptMapHelper.GetValuePtr(SparseElementIndex), InFlags, OutPythonDefaultValue);
 					}
 				}
 			}
-			OutPythonDefaultValue += InUseStrictTyping
+			OutPythonDefaultValue += bUseStrictTyping
 				? TEXT("})")
 				: TEXT("}");
 		}
@@ -1964,15 +1969,20 @@ void PythonizeValueImpl(const UProperty* InProp, const void* InPropValue, const 
 	}
 	if (InProp->ArrayDim > 1)
 	{
-		OutPythonDefaultValue += InUseStrictTyping
+		OutPythonDefaultValue += bUseStrictTyping
 			? TEXT("])")
 			: TEXT("]");
 	}
 }
 
-void PythonizeStructValueImpl(const UScriptStruct* InStruct, const void* InStructValue, const bool InIncludeUnrealNamespace, const bool InUseStrictTyping, FString& OutPythonDefaultValue)
+void PythonizeStructValueImpl(const UScriptStruct* InStruct, const void* InStructValue, const uint32 InFlags, FString& OutPythonDefaultValue)
 {
-	const TCHAR* UnrealNamespace = InIncludeUnrealNamespace ? TEXT("unreal.") : TEXT("");
+	const bool bIncludeUnrealNamespace = !!(InFlags & EPythonizeValueFlags::IncludeUnrealNamespace);
+	const bool bUseStrictTyping = !!(InFlags & EPythonizeValueFlags::UseStrictTyping);
+	const bool bDefaultConstructStructs = !!(InFlags & EPythonizeValueFlags::DefaultConstructStructs);
+	const bool bDefaultConstructDateTime = !!(InFlags & EPythonizeValueFlags::DefaultConstructDateTime);
+
+	const TCHAR* UnrealNamespace = bIncludeUnrealNamespace ? TEXT("unreal.") : TEXT("");
 
 	// Note: We deliberately don't use any FPyWrapperStruct functionality here as this function may be called as part of generating the wrapped type
 
@@ -1986,88 +1996,91 @@ void PythonizeStructValueImpl(const UScriptStruct* InStruct, const void* InStruc
 		return nullptr;
 	};
 
-	const UFunction* MakeFunc = FindMakeBreakFunction(HasNativeMakeMetaDataKey);
-	const UFunction* BreakFunc = FindMakeBreakFunction(HasNativeBreakMetaDataKey);
-
 	// If the struct has a make function, we assume the output of the break function matches the input of the make function
-	OutPythonDefaultValue += InUseStrictTyping 
+	OutPythonDefaultValue += bUseStrictTyping 
 		? FString::Printf(TEXT("%s%s("), UnrealNamespace, *GetStructPythonName(InStruct))
 		: TEXT("[");
-	if (MakeFunc && BreakFunc)
+	if (!bDefaultConstructStructs && (!bDefaultConstructDateTime || !InStruct->IsChildOf(TBaseStructure<FDateTime>::Get())))
 	{
-		UClass* Class = BreakFunc->GetOwnerClass();
-		UObject* Obj = Class->GetDefaultObject();
+		const UFunction* MakeFunc = FindMakeBreakFunction(HasNativeMakeMetaDataKey);
+		const UFunction* BreakFunc = FindMakeBreakFunction(HasNativeBreakMetaDataKey);
 
-		FGeneratedWrappedFunction BreakFuncDef;
-		BreakFuncDef.SetFunction(BreakFunc, FGeneratedWrappedFunction::SFF_ExtractParameters);
-
-		// Python can only support 255 parameters, so if we have more than that for this struct just use the default constructor
-		if (BreakFuncDef.OutputParams.Num() <= 255)
+		if (MakeFunc && BreakFunc)
 		{
-			// Call the break function using the instance we were given
-			FStructOnScope FuncParams(BreakFuncDef.Func);
-			if (BreakFuncDef.InputParams.Num() == 1 && Cast<UStructProperty>(BreakFuncDef.InputParams[0].ParamProp) && InStruct->IsChildOf(CastChecked<UStructProperty>(BreakFuncDef.InputParams[0].ParamProp)->Struct))
-			{
-				// Copy the given instance as the 'self' argument
-				const FGeneratedWrappedMethodParameter& SelfParam = BreakFuncDef.InputParams[0];
-				void* SelfArgInstance = SelfParam.ParamProp->ContainerPtrToValuePtr<void>(FuncParams.GetStructMemory());
-				CastChecked<UStructProperty>(SelfParam.ParamProp)->Struct->CopyScriptStruct(SelfArgInstance, InStructValue);
-			}
-			PyUtil::InvokeFunctionCall(Obj, BreakFuncDef.Func, FuncParams.GetStructMemory(), TEXT("pythonize default struct value"));
-			PyErr_Clear(); // Clear any errors in case InvokeFunctionCall failed
+			UClass* Class = BreakFunc->GetOwnerClass();
+			UObject* Obj = Class->GetDefaultObject();
 
-			// Extract the output argument values as defaults for the struct
-			for (int32 OuputParamIndex = 0; OuputParamIndex < BreakFuncDef.OutputParams.Num(); ++OuputParamIndex)
+			FGeneratedWrappedFunction BreakFuncDef;
+			BreakFuncDef.SetFunction(BreakFunc, FGeneratedWrappedFunction::SFF_ExtractParameters);
+
+			// Python can only support 255 parameters, so if we have more than that for this struct just use the default constructor
+			if (BreakFuncDef.OutputParams.Num() <= 255)
 			{
-				const FGeneratedWrappedMethodParameter& OutputParam = BreakFuncDef.OutputParams[OuputParamIndex];
-				if (OuputParamIndex > 0)
+				// Call the break function using the instance we were given
+				FStructOnScope FuncParams(BreakFuncDef.Func);
+				if (BreakFuncDef.InputParams.Num() == 1 && Cast<UStructProperty>(BreakFuncDef.InputParams[0].ParamProp) && InStruct->IsChildOf(CastChecked<UStructProperty>(BreakFuncDef.InputParams[0].ParamProp)->Struct))
 				{
-					OutPythonDefaultValue += TEXT(", ");
+					// Copy the given instance as the 'self' argument
+					const FGeneratedWrappedMethodParameter& SelfParam = BreakFuncDef.InputParams[0];
+					void* SelfArgInstance = SelfParam.ParamProp->ContainerPtrToValuePtr<void>(FuncParams.GetStructMemory());
+					CastChecked<UStructProperty>(SelfParam.ParamProp)->Struct->CopyScriptStruct(SelfArgInstance, InStructValue);
 				}
-				PythonizeValueImpl(OutputParam.ParamProp, OutputParam.ParamProp->ContainerPtrToValuePtr<void>(FuncParams.GetStructMemory()), InIncludeUnrealNamespace, InUseStrictTyping, OutPythonDefaultValue);
+				PyUtil::InvokeFunctionCall(Obj, BreakFuncDef.Func, FuncParams.GetStructMemory(), TEXT("pythonize default struct value"));
+				PyErr_Clear(); // Clear any errors in case InvokeFunctionCall failed
+
+				// Extract the output argument values as defaults for the struct
+				for (int32 OuputParamIndex = 0; OuputParamIndex < BreakFuncDef.OutputParams.Num(); ++OuputParamIndex)
+				{
+					const FGeneratedWrappedMethodParameter& OutputParam = BreakFuncDef.OutputParams[OuputParamIndex];
+					if (OuputParamIndex > 0)
+					{
+						OutPythonDefaultValue += TEXT(", ");
+					}
+					PythonizeValueImpl(OutputParam.ParamProp, OutputParam.ParamProp->ContainerPtrToValuePtr<void>(FuncParams.GetStructMemory()), InFlags, OutPythonDefaultValue);
+				}
+			}
+		}
+		else
+		{
+			int32 ExportedPropertyCount = 0;
+			FString StructInitParamsStr;
+			for (TFieldIterator<const UProperty> PropIt(InStruct, EFieldIteratorFlags::IncludeSuper); PropIt; ++PropIt)
+			{
+				const UProperty* Prop = *PropIt;
+				if (ShouldExportProperty(Prop) && !IsDeprecatedProperty(Prop))
+				{
+					if (ExportedPropertyCount++ > 0)
+					{
+						StructInitParamsStr += TEXT(", ");
+					}
+					PythonizeValueImpl(Prop, Prop->ContainerPtrToValuePtr<void>(InStructValue), InFlags, StructInitParamsStr);
+				}
+			}
+
+			// Python can only support 255 parameters, so if we have more than that for this struct just use the default constructor
+			if (ExportedPropertyCount <= 255)
+			{
+				OutPythonDefaultValue += StructInitParamsStr;
 			}
 		}
 	}
-	else
-	{
-		int32 ExportedPropertyCount = 0;
-		FString StructInitParamsStr;
-		for (TFieldIterator<const UProperty> PropIt(InStruct, EFieldIteratorFlags::IncludeSuper); PropIt; ++PropIt)
-		{
-			const UProperty* Prop = *PropIt;
-			if (ShouldExportProperty(Prop))
-			{
-				if (ExportedPropertyCount++ > 0)
-				{
-					StructInitParamsStr += TEXT(", ");
-				}
-				PythonizeValueImpl(Prop, Prop->ContainerPtrToValuePtr<void>(InStructValue), InIncludeUnrealNamespace, InUseStrictTyping, StructInitParamsStr);
-			}
-		}
-
-		// Python can only support 255 parameters, so if we have more than that for this struct just use the default constructor
-		if (ExportedPropertyCount <= 255)
-		{
-			OutPythonDefaultValue += StructInitParamsStr;
-		}
-	}
-	OutPythonDefaultValue += InUseStrictTyping
+	OutPythonDefaultValue += bUseStrictTyping
 		? TEXT(")")
 		: TEXT("]");
 }
 
-FString PythonizeValue(const UProperty* InProp, const void* InPropValue, const bool InIncludeUnrealNamespace, const bool InUseStrictTyping)
+FString PythonizeValue(const UProperty* InProp, const void* InPropValue, const uint32 InFlags)
 {
 	FString PythonValue;
-	PythonizeValueImpl(InProp, InPropValue, InIncludeUnrealNamespace, InUseStrictTyping, PythonValue);
+	PythonizeValueImpl(InProp, InPropValue, InFlags, PythonValue);
 	return PythonValue;
 }
 
-FString PythonizeDefaultValue(const UProperty* InProp, const FString& InDefaultValue, const bool InIncludeUnrealNamespace, const bool InUseStrictTyping)
+FString PythonizeDefaultValue(const UProperty* InProp, const FString& InDefaultValue, const uint32 InFlags)
 {
 	PyUtil::FPropValueOnScope PropValue(InProp);
 	PyUtil::ImportDefaultValue(InProp, PropValue.GetValue(), InDefaultValue);
-	return PythonizeValue(InProp, PropValue.GetValue(), InIncludeUnrealNamespace, InUseStrictTyping);
+	return PythonizeValue(InProp, PropValue.GetValue(), InFlags);
 }
 
 FString GetFieldModule(const UField* InField)
@@ -2579,6 +2592,34 @@ void AppendCppSourceInformationDocString(const UField* InOwnerType, FString& Out
 	OutStr += LINE_TERMINATOR TEXT("- **File**: ");
 	OutStr += TypeFile;
 	OutStr += LINE_TERMINATOR;
+}
+
+bool SaveGeneratedTextFile(const TCHAR* InFilename, const FString& InFileContents, const bool InForceWrite)
+{
+	bool bWriteFile = InForceWrite;
+
+	if (!bWriteFile)
+	{
+		FString CurrentFileContents;
+		if (FFileHelper::LoadFileToString(CurrentFileContents, InFilename))
+		{
+			// Only write the file if the contents differ
+			bWriteFile = !InFileContents.Equals(CurrentFileContents, ESearchCase::CaseSensitive);
+		}
+		else
+		{
+			// Failed to load the file, assume it's missing so write it
+			bWriteFile = true;
+		}
+	}
+
+	if (bWriteFile)
+	{
+		return FFileHelper::SaveStringToFile(InFileContents, InFilename, FFileHelper::EEncodingOptions::ForceUTF8);
+	}
+
+	// File up-to-date, return success
+	return true;
 }
 
 }

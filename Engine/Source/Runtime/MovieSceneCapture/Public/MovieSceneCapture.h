@@ -30,7 +30,7 @@ struct FCachedMetrics
 };
 
 /** Class responsible for capturing scene data */
-UCLASS(config=EditorPerProjectUserSettings)
+UCLASS(config=EditorPerProjectUserSettings, PerObjectConfig)
 class MOVIESCENECAPTURE_API UMovieSceneCapture : public UObject, public IMovieSceneCaptureInterface, public ICaptureProtocolHost
 {
 public:
@@ -71,31 +71,31 @@ protected:
 public:
 
 	/** The type of capture protocol to use */
-	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, DisplayName="Output Format")
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=CaptureSettings, DisplayName="Output Format")
 	FCaptureProtocolID CaptureType;
 
 	/** Settings specific to the capture protocol */
-	UPROPERTY(EditAnywhere, Category=CaptureSettings)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CaptureSettings)
 	UMovieSceneCaptureProtocolSettings* ProtocolSettings;
 
 	/** Settings that define how to capture */
-	UPROPERTY(EditAnywhere, config, Category=CaptureSettings, meta=(ShowOnlyInnerProperties))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=CaptureSettings, meta=(ShowOnlyInnerProperties))
 	FMovieSceneCaptureSettings Settings;
 
 	/** Whether to capture the movie in a separate process or not */
-	UPROPERTY(config, EditAnywhere, Category=General, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=General, AdvancedDisplay)
 	bool bUseSeparateProcess;
 
 	/** When enabled, the editor will shutdown when the capture starts */
-	UPROPERTY(EditAnywhere, config, Category=General, AdvancedDisplay, meta=(EditCondition=bUseSeparateProcess))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=General, AdvancedDisplay, meta=(EditCondition=bUseSeparateProcess))
 	bool bCloseEditorWhenCaptureStarts;
 
 	/** Additional command line arguments to pass to the external process when capturing */
-	UPROPERTY(EditAnywhere, config, Category=General, AdvancedDisplay, meta=(EditCondition=bUseSeparateProcess))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=General, AdvancedDisplay, meta=(EditCondition=bUseSeparateProcess))
 	FString AdditionalCommandLineArguments;
 
 	/** Command line arguments inherited from this process */
-	UPROPERTY(EditAnywhere, transient, Category=General, AdvancedDisplay, meta=(EditCondition=bUseSeparateProcess))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, transient, Category=General, AdvancedDisplay, meta=(EditCondition=bUseSeparateProcess))
 	FString InheritedCommandLineArguments;
 
 	/** Event that is fired after we've finished capturing */

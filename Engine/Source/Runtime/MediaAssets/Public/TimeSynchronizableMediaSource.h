@@ -14,7 +14,7 @@ namespace TimeSynchronizableMedia
 }
 
 /**
- * Base class for media sources that can be used with TimeSynchronizationManager.
+ * Base class for media sources that can be synchronized with the engine's timecode.
  */
 UCLASS(Abstract)
 class MEDIAASSETS_API UTimeSynchronizableMediaSource : public UBaseMediaSource
@@ -27,7 +27,7 @@ public:
 
 public:
 
-	/** Option to enable using Time from the TimeSynchronizationManager. */
+	/** Synchronize the media with the engine's timecode. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=Synchronization)
 	bool bUseTimeSynchronization;
 
@@ -36,5 +36,4 @@ public:
 	using Super::GetMediaOption;
 	virtual bool GetMediaOption(const FName& Key, bool DefaultValue) const override;
 	virtual bool HasMediaOption(const FName& Key) const override;
-
 };

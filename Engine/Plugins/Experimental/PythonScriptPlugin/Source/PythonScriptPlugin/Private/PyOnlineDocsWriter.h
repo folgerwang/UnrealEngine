@@ -79,6 +79,9 @@ public:
 	/** Get the directory for the Sphinx template files. */
 	FString GetTemplatePath() const;
 
+	/** Create Python config for Sphinx based on template. */
+	void GenerateConfigFile();
+
 	/** Create index reStructuredText file for Sphinx based on template. */
 	void GenerateIndexFile();
 

@@ -27,6 +27,7 @@ namespace Audio
 		* Called when audio capture has received a new capture buffer. 
 		*/
 		virtual void OnAudioCapture(float* AudioData, int32 NumFrames, int32 NumChannels, double StreamTime, bool bOverflow) = 0;
+		virtual ~IAudioCaptureCallback() {}
 	};
 
 	struct FAudioCaptureStreamParam

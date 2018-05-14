@@ -101,6 +101,8 @@ static void SafeCreateDXGIFactory(IDXGIFactory4** DXGIFactory)
 #if !defined(D3D12_CUSTOM_VIEWPORT_CONSTRUCTOR) || !D3D12_CUSTOM_VIEWPORT_CONSTRUCTOR
 	__try
 	{
+		bIsQuadBufferStereoEnabled = FParse::Param(FCommandLine::Get(), TEXT("quad_buffer_stereo"));
+
 		CreateDXGIFactory(__uuidof(IDXGIFactory4), (void**)DXGIFactory);
 	}
 	__except (IsDelayLoadException(GetExceptionInformation()))
@@ -689,6 +691,16 @@ void FD3D12DynamicRHI::PostInit()
 	{
 		SetupRecursiveResources();
 	}
+}
+
+bool FD3D12DynamicRHI::IsQuadBufferStereoEnabled() const
+{
+	return bIsQuadBufferStereoEnabled;
+}
+
+void FD3D12DynamicRHI::DisableQuadBufferStereo()
+{
+	bIsQuadBufferStereoEnabled = false;
 }
 
 void FD3D12Device::Initialize()

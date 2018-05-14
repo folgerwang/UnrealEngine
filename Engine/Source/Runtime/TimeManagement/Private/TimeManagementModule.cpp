@@ -1,11 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "TimeManagementModule.h"
+#include "ITimeManagementModule.h"
 
-
-FTimeManagementModule::FTimeManagementModule()
-	: TimeSyncManager(nullptr)
+class FTimeManagementModule : public ITimeManagementModule
 {
-}
+};
 
 IMPLEMENT_MODULE(FTimeManagementModule, TimeManagement);

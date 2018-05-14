@@ -3,7 +3,7 @@
 #pragma once
 
 #include "UObject/ObjectMacros.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 #include "MovieSceneChannel.h"
 #include "MovieSceneChannelData.h"
 #include "MovieSceneChannelTraits.h"

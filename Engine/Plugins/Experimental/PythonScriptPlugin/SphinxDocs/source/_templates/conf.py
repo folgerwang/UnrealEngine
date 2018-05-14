@@ -23,9 +23,9 @@ copyright = u'© 2004-2018, Epic Games, Inc. All rights reserved. Unreal and its
 author = u'Epic Games Inc.'
 
 # The short X.Y version
-version = u'1.0'
+version = u'{{Version}}'
 # The full version, including alpha/beta/rc tags
-release = u'1.0 Beta'
+release = u'{{Version}} (Experimental)'
 
 
 # -- General configuration ---------------------------------------------------

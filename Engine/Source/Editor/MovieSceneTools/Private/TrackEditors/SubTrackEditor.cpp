@@ -24,7 +24,7 @@
 #include "SequenceRecorderSettings.h"
 #include "DragAndDrop/AssetDragDropOp.h"
 #include "MovieSceneToolHelpers.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 #include "MovieSceneTimeHelpers.h"
 
 namespace SubTrackEditorConstants

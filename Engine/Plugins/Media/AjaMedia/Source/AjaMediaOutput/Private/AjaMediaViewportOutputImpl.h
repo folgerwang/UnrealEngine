@@ -7,12 +7,12 @@
 #include "AjaMediaOutput.h"
 
 #include "Engine/EngineBaseTypes.h"
-#include "FrameRate.h"
 #include "FrameGrabber.h"
 #include "IMediaControls.h"
+#include "Misc/FrameRate.h"
+#include "Misc/Timecode.h"
 #include "Slate/SceneViewport.h"
 #include "Templates/Atomic.h"
-#include "Timecode.h"
 
 
 class FAjaMediaViewportOutputImpl;
@@ -48,7 +48,7 @@ public:
 	virtual ~FAjaMediaViewportOutputImpl();
 	void Shutdown();
 
-	void Tick(const int32 InFrameNumber);
+	void Tick(const FTimecode& InTimecode);
 	bool HasFinishedProcessing() const;
 
 	FFrameRate GetOutputFrameRate() const { return FrameRate; }

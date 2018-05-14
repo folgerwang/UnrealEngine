@@ -7,7 +7,7 @@
 #include "UObject/UnrealType.h"
 #include "UObject/ObjectKey.h"
 #include "Curves/KeyHandle.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 
 class AActor;
 class UCameraComponent;
