@@ -15,6 +15,7 @@
 #include "EdGraphSchema_K2.h"
 #include "UnrealEdGlobals.h"
 #include "Editor/UnrealEdEngine.h"
+#include "AssetRegistryModule.h"
 
 #include "Editor.h"
 
@@ -33,6 +34,15 @@
 #include "Stats/Stats.h"
 
 #define LOCTEXT_NAMESPACE "WatchPointViewer"
+
+namespace
+{
+	// Returns true if the blueprint execution is currently paused; false otherwise
+	bool IsPaused()
+	{
+		return GUnrealEd && GUnrealEd->PlayWorld && GUnrealEd->PlayWorld->bDebugPauseExecution;
+	}
+};
 
 struct FWatchRow
 {
@@ -60,6 +70,9 @@ struct FWatchRow
 		, Type(MoveTemp(InType))
 	{
 		SetObjectBeingDebuggedName();
+
+		UPackage* Package = Cast<UPackage>(BP ? BP->GetOuter() : nullptr);
+		BlueprintPackageName = Package ? Package->GetFName() : FName();
 	}
 
 	FWatchRow(
@@ -85,6 +98,9 @@ struct FWatchRow
 	{
 		SetObjectBeingDebuggedName();
 
+		UPackage* Package = Cast<UPackage>(BP ? BP->GetOuter() : nullptr);
+		BlueprintPackageName = Package ? Package->GetFName() : FName();
+
 		for (const FDebugInfo& ChildInfo : Info.Children)
 		{
 			Children.Add(MakeShared<FWatchRow>(InBP, InNode, InPin, InObjectBeingDebugged, BlueprintName, GraphName, NodeName, ChildInfo));
@@ -105,6 +121,7 @@ struct FWatchRow
 	FText DisplayName;
 	FText Value;
 	FText Type;
+	FName BlueprintPackageName;
 
 	TArray<TSharedRef<FWatchRow>> Children;
 
@@ -274,12 +291,23 @@ public:
 		FKismetDebugUtilities::WatchedPinsListChangedEvent.AddRaw(this, &SWatchViewer::HandleWatchedPinsChanged);
 		FEditorDelegates::ResumePIE.AddRaw(this, &SWatchViewer::HandleResumePIE);
 		FEditorDelegates::EndPIE.AddRaw(this, &SWatchViewer::HandleEndPIE);
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		AssetRegistryModule.Get().OnAssetRemoved().AddRaw(this, &SWatchViewer::HandleAssetRemoved);
+		AssetRegistryModule.Get().OnAssetRenamed().AddRaw(this, &SWatchViewer::HandleAssetRenamed);
 	}
 	~SWatchViewer()
 	{
 		FKismetDebugUtilities::WatchedPinsListChangedEvent.RemoveAll(this);
 		FEditorDelegates::ResumePIE.RemoveAll(this);
 		FEditorDelegates::EndPIE.RemoveAll(this);
+
+		if (FModuleManager::Get().IsModuleLoaded(TEXT("AssetRegistry")))
+		{
+			FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+			AssetRegistryModule.Get().OnAssetRemoved().RemoveAll(this);
+			AssetRegistryModule.Get().OnAssetRenamed().RemoveAll(this);
+		}
 	}
 
 	void Construct(const FArguments& InArgs, TArray<TSharedRef<FWatchRow>>* InWatchSource);
@@ -288,6 +316,8 @@ public:
 	void HandleWatchedPinsChanged(UBlueprint* BlueprintObj);
 	void HandleResumePIE(bool);
 	void HandleEndPIE(bool);
+	void HandleAssetRemoved(const FAssetData& InAssetData);
+	void HandleAssetRenamed(const FAssetData& InAssetData, const FString& InOldName);
 	void UpdateWatches(TArray<TSharedRef<FWatchRow>>* WatchValues);
 	void CopySelectedRows() const;
 	void StopWatchingPin() const;
@@ -453,6 +483,16 @@ void SWatchViewer::HandleEndPIE(bool)
 {
 	// show the unpaused watches in case we stopped PIE while at a breakpoint
 	WatchViewer::ContinueExecution();
+}
+
+void SWatchViewer::HandleAssetRemoved(const FAssetData& InAssetData)
+{
+	WatchViewer::RemoveWatchesForAsset(InAssetData);
+}
+
+void SWatchViewer::HandleAssetRenamed(const FAssetData& InAssetData, const FString& InOldName)
+{
+	WatchViewer::OnRenameAsset(InAssetData, InOldName);
 }
 
 void SWatchViewer::UpdateWatches(TArray<TSharedRef<FWatchRow>>* Watches)
@@ -768,7 +808,6 @@ void UpdateInstancedWatchDisplay()
 
 void WatchViewer::UpdateDisplayedWatches(const TArray<const FFrame*>& ScriptStack)
 {
-	bIsExecutionPaused = true;
 	BlueprintStackInstances.Reset();
 
 	for (const FFrame* Frame : ScriptStack)
@@ -789,7 +828,6 @@ void WatchViewer::UpdateDisplayedWatches(const TArray<const FFrame*>& ScriptStac
 
 void WatchViewer::ContinueExecution()
 {
-	bIsExecutionPaused = false;
 	// Notify subscribers:
 	WatchListSubscribers.Broadcast(&Private_WatchSource);
 }
@@ -828,7 +866,7 @@ void WatchViewer::UpdateWatchListFromBlueprint(UBlueprint* BlueprintObj)
 	// something changed so we need to update the lists shown in the UI
 	UpdateNonInstancedWatchDisplay();
 
-	if (bIsExecutionPaused)
+	if (IsPaused())
 	{
 		UpdateInstancedWatchDisplay();
 	}
@@ -837,10 +875,90 @@ void WatchViewer::UpdateWatchListFromBlueprint(UBlueprint* BlueprintObj)
 	WatchListSubscribers.Broadcast(&Private_WatchSource);
 }
 
+void WatchViewer::RemoveWatchesForBlueprint(class UBlueprint* BlueprintObj)
+{
+	if (!ensure(BlueprintObj))
+	{
+		return;
+	}
+
+	int32 FoundIdx = WatchedBlueprints.Find(BlueprintObj);
+	if (FoundIdx == INDEX_NONE)
+	{
+		return;
+	}
+
+	// since we're not watching any pins anymore we should remove it from the watched list
+	WatchedBlueprints.RemoveAt(FoundIdx);
+
+	// something changed so we need to update the lists shown in the UI
+	UpdateNonInstancedWatchDisplay();
+
+	if (IsPaused())
+	{
+		UpdateInstancedWatchDisplay();
+	}
+
+	// Notify subscribers
+	WatchListSubscribers.Broadcast(&Private_WatchSource);
+}
+
+void WatchViewer::RemoveWatchesForAsset(const struct FAssetData& AssetData)
+{
+	for (TSharedRef<FWatchRow> WatchRow : Private_WatchSource)
+	{
+		if (AssetData.PackageName == WatchRow->BlueprintPackageName && FText::FromName(AssetData.AssetName).EqualTo(WatchRow->BlueprintName))
+		{
+			RemoveWatchesForBlueprint(WatchRow->BP);
+			break;
+		}
+	}
+}
+
+void WatchViewer::OnRenameAsset(const struct FAssetData& AssetData, const FString& OldAssetName)
+{
+	FString OldPackageName;
+	FString OldBPName;
+
+	if (OldAssetName.Split(".", &OldPackageName, &OldBPName))
+	{
+		bool bUpdated = false;
+
+		for (TSharedRef<FWatchRow> WatchRow : Private_WatchSource)
+		{
+			if (OldPackageName == WatchRow->BlueprintPackageName.ToString() && FText::FromString(OldBPName).EqualTo(WatchRow->BlueprintName))
+			{
+				WatchRow->BlueprintName = FText::FromName(AssetData.AssetName);
+				bUpdated = true;
+			}
+		}
+	
+		if (bUpdated)
+		{
+			// something changed so we need to update the lists shown in the UI
+			UpdateNonInstancedWatchDisplay();
+
+			if (IsPaused())
+			{
+				UpdateInstancedWatchDisplay();
+			}
+
+			// Notify subscribers if necessary
+			WatchListSubscribers.Broadcast(&Private_WatchSource);
+		}
+	}
+}
+
 void WatchViewer::RegisterTabSpawner(FTabManager& TabManager)
 {
 	const auto SpawnWatchViewTab = []( const FSpawnTabArgs& Args )
 	{
+		TArray<TSharedRef<FWatchRow>>* Source = &Private_WatchSource;
+		if (IsPaused())
+		{
+			Source = &Private_InstanceWatchSource;
+		}
+
 		return SNew(SDockTab)
 			.TabRole( ETabRole::NomadTab )
 			.Label( LOCTEXT("TabTitle", "Watches") )
@@ -848,7 +966,7 @@ void WatchViewer::RegisterTabSpawner(FTabManager& TabManager)
 				SNew(SBorder)
 				.BorderImage( FEditorStyle::GetBrush("Docking.Tab.ContentAreaBrush") )
 				[
-					SNew(SWatchViewer, &Private_WatchSource)
+					SNew(SWatchViewer, Source)
 				]
 			];
 	};
