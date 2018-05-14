@@ -25,7 +25,7 @@ class ANIMGRAPHRUNTIME_API UAnimCustomInstance : public UAnimInstance
 	{
 		// make sure to tick and refresh all the time when ticks
 		// @TODO: this needs restoring post-binding
-		InSkeletalMeshComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+		InSkeletalMeshComponent->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 #if WITH_EDITOR
 		InSkeletalMeshComponent->SetUpdateAnimationInEditor(true);
 #endif

@@ -1134,7 +1134,7 @@ public:
 	FOnAnimInitialized OnAnimInitialized;
 
 	/**
-		If MeshComponentUpdateFlag == EMeshComponentUpdateFlag::OnlyTickMontagesWhenNotRendered
+		If VisibilityBasedAnimTickOption == EVisibilityBasedAnimTickOption::OnlyTickMontagesWhenNotRendered
 		Should we tick Montages only?
 	*/
 	bool ShouldOnlyTickMontages(const float DeltaTime) const;

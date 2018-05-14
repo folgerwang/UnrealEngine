@@ -77,7 +77,7 @@ struct FPreAnimatedAnimationTokenProducer : IMovieScenePreAnimatedTokenProducer
 			FToken(USkeletalMeshComponent* InComponent)
 			{
 				// Cache this object's current update flag and animation mode
-				MeshComponentUpdateFlag = InComponent->MeshComponentUpdateFlag;
+				VisibilityBasedAnimTickOption = InComponent->VisibilityBasedAnimTickOption;
 				AnimationMode = InComponent->GetAnimationMode();
 			}
 
@@ -94,7 +94,7 @@ struct FPreAnimatedAnimationTokenProducer : IMovieScenePreAnimatedTokenProducer
 				UAnimSequencerInstance::UnbindFromSkeletalMeshComponent(Component);
 
 				// Reset the mesh component update flag and animation mode to what they were before we animated the object
-				Component->MeshComponentUpdateFlag = MeshComponentUpdateFlag;
+				Component->VisibilityBasedAnimTickOption = VisibilityBasedAnimTickOption;
 				if (Component->GetAnimationMode() != AnimationMode)
 				{
 					// this SetAnimationMode reinitializes even if the mode is same
@@ -103,7 +103,7 @@ struct FPreAnimatedAnimationTokenProducer : IMovieScenePreAnimatedTokenProducer
 				}
 			}
 
-			EMeshComponentUpdateFlag::Type MeshComponentUpdateFlag;
+			EVisibilityBasedAnimTickOption VisibilityBasedAnimTickOption;
 			EAnimationMode::Type AnimationMode;
 		};
 

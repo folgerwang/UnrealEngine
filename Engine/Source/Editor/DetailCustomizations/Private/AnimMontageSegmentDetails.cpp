@@ -252,7 +252,7 @@ void SAnimationSegmentViewport::Construct(const FArguments& InArgs)
 	ViewportWidget->SetViewportInterface( SceneViewport.ToSharedRef() );
 	
 	PreviewComponent = NewObject<UDebugSkelMeshComponent>();
-	PreviewComponent->bEnablePhysicsOnDedicatedServer = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+	PreviewComponent->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 	PreviewScene.AddComponent(PreviewComponent, FTransform::Identity);
 
 	InitSkeleton();

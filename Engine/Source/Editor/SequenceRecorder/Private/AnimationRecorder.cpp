@@ -771,7 +771,7 @@ FAnimationRecorderManager& FAnimationRecorderManager::Get()
 FAnimRecorderInstance::FAnimRecorderInstance()
 	: SkelComp(nullptr)
 	, Recorder(nullptr)
-	, CachedMeshComponentUpdateFlag(EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones)
+	, CachedVisibilityBasedAnimTickOption(EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones)
 	, bCachedEnableUpdateRateOptimizations(false)
 {
 }
@@ -810,10 +810,10 @@ void FAnimRecorderInstance::InitInternal(USkeletalMeshComponent* InComponent, co
 
 		// turn off URO and make sure we always update even if out of view
 		bCachedEnableUpdateRateOptimizations = InComponent->bEnableUpdateRateOptimizations;
-		CachedMeshComponentUpdateFlag = InComponent->MeshComponentUpdateFlag;
+		CachedVisibilityBasedAnimTickOption = InComponent->VisibilityBasedAnimTickOption;
 
 		InComponent->bEnableUpdateRateOptimizations = false;
-		InComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+		InComponent->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 	}
 }
 
@@ -862,7 +862,7 @@ void FAnimRecorderInstance::FinishRecording(bool bShowMessage)
 
 		// restore update flags
 		SkelComp->bEnableUpdateRateOptimizations = bCachedEnableUpdateRateOptimizations;
-		SkelComp->MeshComponentUpdateFlag = CachedMeshComponentUpdateFlag;
+		SkelComp->VisibilityBasedAnimTickOption = CachedVisibilityBasedAnimTickOption;
 	}
 }
 
