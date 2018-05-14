@@ -16,6 +16,7 @@
 #include "Misc/Compression.h"
 #include "Features/IModularFeatures.h"
 #include "Misc/CoreDelegates.h"
+#include "Misc/CommandLine.h"
 
 struct FPakCommandLineParameters
 {
