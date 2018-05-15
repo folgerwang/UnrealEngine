@@ -20,16 +20,15 @@
 #include "BatchedElements.h"
 #include "MeshBatch.h"
 #include "SceneManagement.h"
+#include "ScenePrivateBase.h"
 #include "PrimitiveSceneInfo.h"
 #include "GlobalShader.h"
-#include "ShadowRendering.h"
 #include "PrimitiveViewRelevance.h"
 #include "DistortionRendering.h"
 #include "CustomDepthRendering.h"
 #include "HeightfieldLighting.h"
 #include "GlobalDistanceFieldParameters.h"
 #include "Templates/UniquePtr.h"
-#include "MultiGPU.h"
 
 class FScene;
 class FSceneViewState;
@@ -548,6 +547,7 @@ public:
 	const FSceneRenderer* SceneRenderer;
 	FDrawingPolicyRenderState DrawRenderState;
 	FRHICommandListImmediate& ParentCmdList;
+	const FRHIGPUMask GPUMask; // Copy of the Parent GPUMask at creation (since it could change).
 	FSceneRenderTargets* Snapshot;
 	TStatId	ExecuteStat;
 	int32 Width;
@@ -1052,7 +1052,7 @@ public:
 	FPreviousViewInfo PrevViewInfo;
 
 	/** The GPU nodes on which to render this view. */
-	FRHIGPUMask NodeMask;
+	FRHIGPUMask GPUMask;
 
 	/** An intermediate number of visible static meshes.  Doesn't account for occlusion until after FinishOcclusionQueries is called. */
 	int32 NumVisibleStaticMeshElements;
@@ -1284,30 +1284,6 @@ private:
 	void SetupSkyIrradianceEnvironmentMapConstants(FVector4* OutSkyIrradianceEnvironmentMap) const;
 };
 
-
-/**
- * Used to hold combined stats for a shadow. In the case of projected shadows the shadows
- * for the preshadow and subject are combined in this stat and so are primitives with a shadow parent.
- */
-struct FCombinedShadowStats
-{
-	/** Array of shadow subjects. The first one is the shadow parent in the case of multiple entries.	*/
-	FProjectedShadowInfo::PrimitiveArrayType	SubjectPrimitives;
-	/** Array of preshadow primitives in the case of projected shadows.									*/
-	FProjectedShadowInfo::PrimitiveArrayType	PreShadowPrimitives;
-	/** Shadow resolution in the case of projected shadows												*/
-	int32									ShadowResolution;
-	/** Shadow pass number in the case of projected shadows												*/
-	int32									ShadowPassNumber;
-
-	/**
-	 * Default constructor. 
-	 */
-	FCombinedShadowStats()
-	:	ShadowResolution(INDEX_NONE)
-	,	ShadowPassNumber(INDEX_NONE)
-	{}
-};
 
 /**
  * Masks indicating for which views a primitive needs to have a certain operation on.

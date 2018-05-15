@@ -86,9 +86,12 @@ static NSMutableSet<FIOSFramePacerHandler>* Handlers = [NSMutableSet new];
 
 	{
 		FScopeLock Lock(&HandlersMutex);
+		CADisplayLink* displayLink = (CADisplayLink*)param;
+		double OutputSeconds = displayLink.targetTimestamp;
+		double OutputDuration = displayLink.duration;
 		for (FIOSFramePacerHandler Handler in Handlers)
 		{
-			Handler(0);
+			Handler(0, OutputSeconds, OutputDuration);
 		}
 	}	
     for( auto& NextEvent : ListeningEvents )

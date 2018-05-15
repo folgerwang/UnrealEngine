@@ -1517,7 +1517,7 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 						const TArray<FLightSurfaceSample>& LightSurfaceSamples = Light->GetCachedSurfaceSamples(0, false);
 						FLinearColor UnnormalizedTransmission;
 
-						const int32 UnShadowedRays = CalculatePointAreaShadowing(
+						const FVector2D ShadowValue = CalculatePointAreaShadowing(
 							TextureMapping, 
 							CurrentVertex, 
 							TexelToVertex.ElementIndex,
@@ -1529,15 +1529,15 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 							LightSurfaceSamples,
 							bDebugThisTexel && GeneralSettings.ViewSingleBounceNumber == 0);
 
-						if (UnShadowedRays > 0)
+						if (ShadowValue.X > 0.0f)
 						{
-							if (UnShadowedRays < LightSurfaceSamples.Num())
+							if (ShadowValue.X < ShadowValue.Y)
 							{
 								// Trace more shadow rays if we are in the penumbra
 								const TArray<FLightSurfaceSample>& PenumbraLightSurfaceSamples = Light->GetCachedSurfaceSamples(0, true);
 								FLinearColor UnnormalizedPenumbraTransmission;
 
-								const int32 UnShadowedPenumbraRays = CalculatePointAreaShadowing(
+								const FVector2D ShadowValuePenumbra = CalculatePointAreaShadowing(
 									TextureMapping, 
 									CurrentVertex, 
 									TexelToVertex.ElementIndex,
@@ -1550,16 +1550,15 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 									bDebugThisTexel && GeneralSettings.ViewSingleBounceNumber == 0);
 
 								// Linear combination of uniform and penumbra shadow samples
-								//@todo - weight the samples by their solid angle PDF, not uniformly
-								ShadowFactor = (UnShadowedRays + UnShadowedPenumbraRays) / (float)(LightSurfaceSamples.Num() + PenumbraLightSurfaceSamples.Num());
+								ShadowFactor = (ShadowValue.X + ShadowValuePenumbra.X) / (ShadowValue.Y + ShadowValuePenumbra.Y);
 								// Weight each transmission by the fraction of total unshadowed rays that contributed to it
-								Transmission = (UnnormalizedTransmission + UnnormalizedPenumbraTransmission) / (UnShadowedRays + UnShadowedPenumbraRays);
+								Transmission = (UnnormalizedTransmission + UnnormalizedPenumbraTransmission) / (ShadowValue.Y + ShadowValuePenumbra.Y);
 							}
 							else
 							{
 								// The texel is completely out of shadow, fully lit, with an explicit shadow factor of 1.0f
 								ShadowFactor = 1.0f;
-								Transmission = UnnormalizedTransmission / UnShadowedRays;
+								Transmission = UnnormalizedTransmission / ShadowValue.Y;
 							}
 						}
 						else

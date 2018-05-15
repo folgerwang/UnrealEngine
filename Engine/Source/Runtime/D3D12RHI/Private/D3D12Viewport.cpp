@@ -92,7 +92,7 @@ namespace D3D12RHI
 }
 using namespace D3D12RHI;
 
-#if WITH_SLI
+#if WITH_MGPU
 FD3D12FramePacing::FD3D12FramePacing(FD3D12Adapter* Parent)
 	: bKeepRunning(true)
 	, AvgFrameTimeMs(0.0f)
@@ -167,14 +167,14 @@ void FD3D12FramePacing::PrePresentQueued(ID3D12CommandQueue* Queue)
 	AvgFrameTimeMs = (Alpha * GPUMsForFrame) + ((1.0f - Alpha) * AvgFrameTimeMs);
 	LastFrameTimeMs = CurrTimeMs;
 
-	const float TargetFrameTime = AvgFrameTimeMs * FramePacingPercentage / GNumActiveGPUsForRendering;
+	const float TargetFrameTime = AvgFrameTimeMs * FramePacingPercentage / GNumAlternateFrameRenderingGroups;
 
 	const uint32 WriteIndex = NextIndex % MaxFrames;
 	SleepTimes[WriteIndex] = (uint32)TargetFrameTime;
 	VERIFYD3D12RESULT(Queue->Wait(Fence, ++NextIndex));
 	ReleaseSemaphore(Semaphore, 1, nullptr);
 }
-#endif //WITH_SLI
+#endif //WITH_MGPU
 
 /**
  * Creates a FD3D12Surface to represent a swap chain's back buffer.
@@ -182,7 +182,7 @@ void FD3D12FramePacing::PrePresentQueued(ID3D12CommandQueue* Queue)
 FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFormat, IDXGISwapChain* SwapChain, uint32 BackBufferIndex)
 {
 	FD3D12Adapter* Adapter = Parent->GetParentAdapter();
-	const FRHIGPUMask Node = Parent->GetNodeMask();
+	const FRHIGPUMask Node = Parent->GetGPUMask();
 
 	// Grab the back buffer
 	TRefCountPtr<ID3D12Resource> BackBufferResource;
@@ -298,13 +298,13 @@ FD3D12Viewport::~FD3D12Viewport()
 
 	GetParentAdapter()->GetViewports().Remove(this);
 
-#if WITH_SLI
+#if WITH_MGPU
 	if (FramePacerRunnable)
 	{
 		delete FramePacerRunnable;
 		FramePacerRunnable = nullptr;
 	}
-#endif //WITH_SLI
+#endif //WITH_MGPU
 }
 
 DXGI_MODE_DESC FD3D12Viewport::SetupDXGI_MODE_DESC() const
@@ -328,12 +328,36 @@ void FD3D12Viewport::CalculateSwapChainDepth(int32 DefaultSwapChainDepth)
 
 	// This is a temporary helper to visualize what each GPU is rendering. 
 	// Not specifying a value will cycle swap chain through all GPUs.
-	DisplayedGPUIndex = INDEX_NONE;
-	if (GNumActiveGPUsForRendering > 1 && FParse::Value(FCommandLine::Get(), TEXT("mGPU="), DisplayedGPUIndex))
+	PresentGPUIndex = INDEX_NONE;
+	NumBackBuffers = DefaultSwapChainDepth;
+	if (GNumExplicitGPUsForRendering > 1)
 	{
-		DisplayedGPUIndex = FMath::Clamp<int32>(DisplayedGPUIndex, 0, (int32)GNumActiveGPUsForRendering);
+		if (FParse::Value(FCommandLine::Get(), TEXT("PresentGPU="), PresentGPUIndex))
+		{
+			PresentGPUIndex = FMath::Clamp<int32>(PresentGPUIndex, INDEX_NONE, (int32)GNumExplicitGPUsForRendering - 1) ;
+		}
+		else
+		{
+			switch (GetMultiGPUMode())
+			{
+			case EMultiGPUMode::AlternateFrame:
+			case EMultiGPUMode::Broadcast:
+				PresentGPUIndex = INDEX_NONE;
+				NumBackBuffers = GNumExplicitGPUsForRendering > 2 ? GNumExplicitGPUsForRendering : 4;
+				break;
+
+			case EMultiGPUMode::AlternateView:
+			case EMultiGPUMode::GPU0:
+				PresentGPUIndex = 0;
+				break;
+			case EMultiGPUMode::GPU1:
+				PresentGPUIndex = 1 % GNumExplicitGPUsForRendering;
+				break;
+			default:
+				break;
+			}
+		}
 	}
-	NumBackBuffers = (GNumActiveGPUsForRendering == 1 || DisplayedGPUIndex != INDEX_NONE) ? DefaultSwapChainDepth : (GNumActiveGPUsForRendering > 2 ? GNumActiveGPUsForRendering : 4);
 
 	BackBuffers.Empty();
 	BackBuffers.AddZeroed(NumBackBuffers);
@@ -377,10 +401,14 @@ void FD3D12Viewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 	{
 		if (IsValidRef(BackBuffers[i]))
 		{
+			// Tell the back buffer to delete immediately so that we can call resize.
 			check(BackBuffers[i]->GetRefCount() == 1);
 
-			// Tell the back buffer to delete immediately so that we can call resize.
-			BackBuffers[i]->GetResource()->DoNotDeferDelete();
+			for (FD3D12Texture2D* Tex = BackBuffers[i]; Tex; Tex = (FD3D12Texture2D*)Tex->GetNextObject())
+			{
+				Tex->DoNoDeferDelete();
+				Tex->GetResource()->DoNotDeferDelete();
+			}
 		}
 		
 		BackBuffers[i].SafeRelease();
@@ -389,7 +417,12 @@ void FD3D12Viewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 		if (IsValidRef(SDRBackBuffers[i]))
 		{
 			check(SDRBackBuffers[i]->GetRefCount() == 1);
-			SDRBackBuffers[i]->GetResource()->DoNotDeferDelete();
+
+			for (FD3D12Texture2D* Tex = SDRBackBuffers[i]; Tex; Tex = (FD3D12Texture2D*)Tex->GetNextObject())
+			{
+				Tex->DoNoDeferDelete();
+				Tex->GetResource()->DoNotDeferDelete();
+			}
 		}
 
 		SDRBackBuffers[i].SafeRelease();
@@ -656,10 +689,8 @@ bool FD3D12Viewport::Present(bool bLockToVsync)
 
 		// Execute the current command lists, and then open a new command list with a new command allocator.
 		DefaultContext.ReleaseCommandAllocator();
-		DefaultContext.FlushCommands();
-
-		// Reset the default context state
 		DefaultContext.ClearState();
+		DefaultContext.FlushCommands();
 
 		if (GEnableAsyncCompute)
 		{
@@ -669,7 +700,7 @@ bool FD3D12Viewport::Present(bool bLockToVsync)
 		}
 	}
 
-#if WITH_SLI
+#if WITH_MGPU
 #if 0 // Multi-GPU support : figure out what kind of synchronization is needed.
 	if (Adapter->GetMultiGPUMode() == EMultiGPUMode::MGPU_AFR)
 	{
@@ -702,7 +733,7 @@ bool FD3D12Viewport::Present(bool bLockToVsync)
 		delete FramePacerRunnable;
 		FramePacerRunnable = nullptr;
 	}
-#endif //WITH_SLI
+#endif //WITH_MGPU
 
 	const int32 SyncInterval = bLockToVsync ? RHIGetSyncInterval() : 0;
 	const bool bNativelyPresented = PresentChecked(SyncInterval);

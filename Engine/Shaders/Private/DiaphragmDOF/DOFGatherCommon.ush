@@ -30,11 +30,6 @@
 
 //------------------------------------------------------- DIMENSIONS VALUES.
 
-// Matching C++'s EDiaphragmDOFGatherRecursionMode
-#define GATHER_RECURSION_MODE_STANDALONE 0
-#define GATHER_RECURSION_MODE_LOWEST_MIP 1
-#define GATHER_RECURSION_MODE_HIGHEST_MIP 2
-
 // Matching C++'s FRCPassDiaphragmDOFGather::EQualityConfig
 #define GATHER_QUALITY_LOW_QUALITY 0
 #define GATHER_QUALITY_HIGH_QUALITY 1
@@ -87,6 +82,7 @@
 
 //------------------------------------------------------- COMPILE TIME CONFIG
 
+// Configures the layer processing.
 #if DIM_LAYER_PROCESSING == LAYER_PROCESSING_FOREGROUND_ONLY
 	#define GATHER_ACCUMULATOR_METHOD (GATHER_ACCUMULATOR_METHOD_JIMENEZ2014)
 	#define CONFIG_ENABLE_FAST_ACCUMULATOR 1
@@ -98,11 +94,12 @@
 	#define GATHER_ACCUMULATOR_METHOD (GATHER_ACCUMULATOR_METHOD_RINGBINNING)
 	#define CONFIG_ENABLE_FAST_ACCUMULATOR 1
 
+	// Mirror the bokeh.
+	#define CONFIG_POINT_MIRROR_BOKEH -1
+
 	// Background DOF can suffer under sampling on smaller out of focus, because
 	// the gathering kernel is too large.
-	#if DIM_GATHER_RECURSION == GATHER_RECURSION_MODE_STANDALONE
-		#define CONFIG_KERNEL_SAMPLING_DENSITY_DRIVER 1
-	#endif
+	#define CONFIG_KERNEL_SAMPLING_DENSITY_DRIVER 1
 
 #elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
 	#define GATHER_ACCUMULATOR_METHOD (GATHER_ACCUMULATOR_METHOD_SIMPLE)
@@ -115,6 +112,7 @@
 
 #endif
 
+// Configures the quality settings.
 #if DIM_GATHER_QUALITY == GATHER_QUALITY_LOW_QUALITY
 	#define CONFIG_ACCUMULATOR_FULL_ALU 0
 	#define CONFIG_FAST_ACCUMULATOR_RING_COUNT ((DIM_GATHER_RING_COUNT) - 1)
@@ -130,6 +128,15 @@
 
 #else
 	#error Unknon gathering quality.
+#endif
+
+// Configures the layout accepted has input.
+#if CONFIG_DOF_ALPHA
+	#define CONFIG_GATHER_INPUT_LAYOUT (GATHER_INPUT_LAYOUT_RGB_ALPHA_COC)
+#elif DIM_RGB_COLOR_BUFFER
+	#define CONFIG_GATHER_INPUT_LAYOUT (GATHER_INPUT_LAYOUT_RGB_SEPARATE_COC)
+#else
+	#define CONFIG_GATHER_INPUT_LAYOUT (GATHER_INPUT_LAYOUT_RGB_COC)
 #endif
 
 
@@ -189,6 +196,12 @@
 	#define CONFIG_ACCUMULATOR_FULL_ALU 1
 #endif
 
+// Whether to point mirror the bokeh.
+#ifndef CONFIG_POINT_MIRROR_BOKEH
+	#define CONFIG_POINT_MIRROR_BOKEH 1
+#endif
+
+
 
 //------------------------------------------------------- CONFIG CHECKS
 
@@ -196,25 +209,19 @@
 	#error You at the very least need to choose the an accumulator.
 #endif
 
+#ifndef CONFIG_GATHER_INPUT_LAYOUT
+	#error You at the very least need to choose the gather input layout.
+#endif
 
 //------------------------------------------------------- CONFIG DERIVED VALUES
 
 // Sets the gather pass's half resolution divisor.
-#if DIM_GATHER_RECURSION == GATHER_RECURSION_MODE_LOWEST_MIP
-	#define GATHER_HALF_RES_DIVISOR 4
+#define GATHER_HALF_RES_DIVISOR 1
 
-#else
-	#define GATHER_HALF_RES_DIVISOR 1
-
-#endif
 #define GATHER_HALF_RES_DIVISOR_INV (1.0/float(GATHER_HALF_RES_DIVISOR))
 
 // Wether the group size is larger than COC tile size.
-#define GROUP_SIZE_IS_LARGER_THAN_COC_TILE_SIZE (DIM_GATHER_RECURSION == GATHER_RECURSION_MODE_LOWEST_MIP)
-
-// Sets whether must compose with larger convolution.
-#define ACCUMULATOR_COMPOSE_LARGER_CONVOLUTION (DIM_GATHER_RECURSION == GATHER_RECURSION_MODE_HIGHEST_MIP)
-
+#define GROUP_SIZE_IS_LARGER_THAN_COC_TILE_SIZE 0
 
 //------------------------------------------------------- STAND ALONE FUNCTIONS
 
@@ -317,11 +324,10 @@ struct FGatherInputParameters
 	// The Coc radius that is the closest to the camera.
 	float ClosestCocRadius;
 
-	// GATHER_RECURSION_MODE_* values.
-	uint CocRadiusBoundaryMode;
-
-	// Coc radius boundaries to test again.
-	float2 CocRadiusMinMaxBoundaries;
+	// Saturated affine transformation.
+	float2 ConsiderCocRadiusAffineTransformation0;
+	float2 ConsiderCocRadiusAffineTransformation1;
+	float2 ConsiderAbsCocRadiusAffineTransformation;
 
 	// TODO: clean that with CocRadiusMinMaxBoundaries
 	float MaxRecombineAbsCocRadius;
@@ -410,39 +416,13 @@ struct FAccumulatorOutput
 // be gathered at higher or lower resolution gathering pass.
 float IsConsideredCocRadius(in const FGatherInputParameters GatherParameters, float SampleCocRadius)
 {
-	#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_FOREGROUND_HOLE_FILLING
-	{
-		// TODO: should use in focus transition?
-		return saturate(SampleCocRadius + GatherParameters.MaxRecombineAbsCocRadius);
-	}
-	#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
-	{
-		// Uses same consider equation as recombine for slightly out of focus.
-		return saturate(GatherParameters.MaxRecombineAbsCocRadius - abs(SampleCocRadius));
-	}
-	#else
-	{
-		float IsCocRadiusNotTooLow = saturate(abs(SampleCocRadius) - GatherParameters.MaxRecombineAbsCocRadius + 2.0);
-
-		if (static_condition(GatherParameters.CocRadiusBoundaryMode == GATHER_RECURSION_MODE_STANDALONE))
-		{
-			return IsCocRadiusNotTooLow;
-		}
-		else if (static_condition(GatherParameters.CocRadiusBoundaryMode == GATHER_RECURSION_MODE_LOWEST_MIP))
-		{
-			return saturate(SampleCocRadius - GatherParameters.CocRadiusMinMaxBoundaries.x);
-		}
-		else if (static_condition(GatherParameters.CocRadiusBoundaryMode == GATHER_RECURSION_MODE_HIGHEST_MIP))
-		{
-			return IsCocRadiusNotTooLow * saturate(GatherParameters.CocRadiusMinMaxBoundaries.y - SampleCocRadius);
-		}
-		else
-		{
-			// Something wrong is going on.
-			return 0;
-		}
-	}
-	#endif
+	// Hint: This might look expensive, but this is just for framework flexibility: most of the
+	// AffineTransformation are actually set so that SaturateWithAffineTransformation always returns
+	// 1 at compile time.
+	return (
+		SaturateWithAffineTransformation(SampleCocRadius, GatherParameters.ConsiderCocRadiusAffineTransformation0) *
+		SaturateWithAffineTransformation(SampleCocRadius, GatherParameters.ConsiderCocRadiusAffineTransformation1) *
+		SaturateWithAffineTransformation(abs(SampleCocRadius), GatherParameters.ConsiderAbsCocRadiusAffineTransformation));
 }
 
 

@@ -6,7 +6,7 @@
 #include "PropertyEditorModule.h"
 #include "StaticMeshComponentDetails.h"
 #include "LightComponentDetails.h"
-#include "PointLightComponentDetails.h"
+#include "LocalLightComponentDetails.h"
 #include "DirectionalLightComponentDetails.h"
 #include "SceneComponentDetails.h"
 #include "BodyInstanceCustomization.h"
@@ -283,7 +283,7 @@ void FDetailCustomizationsModule::RegisterObjectCustomizations()
 	RegisterCustomClassLayout("SkinnedMeshComponent", FOnGetDetailCustomizationInstance::CreateStatic(&FSkinnedMeshComponentDetails::MakeInstance));
 	RegisterCustomClassLayout("SplineComponent", FOnGetDetailCustomizationInstance::CreateStatic(&FSplineComponentDetails::MakeInstance));
 	RegisterCustomClassLayout("LightComponent", FOnGetDetailCustomizationInstance::CreateStatic(&FLightComponentDetails::MakeInstance));
-	RegisterCustomClassLayout("PointLightComponent", FOnGetDetailCustomizationInstance::CreateStatic(&FPointLightComponentDetails::MakeInstance));
+	RegisterCustomClassLayout("LocalLightComponent", FOnGetDetailCustomizationInstance::CreateStatic(&FLocalLightComponentDetails::MakeInstance));
 	RegisterCustomClassLayout("DirectionalLightComponent", FOnGetDetailCustomizationInstance::CreateStatic(&FDirectionalLightComponentDetails::MakeInstance));
 	RegisterCustomClassLayout("StaticMeshActor", FOnGetDetailCustomizationInstance::CreateStatic(&FStaticMeshActorDetails::MakeInstance));
 	RegisterCustomClassLayout("MeshComponent", FOnGetDetailCustomizationInstance::CreateStatic(&FMeshComponentDetails::MakeInstance));

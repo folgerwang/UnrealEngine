@@ -49,6 +49,7 @@ FSceneFileHeader::FSceneFileHeader(const FSceneFileHeader& Other)
 	NumDirectionalLights = Other.NumDirectionalLights;
 	NumPointLights = Other.NumPointLights;
 	NumSpotLights = Other.NumSpotLights;
+	NumRectLights = Other.NumRectLights;
 	NumSkyLights = Other.NumSkyLights;
 	NumStaticMeshes = Other.NumStaticMeshes;
 	NumStaticMeshInstances = Other.NumStaticMeshInstances;
@@ -200,6 +201,7 @@ void FScene::Import( FLightmassImporter& Importer )
 	Importer.ImportObjectArray( DirectionalLights, NumDirectionalLights, Importer.GetLights() );
 	Importer.ImportObjectArray( PointLights, NumPointLights, Importer.GetLights() );
 	Importer.ImportObjectArray( SpotLights, NumSpotLights, Importer.GetLights() );
+	Importer.ImportObjectArray( RectLights, NumRectLights, Importer.GetLights() );
 	Importer.ImportObjectArray( SkyLights, NumSkyLights, Importer.GetLights() );
 
 	Importer.ImportObjectArray( StaticMeshInstances, NumStaticMeshInstances, Importer.GetStaticMeshInstances() );
@@ -324,6 +326,13 @@ const FLight* FScene::FindLightByGuid(const FGuid& InGuid) const
 		if (SpotLights[i].Guid == InGuid)
 		{
 			return &SpotLights[i];
+		}
+	}
+	for (int32 i = 0; i < RectLights.Num(); i++)
+	{
+		if (RectLights[i].Guid == InGuid)
+		{
+			return &RectLights[i];
 		}
 	}
 	for (int32 i = 0; i < SkyLights.Num(); i++)
@@ -1028,14 +1037,14 @@ FLinearColor FPointLight::GetDirectIntensity(const FVector4& Point, bool bCalcul
 		if( LightSourceLength > 0.0f )
 		{
 			// Line segment irradiance
-			FVector4 L01 = Direction * LightSourceLength;
+			FVector4 L01 =  GetLightTangent() * LightSourceLength;
 			FVector4 L0 = ToLight - 0.5f * L01;
 			FVector4 L1 = ToLight + 0.5f * L01;
 			float LengthL0 = L0.Size3();
 			float LengthL1 = L1.Size3();
 
 			DistanceAttenuation = 1.0f / ( ( LengthL0 * LengthL1 + Dot3( L0, L1 ) ) * 0.5f + 1.0f );
-			DistanceAttenuation *= 0.5 * ( L0 / LengthL0 + L1 / LengthL1 ).Size3();
+			DistanceAttenuation *= 0.5f * ( L0 / LengthL0 + L1 / LengthL1 ).Size3();
 		}
 		else
 		{
@@ -1281,7 +1290,7 @@ FVector4 FPointLight::GetDirectLightingDirection(const FVector4& Point, const FV
 	if( LightSourceLength > 0 )
 	{
 		FVector4 ToLight = Position - Point;
-		FVector4 L01 = Direction * LightSourceLength;
+		FVector4 L01 =  GetLightTangent() * LightSourceLength;
 		FVector4 L0 = ToLight - 0.5 * L01;
 		FVector4 L1 = ToLight + 0.5 * L01;
 #if 0
@@ -1459,7 +1468,7 @@ FLinearColor FSpotLight::GetDirectIntensity(const FVector4& Point, bool bCalcula
 		if( LightSourceLength > 0.0f )
 		{
 			// Line segment irradiance
-			FVector4 L01 = Direction * LightSourceLength;
+			FVector4 L01 = GetLightTangent() * LightSourceLength;
 			FVector4 L0 = ToLight - 0.5 * L01;
 			FVector4 L1 = ToLight + 0.5 * L01;
 			float LengthL0 = L0.Size3();
@@ -1535,6 +1544,169 @@ void FSpotLight::SampleDirection(
 	FVector2D Unused2;
 	FSpotLight::SampleDirection(RandomStream, SampleRay, Unused, Unused2, RayPDF, Power);
 }
+
+
+//----------------------------------------------------------------------------
+//	Rect light class
+//----------------------------------------------------------------------------
+
+FVector PolygonIrradiance( FVector Poly[4] )
+{
+	FVector L0 = Poly[0].GetSafeNormal();
+	FVector L1 = Poly[1].GetSafeNormal();
+	FVector L2 = Poly[2].GetSafeNormal();
+	FVector L3 = Poly[3].GetSafeNormal();
+
+	float c01 = L0 | L1;
+	float c12 = L1 | L2;
+	float c23 = L2 | L3;
+	float c30 = L3 | L0;
+
+	float w01 = ( 1.5708f - 0.175f * c01 ) * FMath::InvSqrt( c01 + 1.0f );
+	float w12 = ( 1.5708f - 0.175f * c12 ) * FMath::InvSqrt( c12 + 1.0f );
+	float w23 = ( 1.5708f - 0.175f * c23 ) * FMath::InvSqrt( c23 + 1.0f );
+	float w30 = ( 1.5708f - 0.175f * c30 ) * FMath::InvSqrt( c30 + 1.0f );
+
+	FVector L;
+	L  = L1 ^ ( -w01 * L0 +  w12 * L2 );
+	L += L3 ^ (  w30 * L0 + -w23 * L2 );
+
+	// Vector irradiance
+	return 0.5f * L;
+}
+
+/**
+ * Computes the intensity of the direct lighting from this light on a specific point.
+ */
+FLinearColor FRectLight::GetDirectIntensity(const FVector4& Point, bool bCalculateForIndirectLighting) const
+{
+	FVector4 ToLight = Position - Point;
+
+	FVector AxisY = GetLightTangent();
+	FVector AxisZ = -Direction;
+	FVector AxisX = AxisY ^ AxisZ;
+	FVector2D Extent(
+		LightSourceRadius,
+		LightSourceLength
+	);
+
+	FVector Poly[4];
+	Poly[0] = ToLight - AxisX * Extent.X - AxisY * Extent.Y;
+	Poly[1] = ToLight + AxisX * Extent.X - AxisY * Extent.Y;
+	Poly[2] = ToLight + AxisX * Extent.X + AxisY * Extent.Y;
+	Poly[3] = ToLight - AxisX * Extent.X + AxisY * Extent.Y;
+
+	float DistanceAttenuation = PolygonIrradiance( Poly ).Size();
+			
+	// TODO Move CPU cide
+	DistanceAttenuation /= 2 * Extent.X * Extent.Y;
+
+	float DistanceSqr = ToLight.SizeSquared3();
+	float LightRadiusMask = FMath::Square(FMath::Max(0.0f, 1.0f - FMath::Square(DistanceSqr / (Radius * Radius))));
+	DistanceAttenuation *= LightRadiusMask;
+
+	return FLight::GetDirectIntensity(Point, bCalculateForIndirectLighting) * DistanceAttenuation;
+}
+
+/** Validates a surface sample given the position that sample is affecting. */
+void FRectLight::ValidateSurfaceSample(const FVector4& Point, FLightSurfaceSample& Sample) const
+{}
+
+FVector4 FRectLight::LightCenterPosition(const FVector4& ReceivingPosition, const FVector4& ReceivingNormal) const
+{
+	FVector4 ToLight = Position - ReceivingPosition;
+
+	FVector AxisY = GetLightTangent();
+	FVector AxisZ = -Direction;
+	FVector AxisX = AxisY ^ AxisZ;
+	FVector2D Extent(
+		LightSourceRadius,
+		LightSourceLength
+	);
+
+#if 0
+	FVector Poly[4];
+	Poly[0] = ToLight - AxisX * Extent.X - AxisY * Extent.Y;
+	Poly[1] = ToLight + AxisX * Extent.X - AxisY * Extent.Y;
+	Poly[2] = ToLight + AxisX * Extent.X + AxisY * Extent.Y;
+	Poly[3] = ToLight - AxisX * Extent.X + AxisY * Extent.Y;
+
+	FVector AvgDirection = PolygonIrradiance( Poly ).GetSafeNormal();
+
+	// Intersect ray with plane
+	float Distance = Dot3( AxisZ, ToLight ) / Dot3( AxisZ, AvgDirection );
+	return ReceivingPosition + Distance * AvgDirection;
+#else
+	float RectLocalX = FMath::Clamp( Dot3( AxisX, -ToLight ), -Extent.X, Extent.X );
+	float RectLocalY = FMath::Clamp( Dot3( AxisY, -ToLight ), -Extent.Y, Extent.Y );
+
+	FVector4 ClosestPoint = ToLight;
+	ClosestPoint += AxisX * RectLocalX;
+	ClosestPoint += AxisY * RectLocalY;
+	//return ClosestPoint + ReceivingPosition;
+
+	FVector4 OppositePoint = 2.0f * ToLight - ClosestPoint;
+
+	FVector4 L0 = ClosestPoint.GetSafeNormal();
+	FVector4 L1 = OppositePoint.GetSafeNormal();
+	FVector4 L  = ( L0 + L1 ).GetSafeNormal();
+
+	// Intersect ray with plane
+	float Distance = Dot3( AxisZ, ToLight ) / Dot3( AxisZ, L );
+	return ReceivingPosition + L * Distance;
+#endif
+}
+
+/** Returns true if all parts of the light are behind the surface being tested. */
+bool FRectLight::BehindSurface(const FVector4& TrianglePoint, const FVector4& TriangleNormal) const
+{
+	return false;
+}
+
+/** Gets a single direction to use for direct lighting that is representative of the whole area light. */
+FVector4 FRectLight::GetDirectLightingDirection(const FVector4& Point, const FVector4& PointNormal) const
+{
+	FVector4 ToLight = Position - Point;
+
+	FVector AxisY = GetLightTangent();
+	FVector AxisZ = -Direction;
+	FVector AxisX = AxisY ^ AxisZ;
+	FVector2D Extent(
+		LightSourceRadius,
+		LightSourceLength
+	);
+
+	FVector Poly[4];
+	Poly[0] = ToLight - AxisX * Extent.X - AxisY * Extent.Y;
+	Poly[1] = ToLight + AxisX * Extent.X - AxisY * Extent.Y;
+	Poly[2] = ToLight + AxisX * Extent.X + AxisY * Extent.Y;
+	Poly[3] = ToLight - AxisX * Extent.X + AxisY * Extent.Y;
+
+	return PolygonIrradiance( Poly );
+}
+
+/** Generates a sample on the light's surface. */
+void FRectLight::SampleLightSurface(FLMRandomStream& RandomStream, FLightSurfaceSample& Sample) const
+{
+	Sample.DiskPosition = FVector2D(0, 0);
+
+	FVector AxisY = GetLightTangent();
+	FVector AxisZ = -Direction;
+	FVector AxisX = AxisY ^ AxisZ;
+	FVector2D Extent(
+		LightSourceRadius,
+		LightSourceLength
+	);
+
+	float UnitX = RandomStream.GetFraction() * 2.0f - 1.0f;
+	float UnitY = RandomStream.GetFraction() * 2.0f - 1.0f;
+
+	Sample.Position = Position + AxisX * Extent.X * UnitX + AxisY * Extent.Y * UnitY;
+	Sample.Normal = -AxisZ;
+	// Probability of generating this surface position is 1 / SurfaceArea
+	Sample.PDF = 1.0f / (4.0f * Extent.X * Extent.Y);
+}
+
 
 //----------------------------------------------------------------------------
 //	Sky light class

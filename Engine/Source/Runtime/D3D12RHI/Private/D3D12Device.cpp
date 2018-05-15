@@ -27,9 +27,9 @@ FD3D12Device::FD3D12Device(FRHIGPUMask Node, FD3D12Adapter* InAdapter) :
 #endif
 	SamplerAllocator(Node, FD3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 128),
 	SamplerID(0),
-	OcclusionQueryHeap(this, D3D12_QUERY_HEAP_TYPE_OCCLUSION, 65536),
+	OcclusionQueryHeap(this, D3D12_QUERY_HEAP_TYPE_OCCLUSION, 65536, 4 /*frames to keep results */ * 1 /*batches per frame*/),
+	TimestampQueryHeap(this, D3D12_QUERY_HEAP_TYPE_TIMESTAMP, 8192, 4 /*frames to keep results */ * 5 /*batches per frame*/ ),
 	DefaultBufferAllocator(this, Node), //Note: Cross node buffers are possible 
-	PendingCommandListsTotalWorkCommands(0),
 	CommandListManager(nullptr),
 	CopyCommandListManager(nullptr),
 	AsyncCommandListManager(nullptr),
@@ -121,19 +121,48 @@ void FD3D12Device::SetupAfterDeviceCreation()
 	ID3D12Device* Direct3DDevice = GetParentAdapter()->GetD3DDevice();
 
 #if PLATFORM_WINDOWS
-	IUnknown* RenderDoc;
-	IID RenderDocID;
-	if (SUCCEEDED(IIDFromString(L"{A7AA6116-9C8D-4BBA-9083-B4D816B71B78}", &RenderDocID)))
+	// Check if we're running under GPU capture
+	bool bUnderGPUCapture = false;
+
+	// RenderDoc
 	{
-		if (SUCCEEDED(Direct3DDevice->QueryInterface(RenderDocID, (void**)(&RenderDoc))))
+		IID RenderDocID;
+		if (SUCCEEDED(IIDFromString(L"{A7AA6116-9C8D-4BBA-9083-B4D816B71B78}", &RenderDocID)))
 		{
-			// Running under RenderDoc, so enable capturing mode
-			GDynamicRHI->EnableIdealGPUCaptureOptions(true);
+			TRefCountPtr<IUnknown> RenderDoc;
+			if (SUCCEEDED(Direct3DDevice->QueryInterface(RenderDocID, (void**)RenderDoc.GetInitReference())))
+			{
+				// Running under RenderDoc, so enable capturing mode
+				bUnderGPUCapture = true;
+			}
 		}
 	}
+
+	// AMD RGP profiler
 	if (GEmitRgpFrameMarkers && GetOwningRHI()->GetAmdAgsContext())
 	{
 		// Running on AMD with RGP profiling enabled, so enable capturing mode
+		bUnderGPUCapture = true;
+	}
+
+#if USE_PIX
+	// PIX
+	{
+		IID GraphicsAnalysisID;
+		if (SUCCEEDED(IIDFromString(L"{9F251514-9D4D-4902-9D60-18988AB7D4B5}", &GraphicsAnalysisID)))
+		{
+			TRefCountPtr<IUnknown> GraphicsAnalysis;
+			if (SUCCEEDED(DXGIGetDebugInterface1(0, GraphicsAnalysisID, (void**)GraphicsAnalysis.GetInitReference())))
+			{
+				// Running under PIX, so enable capturing mode
+				bUnderGPUCapture = true;
+			}
+		}
+	}
+#endif
+
+	if(bUnderGPUCapture)
+	{
 		GDynamicRHI->EnableIdealGPUCaptureOptions(true);
 	}
 #endif
@@ -174,8 +203,9 @@ void FD3D12Device::SetupAfterDeviceCreation()
 		
 	GlobalViewHeap.Init(NumGlobalViewDesc, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	// Init the occlusion query heap
+	// Init the occlusion and timestamp query heaps
 	OcclusionQueryHeap.Init();
+	TimestampQueryHeap.Init();
 
 	CommandListManager->Create(L"3D Queue");
 	CopyCommandListManager->Create(L"Copy Queue");
@@ -268,6 +298,7 @@ void FD3D12Device::Cleanup()
 	AsyncCommandListManager->Destroy();
 
 	OcclusionQueryHeap.Destroy();
+	TimestampQueryHeap.Destroy();
 
 	D3DX12Residency::DestroyResidencyManager(ResidencyManager);
 }

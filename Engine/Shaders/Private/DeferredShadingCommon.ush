@@ -195,16 +195,25 @@ float3 EncodeSubsurfaceProfile(float SubsurfaceProfile)
 float EncodeIndirectIrradiance(float IndirectIrradiance)
 {
 	float L = IndirectIrradiance;
+#if USE_PREEXPOSURE
+	L *= View.PreExposure; // Apply pre-exposure as a mean to prevent compression overflow.
+#endif
 	const float LogBlackPoint = 0.00390625;	// exp2(-8);
 	return log2( L + LogBlackPoint ) / 16 + 0.5;
 }
 
 float DecodeIndirectIrradiance(float IndirectIrradiance)
 {
+#if USE_PREEXPOSURE
+	const float OneOverPreExposure = View.OneOverPreExposure;
+#else
+	const float OneOverPreExposure = 1.f;
+#endif
+
 	// LogL -> L
 	float LogL = IndirectIrradiance;
 	const float LogBlackPoint = 0.00390625;	// exp2(-8);
-	return exp2( LogL * 16 - 8 ) - LogBlackPoint;		// 1 exp2, 1 smad, 1 ssub
+	return OneOverPreExposure * (exp2( LogL * 16 - 8 ) - LogBlackPoint);	// 1 exp2, 1 smad, 1 ssub
 }
 
 float ComputeAngleFromRoughness( float Roughness, const float Threshold = 0.04f )

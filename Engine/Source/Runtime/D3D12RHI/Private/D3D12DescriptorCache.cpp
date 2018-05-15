@@ -233,6 +233,8 @@ bool FD3D12DescriptorCache::SetDescriptorHeaps()
 		// The view heap changed, so dirty the descriptor tables.
 		bHeapChanged = true;
 		CmdContext->StateCache.DirtyViewDescriptorTables();
+
+		INC_DWORD_STAT_BY(STAT_ViewHeapChanged, pPreviousViewHeap == nullptr ? 0 : 1);	// Don't count the initial set on a command list.
 	}
 
 	ID3D12DescriptorHeap* const pCurrentSamplerHeap = CurrentSamplerHeap->GetHeap();
@@ -244,6 +246,8 @@ bool FD3D12DescriptorCache::SetDescriptorHeaps()
 
 		// Reset the sampler map since it will have invalid entries for the new heap.
 		SamplerMap.Reset();
+
+		INC_DWORD_STAT_BY(STAT_SamplerHeapChanged, pPreviousSamplerHeap == nullptr ? 0 : 1);	// Don't count the initial set on a command list.
 	}
 
 	// Set the descriptor heaps.
@@ -316,8 +320,6 @@ void FD3D12DescriptorCache::SetUAVs(FD3D12UnorderedAccessViewCache& Cache, const
 	auto& UAVs = Cache.Views[ShaderStage];
 
 	// Fill heap slots
-	check(UAVStartSlot != -1);	// This should never happen or we'll write past the end of the descriptor heap.
-	check(UAVStartSlot < MAX_UAVS);
 	for (uint32 SlotIndex = 0; SlotIndex < SlotsNeeded; SlotIndex++)
 	{
 		if ((SlotIndex < UAVStartSlot) || (UAVs[SlotIndex] == nullptr))
@@ -767,7 +769,7 @@ bool FD3D12DescriptorCache::SwitchToContextLocalViewHeap(const FD3D12CommandList
 		UE_LOG(LogD3D12RHI, Warning, TEXT("This should only happen in the Editor where it doesn't matter as much. If it happens in game you should increase the device global heap size!"));
 		
 		// Allocate the heap lazily
-		LocalViewHeap = new FD3D12ThreadLocalOnlineHeap(GetParentDevice(), GetNodeMask(), this);
+		LocalViewHeap = new FD3D12ThreadLocalOnlineHeap(GetParentDevice(), GetGPUMask(), this);
 		if (LocalViewHeap)
 		{
 			check(NumLocalViewDescriptors);
@@ -844,6 +846,17 @@ bool FD3D12ThreadLocalOnlineHeap::RollOver()
 		VERIFYD3D12RESULT(GetParentDevice()->GetDevice()->CreateDescriptorHeap(&Desc, IID_PPV_ARGS(Heap.GetInitReference())));
 		SetName(Heap, Desc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ? L"Thread Local - Online View Heap" : L"Thread Local - Online Sampler Heap");
 
+		if (Desc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
+		{
+			INC_DWORD_STAT(STAT_NumViewOnlineDescriptorHeaps);
+			INC_MEMORY_STAT_BY(STAT_ViewOnlineDescriptorHeapMemory, Desc.NumDescriptors * GetDescriptorSize());
+		}
+		else
+		{
+			INC_DWORD_STAT(STAT_NumSamplerOnlineDescriptorHeaps);
+			INC_MEMORY_STAT_BY(STAT_SamplerOnlineDescriptorHeapMemory, Desc.NumDescriptors * GetDescriptorSize());
+		}
+
 		Entry.Heap = Heap;
 	}
 	
@@ -888,7 +901,7 @@ void FD3D12GlobalOnlineHeap::Init(uint32 TotalSize, D3D12_DESCRIPTOR_HEAP_TYPE T
 	Desc.Flags = HeapFlags;
 	Desc.Type = Type;
 	Desc.NumDescriptors = TotalSize;
-	Desc.NodeMask = (uint32)GetNodeMask();
+	Desc.NodeMask = (uint32)GetGPUMask();
 
 	//LLM_SCOPE(ELLMTag::DescriptorCache);
 
@@ -903,6 +916,14 @@ void FD3D12GlobalOnlineHeap::Init(uint32 TotalSize, D3D12_DESCRIPTOR_HEAP_TYPE T
 	{
 		// Reserve the whole heap for sub allocation
 		ReserveSlots(TotalSize);
+
+		INC_DWORD_STAT(STAT_NumViewOnlineDescriptorHeaps);
+		INC_MEMORY_STAT_BY(STAT_ViewOnlineDescriptorHeapMemory, Desc.NumDescriptors * GetDescriptorSize());
+	}
+	else
+	{
+		INC_DWORD_STAT(STAT_NumSamplerOnlineDescriptorHeaps);
+		INC_MEMORY_STAT_BY(STAT_SamplerOnlineDescriptorHeapMemory, Desc.NumDescriptors * GetDescriptorSize());
 	}
 }
 
@@ -995,6 +1016,15 @@ uint32 FD3D12OnlineHeap::ReserveSlots(uint32 NumSlotsRequested)
 	// Note where to start looking next time
 	NextSlotIndex = SlotAfterReservation;
 
+	if (Desc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
+	{
+		INC_DWORD_STAT_BY(STAT_NumReservedViewOnlineDescriptors, NumSlotsRequested);
+	}
+	else
+	{
+		INC_DWORD_STAT_BY(STAT_NumReservedSamplerOnlineDescriptors, NumSlotsRequested);
+	}
+
 	return FirstRequestedSlot;
 }
 
@@ -1011,6 +1041,9 @@ void FD3D12OnlineHeap::SetNextSlot(uint32 NextSlot)
 	// This is used to correct for the actual number of heap slots used
 	check(NextSlot <= NextSlotIndex);
 
+	check(Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	DEC_DWORD_STAT_BY(STAT_NumReservedSamplerOnlineDescriptors, NextSlotIndex - NextSlot);
+
 	NextSlotIndex = NextSlot;
 }
 
@@ -1020,7 +1053,7 @@ void FD3D12ThreadLocalOnlineHeap::Init(uint32 NumDescriptors, D3D12_DESCRIPTOR_H
 	Desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	Desc.Type = Type;
 	Desc.NumDescriptors = NumDescriptors;
-	Desc.NodeMask = (uint32)GetNodeMask();
+	Desc.NodeMask = (uint32)GetGPUMask();
 
 	//LLM_SCOPE(ELLMTag::DescriptorCache);
 	VERIFYD3D12RESULT(GetParentDevice()->GetDevice()->CreateDescriptorHeap(&Desc, IID_PPV_ARGS(Heap.GetInitReference())));
@@ -1031,6 +1064,17 @@ void FD3D12ThreadLocalOnlineHeap::Init(uint32 NumDescriptors, D3D12_DESCRIPTOR_H
 	CPUBase = Heap->GetCPUDescriptorHandleForHeapStart();
 	GPUBase = Heap->GetGPUDescriptorHandleForHeapStart();
 	DescriptorSize = GetParentDevice()->GetDevice()->GetDescriptorHandleIncrementSize(Type);
+
+	if (Desc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
+	{
+		INC_DWORD_STAT(STAT_NumViewOnlineDescriptorHeaps);
+		INC_MEMORY_STAT_BY(STAT_ViewOnlineDescriptorHeapMemory, Desc.NumDescriptors * GetDescriptorSize());
+	}
+	else
+	{
+		INC_DWORD_STAT(STAT_NumSamplerOnlineDescriptorHeaps);
+		INC_MEMORY_STAT_BY(STAT_SamplerOnlineDescriptorHeapMemory, Desc.NumDescriptors * GetDescriptorSize());
+	}
 }
 
 void FD3D12OnlineHeap::NotifyCurrentCommandList(const FD3D12CommandListHandle& CommandListHandle)
@@ -1107,10 +1151,10 @@ void FD3D12SubAllocatedOnlineHeap::NotifyCurrentCommandList(const FD3D12CommandL
 
 uint32 GetTypeHash(const FD3D12SamplerArrayDesc& Key)
 {
-	return uint32(FD3D12PipelineStateCache::HashData((void*)Key.SamplerID, Key.Count * sizeof(Key.SamplerID[0])));
+	return FD3D12PipelineStateCache::HashData((void*)Key.SamplerID, Key.Count * sizeof(Key.SamplerID[0]));
 }
 
 uint32 GetTypeHash(const FD3D12QuantizedBoundShaderState& Key)
 {
-	return uint32(FD3D12PipelineStateCache::HashData((void*)&Key, sizeof(Key)));
+	return FD3D12PipelineStateCache::HashData((void*)&Key, sizeof(Key));
 }

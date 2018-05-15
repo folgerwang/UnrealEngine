@@ -531,13 +531,18 @@ void FRCPassPostProcessSubsurfaceSetup::Process(FRenderingCompositePassContext& 
 	// Draw a quad mapping scene color to the view's render target
 	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
 
+	// Align up, so downsample always pickups correct pixel from the full-res buffer.
+	FIntPoint TargetSize = SrcRect.Size();
+	TargetSize.X = Align(TargetSize.X, ScaleFactor);
+	TargetSize.Y = Align(TargetSize.Y, ScaleFactor);
+
 	DrawPostProcessPass(
 		Context.RHICmdList,
 		0, 0,
 		SrcRect.Width(), SrcRect.Height(),
 		SrcRect.Min.X, SrcRect.Min.Y,
 		SrcRect.Width(), SrcRect.Height(),
-		SrcRect.Size(),
+		TargetSize,
 		SrcSize,
 		*VertexShader,
 		View.StereoPass,

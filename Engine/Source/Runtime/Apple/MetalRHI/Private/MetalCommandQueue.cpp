@@ -11,7 +11,6 @@
 #include "MetalCommandList.h"
 #include "MetalProfiler.h"
 #if METAL_STATISTICS
-#include "MetalStatistics.h"
 #include "Modules/ModuleManager.h"
 #endif
 #include "Misc/ConfigCacheIni.h"
@@ -159,21 +158,24 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
     }
 	
 #if METAL_STATISTICS
-    IMetalStatisticsModule* StatsModule = FModuleManager::Get().LoadModulePtr<IMetalStatisticsModule>(TEXT("MetalStatistics"));
-    
-    if(StatsModule && FParse::Param(FCommandLine::Get(),TEXT("metalstats")))
-    {
-        Statistics = StatsModule->CreateMetalStatistics(CommandQueue);
-        if(Statistics->SupportsStatistics())
-        {
-            Features |= EMetalFeaturesStatistics;
-        }
-        else
-        {
-            delete Statistics;
-            Statistics = nullptr;
-        }
-    }
+	if (FParse::Param(FCommandLine::Get(),TEXT("metalstats")))
+	{
+		IMetalStatisticsModule* StatsModule = FModuleManager::Get().LoadModulePtr<IMetalStatisticsModule>(TEXT("MetalStatistics"));		
+		if(StatsModule)
+		{
+			Statistics = StatsModule->CreateMetalStatistics(CommandQueue);
+			if(Statistics->SupportsStatistics())
+			{
+				GSupportsTimestampRenderQueries = true;
+				Features |= EMetalFeaturesStatistics;
+			}
+			else
+			{
+				delete Statistics;
+				Statistics = nullptr;
+			}
+		}
+	}
 #endif
     
 	PermittedOptions = 0;

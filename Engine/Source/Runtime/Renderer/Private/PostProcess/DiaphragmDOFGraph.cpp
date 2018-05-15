@@ -8,6 +8,7 @@
 #include "PostProcess/DiaphragmDOF.h"
 #include "PostProcess/DiaphragmDOFPasses.h"
 #include "PostProcess/PostProcessTemporalAA.h"
+#include "PostProcess/PostProcessInput.h"
 
 
 namespace
@@ -47,15 +48,6 @@ TAutoConsoleVariable<int32> CVarRingCount(
 	5,
 	TEXT("Number of rings for gathering kernels [[3; 5]]. Default to 5.\n"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
-
-
-TAutoConsoleVariable<int32> CVarLowerGatheringPass(
-	TEXT("r.DOF.LowerGatheringPass"),
-	0,
-	TEXT("Wether large coc radius should be accumulated with lower resolution gathering pass.\n")
-	TEXT(" 0: No (default);")
-	TEXT(" 1: Yes.\n"),
-	ECVF_RenderThreadSafe);
 
 
 TAutoConsoleVariable<int32> CVarHybridScatterForegroundMode(
@@ -157,6 +149,12 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 		return false;
 	}
 
+	// Format of the scene color.
+	EPixelFormat SceneColorFormat = FSceneRenderTargets::Get(Context.RHICmdList).GetSceneColorFormat();
+	
+	// Whether should process alpha channel of the scene or not.
+	const bool bProcessSceneAlpha = FPostProcessing::HasAlphaChannelSupport();
+
 	const EShaderPlatform ShaderPlatform = Context.View.GetShaderPlatform();
 
 	// Number of sampling ring in the gathering kernel.
@@ -180,8 +178,12 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 	// Setting for scattering budget upper bound.
 	const float MaxScatteringRatio = FMath::Clamp(CVarScatterMaxSpriteRatio.GetValueOnRenderThread(), 0.0f, 1.0f);
 
+	// Slight out of focus is not supporting with DOF's TAA upsampling, because of the brute force
+	// kernel used in GatherCS for slight out of focus stability buffer.
+	const bool bSupportsSlightOutOfFocus = Context.View.PrimaryScreenPercentageMethod != EPrimaryScreenPercentageMethod::TemporalUpscale;
+
 	// Quality setting for the recombine pass.
-	const int32 RecombineQuality = FMath::Clamp(CVarRecombineQuality.GetValueOnRenderThread(), 0, FRCPassDiaphragmDOFRecombine::kMaxQuality);
+	const int32 RecombineQuality = bSupportsSlightOutOfFocus ? FMath::Clamp(CVarRecombineQuality.GetValueOnRenderThread(), 0, FRCPassDiaphragmDOFRecombine::kMaxQuality) : 0;
 
 	// Resolution divisor.
 	// TODO: Exposes lower resolution divisor?
@@ -206,6 +208,17 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 	const float MinRequiredBlurringRadius = bRecombineDoesSlightOutOfFocus
 		? (CVarMinimalFullresBlurRadius.GetValueOnRenderThread() * 0.5f)
 		: kMinimalAbsGatherPassCocRadius;
+
+	// Whether to use R11G11B10 + separate C0C buffer.
+	const bool bRGBBufferSeparateCocBuffer = (
+		SceneColorFormat == PF_FloatR11G11B10 &&
+
+		// Can't use FloatR11G11B10 if also need to support alpha channel.
+		!bProcessSceneAlpha &&
+
+		// This is just to get the number of shader permutation down.
+		RecombineQuality == 0 &&
+		bUseLowAccumulatorQuality);
 
 
 	// Derives everything needed from the view.
@@ -267,24 +280,17 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 
 	bool bGatherForeground = AbsMaxForegroundCocRadius > kMinimalAbsGatherPassCocRadius;
 
-	// Controles what DOF pass layout should be used.
-	EGatheringGraphLayout GatheringLayout = (CVarLowerGatheringPass.GetValueOnRenderThread() != 0
-		? EGatheringGraphLayout::SeparateHalfEighth
-		: EGatheringGraphLayout::SeparateUniqueHalf);
-	if (GatheringLayout == EGatheringGraphLayout::SeparateHalfEighth && MaxBackgroundCocRadius < BackgroundCocRadiusMaximumForUniquePass)
-	{
-		GatheringLayout = EGatheringGraphLayout::SeparateUniqueHalf;
-	}
-
-	FRenderingCompositeOutputRef FullresColorSetup = Context.FinalOutput;
-	FRenderingCompositeOutputRef GatherColorSetup;
+	FRenderingCompositeOutputRef FullresColorSetup0 = Context.FinalOutput;
+	FRenderingCompositeOutputRef FullresColorSetup1;
+	FRenderingCompositeOutputRef GatherColorSetup0;
+	FRenderingCompositeOutputRef GatherColorSetup1;
 	TDrawEvent<FRHICommandList>* MainDrawEvent;
 
 	// Setup at lower resolution from full resolution scene color and scene depth.
 	{
 		FRCPassDiaphragmDOFSetup::FParameters Params;
 		Params.CocModel = CocModel;
-		Params.bOutputFullResolution = bRecombineDoesSlightOutOfFocus;
+		Params.bOutputFullResolution = bRecombineDoesSlightOutOfFocus && !bProcessSceneAlpha;
 		Params.bOutputHalfResolution = true;
 		Params.FullResCocRadiusBasis = GatheringViewSize.X;
 		Params.HalfResCocRadiusBasis = PreprocessViewSize.X;
@@ -294,27 +300,33 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 		DOFSetup->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
 		DOFSetup->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.SceneDepth));
 
-		if (bRecombineDoesSlightOutOfFocus)
+		if (Params.bOutputFullResolution)
 		{
-			FullresColorSetup = FRenderingCompositeOutputRef(DOFSetup, ePId_Output0);
+			if (bProcessSceneAlpha)
+				FullresColorSetup1 = FRenderingCompositeOutputRef(DOFSetup, ePId_Output0);
+			else
+				FullresColorSetup0 = FRenderingCompositeOutputRef(DOFSetup, ePId_Output0);
 		}
 
-		GatherColorSetup = FRenderingCompositeOutputRef(DOFSetup, ePId_Output1);
+		GatherColorSetup0 = FRenderingCompositeOutputRef(DOFSetup, ePId_Output1);
+		GatherColorSetup1 = bProcessSceneAlpha ? FRenderingCompositeOutputRef(DOFSetup, ePId_Output2) : FRenderingCompositeOutputRef();
+
 		MainDrawEvent = &DOFSetup->MainDrawEvent;
 	}
 
 	// TAA the setup for the convolution to be temporally stable.);
 	if (Context.View.AntiAliasingMethod == AAM_TemporalAA && ViewState)
 	{
-		// TODO: need to TAA CocSetup with MRT support of TAA.
 		FRenderingCompositePass* NodeTemporalAA = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessTemporalAA(
 			Context, TAAParameters,
 			Context.View.PrevViewInfo.DOFPreGatherHistory,
 			&ViewState->PendingPrevFrameViewInfo.DOFPreGatherHistory));
-		NodeTemporalAA->SetInput(ePId_Input0, GatherColorSetup);
-		NodeTemporalAA->SetInput(ePId_Input1, VelocityInput);
+		NodeTemporalAA->SetInput(ePId_Input0, GatherColorSetup0);
+		NodeTemporalAA->SetInput(ePId_Input1, GatherColorSetup1);
+		NodeTemporalAA->SetInput(ePId_Input2, VelocityInput);
 
-		GatherColorSetup = FRenderingCompositeOutputRef(NodeTemporalAA);
+		GatherColorSetup0 = FRenderingCompositeOutputRef(NodeTemporalAA, ePId_Output0);
+		GatherColorSetup1 = bProcessSceneAlpha ? FRenderingCompositeOutputRef(NodeTemporalAA, ePId_Output1) : FRenderingCompositeOutputRef();
 	}
 
 	// Generate conservative coc tiles.
@@ -326,7 +338,7 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 		FlattenParams.GatherViewSize = GatheringViewSize;
 
 		FRenderingCompositePass* CocFlatten = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFFlattenCoc(FlattenParams));
-		CocFlatten->SetInput(ePId_Input0, FRenderingCompositeOutputRef(GatherColorSetup));
+		CocFlatten->SetInput(ePId_Input0, GatherColorSetup1.IsValid() ? GatherColorSetup1 : GatherColorSetup0);
 		CocTileOutput = CocFlatten;
 
 		// Parameters for the dilate Coc passes.
@@ -366,8 +378,12 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 		}
 	}
 
+	// Number of buffer for gathring convolution input and output.
+	const uint32 GatheringInputBufferCount = (bProcessSceneAlpha || bRGBBufferSeparateCocBuffer) ? 2 : 1;
+
 	// Reduce the gathering input to scale with very large convolutions.
-	FRenderingCompositeOutputRef PrefilterOutput;
+	FRenderingCompositeOutputRef GatherInput0;
+	FRenderingCompositeOutputRef GatherInput1;
 	{
 		FRCPassDiaphragmDOFReduce::FParameters ReduceParams;
 		ReduceParams.InputResolutionDivisor = PrefilteringResolutionDivisor;
@@ -377,6 +393,7 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 		ReduceParams.PreProcessingToProcessingCocRadiusFactor = PreProcessingToProcessingCocRadiusFactor;
 		ReduceParams.MinScatteringCocRadius = MinScatteringCocRadius;
 		ReduceParams.MaxScatteringRatio = MaxScatteringRatio;
+		ReduceParams.bRGBBufferSeparateCocBuffer = bRGBBufferSeparateCocBuffer;
 
 		{
 			int32 MipLevelCount = FMath::CeilToInt(FMath::Log2(MaxBluringRadius * 0.5 / HalfResRingCount));
@@ -397,20 +414,25 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 		{
 			FRCPassDiaphragmDOFDownsample::FParameters DownsampleParameters;
 			DownsampleParameters.InputViewSize = PreprocessViewSize;
+			DownsampleParameters.bRGBBufferOnly = bRGBBufferSeparateCocBuffer;
 
 			// Reduce pass convert the CocRadius basis at the very begining, and to avoid to do it for every comparing sample
 			// in reduce pass as well, we do it on the downsampling pass.
 			DownsampleParameters.OutputCocRadiusMultiplier = PreProcessingToProcessingCocRadiusFactor;
 
 			FRenderingCompositePass* GatherColorDownsample = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFDownsample(DownsampleParameters));
-			GatherColorDownsample->SetInput(ePId_Input0, GatherColorSetup);
+			GatherColorDownsample->SetInput(ePId_Input0, GatherColorSetup0);
+			GatherColorDownsample->SetInput(ePId_Input1, GatherColorSetup1);
 			HybridScatterExtractDownsample = GatherColorDownsample;
 		}
 
-		FRenderingCompositePass* Prefilter = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFReduce(ReduceParams));
-		Prefilter->SetInput(ePId_Input0, GatherColorSetup);
-		Prefilter->SetInput(ePId_Input1, HybridScatterExtractDownsample);
-		PrefilterOutput = Prefilter;
+		FRenderingCompositePass* ReducePass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFReduce(ReduceParams));
+		ReducePass->SetInput(ePId_Input0, GatherColorSetup0);
+		ReducePass->SetInput(ePId_Input1, GatherColorSetup1);
+		ReducePass->SetInput(ePId_Input2, HybridScatterExtractDownsample);
+		GatherInput0 = FRenderingCompositeOutputRef(ReducePass, ePId_Output0);
+		GatherInput1 = (GatheringInputBufferCount == 2)
+			? FRenderingCompositeOutputRef(ReducePass, ePId_Output1) : FRenderingCompositeOutputRef();
 	}
 
 
@@ -431,9 +453,12 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 	}
 
 
-	FRenderingCompositeOutputRef ForegroundConvolutionOutput;
-	FRenderingCompositeOutputRef ForegroundHoleFillingOutput;
-	FRenderingCompositeOutputRef BackgroundConvolutionOutput;
+	FRenderingCompositeOutputRef ForegroundConvolutionOutput0;
+	FRenderingCompositeOutputRef ForegroundConvolutionOutput1;
+	FRenderingCompositeOutputRef ForegroundHoleFillingOutput0;
+	FRenderingCompositeOutputRef ForegroundHoleFillingOutput1;
+	FRenderingCompositeOutputRef BackgroundConvolutionOutput0;
+	FRenderingCompositeOutputRef BackgroundConvolutionOutput1;
 	FRenderingCompositeOutputRef SlightOutOfFocusConvolutionOutput;
 
 	// Generates Foreground, foreground hole filling and background gather passes.
@@ -446,11 +471,12 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 			GatherParameters.OutputBufferSize = FIntPoint::DivideAndRoundUp(RefBufferSize, ResolutionDivisor);
 
 			FRenderingCompositePass* GatherPass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFGather(GatherParameters));
-			GatherPass->SetInput(ePId_Input0, PrefilterOutput);
-			GatherPass->SetInput(ePId_Input1, CocTileOutput);
+			GatherPass->SetInput(ePId_Input0, GatherInput0);
+			GatherPass->SetInput(ePId_Input1, GatherInput1);
+			GatherPass->SetInput(ePId_Input2, CocTileOutput);
 
 			if (GatherParameters.BokehSimulation != EDiaphragmDOFBokehSimulation::Disabled)
-				GatherPass->SetInput(ePId_Input3, GatheringBokehLUTOutput);
+				GatherPass->SetInput(ePId_Input4, GatheringBokehLUTOutput);
 
 			return GatherPass;
 		};
@@ -478,6 +504,7 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 			FRCPassDiaphragmDOFGather::FParameters GatherParameters;
 			GatherParameters.LayerProcessing = EDiaphragmDOFLayerProcessing::ForegroundOnly;
 			GatherParameters.PostfilterMethod = PostfilterMethod;
+			GatherParameters.bRGBBufferSeparateCocBuffer = bRGBBufferSeparateCocBuffer;
 
 			if (bEnableGatherBokehSettings)
 				GatherParameters.BokehSimulation = BokehSimulation;
@@ -488,18 +515,21 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 			}
 
 			FRenderingCompositePass* GatherPass = BuildGatherPass(GatherParameters, /* ResolutionDivisor = */ 1);
-			ForegroundConvolutionOutput = BuildPostfilterPass(GatherParameters, GatherPass);
+			ForegroundConvolutionOutput0 = BuildPostfilterPass(GatherParameters, GatherPass);
 
 			if (bForegroundHybridScattering)
 			{
 				FRenderingCompositePass* ScatterPass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFHybridScatter(GatherParameters, BokehModel));
-				ScatterPass->SetInput(ePId_Input0, ForegroundConvolutionOutput);
+				ScatterPass->SetInput(ePId_Input0, ForegroundConvolutionOutput0);
 
 				if (bEnableScatterBokehSettings)
 					ScatterPass->SetInput(ePId_Input2, ScatteringBokehLUTOutput);
 
-				ForegroundConvolutionOutput = FRenderingCompositeOutputRef(ScatterPass, ePId_Output0);
+				ForegroundConvolutionOutput0 = FRenderingCompositeOutputRef(ScatterPass, ePId_Output0);
 			}
+
+			if (bProcessSceneAlpha)
+				ForegroundConvolutionOutput1 = FRenderingCompositeOutputRef(GatherPass, ePId_Output1);
 		}
 
 		// Wire hole filling gathering passes.
@@ -509,7 +539,10 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 			GatherParameters.LayerProcessing = EDiaphragmDOFLayerProcessing::ForegroundHoleFilling;
 			GatherParameters.PostfilterMethod = PostfilterMethod;
 
-			ForegroundHoleFillingOutput = BuildGatherPass(GatherParameters, /* ResolutionDivisor = */ 1);
+			FRenderingCompositePass* GatherPass = BuildGatherPass(GatherParameters, /* ResolutionDivisor = */ 1);
+			ForegroundHoleFillingOutput0 = FRenderingCompositeOutputRef(GatherPass, ePId_Output0);
+			if (bProcessSceneAlpha)
+				ForegroundHoleFillingOutput1 = FRenderingCompositeOutputRef(GatherPass, ePId_Output1);
 		}
 
 		// Wire background gathering passes.
@@ -517,41 +550,24 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 			FRCPassDiaphragmDOFGather::FParameters GatherParameters;
 			GatherParameters.LayerProcessing = EDiaphragmDOFLayerProcessing::BackgroundOnly;
 			GatherParameters.PostfilterMethod = PostfilterMethod;
+			GatherParameters.bRGBBufferSeparateCocBuffer = bRGBBufferSeparateCocBuffer;
 
 			if (bEnableGatherBokehSettings)
 				GatherParameters.BokehSimulation = BokehSimulation;
 
-			if (bUseLowAccumulatorQuality)
-			{
-				GatherParameters.QualityConfig = FRCPassDiaphragmDOFGather::EQualityConfig::LowQualityAccumulator;
-			}
-
-			FRenderingCompositeOutputRef LowerGatherOutput;
-			if (GatheringLayout == EGatheringGraphLayout::SeparateHalfEighth)
-			{
-				FRCPassDiaphragmDOFGather::FParameters LowerGatherParameters = GatherParameters;
-				LowerGatherParameters.RecursionMode = EDiaphragmDOFGatherRecursionMode::LowestMip;
-				LowerGatherParameters.MinBorderingCocRadius = BackgroundCocRadiusMaximumForUniquePass;
-
-				GatherParameters.RecursionMode = EDiaphragmDOFGatherRecursionMode::HighestMip;
-				GatherParameters.MaxBorderingCocRadius = BackgroundCocRadiusMaximumForUniquePass;
-
-				FRenderingCompositePass* LowerGatherPass = BuildGatherPass(LowerGatherParameters, /* ResolutionDivisor = */ 4);
-				LowerGatherOutput = BuildPostfilterPass(LowerGatherParameters, LowerGatherPass);
-			}
-			else if (bBackgroundHybridScattering && BgdHybridScatteringMode == EHybridScatterMode::Occlusion)
+			GatherParameters.QualityConfig = FRCPassDiaphragmDOFGather::EQualityConfig::LowQualityAccumulator;
+			if (bBackgroundHybridScattering && BgdHybridScatteringMode == EHybridScatterMode::Occlusion)
 			{
 				GatherParameters.QualityConfig = FRCPassDiaphragmDOFGather::EQualityConfig::HighQualityWithHybridScatterOcclusion;
 			}
 
 			FRenderingCompositePass* GatherPass = BuildGatherPass(GatherParameters, /* ResolutionDivisor = */ 1);
-			GatherPass->SetInput(ePId_Input2, LowerGatherOutput);
-			BackgroundConvolutionOutput = BuildPostfilterPass(GatherParameters, GatherPass);
+			BackgroundConvolutionOutput0 = BuildPostfilterPass(GatherParameters, GatherPass);
 
 			if (bBackgroundHybridScattering)
 			{
 				FRenderingCompositePass* ScatterPass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFHybridScatter(GatherParameters, BokehModel));
-				ScatterPass->SetInput(ePId_Input0, BackgroundConvolutionOutput);
+				ScatterPass->SetInput(ePId_Input0, BackgroundConvolutionOutput0);
 
 				if (bEnableScatterBokehSettings)
 					ScatterPass->SetInput(ePId_Input2, ScatteringBokehLUTOutput);
@@ -559,8 +575,11 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 				if (BgdHybridScatteringMode == EHybridScatterMode::Occlusion)
 					ScatterPass->SetInput(ePId_Input3, FRenderingCompositeOutputRef(GatherPass, ePId_Output2));
 
-				BackgroundConvolutionOutput = FRenderingCompositeOutputRef(ScatterPass, ePId_Output0);
+				BackgroundConvolutionOutput0 = FRenderingCompositeOutputRef(ScatterPass, ePId_Output0);
 			}
+
+			if (bProcessSceneAlpha)
+				BackgroundConvolutionOutput1 = FRenderingCompositeOutputRef(GatherPass, ePId_Output1);
 		}
 	}
 
@@ -580,12 +599,13 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 
 		FRenderingCompositePass* GatherPass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFGather(
 			GatherParameters));
-		GatherPass->SetInput(ePId_Input0, PrefilterOutput); // TODO: take TAA input instead?
-		GatherPass->SetInput(ePId_Input1, CocTileOutput);
+		GatherPass->SetInput(ePId_Input0, GatherInput0); // TODO: take TAA input instead?
+		GatherPass->SetInput(ePId_Input1, GatherInput1);
+		GatherPass->SetInput(ePId_Input2, CocTileOutput);
 
 		// Slight out of focus gather pass use exact same LUT as scattering because all samples of ther kernel are used.
 		if (bEnableSlightOutOfFocusBokeh)
-			GatherPass->SetInput(ePId_Input3, ScatteringBokehLUTOutput);
+			GatherPass->SetInput(ePId_Input4, ScatteringBokehLUTOutput);
 
 		SlightOutOfFocusConvolutionOutput = FRenderingCompositeOutputRef(GatherPass);
 	}
@@ -596,24 +616,41 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 		Parameters.CocModel = CocModel;
 		Parameters.MainDrawEvent = MainDrawEvent;
 		Parameters.Quality = RecombineQuality;
+		Parameters.GatheringViewSize = GatheringViewSize;
 
 		if (bEnableSlightOutOfFocusBokeh)
 			Parameters.BokehSimulation = BokehSimulation;
 
 		FRenderingCompositePass* Recombine = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFRecombine(Parameters));
-		Recombine->SetInput(ePId_Input0, FullresColorSetup);
-		Recombine->SetInput(ePId_Input1, SeparateTranslucency);
-		Recombine->SetInput(ePId_Input2, ForegroundConvolutionOutput);
-		Recombine->SetInput(ePId_Input3, ForegroundHoleFillingOutput);
-		Recombine->SetInput(ePId_Input4, BackgroundConvolutionOutput);
-		Recombine->SetInput(ePId_Input5, SlightOutOfFocusConvolutionOutput);
+		Recombine->SetInput(ePId_Input0, FullresColorSetup0);
+		Recombine->SetInput(ePId_Input1, FullresColorSetup1);
+
+
+		if (SeparateTranslucency.IsValid())
+		{
+			Recombine->SetInput(ePId_Input2, SeparateTranslucency);
+		}
+		else
+		{
+			FRenderingCompositePass* NoSeparateTranslucency = Context.Graph.RegisterPass(
+				new(FMemStack::Get()) FRCPassPostProcessInput(GSystemTextures.BlackAlphaOneDummy));
+			Recombine->SetInput(ePId_Input2, NoSeparateTranslucency);
+		}
+
+		Recombine->SetInput(ePId_Input3, ForegroundConvolutionOutput0);
+		Recombine->SetInput(ePId_Input4, ForegroundConvolutionOutput1);
+		Recombine->SetInput(ePId_Input5, ForegroundHoleFillingOutput0);
+		Recombine->SetInput(ePId_Input6, ForegroundHoleFillingOutput1);
+		Recombine->SetInput(ePId_Input7, BackgroundConvolutionOutput0);
+		Recombine->SetInput(ePId_Input8, BackgroundConvolutionOutput1);
+		Recombine->SetInput(ePId_Input9, SlightOutOfFocusConvolutionOutput);
 
 		// Full res gathering for slight out of focus needs its dedicated LUT.
 		if (bEnableSlightOutOfFocusBokeh && ScatteringBokehLUTOutput.IsValid() && SlightOutOfFocusConvolutionOutput.IsValid())
 		{
 			FRenderingCompositePass* BokehLUTPass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFBuildBokehLUT(
 				BokehModel, FRCPassDiaphragmDOFBuildBokehLUT::EFormat::FullResOffsetToCocDistance));
-			Recombine->SetInput(ePId_Input6, BokehLUTPass);
+			Recombine->SetInput(ePId_Input10, BokehLUTPass);
 		}
 
 		// Replace full res scene color with recombined output.

@@ -430,6 +430,15 @@ enum EResourceLockMode
 	RLM_Num
 };
 
+enum class EMultiGPUMode
+{
+	Broadcast,		// Broadcast all (if multi-GPU)
+	AlternateFrame,	// Alternate Frame Rendering (Use GPU# where # = FrameIndex % NumGPU)
+	AlternateView,	// Alternate View Rendering (Use GPU# where # = ViewIndex % NumGPU)
+	GPU0,			// Only use GPU0
+	GPU1			// Only use GPU1
+};
+
 /** limited to 8 types in FReadSurfaceDataFlags */
 enum ERangeCompressionMode
 {

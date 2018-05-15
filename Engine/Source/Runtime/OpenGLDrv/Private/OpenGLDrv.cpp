@@ -110,7 +110,7 @@ void FOpenGLGPUProfiler::BeginFrame(FOpenGLDynamicRHI* InRHI)
 	bPreviousLatchedGProfilingGPUHitches = bLatchedGProfilingGPUHitches;
 
 	// Skip timing events when using SLI, they will not be accurate anyway
-	if (GNumActiveGPUsForRendering == 1)
+	if (GNumAlternateFrameRenderingGroups == 1)
 	{
 		if (FrameTiming.IsSupported())
 		{
@@ -143,7 +143,7 @@ void FOpenGLGPUProfiler::EndFrame()
 	}
 
 	// Skip timing events when using SLI, they will not be accurate anyway
-	if (GNumActiveGPUsForRendering == 1)
+	if (GNumAlternateFrameRenderingGroups == 1)
 	{
 		if (FrameTiming.IsSupported())
 		{
@@ -157,13 +157,13 @@ void FOpenGLGPUProfiler::EndFrame()
 
 	// Skip timing events when using SLI, as they will block the GPU and we want maximum throughput
 	// Stat unit GPU time is not accurate anyway with SLI
-	if (FrameTiming.IsSupported() && GNumActiveGPUsForRendering == 1)
+	if (FrameTiming.IsSupported() && GNumAlternateFrameRenderingGroups == 1)
 	{
 		uint64 GPUTiming = FrameTiming.GetTiming();
 		uint64 GPUFreq = FrameTiming.GetTimingFrequency();
 		GGPUFrameTime = FMath::TruncToInt( double(GPUTiming) / double(GPUFreq) / FPlatformTime::GetSecondsPerCycle() );
 	}
-	else if (FOpenGLDisjointTimeStampQuery::IsSupported() && GNumActiveGPUsForRendering == 1)
+	else if (FOpenGLDisjointTimeStampQuery::IsSupported() && GNumAlternateFrameRenderingGroups == 1)
 	{
 		static uint32 GLastGPUFrameTime = 0;
 		uint64 GPUTiming = 0;

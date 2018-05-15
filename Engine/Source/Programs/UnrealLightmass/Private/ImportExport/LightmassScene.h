@@ -461,6 +461,23 @@ protected:
 
 
 //----------------------------------------------------------------------------
+//	Rect light class
+//----------------------------------------------------------------------------
+class FRectLight : public FPointLight
+{
+public:
+	virtual FLinearColor	GetDirectIntensity(const FVector4& Point, bool bCalculateForIndirectLighting) const override;
+	virtual void			ValidateSurfaceSample(const FVector4& Point, FLightSurfaceSample& Sample) const override;
+	virtual FVector4		LightCenterPosition(const FVector4& ReceivingPosition, const FVector4& ReceivingNormal) const override;
+	virtual bool			BehindSurface(const FVector4& TrianglePoint, const FVector4& TriangleNormal) const override;
+	virtual FVector4		GetDirectLightingDirection(const FVector4& Point, const FVector4& PointNormal) const override;
+
+protected:
+	virtual void			SampleLightSurface(FLMRandomStream& RandomStream, FLightSurfaceSample& Sample) const override;
+};
+
+
+//----------------------------------------------------------------------------
 //	Sky light class
 //----------------------------------------------------------------------------
 class FSkyLight : public FLight, public FSkyLightData
@@ -737,6 +754,7 @@ public:
 	TArray<FDirectionalLight>	DirectionalLights;
 	TArray<FPointLight>			PointLights;
 	TArray<FSpotLight>			SpotLights;
+	TArray<FRectLight>			RectLights;
 	TArray<FSkyLight>			SkyLights;
 
 	TArray<FStaticMeshStaticLightingMesh>				StaticMeshInstances;

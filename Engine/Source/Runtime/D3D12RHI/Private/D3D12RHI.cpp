@@ -10,7 +10,7 @@
 
 #if PLATFORM_WINDOWS
 #include "Windows/AllowWindowsPlatformTypes.h"
-	#include "amd_ags.h"
+#include "amd_ags.h"
 #include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
@@ -21,7 +21,7 @@
 DEFINE_LOG_CATEGORY(LogD3D12RHI);
 
 TAutoConsoleVariable<int32> CVarD3D12ZeroBufferSizeInMB(
-	TEXT("d3d12.ZeroBufferSizeInMB"),
+	TEXT("D3D12.ZeroBufferSizeInMB"),
 	4,
 	TEXT("The D3D12 RHI needs a static allocation of zeroes to use when streaming textures asynchronously. It should be large enough to support the largest mipmap you need to stream. The default is 4MB."),
 	ECVF_ReadOnly
@@ -45,6 +45,7 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(TArray<FD3D12Adapter*>& ChosenAdaptersIn) :
 {
 	// The FD3D12DynamicRHI must be a singleton
 	check(SingleD3DRHI == nullptr);
+	SingleD3DRHI = this;
 
 	ThreadDynamicHeapAllocatorArray.AddZeroed(FPlatformMisc::NumberOfCoresIncludingHyperthreads());
 
@@ -52,11 +53,9 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(TArray<FD3D12Adapter*>& ChosenAdaptersIn) :
 	check(IsInGameThread());
 	check(!GIsThreadedRendering);
 
-	SingleD3DRHI = this;
-
-	FD3D12Adapter& Adapter = GetAdapter();
-
-	FeatureLevel = Adapter.GetFeatureLevel();
+	// Adapter must support FL11+
+	FeatureLevel = GetAdapter().GetFeatureLevel();
+	check(FeatureLevel >= D3D_FEATURE_LEVEL_11_0);
 
 #if PLATFORM_WINDOWS
 	// Allocate a buffer of zeroes. This is used when we need to pass D3D memory
@@ -72,41 +71,6 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(TArray<FD3D12Adapter*>& ChosenAdaptersIn) :
 	GPoolSizeVRAMPercentage = 0;
 	GTexturePoolSize = 0;
 	GConfig->GetInt(TEXT("TextureStreaming"), TEXT("PoolSizeVRAMPercentage"), GPoolSizeVRAMPercentage, GEngineIni);
-
-	// Initialize the RHI capabilities.
-	check(FeatureLevel >= D3D_FEATURE_LEVEL_11_0 || FeatureLevel == D3D_FEATURE_LEVEL_10_0);
-
-	if (FeatureLevel == D3D_FEATURE_LEVEL_10_0)
-	{
-		GSupportsDepthFetchDuringDepthTest = false;
-	}
-
-	ERHIFeatureLevel::Type PreviewFeatureLevel;
-	if (!GIsEditor && RHIGetPreviewFeatureLevel(PreviewFeatureLevel))
-	{
-		check(PreviewFeatureLevel == ERHIFeatureLevel::ES2 || PreviewFeatureLevel == ERHIFeatureLevel::ES3_1);
-
-		// ES2/3.1 feature level emulation in D3D
-		GMaxRHIFeatureLevel = PreviewFeatureLevel;
-		if (GMaxRHIFeatureLevel == ERHIFeatureLevel::ES2)
-	{
-		GMaxRHIShaderPlatform = SP_PCD3D_ES2;
-	}
-		else if (GMaxRHIFeatureLevel == ERHIFeatureLevel::ES3_1)
-	{
-		GMaxRHIShaderPlatform = SP_PCD3D_ES3_1;
-	}
-	}
-	else if (FeatureLevel >= D3D_FEATURE_LEVEL_11_0)
-	{
-		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM5;
-		GMaxRHIShaderPlatform = SP_PCD3D_SM5;
-	}
-	else if (FeatureLevel == D3D_FEATURE_LEVEL_10_0)
-	{
-		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM4;
-		GMaxRHIShaderPlatform = SP_PCD3D_SM4;
-	}
 
 	// Initialize the platform pixel format map.
 	GPixelFormats[PF_Unknown		].PlatformFormat = DXGI_FORMAT_UNKNOWN;
@@ -297,7 +261,7 @@ IRHICommandContext* FD3D12DynamicRHI::RHIGetDefaultContext()
 	FD3D12Adapter& Adapter = GetAdapter();
 
 	IRHICommandContext* DefaultCommandContext = nullptr;	
-	if (GNumActiveGPUsForRendering > 1)
+	if (GNumExplicitGPUsForRendering > 1)
 	{
 		DefaultCommandContext = static_cast<IRHICommandContext*>(&Adapter.GetDefaultContextRedirector());
 	}
@@ -311,18 +275,34 @@ IRHICommandContext* FD3D12DynamicRHI::RHIGetDefaultContext()
 	return DefaultCommandContext;
 }
 
+#if WITH_MGPU
+IRHICommandContext* FD3D12DynamicRHI::RHIGetDefaultContext(FRHIGPUMask GPUMask)
+{
+	FD3D12Adapter& Adapter = GetAdapter();
+
+	if (GNumExplicitGPUsForRendering > 1 && GPUMask == FRHIGPUMask::All())
+	{
+		return static_cast<IRHICommandContext*>(&Adapter.GetDefaultContextRedirector());
+	}
+	else // The next code assumes a single index.
+	{
+		return static_cast<IRHICommandContext*>(&Adapter.GetDevice(GPUMask.ToIndex())->GetDefaultCommandContext());
+	}
+}
+#endif // WITH_MGPU
+
 IRHIComputeContext* FD3D12DynamicRHI::RHIGetDefaultAsyncComputeContext()
 {
 	FD3D12Adapter& Adapter = GetAdapter();
 
 	IRHIComputeContext* DefaultAsyncComputeContext = nullptr;
-	if (GNumActiveGPUsForRendering > 1)
+	if (GNumExplicitGPUsForRendering > 1)
 	{
 		DefaultAsyncComputeContext = GEnableAsyncCompute ?
 			static_cast<IRHIComputeContext*>(&Adapter.GetDefaultAsyncComputeContextRedirector()) :
 			static_cast<IRHIComputeContext*>(&Adapter.GetDefaultContextRedirector());
 	}
-	else // Single GPU path
+	else // Single GPU path.
 	{
 		FD3D12Device* Device = Adapter.GetDevice(0);
 		DefaultAsyncComputeContext = GEnableAsyncCompute ?
@@ -333,6 +313,28 @@ IRHIComputeContext* FD3D12DynamicRHI::RHIGetDefaultAsyncComputeContext()
 	check(DefaultAsyncComputeContext);
 	return DefaultAsyncComputeContext;
 }
+
+#if WITH_MGPU
+IRHIComputeContext* FD3D12DynamicRHI::RHIGetDefaultAsyncComputeContext(FRHIGPUMask GPUMask)
+{
+	if (GEnableAsyncCompute)
+	{
+		FD3D12Adapter& Adapter = GetAdapter();
+		if (GNumExplicitGPUsForRendering > 1 && GPUMask == FRHIGPUMask::All())
+		{
+			return static_cast<IRHIComputeContext*>(&Adapter.GetDefaultAsyncComputeContextRedirector());
+		}
+		else // Single GPU path.
+		{
+			return static_cast<IRHIComputeContext*>(&Adapter.GetDevice(GPUMask.ToIndex())->GetDefaultAsyncComputeContext());
+		}
+	}
+	else 
+	{
+		return static_cast<IRHIComputeContext*>(RHIGetDefaultContext(GPUMask));
+	}
+}
+#endif // WITH_MGPU
 
 void FD3D12DynamicRHI::UpdateBuffer(FD3D12Resource* Dest, uint32 DestOffset, FD3D12Resource* Source, uint32 SourceOffset, uint32 NumBytes)
 {

@@ -1339,6 +1339,7 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		LERP_PP(IndirectLightingIntensity);
 		LERP_PP(DepthOfFieldFocalDistance);
 		LERP_PP(DepthOfFieldFstop);
+		LERP_PP(DepthOfFieldMinFstop);
 		LERP_PP(DepthOfFieldSensorWidth);
 		LERP_PP(DepthOfFieldDepthBlurRadius);
 		LERP_PP(DepthOfFieldDepthBlurAmount);
@@ -1361,6 +1362,11 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		LERP_PP(ScreenSpaceReflectionQuality);
 		LERP_PP(ScreenSpaceReflectionIntensity);
 		LERP_PP(ScreenSpaceReflectionMaxRoughness);
+
+		if (Src.bOverride_DepthOfFieldBladeCount)
+		{
+			Dest.DepthOfFieldBladeCount = Src.DepthOfFieldBladeCount;
+		}
 
 		// cubemaps are getting blended additively - in contrast to other properties, maybe we should make that consistent
 		if (Src.AmbientCubemap && Src.bOverride_AmbientCubemapIntensity)

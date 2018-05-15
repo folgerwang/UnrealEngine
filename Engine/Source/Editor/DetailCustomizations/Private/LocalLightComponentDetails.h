@@ -7,10 +7,10 @@
 
 class IDetailLayoutBuilder;
 
-class FPointLightComponentDetails : public IDetailCustomization
+class FLocalLightComponentDetails : public IDetailCustomization
 {
 public:
-	FPointLightComponentDetails() {}
+	FLocalLightComponentDetails() {}
 
 	/** Makes a new instance of this detail layout class for a specific detail view requesting it */
 	static TSharedRef<IDetailCustomization> MakeInstance();

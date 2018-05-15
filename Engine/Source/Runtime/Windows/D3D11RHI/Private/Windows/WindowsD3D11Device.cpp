@@ -1305,7 +1305,10 @@ void FD3D11DynamicRHI::InitD3DDevice()
 
 		CACHE_NV_AFTERMATH_ENABLED();
 		
-#if PLATFORM_DESKTOP
+#if WITH_SLI
+
+		GNumAlternateFrameRenderingGroups = 1;
+
 		if (IsRHIDeviceNVIDIA())
 		{
 			GSupportsDepthBoundsTest = true;
@@ -1317,8 +1320,8 @@ void FD3D11DynamicRHI::InitD3DDevice()
 			{
 				if (SLICaps.numAFRGroups > 1)
 				{
-					GNumActiveGPUsForRendering = SLICaps.numAFRGroups;
-					UE_LOG(LogD3D11RHI, Log, TEXT("Detected %i SLI GPUs Setting GNumActiveGPUsForRendering to: %i."), SLICaps.numAFRGroups, GNumActiveGPUsForRendering);
+					GNumAlternateFrameRenderingGroups = SLICaps.numAFRGroups;
+					UE_LOG(LogD3D11RHI, Log, TEXT("Detected %i SLI GPUs Setting GNumAlternateFrameRenderingGroups to: %i."), SLICaps.numAFRGroups, GNumAlternateFrameRenderingGroups);
 				}
 			}
 			else
@@ -1338,10 +1341,10 @@ void FD3D11DynamicRHI::InitD3DDevice()
 
 		if (GDX11ForcedGPUs > 0)
 		{
-			GNumActiveGPUsForRendering = GDX11ForcedGPUs;
-			UE_LOG(LogD3D11RHI, Log, TEXT("r.DX11NumForcedGPUs forcing GNumActiveGPUsForRendering to: %i "), GDX11ForcedGPUs);
+			GNumAlternateFrameRenderingGroups = GDX11ForcedGPUs;
+			UE_LOG(LogD3D11RHI, Log, TEXT("r.DX11NumForcedGPUs forcing GNumAlternateFrameRenderingGroups to: %i "), GDX11ForcedGPUs);
 		}
-#endif // PLATFORM_DESKTOP
+#endif // WITH_SLI
 
 		SetupAfterDeviceCreation();
 

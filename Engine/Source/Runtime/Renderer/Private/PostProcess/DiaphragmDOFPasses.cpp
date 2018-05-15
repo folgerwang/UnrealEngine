@@ -84,18 +84,6 @@ const TCHAR* GetEventName(EDiaphragmDOFLayerProcessing e)
 	return kArray[i];
 }
 
-const TCHAR* GetEventName(EDiaphragmDOFGatherRecursionMode e)
-{
-	static const TCHAR* const kArray[] = {
-		TEXT("StandAloneMip"),
-		TEXT("LowestMip"),
-		TEXT("HighestMip"),
-	};
-	int32 i = int32(e);
-	check(i < ARRAY_COUNT(kArray));
-	return kArray[i];
-}
-
 const TCHAR* GetEventName(EDiaphragmDOFPostfilterMethod e)
 {
 	static const TCHAR* const kArray[] = {
@@ -143,6 +131,16 @@ const TCHAR* GetEventName(FRCPassDiaphragmDOFGather::EQualityConfig e)
 	return kArray[i];
 }
 
+// Returns X and Y for F(M) = saturate(M * X + Y) so that F(LowM) = 0 and F(HighM) = 1
+FVector2D GenerateSaturatedAffineTransformation(float LowM, float HighM)
+{
+	float X = 1.0f / (HighM - LowM);
+	return FVector2D(X, -X * LowM);
+}
+
+// Affine transformtations that always return 0 or 1.
+const FVector2D kContantlyPassingAffineTransformation(0, 1);
+const FVector2D kContantlyBlockingAffineTransformation(0, 0);
 
 }
 
@@ -247,6 +245,15 @@ public:
 			Output[0][3].Bind(Initializer.ParameterMap, TEXT("Output0Mip3"));
 			Output[0][4].Bind(Initializer.ParameterMap, TEXT("Output0Mip4"));
 		}
+
+		if (!Output[1][0].IsBound())
+		{
+			Output[1][0].Bind(Initializer.ParameterMap, TEXT("Output1Mip0"));
+			Output[1][1].Bind(Initializer.ParameterMap, TEXT("Output1Mip1"));
+			Output[1][2].Bind(Initializer.ParameterMap, TEXT("Output1Mip2"));
+			Output[1][3].Bind(Initializer.ParameterMap, TEXT("Output1Mip3"));
+			Output[1][4].Bind(Initializer.ParameterMap, TEXT("Output1Mip4"));
+		}
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -327,6 +334,8 @@ public:
 			{
 				if (Shader->Output[i][j].IsBound())
 				{
+					Context.RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, EResourceTransitionPipeline::EGfxToCompute, DestRenderTarget[i]->MipUAVs[j]);
+
 					Context.RHICmdList.SetUAVParameter(ShaderRHI, Shader->Output[i][j].GetBaseIndex(), DestRenderTarget[i]->MipUAVs[j]);
 				}
 			}
@@ -492,11 +501,11 @@ namespace
 class FDDOFDilateRadiusDim     : SHADER_PERMUTATION_RANGE_INT("DIM_DILATE_RADIUS", 1, 3);
 
 class FDDOFLayerProcessingDim  : SHADER_PERMUTATION_ENUM_CLASS("DIM_LAYER_PROCESSING", EDiaphragmDOFLayerProcessing);
-class FDDOFGatherRecursionDim  : SHADER_PERMUTATION_ENUM_CLASS("DIM_GATHER_RECURSION", EDiaphragmDOFGatherRecursionMode);
 class FDDOFGatherRingCountDim  : SHADER_PERMUTATION_RANGE_INT("DIM_GATHER_RING_COUNT", FRCPassDiaphragmDOFGather::kMinRingCount, 3);
 class FDDOFGatherQualityDim    : SHADER_PERMUTATION_ENUM_CLASS("DIM_GATHER_QUALITY", FRCPassDiaphragmDOFGather::EQualityConfig);
 class FDDOFPostfilterMethodDim : SHADER_PERMUTATION_ENUM_CLASS("DIM_POSTFILTER_METHOD", EDiaphragmDOFPostfilterMethod);
 class FDDOFClampInputUVDim     : SHADER_PERMUTATION_BOOL("DIM_CLAMP_INPUT_UV");
+class FDDOFRGBColorBufferDim   : SHADER_PERMUTATION_BOOL("DIM_RGB_COLOR_BUFFER");
 
 class FDDOFBokehSimulationDim  : SHADER_PERMUTATION_ENUM_CLASS("DIM_BOKEH_SIMULATION", EDiaphragmDOFBokehSimulation);
 class FDDOFScatterOcclusionDim : SHADER_PERMUTATION_BOOL("DIM_SCATTER_OCCLUSION");
@@ -720,6 +729,10 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFSetup::ComputeOutputDesc(EPassOutputI
 	Ret.TargetableFlags |= TexCreate_UAV;
 	Ret.Flags &= ~(TexCreate_FastVRAM);
 	Ret.Flags |= GFastVRamConfig.DOFSetup;
+	if (InPassOutputId == ePId_Output2)
+	{
+		Ret.Format = PF_R16F;
+	}
 	return Ret;
 }
 
@@ -745,7 +758,24 @@ class FPostProcessDiaphragmDOFReduceCS : public FPostProcessDiaphragmDOFShader
 	class FHybridScatterForeground : SHADER_PERMUTATION_BOOL("DIM_HYBRID_SCATTER_FGD");
 	class FHybridScatterBackground : SHADER_PERMUTATION_BOOL("DIM_HYBRID_SCATTER_BGD");
 
-	using FPermutationDomain = TShaderPermutationDomain<FReduceMipCount, FHybridScatterForeground, FHybridScatterBackground>;
+	using FPermutationDomain = TShaderPermutationDomain<
+		FReduceMipCount,
+		FHybridScatterForeground,
+		FHybridScatterBackground,
+		FDDOFRGBColorBufferDim>;
+
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	{
+		FPermutationDomain PermutationVector(Parameters.PermutationId);
+
+		// Do not compile storing Coc independently of RGB if not supported.
+		if (PermutationVector.Get<FDDOFRGBColorBufferDim>() && !FRCPassDiaphragmDOFGather::SupportRGBColorBuffer(Parameters.Platform))
+		{
+			return false;
+		}
+
+		return FPostProcessDiaphragmDOFShader::ShouldCompilePermutation(Parameters);
+	}
 };
 
 class FPostProcessDiaphragmDOFScatterGroupPackCS : public FPostProcessDiaphragmDOFShader
@@ -775,10 +805,11 @@ void FRCPassDiaphragmDOFReduce::Process(FRenderingCompositePassContext& Context)
 	uint32 MaxScatteringGroupCount = FMath::Max(Params.MaxScatteringRatio * 0.25f * SrcSize.X * SrcSize.Y - FDiaphragmDOFGlobalResource::kMaxScatteringGroupPerInstance, float(FDiaphragmDOFGlobalResource::kMaxScatteringGroupPerInstance));
 
 	// Emit the draw event soon to contain the ClearUAV().
-	SCOPED_DRAW_EVENTF(Context.RHICmdList, DiaphragmDOFReduce, TEXT("DiaphragmDOF Reduce(Mips=%d FgdScatter=%s BgdScatter=%s) %dx%d"),
+	SCOPED_DRAW_EVENTF(Context.RHICmdList, DiaphragmDOFReduce, TEXT("DiaphragmDOF Reduce(Mips=%d FgdScatter=%s BgdScatter=%s%s) %dx%d"),
 		Params.MipLevelCount,
 		Params.bExtractForegroundHybridScattering ? TEXT("Yes") : TEXT("No"),
 		Params.bExtractBackgroundHybridScattering ? TEXT("Yes") : TEXT("No"),
+		Params.bRGBBufferSeparateCocBuffer ? TEXT(" R11G11B10") : TEXT(""),
 		DestViewport.Width(), DestViewport.Height());
 
 	// Clears the draw indirect parameters to have the scattering group count ready to be atomically incremented.
@@ -786,7 +817,6 @@ void FRCPassDiaphragmDOFReduce::Process(FRenderingCompositePassContext& Context)
 	FRWBufferStructured* ScatterDrawListBuffer[2] = {nullptr, nullptr};
 	if (bDoAnyHybridScatteringExtraction)
 	{
-		// TODO: cvar to upper bound budget.
 		GDiaphragmDOFGlobalResource.Allocate(MaxScatteringGroupCount);
 
 		DrawIndirectParametersBuffer = &GDiaphragmDOFGlobalResource.DrawIndirectParametersBuffer;
@@ -794,6 +824,27 @@ void FRCPassDiaphragmDOFReduce::Process(FRenderingCompositePassContext& Context)
 		ScatterDrawListBuffer[1] = &GDiaphragmDOFGlobalResource.BackgroundScatterDrawListBuffer;
 
 		ClearUAV(Context.RHICmdList, *DrawIndirectParametersBuffer, 0);
+
+		Context.RHICmdList.TransitionResource(
+			EResourceTransitionAccess::ERWBarrier,
+			EResourceTransitionPipeline::EComputeToCompute,
+			DrawIndirectParametersBuffer->UAV);
+
+		if (Params.bExtractForegroundHybridScattering)
+		{
+			Context.RHICmdList.TransitionResource(
+				EResourceTransitionAccess::EWritable,
+				EResourceTransitionPipeline::EGfxToCompute,
+				ScatterDrawListBuffer[0]->UAV);
+		}
+
+		if (Params.bExtractBackgroundHybridScattering)
+		{
+			Context.RHICmdList.TransitionResource(
+				EResourceTransitionAccess::EWritable,
+				EResourceTransitionPipeline::EGfxToCompute,
+				ScatterDrawListBuffer[1]->UAV);
+		}
 	}
 
 	// Reduce.
@@ -802,16 +853,15 @@ void FRCPassDiaphragmDOFReduce::Process(FRenderingCompositePassContext& Context)
 		PermutationVector.Set<FPostProcessDiaphragmDOFReduceCS::FReduceMipCount>(Params.MipLevelCount);
 		PermutationVector.Set<FPostProcessDiaphragmDOFReduceCS::FHybridScatterForeground>(Params.bExtractForegroundHybridScattering && !bDebugScatterPerf);
 		PermutationVector.Set<FPostProcessDiaphragmDOFReduceCS::FHybridScatterBackground>(Params.bExtractBackgroundHybridScattering && !bDebugScatterPerf);
+		PermutationVector.Set<FDDOFRGBColorBufferDim>(Params.bRGBBufferSeparateCocBuffer);
 
 		FDispatchDiaphragmDOFPass<FPostProcessDiaphragmDOFReduceCS, FRCPassDiaphragmDOFReduce> DispatchCtx(this, Context, PermutationVector);
 		DispatchCtx.DestViewport = DestViewport;
 
 		{
-			FIntPoint InputRect = GetLowerResViewport(Context.View.ViewRect, 2).Size();
-
 			FVector2D MaxInputBufferUV;
-			MaxInputBufferUV.X = (InputRect.X - 0.5f) / SrcSize.X;
-			MaxInputBufferUV.Y = (InputRect.Y - 0.5f) / SrcSize.Y;
+			MaxInputBufferUV.X = (DestViewport.Width() - 0.5f) / SrcSize.X;
+			MaxInputBufferUV.Y = (DestViewport.Height() - 0.5f) / SrcSize.Y;
 			SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->MaxInputBufferUV, MaxInputBufferUV);
 		}
 
@@ -860,6 +910,22 @@ void FRCPassDiaphragmDOFReduce::Process(FRenderingCompositePassContext& Context)
 		EResourceTransitionAccess::ERWBarrier,
 		EResourceTransitionPipeline::EComputeToCompute,
 		DrawIndirectParametersBuffer->UAV);
+
+	if (Params.bExtractForegroundHybridScattering)
+	{
+		Context.RHICmdList.TransitionResource(
+			EResourceTransitionAccess::ERWNoBarrier,
+			EResourceTransitionPipeline::EComputeToCompute,
+			ScatterDrawListBuffer[0]->UAV);
+	}
+	
+	if (Params.bExtractBackgroundHybridScattering)
+	{
+		Context.RHICmdList.TransitionResource(
+			EResourceTransitionAccess::ERWNoBarrier,
+			EResourceTransitionPipeline::EComputeToCompute,
+			ScatterDrawListBuffer[1]->UAV);
+	}
 
 	// Pack multiple scattering group on same primitive instance to increase wave occupancy in the scattering vertex shader.
 	{
@@ -924,6 +990,16 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFReduce::ComputeOutputDesc(EPassOutput
 	Ret.Extent.X = Multiple * FMath::DivideAndRoundUp(Ret.Extent.X, Multiple);
 	Ret.Extent.Y = Multiple * FMath::DivideAndRoundUp(Ret.Extent.Y, Multiple);
 
+	if (InPassOutputId == ePId_Output1)
+	{
+		Ret.Format = PF_R16F;
+	}
+
+	if (Params.bRGBBufferSeparateCocBuffer)
+	{
+		Ret.Format = InPassOutputId == ePId_Output0 ? PF_FloatR11G11B10 : PF_R16F;
+	}
+
 	return Ret;
 }
 
@@ -971,6 +1047,14 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFDownsample::ComputeOutputDesc(EPassOu
 	Ret.Extent /= 2;
 	Ret.DebugName = TEXT("DOFDownsample");
 	Ret.TargetableFlags |= TexCreate_UAV;
+	if (InPassOutputId == ePId_Output0)
+	{
+		Ret.Format = Params.bRGBBufferOnly ? PF_FloatR11G11B10 : PF_FloatRGBA;
+	}
+	else
+	{
+		Ret.Format = PF_R16F;
+	}
 	return Ret;
 }
 
@@ -979,10 +1063,13 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFDownsample::ComputeOutputDesc(EPassOu
 
 #define GATHER_SHADER_PARAMS(PARAMETER) \
 	PARAMETER(FShaderParameter, TemporalJitterPixels) \
-	PARAMETER(FShaderParameter, CocRadiusMinMaxBoundaries) \
 	PARAMETER(FShaderParameter, MipBias) \
 	PARAMETER(FShaderParameter, DispatchThreadIdToInputBufferUV) \
 	PARAMETER(FShaderParameter, MaxRecombineAbsCocRadius) \
+	PARAMETER(FShaderParameter, ConsiderCocRadiusAffineTransformation0) \
+	PARAMETER(FShaderParameter, ConsiderCocRadiusAffineTransformation1) \
+	PARAMETER(FShaderParameter, ConsiderAbsCocRadiusAffineTransformation) \
+	PARAMETER(FShaderParameter, InputBufferUVToOutputPixel) \
 
 class FPostProcessDiaphragmDOFGatherCS : public FPostProcessDiaphragmDOFShader
 {
@@ -991,18 +1078,48 @@ class FPostProcessDiaphragmDOFGatherCS : public FPostProcessDiaphragmDOFShader
 
 	using FPermutationDomain = TShaderPermutationDomain<
 		FDDOFLayerProcessingDim,
-		FDDOFGatherRecursionDim,
 		FDDOFGatherRingCountDim,
 		FDDOFBokehSimulationDim,
 		FDDOFGatherQualityDim,
-		FDDOFClampInputUVDim>;
+		FDDOFClampInputUVDim,
+		FDDOFRGBColorBufferDim>;
+
+	static FPermutationDomain RemapPermutation(FPermutationDomain PermutationVector)
+	{
+		// There is a lot of permutation, so no longer compile permutation.
+		if (1)
+		{
+			// Alway clamp input buffer UV.
+			PermutationVector.Set<FDDOFClampInputUVDim>(true);
+
+			// Alway simulate bokeh generically.
+			if (PermutationVector.Get<FDDOFBokehSimulationDim>() == EDiaphragmDOFBokehSimulation::SimmetricBokeh)
+			{
+				PermutationVector.Set<FDDOFBokehSimulationDim>(EDiaphragmDOFBokehSimulation::GenericBokeh);
+			}
+		}
+
+		return PermutationVector;
+	}
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		FPermutationDomain PermutationVector(Parameters.PermutationId);
 
+		// Do not compile this permutation if we know this is going to be remapped.
+		if (RemapPermutation(PermutationVector) != PermutationVector)
+		{
+			return false;
+		}
+
 		// Some platforms might be to slow for even considering large number of gathering samples.
 		if (PermutationVector.Get<FDDOFGatherRingCountDim>() > FRCPassDiaphragmDOFGather::MaxRingCount(Parameters.Platform))
+		{
+			return false;
+		}
+
+		// Do not compile storing Coc independently of RGB.
+		if (PermutationVector.Get<FDDOFRGBColorBufferDim>() && !FRCPassDiaphragmDOFGather::SupportRGBColorBuffer(Parameters.Platform))
 		{
 			return false;
 		}
@@ -1020,8 +1137,10 @@ class FPostProcessDiaphragmDOFGatherCS : public FPostProcessDiaphragmDOFShader
 			// Foreground does not support CocVariance output yet.
 			if (PermutationVector.Get<FDDOFGatherQualityDim>() == FRCPassDiaphragmDOFGather::EQualityConfig::HighQualityWithHybridScatterOcclusion) return false;
 
-			// Foreground does not support recursion yet.
-			if (PermutationVector.Get<FDDOFGatherRecursionDim>() != EDiaphragmDOFGatherRecursionMode::StandAlone) return false;
+			// Storing Coc independently of RGB is only supported for low gathering quality.
+			if (PermutationVector.Get<FDDOFRGBColorBufferDim>() &&
+				PermutationVector.Get<FDDOFGatherQualityDim>() != FRCPassDiaphragmDOFGather::EQualityConfig::LowQualityAccumulator)
+				return false;
 		}
 		else if (PermutationVector.Get<FDDOFLayerProcessingDim>() == EDiaphragmDOFLayerProcessing::ForegroundHoleFilling)
 		{
@@ -1031,17 +1150,15 @@ class FPostProcessDiaphragmDOFGatherCS : public FPostProcessDiaphragmDOFShader
 			// Foreground hole filling doesn't have lower quality accumulator.
 			if (PermutationVector.Get<FDDOFGatherQualityDim>() == FRCPassDiaphragmDOFGather::EQualityConfig::LowQualityAccumulator) return false;
 
-			// Foreground hole filling is always stand alone.
-			if (PermutationVector.Get<FDDOFGatherRecursionDim>() != EDiaphragmDOFGatherRecursionMode::StandAlone) return false;
-
 			// No bokeh simulation on hole filling, always use euclidian closest distance to compute opacity alpha channel.
 			if (PermutationVector.Get<FDDOFBokehSimulationDim>() != EDiaphragmDOFBokehSimulation::Disabled) return false;
+
+			// Storing Coc independently of RGB is only supported for RecombineQuality == 0.
+			if (PermutationVector.Get<FDDOFRGBColorBufferDim>())
+				return false;
 		}
 		else if (PermutationVector.Get<FDDOFLayerProcessingDim>() == EDiaphragmDOFLayerProcessing::SlightOutOfFocus)
 		{
-			// Slight out of focus gather pass is always stand alone.
-			if (PermutationVector.Get<FDDOFGatherRecursionDim>() != EDiaphragmDOFGatherRecursionMode::StandAlone) return false;
-
 			// Slight out of focus gather pass does not need large radius since only accumulating only
 			// abs(CocRadius) < kMaxSlightOutOfFocusRingCount.
 			if (PermutationVector.Get<FDDOFGatherRingCountDim>() > FRCPassDiaphragmDOFGather::kMaxSlightOutOfFocusRingCount) return false;
@@ -1051,9 +1168,20 @@ class FPostProcessDiaphragmDOFGatherCS : public FPostProcessDiaphragmDOFShader
 
 			// Slight out of focus filling can't have lower quality accumulator since it needs to brute force the focus areas.
 			if (PermutationVector.Get<FDDOFGatherQualityDim>() == FRCPassDiaphragmDOFGather::EQualityConfig::LowQualityAccumulator) return false;
+
+			// Storing Coc independently of RGB is only supported for RecombineQuality == 0.
+			if (PermutationVector.Get<FDDOFRGBColorBufferDim>())
+				return false;
 		}
 		else if (PermutationVector.Get<FDDOFLayerProcessingDim>() == EDiaphragmDOFLayerProcessing::BackgroundOnly)
 		{
+			// There is no performance point doing high quality gathering without scattering occlusion.
+			if (PermutationVector.Get<FDDOFGatherQualityDim>() == FRCPassDiaphragmDOFGather::EQualityConfig::HighQuality) return false;
+
+			// Storing Coc independently of RGB is only supported for low gathering quality.
+			if (PermutationVector.Get<FDDOFRGBColorBufferDim>() &&
+				PermutationVector.Get<FDDOFGatherQualityDim>() != FRCPassDiaphragmDOFGather::EQualityConfig::LowQualityAccumulator)
+				return false;
 		}
 		else if (PermutationVector.Get<FDDOFLayerProcessingDim>() == EDiaphragmDOFLayerProcessing::ForegroundAndBackground)
 		{
@@ -1064,14 +1192,6 @@ class FPostProcessDiaphragmDOFGatherCS : public FPostProcessDiaphragmDOFShader
 		{
 			check(0);
 		}
-
-		// Bokeh simulation only for standalone gather pass for now.
-		if (PermutationVector.Get<FDDOFBokehSimulationDim>() != EDiaphragmDOFBokehSimulation::Disabled &&
-			PermutationVector.Get<FDDOFGatherRecursionDim>() != EDiaphragmDOFGatherRecursionMode::StandAlone) return false;
-
-		// Coc variance output only for stand alone gather pass.
-		if (PermutationVector.Get<FDDOFGatherQualityDim>() == FRCPassDiaphragmDOFGather::EQualityConfig::HighQualityWithHybridScatterOcclusion &&
-			PermutationVector.Get<FDDOFGatherRecursionDim>() != EDiaphragmDOFGatherRecursionMode::StandAlone) return false;
 
 		return FPostProcessDiaphragmDOFShader::ShouldCompilePermutation(Parameters);
 	}
@@ -1103,32 +1223,72 @@ void FRCPassDiaphragmDOFGather::Process(FRenderingCompositePassContext& Context)
 
 	FPostProcessDiaphragmDOFGatherCS::FPermutationDomain PermutationVector;
 	PermutationVector.Set<FDDOFLayerProcessingDim>(Params.LayerProcessing);
-	PermutationVector.Set<FDDOFGatherRecursionDim>(Params.RecursionMode);
 	PermutationVector.Set<FDDOFGatherRingCountDim>(Params.RingCount);
 	PermutationVector.Set<FDDOFGatherQualityDim>(Params.QualityConfig);
 	PermutationVector.Set<FDDOFBokehSimulationDim>(Params.BokehSimulation);
 	PermutationVector.Set<FDDOFClampInputUVDim>(ReduceOutputRectMip0 != SrcSize);
-	
+	PermutationVector.Set<FDDOFRGBColorBufferDim>(Params.bRGBBufferSeparateCocBuffer);
+	PermutationVector = FPostProcessDiaphragmDOFGatherCS::RemapPermutation(PermutationVector);
+
 	FDispatchDiaphragmDOFPass<FPostProcessDiaphragmDOFGatherCS, FRCPassDiaphragmDOFGather> DispatchCtx(
 		this, Context, PermutationVector);
 	DispatchCtx.DestViewport = FIntRect(FIntPoint::ZeroValue, Params.OutputViewSize);
 
-	SCOPED_DRAW_EVENTF(Context.RHICmdList, DiaphragmDOFGather, TEXT("DiaphragmDOF Gather(%s %s %s Bokeh=%s Rings=%d%s) %dx%d"),
+	// Affine transformtation to control whether a CocRadius is considered or not.
+	FVector2D ConsiderCocRadiusAffineTransformation0 = kContantlyPassingAffineTransformation;
+	FVector2D ConsiderCocRadiusAffineTransformation1 = kContantlyPassingAffineTransformation;
+	FVector2D ConsiderAbsCocRadiusAffineTransformation = kContantlyPassingAffineTransformation;
+	{
+		// Gathering scalability.
+		const float GatheringScalingDownFactor = float(Params.InputViewSize.X) / float(Params.OutputViewSize.X);
+
+		// Coc radius considered.
+		const float RecombineCocRadiusBorder = GatheringScalingDownFactor * (kMaxSlightOutOfFocusRingCount - 1.0f);
+
+		if (Params.LayerProcessing == EDiaphragmDOFLayerProcessing::ForegroundOnly)
+		{
+			ConsiderCocRadiusAffineTransformation0 = GenerateSaturatedAffineTransformation(
+				-(RecombineCocRadiusBorder - 1.0f), -RecombineCocRadiusBorder);
+
+			ConsiderAbsCocRadiusAffineTransformation = GenerateSaturatedAffineTransformation(
+				RecombineCocRadiusBorder - 1.0f, RecombineCocRadiusBorder);
+		}
+		else if (Params.LayerProcessing == EDiaphragmDOFLayerProcessing::ForegroundHoleFilling)
+		{
+			ConsiderCocRadiusAffineTransformation0 = GenerateSaturatedAffineTransformation(
+				RecombineCocRadiusBorder, RecombineCocRadiusBorder + 1.0f);
+		}
+		else if (Params.LayerProcessing == EDiaphragmDOFLayerProcessing::BackgroundOnly)
+		{
+			ConsiderCocRadiusAffineTransformation0 = GenerateSaturatedAffineTransformation(
+				RecombineCocRadiusBorder - 1.0f, RecombineCocRadiusBorder);
+
+			ConsiderAbsCocRadiusAffineTransformation = GenerateSaturatedAffineTransformation(
+				RecombineCocRadiusBorder - 1.0f, RecombineCocRadiusBorder);
+		}
+		else if (Params.LayerProcessing == EDiaphragmDOFLayerProcessing::SlightOutOfFocus)
+		{
+			ConsiderAbsCocRadiusAffineTransformation = GenerateSaturatedAffineTransformation(
+				RecombineCocRadiusBorder + GatheringScalingDownFactor * 1.0f, RecombineCocRadiusBorder);
+		}
+		else
+		{
+			checkf(0, TEXT("What layer processing is that?"));
+		}
+	}
+
+	SCOPED_DRAW_EVENTF(Context.RHICmdList, DiaphragmDOFGather, TEXT("DiaphragmDOF Gather(%s %s Bokeh=%s Rings=%d%s%s) %dx%d"),
 		GetEventName(Params.LayerProcessing),
 		GetEventName(Params.QualityConfig),
-		GetEventName(Params.RecursionMode),
 		GetEventName(Params.BokehSimulation),
 		Params.RingCount,
 		PermutationVector.Get<FDDOFClampInputUVDim>() ? TEXT(" ClampUV") : TEXT(""),
+		PermutationVector.Get<FDDOFRGBColorBufferDim>() ? TEXT(" R11G11B10") : TEXT(""),
 		DispatchCtx.DestViewport.Width(), DispatchCtx.DestViewport.Height());
 
 	{
 		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->TemporalJitterPixels, Context.View.TemporalJitterPixels);
 
-		// -+1.0 for soft saturate() transition in IsConsideredCocRadius().
-		FVector2D CocRadiusMinMaxBoundaries(Params.MinBorderingCocRadius - 1.0, Params.MaxBorderingCocRadius + 1.0);
-		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->CocRadiusMinMaxBoundaries, CocRadiusMinMaxBoundaries);
-	
 		float MipBias = FMath::Log2(float(Params.InputViewSize.X) / float(Params.OutputViewSize.X));
 		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->MipBias, MipBias);
 
@@ -1139,6 +1299,15 @@ void FRCPassDiaphragmDOFGather::Process(FRenderingCompositePassContext& Context)
 
 		float MaxRecombineAbsCocRadius = 3.0 * float(Params.InputViewSize.X) / float(Params.OutputViewSize.X);
 		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->MaxRecombineAbsCocRadius, MaxRecombineAbsCocRadius);
+
+		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->ConsiderCocRadiusAffineTransformation0, ConsiderCocRadiusAffineTransformation0);
+		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->ConsiderCocRadiusAffineTransformation1, ConsiderCocRadiusAffineTransformation1);
+		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->ConsiderAbsCocRadiusAffineTransformation, ConsiderAbsCocRadiusAffineTransformation);
+
+		FVector2D InputBufferUVToOutputPixel(
+			float(SrcSize.X * Params.OutputViewSize.X) / float(Params.InputViewSize.X),
+			float(SrcSize.Y * Params.OutputViewSize.Y) / float(Params.InputViewSize.Y));
+		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->InputBufferUVToOutputPixel, InputBufferUVToOutputPixel);
 	}
 	DispatchCtx.Dispatch();
 }
@@ -1361,6 +1530,18 @@ class FPostProcessDiaphragmDOFHybridScatterPS : public FPostProcessDiaphragmDOFS
 
 	using FPermutationDomain = TShaderPermutationDomain<FDDOFLayerProcessingDim, FBokehSimulationDim, FDDOFScatterOcclusionDim>;
 
+	static FPermutationDomain RemapPermutation(FPermutationDomain PermutationVector)
+	{
+		// Pixel shader are exactly the same between foreground and background when there is no bokeh LUT.
+		if (PermutationVector.Get<FDDOFLayerProcessingDim>() == EDiaphragmDOFLayerProcessing::BackgroundOnly && 
+			!PermutationVector.Get<FBokehSimulationDim>())
+		{
+			PermutationVector.Set<FDDOFLayerProcessingDim>(EDiaphragmDOFLayerProcessing::ForegroundOnly);
+		}
+
+		return PermutationVector;
+	}
+
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		if (!FRCPassDiaphragmDOFHybridScatter::IsSupported(Parameters.Platform))
@@ -1369,6 +1550,13 @@ class FPostProcessDiaphragmDOFHybridScatterPS : public FPostProcessDiaphragmDOFS
 		}
 
 		FPermutationDomain PermutationVector(Parameters.PermutationId);
+
+		// Do not compile this permutation if it gets remapped at runtime.
+		if (RemapPermutation(PermutationVector) != PermutationVector)
+		{
+			return false;
+		}
+
 		if (PermutationVector.Get<FDDOFLayerProcessingDim>() != EDiaphragmDOFLayerProcessing::ForegroundOnly &&
 			PermutationVector.Get<FDDOFLayerProcessingDim>() != EDiaphragmDOFLayerProcessing::BackgroundOnly) return false;
 
@@ -1392,6 +1580,7 @@ void FRCPassDiaphragmDOFHybridScatter::Process(FRenderingCompositePassContext& C
 	PermutationVector.Set<FDDOFLayerProcessingDim>(bIsForeground ? EDiaphragmDOFLayerProcessing::ForegroundOnly : EDiaphragmDOFLayerProcessing::BackgroundOnly);
 	PermutationVector.Set<FPostProcessDiaphragmDOFHybridScatterPS::FBokehSimulationDim>(GetInput(ePId_Input2)->GetOutput() ? true : false);
 	PermutationVector.Set<FDDOFScatterOcclusionDim>(GetInput(ePId_Input3)->GetOutput() ? true : false);
+	PermutationVector = FPostProcessDiaphragmDOFHybridScatterPS::RemapPermutation(PermutationVector);
 
 	TShaderMapRef<FPostProcessDiaphragmDOFHybridScatterVS> VertexShader(Context.GetShaderMap());
 	TShaderMapRef<FPostProcessDiaphragmDOFHybridScatterPS> PixelShader(Context.GetShaderMap(), PermutationVector);
@@ -1425,7 +1614,7 @@ void FRCPassDiaphragmDOFHybridScatter::Process(FRenderingCompositePassContext& C
 	Context.SetViewportAndCallRHI(DestViewport, 0.0f, 1.0f);
 
 	SCOPED_DRAW_EVENTF(Context.RHICmdList, DiaphragmDOFIndirectScatter, TEXT("DiaphragmDOF IndirectScatter(%s Bokeh=%s Occlusion=%s 1/2) %dx%d"),
-		GetEventName(PermutationVector.Get<FDDOFLayerProcessingDim>()),
+		GetEventName(bIsForeground ? EDiaphragmDOFLayerProcessing::ForegroundOnly : EDiaphragmDOFLayerProcessing::BackgroundOnly),
 		PermutationVector.Get<FPostProcessDiaphragmDOFHybridScatterPS::FBokehSimulationDim>() ? TEXT("Generic") : TEXT("None"),
 		PermutationVector.Get<FDDOFScatterOcclusionDim>() ? TEXT("Yes") : TEXT("No"),
 		DestViewport.Width(), DestViewport.Height());
@@ -1514,6 +1703,7 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFHybridScatter::ComputeOutputDesc(EPas
 	PARAMETER(FSceneTextureShaderParameters, SceneTextureParameters) \
 	PARAMETER(FShaderParameter, TemporalJitterPixels) \
 	PARAMETER(FShaderParameter, CocModelParameters) \
+	PARAMETER(FShaderParameter, DOFBufferUVMax) \
 
 class FPostProcessDiaphragmDOFRecombineCS : public FPostProcessDiaphragmDOFShader
 {
@@ -1545,17 +1735,17 @@ IMPLEMENT_GLOBAL_SHADER(FPostProcessDiaphragmDOFRecombineCS, "/Engine/Private/Di
 void FRCPassDiaphragmDOFRecombine::Process(FRenderingCompositePassContext& Context)
 {
 	FPostProcessDiaphragmDOFRecombineCS::FPermutationDomain PermutationVector;
-	if (!GetInput(ePId_Input2)->GetOutput())
+	if (!GetInput(ePId_Input3)->GetOutput())
 	{
 		PermutationVector.Set<FDDOFLayerProcessingDim>(EDiaphragmDOFLayerProcessing::BackgroundOnly);
 	}
-	else if (!GetInput(ePId_Input4)->GetOutput())
+	else if (!GetInput(ePId_Input7)->GetOutput())
 	{
 		PermutationVector.Set<FDDOFLayerProcessingDim>(EDiaphragmDOFLayerProcessing::ForegroundOnly);
 	}
 	else
 	{
-		check(GetInput(ePId_Input2)->GetOutput() && GetInput(ePId_Input4)->GetOutput());
+		check(GetInput(ePId_Input3)->GetOutput() && GetInput(ePId_Input7)->GetOutput());
 		PermutationVector.Set<FDDOFLayerProcessingDim>(EDiaphragmDOFLayerProcessing::ForegroundAndBackground);
 	}
 	PermutationVector.Set<FDDOFBokehSimulationDim>(Params.BokehSimulation);
@@ -1576,6 +1766,12 @@ void FRCPassDiaphragmDOFRecombine::Process(FRenderingCompositePassContext& Conte
 
 		// TODO: Stop full <-> half res conversion in Recombine pass's gathering kernel.
 		SetCocModelParameters(Context, DispatchCtx, Params.CocModel, /* CocRadiusBasis = */ DispatchCtx.DestViewport.Width() * 0.5f);
+
+		FIntPoint DOFGatherBufferSize = GetInput(ePId_Input3)->GetOutput() ? GetInputDesc(ePId_Input3)->Extent : GetInputDesc(ePId_Input7)->Extent;
+		FVector2D DOFBufferUVMax;
+		DOFBufferUVMax.X = (Params.GatheringViewSize.X - 0.5f) / float(DOFGatherBufferSize.X);
+		DOFBufferUVMax.Y = (Params.GatheringViewSize.Y - 0.5f) / float(DOFGatherBufferSize.Y);
+		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->DOFBufferUVMax, DOFBufferUVMax);
 	}
 
 	DispatchCtx.Dispatch();

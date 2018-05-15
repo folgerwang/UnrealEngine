@@ -20,7 +20,7 @@
 // Titles using many terrain layers may want to set MAX_SRVS to 64 to avoid shader compilation errors. This will have a small performance hit of around 0.1%
 #define MAX_SRVS		32
 #define MAX_SAMPLERS	16
-#define MAX_UAVS		8
+#define MAX_UAVS		16
 #define MAX_CBS			16
 
 // This value controls how many root constant buffers can be used per shader stage in a root signature.
@@ -81,5 +81,5 @@ static_assert((8 * sizeof(SRVSlotMask)) >= MAX_SRVS, "SRVSlotMask isn't large en
 typedef uint16 SamplerSlotMask;
 static_assert((8 * sizeof(SamplerSlotMask)) >= MAX_SAMPLERS, "SamplerSlotMask isn't large enough to cover all Samplers. Please increase the size.");
 
-typedef uint8 UAVSlotMask;
+typedef uint16 UAVSlotMask;
 static_assert((8 * sizeof(UAVSlotMask)) >= MAX_UAVS, "UAVSlotMask isn't large enough to cover all UAVs. Please increase the size.");

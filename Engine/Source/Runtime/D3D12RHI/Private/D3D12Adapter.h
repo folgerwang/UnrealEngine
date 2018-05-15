@@ -37,12 +37,6 @@ This structure allows a single RHI to control several different hardware setups.
 
 class FD3D12DynamicRHI;
 
-enum EMultiGPUMode
-{
-	MGPU_Disabled,
-	MGPU_AFR
-};
-
 /// @cond DOXYGEN_WARNINGS
 
 void* FD3D12ThreadLocalObject<FD3D12FastConstantAllocator>::ThisThreadObject = nullptr;
@@ -96,12 +90,16 @@ public:
 	FORCEINLINE const D3D_FEATURE_LEVEL GetFeatureLevel() const { return Desc.MaxSupportedFeatureLevel; }
 	FORCEINLINE ID3D12Device* GetD3DDevice() { return RootDevice.GetReference(); }
 	FORCEINLINE ID3D12Device1* GetD3DDevice1() { return RootDevice1.GetReference(); }
+#if PLATFORM_WINDOWS
+	FORCEINLINE ID3D12Device2* GetD3DDevice2() { return RootDevice2.GetReference(); }
+#endif
 	FORCEINLINE void SetDeviceRemoved(bool value) { bDeviceRemoved = value; }
 	FORCEINLINE const bool IsDeviceRemoved() const { return bDeviceRemoved; }
 	FORCEINLINE FD3D12DynamicRHI* GetOwningRHI() { return OwningRHI; }
 	FORCEINLINE const D3D12_RESOURCE_HEAP_TIER GetResourceHeapTier() const { return ResourceHeapTier; }
 	FORCEINLINE const D3D12_RESOURCE_BINDING_TIER GetResourceBindingTier() const { return ResourceBindingTier; }
 	FORCEINLINE const D3D_ROOT_SIGNATURE_VERSION GetRootSignatureVersion() const { return RootSignatureVersion; }
+	FORCEINLINE const bool IsDepthBoundsTestSupported() const { return bDepthBoundsTestSupported; }
 	FORCEINLINE const DXGI_ADAPTER_DESC& GetD3DAdapterDesc() const { return Desc.Desc; }
 	FORCEINLINE IDXGIAdapter* GetAdapter() { return DxgiAdapter; }
 	FORCEINLINE const FD3D12AdapterDesc& GetDesc() const { return Desc; }
@@ -148,7 +146,7 @@ public:
 
 	FORCEINLINE FD3D12Device* GetDevice(uint32 GPUIndex)
 	{
-		check(GPUIndex < GNumActiveGPUsForRendering);
+		check(GPUIndex < GNumExplicitGPUsForRendering);
 		return Devices[GPUIndex];
 	}
 
@@ -309,9 +307,13 @@ protected:
 	// LDA setups have one ID3D12Device
 	TRefCountPtr<ID3D12Device> RootDevice;
 	TRefCountPtr<ID3D12Device1> RootDevice1;
+#if PLATFORM_WINDOWS
+	TRefCountPtr<ID3D12Device2> RootDevice2;
+#endif
 	D3D12_RESOURCE_HEAP_TIER ResourceHeapTier;
 	D3D12_RESOURCE_BINDING_TIER ResourceBindingTier;
 	D3D_ROOT_SIGNATURE_VERSION RootSignatureVersion;
+	bool bDepthBoundsTestSupported;
 
 	/** True if the device being used has been removed. */
 	bool bDeviceRemoved;
@@ -329,7 +331,7 @@ protected:
 
 	FD3D12FenceCorePool FenceCorePool;
 
-	FD3D12DynamicHeapAllocator*	UploadHeapAllocator[MAX_NUM_LDA_NODES];
+	FD3D12DynamicHeapAllocator*	UploadHeapAllocator[MAX_NUM_GPUS];
 
 	/** A list of all viewport RHIs that have been created. */
 	TArray<FD3D12Viewport*> Viewports;
@@ -354,7 +356,7 @@ protected:
 	FD3D12ThreadLocalObject<FD3D12FastConstantAllocator> TransientUniformBufferAllocator;
 
 	// Each of these devices represents a physical GPU 'Node'
-	FD3D12Device* Devices[MAX_NUM_LDA_NODES];
+	FD3D12Device* Devices[MAX_NUM_GPUS];
 
 	uint32 DebugFlags;
 };
