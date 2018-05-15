@@ -127,17 +127,18 @@ void FD3D12DynamicRHI::RHISetStreamOutTargets(uint32 NumTargets, const FVertexBu
 // Rasterizer state.
 void FD3D12CommandContext::RHISetRasterizerState(FRasterizerStateRHIParamRef NewStateRHI)
 {
-	FD3D12RasterizerState* NewState = FD3D12DynamicRHI::ResourceCast(NewStateRHI);
-	StateCache.SetRasterizerState(&NewState->Desc);
+	// This shouldn't be used. Instead use RHISetGraphicsPipelineState.
+	unimplemented();
 }
 
 void FD3D12CommandContext::RHISetComputeShader(FComputeShaderRHIParamRef ComputeShaderRHI)
 {
-	FD3D12ComputeShader* ComputeShader = FD3D12DynamicRHI::ResourceCast(ComputeShaderRHI);
-	StateCache.SetComputeShader(ComputeShader);
+	// TODO: Eventually the high-level should just use RHISetComputePipelineState() directly similar to how graphics PSOs are handled.
+	FD3D12ComputePipelineState* const ComputePipelineState = FD3D12DynamicRHI::ResourceCast(RHICreateComputePipelineState(ComputeShaderRHI).GetReference());
+	RHISetComputePipelineState(ComputePipelineState);
 }
 
-void FD3D12CommandContext::RHIWaitComputeFence(FComputeFenceRHIParamRef InFenceRHI)
+void FD3D12CommandContextBase::RHIWaitComputeFence(FComputeFenceRHIParamRef InFenceRHI)
 {
 	FD3D12Fence* Fence = FD3D12DynamicRHI::ResourceCast(InFenceRHI);
 
@@ -147,7 +148,8 @@ void FD3D12CommandContext::RHIWaitComputeFence(FComputeFenceRHIParamRef InFenceR
 		RHISubmitCommandsHint();
 
 		checkf(Fence->GetWriteEnqueued(), TEXT("ComputeFence: %s waited on before being written. This will hang the GPU."), *Fence->GetName().ToString());
-		Fence->GpuWait(GetCommandListManager().GetQueueType(), Fence->GetLastSignaledFence());
+
+		Fence->GpuWait(bIsAsyncComputeContext ? ED3D12CommandQueueType::Async : ED3D12CommandQueueType::Default , Fence->GetLastSignaledFence());
 	}
 }
 
@@ -405,8 +407,8 @@ void FD3D12CommandContext::RHISetViewport(uint32 MinX, uint32 MinY, float MinZ, 
 	//avoid setting a 0 extent viewport, which the debug runtime doesn't like
 	if (Viewport.Width > 0 && Viewport.Height > 0)
 	{
+		// Setting a viewport will also set the scissor rect appropriately.
 		StateCache.SetViewport(Viewport);
-		SetScissorRectIfRequiredWhenSettingViewport(MinX, MinY, MaxX, MaxY);
 	}
 }
 
@@ -434,11 +436,6 @@ void FD3D12CommandContext::RHISetBoundShaderState(FBoundShaderStateRHIParamRef B
 	FD3D12BoundShaderState* const BoundShaderState = FD3D12DynamicRHI::ResourceCast(BoundShaderStateRHI);
 
 	StateCache.SetBoundShaderState(BoundShaderState);
-	CurrentBoundShaderState = BoundShaderState;
-
-	// Prevent transient bound shader states from being recreated for each use by keeping a history of the most recently used bound shader states.
-	// The history keeps them alive, and the bound shader state cache allows them to be reused if needed.
-	BoundShaderStateHistory.Add(BoundShaderState);
 
 	if (BoundShaderState->GetHullShader() && BoundShaderState->GetDomainShader())
 	{
@@ -543,43 +540,25 @@ void FD3D12CommandContext::RHISetGraphicsPipelineState(FGraphicsPipelineStateRHI
 {
 	FD3D12GraphicsPipelineState* GraphicsPipelineState = FD3D12DynamicRHI::ResourceCast(GraphicsState);
 
-	auto& PsoInit = GraphicsPipelineState->PipelineStateInitializer;
+	// TODO: [PSO API] Every thing inside this scope is only necessary to keep the PSO shadow in sync while we convert the high level to only use PSOs
+	{
+		RHISetBoundShaderState(GraphicsPipelineState->BoundShaderState);
+		RHIEnableDepthBoundsTest(GraphicsPipelineState->PipelineStateInitializer.bDepthBounds);
+	}
+
+	StateCache.SetGraphicsPipelineState(GraphicsPipelineState);
+}
+
+void FD3D12CommandContext::RHISetComputePipelineState(FRHIComputePipelineState* ComputeState)
+{
+	FD3D12ComputePipelineState* ComputePipelineState = FD3D12DynamicRHI::ResourceCast(ComputeState);
 
 	// TODO: [PSO API] Every thing inside this scope is only necessary to keep the PSO shadow in sync while we convert the high level to only use PSOs
 	{
-		TRenderTargetFormatsArray RenderTargetFormats;
-		DXGI_FORMAT DepthStencilFormat = DXGI_FORMAT_UNKNOWN;
-		uint32 NumTargets = PsoInit.ComputeNumValidRenderTargets();
-
-		TranslateRenderTargetFormats(PsoInit, RenderTargetFormats, DepthStencilFormat);
-
-		// Set the tracking cache to the PSO state we are about to set
-		RHISetBoundShaderState(
-			FD3D12DynamicRHI::ResourceCast(
-				RHICreateBoundShaderState(
-					PsoInit.BoundShaderState.VertexDeclarationRHI,
-					PsoInit.BoundShaderState.VertexShaderRHI,
-					PsoInit.BoundShaderState.HullShaderRHI,
-					PsoInit.BoundShaderState.DomainShaderRHI,
-					PsoInit.BoundShaderState.PixelShaderRHI,
-					PsoInit.BoundShaderState.GeometryShaderRHI
-				).GetReference()
-			)
-		);
-
-		RHISetBlendState(PsoInit.BlendState, FLinearColor(1.0f, 1.0f, 1.0f));
-		RHISetRasterizerState(PsoInit.RasterizerState);
-		RHISetDepthStencilState(PsoInit.DepthStencilState, 0);
-		RHIEnableDepthBoundsTest(PsoInit.bDepthBounds);
-
-		bool bUseTessellation = CurrentBoundShaderState->GetHullShader() && CurrentBoundShaderState->GetDomainShader();
-		StateCache.SetPrimitiveTopologyType(D3D12PrimitiveTypeToTopologyType(GetD3D12PrimitiveType(PsoInit.PrimitiveType, bUseTessellation)));
-		StateCache.SetRenderDepthStencilTargetFormats(NumTargets, RenderTargetFormats, DepthStencilFormat, PsoInit.NumSamples);
+		StateCache.SetComputeShader(ComputePipelineState->ComputeShader);
 	}
 
-	// No need to build the PSO, this one is pre-built
-	StateCache.CommitPendingGraphicsPipelineState();
-	StateCache.SetPipelineState(GraphicsPipelineState->PipelineState);
+	StateCache.SetComputePipelineState(ComputePipelineState);
 }
 
 void FD3D12CommandContext::RHISetShaderTexture(FVertexShaderRHIParamRef VertexShaderRHI, uint32 TextureIndex, FTextureRHIParamRef NewTextureRHI)
@@ -904,11 +883,8 @@ void FD3D12CommandContext::ValidateExclusiveDepthStencilAccess(FExclusiveDepthSt
 
 void FD3D12CommandContext::RHISetDepthStencilState(FDepthStencilStateRHIParamRef NewStateRHI, uint32 StencilRef)
 {
-	FD3D12DepthStencilState* NewState = FD3D12DynamicRHI::ResourceCast(NewStateRHI);
-
-	ValidateExclusiveDepthStencilAccess(NewState->AccessType);
-
-	StateCache.SetDepthStencilState(&NewState->Desc, StencilRef);
+	// This shouldn't be used. Instead use RHISetGraphicsPipelineState.
+	unimplemented();
 }
 
 void FD3D12CommandContext::RHISetStencilRef(uint32 StencilRef)
@@ -918,8 +894,8 @@ void FD3D12CommandContext::RHISetStencilRef(uint32 StencilRef)
 
 void FD3D12CommandContext::RHISetBlendState(FBlendStateRHIParamRef NewStateRHI, const FLinearColor& BlendFactor)
 {
-	FD3D12BlendState* NewState = FD3D12DynamicRHI::ResourceCast(NewStateRHI);
-	StateCache.SetBlendState(&NewState->Desc, (const float*)&BlendFactor, 0xffffffff);
+	// This shouldn't be used. Instead use RHISetGraphicsPipelineState.
+	unimplemented();
 }
 
 void FD3D12CommandContext::RHISetBlendFactor(const FLinearColor& BlendFactor)
@@ -1171,11 +1147,11 @@ void FD3D12CommandContext::RHISetRenderTargetsAndClear(const FRHISetRenderTarget
 void FD3D12CommandContext::RHIBeginRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 {
 	FD3D12RenderQuery* Query = RetrieveObject<FD3D12RenderQuery>(QueryRHI);
-
-	check(Query->Type == RQT_Occlusion);
 	check(IsDefaultContext());
-	Query->bResultIsCached = false;
-	Query->HeapIndex = GetParentDevice()->GetQueryHeap()->BeginQuery(*this, D3D12_QUERY_TYPE_OCCLUSION);
+	check(Query->Type == RQT_Occlusion);
+
+	Query->Reset();
+	Query->HeapIndex = GetParentDevice()->GetOcclusionQueryHeap()->BeginQuery(*this);
 
 #if EXECUTE_DEBUG_COMMAND_LISTS
 	GIsDoingQuery = true;
@@ -1185,43 +1161,35 @@ void FD3D12CommandContext::RHIBeginRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 void FD3D12CommandContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 {
 	FD3D12RenderQuery* Query = RetrieveObject<FD3D12RenderQuery>(QueryRHI);
+	check(IsDefaultContext());
 
 	switch (Query->Type)
 	{
 	case RQT_Occlusion:
 	{
-		// End the query
-		check(IsDefaultContext());
-		FD3D12QueryHeap* pQueryHeap = GetParentDevice()->GetQueryHeap();
-		pQueryHeap->EndQuery(*this, D3D12_QUERY_TYPE_OCCLUSION, Query->HeapIndex);
-
-		// Note: This occlusion query result really isn't ready until it's resolved. 
-		// This code assumes it will be resolved on the same command list.
-		Query->CLSyncPoint = CommandListHandle;
-		// Put a timestamp on the query, so that when reading the query results, we only read the query result for GPU where the query was last issued.
-		Query->Timestamp = GetParentDevice()->GetParentAdapter()->GetFrameFence().GetLastSignaledFence();
-		
-		Query->OwningContext = this;
-
-		CommandListHandle.UpdateResidency(pQueryHeap->GetResultBuffer());
+		GetParentDevice()->GetOcclusionQueryHeap()->EndQuery(*this, Query->HeapIndex, Query);
+		// Multi-GPU support : by setting a timestamp, we can filter only the relevant GPUs when getting the query results.
+		Query->Timestamp = GFrameNumberRenderThread;
 		break;
 	}
 
 	case RQT_AbsoluteTime:
 	{
-		Query->bResultIsCached = false;
-		Query->CLSyncPoint = CommandListHandle;
-		Query->Timestamp = GetParentDevice()->GetParentAdapter()->GetFrameFence().GetLastSignaledFence();
-		Query->OwningContext = this;
-		this->otherWorkCounter += 2;	// +2 For the EndQuery and the ResolveQueryData
-		CommandListHandle->EndQuery(Query->QueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, Query->HeapIndex);
-		CommandListHandle->ResolveQueryData(Query->QueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, Query->HeapIndex, 1, Query->ResultBuffer, sizeof(uint64) * Query->HeapIndex);
+		FD3D12QueryHeap* pQueryHeap = GetParentDevice()->GetTimestampQueryHeap();
+		Query->Reset();
+		Query->HeapIndex = pQueryHeap->AllocQuery(*this);
+		pQueryHeap->EndQuery(*this, Query->HeapIndex, Query);
+		// Multi-GPU support : by setting a timestamp, we can filter only the relevant GPUs when getting the query results.
+		Query->Timestamp = GFrameNumberRenderThread;
 		break;
 	}
 
 	default:
-		check(false);
+		ensure(false);
 	}
+
+	// Query data isn't ready until it has been resolved.
+	ensure(Query->bResultIsCached == false && Query->bResolved == false);
 
 #if EXECUTE_DEBUG_COMMAND_LISTS
 	GIsDoingQuery = false;
@@ -1234,7 +1202,7 @@ void FD3D12CommandContext::CommitNonComputeShaderConstants()
 {
 	//SCOPE_CYCLE_COUNTER(STAT_D3D12CommitGraphicsConstants);
 
-	FD3D12BoundShaderState* RESTRICT CurrentBoundShaderStateRef = CurrentBoundShaderState.GetReference();
+	FD3D12BoundShaderState* RESTRICT CurrentBoundShaderStateRef = StateCache.GetBoundShaderState();
 
 	check(CurrentBoundShaderStateRef);
 
@@ -1414,7 +1382,7 @@ void FD3D12CommandContext::CommitGraphicsResourceTables()
 {
 	//SCOPE_CYCLE_COUNTER(STAT_D3D12CommitResourceTables);
 
-	const FD3D12BoundShaderState* const RESTRICT CurrentBoundShaderStateRef = CurrentBoundShaderState.GetReference();
+	const FD3D12BoundShaderState* const RESTRICT CurrentBoundShaderStateRef = StateCache.GetBoundShaderState();
 	check(CurrentBoundShaderStateRef);
 
 	if (auto* Shader = CurrentBoundShaderStateRef->GetVertexShader())
@@ -1946,14 +1914,10 @@ void FD3D12CommandContext::RHIBindClearMRTValues(bool bClearColor, bool bClearDe
 // Blocks the CPU until the GPU catches up and goes idle.
 void FD3D12DynamicRHI::RHIBlockUntilGPUIdle()
 {
-	FD3D12Adapter& Adapter = GetAdapter();
-	for (uint32 GPUIndex : FRHIGPUMask::All())
+	const int32 NumAdapters = ChosenAdapters.Num();
+	for (int32 Index = 0; Index < NumAdapters; ++Index)
 	{
-		FD3D12Device* Device = Adapter.GetDevice(GPUIndex);
-		Device->GetDefaultCommandContext().RHISubmitCommandsHint();
-		Device->GetCommandListManager().WaitForCommandQueueFlush();
-		Device->GetCopyCommandListManager().WaitForCommandQueueFlush();
-		Device->GetAsyncCommandListManager().WaitForCommandQueueFlush();
+		GetAdapter(Index).BlockUntilIdle();
 	}
 }
 
@@ -1995,16 +1959,20 @@ void FD3D12CommandContext::RHISetDepthBounds(float MinDepth, float MaxDepth)
 
 void FD3D12CommandContext::SetDepthBounds(float MinDepth, float MaxDepth)
 {
-	static bool bOnce = false;
-	if (!bOnce)
+#if PLATFORM_WINDOWS
+	if (GSupportsDepthBoundsTest && CommandListHandle.GraphicsCommandList1())
 	{
-		UE_LOG(LogD3D12RHI, Warning, TEXT("RHIEnableDepthBoundsTest not supported on DX12."));
-		bOnce = true;
+		// This should only be called if Depth Bounds Test is supported.
+		CommandListHandle.GraphicsCommandList1()->OMSetDepthBounds(MinDepth, MaxDepth);
 	}
+#endif
 }
 
 void FD3D12CommandContext::RHISubmitCommandsHint()
 {
+	// Resolve any timestamp queries so far (if any).
+	GetParentDevice()->GetTimestampQueryHeap()->EndQueryBatchAndResolveQueryData(*this);
+
 	// Submit the work we have so far, and start a new command list.
 	FlushCommands();
 }

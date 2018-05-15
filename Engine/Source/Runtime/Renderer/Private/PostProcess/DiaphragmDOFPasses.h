@@ -34,32 +34,6 @@ enum class EDiaphragmDOFLayerProcessing
 };
 
 
-/** Defines recursion mode for a gathering kernel.
- *
- * If the gathering pass gather only a unique mip, then just use StandAlone.
- *
- * Otherwise the different passes for a same layer processing feed the lowest level into largest level:
- *  LowestMip -> IntermediaryMip -> IntermediaryMip -> HighestMip -> Recombine
- */
-enum class EDiaphragmDOFGatherRecursionMode
-{
-	// Gather pass is on a unique mip.
-	// Assumes running at half of the view's resolution.
-	StandAlone,
-
-	// Gather lowest mip.
-	LowestMip,
-
-	// Gather highest mip.
-	// Assumes running at half of the view's resolution.
-	HighestMip,
-
-	// Gather intermediary mip level.
-	// IntermediaryMip, // TODO? 1/2 and 1/8 seams to be enough.
-
-	MAX
-};
-
 
 /** Defines which layer to process. */
 enum class EDiaphragmDOFPostfilterMethod
@@ -176,7 +150,7 @@ private:
 // 
 // ePId_Input0: SceneColor
 // ePId_Input0: SceneDepth
-class FRCPassDiaphragmDOFSetup : public TRenderingCompositePassBase<2, 2>
+class FRCPassDiaphragmDOFSetup : public TRenderingCompositePassBase<2, 3>
 {
 public:
 	/** Configuration parameters of the dilate pass. */
@@ -217,7 +191,7 @@ private:
 };
 
 // 
-class FRCPassDiaphragmDOFReduce : public TRenderingCompositePassBase<2, 1>
+class FRCPassDiaphragmDOFReduce : public TRenderingCompositePassBase<3, 2>
 {
 public:
 	/** Resolution divisor of the Coc tiles. */
@@ -248,6 +222,9 @@ public:
 		/** Convert pre-processing coc radius to processing coc radius */
 		float PreProcessingToProcessingCocRadiusFactor;
 
+		/** Whether to use R11G11B10 + separate C0C buffer. */
+		bool bRGBBufferSeparateCocBuffer;
+
 		FParameters()
 			: InputResolutionDivisor(2)
 			, MipLevelCount(FRCPassDiaphragmDOFReduce::kMaxMipLevelCount)
@@ -256,6 +233,7 @@ public:
 			, MinScatteringCocRadius(3.0f)
 			, MaxScatteringRatio(0.1f)
 			, PreProcessingToProcessingCocRadiusFactor(1.0f)
+			, bRGBBufferSeparateCocBuffer(false)
 		{ }
 	};
 
@@ -275,7 +253,7 @@ private:
 
 // 
 // ePId_Input0: (SceneColor.rgb; Coc)
-class FRCPassDiaphragmDOFDownsample : public TRenderingCompositePassBase<1, 1>
+class FRCPassDiaphragmDOFDownsample : public TRenderingCompositePassBase<2, 2>
 {
 public:
 	/** Configuration parameters of the dilate pass. */
@@ -287,8 +265,12 @@ public:
 		/** Multiplier to apply to the CocRadius. */
 		float OutputCocRadiusMultiplier;
 
+		/** Whether to use R11G11B10 only. */
+		bool bRGBBufferOnly;
+
 		FParameters()
 			: OutputCocRadiusMultiplier(1.0f)
+			, bRGBBufferOnly(false)
 		{ }
 	};
 
@@ -322,7 +304,7 @@ public:
 // ePId_Input0: DOFPrefilter's Output0
 // ePId_Input1: DOFPrefilter's Output1
 // ePId_Input2: CocGather
-class FRCPassDiaphragmDOFGather : public TRenderingCompositePassBase<4, 3>
+class FRCPassDiaphragmDOFGather : public TRenderingCompositePassBase<5, 3>
 {
 public:
 	/** Minimum number of ring. */
@@ -348,6 +330,19 @@ public:
 		return IsPCPlatform(ShaderPlatform);
 	}
 
+	/** Returns whether separate coc buffer is supported. */
+	static FORCEINLINE bool SupportRGBColorBuffer(EShaderPlatform ShaderPlatform)
+	{
+		// There is no point when alpha channel is supported because needs 4 channel anyway for fast gathering tiles.
+		if (FPostProcessing::HasAlphaChannelSupport())
+		{
+			return false;
+		}
+
+		// There is high number of UAV to write in reduce pass.
+		return ShaderPlatform == SP_PS4 || ShaderPlatform == SP_XBOXONE_D3D12;
+	}
+
 	/** Quality configurations for gathering passes. */
 	enum class EQualityConfig
 	{
@@ -369,9 +364,6 @@ public:
 	{
 		/** Which layer to gather. */
 		EDiaphragmDOFLayerProcessing LayerProcessing;
-
-		/** Recursion mode of this gathering pass. */
-		EDiaphragmDOFGatherRecursionMode RecursionMode;
 
 		/** Configuration of the pass. */
 		EQualityConfig QualityConfig;
@@ -397,15 +389,18 @@ public:
 
 		FIntPoint OutputBufferSize;
 
+		/** Whether to use R11G11B10 + separate COC buffer. */
+		bool bRGBBufferSeparateCocBuffer;
+
 		FParameters()
 			: LayerProcessing(EDiaphragmDOFLayerProcessing::ForegroundAndBackground)
-			, RecursionMode(EDiaphragmDOFGatherRecursionMode::StandAlone)
 			, QualityConfig(EQualityConfig::HighQuality)
 			, RingCount(3)
 			, MinBorderingCocRadius(0.0f)
 			, MaxBorderingCocRadius(0.0f)
 			, PostfilterMethod(EDiaphragmDOFPostfilterMethod::None)
 			, BokehSimulation(EDiaphragmDOFBokehSimulation::Disabled)
+			, bRGBBufferSeparateCocBuffer(false)
 		{ }
 	};
 
@@ -529,7 +524,7 @@ private:
 // ePId_Input0: SceneColor
 // ePId_Input1: half res foreground
 // ePId_Input2: half res background
-class FRCPassDiaphragmDOFRecombine : public TRenderingCompositePassBase<7, 1>
+class FRCPassDiaphragmDOFRecombine : public TRenderingCompositePassBase<11, 1>
 {
 public:
 
@@ -550,6 +545,9 @@ public:
 
 		/** Quality of the recombine. */
 		int32 Quality;
+
+		/** Size of the gathering viewport. */
+		FIntPoint GatheringViewSize;
 
 		FParameters()
 			: BokehSimulation(EDiaphragmDOFBokehSimulation::Disabled)

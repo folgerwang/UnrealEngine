@@ -59,7 +59,7 @@ void FD3D12VertexBuffer::RenameLDAChain(FD3D12ResourceLocation& NewLocation)
 	ensure(GetUsage() & BUF_AnyDynamic);
 	Rename(NewLocation);
 
-	if (GNumActiveGPUsForRendering > 1)
+	if (GNumExplicitGPUsForRendering > 1)
 	{
 		// Mutli-GPU support : renaming the LDA only works if we start we the head link. Otherwise Rename() must be used per GPU.
 		ensure(IsHeadLink());
@@ -69,6 +69,11 @@ void FD3D12VertexBuffer::RenameLDAChain(FD3D12ResourceLocation& NewLocation)
 		for (FD3D12VertexBuffer* NextBuffer = GetNextObject(); NextBuffer; NextBuffer = NextBuffer->GetNextObject())
 		{
 			FD3D12ResourceLocation::ReferenceNode(NextBuffer->GetParentDevice(), NextBuffer->ResourceLocation, ResourceLocation);
+
+			if (NextBuffer->DynamicSRV)
+			{
+				NextBuffer->DynamicSRV->Rename(NextBuffer->ResourceLocation);
+			}
 		}
 	}
 }

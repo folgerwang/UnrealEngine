@@ -492,11 +492,11 @@ float3 GetSimpleForwardLightingDirectionalLight(FGBufferData GBuffer, float3 Dif
 
 	float3 LightColor = ResolvedView.DirectionalLightColor.rgb * PI;
 	
-	// Not computing specular, material was forced fully rough
-	float3 DiffuseLighting = Diffuse_Lambert( DiffuseColor );
-	float3 SubsurfaceLighting = SubsurfaceShading(GBuffer, L, V, N, 1.0f, uint2(0, 0));
+	FShadowTerms Shadow = { 1, 1, 1 };
+	FDirectLighting Lighting = EvaluateBxDF( GBuffer, N, V, L, NoL, Shadow );
 
-	return LightColor * NoL * (DiffuseLighting + SubsurfaceLighting);
+	// Not computing specular, material was forced fully rough
+	return LightColor * (Lighting.Diffuse + Lighting.Transmission);
 }
 
 #endif

@@ -656,7 +656,7 @@ void FShaderCompileUtilities::DoReadTaskResults(const TArray<FShaderCommonCompil
 							String += FString::Printf(TEXT(" VF '%s'"), SingleJob->VFType->GetName());
 						}
 						String += FString::Printf(TEXT(" Type '%s'"), SingleJob->ShaderType->GetName());
-						String += FString::Printf(TEXT(" '%s' Entry '%s' "), *SingleJob->Input.VirtualSourceFilePath, *SingleJob->Input.EntryPointName);
+						String += FString::Printf(TEXT(" '%s' Entry '%s' Permutation %i "), *SingleJob->Input.VirtualSourceFilePath, *SingleJob->Input.EntryPointName, SingleJob->PermutationId);
 						return String;
 					};
 					UE_LOG(LogShaderCompilers, Error, TEXT("SCW %d Queued Jobs:"), QueuedJobs.Num());
@@ -1518,7 +1518,7 @@ FShaderCompilingManager::FShaderCompilingManager() :
 
 	bool bIsUsingXGEInterface = false;
 #if PLATFORM_WINDOWS
-	bool bCanUseXGE = true;
+	bool bCanUseXGE = bAllowCompilingThroughWorkers;
 	ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();
 	if (TPM)
 	{
@@ -3632,6 +3632,12 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 				PermutationCountToCompile++;
 			}
 		}
+
+		ensureMsgf(
+			PermutationCountToCompile < 200 ||
+			FCString::Strcmp(GlobalShaderType->GetName(), TEXT("FPostProcessTonemapPS_ES2")) == 0, // TODO: UE-58014
+			TEXT("Global shader %s has %i permutation: probably more that it needs."),
+			GlobalShaderType->GetName(), PermutationCountToCompile);
 
 		if (!bEmptyMap && PermutationCountToCompile > 0)
 		{

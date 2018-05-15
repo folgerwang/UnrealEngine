@@ -935,7 +935,9 @@ struct FScopedAsyncPackageEvent
 	~FScopedAsyncPackageEvent();
 };
 
+// Stats for ChartCreation.cpp
+extern COREUOBJECT_API double GFlushAsyncLoadingTime;
+extern COREUOBJECT_API uint32 GFlushAsyncLoadingCount;
+extern COREUOBJECT_API uint32 GSyncLoadCount;
 
-
-
-
+extern COREUOBJECT_API void ResetAsyncLoadingStats();

@@ -10,7 +10,7 @@
 #include "AVIWriter.h"
 #include "VideoCaptureProtocol.generated.h"
 
-UCLASS(config=EditorPerProjectUserSettings, DisplayName="Video Encoding")
+UCLASS(config=EditorPerProjectUserSettings, PerObjectConfig, DisplayName="Video Encoding")
 class MOVIESCENECAPTURE_API UVideoCaptureSettings : public UFrameGrabberProtocolSettings
 {
 public:

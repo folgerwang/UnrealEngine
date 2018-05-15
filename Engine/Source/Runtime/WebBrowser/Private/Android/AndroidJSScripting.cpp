@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidJSScripting.h"
+
+#if USE_ANDROID_JNI
+
 #include "Android/AndroidApplication.h"
 #include "AndroidWebBrowserWindow.h"
 #include "AndroidWebBrowserDialog.h"
@@ -551,3 +554,5 @@ FAndroidJSScripting::FAndroidJSScripting(bool bJSBindingToLoweringEnabled)
 	: FWebJSScripting(bJSBindingToLoweringEnabled)
 {
 }
+
+#endif // USE_ANDROID_JNI

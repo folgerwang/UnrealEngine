@@ -14,7 +14,7 @@ struct FMovieSceneCaptureSettings;
 struct FFrameCaptureViewExtension;
 
 /** Used by UCompositionGraphCaptureSettings. Matches gamut oreder in TonemapCommon.usf OuputGamutMappingMatrix()*/
-UENUM()
+UENUM(BlueprintType)
 enum EHDRCaptureGamut
 {
 	HCGM_Rec709 UMETA(DisplayName = "Rec.709 / sRGB"),
@@ -26,16 +26,17 @@ enum EHDRCaptureGamut
 	HCGM_MAX,
 };
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct MOVIESCENECAPTURE_API FCompositionGraphCapturePasses
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, Category="Composition Graph Settings")
+	/** List of passes to record by name. */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Composition Graph Settings")
 	TArray<FString> Value;
 };
 
-UCLASS(config=EditorPerProjectUserSettings, DisplayName="Composition Graph Options")
+UCLASS(DisplayName="Composition Graph Options")
 class MOVIESCENECAPTURE_API UCompositionGraphCaptureSettings : public UMovieSceneCaptureProtocolSettings
 {
 public:
@@ -48,27 +49,27 @@ public:
 	virtual void OnLoadConfig(FMovieSceneCaptureSettings& InSettings) override;
 
 	/** A list of render passes to include in the capture. Leave empty to export all available passes. */
-	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options")
+	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category="Composition Graph Options")
 	FCompositionGraphCapturePasses IncludeRenderPasses;
 
 	/** Whether to capture the frames as HDR textures (*.exr format) */
-	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options")
+	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category="Composition Graph Options")
 	bool bCaptureFramesInHDR;
 
 	/** Compression Quality for HDR Frames (0 for no compression, 1 for default compression which can be slow) */
-	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options", meta = (EditCondition = "bCaptureFramesInHDR", UIMin=0, ClampMin=0, UIMax=1, ClampMax=1))
+	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category="Composition Graph Options", meta = (EditCondition = "bCaptureFramesInHDR", UIMin=0, ClampMin=0, UIMax=1, ClampMax=1))
 	int32 HDRCompressionQuality;
 
 	/** The color gamut to use when storing HDR captured data. The gamut depends on whether the bCaptureFramesInHDR option is enabled. */
-	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options", meta = (EditCondition = "bCaptureFramesInHDR"))
+	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category="Composition Graph Options", meta = (EditCondition = "bCaptureFramesInHDR"))
 	TEnumAsByte<enum EHDRCaptureGamut> CaptureGamut;
 
 	/** Custom post processing material to use for rendering */
-	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options", meta=(AllowedClasses=""))
+	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category="Composition Graph Options", meta=(AllowedClasses=""))
 	FSoftObjectPath PostProcessingMaterial;
 
 	/** Whether to disable screen percentage */
-	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options")
+	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category="Composition Graph Options")
 	bool bDisableScreenPercentage;
 };
 

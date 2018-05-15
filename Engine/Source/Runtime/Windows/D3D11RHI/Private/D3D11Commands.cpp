@@ -75,7 +75,7 @@ void FD3D11BaseShaderResource::SetDirty(bool bInDirty, uint32 CurrentFrame)
 //MultiGPU
 void FD3D11DynamicRHI::RHIBeginUpdateMultiFrameResource(FTextureRHIParamRef RHITexture)
 {
-	if (!IsRHIDeviceNVIDIA() || GNumActiveGPUsForRendering == 1) return;
+	if (!IsRHIDeviceNVIDIA() || GNumAlternateFrameRenderingGroups == 1) return;
 
 	FD3D11TextureBase* Texture = GetD3D11TextureFromRHITexture(RHITexture);
 
@@ -99,7 +99,7 @@ void FD3D11DynamicRHI::RHIBeginUpdateMultiFrameResource(FTextureRHIParamRef RHIT
 
 void FD3D11DynamicRHI::RHIEndUpdateMultiFrameResource(FTextureRHIParamRef RHITexture)
 {
-	if (!IsRHIDeviceNVIDIA() || GNumActiveGPUsForRendering == 1) return;
+	if (!IsRHIDeviceNVIDIA() || GNumAlternateFrameRenderingGroups == 1) return;
 
 	FD3D11TextureBase* Texture = GetD3D11TextureFromRHITexture(RHITexture);
 
@@ -115,7 +115,7 @@ void FD3D11DynamicRHI::RHIEndUpdateMultiFrameResource(FTextureRHIParamRef RHITex
 
 void FD3D11DynamicRHI::RHIBeginUpdateMultiFrameResource(FUnorderedAccessViewRHIParamRef UAVRHI)
 {
-	if (!IsRHIDeviceNVIDIA() || GNumActiveGPUsForRendering == 1) return;
+	if (!IsRHIDeviceNVIDIA() || GNumAlternateFrameRenderingGroups == 1) return;
 
 	FD3D11UnorderedAccessView* UAV = ResourceCast(UAVRHI);
 	
@@ -139,7 +139,7 @@ void FD3D11DynamicRHI::RHIBeginUpdateMultiFrameResource(FUnorderedAccessViewRHIP
 
 void FD3D11DynamicRHI::RHIEndUpdateMultiFrameResource(FUnorderedAccessViewRHIParamRef UAVRHI)
 {
-	if (!IsRHIDeviceNVIDIA() || GNumActiveGPUsForRendering == 1) return;
+	if (!IsRHIDeviceNVIDIA() || GNumAlternateFrameRenderingGroups == 1) return;
 
 	FD3D11UnorderedAccessView* UAV = ResourceCast(UAVRHI);
 
@@ -306,7 +306,7 @@ void FD3D11DynamicRHI::RHISetBoundShaderState( FBoundShaderStateRHIParamRef Boun
 	bDiscardSharedConstants = true;
 
 	// Prevent transient bound shader states from being recreated for each use by keeping a history of the most recently used bound shader states.
-	// The history keeps them alive, and the bound shader state cache allows them to be reused if needed.
+	// The history keeps them alive, and the bound shader state cache allows them to am be reused if needed.
 	BoundShaderStateHistory.Add(BoundShaderState);
 
 	// Shader changed so all resource tables are dirty

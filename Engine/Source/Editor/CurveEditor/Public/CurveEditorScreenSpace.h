@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "CoreTypes.h"
-#include "FrameRate.h"
+#include "CoreMinimal.h"
+#include "Misc/FrameRate.h"
 
 template<typename> class TRange;
 struct FGeometry;

@@ -15,7 +15,7 @@
 #include "EditorStyleSet.h"
 #include "SequencerCommonHelpers.h"
 #include "SequencerSettings.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 #include "MovieSceneTimeHelpers.h"
 #include "CommonFrameRates.h"
 #include "Sequencer.h"

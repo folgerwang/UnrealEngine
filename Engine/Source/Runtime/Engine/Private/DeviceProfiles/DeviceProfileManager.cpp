@@ -462,6 +462,9 @@ void UDeviceProfileManager::SetOverrideDeviceProfile(UDeviceProfile* DeviceProfi
 	// activate new one!
 	DeviceProfileManagerSingleton->SetActiveDeviceProfile(DeviceProfile);
 	InitializeCVarsForActiveDeviceProfile(true);
+
+	// broadcast cvar sinks now that we are done
+	IConsoleManager::Get().CallAllConsoleVariableSinks();
 }
 
 /**

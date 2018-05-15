@@ -10,6 +10,7 @@
 #include "MetalRenderPass.h"
 #include "MetalCommandBuffer.h"
 #include "ShaderCache.h"
+#include "MetalProfiler.h"
 
 #pragma mark - Private Console Variables -
 
@@ -308,6 +309,7 @@ void FMetalRenderPass::DrawPrimitive(uint32 PrimitiveType, uint32 BaseVertexInde
 			// how many verts to render
 			uint32 NumVertices = GetVertexCountForPrimitiveCount(NumPrimitives, PrimitiveType);
 			
+			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, NumPrimitives, NumVertices, NumInstances));
 			CurrentEncoder.GetRenderCommandEncoder().Draw(TranslatePrimitiveType(PrimitiveType), BaseVertexIndex, NumVertices, NumInstances);
 		}
 	}
@@ -331,6 +333,7 @@ void FMetalRenderPass::DrawPrimitiveIndirect(uint32 PrimitiveType, FMetalVertexB
 		
 		if(!FShaderCache::IsPredrawCall(State.GetShaderCacheStateObject()))
 		{
+			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, 1, 1, 1));
 			CurrentEncoder.GetRenderCommandEncoder().Draw(TranslatePrimitiveType(PrimitiveType), VertexBuffer->Buffer, ArgumentOffset);
 		}
 		ConditionalSubmit();
@@ -398,6 +401,7 @@ void FMetalRenderPass::DrawIndexedPrimitive(FMetalBuffer const& IndexBuffer, uin
 		
 		if(!FShaderCache::IsPredrawCall(State.GetShaderCacheStateObject()))
 		{
+			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, NumPrimitives, NumVertices, NumInstances));
 			if (GRHISupportsBaseVertexIndex && GRHISupportsFirstInstance)
 			{
 				CurrentEncoder.GetRenderCommandEncoder().DrawIndexed(TranslatePrimitiveType(PrimitiveType), NumIndices, ((IndexStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32), IndexBuffer, StartIndex * IndexStride, NumInstances, BaseVertexIndex, FirstInstance);
@@ -431,6 +435,7 @@ void FMetalRenderPass::DrawIndexedIndirect(FMetalIndexBuffer* IndexBuffer, uint3
 		
 		if(!FShaderCache::IsPredrawCall(State.GetShaderCacheStateObject()))
 		{
+			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, 1, 1, 1));
 			CurrentEncoder.GetRenderCommandEncoder().DrawIndexed(TranslatePrimitiveType(PrimitiveType), (mtlpp::IndexType)IndexBuffer->IndexType, IndexBuffer->Buffer, 0, VertexBuffer->Buffer, (DrawArgumentsIndex * 5 * sizeof(uint32)));
 		}
 		ConditionalSubmit();
@@ -453,6 +458,7 @@ void FMetalRenderPass::DrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FMetalI
 		
 		if(!FShaderCache::IsPredrawCall(State.GetShaderCacheStateObject()))
 		{
+			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, 1, 1, 1));
 			CurrentEncoder.GetRenderCommandEncoder().DrawIndexed(TranslatePrimitiveType(PrimitiveType), (mtlpp::IndexType)IndexBuffer->IndexType, IndexBuffer->Buffer, 0, VertexBuffer->Buffer, ArgumentOffset);
 		}
 		ConditionalSubmit();
@@ -579,6 +585,7 @@ void FMetalRenderPass::DrawPatches(uint32 PrimitiveType,FMetalBuffer const& Inde
 		computeEncoder.SetStageInRegion(mtlpp::Region(BaseVertexIndex, FirstInstance, boundShaderState->VertexShader->TessellationInputControlPoints * NumPrimitives, NumInstances));
 		if(GMetalTessellationRunTessellationStage && !FShaderCache::IsPredrawCall(State.GetShaderCacheStateObject()))
 		{
+			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDispatch(PrologueEncoder.GetCommandBufferStats(), __FUNCTION__));
 			computeEncoder.DispatchThreadgroups(threadgroups, threadsPerThreadgroup);
 		}
 		
@@ -591,6 +598,7 @@ void FMetalRenderPass::DrawPatches(uint32 PrimitiveType,FMetalBuffer const& Inde
 		}
 		if(GMetalTessellationRunDomainStage && !FShaderCache::IsPredrawCall(State.GetShaderCacheStateObject()))
 		{
+			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, NumPrimitives, GetVertexCountForPrimitiveCount(NumPrimitives, PrimitiveType), NumInstances));
 			renderEncoder.DrawPatches(boundShaderState->VertexShader->TessellationOutputControlPoints, 0, NumPrimitives * NumInstances, nil, 0, 1, 0);
 		}
 		
@@ -624,6 +632,8 @@ void FMetalRenderPass::Dispatch(uint32 ThreadGroupCountX, uint32 ThreadGroupCoun
 	TRefCountPtr<FMetalComputeShader> ComputeShader = State.GetComputeShader();
 	check(ComputeShader);
 	
+	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDispatch(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
+	
 	mtlpp::Size ThreadgroupCounts = mtlpp::Size(ComputeShader->NumThreadsX, ComputeShader->NumThreadsY, ComputeShader->NumThreadsZ);
 	check(ComputeShader->NumThreadsX > 0 && ComputeShader->NumThreadsY > 0 && ComputeShader->NumThreadsZ > 0);
 	mtlpp::Size Threadgroups = mtlpp::Size(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
@@ -645,6 +655,7 @@ void FMetalRenderPass::DispatchIndirect(FMetalVertexBuffer* ArgumentBuffer, uint
 	TRefCountPtr<FMetalComputeShader> ComputeShader = State.GetComputeShader();
 	check(ComputeShader);
 	
+	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDispatch(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	mtlpp::Size ThreadgroupCounts = mtlpp::Size(ComputeShader->NumThreadsX, ComputeShader->NumThreadsY, ComputeShader->NumThreadsZ);
 	check(ComputeShader->NumThreadsX > 0 && ComputeShader->NumThreadsY > 0 && ComputeShader->NumThreadsZ > 0);
 	
@@ -672,6 +683,7 @@ void FMetalRenderPass::CopyFromTextureToBuffer(FMetalTexture const& Texture, uin
 	mtlpp::BlitCommandEncoder& Encoder = CurrentEncoder.GetBlitCommandEncoder();
 	check(Encoder.GetPtr());
 	
+	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	if (CmdList.GetCommandQueue().SupportsFeature(EMetalFeaturesDepthStencilBlitOptions))
 	{
 		MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, Encoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Copy(Texture, sourceSlice, sourceLevel, sourceOrigin, sourceSize, toBuffer, destinationOffset, destinationBytesPerRow, destinationBytesPerImage, options));
@@ -690,6 +702,7 @@ void FMetalRenderPass::CopyFromBufferToTexture(FMetalBuffer const& Buffer, uint3
 	mtlpp::BlitCommandEncoder& Encoder = CurrentEncoder.GetBlitCommandEncoder();
 	check(Encoder.GetPtr());
 	
+	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	if (options == mtlpp::BlitOption::None)
 	{
 		MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, Encoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Copy(Buffer, sourceOffset, sourceBytesPerRow, sourceBytesPerImage, sourceSize, toTexture, destinationSlice, destinationLevel, destinationOrigin));
@@ -707,6 +720,7 @@ void FMetalRenderPass::CopyFromTextureToTexture(FMetalTexture const& Texture, ui
 	mtlpp::BlitCommandEncoder& Encoder = CurrentEncoder.GetBlitCommandEncoder();
 	check(Encoder.GetPtr());
 	
+	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, Encoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Copy(Texture, sourceSlice, sourceLevel, sourceOrigin, sourceSize, toTexture, destinationSlice, destinationLevel, destinationOrigin));
 	ConditionalSubmit();
 }
@@ -717,6 +731,7 @@ void FMetalRenderPass::CopyFromBufferToBuffer(FMetalBuffer const& SourceBuffer, 
 	mtlpp::BlitCommandEncoder& Encoder = CurrentEncoder.GetBlitCommandEncoder();
 	check(Encoder.GetPtr());
 	
+	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, Encoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Copy(SourceBuffer, SourceOffset, DestinationBuffer, DestinationOffset, Size));
 	 ConditionalSubmit();
 }
@@ -727,6 +742,7 @@ void FMetalRenderPass::PresentTexture(FMetalTexture const& Texture, uint32 sourc
 	mtlpp::BlitCommandEncoder& Encoder = CurrentEncoder.GetBlitCommandEncoder();
 	check(Encoder.GetPtr());
 	
+	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, Encoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Copy(Texture, sourceSlice, sourceLevel, sourceOrigin, sourceSize, toTexture, destinationSlice, destinationLevel, destinationOrigin));
 }
 
@@ -738,6 +754,7 @@ void FMetalRenderPass::SynchronizeTexture(FMetalTexture const& Texture, uint32 S
 	mtlpp::BlitCommandEncoder& Encoder = CurrentEncoder.GetBlitCommandEncoder();
 	check(Encoder.GetPtr());
 	
+	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, Encoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Synchronize(Texture, Slice, Level));
 	ConditionalSubmit();
 #endif
@@ -751,6 +768,7 @@ void FMetalRenderPass::SynchroniseResource(mtlpp::Resource const& Resource)
 	mtlpp::BlitCommandEncoder& Encoder = CurrentEncoder.GetBlitCommandEncoder();
 	check(Encoder.GetPtr());
 	
+	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, Encoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Synchronize(Resource));
 	ConditionalSubmit();
 #endif
@@ -764,6 +782,7 @@ void FMetalRenderPass::FillBuffer(FMetalBuffer const& Buffer, ns::Range Range, u
 	mtlpp::BlitCommandEncoder& Encoder = CurrentEncoder.GetBlitCommandEncoder();
 	check(Encoder.GetPtr());
 	
+	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, Encoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Fill(Buffer, Range, Value));
 	ConditionalSubmit();
 }
@@ -777,11 +796,13 @@ bool FMetalRenderPass::AsyncCopyFromBufferToTexture(FMetalBuffer const& Buffer, 
 	{
 		ConditionalSwitchToAsyncBlit();
 		TargetEncoder = PrologueEncoder.GetBlitCommandEncoder();
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(PrologueEncoder.GetCommandBufferStats(), __FUNCTION__));
 	}
 	else
 	{
 		ConditionalSwitchToBlit();
-		TargetEncoder = CurrentEncoder.GetBlitCommandEncoder(); 
+		TargetEncoder = CurrentEncoder.GetBlitCommandEncoder();
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	}
 	
 	check(TargetEncoder.GetPtr());
@@ -807,11 +828,13 @@ bool FMetalRenderPass::AsyncCopyFromTextureToTexture(FMetalTexture const& Textur
 	{
 		ConditionalSwitchToAsyncBlit();
 		TargetEncoder = PrologueEncoder.GetBlitCommandEncoder();
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(PrologueEncoder.GetCommandBufferStats(), __FUNCTION__));
 	}
 	else
 	{
 		ConditionalSwitchToBlit();
-		TargetEncoder = CurrentEncoder.GetBlitCommandEncoder(); 
+		TargetEncoder = CurrentEncoder.GetBlitCommandEncoder();
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	}
 	
 	check(TargetEncoder.GetPtr());
@@ -830,15 +853,17 @@ void FMetalRenderPass::AsyncCopyFromBufferToBuffer(FMetalBuffer const& SourceBuf
 	{
 		ConditionalSwitchToAsyncBlit();
 		TargetEncoder = PrologueEncoder.GetBlitCommandEncoder();
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(PrologueEncoder.GetCommandBufferStats(), __FUNCTION__));
 	}
 	else
 	{
 		ConditionalSwitchToBlit();
-		TargetEncoder = CurrentEncoder.GetBlitCommandEncoder(); 
+		TargetEncoder = CurrentEncoder.GetBlitCommandEncoder();
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	}
 	
 	check(TargetEncoder.GetPtr());
-		
+	
     MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, TargetEncoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Copy(SourceBuffer, SourceOffset, DestinationBuffer, DestinationOffset, Size));
 }
 
@@ -851,6 +876,7 @@ void FMetalRenderPass::AsyncGenerateMipmapsForTexture(FMetalTexture const& Textu
 	mtlpp::BlitCommandEncoder Encoder = PrologueEncoder.GetBlitCommandEncoder();
 	check(Encoder.GetPtr());
 	
+	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, Encoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, GenerateMipmaps(Texture));
 }
 
@@ -901,7 +927,13 @@ void FMetalRenderPass::AddAsyncCommandBufferHandlers(mtlpp::CommandBufferHandler
 }
 
 #pragma mark - Public Debug Support -
-	
+
+void FMetalRenderPass::InsertDebugEncoder()
+{
+	FMetalBuffer NewBuf = CurrentEncoder.GetRingBuffer().NewBuffer(BufferOffsetAlignment, BufferOffsetAlignment);
+	FillBuffer(NewBuf, ns::Range(0, BufferOffsetAlignment), 0xff);
+}
+
 void FMetalRenderPass::InsertDebugSignpost(ns::String const& String)
 {
 	CurrentEncoder.InsertDebugSignpost(String);

@@ -15,6 +15,7 @@
 #include "CompositionLighting/PostProcessDeferredDecals.h"
 #include "PostProcess/PostProcessSubsurface.h"
 #include "LightPropagationVolumeSettings.h"
+#include "DecalRenderingShared.h"
 
 /** The global center for all deferred lighting activities. */
 FCompositionLighting GCompositionLighting;
@@ -232,6 +233,11 @@ static FRenderingCompositeOutputRef AddPostProcessingAmbientOcclusion(FRHIComman
 		}
 	}
 
+	if (SceneContext.GBufferA == nullptr)
+	{
+		FullResAOType = ESSAOType::EAsyncCS;
+	}
+
 	if (FullResAOType != ESSAOType::EAsyncCS)
 	{
 		GBufferA = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessInput(SceneContext.GBufferA));
@@ -330,9 +336,11 @@ void FCompositionLighting::ProcessAfterBasePass(FRHICommandListImmediate& RHICmd
 			Context.FinalOutput = FRenderingCompositeOutputRef(Pass);
 		}
 
+		// decal are distracting when looking at LightCulling.
+		bool bDoDecal = Context.View.Family->EngineShowFlags.Decals && !Context.View.Family->EngineShowFlags.VisualizeLightCulling;
+
 		// decals are before AmbientOcclusion so the decal can output a normal that AO is affected by
-		if( Context.View.Family->EngineShowFlags.Decals &&
-			!Context.View.Family->EngineShowFlags.VisualizeLightCulling)		// decal are distracting when looking at LightCulling
+		if (bDoDecal)
 		{
 			FRenderingCompositePass* Pass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessDeferredDecals(DRS_BeforeLighting));
 			Pass->SetInput(ePId_Input0, Context.FinalOutput);
@@ -348,6 +356,20 @@ void FCompositionLighting::ProcessAfterBasePass(FRHICommandListImmediate& RHICmd
 			if(!FSSAOHelper::IsAmbientOcclusionAsyncCompute(Context.View, SSAOLevels))
 			{
 				AmbientOcclusion = AddPostProcessingAmbientOcclusion(RHICmdList, Context, SSAOLevels);
+
+				if (bDoDecal)
+				{
+					FRenderingCompositePass* Pass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessDeferredDecals(DRS_AmbientOcclusion));
+					Pass->AddDependency(Context.FinalOutput);
+
+					Context.FinalOutput = FRenderingCompositeOutputRef(Pass);
+				}
+			}
+			else
+			{
+				ensureMsgf(
+					FDecalRendering::BuildVisibleDecalList(*(FScene*)Context.View.Family->Scene, Context.View, DRS_AmbientOcclusion, nullptr) == false,
+					TEXT("Ambient occlusion decals are not supported with Async compute SSAO."));
 			}
 
 			if (FSSAOHelper::IsBasePassAmbientOcclusionRequired(Context.View))

@@ -202,11 +202,14 @@ private:
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FDeferredDecalPS,TEXT("/Engine/Private/DeferredDecal.usf"),TEXT("MainPS"),SF_Pixel);
 
 
-void FDecalRendering::BuildVisibleDecalList(const FScene& Scene, const FViewInfo& View, EDecalRenderStage DecalRenderStage, FTransientDecalRenderDataList& OutVisibleDecals)
+bool FDecalRendering::BuildVisibleDecalList(const FScene& Scene, const FViewInfo& View, EDecalRenderStage DecalRenderStage, FTransientDecalRenderDataList* OutVisibleDecals)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(BuildVisibleDecalList);
 
-	OutVisibleDecals.Empty(Scene.Decals.Num());
+	if (OutVisibleDecals)
+	{
+		OutVisibleDecals->Empty(Scene.Decals.Num());
+	}
 
 	const float FadeMultiplier = CVarDecalFadeScreenSizeMultiplier.GetValueOnRenderThread();
 	const EShaderPlatform ShaderPlatform = View.GetShaderPlatform();
@@ -271,13 +274,22 @@ void FDecalRendering::BuildVisibleDecalList(const FScene& Scene, const FViewInfo
 				// we could do this test earlier to avoid the decal intersection but getting DecalBlendMode also costs
 				if (View.Family->EngineShowFlags.ShaderComplexity || (DecalRenderStage == LocalDecalRenderStage && Data.FadeAlpha>0.0f) )
 				{
-					OutVisibleDecals.Add(Data);
+					if (!OutVisibleDecals)
+					{
+						return true;
+					}
+					OutVisibleDecals->Add(Data);
 				}
 			}
 		}
 	}
 
-	if (OutVisibleDecals.Num() > 0)
+	if (!OutVisibleDecals)
+	{
+		return false;
+	}
+
+	if (OutVisibleDecals->Num() > 0)
 	{
 		// Sort by sort order to allow control over composited result
 		// Then sort decals by state to reduce render target switches
@@ -309,8 +321,12 @@ void FDecalRendering::BuildVisibleDecalList(const FScene& Scene, const FViewInfo
 		};
 
 		// Sort decals by blend mode to reduce render target switches
-		OutVisibleDecals.Sort(FCompareFTransientDecalRenderData());
+		OutVisibleDecals->Sort(FCompareFTransientDecalRenderData());
+
+		return true;
 	}
+
+	return false;
 }
 
 FMatrix FDecalRendering::ComputeComponentToClipMatrix(const FViewInfo& View, const FMatrix& DecalComponentToWorld)

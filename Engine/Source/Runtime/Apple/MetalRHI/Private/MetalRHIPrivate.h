@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	MetalRHIPrivate.h: Private Metal RHI definitions.....
+	MetalRHIPrivate.h: Private Metal RHI definitions.
 =============================================================================*/
 
 #pragma once
@@ -95,8 +95,20 @@ extern FMetalBufferFormat GMetalBufferFormats[PF_MAX];
 extern bool GMetalSupportsTileShaders;
 
 /** Set to 1 to enable GPU events in Xcode frame debugger */
-#define ENABLE_METAL_GPUEVENTS	(UE_BUILD_DEBUG | UE_BUILD_DEVELOPMENT)
+#define ENABLE_METAL_GPUEVENTS	(UE_BUILD_DEBUG | UE_BUILD_DEVELOPMENT | METAL_STATISTICS)
 #define ENABLE_METAL_GPUPROFILE	(ENABLE_METAL_GPUEVENTS & 1)
+
+#if ENABLE_METAL_GPUPROFILE
+#define METAL_GPUPROFILE(Code) Code
+#else
+#define METAL_GPUPROFILE(Code) 
+#endif
+
+#if METAL_STATISTICS
+#define METAL_STATISTIC(Code) Code
+#else
+#define METAL_STATISTIC(Code)
+#endif
 
 #define UNREAL_TO_METAL_BUFFER_INDEX(Index) ((MaxMetalStreams - 1) - Index)
 #define METAL_TO_UNREAL_BUFFER_INDEX(Index) ((MaxMetalStreams - 1) - Index)

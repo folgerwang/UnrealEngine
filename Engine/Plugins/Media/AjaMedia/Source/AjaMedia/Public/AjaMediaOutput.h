@@ -61,6 +61,8 @@ public:
 	 * The AJA Device and port to output the key to.
 	 * Need to be the same Device as the FillPort.
 	 * This combines the device ID, and the output port.
+	 * @note	'Frame Buffer Pixel Format' must be set to at least 8 bits of alpha.
+	 * @note	'Enable alpha channel support in post-processing' must be set to 'Allow through tonemapper'.
 	 */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA", meta=(EditCondition="IN_CPP"))
 	FAjaMediaPort KeyPort;

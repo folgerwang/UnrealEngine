@@ -68,10 +68,10 @@ FOcclusionRandomStream GOcclusionRandomStream;
 int32 FOcclusionQueryHelpers::GetNumBufferedFrames(ERHIFeatureLevel::Type FeatureLevel)
 {
 	int32 NumGPUS = 1;
-#if WITH_SLI
+#if WITH_SLI || WITH_MGPU
 	// If we're running with SLI, assume throughput is more important than latency, and buffer an extra frame
-	ensure(GNumActiveGPUsForRendering <= (int32)FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
-	return FMath::Min<int32>(GNumActiveGPUsForRendering, (int32)FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
+	ensure(GNumAlternateFrameRenderingGroups <= (int32)FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
+	return FMath::Min<int32>(GNumAlternateFrameRenderingGroups, (int32)FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
 #endif
 	static const auto NumBufferedQueriesVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.NumBufferedOcclusionQueries"));
 
@@ -244,7 +244,7 @@ bool FSceneViewState::IsShadowOccluded(FRHICommandListImmediate& RHICmdList, FSc
 	// Read the occlusion query results.
 	uint64 NumSamples = 0;
 	// Only block on the query if not running SLI
-	const bool bWaitOnQuery = GNumActiveGPUsForRendering == 1;
+	const bool bWaitOnQuery = GNumAlternateFrameRenderingGroups == 1;
 
 	if (Query && RHICmdList.GetRenderQueryResult(*Query, NumSamples, bWaitOnQuery))
 	{
@@ -1281,6 +1281,10 @@ void BuildHZB( FRHICommandListImmediate& RHICmdList, FViewInfo& View )
 		RHICmdList.EndRenderPass();
 	}
 
+	// TODO: there is a lot of inconsistency in here. The manual ERWSubResBarrier as now be moved to within
+	// BeginRenderPass, as oposed to usual explicit resource transition.
+	RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, &HZBRenderTargetRef, 1);
+
 	GRenderTargetPool.VisualizeTexture.SetCheckPoint( RHICmdList, View.HZB );
 }
 
@@ -1482,15 +1486,14 @@ void FSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, b
 			for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 			{
 				SCOPED_DRAW_EVENTF(RHICmdList, ViewOcclusionTests, TEXT("ViewOcclusionTests %d"), ViewIndex);
+
 				FViewInfo& View = Views[ViewIndex];
 				FViewOcclusionQueries& ViewQuery = ViewQueries[ViewIndex];
-
 				FSceneViewState* ViewState = (FSceneViewState*)View.State;
+				SCOPED_GPU_MASK(RHICmdList, View.GPUMask);
 
 				// We only need to render the front-faces of the culling geometry (this halves the amount of pixels we touch)
 				GraphicsPSOInit.RasterizerState = View.bReverseCulling ? TStaticRasterizerState<FM_Solid, CM_CCW>::GetRHI() : TStaticRasterizerState<FM_Solid, CM_CW>::GetRHI();
-
-				//#todo-mgpu: if (GNumActiveGPUsForRendering > 1) {FRHICommandList QueryCmdList(View.NodeMask);}
 
 				if (bUseDownsampledDepth)
 				{

@@ -7,7 +7,7 @@
 #include "Templates/SharedPointer.h"
 #include "UObject/WeakObjectPtr.h"
 #include "Channels/MovieSceneChannelProxy.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 
 struct FKeyHandle;
 struct FKeyDrawParams;

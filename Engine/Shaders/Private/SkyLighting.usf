@@ -136,6 +136,10 @@ void SkyLightDiffusePS(
 
 		Lighting += DiffuseIrradiance * GBuffer.DiffuseColor * (GBuffer.GBufferAO * ScreenSpaceData.AmbientOcclusion);
 
+#if USE_PREEXPOSURE
+		Lighting *= View.PreExposure;
+#endif
+
 		// For debugging
 		#if SUPPORT_IRRADIANCE
 			//Lighting = max(Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, UV, 0).xyz, 0) + .01f * GetSkySHDiffuse(InGBufferData.WorldNormal);

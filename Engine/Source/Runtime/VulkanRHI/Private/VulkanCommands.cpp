@@ -1145,7 +1145,7 @@ FVulkanCommandContextContainer::FVulkanCommandContextContainer(FVulkanDevice* In
 	CmdContext = Device->AcquireDeferredContext();
 }
 
-IRHICommandContext* FVulkanCommandContextContainer::GetContext(const FRHIGPUMask& NodeMask)
+IRHICommandContext* FVulkanCommandContextContainer::GetContext()
 {
 	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("*** Thread %d GetContext() Container=%p\n"), FPlatformTLS::GetCurrentThreadId(), this);
 	//FPlatformTLS::SetTlsValue(GGnmManager.GetParallelTranslateTLS(), (void*)1);
@@ -1207,7 +1207,7 @@ void FVulkanCommandContextContainer::FinishContext()
 	//FPlatformTLS::SetTlsValue(GGnmManager.GetParallelTranslateTLS(), (void*)0);
 }
 
-void FVulkanCommandContextContainer::SubmitAndFreeContextContainer(const FRHIGPUMask& NodeMask, int32 Index, int32 Num)
+void FVulkanCommandContextContainer::SubmitAndFreeContextContainer(int32 Index, int32 Num)
 {
 	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("*** Thread %d Submit() Container=%p %d/%d\n"), FPlatformTLS::GetCurrentThreadId(), this, Index, Num);
 	if (!Index)

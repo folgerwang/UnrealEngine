@@ -21,8 +21,9 @@
 #include "ActorFactories/ActorFactoryDirectionalLight.h"
 #include "ActorFactories/ActorFactoryPlayerStart.h"
 #include "ActorFactories/ActorFactoryPointLight.h"
-#include "ActorFactories/ActorFactorySphereVolume.h"
 #include "ActorFactories/ActorFactorySpotLight.h"
+#include "ActorFactories/ActorFactoryRectLight.h"
+#include "ActorFactories/ActorFactorySphereVolume.h"
 #include "ActorFactories/ActorFactoryTriggerBox.h"
 #include "ActorFactories/ActorFactoryTriggerCapsule.h"
 #include "ActorFactories/ActorFactoryTriggerSphere.h"
@@ -469,6 +470,14 @@ void LevelEditorCreateActorMenu::FillAddReplaceActorMenu( FMenuBuilder& MenuBuil
 		{
 			AssetMenuOptions.Empty();
 			UActorFactory* Factory = GEditor->FindActorFactoryByClass( UActorFactoryPointLight::StaticClass() );
+			FAssetData AssetData = FAssetData( Factory->GetDefaultActorClass( FAssetData() ) );
+			AssetMenuOptions.Add( FActorFactoryAssetProxy::FMenuItem( Factory, AssetData ) );
+			BuildSingleAssetAddReplaceActorMenu( MenuBuilder, AssetData, AssetMenuOptions, CreateMode );
+		}
+
+		{
+			AssetMenuOptions.Empty();
+			UActorFactory* Factory = GEditor->FindActorFactoryByClass( UActorFactoryRectLight::StaticClass() );
 			FAssetData AssetData = FAssetData( Factory->GetDefaultActorClass( FAssetData() ) );
 			AssetMenuOptions.Add( FActorFactoryAssetProxy::FMenuItem( Factory, AssetData ) );
 			BuildSingleAssetAddReplaceActorMenu( MenuBuilder, AssetData, AssetMenuOptions, CreateMode );

@@ -117,6 +117,11 @@ namespace EAlphaChannelMode
 	};
 }
 
+namespace EAlphaChannelMode
+{
+	ENGINE_API EAlphaChannelMode::Type FromInt(int32 InAlphaChannelMode);
+}
+
 /** used by FPostProcessSettings AutoExposure*/
 UENUM()
 namespace EAutoExposureMethodUI
@@ -150,7 +155,9 @@ namespace EDefaultBackBufferPixelFormat
 
 namespace EDefaultBackBufferPixelFormat
 {
-	ENGINE_API EPixelFormat Convert2PixelFormat(int32 InDefaultBackBufferPixelFormat);
+	ENGINE_API EPixelFormat Convert2PixelFormat(EDefaultBackBufferPixelFormat::Type InDefaultBackBufferPixelFormat);
+	ENGINE_API int32 NumberOfBitForAlpha(EDefaultBackBufferPixelFormat::Type InDefaultBackBufferPixelFormat);
+	ENGINE_API EDefaultBackBufferPixelFormat::Type FromInt(int32 InDefaultBackBufferPixelFormat);
 }
 
 /**
@@ -326,6 +333,11 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ToolTip = "Configures alpha channel support in renderer's post processing chain. Still experimental: works only with Temporal AA, Motion Blur, Circle Depth Of Field. This option also force disable the separate translucency.",
 		ConfigRestartRequired = true))
 	TEnumAsByte<EAlphaChannelMode::Type> bEnableAlphaChannelInPostProcessing;
+
+	UPROPERTY(config, EditAnywhere, Category = Postprocessing, meta = (
+		ConsoleVariable = "r.DOF.Algorithm", DisplayName = "Use new DOF algorithm",
+		ToolTip = "Whether to use the new DOF implementation for Circle DOF method."))
+	uint32 bUseNewAlgorithm : 1;
 
 	UPROPERTY(config, EditAnywhere, Category = Postprocessing, meta = (
 		ConsoleVariable = "r.UsePreExposure", DisplayName = "Apply Pre-exposure before writing to the scene color",

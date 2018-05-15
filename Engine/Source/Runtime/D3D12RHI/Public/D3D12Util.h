@@ -32,6 +32,16 @@
 
 #endif
 
+#if PLATFORM_XBOXONE
+struct D3D12_RT_FORMAT_ARRAY
+{
+    DXGI_FORMAT RTFormats[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
+    UINT NumRenderTargets;
+};
+typedef D3D12_DEPTH_STENCIL_DESC D3D12_DEPTH_STENCIL_DESC1;
+typedef CD3DX12_DEPTH_STENCIL_DESC CD3DX12_DEPTH_STENCIL_DESC1;
+#endif
+
 namespace D3D12RHI
 {
 	/**
@@ -76,7 +86,6 @@ namespace D3D12RHI
 using namespace D3D12RHI;
 
 class FD3D12Resource;
-typedef TStaticArray<DXGI_FORMAT, D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT> TRenderTargetFormatsArray;
 
 void SetName(ID3D12Object* const Object, const TCHAR* const Name);
 void SetName(FD3D12Resource* const Resource, const TCHAR* const Name);
@@ -974,10 +983,12 @@ FORCEINLINE_DEBUGGABLE D3D12_PRIMITIVE_TOPOLOGY_TYPE D3D12PrimitiveTypeToTopolog
 
 static void TranslateRenderTargetFormats(
 	const FGraphicsPipelineStateInitializer &PsoInit,
-	TRenderTargetFormatsArray& RenderTargetFormats,
+	D3D12_RT_FORMAT_ARRAY& RTFormatArray,
 	DXGI_FORMAT& DSVFormat
 	)
 {
+	RTFormatArray.NumRenderTargets = PsoInit.ComputeNumValidRenderTargets();
+
 	for (uint32 RTIdx = 0; RTIdx < PsoInit.RenderTargetsEnabled; ++RTIdx)
 	{
 		checkSlow(PsoInit.RenderTargetFormats[RTIdx] == PF_Unknown || GPixelFormats[PsoInit.RenderTargetFormats[RTIdx]].Supported);
@@ -985,7 +996,7 @@ static void TranslateRenderTargetFormats(
 		DXGI_FORMAT PlatformFormat = (DXGI_FORMAT)GPixelFormats[PsoInit.RenderTargetFormats[RTIdx]].PlatformFormat;
 		uint32 Flags = PsoInit.RenderTargetFlags[RTIdx];
 
-		RenderTargetFormats[RTIdx] = FindShaderResourceDXGIFormat(
+		RTFormatArray.RTFormats[RTIdx] = FindShaderResourceDXGIFormat(
 			GetPlatformTextureResourceFormat(PlatformFormat, Flags),
 			(Flags & TexCreate_SRGB) != 0
 			);

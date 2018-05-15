@@ -8,7 +8,7 @@
 #include "Math/Vector2D.h"
 #include "Misc/Attribute.h"
 #include "Math/Range.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 #include "CurveEditorTypes.h"
 #include "CurveDataAbstraction.h"

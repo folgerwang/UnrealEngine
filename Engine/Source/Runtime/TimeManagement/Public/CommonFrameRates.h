@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "Containers/ArrayView.h"
 
 enum class ECommonFrameRate : uint8

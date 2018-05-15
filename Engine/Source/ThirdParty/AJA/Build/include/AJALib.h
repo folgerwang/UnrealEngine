@@ -285,6 +285,7 @@ namespace AJA
 
 		// Only available if the initialization succeeded
 		bool WaitForSync(FTimecode& OutTimecode) const;
+		bool GetTimecode(FTimecode& OutTimecode) const;
 
 	private:
 		Private::SyncChannel* Channel;

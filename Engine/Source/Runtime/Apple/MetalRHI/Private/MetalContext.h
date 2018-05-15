@@ -170,7 +170,7 @@ public:
 	
 	inline bool SupportsFeature(EMetalFeatures InFeature) { return CommandQueue.SupportsFeature(InFeature); }
 	
-	FMetalResourceHeap& GetResourceHeap(void) { return Heap; }
+	inline FMetalResourceHeap& GetResourceHeap(void) { return Heap; }
 	
 	FMetalTexture CreateTexture(FMetalSurface* Surface, mtlpp::TextureDescriptor Descriptor);
 	FMetalBuffer CreatePooledBuffer(FMetalPooledBufferArgs const& Args);

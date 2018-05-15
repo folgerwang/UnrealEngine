@@ -402,9 +402,11 @@ void* FUnixPlatformMemory::BinnedAllocFromOS(SIZE_T Size)
 	void* RetVal = PoolArray.Allocate(Size);
 	if (LIKELY(RetVal))
 	{
+		LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, RetVal, Size));
 		return RetVal;
 	}
 	// otherwise, let generic BAFO deal with it
+#endif // UE4_POOL_BAFO_ALLOCATIONS
 
 #if UE4_POOL_BAFO_ALLOCATIONS_DEBUG_OOM
 	// only store BAFO allocs
@@ -415,6 +417,7 @@ void* FUnixPlatformMemory::BinnedAllocFromOS(SIZE_T Size)
 #endif // UE4_POOL_BAFO_ALLOCATIONS_DEBUG_OOM
 
 	void* Ret = FGenericPlatformMemory::BinnedAllocFromOS(Size);
+
 #if UE4_POOL_BAFO_ALLOCATIONS_DEBUG_OOM
 	if (Ret == nullptr)
 	{
@@ -423,17 +426,16 @@ void* FUnixPlatformMemory::BinnedAllocFromOS(SIZE_T Size)
 		for (;;) {};	// hang on here so we can attach the debugger and inspect the details
 	}
 #endif // UE4_POOL_BAFO_ALLOCATIONS_DEBUG_OOM
+
+	LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, Ret, Size));
+
 	return Ret;
-
-#else
-
-	return FGenericPlatformMemory::BinnedAllocFromOS(Size);
-
-#endif // UE4_POOL_BAFO_ALLOCATIONS
 }
 
 void FUnixPlatformMemory::BinnedFreeToOS(void* Ptr, SIZE_T Size)
 {
+	LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr));
+
 #if UE4_POOL_BAFO_ALLOCATIONS
 	FScopeLock Lock(GetGlobalUnixMemPoolLock());
 
@@ -857,4 +859,44 @@ bool FUnixPlatformMemory::UnmapNamedSharedMemoryRegion(FSharedMemoryRegion * Mem
 	}
 
 	return bAllSucceeded;
+}
+
+
+/**
+* LLM uses these low level functions (LLMAlloc and LLMFree) to allocate memory. It grabs
+* the function pointers by calling FPlatformMemory::GetLLMAllocFunctions. If these functions
+* are not implemented GetLLMAllocFunctions should return false and LLM will be disabled.
+*/
+
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+
+void* LLMAlloc(size_t Size)
+{
+	void* Ptr = mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+
+	return Ptr;
+}
+
+void LLMFree(void* Addr, size_t Size)
+{
+	if (Addr != nullptr && munmap(Addr, Size) != 0)
+	{
+		const int ErrNo = errno;
+		UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), Addr, Size,
+			ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+	}
+}
+
+#endif
+
+bool FUnixPlatformMemory::GetLLMAllocFunctions(void*(*&OutAllocFunction)(size_t), void(*&OutFreeFunction)(void*, size_t), int32& OutAlignment)
+{
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+	OutAllocFunction = LLMAlloc;
+	OutFreeFunction = LLMFree;
+	OutAlignment = FPlatformMemory::GetConstants().PageSize;
+	return true;
+#else
+	return false;
+#endif
 }

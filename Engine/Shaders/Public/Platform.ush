@@ -580,7 +580,7 @@ float4 max3( float4 a, float4 b, float4 c )
 #endif
 
 // Give hint to compiler to move one value to scalar unit.
-#ifndef ToScalarMemory
+#if !defined(ToScalarMemory) && !defined(COMPILER_SUPPORTS_TO_SCALAR_MEMORY)
 	#define ToScalarMemory(x) (x)
 #endif
 

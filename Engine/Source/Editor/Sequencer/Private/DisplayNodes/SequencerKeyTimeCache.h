@@ -10,7 +10,7 @@
 #include "Templates/SharedPointer.h"
 #include "Misc/Optional.h"
 #include "IKeyArea.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 /** Simple structure that caches the sorted key times for a given key area */
 struct FSequencerCachedKeys

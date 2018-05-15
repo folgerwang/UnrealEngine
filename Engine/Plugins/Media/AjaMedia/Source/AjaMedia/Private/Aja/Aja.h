@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "Timecode.h"
+#include "Misc/Timecode.h"
 #include "Misc/Timespan.h"
 
 namespace AJA

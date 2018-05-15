@@ -2,13 +2,13 @@
 
 #include "MediaIOCorePlayerBase.h"
 
+#include "Engine/Engine.h"
+#include "Engine/TimecodeProvider.h"
 #include "IMediaEventSink.h"
 #include "IMediaOptions.h"
 #include "MediaIOCoreSamples.h"
+#include "Misc/App.h"
 #include "Misc/ScopeLock.h"
-
-#include "ITimecodeProvider.h"
-#include "ITimeManagementModule.h"
 
 #define LOCTEXT_NAMESPACE "MediaIOCorePlayerBase"
 
@@ -123,15 +123,25 @@ bool FMediaIOCorePlayerBase::TickTimeManagement()
 	bool bUseDefaultTime = true;
 	if (bUseTimeSynchronization)
 	{
-		if (const ITimecodeProvider* Provider = ITimeManagementModule::Get().GetTimecodeProvider())
+		FTimecode Timecode = FApp::GetTimecode();
+		FFrameRate FrameRate;
+		if (const UTimecodeProvider* Provider = GEngine->GetTimecodeProvider())
 		{
-			if (Provider->IsSynchronized())
+			if (Provider->GetSynchronizationState() == ETimecodeProviderSynchronizationState::Synchronized)
 			{
-				const FTimecode CurrentTimecode = Provider->GetCurrentTimecode();
-				const FFrameRate FrameRate = Provider->GetFrameRate();
-				CurrentTime = FTimespan(0, CurrentTimecode.Hours, CurrentTimecode.Minutes, CurrentTimecode.Seconds, static_cast<int32>((ETimespan::TicksPerSecond * CurrentTimecode.Frames) / FrameRate.AsDecimal()) * ETimespan::NanosecondsPerTick);
+				FrameRate = Provider->GetFrameRate();
 				bUseDefaultTime = false;
 			}
+		}
+		else
+		{
+			FrameRate = GEngine->DefaultTimecodeFrameRate;
+			bUseDefaultTime = false;
+		}
+
+		if (!bUseDefaultTime)
+		{
+			CurrentTime = FTimespan(0, Timecode.Hours, Timecode.Minutes, Timecode.Seconds, static_cast<int32>((ETimespan::TicksPerSecond * Timecode.Frames) / FrameRate.AsDecimal()) * ETimespan::NanosecondsPerTick);
 		}
 	}
 	return bUseDefaultTime;

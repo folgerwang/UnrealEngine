@@ -20,16 +20,15 @@
 #include "BatchedElements.h"
 #include "MeshBatch.h"
 #include "SceneManagement.h"
+#include "ScenePrivateBase.h"
 #include "PrimitiveSceneInfo.h"
 #include "GlobalShader.h"
-#include "ShadowRendering.h"
 #include "PrimitiveViewRelevance.h"
 #include "DistortionRendering.h"
 #include "CustomDepthRendering.h"
 #include "HeightfieldLighting.h"
 #include "GlobalDistanceFieldParameters.h"
 #include "Templates/UniquePtr.h"
-#include "MultiGPU.h"
 
 class FScene;
 class FSceneViewState;
@@ -548,6 +547,7 @@ public:
 	const FSceneRenderer* SceneRenderer;
 	FDrawingPolicyRenderState DrawRenderState;
 	FRHICommandListImmediate& ParentCmdList;
+	const FRHIGPUMask GPUMask; // Copy of the Parent GPUMask at creation (since it could change).
 	FSceneRenderTargets* Snapshot;
 	TStatId	ExecuteStat;
 	int32 Width;
@@ -1052,7 +1052,7 @@ public:
 	FPreviousViewInfo PrevViewInfo;
 
 	/** The GPU nodes on which to render this view. */
-	FRHIGPUMask NodeMask;
+	FRHIGPUMask GPUMask;
 
 	/** An intermediate number of visible static meshes.  Doesn't account for occlusion until after FinishOcclusionQueries is called. */
 	int32 NumVisibleStaticMeshElements;
@@ -1284,30 +1284,6 @@ private:
 	void SetupSkyIrradianceEnvironmentMapConstants(FVector4* OutSkyIrradianceEnvironmentMap) const;
 };
 
-
-/**
- * Used to hold combined stats for a shadow. In the case of projected shadows the shadows
- * for the preshadow and subject are combined in this stat and so are primitives with a shadow parent.
- */
-struct FCombinedShadowStats
-{
-	/** Array of shadow subjects. The first one is the shadow parent in the case of multiple entries.	*/
-	FProjectedShadowInfo::PrimitiveArrayType	SubjectPrimitives;
-	/** Array of preshadow primitives in the case of projected shadows.									*/
-	FProjectedShadowInfo::PrimitiveArrayType	PreShadowPrimitives;
-	/** Shadow resolution in the case of projected shadows												*/
-	int32									ShadowResolution;
-	/** Shadow pass number in the case of projected shadows												*/
-	int32									ShadowPassNumber;
-
-	/**
-	 * Default constructor. 
-	 */
-	FCombinedShadowStats()
-	:	ShadowResolution(INDEX_NONE)
-	,	ShadowPassNumber(INDEX_NONE)
-	{}
-};
 
 /**
  * Masks indicating for which views a primitive needs to have a certain operation on.
@@ -1828,64 +1804,66 @@ struct FFastVramConfig
 	void OnCVarUpdated();
 	void OnSceneRenderTargetsAllocated();
 
-	ETextureCreateFlags GBufferA;
-	ETextureCreateFlags GBufferB;
-	ETextureCreateFlags GBufferC;
-	ETextureCreateFlags GBufferD;
-	ETextureCreateFlags GBufferE;
-	ETextureCreateFlags GBufferVelocity;
-	ETextureCreateFlags HZB;
-	ETextureCreateFlags SceneDepth;
-	ETextureCreateFlags SceneColor;
-	ETextureCreateFlags LPV;
-	ETextureCreateFlags BokehDOF;
-	ETextureCreateFlags CircleDOF;
-	ETextureCreateFlags CombineLUTs;
-	ETextureCreateFlags Downsample;
-	ETextureCreateFlags EyeAdaptation;
-	ETextureCreateFlags Histogram;
-	ETextureCreateFlags HistogramReduce;
-	ETextureCreateFlags VelocityFlat;
-	ETextureCreateFlags VelocityMax;
-	ETextureCreateFlags MotionBlur;
-	ETextureCreateFlags Tonemap;
-	ETextureCreateFlags Upscale;
-	ETextureCreateFlags DistanceFieldNormal;
-	ETextureCreateFlags DistanceFieldAOHistory;
-	ETextureCreateFlags DistanceFieldAOBentNormal;
-	ETextureCreateFlags DistanceFieldAODownsampledBentNormal;
-	ETextureCreateFlags DistanceFieldShadows;
-	ETextureCreateFlags DistanceFieldIrradiance;
-	ETextureCreateFlags DistanceFieldAOConfidence;
-	ETextureCreateFlags Distortion;
-	ETextureCreateFlags ScreenSpaceShadowMask;
-	ETextureCreateFlags VolumetricFog;
-	ETextureCreateFlags SeparateTranslucency;
-	ETextureCreateFlags LightAccumulation;
-	ETextureCreateFlags LightAttenuation;
-	ETextureCreateFlags ScreenSpaceAO;
-	ETextureCreateFlags DBufferA;
-	ETextureCreateFlags DBufferB;
-	ETextureCreateFlags DBufferC;
-	ETextureCreateFlags DBufferMask;
-	ETextureCreateFlags DOFSetup;
-	ETextureCreateFlags DOFReduce;
-	ETextureCreateFlags DOFPostfilter;
+	uint32 GBufferA;
+	uint32 GBufferB;
+	uint32 GBufferC;
+	uint32 GBufferD;
+	uint32 GBufferE;
+	uint32 GBufferVelocity;
+	uint32 HZB;
+	uint32 SceneDepth;
+	uint32 SceneColor;
+	uint32 LPV;
+	uint32 BokehDOF;
+	uint32 CircleDOF;
+	uint32 CombineLUTs;
+	uint32 Downsample;
+	uint32 EyeAdaptation;
+	uint32 Histogram;
+	uint32 HistogramReduce;
+	uint32 VelocityFlat;
+	uint32 VelocityMax;
+	uint32 MotionBlur;
+	uint32 Tonemap;
+	uint32 Upscale;
+	uint32 DistanceFieldNormal;
+	uint32 DistanceFieldAOHistory;
+	uint32 DistanceFieldAOBentNormal;
+	uint32 DistanceFieldAODownsampledBentNormal;
+	uint32 DistanceFieldShadows;
+	uint32 DistanceFieldIrradiance;
+	uint32 DistanceFieldAOConfidence;
+	uint32 Distortion;
+	uint32 ScreenSpaceShadowMask;
+	uint32 VolumetricFog;
+	uint32 SeparateTranslucency;
+	uint32 LightAccumulation;
+	uint32 LightAttenuation;
+	uint32 ScreenSpaceAO;
+	uint32 SSR;
+	uint32 DBufferA;
+	uint32 DBufferB;
+	uint32 DBufferC;
+	uint32 DBufferMask;
+	uint32 DOFSetup;
+	uint32 DOFReduce;
+	uint32 DOFPostfilter;
 
-	ETextureCreateFlags CustomDepth;
-	ETextureCreateFlags ShadowPointLight;
-	ETextureCreateFlags ShadowPerObject;
-	ETextureCreateFlags ShadowCSM;
+	uint32 CustomDepth;
+	uint32 ShadowPointLight;
+	uint32 ShadowPerObject;
+	uint32 ShadowCSM;
 
-	EBufferUsageFlags DistanceFieldCulledObjectBuffers;
-	EBufferUsageFlags DistanceFieldTileIntersectionResources;
-	EBufferUsageFlags DistanceFieldAOScreenGridResources;
-	EBufferUsageFlags ForwardLightingCullingResources;
+	// Buffers
+	uint32 DistanceFieldCulledObjectBuffers;
+	uint32 DistanceFieldTileIntersectionResources;
+	uint32 DistanceFieldAOScreenGridResources;
+	uint32 ForwardLightingCullingResources;
 	bool bDirty;
 
 private:
-	bool UpdateTextureFlagFromCVar(TAutoConsoleVariable<int32>& CVar, ETextureCreateFlags& InOutValue);
-	bool UpdateBufferFlagFromCVar(TAutoConsoleVariable<int32>& CVar, EBufferUsageFlags& InOutValue);
+	bool UpdateTextureFlagFromCVar(TAutoConsoleVariable<int32>& CVar, uint32& InOutValue);
+	bool UpdateBufferFlagFromCVar(TAutoConsoleVariable<int32>& CVar, uint32& InOutValue);
 };
 
 extern FFastVramConfig GFastVRamConfig;

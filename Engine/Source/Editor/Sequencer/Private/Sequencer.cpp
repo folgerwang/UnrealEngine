@@ -1282,7 +1282,7 @@ void FSequencer::TransformSelectedKeysAndSections(FFrameTime InDeltaTime, float 
 				}
 
 
-				// Expand the range by ensuring the new range contains the range our keys are in. We add one because the upper time is exclusive
+				// Expand the range by ensuring the new range contains the range our keys are in. We add one because the highest time is exclusive
 				// for sections, but HighestFrameTime is measuring only the key's time.
 				*NewSectionBounds = TRange<FFrameNumber>::Hull(*NewSectionBounds, TRange<FFrameNumber>(LowestFrameTime.GetFrame(), HighestFrameTime.GetFrame() + 1));
 
@@ -1324,7 +1324,7 @@ void FSequencer::TransformSelectedKeysAndSections(FFrameTime InDeltaTime, float 
 			}
 
 			// If keys have already modified the section, we're applying the same modification to the section so we can
-			// overwrite the (possibly) existing bound without a TRange::Hull.
+			// overwrite the (possibly) existing bound, so it's okay to just overwrite the range without a TRange::Hull.
 			*NewSectionBounds = TRange<FFrameNumber>(LowerBound, UpperBound);
 			bAnythingChanged = true;
 		}
@@ -2361,10 +2361,10 @@ void FSequencer::RenderMovieInternal(TRange<FFrameNumber> Range, bool bSetFrameO
 	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
 
 	// Create a new movie scene capture object for an automated level sequence, and open the tab
-	UAutomatedLevelSequenceCapture* MovieSceneCapture = NewObject<UAutomatedLevelSequenceCapture>(GetTransientPackage(), UAutomatedLevelSequenceCapture::StaticClass(), NAME_None, RF_Transient);
+	UAutomatedLevelSequenceCapture* MovieSceneCapture = NewObject<UAutomatedLevelSequenceCapture>(GetTransientPackage(), UAutomatedLevelSequenceCapture::StaticClass(), UAutomatedLevelSequenceCapture::AutomatedLevelSequenceCaptureUIName, RF_Transient);
 	MovieSceneCapture->LoadFromConfig();
 
-	MovieSceneCapture->SetLevelSequenceAsset(GetCurrentAsset()->GetPathName());
+	MovieSceneCapture->LevelSequenceAsset = GetCurrentAsset()->GetPathName();
 
 	FFrameRate DisplayRate = GetFocusedDisplayRate();
 	FFrameRate TickResolution = GetFocusedTickResolution();

@@ -149,6 +149,16 @@ static TAutoConsoleVariable<int32> CVarDebugCanvasInLayer(
 	TEXT("0 to disable (default), 1 to enable."),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+
+static TAutoConsoleVariable<int32> CVarViewRectUseScreenBottom(
+	TEXT("r.ViewRectUseScreenBottom"),
+	0,
+	TEXT("WARNING: This is an experimental, unsupported feature and does not work with all postprocesses (e.g DOF and DFAO)\n")
+	TEXT("If enabled, the view rectangle will use the bottom left corner instead of top left"),
+	ECVF_RenderThreadSafe
+);
+
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 static TAutoConsoleVariable<float> CVarGeneralPurposeTweak(
 	TEXT("r.GeneralPurposeTweak"),
@@ -353,6 +363,7 @@ FASTVRAM_CVAR(SeparateTranslucency, 0);
 FASTVRAM_CVAR(LightAccumulation, 0); 
 FASTVRAM_CVAR(LightAttenuation, 0); 
 FASTVRAM_CVAR(ScreenSpaceAO,0);
+FASTVRAM_CVAR(SSR, 0);
 FASTVRAM_CVAR(DBufferA, 0);
 FASTVRAM_CVAR(DBufferB, 0);
 FASTVRAM_CVAR(DBufferC, 0); 
@@ -478,6 +489,7 @@ void FFastVramConfig::Update()
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_LightAccumulation, LightAccumulation);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_LightAttenuation, LightAttenuation);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_ScreenSpaceAO, ScreenSpaceAO);
+	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_SSR, SSR);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_DBufferA, DBufferA);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_DBufferB, DBufferB);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_DBufferC, DBufferC);
@@ -496,16 +508,25 @@ void FFastVramConfig::Update()
 	bDirty |= UpdateBufferFlagFromCVar(CVarFastVRam_ForwardLightingCullingResources, ForwardLightingCullingResources);
 }
 
-bool FFastVramConfig::UpdateTextureFlagFromCVar(TAutoConsoleVariable<int32>& CVar, ETextureCreateFlags& InOutValue)
+bool FFastVramConfig::UpdateTextureFlagFromCVar(TAutoConsoleVariable<int32>& CVar, uint32& InOutValue)
 {
-	ETextureCreateFlags OldValue = InOutValue;
-	InOutValue = CVar.GetValueOnRenderThread() ? ( TexCreate_FastVRAM ) : TexCreate_None;
+	uint32 OldValue = InOutValue;
+	int32 CVarValue = CVar.GetValueOnRenderThread();
+	InOutValue = TexCreate_None;
+	if (CVarValue == 1)
+	{
+		InOutValue = TexCreate_FastVRAM;
+	}
+	else if (CVarValue == 2)
+	{
+		InOutValue = TexCreate_FastVRAM | TexCreate_FastVRAMPartialAlloc;
+	}
 	return OldValue != InOutValue;
 }
 
-bool FFastVramConfig::UpdateBufferFlagFromCVar(TAutoConsoleVariable<int32>& CVar, EBufferUsageFlags& InOutValue)
+bool FFastVramConfig::UpdateBufferFlagFromCVar(TAutoConsoleVariable<int32>& CVar, uint32& InOutValue)
 {
-	EBufferUsageFlags OldValue = InOutValue;
+	uint32 OldValue = InOutValue;
 	InOutValue = CVar.GetValueOnRenderThread() ? ( BUF_FastVRAM ) : BUF_None;
 	return OldValue != InOutValue;
 }
@@ -525,6 +546,7 @@ FParallelCommandListSet::FParallelCommandListSet(
 	, SceneRenderer(InSceneRenderer)
 	, DrawRenderState(InDrawRenderState)
 	, ParentCmdList(InParentCmdList)
+	, GPUMask(ParentCmdList.GetGPUMask())
 	, Snapshot(nullptr)
 	, ExecuteStat(InExecuteStat)
 	, NumAlloc(0)
@@ -546,8 +568,11 @@ FParallelCommandListSet::FParallelCommandListSet(
 
 FRHICommandList* FParallelCommandListSet::AllocCommandList()
 {
+	// We don't support the mask changing while the parallel commandlists are being generated.
+	ensure(GPUMask == ParentCmdList.GetGPUMask());
+
 	NumAlloc++;
-	return new FRHICommandList;
+	return new FRHICommandList(ParentCmdList.GetGPUMask());
 }
 
 void FParallelCommandListSet::Dispatch(bool bHighPriority)
@@ -556,6 +581,10 @@ void FParallelCommandListSet::Dispatch(bool bHighPriority)
 	check(IsInRenderingThread() && FMemStack::Get().GetNumMarks() == 1); // we do not want this popped before the end of the scene and it better be the scene allocator
 	check(CommandLists.Num() == Events.Num());
 	check(CommandLists.Num() == NumAlloc);
+
+	// We don't support the mask changing while the parallel commandlists are being processed.
+	ensure(GPUMask == ParentCmdList.GetGPUMask());
+
 	ENamedThreads::Type RenderThread_Local = ENamedThreads::GetRenderThread_Local();
 	if (bSpewBalance)
 	{
@@ -598,7 +627,7 @@ void FParallelCommandListSet::Dispatch(bool bHighPriority)
 		UE_CLOG(bSpewBalance, LogTemp, Display, TEXT("%d cmdlists for parallel translate"), CommandLists.Num());
 		check(GRHISupportsParallelRHIExecute);
 		NumAlloc -= CommandLists.Num();
-		ParentCmdList.QueueParallelAsyncCommandListSubmit(&Events[0], View.NodeMask, bHighPriority, &CommandLists[0], &NumDrawsIfKnown[0], CommandLists.Num(), (MinDrawsPerCommandList * 4) / 3, bSpewBalance);
+		ParentCmdList.QueueParallelAsyncCommandListSubmit(&Events[0], bHighPriority, &CommandLists[0], &NumDrawsIfKnown[0], CommandLists.Num(), (MinDrawsPerCommandList * 4) / 3, bSpewBalance);
 		SetStateOnCommandList(ParentCmdList);
 	}
 	else
@@ -606,7 +635,7 @@ void FParallelCommandListSet::Dispatch(bool bHighPriority)
 		UE_CLOG(bSpewBalance, LogTemp, Display, TEXT("%d cmdlists (no parallel translate desired)"), CommandLists.Num());
 		for (int32 Index = 0; Index < CommandLists.Num(); Index++)
 		{
-			ParentCmdList.QueueAsyncCommandListSubmit(Events[Index], View.NodeMask, CommandLists[Index]);
+			ParentCmdList.QueueAsyncCommandListSubmit(Events[Index], CommandLists[Index]);
 			NumAlloc--;
 		}
 	}
@@ -694,7 +723,7 @@ void FParallelCommandListSet::WaitForTasksInternal()
  */
 FViewInfo::FViewInfo(const FSceneViewInitOptions& InitOptions)
 	:	FSceneView(InitOptions)
-	,	NodeMask(FRHIGPUMask::GPU0())
+	,	GPUMask(FRHIGPUMask::GPU0())
 	,	IndividualOcclusionQueries((FSceneViewState*)InitOptions.SceneViewStateInterface, 1)	
 	,	GroupedOcclusionQueries((FSceneViewState*)InitOptions.SceneViewStateInterface, FOcclusionQueryBatcher::OccludedPrimitiveQueryBatchSize)
 {
@@ -707,7 +736,7 @@ FViewInfo::FViewInfo(const FSceneViewInitOptions& InitOptions)
  */
 FViewInfo::FViewInfo(const FSceneView* InView)
 	:	FSceneView(*InView)
-	,	NodeMask(FRHIGPUMask::GPU0())
+	,	GPUMask(FRHIGPUMask::GPU0())
 	,	IndividualOcclusionQueries((FSceneViewState*)InView->State,1)	
 	,	GroupedOcclusionQueries((FSceneViewState*)InView->State,FOcclusionQueryBatcher::OccludedPrimitiveQueryBatchSize)
 	,	CustomVisibilityQuery(nullptr)
@@ -1674,7 +1703,7 @@ FSceneRenderer::FSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyCon
 		bAnyViewIsLocked |= ViewInfo->bIsLocked;
 
 		// Apply multi-GPU strategy here.
-		ViewInfo->NodeMask = GetNodeMaskFromMultiGPUStrategy(GetMultiGPUStrategyFromCommandLine(), ViewIndex, ViewFamily.FrameNumber);
+		ViewInfo->GPUMask = GetNodeMaskFromMultiGPUMode(GetMultiGPUMode(), ViewIndex, ViewFamily.FrameNumber);
 
 		check(ViewInfo->ViewRect.Area() == 0);
 
@@ -1925,6 +1954,12 @@ void FSceneRenderer::PrepareViewRectsForRendering()
 		FIntPoint ViewRectMin = QuantizeViewRectMin(FIntPoint(
 			FMath::CeilToInt(View.UnscaledViewRect.Min.X * ResolutionFraction),
 			FMath::CeilToInt(View.UnscaledViewRect.Min.Y * ResolutionFraction)));
+
+		// Use the bottom-left view rect if requested, instead of top-left
+		if (CVarViewRectUseScreenBottom.GetValueOnRenderThread())
+		{
+			ViewRectMin.Y = FMath::CeilToInt( View.UnscaledViewRect.Max.Y * ViewFamily.SecondaryViewFraction ) - ViewSize.Y;
+		}
 
 		View.ViewRect.Min = ViewRectMin;
 		View.ViewRect.Max = ViewRectMin + ViewSize;

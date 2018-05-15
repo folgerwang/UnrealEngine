@@ -430,6 +430,15 @@ enum EResourceLockMode
 	RLM_Num
 };
 
+enum class EMultiGPUMode
+{
+	Broadcast,		// Broadcast all (if multi-GPU)
+	AlternateFrame,	// Alternate Frame Rendering (Use GPU# where # = FrameIndex % NumGPU)
+	AlternateView,	// Alternate View Rendering (Use GPU# where # = ViewIndex % NumGPU)
+	GPU0,			// Only use GPU0
+	GPU1			// Only use GPU1
+};
+
 /** limited to 8 types in FReadSurfaceDataFlags */
 enum ERangeCompressionMode
 {
@@ -649,6 +658,9 @@ enum ETextureCreateFlags
 	TexCreate_BiasNormalMap			= 1<<11,
 	// Create the texture with the flag that allows mip generation later, only applicable to D3D11
 	TexCreate_GenerateMipCapable	= 1<<12,
+
+	// The texture can be partially allocated in fastvram
+	TexCreate_FastVRAMPartialAlloc  = 1<<13,
 	// UnorderedAccessView (DX11 only)
 	// Warning: Causes additional synchronization between draw calls when using a render target allocated with this flag, use sparingly
 	// See: GCNPerformanceTweets.pdf Tip 37

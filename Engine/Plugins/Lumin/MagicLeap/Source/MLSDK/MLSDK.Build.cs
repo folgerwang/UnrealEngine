@@ -54,27 +54,6 @@ public class MLSDK : ModuleRules
 			string IncludePath = Path.Combine(MLSDKPath, "include");
 			string LibraryPath = Path.Combine(MLSDKPath, "lib");
 			string VirtualDeviceLibraryPath = Path.Combine(MLSDKPath, "VirtualDevice", "lib");
-
-			string ProjectFileName = null != Target.ProjectFile ? Target.ProjectFile.FullName : "";
-			DirectoryReference ProjectDir =
-				string.IsNullOrEmpty(ProjectFileName) ? (DirectoryReference)null : Target.ProjectFile.Directory;
-			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, ProjectDir, Target.Platform);
-
-			PublicIncludePaths.Add(IncludePath);
-			if (Target.Platform != UnrealTargetPlatform.Lumin)
-			{
-				string VirtualDeviceIncludePath = "";
-				if (!Ini.TryGetValue("MLSDK", "IncludePath", out VirtualDeviceIncludePath))
-				{
-					VirtualDeviceIncludePath = Path.Combine(MLSDKPath, "VirtualDevice", "include");
-				}
-				PublicIncludePaths.Add(VirtualDeviceIncludePath);
-			}
-			PublicIncludePaths.Add(Path.Combine(MLSDKPath, "lumin/usr/include/vulkan"));
-
-			string MLSDKLibraryPath = "";
-			Ini.TryGetValue("MLSDK", "LibraryPath", out MLSDKLibraryPath);
-
 			string LibraryPlatformFolder = string.Empty;
 			switch (Target.Platform)
 			{
@@ -91,14 +70,31 @@ public class MLSDK : ModuleRules
 					LibraryPlatformFolder = "lumin";
 					break;
 			}
-
 			LibraryPath = Path.Combine(LibraryPath, LibraryPlatformFolder);
 
-			//make sure the platform specific libs are there as well
 			bIsMLSDKInstalled = Directory.Exists(IncludePath) && Directory.Exists(LibraryPath);
-
 			if (bIsMLSDKInstalled)
 			{
+				string ProjectFileName = null != Target.ProjectFile ? Target.ProjectFile.FullName : "";
+				DirectoryReference ProjectDir =
+					string.IsNullOrEmpty(ProjectFileName) ? (DirectoryReference)null : Target.ProjectFile.Directory;
+				ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, ProjectDir, Target.Platform);
+
+				PublicIncludePaths.Add(IncludePath);
+				if (Target.Platform != UnrealTargetPlatform.Lumin)
+				{
+					string VirtualDeviceIncludePath = "";
+					if (!Ini.TryGetValue("MLSDK", "IncludePath", out VirtualDeviceIncludePath))
+					{
+						VirtualDeviceIncludePath = Path.Combine(MLSDKPath, "VirtualDevice", "include");
+					}
+					PublicIncludePaths.Add(VirtualDeviceIncludePath);
+				}
+				PublicIncludePaths.Add(Path.Combine(MLSDKPath, "lumin/usr/include/vulkan"));
+
+				string MLSDKLibraryPath = "";
+				Ini.TryGetValue("MLSDK", "LibraryPath", out MLSDKLibraryPath);
+
 				PublicLibraryPaths.Add(LibraryPath);
 				if (!string.IsNullOrEmpty(MLSDKLibraryPath))
 				{

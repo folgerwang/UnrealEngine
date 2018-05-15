@@ -240,7 +240,7 @@ void FAjaMediaViewportOutputImpl::ReleaseAJA()
 	}
 }
 
-void FAjaMediaViewportOutputImpl::Tick(const int32 InFrameNumber)
+void FAjaMediaViewportOutputImpl::Tick(const FTimecode& InTimecode)
 {
 	EMediaState NewState = AjaThreadNewState;
 	if (NewState != CurrentState)
@@ -266,9 +266,7 @@ void FAjaMediaViewportOutputImpl::Tick(const int32 InFrameNumber)
 
 			CurrentPayload->ViewportOutputImpl = AsShared();
 			CurrentPayload->bUseEndFrameRenderThread = bCopyOnRenderThread;
-
-			const bool bIsDropFrame = FTimecode::IsDropFormatTimecodeSupported(FrameRate);
-			CurrentPayload->Timecode = FTimecode::FromFrameNumber(InFrameNumber, FrameRate, bIsDropFrame);
+			CurrentPayload->Timecode = InTimecode;
 
 			FrameGrabber->CaptureThisFrame(CurrentPayload);
 		}

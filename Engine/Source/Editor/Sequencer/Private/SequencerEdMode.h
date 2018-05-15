@@ -6,7 +6,7 @@
 #include "InputCoreTypes.h"
 #include "EditorModeTools.h"
 #include "EdMode.h"
-#include "FrameTime.h"
+#include "Misc/FrameTime.h"
 
 class FCanvas;
 class FEditorViewportClient;

@@ -462,6 +462,8 @@ FPostProcessSettings::FPostProcessSettings()
 	ColorGradingIntensity = 1.0f;
 	DepthOfFieldFocalDistance = 1000.0f;
 	DepthOfFieldFstop = 4.0f;
+	DepthOfFieldMinFstop = 1.2f;
+	DepthOfFieldBladeCount = FPostProcessSettings::kDefaultDepthOfFieldBladeCount;
 	DepthOfFieldSensorWidth = 24.576f;			// APS-C
 	DepthOfFieldDepthBlurAmount = 1.0f;
 	DepthOfFieldDepthBlurRadius = 0.0f;

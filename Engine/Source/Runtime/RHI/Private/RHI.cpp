@@ -357,10 +357,6 @@ uint64 GRHIPresentCounter = 1;
 /** Whether we are profiling GPU hitches. */
 bool GTriggerGPUHitchProfile = false;
 
-#if WITH_SLI
-uint32 GNumActiveGPUsForRendering = 1;
-#endif
-
 FVertexElementTypeSupportInfo GVertexElementTypeSupport;
 
 RHI_API int32 volatile GCurrentTextureMemorySize = 0;

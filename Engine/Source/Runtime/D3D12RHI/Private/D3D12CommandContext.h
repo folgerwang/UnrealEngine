@@ -31,7 +31,7 @@ class FD3D12CommandContextBase : public IRHICommandContext, public FD3D12Adapter
 {
 public:
 
-	FD3D12CommandContextBase(class FD3D12Adapter* InParent, FRHIGPUMask InNodeMask);
+	FD3D12CommandContextBase(class FD3D12Adapter* InParent, FRHIGPUMask InNodeMask, bool InIsDefaultContext, bool InIsAsyncComputeContext);
 
 	void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) final override;
 	void RHIEndDrawingViewport(FViewportRHIParamRef Viewport, bool bPresent, bool bLockToVsync) final override;
@@ -39,11 +39,19 @@ public:
 	void RHIBeginFrame() final override;
 	void RHIEndFrame() final override;
 
+	void RHIWaitComputeFence(FComputeFenceRHIParamRef InFence) final override;
+
 	virtual void UpdateMemoryStats();
 
-	const FRHIGPUMask& GetGPUNodeMask() const { return NodeMask; }
+	FRHIGPUMask GetGPUMask() const { return GPUMask; }
+
+	bool IsDefaultContext() const { return bIsDefaultContext; }
+
+	virtual void RHISetAsyncComputeBudget(EAsyncComputeBudget Budget) {}
 
 protected:
+
+	virtual FD3D12CommandContext* GetContext(uint32 InGPUIndex) = 0;
 
 	// State for begin/end draw primitive UP interface.
 	struct FUserPrimitiveData
@@ -70,7 +78,10 @@ protected:
 
 protected:
 
-	FRHIGPUMask NodeMask;
+	FRHIGPUMask GPUMask;
+
+	const bool bIsDefaultContext;
+	const bool bIsAsyncComputeContext;
 };
 
 class FD3D12CommandContext : public FD3D12CommandContextBase, public FD3D12DeviceChild
@@ -118,8 +129,6 @@ public:
 	void ConditionalClearShaderResource(FD3D12ResourceLocation* Resource);
 	void ClearAllShaderResources();
 
-	virtual void RHISetAsyncComputeBudget(EAsyncComputeBudget Budget) {}
-
 	FD3D12FastConstantAllocator ConstantsAllocator;
 
 	// Handles to the command list and direct command allocator this context owns (granted by the command list manager/command allocator manager), and a direct pointer to the D3D command list/command allocator.
@@ -156,8 +165,6 @@ public:
 	/** Set to true when the current shading setup uses tessellation */
 	bool bUsingTessellation;
 
-	const bool bIsDefaultContext;
-	const bool bIsAsyncComputeContext;
 	virtual void FlushMetadata(FTextureRHIParamRef* InTextures, int32 NumTextures) {};
 
 #if PLATFORM_SUPPORTS_VIRTUAL_TEXTURES
@@ -199,11 +206,6 @@ public:
 	FD3D12ConstantBuffer GSConstantBuffer;
 	FD3D12ConstantBuffer CSConstantBuffer;
 
-	TRefCountPtr<FD3D12BoundShaderState> CurrentBoundShaderState;
-
-	/** A history of the most recently used bound shader states, used to keep transient bound shader states from being recreated for each use. */
-	TGlobalResource< TBoundShaderStateHistory<10000, false> > BoundShaderStateHistory;
-
 	/** needs to be called before each draw call */
 	void CommitNonComputeShaderConstants();
 
@@ -231,23 +233,11 @@ public:
 		typename TPixelShader::FParameter PixelShaderParameter
 		);
 
-	// Some platforms might want to override this
-	virtual void SetScissorRectIfRequiredWhenSettingViewport(uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY)
-	{
-		RHISetScissorRect(false, 0, 0, 0, 0);
-	}
-
-	inline bool IsDefaultContext() const
-	{
-		return bIsDefaultContext;
-	}
-
 	virtual void SetDepthBounds(float MinDepth, float MaxDepth);
 
 	virtual void SetAsyncComputeBudgetInternal(EAsyncComputeBudget Budget) {}
 
 	// IRHIComputeContext interface
-	virtual void RHIWaitComputeFence(FComputeFenceRHIParamRef InFence) final override;
 	virtual void RHISetComputeShader(FComputeShaderRHIParamRef ComputeShader) final override;
 	virtual void RHISetComputePipelineState(FRHIComputePipelineState* ComputePipelineState) final override;
 	virtual void RHIDispatchComputeShader(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ) final override;
@@ -358,13 +348,13 @@ public:
 	virtual void RHIBroadcastTemporalEffect(const FName& InEffectName, FTextureRHIParamRef* InTextures, int32 NumTextures) final AFR_API_OVERRIDE;
 
 	template<typename ObjectType, typename RHIType>
-	inline ObjectType* RetrieveObject(RHIType RHIObject)
+	FORCEINLINE_DEBUGGABLE ObjectType* RetrieveObject(RHIType RHIObject)
 	{
-#if !WITH_SLI
+#if !WITH_MGPU
 		return FD3D12DynamicRHI::ResourceCast(RHIObject);
 #else
 		ObjectType* Object = FD3D12DynamicRHI::ResourceCast(RHIObject);
-		if (bIsMGPUAware)
+		if (GNumExplicitGPUsForRendering > 1)
 		{
 			if (!Object)
 			{
@@ -389,11 +379,11 @@ public:
 			return nullptr;
 		}
 		
-#if !WITH_SLI
+#if !WITH_MGPU
 		return ((FD3D12TextureBase*)Texture->GetTextureBaseRHI());
 #else
 		FD3D12TextureBase* Result((FD3D12TextureBase*)Texture->GetTextureBaseRHI());
-		if (bIsMGPUAware)
+		if (GNumExplicitGPUsForRendering > 1)
 		{
 			if (!Result)
 			{
@@ -418,12 +408,15 @@ public:
 #endif
 	}
 
-	// The retrieve calls are very high frequency so we need to do the least work as possible.
-	const bool bIsMGPUAware;
+	uint32 GetGPUIndex() const { return GPUMask.ToIndex(); }
 
-	IRHICommandContext* GetContextForNodeMask(const FRHIGPUMask& InNodeMask) final override;
+protected: 
 
-	uint32 GetGPUIndex() const { return NodeMask.ToIndex(); }
+	FD3D12CommandContext* GetContext(uint32 InGPUIndex) final override 
+	{  
+		return InGPUIndex == GetGPUIndex() ? this : nullptr; 
+	}
+
 private:
 	void RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil);
 };
@@ -436,15 +429,11 @@ private:
 class FD3D12CommandContextRedirector final : public FD3D12CommandContextBase
 {
 public:
-	FD3D12CommandContextRedirector(class FD3D12Adapter* InParent);
+	FD3D12CommandContextRedirector(class FD3D12Adapter* InParent, bool InIsDefaultContext, bool InIsAsyncComputeContext);
 
-#define ContextRedirect(Call) { for (uint32 GPUIndex : NodeMask) PhysicalContexts[GPUIndex]->##Call; }
+#define ContextRedirect(Call) { for (uint32 GPUIndex : GPUMask) PhysicalContexts[GPUIndex]->##Call; }
 #define ContextGPU0(Call) { PhysicalContexts[0]->##Call; }
 
-	FORCEINLINE_DEBUGGABLE virtual void RHIWaitComputeFence(FComputeFenceRHIParamRef InFence) final override
-	{
-		ContextRedirect(RHIWaitComputeFence(InFence));
-	}
 	FORCEINLINE virtual void RHISetComputeShader(FComputeShaderRHIParamRef ComputeShader) final override
 	{
 		ContextRedirect(RHISetComputeShader(ComputeShader));
@@ -461,10 +450,8 @@ public:
 	{
 		ContextRedirect(RHIDispatchIndirectComputeShader(ArgumentBuffer, ArgumentOffset));
 	}
-	FORCEINLINE virtual void RHITransitionResources(EResourceTransitionAccess TransitionType, EResourceTransitionPipeline TransitionPipeline, FUnorderedAccessViewRHIParamRef* InUAVs, int32 NumUAVs, FComputeFenceRHIParamRef WriteComputeFenceRHI) final override
-	{
-		ContextRedirect(RHITransitionResources(TransitionType, TransitionPipeline, InUAVs, NumUAVs, WriteComputeFenceRHI));
-	}
+	virtual void RHITransitionResources(EResourceTransitionAccess TransitionType, EResourceTransitionPipeline TransitionPipeline, FUnorderedAccessViewRHIParamRef* InUAVs, int32 NumUAVs, FComputeFenceRHIParamRef WriteComputeFenceRHI) final override;
+
 	FORCEINLINE virtual void RHISetShaderTexture(FComputeShaderRHIParamRef PixelShader, uint32 TextureIndex, FTextureRHIParamRef NewTexture) final override
 	{
 		ContextRedirect(RHISetShaderTexture(PixelShader, TextureIndex, NewTexture));
@@ -566,6 +553,10 @@ public:
 	FORCEINLINE virtual void RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderState) final override
 	{
 		ContextRedirect(RHISetBoundShaderState(BoundShaderState));
+	}
+	FORCEINLINE void RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsPipelineState) final override
+	{
+		ContextRedirect(RHISetGraphicsPipelineState(GraphicsPipelineState));
 	}
 	FORCEINLINE virtual void RHISetShaderTexture(FVertexShaderRHIParamRef VertexShader, uint32 TextureIndex, FTextureRHIParamRef NewTexture) final override
 	{
@@ -671,9 +662,17 @@ public:
 	{
 		ContextRedirect(RHISetDepthStencilState(NewState, StencilRef));
 	}
+	FORCEINLINE virtual void RHISetStencilRef(uint32 StencilRef) final override
+	{
+		ContextRedirect(RHISetStencilRef(StencilRef));
+	}
 	FORCEINLINE virtual void RHISetBlendState(FBlendStateRHIParamRef NewState, const FLinearColor& BlendFactor) final override
 	{
 		ContextRedirect(RHISetBlendState(NewState, BlendFactor));
+	}
+	FORCEINLINE void RHISetBlendFactor(const FLinearColor& BlendFactor) final override
+	{
+		ContextRedirect(RHISetBlendFactor(BlendFactor));
 	}
 	FORCEINLINE virtual void RHISetRenderTargets(uint32 NumSimultaneousRenderTargets, const FRHIRenderTargetView* NewRenderTargets, const FRHIDepthRenderTargetView* NewDepthStencilTarget, uint32 NumUAVs, const FUnorderedAccessViewRHIParamRef* UAVs) final override
 	{
@@ -760,21 +759,19 @@ public:
 		PhysicalContexts[Context->GetGPUIndex()] = Context;
 	}
 
-	FORCEINLINE FD3D12CommandContext* GetPhysicalContext(uint32 GPUIndex) const
+	FORCEINLINE FD3D12CommandContext* GetContext(uint32 GPUIndex) final override
 	{
 		return PhysicalContexts[GPUIndex];
 	}
 
-	FORCEINLINE void SetGPUNodeMask(const FRHIGPUMask InNodeMask)
+	FORCEINLINE void SetGPUMask(const FRHIGPUMask InGPUMask)
 	{
-		NodeMask = InNodeMask;
+		GPUMask = InGPUMask;
 	}
-
-	IRHICommandContext* GetContextForNodeMask(const FRHIGPUMask& InNodeMask) final override;
 
 private:
 
-	FD3D12CommandContext* PhysicalContexts[MAX_NUM_LDA_NODES];
+	FD3D12CommandContext* PhysicalContexts[MAX_NUM_GPUS];
 };
 
 class FD3D12TemporalEffect : public FD3D12AdapterChild

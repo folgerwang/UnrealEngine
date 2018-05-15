@@ -65,6 +65,8 @@ public:
 
 	virtual void SetWorld(UWorld* InWorld) PURE_VIRTUAL(UReplicationDriver::SetWorld, );
 
+	virtual void ResetGameWorldState() PURE_VIRTUAL(UReplicationDriver::ResetGameWorldState, );
+
 	virtual void AddClientConnection(UNetConnection* NetConnection) PURE_VIRTUAL(UReplicationDriver::AddClientConnection, );
 
 	virtual void RemoveClientConnection(UNetConnection* NetConnection) PURE_VIRTUAL(UReplicationDriver::RemoveClientConnection, );

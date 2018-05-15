@@ -361,6 +361,16 @@ bool FPythonScriptPlugin::ExecPythonCommand(const TCHAR* InPythonCommand)
 #endif	// WITH_PYTHON
 }
 
+FSimpleMulticastDelegate& FPythonScriptPlugin::OnPythonInitialized()
+{
+	return OnPythonInitializedDelegate;
+}
+
+FSimpleMulticastDelegate& FPythonScriptPlugin::OnPythonShutdown()
+{
+	return OnPythonShutdownDelegate;
+}
+
 void FPythonScriptPlugin::StartupModule()
 {
 #if WITH_PYTHON
@@ -517,11 +527,6 @@ void FPythonScriptPlugin::InitializePython()
 		// Initialize the wrapped types
 		FPyWrapperTypeRegistry::Get().GenerateWrappedTypes();
 
-#if WITH_EDITOR
-		// Register to generate stub code on first tick after all modules loaded.
-		ModulesChangedDelayedNotify();
-#endif	// WITH_EDITOR
-
 		// Initialize the tick handler
 		TickHandle = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([this](float DeltaTime)
 		{
@@ -529,6 +534,9 @@ void FPythonScriptPlugin::InitializePython()
 			return true;
 		}));
 	}
+
+	// Notify any external listeners
+	OnPythonInitializedDelegate.Broadcast();
 }
 
 void FPythonScriptPlugin::ShutdownPython()
@@ -538,10 +546,13 @@ void FPythonScriptPlugin::ShutdownPython()
 		return;
 	}
 
+	// Notify any external listeners
+	OnPythonShutdownDelegate.Broadcast();
+
 	FTicker::GetCoreTicker().RemoveTicker(TickHandle);
 	if (ModuleDelayedHandle.IsValid())
 	{
-		FTicker::GetCoreTicker().RemoveTicker(TickHandle);
+		FTicker::GetCoreTicker().RemoveTicker(ModuleDelayedHandle);
 	}
 
 	FPyWrapperTypeRegistry::Get().OnModuleDirtied().RemoveAll(this);
@@ -568,31 +579,22 @@ void FPythonScriptPlugin::ShutdownPython()
 	bHasTicked = false;
 }
 
-void FPythonScriptPlugin::ModulesChangedDelayedNotify()
+void FPythonScriptPlugin::RequestStubCodeGeneration()
 {
-	// Delay 3 seconds before notifying.
-	float Delay = 3.0f;
-
+	// Ignore requests made before the fist Tick
 	if (!bHasTicked)
 	{
-		// Waiting for first notify yet?
-		if (ModuleDelayedHandle.IsValid())
-		{
-			// First notify is set up and has not yet happened
-			return;
-		}
-
-		// Notify on first tick
-		Delay = 0.0f;
+		return;
 	}
-	else
+
+	// Delay 2 seconds before generating as this may be triggered by loading several modules at once
+	static const float Delay = 2.0f;
+
+	// If there is an existing pending notification, remove it so that it can be reset
+	if (ModuleDelayedHandle.IsValid())
 	{
-		// If there is an existing pending notification, remove it so that it can be reset
-		if (ModuleDelayedHandle.IsValid())
-		{
-			FTicker::GetCoreTicker().RemoveTicker(ModuleDelayedHandle);
-			ModuleDelayedHandle.Reset();
-		}
+		FTicker::GetCoreTicker().RemoveTicker(ModuleDelayedHandle);
+		ModuleDelayedHandle.Reset();
 	}
 
 	// Set new tick
@@ -603,12 +605,21 @@ void FPythonScriptPlugin::ModulesChangedDelayedNotify()
 			ModuleDelayedHandle.Reset();
 
 			// Call the event now that the delay has passed.
-			OnModulesChangedDelayedNotify();
+			GenerateStubCode();
 
 			// Don't reschedule to run again.
 			return false;
 		}),
 		Delay);
+}
+
+void FPythonScriptPlugin::GenerateStubCode()
+{
+	if (GetDefault<UPythonScriptPluginSettings>()->bDeveloperMode)
+	{
+		// Generate stub code if developer mode enabled
+		FPyWrapperTypeRegistry::Get().GenerateStubCodeForWrappedTypes();
+	}
 }
 
 void FPythonScriptPlugin::Tick(const float InDeltaTime)
@@ -636,6 +647,11 @@ void FPythonScriptPlugin::Tick(const float InDeltaTime)
 		{
 			HandlePythonExecCommand(*StartupScript);
 		}
+
+#if WITH_EDITOR
+		// Register to generate stub code after a short delay
+		RequestStubCodeGeneration();
+#endif	// WITH_EDITOR
 	}
 
 	FPyWrapperTypeReinstancer::Get().ProcessPending();
@@ -877,30 +893,21 @@ void FPythonScriptPlugin::OnModulesChanged(FName InModuleName, EModuleChangeReas
 	case EModuleChangeReason::ModuleLoaded:
 		FPyWrapperTypeRegistry::Get().GenerateWrappedTypesForModule(InModuleName);
 #if WITH_EDITOR
-		// Register to generate stub code after delay or reset delay.
-		ModulesChangedDelayedNotify();
+		// Register to generate stub code after a short delay
+		RequestStubCodeGeneration();
 #endif	// WITH_EDITOR
 		break;
 
 	case EModuleChangeReason::ModuleUnloaded:
 		FPyWrapperTypeRegistry::Get().OrphanWrappedTypesForModule(InModuleName);
 #if WITH_EDITOR
-		// Register to generate stub code after delay or reset delay.
-		ModulesChangedDelayedNotify();
+		// Register to generate stub code after a short delay
+		RequestStubCodeGeneration();
 #endif	// WITH_EDITOR
 		break;
 
 	default:
 		break;
-	}
-}
-
-void FPythonScriptPlugin::OnModulesChangedDelayedNotify()
-{
-	if (GetDefault<UPythonScriptPluginSettings>()->bDeveloperMode)
-	{
-		// Generate stub code if developer mode enabled
-		FPyWrapperTypeRegistry::Get().GenerateStubCodeForWrappedTypes();
 	}
 }
 

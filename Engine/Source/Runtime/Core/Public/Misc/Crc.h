@@ -124,7 +124,13 @@ inline uint32 FCrc::Strihash_DEPRECATED(const WIDECHAR* Data)
 	uint32 Hash=0;
 	while( *Data )
 	{
+#if !PLATFORM_TCHAR_IS_4_BYTES
+		// for 2 byte wide chars use ansi toupper() if it's not an actual wide char (upper byte == 0)
+		// towupper() is painfully slow on Switch ATM.
+		WIDECHAR Ch = (*Data & 0xFF00) ? TChar<WIDECHAR>::ToUpper(*Data++) : TChar<ANSICHAR>::ToUpper(*Data++);
+#else
 		WIDECHAR Ch = TChar<WIDECHAR>::ToUpper(*Data++);
+#endif
 		uint16  B  = Ch;
 		Hash     = ((Hash >> 8) & 0x00FFFFFF) ^ CRCTable_DEPRECATED[(Hash ^ B) & 0x000000FF];
 		B        = Ch>>8;

@@ -1,6 +1,8 @@
 ﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LiveLinkBlueprintLibrary.h"
+#include "Features/IModularFeatures.h"
+#include "ILiveLinkClient.h"
 
 void ULiveLinkBlueprintLibrary::GetCurves(UPARAM(ref) FSubjectFrameHandle& SubjectFrameHandle, TMap<FName, float>& Curves)
 {
@@ -61,3 +63,60 @@ void ULiveLinkBlueprintLibrary::GetChildren(UPARAM(ref) FLiveLinkTransform& Live
 {
 	LiveLinkTransform.GetChildren(Children);
 };
+
+bool ULiveLinkBlueprintLibrary::IsSourceStillValid(UPARAM(ref) FLiveLinkSourceHandle& SourceHandle)
+{
+	return SourceHandle.SourcePointer.IsValid() && SourceHandle.SourcePointer->IsSourceStillValid();
+};
+
+bool ULiveLinkBlueprintLibrary::RequestShutdown(UPARAM(ref) FLiveLinkSourceHandle& SourceHandle)
+{
+	bool bSourceShutdown = SourceHandle.SourcePointer.IsValid() && SourceHandle.SourcePointer->RequestSourceShutdown();
+	if (bSourceShutdown)
+	{
+		IModularFeatures& ModularFeatures = IModularFeatures::Get();
+
+		if (ModularFeatures.IsModularFeatureAvailable(ILiveLinkClient::ModularFeatureName))
+		{
+			ILiveLinkClient* LiveLinkClient = &ModularFeatures.GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName);
+			LiveLinkClient->RemoveSource(SourceHandle.SourcePointer);
+		}
+	}
+	return bSourceShutdown;
+}
+
+FText ULiveLinkBlueprintLibrary::GetSourceStatus(UPARAM(ref) FLiveLinkSourceHandle& SourceHandle)
+{
+	if (SourceHandle.SourcePointer.IsValid())
+	{
+		return SourceHandle.SourcePointer->GetSourceStatus();
+	}
+	else
+	{
+		return FText::GetEmpty();
+	}
+}
+
+FText ULiveLinkBlueprintLibrary::GetSourceType(UPARAM(ref) FLiveLinkSourceHandle& SourceHandle)
+{
+	if (SourceHandle.SourcePointer.IsValid())
+	{
+		return SourceHandle.SourcePointer->GetSourceType();
+	}
+	else
+	{
+		return FText::GetEmpty();
+	}
+}
+
+FText ULiveLinkBlueprintLibrary::GetSourceMachineName(UPARAM(ref) FLiveLinkSourceHandle& SourceHandle)
+{
+	if (SourceHandle.SourcePointer.IsValid())
+	{
+		return SourceHandle.SourcePointer->GetSourceMachineName();
+	}
+	else
+	{
+		return FText::GetEmpty();
+	}
+}

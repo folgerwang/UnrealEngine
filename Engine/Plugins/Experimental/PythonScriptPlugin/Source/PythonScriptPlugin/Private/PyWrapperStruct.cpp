@@ -954,6 +954,35 @@ PyTypeObject InitializePyWrapperStructType()
 			return (PyObject*)FPyWrapperStructFactory::Get().CreateInstance(InSelf->ScriptStruct, InSelf->StructInstance, FPyWrapperOwnerContext(), EPyConversionMethod::Copy);
 		}
 
+		static PyObject* Assign(FPyWrapperStruct* InSelf, PyObject* InArgs)
+		{
+			if (!FPyWrapperStruct::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
+			PyObject* PyObj = nullptr;
+			if (!PyArg_ParseTuple(InArgs, "O:assign", &PyObj))
+			{
+				return nullptr;
+			}
+			check(PyObj);
+
+			FPyWrapperStructPtr PyStruct = FPyWrapperStructPtr::StealReference(FPyWrapperStruct::CastPyObject(PyObj, Py_TYPE(InSelf)));
+			if (!PyStruct)
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Cannot cast type '%s' to '%s'"), *PyUtil::GetFriendlyTypename(PyObj), *PyUtil::GetFriendlyTypename(InSelf)));
+				return nullptr;
+			}
+
+			if (PyStruct && ensureAlways(PyStruct->ScriptStruct->IsChildOf(InSelf->ScriptStruct)))
+			{
+				InSelf->ScriptStruct->CopyScriptStruct(InSelf->StructInstance, PyStruct->StructInstance);
+			}
+
+			Py_RETURN_NONE;
+		}
+
 		static PyObject* ToTuple(FPyWrapperStruct* InSelf)
 		{
 			return FPyWrapperStruct::BreakStruct(InSelf);
@@ -1079,6 +1108,7 @@ PyTypeObject InitializePyWrapperStructType()
 		{ "static_struct", PyCFunctionCast(&FMethods::StaticStruct), METH_NOARGS | METH_CLASS, "X.static_struct() -> Struct -- get the Unreal struct of this type" },
 		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> struct -- copy this Unreal struct" },
 		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> struct -- copy this Unreal struct" },
+		{ "assign", PyCFunctionCast(&FMethods::Assign), METH_VARARGS, "x.assign(object) -> None -- assign the value of this Unreal struct to value of the given object" },
 		{ "to_tuple", PyCFunctionCast(&FMethods::ToTuple), METH_NOARGS, "x.to_tuple() -> tuple -- break this Unreal struct into a tuple of its properties" },
 		{ "get_editor_property", PyCFunctionCast(&FMethods::GetEditorProperty), METH_VARARGS | METH_KEYWORDS, "x.get_editor_property(name) -> object -- get the value of any property visible to the editor" },
 		{ "set_editor_property", PyCFunctionCast(&FMethods::SetEditorProperty), METH_VARARGS | METH_KEYWORDS, "x.set_editor_property(name, value) -> None -- set the value of any property visible to the editor, ensuring that the pre/post change notifications are called" },

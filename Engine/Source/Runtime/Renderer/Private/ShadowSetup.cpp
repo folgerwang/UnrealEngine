@@ -187,6 +187,12 @@ static TAutoConsoleVariable<float> CVarShadowTexelsPerPixelSpotlight(
 	TEXT("The ratio of subject pixels to shadow texels for spotlights"),
 	ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<float> CVarShadowTexelsPerPixelRectlight(
+	TEXT("r.Shadow.TexelsPerPixelRectlight"),
+	1.27324f,
+	TEXT("The ratio of subject pixels to shadow texels for rect lights"),
+	ECVF_RenderThreadSafe);
+
 static TAutoConsoleVariable<int32> CVarPreShadowFadeResolution(
 	TEXT("r.Shadow.PreShadowFadeResolution"),
 	16,
@@ -504,6 +510,7 @@ FProjectedShadowInfo::FProjectedShadowInfo()
 	, bPreShadow(false)
 	, bSelfShadowOnly(false)
 	, bPerObjectOpaqueShadow(false)
+	, bTransmission(false)
 	, LightSceneInfo(0)
 	, ParentSceneInfo(0)
 	, ShaderDepthBias(0.0f)
@@ -540,6 +547,7 @@ bool FProjectedShadowInfo::SetupPerObjectProjection(
 	bTranslucentShadow = bInTranslucentShadow;
 	bPreShadow = bInPreShadow;
 	bSelfShadowOnly = InParentSceneInfo->Proxy->CastsSelfShadowOnly();
+	bTransmission = InLightSceneInfo->Proxy->Transmission();
 
 	check(!bRayTracedDistanceField);
 
@@ -660,6 +668,7 @@ void FProjectedShadowInfo::SetupWholeSceneProjection(
 	bOnePassPointLightShadow = Initializer.bOnePassPointLightShadow;
 	bRayTracedDistanceField = Initializer.bRayTracedDistanceField;
 	bWholeSceneShadow = true;
+	bTransmission = InLightSceneInfo->Proxy->Transmission();
 	bReflectiveShadowmap = bInReflectiveShadowMap; 
 	BorderSize = InBorderSize;
 
@@ -1906,6 +1915,7 @@ void ComputeWholeSceneShadowCacheModes(
 	switch (LightSceneInfo->Proxy->GetLightType())
 	{
 	case LightType_Point:
+	case LightType_Rect:
 		NumCachesUpdatedThisFrame = &InOutNumPointShadowCachesUpdatedThisFrame;
 		MaxCacheUpdatesAllowed = static_cast<uint32>(GMaxNumPointShadowCacheUpdatesPerFrame);
 		break;
@@ -2207,6 +2217,9 @@ void FSceneRenderer::CreateWholeSceneProjectedShadow(
 				break;
 			case LightType_Spot:
 				UnclampedResolution = ScreenRadius * CVarShadowTexelsPerPixelSpotlight.GetValueOnRenderThread();
+				break;
+			case LightType_Rect:
+				UnclampedResolution = ScreenRadius * CVarShadowTexelsPerPixelRectlight.GetValueOnRenderThread();
 				break;
 			default:
 				// directional lights are not handled here
@@ -3866,7 +3879,7 @@ void FSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList)
 				{
 					static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
 					const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnRenderThread() != 0);
-
+					const bool bPointLightShadow = LightSceneInfoCompact.LightType == LightType_Point || LightSceneInfoCompact.LightType == LightType_Rect;
 
 					// Only create whole scene shadows for lights that don't precompute shadowing (movable lights)
 					const bool bShouldCreateShadowForMovableLight = 
@@ -3875,7 +3888,7 @@ void FSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList)
 
 					const bool bCreateShadowForMovableLight = 
 						bShouldCreateShadowForMovableLight
-						&& (LightSceneInfoCompact.LightType != LightType_Point || bProjectEnablePointLightShadows);
+						&& (bPointLightShadow || bProjectEnablePointLightShadows);
 
 					// Also create a whole scene shadow for lights with precomputed shadows that are unbuilt
 					const bool bShouldCreateShadowToPreviewStaticLight =
@@ -3885,7 +3898,7 @@ void FSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList)
 
 					const bool bCreateShadowToPreviewStaticLight = 
 						bShouldCreateShadowToPreviewStaticLight						
-						&& (LightSceneInfoCompact.LightType != LightType_Point || bProjectEnablePointLightShadows);
+						&& (bPointLightShadow || bProjectEnablePointLightShadows);
 
 					// Create a whole scene shadow for lights that want static shadowing but didn't get assigned to a valid shadowmap channel due to overlap
 					const bool bShouldCreateShadowForOverflowStaticShadowing =
@@ -3897,9 +3910,9 @@ void FSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList)
 
 					const bool bCreateShadowForOverflowStaticShadowing =
 						bShouldCreateShadowForOverflowStaticShadowing
-						&& (LightSceneInfoCompact.LightType != LightType_Point || bProjectEnablePointLightShadows);
+						&& (bPointLightShadow || bProjectEnablePointLightShadows);
 
-					const bool bPointLightWholeSceneShadow = (bShouldCreateShadowForMovableLight || bShouldCreateShadowForOverflowStaticShadowing || bShouldCreateShadowToPreviewStaticLight) && LightSceneInfoCompact.LightType == LightType_Point;
+					const bool bPointLightWholeSceneShadow = (bShouldCreateShadowForMovableLight || bShouldCreateShadowForOverflowStaticShadowing || bShouldCreateShadowToPreviewStaticLight) && bPointLightShadow;
 					if (bPointLightWholeSceneShadow)
 					{						
 						UsedWholeScenePointLightNames.Add(LightSceneInfoCompact.LightSceneInfo->Proxy->GetComponentName());

@@ -489,6 +489,11 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
             RenderPipelineDesc.SetVertexDescriptor(GetMaskedVertexDescriptor(VertexDecl->Layout.VertexDesc, VertexShader->Bindings.InOutMask));
             RenderPipelineDesc.SetVertexFunction(vertexFunction);
             RenderPipelineDesc.SetFragmentFunction(fragmentFunction);
+#if ENABLE_METAL_GPUPROFILE
+			ns::String VertexName = vertexFunction.GetName();
+			ns::String FragmentName = fragmentFunction ? fragmentFunction.GetName() : @"";
+			RenderPipelineDesc.SetLabel([NSString stringWithFormat:@"%@ : %@", VertexName.GetPtr(), FragmentName.GetPtr()]);
+#endif
         }
         else
         {
@@ -505,6 +510,13 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
             
             RenderPipelineDesc.SetVertexFunction(domainFunction);
             RenderPipelineDesc.SetFragmentFunction(fragmentFunction);
+#if ENABLE_METAL_GPUPROFILE
+			{
+				ns::String VertexName = domainFunction.GetName();
+				ns::String FragmentName = fragmentFunction ? fragmentFunction.GetName() : @"";
+				RenderPipelineDesc.SetLabel([NSString stringWithFormat:@"%@ : %@", VertexName.GetPtr(), FragmentName.GetPtr()]);
+			}
+#endif
             
 			ComputePipelineDesc = mtlpp::ComputePipelineDescriptor();
             check(ComputePipelineDesc);
@@ -643,12 +655,19 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
                 ComputeStageInOut.SetIndexType(GetMetalIndexType(IndexType));
             }
 			ComputePipelineDesc.SetStageInputDescriptor(ComputeStageInOut);
-            
+			
             {
+				METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewComputePipelineState: %s"), TEXT("")/**FString([ComputePipelineDesc.GetPtr() description])*/)));
 				ns::AutoReleasedError AutoError;
 				NSUInteger ComputeOption = mtlpp::PipelineOption::NoPipelineOption;
+#if ENABLE_METAL_GPUPROFILE
+				{
+					ns::String VertexName = vertexFunction.GetName();
+					RenderPipelineDesc.SetLabel([NSString stringWithFormat:@"%@", VertexName.GetPtr()]);
+				}
+#endif
 #if METAL_DEBUG_OPTIONS
-				if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
+				if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation METAL_STATISTIC(|| GetMetalDeviceContext().GetCommandQueue().GetStatistics()))
 				{
 					mtlpp::AutoReleasedComputePipelineReflection Reflection;
 					ComputeOption = mtlpp::PipelineOption::ArgumentInfo|mtlpp::PipelineOption::BufferTypeInfo;
@@ -772,21 +791,24 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 #if METAL_DEBUG_OPTIONS
 		mtlpp::AutoReleasedRenderPipelineReflection OutReflection;
 		Reflection = &OutReflection;
-        if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
+        if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation METAL_STATISTIC(|| GetMetalDeviceContext().GetCommandQueue().GetStatistics()))
         {
         	RenderOption = mtlpp::PipelineOption::ArgumentInfo|mtlpp::PipelineOption::BufferTypeInfo;
         }
 #endif
 
-		ns::AutoReleasedError RenderError;
-		Pipeline->RenderPipelineState = Device.NewRenderPipelineState(RenderPipelineDesc, (mtlpp::PipelineOption)RenderOption, Reflection, &RenderError);
-#if METAL_DEBUG_OPTIONS
-		if (Reflection)
 		{
-			Pipeline->RenderPipelineReflection = *Reflection;
-		}
+			ns::AutoReleasedError RenderError;
+			METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewRenderPipeline: %s"), TEXT("")/**FString([RenderPipelineDesc.GetPtr() description])*/)));
+			Pipeline->RenderPipelineState = Device.NewRenderPipelineState(RenderPipelineDesc, (mtlpp::PipelineOption)RenderOption, Reflection, &RenderError);
+#if METAL_DEBUG_OPTIONS
+			if (Reflection)
+			{
+				Pipeline->RenderPipelineReflection = *Reflection;
+			}
 #endif
-		Error = RenderError;
+			Error = RenderError;
+		}
 		
 		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Failed to generate a pipeline state object: %s"), *FString(Error.GetPtr().description));
 		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Vertex shader: %s"), *FString(VertexShader->GetSourceCode()));

@@ -11,8 +11,9 @@
 #include "IMediaView.h"
 
 #include "HAL/CriticalSection.h"
+#include "Misc/CoreMisc.h"
 
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 class FMediaIOCoreSamples;
 class IMediaEventSink;

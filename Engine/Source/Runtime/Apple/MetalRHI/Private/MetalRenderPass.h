@@ -88,6 +88,11 @@ public:
 
 #pragma mark - Public Debug Support -
 	
+    /*
+     * Inserts a debug compute encoder into the command buffer. This is how we generate a timestamp when no encoder exists.
+     */
+    void InsertDebugEncoder();
+	
 	/*
 	 * Inserts a debug string into the command buffer.  This does not change any API behavior, but can be useful when debugging.
 	 * @param string The name of the signpost. 

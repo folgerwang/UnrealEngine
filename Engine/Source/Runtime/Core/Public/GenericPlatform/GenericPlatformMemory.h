@@ -502,6 +502,13 @@ public:
 	*/
 	static bool GetLLMAllocFunctions(void*(*&OutAllocFunction)(size_t), void(*&OutFreeFunction)(void*, size_t), int32& OutAlignment);
 
+	/**
+	* Called for all default tracker LLM allocations and frees, when LLM is enabled.
+	* Provides a single alloc/free hook that platforms can implement to support platform specific memory analysis tools.
+	*/
+	FORCEINLINE static void OnLowLevelMemory_Alloc(void const* Pointer, uint64 Size, uint64 Tag) { }
+	FORCEINLINE static void OnLowLevelMemory_Free(void const* Pointer, uint64 Size, uint64 Tag) { }
+
 protected:
 	friend struct FGenericStatsUpdater;
 

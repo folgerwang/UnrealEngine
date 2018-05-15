@@ -290,9 +290,9 @@ void USceneCaptureComponent::SetCaptureSortPriority(int32 NewCaptureSortPriority
 
 FSceneViewStateInterface* USceneCaptureComponent::GetViewState(int32 ViewIndex)
 {
-	if (ViewIndex >= ViewStates.Num())
+	while (ViewIndex >= ViewStates.Num())
 	{
-		ViewStates.AddZeroed(ViewIndex - ViewStates.Num() + 1);
+		ViewStates.Add(new FSceneViewStateReference());
 	}
 
 	FSceneViewStateInterface* ViewStateInterface = ViewStates[ViewIndex].GetReference();

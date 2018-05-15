@@ -106,6 +106,10 @@ public:
 		OutTexture.Bind(Initializer.ParameterMap, TEXT("OutTexture"));
 		NumLights.Bind(Initializer.ParameterMap, TEXT("NumLights"));
 		ViewDimensions.Bind(Initializer.ParameterMap, TEXT("ViewDimensions"));
+		LTCMatTexture.Bind(Initializer.ParameterMap, TEXT("LTCMatTexture"));
+		LTCMatSampler.Bind(Initializer.ParameterMap, TEXT("LTCMatSampler"));
+		LTCAmpTexture.Bind(Initializer.ParameterMap, TEXT("LTCAmpTexture"));
+		LTCAmpSampler.Bind(Initializer.ParameterMap, TEXT("LTCAmpSampler"));
 	}
 
 	FTiledDeferredLightingCS()
@@ -137,6 +141,24 @@ public:
 		OutTexture.SetTexture(RHICmdList, ShaderRHI, 0, OutUAV);
 
 		SetShaderValue(RHICmdList, ShaderRHI, ViewDimensions, View.ViewRect);
+
+		SetTextureParameter(
+			RHICmdList, 
+			ShaderRHI,
+			LTCMatTexture,
+			LTCMatSampler,
+			TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
+			GSystemTextures.LTCMat->GetRenderTargetItem().ShaderResourceTexture
+			);
+
+		SetTextureParameter(
+			RHICmdList, 
+			ShaderRHI,
+			LTCAmpTexture,
+			LTCAmpSampler,
+			TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
+			GSystemTextures.LTCAmp->GetRenderTargetItem().ShaderResourceTexture
+			);
 
 		static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
 		const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnRenderThread() != 0);
@@ -231,6 +253,10 @@ public:
 		Ar << InTexture;
 		Ar << NumLights;
 		Ar << ViewDimensions;
+		Ar << LTCMatTexture;
+		Ar << LTCMatSampler;
+		Ar << LTCAmpTexture;
+		Ar << LTCAmpSampler;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -251,6 +277,10 @@ private:
 	FRWShaderParameter OutTexture;
 	FShaderParameter NumLights;
 	FShaderParameter ViewDimensions;
+	FShaderResourceParameter LTCMatTexture;
+	FShaderResourceParameter LTCMatSampler;
+	FShaderResourceParameter LTCAmpTexture;
+	FShaderResourceParameter LTCAmpSampler;
 };
 
 // #define avoids a lot of code duplication

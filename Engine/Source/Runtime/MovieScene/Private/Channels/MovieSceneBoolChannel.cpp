@@ -3,7 +3,7 @@
 #include "Channels/MovieSceneBoolChannel.h"
 #include "Channels/MovieSceneChannelProxy.h"
 #include "Curves/IntegralCurve.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "MovieSceneFwd.h"
 #include "MovieSceneFrameMigration.h"
 
