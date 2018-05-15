@@ -224,14 +224,48 @@ FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFor
 				D3D12_RESOURCE_STATE_PRESENT);
 		}
 
-		// create the render target view
-		D3D12_RENDER_TARGET_VIEW_DESC RTVDesc = {};
-		RTVDesc.Format = BackBufferDesc.Format;
-		RTVDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-		RTVDesc.Texture2D.MipSlice = 0;
+		FD3D12RenderTargetView* BackBufferRenderTargetView = nullptr;
+		FD3D12RenderTargetView* BackBufferRenderTargetViewRight = nullptr; // right eye RTV
 
-		FD3D12RenderTargetView* BackBufferRenderTargetView = new FD3D12RenderTargetView(Device, RTVDesc, NewTexture->ResourceLocation);
-		NewTexture->SetRenderTargetView(BackBufferRenderTargetView);
+		// active stereoscopy initialization
+		FD3D12DynamicRHI* rhi = Parent->GetOwningRHI();
+
+		if (rhi->IsQuadBufferStereoEnabled())
+		{
+			// left
+			D3D12_RENDER_TARGET_VIEW_DESC RTVDescLeft = {};
+			RTVDescLeft.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+			RTVDescLeft.Format = BackBufferDesc.Format;
+			RTVDescLeft.Texture2DArray.MipSlice = 0;
+			RTVDescLeft.Texture2DArray.FirstArraySlice = 0;
+			RTVDescLeft.Texture2DArray.ArraySize = 1;
+
+			// right
+			D3D12_RENDER_TARGET_VIEW_DESC RTVDescRight = {};
+			RTVDescRight.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+			RTVDescRight.Format = BackBufferDesc.Format;
+			RTVDescRight.Texture2DArray.MipSlice = 0;
+			RTVDescRight.Texture2DArray.FirstArraySlice = 1;
+			RTVDescRight.Texture2DArray.ArraySize = 1;
+
+			BackBufferRenderTargetView = new FD3D12RenderTargetView(Device, RTVDescLeft, NewTexture->ResourceLocation);
+			BackBufferRenderTargetViewRight = new FD3D12RenderTargetView(Device, RTVDescRight, NewTexture->ResourceLocation);
+
+			NewTexture->SetNumRenderTargetViews(2);
+			NewTexture->SetRenderTargetViewIndex(BackBufferRenderTargetView, 0);
+			NewTexture->SetRenderTargetViewIndex(BackBufferRenderTargetViewRight, 1);
+		}
+		else
+		{
+			// create the render target view
+			D3D12_RENDER_TARGET_VIEW_DESC RTVDesc = {};
+			RTVDesc.Format = BackBufferDesc.Format;
+			RTVDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+			RTVDesc.Texture2D.MipSlice = 0;
+
+			BackBufferRenderTargetView = new FD3D12RenderTargetView(Device, RTVDesc, NewTexture->ResourceLocation);
+			NewTexture->SetRenderTargetView(BackBufferRenderTargetView);
+		}
 
 		// create a shader resource view to allow using the backbuffer as a texture
 		D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
@@ -725,7 +759,7 @@ FViewportRHIRef FD3D12DynamicRHI::RHICreateViewport(void* WindowHandle, uint32 S
 	if (PreferredPixelFormat == EPixelFormat::PF_Unknown)
 	{
 		static const auto CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
-		PreferredPixelFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(CVarDefaultBackBufferPixelFormat->GetValueOnGameThread());
+		PreferredPixelFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnGameThread()));
 	}
 
 	FD3D12Viewport* RenderingViewport = new FD3D12Viewport(&GetAdapter(), (HWND)WindowHandle, SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
@@ -749,7 +783,7 @@ void FD3D12DynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI, uint3
 	if (PreferredPixelFormat == EPixelFormat::PF_Unknown)
 	{
 		static const auto CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
-		PreferredPixelFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(CVarDefaultBackBufferPixelFormat->GetValueOnGameThread());
+		PreferredPixelFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnGameThread()));
 	}
 
 	FD3D12Viewport* Viewport = FD3D12DynamicRHI::ResourceCast(ViewportRHI);

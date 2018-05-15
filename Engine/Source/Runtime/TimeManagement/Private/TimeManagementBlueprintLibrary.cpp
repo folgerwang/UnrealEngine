@@ -2,8 +2,7 @@
 
 #include "TimeManagementBlueprintLibrary.h"
 
-#include "ITimeManagementModule.h"
-#include "ITimecodeProvider.h"
+#include "Misc/App.h"
 
 float UTimeManagementBlueprintLibrary::Conv_FrameRateToSeconds(const FFrameRate& InFrameRate)
 {
@@ -27,16 +26,7 @@ FString UTimeManagementBlueprintLibrary::Conv_TimecodeToString(const FTimecode& 
 	return InTimecode.ToString(bForceSignDisplay);
 }
 
-bool UTimeManagementBlueprintLibrary::GetTimecode(FTimecode& OutTimecode)
+FTimecode UTimeManagementBlueprintLibrary::GetTimecode()
 {
-	bool bResult = false;
-	if (const ITimecodeProvider* Manager = ITimeManagementModule::Get().GetTimecodeProvider())
-	{
-		bResult = Manager->IsSynchronized();
-		if (bResult)
-		{
-			OutTimecode = Manager->GetCurrentTimecode();
-		}
-	}
-	return bResult;
+	return FApp::GetTimecode();
 }

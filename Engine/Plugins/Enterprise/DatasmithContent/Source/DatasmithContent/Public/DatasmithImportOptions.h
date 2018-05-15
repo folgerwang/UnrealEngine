@@ -118,9 +118,11 @@ struct DATASMITHCONTENT_API FDatasmithStaticMeshImportOptions
 
 	FDatasmithStaticMeshImportOptions();
 
+	/** Minimum resolution for auto-generated lightmap UVs */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lightmap)
 	EDatasmithImportLightmapMin MinLightmapResolution;
 
+	/** Maximum resolution for auto-generated lightmap UVs */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lightmap)
 	EDatasmithImportLightmapMax MaxLightmapResolution;
 
@@ -145,11 +147,11 @@ struct DATASMITHCONTENT_API FDatasmithReimportOptions
 public:
 	FDatasmithReimportOptions();
 
-	/** Specifies whether geometry are to be imported or not */
+	/** Specifies whether or not to update Datasmith Scene Actors in the current Level */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SyncCurrentLevelActors", meta = (DisplayName = "Datasmith Scene Actors"))
 	bool bUpdateActors;
 
-	/** Specifies whether materials and textures are to be imported or not */
+	/** Specifies whether or not to add back Actors you've deleted from the current Level */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SyncCurrentLevelActors", meta = (DisplayName = "Re-Spawn Deleted Actors", EditCondition = "bUpdateActors"))
 	bool bRespawnDeletedActors;
 };
@@ -165,19 +167,19 @@ struct DATASMITHCONTENT_API FDatasmithImportBaseOptions
 	UPROPERTY(BlueprintReadWrite, Category = Import, Transient)
 	EDatasmithImportScene SceneHandling; // Not displayed, not saved
 
-	/** Specifies whether geometry are to be imported or not */
+	/** Specifies whether or not to import geometry */
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Geometry"))
 	bool bIncludeGeometry;
 
-	/** Specifies whether materials and textures are to be imported or not */
+	/** Specifies whether or not to import materials and textures */
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Materials & Textures"))
 	bool bIncludeMaterial;
 
-	/** Specifies whether lights are to be imported or not */
+	/** Specifies whether or not to import lights */
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Lights"))
 	bool bIncludeLight;
 
-	/** Specifies whether cameras are to be imported or not */
+	/** Specifies whether or not to import cameras */
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Cameras"))
 	bool bIncludeCamera;
 
@@ -206,7 +208,7 @@ struct DATASMITHCONTENT_API FDatasmithTessellationOptions
 	 * The lower the value the more triangles.
 	 * Default value is 0.2.
 	 */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "Geometry & Tessellation Options", meta = (Units = cm, ToolTip = "Maximum distance between a generated triangle and the original surface. Smaller values increase triangles count.", ClampMin = "0.0"))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "Geometry & Tessellation Options", meta = (Units = cm, ToolTip = "Maximum distance between any generated triangle and the original surface. Smaller values make more triangles.", ClampMin = "0.0"))
 	float ChordTolerance;
 
 	/**
@@ -215,7 +217,7 @@ struct DATASMITHCONTENT_API FDatasmithTessellationOptions
 	 * Value of 0 means no constraint on length of edges
 	 * Default value is 0.
 	 */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "Geometry & Tessellation Options", meta = (Units = cm, DisplayName = "Max Edge Length", ToolTip = "Maximum length of an edge in the generated triangles. Smaller values increase triangles count.", ClampMin = "0.0"))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "Geometry & Tessellation Options", meta = (Units = cm, DisplayName = "Max Edge Length", ToolTip = "Maximum length of any edge in the generated triangles. Smaller values make more triangles.", ClampMin = "0.0"))
 	float MaxEdgeLength;
 
 	/**
@@ -223,7 +225,7 @@ struct DATASMITHCONTENT_API FDatasmithTessellationOptions
 	 * The angle is expressed in degree. The smaller the more triangles are generated.
 	 * Default value is 20 degrees.
 	 */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "Geometry & Tessellation Options", meta = (Units = deg, ToolTip = "Maximum angle between adjacent triangles generated from a surface. Smaller values increase triangles count.", ClampMin = "0.0", ClampMax = "90.0"))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "Geometry & Tessellation Options", meta = (Units = deg, ToolTip = "Maximum angle between adjacent triangles. Smaller values make more triangles.", ClampMin = "0.0", ClampMax = "90.0"))
 	float NormalTolerance;
 
 public:

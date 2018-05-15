@@ -840,6 +840,19 @@ namespace PyGenUtil
 		Upper,
 	};
 
+	/** Flags controlling the behavior of PythonizeValue */
+	namespace EPythonizeValueFlags
+	{
+		enum EFlags
+		{
+			None = 0,
+			IncludeUnrealNamespace = 1<<0,
+			UseStrictTyping = 1<<1,
+			DefaultConstructStructs = 1<<2,
+			DefaultConstructDateTime = 1<<3,
+		};
+	};
+
 	/** Context information passed to PythonizeTooltip */
 	struct FPythonizeTooltipContext
 	{
@@ -958,10 +971,10 @@ namespace PyGenUtil
 	FString PythonizeTooltip(const FString& InTooltip, const FPythonizeTooltipContext& InContext = FPythonizeTooltipContext());
 
 	/** Given a property and its value, convert it into something that could be used in a Python script */
-	FString PythonizeValue(const UProperty* InProp, const void* InPropValue, const bool InIncludeUnrealNamespace = false, const bool InUseStrictTyping = false);
+	FString PythonizeValue(const UProperty* InProp, const void* InPropValue, const uint32 InFlags = EPythonizeValueFlags::None);
 
 	/** Given a property and its default value, convert it into something that could be used in a Python script */
-	FString PythonizeDefaultValue(const UProperty* InProp, const FString& InDefaultValue, const bool InIncludeUnrealNamespace = false, const bool InUseStrictTyping = false);
+	FString PythonizeDefaultValue(const UProperty* InProp, const FString& InDefaultValue, const uint32 InFlags = EPythonizeValueFlags::None);
 
 	/** Get the native module the given field belongs to */
 	FString GetFieldModule(const UField* InField);
@@ -1040,6 +1053,9 @@ namespace PyGenUtil
 
 	/** Append the doc string for the C++ source information of the given type to the given string */
 	void AppendCppSourceInformationDocString(const UField* InOwnerType, FString& OutStr);
+
+	/** Save a generated text file to disk as UTF-8 (only writes the file if the contents differs, unless forced) */
+	bool SaveGeneratedTextFile(const TCHAR* InFilename, const FString& InFileContents, const bool InForceWrite = false);
 }
 
 #endif	// WITH_PYTHON

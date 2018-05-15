@@ -65,6 +65,13 @@ public:
 		/** Duration of the replay networking portion of the frame. Can happen in a separate thread (not on servers). */
 		double DemoDriverTickFlushTimeSeconds;
 
+		/** Total time spent flushing async loading on the game thread this frame. */
+		double FlushAsyncLoadingTime;
+		/** Total number of times FlushAsyncLoading() was called this frame. */
+		uint32 FlushAsyncLoadingCount;
+		/** The number of sync loads performed in this frame. */
+		uint32 SyncLoadCount;
+
 		// Should this frame be considered for histogram generation (controlled by t.FPSChart.MaxFrameDeltaSecsBeforeDiscarding)
 		bool bBinThisFrame;
 
@@ -89,6 +96,9 @@ public:
 			, GPUTimeSeconds(0.0)
 			, GameDriverTickFlushTimeSeconds(0.0)
 			, DemoDriverTickFlushTimeSeconds(0.0)
+			, FlushAsyncLoadingTime(0.0)
+			, FlushAsyncLoadingCount(0)
+			, SyncLoadCount(0)
 			, bBinThisFrame(false)
 			, bGameThreadBound(false)
 			, bRenderThreadBound(false)
@@ -134,6 +144,14 @@ public:
 	double TotalFrameTime_GameThread;
 	double TotalFrameTime_RenderThread;
 	double TotalFrameTime_GPU;
+
+	/** Total time spent flushing async loading (in seconds), and call count */
+	double TotalFlushAsyncLoadingTime;
+	int32  TotalFlushAsyncLoadingCalls;
+	double MaxFlushAsyncLoadingTime;
+
+	/** Total number of sync loads */
+	uint32 TotalSyncLoadCount;
 
 	/** Total number of hitches bound by each kind of thing */
 	int32 TotalGameThreadBoundHitchCount;
@@ -351,6 +369,13 @@ protected:
 	float AvgFPS;
 	float TimeDisregarded;
 	float AvgGPUFrameTime;
+
+	double TotalFlushAsyncLoadingTimeInMS;
+	int32  TotalFlushAsyncLoadingCalls;
+	double MaxFlushAsyncLoadingTimeInMS;
+	double AvgFlushAsyncLoadingTimeInMS;
+
+	int32 TotalSyncLoadCount;
 
 	float BoundGameThreadPct;
 	float BoundRenderThreadPct;

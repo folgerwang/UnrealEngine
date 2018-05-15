@@ -9,7 +9,7 @@
 #include "Rendering/RenderingCommon.h"
 #include "MovieSceneToolsUserSettings.h"
 #include "RHI.h"
-#include "FrameTime.h"
+#include "Misc/FrameTime.h"
 
 class FLevelEditorViewportClient;
 class FSceneViewport;

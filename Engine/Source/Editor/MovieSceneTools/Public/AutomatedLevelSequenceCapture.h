@@ -14,7 +14,8 @@ class FJsonObject;
 class FSceneViewport;
 class ULevelSequenceBurnInOptions;
 
-UCLASS(config=EditorSettings)
+
+UCLASS(config=EditorPerProjectUserSettings, PerObjectConfig)
 class MOVIESCENETOOLS_API UAutomatedLevelSequenceCapture : public UMovieSceneCapture
 {
 public:
@@ -22,43 +23,47 @@ public:
 
 	GENERATED_BODY()
 
-	/** Set the level sequence asset that we are to record. We will spawn a new actor at runtime for this asset for playback. */
-	void SetLevelSequenceAsset(FString InAssetPath);
+	/** This name is used by the UI to save/load a specific instance of the settings from config that doesn't affect the CDO which would affect scripting environments. */
+	static const FName AutomatedLevelSequenceCaptureUIName;
+
+	/** A level sequence asset to playback at runtime - used where the level sequence does not already exist in the world. */
+	UPROPERTY(BlueprintReadWrite, Category=Animation)
+	FSoftObjectPath LevelSequenceAsset;
 
 	/** When enabled, the StartFrame setting will override the default starting frame number */
-	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Animation, AdvancedDisplay)
 	bool bUseCustomStartFrame;
 
 	/** Frame number to start capturing. */
-	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomStartFrame", DisplayName="Start Frame"))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomStartFrame", DisplayName="Start Frame"))
 	FFrameNumber CustomStartFrame;
 
 	/** When enabled, the EndFrame setting will override the default ending frame number */
-	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Animation, AdvancedDisplay)
 	bool bUseCustomEndFrame;
 
 	/** Frame number to end capturing. */
-	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomEndFrame", DisplayName="End Frame"))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomEndFrame", DisplayName="End Frame"))
 	FFrameNumber CustomEndFrame;
 
 	/** The number of extra frames to play before the sequence's start frame, to "warm up" the animation.  This is useful if your
 	    animation contains particles or other runtime effects that are spawned into the scene earlier than your capture start frame */
-	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Animation, AdvancedDisplay)
 	int32 WarmUpFrameCount;
 
 	/** The number of seconds to wait (in real-time) before we start playing back the warm up frames.  Useful for allowing post processing effects to settle down before capturing the animation. */
-	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(Units=Seconds, ClampMin=0))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Animation, AdvancedDisplay, meta=(Units=Seconds, ClampMin=0))
 	float DelayBeforeWarmUp;
 
 	/** The number of seconds to wait (in real-time) at shot boundaries.  Useful for allowing post processing effects to settle down before capturing the animation. */
-	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(Units=Seconds, ClampMin=0))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Animation, AdvancedDisplay, meta=(Units=Seconds, ClampMin=0))
 	float DelayBeforeShotWarmUp;
 
-	UPROPERTY(EditAnywhere, Category=CaptureSettings, AdvancedDisplay, meta=(EditInline))
+	UPROPERTY(Transient, EditAnywhere, BlueprintReadWrite, Category=CaptureSettings, AdvancedDisplay, meta=(EditInline))
 	ULevelSequenceBurnInOptions* BurnInOptions;
 
 	/** Whether to write edit decision lists (EDLs) if the sequence contains shots */
-	UPROPERTY(config, EditAnywhere, Category=Sequence)
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Sequence)
 	bool bWriteEditDecisionList;
 
 	/** Whether to write Final Cut Pro XML files (XMLs) if the sequence contains shots */
@@ -131,9 +136,6 @@ private:
 
 	void PauseFinished();
 
-	/** A level sequence asset to playback at runtime - used where the level sequence does not already exist in the world. */
-	UPROPERTY()
-	FSoftObjectPath LevelSequenceAsset;
 
 	/** The pre-existing level sequence actor to use for capture that specifies playback settings */
 	UPROPERTY()

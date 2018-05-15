@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Misc/Guid.h"
-#include "Timecode.h"
+#include "Misc/Timecode.h"
 #include "Templates/SubclassOf.h"
 #include "Templates/Casts.h"
 #include "MovieSceneFwd.h"

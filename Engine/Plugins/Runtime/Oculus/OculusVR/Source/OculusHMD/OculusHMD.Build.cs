@@ -18,19 +18,19 @@ namespace UnrealBuildTool.Rules
 					"../../../../../Source/Runtime/Engine/Classes/Components",
 				});
 
-			if(Target.Platform == UnrealTargetPlatform.Android)
+			if (Target.Platform == UnrealTargetPlatform.Android)
 			{
 				PrivateIncludePaths.Add("../../../../../Source/Runtime/VulkanRHI/Private/Android");
 			}
-			else if(Target.Platform == UnrealTargetPlatform.Linux)
+			else if (Target.Platform == UnrealTargetPlatform.Linux)
 			{
 				PrivateIncludePaths.Add("../../../../../Source/Runtime/VulkanRHI/Private/Linux");
 			}
-			else if(Target.Platform == UnrealTargetPlatform.Quail)
+			else if (Target.Platform == UnrealTargetPlatform.Quail)
 			{
 				PrivateIncludePaths.Add("../../../../../Source/Runtime/VulkanRHI/Private/Quail");
 			}
-			else if(Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
+			else if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 			{
 				PrivateIncludePaths.Add("../../../../../Source/Runtime/VulkanRHI/Private/Windows");
 			}
@@ -81,7 +81,7 @@ namespace UnrealBuildTool.Rules
 					PrivateIncludePaths.AddRange(
 						new string[]
 						{
-                            "../../../../../Source/Runtime/Windows/D3D11RHI/Private",
+														"../../../../../Source/Runtime/Windows/D3D11RHI/Private",
 							"../../../../../Source/Runtime/Windows/D3D11RHI/Private/Windows",
 							"../../../../../Source/Runtime/D3D12RHI/Private",
 							"../../../../../Source/Runtime/D3D12RHI/Private/Windows",
@@ -97,39 +97,39 @@ namespace UnrealBuildTool.Rules
 
 				// Vulkan
 				{
-                    string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
-                    bool bSDKInstalled = !String.IsNullOrEmpty(VulkanSDKPath);
-                    bool bUseThirdParty = true;
-                    if (bSDKInstalled)
-                    {
-                        // Check if the installed SDK is newer or the same than the provided headers distributed with the Engine
-                        int ThirdPartyVersion = GetThirdPartyVersion();
-                        int SDKVersion = GetSDKVersion(VulkanSDKPath);
-                        if (SDKVersion >= ThirdPartyVersion)
-                        {
-                            // If the user has an installed SDK, use that instead
-                            PrivateIncludePaths.Add(VulkanSDKPath + "/Include");
-                            // Older SDKs have an extra subfolder
-                            PrivateIncludePaths.Add(VulkanSDKPath + "/Include/vulkan");
+					string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
+					bool bSDKInstalled = !String.IsNullOrEmpty(VulkanSDKPath);
+					bool bUseThirdParty = true;
+					if (bSDKInstalled)
+					{
+						// Check if the installed SDK is newer or the same than the provided headers distributed with the Engine
+						int ThirdPartyVersion = GetThirdPartyVersion();
+						int SDKVersion = GetSDKVersion(VulkanSDKPath);
+						if (SDKVersion >= ThirdPartyVersion)
+						{
+							// If the user has an installed SDK, use that instead
+							PrivateIncludePaths.Add(VulkanSDKPath + "/Include");
+							// Older SDKs have an extra subfolder
+							PrivateIncludePaths.Add(VulkanSDKPath + "/Include/vulkan");
 
-                            if (Target.Platform == UnrealTargetPlatform.Win32)
-                            {
-                                PublicLibraryPaths.Add(VulkanSDKPath + "/Source/lib32");
-                            }
-                            else
-                            {
-                                PublicLibraryPaths.Add(VulkanSDKPath + "/Source/lib");
-                            }
+							if (Target.Platform == UnrealTargetPlatform.Win32)
+							{
+								PublicLibraryPaths.Add(VulkanSDKPath + "/Source/lib32");
+							}
+							else
+							{
+								PublicLibraryPaths.Add(VulkanSDKPath + "/Source/lib");
+							}
 
-                            PublicAdditionalLibraries.Add("vulkan-1.lib");
-                            PublicAdditionalLibraries.Add("vkstatic.1.lib");
-                            bUseThirdParty = false;
-                        }
-                    }
-                    if (bUseThirdParty)
-                    {
-                        AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
-                    }
+							PublicAdditionalLibraries.Add("vulkan-1.lib");
+							PublicAdditionalLibraries.Add("vkstatic.1.lib");
+							bUseThirdParty = false;
+						}
+					}
+					if (bUseThirdParty)
+					{
+						AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
+					}
 				}
 
 				// OVRPlugin
@@ -151,7 +151,7 @@ namespace UnrealBuildTool.Rules
 						// Use NDK Vulkan header if discovered
 						PrivateIncludePaths.Add(NDKVulkanIncludePath);
 					}
-					else 
+					else
 					{
 						string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
 
@@ -176,56 +176,60 @@ namespace UnrealBuildTool.Rules
 			}
 		}
 
-        static int GetVersionFromString(string Text)
-        {
-            string Token = "#define VK_HEADER_VERSION ";
-            Int32 FoundIndex = Text.IndexOf(Token);
-            if (FoundIndex > 0)
-            {
-                string Version = Text.Substring(FoundIndex + Token.Length, 5);
-                int Index = 0;
-                while (Version[Index] >= '0' && Version[Index] <= '9')
-                {
-                    ++Index;
-                }
+		static int GetVersionFromString(string Text)
+		{
+			string Token = "#define VK_HEADER_VERSION ";
+			Int32 FoundIndex = Text.IndexOf(Token);
+			if (FoundIndex > 0)
+			{
+				string Version = Text.Substring(FoundIndex + Token.Length, 5);
+				int Index = 0;
+				while (Version[Index] >= '0' && Version[Index] <= '9')
+				{
+					++Index;
+				}
 
-                Version = Version.Substring(0, Index);
+				Version = Version.Substring(0, Index);
 
-                int VersionNumber = Convert.ToInt32(Version);
-                return VersionNumber;
-            }
+				int VersionNumber = Convert.ToInt32(Version);
+				return VersionNumber;
+			}
 
-            return -1;
-        }
-        static int GetThirdPartyVersion()
-        {
-            try
-            {
-                // Extract current version on ThirdParty
-                string Text = File.ReadAllText("ThirdParty/Vulkan/Windows/Include/vulkan/vulkan.h");
-                return GetVersionFromString(Text);
-            }
-            catch (Exception)
-            {
-            }
+			return -1;
+		}
+		static int GetThirdPartyVersion()
+		{
+			try
+			{
+				// Extract current version on ThirdParty
+				string Text = File.ReadAllText("ThirdParty/Vulkan/Include/vulkan/vulkan_core.h");
+				return GetVersionFromString(Text);
+			}
+			catch (Exception)
+			{
+			}
 
-            return -1;
-        }
+			return -1;
+		}
 
-        static int GetSDKVersion(string VulkanSDKPath)
-        {
-            try
-            {
-                // Extract current version on the SDK folder
-                string Header = Path.Combine(VulkanSDKPath, "Include/vulkan/vulkan.h");
-                string Text = File.ReadAllText(Header);
-                return GetVersionFromString(Text);
-            }
-            catch (Exception)
-            {
-            }
+		static int GetSDKVersion(string VulkanSDKPath)
+		{
+			try
+			{
+				// Extract current version on the SDK folder. Newer SDKs store the version in vulkan_core.h
+				string Header = Path.Combine(VulkanSDKPath, "Include/vulkan/vulkan_core.h");
+				if (!File.Exists(Header))
+				{
+					Header = Path.Combine(VulkanSDKPath, "Include/vulkan/vulkan.h");
+				}
+				string Text = File.ReadAllText(Header);
+				return GetVersionFromString(Text);
+			}
+			catch (Exception)
+			{
+			}
 
-            return -1;
-        }
-    }
+			return -1;
+		}
+	}
 }

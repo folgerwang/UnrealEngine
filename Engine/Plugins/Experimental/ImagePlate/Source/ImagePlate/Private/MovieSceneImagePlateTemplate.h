@@ -4,7 +4,7 @@
 
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Evaluation/MovieScenePropertyTemplate.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 #include "MovieSceneImagePlateTemplate.generated.h"
 
 class UMovieSceneImagePlateSection;

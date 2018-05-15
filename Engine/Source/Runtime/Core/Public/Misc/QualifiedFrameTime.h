@@ -2,18 +2,14 @@
 
 #pragma once
 
-#include "FrameTime.h"
-#include "FrameRate.h"
-
-#include "QualifiedFrameTime.generated.h"
+#include "Misc/FrameRate.h"
+#include "Misc/FrameTime.h"
 
 /**
  * A frame time qualified by a frame rate context
  */
-USTRUCT(BlueprintType)
 struct FQualifiedFrameTime
 {
-	GENERATED_BODY()
 
 	/**
 	 * Default construction for UObject purposes
@@ -50,10 +46,8 @@ public:
 public:
 
 	/** The frame time */
-	UPROPERTY(BlueprintReadWrite, Category="Time")
 	FFrameTime Time;
 
 	/** The rate that this frame time is in */
-	UPROPERTY(BlueprintReadWrite, Category="Time")
 	FFrameRate Rate;
 };

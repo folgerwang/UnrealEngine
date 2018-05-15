@@ -74,7 +74,7 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(TArray<FD3D12Adapter*>& ChosenAdaptersIn) :
 	GConfig->GetInt(TEXT("TextureStreaming"), TEXT("PoolSizeVRAMPercentage"), GPoolSizeVRAMPercentage, GEngineIni);
 
 	// Initialize the RHI capabilities.
-	check(FeatureLevel == D3D_FEATURE_LEVEL_11_0 || FeatureLevel == D3D_FEATURE_LEVEL_10_0);
+	check(FeatureLevel >= D3D_FEATURE_LEVEL_11_0 || FeatureLevel == D3D_FEATURE_LEVEL_10_0);
 
 	if (FeatureLevel == D3D_FEATURE_LEVEL_10_0)
 	{
@@ -97,7 +97,7 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(TArray<FD3D12Adapter*>& ChosenAdaptersIn) :
 		GMaxRHIShaderPlatform = SP_PCD3D_ES3_1;
 	}
 	}
-	else if (FeatureLevel == D3D_FEATURE_LEVEL_11_0)
+	else if (FeatureLevel >= D3D_FEATURE_LEVEL_11_0)
 	{
 		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM5;
 		GMaxRHIShaderPlatform = SP_PCD3D_SM5;

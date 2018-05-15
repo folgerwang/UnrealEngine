@@ -9,7 +9,7 @@
 #include "MovieSceneCaptureProtocolRegistry.generated.h"
 
 /** Structure used to uniquely identify a specific capture protocol */
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FCaptureProtocolID
 {
 	FCaptureProtocolID(){}
@@ -17,7 +17,7 @@ struct FCaptureProtocolID
 
 	GENERATED_BODY()
 
-	UPROPERTY(VisibleAnywhere, Category=ID)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ID)
 	FName Identifier;
 };
 
@@ -63,7 +63,7 @@ public:
 		{
 			if (Info->SettingsClassType)
 			{
-				return NewObject<UMovieSceneCaptureProtocolSettings>(Outer, Info->SettingsClassType);
+				return NewObject<UMovieSceneCaptureProtocolSettings>(Outer, Info->SettingsClassType, FName(TEXT("MovieSceneCaptureProtocol")));
 			}
 		}
 		return nullptr;

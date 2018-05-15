@@ -2,22 +2,20 @@
 
 #pragma once
 
-#include "FrameNumber.h"
-#include "UObject/ObjectMacros.h"
+#include "Misc/FrameNumber.h"
+#include "Misc/FrameTime.h"
+#include "Internationalization/Text.h"
+#include "Math/Range.h"
+#include "Misc/ExpressionParserTypes.h"
 #include "Templates/ValueOrError.h"
-#include "FrameTime.h"
-#include "FrameRate.generated.h"
 
 struct FExpressionError;
 
 /**
  * A frame rate represented as a fraction comprising 2 integers: a numerator (number of frames), and a denominator (per second)
  */
-USTRUCT(BlueprintType)
 struct FFrameRate
 {
-	GENERATED_BODY()
-
 	/**
 	 * Default construction to a frame rate of 60000 frames per second (0.0166 ms)
 	 */
@@ -38,13 +36,11 @@ struct FFrameRate
 	/**
 	 * The numerator of the framerate represented as a number of frames per second (e.g. 60 for 60 fps)
 	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=General)
 	int32 Numerator; 
 
 	/**
 	 * The denominator of the framerate represented as a number of frames per second (e.g. 1 for 60 fps)
 	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=General)
 	int32 Denominator;
 
 	/**
@@ -127,7 +123,7 @@ struct FFrameRate
 	 * Convert this frame rate to a prettified text string.
 	 * @note: Does not check against decorated frame rate names in FCommonFrameRates
 	 */
-	TIMEMANAGEMENT_API FText ToPrettyText() const;
+	CORE_API FText ToPrettyText() const;
 
 	/**
 	 * Compute a desirable grid spacing for the specified screen units
@@ -139,12 +135,12 @@ struct FFrameRate
 	 * @param DesiredMajorTickPx (Optional) The desired size to compute major tick lines from
 	 * @return True if a valid grid spacing was computed, false otherwise.
 	 */
-	TIMEMANAGEMENT_API bool ComputeGridSpacing(const float PixelsPerSecond, double& OutMajorInterval, int32& OutMinorDivisions, float MinTickPx = 30.f, float DesiredMajorTickPx = 120.f);
+	CORE_API bool ComputeGridSpacing(const float PixelsPerSecond, double& OutMajorInterval, int32& OutMinorDivisions, float MinTickPx = 30.f, float DesiredMajorTickPx = 120.f);
 
 	/**
 	 * Get the maximum number of seconds representable with this framerate
 	 */
-	TIMEMANAGEMENT_API double MaxSeconds() const;
+	CORE_API double MaxSeconds() const;
 
 	/**
 	 * Get the reciprocal of this frame rate
@@ -312,9 +308,9 @@ inline bool FFrameRate::IsFactorOf(FFrameRate Other) const
 /**
  * Attempt to parse a frame rate from a string
  */
-TIMEMANAGEMENT_API TValueOrError<FFrameRate, FExpressionError> ParseFrameRate(const TCHAR* FrameRateString);
+CORE_API TValueOrError<FFrameRate, FExpressionError> ParseFrameRate(const TCHAR* FrameRateString);
 
 /**
  * Common Lex::TryParseString overload for FFrameRate
  */
-TIMEMANAGEMENT_API bool TryParseString(FFrameRate& OutFrameRate, const TCHAR* InString);
+CORE_API bool TryParseString(FFrameRate& OutFrameRate, const TCHAR* InString);

@@ -4,7 +4,7 @@
 #include "ImgMediaPrivate.h"
 
 #include "Algo/Reverse.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/Paths.h"

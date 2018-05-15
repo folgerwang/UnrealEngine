@@ -253,7 +253,7 @@ void FD3D12CommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceText
 				GetParentDevice()->RegisterGPUWork();
 			}
 
-			if (FeatureLevel == D3D_FEATURE_LEVEL_11_0
+			if ((FeatureLevel == D3D_FEATURE_LEVEL_11_0 || FeatureLevel == D3D_FEATURE_LEVEL_11_1)
 				&& DestTexture2D->GetDepthStencilView(FExclusiveDepthStencil::DepthWrite_StencilWrite)
 				&& SourceTextureRHI->IsMultisampled()
 				&& !DestTextureRHI->IsMultisampled())
@@ -299,16 +299,16 @@ void FD3D12CommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceText
 				// Determine whether a MSAA resolve is needed, or just a copy.
 				if (SourceTextureRHI->IsMultisampled() && !DestTexture2D->IsMultisampled())
 				{
-					FConditionalScopeResourceBarrier ConditionalScopeResourceBarrierDest(CommandListHandle, DestTexture2D->GetResource(), D3D12_RESOURCE_STATE_RESOLVE_DEST, 0);
-					FConditionalScopeResourceBarrier ConditionalScopeResourceBarrierSource(CommandListHandle, SourceTexture2D->GetResource(), D3D12_RESOURCE_STATE_RESOLVE_SOURCE, 0);
+					FConditionalScopeResourceBarrier ConditionalScopeResourceBarrierDest(CommandListHandle, DestTexture2D->GetResource(), D3D12_RESOURCE_STATE_RESOLVE_DEST, ResolveParams.DestArrayIndex);
+					FConditionalScopeResourceBarrier ConditionalScopeResourceBarrierSource(CommandListHandle, SourceTexture2D->GetResource(), D3D12_RESOURCE_STATE_RESOLVE_SOURCE, ResolveParams.SourceArrayIndex);
 
 					otherWorkCounter++;
 					CommandListHandle.FlushResourceBarriers();
 					CommandListHandle->ResolveSubresource(
 						DestTexture2D->GetResource()->GetResource(),
-						0,
+						ResolveParams.DestArrayIndex,
 						SourceTexture2D->GetResource()->GetResource(),
-						0,
+						ResolveParams.SourceArrayIndex,
 						Fmt
 						);
 
@@ -328,17 +328,17 @@ void FD3D12CommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceText
 						SrcBox.bottom = ResolveParams.Rect.Y2;
 						SrcBox.back = 1;
 
-						FConditionalScopeResourceBarrier ConditionalScopeResourceBarrierDest(CommandListHandle, DestTexture2D->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0);
-						FConditionalScopeResourceBarrier ConditionalScopeResourceBarrierSource(CommandListHandle, SourceTexture2D->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0);
+						FConditionalScopeResourceBarrier ConditionalScopeResourceBarrierDest(CommandListHandle, DestTexture2D->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, ResolveParams.DestArrayIndex);
+						FConditionalScopeResourceBarrier ConditionalScopeResourceBarrierSource(CommandListHandle, SourceTexture2D->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, ResolveParams.SourceArrayIndex);
 
-						CD3DX12_TEXTURE_COPY_LOCATION DestCopyLocation(DestTexture2D->GetResource()->GetResource(), 0);
-						CD3DX12_TEXTURE_COPY_LOCATION SourceCopyLocation(SourceTexture2D->GetResource()->GetResource(), 0);
+						CD3DX12_TEXTURE_COPY_LOCATION DestCopyLocation(DestTexture2D->GetResource()->GetResource(), ResolveParams.DestArrayIndex);
+						CD3DX12_TEXTURE_COPY_LOCATION SourceCopyLocation(SourceTexture2D->GetResource()->GetResource(), ResolveParams.SourceArrayIndex);
 
 						numCopies++;
 						CommandListHandle.FlushResourceBarriers();
 						CommandListHandle->CopyTextureRegion(
 							&DestCopyLocation,
-							ResolveParams.Rect.X1, ResolveParams.Rect.Y1, 0,
+							ResolveParams.DestRect.X1, ResolveParams.DestRect.Y1, 0,
 							&SourceCopyLocation,
 							&SrcBox);
 
@@ -347,7 +347,7 @@ void FD3D12CommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceText
 					}
 					else
 					{
-						FConditionalScopeResourceBarrier ConditionalScopeResourceBarrierSource(CommandListHandle, SourceTexture2D->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0);
+						FConditionalScopeResourceBarrier ConditionalScopeResourceBarrierSource(CommandListHandle, SourceTexture2D->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, ResolveParams.SourceArrayIndex);
 
 						// Resolve to a buffer.
 						D3D12_RESOURCE_DESC const& ResolveTargetDesc = DestTexture2D->GetResource()->GetDesc();
@@ -372,7 +372,7 @@ void FD3D12CommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceText
 							placedTexture2D.Footprint = destSubresource;
 
 							CD3DX12_TEXTURE_COPY_LOCATION DestCopyLocation(DestTexture2D->GetResource()->GetResource(), placedTexture2D);
-							CD3DX12_TEXTURE_COPY_LOCATION SourceCopyLocation(SourceTexture2D->GetResource()->GetResource(), 0);
+							CD3DX12_TEXTURE_COPY_LOCATION SourceCopyLocation(SourceTexture2D->GetResource()->GetResource(), ResolveParams.SourceArrayIndex);
 
 							numCopies++;
 							CommandListHandle.FlushResourceBarriers();
@@ -397,8 +397,8 @@ void FD3D12CommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceText
 							// Transition to the copy dest state.
 							FConditionalScopeResourceBarrier ConditionalScopeResourceBarrierDest(CommandListHandle, DestTexture2D->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0);
 
-							CD3DX12_TEXTURE_COPY_LOCATION DestCopyLocation(DestTexture2D->GetResource()->GetResource(), 0);
-							CD3DX12_TEXTURE_COPY_LOCATION SourceCopyLocation(SourceTexture2D->GetResource()->GetResource(), 0);
+							CD3DX12_TEXTURE_COPY_LOCATION DestCopyLocation(DestTexture2D->GetResource()->GetResource(), ResolveParams.DestArrayIndex);
+							CD3DX12_TEXTURE_COPY_LOCATION SourceCopyLocation(SourceTexture2D->GetResource()->GetResource(), ResolveParams.SourceArrayIndex);
 
 							numCopies++;
 							CommandListHandle.FlushResourceBarriers();

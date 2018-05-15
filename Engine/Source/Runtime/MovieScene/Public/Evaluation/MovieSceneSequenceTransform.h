@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "FrameTime.h"
+#include "Misc/FrameTime.h"
 #include "MovieSceneSequenceTransform.generated.h"
 
 /**

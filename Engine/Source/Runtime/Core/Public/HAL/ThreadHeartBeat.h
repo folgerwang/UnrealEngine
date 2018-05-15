@@ -22,12 +22,15 @@ class CORE_API FThreadHeartBeat : public FRunnable
 		FHeartBeatInfo()
 			: LastHeartBeatTime(0.0)
 			, SuspendedCount(0)
+			, HangDuration(0)
 		{}
 
 		/** Time we last received a heartbeat for the current thread */
 		double LastHeartBeatTime;
 		/** Suspended counter */
 		int32 SuspendedCount;
+		/** The timeout for this thread */
+		double HangDuration;
 	};
 	/** Thread to run the worker FRunnable on */
 	FRunnableThread* Thread;
@@ -40,7 +43,9 @@ class CORE_API FThreadHeartBeat : public FRunnable
 	/** True if heartbeat should be measured */
 	FThreadSafeBool bReadyToCheckHeartbeat;
 	/** Max time the thread is allowed to not send the heartbeat*/
-	double HangDuration;
+	double ConfigHangDuration;
+	double CurrentHangDuration;
+	double HangDurationMultiplier;
 
 	/** CRC of the last hang's callstack */
 	uint32 LastHangCallstackCRC;
@@ -49,6 +54,8 @@ class CORE_API FThreadHeartBeat : public FRunnable
 
 	FThreadHeartBeat();
 	virtual ~FThreadHeartBeat();
+
+	void InitSettings();
 
 public:
 
@@ -67,7 +74,7 @@ public:
 	/** Called from a thread once per frame to update the heartbeat time */
 	void HeartBeat(bool bReadConfig = false);
 	/** Called by a supervising thread to check the threads' health */
-	uint32 CheckHeartBeat();
+	uint32 CheckHeartBeat(double& OutHangDuration);
 	/** Called by a thread when it's no longer expecting to be ticked */
 	void KillHeartBeat();
 	/** 
@@ -83,6 +90,12 @@ public:
 	* Returns true/false if this thread is currently performing heartbeat monitoring
 	*/
 	bool IsBeating();
+
+	/** 
+	 * Sets a multiplier to the hang duration (>= 1.0).
+	 * Can be used to extend the duration during loading screens etc.
+	 */
+	void SetDurationMultiplier(double NewMultiplier);
 
 	//~ Begin FRunnable Interface.
 	virtual bool Init();
@@ -110,7 +123,11 @@ struct FSlowHeartBeatScope
 	}
 };
 
-
+// When 1, performs a full symbol lookup in hitch call stacks, otherwise only
+// a backtrace is performed and the raw addresses are written to the log.
+#ifndef LOOKUP_SYMBOLS_IN_HITCH_STACK_WALK
+#define LOOKUP_SYMBOLS_IN_HITCH_STACK_WALK 0
+#endif
 
 class CORE_API FGameThreadHitchHeartBeat : public FRunnable
 {
@@ -123,10 +140,21 @@ class CORE_API FGameThreadHitchHeartBeat : public FRunnable
 	/** Max time the game thread is allowed to not send the heartbeat*/
 	float HangDuration;
 
+	bool bWalkStackOnHitch;
+
 	double FirstStartTime;
 	double FrameStartTime;
 	double LastReportTime;
 
+#if LOOKUP_SYMBOLS_IN_HITCH_STACK_WALK
+	static const SIZE_T StackTraceSize = 65535;
+	ANSICHAR StackTrace[StackTraceSize];
+#else
+	static const uint32 MaxStackDepth = 128;
+	uint64 StackTrace[MaxStackDepth];
+#endif
+
+	void InitSettings();
 
 	FGameThreadHitchHeartBeat();
 	virtual ~FGameThreadHitchHeartBeat();

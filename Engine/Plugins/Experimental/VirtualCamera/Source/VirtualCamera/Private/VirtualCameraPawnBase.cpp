@@ -28,7 +28,7 @@ AVirtualCameraPawnBase::AVirtualCameraPawnBase(const FObjectInitializer& ObjectI
 	HomeWaypointName = "";
 
 	// Set formatter to pad with leading zeros to make integers 3 characters long.
-	LeadingZerosFormatter.MinimumIntegralDigits = 3;
+	MinimumIntegralDigits = 3;
 
 	SavedSettingsSlotName = "SavedVirtualCameraSettings";
 	bSaveSettingsWhenClosing = false;
@@ -64,7 +64,11 @@ void AVirtualCameraPawnBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AVirtualCameraPawnBase::GetWaypointInfo(const FString WaypointName, FVirtualCameraWaypoint &OutWaypointInfo) const 
 {
-	OutWaypointInfo = *Waypoints.Find(WaypointName);
+	const FVirtualCameraWaypoint* WaypointInfoPtr = Waypoints.Find(WaypointName);
+	if (WaypointInfoPtr)
+	{
+		OutWaypointInfo = *WaypointInfoPtr;
+	}
 }
 
 void AVirtualCameraPawnBase::GetWaypointNames(TArray<FString>& OutArray) const 
@@ -75,7 +79,11 @@ void AVirtualCameraPawnBase::GetWaypointNames(TArray<FString>& OutArray) const
 
 void AVirtualCameraPawnBase::GetScreenshotInfo(const FString ScreenshotName, FVirtualCameraScreenshot &OutScreenshotInfo) const 
 {
-	OutScreenshotInfo = *Screenshots.Find(ScreenshotName);
+	const FVirtualCameraScreenshot* ScreenshotInfoPtr = Screenshots.Find(ScreenshotName);
+	if (ScreenshotInfoPtr)
+	{
+		OutScreenshotInfo = *ScreenshotInfoPtr;
+	}
 }
 
 void AVirtualCameraPawnBase::GetScreenshotNames(TArray<FString>& OutArray) const
@@ -100,14 +108,15 @@ bool AVirtualCameraPawnBase::RenameWaypoint(const FString& TargetWaypoint, const
 FString AVirtualCameraPawnBase::SaveWaypoint()
 {
 	// Convert index to string with leading zeros
-	FString WaypointNum = FText::AsNumber(WaypointIndex, &LeadingZerosFormatter).ToString();
-	
+	FString WaypointNum = LeftPadWithZeros(WaypointIndex, MinimumIntegralDigits);
+
 	// Another waypoint has been created
 	WaypointIndex++;
 	FVirtualCameraWaypoint::NextIndex++;
 
 	// Create the waypoint
 	FVirtualCameraWaypoint NewWaypoint;
+	NewWaypoint.DateCreated = FDateTime::UtcNow();
 	NewWaypoint.Name = "Waypoint-" + WaypointNum;
 	NewWaypoint.WaypointTransform = CineCamera->GetComponentTransform();
 	Waypoints.Add(NewWaypoint.Name, NewWaypoint);
@@ -117,7 +126,7 @@ FString AVirtualCameraPawnBase::SaveWaypoint()
 FString AVirtualCameraPawnBase::SavePreset(const bool bSaveCameraSettings, const bool bSaveStabilization, const bool bSaveAxisLocking, const bool bSaveMotionScale)
 {
 	// Convert index to string with leading zeros
-	FString PresetNum = FText::AsNumber(PresetIndex, &LeadingZerosFormatter).ToString();
+	FString PresetNum = LeftPadWithZeros(PresetIndex, MinimumIntegralDigits);
 	FString PresetName = "Preset-" + PresetNum;
 	
 	// Another preset has been created
@@ -125,6 +134,7 @@ FString AVirtualCameraPawnBase::SavePreset(const bool bSaveCameraSettings, const
 	FVirtualCameraSettingsPreset::NextIndex++;
 
 	FVirtualCameraSettingsPreset PresetToAdd;
+	PresetToAdd.DateCreated = FDateTime::UtcNow();
 
 	PresetToAdd.bIsCameraSettingsSaved = bSaveCameraSettings;
 	PresetToAdd.bIsStabilizationSettingsSaved = bSaveStabilization;
@@ -276,7 +286,7 @@ FString AVirtualCameraPawnBase::TakeScreenshot()
 	}
 
 	// Convert index to string with leading zeros
-	FString ScreenshotNum = FText::AsNumber(ScreenshotIndex, &LeadingZerosFormatter).ToString();
+	FString ScreenshotNum = LeftPadWithZeros(ScreenshotIndex, MinimumIntegralDigits);
 	// Track that another screenshot has been added
 	ScreenshotIndex++;
 	FVirtualCameraScreenshot::NextIndex++;
@@ -298,6 +308,7 @@ FString AVirtualCameraPawnBase::TakeScreenshot()
 
 	// Store all the data for this screenshot
 	FVirtualCameraScreenshot NewScreenshot;
+	NewScreenshot.Waypoint.DateCreated = FDateTime::UtcNow();
 	
 	// Screenshots are named with the "Screenshot-" prefix and their index.
 	// Name and transform are saved on the screenshot's internal waypoint.
@@ -516,4 +527,16 @@ void AVirtualCameraPawnBase::LoadSettings()
 	WaypointIndex = FVirtualCameraWaypoint::NextIndex;
 
 	DesiredDistanceUnits = SaveGameInstance->CameraSettings.DesiredDistanceUnits;
+}
+
+FString AVirtualCameraPawnBase::LeftPadWithZeros(int32 InNumber, int32 MinNumberOfCharacters) const
+{
+	FString ReturnString = FString::FromInt(InNumber);
+
+	while (ReturnString.Len() < MinNumberOfCharacters)
+	{
+		ReturnString = FString("0") + ReturnString;
+	}
+
+	return ReturnString;
 }

@@ -5,10 +5,10 @@
 #include "IAjaMediaOutputModule.h"
 
 #include "Engine/GameEngine.h"
-#include "ITimecodeProvider.h"
-#include "ITimeManagementModule.h"
-#include "Timecode.h"
-#include "Framerate.h"
+#include "Engine/RendererSettings.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/Timecode.h"
+#include "Misc/FrameRate.h"
 
 #include "Widgets/SViewport.h"
 
@@ -53,22 +53,7 @@ void UAjaMediaViewportOutput::Tick(float DeltaTime)
 {
 	if (Implementation.IsValid())
 	{
-		//By default, we send the engine frame number directly to the output. A sequential Timecode will be generated from the output's FrameRate
-		int32 FrameNumber = (int32)GFrameNumber;
-
-		if (const ITimecodeProvider* Provider = ITimeManagementModule::Get().GetTimecodeProvider())
-		{
-			if (Provider->IsSynchronized())
-			{
-				FTimecode Timecode = Provider->GetCurrentTimecode();
-				const FFrameRate TimeManagerFrameRate = Provider->GetFrameRate();
-				const FFrameTime CurrentFrameTimeManagerTime = Timecode.ToFrameNumber(TimeManagerFrameRate);
-				const FFrameTime CurrentFrameOutputTime = FFrameRate::TransformTime(CurrentFrameTimeManagerTime, TimeManagerFrameRate, Implementation->GetOutputFrameRate());
-				FrameNumber = CurrentFrameOutputTime.GetFrame().Value;
-			}
-		}
-
-		Implementation->Tick(FrameNumber);
+		Implementation->Tick(FApp::GetTimecode());
 	}
 }
 
@@ -76,27 +61,49 @@ void UAjaMediaViewportOutput::ActivateOutput(UAjaMediaOutput* MediaOutput)
 {
 	DeactivateOutput();
 
-	if (MediaOutput != nullptr)
+	if (MediaOutput == nullptr)
 	{
-		TSharedPtr<FSceneViewport> FoundSceneViewport;
-		ULevel* Level = nullptr;
-		if (AjaMediaOutputDevice::FindSceneViewportAndLevel(FoundSceneViewport, Level) || !FoundSceneViewport.IsValid())
+		UE_LOG(LogAjaMediaOutput, Error, TEXT("Couldn't start the capture. No Media Output was provided."));
+		return;
+	}
+
+	if (MediaOutput->OutputType == EAjaMediaOutputType::FillAndKey)
+	{
 		{
-			Implementation = FAjaMediaViewportOutputImpl::CreateShared(MediaOutput, FoundSceneViewport);
-			if (!Implementation.IsValid())
+			static const auto CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
+			if (EDefaultBackBufferPixelFormat::NumberOfBitForAlpha(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnGameThread())) >= 8)
 			{
-				UE_LOG(LogAjaMediaOutput, Error, TEXT("Could not initialized the Output interface."));
-				DeactivateOutput();
+				UE_LOG(LogAjaMediaOutput, Error, TEXT("Can't output Key. The 'Frame Buffer Pixel Format' must be set to at least 8 bits of alpha."));
+				return;
 			}
 		}
-		else
+
 		{
-			UE_LOG(LogAjaMediaOutput, Warning, TEXT("No viewport could be found. Play in 'Standalone' or in 'New Editor Window PIE'."));
+			static const auto CVarPropagateAlpha = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.PostProcessing.PropagateAlpha"));
+			EAlphaChannelMode::Type PropagateAlpha = EAlphaChannelMode::FromInt(CVarPropagateAlpha->GetValueOnGameThread());
+			if (PropagateAlpha != EAlphaChannelMode::AllowThroughTonemapper)
+			{
+
+				UE_LOG(LogAjaMediaOutput, Error, TEXT("Can't output Key. 'Enable alpha channel support in post-processing' must be set to 'Allow through tonemapper'"));
+				return;
+			}
+		}
+	}
+
+	TSharedPtr<FSceneViewport> FoundSceneViewport;
+	ULevel* Level = nullptr;
+	if (AjaMediaOutputDevice::FindSceneViewportAndLevel(FoundSceneViewport, Level) && FoundSceneViewport.IsValid())
+	{
+		Implementation = FAjaMediaViewportOutputImpl::CreateShared(MediaOutput, FoundSceneViewport);
+		if (!Implementation.IsValid())
+		{
+			UE_LOG(LogAjaMediaOutput, Error, TEXT("Could not initialize the Output interface."));
+			DeactivateOutput();
 		}
 	}
 	else
 	{
-		UE_LOG(LogAjaMediaOutput, Error, TEXT("Couldn't start the capture. No Media Output was provided."));
+		UE_LOG(LogAjaMediaOutput, Warning, TEXT("No viewport could be found. Play in 'Standalone' or in 'New Editor Window PIE'."));
 	}
 }
 

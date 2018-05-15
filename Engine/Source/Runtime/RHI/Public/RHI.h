@@ -1162,6 +1162,7 @@ struct FResolveParams
 	ECubeFace CubeFace;
 	/** resolve RECT bounded by [X1,Y1]..[X2,Y2]. Or -1 for fullscreen */
 	FResolveRect Rect;
+	FResolveRect DestRect;
 	/** The mip index to resolve in both source and dest. */
 	int32 MipIndex;
 	/** Array index to resolve in the source. */
@@ -1175,9 +1176,11 @@ struct FResolveParams
 		ECubeFace InCubeFace = CubeFace_PosX,
 		int32 InMipIndex = 0,
 		int32 InSourceArrayIndex = 0,
-		int32 InDestArrayIndex = 0)
+		int32 InDestArrayIndex = 0,
+		const FResolveRect& InDestRect = FResolveRect())
 		:	CubeFace(InCubeFace)
 		,	Rect(InRect)
+		,	DestRect(InDestRect)
 		,	MipIndex(InMipIndex)
 		,	SourceArrayIndex(InSourceArrayIndex)
 		,	DestArrayIndex(InDestArrayIndex)
@@ -1186,6 +1189,7 @@ struct FResolveParams
 	FORCEINLINE FResolveParams(const FResolveParams& Other)
 		: CubeFace(Other.CubeFace)
 		, Rect(Other.Rect)
+		, DestRect(Other.DestRect)
 		, MipIndex(Other.MipIndex)
 		, SourceArrayIndex(Other.SourceArrayIndex)
 		, DestArrayIndex(Other.DestArrayIndex)

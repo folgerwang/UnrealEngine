@@ -38,6 +38,15 @@
 #include "HAL/PlatformProcess.h"
 #include "Misc/Paths.h"
 
+#if PLATFORM_WINDOWS
+#define ML_INCLUDES_START THIRD_PARTY_INCLUDES_START \
+	__pragma(warning(disable: 4201)) /* warning C4201: nonstandard extension used: nameless struct/union */
+#else
+#define ML_INCLUDES_START THIRD_PARTY_INCLUDES_START
+#endif
+
+#define ML_INCLUDES_END THIRD_PARTY_INCLUDES_END
+
 DEFINE_LOG_CATEGORY_STATIC(LogMagicLeapAPISetup, Display, All);
 
 /** Utility class to load the correct MLSDK libs depedning on the path set to the MLSDK package and whether or not we want to use MLremote / Zero Iteration*/

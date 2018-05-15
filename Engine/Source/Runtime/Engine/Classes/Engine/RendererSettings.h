@@ -117,6 +117,11 @@ namespace EAlphaChannelMode
 	};
 }
 
+namespace EAlphaChannelMode
+{
+	ENGINE_API EAlphaChannelMode::Type FromInt(int32 InAlphaChannelMode);
+}
+
 /** used by FPostProcessSettings AutoExposure*/
 UENUM()
 namespace EAutoExposureMethodUI
@@ -150,7 +155,9 @@ namespace EDefaultBackBufferPixelFormat
 
 namespace EDefaultBackBufferPixelFormat
 {
-	ENGINE_API EPixelFormat Convert2PixelFormat(int32 InDefaultBackBufferPixelFormat);
+	ENGINE_API EPixelFormat Convert2PixelFormat(EDefaultBackBufferPixelFormat::Type InDefaultBackBufferPixelFormat);
+	ENGINE_API int32 NumberOfBitForAlpha(EDefaultBackBufferPixelFormat::Type InDefaultBackBufferPixelFormat);
+	ENGINE_API EDefaultBackBufferPixelFormat::Type FromInt(int32 InDefaultBackBufferPixelFormat);
 }
 
 /**

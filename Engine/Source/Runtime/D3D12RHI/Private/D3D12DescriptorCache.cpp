@@ -358,7 +358,7 @@ void FD3D12DescriptorCache::SetUAVs(FD3D12UnorderedAccessViewCache& Cache, const
 	// We changed the descriptor table, so all resources bound to slots outside of the table's range are now dirty.
 	// If a shader needs to use resources bound to these slots later, we need to set the descriptor table again to ensure those
 	// descriptors are valid.
-	const UAVSlotMask OutsideCurrentTableRegisterMask = ~((1 << SlotsNeeded) - 1);
+	const UAVSlotMask OutsideCurrentTableRegisterMask = ~(((UAVSlotMask)1 << SlotsNeeded) - (UAVSlotMask)1);
 	Cache.Dirty(ShaderStage, OutsideCurrentTableRegisterMask);
 
 #ifdef VERBOSE_DESCRIPTOR_HEAP_DEBUG
@@ -556,7 +556,7 @@ void FD3D12DescriptorCache::SetSamplers(FD3D12SamplerStateCache& Cache, const Sa
 	// We changed the descriptor table, so all resources bound to slots outside of the table's range are now dirty.
 	// If a shader needs to use resources bound to these slots later, we need to set the descriptor table again to ensure those
 	// descriptors are valid.
-	const SamplerSlotMask OutsideCurrentTableRegisterMask = ~((1 << SlotsNeeded) - 1);
+	const SamplerSlotMask OutsideCurrentTableRegisterMask = ~(((SamplerSlotMask)1 << SlotsNeeded) - (SamplerSlotMask)1);
 	Cache.Dirty(ShaderStage, OutsideCurrentTableRegisterMask);
 
 #ifdef VERBOSE_DESCRIPTOR_HEAP_DEBUG
@@ -634,7 +634,7 @@ void FD3D12DescriptorCache::SetSRVs(FD3D12ShaderResourceViewCache& Cache, const 
 	// We changed the descriptor table, so all resources bound to slots outside of the table's range are now dirty.
 	// If a shader needs to use resources bound to these slots later, we need to set the descriptor table again to ensure those
 	// descriptors are valid.
-	const SRVSlotMask OutsideCurrentTableRegisterMask = ~((1 << SlotsNeeded) - 1);
+	const SRVSlotMask OutsideCurrentTableRegisterMask = ~(((SRVSlotMask)1 << SlotsNeeded) - (SRVSlotMask)1);
 	Cache.Dirty(ShaderStage, OutsideCurrentTableRegisterMask);
 
 #ifdef VERBOSE_DESCRIPTOR_HEAP_DEBUG
@@ -713,7 +713,7 @@ void FD3D12DescriptorCache::SetConstantBuffers(FD3D12ConstantBufferCache& Cache,
 	// We changed the descriptor table, so all resources bound to slots outside of the table's range are now dirty.
 	// If a shader needs to use resources bound to these slots later, we need to set the descriptor table again to ensure those
 	// descriptors are valid.
-	const CBVSlotMask OutsideCurrentTableRegisterMask = ~((1 << SlotsNeeded) - 1);
+	const CBVSlotMask OutsideCurrentTableRegisterMask = ~(((CBVSlotMask)1 << SlotsNeeded) - (CBVSlotMask)1);
 	Cache.Dirty(ShaderStage, OutsideCurrentTableRegisterMask);
 
 #ifdef VERBOSE_DESCRIPTOR_HEAP_DEBUG

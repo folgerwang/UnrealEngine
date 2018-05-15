@@ -9,7 +9,7 @@
 
 struct FMovieSceneCaptureSettings;
 
-UCLASS()
+UCLASS(config=EditorPerProjectUserSettings, PerObjectConfig)
 class MOVIESCENECAPTURE_API UMovieSceneCaptureProtocolSettings : public UObject
 {
 public:

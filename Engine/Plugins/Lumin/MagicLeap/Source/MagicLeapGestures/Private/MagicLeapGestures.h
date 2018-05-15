@@ -36,9 +36,12 @@
 
 #include "GenericPlatform/IInputInterface.h"
 #include "IMagicLeapInputDevice.h"
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_gesture.h>
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 #include "MagicLeapGestureTypes.h"

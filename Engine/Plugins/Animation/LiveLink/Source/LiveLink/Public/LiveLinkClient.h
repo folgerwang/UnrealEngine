@@ -134,6 +134,9 @@ public:
 	// Remove the specified source from the live link client
 	void RemoveSource(FGuid InEntryGuid);
 
+	// Remove the specified source from the live link client
+	virtual void RemoveSource(TSharedPtr<ILiveLinkSource> InSource) override;
+
 	// Remover all sources from the live link client
 	void RemoveAllSources();
 
@@ -156,6 +159,9 @@ public:
 
 	// Get a list of currently active subjects
 	TArray<FLiveLinkSubjectKey> GetSubjects();
+
+	// Populates an array with in-use subject names
+	virtual void GetSubjectNames(TArray<FName>& SubjectNames) override;
 
 	FText GetSourceTypeForEntry(FGuid InEntryGuid) const;
 	FText GetMachineNameForEntry(FGuid InEntryGuid) const;
@@ -185,7 +191,7 @@ public:
 	FDelegateHandle RegisterSourcesChangedHandle(const FSimpleMulticastDelegate::FDelegate& SourcesChanged);
 	void UnregisterSourcesChangedHandle(FDelegateHandle Handle);
 
-	// Functions for managing sources changed delegate
+	// Functions for managing subjects changed delegate
 	FDelegateHandle RegisterSubjectsChangedHandle(const FSimpleMulticastDelegate::FDelegate& SubjectsChanged);
 	void UnregisterSubjectsChangedHandle(FDelegateHandle Handle);
 
@@ -196,6 +202,9 @@ private:
 
 	// Remove the specified source (must be a valid index, function does no checking)
 	void RemoveSourceInternal(int32 SourceIdx);
+
+	// Get index of specified source
+	int32 GetSourceIndexForPointer(TSharedPtr<ILiveLinkSource> InSource) const;
 
 	// Get index of specified source
 	int32 GetSourceIndexForGUID(FGuid InEntryGuid) const;

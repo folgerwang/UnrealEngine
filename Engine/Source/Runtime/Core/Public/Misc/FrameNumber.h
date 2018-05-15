@@ -2,17 +2,19 @@
 
 #pragma once
 
-#include "UObject/ObjectMacros.h"
-#include "FrameNumber.generated.h"
+#include "CoreTypes.h"
+#include "Math/NumericLimits.h"
+#include "Math/UnrealMathUtility.h"
+#include "Templates/EnableIf.h"
+#include "Templates/UnrealTypeTraits.h"
+
+class FArchive;
 
 /**
  * Typesafe 32-bit signed frame number. Defined in this way to prevent erroneous float->int conversions and afford type-safe operator overloading.
  */
-USTRUCT(BlueprintType)
 struct FFrameNumber
 {
-	GENERATED_BODY()
-
 	constexpr FFrameNumber()
 		: Value(0)
 	{}
@@ -32,16 +34,9 @@ struct FFrameNumber
 	 * @param FrameNumber   The bound to serialize.
 	 * @return The archive used for serialization.
 	 */
-	friend FArchive& operator<<(FArchive& Ar, FFrameNumber& FrameNumber)
-	{
-		return Ar << FrameNumber.Value;
-	}
+	friend CORE_API FArchive& operator<<(FArchive& Ar, FFrameNumber& FrameNumber);
 
-	bool Serialize(FArchive& Ar)
-	{
-		Ar << Value;
-		return true;
-	}
+	CORE_API bool Serialize(FArchive& Ar);
 
 	FFrameNumber& operator+=(FFrameNumber RHS)                    { Value += RHS.Value; return *this; }
 	FFrameNumber& operator-=(FFrameNumber RHS)                    { Value -= RHS.Value; return *this; }
@@ -71,16 +66,8 @@ struct FFrameNumber
 	/**
 	 * The value of the frame number
 	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=General)
 	int32 Value;
 };
-
-template<>
-struct TStructOpsTypeTraits<FFrameNumber> : public TStructOpsTypeTraitsBase2<FFrameNumber>
-{
-	enum { WithSerializer = true, WithIdenticalViaEquality = true };
-};
-
 
 inline uint32 GetTypeHash(FFrameNumber A)
 {

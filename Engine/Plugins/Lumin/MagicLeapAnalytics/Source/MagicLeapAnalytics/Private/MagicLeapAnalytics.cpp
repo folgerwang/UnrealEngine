@@ -44,7 +44,9 @@
 #include "MagicLeapPluginUtil.h"
 
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_app_analytics.h>
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 DEFINE_LOG_CATEGORY_STATIC(LogMagicLeapAnalytics, Display, All);

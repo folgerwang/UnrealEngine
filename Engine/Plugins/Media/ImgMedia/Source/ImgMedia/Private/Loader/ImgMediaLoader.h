@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Containers/LruCache.h"
 #include "Containers/Queue.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "Templates/SharedPointer.h"
 
 class FImgMediaLoaderWork;

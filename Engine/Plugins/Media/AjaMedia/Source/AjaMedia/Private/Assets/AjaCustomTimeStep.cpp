@@ -24,8 +24,7 @@ struct UAjaCustomTimeStep::FAJACallback : public AJA::IAJASyncChannelCallbackInt
 	//~ IAJAInputCallbackInterface interface
 	virtual void OnInitializationCompleted(bool bSucceed) override
 	{
-		Owner->bInitializationSucceed = bSucceed;
-		Owner->bInitialized = true;
+		Owner->State = bSucceed ? ECustomTimeStepSynchronizationState::Synchronized : ECustomTimeStepSynchronizationState::Error;
 		if (!bSucceed)
 		{
 			UE_LOG(LogAjaMedia, Error, TEXT("The initialization of '%s' failed. The CustomTimeStep won't be synchronized."), *Owner->GetName());
@@ -38,20 +37,25 @@ struct UAjaCustomTimeStep::FAJACallback : public AJA::IAJASyncChannelCallbackInt
 //--------------------------------------------------------------------
 UAjaCustomTimeStep::UAjaCustomTimeStep(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, TimecodeFormat(EAjaMediaTimecodeFormat::LTC)
 	, bEnableOverrunDetection(false)
 	, SyncChannel(nullptr)
 	, SyncCallback(nullptr)
-	, bWaitIsValid(false)
-	, bInitialized(false)
-	, bInitializationSucceed(false)
+	, State(ECustomTimeStepSynchronizationState::Closed)
+	, bDidAValidUpdateTimeStep(false)
 {
 }
 
 bool UAjaCustomTimeStep::Initialize(class UEngine* InEngine)
 {
-	bInitialized = false;
-	bInitializationSucceed = false;
+	State = ECustomTimeStepSynchronizationState::Closed;
+	bDidAValidUpdateTimeStep = false;
+
+	if (!MediaPort.IsValid())
+	{
+		UE_LOG(LogAjaMedia, Warning, TEXT("The Source of '%s' is not valid."), *GetName());
+		State = ECustomTimeStepSynchronizationState::Error;
+		return false;
+	}
 
 	check(SyncCallback == nullptr);
 	SyncCallback = new FAJACallback(this);
@@ -61,13 +65,13 @@ bool UAjaCustomTimeStep::Initialize(class UEngine* InEngine)
 	//Convert Port Index to match what AJA expects
 	AJA::AJASyncChannelOptions Options(*GetName(), MediaPort.PortIndex);
 	Options.CallbackInterface = SyncCallback;
-	Options.bUseTimecode = TimecodeFormat != EAjaMediaTimecodeFormat::None;
-	Options.bUseLTCTimecode = TimecodeFormat == EAjaMediaTimecodeFormat::LTC;
+	Options.bUseTimecode = false;
 
 	check(SyncChannel == nullptr);
 	SyncChannel = new AJA::AJASyncChannel();
 	if (!SyncChannel->Initialize(DeviceOptions, Options))
 	{
+		State = ECustomTimeStepSynchronizationState::Error;
 		delete SyncChannel;
 		SyncChannel = nullptr;
 		delete SyncCallback;
@@ -75,27 +79,20 @@ bool UAjaCustomTimeStep::Initialize(class UEngine* InEngine)
 		return false;
 	}
 
+	State = ECustomTimeStepSynchronizationState::Synchronizing;
 	return true;
 }
 
 void UAjaCustomTimeStep::Shutdown(class UEngine* InEngine)
 {
-	bInitialized = false;
+	State = ECustomTimeStepSynchronizationState::Closed;
 	ReleaseResources();
 }
 
 bool UAjaCustomTimeStep::UpdateTimeStep(class UEngine* InEngine)
 {
 	bool bRunEngineTimeStep = true;
-	if (!bInitialized || !bInitializationSucceed || SyncChannel == nullptr)
-	{
-		if (bInitialized && !bInitializationSucceed)
-		{
-			ReleaseResources();
-			bInitialized = false;
-		}
-	}
-	else
+	if (State == ECustomTimeStepSynchronizationState::Synchronized)
 	{
 		// Updates logical last time to match logical current time from last tick
 		UpdateApplicationLastTime();
@@ -105,31 +102,33 @@ bool UAjaCustomTimeStep::UpdateTimeStep(class UEngine* InEngine)
 		// Use fixed delta time and update time.
 		FApp::SetDeltaTime(FixedFrameRate.AsInterval());
 		FApp::SetCurrentTime(FApp::GetCurrentTime() + FApp::GetDeltaTime());
+
 		bRunEngineTimeStep = false;
+		bDidAValidUpdateTimeStep = true;
 	}
+	else if (State == ECustomTimeStepSynchronizationState::Error)
+	{
+		ReleaseResources();
+	}
+
 	return bRunEngineTimeStep;
 }
 
-//~ ITimecodeProvider implementation
+ECustomTimeStepSynchronizationState UAjaCustomTimeStep::GetSynchronizationState() const
+{
+	if (State == ECustomTimeStepSynchronizationState::Synchronized)
+	{
+		return bDidAValidUpdateTimeStep ? ECustomTimeStepSynchronizationState::Synchronized : ECustomTimeStepSynchronizationState::Synchronizing;
+	}
+	return State;
+}
+
+//~ UObject implementation
 //--------------------------------------------------------------------
-FTimecode UAjaCustomTimeStep::GetCurrentTimecode() const
+void UAjaCustomTimeStep::BeginDestroy()
 {
-	return CurrentTimecode;
-}
-
-FFrameRate UAjaCustomTimeStep::GetFrameRate() const
-{
-	return FixedFrameRate;
-}
-
-bool UAjaCustomTimeStep::IsSynchronizing() const
-{
-	return SyncChannel && !bInitialized && !bWaitIsValid;
-}
-
-bool UAjaCustomTimeStep::IsSynchronized() const
-{
-	return SyncChannel && bInitialized && bInitializationSucceed && bWaitIsValid;
+	ReleaseResources();
+	Super::BeginDestroy();
 }
 
 //~ UAjaCustomTimeStep implementation
@@ -145,22 +144,20 @@ void UAjaCustomTimeStep::WaitForSync()
 		VSyncRunnableThread.Reset(FRunnableThread::Create(VSyncThread.Get(), TEXT("UAjaCustomTimeStep::FAjaMediaWaitVSyncThread"), TPri_AboveNormal));
 	}
 
+	bool bWaitIsValid = true;
 	if (VSyncThread.IsValid())
 	{
-		VSyncThread->Wait_GameOrRenderThread();
+		bWaitIsValid = VSyncThread->Wait_GameOrRenderThread();
 	}
 	else
 	{
 		AJA::FTimecode NewTimecode;
 		bWaitIsValid = SyncChannel->WaitForSync(NewTimecode);
-		if (bWaitIsValid)
-		{
-			CurrentTimecode = FAja::ConvertAJATimecode2Timecode(NewTimecode, FixedFrameRate);
-		}
 	}
 
 	if (!bWaitIsValid)
 	{
+		State = ECustomTimeStepSynchronizationState::Error;
 		UE_LOG(LogAjaMedia, Error, TEXT("The Engine couldn't run fast enough to keep up with the CustomTimeStep Sync. The wait timeout."));
 	}
 }
@@ -178,7 +175,7 @@ void UAjaCustomTimeStep::ReleaseResources()
 
 	if (SyncChannel)
 	{
-		SyncChannel->Uninitialize(); // this may block, until the completion of a callback from IAJASyncChannelCallbackInterface
+		SyncChannel->Uninitialize();
 		delete SyncChannel;
 		SyncChannel = nullptr;
 		delete SyncCallback;

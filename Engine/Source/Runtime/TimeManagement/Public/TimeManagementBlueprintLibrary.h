@@ -4,9 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "FrameRate.h"
-#include "QualifiedFrameTime.h"
-#include "Timecode.h"
+#include "Misc/FrameRate.h"
+#include "Misc/QualifiedFrameTime.h"
+#include "Misc/Timecode.h"
 #include "TimeManagementBlueprintLibrary.generated.h"
 
 /**
@@ -39,5 +39,5 @@ public:
 	 * @return true if the Timecode is valid. The timecode is valid when the TimecodeProfier is Synchronized.
 	 */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Timecode Provider")
-	static bool GetTimecode(FTimecode& OutTimecode);
+	static FTimecode GetTimecode();
 };

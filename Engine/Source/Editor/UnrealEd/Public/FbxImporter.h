@@ -104,6 +104,8 @@ DECLARE_LOG_CATEGORY_EXTERN(LogFbx, Log, All);
 
 #define DEBUG_FBX_NODE( Prepend, FbxNode ) FPlatformMisc::LowLevelOutputDebugStringf( TEXT("%s %s\n"), ANSI_TO_TCHAR(Prepend), ANSI_TO_TCHAR( FbxNode->GetName() ) )
 
+#define FBX_METADATA_PREFIX TEXT("FBX.")
+
 namespace UnFbx
 {
 

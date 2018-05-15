@@ -64,6 +64,8 @@ public:
 	//~ IPythonScriptPlugin interface
 	virtual bool IsPythonAvailable() const override;
 	virtual bool ExecPythonCommand(const TCHAR* InPythonCommand) override;
+	virtual FSimpleMulticastDelegate& OnPythonInitialized() override;
+	virtual FSimpleMulticastDelegate& OnPythonShutdown() override;
 
 	//~ IModuleInterface interface
 	virtual void StartupModule() override;
@@ -95,15 +97,15 @@ private:
 
 	void ShutdownPython();
 
-	void ModulesChangedDelayedNotify();
+	void RequestStubCodeGeneration();
+
+	void GenerateStubCode();
 
 	void Tick(const float InDeltaTime);
 
 	void OnModuleDirtied(FName InModuleName);
 
 	void OnModulesChanged(FName InModuleName, EModuleChangeReason InModuleChangeReason);
-
-    void OnModulesChangedDelayedNotify();
 
 	void OnContentPathMounted(const FString& InAssetPath, const FString& InFilesystemPath);
 
@@ -129,5 +131,6 @@ private:
 	bool bHasTicked;
 #endif	// WITH_PYTHON
 
-
+	FSimpleMulticastDelegate OnPythonInitializedDelegate;
+	FSimpleMulticastDelegate OnPythonShutdownDelegate;
 };

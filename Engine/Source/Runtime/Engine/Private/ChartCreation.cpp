@@ -162,6 +162,14 @@ void FDumpFPSChartToEndpoint::HandleBasicStats()
 		TimeDisregarded,
 		AvgFPS));
 	PrintToEndpoint(FString::Printf(TEXT("Average GPU frametime: %4.2f ms"), AvgGPUFrameTime));
+
+	PrintToEndpoint(FString::Printf(TEXT("Total time spent flushing async loading: %4.2f ms"), TotalFlushAsyncLoadingTimeInMS));
+	PrintToEndpoint(FString::Printf(TEXT("Total flushing async loading calls: %d"), TotalFlushAsyncLoadingCalls));
+	PrintToEndpoint(FString::Printf(TEXT("Max flush async loading time: %4.2f ms"), MaxFlushAsyncLoadingTimeInMS));
+	PrintToEndpoint(FString::Printf(TEXT("Average flush async loading time: %4.2f ms"), AvgFlushAsyncLoadingTimeInMS));
+
+	PrintToEndpoint(FString::Printf(TEXT("Total sync loads: %d"), TotalSyncLoadCount));
+
 	PrintToEndpoint(FString::Printf(TEXT("BoundGameThreadPct: %4.2f"), BoundGameThreadPct));
 	PrintToEndpoint(FString::Printf(TEXT("BoundRenderThreadPct: %4.2f"), BoundRenderThreadPct));
 	PrintToEndpoint(FString::Printf(TEXT("BoundGPUPct: %4.2f"), BoundGPUPct));
@@ -185,6 +193,13 @@ void FDumpFPSChartToEndpoint::DumpChart(double InWallClockTimeFromStartOfChartin
 	AvgFPS = NumFrames / TotalTime;
 	TimeDisregarded = FMath::Max<float>(0, WallClockTimeFromStartOfCharting - TotalTime);
 	AvgGPUFrameTime = float((Chart.TotalFrameTime_GPU / NumFrames)*1000.0);
+
+	TotalFlushAsyncLoadingTimeInMS = Chart.TotalFlushAsyncLoadingTime * 1000.0;
+	TotalFlushAsyncLoadingCalls = Chart.TotalFlushAsyncLoadingCalls;
+	MaxFlushAsyncLoadingTimeInMS = Chart.MaxFlushAsyncLoadingTime * 1000.0;
+	AvgFlushAsyncLoadingTimeInMS = (TotalFlushAsyncLoadingCalls > 0) ? (TotalFlushAsyncLoadingTimeInMS / TotalFlushAsyncLoadingCalls) : 0;
+
+	TotalSyncLoadCount = Chart.TotalSyncLoadCount;
 
 	BoundGameThreadPct = (float(Chart.NumFramesBound_GameThread) / float(NumFrames))*100.0f;
 	BoundRenderThreadPct = (float(Chart.NumFramesBound_RenderThread) / float(NumFrames))*100.0f;
@@ -391,6 +406,13 @@ protected:
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Time"), FString::Printf(TEXT("%4.2f"), WallClockTimeFromStartOfCharting)));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("FrameCount"), FString::Printf(TEXT("%i"), NumFrames)));
 
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("FlushAsyncLoadTime"), FString::Printf(TEXT("%4.2f"), TotalFlushAsyncLoadingTimeInMS)));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("FlushAsyncLoadCalls"), FString::Printf(TEXT("%d"), TotalFlushAsyncLoadingCalls)));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("MaxFlushAsyncLoadTime"), FString::Printf(TEXT("%4.2f"), MaxFlushAsyncLoadingTimeInMS)));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("AvgFlushAsyncLoadTime"), FString::Printf(TEXT("%4.2f"), AvgFlushAsyncLoadingTimeInMS)));
+
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("SyncLoadCount"), FString::Printf(TEXT("%d"), TotalSyncLoadCount)));
+
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PercentGameThreadBound"), FString::Printf(TEXT("%4.2f"), BoundGameThreadPct)));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PercentRenderThreadBound"), FString::Printf(TEXT("%4.2f"), BoundRenderThreadPct)));
 
@@ -574,6 +596,10 @@ void FPerformanceTrackingChart::Reset(const FDateTime& InStartTime)
 	TotalFrameTime_GameThread = 0.0;
 	TotalFrameTime_RenderThread = 0.0;
 	TotalFrameTime_GPU = 0.0;
+	TotalFlushAsyncLoadingTime = 0.0;
+	TotalFlushAsyncLoadingCalls = 0;
+	MaxFlushAsyncLoadingTime = 0.0;
+	TotalSyncLoadCount = 0;
 	TotalGameThreadBoundHitchCount = 0;
 	TotalRenderThreadBoundHitchCount = 0;
 	TotalGPUBoundHitchCount = 0;
@@ -654,6 +680,12 @@ void FPerformanceTrackingChart::ProcessFrame(const FFrameData& FrameData)
 	TotalFrameTime_GameThread += FrameData.GameThreadTimeSeconds;
 	TotalFrameTime_RenderThread += FrameData.RenderThreadTimeSeconds;
 	TotalFrameTime_GPU += FrameData.GPUTimeSeconds;
+
+	// Async loading stats.
+	TotalFlushAsyncLoadingTime += FrameData.FlushAsyncLoadingTime;
+	TotalFlushAsyncLoadingCalls += FrameData.FlushAsyncLoadingCount;
+	MaxFlushAsyncLoadingTime = FMath::Max(MaxFlushAsyncLoadingTime, FrameData.FlushAsyncLoadingTime);
+	TotalSyncLoadCount += FrameData.SyncLoadCount;
 
 	// Track draw calls
 	MaxDrawCalls = FMath::Max(MaxDrawCalls, GNumDrawCallsRHI);
@@ -1088,6 +1120,14 @@ IPerformanceDataConsumer::FFrameData FPerformanceTrackingSystem::AnalyzeFrame(fl
 	FrameData.GameThreadTimeSeconds = FPlatformTime::ToSeconds(GGameThreadTime);
 	FrameData.RenderThreadTimeSeconds = FPlatformTime::ToSeconds(LocalRenderThreadTime);
 	FrameData.GPUTimeSeconds = FPlatformTime::ToSeconds(LocalGPUFrameTime);
+
+	extern COREUOBJECT_API double GFlushAsyncLoadingTime;
+	extern COREUOBJECT_API uint32 GFlushAsyncLoadingCount;
+	extern COREUOBJECT_API uint32 GSyncLoadCount;
+
+	FrameData.FlushAsyncLoadingTime = GFlushAsyncLoadingTime;
+	FrameData.FlushAsyncLoadingCount = GFlushAsyncLoadingCount;
+	FrameData.SyncLoadCount = GSyncLoadCount;
 
 	// Optionally disregard frames that took longer than one second when accumulating data.
 	const bool bBinThisFrame = (DeltaSeconds < GMaximumFrameTimeToConsiderForHitchesAndBinning) || (GMaximumFrameTimeToConsiderForHitchesAndBinning <= 0.0f);

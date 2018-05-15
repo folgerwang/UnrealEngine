@@ -5,7 +5,7 @@
 #include "TimeSynchronizableMediaSource.h"
 
 #include "AjaMediaFinder.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 #include "AjaMediaSource.generated.h"
 

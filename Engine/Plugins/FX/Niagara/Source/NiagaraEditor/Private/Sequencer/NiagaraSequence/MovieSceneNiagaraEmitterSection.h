@@ -8,7 +8,7 @@
 #include "MovieSceneClipboard.h"
 #include "Channels/MovieSceneChannel.h"
 #include "Channels/MovieSceneChannelData.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 #include "MovieSceneNiagaraEmitterSection.generated.h"
 
 class FNiagaraEmitterHandleViewModel;

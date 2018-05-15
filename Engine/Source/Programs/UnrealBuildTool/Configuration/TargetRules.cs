@@ -559,7 +559,7 @@ namespace UnrealBuildTool
         /// Whether to turn on logging for test/shipping builds.
         /// </summary>
 		[RequiresUniqueBuildEnvironment]
-		public bool bUseLoggingInShipping = false;
+        public bool bUseLoggingInShipping = false;
 
 		/// <summary>
 		/// Whether to turn on logging to memory for test/shipping builds.
@@ -1121,6 +1121,11 @@ namespace UnrealBuildTool
 		public PS4TargetRules PS4Platform = new PS4TargetRules();
 
 		/// <summary>
+		/// Switch-specific target settings.
+		/// </summary>
+		public SwitchTargetRules SwitchPlatform = new SwitchTargetRules();
+
+		/// <summary>
 		/// Windows-specific target settings.
 		/// </summary>
 		public WindowsTargetRules WindowsPlatform = new WindowsTargetRules();
@@ -1333,6 +1338,7 @@ namespace UnrealBuildTool
 			yield return LuminPlatform;
 			yield return MacPlatform;
 			yield return PS4Platform;
+			yield return SwitchPlatform;
 			yield return WindowsPlatform;
 			yield return XboxOnePlatform;
 		}
@@ -1384,6 +1390,7 @@ namespace UnrealBuildTool
 			LuminPlatform = new ReadOnlyLuminTargetRules(Inner.LuminPlatform);
 			MacPlatform = new ReadOnlyMacTargetRules(Inner.MacPlatform);
 			PS4Platform = new ReadOnlyPS4TargetRules(Inner.PS4Platform);
+			SwitchPlatform = new ReadOnlySwitchTargetRules(Inner.SwitchPlatform);
 			WindowsPlatform = new ReadOnlyWindowsTargetRules(Inner.WindowsPlatform);
 			XboxOnePlatform = new ReadOnlyXboxOneTargetRules(Inner.XboxOnePlatform);
 		}
@@ -2060,6 +2067,12 @@ namespace UnrealBuildTool
 		}
 
 		public ReadOnlyPS4TargetRules PS4Platform
+		{
+			get;
+			private set;
+		}
+
+		public ReadOnlySwitchTargetRules SwitchPlatform
 		{
 			get;
 			private set;

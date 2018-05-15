@@ -4816,14 +4816,14 @@ EAsyncPackageState::Type FAsyncLoadingThread::TickAsyncLoading(bool bUseTimeLimi
 					}
 #endif
 					if (!bDidSomething)
-			{
-				CheckForCycles();
+					{
+						CheckForCycles();
 					}
 
-				IsTimeLimitExceeded(TickStartTime, bUseTimeLimit, TimeLimit, TEXT("CheckForCycles (non-shipping)"));
+					IsTimeLimitExceeded(TickStartTime, bUseTimeLimit, TimeLimit, TEXT("CheckForCycles (non-shipping)"));
+				}
 			}
 		}
-	}
 
 		// Call update callback once per tick on the game thread
 		FCoreDelegates::OnAsyncLoadingFlushUpdate.Broadcast();
@@ -6870,8 +6870,22 @@ float GetAsyncLoadPercentage(const FName& PackageName)
 	return FAsyncLoadingThread::Get().GetAsyncLoadPercentage(PackageName);
 }
 
+double GFlushAsyncLoadingTime = 0.0;
+uint32 GFlushAsyncLoadingCount = 0;
+uint32 GSyncLoadCount = 0;
+
+void ResetAsyncLoadingStats()
+{
+	check(IsInGameThread());
+	GFlushAsyncLoadingTime = 0.0;
+	GFlushAsyncLoadingCount = 0;
+	GSyncLoadCount = 0;
+}
+
 void InitAsyncThread()
 {
+	FCoreDelegates::OnSyncLoadPackage.AddStatic([](const FString&) { GSyncLoadCount++; });
+
 	FAsyncLoadingThread::Get().InitializeAsyncThread();
 }
 
@@ -6904,8 +6918,25 @@ void FlushAsyncLoading(int32 PackageID /* = INDEX_NONE */)
 
 		FCoreDelegates::OnAsyncLoadingFlush.Broadcast();
 
+#if NO_LOGGING == 0
+		{
+			// Log the flush, but only display once per frame to avoid log spam.
+			static uint64 LastFrameNumber = -1;
+			if (LastFrameNumber != GFrameNumber)
+			{
+				UE_LOG(LogStreaming, Display, TEXT("Flushing async loaders."));
+				LastFrameNumber = GFrameNumber;
+			}
+			else
+			{
+				UE_LOG(LogStreaming, Log, TEXT("Flushing async loaders."));
+			}
+		}
+#endif
+
+		double StartTime = FPlatformTime::Seconds();
+
 		// Flush async loaders by not using a time limit. Needed for e.g. garbage collection.
-		UE_LOG(LogStreaming, Log,  TEXT("Flushing async loaders.") );
 		{
 			TUniquePtr<FFlushTree> FlushTree;
 			if (PackageID != INDEX_NONE)
@@ -6933,10 +6964,16 @@ void FlushAsyncLoading(int32 PackageID /* = INDEX_NONE */)
 			}
 		}
 
+		double EndTime = FPlatformTime::Seconds();
+		double ElapsedTime = EndTime - StartTime;
+
+		GFlushAsyncLoadingTime += ElapsedTime;
+		GFlushAsyncLoadingCount++;
+
 		check(PackageID != INDEX_NONE || !IsAsyncLoading());
 
-		}
 	}
+}
 
 EAsyncPackageState::Type ProcessAsyncLoadingUntilComplete(TFunctionRef<bool()> CompletionPredicate, float TimeLimit)
 {

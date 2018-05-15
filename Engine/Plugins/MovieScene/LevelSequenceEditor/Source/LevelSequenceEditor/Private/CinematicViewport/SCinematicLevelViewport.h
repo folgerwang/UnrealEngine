@@ -9,7 +9,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
 #include "LevelEditorViewport.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 class FLevelSequenceEditorToolkit;
 class FLevelViewportLayout;

@@ -10,7 +10,7 @@
 
 #include "FrameGrabberProtocol.generated.h"
 
-UCLASS()
+UCLASS(config=EditorPerProjectUserSettings, PerObjectConfig)
 class MOVIESCENECAPTURE_API UFrameGrabberProtocolSettings : public UMovieSceneCaptureProtocolSettings
 {
 public:

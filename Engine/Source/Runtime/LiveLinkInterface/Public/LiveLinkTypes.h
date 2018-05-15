@@ -1,12 +1,12 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "LiveLinkRefSkeleton.h"
-#include "QualifiedFrameTime.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
+#include "Misc/QualifiedFrameTime.h"
 #include "LiveLinkTypes.generated.h"
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS

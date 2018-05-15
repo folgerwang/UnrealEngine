@@ -180,20 +180,36 @@ class RecordPerformance : BuildCommand
 	private void RunGame(Platform Platform, string Rhi, int RunNumber, bool UseStats)
 	{
 		var AdditionalCommandLineParameters = "-savevulkanpsocacheonexit";
-		var StatFileName = Path.Combine(ProjectToRun, "Saved", "FXPerformance", string.Format("{0}.csv", PerformanceMonitorConfig));
+		var StatFileName = Path.Combine(ProjectToRun, "Saved", "FXPerformance", PerformanceMonitorConfig + ".csv");
 
 		Log("Running {0} on {1}...", Rhi, Platform.PlatformType);
 
 		var RhiParam = (Rhi != "default") ? "-" + Rhi : "";
 
-		RunBCR(string.Format("-project={0} -platform={1} -skipbuild -skipcook -skipstage -skipdeploy -run -getfile=\"{5}\" -addcmdline=\"{2} {4} -benchmark -execcmds=\\\"PerformanceMonitor addtimer Time,PerformanceMonitor cvstoolsmode true,PerformanceMonitor start {3}, ce start\\\"\"",
-			ProjectToRun, Platform.PlatformType, RhiParam, PerformanceMonitorConfig, AdditionalCommandLineParameters, StatFileName));
+		try
+		{
+			RunBCR(string.Format("-project={0} -platform={1} -skipbuild -skipcook -skipstage -skipdeploy -run -getfile=\"{5}\" -addcmdline=\"{2} {4} -benchmark -execcmds=\\\"PerformanceMonitor addtimer Time,PerformanceMonitor cvstoolsmode true,PerformanceMonitor start {3}, ce start\\\"\"",
+				ProjectToRun, Platform.PlatformType, RhiParam, PerformanceMonitorConfig, AdditionalCommandLineParameters, StatFileName));
+		}
+		catch
+		{
+			Log("Running game failed. Stats might be wrong / incomplete.");
+		}
 
 		if (UseStats)
 		{
-			var OutputFile = FileReference.Combine(OutputDir, string.Format("{0}-{1}", Platform.PlatformType, Rhi), string.Format("{0}.csv", RunNumber));
-			CreateDirectory(OutputFile.Directory.FullName);
-			CopyFile(CombinePaths(CmdEnv.EngineSavedFolder, Path.GetFileName(StatFileName)), OutputFile.FullName);
+			// Create output directory
+			var DestinationDirectory = DirectoryReference.Combine(OutputDir, string.Format("{0}-{1}", Platform.PlatformType, Rhi));
+			CreateDirectory(DestinationDirectory.FullName);
+
+			// Copy log
+			var DestLogFile = FileReference.Combine(DestinationDirectory, string.Format("{0}.log", RunNumber));
+			var LogFileName = Path.Combine(CmdEnv.LogFolder, "BCR", "Client.log");
+			CopyFile(LogFileName, DestLogFile.FullName);
+
+			// Copy stat file
+			var DestStatsFile = FileReference.Combine(DestinationDirectory, string.Format("{0}.csv", RunNumber));
+			CopyFile(CombinePaths(CmdEnv.EngineSavedFolder, Path.GetFileName(StatFileName)), DestStatsFile.FullName);
 		}
 	}
 

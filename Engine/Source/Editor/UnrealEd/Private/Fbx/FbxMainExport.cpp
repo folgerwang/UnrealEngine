@@ -95,6 +95,7 @@
 #include "Widgets/SWindow.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Interfaces/IMainFrameModule.h"
+#include "UObject/MetaData.h"
 
 namespace UnFbx
 {
@@ -3411,6 +3412,33 @@ FbxNode* FFbxExporter::ExportCollisionMesh(const UStaticMesh* StaticMesh, const 
 }
 #endif
 
+void ExportObjectMetadata(const UObject* ObjectToExport, FbxNode* Node)
+{
+	if (ObjectToExport && Node)
+	{
+		// Retrieve the metadata map without creating it
+		const TMap<FName, FString>* MetadataMap = UMetaData::GetMapForObject(ObjectToExport);
+		if (MetadataMap)
+		{
+			static const FString MetadataPrefix(FBX_METADATA_PREFIX);
+			for (const auto& MetadataIt : *MetadataMap)
+			{
+				// Export object metadata tags that are prefixed as FBX custom user-defined properties
+				// Remove the prefix since it's for Unreal use only (and '.' is considered an invalid character for user property names in DCC like Maya)
+				FString TagAsString = MetadataIt.Key.ToString();
+				if (TagAsString.RemoveFromStart(MetadataPrefix))
+				{
+					FbxProperty Property = FbxProperty::Create(Node, FbxStringDT, TCHAR_TO_UTF8(*TagAsString));
+					FbxString ValueString(TCHAR_TO_UTF8(*MetadataIt.Value));
+
+					Property.Set(ValueString);
+					Property.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+				}
+			}
+		}
+	}
+}
+
 /**
  * Exports a static mesh
  * @param StaticMesh	The static mesh to export
@@ -3749,6 +3777,8 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int3
 
 	//Set the original meshes in case it was already existing
 	FbxActor->SetNodeAttribute(Mesh);
+
+	ExportObjectMetadata(StaticMesh, FbxActor);
 
 	return FbxActor;
 }

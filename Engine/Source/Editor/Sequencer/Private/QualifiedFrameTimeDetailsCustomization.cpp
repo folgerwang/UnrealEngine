@@ -2,13 +2,13 @@
 
 #include "QualifiedFrameTimeDetailsCustomization.h"
 #include "IDetailPropertyRow.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 #include "IDetailChildrenBuilder.h"
 #include "DetailLayoutBuilder.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "PropertyCustomizationHelpers.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 #define LOCTEXT_NAMESPACE "TimeManagement.QualifiedFrameTime"
 

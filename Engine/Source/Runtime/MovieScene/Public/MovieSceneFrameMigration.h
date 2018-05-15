@@ -4,7 +4,7 @@
 
 #include "CoreTypes.h"
 #include "UObject/ObjectMacros.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 #include "MovieSceneFwd.h"
 
 #include "MovieSceneFrameMigration.generated.h"
