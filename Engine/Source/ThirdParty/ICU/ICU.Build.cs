@@ -136,9 +136,9 @@ public class ICU : ModuleRules
 					foreach (string Stem in LibraryNameStems)
 					{
 						string LibraryName = "icu" + Stem + LibraryNamePostfix;
-						if (Target.Platform == UnrealTargetPlatform.Linux)
+						if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 						{
-							// Linux seems to need the path, not just the filename.
+							// Linux needs the path, not just the filename, to avoid linking to system lib instead of a bundled one.
 							PublicAdditionalLibraries.Add(TargetSpecificPath + "lib/" + "lib" + LibraryName + "." + StaticLibraryExtension); 
 						}
 						else

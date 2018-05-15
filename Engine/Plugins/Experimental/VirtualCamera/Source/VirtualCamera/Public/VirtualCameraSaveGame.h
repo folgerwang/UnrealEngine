@@ -217,11 +217,9 @@ struct FVirtualCameraWaypoint
 
 	FVirtualCameraWaypoint()
 	{
-		DateCreated = FDateTime::Now();
 		bIsHomeWaypoint = false;
 		bIsFavorited = false;
 		Name = "";
-		WaypointTransform = FTransform();
 	};
 };
 
@@ -284,7 +282,6 @@ struct FVirtualCameraSettingsPreset
 		bIsAxisLockingSettingsSaved = false;
 		bIsMotionScaleSettingsSaved = false;
 		bIsFavorited = false;
-		DateCreated = FDateTime::Now();
 	};
 };
 

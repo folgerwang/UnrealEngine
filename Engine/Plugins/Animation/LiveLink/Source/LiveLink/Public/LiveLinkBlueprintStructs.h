@@ -4,8 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "LiveLinkTypes.h"
-#include "Timecode.h"
-#include "FrameRate.h"
+#include "Misc/Timecode.h"
+#include "Misc/FrameRate.h"
+#include "ILiveLinkSource.h"
 #include "LiveLinkBlueprintStructs.generated.h"
 
 USTRUCT(BlueprintType)
@@ -121,4 +122,19 @@ struct FSubjectFrameHandle
 	void SetCachedFrame(TSharedPtr<FCachedSubjectFrame> InCachedFrame);
 private:
 	TSharedPtr<FCachedSubjectFrame> CachedFrame;
+};
+
+// A Blueprint handle to a specific LiveLink Source
+USTRUCT(BlueprintType)
+struct FLiveLinkSourceHandle
+{
+	GENERATED_USTRUCT_BODY()
+	
+	FLiveLinkSourceHandle() = default;
+
+	virtual ~FLiveLinkSourceHandle() = default;
+
+	void SetSourcePointer(TSharedPtr<ILiveLinkSource> InSourcePointer);
+
+	TSharedPtr<ILiveLinkSource> SourcePointer;
 };

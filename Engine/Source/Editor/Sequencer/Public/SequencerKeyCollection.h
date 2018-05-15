@@ -5,7 +5,7 @@
 #include "CoreTypes.h"
 #include "Misc/Guid.h"
 #include "Templates/SharedPointer.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 
 class UMovieSceneSection;
 class FSequencerDisplayNode;

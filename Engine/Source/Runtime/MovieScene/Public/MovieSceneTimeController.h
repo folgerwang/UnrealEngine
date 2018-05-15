@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 #include "MovieSceneFwd.h"
 #include "Misc/Attribute.h"
 #include "UObject/ObjectMacros.h"

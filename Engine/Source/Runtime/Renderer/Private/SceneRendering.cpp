@@ -149,6 +149,16 @@ static TAutoConsoleVariable<int32> CVarDebugCanvasInLayer(
 	TEXT("0 to disable (default), 1 to enable."),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+
+static TAutoConsoleVariable<int32> CVarViewRectUseScreenBottom(
+	TEXT("r.ViewRectUseScreenBottom"),
+	0,
+	TEXT("WARNING: This is an experimental, unsupported feature and does not work with all postprocesses (e.g DOF and DFAO)\n")
+	TEXT("If enabled, the view rectangle will use the bottom left corner instead of top left"),
+	ECVF_RenderThreadSafe
+);
+
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 static TAutoConsoleVariable<float> CVarGeneralPurposeTweak(
 	TEXT("r.GeneralPurposeTweak"),
@@ -353,6 +363,7 @@ FASTVRAM_CVAR(SeparateTranslucency, 0);
 FASTVRAM_CVAR(LightAccumulation, 0); 
 FASTVRAM_CVAR(LightAttenuation, 0); 
 FASTVRAM_CVAR(ScreenSpaceAO,0);
+FASTVRAM_CVAR(SSR, 0);
 FASTVRAM_CVAR(DBufferA, 0);
 FASTVRAM_CVAR(DBufferB, 0);
 FASTVRAM_CVAR(DBufferC, 0); 
@@ -478,6 +489,7 @@ void FFastVramConfig::Update()
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_LightAccumulation, LightAccumulation);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_LightAttenuation, LightAttenuation);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_ScreenSpaceAO, ScreenSpaceAO);
+	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_SSR, SSR);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_DBufferA, DBufferA);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_DBufferB, DBufferB);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_DBufferC, DBufferC);
@@ -496,16 +508,25 @@ void FFastVramConfig::Update()
 	bDirty |= UpdateBufferFlagFromCVar(CVarFastVRam_ForwardLightingCullingResources, ForwardLightingCullingResources);
 }
 
-bool FFastVramConfig::UpdateTextureFlagFromCVar(TAutoConsoleVariable<int32>& CVar, ETextureCreateFlags& InOutValue)
+bool FFastVramConfig::UpdateTextureFlagFromCVar(TAutoConsoleVariable<int32>& CVar, uint32& InOutValue)
 {
-	ETextureCreateFlags OldValue = InOutValue;
-	InOutValue = CVar.GetValueOnRenderThread() ? ( TexCreate_FastVRAM ) : TexCreate_None;
+	uint32 OldValue = InOutValue;
+	int32 CVarValue = CVar.GetValueOnRenderThread();
+	InOutValue = TexCreate_None;
+	if (CVarValue == 1)
+	{
+		InOutValue = TexCreate_FastVRAM;
+	}
+	else if (CVarValue == 2)
+	{
+		InOutValue = TexCreate_FastVRAM | TexCreate_FastVRAMPartialAlloc;
+	}
 	return OldValue != InOutValue;
 }
 
-bool FFastVramConfig::UpdateBufferFlagFromCVar(TAutoConsoleVariable<int32>& CVar, EBufferUsageFlags& InOutValue)
+bool FFastVramConfig::UpdateBufferFlagFromCVar(TAutoConsoleVariable<int32>& CVar, uint32& InOutValue)
 {
-	EBufferUsageFlags OldValue = InOutValue;
+	uint32 OldValue = InOutValue;
 	InOutValue = CVar.GetValueOnRenderThread() ? ( BUF_FastVRAM ) : BUF_None;
 	return OldValue != InOutValue;
 }
@@ -1925,6 +1946,12 @@ void FSceneRenderer::PrepareViewRectsForRendering()
 		FIntPoint ViewRectMin = QuantizeViewRectMin(FIntPoint(
 			FMath::CeilToInt(View.UnscaledViewRect.Min.X * ResolutionFraction),
 			FMath::CeilToInt(View.UnscaledViewRect.Min.Y * ResolutionFraction)));
+
+		// Use the bottom-left view rect if requested, instead of top-left
+		if (CVarViewRectUseScreenBottom.GetValueOnRenderThread())
+		{
+			ViewRectMin.Y = FMath::CeilToInt( View.UnscaledViewRect.Max.Y * ViewFamily.SecondaryViewFraction ) - ViewSize.Y;
+		}
 
 		View.ViewRect.Min = ViewRectMin;
 		View.ViewRect.Max = ViewRectMin + ViewSize;

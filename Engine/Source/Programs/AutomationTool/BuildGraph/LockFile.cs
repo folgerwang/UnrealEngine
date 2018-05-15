@@ -14,7 +14,7 @@ namespace AutomationTool
     /// </summary>
     static class LockFile
     {
-        public static void TakeLock(DirectoryReference LockDirectory, TimeSpan Timeout, System.Action Callback)
+        private static void TakeLock(DirectoryReference LockDirectory, TimeSpan Timeout, System.Action Callback)
         {
             string LockFilePath = Path.Combine(LockDirectory.FullName, ".lock");
 
@@ -83,5 +83,18 @@ namespace AutomationTool
                 }
             }
         }
-    }
+
+		public static void OptionallyTakeLock(bool Condition, DirectoryReference LockDirectory, TimeSpan Timeout, System.Action Callback)
+		{
+			if (Condition)
+			{
+				TakeLock(LockDirectory, Timeout, Callback);
+			}
+			else
+			{
+				// No lock required, invoke the callback directly.
+				Callback();
+			}
+		}
+	}
 }

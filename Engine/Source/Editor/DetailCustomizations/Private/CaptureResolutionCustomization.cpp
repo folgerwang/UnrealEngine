@@ -31,7 +31,7 @@ void FCaptureResolutionCustomization::CustomizeHeader( TSharedRef<IPropertyHandl
 	Resolutions.Add(MakeShareable( new FPredefinedResolution{LOCTEXT("ResolutionF", "3840 x 2160 (16:9)"), 3840, 2160} ));
 	Resolutions.Add(MakeShareable( new FPredefinedResolution{LOCTEXT("ResolutionG", "Custom"), 1920, 1080} ));
 
-	uint32 CurrentResX = 0, CurrentResY = 0;
+	int32 CurrentResX = 0, CurrentResY = 0;
 	ResXHandle->GetValue(CurrentResX);
 	ResYHandle->GetValue(CurrentResY);
 

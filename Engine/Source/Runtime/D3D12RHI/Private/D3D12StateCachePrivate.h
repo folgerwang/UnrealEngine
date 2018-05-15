@@ -50,6 +50,11 @@ static const bool GD3D12SkipStateCaching = false;
 
 extern int32 GGlobalViewHeapSize;
 
+#define MAX_VBS			D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT
+
+typedef uint32 VBSlotMask;
+static_assert((8 * sizeof(VBSlotMask)) >= MAX_VBS, "VBSlotMask isn't large enough to cover all VBs. Please increase the size.");
+
 struct FD3D12VertexBufferCache
 {
 	FD3D12VertexBufferCache()
@@ -66,11 +71,11 @@ struct FD3D12VertexBufferCache
 		BoundVBMask = 0;
 	}
 
-	D3D12_VERTEX_BUFFER_VIEW CurrentVertexBufferViews[D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
-	FD3D12ResourceLocation* CurrentVertexBufferResources[D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
-	FD3D12ResidencyHandle* ResidencyHandles[D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
+	D3D12_VERTEX_BUFFER_VIEW CurrentVertexBufferViews[MAX_VBS];
+	FD3D12ResourceLocation* CurrentVertexBufferResources[MAX_VBS];
+	FD3D12ResidencyHandle* ResidencyHandles[MAX_VBS];
 	int32 MaxBoundVertexBufferIndex;
-	uint32 BoundVBMask;
+	VBSlotMask BoundVBMask;
 };
 
 struct FD3D12IndexBufferCache
@@ -97,17 +102,17 @@ struct FD3D12ResourceCache
 {
 	static inline void CleanSlot(ResourceSlotMask& SlotMask, uint32 SlotIndex)
 	{
-		SlotMask &= ~(1 << SlotIndex);
+		SlotMask &= ~((ResourceSlotMask)1 << SlotIndex);
 	}
 
 	static inline void DirtySlot(ResourceSlotMask& SlotMask, uint32 SlotIndex)
 	{
-		SlotMask |= (1 << SlotIndex);
+		SlotMask |= ((ResourceSlotMask)1 << SlotIndex);
 	}
 
 	static inline bool IsSlotDirty(const ResourceSlotMask& SlotMask, uint32 SlotIndex)
 	{
-		return (SlotMask & (1 << SlotIndex)) != 0;
+		return (SlotMask & ((ResourceSlotMask)1 << SlotIndex)) != 0;
 	}
 
 	// Mark a specific shader stage as dirty.
@@ -203,7 +208,7 @@ struct FD3D12ShaderResourceViewCache : public FD3D12ResourceCache<SRVSlotMask>
 	bool ViewsIntersectWithDepthRT[SF_NumFrequencies][MAX_SRVS];
 	uint32 NumViewsIntersectWithDepthCount;
 
-	uint32 BoundMask[SF_NumFrequencies];
+	SRVSlotMask BoundMask[SF_NumFrequencies];
 	int32 MaxBoundIndex[SF_NumFrequencies];
 };
 

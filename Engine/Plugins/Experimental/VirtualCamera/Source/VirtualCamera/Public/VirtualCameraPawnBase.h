@@ -304,7 +304,7 @@ protected:
 	bool bAllowFocusVisualization;
 
 	/** Number formatter for Screenshots, Waypoints and Presets. */
-	FNumberFormattingOptions LeadingZerosFormatter;
+	uint32 MinimumIntegralDigits;
 
 	/**
 	 * Stores the current camera settings to a save file for later use.
@@ -315,4 +315,12 @@ protected:
 	 * Loads camera settings from a saved file.
 	 */
 	void LoadSettings();
+
+	/**
+	 * Convenience function to leftpad numbers with zeros
+	 * @param InNumber - The input number to be padded
+	 * @param MinNumberOfCharacters - The minimum number of characters in the returned string
+	 * @return The input number padded to be at least MinNumberOfCharacters in length
+	 */
+	FString LeftPadWithZeros(int32 InNumber, int32 MinNumberOfCharacters) const;
 };

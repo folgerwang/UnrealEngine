@@ -3,7 +3,7 @@
 #pragma once 
 
 #include "Widgets/SWindow.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 /** A dialog for collecting settings for importing post move settings from an external file. */
 class SComposurePostMoveSettingsImportDialog : public SWindow

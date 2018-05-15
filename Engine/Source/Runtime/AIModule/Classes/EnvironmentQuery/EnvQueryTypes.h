@@ -243,7 +243,7 @@ namespace EEnvOverlapShape
 	};
 }
 
-UENUM()
+UENUM(meta=(ScriptName="EnvDirectionType"))
 namespace EEnvDirection
 {
 	enum Type

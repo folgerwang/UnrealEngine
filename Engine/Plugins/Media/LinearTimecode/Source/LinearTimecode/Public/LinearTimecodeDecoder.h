@@ -9,7 +9,7 @@
 /** Process audio samples to extract Linear Timecode Signal
 */
 
-class FLinearTimecodeDecoder
+class LINEARTIMECODE_API FLinearTimecodeDecoder
 {
 	// public interface, methods
 public:

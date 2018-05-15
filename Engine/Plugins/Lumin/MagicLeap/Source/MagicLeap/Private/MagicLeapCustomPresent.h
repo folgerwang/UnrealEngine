@@ -39,8 +39,10 @@
 
 #include "MagicLeapMath.h"
 #include "MagicLeapUtils.h"
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_api.h>
 
 #if PLATFORM_LUMIN
@@ -51,6 +53,7 @@
 #endif // PLATFORM_LUMIN
 
 #include <ml_snapshot.h>
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 class FMagicLeapHMD;

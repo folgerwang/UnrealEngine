@@ -8,7 +8,7 @@
 #include "Input/Reply.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Input/SNumericEntryBox.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 
 class FSequencer;
 class USequencerSettings;

@@ -1,6 +1,7 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LiveLinkMessageBusSourceEditor.h"
+#include "LiveLinkMessageBusFinder.h"
 #include "LiveLinkMessages.h"
 #include "Widgets/Layout/SBox.h"
 
@@ -124,7 +125,7 @@ void SLiveLinkMessageBusSourceEditor::HandlePongMessage(const FLiveLinkPongMessa
 {
 	if(Message.PollRequest == CurrentPollRequest)
 	{
-		PollData.Add(MakeShareable(new FProviderPollResult(Context->GetSender(), Message.ProviderName, Message.MachineName)));
+		PollData.Add(MakeShared<FProviderPollResult>(Context->GetSender(), Message.ProviderName, Message.MachineName));
 
 		ListView->RequestListRefresh();
 	}

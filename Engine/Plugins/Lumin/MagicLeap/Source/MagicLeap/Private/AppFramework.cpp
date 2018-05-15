@@ -38,9 +38,12 @@
 #include "RenderingThread.h"
 #include "Engine/Engine.h"
 #include "Misc/CoreDelegates.h"
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_snapshot.h>
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 TArray<MagicLeap::IAppEventHandler*> FAppFramework::EventHandlers;

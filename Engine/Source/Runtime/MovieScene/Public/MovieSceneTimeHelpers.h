@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "FrameNumber.h"
-#include "FrameTime.h"
+#include "Misc/FrameNumber.h"
+#include "Misc/FrameTime.h"
 #include "Math/Range.h"
 #include "Math/RangeBound.h"
 

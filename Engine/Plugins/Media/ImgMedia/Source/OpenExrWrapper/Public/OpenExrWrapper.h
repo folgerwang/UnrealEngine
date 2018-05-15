@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "Math/IntPoint.h"
 
 class FString;

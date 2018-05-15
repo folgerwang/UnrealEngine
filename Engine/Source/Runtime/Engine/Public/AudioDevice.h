@@ -941,6 +941,12 @@ public:
 		return false;
 	}
 
+	/** Whether or not the platform disables caching of decompressed PCM data (i.e. to save memory on fixed memory platforms */
+	virtual bool DisablePCMAudioCaching() const
+	{
+		return false;
+	}
+
 	/** Creates a Compressed audio info class suitable for decompressing this SoundWave */
 	virtual ICompressedAudioInfo* CreateCompressedAudioInfo(USoundWave* SoundWave) { return nullptr; }
 

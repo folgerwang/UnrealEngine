@@ -28,7 +28,8 @@
               "Win64",
               "Linux",
               "PS4",
-              "XboxOne"
+              "XboxOne",
+              "Switch"
             ],
             "BlacklistPlatforms": [
               "TVOS"
@@ -57,6 +58,19 @@
 			"LoadingPhase" : "Default",
             "WhitelistPlatforms": [
               "XboxOne"
+            ],
+            "BlacklistPlatforms": [
+              "Android",
+              "IOS",
+              "TVOS"
+            ]
+		},
+		{
+			"Name": "PlatformCryptoSwitch",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+            "WhitelistPlatforms": [
+              "Switch"
             ],
             "BlacklistPlatforms": [
               "Android",

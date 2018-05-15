@@ -2,21 +2,19 @@
 
 #pragma once
 
-#include "FrameNumber.h"
-#include "FrameTime.generated.h"
-
+#include "Misc/FrameNumber.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/EnableIf.h"
 
 /**
  * Structure representing a time by a context-free frame number, plus a sub frame value in the range [0:1)
  * Conversion to and from time in seconds is achieved in combination with FFrameRate.
  * Only the frame number part of this representation can be negative, sub frames are always a positive value between the frame number and its next logical frame
  */
-USTRUCT(BlueprintType)
-struct TIMEMANAGEMENT_API FFrameTime
+struct FFrameTime
 {
-	GENERATED_BODY()
 
-	static const float MaxSubframe;
+	static CORE_API const float MaxSubframe;
 
 	/**
 	 * Default constructor initializing to zero
@@ -110,14 +108,11 @@ private:
 	friend FFrameTime  operator/(FFrameTime A, float Scalar);
 
 public:
-
-	UPROPERTY(BlueprintReadWrite, Category = General)
 	FFrameNumber FrameNumber;
 
 private:
 
 	/** Must be 0.f <= SubFrame < 1.f */
-	UPROPERTY()
 	float SubFrame;
 };
 

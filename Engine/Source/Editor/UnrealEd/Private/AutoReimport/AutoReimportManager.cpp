@@ -135,7 +135,11 @@ private:
 
 	/** FTickableEditorObject interface*/
 	virtual void Tick(float DeltaTime) override;
-	virtual ETickableTickType GetTickableTickType() const override { return ETickableTickType::Always; }
+	virtual ETickableTickType GetTickableTickType() const override { return ETickableTickType::Conditional; }
+
+	/** Automation testing will tick its own file cache which can result in race conditions with the reimport manager.  */
+	virtual bool IsTickable() const override { return !GIsAutomationTesting; }
+
 	virtual TStatId GetStatId() const override;
 
 	/** FGCObject interface*/

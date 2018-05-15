@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MovieSceneFwd.h"
-#include "FrameTime.h"
+#include "Misc/FrameTime.h"
 #include "Evaluation/MovieSceneSequenceTransform.h"
 
 

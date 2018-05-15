@@ -47,6 +47,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		Features = EMetalFeaturesSeparateStencil | EMetalFeaturesSetBufferOffset | EMetalFeaturesResourceOptions | EMetalFeaturesDepthStencilBlitOptions | EMetalFeaturesShaderVersions | EMetalFeaturesSetBytes;
 
 #if PLATFORM_TVOS
+        Features &= ~(EMetalFeaturesSetBytes);
 		if(!bNoMetalv2 && [Device supportsFeatureSet:MTLFeatureSet_tvOS_GPUFamily1_v2])
 		{
 			Features |= EMetalFeaturesStencilView | EMetalFeaturesGraphicsUAVs;

@@ -12,7 +12,7 @@
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 #include "Evaluation/PersistentEvaluationData.h"
 #include "MovieSceneSequencePlayer.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 #include "LevelSequence.h"
 #include "LevelSequencePlayer.generated.h"
 

@@ -2,12 +2,43 @@
 
 #include "PyOnlineDocsWriter.h"
 #include "PyUtil.h"
+#include "PyGenUtil.h"
 #include "HAL/FileManager.h"
 #include "Logging/MessageLog.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Runtime/Launch/Resources/Version.h"
 
 #if WITH_PYTHON
+
+class FPyDeleteUnreferencedFilesVisitor : public IPlatformFile::FDirectoryVisitor
+{
+public:
+	void ReferenceFile(const FString& InFilename)
+	{
+		ReferencedFiles.Add(FPaths::ConvertRelativePathToFull(InFilename));
+	}
+
+	bool IsReferencedFile(const FString& InFilename) const
+	{
+		return ReferencedFiles.Contains(FPaths::ConvertRelativePathToFull(InFilename));
+	}
+
+	virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory) override
+	{
+		if (!bIsDirectory && !IsReferencedFile(FilenameOrDirectory))
+		{
+			IFileManager::Get().Delete(FilenameOrDirectory, false, true, true);
+		}
+
+		return true;
+	}
+
+private:
+	/** Set of referenced files (absolute paths) */
+	TSet<FString> ReferencedFiles;
+};
+
 
 void FPyOnlineDocsModule::AccumulateFunction(const TCHAR* InFunctionName)
 {
@@ -46,6 +77,29 @@ FString FPyOnlineDocsWriter::GetTemplatePath() const
 	return GetSourcePath() / TEXT("_templates");
 }
 
+void FPyOnlineDocsWriter::GenerateConfigFile()
+{
+	// Load up conf.py template
+	const FString ConfigTemplatePath = GetTemplatePath() / TEXT("conf.py");
+	FString ConfigTemplate;
+	if (!FFileHelper::LoadFileToString(ConfigTemplate, *ConfigTemplatePath))
+	{
+		UE_LOG(LogPython, Warning, TEXT("Documentation generation template file '%s' failed to load!"), *ConfigTemplatePath);
+		return;
+	}
+
+	// Replace {{Version}} with the actual version number
+	FString ConfigText = ConfigTemplate;
+	ConfigText.ReplaceInline(TEXT("{{Version}}"), VERSION_STRINGIFY(ENGINE_MAJOR_VERSION) TEXT(".") VERSION_STRINGIFY(ENGINE_MINOR_VERSION), ESearchCase::CaseSensitive);
+
+	// Save out config file
+	const FString ConfigPath = GetSourcePath() / TEXT("conf.py");
+	if (!PyGenUtil::SaveGeneratedTextFile(*ConfigPath, ConfigText))
+	{
+		UE_LOG(LogPython, Warning, TEXT("Documentation generation file '%s' failed to write!"), *ConfigPath);
+	}
+}
+
 void FPyOnlineDocsWriter::GenerateIndexFile()
 {
 	// Load up index.rst template
@@ -53,7 +107,7 @@ void FPyOnlineDocsWriter::GenerateIndexFile()
 	FString IndexTemplate;
 	if (!FFileHelper::LoadFileToString(IndexTemplate, *IndexTemplatePath))
 	{
-		UE_LOG(LogPython, Warning, TEXT("Documentation generation template file '%s' was not found!"), *IndexTemplatePath);
+		UE_LOG(LogPython, Warning, TEXT("Documentation generation template file '%s' failed to load!"), *IndexTemplatePath);
 		return;
 	}
 
@@ -109,25 +163,28 @@ void FPyOnlineDocsWriter::GenerateIndexFile()
 
 	// Save out index file
 	const FString IndexPath = GetSourcePath() / TEXT("index.rst");
-	FFileHelper::SaveStringToFile(IndexText, *IndexPath, FFileHelper::EEncodingOptions::ForceUTF8);
+	if (!PyGenUtil::SaveGeneratedTextFile(*IndexPath, IndexText))
+	{
+		UE_LOG(LogPython, Warning, TEXT("Documentation generation file '%s' failed to write!"), *IndexPath);
+	}
 }
 
 void FPyOnlineDocsWriter::GenerateModuleFiles()
 {
-	// Erase any previous files
-	const FString ModuleSourcePath = GetSourcePath() / TEXT("module");
-	IFileManager::Get().DeleteDirectory(*ModuleSourcePath, false, true);
-
 	// Load up Module.rst template
 	const FString ModuleTemplatePath = GetTemplatePath() / TEXT("Module.rst");
 	FString ModuleTemplate;
 	if (!FFileHelper::LoadFileToString(ModuleTemplate, *ModuleTemplatePath))
 	{
-		UE_LOG(LogPython, Warning, TEXT("Documentation generation template file '%s' was not found!"), *ModuleTemplatePath);
+		UE_LOG(LogPython, Warning, TEXT("Documentation generation template file '%s' failed to load!"), *ModuleTemplatePath);
 		return;
 	}
 
+	// Keep track of referenced files so we can delete any stale ones
+	FPyDeleteUnreferencedFilesVisitor DeleteUnreferencedFilesVisitor;
+
 	// Create page for each module
+	const FString ModuleSourcePath = GetSourcePath() / TEXT("module");
 	for (const TSharedRef<FPyOnlineDocsModule>& Module : Modules)
 	{
 		FString ModuleFunctions;
@@ -144,26 +201,36 @@ void FPyOnlineDocsWriter::GenerateModuleFiles()
 
 		// Write out module file
 		const FString ModulePath = ModuleSourcePath / Module->Name + TEXT(".rst");
-		FFileHelper::SaveStringToFile(ModuleText, *ModulePath, FFileHelper::EEncodingOptions::ForceUTF8);
+		if (PyGenUtil::SaveGeneratedTextFile(*ModulePath, ModuleText))
+		{
+			DeleteUnreferencedFilesVisitor.ReferenceFile(ModulePath);
+		}
+		else
+		{
+			UE_LOG(LogPython, Warning, TEXT("Documentation generation file '%s' failed to write!"), *ModulePath);
+		}
 	}
+
+	// Remove any stale files
+	IFileManager::Get().IterateDirectory(*ModuleSourcePath, DeleteUnreferencedFilesVisitor);
 }
 
 void FPyOnlineDocsWriter::GenerateClassFiles()
 {
-	// Erase any previous files
-	const FString ClassSourcePath = GetSourcePath() / TEXT("class");
-	IFileManager::Get().DeleteDirectory(*ClassSourcePath, false, true);
-
 	// Load up Class.rst template
 	const FString ClassTemplatePath = GetTemplatePath() / TEXT("Class.rst");
 	FString ClassTemplate;
 	if (!FFileHelper::LoadFileToString(ClassTemplate, *ClassTemplatePath))
 	{
-		UE_LOG(LogPython, Warning, TEXT("Documentation generation template file '%s' was not found!"), *ClassTemplatePath);
+		UE_LOG(LogPython, Warning, TEXT("Documentation generation template file '%s' failed to load!"), *ClassTemplatePath);
 		return;
 	}
 
+	// Keep track of referenced files so we can delete any stale ones
+	FPyDeleteUnreferencedFilesVisitor DeleteUnreferencedFilesVisitor;
+
 	// Create page for each class in each section
+	const FString ClassSourcePath = GetSourcePath() / TEXT("class");
 	for (const TSharedRef<FPyOnlineDocsSection>& Section : Sections)
 	{
 		for (const FString& TypeName : Section->TypeNames)
@@ -174,9 +241,19 @@ void FPyOnlineDocsWriter::GenerateClassFiles()
 
 			// Write out class file
 			const FString ClassPath = ClassSourcePath / TypeName + TEXT(".rst");
-			FFileHelper::SaveStringToFile(ClassText, *ClassPath, FFileHelper::EEncodingOptions::ForceUTF8);
+			if (PyGenUtil::SaveGeneratedTextFile(*ClassPath, ClassText))
+			{
+				DeleteUnreferencedFilesVisitor.ReferenceFile(*ClassPath);
+			}
+			else
+			{
+				UE_LOG(LogPython, Warning, TEXT("Documentation generation file '%s' failed to write!"), *ClassPath);
+			}
 		}
 	}
+
+	// Remove any stale files
+	IFileManager::Get().IterateDirectory(*ClassSourcePath, DeleteUnreferencedFilesVisitor);
 }
 
 void FPyOnlineDocsWriter::GenerateFiles(const FString& InPythonStubPath)
@@ -184,9 +261,24 @@ void FPyOnlineDocsWriter::GenerateFiles(const FString& InPythonStubPath)
 	UE_LOG(LogPython, Log, TEXT("Generating Python API online docs used by Sphinx to generate static HTML..."));
 
 	// Copy generated unreal module stub file to PythonScriptPlugin/SphinxDocs/modules
-	const FString MoldulesPath = GetSphinxDocsPath() / TEXT("modules") / FPaths::GetCleanFilename(InPythonStubPath);
-	IFileManager::Get().Copy(*MoldulesPath, *InPythonStubPath);
+	{
+		const FString PythonStubDestPath = GetSphinxDocsPath() / TEXT("modules") / FPaths::GetCleanFilename(InPythonStubPath);
 
+		FString SourceFileContents;
+		if (FFileHelper::LoadFileToString(SourceFileContents, *InPythonStubPath))
+		{
+			if (!PyGenUtil::SaveGeneratedTextFile(*PythonStubDestPath, SourceFileContents))
+			{
+				UE_LOG(LogPython, Warning, TEXT("Documentation generation file '%s' failed to write!"), *PythonStubDestPath);
+			}
+		}
+		else
+		{
+			UE_LOG(LogPython, Warning, TEXT("Documentation generation file '%s' failed to load!"), *InPythonStubPath);
+		}
+	}
+
+	GenerateConfigFile();
 	GenerateIndexFile();
 	GenerateModuleFiles();
 	GenerateClassFiles();

@@ -370,6 +370,9 @@ public:
 
 	void RHICalibrateTimers() override;
 
+	bool IsQuadBufferStereoEnabled() const;
+	void DisableQuadBufferStereo();
+
 	template<class BufferType>
 	void* LockBuffer(FRHICommandListImmediate* RHICmdList, BufferType* Buffer, uint32 Offset, uint32 Size, EResourceLockMode LockMode);
 

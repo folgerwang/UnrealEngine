@@ -10,7 +10,7 @@ public class SequencerScripting : ModuleRules
 		
 		PublicIncludePaths.AddRange(
 			new string[] {
-			}
+            }
 		);
 
 		PrivateIncludePaths.AddRange(
@@ -24,7 +24,11 @@ public class SequencerScripting : ModuleRules
 			new string[]
 			{
 				"Core",
-			}
+				"TimeManagement",
+				"MovieScene",
+                "MovieSceneTools",
+                "MovieSceneTracks",
+            }
 		);
 
 		PrivateDependencyModuleNames.AddRange(
@@ -33,11 +37,12 @@ public class SequencerScripting : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Kismet",
-				"MovieScene",
 				"PythonScriptPlugin",
 				"Slate",
 				"SlateCore",
-				"TimeManagement",
+				"MovieSceneCaptureDialog",
+                "MovieSceneCapture",
+                "LevelSequence",
 			}
 		);
 

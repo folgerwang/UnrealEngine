@@ -7,7 +7,7 @@
 #include "DetailLayoutBuilder.h"
 #include "DetailWidgetRow.h"
 #include "IDetailChildrenBuilder.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "Editor.h"
 
 

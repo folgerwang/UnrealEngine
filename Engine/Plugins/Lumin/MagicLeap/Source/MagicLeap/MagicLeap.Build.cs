@@ -130,6 +130,7 @@ namespace UnrealBuildTool.Rules
 				PrivateIncludePaths.AddRange(
 					new string[] {
 						Path.Combine(EngineSourceDirectory, "Runtime/VulkanRHI/Private"),
+						Path.Combine(EngineSourceDirectory, "Runtime/VulkanRHI/Private", ((Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64) ? "Windows" : Target.Platform.ToString()))
 						// ... add other private include paths required here ...
 					}
 				);

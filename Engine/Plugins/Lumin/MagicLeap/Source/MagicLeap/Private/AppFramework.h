@@ -35,8 +35,11 @@
 #pragma once
 
 #include "GenericPlatform/GenericPlatformProcess.h"
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
 #if WITH_MLSDK
+ML_INCLUDES_START
+
 #include <ml_api.h>
 
 #if PLATFORM_LUMIN
@@ -48,6 +51,7 @@
 
 #include <ml_coordinate_frame_uid.h>
 
+ML_INCLUDES_END
 #endif  //WITH_MLSDK
 
 #include "CoreMinimal.h"

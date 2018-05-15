@@ -85,9 +85,9 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Finds a list of folder names to exclude when building for this platform
+		/// Finds a list of folder names to include when building for this platform
 		/// </summary>
-		public FileSystemName[] GetIncludedFolderNames()
+		virtual public FileSystemName[] GetIncludedFolderNames()
 		{
 			if(CachedIncludedFolderNames == null)
 			{

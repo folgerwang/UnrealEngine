@@ -95,10 +95,10 @@ enum EConsoleVariableFlags
 	ECVF_SetByGameSetting =			0x02000000,
 	// project settings (editor UI or from file, higher priority than game setting to allow to enforce some setting fro this project)
 	ECVF_SetByProjectSetting =		0x03000000,
-	// per device setting (e.g. specific iOS device, higher priority than per project to do device specific settings)
-	ECVF_SetByDeviceProfile =		0x04000000,
 	// per project setting (ini file e.g. Engine.ini or Game.ini)
-	ECVF_SetBySystemSettingsIni =	0x05000000,
+	ECVF_SetBySystemSettingsIni =	0x04000000,
+	// per device setting (e.g. specific iOS device, higher priority than per project to do device specific settings)
+	ECVF_SetByDeviceProfile =		0x05000000,
 	// consolevariables.ini (for multiple projects)
 	ECVF_SetByConsoleVariablesIni = 0x06000000,
 	// a minus command e.g. -VSync (very high priority to enforce the setting for the application)
@@ -294,6 +294,11 @@ public:
 		Set(InValue, CurFlags);
 	}
 	void SetWithCurrentPriority(float InValue)
+	{
+		EConsoleVariableFlags CurFlags = (EConsoleVariableFlags)(GetFlags() & ECVF_SetByMask);
+		Set(InValue, CurFlags);
+	}
+	void SetWithCurrentPriority(const TCHAR* InValue)
 	{
 		EConsoleVariableFlags CurFlags = (EConsoleVariableFlags)(GetFlags() & ECVF_SetByMask);
 		Set(InValue, CurFlags);

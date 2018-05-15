@@ -514,7 +514,7 @@ void FD3D12StateCacheBase::ApplyState()
 	uint32 NumViews = 0;
 	for (uint32 iTries = 0; iTries < 2; ++iTries)
 	{
-		const UAVSlotMask CurrentShaderUAVRegisterMask = (1 << PipelineState.Common.CurrentShaderUAVCounts[UAVStage]) - 1;
+		const UAVSlotMask CurrentShaderUAVRegisterMask = ((UAVSlotMask)1 << PipelineState.Common.CurrentShaderUAVCounts[UAVStage]) - (UAVSlotMask)1;
 		CurrentShaderDirtyUAVSlots = CurrentShaderUAVRegisterMask & PipelineState.Common.UAVCache.DirtySlotMask[UAVStage];
 		if (CurrentShaderDirtyUAVSlots)
 		{
@@ -535,7 +535,7 @@ void FD3D12StateCacheBase::ApplyState()
 		for (uint32 Stage = StartStage; Stage < EndStage; ++Stage)
 		{
 			// Note this code assumes the starting register is index 0.
-			const SRVSlotMask CurrentShaderSRVRegisterMask = (1 << PipelineState.Common.CurrentShaderSRVCounts[Stage]) - 1;
+			const SRVSlotMask CurrentShaderSRVRegisterMask = ((SRVSlotMask)1 << PipelineState.Common.CurrentShaderSRVCounts[Stage]) - (SRVSlotMask)1;
 			CurrentShaderDirtySRVSlots[Stage] = CurrentShaderSRVRegisterMask & PipelineState.Common.SRVCache.DirtySlotMask[Stage];
 			if (CurrentShaderDirtySRVSlots[Stage])
 			{
@@ -553,7 +553,7 @@ void FD3D12StateCacheBase::ApplyState()
 				NumViews += NumSRVs[Stage];
 			}
 
-			const CBVSlotMask CurrentShaderCBVRegisterMask = (1 << PipelineState.Common.CurrentShaderCBCounts[Stage]) - 1;
+			const CBVSlotMask CurrentShaderCBVRegisterMask = ((CBVSlotMask)1 << PipelineState.Common.CurrentShaderCBCounts[Stage]) - (CBVSlotMask)1;
 			CurrentShaderDirtyCBVSlots[Stage] = CurrentShaderCBVRegisterMask & PipelineState.Common.CBVCache.DirtySlotMask[Stage];
 #if USE_STATIC_ROOT_SIGNATURE
 			if (CurrentShaderDirtyCBVSlots[Stage])
@@ -684,7 +684,7 @@ void FD3D12StateCacheBase::ApplySamplers(const FD3D12RootSignature* const pRootS
 		for (uint32 Stage = StartStage; Stage < EndStage; ++Stage)
 		{
 			// Note this code assumes the starting register is index 0.
-			const SamplerSlotMask CurrentShaderSamplerRegisterMask = (1 << PipelineState.Common.CurrentShaderSamplerCounts[Stage]) - 1;
+			const SamplerSlotMask CurrentShaderSamplerRegisterMask = ((SamplerSlotMask)1 << PipelineState.Common.CurrentShaderSamplerCounts[Stage]) - (SamplerSlotMask)1;
 			CurrentShaderDirtySamplerSlots[Stage] = CurrentShaderSamplerRegisterMask & Cache.DirtySlotMask[Stage];
 			if (CurrentShaderDirtySamplerSlots[Stage])
 			{
@@ -747,7 +747,7 @@ void FD3D12StateCacheBase::ApplySamplers(const FD3D12RootSignature* const pRootS
 					// We changed the descriptor table, so all resources bound to slots outside of the table's range are now dirty.
 					// If a shader needs to use resources bound to these slots later, we need to set the descriptor table again to ensure those
 					// descriptors are valid.
-					const SamplerSlotMask OutsideCurrentTableRegisterMask = ~((1 << Table.Key.Count) - 1);
+					const SamplerSlotMask OutsideCurrentTableRegisterMask = ~(((SamplerSlotMask)1 << Table.Key.Count) - (SamplerSlotMask)1);
 					Cache.Dirty(static_cast<EShaderFrequency>(Stage), OutsideCurrentTableRegisterMask);
 				}
 				else
@@ -1186,7 +1186,7 @@ void FD3D12StateCacheBase::InternalSetStreamSource(FD3D12ResourceLocation* Verte
 		{
 			PipelineState.Graphics.VBCache.ResidencyHandles[StreamIndex] = VertexBufferLocation->GetResource()->GetResidencyHandle();
 			FMemory::Memcpy(CurrentView, NewView);
-			PipelineState.Graphics.VBCache.BoundVBMask |= (1 << StreamIndex);
+			PipelineState.Graphics.VBCache.BoundVBMask |= ((VBSlotMask)1 << StreamIndex);
 		}
 		else
 		{
@@ -1194,7 +1194,7 @@ void FD3D12StateCacheBase::InternalSetStreamSource(FD3D12ResourceLocation* Verte
 			PipelineState.Graphics.VBCache.CurrentVertexBufferResources[StreamIndex] = nullptr;
 			PipelineState.Graphics.VBCache.ResidencyHandles[StreamIndex] = nullptr;
 
-			PipelineState.Graphics.VBCache.BoundVBMask &= ~(1 << StreamIndex);
+			PipelineState.Graphics.VBCache.BoundVBMask &= ~((VBSlotMask)1 << StreamIndex);
 		}
 
 		if (PipelineState.Graphics.VBCache.BoundVBMask)
@@ -1235,12 +1235,12 @@ void FD3D12StateCacheBase::SetShaderResourceView(FD3D12ShaderResourceView* SRV, 
 			// Mark the SRVs as not cleared
 			bSRVSCleared = false;
 
-			Cache.BoundMask[ShaderFrequency] |= (1 << ResourceIndex);
+			Cache.BoundMask[ShaderFrequency] |= ((SRVSlotMask)1 << ResourceIndex);
 			Cache.ResidencyHandles[ShaderFrequency][ResourceIndex] = SRV->GetResidencyHandle();
 		}
 		else
 		{
-			Cache.BoundMask[ShaderFrequency] &= ~(1 << ResourceIndex);
+			Cache.BoundMask[ShaderFrequency] &= ~((SRVSlotMask)1 << ResourceIndex);
 			Cache.ResidencyHandles[ShaderFrequency][ResourceIndex] = nullptr;
 		}
 

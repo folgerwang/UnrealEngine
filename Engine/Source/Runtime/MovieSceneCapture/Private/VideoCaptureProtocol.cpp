@@ -4,7 +4,7 @@
 #include "HAL/FileManager.h"
 #include "Misc/CommandLine.h"
 #include "Templates/Casts.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 bool FVideoCaptureProtocol::Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host)
 {
