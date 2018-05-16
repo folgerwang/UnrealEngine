@@ -129,6 +129,7 @@ FVulkanPipelineStateCache::FVulkanPipelineStateCache(FVulkanDevice* InDevice)
 {
 }
 
+
 FVulkanPipelineStateCache::~FVulkanPipelineStateCache()
 {
 	DestroyCache();
@@ -145,6 +146,43 @@ FVulkanPipelineStateCache::~FVulkanPipelineStateCache()
 
 void FVulkanPipelineStateCache::Load(const TArray<FString>& CacheFilenames)
 {
+	// Try to load device cache first
+	for (const FString& CacheFilename : CacheFilenames)
+	{
+		const VkPhysicalDeviceProperties& DeviceProperties = Device->GetDeviceProperties();
+		double BeginTime = FPlatformTime::Seconds();
+		FString BinaryCacheFilename = FString::Printf(TEXT("%s.%x.%x"), *CacheFilename, DeviceProperties.vendorID, DeviceProperties.deviceID);
+		TArray<uint8> DeviceCache;
+		if (FFileHelper::LoadFileToArray(DeviceCache, *BinaryCacheFilename, FILEREAD_Silent))
+		{
+			if (FVulkanPipelineStateCacheFile::BinaryCacheMatches(Device, DeviceCache))
+			{
+				VkPipelineCacheCreateInfo PipelineCacheInfo;
+				FMemory::Memzero(PipelineCacheInfo);
+				PipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+				PipelineCacheInfo.initialDataSize = DeviceCache.Num();
+				PipelineCacheInfo.pInitialData = DeviceCache.GetData();
+
+				if (PipelineCache == VK_NULL_HANDLE)
+				{
+					// if we don't have one already, then create our main cache (PipelineCache)
+					VERIFYVULKANRESULT(VulkanRHI::vkCreatePipelineCache(Device->GetInstanceHandle(), &PipelineCacheInfo, nullptr, &PipelineCache));
+				}
+				else
+				{
+					// if we have one already, create a temp one and merge into the main cache
+					VkPipelineCache TempPipelineCache;
+					VERIFYVULKANRESULT(VulkanRHI::vkCreatePipelineCache(Device->GetInstanceHandle(), &PipelineCacheInfo, nullptr, &TempPipelineCache));
+					VERIFYVULKANRESULT(VulkanRHI::vkMergePipelineCaches(Device->GetInstanceHandle(), PipelineCache, 1, &TempPipelineCache));
+					VulkanRHI::vkDestroyPipelineCache(Device->GetInstanceHandle(), TempPipelineCache, nullptr);
+				}
+
+				double EndTime = FPlatformTime::Seconds();
+				UE_LOG(LogVulkanRHI, Display, TEXT("Loaded binary pipeline cache in %.2f seconds"), (float)(EndTime - BeginTime));
+			}
+		}
+	}
+
 	for (const FString& CacheFilename : CacheFilenames)
 	{
 		TArray<uint8> MemFile;
@@ -165,28 +203,13 @@ void FVulkanPipelineStateCache::Load(const TArray<FString>& CacheFilenames)
 				continue;
 			}
 
-			// Create the binary cache if it matched this device
-			if (File.BinaryCacheMatches(Device))
+			// Create the binary cache if we haven't already
+			if (PipelineCache == VK_NULL_HANDLE)
 			{
 				VkPipelineCacheCreateInfo PipelineCacheInfo;
 				FMemory::Memzero(PipelineCacheInfo);
 				PipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-				PipelineCacheInfo.initialDataSize = File.DeviceCache.Num();
-				PipelineCacheInfo.pInitialData = File.DeviceCache.GetData();
-
-				if (PipelineCache == VK_NULL_HANDLE)
-				{
-					// if we don't have one already, then create our main cache (PipelineCache)
-					VERIFYVULKANRESULT(VulkanRHI::vkCreatePipelineCache(Device->GetInstanceHandle(), &PipelineCacheInfo, nullptr, &PipelineCache));
-				}
-				else
-				{
-					// if we have one already, create a temp one and merge into the main cache
-					VkPipelineCache TempPipelineCache;
-					VERIFYVULKANRESULT(VulkanRHI::vkCreatePipelineCache(Device->GetInstanceHandle(), &PipelineCacheInfo, nullptr, &TempPipelineCache));
-					VERIFYVULKANRESULT(VulkanRHI::vkMergePipelineCaches(Device->GetInstanceHandle(), PipelineCache, 1, &TempPipelineCache));
-					VulkanRHI::vkDestroyPipelineCache(Device->GetInstanceHandle(), TempPipelineCache, nullptr);
-				}
+				VERIFYVULKANRESULT(VulkanRHI::vkCreatePipelineCache(Device->GetInstanceHandle(), &PipelineCacheInfo, nullptr, &PipelineCache));
 			}
 
 			// Not using TMap::Append to avoid copying duplicate microcode
@@ -317,10 +340,30 @@ void FVulkanPipelineStateCache::InitAndLoad(const TArray<FString>& CacheFilename
 	}
 }
 
-void FVulkanPipelineStateCache::Save(FString& CacheFilename)
+void FVulkanPipelineStateCache::Save(const FString& CacheFilename)
 {
 	FScopeLock Lock(&InitializerToPipelineMapCS);
 
+	// First save Device Cache
+	size_t Size = 0;
+	VERIFYVULKANRESULT(VulkanRHI::vkGetPipelineCacheData(Device->GetInstanceHandle(), PipelineCache, &Size, nullptr));
+	if (Size > 0)
+	{
+		TArray<uint8> DeviceCache;
+		DeviceCache.AddUninitialized(Size);
+		VERIFYVULKANRESULT(VulkanRHI::vkGetPipelineCacheData(Device->GetInstanceHandle(), PipelineCache, &Size, DeviceCache.GetData()));
+
+		const VkPhysicalDeviceProperties& DeviceProperties = Device->GetDeviceProperties();
+
+		FString BinaryCacheFilename = FString::Printf(TEXT("%s.%x.%x"), *CacheFilename, DeviceProperties.vendorID, DeviceProperties.deviceID);
+
+		if (FFileHelper::SaveArrayToFile(DeviceCache, *BinaryCacheFilename))
+		{
+			UE_LOG(LogVulkanRHI, Display, TEXT("Saved device pipeline cache file '%s', %d bytes"), *BinaryCacheFilename, DeviceCache.Num());
+		}
+	}
+
+	// Now the generic cache
 	TArray<uint8> MemFile;
 	FMemoryWriter Ar(MemFile);
 	FVulkanPipelineStateCacheFile File;
@@ -330,16 +373,7 @@ void FVulkanPipelineStateCache::Save(FString& CacheFilename)
 	File.Header.SizeOfComputeEntry = (int32)sizeof(FComputePipelineEntry);
 	File.Header.UncompressedSize = 0;
 
-	// First save Device Cache
-	size_t Size = 0;
-	VERIFYVULKANRESULT(VulkanRHI::vkGetPipelineCacheData(Device->GetInstanceHandle(), PipelineCache, &Size, nullptr));
-	if (Size > 0)
-	{
-		File.DeviceCache.AddUninitialized(Size);
-		VERIFYVULKANRESULT(VulkanRHI::vkGetPipelineCacheData(Device->GetInstanceHandle(), PipelineCache, &Size, File.DeviceCache.GetData()));
-	}
-
-	// Followed by the shader ucode cache
+	// Shader ucode cache
 	File.ShaderCache = &ShaderCache.Data;
 
 	// Then Gfx entries
@@ -1318,7 +1352,7 @@ FGraphicsPipelineStateRHIRef FVulkanDynamicRHI::RHICreateGraphicsPipelineState(c
 		return Found;
 	}
 
-	UE_LOG(LogVulkanRHI, Display, TEXT("PSO not found in cache, compiling..."));
+	UE_LOG(LogVulkanRHI, Verbose, TEXT("PSO not found in cache, compiling..."));
 
 	// Not found, need to actually create one, so prepare a compatible render pass
 	FVulkanRenderPass* RenderPass = Device->GetImmediateContext().PrepareRenderPassForPSOCreation(PSOInitializer);
@@ -1507,7 +1541,6 @@ void FVulkanPipelineStateCache::FVulkanPipelineStateCacheFile::Save(FArchive& Ar
 	TArray<uint8> DataBuffer;
 	FMemoryWriter DataAr(DataBuffer);
 
-	DataAr << DeviceCache;
 	DataAr << *ShaderCache;
 	SerializeArray(DataAr, GfxPipelineEntries);
 	SerializeArray(DataAr, ComputePipelineEntries);
@@ -1582,7 +1615,6 @@ bool FVulkanPipelineStateCache::FVulkanPipelineStateCacheFile::Load(FArchive& Ar
 	}
 
 	FMemoryReader DataAr(UncompressedDataBuffer);
-	DataAr << DeviceCache;
 	DataAr << *ShaderCache;
 
 	SerializeArray(DataAr, GfxPipelineEntries);
@@ -1592,7 +1624,7 @@ bool FVulkanPipelineStateCache::FVulkanPipelineStateCacheFile::Load(FArchive& Ar
 	return true;
 }
 
-bool FVulkanPipelineStateCache::FVulkanPipelineStateCacheFile::BinaryCacheMatches(FVulkanDevice* InDevice)
+bool FVulkanPipelineStateCache::FVulkanPipelineStateCacheFile::BinaryCacheMatches(FVulkanDevice* InDevice, const TArray<uint8>& DeviceCache)
 {
 	if (DeviceCache.Num() > 4)
 	{

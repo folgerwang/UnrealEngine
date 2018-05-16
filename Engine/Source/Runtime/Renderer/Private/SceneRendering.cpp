@@ -546,6 +546,7 @@ FParallelCommandListSet::FParallelCommandListSet(
 	, SceneRenderer(InSceneRenderer)
 	, DrawRenderState(InDrawRenderState)
 	, ParentCmdList(InParentCmdList)
+	, GPUMask(ParentCmdList.GetGPUMask())
 	, Snapshot(nullptr)
 	, ExecuteStat(InExecuteStat)
 	, NumAlloc(0)
@@ -567,8 +568,11 @@ FParallelCommandListSet::FParallelCommandListSet(
 
 FRHICommandList* FParallelCommandListSet::AllocCommandList()
 {
+	// We don't support the mask changing while the parallel commandlists are being generated.
+	ensure(GPUMask == ParentCmdList.GetGPUMask());
+
 	NumAlloc++;
-	return new FRHICommandList;
+	return new FRHICommandList(ParentCmdList.GetGPUMask());
 }
 
 void FParallelCommandListSet::Dispatch(bool bHighPriority)
@@ -577,6 +581,10 @@ void FParallelCommandListSet::Dispatch(bool bHighPriority)
 	check(IsInRenderingThread() && FMemStack::Get().GetNumMarks() == 1); // we do not want this popped before the end of the scene and it better be the scene allocator
 	check(CommandLists.Num() == Events.Num());
 	check(CommandLists.Num() == NumAlloc);
+
+	// We don't support the mask changing while the parallel commandlists are being processed.
+	ensure(GPUMask == ParentCmdList.GetGPUMask());
+
 	ENamedThreads::Type RenderThread_Local = ENamedThreads::GetRenderThread_Local();
 	if (bSpewBalance)
 	{
@@ -619,7 +627,7 @@ void FParallelCommandListSet::Dispatch(bool bHighPriority)
 		UE_CLOG(bSpewBalance, LogTemp, Display, TEXT("%d cmdlists for parallel translate"), CommandLists.Num());
 		check(GRHISupportsParallelRHIExecute);
 		NumAlloc -= CommandLists.Num();
-		ParentCmdList.QueueParallelAsyncCommandListSubmit(&Events[0], View.NodeMask, bHighPriority, &CommandLists[0], &NumDrawsIfKnown[0], CommandLists.Num(), (MinDrawsPerCommandList * 4) / 3, bSpewBalance);
+		ParentCmdList.QueueParallelAsyncCommandListSubmit(&Events[0], bHighPriority, &CommandLists[0], &NumDrawsIfKnown[0], CommandLists.Num(), (MinDrawsPerCommandList * 4) / 3, bSpewBalance);
 		SetStateOnCommandList(ParentCmdList);
 	}
 	else
@@ -627,7 +635,7 @@ void FParallelCommandListSet::Dispatch(bool bHighPriority)
 		UE_CLOG(bSpewBalance, LogTemp, Display, TEXT("%d cmdlists (no parallel translate desired)"), CommandLists.Num());
 		for (int32 Index = 0; Index < CommandLists.Num(); Index++)
 		{
-			ParentCmdList.QueueAsyncCommandListSubmit(Events[Index], View.NodeMask, CommandLists[Index]);
+			ParentCmdList.QueueAsyncCommandListSubmit(Events[Index], CommandLists[Index]);
 			NumAlloc--;
 		}
 	}
@@ -715,7 +723,7 @@ void FParallelCommandListSet::WaitForTasksInternal()
  */
 FViewInfo::FViewInfo(const FSceneViewInitOptions& InitOptions)
 	:	FSceneView(InitOptions)
-	,	NodeMask(FRHIGPUMask::GPU0())
+	,	GPUMask(FRHIGPUMask::GPU0())
 	,	IndividualOcclusionQueries((FSceneViewState*)InitOptions.SceneViewStateInterface, 1)	
 	,	GroupedOcclusionQueries((FSceneViewState*)InitOptions.SceneViewStateInterface, FOcclusionQueryBatcher::OccludedPrimitiveQueryBatchSize)
 {
@@ -728,7 +736,7 @@ FViewInfo::FViewInfo(const FSceneViewInitOptions& InitOptions)
  */
 FViewInfo::FViewInfo(const FSceneView* InView)
 	:	FSceneView(*InView)
-	,	NodeMask(FRHIGPUMask::GPU0())
+	,	GPUMask(FRHIGPUMask::GPU0())
 	,	IndividualOcclusionQueries((FSceneViewState*)InView->State,1)	
 	,	GroupedOcclusionQueries((FSceneViewState*)InView->State,FOcclusionQueryBatcher::OccludedPrimitiveQueryBatchSize)
 	,	CustomVisibilityQuery(nullptr)
@@ -1695,7 +1703,7 @@ FSceneRenderer::FSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyCon
 		bAnyViewIsLocked |= ViewInfo->bIsLocked;
 
 		// Apply multi-GPU strategy here.
-		ViewInfo->NodeMask = GetNodeMaskFromMultiGPUStrategy(GetMultiGPUStrategyFromCommandLine(), ViewIndex, ViewFamily.FrameNumber);
+		ViewInfo->GPUMask = GetNodeMaskFromMultiGPUMode(GetMultiGPUMode(), ViewIndex, ViewFamily.FrameNumber);
 
 		check(ViewInfo->ViewRect.Area() == 0);
 

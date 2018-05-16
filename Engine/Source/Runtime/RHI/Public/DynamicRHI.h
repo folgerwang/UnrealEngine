@@ -8,6 +8,7 @@ DynamicRHI.h: Dynamically bound Render Hardware Interface definitions.
 
 #include "CoreTypes.h"
 #include "RHIContext.h"
+#include "MultiGPU.h"
 
 class FBlendStateInitializerRHI;
 class FGraphicsPipelineStateInitializer;
@@ -856,6 +857,18 @@ public:
 	// FlushType: Thread safe
 	virtual class IRHICommandContextContainer* RHIGetCommandContextContainer(int32 Index, int32 Num) = 0;
 
+
+#if WITH_MGPU
+	/** Returns a context for sending commands to the given GPU mask. Default implementation is only valid when not using multi-gpu. */
+	virtual IRHICommandContext* RHIGetDefaultContext(FRHIGPUMask GPUMask) { ensure(GPUMask == FRHIGPUMask::GPU0()); return RHIGetDefaultContext(); }
+	virtual IRHIComputeContext* RHIGetDefaultAsyncComputeContext(FRHIGPUMask GPUMask) { ensure(GPUMask == FRHIGPUMask::GPU0()); return RHIGetDefaultAsyncComputeContext(); }
+	virtual IRHICommandContextContainer* RHIGetCommandContextContainer(int32 Index, int32 Num, FRHIGPUMask GPUMask) { ensure(GPUMask == FRHIGPUMask::GPU0()); return RHIGetCommandContextContainer(Index, Num); }
+#else
+	FORCEINLINE IRHICommandContext* RHIGetDefaultContext(FRHIGPUMask GPUMask) { return RHIGetDefaultContext(); }
+	FORCEINLINE IRHIComputeContext* RHIGetDefaultAsyncComputeContext(FRHIGPUMask GPUMask) { return RHIGetDefaultAsyncComputeContext(); }
+	FORCEINLINE IRHICommandContextContainer* RHIGetCommandContextContainer(int32 Index, int32 Num, FRHIGPUMask GPUMask) { return RHIGetCommandContextContainer(Index, Num); }
+#endif
+
 	///////// Pass through functions that allow RHIs to optimize certain calls.
 	virtual FVertexBufferRHIRef CreateAndLockVertexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, void*& OutDataBuffer);
 	virtual FIndexBufferRHIRef CreateAndLockIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, void*& OutDataBuffer);
@@ -1102,19 +1115,19 @@ FORCEINLINE void RHIGetSupportedResolution(uint32& Width, uint32& Height)
 	GDynamicRHI->RHIGetSupportedResolution(Width, Height);
 }
 
-FORCEINLINE class IRHICommandContext* RHIGetDefaultContext()
+FORCEINLINE class IRHICommandContext* RHIGetDefaultContext(FRHIGPUMask GPUMask = FRHIGPUMask::All())
 {
-	return GDynamicRHI->RHIGetDefaultContext();
+	return GDynamicRHI->RHIGetDefaultContext(GPUMask);
 }
 
-FORCEINLINE class IRHIComputeContext* RHIGetDefaultAsyncComputeContext()
+FORCEINLINE class IRHIComputeContext* RHIGetDefaultAsyncComputeContext(FRHIGPUMask GPUMask = FRHIGPUMask::All())
 {
-	return GDynamicRHI->RHIGetDefaultAsyncComputeContext();
+	return GDynamicRHI->RHIGetDefaultAsyncComputeContext(GPUMask);
 }
 
-FORCEINLINE class IRHICommandContextContainer* RHIGetCommandContextContainer(int32 Index, int32 Num)
+FORCEINLINE class IRHICommandContextContainer* RHIGetCommandContextContainer(int32 Index, int32 Num, FRHIGPUMask GPUMask)
 {
-	return GDynamicRHI->RHIGetCommandContextContainer(Index, Num);
+	return GDynamicRHI->RHIGetCommandContextContainer(Index, Num, GPUMask);
 }
 
 /**

@@ -11,8 +11,11 @@
 #include "Misc/App.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Paths.h"
-#include "HAL/RunnableThread.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/ScopeRWLock.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/ThreadManager.h"
 #include "Containers/ResourceArray.h"
 #include "Serialization/MemoryReader.h"
 #include "EngineGlobals.h"
@@ -43,8 +46,6 @@ DECLARE_LOG_CATEGORY_EXTERN(LogD3D12RHI, Log, All);
 #include "XboxOne/D3D12RHIBasePrivate.h"
 #endif
 
-#include "Containers/StaticArray.h"
-
 #include "D3D12Residency.h"
 
 // D3D RHI public headers.
@@ -60,7 +61,6 @@ DECLARE_LOG_CATEGORY_EXTERN(LogD3D12RHI, Log, All);
 #include "../Public/D3D12Viewport.h"
 #include "../Public/D3D12ConstantBuffer.h"
 #include "D3D12Query.h"
-#include "D3D12PipelineState.h"
 #include "D3D12DescriptorCache.h"
 #include "D3D12StateCachePrivate.h"
 typedef FD3D12StateCacheBase FD3D12StateCache;
@@ -75,8 +75,8 @@ typedef FD3D12StateCacheBase FD3D12StateCache;
 
 #define EXECUTE_DEBUG_COMMAND_LISTS 0
 #define ENABLE_PLACED_RESOURCES 0 // Disabled due to a couple of NVidia bugs related to placed resources. Works fine on Intel
-#define REMOVE_OLD_QUERY_BATCHES 1  // D3D12: MSFT: TODO: Works around a suspected UE4 InfiltratorDemo bug where a query is never released
 #define NAME_OBJECTS !(UE_BUILD_SHIPPING || UE_BUILD_TEST)	// Name objects in all builds except shipping
+#define LOG_PSO_CREATES (0 && STATS)	// Logs Create Pipeline State timings (also requires STATS)
 
 //@TODO: Improve allocator efficiency so we can increase these thresholds and improve performance
 // We measured 149MB of wastage in 340MB of allocations with DEFAULT_BUFFER_POOL_MAX_ALLOC_SIZE set to 512KB
@@ -321,6 +321,12 @@ public:
 	virtual class IRHIComputeContext* RHIGetDefaultAsyncComputeContext() final override;
 	virtual class IRHICommandContextContainer* RHIGetCommandContextContainer(int32 Index, int32 Num) final override;
 
+#if WITH_MGPU
+	virtual class IRHICommandContext* RHIGetDefaultContext(FRHIGPUMask GPUMask) final override;
+	virtual class IRHIComputeContext* RHIGetDefaultAsyncComputeContext(FRHIGPUMask GPUMask) final override;
+	virtual IRHICommandContextContainer* RHIGetCommandContextContainer(int32 Index, int32 Num, FRHIGPUMask GPUMask)final override;
+#endif
+
 	// FD3D12DynamicRHI interface.
 	virtual uint32 GetDebugFlags();
 	virtual ID3D12CommandQueue* RHIGetD3DCommandQueue();
@@ -332,6 +338,46 @@ public:
 	// The Following functions are the _RenderThread version of the above functions. They allow the RHI to control the thread synchronization for greater efficiency.
 	// These will be un-commented as they are implemented.
 	//
+
+	virtual FVertexDeclarationRHIRef CreateVertexDeclaration_RenderThread(class FRHICommandListImmediate& RHICmdList, const FVertexDeclarationElementList& Elements) override final
+	{
+		return RHICreateVertexDeclaration(Elements);
+	}
+
+	virtual FVertexShaderRHIRef CreateVertexShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code) override final
+	{
+		return RHICreateVertexShader(Code);
+	}
+
+	virtual FGeometryShaderRHIRef CreateGeometryShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code) override final
+	{
+		return RHICreateGeometryShader(Code);
+	}
+
+	virtual FGeometryShaderRHIRef CreateGeometryShaderWithStreamOutput_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code, const FStreamOutElementList& ElementList, uint32 NumStrides, const uint32* Strides, int32 RasterizedStream) override final
+	{
+		return RHICreateGeometryShaderWithStreamOutput(Code, ElementList, NumStrides, Strides, RasterizedStream);
+	}
+
+	virtual FHullShaderRHIRef CreateHullShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code) override final
+	{
+		return RHICreateHullShader(Code);
+	}
+
+	virtual FDomainShaderRHIRef CreateDomainShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code) override final
+	{
+		return RHICreateDomainShader(Code);
+	}
+
+	virtual FPixelShaderRHIRef CreatePixelShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code) override final
+	{
+		return RHICreatePixelShader(Code);
+	}
+
+	virtual FComputeShaderRHIRef CreateComputeShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code) override final
+	{
+		return RHICreateComputeShader(Code);
+	}
 
 	virtual FVertexBufferRHIRef CreateVertexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo);
 	virtual FStructuredBufferRHIRef CreateStructuredBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo);
@@ -345,7 +391,6 @@ public:
 	virtual FIndexBufferRHIRef CreateIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo);
 	virtual void* LockIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef IndexBuffer, uint32 Offset, uint32 SizeRHI, EResourceLockMode LockMode);
 	virtual void UnlockIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef IndexBuffer);
-	virtual FVertexDeclarationRHIRef CreateVertexDeclaration_RenderThread(class FRHICommandListImmediate& RHICmdList, const FVertexDeclarationElementList& Elements);
 	virtual void UpdateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, const struct FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData);
 	virtual void* LockTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, EResourceLockMode LockMode, uint32& DestStride, bool bLockWithinMiptail, bool bNeedsDefaultRHIFlush = true);
 	virtual void UnlockTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, bool bLockWithinMiptail, bool bNeedsDefaultRHIFlush = true);
@@ -366,7 +411,11 @@ public:
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FStructuredBufferRHIParamRef StructuredBuffer);
 	virtual FTextureCubeRHIRef RHICreateTextureCube_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Size, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo);
 	virtual FTextureCubeRHIRef RHICreateTextureCubeArray_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Size, uint32 ArraySize, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo);
-	virtual FRenderQueryRHIRef RHICreateRenderQuery_RenderThread(class FRHICommandListImmediate& RHICmdList, ERenderQueryType QueryType);
+
+	virtual FRenderQueryRHIRef RHICreateRenderQuery_RenderThread(class FRHICommandListImmediate& RHICmdList, ERenderQueryType QueryType) override final
+	{
+		return RHICreateRenderQuery(QueryType);
+	}
 
 	void RHICalibrateTimers() override;
 
@@ -379,7 +428,7 @@ public:
 	template<class BufferType>
 	void UnlockBuffer(FRHICommandListImmediate* RHICmdList, BufferType* Buffer);
 
-	inline bool ShouldDeferBufferLockOperation(FRHICommandList* RHICmdList)
+	static inline bool ShouldDeferBufferLockOperation(FRHICommandList* RHICmdList)
 	{
 		if (RHICmdList == nullptr)
 		{
@@ -668,6 +717,10 @@ public:
 
 		check(!((after & (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)) && (pResource->GetDesc().Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE)));
 
+#ifdef PLATFORM_SUPPORTS_RESOURCE_COMPRESSION
+		after |= pResource->GetCompressedState();
+#endif
+
 		hCommandList.UpdateResidency(pResource);
 
 		CResourceState& ResourceState = hCommandList.GetResourceState(pResource);
@@ -724,6 +777,10 @@ public:
 		check(pResource->RequiresResourceStateTracking());
 
 		check(!((after & (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)) && (pResource->GetDesc().Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE)));
+
+#ifdef PLATFORM_SUPPORTS_RESOURCE_COMPRESSION
+		after |= pResource->GetCompressedState();
+#endif
 
 		hCommandList.UpdateResidency(pResource);
 		D3D12_RESOURCE_STATES before;
@@ -795,7 +852,7 @@ public:
 	inline FD3D12FastAllocator& GetHelperThreadDynamicUploadHeapAllocator()
 	{
 		FD3D12Device* Device = GetRHIDevice();
-		const FRHIGPUMask Node = Device->GetNodeMask();
+		const FRHIGPUMask Node = Device->GetGPUMask();
 
 		check(!IsInActualRenderingThread());
 

@@ -440,7 +440,8 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GRHISupportsBaseVertexIndex = false;
 	GRHISupportsFirstInstance = false; // Supported on macOS & iOS but not tvOS.
 #else
-	GRHISupportsBaseVertexIndex = [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v1];
+	// Only A9+ can support this, so for now we need to limit this to the desktop-forward renderer only.
+	GRHISupportsBaseVertexIndex = [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v1] && (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5);
 	GRHISupportsFirstInstance = GRHISupportsBaseVertexIndex;
 #endif
 	GMaxTextureDimensions = 4096;
@@ -725,6 +726,11 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 		
 	GIsMetalInitialized = true;
 
+	ImmediateContext.Profiler = nullptr;
+#if ENABLE_METAL_GPUPROFILE
+	ImmediateContext.Profiler = FMetalProfiler::CreateProfiler(ImmediateContext.Context);
+#endif
+		
 	// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
 	for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
 	{
@@ -736,10 +742,6 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 		ResourceIt->InitDynamicRHI();
 	}
 	
-	ImmediateContext.Profiler = nullptr;
-#if ENABLE_METAL_GPUPROFILE
-	ImmediateContext.Profiler = new FMetalGPUProfiler(ImmediateContext.Context);
-#endif
 	AsyncComputeContext = GSupportsEfficientAsyncCompute ? new FMetalRHIComputeContext(ImmediateContext.Profiler, new FMetalContext(ImmediateContext.Context->GetDevice(), ImmediateContext.Context->GetCommandQueue(), true)) : nullptr;
 	}
 }
@@ -747,10 +749,6 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 FMetalDynamicRHI::~FMetalDynamicRHI()
 {
 	check(IsInGameThread() && IsInRenderingThread());
-
-#if ENABLE_METAL_GPUPROFILE
-	delete ImmediateContext.Profiler;
-#endif
 	
 	// Ask all initialized FRenderResources to release their RHI resources.
 	for (TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList()); ResourceIt; ResourceIt.Next())
@@ -767,6 +765,10 @@ FMetalDynamicRHI::~FMetalDynamicRHI()
 	
 	GIsMetalInitialized = false;
 	GIsRHIInitialized = false;
+	
+#if ENABLE_METAL_GPUPROFILE
+	FMetalProfiler::DestroyProfiler();
+#endif
 }
 
 uint64 FMetalDynamicRHI::RHICalcTexture2DPlatformSize(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, uint32& OutAlign)

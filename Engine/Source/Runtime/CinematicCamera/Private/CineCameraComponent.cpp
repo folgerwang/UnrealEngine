@@ -31,6 +31,7 @@ UCineCameraComponent::UCineCameraComponent()
 	LensSettings.MinFStop = 2.f;
 	LensSettings.MaxFStop = 2.f;
 	LensSettings.MinimumFocusDistance = 15.f;
+	LensSettings.DiaphragmBladeCount = FPostProcessSettings::kDefaultDepthOfFieldBladeCount;
 
 #if WITH_EDITORONLY_DATA
 	bTickInEditor = true;
@@ -354,6 +355,8 @@ void UCineCameraComponent::UpdateCameraLens(float DeltaTime, FMinimalViewInfo& D
 	{
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldMethod = false;
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldFstop = false;
+		DesiredView.PostProcessSettings.bOverride_DepthOfFieldMinFstop = false;
+		DesiredView.PostProcessSettings.bOverride_DepthOfFieldBladeCount = false;
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldFocalDistance = false;
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldSensorWidth = false;
 	}
@@ -366,6 +369,12 @@ void UCineCameraComponent::UpdateCameraLens(float DeltaTime, FMinimalViewInfo& D
 
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldFstop = true;
 		DesiredView.PostProcessSettings.DepthOfFieldFstop = CurrentAperture;
+
+		DesiredView.PostProcessSettings.bOverride_DepthOfFieldMinFstop = true;
+		DesiredView.PostProcessSettings.DepthOfFieldMinFstop = LensSettings.MinFStop;
+
+		DesiredView.PostProcessSettings.bOverride_DepthOfFieldBladeCount = true;
+		DesiredView.PostProcessSettings.DepthOfFieldBladeCount = LensSettings.DiaphragmBladeCount;
 
 		CurrentFocusDistance = GetDesiredFocusDistance(DesiredView.Location);
 

@@ -229,6 +229,7 @@ private:
 	TArray<const class UDirectionalLightComponent*> DirectionalLights;
 	TArray<const class UPointLightComponent*> PointLights;
 	TArray<const class USpotLightComponent*> SpotLights;
+	TArray<const class URectLightComponent*> RectLights;
 	TArray<const class USkyLightComponent*> SkyLights;
 
 	// BSP mappings

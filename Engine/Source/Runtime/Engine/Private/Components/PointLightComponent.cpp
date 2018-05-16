@@ -11,107 +11,75 @@
 #include "SceneManagement.h"
 #include "PointLightSceneProxy.h"
 
-static int32 GAllowPointLightCubemapShadows = 1;
+int32 GAllowPointLightCubemapShadows = 1;
 static FAutoConsoleVariableRef CVarAllowPointLightCubemapShadows(
 	TEXT("r.AllowPointLightCubemapShadows"),
 	GAllowPointLightCubemapShadows,
 	TEXT("When 0, will prevent point light cube map shadows from being used and the light will be unshadowed.")
 	);
 
-/**
- * The point light policy for TMeshLightingDrawingPolicy.
- */
-class FPointLightPolicy
-{
-public:
-	typedef TPointLightSceneProxy<FPointLightPolicy> SceneInfoType;
-};
-
-void FPointLightSceneProxyBase::UpdateRadius_GameThread(UPointLightComponent* Component)
+void FLocalLightSceneProxy::UpdateRadius_GameThread(float ComponentRadius)
 {
 	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 		UpdateRadius,
-		FPointLightSceneProxyBase*,LightSceneInfo,this,
-		float,ComponentRadius,Component->AttenuationRadius,
+		FLocalLightSceneProxy*,LightSceneInfo,this,
+		float,ComponentRadius,ComponentRadius,
 	{
 		LightSceneInfo->UpdateRadius(ComponentRadius);
 	});
 }
 
-class FPointLightSceneProxy : public TPointLightSceneProxy<FPointLightPolicy>
+/** Accesses parameters needed for rendering the light. */
+void FPointLightSceneProxy::GetParameters(FLightParameters& LightParameters) const
 {
-public:
+	LightParameters.LightPositionAndInvRadius = FVector4(
+		GetOrigin(),
+		InvRadius);
 
-	/** Accesses parameters needed for rendering the light. */
-	virtual void GetParameters(FLightParameters& LightParameters) const override
+	LightParameters.LightColorAndFalloffExponent = FVector4(
+		GetColor().R,
+		GetColor().G,
+		GetColor().B,
+		FalloffExponent);
+
+	const FVector ZAxis(WorldToLight.M[0][2], WorldToLight.M[1][2], WorldToLight.M[2][2]);
+
+	LightParameters.NormalizedLightDirection = -GetDirection();
+	LightParameters.NormalizedLightTangent = ZAxis;
+	LightParameters.SpotAngles = FVector2D( -2.0f, 1.0f );
+	LightParameters.LightSourceRadius = SourceRadius;
+	LightParameters.LightSoftSourceRadius = SoftSourceRadius;
+	LightParameters.LightSourceLength = SourceLength;
+	// Prevent 0 Roughness which causes NaNs in Vis_SmithJointApprox
+	LightParameters.LightMinRoughness = FMath::Max(MinRoughness, .04f);
+	LightParameters.SourceTexture = GWhiteTexture;
+}
+
+/**
+* Sets up a projected shadow initializer for shadows from the entire scene.
+* @return True if the whole-scene projected shadow should be used.
+*/
+bool FPointLightSceneProxy::GetWholeSceneProjectedShadowInitializer(const FSceneViewFamily& ViewFamily, TArray<FWholeSceneProjectedShadowInitializer, TInlineAllocator<6> >& OutInitializers) const
+{
+	if (ViewFamily.GetFeatureLevel() >= ERHIFeatureLevel::SM4
+		&& GAllowPointLightCubemapShadows != 0)
 	{
-		LightParameters.LightPositionAndInvRadius = FVector4(
-			GetOrigin(),
-			InvRadius);
-
-		LightParameters.LightColorAndFalloffExponent = FVector4(
-			GetColor().R,
-			GetColor().G,
-			GetColor().B,
-			FalloffExponent);
-
-		const FVector ZAxis(WorldToLight.M[0][2], WorldToLight.M[1][2], WorldToLight.M[2][2]);
-
-		LightParameters.NormalizedLightDirection = -GetDirection();
-		LightParameters.NormalizedLightTangent = ZAxis;
-		LightParameters.SpotAngles = FVector2D( -2.0f, 1.0f );
-		LightParameters.LightSourceRadius = SourceRadius;
-		LightParameters.LightSoftSourceRadius = SoftSourceRadius;
-		LightParameters.LightSourceLength = SourceLength;
-		// Prevent 0 Roughness which causes NaNs in Vis_SmithJointApprox
-		LightParameters.LightMinRoughness = FMath::Max(MinRoughness, .04f);
+		FWholeSceneProjectedShadowInitializer& OutInitializer = *new(OutInitializers) FWholeSceneProjectedShadowInitializer;
+		OutInitializer.PreShadowTranslation = -GetLightToWorld().GetOrigin();
+		OutInitializer.WorldToLight = GetWorldToLight().RemoveTranslation();
+		OutInitializer.Scales = FVector(1, 1, 1);
+		OutInitializer.FaceDirection = FVector(0,0,1);
+		OutInitializer.SubjectBounds = FBoxSphereBounds(FVector(0, 0, 0),FVector(Radius,Radius,Radius),Radius);
+		OutInitializer.WAxis = FVector4(0,0,1,0);
+		OutInitializer.MinLightW = 0.1f;
+		OutInitializer.MaxDistanceToCastInLightW = Radius;
+		OutInitializer.bOnePassPointLightShadow = true;
+		OutInitializer.bRayTracedDistanceField = UseRayTracedDistanceFieldShadows() && DoesPlatformSupportDistanceFieldShadowing(ViewFamily.GetShaderPlatform());
+		return true;
 	}
-
-	virtual FSphere GetBoundingSphere() const
-	{
-		return FSphere(GetPosition(), GetRadius());
-	}
-
-	virtual float GetEffectiveScreenRadius(const FViewMatrices& ShadowViewMatrices) const override
-	{
-		// Use the distance from the view origin to the light to approximate perspective projection
-		// We do not use projected screen position since it causes problems when the light is behind the camera
-
-		const float LightDistance = (GetOrigin() - ShadowViewMatrices.GetViewOrigin()).Size();
-
-		return ShadowViewMatrices.GetScreenScale() * GetRadius() / FMath::Max(LightDistance, 1.0f);
-	}
-
-	/**
-	 * Sets up a projected shadow initializer for shadows from the entire scene.
-	 * @return True if the whole-scene projected shadow should be used.
-	 */
-	virtual bool GetWholeSceneProjectedShadowInitializer(const FSceneViewFamily& ViewFamily, TArray<FWholeSceneProjectedShadowInitializer, TInlineAllocator<6> >& OutInitializers) const
-	{
-		if (ViewFamily.GetFeatureLevel() >= ERHIFeatureLevel::SM4
-			&& GAllowPointLightCubemapShadows != 0)
-		{
-			FWholeSceneProjectedShadowInitializer& OutInitializer = *new(OutInitializers) FWholeSceneProjectedShadowInitializer;
-			OutInitializer.PreShadowTranslation = -GetLightToWorld().GetOrigin();
-			OutInitializer.WorldToLight = GetWorldToLight().RemoveTranslation();
-			OutInitializer.Scales = FVector(1, 1, 1);
-			OutInitializer.FaceDirection = FVector(0,0,1);
-			OutInitializer.SubjectBounds = FBoxSphereBounds(FVector(0, 0, 0),FVector(Radius,Radius,Radius),Radius);
-			OutInitializer.WAxis = FVector4(0,0,1,0);
-			OutInitializer.MinLightW = 0.1f;
-			OutInitializer.MaxDistanceToCastInLightW = Radius;
-			OutInitializer.bOnePassPointLightShadow = true;
-			OutInitializer.bRayTracedDistanceField = UseRayTracedDistanceFieldShadows() && DoesPlatformSupportDistanceFieldShadowing(ViewFamily.GetShaderPlatform());
-			return true;
-		}
 		
-		return false;
-	}
-
-	FPointLightSceneProxy(const UPointLightComponent* Component)
-	:	TPointLightSceneProxy<FPointLightPolicy>(Component)
-	{}
-};
+	return false;
+}
 
 UPointLightComponent::UPointLightComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -129,9 +97,6 @@ UPointLightComponent::UPointLightComponent(const FObjectInitializer& ObjectIniti
 	}
 #endif
 
-	Intensity = 5000;
-	Radius_DEPRECATED = 1024.0f;
-	AttenuationRadius = 1000;
 	LightFalloffExponent = 8.0f;
 	SourceRadius = 0.0f;
 	SoftSourceRadius = 0.0f;
@@ -142,17 +107,6 @@ UPointLightComponent::UPointLightComponent(const FObjectInitializer& ObjectIniti
 FLightSceneProxy* UPointLightComponent::CreateSceneProxy() const
 {
 	return new FPointLightSceneProxy(this);
-}
-
-void UPointLightComponent::SetAttenuationRadius(float NewRadius)
-{
-	// Only movable lights can change their radius at runtime
-	if (AreDynamicDataChangesAllowed(false)
-		&& NewRadius != AttenuationRadius)
-	{
-		AttenuationRadius = NewRadius;
-		PushRadiusToRenderThread();
-	}
 }
 
 void UPointLightComponent::SetLightFalloffExponent(float NewLightFalloffExponent)
@@ -217,38 +171,6 @@ float UPointLightComponent::ComputeLightBrightness() const
 	return LightBrightness;
 }
 
-bool UPointLightComponent::AffectsBounds(const FBoxSphereBounds& InBounds) const
-{
-	if((InBounds.Origin - GetComponentTransform().GetLocation()).SizeSquared() > FMath::Square(AttenuationRadius + InBounds.SphereRadius))
-	{
-		return false;
-	}
-
-	if(!Super::AffectsBounds(InBounds))
-	{
-		return false;
-	}
-
-	return true;
-}
-
-void UPointLightComponent::SendRenderTransform_Concurrent()
-{
-	// Update the scene info's cached radius-dependent data.
-	if(SceneProxy)
-	{
-		((FPointLightSceneProxyBase*)SceneProxy)->UpdateRadius_GameThread(this);
-	}
-
-	Super::SendRenderTransform_Concurrent();
-}
-
-//
-FVector4 UPointLightComponent::GetLightPosition() const
-{
-	return FVector4(GetComponentTransform().GetLocation(),1);
-}
-
 /**
 * @return ELightComponentType for the light component class 
 */
@@ -271,17 +193,6 @@ float UPointLightComponent::GetUniformPenumbraSize() const
 	}
 }
 
-//
-FBox UPointLightComponent::GetBoundingBox() const
-{
-	return FBox(GetComponentLocation() - FVector(AttenuationRadius,AttenuationRadius,AttenuationRadius),GetComponentLocation() + FVector(AttenuationRadius,AttenuationRadius,AttenuationRadius));
-}
-
-FSphere UPointLightComponent::GetBoundingSphere() const
-{
-	return FSphere(GetComponentTransform().GetLocation(), AttenuationRadius);
-}
-
 void UPointLightComponent::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
@@ -289,7 +200,6 @@ void UPointLightComponent::Serialize(FArchive& Ar)
 	if (Ar.UE4Ver() < VER_UE4_INVERSE_SQUARED_LIGHTS_DEFAULT)
 	{
 		bUseInverseSquaredFalloff = InverseSquaredFalloff_DEPRECATED;
-		AttenuationRadius = Radius_DEPRECATED;
 	}
 	// Reorient old light tubes that didn't use an IES profile
 	else if(Ar.UE4Ver() < VER_UE4_POINTLIGHT_SOURCE_ORIENTATION && SourceLength > KINDA_SMALL_NUMBER && IESTexture == nullptr)
@@ -305,11 +215,6 @@ bool UPointLightComponent::CanEditChange(const UProperty* InProperty) const
 	if (InProperty)
 	{
 		FString PropertyName = InProperty->GetName();
-
-		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, bCastShadowsFromCinematicObjectsOnly) && bUseRayTracedDistanceFieldShadows)
-		{
-			return false;
-		}
 
 		if (FCString::Strcmp(*PropertyName, TEXT("LightFalloffExponent")) == 0)
 		{
@@ -332,9 +237,6 @@ void UPointLightComponent::PostEditChangeProperty(FPropertyChangedEvent& Propert
 	SourceRadius = FMath::Max(0.0f, SourceRadius);
 	SoftSourceRadius = FMath::Max(0.0f, SoftSourceRadius);
 	SourceLength = FMath::Max(0.0f, SourceLength);
-	Intensity = FMath::Max(0.0f, Intensity);
-	LightmassSettings.IndirectLightingSaturation = FMath::Max(LightmassSettings.IndirectLightingSaturation, 0.0f);
-	LightmassSettings.ShadowExponent = FMath::Clamp(LightmassSettings.ShadowExponent, .5f, 8.0f);
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
@@ -342,87 +244,15 @@ void UPointLightComponent::PostEditChangeProperty(FPropertyChangedEvent& Propert
 
 void UPointLightComponent::PostInterpChange(UProperty* PropertyThatChanged)
 {
-	static FName RadiusName(TEXT("Radius"));
-	static FName AttenuationRadiusName(TEXT("AttenuationRadius"));
 	static FName LightFalloffExponentName(TEXT("LightFalloffExponent"));
 	FName PropertyName = PropertyThatChanged->GetFName();
 
-	if (PropertyName == RadiusName
-		|| PropertyName == AttenuationRadiusName)
-	{
-		// Old radius tracks will animate the deprecated value
-		if (PropertyName == RadiusName)
-		{
-			AttenuationRadius = Radius_DEPRECATED;
-		}
-
-		PushRadiusToRenderThread();
-	}
-	else if (PropertyName == LightFalloffExponentName)
+	if (PropertyName == LightFalloffExponentName)
 	{
 		MarkRenderStateDirty();
 	}
 	else
 	{
 		Super::PostInterpChange(PropertyThatChanged);
-	}
-}
-
-void UPointLightComponent::PushRadiusToRenderThread()
-{
-	if (CastShadows)
-	{
-		// Shadow casting lights need to recompute light interactions
-		// to determine which primitives to draw in shadow depth passes.
-		MarkRenderStateDirty();
-	}
-	else
-	{
-		if (SceneProxy)
-		{
-			((FPointLightSceneProxyBase*)SceneProxy)->UpdateRadius_GameThread(this);
-		}
-	}
-}
-
-float UPointLightComponent::GetUnitsConversionFactor(ELightUnits SrcUnits, ELightUnits TargetUnits, float CosHalfConeAngle)
-{
-	FMath::Clamp<float>(CosHalfConeAngle, -1, 1 - KINDA_SMALL_NUMBER);
-
-	if (SrcUnits == TargetUnits)
-	{
-		return 1.f;
-	}
-	else
-	{
-		float CnvFactor = 1.f;
-		
-		if (SrcUnits == ELightUnits::Candelas)
-		{
-			CnvFactor = 100.f * 100.f;
-		}
-		else if (SrcUnits == ELightUnits::Lumens)
-		{
-			CnvFactor = 100.f * 100.f / 2.f / PI / (1.f - CosHalfConeAngle);
-		}
-		else
-		{
-			CnvFactor = 16.f;
-		}
-
-		if (TargetUnits == ELightUnits::Candelas)
-		{
-			CnvFactor *= 1.f / 100.f / 100.f;
-		}
-		else if (TargetUnits == ELightUnits::Lumens)
-		{
-			CnvFactor *= 2.f  * PI * (1.f - CosHalfConeAngle) / 100.f / 100.f;
-		}
-		else
-		{
-			CnvFactor *= 1.f / 16.f;
-		}
-
-		return CnvFactor;
 	}
 }

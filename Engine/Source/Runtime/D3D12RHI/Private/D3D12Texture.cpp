@@ -505,7 +505,7 @@ void SafeCreateTexture2D(FD3D12Device* pDevice,
 			{
 				FD3D12Resource* Resource = nullptr;
 				VERIFYD3D12CREATETEXTURERESULT(
-					Adapter->CreateBuffer(heapType, pDevice->GetNodeMask(), pDevice->GetVisibilityMask(), MipBytesAligned, &Resource),
+					Adapter->CreateBuffer(heapType, pDevice->GetGPUMask(), pDevice->GetVisibilityMask(), MipBytesAligned, &Resource),
 					TextureDesc.Width,
 					TextureDesc.Height,
 					TextureDesc.DepthOrArraySize,
@@ -1587,7 +1587,7 @@ void* TD3D12Texture2D<RHIResourceType>::Lock(class FRHICommandListImmediate* RHI
 		LockedResource->bLockedForReadOnly = true;
 
 		//TODO: Make this work for AFR (it's probably a very rare occurance though)
-		check(GNumActiveGPUsForRendering == 1);
+		ensure(GNumExplicitGPUsForRendering == 1);
 
 		// If we're reading from the texture, we create a staging resource, copy the texture contents to it, and map it.
 
@@ -1595,7 +1595,7 @@ void* TD3D12Texture2D<RHIResourceType>::Lock(class FRHICommandListImmediate* RHI
 		const D3D12_RESOURCE_DESC& StagingTextureDesc = GetResource()->GetDesc();
 		FD3D12Resource* StagingTexture = nullptr;
 
-		const FRHIGPUMask Node = Device->GetNodeMask();
+		const FRHIGPUMask Node = Device->GetGPUMask();
 		VERIFYD3D12RESULT(Adapter->CreateBuffer(D3D12_HEAP_TYPE_READBACK, Node, Node, MipBytesAligned, &StagingTexture));
 
 		LockedResource->ResourceLocation.AsStandAlone(StagingTexture, MipBytesAligned);
@@ -1772,12 +1772,6 @@ void TD3D12Texture2D<RHIResourceType>::UnlockInternal(class FRHICommandListImmed
 template<typename RHIResourceType>
 void TD3D12Texture2D<RHIResourceType>::UpdateTexture2D(class FRHICommandListImmediate* RHICmdList, uint32 MipIndex, const FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData)
 {
-	D3D12_BOX DestBox =
-	{
-		UpdateRegion.DestX, UpdateRegion.DestY, 0,
-		UpdateRegion.DestX + UpdateRegion.Width, UpdateRegion.DestY + UpdateRegion.Height, 1
-	};
-
 	check(GPixelFormats[this->GetFormat()].BlockSizeX == 1);
 	check(GPixelFormats[this->GetFormat()].BlockSizeY == 1);
 
@@ -1982,13 +1976,7 @@ FUpdateTexture3DData FD3D12DynamicRHI::BeginUpdateTexture3D_Internal(FTexture3DR
 
 	if (!bDoComputeShaderCopy)
 	{
-		// No compute shader update was possible or supported, so fall back to the old method.
-		D3D12_BOX DestBox =
-		{
-			UpdateRegion.DestX, UpdateRegion.DestY, UpdateRegion.DestZ,
-			UpdateRegion.DestX + UpdateRegion.Width, UpdateRegion.DestY + UpdateRegion.Height, UpdateRegion.DestZ + UpdateRegion.Depth
-		};
-		
+	
 		const int32 NumBlockX = FMath::DivideAndRoundUp<int32>(UpdateRegion.Width, FormatInfo.BlockSizeX);
 		const int32 NumBlockY = FMath::DivideAndRoundUp<int32>(UpdateRegion.Height, FormatInfo.BlockSizeY);
 
@@ -2124,11 +2112,27 @@ void FD3D12DynamicRHI::RHIUnlockTextureCubeFace(FTextureCubeRHIParamRef TextureC
 void FD3D12DynamicRHI::RHIBindDebugLabelName(FTextureRHIParamRef TextureRHI, const TCHAR* Name)
 {
 #if NAME_OBJECTS
-	FName DebugName(Name);
-	TextureRHI->SetName(DebugName);
+	FD3D12TextureBase* BaseTexture = GetD3D12TextureFromRHITexture(TextureRHI);
 
-	FD3D12Resource* Resource = GetD3D12TextureFromRHITexture(TextureRHI)->GetResource();
-	SetName(Resource, Name);
+	if (GNumExplicitGPUsForRendering > 1)
+	{
+		for (;BaseTexture; BaseTexture = BaseTexture->GetNextObject())
+		{
+			FD3D12Resource* Resource = BaseTexture->GetResource();
+
+			TArray<FStringFormatArg> Args;
+			Args.Add(Name);
+			Args.Add(LexicalConversion::ToString(BaseTexture->GetParentDevice()->GetGPUIndex()));
+
+			FString DebugName = FString::Format(TEXT("{0} (GPU {1})"), Args);
+			SetName(Resource, DebugName.GetCharArray().GetData());
+		}
+	}
+	else
+	{
+		SetName(BaseTexture->GetResource(), Name);
+	}
+
 #endif
 }
 
@@ -2221,7 +2225,7 @@ FTexture2DRHIRef FD3D12DynamicRHI::RHICreateTexture2DFromResource(EPixelFormat F
 	const D3D12_RESOURCE_STATES State = D3D12_RESOURCE_STATE_COMMON;
 
 	FD3D12Device* Device = Adapter->GetDevice(0);
-	FD3D12Resource* TextureResource = new FD3D12Resource(Device, Device->GetNodeMask(), Resource, State, TextureDesc);
+	FD3D12Resource* TextureResource = new FD3D12Resource(Device, Device->GetGPUMask(), Resource, State, TextureDesc);
 	TextureResource->AddRef();
 
 	FD3D12Texture2D* Texture2D = new FD3D12Texture2D(Device, SizeX, SizeY, SizeZ, NumMips, NumSamples, Format, false, TexCreateFlags, ClearValueBinding);
@@ -2389,7 +2393,7 @@ FTextureCubeRHIRef FD3D12DynamicRHI::RHICreateTextureCubeFromResource(EPixelForm
 	const D3D12_RESOURCE_STATES State = D3D12_RESOURCE_STATE_COMMON;
 
 	FD3D12Device* Device = Adapter->GetDevice(0);
-	FD3D12Resource* TextureResource = new FD3D12Resource(Device, Device->GetNodeMask(), Resource, State, TextureDesc);
+	FD3D12Resource* TextureResource = new FD3D12Resource(Device, Device->GetGPUMask(), Resource, State, TextureDesc);
 	TextureResource->AddRef();
 
 	FD3D12TextureCube* TextureCube = new FD3D12TextureCube(Device, SizeX, SizeY, SizeZ, NumMips, NumSamples, Format, true, TexCreateFlags, ClearValueBinding);

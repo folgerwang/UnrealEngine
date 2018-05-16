@@ -1124,6 +1124,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		// Shadow passes and other users of stencil assume it is cleared to 0 going in
 		FRHIRenderPassInfo RPInfo(SceneContext.GetSceneDepthSurface(),
 			EDepthStencilTargetActions::ClearStencilDontLoadDepth_StoreStencilNotDepth);
+		RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilWrite;
 		RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearStencilFromBasePass"));
 		RHICmdList.EndRenderPass();
 

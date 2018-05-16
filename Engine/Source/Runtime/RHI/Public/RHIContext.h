@@ -22,7 +22,6 @@ class FRHIRenderTargetView;
 class FRHISetRenderTargetsInfo;
 struct FResolveParams;
 struct FViewportBounds;
-struct FRHIGPUMask;
 enum class EAsyncComputeBudget;
 enum class EResourceTransitionAccess;
 enum class EResourceTransitionPipeline;
@@ -127,12 +126,6 @@ public:
 	 * Signal to RHI that cached state is no longer valid
 	 */
 	virtual void RHIInvalidateCachedState() {};
-
-	/** Get a context that will only execute on given GPUs. */ 
-	virtual IRHIComputeContext* GetContextForNodeMask(const FRHIGPUMask& NodeMask) 
-	{ 
-		return this; 
-	}
 };
 
 // These states are now set by the Pipeline State Object and are now deprecated
@@ -635,12 +628,6 @@ public:
 				RHICopyToResolveTarget(SourceTexture, DestTexture, ResolveParams);
 			}
 		}
-	}
-
-	/** Get a context that will only execute on given GPUs. */ 
-	virtual IRHICommandContext* GetContextForNodeMask(const FRHIGPUMask& NodeMask) 
-	{ 
-		return this; 
 	}
 
 	protected:

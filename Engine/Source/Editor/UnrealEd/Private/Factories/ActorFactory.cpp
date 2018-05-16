@@ -35,12 +35,13 @@ ActorFactory.cpp:
 #include "ActorFactories/ActorFactoryPlaneReflectionCapture.h"
 #include "ActorFactories/ActorFactoryPlayerStart.h"
 #include "ActorFactories/ActorFactoryPointLight.h"
+#include "ActorFactories/ActorFactorySpotLight.h"
+#include "ActorFactories/ActorFactoryRectLight.h"
+#include "ActorFactories/ActorFactorySkyLight.h"
 #include "ActorFactories/ActorFactorySkeletalMesh.h"
 #include "ActorFactories/ActorFactoryAnimationAsset.h"
-#include "ActorFactories/ActorFactorySkyLight.h"
 #include "ActorFactories/ActorFactorySphereReflectionCapture.h"
 #include "ActorFactories/ActorFactorySphereVolume.h"
-#include "ActorFactories/ActorFactorySpotLight.h"
 #include "ActorFactories/ActorFactoryStaticMesh.h"
 #include "ActorFactories/ActorFactoryBasicShape.h"
 #include "ActorFactories/ActorFactoryInteractiveFoliage.h"
@@ -80,6 +81,7 @@ ActorFactory.cpp:
 #include "Engine/DirectionalLight.h"
 #include "Engine/PointLight.h"
 #include "Engine/SpotLight.h"
+#include "Engine/RectLight.h"
 #include "Engine/Note.h"
 #include "Engine/BoxReflectionCapture.h"
 #include "Engine/PlaneReflectionCapture.h"
@@ -1520,6 +1522,18 @@ UActorFactoryPointLight::UActorFactoryPointLight(const FObjectInitializer& Objec
 {
 	DisplayName = LOCTEXT("PointLightDisplayName", "Point Light");
 	NewActorClass = APointLight::StaticClass();
+	SpawnPositionOffset = FVector(50, 0, 0);
+	bUseSurfaceOrientation = true;
+}
+
+/*-----------------------------------------------------------------------------
+UActorFactoryRectLight
+-----------------------------------------------------------------------------*/
+UActorFactoryRectLight::UActorFactoryRectLight(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	DisplayName = LOCTEXT("RectLightDisplayName", "Rect Light");
+	NewActorClass = ARectLight::StaticClass();
 	SpawnPositionOffset = FVector(50, 0, 0);
 	bUseSurfaceOrientation = true;
 }

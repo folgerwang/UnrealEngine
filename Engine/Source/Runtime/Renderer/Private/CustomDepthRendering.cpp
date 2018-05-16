@@ -9,6 +9,7 @@
 #include "DrawingPolicy.h"
 #include "DepthRendering.h"
 #include "SceneRendering.h"
+#include "SceneCore.h"
 
 /*-----------------------------------------------------------------------------
 	FCustomDepthPrimSet

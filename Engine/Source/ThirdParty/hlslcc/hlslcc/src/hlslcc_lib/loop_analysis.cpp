@@ -653,7 +653,12 @@ bool is_loop_terminator(ir_if *ir)
 
 	ir_instruction *const inst =
 		(ir_instruction *)ir->then_instructions.get_head();
-	check(inst != NULL);
+
+	if (inst == nullptr)
+	{
+		// This fixes a case where we have an empty then block which hasn't been optimized yet
+		return false;
+	}
 
 	if (inst->ir_type != ir_type_loop_jump)
 		return false;

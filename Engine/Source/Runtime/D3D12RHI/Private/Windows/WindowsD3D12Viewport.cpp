@@ -10,6 +10,8 @@
 #include "Windows/AllowWindowsPlatformTypes.h"
 #include "Windows.h"
 
+static const uint32 WindowsDefaultNumBackBuffers = 3;
+
 extern FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFormat, IDXGISwapChain* SwapChain, uint32 BackBufferIndex);
 
 FD3D12Viewport::FD3D12Viewport(class FD3D12Adapter* InParent, HWND InWindowHandle, uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen, EPixelFormat InPreferredPixelFormat) :
@@ -27,17 +29,17 @@ FD3D12Viewport::FD3D12Viewport(class FD3D12Adapter* InParent, HWND InWindowHandl
 	bHDRMetaDataSet(false),
 	ColorSpace(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709),
 	bIsValid(true),
-	NumBackBuffers(DefaultNumBackBuffers),
-	DisplayedGPUIndex(0),
+	NumBackBuffers(WindowsDefaultNumBackBuffers),
+	PresentGPUIndex(0),
 	CurrentBackBufferIndex_RenderThread(0),
 	BackBuffer_RenderThread(nullptr),
 	CurrentBackBufferIndex_RHIThread(0),
 	BackBuffer_RHIThread(nullptr),
 	Fence(InParent, FRHIGPUMask::All(), L"Viewport Fence"),
 	LastSignaledValue(0),
-#if WITH_SLI
+#if WITH_MGPU
 	FramePacerRunnable(nullptr),
-#endif //WITH_SLI
+#endif //WITH_MGPU
 	SDRBackBuffer_RenderThread(nullptr),
 	SDRBackBuffer_RHIThread(nullptr),
 	SDRPixelFormat(PF_B8G8R8A8),
@@ -71,7 +73,7 @@ void FD3D12Viewport::Init()
 
 	Fence.CreateFence();
 
-	CalculateSwapChainDepth(DefaultNumBackBuffers);
+	CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
 
 	UINT SwapChainFlags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
@@ -178,7 +180,7 @@ void FD3D12Viewport::ResizeInternal()
 {
 	FD3D12Adapter* Adapter = GetParentAdapter();
 
-	CalculateSwapChainDepth(DefaultNumBackBuffers);
+	CalculateSwapChainDepth(WindowsDefaultNumBackBuffers);
 
 	UINT SwapChainFlags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 	if (bAllowTearing)
@@ -186,8 +188,8 @@ void FD3D12Viewport::ResizeInternal()
 		SwapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 	}
 
-#if WITH_SLI
-	if (GNumActiveGPUsForRendering > 1)
+#if WITH_MGPU
+	if (GNumExplicitGPUsForRendering > 1)
 	{
 		TArray<ID3D12CommandQueue*> CommandQueues;
 		TArray<uint32> NodeMasks;
@@ -195,8 +197,8 @@ void FD3D12Viewport::ResizeInternal()
 
 		for (uint32 i = 0; i < NumBackBuffers; ++i)
 		{
-			// When DisplayedGPUIndex == INDEX_NONE, cycle through each GPU (for AFR or debugging).
-			const uint32 BackBufferGPUIndex = DisplayedGPUIndex >= 0 ? (uint32)DisplayedGPUIndex : (i % GNumActiveGPUsForRendering);
+			// When PresentGPUIndex == INDEX_NONE, cycle through each GPU (for AFR or debugging).
+			const uint32 BackBufferGPUIndex = PresentGPUIndex >= 0 ? (uint32)PresentGPUIndex : (i % GNumExplicitGPUsForRendering);
 			BackBufferGPUIndices.Add(BackBufferGPUIndex);
 		}
 
@@ -207,7 +209,7 @@ void FD3D12Viewport::ResizeInternal()
 			FD3D12Device* Device = Adapter->GetDevice(GPUIndex);
 
 			CommandQueues.Add(Device->GetD3DCommandQueue());
-			NodeMasks.Add((uint32)Device->GetNodeMask());
+			NodeMasks.Add((uint32)Device->GetGPUMask());
 		}
 
 		TRefCountPtr<IDXGISwapChain3> SwapChain3;
@@ -224,7 +226,7 @@ void FD3D12Viewport::ResizeInternal()
 		}
 	}
 	else
-#endif // WITH_SLI
+#endif // WITH_MGPU
 	{
 		VERIFYD3D12RESULT_EX(SwapChain1->ResizeBuffers(NumBackBuffers, SizeX, SizeY, GetRenderTargetFormat(PixelFormat), SwapChainFlags), Adapter->GetD3DDevice());
 

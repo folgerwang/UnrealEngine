@@ -80,6 +80,7 @@ void FCameraLensSettingsCustomization::CustomizeChildren(TSharedRef<IPropertyHan
 	MinFStopHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FCameraLensSettings, MinFStop));
 	MaxFStopHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FCameraLensSettings, MaxFStop));
 	MinFocusDistanceHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FCameraLensSettings, MinimumFocusDistance));
+	DiaphragmBladeCountHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FCameraLensSettings, DiaphragmBladeCount));
 
 	for (auto Iter(PropertyHandles.CreateConstIterator()); Iter; ++Iter)
 	{
@@ -125,6 +126,7 @@ void FCameraLensSettingsCustomization::OnPresetChanged(TSharedPtr<FString> NewSe
 				ensure(MinFStopHandle->SetValue(P.LensSettings.MinFStop, EPropertyValueSetFlags::InteractiveChange | EPropertyValueSetFlags::NotTransactable) == FPropertyAccess::Result::Success);
 				ensure(MaxFStopHandle->SetValue(P.LensSettings.MaxFStop, EPropertyValueSetFlags::InteractiveChange | EPropertyValueSetFlags::NotTransactable) == FPropertyAccess::Result::Success);
 				ensure(MinFocusDistanceHandle->SetValue(P.LensSettings.MinimumFocusDistance, EPropertyValueSetFlags::InteractiveChange | EPropertyValueSetFlags::NotTransactable) == FPropertyAccess::Result::Success);
+				ensure(DiaphragmBladeCountHandle->SetValue(P.LensSettings.DiaphragmBladeCount, EPropertyValueSetFlags::InteractiveChange | EPropertyValueSetFlags::NotTransactable) == FPropertyAccess::Result::Success);
 
 				break;
 			}
@@ -166,6 +168,9 @@ TSharedPtr<FString> FCameraLensSettingsCustomization::GetPresetString() const
 	float MinFocusDistance;
 	MinFocusDistanceHandle->GetValue(MinFocusDistance);
 
+	int32 DiaphragmBladeCount;
+	DiaphragmBladeCountHandle->GetValue(DiaphragmBladeCount);
+
 	// search presets for one that matches
 	TArray<FNamedLensPreset> const& Presets = UCineCameraComponent::GetLensPresets();
 	int32 const NumPresets = Presets.Num();
@@ -173,7 +178,7 @@ TSharedPtr<FString> FCameraLensSettingsCustomization::GetPresetString() const
 	{
 		FNamedLensPreset const& P = Presets[PresetIdx];
 		if ((P.LensSettings.MinFocalLength == MinFocalLength) && (P.LensSettings.MaxFocalLength == MaxFocalLength) && (P.LensSettings.MinFStop == MinFStop) && 
-			(P.LensSettings.MaxFStop == MaxFStop) && (P.LensSettings.MinimumFocusDistance == MinFocusDistance) )
+			(P.LensSettings.MaxFStop == MaxFStop) && (P.LensSettings.MinimumFocusDistance == MinFocusDistance) && (P.LensSettings.DiaphragmBladeCount == DiaphragmBladeCount) )
 		{
 			// this is the one
 			if (PresetComboList.IsValidIndex(PresetIdx + 1))

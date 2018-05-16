@@ -42,7 +42,7 @@ THIRD_PARTY_INCLUDES_END
 #	endif
 #endif
 
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && USE_ANDROID_JNI
 #	include "Android/AndroidWebBrowserWindow.h"
 #elif PLATFORM_IOS
 #	include <IOS/IOSPlatformWebBrowser.h>
@@ -495,7 +495,7 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 			return NewBrowserWindow;
 		}
 	}
-#elif PLATFORM_ANDROID
+#elif PLATFORM_ANDROID && USE_ANDROID_JNI
 	// Create new window
 	TSharedPtr<FAndroidWebBrowserWindow> NewBrowserWindow = MakeShareable(new FAndroidWebBrowserWindow(
 		WindowSettings.InitialURL,

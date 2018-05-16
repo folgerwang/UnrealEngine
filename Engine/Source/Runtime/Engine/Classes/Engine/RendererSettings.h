@@ -335,6 +335,11 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	TEnumAsByte<EAlphaChannelMode::Type> bEnableAlphaChannelInPostProcessing;
 
 	UPROPERTY(config, EditAnywhere, Category = Postprocessing, meta = (
+		ConsoleVariable = "r.DOF.Algorithm", DisplayName = "Use new DOF algorithm",
+		ToolTip = "Whether to use the new DOF implementation for Circle DOF method."))
+	uint32 bUseNewAlgorithm : 1;
+
+	UPROPERTY(config, EditAnywhere, Category = Postprocessing, meta = (
 		ConsoleVariable = "r.UsePreExposure", DisplayName = "Apply Pre-exposure before writing to the scene color",
 		ToolTip = "Whether to use pre-exposure to remap the range of the scene color around the camera exposure. This limits the render target range required to support HDR lighting value.",
 		ConfigRestartRequired=true))

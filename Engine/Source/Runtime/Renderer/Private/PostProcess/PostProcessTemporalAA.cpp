@@ -68,7 +68,7 @@ public:
 	FShaderParameter ScreenPosAbsMax;
 	FShaderParameter ScreenPosToHistoryBufferUV;
 	FShaderResourceParameter HistoryBuffer[FTemporalAAHistory::kRenderTargetCount];
-	FShaderResourceParameter HistoryBuffer0Sampler;
+	FShaderResourceParameter HistoryBufferSampler[FTemporalAAHistory::kRenderTargetCount];
 	FShaderParameter HistoryBufferSize;
 	FShaderParameter HistoryBufferUVMinMax;
 	FShaderParameter MaxViewportUVAndSvPositionToViewportUV;
@@ -89,7 +89,8 @@ public:
 		ScreenPosToHistoryBufferUV.Bind(ParameterMap, TEXT("ScreenPosToHistoryBufferUV"));
 		HistoryBuffer[0].Bind(ParameterMap, TEXT("HistoryBuffer0"));
 		HistoryBuffer[1].Bind(ParameterMap, TEXT("HistoryBuffer1"));
-		HistoryBuffer0Sampler.Bind(ParameterMap, TEXT("HistoryBuffer0Sampler"));
+		HistoryBufferSampler[0].Bind(ParameterMap, TEXT("HistoryBuffer0Sampler"));
+		HistoryBufferSampler[1].Bind(ParameterMap, TEXT("HistoryBuffer1Sampler"));
 		HistoryBufferSize.Bind(ParameterMap, TEXT("HistoryBufferSize"));
 		HistoryBufferUVMinMax.Bind(ParameterMap, TEXT("HistoryBufferUVMinMax"));
 		MaxViewportUVAndSvPositionToViewportUV.Bind(ParameterMap, TEXT("MaxViewportUVAndSvPositionToViewportUV"));
@@ -100,7 +101,7 @@ public:
 	void Serialize(FArchive& Ar)
 	{
 		Ar << PostprocessParameter << SceneTextureParameters ;
-		Ar << SampleWeights << PlusWeights << DitherScale << VelocityScaling << CurrentFrameWeight << ScreenPosAbsMax << ScreenPosToHistoryBufferUV << HistoryBuffer[0] << HistoryBuffer[1] << HistoryBuffer0Sampler << HistoryBufferSize << HistoryBufferUVMinMax;
+		Ar << SampleWeights << PlusWeights << DitherScale << VelocityScaling << CurrentFrameWeight << ScreenPosAbsMax << ScreenPosToHistoryBufferUV << HistoryBuffer[0] << HistoryBuffer[1] << HistoryBufferSampler[0] << HistoryBufferSampler[1] << HistoryBufferSize << HistoryBufferUVMinMax;
 		Ar << MaxViewportUVAndSvPositionToViewportUV << OneOverHistoryPreExposure << ViewportUVToInputBufferUV;
 	}
 
@@ -234,7 +235,7 @@ public:
 				{
 					SetTextureParameter(
 						RHICmdList, ShaderRHI,
-						HistoryBuffer[i], HistoryBuffer0Sampler,
+						HistoryBuffer[i], HistoryBufferSampler[i],
 						TStaticSamplerState<SF_Bilinear>::GetRHI(),
 						InputHistory.RT[i]->GetRenderTargetItem().ShaderResourceTexture);
 				}
@@ -399,7 +400,8 @@ class FPostProcessTemporalAACS : public FGlobalShader
 		Parameter.Bind(Initializer);
 
 		EyeAdaptation.Bind(Initializer.ParameterMap, TEXT("EyeAdaptation"));
-		OutComputeTex.Bind(Initializer.ParameterMap, TEXT("OutComputeTex"));
+		OutComputeTex0.Bind(Initializer.ParameterMap, TEXT("OutComputeTex0"));
+		OutComputeTex1.Bind(Initializer.ParameterMap, TEXT("OutComputeTex1"));
 		InputViewMin.Bind(Initializer.ParameterMap, TEXT("InputViewMin"));
 		InputViewSize.Bind(Initializer.ParameterMap, TEXT("InputViewSize"));
 		TemporalJitterPixels.Bind(Initializer.ParameterMap, TEXT("TemporalJitterPixels"));
@@ -411,7 +413,7 @@ class FPostProcessTemporalAACS : public FGlobalShader
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Parameter.Serialize(Ar);
-		Ar << EyeAdaptation << OutComputeTex << InputViewMin << InputViewSize << TemporalJitterPixels << ScreenPercentageAndUpscaleFactor;
+		Ar << EyeAdaptation << OutComputeTex0 << OutComputeTex1 << InputViewMin << InputViewSize << TemporalJitterPixels << ScreenPercentageAndUpscaleFactor;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -422,7 +424,7 @@ class FPostProcessTemporalAACS : public FGlobalShader
 		const FTemporalAAHistory& InputHistory,
 		const FTAAPassParameters& PassParameters,
 		const FIntPoint& DestSize,
-		FUnorderedAccessViewRHIParamRef DestUAV,
+		const FSceneRenderTargetItem* DestRenderTarget[2],
 		const FIntPoint& SrcSize,
 		bool bUseDither,
 		FTextureRHIParamRef EyeAdaptationTex)
@@ -434,7 +436,9 @@ class FPostProcessTemporalAACS : public FGlobalShader
 		// CS params
 		Parameter.PostprocessParameter.SetCS(ShaderRHI, Context, RHICmdList);
 
-		RHICmdList.SetUAVParameter(ShaderRHI, OutComputeTex.GetBaseIndex(), DestUAV);
+		RHICmdList.SetUAVParameter(ShaderRHI, OutComputeTex0.GetBaseIndex(), DestRenderTarget[0]->UAV);
+		if (DestRenderTarget[1])
+			RHICmdList.SetUAVParameter(ShaderRHI, OutComputeTex1.GetBaseIndex(), DestRenderTarget[1]->UAV);
 
 		// VS params
 		SetTextureParameter(RHICmdList, ShaderRHI, EyeAdaptation, EyeAdaptationTex);
@@ -462,13 +466,17 @@ class FPostProcessTemporalAACS : public FGlobalShader
 	void UnsetParameters(TRHICmdList& RHICmdList)
 	{
 		const FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
-		RHICmdList.SetUAVParameter(ShaderRHI, OutComputeTex.GetBaseIndex(), NULL);
+		if (OutComputeTex0.IsBound())
+			RHICmdList.SetUAVParameter(ShaderRHI, OutComputeTex0.GetBaseIndex(), NULL);
+		if (OutComputeTex1.IsBound())
+			RHICmdList.SetUAVParameter(ShaderRHI, OutComputeTex1.GetBaseIndex(), NULL);
 	}
 
 	FTemporalAAParameters Parameter;
 	FShaderResourceParameter EyeAdaptation;
 	FShaderParameter TemporalAAComputeParams;
-	FShaderParameter OutComputeTex;
+	FShaderParameter OutComputeTex0;
+	FShaderParameter OutComputeTex1;
 	FShaderParameter InputViewMin;
 	FShaderParameter InputViewSize;
 	FShaderParameter TemporalJitterPixels;
@@ -527,7 +535,7 @@ void DispatchCSTemplate(
 	const FTemporalAAHistory& InputHistory,
 	const FTAAPassParameters& PassParameters,
 	const FIntPoint& SrcSize,
-	FUnorderedAccessViewRHIParamRef DestUAV,
+	const FSceneRenderTargetItem* DestRenderTarget[2],
 	const bool bUseDither,
 	FTextureRHIParamRef EyeAdaptationTex)
 {
@@ -537,7 +545,7 @@ void DispatchCSTemplate(
 	RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 	FIntPoint DestSize = FIntPoint::DivideAndRoundUp(PassParameters.OutputViewRect.Size(), PassParameters.ResolutionDivisor);
-	ComputeShader->SetParameters(RHICmdList, Context, InputHistory, PassParameters, DestSize, DestUAV, SrcSize, bUseDither, EyeAdaptationTex);
+	ComputeShader->SetParameters(RHICmdList, Context, InputHistory, PassParameters, DestSize, DestRenderTarget, SrcSize, bUseDither, EyeAdaptationTex);
 
 	uint32 GroupSizeX = FMath::DivideAndRoundUp(DestSize.X, GTemporalAATileSizeX);
 	uint32 GroupSizeY = FMath::DivideAndRoundUp(DestSize.Y, GTemporalAATileSizeY);
@@ -587,7 +595,7 @@ FRCPassPostProcessTemporalAA::FRCPassPostProcessTemporalAA(
 {
 	bIsComputePass = Parameters.bIsComputePass;
 	bPreferAsyncCompute = false;
-	bPreferAsyncCompute &= (GNumActiveGPUsForRendering == 1); // Can't handle multi-frame updates on async pipe
+	bPreferAsyncCompute &= (GNumAlternateFrameRenderingGroups == 1); // Can't handle multi-frame updates on async pipe
 
 	if (IsTAAUpsamplingConfig(Parameters.Pass))
 	{
@@ -612,9 +620,15 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 
 	const FPooledRenderTargetDesc* InputDesc = GetInputDesc(ePId_Input0);
 	FIntPoint SrcSize = InputDesc->Extent;
-	
-	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
-	
+
+	// Number of render target in TAA history.
+	const int32 RenderTargetCount = IsDOFTAAConfig(Parameters.Pass) && FPostProcessing::HasAlphaChannelSupport() ? 2 : 1;
+
+	const FSceneRenderTargetItem* DestRenderTarget[2] = {nullptr, nullptr};
+	DestRenderTarget[0] = &PassOutputs[0].RequestSurface(Context);
+	if (RenderTargetCount == 2)
+		DestRenderTarget[1] = &PassOutputs[1].RequestSurface(Context);
+
 	// Whether this is main TAA pass;
 	bool bIsMainPass = Parameters.Pass == ETAAPassConfig::Main || Parameters.Pass == ETAAPassConfig::MainUpsampling;
 
@@ -682,6 +696,11 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 			EyeAdaptationTex = Context.View.GetEyeAdaptation(Context.RHICmdList)->GetRenderTargetItem().TargetableTexture;
 		}
 
+		FUnorderedAccessViewRHIParamRef UAVs[2];
+		UAVs[0] = DestRenderTarget[0]->UAV;
+		if (RenderTargetCount == 2)
+			UAVs[1] = DestRenderTarget[1]->UAV;
+
 		if (IsAsyncComputePass())
 		{
 			// Async path
@@ -690,13 +709,17 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 				SCOPED_COMPUTE_EVENT(RHICmdListComputeImmediate, AsyncTemporalAA);
 				WaitForInputPassComputeFences(RHICmdListComputeImmediate);
 					
-				RHICmdListComputeImmediate.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, DestRenderTarget.UAV);
+				RHICmdListComputeImmediate.TransitionResources(
+					EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute,
+					UAVs, RenderTargetCount);
 
 				DispatchCSTemplate(
 					RHICmdListComputeImmediate, Context, PermutationVector,
-					InputHistory, Parameters, SrcSize, DestRenderTarget.UAV, bUseDither, EyeAdaptationTex);
+					InputHistory, Parameters, SrcSize, DestRenderTarget, bUseDither, EyeAdaptationTex);
 
-				RHICmdListComputeImmediate.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, DestRenderTarget.UAV, AsyncEndFence);
+				RHICmdListComputeImmediate.TransitionResources(
+					EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx,
+					UAVs, RenderTargetCount, AsyncEndFence);
 			}
 			FRHIAsyncComputeCommandListImmediate::ImmediateDispatch(RHICmdListComputeImmediate);
 		}
@@ -704,17 +727,25 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 		{
 			// Direct path
 			WaitForInputPassComputeFences(Context.RHICmdList);
-			Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget.ShaderResourceTexture);
+			Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget[0]->ShaderResourceTexture);
+			if (RenderTargetCount == 2)
+				Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget[1]->ShaderResourceTexture);
 
-			Context.RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, DestRenderTarget.UAV);
+			Context.RHICmdList.TransitionResources(
+				EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute,
+				UAVs, RenderTargetCount);
 
 			DispatchCSTemplate(
 				Context.RHICmdList, Context, PermutationVector,
-				InputHistory, Parameters, SrcSize, DestRenderTarget.UAV, bUseDither, EyeAdaptationTex);
+				InputHistory, Parameters, SrcSize, DestRenderTarget, bUseDither, EyeAdaptationTex);
 
-			Context.RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, DestRenderTarget.UAV, AsyncEndFence);
+			Context.RHICmdList.TransitionResources(
+				EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx,
+				UAVs, RenderTargetCount, AsyncEndFence);
 
-			Context.RHICmdList.EndUpdateMultiFrameResource(DestRenderTarget.ShaderResourceTexture);
+			Context.RHICmdList.EndUpdateMultiFrameResource(DestRenderTarget[0]->ShaderResourceTexture);
+			if (RenderTargetCount == 2)
+				Context.RHICmdList.EndUpdateMultiFrameResource(DestRenderTarget[1]->ShaderResourceTexture);
 		}
 	}
 	else
@@ -730,9 +761,30 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 		WaitForInputPassComputeFences(Context.RHICmdList);
 
 		// Inform MultiGPU systems that we're starting to update this resource
-		Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget.ShaderResourceTexture);
+		Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget[0]->ShaderResourceTexture);
 
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, SceneContext.GetSceneDepthTexture(), ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+		// Setup render targets.
+		{
+			FRHIDepthRenderTargetView DepthRTV(SceneContext.GetSceneDepthTexture(),
+				ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::ENoAction,
+				ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::ENoAction,
+				FExclusiveDepthStencil::DepthRead_StencilWrite);
+
+			FRHIRenderTargetView RTVs[2];
+
+			RTVs[0] = FRHIRenderTargetView(DestRenderTarget[0]->TargetableTexture, ERenderTargetLoadAction::ENoAction);
+
+			// Inform MultiGPU systems that we're starting to update this resource
+			Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget[0]->ShaderResourceTexture);
+
+			if (RenderTargetCount == 2)
+			{
+				RTVs[1] = FRHIRenderTargetView(DestRenderTarget[1]->TargetableTexture, ERenderTargetLoadAction::ENoAction);
+				Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget[1]->ShaderResourceTexture);
+			}
+			Context.RHICmdList.SetRenderTargets(RenderTargetCount, RTVs, &DepthRTV, 0, nullptr);
+		}
+
 		Context.SetViewportAndCallRHI(ViewRect);
 
 		FPostProcessTemporalAAPS::FPermutationDomain PermutationVector;
@@ -777,10 +829,26 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 				TStaticDepthStencilState<false, CF_Always>::GetRHI());
 		}
 
-		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget[0]->TargetableTexture, DestRenderTarget[0]->ShaderResourceTexture, FResolveParams());
+
+		if (RenderTargetCount == 2)
+		{
+			Context.RHICmdList.CopyToResolveTarget(DestRenderTarget[1]->TargetableTexture, DestRenderTarget[1]->ShaderResourceTexture, FResolveParams());
+			Context.RHICmdList.EndUpdateMultiFrameResource(DestRenderTarget[1]->ShaderResourceTexture);
+		}
+
+		if (IsDOFTAAConfig(Parameters.Pass))
+		{
+			Context.RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EGfxToCompute, DestRenderTarget[0]->UAV);
+
+			if (RenderTargetCount == 2)
+			{
+				Context.RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EGfxToCompute, DestRenderTarget[1]->UAV);
+			}
+		}
 
 		// Inform MultiGPU systems that we've finished with this texture for this frame
-		Context.RHICmdList.EndUpdateMultiFrameResource(DestRenderTarget.ShaderResourceTexture);
+		Context.RHICmdList.EndUpdateMultiFrameResource(DestRenderTarget[0]->ShaderResourceTexture);
 	}
 
 	OutputHistory->SafeRelease();
@@ -814,6 +882,12 @@ FPooledRenderTargetDesc FRCPassPostProcessTemporalAA::ComputeOutputDesc(EPassOut
 	Ret.AutoWritable = false;
 	Ret.TargetableFlags &= ~(TexCreate_RenderTargetable | TexCreate_UAV);
 	Ret.TargetableFlags |= bIsComputePass ? TexCreate_UAV : TexCreate_RenderTargetable;
+
+	// Need a UAV to resource transition from gfx to compute.
+	if (IsDOFTAAConfig(Parameters.Pass))
+	{
+		Ret.TargetableFlags |= TexCreate_UAV;
+	}
 
 	if (OutputExtent.X > 0)
 	{

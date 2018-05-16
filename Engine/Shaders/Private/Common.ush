@@ -148,6 +148,10 @@ MaterialFloat4 TextureCubeSampleLevel(TextureCube Tex, SamplerState Sampler, flo
 {
 	return Tex.SampleLevel(Sampler, UV, Mip);
 }
+MaterialFloat TextureCubeSampleDepthLevel(TextureCube TexDepth, SamplerState Sampler, float3 UV, MaterialFloat Mip)
+{
+return TexDepth.SampleLevel(Sampler, UV, Mip);
+}
 MaterialFloat4 TextureCubeSampleBias(TextureCube Tex, SamplerState Sampler, float3 UV, MaterialFloat MipBias)
 {
 #if COMPUTESHADER
@@ -607,11 +611,8 @@ SamplerState	LightAttenuationTextureSampler;
 // We don't use an inline function so we can avoid type promotion/ coercion.
 #define RETURN_COLOR( Color ) ( Color )
 
-// Tangent space bias/unbias
-// We don't use a function so we can avoid type promotion/ coercion.
-
-#if OPENGL_PROFILE
-float ConvertTangentUnormToSnorm(float Input)
+// Convert from unorm to snorm and viceversa
+float ConvertTangentUnormToSnorm8(float Input)
 {
 	int IntVal = int(round(Input * 255.0f));
 	//negate
@@ -619,7 +620,7 @@ float ConvertTangentUnormToSnorm(float Input)
 	return clamp(IntVal / 127.0f, -1, 1);
 }
 
-float2 ConvertTangentUnormToSnorm(float2 Input)
+float2 ConvertTangentUnormToSnorm8(float2 Input)
 {
 	int2 IntVal = int2(round(Input * 255.0f));
 	//negate
@@ -627,14 +628,14 @@ float2 ConvertTangentUnormToSnorm(float2 Input)
 	return clamp(IntVal / 127.0f, -1, 1);
 }
 
-float3 ConvertTangentUnormToSnorm(float3 Input)
+float3 ConvertTangentUnormToSnorm8(float3 Input)
 {
 	int3 IntVal = int3(round(Input * 255.0f));
 	IntVal = (IntVal > 127) ? (IntVal | 0xFFFFFF80) : IntVal;
 	return clamp(IntVal / 127.0f, -1, 1);
 }
 
-float4 ConvertTangentUnormToSnorm(float4 Input)
+float4 ConvertTangentUnormToSnorm8(float4 Input)
 {
 	int4 IntVal = int4(round(Input * 255.0f));
 	//negate
@@ -642,39 +643,98 @@ float4 ConvertTangentUnormToSnorm(float4 Input)
 	return clamp(IntVal / 127.0f, -1, 1);
 }
 
-float ConvertTangentSnormToUnorm(float Input)
+float ConvertTangentUnormToSnorm16(float Input)
+{
+	int IntVal = int(round(Input * 65535.0f));
+	//negate
+	IntVal = (IntVal > 32767) ? (IntVal | 0xFFFF8000) : IntVal;
+	return clamp(IntVal / 32767.0f, -1, 1);
+}
+
+float2 ConvertTangentUnormToSnorm16(float2 Input)
+{
+	int2 IntVal = int2(round(Input * 65535.0f));
+	//negate
+	IntVal = (IntVal > 32767) ? (IntVal | 0xFFFFFF80) : IntVal;
+	return clamp(IntVal / 32767.0f, -1, 1);
+}
+
+float3 ConvertTangentUnormToSnorm16(float3 Input)
+{
+	int3 IntVal = int3(round(Input * 65535.0f));
+	IntVal = (IntVal > 32767) ? (IntVal | 0xFFFFFF80) : IntVal;
+	return clamp(IntVal / 32767.0f, -1, 1);
+}
+
+float4 ConvertTangentUnormToSnorm16(float4 Input)
+{
+	int4 IntVal = int4(round(Input * 65535.0f));
+	//negate
+	IntVal = (IntVal > 32767) ? (IntVal | 0xFFFFFF80) : IntVal;
+	return clamp(IntVal / 32767.0f, -1, 1);
+}
+
+float ConvertTangentSnormToUnorm8(float Input)
 {
 	float Res = Input >= 0.0f ? Input * 127 : ((Input + 1.0) * 127) + 128;
 	return clamp(Res / 255, 0.0f, 0.99f);
 }
 
-float2 ConvertTangentSnormToUnorm(float2 Input)
+float2 ConvertTangentSnormToUnorm8(float2 Input)
 {
 	float2 Res = Input >= 0.0f ? Input * 127 : ((Input + 1.0) * 127) + 128;
 	return clamp(Res / 255, 0.0f, 0.99f);
 }
 
-float3 ConvertTangentSnormToUnorm(float3 Input)
+float3 ConvertTangentSnormToUnorm8(float3 Input)
 {
 	float3 Res = Input >= 0.0f ? Input * 127 : ((Input + 1.0) * 127) + 128;
 	return clamp(Res / 255, 0.0f, 0.99f);
 }
 
-float4 ConvertTangentSnormToUnorm(float4 Input)
+float4 ConvertTangentSnormToUnorm8(float4 Input)
 {
 	float4 Res = Input >= 0.0f ? Input * 127 : ((Input + 1.0) * 127) + 128;
 	return clamp(Res / 255, 0.0f, 0.99f);
 }
 
-//convert from unorm to snorm and viceversa
-#define TangentBias(X) ConvertTangentUnormToSnorm(X)
-#define TangentUnbias(X) ConvertTangentSnormToUnorm(X)
+float ConvertTangentSnormToUnorm16(float Input)
+{
+	float Res = Input >= 0.0f ? Input * 32767 : ((Input + 1.0) * 32767) + 32768;
+	return clamp(Res / 65535, 0.0f, 0.99f);
+}
+
+float2 ConvertTangentSnormToUnorm16(float2 Input)
+{
+	float2 Res = Input >= 0.0f ? Input * 32767 : ((Input + 1.0) * 32767) + 32768;
+	return clamp(Res / 65535, 0.0f, 0.99f);
+}
+
+float3 ConvertTangentSnormToUnorm16(float3 Input)
+{
+	float3 Res = Input >= 0.0f ? Input * 32767 : ((Input + 1.0) * 32767) + 32768;
+	return clamp(Res / 65535, 0.0f, 0.99f);
+}
+
+float4 ConvertTangentSnormToUnorm16(float4 Input)
+{
+	float4 Res = Input >= 0.0f ? Input * 32767 : ((Input + 1.0) * 32767) + 32768;
+	return clamp(Res / 65535, 0.0f, 0.99f);
+}
+
+#ifndef FORCE_BIAS_CONVERSION
+#define FORCE_BIAS_CONVERSION	0
+#endif
+
+// Tangent space bias/unbias
+// We don't use a function so we can avoid type promotion/ coercion.
+#if OPENGL_PROFILE && (MANUAL_VERTEX_FETCH || FORCE_BIAS_CONVERSION)
+#define TangentBias(X)		ConvertTangentUnormToSnorm8(X)
+#define TangentUnbias(X)	ConvertTangentSnormToUnorm8(X)
 #else
-#define TangentBias(X) (X)
-#define TangentUnbias(X) (X)
-
-
-#endif // OPENGL_PROFILE
+#define TangentBias(X)		(X)
+#define TangentUnbias(X)	(X)
+#endif // OPENGL_PROFILE && (MANUAL_VERTEX_FETCH || FORCE_BIAS_CONVERSION)
 
 
 
@@ -1714,6 +1774,9 @@ struct FPixelShaderOut
 
 #endif // GetGlobalSampler
 
+
+#if SUPPORTS_INDEPENDENT_SAMPLERS
+
 // Shortcuts for global samplers.
 #define GlobalPointClampedSampler GetGlobalSampler(Point, Clamped)
 #define GlobalPointWrappedSampler GetGlobalSampler(Point, Wrapped)
@@ -1721,3 +1784,5 @@ struct FPixelShaderOut
 #define GlobalBilinearWrappedSampler GetGlobalSampler(Bilinear, Wrapped)
 #define GlobalTrilinearClampedSampler GetGlobalSampler(Trilinear, Clamped)
 #define GlobalTrilinearWrappedSampler GetGlobalSampler(Trilinear, Wrapped)
+
+#endif // SUPPORTS_INDEPENDENT_SAMPLERS

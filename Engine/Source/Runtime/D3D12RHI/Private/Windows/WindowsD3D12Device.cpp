@@ -25,11 +25,11 @@ extern bool D3D12RHI_ShouldAllowAsyncResourceCreation();
 extern bool D3D12RHI_ShouldForceCompatibility();
 
 static TAutoConsoleVariable<int32> CVarGraphicsAdapter(
-	TEXT("r.D3D12GraphicsAdapter"),
+	TEXT("D3D12.GraphicsAdapter"),
 	-1,
-	TEXT("User request to pick a specific graphics adapter (e.g. when using a integrated graphics card with a descrete one)\n")
+	TEXT("User request to pick a specific graphics adapter (e.g. when using an integrated graphics card with a discrete one)\n")
 	TEXT(" -2: Take the first one that fulfills the criteria\n")
-	TEXT(" -1: Favour non integrated because there are usually faster\n")
+	TEXT(" -1: Favor discrete because they are usually faster (default)\n")
 	TEXT("  0: Adapter #0\n")
 	TEXT("  1: Adapter #1, ..."),
 	ECVF_RenderThreadSafe);
@@ -54,22 +54,6 @@ static inline int D3D12RHI_PreferAdapterVendor()
 	return -1;
 }
 
-namespace D3D12RHI
-{
-
-/**
- * Console variables used by the D3D12 RHI device.
- */
-namespace RHIConsoleVariables
-{
-	int32 FeatureSetLimit = -1;
-	static FAutoConsoleVariableRef CVarFeatureSetLimit(
-		TEXT("D3D12RHI.FeatureSetLimit"),
-		FeatureSetLimit,
-		TEXT("If set to 10, limit D3D RHI to D3D10 feature level. Otherwise, it will use default. Changing this at run-time has no effect. (default is -1)")
-		);
-};
-}
 using namespace D3D12RHI;
 
 static bool bIsQuadBufferStereoEnabled = false;
@@ -114,98 +98,48 @@ static void SafeCreateDXGIFactory(IDXGIFactory4** DXGIFactory)
 }
 
 /**
- * Returns the highest D3D feature level we are allowed to created based on
+ * Returns the minimum D3D feature level required to create based on
  * command line parameters.
  */
-static D3D_FEATURE_LEVEL GetAllowedD3DFeatureLevel()
+static D3D_FEATURE_LEVEL GetRequiredD3DFeatureLevel()
 {
-	// Default to feature level 11
-	D3D_FEATURE_LEVEL AllowedFeatureLevel = D3D_FEATURE_LEVEL_11_0;
-
-	// Use a feature level 12 for multi GPU
-	if (FParse::Param(FCommandLine::Get(), TEXT("mGPU")) || FParse::Param(FCommandLine::Get(), TEXT("mGPU=")))
-	{
-		// AllowedFeatureLevel = D3D_FEATURE_LEVEL_12_0; // Not yet functional!
-	}
-
-	// Use a feature level 10 if specified on the command line.	
-	if (FParse::Param(FCommandLine::Get(), TEXT("d3d10")) ||
-		FParse::Param(FCommandLine::Get(), TEXT("dx10")) ||
-		FParse::Param(FCommandLine::Get(), TEXT("sm4")) ||
-		RHIConsoleVariables::FeatureSetLimit == 10)
-	{
-		AllowedFeatureLevel = D3D_FEATURE_LEVEL_10_0;
-	}
-
-	if (bIsQuadBufferStereoEnabled)
-	{
-		if (AllowedFeatureLevel == D3D_FEATURE_LEVEL_10_0)
-		{
-			UE_LOG(LogD3D12RHI, Warning, TEXT("D3D Feature Level overriden from 10.0 to 11.1 due to quad_buffer_stereo"));
-		}
-		AllowedFeatureLevel = D3D_FEATURE_LEVEL_11_1;
-	}
-	return AllowedFeatureLevel;
+	return D3D_FEATURE_LEVEL_11_0;
 }
 
 /**
- * Attempts to create a D3D12 device for the adapter using at most MaxFeatureLevel.
- * If creation is successful, true is returned and the supported feature level is set in OutFeatureLevel.
+ * Attempts to create a D3D12 device for the adapter using at minimum MinFeatureLevel.
+ * If creation is successful, true is returned and the max supported feature level is set in OutMaxFeatureLevel.
  */
-static bool SafeTestD3D12CreateDevice(IDXGIAdapter* Adapter, D3D_FEATURE_LEVEL MaxFeatureLevel, D3D_FEATURE_LEVEL* OutFeatureLevel, uint32& OutNumDeviceNodes)
+static bool SafeTestD3D12CreateDevice(IDXGIAdapter* Adapter, D3D_FEATURE_LEVEL MinFeatureLevel, D3D_FEATURE_LEVEL& OutMaxFeatureLevel, uint32& OutNumDeviceNodes)
 {
-	ID3D12Device* D3DDevice = nullptr;
-
-	// Use a debug device if specified on the command line.
-	if (D3D12RHI_ShouldCreateWithD3DDebug())
+	const D3D_FEATURE_LEVEL FeatureLevels[] =
 	{
-		ID3D12Debug* DebugController = nullptr;
-		VERIFYD3D12RESULT(D3D12GetDebugInterface(IID_PPV_ARGS(&DebugController)));
-		DebugController->EnableDebugLayer();
-		DebugController->Release();
-	}
-
-	D3D_FEATURE_LEVEL RequestedFeatureLevels[] =
-	{
+		// Add new feature levels that the app supports here.
 		D3D_FEATURE_LEVEL_12_1,
 		D3D_FEATURE_LEVEL_12_0,
 		D3D_FEATURE_LEVEL_11_1,
-		D3D_FEATURE_LEVEL_11_0,
-		D3D_FEATURE_LEVEL_10_0
+		D3D_FEATURE_LEVEL_11_0
 	};
-
-	int32 FirstAllowedFeatureLevel = 0;
-	int32 NumAllowedFeatureLevels = ARRAY_COUNT(RequestedFeatureLevels);
-	while (FirstAllowedFeatureLevel < NumAllowedFeatureLevels)
-	{
-		if (RequestedFeatureLevels[FirstAllowedFeatureLevel] == MaxFeatureLevel)
-		{
-			break;
-		}
-		FirstAllowedFeatureLevel++;
-	}
-	NumAllowedFeatureLevels -= FirstAllowedFeatureLevel;
-
-	if (NumAllowedFeatureLevels == 0)
-	{
-		return false;
-	}
 
 	__try
 	{
-		// We don't want software renderer. Ideally we specify D3D_DRIVER_TYPE_HARDWARE on creation but
-		// when we specify an adapter we need to specify D3D_DRIVER_TYPE_UNKNOWN (otherwise the call fails).
-		// We cannot check the device type later (seems this is missing functionality in D3D).
-		if (SUCCEEDED(D3D12CreateDevice(
-			Adapter,
-			RequestedFeatureLevels[FirstAllowedFeatureLevel],
-			IID_PPV_ARGS(&D3DDevice)
-			)))
+		ID3D12Device* pDevice = nullptr;
+		if (SUCCEEDED(D3D12CreateDevice(Adapter, MinFeatureLevel, IID_PPV_ARGS(&pDevice))))
 		{
-			*OutFeatureLevel = RequestedFeatureLevels[FirstAllowedFeatureLevel];
-			OutNumDeviceNodes = D3DDevice->GetNodeCount();
+			// Determine the max feature level supported by the driver and hardware.
+			D3D_FEATURE_LEVEL MaxFeatureLevel = MinFeatureLevel;
+			D3D12_FEATURE_DATA_FEATURE_LEVELS FeatureLevelCaps = {};
+			FeatureLevelCaps.pFeatureLevelsRequested = FeatureLevels;
+			FeatureLevelCaps.NumFeatureLevels = _countof(FeatureLevels);	
+			if (SUCCEEDED(pDevice->CheckFeatureSupport(D3D12_FEATURE_FEATURE_LEVELS, &FeatureLevelCaps, sizeof(FeatureLevelCaps))))
+			{
+				MaxFeatureLevel = FeatureLevelCaps.MaxSupportedFeatureLevel;
+			}
 
-			D3DDevice->Release();
+			OutMaxFeatureLevel = MaxFeatureLevel;
+			OutNumDeviceNodes = pDevice->GetNodeCount();
+
+			pDevice->Release();
 			return true;
 		}
 	}
@@ -216,6 +150,14 @@ static bool SafeTestD3D12CreateDevice(IDXGIAdapter* Adapter, D3D_FEATURE_LEVEL M
 	}
 
 	return false;
+}
+
+static bool SupportsDepthBoundsTest(FD3D12DynamicRHI* D3DRHI)
+{
+	// Determines if the primary adapter supports depth bounds test
+	check(D3DRHI && D3DRHI->GetNumAdapters() >= 1);
+
+	return D3DRHI->GetAdapter().IsDepthBoundsTestSupported();
 }
 
 static bool SupportsHDROutput(FD3D12DynamicRHI* D3DRHI)
@@ -339,7 +281,7 @@ void FD3D12DynamicRHIModule::FindAdapter()
 	const bool bFavorNonIntegrated = CVarExplicitAdapterValue == -1;
 
 	TRefCountPtr<IDXGIAdapter> TempAdapter;
-	D3D_FEATURE_LEVEL MaxAllowedFeatureLevel = GetAllowedD3DFeatureLevel();
+	const D3D_FEATURE_LEVEL MinRequiredFeatureLevel = GetRequiredD3DFeatureLevel();
 
 	FD3D12AdapterDesc FirstWithoutIntegratedAdapter;
 	FD3D12AdapterDesc FirstAdapter;
@@ -356,9 +298,9 @@ void FD3D12DynamicRHIModule::FindAdapter()
 		// Check that if adapter supports D3D12.
 		if (TempAdapter)
 		{
-			D3D_FEATURE_LEVEL ActualFeatureLevel = (D3D_FEATURE_LEVEL)0;
+			D3D_FEATURE_LEVEL MaxSupportedFeatureLevel = static_cast<D3D_FEATURE_LEVEL>(0);
 			uint32 NumNodes = 0;
-			if (SafeTestD3D12CreateDevice(TempAdapter, MaxAllowedFeatureLevel, &ActualFeatureLevel, NumNodes))
+			if (SafeTestD3D12CreateDevice(TempAdapter, MinRequiredFeatureLevel, MaxSupportedFeatureLevel, NumNodes))
 			{
 				check(NumNodes > 0);
 				// Log some information about the available D3D12 adapters.
@@ -367,11 +309,10 @@ void FD3D12DynamicRHIModule::FindAdapter()
 				uint32 OutputCount = CountAdapterOutputs(TempAdapter);
 
 				UE_LOG(LogD3D12RHI, Log,
-					TEXT("Found D3D12 adapter %u: %s (Feature Level %s, %d node[s])"),
+					TEXT("Found D3D12 adapter %u: %s (Max supported Feature Level %s)"),
 					AdapterIndex,
 					AdapterDesc.Description,
-					GetFeatureLevelString(ActualFeatureLevel),
-					NumNodes
+					GetFeatureLevelString(MaxSupportedFeatureLevel)
 					);
 				UE_LOG(LogD3D12RHI, Log,
 					TEXT("Adapter has %uMB of dedicated video memory, %uMB of dedicated system memory, and %uMB of shared system memory, %d output[s]"),
@@ -380,6 +321,7 @@ void FD3D12DynamicRHIModule::FindAdapter()
 					(uint32)(AdapterDesc.SharedSystemMemory / (1024*1024)),
 					OutputCount
 					);
+
 
 				bool bIsAMD = AdapterDesc.VendorId == 0x1002;
 				bool bIsIntel = AdapterDesc.VendorId == 0x8086;
@@ -395,7 +337,7 @@ void FD3D12DynamicRHIModule::FindAdapter()
 				// PerfHUD is for performance profiling
 				const bool bIsPerfHUD = !FCString::Stricmp(AdapterDesc.Description, TEXT("NVIDIA PerfHUD"));
 
-				FD3D12AdapterDesc CurrentAdapter(AdapterDesc, AdapterIndex, ActualFeatureLevel, NumNodes);
+				FD3D12AdapterDesc CurrentAdapter(AdapterDesc, AdapterIndex, MaxSupportedFeatureLevel, NumNodes);
 				
 				// Requested WARP, reject all other adapters.
 				const bool bSkipRequestedWARP = bRequestedWARP && !bIsWARP;
@@ -468,6 +410,33 @@ void FD3D12DynamicRHIModule::FindAdapter()
 
 FDynamicRHI* FD3D12DynamicRHIModule::CreateRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 {
+	ERHIFeatureLevel::Type PreviewFeatureLevel;
+	if (!GIsEditor && RHIGetPreviewFeatureLevel(PreviewFeatureLevel))
+	{
+		check(PreviewFeatureLevel == ERHIFeatureLevel::ES2 || PreviewFeatureLevel == ERHIFeatureLevel::ES3_1);
+
+		// ES2/3.1 feature level emulation in D3D
+		GMaxRHIFeatureLevel = PreviewFeatureLevel;
+		if (GMaxRHIFeatureLevel == ERHIFeatureLevel::ES2)
+		{
+			GMaxRHIShaderPlatform = SP_PCD3D_ES2;
+		}
+		else if (GMaxRHIFeatureLevel == ERHIFeatureLevel::ES3_1)
+		{
+			GMaxRHIShaderPlatform = SP_PCD3D_ES3_1;
+		}
+	}
+	else if (RequestedFeatureLevel == ERHIFeatureLevel::SM4)
+	{
+		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM4;
+		GMaxRHIShaderPlatform = SP_PCD3D_SM4;
+	}
+	else
+	{
+		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM5;
+		GMaxRHIShaderPlatform = SP_PCD3D_SM5;
+	}
+
 	TArray<FD3D12Adapter*> RawPointers;
 	for (int32 i = 0; i < ChosenAdapters.Num(); i++)
 	{
@@ -645,7 +614,8 @@ void FD3D12DynamicRHI::Init()
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = SP_PCD3D_SM5;
 
 	GSupportsEfficientAsyncCompute = GRHISupportsParallelRHIExecute && IsRHIDeviceAMD();
-	GSupportsDepthBoundsTest = false;
+
+	GSupportsDepthBoundsTest = SupportsDepthBoundsTest(this);
 
 	// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
 	for (TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList()); ResourceIt; ResourceIt.Next())
@@ -670,7 +640,11 @@ void FD3D12DynamicRHI::Init()
 		//						in fullscreen by avoiding format conversions.
 		//					r.HDR.Display.ColorGamut = 2 (Rec2020 / BT2020)
 		//					r.HDR.Display.OutputDevice = 3 or 4 (ST-2084)
+#if WITH_EDITOR
+		GRHIHDRDisplayOutputFormat = PF_FloatRGBA;
+#else
 		GRHIHDRDisplayOutputFormat = PF_A2B10G10R10;
+#endif
 	}
 
 	FHardwareInfo::RegisterHardwareInfo(NAME_RHI, TEXT("D3D12"));
