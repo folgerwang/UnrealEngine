@@ -295,7 +295,7 @@ public:
 				FirstFreeIndex = FreeIndex;
 				++NumFreeIndices;
 			}
-			AllocationFlags.Add(false, ExpectedNumElements);
+			AllocationFlags.Add(false, ElementsToAdd);
 		}
 	}
 
