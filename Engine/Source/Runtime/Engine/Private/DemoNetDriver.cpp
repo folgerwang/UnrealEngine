@@ -1745,7 +1745,7 @@ void UDemoNetDriver::TickCheckpoint()
 		NumLevelsAddedThisFrame = AllLevelStatuses.Num();
 
 		// Write out all of the queued up packets generated while saving the checkpoint
-		WriteDemoFrameFromQueuedDemoPackets( *CheckpointArchive, CastChecked< UDemoNetConnection>( ClientConnection )->QueuedCheckpointPackets );
+		WriteDemoFrameFromQueuedDemoPackets( *CheckpointArchive, ClientConnection->QueuedCheckpointPackets );
 
 		// Get the total checkpoint size
 		const int32 TotalCheckpointSize = CheckpointArchive->TotalSize();

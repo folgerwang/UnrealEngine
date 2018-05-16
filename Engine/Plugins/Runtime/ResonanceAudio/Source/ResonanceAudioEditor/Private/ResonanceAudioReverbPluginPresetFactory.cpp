@@ -39,7 +39,7 @@ UResonanceAudioReverbPluginPresetFactory::UResonanceAudioReverbPluginPresetFacto
 
 UObject* UResonanceAudioReverbPluginPresetFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
-	return Cast<UObject>(NewObject<UResonanceAudioReverbPluginPreset>(InParent, InName, Flags));
+	return NewObject<UResonanceAudioReverbPluginPreset>(InParent, InName, Flags);
 }
 
 uint32 UResonanceAudioReverbPluginPresetFactory::GetMenuCategories() const

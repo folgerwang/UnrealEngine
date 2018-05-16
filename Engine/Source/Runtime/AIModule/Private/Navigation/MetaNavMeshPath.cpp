@@ -37,7 +37,7 @@ FMetaNavMeshPath::FMetaNavMeshPath(const TArray<FMetaPathWayPoint>& InWaypoints,
 	: FMetaNavMeshPath()
 {
 	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(Owner.GetWorld());
-	const ANavigationData* NavData = NavSys ? Cast<const ANavigationData>(NavSys->GetNavDataForProps(Owner.GetNavAgentPropertiesRef())) : (const ANavigationData*)nullptr;
+	const ANavigationData* NavData = NavSys ? NavSys->GetNavDataForProps(Owner.GetNavAgentPropertiesRef()) : nullptr;
 
 	if (ensure(NavData))
 	{
@@ -59,7 +59,7 @@ FMetaNavMeshPath::FMetaNavMeshPath(const TArray<FVector>& InWaypoints, const ANa
 FMetaNavMeshPath::FMetaNavMeshPath(const TArray<FVector>& InWaypoints, const AController& Owner) : FMetaNavMeshPath()
 {
 	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(Owner.GetWorld());
-	const ANavigationData* NavData = Cast<const ANavigationData>(NavSys ? NavSys->GetNavDataForProps(Owner.GetNavAgentPropertiesRef()) : nullptr);
+	const ANavigationData* NavData = NavSys ? NavSys->GetNavDataForProps(Owner.GetNavAgentPropertiesRef()) : nullptr;
 
 	if (ensure(NavData))
 	{

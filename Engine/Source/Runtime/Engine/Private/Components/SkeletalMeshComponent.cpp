@@ -1841,7 +1841,7 @@ void USkeletalMeshComponent::WritebackClothingSimulationData()
 		USkinnedMeshComponent* OverrideComponent = nullptr;
 		if(MasterPoseComponent.IsValid())
 		{
-			OverrideComponent = Cast<USkinnedMeshComponent>(MasterPoseComponent.Get());
+			OverrideComponent = MasterPoseComponent.Get();
 
 			// Check if our bone map is actually valid, if not there is no clothing data to build
 			if(MasterBoneMap.Num() == 0)

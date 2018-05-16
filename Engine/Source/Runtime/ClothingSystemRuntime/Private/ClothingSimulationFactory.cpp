@@ -41,5 +41,5 @@ bool UClothingSimulationFactoryNv::SupportsRuntimeInteraction()
 
 UClothingSimulationInteractor* UClothingSimulationFactoryNv::CreateInteractor()
 {
-	return CastChecked<UClothingSimulationInteractor>(NewObject<UClothingSimulationInteractorNv>(GetTransientPackage()));
+	return NewObject<UClothingSimulationInteractorNv>(GetTransientPackage());
 }
