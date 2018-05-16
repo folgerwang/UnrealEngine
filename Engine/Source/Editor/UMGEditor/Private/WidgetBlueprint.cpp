@@ -770,7 +770,8 @@ void UWidgetBlueprint::ForEachSourceWidget(TFunctionRef<void(UWidget*)> Fn)
 
 void UWidgetBlueprint::ForEachSourceWidget(TFunctionRef<void(const UWidget*)> Fn) const
 {
-	ForEachSourceWidgetImpl(Fn);
+	// This cast is pretty terrible, but it'll probably work (!) and saves us repeaeting the Impl code.
+	ForEachSourceWidgetImpl(*(const TFunctionRef<void(UWidget*)>*)&Fn);
 }
 
 UPackage* UWidgetBlueprint::GetWidgetTemplatePackage() const
