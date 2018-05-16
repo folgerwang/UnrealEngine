@@ -2,13 +2,12 @@
 
 #include "ViewModels/Stack/NiagaraStackRendererItem.h"
 #include "ViewModels/Stack/NiagaraStackObject.h"
-#include "ViewModels/Stack/NiagaraStackItemExpander.h"
 #include "NiagaraEmitter.h"
 #include "NiagaraStackEditorData.h"
 #include "NiagaraRendererProperties.h"
 #include "NiagaraScript.h"
-#include "NiagaraSystemViewModel.h"
-#include "NiagaraEmitterViewModel.h"
+#include "ViewModels/NiagaraSystemViewModel.h"
+#include "ViewModels/NiagaraEmitterViewModel.h"
 #include "NiagaraScriptViewModel.h"
 #include "Internationalization/Internationalization.h"
 #include "NiagaraNodeAssignment.h"
@@ -33,10 +32,11 @@ UNiagaraStackRendererItem::UNiagaraStackRendererItem()
 {
 }
 
-void UNiagaraStackRendererItem::Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, UNiagaraStackEditorData& InStackEditorData, UNiagaraRendererProperties* InRendererProperties)
+void UNiagaraStackRendererItem::Initialize(FRequiredEntryData InRequiredEntryData, UNiagaraRendererProperties* InRendererProperties)
 {
 	checkf(RendererProperties.IsValid() == false, TEXT("Can not initialize more than once."));
-	Super::Initialize(InSystemViewModel, InEmitterViewModel, InStackEditorData);
+	FString RendererStackEditorDataKey = FString::Printf(TEXT("Renderer-%s"), *InRendererProperties->GetName());
+	Super::Initialize(InRequiredEntryData, RendererStackEditorDataKey);
 	RendererProperties = InRendererProperties;
 	RendererProperties->OnChanged().AddUObject(this, &UNiagaraStackRendererItem::RendererChanged);
 
@@ -57,7 +57,7 @@ TArray<FNiagaraVariable> UNiagaraStackRendererItem::GetMissingVariables(UNiagara
 	TArray<FNiagaraVariable> MissingAttributes;
 	const TArray<FNiagaraVariable>& RequiredAttrs = RendererProperties->GetRequiredAttributes();
 	const UNiagaraScript* Script = Emitter->SpawnScriptProps.Script;
-	if (Script != nullptr && Script->GetByteCode().Num() != 0)
+	if (Script != nullptr && Script->IsReadyToRun(ENiagaraSimTarget::CPUSim))
 	{
 		MissingAttributes.Empty();
 		for (FNiagaraVariable Attr : RequiredAttrs)
@@ -70,7 +70,7 @@ TArray<FNiagaraVariable> UNiagaraStackRendererItem::GetMissingVariables(UNiagara
 				Attr.SetName(*AttrName);
 			}
 
-			bool ContainsVar = Script->Attributes.ContainsByPredicate([&Attr](const FNiagaraVariable& Var) { return Var.GetName() == Attr.GetName(); });
+			bool ContainsVar = Script->GetVMExecutableData().Attributes.ContainsByPredicate([&Attr](const FNiagaraVariable& Var) { return Var.GetName() == Attr.GetName(); });
 			if (!ContainsVar)
 			{
 				MissingAttributes.Add(OriginalAttr);
@@ -110,9 +110,8 @@ bool UNiagaraStackRendererItem::AddMissingVariable(UNiagaraEmitter* Emitter, con
 
 	FGraphNodeCreator<UNiagaraNodeAssignment> NodeBuilder(*Graph);
 	UNiagaraNodeAssignment* NewAssignmentNode = NodeBuilder.CreateNode();
-	NewAssignmentNode->AssignmentTarget = Variable;
-	FString VarDefaultValue = FNiagaraConstants::GetAttributeDefaultValue(NewAssignmentNode->AssignmentTarget);
-	NewAssignmentNode->AssignmentDefaultValue = VarDefaultValue;
+	FString VarDefaultValue = FNiagaraConstants::GetAttributeDefaultValue(Variable);
+	NewAssignmentNode->AddAssignmentTarget(Variable, &VarDefaultValue);
 	NodeBuilder.Finalize();
 
 	TArray<FNiagaraStackGraphUtilities::FStackNodeGroup> StackNodeGroups;
@@ -194,48 +193,16 @@ void UNiagaraStackRendererItem::ResetToBase()
 	}
 }
 
-FName UNiagaraStackRendererItem::GetItemBackgroundName() const
+bool UNiagaraStackRendererItem::GetIsEnabled() const
 {
-	return "NiagaraEditor.Stack.Item.BackgroundColor";
+	return RendererProperties->GetIsEnabled();
 }
 
-int32 UNiagaraStackRendererItem::GetErrorCount() const
+void UNiagaraStackRendererItem::SetIsEnabled(bool bInIsEnabled)
 {
-	return MissingAttributes.Num();
-}
-
-bool UNiagaraStackRendererItem::GetErrorFixable(int32 ErrorIdx) const
-{
-	if (ErrorIdx < MissingAttributes.Num())
-	{
-		return true;
-	}
-	return false;
-}
-
-bool UNiagaraStackRendererItem::TryFixError(int32 ErrorIdx)
-{
-	FNiagaraVariable MissingVar = MissingAttributes[ErrorIdx];
-	if (AddMissingVariable(GetEmitterViewModel()->GetEmitter(), MissingVar))
-	{
-		FNotificationInfo Info(FText::Format(LOCTEXT("AddedVariableForFix", "Added {0} to the Spawn script to support the renderer."), FText::FromName(MissingVar.GetName())));
-		Info.ExpireDuration = 5.0f;
-		Info.bFireAndForget = true;
-		Info.Image = FCoreStyle::Get().GetBrush(TEXT("MessageLog.Info"));
-		FSlateNotificationManager::Get().AddNotification(Info);
-		return true;
-	}
-	return false;
-}
-
-FText UNiagaraStackRendererItem::GetErrorText(int32 ErrorIdx) const
-{
-	if (ErrorIdx < MissingAttributes.Num())
-	{
-		const FNiagaraVariable& Attr = MissingAttributes[ErrorIdx];
-		return FText::Format(LOCTEXT("FailedRendererBind", "Missing attribute \"{0}\" of Type \"{1}\"."), FText::FromName(Attr.GetName()), Attr.GetType().GetNameText());
-	}
-	return FText();
+	FScopedTransaction ScopedTransaction(LOCTEXT("SetRendererEnabledState", "Set renderer enabled/disabled state."));
+	RendererObject->Modify();
+	RendererProperties->SetIsEnabled(bInIsEnabled);
 }
 
 void UNiagaraStackRendererItem::BeginDestroy()
@@ -247,35 +214,55 @@ void UNiagaraStackRendererItem::BeginDestroy()
 	Super::BeginDestroy();
 }
 
-void UNiagaraStackRendererItem::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren)
+void UNiagaraStackRendererItem::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
 {
 	if (RendererObject == nullptr)
 	{
 		RendererObject = NewObject<UNiagaraStackObject>(this);
-		RendererObject->Initialize(GetSystemViewModel(), GetEmitterViewModel(), RendererProperties.Get());
+		RendererObject->Initialize(CreateDefaultChildRequiredData(), RendererProperties.Get(), GetStackEditorDataKey());
 	}
 
-	if (RendererExpander == nullptr)
-	{
-		RendererExpander = NewObject<UNiagaraStackItemExpander>(this);
-		RendererExpander->Initialize(GetSystemViewModel(), GetEmitterViewModel(), GetStackEditorData(), RendererProperties->GetName(), false);
-		RendererExpander->SetOnExpnadedChanged(UNiagaraStackItemExpander::FOnExpandedChanged::CreateUObject(this, &UNiagaraStackRendererItem::RendererExpandedChanged));
-	}
-	
-	if (GetStackEditorData().GetStackEntryIsExpanded(RendererProperties->GetName(), false))
-	{
-		NewChildren.Add(RendererObject);
-	}
-
-	NewChildren.Add(RendererExpander);
-
+	NewChildren.Add(RendererObject);
 	MissingAttributes = GetMissingVariables(RendererProperties.Get(), GetEmitterViewModel()->GetEmitter());
 	bCanResetToBase.Reset();
+	Super::RefreshChildrenInternal(CurrentChildren, NewChildren, NewIssues);
+	
+	RefreshIssues(NewIssues);
 }
 
-void UNiagaraStackRendererItem::RendererExpandedChanged()
+void UNiagaraStackRendererItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 {
-	RefreshChildren();
+	for (FNiagaraVariable Attribute : MissingAttributes)
+	{
+		UNiagaraStackEntry::FStackIssue MissingAttributeError;
+		MissingAttributeError.ShortDescription = LOCTEXT("FailedRendererBindShort", "An attribute is missing.");
+		MissingAttributeError.LongDescription = FText::Format(LOCTEXT("FailedRendererBind", "Missing attribute \"{0}\" of Type \"{1}\"."), FText::FromName(Attribute.GetName()), Attribute.GetType().GetNameText());
+		MissingAttributeError.UniqueIdentifier = FName(*FString::Printf(TEXT("%s-AttributeMissing-%s"), *GetStackEditorDataKey(), *Attribute.GetName().ToString()));
+		UNiagaraStackEntry::FStackIssueFix Fix;
+		Fix.Description = LOCTEXT("AddMissingVariable", "Add missing variable");
+		Fix.FixDelegate.BindLambda([=]()
+		{
+			FScopedTransaction ScopedTransaction(Fix.Description);
+			if (AddMissingVariable(GetEmitterViewModel()->GetEmitter(), Attribute))
+			{
+				FNotificationInfo Info(FText::Format(LOCTEXT("AddedVariableForFix", "Added {0} to the Spawn script to support the renderer."), FText::FromName(Attribute.GetName())));
+				Info.ExpireDuration = 5.0f;
+				Info.bFireAndForget = true;
+				Info.Image = FCoreStyle::Get().GetBrush(TEXT("MessageLog.Info"));
+				FSlateNotificationManager::Get().AddNotification(Info);
+			}
+		});
+		MissingAttributeError.Fixes.Add(Fix);
+		NewIssues.Add(MissingAttributeError);
+	}
+	if (RendererProperties->GetIsEnabled() && !RendererProperties->IsSimTargetSupported(GetEmitterViewModel()->GetEmitter()->SimTarget))
+	{
+		UNiagaraStackEntry::FStackIssue TargetSupportError;
+		TargetSupportError.ShortDescription = LOCTEXT("FailedRendererDueToSimTarget", "Renderer incompatible with SimTarget mode.");
+		TargetSupportError.LongDescription = FText::Format(LOCTEXT("FailedRendererDueToSimTargetLong", "Renderer incompatible with SimTarget mode \"{0}\"."), (int32)GetEmitterViewModel()->GetEmitter()->SimTarget);
+		TargetSupportError.UniqueIdentifier = FName(*FString::Printf(TEXT("%s-SimTargetModeError-%d"), *GetStackEditorDataKey(), (int32)GetEmitterViewModel()->GetEmitter()->SimTarget));
+		NewIssues.Add(TargetSupportError);
+	}
 }
 
 void UNiagaraStackRendererItem::RendererChanged()

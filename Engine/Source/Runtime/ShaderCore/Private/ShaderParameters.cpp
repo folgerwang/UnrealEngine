@@ -337,7 +337,7 @@ void CreateUniformBufferShaderDeclaration(const TCHAR* Name,const FUniformBuffer
 	}
 }
 
-void CacheUniformBufferIncludes(TMap<const TCHAR*,FCachedUniformBufferDeclaration>& Cache, EShaderPlatform Platform)
+SHADERCORE_API void CacheUniformBufferIncludes(TMap<const TCHAR*,FCachedUniformBufferDeclaration>& Cache, EShaderPlatform Platform)
 {
 	for (TMap<const TCHAR*,FCachedUniformBufferDeclaration>::TIterator It(Cache); It; ++It)
 	{

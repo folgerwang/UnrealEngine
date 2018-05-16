@@ -101,6 +101,48 @@ void UNiagaraNodeOp::Compile(class FHlslNiagaraTranslator* Translator, TArray<in
 	Translator->Operation(this, Inputs, Outputs);
 }
 
+void UNiagaraNodeOp::PostLoad()
+{
+	Super::PostLoad();
+
+	FName OriginalOpName = OpName;
+
+	if (OpName == TEXT("Numeric::Cos"))
+	{
+		OpName = TEXT("Numeric::Cosine(Radians)");
+	}
+	else if (OpName == TEXT("Numeric::Sin"))
+	{
+		OpName = TEXT("Numeric::Sine(Radians)");
+	}
+	else if (OpName == TEXT("Numeric::Tan"))
+	{
+		OpName = TEXT("Numeric::Tangent(Radians)");
+	}
+	else if (OpName == TEXT("Numeric::ASin"))
+	{
+		OpName = TEXT("Numeric::ArcSine(Radians)");
+	}
+	else if (OpName == TEXT("Numeric::ACos"))
+	{
+		OpName = TEXT("Numeric::ArcCosine(Radians)");
+	}
+	else if (OpName == TEXT("Numeric::ATan"))
+	{
+		OpName = TEXT("Numeric::ArcTangent(Radians)");
+	}
+	else if (OpName == TEXT("Numeric::ATan2"))
+	{
+		OpName = TEXT("Numeric::ArcTangent2(Radians)");
+	}
+
+	if (OpName != OriginalOpName)
+	{
+		UE_LOG(LogNiagaraEditor, Log, TEXT("OpNode: Converted %s to %s, Package: %s"), *OriginalOpName.ToString(), *OpName.ToString(), *GetOutermost()->GetName());
+	}
+
+}
+
 bool UNiagaraNodeOp::RefreshFromExternalChanges()
 {
 	// TODO - Leverage code in reallocate pins to determine if any pins have changed...

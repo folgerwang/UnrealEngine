@@ -135,9 +135,11 @@ public:
 		Elements.Add(FVertexElement(0, Offset, VET_Float3, 6, Stride));
 		Offset += sizeof(float) * 3;
 
-		/** Dynamic parameters come from a second stream */
+		/** Dynamic parameters come from additional streams */
 		Elements.Add(FVertexElement(1, 0, VET_Float4, 7, sizeof(FVector4)));
-		Offset += sizeof(float) * 4;
+		Elements.Add(FVertexElement(2, 0, VET_Float4, 8, sizeof(FVector4)));
+		Elements.Add(FVertexElement(3, 0, VET_Float4, 9, sizeof(FVector4)));
+		Elements.Add(FVertexElement(4, 0, VET_Float4, 10, sizeof(FVector4)));
 
 	}
 
@@ -174,7 +176,7 @@ bool FNiagaraRibbonVertexFactory::ShouldCompilePermutation(EShaderPlatform Platf
 */
 void FNiagaraRibbonVertexFactory::ModifyCompilationEnvironment(EShaderPlatform Platform, const class FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 {
-	FParticleVertexFactoryBase::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	FNiagaraVertexFactoryBase::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 	OutEnvironment.SetDefine(TEXT("PARTICLE_BEAMTRAIL_FACTORY"), TEXT("1"));
 }
 
@@ -187,6 +189,9 @@ void FNiagaraRibbonVertexFactory::InitRHI()
 
 	FVertexStream* VertexStream = new(Streams) FVertexStream;
 	FVertexStream* DynamicParameterStream = new(Streams) FVertexStream;
+	FVertexStream* DynamicParameter1Stream = new(Streams) FVertexStream;
+	FVertexStream* DynamicParameter2Stream = new(Streams) FVertexStream;
+	FVertexStream* DynamicParameter3Stream = new(Streams) FVertexStream;
 }
 
 FVertexFactoryShaderParameters* FNiagaraRibbonVertexFactory::ConstructShaderParameters(EShaderFrequency ShaderFrequency)
@@ -204,17 +209,17 @@ FVertexFactoryShaderParameters* FNiagaraRibbonVertexFactory::ConstructShaderPara
 
 void FNiagaraRibbonVertexFactory::SetVertexBuffer(const FVertexBuffer* InBuffer, uint32 StreamOffset, uint32 Stride)
 {
-	check(Streams.Num() == 2);
+	check(Streams.Num() == 5);
 	FVertexStream& VertexStream = Streams[0];
 	VertexStream.VertexBuffer = InBuffer;
 	VertexStream.Stride = Stride;
 	VertexStream.Offset = StreamOffset;
 }
 
-void FNiagaraRibbonVertexFactory::SetDynamicParameterBuffer(const FVertexBuffer* InDynamicParameterBuffer, uint32 StreamOffset, uint32 Stride)
+void FNiagaraRibbonVertexFactory::SetDynamicParameterBuffer(const FVertexBuffer* InDynamicParameterBuffer, int32 ParameterIndex, uint32 StreamOffset, uint32 Stride)
 {
-	check(Streams.Num() == 2);
-	FVertexStream& DynamicParameterStream = Streams[1];
+	check(Streams.Num() == 5);
+	FVertexStream& DynamicParameterStream = Streams[1 + ParameterIndex];
 	if (InDynamicParameterBuffer)
 	{
 		DynamicParameterStream.VertexBuffer = InDynamicParameterBuffer;

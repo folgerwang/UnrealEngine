@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEmitterHandleViewModel.h"
+#include "ViewModels/NiagaraEmitterHandleViewModel.h"
 #include "NiagaraSystem.h"
 #include "NiagaraEmitterHandle.h"
-#include "NiagaraEmitterViewModel.h"
+#include "ViewModels/NiagaraEmitterViewModel.h"
 #include "NiagaraScriptViewModel.h"
 #include "NiagaraScriptGraphViewModel.h"
 #include "NiagaraObjectSelection.h"
@@ -27,8 +27,19 @@ FNiagaraEmitterHandleViewModel::FNiagaraEmitterHandleViewModel(FNiagaraEmitterHa
 {
 }
 
+void FNiagaraEmitterHandleViewModel::Cleanup()
+{
+	if (EmitterViewModel.IsValid())
+	{
+		EmitterViewModel->Cleanup();
+	}
+	EmitterViewModel.Reset();
+}
+
+
 FNiagaraEmitterHandleViewModel::~FNiagaraEmitterHandleViewModel()
 {
+	Cleanup();
 }
 
 bool FNiagaraEmitterHandleViewModel::Set(FNiagaraEmitterHandle* InEmitterHandle, TWeakPtr<FNiagaraEmitterInstance> InSimulation, UNiagaraSystem& InOwningSystem)
@@ -46,6 +57,7 @@ bool FNiagaraEmitterHandleViewModel::Set(FNiagaraEmitterHandle* InEmitterHandle,
 	{
 		EmitterProperties = InEmitterHandle->GetInstance();
 	}
+	check(EmitterViewModel.IsValid());
 	return EmitterViewModel->Set(EmitterProperties, InSimulation);
 }
 
@@ -57,6 +69,7 @@ void FNiagaraEmitterHandleViewModel::SetEmitterHandle(FNiagaraEmitterHandle* InE
 
 void FNiagaraEmitterHandleViewModel::SetSimulation(TWeakPtr<FNiagaraEmitterInstance> InSimulation)
 {
+	check(EmitterViewModel.IsValid());
 	EmitterViewModel->SetSimulation(InSimulation);
 }
 
@@ -77,6 +90,8 @@ FText FNiagaraEmitterHandleViewModel::GetIdText() const
 
 FText FNiagaraEmitterHandleViewModel::GetErrorText() const
 {
+	check(EmitterViewModel.IsValid());
+
 	switch (EmitterViewModel->GetLatestCompileStatus())
 	{
 	case ENiagaraScriptCompileStatus::NCS_Unknown:
@@ -91,6 +106,7 @@ FText FNiagaraEmitterHandleViewModel::GetErrorText() const
 
 FSlateColor FNiagaraEmitterHandleViewModel::GetErrorTextColor() const
 {
+	check(EmitterViewModel.IsValid());
 	switch (EmitterViewModel->GetLatestCompileStatus())
 	{
 	case ENiagaraScriptCompileStatus::NCS_Unknown:
@@ -105,6 +121,7 @@ FSlateColor FNiagaraEmitterHandleViewModel::GetErrorTextColor() const
 
 EVisibility FNiagaraEmitterHandleViewModel::GetErrorTextVisibility() const
 {
+	check(EmitterViewModel.IsValid());
 	return EmitterViewModel->GetLatestCompileStatus() != ENiagaraScriptCompileStatus::NCS_UpToDate ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
@@ -200,15 +217,11 @@ FNiagaraEmitterHandle* FNiagaraEmitterHandleViewModel::GetEmitterHandle()
 	return EmitterHandle;
 }
 
-TSharedRef<FNiagaraEmitterViewModel> FNiagaraEmitterHandleViewModel::GetEmitterViewModel()
+TSharedPtr<FNiagaraEmitterViewModel> FNiagaraEmitterHandleViewModel::GetEmitterViewModel()
 {
 	return EmitterViewModel;
 }
 
-void FNiagaraEmitterHandleViewModel::CompileScripts(bool bForce)
-{
-	EmitterViewModel->CompileScripts(bForce);
-}
 
 void FNiagaraEmitterHandleViewModel::OpenSourceEmitter()
 {

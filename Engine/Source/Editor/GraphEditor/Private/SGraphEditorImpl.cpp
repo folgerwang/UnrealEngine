@@ -794,6 +794,11 @@ void SGraphEditorImpl::CaptureKeyboard()
 	FSlateApplication::Get().SetKeyboardFocus(GraphPanel);
 }
 
+void SGraphEditorImpl::SetNodeFactory(const TSharedRef<class FGraphNodeFactory>& NewNodeFactory)
+{
+	GraphPanel->SetNodeFactory(NewNodeFactory);
+}
+
 /////////////////////////////////////////////////////
 
 #undef LOCTEXT_NAMESPACE 

@@ -185,6 +185,8 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
 	}
 
+	GEngine->GetPreRenderDelegate().Broadcast();
+
 	// Dynamic vertex and index buffers need to be committed before rendering.
 	FGlobalDynamicVertexBuffer::Get().Commit();
 	FGlobalDynamicIndexBuffer::Get().Commit();

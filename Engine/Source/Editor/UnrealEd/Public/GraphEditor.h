@@ -441,6 +441,15 @@ public:
 		}
 	}
 
+	/** Sets the current node, pin and connection factory. */
+	virtual void SetNodeFactory(const TSharedRef<class FGraphNodeFactory>& NewNodeFactory)
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->SetNodeFactory(NewNodeFactory);
+		}
+	}
+
 protected:
 	/** Invoked when the underlying Graph is being changed. */
 	virtual void OnGraphChanged(const struct FEdGraphEditAction& InAction)

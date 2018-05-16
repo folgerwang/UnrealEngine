@@ -202,6 +202,16 @@ public:
 		return new FRHIComputeFence(Name);
 	}
 
+	virtual FGPUFenceRHIRef RHICreateGPUFence(const FName &Name)
+	{
+		return new FRHIGPUFence(Name);
+	}
+
+	virtual FStagingBufferRHIRef RHICreateStagingBuffer()
+	{
+		return new FRHIStagingBuffer();
+	}
+
 	/**
 	* Creates a bound shader state instance which encapsulates a decl, vertex shader, hull shader, domain shader and pixel shader
 	* CAUTION: Even though this is marked as threadsafe, it is only valid to call from the render thread or the RHI thread. It need not be threadsafe unless the RHI support parallel translation.

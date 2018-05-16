@@ -89,6 +89,7 @@ protected:
 	virtual void BindCommands() override;
 	virtual void OnFocusViewportToSelection() override;
 	virtual void PopulateViewportOverlays(TSharedRef<class SOverlay> Overlay) override;
+	EVisibility OnGetViewportCompileTextVisibility() const;
 
 private:
 	/** The parent tab where this viewport resides */
@@ -96,6 +97,8 @@ private:
 	
 	/** Preview Scene - uses advanced preview settings */
 	TSharedPtr<class FAdvancedPreviewScene> AdvancedPreviewScene;
+
+	TSharedPtr<STextBlock> CompileText;
 	
 	bool IsVisible() const override;
 	

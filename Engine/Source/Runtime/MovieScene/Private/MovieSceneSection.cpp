@@ -67,7 +67,7 @@ void UMovieSceneSection::Serialize(FArchive& Ar)
 	{
 		const FFrameRate LegacyFrameRate = GetLegacyConversionFrameRate();
 
-		if (bIsInfinite_DEPRECATED)
+		if (bIsInfinite_DEPRECATED && bSupportsInfiniteRange)
 		{
 			SectionRange = TRange<FFrameNumber>::All();
 		}

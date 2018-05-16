@@ -106,6 +106,27 @@ TSharedPtr<IPropertyHandle> FDetailItemNode::CreatePropertyHandle() const
 	}
 }
 
+void FDetailItemNode::GetFilterStrings(TArray<FString>& OutFilterStrings) const
+{
+	if (Customization.HasCustomWidget())
+	{
+		OutFilterStrings.Add(Customization.GetWidgetRow().FilterTextString.ToString());
+	}
+
+	if (Customization.HasPropertyNode())
+	{
+		TSharedPtr<FPropertyNode> PropertyNode = Customization.GetPropertyNode();
+		if (PropertyNode.IsValid())
+		{
+			OutFilterStrings.Add(GetPropertyNode()->GetDisplayName().ToString());
+			if (PropertyNode->GetDisplayName().ToString() != PropertyNode->GetProperty()->GetName())
+			{
+				OutFilterStrings.Add(PropertyNode->GetProperty()->GetName());
+			}
+		}
+	}
+}
+
 void FDetailItemNode::InitPropertyEditor()
 {
 	UProperty* NodeProperty = Customization.GetPropertyNode()->GetProperty();
@@ -317,11 +338,23 @@ void FDetailItemNode::GetChildren(FDetailNodeList& OutChildren)
 
 void FDetailItemNode::GenerateChildren( bool bUpdateFilteredNodes )
 {
+	FDetailNodeList OldChildren = Children;
 	Children.Empty();
 
-	if (!ParentCategory.IsValid())
+	TSharedPtr<FDetailCategoryImpl> ParentCategoryPinned = ParentCategory.Pin();
+	if (ParentCategoryPinned.IsValid() == false)
 	{
 		return;
+	}
+
+	// Make sure to remove the root properties referenced by the old children, otherwise they will leak.
+	for (TSharedRef<FDetailTreeNode> OldChild : OldChildren)
+	{
+		TSharedPtr<FComplexPropertyNode> OldChildExternalRootPropertyNode = OldChild->GetExternalRootPropertyNode();
+		if (OldChildExternalRootPropertyNode.IsValid())
+		{
+			ParentCategoryPinned->GetParentLayoutImpl().RemoveExternalRootPropertyNode(OldChildExternalRootPropertyNode.ToSharedRef());
+		}
 	}
 
 	if( Customization.HasPropertyNode() )
@@ -464,9 +497,14 @@ static bool PassesAllFilters( FDetailItemNode* ItemNode, const FDetailLayoutCust
 		const bool bPassesCategoryFilter = !bSearchFilterIsEmpty && InFilter.bShowAllChildrenIfCategoryMatches ? Local::StringPassesFilter(InFilter, InCategoryName) : false;
 
 		bPassesAllFilters = false;
-		if( PropertyNodePin.IsValid() && !PropertyNodePin->AsCategoryNode() )
+		if( PropertyNodePin.IsValid() && !PropertyNodePin->AsCategoryNode())
 		{
-			UClass* ObjectClass = PropertyNodePin->FindObjectItemParent()->GetObjectBaseClass();
+			UClass* ObjectClass = nullptr;
+			FObjectPropertyNode* PropertyNodeParent = PropertyNodePin->FindObjectItemParent();
+			if (PropertyNodeParent)
+			{
+				ObjectClass = PropertyNodeParent->GetObjectBaseClass();
+			}
 
 			const bool bIsNotBeingFiltered = PropertyNodePin->HasNodeFlags(EPropertyNodeFlags::IsBeingFiltered) == 0;
 			const bool bIsSeenDueToFiltering = PropertyNodePin->HasNodeFlags(EPropertyNodeFlags::IsSeenDueToFiltering) != 0;
@@ -475,7 +513,7 @@ static bool PassesAllFilters( FDetailItemNode* ItemNode, const FDetailLayoutCust
 			const bool bPassesSearchFilter = bSearchFilterIsEmpty || ( bIsNotBeingFiltered || bIsSeenDueToFiltering || bIsParentSeenDueToFiltering );
 			const bool bPassesModifiedFilter = bPassesSearchFilter && ( InFilter.bShowOnlyModifiedProperties == false || PropertyNodePin->GetDiffersFromDefault() == true );
 			const bool bPassesDifferingFilter = InFilter.bShowOnlyDiffering ? InFilter.WhitelistedProperties.Find(*FPropertyNode::CreatePropertyPath(PropertyNodePin.ToSharedRef())) != nullptr : true;
-			const bool bPassesKeyableFilter = (InFilter.bShowKeyable == false || Local::ItemIsKeyable(ItemNode, ObjectClass, PropertyNodePin));
+			const bool bPassesKeyableFilter = (InFilter.bShowKeyable == false || (ObjectClass ? Local::ItemIsKeyable(ItemNode, ObjectClass, PropertyNodePin) : false));
 			const bool bPassesAnimatedFilter = (InFilter.bShowAnimated == false || Local::ItemIsAnimated(ItemNode, PropertyNodePin));
 
 			// The property node is visible (note categories are never visible unless they have a child that is visible )
@@ -552,6 +590,15 @@ FName FDetailItemNode::GetNodeName() const
 
 		return CustomName;
 	}
+	else if (Customization.HasPropertyNode())
+	{
+		TSharedPtr<FPropertyNode> PropertyNode = Customization.GetPropertyNode();
+		if (PropertyNode.IsValid())
+		{
+			FName PropertyName = PropertyNode->GetProperty()->GetFName();
+			return PropertyName;
+		}
+	}
 	return NAME_None;
 }
 
@@ -576,6 +623,15 @@ TSharedPtr<IDetailPropertyRow> FDetailItemNode::GetRow() const
 	if (Customization.IsValidCustomization() && Customization.PropertyRow.IsValid())
 	{
 		return Customization.PropertyRow;
+	}
+	return nullptr;
+}
+
+TSharedPtr<FComplexPropertyNode> FDetailItemNode::GetExternalRootPropertyNode() const
+{
+	if (Customization.IsValidCustomization() && Customization.PropertyRow.IsValid())
+	{
+		return Customization.PropertyRow->GetExternalRootNode();
 	}
 	return nullptr;
 }

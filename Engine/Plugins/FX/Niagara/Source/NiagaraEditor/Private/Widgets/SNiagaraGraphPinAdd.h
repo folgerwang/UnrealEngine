@@ -16,7 +16,8 @@ class SNiagaraGraphPinAdd : public SGraphPin
 
 	void Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj);
 	
-	void OnAddType(FNiagaraVariable InAdd);
+	/** Returns the owning node of this add pin. */
+	UNiagaraNodeWithDynamicPins* GetOwningNode() { return OwningNode; }
 
 private:
 	TSharedRef<SWidget>	ConstructAddButton();

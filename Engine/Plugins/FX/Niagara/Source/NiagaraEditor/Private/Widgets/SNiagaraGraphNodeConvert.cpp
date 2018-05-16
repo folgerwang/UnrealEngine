@@ -16,7 +16,9 @@
 
 void SNiagaraGraphNodeConvert::Construct(const FArguments& InArgs, UEdGraphNode* InGraphNode)
 {
-	GraphNode = InGraphNode;
+	GraphNode = InGraphNode; 
+	RegisterNiagaraGraphNode(InGraphNode);
+
 	UpdateGraphNode();
 }
 
@@ -98,7 +100,7 @@ void SNiagaraGraphNodeConvert::UpdateGraphNode()
 	{
 		ConvertNodeViewModel = MakeShareable(new FNiagaraConvertNodeViewModel(*ConvertNode));
 	}
-	SGraphNode::UpdateGraphNode();
+	SNiagaraGraphNode::UpdateGraphNode();
 }
 
 void SNiagaraGraphNodeConvert::AddPin(const TSharedRef<SGraphPin>& PinToAdd)

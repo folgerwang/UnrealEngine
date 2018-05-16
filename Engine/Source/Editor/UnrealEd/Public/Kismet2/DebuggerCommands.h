@@ -153,6 +153,7 @@ public:
 
 	static void ResumePlaySession_Clicked();
 	static void PausePlaySession_Clicked();
+	static void SingleFrameAdvance_Clicked();
 
 	static bool IsInSIE();
 	static bool IsInPIE();

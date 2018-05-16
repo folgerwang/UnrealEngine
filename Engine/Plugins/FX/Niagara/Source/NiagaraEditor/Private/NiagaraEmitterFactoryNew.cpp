@@ -57,6 +57,7 @@ UObject* UNiagaraEmitterFactoryNew::FactoryCreateNew(UClass* Class, UObject* InP
 			NewEmitter->UpdateScriptProps.Script->SetSource(Source);
 			NewEmitter->EmitterSpawnScriptProps.Script->SetSource(Source);
 			NewEmitter->EmitterUpdateScriptProps.Script->SetSource(Source);
+			NewEmitter->GetGPUComputeScript()->SetSource(Source);
 			NewEmitter->SimTarget = ENiagaraSimTarget::CPUSim;
 
 			bool bCreateDefaultNodes = true;
@@ -135,23 +136,29 @@ UObject* UNiagaraEmitterFactoryNew::FactoryCreateNew(UClass* Class, UObject* InP
 					{
 						if (ParticleSpawnOutputNode)
 						{
+							TArray<FNiagaraVariable> Vars;
+							TArray<FString> Defaults;
 							{
 								FNiagaraVariable Var = SYS_PARAM_PARTICLES_SPRITE_SIZE;
 								FString DefaultValue = FNiagaraConstants::GetAttributeDefaultValue(Var);
-								FNiagaraStackGraphUtilities::AddParameterModuleToStack(Var, *ParticleSpawnOutputNode, INDEX_NONE,&DefaultValue);
+								Vars.Add(Var);
+								Defaults.Add(DefaultValue);
 							}
 
 							{
 								FNiagaraVariable Var = SYS_PARAM_PARTICLES_SPRITE_ROTATION;
 								FString DefaultValue = FNiagaraConstants::GetAttributeDefaultValue(Var);
-								FNiagaraStackGraphUtilities::AddParameterModuleToStack(Var, *ParticleSpawnOutputNode, INDEX_NONE, &DefaultValue);
+								Vars.Add(Var);
+								Defaults.Add(DefaultValue);
 							}
 
 							{
 								FNiagaraVariable Var = SYS_PARAM_PARTICLES_LIFETIME;
 								FString DefaultValue = FNiagaraConstants::GetAttributeDefaultValue(Var);
-								FNiagaraStackGraphUtilities::AddParameterModuleToStack(Var, *ParticleSpawnOutputNode, INDEX_NONE, &DefaultValue);
+								Vars.Add(Var);
+								Defaults.Add(DefaultValue);
 							}
+							FNiagaraStackGraphUtilities::AddParameterModuleToStack(Vars, *ParticleSpawnOutputNode, INDEX_NONE, Defaults);
 
 						}
 					}

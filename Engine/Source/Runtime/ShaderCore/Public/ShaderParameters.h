@@ -13,6 +13,9 @@ class FShaderParameterMap;
 class FUniformBufferStruct;
 struct FShaderCompilerEnvironment;
 
+SHADERCORE_API void CacheUniformBufferIncludes(TMap<const TCHAR*, struct FCachedUniformBufferDeclaration>& Cache, EShaderPlatform Platform);
+
+
 enum EShaderParameterFlags
 {
 	// no shader error if the parameter is not used

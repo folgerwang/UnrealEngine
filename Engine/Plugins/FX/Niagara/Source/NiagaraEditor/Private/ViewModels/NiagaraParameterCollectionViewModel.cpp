@@ -28,8 +28,8 @@ void INiagaraParameterCollectionViewModel::SortViewModels(TArray<TSharedRef<INia
 
 FNiagaraParameterCollectionViewModel::FNiagaraParameterCollectionViewModel(ENiagaraParameterEditMode InParameterEditMode)
 	: ParameterEditMode(InParameterEditMode)
+	, bNeedsRefresh(false)
 	, bIsExpanded(true)
-	
 {
 }
 
@@ -60,6 +60,25 @@ FText FNiagaraParameterCollectionViewModel::GetAddButtonText() const
 bool FNiagaraParameterCollectionViewModel::CanDeleteParameters() const
 {
 	return ParameterEditMode == ENiagaraParameterEditMode::EditAll;
+}
+
+void FNiagaraParameterCollectionViewModel::Tick(float DeltaTime)
+{
+	if (bNeedsRefresh)
+	{
+		RefreshParameterViewModels();
+		bNeedsRefresh = false;
+	}
+}
+
+bool FNiagaraParameterCollectionViewModel::IsTickable() const
+{
+	return true;
+}
+
+TStatId FNiagaraParameterCollectionViewModel::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(FNiagaraParameterCollectionViewModel, STATGROUP_Tickables);
 }
 
 TSet<FName> FNiagaraParameterCollectionViewModel::GetParameterNames()

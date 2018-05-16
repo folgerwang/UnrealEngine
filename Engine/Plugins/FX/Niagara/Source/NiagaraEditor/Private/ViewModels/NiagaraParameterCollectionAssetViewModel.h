@@ -3,7 +3,7 @@
 #pragma once
 
 #include "NiagaraParameterCollectionViewModel.h"
-#include "TNiagaraViewModelManager.h"
+#include "ViewModels/TNiagaraViewModelManager.h"
 #include "EditorUndoClient.h"
 #include "Misc/NotifyHook.h"
 

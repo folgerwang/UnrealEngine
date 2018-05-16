@@ -293,6 +293,9 @@ void FNiagaraScriptGraphViewModel::PasteNodes()
 		for (UEdGraphNode* PastedNode : PastedNodes)
 		{
 			PastedNode->CreateNewGuid();
+			UNiagaraNode* Node = Cast<UNiagaraNode>(PastedNode);
+			if (Node)
+				Node->MarkNodeRequiresSynchronization(__FUNCTION__, false);
 		}
 
 		FNiagaraEditorUtilities::FixUpPastedInputNodes(Graph, PastedNodes);

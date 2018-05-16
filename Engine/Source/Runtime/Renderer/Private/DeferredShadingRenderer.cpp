@@ -710,6 +710,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	// Dynamic vertex and index buffers need to be committed before rendering.
 	if (!bDoInitViewAftersPrepass)
 	{
+		GEngine->GetPreRenderDelegate().Broadcast();
 		{
 			SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_FGlobalDynamicVertexBuffer_Commit);
 			FGlobalDynamicVertexBuffer::Get().Commit();
@@ -744,6 +745,8 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 			{
 				InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
 				PostInitViewCustomData(UpdateViewCustomDataEvents);
+
+				GEngine->GetPreRenderDelegate().Broadcast();
 
 				{
 					SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_FGlobalDynamicVertexBuffer_Commit);
@@ -1073,6 +1076,22 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		ServiceLocalQueue();
 	}
 
+
+	IRendererModule& RendererModule = GetRendererModule();
+	if (RendererModule.HasPostOpaqueExtentions())
+	{
+		SceneContext.BeginRenderingSceneColor(RHICmdList);
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+		{
+			const FViewInfo& View = Views[ViewIndex];
+			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
+			RendererModule.RenderPostOpaqueExtensions(View, RHICmdList, SceneContext);
+		}
+	}
+	SetRenderTarget(RHICmdList, nullptr, 0, 0, nullptr);
+	RendererModule.DispatchPostOpaqueCompute(RHICmdList, Views[0].ViewUniformBuffer);
+
+
 	TRefCountPtr<IPooledRenderTarget> VelocityRT;
 
 	if (bUseVelocityGBuffer)
@@ -1252,19 +1271,6 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		ServiceLocalQueue();
 	}
 
-	FRendererModule* RendererModule = FRendererModule::GetRendererModule();
-	if (RendererModule->HasPostOpaqueExtentions())
-	{
-		SceneContext.BeginRenderingSceneColor(RHICmdList);
-		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
-		{
-			const FViewInfo& View = Views[ViewIndex];
-			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
-			RendererModule->RenderPostOpaqueExtensions(View, RHICmdList, SceneContext);
-		}
-	}
-
-	RendererModule->DispatchPostOpaqueCompute(RHICmdList);
 
 	// No longer needed, release
 	LightShaftOutput.LightShaftOcclusion = NULL;
@@ -1322,7 +1328,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	{
 		const FViewInfo& View = Views[ViewIndex];
 		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
-		RendererModule->RenderOverlayExtensions(View, RHICmdList, SceneContext);
+		RendererModule.RenderOverlayExtensions(View, RHICmdList, SceneContext);
 	}
 
 	if (ViewFamily.EngineShowFlags.VisualizeDistanceFieldAO || ViewFamily.EngineShowFlags.VisualizeDistanceFieldGI)
@@ -1361,7 +1367,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	if (ViewFamily.bResolveScene)
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, PostProcessing);
-   		SCOPED_GPU_STAT(RHICmdList, Postprocessing);
+		SCOPED_GPU_STAT(RHICmdList, Postprocessing);
 
 		SCOPE_CYCLE_COUNTER(STAT_FinishRenderViewTargetTime);
 

@@ -44,7 +44,7 @@ public:
 };
 
 
-SNiagaraGraphNodeInput::SNiagaraGraphNodeInput() : SGraphNode(),
+SNiagaraGraphNodeInput::SNiagaraGraphNodeInput() : SNiagaraGraphNode(),
 	ToolkitCommands(new FUICommandList()),
 	bRequestedSyncExposureOptions(false)
 {
@@ -53,7 +53,9 @@ SNiagaraGraphNodeInput::SNiagaraGraphNodeInput() : SGraphNode(),
 
 void SNiagaraGraphNodeInput::Construct(const FArguments& InArgs, UEdGraphNode* InGraphNode)
 {
-	GraphNode = InGraphNode;
+	GraphNode = InGraphNode; 
+	RegisterNiagaraGraphNode(InGraphNode);
+
 	FNiagaraGraphNodeInputCommands::Register();
 	BindCommands();
 	UpdateGraphNode();

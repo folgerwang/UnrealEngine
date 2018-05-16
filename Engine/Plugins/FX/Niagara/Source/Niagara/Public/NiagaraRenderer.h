@@ -19,12 +19,16 @@ NiagaraRenderer.h: Base class for Niagara render modules
 #include "RenderingThread.h"
 #include "SceneView.h"
 #include "NiagaraComponent.h"
+#include "NiagaraGlobalReadBuffer.h"
 
 class FNiagaraDataSet;
 
 /** Struct used to pass dynamic data from game thread to render thread */
 struct FNiagaraDynamicDataBase
 {
+	//Ugh. Temporarily copying the whole buffer over.
+	//After GDC i have a shelf that does just the data we need for rendering. For now, this is safer.
+	FNiagaraDataBuffer RTParticleData;
 };
 
 
@@ -50,6 +54,25 @@ private:
 	double StartTime;
 };
 
+class FNiagaraDummyRWBufferInt : public FRenderResource
+{
+public:
+	FNiagaraDummyRWBufferInt(const FString InDebugId) : DebugId(InDebugId) {}
+	FString DebugId;
+	FRWBuffer Buffer;
+	virtual void InitRHI() override;
+	virtual void ReleaseRHI() override;
+};
+
+class FNiagaraDummyRWBufferFloat : public FRenderResource
+{
+public:
+	FNiagaraDummyRWBufferFloat(const FString InDebugId) : DebugId(InDebugId) {}
+	FString DebugId;
+	FRWBuffer Buffer;
+	virtual void InitRHI() override;
+	virtual void ReleaseRHI() override;
+};
 
 /**
 * Base class for Niagara System renderers. System renderers handle generating vertex data for and
@@ -81,7 +104,7 @@ public:
 		bool bHasDynamicData = HasDynamicData();
 
 		//Always draw so our LastRenderTime is updated. We may not have dynamic data if we're disabled from visibility culling.
-		Result.bDrawRelevance = /*bHasDynamicData &&*/ SceneProxy->IsShown(View) && View->Family->EngineShowFlags.Particles;
+		Result.bDrawRelevance = bHasDynamicData && SceneProxy->IsShown(View) && View->Family->EngineShowFlags.Particles;
 		Result.bShadowRelevance = bHasDynamicData && SceneProxy->IsShadowCast(View);
 		Result.bDynamicRelevance = bHasDynamicData;
 		if (bHasDynamicData && View->Family->EngineShowFlags.Bounds)
@@ -111,6 +134,7 @@ public:
 	
 	virtual UClass *GetPropertiesClass() = 0;
 	virtual void SetRendererProperties(UNiagaraRendererProperties *Props) = 0;
+	virtual UNiagaraRendererProperties* GetRendererProperties() const = 0;
 
 	float GetCPUTimeMS() { return CPUTimeMS; }
 
@@ -126,6 +150,12 @@ public:
 	void SetEnabled(bool bInEnabled) { bEnabled = bInEnabled; }
 	
 	const FVector& GetBaseExtents() const {	return BaseExtents; }
+
+	void SortIndices(ENiagaraSortMode SortMode, int32 SortAttributeOffset, const FNiagaraDataBuffer& Buffer, const FMatrix& LocalToWorld, const FSceneView* View, FNiagaraGlobalReadBuffer::FAllocation& OutIndices)const;
+
+	static FRWBuffer& GetDummyFloatBuffer(); 
+	static FRWBuffer& GetDummyIntBuffer();
+	
 protected:
 	NiagaraRenderer();
 	virtual ~NiagaraRenderer();
@@ -175,6 +205,9 @@ public:
 
 	UClass *GetPropertiesClass() override { return UNiagaraSpriteRendererProperties::StaticClass(); }
 	void SetRendererProperties(UNiagaraRendererProperties *Props) override { Properties = Cast<UNiagaraSpriteRendererProperties>(Props); }
+	virtual UNiagaraRendererProperties* GetRendererProperties() const override {
+		return Properties;
+	}
 
 #if WITH_EDITORONLY_DATA
 	virtual const TArray<FNiagaraVariable>& GetRequiredAttributes() override;
@@ -196,9 +229,15 @@ private:
 	int32 AlignmentOffset;
 	int32 SubImageOffset;
 	int32 MaterialParamOffset;
+	int32 MaterialParamOffset1;
+	int32 MaterialParamOffset2;
+	int32 MaterialParamOffset3;
 	int32 CameraOffsetOffset;
 	int32 UVScaleOffset;
 	int32 ParticleRandomOffset;
+	int32 CustomSortingOffset;
+
+	int32 LastSyncId;
 };
 
 
@@ -250,6 +289,10 @@ public:
 
 	UClass *GetPropertiesClass() override { return UNiagaraLightRendererProperties::StaticClass(); }
 	void SetRendererProperties(UNiagaraRendererProperties *Props) override { Properties = Cast<UNiagaraLightRendererProperties>(Props); }
+	virtual UNiagaraRendererProperties* GetRendererProperties() const override {
+		return Properties;
+	}
+
 #if WITH_EDITORONLY_DATA
 	virtual const TArray<FNiagaraVariable>& GetRequiredAttributes() override;
 	virtual const TArray<FNiagaraVariable>& GetOptionalAttributes() override;
