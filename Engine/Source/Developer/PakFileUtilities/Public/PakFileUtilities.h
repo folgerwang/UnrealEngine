@@ -2,5 +2,5 @@
 
 #include "CoreMinimal.h"
 
-PAKFILEUTILITIES_API int32 ExecuteUnrealPak(int ArgC, TCHAR* ArgV[]);
+PAKFILEUTILITIES_API bool ExecuteUnrealPak(const TCHAR* CmdLine);
 
