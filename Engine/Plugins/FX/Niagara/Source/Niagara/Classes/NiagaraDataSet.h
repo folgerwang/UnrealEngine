@@ -27,22 +27,34 @@ struct FNiagaraVariableLayoutInfo
 class FNiagaraDataSet;
 
 /** Buffer containing one frame of Niagara simulation data. */
-class FNiagaraDataBuffer
+class NIAGARA_API FNiagaraDataBuffer
 {
 public:
 	FNiagaraDataBuffer() : Owner(nullptr)
 	{
 		Reset();
 	}
+	~FNiagaraDataBuffer();
 	void Init(FNiagaraDataSet* InOwner);
-	void Allocate(uint32 NumInstances, ENiagaraSimTarget Target = ENiagaraSimTarget::CPUSim, bool bMaintainExisting=false);
+	void Allocate(uint32 NumInstances, bool bMaintainExisting=false);
 	void AllocateGPU(uint32 InNumInstances, FRHICommandList &RHICmdList);
 	void SwapInstances(uint32 OldIndex, uint32 NewIndex);
 	void KillInstance(uint32 InstanceIdx);
+	void CopyTo(FNiagaraDataBuffer& DestBuffer, int32 StartIdx, int32 NumInstances);
 	void CopyTo(FNiagaraDataBuffer& DestBuffer);
 
 	const TArray<uint8>& GetFloatBuffer()const { return FloatData; }
 	const TArray<uint8>& GetInt32Buffer()const { return Int32Data; }
+
+	FORCEINLINE const uint8* GetComponentPtrFloat(uint32 ComponentIdx)const
+	{
+		return FloatData.GetData() + FloatStride * ComponentIdx;
+	}
+
+	FORCEINLINE const uint8* GetComponentPtrInt32(uint32 ComponentIdx)const
+	{
+		return Int32Data.GetData() + Int32Stride * ComponentIdx;
+	}
 
 	FORCEINLINE uint8* GetComponentPtrFloat(uint32 ComponentIdx)
 	{
@@ -72,16 +84,7 @@ public:
 		NumInstances = InNumInstances;
 	}
 
-	FORCEINLINE void Reset()
-	{
-		FloatData.Empty();
-		Int32Data.Empty();
-		FloatStride = 0;
-		Int32Stride = 0;
-		NumInstances = 0;
-		NumInstancesAllocated = 0;
-		NumChunksAllocatedForGPU = 0;
-	}
+	void Reset();
 
 	FORCEINLINE uint32 GetSizeBytes()const
 	{
@@ -107,13 +110,15 @@ public:
 	uint32 GetInt32Stride() const { return Int32Stride; }
 
 	FORCEINLINE const FNiagaraDataSet* GetOwner()const { return Owner; }
+
+	int32 TransferInstance(FNiagaraDataBuffer& SourceBuffer, int32 InstanceIndex);
 private:
 
 	FORCEINLINE int32 GetSafeComponentBufferSize(int32 RequiredSize) const
 	{
 		//Round up to VECTOR_WIDTH_BYTES.
 		//Both aligns the component buffers to the vector width but also ensures their ops cannot stomp over one another.		
-		return RequiredSize + VECTOR_WIDTH_BYTES - (RequiredSize % VECTOR_WIDTH_BYTES);
+		return RequiredSize + VECTOR_WIDTH_BYTES - (RequiredSize % VECTOR_WIDTH_BYTES) + VECTOR_WIDTH_BYTES;
 	}
 
 	/** Back ptr to our owning data set. Used to access layout info for the buffer. */
@@ -136,7 +141,6 @@ private:
 	/** Number of instances the buffer has been allocated for. */
 	uint32 NumInstancesAllocated;
 
-
 	FRWBuffer GPUBufferFloat;
 	FRWBuffer GPUBufferInt;
 };
@@ -146,34 +150,41 @@ private:
 /**
 General storage class for all per instance simulation data in Niagara.
 */
-class FNiagaraDataSet
+class NIAGARA_API FNiagaraDataSet
 {
 	friend FNiagaraDataBuffer;
+
+	void Reset()
+	{
+		Variables.Empty();
+		VariableLayouts.Empty();
+		CurrBuffer = 0;
+		bFinalized = false;
+		TotalFloatComponents = 0;
+		TotalInt32Components = 0;
+		MaxBufferIdx = 1;
+		bNeedsPersistentIDs = 0;
+
+		SimTarget = ENiagaraSimTarget::CPUSim;
+
+		ResetBuffersInternal();
+	}
+
 public:
 	FNiagaraDataSet()
 	{
 		Reset();
 	}
 	
-	void Init(FNiagaraDataSetID InID)
+	~FNiagaraDataSet();
+
+	void Init(FNiagaraDataSetID InID, ENiagaraSimTarget InSimTarget)
 	{
 		Reset();
 		ID = InID;
+		SimTarget = InSimTarget;
 	}
 
-	void Reset()
-	{
-		Variables.Empty();
-		VariableLayouts.Empty();
-		Data[0].Reset();
-		Data[1].Reset();
-		CurrBuffer = 0;
-		CurrRenderBuffer = 0;
-		bFinalized = false;
-		TotalFloatComponents = 0;
-		TotalInt32Components = 0;
-		MaxBufferIdx = 1;
-	}
 
 	void AddVariable(FNiagaraVariable& Variable)
 	{
@@ -190,6 +201,13 @@ public:
 		}
 	}
 
+	FORCEINLINE void SetNeedsPersistentIDs(bool bNeedsIDs)
+	{
+		bNeedsPersistentIDs = bNeedsIDs;
+	}
+
+	FORCEINLINE bool GetNeedsPersistentIDs()const { return bNeedsPersistentIDs; }
+
 	/** Finalize the addition of variables and other setup before this data set can be used. */
 	FORCEINLINE void Finalize()
 	{
@@ -202,19 +220,29 @@ public:
 	FORCEINLINE void KillInstance(uint32 InstanceIdx)
 	{
 		check(bFinalized);
+		CheckCorrectThread();
 		CurrData().KillInstance(InstanceIdx);
 	}
 
 	FORCEINLINE void SwapInstances(uint32 OldIndex, uint32 NewIndex)
 	{
 		check(bFinalized);
+		CheckCorrectThread();
 		PrevData().SwapInstances(OldIndex, NewIndex);
+	}
+
+	int32 TransferInstance(FNiagaraDataSet& SourceDataset, int32 InstanceIndex)
+	{
+		check(bFinalized);
+		CheckCorrectThread();
+		return CurrData().TransferInstance(SourceDataset.CurrData(), InstanceIndex);
 	}
 
 	/** Appends all variables in this dataset to a register table ready for execution by the VectorVM. */
 	bool AppendToRegisterTable(uint8** InputRegisters, int32& NumInputRegisters, uint8** OutputRegisters, int32& NumOutputRegisters, int32 StartInstance)
 	{
 		check(bFinalized);
+		CheckCorrectThread();
 		int32 TotalComponents = GetNumFloatComponents() + GetNumInt32Components();
 		if (NumInputRegisters + TotalComponents > VectorVM::MaxInputRegisters || NumOutputRegisters + TotalComponents > VectorVM::MaxOutputRegisters)
 		{
@@ -250,127 +278,197 @@ public:
 
 	void SetShaderParams(class FNiagaraShader *Shader, FRHICommandList &CommandList);
 	void UnsetShaderParams(class FNiagaraShader *Shader, FRHICommandList &CommandList);
-	FORCEINLINE void Allocate(uint32 NumInstances, ENiagaraSimTarget Target = ENiagaraSimTarget::CPUSim, bool bMaintainExisting=false)
+	void Allocate(int32 NumInstances, bool bMaintainExisting=false)
 	{
 		check(bFinalized);
-		CurrData().Allocate(NumInstances, Target, bMaintainExisting);
+		CheckCorrectThread();
+		CurrData().Allocate(NumInstances, bMaintainExisting);
+
+		if (bNeedsPersistentIDs)
+		{
+			int32 NumUsedIDs = MaxUsedID + 1;
+
+			int32 RequiredIDs = FMath::Max(NumInstances, NumUsedIDs);
+			int32 ExistingNumIDs = PrevIDTable().Num();
+
+			//Free ID Table must always be at least as large as the data buffer + it's current size in the case all particles die this frame.
+			FreeIDsTable.SetNumUninitialized(NumInstances + NumFreeIDs);
+
+			if (RequiredIDs > ExistingNumIDs)
+			{
+				//UE_LOG(LogNiagara, Warning, TEXT("Growing ID Table! OldSize:%d | NewSize:%d"), ExistingNumIDs, RequiredIDs);
+				IDToIndexTable[CurrBuffer].SetNumUninitialized(RequiredIDs);
+
+				int32 NumNewIDs = RequiredIDs - ExistingNumIDs;
+
+				//Free table should always have enough room for these new IDs.
+				check(NumFreeIDs + NumNewIDs <= FreeIDsTable.Num());
+
+				//ID Table grows so add any new IDs to the free array. Add in reverse order to maintain a continuous increasing allocation when popping.
+				for (int32 NewFreeID = RequiredIDs - 1; NewFreeID >= ExistingNumIDs; --NewFreeID)
+				{
+					FreeIDsTable[NumFreeIDs++] = NewFreeID ;
+				}
+				//UE_LOG(LogNiagara, Warning, TEXT("DataSetAllocate: Adding New Free IDs: %d - "), RequiredIDs - 1, ExistingNumIDs);
+			}
+			else if (RequiredIDs < ExistingNumIDs >> 1)//Configurable?
+			{
+				//If the max id we use has reduced significantly then we can shrink the tables.
+				//Have to go through the FreeIDs and remove any that are greater than the new table size.
+				//UE_LOG(LogNiagara, Warning, TEXT("DataSetAllocate: Shrinking ID Table! OldSize:%d | NewSize:%d"), ExistingNumIDs, RequiredIDs);
+				for (int32 CheckedFreeID = 0; CheckedFreeID < NumFreeIDs;)
+				{
+					checkSlow(NumFreeIDs <= FreeIDsTable.Num());
+					if (FreeIDsTable[CheckedFreeID] >= RequiredIDs)
+					{
+						//UE_LOG(LogNiagara, Warning, TEXT("RemoveSwap FreeID: Removed:%d | Swapped:%d"), FreeIDsTable[CheckedFreeID], FreeIDsTable.Last());		
+						int32 FreeIDIndex = --NumFreeIDs;
+						FreeIDsTable[CheckedFreeID] = FreeIDsTable[FreeIDIndex];
+						FreeIDsTable[FreeIDIndex] = INDEX_NONE;
+					}
+					else
+					{
+						++CheckedFreeID;
+					}
+				}
+			}
+			else
+			{
+				//Drop in required size not great enough so just allocate same size.
+				RequiredIDs = ExistingNumIDs;
+			}
+
+			IDToIndexTable[CurrBuffer].SetNumUninitialized(RequiredIDs);
+			MaxUsedID = INDEX_NONE;//reset the max ID ready for it to be filled in during simulation.
+
+			//UE_LOG(LogNiagara, Warning, TEXT("DataSetAllocate: NumInstances:%d | ID Table Size:%d | NumFreeIDs:%d | FreeTableSize:%d"), NumInstances, IDToIndexTable[CurrBuffer].Num(), NumFreeIDs, FreeIDsTable.Num());
+		}
 	}
 	
-	void InitGPUFromCPU_RenderThread();
-
-	void InitGPUFromCPU()
+	FORCEINLINE void Tick()
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(InitGPUFromCPUCommand,
-			FNiagaraDataSet*, DataSet, this,
-			{
-				DataSet->InitGPUFromCPU_RenderThread();
-			});
+		SwapBuffers();
 	}
-
-	void InitGPUSimSRVs()
+	
+	FORCEINLINE void CopyCurToPrev()
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(InitGPUFromCPUCommand,
-			FNiagaraDataSet*, DataSet, this,
-			{
-				DataSet->InitGPUSimSRVs_RenderThread();
-			});
-	}
-
-	void InitGPUSimSRVs_RenderThread();
-
-
-	FORCEINLINE void Tick(ENiagaraSimTarget SimTarget = ENiagaraSimTarget::CPUSim)
-	{
-		SwapBuffers(SimTarget);
-	}
-	FORCEINLINE void TickRenderThread(ENiagaraSimTarget SimTarget = ENiagaraSimTarget::CPUSim)
-	{
-		SwapBuffersRenderThread(SimTarget);
-	}
-
-
-
-	// called before rendering to make sure we access the correct buffer
-	FORCEINLINE void ValidateBufferIndices()
-	{
-		CurrRenderBuffer = CurrBuffer;
-	}
-
-	FORCEINLINE void CopyPrevToCur()
-	{
-		PrevData().CopyTo(CurrData());
+		CurrData().CopyTo(PrevData());
 	}
 
 	FORCEINLINE FNiagaraDataSetID GetID()const { return ID; }
 	FORCEINLINE void SetID(FNiagaraDataSetID InID) { ID = InID; }
 
+	FORCEINLINE int32 GetPrevBufferIdx() const
+	{
+		return CurrBuffer > 0 ? CurrBuffer - 1 : MaxBufferIdx;
+	}
+
 	FORCEINLINE FNiagaraDataBuffer& CurrData() 
 	{
-		//check(IsInGameThread());
+		//CheckCorrectThread();//TODO: We should be able to enable these checks and have well defined GT/RT ownership but GPU sims fire these a lot currently.
 		return Data[CurrBuffer]; 
 	}
 	FORCEINLINE FNiagaraDataBuffer& PrevData() 
-	{ 
-		//check(IsInGameThread());
-		return Data[CurrBuffer > 0 ? CurrBuffer-1 : MaxBufferIdx];
+	{
+		//CheckCorrectThread();//TODO: We should be able to enable these checks and have well defined GT/RT ownership but GPU sims fire these a lot currently.
+		return Data[GetPrevBufferIdx()];
 	}
 	FORCEINLINE const FNiagaraDataBuffer& CurrData()const 
-	{ 
-		//check(IsInGameThread());
+	{
+		//CheckCorrectThread();//TODO: We should be able to enable these checks and have well defined GT/RT ownership but GPU sims fire these a lot currently.
 		return Data[CurrBuffer];
 	}
 	FORCEINLINE const FNiagaraDataBuffer& PrevData()const 
-	{ 
-		//check(IsInGameThread());
-		return Data[CurrBuffer > 0 ? CurrBuffer - 1 : MaxBufferIdx];
-	}
-
-	FORCEINLINE FNiagaraDataBuffer& CurrDataRender() 
-	{ 
-		check(!IsInGameThread());
-		return Data[CurrRenderBuffer];
-	}
-	FORCEINLINE FNiagaraDataBuffer& PrevDataRender() 
-	{ 
-		check(!IsInGameThread());
-		return Data[CurrRenderBuffer > 0 ? CurrRenderBuffer - 1 : MaxBufferIdx];
-	}
-	FORCEINLINE const FNiagaraDataBuffer& CurrDataRender() const 
-	{ 
-		check(!IsInGameThread());
-		return Data[CurrRenderBuffer];
-	}
-	FORCEINLINE const FNiagaraDataBuffer& PrevDataRender() const 
 	{
-		check(!IsInGameThread());
-		return Data[CurrRenderBuffer > 0 ? CurrRenderBuffer - 1 : MaxBufferIdx];
+		//CheckCorrectThread();//TODO: We should be able to enable these checks and have well defined GT/RT ownership but GPU sims fire these a lot currently.
+		return Data[GetPrevBufferIdx()];
 	}
 
 	FORCEINLINE uint32 GetNumInstances()const { return CurrData().GetNumInstances(); }
 	FORCEINLINE uint32 GetNumInstancesAllocated()const { return CurrData().GetNumInstancesAllocated(); }
 	FORCEINLINE void SetNumInstances(uint32 InNumInstances) { CurrData().SetNumInstances(InNumInstances); }
 
+	void ResetCurrentBuffers()
+	{
+		SetNumInstances(0);
+		if (bNeedsPersistentIDs)
+		{
+			CurrIDTable().Empty();
+			FreeIDsTable.Empty();
+			NumFreeIDs = 0;
+			MaxUsedID = INDEX_NONE;
+		}
+	}
+
+	FORCEINLINE TArray<int32>& CurrIDTable()
+	{
+		//check(IsInGameThread());
+		return IDToIndexTable[CurrBuffer];
+	}
+
+	FORCEINLINE TArray<int32>& PrevIDTable()
+	{
+		//check(IsInGameThread());
+		return IDToIndexTable[GetPrevBufferIdx()];
+	}
+
+	FORCEINLINE TArray<int32>& GetFreeIDTable()
+	{
+		return FreeIDsTable;
+	}
+	
+	FORCEINLINE int32& GetNumFreeIDs()
+	{
+		return NumFreeIDs;
+	}
+
+	FORCEINLINE int32& GetMaxUsedID()
+	{
+		return MaxUsedID;
+	}
+
+	FORCEINLINE int32& GetIDAcquireTag()
+	{
+		return IDAcquireTag;
+	}
+
+	FORCEINLINE void SetIDAcquireTag(int32 InTag)
+	{
+		IDAcquireTag = InTag;
+	}
+
+	FORCEINLINE ENiagaraSimTarget GetSimTarget()const { return SimTarget; }
 
 	FORCEINLINE void ResetBuffersInternal()
 	{
 		Data[0].Reset();
 		Data[1].Reset();
 		Data[2].Reset();
+
+		FreeIDsTable.Reset();
+		NumFreeIDs = 0;
+
+		IDToIndexTable[0].Reset();
+		IDToIndexTable[1].Reset();
+		IDToIndexTable[2].Reset();
+		MaxUsedID = INDEX_NONE;
 	}
 
-	FORCEINLINE void ResetBuffers(bool bOnRT)
+	FORCEINLINE void ResetBuffers()
 	{
-		if (bOnRT)
+		if (SimTarget == ENiagaraSimTarget::CPUSim)
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(InitGPUFromCPUCommand,
+			ResetBuffersInternal();
+		}
+		else
+		{			
+			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+				ResetBuffersRT,
 				FNiagaraDataSet*, DataSet, this,
 				{
 					DataSet->ResetBuffersInternal();
-				});
-		}
-		else
-		{
-			ResetBuffersInternal();
+				}
+			);
 		}
 	}
 
@@ -412,49 +510,57 @@ public:
 	}
 
 	void Dump(bool bCurr, int32 StartIdx = 0, int32 NumInstances = INDEX_NONE);
-	void Dump(FNiagaraDataSet& Other, bool bCurr);
+	void Dump(FNiagaraDataSet& Other, bool bCurr, int32 StartIdx = 0, int32 NumInstances = INDEX_NONE);
 	FORCEINLINE const TArray<FNiagaraVariable> &GetVariables() { return Variables; }
 
-	// called before dispatch from NiagaraEmitterInstanceBatcher
-	FRWBuffer &SetupDataSetIndices() 
-	{ 
-		check(IsInRenderingThread());
-		if (DataSetIndices[CurrRenderBuffer].Buffer)
-		{
-			DataSetIndices[CurrRenderBuffer].Release();
-		}
-		DataSetIndices[CurrRenderBuffer].Initialize(sizeof(int32), 64 /*Context->NumDataSets*/, EPixelFormat::PF_R32_UINT, BUF_Transient | BUF_DrawIndirect | BUF_Static);	// always allocate for up to 64 data sets
-		return DataSetIndices[CurrRenderBuffer];
+
+	// Data set index buffer management
+	// these buffers hold the number of instances for the buffers; the first five uint32s are the DrawIndirect parameters for rendering of the main particle data set
+	//
+	FRWBuffer &GetCurDataSetIndices()		{	return GetDataSetIndices(CurrBuffer);			}
+	FRWBuffer &GetPrevDataSetIndices()		{	return GetDataSetIndices(GetPrevBufferIdx());	}
+
+	bool HasDatasetIndices(bool bCur = true) const
+	{
+		uint32 BufIdx = bCur == true ? CurrBuffer : GetPrevBufferIdx();
+		CheckCorrectThread();
+		return DataSetIndices[BufIdx].Buffer != nullptr;
 	}
 
-	FRWBuffer &GetDataSetIndices()
+	const FRWBuffer &GetCurDataSetIndices() const	
 	{
-		if (DataSetIndices[CurrRenderBuffer].Buffer == nullptr)
-		{
-			DataSetIndices[CurrRenderBuffer].Initialize(sizeof(int32), 64 /*Context->NumDataSets*/, EPixelFormat::PF_R32_UINT, BUF_Transient | BUF_DrawIndirect | BUF_Static);	// always allocate for up to 64 data sets
-		}
-		return DataSetIndices[CurrRenderBuffer];
+		CheckCorrectThread();
+		return DataSetIndices[CurrBuffer];
 	}
 
-	const FRWBuffer &GetDataSetIndices() const
+	const FRWBuffer &GetPrevDataSetIndices() const
 	{
-		//ensure(DataSetIndices[CurrRenderBuffer].Buffer != nullptr);
-		return DataSetIndices[CurrRenderBuffer];
+		CheckCorrectThread();
+		return DataSetIndices[GetPrevBufferIdx()];
+	}
+
+	void SetupCurDatasetIndices()
+	{
+		if (DataSetIndices[CurrBuffer].Buffer != nullptr)
+		{
+			DataSetIndices[CurrBuffer].Release();
+		}
+		DataSetIndices[CurrBuffer].Initialize(sizeof(int32), 64 /*Context->NumDataSets*/, EPixelFormat::PF_R32_UINT, BUF_DrawIndirect | BUF_Static);	// always allocate for up to 64 data sets
 	}
 
 	FORCEINLINE uint32 GetNumFloatComponents()const { return TotalFloatComponents; }
 	FORCEINLINE uint32 GetNumInt32Components()const { return TotalInt32Components; }
 
-	FORCEINLINE const FDynamicReadBuffer& GetRenderDataFloat()const { return RenderDataFloat; }
-	FORCEINLINE const FDynamicReadBuffer& GetRenderDataInt32()const { return RenderDataInt; }
-
-	FORCEINLINE const FShaderResourceViewRHIRef& GetRenderDataFloatSRV()const { return CurrentFloatDataSRV; }
-	FORCEINLINE const FShaderResourceViewRHIRef& GetRenderDataInt32SRV()const { return CurrentIntDataSRV; }
-
 private:
-
-	FORCEINLINE void SwapBuffers(ENiagaraSimTarget SimTarget)
+	FRWBuffer &GetDataSetIndices(uint32 BufIdx)
 	{
+		CheckCorrectThread();
+		return DataSetIndices[BufIdx];
+	}
+
+	FORCEINLINE void SwapBuffers()
+	{
+		CheckCorrectThread();
 		if (SimTarget == ENiagaraSimTarget::CPUSim)
 		{
 			MaxBufferIdx = 2;
@@ -465,32 +571,18 @@ private:
 			MaxBufferIdx = 1;
 			CurrBuffer = CurrBuffer == 0 ? 1 : 0;
 		}
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(SwapDataSetBuffersGPU,
-			uint32, CurrBuffer, CurrBuffer,
-			uint32 &, CurrRenderBuffer, CurrRenderBuffer,
-			{
-				CurrRenderBuffer = CurrBuffer;
-			});
 	}
 
-	FORCEINLINE void SwapBuffersRenderThread(ENiagaraSimTarget SimTarget)
+	FORCEINLINE void CheckCorrectThread()const
 	{
-		check(IsInRenderingThread());
-		if (SimTarget == ENiagaraSimTarget::CPUSim)
-		{
-			MaxBufferIdx = 2;
-			CurrBuffer = CurrBuffer < 2 ? CurrBuffer + 1 : 0;
-		}
-		else
-		{
-			MaxBufferIdx = 1;
-			CurrBuffer = CurrBuffer == 0 ? 1 : 0;
-		}
-
-		CurrRenderBuffer = CurrBuffer;
+		// In some rare occasions, the render thread might be null, like when offloading work to Lightmass 
+		// The final GRenderingThread check keeps us from inadvertently failing when that happens.
+#if DO_CHECK
+		bool CPUSimOK = (SimTarget == ENiagaraSimTarget::CPUSim && !IsInRenderingThread());
+		bool GPUSimOK = (SimTarget == ENiagaraSimTarget::GPUComputeSim && IsInRenderingThread());
+		checkf(!GRenderingThread || CPUSimOK || GPUSimOK, TEXT("NiagaraDataSet function being called on incorrect thread."));
+#endif
 	}
-
 
 	void BuildLayout()
 	{
@@ -530,20 +622,31 @@ private:
 	
 	/** Index of current state data. */
 	uint32 CurrBuffer;
-	uint32 CurrRenderBuffer;
 	uint32 MaxBufferIdx;
 
+	ENiagaraSimTarget SimTarget;
+
 	/** Once finalized, the data layout etc is built and no more variables can be added. */
-	bool bFinalized;
+	uint32 bFinalized : 1;
+	uint32 bNeedsPersistentIDs : 1;
+	
+	/** Table of IDs to real buffer indices. Multi buffered so we can access previous frame data. */
+	TArray<int32> IDToIndexTable[3];
+
+	/** Table of free IDs available to allocate next tick. */
+	TArray<int32> FreeIDsTable;
+
+	/** Number of free IDs in FreeIDTable. */
+	int32 NumFreeIDs;
+
+	/** Max ID seen in last execution. Allows us to shrink the IDTable. */
+	int32 MaxUsedID;
+
+	/** Tag to use when new IDs are acquired. Should be unique per tick. */
+	int32 IDAcquireTag;
 
 	FNiagaraDataBuffer Data[3];
 	FRWBuffer DataSetIndices[3]; 
-
-	/** GPU side copies of the most recent cpu sim data for use in rendering. */
-	FDynamicReadBuffer RenderDataFloat;
-	FDynamicReadBuffer RenderDataInt;
-	FShaderResourceViewRHIRef CurrentFloatDataSRV;
-	FShaderResourceViewRHIRef CurrentIntDataSRV;
 };
 
 /**
@@ -1069,6 +1172,84 @@ private:
 	float* WBase;
 };
 
+
+template<>
+struct FNiagaraDataSetAccessor<FQuat> : public FNiagaraDataSetAccessorBase
+{
+	FNiagaraDataSetAccessor<FQuat>() {}
+	FNiagaraDataSetAccessor<FQuat>(FNiagaraDataSet& InDataSet, FNiagaraVariable InVar, bool bCurrBuffer = true)
+		: FNiagaraDataSetAccessorBase(&InDataSet, InVar, bCurrBuffer)
+	{
+		check(sizeof(FQuat) == InVar.GetType().GetSize());
+		InitForAccess(bCurrBuffer);
+	}
+
+	void InitForAccess(bool bCurrBuffer = true)
+	{
+		DataBuffer = bCurrBuffer ? &DataSet->CurrData() : &DataSet->PrevData();
+		if (VarLayout)
+		{
+			XBase = (float*)DataBuffer->GetComponentPtrFloat(VarLayout->FloatComponentStart);
+			YBase = (float*)DataBuffer->GetComponentPtrFloat(VarLayout->FloatComponentStart + 1);
+			ZBase = (float*)DataBuffer->GetComponentPtrFloat(VarLayout->FloatComponentStart + 2);
+			WBase = (float*)DataBuffer->GetComponentPtrFloat(VarLayout->FloatComponentStart + 3);
+		}
+		else
+		{
+			XBase = nullptr;
+			YBase = nullptr;
+			ZBase = nullptr;
+			WBase = nullptr;
+		}
+	}
+
+	FORCEINLINE FQuat operator[](int32 Index)const
+	{
+		return Get(Index);
+	}
+
+	FORCEINLINE FQuat GetSafe(int32 Index, const FQuat& Default = FQuat(0.0f, 0.0f, 0.0f, 1.0f))const
+	{
+		if (IsValid())
+		{
+			return Get(Index);
+		}
+
+		return Default;
+	}
+
+	FORCEINLINE FQuat Get(int32 Index)const
+	{
+		FQuat Ret;
+		Get(Index, Ret);
+		return Ret;
+	}
+
+	FORCEINLINE void Get(int32 Index, FQuat& OutValue)const
+	{
+		OutValue.X = XBase[Index];
+		OutValue.Y = YBase[Index];
+		OutValue.Z = ZBase[Index];
+		OutValue.W = WBase[Index];
+	}
+
+	FORCEINLINE void Set(int32 Index, const FQuat& InValue)
+	{
+		XBase[Index] = InValue.X;
+		YBase[Index] = InValue.Y;
+		ZBase[Index] = InValue.Z;
+		WBase[Index] = InValue.W;
+	}
+
+	FORCEINLINE bool BaseIsValid() const { return XBase != nullptr && YBase != nullptr && ZBase != nullptr && WBase != nullptr; }
+private:
+
+	float* XBase;
+	float* YBase;
+	float* ZBase;
+	float* WBase;
+};
+
 template<>
 struct FNiagaraDataSetAccessor<FLinearColor> : public FNiagaraDataSetAccessorBase
 {
@@ -1220,6 +1401,73 @@ private:
 	float* IntervalDtBase;
 };
 
+template<>
+struct FNiagaraDataSetAccessor<FNiagaraID> : public FNiagaraDataSetAccessorBase
+{
+	FNiagaraDataSetAccessor<FNiagaraID>() {}
+	FNiagaraDataSetAccessor<FNiagaraID>(FNiagaraDataSet& InDataSet, FNiagaraVariable InVar, bool bCurrBuffer = true)
+		: FNiagaraDataSetAccessorBase(&InDataSet, InVar, bCurrBuffer)
+	{
+		InitForAccess(bCurrBuffer);
+	}
+
+	void InitForAccess(bool bCurrBuffer = true)
+	{
+		DataBuffer = bCurrBuffer ? &DataSet->CurrData() : &DataSet->PrevData();
+		if (VarLayout != nullptr)
+		{
+			IndexBase = (int32*)DataBuffer->GetComponentPtrInt32(VarLayout->Int32ComponentStart);
+			TagBase = (int32*)DataBuffer->GetComponentPtrInt32(VarLayout->Int32ComponentStart + 1);
+		}
+		else
+		{
+			IndexBase = nullptr;
+			TagBase = nullptr;
+		}
+	}
+
+	FORCEINLINE FNiagaraID operator[](int32 Index)const
+	{
+		return Get(Index);
+	}
+
+	FORCEINLINE FNiagaraID GetSafe(int32 Index, FNiagaraID Default = FNiagaraID())const
+	{
+		if (IsValid())
+		{
+			return Get(Index);
+		}
+
+		return Default;
+	}
+
+	FORCEINLINE FNiagaraID Get(int32 Index)const
+	{
+		FNiagaraID Ret;
+		Get(Index, Ret);
+		return Ret;
+	}
+
+	FORCEINLINE void Get(int32 Index, FNiagaraID& OutValue)const
+	{
+		OutValue.Index = IndexBase[Index];
+		OutValue.AcquireTag = TagBase[Index];
+	}
+
+	FORCEINLINE void Set(int32 Index, const FNiagaraID& InValue)
+	{
+		IndexBase[Index] = InValue.Index;
+		TagBase[Index] = InValue.AcquireTag;
+	}
+
+	FORCEINLINE bool BaseIsValid() const { return IndexBase != nullptr && TagBase != nullptr; }
+
+private:
+
+	int32* IndexBase;
+	int32* TagBase;
+};
+
 //Provide iterator to keep iterator access patterns still in use.
 template<typename T>
 struct FNiagaraDataSetIterator : public FNiagaraDataSetAccessor<T>
@@ -1229,6 +1477,12 @@ struct FNiagaraDataSetIterator : public FNiagaraDataSetAccessor<T>
 		: FNiagaraDataSetAccessor<T>(InDataSet, InVar, bCurrBuffer)
 		, CurrIdx(StartIndex)
 	{}
+
+	void Create(FNiagaraDataSet* InDataSet, FNiagaraVariable InVar, uint32 StartIndex=0)
+	{
+		FNiagaraDataSetAccessor<T>::Create(InDataSet, InVar);
+		CurrIdx = StartIndex;
+	}
 
 	FORCEINLINE T operator*() { return Get(); }
 	FORCEINLINE T Get()const

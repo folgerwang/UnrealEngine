@@ -598,6 +598,8 @@ enum class EFrameHitchType: uint8;
 DECLARE_MULTICAST_DELEGATE_TwoParams(FEngineHitchDetectedDelegate, EFrameHitchType /*HitchType*/, float /*HitchDurationInSeconds*/);
 
 
+DECLARE_MULTICAST_DELEGATE(FPreRenderDelegate);
+
 /**
  * Abstract base class of all Engine classes, responsible for management of systems critical to editor or game systems.
  * Also defines default classes for certain engine systems.
@@ -1518,6 +1520,11 @@ public:
 	/** Delegate handling when streaming pause ends. Set initially in FStreamingPauseRenderingModule::StartupModule() but can then be overridden by games. */
 	void RegisterEndStreamingPauseRenderingDelegate( FEndStreamingPauseDelegate* InDelegate );
 	FEndStreamingPauseDelegate* EndStreamingPauseDelegate;
+
+
+	/** Delegate called just prior to rendering. */
+	FPreRenderDelegate PreRenderDelegate;
+	FPreRenderDelegate& GetPreRenderDelegate() { return PreRenderDelegate; }
 
 	/** 
 	 * Error message event relating to server travel failures 

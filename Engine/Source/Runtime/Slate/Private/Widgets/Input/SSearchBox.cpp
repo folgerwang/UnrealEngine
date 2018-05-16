@@ -4,6 +4,8 @@
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Input/SButton.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Images/SThrobber.h"
 
 const double SSearchBox::FilterDelayAfterTyping = 0.25f;
 
@@ -11,6 +13,8 @@ void SSearchBox::Construct( const FArguments& InArgs )
 {
 	check(InArgs._Style);
 
+	SearchResultData = InArgs._SearchResultData;
+	bIsSearching = InArgs._IsSearching;
 	OnSearchDelegate = InArgs._OnSearch;
 	OnTextChangedDelegate = InArgs._OnTextChanged;
 	OnTextCommittedDelegate = InArgs._OnTextCommitted;
@@ -36,9 +40,37 @@ void SSearchBox::Construct( const FArguments& InArgs )
 	// If we want to have the buttons appear to the left of the text box we have to insert the slots instead of add them
 	int32 SlotIndex = InArgs._Style->bLeftAlignButtons ? 0 : Box->NumSlots();
 
+	// Add a throbber to show if there is a search running.
+	Box->InsertSlot(SlotIndex++)
+	.AutoWidth()
+	.Padding(0, 0, 2, 0)
+	.HAlign(HAlign_Center)
+	.VAlign(VAlign_Center)
+	[
+		SNew(SCircularThrobber)
+		.Radius(9.0f)
+		.Visibility(this, &SSearchBox::GetIsSearchingThrobberVisibility)
+		.ToolTipText(NSLOCTEXT("SearchBox", "Searching", "Searching..."))
+		.ColorAndOpacity(FSlateColor::UseForeground())
+	];
+
 	// If a search delegate was bound, add a previous and next button
 	if (OnSearchDelegate.IsBound())
 	{
+		// Search result data text
+		Box->InsertSlot(SlotIndex++)
+		.AutoWidth()
+		.Padding(0, 0, 2, 0)
+		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Center)
+		[
+			SNew(STextBlock)
+			.Visibility(this, &SSearchBox::GetSearchResultDataVisibility)
+			.Text(this, &SSearchBox::GetSearchResultText)
+			.ColorAndOpacity(FSlateColor::UseSubduedForeground())
+		];
+
+		// Previous result button
 		Box->InsertSlot(SlotIndex++)
 		.AutoWidth()
 		.Padding(InArgs._Style->ImagePadding)
@@ -53,12 +85,14 @@ void SSearchBox::Construct( const FArguments& InArgs )
 			.OnClicked( this, &SSearchBox::OnClickedSearch, SSearchBox::Previous )
 			.ForegroundColor( FSlateColor::UseForeground() )
 			.IsFocusable(false)
+			.Visibility(this, &SSearchBox::GetSearchResultNavigationButtonVisibility)
 			[
 				SNew(SImage)
 				.Image( &InArgs._Style->UpArrowImage )
 				.ColorAndOpacity( FSlateColor::UseForeground() )
 			]
 		];
+		// Next result button
 		Box->InsertSlot(SlotIndex++)
 		.AutoWidth()
 		.Padding(InArgs._Style->ImagePadding)
@@ -73,6 +107,7 @@ void SSearchBox::Construct( const FArguments& InArgs )
 			.OnClicked( this, &SSearchBox::OnClickedSearch, SSearchBox::Next )
 			.ForegroundColor( FSlateColor::UseForeground() )
 			.IsFocusable(false)
+			.Visibility(this, &SSearchBox::GetSearchResultNavigationButtonVisibility)
 			[
 				SNew(SImage)
 				.Image( &InArgs._Style->DownArrowImage )
@@ -157,11 +192,53 @@ void SSearchBox::HandleTextCommitted(const FText& NewText, ETextCommit::Type Com
 	OnTextCommittedDelegate.ExecuteIfBound( NewText, CommitType );
 }
 
+FText SSearchBox::GetSearchResultText() const
+{
+	TOptional<FSearchResultData> CurrentSearchResultData = SearchResultData.Get();
+	if (CurrentSearchResultData.IsSet())
+	{
+		return FText::Format(NSLOCTEXT("SearchBox", "SearchResultFormat", "{0} / {1}"), 
+			CurrentSearchResultData.GetValue().CurrentSearchResultIndex, CurrentSearchResultData.GetValue().NumSearchResults);
+	}
+	else
+	{
+		return FText();
+	}
+}
+
+EVisibility SSearchBox::GetSearchResultNavigationButtonVisibility() const
+{
+	if (SearchResultData.IsBound())
+	{
+		return SearchResultData.Get().IsSet()
+			? EVisibility::Visible
+			: EVisibility::Collapsed;
+	}
+	else
+	{
+		return EVisibility::Visible;
+	}
+}
+
 EVisibility SSearchBox::GetXVisibility() const
 {
 	return (EditableText->GetText().IsEmpty())
 		? EVisibility::Collapsed
 		: EVisibility::Visible;
+}
+
+EVisibility SSearchBox::GetSearchResultDataVisibility() const
+{
+	return SearchResultData.Get().IsSet()
+		? EVisibility::Visible
+		: EVisibility::Collapsed;
+}
+
+EVisibility SSearchBox::GetIsSearchingThrobberVisibility() const
+{
+	return (bIsSearching.Get())
+		? EVisibility::Visible
+		: EVisibility::Collapsed;
 }
 
 EVisibility SSearchBox::GetSearchGlassVisibility() const

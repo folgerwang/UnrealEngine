@@ -2,6 +2,11 @@
 
 #include "NiagaraSystemEditorData.h"
 #include "NiagaraStackEditorData.h"
+#include "NiagaraCustomVersion.h"
+#include "NiagaraSystem.h"
+#include "NiagaraEmitterHandle.h"
+#include "NiagaraEmitter.h"
+#include "NiagaraEmitterEditorData.h"
 
 const FName UNiagaraSystemEditorFolder::GetFolderName() const
 {
@@ -52,11 +57,14 @@ UNiagaraSystemEditorData::UNiagaraSystemEditorData(const FObjectInitializer& Obj
 	RootFolder = ObjectInitializer.CreateDefaultSubobject<UNiagaraSystemEditorFolder>(this, TEXT("RootFolder"));
 	StackEditorData = ObjectInitializer.CreateDefaultSubobject<UNiagaraStackEditorData>(this, TEXT("StackEditorData"));
 	OwnerTransform.SetLocation(FVector(0.0f, 0.0f, 100.0f));
+	PlaybackRangeMin = 0;
+	PlaybackRangeMax = 10;
 }
 
-void UNiagaraSystemEditorData::PostLoad()
+void UNiagaraSystemEditorData::PostLoadFromOwner(UObject* InOwner)
 {
-	Super::PostLoad();
+	UNiagaraSystem* OwnerSystem = CastChecked<UNiagaraSystem>(InOwner);
+
 	if (RootFolder == nullptr)
 	{
 		RootFolder = NewObject<UNiagaraSystemEditorFolder>(this, TEXT("RootFolder"), RF_Transactional);
@@ -64,6 +72,13 @@ void UNiagaraSystemEditorData::PostLoad()
 	if (StackEditorData == nullptr)
 	{
 		StackEditorData = NewObject<UNiagaraStackEditorData>(this, TEXT("StackEditorData"), RF_Transactional);
+	}
+
+	const int32 NiagaraVer = GetLinkerCustomVersion(FNiagaraCustomVersion::GUID);
+
+	if (NiagaraVer < FNiagaraCustomVersion::PlaybackRangeStoredOnSystem)
+	{
+		UpdatePlaybackRangeFromEmitters(OwnerSystem);
 	}
 }
 
@@ -75,4 +90,37 @@ UNiagaraSystemEditorFolder& UNiagaraSystemEditorData::GetRootFolder() const
 UNiagaraStackEditorData& UNiagaraSystemEditorData::GetStackEditorData() const
 {
 	return *StackEditorData;
+}
+
+TRange<float> UNiagaraSystemEditorData::GetPlaybackRange() const
+{
+	return TRange<float>(PlaybackRangeMin, PlaybackRangeMax);
+}
+
+void UNiagaraSystemEditorData::SetPlaybackRange(TRange<float> InPlaybackRange)
+{
+	PlaybackRangeMin = InPlaybackRange.GetLowerBoundValue();
+	PlaybackRangeMax = InPlaybackRange.GetUpperBoundValue();
+}
+
+void UNiagaraSystemEditorData::UpdatePlaybackRangeFromEmitters(UNiagaraSystem* OwnerSystem)
+{
+	if (OwnerSystem->GetEmitterHandles().Num() > 0)
+	{
+		float EmitterPlaybackRangeMin = TNumericLimits<float>::Max();
+		float EmitterPlaybackRangeMax = TNumericLimits<float>::Lowest();
+
+		for (const FNiagaraEmitterHandle& EmitterHandle : OwnerSystem->GetEmitterHandles())
+		{
+			UNiagaraEmitterEditorData* EmitterEditorData = Cast<UNiagaraEmitterEditorData>(EmitterHandle.GetInstance()->EditorData);
+			if (EmitterEditorData != nullptr)
+			{
+				EmitterPlaybackRangeMin = FMath::Min(PlaybackRangeMin, EmitterEditorData->GetPlaybackRange().GetLowerBoundValue());
+				EmitterPlaybackRangeMax = FMath::Max(PlaybackRangeMax, EmitterEditorData->GetPlaybackRange().GetUpperBoundValue());
+			}
+		}
+
+		PlaybackRangeMin = EmitterPlaybackRangeMin;
+		PlaybackRangeMax = EmitterPlaybackRangeMax;
+	}
 }

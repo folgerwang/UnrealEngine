@@ -26,14 +26,6 @@ class UNiagaraParameterCollectionInstance;
 */
 struct FNiagaraEmitterInstance
 {
-
-private:
-	struct FNiagaraBurstInstance
-	{
-		float Time;
-		uint32 NumberToSpawn;
-	};
-
 public:
 	explicit FNiagaraEmitterInstance(FNiagaraSystemInstance* InParentSystemInstance);
 	bool bDumpAfterEvent;
@@ -58,9 +50,11 @@ public:
 	void PostProcessParticles();
 	bool HandleCompletion(bool bForce=false);
 
+	bool RequiredPersistentID()const;
+
 	FORCEINLINE bool ShouldTick()const { return ExecutionState == ENiagaraExecutionState::Active || GetNumParticles() > 0; }
 
-	uint32 CalculateEventSpawnCount(const FNiagaraEventScriptProperties &EventHandlerProps, TArray<int32> &EventSpawnCounts, FNiagaraDataSet *EventSet);
+	uint32 CalculateEventSpawnCount(const FNiagaraEventScriptProperties &EventHandlerProps, TArray<int32, TInlineAllocator<16>>& EventSpawnCounts, FNiagaraDataSet *EventSet);
 
 	NIAGARA_API FBox CalculateDynamicBounds();
 
@@ -74,9 +68,6 @@ public:
 
 	FORCEINLINE bool IsDisabled()const { return ExecutionState == ENiagaraExecutionState::Disabled; }
 	FORCEINLINE bool IsComplete()const { return ExecutionState == ENiagaraExecutionState::Complete || ExecutionState == ENiagaraExecutionState::Disabled; }
-	
-	/** Sets the error state. */
-	void SetError(bool bInError) { bError = bInError; }
 		
 	/** Create a new NiagaraRenderer. The old renderer is not immediately deleted, but instead put in the ToBeRemoved list.*/
 	void NIAGARA_API UpdateEmitterRenderer(ERHIFeatureLevel::Type FeatureLevel, TArray<NiagaraRenderer*>& ToBeAddedList, TArray<NiagaraRenderer*>& ToBeRemovedList);
@@ -104,6 +95,9 @@ public:
 	FNiagaraScriptExecutionContext& GetUpdateExecutionContext() { return UpdateExecContext; }
 	TArray<FNiagaraScriptExecutionContext>& GetEventExecutionContexts() { return EventExecContexts; }
 
+	FORCEINLINE FName GetCachedIDName()const { return CachedIDName; }
+	FORCEINLINE UNiagaraEmitter* GetCachedEmitter()const { return CachedEmitter; }
+
 	TArray<FNiagaraSpawnInfo>& GetSpawnInfo() { return SpawnInfos; }
 
 	NIAGARA_API bool IsReadyToRun() const;
@@ -119,9 +113,8 @@ private:
 	float Age;
 	/* how many loops this emitter has gone through */
 	uint32 Loops;
-	
-	/* Some error has occurred so stop ticking or rendering. Better to just kill the emitter? */
-	uint32 bError : 1;
+
+	int32 TickCount;
 	
 	/** Typical resets must be deferred until the tick as the RT could still be using the current buffer. */
 	uint32 bResetPending : 1;
@@ -144,6 +137,11 @@ private:
 	FNiagaraParameterDirectBinding<float> SpawnIntervalBinding;
 	FNiagaraParameterDirectBinding<float> InterpSpawnStartBinding;
 
+	FNiagaraParameterDirectBinding<float> SpawnIntervalBindingGPU;
+	FNiagaraParameterDirectBinding<float> InterpSpawnStartBindingGPU;
+	FNiagaraParameterDirectBinding<float> EmitterAgeBindingGPU;
+	FNiagaraParameterDirectBinding<FNiagaraBool> EmitterLocalSpaceBindingGPU;
+
 	FNiagaraParameterDirectBinding<float> SpawnEmitterAgeBinding;
 	FNiagaraParameterDirectBinding<float> UpdateEmitterAgeBinding;
 	TArray<FNiagaraParameterDirectBinding<float>> EventEmitterAgeBindings;
@@ -162,6 +160,10 @@ private:
 	TArray<NiagaraRenderer*> EmitterRenderer;
 	FNiagaraSystemInstance *ParentSystemInstance;
 
+	/** Raw pointer to the emitter that we're instanced from. Raw ptr should be safe here as we check for the validity of the system and it's emitters higher up before any ticking. */
+	UNiagaraEmitter* CachedEmitter;
+	FName CachedIDName;
+
 	TArray<FNiagaraDataSet*> UpdateScriptEventDataSets;
 	TArray<FNiagaraDataSet*> SpawnScriptEventDataSets;
 	TMap<FNiagaraDataSetID, FNiagaraDataSet*> DataSetMap;
@@ -176,4 +178,15 @@ private:
 	FNiagaraDataSetAccessor<FVector> PositionAccessor;
 	FNiagaraDataSetAccessor<FVector2D> SizeAccessor;
 	FNiagaraDataSetAccessor<FVector> MeshScaleAccessor;
+
+	static const FName PositionName;
+	static const FName SizeName;
+	static const FName MeshScaleName;
+
+#if !UE_BUILD_SHIPPING
+	bool bEncounteredNaNs;
+#endif
+
+	/** A parameter store which contains the data interfaces parameters which were defined by the scripts. */
+	FNiagaraParameterStore ScriptDefinedDataInterfaceParameters;
 };

@@ -7081,12 +7081,14 @@ UMaterialExpressionDynamicParameter::UMaterialExpressionDynamicParameter(const F
 
 	DefaultValue = FLinearColor::White;
 
+	
+	ParameterIndex = 0;
 }
 
 #if WITH_EDITOR
 int32 UMaterialExpressionDynamicParameter::Compile( FMaterialCompiler* Compiler, int32 OutputIndex)
 {
-	return Compiler->DynamicParameter(DefaultValue);
+	return Compiler->DynamicParameter(DefaultValue, ParameterIndex);
 }
 
 TArray<FExpressionOutput>& UMaterialExpressionDynamicParameter::GetOutputs()
@@ -7172,7 +7174,7 @@ void UMaterialExpressionDynamicParameter::UpdateDynamicParameterProperties()
 
 bool UMaterialExpressionDynamicParameter::CopyDynamicParameterProperties(const UMaterialExpressionDynamicParameter* FromParam)
 {
-	if (FromParam && (FromParam != this))
+	if (FromParam && (FromParam != this) && ParameterIndex == FromParam->ParameterIndex)
 	{
 		for (int32 NameIndex = 0; NameIndex < 4; NameIndex++)
 		{

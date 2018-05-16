@@ -12,6 +12,7 @@
 #include "NiagaraVertexFactory.h"
 #include "NiagaraDataSet.h"
 #include "SceneView.h"
+#include "NiagaraGlobalReadBuffer.h"
 
 class FMaterial;
 
@@ -32,7 +33,7 @@ BEGIN_UNIFORM_BUFFER_STRUCT( FNiagaraSpriteUniformParameters, NIAGARAVERTEXFACTO
 	UNIFORM_MEMBER_EX( float, RotationScale, EShaderPrecisionModifier::Half )
 	UNIFORM_MEMBER_EX( float, RotationBias, EShaderPrecisionModifier::Half )
 	UNIFORM_MEMBER_EX( float, NormalsType, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( float, InvDeltaSeconds, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( float, DeltaSeconds, EShaderPrecisionModifier::Half )
 	UNIFORM_MEMBER_EX( FVector2D, PivotOffset, EShaderPrecisionModifier::Half )
 	UNIFORM_MEMBER(int, PositionDataOffset)
 	UNIFORM_MEMBER(int, VelocityDataOffset)
@@ -41,12 +42,16 @@ BEGIN_UNIFORM_BUFFER_STRUCT( FNiagaraSpriteUniformParameters, NIAGARAVERTEXFACTO
 	UNIFORM_MEMBER(int, SubimageDataOffset)
 	UNIFORM_MEMBER(int, ColorDataOffset)
 	UNIFORM_MEMBER(int, MaterialParamDataOffset)
+	UNIFORM_MEMBER(int, MaterialParam1DataOffset)
+	UNIFORM_MEMBER(int, MaterialParam2DataOffset)
+	UNIFORM_MEMBER(int, MaterialParam3DataOffset)
 	UNIFORM_MEMBER(int, FacingOffset)
 	UNIFORM_MEMBER(int, AlignmentOffset)
 	UNIFORM_MEMBER(int, SubImageBlendMode)
 	UNIFORM_MEMBER(int, CameraOffsetOffset)
 	UNIFORM_MEMBER(int, UVScaleOffset)
 	UNIFORM_MEMBER(int, ParticleRandomOffset)
+	UNIFORM_MEMBER(FVector4, DefaultPos)
 	END_UNIFORM_BUFFER_STRUCT(FNiagaraSpriteUniformParameters)
 
 typedef TUniformBufferRef<FNiagaraSpriteUniformParameters> FNiagaraSpriteUniformBufferRef;
@@ -67,7 +72,10 @@ public:
 		NumCutoutVerticesPerFrame(0),
 		CutoutGeometrySRV(nullptr),
 		AlignmentMode(0),
-		FacingMode(0)
+		FacingMode(0),
+		FloatDataOffset(0),
+		FloatDataStride(0),
+		SortedIndicesOffset(0)
 	{}
 
 	FNiagaraSpriteVertexFactory()
@@ -76,7 +84,10 @@ public:
 		NumCutoutVerticesPerFrame(0),
 		CutoutGeometrySRV(nullptr),
 		AlignmentMode(0),
-		FacingMode(0)
+		FacingMode(0),
+		FloatDataOffset(0),
+		FloatDataStride(0),
+		SortedIndicesOffset(0)
 	{}
 
 	// FRenderResource interface.
@@ -93,12 +104,7 @@ public:
 	 * Can be overridden by FVertexFactory subclasses to modify their compile environment just before compilation occurs.
 	 */
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
-
-	/**
-	 * Set the source vertex buffer that contains particle instance data.
-	 */
-	void SetInstanceBuffer(const FVertexBuffer* InInstanceBuffer, uint32 StreamOffset, uint32 Stride, bool bInstanced);
-
+	
 	void SetTexCoordBuffer(const FVertexBuffer* InTexCoordBuffer);
 
 	inline void SetNumVertsInInstanceBuffer(int32 InNumVertsInInstanceBuffer)
@@ -131,26 +137,42 @@ public:
 	inline int32 GetNumCutoutVerticesPerFrame() const { return NumCutoutVerticesPerFrame; }
 	inline FShaderResourceViewRHIParamRef GetCutoutGeometrySRV() const { return CutoutGeometrySRV; }
 
-	void SetParticleData(const FNiagaraDataSet *InDataSet)
+	void SetParticleData(const FShaderResourceViewRHIRef& InParticleDataFloatSRV, uint32 InFloatDataOffset, uint32 InFloatDataStride)
 	{
-		DataSet = InDataSet;
+		ParticleDataFloatSRV = InParticleDataFloatSRV;
+		FloatDataOffset = InFloatDataOffset;
+		FloatDataStride = InFloatDataStride;
 	}
 
-	inline FShaderResourceViewRHIParamRef GetFloatDataSRV() const 
-	{ 
-		check(!IsInGameThread());
-		return DataSet->GetRenderDataFloatSRV();
-	}
-	inline FShaderResourceViewRHIParamRef GetIntDataSRV() const 
-	{ 
-		check(!IsInGameThread());
-		return DataSet->GetRenderDataInt32SRV();
+	void SetSortedIndices(const FShaderResourceViewRHIRef& InSortedIndicesSRV, uint32 InSortedIndicesOffset)
+	{
+		SortedIndicesSRV = InSortedIndicesSRV;
+		SortedIndicesOffset = InSortedIndicesOffset;
 	}
 
-	uint32 GetComponentBufferSize() 
-	{ 
-		check(!IsInGameThread());
-		return DataSet->CurrDataRender().GetFloatStride() / sizeof(float);
+	FORCEINLINE FShaderResourceViewRHIRef GetParticleDataFloatSRV()
+	{
+		return ParticleDataFloatSRV;
+	}
+
+	FORCEINLINE int32 GetFloatDataOffset()
+	{
+		return FloatDataOffset;
+	}
+
+	FORCEINLINE int32 GetFloatDataStride()
+	{
+		return FloatDataStride;
+	}
+
+	FORCEINLINE FShaderResourceViewRHIRef GetSortedIndicesSRV()
+	{
+		return SortedIndicesSRV;
+	}
+
+	FORCEINLINE int32 GetSortedIndicesOffset()
+	{
+		return SortedIndicesOffset;
 	}
 
 	void SetFacingMode(uint32 InMode)
@@ -173,7 +195,6 @@ public:
 		return AlignmentMode;
 	}
 
-
 	/**
 	 * Construct shader parameters for this type of vertex factory.
 	 */
@@ -192,7 +213,14 @@ private:
 
 	int32 NumCutoutVerticesPerFrame;
 	FShaderResourceViewRHIParamRef CutoutGeometrySRV;
-	const FNiagaraDataSet *DataSet;
 	uint32 AlignmentMode;
 	uint32 FacingMode;
+	
+	
+	FShaderResourceViewRHIRef ParticleDataFloatSRV;
+	uint32 FloatDataOffset;
+	uint32 FloatDataStride;
+
+	FShaderResourceViewRHIRef SortedIndicesSRV;
+	uint32 SortedIndicesOffset;
 };

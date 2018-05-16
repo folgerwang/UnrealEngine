@@ -117,6 +117,8 @@ void FPaintModePainter::RegisterVertexPaintCommands()
 	UICommandList->MapAction(FPaintModeCommands::Get().Remove, FUIAction(FExecuteAction::CreateRaw(this, &FPaintModePainter::RemoveVertexColors), FCanExecuteAction::CreateRaw(this, &FPaintModePainter::CanRemoveInstanceColors)));
 
 	UICommandList->MapAction(FPaintModeCommands::Get().Fix, FUIAction(FExecuteAction::CreateRaw(this, &FPaintModePainter::FixVertexColors), FCanExecuteAction::CreateRaw(this, &FPaintModePainter::DoesRequireVertexColorsFixup)));
+
+	UICommandList->MapAction(FPaintModeCommands::Get().PropagateVertexColorsToLODs, FUIAction(FExecuteAction::CreateRaw(this, &FPaintModePainter::PropagateVertexColorsToLODs), FCanExecuteAction::CreateRaw(this, &FPaintModePainter::CanPropagateVertexColorsToLODs)));
 }
 
 void FPaintModePainter::Render(const FSceneView* View, FViewport* Viewport, FPrimitiveDrawInterface* PDI)
@@ -253,6 +255,12 @@ bool FPaintModePainter::CanCopyInstanceVertexColors() const
 	}
 
 	return bValidSelection && (NumValidMeshes != 0);
+}
+
+bool FPaintModePainter::CanPropagateVertexColorsToLODs() const
+{
+	// Can propagate when the mesh contains per-lod vertex colors or when we are not painting to a specific lod
+	return bSelectionContainsPerLODColors || !PaintSettings->VertexPaintSettings.bPaintOnSpecificLOD;
 }
 
 void FPaintModePainter::CopyVertexColors()
@@ -401,6 +409,91 @@ void FPaintModePainter::RemoveVertexColors()
 	}
 }
 
+void FPaintModePainter::PropagateVertexColorsToLODs()
+{	
+	//Only show the lost data warning if there is actually some data to loose
+	bool bAbortChange = false;
+	if (bSelectionContainsPerLODColors)
+	{
+		//Warn the user he will loose is custom painting data
+		FSuppressableWarningDialog::FSetupInfo SetupInfo(LOCTEXT("LooseLowersLODsVertexColorsPrompt_Message", "Propagating Vertex Colors from LOD0 to all lower LODs. This mean all lower LODs custom vertex painting will be lost."),
+			LOCTEXT("LooseLowersLODsVertexColorsPrompt_Title", "Warning: Lowers LODs custom vertex painting will be lost!"), "Warning_LooseLowersLODsVertexColorsPrompt");
+
+		SetupInfo.ConfirmText = LOCTEXT("LooseLowersLODsVertexColorsPrompt_ConfirmText", "Continue");
+		SetupInfo.CancelText = LOCTEXT("LooseLowersLODsVertexColorsPrompt_CancelText", "Abort");
+		SetupInfo.CheckBoxText = LOCTEXT("LooseLowersLODsVertexColorsPrompt_CheckBoxText", "Always copy vertex colors without prompting");
+
+		FSuppressableWarningDialog LooseLowersLODsVertexColorsWarning(SetupInfo);
+
+		// Prompt the user to see if they really want to propagate the base lod vert colors to the lowers LODs.
+		if (LooseLowersLODsVertexColorsWarning.ShowModal() == FSuppressableWarningDialog::Cancel)
+		{
+			bAbortChange = true;
+		}
+		else
+		{
+			//Remove painting on all lowers LODs before doing the propagation
+			for (UMeshComponent* SelectedComponent : PaintableComponents)
+			{
+				UStaticMeshComponent *StaticMeshComponent = Cast<UStaticMeshComponent>(SelectedComponent);
+				if (StaticMeshComponent && StaticMeshComponent->GetStaticMesh())
+				{
+					// Mark the mesh component as modified
+					StaticMeshComponent->Modify();
+
+					// If this is called from the Remove button being clicked the SMC wont be in a Reregister context,
+					// but when it gets called from a Paste or Copy to Source operation it's already inside a more specific
+					// SMCRecreateScene context so we shouldn't put it inside another one.
+					if (StaticMeshComponent->IsRenderStateCreated())
+					{
+						// Detach all instances of this static mesh from the scene.
+						FComponentReregisterContext ComponentReregisterContext(StaticMeshComponent);
+
+						for (int32 LODIndex = 1; LODIndex < StaticMeshComponent->LODData.Num(); ++LODIndex)
+						{
+							StaticMeshComponent->RemoveInstanceVertexColorsFromLOD(LODIndex);
+						}
+					}
+					else
+					{
+						for (int32 LODIndex = 1; LODIndex < StaticMeshComponent->LODData.Num(); ++LODIndex)
+						{
+							StaticMeshComponent->RemoveInstanceVertexColorsFromLOD(LODIndex);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	//The user cancel the change, avoid changing the value
+	if (bAbortChange)
+	{
+		return;
+	}	
+
+	for (UMeshComponent* SelectedComponent : PaintableComponents)
+	{
+		TSharedPtr<IMeshPaintGeometryAdapter> MeshAdapter = ComponentToAdapterMap.FindChecked(SelectedComponent);
+		MeshPaintHelpers::ApplyVertexColorsToAllLODs(*MeshAdapter, SelectedComponent);
+		FComponentReregisterContext ReregisterContext(SelectedComponent);
+	}
+
+	Refresh();
+}
+
+void FPaintModePainter::CycleMeshLODs(int32 Direction)
+{
+	if (bCachedForceLOD)
+	{
+		const int32 MaxLODIndex = GetMaxLODIndexToPaint() + 1;
+		const int32 NewLODIndex = PaintSettings->VertexPaintSettings.LODIndex + Direction;
+		const int32 AdjustedLODIndex = NewLODIndex < 0 ? MaxLODIndex + NewLODIndex : NewLODIndex % MaxLODIndex;
+		PaintSettings->VertexPaintSettings.LODIndex = AdjustedLODIndex;
+		PaintLODChanged();
+	}
+}
+
 bool FPaintModePainter::CanSaveMeshPackages() const
 {
 	// Check whether or not any of our selected mesh components contain mesh objects which require saving
@@ -544,6 +637,9 @@ void FPaintModePainter::RegisterCommands(TSharedRef<FUICommandList> CommandList)
 		}
 	}));
 
+	CommandList->MapAction(Commands.CycleToNextLOD, FExecuteAction::CreateRaw(this, &FPaintModePainter::CycleMeshLODs, 1));
+	CommandList->MapAction(Commands.CycleToPreviousLOD, FExecuteAction::CreateRaw(this, &FPaintModePainter::CycleMeshLODs, -1));
+
 	/** Map commit texture painting to commiting all the outstanding paint changes */
 	auto CanCommitLambda = [this]() -> bool { return GetNumberOfPendingPaintChanges() > 0; };
 	CommandList->MapAction(Commands.CommitTexturePainting, FExecuteAction::CreateLambda([this]() { CommitAllPaintedTextures(); }), FCanExecuteAction::CreateLambda([this]() -> bool { return GetNumberOfPendingPaintChanges() > 0; }));
@@ -646,10 +742,6 @@ void FPaintModePainter::ActorDeselected(AActor* Actor)
 			/** If in vertex painting mode ensure we reset forced LOD rendering and propagate vertex colors to other LODs if necessary */
 			else if (PaintSettings->PaintMode == EPaintMode::Vertices)
 			{
-				if (!bCachedForceLOD)
-				{
-					MeshPaintHelpers::ApplyVertexColorsToAllLODs(*Adapter, MeshComponent);
-				}
 				MeshPaintHelpers::ForceRenderMeshLOD(MeshComponent, -1);
 				FComponentReregisterContext ReregisterContext(MeshComponent);
 			}
@@ -684,6 +776,11 @@ void FPaintModePainter::FinishPainting()
 	/** Reset state and apply outstanding paint data*/
 	IMeshPainter::FinishPainting();	
 	FinishPaintingTexture();	
+
+	if (PaintSettings->PaintMode == EPaintMode::Vertices && !PaintSettings->VertexPaintSettings.bPaintOnSpecificLOD)
+	{
+		PropagateVertexColorsToLODs();
+	}
 }
 
 bool FPaintModePainter::PaintInternal(const FVector& InCameraOrigin, const FVector& InRayOrigin, const FVector& InRayDirection, EMeshPaintAction PaintAction, float PaintStrength)
@@ -930,13 +1027,6 @@ void FPaintModePainter::Reset()
 	//If we're painting vertex colors then propagate the painting done on LOD0 to all lower LODs. 
 	//Then stop forcing the LOD level of the mesh to LOD0.
 	ApplyForcedLODIndex(-1);
-	if (!PaintSettings->VertexPaintSettings.bPaintOnSpecificLOD)
-	{
-		for (auto Pair : ComponentToAdapterMap)
-		{
-			MeshPaintHelpers::ApplyVertexColorsToAllLODs(*Pair.Value.Get(), Pair.Key);
-		}
-	}
 
 	// If the user has pending changes and the editor is not exiting, we want to do the commit for all the modified textures.
 	if ((GetNumberOfPendingPaintChanges() > 0) && !GIsRequestingExit)
@@ -1025,83 +1115,16 @@ void FPaintModePainter::LODPaintStateChanged(const bool bLODPaintingEnabled)
 {
 	checkf(PaintSettings->PaintMode == EPaintMode::Vertices, TEXT("Can only change this state in vertex paint mode"));
 	bool AbortChange = false;
-	if (!bLODPaintingEnabled)
-	{
-		//Only show the lost data warning if there is actually some data to loose
-		if (bSelectionContainsPerLODColors)
-		{
-			//Warn the user he will loose is custom painting data
-			FSuppressableWarningDialog::FSetupInfo SetupInfo(LOCTEXT("LooseLowersLODsVertexColorsPrompt_Message", "Changing from custom LODs to base LOD only painting will propagate the base lod vertex color to all lowers LODs. This mean all lowers LODs custom vertex painting will be lost."),
-				LOCTEXT("LooseLowersLODsVertexColorsPrompt_Title", "Warning: Lowers LODs custom vertex painting will be lost!"), "Warning_LooseLowersLODsVertexColorsPrompt");
-
-			SetupInfo.ConfirmText = LOCTEXT("LooseLowersLODsVertexColorsPrompt_ConfirmText", "Continue");
-			SetupInfo.CancelText = LOCTEXT("LooseLowersLODsVertexColorsPrompt_CancelText", "Abort");
-			SetupInfo.CheckBoxText = LOCTEXT("LooseLowersLODsVertexColorsPrompt_CheckBoxText", "Always copy vertex colors without prompting");
-
-			FSuppressableWarningDialog LooseLowersLODsVertexColorsWarning(SetupInfo);
-
-			// Prompt the user to see if they really want to propagate the base lod vert colors to the lowers LODs.
-			if (LooseLowersLODsVertexColorsWarning.ShowModal() == FSuppressableWarningDialog::Cancel)
-			{
-				AbortChange = true;
-			}
-			else
-			{
-				//Remove painting on all lowers LODs before doing the propagation
-				for (UMeshComponent* SelectedComponent : PaintableComponents)
-				{
-					UStaticMeshComponent *StaticMeshComponent = Cast<UStaticMeshComponent>(SelectedComponent);
-					if (StaticMeshComponent && StaticMeshComponent->GetStaticMesh())
-					{
-						// Mark the mesh component as modified
-						StaticMeshComponent->Modify();
-
-						// If this is called from the Remove button being clicked the SMC wont be in a Reregister context,
-						// but when it gets called from a Paste or Copy to Source operation it's already inside a more specific
-						// SMCRecreateScene context so we shouldn't put it inside another one.
-						if (StaticMeshComponent->IsRenderStateCreated())
-						{
-							// Detach all instances of this static mesh from the scene.
-							FComponentReregisterContext ComponentReregisterContext(StaticMeshComponent);
-
-							for (int32 LODIndex = 1; LODIndex < StaticMeshComponent->LODData.Num(); ++LODIndex)
-							{
-								StaticMeshComponent->RemoveInstanceVertexColorsFromLOD(LODIndex);
-							}
-						}
-						else
-						{
-							for (int32 LODIndex = 1; LODIndex < StaticMeshComponent->LODData.Num(); ++LODIndex)
-							{
-								StaticMeshComponent->RemoveInstanceVertexColorsFromLOD(LODIndex);
-							}
-						}
-					}
-				}
-			}
-		}
 	
-		//The user cancel the change, avoid changing the value
-		if (AbortChange)
-		{
-			return;
-		}
-	}
-
-	for (UMeshComponent* SelectedComponent : PaintableComponents)
-	{
-		//Always propagate the base LOD when we switch the painting to all LODs
-		//In case we go from false to true, we want to tweak the propagation of the base LOD
-		//In case we go from true to false, we want to force a propagate to be sure the custom painting is done over what the user already paint
-		//In case the staticmesh has some data comming from fbx, the propagate will not do anything
-		//if there is nothing that was overrite in the base LOD. So the user will be able to paint
-		//over the painting done in a DCC.
-		TSharedPtr<IMeshPaintGeometryAdapter> MeshAdapter = ComponentToAdapterMap.FindChecked(SelectedComponent);
-		MeshPaintHelpers::ApplyVertexColorsToAllLODs(*MeshAdapter, SelectedComponent);
-	}
-
 	// Set actual flag in the settings struct
 	PaintSettings->VertexPaintSettings.bPaintOnSpecificLOD = bLODPaintingEnabled;
+
+	if (!bLODPaintingEnabled)
+	{
+		// Reset painting LOD index
+		PaintSettings->VertexPaintSettings.LODIndex = 0;
+
+	}
 
 	ApplyForcedLODIndex(bLODPaintingEnabled ? CachedLODIndex : -1);
 	TUniquePtr< FComponentReregisterContext > ComponentReregisterContext;
@@ -1688,6 +1711,12 @@ void FPaintModePainter::FinishPaintingTexture()
 		PaintingTexture2D = nullptr;
 		TexturePaintingCurrentMeshComponent = nullptr;
 	}
+
+	if (bCachedForceLOD)
+	{
+		// Make assumption here that when we paint while having a forced lod the mesh will contain per-lod vertex colors after this
+		bSelectionContainsPerLODColors = true;
+	}
 }
 
 FPaintTexture2DData* FPaintModePainter::GetPaintTargetData(const UTexture2D* InTexture)
@@ -2155,7 +2184,7 @@ void FPaintModePainter::CacheSelectionData()
 	// Update (cached) Paint LOD level if necessary
 	PaintSettings->VertexPaintSettings.LODIndex = FMath::Min<int32>(PaintSettings->VertexPaintSettings.LODIndex, GetMaxLODIndexToPaint());
 	CachedLODIndex = PaintSettings->VertexPaintSettings.LODIndex;
-
+	bCachedForceLOD = PaintSettings->VertexPaintSettings.bPaintOnSpecificLOD;
 	// Determine LOD level to use for painting (can only paint on LODs in vertex mode)
 	const int32 PaintLODIndex = (PaintSettings->PaintMode == EPaintMode::Vertices && PaintSettings->VertexPaintSettings.bPaintOnSpecificLOD) ? PaintSettings->VertexPaintSettings.LODIndex : 0;
 	// Determine UV channel to use while painting textures

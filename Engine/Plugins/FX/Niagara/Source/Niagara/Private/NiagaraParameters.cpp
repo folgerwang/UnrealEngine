@@ -11,6 +11,15 @@ void FNiagaraParameters::Empty()
 	Parameters.Empty();
 }
 
+void FNiagaraParameters::DumpParameters()
+{
+	for (FNiagaraVariable& Var : Parameters)
+	{
+		UE_LOG(LogNiagara, Log, TEXT("Param: %s Type : %s"), *Var.ToString(), *Var.GetType().GetName());
+	}
+}
+
+
 void FNiagaraParameters::AppendToConstantsTable(uint8* ConstantsTable, const FNiagaraParameters& Externals)const
 {
 	uint8* Curr = ConstantsTable;

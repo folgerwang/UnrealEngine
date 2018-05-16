@@ -23,6 +23,7 @@ UObject* UNiagaraParameterCollectionFactoryNew::FactoryCreateNew(UClass* Class, 
 	check(Class->IsChildOf(UNiagaraParameterCollection::StaticClass()));
 
 	UNiagaraParameterCollection* NewCollection = NewObject<UNiagaraParameterCollection>(InParent, Class, Name, Flags | RF_Transactional);
+	NewCollection->RefreshCompileId();
 
 	return NewCollection;
 }

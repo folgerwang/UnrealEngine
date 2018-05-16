@@ -435,41 +435,6 @@ TSharedRef<ITableRow> SNiagaraParameterCollection::OnGenerateRowForParameter(TSh
 			];
 	}
 
-	// Type Widget
-	TSharedPtr<SWidget> TypeWidget;
-	if (Item->CanChangeParameterType())
-	{
-		// Because we use templating behind the scenes to get the combo box to work, we will ultimately end up comparing the SharedPtr's by pointer value.
-		// Since the Available Types array comes from one location and the current type comes from another, their smart pointers are not guaranteed to 
-		// point to the same FNiagaraTypeDefinition in memory. We need to enforce that the current type is from the values in the AvailableTypes array, which is why 
-		// we look up the current type before creating the combo box.
-		const TArray<TSharedPtr<FNiagaraTypeDefinition>>& AvailableTypes = Collection->GetAvailableTypes();
-		TSharedPtr<FNiagaraTypeDefinition> CurrentType = Item->GetType();
-		if (CurrentType.IsValid())
-		{
-			const TSharedPtr<FNiagaraTypeDefinition>* CurrentTypeFromAvailableList = AvailableTypes.FindByPredicate([&](const TSharedPtr<FNiagaraTypeDefinition>& AvailableType) { return (*AvailableType.Get()) == (*CurrentType.Get()); });
-			if (CurrentTypeFromAvailableList != nullptr)
-				CurrentType = *CurrentTypeFromAvailableList;
-		}
-
-		SAssignNew(TypeWidget, SComboBox<TSharedPtr<FNiagaraTypeDefinition>>)
-			.OptionsSource(&AvailableTypes)
-			.OnGenerateWidget(this, &SNiagaraParameterCollection::OnGenerateWidgetForTypeComboBox)
-			.OnSelectionChanged(Item, &INiagaraParameterViewModel::SelectedTypeChanged)
-			.InitiallySelectedItem(CurrentType)
-			.Content()
-			[
-				SNew(STextBlock)
-				.TextStyle(FEditorStyle::Get(), "SmallText")
-				.Text(Item, &INiagaraParameterViewModel::GetTypeDisplayName)
-			];
-	}
-	else
-	{
-		SAssignNew(TypeWidget, STextBlock)
-			.Text(Item, &INiagaraParameterViewModel::GetTypeDisplayName);
-	}
-
 //#define DEBUG_SORT_ORDER
 #if defined(DEBUG_SORT_ORDER)
 	TSharedPtr<SWidget> SortOrderWidget;
@@ -486,12 +451,11 @@ TSharedRef<ITableRow> SNiagaraParameterCollection::OnGenerateRowForParameter(TSh
 	// Details and parameter editor widgets.
 	TSharedPtr<SWidget> CustomValueEditor;
 	TSharedPtr<SWidget> DetailsWidget;
-	bool bCanEdit = Item->IsEditingEnabled();//Can I veiw the details view but disable edits?
-	if (bCanEdit && Item->GetDefaultValueType() == INiagaraParameterViewModel::EDefaultValueType::Struct)
+	if (Item->GetDefaultValueType() == INiagaraParameterViewModel::EDefaultValueType::Struct)
 	{
 		FNiagaraEditorModule& NiagaraEditorModule = FModuleManager::GetModuleChecked<FNiagaraEditorModule>("NiagaraEditor");
 		FNiagaraTypeDefinition ParameterType = *Item->GetType().Get();
-		TSharedPtr<INiagaraEditorTypeUtilities> TypeEditorUtilities = NiagaraEditorModule.GetTypeUtilities(ParameterType);
+		TSharedPtr<INiagaraEditorTypeUtilities, ESPMode::ThreadSafe> TypeEditorUtilities = NiagaraEditorModule.GetTypeUtilities(ParameterType);
 		TSharedPtr<SNiagaraParameterEditor> ParameterEditor;
 		if (TypeEditorUtilities.IsValid() && TypeEditorUtilities->CanCreateParameterEditor())
 		{
@@ -514,17 +478,18 @@ TSharedRef<ITableRow> SNiagaraParameterCollection::OnGenerateRowForParameter(TSh
 
 		StructureDetailsView->SetStructureData(Item->GetDefaultValueStruct());
 		StructureDetailsView->GetOnFinishedChangingPropertiesDelegate().AddSP(Item, &INiagaraParameterViewModel::NotifyDefaultValuePropertyChanged);
-
+		
 		Item->OnDefaultValueChanged().AddSP(this, &SNiagaraParameterCollection::ParameterViewModelDefaultValueChanged, Item, ParameterEditor, StructureDetailsView);
 		Item->OnTypeChanged().AddSP(this, &SNiagaraParameterCollection::ParameterViewModelTypeChanged);
 
 		CustomValueEditor = ParameterEditor;
 		DetailsWidget = StructureDetailsView->GetWidget();
+		DetailsWidget->SetEnabled(Item->IsEditingEnabled());
 	}
-	else if (bCanEdit && Item->GetDefaultValueType() == INiagaraParameterViewModel::EDefaultValueType::Object)
+	else if (Item->GetDefaultValueType() == INiagaraParameterViewModel::EDefaultValueType::Object)
 	{
 		FNiagaraEditorModule& NiagaraEditorModule = FModuleManager::GetModuleChecked<FNiagaraEditorModule>("NiagaraEditor");
-		TSharedPtr<INiagaraEditorTypeUtilities> TypeEditorUtilities = NiagaraEditorModule.GetTypeUtilities(*Item->GetType().Get());
+		TSharedPtr<INiagaraEditorTypeUtilities, ESPMode::ThreadSafe> TypeEditorUtilities = NiagaraEditorModule.GetTypeUtilities(*Item->GetType().Get());
 		if (TypeEditorUtilities.IsValid() && TypeEditorUtilities->CanCreateDataInterfaceEditor())
 		{
 			CustomValueEditor = TypeEditorUtilities->CreateDataInterfaceEditor(Item->GetDefaultValueObject(),
@@ -545,6 +510,9 @@ TSharedRef<ITableRow> SNiagaraParameterCollection::OnGenerateRowForParameter(TSh
 
 	if (CustomValueEditor.IsValid())
 	{
+		// Should the value of the parameter be enabled?
+		CustomValueEditor->SetEnabled(Item->IsEditingEnabled());
+
 		return SNew(STableRow<TSharedRef<INiagaraParameterViewModel>>, OwnerTable)
 		//.IsEnabled(TAttribute<bool>(Item, &INiagaraParameterViewModel::IsEditingEnabled))
 		.ToolTipText(TAttribute<FText>(Item, &INiagaraParameterViewModel::GetTooltip))
@@ -596,12 +564,6 @@ TSharedRef<ITableRow> SNiagaraParameterCollection::OnGenerateRowForParameter(TSh
 				.AutoHeight()
 				.Padding(25, 2, 0, 0)
 				[
-					TypeWidget.ToSharedRef()
-				]
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(25, 2, 0, 0)
-				[
 					DetailsWidget.ToSharedRef()
 				]
 			]
@@ -636,12 +598,6 @@ TSharedRef<ITableRow> SNiagaraParameterCollection::OnGenerateRowForParameter(TSh
 				.OnSlotResized(SSplitter::FOnSlotResized::CreateSP(this, &SNiagaraParameterCollection::ParameterContentColumnWidthChanged))
 				[
 					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(FMargin(3, 0, 0, 0))
-					[
-						TypeWidget.ToSharedRef()
-					]
 #if defined(DEBUG_SORT_ORDER)
 					+ SHorizontalBox::Slot()
 					.AutoWidth()

@@ -178,6 +178,9 @@ void FNiagaraSystemUpdateContext::AddInternal(UNiagaraComponent* Comp, bool bReI
 	}
 }
 
+
+//////////////////////////////////////////////////////////////////////////
+
 FName NIAGARA_API FNiagaraUtilities::GetUniqueName(FName CandidateName, const TSet<FName>& ExistingNames)
 {
 	if (ExistingNames.Contains(CandidateName) == false)
@@ -201,4 +204,100 @@ FName NIAGARA_API FNiagaraUtilities::GetUniqueName(FName CandidateName, const TS
 	}
 
 	return UniqueName;
+}
+
+FNiagaraVariable FNiagaraUtilities::ConvertVariableToRapidIterationConstantName(FNiagaraVariable InVar, const TCHAR* InEmitterName, ENiagaraScriptUsage InUsage)
+{
+	FNiagaraVariable Var = InVar;
+
+	TArray<FString> SplitName;
+	Var.GetName().ToString().ParseIntoArray(SplitName, TEXT("."));
+	int32 NumSlots = SplitName.Num();
+	if (InEmitterName != nullptr)
+	{
+		for (int32 i = 0; i < NumSlots; i++)
+		{
+			if (SplitName[i] == TEXT("Emitter"))
+			{
+				SplitName[i] = InEmitterName;
+			}
+		}
+
+		if (NumSlots >= 3 && SplitName[0] == InEmitterName)
+		{
+			// Do nothing
+			UE_LOG(LogNiagara, Log, TEXT("ConvertVariableToRapidIterationConstantName Got here!"));
+		}
+		else
+		{
+			SplitName.Insert(InEmitterName, 0);
+		}
+		SplitName.Insert(TEXT("Constants"), 0);
+	}
+	else
+	{
+		SplitName.Insert(TEXT("Constants"), 0);
+	}
+
+	FString OutVarStrName = FString::Join<FString>(SplitName, TEXT("."));
+	Var.SetName(*OutVarStrName);
+	return Var;
+}
+
+void FNiagaraUtilities::CollectScriptDataInterfaceParameters(const UObject& Owner, const TArray<UNiagaraScript*>& Scripts, FNiagaraParameterStore& OutDataInterfaceParameters)
+{
+	for (UNiagaraScript* Script : Scripts)
+	{
+		for (FNiagaraScriptDataInterfaceInfo& DataInterfaceInfo : Script->GetCachedDefaultDataInterfaces())
+		{
+			if (DataInterfaceInfo.RegisteredParameterMapWrite != NAME_None)
+			{
+				FNiagaraVariable DataInterfaceParameter(DataInterfaceInfo.Type, DataInterfaceInfo.RegisteredParameterMapWrite);
+				if (OutDataInterfaceParameters.AddParameter(DataInterfaceParameter, false, false))
+				{
+					OutDataInterfaceParameters.SetDataInterface(DataInterfaceInfo.DataInterface, DataInterfaceParameter);
+				}
+				else
+				{
+					UE_LOG(LogNiagara, Error, TEXT("Duplicate data interface parameter writes found, simulation will be incorrect.  Owner: %s Parameter: %s"),
+						*Owner.GetPathName(), *DataInterfaceInfo.RegisteredParameterMapWrite.ToString());
+				}
+			}
+		}
+	}
+}
+
+bool FNiagaraScriptDataInterfaceCompileInfo::CanExecuteOnTarget(ENiagaraSimTarget SimTarget) const
+{
+	check(IsInGameThread());
+	UNiagaraDataInterface* Obj = GetDefaultDataInterface();
+	if (Obj)
+	{
+		return Obj->CanExecuteOnTarget(SimTarget);
+	}
+	check(false);
+	return false;
+}
+
+bool FNiagaraScriptDataInterfaceCompileInfo::IsSystemSolo() const
+{
+	check(IsInGameThread());
+	if (Name.ToString().StartsWith("User."))
+	{
+		return true;
+	}
+
+	UNiagaraDataInterface* Obj = GetDefaultDataInterface();
+	if (Obj && Obj->PerInstanceDataSize() > 0)
+	{
+		return true;
+	}
+	return false;
+}
+
+UNiagaraDataInterface* FNiagaraScriptDataInterfaceCompileInfo::GetDefaultDataInterface() const
+{
+	check(IsInGameThread());
+	UNiagaraDataInterface* Obj = CastChecked<UNiagaraDataInterface>(const_cast<UClass*>(Type.GetClass())->GetDefaultObject(true));
+	return Obj;
 }

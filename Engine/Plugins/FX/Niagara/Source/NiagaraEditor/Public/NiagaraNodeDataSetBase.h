@@ -42,8 +42,9 @@ public:
 	//~ End UNiagaraNode Interface
 
 	bool InitializeFromStruct(const UStruct* ReferenceStruct);
-	
+		
 protected:
+	void AddParameterMapPins();
 	bool InitializeFromStructInternal(const UStruct* PayloadStruct);
 
 	bool IsSynchronizedWithStruct(bool bIgnoreConditionVar, FString* Issues, bool bLogIssues = true);
@@ -51,5 +52,7 @@ protected:
 	bool GetSupportedNiagaraTypeDef(const UProperty* Property, FNiagaraTypeDefinition& TypeDef);
 
 	static const FName ConditionVarName;
+	static const FName ParamMapInVarName;
+	static const FName ParamMapOutVarName;
 };
 

@@ -7,8 +7,8 @@
 #include "Widgets/Input/SSearchBox.h"
 #include "Widgets/Input/SButton.h"
 #include "ISequencer.h"
-#include "NiagaraSystemViewModel.h"
-#include "NiagaraEmitterHandleViewModel.h"
+#include "ViewModels/NiagaraSystemViewModel.h"
+#include "ViewModels/NiagaraEmitterHandleViewModel.h"
 #include "NiagaraEmitterHandle.h"
 #include "NiagaraEmitter.h"
 #include "NiagaraScript.h"
@@ -323,13 +323,9 @@ void SNiagaraGeneratedCodeView::UpdateUI()
 	TArray<UNiagaraScript*> Scripts;
 	TArray<uint32> ScriptDisplayTypes;
 	UNiagaraSystem& System = SystemViewModel->GetSystem();
-	Scripts.Add(System.GetSystemSpawnScript(false));
+	Scripts.Add(System.GetSystemSpawnScript());
 	ScriptDisplayTypes.Add(0);
-	Scripts.Add(System.GetSystemUpdateScript(false));
-	ScriptDisplayTypes.Add(0);
-	Scripts.Add(System.GetSystemSpawnScript(true));
-	ScriptDisplayTypes.Add(0);
-	Scripts.Add(System.GetSystemUpdateScript(true));
+	Scripts.Add(System.GetSystemUpdateScript());
 	ScriptDisplayTypes.Add(0);
 
 	TArray<TSharedRef<FNiagaraEmitterHandleViewModel>> SelectedEmitterHandles;
@@ -348,18 +344,18 @@ void SNiagaraGeneratedCodeView::UpdateUI()
 
 	// find the particle spawn script
 	TArray<UNiagaraScript*> DupeScriptsForAssembly;
-	UNiagaraScript *ParticleSpawnScript = nullptr;
+	UNiagaraScript* ParticleGPUScript = nullptr;
 	for (UNiagaraScript *Script : Scripts)
 	{
 		DupeScriptsForAssembly.Add(Script);
 		ScriptDisplayTypes.Add(2);
-		if (Script->Usage == ENiagaraScriptUsage::ParticleSpawnScript || Script->Usage == ENiagaraScriptUsage::ParticleSpawnScriptInterpolated)
+		if (Script->Usage == ENiagaraScriptUsage::ParticleGPUComputeScript)
 		{
-			ParticleSpawnScript = Script;
+			ParticleGPUScript = Script;
 		}
 	}
 	Scripts.Append(DupeScriptsForAssembly);
-	Scripts.Add(ParticleSpawnScript); // add for the GPU update/spawn script
+	Scripts.Add(ParticleGPUScript); // add for the GPU update/spawn script
 	ScriptDisplayTypes.Add(1);
 		
 	GeneratedCode.SetNum(Scripts.Num());
@@ -384,20 +380,29 @@ void SNiagaraGeneratedCodeView::UpdateUI()
 			// GPU combined spawn / update script
 			if (bIsGPU)
 			{
-				GeneratedCode[i].Usage = ENiagaraScriptUsage::ParticleSpawnScript;
-				ParticleSpawnScript->LastHlslTranslationGPU.ParseIntoArrayLines(OutputByLines, false);
+				GeneratedCode[i].Usage = Scripts[i]->Usage;
+				if (ParticleGPUScript->GetVMExecutableData().IsValid())
+				{
+					ParticleGPUScript->GetVMExecutableData().LastHlslTranslationGPU.ParseIntoArrayLines(OutputByLines, false);
+				}
 			}
 			else if (bIsAssembly)
 			{
 				GeneratedCode[i].Usage = Scripts[i]->Usage;
 				GeneratedCode[i].UsageId = Scripts[i]->GetUsageId();
-				Scripts[i]->LastAssemblyTranslation.ParseIntoArrayLines(OutputByLines, false);
+				if (Scripts[i]->GetVMExecutableData().IsValid())
+				{
+					Scripts[i]->GetVMExecutableData().LastAssemblyTranslation.ParseIntoArrayLines(OutputByLines, false);
+				}
 			}
 			else
 			{
 				GeneratedCode[i].Usage = Scripts[i]->Usage;
 				GeneratedCode[i].UsageId = Scripts[i]->GetUsageId();
-				Scripts[i]->LastHlslTranslation.ParseIntoArrayLines(OutputByLines, false);
+				if (Scripts[i]->GetVMExecutableData().IsValid())
+				{
+					Scripts[i]->GetVMExecutableData().LastHlslTranslation.ParseIntoArrayLines(OutputByLines, false);
+				}
 			}
 		}
 		else
@@ -408,9 +413,9 @@ void SNiagaraGeneratedCodeView::UpdateUI()
 		GeneratedCode[i].HlslByLines.SetNum(OutputByLines.Num());
 		if (bIsAssembly)
 		{
-			if (Scripts[i] != nullptr)
+			if (Scripts[i] != nullptr && Scripts[i]->GetVMExecutableData().IsValid())
 			{
-				GeneratedCode[i].Hlsl = FText::FromString(Scripts[i]->LastAssemblyTranslation);
+				GeneratedCode[i].Hlsl = FText::FromString(Scripts[i]->GetVMExecutableData().LastAssemblyTranslation);
 			}
 			GeneratedCode[i].HlslByLines = OutputByLines;
 		}
@@ -439,7 +444,7 @@ void SNiagaraGeneratedCodeView::UpdateUI()
 			GeneratedCode[i].UsageName = FText::Format(LOCTEXT("UsageNameEvent", "{0}-{1}{2}"), ScriptEnum->GetDisplayNameTextByValue((int64)Scripts[i]->Usage), EventName, bIsAssembly ? AssemblyIdText : FText::GetEmpty());
 		}
 		// GPU combined spawn / update script
-		else if (i == GeneratedCode.Num() - 1 && Scripts[i]->Usage == ENiagaraScriptUsage::ParticleSpawnScript)
+		else if (bIsGPU && i == GeneratedCode.Num() - 1 && Scripts[i]->IsParticleSpawnScript())
 		{
 			GeneratedCode[i].UsageName = LOCTEXT("UsageNameGPU", "GPU Spawn/Update");
 		}
@@ -518,7 +523,10 @@ SNiagaraGeneratedCodeView::~SNiagaraGeneratedCodeView()
 	if (SystemViewModel.IsValid())
 	{
 		SystemViewModel->OnSelectedEmitterHandlesChanged().RemoveAll(this);
-		SystemViewModel->GetSystemScriptViewModel()->OnSystemCompiled().RemoveAll(this);
+		if (SystemViewModel->GetSystemScriptViewModel().IsValid())
+		{
+			SystemViewModel->GetSystemScriptViewModel()->OnSystemCompiled().RemoveAll(this);
+		}
 	}
 	
 }

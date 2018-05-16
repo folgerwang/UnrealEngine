@@ -417,24 +417,11 @@ public class Engine : ModuleRules
 				"libOpus"
 				);
 		}
-/*
-		ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, System.IO.DirectoryReference.FromFile(Target.ProjectFile), Target.Platform);
-		bool bLocalVectorFieldOnly = false;
-		Ini.GetBool("/Script/Engine.RendererSettings", "bGPUParticlesLocalVFOnly", out bLocalVectorFieldOnly);
-		if (bLocalVectorFieldOnly)
-		{
-			PublicDefinitions.Add("GPUPARTICLE_LOCAL_VF_ONLY=1");
-		}
-		else
-		{
-			PublicDefinitions.Add("GPUPARTICLE_LOCAL_VF_ONLY=0");
-		}
-*/
 
 		PublicDefinitions.Add("GPUPARTICLE_LOCAL_VF_ONLY=0");
 
-		// Add a reference to the stats HTML files referenced by UEngine::DumpFPSChartToHTML. Previously staged by CopyBuildToStagingDirectory.
-    if (Target.bBuildEditor || Target.Configuration != UnrealTargetConfiguration.Shipping)
+        // Add a reference to the stats HTML files referenced by UEngine::DumpFPSChartToHTML. Previously staged by CopyBuildToStagingDirectory.
+        if (Target.bBuildEditor || Target.Configuration != UnrealTargetConfiguration.Shipping)
 		{
 			RuntimeDependencies.Add("$(EngineDir)/Content/Stats/...", StagedFileType.UFS);
 		}

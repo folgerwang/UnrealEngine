@@ -100,11 +100,18 @@ TArray<UMovieSceneTrack*> FSequencerSelection::GetSelectedTracks() const
 	
 	for (const TSharedRef<FSequencerDisplayNode>& SelectedNode : SelectedOutlinerNodes)
 	{
-		if (SelectedNode->GetType() == ESequencerNode::Track)
+		TSharedPtr<FSequencerDisplayNode> CurrentNode = SelectedNode;
+		while (CurrentNode.IsValid() && CurrentNode->GetType() != ESequencerNode::Track)
 		{
-			if (UMovieSceneTrack* Track = StaticCastSharedRef<FSequencerTrackNode>(SelectedNode)->GetTrack())
+			CurrentNode = CurrentNode->GetParent();
+		}
+
+		if (CurrentNode.IsValid())
+		{
+			UMovieSceneTrack* SelectedTrack = StaticCastSharedPtr<FSequencerTrackNode>(CurrentNode)->GetTrack();
+			if (SelectedTrack != nullptr)
 			{
-				OutTracks.Add(Track);
+				OutTracks.Add(SelectedTrack);
 			}
 		}
 	}

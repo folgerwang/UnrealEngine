@@ -18,7 +18,9 @@
 #include "UObject/NameTypes.h"
 #include "NiagaraParameterCollection.h"
 #include "NiagaraWorldManager.h"
+#include "EngineUtils.h"
 
+DECLARE_CYCLE_STAT(TEXT("Sceneproxy create (GT)"), STAT_NiagaraCreateSceneProxy, STATGROUP_Niagara);
 DECLARE_CYCLE_STAT(TEXT("Component Tick (GT)"), STAT_NiagaraComponentTick, STATGROUP_Niagara);
 DECLARE_CYCLE_STAT(TEXT("Activate (GT)"), STAT_NiagaraComponentActivate, STATGROUP_Niagara);
 DECLARE_CYCLE_STAT(TEXT("Deactivate (GT)"), STAT_NiagaraComponentDeactivate, STATGROUP_Niagara);
@@ -26,6 +28,68 @@ DECLARE_CYCLE_STAT(TEXT("Send Render Data (GT)"), STAT_NiagaraComponentSendRende
 DECLARE_CYCLE_STAT(TEXT("Get Dynamic Mesh Elements (RT)"), STAT_NiagaraComponentGetDynamicMeshElements, STATGROUP_Niagara);
 
 DEFINE_LOG_CATEGORY(LogNiagara);
+
+static int32 GbSuppressNiagaraSystems = 0;
+static FAutoConsoleVariableRef CVarSuppressNiagaraSystems(
+	TEXT("fx.SuppressNiagaraSystems"),
+	GbSuppressNiagaraSystems,
+	TEXT("If > 0 Niagara particle systems will not be activated. \n"),
+	ECVF_Default
+);
+
+
+void DumpNiagaraComponents(UWorld* World)
+{
+	for (TActorIterator<AActor> ActorItr(World); ActorItr; ++ActorItr)
+	{
+		TArray<UNiagaraComponent*> Components;
+		ActorItr->GetComponents<UNiagaraComponent>(Components, true);
+		if (Components.Num() != 0)
+		{
+			UE_LOG(LogNiagara, Log, TEXT("Actor: \"%s\" ... %d Components"), *ActorItr->GetName(), Components.Num());
+		}
+
+		for (UNiagaraComponent* Component : Components)
+		{
+			if (Component != nullptr)
+			{
+				UNiagaraSystem* Sys = Component->GetAsset();
+				FNiagaraSystemInstance* SysInst = Component->GetSystemInstance();
+				if (!Sys)
+				{
+					UE_LOG(LogNiagara, Log, TEXT("Component: \"%s\" ... no system"), *Component->GetName());
+
+				}
+				else if (Sys && !SysInst)
+				{
+					UE_LOG(LogNiagara, Log, TEXT("Component: \"%s\" System: \"%s\" ... no instance"), *Component->GetName(), *Sys->GetName());
+
+				}
+				else
+				{
+					UE_LOG(LogNiagara, Log, TEXT("Component: \"%s\" System: \"%s\" | ReqExecState: %d | ExecState: %d | bIsActive: %d"), *Component->GetName(), *Sys->GetName(),
+						(int32)SysInst->GetRequestedExecutionState(), (int32)SysInst->GetActualExecutionState(), Component->bIsActive);
+
+					if (!SysInst->IsComplete())
+					{
+						for (TSharedRef<FNiagaraEmitterInstance> Emitter : SysInst->GetEmitters())
+						{
+							UE_LOG(LogNiagara, Log, TEXT("    Emitter: \"%s\" | ExecState: %d | NumParticles: %d | CPUTime: %f"), *Emitter->GetEmitterHandle().GetUniqueInstanceName(),
+								(int32)Emitter->GetExecutionState(), Emitter->GetNumParticles(), Emitter->GetTotalCPUTime());
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+FAutoConsoleCommandWithWorld DumpNiagaraComponentsCommand(
+	TEXT("DumpNiagaraComponents"),
+	TEXT("Dump Existing Niagara Components"),
+	FConsoleCommandWithWorldDelegate::CreateStatic(&DumpNiagaraComponents)
+);
+
 
 FNiagaraSceneProxy::FNiagaraSceneProxy(const UNiagaraComponent* InComponent)
 		: FPrimitiveSceneProxy(InComponent)
@@ -36,7 +100,7 @@ FNiagaraSceneProxy::FNiagaraSceneProxy(const UNiagaraComponent* InComponent)
 	FNiagaraSystemInstance* SystemInst = InComponent->GetSystemInstance();
 	if (SystemInst)
 	{
-		TArray<TSharedRef<FNiagaraEmitterInstance> > Sims = SystemInst->GetEmitters();
+		TArray<TSharedRef<FNiagaraEmitterInstance> > &Sims = SystemInst->GetEmitters();
 		TArray<NiagaraRenderer*> RenderersFromSims;
 		for (TSharedRef<FNiagaraEmitterInstance> Sim : Sims)
 		{
@@ -57,20 +121,26 @@ SIZE_T FNiagaraSceneProxy::GetTypeHash() const
 	static size_t UniquePointer;
 	return reinterpret_cast<size_t>(&UniquePointer);
 }
-
-void FNiagaraSceneProxy::AddEmitterRenderer(NiagaraRenderer* Renderer)
-{
-	EmitterRenderers.Add(Renderer); 
-	//UE_LOG(LogNiagara, Warning, TEXT("FNiagaraSceneProxy::AddEmitterRenderer %p"), Renderer);
-}
-
 void FNiagaraSceneProxy::UpdateEmitterRenderers(TArray<NiagaraRenderer*>& InRenderers)
 {
 	EmitterRenderers.Empty();
 	for (NiagaraRenderer* EmitterRenderer : InRenderers)
 	{
-		AddEmitterRenderer(EmitterRenderer);
+		if (EmitterRenderer)
+		{
+			EmitterRenderers.Add(EmitterRenderer);
+		}
 	}
+
+	// We sort by the sort hint in order to guarantee that we submit according to the preferred sort order..
+	EmitterRenderers.Sort([&](const NiagaraRenderer& A, const NiagaraRenderer& B)
+	{
+		check(A.GetRendererProperties());
+		check(B.GetRendererProperties());
+		int32 AIndex = A.GetRendererProperties()->SortOrderHint;
+		int32 BIndex = B.GetRendererProperties()->SortOrderHint;
+		return AIndex < BIndex;
+	});
 }
 
 FNiagaraSceneProxy::~FNiagaraSceneProxy()
@@ -135,7 +205,7 @@ FPrimitiveViewRelevance FNiagaraSceneProxy::GetViewRelevance(const FSceneView* V
 
 	for (NiagaraRenderer* Renderer : EmitterRenderers)
 	{
-		if (Renderer)
+		if (Renderer && Renderer->GetRendererProperties()->GetIsEnabled())
 		{
 			Relevance |= Renderer->GetViewRelevance(View, this);
 		}
@@ -243,10 +313,18 @@ UNiagaraComponent::UNiagaraComponent(const FObjectInitializer& ObjectInitializer
 	: Super(ObjectInitializer)
 	, OverrideParameters(this)
 	, bForceSolo(false)
-	, AgeUpdateMode(EAgeUpdateMode::TickDeltaTime)
+	, AgeUpdateMode(ENiagaraAgeUpdateMode::TickDeltaTime)
 	, DesiredAge(0.0f)
+	, bCanRenderWhileSeeking(true)
 	, SeekDelta(1 / 30.0f)
+	, MaxSimTime(33.0f / 1000.0f)
+	, bIsSeeking(false)
 	, bAutoDestroy(false)
+#if WITH_EDITOR
+	, bWaitForCompilationOnActivate(false)
+#endif
+	, bAwaitingActivationDueToNotReady(false)
+	//, bIsChangingAutoAttachment(false)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.TickGroup = TG_DuringPhysics;
@@ -263,72 +341,80 @@ void UNiagaraComponent::TickComponent(float DeltaSeconds, enum ELevelTick TickTy
 {
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraComponentTick);
 
+	if (bAwaitingActivationDueToNotReady)
+	{
+		Activate(bActivateShouldResetWhenReady);
+		return;
+	}
+
 	if (!bIsActive && bAutoActivate)
 	{
 		Activate();
 	}
 
+	if (!SystemInstance)
+	{
+		return;
+	}
+
 	check(SystemInstance->IsSolo());
 	if (bIsActive && SystemInstance.Get() && !SystemInstance->IsComplete())
 	{
-		if (SceneProxy != nullptr)
-		{
-			FNiagaraSceneProxy* NiagaraProxy = static_cast<FNiagaraSceneProxy*>(SceneProxy);
-			NiagaraProxy->SetRenderingEnabled(bRenderingEnabled);
-		}
-
 		// If the interfaces have changed in a meaningful way, we need to potentially rebind and update the values.
 		if (OverrideParameters.GetInterfacesDirty())
 		{
 			SystemInstance->Reset(FNiagaraSystemInstance::EResetMode::ReInit);
 		}
 
-		if (AgeUpdateMode == EAgeUpdateMode::TickDeltaTime)
+		if (AgeUpdateMode == ENiagaraAgeUpdateMode::TickDeltaTime)
 		{
 			SystemInstance->ComponentTick(DeltaSeconds);
 		}
 		else
 		{
-			float AgeDiff = DesiredAge - SystemInstance->GetAge();
+			float AgeDiff = FMath::Max(DesiredAge, 0.0f) - SystemInstance->GetAge();
+			int32 TicksToProcess = 0;
 			if (FMath::Abs(AgeDiff) < KINDA_SMALL_NUMBER)
 			{
 				AgeDiff = 0.0f;
 			}
-
-			if (AgeDiff < 0.0f)
+			else
 			{
-				SystemInstance->Reset(FNiagaraSystemInstance::EResetMode::ResetAll);
-				AgeDiff = DesiredAge - SystemInstance->GetAge();
-			}
-
-			if (AgeDiff > 0.0f)
-			{
-				// TODO: This maximum should be configurable, and we should not draw the System until we are caught up.
-				static const float MaxSimTime = 1;
-				//Take SeekDelta to be the max delta time we'll accept.
-				TSharedPtr<FNiagaraSystemSimulation, ESPMode::ThreadSafe> SystemSim = GetSystemSimulation();
-				if (SystemSim.IsValid())
+				if (AgeDiff < 0.0f)
 				{
-					float SimTime = FMath::Min(AgeDiff, MaxSimTime);
-					int32 NumSteps = FMath::CeilToInt(SimTime / SeekDelta);
-					//Num steps must be odd. This is because when doing > 1 we have to flip the solo data set for in the system sim. This has to end up in the same flip state it was in before our ticks.
-					NumSteps = NumSteps % 2 == 0 ? NumSteps + 1 : NumSteps;
-					float RealSeekDelta = SimTime / (float)NumSteps;
+					SystemInstance->Reset(FNiagaraSystemInstance::EResetMode::ResetAll);
+					AgeDiff = DesiredAge - SystemInstance->GetAge();
+				}
 
-					for (int32 i = NumSteps - 1; i >= 0; --i)
+				if (AgeDiff > 0.0f)
+				{
+					FNiagaraSystemSimulation* SystemSim = GetSystemSimulation().Get();
+					if (SystemSim)
 					{
-						SystemInstance->ComponentTick(RealSeekDelta);
-						if (i > 0)
+						double StartTime = FPlatformTime::Seconds();
+						double CurrentTime = StartTime;
+
+						TicksToProcess = FMath::FloorToInt(AgeDiff / SeekDelta);
+						for (; TicksToProcess > 0 && CurrentTime - StartTime < MaxSimTime; --TicksToProcess)
 						{
-							SystemSim->TickSoloDataSet();
+							SystemInstance->ComponentTick(SeekDelta);
+							CurrentTime = FPlatformTime::Seconds();
 						}
 					}
 				}
 			}
+
+			if (TicksToProcess == 0)
+			{
+				bIsSeeking = false;
+			}
 		}
-		
-		UpdateComponentToWorld();
-		MarkRenderDynamicDataDirty();
+
+		if (SceneProxy != nullptr)
+		{
+			FNiagaraSceneProxy* NiagaraProxy = static_cast<FNiagaraSceneProxy*>(SceneProxy);
+			NiagaraProxy->SetRenderingEnabled(bRenderingEnabled && (bCanRenderWhileSeeking || bIsSeeking == false));
+		}
 	}
 }
 
@@ -358,54 +444,109 @@ void UNiagaraComponent::SetRenderingEnabled(bool bInRenderingEnabled)
 	bRenderingEnabled = bInRenderingEnabled;
 }
 
+void UNiagaraComponent::AdvanceSimulation(int32 TickCount, float TickDeltaSeconds)
+{
+	if (SystemInstance.IsValid() && TickDeltaSeconds > SMALL_NUMBER)
+	{
+		SystemInstance->AdvanceSimulation(TickCount, TickDeltaSeconds);
+	}
+}
+
+void UNiagaraComponent::AdvanceSimulationByTime(float SimulateTime, float TickDeltaSeconds)
+{
+	if (SystemInstance.IsValid() && TickDeltaSeconds > SMALL_NUMBER)
+	{
+		int32 TickCount = SimulateTime / TickDeltaSeconds;
+		SystemInstance->AdvanceSimulation(TickCount, TickDeltaSeconds);
+	}
+}
+
+bool UNiagaraComponent::InitializeSystem()
+{
+	if (SystemInstance.IsValid() == false)
+	{
+		//UE_LOG(LogNiagara, Warning, TEXT("Create System: %0X | %s\n"), this, *GetAsset()->GetFullName());
+		SystemInstance = MakeUnique<FNiagaraSystemInstance>(this);
+#if WITH_EDITORONLY_DATA
+		OnSystemInstanceChangedDelegate.Broadcast();
+#endif
+		SystemInstance->Init(GetAsset(), bForceSolo);
+		return true;
+	}
+	return false;
+}
+
 void UNiagaraComponent::Activate(bool bReset /* = false */)
 {
+	bAwaitingActivationDueToNotReady = false;
+
+	if (GbSuppressNiagaraSystems != 0)
+	{
+		OnSystemComplete();
+		return;
+	}
+
+	if (IsSwitchPlatform(GMaxRHIShaderPlatform))
+	{
+		UE_LOG(LogNiagara, Warning, TEXT("Failed to activate Niagara component as Niagara is not yet supported on this platform: %s"), *LegacyShaderPlatformToShaderFormat(GMaxRHIShaderPlatform).ToString());
+		OnSystemComplete();
+		return;
+	}
+
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraComponentActivate);
 	if (Asset == nullptr)
 	{
 		DestroyInstance();
-
-		UE_LOG(LogNiagara, Warning, TEXT("Failed to activate Niagara Component due to missing or invalid asset!"));
+		if (!HasAnyFlags(RF_DefaultSubObject | RF_ArchetypeObject | RF_ClassDefaultObject))
+		{
+			UE_LOG(LogNiagara, Warning, TEXT("Failed to activate Niagara Component due to missing or invalid asset!"));
+		}
 		SetComponentTickEnabled(false);
 		return;
 	}
-
-	if (!Asset->IsReadyToRun())
-	{
-		return;
-	}
-
-	if(!IsRegistered())
-	{
-		return;
-	}
-
+	
 	// If the particle system can't ever render (ie on dedicated server or in a commandlet) than do not activate...
 	if (!FApp::CanEverRender())
 	{
 		return;
 	}
+
+	if (!IsRegistered())
+	{
+		return;
+	}
+
+	// On the off chance that the user changed the asset, we need to clear out the existing data.
+	if (SystemInstance.IsValid() && SystemInstance->GetSystem() != Asset)
+	{
+		OnSystemComplete();
+	}
+
+#if WITH_EDITOR
+	// In case we're not yet ready to run due to compilation requests, go ahead and keep polling there..
+	if (Asset->HasOutstandingCompilationRequests())
+	{
+		if (bWaitForCompilationOnActivate)
+		{
+			Asset->WaitForCompilationComplete();
+		}
+		Asset->PollForCompilationComplete();
+	}
+#endif
+
+	if (!Asset->IsReadyToRun())
+	{
+		bAwaitingActivationDueToNotReady = true;
+		bActivateShouldResetWhenReady = bReset;
+		SetComponentTickEnabled(true);
+		return;
+	}
+
 	
 	Super::Activate(bReset);
 
-	if (SystemInstance.IsValid() == false)
-	{
-		TSharedPtr<FNiagaraSystemSimulation, ESPMode::ThreadSafe> SystemSim = GetSystemSimulation();
-		if (SystemSim.IsValid())
-		{
-			SystemInstance = MakeUnique<FNiagaraSystemInstance>(this);
-#if WITH_EDITORONLY_DATA
-			OnSystemInstanceChangedDelegate.Broadcast();
-#endif
-			SystemInstance->Init(SystemSim.ToSharedRef(), bForceSolo);
-			bReset = false;
-		}
-		else
-		{
-			return;
-		}
-	}
-
+	//UE_LOG(LogNiagara, Log, TEXT("Activate: %u - %s"), this, *Asset->GetName());
+	
 	// Auto attach if requested
 	const bool bWasAutoAttached = bDidAutoAttach;
 	bDidAutoAttach = false;
@@ -422,7 +563,9 @@ void UNiagaraComponent::Activate(bool bReset /* = false */)
 				SavedAutoAttachRelativeLocation = RelativeLocation;
 				SavedAutoAttachRelativeRotation = RelativeRotation;
 				SavedAutoAttachRelativeScale3D = RelativeScale3D;
+				//bIsChangingAutoAttachment = true;
 				AttachToComponent(NewParent, FAttachmentTransformRules(AutoAttachLocationRule, AutoAttachRotationRule, AutoAttachScaleRule, false), AutoAttachSocketName);
+				//bIsChangingAutoAttachment = false;
 			}
 
 			bDidAutoAttach = true;
@@ -434,7 +577,18 @@ void UNiagaraComponent::Activate(bool bReset /* = false */)
 		}
 	}
 
-	SystemInstance->Activate(bReset);
+	FNiagaraSystemInstance::EResetMode ResetMode = bReset ? FNiagaraSystemInstance::EResetMode::ResetAll : FNiagaraSystemInstance::EResetMode::ResetSystem;
+	if (InitializeSystem())
+	{
+		ResetMode = FNiagaraSystemInstance::EResetMode::None;//Already done a reinit sete
+	}
+
+	if (!SystemInstance)
+	{
+		return;
+	}
+
+	SystemInstance->Activate(ResetMode);
 
 	/** We only need to tick the component if we require solo mode. */
 	SetComponentTickEnabled(SystemInstance->IsSolo());
@@ -445,6 +599,8 @@ void UNiagaraComponent::Deactivate()
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraComponentDeactivate);
 	Super::Deactivate();
 
+	//UE_LOG(LogNiagara, Log, TEXT("Deactivate: %u - %s"), this, *Asset->GetName());
+
 	bIsActive = false;
 
 	if (SystemInstance)
@@ -453,11 +609,32 @@ void UNiagaraComponent::Deactivate()
 	}
 }
 
+void UNiagaraComponent::DeactivateImmediate()
+{
+	SCOPE_CYCLE_COUNTER(STAT_NiagaraComponentDeactivate);
+	Super::Deactivate();
+
+	//UE_LOG(LogNiagara, Log, TEXT("DeactivateImmediate: %u - %s"), this, *Asset->GetName());
+
+	//UE_LOG(LogNiagara, Log, TEXT("Deactivate %s"), *GetName());
+
+	bIsActive = false;
+
+	if (SystemInstance)
+	{
+		SystemInstance->Deactivate(true);
+	}
+}
+
 void UNiagaraComponent::OnSystemComplete()
 {
+	//UE_LOG(LogNiagara, Log, TEXT("OnSystemComplete: %u - %s"), this, *Asset->GetName());
+
 	SetComponentTickEnabled(false);
 	bIsActive = false;
-        
+
+	MarkRenderDynamicDataDirty();
+		
 	OnSystemFinished.Broadcast(this);
 
 	if (bAutoDestroy)
@@ -472,6 +649,9 @@ void UNiagaraComponent::OnSystemComplete()
 
 void UNiagaraComponent::DestroyInstance()
 {
+	//UE_LOG(LogNiagara, Warning, TEXT("Destroy System: %s\n"), *GetAsset()->GetFullName());
+	//UE_LOG(LogNiagara, Log, TEXT("DestroyInstance: %u - %s"), this, *Asset->GetName());
+	bIsActive = false;
 	SystemInstance = nullptr;
 #if WITH_EDITORONLY_DATA
 	OnSystemInstanceChangedDelegate.Broadcast();
@@ -502,7 +682,9 @@ void UNiagaraComponent::OnRegister()
 				// Only detach if we are not about to auto attach to the same target, that would be wasteful.
 				if (!bAutoActivate || (AutoAttachLocationRule != EAttachmentRule::KeepRelative && AutoAttachRotationRule != EAttachmentRule::KeepRelative && AutoAttachScaleRule != EAttachmentRule::KeepRelative) || (AutoAttachSocketName != GetAttachSocketName()) || (AutoAttachParent != GetAttachParent()))
 				{
+					//bIsChangingAutoAttachment = true;
 					DetachFromComponent(FDetachmentTransformRules(EDetachmentRule::KeepRelative, /*bCallModify=*/ false));
+					//bIsChangingAutoAttachment = false;
 				}
 			}
 			else
@@ -521,15 +703,21 @@ void UNiagaraComponent::OnRegister()
 void UNiagaraComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
 {
 	//UE_LOG(LogNiagara, Log, TEXT("OnComponentDestroyed %p %p"), this, SystemInstance.Get());
-	DestroyInstance();
+	//DestroyInstance();//Can't do this here as we can call this from inside the system instance currently during completion 
 
 	Super::OnComponentDestroyed(bDestroyingHierarchy);
 }
 
 void UNiagaraComponent::OnUnregister()
 {
-	DestroyInstance();
 	Super::OnUnregister();
+
+	bIsActive = false;
+
+	if (SystemInstance)
+	{
+		SystemInstance->Deactivate(true);
+	}
 }
 
 void UNiagaraComponent::BeginDestroy()
@@ -539,14 +727,24 @@ void UNiagaraComponent::BeginDestroy()
 	Super::BeginDestroy();
 }
 
+// Uncertain about this. 
+// void UNiagaraComponent::OnAttachmentChanged()
+// {
+// 	Super::OnAttachmentChanged();
+// 	if (bIsActive && !bIsChangingAutoAttachment && !GetOwner()->IsPendingKillPending())
+// 	{
+// 		ResetSystem();
+// 	}
+// }
+
 TSharedPtr<FNiagaraSystemSimulation, ESPMode::ThreadSafe> UNiagaraComponent::GetSystemSimulation()
 {
-	UWorld* World = GetWorld();
-	if (World)
+	if (SystemInstance)
 	{
-		return FNiagaraWorldManager::Get(World)->GetSystemSimulation(Asset);
+		return SystemInstance->GetSystemSimulation();
 	}
-	return TSharedRef<FNiagaraSystemSimulation, ESPMode::ThreadSafe>();
+
+	return nullptr;
 }
 
 void UNiagaraComponent::SendRenderDynamicData_Concurrent()
@@ -560,7 +758,7 @@ void UNiagaraComponent::SendRenderDynamicData_Concurrent()
 
 		for (int32 i = 0; i < SystemInstance->GetEmitters().Num(); i++)
 		{
-			TSharedPtr<FNiagaraEmitterInstance> Emitter = SystemInstance->GetEmitters()[i];
+			FNiagaraEmitterInstance* Emitter = &SystemInstance->GetEmitters()[i].Get();
 			for (int32 EmitterIdx = 0; EmitterIdx < Emitter->GetEmitterRendererNum(); EmitterIdx++)
 			{
 				NiagaraRenderer* Renderer = Emitter->GetEmitterRenderer(EmitterIdx);
@@ -568,9 +766,10 @@ void UNiagaraComponent::SendRenderDynamicData_Concurrent()
 				{
 					bool bRendererEditorEnabled = true;
 #if WITH_EDITORONLY_DATA
-					bRendererEditorEnabled = !SystemInstance->GetIsolateEnabled() || Emitter->GetEmitterHandle().IsIsolated();
+					bRendererEditorEnabled = (!SystemInstance->GetIsolateEnabled() || Emitter->GetEmitterHandle().IsIsolated());
 #endif
-					if (bRendererEditorEnabled && !Emitter->IsComplete())
+					bRendererEditorEnabled &= Renderer->GetRendererProperties()->GetIsEnabled();
+					if (bRendererEditorEnabled && !Emitter->IsComplete() && !SystemInstance->IsComplete())
 					{
 						FNiagaraDynamicDataBase* DynamicData = Renderer->GenerateVertexData(NiagaraProxy, Emitter->GetData(), Emitter->GetEmitterHandle().GetInstance()->SimTarget);
 
@@ -627,6 +826,7 @@ FBoxSphereBounds UNiagaraComponent::CalcBounds(const FTransform& LocalToWorld) c
 
 FPrimitiveSceneProxy* UNiagaraComponent::CreateSceneProxy()
 {
+	SCOPE_CYCLE_COUNTER(STAT_NiagaraCreateSceneProxy);
 	// The constructor will set up the System renderers from the component.
 	FNiagaraSceneProxy* Proxy = new FNiagaraSceneProxy(this);
 	return Proxy;
@@ -664,6 +864,13 @@ void UNiagaraComponent::SetNiagaraVariableLinearColor(const FString& InVariableN
 	FName VarName = FName(*InVariableName);
 
 	OverrideParameters.SetParameterValue(InValue, FNiagaraVariable(FNiagaraTypeDefinition::GetColorDef(), VarName), true);
+}
+
+void UNiagaraComponent::SetNiagaraVariableQuat(const FString& InVariableName, const FQuat& InValue)
+{
+	FName VarName = FName(*InVariableName);
+
+	OverrideParameters.SetParameterValue(InValue, FNiagaraVariable(FNiagaraTypeDefinition::GetQuatDef(), VarName), true);
 }
 
 void UNiagaraComponent::SetNiagaraVariableVec4(const FString& InVariableName, const FVector4& InValue)
@@ -772,15 +979,24 @@ void UNiagaraComponent::PostLoad()
 		Asset->ConditionalPostLoad();
 #if WITH_EDITOR
 		SynchronizeWithSourceSystem();
+		AssetExposedParametersChangedHandle = Asset->GetExposedParameters().AddOnChangedHandler(
+			FNiagaraParameterStore::FOnChanged::FDelegate::CreateUObject(this, &UNiagaraComponent::AssetExposedParametersChanged));
 #endif
 	}
 }
 
 #if WITH_EDITOR
 
+void UNiagaraComponent::PreEditChange(UProperty* PropertyAboutToChange)
+{
+	if (PropertyAboutToChange != nullptr && PropertyAboutToChange->GetFName() == GET_MEMBER_NAME_CHECKED(UNiagaraComponent, Asset) && Asset != nullptr)
+	{
+		Asset->GetExposedParameters().RemoveOnChangedHandler(AssetExposedParametersChangedHandle);
+	}
+}
+
 void UNiagaraComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	FName PropertyName;
 	if (PropertyChangedEvent.Property)
@@ -788,31 +1004,47 @@ void UNiagaraComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
 		PropertyName = PropertyChangedEvent.Property->GetFName();
 	}
 
-	if (PropertyName == GET_MEMBER_NAME_CHECKED(UNiagaraComponent, Asset) ||
-		PropertyName == GET_MEMBER_NAME_CHECKED(UNiagaraComponent, OverrideParameters))
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UNiagaraComponent, Asset))
+	{
+		SynchronizeWithSourceSystem();
+		if (Asset != nullptr)
+		{
+			AssetExposedParametersChangedHandle = Asset->GetExposedParameters().AddOnChangedHandler(
+				FNiagaraParameterStore::FOnChanged::FDelegate::CreateUObject(this, &UNiagaraComponent::AssetExposedParametersChanged));
+		}
+	}
+	else if(PropertyName == GET_MEMBER_NAME_CHECKED(UNiagaraComponent, OverrideParameters))
 	{
 		SynchronizeWithSourceSystem();
 	}
 
 	ReinitializeSystem();
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
 
-bool UNiagaraComponent::SynchronizeWithSourceSystem()
+void UNiagaraComponent::SynchronizeWithSourceSystem()
 {
+	// Synchronizing parameters will create new data interface objects and if the old data
+	// interface objects are currently being used by a simulation they may be destroyed due to garbage
+	// collection, so preemptively kill the instance here.
+	DestroyInstance();
+
 	//TODO: Look through params in system in "Owner" namespace and add to our parameters.
 	if (Asset == nullptr)
 	{
-		return false;
+		OverrideParameters.Empty();
+		EditorOverridesValue.Empty();
+		return;
 	}
 
 	TArray<FNiagaraVariable> SourceVars;
 	Asset->GetExposedParameters().GetParameters(SourceVars);
 
-	bool bEditsMade = false;
 	for (FNiagaraVariable& Param : SourceVars)
 	{
-		bEditsMade |= OverrideParameters.AddParameter(Param, true);
+		OverrideParameters.AddParameter(Param, true);
 	}
 
 	TArray<FNiagaraVariable> ExistingVars;
@@ -839,131 +1071,23 @@ bool UNiagaraComponent::SynchronizeWithSourceSystem()
 
 	OverrideParameters.Rebind();
 
-	//////////////////////////////////////////////////////////////////////////
-	//OLD IMPL
-// 	if (Asset == nullptr)
-// 	{
-// 		return false; 
-// 	}
-// 
-// 	UNiagaraScript* Script = Asset->GetSystemSpawnScript();
-// 	if (Script == nullptr)
-// 	{
-// 		return false;
-// 	}
-// 
-// 	bool bEditsMade = false;
-// 	{
-// 		TArray<int32> VarIndicesToRemove;
-// 
-// 		// Check over all of our overrides to see if they still match up with the source System.
-// 		for (int32 i = 0; i < SystemParameterLocalOverrides.Num(); i++)
-// 		{
-// 			FNiagaraVariable* Variable = Script->Parameters.FindParameter(SystemParameterLocalOverrides[i].GetId());
-// 			// If the variable still exists, keep digging... otherwise remove it.
-// 			if (Variable)
-// 			{
-// 				if (Variable->GetType() != SystemParameterLocalOverrides[i].GetType())
-// 				{
-// 					UE_LOG(LogNiagara, Warning, TEXT("Variable '%s' types changed.. possibly losing override value."), *Variable->GetName().ToString());
-// 					VarIndicesToRemove.Add(i);
-// 				}
-// 				else if (Variable->GetName() != SystemParameterLocalOverrides[i].GetName())
-// 				{
-// 					if (bEditsMade == false)
-// 					{
-// 						bEditsMade = true;
-// 						Modify();
-// 					}
-// 					SystemParameterLocalOverrides[i].SetName(Variable->GetName());
-// 				}
-// 			}
-// 			else
-// 			{
-// 				VarIndicesToRemove.Add(i);
-// 			}
-// 		}
-// 
-// 		// Handle the variables that we want to remove.
-// 		if (VarIndicesToRemove.Num() != 0)
-// 		{
-// 			if (bEditsMade == false)
-// 			{
-// 				bEditsMade = true;
-// 				Modify();
-// 			}
-// 
-// 			for (int32 removeIdx = VarIndicesToRemove.Num() - 1; removeIdx >= 0; removeIdx--)
-// 			{
-// 				UE_LOG(LogNiagara, Warning, TEXT("Removing local override '%s'."), *SystemParameterLocalOverrides[VarIndicesToRemove[removeIdx]].GetName().ToString());
-// 
-// 				SystemParameterLocalOverrides.RemoveAt(VarIndicesToRemove[removeIdx]);
-// 			}
-// 		}
-// 	}
-// 
-// 	{
-// 		TArray<int32> VarIndicesToRemove;
-// 
-// 		// Check over all of our overrides to see if they still match up with the source System.
-// 		for (int32 i = 0; i < SystemDataInterfaceLocalOverrides.Num(); i++)
-// 		{
-// 			FNiagaraScriptDataInterfaceInfo* Variable = Script->DataInterfaceInfo.FindByPredicate([&](const FNiagaraScriptDataInterfaceInfo& Var)
-// 			{
-// 				return Var.Id == SystemDataInterfaceLocalOverrides[i].Id;
-// 			}); 
-// 			// If the variable still exists, keep digging... otherwise remove it.
-// 			if (Variable)
-// 			{
-// 				if (Variable->DataInterface->GetClass() != SystemDataInterfaceLocalOverrides[i].DataInterface->GetClass())
-// 				{
-// 					UE_LOG(LogNiagara, Warning, TEXT("Variable '%s' types changed.. losing override value."), *Variable->Name.ToString());
-// 					VarIndicesToRemove.Add(i);
-// 				}
-// 				else if (Variable->Name != SystemDataInterfaceLocalOverrides[i].Name)
-// 				{
-// 					if (bEditsMade == false)
-// 					{
-// 						bEditsMade = true;
-// 						Modify();
-// 					}
-// 					SystemDataInterfaceLocalOverrides[i].Name = Variable->Name;
-// 				}
-// 			}
-// 			else
-// 			{
-// 				VarIndicesToRemove.Add(i);
-// 			}
-// 		}
-// 
-// 		// Handle the variables that we want to remove.
-// 		if (VarIndicesToRemove.Num() != 0)
-// 		{
-// 			if (bEditsMade == false)
-// 			{
-// 				bEditsMade = true;
-// 				Modify();
-// 			}
-// 
-// 			for (int32 removeIdx = VarIndicesToRemove.Num() - 1; removeIdx >= 0; removeIdx--)
-// 			{
-// 				UE_LOG(LogNiagara, Warning, TEXT("Removing local override '%s'."), *SystemDataInterfaceLocalOverrides[VarIndicesToRemove[removeIdx]].Name.ToString());
-// 
-// 				SystemDataInterfaceLocalOverrides.RemoveAt(VarIndicesToRemove[removeIdx]);
-// 			}
-// 		}
-// 	}
-// 
-// 	return bEditsMade;
-	return false;
+#if WITH_EDITORONLY_DATA
+	OnSynchronizedWithAssetParametersDelegate.Broadcast();
+#endif
 }
 
-UNiagaraComponent::EAgeUpdateMode UNiagaraComponent::GetAgeUpdateMode() const
+void UNiagaraComponent::AssetExposedParametersChanged()
+{
+	SynchronizeWithSourceSystem();
+}
+#endif
+
+ENiagaraAgeUpdateMode UNiagaraComponent::GetAgeUpdateMode() const
 {
 	return AgeUpdateMode;
 }
 
-void UNiagaraComponent::SetAgeUpdateMode(EAgeUpdateMode InAgeUpdateMode)
+void UNiagaraComponent::SetAgeUpdateMode(ENiagaraAgeUpdateMode InAgeUpdateMode)
 {
 	AgeUpdateMode = InAgeUpdateMode;
 }
@@ -976,6 +1100,18 @@ float UNiagaraComponent::GetDesiredAge() const
 void UNiagaraComponent::SetDesiredAge(float InDesiredAge)
 {
 	DesiredAge = InDesiredAge;
+	bIsSeeking = false;
+}
+
+void UNiagaraComponent::SeekToDesiredAge(float InDesiredAge)
+{
+	DesiredAge = InDesiredAge;
+	bIsSeeking = true;
+}
+
+void UNiagaraComponent::SetCanRenderWhileSeeking(bool bInCanRenderWhileSeeking)
+{
+	bCanRenderWhileSeeking = bInCanRenderWhileSeeking;
 }
 
 float UNiagaraComponent::GetSeekDelta() const
@@ -988,7 +1124,17 @@ void UNiagaraComponent::SetSeekDelta(float InSeekDelta)
 	SeekDelta = InSeekDelta;
 }
 
+float UNiagaraComponent::GetMaxSimTime() const
+{
+	return MaxSimTime;
+}
 
+void UNiagaraComponent::SetMaxSimTime(float InMaxTime)
+{
+	MaxSimTime = InMaxTime;
+}
+
+#if WITH_EDITOR
 bool UNiagaraComponent::IsParameterValueOverriddenLocally(const FName& InParamName)
 {
 	bool* FoundVar = EditorOverridesValue.Find(InParamName);
@@ -1026,16 +1172,35 @@ void UNiagaraComponent::SetParameterValueOverriddenLocally(const FNiagaraVariabl
 
 void UNiagaraComponent::SetAsset(UNiagaraSystem* InAsset)
 {
-	Asset = InAsset;
+	if (Asset != InAsset)
+	{
+#if WITH_EDITOR
+		if (Asset != nullptr)
+		{
+			Asset->GetExposedParameters().RemoveOnChangedHandler(AssetExposedParametersChangedHandle);
+		}
+#endif
+		Asset = InAsset;
 
 #if WITH_EDITOR
-	if (GetWorld() != nullptr && GetWorld()->WorldType == EWorldType::Editor)
-	{
 		SynchronizeWithSourceSystem();
-	}
+		AssetExposedParametersChangedHandle = Asset->GetExposedParameters().AddOnChangedHandler(
+			FNiagaraParameterStore::FOnChanged::FDelegate::CreateUObject(this, &UNiagaraComponent::AssetExposedParametersChanged));
 #endif
 
-	ReinitializeSystem();
+		//Force a reinit.
+		DestroyInstance();
+	}
+}
+
+void UNiagaraComponent::SetForceSolo(bool bInForceSolo) 
+{ 
+	if (bForceSolo != bInForceSolo)
+	{
+		bForceSolo = bInForceSolo;
+		DestroyInstance();
+		SetComponentTickEnabled(bInForceSolo);
+	}
 }
 
 void UNiagaraComponent::SetAutoAttachmentParameters(USceneComponent* Parent, FName SocketName, EAttachmentRule LocationRule, EAttachmentRule RotationRule, EAttachmentRule ScaleRule)
@@ -1063,7 +1228,9 @@ void UNiagaraComponent::CancelAutoAttachment(bool bDetachFromParent)
 
 		if (bDetachFromParent)
 		{
+			//bIsChangingAutoAttachment = true;
 			DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+			//bIsChangingAutoAttachment = false;
 		}
 	}
 }

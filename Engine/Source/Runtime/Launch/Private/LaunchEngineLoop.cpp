@@ -205,7 +205,7 @@ class FFeedbackContext;
 #endif
 
 #ifndef RHI_COMMAND_LIST_DEBUG_TRACES
-    #define RHI_COMMAND_LIST_DEBUG_TRACES 0
+	#define RHI_COMMAND_LIST_DEBUG_TRACES 0
 #endif
 
 
@@ -1446,6 +1446,18 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 	if (FPlatformProcess::SupportsMultithreading())
 	{
+		int StackSize = 128;
+		bool bForceEditorStackSize = false;
+#if WITH_EDITOR
+		bForceEditorStackSize = true;
+#endif
+
+		if (bHasEditorToken || bForceEditorStackSize)
+		{
+			StackSize = 1000;
+		}
+
+
 		{
 			GThreadPool = FQueuedThreadPool::Allocate();
 			int32 NumThreadsInThreadPool = FPlatformMisc::NumberOfWorkerThreadsToSpawn();
@@ -1455,7 +1467,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 			{
 				NumThreadsInThreadPool = 1;
 			}
-			verify(GThreadPool->Create(NumThreadsInThreadPool, 128 * 1024, TPri_SlightlyBelowNormal));
+			verify(GThreadPool->Create(NumThreadsInThreadPool, StackSize * 1024, TPri_SlightlyBelowNormal));
 		}
 		{
 			GBackgroundPriorityThreadPool = FQueuedThreadPool::Allocate();

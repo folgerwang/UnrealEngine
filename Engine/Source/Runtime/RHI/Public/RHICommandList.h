@@ -3222,7 +3222,17 @@ public:
 	{		
 		return GDynamicRHI->RHICreateComputeFence(Name);
 	}	
-	
+
+	FORCEINLINE FGPUFenceRHIRef CreateGPUFence(const FName& Name)
+	{
+		return GDynamicRHI->RHICreateGPUFence(Name);
+	}
+
+	FORCEINLINE FStagingBufferRHIRef CreateStagingBuffer()
+	{
+		return GDynamicRHI->RHICreateStagingBuffer();
+	}
+
 	FORCEINLINE FBoundShaderStateRHIRef CreateBoundShaderState(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader)
 	{
 		LLM_SCOPE(ELLMTag::Shaders);
@@ -4131,6 +4141,19 @@ FORCEINLINE FComputeFenceRHIRef RHICreateComputeFence(const FName& Name)
 {
 	return FRHICommandListExecutor::GetImmediateCommandList().CreateComputeFence(Name);
 }
+
+FORCEINLINE FGPUFenceRHIRef RHICreateGPUFence(const FName& Name)
+{
+	return FRHICommandListExecutor::GetImmediateCommandList().CreateGPUFence(Name);
+}
+
+
+FORCEINLINE FStagingBufferRHIRef RHICreateStagingBuffer()
+{
+	return FRHICommandListExecutor::GetImmediateCommandList().CreateStagingBuffer();
+}
+
+
 
 FORCEINLINE FIndexBufferRHIRef RHICreateAndLockIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, void*& OutDataBuffer)
 {

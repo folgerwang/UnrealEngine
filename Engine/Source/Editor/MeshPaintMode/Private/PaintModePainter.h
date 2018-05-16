@@ -116,6 +116,7 @@ protected:
 	bool CanRemoveInstanceColors() const;
 	bool CanPasteInstanceVertexColors() const;
 	bool CanCopyInstanceVertexColors() const;
+	bool CanPropagateVertexColorsToLODs() const;
 
 	/** Functions to determine whether or not an vertex color action is valid */
 	bool CanSaveMeshPackages() const;
@@ -152,6 +153,8 @@ protected:
 	void PasteVertexColors();
 	void FixVertexColors();
 	void RemoveVertexColors();
+	void PropagateVertexColorsToLODs();
+	void CycleMeshLODs(int32 Direction);
 	
 	/** Checks whether or not the current selection contains components which reference the same (static/skeletal)-mesh */
 	bool ContainsDuplicateMeshes(TArray<UMeshComponent*>& Components) const;

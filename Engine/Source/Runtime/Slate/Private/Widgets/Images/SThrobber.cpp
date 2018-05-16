@@ -110,6 +110,7 @@ void SCircularThrobber::Construct(const FArguments& InArgs)
 	NumPieces = InArgs._NumPieces;
 	Period = InArgs._Period;
 	Radius = InArgs._Radius;
+	ColorAndOpacity = InArgs._ColorAndOpacity;
 
 	ConstructSequence();
 }
@@ -144,7 +145,16 @@ void SCircularThrobber::ConstructSequence()
 
 int32 SCircularThrobber::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
-	const FLinearColor FinalColorAndOpacity( InWidgetStyle.GetColorAndOpacityTint() * PieceImage->GetTint( InWidgetStyle ) );
+	FLinearColor FinalColorAndOpacity;
+	if (ColorAndOpacity.IsSet())
+	{
+		FinalColorAndOpacity = ColorAndOpacity.Get().GetColor(InWidgetStyle);
+	}
+	else
+	{
+		FinalColorAndOpacity = InWidgetStyle.GetColorAndOpacityTint() * PieceImage->GetTint(InWidgetStyle);
+	}
+
 	const FVector2D LocalOffset = (AllottedGeometry.GetLocalSize() - PieceImage->ImageSize) * 0.5f;
 	const float DeltaAngle = NumPieces > 0 ? 2 * PI / NumPieces : 0;
 	const float Phase = Curve.GetLerp() * 2 * PI;

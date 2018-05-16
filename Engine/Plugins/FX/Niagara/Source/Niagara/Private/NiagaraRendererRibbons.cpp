@@ -16,13 +16,11 @@ struct FNiagaraDynamicDataRibbon : public FNiagaraDynamicDataBase
 {
 	TArray<FNiagaraRibbonVertex> VertexData;
 	TArray<int16> IndexData;
-	TArray<FNiagaraRibbonVertexDynamicParameter> MaterialParameterVertexData;
+	TArray<FNiagaraRibbonVertexDynamicParameter> MaterialParameterVertexData[4];
 
+	//Direct ptr to the dataset. ONLY FOR USE BE GPU EMITTERS.
+	//TODO: Even this needs to go soon.
 	const FNiagaraDataSet *DataSet;
-	int32 PositionDataOffset;
-	int32 WidthDataOffset;
-	int32 TwistDataOffset;
-	int32 ColorDataOffset;
 };
 
 class FNiagaraMeshCollectorResourcesRibbon : public FOneFrameResource
@@ -40,6 +38,11 @@ public:
 
 NiagaraRendererRibbons::NiagaraRendererRibbons(ERHIFeatureLevel::Type FeatureLevel, UNiagaraRendererProperties *InProps) :
 	NiagaraRenderer()
+	, PositionDataOffset(INDEX_NONE)
+	, WidthDataOffset(INDEX_NONE)
+	, TwistDataOffset(INDEX_NONE)
+	, ColorDataOffset(INDEX_NONE)
+	, LastSyncedId(INDEX_NONE)
 {
 	VertexFactory = new FNiagaraRibbonVertexFactory(NVFT_Ribbon, FeatureLevel);
 	Properties = Cast<UNiagaraRibbonRendererProperties>(InProps);
@@ -68,7 +71,11 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 
 	SimpleTimer MeshElementsTimer;
 	FNiagaraDynamicDataRibbon *DynamicDataRibbon = static_cast<FNiagaraDynamicDataRibbon*>(DynamicDataRender);
-	if (!DynamicDataRibbon || DynamicDataRibbon->VertexData.Num() < 4)
+	if (!DynamicDataRibbon 
+		|| DynamicDataRibbon->VertexData.Num() < 4
+		|| DynamicDataRibbon->IndexData.Num() == 0
+		|| nullptr == Properties
+		)
 	{
 		return;
 	}
@@ -78,20 +85,27 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 
 	int32 SizeInBytes = DynamicDataRibbon->VertexData.GetTypeSize() * DynamicDataRibbon->VertexData.Num();
 	FGlobalDynamicVertexBuffer::FAllocation LocalDynamicVertexAllocation = FGlobalDynamicVertexBuffer::Get().Allocate(SizeInBytes);
-	FGlobalDynamicVertexBuffer::FAllocation LocalDynamicVertexMaterialParamsAllocation;
+	FGlobalDynamicVertexBuffer::FAllocation LocalDynamicVertexMaterialParamsAllocation[4];
 	FGlobalDynamicIndexBuffer::FAllocation DynamicIndexAllocation = FGlobalDynamicIndexBuffer::Get().Allocate(DynamicDataRibbon->IndexData.Num(), sizeof(int16));
 
-	if (DynamicDataRibbon->MaterialParameterVertexData.Num() > 0)
+	auto AllocDynamicParameterBuffer = [&](int32 DynamicParamIndex)
 	{
-		int32 MatParamSizeInBytes = DynamicDataRibbon->MaterialParameterVertexData.GetTypeSize() * DynamicDataRibbon->MaterialParameterVertexData.Num();
-		LocalDynamicVertexMaterialParamsAllocation = FGlobalDynamicVertexBuffer::Get().Allocate(MatParamSizeInBytes);
-
-		if (LocalDynamicVertexMaterialParamsAllocation.IsValid())
+		if (DynamicDataRibbon->MaterialParameterVertexData[DynamicParamIndex].Num() > 0)
 		{
-			// Copy the extra material vertex data over.
-			FMemory::Memcpy(LocalDynamicVertexMaterialParamsAllocation.Buffer, DynamicDataRibbon->MaterialParameterVertexData.GetData(), MatParamSizeInBytes);
+			int32 MatParamSizeInBytes = DynamicDataRibbon->MaterialParameterVertexData[DynamicParamIndex].GetTypeSize() * DynamicDataRibbon->MaterialParameterVertexData[DynamicParamIndex].Num();
+			LocalDynamicVertexMaterialParamsAllocation[DynamicParamIndex] = FGlobalDynamicVertexBuffer::Get().Allocate(MatParamSizeInBytes);
+
+			if (LocalDynamicVertexMaterialParamsAllocation[DynamicParamIndex].IsValid())
+			{
+				// Copy the extra material vertex data over.
+				FMemory::Memcpy(LocalDynamicVertexMaterialParamsAllocation[DynamicParamIndex].Buffer, DynamicDataRibbon->MaterialParameterVertexData[DynamicParamIndex].GetData(), MatParamSizeInBytes);
+			}
 		}
-	}
+	};
+	AllocDynamicParameterBuffer(0);
+	AllocDynamicParameterBuffer(1);
+	AllocDynamicParameterBuffer(2);
+	AllocDynamicParameterBuffer(3);
 
 
 	if (LocalDynamicVertexAllocation.IsValid())
@@ -133,10 +147,11 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 				PerViewUniformParameters.CameraRight = View->GetViewRight();//	FVector4(1.0f, 0.0f, 0.0f, 0.0f);
 				PerViewUniformParameters.ScreenAlignment = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
 				PerViewUniformParameters.UseCustomFacing = Properties->FacingMode == ENiagaraRibbonFacingMode::Custom;
-				PerViewUniformParameters.PositionDataOffset = DynamicDataRibbon->PositionDataOffset;
-				PerViewUniformParameters.ColorDataOffset = DynamicDataRibbon->ColorDataOffset;
-				PerViewUniformParameters.WidthDataOffset = DynamicDataRibbon->WidthDataOffset;
-				PerViewUniformParameters.TwistDataOffset = DynamicDataRibbon->TwistDataOffset;
+
+				PerViewUniformParameters.PositionDataOffset = PositionDataOffset;
+				PerViewUniformParameters.ColorDataOffset = ColorDataOffset;
+				PerViewUniformParameters.WidthDataOffset = WidthDataOffset;
+				PerViewUniformParameters.TwistDataOffset = TwistDataOffset;
 				CollectorResources.VertexFactory.SetParticleData(DynamicDataRibbon->DataSet);
 
 				// Collector.AllocateOneFrameResource uses default ctor, initialize the vertex factory
@@ -147,14 +162,22 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 				CollectorResources.VertexFactory.InitResource();
 				CollectorResources.VertexFactory.SetBeamTrailUniformBuffer(CollectorResources.UniformBuffer);
 				CollectorResources.VertexFactory.SetVertexBuffer(LocalDynamicVertexAllocation.VertexBuffer, LocalDynamicVertexAllocation.VertexOffset, sizeof(FNiagaraRibbonVertex));
-				if (DynamicDataRibbon->MaterialParameterVertexData.Num() > 0 && LocalDynamicVertexMaterialParamsAllocation.IsValid())
+
+				auto SetDynamicParameterBuffer = [&](int32 DynamicParameterIndex)
 				{
-					CollectorResources.VertexFactory.SetDynamicParameterBuffer(LocalDynamicVertexMaterialParamsAllocation.VertexBuffer, LocalDynamicVertexMaterialParamsAllocation.VertexOffset, sizeof(FNiagaraRibbonVertexDynamicParameter));
-				}
-				else
-				{
-					CollectorResources.VertexFactory.SetDynamicParameterBuffer(NULL, 0, 0);
-				}
+					if (DynamicDataRibbon->MaterialParameterVertexData[DynamicParameterIndex].Num() > 0 && LocalDynamicVertexMaterialParamsAllocation[DynamicParameterIndex].IsValid())
+					{
+						CollectorResources.VertexFactory.SetDynamicParameterBuffer(LocalDynamicVertexMaterialParamsAllocation[DynamicParameterIndex].VertexBuffer, DynamicParameterIndex, LocalDynamicVertexMaterialParamsAllocation[DynamicParameterIndex].VertexOffset, sizeof(FNiagaraRibbonVertexDynamicParameter));
+					}
+					else
+					{
+						CollectorResources.VertexFactory.SetDynamicParameterBuffer(NULL, DynamicParameterIndex, 0, 0);
+					}
+				};
+				SetDynamicParameterBuffer(0);
+				SetDynamicParameterBuffer(1);
+				SetDynamicParameterBuffer(2);
+				SetDynamicParameterBuffer(3);
 
 				FMeshBatch& MeshBatch = Collector.AllocateMesh();
 				MeshBatch.VertexFactory = &CollectorResources.VertexFactory;
@@ -180,6 +203,7 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 				MeshElement.IndexBuffer = DynamicIndexAllocation.IndexBuffer;
 				MeshElement.FirstIndex = DynamicIndexAllocation.FirstIndex;
 				MeshElement.NumPrimitives = DynamicDataRibbon->IndexData.Num() / 3;
+				check(MeshElement.NumPrimitives > 0);
 				MeshElement.NumInstances = 1;
 				MeshElement.MinVertexIndex = 0;
 				MeshElement.MaxVertexIndex = DynamicDataRibbon->VertexData.Num() - 1;
@@ -212,7 +236,10 @@ int NiagaraRendererRibbons::GetDynamicDataSize()
 	{
 		Size += (static_cast<FNiagaraDynamicDataRibbon*>(DynamicDataRender))->VertexData.GetAllocatedSize();
 		Size += (static_cast<FNiagaraDynamicDataRibbon*>(DynamicDataRender))->IndexData.GetAllocatedSize();
-		Size += (static_cast<FNiagaraDynamicDataRibbon*>(DynamicDataRender))->MaterialParameterVertexData.GetAllocatedSize();
+		Size += (static_cast<FNiagaraDynamicDataRibbon*>(DynamicDataRender))->MaterialParameterVertexData[0].GetAllocatedSize();
+		Size += (static_cast<FNiagaraDynamicDataRibbon*>(DynamicDataRender))->MaterialParameterVertexData[1].GetAllocatedSize();
+		Size += (static_cast<FNiagaraDynamicDataRibbon*>(DynamicDataRender))->MaterialParameterVertexData[2].GetAllocatedSize();
+		Size += (static_cast<FNiagaraDynamicDataRibbon*>(DynamicDataRender))->MaterialParameterVertexData[3].GetAllocatedSize();
 	}
 
 	return Size;
@@ -248,7 +275,7 @@ FNiagaraDynamicDataBase *NiagaraRendererRibbons::GenerateVertexData(const FNiaga
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraGenRibbonVertexData);
 
 	SimpleTimer VertexDataTimer;
-	if (Data.GetNumInstances() < 2 || !bEnabled)
+	if (!bEnabled)
 	{
 		return nullptr;
 	}
@@ -256,163 +283,117 @@ FNiagaraDynamicDataBase *NiagaraRendererRibbons::GenerateVertexData(const FNiaga
 	TArray<FNiagaraRibbonVertex>& RenderData = DynamicData->VertexData;
 	TArray<int16>& IndexData = DynamicData->IndexData;
 
-	//I'm not a great fan of pulling scalar components out to a structured vert buffer like this.
-	//TODO: Experiment with a new VF that reads the data directly from the scalar layout.
-	FNiagaraDataSetIterator<FVector> PosItr(Data, FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("Position")));
-	FNiagaraDataSetIterator<FVector> VelItr(Data, FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("Velocity")));
-	FNiagaraDataSetIterator<FLinearColor> ColItr(Data, FNiagaraVariable(FNiagaraTypeDefinition::GetColorDef(), TEXT("Color")));
-	FNiagaraDataSetIterator<float> NormAgeItr(Data, FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("NormalizedAge")));
-	FNiagaraDataSetIterator<float> AgeItr(Data, FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("NormalizedAge")));
-	FNiagaraDataSetIterator<int32> RibbonIdItr(Data, FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("RibbonId")));
-	FNiagaraDataSetIterator<float> SizeItr(Data, FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("RibbonWidth")));
-	FNiagaraDataSetIterator<float> TwistItr(Data, FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("RibbonTwist")));
-	FNiagaraDataSetIterator<FVector> AlignItr(Data, FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("RibbonFacing")));
-	FNiagaraDataSetIterator<FVector4> MaterialParamItr(Data, FNiagaraVariable(FNiagaraTypeDefinition::GetVec4Def(), TEXT("DynamicMaterialParameter")));
-
-	//Bail if we don't have the required attributes to render this emitter.
-	if (!PosItr.IsValid() || !ColItr.IsValid() || !NormAgeItr.IsValid() || !AgeItr.IsValid() )
-	{
-		return DynamicData;
-	}
-
-	const FNiagaraVariableLayoutInfo* PositionLayout = Data.GetVariableLayout(FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("Position")));
-	const FNiagaraVariableLayoutInfo* TwistLayout = Data.GetVariableLayout(FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("RibbonTwist")));
-	const FNiagaraVariableLayoutInfo* WidthLayout = Data.GetVariableLayout(FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("RibbonWidth")));
-	const FNiagaraVariableLayoutInfo* ColorLayout = Data.GetVariableLayout(FNiagaraVariable(FNiagaraTypeDefinition::GetColorDef(), TEXT("Color")));
-
-	// required attributes
-	DynamicData->PositionDataOffset = PositionLayout->FloatComponentStart;
-	DynamicData->ColorDataOffset = ColorLayout->FloatComponentStart;
-
-	// optional attributes
-	int32 IntDummy;
-	Data.GetVariableComponentOffsets(FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("RibbonWidth")), DynamicData->WidthDataOffset, IntDummy);
-	Data.GetVariableComponentOffsets(FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("RibbonTwist")), DynamicData->TwistDataOffset, IntDummy);
-
-	DynamicData->DataSet = &Data;
-	
-	////////
-
-	bool bMultiRibbons = RibbonIdItr.IsValid();
-
-	// build a sorted list by age, so we always get particles in order regardless of them being moved around due to dieing and spawning
-	// TODO: need to pull the data out because we currently can't index into the data set; terrible, but works
-	TArray<int32> SortedIndices;
-	TArray<int32> RibbonIDs;
-	TArray<int32> UniqueRibbonIDs;
-	TArray<FVector> Positions;
-	TArray<FVector> FacingVectors;
-	TArray<FVector4> DynamicParams;
-	TArray<float> Sizes;
-	TArray<FLinearColor> Colors;
-	TArray<float> Rotations;
-	TArray<float> Ages;
-	uint32 CurIdx = 0;
-	for (uint32 Idx = 0; Idx < Data.GetNumInstances(); Idx++)
-	{
-		float Age = NormAgeItr.GetAdvance();
-		if (Age >= 0.0f && Age < 1.0f)
-		{
-			SortedIndices.Add(CurIdx++);
-			Positions.Add(PosItr.GetAdvance());
-			Sizes.Add(SizeItr.GetAdvanceWithDefault(1.0));
-			Rotations.Add(TwistItr.GetAdvanceWithDefault(0.0f));
-			FacingVectors.Add(AlignItr.GetAdvanceWithDefault(FVector(0.0f, 0.0f, 1.0f)));
-			DynamicParams.Add(MaterialParamItr.GetAdvanceWithDefault(FVector4(0.0f, 0.0f, 0.0f, 0.0f)));
-
-			Ages.Add(Age);
-			Colors.Add(ColItr.GetAdvance());
-			if (bMultiRibbons)
-			{
-				int32 RibbonID = RibbonIdItr.GetAdvance();
-				RibbonIDs.Add(RibbonID);
-				UniqueRibbonIDs.AddUnique(RibbonID);
-			}
-		}
-	}
-
-	if (!bMultiRibbons)
-	{
-		SortedIndices.Sort(
-			[&Ages](const int32& A, const int32& B) {
-			return (Ages[A] < Ages[B]);
-		}
-		);
-		UniqueRibbonIDs.Add(0);
-	}
-	else
-	{
-		SortedIndices.Sort(
-			[&RibbonIDs](const int32& A, const int32& B) {
-			return (RibbonIDs[A] < RibbonIDs[B]);
-		}
-		);
-	}
-
-
-	if (SortedIndices.Num() == 0)
-	{
-		return DynamicData;
-	}
-
 	RenderData.Empty();
 	IndexData.Empty();
 
 	// TODO : deal with the dynamic vertex material parameter should the user have specified it as an output...
 
 	FVector2D UVs[4] = { FVector2D(1.0f, 0.0f), FVector2D(1.0f, 1.0f) };
-	int32 StartIndex = 0;
-	int32 NumIndices = SortedIndices.Num();
-	int32 *IndexPtr = &SortedIndices[0];
 	int32 NumTotalVerts = 0;
 
-	for (int32 RibbonIdx = 0; RibbonIdx < UniqueRibbonIDs.Num(); RibbonIdx++)
-	{
-		TArray<int32> SortedPartialIndices;
-		if (bMultiRibbons)
-		{
-			int32 CurID = RibbonIDs[SortedIndices[StartIndex]];
-			NumIndices = 0;
-			while ((StartIndex + NumIndices)<RibbonIDs.Num() && RibbonIDs[SortedIndices[StartIndex + NumIndices]] == CurID)
-			{
-				SortedPartialIndices.Add(SortedIndices[StartIndex + NumIndices]);
-				NumIndices++;
-			}
-			SortedPartialIndices.Sort(
-				[&Ages](const int32& A, const int32& B) {
-				return (Ages[A] < Ages[B]);
-			}
-			);
-			IndexPtr = &SortedPartialIndices[0];
-		}
+	FNiagaraDataSetAccessor<FVector> PosData(Data, Properties->PositionBinding.DataSetVariable);
+	FNiagaraDataSetAccessor<FVector> VelData(Data, Properties->VelocityBinding.DataSetVariable);
+	FNiagaraDataSetAccessor<FLinearColor> ColData(Data, Properties->ColorBinding.DataSetVariable);
 
+	bool bSortKeyIsAge = false;
+	FNiagaraDataSetAccessor<float> SortKeyData(Data, Properties->RibbonLinkOrderBinding.DataSetVariable);
+	if (SortKeyData.IsValid() == false)
+	{
+		SortKeyData = FNiagaraDataSetAccessor<float>(Data, Properties->NormalizedAgeBinding.DataSetVariable);
+		bSortKeyIsAge = true;
+	}
+
+	//Bail if we don't have the required attributes to render this emitter.
+	if (Data.GetNumInstances() < 2 || !PosData.IsValid() || !SortKeyData.IsValid())
+	{
+		return DynamicData;
+	}
+
+	if (PositionDataOffset == INDEX_NONE || LastSyncedId != Properties->SyncId)
+	{
+
+		const FNiagaraVariableLayoutInfo* PositionLayout = Data.GetVariableLayout(Properties->PositionBinding.DataSetVariable);
+		const FNiagaraVariableLayoutInfo* TwistLayout = Data.GetVariableLayout(Properties->RibbonTwistBinding.DataSetVariable);
+		const FNiagaraVariableLayoutInfo* WidthLayout = Data.GetVariableLayout(Properties->RibbonWidthBinding.DataSetVariable);
+		const FNiagaraVariableLayoutInfo* ColorLayout = Data.GetVariableLayout(Properties->ColorBinding.DataSetVariable);
+
+		// required attributes
+		PositionDataOffset = PositionLayout ? PositionLayout->FloatComponentStart : INDEX_NONE;
+		ColorDataOffset = ColorLayout ? ColorLayout->FloatComponentStart : INDEX_NONE;
+
+		// optional attributes
+		int32 IntDummy;
+		Data.GetVariableComponentOffsets(Properties->RibbonWidthBinding.DataSetVariable, WidthDataOffset, IntDummy);
+		Data.GetVariableComponentOffsets(Properties->RibbonTwistBinding.DataSetVariable, TwistDataOffset, IntDummy);
+		LastSyncedId = Properties->SyncId;
+	}
+
+	DynamicData->DataSet = &Data;
+
+	////////
+	FNiagaraDataSetAccessor<float> SizeData(Data, Properties->RibbonWidthBinding.DataSetVariable);
+	FNiagaraDataSetAccessor<float> TwistData(Data, Properties->RibbonTwistBinding.DataSetVariable);
+	FNiagaraDataSetAccessor<FVector> AlignData(Data, Properties->RibbonFacingBinding.DataSetVariable);
+	FNiagaraDataSetAccessor<FVector4> MaterialParamData(Data, Properties->DynamicMaterialBinding.DataSetVariable);
+	FNiagaraDataSetAccessor<FVector4> MaterialParam1Data(Data, Properties->DynamicMaterial1Binding.DataSetVariable);
+	FNiagaraDataSetAccessor<FVector4> MaterialParam2Data(Data, Properties->DynamicMaterial2Binding.DataSetVariable);
+	FNiagaraDataSetAccessor<FVector4> MaterialParam3Data(Data, Properties->DynamicMaterial3Binding.DataSetVariable);
+
+	FNiagaraDataSetAccessor<int32> RibbonIdData;
+	FNiagaraDataSetAccessor<FNiagaraID> RibbonFullIDData;
+	if (Properties->RibbonIdBinding.DataSetVariable.GetType() == FNiagaraTypeDefinition::GetIDDef())
+	{
+		RibbonFullIDData.Create(&Data, Properties->RibbonIdBinding.DataSetVariable);
+		RibbonFullIDData.InitForAccess(true);
+	}
+	else
+	{
+		RibbonIdData.Create(&Data, Properties->RibbonIdBinding.DataSetVariable);
+		RibbonIdData.InitForAccess(true);
+	}
+
+	bool bFullIDs = RibbonFullIDData.IsValid();
+	bool bSimpleIDs = !bFullIDs && RibbonIdData.IsValid();
+	bool bMultiRibbons = bFullIDs || bSimpleIDs;
+
+	auto AddRibbonVerts = [&](TArray<int32>& RibbonIndices)
+	{
+		int32 NumIndices = RibbonIndices.Num();
 		if (NumIndices > 1)
 		{
 			FVector PrevPos, PrevPos2, PrevDir(0.0f, 0.0f, 0.1f);
 			float TotalDistance = 0.0f;
-			FVector2D AgeOffset(Ages.Last(), 0.0f);
+
+			FVector2D AgeOffset;
+			if (bSortKeyIsAge)
+			{
+				AgeOffset = FVector2D(SortKeyData[RibbonIndices.Last()], 0.0f);
+			}
+			else
+			{
+				AgeOffset = FVector2D::ZeroVector;
+			}
 
 			for (int32 i = 0; i < NumIndices; i++)
 			{
-				uint32 Index1 = IndexPtr[i];
-				uint32 Index2 = IndexPtr[i + 1];
-
-				const FVector ParticlePos = Positions[Index1];
+				uint32 Index1 = RibbonIndices[i];
+				uint32 Index2 = 0;
+				const FVector ParticlePos = PosData[Index1];
 				FVector ParticleDir;
 				if (i < NumIndices - 1)
 				{
-					ParticleDir = Positions[Index2] - ParticlePos;
+					Index2 = RibbonIndices[i + 1];
+					ParticleDir = PosData[Index2] - ParticlePos;
 				}
 				else
 				{
-					Index2 = IndexPtr[i - 1];
-					ParticleDir = ParticlePos - Positions[Index2];
+					Index2 = RibbonIndices[i - 1];
+					ParticleDir = ParticlePos - PosData[Index2];
 				}
-
 
 				// if two ribbon particles were spawned too close together, we skip one
 				// but never skip the last, because that will result in invalid indices from the prev loop
-				if (ParticleDir.SizeSquared() > 0.002 )
+				if (ParticleDir.SizeSquared() > 0.002 || i == NumIndices - 1)
 				{
 					FVector NormDir = ParticleDir.GetSafeNormal();
 					PrevDir = NormDir;
@@ -428,17 +409,37 @@ FNiagaraDynamicDataBase *NiagaraRendererRibbons::GenerateVertexData(const FNiaga
 						UV1Mult = FVector2D(TotalDistance / Properties->UV1TilingDistance, 1.0f);
 					}
 
-					TotalDistance += ParticleDir.Size();
-					AddRibbonVert(RenderData, ParticlePos, UVs[0] * UV0Mult + AgeOffset, UVs[0] * UV1Mult + AgeOffset, Colors[Index1], Ages[Index1], Rotations[Index1], Sizes[Index1], NormDir, FacingVectors[Index1]);
-					AddRibbonVert(RenderData, ParticlePos, UVs[1] * UV0Mult + AgeOffset, UVs[1] * UV1Mult + AgeOffset, Colors[Index1], Ages[Index1], Rotations[Index1], Sizes[Index1], NormDir, FacingVectors[Index1]);
-					if (DynamicParams.Num())
-					{
-						AddDynamicParam(DynamicData->MaterialParameterVertexData, DynamicParams[Index1]);
-						AddDynamicParam(DynamicData->MaterialParameterVertexData, DynamicParams[Index1]);
-					}
+					//Todo. Possibly pull out to templated func to avoid safety code in loop here.
+					FLinearColor Color = ColData.GetSafe(Index1, FLinearColor::White);
+					float Twist = TwistData.GetSafe(Index1, 0.0f);
+					float Size = SizeData.GetSafe(Index1, 1.0f);
+					FVector Align = AlignData.GetSafe(Index1, FVector::UpVector);
 
-					if (i < NumIndices - 1)
+					TotalDistance += ParticleDir.Size();
+					AddRibbonVert(RenderData, ParticlePos, UVs[0] * UV0Mult + AgeOffset, UVs[0] * UV1Mult + AgeOffset, Color, Twist, Size, NormDir, Align);
+					AddRibbonVert(RenderData, ParticlePos, UVs[1] * UV0Mult + AgeOffset, UVs[1] * UV1Mult + AgeOffset, Color, Twist, Size, NormDir, Align);
+					if (MaterialParamData.IsValid())
 					{
+						AddDynamicParam(DynamicData->MaterialParameterVertexData[0], MaterialParamData[Index1]);
+						AddDynamicParam(DynamicData->MaterialParameterVertexData[0], MaterialParamData[Index1]);
+					}
+					if (MaterialParam1Data.IsValid())
+					{
+						AddDynamicParam(DynamicData->MaterialParameterVertexData[1], MaterialParam1Data[Index1]);
+						AddDynamicParam(DynamicData->MaterialParameterVertexData[1], MaterialParam1Data[Index1]);
+					}
+					if (MaterialParam2Data.IsValid())
+					{
+						AddDynamicParam(DynamicData->MaterialParameterVertexData[2], MaterialParam2Data[Index1]);
+						AddDynamicParam(DynamicData->MaterialParameterVertexData[2], MaterialParam2Data[Index1]);
+					}
+					if (MaterialParam3Data.IsValid())
+					{
+						AddDynamicParam(DynamicData->MaterialParameterVertexData[3], MaterialParam3Data[Index1]);
+						AddDynamicParam(DynamicData->MaterialParameterVertexData[3], MaterialParam3Data[Index1]);
+					}
+ 					if (i < NumIndices - 1)
+ 					{
 						IndexData.Add(NumTotalVerts);
 						IndexData.Add(NumTotalVerts + 1);
 						IndexData.Add(NumTotalVerts + 2);
@@ -450,7 +451,68 @@ FNiagaraDynamicDataBase *NiagaraRendererRibbons::GenerateVertexData(const FNiaga
 				}
 			}
 		}
-		StartIndex += NumIndices;
+	};
+	
+	//TODO: Move sorting to share code with sprite and mesh sorting and support the custom sorting key.
+	int32 TotalIndices = Data.GetNumInstances();
+
+	if (!bMultiRibbons)
+	{
+		int32 CurIdx = 0;
+		TArray<int32> SortedIndices;
+		for (int32 i = 0; i < TotalIndices; ++i)
+		{
+			SortedIndices.Add(i);
+		}
+
+		SortedIndices.Sort([&SortKeyData](const int32& A, const int32& B) {	return (SortKeyData[A] < SortKeyData[B]); });
+
+		AddRibbonVerts(SortedIndices);
+	}
+	else
+	{
+		int32 CurIdx = 0;
+		if (bFullIDs)
+		{
+			TMap<FNiagaraID, TArray<int32>> MultiRibbonSortedIndices;
+			
+			for (int32 i = 0; i < TotalIndices; ++i)
+			{
+				TArray<int32>& Indices = MultiRibbonSortedIndices.FindOrAdd(RibbonFullIDData[i]);
+				Indices.Add(i);
+			}
+
+			for (TPair<FNiagaraID, TArray<int32>>& Pair : MultiRibbonSortedIndices)
+			{
+				FNiagaraID& ID = Pair.Key;
+				TArray<int32>& SortedIndices = Pair.Value;
+
+				SortedIndices.Sort([&SortKeyData](const int32& A, const int32& B) {	return (SortKeyData[A] < SortKeyData[B]); });
+				AddRibbonVerts(SortedIndices);			
+			};
+		}
+		else
+		{
+			//TODO: Remove simple ID path
+			check(bSimpleIDs);
+
+			TMap<int32, TArray<int32>> MultiRibbonSortedIndices;
+
+			for (int32 i = 0; i < TotalIndices; ++i)
+			{
+				TArray<int32>& Indices = MultiRibbonSortedIndices.FindOrAdd(RibbonIdData[i]);
+				Indices.Add(i);
+			}
+
+			for (TPair<int32, TArray<int32>>& Pair : MultiRibbonSortedIndices)
+			{
+				int32 ID = Pair.Key;
+				TArray<int32>& SortedIndices = Pair.Value;
+
+				SortedIndices.Sort([&SortKeyData](const int32& A, const int32& B) {	return (SortKeyData[A] < SortKeyData[B]); });
+				AddRibbonVerts(SortedIndices);
+			};
+		}
 	}
 
 	CPUTimeMS = VertexDataTimer.GetElapsedMilliseconds();
