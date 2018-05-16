@@ -5,8 +5,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace UnrealGameSync
 {
@@ -1304,6 +1306,7 @@ namespace UnrealGameSync
 			{
 				FullCommandLine.Append("-s ");
 			}
+			FullCommandLine.AppendFormat("-zprog=UGS -zversion={0} ", Assembly.GetExecutingAssembly().GetName().Version.ToString());
 			FullCommandLine.Append(CommandLine);
 
 			return FullCommandLine.ToString();
