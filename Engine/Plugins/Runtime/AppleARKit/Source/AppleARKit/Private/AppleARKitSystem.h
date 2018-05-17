@@ -53,6 +53,10 @@ public:
 	
 	// @todo arkit : this is for the blueprint library only; try to get rid of this method
 	bool GetCurrentFrame(FAppleARKitFrame& OutCurrentFrame) const;
+
+	/** So the module can shut down the ar services cleanly */
+	void Shutdown();
+
 private:
 	//~ FGCObject
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;

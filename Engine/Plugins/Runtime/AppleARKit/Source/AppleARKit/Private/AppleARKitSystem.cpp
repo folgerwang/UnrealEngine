@@ -429,6 +429,20 @@ FAppleARKitSystem::~FAppleARKitSystem()
 	// Unregister our ability to hit-test in AR with Unreal
 }
 
+void FAppleARKitSystem::Shutdown()
+{
+#if SUPPORTS_ARKIT_1_0
+	if (Session != nullptr)
+	{
+		[Session pause];
+		Session.delegate = nullptr;
+		[Session release];
+		Session = nullptr;
+	}
+#endif
+	CameraDepth = nullptr;
+	CameraImage = nullptr;
+}
 
 FName FAppleARKitSystem::GetSystemName() const
 {
