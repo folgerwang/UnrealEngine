@@ -18,9 +18,9 @@
 #include "GraphEditAction.h"
 #include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
-#include "NiagaraSystemViewModel.h"
-#include "NiagaraEmitterHandleViewModel.h"
-#include "NiagaraEmitterViewModel.h"
+#include "ViewModels/NiagaraSystemViewModel.h"
+#include "ViewModels/NiagaraEmitterHandleViewModel.h"
+#include "ViewModels/NiagaraEmitterViewModel.h"
 
 FNiagaraSystemScriptViewModel::FNiagaraSystemScriptViewModel(UNiagaraSystem& InSystem, FNiagaraSystemViewModel* InParent)
 	: FNiagaraScriptViewModel(InSystem.GetSystemSpawnScript(), NSLOCTEXT("SystemScriptViewModel", "GraphName", "System"), ENiagaraParameterEditMode::EditAll)
@@ -33,19 +33,95 @@ FNiagaraSystemScriptViewModel::FNiagaraSystemScriptViewModel(UNiagaraSystem& InS
 	{
 		OnGraphChangedHandle = GetGraphViewModel()->GetGraph()->AddOnGraphChangedHandler(
 			FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraSystemScriptViewModel::OnGraphChanged));
+
+		OnRecompileHandle = GetGraphViewModel()->GetGraph()->AddOnGraphNeedsRecompileHandler(
+			FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraSystemScriptViewModel::OnGraphChanged));
 		
 		GetGraphViewModel()->SetErrorTextToolTip("");
 	}
+
+	System.OnSystemCompiled().AddRaw(this, &FNiagaraSystemScriptViewModel::OnSystemVMCompiled);
 }
 
 FNiagaraSystemScriptViewModel::~FNiagaraSystemScriptViewModel()
 {
+	System.OnSystemCompiled().RemoveAll(this);
 	if (GetGraphViewModel()->GetGraph())
 	{
 		GetGraphViewModel()->GetGraph()->RemoveOnGraphChangedHandler(OnGraphChangedHandle);
+		GetGraphViewModel()->GetGraph()->RemoveOnGraphNeedsRecompileHandler(OnRecompileHandle);
+		
 	}
 }
 
+void FNiagaraSystemScriptViewModel::OnSystemVMCompiled(UNiagaraSystem* InSystem)
+{
+	if (InSystem != &System)
+	{
+		return;
+	}
+
+	TArray<ENiagaraScriptCompileStatus> InCompileStatuses;
+	TArray<FString> InCompileErrors;
+	TArray<FString> InCompilePaths;
+	TArray<TPair<ENiagaraScriptUsage, int32> > InUsages;
+
+	ENiagaraScriptCompileStatus AggregateStatus = ENiagaraScriptCompileStatus::NCS_UpToDate;
+	FString AggregateErrors;
+
+	TArray<UNiagaraScript*> SystemScripts;
+	SystemScripts.Add(InSystem->GetSystemSpawnScript());
+	SystemScripts.Add(InSystem->GetSystemUpdateScript());
+	for (const FNiagaraEmitterHandle& Handle : InSystem->GetEmitterHandles())
+	{
+		Handle.GetInstance()->GetScripts(SystemScripts, true);
+	}
+
+	int32 EventsFound = 0;
+	for (int32 i = 0; i < SystemScripts.Num(); i++)
+	{
+		UNiagaraScript* Script = SystemScripts[i];
+		if (Script != nullptr && Script->GetVMExecutableData().IsValid())
+		{
+			InCompileStatuses.Add(Script->GetVMExecutableData().LastCompileStatus);
+			InCompileErrors.Add(Script->GetVMExecutableData().ErrorMsg);
+			InCompilePaths.Add(Script->GetPathName());
+
+			if (Script->GetUsage() == ENiagaraScriptUsage::ParticleEventScript)
+			{
+				InUsages.Add(TPair<ENiagaraScriptUsage, int32>(Script->GetUsage(), EventsFound));
+				EventsFound++;
+			}
+			else
+			{
+				InUsages.Add(TPair<ENiagaraScriptUsage, int32>(Script->GetUsage(), 0));
+			}
+		}
+		else
+		{
+			InCompileStatuses.Add(ENiagaraScriptCompileStatus::NCS_Unknown);
+			InCompileErrors.Add(TEXT("Invalid script pointer!"));
+			InCompilePaths.Add(TEXT("Unknown..."));
+			InUsages.Add(TPair<ENiagaraScriptUsage, int32>(ENiagaraScriptUsage::Function, 0));
+		}
+	}
+
+	for (int32 i = 0; i < InCompileStatuses.Num(); i++)
+	{
+		AggregateStatus = FNiagaraEditorUtilities::UnionCompileStatus(AggregateStatus, InCompileStatuses[i]);
+		AggregateErrors += InCompilePaths[i] + TEXT(" ") + FNiagaraEditorUtilities::StatusToText(InCompileStatuses[i]).ToString() + TEXT("\n");
+		AggregateErrors += InCompileErrors[i] + TEXT("\n");
+	}
+
+	UpdateCompileStatus(AggregateStatus, AggregateErrors, InCompileStatuses, InCompileErrors, InCompilePaths, SystemScripts);
+
+	LastCompileStatus = AggregateStatus;
+
+	if (OnSystemCompiledDelegate.IsBound())
+	{
+		OnSystemCompiledDelegate.Broadcast();
+	}
+}
 
 float EmitterNodeVerticalOffset = 150.0f;
 
@@ -201,61 +277,7 @@ FNiagaraSystemScriptViewModel::FOnSystemCompiled& FNiagaraSystemScriptViewModel:
 
 void FNiagaraSystemScriptViewModel::CompileSystem(bool bForce)
 {
-
-	TArray<ENiagaraScriptCompileStatus> CompileSystemStatuses;
-	TArray<FString> CompileSystemErrors;
-	TArray<FString> CompileSystemPaths;
-	TArray<UNiagaraScript*> CompileSystemScripts;
-	System.CompileScripts(CompileSystemStatuses, CompileSystemErrors, CompileSystemPaths, CompileSystemScripts, bForce);
-
-	// First we need to find all the possibly affected view models..
-	TArray<FNiagaraScriptViewModel*> ScriptViewModels;
-	ScriptViewModels.Add(this);
-	if (Parent)
-	{
-		for (const TSharedRef<FNiagaraEmitterHandleViewModel>& EmitterHandleVM : Parent->GetEmitterHandleViewModels())
-		{
-			TSharedRef<FNiagaraEmitterViewModel> EmitterVM = EmitterHandleVM->GetEmitterViewModel();
-			ScriptViewModels.Add(&EmitterVM->GetSharedScriptViewModel().Get());
-		}
-	}
-
-	// Now we need to match up the results with the view models that need to know about them..
-	for (FNiagaraScriptViewModel* ScriptVM : ScriptViewModels)
-	{
-		TArray<ENiagaraScriptCompileStatus> CompileChildStatuses;
-		TArray<FString> CompileChildErrors;
-		TArray<FString> CompileChildPaths;
-		TArray<UNiagaraScript*> CompileChildScripts;
-
-		for (int32 i = 0; i < CompileSystemScripts.Num(); i++)
-		{
-			UNiagaraScript* Script = CompileSystemScripts[i];
-			if (ScriptVM->GetScript(Script->GetUsage(), Script->GetUsageId()) == Script) // Check to see if it contains this script
-			{
-				CompileChildScripts.Add(Script);
-				CompileChildStatuses.Add(CompileSystemStatuses[i]);
-				CompileChildErrors.Add(CompileSystemErrors[i]);
-				CompileChildPaths.Add(CompileSystemPaths[i]);
-			}
-		}
-		ENiagaraScriptCompileStatus AggregateStatus = ENiagaraScriptCompileStatus::NCS_UpToDate;
-		FString AggregateErrors;
-
-		for (int32 i = 0; i < CompileChildStatuses.Num(); i++)
-		{
-			AggregateStatus = FNiagaraEditorUtilities::UnionCompileStatus(AggregateStatus, CompileChildStatuses[i]);
-			AggregateErrors += CompileChildPaths[i] + TEXT(" ") + FNiagaraEditorUtilities::StatusToText(CompileChildStatuses[i]).ToString() + TEXT("\n");
-			AggregateErrors += CompileChildErrors[i] + TEXT("\n");
-		}
-		
-		ScriptVM->UpdateCompileStatus(AggregateStatus, AggregateErrors, CompileChildStatuses, CompileChildErrors, CompileChildPaths, CompileChildScripts);
-	}
-	
-	if (OnSystemCompiledDelegate.IsBound())
-	{
-		OnSystemCompiledDelegate.Broadcast();
-	}
+	System.RequestCompile(bForce);
 }
 
 void FNiagaraSystemScriptViewModel::OnGraphChanged(const struct FEdGraphEditAction& InAction)

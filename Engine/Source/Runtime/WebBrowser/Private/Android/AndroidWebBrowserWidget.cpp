@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidWebBrowserWidget.h"
+
+#if USE_ANDROID_JNI
+
 #include "AndroidWebBrowserWindow.h"
 #include "AndroidWebBrowserDialog.h"
 #include "AndroidJSScripting.h"
@@ -736,3 +739,5 @@ JNI_METHOD void Java_com_epicgames_ue4_WebViewControl_00024ChromeClient_onReceiv
 		Widget->HandleReceivedTitle(Title);
 	}
 }
+
+#endif // USE_ANDROID_JNI

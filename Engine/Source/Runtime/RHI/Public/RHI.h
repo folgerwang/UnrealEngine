@@ -364,14 +364,10 @@ extern RHI_API int32 GDrawUPIndexCheckCount;
 /** true for each VET that is supported. One-to-one mapping with EVertexElementType */
 extern RHI_API class FVertexElementTypeSupportInfo GVertexElementTypeSupport;
 
-/** When greater than one, indicates that SLI rendering is enabled */
-#if PLATFORM_DESKTOP
-#define WITH_SLI (1)
-extern RHI_API uint32 GNumActiveGPUsForRendering;
-#else
-#define WITH_SLI (0)
-#define GNumActiveGPUsForRendering (1)
-#endif
+#include "MultiGPU.h"
+
+RHI_API EMultiGPUMode GetMultiGPUMode();
+RHI_API FRHIGPUMask GetNodeMaskFromMultiGPUMode(EMultiGPUMode Strategy, uint32 ViewIndex, uint32 FrameIndex);
 
 /** Whether the next frame should profile the GPU. */
 extern RHI_API bool GTriggerGPUProfile;

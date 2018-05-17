@@ -10,7 +10,6 @@
 #include "NiagaraEditorWidgetsModule.h"
 
 #include "SCurveEditor.h"
-#include "SCurveEditor.h"
 #include "PropertyHandle.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
@@ -19,6 +18,29 @@
 #include "Misc/Optional.h"
 #include "Brushes/SlateColorBrush.h"
 #include "Modules/ModuleManager.h"
+
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Images/SImage.h"
+#include "NiagaraEditorStyle.h"
+#include "NiagaraEditorWidgetsStyle.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Curves/CurveVector.h"
+#include "Curves/CurveFloat.h"
+#include "Curves/CurveLinearColor.h"
+#include "Curves/RichCurve.h"
+#include "ScopedTransaction.h"
+
+#define LOCTEXT_NAMESPACE "NiagaraDataInterfaceCurveDetails"
+
+FRichCurve* GetCurveFromPropertyHandle(TSharedPtr<IPropertyHandle> Handle)
+{
+	TArray<void*> RawData;
+	Handle->AccessRawData(RawData);
+	return RawData.Num() == 1 ? static_cast<FRichCurve*>(RawData[0]) : nullptr;
+}
 
 class SNiagaraResizeBox : public SCompoundWidget
 {
@@ -237,15 +259,10 @@ public:
 	}
 
 private:
-	FRichCurve* GetCurveFromPropertyHandle(TSharedPtr<IPropertyHandle> Handle)
-	{
-		TArray<void*> RawData;
-		Handle->AccessRawData(RawData);
-		return RawData.Num() == 1 ? static_cast<FRichCurve*>(RawData[0]) : nullptr;
-	}
-
 	void CurveChanged(FRichCurve* ChangedCurve, UObject* CurveOwnerObject)
 	{
+		UNiagaraDataInterfaceCurveBase* EditedCurve = Cast<UNiagaraDataInterfaceCurveBase>(CurveOwnerObject);
+		EditedCurve->UpdateLUT(); // we need this done before notify change because of the internal copy methods
 		for (TSharedRef<IPropertyHandle> CurveProperty : CurveProperties)
 		{
 			if (GetCurveFromPropertyHandle(CurveProperty) == ChangedCurve)
@@ -269,6 +286,8 @@ private:
 // Curve Base
 void FNiagaraDataInterfaceCurveDetailsBase::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
+	CustomDetailBuilder = &DetailBuilder;
+	FNiagaraDataInterfaceDetailsBase::CustomizeDetails(DetailBuilder);
 	// Only support single objects.
 	TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
 	DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
@@ -276,7 +295,7 @@ void FNiagaraDataInterfaceCurveDetailsBase::CustomizeDetails(IDetailLayoutBuilde
 	{
 		return;
 	}
-
+	CustomizedCurveInterface = Cast<UNiagaraDataInterfaceCurveBase>(ObjectsBeingCustomized[0].Get());
 	FNiagaraEditorWidgetsModule& NiagaraEditorWidgetsModule = FModuleManager::GetModuleChecked<FNiagaraEditorWidgetsModule>("NiagaraEditorWidgets");
 	TSharedRef<FNiagaraStackCurveEditorOptions> StackCurveEditorOptions = NiagaraEditorWidgetsModule.GetOrCreateStackCurveEditorOptionsForObject(
 		ObjectsBeingCustomized[0].Get(), GetDefaultAreCurvesVisible(), GetDefaultHeight());
@@ -299,6 +318,50 @@ void FNiagaraDataInterfaceCurveDetailsBase::CustomizeDetails(IDetailLayoutBuilde
 	}
 
 	IDetailCategoryBuilder& CurveCategory = DetailBuilder.EditCategory("Curve");
+	TSharedRef<IPropertyHandle> ShowInCurveEditorHandle = CustomDetailBuilder->GetProperty(FName("ShowInCurveEditor"), UNiagaraDataInterfaceCurveBase::StaticClass());
+	if (ShowInCurveEditorHandle->IsValidHandle())
+	{
+		ShowInCurveEditorHandle->MarkHiddenByCustomization();
+	}
+	CurveCategory.HeaderContent( 
+		// Checkbox for showing in curve editor
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.Padding(5, 0, 5, 0)
+		.HAlign(EHorizontalAlignment::HAlign_Left)
+		.AutoWidth()
+		[
+			SNew(SButton)
+			.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			.ContentPadding(1)
+			.ToolTipText(this, &FNiagaraDataInterfaceCurveDetailsBase::GetShowInCurveEditorTooltip)
+			.OnClicked(this, &FNiagaraDataInterfaceCurveDetailsBase::OnToggleShowInCurveEditor)
+			.Content()
+			[
+				SNew(SImage)
+				.Image(FNiagaraEditorWidgetsStyle::Get().GetBrush("NiagaraEditor.ShowInCurveEditorIcon"))
+				.ColorAndOpacity(this, &FNiagaraDataInterfaceCurveDetailsBase::GetShowInCurveEditorImageColor)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(EHorizontalAlignment::HAlign_Right)
+		[
+			SNew(SComboButton)
+			.HasDownArrow(true)
+			.OnGetMenuContent(this, &FNiagaraDataInterfaceCurveDetailsBase::GetCurveToCopyMenu)
+			.ContentPadding(2)
+			.ButtonContent()
+			[
+				SNew(STextBlock)
+				.TextStyle(FNiagaraEditorStyle::Get(), "NiagaraEditor.ParameterText")
+				.ColorAndOpacity(FSlateColor::UseForeground())
+				.Text(NSLOCTEXT("NiagaraDataInterfaceCurveDetails", "Import", "Import"))
+				.ToolTipText(NSLOCTEXT("NiagaraDataInterfaceCurveDetails", "CopyCurveAsset", "Copy data from another Curve asset"))
+			]
+		]
+	);
 	CurveCategory.AddCustomRow(NSLOCTEXT("NiagaraDataInterfaceCurveDetails", "CurveFilterText", "Curve"))
 		.WholeRowContent()
 		[
@@ -312,6 +375,82 @@ void FNiagaraDataInterfaceCurveDetailsBase::CustomizeDetails(IDetailLayoutBuilde
 		];
 }
 
+FText FNiagaraDataInterfaceCurveDetailsBase::GetShowInCurveEditorTooltip() const
+{
+	return LOCTEXT("ShowInCurveEditorToolTip", "Show this curve in the curves tab.");
+}
+
+FSlateColor FNiagaraDataInterfaceCurveDetailsBase::GetShowInCurveEditorImageColor() const
+{
+	return CustomizedCurveInterface->ShowInCurveEditor
+		? FEditorStyle::GetSlateColor("SelectionColor")
+		: FLinearColor::Gray;
+}
+
+FReply FNiagaraDataInterfaceCurveDetailsBase::OnToggleShowInCurveEditor() const
+{
+	TSharedRef<IPropertyHandle> ShowInCurveEditorHandle = CustomDetailBuilder->GetProperty(FName("ShowInCurveEditor"), UNiagaraDataInterfaceCurveBase::StaticClass());
+	if (ShowInCurveEditorHandle->IsValidHandle())
+	{
+		bool bShowInCurveEditor;
+		ShowInCurveEditorHandle->GetValue(bShowInCurveEditor);
+		ShowInCurveEditorHandle->SetValue(!bShowInCurveEditor);
+	}
+	return FReply::Handled();
+}
+
+void FNiagaraDataInterfaceCurveDetailsBase::ImportSelectedAsset(UObject* SelectedAsset)
+{
+	TArray<FRichCurve> FloatCurves;
+	GetFloatCurvesFromAsset(SelectedAsset, FloatCurves);
+	TArray<TSharedRef<IPropertyHandle>> CurveProperties;
+	GetCurveProperties(*CustomDetailBuilder, CurveProperties);
+	if (FloatCurves.Num() == CurveProperties.Num())
+	{
+		FScopedTransaction ImportTransaction(LOCTEXT("ImportCurveTransaction", "Import curve"));
+		CustomizedCurveInterface->Modify();
+		for (int i = 0; i < CurveProperties.Num(); i++)
+		{
+			if (CurveProperties[i]->IsValidHandle())
+			{
+				*GetCurveFromPropertyHandle(CurveProperties[i]) = FloatCurves[i];
+			}
+		}
+		CustomizedCurveInterface->UpdateLUT(); // we need this done before notify change because of the internal copy methods
+		for (auto CurveProperty : CurveProperties)
+		{
+			CurveProperty->NotifyPostChange();
+		}
+	}
+}
+
+TSharedRef<SWidget> FNiagaraDataInterfaceCurveDetailsBase::GetCurveToCopyMenu()
+{
+	FName ClassName = GetSupportedAssetClassName();
+	FAssetPickerConfig AssetPickerConfig;
+	{
+		AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateSP(this, &FNiagaraDataInterfaceCurveDetailsBase::CurveToCopySelected);
+		AssetPickerConfig.bAllowNullSelection = false;
+		AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
+		AssetPickerConfig.Filter.ClassNames.Add(ClassName);
+	}
+
+	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+
+	return SNew(SBox)
+		.WidthOverride(300.0f)
+		[
+			ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig)
+		];
+	
+	return SNullWidget::NullWidget;
+}
+
+void FNiagaraDataInterfaceCurveDetailsBase::CurveToCopySelected(const FAssetData& AssetData)
+{
+	ImportSelectedAsset(AssetData.GetAsset());
+	FSlateApplication::Get().DismissAllMenus();
+}
 
 // Curve
 TSharedRef<IDetailCustomization> FNiagaraDataInterfaceCurveDetails::MakeInstance()
@@ -321,9 +460,19 @@ TSharedRef<IDetailCustomization> FNiagaraDataInterfaceCurveDetails::MakeInstance
 
 void FNiagaraDataInterfaceCurveDetails::GetCurveProperties(IDetailLayoutBuilder& DetailBuilder, TArray<TSharedRef<IPropertyHandle>>& CurveProperties) const
 {
-	CurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceCurve, Curve)));
+	CurveProperties.Add(DetailBuilder.GetProperty(FName("Curve"), UNiagaraDataInterfaceCurve::StaticClass()));
 }
 
+FName FNiagaraDataInterfaceCurveDetails::GetSupportedAssetClassName() const
+{
+	return UCurveFloat::StaticClass()->GetFName();
+}
+
+void FNiagaraDataInterfaceCurveDetails::GetFloatCurvesFromAsset(UObject* SelectedAsset, TArray<FRichCurve>& FloatCurves) const
+{
+	UCurveFloat* CurveAsset = Cast<UCurveFloat>(SelectedAsset);
+	FloatCurves.Add(CurveAsset->FloatCurve);
+}
 
 // Vector 2D Curve
 TSharedRef<IDetailCustomization> FNiagaraDataInterfaceVector2DCurveDetails::MakeInstance()
@@ -333,8 +482,22 @@ TSharedRef<IDetailCustomization> FNiagaraDataInterfaceVector2DCurveDetails::Make
 
 void FNiagaraDataInterfaceVector2DCurveDetails::GetCurveProperties(IDetailLayoutBuilder& DetailBuilder, TArray<TSharedRef<IPropertyHandle>>& OutCurveProperties) const
 {
-	OutCurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceVector2DCurve, XCurve)));
-	OutCurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceVector2DCurve, YCurve)));
+	OutCurveProperties.Add(DetailBuilder.GetProperty(FName("XCurve"), UNiagaraDataInterfaceVector2DCurve::StaticClass()));
+	OutCurveProperties.Add(DetailBuilder.GetProperty(FName("YCurve"), UNiagaraDataInterfaceVector2DCurve::StaticClass()));
+}
+
+FName FNiagaraDataInterfaceVector2DCurveDetails::GetSupportedAssetClassName() const
+{
+	return UCurveVector::StaticClass()->GetFName();
+}
+
+void FNiagaraDataInterfaceVector2DCurveDetails::GetFloatCurvesFromAsset(UObject* SelectedAsset, TArray<FRichCurve>& FloatCurves) const
+{
+	UCurveVector* CurveAsset = Cast<UCurveVector>(SelectedAsset);
+	for (int i = 0; i < 2; i++)
+	{
+		FloatCurves.Add(CurveAsset->FloatCurves[i]);
+	}
 }
 
 
@@ -346,9 +509,23 @@ TSharedRef<IDetailCustomization> FNiagaraDataInterfaceVectorCurveDetails::MakeIn
 
 void FNiagaraDataInterfaceVectorCurveDetails::GetCurveProperties(IDetailLayoutBuilder& DetailBuilder, TArray<TSharedRef<IPropertyHandle>>& OutCurveProperties) const
 {
-	OutCurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceVectorCurve, XCurve)));
-	OutCurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceVectorCurve, YCurve)));
-	OutCurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceVectorCurve, ZCurve)));
+	OutCurveProperties.Add(DetailBuilder.GetProperty(FName("XCurve"), UNiagaraDataInterfaceVectorCurve::StaticClass()));
+	OutCurveProperties.Add(DetailBuilder.GetProperty(FName("YCurve"), UNiagaraDataInterfaceVectorCurve::StaticClass()));
+	OutCurveProperties.Add(DetailBuilder.GetProperty(FName("ZCurve"), UNiagaraDataInterfaceVectorCurve::StaticClass()));
+}
+
+FName FNiagaraDataInterfaceVectorCurveDetails::GetSupportedAssetClassName() const
+{
+	return UCurveVector::StaticClass()->GetFName();
+}
+
+void FNiagaraDataInterfaceVectorCurveDetails::GetFloatCurvesFromAsset(UObject* SelectedAsset, TArray<FRichCurve>& FloatCurves) const
+{
+	UCurveVector* CurveAsset = Cast<UCurveVector>(SelectedAsset);
+	for (int i = 0; i < 3; i++)
+	{
+		FloatCurves.Add(CurveAsset->FloatCurves[i]);
+	}
 }
 
 
@@ -360,12 +537,25 @@ TSharedRef<IDetailCustomization> FNiagaraDataInterfaceVector4CurveDetails::MakeI
 
 void FNiagaraDataInterfaceVector4CurveDetails::GetCurveProperties(IDetailLayoutBuilder& DetailBuilder, TArray<TSharedRef<IPropertyHandle>>& OutCurveProperties) const
 {
-	OutCurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceVector4Curve, XCurve)));
-	OutCurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceVector4Curve, YCurve)));
-	OutCurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceVector4Curve, ZCurve)));
-	OutCurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceVector4Curve, WCurve)));
+	OutCurveProperties.Add(DetailBuilder.GetProperty(FName("XCurve"), UNiagaraDataInterfaceVector4Curve::StaticClass()));
+	OutCurveProperties.Add(DetailBuilder.GetProperty(FName("YCurve"), UNiagaraDataInterfaceVector4Curve::StaticClass()));
+	OutCurveProperties.Add(DetailBuilder.GetProperty(FName("ZCurve"), UNiagaraDataInterfaceVector4Curve::StaticClass()));
+	OutCurveProperties.Add(DetailBuilder.GetProperty(FName("WCurve"), UNiagaraDataInterfaceVector4Curve::StaticClass()));
 }
 
+FName FNiagaraDataInterfaceVector4CurveDetails::GetSupportedAssetClassName() const
+{
+	return UCurveLinearColor::StaticClass()->GetFName();
+}
+
+void FNiagaraDataInterfaceVector4CurveDetails::GetFloatCurvesFromAsset(UObject* SelectedAsset, TArray<FRichCurve>& FloatCurves) const
+{
+	UCurveLinearColor* CurveAsset = Cast<UCurveLinearColor>(SelectedAsset);
+	for (int i = 0; i < 4; i++)
+	{
+		FloatCurves.Add(CurveAsset->FloatCurves[i]);
+	}
+}
 
 // Color Curve
 TSharedRef<IDetailCustomization> FNiagaraDataInterfaceColorCurveDetails::MakeInstance()
@@ -375,8 +565,23 @@ TSharedRef<IDetailCustomization> FNiagaraDataInterfaceColorCurveDetails::MakeIns
 
 void FNiagaraDataInterfaceColorCurveDetails::GetCurveProperties(IDetailLayoutBuilder& DetailBuilder, TArray<TSharedRef<IPropertyHandle>>& OutCurveProperties) const
 {
-	OutCurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceColorCurve, RedCurve)));
-	OutCurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceColorCurve, GreenCurve)));
-	OutCurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceColorCurve, BlueCurve)));
-	OutCurveProperties.Add(DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceColorCurve, AlphaCurve)));
+	OutCurveProperties.Add(DetailBuilder.GetProperty(FName("RedCurve"), UNiagaraDataInterfaceColorCurve::StaticClass()));
+	OutCurveProperties.Add(DetailBuilder.GetProperty(FName("GreenCurve"), UNiagaraDataInterfaceColorCurve::StaticClass()));
+	OutCurveProperties.Add(DetailBuilder.GetProperty(FName("BlueCurve"), UNiagaraDataInterfaceColorCurve::StaticClass()));
+	OutCurveProperties.Add(DetailBuilder.GetProperty(FName("AlphaCurve"), UNiagaraDataInterfaceColorCurve::StaticClass()));
 }
+
+FName FNiagaraDataInterfaceColorCurveDetails::GetSupportedAssetClassName() const
+{
+	return UCurveLinearColor::StaticClass()->GetFName();
+}
+
+void FNiagaraDataInterfaceColorCurveDetails::GetFloatCurvesFromAsset(UObject* SelectedAsset, TArray<FRichCurve>& FloatCurves) const
+{
+	UCurveLinearColor* CurveAsset = Cast<UCurveLinearColor>(SelectedAsset);
+	for (int i = 0; i < 4; i++)
+	{
+		FloatCurves.Add(CurveAsset->FloatCurves[i]);
+	}
+}
+#undef LOCTEXT_NAMESPACE

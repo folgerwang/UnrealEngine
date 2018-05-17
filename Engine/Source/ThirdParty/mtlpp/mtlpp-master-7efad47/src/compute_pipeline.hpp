@@ -90,6 +90,7 @@ namespace mtlpp
         ComputePipelineState() { }
 		ComputePipelineState(ns::Protocol<id<MTLComputePipelineState>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLComputePipelineState>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetComputePipelineState(handle)) { }
 
+		ns::AutoReleased<ns::String> GetLabel() const MTLPP_AVAILABLE(10_13, 11_0);
         ns::AutoReleased<Device>   GetDevice() const;
         NSUInteger GetMaxTotalThreadsPerThreadgroup() const;
         NSUInteger GetThreadExecutionWidth() const;

@@ -21,16 +21,15 @@ class FShaderFormatVulkan : public IShaderFormat
 {
 	enum 
 	{
-		UE_SHADER_VULKAN_ES3_1_VER = 14,
-		UE_SHADER_VULKAN_SM4_VER = 14,
-		UE_SHADER_VULKAN_SM5_VER = 14,
+		UE_SHADER_VULKAN_ES3_1_VER = 15,
+		UE_SHADER_VULKAN_SM5_VER = 15,
 	};
 
 	int32 InternalGetVersion(FName Format) const
 	{
 		if (Format == NAME_VULKAN_SM4 || Format == NAME_VULKAN_SM4_NOUB)
 		{
-			return UE_SHADER_VULKAN_SM4_VER;
+			return UE_SHADER_VULKAN_SM5_VER;
 		}
 		else if (Format == NAME_VULKAN_SM5 || Format == NAME_VULKAN_SM5_NOUB)
 		{

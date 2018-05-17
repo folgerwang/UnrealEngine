@@ -2972,8 +2972,9 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 			FViewInfo& View = Views[ViewIndex];
 			FVisibleLightViewInfo& VisibleLightViewInfo = View.VisibleLightInfos[LightIt.GetIndex()];
 			// dir lights are always visible, and point/spot only if in the frustum
-			if (Proxy->GetLightType() == LightType_Point  
-				|| Proxy->GetLightType() == LightType_Spot)
+			if( Proxy->GetLightType() == LightType_Point ||
+				Proxy->GetLightType() == LightType_Spot ||
+				Proxy->GetLightType() == LightType_Rect )
 			{
 				FSphere const& BoundingSphere = Proxy->GetBoundingSphere();
 				if (View.ViewFrustum.IntersectSphere(BoundingSphere.Center, BoundingSphere.W))
@@ -3072,8 +3073,13 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 					Origin = ToLight + View.ViewMatrices.GetViewOrigin();
 				
 					FLinearColor Color( LightParameters.LightColorAndFalloffExponent );
-
-					Color /= PI * FMath::Square( LightParameters.LightSourceRadius ) + 0.5f * PI * LightParameters.LightSourceRadius * LightParameters.LightSourceLength;
+					if( !Proxy->IsRectLight() )
+					{
+						const float SphereArea = (4.0f * PI) * FMath::Square( LightParameters.LightSourceRadius );
+						const float CylinderArea = (2.0f * PI) * LightParameters.LightSourceRadius * LightParameters.LightSourceLength;
+						const float SurfaceArea = SphereArea + CylinderArea;
+						Color *= 4.0f / SurfaceArea;
+					}
 
 					if( Proxy->IsInverseSquared() )
 					{
@@ -3092,13 +3098,32 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 					// Spot falloff
 					FVector L = ToLight.GetSafeNormal();
 					Color.A *= FMath::Square( FMath::Clamp( ( (L | LightParameters.NormalizedLightDirection) - LightParameters.SpotAngles.X ) * LightParameters.SpotAngles.Y, 0.0f, 1.0f ) );
+
+					// Rect is one sided
+					if( Proxy->IsRectLight() && (L | LightParameters.NormalizedLightDirection) < 0.0f )
+						continue;
 				
 					FMaterialRenderProxy* const ColoredMeshInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy( GEngine->DebugMeshMaterial->GetRenderProxy(false), Color );
 
+					FMatrix LightToWorld = Proxy->GetLightToWorld();
+					LightToWorld.RemoveScaling();
+
 					FViewElementPDI LightPDI( &View, NULL );
-					// Scaled sphere to handle SourceLength
-					const float ZScale = FMath::Max(LightParameters.LightSourceRadius, LightParameters.LightSourceLength);
-					DrawSphere(&LightPDI, Origin, FRotationMatrix::MakeFromZ(LightParameters.NormalizedLightDirection).Rotator(), FVector(LightParameters.LightSourceRadius, LightParameters.LightSourceRadius, ZScale), 36, 24, ColoredMeshInstance, SDPG_World);
+
+					if( Proxy->IsRectLight() )
+					{
+						DrawBox( &LightPDI, LightToWorld, FVector( 0.0f, LightParameters.LightSourceRadius, LightParameters.LightSourceLength ), ColoredMeshInstance, SDPG_World );
+					}
+					else if( LightParameters.LightSourceLength > 0.0f )
+					{
+						DrawSphere( &LightPDI, Origin + 0.5f * LightParameters.LightSourceLength * LightToWorld.GetUnitAxis( EAxis::Z ), FRotator::ZeroRotator, LightParameters.LightSourceRadius * FVector::OneVector, 36, 24, ColoredMeshInstance, SDPG_World );
+						DrawSphere( &LightPDI, Origin - 0.5f * LightParameters.LightSourceLength * LightToWorld.GetUnitAxis( EAxis::Z ), FRotator::ZeroRotator, LightParameters.LightSourceRadius * FVector::OneVector, 36, 24, ColoredMeshInstance, SDPG_World );
+						DrawCylinder( &LightPDI, Origin, LightToWorld.GetUnitAxis( EAxis::X ), LightToWorld.GetUnitAxis( EAxis::Y ), LightToWorld.GetUnitAxis( EAxis::Z ), LightParameters.LightSourceRadius, 0.5f * LightParameters.LightSourceLength, 36, ColoredMeshInstance, SDPG_World );
+					}
+					else
+					{
+						DrawSphere( &LightPDI, Origin, FRotator::ZeroRotator, LightParameters.LightSourceRadius * FVector::OneVector, 36, 24, ColoredMeshInstance, SDPG_World );
+					}
 				}
 			}
 		}

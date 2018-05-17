@@ -18,6 +18,9 @@ class FStructOnScope;
 class UEdGraph;
 class UEdGraphNode;
 class SWidget;
+class UNiagaraNode;
+class UEdGraphSchema_Niagara;
+class UEdGraphPin;
 
 namespace FNiagaraEditorUtilities
 {
@@ -62,7 +65,7 @@ namespace FNiagaraEditorUtilities
 
 		return true;
 	}
-	
+
 	/** Gets a set of the system constant names. */
 	TSet<FName> GetSystemConstantNames();
 
@@ -74,6 +77,13 @@ namespace FNiagaraEditorUtilities
 
 	/** Sets up a niagara input node for parameter usage. */
 	void InitializeParameterInputNode(UNiagaraNodeInput& InputNode, const FNiagaraTypeDefinition& Type, const UNiagaraGraph* Graph, FName InputName = FName(TEXT("NewInput")));
+
+	/** Writes text to a specified location on disk.*/
+	void NIAGARAEDITOR_API WriteTextFileToDisk(FString SaveDirectory, FString FileName, FString TextToSave, bool bAllowOverwriting = false);
+
+	/** Gathers up the change Id's and optionally writes them to disk.*/
+	void GatherChangeIds(UNiagaraEmitter& Emitter, TMap<FGuid, FGuid>& ChangeIds, const FString& InDebugName, bool bWriteToLogDir = false);
+	void GatherChangeIds(UNiagaraGraph& Graph, TMap<FGuid, FGuid>& ChangeIds, const FString& InDebugName, bool bWriteToLogDir = false);
 
 	/** Options for the GetParameterVariablesFromSystem function. */
 	struct FGetParameterVariablesFromSystemOptions
@@ -90,9 +100,6 @@ namespace FNiagaraEditorUtilities
 
 	/** Gets the niagara variables for the input parameters on a niagara System. */
 	void GetParameterVariablesFromSystem(UNiagaraSystem& System, TArray<FNiagaraVariable>& ParameterVariables, FGetParameterVariablesFromSystemOptions Options = FGetParameterVariablesFromSystemOptions());
-
-	/** Generates a merged graph for an Emitter properties object that previously had unique graphs per script type.*/
-	bool ConvertToMergedGraph(UNiagaraEmitter* InEmitter);
 
 	/** Helper to clean up copy & pasted graphs.*/
 	void FixUpPastedInputNodes(UEdGraph* Graph, TSet<UEdGraphNode*> PastedNodes);
@@ -115,6 +122,16 @@ namespace FNiagaraEditorUtilities
 	TSharedPtr<SWidget> CreateInlineErrorText(TAttribute<FText> ErrorMessage, TAttribute<FText> ErrorTooltip);
 
 	void CompileExistingEmitters(const TArray<UNiagaraEmitter*>& AffectedEmitters);
-	
+
 	bool TryGetEventDisplayName(UNiagaraEmitter* Emitter, FGuid EventUsageId, FText& OutEventDisplayName);
-}
+
+	bool IsCompilableAssetClass(UClass* AssetClass);
+
+	void MarkDependentCompilableAssetsDirty(TArray<UObject*> InObjects);
+
+	void ResolveNumerics(UNiagaraGraph* SourceGraph, bool bForceParametersToResolveNumerics, TArray<FNiagaraVariable>& ChangedNumericParams);
+
+	void FixUpNumericPins(const UEdGraphSchema_Niagara* Schema, UNiagaraNode* Node);
+
+	void PreprocessFunctionGraph(const UEdGraphSchema_Niagara* Schema, UNiagaraGraph* Graph, const TArray<UEdGraphPin*>& CallInputs, const TArray<UEdGraphPin*>& CallOutputs, ENiagaraScriptUsage ScriptUsage);
+};

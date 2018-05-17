@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidJSStructSerializerBackend.h"
+
+#if USE_ANDROID_JNI
+
 #include "AndroidJSScripting.h"
 #include "UObject/UnrealType.h"
 #include "UObject/PropertyPortFlags.h"
@@ -55,3 +58,5 @@ FAndroidJSStructSerializerBackend::FAndroidJSStructSerializerBackend(TSharedRef<
 	, FJsonStructSerializerBackend(Writer)
 {
 }
+
+#endif // USE_ANDROID_JNI

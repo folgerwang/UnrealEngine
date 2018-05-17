@@ -87,10 +87,19 @@ bool CheckModuleListsMatch(TArray<TSharedRef<FNiagaraStackFunctionMergeAdapter>>
 		if (AssignmentNodeA != nullptr)
 		{
 			// Assignment nodes have generated scripts based on the assignment target so check that instead of the script directly.
-			if (AssignmentNodeA->AssignmentTarget != AssignmentNodeB->AssignmentTarget)
+			if (AssignmentNodeA->GetAssignmentTargets().Num() != AssignmentNodeB->GetAssignmentTargets().Num())
 			{
-				ErrorMessage = FString::Printf(TEXT("Modules at list index %i were assignment nodes but had different assignment targets."), i);
+				ErrorMessage = FString::Printf(TEXT("Modules at list index %i were assignment nodes but had different assignment target counts."), i);
 				return false;
+			}
+
+			for (int32 k = 0; k < AssignmentNodeA->GetAssignmentTargets().Num(); k++)
+			{
+				if (AssignmentNodeA->GetAssignmentTarget(k) != AssignmentNodeB->GetAssignmentTarget(k))
+				{
+					ErrorMessage = FString::Printf(TEXT("Modules at list index %i were assignment nodes but had different assignment targets at %d."), i, k);
+					return false;
+				}
 			}
 		}
 		else

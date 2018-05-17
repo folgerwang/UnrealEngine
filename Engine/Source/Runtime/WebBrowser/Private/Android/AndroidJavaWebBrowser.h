@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if USE_ANDROID_JNI
+
 #include "CoreMinimal.h"
 #include "Android/AndroidJava.h"
 #include "RHI.h"
@@ -78,3 +80,5 @@ public:
 	}
 
 };
+
+#endif // USE_ANDROID_JNI

@@ -253,7 +253,7 @@ void FD3D12CommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceText
 				GetParentDevice()->RegisterGPUWork();
 			}
 
-			if ((FeatureLevel == D3D_FEATURE_LEVEL_11_0 || FeatureLevel == D3D_FEATURE_LEVEL_11_1)
+			if (FeatureLevel >= D3D_FEATURE_LEVEL_11_0
 				&& DestTexture2D->GetDepthStencilView(FExclusiveDepthStencil::DepthWrite_StencilWrite)
 				&& SourceTextureRHI->IsMultisampled()
 				&& !DestTextureRHI->IsMultisampled())
@@ -265,23 +265,6 @@ void FD3D12CommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceText
 					SourceTexture2D,
 					DestTexture2D,
 					DestTexture2D->GetRenderTargetView(0, -1),
-					DestTexture2D->GetDepthStencilView(FExclusiveDepthStencil::DepthWrite_StencilWrite),
-					ResolveTargetDesc,
-					GetDefaultRect(ResolveParams.Rect, DestTexture2D->GetSizeX(), DestTexture2D->GetSizeY()),
-					GetDefaultRect(ResolveParams.Rect, DestTexture2D->GetSizeX(), DestTexture2D->GetSizeY()),
-					FDummyResolveParameter()
-					);
-			}
-			else if (FeatureLevel == D3D_FEATURE_LEVEL_10_0
-				&& DestTexture2D->GetDepthStencilView(FExclusiveDepthStencil::DepthWrite_StencilWrite))
-			{
-				D3D12_RESOURCE_DESC const& ResolveTargetDesc = DestTexture2D->GetResource()->GetDesc();
-
-				ResolveTextureUsingShader<FResolveDepthNonMSPS>(
-					RHICmdList,
-					SourceTexture2D,
-					DestTexture2D,
-					NULL,
 					DestTexture2D->GetDepthStencilView(FExclusiveDepthStencil::DepthWrite_StencilWrite),
 					ResolveTargetDesc,
 					GetDefaultRect(ResolveParams.Rect, DestTexture2D->GetSizeX(), DestTexture2D->GetSizeY()),
@@ -640,10 +623,11 @@ static uint32 ComputeBytesPerPixel(DXGI_FORMAT Format)
 }
 
 TRefCountPtr<FD3D12Resource> FD3D12DynamicRHI::GetStagingTexture(FTextureRHIParamRef TextureRHI, FIntRect InRect, FIntRect& StagingRectOUT, FReadSurfaceDataFlags InFlags, D3D12_PLACED_SUBRESOURCE_FOOTPRINT &readbackHeapDesc)
+
 {
 	FD3D12Device* Device = GetRHIDevice();
 	FD3D12Adapter* Adapter = Device->GetParentAdapter();
-	const FRHIGPUMask Node = Device->GetNodeMask();
+	const FRHIGPUMask Node = Device->GetGPUMask();
 
 	FD3D12CommandListHandle& hCommandList = Device->GetDefaultCommandContext().CommandListHandle;
 	FD3D12TextureBase* Texture = GetD3D12TextureFromRHITexture(TextureRHI);
@@ -724,6 +708,7 @@ TRefCountPtr<FD3D12Resource> FD3D12DynamicRHI::GetStagingTexture(FTextureRHIPara
 	CD3DX12_TEXTURE_COPY_LOCATION SourceCopyLocation(Texture->GetResource()->GetResource(), Subresource);
 
 	TransitionResource(hCommandList, Texture->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, SourceCopyLocation.SubresourceIndex);
+	hCommandList.FlushResourceBarriers();
 	// Upload heap doesn't need to transition
 
 	Device->GetDefaultCommandContext().numCopies++;
@@ -1142,7 +1127,7 @@ void FD3D12DynamicRHI::ReadSurfaceDataMSAARaw(FRHICommandList_RecursiveHazardous
 {
 	FD3D12Device* Device = GetRHIDevice();
 	FD3D12Adapter* Adapter = Device->GetParentAdapter();
-	const FRHIGPUMask NodeMask = Device->GetNodeMask();
+	const FRHIGPUMask NodeMask = Device->GetGPUMask();
 
 	FD3D12CommandContext& DefaultContext = Device->GetDefaultCommandContext();
 	FD3D12CommandListHandle& hCommandList = DefaultContext.CommandListHandle;
@@ -1357,7 +1342,7 @@ void FD3D12DynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI, F
 {
 	FD3D12Device* Device = GetRHIDevice();
 	FD3D12Adapter* Adapter = Device->GetParentAdapter();
-	const FRHIGPUMask Node = Device->GetNodeMask();
+	const FRHIGPUMask Node = Device->GetGPUMask();
 
 	FD3D12CommandContext& DefaultContext = Device->GetDefaultCommandContext();
 	FD3D12CommandListHandle& hCommandList = DefaultContext.CommandListHandle;
@@ -1484,7 +1469,7 @@ void FD3D12DynamicRHI::RHIRead3DSurfaceFloatData(FTextureRHIParamRef TextureRHI,
 {
 	FD3D12Device* Device = GetRHIDevice();
 	FD3D12Adapter* Adapter = Device->GetParentAdapter();
-	const FRHIGPUMask Node = Device->GetNodeMask();
+	const FRHIGPUMask Node = Device->GetGPUMask();
 
 	FD3D12CommandContext& DefaultContext = Device->GetDefaultCommandContext();
 	FD3D12CommandListHandle& hCommandList = DefaultContext.CommandListHandle;

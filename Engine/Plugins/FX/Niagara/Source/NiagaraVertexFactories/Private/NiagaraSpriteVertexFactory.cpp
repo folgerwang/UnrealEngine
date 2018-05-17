@@ -64,11 +64,20 @@ public:
 	{
 		NumCutoutVerticesPerFrame.Bind(ParameterMap, TEXT("NumCutoutVerticesPerFrame"));
 		CutoutGeometry.Bind(ParameterMap, TEXT("CutoutGeometry"));
+
 		NiagaraParticleDataFloat.Bind(ParameterMap, TEXT("NiagaraParticleDataFloat"));
-		NiagaraParticleDataInt.Bind(ParameterMap, TEXT("NiagaraParticleDataInt"));
-		SafeComponentBufferSizeParam.Bind(ParameterMap, TEXT("SafeComponentBufferSize"));
+		FloatDataOffset.Bind(ParameterMap, TEXT("NiagaraFloatDataOffset"));
+		FloatDataStride.Bind(ParameterMap, TEXT("NiagaraFloatDataStride"));
+
+// 		NiagaraParticleDataInt.Bind(ParameterMap, TEXT("NiagaraParticleDataInt"));
+// 		FloatDataOffset.Bind(ParameterMap, TEXT("NiagaraInt32DataOffset"));
+// 		FloatDataStride.Bind(ParameterMap, TEXT("NiagaraInt3DataStride"));
+
 		ParticleAlignmentMode.Bind(ParameterMap, TEXT("ParticleAlignmentMode"));
 		ParticleFacingMode.Bind(ParameterMap, TEXT("ParticleFacingMode"));
+
+		SortedIndices.Bind(ParameterMap, TEXT("SortedIndices"));
+		SortedIndicesOffset.Bind(ParameterMap, TEXT("SortedIndicesOffset"));
 	}
 
 	virtual void Serialize(FArchive& Ar) override
@@ -77,15 +86,17 @@ public:
 		Ar << CutoutGeometry;
 		Ar << ParticleFacingMode;
 		Ar << ParticleAlignmentMode;
-		Ar << NiagaraParticleDataFloat;
-		Ar << NiagaraParticleDataInt;
-		Ar << SafeComponentBufferSizeParam;
 
-		Ar << PositionOffsetParam;
-		Ar << SizeOffsetParam;
-		Ar << RotationOffsetParam;
-		Ar << SubimgOffsetParam;
-		Ar << ColorOffsetParam;
+		Ar << NiagaraParticleDataFloat;
+		Ar << FloatDataOffset;
+		Ar << FloatDataStride;
+
+// 		Ar << NiagaraParticleDataInt;
+// 		Ar << Int32DataOffset;
+// 		Ar << Int32DataStride;
+
+		Ar << SortedIndices;
+		Ar << SortedIndicesOffset;
 	}
 
 	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader,const FVertexFactory* VertexFactory,const FSceneView& View,const FMeshBatchElement& BatchElement,uint32 DataFlags) const override
@@ -100,10 +111,13 @@ public:
 
 		SetShaderValue(RHICmdList, VertexShaderRHI, ParticleAlignmentMode, SpriteVF->GetAlignmentMode());
 		SetShaderValue(RHICmdList, VertexShaderRHI, ParticleFacingMode, SpriteVF->GetFacingMode());
+		
+		SetSRVParameter(RHICmdList, VertexShaderRHI, NiagaraParticleDataFloat, SpriteVF->GetParticleDataFloatSRV());
+		SetShaderValue(RHICmdList, VertexShaderRHI, FloatDataOffset, SpriteVF->GetFloatDataOffset());
+		SetShaderValue(RHICmdList, VertexShaderRHI, FloatDataStride, SpriteVF->GetFloatDataStride());
 
-		SetSRVParameter(RHICmdList, VertexShaderRHI, NiagaraParticleDataFloat, SpriteVF->GetFloatDataSRV());
-		SetSRVParameter(RHICmdList, VertexShaderRHI, NiagaraParticleDataInt, SpriteVF->GetIntDataSRV());
-		SetShaderValue(RHICmdList, VertexShaderRHI, SafeComponentBufferSizeParam, SpriteVF->GetComponentBufferSize());
+		SetSRVParameter(RHICmdList, VertexShaderRHI, SortedIndices, SpriteVF->GetSortedIndicesSRV());
+		SetShaderValue(RHICmdList, VertexShaderRHI, SortedIndicesOffset, SpriteVF->GetSortedIndicesOffset());
 	}
 
 private:
@@ -113,15 +127,17 @@ private:
 	FShaderParameter ParticleFacingMode;
 
 	FShaderResourceParameter CutoutGeometry;
-	FShaderResourceParameter NiagaraParticleDataFloat;
-	FShaderResourceParameter NiagaraParticleDataInt;
-	FShaderParameter SafeComponentBufferSizeParam;
 
-	FShaderParameter PositionOffsetParam;
-	FShaderParameter SizeOffsetParam;
-	FShaderParameter RotationOffsetParam;
-	FShaderParameter SubimgOffsetParam;
-	FShaderParameter ColorOffsetParam;
+	FShaderResourceParameter NiagaraParticleDataFloat;
+	FShaderParameter FloatDataOffset;
+	FShaderParameter FloatDataStride;
+
+// 	FShaderResourceParameter NiagaraParticleDataInt;
+// 	FShaderParameter Int32DataOffset;
+// 	FShaderParameter Int32DataStride;
+	
+	FShaderResourceParameter SortedIndices;
+	FShaderParameter SortedIndicesOffset;
 };
 
 class FNiagaraSpriteVertexFactoryShaderParametersPS : public FNiagaraSpriteVertexFactoryShaderParameters
@@ -159,47 +175,9 @@ public:
 	virtual void FillDeclElements(FVertexDeclarationElementList& Elements, int32& Offset)
 	{
 		uint32 InitialStride = sizeof(float) * 2;
-		uint32 PerParticleStride = (sizeof(float) * 4*5 + sizeof(float)*3*2);
-
 		/** The stream to read the texture coordinates from. */
 		check( Offset == 0 );
-		uint32 Stride = bInstanced ? InitialStride : InitialStride + PerParticleStride;
-		Elements.Add(FVertexElement(0, Offset, VET_Float2, 4, Stride, false));
-		Offset += sizeof(float) * 2;
-
-		/** The per-particle streams follow. */
-		if(bInstanced) 
-		{
-			Offset = 0;
-			// update stride
-			Stride = PerParticleStride;
-		}
-
-		/** The stream to read the vertex position from. */
-		Elements.Add(FVertexElement(bInstanced ? 1 : 0, Offset, VET_Float4, 0, Stride, bInstanced));
-		Offset += sizeof(float) * 4;
-		/** The stream to read the vertex old position from. */
-		Elements.Add(FVertexElement(bInstanced ? 1 : 0, Offset, VET_Float4, 1, Stride, bInstanced));
-		Offset += sizeof(float) * 4;
-		/** The stream to read the vertex size/rot/subimage from. */
-		Elements.Add(FVertexElement(bInstanced ? 1 : 0, Offset, VET_Float4, 2, Stride, bInstanced));
-		Offset += sizeof(float) * 4;
-		/** The stream to read the color from.					*/
-		Elements.Add(FVertexElement(bInstanced ? 1 : 0, Offset, VET_Float4, 3, Stride, bInstanced));
-		Offset += sizeof(float) * 4;
-
-		/** The per-particle dynamic parameter stream */
-		Elements.Add(FVertexElement(bInstanced ? 1 : 0, Offset, VET_Float4, 5, Stride, bInstanced));
-		Offset += sizeof(float) * 4;
-
-		/** The stream to read the custom alignment vector from. */
-		Elements.Add(FVertexElement(bInstanced ? 1 : 0, Offset, VET_Float3, 6, Stride, bInstanced));
-		Offset += sizeof(float) * 3;
-		/** The stream to read the custom facing vector from. */
-		Elements.Add(FVertexElement(bInstanced ? 1 : 0, Offset, VET_Float3, 7, Stride, bInstanced));
-		Offset += sizeof(float) * 3;
-
-
+		Elements.Add(FVertexElement(0, Offset, VET_Float2, 0, InitialStride, false));
 	}
 
 	virtual void InitDynamicRHI()
@@ -247,7 +225,7 @@ inline TGlobalResource<FNiagaraSpriteVertexDeclaration>& GetNiagaraSpriteVertexD
 
 bool FNiagaraSpriteVertexFactory::ShouldCompilePermutation(EShaderPlatform Platform, const class FMaterial* Material, const class FShaderType* ShaderType)
 {
-	return (!IsMobilePlatform(Platform) && !IsSwitchPlatform(Platform) && (Material->IsUsedWithNiagaraSprites() || Material->IsSpecialEngineMaterial()));
+	return (!IsSwitchPlatform(Platform) && (Material->IsUsedWithNiagaraSprites() || Material->IsSpecialEngineMaterial()));
 }
 
 /**
@@ -255,7 +233,7 @@ bool FNiagaraSpriteVertexFactory::ShouldCompilePermutation(EShaderPlatform Platf
  */
 void FNiagaraSpriteVertexFactory::ModifyCompilationEnvironment(EShaderPlatform Platform, const class FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 {
-	FParticleVertexFactoryBase::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	FNiagaraVertexFactoryBase::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 
 	// Set a define so we can tell in MaterialTemplate.usf when we are compiling a sprite vertex factory
 	OutEnvironment.SetDefine(TEXT("PARTICLE_SPRITE_FACTORY"),TEXT("1"));
@@ -282,16 +260,6 @@ void FNiagaraSpriteVertexFactory::InitStreams()
 		TexCoordStream->Stride = sizeof(FVector2D);
 		TexCoordStream->Offset = 0;
 	}
-	FVertexStream* InstanceStream = new(Streams) FVertexStream;
-}
-
-void FNiagaraSpriteVertexFactory::SetInstanceBuffer(const FVertexBuffer* InInstanceBuffer, uint32 StreamOffset, uint32 Stride, bool bInstanced)
-{
-	check(Streams.Num() == (bInstanced ? 2 : 1));
-	FVertexStream& InstanceStream = Streams[bInstanced ? 1 : 0];
-	InstanceStream.VertexBuffer = InInstanceBuffer;
-	InstanceStream.Stride = Stride;
-	InstanceStream.Offset = StreamOffset;
 }
 
 void FNiagaraSpriteVertexFactory::SetTexCoordBuffer(const FVertexBuffer* InTexCoordBuffer)

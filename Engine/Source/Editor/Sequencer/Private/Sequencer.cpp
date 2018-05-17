@@ -1828,6 +1828,7 @@ void FSequencer::SetPlaybackRange(TRange<FFrameNumber> Range)
 			FocusedMovieScene->SetPlaybackRange(Range);
 
 			bNeedsEvaluate = true;
+			NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChanged);
 		}
 	}
 }
@@ -6036,6 +6037,8 @@ void FSequencer::ToggleNodeActive()
 			Section->SetIsActive(bIsActive);
 		}
 	}
+
+	NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChanged);
 }
 
 

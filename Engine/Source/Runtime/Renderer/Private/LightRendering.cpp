@@ -11,12 +11,15 @@
 #include "PostProcess/SceneFilterRendering.h"
 #include "PipelineStateCache.h"
 #include "ClearQuad.h"
+#include "Engine/SubsurfaceProfile.h"
+#include "ShowFlags.h"
 
 DECLARE_GPU_STAT(Lights);
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct,TEXT("DeferredLightUniforms"));
 
 extern int32 GUseTranslucentLightingVolumes;
+ENGINE_API const IPooledRenderTarget* GetSubsufaceProfileTexture_RT(FRHICommandListImmediate& RHICmdList);
 
 
 static int32 GAllowDepthBoundsTest = 1;
@@ -33,49 +36,151 @@ static FAutoConsoleVariableRef CVarAllowSimpleLights(
 	TEXT("If true, we allow simple (ie particle) lights")
 );
 
+
+float GetLightFadeFactor(const FSceneView& View, const FLightSceneProxy* Proxy)
+{
+	// Distance fade
+	FSphere Bounds = Proxy->GetBoundingSphere();
+
+	const float DistanceSquared = (Bounds.Center - View.ViewMatrices.GetViewOrigin()).SizeSquared();
+	extern float GMinScreenRadiusForLights;
+	float SizeFade = FMath::Square(FMath::Min(0.0002f, GMinScreenRadiusForLights / Bounds.W) * View.LODDistanceFactor) * DistanceSquared;
+	SizeFade = FMath::Clamp(6.0f - 6.0f * SizeFade, 0.0f, 1.0f);
+
+	extern float GLightMaxDrawDistanceScale;
+	float MaxDist = Proxy->GetMaxDrawDistance() * GLightMaxDrawDistanceScale;
+	float Range = Proxy->GetFadeRange();
+	float DistanceFade = MaxDist ? (MaxDist - FMath::Sqrt(DistanceSquared)) / Range : 1.0f;
+	DistanceFade = FMath::Clamp(DistanceFade, 0.0f, 1.0f);
+	return SizeFade * DistanceFade;
+}
+
+void StencilingGeometry::DrawSphere(FRHICommandList& RHICmdList)
+{
+	RHICmdList.SetStreamSource(0, StencilingGeometry::GStencilSphereVertexBuffer.VertexBufferRHI, 0);
+	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilSphereIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0,
+		StencilingGeometry::GStencilSphereVertexBuffer.GetVertexCount(), 0, 
+		StencilingGeometry::GStencilSphereIndexBuffer.GetIndexCount() / 3, 1);
+}
+		
+void StencilingGeometry::DrawVectorSphere(FRHICommandList& RHICmdList)
+{
+	RHICmdList.SetStreamSource(0, StencilingGeometry::GStencilSphereVectorBuffer.VertexBufferRHI, 0);
+	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilSphereIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0,
+									StencilingGeometry::GStencilSphereVectorBuffer.GetVertexCount(), 0,
+									StencilingGeometry::GStencilSphereIndexBuffer.GetIndexCount() / 3, 1);
+}
+
+void StencilingGeometry::DrawCone(FRHICommandList& RHICmdList)
+{
+	// No Stream Source needed since it will generate vertices on the fly
+	RHICmdList.SetStreamSource(0, StencilingGeometry::GStencilConeVertexBuffer.VertexBufferRHI, 0);
+
+	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilConeIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0,
+		FStencilConeIndexBuffer::NumVerts, 0, StencilingGeometry::GStencilConeIndexBuffer.GetIndexCount() / 3, 1);
+}
+
+/** The stencil sphere vertex buffer. */
+TGlobalResource<StencilingGeometry::TStencilSphereVertexBuffer<18, 12, FVector4> > StencilingGeometry::GStencilSphereVertexBuffer;
+TGlobalResource<StencilingGeometry::TStencilSphereVertexBuffer<18, 12, FVector> > StencilingGeometry::GStencilSphereVectorBuffer;
+
+/** The stencil sphere index buffer. */
+TGlobalResource<StencilingGeometry::TStencilSphereIndexBuffer<18, 12> > StencilingGeometry::GStencilSphereIndexBuffer;
+
+TGlobalResource<StencilingGeometry::TStencilSphereVertexBuffer<4, 4, FVector4> > StencilingGeometry::GLowPolyStencilSphereVertexBuffer;
+TGlobalResource<StencilingGeometry::TStencilSphereIndexBuffer<4, 4> > StencilingGeometry::GLowPolyStencilSphereIndexBuffer;
+
+/** The (dummy) stencil cone vertex buffer. */
+TGlobalResource<StencilingGeometry::FStencilConeVertexBuffer> StencilingGeometry::GStencilConeVertexBuffer;
+
+/** The stencil cone index buffer. */
+TGlobalResource<StencilingGeometry::FStencilConeIndexBuffer> StencilingGeometry::GStencilConeIndexBuffer;
+
+
 // Implement a version for directional lights, and a version for point / spot lights
 IMPLEMENT_SHADER_TYPE(template<>,TDeferredLightVS<false>,TEXT("/Engine/Private/DeferredLightVertexShaders.usf"),TEXT("DirectionalVertexMain"),SF_Vertex);
 IMPLEMENT_SHADER_TYPE(template<>,TDeferredLightVS<true>,TEXT("/Engine/Private/DeferredLightVertexShaders.usf"),TEXT("RadialVertexMain"),SF_Vertex);
 
-/** A pixel shader for rendering the light in a deferred pass. */
-template<bool bUseIESProfile, bool bRadialAttenuation, bool bInverseSquaredFalloff, bool bVisualizeLightCulling, bool bUseLightingChannels>
-class TDeferredLightPS : public FGlobalShader
+
+enum class ELightSourceShape
 {
-	DECLARE_SHADER_TYPE(TDeferredLightPS,Global)
-public:
+	Directional,
+	Capsule,
+	Rect,
+
+	MAX
+};
+
+/** A pixel shader for rendering the light in a deferred pass. */
+class FDeferredLightPS : public FGlobalShader
+{
+	DECLARE_GLOBAL_SHADER(FDeferredLightPS)
+
+	class FSourceShapeDim		: SHADER_PERMUTATION_ENUM_CLASS("LIGHT_SOURCE_SHAPE", ELightSourceShape);
+	class FIESProfileDim		: SHADER_PERMUTATION_BOOL("USE_IES_PROFILE");
+	class FInverseSquaredDim	: SHADER_PERMUTATION_BOOL("INVERSE_SQUARED_FALLOFF");
+	class FVisualizeCullingDim	: SHADER_PERMUTATION_BOOL("VISUALIZE_LIGHT_CULLING");
+	class FLightingChannelsDim	: SHADER_PERMUTATION_BOOL("USE_LIGHTING_CHANNELS");
+	class FTransmissionDim		: SHADER_PERMUTATION_BOOL("USE_TRANSMISSION");
+
+	using FPermutationDomain = TShaderPermutationDomain<
+		FSourceShapeDim,
+		FIESProfileDim,
+		FInverseSquaredDim,
+		FVisualizeCullingDim,
+		FLightingChannelsDim,
+		FTransmissionDim >;
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
+		FPermutationDomain PermutationVector(Parameters.PermutationId);
+
+		if( PermutationVector.Get< FSourceShapeDim >() == ELightSourceShape::Directional && (
+			PermutationVector.Get< FIESProfileDim >() ||
+			PermutationVector.Get< FInverseSquaredDim >() ) )
+		{
+			return false;
+		}
+
+		if( PermutationVector.Get< FSourceShapeDim >() == ELightSourceShape::Rect &&
+			!PermutationVector.Get< FInverseSquaredDim >() )
+		{
+			return false;
+		}
+
+		/*if( PermutationVector.Get< FVisualizeCullingDim >() && (
+			PermutationVector.Get< FSourceShapeDim >() == ELightSourceShape::Rect ||
+			PermutationVector.Get< FIESProfileDim >() ||
+			PermutationVector.Get< FInverseSquaredDim >() ) )
+		{
+			return false;
+		}*/
+
 		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM4);
 	}
 
-	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
-		OutEnvironment.SetDefine(TEXT("USE_IES_PROFILE"), (uint32)bUseIESProfile);
-		OutEnvironment.SetDefine(TEXT("RADIAL_ATTENUATION"), (uint32)bRadialAttenuation);
-		OutEnvironment.SetDefine(TEXT("INVERSE_SQUARED_FALLOFF"), (uint32)bInverseSquaredFalloff);
-		OutEnvironment.SetDefine(TEXT("LIGHT_SOURCE_SHAPE"), 1);
-		OutEnvironment.SetDefine(TEXT("VISUALIZE_LIGHT_CULLING"), (uint32)bVisualizeLightCulling);
-		OutEnvironment.SetDefine(TEXT("USE_LIGHTING_CHANNELS"), (uint32)bUseLightingChannels);
-	}
-
-	TDeferredLightPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+	FDeferredLightPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 	:	FGlobalShader(Initializer)
 	{
 		SceneTextureParameters.Bind(Initializer);
 		LightAttenuationTexture.Bind(Initializer.ParameterMap, TEXT("LightAttenuationTexture"));
 		LightAttenuationTextureSampler.Bind(Initializer.ParameterMap, TEXT("LightAttenuationTextureSampler"));
+		LTCMatTexture.Bind(Initializer.ParameterMap, TEXT("LTCMatTexture"));
+		LTCMatSampler.Bind(Initializer.ParameterMap, TEXT("LTCMatSampler"));
+		LTCAmpTexture.Bind(Initializer.ParameterMap, TEXT("LTCAmpTexture"));
+		LTCAmpSampler.Bind(Initializer.ParameterMap, TEXT("LTCAmpSampler"));
 		IESTexture.Bind(Initializer.ParameterMap, TEXT("IESTexture"));
 		IESTextureSampler.Bind(Initializer.ParameterMap, TEXT("IESTextureSampler"));
 		LightingChannelsTexture.Bind(Initializer.ParameterMap, TEXT("LightingChannelsTexture"));
 		LightingChannelsSampler.Bind(Initializer.ParameterMap, TEXT("LightingChannelsSampler"));
+		TransmissionProfilesTexture.Bind(Initializer.ParameterMap, TEXT("SSProfilesTexture"));
+		TransmissionProfilesLinearSampler.Bind(Initializer.ParameterMap, TEXT("TransmissionProfilesLinearSampler"));		
 	}
 
-	TDeferredLightPS()
-	{
-	}
+	FDeferredLightPS()
+	{}
 
+public:
 	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FLightSceneInfo* LightSceneInfo, IPooledRenderTarget* ScreenShadowMaskTexture)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
@@ -96,10 +201,16 @@ public:
 		Ar << SceneTextureParameters;
 		Ar << LightAttenuationTexture;
 		Ar << LightAttenuationTextureSampler;
+		Ar << LTCMatTexture;
+		Ar << LTCMatSampler;
+		Ar << LTCAmpTexture;
+		Ar << LTCAmpSampler;
 		Ar << IESTexture;
 		Ar << IESTextureSampler;
 		Ar << LightingChannelsTexture;
 		Ar << LightingChannelsSampler;
+		Ar << TransmissionProfilesTexture;
+		Ar << TransmissionProfilesLinearSampler;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -124,6 +235,24 @@ private:
 				);
 		}
 
+		SetTextureParameter(
+			RHICmdList, 
+			ShaderRHI,
+			LTCMatTexture,
+			LTCMatSampler,
+			TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
+			GSystemTextures.LTCMat->GetRenderTargetItem().ShaderResourceTexture
+			);
+
+		SetTextureParameter(
+			RHICmdList, 
+			ShaderRHI,
+			LTCAmpTexture,
+			LTCAmpSampler,
+			TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
+			GSystemTextures.LTCAmp->GetRenderTargetItem().ShaderResourceTexture
+			);
+
 		{
 			FTextureRHIParamRef TextureRHI = IESTextureResource ? IESTextureResource->TextureRHI : GSystemTextures.WhiteDummy->GetRenderTargetItem().TargetableTexture;
 
@@ -137,7 +266,7 @@ private:
 				);
 		}
 
-		if (bUseLightingChannels)
+		if( LightingChannelsTexture.IsBound() )
 		{
 			FTextureRHIParamRef LightingChannelsTextureRHI = SceneRenderTargets.LightingChannels ? SceneRenderTargets.LightingChannels->GetRenderTargetItem().ShaderResourceTexture : GSystemTextures.WhiteDummy->GetRenderTargetItem().TargetableTexture;
 
@@ -150,40 +279,46 @@ private:
 				LightingChannelsTextureRHI
 				);
 		}
+
+		if( TransmissionProfilesTexture.IsBound() )
+		{
+			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+			const IPooledRenderTarget* PooledRT = GetSubsufaceProfileTexture_RT((FRHICommandListImmediate&)RHICmdList);
+
+			if (!PooledRT)
+			{
+				// no subsurface profile was used yet
+				PooledRT = GSystemTextures.BlackDummy;
+			}
+
+			const FSceneRenderTargetItem& Item = PooledRT->GetRenderTargetItem();
+
+			SetTextureParameter(RHICmdList,
+				ShaderRHI,
+				TransmissionProfilesTexture,
+				TransmissionProfilesLinearSampler,
+				TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(),
+				Item.ShaderResourceTexture);
+		}
 	}
 
 	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderResourceParameter LightAttenuationTexture;
 	FShaderResourceParameter LightAttenuationTextureSampler;
+	FShaderResourceParameter LTCMatTexture;
+	FShaderResourceParameter LTCMatSampler;
+	FShaderResourceParameter LTCAmpTexture;
+	FShaderResourceParameter LTCAmpSampler;
 	FShaderResourceParameter IESTexture;
 	FShaderResourceParameter IESTextureSampler;
 	FShaderResourceParameter LightingChannelsTexture;
 	FShaderResourceParameter LightingChannelsSampler;
+	FShaderResourceParameter TransmissionProfilesTexture;
+	FShaderResourceParameter TransmissionProfilesLinearSampler;
 };
 
-// Typedef is necessary because the C preprocessor thinks the comma in the template parameter list is a comma in the macro parameter list.
-#define IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(A, B, C, D, E, EntryName) \
-	typedef TDeferredLightPS<A,B,C,D,E> TDeferredLightPS##A##B##C##D##E; \
-	IMPLEMENT_SHADER_TYPE(template<>,TDeferredLightPS##A##B##C##D##E,TEXT("/Engine/Private/DeferredLightPixelShaders.usf"),EntryName,SF_Pixel);
+IMPLEMENT_GLOBAL_SHADER(FDeferredLightPS, "/Engine/Private/DeferredLightPixelShaders.usf", "DeferredLightPixelMain", SF_Pixel);
 
-// Implement a version for each light type, and it's shader permutations
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, true, false, false, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, false, false, false, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, false, false, false, false, TEXT("DirectionalPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, true, false, false, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, false, false, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, false, false, TEXT("DirectionalPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, true, false, TEXT("DirectionalPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, true, false, TEXT("RadialPixelMain"));
-
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, true, false, true, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, false, false, true, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, false, false, false, true, TEXT("DirectionalPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, true, false, true, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, false, true, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, false, true, TEXT("DirectionalPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, true, true, TEXT("DirectionalPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, true, true, TEXT("RadialPixelMain"));
 
 /** Shader used to visualize stationary light overlap. */
 template<bool bRadialAttenuation>
@@ -746,53 +881,6 @@ void SetBoundingGeometryRasterizerAndDepthState(FGraphicsPipelineStateInitialize
 		: TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI();
 }
 
-template <bool bRadialAttenuation>
-static FVertexDeclarationRHIParamRef GetDeferredLightingVertexDeclaration()
-{
-	return bRadialAttenuation ? GetVertexDeclarationFVector4() : GFilterVertexDeclaration.VertexDeclarationRHI;
-}
-
-template<bool bUseIESProfile, bool bRadialAttenuation, bool bInverseSquaredFalloff>
-static void SetShaderTemplLighting(
-	FRHICommandList& RHICmdList,
-	FGraphicsPipelineStateInitializer& GraphicsPSOInit,
-	const FViewInfo& View,
-	FShader* VertexShader,
-	const FLightSceneInfo* LightSceneInfo, 
-	IPooledRenderTarget* ScreenShadowMaskTexture)
-{
-	if(View.Family->EngineShowFlags.VisualizeLightCulling)
-	{
-		TShaderMapRef<TDeferredLightPS<false, bRadialAttenuation, false, true, false> > PixelShader(View.ShaderMap);
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetDeferredLightingVertexDeclaration<bRadialAttenuation>();
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-		PixelShader->SetParameters(RHICmdList, View, LightSceneInfo, ScreenShadowMaskTexture);
-	}
-	else
-	{
-		if (View.bUsesLightingChannels)
-		{
-			TShaderMapRef<TDeferredLightPS<bUseIESProfile, bRadialAttenuation, bInverseSquaredFalloff, false, true> > PixelShader(View.ShaderMap);
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetDeferredLightingVertexDeclaration<bRadialAttenuation>();
-			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(VertexShader);
-			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-			PixelShader->SetParameters(RHICmdList, View, LightSceneInfo, ScreenShadowMaskTexture);
-		}
-		else
-		{
-			TShaderMapRef<TDeferredLightPS<bUseIESProfile, bRadialAttenuation, bInverseSquaredFalloff, false, false> > PixelShader(View.ShaderMap);
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetDeferredLightingVertexDeclaration<bRadialAttenuation>();
-			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(VertexShader);
-			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-			PixelShader->SetParameters(RHICmdList, View, LightSceneInfo, ScreenShadowMaskTexture);
-		}
-	}
-}
-
 template<bool bUseIESProfile, bool bRadialAttenuation, bool bInverseSquaredFalloff>
 static void SetShaderTemplLightingSimple(
 	FRHICommandList& RHICmdList,
@@ -802,24 +890,20 @@ static void SetShaderTemplLightingSimple(
 	const FSimpleLightEntry& SimpleLight,
 	const FSimpleLightPerViewEntry& SimpleLightPerViewData)
 {
-	if(View.Family->EngineShowFlags.VisualizeLightCulling)
-	{
-		TShaderMapRef<TDeferredLightPS<false, bRadialAttenuation, false, true, false> > PixelShader(View.ShaderMap);
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetDeferredLightingVertexDeclaration<bRadialAttenuation>();
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-		PixelShader->SetParametersSimpleLight(RHICmdList, View, SimpleLight, SimpleLightPerViewData);
-	}
-	else
-	{
-		TShaderMapRef<TDeferredLightPS<bUseIESProfile, bRadialAttenuation, bInverseSquaredFalloff, false, false> > PixelShader(View.ShaderMap);
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetDeferredLightingVertexDeclaration<bRadialAttenuation>();
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-		PixelShader->SetParametersSimpleLight(RHICmdList, View, SimpleLight, SimpleLightPerViewData);
-	}
+	FDeferredLightPS::FPermutationDomain PermutationVector;
+	PermutationVector.Set< FDeferredLightPS::FSourceShapeDim >( ELightSourceShape::Capsule );
+	PermutationVector.Set< FDeferredLightPS::FIESProfileDim >( bUseIESProfile );
+	PermutationVector.Set< FDeferredLightPS::FInverseSquaredDim >( bInverseSquaredFalloff );
+	PermutationVector.Set< FDeferredLightPS::FVisualizeCullingDim >( View.Family->EngineShowFlags.VisualizeLightCulling );
+	PermutationVector.Set< FDeferredLightPS::FLightingChannelsDim >( false );
+	PermutationVector.Set< FDeferredLightPS::FTransmissionDim >( false );
+
+	TShaderMapRef< FDeferredLightPS > PixelShader( View.ShaderMap, PermutationVector );
+	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
+	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(VertexShader);
+	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+	PixelShader->SetParametersSimpleLight(RHICmdList, View, SimpleLight, SimpleLightPerViewData);
 }
 
 // Use DBT to allow work culling on shadow lights
@@ -874,6 +958,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
 	const FSphere LightBounds = LightSceneInfo->Proxy->GetBoundingSphere();
+	const bool bTransmission = LightSceneInfo->Proxy->Transmission();
 
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
@@ -907,7 +992,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 			if (bRenderOverlap)
 			{
 				TShaderMapRef<TDeferredLightOverlapPS<false> > PixelShader(View.ShaderMap);
-				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetDeferredLightingVertexDeclaration<false>();
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
@@ -915,14 +1000,21 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 			}
 			else
 			{
-				if(bUseIESTexture)
-				{
-					SetShaderTemplLighting<true, false, false>(RHICmdList, GraphicsPSOInit, View, *VertexShader, LightSceneInfo, ScreenShadowMaskTexture);
-				}
-				else
-				{
-					SetShaderTemplLighting<false, false, false>(RHICmdList, GraphicsPSOInit, View, *VertexShader, LightSceneInfo, ScreenShadowMaskTexture);
-				}
+				FDeferredLightPS::FPermutationDomain PermutationVector;
+				PermutationVector.Set< FDeferredLightPS::FSourceShapeDim >( ELightSourceShape::Directional );
+				PermutationVector.Set< FDeferredLightPS::FIESProfileDim >( false );
+				PermutationVector.Set< FDeferredLightPS::FInverseSquaredDim >( false );
+				PermutationVector.Set< FDeferredLightPS::FVisualizeCullingDim >( View.Family->EngineShowFlags.VisualizeLightCulling );
+				PermutationVector.Set< FDeferredLightPS::FLightingChannelsDim >( View.bUsesLightingChannels );
+				PermutationVector.Set< FDeferredLightPS::FTransmissionDim >( bTransmission );
+
+				TShaderMapRef< FDeferredLightPS > PixelShader( View.ShaderMap, PermutationVector );
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+				PixelShader->SetParameters(RHICmdList, View, LightSceneInfo, ScreenShadowMaskTexture);
 			}
 
 			VertexShader->SetParameters(RHICmdList, View, LightSceneInfo);
@@ -951,7 +1043,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 			if (bRenderOverlap)
 			{
 				TShaderMapRef<TDeferredLightOverlapPS<true> > PixelShader(View.ShaderMap);
-				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetDeferredLightingVertexDeclaration<true>();
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
 				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 
@@ -960,28 +1052,21 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 			}
 			else
 			{
-				if( LightSceneInfo->Proxy->IsInverseSquared() )
-				{
-					if(bUseIESTexture)
-					{
-						SetShaderTemplLighting<true, true, true>(RHICmdList, GraphicsPSOInit, View, *VertexShader, LightSceneInfo, ScreenShadowMaskTexture);
-					}
-					else
-					{
-						SetShaderTemplLighting<false, true, true>(RHICmdList, GraphicsPSOInit, View, *VertexShader, LightSceneInfo, ScreenShadowMaskTexture);
-					}
-				}
-				else
-				{
-					if(bUseIESTexture)
-					{
-						SetShaderTemplLighting<true, true, false>(RHICmdList, GraphicsPSOInit, View, *VertexShader, LightSceneInfo, ScreenShadowMaskTexture);
-					}
-					else
-					{
-						SetShaderTemplLighting<false, true, false>(RHICmdList, GraphicsPSOInit, View, *VertexShader, LightSceneInfo, ScreenShadowMaskTexture);
-					}
-				}
+				FDeferredLightPS::FPermutationDomain PermutationVector;
+				PermutationVector.Set< FDeferredLightPS::FSourceShapeDim >( LightSceneInfo->Proxy->IsRectLight() ? ELightSourceShape::Rect : ELightSourceShape::Capsule );
+				PermutationVector.Set< FDeferredLightPS::FIESProfileDim >( bUseIESTexture );
+				PermutationVector.Set< FDeferredLightPS::FInverseSquaredDim >( LightSceneInfo->Proxy->IsInverseSquared() );
+				PermutationVector.Set< FDeferredLightPS::FVisualizeCullingDim >( View.Family->EngineShowFlags.VisualizeLightCulling );
+				PermutationVector.Set< FDeferredLightPS::FLightingChannelsDim >( View.bUsesLightingChannels );
+				PermutationVector.Set< FDeferredLightPS::FTransmissionDim >( bTransmission );
+
+				TShaderMapRef< FDeferredLightPS > PixelShader( View.ShaderMap, PermutationVector );
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
+				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+				PixelShader->SetParameters(RHICmdList, View, LightSceneInfo, ScreenShadowMaskTexture);
 			}
 
 			VertexShader->SetParameters(RHICmdList, View, LightSceneInfo);
@@ -1004,9 +1089,10 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 				RHICmdList.SetDepthBounds(FarDepth, NearDepth);
 			}
 
-			if (LightSceneInfo->Proxy->GetLightType() == LightType_Point)
+			if( LightSceneInfo->Proxy->GetLightType() == LightType_Point ||
+				LightSceneInfo->Proxy->GetLightType() == LightType_Rect )
 			{
-				// Apply the point or spot light with some approximately bounding geometry, 
+				// Apply the point or spot light with some approximate bounding geometry, 
 				// So we can get speedups from depth testing and not processing pixels outside of the light's influence.
 				StencilingGeometry::DrawSphere(RHICmdList);
 			}

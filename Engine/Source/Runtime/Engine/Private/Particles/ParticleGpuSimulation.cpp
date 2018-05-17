@@ -315,10 +315,10 @@ public:
 		TextureTargetRHI->SetName(AttributesTextureName);	
 		
 		{
-			FRHIRenderTargetView View(TextureTargetRHI, ERenderTargetLoadAction::EClear);
-			FRHIDepthRenderTargetView Depth;
-			FRHISetRenderTargetsInfo RenderInfo(1, &View, Depth);
-			FRHICommandListExecutor::GetImmediateCommandList().SetRenderTargetsAndClear(RenderInfo);
+			FRHIRenderPassInfo RPInfo(TextureTargetRHI, ERenderTargetActions::Clear_Store);
+			FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("Clear"));
+			RHICmdList.EndRenderPass();
 		}
 	}
 
@@ -4807,9 +4807,9 @@ void FFXSystem::SimulateGPUParticles(
 			FResolveParams()
 			);
 
-		if (GNumActiveGPUsForRendering > 1 && CVarGPUParticleAFRReinject.GetValueOnRenderThread() == 1)
+		if (GNumAlternateFrameRenderingGroups > 1 && CVarGPUParticleAFRReinject.GetValueOnRenderThread() == 1)
 		{			
-			ensureMsgf(GNumActiveGPUsForRendering == 2, TEXT("GPU Particles running on an AFR depth > 2 not supported.  Currently: %i"), GNumActiveGPUsForRendering);
+			ensureMsgf(GNumAlternateFrameRenderingGroups == 2, TEXT("GPU Particles running on an AFR depth > 2 not supported.  Currently: %i"), GNumAlternateFrameRenderingGroups);
 
 			// Place these particles into the multi-gpu update queue
 			LastFrameNewParticles.Append(NewParticles);

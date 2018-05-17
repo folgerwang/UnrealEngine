@@ -49,6 +49,10 @@ public:
 	/** FGCObject interface */
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
+	/**
+	* Updates list of module info used to show stats
+	*/
+	void UpdateModuleStats();
 
 protected:
 	//~ FAssetEditorToolkit interface
@@ -58,6 +62,7 @@ protected:
 	virtual bool OnRequestClose() override;
 
 	void OnDetailsSelectionPropertyFinishedChanging(const FPropertyChangedEvent& InEvent);
+	void OnVMScriptCompiled(UNiagaraScript* InScript);
 
 private:
 
@@ -66,6 +71,10 @@ private:
 
 	/** Spawns the tab with the script details inside. */
 	TSharedRef<SDockTab> SpawnTabNodeDetails(const FSpawnTabArgs& Args);
+
+	/** Spawns the tab with the script details inside. */
+	TSharedRef<SDockTab> SpawnTabScriptParameters(const FSpawnTabArgs& Args);
+	TSharedRef<SDockTab> SpawnTabStats(const FSpawnTabArgs& Args);
 
 	/** Sets up commands for the toolkit toolbar. */
 	void SetupCommands();
@@ -86,6 +95,8 @@ private:
 	FText GetRefreshStatusTooltip() const;
 	
 private:
+	bool IsEditScriptDifferentFromOriginalScript() const;
+
 	/** Command for the apply button */
 	void OnApply();
 	bool OnApplyEnabled() const;
@@ -102,4 +113,8 @@ private:
 	static const FName NodeGraphTabId; 
 	static const FName DetailsTabId;
 	static const FName ParametersTabId;
+	static const FName StatsTabId;
+	/** Stats log, with the log listing that it reflects */
+	TSharedPtr<class SWidget> Stats;
+	TSharedPtr<class IMessageLogListing> StatsListing;
 };

@@ -64,7 +64,7 @@ void SafeReleaseMetalFence(id Object)
 	}
 }
 
-FMetalRHICommandContext::FMetalRHICommandContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext)
+FMetalRHICommandContext::FMetalRHICommandContext(class FMetalProfiler* InProfiler, FMetalContext* WrapContext)
 : Context(WrapContext)
 , Profiler(InProfiler)
 , PendingVertexDataStride(0)
@@ -82,7 +82,7 @@ FMetalRHICommandContext::~FMetalRHICommandContext()
 	delete Context;
 }
 
-FMetalRHIComputeContext::FMetalRHIComputeContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext)
+FMetalRHIComputeContext::FMetalRHIComputeContext(class FMetalProfiler* InProfiler, FMetalContext* WrapContext)
 : FMetalRHICommandContext(InProfiler, WrapContext)
 {
 }
@@ -131,7 +131,7 @@ void FMetalRHIComputeContext::RHISubmitCommandsHint()
 #endif
 }
 
-FMetalRHIImmediateCommandContext::FMetalRHIImmediateCommandContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext)
+FMetalRHIImmediateCommandContext::FMetalRHIImmediateCommandContext(class FMetalProfiler* InProfiler, FMetalContext* WrapContext)
 	: FMetalRHICommandContext(InProfiler, WrapContext)
 {
 }

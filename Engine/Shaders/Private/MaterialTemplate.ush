@@ -88,8 +88,22 @@ struct FMaterialParticleParameters
 	float4 TranslatedWorldPositionAndSize;
 	/** Macro UV scale and bias. */
 	half4 MacroUV;
-	/** Dynamic parameter used by particle systems. */
+
+	/** Dynamic parameters used by particle systems. */
 	half4 DynamicParameter;
+
+#if NUM_DYNAMIC_PARAMETERS > 1
+	half4 DynamicParameter1;
+#endif
+
+#if NUM_DYNAMIC_PARAMETERS > 2
+	half4 DynamicParameter2;
+#endif
+
+#if NUM_DYNAMIC_PARAMETERS > 3
+	half4 DynamicParameter3;
+#endif
+
 	/** mesh particle orientation */
 	float4x4 LocalToWorld;
 
@@ -104,13 +118,40 @@ struct FMaterialParticleParameters
 	float2 Size;
 };
 
-float4 GetDynamicParameter(FMaterialParticleParameters Parameters, float4 Default)
+float4 GetDynamicParameter(FMaterialParticleParameters Parameters, float4 Default, int ParameterIndex=0)
 {
-	#if (PARTICLE_FACTORY || NIAGARA_PARTICLE_FACTORY)
+#if (NIAGARA_PARTICLE_FACTORY)
+	if(ParameterIndex == 0)
+	{
+		return Parameters.DynamicParameter;
+	}
+#if NUM_DYNAMIC_PARAMETERS > 1
+	else if(ParameterIndex == 1)
+	{
+		return Parameters.DynamicParameter1;
+	}
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+	else if(ParameterIndex == 2)
+	{
+		return Parameters.DynamicParameter2;
+	}
+#endif	
+#if NUM_DYNAMIC_PARAMETERS > 3
+	else if(ParameterIndex == 3)
+	{
+		return Parameters.DynamicParameter3;
+	}
+#endif
+	else
+	{
+		return Default;
+	}
+#elif (PARTICLE_FACTORY)
 	return Parameters.DynamicParameter;
-	#else
+#else
 	return Default;
-	#endif
+#endif
 }
 
 /** 

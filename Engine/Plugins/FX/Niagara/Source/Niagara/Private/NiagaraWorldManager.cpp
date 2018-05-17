@@ -11,12 +11,43 @@
 #include "Scalability.h"
 #include "Misc/ConfigCacheIni.h"
 #include "NiagaraDataInterfaceSkeletalMesh.h"
+#include "EngineModule.h"
+
+FNiagaraViewDataMgr GNiagaraViewDataManager;
+
+FNiagaraViewDataMgr::FNiagaraViewDataMgr()
+	: SceneDepthTexture(nullptr)
+	, SceneNormalTexture(nullptr)
+	, ViewUniformBuffer(nullptr)
+{
+
+}
+
+void FNiagaraViewDataMgr::Init()
+{
+	IRendererModule& RendererModule = GetRendererModule();
+	GNiagaraViewDataManager.PostOpaqueDelegate.BindRaw(&GNiagaraViewDataManager, &FNiagaraViewDataMgr::PostOpaqueRender);
+	RendererModule.RegisterPostOpaqueRenderDelegate(GNiagaraViewDataManager.PostOpaqueDelegate);
+}
+
+void FNiagaraViewDataMgr::Shutdown()
+{
+
+}
+
+
+FNiagaraWorldManager::FNiagaraWorldManager(UWorld* InWorld)
+	: World(InWorld)
+	, CachedEffectsQuality(INDEX_NONE)
+{
+}
+
 
 
 FNiagaraWorldManager* FNiagaraWorldManager::Get(UWorld* World)
 {
-	INiagaraModule& NiagaraModule = FModuleManager::LoadModuleChecked<INiagaraModule>("Niagara");
-	return NiagaraModule.GetWorldManager(World);
+	//INiagaraModule& NiagaraModule = FModuleManager::LoadModuleChecked<INiagaraModule>("Niagara");
+	return INiagaraModule::GetWorldManager(World);
 }
 
 void FNiagaraWorldManager::AddReferencedObjects(FReferenceCollector& Collector)

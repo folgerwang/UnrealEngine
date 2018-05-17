@@ -729,6 +729,41 @@ public:
 // Misc
 //
 
+
+
+/* Generic GPU fence class used by FRHIGPUMemoryReadback and FRHIGPUMemoryUpdate
+* RHI specific fences derive from this
+*/
+class FRHIGPUFence : public FRHIResource
+{
+public:
+	FRHIGPUFence(FName InName)
+		: FenceName(InName)
+	{}
+
+	virtual ~FRHIGPUFence()
+	{}
+
+	virtual bool Write()
+	{
+		return false;
+	};
+
+	virtual bool Poll() const
+	{
+		return false;
+	};
+
+	virtual bool Wait(float TimeoutMs) const
+	{
+		return false;
+	};
+
+private:
+	FName FenceName;
+};
+
+
 class FRHIRenderQuery : public FRHIResource {};
 
 class FRHIComputeFence : public FRHIResource
@@ -896,6 +931,9 @@ typedef TRefCountPtr<FRHITextureReference> FTextureReferenceRHIRef;
 typedef FRHIRenderQuery*              FRenderQueryRHIParamRef;
 typedef TRefCountPtr<FRHIRenderQuery> FRenderQueryRHIRef;
 
+typedef FRHIGPUFence*				FGPUFenceRHIParamRef;
+typedef TRefCountPtr<FRHIGPUFence>	FGPUFenceRHIRef;
+
 typedef FRHIViewport*              FViewportRHIParamRef;
 typedef TRefCountPtr<FRHIViewport> FViewportRHIRef;
 
@@ -907,6 +945,38 @@ typedef TRefCountPtr<FRHIShaderResourceView> FShaderResourceViewRHIRef;
 
 typedef FRHIGraphicsPipelineState*              FGraphicsPipelineStateRHIParamRef;
 typedef TRefCountPtr<FRHIGraphicsPipelineState> FGraphicsPipelineStateRHIRef;
+
+
+/* Generic staging buffer class used by FRHIGPUMemoryReadback and FRHIGPUMemoryUpdate
+* RHI specific staging buffers derive from this
+*/
+class FRHIStagingBuffer : public FRHIResource
+{
+public:
+	FRHIStagingBuffer()
+		:MappedPtr(nullptr)
+		, LastLockedBuffer(nullptr)
+	{
+	}
+
+	virtual void *Lock(FVertexBufferRHIRef GPUBuffer, uint32 Offset, uint32 NumBytes, EResourceLockMode LockMode)   // copyresource, map, return ptr
+	{
+		return MappedPtr;
+	}
+
+	virtual void Unlock()	// unmap, free memory
+	{
+	}
+
+
+protected:
+	// pointer to mapped buffer; null if unmapped
+	void *MappedPtr;
+	FVertexBufferRHIParamRef LastLockedBuffer;
+};
+
+typedef FRHIStagingBuffer*				FStagingBufferRHIParamRef;
+typedef TRefCountPtr<FRHIStagingBuffer>	FStagingBufferRHIRef;
 
 
 class FRHIRenderTargetView

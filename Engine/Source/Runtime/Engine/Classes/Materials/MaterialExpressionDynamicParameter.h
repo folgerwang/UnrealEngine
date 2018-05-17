@@ -32,6 +32,10 @@ class UMaterialExpressionDynamicParameter : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category = MaterialExpressionDynamicParameter)
 	FLinearColor DefaultValue;
 
+	/** The index of the dynamic parameter for use in tools that allow > 1 */
+	UPROPERTY(EditAnywhere, Category = MaterialExpressionDynamicParameter, meta = (UIMin = 0, ClampMin = 0, UIMax = 3, ClampMax = 3))
+	uint32 ParameterIndex;
+
 	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

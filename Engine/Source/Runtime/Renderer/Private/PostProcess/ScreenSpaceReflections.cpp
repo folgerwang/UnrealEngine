@@ -581,7 +581,7 @@ void RenderScreenSpaceReflections(FRHICommandListImmediate& RHICmdList, FViewInf
 				Context, Parameters,
 				ViewState->SSRHistory, &ViewState->SSRHistory) );
 			TemporalAAPass->SetInput( ePId_Input0, Context.FinalOutput );
-			TemporalAAPass->SetInput( ePId_Input1, VelocityInput );
+			TemporalAAPass->SetInput( ePId_Input2, VelocityInput );
 
 			Context.FinalOutput = FRenderingCompositeOutputRef( TemporalAAPass );
 		}

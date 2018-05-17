@@ -193,7 +193,14 @@ void FDetailCategoryImpl::SetCategoryVisibility(bool bIsVisible)
 	{
 		bIsCategoryVisible = bIsVisible;
 
-		GetDetailsView()->RerunCurrentFilter();
+		if (GetDetailsView())
+		{
+			GetDetailsView()->RerunCurrentFilter();
+		}
+		if (DetailLayoutBuilder.IsValid())
+		{
+			DetailLayoutBuilder.Pin()->NotifyNodeVisibilityChanged();
+		}
 	}
 }
 
@@ -588,13 +595,20 @@ bool FDetailCategoryImpl::GenerateStandaloneWidget(FDetailWidgetRow& OutRow) con
 
 	if(HeaderContentWidget.IsValid())
 	{
-		OutRow.ValueContent()
+		OutRow
+			.ValueContent()
+			.HAlign(HAlign_Fill)
 			[
 				HeaderContentWidget.ToSharedRef()
 			];
 	}
 
 	return true;
+}
+
+void FDetailCategoryImpl::GetFilterStrings(TArray<FString>& OutFilterStrings) const
+{
+	OutFilterStrings.Add(GetDisplayName().ToString());
 }
 
 void FDetailCategoryImpl::OnItemExpansionChanged(bool bIsExpanded, bool bShouldSaveState)
@@ -851,6 +865,21 @@ void FDetailCategoryImpl::FilterNode(const FDetailFilter& InFilter)
 			RequestItemExpanded(Child, Child->ShouldBeExpanded());
 		}
 	}
+}
+
+FCustomPropertyTypeLayoutMap FDetailCategoryImpl::GetCustomPropertyTypeLayoutMap() const
+{
+	if (GetDetailsView())
+	{
+		return GetDetailsView()->GetCustomPropertyTypeLayoutMap();
+	}
+
+	if (DetailLayoutBuilder.IsValid())
+	{
+		return DetailLayoutBuilder.Pin()->GetInstancedPropertyTypeLayoutMap();
+	}
+
+	return FCustomPropertyTypeLayoutMap();
 }
 
 void FDetailCategoryImpl::GenerateLayout()

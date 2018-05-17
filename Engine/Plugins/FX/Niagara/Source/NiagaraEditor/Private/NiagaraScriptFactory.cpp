@@ -211,9 +211,8 @@ void UNiagaraScriptFactoryNew::InitializeScript(UNiagaraScript* NewScript)
 			// Set pointer in script to source
 			NewScript->SetSource(Source);
 
-			FString OutGraphLevelErrorMessages;
-			bool bForce = true;
-			NewScript->Compile(OutGraphLevelErrorMessages, bForce);
+
+			NewScript->RequestCompile();
 		}
 	}
 }

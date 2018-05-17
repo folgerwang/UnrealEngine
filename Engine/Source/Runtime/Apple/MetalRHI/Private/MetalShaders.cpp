@@ -74,21 +74,21 @@ public:
 	
 	mtlpp::Function FindRef(FMetalCompiledShaderKey const& Key)
 	{
-		FRWScopeLock(Lock, SLT_ReadOnly);
+		FRWScopeLock ScopedLock(Lock, SLT_ReadOnly);
 		mtlpp::Function Func = Cache.FindRef(Key);
 		return Func;
 	}
 	
 	mtlpp::Library FindLibrary(mtlpp::Function const& Function)
 	{
-		FRWScopeLock(Lock, SLT_ReadOnly);
+		FRWScopeLock ScopedLock(Lock, SLT_ReadOnly);
 		mtlpp::Library Lib = LibCache.FindRef(Function.GetPtr());
 		return Lib;
 	}
 	
 	void Add(FMetalCompiledShaderKey Key, mtlpp::Library const& Lib, mtlpp::Function const& Function)
 	{
-		FRWScopeLock(Lock, SLT_Write);
+		FRWScopeLock ScopedLock(Lock, SLT_Write);
 		Cache.Add(Key, Function);
 		LibCache.Add(Function.GetPtr(), Lib);
 	}
@@ -341,6 +341,8 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 			}
 			else
 			{
+				METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewLibraryBinary: %d_%d"), SourceLen, SourceCRC)));
+				
 				// Archived shaders should never get in here.
 				check(!(Header.CompileFlags & (1 << CFLAG_Archive)) || BufferSize > 0);
 				
@@ -363,6 +365,7 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 		}
 		else
 		{
+			METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewLibrarySource: %d_%d"), SourceLen, SourceCRC)));
 			NSString* ShaderString = ((OfflineCompiledFlag == 0) ? [NSString stringWithUTF8String:SourceCode] : GlslCodeNSString);
 			
 			if(Header.ShaderName.Len())
@@ -539,6 +542,7 @@ mtlpp::Function TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunct
             
             if (!bHasFunctionConstants || !bAsync)
             {
+				METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewFunction: %s"), *FString(Name))));
                 if (!bHasFunctionConstants)
                 {
                     Function[IndexType][BT] = Library.NewFunction(Name);
@@ -559,11 +563,25 @@ mtlpp::Function TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunct
             }
             else
             {
+				METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewFunctionAsync: %s"), *FString(Name))));
+				METAL_GPUPROFILE(uint64 CPUStart = CPUStat.Stats ? CPUStat.Stats->CPUStartTime : 0);
+#if ENABLE_METAL_GPUPROFILE
+                ns::String nsName(Name);
+				Library.NewFunction(Name, ConstantValues, [Key, this, CPUStart, nsName](mtlpp::Function const& NewFunction, ns::Error const& Error){
+#else
 				Library.NewFunction(Name, ConstantValues, [Key, this](mtlpp::Function const& NewFunction, ns::Error const& Error){
+#endif
+					METAL_GPUPROFILE(FScopedMetalCPUStats CompletionStat(FString::Printf(TEXT("NewFunctionCompletion: %s"), *FString(nsName.GetPtr()))));
 					UE_CLOG(NewFunction == nil, LogMetal, Error, TEXT("Failed to create function: %s"), *FString(Error.GetPtr().description));
 					UE_CLOG(NewFunction == nil, LogMetal, Fatal, TEXT("*********** Error\n%s"), *FString(GetSourceCode()));
 					
 					GetMetalCompiledShaderCache().Add(Key, Library, NewFunction);
+#if ENABLE_METAL_GPUPROFILE
+					if (CompletionStat.Stats)
+					{
+						CompletionStat.Stats->CPUStartTime = CPUStart;
+					}
+#endif
 				});
 
                 return nil;
@@ -619,7 +637,8 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
 		ns::Error Error;
 		mtlpp::ComputePipelineState Kernel;
         mtlpp::ComputePipelineReflection Reflection;
-        
+		
+		METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewComputePipeline: %d_%d"), SourceLen, SourceCRC)));
     #if METAL_DEBUG_OPTIONS
         if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
         {
@@ -1210,6 +1229,7 @@ FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Pl
 			MetalLibraryFilePath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*MetalLibraryFilePath);
 #endif
 			
+			METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewLibraryFile: %s"), *MetalLibraryFilePath)));
 			NSError* Error;
 			mtlpp::Library Library = [GetMetalDeviceContext().GetDevice() newLibraryWithFile:MetalLibraryFilePath.GetNSString() error:&Error];
 			if (Library != nil)

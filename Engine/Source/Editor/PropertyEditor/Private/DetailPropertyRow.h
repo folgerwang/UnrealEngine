@@ -76,6 +76,11 @@ public:
 	TSharedPtr<FPropertyNode> GetPropertyNode() { return PropertyNode; }
 
 	/**
+	 * @return The external root node for this row if it has one.
+	 */
+	TSharedPtr<FComplexPropertyNode> GetExternalRootNode() const { return ExternalRootNode; }
+
+	/**
 	 * @return The property node for this row
 	 */
 	TSharedPtr<FPropertyEditor> GetPropertyEditor() { return PropertyEditor; }
@@ -175,7 +180,8 @@ private:
 	/** The category this row resides in */
 	TWeakPtr<FDetailCategoryImpl> ParentCategory;
 	/** Root of the property node if this node comes from an external tree */
-	TSharedPtr<FPropertyNode> ExternalRootNode;
+	TSharedPtr<FComplexPropertyNode> ExternalRootNode;
+
 	TSharedPtr<struct FDetailLayoutData> ExternalObjectLayout;
 	/** The custom expansion ID name used to save and restore expansion state on this node */
 	FName CustomExpansionIdName;

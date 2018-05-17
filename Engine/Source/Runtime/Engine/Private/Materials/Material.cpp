@@ -5425,6 +5425,9 @@ bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
 					|| InProperty == MP_Roughness
 					|| InProperty == MP_OpacityMask;
 
+			case DBM_AmbientOcclusion:
+				return InProperty == MP_AmbientOcclusion;
+
 			default:
 				// if you create a new mode it needs to expose the right pins
 				return false;

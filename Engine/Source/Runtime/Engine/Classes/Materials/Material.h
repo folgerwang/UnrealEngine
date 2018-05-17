@@ -88,6 +88,9 @@ enum EDecalBlendMode
 	/** Output signed distance in Opacity depending on LightVector. Note: Can be costly, no shadow casting but receiving, no per pixel normal yet, no quality settings yet */
 	DBM_Volumetric_DistanceFunction UMETA(DisplayName="Volumetric Distance Function (experimental)"),
 
+	/** Ambient occlusion. */
+	DBM_AmbientOcclusion UMETA(DisplayName = "Ambient Occlusion"),
+
 	DBM_MAX,
 };
 
