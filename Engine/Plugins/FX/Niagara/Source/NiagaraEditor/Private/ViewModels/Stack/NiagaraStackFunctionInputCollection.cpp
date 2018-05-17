@@ -77,6 +77,9 @@ void UNiagaraStackFunctionInputCollection::RefreshChildrenInternal(const TArray<
 	const UEdGraphSchema_Niagara* NiagaraSchema = GetDefault<UEdGraphSchema_Niagara>();
 
 	TArray<FName> ProcessedInputNames;
+	TArray<FName> DuplicateInputNames;
+	TArray<FName> ValidAliasedInputNames;
+	TArray<const UEdGraphPin*> PinsWithInvalidTypes;
 
 	FText UncategorizedName = LOCTEXT("Uncategorized", "Uncategorized");
 
@@ -172,10 +175,10 @@ void UNiagaraStackFunctionInputCollection::RefreshChildrenInternal(const TArray<
 		}
 		InputCategory->AddInput(InputData.Pin->PinName, InputData.Type);
 	}
-	RefreshIssues(NewIssues);
+	RefreshIssues(DuplicateInputNames, ValidAliasedInputNames, PinsWithInvalidTypes, NewIssues);
 }
 
-void UNiagaraStackFunctionInputCollection::RefreshIssues(TArray<FStackIssue>& NewIssues)
+void UNiagaraStackFunctionInputCollection::RefreshIssues(TArray<FName> DuplicateInputNames, TArray<FName> ValidAliasedInputNames, TArray<const UEdGraphPin*> PinsWithInvalidTypes, TArray<FStackIssue>& NewIssues)
 {
 	// Try to find function input overrides which are no longer valid so we can generate errors for them.
 	UNiagaraNodeParameterMapSet* OverrideNode = FNiagaraStackGraphUtilities::GetStackFunctionOverrideNode(*InputFunctionCallNode);
@@ -224,6 +227,7 @@ void UNiagaraStackFunctionInputCollection::RefreshIssues(TArray<FStackIssue>& Ne
 		}
 	}
 
+	// Generate issues for duplicate input names.
 	for (const FName& DuplicateInputName : DuplicateInputNames)
 	{
 		FStackIssue DuplicateInputError(
@@ -236,6 +240,7 @@ void UNiagaraStackFunctionInputCollection::RefreshIssues(TArray<FStackIssue>& Ne
 		NewIssues.Add(DuplicateInputError);
 	}
 
+	// Generate issues for invalid types.
 	for (const UEdGraphPin* PinWithInvalidType : PinsWithInvalidTypes)
 	{
 		FStackIssue InputWithInvalidTypeError(

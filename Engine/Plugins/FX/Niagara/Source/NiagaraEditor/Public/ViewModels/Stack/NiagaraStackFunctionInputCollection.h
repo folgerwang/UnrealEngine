@@ -39,7 +39,7 @@ protected:
 	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 	
 private:
-	void RefreshIssues(TArray<FStackIssue>& NewIssues);
+	void RefreshIssues(TArray<FName> DuplicateInputNames, TArray<FName> ValidAliasedInputNames, TArray<const UEdGraphPin*> PinsWithInvalidTypes, TArray<FStackIssue>& NewIssues);
 
 	void OnFunctionInputsChanged();
 
@@ -55,7 +55,4 @@ private:
 	UNiagaraNodeFunctionCall* ModuleNode;
 	UNiagaraNodeFunctionCall* InputFunctionCallNode;
 	bool bShouldShowInStack;
-	TArray<FName> ValidAliasedInputNames;
-	TArray<FName> DuplicateInputNames;
-	TArray<const UEdGraphPin*> PinsWithInvalidTypes;
 };
