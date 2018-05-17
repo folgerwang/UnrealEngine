@@ -71,6 +71,18 @@ struct FLinearColor
 		return true;
 	}
 
+	friend void operator<<(FStructuredArchive::FSlot Slot, FLinearColor& Color)
+	{
+		FStructuredArchive::FRecord Record = Slot.EnterRecord();
+		Record << NAMED_ITEM("R", Color.R) << NAMED_ITEM("G", Color.G) << NAMED_ITEM("B", Color.B) << NAMED_ITEM("A", Color.A);
+	}
+
+	bool Serialize(FStructuredArchive::FSlot Slot)
+	{
+		Slot << *this;
+		return true;
+	}
+
 	// Conversions.
 	CORE_API FColor ToRGBE() const;
 
@@ -450,6 +462,18 @@ public:
 	bool Serialize( FArchive& Ar )
 	{
 		Ar << *this;
+		return true;
+	}
+
+	// Serializer.
+	friend void operator<< (FStructuredArchive::FSlot Slot, FColor &Color)
+	{
+		return Slot << Color.DWColor();
+	}
+
+	bool Serialize(FStructuredArchive::FSlot Slot)
+	{
+		Slot << *this;
 		return true;
 	}
 

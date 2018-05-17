@@ -33,11 +33,13 @@ void UObjectRedirector::PreSave(const class ITargetPlatform* TargetPlatform)
 	}
 }
 
-void UObjectRedirector::Serialize( FArchive& Ar )
-{
-	Super::Serialize(Ar);
+IMPLEMENT_FARCHIVE_SERIALIZER(UObjectRedirector);
 
-	Ar << DestinationObject;
+void UObjectRedirector::Serialize( FStructuredArchive::FRecord Record )
+{
+	Super::Serialize(Record);
+
+	Record << NAMED_FIELD(DestinationObject);
 }
 
 bool UObjectRedirector::NeedsLoadForEditorGame() const

@@ -16,13 +16,14 @@
  */
 class UObjectRedirector : public UObject
 {
-	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UObjectRedirector, UObject, 0, TEXT("/Script/CoreUObject"), CASTCLASS_None, COREUOBJECT_API)
+	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UObjectRedirector, UObject, CLASS_MatchedSerializers, TEXT("/Script/CoreUObject"), CASTCLASS_None, COREUOBJECT_API)
 
 	// Variables.
 	UObject*		DestinationObject;
 	// UObject interface.
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
-	void Serialize( FArchive& Ar ) override;
+	void Serialize(FArchive& Ar) override;
+	void Serialize(FStructuredArchive::FRecord Record) override;
 	virtual bool NeedsLoadForEditorGame() const override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 

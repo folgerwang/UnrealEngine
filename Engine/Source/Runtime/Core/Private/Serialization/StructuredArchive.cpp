@@ -40,6 +40,7 @@ FStructuredArchiveChildReader::FStructuredArchiveChildReader(FStructuredArchive:
 
 	Archive = new FStructuredArchive(*Formatter);
 	Root.Emplace(Archive->Open());
+	InSlot.EnterRecord();
 }
 
 FStructuredArchiveChildReader::~FStructuredArchiveChildReader()

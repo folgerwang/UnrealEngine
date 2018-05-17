@@ -327,7 +327,7 @@ public:
 	void operator=(const FScalableFloat& Src);
 
 	/* Used to upgrade a float or int8/int16/int32 property into an FScalableFloat */
-	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
+	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot);
 
 private:
 

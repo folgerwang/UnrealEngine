@@ -22,7 +22,7 @@ class UMaterialExpressionFeatureLevelSwitch : public UMaterialExpression
 	FExpressionInput Inputs[ERHIFeatureLevel::Num];
 
 	//~ Begin UObject Interface.
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	virtual bool NeedsLoadForClient() const override;
 	//~ End UObject Interface.
 

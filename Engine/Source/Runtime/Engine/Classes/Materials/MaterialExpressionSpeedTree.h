@@ -70,7 +70,7 @@ class UMaterialExpressionSpeedTree : public UMaterialExpression
 	bool bAccurateWindVelocities;
 
 	//~ Begin UObject Interface
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 #if WITH_EDITOR
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 #endif // WITH_EDITOR

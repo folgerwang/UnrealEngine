@@ -5239,8 +5239,15 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 
 							if ( Export.Object->HasAnyFlags(RF_ClassDefaultObject) )
 							{
-								FArchiveUObjectFromStructuredArchive Adapter(ExportSlot);
-								Export.Object->GetClass()->SerializeDefaultObject(Export.Object, Adapter);
+								if (bSupportsText)
+								{
+									Export.Object->GetClass()->SerializeDefaultObject(Export.Object, ExportSlot);
+								}
+								else
+								{
+									FArchiveUObjectFromStructuredArchive Adapter(ExportSlot);
+									Export.Object->GetClass()->SerializeDefaultObject(Export.Object, Adapter);
+								}
 							}
 							else
 							{

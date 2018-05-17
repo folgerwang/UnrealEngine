@@ -228,7 +228,7 @@ public:
 	*			CannotConvert:    the tag is not something that the property can convert.
 	*			UseSerializeItem: no conversion was done on the property - this can mean that the tag is correct and normal serialization applies or that the tag is incompatible.
 	*/
-	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct);
+	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct);
 
 	/**
 	 * Determines whether the property values are identical.
@@ -1231,7 +1231,7 @@ class COREUOBJECT_API UNumericProperty : public UProperty
 	virtual FString GetNumericPropertyValueToString(void const* Data) const;
 	// End of UNumericProperty interface
 
-	static int64 ReadEnumAsInt64(FArchive& Ar, UStruct* DefaultsStruct, const FPropertyTag& Tag);
+	static int64 ReadEnumAsInt64(FStructuredArchive::FSlot Slot, UStruct* DefaultsStruct, const FPropertyTag& Tag);
 
 private:
 	virtual bool CanHoldDoubleValueInternal  (double Value) const PURE_VIRTUAL(UNumericProperty::CanHoldDoubleValueInternal,   return false;);
@@ -1278,10 +1278,10 @@ public:
 
 protected:
 	template <typename OldNumericType>
-	void ConvertFromArithmeticValue(FArchive& Ar, void* Obj, const FPropertyTag& Tag)
+	void ConvertFromArithmeticValue(FStructuredArchive::FSlot Slot, void* Obj, const FPropertyTag& Tag)
 	{
 		OldNumericType OldValue;
-		Ar << OldValue;
+		Slot << OldValue;
 		TCppType NewValue = (TCppType)OldValue;
 		this->SetPropertyValue_InContainer(Obj, NewValue, Tag.ArrayIndex);
 
@@ -1291,68 +1291,68 @@ protected:
 			Warning,
 			TEXT("Potential data loss during conversion of integer property %s of %s - was (%s) now (%s) - for package: %s"),
 			*this->GetName(),
-			*Ar.GetArchiveName(),
+			*Slot.GetUnderlyingArchive().GetArchiveName(),
 			*Lex::ToString(OldValue),
 			*Lex::ToString(NewValue),
-			*Ar.GetArchiveName()
+			*Slot.GetUnderlyingArchive().GetArchiveName()
 			);
 	}
 
 public:
-	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct) override
+	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct) override
 	{
 		if (Tag.Type == NAME_Int8Property)
 		{
-			ConvertFromArithmeticValue<int8>(Ar, Data, Tag);
+			ConvertFromArithmeticValue<int8>(Slot, Data, Tag);
 		}
 		else if (Tag.Type == NAME_Int16Property)
 		{
-			ConvertFromArithmeticValue<int16>(Ar, Data, Tag);
+			ConvertFromArithmeticValue<int16>(Slot, Data, Tag);
 		}
 		else if (Tag.Type == NAME_IntProperty)
 		{
-			ConvertFromArithmeticValue<int32>(Ar, Data, Tag);
+			ConvertFromArithmeticValue<int32>(Slot, Data, Tag);
 		}
 		else if (Tag.Type == NAME_Int64Property)
 		{
-			ConvertFromArithmeticValue<int64>(Ar, Data, Tag);
+			ConvertFromArithmeticValue<int64>(Slot, Data, Tag);
 		}
 		else if (Tag.Type == NAME_ByteProperty)
 		{
 			if (Tag.EnumName != NAME_None)
 			{
-				int64 PreviousValue = this->ReadEnumAsInt64(Ar, DefaultsStruct, Tag);
+				int64 PreviousValue = this->ReadEnumAsInt64(Slot, DefaultsStruct, Tag);
 				this->SetPropertyValue_InContainer(Data, PreviousValue, Tag.ArrayIndex);
 			}
 			else
 			{
-				ConvertFromArithmeticValue<int8>(Ar, Data, Tag);
+				ConvertFromArithmeticValue<int8>(Slot, Data, Tag);
 			}
 		}
 		else if (Tag.Type == NAME_EnumProperty)
 		{
-			int64 PreviousValue = this->ReadEnumAsInt64(Ar, DefaultsStruct, Tag);
+			int64 PreviousValue = this->ReadEnumAsInt64(Slot, DefaultsStruct, Tag);
 			this->SetPropertyValue_InContainer(Data, (TCppType)PreviousValue, Tag.ArrayIndex);
 		}
 		else if (Tag.Type == NAME_UInt16Property)
 		{
-			ConvertFromArithmeticValue<uint16>(Ar, Data, Tag);
+			ConvertFromArithmeticValue<uint16>(Slot, Data, Tag);
 		}
 		else if (Tag.Type == NAME_UInt32Property)
 		{
-			ConvertFromArithmeticValue<uint32>(Ar, Data, Tag);
+			ConvertFromArithmeticValue<uint32>(Slot, Data, Tag);
 		}
 		else if (Tag.Type == NAME_UInt64Property)
 		{
-			ConvertFromArithmeticValue<uint64>(Ar, Data, Tag);
+			ConvertFromArithmeticValue<uint64>(Slot, Data, Tag);
 		}
 		else if (Tag.Type == NAME_FloatProperty)
 		{
-			ConvertFromArithmeticValue<float>(Ar, Data, Tag);
+			ConvertFromArithmeticValue<float>(Slot, Data, Tag);
 		}
 		else if (Tag.Type == NAME_DoubleProperty)
 		{
-			ConvertFromArithmeticValue<double>(Ar, Data, Tag);
+			ConvertFromArithmeticValue<double>(Slot, Data, Tag);
 		}
 		else
 		{
@@ -1472,7 +1472,7 @@ class COREUOBJECT_API UByteProperty : public TProperty_Numeric<uint8>
 	virtual bool NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData = NULL ) const override;
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText ) const override;
-	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct) override;
+	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct) override;
 	// End of UProperty interface
 
 	// UNumericProperty interface.
@@ -1778,7 +1778,7 @@ public:
 	virtual void ClearValueInternal( void* Data ) const override;
 	virtual void InitializeValueInternal( void* Dest ) const override;
 	virtual int32 GetMinAlignment() const override;
-	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct) override;
+	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct) override;
 	// End of UProperty interface
 
 	// Emulate the CPP type API, see TPropertyTypeFundamentals
@@ -2060,7 +2060,7 @@ class COREUOBJECT_API UObjectProperty : public TUObjectPropertyBase<UObject*>
 	virtual void SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const override;
 	virtual void EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset, TArray<const UStructProperty*>& EncounteredStructProps) override;
 	virtual const TCHAR* ImportText_Internal(const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText) const override;
-	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct) override;
+	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct) override;
 
 private:
 	virtual uint32 GetValueTypeHashInternal(const void* Src) const override;
@@ -2171,7 +2171,7 @@ class COREUOBJECT_API USoftObjectProperty : public TUObjectPropertyBase<FSoftObj
 	virtual void SerializeItem( FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const override;
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText ) const override;
-	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct) override;
+	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct) override;
 	// End of UProperty interface
 
 	// UObjectProperty interface
@@ -2418,7 +2418,7 @@ public:
 	// UProperty interface
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText ) const override;
-	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct) override;
+	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct) override;
 	virtual FString GetCPPTypeForwardDeclaration() const override;
 	uint32 GetValueTypeHashInternal(const void* Src) const override;
 	// End of UProperty interface
@@ -2455,7 +2455,7 @@ public:
 	// UProperty interface
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText ) const override;
-	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct) override;
+	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct) override;
 	virtual FString GetCPPTypeForwardDeclaration() const override;
 	uint32 GetValueTypeHashInternal(const void* Src) const override;
 	// End of UProperty interface
@@ -2525,7 +2525,7 @@ public:
 	virtual bool ContainsWeakObjectReference() const override;
 	virtual void EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset, TArray<const UStructProperty*>& EncounteredStructProps) override;
 	virtual bool SameType(const UProperty* Other) const override;
-	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct) override;
+	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct) override;
 	// End of UProperty interface
 
 	FString GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, const FString& InnerTypeText, const FString& InInnerExtendedTypeText) const;
@@ -2578,7 +2578,7 @@ public:
 	virtual bool ContainsWeakObjectReference() const override;
 	virtual void EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset, TArray<const UStructProperty*>& EncounteredStructProps) override;
 	virtual bool SameType(const UProperty* Other) const override;
-	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct) override;
+	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct) override;
 	// End of UProperty interface
 
 	FString GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, const FString& KeyTypeText, const FString& InKeyExtendedTypeText, const FString& ValueTypeText, const FString& InValueExtendedTypeText) const;
@@ -2630,7 +2630,7 @@ public:
 	virtual bool ContainsWeakObjectReference() const override;
 	virtual void EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset, TArray<const UStructProperty*>& EncounteredStructProps) override;
 	virtual bool SameType(const UProperty* Other) const override;
-	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct) override;
+	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct) override;
 	// End of UProperty interface
 
 	FString GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, const FString& ElementTypeText, const FString& InElementExtendedTypeText) const;
@@ -4062,7 +4062,7 @@ public:
 	virtual bool ContainsWeakObjectReference() const override;
 	virtual void EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset, TArray<const UStructProperty*>& EncounteredStructProps) override;
 	virtual bool SameType(const UProperty* Other) const override;
-	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct) override;
+	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct) override;
 	// End of UProperty interface
 
 	DEPRECATED(4.14, "Use UScriptStruct::ImportText instead")

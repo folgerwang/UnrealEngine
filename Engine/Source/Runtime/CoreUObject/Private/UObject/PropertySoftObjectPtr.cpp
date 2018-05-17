@@ -114,7 +114,7 @@ const TCHAR* USoftObjectProperty::ImportText_Internal( const TCHAR* InBuffer, vo
 	}
 }
 
-EConvertFromTypeResult USoftObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult USoftObjectProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct)
 {
 	static FName NAME_AssetObjectProperty = "AssetObjectProperty";
 	static FName NAME_SoftObjectPath = "SoftObjectPath";
@@ -122,14 +122,16 @@ EConvertFromTypeResult USoftObjectProperty::ConvertFromType(const FPropertyTag& 
 	static FName NAME_StringAssetReference = "StringAssetReference";
 	static FName NAME_StringClassReference = "StringClassReference";
 
+	FArchive& Archive = Slot.GetUnderlyingArchive();
+
 	if (Tag.Type == NAME_AssetObjectProperty)
 	{
 		// Old name of soft object property, serialize normally
 		uint8* DestAddress = ContainerPtrToValuePtr<uint8>(Data, Tag.ArrayIndex);
 
-		Tag.SerializeTaggedProperty(Ar, this, DestAddress, nullptr);
+		Tag.SerializeTaggedProperty(Slot, this, DestAddress, nullptr);
 
-		if (Ar.IsCriticalError())
+		if (Archive.IsCriticalError())
 		{
 			return EConvertFromTypeResult::CannotConvert;
 		}
@@ -144,14 +146,14 @@ EConvertFromTypeResult USoftObjectProperty::ConvertFromType(const FPropertyTag& 
 		FSoftObjectPtr* PropertyValue = GetPropertyValuePtr_InContainer(Data, Tag.ArrayIndex);
 		check(PropertyValue);
 
-		return PropertyValue->GetUniqueID().SerializeFromMismatchedTag(Tag, Ar) ? EConvertFromTypeResult::Converted : EConvertFromTypeResult::UseSerializeItem;
+		return PropertyValue->GetUniqueID().SerializeFromMismatchedTag(Tag, Slot) ? EConvertFromTypeResult::Converted : EConvertFromTypeResult::UseSerializeItem;
 	}
 	else if (Tag.Type == NAME_StructProperty && (Tag.StructName == NAME_SoftObjectPath || Tag.StructName == NAME_SoftClassPath || Tag.StructName == NAME_StringAssetReference || Tag.StructName == NAME_StringClassReference))
 	{
 		// This property used to be a FSoftObjectPath but is now a TSoftObjectPtr<Foo>
 		FSoftObjectPath PreviousValue;
 		// explicitly call Serialize to ensure that the various delegates needed for cooking are fired
-		PreviousValue.Serialize(Ar);
+		PreviousValue.Serialize(Slot);
 
 		// now copy the value into the object's address space
 		FSoftObjectPtr PreviousValueSoftObjectPtr;

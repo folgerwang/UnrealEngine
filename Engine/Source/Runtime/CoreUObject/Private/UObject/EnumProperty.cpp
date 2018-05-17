@@ -11,10 +11,10 @@
 namespace UE4EnumProperty_Private
 {
 	template <typename OldIntType>
-	void ConvertIntToEnumProperty(FArchive& Ar, UEnumProperty* EnumProp, UNumericProperty* UnderlyingProp, UEnum* Enum, void* Obj)
+	void ConvertIntToEnumProperty(FStructuredArchive::FSlot Slot, UEnumProperty* EnumProp, UNumericProperty* UnderlyingProp, UEnum* Enum, void* Obj)
 	{
 		OldIntType OldValue;
-		Ar << OldValue;
+		Slot << OldValue;
 
 		using LargeIntType = typename TChooseClass<TIsSigned<OldIntType>::Value, int64, uint64>::Result;
 
@@ -337,7 +337,7 @@ bool UEnumProperty::SameType(const UProperty* Other) const
 	return Super::SameType(Other) && static_cast<const UEnumProperty*>(Other)->Enum == Enum;
 }
 
-EConvertFromTypeResult UEnumProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult UEnumProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot , uint8* Data, UStruct* DefaultsStruct)
 {
 	if ((Enum == nullptr) || (UnderlyingProp == nullptr))
 	{
@@ -359,18 +359,18 @@ EConvertFromTypeResult UEnumProperty::ConvertFromType(const FPropertyTag& Tag, F
 				InnerPropertyTag.EnumName = Enum->GetFName();
 				InnerPropertyTag.ArrayIndex = 0;
 
-				PreviousValue = (uint8)UNumericProperty::ReadEnumAsInt64(Ar, DefaultsStruct, InnerPropertyTag);
+				PreviousValue = (uint8)UNumericProperty::ReadEnumAsInt64(Slot, DefaultsStruct, InnerPropertyTag);
 			}
 			else
 			{
 				// a byte property gained an enum
-				Ar << PreviousValue;
+				Slot << PreviousValue;
 			}
 		}
 		else
 		{
 			// attempt to find the old enum and get the byte value from the serialized enum name
-			PreviousValue = (uint8)UNumericProperty::ReadEnumAsInt64(Ar, DefaultsStruct, Tag);
+			PreviousValue = (uint8)UNumericProperty::ReadEnumAsInt64(Slot, DefaultsStruct, Tag);
 		}
 
 		// now copy the value into the object's address space
@@ -378,31 +378,31 @@ EConvertFromTypeResult UEnumProperty::ConvertFromType(const FPropertyTag& Tag, F
 	}
 	else if (Tag.Type == NAME_Int8Property)
 	{
-		UE4EnumProperty_Private::ConvertIntToEnumProperty<int8>(Ar, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
+		UE4EnumProperty_Private::ConvertIntToEnumProperty<int8>(Slot, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
 	}
 	else if (Tag.Type == NAME_Int16Property)
 	{
-		UE4EnumProperty_Private::ConvertIntToEnumProperty<int16>(Ar, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
+		UE4EnumProperty_Private::ConvertIntToEnumProperty<int16>(Slot, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
 	}
 	else if (Tag.Type == NAME_IntProperty)
 	{
-		UE4EnumProperty_Private::ConvertIntToEnumProperty<int32>(Ar, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
+		UE4EnumProperty_Private::ConvertIntToEnumProperty<int32>(Slot, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
 	}
 	else if (Tag.Type == NAME_Int64Property)
 	{
-		UE4EnumProperty_Private::ConvertIntToEnumProperty<int64>(Ar, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
+		UE4EnumProperty_Private::ConvertIntToEnumProperty<int64>(Slot, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
 	}
 	else if (Tag.Type == NAME_UInt16Property)
 	{
-		UE4EnumProperty_Private::ConvertIntToEnumProperty<uint16>(Ar, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
+		UE4EnumProperty_Private::ConvertIntToEnumProperty<uint16>(Slot, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
 	}
 	else if (Tag.Type == NAME_UInt32Property)
 	{
-		UE4EnumProperty_Private::ConvertIntToEnumProperty<uint32>(Ar, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
+		UE4EnumProperty_Private::ConvertIntToEnumProperty<uint32>(Slot, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
 	}
 	else if (Tag.Type == NAME_UInt64Property)
 	{
-		UE4EnumProperty_Private::ConvertIntToEnumProperty<uint64>(Ar, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
+		UE4EnumProperty_Private::ConvertIntToEnumProperty<uint64>(Slot, this, UnderlyingProp, Enum, ContainerPtrToValuePtr<void>(Data, Tag.ArrayIndex));
 	}
 	else
 	{

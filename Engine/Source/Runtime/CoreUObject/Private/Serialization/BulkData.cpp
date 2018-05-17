@@ -874,12 +874,12 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 
 			// We're allowing defered serialization.
 			FArchive* CacheableArchive = Ar.GetCacheableArchive();
-			if( Ar.IsAllowingLazyLoading() && Owner != NULL && CacheableArchive)
+			if (Ar.IsAllowingLazyLoading() && Owner != NULL && CacheableArchive)
 			{				
 #if WITH_EDITOR
 				Linker = Owner->GetLinker();
 				check(Linker);
-				CacheableArchive->AttachBulkData( Owner, this );
+				CacheableArchive->AttachBulkData(Owner, this);
 				check(!CacheableArchive->IsTextFormat());
 				AttachedAr = CacheableArchive;
 				Filename = Linker->Filename;

@@ -133,6 +133,7 @@ struct COREUOBJECT_API FSoftObjectPath
 
 	/** Struct overrides */
 	bool Serialize(FArchive& Ar);
+	bool Serialize(FStructuredArchive::FSlot Slot);
 	bool operator==(FSoftObjectPath const& Other) const;
 	bool operator!=(FSoftObjectPath const& Other) const
 	{
@@ -141,7 +142,7 @@ struct COREUOBJECT_API FSoftObjectPath
 	FSoftObjectPath& operator=(FSoftObjectPath const& Other);
 	bool ExportTextItem(FString& ValueStr, FSoftObjectPath const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const;
 	bool ImportTextItem( const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText );
-	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar);
+	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot);
 
 	/** Serializes the internal path and also handles save/PIE fixups. Call this from the archiver overrides */
 	void SerializePath(FArchive& Ar);
@@ -247,7 +248,7 @@ struct COREUOBJECT_API FSoftClassPath : public FSoftObjectPath
 	 */
 	UClass* ResolveClass() const;
 
-	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
+	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot);
 
 	static FSoftClassPath GetOrCreateIDForClass(const UClass *InClass);
 

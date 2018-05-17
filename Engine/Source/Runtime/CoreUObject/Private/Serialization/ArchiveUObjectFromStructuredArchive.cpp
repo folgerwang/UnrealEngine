@@ -93,7 +93,24 @@ FArchive& FArchiveUObjectFromStructuredArchive::operator<<(FSoftObjectPath& Valu
 				IdxPtr = &(SoftObjectPathToIndex.Add(Value));
 				*IdxPtr = SoftObjectPaths.Add(Value);
 			}
+
+#if 1
+			// Temp workaround for emulating the behaviour of soft asset path serialization. Use these thread specific overrides to determine if we should actually save
+			// a reference to the path. If not, we still record the path in our list so that we get the correct behaviour later on when we pass these references down to the underlying
+			// archive
+			FName PackageName, PropertyName;
+			ESoftObjectPathCollectType CollectType = ESoftObjectPathCollectType::AlwaysCollect;
+			ESoftObjectPathSerializeType SerializeType = ESoftObjectPathSerializeType::AlwaysSerialize;
+			FSoftObjectPathThreadContext& ThreadContext = FSoftObjectPathThreadContext::Get();
+			ThreadContext.GetSerializationOptions(PackageName, PropertyName, CollectType, SerializeType);
+
+			if (SerializeType == ESoftObjectPathSerializeType::AlwaysSerialize)
+			{
+				Serialize(IdxPtr, sizeof(*IdxPtr));
+			}
+#else
 			Serialize(IdxPtr, sizeof(*IdxPtr));
+#endif
 		}
 	}
 	else

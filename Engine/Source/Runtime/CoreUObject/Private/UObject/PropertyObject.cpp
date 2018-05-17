@@ -30,7 +30,7 @@ FString UObjectProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 	return TEXT("OBJECT");
 }
 
-EConvertFromTypeResult UObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult UObjectProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct)
 {
 	static FName NAME_AssetObjectProperty = "AssetObjectProperty"; // old name of soft object property
 
@@ -38,7 +38,7 @@ EConvertFromTypeResult UObjectProperty::ConvertFromType(const FPropertyTag& Tag,
 	{
 		// This property used to be a TSoftObjectPtr<Foo> but is now a raw UObjectProperty Foo*, we can convert without loss of data
 		FSoftObjectPtr PreviousValue;
-		Ar << PreviousValue;
+		Slot << PreviousValue;
 
 		// now copy the value into the object's address space
 		UObject* PreviousValueObj = PreviousValue.LoadSynchronous();

@@ -7,11 +7,11 @@
 #include "Templates/Casts.h"
 #include "UObject/UnrealType.h"
 
-int64 UNumericProperty::ReadEnumAsInt64(FArchive& Ar, UStruct* DefaultsStruct, const FPropertyTag& Tag)
+int64 UNumericProperty::ReadEnumAsInt64(FStructuredArchive::FSlot Slot, UStruct* DefaultsStruct, const FPropertyTag& Tag)
 {
 	//@warning: mirrors loading code in UByteProperty::SerializeItem() and UEnumProperty::SerializeItem()
 	FName EnumName;
-	Ar << EnumName;
+	Slot << EnumName;
 
 	UEnum* Enum = FindField<UEnum>(dynamic_cast<UClass*>(DefaultsStruct) ? static_cast<UClass*>(DefaultsStruct) : DefaultsStruct->GetTypedOuter<UClass>(), Tag.EnumName);
 	if (!Enum)
@@ -25,7 +25,7 @@ int64 UNumericProperty::ReadEnumAsInt64(FArchive& Ar, UStruct* DefaultsStruct, c
 		return 0;
 	}
 
-	Ar.Preload(Enum);
+	Slot.GetUnderlyingArchive().Preload(Enum);
 
 	// This handles redirects internally
 	int64 Result = Enum->GetValueByName(EnumName);

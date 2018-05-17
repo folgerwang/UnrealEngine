@@ -52,12 +52,12 @@ const TCHAR* UNameProperty::ImportText_Internal( const TCHAR* Buffer, void* Data
 	return Buffer;
 }
 
-EConvertFromTypeResult UNameProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult UNameProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct)
 {
 	if (Tag.Type == NAME_StrProperty)
 	{
 		FString str;
-		Ar << str;
+		Slot << str;
 		SetPropertyValue_InContainer(Data, FName(*str), Tag.ArrayIndex);
 		return EConvertFromTypeResult::Converted;
 	}
@@ -66,7 +66,7 @@ EConvertFromTypeResult UNameProperty::ConvertFromType(const FPropertyTag& Tag, F
 	if (Tag.Type == NAME_TextProperty)
 	{ 
 		FText Text;  
-		Ar << Text;
+		Slot << Text;
 		const FName Name = FName(*Text.ToString());
 		SetPropertyValue_InContainer(Data, Name, Tag.ArrayIndex);
 		return EConvertFromTypeResult::Converted;

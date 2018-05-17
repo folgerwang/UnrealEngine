@@ -927,8 +927,10 @@ void UStruct::SerializeTaggedProperties(FStructuredArchive::FSlot Slot, uint8* D
 		// Load all stored properties, potentially skipping unknown ones.
 		while (1)
 		{
+			FStructuredArchive::FRecord PropertyRecord = PropertiesStream.EnterElement().EnterRecord();
+
 			FPropertyTag Tag;
-			UnderlyingArchive << Tag;
+			PropertyRecord << NAMED_FIELD(Tag);
 
 			if( Tag.Name == NAME_None )
 			{
@@ -1080,7 +1082,9 @@ void UStruct::SerializeTaggedProperties(FStructuredArchive::FSlot Slot, uint8* D
 			}
 			else
 			{
-				switch (Property->ConvertFromType(Tag, UnderlyingArchive, Data, DefaultsStruct))
+				FStructuredArchive::FSlot ValueSlot = PropertyRecord.EnterField(FIELD_NAME_TEXT("Value"));
+
+				switch (Property->ConvertFromType(Tag, ValueSlot, Data, DefaultsStruct))
 				{
 					case EConvertFromTypeResult::Converted:
 						bAdvanceProperty = true;
@@ -1097,7 +1101,7 @@ void UStruct::SerializeTaggedProperties(FStructuredArchive::FSlot Slot, uint8* D
 							uint8* DefaultsFromParent = Property->ContainerPtrToValuePtrForDefaults<uint8>(DefaultsStruct, Defaults, Tag.ArrayIndex);
 
 							// This property is ok.
-							Tag.SerializeTaggedProperty(UnderlyingArchive, Property, DestAddress, DefaultsFromParent);
+							Tag.SerializeTaggedProperty(ValueSlot, Property, DestAddress, DefaultsFromParent);
 							bAdvanceProperty = !UnderlyingArchive.IsCriticalError();
 						}
 						break;
@@ -2098,7 +2102,8 @@ void UScriptStruct::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, v
 			bItemSerialized = TheCppStructOps->Serialize(Ar, Value);
 			if (bItemSerialized && !Slot.IsFilled())
 			{
-				Slot.EnterStream();
+				// The struct said that serialization succeeded but it didn't actually write anything.
+				Slot.EnterRecord();
 			}
 		}		
 	}

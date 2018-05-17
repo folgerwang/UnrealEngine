@@ -3,14 +3,14 @@
 #include "Styling/SlateColor.h"
 #include "UObject/PropertyTag.h"
 
-bool FSlateColor::SerializeFromMismatchedTag( const FPropertyTag& Tag, FArchive& Ar )
+bool FSlateColor::SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot)
 {
 	if (Tag.Type == NAME_StructProperty)
 	{
 		if (Tag.StructName == NAME_Color)
 		{
 			FColor OldColor;
-			Ar << OldColor;
+			Slot << OldColor;
 			*this = FSlateColor(FLinearColor(OldColor));
 
 			return true;
@@ -18,7 +18,7 @@ bool FSlateColor::SerializeFromMismatchedTag( const FPropertyTag& Tag, FArchive&
 		else if(Tag.StructName == NAME_LinearColor)
 		{
 			FLinearColor OldColor;
-			Ar << OldColor;
+			Slot << OldColor;
 			*this = FSlateColor(OldColor);
 
 			return true;

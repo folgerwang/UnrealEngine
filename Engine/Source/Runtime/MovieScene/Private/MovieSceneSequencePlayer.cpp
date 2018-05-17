@@ -8,11 +8,11 @@
 #include "GameFramework/WorldSettings.h"
 #include "Misc/RuntimeErrors.h"
 
-bool FMovieSceneSequencePlaybackSettings::SerializeFromMismatchedTag( const FPropertyTag& Tag, FArchive& Ar )
+bool FMovieSceneSequencePlaybackSettings::SerializeFromMismatchedTag( const FPropertyTag& Tag, FStructuredArchive::FSlot Slot )
 {
 	if (Tag.Type == NAME_StructProperty && Tag.StructName == "LevelSequencePlaybackSettings")
 	{
-		StaticStruct()->SerializeItem(Ar, this, nullptr);
+		StaticStruct()->SerializeItem(Slot, this, nullptr);
 		return true;
 	}
 

@@ -108,6 +108,14 @@ bool FSoftObjectPath::Serialize(FArchive& Ar)
 	return true;
 }
 
+bool FSoftObjectPath::Serialize(FStructuredArchive::FSlot Slot)
+{
+	// Archivers will call back into SerializePath for the various fixups
+	Slot << *this;
+
+	return true;
+}
+
 void FSoftObjectPath::SerializePath(FArchive& Ar)
 {
 	bool bSerializeInternals = true;
@@ -271,12 +279,12 @@ bool FSoftObjectPath::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObj
  * @param Ar Archive to serialize from.
  */
 template <class TypePolicy>
-bool SerializeFromMismatchedTagTemplate(FString& Output, const FPropertyTag& Tag, FArchive& Ar)
+bool SerializeFromMismatchedTagTemplate(FString& Output, const FPropertyTag& Tag, FStructuredArchive::FSlot Slot)
 {
 	if (Tag.Type == TypePolicy::GetTypeName())
 	{
 		typename TypePolicy::Type* ObjPtr = nullptr;
-		Ar << ObjPtr;
+		Slot << ObjPtr;
 		if (ObjPtr)
 		{
 			Output = ObjPtr->GetPathName();
@@ -290,7 +298,7 @@ bool SerializeFromMismatchedTagTemplate(FString& Output, const FPropertyTag& Tag
 	else if (Tag.Type == NAME_StrProperty)
 	{
 		FString String;
-		Ar << String;
+		Slot << String;
 
 		Output = String;
 		return true;
@@ -298,7 +306,7 @@ bool SerializeFromMismatchedTagTemplate(FString& Output, const FPropertyTag& Tag
 	return false;
 }
 
-bool FSoftObjectPath::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar)
+bool FSoftObjectPath::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot)
 {
 	struct UObjectTypePolicy
 	{
@@ -308,9 +316,9 @@ bool FSoftObjectPath::SerializeFromMismatchedTag(struct FPropertyTag const& Tag,
 
 	FString Path = ToString();
 
-	bool bReturn = SerializeFromMismatchedTagTemplate<UObjectTypePolicy>(Path, Tag, Ar);
+	bool bReturn = SerializeFromMismatchedTagTemplate<UObjectTypePolicy>(Path, Tag, Slot);
 
-	if (Ar.IsLoading())
+	if (Slot.GetUnderlyingArchive().IsLoading())
 	{
 		SetPath(MoveTemp(Path));
 		PostLoadPath();
@@ -461,7 +469,7 @@ bool FSoftObjectPath::FixupCoreRedirects()
 	return false;
 }
 
-bool FSoftClassPath::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar)
+bool FSoftClassPath::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot)
 {
 	struct UClassTypePolicy
 	{
@@ -472,9 +480,9 @@ bool FSoftClassPath::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, 
 
 	FString Path = ToString();
 
-	bool bReturn = SerializeFromMismatchedTagTemplate<UClassTypePolicy>(Path, Tag, Ar);
+	bool bReturn = SerializeFromMismatchedTagTemplate<UClassTypePolicy>(Path, Tag, Slot);
 
-	if (Ar.IsLoading())
+	if (Slot.GetUnderlyingArchive().IsLoading())
 	{
 		SetPath(MoveTemp(Path));
 		PostLoadPath();

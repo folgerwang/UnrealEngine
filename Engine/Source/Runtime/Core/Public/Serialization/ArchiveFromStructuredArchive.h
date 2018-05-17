@@ -35,6 +35,11 @@ public:
 		return IsTextFormat() ? nullptr : Root->GetUnderlyingArchive().GetCacheableArchive();
 	}
 
+	FORCEINLINE bool ContainsData() const
+	{
+		return Buffer.Num() > 0;
+	}
+
 protected:
 
 	TOptional<FStructuredArchive::FRecord> Root;
@@ -54,6 +59,7 @@ private:
 	TArray<FName> Names;
 	TMap<FName, int32> NameToIndex;
 
+	TArray<FString> ObjectNames;
 	TArray<UObject*> Objects;
 	TBitArray<> ObjectsValid;
 	TMap<UObject*, int32> ObjectToIndex;

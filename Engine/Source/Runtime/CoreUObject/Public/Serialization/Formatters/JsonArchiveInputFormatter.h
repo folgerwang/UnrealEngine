@@ -71,8 +71,21 @@ public:
 private:
 	FArchive& Inner;
 
+	struct FObjectRecord
+	{
+		FObjectRecord(TSharedPtr<FJsonObject> InJsonObject, int64 InValueCount)
+			: JsonObject(InJsonObject)
+			, ValueCountOnCreation(InValueCount)
+		{
+
+		}
+
+		TSharedPtr<FJsonObject> JsonObject;
+		int64 ValueCountOnCreation;	// For debugging purposes, so we can ensure all values have been consumed
+	};
+
 	TFunction<UObject* (const FString&)> ResolveObjectName;
-	TArray<TSharedPtr<FJsonObject>> ObjectStack;
+	TArray<FObjectRecord> ObjectStack;
 	TArray<TSharedPtr<FJsonValue>> ValueStack;
 	TArray<TMap<FString, TSharedPtr<FJsonValue>>::TIterator> MapIteratorStack;
 

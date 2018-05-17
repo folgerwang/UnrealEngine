@@ -58,7 +58,7 @@ struct FMovieSceneFrameRange
 	/**
 	 * Serialize this frame range from a mismatched type (only FFloatRange supported)
 	 */
-	MOVIESCENE_API bool SerializeFromMismatchedTag(FPropertyTag const& Tag, FArchive& Ar);
+	MOVIESCENE_API bool SerializeFromMismatchedTag(FPropertyTag const& Tag, FStructuredArchive::FSlot Slot);
 
 	/**
 	 * Get this range's lower bound

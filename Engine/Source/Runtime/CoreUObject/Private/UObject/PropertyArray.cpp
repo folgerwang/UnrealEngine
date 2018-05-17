@@ -538,7 +538,7 @@ bool UArrayProperty::SameType(const UProperty* Other) const
 	return Super::SameType(Other) && Inner && Inner->SameType(((UArrayProperty*)Other)->Inner);
 }
 
-EConvertFromTypeResult UArrayProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult UArrayProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct)
 {
 	// TODO: The ArrayProperty Tag really doesn't have adequate information for
 	// many types. This should probably all be moved in to ::SerializeItem
@@ -547,8 +547,10 @@ EConvertFromTypeResult UArrayProperty::ConvertFromType(const FPropertyTag& Tag, 
 	{
 		void* ArrayPropertyData = ContainerPtrToValuePtr<void>(Data);
 
+		FStructuredArchive::FRecord ArrayRecord = Slot.EnterRecord();
+
 		int32 ElementCount = 0;
-		Ar << ElementCount;
+		ArrayRecord << NAMED_ITEM("Count", ElementCount);
 
 		FScriptArrayHelper ScriptArrayHelper(this, ArrayPropertyData);
 		ScriptArrayHelper.EmptyAndAddValues(ElementCount);
@@ -560,11 +562,13 @@ EConvertFromTypeResult UArrayProperty::ConvertFromType(const FPropertyTag& Tag, 
 			InnerPropertyTag.Type = Tag.InnerType;
 			InnerPropertyTag.ArrayIndex = 0;
 
-			if (Inner->ConvertFromType(InnerPropertyTag, Ar, ScriptArrayHelper.GetRawPtr(0), DefaultsStruct) == EConvertFromTypeResult::Converted)
+			FStructuredArchive::FStream ValueStream = ArrayRecord.EnterField(FIELD_NAME_TEXT("Value")).EnterStream();
+
+			if (Inner->ConvertFromType(InnerPropertyTag, ValueStream.EnterElement(), ScriptArrayHelper.GetRawPtr(0), DefaultsStruct) == EConvertFromTypeResult::Converted)
 			{
 				for (int32 i = 1; i < ElementCount; ++i)
 				{
-					verify(Inner->ConvertFromType(InnerPropertyTag, Ar, ScriptArrayHelper.GetRawPtr(i), DefaultsStruct) == EConvertFromTypeResult::Converted);
+					verify(Inner->ConvertFromType(InnerPropertyTag, ValueStream.EnterElement(), ScriptArrayHelper.GetRawPtr(i), DefaultsStruct) == EConvertFromTypeResult::Converted);
 				}
 
 				return EConvertFromTypeResult::Converted;
@@ -572,7 +576,7 @@ EConvertFromTypeResult UArrayProperty::ConvertFromType(const FPropertyTag& Tag, 
 			// TODO: Implement SerializeFromMismatchedTag handling for arrays of structs
 			else
 			{
-				UE_LOG(LogClass, Warning, TEXT("Array Inner Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.InnerType.ToString(), *Inner->GetID().ToString(), *Ar.GetArchiveName() );
+				UE_LOG(LogClass, Warning, TEXT("Array Inner Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.InnerType.ToString(), *Inner->GetID().ToString(), *Slot.GetUnderlyingArchive().GetArchiveName() );
 				return EConvertFromTypeResult::CannotConvert;
 			}
 		}

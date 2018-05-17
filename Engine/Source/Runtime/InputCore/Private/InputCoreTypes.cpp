@@ -1022,11 +1022,11 @@ void FKey::ConditionalLookupKeyDetails() const
 	}
 }
 
-bool FKey::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar)
+bool FKey::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot)
 {
 	if (Tag.Type == NAME_ByteProperty && Tag.EnumName == TEXT("EKeys"))
 	{
-		Ar << KeyName;
+		Slot << KeyName;
 		const FString KeyNameString(KeyName.ToString());
 		const int32 FindIndex(KeyNameString.Find(TEXT("EKeys::")));
 		if (FindIndex != INDEX_NONE)
@@ -1037,7 +1037,7 @@ bool FKey::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& 
 	}
 	else if (Tag.Type == NAME_NameProperty)
 	{
-		Ar << KeyName;
+		Slot << KeyName;
 	}
 
 	return false;

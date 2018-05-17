@@ -894,26 +894,28 @@ bool UMapProperty::SameType(const UProperty* Other) const
 	return Super::SameType(Other) && KeyProp && ValueProp && KeyProp->SameType(MapProp->KeyProp) && ValueProp->SameType(MapProp->ValueProp);
 }
 
-EConvertFromTypeResult UMapProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult UMapProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct)
 {
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
 	// Ar related calls in this function must be mirrored in UMapProperty::SerializeItem
 	checkSlow(KeyProp);
 	checkSlow(ValueProp);
 
 	// Ensure that the key/value properties have been loaded before calling SerializeItem() on them
-	Ar.Preload(KeyProp);
-	Ar.Preload(ValueProp);
+	UnderlyingArchive.Preload(KeyProp);
+	UnderlyingArchive.Preload(ValueProp);
 
-	const auto SerializeOrConvert = [](UProperty* CurrentType, const FPropertyTag& InTag, FArchive& InAr, uint8* InData, UStruct* InDefaultsStruct) -> bool
+	const auto SerializeOrConvert = [](UProperty* CurrentType, const FPropertyTag& InTag, FStructuredArchive::FSlot Slot, uint8* InData, UStruct* InDefaultsStruct) -> bool
 	{
 		// Serialize wants the property address, while convert wants the container address. InData is the container address
 		if(CurrentType->GetID() == InTag.Type)
 		{
 			uint8* DestAddress = CurrentType->ContainerPtrToValuePtr<uint8>(InData, InTag.ArrayIndex);
-			CurrentType->SerializeItem(FStructuredArchiveFromArchive(InAr).GetSlot(), DestAddress, nullptr);
+			CurrentType->SerializeItem(Slot, DestAddress, nullptr);
 			return true;
 		}
-		else if( CurrentType->ConvertFromType(InTag, InAr, InData, InDefaultsStruct) == EConvertFromTypeResult::Converted )
+		else if( CurrentType->ConvertFromType(InTag, Slot, InData, InDefaultsStruct) == EConvertFromTypeResult::Converted )
 		{
 			return true;
 		}
@@ -946,18 +948,20 @@ EConvertFromTypeResult UMapProperty::ConvertFromType(const FPropertyTag& Tag, FA
 
 			bool bConversionSucceeded = true;
 
+			FStructuredArchive::FRecord ValueRecord = Slot.EnterRecord();
+
 			// When we saved this instance we wrote out any elements that were in the 'Default' instance but not in the 
 			// instance that was being written. Presumably we were constructed from our defaults and must now remove 
 			// any of the elements that were not present when we saved this Map:
 			int32 NumKeysToRemove = 0;
-			Ar << NumKeysToRemove;
+			FStructuredArchive::FArray KeysToRemoveArray = ValueRecord.EnterArray(FIELD_NAME_TEXT("KeysToRemove"), NumKeysToRemove);
 
 			if( NumKeysToRemove != 0 )
 			{
 				TempKeyStorage = (uint8*)FMemory::Malloc(MapLayout.SetLayout.Size);
 				KeyProp->InitializeValue(TempKeyStorage);
 
-				if (SerializeOrConvert( KeyProp, KeyPropertyTag, Ar, TempKeyStorage, DefaultsStruct))
+				if (SerializeOrConvert( KeyProp, KeyPropertyTag, KeysToRemoveArray.EnterElement(), TempKeyStorage, DefaultsStruct))
 				{
 					// If the key is in the map, remove it
 					int32 Found = MapHelper.FindMapIndexWithKey(TempKeyStorage);
@@ -969,7 +973,7 @@ EConvertFromTypeResult UMapProperty::ConvertFromType(const FPropertyTag& Tag, FA
 					// things are going fine, remove the rest of the keys:
 					for(int32 I = 1; I < NumKeysToRemove; ++I)
 					{
-						verify(SerializeOrConvert( KeyProp, KeyPropertyTag, Ar, TempKeyStorage, DefaultsStruct));
+						verify(SerializeOrConvert( KeyProp, KeyPropertyTag, KeysToRemoveArray.EnterElement(), TempKeyStorage, DefaultsStruct));
 						Found = MapHelper.FindMapIndexWithKey(TempKeyStorage);
 						if (Found != INDEX_NONE)
 						{
@@ -984,7 +988,7 @@ EConvertFromTypeResult UMapProperty::ConvertFromType(const FPropertyTag& Tag, FA
 			}
 
 			int32 NumEntries = 0;
-			Ar << NumEntries;
+			FStructuredArchive::FArray EntriesArray = ValueRecord.EnterArray(FIELD_NAME_TEXT("Entries"), NumEntries);
 
 			if( bConversionSucceeded )
 			{
@@ -996,7 +1000,7 @@ EConvertFromTypeResult UMapProperty::ConvertFromType(const FPropertyTag& Tag, FA
 						KeyProp->InitializeValue(TempKeyStorage);
 					}
 
-					if( SerializeOrConvert( KeyProp, KeyPropertyTag, Ar, TempKeyStorage, DefaultsStruct ) )
+					if( SerializeOrConvert( KeyProp, KeyPropertyTag, EntriesArray.EnterElement(), TempKeyStorage, DefaultsStruct ) )
 					{
 						// Add a new default value if the key doesn't currently exist in the map
 						bool bKeyAlreadyPresent = true;
@@ -1012,12 +1016,12 @@ EConvertFromTypeResult UMapProperty::ConvertFromType(const FPropertyTag& Tag, FA
 						KeyProp->CopyCompleteValue_InContainer(NextPairPtr, TempKeyStorage);
 
 						// Deserialize value
-						if( SerializeOrConvert( ValueProp, ValuePropertyTag, Ar, NextPairPtr, DefaultsStruct ) )
+						if( SerializeOrConvert( ValueProp, ValuePropertyTag, EntriesArray.EnterElement(), NextPairPtr, DefaultsStruct ) )
 						{
 							// first entry went fine, convert the rest:
 							for(int32 I = 1; I < NumEntries; ++I)
 							{
-								verify( SerializeOrConvert( KeyProp, KeyPropertyTag, Ar, TempKeyStorage, DefaultsStruct ) );
+								verify( SerializeOrConvert( KeyProp, KeyPropertyTag, EntriesArray.EnterElement(), TempKeyStorage, DefaultsStruct ) );
 								NextPairIndex = MapHelper.FindMapIndexWithKey(TempKeyStorage);
 								if (NextPairIndex == INDEX_NONE)
 								{
@@ -1027,7 +1031,7 @@ EConvertFromTypeResult UMapProperty::ConvertFromType(const FPropertyTag& Tag, FA
 								NextPairPtr = MapHelper.GetPairPtrWithoutCheck(NextPairIndex);
 								// This copy is unnecessary when the key was already in the map:
 								KeyProp->CopyCompleteValue_InContainer(NextPairPtr, TempKeyStorage);
-								verify( SerializeOrConvert( ValueProp, ValuePropertyTag, Ar, NextPairPtr, DefaultsStruct ) );
+								verify( SerializeOrConvert( ValueProp, ValuePropertyTag, EntriesArray.EnterElement(), NextPairPtr, DefaultsStruct ) );
 							}
 						}
 						else
@@ -1062,7 +1066,7 @@ EConvertFromTypeResult UMapProperty::ConvertFromType(const FPropertyTag& Tag, FA
 					*Tag.ValueType.ToString(),
 					*KeyProp->GetID().ToString(),
 					*ValueProp->GetID().ToString(),
-					*Ar.GetArchiveName()
+					*UnderlyingArchive.GetArchiveName()
 				);
 			}
 

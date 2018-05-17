@@ -18,6 +18,7 @@ FJsonArchiveInputFormatter::FJsonArchiveInputFormatter(FArchive& InInner, TFunct
 	, ResolveObjectName(InResolveObjectName)
 {
 	Inner.ArIsTextFormat = true;
+	Inner.ArAllowLazyLoading = false;
 
 	TSharedPtr< FJsonObject > RootObject;
 	TSharedRef< TJsonReader<char> > Reader = TJsonReaderFactory<char>::Create(&InInner);
@@ -48,13 +49,13 @@ FStructuredArchiveFormatter* FJsonArchiveInputFormatter::CreateSubtreeReader()
 void FJsonArchiveInputFormatter::EnterRecord()
 {
 	TSharedPtr<FJsonValue>& Value = ValueStack.Top();
-	ObjectStack.Add(Value->AsObject());
+	ObjectStack.Add(FObjectRecord(Value->AsObject(), ValueStack.Num()));
 }
 
 void FJsonArchiveInputFormatter::EnterRecord(TArray<FString>& OutKeys)
 {
 	EnterRecord();
-	ObjectStack.Top()->Values.GetKeys(OutKeys);
+	ObjectStack.Top().JsonObject->Values.GetKeys(OutKeys);
 	for(int32 Idx = 0; Idx < OutKeys.Num(); Idx++)
 	{
 		OutKeys[Idx] = UnescapeFieldName(*OutKeys[Idx]);
@@ -63,12 +64,13 @@ void FJsonArchiveInputFormatter::EnterRecord(TArray<FString>& OutKeys)
 
 void FJsonArchiveInputFormatter::LeaveRecord()
 {
+	check(ValueStack.Num() == ObjectStack.Top().ValueCountOnCreation);
 	ObjectStack.Pop();
 }
 
 void FJsonArchiveInputFormatter::EnterField(FArchiveFieldName Name)
 {
-	TSharedPtr<FJsonObject>& NewObject = ObjectStack.Top();
+	TSharedPtr<FJsonObject>& NewObject = ObjectStack.Top().JsonObject;
 	TSharedPtr<FJsonValue> Field = NewObject->TryGetField(EscapeFieldName(Name.Name));
 	check(Field.IsValid());
 	ValueStack.Add(Field);
@@ -87,7 +89,7 @@ void FJsonArchiveInputFormatter::LeaveField()
 
 bool FJsonArchiveInputFormatter::TryEnterField(FArchiveFieldName Name, bool bEnterWhenSaving)
 {
-	TSharedPtr<FJsonObject>& NewObject = ObjectStack.Top();
+	TSharedPtr<FJsonObject>& NewObject = ObjectStack.Top().JsonObject;
 	TSharedPtr<FJsonValue> Field = NewObject->TryGetField(EscapeFieldName(Name.Name));
 	if (Field.IsValid())
 	{
@@ -285,7 +287,9 @@ void FJsonArchiveInputFormatter::Serialize(UObject*& Value)
 
 void FJsonArchiveInputFormatter::Serialize(FText& Value)
 {
-	checkNoEntry();	// Implement me
+	FStructuredArchive ChildArchive(*this);
+	FText::SerializeText(ChildArchive.Open(), Value);
+	ChildArchive.Close();
 }
 
 void FJsonArchiveInputFormatter::Serialize(FWeakObjectPtr& Value)

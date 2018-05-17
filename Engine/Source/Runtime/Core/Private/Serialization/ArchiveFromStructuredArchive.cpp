@@ -124,35 +124,29 @@ FArchive& FArchiveFromStructuredArchive::operator<<(class UObject*& Value)
 			}
 			else
 			{
-				TOptional<FStructuredArchive::FSlot> ObjectsSlot = Root->TryEnterField(FIELD_NAME_TEXT("Objects"), false);
-				if (ObjectsSlot.IsSet())
+				FStructuredArchive::FStream Stream = Root->EnterStream(FIELD_NAME_TEXT("Objects"));
+
+				// We know exactly which stream index we want to load here, but because of the API we need to read through them
+				// in order, consuming the string name until we reach the entry we want and then load it as a uobject reference.
+				// If we are loading from a text archive, we could easily specify here which index we want, and the internal formatter
+				// can just push that single value by itself onto the value stack, but that same API couldn't be implemented for a
+				// binary archive as we can't skip over entries because we don't know how big they are. Maybe we could specify a stride
+				// or something, but at this point the API is complex and pretty formatter specific. Thought required!
+				// For now, just consume all the string names of the objects up until the one we need, then load that as an object
+				// pointer.
+
+				FString Dummy;
+				for (int32 Index = 0; Index < Objects.Num(); ++Index)
 				{
-					// We know exactly which stream index we want to load here, but because of the API we need to read through them
-					// in order, consuming the string name until we reach the entry we want and then load it as a uobject reference.
-					// If we are loading from a text archive, we could easily specify here which index we want, and the internal formatter
-					// can just push that single value by itself onto the value stack, but that same API couldn't be implemented for a
-					// binary archive as we can't skip over entries because we don't know how big they are. Maybe we could specify a stride
-					// or something, but at this point the API is complex and pretty formatter specific. Thought required!
-					// For now, just consume all the string names of the objects up until the one we need, then load that as an object
-					// pointer.
-					FStructuredArchive::FStream Stream = ObjectsSlot->EnterStream();
-					for (int32 Index = 0; Index <= ObjectIdx; ++Index)
+					if (Index == ObjectIdx)
 					{
-						if (Index == ObjectIdx)
-						{
-							Stream.EnterElement() << Value;
-							Objects[ObjectIdx] = Value;
-						}
-						else
-						{
-							FString Dummy;
-							Stream.EnterElement() << Dummy;
-						}
+						Stream.EnterElement() << Value;
+						Objects[ObjectIdx] = Value;
 					}
-				}
-				else
-				{
-					Value = nullptr;
+					else
+					{
+						Stream.EnterElement() << Dummy;
+					}
 				}
 
 				Objects[ObjectIdx] = Value;
@@ -253,10 +247,11 @@ void FArchiveFromStructuredArchive::SerializeInternal(FStructuredArchive::FRecor
 				// when we enter the array here. We never read them, so I'm assuming they just sit there
 				// until we destroy this archive wrapper. Perhaps we need something in the API here to just access
 				// the size of the array but not preparing to access it's values?
-				int32 NumEntries = 0;
-				ObjectsSlot.GetValue().EnterArray(NumEntries);
-				Objects.AddUninitialized(NumEntries);
-				ObjectsValid.Init(false, NumEntries);
+				ObjectsSlot.GetValue() << ObjectNames;
+				//int32 NumEntries = 0;
+				//ObjectsSlot.GetValue().EnterArray(NumEntries);
+				Objects.AddUninitialized(ObjectNames.Num());
+				ObjectsValid.Init(false, ObjectNames.Num());
 			}
 			else
 			{
@@ -278,20 +273,20 @@ void FArchiveFromStructuredArchive::OpenArchive()
 {
 	if (!bWasOpened)
 	{
+		bWasOpened = true;
+
 		if (InnerArchive.IsTextFormat())
 		{
 			Root = RootSlot.EnterRecord();
 
 			if (IsLoading())
 			{
-				Commit();
+				SerializeInternal(Root.GetValue());
 			}
 		}
 		else
 		{
 			RootSlot.EnterStream();
 		}
-
-		bWasOpened = true;
 	}
 }

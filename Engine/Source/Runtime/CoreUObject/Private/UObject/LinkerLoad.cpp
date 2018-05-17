@@ -1306,7 +1306,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 		}
 		
 		// Propagate fact that package cannot use lazy loading to archive (aka this).
-		if( (Summary.PackageFlags & PKG_DisallowLazyLoading) )
+		if( (Summary.PackageFlags & PKG_DisallowLazyLoading) || IsTextFormat() )
 		{
 			ArAllowLazyLoading = false;
 		}
@@ -3409,7 +3409,7 @@ void FLinkerLoad::Preload( UObject* Object )
 					FScopedPlaceholderContainerTracker SerializingObjTracker(Object);
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
-#if WITH_EDITOR
+#if WITH_EDITOR && WITH_TEXT_ARCHIVE_SUPPORT
 					bool bClassSupportsTextFormat = UClass::IsSafeToSerializeToStructuredArchives(Object->GetClass());
 #endif
 
@@ -3443,12 +3443,22 @@ void FLinkerLoad::Preload( UObject* Object )
 						UObject* PrevSerializedObject = ThreadContext.SerializedObject;
 						ThreadContext.SerializedObject = Object;
 
-#if WITH_TEXT_ARCHIVE_SUPPORT
+#if WITH_EDITOR && WITH_TEXT_ARCHIVE_SUPPORT
 						if (IsTextFormat())
 						{
 							FString ObjectName = Object->GetPathName(Object->GetOutermost());
 							FStructuredArchive::FSlot ExportSlot = StructuredArchiveRootRecord->EnterField(FIELD_NAME(*ObjectName));
-							Object->GetClass()->SerializeDefaultObject(Object, ExportSlot);
+
+							if (bClassSupportsTextFormat)
+							{
+								Object->GetClass()->SerializeDefaultObject(Object, ExportSlot);
+							}
+							else
+							{
+								FStructuredArchiveChildReader ChildReader(ExportSlot);
+								FArchiveUObjectFromStructuredArchive Adapter(ChildReader.GetRoot());
+								Object->GetClass()->SerializeDefaultObject(Object, Adapter);
+							}
 						}
 						else
 #endif
@@ -3486,6 +3496,7 @@ void FLinkerLoad::Preload( UObject* Object )
 							{
 								ObjectName = ObjectPath.Right(ObjectPath.Len() - PackagePath.Len() - 1);
 							}
+
 							FStructuredArchive::FSlot ExportSlot = StructuredArchiveRootRecord->EnterField(FIELD_NAME(*ObjectName));
 
 							if (bClassSupportsTextFormat)

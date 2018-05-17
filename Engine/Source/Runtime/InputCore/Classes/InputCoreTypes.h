@@ -74,7 +74,7 @@ struct INPUTCORE_API FKey
 	FName GetFName() const;
 	FName GetMenuCategory() const;
 
-	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar);
+	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot);
 	bool ExportTextItem(FString& ValueStr, FKey const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const;
 	bool ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText);
 	void PostSerialize(const FArchive& Ar);

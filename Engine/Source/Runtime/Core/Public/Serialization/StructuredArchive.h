@@ -69,7 +69,7 @@ public:
 	 * @param InFormatter Formatter for the archive data
 	 */
 	FStructuredArchive(FArchiveFormatterType& InFormatter);
-
+	
 	/**
 	 * Default destructor. Closes the archive.
 	 */

@@ -74,10 +74,33 @@ struct ENGINE_API TPerPlatformProperty
 		Ar << *this;
 		return true;
 	}
+
+	/* Load old properties that have been converted to FPerPlatformX */
+	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot)
+	{
+		if (Tag.Type == _BasePropertyName)
+		{
+			_StructType* This = StaticCast<_StructType*>(this);
+			_ValueType OldValue;
+			Slot << OldValue;
+			*This = _StructType(OldValue);
+			return true;
+		}
+		return false;
+	}
+
+	/* Serialization */
+	bool Serialize(FStructuredArchive::FSlot Slot)
+	{
+		Slot << *this;
+		return true;
+	}
 };
 
 template<typename _StructType, typename _ValueType, EName _BasePropertyName>
 ENGINE_API FArchive& operator<<(FArchive& Ar, TPerPlatformProperty<_StructType, _ValueType, _BasePropertyName>& P);
+template<typename _StructType, typename _ValueType, EName _BasePropertyName>
+ENGINE_API void operator<<(FStructuredArchive::FSlot Slot, TPerPlatformProperty<_StructType, _ValueType, _BasePropertyName>& P);
 
 /** FPerPlatformInt - int32 property with per-platform overrides */
 USTRUCT()
@@ -107,6 +130,7 @@ struct ENGINE_API FPerPlatformInt
 	}
 };
 extern template ENGINE_API FArchive& operator<<(FArchive&, TPerPlatformProperty<FPerPlatformInt, int32, NAME_IntProperty>&);
+extern template ENGINE_API void operator<<(FStructuredArchive::FSlot Slot, TPerPlatformProperty<FPerPlatformInt, int32, NAME_IntProperty>&);
 
 template<>
 struct TStructOpsTypeTraits<FPerPlatformInt>

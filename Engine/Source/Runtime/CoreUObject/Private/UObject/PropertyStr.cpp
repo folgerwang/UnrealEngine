@@ -9,13 +9,13 @@
 	UStrProperty.
 -----------------------------------------------------------------------------*/
 
-EConvertFromTypeResult UStrProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult UStrProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct)
 {
 	// Convert serialized text to string.
 	if (Tag.Type==NAME_TextProperty)
 	{ 
 		FText Text;
-		Ar << Text;
+		Slot << Text;
 		const FString String = FTextInspector::GetSourceString(Text) ? *FTextInspector::GetSourceString(Text) : TEXT("");
 		SetPropertyValue_InContainer(Data, String, Tag.ArrayIndex);
 

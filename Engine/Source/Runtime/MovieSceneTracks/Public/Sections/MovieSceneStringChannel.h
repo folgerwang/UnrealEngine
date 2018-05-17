@@ -22,7 +22,7 @@ struct FMovieSceneStringChannel : public FMovieSceneChannel
 	/**
 	 * Serialize this type from another
 	 */
-	MOVIESCENETRACKS_API bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
+	MOVIESCENETRACKS_API bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot);
 
 	/**
 	 * Access a mutable interface for this channel's data
