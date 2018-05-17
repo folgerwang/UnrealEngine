@@ -232,6 +232,9 @@ public:
 
 	virtual ~FAutomationScreenshotTaker()
 	{
+		// remove before we restore the viewport's size - a resize can trigger a redraw, which would trigger OnScreenshotCaptured() again (endless loop)
+		GEngine->GameViewport->OnScreenshotCaptured().RemoveAll(this);
+
 		if (!FPlatformProperties::HasFixedResolution() && bNeedsViewportSizeRestore)
 		{
 			FSceneViewport* GameViewport = GEngine->GameViewport->GetGameViewport();
@@ -239,8 +242,6 @@ public:
 		}
 
 		EnvSetup.Restore();
-
-		GEngine->GameViewport->OnScreenshotCaptured().RemoveAll(this);
 
 		FAutomationTestFramework::Get().NotifyScreenshotTakenAndCompared();
 	}
