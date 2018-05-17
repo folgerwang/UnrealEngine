@@ -87,6 +87,33 @@ static bool LuminSupportsVulkan(const FConfigFile& EngineSettings)
 	return bSupportsVulkan;
 }
 
+bool FLuminTargetPlatform::SupportsFeature(ETargetPlatformFeatures Feature) const
+{
+	switch (Feature)
+	{
+	case ETargetPlatformFeatures::Packaging:
+		return true;
+
+	case ETargetPlatformFeatures::LowQualityLightmaps:
+	case ETargetPlatformFeatures::MobileRendering:
+		return SupportsMobileRendering() || SupportsVulkan();
+
+	case ETargetPlatformFeatures::HighQualityLightmaps:
+	//#todo-rco: Enable when Vulkan supports it
+	//case ETargetPlatformFeatures::Tessellation:
+	case ETargetPlatformFeatures::DeferredRendering:
+		return SupportsDesktopRendering();
+
+	case ETargetPlatformFeatures::SoftwareOcclusion:
+		return SupportsSoftwareOcclusion();
+
+	default:
+		break;
+	}
+
+	return TTargetPlatformBase<FAndroidPlatformProperties>::SupportsFeature(Feature);
+}
+
 void FLuminTargetPlatform::InitializeDeviceDetection()
 {
 	DeviceDetection = FModuleManager::LoadModuleChecked<IAndroidDeviceDetectionModule>("AndroidDeviceDetection").GetAndroidDeviceDetection(TEXT("Lumin"));

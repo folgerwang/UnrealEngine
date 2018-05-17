@@ -87,6 +87,8 @@ public:
 	virtual bool SupportsMobileRendering() const;// override;
 	virtual void InitializeDeviceDetection() override;
 
+	virtual bool SupportsFeature(ETargetPlatformFeatures Feature) const override;
+
 protected:
 	// Holds the Engine INI settings, for quick use.
 	FConfigFile EngineSettings;
