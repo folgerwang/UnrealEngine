@@ -1209,6 +1209,70 @@ void FBodyInstance::UpdatePhysicsFilterData()
 
 TAutoConsoleVariable<int32> CDisableQueryOnlyActors(TEXT("p.DisableQueryOnlyActors"), 0, TEXT("If QueryOnly is used, actors are marked as simulation disabled. This is NOT compatible with origin shifting at the moment."));
 
+TSharedPtr<TArray<ANSICHAR>> GetDebugDebugName(const UPrimitiveComponent* PrimitiveComp, const UBodySetup* BodySetup, FString& DebugName)
+{
+	// Setup names
+	// Make the debug name for this geometry...
+	DebugName = (TEXT(""));
+	TSharedPtr<TArray<ANSICHAR>> PhysXName;
+
+#if (WITH_EDITORONLY_DATA || UE_BUILD_DEBUG || LOOKING_FOR_PERF_ISSUES) && !(UE_BUILD_SHIPPING || UE_BUILD_TEST) && !NO_LOGGING
+	if (PrimitiveComp)
+	{
+		DebugName += FString::Printf(TEXT("Component: '%s' "), *PrimitiveComp->GetPathName());
+	}
+
+	if (BodySetup->BoneName != NAME_None)
+	{
+		DebugName += FString::Printf(TEXT("Bone: '%s' "), *BodySetup->BoneName.ToString());
+	}
+
+	// Convert to char* for PhysX
+	PhysXName = MakeShareable(new TArray<ANSICHAR>(StringToArray<ANSICHAR>(*DebugName, DebugName.Len() + 1)));
+#endif
+
+	return PhysXName;
+}
+
+void GetSimulatingAndBlendWeight(const USkeletalMeshComponent* SkelMeshComp, const UBodySetup* BodySetup, float& InstanceBlendWeight, bool& bInstanceSimulatePhysics)
+{
+	bool bEnableSim = false;
+	if (SkelMeshComp)
+	{
+		if(CollisionEnabledHasPhysics(SkelMeshComp->BodyInstance.GetCollisionEnabled()))
+		{
+			if ((BodySetup->PhysicsType == PhysType_Simulated) || (BodySetup->PhysicsType == PhysType_Default))
+			{
+				bEnableSim = (SkelMeshComp && IsRunningDedicatedServer()) ? SkelMeshComp->bEnablePhysicsOnDedicatedServer : true;
+				bEnableSim &= ((BodySetup->PhysicsType == PhysType_Simulated) || (SkelMeshComp->BodyInstance.bSimulatePhysics));	//if unfixed enable. If default look at parent
+			}
+		}
+	}
+	else
+	{
+		//not a skeletal mesh so don't bother with default and skeletal mesh component
+		bEnableSim = BodySetup->PhysicsType == PhysType_Simulated;
+	}
+
+	if (bEnableSim)
+	{
+		// set simulate to true if using physics
+		bInstanceSimulatePhysics = true;
+		if (BodySetup->PhysicsType == PhysType_Simulated)
+		{
+			InstanceBlendWeight = 1.f;
+		}
+	}
+	else
+	{
+		bInstanceSimulatePhysics = false;
+		if (BodySetup->PhysicsType == PhysType_Simulated)
+		{
+			InstanceBlendWeight = 0.f;
+		}
+	}
+}
+
 #if WITH_PHYSX
 
 template <bool bCompileStatic>
@@ -1738,70 +1802,6 @@ void FBodyInstance::InitBody(class UBodySetup* Setup, const FTransform& Transfor
 
 	Bodies.Reset();
 	Transforms.Reset();
-}
-
-TSharedPtr<TArray<ANSICHAR>> GetDebugDebugName(const UPrimitiveComponent* PrimitiveComp, const UBodySetup* BodySetup, FString& DebugName)
-{
-	// Setup names
-	// Make the debug name for this geometry...
-	DebugName = (TEXT(""));
-	TSharedPtr<TArray<ANSICHAR>> PhysXName;
-
-#if (WITH_EDITORONLY_DATA || UE_BUILD_DEBUG || LOOKING_FOR_PERF_ISSUES) && !(UE_BUILD_SHIPPING || UE_BUILD_TEST) && !NO_LOGGING
-	if (PrimitiveComp)
-	{
-		DebugName += FString::Printf(TEXT("Component: '%s' "), *PrimitiveComp->GetPathName());
-	}
-
-	if (BodySetup->BoneName != NAME_None)
-	{
-		DebugName += FString::Printf(TEXT("Bone: '%s' "), *BodySetup->BoneName.ToString());
-	}
-
-	// Convert to char* for PhysX
-	PhysXName = MakeShareable(new TArray<ANSICHAR>(StringToArray<ANSICHAR>(*DebugName, DebugName.Len() + 1)));
-#endif
-
-	return PhysXName;
-}
-
-void GetSimulatingAndBlendWeight(const USkeletalMeshComponent* SkelMeshComp, const UBodySetup* BodySetup, float& InstanceBlendWeight, bool& bInstanceSimulatePhysics)
-{
-	bool bEnableSim = false;
-	if (SkelMeshComp)
-	{
-		if(CollisionEnabledHasPhysics(SkelMeshComp->BodyInstance.GetCollisionEnabled()))
-		{
-			if ((BodySetup->PhysicsType == PhysType_Simulated) || (BodySetup->PhysicsType == PhysType_Default))
-			{
-				bEnableSim = (SkelMeshComp && IsRunningDedicatedServer()) ? SkelMeshComp->bEnablePhysicsOnDedicatedServer : true;
-				bEnableSim &= ((BodySetup->PhysicsType == PhysType_Simulated) || (SkelMeshComp->BodyInstance.bSimulatePhysics));	//if unfixed enable. If default look at parent
-			}
-		}
-	}
-	else
-	{
-		//not a skeletal mesh so don't bother with default and skeletal mesh component
-		bEnableSim = BodySetup->PhysicsType == PhysType_Simulated;
-	}
-
-	if (bEnableSim)
-	{
-		// set simulate to true if using physics
-		bInstanceSimulatePhysics = true;
-		if (BodySetup->PhysicsType == PhysType_Simulated)
-		{
-			InstanceBlendWeight = 1.f;
-		}
-	}
-	else
-	{
-		bInstanceSimulatePhysics = false;
-		if (BodySetup->PhysicsType == PhysType_Simulated)
-		{
-			InstanceBlendWeight = 0.f;
-		}
-	}
 }
 
 FVector GetInitialLinearVelocity(const AActor* OwningActor, bool& bComponentAwake)
