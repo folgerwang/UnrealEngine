@@ -681,8 +681,8 @@ public:
 		MeshSimp->SetAttributeWeights(AttributeWeights);
 		//MeshSimp->SetBoundaryLocked();
 		MeshSimp->InitCosts();
-
-		float MaxErrorSqr = MeshSimp->SimplifyMesh(MAX_FLT, FMath::Max(1, int32(NumTris * ReductionSettings.PercentTriangles)));
+		//We need a minimum of 2 triangles, to see the object on both side. If we use one, we will end up with zero triangle when we will remove a shared edge
+		float MaxErrorSqr = MeshSimp->SimplifyMesh(MAX_FLT, FMath::Max(2, int32(NumTris * ReductionSettings.PercentTriangles)));
 
 		NumVerts = MeshSimp->GetNumVerts();
 		NumTris = MeshSimp->GetNumTris();
