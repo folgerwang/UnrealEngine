@@ -65,13 +65,14 @@ struct FNiagaraTranslateResults
 	bool bHLSLGenSucceeded;
 
 	/** A results log with messages, warnings, and errors which occurred during the compile. */
-	FCompilerResultsLog* MessageLog;
+	TArray<FNiagaraCompileEvent> CompileEvents;
+	uint32 NumErrors;
+	uint32 NumWarnings;
 
 	/** A string representation of the compilation output. */
 	FString OutputHLSL;
 
-	FNiagaraTranslateResults(FCompilerResultsLog* InMessageLog = nullptr)
-		: MessageLog(InMessageLog)
+	FNiagaraTranslateResults() : NumErrors(0), NumWarnings(0)
 	{
 	}
 
@@ -331,7 +332,7 @@ protected:
 	/** Map of function graphs we've seen before and already pre-processed. */
 	TMap<const UNiagaraGraph*, UNiagaraGraph*> PreprocessedFunctions;
 
-	void RegisterFunctionCall(ENiagaraScriptUsage ScriptUsage, const FString& InName, const FString& InFullName, UNiagaraScriptSource* Source, FNiagaraFunctionSignature& InSignature, bool bIsCustomHlsl, const FString& InCustomHlsl, TArray<int32>& Inputs, const TArray<UEdGraphPin*>& CallInputs, const TArray<UEdGraphPin*>& CallOutputs,
+	void RegisterFunctionCall(ENiagaraScriptUsage ScriptUsage, const FString& InName, const FString& InFullName, const FGuid& CallNodeId, UNiagaraScriptSource* Source, FNiagaraFunctionSignature& InSignature, bool bIsCustomHlsl, const FString& InCustomHlsl, TArray<int32>& Inputs, const TArray<UEdGraphPin*>& CallInputs, const TArray<UEdGraphPin*>& CallOutputs,
 		FNiagaraFunctionSignature& OutSignature);
 	void GenerateFunctionCall(FNiagaraFunctionSignature& FunctionSignature, TArray<int32>& Inputs, TArray<int32>& Outputs);
 	FString GetFunctionSignature(const FNiagaraFunctionSignature& Sig);
@@ -351,17 +352,20 @@ protected:
 		FString Name;
 		FNiagaraFunctionSignature& Signature;
 		TArray<int32>& Inputs;
-		FFunctionContext(const FString& InName, FNiagaraFunctionSignature& InSig, TArray<int32>& InInputs)
+		FGuid Id;
+		FFunctionContext(const FString& InName, FNiagaraFunctionSignature& InSig, TArray<int32>& InInputs, const FGuid& InId)
 			: Name(InName)
 			, Signature(InSig)
 			, Inputs(InInputs)
+			, Id(InId)
 		{}
 	};
 	TArray<FFunctionContext> FunctionContextStack;
 	const FFunctionContext* FunctionCtx()const { return FunctionContextStack.Num() > 0 ? &FunctionContextStack.Last() : nullptr; }
-	void EnterFunction(const FString& Name, FNiagaraFunctionSignature& Signature, TArray<int32>& Inputs);
+	void EnterFunction(const FString& Name, FNiagaraFunctionSignature& Signature, TArray<int32>& Inputs, const FGuid& InGuid);
 	void ExitFunction();
 	FString GetCallstack();
+	TArray<FGuid> GetCallstackGuids();
 
 	void EnterStatsScope(FNiagaraStatScope StatScope);
 	void ExitStatsScope();
