@@ -6,6 +6,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Containers/Array.h"
 #include "NiagaraDataInterfaceSkeletalMesh.generated.h"
 
 class UNiagaraDataInterfaceSkeletalMesh;
@@ -98,6 +99,7 @@ struct FSkeletalMeshSkinningData
 	void RegisterUser(FSkeletalMeshSkinningDataUsage Usage);
 	void UnregisterUser(FSkeletalMeshSkinningDataUsage Usage);
 	bool IsUsed()const;
+	void ForceDataRefresh();
 
 	bool Tick(float InDeltaSeconds);
 
@@ -160,6 +162,8 @@ private:
 		TArray<FVector> SkinnedCPUPositions[2];
 	};
 	TArray<FLODData> LODData;
+
+	bool bForceDataRefresh;
 };
 
 class FNDI_SkeletalMesh_GeneratedData
@@ -215,18 +219,20 @@ struct FSkeletalMeshSamplingRegionAreaWeightedSampler : FWeightedRandomSampler
 	virtual float GetWeights(TArray<float>& OutWeights)override;
 
 	FORCEINLINE bool IsValid() { return TotalWeight > 0.0f; }
+
+	int32 GetEntries() const { return Alias.Num(); }
 protected:
 	FNDISkeletalMesh_InstanceData* Owner;
 };
 
 struct FNDISkeletalMesh_InstanceData
 {
-	FRandomStream RandStream;//Might remove this when we rework randoms. I don't like stateful randoms as they can't work on GPU and likely not threaded VM either!
-
 	//Cached ptr to component we sample from. 
 	TWeakObjectPtr<USceneComponent> Component;
 
 	USkeletalMesh* Mesh;
+
+	TWeakObjectPtr<USkeletalMesh> MeshSafe;
 
 	/** Handle to our skinning data. */
 	FSkeletalMeshSkinningDataHandle SkinningData;
@@ -250,9 +256,11 @@ struct FNDISkeletalMesh_InstanceData
 	/** Time separating Transform and PrevTransform. */
 	float DeltaSeconds;
 
+	uint32 ChangeId;
+
 	FORCEINLINE_DEBUGGABLE bool ResetRequired(UNiagaraDataInterfaceSkeletalMesh* Interface)const;
 
-	FORCEINLINE_DEBUGGABLE bool Init(UNiagaraDataInterfaceSkeletalMesh* Interface, FNiagaraSystemInstance* SystemInstance);
+	bool Init(UNiagaraDataInterfaceSkeletalMesh* Interface, FNiagaraSystemInstance* SystemInstance);
 	FORCEINLINE_DEBUGGABLE bool Cleanup(UNiagaraDataInterfaceSkeletalMesh* Interface, FNiagaraSystemInstance* SystemInstance);
 	FORCEINLINE_DEBUGGABLE bool Tick(UNiagaraDataInterfaceSkeletalMesh* Interface, FNiagaraSystemInstance* SystemInstance, float InDeltaSeconds);
 	FORCEINLINE int32 GetLODIndex()const { return SkinningData.Usage.GetLODIndex(); }
@@ -299,11 +307,14 @@ public:
 	UPROPERTY(EditAnywhere, Category="Mesh")
 	int32 WholeMeshLOD;
 
+	/** Cached change id off of the data interface.*/
+	uint32 ChangeId;
 public:
 
 	//~ UObject interface
 #if WITH_EDITOR
 	virtual void PostInitProperties()override;
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 	//~ UObject interface END
 
@@ -316,32 +327,56 @@ public:
 	virtual int32 PerInstanceDataSize()const override { return sizeof(FNDISkeletalMesh_InstanceData); }
 
 	virtual void GetFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions)override;
-	virtual FVMExternalFunction GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData)override;
+	virtual void GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)override;
 	virtual bool Equals(const UNiagaraDataInterface* Other) const override;
 	virtual bool CanExecuteOnTarget(ENiagaraSimTarget Target)const override { return Target == ENiagaraSimTarget::CPUSim; }
+#if WITH_EDITOR	
+	virtual TArray<FNiagaraDataInterfaceError> GetErrors() override;
+#endif
 	//~ UNiagaraDataInterface interface END
 public:
 
 	template<typename FilterMode, typename AreaWeightingMode>
+	void GetFilteredTriangleCount(FVectorVMContext& Context);
+
+	template<typename FilterMode, typename AreaWeightingMode, typename TriType>
+	void GetFilteredTriangleAt(FVectorVMContext& Context);
+
+	template<typename FilterMode, typename AreaWeightingMode>
 	void RandomTriCoord(FVectorVMContext& Context);
+
+
+	template<typename FilterMode, typename AreaWeightingMode, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
+	void IsValidTriCoord(FVectorVMContext& Context);
 
 	template<typename SkinningHandlerType, typename TransformHandlerType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
 	void GetTriCoordPosition(FVectorVMContext& Context);
 
 	template<typename SkinningHandlerType, typename TransformHandlerType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
 	void GetTriCoordPositionVelocityAndNormal(FVectorVMContext& Context);
+
+	template<typename SkinningHandlerType, typename TransformHandlerType, typename VertexAccessorType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType, typename UVSetType>
+	void GetTriCoordPositionVelocityAndNormalBinormalTangent(FVectorVMContext& Context);
 	
 	template<typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
 	void GetTriCoordColor(FVectorVMContext& Context);
 
 	template<typename VertexAccessorType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType, typename UVSetType>
 	void GetTriCoordUV(FVectorVMContext& Context);
- 
+
+	static USkeletalMesh* GetSkeletalMeshHelper(UNiagaraDataInterfaceSkeletalMesh* Interface, class UNiagaraComponent* OwningComponent, TWeakObjectPtr<USceneComponent>& SceneComponent, USkeletalMeshComponent*& FoundSkelComp);
 protected:
 	virtual bool CopyToInternal(UNiagaraDataInterface* Destination) const override;
 
 private:
 
 	template<typename FilterMode, typename AreaWeightingMode>
-	FORCEINLINE_DEBUGGABLE int32 RandomTriIndex(FSkeletalMeshAccessorHelper& Accessor, FNDISkeletalMesh_InstanceData* InstData);
+	FORCEINLINE_DEBUGGABLE int32 RandomTriIndex(FRandomStream& RandStream, FSkeletalMeshAccessorHelper& Accessor, FNDISkeletalMesh_InstanceData* InstData);
+
+	template<typename FilterMode, typename AreaWeightingMode>
+	FORCEINLINE_DEBUGGABLE int32 GetSpecificTriangleCount(FSkeletalMeshAccessorHelper& Accessor, FNDISkeletalMesh_InstanceData* InstData);
+
+	template<typename FilterMode, typename AreaWeightingMode>
+	FORCEINLINE_DEBUGGABLE int32 GetSpecificTriangleAt(FSkeletalMeshAccessorHelper& Accessor, FNDISkeletalMesh_InstanceData* InstData, int32 FilteredIdx);
+
 };

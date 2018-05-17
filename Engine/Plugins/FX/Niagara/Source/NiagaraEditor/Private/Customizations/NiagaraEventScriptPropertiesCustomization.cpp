@@ -25,10 +25,11 @@
 #include "SGraphActionMenu.h"
 #include "NiagaraEditorUtilities.h"
 #include "Editor.h"
+#include "IDetailChildrenBuilder.h"
 
 #define LOCTEXT_NAMESPACE "FNiagaraEventScriptPropertiesCustomization"
 
-TSharedRef<class IDetailCustomization> FNiagaraEventScriptPropertiesCustomization::MakeInstance(TWeakObjectPtr<UNiagaraSystem> InSystem,
+TSharedRef<IPropertyTypeCustomization> FNiagaraEventScriptPropertiesCustomization::MakeInstance(TWeakObjectPtr<UNiagaraSystem> InSystem,
 TWeakObjectPtr<UNiagaraEmitter> InEmitter)
 {
 	return MakeShareable(new FNiagaraEventScriptPropertiesCustomization(InSystem, InEmitter));
@@ -45,47 +46,34 @@ FNiagaraEventScriptPropertiesCustomization::~FNiagaraEventScriptPropertiesCustom
 	GEditor->UnregisterForUndo(this);
 }
 
-void FNiagaraEventScriptPropertiesCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
+void FNiagaraEventScriptPropertiesCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> StructPropertyHandle, class FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
 {
-	HandleSrcID = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(FNiagaraEventScriptProperties, SourceEmitterID));
-	HandleEventName = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(FNiagaraEventScriptProperties, SourceEventName));
-	HandleSpawnNumber = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(FNiagaraEventScriptProperties, SpawnNumber));
-	HandleExecutionMode = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(FNiagaraEventScriptProperties, ExecutionMode));
-	HandleMaxEvents = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(FNiagaraEventScriptProperties, MaxEventsPerFrame));
+	HeaderRow.NameContent()
+		[
+			StructPropertyHandle->CreatePropertyNameWidget()
+		];
+	HeaderRow.ValueContent()
+		[
+			StructPropertyHandle->CreatePropertyValueWidget()
+		];
+}
 
-	IDetailCategoryBuilder& CategoryBuilder = DetailBuilder.EditCategory(TEXT("Event Handler Options"));
+void FNiagaraEventScriptPropertiesCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
+{
+	HandleSrcID = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FNiagaraEventScriptProperties, SourceEmitterID));
+	HandleEventName = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FNiagaraEventScriptProperties, SourceEventName));
+	HandleSpawnNumber = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FNiagaraEventScriptProperties, SpawnNumber));
+	HandleExecutionMode = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FNiagaraEventScriptProperties, ExecutionMode));
+	HandleMaxEvents = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FNiagaraEventScriptProperties, MaxEventsPerFrame));
+	HandleUseRandomSpawnNumber = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FNiagaraEventScriptProperties, bRandomSpawnNumber));
+	HandleMinSpawnNumber = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FNiagaraEventScriptProperties, MinSpawnNumber));
 
-	if (HandleSrcID.IsValid())
-	{
-		HandleSrcID->MarkHiddenByCustomization();
-	}
-
-	if (HandleEventName.IsValid())
-	{
-		HandleEventName->MarkHiddenByCustomization();
-	}
-
-	if (HandleSpawnNumber.IsValid())
-	{
-		HandleSpawnNumber->MarkHiddenByCustomization();
-	}
-
-	if (HandleExecutionMode.IsValid())
-	{
-		HandleExecutionMode->MarkHiddenByCustomization();
-	}
-
-	if (HandleMaxEvents.IsValid())
-	{
-		HandleMaxEvents->MarkHiddenByCustomization();
-	}
-	
 	ResolveEmitterName();
 
 	// Add Source property
 	{
 		FText EventSrcTxt = LOCTEXT("EventSource", "Source");
-		FDetailWidgetRow& Row = CategoryBuilder.AddCustomRow(EventSrcTxt);
+		FDetailWidgetRow& Row = ChildBuilder.AddCustomRow(EventSrcTxt);
 		FText TooltipText = LOCTEXT("ChooseProvider", "Choose the source emitter and event.");
 
 		TAttribute<FText> ErrorTextAttribute(this, &FNiagaraEventScriptPropertiesCustomization::GetErrorText);
@@ -132,7 +120,7 @@ void FNiagaraEventScriptPropertiesCustomization::CustomizeDetails(IDetailLayoutB
 	// Add Execution Mode property
 	{
 		FText EventSrcTxt = LOCTEXT("ExecutionMode", "ExecutionMode");
-		FDetailWidgetRow& ExecRow = CategoryBuilder.AddCustomRow(EventSrcTxt);
+		FDetailWidgetRow& ExecRow = ChildBuilder.AddCustomRow(EventSrcTxt);
 		ExecRow.NameWidget
 			[
 				HandleExecutionMode->CreatePropertyNameWidget()
@@ -145,20 +133,58 @@ void FNiagaraEventScriptPropertiesCustomization::CustomizeDetails(IDetailLayoutB
 
 	// Add Max Events property
 	{
-		IDetailPropertyRow& MaxRow = CategoryBuilder.AddProperty(HandleMaxEvents);
+		IDetailPropertyRow& MaxRow = ChildBuilder.AddProperty(HandleMaxEvents.ToSharedRef());
 	}
 	
 	// Add Spawn Number property
 	{
 		FText EventSrcTxt = LOCTEXT("SpawnNumber", "SpawnNumber");
-		FDetailWidgetRow& SpawnRow = CategoryBuilder.AddCustomRow(EventSrcTxt);
-		TSharedRef<SWidget> SpawnValueWidget = HandleSpawnNumber->CreatePropertyValueWidget();
+		FDetailWidgetRow& SpawnRow = ChildBuilder.AddCustomRow(EventSrcTxt);
+		TSharedRef<SWidget> SpawnNumberValueWidget = HandleSpawnNumber->CreatePropertyValueWidget();
 		TAttribute<bool> EnabledAttribute(this, &FNiagaraEventScriptPropertiesCustomization::GetSpawnNumberEnabled);
 		SpawnRow.IsEnabled(EnabledAttribute);
 
 		SpawnRow.NameWidget
 			[
 				HandleSpawnNumber->CreatePropertyNameWidget()
+			];
+		SpawnRow.ValueWidget
+			[
+				SpawnRow.ValueWidget.Widget = SpawnNumberValueWidget
+			];
+	}
+
+	// Add Spawn Number property
+	{
+		FText EventSrcTxt = LOCTEXT("SpawnNumber", "Minimum SpawnNumber");
+		FDetailWidgetRow& SpawnRow = ChildBuilder.AddCustomRow(EventSrcTxt);
+		TSharedRef<SWidget> MinSpawnNumberValueWidget = HandleMinSpawnNumber->CreatePropertyValueWidget();
+		TAttribute<bool> EnabledAttribute(this, &FNiagaraEventScriptPropertiesCustomization::GetUseRandomSpawnNumber);
+		SpawnRow.IsEnabled(EnabledAttribute);
+		TAttribute<EVisibility> VisibilityAttribute(this, &FNiagaraEventScriptPropertiesCustomization::GetMinSpawnNumberVisible);
+		SpawnRow.Visibility(VisibilityAttribute);
+
+		SpawnRow.NameWidget
+			[
+				HandleMinSpawnNumber->CreatePropertyNameWidget()
+			];
+		SpawnRow.ValueWidget
+			[
+				SpawnRow.ValueWidget.Widget = MinSpawnNumberValueWidget
+			];
+	}
+
+	// Add Random Spawn Number boolean property
+	{
+		FText SrcTxt = LOCTEXT("RandomSpawnNumber", "Random SpawnNumber");
+		FDetailWidgetRow& SpawnRow = ChildBuilder.AddCustomRow(SrcTxt);
+		TSharedRef<SWidget> SpawnValueWidget = HandleUseRandomSpawnNumber->CreatePropertyValueWidget();
+		TAttribute<bool> EnabledAttribute(this, &FNiagaraEventScriptPropertiesCustomization::GetSpawnNumberEnabled);
+		SpawnRow.IsEnabled(EnabledAttribute);
+		
+		SpawnRow.NameWidget
+			[
+				HandleUseRandomSpawnNumber->CreatePropertyNameWidget()
 			];
 		SpawnRow.ValueWidget
 			[
@@ -252,6 +278,22 @@ bool FNiagaraEventScriptPropertiesCustomization::GetSpawnNumberEnabled() const
 	return false;
 }
 
+bool FNiagaraEventScriptPropertiesCustomization::GetUseRandomSpawnNumber() const
+{
+	bool bRandom = false;
+	if (GetSpawnNumberEnabled() && HandleUseRandomSpawnNumber->GetValue(bRandom))
+	{
+		return bRandom;
+	}
+
+	return false;
+}
+
+EVisibility FNiagaraEventScriptPropertiesCustomization::GetMinSpawnNumberVisible() const
+{
+	return GetUseRandomSpawnNumber() ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
 void FNiagaraEventScriptPropertiesCustomization::ResolveEmitterName()
 {
 	FString EventSrcIdStr;
@@ -309,17 +351,17 @@ TSharedRef<SWidget> FNiagaraEventScriptPropertiesCustomization::OnGetMenuContent
 TArray<FName> FNiagaraEventScriptPropertiesCustomization::GetEventNames(UNiagaraEmitter* InEmitter) const
 {
 	TArray<FName> EventNames;
-	if (InEmitter->CollisionMode != ENiagaraCollisionMode::None)
-	{
-		EventNames.Add(NIAGARA_BUILTIN_EVENTNAME_COLLISION);
-	}
-
 	TArray<UNiagaraScript*> Scripts;
 	InEmitter->GetScripts(Scripts);
 
 	for (UNiagaraScript* Script : Scripts)
 	{
-		for (FNiagaraDataSetProperties& Props : Script->WriteDataSets)
+		if (!Script->IsReadyToRun(ENiagaraSimTarget::CPUSim))
+		{
+			continue;
+		}
+
+		for (FNiagaraDataSetProperties& Props : Script->GetVMExecutableData().WriteDataSets)
 		{
 			if (Props.ID.Name.IsValid())
 			{

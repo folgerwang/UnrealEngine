@@ -1391,6 +1391,8 @@ void FViewInfo::InitRHIResources()
 	{
 		DynamicResources[ResourceIndex]->InitPrimitiveResource();
 	}
+
+
 }
 
 // These are not real view infos, just dumb memory blocks
@@ -2971,8 +2973,6 @@ void OnChangeCVarRequiringRecreateRenderState(IConsoleVariable* Var)
 	FGlobalComponentRecreateRenderStateContext Context;
 }
 
-FRendererModule* RendererModule;
-
 FRendererModule::FRendererModule()
 	: CustomCullingImpl(nullptr)
 {
@@ -2984,14 +2984,6 @@ FRendererModule::FRendererModule()
 
 	static auto CVarEarlyZPassMovable = IConsoleManager::Get().FindConsoleVariable(TEXT("r.EarlyZPassMovable"));
 	CVarEarlyZPassMovable->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeCVarRequiringRecreateRenderState));
-
-	RendererModule = this;
-}
-
-// static
-FRendererModule* FRendererModule::GetRendererModule()
-{
-	return RendererModule;
 }
 
 void FRendererModule::CreateAndInitSingleView(FRHICommandListImmediate& RHICmdList, class FSceneViewFamily* ViewFamily, const struct FSceneViewInitOptions* ViewInitOptions)
@@ -3161,11 +3153,11 @@ void FRendererModule::UnRegisterPostOpaqueComputeDispatcher(FComputeDispatcher *
 	PostOpaqueDispatchers.Remove(Dispatcher);
 }
 
-void FRendererModule::DispatchPostOpaqueCompute(FRHICommandList &RHICmdList)
+void FRendererModule::DispatchPostOpaqueCompute(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer)
 {
 	for (FComputeDispatcher *Dispatcher : PostOpaqueDispatchers)
 	{
-		Dispatcher->Execute(RHICmdList);
+		Dispatcher->Execute(RHICmdList, ViewUniformBuffer);
 	}
 }
 
@@ -3186,7 +3178,9 @@ void FRendererModule::RenderPostOpaqueExtensions(const FViewInfo& View, FRHIComm
 	RenderParameters.ViewMatrix = View.ViewMatrices.GetViewMatrix();
 	RenderParameters.ProjMatrix = View.ViewMatrices.GetProjectionMatrix();
 	RenderParameters.DepthTexture = SceneContext.GetSceneDepthSurface()->GetTexture2D();
+	RenderParameters.NormalTexture = SceneContext.GBufferA.IsValid() ? SceneContext.GetGBufferATexture() : nullptr;
 	RenderParameters.SmallDepthTexture = SceneContext.GetSmallDepthSurface()->GetTexture2D();
+	RenderParameters.ViewUniformBuffer = View.ViewUniformBuffer;
 
 	RenderParameters.ViewportRect = View.ViewRect;
 	RenderParameters.RHICmdList = &RHICmdList;

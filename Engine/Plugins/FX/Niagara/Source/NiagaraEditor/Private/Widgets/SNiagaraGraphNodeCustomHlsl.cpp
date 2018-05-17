@@ -17,7 +17,7 @@
 
 #define LOCTEXT_NAMESPACE "SNiagaraGraphNodeCustomHlsl"
 
-SNiagaraGraphNodeCustomHlsl::SNiagaraGraphNodeCustomHlsl() : SGraphNode()
+SNiagaraGraphNodeCustomHlsl::SNiagaraGraphNodeCustomHlsl() : SNiagaraGraphNode()
 {
 
 }
@@ -25,6 +25,7 @@ SNiagaraGraphNodeCustomHlsl::SNiagaraGraphNodeCustomHlsl() : SGraphNode()
 void SNiagaraGraphNodeCustomHlsl::Construct(const FArguments& InArgs, UEdGraphNode* InGraphNode)
 {
 	GraphNode = InGraphNode;
+	RegisterNiagaraGraphNode(InGraphNode);
 	UpdateGraphNode();
 }
 

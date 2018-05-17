@@ -14,7 +14,7 @@ the same VectorVM byte code / compute shader code
 #include "NiagaraEmitter.h"
 #include "Tickable.h"
 #include "Modules/ModuleManager.h"
-#include "Modules/ModuleManager.h"
+#include "RHIResources.h"
 
 struct FNiagaraScriptExecutionContext;
 struct FNiagaraComputeExecutionContext;
@@ -29,11 +29,6 @@ public:
 		if (RendererModule)
 		{
 			RendererModule->RegisterPostOpaqueComputeDispatcher(this);
-		}
-
-		if (DummyWriteIndexBuffer.Buffer == nullptr)
-		{
-			DummyWriteIndexBuffer.Initialize(sizeof(int32), 64, EPixelFormat::PF_R32_SINT);	// always allocate for up to 64 data sets
 		}
 	}
 
@@ -81,39 +76,42 @@ public:
 	{
 	}
 
+	uint32 GetEventSpawnTotal(const FNiagaraComputeExecutionContext *InContext) const;
+
 	// from FComputeDispatcher; called once per frame by the render thread, swaps buffers and works down 
 	// the queue submitted by the game thread; means we're one frame behind with this; we need a mechanism to determine execution order here.
-	virtual void Execute(FRHICommandList &RHICmdList)
+	virtual void Execute(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer)
 	{
 		CurQueueIndex ^= 0x1;
-		ExecuteAll(RHICmdList);
+		ExecuteAll(RHICmdList, ViewUniformBuffer);
 	}
 
-	void ExecuteAll(FRHICommandList &RHICmdList);
-	void TickSingle(const FNiagaraComputeExecutionContext *Context, FRHICommandList &RHICmdList) const;
+	void ExecuteAll(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer);
+	void TickSingle(FNiagaraComputeExecutionContext *Context, FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer) const;
 
 	void SetPrevDataStrideParams(const FNiagaraDataSet *Set, FNiagaraShader *Shader, FRHICommandList &RHICmdList) const;
 
 	void SetupEventUAVs(const FNiagaraComputeExecutionContext *Context, uint32 NumInstances, FRHICommandList &RHICmdList) const;
 	void UnsetEventUAVs(const FNiagaraComputeExecutionContext *Context, FRHICommandList &RHICmdList) const;
-	void SetupDataInterfaceBuffers(const TArray<FNiagaraScriptDataInterfaceInfo> &DIInfos, FNiagaraShader *Shader, FRHICommandList &RHICmdList) const;
+	void SetDataInterfaceParameters(const TArray<UNiagaraDataInterface*> &DataInterfaces, FNiagaraShader *Shader, FRHICommandList &RHICmdList) const;
 
-	void Run(	FNiagaraDataSet *DataSet,
-				uint32 Phase0StartInstance,
-				uint32 Phase1StartInstance,
-				const uint32 TotalNumInstances,
-				FNiagaraShader *Shader,
-				const TArray<uint8, TAlignedHeapAllocator<16>>  &Params,
-				FRHICommandList &RHICmdList,
-				const FRWBuffer &WriteIndexBuffer,
-				bool bCopyBeforeStart = false) const;
+	void Run(	const FNiagaraComputeExecutionContext *Context, 
+				uint32 UpdateStartInstance, 
+				const uint32 TotalNumInstances, 
+				FNiagaraShader* Shader,
+				FRHICommandList &RHICmdList, 
+				FUniformBufferRHIParamRef ViewUniformBuffer, 
+				bool bCopyBeforeStart = false
+			) const;
 
 	void RunEventHandlers(const FNiagaraComputeExecutionContext *Context, uint32 NumInstancesAfterSim, uint32 NumInstancesAfterSpawn, uint32 NumInstancesAfterNonEventSpawn, FRHICommandList &RhiCmdList) const;
-	void ResolveDatasetWrites(uint32 *OutArray, const FNiagaraComputeExecutionContext *Context, FRWBuffer &WriteIndexBuffer) const;
+
+	void ClearIndexBufferCur(FRHICommandList &RHICmdList, FNiagaraComputeExecutionContext *Context) const;
+	void ResolveDatasetWrites(FNiagaraComputeExecutionContext *Context) const;
+	void ResizeCurrentBuffer(FRHICommandList &RHICmdList, FNiagaraComputeExecutionContext *Context, uint32 NewNumInstances, uint32 PrevNumInstances) const;
 private:
 	static NiagaraEmitterInstanceBatcher* BatcherSingleton;
 
 	uint32 CurQueueIndex;
 	TArray<FNiagaraComputeExecutionContext*> SimulationQueue[2];
-	static FRWBuffer DummyWriteIndexBuffer;
 };

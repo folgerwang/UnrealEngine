@@ -1,37 +1,40 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ViewModels/Stack/NiagaraStackEventScriptItemGroup.h"
+#include "NiagaraEmitter.h"
+#include "ViewModels/Stack/NiagaraStackObject.h"
 #include "ViewModels/Stack/NiagaraStackModuleItem.h"
-#include "ViewModels/Stack/NiagaraStackAddModuleItem.h"
 #include "ViewModels/Stack/NiagaraStackSpacer.h"
 #include "NiagaraScriptViewModel.h"
 #include "NiagaraScriptGraphViewModel.h"
-#include "NiagaraEmitterViewModel.h"
+#include "ViewModels/NiagaraEmitterViewModel.h"
 #include "NiagaraGraph.h"
 #include "NiagaraNodeOutput.h"
 #include "NiagaraNodeFunctionCall.h"
 #include "EdGraphSchema_Niagara.h"
 #include "ViewModels/Stack/NiagaraStackErrorItem.h"
-#include "ViewModels/Stack/NiagaraStackStruct.h"
 #include "NiagaraScriptSource.h"
 #include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 #include "NiagaraScriptMergeManager.h"
 #include "NiagaraStackEditorData.h"
+#include "ViewModels/NiagaraSystemViewModel.h"
+#include "Customizations/NiagaraEventScriptPropertiesCustomization.h"
 
 #include "Internationalization/Internationalization.h"
 #include "ScopedTransaction.h"
-#include "NiagaraSystemViewModel.h"
-#include "Customizations/NiagaraEventScriptPropertiesCustomization.h"
+#include "IDetailTreeNode.h"
 
 #define LOCTEXT_NAMESPACE "UNiagaraStackEventScriptItemGroup"
 
-void UNiagaraStackEventHandlerPropertiesItem::Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, FGuid InEventScriptUsageId, UNiagaraStackEditorData& InStackEditorData)
+void UNiagaraStackEventHandlerPropertiesItem::Initialize(FRequiredEntryData InRequiredEntryData, FGuid InEventScriptUsageId)
 {
-	Super::Initialize(InSystemViewModel, InEmitterViewModel, InStackEditorData);
-	Emitter = GetEmitterViewModel()->GetEmitter();
+	FString EventStackEditorDataKey = FString::Printf(TEXT("Event-%s-Properties"), *InEventScriptUsageId.ToString(EGuidFormats::DigitsWithHyphens));
+	Super::Initialize(InRequiredEntryData, EventStackEditorDataKey);
+
 	EventScriptUsageId = InEventScriptUsageId;
+
+	Emitter = GetEmitterViewModel()->GetEmitter();
 	Emitter->OnPropertiesChanged().AddUObject(this, &UNiagaraStackEventHandlerPropertiesItem::EventHandlerPropertiesChanged);
-	bForceRebuildChildStruct = true;
 
 	const UNiagaraEmitter* BaseEmitter = FNiagaraStackGraphUtilities::GetBaseEmitter(*Emitter.Get(), GetSystemViewModel()->GetSystem());
 	if (BaseEmitter != nullptr && Emitter != BaseEmitter)
@@ -78,7 +81,6 @@ void UNiagaraStackEventHandlerPropertiesItem::ResetToBase()
 		const UNiagaraEmitter* BaseEmitter = FNiagaraStackGraphUtilities::GetBaseEmitter(*Emitter.Get(), GetSystemViewModel()->GetSystem());
 		TSharedRef<FNiagaraScriptMergeManager> MergeManager = FNiagaraScriptMergeManager::Get();
 		MergeManager->ResetEventHandlerPropertySetToBase(*Emitter, *BaseEmitter, EventScriptUsageId);
-		bForceRebuildChildStruct = true;
 		RefreshChildren();
 	}
 }
@@ -92,52 +94,22 @@ void UNiagaraStackEventHandlerPropertiesItem::BeginDestroy()
 	Super::BeginDestroy();
 }
 
-void UNiagaraStackEventHandlerPropertiesItem::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren)
+void UNiagaraStackEventHandlerPropertiesItem::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
 {
-	FNiagaraEventScriptProperties* EventScriptProperties = Emitter->GetEventHandlerByIdUnsafe(EventScriptUsageId);
-
-	UNiagaraStackStruct* EventHandlerStruct = nullptr;
-	if (EventScriptProperties != nullptr)
+	if (EmitterObject == nullptr)
 	{
-		uint8* EventStructMemory = (uint8*)EventScriptProperties;
-
-		if (bForceRebuildChildStruct == false)
-		{
-			EventHandlerStruct = FindCurrentChildOfTypeByPredicate<UNiagaraStackStruct>(CurrentChildren,
-				[=](UNiagaraStackStruct* CurrentChild) { return CurrentChild->GetOwningObject() == Emitter && CurrentChild->GetStructOnScope()->GetStructMemory() == EventStructMemory; });
-		}
-
-		if (EventHandlerStruct == nullptr)
-		{
-			UNiagaraSystem* System = &GetSystemViewModel()->GetSystem();
-			EventHandlerStruct = NewObject<UNiagaraStackStruct>(this);
-			EventHandlerStruct->Initialize(GetSystemViewModel(), GetEmitterViewModel(), GetEmitterViewModel()->GetEmitter(), FNiagaraEventScriptProperties::StaticStruct(), EventStructMemory);
-			EventHandlerStruct->SetDetailsCustomization(FOnGetDetailCustomizationInstance::CreateStatic(&FNiagaraEventScriptPropertiesCustomization::MakeInstance, MakeWeakObjectPtr(System), TWeakObjectPtr<UNiagaraEmitter>(Emitter)));
-			bForceRebuildChildStruct = false;
-		}
+		EmitterObject = NewObject<UNiagaraStackObject>(this);
+		EmitterObject->Initialize(CreateDefaultChildRequiredData(), Emitter.Get(), GetStackEditorDataKey());
+		EmitterObject->RegisterInstancedCustomPropertyTypeLayout(FNiagaraEventScriptProperties::StaticStruct()->GetFName(), 
+			FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FNiagaraEventScriptPropertiesCustomization::MakeInstance, 
+			TWeakObjectPtr<UNiagaraSystem>(&GetSystemViewModel()->GetSystem()), TWeakObjectPtr<UNiagaraEmitter>(GetEmitterViewModel()->GetEmitter())));
+		EmitterObject->SetOnSelectRootNodes(UNiagaraStackObject::FOnSelectRootNodes::CreateUObject(this, &UNiagaraStackEventHandlerPropertiesItem::SelectEmitterStackObjectRootTreeNodes));
 	}
 
-	FString ExpandedKey = TEXT("EventHandler_") + EventScriptUsageId.ToString();
+	NewChildren.Add(EmitterObject);
 
-	if (EventHandlerExpander == nullptr)
-	{
-		EventHandlerExpander = NewObject<UNiagaraStackItemExpander>(this);
-		EventHandlerExpander->Initialize(GetSystemViewModel(), GetEmitterViewModel(), GetStackEditorData(), ExpandedKey, false);
-		EventHandlerExpander->SetOnExpnadedChanged(UNiagaraStackItemExpander::FOnExpandedChanged::CreateUObject(this, &UNiagaraStackEventHandlerPropertiesItem::EventHandlerExpandedChanged));
-	}
-
-	if (EventHandlerStruct != nullptr && GetStackEditorData().GetStackEntryIsExpanded(ExpandedKey, false))
-	{
-		NewChildren.Add(EventHandlerStruct);
-	}
-
-	NewChildren.Add(EventHandlerExpander);
 	bCanResetToBase.Reset();
-}
-
-void UNiagaraStackEventHandlerPropertiesItem::EventHandlerExpandedChanged()
-{
-	RefreshChildren();
+	Super::RefreshChildrenInternal(CurrentChildren, NewChildren, NewIssues);
 }
 
 void UNiagaraStackEventHandlerPropertiesItem::EventHandlerPropertiesChanged()
@@ -145,46 +117,102 @@ void UNiagaraStackEventHandlerPropertiesItem::EventHandlerPropertiesChanged()
 	bCanResetToBase.Reset();
 }
 
-FText UNiagaraStackEventScriptItemGroup::GetDisplayName() const 
+TSharedPtr<IDetailTreeNode> GetEventHandlerArrayPropertyNode(const TArray<TSharedRef<IDetailTreeNode>>& Nodes)
 {
-	return DisplayName;
+	TArray<TSharedRef<IDetailTreeNode>> ChildrenToCheck;
+	for (TSharedRef<IDetailTreeNode> Node : Nodes)
+	{
+		if (Node->GetNodeType() == EDetailNodeType::Item)
+		{
+			TSharedPtr<IPropertyHandle> NodePropertyHandle = Node->CreatePropertyHandle();
+			if (NodePropertyHandle.IsValid() && NodePropertyHandle->GetProperty()->GetFName() == UNiagaraEmitter::PrivateMemberNames::EventHandlerScriptProps)
+			{
+				return Node;
+			}
+		}
+
+		TArray<TSharedRef<IDetailTreeNode>> Children;
+		Node->GetChildren(Children);
+		ChildrenToCheck.Append(Children);
+	}
+	if (ChildrenToCheck.Num() == 0)
+	{
+		return nullptr;
+	}
+	return GetEventHandlerArrayPropertyNode(ChildrenToCheck);
 }
 
-void UNiagaraStackEventScriptItemGroup::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren)
+void UNiagaraStackEventHandlerPropertiesItem::SelectEmitterStackObjectRootTreeNodes(TArray<TSharedRef<IDetailTreeNode>> Source, TArray<TSharedRef<IDetailTreeNode>>* Selected)
+{
+	TSharedPtr<IDetailTreeNode> EventHandlerArrayPropertyNode = GetEventHandlerArrayPropertyNode(Source);
+	if (EventHandlerArrayPropertyNode.IsValid())
+	{
+		TArray<TSharedRef<IDetailTreeNode>> EventHandlerArrayItemNodes;
+		EventHandlerArrayPropertyNode->GetChildren(EventHandlerArrayItemNodes);
+		for (TSharedRef<IDetailTreeNode> EventHandlerArrayItemNode : EventHandlerArrayItemNodes)
+		{
+			TSharedPtr<IPropertyHandle> EventHandlerArrayItemPropertyHandle = EventHandlerArrayItemNode->CreatePropertyHandle();
+			if (EventHandlerArrayItemPropertyHandle.IsValid())
+			{
+				UStructProperty* StructProperty = Cast<UStructProperty>(EventHandlerArrayItemPropertyHandle->GetProperty());
+				if (StructProperty != nullptr && StructProperty->Struct == FNiagaraEventScriptProperties::StaticStruct())
+				{
+					TArray<void*> RawData;
+					EventHandlerArrayItemPropertyHandle->AccessRawData(RawData);
+					if (RawData.Num() == 1)
+					{
+						FNiagaraEventScriptProperties* EventScriptProperties = static_cast<FNiagaraEventScriptProperties*>(RawData[0]);
+						if (EventScriptProperties->Script->GetUsageId() == EventScriptUsageId)
+						{
+							EventHandlerArrayItemNode->GetChildren(*Selected);
+							return;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void UNiagaraStackEventScriptItemGroup::Initialize(
+	FRequiredEntryData InRequiredEntryData,
+	TSharedRef<FNiagaraScriptViewModel> InScriptViewModel,
+	ENiagaraScriptUsage InScriptUsage,
+	FGuid InScriptUsageId)
+{
+	FText ToolTip = LOCTEXT("EventGroupTooltip", "Determines how this Emitter responds to incoming events. There can be more than one event handler script stack per Emitter.");
+	FText TempDisplayName = FText::Format(LOCTEXT("TempDisplayNameFormat", "Event Handler - {0}"), FText::FromString(InScriptUsageId.ToString(EGuidFormats::DigitsWithHyphens)));
+	Super::Initialize(InRequiredEntryData, TempDisplayName, ToolTip, InScriptViewModel, InScriptUsage, InScriptUsageId);
+}
+
+void UNiagaraStackEventScriptItemGroup::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
 {
 	UNiagaraEmitter* Emitter = GetEmitterViewModel()->GetEmitter();
 
 	const FNiagaraEventScriptProperties* EventScriptProperties = Emitter->GetEventHandlers().FindByPredicate(
-		[=](const FNiagaraEventScriptProperties& EventScriptProperties) { return EventScriptProperties.Script->GetUsageId() == GetScriptUsageId(); });
+		[=](const FNiagaraEventScriptProperties& InEventScriptProperties) { return InEventScriptProperties.Script->GetUsageId() == GetScriptUsageId(); });
 
 	if (EventScriptProperties != nullptr)
 	{
-		DisplayName = FText::Format(LOCTEXT("FormatEventScriptDisplayName", "Event Handler - Source: {0}"), FText::FromName(EventScriptProperties->SourceEventName));
+		SetDisplayName(FText::Format(LOCTEXT("FormatEventScriptDisplayName", "Event Handler - Source: {0}"), FText::FromName(EventScriptProperties->SourceEventName)));
 
 		const UNiagaraEmitter* BaseEmitter = FNiagaraStackGraphUtilities::GetBaseEmitter(*Emitter, GetSystemViewModel()->GetSystem());
 		bHasBaseEventHandler = BaseEmitter != nullptr && FNiagaraScriptMergeManager::Get()->HasBaseEventHandler(*BaseEmitter, GetScriptUsageId());
 	}
 	else
 	{
-		DisplayName = LOCTEXT("UnassignedEventDisplayName", "Unassigned Event");
+		SetDisplayName(LOCTEXT("UnassignedEventDisplayName", "Unassigned Event"));
 		bHasBaseEventHandler = false;
 	}
 
 	if (EventHandlerProperties == nullptr)
 	{
 		EventHandlerProperties = NewObject<UNiagaraStackEventHandlerPropertiesItem>(this);
-		EventHandlerProperties->Initialize(GetSystemViewModel(), GetEmitterViewModel(), GetScriptUsageId(), GetStackEditorData());
+		EventHandlerProperties->Initialize(CreateDefaultChildRequiredData(), GetScriptUsageId());
 	}
 	NewChildren.Add(EventHandlerProperties);
 
-	if (EventHandlerPropertiesSpacer == nullptr)
-	{
-		EventHandlerPropertiesSpacer = NewObject<UNiagaraStackSpacer>(this);
-		EventHandlerPropertiesSpacer->Initialize(GetSystemViewModel(), GetEmitterViewModel(), "EventHandlerProperties");
-	}
-	NewChildren.Add(EventHandlerPropertiesSpacer);
-
-	Super::RefreshChildrenInternal(CurrentChildren, NewChildren);
+	Super::RefreshChildrenInternal(CurrentChildren, NewChildren, NewIssues);
 }
 
 bool UNiagaraStackEventScriptItemGroup::CanDelete() const

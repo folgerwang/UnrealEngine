@@ -27,6 +27,9 @@ uint MeshFacingMode;
 #define MESH_FACING_CAMERA_POSITION 2
 #define MESH_FACING_CAMERA_PLANE 3
 	
+/** Sorted index buffer for particles if we need to sort their draw order (translucency etc). */
+Buffer<int> SortedIndices;
+uint SortedIndicesOffset;
 
 struct FVertexFactoryInput
 {
@@ -72,8 +75,17 @@ struct FVertexFactoryInterpolantsVSToPS
 	float4	ParticleColor : COLOR1;
 #endif
 
-#if USE_DYNAMIC_PARAMETERS
+#if NUM_DYNAMIC_PARAMETERS > 0
 	float4 DynamicParameter : COLOR2;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 1
+	float4 DynamicParameter1 : COLOR3;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+	float4 DynamicParameter2 : COLOR4;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 3
+	float4 DynamicParameter3 : COLOR5;
 #endif
 	
 #if USE_PARTICLE_NODES
@@ -111,10 +123,20 @@ struct FVertexFactoryIntermediates
 	float4 SubUVCoords;
 	float SubUVLerp;
 #endif
-#if USE_DYNAMIC_PARAMETERS
-	/** Optional dynamic parameter for the particle. */
+
+	/** Optional dynamic parameters for the particle. */
+#if NUM_DYNAMIC_PARAMETERS > 0
 	float4 DynamicParameter;
-#endif	//USE_DYNAMIC_PARAMETERS
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 1
+	float4 DynamicParameter1;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+	float4 DynamicParameter2;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 3
+	float4 DynamicParameter3;
+#endif
 
 	/** The position of the particle, XYZ: direction. */
 	float4 ParticlePosition;
@@ -205,11 +227,18 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 	Result.Particle.Color = Interpolants.ParticleColor;
 #endif
 
-#if USE_DYNAMIC_PARAMETERS
+#if NUM_DYNAMIC_PARAMETERS > 0
 	Result.Particle.DynamicParameter = Interpolants.DynamicParameter;
-#else
-	Result.Particle.DynamicParameter = float4(1,1,1,1);
-#endif //USE_DYNAMIC_PARAMETERS
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 1
+	Result.Particle.DynamicParameter1 = Interpolants.DynamicParameter1;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+	Result.Particle.DynamicParameter2 = Interpolants.DynamicParameter2;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 3
+	Result.Particle.DynamicParameter3 = Interpolants.DynamicParameter3;
+#endif
 
 #if USE_PARTICLE_NODES
 	Result.Particle.TranslatedWorldPositionAndSize.xyz = Interpolants.ParticleTranslatedWorldPosition.xyz;
@@ -250,9 +279,18 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.Particle.RelativeTime = Intermediates.RelativeTime;
 	Result.Particle.Color = Intermediates.ParticleColor;
 
-#if USE_DYNAMIC_PARAMETERS
+#if NUM_DYNAMIC_PARAMETERS > 0
 	Result.Particle.DynamicParameter = Intermediates.DynamicParameter;
-#endif	//USE_DYNAMIC_PARAMETERS
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 1
+	Result.Particle.DynamicParameter1 = Intermediates.DynamicParameter1;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+	Result.Particle.DynamicParameter2 = Intermediates.DynamicParameter2;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 3
+	Result.Particle.DynamicParameter3 = Intermediates.DynamicParameter3;
+#endif
 
 	float4x4 Transform = GetParticleTransform(Intermediates);
 	Result.InstanceLocalToWorld = Transform;
@@ -308,7 +346,7 @@ float4 CalcPrevWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermedia
 #endif
 	// if we don't have a full previous transform, we can at least calculate the position to get some motion blur
 	{
-		return CalcWorldPosition(Input, Intermediates)- float4(Intermediates.ParticleVelocity.xyz*Intermediates.ParticleVelocity.w*MeshParticleVF.DeltaSeconds, 0.0);
+		return CalcWorldPosition(Input, Intermediates)- float4(Intermediates.ParticleVelocity.xyz*NiagaraMeshVF.DeltaSeconds, 0.0);
 	}
 }
 
@@ -399,21 +437,50 @@ float4x4 EulerToMat4x4(float Pitch, float Yaw, float Roll)
 FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput Input)
 {
 	FVertexFactoryIntermediates Intermediates = (FVertexFactoryIntermediates)0;
-
-	Intermediates.ParticlePosition = float4(GetVec3(NiagaraMeshVF.PositionDataOffset, Input.InstanceId), 1);
-	Intermediates.ParticleColor = GetVec4(NiagaraMeshVF.ColorDataOffset, Input.InstanceId);
-	Intermediates.ParticleVelocity = float4(GetVec3(NiagaraMeshVF.VelocityDataOffset, Input.InstanceId), 1);
-
-
-#if USE_DYNAMIC_PARAMETERS
-	if (NiagaraMeshVF.MaterialParamDataOffset != -1)
+	
+	if(SortedIndicesOffset != 0xFFFFFFFF)
 	{
-		Intermediates.DynamicParameter = GetVec4(NiagaraMeshVF.MaterialParamDataOffset, Input.InstanceId);
+		Input.InstanceId = SortedIndices[SortedIndicesOffset + Input.InstanceId];
+	}
+
+	if (NiagaraMeshVF.PositionDataOffset == -1)
+	{
+		Intermediates.ParticlePosition = NiagaraMeshVF.DefaultPos;
 	}
 	else
 	{
-		Intermediates.DynamicParameter = float4(1,1,1,1);
+		Intermediates.ParticlePosition = float4(GetVec3(NiagaraMeshVF.PositionDataOffset, Input.InstanceId), 1);
 	}
+
+	if (NiagaraMeshVF.ColorDataOffset == -1)
+	{
+		Intermediates.ParticleColor = float4(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+	else
+	{
+		Intermediates.ParticleColor = GetVec4(NiagaraMeshVF.ColorDataOffset, Input.InstanceId);
+	}
+
+	if (NiagaraMeshVF.VelocityDataOffset == -1)
+	{
+		Intermediates.ParticleVelocity = float4(0.0f, 0.0f, 0.0f, 1);
+	}
+	else
+	{
+		Intermediates.ParticleVelocity = float4(GetVec3(NiagaraMeshVF.VelocityDataOffset, Input.InstanceId), 1);
+	}
+
+#if NUM_DYNAMIC_PARAMETERS > 0
+	Intermediates.DynamicParameter  = NiagaraMeshVF.MaterialParamDataOffset != -1 ? GetVec4(NiagaraMeshVF.MaterialParamDataOffset, Input.InstanceId) : float4(1,1,1,1);
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 1
+	Intermediates.DynamicParameter1  = NiagaraMeshVF.MaterialParam1DataOffset != -1 ? GetVec4(NiagaraMeshVF.MaterialParam1DataOffset, Input.InstanceId) : float4(1,1,1,1);
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+	Intermediates.DynamicParameter2  = NiagaraMeshVF.MaterialParam2DataOffset != -1 ? GetVec4(NiagaraMeshVF.MaterialParam2DataOffset, Input.InstanceId) : float4(1,1,1,1);
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 3
+	Intermediates.DynamicParameter3  = NiagaraMeshVF.MaterialParam3DataOffset != -1 ? GetVec4(NiagaraMeshVF.MaterialParam3DataOffset, Input.InstanceId) : float4(1,1,1,1);
 #endif
 
 	float4 Transform1 = float4(1.0f, 0.0f, 0.0f, Intermediates.ParticlePosition.x);
@@ -422,16 +489,13 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 
 	if(NiagaraMeshVF.TransformDataOffset != -1)
 	{
-		float4 AxisAngle = GetVec4(NiagaraMeshVF.TransformDataOffset, Input.InstanceId);
+		float4 Quat = GetVec4(NiagaraMeshVF.TransformDataOffset, Input.InstanceId);
 		
 		//Transform axis to handle local space.
 		//AxisAngle.xyz = mul(float4(AxisAngle.xyz, 0), NiagaraMeshVF.LocalToWorldInverseTransposed);
 
-		float Pitch = 0.0f;
-		float Roll = 0.0f;
-		float Yaw = 0.0f;
-		AxisAngleToPitchYawRoll(AxisAngle, Pitch, Yaw, Roll);
-		float4x4 EulerToMat = EulerToMat4x4(Pitch, Yaw, Roll);
+		
+		float4x4 EulerToMat = QuatTo4x4(normalize(Quat));
 		Transform1.xyz = EulerToMat[0].xyz;
 		Transform2.xyz = EulerToMat[1].xyz;
 		Transform3.xyz = EulerToMat[2].xyz;
@@ -457,7 +521,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	if (MeshFacingMode == MESH_FACING_VELOCITY)
 	{
 		float4 ToAlignmentQuat = FindQuatBetween(float3(1.0f, 0.0f, 0.0f), normalize(Intermediates.ParticleVelocity.xyz));
-		float4x4 ToAlignmentMat = QuatTo4x4(ToAlignmentQuat);
+		float4x4 ToAlignmentMat = QuatTo4x4( normalize(ToAlignmentQuat) );
 		Intermediates.LocalToWorld =  mul(LocalToWorldMat, mul(ToAlignmentMat, ScaleMatrix));
 	}
 	else if (MeshFacingMode == MESH_FACING_CAMERA_POSITION)
@@ -466,14 +530,14 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 		float3 CameraVector = ResolvedView.WorldCameraOrigin.xyz - WorldPosition.xyz;
 		float3 CameraDirection = normalize(CameraVector);
 		float4 ToAlignmentQuat = FindQuatBetween(float3(1.0f, 0.0f, 0.0f), CameraDirection);
-		float4x4 ToAlignmentMat = QuatTo4x4(ToAlignmentQuat);
+		float4x4 ToAlignmentMat = QuatTo4x4( normalize(ToAlignmentQuat) );
 		Intermediates.LocalToWorld = mul(LocalToWorldMat, mul(ToAlignmentMat, ScaleMatrix));
 	}
 	else if (MeshFacingMode == MESH_FACING_CAMERA_PLANE)
 	{
 		float3 CameraFacingVector = -ResolvedView.ViewForward;
 		float4 ToAlignmentQuat = FindQuatBetween(float3(1.0f, 0.0f, 0.0f), CameraFacingVector);
-		float4x4 ToAlignmentMat = QuatTo4x4(ToAlignmentQuat);
+		float4x4 ToAlignmentMat = QuatTo4x4( normalize(ToAlignmentQuat) );
 		Intermediates.LocalToWorld =  mul(LocalToWorldMat, mul(ToAlignmentMat, ScaleMatrix));
 	}
 	else
@@ -616,9 +680,19 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	Interpolants.ParticleColor = Intermediates.ParticleColor;
 #endif
 
-#if USE_DYNAMIC_PARAMETERS
+#if NUM_DYNAMIC_PARAMETERS > 0
 	Interpolants.DynamicParameter = Intermediates.DynamicParameter;
-#endif	//USE_DYNAMIC_PARAMETERS
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 1
+	Interpolants.DynamicParameter1 = Intermediates.DynamicParameter1;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+	Interpolants.DynamicParameter2 = Intermediates.DynamicParameter2;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 3
+	Interpolants.DynamicParameter3 = Intermediates.DynamicParameter3;
+#endif
+
 
 #if USE_PARTICLE_NODES
 	Interpolants.ParticleTranslatedWorldPosition = Intermediates.ParticleTranslatedWorldPosition;
@@ -719,9 +793,19 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 			TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.TexCoords[i]);
 		}
 #endif
-#if USE_DYNAMIC_PARAMETERS
+
+#if NUM_DYNAMIC_PARAMETERS > 0
 		TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.DynamicParameter);
-#endif	//USE_DYNAMIC_PARAMETERS
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 1
+		TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.DynamicParameter1);
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+		TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.DynamicParameter2);
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 3
+		TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.DynamicParameter3);
+#endif
 
 		return O;
 	}

@@ -12,6 +12,10 @@
 #include "NiagaraParameterCollection.h"
 #include "NiagaraSystem.generated.h"
 
+#if WITH_EDITORONLY_DATA
+class UNiagaraEditorDataBase;
+#endif
+
 USTRUCT()
 struct FNiagaraEmitterSpawnAttributes
 {
@@ -21,6 +25,36 @@ struct FNiagaraEmitterSpawnAttributes
 	TArray<FName> SpawnAttributes;
 };
 
+
+
+USTRUCT()
+struct FEmitterCompiledScriptPair
+{
+	GENERATED_USTRUCT_BODY()
+	
+	bool bResultsReady;
+	UNiagaraEmitter* Emitter;
+	UNiagaraScript* CompiledScript;
+	uint32 PendingDDCID;
+	FNiagaraVMExecutableDataId CompileId;
+	TSharedPtr<FNiagaraVMExecutableData> CompileResults;
+};
+
+USTRUCT()
+struct FNiagaraSystemCompileRequest
+{
+	GENERATED_USTRUCT_BODY()
+		
+	double StartTime;
+
+	UPROPERTY()
+	TArray<UObject*> RootObjects;
+
+	TArray<FEmitterCompiledScriptPair> EmitterCompiledScriptPairs;
+	
+	TMap<UNiagaraScript*, TSharedPtr<FNiagaraCompileRequestDataBase, ESPMode::ThreadSafe> > MappedData;
+};
+
 /** Container for multiple emitters that combine together to create a particle system effect.*/
 UCLASS(BlueprintType)
 class NIAGARA_API UNiagaraSystem : public UObject
@@ -28,12 +62,19 @@ class NIAGARA_API UNiagaraSystem : public UObject
 	GENERATED_UCLASS_BODY()
 
 public:
+#if WITH_EDITOR
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnSystemCompiled, UNiagaraSystem*);
+#endif
+
 	//~ UObject interface
 	void PostInitProperties();
 	void Serialize(FArchive& Ar)override;
-	virtual void PostLoad() override;
+	virtual void PostLoad() override; 
+	virtual void BeginDestroy() override;
+	virtual void PreSave(const class ITargetPlatform * TargetPlatform) override;
 #if WITH_EDITOR
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override; 
+	virtual void BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPlatform) override;
 #endif
 
 	/** Gets an array of the emitter handles. */
@@ -88,10 +129,21 @@ public:
 
 
 	/** Gets the System script which is used to populate the System parameters and parameter bindings. */
-	UNiagaraScript* GetSystemSpawnScript(bool bSolo=false);
-	UNiagaraScript* GetSystemUpdateScript(bool bSolo=false);
+	UNiagaraScript* GetSystemSpawnScript();
+	UNiagaraScript* GetSystemUpdateScript();
 
 	bool IsReadyToRun() const;
+
+	/** Are there any pending compile requests?*/
+	bool HasOutstandingCompilationRequests() const;
+
+	/** Returns whether this system has to be run in solo or not. */
+	bool IsSolo()const;
+
+	FORCEINLINE bool NeedsWarmup()const { return WarmupTickCount > 0 && WarmupTickDelta > SMALL_NUMBER; }
+	FORCEINLINE float GetWarmupTime()const { return WarmupTime; }
+	FORCEINLINE int32 GetWarmupTickCount()const { return WarmupTickCount; }
+	FORCEINLINE float GetWarmupTickDelta()const { return WarmupTickDelta; }
 
 #if WITH_EDITORONLY_DATA
 	/** Called to query whether or not this emitter is referenced as the source to any emitter handles for this System.*/
@@ -106,20 +158,26 @@ public:
 	/** Removes the system's rapid iteration parameters for a specific emitter. */
 	void RemoveSystemParametersForEmitter(const FNiagaraEmitterHandle& EmitterHandle);
 
-	/** Recompile all emitters and the System script associated with this System.*/
-	void Compile(bool bForce);
+	/** Request that any dirty scripts referenced by this system be compiled.*/
+	bool RequestCompile(bool bForce);
 
-	/** Compile just the System script associated with this System.*/
-	void CompileScripts(TArray<ENiagaraScriptCompileStatus>& OutScriptStatuses, TArray<FString>& OutGraphLevelErrorMessages, TArray<FString>& PathNames, TArray<UNiagaraScript*>& Scripts, bool bForce);
+	/** If we have a pending compile request, is it done with yet? */
+	bool PollForCompilationComplete();
+
+	/** */
+	void WaitForCompilationComplete();
+
+	/** Delegate called when the system's dependencies have all been compiled.*/
+	FOnSystemCompiled& OnSystemCompiled();
 
 	/** Gets editor specific data stored with this system. */
-	UObject* GetEditorData();
+	UNiagaraEditorDataBase* GetEditorData();
 
 	/** Gets editor specific data stored with this system. */
-	const UObject* GetEditorData() const;
+	const UNiagaraEditorDataBase* GetEditorData() const;
 
 	/** Sets editor specific data stored with this system. */
-	void SetEditorData(UObject* InEditorData);
+	void SetEditorData(UNiagaraEditorDataBase* InEditorData);
 
 	/** Internal: The thumbnail image.*/
 	UPROPERTY()
@@ -140,7 +198,11 @@ public:
 
 	bool UsesCollection(const UNiagaraParameterCollection* Collection)const;
 #if WITH_EDITORONLY_DATA
-	bool UsesScript(const UNiagaraScript* Script)const;
+	bool UsesEmitter(const UNiagaraEmitter* Emitter) const;
+	bool UsesScript(const UNiagaraScript* Script)const; 
+	void InvalidateCachedCompileIds();
+
+	static void RequestCompileForEmitter(UNiagaraEmitter* InEmitter);
 #endif
 
 	FORCEINLINE UNiagaraParameterCollectionInstance* GetParameterCollectionOverride(UNiagaraParameterCollection* Collection)
@@ -153,13 +215,20 @@ public:
 
 		return Found ? *Found : nullptr;
 	}
+	
+	UPROPERTY(EditAnywhere, Category = "Debug")
+	bool bDumpDebugSystemInfo;
 
+	UPROPERTY(EditAnywhere, Category = "Debug")
+	bool bDumpDebugEmitterInfo;
 
 private:
 #if WITH_EDITORONLY_DATA
 	INiagaraModule::FMergeEmitterResults MergeChangesForEmitterHandle(FNiagaraEmitterHandle& EmitterHandle);
+	bool QueryCompileComplete(bool bWait, bool bDoPost, bool bDoNotApply = false);
 #endif
 
+	void DetermineIfSolo();
 protected:
 
 	/** Handles to the emitter this System will simulate. */
@@ -168,6 +237,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category="System")
 	TArray<UNiagaraParameterCollectionInstance*> ParameterCollectionOverrides;
+
+	UPROPERTY(Transient)
+	TArray<FNiagaraSystemCompileRequest> ActiveCompilations;
 
 // 	/** Category of this system. */
 // 	UPROPERTY(EditAnywhere, Category = System)
@@ -183,14 +255,6 @@ protected:
 	UPROPERTY()
 	UNiagaraScript* SystemUpdateScript;
 
-	/** Spawn script compiled to be run individually on a single instance of the system rather than batched as the main spawn script */
-	UPROPERTY()
-	UNiagaraScript* SystemSpawnScriptSolo;
-
-	/** Update script compiled to be run individually on a single instance of the system rather than batched as the main spawn script */
-	UPROPERTY()
-	UNiagaraScript* SystemUpdateScriptSolo;
-
 	/** Attribute names in the data set that are driving each emitter's spawning. */
 	UPROPERTY()
 	TArray<FNiagaraEmitterSpawnAttributes> EmitterSpawnAttributes;
@@ -203,13 +267,32 @@ protected:
 
 	/** Data used by the editor to maintain UI state etc.. */
 	UPROPERTY()
-	UObject* EditorData;
+	UNiagaraEditorDataBase* EditorData;
 
 	bool bIsolateEnabled;
+
+	/** A multicast delegate which is called whenever the script has been compiled (successfully or not). */
+	FOnSystemCompiled OnSystemCompiledDelegate;
 #endif
 
 	UPROPERTY(EditAnywhere, Category = Performance, meta = (ToolTip = "Auto-deactivate system if all emitters are determined to not spawn particles again, regardless of lifetime."))
 	bool bAutoDeactivate;
+
+	/** Warm up time in seconds. Used to calculate WarmupTickCount. Rounds down to the nearest multiple of WarmupTickDelta. */
+	UPROPERTY(EditAnywhere, Category = Warmup)
+	float WarmupTime;
+
+	/** Number of ticks to process for warmup. You can set by this or by time via WarmupTime. */
+	UPROPERTY(EditAnywhere, Category = Warmup)
+	int32 WarmupTickCount;
+
+	/** Delta time to use for warmup ticks. */
+	UPROPERTY(EditAnywhere, Category = Warmup)
+	float WarmupTickDelta;
+
+
+	UPROPERTY()
+	uint32 bSolo : 1;
 
 	void InitEmitterSpawnAttributes();
 };

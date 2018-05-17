@@ -16,27 +16,25 @@ public:
 
 	void Construct(const FArguments& InArgs)
 	{
+		SNiagaraParameterEditor::Construct(SNiagaraParameterEditor::FArguments()
+			.MinimumDesiredWidth(DefaultInputSize)
+			.MaximumDesiredWidth(DefaultInputSize));
+
 		ChildSlot
 		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(SSpinBox<int32>)
-				.Style(FNiagaraEditorStyle::Get(), "NiagaraEditor.ParameterSpinBox")
-				.Font(FNiagaraEditorStyle::Get().GetFontStyle("NiagaraEditor.ParameterFont"))
-				.MinValue(TOptional<int32>())
-				.MaxValue(TOptional<int32>())
-				.MaxSliderValue(TOptional<int32>())
-				.MinSliderValue(TOptional<int32>())
-				.Delta(0.001f)
-				.Value(this, &SNiagaraIntegerParameterEditor::GetValue)
-				.OnValueChanged(this, &SNiagaraIntegerParameterEditor::ValueChanged)
-				.OnValueCommitted(this, &SNiagaraIntegerParameterEditor::ValueCommitted)
-				.OnBeginSliderMovement(this, &SNiagaraIntegerParameterEditor::BeginSliderMovement)
-				.OnEndSliderMovement(this, &SNiagaraIntegerParameterEditor::EndSliderMovement)
-				.MinDesiredWidth(100)
-			]
+			SNew(SSpinBox<int32>)
+			.Style(FNiagaraEditorStyle::Get(), "NiagaraEditor.ParameterSpinBox")
+			.Font(FNiagaraEditorStyle::Get().GetFontStyle("NiagaraEditor.ParameterFont"))
+			.MinValue(TOptional<int32>())
+			.MaxValue(TOptional<int32>())
+			.MaxSliderValue(TOptional<int32>())
+			.MinSliderValue(TOptional<int32>())
+			.Delta(0.001f)
+			.Value(this, &SNiagaraIntegerParameterEditor::GetValue)
+			.OnValueChanged(this, &SNiagaraIntegerParameterEditor::ValueChanged)
+			.OnValueCommitted(this, &SNiagaraIntegerParameterEditor::ValueCommitted)
+			.OnBeginSliderMovement(this, &SNiagaraIntegerParameterEditor::BeginSliderMovement)
+			.OnEndSliderMovement(this, &SNiagaraIntegerParameterEditor::EndSliderMovement)
 		];
 	}
 

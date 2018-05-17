@@ -129,7 +129,7 @@ protected:
 	virtual void Serialize(FArchive& Ar) override;
 	virtual TSharedPtr<FStructOnScope> GetKeyStruct(TArrayView<const FKeyHandle> KeyHandles) override;
 
-	void RecreateChannelProxy();
+	MOVIESCENETRACKS_API void RecreateChannelProxy();
 
 private:
 

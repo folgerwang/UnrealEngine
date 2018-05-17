@@ -31,6 +31,7 @@ public class NiagaraEditor : ModuleRules
                 "EditorStyle",
 				"UnrealEd", 
 				"VectorVM",
+                "NiagaraCore",
                 "Niagara",
                 "NiagaraShader",
                 "MovieScene",
@@ -44,7 +45,8 @@ public class NiagaraEditor : ModuleRules
 				"MovieSceneTools",
                 "MovieSceneTracks",
                 "AdvancedPreviewScene",
-            }
+				"Projects",
+			}
         );
 
 		PrivateIncludePathModuleNames.AddRange(
@@ -61,8 +63,10 @@ public class NiagaraEditor : ModuleRules
 
 		PublicDependencyModuleNames.AddRange(
             new string[] {
+                "NiagaraCore",
                 "NiagaraShader",
                 "Engine",
+                "NiagaraCore",
                 "Niagara",
                 "UnrealEd",
             }

@@ -51,8 +51,8 @@ struct FNiagaraEventReceiverProperties
 	UPROPERTY(EditAnywhere, Category = "Event Receiver")
 	FName SourceEmitter;
 
-	UPROPERTY(EditAnywhere, Instanced, Category = "Event Receiver")
-	TArray<UNiagaraEventReceiverEmitterAction*> EmitterActions;
+	//UPROPERTY(EditAnywhere, Category = "Event Receiver")
+	//TArray<UNiagaraEventReceiverEmitterAction*> EmitterActions;
 };
 
 USTRUCT()
@@ -97,14 +97,6 @@ enum class EScriptExecutionMode : uint8
 	SingleParticle
 };
 
-UENUM()
-enum class EScriptCompileIndices : uint8
-{
-	SpawnScript = 0,
-	UpdateScript,
-	EventScript
-};
-
 USTRUCT()
 struct FNiagaraEmitterScriptProperties
 {
@@ -115,8 +107,8 @@ struct FNiagaraEmitterScriptProperties
 
 	GENERATED_BODY()
 	
- 	UPROPERTY()
- 	UNiagaraScript *Script;
+	UPROPERTY()
+	UNiagaraScript *Script;
 
 	UPROPERTY()
 	TArray<FNiagaraEventReceiverProperties> EventReceivers;
@@ -139,13 +131,15 @@ struct FNiagaraEventScriptProperties : public FNiagaraEmitterScriptProperties
 		ExecutionMode = EScriptExecutionMode::EveryParticle;
 		SpawnNumber = 0;
 		MaxEventsPerFrame = 0;
+		bRandomSpawnNumber = false;
+		MinSpawnNumber = 0;
 	}
 	
 	/** Controls which particles have the event script run on them.*/
 	UPROPERTY(EditAnywhere, Category="Event Handler Options")
 	EScriptExecutionMode ExecutionMode;
 
-	/** Controls whether or not particles are spawned as a result of handling the event. Only valid for EScriptExecutionMode::SpawnedParticles*/
+	/** Controls whether or not particles are spawned as a result of handling the event. Only valid for EScriptExecutionMode::SpawnedParticles. If Random Spawn Number is used, this will act as the maximum spawn range. */
 	UPROPERTY(EditAnywhere, Category="Event Handler Options")
 	uint32 SpawnNumber;
 
@@ -160,32 +154,14 @@ struct FNiagaraEventScriptProperties : public FNiagaraEmitterScriptProperties
 	/** The name of the event generated. This will be "Collision" for collision events and the Event Name field on the DataSetWrite node in the module graph for others.*/
 	UPROPERTY(EditAnywhere, Category="Event Handler Options")
 	FName SourceEventName;
-};
 
-/** Represents timed burst of particles in an emitter. */
-USTRUCT()
-struct FNiagaraEmitterBurst
-{
-	GENERATED_BODY()
+	/** Whether using a random spawn number. */
+	UPROPERTY(EditAnywhere, Category = "Event Handler Options")
+	bool bRandomSpawnNumber;
 
-	/** The base time of the burst absolute emitter time. */
-	UPROPERTY(EditAnywhere, Category = "Burst")
-	float Time;
-
-	/** 
-	 * A range around the base time which can be used to randomize burst timing.  The resulting range is 
-	 * from Time - (TimeRange / 2) to Time + (TimeRange / 2).
-	 */
-	UPROPERTY(EditAnywhere, Category = "Burst")
-	float TimeRange;
-
-	/** The minimum number of particles to spawn. */
-	UPROPERTY(EditAnywhere, Category = "Burst")
-	uint32 SpawnMinimum;
-
-	/** The maximum number of particles to spawn. */
-	UPROPERTY(EditAnywhere, Category = "Burst")
-	uint32 SpawnMaximum;
+	/** The minimum spawn number when random spawn is used. Spawn Number is used as the maximum range. */
+	UPROPERTY(EditAnywhere, Category = "Event Handler Options")
+	uint32 MinSpawnNumber;
 };
 
 /** 
@@ -200,6 +176,12 @@ class UNiagaraEmitter : public UObject
 public:
 #if WITH_EDITOR
 	DECLARE_MULTICAST_DELEGATE(FOnPropertiesChanged);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnEmitterCompiled, UNiagaraEmitter*);
+
+	struct NIAGARA_API PrivateMemberNames
+	{
+		static const FName EventHandlerScriptProps;
+	};
 #endif
 
 public:
@@ -222,9 +204,9 @@ public:
 	//UPROPERTY(EditAnywhere, Category = "Emitter")
 	//float EndTime;
 	//UPROPERTY(EditAnywhere, Category = "Emitter")
-	//int32 NumLoops;
-	UPROPERTY(EditAnywhere, Category = "Emitter")
-	ENiagaraCollisionMode CollisionMode;
+	//int32 NumLoops
+	//UPROPERTY(EditAnywhere, Category = "Emitter")
+	//ENiagaraCollisionMode CollisionMode;
 
 	UPROPERTY()
 	FNiagaraEmitterScriptProperties UpdateScriptProps;
@@ -270,9 +252,15 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Scalability", meta = (InlineEditConditionToggle))
 	uint32 bUseMaxDetailLevel : 1;
 
+	/** Do particles in this emitter require a persistent ID? */
+	UPROPERTY(EditAnywhere, Category = "Emitter")
+	uint32 bRequiresPersistentIDs : 1;
+
 	void NIAGARA_API GetScripts(TArray<UNiagaraScript*>& OutScripts, bool bCompilableOnly = true);
 
 	NIAGARA_API UNiagaraScript* GetScript(ENiagaraScriptUsage Usage, FGuid UsageId);
+
+	NIAGARA_API UNiagaraScript* GetGPUComputeScript() { return GPUComputeScript; }
 
 #if WITH_EDITORONLY_DATA
 	/** 'Source' data/graphs for the scripts used by this emitter. */
@@ -280,8 +268,7 @@ public:
 	class UNiagaraScriptSourceBase*	GraphSource;
 
 	bool NIAGARA_API AreAllScriptAndSourcesSynchronized() const;
-	void NIAGARA_API CompileScripts(TArray<ENiagaraScriptCompileStatus>& OutScriptStatuses, TArray<FString>& OutGraphLevelErrorMessages, TArray<FString>& PathNames, TArray<UNiagaraScript*>& Scripts, bool bForce);
-	ENiagaraScriptCompileStatus NIAGARA_API CompileScript(EScriptCompileIndices InScriptToCompile, FString& OutGraphLevelErrorMessages, bool bForce, int32 InSubScriptIdx = 0);
+	void NIAGARA_API OnPostCompile();
 
 	UNiagaraEmitter* MakeRecursiveDeepCopy(UObject* DestOuter) const;
 	UNiagaraEmitter* MakeRecursiveDeepCopy(UObject* DestOuter, TMap<const UObject*, UObject*>& ExistingConversions) const;
@@ -300,10 +287,16 @@ public:
 	/** Internal: Indicates the thumbnail image is out of date.*/
 	UPROPERTY()
 	uint32 ThumbnailImageOutOfDate : 1;
+	
+	/** Callback issued whenever a VM compilation successfully happened (even if the results are a script that cannot be executed due to errors)*/
+	NIAGARA_API FOnEmitterCompiled& OnEmitterVMCompiled();
+
+	NIAGARA_API static bool GetForceCompileOnLoad();
 #endif
 
 	/** Is this emitter allowed to be enabled by the current system detail level. */
 	bool IsAllowedByDetailLevel()const;
+	NIAGARA_API bool RequiresPersistantIDs()const;
 
 	NIAGARA_API bool IsValid()const;
 	NIAGARA_API bool IsReadyToRun() const;
@@ -312,7 +305,7 @@ public:
 	bool UsesCollection(const class UNiagaraParameterCollection* Collection)const;
 
 	FString NIAGARA_API GetUniqueEmitterName()const;
-	void NIAGARA_API SetUniqueEmitterName(const FString& InName);
+	bool NIAGARA_API SetUniqueEmitterName(const FString& InName);
 
 	/** Converts an emitter paramter "Emitter.XXXX" into it's real parameter name. */
 	FNiagaraVariable ToEmitterParameter(const FNiagaraVariable& EmitterVar)const;
@@ -337,6 +330,8 @@ protected:
 	virtual void BeginDestroy() override;
 
 #if WITH_EDITORONLY_DATA
+	void SyncEmitterAlias(const FString& InOldName, const FString& InNewName);
+
 private:
 	void UpdateChangeId();
 
@@ -350,6 +345,9 @@ private:
 	/** Adjusted every time that we compile this emitter. Lets us know that we might differ from any cached versions.*/
 	UPROPERTY()
 	FGuid ChangeId;
+
+	/** A multicast delegate which is called whenever all the scripts for this emitter have been compiled (successfully or not). */
+	FOnEmitterCompiled OnVMScriptCompiledDelegate;
 #endif
 
 	UPROPERTY()
@@ -358,8 +356,11 @@ private:
 	UPROPERTY()
 	TArray<UNiagaraRendererProperties*> RendererProperties;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = "Events", meta=(NiagaraNoMerge))
 	TArray<FNiagaraEventScriptProperties> EventHandlerScriptProps;
+
+	UPROPERTY()
+	UNiagaraScript* GPUComputeScript;
 
 #if WITH_EDITOR
 	FOnPropertiesChanged OnPropertiesChangedDelegate;

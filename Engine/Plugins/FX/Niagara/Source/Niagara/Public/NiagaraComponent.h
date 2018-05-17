@@ -21,7 +21,7 @@ class UNiagaraParameterCollectionInstance;
 class FNiagaraSystemSimulation;
 
 // Called when the particle system is done
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnNiagaraSystemFinished, class UNiagaraComponent*, PSystem);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnNiagaraSystemFinished, class UNiagaraComponent*);
 
 /**
 * UNiagaraComponent is the primitive component for a Niagara System.
@@ -32,18 +32,10 @@ UCLASS(ClassGroup = (Rendering, Common), hidecategories = Object, hidecategories
 class NIAGARA_API UNiagaraComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
-		
-	/** Defines modes for updating the component's age. */
-	enum class EAgeUpdateMode
-	{
-		/** Update the age using the delta time supplied to the tick function. */
-		TickDeltaTime,
-		/** Update the age by seeking to the DesiredAge. */
-		DesiredAge
-	};
 
 #if WITH_EDITORONLY_DATA
 	DECLARE_MULTICAST_DELEGATE(FOnSystemInstanceChanged);
+	DECLARE_MULTICAST_DELEGATE(FOnSynchronizedWithAssetParameters);
 #endif
 
 private:
@@ -62,6 +54,8 @@ private:
 	TMap<FName, bool> EditorOverridesValue;
 
 	FOnSystemInstanceChanged OnSystemInstanceChangedDelegate;
+
+	FOnSynchronizedWithAssetParameters OnSynchronizedWithAssetParametersDelegate;
 #endif
 
 	/**
@@ -73,13 +67,22 @@ private:
 	TUniquePtr<FNiagaraSystemInstance> SystemInstance;
 
 	/** Defines the mode use when updating the System age. */
-	EAgeUpdateMode AgeUpdateMode;
+	ENiagaraAgeUpdateMode AgeUpdateMode;
 	
 	/** The desired age of the System instance.  This is only relevant when using the DesiredAge age update mode. */
 	float DesiredAge;
 
+	/** Whether or not the component can render while seeking to the desired age. */
+	bool bCanRenderWhileSeeking;
+
 	/** The delta time used when seeking to the desired age.  This is only relevant when using the DesiredAge age update mode. */
 	float SeekDelta;
+
+	/** The maximum amount of time in seconds to spend seeking to the desired age in a single frame. */
+	float MaxSimTime;
+
+	/** Whether or not the component is currently seeking to the desired time. */
+	bool bIsSeeking;
 
 	UPROPERTY()
 	uint32 bAutoDestroy : 1;
@@ -93,6 +96,7 @@ protected:
 	virtual void OnUnregister() override;
 	virtual void SendRenderDynamicData_Concurrent() override;
 	virtual void BeginDestroy() override;
+	//virtual void OnAttachmentChanged() override;
 public:
 	/**
 	* True if we should automatically attach to AutoAttachParent when activated, and detach from our parent when completed.
@@ -107,6 +111,7 @@ public:
 
 	virtual void Activate(bool bReset = false)override;
 	virtual void Deactivate()override;
+	void DeactivateImmediate();
 
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual const UObject* AdditionalStatObject() const override;
@@ -122,36 +127,69 @@ public:
 
 	TSharedPtr<FNiagaraSystemSimulation, ESPMode::ThreadSafe> GetSystemSimulation();
 
+	bool InitializeSystem();
 	void OnSystemComplete();
 	void DestroyInstance();
 
-		UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara System Asset"))
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara System Asset"))
 	void SetAsset(UNiagaraSystem* InAsset);
+
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Get Niagara System Asset"))
 	UNiagaraSystem* GetAsset() const { return Asset; }
 
-	void SetForceSolo(bool bInForceSolo) { bForceSolo = bInForceSolo; }
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Forced Solo Mode"))
+	void SetForceSolo(bool bInForceSolo);
+
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Is In Forced Solo Mode"))
 	bool GetForceSolo()const { return bForceSolo; }
 
-	EAgeUpdateMode GetAgeUpdateMode() const;
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Get Age Update Mode"))
+	ENiagaraAgeUpdateMode GetAgeUpdateMode() const;
 
 	/** Sets the age update mode for the System instance. */
-	void SetAgeUpdateMode(EAgeUpdateMode InAgeUpdateMode);
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Age Update Mode"))
+	void SetAgeUpdateMode(ENiagaraAgeUpdateMode InAgeUpdateMode);
 
 	/** Gets the desired age of the System instance.  This is only relevant when using the DesiredAge age update mode. */
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Get Desired Age"))
 	float GetDesiredAge() const;
 
 	/** Sets the desired age of the System instance.  This is only relevant when using the DesiredAge age update mode. */
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Desired Age"))
 	void SetDesiredAge(float InDesiredAge);
+
+	/** Sets the desired age of the System instance and designates that this change is a seek.  When seeking to a desired age the
+	    The component can optionally prevent rendering. */
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Seek to Desired Age"))
+	void SeekToDesiredAge(float InDesiredAge);
+
+	/** Sets whether or not the system can render while seeking. */
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Can Render While Seeking"))
+	void SetCanRenderWhileSeeking(bool bInCanRenderWhileSeeking);
 
 	/** Gets the delta value which is used when seeking from the current age, to the desired age.  This is only relevant
 	when using the DesiredAge age update mode. */
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Get Desired Age Seek Delta"))
 	float GetSeekDelta() const;
 
 	/** Sets the delta value which is used when seeking from the current age, to the desired age.  This is only relevant
 	when using the DesiredAge age update mode. */
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Desired Age Seek Delta"))
 	void SetSeekDelta(float InSeekDelta);
 
+	/** Sets the maximum time that you can jump within a tick which is used when seeking from the current age, to the desired age.  This is only relevant
+	when using the DesiredAge age update mode. */
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Get Max Desired Age Tick Delta"))
+	float GetMaxSimTime() const;
+
+	/** Sets the maximum time that you can jump within a tick which is used when seeking from the current age, to the desired age.  This is only relevant
+	when using the DesiredAge age update mode. */
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Max Desired Age Tick Delta"))
+	void SetMaxSimTime(float InMaxTime);
+
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Auto Destroy"))
 	void SetAutoDestroy(bool bInAutoDestroy) { bAutoDestroy = bInAutoDestroy; }
+
 	FNiagaraSystemInstance* GetSystemInstance() const;
 
 	/** Returns true if this component forces it's instances to run in "Solo" mode. A sub optimal path required in some situations. */
@@ -161,9 +199,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara Variable (LinearColor)"))
 	void SetNiagaraVariableLinearColor(const FString& InVariableName, const FLinearColor& InValue);
 
-	/** Sets a Niagara Vector3 parameter by name, overriding locally if necessary.*/
+	/** Sets a Niagara Vector4 parameter by name, overriding locally if necessary.*/
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara Variable (Vector4)"))
 	void SetNiagaraVariableVec4(const FString& InVariableName, const FVector4& InValue);
+
+	/** Sets a Niagara Vector3 parameter by name, overriding locally if necessary.*/
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara Variable (Quaternion)"))
+	void SetNiagaraVariableQuat(const FString& InVariableName, const FQuat& InValue);
 
 	/** Sets a Niagara Vector3 parameter by name, overriding locally if necessary.*/
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara Variable (Vector3)"))
@@ -211,19 +253,27 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Rendering Enabled"))
 	void SetRenderingEnabled(bool bInRenderingEnabled);
 
+	/** Advances this system's simulation by the specified number of ticks and delta time. */
+	UFUNCTION(BlueprintCallable, Category = Niagara)
+	void AdvanceSimulation(int32 TickCount, float TickDeltaSeconds);
+
+	/** Advances this system's simulation by the specified time in seconds and delta time. Advancement is done in whole ticks of TickDeltaSeconds so actual simulated time will be the nearest lower multiple of TickDeltaSeconds. */
+	UFUNCTION(BlueprintCallable, Category = Niagara)
+	void AdvanceSimulationByTime(float SimulateTime, float TickDeltaSeconds);
+
 	//~ Begin UObject Interface.
 	virtual void PostLoad();
 #if WITH_EDITOR
-	
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
 
-	/** Compare local overrides with the source System. Remove any that have mismatched types or no longer exist on the System. Returns whether or not any changes occurred.*/
-	virtual bool SynchronizeWithSourceSystem();
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
 	bool IsParameterValueOverriddenLocally(const FName& InParamName);
 	void SetParameterValueOverriddenLocally(const FNiagaraVariable& InParam, bool bInOverridden);
 	
 	FOnSystemInstanceChanged& OnSystemInstanceChanged() { return OnSystemInstanceChangedDelegate; }
+
+	FOnSynchronizedWithAssetParameters& OnSynchronizedWithAssetParameters() { return OnSynchronizedWithAssetParametersDelegate; }
 #endif
 
 	FNiagaraParameterStore& GetOverrideParameters() { return OverrideParameters; }
@@ -231,8 +281,13 @@ public:
 	//~ End UObject Interface.
 
 	// Called when the particle system is done
-	UPROPERTY(BlueprintAssignable)
 	FOnNiagaraSystemFinished OnSystemFinished;
+
+private:
+	/** Compare local overrides with the source System. Remove any that have mismatched types or no longer exist on the System. Returns whether or not any changes occurred.*/
+	void SynchronizeWithSourceSystem();
+
+	void AssetExposedParametersChanged();
 
 public:
 	/**
@@ -284,10 +339,22 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Niagara)
 	void SetAutoAttachmentParameters(USceneComponent* Parent, FName SocketName, EAttachmentRule LocationRule, EAttachmentRule RotationRule, EAttachmentRule ScaleRule);
 
+#if WITH_EDITORONLY_DATA
+	UPROPERTY(EditAnywhere, Category = Compilation)
+	uint32 bWaitForCompilationOnActivate : 1;
+#endif
+
 private:
+	/** Did we try and activate but fail due to the asset being not yet ready. Keep looping.*/
+	uint32 bAwaitingActivationDueToNotReady : 1;
+	/** Should we try and reset when ready? */
+	uint32 bActivateShouldResetWhenReady : 1;
 
 	/** Did we auto attach during activation? Used to determine if we should restore the relative transform during detachment. */
 	uint32 bDidAutoAttach : 1;
+
+	/** Flag to mark us as currently changing auto attachment as part of Activate/Deactivate so we don't reset in the OnAttachmentChanged() callback. */
+	//uint32 bIsChangingAutoAttachment : 1;
 
 	/** Restore relative transform from auto attachment and optionally detach from parent (regardless of whether it was an auto attachment). */
 	void CancelAutoAttachment(bool bDetachFromParent);
@@ -297,6 +364,8 @@ private:
 	FVector SavedAutoAttachRelativeLocation;
 	FRotator SavedAutoAttachRelativeRotation;
 	FVector SavedAutoAttachRelativeScale3D;
+
+	FDelegateHandle AssetExposedParametersChangedHandle;
 };
 
 
@@ -318,7 +387,6 @@ public:
 	/** Called on render thread to assign new dynamic data */
 	void SetDynamicData_RenderThread(struct FNiagaraDynamicDataBase* NewDynamicData);
 	TArray<class NiagaraRenderer*>& GetEmitterRenderers() { return EmitterRenderers; }
-	void AddEmitterRenderer(NiagaraRenderer* Renderer);
 	void UpdateEmitterRenderers(TArray<NiagaraRenderer*>& InRenderers);
 
 	/** Gets whether or not this scene proxy should be rendered. */

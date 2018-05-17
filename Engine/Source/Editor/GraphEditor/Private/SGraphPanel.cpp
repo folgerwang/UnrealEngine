@@ -297,7 +297,15 @@ int32 SGraphPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeo
 	// Draw connections between pins 
 	if (Children.Num() > 0 )
 	{
-        FConnectionDrawingPolicy* ConnectionDrawingPolicy = FNodeFactory::CreateConnectionPolicy(Schema, WireLayerId, MaxLayerId, ZoomFactor, MyCullingRect, OutDrawElements, GraphObj);
+		FConnectionDrawingPolicy* ConnectionDrawingPolicy = nullptr;
+		if (NodeFactory.IsValid())
+		{
+			ConnectionDrawingPolicy = NodeFactory->CreateConnectionPolicy(Schema, WireLayerId, MaxLayerId, ZoomFactor, MyCullingRect, OutDrawElements, GraphObj);
+		}
+		else
+		{
+			ConnectionDrawingPolicy = FNodeFactory::CreateConnectionPolicy(Schema, WireLayerId, MaxLayerId, ZoomFactor, MyCullingRect, OutDrawElements, GraphObj);
+		}
 
 		TArray<TSharedPtr<SGraphPin>> OverridePins;
 		for (const FGraphPinHandle& Handle : PreviewConnectorFromPins)
@@ -1335,7 +1343,16 @@ const TSharedRef<SGraphNode> SGraphPanel::GetChild(int32 ChildIndex)
 
 void SGraphPanel::AddNode(UEdGraphNode* Node, AddNodeBehavior Behavior)
 {
-	TSharedPtr<SGraphNode> NewNode = FNodeFactory::CreateNodeWidget(Node);
+	TSharedPtr<SGraphNode> NewNode;
+	if (NodeFactory.IsValid())
+	{
+		NewNode = NodeFactory->CreateNodeWidget(Node);
+	}
+	else
+	{
+		NewNode = FNodeFactory::CreateNodeWidget(Node);
+	}
+
 	check(NewNode.IsValid());
 
 	const bool bWasUserAdded = 
@@ -1691,4 +1708,9 @@ EActiveTimerReturnType SGraphPanel::InvalidatePerTick(double InCurrentTime, floa
 		return EActiveTimerReturnType::Stop;
 	}
 	return EActiveTimerReturnType::Continue;
+}
+
+void SGraphPanel::SetNodeFactory(const TSharedRef<class FGraphNodeFactory>& NewNodeFactory)
+{
+	NodeFactory = NewNodeFactory;
 }

@@ -100,7 +100,7 @@ public:
 	virtual TStatId GetStatId() const override;
 
 	/** IPropertyUtilities interface */
-	virtual class FNotifyHook* GetNotifyHook() const { return nullptr; }
+	virtual class FNotifyHook* GetNotifyHook() const { return Args.NotifyHook; }
 	virtual void EnqueueDeferredAction(FSimpleDelegate DeferredAction);	
 	virtual bool IsPropertyEditingEnabled() const { return true; }
 	virtual void ForceRefresh();
@@ -115,6 +115,8 @@ private:
 	void UpdateSinglePropertyMap(TSharedPtr<FComplexPropertyNode> InRootPropertyNode, FDetailLayoutData& LayoutData);
 	bool ValidatePropertyNodes(const FRootPropertyNodeList& PropertyNodeList);
 	TSharedPtr<IDetailTreeNode> FindTreeNodeRecursive(const TSharedPtr<IDetailTreeNode>& StartNode, TSharedPtr<IPropertyHandle> PropertyHandle) const;
+	void LayoutNodeVisibilityChanged();
+
 private:
 	const FPropertyRowGeneratorArgs Args;
 	/** The root property nodes of the property tree for a specific set of UObjects */

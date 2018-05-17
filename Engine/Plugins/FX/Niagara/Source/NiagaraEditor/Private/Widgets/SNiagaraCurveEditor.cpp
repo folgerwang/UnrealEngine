@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SNiagaraCurveEditor.h"
-#include "NiagaraSystemViewModel.h"
+#include "ViewModels/NiagaraSystemViewModel.h"
 #include "SCurveEditor.h"
 #include "Widgets/SOverlay.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
@@ -20,7 +20,9 @@ void SNiagaraCurveEditor::Construct(const FArguments& InArgs, TSharedRef<FNiagar
 	OutputSnap = .1f;
 
 	SAssignNew(CurveEditor, SCurveEditor)
-		.ShowCurveSelector(true);
+		.ShowCurveSelector(true)
+		.InputSnap(this, &SNiagaraCurveEditor::GetInputSnap)
+		.OutputSnap(this, &SNiagaraCurveEditor::GetOutputSnap);
 	CurveEditor->SetCurveOwner(&SystemViewModel->GetCurveOwner());
 
 	TSharedPtr<SOverlay> OverlayWidget;

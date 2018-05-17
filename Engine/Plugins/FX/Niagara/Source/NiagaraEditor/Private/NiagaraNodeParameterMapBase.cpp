@@ -15,6 +15,8 @@
 #include "NiagaraScriptSource.h"
 #include "NiagaraConstants.h"
 #include "NiagaraParameterCollection.h"
+#include "Widgets/SNiagaraParameterMapView.h"
+#include "Widgets/Input/SEditableTextBox.h"
 
 #include "IAssetTools.h"
 #include "AssetRegistryModule.h"
@@ -23,24 +25,26 @@
 
 #define LOCTEXT_NAMESPACE "NiagaraNodeParameterMapBase"
 
-UNiagaraNodeParameterMapBase::UNiagaraNodeParameterMapBase() : UNiagaraNodeWithDynamicPins()
+UNiagaraNodeParameterMapBase::UNiagaraNodeParameterMapBase() 
+	: UNiagaraNodeWithDynamicPins()
+	, PinPendingRename(nullptr)
 {
 
 }
 
-TArray<FNiagaraParameterMapHistory> UNiagaraNodeParameterMapBase::GetParameterMaps(UNiagaraScriptSourceBase* InSource, FString EmitterNameOverride)
+TArray<FNiagaraParameterMapHistory> UNiagaraNodeParameterMapBase::GetParameterMaps(UNiagaraScriptSourceBase* InSource, FString EmitterNameOverride, const TArray<FNiagaraVariable>& EncounterableVariables)
 {
 	TArray<FNiagaraParameterMapHistory> OutputParameterMapHistories;
 	UNiagaraScriptSource* Base = Cast<UNiagaraScriptSource>(InSource);
 	if (Base != nullptr)
 	{
-		OutputParameterMapHistories = GetParameterMaps(Base->NodeGraph, EmitterNameOverride);
+		OutputParameterMapHistories = GetParameterMaps(Base->NodeGraph, EmitterNameOverride, EncounterableVariables);
 	}
 	return OutputParameterMapHistories;
 
 }
 
-TArray<FNiagaraParameterMapHistory> UNiagaraNodeParameterMapBase::GetParameterMaps(UNiagaraGraph* InGraph, FString EmitterNameOverride)
+TArray<FNiagaraParameterMapHistory> UNiagaraNodeParameterMapBase::GetParameterMaps(UNiagaraGraph* InGraph, FString EmitterNameOverride, const TArray<FNiagaraVariable>& EncounterableVariables)
 {
 	TArray<UNiagaraNodeOutput*> OutputNodes;
 	InGraph->FindOutputNodes(OutputNodes);
@@ -48,17 +52,18 @@ TArray<FNiagaraParameterMapHistory> UNiagaraNodeParameterMapBase::GetParameterMa
 
 	for (UNiagaraNodeOutput* FoundOutputNode : OutputNodes)
 	{
-		OutputParameterMapHistories.Append(GetParameterMaps(FoundOutputNode, false, EmitterNameOverride));
+		OutputParameterMapHistories.Append(GetParameterMaps(FoundOutputNode, false, EmitterNameOverride,EncounterableVariables));
 	}
 
 	return OutputParameterMapHistories;
 }
 
-TArray<FNiagaraParameterMapHistory> UNiagaraNodeParameterMapBase::GetParameterMaps(UNiagaraNodeOutput* InGraphEnd, bool bLimitToOutputScriptType, FString EmitterNameOverride)
+TArray<FNiagaraParameterMapHistory> UNiagaraNodeParameterMapBase::GetParameterMaps(UNiagaraNodeOutput* InGraphEnd, bool bLimitToOutputScriptType, FString EmitterNameOverride, const TArray<FNiagaraVariable>& EncounterableVariables)
 {
 	const UEdGraphSchema_Niagara* Schema = Cast<UEdGraphSchema_Niagara>(InGraphEnd->GetSchema());
-	
+
 	FNiagaraParameterMapHistoryBuilder Builder;
+	Builder.RegisterEncounterableVariables(EncounterableVariables);
 	if (!EmitterNameOverride.IsEmpty())
 	{
 		Builder.EnterEmitter(EmitterNameOverride, nullptr);
@@ -82,158 +87,7 @@ TArray<FNiagaraParameterMapHistory> UNiagaraNodeParameterMapBase::GetParameterMa
 
 bool UNiagaraNodeParameterMapBase::AllowNiagaraTypeForAddPin(const FNiagaraTypeDefinition& InType)
 {
-	return  InType != FNiagaraTypeDefinition::GetGenericNumericDef();
-}
-
-TSharedRef<SWidget> UNiagaraNodeParameterMapBase::GenerateAddPinMenu(const FString& InWorkingPinName, SNiagaraGraphPinAdd* InPin)
-{
-	UNiagaraGraph* Graph = GetNiagaraGraph();
-	bool IsModule = Graph->FindOutputNode(ENiagaraScriptUsage::Module) != nullptr || Graph->FindOutputNode(ENiagaraScriptUsage::DynamicInput) != nullptr 
-		|| Graph->FindOutputNode(ENiagaraScriptUsage::Function) != nullptr;
-
-	bool bSupportsAttributes = true;
-	UNiagaraScriptSource* Source = Cast<UNiagaraScriptSource>(Graph->GetOuter());
-	if (Source && IsModule)
-	{
-		UNiagaraScript* Script = Cast<UNiagaraScript>(Source->GetOuter());
-		if (Script)
-		{
-			TArray<ENiagaraScriptUsage> Usages = Script->GetSupportedUsageContexts();
-			if (Usages.Contains(ENiagaraScriptUsage::ParticleEventScript) || Usages.Contains(ENiagaraScriptUsage::ParticleSpawnScript) || Usages.Contains(ENiagaraScriptUsage::ParticleUpdateScript))
-			{
-				bSupportsAttributes = true;
-			}
-			else
-			{
-				bSupportsAttributes = false;
-			}
-		}
-	}
-
-	FString WorkingCustomName;
-	FMenuBuilder MenuBuilder(true, nullptr);
-	MenuBuilder.AddSubMenu(LOCTEXT("CommonEngine", "Common Engine-Provided Variables"),
-		LOCTEXT("CommonSystemTooltip", "Create an entry using one of the common engine variables."),
-		FNewMenuDelegate::CreateLambda([InWorkingPinName, InPin, this](FMenuBuilder& SubMenuBuilder) { BuildEngineMenu(SubMenuBuilder, InWorkingPinName, InPin); }));
-
-	MenuBuilder.AddSubMenu(LOCTEXT("LocalVars", "Existing Graph Variables"),
-		LOCTEXT("LocalVarsTooltip", "Create an entry using existing graph variables."),
-		FNewMenuDelegate::CreateLambda([InWorkingPinName, InPin, this](FMenuBuilder& SubMenuBuilder) { BuildLocalMenu(SubMenuBuilder, InWorkingPinName, InPin); }));
-
-	if (bSupportsAttributes)
-	{
-		MenuBuilder.AddSubMenu(LOCTEXT("CommonAttributes", "Common Attributes"),
-			LOCTEXT("CommonAttributesTooltip", "Create an entry using one of the common attributes."),
-			FNewMenuDelegate::CreateLambda([InWorkingPinName, InPin, this](FMenuBuilder& SubMenuBuilder) { BuildCommonMenu(SubMenuBuilder, InWorkingPinName, InPin); }));
-
-		WorkingCustomName = TEXT("Particles.") + InWorkingPinName;
-		MenuBuilder.AddSubMenu(LOCTEXT("DefineAttribute", "Define Attribute"),
-			LOCTEXT("SupportedTypesTooltip", "Create an entry in the particles namespace that you will name immediately after."),
-			FNewMenuDelegate::CreateLambda([WorkingCustomName, InPin, this](FMenuBuilder& SubMenuBuilder) { BuildTypeMenu(SubMenuBuilder, WorkingCustomName, InPin); }));
-	}
-
-	WorkingCustomName = TEXT("Module.") + InWorkingPinName;
-	MenuBuilder.AddSubMenu(LOCTEXT("DefineModuleLocal", "Define Module Local"),
-		LOCTEXT("SupportedTypesTooltip", "Create an entry in the module namespace that you will name immediately after."),
-		FNewMenuDelegate::CreateLambda([WorkingCustomName, InPin, this](FMenuBuilder& SubMenuBuilder) { BuildTypeMenu(SubMenuBuilder, WorkingCustomName, InPin); }));
-
-	WorkingCustomName = TEXT("ParameterCollections.") + InWorkingPinName;
-	MenuBuilder.AddSubMenu(LOCTEXT("ParameterCollectionsMenuTitle", "ParameterCollections"),
-		LOCTEXT("ParameterCollectionsMenuTooltip", "Create a reference to a parameter in a Parameter Collection."),
-		FNewMenuDelegate::CreateLambda([WorkingCustomName, InPin, this](FMenuBuilder& SubMenuBuilder) { BuildParameterCollectionsMenu(SubMenuBuilder, WorkingCustomName, InPin); }));
-
-	return MenuBuilder.MakeWidget();
-}
-
-void UNiagaraNodeParameterMapBase::BuildCommonMenu(FMenuBuilder& InMenuBuilder, const FString& InWorkingName, SNiagaraGraphPinAdd* InPin)
-{
-	TArray<FNiagaraVariable> Variables = FNiagaraConstants::GetCommonParticleAttributes();
-
-	for (FNiagaraVariable& NamespacedVar : Variables)
-	{
-		FText Desc = FNiagaraConstants::GetAttributeDescription(NamespacedVar);
-		FString NamespacedName = NamespacedVar.GetName().ToString();
-		InMenuBuilder.AddMenuEntry(
-			FText::FromString(NamespacedName),
-			FText::Format(LOCTEXT("AddButtonTypeEntryToolTipFormatCommon", "Add a reference to {0}. {1}"), FText::FromName(NamespacedVar.GetName()), Desc),
-			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateSP(InPin, &SNiagaraGraphPinAdd::OnAddType, NamespacedVar)));
-	}
-}
-
-void UNiagaraNodeParameterMapBase::BuildParameterCollectionsMenu(FMenuBuilder& InMenuBuilder, const FString& InWorkingName, SNiagaraGraphPinAdd* InPin)
-{
-	//Create sub menus for parameter collections.
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-	TArray<FAssetData> CollectionAssets;
-	AssetRegistryModule.Get().GetAssetsByClass(UNiagaraParameterCollection::StaticClass()->GetFName(), CollectionAssets);
-	for (FAssetData& CollectionAsset : CollectionAssets)
-	{
-		UNiagaraParameterCollection* Collection = CastChecked<UNiagaraParameterCollection>(CollectionAsset.GetAsset());
-
-		InMenuBuilder.AddSubMenu(FText::FromName(CollectionAsset.AssetName),
-			FText::FromString(CollectionAsset.GetFullName()),
-			FNewMenuDelegate::CreateLambda([Collection, InPin, this](FMenuBuilder& SubMenuBuilder) { BuildParameterCollectionMenu(SubMenuBuilder, Collection, InPin); }));
-	}
-}
-
-void UNiagaraNodeParameterMapBase::BuildParameterCollectionMenu(FMenuBuilder& InMenuBuilder, UNiagaraParameterCollection* Collection, SNiagaraGraphPinAdd* InPin)
-{
-	for (const FNiagaraVariable& Parameter : Collection->GetParameters())
-	{
-		FText Desc = FText::GetEmpty();//FNiagaraConstants::GetAttributeDescription(Parameter);
-		FString FriendlyName = Collection->FriendlyNameFromParameterName(Parameter.GetName().ToString());
-		InMenuBuilder.AddMenuEntry(
-			FText::FromString(FriendlyName),
-			FText::Format(LOCTEXT("AddButtonTypeEntryToolTipFormatNPC", "Add a reference to Collection Parameter {0}. {1}"), FText::FromName(Parameter.GetName()), Desc),
-			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateSP(InPin, &SNiagaraGraphPinAdd::OnAddType, Parameter)));
-	}
-}
-
-void UNiagaraNodeParameterMapBase::BuildLocalMenu(FMenuBuilder& InMenuBuilder, const FString& InWorkingName, SNiagaraGraphPinAdd* InPin)
-{
-	UNiagaraGraph* Graph = GetNiagaraGraph();
-	const TArray<FNiagaraParameterMapHistory> Histories = GetParameterMaps(Graph);
-
-	TArray<FNiagaraVariable> Variables;
-	for (const FNiagaraParameterMapHistory& History : Histories)
-	{
-		for (const FNiagaraVariable& Var : History.Variables)
-		{
-			Variables.AddUnique(Var);
-		}
-	}
-
-	Variables.Sort([](const FNiagaraVariable& A, const FNiagaraVariable& B) { return (A.GetName() < B.GetName()); });
-
-	for (FNiagaraVariable& NamespacedVar : Variables)
-	{
-		FString NamespacedName = NamespacedVar.GetName().ToString();
-		InMenuBuilder.AddMenuEntry(
-			FText::FromString(NamespacedName),
-			FText::Format(LOCTEXT("AddButtonTypeEntryToolTipFormatSystem", "Add a reference to {0}"), FText::FromName(NamespacedVar.GetName())),
-			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateSP(InPin, &SNiagaraGraphPinAdd::OnAddType, NamespacedVar)));
-	}
-}
-
-void UNiagaraNodeParameterMapBase::BuildEngineMenu(FMenuBuilder& InMenuBuilder, const FString& InWorkingName, SNiagaraGraphPinAdd* InPin)
-{
-	TArray<FNiagaraVariable> Variables = FNiagaraConstants::GetEngineConstants();
-	Variables.Sort([](const FNiagaraVariable& A, const FNiagaraVariable& B) { return (A.GetName() < B.GetName()); });
-
-	for (FNiagaraVariable& Var : Variables)
-	{
-		FText Desc = FNiagaraConstants::GetEngineConstantDescription(Var);
-		FNiagaraVariable NamespacedVar = Var;
-		FString NamespacedName = NamespacedVar.GetName().ToString();
-		InMenuBuilder.AddMenuEntry(
-			FText::FromString(NamespacedName),
-			FText::Format(LOCTEXT("AddButtonTypeEntryToolTipFormatSystem", "Add a reference to {0}. {1}"), FText::FromName(Var.GetName()), Desc),
-			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateSP(InPin, &SNiagaraGraphPinAdd::OnAddType, NamespacedVar)));
-	}
+	return InType != FNiagaraTypeDefinition::GetGenericNumericDef();
 }
 
 FText UNiagaraNodeParameterMapBase::GetPinDescriptionText(UEdGraphPin* Pin) const
@@ -286,5 +140,45 @@ void UNiagaraNodeParameterMapBase::PinDescriptionTextCommitted(const FText& Text
 	}
 }
 
+void UNiagaraNodeParameterMapBase::CollectAddPinActions(FGraphActionListBuilderBase& OutActions, bool& bOutCreateRemainingActions, UEdGraphPin* Pin)
+{
+	bOutCreateRemainingActions = true;
+}
+
+void UNiagaraNodeParameterMapBase::GetPinHoverText(const UEdGraphPin& Pin, FString& HoverTextOut) const
+{
+	// Get hover text from metadata description.
+	const UNiagaraGraph* NiagaraGraph = GetNiagaraGraph();
+	if (NiagaraGraph)
+	{
+		const UEdGraphSchema_Niagara* Schema = Cast<UEdGraphSchema_Niagara>(NiagaraGraph->GetSchema());
+		if (Schema)
+		{
+			FNiagaraVariable Var = FNiagaraVariable(Schema->PinToTypeDefinition(&Pin), Pin.PinName);
+			const FNiagaraVariableMetaData* Metadata = NiagaraGraph->GetMetaData(Var);
+			if (Metadata)
+			{
+				HoverTextOut = Metadata->Description.ToString();
+			}
+		}
+	}
+}
+
+void UNiagaraNodeParameterMapBase::OnPinRenamed(UEdGraphPin* RenamedPin, const FString& OldName)
+{
+	RenamedPin->PinFriendlyName = FText::FromName(RenamedPin->PinName);
+
+	FNiagaraTypeDefinition VarType = CastChecked<UEdGraphSchema_Niagara>(GetSchema())->PinToTypeDefinition(RenamedPin);
+	FNiagaraVariable Var(VarType, *OldName);
+
+	UNiagaraGraph* Graph = GetNiagaraGraph();
+	Graph->RenameParameter(Var, RenamedPin->GetFName(), false /*bInNotifyGraphChanged*/); // Notify graph changed in child.
+
+	if (RenamedPin == PinPendingRename)
+	{
+		PinPendingRename = nullptr;
+	}
+
+}
 
 #undef LOCTEXT_NAMESPACE

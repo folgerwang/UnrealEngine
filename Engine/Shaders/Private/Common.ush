@@ -150,7 +150,7 @@ MaterialFloat4 TextureCubeSampleLevel(TextureCube Tex, SamplerState Sampler, flo
 }
 MaterialFloat TextureCubeSampleDepthLevel(TextureCube TexDepth, SamplerState Sampler, float3 UV, MaterialFloat Mip)
 {
-return TexDepth.SampleLevel(Sampler, UV, Mip);
+return TexDepth.SampleLevel(Sampler, UV, Mip).r;
 }
 MaterialFloat4 TextureCubeSampleBias(TextureCube Tex, SamplerState Sampler, float3 UV, MaterialFloat MipBias)
 {

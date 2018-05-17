@@ -18,11 +18,15 @@
 #include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 #include "NiagaraParameterCollection.h"
+#include "NiagaraConstants.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraEditor"
 
 #define PARAM_MAP_NPC_STR TEXT("NPC.")
 #define PARAM_MAP_ENGINE_STR TEXT("Engine.")
+#define PARAM_MAP_ENGINE_OWNER_STR TEXT("Engine.Owner.")
+#define PARAM_MAP_ENGINE_SYSTEM_STR TEXT("Engine.System.")
+#define PARAM_MAP_ENGINE_EMITTER_STR TEXT("Engine.Emitter.")
 #define PARAM_MAP_USER_STR TEXT("User.")
 #define PARAM_MAP_SYSTEM_STR TEXT("System.")
 #define PARAM_MAP_EMITTER_STR TEXT("Emitter.")
@@ -31,6 +35,7 @@
 #define PARAM_MAP_INITIAL_STR TEXT("Initial.")
 #define PARAM_MAP_INITIAL_BASE_STR TEXT("Initial")
 #define PARAM_MAP_RAPID_ITERATION_STR TEXT("Constants.")
+#define PARAM_MAP_RAPID_ITERATION_BASE_STR TEXT("Constants")
 
 
 FNiagaraParameterMapHistory::FNiagaraParameterMapHistory() 
@@ -38,20 +43,101 @@ FNiagaraParameterMapHistory::FNiagaraParameterMapHistory()
 	
 }
 
+void FNiagaraParameterMapHistory::GetValidNamespacesForReading(const UNiagaraScript* InScript, TArray<FString>& OutputNamespaces)
+{
+	GetValidNamespacesForReading(InScript->GetUsage(), OutputNamespaces);
+}
+
+void FNiagaraParameterMapHistory::GetValidNamespacesForReading(ENiagaraScriptUsage InScriptUsage, TArray<FString>& OutputNamespaces)
+{
+	OutputNamespaces.Add(PARAM_MAP_MODULE_STR);
+	OutputNamespaces.Add(PARAM_MAP_ENGINE_STR);
+	OutputNamespaces.Add(PARAM_MAP_NPC_STR);
+	OutputNamespaces.Add(PARAM_MAP_USER_STR);
+	OutputNamespaces.Add(PARAM_MAP_SYSTEM_STR);
+	OutputNamespaces.Add(PARAM_MAP_EMITTER_STR);
+	if (UNiagaraScript::IsParticleScript(InScriptUsage))
+	{
+		OutputNamespaces.Add(PARAM_MAP_ATTRIBUTE_STR);
+	}
+}
+
+FString FNiagaraParameterMapHistory::GetNamespace(const FNiagaraVariable& InVar, bool bIncludeDelimiter)
+{
+	TArray<FString> SplitName;
+	InVar.GetName().ToString().ParseIntoArray(SplitName, TEXT("."));
+
+	check(SplitName.Num() > 0);
+
+	if (bIncludeDelimiter)
+	{
+		return SplitName[0] + TEXT(".");
+	}
+	else
+	{
+		return SplitName[0];
+	}
+}
+
+bool FNiagaraParameterMapHistory::IsValidNamespaceForReading(ENiagaraScriptUsage InScriptUsage, FString Namespace)
+{
+	TArray<FString> OutputNamespaces;
+	GetValidNamespacesForReading(InScriptUsage, OutputNamespaces);
+	
+	if (!Namespace.EndsWith(TEXT(".")))
+	{
+		Namespace.Append(TEXT("."));
+	}
+
+	for (const FString& ValidNamespace : OutputNamespaces)
+	{
+		if (Namespace.StartsWith(ValidNamespace))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
 int32 FNiagaraParameterMapHistory::RegisterParameterMapPin(const UEdGraphPin* Pin)
 {
 	int32 RetIdx =  MapPinHistory.Add(Pin);
 	return RetIdx;
 }
 
-int32 FNiagaraParameterMapHistory::FindVariableByName(const FName& VariableName)
+uint32 FNiagaraParameterMapHistory::BeginNodeVisitation(UNiagaraNode* Node)
 {
-	int32 FoundIdx = Variables.IndexOfByPredicate([&](const FNiagaraVariable& InObj) -> bool
-	{
-		return (InObj.GetName() == VariableName);
-	});
+	uint32 AddedIndex = MapNodeVisitations.Add(Node);
+	MapNodeVariableMetaData.Add(TTuple<uint32, uint32>(Variables.Num(), 0));
+	check(MapNodeVisitations.Num() == MapNodeVariableMetaData.Num());
+	return AddedIndex;
+}
 
-	return FoundIdx;
+void FNiagaraParameterMapHistory::EndNodeVisitation(uint32 IndexFromBeginNode)
+{
+	check(IndexFromBeginNode < (uint32)MapNodeVisitations.Num());
+	check(MapNodeVisitations.Num() == MapNodeVariableMetaData.Num());
+	MapNodeVariableMetaData[IndexFromBeginNode].Value = Variables.Num();
+}
+
+
+int32 FNiagaraParameterMapHistory::FindVariableByName(const FName& VariableName, bool bAllowPartialMatch)
+{
+	if (!bAllowPartialMatch)
+	{
+		int32 FoundIdx = Variables.IndexOfByPredicate([&](const FNiagaraVariable& InObj) -> bool
+		{
+			return (InObj.GetName() == VariableName);
+		});
+
+		return FoundIdx;
+	}
+	else
+	{
+		return FNiagaraVariable::SearchArrayForPartialNameMatch(Variables, VariableName);
+	}
 }
 
 
@@ -128,6 +214,17 @@ FNiagaraVariable FNiagaraParameterMapHistory::ResolveAliases(const FNiagaraVaria
 {
 	return FNiagaraVariable::ResolveAliases(InVar, InAliases, InJoinSeparator);
 }
+
+
+FName FNiagaraParameterMapHistory::ResolveEmitterAlias(const FName& InName, const FString& InAlias)
+{
+	FNiagaraVariable Var(FNiagaraTypeDefinition::GetFloatDef(), InName);
+	TMap<FString, FString> ResolveMap;
+	ResolveMap.Add(TEXT("Emitter"), InAlias);
+	Var = FNiagaraParameterMapHistory::ResolveAliases(Var, ResolveMap, TEXT("."));
+	return Var.GetName();
+}
+
 
 FString FNiagaraParameterMapHistory::MakeSafeNamespaceString(const FString& InStr)
 {
@@ -207,6 +304,12 @@ bool FNiagaraParameterMapHistory::IsAliasedEmitterParameter(const FNiagaraVariab
 	return IsInNamespace(InVar, PARAM_MAP_EMITTER_STR);
 }
 
+bool FNiagaraParameterMapHistory::IsAliasedEmitterParameter(const FString& InVarName)
+{
+	return IsAliasedEmitterParameter(FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), *InVarName));
+}
+
+
 bool FNiagaraParameterMapHistory::IsSystemParameter(const FNiagaraVariable& InVar)
 {
 	return IsInNamespace(InVar, PARAM_MAP_SYSTEM_STR);
@@ -215,6 +318,13 @@ bool FNiagaraParameterMapHistory::IsSystemParameter(const FNiagaraVariable& InVa
 bool FNiagaraParameterMapHistory::IsEngineParameter(const FNiagaraVariable& InVar)
 {
 	return IsInNamespace(InVar, PARAM_MAP_ENGINE_STR);
+}
+
+bool FNiagaraParameterMapHistory::IsPerInstanceEngineParameter(const FNiagaraVariable& InVar, const FString& EmitterAlias)
+{
+	FString EmitterEngineNamespaceAlias = TEXT("Engine.") + EmitterAlias + TEXT(".");
+	return IsInNamespace(InVar, PARAM_MAP_ENGINE_OWNER_STR) || IsInNamespace(InVar, PARAM_MAP_ENGINE_SYSTEM_STR) || IsInNamespace(InVar, PARAM_MAP_ENGINE_EMITTER_STR) || 
+		IsInNamespace(InVar, EmitterEngineNamespaceAlias);
 }
 
 bool FNiagaraParameterMapHistory::IsUserParameter(const FNiagaraVariable& InVar)
@@ -245,7 +355,7 @@ bool FNiagaraParameterMapHistory::IsAttribute(const FNiagaraVariable& InVar)
 	return IsInNamespace(InVar, PARAM_MAP_ATTRIBUTE_STR);
 }
 
-bool FNiagaraParameterMapHistory::IsSystemNamespaceReadOnly(UNiagaraScript* InScript)
+bool FNiagaraParameterMapHistory::IsSystemNamespaceReadOnly(const UNiagaraScript* InScript)
 {
 	if (InScript->IsSystemSpawnScript() || InScript->IsSystemUpdateScript())
 	{
@@ -263,7 +373,7 @@ bool FNiagaraParameterMapHistory::IsSystemNamespaceReadOnly(UNiagaraScript* InSc
 	return true;
 }
 
-bool FNiagaraParameterMapHistory::IsEmitterNamespaceReadOnly(UNiagaraScript* InScript)
+bool FNiagaraParameterMapHistory::IsEmitterNamespaceReadOnly(const UNiagaraScript* InScript)
 {
 	if (InScript->IsEmitterSpawnScript() || InScript->IsEmitterUpdateScript() || InScript->IsSystemSpawnScript() || InScript->IsSystemUpdateScript())
 	{
@@ -378,14 +488,14 @@ FNiagaraVariableMetaData* FNiagaraParameterMapHistory::GetMetaData(int32 VarIdx)
 	return nullptr;
 }
 
-bool FNiagaraParameterMapHistory::IsPrimaryDataSetOutput(const FNiagaraVariable& InVar, UNiagaraScript* InScript)
+bool FNiagaraParameterMapHistory::IsPrimaryDataSetOutput(const FNiagaraVariable& InVar, const UNiagaraScript* InScript, bool bAllowDataInterfaces) const
 {
-	return IsPrimaryDataSetOutput(InVar, InScript->GetUsage());
+	return IsPrimaryDataSetOutput(InVar, InScript->GetUsage(), bAllowDataInterfaces);
 }
 
-bool FNiagaraParameterMapHistory::IsPrimaryDataSetOutput(const FNiagaraVariable& InVar, ENiagaraScriptUsage Usage)
+bool FNiagaraParameterMapHistory::IsPrimaryDataSetOutput(const FNiagaraVariable& InVar, ENiagaraScriptUsage Usage, bool bAllowDataInterfaces) const
 {
-	if (InVar.GetType().GetClass() != nullptr)
+	if (bAllowDataInterfaces == false && InVar.GetType().GetClass() != nullptr)
 	{
 		return false;
 	}
@@ -411,25 +521,29 @@ bool FNiagaraParameterMapHistory::IsPrimaryDataSetOutput(const FNiagaraVariable&
 	return IsInNamespace(InVar, PARAM_MAP_ATTRIBUTE_STR);
 }
 
-
-FNiagaraVariable FNiagaraParameterMapHistory::MoveToExternalConstantNamespaceVariable(const FNiagaraVariable& InVar, UNiagaraScript* InScript)
+FNiagaraVariable FNiagaraParameterMapHistory::MoveToExternalConstantNamespaceVariable(const FNiagaraVariable& InVar, ENiagaraScriptUsage InUsage)
 {
-	if (InScript->IsParticleEventScript() || InScript->IsParticleSpawnScript() || InScript->IsParticleUpdateScript())
+	if (UNiagaraScript::IsParticleScript(InUsage))
 	{
 		return VariableToNamespacedVariable(InVar, PARAM_MAP_EMITTER_STR);
 	}
-	else if (InScript->IsStandaloneScript())
+	else if (UNiagaraScript::IsStandaloneScript(InUsage))
 	{
 		return VariableToNamespacedVariable(InVar, PARAM_MAP_MODULE_STR);
 	}
-	else if (InScript->IsEmitterSpawnScript() || InScript->IsEmitterUpdateScript() || InScript->IsSystemSpawnScript() || InScript->IsSystemUpdateScript())
+	else if (UNiagaraScript::IsEmitterSpawnScript(InUsage) || UNiagaraScript::IsEmitterUpdateScript(InUsage) || UNiagaraScript::IsSystemSpawnScript(InUsage) || UNiagaraScript::IsSystemUpdateScript(InUsage))
 	{
 		return VariableToNamespacedVariable(InVar, PARAM_MAP_USER_STR);
 	}
 	return InVar;
 }
 
-bool FNiagaraParameterMapHistory::IsExportableExternalConstant(const FNiagaraVariable& InVar, UNiagaraScript* InScript)
+FNiagaraVariable FNiagaraParameterMapHistory::MoveToExternalConstantNamespaceVariable(const FNiagaraVariable& InVar, const UNiagaraScript* InScript)
+{
+	return MoveToExternalConstantNamespaceVariable(InVar, InScript->GetUsage());
+}
+
+bool FNiagaraParameterMapHistory::IsExportableExternalConstant(const FNiagaraVariable& InVar, const UNiagaraScript* InScript)
 {
 	if (InScript->IsEquivalentUsage(ENiagaraScriptUsage::SystemSpawnScript))
 	{
@@ -441,7 +555,7 @@ bool FNiagaraParameterMapHistory::IsExportableExternalConstant(const FNiagaraVar
 	}
 }
 
-bool FNiagaraParameterMapHistory::IsExternalConstantNamespace(const FNiagaraVariable& InVar, UNiagaraScript* InScript)
+bool FNiagaraParameterMapHistory::IsExternalConstantNamespace(const FNiagaraVariable& InVar, ENiagaraScriptUsage InUsage, int32 InUsageBitmask)
 {
 	// Parameter collections are always constants
 	if (IsInNamespace(InVar, PARAM_MAP_NPC_STR))
@@ -462,26 +576,31 @@ bool FNiagaraParameterMapHistory::IsExternalConstantNamespace(const FNiagaraVari
 
 	// Modules and functions need to act as if they are within the script types that they 
 	// say that they support rather than using their exact script type.
-	if (InScript->IsStandaloneScript())
+	if (UNiagaraScript::IsStandaloneScript(InUsage))
 	{
-		TArray<ENiagaraScriptUsage> SupportedContexts = InScript->GetSupportedUsageContexts();
+		TArray<ENiagaraScriptUsage> SupportedContexts = UNiagaraScript::GetSupportedUsageContextsForBitmask(InUsageBitmask);
 		if (((!SupportedContexts.Contains(ENiagaraScriptUsage::EmitterSpawnScript) && !SupportedContexts.Contains(ENiagaraScriptUsage::EmitterUpdateScript)) && IsInNamespace(InVar, PARAM_MAP_EMITTER_STR))
 			|| ((!SupportedContexts.Contains(ENiagaraScriptUsage::SystemSpawnScript) && !SupportedContexts.Contains(ENiagaraScriptUsage::SystemUpdateScript)) && IsInNamespace(InVar, PARAM_MAP_SYSTEM_STR)))
 		{
 			return true;
 		}
 	}
-	
+
 	// Particle scripts cannot write to the emitter or system namespace.
-	if (InScript->IsParticleEventScript() || InScript->IsParticleSpawnScript() || InScript->IsParticleUpdateScript())
+	if (UNiagaraScript::IsParticleScript(InUsage))
 	{
 		if (IsInNamespace(InVar, PARAM_MAP_EMITTER_STR) || IsInNamespace(InVar, PARAM_MAP_SYSTEM_STR))
 		{
 			return true;
 		}
 	}
-	
+
 	return false;
+}
+
+bool FNiagaraParameterMapHistory::IsExternalConstantNamespace(const FNiagaraVariable& InVar, const UNiagaraScript* InScript)
+{
+	return IsExternalConstantNamespace(InVar, InScript->GetUsage(), InScript->ModuleUsageBitmask);
 }
 
 const UNiagaraNodeOutput* FNiagaraParameterMapHistory::GetFinalOutputNode() const
@@ -499,17 +618,9 @@ const UNiagaraNodeOutput* FNiagaraParameterMapHistory::GetFinalOutputNode() cons
 	return nullptr;
 }
 
-FNiagaraVariable FNiagaraParameterMapHistory::ConvertVariableToRapidIterationConstantName(FNiagaraVariable InVar, const TCHAR* InEmitterName)
+FNiagaraVariable FNiagaraParameterMapHistory::ConvertVariableToRapidIterationConstantName(FNiagaraVariable InVar, const TCHAR* InEmitterName, ENiagaraScriptUsage InUsage)
 {
-	FNiagaraVariable Var = InVar;
-	FString NewName = PARAM_MAP_RAPID_ITERATION_STR + Var.GetName().ToString();
-	FString EmitterName = FString(InEmitterName);
-	if (InEmitterName != nullptr && false == InVar.GetName().ToString().StartsWith(EmitterName + TEXT(".")))
-	{
-		NewName = PARAM_MAP_RAPID_ITERATION_STR + EmitterName + TEXT(".") + Var.GetName().ToString();
-	}
-	Var.SetName(*NewName);
-	return Var;
+	return FNiagaraUtilities::ConvertVariableToRapidIterationConstantName(InVar, InEmitterName, InUsage);
 }
 
 UNiagaraParameterCollection* FNiagaraParameterMapHistory::IsParameterCollectionParameter(FNiagaraVariable& InVar, bool& bMissingParameter)
@@ -525,6 +636,12 @@ UNiagaraParameterCollection* FNiagaraParameterMapHistory::IsParameterCollectionP
 		}
 	}
 	return nullptr;
+}
+
+bool FNiagaraParameterMapHistory::ShouldIgnoreVariableDefault(const FNiagaraVariable& Var)const
+{
+	//For now just skip default for ID but maybe other cases/reasons?
+	return Var == FNiagaraVariable(FNiagaraTypeDefinition::GetIDDef(), TEXT("Particles.ID"));
 }
 
 FNiagaraParameterMapHistoryBuilder::FNiagaraParameterMapHistoryBuilder()
@@ -549,9 +666,32 @@ void FNiagaraParameterMapHistoryBuilder::EnableScriptWhitelist(bool bInEnable, E
 	FilterScriptType = InScriptType;
 }
 
+
+bool FNiagaraParameterMapHistoryBuilder::ContextContains(ENiagaraScriptUsage InUsage) const
+{
+	if (RelevantScriptUsageContext.Num() == 0)
+	{
+		return false;
+	}
+	else
+	{
+		return RelevantScriptUsageContext.Contains(InUsage);
+	}
+}
+
+
 ENiagaraScriptUsage FNiagaraParameterMapHistoryBuilder::GetCurrentUsageContext()const
 {
+	if (RelevantScriptUsageContext.Num() == 0)
+		return ENiagaraScriptUsage::Function;
 	return RelevantScriptUsageContext.Last();
+}
+
+ENiagaraScriptUsage FNiagaraParameterMapHistoryBuilder::GetBaseUsageContext()const
+{
+	if (RelevantScriptUsageContext.Num() == 0)
+		return ENiagaraScriptUsage::Function;
+	return RelevantScriptUsageContext[0];
 }
 
 int32 FNiagaraParameterMapHistoryBuilder::CreateParameterMap()
@@ -559,6 +699,27 @@ int32 FNiagaraParameterMapHistoryBuilder::CreateParameterMap()
 	int32 RetValue = Histories.AddDefaulted(1);
 	return RetValue;
 }
+
+uint32 FNiagaraParameterMapHistoryBuilder::BeginNodeVisitation(int32 WhichParameterMap, class UNiagaraNode* Node)
+{
+	if (WhichParameterMap != INDEX_NONE)
+	{
+		return Histories[WhichParameterMap].BeginNodeVisitation(Node);
+	}
+	else
+	{
+		return INDEX_NONE;
+	}
+}
+
+void FNiagaraParameterMapHistoryBuilder::EndNodeVisitation(int32 WhichParameterMap, uint32 IndexFromBeginNode)
+{
+	if (WhichParameterMap != INDEX_NONE)
+	{
+		return Histories[WhichParameterMap].EndNodeVisitation(IndexFromBeginNode);
+	}
+}
+
 
 int32 FNiagaraParameterMapHistoryBuilder::RegisterParameterMapPin(int32 WhichParameterMap, const UEdGraphPin* Pin)
 {
@@ -581,10 +742,14 @@ int32 FNiagaraParameterMapHistoryBuilder::TraceParameterMapOutputPin(const UEdGr
 {
 	if (OutputPin->Direction == EEdGraphPinDirection::EGPD_Output)
 	{
-		const int32* IdxPtr = PinToParameterMapIndices.Last().Find(OutputPin);
-		if (IdxPtr != nullptr)
+		OutputPin = UNiagaraNode::TraceOutputPin(const_cast<UEdGraphPin*>(OutputPin));
+		if (OutputPin)
 		{
-			return *IdxPtr;
+			const int32* IdxPtr = PinToParameterMapIndices.Last().Find(OutputPin);
+			if (IdxPtr != nullptr)
+			{
+				return *IdxPtr;
+			}
 		}
 	}
 	return INDEX_NONE;
@@ -622,7 +787,8 @@ int32 FNiagaraParameterMapHistoryBuilder::FindMatchingParameterMapFromContextInp
 		{
 			if (Inputs[i]->LinkedTo.Num() != 0 && PinToParameterMapIndices.Num() >= 2)
 			{
-				const int32* ParamMapIdxPtr = PinToParameterMapIndices[PinToParameterMapIndices.Num() - 2].Find(Inputs[i]->LinkedTo[0]);
+				const UEdGraphPin* OutputPin = UNiagaraNode::TraceOutputPin(const_cast<UEdGraphPin*>(Inputs[i]->LinkedTo[0]));
+				const int32* ParamMapIdxPtr = PinToParameterMapIndices[PinToParameterMapIndices.Num() - 2].Find(OutputPin);
 				if (ParamMapIdxPtr != nullptr)
 				{
 					return *ParamMapIdxPtr;
@@ -663,7 +829,7 @@ int32 FNiagaraParameterMapHistoryBuilder::FindMatchingParameterMapFromContextInp
 	return INDEX_NONE;
 }
 
-void FNiagaraParameterMapHistoryBuilder::BeginTranslation(UNiagaraScript* Script)
+void FNiagaraParameterMapHistoryBuilder::BeginTranslation(const UNiagaraScript* Script)
 {
 	//For now this will just tell particle scripts what emitter they're being compiled as part of but maybe we want to do more here.
 	//This is mainly so that parameter names match up between System/Emitter scripts and the parameters they drive within particle scripts.
@@ -673,12 +839,12 @@ void FNiagaraParameterMapHistoryBuilder::BeginTranslation(UNiagaraScript* Script
 	BeginTranslation(Emitter);
 }
 
-void FNiagaraParameterMapHistoryBuilder::EndTranslation(UNiagaraScript* Script)
+void FNiagaraParameterMapHistoryBuilder::EndTranslation(const UNiagaraScript* Script)
 {
 	EmitterNameContextStack.Reset();
 }
 
-void FNiagaraParameterMapHistoryBuilder::BeginTranslation(UNiagaraEmitter* Emitter)
+void FNiagaraParameterMapHistoryBuilder::BeginTranslation(const UNiagaraEmitter* Emitter)
 {
 	//For now this will just tell particle scripts what emitter they're being compiled as part of but maybe we want to do more here.
 	//This is mainly so that parameter names match up between System/Emitter scripts and the parameters they drive within particle scripts.
@@ -692,7 +858,24 @@ void FNiagaraParameterMapHistoryBuilder::BeginTranslation(UNiagaraEmitter* Emitt
 	BuildCurrentAliases();
 }
 
-void FNiagaraParameterMapHistoryBuilder::EndTranslation(UNiagaraEmitter* Emitter)
+void FNiagaraParameterMapHistoryBuilder::EndTranslation(const UNiagaraEmitter* Emitter)
+{
+	EmitterNameContextStack.Reset();
+}
+
+void FNiagaraParameterMapHistoryBuilder::BeginTranslation(const FString& EmitterUniqueName)
+{
+	//For now this will just tell particle scripts what emitter they're being compiled as part of but maybe we want to do more here.
+	//This is mainly so that parameter names match up between System/Emitter scripts and the parameters they drive within particle scripts.
+	//I dislike this coupling of the translator to emitters but for now it'll have to do.
+	//Will refactor in the future.
+	if (EmitterUniqueName.IsEmpty() == false)
+	{
+		EmitterNameContextStack.Add(*EmitterUniqueName);
+	}
+	BuildCurrentAliases();
+}
+void FNiagaraParameterMapHistoryBuilder::EndTranslation(const FString& EmitterUniqueName)
 {
 	EmitterNameContextStack.Reset();
 }
@@ -723,7 +906,7 @@ bool FNiagaraParameterMapHistoryBuilder::InTopLevelFunctionCall(ENiagaraScriptUs
 		}
 
 	}
-	else if (InFilterScriptType == ENiagaraScriptUsage::ParticleSpawnScript || InFilterScriptType == ENiagaraScriptUsage::ParticleEventScript || InFilterScriptType == ENiagaraScriptUsage::ParticleSpawnScriptInterpolated || InFilterScriptType == ENiagaraScriptUsage::ParticleUpdateScript)
+	else if (UNiagaraScript::IsParticleScript(InFilterScriptType))
 	{
 		if (CallingContext.Num() <= 1) // Handle a function call
 		{
@@ -735,7 +918,7 @@ bool FNiagaraParameterMapHistoryBuilder::InTopLevelFunctionCall(ENiagaraScriptUs
 }
 
 
-void FNiagaraParameterMapHistoryBuilder::EnterFunction(const FString& InNodeName, UNiagaraScript* InScript, UNiagaraNode* Node)
+void FNiagaraParameterMapHistoryBuilder::EnterFunction(const FString& InNodeName, const UNiagaraScript* InScript, UNiagaraNode* Node)
 {
 	if (InScript != nullptr )
 	{
@@ -752,7 +935,7 @@ void FNiagaraParameterMapHistoryBuilder::EnterFunction(const FString& InNodeName
 	}
 }
 
-void FNiagaraParameterMapHistoryBuilder::ExitFunction(const FString& InNodeName, UNiagaraScript* InScript, UNiagaraNode* Node)
+void FNiagaraParameterMapHistoryBuilder::ExitFunction(const FString& InNodeName, const UNiagaraScript* InScript, UNiagaraNode* Node)
 {
 	if (InScript != nullptr)
 	{
@@ -839,7 +1022,6 @@ FNiagaraVariable FNiagaraParameterMapHistoryBuilder::ResolveAliases(const FNiaga
 	return FNiagaraParameterMapHistory::ResolveAliases(InVar, AliasMap, TEXT("."));
 }
 
-
 void FNiagaraParameterMapHistoryBuilder::RegisterNodeVisitation(const UEdGraphNode* Node)
 {
 	ContextuallyVisitedNodes.Last().AddUnique(CastChecked<UNiagaraNode>(Node));
@@ -864,9 +1046,10 @@ void FNiagaraParameterMapHistoryBuilder::VisitInputPin(const UEdGraphPin* Pin, c
 	{
 		for (int32 j = 0; j < Pin->LinkedTo.Num(); j++)
 		{
-			if (Pin->LinkedTo[j])
+			const UEdGraphPin* OutputPin = UNiagaraNode::TraceOutputPin(Pin->LinkedTo[j]);
+			if (OutputPin)
 			{
-				UNiagaraNode* Node = CastChecked<UNiagaraNode>(Pin->LinkedTo[j]->GetOwningNode());
+				UNiagaraNode* Node = CastChecked<UNiagaraNode>(OutputPin->GetOwningNode());
 
 				if (!GetNodePreviouslyVisited(Node))
 				{
@@ -876,7 +1059,7 @@ void FNiagaraParameterMapHistoryBuilder::VisitInputPin(const UEdGraphPin* Pin, c
 
 				if (Schema->PinToTypeDefinition(Pin) == FNiagaraTypeDefinition::GetParameterMapDef())
 				{
-					int32 ParamMapIdx = TraceParameterMapOutputPin(Pin->LinkedTo[j]);
+					int32 ParamMapIdx = TraceParameterMapOutputPin(OutputPin);
 					RegisterParameterMapPin(ParamMapIdx, Pin);
 				}
 			}
@@ -928,6 +1111,18 @@ int32 FNiagaraParameterMapHistoryBuilder::HandleVariableWrite(int32 ParamMapIdx,
 	return Histories[ParamMapIdx].AddVariable(Var,AliasedVar, InPin);
 }
 
+int32 FNiagaraParameterMapHistoryBuilder::HandleVariableWrite(int32 ParameterMapIndex, const FNiagaraVariable& Var)
+{
+	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
+
+	if (!ShouldTrackVariable(Var))
+	{
+		return INDEX_NONE;
+	}
+	FNiagaraVariable ResolvedVar = ResolveAliases(Var);
+
+	return Histories[ParameterMapIndex].AddVariable(ResolvedVar, Var, nullptr);
+}
 
 int32 FNiagaraParameterMapHistoryBuilder::HandleVariableRead(int32 ParamMapIdx, const UEdGraphPin* InPin, bool RegisterReadsAsVariables, const UEdGraphPin* InDefaultPin, bool& OutUsedDefault)
 {
@@ -1007,6 +1202,124 @@ int32 FNiagaraParameterMapHistoryBuilder::HandleVariableRead(int32 ParamMapIdx, 
 
 	return FoundIdx;
 }
+
+void FNiagaraParameterMapHistoryBuilder::RegisterEncounterableVariables(const TArray<FNiagaraVariable>& Variables)
+{
+	EncounterableExternalVariables.Append(Variables);
+}
+
+void UpdateAliasedVariable(FNiagaraVariable& AliasedVar, const FNiagaraVariable& OriginalUnaliasedVar, const FNiagaraVariable& UpdatedUnaliasedVar)
+{
+	AliasedVar.SetType(UpdatedUnaliasedVar.GetType());
+
+	TArray<FString> AliasedSplitName;
+	AliasedVar.GetName().ToString().ParseIntoArray(AliasedSplitName, TEXT("."));
+
+	TArray<FString> OriginalUnaliasedSplitName;
+	OriginalUnaliasedVar.GetName().ToString().ParseIntoArray(OriginalUnaliasedSplitName, TEXT("."));
+
+	TArray<FString> UpdatedUnaliasedSplitName;
+	UpdatedUnaliasedVar.GetName().ToString().ParseIntoArray(UpdatedUnaliasedSplitName, TEXT("."));
+
+	TArray<FString> JoinName;
+	for (int32 i = 0; i < AliasedSplitName.Num(); i++)
+	{
+		if (i >= OriginalUnaliasedSplitName.Num() || i >= UpdatedUnaliasedSplitName.Num())
+		{
+			continue;
+		}
+
+		//if (UpdatedUnaliasedSplitName[i] == OriginalUnaliasedSplitName[i])
+		{
+			JoinName.Add(AliasedSplitName[i]);
+		}
+		//else
+		//{
+		//	JoinName.Add(AliasedSplitName[i]);
+		//}
+	}
+
+	FString OutVarStrName = FString::Join<FString>(JoinName, TEXT("."));
+	AliasedVar.SetName(*OutVarStrName);
+}
+
+int32 FNiagaraParameterMapHistoryBuilder::HandleExternalVariableRead(int32 ParamMapIdx, const FName& Name)
+{
+	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
+
+	FNiagaraParameterMapHistory& History = Histories[ParamMapIdx];
+
+	FNiagaraVariable Var(FNiagaraTypeDefinition(), Name);
+
+	if (!ShouldTrackVariable(Var))
+	{
+		return INDEX_NONE;
+	}
+	FNiagaraVariable AliasedVar = Var;
+	Var = ResolveAliases(Var);
+	FNiagaraVariable OriginalUnaliasedVar = Var;
+
+	//Track any parameter collections we're referencing.
+	FNiagaraVariable FoundTempVar;
+	if (UNiagaraParameterCollection* Collection = Schema->VariableIsFromParameterCollection(Name.ToString(), true, FoundTempVar))
+	{
+		int32 Index = History.ParameterCollections.AddUnique(Collection);
+		History.ParameterCollectionNamespaces.SetNum(History.ParameterCollections.Num());
+		History.ParameterCollectionVariables.SetNum(History.ParameterCollections.Num());
+		History.ParameterCollectionNamespaces[Index] = Collection->GetFullNamespace();
+		History.ParameterCollectionVariables[Index] = Collection->GetParameters();
+		Var = FoundTempVar;
+		UpdateAliasedVariable(AliasedVar, OriginalUnaliasedVar, Var);
+	}
+
+	int32 FoundIdx = Histories[ParamMapIdx].FindVariableByName(Name, true);
+	
+	if (FoundIdx == -1)
+	{
+		const FNiagaraVariable* TempKnownConstant = FNiagaraConstants::GetKnownConstant(Name, true);
+
+		if (!Var.IsValid() && TempKnownConstant != nullptr)
+		{
+			Var = *TempKnownConstant;
+			UpdateAliasedVariable(AliasedVar, OriginalUnaliasedVar, Var);
+		}
+
+		if (!Var.IsValid())
+		{
+			int32 EncounterableFoundIdx = FNiagaraVariable::SearchArrayForPartialNameMatch(EncounterableExternalVariables, Name);
+
+			if (EncounterableFoundIdx != INDEX_NONE)
+			{
+				Var = EncounterableExternalVariables[EncounterableFoundIdx];
+				UpdateAliasedVariable(AliasedVar, OriginalUnaliasedVar, Var);
+			}
+		}
+
+		if (Var.IsValid())
+		{
+			FoundIdx = Histories[ParamMapIdx].Variables.Add(Var);
+			Histories[ParamMapIdx].VariablesWithOriginalAliasesIntact.Add(AliasedVar);
+			Histories[ParamMapIdx].PerVariableWarnings.AddDefaulted(1);
+			Histories[ParamMapIdx].PerVariableWriteHistory.AddDefaulted(1);
+			Histories[ParamMapIdx].PerVariableReadHistory.AddDefaulted(1);
+			check(Histories[ParamMapIdx].Variables.Num() == Histories[ParamMapIdx].PerVariableWarnings.Num());
+			check(Histories[ParamMapIdx].Variables.Num() == Histories[ParamMapIdx].PerVariableWriteHistory.Num());
+			check(Histories[ParamMapIdx].Variables.Num() == Histories[ParamMapIdx].PerVariableReadHistory.Num());
+		}
+		else
+		{
+			UE_LOG(LogNiagaraEditor, Log, TEXT("Could not resolve variable: %s"), *Name.ToString());
+		}
+		
+	}
+	else
+	{
+		// Do nothing here
+	}
+
+	return FoundIdx;
+}
+
 
 void FNiagaraParameterMapHistoryBuilder::BuildCurrentAliases()
 {

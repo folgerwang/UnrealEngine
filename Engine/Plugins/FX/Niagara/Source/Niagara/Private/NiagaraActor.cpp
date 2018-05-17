@@ -29,7 +29,7 @@ ANiagaraActor::ANiagaraActor(const FObjectInitializer& ObjectInitializer)
 			FName ID_Effects;
 			FText NAME_Effects;
 			FConstructorStatics()
-				: SpriteTextureObject(TEXT("/Engine/EditorResources/S_Emitter"))
+				: SpriteTextureObject(TEXT("/Niagara/Icons/S_ParticleSystem"))
 				, ID_Effects(TEXT("Effects"))
 				, NAME_Effects(NSLOCTEXT("SpriteCategory", "Effects", "Effects"))
 			{

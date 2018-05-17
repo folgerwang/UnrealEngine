@@ -290,6 +290,10 @@ void FSkeletalMeshSamplingInfo::BuildRegions(USkeletalMesh* SkeletalMesh)
 		FSkeletalMeshSamplingRegion& Region = Regions[RegionIndex];
 		FSkeletalMeshSamplingRegionBuiltData& RegionBuiltData = BuiltData.RegionBuiltData[RegionIndex];
 		int32 LODIndex = Region.LODIndex;
+		if (LODIndex == INDEX_NONE)
+		{
+			LODIndex = SkeletalMesh->GetResourceForRendering()->LODRenderData.Num() - 1;
+		}
 		if (!SkeletalMesh->IsValidLODIndex(LODIndex))
 		{
 			continue;

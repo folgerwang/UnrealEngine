@@ -25,6 +25,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogD3D11RHI, Log, All);
 #include "D3D11Util.h"
 #include "D3D11State.h"
 #include "D3D11Resources.h"
+#include "D3D11GPUReadback.h"
 #include "D3D11Viewport.h"
 #include "D3D11ConstantBuffer.h"
 #include "D3D11StateCache.h"
@@ -444,7 +445,8 @@ public:
 	virtual class IRHICommandContext* RHIGetDefaultContext() final override;
 	virtual class IRHICommandContextContainer* RHIGetCommandContextContainer(int32 Index, int32 Num) final override;
 
-
+	virtual FGPUFenceRHIRef RHICreateGPUFence(const FName &Name) final override;
+	virtual FStagingBufferRHIRef RHICreateStagingBuffer() final override;
 
 	virtual void RHISetComputeShader(FComputeShaderRHIParamRef ComputeShader) final override;
 	virtual void RHIDispatchComputeShader(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ) final override;

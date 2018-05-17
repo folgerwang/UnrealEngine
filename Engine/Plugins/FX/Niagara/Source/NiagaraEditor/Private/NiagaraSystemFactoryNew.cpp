@@ -50,8 +50,6 @@ void UNiagaraSystemFactoryNew::InitializeSystem(UNiagaraSystem* System, bool bCr
 {
 	UNiagaraScript* SystemSpawnScript = System->GetSystemSpawnScript();
 	UNiagaraScript* SystemUpdateScript = System->GetSystemUpdateScript();
-	UNiagaraScript* SystemSpawnScriptSolo = System->GetSystemSpawnScript(true);
-	UNiagaraScript* SystemUpdateScriptSolo = System->GetSystemUpdateScript(true);
 
 	UNiagaraScriptSource* SystemScriptSource = NewObject<UNiagaraScriptSource>(SystemSpawnScript, "SystemScriptSource", RF_Transactional);
 
@@ -62,8 +60,6 @@ void UNiagaraSystemFactoryNew::InitializeSystem(UNiagaraSystem* System, bool bCr
 
 	SystemSpawnScript->SetSource(SystemScriptSource);
 	SystemUpdateScript->SetSource(SystemScriptSource);
-	SystemSpawnScriptSolo->SetSource(SystemScriptSource);
-	SystemUpdateScriptSolo->SetSource(SystemScriptSource);
 
 	if (bCreateDefaultNodes)
 	{

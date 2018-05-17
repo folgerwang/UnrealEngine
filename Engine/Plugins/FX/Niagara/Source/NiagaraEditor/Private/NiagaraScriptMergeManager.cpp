@@ -11,12 +11,15 @@
 #include "NiagaraNodeInput.h"
 #include "NiagaraNodeOutput.h"
 #include "NiagaraNodeFunctionCall.h"
+#include "NiagaraNodeCustomHlsl.h"
 #include "NiagaraNodeAssignment.h"
 #include "NiagaraNodeParameterMapGet.h"
 #include "NiagaraNodeParameterMapSet.h"
 #include "NiagaraEditorUtilities.h"
 #include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 #include "NiagaraEditorModule.h"
+#include "NiagaraEmitterEditorData.h"
+
 #include "UObject/PropertyPortFlags.h"
 
 #include "EdGraph/EdGraphNode.h"
@@ -44,6 +47,8 @@ FNiagaraStackFunctionInputOverrideMergeAdapter::FNiagaraStackFunctionInputOverri
 	
 	InputName = FNiagaraParameterHandle(OverridePin->PinName).GetName().ToString();
 	OverrideNode = CastChecked<UNiagaraNodeParameterMapSet>(OverridePin->GetOwningNode());
+	const UEdGraphSchema_Niagara* NiagaraSchema = GetDefault<UEdGraphSchema_Niagara>();
+	Type = NiagaraSchema->PinToTypeDefinition(OverridePin);
 
 	if (OverridePin->LinkedTo.Num() == 0)
 	{
@@ -51,6 +56,8 @@ FNiagaraStackFunctionInputOverrideMergeAdapter::FNiagaraStackFunctionInputOverri
 	}
 	else if (OverridePin->LinkedTo.Num() == 1)
 	{
+		OverrideValueNodePersistentId = OverridePin->LinkedTo[0]->GetOwningNode()->NodeGuid;
+
 		if (OverridePin->LinkedTo[0]->GetOwningNode()->IsA<UNiagaraNodeParameterMapGet>())
 		{
 			LinkedValueHandle = FNiagaraParameterHandle(OverridePin->LinkedTo[0]->PinName);
@@ -86,6 +93,7 @@ FNiagaraStackFunctionInputOverrideMergeAdapter::FNiagaraStackFunctionInputOverri
 	, OwningScript(&InOwningScript)
 	, OwningFunctionCallNode(&InOwningFunctionCallNode)
 	, InputName(InInputName)
+	, Type(InRapidIterationParameter.GetType())
 	, OverridePin(nullptr)
 	, LocalValueRapidIterationParameter(InRapidIterationParameter)
 	, DataValueObject(nullptr)
@@ -112,9 +120,19 @@ UNiagaraNodeParameterMapSet* FNiagaraStackFunctionInputOverrideMergeAdapter::Get
 	return OverrideNode.Get();
 }
 
+const FNiagaraTypeDefinition& FNiagaraStackFunctionInputOverrideMergeAdapter::GetType() const
+{
+	return Type;
+}
+
 UEdGraphPin* FNiagaraStackFunctionInputOverrideMergeAdapter::GetOverridePin() const
 {
 	return OverridePin;
+}
+
+const FGuid& FNiagaraStackFunctionInputOverrideMergeAdapter::GetOverrideNodeId() const
+{
+	return OverrideValueNodePersistentId;
 }
 
 TOptional<FString> FNiagaraStackFunctionInputOverrideMergeAdapter::GetLocalValueString() const
@@ -213,11 +231,17 @@ TSharedPtr<FNiagaraStackFunctionInputOverrideMergeAdapter> FNiagaraStackFunction
 FNiagaraScriptStackMergeAdapter::FNiagaraScriptStackMergeAdapter(UNiagaraNodeOutput& InOutputNode, UNiagaraScript& InScript, FString InUniqueEmitterName)
 {
 	OutputNode = &InOutputNode;
+	InputNode.Reset();
 	Script = &InScript;
 	UniqueEmitterName = InUniqueEmitterName;
 
 	TArray<FNiagaraStackGraphUtilities::FStackNodeGroup> StackGroups;
 	FNiagaraStackGraphUtilities::GetStackNodeGroups(*OutputNode, StackGroups);
+
+	if (StackGroups.Num() >= 2 && StackGroups[0].EndNode->IsA<UNiagaraNodeInput>())
+	{
+		InputNode = Cast<UNiagaraNodeInput>(StackGroups[0].EndNode);
+	}
 
 	if (StackGroups.Num() > 2 && StackGroups[0].EndNode->IsA<UNiagaraNodeInput>() && StackGroups.Last().EndNode->IsA<UNiagaraNodeOutput>())
 	{
@@ -232,6 +256,11 @@ FNiagaraScriptStackMergeAdapter::FNiagaraScriptStackMergeAdapter(UNiagaraNodeOut
 			}
 		}
 	}
+}
+
+UNiagaraNodeInput* FNiagaraScriptStackMergeAdapter::GetInputNode() const
+{
+	return InputNode.Get();
 }
 
 UNiagaraNodeOutput* FNiagaraScriptStackMergeAdapter::GetOutputNode() const
@@ -293,6 +322,7 @@ void FNiagaraEventHandlerMergeAdapter::Initialize(const UNiagaraEmitter& InEmitt
 	if (EventScriptProperties != nullptr && OutputNode != nullptr)
 	{
 		EventStack = MakeShared<FNiagaraScriptStackMergeAdapter>(*OutputNode.Get(), *EventScriptProperties->Script, Emitter->GetUniqueEmitterName());
+		InputNode = EventStack->GetInputNode();
 	}
 }
 
@@ -326,6 +356,11 @@ FNiagaraEventScriptProperties* FNiagaraEventHandlerMergeAdapter::GetEditableEven
 UNiagaraNodeOutput* FNiagaraEventHandlerMergeAdapter::GetOutputNode() const
 {
 	return OutputNode.Get();
+}
+
+UNiagaraNodeInput* FNiagaraEventHandlerMergeAdapter::GetInputNode() const
+{
+	return InputNode.Get();
 }
 
 TSharedPtr<FNiagaraScriptStackMergeAdapter> FNiagaraEventHandlerMergeAdapter::GetEventStack() const
@@ -525,7 +560,9 @@ bool FNiagaraScriptStackDiffResults::IsEmpty() const
 		EnabledChangedOtherModules.Num() == 0 &&
 		RemovedBaseInputOverrides.Num() == 0 &&
 		AddedOtherInputOverrides.Num() == 0 &&
-		ModifiedOtherInputOverrides.Num() == 0;
+		ModifiedOtherInputOverrides.Num() == 0 &&
+		ChangedBaseUsage.IsSet() == false &&
+		ChangedOtherUsage.IsSet() == false;
 }
 
 bool FNiagaraScriptStackDiffResults::IsValid() const
@@ -601,15 +638,172 @@ TSharedRef<FNiagaraScriptMergeManager> FNiagaraScriptMergeManager::Get()
 	return NiagaraEditorModule.GetScriptMergeManager();
 }
 
+void FNiagaraScriptMergeManager::DiffChangeIds(const TMap<FGuid, FGuid>& InSourceChangeIds, const TMap<FGuid, FGuid>& InLastMergedChangeIds, const TMap<FGuid, FGuid>& InInstanceChangeIds, TMap<FGuid, FGuid>& OutChangeIdsToKeepOnInstance)
+{
+	auto It = InInstanceChangeIds.CreateConstIterator();
+	while (It)
+	{
+		const FGuid* MatchingSourceChangeId = InSourceChangeIds.Find(It.Key());
+		const FGuid* MatchingLastMergedChangeId = InLastMergedChangeIds.Find(It.Key());
+
+		// If we don't have source from the original or from the last merged version of the original, then the instance originated the node and needs to keep it.
+		if (MatchingSourceChangeId == nullptr && MatchingLastMergedChangeId == nullptr)
+		{
+			OutChangeIdsToKeepOnInstance.Add(It.Key(), It.Value());
+		}
+		else if (MatchingSourceChangeId != nullptr && MatchingLastMergedChangeId != nullptr)
+		{
+			// If both had a copy of the node and both agree on the change id, then we should keep the change id of the instance as it will be the most accurate.
+			if (MatchingSourceChangeId->IsValid() && MatchingLastMergedChangeId->IsValid() && (*MatchingSourceChangeId) == (*MatchingLastMergedChangeId))
+			{
+				OutChangeIdsToKeepOnInstance.Add(It.Key(), It.Value());
+			}
+		}
+		else if (MatchingLastMergedChangeId != nullptr)
+		{
+			// If only the previous version had the matching key, then we may possibly keep this node around as a local node, in which case, we should apply the override. 
+			OutChangeIdsToKeepOnInstance.Add(It.Key(), It.Value());
+		}
+		else if (MatchingSourceChangeId != nullptr)
+		{
+			// I'm not sure that there's a way for us to reach this situation, where the node exists on the source and the instance, but not the 
+			// last merged version.
+			check(false);
+		}
+
+		++It;
+	}
+}
+
+FNiagaraScriptMergeManager::FApplyDiffResults FNiagaraScriptMergeManager::ResolveChangeIds(TSharedRef<FNiagaraEmitterMergeAdapter> MergedInstanceAdapter, UNiagaraEmitter& OriginalEmitterInstance, const TMap<FGuid, FGuid>& ChangeIdsThatNeedToBeReset)
+{
+	FApplyDiffResults DiffResults;
+
+	if (ChangeIdsThatNeedToBeReset.Num() != 0)
+	{
+		auto It = ChangeIdsThatNeedToBeReset.CreateConstIterator();
+		UNiagaraEmitter* Emitter = MergedInstanceAdapter->GetEditableEmitter();
+
+		TArray<UNiagaraGraph*> Graphs;
+		TArray<UNiagaraScript*> Scripts;
+		Emitter->GetScripts(Scripts);
+
+		TArray<UNiagaraScript*> OriginalScripts;
+		OriginalEmitterInstance.GetScripts(OriginalScripts);
+
+		// First gather all the graphs used by this emitter..
+		for (UNiagaraScript* Script : Scripts)
+		{
+			if (Script != nullptr && Script->GetSource() != nullptr)
+			{
+				UNiagaraScriptSource* ScriptSource = Cast<UNiagaraScriptSource>(Script->GetSource());
+				if (ScriptSource != nullptr)
+				{
+					Graphs.AddUnique(ScriptSource->NodeGraph);
+				}
+			}
+		}
+
+		// Now gather up all the nodes
+		TArray<UNiagaraNode*> Nodes;
+		for (UNiagaraGraph* Graph : Graphs)
+		{
+			Graph->GetNodesOfClass(Nodes);
+		}
+
+		// Now go through all the nodes and set the persistent change ids if we encounter a node that needs it's change id kept.
+		bool bAnySet = false;
+		while (It)
+		{			
+			bool bFound = false;
+			for (UNiagaraNode* Node : Nodes)
+			{
+				if (Node->NodeGuid == It.Key())
+				{
+					Node->ForceChangeId(It.Value(), false);
+					bAnySet = true;
+					bFound = true;
+					break;
+				}
+			}
+
+			if (!bFound)
+			{
+				UE_LOG(LogNiagaraEditor, Log, TEXT("Looks like %s was removed.. is that expected?"), *It.Key().ToString())
+			}
+			++It;
+		}
+
+		if (bAnySet)
+		{
+			for (UNiagaraGraph* Graph : Graphs)
+			{
+				Graph->MarkGraphRequiresSynchronization(TEXT("Overwrote change id's within graph."));
+			}
+		}
+
+		DiffResults.bModifiedGraph = bAnySet;
+
+		UNiagaraScriptSource* ScriptSource = Cast<UNiagaraScriptSource>(OriginalEmitterInstance.GraphSource);
+		if (ScriptSource && bAnySet)
+		{
+			UNiagaraGraph* OtherGraph = ScriptSource->NodeGraph;
+			if (OtherGraph)
+			{
+				for (UNiagaraGraph* Graph : Graphs)
+				{
+					Graph->SynchronizeInternalCacheWithGraph(OtherGraph);
+				}
+			}
+		}
+
+		if (bAnySet)
+		{
+			bool bAnyUpdated = false;
+			TMap<FString, FString> RenameMap;
+			RenameMap.Add(TEXT("Emitter"), TEXT("Emitter"));
+			for (UNiagaraScript* Script : Scripts)
+			{
+				for (UNiagaraScript* OriginalScript : OriginalScripts)
+				{
+					if (Script->Usage == OriginalScript->Usage && Script->GetUsageId() == OriginalScript->GetUsageId())
+					{
+						bAnyUpdated |= Script->SynchronizeExecutablesWithMaster(OriginalScript, RenameMap);
+					}
+				}
+			}
+
+			if (bAnyUpdated)
+			{
+				//Emitter->OnPostCompile();
+			}
+		}
+	}
+
+	DiffResults.bSucceeded = true;
+	return DiffResults;
+}
+
 INiagaraModule::FMergeEmitterResults FNiagaraScriptMergeManager::MergeEmitter(UNiagaraEmitter& Source, UNiagaraEmitter& LastMergedSource, UNiagaraEmitter& Instance)
 {
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraEditor_ScriptMergeManager_MergeEmitter);
 	INiagaraModule::FMergeEmitterResults MergeResults;
+
 	FNiagaraEmitterDiffResults DiffResults = DiffEmitters(LastMergedSource, Instance);
+
 	if (DiffResults.IsValid())
 	{
 		UNiagaraEmitter* MergedInstance = CastChecked<UNiagaraEmitter>(StaticDuplicateObject(&Source, (UObject*)GetTransientPackage()));
 		TSharedRef<FNiagaraEmitterMergeAdapter> MergedInstanceAdapter = MakeShared<FNiagaraEmitterMergeAdapter>(*MergedInstance);
+
+		TMap<FGuid, FGuid> SourceChangeIds;
+		TMap<FGuid, FGuid> PreviousSourceChangeIds;
+		TMap<FGuid, FGuid> LastChangeIds;
+		TMap<FGuid, FGuid> ChangeIdsThatNeedToBeReset;
+		FNiagaraEditorUtilities::GatherChangeIds(Source, SourceChangeIds, TEXT("Source"));
+		FNiagaraEditorUtilities::GatherChangeIds(LastMergedSource, PreviousSourceChangeIds, TEXT("MergeLast"));
+		FNiagaraEditorUtilities::GatherChangeIds(Instance, LastChangeIds, TEXT("Instance"));
+		DiffChangeIds(SourceChangeIds, PreviousSourceChangeIds, LastChangeIds, ChangeIdsThatNeedToBeReset);
 
 		FApplyDiffResults EmitterSpawnResults = ApplyScriptStackDiff(MergedInstanceAdapter->GetEmitterSpawnStack().ToSharedRef(), DiffResults.EmitterSpawnDiffResults);
 		MergeResults.bSucceeded &= EmitterSpawnResults.bSucceeded;
@@ -642,15 +836,81 @@ INiagaraModule::FMergeEmitterResults FNiagaraScriptMergeManager::MergeEmitter(UN
 		MergeResults.ErrorMessages.Append(RendererResults.ErrorMessages);
 
 		CopyPropertiesToBase(MergedInstance, &Instance, DiffResults.DifferentEmitterProperties);
+		if (Instance.EditorData != nullptr)
+		{
+			// We keep the instance editor data here so that the UI state in the system stays more consistent.
+			MergedInstance->EditorData = Cast<UNiagaraEmitterEditorData>(StaticDuplicateObject(Instance.EditorData, MergedInstance));
+		}
+
+#if 0
+		UE_LOG(LogNiagaraEditor, Log, TEXT("A"));
+		//for (FNiagaraEmitterHandle& EmitterHandle : EmitterHandles)
+		{
+			//UE_LOG(LogNiagara, Log, TEXT("Emitter Handle: %s"), *EmitterHandle.GetUniqueInstanceName());
+			UNiagaraScript* UpdateScript = MergedInstance->GetScript(ENiagaraScriptUsage::ParticleUpdateScript, FGuid());
+			UNiagaraScript* SpawnScript = MergedInstance->GetScript(ENiagaraScriptUsage::ParticleSpawnScript, FGuid());
+			UE_LOG(LogNiagaraEditor, Log, TEXT("Spawn Parameters"));
+			SpawnScript->GetVMExecutableData().Parameters.DumpParameters();
+			UE_LOG(LogNiagaraEditor, Log, TEXT("Spawn RI Parameters"));
+			SpawnScript->RapidIterationParameters.DumpParameters();
+			UE_LOG(LogNiagaraEditor, Log, TEXT("Update Parameters"));
+			UpdateScript->GetVMExecutableData().Parameters.DumpParameters();
+			UE_LOG(LogNiagaraEditor, Log, TEXT("Update RI Parameters"));
+			UpdateScript->RapidIterationParameters.DumpParameters();
+		}
+#endif
+		
+		FApplyDiffResults ChangeIdResults = ResolveChangeIds(MergedInstanceAdapter, Instance, ChangeIdsThatNeedToBeReset);
+		MergeResults.bSucceeded &= ChangeIdResults.bSucceeded;
+		MergeResults.bModifiedGraph |= ChangeIdResults.bModifiedGraph;
+		MergeResults.ErrorMessages.Append(ChangeIdResults.ErrorMessages);
+		
+#if 0
+		UE_LOG(LogNiagaraEditor, Log, TEXT("B"));
+		//for (FNiagaraEmitterHandle& EmitterHandle : EmitterHandles)
+		{
+			//UE_LOG(LogNiagara, Log, TEXT("Emitter Handle: %s"), *EmitterHandle.GetUniqueInstanceName());
+			UNiagaraScript* UpdateScript = MergedInstance->GetScript(ENiagaraScriptUsage::ParticleUpdateScript, FGuid());
+			UNiagaraScript* SpawnScript = MergedInstance->GetScript(ENiagaraScriptUsage::ParticleSpawnScript, FGuid());
+			UE_LOG(LogNiagaraEditor, Log, TEXT("Spawn Parameters"));
+			SpawnScript->GetVMExecutableData().Parameters.DumpParameters();
+			UE_LOG(LogNiagaraEditor, Log, TEXT("Spawn RI Parameters"));
+			SpawnScript->RapidIterationParameters.DumpParameters();
+			UE_LOG(LogNiagaraEditor, Log, TEXT("Update Parameters"));
+			UpdateScript->GetVMExecutableData().Parameters.DumpParameters();
+			UE_LOG(LogNiagaraEditor, Log, TEXT("Update RI Parameters"));
+			UpdateScript->RapidIterationParameters.DumpParameters();
+		}
+#endif
 
 		FNiagaraStackGraphUtilities::CleanUpStaleRapidIterationParameters(*MergedInstance);
 
+#if 0
+		UE_LOG(LogNiagaraEditor, Log, TEXT("C"));
+		//for (FNiagaraEmitterHandle& EmitterHandle : EmitterHandles)
+		{
+			//UE_LOG(LogNiagara, Log, TEXT("Emitter Handle: %s"), *EmitterHandle.GetUniqueInstanceName());
+			UNiagaraScript* UpdateScript = MergedInstance->GetScript(ENiagaraScriptUsage::ParticleUpdateScript, FGuid());
+			UNiagaraScript* SpawnScript = MergedInstance->GetScript(ENiagaraScriptUsage::ParticleSpawnScript, FGuid());
+			UE_LOG(LogNiagaraEditor, Log, TEXT("Spawn Parameters"));
+			SpawnScript->GetVMExecutableData().Parameters.DumpParameters();
+			UE_LOG(LogNiagaraEditor, Log, TEXT("Spawn RI Parameters"));
+			SpawnScript->RapidIterationParameters.DumpParameters();
+			UE_LOG(LogNiagaraEditor, Log, TEXT("Update Parameters"));
+			UpdateScript->GetVMExecutableData().Parameters.DumpParameters();
+			UE_LOG(LogNiagaraEditor, Log, TEXT("Update RI Parameters"));
+			UpdateScript->RapidIterationParameters.DumpParameters();
+		}
+#endif
 		if (MergeResults.bSucceeded)
 		{
 			UNiagaraScriptSource* ScriptSource = Cast<UNiagaraScriptSource>(MergedInstance->GraphSource);
 			FNiagaraStackGraphUtilities::RelayoutGraph(*ScriptSource->NodeGraph);
 			MergeResults.MergedInstance = MergedInstance;
 		}
+
+		TMap<FGuid, FGuid> FinalChangeIds;
+		FNiagaraEditorUtilities::GatherChangeIds(*MergedInstance, FinalChangeIds, TEXT("Final"));
 	}
 	else
 	{
@@ -1117,6 +1377,12 @@ void FNiagaraScriptMergeManager::DiffScriptStacks(TSharedRef<FNiagaraScriptStack
 
 		DiffFunctionInputs(CommonValuePair.BaseValue, CommonValuePair.OtherValue, DiffResults);
 	}
+
+	if (BaseScriptStackAdapter->GetScript()->GetUsage() != OtherScriptStackAdapter->GetScript()->GetUsage())
+	{
+		DiffResults.ChangedBaseUsage = BaseScriptStackAdapter->GetScript()->GetUsage();
+		DiffResults.ChangedOtherUsage = OtherScriptStackAdapter->GetScript()->GetUsage();
+	}
 }
 
 void FNiagaraScriptMergeManager::DiffFunctionInputs(TSharedRef<FNiagaraStackFunctionMergeAdapter> BaseFunctionAdapter, TSharedRef<FNiagaraStackFunctionMergeAdapter> OtherFunctionAdapter, FNiagaraScriptStackDiffResults& DiffResults)
@@ -1153,7 +1419,7 @@ void FNiagaraScriptMergeManager::DiffEditableProperties(const void* BaseDataAddr
 {
 	for (TFieldIterator<UProperty> PropertyIterator(&Struct); PropertyIterator; ++PropertyIterator)
 	{
-		if (PropertyIterator->HasAllPropertyFlags(CPF_Edit))
+		if (PropertyIterator->HasAllPropertyFlags(CPF_Edit) && PropertyIterator->HasMetaData("NiagaraNoMerge") == false)
 		{
 			if (PropertyIterator->Identical(
 				PropertyIterator->ContainerPtrToValuePtr<void>(BaseDataAddress),
@@ -1231,7 +1497,17 @@ TOptional<bool> FNiagaraScriptMergeManager::DoFunctionInputOverridesMatch(TShare
 
 	if (BaseFunctionInputAdapter->GetDynamicValueFunction().IsValid() && OtherFunctionInputAdapter->GetDynamicValueFunction().IsValid())
 	{
-		if (BaseFunctionInputAdapter->GetDynamicValueFunction()->GetFunctionCallNode()->FunctionScript != OtherFunctionInputAdapter->GetDynamicValueFunction()->GetFunctionCallNode()->FunctionScript)
+		UNiagaraNodeCustomHlsl* BaseCustomHlsl = Cast<UNiagaraNodeCustomHlsl>(BaseFunctionInputAdapter->GetDynamicValueFunction()->GetFunctionCallNode());
+		UNiagaraNodeCustomHlsl* OtherCustomHlsl = Cast<UNiagaraNodeCustomHlsl>(OtherFunctionInputAdapter->GetDynamicValueFunction()->GetFunctionCallNode());
+
+		if (BaseCustomHlsl && OtherCustomHlsl)
+		{
+			if (BaseCustomHlsl->CustomHlsl != OtherCustomHlsl->CustomHlsl || BaseCustomHlsl->ScriptUsage != OtherCustomHlsl->ScriptUsage)
+			{
+				return false;
+			}
+		}
+		else if (BaseFunctionInputAdapter->GetDynamicValueFunction()->GetFunctionCallNode()->FunctionScript != OtherFunctionInputAdapter->GetDynamicValueFunction()->GetFunctionCallNode()->FunctionScript)
 		{
 			return false;
 		}
@@ -1254,7 +1530,12 @@ FNiagaraScriptMergeManager::FApplyDiffResults FNiagaraScriptMergeManager::AddMod
 	UNiagaraNodeFunctionCall* AddedModuleNode = nullptr;
 	if (AddModule->GetFunctionCallNode()->IsA<UNiagaraNodeAssignment>())
 	{
-		AddedModuleNode = FNiagaraStackGraphUtilities::AddParameterModuleToStack(CastChecked<UNiagaraNodeAssignment>(AddModule->GetFunctionCallNode())->AssignmentTarget, TargetOutputNode, AddModule->GetStackIndex());
+		UNiagaraNodeAssignment* AssignmentNode = CastChecked<UNiagaraNodeAssignment>(AddModule->GetFunctionCallNode());
+		const TArray<FNiagaraVariable>& Targets = AssignmentNode->GetAssignmentTargets();
+		const TArray<FString>& Defaults = AssignmentNode->GetAssignmentDefaults();
+		AddedModuleNode = FNiagaraStackGraphUtilities::AddParameterModuleToStack(Targets, TargetOutputNode, AddModule->GetStackIndex(),Defaults);
+		AddedModuleNode->NodeGuid = AddModule->GetFunctionCallNode()->NodeGuid;
+		AddedModuleNode->RefreshFromExternalChanges();
 		Results.bModifiedGraph = true;
 	}
 	else
@@ -1262,6 +1543,7 @@ FNiagaraScriptMergeManager::FApplyDiffResults FNiagaraScriptMergeManager::AddMod
 		if (AddModule->GetFunctionCallNode()->FunctionScript != nullptr)
 		{
 			AddedModuleNode = FNiagaraStackGraphUtilities::AddScriptModuleToStack(AddModule->GetFunctionCallNode()->FunctionScript, TargetOutputNode, AddModule->GetStackIndex());
+			AddedModuleNode->NodeGuid = AddModule->GetFunctionCallNode()->NodeGuid; // Synchronize the node Guid across runs so that the compile id's synch up.
 			Results.bModifiedGraph = true;
 		}
 		else
@@ -1275,6 +1557,9 @@ FNiagaraScriptMergeManager::FApplyDiffResults FNiagaraScriptMergeManager::AddMod
 
 	if (AddedModuleNode != nullptr)
 	{
+		AddedModuleNode->NodeGuid = AddModule->GetFunctionCallNode()->NodeGuid; // Synchronize the node Guid across runs so that the compile id's synch up.
+
+		AddedModuleNode->SetEnabledState(AddModule->GetFunctionCallNode()->GetDesiredEnabledState(), AddModule->GetFunctionCallNode()->HasUserSetTheEnabledState());
 		for (TSharedRef<FNiagaraStackFunctionInputOverrideMergeAdapter> InputOverride : AddModule->GetInputOverrides())
 		{
 			FApplyDiffResults AddInputResults = AddInputOverride(UniqueEmitterName, OwningScript, *AddedModuleNode, InputOverride);
@@ -1322,6 +1607,31 @@ FNiagaraScriptMergeManager::FApplyDiffResults FNiagaraScriptMergeManager::AddInp
 {
 	FApplyDiffResults Results;
 
+	// If an assignment node, make sure that we have an assignment target for the input override.
+	UNiagaraNodeAssignment* AssignmentNode = Cast<UNiagaraNodeAssignment>(&TargetFunctionCall);
+	if (AssignmentNode)
+	{
+		FNiagaraParameterHandle FunctionInputHandle(FNiagaraParameterHandle::ModuleNamespace, *OverrideToAdd->GetInputName());
+		UNiagaraNodeAssignment* PreviousVersionAssignmentNode = Cast<UNiagaraNodeAssignment>(OverrideToAdd->GetOwningFunctionCall());
+		bool bAnyAdded = false;
+		for (int32 i = 0; i < PreviousVersionAssignmentNode->NumTargets(); i++)
+		{
+			const FNiagaraVariable& Var = PreviousVersionAssignmentNode->GetAssignmentTarget(i);
+
+			int32 FoundVarIdx = AssignmentNode->FindAssignmentTarget(Var.GetName());
+			if (FoundVarIdx == INDEX_NONE)
+			{
+				AssignmentNode->AddAssignmentTarget(Var, &PreviousVersionAssignmentNode->GetAssignmentDefaults()[i]);
+				bAnyAdded = true;
+			}
+		}
+
+		if (bAnyAdded)
+		{
+			AssignmentNode->RefreshFromExternalChanges();
+		}
+	}
+
 	if (OverrideToAdd->GetOverridePin() != nullptr)
 	{
 		FNiagaraParameterHandle FunctionInputHandle(FNiagaraParameterHandle::ModuleNamespace, *OverrideToAdd->GetInputName());
@@ -1330,50 +1640,76 @@ FNiagaraScriptMergeManager::FApplyDiffResults FNiagaraScriptMergeManager::AddInp
 		const UEdGraphSchema_Niagara* NiagaraSchema = GetDefault<UEdGraphSchema_Niagara>();
 		FNiagaraTypeDefinition InputType = NiagaraSchema->PinToTypeDefinition(OverrideToAdd->GetOverridePin());
 
-		UEdGraphPin& InputOverridePin = FNiagaraStackGraphUtilities::GetOrCreateStackFunctionInputOverridePin(TargetFunctionCall, AliasedFunctionInputHandle, InputType);
-
-		if (OverrideToAdd->GetLocalValueString().IsSet())
+		UEdGraphPin& InputOverridePin = FNiagaraStackGraphUtilities::GetOrCreateStackFunctionInputOverridePin(TargetFunctionCall, AliasedFunctionInputHandle, InputType, OverrideToAdd->GetOverrideNode()->NodeGuid);
+		if (InputOverridePin.LinkedTo.Num() != 0)
 		{
-			InputOverridePin.DefaultValue = OverrideToAdd->GetLocalValueString().GetValue();
-			Results.bSucceeded = true;
+			Results.bSucceeded = false;
+			Results.ErrorMessages.Add(LOCTEXT("AddPinBasedInputOverrideFailedOverridePinStillLinked", "Failed to add input override because the target override pin was still linked to other nodes."));
 		}
-		else if (OverrideToAdd->GetLinkedValueHandle().IsSet())
+		else
 		{
-			FNiagaraStackGraphUtilities::SetLinkedValueHandleForFunctionInput(InputOverridePin, OverrideToAdd->GetLinkedValueHandle().GetValue());
-			Results.bSucceeded = true;
-		}
-		else if (OverrideToAdd->GetDataValueObject() != nullptr)
-		{
-			UNiagaraDataInterface* OverrideValueObject = OverrideToAdd->GetDataValueObject();
-			UNiagaraDataInterface* NewOverrideValueObject;
-			FNiagaraStackGraphUtilities::SetDataValueObjectForFunctionInput(InputOverridePin, OverrideToAdd->GetDataValueObject()->GetClass(), OverrideValueObject->GetName(), NewOverrideValueObject);
-			OverrideValueObject->CopyTo(NewOverrideValueObject);
-			Results.bSucceeded = true;
-		}
-		else if (OverrideToAdd->GetDynamicValueFunction().IsValid())
-		{
-			if (OverrideToAdd->GetDynamicValueFunction()->GetFunctionCallNode()->FunctionScript != nullptr)
+			if (OverrideToAdd->GetLocalValueString().IsSet())
 			{
-				UNiagaraNodeFunctionCall* DynamicInputFunctionCall;
-				FNiagaraStackGraphUtilities::SetDynamicInputForFunctionInput(InputOverridePin, OverrideToAdd->GetDynamicValueFunction()->GetFunctionCallNode()->FunctionScript, DynamicInputFunctionCall);
-				for (TSharedRef<FNiagaraStackFunctionInputOverrideMergeAdapter> DynamicInputInputOverride : OverrideToAdd->GetDynamicValueFunction()->GetInputOverrides())
+				InputOverridePin.DefaultValue = OverrideToAdd->GetLocalValueString().GetValue();
+				Results.bSucceeded = true;
+			}
+			else if (OverrideToAdd->GetLinkedValueHandle().IsSet())
+			{
+				FNiagaraStackGraphUtilities::SetLinkedValueHandleForFunctionInput(InputOverridePin, OverrideToAdd->GetLinkedValueHandle().GetValue(), OverrideToAdd->GetOverrideNodeId());
+				Results.bSucceeded = true;
+			}
+			else if (OverrideToAdd->GetDataValueObject() != nullptr)
+			{
+				UNiagaraDataInterface* OverrideValueObject = OverrideToAdd->GetDataValueObject();
+				UNiagaraDataInterface* NewOverrideValueObject;
+				FNiagaraStackGraphUtilities::SetDataValueObjectForFunctionInput(InputOverridePin, OverrideToAdd->GetDataValueObject()->GetClass(), OverrideValueObject->GetName(), NewOverrideValueObject, OverrideToAdd->GetOverrideNodeId());
+				OverrideValueObject->CopyTo(NewOverrideValueObject);
+				Results.bSucceeded = true;
+			}
+			else if (OverrideToAdd->GetDynamicValueFunction().IsValid())
+			{
+				UNiagaraNodeCustomHlsl* CustomHlslFunction = Cast<UNiagaraNodeCustomHlsl>(OverrideToAdd->GetDynamicValueFunction()->GetFunctionCallNode());
+				if (CustomHlslFunction != nullptr)
 				{
-					FApplyDiffResults AddResults = AddInputOverride(UniqueEmitterName, OwningScript, *DynamicInputFunctionCall, DynamicInputInputOverride);
-					Results.bSucceeded &= AddResults.bSucceeded;
-					Results.bModifiedGraph |= AddResults.bModifiedGraph;
-					Results.ErrorMessages.Append(AddResults.ErrorMessages);
+					UNiagaraNodeCustomHlsl* DynamicInputFunctionCall;
+					FNiagaraStackGraphUtilities::SetCustomExpressionForFunctionInput(InputOverridePin, DynamicInputFunctionCall, OverrideToAdd->GetOverrideNodeId());
+					DynamicInputFunctionCall->CustomHlsl = CustomHlslFunction->CustomHlsl;
+					for (TSharedRef<FNiagaraStackFunctionInputOverrideMergeAdapter> DynamicInputInputOverride : OverrideToAdd->GetDynamicValueFunction()->GetInputOverrides())
+					{
+						FApplyDiffResults AddResults = AddInputOverride(UniqueEmitterName, OwningScript, *((UNiagaraNodeFunctionCall*)DynamicInputFunctionCall), DynamicInputInputOverride);
+						Results.bSucceeded &= AddResults.bSucceeded;
+						Results.bModifiedGraph |= AddResults.bModifiedGraph;
+						Results.ErrorMessages.Append(AddResults.ErrorMessages);
+					}
+				}
+				else if (OverrideToAdd->GetDynamicValueFunction()->GetFunctionCallNode()->FunctionScript != nullptr)
+				{
+					UNiagaraNodeFunctionCall* DynamicInputFunctionCall;
+					FNiagaraStackGraphUtilities::SetDynamicInputForFunctionInput(InputOverridePin, OverrideToAdd->GetDynamicValueFunction()->GetFunctionCallNode()->FunctionScript,
+						DynamicInputFunctionCall, OverrideToAdd->GetOverrideNodeId(), OverrideToAdd->GetDynamicValueFunction()->GetFunctionCallNode()->GetFunctionName());
+					if (DynamicInputFunctionCall->GetFunctionName() != OverrideToAdd->GetDynamicValueFunction()->GetFunctionCallNode()->GetFunctionName())
+					{
+						DynamicInputFunctionCall->NodeGuid = FGuid::NewGuid();
+					}
+					for (TSharedRef<FNiagaraStackFunctionInputOverrideMergeAdapter> DynamicInputInputOverride : OverrideToAdd->GetDynamicValueFunction()->GetInputOverrides())
+					{
+						FApplyDiffResults AddResults = AddInputOverride(UniqueEmitterName, OwningScript, *DynamicInputFunctionCall, DynamicInputInputOverride);
+						Results.bSucceeded &= AddResults.bSucceeded;
+						Results.bModifiedGraph |= AddResults.bModifiedGraph;
+						Results.ErrorMessages.Append(AddResults.ErrorMessages);
+					}
+				}
+				else
+				{
+					Results.bSucceeded = false;
+					Results.ErrorMessages.Add(LOCTEXT("AddPinBasedInputOverrideFailedInvalidDynamicInput", "Failed to add input override because it's dynamic function call's function script was null."));
 				}
 			}
 			else
 			{
 				Results.bSucceeded = false;
-				Results.ErrorMessages.Add(LOCTEXT("AddPinBasedInputOverrideFailedInvalidDynamicInput", "Failed to add input override because it's dynamic function call's function script was null."));
+				Results.ErrorMessages.Add(LOCTEXT("AddPinBasedInputOverrideFailed", "Failed to add input override because it was invalid."));
 			}
-		}
-		else
-		{
-			Results.bSucceeded = false;
-			Results.ErrorMessages.Add(LOCTEXT("AddPinBasedInputOverrideFailed", "Failed to add input override because it was invalid."));
 		}
 		Results.bModifiedGraph = true;
 	}
@@ -1508,6 +1844,13 @@ FNiagaraScriptMergeManager::FApplyDiffResults FNiagaraScriptMergeManager::ApplyS
 		}
 	}
 
+	// Update the usage if different
+	if (DiffResults.ChangedOtherUsage.IsSet())
+	{
+		BaseScriptStackAdapter->GetScript()->SetUsage(DiffResults.ChangedOtherUsage.GetValue());
+		BaseScriptStackAdapter->GetOutputNode()->SetUsage(DiffResults.ChangedOtherUsage.GetValue());
+	}
+
 	// Apply the graph actions.
 	for (TSharedRef<FNiagaraStackFunctionMergeAdapter> RemoveModule : RemoveModules)
 	{
@@ -1624,11 +1967,13 @@ FNiagaraScriptMergeManager::FApplyDiffResults FNiagaraScriptMergeManager::ApplyE
 			FNiagaraEventScriptProperties AddedEventScriptProperties = *AddedEventHandler->GetEventScriptProperties();
 			AddedEventScriptProperties.Script = NewObject<UNiagaraScript>(BaseEmitter, MakeUniqueObjectName(BaseEmitter, UNiagaraScript::StaticClass(), "EventScript"), EObjectFlags::RF_Transactional);
 			AddedEventScriptProperties.Script->SetUsage(ENiagaraScriptUsage::ParticleEventScript);
-			AddedEventScriptProperties.Script->SetUsageId(FGuid::NewGuid());
+			AddedEventScriptProperties.Script->SetUsageId(AddedEventHandler->GetUsageId());
 			AddedEventScriptProperties.Script->SetSource(EmitterSource);
 			BaseEmitter->AddEventHandler(AddedEventScriptProperties);
 
-			UNiagaraNodeOutput* EventOutputNode = FNiagaraStackGraphUtilities::ResetGraphForOutput(*EmitterGraph, ENiagaraScriptUsage::ParticleEventScript, AddedEventScriptProperties.Script->GetUsageId());
+			FGuid PreferredOutputNodeGuid = AddedEventHandler->GetOutputNode()->NodeGuid;
+			FGuid PreferredInputNodeGuid = AddedEventHandler->GetInputNode()->NodeGuid;
+			UNiagaraNodeOutput* EventOutputNode = FNiagaraStackGraphUtilities::ResetGraphForOutput(*EmitterGraph, ENiagaraScriptUsage::ParticleEventScript, AddedEventScriptProperties.Script->GetUsageId(), PreferredOutputNodeGuid, PreferredInputNodeGuid);
 			for (TSharedRef<FNiagaraStackFunctionMergeAdapter> ModuleAdapter : AddedEventHandler->GetEventStack()->GetModuleFunctions())
 			{
 				FApplyDiffResults AddModuleResults = AddModule(BaseEmitter->GetUniqueEmitterName(), *AddedEventScriptProperties.Script, *EventOutputNode, ModuleAdapter);

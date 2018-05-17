@@ -2591,7 +2591,7 @@ static void GenerateUniformBufferStructMember(FString& Result, const FUniformBuf
 }
 
 /* Generates the instanced stereo hlsl code that's dependent on view uniform declarations. */
-static void GenerateInstancedStereoCode(FString& Result)
+ENGINE_API void GenerateInstancedStereoCode(FString& Result)
 {
 	// Find the InstancedView uniform buffer struct
 	const FUniformBufferStruct* InstancedView = nullptr;
