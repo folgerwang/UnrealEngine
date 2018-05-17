@@ -3,8 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Types/SlateEnums.h"
 
 class IPropertyHandle;
+class SWidget;
 
 enum class EDetailNodeType
 {
@@ -18,17 +20,54 @@ enum class EDetailNodeType
 	Object,
 };
 
+/** Layout data for node's content widgets. */
+struct FNodeWidgetLayoutData
+{
+	FNodeWidgetLayoutData()
+	{
+	}
+
+	FNodeWidgetLayoutData(EHorizontalAlignment InHorizontalAlignment, EVerticalAlignment InVerticalAlignment, TOptional<float> InMinWidth, TOptional<float> InMaxWidth)
+		: HorizontalAlignment(InHorizontalAlignment)
+		, VerticalAlignment(InVerticalAlignment)
+		, MinWidth(InMinWidth)
+		, MaxWidth(InMaxWidth)
+	{
+	}
+
+	/** The horizontal alignment requested by the widget. */
+	EHorizontalAlignment HorizontalAlignment;
+
+	/** The vertical alignment requested by the widget. */
+	EVerticalAlignment VerticalAlignment;
+
+	/** An optional minimum width requested by the widget. */
+	TOptional<float> MinWidth;
+
+	/** An optional maximum width requested by the widget. */
+	TOptional<float> MaxWidth;
+};
+
 /** The widget contents of the node.  Any of these can be null depending on how the row was generated */
 struct FNodeWidgets
 {
 	/** Widget for the name column */
 	TSharedPtr<SWidget> NameWidget;
+
+	/** Layout data for the widget in the name column. */
+	FNodeWidgetLayoutData NameWidgetLayoutData;
+
 	/** Widget for the value column*/
 	TSharedPtr<SWidget> ValueWidget;
 
+	/** Layout data for the widget in the value column. */
+	FNodeWidgetLayoutData ValueWidgetLayoutData;
 
 	/** Widget that spans the entire row.  Mutually exclusive with name/value widget */
 	TSharedPtr<SWidget> WholeRowWidget;
+
+	/** Layout data for the whole row widget. */
+	FNodeWidgetLayoutData WholeRowWidgetLayoutData;
 };
 
 class IDetailTreeNode
@@ -63,5 +102,16 @@ public:
 	 */
 	virtual void GetChildren(TArray<TSharedRef<IDetailTreeNode>>& OutChildren) = 0;
 
+	/**
+	 * Gets an identifier name for this node.  This is not a name formatted for display purposes, but can be useful for storing
+	 * UI state like if this row is expanded.
+	 */
+	virtual FName GetNodeName() const = 0;
+
 	virtual TSharedPtr<class IDetailPropertyRow> GetRow() const = 0;
+
+	/**
+	 * Gets the filter strings for this node in the tree.
+	 */
+	virtual void GetFilterStrings(TArray<FString>& OutFilterStrings) const = 0;
 };

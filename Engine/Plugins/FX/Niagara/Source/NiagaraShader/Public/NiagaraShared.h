@@ -24,57 +24,65 @@
 #include "Misc/Optional.h"
 #include "NiagaraShared.generated.h"
 
-class FNiagaraScript;
+class FNiagaraShaderScript;
 class FNiagaraShaderMap;
 class FNiagaraShader;
 class FNiagaraShaderMapId;
 class UNiagaraScript;
+struct FNiagaraDataInterfaceParametersCS;
 
 #define MAX_CONCURRENT_EVENT_DATASETS 4
 
-
-
-// holds meta data for GPU buffers from data interface; the DI defines them and returns them, they're
-// passed to the shader compiler, so we can bind parameters to dynamically generated hlsl vars
-//  this is only necessary for buffer params; everything else is in a constant buffer, which we
-//  just allocate memory for and copy the data into
-//
-USTRUCT()
-struct NIAGARASHADER_API FDIGPUBufferParamDescriptor
-{
-	GENERATED_USTRUCT_BODY()
-public:
-	FDIGPUBufferParamDescriptor(FString Name, uint32 Idx)
-		: BufferParamName(Name)
-		, Index(Idx)
-	{}
-	FDIGPUBufferParamDescriptor()
-		: BufferParamName(TEXT("Unknown"))
-		, Index(INDEX_NONE)
-	{}
-
-	friend FArchive &operator << (FArchive &Ar, FDIGPUBufferParamDescriptor &Desc);
-	UPROPERTY()
-	FString BufferParamName;	// the name of the parameter in the hlsl the DI generates
-	UPROPERTY()
-	uint32 Index;				// the index, reflecting the order in which GetBufferDefinitionHLSL declares them
-};
-
-
-
-/** Data interface GPU buffer descriptors for one data interface
+/**
+* Data coming from that translator that describes parameters needed for each data interface.
 */
 USTRUCT()
-struct NIAGARASHADER_API FDIBufferDescriptorStore
+struct NIAGARASHADER_API FNiagaraDataInterfaceGPUParamInfo
 {
 	GENERATED_USTRUCT_BODY()
-public:
-	friend FArchive &operator << (FArchive &Ar, FDIBufferDescriptorStore &Desc);
+		
+	/** Symbol of this DI in the hlsl. Used for binding parameters. */
+	UPROPERTY()
+	FString DataInterfaceHLSLSymbol;
 
+	/** Name of the class for this data interface. Used for constructing the correct parameters struct. */
 	UPROPERTY()
-	FName DataInterfaceName;
-	UPROPERTY()
-	TArray< FDIGPUBufferParamDescriptor > Descriptors;
+	FString DIClassName;
+
+	bool Serialize(FArchive& Ar);
+};
+
+template<> struct TStructOpsTypeTraits<FNiagaraDataInterfaceGPUParamInfo> : public TStructOpsTypeTraitsBase2<FNiagaraDataInterfaceGPUParamInfo>
+{
+	enum
+	{
+		WithSerializer = true,
+	};
+};
+
+/** 
+* Shader side data needed for binding data interface parameters.
+*/
+struct FNiagaraDataInterfaceParamRef
+{
+public:
+
+	FNiagaraDataInterfaceParamRef(const FNiagaraDataInterfaceGPUParamInfo& InParameterInfo);
+	FNiagaraDataInterfaceParamRef();
+	~FNiagaraDataInterfaceParamRef();
+	friend bool operator<<(FArchive& Ar, FNiagaraDataInterfaceParamRef& Desc);
+
+	void Bind(const class FShaderParameterMap& ParameterMap);
+	void ConstructParameters();
+	void InitDIClass();
+
+	FNiagaraDataInterfaceGPUParamInfo ParameterInfo;
+
+	/** The class of this DI which we can use to create the parameter struct. */
+	UClass* DIClass;
+
+	/** Pointer to parameters struct for this data interface. */
+	FNiagaraDataInterfaceParametersCS* Parameters;
 };
 
 
@@ -97,22 +105,24 @@ public:
 class FNiagaraShaderMapId
 {
 public:
-
-	/**
-	* The GUID of the script this shader represents
-	* Any change to the FNiagaraScript must modify this guid.
-	*/
-	FGuid BaseScriptID;
+	/** The version of the compiler that this needs to be built against.*/
+	FGuid CompilerVersionID;
 
 	/** Feature level that the shader map is going to be compiled for.  */
 	ERHIFeatureLevel::Type FeatureLevel;
 
-	/** TODO: may need this - Guids of any functions the script was dependent on. */
-	//TArray<FGuid> ReferencedFunctions;
+	/**
+	* The GUID of the subgraph this shader primarily represents.
+	*/
+	FGuid BaseScriptID;
+
+	/** Guids of any functions or module scripts the script was dependent on. */
+	TArray<FGuid> ReferencedDependencyIds;
 
 	FNiagaraShaderMapId()
-		: BaseScriptID(0, 0, 0, 0)
+		: CompilerVersionID()
 		, FeatureLevel(ERHIFeatureLevel::SM5)
+		, BaseScriptID(0, 0, 0, 0)
 	{ }
 
 	~FNiagaraShaderMapId()
@@ -169,7 +179,7 @@ class FNiagaraCompilationQueue
 public:
 	struct NiagaraCompilationQueueItem
 	{
-		FNiagaraScript* Script;
+		FNiagaraShaderScript* Script;
 		TRefCountPtr<FNiagaraShaderMap>ShaderMap;
 		FNiagaraShaderMapId ShaderMapId;
 		EShaderPlatform Platform;
@@ -190,7 +200,7 @@ public:
 		return CompilationQueue;
 	}
 
-	void Queue(FNiagaraScript *InScript, TRefCountPtr<FNiagaraShaderMap>InShaderMap, const FNiagaraShaderMapId &MapId, EShaderPlatform InPlatform, bool InApply)
+	void Queue(FNiagaraShaderScript *InScript, TRefCountPtr<FNiagaraShaderMap>InShaderMap, const FNiagaraShaderMapId &MapId, EShaderPlatform InPlatform, bool InApply)
 	{
 		check(IsInGameThread());
 		NiagaraCompilationQueueItem NewQueueItem;
@@ -202,7 +212,7 @@ public:
 		CompilationQueue.Add(NewQueueItem);
 	}
 
-	void RemovePending(FNiagaraScript* InScript)
+	void RemovePending(FNiagaraShaderScript* InScript)
 	{
 		check(IsInGameThread());
 		for (NiagaraCompilationQueueItem& Item : CompilationQueue)
@@ -250,7 +260,7 @@ public:
 	* Attempts to load the shader map for the given script from the Derived Data Cache.
 	* If InOutShaderMap is valid, attempts to load the individual missing shaders instead.
 	*/
-	static void LoadFromDerivedDataCache(const FNiagaraScript* Script, const FNiagaraShaderMapId& ShaderMapId, EShaderPlatform Platform, TRefCountPtr<FNiagaraShaderMap>& InOutShaderMap);
+	static void LoadFromDerivedDataCache(const FNiagaraShaderScript* Script, const FNiagaraShaderMapId& ShaderMapId, EShaderPlatform Platform, TRefCountPtr<FNiagaraShaderMap>& InOutShaderMap);
 
 	FNiagaraShaderMap();
 
@@ -264,7 +274,7 @@ public:
 	* @param Platform - The platform to compile to
 	*/
 	NIAGARASHADER_API void Compile(
-		FNiagaraScript* Script,
+		FNiagaraShaderScript* Script,
 		const FNiagaraShaderMapId& ShaderMapId,
 		TRefCountPtr<FShaderCompilerEnvironment> CompilationEnvironment,
 		const FNiagaraComputeShaderCompilationOutput& InNiagaraCompilationOutput,
@@ -274,17 +284,17 @@ public:
 		);
 
 	/** Sorts the incoming compiled jobs into the appropriate mesh shader maps, and finalizes this shader map so that it can be used for rendering. */
-	bool ProcessCompilationResults(const TArray<class FNiagaraShaderCompileJob*>& InCompilationResults, int32& ResultIndex, float& TimeBudget);
+	bool ProcessCompilationResults(const TArray<class FShaderCommonCompileJob*>& InCompilationResults, int32& ResultIndex, float& TimeBudget);
 
 	/**
 	* Checks whether the shader map is missing any shader types necessary for the given script.
 	* @param Script - The Niagara Script which is checked.
 	* @return True if the shader map has all of the shader types necessary.
 	*/
-	bool IsComplete(const FNiagaraScript* Script, bool bSilent);
+	bool IsComplete(const FNiagaraShaderScript* Script, bool bSilent);
 
 	/** Attempts to load missing shaders from memory. */
-	void LoadMissingShadersFromMemory(const FNiagaraScript* Script);
+	void LoadMissingShadersFromMemory(const FNiagaraShaderScript* Script);
 
 	/**
 	* Checks to see if the shader map is already being compiled for another script, and if so
@@ -292,7 +302,7 @@ public:
 	* @param Script - The Niagara Script we also wish to apply the compiled shader map to.
 	* @return True if the shader map was being compiled and we added Script to the list to be applied.
 	*/
-	bool TryToAddToExistingCompilationTask(FNiagaraScript* Script);
+	bool TryToAddToExistingCompilationTask(FNiagaraShaderScript* Script);
 
 	/** Builds a list of the shaders in a shader map. */
 	NIAGARASHADER_API  void GetShaderList(TMap<FShaderId, FShader*>& OutShaders) const;
@@ -314,11 +324,11 @@ public:
 	void FlushShadersByShaderType(FShaderType* ShaderType);
 
 	/** Removes a Script from NiagaraShaderMapsBeingCompiled. */
-	NIAGARASHADER_API static void RemovePendingScript(FNiagaraScript* Script);
+	NIAGARASHADER_API static void RemovePendingScript(FNiagaraShaderScript* Script);
 	NIAGARASHADER_API static void RemovePendingMap(FNiagaraShaderMap* Map);
 
 	/** Finds a shader map currently being compiled that was enqueued for the given script. */
-	static const FNiagaraShaderMap* GetShaderMapBeingCompiled(const FNiagaraScript* Script);
+	static const FNiagaraShaderMap* GetShaderMapBeingCompiled(const FNiagaraShaderScript* Script);
 
 	/** Serializes the shader map. */
 	void Serialize(FArchive& Ar, bool bInlineShaderResources = true);
@@ -368,7 +378,7 @@ public:
 
 	int32 GetNumRefs() const { return NumRefs; }
 	uint32 GetCompilingId()  { return CompilingId; }
-	static TMap<TRefCountPtr<FNiagaraShaderMap>, TArray<FNiagaraScript*> > &GetInFlightShaderMaps() { return NiagaraShaderMapsBeingCompiled; }
+	static TMap<TRefCountPtr<FNiagaraShaderMap>, TArray<FNiagaraShaderScript*> > &GetInFlightShaderMaps() { return NiagaraShaderMapsBeingCompiled; }
 
 	void SetCompiledSuccessfully(bool bSuccess) { bCompiledSuccessfully = bSuccess; }
 private:
@@ -402,7 +412,7 @@ private:
 	static uint32 NextCompilingId;
 
 	/** Tracks resources and their shader maps that need to be compiled but whose compilation is being deferred. */
-	static TMap<TRefCountPtr<FNiagaraShaderMap>, TArray<FNiagaraScript*> > NiagaraShaderMapsBeingCompiled;
+	static TMap<TRefCountPtr<FNiagaraShaderMap>, TArray<FNiagaraShaderScript*> > NiagaraShaderMapsBeingCompiled;
 
 	/** Uniquely identifies this shader map during compilation, needed for deferred compilation where shaders from multiple shader maps are compiled together. */
 	uint32 CompilingId;
@@ -429,9 +439,9 @@ private:
 	/** Debug information about how the shader map was compiled. */
 	FString DebugDescription;
 
-	FShader* ProcessCompilationResultsForSingleJob(class FNiagaraShaderCompileJob* SingleJob, const FSHAHash& ShaderMapHash);
+	FShader* ProcessCompilationResultsForSingleJob(class FShaderCommonCompileJob* SingleJob, const FSHAHash& ShaderMapHash);
 
-	bool IsNiagaraShaderComplete(const FNiagaraScript* Script, const FNiagaraShaderType* ShaderType, bool bSilent);
+	bool IsNiagaraShaderComplete(const FNiagaraShaderScript* Script, const FNiagaraShaderType* ShaderType, bool bSilent);
 
 	/** Initializes OrderedMeshShaderMaps from the contents of MeshShaderMaps. */
 	void InitOrderedMeshShaderMaps();
@@ -444,16 +454,16 @@ private:
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnNiagaraScriptCompilationComplete);
 
 /**
- * FNiagaraScript represents a Niagara script to the shader compilation process
+ * FNiagaraShaderScript represents a Niagara script to the shader compilation process
  */
-class FNiagaraScript
+class FNiagaraShaderScript
 {
 public:
 
 	/**
 	 * Minimal initialization constructor.
 	 */
-	FNiagaraScript() :
+	FNiagaraShaderScript() :
 		GameThreadShaderMap(NULL),
 		RenderingThreadShaderMap(NULL),
 		FeatureLevel(ERHIFeatureLevel::SM4),
@@ -463,11 +473,11 @@ public:
 	/**
 	 * Destructor
 	 */
-	NIAGARASHADER_API  virtual ~FNiagaraScript();
+	NIAGARASHADER_API  virtual ~FNiagaraShaderScript();
 
 	/**
 	 * Caches the shaders for this script with no static parameters on the given platform.
-	 * This is used by FNiagaraScript
+	 * This is used by FNiagaraShaderScript
 	 */
 	NIAGARASHADER_API  bool CacheShaders(EShaderPlatform Platform, bool bApplyCompletedShaderMapForRendering, bool bForceRecompile, bool bSynchronous = false);
 	bool CacheShaders(const FNiagaraShaderMapId& ShaderMapId, EShaderPlatform Platform, bool bApplyCompletedShaderMapForRendering, bool bForceRecompile, bool bSynchronous = false);
@@ -555,6 +565,10 @@ public:
 	/** Note: SetGameThreadShaderMap must also be called with the same value, but from the game thread. */
 	NIAGARASHADER_API  void SetRenderingThreadShaderMap(FNiagaraShaderMap* InShaderMap);
 
+	void AddCompileId(uint32 Id) 
+	{
+		OutstandingCompileShaderMapIds.Add(Id);
+	}
 
 	void SetShaderMap(FNiagaraShaderMap* InShaderMap)
 	{
@@ -591,34 +605,32 @@ public:
 
 	const FString& GetFriendlyName()	const { return FriendlyName; }
 
-	/** Gets the Guid that represents this script */
-	virtual FGuid GetScriptID() const { return ScriptId; }
 
-	NIAGARASHADER_API void SetScript(UNiagaraScript *InScript, ERHIFeatureLevel::Type InFeatureLevel, FGuid InScriptId, FString InFriendlyName);
+	NIAGARASHADER_API void SetScript(UNiagaraScript *InScript, ERHIFeatureLevel::Type InFeatureLevel, const FGuid& InCompilerVersion, const FGuid& InBaseScriptID, const TArray<FGuid>& InReferencedDependencyIds, FString InFriendlyName);
 
-	UNiagaraScript *GetGTScript()
+	UNiagaraScript *GetBaseVMScript()
 	{
-		return GTScript;
+		return BaseVMScript;
 	}
 
 	void SetCompileErrors(TArray<FString> &InErrors)
 	{
 		CompileErrors = InErrors;
 	}
+
+	FString SourceName;
 	
 	FString HlslOutput;
 
 	NIAGARASHADER_API  FNiagaraShader* GetShader() const;
 	NIAGARASHADER_API  FNiagaraShader* GetShaderGameThread() const;
 	
-	void SetDatainterfaceBufferDescriptors(TArray< FDIBufferDescriptorStore >&InBufferDescriptors)
-	{
-		DIBufferDescriptors = InBufferDescriptors;
-	}
+	NIAGARASHADER_API void SetDataInterfaceParamInfo(TArray< FNiagaraDataInterfaceGPUParamInfo >& InDIParamInfo);
+	NIAGARASHADER_API void SetDataInterfaceParamInfo(TArray< FNiagaraDataInterfaceParamRef >& InDIParamRefs);
 
-	TArray< FDIBufferDescriptorStore >& GetDataInterfaceBufferDescriptors()
+	TArray< FNiagaraDataInterfaceGPUParamInfo >& GetDataInterfaceParamInfo()
 	{
-		return DIBufferDescriptors;
+		return DIParamInfo;
 	}
 
 	NIAGARASHADER_API FOnNiagaraScriptCompilationComplete& OnCompilationComplete()
@@ -626,6 +638,7 @@ public:
 		return OnCompilationCompleteDelegate;
 	}
 
+	bool IsSame(const FNiagaraShaderMapId& InId) const;
 protected:
 
 	// shared code needed for GetUniformScalarParameterExpressions, GetUniformVectorParameterExpressions, GetUniformCubeTextureExpressions..
@@ -644,7 +657,7 @@ protected:
 	}
 
 private:
-	UNiagaraScript* GTScript;
+	UNiagaraScript* BaseVMScript;
 
 	TArray<FString> CompileErrors;
 
@@ -657,18 +670,22 @@ private:
 	TRefCountPtr<FNiagaraShaderMap> GameThreadShaderMap;
 
 	/** 
-	 * Shader map for this FniagaraScript which is accessible by the rendering thread. 
+	 * Shader map for this FNiagaraShaderScript which is accessible by the rendering thread. 
 	 * This must be updated along with GameThreadShaderMap, but on the rendering thread.
 	 */
 	FNiagaraShaderMap* RenderingThreadShaderMap;
 
-	// data interface buffer descriptors per data interface; these come from the HLSL translators and need to be passed down to the shader for binding
-	TArray< FDIBufferDescriptorStore > DIBufferDescriptors;
+	// Information describing data interface parameters. These come from the HLSL translators and need to be passed down to the shader for binding
+	TArray< FNiagaraDataInterfaceGPUParamInfo > DIParamInfo;
 
-	/** 
-	 * unique identifier
-	 */
-	FGuid ScriptId;
+	/** Guid id for base script*/
+	FGuid BaseScriptId;
+
+	/** The compiler version the script was generated with.*/
+	FGuid CompilerVersionId;
+
+	/** Dependencies of the script*/
+	TArray<FGuid> ReferencedDependencyIds;
 
 	/** 
 	 * Contains the compiling id of this shader map when it is being compiled asynchronously. 

@@ -521,8 +521,9 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 
 						ShadowMapChannelMaskPacked |= LightProxy->GetLightingChannelMask() << 8;
 
-						if ((LightSceneInfoCompact.LightType == LightType_Point && ViewFamily.EngineShowFlags.PointLights)
-							|| (LightSceneInfoCompact.LightType == LightType_Spot && ViewFamily.EngineShowFlags.SpotLights))
+						if( ( LightSceneInfoCompact.LightType == LightType_Point && ViewFamily.EngineShowFlags.PointLights ) ||
+							( LightSceneInfoCompact.LightType == LightType_Spot  && ViewFamily.EngineShowFlags.SpotLights ) ||
+							( LightSceneInfoCompact.LightType == LightType_Rect  && ViewFamily.EngineShowFlags.RectLights ) )
 						{
 							ForwardLocalLightData.AddUninitialized(1);
 							FForwardLocalLightData& LightData = ForwardLocalLightData.Last();

@@ -1512,6 +1512,7 @@ void FPasteContextMenu::PasteInto(int32 DestinationIndex, FName KeyAreaName)
 		Selection.GetOnKeySelectionChanged().Broadcast();
 
 		Sequencer->OnClipboardUsed(Args.Clipboard);
+		Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChanged);
 	}
 }
 

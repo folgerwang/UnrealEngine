@@ -103,7 +103,7 @@ struct FTAAPassParameters
 // ePId_Input0: Full Res Scene color (point)
 // ePId_Input2: Velocity (point)
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 
-class FRCPassPostProcessTemporalAA : public TRenderingCompositePassBase<2, 1>
+class FRCPassPostProcessTemporalAA : public TRenderingCompositePassBase<3, 2>
 {
 public:
 	FRCPassPostProcessTemporalAA(

@@ -13,6 +13,7 @@
 #include "Misc/Guid.h"
 #include "Misc/CoreMisc.h"
 #include "Misc/CommandLine.h"
+#include "Misc/Timecode.h"
 #include "HAL/PlatformProcess.h"
 
 // platforms which can have runtime threading switches
@@ -568,23 +569,43 @@ public:
 	}
 
 	/**
-	* Gets idle time overshoot in seconds (the time beyond the wait time we requested for the frame). Only valid when IdleTime is > 0.
-	*
-	* @return Idle time in seconds.
-	*/
+	 * Gets idle time overshoot in seconds (the time beyond the wait time we requested for the frame). Only valid when IdleTime is > 0.
+	 *
+	 * @return Idle time in seconds.
+	 */
 	FORCEINLINE static double GetIdleTimeOvershoot()
 	{
 		return IdleTimeOvershoot;
 	}
 
 	/**
-	* Sets idle time overshoot in seconds (the time beyond the wait time we requested for the frame). Only valid when IdleTime is > 0.
-	*
-	* @param seconds - Idle time in seconds.
-	*/
+	 * Sets idle time overshoot in seconds (the time beyond the wait time we requested for the frame). Only valid when IdleTime is > 0.
+	 *
+	 * @param seconds - Idle time in seconds.
+	 */
 	static void SetIdleTimeOvershoot(double Seconds)
 	{
 		IdleTimeOvershoot = Seconds;
+	}
+
+	/**
+	 * Gets the current timecode.
+	 *
+	 * @return the current timecode.
+	 */
+	FORCEINLINE static FTimecode GetTimecode()
+	{
+		return Timecode;
+	}
+
+	/**
+	 * Sets the current timecode.
+	 *
+	 * @param InTimecode - current timecode.
+	 */
+	static void SetTimecode(FTimecode InTimecode)
+	{
+		Timecode = InTimecode;
 	}
 
 	/**
@@ -696,6 +717,9 @@ private:
 
 	/** Holds the amount of IdleTime that was LONGER than we tried to sleep. The OS can't sleep the exact amount of time, so this measures that overshoot. */
 	static double IdleTimeOvershoot;
+
+	/** Holds the current timecode. */
+	static FTimecode Timecode;
 
 	/** Use to affect the app volume when it loses focus */
 	static float VolumeMultiplier;

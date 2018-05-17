@@ -72,9 +72,9 @@ void FAjaFrameGrabberProtocol::CaptureFrame(const FFrameMetrics& FrameMetrics, c
 	{
 		check(Implementation.IsValid());
 
-		const FFrameTime FrameNumberAsTime((int32)FrameMetrics.FrameNumber);
-		const FFrameTime CurrentFrameOutputTime = FFrameRate::TransformTime(FrameNumberAsTime, Host.GetCaptureFrameRate(), Implementation->GetOutputFrameRate());
-		Implementation->Tick(CurrentFrameOutputTime.GetFrame().Value);
+		const FFrameNumber FrameNumber = (int32)FrameMetrics.FrameNumber;
+		FTimecode Timecode = FTimecode::FromFrameNumber(FrameNumber, Host.GetCaptureFrameRate(), FTimecode::IsDropFormatTimecodeSupported(Host.GetCaptureFrameRate()));
+		Implementation->Tick(Timecode);
 	}
 }
 

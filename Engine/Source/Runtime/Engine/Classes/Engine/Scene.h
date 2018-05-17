@@ -948,6 +948,12 @@ struct FPostProcessSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint32 bOverride_DepthOfFieldFstop:1;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_DepthOfFieldMinFstop : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_DepthOfFieldBladeCount : 1;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint32 bOverride_DepthOfFieldSensorWidth:1;
 
@@ -1293,6 +1299,14 @@ struct FPostProcessSettings
 	/** Defines the opening of the camera lens, Aperture is 1/fstop, typical lens go down to f/1.2 (large opening), larger numbers reduce the DOF effect */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Camera", meta=(ClampMin = "1.0", ClampMax = "32.0", editcondition = "bOverride_DepthOfFieldFstop", DisplayName = "Aperture (F-stop)"))
 	float DepthOfFieldFstop;
+
+	/** Defines the maximum opening of the camera lens to control the curvature of blades of the diaphragm. Set it to 0 to get straight blades. */
+	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Camera", meta=(ClampMin = "0.0", ClampMax = "32.0", editcondition = "bOverride_DepthOfFieldMinFstop", DisplayName = "Maximum Aperture (min F-stop)"))
+	float DepthOfFieldMinFstop;
+
+	/** Defines the number of blades of the diaphragm within the lens (between 4 and 16). */
+	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Camera", meta=(ClampMin = "4", ClampMax = "16", editcondition = "bOverride_DepthOfFieldBladeCount", DisplayName = "Number of diaphragm blades"))
+	int32 DepthOfFieldBladeCount;
 
 	/**
 	 * Logarithmic adjustment for the exposure. Only used if a tonemapper is specified.
@@ -1735,6 +1749,10 @@ struct FPostProcessSettings
 		AmbientCubemapIntensity = 0.0f;
 		ColorGradingIntensity = 0.0f;
 	}
+
+
+	// Default number of blade of the diaphragm to simulate in depth of field.
+	static constexpr int32 kDefaultDepthOfFieldBladeCount = 7;
 };
 
 UCLASS()

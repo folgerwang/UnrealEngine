@@ -52,13 +52,9 @@ struct FPrivateKernelSharedScope
 {
 	// ------- compile time constant category.
 
-	// Gathering look up table to use to shape the bokeh.
-	Texture2D BokehLookupTable;
-	
 	// Gather input textures and sampler to use.
-	Texture2D GatherInput;
-	SamplerState GatherInputSampler;
 	float2 GatherInputInvSize;
+	bool bBilinearSampleInput;
 
 	// Whether the kernel has enough samples enought sample to do the entire convolution (use by slight out of focus).
 	bool bKenrelHasEnoughSamples;
@@ -120,13 +116,45 @@ FGatherSample FetchGatherSample(in FPrivateKernelSharedScope KernelScope, float2
 		SampleUV = min(SampleUV, KernelScope.GatherInputMaxUV);
 	}
 	#endif
-			
-	float4 RawSample = KernelScope.GatherInput.SampleLevel(
-		KernelScope.GatherInputSampler, SampleUV, KernelScope.GatherInputMipLevel);
+
+	float4 RawSample0 = 0;
+	float4 RawSample1 = 0;
+
+	if (KernelScope.bBilinearSampleInput)
+	{
+		RawSample0 = PostprocessInput0.SampleLevel(
+			GlobalBilinearClampedSampler, SampleUV, KernelScope.GatherInputMipLevel);
+		RawSample1 = PostprocessInput1.SampleLevel(
+			GlobalBilinearClampedSampler, SampleUV, KernelScope.GatherInputMipLevel);
+	}
+	else
+	{
+		RawSample0 = PostprocessInput0.SampleLevel(
+			GlobalPointClampedSampler, SampleUV, KernelScope.GatherInputMipLevel);
+		RawSample1 = PostprocessInput1.SampleLevel(
+			GlobalPointClampedSampler, SampleUV, KernelScope.GatherInputMipLevel);
+	}
 
 	FGatherSample Sample;
-	Sample.Color = float4(RawSample.rgb, 0);
-	Sample.CocRadius = RawSample.a;
+	#if CONFIG_GATHER_INPUT_LAYOUT == GATHER_INPUT_LAYOUT_RGB_COC
+	{
+		Sample.Color = float4(RawSample0.rgb, 1);
+		Sample.CocRadius = RawSample0.a;
+	}
+	#elif CONFIG_GATHER_INPUT_LAYOUT == GATHER_INPUT_LAYOUT_RGB_ALPHA_COC
+	{
+		Sample.Color = RawSample0;
+		Sample.CocRadius = RawSample1.r;
+	}
+	#elif CONFIG_GATHER_INPUT_LAYOUT == GATHER_INPUT_LAYOUT_RGB_SEPARATE_COC
+	{
+		Sample.Color = float4(RawSample0.rgb, 1);
+		Sample.CocRadius = RawSample1.r;
+	}
+	#else
+		#error Unknown gather input layout.
+	#endif
+
 	Sample.Distance = 0.0;
 	Sample.Intersection = 1.0;
 	return Sample;
@@ -168,11 +196,6 @@ void UpdateRuntimeKernelScope(
 		MipLevel = 0;
 	#endif
 
-	#if DIM_GATHER_RECURSION == GATHER_RECURSION_MODE_LOWEST_MIP && 1
-		// Hard code for 1/8 resolution pass. Mip0 is half res.
-		MipLevel = max(MipLevel, 2.0);
-	#endif
-		
 	// When there is enough samples, can sample the MipLevel0 just fine.
 	if (static_condition(KernelScope.bKenrelHasEnoughSamples))
 	{
@@ -268,6 +291,9 @@ void GatherRing(
 	// Iterate over the batch of samples.
 	UNROLL
 	for (uint BatchId = 0; BatchId < BatchCount; BatchId++)
+	#if defined(WORKARROUND_UE_58394)
+		WORKARROUND_UE_58394 // TODO: nuke that guy once original issue is fixed.
+	#endif
 	{
 		// Generates at compile time sample location on circle (radius = 1).
 		const float2 BatchCirleUnitPos = GetDiskSampleOnUnitCirle(RingId, RingSamplePairCount, BatchId);
@@ -325,16 +351,16 @@ void GatherRing(
 			#if DIM_BOKEH_SIMULATION != BOKEH_SIMULATION_DISABLED && CONFIG_KERNEL_LAYOUT == KERNEL_LAYOUT_SCALABLE_DISK
 			{
 				const float2 LookUpUV[2] = {
-					0.5 + (0.5 + SquarePos) / float(BOKEH_LUT_SIZE),
-					0.5 + (0.5 - SquarePos) / float(BOKEH_LUT_SIZE),
+					0.5 + (0.5 + CONFIG_POINT_MIRROR_BOKEH * SquarePos) / float(BOKEH_LUT_SIZE),
+					0.5 + (0.5 - CONFIG_POINT_MIRROR_BOKEH * SquarePos) / float(BOKEH_LUT_SIZE),
 				};
 				
-				SamplePosOffset[0] = KernelScope.SampleCountToSamplePosition * KernelScope.BokehLookupTable.SampleLevel(GlobalBilinearWrappedSampler, LookUpUV[0], 0).xy;
+				SamplePosOffset[0] = KernelScope.SampleCountToSamplePosition * PostprocessInput4.SampleLevel(GlobalBilinearWrappedSampler, LookUpUV[0], 0).xy;
 
 				#if DIM_BOKEH_SIMULATION == BOKEH_SIMULATION_SIMMETRIC && 0
 					SamplePosOffset[1] = -SamplePosOffset[0];
 				#else
-					SamplePosOffset[1] = KernelScope.SampleCountToSamplePosition * KernelScope.BokehLookupTable.SampleLevel(
+					SamplePosOffset[1] = KernelScope.SampleCountToSamplePosition * PostprocessInput4.SampleLevel(
 						GlobalBilinearWrappedSampler, LookUpUV[1], 0).xy;
 				#endif
 				
@@ -411,10 +437,10 @@ void GatherRing(
 					
 				// Substract the CocRadius error to the sample distance to fight against layering opacity issues caused by undersampling.
 				// TODO: technically, should be done on the Coc radius instead so that it also happens on FGatherAccumulator::CurrentTranslucency 
-				if (static_condition(KernelScope.bKenrelHasEnoughSamples)) // TODO: bug here.
-				{
-					SampleDistance = max(SampleDistance - KernelScope.CocRadiusError, 0);
-				}
+				//if (static_condition(KernelScope.bKenrelHasEnoughSamples)) // TODO: bug here.
+				//{
+				//	SampleDistance = max(SampleDistance - KernelScope.CocRadiusError, 0);
+				//}
 
 				// Compute sample's input buffer UV
 				// TODO: VGPR could be optimised.
@@ -435,7 +461,7 @@ void GatherRing(
 						#error Unknown bokeh simulation.
 					#endif
 
-					float4 LookupSample = KernelScope.BokehLookupTable.SampleLevel(GlobalBilinearWrappedSampler, LookUpUV, 0);
+					float4 LookupSample = PostprocessInput4.SampleLevel(GlobalBilinearWrappedSampler, LookUpUV, 0);
 					float CocRadiusToBokehEdgeDistance = LookupSample.x;
 
 					Sample[k].CocRadius *= CocRadiusToBokehEdgeDistance;
@@ -473,17 +499,11 @@ void GatherSamplesAndResolve(
 
 	// Set up initial compile time stuf in the scope of the kernel.
 	{
-		KernelScope.BokehLookupTable = PostprocessInput3;
-		KernelScope.GatherInput = PostprocessInput0;
-		KernelScope.GatherInputSampler = GlobalPointClampedSampler;
 		KernelScope.GatherInputInvSize = PostprocessInput0Size.zw;
 		KernelScope.bKenrelHasEnoughSamples = DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS;
-
-		// Fast gathering use bilinear clamped sampler to reduce color variance output.
-		if (static_condition(GatherParameters.bFastGathering) && !KernelScope.bKenrelHasEnoughSamples)
-		{
-			KernelScope.GatherInputSampler = GlobalBilinearClampedSampler;
-		}
+		KernelScope.bBilinearSampleInput = (
+			static_condition(GatherParameters.bFastGathering) &&
+			!KernelScope.bKenrelHasEnoughSamples);
 	}
 	
 	// Set up initial run time stuf in the scope of the kernel.

@@ -281,6 +281,15 @@ ULevelSequenceBurnInOptions::ULevelSequenceBurnInOptions(const FObjectInitialize
 {
 }
 
+void ULevelSequenceBurnInOptions::SetBurnIn(FSoftClassPath InBurnInClass)
+{
+	BurnInClass = InBurnInClass;
+	
+	// Attempt to load the settings class from the BurnIn class and assign it to our local Settings object.
+	ResetSettings();
+}
+
+
 void ULevelSequenceBurnInOptions::ResetSettings()
 {
 	UClass* Class = BurnInClass.TryLoadClass<ULevelSequenceBurnIn>();

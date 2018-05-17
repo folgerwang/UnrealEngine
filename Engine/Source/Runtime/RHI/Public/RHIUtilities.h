@@ -59,8 +59,14 @@ struct FRWBuffer
 	}
 
 	// @param AdditionalUsage passed down to RHICreateVertexBuffer(), get combined with "BUF_UnorderedAccess | BUF_ShaderResource" e.g. BUF_Static
-	void Initialize(uint32 BytesPerElement, uint32 NumElements, EPixelFormat Format, uint32 AdditionalUsage = 0,  const TCHAR* InDebugName = NULL, FResourceArrayInterface *InResourceArray = nullptr)	{
-		check(GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5);
+	void Initialize(uint32 BytesPerElement, uint32 NumElements, EPixelFormat Format, uint32 AdditionalUsage = 0,  const TCHAR* InDebugName = NULL, FResourceArrayInterface *InResourceArray = nullptr)	
+	{
+		check( GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5 
+			|| IsVulkanPlatform(GMaxRHIShaderPlatform) 
+			|| IsMetalPlatform(GMaxRHIShaderPlatform)
+			|| (GMaxRHIFeatureLevel == ERHIFeatureLevel::ES3_1 && GSupportsResourceView)
+		);
+
 		// Provide a debug name if using Fast VRAM so the allocators diagnostics will work
 		ensure(!((AdditionalUsage & BUF_FastVRAM) && !InDebugName));
 		NumBytes = BytesPerElement * NumElements;
@@ -108,7 +114,7 @@ struct FReadBuffer
 
 	void Initialize(uint32 BytesPerElement, uint32 NumElements, EPixelFormat Format, uint32 AdditionalUsage = 0)
 	{
-		check(GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4);
+		check(GSupportsResourceView);
 		NumBytes = BytesPerElement * NumElements;
 		FRHIResourceCreateInfo CreateInfo;
 		Buffer = RHICreateVertexBuffer(NumBytes, BUF_ShaderResource | AdditionalUsage, CreateInfo);
@@ -1003,3 +1009,32 @@ struct FRHILockTracker
 };
 
 extern RHI_API FRHILockTracker GRHILockTracker;
+
+
+
+
+/* Generic implementation of functions for readback and update requests
+* Both of these will need RHI specific implementations, of course
+*/
+
+
+/* Generic implementation of functions for readback and update requests
+* Both of these will need RHI specific implementations, of course
+*/
+/*
+FRHIGPUMemoryReadback *RHIScheduleGPUMemoryReadback(FRHICommandList& CmdList, FVertexBufferRHIRef GPUBuffer, FName RequestName)
+{
+	FRHIStagingBuffer *StagingBuffer = RHICreateStagingBuffer();// new FRHIStagingBuffer();
+	FRHIGPUMemoryReadback *Readback = new FRHIGPUMemoryReadback(StagingBuffer, GPUBuffer, RequestName);
+
+	return Readback;
+}
+
+FRHIGPUMemoryUpdate *RHIScheduleGPUMemoryUpdate(FRHICommandList& CmdList, FVertexBufferRHIRef GPUBuffer, FName RequestName)
+{
+	FRHIStagingBuffer *StagingBuffer = RHICreateStagingBuffer();// new FRHIStagingBuffer();
+	FRHIGPUMemoryUpdate *Update = new FRHIGPUMemoryUpdate(StagingBuffer, GPUBuffer, RequestName);
+
+	return Update;
+}
+*/

@@ -10,7 +10,6 @@
 #include "ScenePrivate.h"
 #include "Engine/TextureCube.h"
 #include "PipelineStateCache.h"
-#include "MultiGPU.h"
 
 DECLARE_GPU_STAT(Fog);
 
@@ -460,20 +459,10 @@ bool FDeferredShadingSceneRenderer::RenderFog(FRHICommandListImmediate& RHICmdLi
 		for(int32 ViewIndex = 0;ViewIndex < Views.Num();ViewIndex++)
 		{
 			const FViewInfo& View = Views[ViewIndex];
-			if (!View.IsPerspectiveProjection())
+			if (View.IsPerspectiveProjection())
 			{
-				continue; // Do not render exponential fog in orthographic views.
-			}
-
-			if (GNumActiveGPUsForRendering == 1)
-			{
+				SCOPED_GPU_MASK(RHICmdList, View.GPUMask);
 				RenderViewFog(RHICmdList, View, LightShaftsOutput);
-			}
-			else
-			{
-				FRHICommandList FogCmdList(View.NodeMask);
-				SceneContext.BeginRenderingSceneColor(FogCmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, false);
-				RenderViewFog(FogCmdList, View, LightShaftsOutput);
 			}
 		}
 

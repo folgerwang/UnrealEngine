@@ -147,6 +147,34 @@ struct FNiagaraSpawnInfo
 	float IntervalDt;
 };
 
+USTRUCT(Blueprintable, meta = (DisplayName = "Niagara ID"))
+struct FNiagaraID
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** 
+	Index in the indirection table for this particle. Allows fast access to this particles data.
+	Is always unique among currently living particles but will be reused after the particle dies.
+	*/
+	UPROPERTY(EditAnywhere, Category = ID)
+	int32 Index;
+
+	/** 
+	A unique tag for when this ID was acquired. 
+	Allows us to differentiate between particles when one dies and another reuses it's Index.
+	*/
+	UPROPERTY(EditAnywhere, Category = ID)
+	int32 AcquireTag;
+
+	bool operator==(const FNiagaraID& Other)const { return Index == Other.Index && AcquireTag == Other.AcquireTag; }
+	bool operator<(const FNiagaraID& Other)const { return Index < Other.Index && AcquireTag < Other.AcquireTag; }
+};
+
+FORCEINLINE uint32 GetTypeHash(const FNiagaraID& ID)
+{
+	return HashCombine(GetTypeHash(ID.Index), GetTypeHash(ID.AcquireTag));
+}
+
 /** Information about how this type should be laid out in an FNiagaraDataSet */
 struct FNiagaraTypeLayoutInfo
 {
@@ -211,6 +239,7 @@ class NIAGARA_API FNiagaraTypeHelper
 {
 public:
 	static FString ToString(const uint8* ValueData, const UScriptStruct* Struct);
+
 };
 
 /** Defines different modes for selecting the output numeric type of a function or operation based on the types of the inputs. */
@@ -227,6 +256,19 @@ enum class ENiagaraNumericOutputTypeSelectionMode : uint8
 	Scalar,
 };
 
+/** 
+The source from which a script execution state was set. Used to allow scalability etc to change the state but only if the state has not been defined by something with higher precedence. 
+If this changes, all scripts must be recompiled by bumping the NiagaraCustomVersion
+*/
+UENUM()
+enum class ENiagaraExecutionStateSource : uint32
+{
+	Scalability, //State set by Scalability logic. Lowest precedence.
+	Internal, //Misc internal state. For example becoming inactive after we finish our set loops.
+	Owner, //State requested by the owner. Takes precedence over everything but internal completion logic.
+	InternalCompletion, // Internal completion logic. Has to take highest precedence for completion to be ensured.
+};
+
 UENUM()
 enum class ENiagaraExecutionState : uint32
 {
@@ -240,6 +282,9 @@ enum class ENiagaraExecutionState : uint32
 	Complete,
 	/** Emitter only. Emitter is disabled. Will not tick or render again until a full re initialization of the system. */
 	Disabled,
+
+	// insert new states before
+	Num
 };
 
 USTRUCT()
@@ -247,11 +292,22 @@ struct NIAGARA_API FNiagaraVariableMetaData
 {
 	GENERATED_USTRUCT_BODY()
 public:
+	FNiagaraVariableMetaData()
+		:EditorSortPriority(0)
+	{
+	}
+public:
 	UPROPERTY(EditAnywhere, Category = "Variable")
 	TMap<FName, FString> PropertyMetaData;
 
 	UPROPERTY(EditAnywhere, Category = "Variable")
 	FText Description;
+
+	UPROPERTY(EditAnywhere, Category = "Variable")
+	FText CategoryName;
+
+	UPROPERTY(EditAnywhere, Category = "Variable", meta = (ToolTip = "Affects the sort order in the editor stacks. Use a smaller number to push it to the top. Defaults to zero."))
+	int32 EditorSortPriority;
 
 	UPROPERTY()
 	int32 CallSortPriority;
@@ -267,32 +323,32 @@ struct NIAGARA_API FNiagaraTypeDefinition
 public:
 
 	// Construct blank raw type definition 
-	FNiagaraTypeDefinition(const UClass *ClassDef)
-		: Struct(ClassDef), Enum(nullptr)
+	FNiagaraTypeDefinition(UClass *ClassDef)
+		: Struct(ClassDef), Enum(nullptr), Size(INDEX_NONE), Alignment(INDEX_NONE)
 	{
-		check(Struct != nullptr);
+		checkSlow(Struct != nullptr);
 	}
 
-	FNiagaraTypeDefinition(const UEnum *EnumDef)
-		: Struct(IntStruct), Enum(EnumDef)
+	FNiagaraTypeDefinition(UEnum *EnumDef)
+		: Struct(IntStruct), Enum(EnumDef), Size(INDEX_NONE), Alignment(INDEX_NONE)
 	{
-		check(Struct != nullptr);
+		checkSlow(Struct != nullptr);
 	}
 
-	FNiagaraTypeDefinition(const UScriptStruct *StructDef)
-		: Struct(StructDef), Enum(nullptr)
+	FNiagaraTypeDefinition(UScriptStruct *StructDef)
+		: Struct(StructDef), Enum(nullptr), Size(INDEX_NONE), Alignment(INDEX_NONE)
 	{
-		check(Struct != nullptr);
+		checkSlow(Struct != nullptr);
 	}
 
 	FNiagaraTypeDefinition(const FNiagaraTypeDefinition &Other)
-		: Struct(Other.Struct), Enum(Other.Enum)
+		: Struct(Other.Struct), Enum(Other.Enum), Size(INDEX_NONE), Alignment(INDEX_NONE)
 	{
 	}
 
 	// Construct a blank raw type definition
 	FNiagaraTypeDefinition()
-		: Struct(nullptr), Enum(nullptr)
+		: Struct(nullptr), Enum(nullptr), Size(INDEX_NONE), Alignment(INDEX_NONE)
 	{}
 
 	bool operator !=(const FNiagaraTypeDefinition &Other) const
@@ -338,23 +394,23 @@ public:
 		return GetStruct()->GetName();
 	}
 
-	const UStruct* GetStruct()const
+	UStruct* GetStruct()const
 	{
 		return Struct;
 	}
 
-	const UScriptStruct* GetScriptStruct()const
+	UScriptStruct* GetScriptStruct()const
 	{
 		return Cast<UScriptStruct>(Struct);
 	}
-		
+
 	/** Gets the class ptr for this type if it is a class. */
-	const UClass* GetClass()const
+	UClass* GetClass()const
 	{
 		return Cast<UClass>(Struct);
 	}
 
-	const UEnum* GetEnum() const
+	UEnum* GetEnum() const
 	{
 		return Enum;
 	}
@@ -365,34 +421,42 @@ public:
 	
 	int32 GetSize()const
 	{
-		checkf(IsValid(), TEXT("Type definition is not valid."));
-		if (GetClass())
+		if (Size == INDEX_NONE)
 		{
-			return 0;//TODO: sizeof(void*);//If we're a class then we allocate space for the user to instantiate it. This and stopping it being GCd is up to the user.
+			checkfSlow(IsValid(), TEXT("Type definition is not valid."));
+			if (GetClass())
+			{
+				Size = 0;//TODO: sizeof(void*);//If we're a class then we allocate space for the user to instantiate it. This and stopping it being GCd is up to the user.
+			}
+			else
+			{
+				Size = CastChecked<UScriptStruct>(Struct)->GetStructureSize();	// TODO: cache this here?
+			}
 		}
-		else
-		{
-			return CastChecked<UScriptStruct>(Struct)->GetStructureSize();	// TODO: cache this here?
-		}
+		return Size;
 	}
 
 	int32 GetAlignment()const
 	{
-		checkf(IsValid(), TEXT("Type definition is not valid."));
-		if (GetClass())
+		if (Alignment == INDEX_NONE)
 		{
-			return 0;//TODO: sizeof(void*);//If we're a class then we allocate space for the user to instantiate it. This and stopping it being GCd is up to the user.
+			checkfSlow(IsValid(), TEXT("Type definition is not valid."));
+			if (GetClass())
+			{
+				Alignment = 0;//TODO: sizeof(void*);//If we're a class then we allocate space for the user to instantiate it. This and stopping it being GCd is up to the user.
+			}
+			else
+			{
+				Alignment = CastChecked<UScriptStruct>(Struct)->GetMinAlignment();
+			}
 		}
-		else
-		{
-			return CastChecked<UScriptStruct>(Struct)->GetMinAlignment();
-		}
+		return Alignment;
 	}
 
 	bool IsFloatPrimitive() const
 	{
 		return Struct == FNiagaraTypeDefinition::GetFloatStruct() || Struct == FNiagaraTypeDefinition::GetVec2Struct() || Struct == FNiagaraTypeDefinition::GetVec3Struct() || Struct == FNiagaraTypeDefinition::GetVec4Struct() ||
-			Struct == FNiagaraTypeDefinition::GetMatrix4Struct() || Struct == FNiagaraTypeDefinition::GetColorStruct();
+			Struct == FNiagaraTypeDefinition::GetMatrix4Struct() || Struct == FNiagaraTypeDefinition::GetColorStruct() || Struct == FNiagaraTypeDefinition::GetQuatStruct();
  	}
 
 	bool IsValid() const 
@@ -406,10 +470,16 @@ public:
 	In occasional situations this may be a UClass when we're dealing with DataInterface etc.
 	*/
 	UPROPERTY()
-	const UStruct *Struct;
+	UStruct *Struct;
 
 	UPROPERTY()
-	const UEnum* Enum;
+	UEnum* Enum;
+
+private:
+	mutable int16 Size;
+	mutable int16 Alignment;
+
+public:
 
 	static void Init();
 	static void RecreateUserDefinedTypeRegistry();
@@ -420,22 +490,26 @@ public:
 	static const FNiagaraTypeDefinition& GetVec3Def() { return Vec3Def; }
 	static const FNiagaraTypeDefinition& GetVec4Def() { return Vec4Def; }
 	static const FNiagaraTypeDefinition& GetColorDef() { return ColorDef; }
+	static const FNiagaraTypeDefinition& GetQuatDef() { return QuatDef; }
 	static const FNiagaraTypeDefinition& GetMatrix4Def() { return Matrix4Def; }
 	static const FNiagaraTypeDefinition& GetGenericNumericDef() { return NumericDef; }
 	static const FNiagaraTypeDefinition& GetParameterMapDef() { return ParameterMapDef; }
+	static const FNiagaraTypeDefinition& GetIDDef() { return IDDef; }
 
-	static const UScriptStruct* GetFloatStruct() { return FloatStruct; }
-	static const UScriptStruct* GetBoolStruct() { return BoolStruct; }
-	static const UScriptStruct* GetIntStruct() { return IntStruct; }
-	static const UScriptStruct* GetVec2Struct() { return Vec2Struct; }
-	static const UScriptStruct* GetVec3Struct() { return Vec3Struct; }
-	static const UScriptStruct* GetVec4Struct() { return Vec4Struct; }
-	static const UScriptStruct* GetColorStruct() { return ColorStruct; }
-	static const UScriptStruct* GetMatrix4Struct() { return Matrix4Struct; }
-	static const UScriptStruct* GetGenericNumericStruct() { return NumericStruct; }
-	static const UScriptStruct* GetParameterMapStruct() { return ParameterMapStruct; }
+	static UScriptStruct* GetFloatStruct() { return FloatStruct; }
+	static UScriptStruct* GetBoolStruct() { return BoolStruct; }
+	static UScriptStruct* GetIntStruct() { return IntStruct; }
+	static UScriptStruct* GetVec2Struct() { return Vec2Struct; }
+	static UScriptStruct* GetVec3Struct() { return Vec3Struct; }
+	static UScriptStruct* GetVec4Struct() { return Vec4Struct; }
+	static UScriptStruct* GetColorStruct() { return ColorStruct; }
+	static UScriptStruct* GetQuatStruct() { return QuatStruct; }
+	static UScriptStruct* GetMatrix4Struct() { return Matrix4Struct; }
+	static UScriptStruct* GetGenericNumericStruct() { return NumericStruct; }
+	static UScriptStruct* GetParameterMapStruct() { return ParameterMapStruct; }
+	static UScriptStruct* GetIDStruct() { return IDStruct; }
 
-	static const UEnum* GetExecutionStateEnum() { return ExecutionStateEnum; }
+	static UEnum* GetExecutionStateEnum() { return ExecutionStateEnum; }
 
 	static const FNiagaraTypeDefinition& GetCollisionEventDef() { return CollisionEventDef; }
 
@@ -466,32 +540,37 @@ private:
 	static FNiagaraTypeDefinition Vec3Def;
 	static FNiagaraTypeDefinition Vec4Def;
 	static FNiagaraTypeDefinition ColorDef;
+	static FNiagaraTypeDefinition QuatDef;
 	static FNiagaraTypeDefinition Matrix4Def;
 	static FNiagaraTypeDefinition NumericDef;
 	static FNiagaraTypeDefinition ParameterMapDef;
+	static FNiagaraTypeDefinition IDDef;
 
-	static const UScriptStruct* FloatStruct;
-	static const UScriptStruct* BoolStruct;
-	static const UScriptStruct* IntStruct;
-	static const UScriptStruct* Vec2Struct;
-	static const UScriptStruct* Vec3Struct;
-	static const UScriptStruct* Vec4Struct;
-	static const UScriptStruct* ColorStruct;
-	static const UScriptStruct* Matrix4Struct;
-	static const UScriptStruct* NumericStruct;
+	static UScriptStruct* FloatStruct;
+	static UScriptStruct* BoolStruct;
+	static UScriptStruct* IntStruct;
+	static UScriptStruct* Vec2Struct;
+	static UScriptStruct* Vec3Struct;
+	static UScriptStruct* Vec4Struct;
+	static UScriptStruct* QuatStruct;
+	static UScriptStruct* ColorStruct;
+	static UScriptStruct* Matrix4Struct;
+	static UScriptStruct* NumericStruct;
 
-	static const UEnum* ExecutionStateEnum;
+	static UEnum* ExecutionStateEnum;
+	static UEnum* ExecutionStateSourceEnum;
 
-	static const UScriptStruct* ParameterMapStruct;
+	static UScriptStruct* ParameterMapStruct;
+	static UScriptStruct* IDStruct;
 
-	static TSet<const UScriptStruct*> NumericStructs;
+	static TSet<UScriptStruct*> NumericStructs;
 	static TArray<FNiagaraTypeDefinition> OrderedNumericTypes;
 
-	static TSet<const UScriptStruct*> ScalarStructs;
+	static TSet<UScriptStruct*> ScalarStructs;
 
-	static TSet<const UStruct*> FloatStructs;
-	static TSet<const UStruct*> IntStructs;
-	static TSet<const UStruct*> BoolStructs;
+	static TSet<UStruct*> FloatStructs;
+	static TSet<UStruct*> IntStructs;
+	static TSet<UStruct*> BoolStructs;
 
 	static FNiagaraTypeDefinition CollisionEventDef;
 
@@ -566,6 +645,19 @@ public:
 		{
 			RegisteredNumericTypes.AddUnique(NewType);
 		}
+	}
+
+	FNiagaraTypeDefinition GetTypeDefFromStruct(UStruct* Struct)
+	{
+		for (FNiagaraTypeDefinition& TypeDef : RegisteredTypes)
+		{
+			if (Struct == TypeDef.GetStruct())
+			{
+				return TypeDef;
+			}
+		}
+
+		return FNiagaraTypeDefinition();
 	}
 
 private:
@@ -746,6 +838,30 @@ struct FNiagaraVariable
 
 		OutVar.SetName(*OutVarStrName);
 		return OutVar;
+	}
+
+	static int32 SearchArrayForPartialNameMatch(const TArray<FNiagaraVariable>& Variables, const FName& VariableName)
+	{
+		FString VarNameStr = VariableName.ToString();
+		FString BestMatchSoFar;
+		int32 BestMatchIdx = INDEX_NONE;
+
+		for (int32 i = 0; i < Variables.Num(); i++)
+		{
+			const FNiagaraVariable& TestVar = Variables[i];
+			FString TestVarNameStr = TestVar.GetName().ToString();
+			if (TestVarNameStr == VarNameStr)
+			{
+				return i;
+			}
+			else if (VarNameStr.StartsWith(TestVarNameStr + TEXT(".")) && (BestMatchSoFar.Len() == 0 || TestVarNameStr.Len() > BestMatchSoFar.Len()))
+			{
+				BestMatchIdx = i;
+				BestMatchSoFar = TestVarNameStr;
+			}
+		}
+
+		return BestMatchIdx;
 	}
 
 private:

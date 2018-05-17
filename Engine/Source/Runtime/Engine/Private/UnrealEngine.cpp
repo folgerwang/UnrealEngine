@@ -84,9 +84,10 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/Input/SButton.h"
 #include "Engine/EngineCustomTimeStep.h"
-#include "Engine/TextureLODSettings.h"
 #include "Engine/LevelStreamingPersistent.h"
 #include "Engine/ObjectReferencer.h"
+#include "Engine/TextureLODSettings.h"
+#include "Engine/TimecodeProvider.h"
 #include "Misc/NetworkVersion.h"
 #include "Net/OnlineEngineInterface.h"
 #include "Engine/Console.h"
@@ -1430,6 +1431,7 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 	*/
 	EngineStats.Add(FEngineStatFuncs(TEXT("STAT_Hitches"), TEXT("STATCAT_Engine"), FText::GetEmpty(), &UEngine::RenderStatHitches, &UEngine::ToggleStatHitches, bIsRHS));
 	EngineStats.Add(FEngineStatFuncs(TEXT("STAT_AI"), TEXT("STATCAT_Engine"), FText::GetEmpty(), &UEngine::RenderStatAI, NULL, bIsRHS));
+	EngineStats.Add(FEngineStatFuncs(TEXT("STAT_Timecode"), TEXT("STATCAT_Engine"), FText::GetEmpty(), &UEngine::RenderStatTimecode, NULL, bIsRHS));
 
 	EngineStats.Add(FEngineStatFuncs(TEXT("STAT_ColorList"), TEXT("STATCAT_Engine"), FText::GetEmpty(), &UEngine::RenderStatColorList, NULL));
 	EngineStats.Add(FEngineStatFuncs(TEXT("STAT_Levels"), TEXT("STATCAT_Engine"), FText::GetEmpty(), &UEngine::RenderStatLevels, NULL));
@@ -1528,6 +1530,7 @@ void UEngine::PreExit()
 
 	delete ScreenSaverInhibitorRunnable;
 
+	SetTimecodeProvider(nullptr);
 	SetCustomTimeStep(nullptr);
 
 	ShutdownHMD();
@@ -1669,6 +1672,7 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 		bool bRunEngineCode = CustomTimeStep->UpdateTimeStep(this);
 		if (!bRunEngineCode)
 		{
+			UpdateTimecode();
 			return;
 		}
 	}
@@ -1872,6 +1876,8 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 		}
 	}
 #endif // !UE_BUILD_SHIPPING
+
+	UpdateTimecode();
 }
 
 bool UEngine::SetCustomTimeStep(UEngineCustomTimeStep* InCustomTimeStep)
@@ -1898,6 +1904,51 @@ bool UEngine::SetCustomTimeStep(UEngineCustomTimeStep* InCustomTimeStep)
 	}
 
 	return bResult;
+}
+
+bool UEngine::SetTimecodeProvider(UTimecodeProvider* InTimecodeProvider)
+{
+	bool bResult = true;
+
+	if (InTimecodeProvider != TimecodeProvider)
+	{
+		if (TimecodeProvider)
+		{
+			TimecodeProvider->Shutdown(this);
+		}
+
+		TimecodeProvider = InTimecodeProvider;
+
+		if (TimecodeProvider)
+		{
+			bResult = TimecodeProvider->Initialize(this);
+			if (!bResult)
+			{
+				TimecodeProvider = nullptr;
+			}
+		}
+	}
+
+	return bResult;
+}
+
+void UEngine::UpdateTimecode()
+{
+	if (TimecodeProvider)
+	{
+		if (TimecodeProvider->GetSynchronizationState() == ETimecodeProviderSynchronizationState::Synchronized)
+		{
+			FApp::SetTimecode(TimecodeProvider->GetTimecode());
+		}
+		else
+		{
+			FApp::SetTimecode(FTimecode());
+		}
+	}
+	else
+	{
+		FApp::SetTimecode(UTimecodeProvider::GetSystemTimeTimecode(DefaultTimecodeFrameRate));
+	}
 }
 
 void UEngine::ParseCommandline()
@@ -13567,6 +13618,32 @@ int32 UEngine::RenderStatFPS(UWorld* World, FViewport* Viewport, FCanvas* Canvas
 	// Start drawing the various counters.
 	const int32 RowHeight = FMath::TruncToInt(Font->GetMaxCharHeight() * 1.1f);
 
+	if (CustomTimeStep)
+	{
+		ECustomTimeStepSynchronizationState State = CustomTimeStep->GetSynchronizationState();
+		FString CustomTimeStepName = CustomTimeStep->GetName();
+		int32 NewX = X - Font->GetStringSize(*CustomTimeStepName);
+		switch (State)
+		{
+		case ECustomTimeStepSynchronizationState::Closed:
+			Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s : Closed"), *CustomTimeStepName), Font, FColor::Red);
+			break;
+		case ECustomTimeStepSynchronizationState::Error:
+			Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s : Error"), *CustomTimeStepName), Font, FColor::Red);
+			break;
+		case ECustomTimeStepSynchronizationState::Synchronized:
+			Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s : Synchronized"), *CustomTimeStepName), Font, FColor::Green);
+			break;
+		case ECustomTimeStepSynchronizationState::Synchronizing:
+			Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s : Synchronizing"), *CustomTimeStepName), Font, FColor::Yellow);
+			break;
+		default:
+			check(false);
+			break;
+		}
+		Y += RowHeight;
+	}
+
 	// Draw the FPS counter.
 	Canvas->DrawShadowedString(
 		X,
@@ -15282,6 +15359,46 @@ int32 UEngine::RenderStatAI(UWorld* World, FViewport* Viewport, FCanvas* Canvas,
 		RenderedColor
 	);
 	Y += RowHeight;
+	return Y;
+}
+
+// Timecode
+int32 UEngine::RenderStatTimecode(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation, const FRotator* ViewRotation)
+{
+	UFont* Font = FPlatformProperties::SupportsWindowedMode() ? GetSmallFont() : GetMediumFont();
+	const int32 RowHeight = FMath::TruncToInt(Font->GetMaxCharHeight() * 1.1f);
+
+	UTimecodeProvider* Provider = GetTimecodeProvider();
+	if (Provider)
+	{
+		ETimecodeProviderSynchronizationState State = Provider->GetSynchronizationState();
+		FString ProviderName = Provider->GetName();
+		float CharWidth, CharHeight;
+		Font->GetCharSize(TEXT(' '), CharWidth, CharHeight);
+		int32 NewX = X - Font->GetStringSize(*ProviderName) - (int32)CharWidth;
+		switch(State)
+		{
+			case ETimecodeProviderSynchronizationState::Closed:
+				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Closed"), *ProviderName), Font, FColor::Red);
+				break;
+			case ETimecodeProviderSynchronizationState::Error:
+				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Error"), *ProviderName), Font, FColor::Red);
+				break;
+			case ETimecodeProviderSynchronizationState::Synchronized:
+				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Synchronized"), *ProviderName), Font, FColor::Green);
+				break;
+			case ETimecodeProviderSynchronizationState::Synchronizing:
+				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Synchronizing"), *ProviderName), Font, FColor::Yellow);
+				break;
+			default:
+				check(false);
+				break;
+		}
+		Y += RowHeight;
+	}
+	Canvas->DrawShadowedString(X, Y, *FString::Printf(TEXT("TC: %s"), *FApp::GetTimecode().ToString()), Font, FColor::Green);
+	Y += RowHeight;
+
 	return Y;
 }
 

@@ -26,7 +26,7 @@ enum EMetalViewportAccessFlag
 
 class FMetalCommandQueue;
 
-typedef void (^FMetalViewportPresentHandler)(uint32 CGDirectDisplayID);
+typedef void (^FMetalViewportPresentHandler)(uint32 CGDirectDisplayID, double OutputSeconds, double OutputDuration);
 
 class FMetalViewport : public FRHIViewport
 {

@@ -542,8 +542,10 @@ class FPostOpaqueRenderParameters
 		FMatrix ViewMatrix;
 		FMatrix ProjMatrix;
 		FRHITexture2D* DepthTexture;
+		FRHITexture2D* NormalTexture;
 		FRHITexture2D* SmallDepthTexture;
 		FRHICommandListImmediate* RHICmdList;
+		FUniformBufferRHIParamRef ViewUniformBuffer;
 		void* Uid; // A unique identifier for the view.
 };
 DECLARE_DELEGATE_OneParam(FPostOpaqueRenderDelegate, class FPostOpaqueRenderParameters&);
@@ -552,7 +554,7 @@ DECLARE_DELEGATE_OneParam(FPostOpaqueRenderDelegate, class FPostOpaqueRenderPara
 class FComputeDispatcher
 {
 public:
-	virtual void Execute(FRHICommandList &RHICmdList) = 0;
+	virtual void Execute(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer) = 0;
 };
 
 
@@ -732,10 +734,13 @@ public:
 
 	virtual void RegisterPostOpaqueRenderDelegate(const FPostOpaqueRenderDelegate& PostOpaqueRenderDelegate) = 0;
 	virtual void RegisterOverlayRenderDelegate(const FPostOpaqueRenderDelegate& OverlayRenderDelegate) = 0;
+	virtual void RenderPostOpaqueExtensions(const class FViewInfo& View, FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext) = 0;
+	virtual void RenderOverlayExtensions(const class FViewInfo& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext) = 0;
+	virtual bool HasPostOpaqueExtentions() const = 0;
 
 	virtual void RegisterPostOpaqueComputeDispatcher(FComputeDispatcher *Dispatcher) = 0;
 	virtual void UnRegisterPostOpaqueComputeDispatcher(FComputeDispatcher *Dispatcher) = 0;
-	virtual void DispatchPostOpaqueCompute(FRHICommandList &CmdList) = 0;
+	virtual void DispatchPostOpaqueCompute(FRHICommandList &CmdList, FUniformBufferRHIParamRef ViewUniformBuffer) = 0;
 
 	/** Delegate that is called upon resolving scene color. */
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnResolvedSceneColor, FRHICommandListImmediate& /*RHICmdList*/, class FSceneRenderTargets& /*SceneContext*/);

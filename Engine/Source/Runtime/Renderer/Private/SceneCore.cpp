@@ -11,7 +11,6 @@
 #include "Components/ExponentialHeightFogComponent.h"
 #include "DepthRendering.h"
 #include "SceneHitProxyRendering.h"
-#include "ShadowRendering.h"
 #include "VelocityRendering.h"
 #include "BasePassRendering.h"
 #include "MobileBasePassRendering.h"

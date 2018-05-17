@@ -36,13 +36,12 @@
 
 #include "Kismet/KismetMathLibrary.h"
 #include "CoreMinimal.h"
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
+
 #if WITH_MLSDK
-THIRD_PARTY_INCLUDES_START // pushes current warning pragmas
-#if PLATFORM_WINDOWS
-	__pragma(warning(disable: 4201)) /* warning C4201: nonstandard extension used: nameless struct/union */
-#endif
+ML_INCLUDES_START
 #include <ml_types.h>
-THIRD_PARTY_INCLUDES_END // pops current warning pragmas
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 namespace MagicLeap

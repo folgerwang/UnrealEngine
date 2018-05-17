@@ -1,4 +1,5 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// ...
 
 #include "MetalBackend.h"
 #include "MetalShaderFormat.h"
@@ -1848,13 +1849,27 @@ protected:
 	{
 		check(scope_depth > 0);
 		bool bNeedsClosingParenthesis = true;
-		if (tex->op == ir_txs)
+		bool bDepthTypeExpand = tex->sampler->type->sampler_shadow && !tex->shadow_comparitor;
+		switch (tex->op)
 		{
-			ralloc_asprintf_append(buffer, "int2((int)");
+			case ir_tex:
+			case ir_txl:
+			case ir_txb:
+			case ir_txd:
+				if (bDepthTypeExpand)
+				{
+					print_type_pre(tex->type);
+					ralloc_asprintf_append(buffer, "(");
+				}
+				break;
+			case ir_txs:
+				ralloc_asprintf_append(buffer, "int2((int)");
+				break;
+			default:
+				break;
 		}
 
 		bool bTexCubeArray = tex->sampler->type->sampler_array && (tex->sampler->type->sampler_dimensionality == GLSL_SAMPLER_DIM_CUBE);
-		
 		if (tex->op != ir_txf)
 		{
 			if (bTexCubeArray)
@@ -2007,6 +2022,11 @@ protected:
 			{
 				ralloc_asprintf_append(buffer, ", ");
 				tex->offset->accept(this);
+			}
+			
+			if (bDepthTypeExpand)
+			{
+				ralloc_asprintf_append(buffer, ")");
 			}
 		}
 			break;
@@ -4237,8 +4257,8 @@ char* FMetalCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* sta
 	// Promotes all inputs from half to float to avoid stage_in issues
 	PromoteInputsAndOutputsGlobalHalfToFloat(ir, state, Frequency);
 	
-	// For non-mobile shaders we need to support non-zero base-instance and base-vertex, which only works on Metal 1.1 and above
-	if (Version > 0)
+	// For non-mobile shaders we need to support non-zero base-instance and base-vertex, which only works from Metal 1.1 on AMD/Intel/NV/Apple A9 and above
+	if (Version > 0 && bIsDesktop != EMetalGPUSemanticsMobile)
 	{
 		// After stage_in type changes - add extra system for base instance / vertex
 		FixupMetalBaseOffsets(ir, state, Frequency);

@@ -4,8 +4,8 @@
 
 #include "Containers/ArrayView.h"
 #include "Curves/KeyHandle.h"
-#include "FrameNumber.h"
-#include "FrameTime.h"
+#include "Misc/FrameNumber.h"
+#include "Misc/FrameTime.h"
 
 struct FFrameRate;
 struct FKeyDataOptimizationParams;

@@ -570,8 +570,9 @@ void ApplyTemporalAA(
 	/** Output of Temporal AA for the next step in the pipeline. */
 	TRefCountPtr<IPooledRenderTarget>& HistoryOutput)
 {
-	if (View.AntiAliasingMethod == AAM_TemporalAA
-		&& HistoryState)
+	if( View.AntiAliasingMethod == AAM_TemporalAA &&
+		HistoryState &&
+		HistoryState->RT[0] )
 	{
 		FMemMark Mark(FMemStack::Get());
 		FRenderingCompositePassContext CompositeContext(RHICmdList, View);
@@ -579,8 +580,6 @@ void ApplyTemporalAA(
 
 		// Nodes for input render targets
 		FRenderingCompositePass* LightShaftSetup = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessInput( LightShaftsSource ) );
-		FRenderingCompositePass* HistoryInput = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessInput(
-			HistoryState->RT[0] ) );
 
 		FTAAPassParameters TAAParameters(View);
 		TAAParameters.Pass = ETAAPassConfig::LightShaft;

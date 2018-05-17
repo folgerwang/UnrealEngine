@@ -176,6 +176,7 @@ void FGraphEditorDragDropAction::SetSimpleFeedbackMessage(const FSlateBrush* Ico
 		]
 		+SHorizontalBox::Slot()
 		.AutoWidth()
+		.Padding(3.0f)
 		.MaxWidth(500)
 		.VAlign(VAlign_Center)
 		[

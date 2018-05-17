@@ -118,6 +118,7 @@ ULineBatchComponent::ULineBatchComponent(const FObjectInitializer& ObjectInitial
 	bUseEditorCompositing = true;
 	SetGenerateOverlapEvents(false);
 	bCalculateAccurateBounds = true;
+	DefaultLifeTime = 1.0f;
 
 	// Ignore streaming updates since GetUsedMaterials() is not implemented.
 	bIgnoreStreamingManagerUpdate = true;

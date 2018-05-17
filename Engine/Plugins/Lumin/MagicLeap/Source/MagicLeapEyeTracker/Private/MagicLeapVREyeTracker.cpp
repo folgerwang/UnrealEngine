@@ -47,9 +47,12 @@
 #include "UnrealEngine.h"
 #include "MagicLeapSDKDetection.h"
 #include "HeadMountedDisplayFunctionLibrary.h"
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_eye_tracking.h>
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 FMagicLeapVREyeTracker::FMagicLeapVREyeTracker()

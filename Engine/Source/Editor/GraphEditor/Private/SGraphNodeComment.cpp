@@ -68,22 +68,37 @@ void SGraphNodeComment::Tick( const FGeometry& AllottedGeometry, const double In
 		CachedCommentTitle = CurrentCommentTitle;
 	}
 
+
 	const int32 CurrentWidth = static_cast<int32>(UserSize.X);
 	if (CurrentWidth != CachedWidth)
 	{
 		CachedWidth = CurrentWidth;
 	}
 
-	UEdGraphNode_Comment* CommentNode = CastChecked<UEdGraphNode_Comment>(GraphNode);
-	if (bCachedBubbleVisibility != CommentNode->bCommentBubbleVisible_InDetailsPanel)
+	const bool bShowCommentBubbles = GetDefault<UGraphEditorSettings>()->bShowCommentBubbles;
+	if (bShowCommentBubbles)
 	{
-		CommentBubble->UpdateBubble();
-		bCachedBubbleVisibility = CommentNode->bCommentBubbleVisible_InDetailsPanel;
-	}
+		UEdGraphNode_Comment* CommentNode = CastChecked<UEdGraphNode_Comment>(GraphNode);
+		if (bCachedBubbleVisibility != CommentNode->bCommentBubbleVisible_InDetailsPanel)
+		{
+			GetCommentBubble()->UpdateBubble();
+			bCachedBubbleVisibility = CommentNode->bCommentBubbleVisible_InDetailsPanel;
+		}
 
-	if (CachedFontSize != CommentNode->FontSize)
+		if (CachedFontSize != CommentNode->FontSize)
+		{
+			UpdateGraphNode();
+		}
+	}
+	else
 	{
-		UpdateGraphNode();
+		if (bCachedBubbleVisibility && CommentBubble.IsValid())
+		{
+			CommentBubble->SetVisibility(EVisibility::Collapsed);
+		}
+
+		CommentBubble.Reset();
+		bCachedBubbleVisibility = false;
 	}
 }
 
@@ -102,6 +117,36 @@ float SGraphNodeComment::GetWrapAt() const
 	return (float)(CachedWidth - 32.0f);
 }
 
+TSharedPtr<SCommentBubble> SGraphNodeComment::GetCommentBubble()
+{
+	if (!CommentBubble.IsValid())
+	{
+		// Create comment bubble
+		CommentBubble = SNew(SCommentBubble)
+			.GraphNode(GraphNode)
+			.Text(this, &SGraphNodeComment::GetNodeComment)
+			.OnTextCommitted(this, &SGraphNodeComment::OnNameTextCommited)
+			.ColorAndOpacity(this, &SGraphNodeComment::GetCommentBubbleColor)
+			.AllowPinning(true)
+			.EnableTitleBarBubble(false)
+			.EnableBubbleCtrls(false)
+			.GraphLOD(this, &SGraphNode::GetCurrentLOD)
+			.InvertLODCulling(true)
+			.IsGraphNodeHovered(this, &SGraphNode::IsHovered);
+
+		GetOrAddSlot(ENodeZone::TopCenter)
+			.SlotOffset(TAttribute<FVector2D>(CommentBubble.Get(), &SCommentBubble::GetOffset))
+			.SlotSize(TAttribute<FVector2D>(CommentBubble.Get(), &SCommentBubble::GetSize))
+			.AllowScaling(TAttribute<bool>(CommentBubble.Get(), &SCommentBubble::IsScalingAllowed))
+			.VAlign(VAlign_Top)
+			[
+				CommentBubble.ToSharedRef()
+			];
+	}
+
+	return CommentBubble;
+}
+
 bool SGraphNodeComment::IsNameReadOnly() const
 {
 	return !IsEditable.Get() || SGraphNode::IsNameReadOnly();
@@ -109,6 +154,8 @@ bool SGraphNodeComment::IsNameReadOnly() const
 
 void SGraphNodeComment::UpdateGraphNode()
 {
+	const bool bShowCommentBubbles = GetDefault<UGraphEditorSettings>()->bShowCommentBubbles;
+
 	// No pins in a comment box
 	InputPins.Empty();
 	OutputPins.Empty();
@@ -119,7 +166,7 @@ void SGraphNodeComment::UpdateGraphNode()
 
 	// Remember if we should be showing the bubble
 	UEdGraphNode_Comment* CommentNode = CastChecked<UEdGraphNode_Comment>(GraphNode);
-	bCachedBubbleVisibility = CommentNode->bCommentBubbleVisible_InDetailsPanel;
+	bCachedBubbleVisibility = bShowCommentBubbles ? CommentNode->bCommentBubbleVisible_InDetailsPanel : false;
 
 	// Setup a tag for this node
 	FString TagName;
@@ -201,27 +248,11 @@ void SGraphNodeComment::UpdateGraphNode()
 			]			
 		];
 
-	// Create comment bubble
-	CommentBubble = SNew(SCommentBubble)
-	.GraphNode(GraphNode)
-	.Text(this, &SGraphNodeComment::GetNodeComment)
-	.OnTextCommitted(this, &SGraphNodeComment::OnNameTextCommited)
-	.ColorAndOpacity(this, &SGraphNodeComment::GetCommentBubbleColor )
-	.AllowPinning(true)
-	.EnableTitleBarBubble(false)
-	.EnableBubbleCtrls(false)
-	.GraphLOD(this, &SGraphNode::GetCurrentLOD)
-	.InvertLODCulling(true)
-	.IsGraphNodeHovered(this, &SGraphNode::IsHovered);
-
-	GetOrAddSlot(ENodeZone::TopCenter)
-	.SlotOffset(TAttribute<FVector2D>(CommentBubble.Get(), &SCommentBubble::GetOffset))
-	.SlotSize(TAttribute<FVector2D>(CommentBubble.Get(), &SCommentBubble::GetSize))
-	.AllowScaling(TAttribute<bool>(CommentBubble.Get(), &SCommentBubble::IsScalingAllowed))
-	.VAlign(VAlign_Top)
-	[
-		CommentBubble.ToSharedRef()
-	];
+	if (bShowCommentBubbles)
+	{
+		// Create comment bubble
+		GetCommentBubble();
+	}
 }
 
 FVector2D SGraphNodeComment::ComputeDesiredSize( float ) const

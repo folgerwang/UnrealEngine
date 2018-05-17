@@ -157,6 +157,7 @@ public:
 	virtual void StraightenConnections() override;
 	virtual void StraightenConnections(UEdGraphPin* SourcePin, UEdGraphPin* PinToAlign) override;
 	virtual void CaptureKeyboard() override;
+	virtual void SetNodeFactory(const TSharedRef<class FGraphNodeFactory>& NewNodeFactory) override;
 	// End of SGraphEditor interface
 protected:
 	//

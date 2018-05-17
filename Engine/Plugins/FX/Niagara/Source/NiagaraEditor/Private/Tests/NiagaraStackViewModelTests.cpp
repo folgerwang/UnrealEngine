@@ -8,7 +8,6 @@
 #include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 #include "ViewModels/Stack/NiagaraStackRoot.h"
 #include "ViewModels/Stack/NiagaraStackScriptItemGroup.h"
-#include "ViewModels/Stack/NiagaraStackAddModuleItem.h"
 #include "ViewModels/Stack/NiagaraStackModuleItem.h"
 #include "ViewModels/Stack/NiagaraStackFunctionInputCollection.h"
 #include "ViewModels/Stack/NiagaraStackFunctionInput.h"
@@ -21,9 +20,9 @@
 UNiagaraStackViewModel* CreateStackViewModelForEmitter(UNiagaraEmitter* Emitter)
 {
 	TSharedRef<FNiagaraSystemViewModel> SystemViewModel = FNiagaraEditorTestUtilities::CreateTestSystemViewModelForEmitter(Emitter);
-	TSharedRef<FNiagaraEmitterViewModel> EmitterViewModel = SystemViewModel->GetEmitterHandleViewModels()[0]->GetEmitterViewModel();
+	TSharedRef<FNiagaraEmitterHandleViewModel> EmitterHandleViewModel = SystemViewModel->GetEmitterHandleViewModels()[0];
 	UNiagaraStackViewModel* StackViewModel = NewObject<UNiagaraStackViewModel>();
-	StackViewModel->Initialize(SystemViewModel, EmitterViewModel);
+	StackViewModel->Initialize(SystemViewModel, EmitterHandleViewModel);
 	return StackViewModel;
 }
 

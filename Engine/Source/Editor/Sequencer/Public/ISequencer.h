@@ -12,7 +12,7 @@
 #include "IMovieScenePlayer.h"
 #include "KeyPropertyParams.h"
 #include "MovieSceneBinding.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 #include "Widgets/Input/NumericTypeInterface.h"
 #include "Editor/SequencerWidgets/Public/ITimeSlider.h"
 

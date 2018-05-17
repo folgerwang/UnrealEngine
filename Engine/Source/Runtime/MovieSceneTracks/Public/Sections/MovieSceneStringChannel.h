@@ -3,7 +3,7 @@
 #pragma once
 
 #include "Containers/UnrealString.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 #include "UObject/ObjectMacros.h"
 #include "Channels/MovieSceneChannel.h"
 #include "Channels/MovieSceneChannelData.h"

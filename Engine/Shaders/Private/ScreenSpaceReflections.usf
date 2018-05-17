@@ -145,7 +145,7 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 		const float2 E = float2(PseudoRandom(PixelPos + float2(FrameRandom, 0)), PseudoRandom(PixelPos + float2(0, FrameRandom)));
 		const float StepOffset = PseudoRandom(PixelPos + FrameRandom);
 
-		const float4 HNAndPDF = ImportanceSampleBlinn( E, Roughness );
+		const float4 HNAndPDF = ImportanceSampleBlinn( E, Pow4(Roughness) );
 		const float3 H = TangentToWorld( HNAndPDF.xyz, N );
 		const float3 R = 2 * dot( V, H ) * H - V;
 
@@ -211,7 +211,7 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 				StepOffset -= 0.5;
 			
 				float2 E = Hammersley( i, NumRays, Random );
-				float3 H = TangentToWorld( ImportanceSampleBlinn( E, Roughness ).xyz, N );
+				float3 H = TangentToWorld( ImportanceSampleBlinn( E, Pow4(Roughness) ).xyz, N );
 				float3 R = 2 * dot( V, H ) * H - V;
 
 				float4 HitUVzTime;

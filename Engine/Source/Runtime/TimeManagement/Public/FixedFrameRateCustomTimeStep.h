@@ -4,7 +4,7 @@
 
 #include "Engine/EngineCustomTimeStep.h"
 
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 #include "FixedFrameRateCustomTimeStep.generated.h"
 

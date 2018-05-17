@@ -64,4 +64,25 @@ class LIVELINK_API ULiveLinkBlueprintLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category = "LiveLink")
 	static void GetChildren(UPARAM(ref) FLiveLinkTransform& LiveLinkTransform, TArray<FLiveLinkTransform>& Children);
 
+// FLiveLinkSourceHandle
+
+	// Checks whether the LiveLink Source is valid via its handle
+	UFUNCTION(BlueprintCallable, Category = "LiveLink")
+	static bool IsSourceStillValid(UPARAM(ref) FLiveLinkSourceHandle& SourceHandle);
+
+	// Requests the given LiveLink Source to shut down via its handle
+	UFUNCTION(BlueprintCallable, Category = "LiveLink")
+	static bool RequestShutdown(UPARAM(ref) FLiveLinkSourceHandle& SourceHandle);
+
+	// Get the text status of a LiveLink Source via its handle
+	UFUNCTION(BlueprintCallable, Category = "LiveLink")
+	static FText GetSourceStatus(UPARAM(ref) FLiveLinkSourceHandle& SourceHandle);
+
+	// Get the type of a LiveLink Source via its handle
+	UFUNCTION(BlueprintCallable, Category = "LiveLink")
+	static FText GetSourceType(UPARAM(ref) FLiveLinkSourceHandle& SourceHandle);
+
+	// Get the machine name of a LiveLink Source via its handle
+	UFUNCTION(BlueprintCallable, Category = "LiveLink")
+	static FText GetSourceMachineName(UPARAM(ref) FLiveLinkSourceHandle& SourceHandle);
 };

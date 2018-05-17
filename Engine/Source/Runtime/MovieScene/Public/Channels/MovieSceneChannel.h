@@ -3,8 +3,8 @@
 #pragma once
 
 #include "Misc/CoreDefines.h"
-#include "FrameNumber.h"
-#include "FrameRate.h"
+#include "Misc/FrameNumber.h"
+#include "Misc/FrameRate.h"
 #include "Containers/ArrayView.h"
 #include "Math/Range.h"
 

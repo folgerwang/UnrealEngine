@@ -29,6 +29,8 @@ private:
 	/** Called whenever the graph for the System script changes. */
 	void OnGraphChanged(const struct FEdGraphEditAction& InAction);
 
+	void OnSystemVMCompiled(UNiagaraSystem* InSystem);
+
 	FNiagaraSystemViewModel* Parent;
 
 	/** The System who's script is getting viewed and edited by this view model. */
@@ -36,6 +38,7 @@ private:
 
 	/** A handle to the on graph changed delegate. */
 	FDelegateHandle OnGraphChangedHandle;
+	FDelegateHandle OnRecompileHandle;
 
 	FOnSystemCompiled OnSystemCompiledDelegate;
 };

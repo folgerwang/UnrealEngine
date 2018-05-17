@@ -45,7 +45,7 @@ void FD3D12IndexBuffer::RenameLDAChain(FD3D12ResourceLocation& NewLocation)
 	ensure(GetUsage() & BUF_AnyDynamic);
 	Rename(NewLocation);
 
-	if (GNumActiveGPUsForRendering > 1)
+	if (GNumExplicitGPUsForRendering > 1)
 	{
 		// This currently crashes at exit time because NewLocation isn't tracked in the right allocator.
 		ensure(IsHeadLink());

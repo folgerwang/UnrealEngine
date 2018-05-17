@@ -4,7 +4,7 @@
 
 #include "CoreTypes.h"
 #include "Layout/Geometry.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 /**
  * Utility for converting time units to slate pixel units and vice versa

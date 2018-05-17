@@ -22,7 +22,7 @@ public:
 	/** IPropertyUtilities interface */
 	virtual class FNotifyHook* GetNotifyHook() const override
 	{
-		return nullptr;
+		return Generator.GetNotifyHook();
 	}
 	virtual bool AreFavoritesEnabled() const override
 	{
@@ -352,6 +352,7 @@ void FPropertyRowGenerator::UpdateDetailRows()
 	//NumVisbleTopLevelObjectNodes = 0;
 
 	FDetailFilter CurrentFilter;
+	CurrentFilter.bShowAllAdvanced = true;
 
 	for (int32 RootNodeIndex = 0; RootNodeIndex < RootPropertyNodes.Num(); ++RootNodeIndex)
 	{
@@ -458,6 +459,8 @@ void FPropertyRowGenerator::UpdateSinglePropertyMap(TSharedPtr<FComplexPropertyN
 	LayoutData.ClassToPropertyMap.Empty();
 
 	TSharedPtr<FDetailLayoutBuilderImpl> DetailLayout = MakeShareable(new FDetailLayoutBuilderImpl(InRootPropertyNode, LayoutData.ClassToPropertyMap, PropertyUtilities, nullptr, false));
+	DetailLayout->AddNodeVisibilityChangedHandler(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FPropertyRowGenerator::LayoutNodeVisibilityChanged));
+	DetailLayout->SetInstancedPropertyTypeLayoutMap(InstancedTypeToLayoutMap);
 	LayoutData.DetailLayout = DetailLayout;
 
 	TSharedPtr<FComplexPropertyNode> RootPropertyNode = InRootPropertyNode;
@@ -536,5 +539,10 @@ TSharedPtr<IDetailTreeNode> FPropertyRowGenerator::FindTreeNodeRecursive(const T
 	}
 
 	return nullptr;
+}
+
+void FPropertyRowGenerator::LayoutNodeVisibilityChanged()
+{
+	UpdateDetailRows();
 }
 

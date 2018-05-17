@@ -706,6 +706,7 @@ void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InC
 	bool bValidateExternalNodes = true;
 
 	int32 FoundIndex = RootPropertyNodes.Find(LastRootPendingKill);
+	bool bUpdateFilteredDetails = false;
 	if (FoundIndex != INDEX_NONE)
 	{ 
 		// Reaquire the root property nodes.  It may have been changed by the deferred actions if something like a blueprint editor forcefully resets a details panel during a posteditchange
@@ -720,20 +721,19 @@ void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InC
 		{
 			if(RootPropertyNode == LastRootPendingKill)
 			{
+				ExpandedDetailNodes.Empty();
 				RestoreExpandedItems(RootPropertyNode.ToSharedRef());
 			}
 
 			EPropertyDataValidationResult Result = RootPropertyNode->EnsureDataIsValid();
 			if(Result == EPropertyDataValidationResult::PropertiesChanged || Result == EPropertyDataValidationResult::EditInlineNewValueChanged)
 			{
-				RestoreExpandedItems(RootPropertyNode.ToSharedRef());
 				UpdatePropertyMaps();
-				UpdateFilteredDetails();
+				bUpdateFilteredDetails = true;
 			}
 			else if(Result == EPropertyDataValidationResult::ArraySizeChanged || Result == EPropertyDataValidationResult::ChildrenRebuilt)
 			{
-				RestoreExpandedItems(RootPropertyNode.ToSharedRef());
-				UpdateFilteredDetails();
+				bUpdateFilteredDetails = true;
 			}
 			else if(Result == EPropertyDataValidationResult::ObjectInvalid)
 			{
@@ -759,24 +759,26 @@ void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InC
 					EPropertyDataValidationResult Result = PropertyNode->EnsureDataIsValid();
 					if (Result == EPropertyDataValidationResult::PropertiesChanged || Result == EPropertyDataValidationResult::EditInlineNewValueChanged)
 					{
-						RestoreExpandedItems(PropertyNode.ToSharedRef());
-
 						// Note this will invalidate all the external root nodes so there is no need to continue
 						ExternalRootPropertyNodes.Empty();
 
 						UpdatePropertyMaps();
-						UpdateFilteredDetails();
+						bUpdateFilteredDetails = true;
 
 						break;
 					}
 					else if (Result == EPropertyDataValidationResult::ArraySizeChanged || Result == EPropertyDataValidationResult::ChildrenRebuilt)
 					{
-						RestoreExpandedItems(PropertyNode.ToSharedRef());
-						UpdateFilteredDetails();
+						bUpdateFilteredDetails = true;
 					}
 				}
 			}
 		}
+	}
+
+	if (bUpdateFilteredDetails)
+	{
+		UpdateFilteredDetails();
 	}
 
 	for(FDetailLayoutData& LayoutData : DetailLayouts)
@@ -924,8 +926,6 @@ void SDetailsViewBase::RestoreExpandedItems(TSharedRef<FPropertyNode> InitialSta
 {
 	TSharedPtr<FPropertyNode> StartNode = InitialStartNode;
 
-	ExpandedDetailNodes.Empty();
-
 	FString ExpandedCustomItems;
 
 	UStruct* BestBaseStruct = StartNode->FindComplexParent()->GetBaseStructure();
@@ -954,6 +954,7 @@ void SDetailsViewBase::RestoreExpandedItems(TSharedRef<FPropertyNode> InitialSta
 void SDetailsViewBase::UpdateFilteredDetails()
 {
 	RootTreeNodes.Reset();
+	ExpandedDetailNodes.Empty();
 
 	FDetailNodeList InitialRootNodeList;
 	
@@ -972,6 +973,8 @@ void SDetailsViewBase::UpdateFilteredDetails()
 		{
 			RootPropertyNode->FilterNodes(CurrentFilter.FilterStrings);
 			RootPropertyNode->ProcessSeenFlags(true);
+
+			RestoreExpandedItems(RootPropertyNode.ToSharedRef());
 
 			TSharedPtr<FDetailLayoutBuilderImpl>& DetailLayout = DetailLayouts[RootNodeIndex].DetailLayout;
 			if(DetailLayout.IsValid())

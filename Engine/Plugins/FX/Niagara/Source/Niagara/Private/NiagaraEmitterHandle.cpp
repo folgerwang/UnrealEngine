@@ -11,6 +11,7 @@
 #include "Modules/ModuleManager.h"
 
 const FNiagaraEmitterHandle FNiagaraEmitterHandle::InvalidHandle;
+const FString InitialNotSynchronizedReason("Emitter handle constructed");
 
 FNiagaraEmitterHandle::FNiagaraEmitterHandle() :
 #if WITH_EDITORONLY_DATA
@@ -34,7 +35,9 @@ FNiagaraEmitterHandle::FNiagaraEmitterHandle(UNiagaraEmitter& Emitter)
 #endif
 	, Instance(&Emitter)
 {
-	
+#if WITH_EDITORONLY_DATA
+	Instance->GraphSource->MarkNotSynchronized(InitialNotSynchronizedReason);
+#endif
 }
 
 #if WITH_EDITORONLY_DATA
@@ -49,6 +52,7 @@ FNiagaraEmitterHandle::FNiagaraEmitterHandle(UNiagaraEmitter& InSourceEmitter, F
 	, Instance(Cast<UNiagaraEmitter>(StaticDuplicateObject(Source, &InOuterSystem)))
 {
 	Instance->SetUniqueEmitterName(Name.ToString());
+	Instance->GraphSource->MarkNotSynchronized(InitialNotSynchronizedReason);
 }
 
 FNiagaraEmitterHandle::FNiagaraEmitterHandle(const FNiagaraEmitterHandle& InHandleToDuplicate, FName InDuplicateName, UNiagaraSystem& InDuplicateOwnerSystem)
@@ -64,6 +68,7 @@ FNiagaraEmitterHandle::FNiagaraEmitterHandle(const FNiagaraEmitterHandle& InHand
 	// Clear stand alone and public flags from the referenced emitters since they are not assets.
 	Instance->ClearFlags(RF_Standalone | RF_Public);
 	Instance->SetUniqueEmitterName(Name.ToString());
+	Instance->GraphSource->MarkNotSynchronized(InitialNotSynchronizedReason);
 	LastMergedSource->ClearFlags(RF_Standalone | RF_Public);
 }
 #endif
@@ -111,7 +116,17 @@ void FNiagaraEmitterHandle::SetName(FName InName, UNiagaraSystem& InOwnerSystem)
 	FName UniqueName = FNiagaraUtilities::GetUniqueName(InName, OtherEmitterNames);
 
 	Name = UniqueName;
-	Instance->SetUniqueEmitterName(Name.ToString());
+	if (Instance->SetUniqueEmitterName(Name.ToString()))
+	{
+#if WITH_EDITOR
+		if (InOwnerSystem.GetSystemSpawnScript() && InOwnerSystem.GetSystemSpawnScript()->GetSource())
+		{
+			// Just invalidate the system scripts here. The emitter scripts have their important variables 
+			// changed in the SetUniqueEmitterName method above.
+			InOwnerSystem.GetSystemSpawnScript()->GetSource()->InvalidateCachedCompileIds();
+		}
+#endif
+	}
 }
 
 bool FNiagaraEmitterHandle::GetIsEnabled() const
@@ -194,6 +209,9 @@ void FNiagaraEmitterHandle::ConditionalPostLoad()
 
 INiagaraModule::FMergeEmitterResults FNiagaraEmitterHandle::MergeSourceChanges()
 {
+	UE_LOG(LogNiagara, Log, TEXT("Emitter %s-%s is merging changes from source %s because its Change ID was updated."), *Instance->GetPathName(), *Name.ToString(),
+		Source != nullptr ? *Source->GetPathName() : TEXT("(null)"));
+
 	if (Source == nullptr)
 	{
 		// If we don't have a copy of the source emitter, this emitter can't safely be merged.

@@ -11,15 +11,15 @@ class NIAGARAEDITOR_API UNiagaraStackRenderItemGroup : public UNiagaraStackItemG
 	GENERATED_BODY()
 
 public:
-	virtual FText GetDisplayName() const override;
-	void SetDisplayName(FText InDisplayName);
+	void Initialize(FRequiredEntryData InRequiredEntryData);
 
 protected:
-	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
+	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
 private:
+	void ItemAdded();
 	void ChildModifiedGroupItems();
 
 private:
-	FText DisplayName;
+	TSharedPtr<INiagaraStackItemGroupAddUtilities> AddUtilities;
 };

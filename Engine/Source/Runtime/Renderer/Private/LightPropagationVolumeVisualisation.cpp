@@ -12,6 +12,7 @@
 
 #include "CoreMinimal.h"
 #include "ShaderParameters.h"
+#include "ShaderParameterUtils.h"
 #include "Shader.h"
 #include "StaticBoundShaderState.h"
 #include "SceneUtils.h"

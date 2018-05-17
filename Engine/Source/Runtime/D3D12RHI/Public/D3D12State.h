@@ -27,7 +27,7 @@ class FD3D12DepthStencilState : public FRHIDepthStencilState
 {
 public:
 
-	D3D12_DEPTH_STENCIL_DESC Desc;
+	D3D12_DEPTH_STENCIL_DESC1 Desc;
 
 	/* Describes the read/write state of the separate depth and stencil components of the DSV. */
 	FExclusiveDepthStencil AccessType;

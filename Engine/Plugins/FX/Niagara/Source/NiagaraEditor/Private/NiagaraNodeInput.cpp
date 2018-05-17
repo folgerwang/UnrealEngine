@@ -84,11 +84,22 @@ void UNiagaraNodeInput::BuildParameterMapHistory(FNiagaraParameterMapHistoryBuil
 	{
 		int32 ParamMapIdx = OutHistory.FindMatchingParameterMapFromContextInputs(Input);
 
-		if (ParamMapIdx == INDEX_NONE)
+		if (ParamMapIdx == INDEX_NONE && Usage != ENiagaraInputNodeUsage::TranslatorConstant)
 		{
 			ParamMapIdx = OutHistory.CreateParameterMap();
 		}
-		OutHistory.RegisterParameterMapPin(ParamMapIdx, GetOutputPin(0));
+		else if (ParamMapIdx == INDEX_NONE && OutHistory.Histories.Num() != 0)
+		{
+			ParamMapIdx = 0;
+		}
+
+		if (ParamMapIdx != INDEX_NONE)
+		{
+			uint32 NodeIdx = OutHistory.BeginNodeVisitation(ParamMapIdx, this);
+			OutHistory.EndNodeVisitation(ParamMapIdx, NodeIdx);
+
+			OutHistory.RegisterParameterMapPin(ParamMapIdx, GetOutputPin(0));
+		}
 	}
 }
 
@@ -100,7 +111,7 @@ void UNiagaraNodeInput::AllocateDefaultPins()
 		check(Class->IsChildOf(UNiagaraDataInterface::StaticClass()));
 		if (!DataInterface)
 		{
-			DataInterface = NewObject<UNiagaraDataInterface>(this, Class);
+			DataInterface = NewObject<UNiagaraDataInterface>(this, Class, NAME_None, RF_Transactional | RF_Public);
 		}
 	}
 
@@ -287,7 +298,7 @@ void UNiagaraNodeInput::OnRenameNode(const FString& NewName)
 		Node->ReallocatePins();
 	}
 
-	Graph->MarkGraphRequiresSynchronization();
+	Graph->MarkGraphRequiresSynchronization(TEXT("Input node renamed"));
 }
 
 TSharedPtr<SGraphNode> UNiagaraNodeInput::CreateVisualWidget()
@@ -306,6 +317,8 @@ FLinearColor UNiagaraNodeInput::GetNodeTitleColor() const
 		return Schema->NodeTitleColor_SystemConstant;
 	case ENiagaraInputNodeUsage::Attribute:
 		return Schema->NodeTitleColor_Attribute;
+	case ENiagaraInputNodeUsage::TranslatorConstant:
+		return Schema->NodeTitleColor_TranslatorConstant;
 	default:
 		// TODO: Do something better here.
 		return FLinearColor::Black;
@@ -441,6 +454,9 @@ void UNiagaraNodeInput::Compile(class FHlslNiagaraTranslator* Translator, TArray
 		return;
 	}
 
+	UNiagaraGraph* Graph = GetNiagaraGraph();
+	check(Input.GetType() != FNiagaraTypeDefinition::GetGenericNumericDef());
+
 	int32 FunctionParam = INDEX_NONE;
 	if (IsExposed() && Translator->GetFunctionParameter(Input, FunctionParam))
 	{
@@ -456,7 +472,7 @@ void UNiagaraNodeInput::Compile(class FHlslNiagaraTranslator* Translator, TArray
 				if (Usage == ENiagaraInputNodeUsage::Parameter && DataInterface != nullptr)
 				{
 					check(Input.GetType().GetClass());
-					Outputs.Add(Translator->RegisterDataInterface(Input, DataInterface, false));
+					Outputs.Add(Translator->RegisterDataInterface(Input, DataInterface, false, false));
 					return;
 				}
 				else
@@ -475,7 +491,7 @@ void UNiagaraNodeInput::Compile(class FHlslNiagaraTranslator* Translator, TArray
 		if (DataInterface)
 		{
 			check(Input.GetType().GetClass());
-			Outputs.Add(Translator->RegisterDataInterface(Input, DataInterface, false)); break;
+			Outputs.Add(Translator->RegisterDataInterface(Input, DataInterface, false, false)); break;
 		}
 		else
 		{
@@ -485,6 +501,8 @@ void UNiagaraNodeInput::Compile(class FHlslNiagaraTranslator* Translator, TArray
 		Outputs.Add(Translator->GetParameter(Input)); break;
 	case ENiagaraInputNodeUsage::Attribute:
 		Outputs.Add(Translator->GetAttribute(Input)); break;
+	case ENiagaraInputNodeUsage::TranslatorConstant:
+		Outputs.Add(Translator->GetParameter(Input)); break;
 	default:
 		check(false);
 	}

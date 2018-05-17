@@ -18,6 +18,8 @@
 #include "MovieSceneCaptureModule.h"
 #include "MovieSceneTimeHelpers.h"
 
+const FName UAutomatedLevelSequenceCapture::AutomatedLevelSequenceCaptureUIName = FName(TEXT("AutomatedLevelSequenceCaptureUIInstance"));
+
 struct FMovieSceneTimeController_FrameStep : FMovieSceneTimeController
 {
 	FMovieSceneTimeController_FrameStep()
@@ -35,7 +37,7 @@ struct FMovieSceneTimeController_FrameStep : FMovieSceneTimeController
 	{
 		DeltaTime   = FFrameTime(0);
 		CurrentTime = FFrameTime(-1);
-	}
+	} 
 
 	virtual FFrameTime OnRequestCurrentTime(const FQualifiedFrameTime& InCurrentTime, float InPlayRate) override
 	{
@@ -90,17 +92,11 @@ UAutomatedLevelSequenceCapture::UAutomatedLevelSequenceCapture(const FObjectInit
 	NumShots = 0;
 	ShotIndex = -1;
 
-	BurnInOptions = Init.CreateDefaultSubobject<ULevelSequenceBurnInOptions>(this, "BurnInOptions");
+	BurnInOptions = Init.CreateDefaultSubobject<ULevelSequenceBurnInOptions>(this, AutomatedLevelSequenceCaptureUIName);
 #endif
 }
 
 #if WITH_EDITORONLY_DATA
-
-void UAutomatedLevelSequenceCapture::SetLevelSequenceAsset(FString AssetPath)
-{
-	LevelSequenceAsset = MoveTemp(AssetPath);
-}
-
 void UAutomatedLevelSequenceCapture::AddFormatMappings(TMap<FString, FStringFormatArg>& OutFormatMappings, const FFrameMetrics& FrameMetrics) const
 {
 	OutFormatMappings.Add(TEXT("shot"), CachedState.CurrentShotName);

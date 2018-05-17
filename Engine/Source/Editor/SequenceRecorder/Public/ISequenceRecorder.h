@@ -6,7 +6,7 @@
 #include "Misc/Guid.h"
 #include "Modules/ModuleInterface.h"
 #include "Containers/ArrayView.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 
 class AActor;
 class ISequenceAudioRecorder;

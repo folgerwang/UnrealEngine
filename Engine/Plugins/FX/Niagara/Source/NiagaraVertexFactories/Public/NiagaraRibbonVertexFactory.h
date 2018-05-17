@@ -133,33 +133,13 @@ public:
 	/**
 	* Set the source vertex buffer that contains particle dynamic parameter data.
 	*/
-	void SetDynamicParameterBuffer(const FVertexBuffer* InDynamicParameterBuffer, uint32 StreamOffset, uint32 Stride);
+	void SetDynamicParameterBuffer(const FVertexBuffer* InDynamicParameterBuffer, int32 ParameterIndex, uint32 StreamOffset, uint32 Stride);
 
 
 	void SetParticleData(const FNiagaraDataSet *InDataSet)
 	{
 		DataSet = InDataSet;
 	}
-
-
-	inline FShaderResourceViewRHIParamRef GetFloatDataSRV() const
-	{
-		check(!IsInGameThread());
-		return DataSet->GetRenderDataFloat().SRV;
-	}
-	inline FShaderResourceViewRHIParamRef GetIntDataSRV() const
-	{
-		check(!IsInGameThread());
-		return DataSet->GetRenderDataInt32().SRV;
-	}
-
-	uint32 GetComponentBufferSize()
-	{
-		check(!IsInGameThread());
-		return DataSet->CurrDataRender().GetFloatStride() / sizeof(float);
-	}
-
-
 
 
 	/**

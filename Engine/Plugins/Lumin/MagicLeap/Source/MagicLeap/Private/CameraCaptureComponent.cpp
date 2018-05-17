@@ -19,11 +19,14 @@
 #if PLATFORM_LUMIN
 #include "Lumin/LuminAffinity.h"
 #endif // PLATFORM_LUMIN
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_camera.h>
 #include <ml_camera_metadata.h>
 #include <ml_camera_metadata_tags.h>
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 DEFINE_LOG_CATEGORY(LogCameraCapture);

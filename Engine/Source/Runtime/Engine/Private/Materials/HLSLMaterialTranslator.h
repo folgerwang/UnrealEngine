@@ -197,8 +197,6 @@ protected:
 	uint32 bNeedsParticlePosition : 1;
 	/** true if the material needs particle velocity. */
 	uint32 bNeedsParticleVelocity : 1;
-	/** true of the material uses a particle dynamic parameter */
-	uint32 bNeedsParticleDynamicParameter : 1;
 	/** true if the material needs particle relative time. */
 	uint32 bNeedsParticleTime : 1;
 	/** true if the material uses particle motion blur. */
@@ -246,6 +244,7 @@ protected:
 	/** Tracks the number of texture coordinates used by the vertex shader in this material. */
 	uint32 NumUserVertexTexCoords;
 
+	uint32 NumParticleDynamicParameters;
 public: 
 
 	FHLSLMaterialTranslator(FMaterial* InMaterial,
@@ -270,7 +269,6 @@ public:
 	,	bUsesSceneDepth(false)
 	,	bNeedsParticlePosition(false)
 	,	bNeedsParticleVelocity(false)
-	,	bNeedsParticleDynamicParameter(false)
 	,	bNeedsParticleTime(false)
 	,	bUsesParticleMotionBlur(false)
 	,	bNeedsParticleRandom(false)
@@ -295,6 +293,7 @@ public:
 	,	bUsesEmissiveColor(0)
 	,	NumUserTexCoords(0)
 	,	NumUserVertexTexCoords(0)
+	,	NumParticleDynamicParameters(0)
 	{
 		FMemory::Memzero(SharedPixelProperties);
 
@@ -924,9 +923,10 @@ public:
 			OutEnvironment.SetDefine(TEXT("NEEDS_PARTICLE_VELOCITY"), 1);
 		}
 
-		if (bNeedsParticleDynamicParameter)
+		if (NumParticleDynamicParameters > 0)
 		{
 			OutEnvironment.SetDefine(TEXT("USE_DYNAMIC_PARAMETERS"), 1);
+			OutEnvironment.SetDefine(TEXT("NUM_DYNAMIC_PARAMETERS"), NumParticleDynamicParameters);
 		}
 
 		if (bNeedsParticleTime)
@@ -4755,20 +4755,21 @@ protected:
 		return TransformBase(SourceCoordBasis, DestCoordBasis, A, 1);
 	}
 
-	virtual int32 DynamicParameter(FLinearColor& DefaultValue) override
+	virtual int32 DynamicParameter(FLinearColor& DefaultValue, uint32 ParameterIndex=0) override
 	{
 		if (ShaderFrequency != SF_Vertex && ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute)
 		{
 			return NonVertexOrPixelShaderExpressionError();
 		}
 
-		bNeedsParticleDynamicParameter = true;
+		NumParticleDynamicParameters = FMath::Max(NumParticleDynamicParameters, ParameterIndex + 1);
 
 		int32 Default = Constant4(DefaultValue.R, DefaultValue.G, DefaultValue.B, DefaultValue.A);
 		return AddInlinedCodeChunk(
 			MCT_Float4,
-			TEXT("GetDynamicParameter(Parameters.Particle, %s)"),
-			*GetParameterCode(Default)
+			TEXT("GetDynamicParameter(Parameters.Particle, %s, %u)"),
+			*GetParameterCode(Default),
+			ParameterIndex
 			);
 	}
 

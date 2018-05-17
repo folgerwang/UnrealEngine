@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	WaveBroadcastIntrinsics.usf: Exposes intrisics to perform broadcasting
+	WaveBroadcastIntrinsics.ush: Exposes intrisics to perform broadcasting
 	within lanes of a same wave.
 =============================================================================*/
   
@@ -14,7 +14,9 @@
 
 #if PLATFORM_SUPPORTS_WAVE_BROADCAST
 
-/** Swap left lane with righ lanes within lane group (size is power of two in [2; 32]). 
+/** Swap left lane with righ lanes within lane group (size is power of two in [2; 64]). 
+ *
+ *  If a lane is not active, the VGPR value returned is 0.
  *
  *  LaneGroupSize = 8
  *  LaneId = 1
@@ -32,7 +34,9 @@ float WaveSwapWithinLaneGroup(float x, const uint LaneGroupSize)
 	return WaveLaneSwizzleGCN(x, and_mask, or_mask, xor_mask);
 }
 
-/**  Broadcast inner lane group over a lane group (size is power of two in [2; 32]).
+/**  Broadcast inner lane group over a lane group (size is power of two in [2; 64]).
+ *
+ *  If a lane is not active, the VGPR value returned is 0.
  *
  *  LaneGroupSize = 8
  *  InnerLaneGroupSize = 2
@@ -41,7 +45,7 @@ float WaveSwapWithinLaneGroup(float x, const uint LaneGroupSize)
  *         |  lane group (size=8)  |
  *     x = | 0  1  2  3  4  5  6  7| 8  9 ...
  *
- *  return | 2  3  2  3  2  3  2  3| 9  9 ...
+ *  return | 2  3  2  3  2  3  2  3|10 11 ...
  */
 float WaveBroadcastLaneGroup(float x, const uint LaneGroupSize, const uint InnerLaneGroupSize, const uint InnerLaneGroupId)
 {
@@ -61,7 +65,7 @@ float WaveBroadcastLaneGroup(float x, const uint LaneGroupSize, const uint Inner
 	} \
 	Type WaveBroadcastLaneGroup(Type x, const uint LaneGroupSize, const uint InnerLaneGroupSize, const uint InnerLaneGroupId) \
 	{ \
-		return as##Type(WaveSwapWithinLaneGroup(asfloat(x), LaneGroupSize, InnerLaneGroupSize, InnerLaneGroupId)); \
+		return as##Type(WaveBroadcastLaneGroup(asfloat(x), LaneGroupSize, InnerLaneGroupSize, InnerLaneGroupId)); \
 	} \
 
 

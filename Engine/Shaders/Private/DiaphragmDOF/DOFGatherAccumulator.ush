@@ -349,10 +349,6 @@ void ResolveAccumulatorOutputs(
 //------------------------------------------------------- JIMENEZ 2014: CALL OF DUTY WAREFARE.
 #if GATHER_ACCUMULATOR_METHOD == GATHER_ACCUMULATOR_METHOD_JIMENEZ2014
 
-#if DIM_GATHER_RECURSION != GATHER_RECURSION_MODE_STANDALONE
-	#error Jimenez2014 gathering accumulator does not support multiple gathering recursion.
-#endif
-
 /** Returns the layer id the sample should go in. (Jiminez 2014, slide 100) */
 float ComputeSampleLayer(in FGatherAccumulator Accumulator, in FGatherSample A)
 {
@@ -739,23 +735,11 @@ void EndRingSamples(inout FGatherAccumulator Accumulator, in FGatherRingInfos Ri
 {
 	if (static_condition(RingInfos.bIsFirstRing)) // static_condition because number of ring for loop have UNROLL.
 	{
-		if (Accumulator.GatherParameters.CocRadiusBoundaryMode == GATHER_RECURSION_MODE_HIGHEST_MIP)
-		{
-			// Compose the first ring accumulated in current bucket with larger convolution.
-			Accumulator.PreviousColor     = Accumulator.LargerConvolution.Color * Accumulator.LargerConvolution.Weight;
-			Accumulator.PreviousCocRadius = Accumulator.LargerConvolution.CocAvgAndSquareAvg.x * Accumulator.LargerConvolution.Weight;
-			Accumulator.PreviousCocRadiusSquare = Accumulator.LargerConvolution.CocAvgAndSquareAvg.y * Accumulator.LargerConvolution.Weight;
-			Accumulator.PreviousWeight    = Accumulator.LargerConvolution.Weight;
-			MergeCurrentBucketIntoPreviousBucket(Accumulator, RingInfos.SampleCount);
-		}
-		else
-		{
-			// Simply move current bucket into previous bucket.
-			Accumulator.PreviousColor     = Accumulator.CurrentColor;
-			Accumulator.PreviousCocRadius = Accumulator.CurrentCocRadius;
-			Accumulator.PreviousCocRadiusSquare = Accumulator.CurrentCocRadiusSquare;
-			Accumulator.PreviousWeight    = Accumulator.CurrentWeight;
-		}
+		// Simply move current bucket into previous bucket.
+		Accumulator.PreviousColor     = Accumulator.CurrentColor;
+		Accumulator.PreviousCocRadius = Accumulator.CurrentCocRadius;
+		Accumulator.PreviousCocRadiusSquare = Accumulator.CurrentCocRadiusSquare;
+		Accumulator.PreviousWeight    = Accumulator.CurrentWeight;
 	}
 	else
 	{

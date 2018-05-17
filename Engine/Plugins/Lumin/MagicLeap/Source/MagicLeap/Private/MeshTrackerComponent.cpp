@@ -47,10 +47,13 @@
 #include "Editor.h"
 #endif
 #include "MRMeshComponent.h"
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_meshing.h>
 #include <ml_data_array.h>
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 static TAutoConsoleVariable<float> CVarFakeMeshTrackerData(

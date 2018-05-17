@@ -9,7 +9,6 @@
 
 #define TIMEMANAGEMENT_MODULE_NAME TEXT("TimeManagement")
 
-class ITimecodeProvider;
 
 class TIMEMANAGEMENT_API ITimeManagementModule : public IModuleInterface
 {
@@ -32,10 +31,4 @@ public:
 	{
 		return FModuleManager::Get().IsModuleLoaded(TIMEMANAGEMENT_MODULE_NAME);
 	}
-
-	/** Return the current TimecodeProvider that is responsible to own the current timecode for the Engine */
-	virtual ITimecodeProvider* GetTimecodeProvider() = 0;
-	
-	/** Set the current TimecodeProvider that is responsible to own the current timecode for the Engine */
-	virtual void SetTimecodeProvider(ITimecodeProvider* Provider) = 0;
 };

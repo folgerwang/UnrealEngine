@@ -4,8 +4,8 @@
 #include "GameFramework/Actor.h"
 #include "Animation/AnimSingleNodeInstance.h"
 #include "AnimationRecorder.h"
-#include "ITimecodeProvider.h"
 #include "ITimeManagementModule.h"
+#include "Misc/App.h"
 #include "MovieScene.h"
 #include "MovieSceneTimeHelpers.h"
 #include "LevelSequence.h"
@@ -85,17 +85,7 @@ bool RecordSingleNodeInstanceToAnimation(USkeletalMeshComponent* PreviewComponen
 
 FMovieSceneTimecodeSource GetTimecodeSource()
 {
-	FTimecode CurrentTimecode;
-
-	if (const ITimecodeProvider* Provider = ITimeManagementModule::Get().GetTimecodeProvider())
-	{
-		if (Provider->IsSynchronized())
-		{
-			CurrentTimecode = Provider->GetCurrentTimecode();
-		}
-	}
-
-	return FMovieSceneTimecodeSource(CurrentTimecode);
+	return FMovieSceneTimecodeSource(FApp::GetTimecode());
 }
 
 

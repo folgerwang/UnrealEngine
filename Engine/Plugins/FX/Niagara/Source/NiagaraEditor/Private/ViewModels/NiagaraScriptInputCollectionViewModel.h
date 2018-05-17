@@ -74,6 +74,7 @@ private:
 
 	/** The handle to the graph changed delegate. */
 	FDelegateHandle OnGraphChangedHandle;
+	FDelegateHandle OnRecompileHandle;
 
 	/** Whether or not generic numeric type parameters are supported as inputs and outputs for this script. */
 	bool bCanHaveNumericParameters;

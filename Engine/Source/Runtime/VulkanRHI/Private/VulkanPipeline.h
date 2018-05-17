@@ -129,7 +129,7 @@ public:
 
 	// Array of potential cache locations; first entries have highest priority. Only one cache file is loaded. If unsuccessful, tries next entry in the array.
 	void InitAndLoad(const TArray<FString>& CacheFilenames);
-	void Save(FString& CacheFilename);
+	void Save(const FString& CacheFilename);
 
 	FVulkanPipelineStateCache(FVulkanDevice* InParent);
 	~FVulkanPipelineStateCache();
@@ -139,7 +139,7 @@ public:
 	enum
 	{
 		// Bump every time serialization changes
-		VERSION = 17,
+		VERSION = 18,
 	};
 
 	struct FDescriptorSetLayoutBinding
@@ -624,7 +624,6 @@ private:
 			int32 UncompressedSize = 0; // 0 == file is uncompressed
 		} Header;
 
-		TArray<uint8> DeviceCache;
 		FShaderUCodeCache::TDataMap* ShaderCache = nullptr;
 
 		TArray<FGfxPipelineEntry*> GfxPipelineEntries;		
@@ -633,7 +632,7 @@ private:
 
 		void Save(FArchive& Ar);
 		bool Load(FArchive& Ar, const TCHAR* Filename);
-		bool BinaryCacheMatches(FVulkanDevice* InDevice);
+		static bool BinaryCacheMatches(FVulkanDevice* InDevice, const TArray<uint8>& DeviceCache);
 
 		static const ECompressionFlags CompressionFlags = (ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasSpeed);
 	};

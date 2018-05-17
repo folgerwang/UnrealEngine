@@ -10,13 +10,12 @@ class FDiskCacheInterface
 {
 	// Increment this if changes are made to the
 	// disk caches so stale caches get updated correctly
-	static const uint32 mCurrentHeaderVersion = 5;
+	static const uint32 mCurrentHeaderVersion = 7;
 	struct FDiskCacheHeader
 	{
 		uint32 mHeaderVersion;
 		uint32 mNumPsos;
 		uint32 mSizeInBytes; // The number of bytes after the header
-		bool   mUsesAPILibraries;
 	};
 
 private:
@@ -29,6 +28,7 @@ private:
 	SIZE_T  mCurrentOffset;
 	bool    mCacheExists;
 	bool    mInErrorState;
+	bool    mEnableDiskCache;
 	FDiskCacheHeader mHeader;
 
 	// There is the potential for the file mapping to grow
@@ -38,8 +38,6 @@ private:
 	TArray<void*> mBackedMemory;
 
 	static const SIZE_T mFileGrowSize = (1024 * 1024); // 1 megabyte;
-	static int32 GEnablePSOCache;
-	static FAutoConsoleVariableRef CVarEnablePSOCache;
 
 	void GrowMapping(SIZE_T size, bool firstrun);
 
@@ -53,14 +51,26 @@ public:
 	bool AppendData(const void* pData, size_t size);
 	bool SetPointerAndAdvanceFilePosition(void** pDest, size_t size, bool backWithSystemMemory = false);
 	void Reset(RESET_TYPE type);
-	void Init(FString &filename);
+	void Init(FString &filename, bool bEnable = true);
 	void Close(uint32 numberOfPSOs);
 	void Flush(uint32 numberOfPSOs);
 	void ClearDiskCache();
+
+	void ClearAndReinitialize()
+	{
+		// Must call the normal Init() first.
+		if (ensure(!mFileName.IsEmpty()))
+		{
+			ClearDiskCache();
+			Init(mFileName, mEnableDiskCache);
+		}
+	}
+
 	uint32 GetNumPSOs() const
 	{
 		return mHeader.mNumPsos;
 	}
+
 	uint32 GetSizeInBytes() const
 	{
 		return mHeader.mSizeInBytes;
@@ -68,7 +78,7 @@ public:
 	
 	FORCEINLINE_DEBUGGABLE bool IsInErrorState() const
 	{
-		return !GEnablePSOCache || mInErrorState;
+		return mInErrorState;
 	}
 
 	SIZE_T GetCurrentOffset() const { return mCurrentOffset; }

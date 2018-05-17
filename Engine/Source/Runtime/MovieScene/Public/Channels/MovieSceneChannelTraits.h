@@ -3,9 +3,9 @@
 #pragma once
 
 #include "Containers/ArrayView.h"
-#include "FrameNumber.h"
-#include "FrameTime.h"
-#include "FrameRate.h"
+#include "Misc/FrameNumber.h"
+#include "Misc/FrameTime.h"
+#include "Misc/FrameRate.h"
 #include "MovieSceneChannelEditorData.h"
 
 enum class EMovieSceneKeyInterpolation : uint8;

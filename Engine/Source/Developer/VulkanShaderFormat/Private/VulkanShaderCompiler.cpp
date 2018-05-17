@@ -1,10 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// .
 
 #include "VulkanShaderFormat.h"
 #include "VulkanCommon.h"
 #include "ShaderPreprocessor.h"
 #include "ShaderCompilerCommon.h"
 #include "hlslcc.h"
+
 #if PLATFORM_MAC
 // Horrible hack as we need the enum available but the Vulkan headers do not compile on Mac
 enum VkDescriptorType {

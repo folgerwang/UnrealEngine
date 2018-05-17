@@ -229,6 +229,12 @@ FBlendStateRHIParamRef GetDecalBlendState(const ERHIFeatureLevel::Type SMFeature
 
 		return TStaticBlendState<>::GetRHI();
 	}
+	else if (InDecalRenderStage == DRS_AmbientOcclusion)
+	{
+		ensure(DecalBlendMode == DBM_AmbientOcclusion);
+
+		return TStaticBlendState<CW_RED, BO_Add, BF_DestColor, BF_Zero>::GetRHI();
+	}
 	else
 	{
 		// before lighting (for non DBuffer decals)
@@ -547,6 +553,7 @@ const TCHAR* GetStageName(EDecalRenderStage Stage)
 	case DRS_AfterBasePass: return TEXT("DRS_AfterBasePass");
 	case DRS_BeforeLighting: return TEXT("DRS_BeforeLighting");
 	case DRS_Mobile: return TEXT("DRS_Mobile");
+	case DRS_AmbientOcclusion: return TEXT("DRS_AmbientOcclusion");
 	}
 	return TEXT("<UNKNOWN>");
 }
@@ -735,7 +742,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 
 			// Build a list of decals that need to be rendered for this view
 			FTransientDecalRenderDataList SortedDecals;
-			FDecalRendering::BuildVisibleDecalList(Scene, View, CurrentStage, SortedDecals);
+			FDecalRendering::BuildVisibleDecalList(Scene, View, CurrentStage, &SortedDecals);
 
 			if (SortedDecals.Num() > 0)
 			{
@@ -1042,6 +1049,16 @@ void FDecalRenderTargetManager::SetRenderTargetMode(FDecalRenderingCommon::ERend
 		TargetsToResolve[DBufferCIndex] = SceneContext.DBufferC->GetRenderTargetItem().TargetableTexture;
 		SetRenderTargets(RHICmdList, 3, &TargetsToResolve[DBufferAIndex], SceneContext.GetSceneDepthSurface(), ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, TargetsToTransitionWritable[CurrentRenderTargetMode]);
 		break;
+
+	case FDecalRenderingCommon::RTM_AmbientOcclusion:
+	{
+		TargetsToResolve[SceneColorIndex] = SceneContext.ScreenSpaceAO->GetRenderTargetItem().TargetableTexture;
+		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, TargetsToResolve[SceneColorIndex]);
+		ESimpleRenderTargetMode RTMode = SceneContext.bScreenSpaceAOIsValid ? ESimpleRenderTargetMode::EExistingColorAndDepth : ESimpleRenderTargetMode::EClearColorExistingDepth;
+		SetRenderTarget(RHICmdList, TargetsToResolve[SceneColorIndex], SceneContext.GetSceneDepthSurface(), ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, TargetsToTransitionWritable[CurrentRenderTargetMode]);
+		SceneContext.bScreenSpaceAOIsValid = true;
+		break;
+	}
 
 	default:
 		check(0);

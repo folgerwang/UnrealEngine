@@ -11,6 +11,9 @@
 // modifying ref counts if not needed; so we manage that ourselves
 FCriticalSection GD3D12SamplerStateCacheLock;
 
+DECLARE_CYCLE_STAT(TEXT("Graphics: Find or Create time"), STAT_PSOGraphicsFindOrCreateTime, STATGROUP_D3D12PipelineState);
+DECLARE_CYCLE_STAT(TEXT("Compute: Find or Create time"), STAT_PSOComputeFindOrCreateTime, STATGROUP_D3D12PipelineState);
+
 static D3D12_TEXTURE_ADDRESS_MODE TranslateAddressMode(ESamplerAddressMode AddressMode)
 {
 	switch (AddressMode)
@@ -226,8 +229,8 @@ FDepthStencilStateRHIRef FD3D12DynamicRHI::RHICreateDepthStencilState(const FDep
 {
 	FD3D12DepthStencilState* DepthStencilState = new FD3D12DepthStencilState;
 
-	D3D12_DEPTH_STENCIL_DESC &DepthStencilDesc = DepthStencilState->Desc;
-	FMemory::Memzero(&DepthStencilDesc, sizeof(D3D12_DEPTH_STENCIL_DESC));
+	D3D12_DEPTH_STENCIL_DESC1 &DepthStencilDesc = DepthStencilState->Desc;
+	FMemory::Memzero(&DepthStencilDesc, sizeof(D3D12_DEPTH_STENCIL_DESC1));
 
 	// depth part
 	DepthStencilDesc.DepthEnable = Initializer.DepthTest != CF_Always || Initializer.bEnableDepthWrite;
@@ -253,6 +256,10 @@ FDepthStencilStateRHIRef FD3D12DynamicRHI::RHICreateDepthStencilState(const FDep
 	{
 		DepthStencilDesc.BackFace = DepthStencilDesc.FrontFace;
 	}
+#if PLATFORM_WINDOWS
+	// Currently, the initializer doesn't include depth bound test info, we have to track it separately.
+	DepthStencilDesc.DepthBoundsTestEnable = false;
+#endif
 
 	const bool bStencilOpIsKeep =
 		Initializer.FrontFaceStencilFailStencilOp == SO_Keep
@@ -303,9 +310,23 @@ FBlendStateRHIRef FD3D12DynamicRHI::RHICreateBlendState(const FBlendStateInitial
 
 FGraphicsPipelineStateRHIRef FD3D12DynamicRHI::RHICreateGraphicsPipelineState(const FGraphicsPipelineStateInitializer& Initializer)
 {
+	SCOPE_CYCLE_COUNTER(STAT_PSOGraphicsFindOrCreateTime);
+
 	FD3D12PipelineStateCache& PSOCache = GetAdapter().GetPSOCache();
 
-	FBoundShaderStateRHIRef BoundShaderState = RHICreateBoundShaderState(
+	// First try to find the PSO based on the hash of runtime objects.
+	uint32 InitializerHash;
+	FD3D12GraphicsPipelineState* Found = PSOCache.FindInRuntimeCache(Initializer, InitializerHash);
+	if (Found)
+	{
+#if DO_CHECK
+		ensure(FMemory::Memcmp(&Found->PipelineStateInitializer, &Initializer, sizeof(Initializer)) == 0);
+#endif // DO_CHECK
+		return Found;
+	}
+
+	// TODO: Remove the need for BoundShaderState objects. Currently they are needed for the Root Signature and resource counts.
+	FBoundShaderStateRHIRef const BSS = RHICreateBoundShaderState(
 		Initializer.BoundShaderState.VertexDeclarationRHI,
 		Initializer.BoundShaderState.VertexShaderRHI,
 		Initializer.BoundShaderState.HullShaderRHI,
@@ -313,30 +334,44 @@ FGraphicsPipelineStateRHIRef FD3D12DynamicRHI::RHICreateGraphicsPipelineState(co
 		Initializer.BoundShaderState.PixelShaderRHI,
 		Initializer.BoundShaderState.GeometryShaderRHI);
 
-	FD3D12HighLevelGraphicsPipelineStateDesc GraphicsDesc = {};
+	// Next try to find the PSO based on the hash of its desc.
+	FD3D12BoundShaderState* const BoundShaderState = FD3D12DynamicRHI::ResourceCast(BSS.GetReference());
+	FD3D12LowLevelGraphicsPipelineStateDesc LowLevelDesc;
+	Found = PSOCache.FindInLoadedCache(Initializer, InitializerHash, BoundShaderState, LowLevelDesc);
+	if (Found)
+	{
+		return Found;
+	}
 
-	// Zero the RTV array - this is necessary to prevent uninitialized memory affecting the PSO cache hash generation
-	// Note that the above GraphicsDesc = {} does not clear down the array, probably because it's a TStaticArray rather 
-	// than a standard C array. 
-	FMemory::Memzero(&GraphicsDesc.RTVFormats[0], sizeof(GraphicsDesc.RTVFormats[0]) * GraphicsDesc.RTVFormats.Num());
+	// We need to actually create a PSO.
+	return PSOCache.CreateAndAdd(Initializer, InitializerHash, BoundShaderState, LowLevelDesc);
+}
 
-	GraphicsDesc.BoundShaderState = FD3D12DynamicRHI::ResourceCast(BoundShaderState.GetReference());
-	GraphicsDesc.BlendState = &FD3D12DynamicRHI::ResourceCast(Initializer.BlendState)->Desc;
-	GraphicsDesc.RasterizerState = &FD3D12DynamicRHI::ResourceCast(Initializer.RasterizerState)->Desc;
-	GraphicsDesc.DepthStencilState = &FD3D12DynamicRHI::ResourceCast(Initializer.DepthStencilState)->Desc;
-	GraphicsDesc.SampleMask = 0xFFFFFFFF;
+TRefCountPtr<FRHIComputePipelineState> FD3D12DynamicRHI::RHICreateComputePipelineState(FRHIComputeShader* ComputeShaderRHI)
+{
+	SCOPE_CYCLE_COUNTER(STAT_PSOComputeFindOrCreateTime);
 
-	extern D3D_PRIMITIVE_TOPOLOGY GetD3D12PrimitiveType(uint32, bool);
-	bool bUseTessellation = GraphicsDesc.BoundShaderState->GetHullShader() && GraphicsDesc.BoundShaderState->GetDomainShader();
-	GraphicsDesc.PrimitiveTopologyType = D3D12PrimitiveTypeToTopologyType(GetD3D12PrimitiveType(Initializer.PrimitiveType, bUseTessellation));
+	check(ComputeShaderRHI);
+	FD3D12PipelineStateCache& PSOCache = GetAdapter().GetPSOCache();
+	FD3D12ComputeShader* ComputeShader = FD3D12DynamicRHI::ResourceCast(ComputeShaderRHI);
 
-	TranslateRenderTargetFormats(Initializer, GraphicsDesc.RTVFormats, GraphicsDesc.DSVFormat);
-	GraphicsDesc.NumRenderTargets = Initializer.ComputeNumValidRenderTargets();
-	GraphicsDesc.SampleDesc.Count = Initializer.NumSamples;
-	GraphicsDesc.SampleDesc.Quality = GetMaxMSAAQuality(Initializer.NumSamples);
+	// First try to find the PSO based on Compute Shader pointer.
+	FD3D12ComputePipelineState* Found = PSOCache.FindInRuntimeCache(ComputeShader);
+	if (Found)
+	{
+		return Found;
+	}
 
-	// TODO: [PSO API] do we really have to make a new alloc or can we update the RHI to hold/convert to a FxxxRHIRef?
-	return new FD3D12GraphicsPipelineState(Initializer, PSOCache.FindGraphics(&GraphicsDesc));
+	// Next try to find the PSO based on the hash of its desc.
+	FD3D12ComputePipelineStateDesc LowLevelDesc;
+	Found = PSOCache.FindInLoadedCache(ComputeShader, LowLevelDesc);
+	if (Found)
+	{
+		return Found;
+	}
+
+	// We need to actually create a PSO.
+	return PSOCache.CreateAndAdd(ComputeShader, LowLevelDesc);
 }
 
 FD3D12SamplerState::FD3D12SamplerState(FD3D12Device* InParent, const D3D12_SAMPLER_DESC& Desc, uint16 SamplerID)

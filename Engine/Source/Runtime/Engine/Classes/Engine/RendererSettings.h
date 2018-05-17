@@ -117,6 +117,11 @@ namespace EAlphaChannelMode
 	};
 }
 
+namespace EAlphaChannelMode
+{
+	ENGINE_API EAlphaChannelMode::Type FromInt(int32 InAlphaChannelMode);
+}
+
 /** used by FPostProcessSettings AutoExposure*/
 UENUM()
 namespace EAutoExposureMethodUI
@@ -150,7 +155,9 @@ namespace EDefaultBackBufferPixelFormat
 
 namespace EDefaultBackBufferPixelFormat
 {
-	ENGINE_API EPixelFormat Convert2PixelFormat(int32 InDefaultBackBufferPixelFormat);
+	ENGINE_API EPixelFormat Convert2PixelFormat(EDefaultBackBufferPixelFormat::Type InDefaultBackBufferPixelFormat);
+	ENGINE_API int32 NumberOfBitForAlpha(EDefaultBackBufferPixelFormat::Type InDefaultBackBufferPixelFormat);
+	ENGINE_API EDefaultBackBufferPixelFormat::Type FromInt(int32 InDefaultBackBufferPixelFormat);
 }
 
 /**
@@ -328,6 +335,11 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	TEnumAsByte<EAlphaChannelMode::Type> bEnableAlphaChannelInPostProcessing;
 
 	UPROPERTY(config, EditAnywhere, Category = Postprocessing, meta = (
+		ConsoleVariable = "r.DOF.Algorithm", DisplayName = "Use new DOF algorithm",
+		ToolTip = "Whether to use the new DOF implementation for Circle DOF method."))
+	uint32 bUseNewAlgorithm : 1;
+
+	UPROPERTY(config, EditAnywhere, Category = Postprocessing, meta = (
 		ConsoleVariable = "r.UsePreExposure", DisplayName = "Apply Pre-exposure before writing to the scene color",
 		ToolTip = "Whether to use pre-exposure to remap the range of the scene color around the camera exposure. This limits the render target range required to support HDR lighting value.",
 		ConfigRestartRequired=true))
@@ -466,10 +478,7 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConsoleVariable = "r.MorphTarget.Mode", DisplayName = "Use GPU for computing morph targets",
 		ToolTip = "Whether to use original CPU method (loop per morph then by vertex) or use a GPU-based method on Shader Model 5 hardware."))
 	uint32 bUseGPUMorphTargets : 1;
-
-	UPROPERTY(config, EditAnywhere, Category = "Optimizations", meta = (DisplayName = "GPU Particles Support Only Local Vector Field", Tooltip = "Limits Cascade GPU Particle simulations to applying local vector fields.  Global vector fields are not applied."))
-	bool bGPUParticlesLocalVFOnly;
-
+	
 	UPROPERTY(config, EditAnywhere, Category = Debugging, meta = (
 		ConsoleVariable = "r.GPUCrashDebugging", DisplayName = "Enable vendor specific GPU crash analysis tools",
 		ToolTip = "Enables vendor specific GPU crash analysis tools.  Currently only supports NVIDIA Aftermath on DX11.",
