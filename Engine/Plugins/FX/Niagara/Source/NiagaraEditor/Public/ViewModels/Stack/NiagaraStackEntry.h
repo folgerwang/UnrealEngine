@@ -103,28 +103,55 @@ public:
 	// stack issue stuff
 	struct FStackIssueFix
 	{
-	public:
+		FStackIssueFix();
+
+		FStackIssueFix(FText InDescription, FStackIssueFixDelegate InFixDelegate);
+
+		bool IsValid() const;
+
+		const FText& GetDescription() const;
+
+		const FStackIssueFixDelegate& GetFixDelegate() const;
+
 		bool operator == (const FStackIssueFix &Other) const
 		{
 			return Description.CompareTo(Other.Description) == 0 && FixDelegate.GetHandle() == Other.FixDelegate.GetHandle();
 		}
-	public:
+
+	private:
 		FText Description;
 		FStackIssueFixDelegate FixDelegate;
 	};
 
 	struct FStackIssue
 	{
-		FStackIssue()
-			: Severity(EStackIssueSeverity::Error)
-			, bCanBeDismissed(false)
-		{}
+		FStackIssue();
+
+		FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed);
+
+		bool IsValid();
+
+		EStackIssueSeverity GetSeverity() const;
+
+		const FText& GetShortDescription() const;
+
+		const FText& GetLongDescription() const;
+
+		const FString& GetUniqueIdentifier() const;
+
+		bool GetCanBeDismissed() const;
+
+		void AddFix(FStackIssueFix InFix);
+
+		const TArray<FStackIssueFix>& GetFixes() const;
+
+	private:
+		EStackIssueSeverity Severity;
 		FText ShortDescription;
 		FText LongDescription;
-		FName UniqueIdentifier;
-		EStackIssueSeverity Severity;
-		TArray<FStackIssueFix> Fixes;
+		FString UniqueIdentifier;
 		bool bCanBeDismissed;
+		TArray<FStackIssueFix> Fixes;
 	};
 
 public:

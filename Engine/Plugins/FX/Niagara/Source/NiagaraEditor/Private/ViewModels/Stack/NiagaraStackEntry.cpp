@@ -3,6 +3,7 @@
 #include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "ViewModels/Stack/NiagaraStackErrorItem.h"
 #include "NiagaraStackEditorData.h"
+#include "Misc/SecureHash.h"
 
 const FName UNiagaraStackEntry::FExecutionCategoryNames::System = TEXT("System");
 const FName UNiagaraStackEntry::FExecutionCategoryNames::Emitter = TEXT("Emitter");
@@ -13,6 +14,91 @@ const FName UNiagaraStackEntry::FExecutionSubcategoryNames::Parameters = TEXT("P
 const FName UNiagaraStackEntry::FExecutionSubcategoryNames::Spawn = TEXT("Spawn");
 const FName UNiagaraStackEntry::FExecutionSubcategoryNames::Update = TEXT("Update");
 const FName UNiagaraStackEntry::FExecutionSubcategoryNames::Event = TEXT("Event");
+
+UNiagaraStackEntry::FStackIssueFix::FStackIssueFix()
+{
+}
+
+UNiagaraStackEntry::FStackIssueFix::FStackIssueFix(FText InDescription, FStackIssueFixDelegate InFixDelegate)
+	: Description(InDescription)
+	, FixDelegate(InFixDelegate)
+{
+	checkf(Description.IsEmptyOrWhitespace() == false, TEXT("Description can not be empty."));
+	checkf(InFixDelegate.IsBound(), TEXT("Fix delegate must be bound."));
+}
+
+bool UNiagaraStackEntry::FStackIssueFix::IsValid() const
+{
+	return FixDelegate.IsBound();
+}
+
+const FText& UNiagaraStackEntry::FStackIssueFix::GetDescription() const
+{
+	return Description;
+}
+
+const UNiagaraStackEntry::FStackIssueFixDelegate& UNiagaraStackEntry::FStackIssueFix::GetFixDelegate() const
+{
+	return FixDelegate;
+}
+
+UNiagaraStackEntry::FStackIssue::FStackIssue()
+{
+}
+
+UNiagaraStackEntry::FStackIssue::FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed)
+	: Severity(InSeverity)
+	, ShortDescription(InShortDescription)
+	, LongDescription(InLongDescription)
+	, UniqueIdentifier(FMD5::HashAnsiString(*FString::Printf(TEXT("%s-%s"), *InStackEditorDataKey, *LongDescription.ToString())))
+	, bCanBeDismissed(bInCanBeDismissed)
+{
+	checkf(ShortDescription.IsEmptyOrWhitespace() == false, TEXT("Short description can not be empty."));
+	checkf(LongDescription.IsEmptyOrWhitespace() == false, TEXT("Long description can not be empty."));
+	checkf(InStackEditorDataKey.IsEmpty() == false, TEXT("Stack editor data key can not be empty."));
+}
+
+bool UNiagaraStackEntry::FStackIssue::IsValid()
+{
+	return UniqueIdentifier.IsEmpty() == false;
+}
+
+EStackIssueSeverity UNiagaraStackEntry::FStackIssue::GetSeverity() const
+{
+	return Severity;
+}
+
+const FText& UNiagaraStackEntry::FStackIssue::GetShortDescription() const
+{
+	return ShortDescription;
+}
+
+const FText& UNiagaraStackEntry::FStackIssue::GetLongDescription() const
+{
+	return LongDescription;
+}
+
+bool UNiagaraStackEntry::FStackIssue::GetCanBeDismissed() const
+{
+	return bCanBeDismissed;
+}
+
+const FString& UNiagaraStackEntry::FStackIssue::GetUniqueIdentifier() const
+{
+	return UniqueIdentifier;
+}
+
+void UNiagaraStackEntry::FStackIssue::AddFix(FStackIssueFix InFix)
+{
+	checkf(IsValid(), TEXT("Issue is not valid."));
+	checkf(InFix.IsValid(), TEXT("Fix must be valid"));
+	Fixes.Add(InFix);
+}
+
+const TArray<UNiagaraStackEntry::FStackIssueFix>& UNiagaraStackEntry::FStackIssue::GetFixes() const
+{
+	return Fixes;
+}
 
 UNiagaraStackEntry::UNiagaraStackEntry()
 	: IndentLevel(0)
@@ -305,7 +391,7 @@ void UNiagaraStackEntry::RefreshChildren()
 	}
 	
 	// Stack issues refresh
-	NewStackIssues.RemoveAll([=](const FStackIssue& Issue) { return GetStackEditorData().GetDismissedStackIssueIds().Contains(Issue.UniqueIdentifier); }); 
+	NewStackIssues.RemoveAll([=](const FStackIssue& Issue) { return Issue.GetCanBeDismissed() && GetStackEditorData().GetDismissedStackIssueIds().Contains(Issue.GetUniqueIdentifier()); }); 
 
 	StackIssues.Empty();
 	StackIssues.Append(NewStackIssues);
@@ -332,7 +418,7 @@ void UNiagaraStackEntry::RefreshStackErrorChildren()
 	{
 		UNiagaraStackErrorItem* ErrorEntry = nullptr;
 		UNiagaraStackErrorItem** Found = ErrorChildren.FindByPredicate(
-			[&](UNiagaraStackErrorItem* CurrentChild) { return CurrentChild->GetStackIssue().UniqueIdentifier == Issue.UniqueIdentifier; });
+			[&](UNiagaraStackErrorItem* CurrentChild) { return CurrentChild->GetStackIssue().GetUniqueIdentifier() == Issue.GetUniqueIdentifier(); });
 		if (Found == nullptr)
 		{
 			ErrorEntry = NewObject<UNiagaraStackErrorItem>(this);

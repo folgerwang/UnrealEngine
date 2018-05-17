@@ -166,10 +166,13 @@ void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 	{
 		if (!FunctionCallNode->ScriptIsValid())
 		{
-			UNiagaraStackEntry::FStackIssue InvalidScriptError;
-			InvalidScriptError.ShortDescription = LOCTEXT("MissingModule", "The referenced module's script asset is missing.");
-			InvalidScriptError.LongDescription = InvalidScriptError.ShortDescription;
-			InvalidScriptError.UniqueIdentifier = FName(*FString::Printf(TEXT("MissingModule-%s"), *GetStackEditorDataKey()));
+			FStackIssue InvalidScriptError(
+				EStackIssueSeverity::Error,
+				LOCTEXT("MissingModuleShortDescription", "Invalid module script."),
+				LOCTEXT("MissingModuleShortDescription", "The script this module is supposed to execute is missing or invalid for other reasons.  If it depends on an external script that no longer exists there will be load errors in the log."),
+				GetStackEditorDataKey(),
+				false);
+
 			NewIssues.Add(InvalidScriptError);
 		}
 
@@ -177,18 +180,23 @@ void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 		if (!IsEnabled.IsSet())
 		{
 			bIsEnabled = false;
-			UNiagaraStackEntry::FStackIssue InconsistentEnabledError;
-			InconsistentEnabledError.ShortDescription = LOCTEXT("InconsistentEnabledErrorSummary", "The enabled state for module is inconsistent.");
-			InconsistentEnabledError.LongDescription = LOCTEXT("InconsistentEnabledError", "This module is using multiple functions and their enabled state is inconsistent.\nClick fix to make all of the functions for this module enabled.");
-			InconsistentEnabledError.UniqueIdentifier = FName(*FString::Printf(TEXT("InconsistentEnabled-%s"), *GetStackEditorDataKey()));
-			UNiagaraStackEntry::FStackIssueFix Fix;
-			Fix.Description = LOCTEXT("EnableModule", "Enable module");
-			Fix.FixDelegate.BindLambda([=]()
-			{
-				FScopedTransaction ScopedTransaction(Fix.Description);
-				SetIsEnabled(true);
-			});
-			InconsistentEnabledError.Fixes.Add(Fix);
+			FStackIssue InconsistentEnabledError(
+				EStackIssueSeverity::Error,
+				LOCTEXT("InconsistentEnabledErrorSummary", "The enabled state for module is inconsistent."),
+				LOCTEXT("InconsistentEnabledError", "This module is using multiple functions and their enabled state is inconsistent.\nClick fix to make all of the functions for this module enabled."),
+				GetStackEditorDataKey(),
+				false);
+
+			FText FixDescription = LOCTEXT("EnableModule", "Enable module");
+			FStackIssueFix EnableFix(
+				FixDescription,
+				FStackIssueFixDelegate::CreateLambda([=]()
+				{
+					FScopedTransaction ScopedTransaction(FixDescription);
+					SetIsEnabled(true);
+				}));
+
+			InconsistentEnabledError.AddFix(EnableFix);
 			NewIssues.Add(InconsistentEnabledError);
 		}
 	}

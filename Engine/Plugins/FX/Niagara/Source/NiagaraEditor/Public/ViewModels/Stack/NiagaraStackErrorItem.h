@@ -56,7 +56,7 @@ public:
 
 	FStackIssueFix GetStackIssueFix() const { return IssueFix; };
 	FText FixDescription() const;
-	virtual FReply OnTryFixError();
+	FReply OnTryFixError();
 	virtual EStackRowStyle GetStackRowStyle() const override;
 	virtual FText GetFixButtonText() const;
 	UNiagaraStackErrorItem::FOnIssueNotify& OnIssueFixed();
@@ -75,7 +75,6 @@ class NIAGARAEDITOR_API UNiagaraStackErrorItemDismiss : public UNiagaraStackErro
 public:
 	void Initialize(FRequiredEntryData InRequiredEntryData, UNiagaraStackEntry::FStackIssue InStackIssue, FString InStackEditorDataKey);
 
-	virtual FReply OnTryFixError() override;
 	virtual EStackRowStyle GetStackRowStyle() const override;
 	virtual FText GetFixButtonText() const override;
 

@@ -74,13 +74,13 @@ public:
 	/*
 	* @param Issue the issue to be dismissed (not fixed).
 	*/
-	void DismissStackIssue(FName IssueId);
+	void DismissStackIssue(FString IssueId);
 
 	/* Restores all the dismissed issues so that the user can see them and choose what to do. */
 	NIAGARAEDITOR_API void UndismissAllIssues();
 
 	/* Gets a reference to the dismissed stack issue array */
-	NIAGARAEDITOR_API const TArray<FName>& GetDismissedStackIssueIds();
+	NIAGARAEDITOR_API const TArray<FString>& GetDismissedStackIssueIds();
 
 private:
 	UPROPERTY()
@@ -102,5 +102,5 @@ private:
 	double LastScrollPosition;
 
 	UPROPERTY()
-	TArray<FName> DismissedStackIssueIds;
+	TArray<FString> DismissedStackIssueIds;
 };
