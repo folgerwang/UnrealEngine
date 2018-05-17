@@ -408,7 +408,7 @@ void UNiagaraStackScriptItemGroup::RefreshIssues(TArray<FStackIssue>& NewIssues)
 					LOCTEXT("ConpileErrorSummary", "The stack has compile errors."),
 					ScriptViewModelPinned->GetScriptErrors(GetScriptUsage(), GetScriptUsageId()),
 					GetStackEditorDataKey(),
-					true);
+					false);
 
 				NewIssues.Add(CompileError);
 			}
