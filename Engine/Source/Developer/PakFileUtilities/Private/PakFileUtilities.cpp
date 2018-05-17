@@ -19,6 +19,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/PlatformFilemanager.h"
+#include "Async/ParallelFor.h"
 
 struct FPakCommandLineParameters
 {
@@ -2501,6 +2502,21 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 	FKeyPair SigningKey;
 	FAES::FAESKey EncryptionKey;
 	PrepareEncryptionAndSigningKeys(CmdLine, SigningKey, EncryptionKey);
+
+	FString BatchFileName;
+	if (FParse::Value(CmdLine, TEXT("-Batch="), BatchFileName))
+	{
+		TArray<FString> Commands;
+		if (!FFileHelper::LoadFileToStringArray(Commands, *BatchFileName))
+		{
+			UE_LOG(LogPakFile, Error, TEXT("Unable to read '%s'"), *BatchFileName);
+			return false;
+		}
+
+		TAtomic<bool> Result(true);
+		ParallelFor(Commands.Num(), [&Commands, &Result](int32 Idx) { if (!ExecuteUnrealPak(*Commands[Idx])) { Result = false; } });
+		return Result;
+	}
 
 	FString KeyFilename;
 	if (FParse::Value(CmdLine, TEXT("GenerateKeys="), KeyFilename, false))
