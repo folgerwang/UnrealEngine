@@ -1055,7 +1055,7 @@ namespace UnrealGameSync
 
 		public bool Stat(string Filter, out List<PerforceFileRecord> FileRecords, TextWriter Log)
 		{
-			return RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.None, Log);
+			return RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.IgnoreFilesNotOnClientError, Log);
 		}
 
 		public bool Sync(string Filter, TextWriter Log)
@@ -1063,7 +1063,7 @@ namespace UnrealGameSync
 			return RunCommand("sync " + Filter, CommandOptions.IgnoreFilesUpToDateError, Log);
 		}
 
-		public bool Sync(List<string> FileRevisions, Action<PerforceFileRecord> SyncOutput, List<string> TamperedFiles, PerforceSyncOptions Options, TextWriter Log)
+		public bool Sync(List<string> FileRevisions, Action<PerforceFileRecord> SyncOutput, List<string> TamperedFiles, bool bForce, PerforceSyncOptions Options, TextWriter Log)
 		{
 			// Write all the files we want to sync to a temp file
 			string TempFileName = Path.GetTempFileName();
@@ -1087,6 +1087,10 @@ namespace UnrealGameSync
 						CommandLine.AppendFormat(" -v net.tcpsize={0}", Options.TcpBufferSize);
 					}
 					CommandLine.Append(" sync");
+					if(bForce)
+					{
+						CommandLine.AppendFormat(" -f");
+					}
 					if(Options != null && Options.NumThreads > 1)
 					{
 						CommandLine.AppendFormat(" --parallel=threads={0}", Options.NumThreads);
@@ -1542,6 +1546,16 @@ namespace UnrealGameSync
 			{
 				return ClientFile.Substring(0, Index);
 			}
+		}
+
+		static public string EscapePath(string Path)
+		{
+			string NewPath = Path;
+			NewPath = NewPath.Replace("%", "%25");
+			NewPath = NewPath.Replace("*", "%2A");
+			NewPath = NewPath.Replace("#", "%23");
+			NewPath = NewPath.Replace("@", "%40");
+			return NewPath;
 		}
 
 		static public string UnescapePath(string Path)
