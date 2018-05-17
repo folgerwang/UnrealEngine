@@ -248,6 +248,8 @@ void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& 
 		UE_LOG(LogVulkanRHI, Display, TEXT("- Found instance extension %s"), *Name);
 	}
 
+	FVulkanPlatform::NotifyFoundInstanceLayersAndExtensions(FoundUniqueLayers, FoundUniqueExtensions);
+
 	if (FParse::Param(FCommandLine::Get(), TEXT("vktrace")))
 	{
 		const char* VkTraceName = "VK_LAYER_LUNARG_vktrace";
@@ -417,6 +419,8 @@ void FVulkanDevice::GetDeviceExtensionsAndLayers(TArray<const ANSICHAR*>& OutDev
 		UE_LOG(LogVulkanRHI, Display, TEXT("- Found device extension %s"), *Name);
 	}
 
+	FVulkanPlatform::NotifyFoundDeviceLayersAndExtensions(Gpu, FoundUniqueLayers, FoundUniqueExtensions);
+
 	TArray<FString> UniqueUsedDeviceExtensions;
 	auto AddDeviceLayers = [&](const char* LayerName)
 	{
@@ -537,7 +541,7 @@ void FVulkanDevice::GetDeviceExtensionsAndLayers(TArray<const ANSICHAR*>& OutDev
 	}
 
 #if VULKAN_ENABLE_DRAW_MARKERS
-	if (!bOutDebugMarkers && ListContains(AvailableExtensions, VK_EXT_DEBUG_MARKER_EXTENSION_NAME) && (GRenderDocFound || FVulkanPlatform::SupportsMarkersWithoutExtension()))
+	if (!bOutDebugMarkers && ListContains(AvailableExtensions, VK_EXT_DEBUG_MARKER_EXTENSION_NAME) && (GRenderDocFound || FVulkanPlatform::ForceEnableDebugMarkers()))
 	{
 		OutDeviceExtensions.Add(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
 		bOutDebugMarkers = true;
