@@ -99,7 +99,9 @@ struct FNiagaraCustomVersion
 		DataInterfaceComputeShaderParamRefactor, // refactor of CS parameters allowing regular params as well as buffers.
 
 		CurveLUTRegen, // bumping version and forcing curves to regen their LUT on version change.
-				
+
+		AssignmentNodeUsesBeginDefaults, // Changing the graph generation for assignment nodes so that it uses a "Begin Defaults" node where appropriate.
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1,
