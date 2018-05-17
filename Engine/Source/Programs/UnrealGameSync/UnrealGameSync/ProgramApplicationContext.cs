@@ -22,6 +22,7 @@ namespace UnrealGameSync
 		bool bRestoreState;
 		string UpdateSpawn;
 		bool bUnstable;
+		bool bIsClosing;
 
 		BoundedLogWriter Log;
 		UserSettings Settings;
@@ -215,8 +216,9 @@ namespace UnrealGameSync
 
 		private void OnUpdateAvailable()
 		{
-			if(MainWindowInstance != null && MainWindowInstance.CanPerformUpdate())
+			if(MainWindowInstance != null && !bIsClosing && MainWindowInstance.CanPerformUpdate())
 			{
+				bIsClosing = true;
 				MainWindowInstance.ForceClose();
 			}
 		}
