@@ -19,9 +19,6 @@ struct FNiagaraTranslatorOutput;
 class NIAGARAEDITOR_API FHlslNiagaraCompiler : public INiagaraCompiler
 {
 protected:	
-	/** Message log. Automatically handles marking the NodeGraph with errors. */
-	FCompilerResultsLog MessageLog;
-
 	/** Captures information about a script compile. */
 	FNiagaraCompileResults CompileResults;
 

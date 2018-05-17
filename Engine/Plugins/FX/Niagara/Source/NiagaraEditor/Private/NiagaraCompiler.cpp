@@ -511,42 +511,42 @@ TSharedPtr<FNiagaraVMExecutableData> FNiagaraEditorModule::CompileScript(const F
 		VMCompilationTime = Results.CompileTime;
 	}
 	
-	TArray<TSharedRef<FTokenizedMessage>> Messages;
-	if (TranslateResults.MessageLog)
+	TArray<FNiagaraCompileEvent> Messages;
+	if (TranslateResults.CompileEvents.Num() > 0)
 	{
-		Messages.Append(TranslateResults.MessageLog->Messages);
+		Messages.Append(TranslateResults.CompileEvents);
 	}
-	if (Results.MessageLog)
+	if (Results.CompileEvents.Num() > 0)
 	{
-		Messages.Append(Results.MessageLog->Messages);
+		Messages.Append(Results.CompileEvents);
 	}
 
 	FString OutGraphLevelErrorMessages;
-	for (TSharedRef<FTokenizedMessage> Message : Messages)
+	for (const FNiagaraCompileEvent& Message : Messages)
 	{
-		if (Message->GetSeverity() == EMessageSeverity::Info)
+		if (Message.Type == FNiagaraCompileEventType::Log)
 		{
 		#if defined(NIAGARA_SCRIPT_COMPILE_LOGGING_MEDIUM)
-			UE_LOG(LogNiagaraCompiler, Log, TEXT("%s"), *Message->ToText().ToString());
+			UE_LOG(LogNiagaraCompiler, Log, TEXT("%s"), *Message.Message);
 		#endif
 		}
-		else if (Message->GetSeverity() == EMessageSeverity::Warning || Message->GetSeverity() == EMessageSeverity::PerformanceWarning)
+		else if (Message.Type == FNiagaraCompileEventType::Warning )
 		{
 		#if defined(NIAGARA_SCRIPT_COMPILE_LOGGING_MEDIUM)
-			UE_LOG(LogNiagaraCompiler, Warning, TEXT("%s"), *Message->ToText().ToString());
+			UE_LOG(LogNiagaraCompiler, Warning, TEXT("%s"), *Message.Message);
 		#endif
 		}
-		else if (Message->GetSeverity() == EMessageSeverity::Error || Message->GetSeverity() == EMessageSeverity::CriticalError)
+		else if (Message.Type == FNiagaraCompileEventType::Error)
 		{
 		#if defined(NIAGARA_SCRIPT_COMPILE_LOGGING_MEDIUM)
-			UE_LOG(LogNiagaraCompiler, Error, TEXT("%s"), *Message->ToText().ToString());
+			UE_LOG(LogNiagaraCompiler, Error, TEXT("%s"), *Message.Message);
 		#endif
 			// Write the error messages to the string as well so that they can be echoed up the chain.
 			if (OutGraphLevelErrorMessages.Len() > 0)
 			{
 				OutGraphLevelErrorMessages += "\n";
 			}
-			OutGraphLevelErrorMessages += Message->ToText().ToString();
+			OutGraphLevelErrorMessages += Message.Message;
 		}
 	}
 	
@@ -614,7 +614,7 @@ ENiagaraScriptCompileStatus FNiagaraCompileResults::CompileResultsToSummary(cons
 	ENiagaraScriptCompileStatus SummaryStatus = ENiagaraScriptCompileStatus::NCS_Unknown;
 	if (CompileResults != nullptr)
 	{
-		if (CompileResults->MessageLog->NumErrors > 0)
+		if (CompileResults->NumErrors > 0)
 		{
 			SummaryStatus = ENiagaraScriptCompileStatus::NCS_Error;
 		}
@@ -622,7 +622,7 @@ ENiagaraScriptCompileStatus FNiagaraCompileResults::CompileResultsToSummary(cons
 		{
 			if (CompileResults->bVMSucceeded)
 			{
-				if (CompileResults->MessageLog->NumWarnings)
+				if (CompileResults->NumWarnings)
 				{
 					SummaryStatus = ENiagaraScriptCompileStatus::NCS_UpToDateWithWarnings;
 				}
@@ -634,7 +634,7 @@ ENiagaraScriptCompileStatus FNiagaraCompileResults::CompileResultsToSummary(cons
 
 			if (CompileResults->bComputeSucceeded)
 			{
-				if (CompileResults->MessageLog->NumWarnings)
+				if (CompileResults->NumWarnings)
 				{
 					SummaryStatus = ENiagaraScriptCompileStatus::NCS_ComputeUpToDateWithWarnings;
 				}
@@ -816,10 +816,8 @@ FNiagaraCompileResults FHlslNiagaraCompiler::CompileScript(const FNiagaraCompile
 
 
 FHlslNiagaraCompiler::FHlslNiagaraCompiler()
-	: CompileResults(&MessageLog)
+	: CompileResults()
 {
-	// Make the message log silent so we're not spamming the blueprint log.
-	MessageLog.bSilentMode = true;
 }
 
 
@@ -827,13 +825,15 @@ FHlslNiagaraCompiler::FHlslNiagaraCompiler()
 void FHlslNiagaraCompiler::Error(FText ErrorText)
 {
 	FString ErrorString = FString::Printf(TEXT("%s"), *ErrorText.ToString());
-	MessageLog.Error(*ErrorString);
+	CompileResults.CompileEvents.Add(FNiagaraCompileEvent(FNiagaraCompileEventType::Error, ErrorString));
+	CompileResults.NumErrors++;
 }
 
 void FHlslNiagaraCompiler::Warning(FText WarningText)
 {
 	FString WarnString = FString::Printf(TEXT("%s"), *WarningText.ToString());
-	MessageLog.Warning(*WarnString);
+	CompileResults.CompileEvents.Add(FNiagaraCompileEvent(FNiagaraCompileEventType::Warning, WarnString));
+	CompileResults.NumWarnings++;
 }
 
 //////////////////////////////////////////////////////////////////////////
