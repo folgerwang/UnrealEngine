@@ -12,18 +12,9 @@
 
 
 /**
- * The spot light policy for TMeshLightingDrawingPolicy.
- */
-class FSpotLightPolicy
-{
-public:
-	typedef class FSpotLightSceneProxy SceneInfoType;
-};
-
-/**
  * The scene info for a spot light.
  */
-class FSpotLightSceneProxy : public TPointLightSceneProxy<FSpotLightPolicy>
+class FSpotLightSceneProxy : public FPointLightSceneProxy
 {
 public:
 
@@ -52,8 +43,8 @@ public:
 	float InvCosLightShaftConeDifference;
 
 	/** Initialization constructor. */
-	FSpotLightSceneProxy(const USpotLightComponent* Component):
-		TPointLightSceneProxy<FSpotLightPolicy>(Component)
+	FSpotLightSceneProxy(const USpotLightComponent* Component)
+	:	FPointLightSceneProxy(Component)
 	{
 		const float ClampedInnerConeAngle = FMath::Clamp(Component->InnerConeAngle,0.0f,89.0f) * (float)PI / 180.0f;
 		const float ClampedOuterConeAngle = FMath::Clamp(Component->OuterConeAngle * (float)PI / 180.0f,ClampedInnerConeAngle + 0.001f,89.0f * (float)PI / 180.0f + 0.001f);
@@ -69,12 +60,6 @@ public:
 		const float ClampedInnerLightShaftConeAngle = .5f * ClampedOuterLightShaftConeAngle;
 		CosLightShaftConeAngle = FMath::Cos(ClampedOuterLightShaftConeAngle);
 		InvCosLightShaftConeDifference = 1.0f / (FMath::Cos(ClampedInnerLightShaftConeAngle) - CosLightShaftConeAngle);
-	}
-
-	virtual FVector GetPerObjectProjectedShadowProjectionPoint(const FBoxSphereBounds& SubjectBounds) const
-	{
-		const FVector ZAxis(WorldToLight.M[0][2], WorldToLight.M[1][2], WorldToLight.M[2][2]);
-		return FMath::ClosestPointOnSegment(SubjectBounds.Origin, GetOrigin() - ZAxis * SourceLength / 2, GetOrigin() + ZAxis * SourceLength / 2);
 	}
 
 	/** Accesses parameters needed for rendering the light. */
@@ -100,12 +85,13 @@ public:
 		LightParameters.LightSourceLength = SourceLength;
 		// Prevent 0 Roughness which causes NaNs in Vis_SmithJointApprox
 		LightParameters.LightMinRoughness = FMath::Max(MinRoughness, .04f);
+		LightParameters.SourceTexture = GWhiteTexture;
 	}
 
 	// FLightSceneInfo interface.
 	virtual bool AffectsBounds(const FBoxSphereBounds& Bounds) const override
 	{
-		if(!TPointLightSceneProxy<FSpotLightPolicy>::AffectsBounds(Bounds))
+		if(!FLocalLightSceneProxy::AffectsBounds(Bounds))
 		{
 			return false;
 		}

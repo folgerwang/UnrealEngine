@@ -138,6 +138,47 @@ static void ProcessCompilationJob(const FShaderCompilerInput& Input,FShaderCompi
 	Compiler->CompileShader(Input.ShaderFormat, Input, Output, WorkingDirectory);
 }
 
+static void UpdateFileSize(FArchive& OutputFile, int64 FileSizePosition)
+{
+	int64 Current = OutputFile.Tell();
+	OutputFile.Seek(FileSizePosition);
+	OutputFile << Current;
+	OutputFile.Seek(Current);
+};
+
+static int64 WriteOutputFileHeader(FArchive& OutputFile, int32 ErrorCode, int32 CallstackLength, const TCHAR* Callstack,
+	int32 ExceptionInfoLength, const TCHAR* ExceptionInfo)
+{
+	int64 FileSizePosition = 0;
+	int32 OutputVersion = ShaderCompileWorkerOutputVersion;
+	OutputFile << OutputVersion;
+
+	int64 FileSize = 0;
+	// Get the position of the Size value to be patched in as the shader progresses
+	FileSizePosition = OutputFile.Tell();
+	OutputFile << FileSize;
+
+	OutputFile << ErrorCode;
+
+	// Note: Can't use FStrings here as SEH can't be used with destructors
+	OutputFile << CallstackLength;
+
+	OutputFile << ExceptionInfoLength;
+
+	if (CallstackLength > 0)
+	{
+		OutputFile.Serialize((void*)Callstack, CallstackLength * sizeof(TCHAR));
+	}
+
+	if (ExceptionInfoLength > 0)
+	{
+		OutputFile.Serialize((void*)ExceptionInfo, ExceptionInfoLength * sizeof(TCHAR));
+	}
+
+	UpdateFileSize(OutputFile, FileSizePosition);
+	return FileSizePosition;
+}
+
 
 class FWorkLoop
 {
@@ -202,8 +243,14 @@ public:
 			}
 
 			// Prepare for output
+#if UE_BUILD_DEBUG
+			TArray<uint8> MemBlock;
+			FMemoryWriter MemWriter(MemBlock);
+			FArchive* OutputFilePtr = &MemWriter;
+#else
 			FArchive* OutputFilePtr = CreateOutputArchive();
 			check(OutputFilePtr);
+#endif
 			WriteToOutputArchive(OutputFilePtr, SingleJobResults, PipelineJobResults);
 
 			// Close the output file.
@@ -521,21 +568,7 @@ private:
 	void WriteToOutputArchive(FArchive* OutputFilePtr, TArray<FJobResult>& SingleJobResults, TArray<FPipelineJobResult>& PipelineJobResults)
 	{
 		FArchive& OutputFile = *OutputFilePtr;
-
-		int32 OutputVersion = ShaderCompileWorkerOutputVersion;
-		OutputFile << OutputVersion;
-
-		// Temp size to be filled in after we finish
-		int64 FileSize = 0;
-		int64 FileSizePosition = OutputFile.Tell();
-		OutputFile << FileSize;
-
-		int32 ErrorCode = (int32)ESCWErrorCode::Success;
-		OutputFile << ErrorCode;
-
-		int32 ErrorStringLength = 0;
-		OutputFile << ErrorStringLength;
-		OutputFile << ErrorStringLength;
+		int64 FileSizePosition = WriteOutputFileHeader(OutputFile, (int32)ESCWErrorCode::Success, 0, nullptr, 0, nullptr);
 
 		{
 			int32 SingleJobHeader = ShaderCompileWorkerSingleJobHeader;
@@ -548,6 +581,7 @@ private:
 			{
 				FJobResult& JobResult = SingleJobResults[ResultIndex];
 				OutputFile << JobResult.CompilerOutput;
+				UpdateFileSize(OutputFile, FileSizePosition);
 			}
 		}
 
@@ -567,14 +601,10 @@ private:
 				{
 					FJobResult& JobResult = PipelineJob.SingleJobs[Index];
 					OutputFile << JobResult.CompilerOutput;
+					UpdateFileSize(OutputFile, FileSizePosition);
 				}
 			}
 		}
-
-		// Go back and patch the size
-		FileSize = OutputFilePtr->Tell();
-		OutputFile.Seek(FileSizePosition);
-		OutputFile << FileSize;
 	}
 
 	/** Called in the idle loop, checks for conditions under which the helper should exit */
@@ -948,28 +978,19 @@ static int32 GuardedMainWrapper(int32 ArgC, TCHAR* ArgV[], const TCHAR* CrashOut
 		{
 			FArchive& OutputFile = *IFileManager::Get().CreateFileWriter(CrashOutputFile,FILEWRITE_NoFail);
 
-			int32 OutputVersion = ShaderCompileWorkerOutputVersion;
-			OutputFile << OutputVersion;
-
 			if (GFailedErrorCode == ESCWErrorCode::Success)
 			{
+				// Something else failed before we could set the error code, so mark it as a General Crash
 				GFailedErrorCode = ESCWErrorCode::GeneralCrash;
 			}
-			int32 ErrorCode = (int32)GFailedErrorCode;
-			OutputFile << ErrorCode;
-
-			// Note: Can't use FStrings here as SEH can't be used with destructors
-			int32 CallstackLength = FCString::Strlen(GErrorHist);
-			OutputFile << CallstackLength;
-
-			int32 ExceptionInfoLength = FCString::Strlen(GErrorExceptionDescription);
-			OutputFile << ExceptionInfoLength;
-
-			OutputFile.Serialize(GErrorHist, CallstackLength * sizeof(TCHAR));
-			OutputFile.Serialize(GErrorExceptionDescription, ExceptionInfoLength * sizeof(TCHAR));
+			int64 FileSizePosition = WriteOutputFileHeader(OutputFile, (int32)GFailedErrorCode, FCString::Strlen(GErrorHist), GErrorHist,
+				FCString::Strlen(GErrorExceptionDescription), GErrorExceptionDescription);
 
 			int32 NumBatches = 0;
 			OutputFile << NumBatches;
+			OutputFile << NumBatches;
+
+			UpdateFileSize(OutputFile, FileSizePosition);
 
 			// Close the output file.
 			delete &OutputFile;
@@ -1010,7 +1031,7 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 		if (XGEMain(ArgC, ArgV, ReturnCode))
 		{
 			return ReturnCode;
-				}
+		}
 	}
 #endif
 

@@ -5,8 +5,8 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 
-#include "FrameRate.h"
-#include "FrameTime.h"
+#include "Misc/FrameRate.h"
+#include "Misc/FrameTime.h"
 
 #include "TimeSynchronizationSource.generated.h"
 

@@ -376,7 +376,7 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 	
 	if (!Block)
 	{
-		Block = Block_copy(^(uint32 InDisplayID)
+		Block = Block_copy(^(uint32 InDisplayID, double OutputSeconds, double OutputDuration)
 		{
 			bool bIsInLiveResize = false;
 #if PLATFORM_MAC
@@ -397,6 +397,11 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 						mtlpp::CommandBuffer CurrentCommandBuffer = CommandQueue.CreateCommandBuffer();
 						check(CurrentCommandBuffer);
 						
+#if ENABLE_METAL_GPUPROFILE
+						FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
+						FMetalCommandBufferStats* Stats = Profiler->AllocateCommandBuffer(CurrentCommandBuffer, 0);
+#endif
+						
 						if (GMetalSupportsIntermediateBackBuffer)
 						{
 							TRefCountPtr<FMetalTexture2D> Texture = LastCompleteFrame;
@@ -411,8 +416,12 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 							mtlpp::BlitCommandEncoder Encoder = CurrentCommandBuffer.BlitCommandEncoder();
 							check(Encoder.GetPtr());
 							
+							METAL_STATISTIC(Profiler->BeginEncoder(Stats, Encoder));
+							METAL_GPUPROFILE(Profiler->EncodeBlit(Stats, __FUNCTION__));
+
 							Encoder.Copy(Src, 0, 0, mtlpp::Origin(0, 0, 0), mtlpp::Size(Width, Height, 1), Dst, 0, 0, mtlpp::Origin(0, 0, 0));
 							
+							METAL_STATISTIC(Profiler->EndEncoder(Stats, Encoder));
 							Encoder.EndEncoding();
 							
 							mtlpp::CommandBufferHandler H = [Src, Dst](const mtlpp::CommandBuffer &) {
@@ -445,8 +454,8 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 						CurrentCommandBuffer.AddCompletedHandler(C);
 						CurrentCommandBuffer.AddScheduledHandler(H);
 						
+						METAL_GPUPROFILE(Stats->End(CurrentCommandBuffer));
 						FMetalGPUProfiler::RecordPresent(CurrentCommandBuffer);
-						
 						CommandQueue.CommitCommandBuffer(CurrentCommandBuffer);
 					}
 				}
@@ -461,7 +470,7 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 	
 	if (bIsLiveResize || !GMetalSeparatePresentThread)
 	{
-		Block(0);
+		Block(0, 0.0, 0.0);
 	}
 	
 	if (!(GRHISupportsRHIThread && IsRunningRHIInSeparateThread()))

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "Timecode.h"
+#include "Misc/Timecode.h"
 #include "DropTimecode.generated.h"
 
 /** Hold a frame of a Linear Timecode Frame */

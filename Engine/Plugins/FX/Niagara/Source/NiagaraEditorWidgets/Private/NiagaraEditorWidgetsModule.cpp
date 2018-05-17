@@ -5,6 +5,9 @@
 #include "NiagaraEditorModule.h"
 #include "SNiagaraStack.h"
 #include "DetailCustomizations/NiagaraDataInterfaceCurveDetails.h"
+#include "DetailCustomizations/NiagaraDataInterfaceDetails.h"
+#include "DetailCustomizations/NiagaraDataInterfaceSkeletalMeshDetails.h"
+#include "DetailCustomizations/NiagaraSkeletalMeshSamplingInfoDetails.h"
 
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
@@ -88,11 +91,14 @@ void FNiagaraEditorWidgetsModule::StartupModule()
 	FNiagaraEditorWidgetsStyle::Initialize();
 
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+	PropertyModule.RegisterCustomClassLayout("NiagaraDataInterface", FOnGetDetailCustomizationInstance::CreateStatic(&FNiagaraDataInterfaceDetailsBase::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout("NiagaraDataInterfaceCurve", FOnGetDetailCustomizationInstance::CreateStatic(&FNiagaraDataInterfaceCurveDetails::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout("NiagaraDataInterfaceVector2DCurve", FOnGetDetailCustomizationInstance::CreateStatic(&FNiagaraDataInterfaceVector2DCurveDetails::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout("NiagaraDataInterfaceVectorCurve", FOnGetDetailCustomizationInstance::CreateStatic(&FNiagaraDataInterfaceVectorCurveDetails::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout("NiagaraDataInterfaceVector4Curve", FOnGetDetailCustomizationInstance::CreateStatic(&FNiagaraDataInterfaceVector4CurveDetails::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout("NiagaraDataInterfaceColorCurve", FOnGetDetailCustomizationInstance::CreateStatic(&FNiagaraDataInterfaceColorCurveDetails::MakeInstance));
+	PropertyModule.RegisterCustomClassLayout("NiagaraDataInterfaceSkeletalMesh", FOnGetDetailCustomizationInstance::CreateStatic(&FNiagaraDataInterfaceSkeletalMeshDetails::MakeInstance));
+	PropertyModule.RegisterCustomClassLayout("SkeletalMesh", FOnGetDetailCustomizationInstance::CreateStatic(&FNiagaraSkeletalMeshSamplingInfoDetails::MakeInstance));
 }
 
 void FNiagaraEditorWidgetsModule::ShutdownModule()
@@ -106,11 +112,13 @@ void FNiagaraEditorWidgetsModule::ShutdownModule()
 	FPropertyEditorModule* PropertyModule = FModuleManager::GetModulePtr<FPropertyEditorModule>("PropertyEditor");
 	if (PropertyModule != nullptr)
 	{
+		PropertyModule->UnregisterCustomClassLayout("NiagaraDataInterface");
 		PropertyModule->UnregisterCustomClassLayout("NiagaraDataInterfaceCurve");
 		PropertyModule->UnregisterCustomClassLayout("NiagaraDataInterfaceVector2DCurve");
 		PropertyModule->UnregisterCustomClassLayout("NiagaraDataInterfaceVectorCurve");
 		PropertyModule->UnregisterCustomClassLayout("NiagaraDataInterfaceVector4Curve");
 		PropertyModule->UnregisterCustomClassLayout("NiagaraDataInterfaceColorCurve");
+		PropertyModule->UnregisterCustomClassLayout("NiagaraDataInterfaceSkeletalMesh");
 	}
 
 	FNiagaraEditorWidgetsStyle::Shutdown();

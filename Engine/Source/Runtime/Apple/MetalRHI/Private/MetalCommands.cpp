@@ -137,7 +137,6 @@ void FMetalRHICommandContext::RHISetComputePipelineState(FRHIComputePipelineStat
 void FMetalRHICommandContext::RHIDispatchComputeShader(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ)
 {
 	@autoreleasepool {
-	RHI_PROFILE_DRAW_CALL_STATS(EMTLSamplePointBeforeCompute, EMTLSamplePointAfterCompute, 1,1);
 	ThreadGroupCountX = FMath::Max(ThreadGroupCountX, 1u);
 	ThreadGroupCountY = FMath::Max(ThreadGroupCountY, 1u);
 	ThreadGroupCountZ = FMath::Max(ThreadGroupCountZ, 1u);
@@ -151,7 +150,6 @@ void FMetalRHICommandContext::RHIDispatchIndirectComputeShader(FVertexBufferRHIP
 	@autoreleasepool {
 	if (GetMetalDeviceContext().SupportsFeature(EMetalFeaturesIndirectBuffer))
 	{
-		RHI_PROFILE_DRAW_CALL_STATS(EMTLSamplePointBeforeCompute, EMTLSamplePointAfterCompute, 1,1);
 		FMetalVertexBuffer* VertexBuffer = ResourceCast(ArgumentBufferRHI);
 		
 		Context->DispatchIndirect(VertexBuffer, ArgumentOffset);
@@ -696,12 +694,6 @@ void FMetalRHICommandContext::RHIDrawPrimitive(uint32 PrimitiveType_DEPRECATED, 
 	uint32 NumVertices = GetVertexCountForPrimitiveCount(NumPrimitives, PrimitiveType);
 	uint32 VertexCount = GetVertexCountForPrimitiveCount(NumPrimitives,PrimitiveType);
 	
-	// draw!
-	if(!FShaderCache::IsPredrawCall(Context->GetCurrentState().GetShaderCacheStateObject()))
-	{
-		RHI_PROFILE_DRAW_CALL_STATS(EMTLSamplePointBeforeDraw, EMTLSamplePointAfterDraw, NumPrimitives * NumInstances, VertexCount * NumInstances);
-	}
-	
 	Context->DrawPrimitive(PrimitiveType, BaseVertexIndex, NumPrimitives, NumInstances);
 	}
 }
@@ -718,11 +710,6 @@ void FMetalRHICommandContext::RHIDrawPrimitiveIndirect(uint32 PrimitiveType_DEPR
 	
 	RHI_DRAW_CALL_STATS(PrimitiveType,1);
 	FMetalVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
-	
-	if(!FShaderCache::IsPredrawCall(Context->GetCurrentState().GetShaderCacheStateObject()))
-	{
-		RHI_PROFILE_DRAW_CALL_STATS(EMTLSamplePointBeforeDraw, EMTLSamplePointAfterDraw, 1, 1);
-	}
 	
 	Context->DrawPrimitiveIndirect(PrimitiveType, VertexBuffer, ArgumentOffset);
 #endif
@@ -742,11 +729,6 @@ void FMetalRHICommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef In
 		
 	RHI_DRAW_CALL_STATS(PrimitiveType,FMath::Max(NumInstances,1u)*NumPrimitives);
 
-	if(!FShaderCache::IsPredrawCall(Context->GetCurrentState().GetShaderCacheStateObject()))
-	{
-		RHI_PROFILE_DRAW_CALL_STATS(EMTLSamplePointBeforeDraw, EMTLSamplePointAfterDraw, NumPrimitives * NumInstances, NumVertices * NumInstances);
-	}
-		
 	FMetalIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 	
 	Context->DrawIndexedPrimitive(IndexBuffer->Buffer, IndexBuffer->GetStride(), IndexBuffer->IndexType, PrimitiveType, BaseVertexIndex, FirstInstance, NumVertices, StartIndex, NumPrimitives, NumInstances);
@@ -768,11 +750,6 @@ void FMetalRHICommandContext::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef Ind
 		RHI_DRAW_CALL_STATS(PrimitiveType,1);
 		FMetalIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 		FMetalStructuredBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
-		
-		if(!FShaderCache::IsPredrawCall(Context->GetCurrentState().GetShaderCacheStateObject()))
-		{
-			RHI_PROFILE_DRAW_CALL_STATS(EMTLSamplePointBeforeDraw, EMTLSamplePointAfterDraw, 1, 1);
-		}
 		
 		Context->DrawIndexedIndirect(IndexBuffer, PrimitiveType, VertexBuffer, DrawArgumentsIndex, NumInstances);
 	}
@@ -796,11 +773,6 @@ void FMetalRHICommandContext::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveTy
 		RHI_DRAW_CALL_STATS(PrimitiveType,1);
 		FMetalIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 		FMetalVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
-		
-		if(!FShaderCache::IsPredrawCall(Context->GetCurrentState().GetShaderCacheStateObject()))
-		{
-			RHI_PROFILE_DRAW_CALL_STATS(EMTLSamplePointBeforeDraw, EMTLSamplePointAfterDraw, 1, 1);
-		}
 		
 		Context->DrawIndexedPrimitiveIndirect(PrimitiveType, IndexBuffer, VertexBuffer, ArgumentOffset);
 	}
@@ -850,12 +822,6 @@ void FMetalRHICommandContext::RHIEndDrawPrimitiveUP()
 		Context->GetCurrentState().SetShaderBuffer(SF_Domain, PendingVertexBuffer, nil, 0, PendingVertexDataStride * NumVertices, UNREAL_TO_METAL_BUFFER_INDEX(0));
 	}
 	
-	// how many to draw
-	if(!FShaderCache::IsPredrawCall(Context->GetCurrentState().GetShaderCacheStateObject()))
-	{
-		RHI_PROFILE_DRAW_CALL_STATS(EMTLSamplePointBeforeDraw, EMTLSamplePointAfterDraw, PendingNumPrimitives,NumVertices);
-	}
-	
 	Context->DrawPrimitive(PendingPrimitiveType, 0, PendingNumPrimitives, Context->GetCurrentState().GetRenderTargetArraySize());
 	
 	// mark temp memory as usable
@@ -903,11 +869,6 @@ void FMetalRHICommandContext::RHIEndDrawIndexedPrimitiveUP()
 
 	// how many to draw
 	uint32 NumIndices = GetVertexCountForPrimitiveCount(PendingNumPrimitives, PendingPrimitiveType);
-	
-	if(!FShaderCache::IsPredrawCall(Context->GetCurrentState().GetShaderCacheStateObject()))
-	{
-		RHI_PROFILE_DRAW_CALL_STATS(EMTLSamplePointBeforeDraw, EMTLSamplePointAfterDraw, PendingNumPrimitives,NumIndices);
-	}
 	
 	Context->DrawIndexedPrimitive(PendingIndexBuffer, PendingIndexDataStride, (PendingIndexDataStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32, PendingPrimitiveType, 0, 0, NumIndices, 0, PendingNumPrimitives, 1);
 	

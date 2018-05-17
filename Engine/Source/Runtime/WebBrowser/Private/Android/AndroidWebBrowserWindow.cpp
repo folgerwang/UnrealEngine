@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidWebBrowserWindow.h"
+
+#if USE_ANDROID_JNI
+
 #include "AndroidWebBrowserDialog.h"
 #include "AndroidWebBrowserWidget.h"
 #include "Android/AndroidApplication.h"
@@ -285,3 +288,5 @@ void FAndroidWebBrowserWindow::UnbindUObject(const FString& Name, UObject* Objec
 {
 	Scripting->UnbindUObject(Name, Object, bIsPermanent);
 }
+
+#endif // USE_ANDROID_JNI

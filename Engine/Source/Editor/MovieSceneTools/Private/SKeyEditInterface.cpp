@@ -12,7 +12,7 @@
 #include "PropertyEditorModule.h"
 #include "FrameNumberDetailsCustomization.h"
 #include "MovieSceneSectionDetailsCustomization.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 #include "Modules/ModuleManager.h"
 #include "IDetailCustomization.h"
 

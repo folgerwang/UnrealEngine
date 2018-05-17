@@ -2,7 +2,10 @@
 
 #pragma once
 
+#if USE_ANDROID_JNI
+
 #include "IWebBrowserDialog.h"
+
 #include <jni.h>
 
 class SAndroidWebBrowserWidget;
@@ -58,3 +61,5 @@ private:
 };
 
 typedef FAndroidWebBrowserDialog FWebBrowserDialog;
+
+#endif // USE_ANDROID_JNI

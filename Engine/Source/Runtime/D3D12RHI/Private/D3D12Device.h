@@ -7,7 +7,6 @@ D3D12Device.h: D3D12 Device Interfaces
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Misc/ScopeLock.h"
 
 class FD3D12DynamicRHI;
 
@@ -47,7 +46,8 @@ public:
 	ID3D12Device* GetDevice();
 	FD3D12DynamicRHI* GetOwningRHI();
 
-	inline FD3D12QueryHeap* GetQueryHeap() { return &OcclusionQueryHeap; }
+	inline FD3D12QueryHeap* GetOcclusionQueryHeap() { return &OcclusionQueryHeap; }
+	inline FD3D12QueryHeap* GetTimestampQueryHeap() { return &TimestampQueryHeap; }
 
 	template <typename TViewDesc> FD3D12OfflineDescriptorManager& GetViewDescriptorAllocator();
 	template<> FD3D12OfflineDescriptorManager& GetViewDescriptorAllocator<D3D12_SHADER_RESOURCE_VIEW_DESC>() { return SRVAllocator; }
@@ -100,7 +100,6 @@ public:
 	inline FD3D12ResidencyManager& GetResidencyManager() { return ResidencyManager; }
 
 	TArray<FD3D12CommandListHandle> PendingCommandLists;
-	uint32 PendingCommandListsTotalWorkCommands;
 
 	void RegisterGPUWork(uint32 NumPrimitives = 0, uint32 NumVertices = 0);
 	void PushGPUEvent(const TCHAR* Name, FColor Color);
@@ -135,6 +134,7 @@ protected:
 	FD3D12GlobalOnlineHeap GlobalViewHeap;
 
 	FD3D12QueryHeap OcclusionQueryHeap;
+	FD3D12QueryHeap TimestampQueryHeap;
 
 	FD3D12DefaultBufferAllocator DefaultBufferAllocator;
 

@@ -17,6 +17,7 @@
 
 class FDistanceFieldAOParameters;
 class UStaticMeshComponent;
+class FExponentialHeightFogSceneInfo;
 
 class FLightShaftsOutput
 {

@@ -204,15 +204,13 @@ TAutoConsoleVariable<int32> CVarPostProcessingDisableMaterials(
 	TEXT(" Allows to disable post process materials. \n"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
-#if WITH_DIAPHRAGM_DOF
 TAutoConsoleVariable<int32> CVarUseDiaphragmDOF(
-	TEXT("r.DOF.ExperimentalDiaphragm"),
-	0,
-	TEXT("Experimental half-resolution FFT Bloom convolution. \n")
-	TEXT(" 0: Circle DOF.")
-	TEXT(" 1: Diaphragm DOF.\n"),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
-#endif
+	TEXT("r.DOF.Algorithm"),
+	1,
+	TEXT("Chooses the depth of field algorithm to use. \n")
+	TEXT(" 0: Circle DOF (old implementation);")
+	TEXT(" 1: Diaphragm DOF (default).\n"),
+	ECVF_RenderThreadSafe);
 
 
 IMPLEMENT_SHADER_TYPE(,FPostProcessVS,TEXT("/Engine/Private/PostProcessBloom.usf"),TEXT("MainPostprocessCommonVS"),SF_Vertex);
@@ -529,7 +527,7 @@ static void AddPostProcessDepthOfFieldBokeh(FPostprocessContext& Context, FRende
 			ViewState->DOFHistory,
 			&ViewState->DOFHistory) );
 		NodeTemporalAA->SetInput( ePId_Input0, DOFSetup );
-		NodeTemporalAA->SetInput( ePId_Input1, VelocityInput );
+		NodeTemporalAA->SetInput( ePId_Input2, VelocityInput );
 
 		DOFInputPass = NodeTemporalAA;
 		ViewState->bDOFHistory = true;
@@ -578,7 +576,7 @@ static bool AddPostProcessDepthOfFieldGaussian(FPostprocessContext& Context, FDe
 					Context, Parameters, *DOFHistory, DOFHistory));
 
 				NodeTemporalAA->SetInput(ePId_Input0, DOFSetup);
-				NodeTemporalAA->SetInput(ePId_Input1, VelocityInput);
+				NodeTemporalAA->SetInput(ePId_Input2, VelocityInput);
 
 				DOFInputPass = FRenderingCompositeOutputRef(NodeTemporalAA);
 				bDOFHistory = false;
@@ -689,7 +687,7 @@ static void AddPostProcessDepthOfFieldCircle(FPostprocessContext& Context, const
 			ViewState->DOFHistory,
 			&ViewState->DOFHistory) );
 		NodeTemporalAA->SetInput( ePId_Input0, DOFSetup );
-		NodeTemporalAA->SetInput( ePId_Input1, VelocityInput );
+		NodeTemporalAA->SetInput( ePId_Input2, VelocityInput );
 
 		ColorSetup = FRenderingCompositeOutputRef(NodeTemporalAA);
 		ViewState->bDOFHistory = false;
@@ -924,7 +922,7 @@ static void AddTemporalAA( FPostprocessContext& Context, FRenderingCompositeOutp
 			Context.View.PrevViewInfo.TemporalAAHistory,
 			&ViewState->PendingPrevFrameViewInfo.TemporalAAHistory));
 	TemporalAAPass->SetInput( ePId_Input0, Context.FinalOutput );
-	TemporalAAPass->SetInput( ePId_Input1, VelocityInput );
+	TemporalAAPass->SetInput( ePId_Input2, VelocityInput );
 	Context.FinalOutput = FRenderingCompositeOutputRef( TemporalAAPass );
 }
 
@@ -1469,13 +1467,13 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 						DOFVelocityRef = FRenderingCompositeOutputRef(NoVelocity);
 					}
 					
-					#if WITH_DIAPHRAGM_DOF
-					if (CVarUseDiaphragmDOF.GetValueOnRenderThread() && DiaphragmDOF::IsSupported(View.GetShaderPlatform()))
+					if (CVarUseDiaphragmDOF.GetValueOnRenderThread() == 1 &&
+						DiaphragmDOF::IsSupported(View.GetShaderPlatform()))
 					{
-						bSepTransWasApplied = DiaphragmDOF::WireSceneColorPasses(Context, DOFVelocityRef,SeparateTranslucency);
+						bSepTransWasApplied = DiaphragmDOF::WireSceneColorPasses(
+							Context, DOFVelocityRef,SeparateTranslucency);
 					}
 					else
-					#endif // COMPILE_DIAPHRAGM_DOF
 					{
 						AddPostProcessDepthOfFieldCircle(Context, DOFVelocityRef);
 					}
@@ -2749,5 +2747,5 @@ void FPostProcessing::ProcessPlanarReflection(FRHICommandListImmediate& RHICmdLi
 
 bool FPostProcessing::HasAlphaChannelSupport()
 {
-	return CVarAlphaChannel.GetValueOnRenderThread() != 0;
+	return CVarAlphaChannel.GetValueOnAnyThread() != 0;
 }

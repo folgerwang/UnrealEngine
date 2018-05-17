@@ -74,6 +74,7 @@ struct FWindowsThreadContextWrapper
 
 	FWindowsThreadContextWrapper()
 		: Magic(MAGIC_VAL)
+		, Context{}
 	{
 	}
 	void CheckOk()
@@ -135,7 +136,7 @@ static int32 CaptureStackTraceHelper(uint64 *BackTrace, uint32 MaxDepth, FWindow
 		// Walk the stack one frame at a time.
 		while( bStackWalkSucceeded && (CurrentDepth < MaxDepth) )
 		{
-			bStackWalkSucceeded = !!StackWalk64(  MachineType, 
+			bStackWalkSucceeded = !!StackWalk64(MachineType, 
 												ProcessHandle, 
 												ThreadHandle, 
 												&StackFrame64,
@@ -144,9 +145,6 @@ static int32 CaptureStackTraceHelper(uint64 *BackTrace, uint32 MaxDepth, FWindow
 												SymFunctionTableAccess64,
 												SymGetModuleBase64,
 												NULL );
-
-			BackTrace[CurrentDepth++] = StackFrame64.AddrPC.Offset;
-			*Depth = CurrentDepth;
 
 			if( !bStackWalkSucceeded  )
 			{
@@ -161,6 +159,9 @@ static int32 CaptureStackTraceHelper(uint64 *BackTrace, uint32 MaxDepth, FWindow
 			{
 				break;
 			}
+
+			BackTrace[CurrentDepth++] = StackFrame64.AddrPC.Offset;
+			*Depth = CurrentDepth;
 		}
 	} 
 #if !PLATFORM_SEH_EXCEPTIONS_DISABLED
@@ -258,6 +259,37 @@ void FWindowsPlatformStackWalk::ThreadStackWalkAndDump(ANSICHAR* HumanReadableSt
 		}
 		ResumeThread(ThreadHandle);
 	}
+}
+
+uint32 FWindowsPlatformStackWalk::CaptureThreadStackBackTrace(uint64 ThreadId, uint64* BackTrace, uint32 MaxDepth)
+{
+	InitStackWalking();
+
+	if (BackTrace == nullptr || MaxDepth == 0)
+		return 0;
+
+	HANDLE ThreadHandle = OpenThread(THREAD_GET_CONTEXT | THREAD_SET_CONTEXT | THREAD_TERMINATE | THREAD_SUSPEND_RESUME, false, ThreadId);
+	if (!ThreadHandle)
+		return 0;
+
+	// Suspend the thread before grabbing its context
+	SuspendThread(ThreadHandle);
+
+	FWindowsThreadContextWrapper ContextWrapper;
+	ContextWrapper.Context.ContextFlags = CONTEXT_CONTROL;
+	ContextWrapper.ThreadHandle = ThreadHandle;
+
+	uint32 Depth = 0;
+	if (GetThreadContext(ThreadHandle, &ContextWrapper.Context))
+	{
+		CaptureStackTraceHelper(BackTrace, MaxDepth, &ContextWrapper, &Depth);
+	}
+
+	ResumeThread(ThreadHandle);
+
+	CloseHandle(ThreadHandle);
+
+	return Depth;
 }
 
 // #CrashReport: 2014-09-05 Switch to TArray<uint64,TFixedAllocator<100>>>

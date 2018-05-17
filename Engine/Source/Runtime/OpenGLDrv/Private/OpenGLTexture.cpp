@@ -2359,18 +2359,21 @@ void FOpenGLDynamicRHI::RHIUpdateTexture3D(FTexture3DRHIParamRef TextureRHI,uint
 
 void FOpenGLDynamicRHI::InvalidateTextureResourceInCache(GLuint Resource)
 {
-	for (int32 SamplerIndex = 0; SamplerIndex < FOpenGL::GetMaxCombinedTextureImageUnits(); ++SamplerIndex)
+	if (SharedContextState.Textures || RenderingContextState.Textures)
 	{
-		if (SharedContextState.Textures[SamplerIndex].Resource == Resource)
+		for (int32 SamplerIndex = 0; SamplerIndex < FOpenGL::GetMaxCombinedTextureImageUnits(); ++SamplerIndex)
 		{
-			SharedContextState.Textures[SamplerIndex].Target = GL_NONE;
-			SharedContextState.Textures[SamplerIndex].Resource = 0;
-		}
+			if (SharedContextState.Textures && SharedContextState.Textures[SamplerIndex].Resource == Resource)
+			{
+				SharedContextState.Textures[SamplerIndex].Target = GL_NONE;
+				SharedContextState.Textures[SamplerIndex].Resource = 0;
+			}
 
-		if (RenderingContextState.Textures[SamplerIndex].Resource == Resource)
-		{
-			RenderingContextState.Textures[SamplerIndex].Target = GL_NONE;
-			RenderingContextState.Textures[SamplerIndex].Resource = 0;
+			if (RenderingContextState.Textures && RenderingContextState.Textures[SamplerIndex].Resource == Resource)
+			{
+				RenderingContextState.Textures[SamplerIndex].Target = GL_NONE;
+				RenderingContextState.Textures[SamplerIndex].Resource = 0;
+			}
 		}
 	}
 	

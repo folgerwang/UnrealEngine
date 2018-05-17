@@ -36,7 +36,7 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 		
 		// Build a list of decals that need to be rendered for this view
 		FTransientDecalRenderDataList SortedDecals;
-		FDecalRendering::BuildVisibleDecalList(*Scene, View, DRS_Mobile, SortedDecals);
+		FDecalRendering::BuildVisibleDecalList(*Scene, View, DRS_Mobile, &SortedDecals);
 
 		if (SortedDecals.Num())
 		{

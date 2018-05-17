@@ -6,6 +6,7 @@
 #include "Interfaces/IShaderFormat.h"
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #endif
+#include "ShaderCompiler.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 
@@ -88,7 +89,7 @@ void FNiagaraShaderCompilationManager::RunCompileJobs()
 		{
 			for (int32 JobIndex = 0; JobIndex < CurrentWorkerInfo.QueuedJobs.Num(); JobIndex++)
 			{
-				FNiagaraShaderCompileJob& CurrentJob = *CurrentWorkerInfo.QueuedJobs[JobIndex];
+				FShaderCompileJob& CurrentJob = *((FShaderCompileJob*)(CurrentWorkerInfo.QueuedJobs[JobIndex]));
 
 				check(!CurrentJob.bFinalized);
 				CurrentJob.bFinalized = true;
@@ -104,9 +105,11 @@ void FNiagaraShaderCompilationManager::RunCompileJobs()
 				}
 				CA_ASSUME(Compiler != NULL);
 
+				UE_LOG(LogNiagaraShaderCompiler, Log, TEXT("Compile Job processing... %s"), *CurrentJob.Input.DebugGroupName);
+
 				FString AbsoluteDebugInfoDirectory = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*(FPaths::ProjectSavedDir() / TEXT("ShaderDebugInfo")));
 				FPaths::NormalizeDirectoryName(AbsoluteDebugInfoDirectory);
-				CurrentJob.Input.DumpDebugInfoPath = AbsoluteDebugInfoDirectory / Format.ToString() / FString("Niagara");
+				CurrentJob.Input.DumpDebugInfoPath = AbsoluteDebugInfoDirectory / Format.ToString() / CurrentJob.Input.DebugGroupName;
 				if (!IFileManager::Get().DirectoryExists(*CurrentJob.Input.DumpDebugInfoPath))
 				{
 					verifyf(IFileManager::Get().MakeDirectory(*CurrentJob.Input.DumpDebugInfoPath, true), TEXT("Failed to create directory for shader debug info '%s'"), *CurrentJob.Input.DumpDebugInfoPath);
@@ -162,9 +165,9 @@ void FNiagaraShaderCompilationManager::RunCompileJobs()
 
 
 
-NIAGARASHADER_API void FNiagaraShaderCompilationManager::AddJobs(TArray<FNiagaraShaderCompileJob*> InNewJobs)
+NIAGARASHADER_API void FNiagaraShaderCompilationManager::AddJobs(TArray<FShaderCommonCompileJob*> InNewJobs)
 {
-	for (FNiagaraShaderCompileJob *Job : InNewJobs)
+	for (FShaderCommonCompileJob *Job : InNewJobs)
 	{
 		FNiagaraShaderMapCompileResults& ShaderMapInfo = NiagaraShaderMapJobs.FindOrAdd(Job->Id);
 //		ShaderMapInfo.bApplyCompletedShaderMapForRendering = bApplyCompletedShaderMapForRendering;
@@ -214,16 +217,16 @@ void FNiagaraShaderCompilationManager::ProcessCompiledNiagaraShaderMaps(
 {
 	// Keeps shader maps alive as they are passed from the shader compiler and applied to the owning Script
 	TArray<TRefCountPtr<FNiagaraShaderMap> > LocalShaderMapReferences;
-	TMap<FNiagaraScript*, FNiagaraShaderMap*> ScriptsToUpdate;
+	TMap<FNiagaraShaderScript*, FNiagaraShaderMap*> ScriptsToUpdate;
 
 	// Process compiled shader maps in FIFO order, in case a shader map has been enqueued multiple times,
 	// Which can happen if a script is edited while a background compile is going on
 	for (TMap<int32, FNiagaraShaderMapFinalizeResults>::TIterator ProcessIt(CompiledShaderMaps); ProcessIt; ++ProcessIt)
 	{
 		TRefCountPtr<FNiagaraShaderMap> ShaderMap = NULL;
-		TArray<FNiagaraScript*>* Scripts = NULL;
+		TArray<FNiagaraShaderScript*>* Scripts = NULL;
 
-		for (TMap<TRefCountPtr<FNiagaraShaderMap>, TArray<FNiagaraScript*> >::TIterator ShaderMapIt(FNiagaraShaderMap::GetInFlightShaderMaps()); ShaderMapIt; ++ShaderMapIt)
+		for (TMap<TRefCountPtr<FNiagaraShaderMap>, TArray<FNiagaraShaderScript*> >::TIterator ShaderMapIt(FNiagaraShaderMap::GetInFlightShaderMaps()); ShaderMapIt; ++ShaderMapIt)
 		{
 			if (ShaderMapIt.Key()->GetCompilingId() == ProcessIt.Key())
 			{
@@ -237,15 +240,15 @@ void FNiagaraShaderCompilationManager::ProcessCompiledNiagaraShaderMaps(
 		{
 			TArray<FString> Errors;
 			FNiagaraShaderMapFinalizeResults& CompileResults = ProcessIt.Value();
-			const TArray<FNiagaraShaderCompileJob*>& ResultArray = CompileResults.FinishedJobs;
+			const TArray<FShaderCommonCompileJob*>& ResultArray = CompileResults.FinishedJobs;
 
 			// Make a copy of the array as this entry of FNiagaraShaderMap::ShaderMapsBeingCompiled will be removed below
-			TArray<FNiagaraScript*> ScriptArray = *Scripts;
+			TArray<FNiagaraShaderScript*> ScriptArray = *Scripts;
 			bool bSuccess = true;
 
 			for (int32 JobIndex = 0; JobIndex < ResultArray.Num(); JobIndex++)
 			{
-				FNiagaraShaderCompileJob& CurrentJob = *ResultArray[JobIndex];
+				FShaderCompileJob& CurrentJob = *((FShaderCompileJob*)(ResultArray[JobIndex]));
 				bSuccess = bSuccess && CurrentJob.bSucceeded;
 
 				if (bSuccess)
@@ -259,6 +262,19 @@ void FNiagaraShaderCompilationManager::ProcessCompiledNiagaraShaderMaps(
 					{
 						Errors.AddUnique(CurrentJob.Output.Errors[ErrorIndex].GetErrorString());
 					}
+
+					if (CurrentJob.Output.Errors.Num())
+					{
+						UE_LOG(LogShaders, Log, TEXT("There were errors for job \"%s\""), *CurrentJob.Input.DebugGroupName)
+							for (const FShaderCompilerError& Error : CurrentJob.Output.Errors)
+							{
+								UE_LOG(LogShaders, Log, TEXT("Error: %s"), *Error.GetErrorString())
+							}
+					}
+				}
+				else
+				{
+					UE_LOG(LogShaders, Log, TEXT("There were NO errors for job \"%s\""), *CurrentJob.Input.DebugGroupName);
 				}
 			}
 
@@ -278,7 +294,7 @@ void FNiagaraShaderCompilationManager::ProcessCompiledNiagaraShaderMaps(
 				LocalShaderMapReferences.Add(ShaderMap);
 				FNiagaraShaderMap::GetInFlightShaderMaps().Remove(ShaderMap);
 
-				for (FNiagaraScript *Script : ScriptArray)
+				for (FNiagaraShaderScript* Script : ScriptArray)
 				{
 					FNiagaraShaderMap* CompletedShaderMap = ShaderMap;
 
@@ -286,7 +302,7 @@ void FNiagaraShaderCompilationManager::ProcessCompiledNiagaraShaderMaps(
 
 					// Only process results that still match the ID which requested a compile
 					// This avoids applying shadermaps which are out of date and a newer one is in the async compiling pipeline
-					if (Script->GetScriptID() == CompletedShaderMap->GetShaderMapId().BaseScriptID)
+					if (Script->IsSame(CompletedShaderMap->GetShaderMapId()))
 					{
 						if (Errors.Num() != 0)
 						{
@@ -366,9 +382,9 @@ void FNiagaraShaderCompilationManager::ProcessCompiledNiagaraShaderMaps(
 
 	if (ScriptsToUpdate.Num() > 0)
 	{
-		for (TMap<FNiagaraScript*, FNiagaraShaderMap*>::TConstIterator It(ScriptsToUpdate); It; ++It)
+		for (TMap<FNiagaraShaderScript*, FNiagaraShaderMap*>::TConstIterator It(ScriptsToUpdate); It; ++It)
 		{
-			FNiagaraScript* Script = It.Key();
+			FNiagaraShaderScript* Script = It.Key();
 			FNiagaraShaderMap* ShaderMap = It.Value();
 			//check(!ShaderMap || ShaderMap->IsValidForRendering());
 
@@ -376,7 +392,7 @@ void FNiagaraShaderCompilationManager::ProcessCompiledNiagaraShaderMaps(
 
 			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 				FSetShaderMapOnScriptResources,
-				FNiagaraScript*, Script, Script,
+				FNiagaraShaderScript*, Script, Script,
 				FNiagaraShaderMap*, CompiledShaderMap, ShaderMap,
 				{
 					Script->SetRenderingThreadShaderMap(CompiledShaderMap);
@@ -395,6 +411,8 @@ void FNiagaraShaderCompilationManager::FinishCompilation(const TCHAR* ScriptName
 
 	RunCompileJobs();	// since we don't async compile through another process, this will run all oustanding jobs
 	ProcessAsyncResults();	// grab compiled shader maps and assign them to their resources
+
+	check(NiagaraShaderMapJobs.Num() == 0);
 }
 
 

@@ -166,6 +166,12 @@ bool FLightSceneInfo::ShouldRenderLight(const FViewInfo& View) const
 				bLocalVisible = false;
 			}
 			break;
+		case LightType_Rect:
+			if(!View.Family->EngineShowFlags.RectLights)
+			{
+				bLocalVisible = false;
+			}
+			break;
 	}
 #endif
 

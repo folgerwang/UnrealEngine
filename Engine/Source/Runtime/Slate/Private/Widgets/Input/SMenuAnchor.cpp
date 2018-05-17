@@ -21,7 +21,7 @@ static FVector2D GetMenuOffsetForPlacement(const FGeometry& AllottedGeometry, EM
 			return FVector2D(-((PopupSizeLocalSpace.X / 2) - (AllottedGeometry.GetLocalSize().X / 2)), AllottedGeometry.GetLocalSize().Y);
 			break;
 		case MenuPlacement_BelowRightAnchor:
-			return FVector2D( -( PopupSizeLocalSpace.X ) - ( AllottedGeometry.GetLocalSize().X ), AllottedGeometry.GetLocalSize().Y );
+			return FVector2D( -( PopupSizeLocalSpace.X ) + ( AllottedGeometry.GetLocalSize().X ), AllottedGeometry.GetLocalSize().Y );
 			break;
 		case MenuPlacement_ComboBox:
 			return FVector2D(0.0f, AllottedGeometry.GetLocalSize().Y);

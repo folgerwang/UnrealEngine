@@ -10,12 +10,43 @@
 extern UNREALED_API class UEditorEngine* GEditor;
 #endif // #if WITH_EDITOR
 
+namespace EAlphaChannelMode
+{
+	EAlphaChannelMode::Type FromInt(int32 InAlphaChannelMode)
+	{
+		return static_cast<EAlphaChannelMode::Type>(FMath::Clamp(InAlphaChannelMode, (int32)Disabled, (int32)AllowThroughTonemapper));
+	}
+}
+
 namespace EDefaultBackBufferPixelFormat
 {
-	ENGINE_API EPixelFormat Convert2PixelFormat(int32 InDefaultBackBufferPixelFormat)
+	EPixelFormat Convert2PixelFormat(EDefaultBackBufferPixelFormat::Type InDefaultBackBufferPixelFormat)
 	{
-		static EPixelFormat SPixelFormat[] = { PF_B8G8R8A8, PF_A16B16G16R16, PF_FloatRGB, PF_FloatRGBA, PF_A2B10G10R10 };
-		return SPixelFormat[FMath::Clamp(InDefaultBackBufferPixelFormat, 0, DBBPF_MAX - 1)];
+		static EPixelFormat SPixelFormat[] = { PF_B8G8R8A8, PF_A16B16G16R16, PF_FloatRGB, PF_FloatRGBA, PF_A2B10G10R10, PF_A2B10G10R10 };
+		return SPixelFormat[(int32)InDefaultBackBufferPixelFormat];
+	}
+
+	int32 NumberOfBitForAlpha(EDefaultBackBufferPixelFormat::Type InDefaultBackBufferPixelFormat)
+	{
+		switch (InDefaultBackBufferPixelFormat)
+		{
+			case DBBPF_A16B16G16R16:
+				return 16;
+			case DBBPF_B8G8R8A8:
+			case DBBPF_FloatRGBA:
+				return 8;
+			case DBBPF_A2B10G10R10:
+				return 2;
+			case DBBPF_FloatRGB:
+			default:
+				return 0;
+		}
+		return 0;
+	}
+
+	EDefaultBackBufferPixelFormat::Type FromInt(int32 InDefaultBackBufferPixelFormat)
+	{
+		return static_cast<EDefaultBackBufferPixelFormat::Type>(FMath::Clamp(InDefaultBackBufferPixelFormat, 0, (int32)DBBPF_MAX - 1));
 	}
 }
 

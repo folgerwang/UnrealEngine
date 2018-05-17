@@ -6,7 +6,7 @@
 #include "MovieSceneSequence.h"
 #include "MovieSceneTimeHelpers.h"
 #include "Evaluation/MovieSceneEvaluationTemplate.h"
-#include <FrameRate.h>
+#include "Misc/FrameRate.h"
 
 TWeakObjectPtr<UMovieSceneSubSection> UMovieSceneSubSection::TheRecordingSection;
 

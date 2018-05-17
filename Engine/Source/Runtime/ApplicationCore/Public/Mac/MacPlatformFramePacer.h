@@ -11,7 +11,7 @@
 
 struct FMacFramePacer;
 
-typedef void (^FMacFramePacerHandler)(uint32 CGDirectDisplayID);
+typedef void (^FMacFramePacerHandler)(uint32 CGDirectDisplayID, double OutputSeconds, double OutputDuration);
 
 /**
  * Mac implementation of FGenericPlatformRHIFramePacer

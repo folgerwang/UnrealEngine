@@ -13,83 +13,11 @@ NiagaraEmitterInstance.h: Niagara emitter simulation class
 #include "NiagaraCollision.h"
 #include "NiagaraEmitterHandle.h"
 #include "NiagaraEmitter.h"
-#include "NiagaraParameterStore.h"
+#include "NiagaraScriptExecutionParameterStore.h"
 #include "NiagaraTypes.h"
+#include "RHIGPUReadback.h"
 
-/** 
-Storage class containing actual runtime buffers to be used by the VM and the GPU. 
-Is not the actual source for any parameter data, rather just the final place it's gathered from various other places ready for execution.
-*/
-class FNiagaraScriptExecutionParameterStore : public FNiagaraParameterStore
-{
-public:
-	FNiagaraScriptExecutionParameterStore();
-	FNiagaraScriptExecutionParameterStore(const FNiagaraParameterStore& Other);
-	FNiagaraScriptExecutionParameterStore& operator=(const FNiagaraParameterStore& Other);
 
-	//TODO: This function can probably go away entirely when we replace the FNiagaraParameters and DataInterface info in the script with an FNiagaraParameterStore.
-	//Special care with prev params and internal params will have to be taken there.
-	void Init(UNiagaraScript* Script, ENiagaraSimTarget SimTarget);
-	void AddScriptParams(UNiagaraScript* Script, ENiagaraSimTarget SimTarget);
-	void CopyCurrToPrev();
-
-	bool AddParameter(const FNiagaraVariable& Param, bool bInitInterfaces=true)
-	{
-		if (FNiagaraParameterStore::AddParameter(Param, bInitInterfaces))
-		{
-			AddPaddedParamSize(Param.GetType(), IndexOf(Param));
-			return true;
-		}
-		return false;
-	}
-
-	bool RemoveParameter(FNiagaraVariable& Param)
-	{
-		check(0);//Not allowed to remove parameters from an execution store as it will adjust the table layout mess up the 
-		return false;
-	}
-
-	void RenameParameter(FNiagaraVariable& Param, FName NewName)
-	{
-		check(0);//Can't rename parameters for an execution store.
-	}
-
-	// Just the external parameters, not previous or internal...
-	uint32 GetExternalParameterSize() { return ParameterSize; }
-
-	// The entire buffer padded out by the required alignment of the types..
-	uint32 GetPaddedParameterSizeInBytes() { return PaddedParameterSize; }
-
-	// Helper that converts the data from the base type array internally into the padded out renderer-ready format.
-	void CopyParameterDataToPaddedBuffer(uint8* InTargetBuffer, uint32 InTargetBufferSizeInBytes);
-
-	void Clear()
-	{
-		Empty();
-		PaddedParameterSize = 0;
-	}
-protected:
-	void AddPaddedParamSize(const FNiagaraTypeDefinition& InParamType, uint32 InOffset);
-
-private:
-
-	/** Size of the parameter data not including prev frame values or internal constants. Allows copying into previous parameter values for interpolated spawn scripts. */
-	int32 ParameterSize;
-
-	uint32 PaddedParameterSize;
-
-	struct FPaddingInfo
-	{
-		FPaddingInfo(uint32 InSrcOffset, uint32 InDestOffset, uint32 InSize) : SrcOffset(InSrcOffset), DestOffset(InDestOffset), Size(InSize){}
-		uint32 SrcOffset;
-		uint32 DestOffset;
-		uint32 Size;
-	};
-
-	static void GenerateLayoutInfoInternal(TArray<FPaddingInfo>& Members, uint32& NextMemberOffset, const UStruct* InSrcStruct, uint32 InSrcOffset);
-	
-	TArray<FPaddingInfo> PaddingInfo;
-};
 
 struct FNiagaraDataSetExecutionInfo
 {
@@ -140,7 +68,7 @@ struct FNiagaraScriptExecutionContext
 	bool Tick(class FNiagaraSystemInstance* Instance, ENiagaraSimTarget SimTarget = ENiagaraSimTarget::CPUSim);
 	void PostTick();
 
-	bool Execute(uint32 NumInstances, TArray<FNiagaraDataSetExecutionInfo>& DataSetInfos);
+	bool Execute(uint32 NumInstances, TArray<FNiagaraDataSetExecutionInfo, TInlineAllocator<8>>& DataSetInfos);
 
 	const TArray<UNiagaraDataInterface*>& GetDataInterfaces()const { return Parameters.GetDataInterfaces(); }
 
@@ -157,32 +85,52 @@ struct FNiagaraComputeExecutionContext
 	FNiagaraComputeExecutionContext()
 		: MainDataSet(nullptr)
 		, SpawnRateInstances(0)
-		, BurstInstances(0)
 		, EventSpawnTotal(0)
 		, SpawnScript(nullptr)
 		, UpdateScript(nullptr)
+		, GPUScript(nullptr)
 		, RTUpdateScript(0)
-		, RTSpawnScript(0)
+		, RTSpawnScript(0)	
+		, RTGPUScript(0)
+		, GPUDataReadback(nullptr)
+		, AccumulatedSpawnRate(0)
+		, NumIndicesPerInstance(0)
 	{
 	}
 
-	void InitParams(UNiagaraScript* InSpawnScript, UNiagaraScript *InUpdateScript, ENiagaraSimTarget SimTarget)
+	void Reset()
 	{
-		CombinedParamStore.Init(InSpawnScript, SimTarget);
-		CombinedParamStore.AddScriptParams(InUpdateScript, SimTarget);
+		AccumulatedSpawnRate = 0;
+		if (GPUDataReadback)
+		{
+			delete GPUDataReadback;
+		}
+		GPUDataReadback = nullptr;
+	}
+
+	void InitParams(UNiagaraScript* InGPUComputeScript, UNiagaraScript* InSpawnScript, UNiagaraScript *InUpdateScript, ENiagaraSimTarget SimTarget)
+	{
+		CombinedParamStore.InitFromOwningContext(InGPUComputeScript, SimTarget, true);
+
+		GPUScript = InGPUComputeScript;
 		SpawnScript = InSpawnScript;
 		UpdateScript = InUpdateScript;
-		
-		FNiagaraShader *Shader = InSpawnScript->GetRenderThreadScript()->GetShaderGameThread();
+
+#if DO_CHECK
+		FNiagaraShader *Shader = InGPUComputeScript->GetRenderThreadScript()->GetShaderGameThread();
+		DIParamInfo.Empty();
 		if (Shader)
 		{
-			DataInterfaceDescriptors = Shader->GetDIBufferDescriptors();
+			for (FNiagaraDataInterfaceParamRef& DIParams : Shader->GetDIParameters())
+			{
+				DIParamInfo.Add(DIParams.ParameterInfo);
+			}
 		}
 		else
 		{
-			DataInterfaceDescriptors = InSpawnScript->GetRenderThreadScript()->GetDataInterfaceBufferDescriptors();
+			DIParamInfo = InGPUComputeScript->GetRenderThreadScript()->GetDataInterfaceParamInfo();
 		}
-
+#endif
 	}
 
 	void DirtyDataInterfaces()
@@ -194,24 +142,25 @@ struct FNiagaraComputeExecutionContext
 	{
 		if (CombinedParamStore.GetInterfacesDirty())
 		{
+#if DO_CHECK
 			const TArray<UNiagaraDataInterface*> &DataInterfaces = CombinedParamStore.GetDataInterfaces();
 			// We must make sure that the data interfaces match up between the original script values and our overrides...
-			if (DataInterfaceDescriptors.Num() != DataInterfaces.Num())
+			if (DIParamInfo.Num() != DataInterfaces.Num())
 			{
 				UE_LOG(LogNiagara, Warning, TEXT("Mismatch between Niagara GPU Execution Context data interfaces and those in its script!"));
 				return false;
 			}
 
-			//Fill the instance data table.
-			if (ParentSystemInstance)
+			for (int32 i=0; i<DIParamInfo.Num(); ++i)
 			{
-				for (int32 i = 0; i < DataInterfaces.Num(); i++)
+				FString UsedClassName = DataInterfaces[i]->GetClass()->GetName();
+				if (DIParamInfo[i].DIClassName != UsedClassName)
 				{
-					UNiagaraDataInterface* Interface = DataInterfaces[i];
-					// setup GPU interface; TODO: should probably move this to the GPU execution context
-					Interface->SetupBuffers(DataInterfaceDescriptors[i]);
+					UE_LOG(LogNiagara, Warning, TEXT("Mismatched class between Niagara GPU Execution Context data interfaces and those in its script!\nIndex:%d\nShader:%s\nScript:%s")
+						, i, *DIParamInfo[i].DIClassName, *UsedClassName);
 				}
 			}
+#endif
 
 			CombinedParamStore.Tick();
 		}
@@ -219,22 +168,30 @@ struct FNiagaraComputeExecutionContext
 		return true;
 	}
 
+	const TArray<FNiagaraEventScriptProperties> &GetEventHandlers() const { return EventHandlerScriptProps; }
+
 	class FNiagaraDataSet *MainDataSet;
 	TArray<FNiagaraDataSet*>UpdateEventWriteDataSets;
 	TArray<FNiagaraEventScriptProperties> EventHandlerScriptProps;
 	TArray<FNiagaraDataSet*> EventSets;
 	uint32 SpawnRateInstances;
-	uint32 BurstInstances;
 
 	TArray<int32> EventSpawnCounts;
 	uint32 EventSpawnTotal;
-	UNiagaraScript *SpawnScript;
-	UNiagaraScript *UpdateScript;
-	class FNiagaraScript *RTUpdateScript;
-	class FNiagaraScript *RTSpawnScript;
-	TArray<FNiagaraScriptDataInterfaceInfo> UpdateInterfaces;
-	TArray<uint8, TAlignedHeapAllocator<16>> SpawnParams;		// RT side copy of the parameter data
+	UNiagaraScript* SpawnScript;
+	UNiagaraScript* UpdateScript;
+	UNiagaraScript* GPUScript;
+	class FNiagaraShaderScript*  RTUpdateScript;
+	class FNiagaraShaderScript*  RTSpawnScript;
+	class FNiagaraShaderScript*  RTGPUScript;
+	TArray<uint8, TAlignedHeapAllocator<16>> ParamData_RT;		// RT side copy of the parameter data
 	FNiagaraScriptExecutionParameterStore CombinedParamStore;
-	TArray< FDIBufferDescriptorStore >  DataInterfaceDescriptors;
 	static uint32 TickCounter;
+#if DO_CHECK
+	TArray< FNiagaraDataInterfaceGPUParamInfo >  DIParamInfo;
+#endif
+
+	FRHIGPUMemoryReadback *GPUDataReadback;
+	uint32 AccumulatedSpawnRate;
+	uint32 NumIndicesPerInstance;	// how many vtx indices per instance the renderer is going to have for its draw call
 };

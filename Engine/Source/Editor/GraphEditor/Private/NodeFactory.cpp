@@ -400,3 +400,18 @@ FConnectionDrawingPolicy* FNodeFactory::CreateConnectionPolicy(const UEdGraphSch
 	// If we never picked a custom policy, use the uncustomized standard policy
 	return ConnectionDrawingPolicy;
 }
+
+TSharedPtr<SGraphNode> FGraphNodeFactory::CreateNodeWidget(UEdGraphNode* InNode)
+{
+	return FNodeFactory::CreateNodeWidget(InNode);
+}
+
+TSharedPtr<SGraphPin> FGraphNodeFactory::CreatePinWidget(UEdGraphPin* InPin)
+{
+	return FNodeFactory::CreatePinWidget(InPin);
+}
+
+FConnectionDrawingPolicy* FGraphNodeFactory::CreateConnectionPolicy(const UEdGraphSchema* Schema, int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj)
+{
+	return FNodeFactory::CreateConnectionPolicy(Schema, InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, InGraphObj);
+}

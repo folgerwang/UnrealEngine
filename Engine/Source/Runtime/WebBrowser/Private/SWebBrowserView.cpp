@@ -12,7 +12,7 @@
 #include "WebBrowserViewport.h"
 #include "IWebBrowserAdapter.h"
 
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && USE_ANDROID_JNI
 #	include "Android/AndroidWebBrowserWindow.h"
 #elif PLATFORM_IOS
 #	include "IOS/IOSPlatformWebBrowser.h"

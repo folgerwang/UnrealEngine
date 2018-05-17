@@ -31,8 +31,8 @@
 	// Have RGB and DOF's CocRadius in alpha.
 	#define HISTORY_PAYLOAD_RGB_COC 2
 	
-	// TODO: Have RGB, translucency in alpha and DOF's CocRadius in separate's Red.
-	// #define HISTORY_PAYLOAD_RGB_TRANSLUCENCY_COC 3
+	// Have RGB, opacity in alpha and DOF's CocRadius in separate's Red.
+	#define HISTORY_PAYLOAD_RGB_OPACITY_COC 3
 
 
 /** Caching method for scene color. */
@@ -161,7 +161,11 @@
 	#endif
 	
 #elif TAA_PASS_CONFIG == 5 || TAA_PASS_CONFIG == 6 // Used for diaphragm DOF pre-filtering.
-	#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB_COC)
+	#if POST_PROCESS_ALPHA
+		#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB_OPACITY_COC)
+	#else
+		#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB_COC)
+	#endif
 	#define AA_CROSS 4 // because running at half res.
 	#define AA_DYNAMIC 1
 	#define AA_FORCE_ALPHA_CLAMP 1
@@ -340,8 +344,17 @@
 // Defines number of component in history payload.
 #if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB
 	#define HISTORY_PAYLOAD_COMPONENTS 3
+#elif AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
+	#define HISTORY_PAYLOAD_COMPONENTS 5
 #else
 	#define HISTORY_PAYLOAD_COMPONENTS 4
+#endif
+
+// Defines the number of render target to store TAA's history.
+#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
+	#define HISTORY_RENDER_TARGETS 2
+#else
+	#define HISTORY_RENDER_TARGETS 1
 #endif
 
 
@@ -443,12 +456,18 @@ float2 ScreenPosAbsMax;
 float4 ScreenPosToHistoryBufferUV;
 
 Texture2D HistoryBuffer0;
+Texture2D HistoryBuffer1;
 SamplerState HistoryBuffer0Sampler;
+SamplerState HistoryBuffer1Sampler;
 float4 HistoryBufferSize;
 float4 HistoryBufferUVMinMax;
 
 #if COMPUTESHADER
-RWTexture2D<float4> OutComputeTex;
+RWTexture2D<float4> OutComputeTex0;
+
+#if HISTORY_RENDER_TARGETS == 2
+	RWTexture2D<float4> OutComputeTex1;
+#endif
 #endif
 
 // Temporal upsample specific params.
@@ -555,17 +574,17 @@ float HistoryClip(float3 History, float3 Filtered, float3 NeighborMin, float3 Ne
 #endif
 }
 
-float4 WeightedLerp( float4 ColorA, float WeightA, float4 ColorB, float WeightB, float Blend ) 
+float2 WeightedLerpFactors(float WeightA, float WeightB, float Blend)
 {
 	float BlendA = (1.0 - Blend) * WeightA;
 	float BlendB =        Blend  * WeightB;
 	float RcpBlend = rcp(BlendA + BlendB);
 	BlendA *= RcpBlend;
 	BlendB *= RcpBlend;
-	return ColorA * BlendA + ColorB * BlendB;
+	return float2(BlendA, BlendB);
 }
 
-#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC || AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
 
 // Computes the bilateral weight according to two Coc radii.
 float ComputeBilateralWeight(float RefCocRadius, float SampleCocRadius)
@@ -583,6 +602,62 @@ float ComputeBilateralWeight(float RefCocRadius, float SampleCocRadius)
 }
 
 #endif
+
+
+//------------------------------------------------------- HISTORY's PAYLOAD
+
+// Payload of the TAA's history.
+struct FTAAHistoryPayload
+{
+	// Transformed scene color and alpha channel.
+	float4 Color;
+
+	// Radius of the circle of confusion for DOF.
+	float CocRadius;
+};
+
+FTAAHistoryPayload MulPayload(in FTAAHistoryPayload Payload, in float x)
+{
+	Payload.Color *= x;
+	Payload.CocRadius *= x;
+	return Payload;
+}
+
+FTAAHistoryPayload AddPayload(in FTAAHistoryPayload Payload0, in FTAAHistoryPayload Payload1)
+{
+	Payload0.Color += Payload1.Color;
+	Payload0.CocRadius += Payload1.CocRadius;
+	return Payload0;
+}
+
+FTAAHistoryPayload MinPayload(in FTAAHistoryPayload Payload0, in FTAAHistoryPayload Payload1)
+{
+	Payload0.Color = min(Payload0.Color, Payload1.Color);
+	Payload0.CocRadius = min(Payload0.CocRadius, Payload1.CocRadius);
+	return Payload0;
+}
+
+FTAAHistoryPayload MaxPayload(in FTAAHistoryPayload Payload0, in FTAAHistoryPayload Payload1)
+{
+	Payload0.Color = max(Payload0.Color, Payload1.Color);
+	Payload0.CocRadius = max(Payload0.CocRadius, Payload1.CocRadius);
+	return Payload0;
+}
+
+FTAAHistoryPayload MinPayload3(in FTAAHistoryPayload Payload0, in FTAAHistoryPayload Payload1, in FTAAHistoryPayload Payload2)
+{
+	Payload0.Color = min3(Payload0.Color, Payload1.Color, Payload2.Color);
+	Payload0.CocRadius = min3(Payload0.CocRadius, Payload1.CocRadius, Payload2.CocRadius);
+	return Payload0;
+}
+
+FTAAHistoryPayload MaxPayload3(in FTAAHistoryPayload Payload0, in FTAAHistoryPayload Payload1, in FTAAHistoryPayload Payload2)
+{
+	Payload0.Color = max3(Payload0.Color, Payload1.Color, Payload2.Color);
+	Payload0.CocRadius = max3(Payload0.CocRadius, Payload1.CocRadius, Payload2.CocRadius);
+	return Payload0;
+}
+
 
 //------------------------------------------------------- TAA INTERMEDIARY STRUCTURES
 
@@ -616,7 +691,11 @@ struct FTAAInputParameters
 	
 	// Cache of neightbors' transformed scene color.
 	#if AA_SAMPLE_CACHE_METHOD == AA_SAMPLE_CACHE_METHOD_VGPR_3X3
-		float4 CachedNeighbors[kNeighborsCount];
+		float4 CachedNeighbors0[kNeighborsCount];
+
+		#if HISTORY_RENDER_TARGETS == 2
+			float CachedNeighbors1[kNeighborsCount];
+		#endif
 	#endif
 };
 
@@ -627,7 +706,7 @@ struct FTAAInputParameters
 struct FTAAIntermediaryResult
 {
 	// The filtered input.
-	float4 Filtered;
+	FTAAHistoryPayload Filtered;
 
 	// Temporal weight of the filtered input.
 	float FilteredTemporalWeight;
@@ -656,6 +735,9 @@ struct FTAASceneColorSample
 {
 	// Transformed scene color and alpha channel.
 	float4 Color;
+
+	// Radius of the circle of confusion for DOF.
+	float CocRadius;
 
 	// HDR weight of the scene color sample.
 	float HdrWeight;
@@ -738,8 +820,13 @@ float GetSceneColorHdrWeight(
 		UNROLL
 		for (uint i = 0; i < kNeighborsCount; i++)
 		{
-			InputParams.CachedNeighbors[i] = TransformCurrentFrameSceneColor(PostprocessInput0.SampleLevel(
+			InputParams.CachedNeighbors0[i] = TransformCurrentFrameSceneColor(PostprocessInput0.SampleLevel(
 				PostprocessInput0Sampler, InputParams.NearestBufferUV, 0, kOffsets3x3[i]));
+	
+			#if HISTORY_RENDER_TARGETS == 2
+				InputParams.CachedNeighbors1[i] = PostprocessInput1.SampleLevel(
+					PostprocessInput1Sampler, InputParams.NearestBufferUV, 0, kOffsets3x3[i]).r;
+			#endif
 		}
 	}
 
@@ -750,7 +837,16 @@ float GetSceneColorHdrWeight(
 		// PixelOffset is const at compile time. Therefore all this computaton is actually free.
 		uint NeighborsId = uint(4 + PixelOffset.x + PixelOffset.y * 3);
 		FTAASceneColorSample Sample;
-		Sample.Color = InputParams.CachedNeighbors[NeighborsId];
+
+		Sample.Color = InputParams.CachedNeighbors0[NeighborsId];
+		Sample.CocRadius = 0;
+
+		#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+			Sample.CocRadius = Sample.Color.a;
+		#elif AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
+			Sample.CocRadius = InputParams.CachedNeighbors1[NeighborsId];
+		#endif
+
 		Sample.HdrWeight = GetSceneColorHdrWeight(InputParams, Sample.Color);
 		return Sample;
 	}
@@ -1216,6 +1312,16 @@ FTAASceneColorSample SampleCachedSceneColorTexture(
 	FTAASceneColorSample Sample;
 	Sample.Color = TransformCurrentFrameSceneColor(PostprocessInput0.SampleLevel(
 		PostprocessInput0Sampler, InputParams.NearestBufferUV, 0, PixelOffset));
+
+	Sample.CocRadius = 0;
+
+	#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+		Sample.CocRadius = Sample.Color.a;
+	#elif AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
+		Sample.CocRadius = PostprocessInput1.SampleLevel(
+			PostprocessInput1Sampler, InputParams.NearestBufferUV, 0, PixelOffset).r;
+	#endif
+
 	Sample.HdrWeight = GetSceneColorHdrWeight(InputParams, Sample.Color);
 	return Sample;
 }
@@ -1303,14 +1409,15 @@ void FilterCurrentFrameInputSamples(
 	in FTAAInputParameters InputParams,
 	inout FTAAIntermediaryResult IntermediaryResult)
 {
-	float4 Filtered = 0;
-	
 	#if !AA_FILTERED
 	{
-		IntermediaryResult.Filtered = SampleCachedSceneColorTexture(InputParams, int2(0, 0)).Color;
+		IntermediaryResult.Filtered.Color = SampleCachedSceneColorTexture(InputParams, int2(0, 0)).Color;
+		IntermediaryResult.Filtered.CocRadius = SampleCachedSceneColorTexture(InputParams, int2(0, 0)).CocRadius;
 		return;
 	}
 	#endif
+
+	FTAAHistoryPayload Filtered;
 
 	{
 		#if AA_UPSAMPLE
@@ -1330,9 +1437,9 @@ void FilterCurrentFrameInputSamples(
 			const uint SampleIndexes[5] = kPlusIndexes3x3;
 		#endif
 
-		#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+		#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC || AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
 			// Fetches center pixel's Coc for the bilateral filtering.
-			float CenterCocRadius = SampleCachedSceneColorTexture(InputParams, int2(0, 0)).Color.a;
+			float CenterCocRadius = SampleCachedSceneColorTexture(InputParams, int2(0, 0)).CocRadius;
 		#endif
 
 		float NeighborsHdrWeight = 0;
@@ -1353,7 +1460,8 @@ void FilterCurrentFrameInputSamples(
 				else
 			#endif
 			{
-				SampleOffset = kOffsets3x3[SampleIndexes[i]];
+				const uint SampleIndex = SampleIndexes[i];
+				SampleOffset = kOffsets3x3[SampleIndex];
 			}
 			float2 fSampleOffset = float2(SampleOffset);
 			
@@ -1396,9 +1504,7 @@ void FilterCurrentFrameInputSamples(
 
 			// Finds out the sample's bilateral weight according to the payload.
 			#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
-				float SampleCocRadius = Sample.Color.a;
-
-				float BilateralWeight = ComputeBilateralWeight(CenterCocRadius, SampleCocRadius);
+				float BilateralWeight = ComputeBilateralWeight(CenterCocRadius, Sample.CocRadius);
 
 			#else
 				float BilateralWeight = 1;
@@ -1414,7 +1520,7 @@ void FilterCurrentFrameInputSamples(
 			NeighborsHdrWeight   += SampleSpatialWeight * SampleHdrWeight;
 		}
 		
-		#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+		#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC || AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
 		{
 			FTAASceneColorSample Sample = SampleCachedSceneColorTexture(InputParams, 0);
 			
@@ -1436,16 +1542,19 @@ void FilterCurrentFrameInputSamples(
 
 			// TODO: it feels wrong...
 			//Filtered = NeighborsColor * (NeighborsHdrWeight * rcp(NeighborsFinalWeight)) + Sample.Color * SampleWeight;
-			Filtered = NeighborsColor * rcp(NeighborsFinalWeight);
+			Filtered.Color = NeighborsColor * rcp(NeighborsFinalWeight);
+			Filtered.CocRadius = CenterCocRadius;
 		}
 		#elif AA_TONE || AA_UPSAMPLE
 		{
 			// Reweight because SampleFinalWeight does not that have total sum = 1.
-			Filtered = NeighborsColor * rcp(NeighborsFinalWeight);
+			Filtered.Color = NeighborsColor * rcp(NeighborsFinalWeight);
+			Filtered.CocRadius = 0;
 		}
 		#else
 		{
-			Filtered = NeighborsColor;
+			Filtered.Color = NeighborsColor;
+			Filtered.CocRadius = 0;
 		}
 		#endif
 		
@@ -1465,7 +1574,8 @@ void FilterCurrentFrameInputSamples(
 			
 			if(max(TestPos.x, TestPos.y) >= 1.0) 
 			{
-				Filtered = SampleCachedSceneColorTexture(InputParams, int2(0, 0)).Color;
+				Filtered.Color = SampleCachedSceneColorTexture(InputParams, int2(0, 0)).Color;
+				Filtered.CocRadius = SampleCachedSceneColorTexture(InputParams, int2(0, 0)).CocRadius;
 			}
 		#endif
 	}
@@ -1479,19 +1589,20 @@ void FilterCurrentFrameInputSamples(
 void ComputeNeighborhoodBoundingbox(
 	in FTAAInputParameters InputParams,
 	in FTAAIntermediaryResult IntermediaryResult,
-	out float4 OutNeighborMin,
-	out float4 OutNeighborMax)
+	out FTAAHistoryPayload OutNeighborMin,
+	out FTAAHistoryPayload OutNeighborMax)
 {
-	float4 NeighborMin;
-	float4 NeighborMax;
-
 	// TODO: clean this up.
-	float4 Neighbors[kNeighborsCount];
+	FTAAHistoryPayload Neighbors[kNeighborsCount];
 	UNROLL
 	for (uint i = 0; i < kNeighborsCount; i++)
 	{
-		Neighbors[i] = SampleCachedSceneColorTexture(InputParams, kOffsets3x3[i]).Color;
+		Neighbors[i].Color = SampleCachedSceneColorTexture(InputParams, kOffsets3x3[i]).Color;
+		Neighbors[i].CocRadius = SampleCachedSceneColorTexture(InputParams, kOffsets3x3[i]).CocRadius;
 	}
+
+	FTAAHistoryPayload NeighborMin;
+	FTAAHistoryPayload NeighborMax;
 
 	#if AA_HISTORY_CLAMPING_BOX == HISTORY_CLAMPING_BOX_VARIANCE
 	{
@@ -1556,18 +1667,18 @@ void ComputeNeighborhoodBoundingbox(
 			FLATTEN
 			if (dot(dPP, dPP) < (DistThreshold * DistThreshold))
 			{
-				NeighborMin = min( NeighborMin, Neighbors[NeightborId] );
-				NeighborMax = max( NeighborMax, Neighbors[NeightborId] );
+				NeighborMin = MinPayload(NeighborMin, Neighbors[NeightborId]);
+				NeighborMax = MaxPayload(NeighborMax, Neighbors[NeightborId]);
 			}
 		}
 	}
 	#elif AA_HISTORY_CLAMPING_BOX == HISTORY_CLAMPING_BOX_MIN_MAX
 	{
-		NeighborMin = min3( Neighbors[1], Neighbors[3], Neighbors[4] );
-		NeighborMin = min3( NeighborMin,  Neighbors[5], Neighbors[7] );
+		NeighborMin = MinPayload3( Neighbors[1], Neighbors[3], Neighbors[4] );
+		NeighborMin = MinPayload3( NeighborMin,  Neighbors[5], Neighbors[7] );
 
-		NeighborMax = max3( Neighbors[1], Neighbors[3], Neighbors[4] );
-		NeighborMax = max3( NeighborMax,  Neighbors[5], Neighbors[7] );
+		NeighborMax = MaxPayload3( Neighbors[1], Neighbors[3], Neighbors[4] );
+		NeighborMax = MaxPayload3( NeighborMax,  Neighbors[5], Neighbors[7] );
 		
 		#if AA_SAMPLES == 6
 		{
@@ -1576,26 +1687,29 @@ void ComputeNeighborhoodBoundingbox(
 			float2 dKO = PPCo - PPCk;
 			
 			int2 FifthNeighborOffset = SignFastInt(dKO);
-			float4 FifthNeighbor = SampleCachedSceneColorTexture(InputParams, FifthNeighborOffset).Color;
+
+			FTAAHistoryPayload FifthNeighbor;
+			FifthNeighbor.Color = SampleCachedSceneColorTexture(InputParams, FifthNeighborOffset).Color;
+			FifthNeighbor.CocRadius = SampleCachedSceneColorTexture(InputParams, FifthNeighborOffset).CocRadius;
 			
-			NeighborMin = min(NeighborMin, FifthNeighbor);
-			NeighborMax = max(NeighborMax, FifthNeighbor);
+			NeighborMin = MinPayload(NeighborMin, FifthNeighbor);
+			NeighborMax = MaxPayload(NeighborMax, FifthNeighbor);
 		}
 		#elif AA_SAMPLES == 9
 		{
-			float4 NeighborMinPlus = NeighborMin;
-			float4 NeighborMaxPlus = NeighborMax;
+			FTAAHistoryPayload NeighborMinPlus = NeighborMin;
+			FTAAHistoryPayload NeighborMaxPlus = NeighborMax;
 
-			NeighborMin = min3( NeighborMin, Neighbors[0], Neighbors[2] );
-			NeighborMin = min3( NeighborMin, Neighbors[6], Neighbors[8] );
+			NeighborMin = MinPayload3( NeighborMin, Neighbors[0], Neighbors[2] );
+			NeighborMin = MinPayload3( NeighborMin, Neighbors[6], Neighbors[8] );
 
-			NeighborMax = max3( NeighborMax, Neighbors[0], Neighbors[2] );
-			NeighborMax = max3( NeighborMax, Neighbors[6], Neighbors[8] );
+			NeighborMax = MaxPayload3( NeighborMax, Neighbors[0], Neighbors[2] );
+			NeighborMax = MaxPayload3( NeighborMax, Neighbors[6], Neighbors[8] );
 
 			if( AA_ROUND )
 			{
-				NeighborMin = NeighborMin * 0.5 + NeighborMinPlus * 0.5;
-				NeighborMax = NeighborMax * 0.5 + NeighborMaxPlus * 0.5;
+				NeighborMin = AddPayload(MulPayload(NeighborMin, 0.5), MulPayload(NeighborMinPlus, 0.5));
+				NeighborMax = AddPayload(MulPayload(NeighborMax, 0.5), MulPayload(NeighborMaxPlus, 0.5));
 			}
 		}
 		#endif
@@ -1610,9 +1724,10 @@ void ComputeNeighborhoodBoundingbox(
 
 
 // Sample history.
-float4 SampleHistory(in float2 HistoryScreenPosition)
+FTAAHistoryPayload SampleHistory(in float2 HistoryScreenPosition)
 {
-	float4 RawHistoryColor = 0;
+	float4 RawHistory0 = 0;
+	float4 RawHistory1 = 0;
 
 	// Sample the history using Catmull-Rom to reduce blur on motion.
 	#if AA_BICUBIC
@@ -1652,9 +1767,9 @@ float4 SampleHistory(in float2 HistoryScreenPosition)
 				}
 			}
 
-			RawHistoryColor += HistoryBuffer0.SampleLevel(HistoryBuffer0Sampler, SampleUV, 0) * Samples.Weight[i];
+			RawHistory0 += HistoryBuffer0.SampleLevel(HistoryBuffer0Sampler, SampleUV, 0) * Samples.Weight[i];
 		}
-		RawHistoryColor *= Samples.FinalMultiplier;
+		RawHistory0 *= Samples.FinalMultiplier;
 	}
 
 	// Sample the history using bilinear sampler.
@@ -1668,23 +1783,47 @@ float4 SampleHistory(in float2 HistoryScreenPosition)
 
 		float2 HistoryBufferUV = HistoryScreenPosition * ScreenPosToHistoryBufferUV.xy + ScreenPosToHistoryBufferUV.zw;
 
-		RawHistoryColor = HistoryBuffer0.SampleLevel(HistoryBuffer0Sampler, HistoryBufferUV, 0);
+		RawHistory0 = HistoryBuffer0.SampleLevel(HistoryBuffer0Sampler, HistoryBufferUV, 0);
+	}
+	#endif
+
+	#if HISTORY_RENDER_TARGETS == 2
+	{
+		if (AA_MANUALLY_CLAMP_HISTORY_UV)
+		{
+			HistoryScreenPosition = clamp(HistoryScreenPosition, -ScreenPosAbsMax, ScreenPosAbsMax);
+		}
+
+		float2 HistoryBufferUV = HistoryScreenPosition * ScreenPosToHistoryBufferUV.xy + ScreenPosToHistoryBufferUV.zw;
+
+		RawHistory1 = HistoryBuffer1.SampleLevel(HistoryBuffer1Sampler, HistoryBufferUV, 0);
 	}
 	#endif
 	
-	#if USE_PREEXPOSURE
-		RawHistoryColor.rgb *= OneOverHistoryPreExposure;
+	FTAAHistoryPayload HistoryPayload;
+	HistoryPayload.Color = RawHistory0;
+
+	#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
+		HistoryPayload.CocRadius = RawHistory1.r;
+	#else
+		HistoryPayload.CocRadius = RawHistory0.a;
 	#endif
 
-	return TransformSceneColor(RawHistoryColor);
+	#if USE_PREEXPOSURE
+		HistoryPayload.Color.rgb *= OneOverHistoryPreExposure;
+	#endif
+
+	HistoryPayload.Color = TransformSceneColor(HistoryPayload.Color);
+
+	return HistoryPayload;
 }
 
 
 // Clamp history.
-float4 ClampHistory(inout FTAAIntermediaryResult IntermediaryResult, float4 HistoryColor, float4 NeighborMin, float4 NeighborMax)
+FTAAHistoryPayload ClampHistory(inout FTAAIntermediaryResult IntermediaryResult, FTAAHistoryPayload History, FTAAHistoryPayload NeighborMin, FTAAHistoryPayload NeighborMax)
 {
 	#if !AA_CLAMP
-		return HistoryColor;
+		return History;
 	
 	#elif AA_CLIP
 		// Clip history, this uses color AABB intersection for tighter fit.
@@ -1706,14 +1845,16 @@ float4 ClampHistory(inout FTAAIntermediaryResult IntermediaryResult, float4 Hist
 		return HistoryColor;
 
 	#else //!AA_CLIP
-		return clamp( HistoryColor, NeighborMin, NeighborMax );
+		History.Color = clamp(History.Color, NeighborMin.Color, NeighborMax.Color);
+		History.CocRadius = clamp(History.CocRadius, NeighborMin.CocRadius, NeighborMax.CocRadius);
+		return History;
 	#endif
 }
 
 
 //------------------------------------------------------- TAA MAIN FUNCTION
 
-float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadIndex, float2 ViewportUV, float FrameExposureScale)
+FTAAHistoryPayload TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadIndex, float2 ViewportUV, float FrameExposureScale)
 {
 	// SETUP
 	// -----
@@ -1844,7 +1985,7 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 		#if AA_DYNAMIC
 		{
 			float2 VelocityN;
-			VelocityN = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, InputParams.NearestBufferUV + VelocityOffset, 0).xy;
+			VelocityN = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, InputParams.NearestBufferUV + VelocityOffset, 0).xy;
 			bool DynamicN = VelocityN.x > 0.0;
 			if(DynamicN)
 			{
@@ -1881,8 +2022,8 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 	#endif
 	
 	// Compute neighborhood bounding box.
-	float4 NeighborMin;
-	float4 NeighborMax;
+	FTAAHistoryPayload NeighborMin;
+	FTAAHistoryPayload NeighborMax;
 
 	ComputeNeighborhoodBoundingbox(
 		InputParams,
@@ -1890,7 +2031,7 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 		NeighborMin, NeighborMax);
 
 	// Sample history.
-	float4 HistoryColor = SampleHistory(HistoryScreenPosition);
+	FTAAHistoryPayload History = SampleHistory(HistoryScreenPosition);
 
 	// Whether the feedback needs to be reset.
 	bool IgnoreHistory = OffScreen;
@@ -1910,25 +2051,25 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 			#error AA_DYNAMIC_ANTIGHOST requires AA_DYNAMIC
 		#endif
 		// TODO: try a 2x2 for AA_UPSAMPLE
-		bool Dynamic1 = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, InputParams.NearestBufferUV, 0, int2( 0, -1)).x > 0;
-		bool Dynamic3 = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, InputParams.NearestBufferUV, 0, int2(-1,  0)).x > 0;
-		Dynamic4 = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, InputParams.NearestBufferUV, 0).x > 0;
-		bool Dynamic5 = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, InputParams.NearestBufferUV, 0, int2( 1,  0)).x > 0;
-		bool Dynamic7 = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, InputParams.NearestBufferUV, 0, int2( 0,  1)).x > 0;
+		bool Dynamic1 = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, InputParams.NearestBufferUV, 0, int2( 0, -1)).x > 0;
+		bool Dynamic3 = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, InputParams.NearestBufferUV, 0, int2(-1,  0)).x > 0;
+		Dynamic4 = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, InputParams.NearestBufferUV, 0).x > 0;
+		bool Dynamic5 = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, InputParams.NearestBufferUV, 0, int2( 1,  0)).x > 0;
+		bool Dynamic7 = PostprocessInput2.SampleLevel(PostprocessInput2Sampler, InputParams.NearestBufferUV, 0, int2( 0,  1)).x > 0;
 
 		bool Dynamic = Dynamic1 || Dynamic3 || Dynamic4 || Dynamic5 || Dynamic7;
-		IgnoreHistory = IgnoreHistory || !Dynamic && HistoryColor.a > 0;
+		IgnoreHistory = IgnoreHistory || !Dynamic && History.Color.a > 0;
 	}
 	#endif
 	
 	// Save off luma of history before the clamp.
-	float LumaMin     = GetSceneColorLuma4(NeighborMin);
-	float LumaMax     = GetSceneColorLuma4(NeighborMax);
-	float LumaHistory = GetSceneColorLuma4(HistoryColor);
+	float LumaMin     = GetSceneColorLuma4(NeighborMin.Color);
+	float LumaMax     = GetSceneColorLuma4(NeighborMax.Color);
+	float LumaHistory = GetSceneColorLuma4(History.Color);
 	
 	// Clamp history.
-	float4 PreClampingHistoryColor = HistoryColor;
-	HistoryColor = ClampHistory(IntermediaryResult, HistoryColor, NeighborMin, NeighborMax);
+	FTAAHistoryPayload PreClampingHistoryColor = History;
+	History = ClampHistory(IntermediaryResult, History, NeighborMin, NeighborMax);
 	
 	// Filter input after color clamping.
 	#if AA_UPSAMPLE_ADAPTIVE_FILTERING == 1
@@ -1973,7 +2114,7 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 		#endif
 		float LumaContrast = LumaMax - LumaMin;
 		AddAliasing = saturate(AddAliasing + rcp(1.0 + LumaContrast * LumaContrastFactor));
-		IntermediaryResult.Filtered = lerp(IntermediaryResult.Filtered, SampleCachedSceneColorTexture(InputParams, int2(0, 0)).Color, AddAliasing);
+		IntermediaryResult.Filtered.Color = lerp(IntermediaryResult.Filtered.Color, SampleCachedSceneColorTexture(InputParams, int2(0, 0)).Color, AddAliasing);
 	}
 	#endif
 	
@@ -1986,7 +2127,7 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 	}
 	else
 	{
-		float LumaFiltered = GetSceneColorLuma4(IntermediaryResult.Filtered);
+		float LumaFiltered = GetSceneColorLuma4(IntermediaryResult.Filtered.Color);
 
 		BlendFinal = IntermediaryResult.FilteredTemporalWeight * CurrentFrameWeight;
 
@@ -2017,11 +2158,9 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 			BlendFinal = 1.0/float(AA_LERP);
 		#endif
 	
-		#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+		#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC || AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
 		{
-			float HistoryCocRadius = HistoryColor.a;
-			float FilteredCocRadius = IntermediaryResult.Filtered.a;
-			float BilateralWeight = ComputeBilateralWeight(FilteredCocRadius, HistoryCocRadius);
+			float BilateralWeight = ComputeBilateralWeight(IntermediaryResult.Filtered.CocRadius, History.CocRadius);
 			BlendFinal = lerp(1, BlendFinal, BilateralWeight);
 		}
 		#endif
@@ -2030,46 +2169,47 @@ float4 TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint GroupThreadInde
 	// Offscreen feedback resets.
 	if (IgnoreHistory)
 	{
-		HistoryColor = IntermediaryResult.Filtered;
+		History = IntermediaryResult.Filtered;
 		#if HISTORY_PAYLOAD_COMPONENTS == 3
-			HistoryColor.a = 0.0;
+			History.Color.a = 0.0;
 		#endif
 	}
 	
 	// DO FINAL BLEND BETWEEN HISTORY AND FILTERED COLOR
 	// -------------------------------------------------
 	// Luma weighted blend
-	float FilterWeight = GetSceneColorHdrWeight(InputParams, IntermediaryResult.Filtered.x);
-	float HistoryWeight = GetSceneColorHdrWeight(InputParams, HistoryColor.x);
+	float FilterWeight = GetSceneColorHdrWeight(InputParams, IntermediaryResult.Filtered.Color.x);
+	float HistoryWeight = GetSceneColorHdrWeight(InputParams, History.Color.x);
 
-	float4 OutColor = WeightedLerp( HistoryColor, HistoryWeight, IntermediaryResult.Filtered, FilterWeight, BlendFinal );
+	FTAAHistoryPayload OutputPayload;
+	{
+		float2 Weights = WeightedLerpFactors(HistoryWeight, FilterWeight, BlendFinal);
+		OutputPayload = AddPayload(MulPayload(History, Weights.x), MulPayload(IntermediaryResult.Filtered, Weights.y));
+	}
 
-	OutColor = TransformBackToRawLinearSceneColor(OutColor);
+	OutputPayload.Color = TransformBackToRawLinearSceneColor(OutputPayload.Color);
 	
 	#if USE_PREEXPOSURE
-		OutColor.rgb *= View.PreExposure;
+		OutputPayload.Color.rgb *= View.PreExposure;
 	#endif
 
 	#if AA_NAN
 		// Transform NaNs to black, transform negative colors to black.
-		OutColor.rgb = -min(-OutColor.rgb, 0.0);
+		OutputPayload.Color = -min(-OutputPayload.Color, 0.0);
+
+		OutputPayload.CocRadius = isnan(OutputPayload.CocRadius) ? 0.0 : OutputPayload.CocRadius;
 	#endif
 
 	#if HISTORY_PAYLOAD_COMPONENTS == 3
 		#if  AA_DYNAMIC_ANTIGHOST && AA_DYNAMIC
-			OutColor.a = Dynamic4 ? 1 : 0;
+			OutputPayload.Color.a = Dynamic4 ? 1 : 0;
 		#else
 			// Zero out to remove any prior computation of alpha
-			OutColor.a = 0;
-		#endif
-	#elif HISTORY_PAYLOAD_COMPONENTS == 4
-		#if AA_NAN
-			// Alpha channel can be negative for DOF that has Coc.
-			OutColor.a = isnan(OutColor.a) ? 0.0 : OutColor.a;
+			OutputPayload.Color.a = 0;
 		#endif
 	#endif
 
-	return OutColor;
+	return OutputPayload;
 }
 
 
@@ -2094,12 +2234,35 @@ void MainCS(
 	#endif
 
 	float FrameExposureScale = EyeAdaptationLookup();
-	float4 OutColor = TemporalAASample(GroupId, GroupThreadId, GroupThreadIndex, ViewportUV, FrameExposureScale);
+	FTAAHistoryPayload OutputPayload = TemporalAASample(GroupId, GroupThreadId, GroupThreadIndex, ViewportUV, FrameExposureScale);
+
+	float4 OutColor0 = 0;
+	float4 OutColor1 = 0;
+
+	#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+	{
+		OutColor0.rgb = OutputPayload.Color.rgb;
+		OutColor0.a = OutputPayload.CocRadius;
+	}
+	#elif AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
+	{
+		OutColor0 = OutputPayload.Color;
+		OutColor1.r = OutputPayload.CocRadius;
+	}
+	#else
+	{
+		OutColor0 = OutputPayload.Color;
+	}
+	#endif
 
 	uint2 PixelPos = DispatchThreadId + ViewportRect.xy;
 	if (all(PixelPos < ViewportRect.zw))
 	{
-		OutComputeTex[PixelPos] = OutColor;
+		OutComputeTex0[PixelPos] = OutColor0;
+
+		#if HISTORY_RENDER_TARGETS == 2
+			OutComputeTex1[PixelPos] = OutColor1;
+		#endif
 	}
 }
 
@@ -2118,7 +2281,13 @@ void MainPS(
 	in noperspective float2 Unused2 : TEXCOORD3,
 	in noperspective float2 Unused3 : TEXCOORD4,
 	float4 SvPosition : SV_POSITION, // after all interpolators
-	out float4 OutColor : SV_Target0 )
+	#if HISTORY_RENDER_TARGETS == 2
+		out float4 OutColor0 : SV_Target0,
+		out float4 OutColor1 : SV_Target1
+	#else
+		out float4 OutColor0 : SV_Target0
+	#endif
+	)
 {
 	float2 ViewportUV = BufferUVToViewportUV(BufferUV);
 
@@ -2133,7 +2302,24 @@ void MainPS(
 	uint2 GroupThreadId = int2(0, 0);
 	uint GroupThreadIndex = 0;
 	float FrameExposureScale = InExposureScaleVignette.x;
-	OutColor = TemporalAASample(GroupId, GroupThreadId, GroupThreadIndex, ViewportUV, FrameExposureScale);
+
+	FTAAHistoryPayload OutputPayload = TemporalAASample(GroupId, GroupThreadId, GroupThreadIndex, ViewportUV, FrameExposureScale);
+
+	#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+	{
+		OutColor0.rgb = OutputPayload.Color.rgb;
+		OutColor0.a = OutputPayload.CocRadius;
+	}
+	#elif AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
+	{
+		OutColor0 = OutputPayload.Color;
+		OutColor1.r = OutputPayload.CocRadius;
+	}
+	#else
+	{
+		OutColor0 = OutputPayload.Color;
+	}
+	#endif
 }
 
 

@@ -38,6 +38,7 @@
 #include "Particles/ParticleLODLevel.h"
 #include "Engine/StaticMesh.h"
 
+DECLARE_CYCLE_STAT(TEXT("ParticleSystemSceneProxy Create GT"), STAT_FParticleSystemSceneProxy_Create, STATGROUP_Particles);
 DECLARE_CYCLE_STAT(TEXT("ParticleSystemSceneProxy GetMeshElements RT"), STAT_FParticleSystemSceneProxy_GetMeshElements, STATGROUP_Particles);
 DECLARE_CYCLE_STAT(TEXT("DynamicSpriteEmitterData GetDynamicMeshElementsEmitter GetParticleOrderData RT"), STAT_FDynamicSpriteEmitterData_GetDynamicMeshElementsEmitter_GetParticleOrderData, STATGROUP_Particles);
 DECLARE_CYCLE_STAT(TEXT("DynamicSpriteEmitterData PerParticleWorkOrTasks RT"), STAT_FDynamicSpriteEmitterData_PerParticleWorkOrTasks, STATGROUP_Particles);
@@ -7221,6 +7222,7 @@ void FParticleSystemSceneProxy::GatherSimpleLights(const FSceneViewFamily& ViewF
 
 FPrimitiveSceneProxy* UParticleSystemComponent::CreateSceneProxy()
 {
+	SCOPE_CYCLE_COUNTER(STAT_FParticleSystemSceneProxy_Create);
 	FParticleSystemSceneProxy* NewProxy = NULL;
 
 	//@fixme EmitterInstances.Num() check should be here to avoid proxies for dead emitters but there are some edge cases where it happens for emitters that have just activated...

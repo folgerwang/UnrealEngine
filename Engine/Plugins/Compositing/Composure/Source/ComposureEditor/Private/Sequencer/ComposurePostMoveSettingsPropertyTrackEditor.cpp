@@ -9,7 +9,7 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "ComposureEditorModule.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 
 #define LOCTEXT_NAMESPACE "ComposurePostMoveSettingsPropertyTrackEditor"
 

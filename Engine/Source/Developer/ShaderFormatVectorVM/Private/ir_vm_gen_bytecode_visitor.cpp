@@ -369,6 +369,14 @@ EVectorVMOp get_special_vm_opcode(ir_function_signature* signature)
 	{
 		VVMOpCode = EVectorVMOp::acquireindex;
 	}
+	else if (strcmp(signature->function_name(), "AcquireID") == 0)
+	{
+		VVMOpCode = EVectorVMOp::acquire_id;
+	}
+	else if (strcmp(signature->function_name(), "UpdateID") == 0)
+	{
+		VVMOpCode = EVectorVMOp::update_id;
+	}
 	else if (strcmp(signature->function_name(), "ExecIndex") == 0)
 	{
 		VVMOpCode = EVectorVMOp::exec_index;
@@ -557,32 +565,59 @@ struct op_base
 	virtual struct op_input* as_input() { return nullptr; }
 	virtual struct op_output* as_output() { return nullptr; }
 	virtual struct op_index_acquire* as_index_acquire() { return nullptr; }
+	virtual struct op_id_acquire* as_id_acquire() { return nullptr; }
+	virtual struct op_id_update* as_id_update() { return nullptr; }
 	virtual struct op_external_func* as_external_func() { return nullptr; }
 
-	static bool finalize_component_temporary_allocation(variable_info_node* component, const unsigned num_temp_registers, unsigned *registers, unsigned op_idx)
+	static void validate_component_offset(_mesa_glsl_parse_state* parse_state, variable_info_node* component)
+	{
+		if (component->offset == INDEX_NONE)
+		{
+			FString ErrorStr = FString::Printf(TEXT("Component %s of variable %s has no valid offset. Possibly uninitialized data being used."), ANSI_TO_TCHAR(component->name), ANSI_TO_TCHAR(component->owner->root->name));
+
+			_mesa_glsl_error(parse_state, TCHAR_TO_ANSI(*ErrorStr));
+		}
+
+	}
+
+	static bool finalize_component_temporary_allocation(_mesa_glsl_parse_state* parse_state, variable_info_node* component, const unsigned num_temp_registers, unsigned *registers, unsigned op_idx)
 	{
 		check(component);
 		if (ir_variable* var = component->owner->ir->as_variable())
 		{
-			if (component->offset == INDEX_NONE && (var->mode == ir_var_temporary || var->mode == ir_var_auto))
+			if (var->mode == ir_var_temporary || var->mode == ir_var_auto)
 			{
-				for (unsigned j = 0; j < num_temp_registers; ++j)
-				{
-					if (registers[j] < op_idx || registers[j] == 0)
-					{
-						component->offset = VectorVM::FirstTempRegister + j;
-						registers[j] = component->last_read;
-#if VM_VERBOSE_LOGGING
-						UE_LOG(LogVVMBackend, Log, TEXT("OP:%d | Comp:%p allocated Reg: %d | Last Read: %d |"), op_idx, component, j, component->last_read);
-#endif
-						break;
-					}
-				}
 				if (component->offset == INDEX_NONE)
 				{
-					return false;
+					for (unsigned j = 0; j < num_temp_registers; ++j)
+					{
+						if (registers[j] < op_idx || registers[j] == INDEX_NONE)
+						{
+							component->offset = VectorVM::FirstTempRegister + j;
+							registers[j] = component->last_read;
+#if VM_VERBOSE_LOGGING
+							UE_LOG(LogVVMBackend, Log, TEXT("OP:%d | Comp:%p allocated Reg: %d | Last Read: %d |"), op_idx, component, j, component->last_read);
+#endif
+							break;
+						}
+					}
+
+					if (component->offset == INDEX_NONE)
+					{
+						FString ErrorStr = FString::Printf(TEXT("Failed to allocate temporary register for component %s of variable %s."), ANSI_TO_TCHAR(component->name), ANSI_TO_TCHAR(component->owner->root->name));
+						_mesa_glsl_error(parse_state, TCHAR_TO_ANSI(*ErrorStr));
+					}
 				}
 			}
+			else
+			{
+				FString ErrorStr = FString::Printf(TEXT("Attempted to allocate temporary register for invalid variable. Component %s of variable %s."), ANSI_TO_TCHAR(component->name), ANSI_TO_TCHAR(component->owner->root->name));
+				_mesa_glsl_error(parse_state, TCHAR_TO_ANSI(*ErrorStr));
+			}
+		}
+		else
+		{
+			_mesa_glsl_error(parse_state, "Attempted to allocate temporary register for null variable.");
 		}
 		return true;
 	}
@@ -635,6 +670,10 @@ struct op_hook : public op_base
 
 	virtual void validate(_mesa_glsl_parse_state* parse_state)override
 	{
+		if (source_component)
+		{
+			validate_component_offset(parse_state, source_component);
+		}
 	}
 };
 
@@ -710,27 +749,17 @@ struct op_standard : public op_base
 
 	virtual bool finalize(_mesa_glsl_parse_state* parse_state, FVectorVMCompilationOutput&CompilationOutput, const unsigned num_temp_registers, unsigned *registers, unsigned op_idx)
 	{
-		if (!finalize_component_temporary_allocation(dest_component, num_temp_registers, registers, op_idx))
-		{
-			_mesa_glsl_error(parse_state, "Failed to allocate temporary registers");
-			return false;
-		}
-		return true;
+		return finalize_component_temporary_allocation(parse_state, dest_component, num_temp_registers, registers, op_idx);
 	}
 
 	virtual void validate(_mesa_glsl_parse_state* parse_state)override
 	{
 		for (unsigned operand_idx = 0; operand_idx < num_operands; ++operand_idx)
 		{
-			if (source_components[operand_idx]->offset == INDEX_NONE)
-			{
-				_mesa_glsl_error(parse_state, "unknown error");//temp cop out, we have info to produce a good error message here.
-			}
+			validate_component_offset(parse_state, source_components[operand_idx]);
 		}
-		if(dest_component->offset == INDEX_NONE)
-		{
-			_mesa_glsl_error(parse_state, "unknown error");//temp cop out, we have info to produce a good error message here.
-		}
+
+		validate_component_offset(parse_state, dest_component);
 	}
 };
 
@@ -778,20 +807,12 @@ struct op_input : public op_base
 
 	virtual bool finalize(_mesa_glsl_parse_state* parse_state, FVectorVMCompilationOutput&CompilationOutput, const unsigned num_temp_registers, unsigned *registers, unsigned op_idx)
 	{
-		if (!finalize_component_temporary_allocation(dest_component, num_temp_registers, registers, op_idx))
-		{
-			_mesa_glsl_error(parse_state, "Failed to allocate temporary registers");
-			return false;
-		}
-		return true;
+		return finalize_component_temporary_allocation(parse_state, dest_component, num_temp_registers, registers, op_idx);
 	}
 
 	virtual void validate(_mesa_glsl_parse_state* parse_state)override
 	{
-		if (dest_component->offset == INDEX_NONE)
-		{
-			_mesa_glsl_error(parse_state, "unknown error");//temp cop out, we have info to produce a good error message here.
-		}
+		validate_component_offset(parse_state, dest_component);
 	}
 };
 
@@ -833,20 +854,12 @@ struct op_input_noadvance : public op_input
 
 	virtual bool finalize(_mesa_glsl_parse_state* parse_state, FVectorVMCompilationOutput&CompilationOutput, const unsigned num_temp_registers, unsigned *registers, unsigned op_idx)
 	{
-		if (!finalize_component_temporary_allocation(dest_component, num_temp_registers, registers, op_idx))
-		{
-			_mesa_glsl_error(parse_state, "Failed to allocate temporary registers");
-			return false;
-		}
-		return true;
+		return finalize_component_temporary_allocation(parse_state, dest_component, num_temp_registers, registers, op_idx);
 	}
 
 	virtual void validate(_mesa_glsl_parse_state* parse_state)override
 	{
-		if (dest_component->offset == INDEX_NONE)
-		{
-			_mesa_glsl_error(parse_state, "unknown error");//temp cop out, we have info to produce a good error message here.
-		}
+		validate_component_offset(parse_state, dest_component);
 	}
 };
 
@@ -868,7 +881,8 @@ struct op_output : public op_base
 		check(instance_idx_component);
 		check(value_component);
 
-		return FString::Printf(TEXT("OutputData(%d, [%s][%d], [%s][%d]);\n"),
+		return FString::Printf(TEXT("OutputData(%d, %d, [%s][%d], [%s][%d]);\n"),
+			dataset_index,
 			register_idx,
 			get_location_string(instance_idx_component->owner->location),
 			instance_idx_component->offset,
@@ -891,11 +905,7 @@ struct op_output : public op_base
 
 	virtual void validate(_mesa_glsl_parse_state* parse_state)override
 	{
-		//TODO: Check registers etc
-		if (value_component->offset == INDEX_NONE || instance_idx_component->offset == INDEX_NONE)
-		{
-			_mesa_glsl_error(parse_state, "unknown error");//temp cop out, we have info to produce a good error message here.
-		}
+		validate_component_offset(parse_state, value_component);
 	}
 };
 
@@ -937,7 +947,55 @@ struct op_index_acquire : public op_base
 
 	virtual bool finalize(_mesa_glsl_parse_state* parse_state, FVectorVMCompilationOutput&CompilationOutput, const unsigned num_temp_registers, unsigned *registers, unsigned op_idx)
 	{
-		if (!finalize_component_temporary_allocation(dest_component, num_temp_registers, registers, op_idx))
+		return finalize_component_temporary_allocation(parse_state, dest_component, num_temp_registers, registers, op_idx);
+	}
+
+	virtual void validate(_mesa_glsl_parse_state* parse_state)override
+	{
+		validate_component_offset(parse_state, dest_component);
+	}
+};
+
+struct op_id_acquire : public op_base
+{
+	op_id_acquire()
+		: dataset_idx(INDEX_NONE)
+		, id_index_component(nullptr)
+		, id_tag_component(nullptr)
+	{}
+
+	virtual op_id_acquire* as_id_acquire() { return this; }
+
+	unsigned dataset_idx;
+	variable_info_node* id_index_component;
+	variable_info_node* id_tag_component;
+
+	virtual FString to_string()
+	{
+		check(id_index_component);
+		check(id_tag_component);
+
+		return FString::Printf(TEXT("AcquireID(%d, [R][%d], [R][%d]);\n"), dataset_idx, id_index_component->offset, id_tag_component->offset);
+	}
+
+	virtual void add_to_bytecode(TArray<uint8>& bytecode)
+	{
+		check(id_index_component);
+		check(id_tag_component);
+		emit_byte((uint8)op_code, bytecode);
+		emit_short(dataset_idx, bytecode);
+		emit_short(id_index_component->offset, bytecode);
+		emit_short(id_tag_component->offset, bytecode);
+	}
+
+	virtual bool finalize(_mesa_glsl_parse_state* parse_state, FVectorVMCompilationOutput&CompilationOutput, const unsigned num_temp_registers, unsigned *registers, unsigned op_idx)
+	{
+		if (!finalize_component_temporary_allocation(parse_state, id_index_component, num_temp_registers, registers, op_idx))
+		{
+			_mesa_glsl_error(parse_state, "Failed to allocate temporary registers");
+			return false;
+		}
+		if (!finalize_component_temporary_allocation(parse_state, id_tag_component, num_temp_registers, registers, op_idx))
 		{
 			_mesa_glsl_error(parse_state, "Failed to allocate temporary registers");
 			return false;
@@ -946,11 +1004,56 @@ struct op_index_acquire : public op_base
 	}
 
 	virtual void validate(_mesa_glsl_parse_state* parse_state)override
-	{		
-		if (dest_component->offset == INDEX_NONE)
-		{
-			_mesa_glsl_error(parse_state, "unknown error");//temp cop out, we have info to produce a good error message here.
-		}
+	{
+		validate_component_offset(parse_state, id_index_component);
+		validate_component_offset(parse_state, id_tag_component);
+	}
+};
+
+struct op_id_update : public op_base
+{
+	op_id_update()
+		: dataset_idx(INDEX_NONE)
+		, id_component(nullptr)
+		, index_component(nullptr)
+	{}
+
+	virtual op_id_update* as_id_update() { return this; }
+
+	unsigned dataset_idx;
+	variable_info_node* id_component;
+	variable_info_node* index_component;
+
+	virtual FString to_string()
+	{
+		check(id_component);
+		check(index_component);
+
+		return FString::Printf(TEXT("UpdateID(%d, [%d], [%d]);\n"),
+			dataset_idx,
+			id_component->offset,
+			index_component->offset);
+	}
+
+	virtual void add_to_bytecode(TArray<uint8>& bytecode)
+	{
+		check(id_component);
+		check(index_component);
+		emit_byte((uint8)op_code, bytecode);
+		emit_short(dataset_idx, bytecode);
+		emit_short(id_component->offset, bytecode);
+		emit_short(index_component->offset, bytecode);
+	}
+
+	virtual bool finalize(_mesa_glsl_parse_state* parse_state, FVectorVMCompilationOutput&CompilationOutput, const unsigned num_temp_registers, unsigned *registers, unsigned op_idx)
+	{
+		return true;
+	}
+
+	virtual void validate(_mesa_glsl_parse_state* parse_state)override
+	{
+		validate_component_offset(parse_state, id_component);
+		validate_component_offset(parse_state, index_component);
 	}
 };
 
@@ -1044,6 +1147,7 @@ struct op_external_func : public op_base
 
 	struct finalize_temp_register_ctx
 	{
+		_mesa_glsl_parse_state* parse_state;
 		unsigned num_temp_registers;
 		unsigned *registers;
 		unsigned op_idx;
@@ -1054,7 +1158,7 @@ struct op_external_func : public op_base
 	{
 		finalize_temp_register_ctx* ctx = (finalize_temp_register_ctx*)user_ptr;
 		check(node->is_scalar());
-		ctx->success &= finalize_component_temporary_allocation(node, ctx->num_temp_registers, ctx->registers, ctx->op_idx);
+		ctx->success &= finalize_component_temporary_allocation(ctx->parse_state, node, ctx->num_temp_registers, ctx->registers, ctx->op_idx);
 	}
 
 	virtual bool finalize(_mesa_glsl_parse_state* parse_state, FVectorVMCompilationOutput&CompilationOutput, const unsigned num_temp_registers, unsigned *registers, unsigned op_idx)
@@ -1078,6 +1182,7 @@ struct op_external_func : public op_base
 		}
 
 		finalize_temp_register_ctx ctx;
+		ctx.parse_state = parse_state;
 		ctx.num_temp_registers = num_temp_registers;
 		ctx.registers = registers;
 		ctx.op_idx = op_idx;
@@ -1102,17 +1207,11 @@ struct op_external_func : public op_base
 
 		for (variable_info_node* input : inputs)
 		{
-			if (input->offset == INDEX_NONE)
-			{
-				_mesa_glsl_error(parse_state, "unknown error");//temp cop out, we have info to produce a good error message here.
-			}
+			validate_component_offset(parse_state, input);
 		}
 		for (variable_info_node* output : outputs)
 		{
-			if (output->offset == INDEX_NONE)
-			{
-				_mesa_glsl_error(parse_state, "unknown error");//temp cop out, we have info to produce a good error message here.
-			}
+			validate_component_offset(parse_state, output);
 		}
 	}
 };
@@ -1255,14 +1354,17 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 		case ir_var_uniform:
 		{
 			variable_info *varinfo = (variable_info*)hash_table_find(var_info_table, var);
-			check(varinfo == nullptr);
+			
+			//We can possibly hit the same variables twice here as we do a pre pass to ensure we visit them in the correct order.
+			if (varinfo == nullptr)
+			{
+				varinfo = ralloc(mem_ctx, variable_info);
+				hash_table_insert(var_info_table, varinfo, var);
 
-			varinfo = ralloc(mem_ctx, variable_info);
-			hash_table_insert(var_info_table, varinfo, var);
+				varinfo->Init(mem_ctx, var, EVectorVMOperandLocation::Constant);
 
-			varinfo->Init(mem_ctx, var, EVectorVMOperandLocation::Constant);
-
-			for_each_component(varinfo->root, &assign_uniform_loc, true, this);
+				for_each_component(varinfo->root, &assign_uniform_loc, true, this);
+			}
 		};
 		break;
 		}
@@ -1581,6 +1683,8 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 		case EVectorVMOp::inputdata_noadvance_32bit: allocate<op_input_noadvance>(); break;
 		case EVectorVMOp::outputdata_32bit: allocate<op_output>(); break;
 		case EVectorVMOp::acquireindex: allocate<op_index_acquire>(); break;
+		case EVectorVMOp::acquire_id: allocate<op_id_acquire>(); break;
+		case EVectorVMOp::update_id: allocate<op_id_update>(); break;
 		case EVectorVMOp::external_func_call: allocate<op_external_func>(); break;
 
 		case EVectorVMOp::enter_stat_scope:
@@ -1746,6 +1850,64 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 			acquire->dest_component = curr_node;
 			curr_node = nullptr;
 		}
+		else if (op_id_acquire* id_acquire = curr_op()->as_id_acquire())
+		{
+			check(num_operands == 3);
+
+			//Handle dataset index
+			exec_node* curr = call->actual_parameters.get_head();
+			check(curr);
+			ir_constant* dataset_idx_const = ((ir_rvalue*)curr)->as_constant();
+			check(dataset_idx_const);
+			id_acquire->dataset_idx = dataset_idx_const->get_int_component(0);
+
+			//Handle id index.
+			curr = curr->get_next();
+			check(curr);
+			ir_rvalue* id_index = (ir_rvalue*)curr;
+			id_index->accept(this);
+			check(curr_node);
+			id_acquire->id_index_component = curr_node;
+			curr_node = nullptr;
+
+			//Handle id tag.
+			curr = curr->get_next();
+			check(curr);
+			ir_rvalue* id_tag = (ir_rvalue*)curr;
+			id_tag->accept(this);
+			check(curr_node);
+			id_acquire->id_tag_component = curr_node;
+			curr_node = nullptr;
+		}
+		else if (op_id_update* update = curr_op()->as_id_update())
+		{
+			check(num_operands == 3);
+
+			//Handle dataset index
+			exec_node* curr = call->actual_parameters.get_head();
+			check(curr);
+			ir_constant* dataset_idx_const = ((ir_rvalue*)curr)->as_constant();
+			check(dataset_idx_const);
+			update->dataset_idx = dataset_idx_const->get_int_component(0);
+
+			//Handle ID parameter.
+			curr = curr->get_next();
+			check(curr);
+			ir_rvalue* id = (ir_rvalue*)curr;
+			id->accept(this);
+			check(curr_node);
+			update->id_component = curr_node;
+			curr_node = nullptr;
+
+			//Handle index parameter.
+			curr = curr->get_next();
+			check(curr);
+			ir_rvalue* index = (ir_rvalue*)curr;
+			index->accept(this);
+			check(curr_node);
+			update->index_component = curr_node;
+			curr_node = nullptr;
+		}
 		else if (op_external_func* func = curr_op()->as_external_func())
 		{
 			unsigned num_inputs = 0;
@@ -1838,6 +2000,7 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 		//Allocate temp registers
 		const unsigned num_temp_registers = VectorVM::NumTempRegisters;
 		unsigned *registers = rzalloc_array(mem_ctx, unsigned, num_temp_registers);
+		FMemory::Memset(registers, 0xFF, sizeof(unsigned) * num_temp_registers);
 #if VM_VERBOSE_LOGGING
 		UE_LOG(LogVVMBackend, Log, TEXT("\n-------------------------------\nTemporary Allocations\n------------------------------\n"));
 #endif
@@ -1975,7 +2138,7 @@ public:
 		ir_gen_vvm_visitor genv(state, InCompOutput);
 
 		//Have to manually visit the uniform variables from cbuffers first.		
-		for (SCBuffer& buff : state->CBuffersOriginal)
+		for (SCBuffer& buff : state->CBuffersStructuresFlattened)
 		{
 			for (SCBufferMember& member : buff.Members)
 			{

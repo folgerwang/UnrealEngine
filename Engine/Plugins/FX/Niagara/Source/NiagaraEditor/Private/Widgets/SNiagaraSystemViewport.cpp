@@ -18,6 +18,8 @@
 #include "AdvancedPreviewScene.h"
 #include "ImageUtils.h"
 
+#define LOCTEXT_NAMESPACE "SNiagaraSystemViewport"
+
 /** Viewport Client for the preview viewport */
 class FNiagaraSystemViewportClient : public FEditorViewportClient
 {
@@ -30,7 +32,9 @@ public:
 	virtual void Draw(FViewport* Viewport,FCanvas* Canvas) override;
 	virtual bool ShouldOrbitCamera() const override;
 	virtual FSceneView* CalcSceneView(FSceneViewFamily* ViewFamily, const EStereoscopicPass StereoPass = eSSP_FULL) override;
-	
+	virtual bool CanSetWidgetMode(FWidget::EWidgetMode NewMode) const override { return false; }
+	virtual bool CanCycleWidgetMode() const override { return false; }
+
 	void SetShowGrid(bool bShowGrid);
 
 	virtual void SetIsSimulateInEditorViewport(bool bInIsSimulateInEditorViewport)override;
@@ -53,7 +57,8 @@ FNiagaraSystemViewportClient::FNiagaraSystemViewportClient(FAdvancedPreviewScene
 	DrawHelper.GridColorMajor = FColor(72,72,72);
 	DrawHelper.GridColorMinor = FColor(64,64,64);
 	DrawHelper.PerspectiveGridSize = HALF_WORLD_MAX1;
-	
+	ShowWidget(false);
+
 	SetViewMode(VMI_Lit);
 	
 	EngineShowFlags.DisableAdvancedFeatures();
@@ -81,6 +86,8 @@ void FNiagaraSystemViewportClient::Tick(float DeltaSeconds)
 
 void FNiagaraSystemViewportClient::Draw(FViewport* InViewport,FCanvas* Canvas)
 {
+	UNiagaraSystem* ParticleSystem = NiagaraViewport.IsValid() ? NiagaraViewport->GetPreviewComponent()->GetAsset() : nullptr;
+
 	if (NiagaraViewport.IsValid() && NiagaraViewport->GetDrawElement(SNiagaraSystemViewport::EDrawElements::Bounds))
 	{
 		EngineShowFlags.SetBounds(true);
@@ -94,9 +101,9 @@ void FNiagaraSystemViewportClient::Draw(FViewport* InViewport,FCanvas* Canvas)
 
 	FEditorViewportClient::Draw(InViewport, Canvas);
 
-	if (bCaptureScreenShot)
+	if (bCaptureScreenShot && ParticleSystem != nullptr)
 	{
-		UNiagaraSystem* ParticleSystem = NiagaraViewport->GetPreviewComponent()->GetAsset();
+		
 		int32 SrcWidth = InViewport->GetSizeXY().X;
 		int32 SrcHeight = InViewport->GetSizeXY().Y;
 		// Read the contents of the viewport into an array.
@@ -347,7 +354,7 @@ TSharedRef<FEditorViewportClient> SNiagaraSystemViewport::MakeEditorViewportClie
 	SystemViewportClient->SetViewRotation( FRotator::ZeroRotator );
 	SystemViewportClient->SetViewLocationForOrbiting( FVector::ZeroVector );
 	SystemViewportClient->bSetListenerPosition = false;
-	
+
 	SystemViewportClient->SetRealtime( true );
 	SystemViewportClient->VisibilityDelegate.BindSP( this, &SNiagaraSystemViewport::IsVisible );
 	
@@ -371,6 +378,18 @@ EVisibility SNiagaraSystemViewport::OnGetViewportContentVisibility() const
 	return IsVisible() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
+EVisibility SNiagaraSystemViewport::OnGetViewportCompileTextVisibility() const
+{
+	if (PreviewComponent && PreviewComponent->GetAsset() && PreviewComponent->GetAsset()->HasOutstandingCompilationRequests())
+	{
+		return EVisibility::Visible;
+	}
+	else
+	{
+		return EVisibility::Collapsed;
+	}
+}
+
 void SNiagaraSystemViewport::PopulateViewportOverlays(TSharedRef<class SOverlay> Overlay)
 {
 	Overlay->AddSlot()
@@ -378,6 +397,15 @@ void SNiagaraSystemViewport::PopulateViewportOverlays(TSharedRef<class SOverlay>
 		[
 			SNew(SNiagaraSystemViewportToolBar, SharedThis(this))
 		];
+	Overlay->AddSlot()
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Center)
+		[
+			SAssignNew(CompileText, STextBlock)
+			.Visibility_Raw(this, &SNiagaraSystemViewport::OnGetViewportCompileTextVisibility)
+		];
+
+	CompileText->SetText(LOCTEXT("Compiling","Compiling"));
 
 }
 
@@ -396,3 +424,6 @@ TSharedPtr<FExtender> SNiagaraSystemViewport::GetExtenders() const
 void SNiagaraSystemViewport::OnFloatingButtonClicked()
 {
 }
+
+
+#undef LOCTEXT_NAMESPACE

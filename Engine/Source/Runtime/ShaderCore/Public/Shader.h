@@ -1079,15 +1079,6 @@ private:
 	// DumpShaderStats needs to access ShaderIdMap.
 	friend void SHADERCORE_API DumpShaderStats( EShaderPlatform Platform, EShaderFrequency Frequency );
 
-	/** 
-	 * Cache of referenced uniform buffer includes.  
-	 * These are derived from source files so they need to be flushed when editing and recompiling shaders on the fly. 
-	 * FShaderType::Initialize will add an entry for each referenced uniform buffer, but the declarations are added on demand as shaders are compiled.
-	 */
-	TMap<const TCHAR*, FCachedUniformBufferDeclaration> ReferencedUniformBufferStructsCache;
-
-	/** Tracks what platforms ReferencedUniformBufferStructsCache has had declarations cached for. */
-	bool bCachedUniformBufferStructDeclarations[SP_NumPlatforms];
 
 	/** 
 	 * Stores a history of serialization sizes for this shader type. 
@@ -1097,6 +1088,18 @@ private:
 
 	/** Tracks whether serialization history for all shader types has been initialized. */
 	static bool bInitializedSerializationHistory;
+
+protected:
+	/** Tracks what platforms ReferencedUniformBufferStructsCache has had declarations cached for. */
+	bool bCachedUniformBufferStructDeclarations[SP_NumPlatforms];
+
+	/**
+	* Cache of referenced uniform buffer includes.
+	* These are derived from source files so they need to be flushed when editing and recompiling shaders on the fly.
+	* FShaderType::Initialize will add an entry for each referenced uniform buffer, but the declarations are added on demand as shaders are compiled.
+	*/
+	TMap<const TCHAR*, FCachedUniformBufferDeclaration> ReferencedUniformBufferStructsCache;
+
 };
 
 /**

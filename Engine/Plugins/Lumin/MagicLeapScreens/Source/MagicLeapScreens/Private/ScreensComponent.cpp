@@ -17,10 +17,13 @@
 #if PLATFORM_LUMIN
 #include "Lumin/LuminAffinity.h"
 #endif // PLATFORM_LUMIN
+#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
 #if WITH_MLSDK
+ML_INCLUDES_START
 #include <ml_image.h>
 #include <ml_screens.h>
+ML_INCLUDES_END
 #endif //WITH_MLSDK
 
 DEFINE_LOG_CATEGORY_STATIC(LogScreens, Display, All);

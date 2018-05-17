@@ -45,6 +45,7 @@
 #include "Modules/ModuleManager.h"
 #include "INiagaraEditorTypeUtilities.h"
 #include "Widgets/Layout/SBox.h"
+#include "UObject/WeakObjectPtr.h"
 #define LOCTEXT_NAMESPACE "NiagaraComponentDetails"
 
 class FNiagaraComponentNodeBuilder : public IDetailCustomNodeBuilder
@@ -53,12 +54,19 @@ public:
 	FNiagaraComponentNodeBuilder(UNiagaraComponent* InComponent, UNiagaraScript* SourceSpawn, UNiagaraScript* SourceUpdate)						   
 	{
 		Component = InComponent;
+		Component->OnSynchronizedWithAssetParameters().AddRaw(this, &FNiagaraComponentNodeBuilder::ComponentSynchronizedWithAssetParameters);
 		OriginalScripts.Add(SourceSpawn);
 		OriginalScripts.Add(SourceUpdate);
+		//UE_LOG(LogNiagaraEditor, Log, TEXT("FNiagaraComponentNodeBuilder %p Component %p"), this, Component.Get());
 	}
 
 	~FNiagaraComponentNodeBuilder()
 	{
+		if (Component.IsValid())
+		{
+			Component->OnSynchronizedWithAssetParameters().RemoveAll(this);
+		}
+		//UE_LOG(LogNiagaraEditor, Log, TEXT("~FNiagaraComponentNodeBuilder %p Component %p"), this, Component.Get());
 	}
 
 	virtual void SetOnRebuildChildren(FSimpleDelegate InOnRegenerateChildren) override
@@ -78,6 +86,7 @@ public:
 
 	virtual void GenerateChildContent(IDetailChildrenBuilder& ChildrenBuilder) override
 	{
+		check(Component.IsValid());
 		TArray<FNiagaraVariable> Parameters;
 		FNiagaraParameterStore& ParamStore = Component->GetOverrideParameters();
 		ParamStore.GetParameters(Parameters);
@@ -208,23 +217,21 @@ public:
 	}
 
 private:
-	void OnCollectionViewModelChanged()
-	{
-		OnRebuildChildren.ExecuteIfBound();
-	}
-
 	void OnParameterPreChange(FNiagaraVariable Var)
 	{
+		check(Component.IsValid());
 		Component->Modify();
 	}
 
 	void OnDataInterfacePreChange(FNiagaraVariable Var)
 	{
+		check(Component.IsValid());
 		Component->Modify();
 	}
 
 	void OnParameterChanged(FNiagaraVariable Var)
 	{
+		check(Component.IsValid());
 		Component->GetOverrideParameters().OnParameterChange();
 		Component->SetParameterValueOverriddenLocally(Var, true);
 	}
@@ -232,16 +239,19 @@ private:
 	void OnDataInterfaceChanged(FNiagaraVariable Var)
 	{
 		Component->GetOverrideParameters().OnInterfaceChange();
+		check(Component.IsValid());
 		Component->SetParameterValueOverriddenLocally(Var, true);
 	}
 
 	bool DoesParameterDifferFromDefault(const FNiagaraVariable& Var)
 	{
+		check(Component.IsValid());
 		return Component->IsParameterValueOverriddenLocally(Var.GetName());
 	}
 
 	FReply OnLocationResetClicked(FNiagaraVariable Parameter)
 	{
+		check(Component.IsValid());
 		FScopedTransaction ScopedTransaction(LOCTEXT("ResetParameterValue", "Reset parameter value to system defaults."));
 		Component->Modify();
 		Component->SetParameterValueOverriddenLocally(Parameter, false);
@@ -250,11 +260,16 @@ private:
 
 	EVisibility GetLocationResetVisibility(FNiagaraVariable Parameter) const
 	{
-		return Component->IsParameterValueOverriddenLocally(Parameter.GetName()) ? EVisibility::Visible : EVisibility::Collapsed;
+		return Component.IsValid() && Component->IsParameterValueOverriddenLocally(Parameter.GetName()) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+	void ComponentSynchronizedWithAssetParameters()
+	{
+		OnRebuildChildren.ExecuteIfBound();
 	}
 
 private:
-	UNiagaraComponent* Component;
+	TWeakObjectPtr<UNiagaraComponent> Component;
 	FSimpleDelegate OnRebuildChildren;
 	TArray<TSharedRef<FStructOnScope>> CreatedStructOnScopes;
 	TArray<UNiagaraScript*> OriginalScripts;
@@ -265,132 +280,32 @@ TSharedRef<IDetailCustomization> FNiagaraComponentDetails::MakeInstance()
 	return MakeShareable(new FNiagaraComponentDetails);
 }
 
-FNiagaraComponentDetails::FNiagaraComponentDetails() : Builder(nullptr), bQueueForDetailsRefresh(false)
+FNiagaraComponentDetails::FNiagaraComponentDetails() : Builder(nullptr)
 {
-	GEditor->RegisterForUndo(this);
 }
-
 
 FNiagaraComponentDetails::~FNiagaraComponentDetails()
 {
-	GEditor->UnregisterForUndo(this);
-
 	if (GEngine)
 	{
 		GEngine->OnWorldDestroyed().RemoveAll(this);
 	}
 
 	FGameDelegates::Get().GetEndPlayMapDelegate().RemoveAll(this);
-
-	if (ObjectsCustomized.Num() == 1)
-	{
-		UNiagaraComponent* Component = Cast<UNiagaraComponent>(ObjectsCustomized[0].Get());
-
-		if (Component)
-		{
-			if (FNiagaraSystemInstance* SystemInstance = Component->GetSystemInstance())
-			{
-				if (OnResetDelegateHandle.IsValid())
-				{
-					SystemInstance->OnReset().Remove(OnResetDelegateHandle);
-				}
-
-				if (OnInitDelegateHandle.IsValid())
-				{
-					SystemInstance->OnInitialized().Remove(OnInitDelegateHandle);
-				}
-
-				SystemInstance->OnDestroyed().RemoveAll(this);
-			}
-		}
-	}
-}
-
-bool FNiagaraComponentDetails::IsTickable() const
-{
-	return bQueueForDetailsRefresh;
-}
-
-void FNiagaraComponentDetails::Tick(float DeltaTime)
-{
-	if (bQueueForDetailsRefresh)
-	{
-		if (Builder)
-		{
-			Builder->ForceRefreshDetails();
-			bQueueForDetailsRefresh = false;
-		}
-	}
-}
-
-void FNiagaraComponentDetails::PostUndo(bool bSuccess)
-{
-	// We may have queued up as a result of an Undo of adding the System itself. The objects we were 
-	// referencing may therefore have been removed. If so, we'll have to take a different path later on in the code.
-	int32 NumValid = 0;
-	for (TWeakObjectPtr<UObject> WeakPtr : ObjectsCustomized)
-	{
-		if (!WeakPtr.IsStale(true) && WeakPtr.IsValid())
-		{
-			NumValid++;
-		}
-	}
-
-	if (Builder)
-	{
-		// This is tricky. There is a high chance that if the component changed, then
-		// any cached FNiagaraVariable that we're holding on to may have been changed out from underneath us.
-		// So we essentially must tear down and start again in the UI.
-		// HOWEVER, a refresh will invoke a new constructor of the FNiagaraComponentDetails, which puts us 
-		// in the queue to handle PostUndo events. This turns quickly into an infinitely loop. Therefore,
-		// we circumvent this by telling the editor that we need to queue up an event
-		// that we will handle in the subsequent frame's Tick event. Not the cleanest approach, 
-		// but because we are doing things like CopyOnWrite, the normal Unreal property editing
-		// path is not available to us.
-		if (NumValid != 0)
-		{
-			bQueueForDetailsRefresh = true;
-		}
-		else
-		{
-			// If we no longer have any valid pointers, but previously had a builder, that means 
-			// that the builder is probably dead or dying soon. We shouldn't trust it any more and
-			// we should make sure that we aren't queueing for ticks to refresh either.
-			Builder = nullptr;
-			bQueueForDetailsRefresh = false;
-		}
-
-#if 0
-		for (TSharedPtr<FNiagaraParameterViewModelCustomDetails>& ViewModel : ViewModels)
-		{
-			ViewModel->Reset();
-		}
-#endif
-	}
-}
-
-TStatId FNiagaraComponentDetails::GetStatId() const
-{
-	RETURN_QUICK_DECLARE_CYCLE_STAT(FNiagaraComponentDetails, STATGROUP_Tickables);
 }
 
 void FNiagaraComponentDetails::OnPiEEnd()
 {
 	UE_LOG(LogNiagaraEditor, Log, TEXT("onPieEnd"));
-	if (ObjectsCustomized.Num() == 1)
+	if (Component.IsValid())
 	{
-		UNiagaraComponent* Component = Cast<UNiagaraComponent>(ObjectsCustomized[0].Get());
-
-		if (Component)
+		if (Component->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 		{
-			if (Component->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
+			UE_LOG(LogNiagaraEditor, Log, TEXT("onPieEnd - has package flags"));
+			UWorld* TheWorld = UWorld::FindWorldInPackage(Component->GetOutermost());
+			if (TheWorld)
 			{
-				UE_LOG(LogNiagaraEditor, Log, TEXT("onPieEnd - has package flags"));
-				UWorld* TheWorld = UWorld::FindWorldInPackage(Component->GetOutermost());
-				if (TheWorld)
-				{
-					OnWorldDestroyed(TheWorld);
-				}
+				OnWorldDestroyed(TheWorld);
 			}
 		}
 	}
@@ -400,52 +315,35 @@ void FNiagaraComponentDetails::OnWorldDestroyed(class UWorld* InWorld)
 {
 	// We have to clear out any temp data interfaces that were bound to the component's package when the world goes away or otherwise
 	// we'll report GC leaks..
-	if (ObjectsCustomized.Num() == 1)
+	if (Component.IsValid())
 	{
-		UNiagaraComponent* Component = Cast<UNiagaraComponent>(ObjectsCustomized[0].Get());
-
-		if (Component)
+		if (Component->GetWorld() == InWorld)
 		{
-			if (Component->GetWorld() == InWorld)
-			{
-				UE_LOG(LogNiagaraEditor, Log, TEXT("OnWorldDestroyed - matched up"));
-				Builder = nullptr;
-			}
+			UE_LOG(LogNiagaraEditor, Log, TEXT("OnWorldDestroyed - matched up"));
+			Builder = nullptr;
 		}
 	}
 }
 
 void FNiagaraComponentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
- 	Builder = &DetailBuilder;
-// 
-// 	// Create a category so this is displayed early in the properties
-// 	IDetailCategoryBuilder& NiagaraCategory = DetailBuilder.EditCategory("Niagara", FText::GetEmpty(), ECategoryPriority::Important);
-// 
-// 	// Store off the properties for analysis in later function calls.
+	Builder = &DetailBuilder;
+
 	static const FName ParamCategoryName = TEXT("NiagaraComponent_Parameters");
-	static const FName ParamCollectionCategoryName = TEXT("NiagaraComponent_ParameterCollectionOverrides");
 	static const FName ScriptCategoryName = TEXT("Parameters");
 
-	DetailBuilder.EditCategory(ScriptCategoryName);
+	TSharedPtr<IPropertyHandle> LocalOverridesPropertyHandle = DetailBuilder.GetProperty(TEXT("OverrideParameters"));
+	if (LocalOverridesPropertyHandle.IsValid())
+	{
+		LocalOverridesPropertyHandle->MarkHiddenByCustomization();
+	}
 
- 	TSharedPtr<IPropertyHandle> LocalOverridesPropertyHandle = DetailBuilder.GetProperty(TEXT("OverrideParameters"));
- 	if (LocalOverridesPropertyHandle.IsValid())
- 	{
- 		LocalOverridesPropertyHandle->MarkHiddenByCustomization();
-		UProperty* Property = LocalOverridesPropertyHandle->GetProperty();
- 	}
-
+	TArray<TWeakObjectPtr<UObject>> ObjectsCustomized;
 	DetailBuilder.GetObjectsBeingCustomized(ObjectsCustomized);
 
-	if (ObjectsCustomized.Num() == 1)
+	if (ObjectsCustomized.Num() == 1 && ObjectsCustomized[0]->IsA<UNiagaraComponent>())
 	{
-		UNiagaraComponent* Component = Cast<UNiagaraComponent>(ObjectsCustomized[0].Get());
-
-		if (Component == nullptr)
-		{
-			return;
-		}
+		Component = CastChecked<UNiagaraComponent>(ObjectsCustomized[0].Get());
 
 		if (GEngine)
 		{
@@ -454,52 +352,15 @@ void FNiagaraComponentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
 
 		FGameDelegates::Get().GetEndPlayMapDelegate().AddRaw(this, &FNiagaraComponentDetails::OnPiEEnd);
 
-		FNiagaraSystemInstance* SystemInstance = Component->GetSystemInstance();
-		if (SystemInstance == nullptr)
+		if (Component->GetAsset())
 		{
-			return;
+			UNiagaraScript* ScriptSpawn = Component->GetAsset()->GetSystemSpawnScript();
+			UNiagaraScript* ScriptUpdate = Component->GetAsset()->GetSystemUpdateScript();
+
+			IDetailCategoryBuilder& InputParamCategory = DetailBuilder.EditCategory(ParamCategoryName, LOCTEXT("ParamCategoryName", "Override Parameters"));
+			InputParamCategory.AddCustomBuilder(MakeShared<FNiagaraComponentNodeBuilder>(Component.Get(), ScriptSpawn, ScriptUpdate));
 		}
-
-		// We'll want to monitor for any serious changes that might require a rebuild of the UI from scratch.
-		UE_LOG(LogNiagaraEditor, Log, TEXT("Registering with System instance %p"), SystemInstance);
-		SystemInstance->OnReset().RemoveAll(this);
-		SystemInstance->OnInitialized().RemoveAll(this);
-		SystemInstance->OnDestroyed().RemoveAll(this);
-		OnResetDelegateHandle = SystemInstance->OnReset().AddSP(this, &FNiagaraComponentDetails::OnSystemInstanceReset);
-		OnInitDelegateHandle = SystemInstance->OnInitialized().AddSP(this, &FNiagaraComponentDetails::OnSystemInstanceReset);
-		SystemInstance->OnDestroyed().AddSP(this, &FNiagaraComponentDetails::OnSystemInstanceDestroyed);
-		FNiagaraParameterStore* ParamStore = &Component->GetOverrideParameters();
-		UNiagaraScript* ScriptSpawn = Component->GetAsset()->GetSystemSpawnScript();
-		UNiagaraScript* ScriptUpdate = Component->GetAsset()->GetSystemUpdateScript();
-		
-		IDetailCategoryBuilder& InputParamCategory = DetailBuilder.EditCategory(ParamCategoryName, LOCTEXT("ParamCategoryName", "Override Parameters"));
-		//InputParamCategory.HeaderContent(SNew(SAddParameterButton, InputCollectionViewModel));
-		InputParamCategory.AddCustomBuilder(MakeShared<FNiagaraComponentNodeBuilder>(Component, ScriptSpawn, ScriptUpdate));
 	}
-
 }
-
-void FNiagaraComponentDetails::OnSystemInstanceReset()
-{
-	UE_LOG(LogNiagaraEditor, Log, TEXT("OnSystemInstanceReset()"));
-	bQueueForDetailsRefresh = true;
-}
-
-void FNiagaraComponentDetails::OnSystemInstanceDestroyed()
-{
-	UE_LOG(LogNiagaraEditor, Log, TEXT("OnSystemInstanceDestroyed()"));
-	bQueueForDetailsRefresh = true;
-}
-
-FReply FNiagaraComponentDetails::OnSystemOpenRequested(UNiagaraSystem* InSystem)
-{
-	if (InSystem)
-	{
-		FAssetEditorManager::Get().OpenEditorForAsset(InSystem);
-	}
-	return FReply::Handled();
-}
-
-
 
 #undef LOCTEXT_NAMESPACE

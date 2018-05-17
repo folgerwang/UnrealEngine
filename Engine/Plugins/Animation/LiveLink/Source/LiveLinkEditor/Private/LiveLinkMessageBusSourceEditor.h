@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,23 +11,9 @@
 
 struct FLiveLinkPongMessage;
 struct FMessageAddress;
+struct FProviderPollResult;
 class ITableRow;
 class STableViewBase;
-
-struct FProviderPollResult
-{
-public:
-	FProviderPollResult(const FMessageAddress& InAddress, const FString& InName, const FString& InMachineName)
-		: Address(InAddress)
-		, Name(InName)
-		, MachineName(InMachineName)
-	{}
-
-	FMessageAddress Address;
-
-	FString			Name;
-	FString			MachineName;
-};
 
 typedef TSharedPtr<FProviderPollResult> FProviderPollResultPtr;
 

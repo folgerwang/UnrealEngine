@@ -48,6 +48,8 @@ FNiagaraScriptOutputCollectionViewModel::FNiagaraScriptOutputCollectionViewModel
 	{
 		OnGraphChangedHandle = Graph->AddOnGraphChangedHandler(
 			FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraScriptOutputCollectionViewModel::OnGraphChanged));
+		OnRecompileHandle = Graph->AddOnGraphNeedsRecompileHandler(
+			FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraScriptOutputCollectionViewModel::OnGraphChanged));
 	}
 }
 
@@ -84,6 +86,8 @@ FNiagaraScriptOutputCollectionViewModel::FNiagaraScriptOutputCollectionViewModel
 	{
 		OnGraphChangedHandle = Graph->AddOnGraphChangedHandler(
 			FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraScriptOutputCollectionViewModel::OnGraphChanged));
+		OnRecompileHandle = Graph->AddOnGraphNeedsRecompileHandler(
+			FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraScriptOutputCollectionViewModel::OnGraphChanged));
 	}
 }
 
@@ -103,6 +107,7 @@ FNiagaraScriptOutputCollectionViewModel::~FNiagaraScriptOutputCollectionViewMode
 	if (Graph.IsValid())
 	{
 		Graph->RemoveOnGraphChangedHandler(OnGraphChangedHandle);
+		Graph->RemoveOnGraphNeedsRecompileHandler(OnRecompileHandle);
 	}
 }
 
@@ -112,6 +117,7 @@ void FNiagaraScriptOutputCollectionViewModel::SetScripts(TArray<UNiagaraScript*>
 	if (Graph.IsValid())
 	{
 		Graph->RemoveOnGraphChangedHandler(OnGraphChangedHandle);
+		Graph->RemoveOnGraphNeedsRecompileHandler(OnRecompileHandle);
 	}
 
 	Scripts.Empty();
@@ -126,6 +132,8 @@ void FNiagaraScriptOutputCollectionViewModel::SetScripts(TArray<UNiagaraScript*>
 	{
 		Graph = Cast<UNiagaraScriptSource>(Scripts[0]->GetSource())->NodeGraph;
 		OnGraphChangedHandle = Graph->AddOnGraphChangedHandler(
+			FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraScriptOutputCollectionViewModel::OnGraphChanged));
+		OnRecompileHandle = Graph->AddOnGraphNeedsRecompileHandler(
 			FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraScriptOutputCollectionViewModel::OnGraphChanged));
 		bCanHaveNumericParameters = Scripts[0]->IsStandaloneScript();
 
@@ -181,7 +189,7 @@ void FNiagaraScriptOutputCollectionViewModel::AddParameter(TSharedPtr<FNiagaraTy
 
 		OtherOutputNode->NotifyOutputVariablesChanged();
 	}
-	Graph->MarkGraphRequiresSynchronization();
+	Graph->MarkGraphRequiresSynchronization(TEXT("Ouptut parameter added"));
 	OnOutputParametersChangedDelegate.Broadcast();
 }
 
@@ -274,7 +282,7 @@ FNiagaraScriptOutputCollectionViewModel::FOnOutputParametersChanged& FNiagaraScr
 
 void FNiagaraScriptOutputCollectionViewModel::OnGraphChanged(const struct FEdGraphEditAction& InAction)
 {
-	RefreshParameterViewModels();
+	bNeedsRefresh = true;
 }
 
 void FNiagaraScriptOutputCollectionViewModel::OnParameterNameChanged(FName OldName, FName NewName, FNiagaraVariable* ParameterVariable)

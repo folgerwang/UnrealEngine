@@ -3,7 +3,7 @@
 #include "Aja.h"
 #include "AjaMediaPrivate.h"
 
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "Interfaces/IPluginManager.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/Paths.h"

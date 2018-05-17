@@ -91,6 +91,7 @@ enum ELightComponentType
 	LightType_Directional = 0,
 	LightType_Point,
 	LightType_Spot,
+	LightType_Rect,
 	LightType_MAX,
 	LightType_NumBits = 2
 };

@@ -15,11 +15,17 @@ FNodeWidgets FDetailTreeNode::CreateNodeWidgets() const
 		if (Row.HasColumns())
 		{
 			Widgets.NameWidget = Row.NameWidget.Widget;
+			Widgets.NameWidgetLayoutData = FNodeWidgetLayoutData(
+				Row.NameWidget.HorizontalAlignment, Row.NameWidget.VerticalAlignment, Row.NameWidget.MinWidth, Row.NameWidget.MaxWidth);
 			Widgets.ValueWidget = Row.ValueWidget.Widget;
+			Widgets.ValueWidgetLayoutData = FNodeWidgetLayoutData(
+				Row.ValueWidget.HorizontalAlignment, Row.ValueWidget.VerticalAlignment, Row.ValueWidget.MinWidth, Row.ValueWidget.MaxWidth);
 		}
 		else
 		{
 			Widgets.WholeRowWidget = Row.WholeRowWidget.Widget;
+			Widgets.WholeRowWidgetLayoutData = FNodeWidgetLayoutData(
+				Row.WholeRowWidget.HorizontalAlignment, Row.WholeRowWidget.VerticalAlignment, Row.WholeRowWidget.MinWidth, Row.WholeRowWidget.MaxWidth);
 		}
 	}
 

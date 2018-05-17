@@ -27,6 +27,9 @@ FMetalCommandEncoder::FMetalCommandEncoder(FMetalCommandList& CmdList)
 , RingBuffer(EncoderRingBufferSize, BufferOffsetAlignment, CmdList.GetCommandQueue().GetCompatibleResourceOptions((mtlpp::ResourceOptions)(mtlpp::ResourceOptions::HazardTrackingModeUntracked | BUFFER_RESOURCE_STORAGE_MANAGED)))
 , RenderPassDesc(nil)
 , EncoderFence(nil)
+#if ENABLE_METAL_GPUPROFILE
+, CommandBufferStats(nullptr)
+#endif
 , DebugGroups([NSMutableArray new])
 {
 	for (uint32 Frequency = 0; Frequency < uint32(mtlpp::FunctionType::Kernel)+1; Frequency++)
@@ -130,6 +133,14 @@ void FMetalCommandEncoder::StartCommandBuffer(void)
 	{
 		CommandBuffer.SetLabel([DebugGroups lastObject]);
 	}
+	
+#if ENABLE_METAL_GPUPROFILE
+	FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
+	if (Profiler)
+	{
+		CommandBufferStats = Profiler->AllocateCommandBuffer(CommandBuffer, 0);
+	}
+#endif
 }
 	
 void FMetalCommandEncoder::CommitCommandBuffer(uint32 const Flags)
@@ -171,6 +182,10 @@ void FMetalCommandEncoder::CommitCommandBuffer(uint32 const Flags)
                                  }
                              });
     }
+#endif
+#if ENABLE_METAL_GPUPROFILE
+	CommandBufferStats->End(CommandBuffer);
+	CommandBufferStats = nullptr;
 #endif
 
 	CommandList.Commit(CommandBuffer, MoveTemp(CompletionHandlers), bWait);
@@ -251,7 +266,7 @@ void FMetalCommandEncoder::BeginRenderCommandEncoding(void)
 	
 	if(GetEmitDrawEvents())
 	{
-		Label = [DebugGroups count] > 0 ? [DebugGroups lastObject] : (NSString*)CFSTR("InitialPass");
+		Label = [NSString stringWithFormat:@"RenderEncoder: %@", [DebugGroups count] > 0 ? [DebugGroups lastObject] : (NSString*)CFSTR("InitialPass")];
 		RenderCommandEncoder.SetLabel(Label);
 		
 		if([DebugGroups count])
@@ -266,6 +281,7 @@ void FMetalCommandEncoder::BeginRenderCommandEncoding(void)
 			}
 		}
 	}
+	METAL_STATISTIC(FMetalProfiler::GetProfiler()->BeginEncoder(CommandBufferStats, RenderCommandEncoder));
 	
 	EncoderFence = FMetalFence(CommandList.GetCommandQueue().CreateFence(Label));
 }
@@ -282,7 +298,7 @@ void FMetalCommandEncoder::BeginComputeCommandEncoding(void)
 	
 	if(GetEmitDrawEvents())
 	{
-		Label = [DebugGroups count] > 0 ? [DebugGroups lastObject] : (NSString*)CFSTR("InitialPass");
+		Label = [NSString stringWithFormat:@"ComputeEncoder: %@", [DebugGroups count] > 0 ? [DebugGroups lastObject] : (NSString*)CFSTR("InitialPass")];
 		ComputeCommandEncoder.SetLabel(Label);
 		
 		if([DebugGroups count])
@@ -297,6 +313,7 @@ void FMetalCommandEncoder::BeginComputeCommandEncoding(void)
 			}
 		}
 	}
+	METAL_STATISTIC(FMetalProfiler::GetProfiler()->BeginEncoder(CommandBufferStats, ComputeCommandEncoder));
 	EncoderFence = FMetalFence(CommandList.GetCommandQueue().CreateFence(Label));
 }
 
@@ -312,7 +329,7 @@ void FMetalCommandEncoder::BeginBlitCommandEncoding(void)
 	
 	if(GetEmitDrawEvents())
 	{
-		Label = [DebugGroups count] > 0 ? [DebugGroups lastObject] : (NSString*)CFSTR("InitialPass");
+		Label = [NSString stringWithFormat:@"BlitEncoder: %@", [DebugGroups count] > 0 ? [DebugGroups lastObject] : (NSString*)CFSTR("InitialPass")];
 		BlitCommandEncoder.SetLabel(Label);
 		
 		if([DebugGroups count])
@@ -327,6 +344,7 @@ void FMetalCommandEncoder::BeginBlitCommandEncoding(void)
 			}
 		}
 	}
+	METAL_STATISTIC(FMetalProfiler::GetProfiler()->BeginEncoder(CommandBufferStats, BlitCommandEncoder));
 	EncoderFence = FMetalFence(CommandList.GetCommandQueue().CreateFence(Label));
 }
 
@@ -371,6 +389,7 @@ mtlpp::Fence FMetalCommandEncoder::EndEncoding(void)
 			Fence = EncoderFence;
 			UpdateFence(Fence);
 			
+			METAL_STATISTIC(FMetalProfiler::GetProfiler()->EndEncoder(CommandBufferStats, RenderCommandEncoder));
 			RenderCommandEncoder.EndEncoding();
 			RenderCommandEncoder = nil;
 			EncoderFence.Reset();
@@ -381,6 +400,7 @@ mtlpp::Fence FMetalCommandEncoder::EndEncoding(void)
 			Fence = EncoderFence;
 			UpdateFence(Fence);
 			
+			METAL_STATISTIC(FMetalProfiler::GetProfiler()->EndEncoder(CommandBufferStats, ComputeCommandEncoder));
 			ComputeCommandEncoder.EndEncoding();
 			ComputeCommandEncoder = nil;
 			EncoderFence.Reset();
@@ -391,6 +411,7 @@ mtlpp::Fence FMetalCommandEncoder::EndEncoding(void)
 			Fence = EncoderFence;
 			UpdateFence(Fence);
 			
+			METAL_STATISTIC(FMetalProfiler::GetProfiler()->EndEncoder(CommandBufferStats, RenderCommandEncoder));
 			BlitCommandEncoder.EndEncoding();
 			BlitCommandEncoder = nil;
 			EncoderFence.Reset();
@@ -544,7 +565,14 @@ void FMetalCommandEncoder::PopDebugGroup(void)
 		}
 	}
 }
-	
+
+#if ENABLE_METAL_GPUPROFILE
+FMetalCommandBufferStats* FMetalCommandEncoder::GetCommandBufferStats(void)
+{
+	return CommandBufferStats;
+}
+#endif
+
 #pragma mark - Public Render State Mutators -
 
 void FMetalCommandEncoder::SetRenderPassDescriptor(mtlpp::RenderPassDescriptor RenderPass)
@@ -601,6 +629,7 @@ void FMetalCommandEncoder::SetRenderPipelineState(FMetalShaderPipeline* Pipeline
 {
 	check (RenderCommandEncoder);
 	{
+		METAL_STATISTIC(FMetalProfiler::GetProfiler()->EncodePipeline(CommandBufferStats, PipelineState));
 		METAL_SET_RENDER_REFLECTION(RenderCommandEncoder.GetPtr(), PipelineState);
 		RenderCommandEncoder.SetRenderPipelineState(PipelineState->RenderPipelineState);
 	}
@@ -903,6 +932,7 @@ void FMetalCommandEncoder::SetComputePipelineState(FMetalShaderPipeline* State)
 {
 	check (ComputeCommandEncoder);
 	{
+		METAL_STATISTIC(FMetalProfiler::GetProfiler()->EncodePipeline(CommandBufferStats, State));
         METAL_SET_COMPUTE_REFLECTION(ComputeCommandEncoder.GetPtr(), State);
 		ComputeCommandEncoder.SetComputePipelineState(State->ComputePipelineState);
 	}

@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "DOFCommon.ush"
+#include "/Engine/Public/WaveBroadcastIntrinsics.ush"
 
 
 //------------------------------------------------------- COMPILE TIME CONFIG
@@ -105,6 +106,21 @@ float DownsampleCoc(float CocRadii[4])
 }
 
 
+/** Compute the bilateral weight of sample to downsample. */
+float ComputeDownsamplingBilateralWeight(
+	float OutCocRadius,
+	float SampleCocRadius,
+	in float CocRadiusMultiplier = 1.0)
+{
+	// Remove samples which are outside the size.
+	// TODO: Tune the ScaleFactor. Looks like to large.
+	float ScaleFactor = 64.0 * CocRadiusMultiplier;
+
+	// GCN Hint: one subtract with abs() post modifier + one MAD with saturate post modifier.
+	return saturate(1.0 - abs(OutCocRadius - SampleCocRadius) * ScaleFactor);
+}
+
+
 /** Operator to use to downsample 4 scene sample to 1. */
 void DownsampleSceneColorWithCoc(
 	float4 Color[4], float CocRadii[4],
@@ -114,21 +130,11 @@ void DownsampleSceneColorWithCoc(
 	// Choose the best the coc to use.
 	OutCocRadius = DownsampleCoc(CocRadii);
 
-	// >1 to avoid /0 (resulting in dark outlines in level tb070)
-	// a bit laregr to avoid a specific leaking artifact in level tb080 
-	// TODO: why was it 1.4?
-	const float DefaultWeight = 1.0f;
-
-	// Remove samples which are outside the size.
-	// TODO: Tune the ScaleFactor. Looks like to large.
-	float ScaleFactor = 64.0 * CocRadiusMultiplier;
-
-	// TODO: make common function for this bilateral function.
-	float4 Weights = float4(
-		DefaultWeight - saturate(abs(OutCocRadius - CocRadii[0]) * ScaleFactor),
-		DefaultWeight - saturate(abs(OutCocRadius - CocRadii[1]) * ScaleFactor),
-		DefaultWeight - saturate(abs(OutCocRadius - CocRadii[2]) * ScaleFactor),
-		DefaultWeight - saturate(abs(OutCocRadius - CocRadii[3]) * ScaleFactor));
+	float4 BilateralWeights = float4(
+		ComputeDownsamplingBilateralWeight(OutCocRadius, CocRadii[0], CocRadiusMultiplier),
+		ComputeDownsamplingBilateralWeight(OutCocRadius, CocRadii[1], CocRadiusMultiplier),
+		ComputeDownsamplingBilateralWeight(OutCocRadius, CocRadii[2], CocRadiusMultiplier),
+		ComputeDownsamplingBilateralWeight(OutCocRadius, CocRadii[3], CocRadiusMultiplier));
 
 	// Reduce the output weight if there was information loss on the oposite layer from the one chosen
 	// by DownsampleCoc(). This improve temporaly stability and low res aliasing of foreground out focus.
@@ -136,18 +142,91 @@ void DownsampleSceneColorWithCoc(
 	UNROLL
 	for (uint i = 0; i < 4; i++)
 	{
-		OutputWeight += IsForeground(OutCocRadius) == IsForeground(CocRadii[i]) ? 0.25 : 0.0;
+		OutputWeight += (OutCocRadius * CocRadii[i]) >= 0.0 ? 0.25 : 0.0;
 	}
 
-	float WeightSum = dot(float4(1, 1, 1, 1), Weights);
+	float WeightSum = dot(float4(1, 1, 1, 1), BilateralWeights);
 
 	// Normalize weights.
 	float WeightNormalizationFactor = OutputWeight * rcp(WeightSum);
 
 	// Do the multiply of WeightNormalizationFactor, because save one mad when alpha channel is disabled.
 	OutColor = WeightNormalizationFactor * (
-		Color[0] * Weights.x +
-		Color[1] * Weights.y +
-		Color[2] * Weights.z +
-		Color[3] * Weights.w);
+		Color[0] * BilateralWeights.x +
+		Color[1] * BilateralWeights.y +
+		Color[2] * BilateralWeights.z +
+		Color[3] * BilateralWeights.w);
 }
+
+
+#if PLATFORM_SUPPORTS_WAVE_BROADCAST
+
+// Returns the downsampling Coc from the Coc radius on 4 different lane:
+//	(0; 0)
+//	(ReductionScale; 0)
+//	(0; ReductionScale)
+//	(ReductionScale; ReductionScale)
+float DownsampleCoc_Wave8x8(float CocRadius, const uint ReductionScale)
+{
+	float OutCocRadius = CocRadius;
+	
+	#if DOWNSAMPLE_COC_OPERATOR == 2
+		// Horizontal.
+		float OtherCocRadius = WaveBroadcastLaneGroup(
+			OutCocRadius,
+			/* LaneGroupSize = */ 2 * ReductionScale,
+			/* InnerLaneGroupSize = */ 1 * ReductionScale,
+			/* InnerLaneGroupId = */ 1);
+		if(abs(OutCocRadius) > OtherCocRadius) OutCocRadius = OtherCocRadius;
+
+		// Vertical.
+		OtherCocRadius = WaveBroadcastLaneGroup(
+			OutCocRadius,
+			/* LaneGroupSize = */ 16 * ReductionScale,
+			/* InnerLaneGroupSize = */ 8 * ReductionScale,
+			/* InnerLaneGroupId = */ 1);
+		if(abs(OutCocRadius) > OtherCocRadius) OutCocRadius = OtherCocRadius;
+
+		// Broad cast back to ensure identical OutCocRadius.
+		{
+			OutCocRadius = WaveBroadcastLaneGroup(
+				OutCocRadius,
+				/* LaneGroupSize = */ 2 * ReductionScale,
+				/* InnerLaneGroupSize = */ 1 * ReductionScale,
+				/* InnerLaneGroupId = */ 0);
+			
+			OutCocRadius = WaveBroadcastLaneGroup(
+				OutCocRadius,
+				/* LaneGroupSize = */ 16 * ReductionScale,
+				/* InnerLaneGroupSize = */ 8 * ReductionScale,
+				/* InnerLaneGroupId = */ 0);
+		}
+	#else
+		#error Unimplemented.
+	#endif
+	
+	return OutCocRadius;
+}
+
+// Sums values on 4 different lane when dispatched as 8x8 tile:
+//	(0; 0)
+//	(ReductionScale; 0)
+//	(0; ReductionScale)
+//	(ReductionScale; ReductionScale)
+float Sum2x2WithinWave8x8(float x, const uint ReductionScale)
+{
+	float y = x + WaveBroadcastLaneGroup(
+		x,
+		/* LaneGroupSize = */ 2 * ReductionScale,
+		/* InnerLaneGroupSize = */ ReductionScale,
+		/* InnerLaneGroupId = */ 1);
+
+	float z = y + WaveBroadcastLaneGroup(
+		y,
+		/* LaneGroupSize = */ 16 * ReductionScale,
+		/* InnerLaneGroupSize = */ 8 * ReductionScale,
+		/* InnerLaneGroupId = */ 1);
+	return z;
+}
+
+#endif // PLATFORM_SUPPORTS_WAVE_BROADCAST

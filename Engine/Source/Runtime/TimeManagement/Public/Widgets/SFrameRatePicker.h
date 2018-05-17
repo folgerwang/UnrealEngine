@@ -4,7 +4,7 @@
 
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "CommonFrameRates.h"
 #include "Widgets/SFrameRateEntryBox.h"
 #include "Internationalization/Text.h"

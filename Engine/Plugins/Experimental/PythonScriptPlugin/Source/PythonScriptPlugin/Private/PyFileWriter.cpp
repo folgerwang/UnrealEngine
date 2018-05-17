@@ -1,11 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PyFileWriter.h"
-#include "Misc/FileHelper.h"
-
+#include "PyGenUtil.h"
 
 #if WITH_PYTHON
-
 
 FPyFileWriter::FPyFileWriter()
 	: Indentation(0)
@@ -88,8 +86,7 @@ void FPyFileWriter::DecreaseIndent(const int32 InCount)
 
 bool FPyFileWriter::SaveFile(const TCHAR* InFilename)
 {
-	return FFileHelper::SaveStringToFile(FileContents, InFilename, FFileHelper::EEncodingOptions::ForceUTF8);
+	return PyGenUtil::SaveGeneratedTextFile(InFilename, FileContents);
 }
-
 
 #endif	// WITH_PYTHON

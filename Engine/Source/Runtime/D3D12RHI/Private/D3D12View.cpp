@@ -253,21 +253,20 @@ FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FVertexB
 
 		FD3D12ShaderResourceView* ShaderResourceView = new FD3D12ShaderResourceView(VertexBuffer->GetParentDevice());
 		VertexBuffer->SetDynamicSRV(ShaderResourceView);
-		
+
 		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
-		const bool bIsDynamic = !!(VertexBuffer->GetUsage() & BUF_AnyDynamic);
-		if ( RHICmdList.Bypass() || !IsRunningRHIInSeparateThread() || !bIsDynamic )
-		{
-			// Run the command directly if we're bypassing RHI command list recording, or the buffer is not dynamic.
-			FD3D12InitializeVertexBufferSRVRHICommand Command(VertexBuffer, ShaderResourceView, Stride, Format);
-			Command.Execute(RHICmdList);
-		}
-		else
+		if (!RHICmdList.Bypass() && (VertexBuffer->GetUsage() & BUF_AnyDynamic))
 		{
 			// We have to defer the SRV initialization to the RHI thread if the buffer is dynamic, as dynamic buffers can be renamed.
 			// Also insert an RHI thread fence to prevent parallel translate tasks running until this command has completed.
 			new (RHICmdList.AllocCommand<FD3D12InitializeVertexBufferSRVRHICommand>()) FD3D12InitializeVertexBufferSRVRHICommand(VertexBuffer, ShaderResourceView, Stride, Format);
 			RHICmdList.RHIThreadFence(true);
+		}
+		else
+		{
+			// Run the command directly if we're bypassing RHI command list recording, or the buffer is not dynamic.
+			FD3D12InitializeVertexBufferSRVRHICommand Command(VertexBuffer, ShaderResourceView, Stride, Format);
+			Command.Execute(RHICmdList);
 		}
 
 		return ShaderResourceView;

@@ -4,7 +4,7 @@
 #include "Channels/MovieSceneChannelProxy.h"
 #include "Curves/IntegralCurve.h"
 #include "MovieSceneFwd.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "MovieSceneFrameMigration.h"
 
 bool FMovieSceneByteChannel::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar)

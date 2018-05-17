@@ -11,6 +11,7 @@ public class NiagaraEditorWidgets : ModuleRules
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {
+            "NiagaraCore",
 			"Niagara",
 			"NiagaraEditor",
 			"Engine",
@@ -24,7 +25,10 @@ public class NiagaraEditorWidgets : ModuleRules
 			"EditorStyle",
 			"PropertyEditor",
 			"AppFramework",
-		});
+			"Projects",
+			"Sequencer",
+            "EditorWidgets",
+        });
 
 		PrivateIncludePathModuleNames.AddRange(new string[] {
 		});

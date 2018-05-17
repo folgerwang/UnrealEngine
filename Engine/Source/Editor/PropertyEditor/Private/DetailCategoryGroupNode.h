@@ -65,12 +65,13 @@ private:
 
 	virtual EDetailNodeType GetNodeType() const override { return EDetailNodeType::Category; }
 	virtual TSharedPtr<IPropertyHandle> CreatePropertyHandle() const override { return nullptr; }
+	virtual void GetFilterStrings(TArray<FString>& OutFilterStrings) const override { OutFilterStrings.Add(GroupName.ToString()); };
 
 	virtual void GetChildren(FDetailNodeList& OutChildren )  override;
 	virtual void FilterNode( const FDetailFilter& InFilter ) override;
 	virtual void Tick( float DeltaTime ) override {}
 	virtual bool ShouldShowOnlyChildren() const override { return false; }
-	virtual FName GetNodeName() const override { return NAME_None; }
+	virtual FName GetNodeName() const override { return GroupName; }
 private:
 	FDetailNodeList ChildNodes;
 	FDetailCategoryImpl& ParentCategory;

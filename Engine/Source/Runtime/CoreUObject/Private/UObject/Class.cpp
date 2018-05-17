@@ -4947,6 +4947,12 @@ UScriptStruct* TBaseStructure<FPrimaryAssetId>::Get()
 	return ScriptStruct;
 }
 
+UScriptStruct* TBaseStructure<FDateTime>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("DateTime"));
+	return ScriptStruct;
+}
+
 IMPLEMENT_CORE_INTRINSIC_CLASS(UFunction, UStruct,
 	{
 	}

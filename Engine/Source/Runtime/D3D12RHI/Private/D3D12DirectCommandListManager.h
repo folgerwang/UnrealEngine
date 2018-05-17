@@ -76,7 +76,7 @@ private:
 class FD3D12Fence : public FRHIComputeFence, public FD3D12AdapterChild, public FD3D12MultiNodeGPUObject, public FNoncopyable
 {
 public:
-	FD3D12Fence(FD3D12Adapter* InParent, const FRHIGPUMask& InNodeMask, const FName& InName = L"<unnamed>");
+	FD3D12Fence(FD3D12Adapter* InParent, FRHIGPUMask InGPUMask, const FName& InName = L"<unnamed>");
 	~FD3D12Fence();
 
 	void CreateFence();
@@ -85,14 +85,17 @@ public:
 	bool IsFenceComplete(uint64 FenceValue);
 	void WaitForFence(uint64 FenceValue);
 
+	// Avoids calling GetCompletedValue().
+	bool IsFenceCompleteFast(uint64 FenceValue) const { return FenceValue <= LastCompletedFence; }
+
 	uint64 GetCurrentFence() const { return CurrentFence; }
 	uint64 GetLastSignaledFence() const { return LastSignaledFence; }
 
 	uint64 PeekLastCompletedFence() const;
 	uint64 UpdateLastCompletedFence();
 
-	// Might not be the most up to date value but avoids querying the fence.
-	uint64 GetCachedLastCompletedFence() const { return LastCompletedFence; };
+	// Might not be the most up to date value but avoids calling GetCompletedValue().
+	uint64 GetLastCompletedFenceFast() const { return LastCompletedFence; };
 
 	void Destroy();
 
@@ -107,16 +110,16 @@ protected:
 	uint64 LastCompletedFence; // The min value completed between all LastCompletedFences.
 	FCriticalSection WaitForFenceCS;
 
-	uint64 LastCompletedFences[MAX_NUM_LDA_NODES];
-	FD3D12FenceCore* FenceCores[MAX_NUM_LDA_NODES];
+	uint64 LastCompletedFences[MAX_NUM_GPUS];
+	FD3D12FenceCore* FenceCores[MAX_NUM_GPUS];
 };
 
 // Fence value must be incremented manually. Useful when you need incrementing and signaling to happen at different times.
 class FD3D12ManualFence : public FD3D12Fence
 {
 public:
-	explicit FD3D12ManualFence(FD3D12Adapter* InParent, const FRHIGPUMask& InNodeMask, const FName& InName = L"<unnamed>")
-		: FD3D12Fence(InParent, InNodeMask, InName)
+	explicit FD3D12ManualFence(FD3D12Adapter* InParent, FRHIGPUMask InGPUMask, const FName& InName = L"<unnamed>")
+		: FD3D12Fence(InParent, InGPUMask, InName)
 	{}
 
 	// Signals the specified fence value.

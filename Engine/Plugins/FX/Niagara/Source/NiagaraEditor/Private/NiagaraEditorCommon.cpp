@@ -253,81 +253,292 @@ void FNiagaraOpInfo::Init()
 		Op->BuildName(TEXT("Log2"), CategoryName);
 		OpInfoMap.Add(Op->Name) = Idx;
 
+		FText AngleFriendlyNameText = NSLOCTEXT("NiagaraOpInfo", "Angle Name", "Angle");
+		FText AngleDescText = NSLOCTEXT("NiagaraOpInfo", "Angle Desc", "Angle as specified by the period range.");
+		FText PeriodFriendlyNameText = NSLOCTEXT("NiagaraOpInfo", "Period Name", "Period");
+		FText PeriodDescText = NSLOCTEXT("NiagaraOpInfo", "Period Desc", "Value in which a complete rotation has occurred.");
+		FNiagaraTypeDefinition PeriodType = FNiagaraTypeDefinition::GetFloatDef();
+		FNiagaraTypeDefinition AngleType = FNiagaraTypeDefinition::GetFloatDef();
+
 		Idx = OpInfos.AddDefaulted();
 		Op = &OpInfos[Idx];
 		Op->Category = CategoryText;
-		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Sin Name", "Sin");
-		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Sin Desc", "Result = sin(A)");
-		Op->Keywords = FText::FromString(TEXT("sin"));
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Sine Name", "Sine");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Sine Desc", "Result = sin(Angle*(TWO_PI/Period))");
+		Op->Keywords = FText::FromString(TEXT("sine"));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(TEXT("Angle"), AngleType, AngleFriendlyNameText, AngleDescText, DefaultStr_One));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(TEXT("Period"), PeriodType, PeriodFriendlyNameText, PeriodDescText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("sin({0}*(TWO_PI/{1}))")));
+		Op->BuildName(TEXT("Sine"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "SinRad Name", "Sine(Radians)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "SinRad Desc", "Result = sin(AngleInRadians)");
+		Op->Keywords = FText::FromString(TEXT("sine"));
 		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("sin({0})")));
-		Op->BuildName(TEXT("Sin"), CategoryName);
+		Op->BuildName(TEXT("Sine(Radians)"), CategoryName);
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		Idx = OpInfos.AddDefaulted();
 		Op = &OpInfos[Idx];
 		Op->Category = CategoryText;
-		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Cos Name", "Cos");
-		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Cos Desc", "Result = cos(A)");
-		Op->Keywords = FText::FromString(TEXT("cos"));
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "SinDeg Name", "Sine(Degrees)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "SinDeg Desc", "Result = sin(AngleInDegrees*DegreesToRadians)");
+		Op->Keywords = FText::FromString(TEXT("sine"));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("sin((PI/180.0f)*{0})")));
+		Op->BuildName(TEXT("Sine(Degrees)"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Cosine Name", "Cosine");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Cosine Desc", "Result = cos(Angle*(TWO_PI/Period))");
+		Op->Keywords = FText::FromString(TEXT("Cosine"));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(TEXT("Angle"), AngleType, AngleFriendlyNameText, AngleDescText, DefaultStr_One));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(TEXT("Period"), PeriodType, PeriodFriendlyNameText, PeriodDescText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("cos({0}*(TWO_PI/{1}))")));
+		Op->BuildName(TEXT("Cosine"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "CosRad Name", "Cosine(Radians)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "CosRad Desc", "Result = cos(AngleInRadians)");
+		Op->Keywords = FText::FromString(TEXT("Cosine"));
 		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("cos({0})")));
-		Op->BuildName(TEXT("Cos"), CategoryName);
+		Op->BuildName(TEXT("Cosine(Radians)"), CategoryName);
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		Idx = OpInfos.AddDefaulted();
 		Op = &OpInfos[Idx];
 		Op->Category = CategoryText;
-		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Tan Name", "Tan");
-		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Tan Desc", "Result = tan(A)");
-		Op->Keywords = FText::FromString(TEXT("tan"));
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "CosDeg Name", "Cosine(Degrees)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "CosDeg Desc", "Result = cos(AngleInDegrees*DegreesToRadians)");
+		Op->Keywords = FText::FromString(TEXT("Cosine"));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("cos((PI/180.0f)*{0})")));
+		Op->BuildName(TEXT("Cosine(Degrees)"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Tangent Name", "Tangent");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Tangent Desc", "Result = tan(Angle*(TWO_PI/Period))");
+		Op->Keywords = FText::FromString(TEXT("Tangent"));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(TEXT("Angle"), AngleType, AngleFriendlyNameText, AngleDescText, DefaultStr_One));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(TEXT("Period"), PeriodType, PeriodFriendlyNameText, PeriodDescText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("tan({0}*(TWO_PI/{1}))")));
+		Op->BuildName(TEXT("Tangent"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "TanRad Name", "Tangent(Radians)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "TanRad Desc", "Result = tan(AngleInRadians)");
+		Op->Keywords = FText::FromString(TEXT("Tangent"));
 		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("tan({0})")));
-		Op->BuildName(TEXT("Tan"), CategoryName);
+		Op->BuildName(TEXT("Tangent(Radians)"), CategoryName);
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		Idx = OpInfos.AddDefaulted();
 		Op = &OpInfos[Idx];
 		Op->Category = CategoryText;
-		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ASin Name", "ASin");
-		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ASin Desc", "Result = asin(A)");
-		Op->Keywords = FText::FromString(TEXT("asin"));
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "TanDeg Name", "Tangent(Degrees)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "TanDeg Desc", "Result = tan(AngleInDegrees*DegreesToRadians)");
+		Op->Keywords = FText::FromString(TEXT("Tangent"));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("tan((PI/180.0f)*{0})")));
+		Op->BuildName(TEXT("Tangent(Degrees)"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ArcSine Name", "ArcSine");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ArcSine Desc", "Result = asin(A)*(Period/TWO_PI)");
+		Op->Keywords = FText::FromString(TEXT("ArcSine"));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(TEXT("Period"), PeriodType, PeriodFriendlyNameText, PeriodDescText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("asin({0})*({1}/TWO_PI)")));
+		Op->BuildName(TEXT("ArcSine"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ArcSineRad Name", "ArcSine(Radians)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ArcSineRad Desc", "Result = asin(A)");
+		Op->Keywords = FText::FromString(TEXT("ArcSine"));
 		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("asin({0})")));
-		Op->BuildName(TEXT("ASin"), CategoryName);
+		Op->BuildName(TEXT("ArcSine(Radians)"), CategoryName);
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		Idx = OpInfos.AddDefaulted();
 		Op = &OpInfos[Idx];
 		Op->Category = CategoryText;
-		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ACos Name", "ACos");
-		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ACos Desc", "Result = acos(A)");
-		Op->Keywords = FText::FromString(TEXT("acos"));
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ArcSineDeg Name", "ArcSine(Degrees)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ArcSineDeg Desc", "Result = asin(A)*RadiansToDegrees");
+		Op->Keywords = FText::FromString(TEXT("ArcSine"));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("(180.0f/PI)*asin({0})")));
+		Op->BuildName(TEXT("ArcSine(Degrees)"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Pi Name", "PI");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Pi Desc", "The constant PI");
+		Op->Keywords = FText::FromString(TEXT("pi"));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, FNiagaraTypeDefinition::GetFloatDef(), ResultText, ResultText, DefaultStr_One, TEXT("PI")));
+		Op->BuildName(TEXT("PI"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Two Pi Name", "TWO_PI");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Two Pi Desc", "The constant PI * 2");
+		Op->Keywords = FText::FromString(TEXT("pi"));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, FNiagaraTypeDefinition::GetFloatDef(), ResultText, ResultText, DefaultStr_One, TEXT("TWO_PI")));
+		Op->BuildName(TEXT("TWO_PI"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ArcCosine Name", "ArcCosine");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ArcCosine Desc", "Result = acos(A)*(Period/TWO_PI)");
+		Op->Keywords = FText::FromString(TEXT("ArcCosine"));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(TEXT("Period"), PeriodType, PeriodFriendlyNameText, PeriodDescText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("acos({0})*({1}/TWO_PI)")));
+		Op->BuildName(TEXT("ArcCosine"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ArcCosineRad Name", "ArcCosine(Radians)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ArcCosineRad Desc", "Result = acos(A)");
+		Op->Keywords = FText::FromString(TEXT("ArcCosine"));
 		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("acos({0})")));
-		Op->BuildName(TEXT("ACos"), CategoryName);
+		Op->BuildName(TEXT("ArcCosine(Radians)"), CategoryName);
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		Idx = OpInfos.AddDefaulted();
 		Op = &OpInfos[Idx];
 		Op->Category = CategoryText;
-		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ATan Name", "ATan");
-		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ATan Desc", "Result = atan(A)");
-		Op->Keywords = FText::FromString(TEXT("atan"));
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ArcCosineDeg Name", "ArcCosine(Degrees)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ArcCosineDeg Desc", "Result = acos(A)*RadiansToDegrees");
+		Op->Keywords = FText::FromString(TEXT("ArcCosine"));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("(180.0f/PI)*acos({0})")));
+		Op->BuildName(TEXT("ArcCosine(Degrees)"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ArcTangent Name", "ArcTangent");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ArcTangent Desc", "Result = atan(A)*(Period/TWO_PI)");
+		Op->Keywords = FText::FromString(TEXT("ArcTangent"));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(TEXT("Period"), PeriodType, PeriodFriendlyNameText, PeriodDescText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("atan({0})*({1}/TWO_PI)")));
+		Op->BuildName(TEXT("ArcTangent"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ArcTangentRad Name", "ArcTangent(Radians)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ArcTangentRad Desc", "Result = atan(A)");
+		Op->Keywords = FText::FromString(TEXT("ArcTangent"));
 		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("atan({0})")));
-		Op->BuildName(TEXT("ATan"), CategoryName);
+		Op->BuildName(TEXT("ArcTangent(Radians)"), CategoryName);
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		Idx = OpInfos.AddDefaulted();
 		Op = &OpInfos[Idx];
 		Op->Category = CategoryText;
-		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ATan2 Name", "ATan2");
-		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ATan2 Desc", "Result = atan2(A, B)");
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ArcTangentDeg Name", "ArcTangent(Degrees)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ArcTangentDeg Desc", "Result = atan(A)*RadiansToDegrees");
+		Op->Keywords = FText::FromString(TEXT("ArcTangent"));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("(180.0f/PI)*atan({0})")));
+		Op->BuildName(TEXT("ArcTangent(Degrees)"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ATan2 Name", "ArcTangent2");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ATan2 Desc", "ResultInPeriod = Period * atan2(A, B) / 2PI");
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(B, Type, BText, BText, DefaultStr_One));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(TEXT("Period"), PeriodType, PeriodFriendlyNameText, PeriodDescText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("atan2({0},{1})*({2}/TWO_PI)")));
+		Op->BuildName(TEXT("ArcTangent2"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ATan2Rad Name", "ArcTangent2(Radians)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ATan2Rad Desc", "ResultInRadians = atan2(A, B)");
 		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
 		Op->Inputs.Add(FNiagaraOpInOutInfo(B, Type, BText, BText, DefaultStr_One));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("atan2({0},{1})")));
-		Op->BuildName(TEXT("ATan2"), CategoryName);
+		Op->BuildName(TEXT("ArcTangent2(Radians)"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "ATan2Deg Name", "ArcTangent2(Degrees)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "ATan2Deg Desc", "ResultInPeriod = 180 * atan2(A, B) / PI");
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(B, Type, BText, BText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("atan2({0},{1})*(180.0f/PI)")));
+		Op->BuildName(TEXT("ArcTangent2(Degrees)"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Degrees To Radians", "DegreesToRadians");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Degrees To Radians Desc", "DegreesToRadians(A)");
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, FNiagaraTypeDefinition::GetFloatDef(), AText, AText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, FNiagaraTypeDefinition::GetFloatDef(), ResultText, ResultText, DefaultStr_One, TEXT("(PI/180.0f)*({0})")));
+		Op->BuildName(TEXT("DegreesToRadians"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Radians To Degrees", "RadiansToDegrees");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "RadiansToDegrees Desc", "RadiansToDegrees(A)");
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, FNiagaraTypeDefinition::GetFloatDef(), AText, AText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, FNiagaraTypeDefinition::GetFloatDef(), ResultText, ResultText, DefaultStr_One, TEXT("(180.0f/PI)*({0})")));
+		Op->BuildName(TEXT("RadiansToDegrees"), CategoryName);
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		Idx = OpInfos.AddDefaulted();
@@ -506,7 +717,7 @@ void FNiagaraOpInfo::Init()
 		Op = &OpInfos[Idx];
 		Op->Category = CategoryText;
 		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Rand Name", "Random");
-		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Rand Desc", "Result = rand(A)");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Rand Desc", "Returns a random value between 0 and A.");
 		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("rand({0})")));
 		Op->BuildName(TEXT("Rand"), CategoryName);

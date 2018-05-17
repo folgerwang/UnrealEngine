@@ -112,7 +112,8 @@ public:
 
 						LODInfo.OverrideVertexColors = new FColorVertexBuffer;
 						LODInfo.OverrideVertexColors->InitFromColorArray(VertexColorLODData.VertexBufferColors);
-
+						
+						check(LODInfo.OverrideVertexColors->GetStride() > 0);
 						BeginInitResource(LODInfo.OverrideVertexColors);
 						bAppliedAnyData = true;
 					}
@@ -1087,6 +1088,7 @@ void UStaticMeshComponent::CopyInstanceVertexColorsIfCompatible( UStaticMeshComp
 							TargetLODInfo.OverrideVertexColors = new FColorVertexBuffer;
 							TargetLODInfo.OverrideVertexColors->InitFromColorArray( CopiedColors );
 						}
+						check(TargetLODInfo.OverrideVertexColors->GetStride() > 0);
 						BeginInitResource( TargetLODInfo.OverrideVertexColors );
 					}
 				}
@@ -1282,10 +1284,14 @@ void UStaticMeshComponent::PrivateFixupOverrideColors()
 				Vertex->Normal = CurRenderData.VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(VertIndex);
 				Vertex->Color = LODInfo.OverrideVertexColors->VertexColor(VertIndex);
 			}
+			BeginInitResource(LODInfo.OverrideVertexColors);
+			UpdateStaticMeshDeriveDataKey = true;
 		}
-
-		BeginInitResource(LODInfo.OverrideVertexColors);
-		UpdateStaticMeshDeriveDataKey = true;
+		else
+		{
+			delete LODInfo.OverrideVertexColors;
+			LODInfo.OverrideVertexColors = nullptr;
+		}
 	}
 
 	if (UpdateStaticMeshDeriveDataKey)

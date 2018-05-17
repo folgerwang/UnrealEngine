@@ -3,24 +3,38 @@
 /*=============================================================================
 NiagaraSimulationShader.usf: 
 =============================================================================*/
+#pragma warning(disable:4008)
 
 #if GPU_SIMULATION
 	#include "/Engine/Public/Platform.ush"
+	#include "Common.ush"
+#else
+	const static float PI = 3.1415926535897932f;
 #endif
+	const static float TWO_PI = 3.1415926535897932f*2.0f;
 
 #include "Definitions.usf"
 
 
-//TODO: Add common utility code for things such as reading data sources, reading from and writing to events.
-
+/* -----------------------------------------------------------------
+ * GPU simulation utility functions
+ * -----------------------------------------------------------------
+ */
 #if GPU_SIMULATION
 
 	#include "SceneTexturesCommon.ush"
 
 	static uint3 GDispatchThreadId;
+	static uint GCurrentPhase;
 	uint EmitterTickCounter;
 
 	#define THREADGROUP_SIZE 64
+
+	float4 Modulo(float4 x, float4 y){ return fmod(x,y); }
+	float3 Modulo(float3 x, float3 y){ return fmod(x,y); }
+	float2 Modulo(float2 x, float2 y){ return fmod(x,y); }
+	float Modulo(float x, float y){ return fmod(x,y); }
+
 
 	// 4D random number generator inspired by PCGs (permuted congruential generator)
 	// COPY FROM RANDOM.USH, which we can't easily include here due to a sizable dependency chain
@@ -113,6 +127,11 @@ NiagaraSimulationShader.usf:
 void EnterStatScope(int ScopeIdx);
 void ExitStatScope();
 
+
+/* -----------------------------------------------------------------
+ * VM simulation function declarations
+ * -----------------------------------------------------------------
+ */
 #if VM_SIMULATION
 	float noise(float x);
 	float noise(float2 x);
@@ -132,6 +151,9 @@ void ExitStatScope();
 	//TODO: replace with proper buffer reading capability and use standard hlsl.
 	int AcquireIndex(int DataSetID, bool DoAcquire);
 
+	void AcquireID(int DataSetID, out int IDIndex, out int IDAcquireTag);
+	void UpdateID(int DataSetID, int IDIndex, int InstanceIndex);
+
 	float InputDataFloat(int DataSetIndex, int RegisterIdx);  //DataSetIndex is 0 for main dataset
 	int InputDataInt(int DataSetIndex, int RegisterIdx);
 	bool InputDataBool(int DataSetIndex, int RegisterIdx);
@@ -145,15 +167,21 @@ void ExitStatScope();
 	void OutputDataBool(int DataSetIndex, int RegisterIndex, int InstanceIndex, bool Value);
 #endif
 
-#if GPU_SIMULATION
-	int ExecIndex()
-	{
-		return GDispatchThreadId.x;
-	}
 
-	uint StartInstancePhase0;
-	uint StartInstancePhase1;
-	uint TotalNumInstances;
+
+
+/* -----------------------------------------------------------------
+ * GPU simulation code
+ * -----------------------------------------------------------------
+ */
+#if GPU_SIMULATION
+	static uint GSpawnStartInstance;
+		
+	/* Parameters for spawning and simulations
+	 */
+	uint UpdateStartInstance;
+	uint SpawnedInstances;
+	uint NumIndicesPerInstance;
 
 	uint ComponentBufferSizeRead;
 	uint ComponentBufferSizeWrite;
@@ -161,15 +189,44 @@ void ExitStatScope();
 	int NumParticlesPerEvent;
 	uint CopyInstancesBeforeStart;
 
+
+	/* Buffers for particle data and DrawIndirect calls
+	 */
 	Buffer<float> InputFloat;
 	Buffer<int> InputInt;
 	RWBuffer<int> RWOutputInt;
 	RWBuffer<float> RWOutputFloat;
-	RWBuffer<int> RWDataSetIndices;
+	RWBuffer<uint> RWDataSetIndices;
+	Buffer<uint> ReadDataSetIndices;
 
+
+	//TODO: IDs for GPU
+//	void AcquireID(int DataSetID, out int IDIndex, out int IDAcquireTag);
+// 	void UpdateID(int DataSetID, int IDIndex, int InstanceIndex);
+
+
+
+	/* Returns the current instance index relative to the operation (spawn/update)
+	 */
+	int ExecIndex()
+	{
+		if (GCurrentPhase == 0)
+		{
+			return UpdateStartInstance + GDispatchThreadId.x - GSpawnStartInstance;
+		}
+		else 
+		{
+			return UpdateStartInstance + GDispatchThreadId.x;
+		}
+	}
+
+
+	/* Acquire an output index - the default index is the scratch instance; one additional instance is allocated 
+	 *	at the end of the buffer, so no branching on -1 is necessary during OutputData operations
+	 */
 	int AcquireIndex(int DataSetID, bool bDoAcquire)
 	{
-		int PrevIdx = -1;
+		int PrevIdx = GSpawnStartInstance + SpawnedInstances;
 		if(bDoAcquire == true)
 		{
 			InterlockedAdd(RWDataSetIndices[DataSetID*5+1], 1, PrevIdx);
@@ -177,6 +234,12 @@ void ExitStatScope();
 		return PrevIdx;
 	}
 
+
+
+	/* ---------------------------------------------------------------------
+	 * InputData operations 
+	 * ---------------------------------------------------------------------
+	 */
 	float InputDataFloat(int DataSetIndex, int RegisterIdx, int InstanceIdx)
 	{
 		return InputFloat[RegisterIdx*ComponentBufferSizeRead + InstanceIdx];
@@ -186,15 +249,30 @@ void ExitStatScope();
 	{
 		return InputInt[RegisterIdx*ComponentBufferSizeRead + InstanceIdx];
 	}
+	
+	bool InputDataBool(int DataSetIndex, int RegisterIdx, int InstanceIdx)
+	{
+		return InputInt[RegisterIdx*ComponentBufferSizeRead + InstanceIdx] == -1;
+	}
 
+
+	/* ---------------------------------------------------------------------
+	 * OutputData operations 
+	 * ---------------------------------------------------------------------
+	 */
 	void OutputDataFloat(int DataSetIndex, int RegisterIndex, int InstanceIndex, float Value)
 	{
-		RWOutputFloat[RegisterIndex*ComponentBufferSizeWrite + InstanceIndex + StartInstancePhase0] = Value;
+		RWOutputFloat[RegisterIndex*ComponentBufferSizeWrite + InstanceIndex + UpdateStartInstance] = Value;
 	}
 
 	void OutputDataInt(int DataSetIndex, int RegisterIndex, int InstanceIndex, int Value)
 	{
-		RWOutputInt[RegisterIndex*ComponentBufferSizeWrite + InstanceIndex + StartInstancePhase0] = Value;
+		RWOutputInt[RegisterIndex*ComponentBufferSizeWrite + InstanceIndex + UpdateStartInstance] = Value;
+	}
+
+	void OutputDataBool(int DataSetIndex, int RegisterIndex, int InstanceIndex, bool Value)
+	{
+		RWOutputInt[RegisterIndex*ComponentBufferSizeWrite + InstanceIndex + UpdateStartInstance] = Value ? -1 : 0;
 	}
 
 	void EnterStatScope(int ID)	{}
@@ -202,11 +280,14 @@ void ExitStatScope();
 #endif
 
 //Include the simulation shader code generated by the node graph.
-#include "/Engine/Generated/NiagaraEmitterInstance.usf"
+#include "/Engine/Generated/NiagaraEmitterInstance.ush"
 
 
-//The VectorVM shader needs only the generated code but a compute shader requires some wrapping.
 #if GPU_SIMULATION
+
+/* 
+ *	CS wrapper for our generated code; calls spawn and update functions on the corresponding instances in the buffer
+ */
 
 [numthreads(THREADGROUP_SIZE, 1, 1)]
 void SimulateMainComputeCS(
@@ -219,13 +300,15 @@ void SimulateMainComputeCS(
 	/*
 	if(CopyInstancesBeforeStart == 1)
 	{
-		StartInstancePhase0 = 0;
+		UpdateStartInstance = 0;
 	}
 	*/
 
-	uint InstanceID = StartInstancePhase0 + DispatchThreadId.x;
+	uint InstanceID = UpdateStartInstance + DispatchThreadId.x;
+	GSpawnStartInstance = ReadDataSetIndices[1];				// needed by ExecIndex()
+	int MaxInstances = GSpawnStartInstance + SpawnedInstances;
 
-	if(InstanceID < StartInstancePhase0+TotalNumInstances )
+	if(InstanceID < UpdateStartInstance + MaxInstances )
 	{
 		// calculate event index for the current instance; this is primarily for spawn events, where we do a single read from a secondary DataSet for a subset of particles
 		//  for all-particle events, this will always end up being 0 because NumParticlesPerEvent = total particles in the set
@@ -233,7 +316,7 @@ void SimulateMainComputeCS(
 
 		// before the simulation start - either update or copy
 		//
-		if(InstanceID < StartInstancePhase1)
+		if(InstanceID < GSpawnStartInstance)
 		{
 			// copy instances before simulation start inst (e.g. for event spawns)
 			/*
@@ -244,6 +327,7 @@ void SimulateMainComputeCS(
 			else
 			*/
 			{
+				GCurrentPhase = 1;
 				SimulateMain(InstanceID, EventIndex, 1);
 			}
 
@@ -251,16 +335,17 @@ void SimulateMainComputeCS(
 
 		// after simulation start - spawn phase
 		//
-		else if(InstanceID >= StartInstancePhase1)
+		else if(InstanceID >= GSpawnStartInstance)
 		{
-				SimulateMain(InstanceID, EventIndex, 0);		// SimulateMain spawn phase
+			GCurrentPhase = 0;
+			SimulateMain(InstanceID, EventIndex, 0);		// SimulateMain spawn phase
 		}
 	}
 
 	// fill in the rest of RWDataSetIndices for the DrawIndirect call for the main data set; number of instances is incremented in AcquireIndex
 	if(InstanceID == 0)
 	{
-		RWDataSetIndices[0] = 6;		// IndexCountPerInstance; TODO: need to pass this in from outside based on renderer setup
+		RWDataSetIndices[0] = NumIndicesPerInstance;		// IndexCountPerInstance; passed in from the renderer - TODO: support multiple renderers with multiple indirect draw calls
 		RWDataSetIndices[2] = 0;		// StartIndexLocation
 		RWDataSetIndices[3] = 0;		// BaseVertexLocation
 		RWDataSetIndices[4] = 0;		// StartInstanceLocation

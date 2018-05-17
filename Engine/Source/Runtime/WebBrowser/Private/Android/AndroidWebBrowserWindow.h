@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if USE_ANDROID_JNI
+
 #include "IWebBrowserWindow.h"
 #include "AndroidJSScripting.h"
 #include "Widgets/SWidget.h"
@@ -267,3 +269,5 @@ private:
 };
 
 typedef FAndroidWebBrowserWindow FWebBrowserWindow;
+
+#endif // USE_ANDROID_JNI

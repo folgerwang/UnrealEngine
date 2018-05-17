@@ -9,6 +9,9 @@
 class FAssetTypeActions_NiagaraEmitter: public FAssetTypeActions_Base
 {
 public:
+	FAssetTypeActions_NiagaraEmitter();
+	virtual ~FAssetTypeActions_NiagaraEmitter();
+
 	// IAssetTypeActions Implementation
 	virtual FText GetName() const override { return NSLOCTEXT("AssetTypeActions", "AssetTypeActions_NiagaraEmitter", "Niagara Emitter"); }
 	virtual FColor GetTypeColor() const override;

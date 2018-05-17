@@ -685,4 +685,12 @@ namespace Audio
 		return FAudioPlatformSettings::GetPlatformSettings(TEXT("/Script/WindowsTargetPlatform.WindowsTargetSettings"));
 	}
 
+	bool FMixerPlatformXAudio2::DisablePCMAudioCaching() const
+	{
+#if PLATFORM_WINDOWS
+		return false;
+#else
+		return true;
+#endif
+	}
 }

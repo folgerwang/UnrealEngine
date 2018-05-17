@@ -5,8 +5,16 @@
 #include "VectorField/VectorFieldStatic.h"
 #include "VectorField/VectorFieldAnimated.h"
 #include "Math/Float16Color.h"
+#include "NiagaraShader.h"
+#include "ShaderParameterUtils.h"
+
 #define LOCTEXT_NAMESPACE "NiagaraDataInterfaceVectorField"
 
+
+const FString UNiagaraDataInterfaceVectorField::BufferBaseName(TEXT("VectorFieldBuffer_"));
+const FString UNiagaraDataInterfaceVectorField::DimentionsBaseName(TEXT("Dimentions_"));
+const FString UNiagaraDataInterfaceVectorField::BoundsMinBaseName(TEXT("BoundsMin_"));
+const FString UNiagaraDataInterfaceVectorField::BoundsMaxBaseName(TEXT("BoundsMax_"));
 
 #if 0
 //////////////////////////////////////////////////////////////////////////
@@ -370,23 +378,21 @@ void UNiagaraDataInterfaceVectorField::GetFunctions(TArray<FNiagaraFunctionSigna
 	}
 }
 
-DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceVectorField, SampleVectorField);
-FVMExternalFunction UNiagaraDataInterfaceVectorField::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData)
+DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceVectorField, SampleVectorField);
+void UNiagaraDataInterfaceVectorField::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)
 {
-	FVMExternalFunction Function;
 	if (BindingInfo.Name == SampleVectorFieldName && BindingInfo.GetNumInputs() == 3 && BindingInfo.GetNumOutputs() == 3)
 	{
-		Function = TNDIParamBinder<0, float, TNDIParamBinder<1, float, TNDIParamBinder<2, float, NDI_FUNC_BINDER(UNiagaraDataInterfaceVectorField, SampleVectorField)>>>::Bind(this, BindingInfo, InstanceData);
+		TNDIParamBinder<0, float, TNDIParamBinder<1, float, TNDIParamBinder<2, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceVectorField, SampleVectorField)>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	else if (BindingInfo.Name == GetVectorDimsName && BindingInfo.GetNumInputs() == 0 && BindingInfo.GetNumOutputs() == 3)
 	{
-		Function = FVMExternalFunction::CreateUObject(this, &UNiagaraDataInterfaceVectorField::GetFieldDimensions);
+		OutFunc = FVMExternalFunction::CreateUObject(this, &UNiagaraDataInterfaceVectorField::GetFieldDimensions);
 	}
 	else if (BindingInfo.Name == GetVectorFieldBoundsName && BindingInfo.GetNumInputs() == 0 && BindingInfo.GetNumOutputs() == 6)
 	{
-		Function = FVMExternalFunction::CreateUObject(this, &UNiagaraDataInterfaceVectorField::GetFieldBounds);
+		OutFunc = FVMExternalFunction::CreateUObject(this, &UNiagaraDataInterfaceVectorField::GetFieldBounds);
 	}
-	return Function;
 }
 
 void UNiagaraDataInterfaceVectorField::GetFieldDimensions(FVectorVMContext& Context)
@@ -785,12 +791,11 @@ bool UNiagaraDataInterfaceVectorField::PerInstanceTick(void* PerInstanceData, FN
 	return false;
 }
 
-bool UNiagaraDataInterfaceVectorField::GetFunctionHLSL(const FName& DefinitionFunctionName, FString InstanceFunctionName, TArray<FDIGPUBufferParamDescriptor> &Descriptors, FString &HLSLInterfaceID, FString &OutHLSL)
+bool UNiagaraDataInterfaceVectorField::GetFunctionHLSL(const FName& DefinitionFunctionName, FString InstanceFunctionName, FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL)
 {
-	//FString BufferName = Descriptors[0].BufferParamName;
 	if (DefinitionFunctionName == SampleVectorFieldName)
 	{
-		FString BufferName = Descriptors[0].BufferParamName;
+		FString BufferName = "VectorFieldLUT_" + ParamInfo.DataInterfaceHLSLSymbol;
 		OutHLSL += TEXT("void ") + InstanceFunctionName + TEXT("(float3 In_SamplePoint,  out float3 Out_Value) \n{\n");
 		OutHLSL += TEXT("\t int3 IntCoord = int3(0,0,0);\n");
 		OutHLSL += TEXT("\t int3 Dimensions = int3(1,1,1);\n");
@@ -800,57 +805,36 @@ bool UNiagaraDataInterfaceVectorField::GetFunctionHLSL(const FName& DefinitionFu
 	}
 	else if (DefinitionFunctionName == GetVectorDimsName)
 	{
+		FString DimsVar = DimentionsBaseName + ParamInfo.DataInterfaceHLSLSymbol;
 		OutHLSL += TEXT("void ") + InstanceFunctionName + TEXT("(out float3 Out_Value) \n{\n");
-		OutHLSL += TEXT("\t Out_Value = float3(1.0f, 1.0f, 1.0f);\n");
+		OutHLSL += TEXT("\t Out_Value = ") + DimsVar + TEXT(";\n");
 		OutHLSL += TEXT("\n}\n");
 		return true;
 	}
 	else if (DefinitionFunctionName == GetVectorFieldBoundsName)
 	{
+		FString BoundsMinVar = BoundsMinBaseName + ParamInfo.DataInterfaceHLSLSymbol;
+		FString BoundsMaxVar = BoundsMaxBaseName + ParamInfo.DataInterfaceHLSLSymbol;
 		OutHLSL += TEXT("void ") + InstanceFunctionName + TEXT("(out float3 Out_MinBounds, out float3 Out_MaxBounds) \n{\n");
-		OutHLSL += TEXT("\t Out_MinBounds = Out_MaxBounds = float3(1.0f, 1.0f, 1.0f);\n");
+		OutHLSL += TEXT("\t Out_MinBounds = ") + BoundsMinVar + TEXT(";\n");
+		OutHLSL += TEXT("\t Out_MaxBounds = ") + BoundsMaxVar + TEXT(";\n");
 		OutHLSL += TEXT("\n}\n");
 		return true;
 	}
 	return false;
 }
 
-// build buffer definition hlsl
-// 1. Choose a buffer name, add the data interface ID (important!)
-// 2. add a DIGPUBufferParamDescriptor to the array argument; that'll be passed on to the FNiagaraShader for binding to a shader param, that can
-// then later be found by name via FindDIBufferParam for setting; 
-// 3. store buffer declaration hlsl in OutHLSL
-// multiple buffers can be defined at once here
-//
-void UNiagaraDataInterfaceVectorField::GetBufferDefinitionHLSL(FString DataInterfaceID, TArray<FDIGPUBufferParamDescriptor> &BufferDescriptors, FString &OutHLSL)
+void UNiagaraDataInterfaceVectorField::GetParameterDefinitionHLSL(FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL)
 {
-	FString BufferName = "VectorFieldLUT" + DataInterfaceID;
-	OutHLSL += TEXT("Buffer<float4> ") + BufferName + TEXT(";\n");
-
-	BufferDescriptors.Add(FDIGPUBufferParamDescriptor(BufferName, 0));		// add a descriptor for shader parameter binding
+	OutHLSL += TEXT("Buffer<float4> ") + BufferBaseName + ParamInfo.DataInterfaceHLSLSymbol + TEXT(";\n");
+	OutHLSL += TEXT("float3 ") + DimentionsBaseName + ParamInfo.DataInterfaceHLSLSymbol + TEXT(";\n");
 }
 
-// called after translate, to setup buffers matching the buffer descriptors generated during hlsl translation
-// need to do this because the script used during translate is a clone, including its DIs
-//
-void UNiagaraDataInterfaceVectorField::SetupBuffers(FDIBufferDescriptorStore &BufferDescriptors)
-{
-	GPUBuffers.Empty();
-	for (FDIGPUBufferParamDescriptor &Desc : BufferDescriptors.Descriptors)
-	{
-		FNiagaraDataInterfaceBufferData BufferData(*Desc.BufferParamName);	// store off the data for later use
-		GPUBuffers.Add(BufferData);
-	}
-	bGPUBufferDirty = true;
-}
-
-// return the GPU buffer array (called from NiagaraInstanceBatcher to get the buffers for setting to the shader)
-// we lazily update the buffer with a new LUT here if necessary
-//
-TArray<FNiagaraDataInterfaceBufferData> &UNiagaraDataInterfaceVectorField::GetBufferDataArray()
+FRWBuffer& UNiagaraDataInterfaceVectorField::GetGPUBuffer()
 {
 	check(IsInRenderingThread());
 
+	//TODO: Doing this here is not really threadsafe. Need to move to an RT proxy style model?
 	if (bGPUBufferDirty)
 	{
 		UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
@@ -868,9 +852,7 @@ TArray<FNiagaraDataInterfaceBufferData> &UNiagaraDataInterfaceVectorField::GetBu
 			Depth = StaticVectorField->SizeZ;
 		}
 		
-		check(GPUBuffers.Num() > 0);
-		FNiagaraDataInterfaceBufferData &GPUBuffer = GPUBuffers[0];
-		GPUBuffer.Buffer.Release();
+		GPUBuffer.Release();
 		uint32 BufferSize = Width * Height * Depth * sizeof(float) * 4;
 		TResourceArray<FVector4> TempTable;
 		TempTable.AddUninitialized(Width*Height*Depth);
@@ -909,14 +891,58 @@ TArray<FNiagaraDataInterfaceBufferData> &UNiagaraDataInterfaceVectorField::GetBu
 			}
 		}
 
-		GPUBuffer.Buffer.Initialize(sizeof(float) * 4, Width*Height*Depth, EPixelFormat::PF_A32B32G32R32F, BUF_Static, TEXT("CurlnoiseTable"), &TempTable);
+		GPUBuffer.Initialize(sizeof(float) * 4, Width*Height*Depth, EPixelFormat::PF_A32B32G32R32F, BUF_Static, TEXT("CurlnoiseTable"), &TempTable);
 		//FPlatformMemory::Memcpy(BufferData, TempTable, BufferSize);
 		//RHIUnlockVertexBuffer(GPUBuffer.Buffer.Buffer);
 		bGPUBufferDirty = false;
 	}
-	return GPUBuffers;
+
+	return GPUBuffer;
 }
 
+struct FNiagaraDataInterfaceParametersCS_VectorField : public FNiagaraDataInterfaceParametersCS
+{
+	virtual void Bind(const FNiagaraDataInterfaceParamRef& ParamRef, const class FShaderParameterMap& ParameterMap) override
+	{
+		VectorFieldBuffer.Bind(ParameterMap, *(UNiagaraDataInterfaceVectorField::BufferBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
+		Dimentions.Bind(ParameterMap, *(UNiagaraDataInterfaceVectorField::DimentionsBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
+		BoundsMin.Bind(ParameterMap, *(UNiagaraDataInterfaceVectorField::BoundsMinBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
+		BoundsMax.Bind(ParameterMap, *(UNiagaraDataInterfaceVectorField::BoundsMaxBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
+	}
 
+	virtual void Serialize(FArchive& Ar)override
+	{
+		Ar << VectorFieldBuffer;
+		Ar << Dimentions;
+		Ar << BoundsMin;
+		Ar << BoundsMax;
+	}
+
+	virtual void Set(FRHICommandList& RHICmdList, FNiagaraShader* Shader, class UNiagaraDataInterface* DataInterface) const override 
+	{
+		check(IsInRenderingThread());
+
+		const FComputeShaderRHIParamRef ComputeShaderRHI = Shader->GetComputeShader();
+		UNiagaraDataInterfaceVectorField* VFDI = CastChecked<UNiagaraDataInterfaceVectorField>(DataInterface);
+		FRWBuffer& VFBuffer = VFDI->GetGPUBuffer();
+
+		RHICmdList.SetShaderResourceViewParameter(ComputeShaderRHI, VectorFieldBuffer.GetBaseIndex(), VFBuffer.SRV);
+		SetShaderValue(RHICmdList, ComputeShaderRHI, Dimentions, VFDI->GetDimentions());
+		SetShaderValue(RHICmdList, ComputeShaderRHI, BoundsMin, VFDI->GetBoundsMin());
+		SetShaderValue(RHICmdList, ComputeShaderRHI, BoundsMax, VFDI->GetBoundsMax());
+	}
+
+private:
+
+	FShaderResourceParameter VectorFieldBuffer;
+	FShaderParameter Dimentions;
+	FShaderParameter BoundsMin;
+	FShaderParameter BoundsMax;
+};
+
+FNiagaraDataInterfaceParametersCS* UNiagaraDataInterfaceVectorField::ConstructComputeParameters()const
+{
+	return new FNiagaraDataInterfaceParametersCS_VectorField();
+}
 
 #undef LOCTEXT_NAMESPACE

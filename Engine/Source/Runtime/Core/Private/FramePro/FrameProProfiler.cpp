@@ -228,7 +228,11 @@ static FAutoConsoleVariableRef CVarFrameProCPUStatsUpdateRate(
 void FFrameProProfiler::FrameStart()
 {
 	static bool bFirstFrame = true;
+#if PLATFORM_SWITCH
+	if (bFirstFrame && GFrameProEnabled)
+#else
 	if (bFirstFrame)
+#endif
 	{
 		UE_LOG(LogFramePro, Log, TEXT("FramePro Support Available"));
 

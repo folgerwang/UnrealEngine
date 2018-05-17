@@ -1262,6 +1262,14 @@ void FPlayWorldCommandCallbacks::PausePlaySession_Clicked()
 }
 
 
+void FPlayWorldCommandCallbacks::SingleFrameAdvance_Clicked()
+{
+	if (HasPlayWorld())
+	{
+		FInternalPlayWorldCommandCallbacks::SingleFrameAdvance_Clicked();
+	}
+}
+
 bool FPlayWorldCommandCallbacks::IsInSIE()
 {
 	return GEditor->bIsSimulatingInEditor;

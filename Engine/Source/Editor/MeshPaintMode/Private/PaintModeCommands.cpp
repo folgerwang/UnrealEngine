@@ -45,8 +45,17 @@ void FPaintModeCommands::RegisterCommands()
 	Commands.Add(SaveTexturePaint);
 
 	UI_COMMAND(SwitchForeAndBackgroundColor, "Switch Fore and Background Color", "Switches the Fore and Background Colors used for Vertex Painting", EUserInterfaceActionType::None, FInputChord(EKeys::X));
-	Commands.Add(SaveTexturePaint);
+	Commands.Add(SwitchForeAndBackgroundColor);
 
+	UI_COMMAND(PropagateVertexColorsToLODs, "Apply Vertex Colors to LODs", "Applied the Vertex Colors from LOD0 to all LOD levels", EUserInterfaceActionType::Button, FInputChord());
+	Commands.Add(PropagateVertexColorsToLODs);
+
+
+	UI_COMMAND(CycleToNextLOD, "Cycle to next Mesh LOD", "Cycles to the next possible Mesh LOD to Paint on", EUserInterfaceActionType::None, FInputChord(EKeys::N));
+	Commands.Add(CycleToNextLOD);
+
+	UI_COMMAND(CycleToPreviousLOD, "Cycle to previous Mesh LOD", "Cycles to the previous possible Mesh LOD to Paint on", EUserInterfaceActionType::None, FInputChord(EKeys::B));
+	Commands.Add(CycleToPreviousLOD);
 }
 
 #undef LOCTEXT_NAMESPACE

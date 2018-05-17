@@ -16,7 +16,9 @@ void SNiagaraGraphParameterMapGetNode::Construct(const FArguments& InArgs, UEdGr
 	BackgroundBrush = FEditorStyle::GetBrush("Graph.Pin.Background");
 	BackgroundHoveredBrush = FEditorStyle::GetBrush("PlainBorder");
 
-	GraphNode = InGraphNode;
+	GraphNode = InGraphNode; 
+	RegisterNiagaraGraphNode(InGraphNode);
+
 	UpdateGraphNode();
 }
 

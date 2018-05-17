@@ -9,7 +9,7 @@
 
 void FD3D12Fence::InternalSignal(ED3D12CommandQueueType InQueueType, uint64 FenceToSignal)
 {
-	for (uint32 GPUIndex : GetNodeMask())
+	for (uint32 GPUIndex : GetGPUMask())
 	{
 		ID3D12CommandQueue* CommandQueue = GetParentAdapter()->GetDevice(GPUIndex)->GetD3DCommandQueue(InQueueType);
 		check(CommandQueue);
@@ -28,7 +28,7 @@ void FD3D12Fence::WaitForFence(uint64 FenceValue)
 {
 	if (!IsFenceComplete(FenceValue))
 	{
-		for (uint32 GPUIndex : GetNodeMask())
+		for (uint32 GPUIndex : GetGPUMask())
 		{
 			FD3D12FenceCore* FenceCore = FenceCores[GPUIndex];
 			check(FenceCore);
@@ -53,6 +53,8 @@ void FD3D12Fence::WaitForFence(uint64 FenceValue)
 
 		// Refresh the completed fence value
 		UpdateLastCompletedFence();
+#if DEBUG_FENCES
 		checkf(FenceValue <= LastCompletedFence, TEXT("Wait for fence value (%llu) failed! Last completed value is still %llu."), FenceValue, LastCompletedFence);
+#endif
 	}
 }

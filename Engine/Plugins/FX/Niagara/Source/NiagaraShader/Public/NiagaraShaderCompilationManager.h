@@ -24,7 +24,7 @@ struct FNiagaraShaderCompileWorkerInfo
 	double StartTime;
 
 	/** Jobs that this worker is responsible for compiling. */
-	TArray<class FNiagaraShaderCompileJob*> QueuedJobs;
+	TArray<class FShaderCommonCompileJob*> QueuedJobs;
 
 	FNiagaraShaderCompileWorkerInfo() :
 		bIssuedTasksToWorker(false),
@@ -45,6 +45,7 @@ struct FNiagaraShaderCompileWorkerInfo
 	}
 };
 
+#if 0
 /** Stores all of the input and output information used to compile a single shader. */
 class FNiagaraShaderCompileJob 
 {
@@ -61,8 +62,11 @@ public:
 	/** Input for the shader compile */
 	FShaderCompilerInput Input;
 	FShaderCompilerOutput Output;
+
+	class FShaderCompileJob* BaseCompileJob;
+
 	FString Hlsl;
-	TArray< FDIBufferDescriptorStore >DIBufferDescriptors;
+	TArray<FNiagaraDataInterfaceGPUParamInfo> DIParamInfo;
 
 	FNiagaraShaderCompileJob(uint32 InId, FShaderType* InShaderType, FString InHlsl) :
 		Id(InId),
@@ -70,10 +74,12 @@ public:
 		bSucceeded(false),
 		bOptimizeForLowLatency(false),
 		ShaderType(InShaderType),
+		BaseCompileJob(nullptr),
 		Hlsl(InHlsl)
 	{
 	}
 };
+#endif
 
 
 
@@ -89,7 +95,7 @@ struct FNiagaraShaderMapCompileResults
 	int32 NumJobsQueued;
 	bool bAllJobsSucceeded;
 	bool bRecreateComponentRenderStateOnCompletion;
-	TArray<FNiagaraShaderCompileJob*> FinishedJobs;
+	TArray<FShaderCommonCompileJob*> FinishedJobs;
 };
 
 
@@ -114,7 +120,7 @@ public:
 	FNiagaraShaderCompilationManager();
 
 	NIAGARASHADER_API void Tick(float DeltaSeconds = 0.0f);
-	NIAGARASHADER_API void AddJobs(TArray<FNiagaraShaderCompileJob*> InNewJobs);
+	NIAGARASHADER_API void AddJobs(TArray<class FShaderCommonCompileJob*> InNewJobs);
 	NIAGARASHADER_API void ProcessAsyncResults();
 
 	void FinishCompilation(const TCHAR* ScriptName, const TArray<int32>& ShaderMapIdsToFinishCompiling);
@@ -123,7 +129,7 @@ private:
 	void ProcessCompiledNiagaraShaderMaps(TMap<int32, FNiagaraShaderMapFinalizeResults>& CompiledShaderMaps, float TimeBudget);
 	void RunCompileJobs();
 
-	TArray<FNiagaraShaderCompileJob*> JobQueue;
+	TArray<class FShaderCommonCompileJob*> JobQueue;
 
 	/** Map from shader map Id to the compile results for that map, used to gather compiled results. */
 	TMap<int32, FNiagaraShaderMapCompileResults> NiagaraShaderMapJobs;

@@ -313,6 +313,11 @@ namespace Audio
 		return AudioMixerPlatform->SupportsRealtimeDecompression();
 	}
 
+	bool FMixerDevice::DisablePCMAudioCaching() const
+	{
+		return AudioMixerPlatform->DisablePCMAudioCaching();
+	}
+
 	class ICompressedAudioInfo* FMixerDevice::CreateCompressedAudioInfo(USoundWave* InSoundWave)
 	{
 		check(InSoundWave);

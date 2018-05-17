@@ -242,6 +242,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
 	void SetAffectTranslucentLighting(bool bNewValue);
 
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
+	void SetTransmission(bool bNewValue);
+
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
 	void SetEnableLightShaftBloom(bool bNewValue);
 

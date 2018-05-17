@@ -78,14 +78,14 @@ public:
 
 	virtual void RegisterPostOpaqueComputeDispatcher(FComputeDispatcher *Dispatcher) override;
 	virtual void UnRegisterPostOpaqueComputeDispatcher(FComputeDispatcher *Dispatcher) override;
-	virtual void DispatchPostOpaqueCompute(FRHICommandList &CmdList) override;
+	virtual void DispatchPostOpaqueCompute(FRHICommandList &CmdList, FUniformBufferRHIParamRef ViewUniformBuffer) override;
 
 	virtual void RegisterPostOpaqueRenderDelegate(const FPostOpaqueRenderDelegate& PostOpaqueRenderDelegate) override;
 	virtual void RegisterOverlayRenderDelegate(const FPostOpaqueRenderDelegate& OverlayRenderDelegate) override;
-	void RenderPostOpaqueExtensions(const FViewInfo& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext);
-	void RenderOverlayExtensions(const FViewInfo& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext);
+	virtual void RenderPostOpaqueExtensions(const FViewInfo& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext) override;
+	virtual void RenderOverlayExtensions(const FViewInfo& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext) override;
 
-	bool HasPostOpaqueExtentions() const
+	virtual bool HasPostOpaqueExtentions() const override
 	{
 		return PostOpaqueRenderDelegate.IsBound();
 	}
@@ -98,8 +98,6 @@ public:
 	virtual void RenderPostResolvedSceneColorExtension(FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext) override;
 
 	virtual void PostRenderAllViewports() override;
-
-	static FRendererModule* GetRendererModule();
 
 private:
 	TSet<FSceneInterface*> AllocatedScenes;

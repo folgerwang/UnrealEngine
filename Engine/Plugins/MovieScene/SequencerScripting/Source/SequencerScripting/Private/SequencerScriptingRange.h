@@ -5,7 +5,7 @@
 #include "CoreTypes.h"
 #include "UObject/ObjectMacros.h"
 #include "MovieSceneTimeHelpers.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "Math/Range.h"
 
 #include "SequencerScriptingRange.generated.h"
@@ -83,10 +83,10 @@ struct FSequencerScriptingRange
 		return Result;
 	}
 
-	UPROPERTY(BlueprintReadWrite, Category=Range)
+	UPROPERTY(BlueprintReadWrite, Category=Range, meta=(ScriptName="HasStartValue"))
 	uint8 bHasStart : 1;
 
-	UPROPERTY(BlueprintReadWrite, Category=Range)
+	UPROPERTY(BlueprintReadWrite, Category=Range, meta=(ScriptName="HasEndValue"))
 	uint8 bHasEnd : 1;
 
 	UPROPERTY(BlueprintReadWrite, Category=Range)

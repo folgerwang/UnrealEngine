@@ -189,7 +189,8 @@ protected:
 	/**
 	 * The view state holds persistent scene rendering state and enables occlusion culling in scene captures.
 	 * NOTE: This object is used by the rendering thread. When the game thread attempts to destroy it, FDeferredCleanupInterface will keep the object around until the RT is done accessing it.
+	 * NOTE: It is not safe to put a FSceneViewStateReference in a TArray, which moves its contents around without calling element constructors during realloc.
 	 */
-	TArray<FSceneViewStateReference> ViewStates;
+	TIndirectArray<FSceneViewStateReference> ViewStates;
 };
 

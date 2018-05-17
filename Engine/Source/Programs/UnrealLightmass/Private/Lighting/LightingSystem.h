@@ -2270,7 +2270,7 @@ private:
 		bool bDebugThisSample) const;
 
 	/** Calculates area shadowing from a light for the given vertex. */
-	int32 CalculatePointAreaShadowing(
+	FVector2D CalculatePointAreaShadowing(
 		const FStaticLightingMapping* Mapping,
 		const FStaticLightingVertex& Vertex,
 		int32 ElementIndex,
