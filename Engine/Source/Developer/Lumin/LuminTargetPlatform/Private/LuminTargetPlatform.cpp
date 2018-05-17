@@ -109,15 +109,15 @@ void FLuminTargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutFormat
 //	static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
 //	static FName NAME_GLSL_SM4(TEXT("GLSL_150"));
 	static FName NAME_GLSL_SM5(TEXT("GLSL_430"));
-	static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
-	static FName NAME_VULKAN_ES31(TEXT("SF_VULKAN_ES31_ANDROID"));
+	static FName NAME_VULKAN_SM5_LUMIN(TEXT("SF_VULKAN_SM5_LUMIN"));
+	static FName NAME_VULKAN_ES31_LUMIN(TEXT("SF_VULKAN_ES31_LUMIN"));
 
 	if (SupportsMobileRendering())
 	{
 		OutFormats.AddUnique(NAME_GLSL_ES2);
 		if (LuminSupportsVulkan(EngineSettings))
 		{
-			OutFormats.AddUnique(NAME_VULKAN_ES31);
+			OutFormats.AddUnique(NAME_VULKAN_ES31_LUMIN);
 		}
 	}
 
@@ -129,7 +129,7 @@ void FLuminTargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutFormat
 
 		if (LuminSupportsVulkan(EngineSettings))
 		{
-			OutFormats.AddUnique(NAME_VULKAN_SM5);
+			OutFormats.AddUnique(NAME_VULKAN_SM5_LUMIN);
 		}
 	}
 }
