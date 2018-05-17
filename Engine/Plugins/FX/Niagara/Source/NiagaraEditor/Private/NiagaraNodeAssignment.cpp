@@ -238,6 +238,7 @@ void UNiagaraNodeAssignment::AddParameter(FNiagaraVariable InVar, FString InDefa
 	AddAssignmentTarget(InVar, &InDefaultValue);
 
 	RefreshFromExternalChanges();
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
 	OnInputsChangedDelegate.Broadcast();
 }
 
@@ -265,6 +266,7 @@ void UNiagaraNodeAssignment::RemoveParameter(const FNiagaraVariable& InVar)
 	}
 
 	RefreshFromExternalChanges();
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
 	OnInputsChangedDelegate.Broadcast();
 }
 
