@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AutomationTool
+namespace Tools.DotNETCommon
 {
 	/// <summary>
 	/// Allows queuing a large number of tasks to a thread pool and waiting for them all to complete.
