@@ -5,9 +5,14 @@
 # This script checks if that happened and simply re-runs the tool.
 
 ARGS=$@
+
+BASE_PATH="`pwd`/`dirname "$0"`"
+
 # cd to Engine root
 cd "$(dirname "$BASH_SOURCE")"/../../../..
 RESULT=0
+
+source "$BASE_PATH/SetupMono.sh" $BASE_PATH
 
 while : ; do
         mono Engine/Binaries/DotNET/GitDependencies.exe $ARGS
