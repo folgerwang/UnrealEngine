@@ -2778,6 +2778,8 @@ void FLevelOfDetailSettingsLayout::AddToDetailsPanel( IDetailLayoutBuilder& Deta
 			.OnSelectionChanged(this, &FLevelOfDetailSettingsLayout::OnImportLOD)
 		];
 
+	int32 PlatformNumber = PlatformInfo::GetAllPlatformGroupNames().Num();
+
 	LODSettingsCategory.AddCustomRow( LOCTEXT("MinLOD", "Minimum LOD") )
 	.NameContent()
 	[
@@ -2786,6 +2788,8 @@ void FLevelOfDetailSettingsLayout::AddToDetailsPanel( IDetailLayoutBuilder& Deta
 		.Text(LOCTEXT("MinLOD", "Minimum LOD"))
 	]
 	.ValueContent()
+	.MinDesiredWidth((float)(StaticMesh->MinLOD.PerPlatform.Num() + 1)*125.0f)
+	.MaxDesiredWidth((float)(PlatformNumber + 1)*125.0f)
 	[
 		SNew(SPerPlatformPropertiesWidget)
 		.OnGenerateWidget(this, &FLevelOfDetailSettingsLayout::GetMinLODWidget)
@@ -3061,6 +3065,8 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			SectionSettingsWidgets[ LODIndex ] = MakeShareable( new FMeshSectionSettingsLayout( StaticMeshEditor, LODIndex, LodCategories, &CustomLODEditMode) );
 			SectionSettingsWidgets[ LODIndex ]->AddToCategory( LODCategory );
 
+			int32 PlatformNumber = PlatformInfo::GetAllPlatformGroupNames().Num();
+
 			LODCategory.AddCustomRow(( LOCTEXT("ScreenSizeRow", "ScreenSize")))
 			.NameContent()
 			[
@@ -3069,8 +3075,8 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 				.Text(LOCTEXT("ScreenSizeName", "Screen Size"))
 			]
 			.ValueContent()
-			.MinDesiredWidth(FLevelOfDetailSettingsLayout::GetScreenSizeWidgetWidth(LODIndex))
-			.MaxDesiredWidth(FLevelOfDetailSettingsLayout::GetScreenSizeWidgetWidth(LODIndex))
+			.MinDesiredWidth(GetScreenSizeWidgetWidth(LODIndex))
+			.MaxDesiredWidth((float)(PlatformNumber + 1)*125.0f)
 			[
 				SNew(SPerPlatformPropertiesWidget)
 				.OnGenerateWidget(this, &FLevelOfDetailSettingsLayout::GetLODScreenSizeWidget, LODIndex)
@@ -3173,6 +3179,7 @@ TSharedRef<SWidget> FLevelOfDetailSettingsLayout::GetLODScreenSizeWidget(FName P
 {
 	return SNew(SSpinBox<float>)
 		.Font(IDetailLayoutBuilder::GetDetailFont())
+		.MinDesiredWidth(60.0f)
 		.MinValue(0.0f)
 		.MaxValue(WORLD_MAX)
 		.SliderExponent(2.0f)

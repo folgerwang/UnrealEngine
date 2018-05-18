@@ -58,8 +58,8 @@ public:
 
 	void ConstructChildren()
 	{
-		TSharedPtr<SHorizontalBox> H;
-		TSharedPtr<SVerticalBox> V;
+		TSharedPtr<SHorizontalBox> HorizontalBox;
+		TSharedPtr<SVerticalBox> VerticalBox;
 
 		TArray<FName> PlatformOverrides = PlatformOverrideNames.Get();
 		LastPlatformOverrideNames = PlatformOverrides.Num();
@@ -67,10 +67,11 @@ public:
 		.VAlign(VAlign_Fill)
 		.HAlign(HAlign_Fill)
 		[
-			SAssignNew(H, SHorizontalBox)
+			SAssignNew(HorizontalBox, SHorizontalBox)
 			+SHorizontalBox::Slot()
+			.FillWidth(1.0f)
 			[
-				SAssignNew(V, SVerticalBox)
+				SAssignNew(VerticalBox, SVerticalBox)
 				+ SVerticalBox::Slot()
 				.AutoHeight()
 				[
@@ -85,7 +86,7 @@ public:
 		if (OnGenerateWidget.IsBound())
 		{
 			// Default control
-			V->AddSlot()
+			VerticalBox->AddSlot()
 			.AutoHeight()
 			.VAlign(EVerticalAlignment::VAlign_Bottom)
 			[
@@ -115,7 +116,7 @@ public:
 
 			if (bAddedMenuItem)
 			{
-				H->AddSlot()
+				HorizontalBox->AddSlot()
 				.AutoWidth()
 				[
 					SNew(SComboButton)
@@ -133,8 +134,9 @@ public:
 
 			for (FName PlatformName : PlatformOverrides)
 			{
-				H->AddSlot()
+				HorizontalBox->AddSlot()
 				.Padding(FMargin(5.0f, 0.0f, 0.0f, 0.0f))
+				.AutoWidth()
 				[
 					SNew(SVerticalBox)
 					+ SVerticalBox::Slot()
@@ -143,6 +145,7 @@ public:
 					[
 						SNew(SHorizontalBox)
 						+ SHorizontalBox::Slot()
+						.FillWidth(1.0f)
 						[
 							SNew(STextBlock)
 							.Font(IDetailLayoutBuilder::GetDetailFont())
@@ -151,9 +154,10 @@ public:
 
 						+ SHorizontalBox::Slot()
 						.HAlign(EHorizontalAlignment::HAlign_Right)
+						.AutoWidth()
 						[
 							SNew(SButton)
-							.ContentPadding(FMargin(1.0f, 1.0f, 1.0f, 1.0f))
+							.ContentPadding(FMargin(1.0f, 0.0f, 1.0f, 0.0f))
 							.ButtonStyle(FEditorStyle::Get(), "NoBorder")
 							.OnClicked(this, &SPerPlatformPropertiesWidget::RemovePlatform, PlatformName)
 							.ToolTipText(FText::Format(NSLOCTEXT("SPerPlatformPropertiesWidget", "RemoveOverrideFor", "Remove Override for {0}"), FText::AsCultureInvariant(PlatformName.ToString())))
@@ -178,7 +182,7 @@ public:
 		}
 		else
 		{
-			V->AddSlot()
+			VerticalBox->AddSlot()
 			.AutoHeight()
 			[
 				SNew(STextBlock)

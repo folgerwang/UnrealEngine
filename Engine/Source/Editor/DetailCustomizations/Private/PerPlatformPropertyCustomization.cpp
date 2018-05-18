@@ -19,13 +19,15 @@
 template<typename PerPlatformType>
 void FPerPlatformPropertyCustomization<PerPlatformType>::CustomizeHeader(TSharedRef<IPropertyHandle> StructPropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
 {
+	int32 PlatformNumber = PlatformInfo::GetAllPlatformGroupNames().Num();
+
 	HeaderRow.NameContent()
 	[
 		StructPropertyHandle->CreatePropertyNameWidget()
 	]
 	.ValueContent()
 	.MinDesiredWidth(CalcDesiredWidth(StructPropertyHandle))
-	.MaxDesiredWidth(CalcDesiredWidth(StructPropertyHandle))
+	.MaxDesiredWidth((float)(PlatformNumber + 1)*125.0f)
 	[
 		SNew(SPerPlatformPropertiesWidget)
 		.OnGenerateWidget(this, &FPerPlatformPropertyCustomization<PerPlatformType>::GetWidget, StructPropertyHandle)
@@ -140,43 +142,35 @@ bool FPerPlatformPropertyCustomization<PerPlatformType>::AddPlatformOverride(FNa
 			}
 		}
 	}
-
 	return false;
 }
 
 template<typename PerPlatformType>
 bool FPerPlatformPropertyCustomization<PerPlatformType>::RemovePlatformOverride(FName PlatformGroupName, TSharedRef<IPropertyHandle> StructPropertyHandle)
 {
-	TSharedPtr<IPropertyHandle>	PerPlatformProperty = StructPropertyHandle->GetChildHandle(FName("PerPlatform"));
-	if (PerPlatformProperty.IsValid())
+	TSharedPtr<IPropertyHandle>	MapProperty = StructPropertyHandle->GetChildHandle(FName("PerPlatform"));
+	if (MapProperty.IsValid())
 	{
-		TSharedPtr<IPropertyHandleMap> MapProperty = PerPlatformProperty->AsMap();
-		if (MapProperty.IsValid())
+		TArray<const void*> RawData;
+		MapProperty->AccessRawData(RawData);
+		for (const void* Data : RawData)
 		{
-			uint32 NumChildren = 0;
-			PerPlatformProperty->GetNumChildren(NumChildren);
-			for (uint32 ChildIdx = 0; ChildIdx < NumChildren; ChildIdx++)
+			TMap<FName, typename PerPlatformType::ValueType>* PerPlatformMap = (TMap<FName, typename PerPlatformType::ValueType>*)(Data);
+			check(PerPlatformMap);
+			TArray<FName> KeyArray;
+			PerPlatformMap->GenerateKeyArray(KeyArray);
+			for (FName PlatformName : KeyArray)
 			{
-				TSharedPtr<IPropertyHandle> ChildProperty = PerPlatformProperty->GetChildHandle(ChildIdx);
-				if (ChildProperty.IsValid())
+				if (PlatformName == PlatformGroupName)
 				{
-					TSharedPtr<IPropertyHandle> KeyProperty = ChildProperty->GetKeyHandle();
-					if (KeyProperty.IsValid())
-					{
-						FName KeyName;
-						if (KeyProperty->GetValue(KeyName) == FPropertyAccess::Success && KeyName == PlatformGroupName)
-						{
-							MapProperty->DeleteItem(ChildIdx);
-							return true;
-						}
-					}
+					PerPlatformMap->Remove(PlatformName);
+					return true;
 				}
 			}
 		}
-
-		return true;
 	}
 	return false;
+
 }
 
 template<typename PerPlatformType>
