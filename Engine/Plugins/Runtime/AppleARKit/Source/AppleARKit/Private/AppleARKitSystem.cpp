@@ -5,7 +5,7 @@
 #include "AppleARKitSessionDelegate.h"
 #include "Misc/ScopeLock.h"
 #include "AppleARKitModule.h"
-#include "AppleARKitTransform.h"
+#include "AppleARKitConversion.h"
 #include "AppleARKitVideoOverlay.h"
 #include "AppleARKitFrame.h"
 #include "AppleARKitAnchor.h"
@@ -1204,7 +1204,6 @@ void FAppleARKitSystem::SessionDidFailWithError_DelegateThread(const FString& Er
 
 static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData( ARAnchor* Anchor, const float WorldToMeterScale )
 {
-	// Construct appropriate UAppleARKitAnchor subclass
 	TSharedPtr<FAppleARKitAnchorData> NewAnchor;
 	if ([Anchor isKindOfClass:[ARPlaneAnchor class]])
 	{

@@ -3,7 +3,7 @@
 // AppleARKit
 #include "AppleARKitPlaneAnchor.h"
 #include "AppleARKitModule.h"
-#include "AppleARKitTransform.h"
+#include "AppleARKitConversion.h"
 
 // UE4
 #include "Misc/ScopeLock.h"
