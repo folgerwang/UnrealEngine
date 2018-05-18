@@ -190,6 +190,7 @@ void SDetailsView::Construct(const FArguments& InArgs)
 			[
 				// Create the search box
 				SAssignNew(SearchBox, SSearchBox)
+				.HintText(LOCTEXT("SearchDetailsHint", "Search Details"))
 				.OnTextChanged(this, &SDetailsView::OnFilterTextChanged)
 				.AddMetaData<FTagMetaData>(TEXT("Details.Search"))
 			]
@@ -892,7 +893,7 @@ void SDetailsView::SetOnObjectArrayChanged(FOnObjectArrayChanged OnObjectArrayCh
 
 bool SDetailsView::IsConnected() const
 {
-	return RootPropertyNodes.Num() > 0;
+	return GetNumObjects() > 0;
 }
 
 const FSlateBrush* SDetailsView::OnGetLockButtonImageResource() const
