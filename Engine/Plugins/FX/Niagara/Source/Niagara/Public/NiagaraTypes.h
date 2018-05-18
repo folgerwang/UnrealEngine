@@ -300,7 +300,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Variable")
 	TMap<FName, FString> PropertyMetaData;
 
-	UPROPERTY(EditAnywhere, Category = "Variable")
+	UPROPERTY(EditAnywhere, Category = "Variable", meta = (MultiLine = true))
 	FText Description;
 
 	UPROPERTY(EditAnywhere, Category = "Variable")
