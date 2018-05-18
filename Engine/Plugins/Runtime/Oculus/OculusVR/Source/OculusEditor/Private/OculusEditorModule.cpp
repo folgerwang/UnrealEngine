@@ -5,6 +5,7 @@
 #include "Modules/ModuleManager.h"
 #include "UObject/WeakObjectPtr.h"
 #include "UObject/Class.h"
+#include "OculusAssetDirectory.h"
 
 // Settings
 #include "ISettingsModule.h"
@@ -20,10 +21,13 @@ public:
 	virtual void StartupModule() override
 	{				
 		RegisterSettings();
+		FOculusAssetDirectory::LoadForCook();
 	}
 
 	virtual void ShutdownModule() override
 	{
+		FOculusAssetDirectory::ReleaseAll();
+
 		if (UObjectInitialized())
 		{
 			UnregisterSettings();  
