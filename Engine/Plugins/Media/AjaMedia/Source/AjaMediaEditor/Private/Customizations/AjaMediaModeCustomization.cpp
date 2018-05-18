@@ -83,7 +83,7 @@ TSharedRef<SWidget> FAjaMediaModeCustomization::HandleSourceComboButtonMenuConte
 	// generate menu
 	FMenuBuilder MenuBuilder(true, nullptr);
 
-	ANSICHAR* SectionName = bOutput ? "AllOutputModes" : "AllInputModes";
+	const ANSICHAR* SectionName = bOutput ? "AllOutputModes" : "AllInputModes";
 	TAttribute<FText> HeaderText = bOutput ? LOCTEXT("AllOutputModesSection", "Output Modes") : LOCTEXT("AllInputModesSection", "Input Modes");
 
 	MenuBuilder.BeginSection(SectionName, HeaderText);
