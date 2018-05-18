@@ -18,7 +18,7 @@ namespace ELogVerbosity
 		/** Not used */
 		NoLogging		= 0,
 
-		/** Always prints s fatal error to console (and log file) and crashes (even if logging is disabled) */
+		/** Always prints a fatal error to console (and log file) and crashes (even if logging is disabled) */
 		Fatal,
 
 		/** 
