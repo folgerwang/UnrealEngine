@@ -30,7 +30,7 @@ FLuminTargetPlatform::FLuminTargetPlatform(bool bIsClient)
 	GetAllTargetedShaderFormats(TargetedShaderFormats);
 
 	// If we are targeting ES 2.0/3.1, we also must cook encoded HDR reflection captures
-	static FName NAME_VULKAN_ES31(TEXT("SF_VULKAN_ES31_ANDROID"));
+	static FName NAME_VULKAN_ES31(TEXT("SF_VULKAN_ES31_LUMIN"));
 	static FName NAME_GLSL_ES2(TEXT("GLSL_ES2"));
 	static FName NAME_GLSL_SM5(TEXT("GLSL_430"));
 	bRequiresEncodedHDRReflectionCaptures = TargetedShaderFormats.Contains(NAME_VULKAN_ES31)
