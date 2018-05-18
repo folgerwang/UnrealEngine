@@ -207,18 +207,26 @@ UEdGraphPin* UNiagaraNodeParameterMapGet::GetDefaultPin(UEdGraphPin* OutputPin) 
 }
 
 
-UEdGraphPin* UNiagaraNodeParameterMapGet::GetOutputPinForDefault(UEdGraphPin* DefaultPin)
+UEdGraphPin* UNiagaraNodeParameterMapGet::GetOutputPinForDefault(const UEdGraphPin* DefaultPin) const
 {
 	TArray<UEdGraphPin*> OutputPins;
 	GetOutputPins(OutputPins);
 
-	const FGuid* OutputGuid = PinOutputToPinDefaultPersistentId.Find(DefaultPin->PersistentGuid);
+	FGuid OutputGuid;
+	for (auto It : PinOutputToPinDefaultPersistentId)
+	{
+		if (It.Value == DefaultPin->PersistentGuid)
+		{
+			OutputGuid = It.Key;
+			break;
+		}
+	}
 
-	if (OutputGuid != nullptr)
+	if (OutputGuid.IsValid())
 	{
 		for (UEdGraphPin* OutputPin : OutputPins)
 		{
-			if ((*OutputGuid) == OutputPin->PersistentGuid)
+			if (OutputGuid == OutputPin->PersistentGuid)
 			{
 				return OutputPin;
 			}
@@ -428,6 +436,66 @@ void UNiagaraNodeParameterMapGet::GatherExternalDependencyIDs(ENiagaraScriptUsag
 			InReferencedObjs.Add(Collection);
 		}
 
+	}
+}
+
+void UNiagaraNodeParameterMapGet::GetPinHoverText(const UEdGraphPin& Pin, FString& HoverTextOut) const
+{
+	// Get hover text from metadata description.
+	const UNiagaraGraph* NiagaraGraph = GetNiagaraGraph();
+	if (NiagaraGraph)
+	{
+		const UEdGraphSchema_Niagara* Schema = Cast<UEdGraphSchema_Niagara>(NiagaraGraph->GetSchema());
+
+		if (Schema)
+		{
+			FNiagaraTypeDefinition TypeDef = Schema->PinToTypeDefinition(&Pin);
+			if (IsAddPin(&Pin))
+			{
+				HoverTextOut = LOCTEXT("ParameterMapAddString", "Request a new variable from the parameter map.").ToString();
+				return;
+			}
+
+			if (Pin.Direction == EEdGraphPinDirection::EGPD_Input)
+			{
+				if (&Pin == GetInputPin(0) && TypeDef == FNiagaraTypeDefinition::GetParameterMapDef())
+				{
+					HoverTextOut = LOCTEXT("ParameterMapInString", "The source parameter map where we pull the values from.").ToString();
+					return;
+				}
+				const UEdGraphPin* OutputPin = GetOutputPinForDefault(&Pin);
+				if (OutputPin)
+				{
+					TypeDef = Schema->PinToTypeDefinition(OutputPin);
+					FNiagaraVariable Var = FNiagaraVariable(TypeDef, OutputPin->PinName);
+					const FNiagaraVariableMetaData* Metadata = NiagaraGraph->GetMetaData(Var);
+					if (Metadata)
+					{
+						FText Desc = FText::Format(LOCTEXT("DefaultValueTooltip", "Default value for \"{0}\" if no other module has set it previously in the stack."), FText::FromName(OutputPin->PinName));
+						HoverTextOut = Desc.ToString();
+						return;
+					}
+				}
+				
+			}
+			else
+			{
+				FNiagaraVariable Var = FNiagaraVariable(TypeDef, Pin.PinName);
+				const FNiagaraVariableMetaData* Metadata = NiagaraGraph->GetMetaData(Var);
+				if (Metadata)
+				{
+					FText Desc = FText::Format(LOCTEXT("GetVarTooltip", "Name: \"{0}\"\nType: {1}\nDesc: {2}"), FText::FromName(Pin.PinName),
+						TypeDef.GetNameText(), Metadata->Description);
+					HoverTextOut = Desc.ToString();
+				}
+				else
+				{
+					FText Desc = FText::Format(LOCTEXT("GetVarTooltip", "Name: \"{0}\"\nType: {1}\nDesc: None"), FText::FromName(Pin.PinName),
+						TypeDef.GetNameText());
+					HoverTextOut = Desc.ToString();
+				}
+			}
+		}
 	}
 }
 
