@@ -51,8 +51,8 @@ enum EPhysBodyOp
 };
 
 /** Skinned Mesh Animation Tick option based on rendered or not. This dictates "TickPose and RefreshBoneTransforms" */
-UENUM()
-enum class EVisibilityBasedAnimTickOption
+UENUM(BlueprintType)
+enum class EVisibilityBasedAnimTickOption : uint8
 {
 	/** Always Tick and Refresh BoneTransforms whether rendered or not. */
 	AlwaysTickPoseAndRefreshBones,
