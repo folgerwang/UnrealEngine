@@ -199,8 +199,10 @@ FMovieSceneEvaluationTrack UMovieSceneTrack::GenerateTrackTemplate() const
 	} Generator;
 
 	FMovieSceneTrackCompilerArgs Args(Generator);
-
-	Args.DefaultCompletionMode = GetTypedOuter<UMovieSceneSequence>()->DefaultCompletionMode;
+	if (GetTypedOuter<UMovieSceneSequence>())
+	{
+		Args.DefaultCompletionMode = GetTypedOuter<UMovieSceneSequence>()->DefaultCompletionMode;
+	}
 
 	Compile(TrackTemplate, Args);
 
