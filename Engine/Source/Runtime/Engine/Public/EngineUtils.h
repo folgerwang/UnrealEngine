@@ -853,6 +853,28 @@ public:
 	FStripDataFlags( FArchive& Ar, uint8 InGlobalFlags, uint8 InClassFlags, int32 InVersion = VER_UE4_OLDEST_LOADABLE_PACKAGE );
 
 	/**
+	* Constructor.
+	* Serializes strip data flags. Global (engine) flags are automatically generated from target platform
+	* when saving. Class flags need to be defined by the user.
+	*
+	* @param Ar - Archive to serialize with.
+	* @param InClassFlags - User defined per class flags .
+	* @param InVersion - Minimal strip version required to serialize strip flags
+	*/
+	FStripDataFlags(FStructuredArchive::FSlot Slot, uint8 InClassFlags = 0, int32 InVersion = VER_UE4_OLDEST_LOADABLE_PACKAGE);
+
+	/**
+	* Constructor.
+	* Serializes strip data flags. Global (engine) flags are user defined and will not be automatically generated
+	* when saving. Class flags also need to be defined by the user.
+	*
+	* @param Ar - Archive to serialize with.
+	* @param InClassFlags - User defined per class flags.
+	* @param InVersion - Minimal version required to serialize strip flags
+	*/
+	FStripDataFlags(FStructuredArchive::FSlot Slot, uint8 InGlobalFlags, uint8 InClassFlags, int32 InVersion = VER_UE4_OLDEST_LOADABLE_PACKAGE);
+
+	/**
 	 * Checks if FStripDataFlags::Editor flag is set or not
 	 *
 	 * @return true if FStripDataFlags::Editor is set, false otherwise.

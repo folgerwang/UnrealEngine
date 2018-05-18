@@ -517,3 +517,50 @@ FStripDataFlags::FStripDataFlags( class FArchive& Ar, uint8 InGlobalFlags, uint8
 		Ar << ClassStripFlags;
 	}
 }
+
+/*-----------------------------------------------------------------------------
+Serialized data stripping.
+-----------------------------------------------------------------------------*/
+FStripDataFlags::FStripDataFlags(FStructuredArchive::FSlot Slot, uint8 InClassFlags /*= 0*/, int32 InVersion /*= VER_UE4_OLDEST_LOADABLE_PACKAGE */)
+	: GlobalStripFlags(0)
+	, ClassStripFlags(0)
+{
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+
+	check(InVersion >= VER_UE4_OLDEST_LOADABLE_PACKAGE);
+	if (UnderlyingArchive.UE4Ver() >= InVersion)
+	{
+		if (UnderlyingArchive.IsCooking())
+		{
+			// When cooking GlobalStripFlags are automatically generated based on the current target
+			// platform's properties.
+			GlobalStripFlags |= UnderlyingArchive.CookingTarget()->HasEditorOnlyData() ? FStripDataFlags::None : FStripDataFlags::Editor;
+			GlobalStripFlags |= UnderlyingArchive.CookingTarget()->IsServerOnly() ? FStripDataFlags::Server : FStripDataFlags::None;
+			ClassStripFlags = InClassFlags;
+		}
+		Record << NAMED_FIELD(GlobalStripFlags);
+		Record << NAMED_FIELD(ClassStripFlags);
+	}
+}
+
+FStripDataFlags::FStripDataFlags(FStructuredArchive::FSlot Slot, uint8 InGlobalFlags, uint8 InClassFlags, int32 InVersion /*= VER_UE4_OLDEST_LOADABLE_PACKAGE */)
+	: GlobalStripFlags(0)
+	, ClassStripFlags(0)
+{
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+
+	check(InVersion >= VER_UE4_OLDEST_LOADABLE_PACKAGE);
+	if (UnderlyingArchive.UE4Ver() >= InVersion)
+	{
+		if (UnderlyingArchive.IsCooking())
+		{
+			// Don't generate global strip flags and use the ones passed in by the caller.
+			GlobalStripFlags = InGlobalFlags;
+			ClassStripFlags = InClassFlags;
+		}
+		Record << NAMED_FIELD(GlobalStripFlags);
+		Record << NAMED_FIELD(ClassStripFlags);
+	}
+}
