@@ -1367,7 +1367,7 @@ public partial class Project : CommandUtils
 				}
 				OutputFilename = OutputFilename + "_" + TargetPatchIndex;
 			}
-			OutputFilename = OutputFilename += PostFix;
+			OutputFilename = OutputFilename + PostFix;
 
 			StagedFileReference OutputRelativeLocation;
 			if (Params.HasDLCName)
