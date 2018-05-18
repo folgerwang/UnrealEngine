@@ -310,6 +310,18 @@ public:
 		}
 	}
 
+	inline uint64 GetAllocationOffset() const
+	{
+		if (ResourceAllocation.IsValid())
+		{
+			return ResourceAllocation->GetOffset();
+		}
+		else
+		{
+			return 0;
+		}
+	}
+
 	FVulkanDevice* Device;
 
 	VkImage Image;
