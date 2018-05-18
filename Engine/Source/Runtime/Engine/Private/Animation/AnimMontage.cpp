@@ -39,6 +39,7 @@ UAnimMontage::UAnimMontage(const FObjectInitializer& ObjectInitializer)
 	BlendIn.SetBlendTime(0.25f);
 	BlendOut.SetBlendTime(0.25f);
 	BlendOutTriggerTime = -1.f;
+	bEnableAutoBlendOut = true;
 	SyncSlotIndex = 0;
 
 	BlendInTime_DEPRECATED = -1.f;
@@ -1288,6 +1289,7 @@ FAnimMontageInstance::FAnimMontageInstance(UAnimInstance * InAnimInstance)
 	, bPlaying(false)
 	, DefaultBlendTimeMultiplier(1.0f)
 	, bDidUseMarkerSyncThisTick(false)
+	, bEnableAutoBlendOut(true)
 	, AnimInstance(InAnimInstance)
 	, InstanceID(INDEX_NONE)
 	, Position(0.f)
@@ -1317,6 +1319,7 @@ void FAnimMontageInstance::Play(float InPlayRate)
 	InitializeBlend(Montage->BlendIn);	
 	Blend.SetBlendTime(Montage->BlendIn.GetBlendTime() * DefaultBlendTimeMultiplier);
 	Blend.SetValueRange(CurrentWeight, 1.f);
+	bEnableAutoBlendOut = Montage->bEnableAutoBlendOut;
 }
 
 void FAnimMontageInstance::InitializeBlend(const FAlphaBlend& InAlphaBlend)
@@ -2214,7 +2217,7 @@ void FAnimMontageInstance::Advance(float DeltaTime, struct FRootMotionMovementPa
 				// If current section is last one, check to trigger a blend out and if it hasn't stopped yet, see if we should stop
 				// We check this even if we haven't moved, in case our position was different from last frame.
 				// (Code triggered a position jump).
-				if (!IsStopped())
+				if (!IsStopped() && bEnableAutoBlendOut)
 				{
 					const int32 CurrentSectionIndex = MontageSubStepper.GetCurrentSectionIndex();
 					check(NextSections.IsValidIndex(CurrentSectionIndex));
@@ -2675,6 +2678,8 @@ UAnimMontage* FAnimMontageInstance::SetSequencerMontagePosition(FName SlotName, 
 			{
 				AnimInst->Montage_Play(PlayingMontage, 1.f, EMontagePlayReturnType::MontageLength, 0.f, false);
 				MontageInstanceToUpdate = AnimInst->GetActiveInstanceForMontage(PlayingMontage);
+				// this is sequencer set up, we disable auto blend out
+				MontageInstanceToUpdate->bEnableAutoBlendOut = false;
 			}
 		}
 
