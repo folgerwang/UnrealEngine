@@ -22,7 +22,7 @@ void UAppleARKitAnchor::Update_DelegateThread( ARAnchor* Anchor )
 	FScopeLock ScopeLock( &UpdateLock );
 
 	// @todo arkit use World Settings WorldToMetersScale
-	Transform = FAppleARKitTransform::ToFTransform( Anchor.transform );
+	Transform = FAppleARKitConversion::ToFTransform( Anchor.transform );
 }
 
 #endif

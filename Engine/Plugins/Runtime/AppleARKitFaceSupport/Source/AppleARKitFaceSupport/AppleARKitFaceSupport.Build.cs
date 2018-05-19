@@ -2,13 +2,13 @@
 
 using UnrealBuildTool;
 
-public class AppleARKit : ModuleRules
+public class AppleARKitFaceSupport : ModuleRules
 {
-	public AppleARKit(ReadOnlyTargetRules Target) : base(Target)
+	public AppleARKitFaceSupport(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"../../../../Source/Runtime/Renderer/Private",
+				"../../../../Plugins/Runtime/AppleARKit/Source/AppleARKit/Private",
 				// ... add other private include paths required here ...
 			}
 			);
@@ -28,15 +28,15 @@ public class AppleARKit : ModuleRules
 			new string[]
 			{
 				"CoreUObject",
-				"Slate",
-				"SlateCore",
-				"RHI",
-                "Renderer",
-                "RenderCore",
-                "ShaderCore",
-                "HeadMountedDisplay",
                 "IOSRuntimeSettings",
+                "HeadMountedDisplay",
                 "AugmentedReality",
+                "ProceduralMeshComponent",
+                "LiveLink",
+                "LiveLinkInterface",
+//                "OnlineSubsystem",
+                "Sockets",
+                "AppleARKit",
                 "AppleImageUtils"
 				// ... add private dependencies that you statically link with here ...
 			}

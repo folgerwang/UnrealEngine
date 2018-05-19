@@ -39,16 +39,6 @@ void FAppleARKitModule::StartupModule()
 	IHeadMountedDisplayModule::StartupModule();
 
 	FCoreDelegates::OnPreExit.AddRaw(this, &FAppleARKitModule::PreExit);
-
-	// LiveLink listener needs to be created here so that the editor can receive remote publishing events
-#if PLATFORM_DESKTOP
-	bool bEnableLiveLinkForFaceTracking = false;
-	GConfig->GetBool(TEXT("/Script/AppleARKit.AppleARKitSettings"), TEXT("bEnableLiveLinkForFaceTracking"), bEnableLiveLinkForFaceTracking, GEngineIni);
-	if (bEnableLiveLinkForFaceTracking)
-	{
-		FAppleARKitLiveLinkSourceFactory::CreateLiveLinkRemoteListener();
-	}
-#endif
 }
 
 void FAppleARKitModule::PreExit()

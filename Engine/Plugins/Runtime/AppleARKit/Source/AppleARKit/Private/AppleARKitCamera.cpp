@@ -45,7 +45,7 @@ FAppleARKitCamera::FAppleARKitCamera( ARCamera* InARCamera )
 	
 	
     // Copy / convert camera transform
-    Transform = FAppleARKitTransform::ToFTransform( InARCamera.transform );
+    Transform = FAppleARKitConversion::ToFTransform( InARCamera.transform );
     Translation = Transform.GetTranslation();
 	Orientation = Transform.GetRotation();
 	

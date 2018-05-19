@@ -11,21 +11,6 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wpartial-availability"
 
-ARWorldAlignment ToARWorldAlignment( const EAppleARKitWorldAlignment& InWorldAlignment )
-{
-	switch ( InWorldAlignment )
-	{
-		case EAppleARKitWorldAlignment::Gravity:
-			return ARWorldAlignmentGravity;
-			
-		case EAppleARKitWorldAlignment::GravityAndHeading:
-			return ARWorldAlignmentGravityAndHeading;
-
-		case EAppleARKitWorldAlignment::Camera:
-			return ARWorldAlignmentCamera;
-	};
-};
-
 #if SUPPORTS_ARKIT_1_5
 
 void InitImageDetection(UARSessionConfig* SessionConfig, ARWorldTrackingConfiguration* WorldConfig, TMap< FString, UARCandidateImage* >& CandidateImages, TMap< FString, CGImageRef >& ConvertedCandidateImages)
@@ -124,15 +109,6 @@ ARConfiguration* ToARConfiguration( UARSessionConfig* SessionConfig, FAppleARKit
 			SessionConfiguration = WorldTrackingConfiguration;
 			break;
 		}
-		case EARSessionType::Face:
-		{
-			if (ARFaceTrackingConfiguration.isSupported == FALSE)
-			{
-				return nullptr;
-			}
-			SessionConfiguration = [ARFaceTrackingConfiguration new];
-			break;
-		}
 		default:
 			return nullptr;
 	}
@@ -141,7 +117,7 @@ ARConfiguration* ToARConfiguration( UARSessionConfig* SessionConfig, FAppleARKit
 	// Copy / convert properties
 	SessionConfiguration.lightEstimationEnabled = InConfiguration.bLightEstimationEnabled;
 	SessionConfiguration.providesAudioData = InConfiguration.bProvidesAudioData;
-	SessionConfiguration.worldAlignment = ToARWorldAlignment(InConfiguration.Alignment);
+	SessionConfiguration.worldAlignment = FAppleARKitConversion::ToARWorldAlignment(InConfiguration.Alignment);
 
     return SessionConfiguration;
 }

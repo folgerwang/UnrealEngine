@@ -2,8 +2,6 @@
 
 #include "AppleARKitFaceMeshComponent.h"
 #include "ARBlueprintLibrary.h"
-#include "HeadMountedDisplayFunctionLibrary.h"
-#include "Engine/World.h"
 
 #if SUPPORTS_ARKIT_1_0
 	#import <ARKit/ARKit.h>
@@ -13,6 +11,7 @@
 #include "ARTrackable.h"
 #include "ARSessionConfig.h"
 #include "AppleARKitSettings.h"
+#include "AppleARKitConversion.h"
 
 
 #if SUPPORTS_ARKIT_1_0
@@ -198,7 +197,7 @@ float UAppleARKitFaceMeshComponent::GetFaceBlendShapeAmount(EARFaceBlendShape Bl
 
 FMatrix UAppleARKitFaceMeshComponent::GetRenderMatrix() const
 {
-	const float Scale = UHeadMountedDisplayFunctionLibrary::GetWorldToMetersScale( this->GetWorld() );
+	const float Scale = FAppleARKitConversion::ToUE4Scale();
 	
 	FTransform RenderTrans;
 	switch (TransformSetting)

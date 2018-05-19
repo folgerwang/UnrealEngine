@@ -6,9 +6,9 @@
 #include "AppleARKitConfiguration.h"
 #include "ARSystem.h"
 #include "AppleARKitHitTestResult.h"
-#include "AppleARKitLiveLinkSourceFactory.h"
 #include "AppleARKitTextures.h"
 #include "Kismet/BlueprintPlatformLibrary.h"
+#include "AppleARKitFaceSupport.h"
 
 // ARKit
 #if SUPPORTS_ARKIT_1_0
@@ -26,7 +26,9 @@ DECLARE_STATS_GROUP(TEXT("AppleARKit"), STATGROUP_APPLEARKIT, STATCAT_Advanced);
 struct FAppleARKitFrame;
 struct FAppleARKitAnchorData;
 
-class FAppleARKitSystem : public FARSystemBase
+class FAppleARKitSystem :
+	public FARSystemBase,
+	public IAppleARKitFaceSupportCallback
 {
 	friend class FAppleARKitXRCamera;
 	
@@ -47,6 +49,11 @@ public:
 	void OnBeginRendering_GameThread() override;
 	bool OnStartGameFrame(FWorldContext& WorldContext) override;
 	//~ IXRTrackingSystem
+
+	//~IAppleARKitFaceSupportCallback
+	virtual UARTrackedGeometry* GetTrackedGeometry(const FGuid& GeoGuid) override;
+	virtual void AddTrackedGeometry(const FGuid& Guid, UARTrackedGeometry* TrackedGeo) override;
+	//~IAppleARKitFaceSupportCallback
 
 	void* GetARSessionRawPointer() override;
 	void* GetGameThreadARFrameRawPointer() override;
@@ -126,6 +133,9 @@ private:
 	bool bIsRunning = false;
 	
 	void SetDeviceOrientation( EScreenOrientation::Type InOrientation );
+
+	/** Creates or clears the face ar support object if face ar has been requested */
+	void CheckForFaceARSupport(UARSessionConfig* InSessionConfig);
 	
 	/** The orientation of the device; see EScreenOrientation */
 	EScreenOrientation::Type DeviceOrientation;
@@ -172,12 +182,6 @@ private:
 	/** The ar timestamp of when the LastReceivedFrame was last updated */
 	double GameThreadTimestamp;
 
-	/** If requested, publishes face ar updates to LiveLink for the animation system to use */
-	TSharedPtr<ILiveLinkSourceARKit> LiveLinkSource;
-	/** Copied from the UARSessionConfig project settings object */
-	FName FaceTrackingLiveLinkSubjectName;
-	
-	
 	// An int counter that provides a human-readable debug number for Tracked Geometries.
 	uint32 LastTrackedGeometry_DebugId;
 
@@ -189,6 +193,9 @@ private:
 	TSharedPtr< FAppleARKitFrame, ESPMode::ThreadSafe > GameThreadFrame;
 	TSharedPtr< FAppleARKitFrame, ESPMode::ThreadSafe > RenderThreadFrame;
 	TSharedPtr< FAppleARKitFrame, ESPMode::ThreadSafe > LastReceivedFrame;
+
+	// The object that is handling face support if present
+	TSharedPtr<FAppleARKitFaceSupportBase, ESPMode::ThreadSafe> FaceARSupport;
 };
 
 
