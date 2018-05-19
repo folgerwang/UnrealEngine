@@ -6,6 +6,7 @@
 #include "AppleARKitConfiguration.h"
 #include "Async/TaskGraphInterfaces.h"
 #include "ARSystem.h"
+#include "Misc/ConfigCacheIni.h"
 
 DECLARE_STATS_GROUP(TEXT("AppleARKitFaceSupport"), STATGROUP_APPLEARKITFACE, STATCAT_Advanced);
 
