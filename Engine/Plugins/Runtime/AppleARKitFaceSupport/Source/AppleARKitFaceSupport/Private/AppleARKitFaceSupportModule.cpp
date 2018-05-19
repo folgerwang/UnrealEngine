@@ -6,13 +6,14 @@
 #include "Features/IModularFeatures.h"
 #include "CoreGlobals.h"
 #include "AppleARKitFaceSupportImpl.h"
+#include "Misc/ConfigCacheIni.h"
 
 
 IMPLEMENT_MODULE(FAppleARKitFaceSupportModule, AppleARKitFaceSupport);
 
 DEFINE_LOG_CATEGORY(LogAppleARKitFace);
 
-class FAppleARKitFaceSupportFactory :
+class APPLEARKITFACESUPPORT_API FAppleARKitFaceSupportFactory :
 	public IAppleARKitFaceSupportFactory
 {
 public:

@@ -24,7 +24,7 @@ struct FAppleARKitFaceAnchorData :
 	static TArray<int32> FaceIndices;
 };
 
-class FAppleARKitFaceSupport :
+class APPLEARKITFACESUPPORT_API FAppleARKitFaceSupport :
 	public FAppleARKitFaceSupportBase
 {
 public:
