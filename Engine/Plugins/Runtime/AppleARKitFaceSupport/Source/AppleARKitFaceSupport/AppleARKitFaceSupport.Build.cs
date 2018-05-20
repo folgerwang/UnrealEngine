@@ -28,7 +28,6 @@ public class AppleARKitFaceSupport : ModuleRules
 			new string[]
 			{
 				"CoreUObject",
-                "IOSRuntimeSettings",
                 "HeadMountedDisplay",
                 "AugmentedReality",
                 "ProceduralMeshComponent",

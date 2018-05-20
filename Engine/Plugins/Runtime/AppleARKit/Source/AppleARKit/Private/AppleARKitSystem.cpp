@@ -12,7 +12,6 @@
 #include "AppleARKitPlaneAnchor.h"
 #include "AppleARKitConfiguration.h"
 #include "GeneralProjectSettings.h"
-#include "IOSRuntimeSettings.h"
 #include "ARSessionConfig.h"
 #include "AppleARKitSettings.h"
 #include "ARTrackable.h"
@@ -27,6 +26,8 @@
 #include "Misc/CoreDelegates.h"
 
 #if PLATFORM_IOS
+	#include "IOSRuntimeSettings.h"
+
 	#pragma clang diagnostic push
 	#pragma clang diagnostic ignored "-Wpartial-availability"
 #endif

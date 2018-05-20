@@ -35,7 +35,6 @@ public class AppleARKit : ModuleRules
                 "RenderCore",
                 "ShaderCore",
                 "HeadMountedDisplay",
-                "IOSRuntimeSettings",
                 "AugmentedReality",
                 "AppleImageUtils"
 				// ... add private dependencies that you statically link with here ...
@@ -52,6 +51,8 @@ public class AppleARKit : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.IOS)
 		{
+    		PrivateDependencyModuleNames.Add("IOSRuntimeSettings");
+
 			PublicFrameworks.Add( "ARKit" );
 		}
 	}
