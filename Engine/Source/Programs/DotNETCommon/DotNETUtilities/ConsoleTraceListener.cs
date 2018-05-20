@@ -8,12 +8,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace UnrealBuildTool
+namespace Tools.DotNETCommon
 {
 	/// <summary>
 	/// Replacement class for System.Diagnostics.ConsoleTracerListener, which doesn't exist in .NET Core
 	/// </summary>
-	public class UEConsoleTraceListener : TraceListener
+	public class ConsoleTraceListener : TraceListener
 	{
 		/// <summary>
 		/// Destination stream writer
@@ -24,7 +24,7 @@ namespace UnrealBuildTool
 		/// Constructor
 		/// </summary>
 		/// <param name="bUseStandardError">TRUE if we are writing to the standard error stream, FALSE for standard output</param>
-		public UEConsoleTraceListener(bool bUseStandardError = false)
+		public ConsoleTraceListener(bool bUseStandardError = false)
 		{
 			Writer = bUseStandardError ? System.Console.Error : System.Console.Out;
 		}

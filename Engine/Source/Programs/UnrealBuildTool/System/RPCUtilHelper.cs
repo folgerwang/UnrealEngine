@@ -14,6 +14,7 @@ using System.Threading;
 using System.Net.Sockets;
 using Ionic.Zip;
 using DotNETUtilities;
+using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {

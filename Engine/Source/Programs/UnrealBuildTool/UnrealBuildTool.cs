@@ -370,7 +370,7 @@ namespace UnrealBuildTool
                 bColorConsoleOutput: true,
                 TraceListeners: new TraceListener[]
                 {
-                    new UEConsoleTraceListener(),
+                    new Tools.DotNETCommon.ConsoleTraceListener(),
 					StartupListener
 				}
 			);

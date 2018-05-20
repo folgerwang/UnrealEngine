@@ -572,7 +572,7 @@ class BuildPhysX : BuildCommand
 	{
 		Process LocalProcess = new Process();
 		LocalProcess.StartInfo = StartInfo;
-		LocalProcess.OutputDataReceived += (Sender, Line) => { if (Line != null && Line.Data != null) UnrealBuildTool.Log.TraceInformation(Line.Data); };
+		LocalProcess.OutputDataReceived += (Sender, Line) => { if (Line != null && Line.Data != null) Tools.DotNETCommon.Log.TraceInformation(Line.Data); };
 		return RunLocalProcess(LocalProcess);
 	}
 

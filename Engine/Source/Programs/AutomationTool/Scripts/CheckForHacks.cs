@@ -153,7 +153,7 @@ namespace AutomationTool
 								{
 									lock (this)
 									{
-										UnrealBuildTool.Log.WriteLine(UnrealBuildTool.LogEventType.Warning, UnrealBuildTool.LogFormatOptions.NoSeverityPrefix, "{0}({1}): warning: Code should not be in this branch: '{2}'", FileToCheck.FullName, LineNumber, Line.Trim());
+										Tools.DotNETCommon.Log.WriteLine(Tools.DotNETCommon.LogEventType.Warning, Tools.DotNETCommon.LogFormatOptions.NoSeverityPrefix, "{0}({1}): warning: Code should not be in this branch: '{2}'", FileToCheck.FullName, LineNumber, Line.Trim());
 									}
 								}
 							}

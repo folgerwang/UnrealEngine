@@ -10,7 +10,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace UnrealBuildTool
+namespace Tools.DotNETCommon
 {
 	/// <summary>
 	/// Log Event Type
@@ -331,7 +331,7 @@ namespace UnrealBuildTool
 		{
 			if (!bIsInitialized)
 			{
-				throw new BuildException("Tried to using Logging system before it was ready");
+				throw new InvalidOperationException("Tried to using Logging system before it was ready");
 			}
 
 			// if we want this message only written one time, check if it was already written out
@@ -377,7 +377,7 @@ namespace UnrealBuildTool
 					{
 						foreach (TraceListener l in Trace.Listeners)
 						{
-							bool bIsConsole = l is UEConsoleTraceListener;
+							bool bIsConsole = l is Tools.DotNETCommon.ConsoleTraceListener;
 							if (Verbosity != LogEventType.Log || !bIsConsole || LogLevel >= LogEventType.Verbose)
 							{
 								List<string> Lines = FormatMessage(StackFramesToSkip + 1, Verbosity, FormatOptions, bIsConsole, Format, Args);

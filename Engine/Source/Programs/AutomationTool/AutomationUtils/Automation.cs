@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,6 +7,7 @@ using System.IO;
 using System.Reflection;
 using System.Diagnostics;
 using UnrealBuildTool;
+using Tools.DotNETCommon;
 
 namespace AutomationTool
 {
@@ -141,7 +142,7 @@ namespace AutomationTool
 	[Help(
 @"Executes scripted commands
 
-AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 …] Command1 [-Arg0 -Arg1 …] Command2 [-Arg0 …] Commandn … [EnvVar0=MyValue0 … EnvVarn=MyValuen]"
+AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 ...] Command1 [-Arg0 -Arg1 ...] Command2 [-Arg0 ...] Commandn ... [EnvVar0=MyValue0 ... EnvVarn=MyValuen]"
 )]
 	[Help("verbose", "Enables verbose logging")]
 	[Help("nop4", "Disables Perforce functionality (default if not run on a build machine)")]

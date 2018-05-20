@@ -8,6 +8,7 @@ using System.Xml;
 using System.Text.RegularExpressions;
 using System.Linq;
 using System.Reflection;
+using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {

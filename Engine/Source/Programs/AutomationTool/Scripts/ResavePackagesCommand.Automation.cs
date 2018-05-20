@@ -144,11 +144,11 @@ namespace AutomationScripts.Automation
                 if ( AEx != null )
                 {
                     string LogFile = AEx.LogFileName;
-                    UnrealBuildTool.Log.TraceWarning("Attempting to load file {0}", LogFile);
+                    Tools.DotNETCommon.Log.TraceWarning("Attempting to load file {0}", LogFile);
                     if ( LogFile != "")
                     {
                         
-                        UnrealBuildTool.Log.TraceWarning("Attempting to read file {0}", LogFile);
+                        Tools.DotNETCommon.Log.TraceWarning("Attempting to read file {0}", LogFile);
                         try
                         {
                             string[] AllLogFile = ReadAllLines(LogFile);

@@ -52,12 +52,12 @@ namespace UnrealBuildTool.Rules
 			var LuaLibPath = Path.Combine(LuaLibDirectory, "Lua.lib");
 			if (File.Exists(LuaLibPath))
 			{
-				Log.TraceVerbose("ScriptGenerator LUA Integration enabled");
+//				Log.TraceVerbose("ScriptGenerator LUA Integration enabled");
 				PublicDefinitions.Add("WITH_LUA=1");
 			}
 			else
 			{
-				Log.TraceVerbose("ScriptGenerator LUA Integration NOT enabled");
+//				Log.TraceVerbose("ScriptGenerator LUA Integration NOT enabled");
 				PublicDefinitions.Add("WITH_LUA=0");
 			}
 

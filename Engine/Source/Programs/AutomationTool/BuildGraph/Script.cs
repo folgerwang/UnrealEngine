@@ -81,7 +81,7 @@ namespace AutomationTool
 				{
 					if (!Document.bHasErrors)
 					{
-						UnrealBuildTool.Log.WriteLine(LogEventType.Error, LogFormatOptions.NoSeverityPrefix, "{0}({1}): error: {2}", File.FullName, Ex.LineNumber, Ex.Message);
+						Log.WriteLine(LogEventType.Error, LogFormatOptions.NoSeverityPrefix, "{0}({1}): error: {2}", File.FullName, Ex.LineNumber, Ex.Message);
 						Document.bHasErrors = true;
 					}
 				}

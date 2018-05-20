@@ -116,7 +116,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void Log(string Format, params object[] Args)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Console, Format, Args);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Console, Format, Args);
 		}
 
 		/// <summary>
@@ -126,7 +126,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void Log(string Message)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Console, Message);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Console, Message);
 		}
 
 		/// <summary>
@@ -137,7 +137,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogError(string Format, params object[] Args)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Error, Format, Args);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Error, Format, Args);
 		}
 
 		/// <summary>
@@ -147,7 +147,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogError(string Message)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Error, Message);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Error, Message);
 		}
 
 		/// <summary>
@@ -158,7 +158,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogWarning(string Format, params object[] Args)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Warning, Format, Args);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Warning, Format, Args);
 		}
 
 		/// <summary>
@@ -168,7 +168,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogWarning(string Message)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Warning, Message);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Warning, Message);
 		}
 
 		/// <summary>
@@ -179,7 +179,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogVerbose(string Format, params object[] Args)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Verbose, Format, Args);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Verbose, Format, Args);
 		}
 
 		/// <summary>
@@ -189,7 +189,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogVerbose(string Message)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Verbose, Message);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Verbose, Message);
 		}
 
 		/// <summary>
@@ -200,7 +200,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogVeryVerbose(string Format, params object[] Args)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.VeryVerbose, Format, Args);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.VeryVerbose, Format, Args);
 		}
 
 		/// <summary>
@@ -210,7 +210,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogVeryVerbose(string Message)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.VeryVerbose, Message);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.VeryVerbose, Message);
 		}
 
 		/// <summary>
@@ -221,7 +221,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogLog(string Format, params object[] Args)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Log, Format, Args);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Log, Format, Args);
 		}
 
 		/// <summary>
@@ -231,7 +231,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogLog(string Message)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Log, Message);
+			Tools.DotNETCommon.Log.WriteLine(1, LogEventType.Log, Message);
 		}
 
 		/// <summary>
@@ -241,9 +241,9 @@ namespace AutomationTool
 		/// <param name="Format">Format string</param>
 		/// <param name="Args">Arguments</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void LogWithVerbosity(UnrealBuildTool.LogEventType Verbosity, string Format, params object[] Args)
+		public static void LogWithVerbosity(Tools.DotNETCommon.LogEventType Verbosity, string Format, params object[] Args)
 		{
-            UnrealBuildTool.Log.WriteLine(1, Verbosity, Format, Args);
+            Tools.DotNETCommon.Log.WriteLine(1, Verbosity, Format, Args);
 		}
 
 		/// <summary>
@@ -252,9 +252,9 @@ namespace AutomationTool
 		/// <param name="Verbosity">Verbosity</param>
 		/// <param name="Message">Text</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void LogWithVerbosity(UnrealBuildTool.LogEventType Verbosity, string Message)
+		public static void LogWithVerbosity(Tools.DotNETCommon.LogEventType Verbosity, string Message)
 		{
-            UnrealBuildTool.Log.WriteLine(1, Verbosity, Message);
+            Tools.DotNETCommon.Log.WriteLine(1, Verbosity, Message);
 		}
 
 		/// <summary>
@@ -263,9 +263,9 @@ namespace AutomationTool
 		/// <param name="Verbosity">Verbosity</param>
 		/// <param name="Ex">Exception</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void LogWithVerbosity(UnrealBuildTool.LogEventType Verbosity, Exception Ex)
+		public static void LogWithVerbosity(Tools.DotNETCommon.LogEventType Verbosity, Exception Ex)
 		{
-            UnrealBuildTool.Log.WriteLine(1, Verbosity, LogUtils.FormatException(Ex));
+            Tools.DotNETCommon.Log.WriteLine(1, Verbosity, LogUtils.FormatException(Ex));
 		}
 
 		#endregion
