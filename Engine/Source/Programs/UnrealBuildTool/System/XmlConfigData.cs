@@ -70,7 +70,7 @@ namespace UnrealBuildTool
 				}
 
 				// Read the input files
-				FileReference[] InputFiles = Reader.ReadArray(x => x.ReadFileReference());
+				FileReference[] InputFiles = Reader.ReadArray(() => Reader.ReadFileReference());
 
 				// Read the types
 				int NumTypes = Reader.ReadInt32();
@@ -129,7 +129,7 @@ namespace UnrealBuildTool
 				Writer.Write(SerializationVersion);
 
 				// Save all the input files. The cache will not be valid if these change.
-				Writer.Write(InputFiles, (x, y) => x.Write(y));
+				Writer.Write(InputFiles, Item => Writer.Write(Item));
 
 				// Write all the categories
 				Writer.Write(TypeToValues.Count);

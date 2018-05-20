@@ -143,14 +143,14 @@ namespace UnrealBuildTool
 				TargetType = (TargetType)Reader.ReadInt32();
 				Platform = (UnrealTargetPlatform)Reader.ReadInt32();
 				Configuration = (UnrealTargetConfiguration)Reader.ReadInt32();
-				OutputPaths = Reader.ReadList(x => x.ReadFileReference());
+				OutputPaths = Reader.ReadList(() => Reader.ReadFileReference());
 				EngineIntermediateDirectory = Reader.ReadDirectoryReference();
 				ProjectDirectory = Reader.ReadDirectoryReference();
 				BuildReceiptFileName = Reader.ReadFileReference();
 				bCreateStubIPA = Reader.ReadBoolean();
-				AndroidArchitectures = Reader.ReadArray(x => x.ReadString());
-				AndroidGPUArchitectures = Reader.ReadArray(x => x.ReadString());
-				LuminGPUArchitectures = Reader.ReadArray(x => x.ReadString());
+				AndroidArchitectures = Reader.ReadStringArray();
+				AndroidGPUArchitectures = Reader.ReadStringArray();
+				LuminGPUArchitectures = Reader.ReadStringArray();
 			}
 		}
 
@@ -170,14 +170,14 @@ namespace UnrealBuildTool
 				Writer.Write((Int32)TargetType);
 				Writer.Write((Int32)Platform);
 				Writer.Write((Int32)Configuration);
-				Writer.Write(OutputPaths, (x, i) => x.Write(i));
+				Writer.Write(OutputPaths, Item => Writer.Write(Item));
 				Writer.Write(EngineIntermediateDirectory);
 				Writer.Write(ProjectDirectory);
 				Writer.Write(BuildReceiptFileName);
 				Writer.Write(bCreateStubIPA);
-				Writer.Write(AndroidArchitectures, (w, e) => w.Write(e));
-				Writer.Write(AndroidGPUArchitectures, (w, e) => w.Write(e));
-				Writer.Write(LuminGPUArchitectures, (w, e) => w.Write(e));
+				Writer.Write(AndroidArchitectures);
+				Writer.Write(AndroidGPUArchitectures);
+				Writer.Write(LuminGPUArchitectures);
 			}
 		}
 	}
