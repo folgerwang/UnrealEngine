@@ -41,6 +41,9 @@ public:
 	 */
 	static FBlueprintActionDatabase& Get();
 
+	/** Getter to access the datbase singleton, will return null if the database has not been initialized */
+	static FBlueprintActionDatabase* TryGet();
+
 	// FTickableEditorObject interface
 	virtual void Tick(float DeltaTime) override;
 	virtual ETickableTickType GetTickableTickType() const override { return ETickableTickType::Always; }
