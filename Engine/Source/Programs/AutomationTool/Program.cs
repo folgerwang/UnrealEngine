@@ -102,13 +102,13 @@ namespace AutomationTool
 			catch (AutomationException Ex)
 			{
 				// Take the exit code from the exception
-				ExceptionUtils.PrintExceptionInfo(Ex, LogUtils.FinalLogFileName);
+				Log.WriteException(Ex, LogUtils.FinalLogFileName);
 				ReturnCode = Ex.ErrorCode;
 			}
 			catch (Exception Ex)
 			{
 				// Use a default exit code
-				ExceptionUtils.PrintExceptionInfo(Ex, LogUtils.FinalLogFileName);
+				Log.WriteException(Ex, LogUtils.FinalLogFileName);
 				ReturnCode = ExitCode.Error_Unknown;
 			}
             finally

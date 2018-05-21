@@ -473,6 +473,20 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Formats an exception for display in the log. The exception message is shown as an error, and the stack trace is included in the log.
+		/// </summary>
+		/// <param name="Ex">The exception to display</param>
+		/// <param name="LogFileName">The log filename to display, if any</param>
+		public static void WriteException(Exception Ex, string LogFileName)
+		{
+			string LogSuffix = (LogFileName == null)? "" : String.Format("\n(see {0} for full exception trace)", LogFileName);
+			TraceLog("==============================================================================");
+			TraceError("{0}{1}", ExceptionUtils.FormatException(Ex), LogSuffix);
+			TraceLog("\n{0}", ExceptionUtils.FormatExceptionDetails(Ex));
+			TraceLog("==============================================================================");
+		}
+
+		/// <summary>
 		/// Writes an error message to the console.
 		/// </summary>
 		/// <param name="Format">Message format string</param>

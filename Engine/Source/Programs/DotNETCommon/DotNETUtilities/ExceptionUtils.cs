@@ -66,37 +66,12 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
-		/// Prints a summary of the given exception to the console, and writes detailed information to the log
+		/// Formats an exception for display in the log, including additional lines of context that were attached to it.
 		/// </summary>
-		/// <param name="Ex">The exception which has occurred</param>
-		/// <param name="LogFileName">Log filename to reference for more detailed information</param>
-		public static void PrintExceptionInfo(Exception Ex, string LogFileName)
+		/// <param name="Ex">The exception to format</param>
+		/// <returns>String containing the exception information. May be multiple lines.</returns>
+		public static string FormatException(Exception Ex)
 		{
-			PrintExceptionInfo(Ex, LogFileName, x => Log.TraceError("{0}", x), x => Log.TraceLog("{0}", x));
-		}
-
-		/// <summary>
-		/// Prints a summary of the given exception to the console, and writes detailed information to the log
-		/// </summary>
-		/// <param name="Ex">The exception which has occurred</param>
-		/// <param name="LogFileName">Log filename to reference for more detailed information</param>
-		/// <param name="LogAll">Output function for all verbosity</param>
-		public static void PrintExceptionInfo(Exception Ex, string LogFileName, Action<string> LogAll)
-		{
-			PrintExceptionInfo(Ex, LogFileName, LogAll, LogAll);
-		}
-
-		/// <summary>
-		/// Prints a summary of the given exception to the console, and writes detailed information to the log
-		/// </summary>
-		/// <param name="Ex">The exception which has occurred</param>
-		/// <param name="LogFileName">Log filename to reference for more detailed information</param>
-		/// <param name="LogNormal">Basic output function</param>
-		/// <param name="LogVerbose">Verbose output function</param>
-		public static void PrintExceptionInfo(Exception Ex, string LogFileName, Action<string> LogNormal, Action<string> LogVerbose)
-		{
-			LogVerbose("==============================================================================");
-
 			StringBuilder ErrorMessage = new StringBuilder();
 			if (Ex is AggregateException)
 			{
@@ -115,23 +90,27 @@ namespace Tools.DotNETCommon
 			{
 				ErrorMessage.AppendFormat("\n{0}", Line);
 			}
-			if(LogFileName != null)
-			{
-				ErrorMessage.AppendFormat("\n(see {0} for full exception trace)", LogFileName);
-			}
-			LogNormal(ErrorMessage.ToString());
+			return ErrorMessage.ToString();
+		}
 
-			LogVerbose("");
-
+		/// <summary>
+		/// Formats a detailed information about where an exception occurs, including any inner exceptions
+		/// </summary>
+		/// <param name="Ex">The exception to format</param>
+		/// <returns>String containing the exception information. May be multiple lines.</returns>
+		public static string FormatExceptionDetails(Exception Ex)
+		{
 			List<Exception> ExceptionStack = new List<Exception>();
 			for (Exception CurrentEx = Ex; CurrentEx != null; CurrentEx = CurrentEx.InnerException)
 			{
 				ExceptionStack.Add(CurrentEx);
 			}
+
+			StringBuilder Message = new StringBuilder();
 			for (int Idx = ExceptionStack.Count - 1; Idx >= 0; Idx--)
 			{
 				Exception CurrentEx = ExceptionStack[Idx];
-				LogVerbose(String.Format("{0}{1}: {2}\n{3}", (Idx == ExceptionStack.Count - 1) ? "" : "Wrapped by ", CurrentEx.GetType().Name, CurrentEx.Message, CurrentEx.StackTrace));
+				Message.AppendFormat("{0}{1}: {2}\n{3}", (Idx == ExceptionStack.Count - 1) ? "" : "Wrapped by ", CurrentEx.GetType().Name, CurrentEx.Message, CurrentEx.StackTrace);
 
 				if (CurrentEx.Data.Count > 0)
 				{
@@ -149,11 +128,11 @@ namespace Tools.DotNETCommon
 							ValueString = Value.ToString();
 						}
 
-						LogVerbose(String.Format("   data: {0} = {1}", Key, ValueString));
+						Message.AppendFormat("   data: {0} = {1}", Key, ValueString);
 					}
 				}
 			}
-			LogVerbose("==============================================================================");
+			return Message.ToString();
 		}
 	}
 }

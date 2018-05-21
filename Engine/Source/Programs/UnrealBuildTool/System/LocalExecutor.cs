@@ -193,7 +193,7 @@ namespace UnrealBuildTool
 					catch (Exception ex)
 					{
 						Log.TraceError("Failed to start local process for action: {0} {1}", Action.CommandPath, Action.CommandArguments);
-						ExceptionUtils.PrintExceptionInfo(ex, null);
+						Log.WriteException(ex, null);
 						ExitCode = 1;
 						bComplete = true;
 						return;
