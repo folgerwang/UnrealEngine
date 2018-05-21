@@ -3,6 +3,7 @@
 #include "ViewModels/Stack/NiagaraStackScriptItemGroup.h"
 #include "ViewModels/Stack/NiagaraStackModuleItem.h"
 #include "ViewModels/Stack/NiagaraStackSpacer.h"
+#include "ViewModels/NiagaraSystemViewModel.h"
 #include "ViewModels/NiagaraEmitterViewModel.h"
 #include "NiagaraScriptViewModel.h"
 #include "NiagaraScriptGraphViewModel.h"
@@ -15,6 +16,8 @@
 #include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 #include "NiagaraConstants.h"
 #include "NiagaraStackEditorData.h"
+#include "NiagaraSystem.h"
+#include "NiagaraEmitterHandle.h"
 
 #include "Internationalization/Internationalization.h"
 #include "ScopedTransaction.h"
@@ -486,9 +489,17 @@ TOptional<UNiagaraStackEntry::FDropResult> UNiagaraStackScriptItemGroup::ChildRe
 				return FDropResult(false, LOCTEXT("CantMoveModuleError", "This inherited module can't be moved."));
 			}
 
-			if (SourceModuleItem->GetModuleNode().GetGraph() != ScriptViewModel.Pin()->GetGraphViewModel()->GetGraph())
+			TArray<ENiagaraScriptUsage> SourceUsages = SourceModuleItem->GetModuleNode().FunctionScript->GetSupportedUsageContexts();
+			if (SourceUsages.ContainsByPredicate([this](ENiagaraScriptUsage SourceUsage) { return UNiagaraScript::IsEquivalentUsage(ScriptUsage, SourceUsage); }) == false)
 			{
-				return FDropResult(false, LOCTEXT("CantMoveModuleBetweenGraphsError", "This module can not be moved to this section of the stack"));
+				return FDropResult(false, LOCTEXT("CantMoveByUsage", "This module can't be moved to this section of the stack because its it's not supported in this context."));
+			}
+
+			const FNiagaraEmitterHandle* SourceEmitterHandle = FNiagaraEditorUtilities::GetEmitterHandleForEmitter(
+				SourceModuleItem->GetSystemViewModel()->GetSystem(), *SourceModuleItem->GetEmitterViewModel()->GetEmitter());
+			if (SourceEmitterHandle == nullptr)
+			{
+				return FDropResult(false, LOCTEXT("CantMoveFromAnotherSystem", "This module can't be moved into this system from a different system."));
 			}
 
 			const UNiagaraStackSpacer* TargetSpacer = Cast<UNiagaraStackSpacer>(&TargetChild);
@@ -528,10 +539,10 @@ TOptional<UNiagaraStackEntry::FDropResult> UNiagaraStackScriptItemGroup::ChildRe
 	if (bIsValidForOutput && DraggedEntries.Num() == 1)
 	{
 		UNiagaraStackModuleItem* SourceModuleItem = Cast<UNiagaraStackModuleItem>(DraggedEntries[0]);
-		UNiagaraGraph* TargetGraph = ScriptViewModel.Pin()->GetGraphViewModel()->GetGraph();
+		TArray<ENiagaraScriptUsage> SourceUsages = SourceModuleItem->GetModuleNode().FunctionScript->GetSupportedUsageContexts();
 		if (SourceModuleItem != nullptr &&
 			SourceModuleItem->CanMoveAndDelete() &&
-			SourceModuleItem->GetModuleNode().GetGraph() == TargetGraph)
+			SourceUsages.ContainsByPredicate([this](ENiagaraScriptUsage SourceUsage) { return UNiagaraScript::IsEquivalentUsage(ScriptUsage, SourceUsage); }))
 		{
 			const UNiagaraStackSpacer* TargetSpacer = Cast<UNiagaraStackSpacer>(&TargetChild);
 			if (TargetSpacer != nullptr)
@@ -539,33 +550,30 @@ TOptional<UNiagaraStackEntry::FDropResult> UNiagaraStackScriptItemGroup::ChildRe
 				UNiagaraStackModuleItem** TargetModuleItemPtr = StackSpacerToModuleItemMap.Find(FObjectKey(TargetSpacer));
 				if (TargetModuleItemPtr != nullptr)
 				{
-					UNiagaraStackModuleItem* TargetModuleItem = *TargetModuleItemPtr;
-					TArray<FNiagaraStackGraphUtilities::FStackNodeGroup> SourceStackGroups;
-					TArray<FNiagaraStackGraphUtilities::FStackNodeGroup> TargetStackGroups;
-					int32 SourceGroupIndex;
-					int32 TargetGroupIndex;
-					GenerateDragDropData(
-						&SourceModuleItem->GetModuleNode(), TargetModuleItem != nullptr ? &TargetModuleItem->GetModuleNode() : nullptr,
-						TargetGraph, ScriptUsage, ScriptUsageId,
-						SourceStackGroups, SourceGroupIndex,
-						TargetStackGroups, TargetGroupIndex);
-
-					// Make sure the source and target indices are within safe ranges, and make sure that the insert target isn't the source target or the spot directly
-					// after the source target since that won't actually move the module.
-					if (SourceGroupIndex > 0 && SourceGroupIndex < SourceStackGroups.Num() - 1 && TargetGroupIndex > 0 && TargetGroupIndex < TargetStackGroups.Num() &&
-						SourceStackGroups[SourceGroupIndex].EndNode != TargetStackGroups[TargetGroupIndex].EndNode &&
-						SourceStackGroups[SourceGroupIndex].EndNode != TargetStackGroups[TargetGroupIndex - 1].EndNode)
+					const FNiagaraEmitterHandle* SourceEmitterHandle = FNiagaraEditorUtilities::GetEmitterHandleForEmitter(
+						SourceModuleItem->GetSystemViewModel()->GetSystem(), *SourceModuleItem->GetEmitterViewModel()->GetEmitter());
+					if (SourceEmitterHandle != nullptr)
 					{
+						UNiagaraNodeOutput* SourceModuleOutputNode = FNiagaraStackGraphUtilities::GetEmitterOutputNodeForStackNode(SourceModuleItem->GetModuleNode());
+						UNiagaraScript* SourceModuleScript = FNiagaraEditorUtilities::GetScriptFromSystem(GetSystemViewModel()->GetSystem(), SourceEmitterHandle->GetId(),
+							SourceModuleOutputNode->GetUsage(), SourceModuleOutputNode->GetUsageId());
+
+						const FNiagaraEmitterHandle* TargetEmitterHandle = FNiagaraEditorUtilities::GetEmitterHandleForEmitter(GetSystemViewModel()->GetSystem(), *GetEmitterViewModel()->GetEmitter());
+
+						int32 TargetIndex = *TargetModuleItemPtr != nullptr ? (*TargetModuleItemPtr)->GetModuleIndex() : INDEX_NONE;
+
 						FScopedTransaction ScopedTransaction(LOCTEXT("DragAndDropModule", "Drag and drop module"));
-						FNiagaraStackGraphUtilities::DisconnectStackNodeGroup(SourceStackGroups[SourceGroupIndex], SourceStackGroups[SourceGroupIndex - 1], SourceStackGroups[SourceGroupIndex + 1]);
-						FNiagaraStackGraphUtilities::ConnectStackNodeGroup(SourceStackGroups[SourceGroupIndex], TargetStackGroups[TargetGroupIndex - 1], TargetStackGroups[TargetGroupIndex]);
+						{
+							FNiagaraStackGraphUtilities::MoveModule(*SourceModuleScript, SourceModuleItem->GetModuleNode(), GetSystemViewModel()->GetSystem(), TargetEmitterHandle->GetId(),
+								ScriptUsage, ScriptUsageId, TargetIndex);
 
-						FNiagaraStackGraphUtilities::RelayoutGraph(*TargetGraph);
-						TargetGraph->NotifyGraphNeedsRecompile();
+							UNiagaraGraph* TargetGraph = ScriptViewModel.Pin()->GetGraphViewModel()->GetGraph();
+							FNiagaraStackGraphUtilities::RelayoutGraph(*TargetGraph);
+							TargetGraph->NotifyGraphNeedsRecompile();
 
-						SourceModuleItem->NotifyModuleMoved();
-						RefreshChildren();
-
+							SourceModuleItem->NotifyModuleMoved();
+							RefreshChildren();
+						}
 						return FDropResult(true);
 					}
 				}

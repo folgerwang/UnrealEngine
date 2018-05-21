@@ -337,7 +337,7 @@ bool FNiagaraParameterMapHistory::IsRapidIterationParameter(const FNiagaraVariab
 	return IsInNamespace(InVar, PARAM_MAP_RAPID_ITERATION_STR);
 }
 
-bool FNiagaraParameterMapHistory::TryGetEmitterAndFunctionCallNamesFromRapidIterationParameter(const FNiagaraVariable& InVar, FString& EmitterName, FString& FunctionCallName)
+bool FNiagaraParameterMapHistory::SplitRapidIterationParameterName(const FNiagaraVariable& InVar, FString& EmitterName, FString& FunctionCallName, FString& InputName)
 {
 	TArray<FString> SplitName;
 	InVar.GetName().ToString().ParseIntoArray(SplitName, TEXT("."));
@@ -345,6 +345,11 @@ bool FNiagaraParameterMapHistory::TryGetEmitterAndFunctionCallNamesFromRapidIter
 	{
 		EmitterName = SplitName[1];
 		FunctionCallName = SplitName[2];
+		InputName = SplitName[3];
+		for (int i = 4; i < SplitName.Num(); i++)
+		{
+			InputName += TEXT(".") + SplitName[i];
+		}
 		return true;
 	}
 	return false;

@@ -161,6 +161,13 @@ void UNiagaraNodeAssignment::PostLoad()
 			FunctionScript = nullptr;
 			GenerateScript();
 		}
+		if (NiagaraVer < FNiagaraCustomVersion::AssignmentNodeHasCorrectUsageBitmask)
+		{
+			if (FunctionScript != nullptr)
+			{
+				UpdateUsageBitmaskFromOwningScript();
+			}
+		}
 	}
 }
 
@@ -177,6 +184,7 @@ void UNiagaraNodeAssignment::GenerateScript()
 		FunctionScript->SetUsage(ENiagaraScriptUsage::Module);
 		FunctionScript->Description = LOCTEXT("AssignmentNodeDesc", "Sets one or more variables in the stack.");
 		InitializeScript(FunctionScript);
+		UpdateUsageBitmaskFromOwningScript();
 		ComputeNodeName();
 	}
 }
@@ -277,6 +285,11 @@ void UNiagaraNodeAssignment::RemoveParameter(const FNiagaraVariable& InVar)
 	RefreshFromExternalChanges();
 	MarkNodeRequiresSynchronization(__FUNCTION__, true);
 	OnInputsChangedDelegate.Broadcast();
+}
+
+void UNiagaraNodeAssignment::UpdateUsageBitmaskFromOwningScript()
+{
+	FunctionScript->ModuleUsageBitmask = CalculateScriptUsageBitmask();
 }
 
 void UNiagaraNodeAssignment::InitializeScript(UNiagaraScript* NewScript)
@@ -459,6 +472,44 @@ void UNiagaraNodeAssignment::InitializeScript(UNiagaraScript* NewScript)
 
 		CreatedGraph->PurgeUnreferencedMetaData();
 	}
+}
+
+int32 UsageToBitmask(ENiagaraScriptUsage Usage)
+{
+	return 1 << (int32)Usage;
+}
+
+int32 UNiagaraNodeAssignment::CalculateScriptUsageBitmask()
+{
+	int32 UsageBitmask = 0;
+	UNiagaraNodeOutput* OutputNode = FNiagaraStackGraphUtilities::GetEmitterOutputNodeForStackNode(*this);
+	if (OutputNode != nullptr)
+	{
+		if (UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::SystemSpawnScript) ||
+			UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::SystemUpdateScript))
+		{
+			UsageBitmask =
+				UsageToBitmask(ENiagaraScriptUsage::SystemSpawnScript) |
+				UsageToBitmask(ENiagaraScriptUsage::SystemUpdateScript);
+		}
+		if (UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::EmitterSpawnScript) ||
+			UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::EmitterUpdateScript))
+		{
+			UsageBitmask =
+				UsageToBitmask(ENiagaraScriptUsage::EmitterSpawnScript) |
+				UsageToBitmask(ENiagaraScriptUsage::EmitterUpdateScript);
+		}
+		if (UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::ParticleSpawnScript) ||
+			UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::ParticleUpdateScript) ||
+			UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::ParticleEventScript))
+		{
+			UsageBitmask =
+				UsageToBitmask(ENiagaraScriptUsage::ParticleSpawnScript) |
+				UsageToBitmask(ENiagaraScriptUsage::ParticleUpdateScript) |
+				UsageToBitmask(ENiagaraScriptUsage::ParticleEventScript);
+		}
+	}
+	return UsageBitmask;
 }
 
 int32 UNiagaraNodeAssignment::FindAssignmentTarget(const FName& InName, const FNiagaraTypeDefinition& InType)

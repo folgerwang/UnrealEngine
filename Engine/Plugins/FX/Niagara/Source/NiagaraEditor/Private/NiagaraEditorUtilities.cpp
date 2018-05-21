@@ -818,4 +818,63 @@ void FNiagaraEditorUtilities::PreprocessFunctionGraph(const UEdGraphSchema_Niaga
 
 }
 
+UNiagaraNodeOutput* FNiagaraEditorUtilities::GetScriptOutputNode(UNiagaraScript& Script)
+{
+	UNiagaraScriptSource* Source = CastChecked<UNiagaraScriptSource>(Script.GetSource());
+	return Source->NodeGraph->FindEquivalentOutputNode(Script.GetUsage(), Script.GetUsageId());
+}
+
+UNiagaraScript* FNiagaraEditorUtilities::GetScriptFromSystem(UNiagaraSystem& System, FGuid EmitterHandleId, ENiagaraScriptUsage Usage, FGuid UsageId)
+{
+	if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::SystemSpawnScript))
+	{
+		return System.GetSystemSpawnScript();
+	}
+	else if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::SystemUpdateScript))
+	{
+		return System.GetSystemUpdateScript();
+	}
+	else if (EmitterHandleId.IsValid())
+	{
+		const FNiagaraEmitterHandle* ScriptEmitterHandle = System.GetEmitterHandles().FindByPredicate(
+			[EmitterHandleId](const FNiagaraEmitterHandle& EmitterHandle) { return EmitterHandle.GetId() == EmitterHandleId; });
+		if (ScriptEmitterHandle != nullptr)
+		{
+			if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::EmitterSpawnScript))
+			{
+				return ScriptEmitterHandle->GetInstance()->EmitterSpawnScriptProps.Script;
+			}
+			else if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::EmitterUpdateScript))
+			{
+				return ScriptEmitterHandle->GetInstance()->EmitterUpdateScriptProps.Script;
+			}
+			else if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::ParticleSpawnScript))
+			{
+				return ScriptEmitterHandle->GetInstance()->SpawnScriptProps.Script;
+			}
+			else if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::ParticleUpdateScript))
+			{
+				return ScriptEmitterHandle->GetInstance()->UpdateScriptProps.Script;
+			}
+			else if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::ParticleEventScript))
+			{
+				for (const FNiagaraEventScriptProperties& EventScriptProperties : ScriptEmitterHandle->GetInstance()->GetEventHandlers())
+				{
+					if (EventScriptProperties.Script->GetUsageId() == UsageId)
+					{
+						return EventScriptProperties.Script;
+					}
+				}
+			}
+		}
+	}
+	return nullptr;
+}
+
+const FNiagaraEmitterHandle* FNiagaraEditorUtilities::GetEmitterHandleForEmitter(UNiagaraSystem& System, UNiagaraEmitter& Emitter)
+{
+	return System.GetEmitterHandles().FindByPredicate(
+		[&Emitter](const FNiagaraEmitterHandle& EmitterHandle) { return EmitterHandle.GetInstance() == &Emitter; });
+}
+
 #undef LOCTEXT_NAMESPACE

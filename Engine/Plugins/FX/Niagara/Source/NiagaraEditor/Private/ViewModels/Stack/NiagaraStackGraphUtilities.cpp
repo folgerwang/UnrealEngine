@@ -931,6 +931,8 @@ UNiagaraNodeAssignment* FNiagaraStackGraphUtilities::AddParameterModuleToStack(c
 	AssignmentNodeCreator.Finalize();
 
 	ConnectModuleNode(*NewAssignmentNode, TargetOutputNode, TargetIndex);
+	NewAssignmentNode->UpdateUsageBitmaskFromOwningScript();
+
 	return NewAssignmentNode;
 }
 
@@ -1145,7 +1147,8 @@ void FNiagaraStackGraphUtilities::CleanUpStaleRapidIterationParameters(UNiagaraS
 		{
 			FString EmitterName;
 			FString FunctionCallName;
-			if (FNiagaraParameterMapHistory::TryGetEmitterAndFunctionCallNamesFromRapidIterationParameter(RapidIterationParameter, EmitterName, FunctionCallName))
+			FString InputName;
+			if (FNiagaraParameterMapHistory::SplitRapidIterationParameterName(RapidIterationParameter, EmitterName, FunctionCallName, InputName))
 			{
 				if (EmitterName != OwningEmitter.GetUniqueEmitterName() || ValidFunctionCallNames.Contains(FunctionCallName) == false)
 				{
@@ -1628,6 +1631,201 @@ bool FNiagaraStackGraphUtilities::GetStackIssuesRecursively(const UNiagaraStackE
 		Entries.RemoveAtSwap(0); 
 	}
 	return OutIssues.Num() > 0;
+}
+
+void FNiagaraStackGraphUtilities::MoveModule(UNiagaraScript& SourceScript, UNiagaraNodeFunctionCall& ModuleToMove, UNiagaraSystem& TargetSystem, FGuid TargetEmitterHandleId, ENiagaraScriptUsage TargetUsage, FGuid TargetUsageId, int32 TargetModuleIndex)
+{
+	UNiagaraScript* TargetScript = FNiagaraEditorUtilities::GetScriptFromSystem(TargetSystem, TargetEmitterHandleId, TargetUsage, TargetUsageId);
+	checkf(TargetScript != nullptr, TEXT("Target script not found"));
+
+	UNiagaraNodeOutput* TargetOutputNode = FNiagaraEditorUtilities::GetScriptOutputNode(*TargetScript);
+	checkf(TargetOutputNode != nullptr, TEXT("Target stack is invalid"));
+
+	TArray<FStackNodeGroup> SourceGroups;
+	GetStackNodeGroups(ModuleToMove, SourceGroups);
+	int32 SourceGroupIndex = SourceGroups.IndexOfByPredicate([&ModuleToMove](const FStackNodeGroup& SourceGroup) { return SourceGroup.EndNode == &ModuleToMove; });
+	TArray<UNiagaraNode*> SourceGroupNodes;
+	SourceGroups[SourceGroupIndex].GetAllNodesInGroup(SourceGroupNodes);
+
+	UNiagaraGraph* SourceGraph = ModuleToMove.GetNiagaraGraph();
+	UNiagaraGraph* TargetGraph = TargetOutputNode->GetNiagaraGraph();
+
+	// If the source and target scripts don't match we need to collect the rapid iteration parameter values for each function in the source group
+	// so we can restore them after moving.
+	TMap<FGuid, TArray<FNiagaraVariable>> SourceFunctionIdToRapidIterationParametersMap;
+	if (&SourceScript != TargetScript)
+	{
+		TMap<FString, FGuid> FunctionCallNameToNodeIdMap;
+		for (UNiagaraNode* SourceGroupNode : SourceGroupNodes)
+		{
+			UNiagaraNodeFunctionCall* FunctionNode = Cast<UNiagaraNodeFunctionCall>(SourceGroupNode);
+			if (FunctionNode != nullptr)
+			{
+				FunctionCallNameToNodeIdMap.Add(FunctionNode->GetFunctionName(), FunctionNode->NodeGuid);
+			}
+		}
+
+		TArray<FNiagaraVariable> ScriptRapidIterationParameters;
+		SourceScript.RapidIterationParameters.GetParameters(ScriptRapidIterationParameters);
+		for (FNiagaraVariable& ScriptRapidIterationParameter : ScriptRapidIterationParameters)
+		{
+			FString EmitterName;
+			FString FunctionCallName;
+			FString InputName;
+			if (FNiagaraParameterMapHistory::SplitRapidIterationParameterName(
+				ScriptRapidIterationParameter, EmitterName, FunctionCallName, InputName))
+			{
+				FGuid* NodeIdPtr = FunctionCallNameToNodeIdMap.Find(FunctionCallName);
+				if (NodeIdPtr != nullptr)
+				{
+					TArray<FNiagaraVariable>& RapidIterationParameters = SourceFunctionIdToRapidIterationParametersMap.FindOrAdd(*NodeIdPtr);
+					RapidIterationParameters.Add(ScriptRapidIterationParameter);
+					RapidIterationParameters.Last().SetData(SourceScript.RapidIterationParameters.GetParameterData(ScriptRapidIterationParameter));
+				}
+			}
+		}
+	}
+
+	FStackNodeGroup TargetGroup;
+	TArray<UNiagaraNode*> TargetGroupNodes;
+	TMap<FGuid, FGuid> OldNodeIdToNewIdMap;
+	if (SourceGraph == TargetGraph)
+	{
+		TargetGroup = SourceGroups[SourceGroupIndex];
+		TargetGroupNodes = SourceGroupNodes;
+	}
+	else 
+	{
+		// If the module is being inserted into a different graph all of the nodes need to be copied into the target graph.
+		FStackNodeGroup SourceGroup = SourceGroups[SourceGroupIndex];
+		
+		TSet<UObject*> NodesToCopy;
+		for (UNiagaraNode* SourceGroupNode : SourceGroupNodes)
+		{
+			SourceGroupNode->PrepareForCopying();
+			NodesToCopy.Add(SourceGroupNode);
+		}
+
+		FString ExportedText;
+		FEdGraphUtilities::ExportNodesToText(NodesToCopy, ExportedText);
+
+		TSet<UEdGraphNode*> CopiedNodesSet;
+		FEdGraphUtilities::ImportNodesFromText(TargetGraph, ExportedText, CopiedNodesSet);
+		TArray<UEdGraphNode*> CopiedNodes = CopiedNodesSet.Array();
+
+		// Collect the start and end nodes for the group by ID before assigning the copied nodes new ids.
+		UEdGraphNode** CopiedEndNode = CopiedNodes.FindByPredicate([SourceGroup](UEdGraphNode* CopiedNode)
+			{ return CopiedNode->NodeGuid == SourceGroup.EndNode->NodeGuid; });
+		checkf(CopiedEndNode != nullptr, TEXT("Group copy failed"));
+		TargetGroup.EndNode = CastChecked<UNiagaraNode>(*CopiedEndNode);
+
+		for (UNiagaraNode* StartNode : SourceGroup.StartNodes)
+		{
+			UEdGraphNode** CopiedStartNode = CopiedNodes.FindByPredicate([StartNode](UEdGraphNode* CopiedNode)
+				{ return CopiedNode->NodeGuid == StartNode->NodeGuid; });
+			checkf(CopiedStartNode != nullptr, TEXT("Group copy failed"));
+			TargetGroup.StartNodes.Add(CastChecked<UNiagaraNode>(*CopiedStartNode));
+		}
+
+		TargetGroup.GetAllNodesInGroup(TargetGroupNodes);
+
+		// Assign all of the new nodes new ids and mark them as requiring synchronization.
+		for (UEdGraphNode* CopiedNode : CopiedNodes)
+		{
+			FGuid OldId = CopiedNode->NodeGuid;
+			CopiedNode->CreateNewGuid();
+			OldNodeIdToNewIdMap.Add(OldId, CopiedNode->NodeGuid);
+			UNiagaraNode* CopiedNiagaraNode = Cast<UNiagaraNode>(CopiedNode);
+			if (CopiedNiagaraNode != nullptr)
+			{
+				CopiedNiagaraNode->MarkNodeRequiresSynchronization(__FUNCTION__, false);
+			}
+		}
+	}
+
+	TArray<FStackNodeGroup> TargetGroups;
+	GetStackNodeGroups(*TargetOutputNode, TargetGroups);
+
+	// The first group is the output node, so to get the group index from module index we need to add 1, but 
+	// if a valid index wasn't supplied, than we insert at the end.
+	int32 TargetGroupIndex = TargetModuleIndex != INDEX_NONE ? TargetModuleIndex + 1 : TargetGroups.Num() - 1;
+
+	// Remove the source module group from it's stack, and insert the source or copied nodes into the target stack.
+	DisconnectStackNodeGroup(SourceGroups[SourceGroupIndex], SourceGroups[SourceGroupIndex - 1], SourceGroups[SourceGroupIndex + 1]);
+	if (SourceGraph != TargetGraph)
+	{
+		// If the graphs were different also remove the nodes from the source graph.
+		for (UNiagaraNode* SourceGroupNode : SourceGroupNodes)
+		{
+			SourceGraph->RemoveNode(SourceGroupNode);
+		}
+	}
+
+	ConnectStackNodeGroup(TargetGroup, TargetGroups[TargetGroupIndex - 1], TargetGroups[TargetGroupIndex]);
+
+	// Copy any rapid iteration parameters cached earlier into the target script.
+	if (SourceFunctionIdToRapidIterationParametersMap.Num() != 0)
+	{
+		SourceScript.Modify();
+		TargetScript->Modify();
+		if (SourceGraph == TargetGraph)
+		{
+			// If the module was dropped in the same graph than neither the emitter or function call name could have changed
+			// so we can just add them directly to the target script.
+			for (auto It = SourceFunctionIdToRapidIterationParametersMap.CreateIterator(); It; ++It)
+			{
+				FGuid& FunctionId = It.Key();
+				TArray<FNiagaraVariable>& RapidIterationParameters = It.Value();
+				for (FNiagaraVariable& RapidIterationParameter : RapidIterationParameters)
+				{
+					TargetScript->RapidIterationParameters.SetParameterData(RapidIterationParameter.GetData(), RapidIterationParameter, true);
+				}
+			}
+		}
+		else
+		{
+			// If the module was moved to a different graph it's possible that the emitter name or function call name could have
+			// changed so we need to construct new rapid iteration parameters.
+			FString EmitterName;
+			if (TargetEmitterHandleId.IsValid())
+			{
+				const FNiagaraEmitterHandle* TargetEmitterHandle = TargetSystem.GetEmitterHandles().FindByPredicate(
+					[TargetEmitterHandleId](const FNiagaraEmitterHandle& EmitterHandle) { return EmitterHandle.GetId() == TargetEmitterHandleId; });
+				EmitterName = TargetEmitterHandle->GetUniqueInstanceName();
+			}
+
+			TArray<FNiagaraVariable> TargetRapidIterationParameters;
+			for (auto It = SourceFunctionIdToRapidIterationParametersMap.CreateIterator(); It; ++It)
+			{
+				FGuid& FunctionId = It.Key();
+				TArray<FNiagaraVariable>& RapidIterationParameters = It.Value();
+
+				if (SourceGraph == TargetGraph)
+				{
+					TargetRapidIterationParameters.Append(RapidIterationParameters);
+				}
+				else
+				{
+					FGuid TargetNodeId = OldNodeIdToNewIdMap[FunctionId];
+					UNiagaraNode** TargetFunctionNodePtr = TargetGroupNodes.FindByPredicate(
+						[TargetNodeId](UNiagaraNode* TargetGroupNode) { return TargetGroupNode->NodeGuid == TargetNodeId; });
+					checkf(TargetFunctionNodePtr != nullptr, TEXT("Target nodes not copied correctly"));
+					UNiagaraNodeFunctionCall* TargetFunctionNode = CastChecked<UNiagaraNodeFunctionCall>(*TargetFunctionNodePtr);
+					for (FNiagaraVariable& RapidIterationParameter : RapidIterationParameters)
+					{
+						FString OldEmitterName;
+						FString OldFunctionCallName;
+						FString InputName;
+						FNiagaraParameterMapHistory::SplitRapidIterationParameterName(RapidIterationParameter, OldEmitterName, OldFunctionCallName, InputName);
+						FNiagaraParameterHandle ModuleHandle = FNiagaraParameterHandle::CreateModuleParameterHandle(*InputName);
+						FNiagaraParameterHandle AliasedModuleHandle = FNiagaraParameterHandle::CreateAliasedModuleParameterHandle(ModuleHandle, TargetFunctionNode);
+						FNiagaraVariable TargetRapidIterationParameter = CreateRapidIterationParameter(EmitterName, TargetUsage, AliasedModuleHandle.GetParameterHandleString(), RapidIterationParameter.GetType());
+						TargetScript->RapidIterationParameters.SetParameterData(RapidIterationParameter.GetData(), TargetRapidIterationParameter, true);
+					}
+				}
+			}
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE
