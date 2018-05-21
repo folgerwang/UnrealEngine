@@ -20,6 +20,7 @@
 #include "NiagaraGraph.h"
 #include "NiagaraNodeInput.h"
 #include "NiagaraEditorModule.h"
+#include "NiagaraNodeFunctionCall.h"
 
 #include "Editor.h"
 
@@ -125,9 +126,8 @@ void FNiagaraSystemViewModel::Cleanup()
 	}
 
 	PreviewComponent = nullptr;
-	SystemScriptViewModel.Reset();
-	
 	RemoveSystemEventHandlers();
+	SystemScriptViewModel.Reset();
 }
 
 FNiagaraSystemViewModel::~FNiagaraSystemViewModel()
@@ -571,6 +571,32 @@ FNiagaraSystemViewModel::FOnPinnedCurvesChanged& FNiagaraSystemViewModel::GetOnP
 void FNiagaraSystemViewModel::SetToolkitCommands(const TSharedRef<FUICommandList>& InToolkitCommands)
 {
 	ToolkitCommands = InToolkitCommands;
+}
+
+const TArray<FNiagaraStackModuleData>& FNiagaraSystemViewModel::GetStackModuleDataForEmitter(TSharedRef<FNiagaraEmitterViewModel> EmitterViewModel)
+{
+	FGuid EmitterHandleId;
+	TSharedRef<FNiagaraEmitterHandleViewModel>* FoundModel = EmitterHandleViewModels.FindByPredicate([EmitterViewModel](TSharedRef<FNiagaraEmitterHandleViewModel> CurrentViewModel)
+	{ return CurrentViewModel->GetEmitterViewModel() == EmitterViewModel; });
+	checkf(FoundModel != nullptr, TEXT("Couldn't get stack module data for emitter"));
+	if (FoundModel)
+	{
+		EmitterHandleId = (*FoundModel)->GetEmitterHandle()->GetId();
+		if (!EmitterToCachedStackModuleData.Contains(EmitterHandleId))
+		{
+			// If not cached, rebuild
+			UNiagaraEmitter* Emitter = (*FoundModel)->GetEmitterViewModel()->GetEmitter();
+			TArray<FNiagaraStackModuleData> StackModuleData;
+			BuildStackModuleData(GetSystem().GetSystemSpawnScript(), EmitterHandleId, StackModuleData);
+			BuildStackModuleData(GetSystem().GetSystemUpdateScript(), EmitterHandleId, StackModuleData);
+			BuildStackModuleData(Emitter->EmitterSpawnScriptProps.Script, EmitterHandleId, StackModuleData);
+			BuildStackModuleData(Emitter->EmitterUpdateScriptProps.Script, EmitterHandleId, StackModuleData);
+			BuildStackModuleData(Emitter->SpawnScriptProps.Script, EmitterHandleId, StackModuleData);
+			BuildStackModuleData(Emitter->UpdateScriptProps.Script, EmitterHandleId, StackModuleData);
+			EmitterToCachedStackModuleData.Add(EmitterHandleId) = StackModuleData;
+		}
+	}
+	return EmitterToCachedStackModuleData[EmitterHandleId];
 }
 
 bool FNiagaraSystemViewModel::IsTickable() const
@@ -1142,6 +1168,13 @@ void FNiagaraSystemViewModel::EmitterScriptGraphChanged(const FEdGraphEditAction
 		}
 		Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemsChanged);
 	}
+	// Remove from cache on graph change 
+	EmitterToCachedStackModuleData.Remove(OwningEmitterHandleViewModel->GetId());
+}
+
+void FNiagaraSystemViewModel::SystemScriptGraphChanged(const FEdGraphEditAction& InAction)
+{
+	EmitterToCachedStackModuleData.Empty();
 }
 
 void FNiagaraSystemViewModel::EmitterParameterStoreChanged(const FNiagaraParameterStore& ChangedParameterStore, const UNiagaraScript& OwningScript, const TSharedRef<FNiagaraEmitterHandleViewModel> OwningEmitterHandleViewModel)
@@ -1581,6 +1614,8 @@ void FNiagaraSystemViewModel::AddSystemEventHandlers()
 		UserParameterStoreChangedHandle = System.GetExposedParameters().AddOnChangedHandler(
 			FNiagaraParameterStore::FOnChanged::FDelegate::CreateRaw<FNiagaraSystemViewModel, const FNiagaraParameterStore&, const UNiagaraScript*>(
 				this, &FNiagaraSystemViewModel::SystemParameterStoreChanged, System.GetExposedParameters(), nullptr));
+
+		SystemScriptGraphChangedHandler = SystemScriptViewModel->GetGraphViewModel()->GetGraph()->AddOnGraphChangedHandler(FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraSystemViewModel::SystemScriptGraphChanged));
 	}
 }
 
@@ -1602,6 +1637,10 @@ void FNiagaraSystemViewModel::RemoveSystemEventHandlers()
 		}
 
 		System.GetExposedParameters().RemoveOnChangedHandler(UserParameterStoreChangedHandle);
+		if (SystemScriptViewModel.IsValid())
+		{
+			SystemScriptViewModel->GetGraphViewModel()->GetGraph()->RemoveOnGraphChangedHandler(SystemScriptGraphChangedHandler);
+		}
 	}
 
 	ScriptToOnParameterStoreChangedHandleMap.Empty();
@@ -1611,6 +1650,35 @@ void FNiagaraSystemViewModel::RemoveSystemEventHandlers()
 void FNiagaraSystemViewModel::NotifyPinnedCurvesChanged()
 {
 	OnPinnedCurvesChangedDelegate.Broadcast();
+}
+
+void FNiagaraSystemViewModel::BuildStackModuleData(UNiagaraScript* Script, FGuid InEmitterHandleId, TArray<FNiagaraStackModuleData>& OutStackModuleData)
+{
+	UNiagaraNodeOutput* OutputNode = FNiagaraEditorUtilities::GetScriptOutputNode(*Script);
+	TArray<FNiagaraStackGraphUtilities::FStackNodeGroup> StackGroups;
+	FNiagaraStackGraphUtilities::GetStackNodeGroups((UNiagaraNode&)*OutputNode, StackGroups);
+
+	int StackIndex = 0;
+	if (StackGroups.Num() > 2)
+	{
+		for (int i = 1; i < StackGroups.Num() - 1; i++)
+		{
+			FNiagaraStackGraphUtilities::FStackNodeGroup& StackGroup = StackGroups[i];
+			StackIndex = i - 1;
+			TArray<UNiagaraNode*> GroupNodes;
+			StackGroup.GetAllNodesInGroup(GroupNodes);
+			UNiagaraNodeFunctionCall * ModuleNode = Cast<UNiagaraNodeFunctionCall>(StackGroup.EndNode);
+			if (ModuleNode != nullptr)
+			{
+				ENiagaraScriptUsage Usage = Script->GetUsage();
+				FGuid UsageId = Script->GetUsageId();
+				int32 Index = StackIndex;
+				FNiagaraStackModuleData ModuleData = { ModuleNode, Usage, UsageId, Index, InEmitterHandleId };
+				OutStackModuleData.Add(ModuleData);
+			}
+		}
+	}
+
 }
 
 #undef LOCTEXT_NAMESPACE // NiagaraSystemViewModel

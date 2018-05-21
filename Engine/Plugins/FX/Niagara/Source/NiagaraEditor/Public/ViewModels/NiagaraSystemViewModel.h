@@ -30,6 +30,8 @@ struct FRichCurve;
 class UNiagaraEditorSettings;
 struct FNiagaraParameterStore;
 struct FEdGraphEditAction;
+class UNiagaraNodeFunctionCall;
+class FNiagaraEmitterViewModel;
 
 /** Defines different editing modes for this system view model. */
 enum class ENiagaraSystemViewModelEditMode
@@ -62,6 +64,15 @@ struct FNiagaraSystemViewModelOptions
 
 	/** Gets the current editing mode for this system. */
 	ENiagaraSystemViewModelEditMode EditMode;
+};
+
+struct FNiagaraStackModuleData
+{
+	UNiagaraNodeFunctionCall* ModuleNode;
+	ENiagaraScriptUsage Usage;
+	FGuid UsageId;
+	int32 Index;
+	FGuid EmitterHandleId;
 };
 
 /** A view model for viewing and editing a UNiagaraSystem. */
@@ -243,6 +254,9 @@ public:
 	/** Set the system toolkit command list. */
 	void SetToolkitCommands(const TSharedRef<FUICommandList>& InToolkitCommands);
 
+	/** Gets the stack module data for the provided emitter, for use in module dependencies. */
+	const TArray<FNiagaraStackModuleData>& GetStackModuleDataForEmitter(TSharedRef<FNiagaraEmitterViewModel> EmitterViewModel);
+
 private:
 
 	/** Sets up the preview component and System instance. */
@@ -290,6 +304,9 @@ private:
 
 	/** Called whenever an emitter's script graph changes. */
 	void EmitterScriptGraphChanged(const FEdGraphEditAction& InAction, const UNiagaraScript& OwningScript, const TSharedRef<FNiagaraEmitterHandleViewModel> OwningEmitterHandleViewModel);
+
+	/** Called whenever the system script graph changes. */
+	void SystemScriptGraphChanged(const FEdGraphEditAction& InAction);
 
 	/**
 	* Called whenever an emitter's parameter store owned by the system changes.
@@ -351,6 +368,9 @@ private:
 
 	/** sends a notification that pinned curves have changed status */
 	void NotifyPinnedCurvesChanged();
+
+	/** builds stack module data for use in module dependencies */
+	void BuildStackModuleData(UNiagaraScript* Script, FGuid InEmitterHandleId, TArray<FNiagaraStackModuleData>& OutStackModuleData);
 
 private:
 	/** The System being viewed and edited by this view model. */
@@ -468,4 +488,10 @@ private:
 
 	/** A flag which indicates that a compile has been requested, but has not completed. */
 	bool bCompilePendingCompletion;
+
+	/** The cache of stack module data for each emitter */
+	TMap<FGuid, TArray<FNiagaraStackModuleData>> EmitterToCachedStackModuleData;
+	
+	/** A handle to the on graph changed delegate for the system script. */
+	FDelegateHandle SystemScriptGraphChangedHandler;
 };

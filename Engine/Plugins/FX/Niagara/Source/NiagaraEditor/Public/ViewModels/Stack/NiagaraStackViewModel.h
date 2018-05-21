@@ -98,6 +98,7 @@ private:
 private:
 	void EntryStructureChanged();
 	void EntryDataObjectModified(UObject* ChangedObject);
+	void EntryRequestFullRefresh();
 	void OnSystemCompiled();
 	void OnEmitterCompiled();
 	/** Called by the tick function to perform partial search */

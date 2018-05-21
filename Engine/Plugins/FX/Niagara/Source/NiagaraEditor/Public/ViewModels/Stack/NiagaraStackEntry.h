@@ -38,6 +38,7 @@ public:
 
 	DECLARE_MULTICAST_DELEGATE(FOnStructureChanged);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnDataObjectModified, UObject*);
+	DECLARE_MULTICAST_DELEGATE(FOnRequestFullRefresh);
 	DECLARE_DELEGATE_RetVal_TwoParams(TOptional<FDropResult>, FOnRequestDrop, const UNiagaraStackEntry&, const TArray<UNiagaraStackEntry*>&);
 	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnFilterChild, const UNiagaraStackEntry&);
 	DECLARE_DELEGATE(FStackIssueFixDelegate);
@@ -201,6 +202,8 @@ public:
 
 	FOnDataObjectModified& OnDataObjectModified();
 
+	FOnRequestFullRefresh& OnRequestFullRefresh();
+
 	void RefreshChildren();
 
 
@@ -272,6 +275,8 @@ private:
 	
 	void ChildDataObjectModified(UObject* ChangedObject);
 
+	void ChildRequestFullRefresh();
+
 	TOptional<FDropResult> ChildRequestCanDrop(const UNiagaraStackEntry& TargetChild, const TArray<UNiagaraStackEntry*>& DraggedEntries);
 
 	TOptional<FDropResult> ChildRequestDrop(const UNiagaraStackEntry& TargetChild, const TArray<UNiagaraStackEntry*>& DraggedEntries);
@@ -291,6 +296,8 @@ private:
 	FOnStructureChanged StructureChangedDelegate;
 
 	FOnDataObjectModified DataObjectModifiedDelegate;
+
+	FOnRequestFullRefresh RequestFullRefreshDelegate;
 
 	TArray<FOnFilterChild> ChildFilters;
 

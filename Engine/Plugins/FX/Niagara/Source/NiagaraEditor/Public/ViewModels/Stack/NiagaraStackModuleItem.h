@@ -60,7 +60,6 @@ private:
 
 private:
 	void RefreshIsEnabled();
-	void InputPinnedChanged();
 
 private:
 	UNiagaraNodeFunctionCall* FunctionCallNode;

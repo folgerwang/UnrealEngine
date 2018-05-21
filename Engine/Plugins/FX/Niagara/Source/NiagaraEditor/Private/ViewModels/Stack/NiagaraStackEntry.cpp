@@ -267,6 +267,11 @@ UNiagaraStackEntry::FOnDataObjectModified& UNiagaraStackEntry::OnDataObjectModif
 	return DataObjectModifiedDelegate;
 }
 
+UNiagaraStackEntry::FOnRequestFullRefresh& UNiagaraStackEntry::OnRequestFullRefresh()
+{
+	return RequestFullRefreshDelegate;
+}
+
 int32 UNiagaraStackEntry::GetIndentLevel() const
 {
 	return IndentLevel;
@@ -364,6 +369,7 @@ void UNiagaraStackEntry::RefreshChildren()
 	{
 		Child->OnStructureChanged().RemoveAll(this);
 		Child->OnDataObjectModified().RemoveAll(this);
+		Child->OnRequestFullRefresh().RemoveAll(this);
 		Child->SetOnRequestCanDrop(FOnRequestDrop());
 		Child->SetOnRequestDrop(FOnRequestDrop());
 	}
@@ -371,6 +377,7 @@ void UNiagaraStackEntry::RefreshChildren()
 	{
 		ErrorChild->OnStructureChanged().RemoveAll(this);
 		ErrorChild->OnDataObjectModified().RemoveAll(this);
+		ErrorChild->OnRequestFullRefresh().RemoveAll(this);
 		ErrorChild->OnIssueModified().RemoveAll(this);
 	}
 
@@ -386,6 +393,7 @@ void UNiagaraStackEntry::RefreshChildren()
 		Child->RefreshChildren();
 		Child->OnStructureChanged().AddUObject(this, &UNiagaraStackEntry::ChildStructureChanged);
 		Child->OnDataObjectModified().AddUObject(this, &UNiagaraStackEntry::ChildDataObjectModified);
+		Child->OnRequestFullRefresh().AddUObject(this, &UNiagaraStackEntry::ChildRequestFullRefresh);
 		Child->SetOnRequestCanDrop(FOnRequestDrop::CreateUObject(this, &UNiagaraStackEntry::ChildRequestCanDrop));
 		Child->SetOnRequestDrop(FOnRequestDrop::CreateUObject(this, &UNiagaraStackEntry::ChildRequestDrop));
 	}
@@ -402,6 +410,7 @@ void UNiagaraStackEntry::RefreshChildren()
 		ErrorChild->RefreshChildren();
 		ErrorChild->OnStructureChanged().AddUObject(this, &UNiagaraStackEntry::ChildStructureChanged);
 		ErrorChild->OnDataObjectModified().AddUObject(this, &UNiagaraStackEntry::ChildDataObjectModified);
+		ErrorChild->OnRequestFullRefresh().AddUObject(this, &UNiagaraStackEntry::ChildRequestFullRefresh);
 		ErrorChild->OnIssueModified().AddUObject(this, &UNiagaraStackEntry::IssueModified);
 	}
 
@@ -466,6 +475,11 @@ void UNiagaraStackEntry::ChildStructureChanged()
 void UNiagaraStackEntry::ChildDataObjectModified(UObject* ChangedObject)
 {
 	DataObjectModifiedDelegate.Broadcast(ChangedObject);
+}
+
+void UNiagaraStackEntry::ChildRequestFullRefresh()
+{
+	RequestFullRefreshDelegate.Broadcast();
 }
 
 TOptional<UNiagaraStackEntry::FDropResult> UNiagaraStackEntry::ChildRequestCanDrop(const UNiagaraStackEntry& TargetChild, const TArray<UNiagaraStackEntry*>& DraggedEntries)
