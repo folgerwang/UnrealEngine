@@ -111,22 +111,22 @@ struct FCompressedFileBuffer
 	{
 		if(RequiredSpace > CompressedBufferSize)
 		{
-			uint8* NewPtr = (uint8*)FMemory::Malloc(RequiredSpace);
-			FMemory::Memcpy(NewPtr,CompressedBuffer.Get(),CompressedBufferSize);
-			CompressedBuffer.Reset(NewPtr);
+			TUniquePtr<uint8[]> NewCompressedBuffer = MakeUnique<uint8[]>(RequiredSpace);
+			FMemory::Memcpy(NewCompressedBuffer.Get(), CompressedBuffer.Get(), CompressedBufferSize);
+			CompressedBuffer = MoveTemp(NewCompressedBuffer);
 			CompressedBufferSize = RequiredSpace;
 		}
 	}
 
 	bool CompressFileToWorkingBuffer(const FPakInputPair& InFile,uint8*& InOutPersistentBuffer,int64& InOutBufferSize,ECompressionFlags CompressionMethod,const int32 CompressionBlockSize,const int32 CompressionBitWindow);
 
-	int64						 OriginalSize;
-	int64						 TotalCompressedSize;
-	int32						 FileCompressionBlockSize;
-	ECompressionFlags			 FileCompressionMethod;
-	TArray<FPakCompressedBlock>  CompressedBlocks;
-	int64						 CompressedBufferSize;
-	TUniquePtr<uint8>		     CompressedBuffer;
+	int64				OriginalSize;
+	int64				TotalCompressedSize;
+	int32				FileCompressionBlockSize;
+	ECompressionFlags		FileCompressionMethod;
+	TArray<FPakCompressedBlock>	CompressedBlocks;
+	int64				CompressedBufferSize;
+	TUniquePtr<uint8[]>		CompressedBuffer;
 };
 
 FString GetLongestPath(TArray<FPakInputPair>& FilesToAdd)
