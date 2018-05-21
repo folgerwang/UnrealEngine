@@ -25,6 +25,10 @@
 
 #define LOCTEXT_NAMESPACE "NiagaraNodeParameterMapBase"
 
+const FName UNiagaraNodeParameterMapBase::ParameterPinSubCategory("ParameterPin");
+const FName UNiagaraNodeParameterMapBase::SourcePinName("Source");
+const FName UNiagaraNodeParameterMapBase::DestPinName("Dest");
+
 UNiagaraNodeParameterMapBase::UNiagaraNodeParameterMapBase() 
 	: UNiagaraNodeWithDynamicPins()
 	, PinPendingRename(nullptr)

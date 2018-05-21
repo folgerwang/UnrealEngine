@@ -31,7 +31,7 @@ void UNiagaraNodeParameterMapGet::AllocateDefaultPins()
 {
 	PinPendingRename = nullptr;
 	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
-	CreatePin(EGPD_Input, Schema->TypeDefinitionToPinType(FNiagaraTypeDefinition::GetParameterMapDef()), TEXT("Source"));
+	CreatePin(EGPD_Input, Schema->TypeDefinitionToPinType(FNiagaraTypeDefinition::GetParameterMapDef()), *UNiagaraNodeParameterMapBase::SourcePinName.ToString());
 	CreateAddPin(EGPD_Output);
 }
 
@@ -153,6 +153,8 @@ void UNiagaraNodeParameterMapGet::OnNewTypedPinAdded(UEdGraphPin* NewPin)
 		{
 			UEdGraphPin* DefaultPin = CreateDefaultPin(NewPin);
 		}
+
+		NewPin->PinType.PinSubCategory = UNiagaraNodeParameterMapBase::ParameterPinSubCategory;
 	}
 
 	if (HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad | RF_NeedInitialization))
@@ -257,19 +259,23 @@ void UNiagaraNodeParameterMapGet::PostLoad()
 	GetOutputPins(OutputPins);
 	for (int32 i = 0; i < OutputPins.Num(); i++)
 	{
-		if (IsAddPin(OutputPins[i]))
+		UEdGraphPin* OutputPin = OutputPins[i];
+		if (IsAddPin(OutputPin))
 		{
 			continue;
 		}
-		UEdGraphPin* InputPin = GetDefaultPin(OutputPins[i]);
+
+		UEdGraphPin* InputPin = GetDefaultPin(OutputPin);
 		if (InputPin == nullptr)
 		{
-			CreateDefaultPin(OutputPins[i]);
+			CreateDefaultPin(OutputPin);
 		}
 		else
 		{
-			SynchronizeDefaultInputPin(InputPin, OutputPins[i]);
+			SynchronizeDefaultInputPin(InputPin, OutputPin);
 		}
+
+		OutputPin->PinType.PinSubCategory = UNiagaraNodeParameterMapBase::ParameterPinSubCategory;
 	}
 }
 
