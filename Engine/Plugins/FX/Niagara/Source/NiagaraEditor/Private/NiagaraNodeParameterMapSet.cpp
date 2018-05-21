@@ -75,6 +75,23 @@ void UNiagaraNodeParameterMapSet::OnNewTypedPinAdded(UEdGraphPin* NewPin)
 		return;
 	}
 
+	if (NewPin->Direction == EEdGraphPinDirection::EGPD_Input)
+	{
+		TArray<UEdGraphPin*> InputPins;
+		GetInputPins(InputPins);
+
+		TSet<FName> Names;
+		for (const UEdGraphPin* Pin : InputPins)
+		{
+			if (Pin != NewPin)
+			{
+				Names.Add(Pin->GetFName());
+			}
+		}
+		const FName NewUniqueName = FNiagaraUtilities::GetUniqueName(*NewPin->GetName(), Names);
+		NewPin->PinName = NewUniqueName;
+	}
+
 	if (!NewPin->PersistentGuid.IsValid())
 	{
 		NewPin->PersistentGuid = FGuid::NewGuid();

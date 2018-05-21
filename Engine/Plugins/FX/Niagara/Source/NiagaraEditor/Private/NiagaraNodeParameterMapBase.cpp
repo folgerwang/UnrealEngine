@@ -202,11 +202,31 @@ void UNiagaraNodeParameterMapBase::OnPinRenamed(UEdGraphPin* RenamedPin, const F
 {
 	RenamedPin->PinFriendlyName = FText::FromName(RenamedPin->PinName);
 
+	TArray<UEdGraphPin*> InOrOutPins;
+	if (RenamedPin->Direction == EEdGraphPinDirection::EGPD_Input)
+	{
+		GetInputPins(InOrOutPins);
+	}
+	else
+	{
+		GetOutputPins(InOrOutPins);
+	}
+
+	TSet<FName> Names;
+	for (const UEdGraphPin* Pin : InOrOutPins)
+	{
+		if (Pin != RenamedPin)
+		{
+			Names.Add(Pin->GetFName());
+		}
+	}
+	const FName NewUniqueName = FNiagaraUtilities::GetUniqueName(*RenamedPin->GetName(), Names);
+
 	FNiagaraTypeDefinition VarType = CastChecked<UEdGraphSchema_Niagara>(GetSchema())->PinToTypeDefinition(RenamedPin);
 	FNiagaraVariable Var(VarType, *OldName);
 
 	UNiagaraGraph* Graph = GetNiagaraGraph();
-	Graph->RenameParameter(Var, RenamedPin->GetFName(), false /*bInNotifyGraphChanged*/); // Notify graph changed in child.
+	Graph->RenameParameter(Var, NewUniqueName, false /*bInNotifyGraphChanged*/); // Notify graph changed in child.
 
 	if (RenamedPin == PinPendingRename)
 	{

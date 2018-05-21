@@ -8,6 +8,7 @@
 #include "Widgets/Input/SComboButton.h"
 #include "Widgets/Input/SSearchBox.h"
 #include "Widgets/SNiagaraGraphPinAdd.h"
+#include "NiagaraCommon.h"
 #include "NiagaraScript.h"
 #include "NiagaraScriptSource.h"
 #include "NiagaraEmitter.h"
@@ -232,6 +233,18 @@ bool SNiagaraParameterMapView::IsEditingMode() const
 
 void SNiagaraParameterMapView::AddParameter(FNiagaraVariable NewVariable)
 {
+	TSet<FName> Names;
+	for (auto& GraphWeakPtr : Graphs)
+	{
+		UNiagaraGraph* Graph = GraphWeakPtr.Get();
+		for (const auto& ParameterElement : Graph->GetParameterMap())
+		{
+			Names.Add(ParameterElement.Key.GetName());
+		}
+	}
+	const FName NewUniqueName = FNiagaraUtilities::GetUniqueName(NewVariable.GetName(), Names);
+	NewVariable.SetName(NewUniqueName);
+
 	bool bAddedParameter = false;
 	// Check whether we have to add this parameter to the user exposed system parameters.
 	FNiagaraParameterHandle ParameterHandle;
@@ -958,7 +971,7 @@ void SNiagaraAddParameterMenu::AddParameterSelected(FNiagaraVariable NewVariable
 	if (bCreateCustomName)
 	{
 		const FString ResultName = (InSection != NiagaraParameterMapSectionID::NONE ? NiagaraParameterMapSectionID::OnGetSectionTitle(InSection).ToString() + TEXT(".") : FString())
-			+ FString::Printf(TEXT("%s%d"), *NewVariable.GetName().ToString(), Graph->GetParameterMap().Num());
+			+ NewVariable.GetName().ToString();
 		NewVariable.SetName(FName(*ResultName));
 	}
 
