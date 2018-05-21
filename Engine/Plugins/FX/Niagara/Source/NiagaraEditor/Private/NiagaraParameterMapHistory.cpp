@@ -45,20 +45,32 @@ FNiagaraParameterMapHistory::FNiagaraParameterMapHistory()
 
 void FNiagaraParameterMapHistory::GetValidNamespacesForReading(const UNiagaraScript* InScript, TArray<FString>& OutputNamespaces)
 {
-	GetValidNamespacesForReading(InScript->GetUsage(), OutputNamespaces);
+	GetValidNamespacesForReading(InScript->GetUsage(), 0, OutputNamespaces);
 }
 
-void FNiagaraParameterMapHistory::GetValidNamespacesForReading(ENiagaraScriptUsage InScriptUsage, TArray<FString>& OutputNamespaces)
+void FNiagaraParameterMapHistory::GetValidNamespacesForReading(ENiagaraScriptUsage InScriptUsage, int32 InUsageBitmask, TArray<FString>& OutputNamespaces)
 {
+	TArray<ENiagaraScriptUsage> SupportedContexts;
+	SupportedContexts.Add(InScriptUsage);
+	if (UNiagaraScript::IsStandaloneScript(InScriptUsage))
+	{
+		SupportedContexts.Append(UNiagaraScript::GetSupportedUsageContextsForBitmask(InUsageBitmask));
+	}
+
 	OutputNamespaces.Add(PARAM_MAP_MODULE_STR);
 	OutputNamespaces.Add(PARAM_MAP_ENGINE_STR);
 	OutputNamespaces.Add(PARAM_MAP_NPC_STR);
 	OutputNamespaces.Add(PARAM_MAP_USER_STR);
 	OutputNamespaces.Add(PARAM_MAP_SYSTEM_STR);
 	OutputNamespaces.Add(PARAM_MAP_EMITTER_STR);
-	if (UNiagaraScript::IsParticleScript(InScriptUsage))
+
+	for (ENiagaraScriptUsage Usage : SupportedContexts)
 	{
-		OutputNamespaces.Add(PARAM_MAP_ATTRIBUTE_STR);
+		if (UNiagaraScript::IsParticleScript(Usage))
+		{
+			OutputNamespaces.Add(PARAM_MAP_ATTRIBUTE_STR);
+			break;
+		}
 	}
 }
 
@@ -79,16 +91,26 @@ FString FNiagaraParameterMapHistory::GetNamespace(const FNiagaraVariable& InVar,
 	}
 }
 
-bool FNiagaraParameterMapHistory::IsValidNamespaceForReading(ENiagaraScriptUsage InScriptUsage, FString Namespace)
+bool FNiagaraParameterMapHistory::IsValidNamespaceForReading(ENiagaraScriptUsage InScriptUsage, int32 InUsageBitmask, FString Namespace)
 {
 	TArray<FString> OutputNamespaces;
-	GetValidNamespacesForReading(InScriptUsage, OutputNamespaces);
+	GetValidNamespacesForReading(InScriptUsage, InUsageBitmask, OutputNamespaces);
+
+	TArray<FString> ConcernedNamespaces;
+	ConcernedNamespaces.Add(PARAM_MAP_MODULE_STR);
+	ConcernedNamespaces.Add(PARAM_MAP_ENGINE_STR);
+	ConcernedNamespaces.Add(PARAM_MAP_NPC_STR);
+	ConcernedNamespaces.Add(PARAM_MAP_USER_STR);
+	ConcernedNamespaces.Add(PARAM_MAP_SYSTEM_STR);
+	ConcernedNamespaces.Add(PARAM_MAP_EMITTER_STR);
+	ConcernedNamespaces.Add(PARAM_MAP_ATTRIBUTE_STR);
 	
 	if (!Namespace.EndsWith(TEXT(".")))
 	{
 		Namespace.Append(TEXT("."));
 	}
 
+	// Pass if we are in the allowed list
 	for (const FString& ValidNamespace : OutputNamespaces)
 	{
 		if (Namespace.StartsWith(ValidNamespace))
@@ -97,7 +119,17 @@ bool FNiagaraParameterMapHistory::IsValidNamespaceForReading(ENiagaraScriptUsage
 		}
 	}
 
-	return false;
+	// Only fail if we're using a namespace that we know is one of the reserved ones.
+	for (const FString& ConcernedNamespace : ConcernedNamespaces)
+	{
+		if (Namespace.StartsWith(ConcernedNamespace))
+		{
+			return false;
+		}
+	}
+
+	// This means that we are using a namespace that isn't one of the primary engine namespaces, so we don't care and let it go.
+	return true;
 }
 
 

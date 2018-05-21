@@ -3255,6 +3255,13 @@ void FHlslNiagaraTranslator::HandleParameterRead(int32 ParamMapHistoryIdx, const
 	bool bIsCandidateForRapidIteration = false;
 	const UEdGraphPin* InputPin = DefaultPin;
 
+	FString Namespace = FNiagaraParameterMapHistory::GetNamespace(Var);
+	if (!ParamMapHistories[ParamMapHistoryIdx].IsValidNamespaceForReading(CompileOptions.TargetUsage, CompileOptions.TargetUsageBitmask, Namespace))
+	{
+		Error(FText::Format(LOCTEXT("InvalidReadingNamespace", "Variable {0} is in a namespace that isn't valid for reading"), FText::FromName(Var.GetName())), ErrorNode, nullptr);
+		return;
+	}
+
 	if (FNiagaraParameterMapHistory::IsExternalConstantNamespace(Var, CompileOptions.TargetUsage, CompileOptions.GetTargetUsageBitmask()))
 	{
 		if (ParameterMapRegisterExternalConstantNamespaceVariable(Var, ErrorNode, ParamMapHistoryIdx, OutputChunkId, DefaultPin))
@@ -3978,7 +3985,7 @@ void FHlslNiagaraTranslator::HandleCustomHlslNode(UNiagaraNodeCustomHlsl* Custom
 		// Clean up any namespaced variables in the token list if they are aliased or promote any tokens that are namespaced to the parent 
 		// parameter map.
 		TArray<FString> PossibleNamespaces;
-		FNiagaraParameterMapHistory::GetValidNamespacesForReading(CompileOptions.TargetUsage, PossibleNamespaces);
+		FNiagaraParameterMapHistory::GetValidNamespacesForReading(CompileOptions.TargetUsage, 0, PossibleNamespaces);
 
 		for (FNiagaraParameterMapHistory& History : ParamMapHistories)
 		{
