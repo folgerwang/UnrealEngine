@@ -854,38 +854,6 @@ void SNiagaraAddParameterMenu::CollectAllActions(FGraphActionListBuilderBase& Ou
 		CollectMakeNew(OutAllActions, NiagaraParameterMapSectionID::OTHER);
 	}
 
-	// Collect locals
-	if (Graph.Get())
-	{
-		TArray<FNiagaraVariable> Parameters;
-
-		if (ShowGraphParameters.Get())
-		{
-			for (const auto& Parameter : Graph.Get()->GetParameterMap())
-			{
-				Parameters.AddUnique(Parameter.Key);
-			}
-		}
-
-		Parameters.Sort([](const FNiagaraVariable& A, const FNiagaraVariable& B) { return (A.GetName() < B.GetName()); });
-
-		for (const FNiagaraVariable& Parameter : Parameters)
-		{
-			FNiagaraParameterHandle Handle;
-			const NiagaraParameterMapSectionID::Type ParameterSectionID = NiagaraParameterMapSectionID::OnGetSectionFromVariable(Parameter, Handle, /*Default*/ NiagaraParameterMapSectionID::OTHER);
-			if (CanCollectSection(ParameterSectionID))
-			{
-				const FText Category = ShowNamespaceCategory.Get() ? NiagaraParameterMapSectionID::OnGetSectionTitle(ParameterSectionID) : FText::GetEmpty();
-				const FText DisplayName = FText::FromName(Parameter.GetName());
-				const FText Tooltip = FText::GetEmpty();
-				TSharedPtr<FNiagaraMenuAction> Action(new FNiagaraMenuAction(
-					Category, DisplayName, Tooltip, 0, FText::GetEmpty(),
-					FNiagaraMenuAction::FOnExecuteStackAction::CreateSP(this, &SNiagaraAddParameterMenu::AddParameterSelected, Parameter, false, ParameterSectionID)));
-				OutAllActions.AddAction(Action);
-			}
-		}
-	}
-
 	// Engine
 	if (CanCollectSection(NiagaraParameterMapSectionID::ENGINE))
 	{
@@ -898,6 +866,54 @@ void SNiagaraAddParameterMenu::CollectAllActions(FGraphActionListBuilderBase& Ou
 			FString(), true, false);
 	}
 
+	// Collect parameter actions
+	if (ShowGraphParameters.Get() && Graph.Get())
+	{
+		TMap<FNiagaraVariable, FNiagaraGraphParameterReferenceCollection> ParameterEntries = Graph.Get()->GetParameterMap();
+		ParameterEntries.KeySort([](const FNiagaraVariable& A, const FNiagaraVariable& B) { return (A.GetName() < B.GetName()); });
+
+		for (const auto& ParameterEntry : ParameterEntries)
+		{
+			const FNiagaraVariable& Parameter = ParameterEntry.Key;
+			FNiagaraParameterHandle Handle;
+			const NiagaraParameterMapSectionID::Type ParameterSectionID = NiagaraParameterMapSectionID::OnGetSectionFromVariable(Parameter, Handle, /*Default*/ NiagaraParameterMapSectionID::OTHER);
+			if (CanCollectSection(ParameterSectionID))
+			{
+				const FText Category = ShowNamespaceCategory.Get() ? NiagaraParameterMapSectionID::OnGetSectionTitle(ParameterSectionID) : FText::GetEmpty();
+				const FText DisplayName = FText::FromName(Parameter.GetName());
+
+				// Only add this action if it isn't already in the list.
+				bool bUnique = true;
+				for (int32 Index = 0; Index < OutAllActions.GetNumActions(); Index++)
+				{
+					const FGraphActionListBuilderBase::ActionGroup& ActionGroup = OutAllActions.GetAction(Index);
+					for (const TSharedPtr<FEdGraphSchemaAction>& SchemaAction : ActionGroup.Actions)
+					{
+						if (SchemaAction->GetMenuDescription().EqualTo(DisplayName))
+						{
+							bUnique = false;
+							break;
+						}
+					}
+
+					if (!bUnique)
+					{
+						break;
+					}
+				}
+
+				if (bUnique)
+				{
+					const FText Tooltip = FText::GetEmpty();
+					TSharedPtr<FNiagaraMenuAction> Action(new FNiagaraMenuAction(
+						Category, DisplayName, Tooltip, 0, FText::GetEmpty(),
+						FNiagaraMenuAction::FOnExecuteStackAction::CreateSP(this, &SNiagaraAddParameterMenu::AddParameterSelected, Parameter, false, ParameterSectionID)));
+
+					OutAllActions.AddAction(Action);
+				}
+			}
+		}
+	}
 }
 
 void SNiagaraAddParameterMenu::AddParameterGroup(FGraphActionListBuilderBase& OutActions, TArray<FNiagaraVariable>& Variables, const NiagaraParameterMapSectionID::Type InSection, const FText& Category, const FString& RootCategory, const bool bSort, const bool bCustomName)
