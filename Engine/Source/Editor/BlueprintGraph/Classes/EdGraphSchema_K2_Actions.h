@@ -17,6 +17,15 @@ class UK2Node;
 * FEdGraphSchemaAction_K2NewNode
 *******************************************************************************/
 
+enum class EK2NewNodeFlags
+{
+	None = 0x0,
+
+	SelectNewNode = 0x1,
+	GotoNewNode = 0x2,
+};
+ENUM_CLASS_FLAGS(EK2NewNodeFlags)
+
 /** Action to add a node to the graph */
 USTRUCT()
 struct BLUEPRINTGRAPH_API FEdGraphSchemaAction_K2NewNode : public FEdGraphSchemaAction
@@ -47,21 +56,49 @@ struct BLUEPRINTGRAPH_API FEdGraphSchemaAction_K2NewNode : public FEdGraphSchema
 	{}
 
 	// FEdGraphSchemaAction interface
-	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) override;
-	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, TArray<UEdGraphPin*>& FromPins, const FVector2D Location, bool bSelectNewNode = true) override;
+	virtual UEdGraphNode* PerformAction(UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) override;
+	virtual UEdGraphNode* PerformAction(UEdGraph* ParentGraph, TArray<UEdGraphPin*>& FromPins, const FVector2D Location, bool bSelectNewNode = true) override;
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 	// End of FEdGraphSchemaAction interface
 
 	template <typename NodeType>
 	static NodeType* SpawnNodeFromTemplate(class UEdGraph* ParentGraph, NodeType* InTemplateNode, const FVector2D Location, bool bSelectNewNode = true)
 	{
-		FEdGraphSchemaAction_K2NewNode Action;
-		Action.NodeTemplate = InTemplateNode;
-
-		return Cast<NodeType>(Action.PerformAction(ParentGraph, NULL, Location, bSelectNewNode));
+		EK2NewNodeFlags Options = EK2NewNodeFlags::None;
+		if (bSelectNewNode)
+		{
+			Options |= EK2NewNodeFlags::SelectNewNode;
+		}
+		return Cast<NodeType>(CreateNode(ParentGraph, TArrayView<UEdGraphPin*>(), Location, InTemplateNode, Options));
 	}
 
-	static UEdGraphNode* CreateNode(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, class UK2Node* NodeTemplate, bool bSelectNewNode);
+	template <typename NodeType>
+	static NodeType* SpawnNode(class UEdGraph* ParentGraph, const FVector2D Location, EK2NewNodeFlags Options, TFunctionRef<void(NodeType*)> InitializerFn)
+	{
+		UClass* NodeClass = NodeType::StaticClass();
+		return Cast<NodeType>(CreateNode(
+			ParentGraph,
+			TArrayView<UEdGraphPin*>(),
+			Location,
+			[NodeClass](UEdGraph* ParentGraph)->UK2Node*
+			{
+				return NewObject<UK2Node>(ParentGraph, NodeClass);
+			},
+			[InitializerFn](UK2Node* NewNode)
+			{
+				InitializerFn(CastChecked<NodeType>(NewNode));
+			},
+			Options));
+	}
+
+	template <typename NodeType>
+	static NodeType* SpawnNode(class UEdGraph* ParentGraph, const FVector2D Location, EK2NewNodeFlags Options)
+	{
+		return SpawnNode<NodeType>(ParentGraph, Location, Options, [](NodeType*){});
+	}
+
+	static UEdGraphNode* CreateNode(UEdGraph* ParentGraph, TArrayView<UEdGraphPin*> FromPins, const FVector2D Location, UK2Node* NodeTemplate, EK2NewNodeFlags Options);
+	static UEdGraphNode* CreateNode(UEdGraph* ParentGraph, TArrayView<UEdGraphPin*> FromPins, const FVector2D Location, TFunctionRef<UK2Node*(UEdGraph*)> ConstructionFn, TFunctionRef<void(UK2Node*)> InitializerFn, EK2NewNodeFlags Options);
 };
 
 /*******************************************************************************
