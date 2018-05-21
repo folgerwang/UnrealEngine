@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Tools.DotNETCommon;
 
-namespace UnrealBuildTool
+namespace Tools.DotNETCommon
 {
 	/// <summary>
 	/// Methods for adding context information to exceptions
