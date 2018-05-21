@@ -11,6 +11,7 @@
 #include "ISettingsModule.h"
 #include "SequencerChannelInterface.h"
 #include "SequencerSettings.h"
+#include "AssetRegistryModule.h"
 
 #include "AssetTypeActions/AssetTypeActions_NiagaraSystem.h"
 #include "AssetTypeActions/AssetTypeActions_NiagaraEmitter.h"
@@ -39,10 +40,12 @@
 #include "TypeEditorUtilities/NiagaraFloatTypeEditorUtilities.h"
 #include "TypeEditorUtilities/NiagaraVectorTypeEditorUtilities.h"
 #include "TypeEditorUtilities/NiagaraColorTypeEditorUtilities.h"
+#include "TypeEditorUtilities/NiagaraMatrixTypeEditorUtilities.h"
 #include "TypeEditorUtilities/NiagaraDataInterfaceCurveTypeEditorUtilities.h"
 #include "NiagaraEditorStyle.h"
 #include "NiagaraEditorCommands.h"
-#include "NiagaraEmitterTrackEditor.h"
+#include "Sequencer/NiagaraSequence/NiagaraEmitterTrackEditor.h"
+#include "Sequencer/LevelSequence/NiagaraSystemTrackEditor.h"
 #include "PropertyEditorModule.h"
 #include "NiagaraSettings.h"
 #include "NiagaraModule.h"
@@ -54,17 +57,37 @@
 #include "NiagaraDataInterfaceVector4Curve.h"
 #include "NiagaraDataInterfaceColorCurve.h"
 #include "NiagaraScriptViewModel.h"
-#include "NiagaraSystemViewModel.h"
-#include "NiagaraEmitterViewModel.h"
+#include "ViewModels/NiagaraSystemViewModel.h"
+#include "ViewModels/NiagaraEmitterViewModel.h"
 #include "TNiagaraGraphPinEditableName.h"
-#include "MovieSceneNiagaraEmitterSection.h"
+#include "Sequencer/NiagaraSequence/Sections/MovieSceneNiagaraEmitterSection.h"
 #include "UObject/Class.h"
 #include "NiagaraScriptMergeManager.h"
 #include "NiagaraEmitter.h"
+#include "NiagaraScriptSource.h"
+#include "NiagaraTypes.h"
+
+#include "MovieScene/Parameters/MovieSceneNiagaraBoolParameterTrack.h"
+#include "MovieScene/Parameters/MovieSceneNiagaraFloatParameterTrack.h"
+#include "MovieScene/Parameters/MovieSceneNiagaraIntegerParameterTrack.h"
+#include "MovieScene/Parameters/MovieSceneNiagaraVectorParameterTrack.h"
+#include "MovieScene/Parameters/MovieSceneNiagaraColorParameterTrack.h"
+
+#include "Sections/MovieSceneBoolSection.h"
+#include "Sections/MovieSceneFloatSection.h"
+#include "Sections/MovieSceneIntegerSection.h"
+#include "Sections/MovieSceneVectorSection.h"
+#include "Sections/MovieSceneColorSection.h"
+
+#include "ISequencerSection.h"
+#include "Sections/BoolPropertySection.h"
+#include "Sections/ColorPropertySection.h"
 
 #include "Customizations/NiagaraComponentDetails.h"
 #include "Customizations/NiagaraTypeCustomizations.h"
 #include "Customizations/NiagaraEventScriptPropertiesCustomization.h"
+#include "HAL/IConsoleManager.h"
+
 
 IMPLEMENT_MODULE( FNiagaraEditorModule, NiagaraEditor );
 
@@ -72,6 +95,11 @@ IMPLEMENT_MODULE( FNiagaraEditorModule, NiagaraEditor );
 
 const FName FNiagaraEditorModule::NiagaraEditorAppIdentifier( TEXT( "NiagaraEditorApp" ) );
 const FLinearColor FNiagaraEditorModule::WorldCentricTabColorScale(0.0f, 0.0f, 0.2f, 0.5f);
+
+const FName FNiagaraEditorModule::FInputMetaDataKeys::AdvancedDisplay = "AdvancedDisplay";
+const FName FNiagaraEditorModule::FInputMetaDataKeys::EditCondition = "EditCondition";
+const FName FNiagaraEditorModule::FInputMetaDataKeys::VisibleCondition = "VisibleCondition";
+const FName FNiagaraEditorModule::FInputMetaDataKeys::InlineEditConditionToggle = "InlineEditConditionToggle";
 
 EAssetTypeCategories::Type FNiagaraEditorModule::NiagaraAssetCategory;
 
@@ -143,8 +171,113 @@ private:
 
 FNiagaraEditorModule::FNiagaraEditorModule() 
 	: SequencerSettings(nullptr)
+	, TestCompileScriptCommand(nullptr)
 {
 }
+
+void DumpParameterStore(const FNiagaraParameterStore& ParameterStore)
+{
+	FNiagaraEditorModule& NiagaraEditorModule = FModuleManager::Get().GetModuleChecked<FNiagaraEditorModule>("NiagaraEditor");
+	TArray<FNiagaraVariable> ParameterVariables;
+	ParameterStore.GetParameters(ParameterVariables);
+	for (const FNiagaraVariable& ParameterVariable : ParameterVariables)
+	{
+		FString Name = ParameterVariable.GetName().ToString();
+		FString Type = ParameterVariable.GetType().GetName();
+		FString Value;
+		TSharedPtr<INiagaraEditorTypeUtilities, ESPMode::ThreadSafe> ParameterTypeUtilities = NiagaraEditorModule.GetTypeUtilities(ParameterVariable.GetType());
+		if (ParameterTypeUtilities.IsValid() && ParameterTypeUtilities->CanHandlePinDefaults())
+		{
+			FNiagaraVariable ParameterVariableWithValue = ParameterVariable;
+			ParameterVariableWithValue.SetData(ParameterStore.GetParameterData(ParameterVariable));
+			Value = ParameterTypeUtilities->GetPinDefaultStringFromValue(ParameterVariableWithValue);
+		}
+		else
+		{
+			Value = "(unsupported)";
+		}
+		UE_LOG(LogNiagaraEditor, Log, TEXT("%s\t%s\t%s"), *Name, *Type, *Value);
+	}
+}
+
+void DumpRapidIterationParametersForScript(UNiagaraScript* Script, const FString& HeaderName)
+{
+	UEnum* NiagaraScriptUsageEnum = FindObjectChecked<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"), true);
+	FString UsageName = NiagaraScriptUsageEnum->GetNameByValue((int64)Script->GetUsage()).ToString();
+	UE_LOG(LogNiagaraEditor, Log, TEXT("%s - %s - %s"), *Script->GetPathName(), *HeaderName, *UsageName);
+	DumpParameterStore(Script->RapidIterationParameters);
+}
+
+void DumpRapidIterationParametersForEmitter(UNiagaraEmitter* Emitter, const FString& EmitterName)
+{
+	TArray<UNiagaraScript*> Scripts;
+	Emitter->GetScripts(Scripts, false);
+	for (UNiagaraScript* Script : Scripts)
+	{
+		DumpRapidIterationParametersForScript(Script, EmitterName);
+	}
+}
+
+void DumpRapidIterationParamersForAsset(const TArray<FString>& Arguments)
+{
+	if (Arguments.Num() == 1)
+	{
+		const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		const FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(*Arguments[0]);
+		UObject* Asset = AssetData.GetAsset();
+		if (Asset != nullptr)
+		{
+			UNiagaraSystem* SystemAsset = Cast<UNiagaraSystem>(Asset);
+			if (SystemAsset != nullptr)
+			{
+				DumpRapidIterationParametersForScript(SystemAsset->GetSystemSpawnScript(), SystemAsset->GetName());
+				DumpRapidIterationParametersForScript(SystemAsset->GetSystemUpdateScript(), SystemAsset->GetName());
+				for (const FNiagaraEmitterHandle& EmitterHandle : SystemAsset->GetEmitterHandles())
+				{
+					DumpRapidIterationParametersForEmitter(EmitterHandle.GetInstance(), EmitterHandle.GetName().ToString());
+				}
+			}
+			else
+			{
+				UNiagaraEmitter* EmitterAsset = Cast<UNiagaraEmitter>(Asset);
+				if (EmitterAsset != nullptr)
+				{
+					DumpRapidIterationParametersForEmitter(EmitterAsset, EmitterAsset->GetName());
+				}
+				else
+				{
+					UE_LOG(LogNiagaraEditor, Warning, TEXT("DumpRapidIterationParameters - Only niagara system and niagara emitter assets are supported"));
+				}
+			}
+		}
+		else
+		{
+			UE_LOG(LogNiagaraEditor, Warning, TEXT("DumpRapidIterationParameters - Asset not found"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogNiagaraEditor, Warning, TEXT("DumpRapidIterationParameters - Must supply an asset path to dump"));
+	}
+}
+
+class FNiagaraSystemBoolParameterTrackEditor : public FNiagaraSystemParameterTrackEditor<UMovieSceneNiagaraBoolParameterTrack, UMovieSceneBoolSection>
+{
+	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override
+	{
+		checkf(SectionObject.GetClass()->IsChildOf<UMovieSceneBoolSection>(), TEXT("Unsupported section."));
+		return MakeShareable(new FBoolPropertySection(SectionObject));
+	}
+};
+
+class FNiagaraSystemColorParameterTrackEditor : public FNiagaraSystemParameterTrackEditor<UMovieSceneNiagaraColorParameterTrack, UMovieSceneColorSection>
+{
+	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override
+	{
+		checkf(SectionObject.GetClass()->IsChildOf<UMovieSceneColorSection>(), TEXT("Unsupported section."));
+		return MakeShareable(new FColorPropertySection(*Cast<UMovieSceneColorSection>(&SectionObject), ObjectBinding, GetSequencer()));
+	}
+};
 
 void FNiagaraEditorModule::StartupModule()
 {
@@ -192,6 +325,10 @@ void FNiagaraEditorModule::StartupModule()
 		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FNiagaraMatrixCustomization::MakeInstance)
 	);
 
+	PropertyModule.RegisterCustomPropertyTypeLayout("NiagaraVariableAttributeBinding",
+		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FNiagaraVariableAttributeBindingCustomization::MakeInstance)
+	);
+
 	FNiagaraEditorStyle::Initialize();
 	FNiagaraEditorCommands::Register();
 
@@ -232,13 +369,15 @@ void FNiagaraEditorModule::StartupModule()
 	RegisterTypeUtilities(FNiagaraTypeDefinition::GetVec2Def(), MakeShareable(new FNiagaraEditorVector2TypeUtilities()));
 	RegisterTypeUtilities(FNiagaraTypeDefinition::GetVec3Def(), MakeShareable(new FNiagaraEditorVector3TypeUtilities()));
 	RegisterTypeUtilities(FNiagaraTypeDefinition::GetVec4Def(), MakeShareable(new FNiagaraEditorVector4TypeUtilities()));
+	RegisterTypeUtilities(FNiagaraTypeDefinition::GetQuatDef(), MakeShareable(new FNiagaraEditorQuatTypeUtilities()));
 	RegisterTypeUtilities(FNiagaraTypeDefinition::GetColorDef(), MakeShareable(new FNiagaraEditorColorTypeUtilities()));
+	RegisterTypeUtilities(FNiagaraTypeDefinition::GetMatrix4Def(), MakeShareable(new FNiagaraEditorMatrixTypeUtilities()));
 
-	RegisterTypeUtilities(FNiagaraTypeDefinition(UNiagaraDataInterfaceCurve::StaticClass()), MakeShared<FNiagaraDataInterfaceCurveTypeEditorUtilities>());
-	RegisterTypeUtilities(FNiagaraTypeDefinition(UNiagaraDataInterfaceVector2DCurve::StaticClass()), MakeShared<FNiagaraDataInterfaceCurveTypeEditorUtilities>());
-	RegisterTypeUtilities(FNiagaraTypeDefinition(UNiagaraDataInterfaceVectorCurve::StaticClass()), MakeShared<FNiagaraDataInterfaceVectorCurveTypeEditorUtilities>());
-	RegisterTypeUtilities(FNiagaraTypeDefinition(UNiagaraDataInterfaceVector4Curve::StaticClass()), MakeShared<FNiagaraDataInterfaceVectorCurveTypeEditorUtilities>());
-	RegisterTypeUtilities(FNiagaraTypeDefinition(UNiagaraDataInterfaceColorCurve::StaticClass()), MakeShared<FNiagaraDataInterfaceColorCurveTypeEditorUtilities>());
+	RegisterTypeUtilities(FNiagaraTypeDefinition(UNiagaraDataInterfaceCurve::StaticClass()), MakeShared<FNiagaraDataInterfaceCurveTypeEditorUtilities, ESPMode::ThreadSafe>());
+	RegisterTypeUtilities(FNiagaraTypeDefinition(UNiagaraDataInterfaceVector2DCurve::StaticClass()), MakeShared<FNiagaraDataInterfaceCurveTypeEditorUtilities, ESPMode::ThreadSafe>());
+	RegisterTypeUtilities(FNiagaraTypeDefinition(UNiagaraDataInterfaceVectorCurve::StaticClass()), MakeShared<FNiagaraDataInterfaceVectorCurveTypeEditorUtilities, ESPMode::ThreadSafe>());
+	RegisterTypeUtilities(FNiagaraTypeDefinition(UNiagaraDataInterfaceVector4Curve::StaticClass()), MakeShared<FNiagaraDataInterfaceVectorCurveTypeEditorUtilities, ESPMode::ThreadSafe>());
+	RegisterTypeUtilities(FNiagaraTypeDefinition(UNiagaraDataInterfaceColorCurve::StaticClass()), MakeShared<FNiagaraDataInterfaceColorCurveTypeEditorUtilities, ESPMode::ThreadSafe>());
 
 	FEdGraphUtilities::RegisterVisualPinFactory(GraphPanelPinFactory);
 
@@ -246,11 +385,50 @@ void FNiagaraEditorModule::StartupModule()
 
 	RegisterSettings();
 
-	// Register sequencer track editor
+	// Register sequencer track editors
 	ISequencerModule &SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
 	CreateEmitterTrackEditorHandle = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(&FNiagaraEmitterTrackEditor::CreateTrackEditor));
+	CreateSystemTrackEditorHandle = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(&FNiagaraSystemTrackEditor::CreateTrackEditor));
 
 	SequencerModule.RegisterChannelInterface<FMovieSceneNiagaraEmitterChannel>();
+
+	CreateBoolParameterTrackEditorHandle = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(
+		&FNiagaraSystemBoolParameterTrackEditor::CreateTrackEditor));
+	CreateFloatParameterTrackEditorHandle = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(
+		&FNiagaraSystemParameterTrackEditor<UMovieSceneNiagaraFloatParameterTrack, UMovieSceneFloatSection>::CreateTrackEditor));
+	CreateIntegerParameterTrackEditorHandle = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(
+		&FNiagaraSystemParameterTrackEditor<UMovieSceneNiagaraIntegerParameterTrack, UMovieSceneIntegerSection>::CreateTrackEditor));
+	CreateVectorParameterTrackEditorHandle = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(
+		&FNiagaraSystemParameterTrackEditor<UMovieSceneNiagaraVectorParameterTrack, UMovieSceneVectorSection>::CreateTrackEditor));
+	CreateColorParameterTrackEditorHandle = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(
+		&FNiagaraSystemColorParameterTrackEditor::CreateTrackEditor));
+
+	RegisterParameterTrackCreatorForType(*FNiagaraBool::StaticStruct(), FOnCreateMovieSceneTrackForParameter::CreateLambda([](FNiagaraVariable InParameter) {
+		return NewObject<UMovieSceneNiagaraBoolParameterTrack>(); }));
+	RegisterParameterTrackCreatorForType(*FNiagaraFloat::StaticStruct(), FOnCreateMovieSceneTrackForParameter::CreateLambda([](FNiagaraVariable InParameter) {
+		return NewObject<UMovieSceneNiagaraFloatParameterTrack>(); }));
+	RegisterParameterTrackCreatorForType(*FNiagaraInt32::StaticStruct(), FOnCreateMovieSceneTrackForParameter::CreateLambda([](FNiagaraVariable InParameter) {
+		return NewObject<UMovieSceneNiagaraIntegerParameterTrack>(); }));
+	RegisterParameterTrackCreatorForType(*FNiagaraTypeDefinition::GetVec2Struct(), FOnCreateMovieSceneTrackForParameter::CreateLambda([](FNiagaraVariable InParameter) 
+	{
+		UMovieSceneNiagaraVectorParameterTrack* VectorTrack = NewObject<UMovieSceneNiagaraVectorParameterTrack>();
+		VectorTrack->SetChannelsUsed(2);
+		return VectorTrack;
+	}));
+	RegisterParameterTrackCreatorForType(*FNiagaraTypeDefinition::GetVec3Struct(), FOnCreateMovieSceneTrackForParameter::CreateLambda([](FNiagaraVariable InParameter)
+	{
+		UMovieSceneNiagaraVectorParameterTrack* VectorTrack = NewObject<UMovieSceneNiagaraVectorParameterTrack>();
+		VectorTrack->SetChannelsUsed(3);
+		return VectorTrack;
+	}));
+	RegisterParameterTrackCreatorForType(*FNiagaraTypeDefinition::GetVec4Struct(), FOnCreateMovieSceneTrackForParameter::CreateLambda([](FNiagaraVariable InParameter)
+	{
+		UMovieSceneNiagaraVectorParameterTrack* VectorTrack = NewObject<UMovieSceneNiagaraVectorParameterTrack>();
+		VectorTrack->SetChannelsUsed(4);
+		return VectorTrack;
+	}));
+	RegisterParameterTrackCreatorForType(*FNiagaraTypeDefinition::GetColorStruct(), FOnCreateMovieSceneTrackForParameter::CreateLambda([](FNiagaraVariable InParameter) {
+		return NewObject<UMovieSceneNiagaraColorParameterTrack>(); }));
 
 	// Register the shader queue processor (for cooking)
 	INiagaraModule& NiagaraModule = FModuleManager::LoadModuleChecked<INiagaraModule>("Niagara");
@@ -268,11 +446,47 @@ void FNiagaraEditorModule::StartupModule()
 	// Register the emitter merge handler.
 	ScriptMergeManager = MakeShared<FNiagaraScriptMergeManager>();
 	MergeEmitterHandle = NiagaraModule.RegisterOnMergeEmitter(INiagaraModule::FOnMergeEmitter::CreateSP(ScriptMergeManager.ToSharedRef(), &FNiagaraScriptMergeManager::MergeEmitter));
+
+	// Register the script compiler
+	ScriptCompilerHandle = NiagaraModule.RegisterScriptCompiler(INiagaraModule::FScriptCompiler::CreateLambda([this](const FNiagaraCompileRequestDataBase* CompileRequest, const FNiagaraCompileOptions& Options)
+	{
+		return CompileScript(CompileRequest, Options);
+	}));
+
+	PrecompilerHandle = NiagaraModule.RegisterPrecompiler(INiagaraModule::FOnPrecompile::CreateLambda([this](UObject* InObj)
+	{
+		return Precompile(InObj);
+	}));
+
+	// Register the create default script source handler.
+	CreateDefaultScriptSourceHandle = NiagaraModule.RegisterOnCreateDefaultScriptSource(
+		INiagaraModule::FOnCreateDefaultScriptSource::CreateLambda([](UObject* Outer) { return NewObject<UNiagaraScriptSource>(Outer); }));
+
+
+	TestCompileScriptCommand = IConsoleManager::Get().RegisterConsoleCommand(
+		TEXT("fx.TestCompileNiagaraScript"),
+		TEXT("Compiles the specified script on disk for the niagara vector vm"),
+		FConsoleCommandWithArgsDelegate::CreateRaw(this, &FNiagaraEditorModule::TestCompileScriptFromConsole));
+
+	DumpRapidIterationParametersForAsset = IConsoleManager::Get().RegisterConsoleCommand(
+		TEXT("fx.DumpRapidIterationParametersForAsset"),
+		TEXT("Dumps the values of the rapid iteration parameters for the specified asset by path."),
+		FConsoleCommandWithArgsDelegate::CreateStatic(&DumpRapidIterationParamersForAsset));
 }
 
 
 void FNiagaraEditorModule::ShutdownModule()
 {
+	// Ensure that we don't have any lingering compiles laying around that will explode after this module shuts down.
+	for (TObjectIterator<UNiagaraSystem> It; It; ++It)
+	{
+		UNiagaraSystem* Sys = *It;
+		if (Sys)
+		{
+			Sys->WaitForCompilationComplete();
+		}
+	}
+
 	MenuExtensibilityManager.Reset();
 	ToolBarExtensibilityManager.Reset();
 
@@ -303,18 +517,42 @@ void FNiagaraEditorModule::ShutdownModule()
 	if (SequencerModule != nullptr)
 	{
 		SequencerModule->UnRegisterTrackEditor(CreateEmitterTrackEditorHandle);
+		SequencerModule->UnRegisterTrackEditor(CreateSystemTrackEditorHandle);
+		SequencerModule->UnRegisterTrackEditor(CreateBoolParameterTrackEditorHandle);
+		SequencerModule->UnRegisterTrackEditor(CreateFloatParameterTrackEditorHandle);
+		SequencerModule->UnRegisterTrackEditor(CreateIntegerParameterTrackEditorHandle);
+		SequencerModule->UnRegisterTrackEditor(CreateVectorParameterTrackEditorHandle);
+		SequencerModule->UnRegisterTrackEditor(CreateColorParameterTrackEditorHandle);
 	}
 
 	INiagaraModule* NiagaraModule = FModuleManager::GetModulePtr<INiagaraModule>("Niagara");
 	if (NiagaraModule != nullptr)
 	{
 		NiagaraModule->UnregisterOnMergeEmitter(MergeEmitterHandle);
+		NiagaraModule->UnregisterOnCreateDefaultScriptSource(CreateDefaultScriptSourceHandle);
+		NiagaraModule->UnregisterScriptCompiler(ScriptCompilerHandle);
+		NiagaraModule->UnregisterPrecompiler(PrecompilerHandle);
 	}
 
 	// Verify that we've cleaned up all the view models in the world.
-	FNiagaraScriptViewModel::CleanAll();
 	FNiagaraSystemViewModel::CleanAll();
 	FNiagaraEmitterViewModel::CleanAll();
+	FNiagaraScriptViewModel::CleanAll();
+
+	if (TestCompileScriptCommand != nullptr)
+	{
+		IConsoleManager::Get().UnregisterConsoleObject(TestCompileScriptCommand);
+	}
+
+	if (DumpRapidIterationParametersForAsset != nullptr)
+	{
+		IConsoleManager::Get().UnregisterConsoleObject(DumpRapidIterationParametersForAsset);
+	}
+}
+
+FNiagaraEditorModule& FNiagaraEditorModule::Get()
+{
+	return FModuleManager::LoadModuleChecked<FNiagaraEditorModule>("NiagaraEditor");
 }
 
 void FNiagaraEditorModule::OnNiagaraSettingsChangedEvent(const FString& PropertyName, const UNiagaraSettings* Settings)
@@ -325,15 +563,20 @@ void FNiagaraEditorModule::OnNiagaraSettingsChangedEvent(const FString& Property
 	}
 }
 
-void FNiagaraEditorModule::RegisterTypeUtilities(FNiagaraTypeDefinition Type, TSharedRef<INiagaraEditorTypeUtilities> EditorUtilities)
+void FNiagaraEditorModule::RegisterTypeUtilities(FNiagaraTypeDefinition Type, TSharedRef<INiagaraEditorTypeUtilities, ESPMode::ThreadSafe> EditorUtilities)
 {
+	TypeEditorsCS.Lock();
 	TypeToEditorUtilitiesMap.Add(Type, EditorUtilities);
+	TypeEditorsCS.Unlock();
 }
 
 
-TSharedPtr<INiagaraEditorTypeUtilities> FNiagaraEditorModule::GetTypeUtilities(const FNiagaraTypeDefinition& Type)
+TSharedPtr<INiagaraEditorTypeUtilities, ESPMode::ThreadSafe> FNiagaraEditorModule::GetTypeUtilities(const FNiagaraTypeDefinition& Type)
 {
-	TSharedRef<INiagaraEditorTypeUtilities>* EditorUtilities = TypeToEditorUtilitiesMap.Find(Type);
+	TypeEditorsCS.Lock();
+	TSharedRef<INiagaraEditorTypeUtilities, ESPMode::ThreadSafe>* EditorUtilities = TypeToEditorUtilitiesMap.Find(Type);
+	TypeEditorsCS.Unlock();
+
 	if(EditorUtilities != nullptr)
 	{
 		return *EditorUtilities;
@@ -344,7 +587,7 @@ TSharedPtr<INiagaraEditorTypeUtilities> FNiagaraEditorModule::GetTypeUtilities(c
 		return EnumTypeUtilities;
 	}
 
-	return TSharedPtr<INiagaraEditorTypeUtilities>();
+	return TSharedPtr<INiagaraEditorTypeUtilities, ESPMode::ThreadSafe>();
 }
 
 TSharedRef<SWidget> FNiagaraEditorModule::CreateStackWidget(UNiagaraStackViewModel* StackViewModel) const
@@ -369,6 +612,36 @@ void FNiagaraEditorModule::ResetOnCreateStackWidget(FDelegateHandle Handle)
 TSharedRef<FNiagaraScriptMergeManager> FNiagaraEditorModule::GetScriptMergeManager() const
 {
 	return ScriptMergeManager.ToSharedRef();
+}
+
+void FNiagaraEditorModule::RegisterParameterTrackCreatorForType(const UScriptStruct& StructType, FOnCreateMovieSceneTrackForParameter CreateTrack)
+{
+	checkf(TypeToParameterTrackCreatorMap.Contains(&StructType) == false, TEXT("Type already registered"));
+	TypeToParameterTrackCreatorMap.Add(&StructType, CreateTrack);
+}
+
+void FNiagaraEditorModule::UnregisterParameterTrackCreatorForType(const UScriptStruct& StructType)
+{
+	TypeToParameterTrackCreatorMap.Remove(&StructType);
+}
+
+bool FNiagaraEditorModule::CanCreateParameterTrackForType(const UScriptStruct& StructType)
+{
+	return TypeToParameterTrackCreatorMap.Contains(&StructType);
+}
+
+UMovieSceneNiagaraParameterTrack* FNiagaraEditorModule::CreateParameterTrackForType(const UScriptStruct& StructType, FNiagaraVariable Parameter)
+{
+	FOnCreateMovieSceneTrackForParameter* CreateTrack = TypeToParameterTrackCreatorMap.Find(&StructType);
+	checkf(CreateTrack != nullptr, TEXT("Type not supported"));
+	UMovieSceneNiagaraParameterTrack* ParameterTrack = CreateTrack->Execute(Parameter);
+	ParameterTrack->SetParameter(Parameter);
+	return ParameterTrack;
+}
+
+const FNiagaraEditorCommands& FNiagaraEditorModule::Commands()
+{
+	return FNiagaraEditorCommands::Get();
 }
 
 void FNiagaraEditorModule::RegisterAssetTypeAction(IAssetTools& AssetTools, TSharedRef<IAssetTypeActions> Action)

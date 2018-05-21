@@ -10,7 +10,6 @@ class FNiagaraEmitterViewModel;
 class FNiagaraScriptViewModel;
 class UNiagaraStackObject;
 class UNiagaraStackSpacer;
-class UNiagaraStackItemExpander;
 
 UCLASS()
 class NIAGARAEDITOR_API UNiagaraStackEmitterPropertiesItem : public UNiagaraStackItem
@@ -18,7 +17,7 @@ class NIAGARAEDITOR_API UNiagaraStackEmitterPropertiesItem : public UNiagaraStac
 	GENERATED_BODY()
 
 public:
-	void Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, UNiagaraStackEditorData& InStackEditorData);
+	void Initialize(FRequiredEntryData InRequiredEntryData);
 
 	virtual FText GetDisplayName() const override;
 
@@ -29,11 +28,9 @@ public:
 protected:
 	virtual void BeginDestroy() override;
 
-	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
+	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
 private:
-	void EmitterExpandedChanged();
-
 	void EmitterPropertiesChanged();
 
 private:
@@ -43,9 +40,6 @@ private:
 
 	UPROPERTY()
 	UNiagaraStackObject* EmitterObject;
-
-	UPROPERTY()
-	UNiagaraStackItemExpander* EmitterExpander;
 };
 
 UCLASS()
@@ -57,13 +51,9 @@ public:
 	UNiagaraStackEmitterSpawnScriptItemGroup();
 
 protected:
-	void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
+	void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
 private:
-
 	UPROPERTY()
 	UNiagaraStackEmitterPropertiesItem* PropertiesItem;
-
-	UPROPERTY()
-	UNiagaraStackSpacer* PropertiesSpacer;
 };

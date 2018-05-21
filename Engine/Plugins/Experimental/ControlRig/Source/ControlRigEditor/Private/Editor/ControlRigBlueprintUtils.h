@@ -1,10 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Templates/SubclassOf.h"
-#include "BlueprintActionDatabase.h"
 
 class UStruct;
 class UBlueprint;
@@ -78,9 +77,6 @@ static void HandleRefreshAllNodes(UBlueprint* InBlueprint);
 
 /** Handle variables getting renamed */
 static void HandleRenameVariableReferencesEvent(UBlueprint* InBlueprint, UClass* InVariableClass, const FName& InOldVarName, const FName& InNewVarName);
-
-/** Handle adding control rig-specific property actions */
-static void HandleGetClassPropertyActions(UClass const* const Class, FBlueprintActionDatabase::FActionList& ActionListOut);
 
 /** remove the variable if not used by anybody else but ToBeDeleted*/
 static void RemoveMemberVariableIfNotUsed(UBlueprint* Blueprint, const FName VarName, UControlRigGraphNode* ToBeDeleted);

@@ -7,6 +7,7 @@
 #include "MetalQuery.h"
 #include "MetalDebugCommandEncoder.h"
 #include "MetalFence.h"
+#include "MetalProfiler.h"
 #include "command_buffer.hpp"
 
 class FMetalCommandList;
@@ -151,6 +152,11 @@ public:
 	
 	/* Pop the latest named string off of the stack. */
 	void PopDebugGroup(void);
+	
+#if ENABLE_METAL_GPUPROFILE
+	/* Get the command-buffer stats object. */
+	FMetalCommandBufferStats* GetCommandBufferStats(void);
+#endif
 	
 #pragma mark - Public Render State Mutators -
 
@@ -372,6 +378,9 @@ private:
 	mtlpp::ComputeCommandEncoder ComputeCommandEncoder;
 	mtlpp::BlitCommandEncoder BlitCommandEncoder;
 	FMetalFence EncoderFence;
+#if ENABLE_METAL_GPUPROFILE
+	FMetalCommandBufferStats* CommandBufferStats;
+#endif
 	
 	TArray<ns::Object<mtlpp::CommandBufferHandler>> CompletionHandlers;
 	NSMutableArray* DebugGroups;

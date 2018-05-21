@@ -63,7 +63,7 @@ public:
 		Result.bDrawRelevance = IsShown(View);
 		Result.bDynamicRelevance = true;
 		Result.bShadowRelevance = false;
-		Result.bEditorPrimitiveRelevance = true;
+		Result.bEditorNoDepthTestPrimitiveRelevance = true;
 		return Result;
 	}
 

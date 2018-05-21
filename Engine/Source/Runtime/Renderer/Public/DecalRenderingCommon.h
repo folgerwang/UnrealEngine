@@ -21,6 +21,8 @@ enum EDecalRenderStage
 	DRS_BeforeLighting = 2,
 	// for rendering decals on mobile
 	DRS_Mobile = 3,
+	// for rendering ambient occlusion decals
+	DRS_AmbientOcclusion = 4,
 
 	// later we could add "after lighting" and multiply
 };
@@ -40,6 +42,7 @@ struct FDecalRenderingCommon
 		RTM_DBuffer, 
 		RTM_GBufferNormal,
 		RTM_SceneColor,
+		RTM_AmbientOcclusion,
 	};
 	
 	static EDecalBlendMode ComputeFinalDecalBlendMode(EShaderPlatform Platform, EDecalBlendMode DecalBlendMode, bool bUseNormal)
@@ -99,6 +102,9 @@ struct FDecalRenderingCommon
 
 			case DBM_Volumetric_DistanceFunction:
 				return bHasNormal ? RTM_SceneColorAndGBufferDepthWriteWithNormal : RTM_SceneColorAndGBufferDepthWriteNoNormal;
+
+			case DBM_AmbientOcclusion:
+				return RTM_AmbientOcclusion;
 		}
 
 		// add the missing decal blend mode to the switch
@@ -133,6 +139,9 @@ struct FDecalRenderingCommon
 			case DBM_Volumetric_DistanceFunction:
 				return DRS_AfterBasePass;
 
+			case DBM_AmbientOcclusion:
+				return DRS_AmbientOcclusion;
+
 			default:
 				check(0);
 		}
@@ -155,6 +164,7 @@ struct FDecalRenderingCommon
 			case RTM_DBuffer:										return 3;
 			case RTM_GBufferNormal:									return 1;
 			case RTM_SceneColor:									return 1;
+			case RTM_AmbientOcclusion:								return 1;
 		}
 
 		return 0;

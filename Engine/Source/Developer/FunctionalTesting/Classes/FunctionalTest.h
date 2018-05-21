@@ -218,14 +218,14 @@ protected:
 	 * Allows a test to be disabled.  If a test is disabled, it will not appear in the set of
 	 * runnable tests (after saving the map).
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Functional Testing")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Functional Testing", meta=(ScriptName="IsEnabledValue"))
 	uint32 bIsEnabled:1;
 
 	/**
 	 * If this is enabled, any warning logged while this functional test is running is treated as
 	 * an error.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Functional Testing")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Functional Testing", meta=(ScriptName="WarningsAsErrorsValue"))
 	uint32 bWarningsAsErrors:1;
 
 	/**

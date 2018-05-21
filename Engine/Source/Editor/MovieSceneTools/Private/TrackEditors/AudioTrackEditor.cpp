@@ -34,7 +34,7 @@
 #include "ISectionLayoutBuilder.h"
 
 #include "DragAndDrop/AssetDragDropOp.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 
 
 #define LOCTEXT_NAMESPACE "FAudioTrackEditor"

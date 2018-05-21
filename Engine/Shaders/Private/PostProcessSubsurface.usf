@@ -7,12 +7,11 @@
 #include "Common.ush"
 #include "PostProcessCommon.ush"
 #include "DeferredShadingCommon.ush"
+#include "SubsurfaceProfileCommon.ush"
 
 // for VisualizeSSS
 #include "MiniFontCommon.ush"
 
-/** one profile per line, sample set left to right: high/med/low */
-Texture2D SSProfilesTexture;
 // x:Radius*DistanceToProjectionWindow/KernelSize*0.5, y:DistanceToProjectionWindow, zw: unused
 float4 SSSParams;
 
@@ -47,17 +46,15 @@ float GetSubsurfaceStrength(float2 UV)
 // set by C++ for SubsurfacePS
 // #define SSS_DIRECTION 0/1
 
-#define	SSSS_N_KERNELSUBSURFACECOLOROFFSET 0
-
 #if SSS_SAMPLESET == 0
-	#define	SSSS_N_KERNELWEIGHTCOUNT 6
-	#define	SSSS_N_KERNELWEIGHTOFFSET (1 + 13 + 9)
+	#define	SSSS_N_KERNELWEIGHTCOUNT SSSS_KERNEL2_SIZE
+	#define	SSSS_N_KERNELWEIGHTOFFSET SSSS_KERNEL2_OFFSET
 #elif SSS_SAMPLESET == 1
-	#define	SSSS_N_KERNELWEIGHTCOUNT 9
-	#define	SSSS_N_KERNELWEIGHTOFFSET (1 + 13)
+	#define	SSSS_N_KERNELWEIGHTCOUNT SSSS_KERNEL1_SIZE
+	#define	SSSS_N_KERNELWEIGHTOFFSET SSSS_KERNEL1_OFFSET
 #else // SSS_SAMPLESET == 2
-	#define	SSSS_N_KERNELWEIGHTCOUNT 13
-	#define	SSSS_N_KERNELWEIGHTOFFSET (1)
+	#define	SSSS_N_KERNELWEIGHTCOUNT SSSS_KERNEL0_SIZE
+	#define	SSSS_N_KERNELWEIGHTOFFSET SSSS_KERNEL0_OFFSET
 #endif
 
 // 0: faster
@@ -104,7 +101,7 @@ float3 GetProfileSubsurfaceColor(FGBufferData GBufferData)
 	// 0..255, which SubSurface profile to pick
 	uint SubsurfaceProfileInt = ExtractSubsurfaceProfileInt(GBufferData);
 
-	return GetKernel(SSSS_N_KERNELSUBSURFACECOLOROFFSET, SubsurfaceProfileInt).rgb;
+	return GetKernel(SSSS_SUBSURFACE_COLOR_OFFSET, SubsurfaceProfileInt).rgb;
 }
 
 float4 SampleSetup(float2 BufferUV)
@@ -113,6 +110,23 @@ float4 SampleSetup(float2 BufferUV)
 		BufferUV = clamp(BufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
 	#endif
 	return Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, BufferUV, 0);
+}
+
+uint SampleSetupProfileId(float2 BufferUV)
+{
+#if MANUALLY_CLAMP_UV
+	BufferUV = clamp(BufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
+#endif
+	FGBufferData LocalGBufferData = GetGBufferData(BufferUV);
+	return ExtractSubsurfaceProfileInt(LocalGBufferData);
+}
+
+float3 GetProfileBoundaryColorBleed(FGBufferData GBufferData)
+{
+	// 0..255, which SubSurface profile to pick
+	uint SubsurfaceProfileInt = ExtractSubsurfaceProfileInt(GBufferData);
+
+	return GetKernel(SSSS_BOUNDARY_COLOR_BLEED_OFFSET, SubsurfaceProfileInt).rgb;
 }
 
 // from https://github.com/iryoku/separable-sss/tree/master/Demo

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "FrameTime.h"
+#include "Misc/FrameTime.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Class.h"
 #include "Containers/ArrayView.h"

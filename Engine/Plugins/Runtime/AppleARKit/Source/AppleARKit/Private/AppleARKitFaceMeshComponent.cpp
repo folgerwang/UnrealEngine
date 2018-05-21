@@ -5,9 +5,9 @@
 #include "HeadMountedDisplayFunctionLibrary.h"
 #include "Engine/World.h"
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-#import <ARKit/ARKit.h>
-#endif // ARKIT_SUPPORT
+#if SUPPORTS_ARKIT_1_0
+	#import <ARKit/ARKit.h>
+#endif
 
 #include "AppleARKitFaceMeshConversion.h"
 #include "ARTrackable.h"
@@ -15,7 +15,7 @@
 #include "AppleARKitSettings.h"
 
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 NSDictionary<ARBlendShapeLocation,NSNumber *>* ToBlendShapeDictionary(const FARBlendShapeMap& BlendShapeMap)
 {
@@ -250,7 +250,7 @@ void UAppleARKitFaceMeshComponent::SetMaterial(int32 ElementIndex, class UMateri
 void UAppleARKitFaceMeshComponent::UpdateMeshFromBlendShapes()
 {
 	LocalToWorldTransform = FTransform::Identity;
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 	// @todo JoeG - add a counter here so we can measure the cost
 	NSDictionary<ARBlendShapeLocation,NSNumber *>* BlendShapeDict = ToBlendShapeDictionary(BlendShapes);
 	ARFaceGeometry* FaceGeo = [[ARFaceGeometry alloc] initWithBlendShapes: BlendShapeDict];

@@ -3,6 +3,7 @@
 #pragma once
 
 // AppleARKit
+#include "AppleARKitAvailability.h"
 #include "AppleARKitCamera.h"
 #include "AppleARKitLightEstimate.h"
 
@@ -20,7 +21,7 @@ struct APPLEARKIT_API FAppleARKitFrame
 	// Default constructor
 	FAppleARKitFrame();
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 	/** 
 	 * This is a conversion copy-constructor that takes a raw ARFrame and fills this structs members
@@ -45,18 +46,23 @@ struct APPLEARKIT_API FAppleARKitFrame
 	 * image buffer. */
 	FAppleARKitFrame& operator=( const FAppleARKitFrame& Other );
 
-#endif // ARKIT_SUPPORT
+#endif
 
 	/** A timestamp identifying the frame. */
 	double Timestamp;
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 	/** The frame's captured images */
     CVMetalTextureRef CapturedYImage;
     CVMetalTextureRef CapturedCbCrImage;
-    
-#endif // ARKIT_SUPPORT
+
+	/** The raw camera buffer from ARKit */
+	CVPixelBufferRef CameraImage;
+	/** The raw camera depth info from ARKit (needs iPhone X) */
+	AVDepthData* CameraDepth;
+	void* NativeFrame;
+#endif
 
 	/** The width and height in pixels of the frame's captured images. */
 	uint32 CapturedYImageWidth;

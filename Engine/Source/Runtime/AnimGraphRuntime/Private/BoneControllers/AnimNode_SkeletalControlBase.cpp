@@ -57,6 +57,7 @@ void FAnimNode_SkeletalControlBase::Initialize_AnyThread(const FAnimationInitial
 
 void FAnimNode_SkeletalControlBase::CacheBones_AnyThread(const FAnimationCacheBonesContext& Context) 
 {
+	FAnimNode_Base::CacheBones_AnyThread(Context);
 	InitializeBoneReferences(Context.AnimInstanceProxy->GetRequiredBones());
 	ComponentPose.CacheBones(Context);
 }

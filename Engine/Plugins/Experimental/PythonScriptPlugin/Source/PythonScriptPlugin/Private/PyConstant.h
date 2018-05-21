@@ -14,20 +14,20 @@ extern PyTypeObject PyConstantDescrType;
 void InitializePyConstant();
 
 /** Function pointer used to convert a constant value pointer into a Python object */
-typedef PyObject*(*PyConstantGetter)(const void*);
+typedef PyObject*(*PyConstantGetter)(PyTypeObject*, const void*);
 
 /**
  * Definition for a constant value
- * This takes a pointer to some static or otherwise persistent data, along with a function used to convert this pointer into a Python object when needed
+ * This takes a pointer to some static or otherwise persistent data, along with a function used to convert this data into a Python object when needed
  * Compared to a template, this avoids variance in the Python-type which would require a new Python-type to be registered for each instantiation
  * Compared to storing a PyObject*, this avoids returning an instance that could be mutated and affect the constant value
  */
 struct FPyConstantDef
 {
-	/** A pointer to the constant value */
-	const void* ConstantPtr;
+	/** A pointer to the constant context */
+	const void* ConstantContext;
 
-	/** Function pointer used to convert a constant value pointer into a Python object */
+	/** Function pointer used to convert a constant data into a Python object */
 	PyConstantGetter ConstantGetter;
 
 	/** The name of the constant value */
@@ -36,13 +36,22 @@ struct FPyConstantDef
 	/** The doc string of the constant value (may be null) */
 	const char* ConstantDoc;
 
+	/** Add a singular constant to the given type */
+	static bool AddConstantToType(FPyConstantDef* InConstant, PyTypeObject* InType);
+
 	/** Add the given null-terminated table of constants to the given type */
 	static bool AddConstantsToType(FPyConstantDef* InConstants, PyTypeObject* InType);
 
-	/** Add the given null-terminated table of constants to the given type */
+	/** Add a singular constant to the given module */
+	static bool AddConstantToModule(FPyConstantDef* InConstant, PyObject* InModule);
+
+	/** Add the given null-terminated table of constants to the given module */
 	static bool AddConstantsToModule(FPyConstantDef* InConstants, PyObject* InModule);
 
-	/** Add the given null-terminated table of constants to the given type */
+	/** Add a singular constant to the given dict */
+	static bool AddConstantToDict(FPyConstantDef* InConstant, PyObject* InDict);
+
+	/** Add the given null-terminated table of constants to the given dict */
 	static bool AddConstantsToDict(FPyConstantDef* InConstants, PyObject* InDict);
 };
 

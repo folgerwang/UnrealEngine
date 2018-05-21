@@ -12,7 +12,7 @@
 extern PyTypeObject PyWrapperMapType;
 
 /** Initialize the PyWrapperMap types and add them to the given Python module */
-void InitializePyWrapperMap(PyObject* PyModule);
+void InitializePyWrapperMap(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Type for all UE4 exposed map instances */
 struct FPyWrapperMap : public FPyWrapperBase

@@ -4,6 +4,8 @@
 	GpuSkinCacheComputeShader.usf: Perform vertex skinning into a buffer to avoid skinning in the vertex shader.
 =============================================================================*/
 
+#define FORCE_BIAS_CONVERSION	1
+
 #include "Common.ush"
 #include "Definitions.usf"
 #include "VertexFactoryCommon.ush"

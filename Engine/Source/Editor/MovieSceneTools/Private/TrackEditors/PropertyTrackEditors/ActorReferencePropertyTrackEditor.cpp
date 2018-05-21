@@ -4,14 +4,6 @@
 #include "GameFramework/Actor.h"
 
 
-namespace MovieScene
-{
-	bool ValueExistsAtTime(const FMovieSceneActorReferenceData* Channel, FFrameTime Time, FMovieSceneObjectBindingID Value, float Tolerance = KINDA_SMALL_NUMBER)
-	{
-		return Channel->Evaluate(Time) == Value;
-	}
-}
-
 TSharedRef<ISequencerTrackEditor> FActorReferencePropertyTrackEditor::CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer )
 {
 	return MakeShareable(new FActorReferencePropertyTrackEditor(OwningSequencer));

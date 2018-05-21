@@ -184,7 +184,7 @@ public:
 
 	// default implementation, no additive
 	virtual EAdditiveAnimationType GetAdditiveAnimType() const { return AAT_None; }
-	virtual bool CanBeUsedInMontage() const { return true;  }
+	virtual bool CanBeUsedInComposition() const { return true;  }
 
 	// to support anim sequence base to montage
 	virtual void EnableRootMotionSettingFromMontage(bool bInEnableRootMotion, const ERootMotionRootLock::Type InRootMotionRootLock) {};

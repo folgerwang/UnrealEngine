@@ -137,22 +137,17 @@ void FOSVRHMD::CalculateRenderTargetSize(const FViewport& Viewport, uint32& InOu
 	}
 }
 
-void FOSVRHMD::UpdateViewportRHIBridge(bool /* bUseSeparateRenderTarget */, const class FViewport& InViewport, FRHIViewport* const ViewportRHI)
+FXRRenderBridge* FOSVRHMD::GetActiveRenderBridge_GameThread(bool /* bUseSeparateRenderTarget */)
 {
 	check(IsInGameThread());
 
 	if (mCustomPresent && mCustomPresent->IsInitialized())
 	{
-		if (!mCustomPresent->UpdateViewport(InViewport, ViewportRHI))
-		{
-			delete mCustomPresent;
-			mCustomPresent = nullptr;
-		}
+		return mCustomPresent;
 	}
-	
-	if (!mCustomPresent)
+	else
 	{
-		ViewportRHI->SetCustomPresent(nullptr);
+		return nullptr;
 	}
 }
 

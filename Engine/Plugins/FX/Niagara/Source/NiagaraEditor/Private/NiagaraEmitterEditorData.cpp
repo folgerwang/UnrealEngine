@@ -6,6 +6,8 @@
 UNiagaraEmitterEditorData::UNiagaraEmitterEditorData(const FObjectInitializer& ObjectInitializer)
 {
 	StackEditorData = ObjectInitializer.CreateDefaultSubobject<UNiagaraStackEditorData>(this, TEXT("StackEditorData"));
+	PlaybackRangeMin = 0;
+	PlaybackRangeMax = 10;
 }
 
 void UNiagaraEmitterEditorData::PostLoad()
@@ -20,4 +22,15 @@ void UNiagaraEmitterEditorData::PostLoad()
 UNiagaraStackEditorData& UNiagaraEmitterEditorData::GetStackEditorData() const
 {
 	return *StackEditorData;
+}
+
+TRange<float> UNiagaraEmitterEditorData::GetPlaybackRange() const
+{
+	return TRange<float>(PlaybackRangeMin, PlaybackRangeMax);
+}
+
+void UNiagaraEmitterEditorData::SetPlaybackRange(TRange<float> InPlaybackRange)
+{
+	PlaybackRangeMin = InPlaybackRange.GetLowerBoundValue();
+	PlaybackRangeMax = InPlaybackRange.GetUpperBoundValue();
 }

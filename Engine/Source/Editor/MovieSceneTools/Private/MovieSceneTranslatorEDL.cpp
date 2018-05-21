@@ -11,10 +11,10 @@
 #include "Sections/MovieSceneCinematicShotSection.h"
 #include "Tracks/MovieSceneCinematicShotTrack.h"
 #include "AssetRegistryModule.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "MovieSceneTimeHelpers.h"
 #include "MovieSceneCaptureModule.h"
-#include "Timecode.h"
+#include "Misc/Timecode.h"
 
 /* MovieSceneCaptureHelpers
  *****************************************************************************/

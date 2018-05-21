@@ -19,6 +19,9 @@ typedef FMacPlatformProperties<WITH_EDITORONLY_DATA, UE_SERVER, !WITH_SERVER_COD
 #elif PLATFORM_IOS
 #include "IOS/IOSPlatformProperties.h"
 typedef FIOSPlatformProperties FPlatformProperties;
+#elif PLATFORM_LUMIN
+#include "Lumin/LuminPlatformProperties.h"
+typedef FLuminPlatformProperties FPlatformProperties;
 #elif PLATFORM_ANDROID
 #include "Android/AndroidProperties.h"
 typedef FAndroidPlatformProperties FPlatformProperties;

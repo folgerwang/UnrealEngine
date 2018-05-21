@@ -4,6 +4,16 @@
 #include "GameFramework/Actor.h"
 #include "Animation/AnimSingleNodeInstance.h"
 #include "AnimationRecorder.h"
+#include "ITimeManagementModule.h"
+#include "Misc/App.h"
+#include "MovieScene.h"
+#include "MovieSceneTimeHelpers.h"
+#include "LevelSequence.h"
+#include "Tracks/MovieSceneSubTrack.h"
+#include "Sections/MovieSceneSubSection.h"
+#include "Tracks/MovieSceneCameraCutTrack.h"
+#include "Sections/MovieSceneCameraCutSection.h"
+#include "SequenceRecorderActorGroup.h"
 
 namespace SequenceRecorderUtils
 {
@@ -71,6 +81,223 @@ bool RecordSingleNodeInstanceToAnimation(USkeletalMeshComponent* PreviewComponen
 	}
 
 	return false;
+}
+
+FMovieSceneTimecodeSource GetTimecodeSource()
+{
+	return FMovieSceneTimecodeSource(FApp::GetTimecode());
+}
+
+
+FString MakeNewGroupName(const FString& BaseAssetPath, const FString& BaseAssetName, const TArray<FName>& ExistingGroupNames)
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+	const FString Dot(TEXT("."));
+	const FString GroupSeparator = TEXT("_"); //@todo settings
+
+	FString AssetName = BaseAssetName;
+
+	int32 GroupPos = BaseAssetName.Find(GroupSeparator, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+	if (GroupPos != INDEX_NONE)
+	{
+		AssetName = BaseAssetName.Left(GroupPos);
+
+		// If the existing base asset name doesn't conflict, use it
+		FString AssetPath = BaseAssetPath / BaseAssetName / BaseAssetName + Dot + BaseAssetName;
+
+		if (!ExistingGroupNames.Contains(FName(*BaseAssetName)) && !AssetRegistryModule.Get().GetAssetByObjectPath(*AssetPath).IsValid())
+		{
+			return BaseAssetName;
+		}
+	}
+
+	const TCHAR *DriveLetters = TEXT("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+
+	uint32 AlphaCount = 0;
+	uint32 DigitSize = 1;
+
+	do
+	{
+		FString AlphaString;
+		for (uint32 DigitCount = 0; DigitCount < DigitSize; ++DigitCount)
+		{
+			AlphaString = AlphaString + DriveLetters[AlphaCount];
+		}
+
+		FString NewAssetName = AssetName + GroupSeparator + AlphaString;
+
+		AlphaCount++;
+		if (AlphaCount >= 26)
+		{
+			AlphaCount = 0;
+			DigitSize++;
+		}
+
+		FString AssetPath = BaseAssetPath / NewAssetName / NewAssetName + Dot + NewAssetName;
+
+		if (!ExistingGroupNames.Contains(FName(*NewAssetName)) && !AssetRegistryModule.Get().GetAssetByObjectPath(*AssetPath).IsValid())
+		{
+			return NewAssetName;
+		}
+
+	} while (1) ;
+
+	return AssetName;
+}
+
+
+bool ParseTakeName(const FString& InTakeName, FString& OutActorName, FString& OutSessionName, uint32& OutTakeNumber, const FString& InSessionName)
+{
+	const FString TakeSeparator = TEXT("_"); //@todo settings
+	const int32 TakeNumDigits = 3; //@todo settings
+
+	FString TakeName = InTakeName;
+
+	// If the input session name is not empty, look for it in the string and extract out the session name
+	if (!InSessionName.IsEmpty())
+	{
+		int32 SessionPos = TakeName.Find(InSessionName);
+		if (SessionPos != INDEX_NONE)
+		{
+			TakeName.RemoveAt(SessionPos, InSessionName.Len());
+			OutSessionName = InSessionName;
+		}
+	}
+
+	// Split into separators
+	TArray<FString> Splits;
+	TakeName.ParseIntoArray(Splits, *TakeSeparator);
+
+	// The last part is the take
+	bool bHasTakeNumber = false;
+	if (Splits.Num() > 0)
+	{
+		OutTakeNumber = FCString::Atoi(*Splits[Splits.Num()-1]);
+		Splits.Pop(true);
+		bHasTakeNumber = true;
+	}
+
+	// The middle is the session name
+	if (Splits.Num() > 0 && OutSessionName.IsEmpty())
+	{
+		OutSessionName = Splits[Splits.Num()-1];
+		Splits.Pop(true);
+	}
+
+	// The rest is the actor name
+	if (Splits.Num() > 0)
+	{
+		OutActorName = FString::Join(Splits, *TakeSeparator);
+	}
+
+	return bHasTakeNumber;
+}
+
+void CreateCameraCutTrack(ULevelSequence* LevelSequence, const FGuid& RecordedCameraGuid, const FMovieSceneSequenceID& SequenceID)
+{
+	if (!RecordedCameraGuid.IsValid() || !LevelSequence)
+	{
+		return;
+	}
+
+	UMovieSceneTrack* CameraCutTrack = LevelSequence->GetMovieScene()->GetCameraCutTrack();
+	if (CameraCutTrack && CameraCutTrack->GetAllSections().Num() > 1)
+	{
+		return;
+	}
+
+
+	if (!CameraCutTrack)
+	{
+		CameraCutTrack = LevelSequence->GetMovieScene()->AddCameraCutTrack(UMovieSceneCameraCutTrack::StaticClass());
+	}
+	else
+	{
+		CameraCutTrack->RemoveAllAnimationData();
+	}
+
+	UMovieSceneCameraCutSection* CameraCutSection = Cast<UMovieSceneCameraCutSection>(CameraCutTrack->CreateNewSection());
+	CameraCutSection->SetCameraBindingID(FMovieSceneObjectBindingID(RecordedCameraGuid, SequenceID, EMovieSceneObjectBindingSpace::Local));
+	CameraCutSection->SetRange(LevelSequence->GetMovieScene()->GetPlaybackRange());
+	CameraCutTrack->AddSection(*CameraCutSection);
+}
+
+void ExtendSequencePlaybackRange(ULevelSequence* LevelSequence)
+{		
+	UMovieScene* MovieScene = LevelSequence->GetMovieScene();
+	if(MovieScene)
+	{
+		TRange<FFrameNumber> OriginalPlayRange = MovieScene->GetPlaybackRange();
+
+		TRange<FFrameNumber> PlayRange = OriginalPlayRange;
+
+		TArray<UMovieSceneSection*> MovieSceneSections = MovieScene->GetAllSections();
+		for(UMovieSceneSection* Section : MovieSceneSections)
+		{
+			TRange<FFrameNumber> SectionRange = Section->GetRange();
+			if (SectionRange.GetLowerBound().IsClosed() && SectionRange.GetUpperBound().IsClosed())
+			{
+				PlayRange = TRange<FFrameNumber>::Hull(PlayRange, SectionRange);
+			}
+		}
+
+		MovieScene->SetPlaybackRange(TRange<FFrameNumber>(OriginalPlayRange.GetLowerBoundValue(), PlayRange.GetUpperBoundValue()));
+
+		// Initialize the working and view range with a little bit more space
+		FFrameRate  TickResolution = MovieScene->GetTickResolution();
+		const double OutputViewSize = PlayRange.Size<FFrameNumber>() / TickResolution;
+		const double OutputChange   = OutputViewSize * 0.1;
+
+		TRange<double> NewRange = MovieScene::ExpandRange(PlayRange / TickResolution, OutputChange);
+		FMovieSceneEditorData& EditorData = MovieScene->GetEditorData();
+		EditorData.ViewStart = EditorData.WorkStart = NewRange.GetLowerBoundValue();
+		EditorData.ViewEnd   = EditorData.WorkEnd   = NewRange.GetUpperBoundValue();
+	}
+}
+
+void SaveLevelSequence(ULevelSequence* LevelSequence)
+{
+	if (!LevelSequence)
+	{
+		return;
+	}
+
+	// auto-save asset outside of the editor
+	UPackage* const Package = LevelSequence->GetOutermost();
+	FString const PackageName = Package->GetName();
+	FString const PackageFileName = FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension());
+
+	UPackage::SavePackage(Package, NULL, RF_Standalone, *PackageFileName, GError, nullptr, false, true, SAVE_NoError);
+}
+
+void GatherTakeInfo(ULevelSequence* InLevelSequence, TArray<FTakeInfo>& TakeInfos)
+{
+	UMovieScene* MovieScene = InLevelSequence->GetMovieScene();
+
+	for (auto MasterTrack : MovieScene->GetMasterTracks())
+	{
+		if (MasterTrack->IsA<UMovieSceneSubTrack>())
+		{
+			UMovieSceneSubTrack* SubTrack = Cast<UMovieSceneSubTrack>(MasterTrack);
+			for (auto Section : SubTrack->GetAllSections())
+			{
+				if (Section->IsA<UMovieSceneSubSection>())
+				{
+					UMovieSceneSubSection* SubSection = Cast<UMovieSceneSubSection>(Section);
+					ULevelSequence* SubSequence = Cast<ULevelSequence>(SubSection->GetSequence());
+					
+					FString ActorLabel;
+					FString SessionName = InLevelSequence->GetName();
+					uint32 TakeNumber;
+					if (ParseTakeName(SubSequence->GetName(), ActorLabel, SessionName, TakeNumber, SessionName))
+					{
+						TakeInfos.Add(FTakeInfo(ActorLabel, TakeNumber, SubSequence));
+					}
+				}
+			}
+		}
+	}
 }
 
 }

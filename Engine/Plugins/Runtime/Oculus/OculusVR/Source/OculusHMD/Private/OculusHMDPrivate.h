@@ -269,18 +269,6 @@ namespace OculusHMD
 	}
 
 
-	/** Called from Game thread to execute a function on the Render thread. */
-	void ExecuteOnRenderThread(const std::function<void()>& Function);
-	void ExecuteOnRenderThread_DoNotWait(const std::function<void()>& Function);
-	void ExecuteOnRenderThread(const std::function<void(FRHICommandListImmediate&)>& Function);
-	void ExecuteOnRenderThread_DoNotWait(const std::function<void(FRHICommandListImmediate&)>& Function);
-
-	/** Called from Render thread to execute a function on the RHI thread. */
-	void ExecuteOnRHIThread(const std::function<void()>& Function);
-	void ExecuteOnRHIThread_DoNotWait(const std::function<void()>& Function);
-	void ExecuteOnRHIThread(const std::function<void(FRHICommandList&)>& Function);
-	void ExecuteOnRHIThread_DoNotWait(const std::function<void(FRHICommandList&)>& Function);
-
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
 	/** Tests if Oculus service is running */
 	bool IsOculusServiceRunning();

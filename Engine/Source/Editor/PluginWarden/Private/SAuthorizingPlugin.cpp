@@ -1,9 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SAuthorizingPlugin.h"
+#include "EngineAnalytics.h"
 #include "Misc/MessageDialog.h"
 #include "Containers/Ticker.h"
 #include "Async/TaskGraphInterfaces.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Layout/SBox.h"
@@ -370,6 +372,8 @@ void SAuthorizingPlugin::OnWindowClosed(const TSharedRef<SWindow>& InWindow)
 		}
 		else
 		{
+			FEngineAnalytics::GetProvider().RecordEvent( TEXT("PluginWarden.AuthorizationFailure"), FAnalyticsEventAttribute( TEXT("State"), (int32)CurrentState ) );
+
 			switch ( CurrentState )
 			{
 			case EPluginAuthorizationState::Timeout:

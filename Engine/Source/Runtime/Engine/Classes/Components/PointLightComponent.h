@@ -6,7 +6,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Engine/EngineTypes.h"
-#include "Components/LightComponent.h"
+#include "Components/LocalLightComponent.h"
 #include "PointLightComponent.generated.h"
 
 class FLightSceneProxy;
@@ -15,27 +15,9 @@ class FLightSceneProxy;
  * A light component which emits light from a single point equally in all directions.
  */
 UCLASS(Blueprintable, ClassGroup=(Lights,Common), hidecategories=(Object, LightShafts), editinlinenew, meta=(BlueprintSpawnableComponent))
-class ENGINE_API UPointLightComponent : public ULightComponent
+class ENGINE_API UPointLightComponent : public ULocalLightComponent
 {
 	GENERATED_UCLASS_BODY()
-
-	/** 
-	 * Units used for the intensity. 
-	 * The peak luminous intensity is measured in candelas,
-	 * while the luminous power is measured in lumens.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, meta=(DisplayName="Intensity Units", EditCondition="bUseInverseSquaredFalloff"))
-	ELightUnits IntensityUnits;
-
-	UPROPERTY()
-	float Radius_DEPRECATED;
-
-	/**
-	 * Bounds the light's visible influence.  
-	 * This clamping of the light's influence is not physically correct but very important for performance, larger lights cost more.
-	 */
-	UPROPERTY(interp, BlueprintReadOnly, Category=Light, meta=(UIMin = "8.0", UIMax = "16384.0", SliderExponent = "5.0"))
-	float AttenuationRadius;
 
 	/** 
 	 * Whether to use physically based inverse squared distance falloff, where AttenuationRadius is only clamping the light's contribution.  
@@ -75,13 +57,6 @@ class ENGINE_API UPointLightComponent : public ULightComponent
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light)
 	float SourceLength;
 
-	/** The Lightmass settings for this object. */
-	UPROPERTY(EditAnywhere, Category=Light, meta=(ShowOnlyInnerProperties))
-	struct FLightmassPointLightSettings LightmassSettings;
-
-	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
-	void SetAttenuationRadius(float NewRadius);
-
 	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
 	void SetLightFalloffExponent(float NewLightFalloffExponent);
 
@@ -94,31 +69,13 @@ class ENGINE_API UPointLightComponent : public ULightComponent
 	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
 	void SetSourceLength(float NewValue);
 
-	UFUNCTION(BlueprintPure, Category="Rendering|Lighting")
-	static float GetUnitsConversionFactor(ELightUnits SrcUnits, ELightUnits TargetUnits, float CosHalfConeAngle = -1);
-
-protected:
-	//~ Begin UActorComponent Interface
-	virtual void SendRenderTransform_Concurrent() override;
-	//~ End UActorComponent Interface
-
 public:
 
 	virtual float ComputeLightBrightness() const override;
 
 	//~ Begin ULightComponent Interface.
-	virtual bool AffectsBounds(const FBoxSphereBounds& InBounds) const override;
-	virtual FVector4 GetLightPosition() const override;
-	virtual FBox GetBoundingBox() const override;
-	virtual FSphere GetBoundingSphere() const override;
 	virtual ELightComponentType GetLightType() const override;
-	virtual FLightmassLightSettings GetLightmassSettings() const override
-	{
-		return LightmassSettings;
-	}
-
 	virtual float GetUniformPenumbraSize() const override;
-
 	virtual FLightSceneProxy* CreateSceneProxy() const override;
 
 	//~ Begin UObject Interface
@@ -135,11 +92,6 @@ public:
 	 * @param PropertyThatChanged	Property that changed
 	 */
 	virtual void PostInterpChange(UProperty* PropertyThatChanged) override;
-
-private:
-
-	/** Pushes the value of radius to the rendering thread. */
-	void PushRadiusToRenderThread();
 };
 
 

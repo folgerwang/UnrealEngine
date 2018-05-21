@@ -10,50 +10,58 @@ class FD3D12RenderQuery : public FRHIRenderQuery, public FD3D12DeviceChild, publ
 {
 public:
 
-	/** The query heap resource. */
-	const TRefCountPtr<ID3D12QueryHeap> QueryHeap;
+	/** The query's index in its heap. */
 	uint32 HeapIndex;
-
-	/** CPU-visible buffer to store the query result **/
-	const TRefCountPtr<ID3D12Resource> ResultBuffer;
 
 	/** The cached query result. */
 	uint64 Result;
 
-	/** true if the query's result is cached. */
+	/** True if the query's result is cached. */
 	bool bResultIsCached : 1;
 
-	// todo: memory optimize
+	/** True if the query has been resolved. */
+	bool bResolved : 1;
+
+	/** The query's type. */
 	const ERenderQueryType Type;
-
-	// Context that the query was ended'd on.
-	class FD3D12CommandContext* OwningContext;
-
-	// When the query result is ready on the GPU.
-	FD3D12CLSyncPoint CLSyncPoint;
 
 	// A timestamp so that LDA query results only handle object from the most recent frames.
 	uint64 Timestamp;
 
 	/** Initialization constructor. */
-	FD3D12RenderQuery(FD3D12Device* Parent, ID3D12QueryHeap* InQueryHeap, ID3D12Resource* InQueryResultBuffer, ERenderQueryType InQueryType) :
-		QueryHeap(InQueryHeap),
-		ResultBuffer(InQueryResultBuffer),
+	FD3D12RenderQuery(FD3D12Device* Parent, ERenderQueryType InQueryType) :
 		Result(0),
 		Type(InQueryType),
-		FD3D12DeviceChild(Parent),
-		Timestamp(0)
+		Timestamp(0), 
+		FD3D12DeviceChild(Parent)
 	{
 		Reset();
 	}
 
-	void Reset()
+	inline void Reset()
 	{
-		HeapIndex = -1;
+		HeapIndex = INDEX_NONE;
 		bResultIsCached = false;
-		OwningContext = nullptr;
-		Timestamp = 0;
+		bResolved = false;
 	}
+
+	// Indicate the command list that was used to resolve the query.
+	inline void MarkResolved(FD3D12CommandListHandle& CommandList)
+	{
+		CLSyncPoint = CommandList;
+		bResolved = true;
+	}
+
+	inline FD3D12CLSyncPoint& GetSyncPoint()
+	{
+		// Sync point is only valid if we've resolved the query.
+		check(bResolved);
+		return CLSyncPoint;
+	}
+
+private:
+	// When the query result is ready on the GPU.
+	FD3D12CLSyncPoint CLSyncPoint;
 };
 
 template<>
@@ -68,55 +76,47 @@ class FD3D12QueryHeap : public FD3D12DeviceChild, public FD3D12SingleNodeGPUObje
 private:
 	struct QueryBatch
 	{
-	private:
-		int64 BatchID;            // The unique ID for the batch
-
-		int64 GenerateID()
-		{
-#if WINVER >= 0x0600 // Interlock...64 functions are only available from Vista onwards
-			static int64 ID = 0;
-#else
-			static int32 ID = 0;
-#endif
-			return FPlatformAtomics::InterlockedIncrement(&ID);
-		}
-
 	public:
 		uint32 StartElement;    // The first element in the batch (inclusive)
 		uint32 EndElement;      // The last element in the batch (inclusive)
 		uint32 ElementCount;    // The number of elements in the batch
 		bool bOpen;             // Is the batch still open for more begin/end queries?
+		
+		// A list of all FD3D12RenderQuery objects used in the batch. 
+		// This is used to set when each queries' result is ready to be read.
+		TArray<FD3D12RenderQuery*> RenderQueries;
 
-		void Clear()
+		QueryBatch()
+		{
+			RenderQueries.Reserve(256);
+			Clear();
+		}
+
+		inline void Clear()
 		{
 			StartElement = 0;
 			EndElement = 0;
 			ElementCount = 0;
-			BatchID = GenerateID();
 			bOpen = false;
-		}
-
-		int64 GetBatchID() const { return BatchID; }
-
-		bool IsValidElement(uint32 Element) const
-		{
-			return ((Element >= StartElement) && (Element <= EndElement));
+			RenderQueries.Reset();
 		}
 	};
 
 public:
-	FD3D12QueryHeap(class FD3D12Device* InParent, const D3D12_QUERY_HEAP_TYPE &InQueryHeapType, uint32 InQueryHeapCount);
+	FD3D12QueryHeap(class FD3D12Device* InParent, const D3D12_QUERY_HEAP_TYPE& InQueryHeapType, uint32 InQueryHeapCount, uint32 InMaxActiveBatches);
 	~FD3D12QueryHeap();
 
 	void Init();
 
 	void Destroy();
 
-	void StartQueryBatch(FD3D12CommandContext& CmdContext); // Start tracking a new batch of begin/end query calls that will be resolved together
-	void EndQueryBatchAndResolveQueryData(FD3D12CommandContext& CmdContext, D3D12_QUERY_TYPE InQueryType); // Stop tracking the current batch of begin/end query calls that will be resolved together
+	// Stop tracking the current batch of begin/end query calls that will be resolved together.
+	// This implicitly starts a new batch.
+	void EndQueryBatchAndResolveQueryData(FD3D12CommandContext& CmdContext);  
 
-	uint32 BeginQuery(FD3D12CommandContext& CmdContext, D3D12_QUERY_TYPE InQueryType); // Obtain a query from the store of available queries
-	void EndQuery(FD3D12CommandContext& CmdContext, D3D12_QUERY_TYPE InQueryType, uint32 InElement);
+	uint32 AllocQuery(FD3D12CommandContext& CmdContext); // Some query types don't need a BeginQuery call. Instead just alloc a slot to EndQuery with.
+	uint32 BeginQuery(FD3D12CommandContext& CmdContext); // Obtain a query from the store of available queries
+	void EndQuery(FD3D12CommandContext& CmdContext, uint32 InElement, FD3D12RenderQuery* InRenderQuery);
 
 	uint32 GetQueryHeapCount() const { return QueryHeapDesc.Count; }
 	uint32 GetResultSize() const { return ResultSize; }
@@ -124,6 +124,8 @@ public:
 	inline FD3D12Resource* GetResultBuffer() { return ResultBuffer.GetReference(); }
 
 private:
+	void StartQueryBatch(); // Start tracking a new batch of begin/end query calls that will be resolved together
+
 	uint32 GetNextElement(uint32 InElement); // Get the next element, after the specified element. Handles overflow.
 	uint32 GetPreviousElement(uint32 InElement); // Get the previous element, before the specified element. Handles underflow.
 	bool IsHeapFull();
@@ -132,7 +134,6 @@ private:
 	uint32 GetNextBatchElement(uint32 InBatchElement);
 	uint32 GetPreviousBatchElement(uint32 InBatchElement);
 
-	uint32 AllocQuery(FD3D12CommandContext& CmdContext, D3D12_QUERY_TYPE InQueryType);
 	void CreateQueryHeap();
 	void CreateResultBuffer();
 
@@ -143,7 +144,7 @@ private:
 
 	TArray<QueryBatch> ActiveQueryBatches;              // List of active query batches. The data for these is in use.
 
-	static const uint32 MAX_ACTIVE_BATCHES = 5;         // The max number of query batches that will be held.
+	const uint32 MaxActiveBatches;                      // The max number of query batches that will be held.
 	uint32 LastBatch;                                   // The index of the newest batch.
 
 	uint32 HeadActiveElement;                   // The oldest element that is in use (Active). The data for this element is being used.

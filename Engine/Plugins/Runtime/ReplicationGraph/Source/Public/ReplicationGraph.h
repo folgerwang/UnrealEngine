@@ -637,6 +637,8 @@ public:
 
 	virtual void SetWorld(UWorld* InWorld) override;
 
+	virtual void ResetGameWorldState() override { }
+
 	/** Called by the NetDriver when the client connection is ready/added to the NetDriver's client connection list */
 	virtual void AddClientConnection(UNetConnection* NetConnection) override;
 

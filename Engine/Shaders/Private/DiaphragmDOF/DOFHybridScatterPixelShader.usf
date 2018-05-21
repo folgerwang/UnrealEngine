@@ -8,6 +8,16 @@
 #include "../FastMath.ush"
 
 
+//------------------------------------------------------- COMPILE TIME CONFIG
+
+// Whether to point mirror the bokeh.
+#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_FOREGROUND_ONLY
+	#define CONFIG_POINT_MIRROR_BOKEH 1
+#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_BACKGROUND_ONLY
+	#define CONFIG_POINT_MIRROR_BOKEH -1
+#endif
+
+
 //------------------------------------------------------- PARAMETERS
 
 float ScatteringScaling;
@@ -81,7 +91,7 @@ void ScatterMainPS(
 		#if DIM_BOKEH_SIMULATION
 		{
 			float PixelDistance = sqrtFast(dot(PixelOffset, PixelOffset));
-			float2 LookUpUV = PixelOffset * ((0.5 - 1.0 / float(BOKEH_LUT_SIZE)) * SafeRcp(PixelDistance));
+			float2 LookUpUV = PixelOffset * (CONFIG_POINT_MIRROR_BOKEH * (0.5 - 1.0 / float(BOKEH_LUT_SIZE)) * SafeRcp(PixelDistance));
 
 			// TODO: might be faster without using view uniform buffer.
 			float4 LookupSample = PostprocessInput2.SampleLevel(GlobalBilinearWrappedSampler, LookUpUV, 0);

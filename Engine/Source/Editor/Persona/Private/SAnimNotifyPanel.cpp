@@ -1097,17 +1097,20 @@ public:
 		// Tracks the movement amount to apply to the selection due to a snap.
 		float SnapMovement= 0.0f;
 		// Clamp the selection into the track
+		float SelectionBeginPositionX = TrackGeom.GetAbsolutePosition().X + TrackGeom.AbsoluteToLocal(SelectionBeginPosition).X;
 		const float SelectionLocalLength = TrackScaleInfo.PixelsPerInput * SelectionTimeLength;
-		const float ClampedEnd = FMath::Clamp(SelectionBeginPosition.X + NodeGroupSize.X, SelectionPositionClampInfo->TrackMin, SelectionPositionClampInfo->TrackMax);
-		const float ClampedBegin = FMath::Clamp(SelectionBeginPosition.X, SelectionPositionClampInfo->TrackMin, SelectionPositionClampInfo->TrackMax);
-		if(ClampedBegin > SelectionBeginPosition.X)
+		const float ClampedEnd = FMath::Clamp(SelectionBeginPositionX + NodeGroupSize.X, SelectionPositionClampInfo->TrackMin, SelectionPositionClampInfo->TrackMax);
+		const float ClampedBegin = FMath::Clamp(SelectionBeginPositionX, SelectionPositionClampInfo->TrackMin, SelectionPositionClampInfo->TrackMax);
+		if(ClampedBegin > SelectionBeginPositionX)
 		{
-			SelectionBeginPosition.X = ClampedBegin;
+			SelectionBeginPositionX = ClampedBegin;
 		}
-		else if(ClampedEnd < SelectionBeginPosition.X + SelectionLocalLength)
+		else if(ClampedEnd < SelectionBeginPositionX + SelectionLocalLength)
 		{
-			SelectionBeginPosition.X = ClampedEnd - SelectionLocalLength;
+			SelectionBeginPositionX = ClampedEnd - SelectionLocalLength;
 		}
+
+		SelectionBeginPosition.X = TrackGeom.LocalToAbsolute(FVector2D(SelectionBeginPositionX - TrackGeom.GetAbsolutePosition().X, 0.0f)).X;
 
 		// Handle node snaps
 		for(int32 NodeIdx = 0 ; NodeIdx < SelectedNodes.Num() ; ++NodeIdx)
@@ -1204,13 +1207,13 @@ public:
 
 		SelectionBeginPosition.X += SnapMovement;
 
-		CurrentDragXPosition = SelectionPositionClampInfo->NotifyTrack->GetCachedGeometry().AbsoluteToLocal(FVector2D(SelectionBeginPosition.X,0.0f)).X;
+		CurrentDragXPosition = TrackGeom.AbsoluteToLocal(FVector2D(SelectionBeginPosition.X,0.0f)).X;
 
 		CursorDecoratorWindow->MoveWindowTo(SelectionBeginPosition - SelectedNodes[0]->GetNotifyPositionOffset());
 		NodeGroupPosition = SelectionBeginPosition;
 
 		//scroll view
-		float MouseXPos = DragDropEvent.GetScreenSpacePosition().X;
+		float MouseXPos = TrackGeom.GetAbsolutePosition().X + TrackGeom.AbsoluteToLocal(DragDropEvent.GetScreenSpacePosition()).X;
 		if(MouseXPos < SelectionPositionClampInfo->TrackMin)
 		{
 			float ScreenDelta = MouseXPos - SelectionPositionClampInfo->TrackMin;

@@ -95,7 +95,7 @@ namespace ELogTimes
 }
 
 /** Generic axis enum (mirrored for native use in Axis.h). */
-UENUM()
+UENUM(meta=(ScriptName="AxisType"))
 namespace EAxis
 {
 	enum Type
@@ -936,8 +936,7 @@ public:
 	int32 Seed;
 };
 
-
-// A date/time value.
+/** A date/time value. */
 
 USTRUCT(immutable, noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetMathLibrary.MakeDateTime", HasNativeBreak="Engine.KismetMathLibrary.BreakDateTime"))
 struct FDateTime
@@ -945,15 +944,82 @@ struct FDateTime
 	int64 Ticks;
 };
 
+/** A frame number value. */
 
-// A time span value.
+USTRUCT(noexport, BlueprintType)
+struct FFrameNumber
+{
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=FrameNumber)
+	int32 Value;
+};
+
+/** A frame rate represented as a fraction comprising 2 integers: a numerator (number of frames), and a denominator (per second). */
+
+USTRUCT(noexport, BlueprintType)
+struct FFrameRate
+{
+	/** The numerator of the framerate represented as a number of frames per second (e.g. 60 for 60 fps) */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=FrameRate)
+	int32 Numerator;
+
+	/** The denominator of the framerate represented as a number of frames per second (e.g. 1 for 60 fps) */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=FrameRate)
+	int32 Denominator;
+};
+
+/** Represents a time by a context-free frame number, plus a sub frame value in the range [0:1). */
+
+USTRUCT(noexport, BlueprintType)
+struct FFrameTime
+{
+	UPROPERTY(BlueprintReadWrite, Category=FrameTime)
+	FFrameNumber FrameNumber;
+
+	UPROPERTY()
+	float SubFrame;
+};
+
+/** A frame time qualified by a frame rate context. */
+
+USTRUCT(noexport, BlueprintType)
+struct FQualifiedFrameTime
+{
+	UPROPERTY(BlueprintReadWrite, Category=QualifiedFrameTime)
+	FFrameTime Time;
+
+	UPROPERTY(BlueprintReadWrite, Category=QualifiedFrameTime)
+	FFrameRate Rate;
+};
+
+/** A timecode that stores time in HH:MM:SS format with the remainder of time represented by an integer frame count. */
+
+USTRUCT(noexport, BlueprintType)
+struct FTimecode
+{
+	UPROPERTY(BlueprintReadWrite, Category=Timecode)
+	int32 Hours;
+
+	UPROPERTY(BlueprintReadWrite, Category=Timecode)
+	int32 Minutes;
+
+	UPROPERTY(BlueprintReadWrite, Category=Timecode)
+	int32 Seconds;
+
+	UPROPERTY(BlueprintReadWrite, Category=Timecode)
+	int32 Frames;
+
+	/** If true, this Timecode represents a Drop Frame timecode used to account for fractional frame rates in NTSC play rates. */
+	UPROPERTY(BlueprintReadWrite, Category= Timecode)
+	bool bDropFrameFormat;
+};
+
+/** A time span value. */
 
 USTRUCT(immutable, noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetMathLibrary.MakeTimespan", HasNativeBreak="Engine.KismetMathLibrary.BreakTimespan"))
 struct FTimespan
 {
 	int64 Ticks;
 };
-
 
 /** An object path, this is saved as a name/string pair */
 USTRUCT(noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetSystemLibrary.MakeSoftObjectPath", HasNativeBreak="Engine.KismetSystemLibrary.BreakSoftObjectPath"))
@@ -969,7 +1035,7 @@ struct FSoftObjectPath
 };
 
 /** Subclass of FSoftObjectPath that is only valid to use with UClass* */
-USTRUCT(noexport)
+USTRUCT(noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetSystemLibrary.MakeSoftClassPath", HasNativeBreak="Engine.KismetSystemLibrary.BreakSoftClassPath"))
 struct FSoftClassPath : public FSoftObjectPath
 {
 };

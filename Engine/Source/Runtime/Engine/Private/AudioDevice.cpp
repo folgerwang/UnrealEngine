@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioDevice.h"
 #include "PhysicsEngine/BodyInstance.h"
@@ -3287,6 +3287,7 @@ void FAudioDevice::Update(bool bGameTicking)
 	bool bHasVolumeSettings = false;
 	float AudioVolumePriority = 0.f;
 	FReverbSettings ReverbSettings;
+	bool bUsingDefaultReverb = true;
 
 	// Gets the current state of the interior settings
 	for (FListener& Listener : Listeners)
@@ -3297,17 +3298,22 @@ void FAudioDevice::Update(bool bGameTicking)
 		Listener.ApplyInteriorSettings(PlayerAudioVolumeSettings.AudioVolumeID, PlayerAudioVolumeSettings.InteriorSettings);
 		Listener.UpdateCurrentInteriorSettings();
 
-		if (!bHasVolumeSettings || (PlayerAudioVolumeSettings.AudioVolumeID > 0 && PlayerAudioVolumeSettings.Priority > AudioVolumePriority))
+		if (!bHasVolumeSettings || (PlayerAudioVolumeSettings.AudioVolumeID > 0 && (bUsingDefaultReverb || PlayerAudioVolumeSettings.Priority > AudioVolumePriority)))
 		{
 			bHasVolumeSettings = true;
 			AudioVolumePriority = PlayerAudioVolumeSettings.Priority;
 			ReverbSettings = PlayerAudioVolumeSettings.ReverbSettings;
+
+			if (PlayerAudioVolumeSettings.AudioVolumeID > 0)
+			{
+				bUsingDefaultReverb = false;
+			}
 		}
 	}
 
 	if (bHasActivatedReverb)
 	{
-		if (HighestPriorityActivatedReverb.Priority > AudioVolumePriority)
+		if (HighestPriorityActivatedReverb.Priority > AudioVolumePriority || bUsingDefaultReverb)
 		{
 			ReverbSettings = HighestPriorityActivatedReverb.ReverbSettings;
 		}
@@ -4184,12 +4190,12 @@ UAudioComponent* FAudioDevice::CreateComponent(USoundBase* Sound, const FCreateC
 				// Use actor as outer if we have one.
 				if (Params.Actor)
 				{
-					AudioComponent = NewObject<UAudioComponent>(Params.Actor);
+					AudioComponent = NewObject<UAudioComponent>(Params.Actor, (Params.AudioComponentClass != nullptr) ? (UClass*)Params.AudioComponentClass : UAudioComponent::StaticClass());
 				}
 				// Let engine pick the outer (transient package).
 				else
 				{
-					AudioComponent = NewObject<UAudioComponent>();
+					AudioComponent = NewObject<UAudioComponent>((Params.AudioComponentClass != nullptr) ? (UClass*)Params.AudioComponentClass : UAudioComponent::StaticClass());
 				}
 
 				check(AudioComponent);
@@ -4477,7 +4483,7 @@ void FAudioDevice::Precache(USoundWave* SoundWave, bool bSynchronous, bool bTrac
 			SoundWave->DecompressionType = DTYPE_Streaming;
 			SoundWave->bCanProcessAsync = false;
 		}
-		else if (!bForceFullDecompression && SupportsRealtimeDecompression() &&  (bDisableAudioCaching || (!SoundGroup.bAlwaysDecompressOnLoad && SoundWave->Duration > CompressedDurationThreshold)))
+		else if (!bForceFullDecompression && SupportsRealtimeDecompression() &&  ((bDisableAudioCaching || DisablePCMAudioCaching()) || (!SoundGroup.bAlwaysDecompressOnLoad && SoundWave->Duration > CompressedDurationThreshold)))
 		{
 			// Store as compressed data and decompress in realtime
 			SoundWave->DecompressionType = DTYPE_RealTime;

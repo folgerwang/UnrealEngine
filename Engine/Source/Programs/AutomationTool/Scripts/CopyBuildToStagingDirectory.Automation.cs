@@ -790,6 +790,11 @@ public partial class Project : CommandUtils
 			{
 				Message.AppendFormat("\n{0}", RestrictedFile);
 			}
+			Message.Append("\n[Restrictions]");
+			foreach (FileSystemName RestrictedName in SC.RestrictedFolderNames)
+			{
+				Message.AppendFormat("\n{0}", RestrictedName);
+			}
 			Message.Append("\nIf these files are intended to be distributed in packaged builds, move the source files out of a restricted folder, or remap them during staging using the following syntax in DefaultGame.ini:");
 			Message.Append("\n[Staging]");
 			Message.Append("\n+RemapDirectories=(From=\"Foo/NoRedist\", To=\"Foo\")");
@@ -1943,7 +1948,7 @@ public partial class Project : CommandUtils
 
 	private static DirectoryReference GetIntermediateCommandlineDir(DeploymentContext SC)
 	{
-		return DirectoryReference.Combine(SC.LocalRoot, "Intermediate", "UAT", SC.FinalCookPlatform);
+		return DirectoryReference.Combine(SC.EngineRoot, "Intermediate", "UAT", SC.FinalCookPlatform);
 	}
 
 	public static void WriteStageCommandline(FileReference IntermediateCmdLineFile, ProjectParams Params, DeploymentContext SC)
@@ -2252,26 +2257,26 @@ public partial class Project : CommandUtils
 	{
 		HashSet<StagedFileReference> CRCFiles = SC.StageTargetPlatform.GetFilesForCRCCheck();
 		List<string> DeltaFiles = new List<string>();
-		foreach (KeyValuePair<StagedFileReference, string> File in StagedFiles)
+		foreach (KeyValuePair<StagedFileReference, string> StagedFile in StagedFiles)
 		{
 			bool bNeedsDeploy = true;
-			if (DeployedFiles.ContainsKey(File.Key))
+			if (DeployedFiles.ContainsKey(StagedFile.Key))
 			{
-				if (CRCFiles.Contains(File.Key))
+				if (CRCFiles.Contains(StagedFile.Key))
 				{
-					bNeedsDeploy = (File.Value != DeployedFiles[File.Key]);
+					bNeedsDeploy = (StagedFile.Value != DeployedFiles[StagedFile.Key]);
 				}
 				else
 				{
-					DateTime Staged = DateTime.Parse(File.Value);
-					DateTime Deployed = DateTime.Parse(DeployedFiles[File.Key]);
+					DateTime Staged = DateTime.Parse(StagedFile.Value);
+					DateTime Deployed = DateTime.Parse(DeployedFiles[StagedFile.Key]);
 					bNeedsDeploy = (Staged > Deployed);
 				}
 			}
 
 			if (bNeedsDeploy)
 			{
-				DeltaFiles.Add(File.Key.Name);
+				DeltaFiles.Add(StagedFile.Key.Name);
 			}
 		}
 
@@ -2452,6 +2457,8 @@ public partial class Project : CommandUtils
 				// clean the staging directories first
 				foreach (var SC in DeployContextList)
 				{
+                    SC.StageTargetPlatform.PreStage(Params, SC);
+
 					// write out the commandline file now so it can go into the manifest
 					WriteStageCommandline(Params, SC);
 					CreateStagingManifest(Params, SC);
@@ -2459,6 +2466,9 @@ public partial class Project : CommandUtils
 				}
 				foreach (var SC in DeployContextList)
 				{
+					//ensure this directory exists so these writes work
+					DirectoryReference.CreateDirectory(GetIntermediateCommandlineDir(SC));
+
 					ApplyStagingManifest(Params, SC);
 
 					if (Params.Deploy)
@@ -2472,13 +2482,6 @@ public partial class Project : CommandUtils
 
 						foreach (var DeviceName in Params.DeviceNames)
 						{
-							string UniqueName = "";
-							if (SC.StageTargetPlatform.SupportsMultiDeviceDeploy)
-							{
-								//replace the port name in the case of deploy while android adb on wifi
-								UniqueName = DeviceName.Replace(":", "_");
-							}
-
 							// get the deployed file data
 							Dictionary<StagedFileReference, string> DeployedUFSFiles = new Dictionary<StagedFileReference, string>();
 							Dictionary<StagedFileReference, string> DeployedNonUFSFiles = new Dictionary<StagedFileReference, string>();
@@ -2489,14 +2492,14 @@ public partial class Project : CommandUtils
 								DeployedNonUFSFiles = ReadDeployedManifest(Params, SC, NonUFSManifests);
 							}
 
-							WriteObsoleteManifest(Params, SC, DeployedUFSFiles, StagedUFSFiles, DeploymentContext.UFSDeployObsoleteFileName + UniqueName);
-							WriteObsoleteManifest(Params, SC, DeployedNonUFSFiles, StagedNonUFSFiles, DeploymentContext.NonUFSDeployObsoleteFileName + UniqueName);
+							WriteObsoleteManifest(Params, SC, DeployedUFSFiles, StagedUFSFiles, SC.GetUFSDeploymentObsoletePath(DeviceName));
+							WriteObsoleteManifest(Params, SC, DeployedNonUFSFiles, StagedNonUFSFiles, SC.GetNonUFSDeploymentObsoletePath(DeviceName));
 
 							if (Params.IterativeDeploy)
 							{
 								// write out the delta file data
-								WriteDeltaManifest(Params, SC, DeployedUFSFiles, StagedUFSFiles, DeploymentContext.UFSDeployDeltaFileName + UniqueName);
-								WriteDeltaManifest(Params, SC, DeployedNonUFSFiles, StagedNonUFSFiles, DeploymentContext.NonUFSDeployDeltaFileName + UniqueName);
+								WriteDeltaManifest(Params, SC, DeployedUFSFiles, StagedUFSFiles, SC.GetUFSDeploymentDeltaPath(DeviceName));
+								WriteDeltaManifest(Params, SC, DeployedNonUFSFiles, StagedNonUFSFiles, SC.GetNonUFSDeploymentDeltaPath(DeviceName));
 							}
 						}
 					}

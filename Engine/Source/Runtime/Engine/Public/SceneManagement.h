@@ -880,15 +880,16 @@ public:
 
 struct FLightParameters
 {
-	FVector4 LightPositionAndInvRadius;
-	FVector4 LightColorAndFalloffExponent;
-	FVector NormalizedLightDirection;
-	FVector NormalizedLightTangent;
-	FVector2D SpotAngles;
-	float LightSourceRadius;
-	float LightSoftSourceRadius;
-	float LightSourceLength;
-	float LightMinRoughness;
+	FVector4	LightPositionAndInvRadius;
+	FVector4	LightColorAndFalloffExponent;
+	FVector		NormalizedLightDirection;
+	FVector		NormalizedLightTangent;
+	FVector2D	SpotAngles;
+	float		LightSourceRadius;
+	float		LightSoftSourceRadius;
+	float		LightSourceLength;
+	float		LightMinRoughness;
+	FTexture*	SourceTexture;
 };
 
 /** 
@@ -927,7 +928,8 @@ public:
 	virtual float GetRadius() const { return FLT_MAX; }
 	virtual float GetOuterConeAngle() const { return 0.0f; }
 	virtual float GetSourceRadius() const { return 0.0f; }
-	virtual bool IsInverseSquared() const { return false; }
+	virtual bool IsInverseSquared() const { return true; }
+	virtual bool IsRectLight() const { return false; }
 	virtual float GetLightSourceAngle() const { return 0.0f; }
 	virtual float GetTraceDistance() const { return 0.0f; }
 	virtual float GetEffectiveScreenRadius(const FViewMatrices& ShadowViewMatrices) const { return 0.0f; }
@@ -1071,6 +1073,7 @@ public:
 	inline bool CastsModulatedShadows() const { return bCastModulatedShadows; }
 	inline const FLinearColor& GetModulatedShadowColor() const { return ModulatedShadowColor; }
 	inline bool AffectsTranslucentLighting() const { return bAffectTranslucentLighting; }
+	inline bool Transmission() const { return bTransmission; }
 	inline bool UseRayTracedDistanceFieldShadows() const { return bUseRayTracedDistanceFieldShadows; }
 	inline float GetRayStartOffsetDepthScale() const { return RayStartOffsetDepthScale; }
 	inline uint8 GetLightType() const { return LightType; }
@@ -1199,6 +1202,9 @@ protected:
 
 	/** Whether the light is allowed to cast dynamic shadows from translucency. */
 	const uint32 bCastTranslucentShadows : 1;
+
+	/** Whether light from this light transmits through surfaces with subsurface scattering profiles. Requires light to be movable. */
+	const uint32 bTransmission : 1;
 
 	const uint32 bCastVolumetricShadow : 1;
 

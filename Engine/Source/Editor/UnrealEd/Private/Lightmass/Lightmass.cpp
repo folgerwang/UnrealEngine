@@ -24,6 +24,7 @@
 #include "Camera/CameraActor.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SpotLightComponent.h"
+#include "Components/RectLightComponent.h"
 #include "Engine/GeneratedMeshAreaLight.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SkyLightComponent.h"
@@ -193,6 +194,7 @@ void Copy( const ULightComponent* In, Lightmass::FLightData& Out )
 	Copy((const ULightComponentBase*)In, Out);
 
 	const UPointLightComponent* PointLight = Cast<const UPointLightComponent>(In);
+
 	if( PointLight && PointLight->bUseInverseSquaredFalloff )
 	{
 		Out.LightFlags |= Lightmass::GI_LIGHT_INVERSE_SQUARED;
@@ -595,7 +597,7 @@ void FLightmassExporter::WriteToChannel( FLightmassStatistics& Stats, FGuid& Deb
 			AddMaterial(UMaterial::GetDefaultMaterial(MD_Surface));
 
 			TotalProgress = 
-				DirectionalLights.Num() + PointLights.Num() + SpotLights.Num() + SkyLights.Num() + 
+				DirectionalLights.Num() + PointLights.Num() + SpotLights.Num() + RectLights.Num() + SkyLights.Num() + 
 				StaticMeshes.Num() + StaticMeshLightingMeshes.Num() + StaticMeshTextureMappings.Num() + 
 				BSPSurfaceMappings.Num() + VolumeMappings.Num() + Materials.Num() + 
 				+ LandscapeLightingMeshes.Num() + LandscapeTextureMappings.Num();
@@ -627,6 +629,7 @@ void FLightmassExporter::WriteToChannel( FLightmassStatistics& Stats, FGuid& Deb
 			Scene.NumDirectionalLights = DirectionalLights.Num();
 			Scene.NumPointLights = PointLights.Num();
 			Scene.NumSpotLights = SpotLights.Num();
+			Scene.NumRectLights = RectLights.Num();
 			Scene.NumSkyLights = SkyLights.Num();
 			Scene.NumStaticMeshes = StaticMeshes.Num();
 			Scene.NumStaticMeshInstances = StaticMeshLightingMeshes.Num();
@@ -1058,7 +1061,7 @@ void FLightmassExporter::WriteLights( int32 Channel )
 		LightData.IndirectLightingSaturation = Light->LightmassSettings.IndirectLightingSaturation;
 		LightData.ShadowExponent = Light->LightmassSettings.ShadowExponent;
 		LightData.ShadowResolutionScale = Light->ShadowResolutionScale;
-		LightData.LightSourceRadius = Light->SourceRadius;
+		LightData.LightSourceRadius = FMath::Max( 1.0f, Light->SourceRadius );
 		LightData.LightSourceLength = Light->SourceLength;
 
 		TArray< uint8 > LightProfileTextureData;
@@ -1084,7 +1087,7 @@ void FLightmassExporter::WriteLights( int32 Channel )
 		LightData.IndirectLightingSaturation = Light->LightmassSettings.IndirectLightingSaturation;
 		LightData.ShadowExponent = Light->LightmassSettings.ShadowExponent;
 		LightData.ShadowResolutionScale = Light->ShadowResolutionScale;
-		LightData.LightSourceRadius = Light->SourceRadius;
+		LightData.LightSourceRadius = FMath::Max( 1.0f, Light->SourceRadius );
 		LightData.LightSourceLength = Light->SourceLength;
 
 		TArray< uint8 > LightProfileTextureData;
@@ -1099,6 +1102,31 @@ void FLightmassExporter::WriteLights( int32 Channel )
 		Swarm.WriteChannel( Channel, LightProfileTextureData.GetData(), LightProfileTextureData.Num() * LightProfileTextureData.GetTypeSize() );
 		Swarm.WriteChannel( Channel, &PointData, sizeof(PointData) );
 		Swarm.WriteChannel( Channel, &SpotData, sizeof(SpotData) );
+		UpdateExportProgress();
+	}
+
+	// Export rect lights.
+	for ( int32 LightIndex = 0; LightIndex < RectLights.Num(); ++LightIndex )
+	{
+		const URectLightComponent* Light = RectLights[LightIndex];
+		Lightmass::FLightData LightData;
+		Lightmass::FPointLightData PointData;
+		Copy( Light, LightData );
+		LightData.IndirectLightingSaturation = Light->LightmassSettings.IndirectLightingSaturation;
+		LightData.ShadowExponent = Light->LightmassSettings.ShadowExponent;
+		LightData.ShadowResolutionScale = Light->ShadowResolutionScale;
+		LightData.LightSourceRadius = 0.5f * Light->SourceWidth;
+		LightData.LightSourceLength = 0.5f * Light->SourceHeight;
+
+		TArray< uint8 > LightProfileTextureData;
+		CopyLightProfile( Light, LightData, LightProfileTextureData );
+
+		PointData.Radius = Light->AttenuationRadius;
+		PointData.FalloffExponent = 0.0f;
+		PointData.LightTangent = Light->GetComponentTransform().GetUnitAxis(EAxis::Z);
+		Swarm.WriteChannel( Channel, &LightData, sizeof(LightData) );
+		Swarm.WriteChannel( Channel, LightProfileTextureData.GetData(), LightProfileTextureData.Num() * LightProfileTextureData.GetTypeSize() );
+		Swarm.WriteChannel( Channel, &PointData, sizeof(PointData) );
 		UpdateExportProgress();
 	}
 
@@ -2489,6 +2517,7 @@ void FLightmassExporter::AddLight(ULightComponentBase* Light)
 	UDirectionalLightComponent* DirectionalLight = Cast<UDirectionalLightComponent>(Light);
 	UPointLightComponent* PointLight = Cast<UPointLightComponent>(Light);
 	USpotLightComponent* SpotLight = Cast<USpotLightComponent>(Light);
+	URectLightComponent* RectLight = Cast<URectLightComponent>(Light);
 	USkyLightComponent* SkyLight = Cast<USkyLightComponent>(Light);
 
 	if( DirectionalLight )
@@ -2502,6 +2531,10 @@ void FLightmassExporter::AddLight(ULightComponentBase* Light)
 	else if( PointLight )
 	{
 		PointLights.AddUnique(PointLight);
+	}
+	else if( RectLight )
+	{
+		RectLights.AddUnique(RectLight);
 	}
 	else if( SkyLight )
 	{
@@ -3047,6 +3080,12 @@ bool FLightmassProcessor::BeginRun()
 			for (int32 LightIndex = 0; LightIndex < Exporter->PointLights.Num(); LightIndex++)
 			{
 				const ULightComponent* Light = Exporter->PointLights[LightIndex];
+				IssueStaticShadowDepthMapTask(Light, 10000);
+			}
+
+			for (int32 LightIndex = 0; LightIndex < Exporter->RectLights.Num(); LightIndex++)
+			{
+				const ULightComponent* Light = Exporter->RectLights[LightIndex];
 				IssueStaticShadowDepthMapTask(Light, 10000);
 			}
 		}
@@ -4246,6 +4285,17 @@ ULightComponent* FLightmassProcessor::FindLight(const FGuid& LightGuid)
 		for (LightIndex = 0; LightIndex < Exporter->SpotLights.Num(); LightIndex++)
 		{
 			const USpotLightComponent* Light = Exporter->SpotLights[LightIndex];
+			if (Light)
+			{
+				if (Light->LightGuid == LightGuid)
+				{
+					return (ULightComponent*)Light;
+				}
+			}
+		}
+		for (LightIndex = 0; LightIndex < Exporter->RectLights.Num(); LightIndex++)
+		{
+			const URectLightComponent* Light = Exporter->RectLights[LightIndex];
 			if (Light)
 			{
 				if (Light->LightGuid == LightGuid)

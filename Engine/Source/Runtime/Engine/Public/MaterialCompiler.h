@@ -247,7 +247,7 @@ public:
 	virtual int32 TransformVector(EMaterialCommonBasis SourceCoordBasis, EMaterialCommonBasis DestCoordBasis, int32 A) = 0;
 	virtual int32 TransformPosition(EMaterialCommonBasis SourceCoordBasis, EMaterialCommonBasis DestCoordBasis, int32 A) = 0;
 
-	virtual int32 DynamicParameter(FLinearColor& DefaultValue) = 0;
+	virtual int32 DynamicParameter(FLinearColor& DefaultValue, uint32 ParameterIndex = 0) = 0;
 	virtual int32 LightmapUVs() = 0;
 	virtual int32 PrecomputedAOMask()  = 0;
 
@@ -461,7 +461,7 @@ public:
 		return Compiler->TransformPosition(SourceCoordBasis, DestCoordBasis, A);
 	}
 
-	virtual int32 DynamicParameter(FLinearColor& DefaultValue) override { return Compiler->DynamicParameter(DefaultValue); }
+	virtual int32 DynamicParameter(FLinearColor& DefaultValue, uint32 ParameterIndex = 0) override { return Compiler->DynamicParameter(DefaultValue, ParameterIndex); }
 	virtual int32 LightmapUVs() override { return Compiler->LightmapUVs(); }
 	virtual int32 PrecomputedAOMask() override { return Compiler->PrecomputedAOMask(); }
 

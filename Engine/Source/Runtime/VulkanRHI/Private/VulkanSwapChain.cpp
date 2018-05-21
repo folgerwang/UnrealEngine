@@ -19,7 +19,6 @@ static FAutoConsoleVariableRef CVarCpuWaitForFence(
 
 extern FAutoConsoleVariable GCVarDelayAcquireBackBuffer;
 extern TAutoConsoleVariable<int32> GAllowPresentOnComputeQueue;
-
 static TSet<EPixelFormat> GPixelFormatNotSupportedWarning;
 
 FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevice, void* WindowHandle, EPixelFormat& InOutPixelFormat, uint32 Width, uint32 Height,
@@ -53,7 +52,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 		if (InOutPixelFormat == PF_Unknown)
 		{
 			static const auto* CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
-			InOutPixelFormat = CVarDefaultBackBufferPixelFormat ? EDefaultBackBufferPixelFormat::Convert2PixelFormat(CVarDefaultBackBufferPixelFormat->GetValueOnGameThread()) : PF_Unknown;
+			InOutPixelFormat = CVarDefaultBackBufferPixelFormat ? EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnGameThread())) : PF_Unknown;
 		}
 
 		if (InOutPixelFormat != PF_Unknown)

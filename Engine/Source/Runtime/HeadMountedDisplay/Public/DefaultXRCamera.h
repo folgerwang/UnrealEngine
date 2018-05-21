@@ -44,7 +44,13 @@ public:
 		bUseImplicitHMDPosition = bInImplicitHMDPosition;
 	}
 
-	virtual bool GetUseImplicitHMDPosition() override { return bUseImplicitHMDPosition; }
+	/**
+	* Returns current setting controlling whether to assume an implied hmd position
+	*/
+	virtual bool GetUseImplicitHMDPosition() const override
+	{
+		return bUseImplicitHMDPosition;
+	}
 
 	/**
 	 * Optionally called by APlayerController to apply the orientation of the
@@ -61,7 +67,7 @@ public:
 	virtual void OverrideFOV(float& InOutFOV) override;
 
 	/** Setup state for applying the render thread late update */
-	virtual void SetupLateUpdate(const FTransform& ParentToWorld, USceneComponent* Component) override;
+	virtual void SetupLateUpdate(const FTransform& ParentToWorld, USceneComponent* Component, bool bSkipLateUpdate) override;
 
 	virtual void CalculateStereoCameraOffset(const enum EStereoscopicPass StereoPassType, FRotator& ViewRotation, FVector& ViewLocation) override;
 

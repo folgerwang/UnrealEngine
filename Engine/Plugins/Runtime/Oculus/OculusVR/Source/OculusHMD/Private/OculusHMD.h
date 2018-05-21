@@ -18,11 +18,13 @@
 #include "HeadMountedDisplayBase.h"
 #include "HeadMountedDisplay.h"
 #include "XRRenderTargetManager.h"
+#include "XRRenderBridge.h"
 #include "IStereoLayers.h"
 #include "Stats/Stats.h"
 #include "SceneViewExtension.h"
 #include "Engine/Engine.h"
 #include "Engine/StaticMeshActor.h"
+#include "XRThreadUtils.h"
 
 
 namespace OculusHMD
@@ -77,6 +79,7 @@ public:
 	virtual bool GetTrackingSensorProperties(int32 InDeviceId, FQuat& OutOrientation, FVector& OutPosition, FXRSensorProperties& OutSensorProperties) override;
 	virtual void SetTrackingOrigin(EHMDTrackingOrigin::Type NewOrigin) override;
 	virtual EHMDTrackingOrigin::Type GetTrackingOrigin() override;
+	virtual bool GetFloorToEyeTrackingTransform(FTransform& OutFloorToEye) const override;
 	//virtual FVector GetAudioListenerOffset(int32 InDeviceId = HMDDeviceId) const override;
 	virtual void ResetOrientationAndPosition(float Yaw = 0.f) override;
 	virtual void ResetOrientation(float Yaw = 0.f) override;
@@ -154,7 +157,6 @@ public:
 	virtual void RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdList, class FRHITexture2D* BackBuffer, class FRHITexture2D* SrcTexture, FVector2D WindowSize) const override;
 	virtual void GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDistance, FMatrix OrthoProjection[2]) const override;
 	//virtual void SetClippingPlanes(float NCP, float FCP) override;
-	virtual FRHICustomPresent* GetCustomPresent() override { return CustomPresent; }
 	virtual IStereoRenderTargetManager* GetRenderTargetManager() override { return this; }
 	virtual IStereoLayers* GetStereoLayers() override { return this; }
 	//virtual void UseImplicitHmdPosition(bool bInImplicitHmdPosition) override;
@@ -174,7 +176,7 @@ public:
 	virtual bool AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 InTexFlags, uint32 InTargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples = 1) override;
 	virtual bool AllocateDepthTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 InTexFlags, uint32 TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples = 1) override;
 	virtual void UpdateViewportWidget(bool bUseSeparateRenderTarget, const class FViewport& Viewport, class SViewport* ViewportWidget) override;
-	virtual void UpdateViewportRHIBridge(bool bUseSeparateRenderTarget, const class FViewport& Viewport, FRHIViewport* const ViewportRHI) override;
+	virtual FXRRenderBridge* GetActiveRenderBridge_GameThread(bool bUseSeparateRenderTarget);
 
 	// IStereoLayers interface
 	virtual uint32 CreateLayer(const IStereoLayers::FLayerDesc& InLayerDesc) override;
@@ -310,6 +312,8 @@ public:
 	void FinishRHIFrame_RHIThread(); // Called from FinishRendering_RHIThread
 
 	void SetTiledMultiResLevel(ETiledMultiResLevel multiresLevel);
+
+	OCULUSHMD_API void UpdateRTPoses();
 
 protected:
 	FConsoleCommands ConsoleCommands;

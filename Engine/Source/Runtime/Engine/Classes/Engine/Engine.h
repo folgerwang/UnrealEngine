@@ -13,6 +13,7 @@
 #include "UObject/SoftObjectPath.h"
 #include "Engine/World.h"
 #include "Misc/BufferedOutputDevice.h"
+#include "Misc/FrameRate.h"
 #include "Engine.generated.h"
 
 class AMatineeActor;
@@ -40,6 +41,7 @@ class UGameUserSettings;
 class UGameViewportClient;
 class ULocalPlayer;
 class UNetDriver;
+class UTimecodeProvider;
 
 #if ALLOW_DEBUG_FILES
 class FFineGrainedPerformanceTracker;
@@ -595,6 +597,8 @@ enum class EFrameHitchType: uint8;
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FEngineHitchDetectedDelegate, EFrameHitchType /*HitchType*/, float /*HitchDurationInSeconds*/);
 
+
+DECLARE_MULTICAST_DELEGATE(FPreRenderDelegate);
 
 /**
  * Abstract base class of all Engine classes, responsible for management of systems critical to editor or game systems.
@@ -1254,6 +1258,18 @@ private:
 	UPROPERTY(transient)
 	UEngineCustomTimeStep* CustomTimeStep;
 
+	/** Provide a timecode to the Engine */
+	UPROPERTY(transient)
+	UTimecodeProvider* TimecodeProvider;
+
+public:
+	/**
+	 * Frame rate used to generated the engine Timecode's frame number when no TimecodeProvider are specified.
+	 * It doesn't control the Engine frame rate. The Engine can run faster or slower that the specified TimecodeFrameRate.
+	 */
+	UPROPERTY(config, EditAnywhere, Category=Timecode)
+	FFrameRate DefaultTimecodeFrameRate;
+
 public:
 	/** 
 	 * Whether we should check for more than N pawns spawning in a single frame.  
@@ -1505,6 +1521,11 @@ public:
 	void RegisterEndStreamingPauseRenderingDelegate( FEndStreamingPauseDelegate* InDelegate );
 	FEndStreamingPauseDelegate* EndStreamingPauseDelegate;
 
+
+	/** Delegate called just prior to rendering. */
+	FPreRenderDelegate PreRenderDelegate;
+	FPreRenderDelegate& GetPreRenderDelegate() { return PreRenderDelegate; }
+
 	/** 
 	 * Error message event relating to server travel failures 
 	 * 
@@ -1685,6 +1706,9 @@ public:
 	/** Extensions that can modify view parameters on the render thread. */
 	TSharedPtr<FSceneViewExtensions> ViewExtensions;
 
+	/** Reference to the HMD device that is attached, if any */
+	TSharedPtr< class IEyeTracker, ESPMode::ThreadSafe > EyeTrackingDevice;
+	
 	/** Triggered when a world is added. */	
 	DECLARE_EVENT_OneParam( UEngine, FWorldAddedEvent , UWorld* );
 	
@@ -1947,7 +1971,10 @@ public:
 	 */
 	bool SetCustomTimeStep(UEngineCustomTimeStep* InCustomTimeStep);
 
-	/** Executes the deferred commands **/
+	/** Get the CustomTimeStep that control the Engine Framerate/Timestep */
+	UEngineCustomTimeStep* GetCustomTimeStep() const { return CustomTimeStep; };
+
+	/** Executes the deferred commands */
 	void TickDeferredCommands();
 
 	/** Get tick rate limiter. */
@@ -1964,6 +1991,19 @@ public:
 
 	/** Whether we're allowed to do frame rate smoothing */
 	virtual bool IsAllowedFramerateSmoothing() const;
+
+	/** Update FApp::Timecode. */
+	void UpdateTimecode();
+
+	/**
+	 * Get the TimecodeProvider that control the FApp::Timecode
+	 *
+	 * @return	true if the TimecodeProvider was properly initialized
+	 */
+	bool SetTimecodeProvider(UTimecodeProvider* InTimecodeProvider);
+
+	/** Get the TimecodeProvider that control the Engine's Timecode */
+	UTimecodeProvider* GetTimecodeProvider() const { return TimecodeProvider; };
 
 	/**
 	 * Pauses / un-pauses the game-play when focus of the game's window gets lost / gained.
@@ -2506,6 +2546,13 @@ protected:
 	 */
 	virtual bool InitializeHMDDevice();
 
+	/**
+	 *	Detects and initializes any attached eye-tracking devices
+	 *
+	 *	@return true if there is an initialized device, false otherwise
+	 */
+	virtual bool InitializeEyeTrackingDevice();
+
 	/**	Record EngineAnalytics information for attached HMD devices. */
 	virtual void RecordHMDAnalytics();
 
@@ -2770,7 +2817,7 @@ public:
 	 */
 	virtual void LoadMapRedrawViewports(void)
 	{
-		RedrawViewports();
+		RedrawViewports(false);
 	}
 
 	void ClearDebugDisplayProperties();
@@ -3206,6 +3253,7 @@ private:
 	int32 RenderStatSounds(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 #endif // !UE_BUILD_SHIPPING
 	int32 RenderStatAI(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
+	int32 RenderStatTimecode(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 #if STATS
 	int32 RenderStatSlateBatches(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 #endif

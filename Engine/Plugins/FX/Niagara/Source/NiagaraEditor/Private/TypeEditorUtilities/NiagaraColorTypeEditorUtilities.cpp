@@ -19,6 +19,10 @@ public:
 
 	void Construct(const FArguments& InArgs)
 	{
+		SNiagaraParameterEditor::Construct(SNiagaraParameterEditor::FArguments()
+			.MinimumDesiredWidth(3 * DefaultInputSize)
+			.MaximumDesiredWidth(3 * DefaultInputSize));
+
 		ChildSlot
 		[
 			SNew(SGridPanel)

@@ -180,6 +180,7 @@ public:
 	/** IDetailTreeNode interface */
 	virtual EDetailNodeType GetNodeType() const override { return EDetailNodeType::Category; }
 	virtual TSharedPtr<IPropertyHandle> CreatePropertyHandle() const override { return nullptr; }
+	virtual void GetFilterStrings(TArray<FString>& OutFilterStrings) const override;
 
 	virtual void GetChildren(FDetailNodeList& OutChildren) override;
 	virtual bool ShouldBeExpanded() const override;
@@ -188,6 +189,8 @@ public:
 	virtual void Tick(float DeltaTime) override {}
 	virtual bool ShouldShowOnlyChildren() const override { return bShowOnlyChildren; }
 	virtual FName GetNodeName() const override { return GetCategoryName(); }
+
+	FCustomPropertyTypeLayoutMap GetCustomPropertyTypeLayoutMap() const;
 
 	/**
 	 * @return true if the parent layout is valid or has been destroyed by a refresh.

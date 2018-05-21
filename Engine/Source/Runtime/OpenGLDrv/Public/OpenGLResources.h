@@ -50,7 +50,7 @@ namespace OpenGLConsoleVariables
 	extern int32 bUseBufferDiscard;
 };
 
-#if PLATFORM_WINDOWS || PLATFORM_ANDROIDESDEFERRED
+#if PLATFORM_WINDOWS || PLATFORM_ANDROIDESDEFERRED || PLATFORM_LUMINGL4
 #define RESTRICT_SUBDATA_SIZE 1
 #else
 #define RESTRICT_SUBDATA_SIZE 0
@@ -405,7 +405,30 @@ public:
 		{
 			if (BaseType::GLSupportsType())
 			{
-				glBufferData( Type, DiscardSize, NULL, GetAccess());
+				// @todo Lumin hack:
+				// When not hinted with GL_STATIC_DRAW, glBufferData() would introduce long uploading times
+				// that would show up in TGD. Without the workaround of hinting glBufferData() with the static buffer usage, 
+				// the buffer mapping / unmapping has an unexpected cost(~5 - 10ms) that manifests itself in light grid computation 
+				// and vertex buffer mapping for bone matrices. We believe this issue originates from the driver as the OpenGL spec 
+				// specifies the following on the usage hint parameter of glBufferData() :
+				//
+				// > usage is a hint to the GL implementation as to how a buffer object's data store will be accessed. 
+				// > This enables the GL implementation to make more intelligent decisions that may significantly impact buffer object performance. 
+				// > It does not, however, constrain the actual usage of the data store.
+				//
+				// As the alternative approach of using uniform buffers for bone matrix uploading (isntead of buffer mapping/unmapping)
+				// limits the number of bone matrices to 75 in the current engine architecture and that is not desirable, 
+				// we can stick with the STATIC_DRAW hint workaround for glBufferData().
+				//
+				// We haven't seen the buffer mapping/unmapping issue show up elsewhere in the pipeline in our test scenes. 
+				// However, depending on the UE4 features that are used, this issue might pop up elsewhere that we're yet to see.
+				// As there are concerns for maximum number of bone matrices, going for the GL_STATIC_DRAW hint should be safer, 
+				// given the fact that it won't constrain the actual usage of the data store as per the OpenGL4 spec.
+#if PLATFORM_LUMINGL4
+				glBufferData(Type, DiscardSize, NULL, GL_STATIC_DRAW);
+#else
+				glBufferData(Type, DiscardSize, NULL, GetAccess());
+#endif			
 			}
 		}
 
@@ -1180,7 +1203,7 @@ public:
 					Tex.Z = InArraySize;
 					break;
 				}
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 				case GL_TEXTURE_EXTERNAL_OES:
 				{
 					Tex.Type = SCTT_TextureExternal2D;
@@ -1211,55 +1234,53 @@ public:
 
 			OpenGLTextureDeleted(this);
 
-			bool bIsAliasedCopy = IsAliased();
-
-			auto DeleteGLResources = [OpenGLRHI= OpenGLRHI, Resource=Resource, SRVResource= SRVResource, Target= Target, Flags= this->GetFlags(), TextureRange= TextureRange, bIsAliasedCopy]()
+			auto DeleteGLResources = [OpenGLRHI= OpenGLRHI, Resource=Resource, SRVResource= SRVResource, Target= Target, Flags= this->GetFlags(), TextureRange= TextureRange, Aliased = this->IsAliased()]()
 			{
 				VERIFY_GL_SCOPE();
-			    if (Resource != 0)
-			    {
-				    switch (Target)
-				    {
-					    case GL_TEXTURE_2D:
-					    case GL_TEXTURE_2D_MULTISAMPLE:
-					    case GL_TEXTURE_3D:
-					    case GL_TEXTURE_CUBE_MAP:
-					    case GL_TEXTURE_2D_ARRAY:
-					    case GL_TEXTURE_CUBE_MAP_ARRAY:
-    #if PLATFORM_ANDROID
-					    case GL_TEXTURE_EXTERNAL_OES:
-    #endif
-					    {
-						    OpenGLRHI->InvalidateTextureResourceInCache(Resource);
-						    if (SRVResource)
-						    {
-							    OpenGLRHI->InvalidateTextureResourceInCache(SRVResource);
-						    }
-    
-						    if (!bIsAliasedCopy)
-						    {
-						        FOpenGL::DeleteTextures(1, &Resource);
-						        if (SRVResource)
-						        {
-							        FOpenGL::DeleteTextures(1, &SRVResource);
-						        }
-						    }
-						    break;
-					    }
-					    case GL_RENDERBUFFER:
-					    {
-						    if (!(Flags & TexCreate_Presentable))
-						    {
-							    glDeleteRenderbuffers(1, &Resource);
-						    }
-						    break;
-					    }
-					    default:
-					    {
-						    checkNoEntry();
-					    }
-				    }
-			    }
+				if (Resource != 0)
+				{
+					switch (Target)
+					{
+						case GL_TEXTURE_2D:
+						case GL_TEXTURE_2D_MULTISAMPLE:
+						case GL_TEXTURE_3D:
+						case GL_TEXTURE_CUBE_MAP:
+						case GL_TEXTURE_2D_ARRAY:
+						case GL_TEXTURE_CUBE_MAP_ARRAY:
+		#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
+						case GL_TEXTURE_EXTERNAL_OES:
+		#endif
+						{
+							OpenGLRHI->InvalidateTextureResourceInCache(Resource);
+							if (SRVResource)
+							{
+								OpenGLRHI->InvalidateTextureResourceInCache(SRVResource);
+							}
+
+							if (!Aliased)
+							{
+								FOpenGL::DeleteTextures(1, &Resource);
+								if (SRVResource)
+								{
+									FOpenGL::DeleteTextures(1, &SRVResource);
+								}
+							}
+							break;
+						}
+						case GL_RENDERBUFFER:
+						{
+							if (!(Flags & TexCreate_Presentable))
+							{
+								glDeleteRenderbuffers(1, &Resource);
+							}
+							break;
+						}
+						default:
+						{
+							checkNoEntry();
+						}
+					}
+				}
 			};
 
 			RunOnGLRenderContextThread(MoveTemp(DeleteGLResources));

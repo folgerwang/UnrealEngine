@@ -12,7 +12,7 @@
 extern PyTypeObject PyWrapperFixedArrayType;
 
 /** Initialize the PyWrapperFixedArray types and add them to the given Python module */
-void InitializePyWrapperFixedArray(PyObject* PyModule);
+void InitializePyWrapperFixedArray(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Type for all UE4 exposed fixed-array instances */
 struct FPyWrapperFixedArray : public FPyWrapperBase

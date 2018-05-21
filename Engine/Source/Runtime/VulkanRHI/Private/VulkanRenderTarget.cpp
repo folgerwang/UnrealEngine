@@ -203,7 +203,6 @@ void FTransitionAndLayoutManager::EndEmulatedRenderPass(FVulkanCmdBuffer* CmdBuf
 {
 	check(CurrentRenderPass);
 	CmdBuffer->EndRenderPass();
-	PreviousRenderPass = CurrentRenderPass;
 	CurrentRenderPass = nullptr;
 }
 
@@ -381,7 +380,6 @@ void FTransitionAndLayoutManager::EndRealRenderPass(FVulkanCmdBuffer* CmdBuffer)
 		}
 	}
 
-	PreviousRenderPass = CurrentRenderPass;
 	CurrentRenderPass = nullptr;
 	bInsideRealRenderPass = false;
 }

@@ -46,6 +46,15 @@
 #if !defined(PLATFORM_ANDROIDESDEFERRED)
 	#define PLATFORM_ANDROIDESDEFERRED 0
 #endif
+#if !defined(PLATFORM_ANDROIDGL4)
+	#define PLATFORM_ANDROIDGL4 0
+#endif
+#if !defined(PLATFORM_LUMINGL4)
+	#define PLATFORM_LUMINGL4 0
+#endif
+#if !defined(PLATFORM_LUMIN)
+	#define PLATFORM_LUMIN 0
+#endif
 #if !defined(PLATFORM_APPLE)
 	#define PLATFORM_APPLE 0
 #endif
@@ -391,10 +400,6 @@
 	#define PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS 2
 #endif
 
-#ifndef PLATFORM_USES_FACE_BUTTON_RIGHT_FOR_ACCEPT
-	#define PLATFORM_USES_FACE_BUTTON_RIGHT_FOR_ACCEPT		0
-#endif
-
 #ifndef PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK
 	#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK			0
 #endif
@@ -423,6 +428,9 @@
 	#define PLATFORM_WEAKLY_CONSISTENT_MEMORY PLATFORM_CPU_ARM_FAMILY
 #endif
 
+#ifndef PLATFORM_HAS_CRC_INTRINSICS
+	#define PLATFORM_HAS_CRC_INTRINSICS							0
+#endif
 // deprecated, do not use
 #define PLATFORM_HAS_THREADSAFE_RHIGetRenderQueryResult	#
 #define PLATFORM_SUPPORTS_RHI_THREAD #
@@ -865,6 +873,6 @@ namespace TypeTests
 
 // If we don't have a platform-specific define for the TEXT macro, define it now.
 #if !defined(TEXT) && !UE_BUILD_DOCS
-	#define TEXT_PASTE(x) L ## x
-	#define TEXT(x) TEXT_PASTE(x)
+		#define TEXT_PASTE(x) L ## x
+		#define TEXT(x) TEXT_PASTE(x)
 #endif

@@ -28,6 +28,7 @@ double FApp::LastTime = 0.0;
 double FApp::DeltaTime = 1 / 30.0;
 double FApp::IdleTime = 0.0;
 double FApp::IdleTimeOvershoot = 0.0;
+FTimecode FApp::Timecode = FTimecode();
 float FApp::VolumeMultiplier = 1.0f;
 float FApp::UnfocusedVolumeMultiplier = 0.0f;
 bool FApp::bUseVRFocus = false;
@@ -215,6 +216,35 @@ bool FApp::IsEngineInstalled()
 	}
 
 	return EngineInstalledState == 1;
+}
+
+bool FApp::IsEnterpriseInstalled()
+{
+	static int32 EnterpriseInstalledState = -1;
+
+	if (EnterpriseInstalledState == -1)
+	{
+		bool bIsInstalledEnterprise = false;
+
+#if PLATFORM_DESKTOP
+		FString InstalledBuildFile = FPaths::RootDir() / TEXT("Enterprise/Build/InstalledBuild.txt");
+		FPaths::NormalizeFilename(InstalledBuildFile);
+		bIsInstalledEnterprise |= IFileManager::Get().FileExists(*InstalledBuildFile);
+#endif
+
+		// Allow commandline options to disable/enable installed engine behavior
+		if (bIsInstalledEnterprise)
+		{
+			bIsInstalledEnterprise = !FParse::Param(FCommandLine::Get(), TEXT("NotInstalledEnterprise"));
+		}
+		else
+		{
+			bIsInstalledEnterprise = FParse::Param(FCommandLine::Get(), TEXT("InstalledEnterprise"));
+		}
+		EnterpriseInstalledState = bIsInstalledEnterprise ? 1 : 0;
+	}
+
+	return EnterpriseInstalledState == 1;
 }
 
 #if PLATFORM_WINDOWS && defined(__clang__)

@@ -69,6 +69,10 @@ class ENGINE_API ULightComponentBase : public USceneComponent
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, AdvancedDisplay)
 	uint32 bAffectTranslucentLighting:1;
 
+	/** Whether light from this light transmits through surfaces with subsurface scattering profiles. Requires light to be movable. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Light, AdvancedDisplay)
+	uint32 bTransmission : 1;
+
 	/** Whether the light shadows volumetric fog.  Disabling this can save GPU time. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Light, AdvancedDisplay)
 	uint32 bCastVolumetricShadow : 1;

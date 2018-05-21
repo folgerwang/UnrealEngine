@@ -70,6 +70,7 @@
 #include "Math/UnrealMathUtility.h"
 #include "Containers/UnrealString.h"
 #include "Containers/Array.h"
+#include "Misc/FrameNumber.h"
 #include "Misc/Timespan.h"
 #include "HAL/CriticalSection.h"
 #include "Containers/StringConv.h"

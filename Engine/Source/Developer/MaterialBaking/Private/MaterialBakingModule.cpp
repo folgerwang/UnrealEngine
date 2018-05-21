@@ -333,6 +333,7 @@ void FMaterialBakingModule::ReadTextureOutput(FTextureRenderTargetResource* Rend
 		}();
 
 		float* MaxValue = new float[NumThreads];
+		FMemory::Memset(MaxValue, 0, NumThreads * sizeof(MaxValue[0]));
 		const int32 LinesPerThread = FMath::CeilToInt((float)OutputSize.Y / (float)NumThreads);
 
 		// Find maximum float value across texture

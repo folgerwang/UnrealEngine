@@ -14,7 +14,6 @@
 #include "K2Node_EditablePinBase.h"
 #include "Editor/ClassViewer/Public/ClassViewerModule.h"
 #include "EdGraphSchema_K2.h"
-#include "BlueprintActionDatabase.h"
 
 class AActor;
 class ALevelScriptActor;
@@ -1560,10 +1559,6 @@ public:
 	DECLARE_MULTICAST_DELEGATE_FourParams(FOnRenameVariableReferences, UBlueprint* /*Blueprint*/, UClass* /*VariableClass*/, const FName& /*OldVarName*/, const FName& /*NewVarName*/);
 	static FOnRenameVariableReferences OnRenameVariableReferencesEvent;
 
-	/** Delegate used for class-specific actions */
-	/** Delegate fired so specific classes can register their actions */
-	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnGetClassPropertyActions, UClass const* const /*Class*/, FBlueprintActionDatabase::FActionList& /*ActionListOut*/);
-	static FOnGetClassPropertyActions OnGetClassPropertyActionsEvent;
 protected:
 	/**
 	 * Looks through the specified blueprint for any references to the specified 

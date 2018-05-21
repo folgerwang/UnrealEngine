@@ -2,8 +2,10 @@
 
 #include "PythonScriptPlugin.h"
 #include "PythonScriptPluginSettings.h"
+#include "PyGIL.h"
 #include "PyCore.h"
 #include "PySlate.h"
+#include "PyEngine.h"
 #include "PyEditor.h"
 #include "PyConstant.h"
 #include "PyConversion.h"
@@ -17,7 +19,6 @@
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
 #include "Misc/PackageName.h"
-#include "Misc/ScopedSlowTask.h"
 #include "HAL/PlatformProcess.h"
 #include "Containers/Ticker.h"
 #include "Features/IModularFeatures.h"
@@ -60,9 +61,8 @@ struct FPythonScopedArgv
 			{
 				PyCommandLineArgPtrs.Add(PyCommandLineArg.GetData());
 			}
-
-			PySys_SetArgvEx(PyCommandLineArgPtrs.Num(), PyCommandLineArgPtrs.GetData(), 0);
 		}
+		PySys_SetArgvEx(PyCommandLineArgPtrs.Num(), PyCommandLineArgPtrs.GetData(), 0);
 	}
 
 	~FPythonScopedArgv()
@@ -361,6 +361,16 @@ bool FPythonScriptPlugin::ExecPythonCommand(const TCHAR* InPythonCommand)
 #endif	// WITH_PYTHON
 }
 
+FSimpleMulticastDelegate& FPythonScriptPlugin::OnPythonInitialized()
+{
+	return OnPythonInitializedDelegate;
+}
+
+FSimpleMulticastDelegate& FPythonScriptPlugin::OnPythonShutdown()
+{
+	return OnPythonShutdownDelegate;
+}
+
 void FPythonScriptPlugin::StartupModule()
 {
 #if WITH_PYTHON
@@ -429,15 +439,6 @@ void FPythonScriptPlugin::InitializePython()
 		PyHomePath = PyUtil::TCHARToPyApiBuffer(*PythonDir);
 	}
 
-	{
-		// Build the full Python directory (UE_PYTHON_DIR may be relative to UE4 engine directory for portability)
-		FString PythonDir = UTF8_TO_TCHAR(UE_PYTHON_DIR);
-		PythonDir.ReplaceInline(TEXT("{ENGINE_DIR}"), *FPaths::EngineDir(), ESearchCase::CaseSensitive);
-		FPaths::NormalizeDirectoryName(PythonDir);
-		FPaths::RemoveDuplicateSlashes(PythonDir);
-		PyHomePath = PyUtil::TCHARToPyApiBuffer(*PythonDir);
-	}
-
 	// Initialize the Python interpreter
 	{
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 4
@@ -462,8 +463,11 @@ void FPythonScriptPlugin::InitializePython()
 		InitializePyConstant();
 
 		PyObject* PyMainModule = PyImport_AddModule("__main__");
-		PyGlobalDict = FPyObjectPtr::NewReference(PyModule_GetDict(PyMainModule));
-		PyLocalDict = PyGlobalDict;
+		PyDefaultGlobalDict = FPyObjectPtr::NewReference(PyModule_GetDict(PyMainModule));
+		PyDefaultLocalDict = PyDefaultGlobalDict;
+
+		PyConsoleGlobalDict = FPyObjectPtr::StealReference(PyDict_Copy(PyDefaultGlobalDict));
+		PyConsoleLocalDict = PyConsoleGlobalDict;
 
 #if WITH_EDITOR
 		FEditorSupportDelegates::PrepareToCleanseEditorObject.AddRaw(this, &FPythonScriptPlugin::OnPrepareToCleanseEditorObject);
@@ -495,7 +499,10 @@ void FPythonScriptPlugin::InitializePython()
 	{
 		// Create the top-level "unreal" module
 		PyUnrealModule = FPyObjectPtr::NewReference(PyImport_AddModule("unreal"));
-			
+		
+		// Import "unreal" into the console by default
+		PyDict_SetItemString(PyConsoleGlobalDict, "unreal", PyUnrealModule);
+
 		// Initialize the and import the "core" module
 		PyCore::InitializeModule();
 		ImportUnrealModule(TEXT("core"));
@@ -503,6 +510,10 @@ void FPythonScriptPlugin::InitializePython()
 		// Initialize the and import the "slate" module
 		PySlate::InitializeModule();
 		ImportUnrealModule(TEXT("slate"));
+
+		// Initialize the and import the "engine" module
+		PyEngine::InitializeModule();
+		ImportUnrealModule(TEXT("engine"));
 
 #if WITH_EDITOR
 		// Initialize the and import the "editor" module
@@ -523,6 +534,9 @@ void FPythonScriptPlugin::InitializePython()
 			return true;
 		}));
 	}
+
+	// Notify any external listeners
+	OnPythonInitializedDelegate.Broadcast();
 }
 
 void FPythonScriptPlugin::ShutdownPython()
@@ -532,7 +546,14 @@ void FPythonScriptPlugin::ShutdownPython()
 		return;
 	}
 
+	// Notify any external listeners
+	OnPythonShutdownDelegate.Broadcast();
+
 	FTicker::GetCoreTicker().RemoveTicker(TickHandle);
+	if (ModuleDelayedHandle.IsValid())
+	{
+		FTicker::GetCoreTicker().RemoveTicker(ModuleDelayedHandle);
+	}
 
 	FPyWrapperTypeRegistry::Get().OnModuleDirtied().RemoveAll(this);
 	FModuleManager::Get().OnModulesChanged().RemoveAll(this);
@@ -545,8 +566,10 @@ void FPythonScriptPlugin::ShutdownPython()
 #endif	// WITH_EDITOR
 
 	PyUnrealModule.Reset();
-	PyGlobalDict.Reset();
-	PyLocalDict.Reset();
+	PyDefaultGlobalDict.Reset();
+	PyDefaultLocalDict.Reset();
+	PyConsoleGlobalDict.Reset();
+	PyConsoleLocalDict.Reset();
 
 	ShutdownPyMethodWithClosure();
 
@@ -556,27 +579,90 @@ void FPythonScriptPlugin::ShutdownPython()
 	bHasTicked = false;
 }
 
+void FPythonScriptPlugin::RequestStubCodeGeneration()
+{
+	// Ignore requests made before the fist Tick
+	if (!bHasTicked)
+	{
+		return;
+	}
+
+	// Delay 2 seconds before generating as this may be triggered by loading several modules at once
+	static const float Delay = 2.0f;
+
+	// If there is an existing pending notification, remove it so that it can be reset
+	if (ModuleDelayedHandle.IsValid())
+	{
+		FTicker::GetCoreTicker().RemoveTicker(ModuleDelayedHandle);
+		ModuleDelayedHandle.Reset();
+	}
+
+	// Set new tick
+	ModuleDelayedHandle = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda(
+		[this](float DeltaTime)
+		{
+			// Once ticked, the delegate will be removed so reset the handle to indicate that it isn't set.
+			ModuleDelayedHandle.Reset();
+
+			// Call the event now that the delay has passed.
+			GenerateStubCode();
+
+			// Don't reschedule to run again.
+			return false;
+		}),
+		Delay);
+}
+
+void FPythonScriptPlugin::GenerateStubCode()
+{
+	if (GetDefault<UPythonScriptPluginSettings>()->bDeveloperMode)
+	{
+		// Generate stub code if developer mode enabled
+		FPyWrapperTypeRegistry::Get().GenerateStubCodeForWrappedTypes();
+	}
+}
+
 void FPythonScriptPlugin::Tick(const float InDeltaTime)
 {
 	// If this is our first Tick, handle any post-init logic that should happen once the engine is fully initialized
 	if (!bHasTicked)
 	{
+		bHasTicked = true;
+
 		// Run start-up scripts now
+		TArray<FString> PySysPaths;
+		{
+			FPyScopedGIL GIL;
+			PySysPaths = PyUtil::GetSystemPaths();
+		}
+		for (const FString& PySysPath : PySysPaths)
+		{
+			const FString PotentialFilePath = PySysPath / TEXT("init_unreal.py");
+			if (FPaths::FileExists(PotentialFilePath))
+			{
+				RunFile(*PotentialFilePath, nullptr);
+			}
+		}
 		for (const FString& StartupScript : GetDefault<UPythonScriptPluginSettings>()->StartupScripts)
 		{
 			HandlePythonExecCommand(*StartupScript);
 		}
+
+#if WITH_EDITOR
+		// Register to generate stub code after a short delay
+		RequestStubCodeGeneration();
+#endif	// WITH_EDITOR
 	}
 
 	FPyWrapperTypeReinstancer::Get().ProcessPending();
-
-	bHasTicked = true;
 }
 
 void FPythonScriptPlugin::ImportUnrealModule(const TCHAR* InModuleName)
 {
 	const FString PythonModuleName = FString::Printf(TEXT("unreal_%s"), InModuleName);
 	const FString NativeModuleName = FString::Printf(TEXT("_unreal_%s"), InModuleName);
+
+	FPyScopedGIL GIL;
 
 	const TCHAR* ModuleNameToImport = nullptr;
 	PyObject* ModuleToReload = nullptr;
@@ -657,14 +743,11 @@ bool FPythonScriptPlugin::HandlePythonExecCommand(const TCHAR* InPythonCommand)
 
 PyObject* FPythonScriptPlugin::EvalString(const TCHAR* InStr, const TCHAR* InContext, const int InMode)
 {
-	return EvalString(InStr, InContext, InMode, PyGlobalDict, PyLocalDict);
+	return EvalString(InStr, InContext, InMode, PyConsoleGlobalDict, PyConsoleLocalDict);
 }
 
 PyObject* FPythonScriptPlugin::EvalString(const TCHAR* InStr, const TCHAR* InContext, const int InMode, PyObject* InGlobalDict, PyObject* InLocalDict)
 {
-	FScopedSlowTask SlowTask(0.f, LOCTEXT("PythonScript_EvalString", "Running Python"));
-	SlowTask.MakeDialogDelayed(1.0f);
-
 	PyCompilerFlags *PyCompFlags = nullptr;
 
 	PyArena* PyArena = PyArena_New();
@@ -692,11 +775,16 @@ PyObject* FPythonScriptPlugin::EvalString(const TCHAR* InStr, const TCHAR* InCon
 
 bool FPythonScriptPlugin::RunString(const TCHAR* InStr)
 {
-	FPyObjectPtr PyResult = FPyObjectPtr::StealReference(EvalString(InStr, TEXT("<string>"), Py_file_input));
-	if (!PyResult)
+	// Execute Python code within this block
 	{
-		PyUtil::LogPythonError();
-		return false;
+		FPyScopedGIL GIL;
+
+		FPyObjectPtr PyResult = FPyObjectPtr::StealReference(EvalString(InStr, TEXT("<string>"), Py_file_input));
+		if (!PyResult)
+		{
+			PyUtil::LogPythonError();
+			return false;
+		}
 	}
 
 	FPyWrapperTypeReinstancer::Get().ProcessPending();
@@ -713,29 +801,18 @@ bool FPythonScriptPlugin::RunFile(const TCHAR* InFile, const TCHAR* InArgs)
 			return FPaths::ConvertRelativePathToFull(InFile);
 		}
 
-		// Then test against each system path in order (as Python would)
-		FPyObjectPtr PySysModule = FPyObjectPtr::StealReference(PyImport_ImportModule("sys"));
-		if (PySysModule)
+		// Execute Python code within this block
 		{
-			PyObject* PySysDict = PyModule_GetDict(PySysModule);
+			FPyScopedGIL GIL;
 
-			PyObject* PyPathList = PyDict_GetItemString(PySysDict, "path");
-			if (PyPathList)
+			// Then test against each system path in order (as Python would)
+			const TArray<FString> PySysPaths = PyUtil::GetSystemPaths();
+			for (const FString& PySysPath : PySysPaths)
 			{
-				const Py_ssize_t PyPathLen = PyList_Size(PyPathList);
-				for (Py_ssize_t PyPathIndex = 0; PyPathIndex < PyPathLen; ++PyPathIndex)
+				const FString PotentialFilePath = PySysPath / InFile;
+				if (FPaths::FileExists(PotentialFilePath))
 				{
-					PyObject* PyPathObj = PyList_GetItem(PyPathList, PyPathIndex);
-
-					FString PyPathStr;
-					if (PyPathObj && PyConversion::Nativize(PyPathObj, PyPathStr, PyConversion::ESetErrorState::No))
-					{
-						const FString PotentialFilePath = PyPathStr / InFile;
-						if (FPaths::FileExists(PotentialFilePath))
-						{
-							return PotentialFilePath;
-						}
-					}
+					return PotentialFilePath;
 				}
 			}
 		}
@@ -761,30 +838,35 @@ bool FPythonScriptPlugin::RunFile(const TCHAR* InFile, const TCHAR* InArgs)
 		return false;
 	}
 
-	FPyObjectPtr PyFileGlobalDict = FPyObjectPtr::StealReference(PyDict_Copy(PyGlobalDict));
-	FPyObjectPtr PyFileLocalDict = PyFileGlobalDict;
-	{
-		FPyObjectPtr PyResolvedFilePath;
-		if (PyConversion::Pythonize(ResolvedFilePath, PyResolvedFilePath.Get(), PyConversion::ESetErrorState::No))
-		{
-			PyDict_SetItemString(PyFileGlobalDict, "__file__", PyResolvedFilePath);
-		}
-	}
-
+	// Execute Python code within this block
 	double ElapsedSeconds = 0.0;
-	FPyObjectPtr PyResult;
 	{
-		FScopedDurationTimer Timer(ElapsedSeconds);
-		FPythonScopedArgv ScopedArgv(InArgs);
+		FPyScopedGIL GIL;
 
-		// We can't just use PyRun_File here as Python isn't always built against the same version of the CRT as UE4, so we get a crash at the CRT layer
-		PyResult = FPyObjectPtr::StealReference(EvalString(*FileStr, *ResolvedFilePath, Py_file_input, PyFileGlobalDict, PyFileLocalDict));
-	}
+		FPyObjectPtr PyFileGlobalDict = FPyObjectPtr::StealReference(PyDict_Copy(PyDefaultGlobalDict));
+		FPyObjectPtr PyFileLocalDict = PyFileGlobalDict;
+		{
+			FPyObjectPtr PyResolvedFilePath;
+			if (PyConversion::Pythonize(ResolvedFilePath, PyResolvedFilePath.Get(), PyConversion::ESetErrorState::No))
+			{
+				PyDict_SetItemString(PyFileGlobalDict, "__file__", PyResolvedFilePath);
+			}
+		}
 
-	if (!PyResult)
-	{
-		PyUtil::LogPythonError();
-		return false;
+		FPyObjectPtr PyResult;
+		{
+			FScopedDurationTimer Timer(ElapsedSeconds);
+			FPythonScopedArgv ScopedArgv(InArgs);
+
+			// We can't just use PyRun_File here as Python isn't always built against the same version of the CRT as UE4, so we get a crash at the CRT layer
+			PyResult = FPyObjectPtr::StealReference(EvalString(*FileStr, *ResolvedFilePath, Py_file_input, PyFileGlobalDict, PyFileLocalDict));
+		}
+
+		if (!PyResult)
+		{
+			PyUtil::LogPythonError();
+			return false;
+		}
 	}
 
 	FPyWrapperTypeReinstancer::Get().ProcessPending();
@@ -810,10 +892,18 @@ void FPythonScriptPlugin::OnModulesChanged(FName InModuleName, EModuleChangeReas
 	{
 	case EModuleChangeReason::ModuleLoaded:
 		FPyWrapperTypeRegistry::Get().GenerateWrappedTypesForModule(InModuleName);
+#if WITH_EDITOR
+		// Register to generate stub code after a short delay
+		RequestStubCodeGeneration();
+#endif	// WITH_EDITOR
 		break;
 
 	case EModuleChangeReason::ModuleUnloaded:
 		FPyWrapperTypeRegistry::Get().OrphanWrappedTypesForModule(InModuleName);
+#if WITH_EDITOR
+		// Register to generate stub code after a short delay
+		RequestStubCodeGeneration();
+#endif	// WITH_EDITOR
 		break;
 
 	default:
@@ -823,11 +913,13 @@ void FPythonScriptPlugin::OnModulesChanged(FName InModuleName, EModuleChangeReas
 
 void FPythonScriptPlugin::OnContentPathMounted(const FString& InAssetPath, const FString& InFilesystemPath)
 {
+	FPyScopedGIL GIL;
 	PyUtil::AddSystemPath(FPaths::ConvertRelativePathToFull(InFilesystemPath / TEXT("Python")));
 }
 
 void FPythonScriptPlugin::OnContentPathDismounted(const FString& InAssetPath, const FString& InFilesystemPath)
 {
+	FPyScopedGIL GIL;
 	PyUtil::RemoveSystemPath(FPaths::ConvertRelativePathToFull(InFilesystemPath / TEXT("Python")));
 }
 

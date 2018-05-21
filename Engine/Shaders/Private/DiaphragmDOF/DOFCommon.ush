@@ -64,6 +64,16 @@
 	// TODO IDEA: bilateral sample foreground according to opacity.
 	#define HOLE_FILLING_METHOD_BILATERAL 2
 	
+/** Layout of the input of the gathering passes. */
+	// Scene color and CocRadius stored within RGBA buffer 0.
+	#define GATHER_INPUT_LAYOUT_RGB_COC 0
+	
+	// Scene color and alpha stored within RGBA buffer 0, and Coc in buffer 1.
+	#define GATHER_INPUT_LAYOUT_RGB_ALPHA_COC 1
+	
+	// Scene color within RGB_11_11_10 buffer 0, and Coc in buffer 1.
+	#define GATHER_INPUT_LAYOUT_RGB_SEPARATE_COC 2
+
 
 //------------------------------------------------------- COMPILE TIME CONSTANTS.
 
@@ -92,6 +102,9 @@
 
 /** Width and height of the bokeh LUT. */
 #define BOKEH_LUT_SIZE 32
+
+/** Whether alpha channel should be processed or not. */
+#define CONFIG_DOF_ALPHA (POST_PROCESS_ALPHA)
 
 
 //------------------------------------------------------- COMPILE TIME CONSTANTS.
@@ -160,7 +173,16 @@ float SafeRcp(float x, float d = 0.0)
 // Converts a distance in full res pixel to coc distance.
 #define CocDistanceToFullResPixelDistance(x) (2.0 * (x))
 
+// Utility to use a saturating affine transformation.
+float SaturateWithAffineTransformation(float x, float2 AffineTransformation)
+{
+	// Hint: Just one MAD with saturate post modifier on GCN.
+	return saturate(x * AffineTransformation.x + AffineTransformation.y);
+}
 
+// Affine transformtations that always return 0 or 1.
+#define kContantlyPassingAffineTransformation float2(0, 1)
+#define kContantlyBlockingAffineTransformation float2(0, 0)
 
 #if 0 // TODO: COD's noise (slide 79)
 #endif

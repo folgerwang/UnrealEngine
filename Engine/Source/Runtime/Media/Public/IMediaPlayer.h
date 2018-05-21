@@ -204,6 +204,17 @@ public:
 	}
 
 	/**
+	 * Set the player's native volume if supported.
+	 *
+	 * @param Volume The volume to set.
+	 * @return true on success, false otherwise.
+	 */
+	virtual bool SetNativeVolume(float Volume)
+	{
+		return false;
+	}
+
+	/**
 	 * Tick the player's audio related code.
 	 *
 	 * This is a high-frequency tick function. Media players override this method

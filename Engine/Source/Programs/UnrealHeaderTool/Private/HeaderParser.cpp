@@ -6051,17 +6051,8 @@ void FHeaderParser::ParseParameterList(FClasses& AllClasses, UFunction* Function
 						FError::Throwf(TEXT("C++ Default parameter not parsed: %s \"%s\" "), *Prop->GetName(), *DefaultArgText);
 					}
 
-					if (InnerDefaultValue.IsEmpty())
-					{
-						static int32 SkippedCounter = 0;
-						UE_LOG(LogCompile, Verbose, TEXT("C++ Default parameter skipped/empty [%i]: %s \"%s\" "), SkippedCounter, *Prop->GetName(), *DefaultArgText );
-						++SkippedCounter;
-					}
-					else
-					{
-						MetaData->Add(KeyName, InnerDefaultValue);
-						UE_LOG(LogCompile, Verbose, TEXT("C++ Default parameter parsed: %s \"%s\" -> \"%s\" "), *Prop->GetName(), *DefaultArgText, *InnerDefaultValue );
-					}
+					MetaData->Add(KeyName, InnerDefaultValue);
+					UE_LOG(LogCompile, Verbose, TEXT("C++ Default parameter parsed: %s \"%s\" -> \"%s\" "), *Prop->GetName(), *DefaultArgText, *InnerDefaultValue);
 				}
 			}
 		}
@@ -8663,7 +8654,12 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 
 	if (Property->IsA(UClassProperty::StaticClass()) || Property->IsA(UObjectPropertyBase::StaticClass()))
 	{
-		return FDefaultValueHelper::Is(CppForm, TEXT("NULL")) || FDefaultValueHelper::Is(CppForm, TEXT("nullptr")) || FDefaultValueHelper::Is(CppForm, TEXT("0"));
+		const bool bIsNull = FDefaultValueHelper::Is(CppForm, TEXT("NULL")) || FDefaultValueHelper::Is(CppForm, TEXT("nullptr")) || FDefaultValueHelper::Is(CppForm, TEXT("0"));
+		if (bIsNull)
+		{
+			OutForm = TEXT("None");
+		}
+		return bIsNull; // always return as null is the only the processing we can do for object defaults
 	}
 
 	if( !Property->IsA(UStructProperty::StaticClass()) )

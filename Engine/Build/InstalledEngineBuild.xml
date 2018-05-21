@@ -16,6 +16,7 @@
 	<Option Name="WithPS4" Restrict="true|false" DefaultValue="false" Description="Include the PS4 target platform"/>
 	<Option Name="WithXboxOne" Restrict="true|false" DefaultValue="false" Description="Include the XboxOne target platform"/>
 	<Option Name="WithSwitch" Restrict="true|false" DefaultValue="false" Description="Include the Switch target platform"/>
+	<Option Name="WithLumin" Restrict="true|false" DefaultValue="true" Description="Include the Lumin target platform"/>
 
 	<!-- Whether to create a prebuilt DDC -->
 	<Option Name="WithDDC" Restrict="true|false" DefaultValue="true" Description="Build a standalone derived-data cache for the engine content and templates" />
@@ -84,8 +85,10 @@
 
 	<!-- Architectures that we build for Android -->
 	<Property Name="AndroidArchitectures" Value="armv7+arm64"/>
-	<Property Name="AndroidGPUArchitectures" Value="es2"/>
 
+	<Property Name="AndroidGPUArchitectures" Value="es2"/>
+	<Property Name="LuminGPUArchitectures" Value="es2"/>
+	
 	<!-- Compile flags for Windows Game binaries -->
 	<Property Name="WindowsGameCompileArguments" Value="-precompile"/>
 	<Property Name="WindowsGameCompileArguments" Value="$(WindowsGameCompileArguments) -nodebuginfo" If="'$(WithFullDebugInfo)' == false"/>
@@ -353,6 +356,17 @@
 			<!-- Tag the generated includes for this target -->
 			<Tag Files="Engine/Intermediate/Build/Switch/UE4/Inc/...;Engine/Plugins/.../Intermediate/Build/Switch/UE4/Inc/..." With="#UE4Game Switch Includes"/>
 		</Node>
+		
+		<Node Name="Compile UE4Game Lumin" Requires="Compile UnrealHeaderTool Win64" Produces="#UE4Game Lumin;#UE4Game Lumin Unstripped;#UE4Game Lumin Stripped;#UE4Game Lumin Includes" If="'$(WithLumin)' == true">
+			<Compile Target="UE4Game" Platform="Lumin" Configuration="Development" Tag="#UE4Game Lumin" Arguments="-precompile -architectures=$(AndroidArchitectures) -gpuarchitectures=$(LuminGPUArchitectures)" AllowParallelExecutor="false"/>
+			<Compile Target="UE4Game" Platform="Lumin" Configuration="Shipping" Tag="#UE4Game Lumin" Arguments="-precompile -architectures=$(AndroidArchitectures) -gpuarchitectures=$(LuminGPUArchitectures)" AllowParallelExecutor="false"/>
+			
+			<Tag Files="#UE4Game Lumin" Filter="$(LuminStripFilter)" With="#UE4Game Lumin Unstripped"/>
+			<Strip BaseDir="$(RootDir)" OutputDir="$(SavedOutput)" Platform="Lumin" Files="#UE4Game Lumin Unstripped" Tag="#UE4Game Lumin Stripped"/>
+
+			<!-- Tag the generated includes for this target -->
+			<Tag Files="Engine/Intermediate/Build/Lumin/UE4/Inc/...;Engine/Plugins/.../Intermediate/Build/Lumin/UE4/Inc/..." With="#UE4Game Lumin Includes"/>
+		</Node>
 	</Agent>
 
 	<!-- Target Platforms normally built from a Mac machine -->
@@ -414,6 +428,20 @@
 			<!-- Tag the generated includes for this target -->
 			<Tag Files="Engine/Intermediate/Build/TVOS/UE4/Inc/...;Engine/Plugins/.../Intermediate/Build/TVOS/UE4/Inc/..." With="#UE4Game TVOS Includes"/>
 		</Node>
+		
+		<!-- Downstream monolithics and tools Lumin-->
+		<!--	
+		Temporarily removing until we have MLSDK setup on build machines 
+		<Node Name="Compile UE4Game LuminMac" Requires="Compile UnrealHeaderTool Mac" Produces="#UE4Game LuminMac;#UE4Game LuminMac Unstripped;#UE4Game LuminMac Stripped;#UE4Game LuminMac Includes">
+			<Compile Target="UE4Game" Platform="Lumin" Configuration="Development" Tag="#UE4Game LuminMac" Arguments="-precompile -architectures=$(AndroidArchitectures) -gpuarchitectures=$(LuminGPUArchitectures)" AllowParallelExecutor="false"/>
+			<Compile Target="UE4Game" Platform="Lumin" Configuration="Shipping" Tag="#UE4Game LuminMac" Arguments="-precompile -architectures=$(AndroidArchitectures) -gpuarchitectures=$(LuminGPUArchitectures)" AllowParallelExecutor="false"/>
+
+			<Tag Files="#UE4Game LuminMac" Filter="$(LuminStripFilter)" With="#UE4Game LuminMac Unstripped"/>
+			<Strip BaseDir="$(RootDir)" OutputDir="$(SavedOutput)" Platform="Lumin" Files="#UE4Game LuminMac Unstripped" Tag="#UE4Game LuminMac Stripped"/>
+
+			<Tag Files="Engine/Intermediate/Build/Lumin/UE4/Inc/...;Engine/Plugins/.../Intermediate/Build/Lumin/UE4/Inc/..." With="#UE4Game LuminMac Includes"/>
+		</Node>
+		-->
 	</Agent>
 
 	<Agent Name="Tools Group Win64" Type="CompileWin64;Win64">
@@ -515,6 +543,7 @@
 		<Property Name="DDCPlatformsWin64" Value="$(DDCPlatformsWin64)+PS4" If="'$(WithPS4)' == true"/>
 		<Property Name="DDCPlatformsWin64" Value="$(DDCPlatformsWin64)+XboxOne" If="'$(WithXboxOne)' == true"/>
 		<Property Name="DDCPlatformsWin64" Value="$(DDCPlatformsWin64)+Switch" If="'$(WithSwitch)' == true"/>
+		<Property Name="DDCPlatformsWin64" Value="$(DDCPlatformsWin64)+Lumin" If="'$(WithLumin)' == true"/>
 	</Do>
 
 	<Agent Name="DDC Group Win64" Type="Win64">
@@ -560,6 +589,7 @@
 		<Property Name="DDCPlatformsMac" Value="$(DDCPlatformsMac)+IOS" If="'$(WithIOS)' == true"/>
 		<Property Name="DDCPlatformsMac" Value="$(DDCPlatformsMac)+TVOS" If="'$(WithTVOS)' == true"/>
 		<Property Name="DDCPlatformsMac" Value="$(DDCPlatformsMac)+HTML5" If="'$(WithHTML5)' == true"/>
+		<Property Name="DDCPlatformsMac" Value="$(DDCPlatformsMac)+Lumin" If="'$(WithLumin)' == true"/>
 	</Do>
 
 	<Agent Name="DDC Group Mac" Type="Mac">
@@ -652,6 +682,7 @@
 		<Property Name="InstalledRequirements" Value="$(InstalledRequirements);#UE4Game PS4;#UE4Game PS4 Includes" If="'$(WithPS4)' == true"/>
 		<Property Name="InstalledRequirements" Value="$(InstalledRequirements);#UE4Game XboxOne;#UE4Game XboxOne Includes" If="'$(WithXboxOne)' == true"/>
 		<Property Name="InstalledRequirements" Value="$(InstalledRequirements);#UE4Game Switch;#UE4Game Switch Includes" If="'$(WithSwitch)' == true"/>
+		<Property Name="InstalledRequirements" Value="$(InstalledRequirements);#UE4Game Lumin;#UE4Game Lumin Includes" If="'$(WithLumin)' == true"/>
 		<Property Name="InstalledRequirements" Value="$(InstalledRequirements);#CompressedDDCWin64" If="'$(WithDDC)' == true"/>
 		<!-- Feature packs -->
 		<Property Name="InstalledRequirements" Value="$(InstalledRequirements);Make Feature Packs"/>
@@ -729,6 +760,11 @@
 				<Property Name="CopyInstalledFilter" Value="$(CopyInstalledFilter);$(CopySwitchFilter)"/>
 				<Property Name="CopyInstalledExceptions" Value="$(CopyInstalledExceptions);$(CopySwitchExceptions)"/>
 			</Do>
+			<Do If="'$(WithLumin)' == true">
+				<Tag Files="#UE4Game Lumin;#UE4Game Lumin Includes" With="#Installed Win64"/>
+				<Property Name="CopyInstalledFilter" Value="$(CopyInstalledFilter);$(CopyLuminFilter)"/>
+				<Property Name="CopyInstalledExceptions" Value="$(CopyInstalledExceptions);$(CopyLuminExceptions)"/>
+			</Do>
 
 			<!-- Tag any dependencies from all previous build products -->
 			<Tag Files="#Installed Win64" Filter="*.target" With="#TargetReceipts"/>
@@ -793,6 +829,10 @@
 		<Property Name="FilterRequirements" Value="$(FilterRequirements);#UE4Game IOS;#UE4Game IOS Unstripped;#UE4Game IOS Stripped;#UE4Game IOS Includes" If="'$(WithIOS)' == true"/>
 		<Property Name="FilterRequirements" Value="$(FilterRequirements);#UE4Game TVOS;#UE4Game TVOS Unstripped;#UE4Game TVOS Stripped;#UE4Game TVOS Includes" If="'$(WithTVOS)' == true"/>
 		<Property Name="FilterRequirements" Value="$(FilterRequirements);#UE4Game HTML5;#UE4Game HTML5 Includes" If="'$(WithHTML5)' == true"/>
+		<!--	
+		Temporarily removing until we have MLSDK setup on build machines 
+		<Property Name="FilterRequirements" Value="$(FilterRequirements);#UE4Game LuminMac;#UE4Game LuminMac Includes;#UE4Game LuminMac Unstripped;#UE4Game LuminMac Stripped;#UE4Game LuminMac Includes" If="'$(WithLumin)' == true"/> 
+		-->
 		<Property Name="FilterRequirements" Value="$(FilterRequirements);#CompressedDDCMac" If="'$(WithDDC)' == true"/>
 
 		<!-- Feature packs -->
@@ -800,7 +840,6 @@
 
 		<!-- Filters the build products required for an installed build into groups depending on whether they need to be stripped, signed or just copied-->
 		<Node Name="Make Installed Build Mac" Requires="$(FilterRequirements)" Produces="#Installed Build Mac Files">
-
 			<!-- Clear any existing files from the final location -->
 			<Delete Files="$(LocalInstalledDirMac)/..."/>
 
@@ -844,6 +883,15 @@
 				<Property Name="CopyInstalledFilter" Value="$(CopyInstalledFilter);$(CopyHTML5Filter)"/>
 				<Property Name="CopyInstalledExceptions" Value="$(CopyInstalledExceptions);$(CopyHTML5Exceptions)"/>
 			</Do>
+			<!--	
+			Temporarily removing until we have MLSDK setup on build machines 
+			<Do If="'$(WithLumin)' == true">
+				<Tag Files="#UE4Game LuminMac;#UE4Game LuminMac Includes" Except="#UE4Game LuminMac Unstripped" With="#Installed Mac"/>
+				<Tag Files="#UE4Game LuminMac Stripped" With="#Saved Output"/>
+				<Property Name="CopyInstalledFilter" Value="$(CopyInstalledFilter);$(CopyLuminFilter)"/>
+				<Property Name="CopyInstalledExceptions" Value="$(CopyInstalledExceptions);$(CopyLuminExceptions)"/>
+			</Do>
+			-->
 
 			<!-- Tag any dependencies from all previous build products -->
 			<Tag Files="#Installed Mac" Filter="*.target" With="#TargetReceipts"/>

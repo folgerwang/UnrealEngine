@@ -118,6 +118,9 @@ public:
 
 	TArray<USceneCaptureComponent2D*> LeftEyeCaptureComponents;
 	TArray<USceneCaptureComponent2D*> RightEyeCaptureComponents;
+	// CaptureSceneComponent will be used as parent of capturecomponents to provide world location and rotation.
+	UPROPERTY(Transient)
+	USceneComponent* CaptureSceneComponent;
 
 	bool GetComponentSteps( int32 Step, int32& CurrentHorizontalStep, int32& CurrentVerticalStep )
 	{
@@ -162,6 +165,8 @@ private:
     const bool bOverrideInitialYaw;
     const float ForcedInitialYaw;
     const FString OutputDir;
+	// UseCameraRotation will be used for gathering selected rotational axis of user's camera.
+	const int32 UseCameraRotation;
 
     bool dbgMatchCaptureSliceFovToAtlasSliceFov;
     bool dbgDisableOffsetRotation;

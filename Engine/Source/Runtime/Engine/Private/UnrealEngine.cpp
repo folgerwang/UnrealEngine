@@ -84,9 +84,10 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/Input/SButton.h"
 #include "Engine/EngineCustomTimeStep.h"
-#include "Engine/TextureLODSettings.h"
 #include "Engine/LevelStreamingPersistent.h"
 #include "Engine/ObjectReferencer.h"
+#include "Engine/TextureLODSettings.h"
+#include "Engine/TimecodeProvider.h"
 #include "Misc/NetworkVersion.h"
 #include "Net/OnlineEngineInterface.h"
 #include "Engine/Console.h"
@@ -206,6 +207,7 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "ProfilingDebugging/CsvProfiler.h"
 #include "ProfilingDebugging/TracingProfiler.h"
 #include "Engine/CoreSettings.h"
+#include "IEyeTrackerModule.h"
 
 #if !UE_BUILD_SHIPPING
 #include "Interfaces/IPluginManager.h"
@@ -564,6 +566,7 @@ void SystemResolutionSinkCallback()
 
 			if(GEngine && GEngine->GameViewport && GEngine->GameViewport->ViewportFrame)
 			{
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Resizing viewport due to setres change, %d x %d"), ResX, ResY);
 				GEngine->GameViewport->ViewportFrame->ResizeFrame(ResX, ResY, WindowMode);
 			}
 		}
@@ -1230,6 +1233,9 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 	// Initialize the HMDs and motion controllers, if any
 	InitializeHMDDevice();
 
+	// Initialize attached eye tracking devices, if any
+	InitializeEyeTrackingDevice();
+
 	// Disable the screensaver when running the game.
 	if( GIsClient && !GIsEditor )
 	{
@@ -1394,7 +1400,6 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 	// Dynamically load engine runtime modules
 	{
 		FModuleManager::Get().LoadModuleChecked(TEXT("StreamingPauseRendering"));
-		FModuleManager::Get().LoadModuleChecked(TEXT("GeometryCache"));
 		FModuleManager::Get().LoadModuleChecked(TEXT("MovieScene"));
 		FModuleManager::Get().LoadModuleChecked(TEXT("MovieSceneTracks"));
 	}
@@ -1426,6 +1431,7 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 	*/
 	EngineStats.Add(FEngineStatFuncs(TEXT("STAT_Hitches"), TEXT("STATCAT_Engine"), FText::GetEmpty(), &UEngine::RenderStatHitches, &UEngine::ToggleStatHitches, bIsRHS));
 	EngineStats.Add(FEngineStatFuncs(TEXT("STAT_AI"), TEXT("STATCAT_Engine"), FText::GetEmpty(), &UEngine::RenderStatAI, NULL, bIsRHS));
+	EngineStats.Add(FEngineStatFuncs(TEXT("STAT_Timecode"), TEXT("STATCAT_Engine"), FText::GetEmpty(), &UEngine::RenderStatTimecode, NULL, bIsRHS));
 
 	EngineStats.Add(FEngineStatFuncs(TEXT("STAT_ColorList"), TEXT("STATCAT_Engine"), FText::GetEmpty(), &UEngine::RenderStatColorList, NULL));
 	EngineStats.Add(FEngineStatFuncs(TEXT("STAT_Levels"), TEXT("STATCAT_Engine"), FText::GetEmpty(), &UEngine::RenderStatLevels, NULL));
@@ -1524,6 +1530,7 @@ void UEngine::PreExit()
 
 	delete ScreenSaverInhibitorRunnable;
 
+	SetTimecodeProvider(nullptr);
 	SetCustomTimeStep(nullptr);
 
 	ShutdownHMD();
@@ -1662,8 +1669,12 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 
 	if (CustomTimeStep)
 	{
-		CustomTimeStep->UpdateTimeStep(this);
-		return;
+		bool bRunEngineCode = CustomTimeStep->UpdateTimeStep(this);
+		if (!bRunEngineCode)
+		{
+			UpdateTimecode();
+			return;
+		}
 	}
 
 	// This is always in realtime and is not adjusted by fixed framerate. Start slightly below current real time
@@ -1865,6 +1876,8 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 		}
 	}
 #endif // !UE_BUILD_SHIPPING
+
+	UpdateTimecode();
 }
 
 bool UEngine::SetCustomTimeStep(UEngineCustomTimeStep* InCustomTimeStep)
@@ -1891,6 +1904,51 @@ bool UEngine::SetCustomTimeStep(UEngineCustomTimeStep* InCustomTimeStep)
 	}
 
 	return bResult;
+}
+
+bool UEngine::SetTimecodeProvider(UTimecodeProvider* InTimecodeProvider)
+{
+	bool bResult = true;
+
+	if (InTimecodeProvider != TimecodeProvider)
+	{
+		if (TimecodeProvider)
+		{
+			TimecodeProvider->Shutdown(this);
+		}
+
+		TimecodeProvider = InTimecodeProvider;
+
+		if (TimecodeProvider)
+		{
+			bResult = TimecodeProvider->Initialize(this);
+			if (!bResult)
+			{
+				TimecodeProvider = nullptr;
+			}
+		}
+	}
+
+	return bResult;
+}
+
+void UEngine::UpdateTimecode()
+{
+	if (TimecodeProvider)
+	{
+		if (TimecodeProvider->GetSynchronizationState() == ETimecodeProviderSynchronizationState::Synchronized)
+		{
+			FApp::SetTimecode(TimecodeProvider->GetTimecode());
+		}
+		else
+		{
+			FApp::SetTimecode(FTimecode());
+		}
+	}
+	else
+	{
+		FApp::SetTimecode(UTimecodeProvider::GetSystemTimeTimecode(DefaultTimecodeFrameRate));
+	}
 }
 
 void UEngine::ParseCommandline()
@@ -2736,6 +2794,100 @@ bool UEngine::InitializeHMDDevice()
 	}
 
 	return StereoRenderingDevice.IsValid();
+}
+
+bool UEngine::InitializeEyeTrackingDevice()
+{
+	if (!IsRunningCommandlet() && !EyeTrackingDevice.IsValid())
+	{
+		// No reason to connect an eye tracking on a dedicated server.
+		if (!FParse::Param(FCommandLine::Get(), TEXT("noeyetracking")) && !IsRunningDedicatedServer())
+		{
+			IModularFeatures& ModularFeatures = IModularFeatures::Get();
+
+			// Get a list of modules that implement this feature
+			//FName const ModularFeatureName = IEyeTrackerModule::Get().GetModularFeatureName();
+			//LUMIN_MERGE - Circular dependency doesn't allow this
+			FName const ModularFeatureName = TEXT("EyeTracker");// IEyeTrackerModule::Get().GetModularFeatureName();
+			TArray<IEyeTrackerModule*> ETModules = ModularFeatures.GetModularFeatureImplementations<IEyeTrackerModule>(ModularFeatureName);
+
+			// Check whether the user passed in an explicit HMD module on the command line
+			FString ExplicitETName;
+			bool const bUseExplicitETDevice = FParse::Value(FCommandLine::Get(), TEXT("eyetracking="), ExplicitETName);
+
+			// #todo: ask the HMD if it had a preferred eyetracker and prioritize that, since some have built-in eyetracking devices
+			// Sort modules by priority
+			//LUMIN_MERGE - Circular dependency doesn't allow this
+			//ETModules.Sort(IEyeTrackerModule::FCompareModulePriority());
+
+			// Select first module with a connected eyetracker able to create a device
+			IEyeTrackerModule* ETModuleSelected = nullptr;
+			TArray<IEyeTrackerModule*> ETModulesDisconnected;
+
+			for (auto ETModuleIt = ETModules.CreateIterator(); ETModuleIt; ++ETModuleIt)
+			{
+				IEyeTrackerModule* const ETModule = *ETModuleIt;
+
+				// Skip all non-matching modules when an explicit module name has been specified on the command line
+				if (bUseExplicitETDevice && !ExplicitETName.Equals(ETModule->GetModuleKeyName(), ESearchCase::IgnoreCase))
+				{
+					continue;
+				}
+ 
+ 				if (ETModule->IsEyeTrackerConnected())
+ 				{
+ 					EyeTrackingDevice = ETModule->CreateEyeTracker();
+ 
+ 					if (EyeTrackingDevice.IsValid())
+ 					{
+						ETModuleSelected = ETModule;
+ 						break;
+ 					}
+ 				}
+ 				else
+ 				{
+					ETModulesDisconnected.Add(ETModule);
+ 				}
+			}
+
+			// If no module selected yet, just select first module able to create a device, even if HMD is not connected.
+			if (!ETModuleSelected)
+			{
+				for (auto ETModuleIt = ETModulesDisconnected.CreateIterator(); ETModuleIt; ++ETModuleIt)
+				{
+					IEyeTrackerModule* const ETModule = *ETModuleIt;
+					EyeTrackingDevice = ETModule->CreateEyeTracker();
+					if (EyeTrackingDevice.IsValid())
+					{
+						ETModuleSelected = ETModule;
+						break;
+					}
+				}
+			}
+
+			// Unregister modules which were not selected, since they will not be used.
+			for (auto ETModuleIt = ETModules.CreateIterator(); ETModuleIt; ++ETModuleIt)
+			{
+				IEyeTrackerModule* const ETModule = *ETModuleIt;
+				if (ETModule != ETModuleSelected)
+				{
+					ModularFeatures.UnregisterModularFeature(ModularFeatureName, ETModule);
+				}
+			}
+
+			// If we found a valid HMDDevice, use this as our StereoRenderingDevice
+			if (EyeTrackingDevice.IsValid() == false)
+			{
+				// log an error if we got an explicit module name on the command line
+				if (bUseExplicitETDevice)
+				{
+					UE_LOG(LogInit, Error, TEXT("Failed to find or initialize EyeTracker module named '%s'. Eye tracking will be disabled."), *ExplicitETName);
+				}
+			}
+		}
+	}
+
+	return EyeTrackingDevice.IsValid();
 }
 
 
@@ -13290,7 +13442,7 @@ void FSystemResolution::RequestResolutionChange(int32 InResX, int32 InResY, EWin
 	}
 
 	FString NewValue = FString::Printf(TEXT("%dx%d%s"), InResX, InResY, *WindowModeSuffix);
-	CVarSystemResolution->Set(*NewValue, ECVF_SetByConsole);
+	CVarSystemResolution->SetWithCurrentPriority(*NewValue);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -13465,6 +13617,32 @@ int32 UEngine::RenderStatFPS(UWorld* World, FViewport* Viewport, FCanvas* Canvas
 
 	// Start drawing the various counters.
 	const int32 RowHeight = FMath::TruncToInt(Font->GetMaxCharHeight() * 1.1f);
+
+	if (CustomTimeStep)
+	{
+		ECustomTimeStepSynchronizationState State = CustomTimeStep->GetSynchronizationState();
+		FString CustomTimeStepName = CustomTimeStep->GetName();
+		int32 NewX = X - Font->GetStringSize(*CustomTimeStepName);
+		switch (State)
+		{
+		case ECustomTimeStepSynchronizationState::Closed:
+			Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s : Closed"), *CustomTimeStepName), Font, FColor::Red);
+			break;
+		case ECustomTimeStepSynchronizationState::Error:
+			Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s : Error"), *CustomTimeStepName), Font, FColor::Red);
+			break;
+		case ECustomTimeStepSynchronizationState::Synchronized:
+			Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s : Synchronized"), *CustomTimeStepName), Font, FColor::Green);
+			break;
+		case ECustomTimeStepSynchronizationState::Synchronizing:
+			Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s : Synchronizing"), *CustomTimeStepName), Font, FColor::Yellow);
+			break;
+		default:
+			check(false);
+			break;
+		}
+		Y += RowHeight;
+	}
 
 	// Draw the FPS counter.
 	Canvas->DrawShadowedString(
@@ -15181,6 +15359,46 @@ int32 UEngine::RenderStatAI(UWorld* World, FViewport* Viewport, FCanvas* Canvas,
 		RenderedColor
 	);
 	Y += RowHeight;
+	return Y;
+}
+
+// Timecode
+int32 UEngine::RenderStatTimecode(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation, const FRotator* ViewRotation)
+{
+	UFont* Font = FPlatformProperties::SupportsWindowedMode() ? GetSmallFont() : GetMediumFont();
+	const int32 RowHeight = FMath::TruncToInt(Font->GetMaxCharHeight() * 1.1f);
+
+	UTimecodeProvider* Provider = GetTimecodeProvider();
+	if (Provider)
+	{
+		ETimecodeProviderSynchronizationState State = Provider->GetSynchronizationState();
+		FString ProviderName = Provider->GetName();
+		float CharWidth, CharHeight;
+		Font->GetCharSize(TEXT(' '), CharWidth, CharHeight);
+		int32 NewX = X - Font->GetStringSize(*ProviderName) - (int32)CharWidth;
+		switch(State)
+		{
+			case ETimecodeProviderSynchronizationState::Closed:
+				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Closed"), *ProviderName), Font, FColor::Red);
+				break;
+			case ETimecodeProviderSynchronizationState::Error:
+				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Error"), *ProviderName), Font, FColor::Red);
+				break;
+			case ETimecodeProviderSynchronizationState::Synchronized:
+				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Synchronized"), *ProviderName), Font, FColor::Green);
+				break;
+			case ETimecodeProviderSynchronizationState::Synchronizing:
+				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Synchronizing"), *ProviderName), Font, FColor::Yellow);
+				break;
+			default:
+				check(false);
+				break;
+		}
+		Y += RowHeight;
+	}
+	Canvas->DrawShadowedString(X, Y, *FString::Printf(TEXT("TC: %s"), *FApp::GetTimecode().ToString()), Font, FColor::Green);
+	Y += RowHeight;
+
 	return Y;
 }
 

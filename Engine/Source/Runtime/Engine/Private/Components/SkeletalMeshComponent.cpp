@@ -2237,9 +2237,11 @@ void USkeletalMeshComponent::PostAnimEvaluation(FAnimationEvaluationContext& Eva
 		// curve update happens first
 		AnimScriptInstance->UpdateCurves(AnimCurves);
 
+		// this is same curves, and we don't have to process same for everything. 
+		// we just copy curves from main for the case where GetCurveValue works in that instance
 		for(UAnimInstance* SubInstance : SubInstances)
 		{
-			SubInstance->UpdateCurves(AnimCurves);
+			SubInstance->CopyCurveValues(*AnimScriptInstance);
 		}
 	}
 
@@ -2248,7 +2250,17 @@ void USkeletalMeshComponent::PostAnimEvaluation(FAnimationEvaluationContext& Eva
 
 	if(PostProcessAnimInstance)
 	{
-		PostProcessAnimInstance->UpdateCurves(AnimCurves);
+		if (AnimScriptInstance)
+		{
+			// this is same curves, and we don't have to process same for everything. 
+			// we just copy curves from main for the case where GetCurveValue works in that instance
+			PostProcessAnimInstance->CopyCurveValues(*AnimScriptInstance);
+		}
+		else
+		{
+			// if no main anim instance, we'll have to have post processor to handle it
+			PostProcessAnimInstance->UpdateCurves(AnimCurves);
+		}
 	}
 
 		// If we have actually evaluated animations, we need to call PostEvaluateAnimation now.
@@ -2272,7 +2284,7 @@ void USkeletalMeshComponent::PostAnimEvaluation(FAnimationEvaluationContext& Eva
 
 	bNeedToFlipSpaceBaseBuffers = true;
 
-	if (Bodies.Num() > 0)
+	if (Bodies.Num() > 0 || bEnablePerPolyCollision)
 	{
 		// update physics data from animated data
 		UpdateKinematicBonesToAnim(GetEditableComponentSpaceTransforms(), ETeleportType::None, true);

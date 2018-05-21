@@ -144,7 +144,7 @@ STDMETHODIMP FWmfMediaByteStream::BeginRead(BYTE* pb, ULONG cb, IMFAsyncCallback
 		return E_INVALIDARG;
 	}
 
-	TComPtr<FWmfMediaReadState> ReadState = new(std::nothrow) FWmfMediaReadState(pb, cb);
+	TComPtr<FWmfMediaReadState> ReadState = new FWmfMediaReadState(pb, cb);
 
 	if (ReadState == NULL)
 	{

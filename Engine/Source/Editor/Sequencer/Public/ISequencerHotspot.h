@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Input/CursorReply.h"
-#include "FrameTime.h"
+#include "Misc/FrameTime.h"
 
 class FMenuBuilder;
 class ISequencer;

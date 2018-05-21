@@ -64,6 +64,8 @@ public:
 	//~ IPythonScriptPlugin interface
 	virtual bool IsPythonAvailable() const override;
 	virtual bool ExecPythonCommand(const TCHAR* InPythonCommand) override;
+	virtual FSimpleMulticastDelegate& OnPythonInitialized() override;
+	virtual FSimpleMulticastDelegate& OnPythonShutdown() override;
 
 	//~ IModuleInterface interface
 	virtual void StartupModule() override;
@@ -95,6 +97,10 @@ private:
 
 	void ShutdownPython();
 
+	void RequestStubCodeGeneration();
+
+	void GenerateStubCode();
+
 	void Tick(const float InDeltaTime);
 
 	void OnModuleDirtied(FName InModuleName);
@@ -112,15 +118,19 @@ private:
 	FPythonCommandExecutor CmdExec;
 	IPythonCommandMenu* CmdMenu;
 	FDelegateHandle TickHandle;
+	FDelegateHandle ModuleDelayedHandle;
 
 	PyUtil::FPyApiBuffer PyProgramName;
 	PyUtil::FPyApiBuffer PyHomePath;
-	FPyObjectPtr PyGlobalDict;
-	FPyObjectPtr PyLocalDict;
+	FPyObjectPtr PyDefaultGlobalDict;
+	FPyObjectPtr PyDefaultLocalDict;
+	FPyObjectPtr PyConsoleGlobalDict;
+	FPyObjectPtr PyConsoleLocalDict;
 	FPyObjectPtr PyUnrealModule;
 	bool bInitialized;
 	bool bHasTicked;
 #endif	// WITH_PYTHON
 
-
+	FSimpleMulticastDelegate OnPythonInitializedDelegate;
+	FSimpleMulticastDelegate OnPythonShutdownDelegate;
 };

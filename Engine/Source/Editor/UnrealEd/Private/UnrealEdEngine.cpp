@@ -681,11 +681,11 @@ UWorld* SavedGWorld = NULL;
 void UUnrealEdEngine::OnPreWindowsMessage(FViewport* Viewport, uint32 Message)
 {
 	// Make sure the proper GWorld is set before handling the windows message
-	if( GEditor->GameViewport && !GUnrealEd->bIsSimulatingInEditor && GEditor->GameViewport->Viewport == Viewport && !GIsPlayInEditorWorld )
+	if( GameViewport && !bIsSimulatingInEditor && GameViewport->Viewport == Viewport && !GIsPlayInEditorWorld )
 	{
 		// remember the current GWorld that will be restored in the PostWindowsMessage callback
 		SavedGWorld = GWorld;
-		SetPlayInEditorWorld( GEditor->PlayWorld );
+		SetPlayInEditorWorld( PlayWorld );
 	}
 	else
 	{
@@ -738,7 +738,7 @@ void UUnrealEdEngine::ConvertMatinees()
 			if( InterpData->IsIn( Level ) ) 
 			{
 				// We dont care about renaming references or adding redirectors.  References to this will be old seqact_interps
-				GEditor->RenameObject( InterpData, Level->GetOutermost(), *InterpData->GetName() );
+				RenameObject( InterpData, Level->GetOutermost(), *InterpData->GetName() );
 
 				AMatineeActor* MatineeActor = Level->OwningWorld->SpawnActor<AMatineeActor>(StartLocation, FRotator::ZeroRotator);
 				StartLocation.Y += 50;

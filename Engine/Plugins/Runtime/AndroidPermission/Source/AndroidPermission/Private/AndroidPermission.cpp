@@ -4,7 +4,6 @@
 #include "AndroidPermissionFunctionLibrary.h"
 #include "AndroidPermissionCallbackProxy.h"
 #if PLATFORM_ANDROID
-#include "Android/AndroidJNI.h"
 #include "Android/AndroidApplication.h"
 #endif
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigBlueprintUtils.h"
 #include "Kismet2/BlueprintEditorUtils.h"
@@ -7,9 +7,6 @@
 #include "ControlRig.h"
 #include "ControlRigGraphNode.h"
 #include "ControlRigBlueprint.h"
-#include "NodeSpawners/ControlRigPropertyNodeSpawner.h"
-#include "NodeSpawners/ControlRigUnitNodeSpawner.h"
-#include "NodeSpawners/ControlRigVariableNodeSpawner.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigBlueprintUtils"
 
@@ -147,85 +144,6 @@ void FControlRigBlueprintUtils::HandleRenameVariableReferencesEvent(UBlueprint* 
 		for(UControlRigGraphNode* Node : AllNodes)
 		{
 			Node->HandleVariableRenamed(InBlueprint, InVariableClass, Node->GetGraph(), InOldVarName, InNewVarName);
-		}
-	}
-}
-
-void FControlRigBlueprintUtils::HandleGetClassPropertyActions(UClass const* const Class, FBlueprintActionDatabase::FActionList& ActionListOut)
-{
-	if(Class->IsChildOf<UControlRig>())
-	{
-		for (TFieldIterator<UProperty> PropertyIt(Class, EFieldIteratorFlags::ExcludeSuper); PropertyIt; ++PropertyIt)
-		{
-			UBlueprintNodeSpawner* NodeSpawner = UControlRigPropertyNodeSpawner::CreateFromProperty(UControlRigGraphNode::StaticClass(), *PropertyIt);
-			check(NodeSpawner != nullptr);
-			ActionListOut.Add(NodeSpawner);
-		}
-
-		// We're adding class specific options here per object. 
-		// But when they display the menu items, they allow every object to add options for it regardless object type
-		// (This ActionListOut will be used for ALL objects)
-		// This causes issue where same item is displayed multiple times because it was added multiple times if you open multiple graph
-		// to avoid this issue, I'm only allowing once using static bool
-		// As an alternative to this and maybe more extensible option is to extend void FBlueprintActionDatabase::RefreshAll()
-		// to register class type actions - RefreshClassActions(Class);
-		// However, that function is very performance sensitive function, and BP team expressed the performance hit that can cause by it
-		// for now we opt into just using static bool to make sure we only add ONCE per class type actions
-		static bool bAddClassTypeActions = true;
-		//if (bAddClassTypeActions)
-		{
-			// Add all rig units
-			FControlRigBlueprintUtils::ForAllRigUnits([&](UStruct* InStruct)
-			{
-				FText NodeCategory = FText::FromString(InStruct->GetMetaData(TEXT("Category")));
-				FText MenuDesc = FText::FromString(InStruct->GetMetaData(TEXT("DisplayName")));
-				FText ToolTip = InStruct->GetToolTipText();
-
-				UBlueprintNodeSpawner* NodeSpawner = UControlRigUnitNodeSpawner::CreateFromStruct(InStruct, MenuDesc, NodeCategory, ToolTip);
-				check(NodeSpawner != nullptr);
-				ActionListOut.Add(NodeSpawner);
-			});
-
-			// Add 'new properties'
-			TArray<TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo>> PinTypes;
-			GetDefault<UEdGraphSchema_K2>()->GetVariableTypeTree(PinTypes, ETypeTreeFilter::None);
-
-			struct Local
-			{
-				static void AddVariableActions_Recursive(FBlueprintActionDatabase::FActionList& InActionListOut, const TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo>& InPinTypeTreeItem, const FString& InCurrentCategory)
-				{
-					static const FString CategoryDelimiter(TEXT("|"));
-
-					if (InPinTypeTreeItem->Children.Num() == 0)
-					{
-						FText NodeCategory = FText::FromString(InCurrentCategory);
-						FText MenuDesc = InPinTypeTreeItem->GetDescription();
-						FText ToolTip = InPinTypeTreeItem->GetToolTip();
-
-						UBlueprintNodeSpawner* NodeSpawner = UControlRigVariableNodeSpawner::CreateFromPinType(InPinTypeTreeItem->GetPinType(false), MenuDesc, NodeCategory, ToolTip);
-						check(NodeSpawner != nullptr);
-						InActionListOut.Add(NodeSpawner);
-					}
-					else
-					{
-						FString CurrentCategory = InCurrentCategory + CategoryDelimiter + InPinTypeTreeItem->FriendlyName.ToString();
-
-						for (const TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo>& ChildTreeItem : InPinTypeTreeItem->Children)
-						{
-							AddVariableActions_Recursive(InActionListOut, ChildTreeItem, CurrentCategory);
-						}
-					}
-				}
-			};
-
-			FString CurrentCategory = LOCTEXT("NewVariable", "New Variable").ToString();
-			for (const TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo>& PinTypeTreeItem : PinTypes)
-			{
-				Local::AddVariableActions_Recursive(ActionListOut, PinTypeTreeItem, CurrentCategory);
-			}
-
-			// we added it, so set it to false. Class type actions don't have to be added every time
-			bAddClassTypeActions = false;
 		}
 	}
 }

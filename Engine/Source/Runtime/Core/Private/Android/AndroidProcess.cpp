@@ -6,7 +6,9 @@
 
 #include "Android/AndroidProcess.h"
 #include "Android/AndroidPlatformRunnableThread.h"
+#if !PLATFORM_LUMIN
 #include "Android/AndroidAffinity.h"
+#endif
 #include "Async/TaskGraphInterfaces.h"
 
 #include <sys/syscall.h>
@@ -14,8 +16,10 @@
 
 #include "Android/AndroidJavaEnv.h"
 
+#if !PLATFORM_LUMIN
 int64 FAndroidAffinity::GameThreadMask = FPlatformAffinity::GetNoAffinityMask();
 int64 FAndroidAffinity::RenderingThreadMask = FPlatformAffinity::GetNoAffinityMask();
+#endif
 
 const TCHAR* FAndroidPlatformProcess::ComputerName()
 {
@@ -54,8 +58,13 @@ const TCHAR* FAndroidPlatformProcess::BaseDir()
 
 const TCHAR* FAndroidPlatformProcess::ExecutableName(bool bRemoveExtension)
 {
+#if USE_ANDROID_FILE
 	extern FString GAndroidProjectName;
 	return *GAndroidProjectName;
+#else
+	UE_LOG(LogAndroid, Fatal, TEXT("A sub-platform that doesn't use USE_ANDROID_FILE must implement PlatformProcess::ExecutableName"));
+	return TEXT("");
+#endif
 }
 
 FRunnableThread* FAndroidPlatformProcess::CreateRunnableThread()
@@ -87,6 +96,7 @@ void FAndroidPlatformProcess::LaunchURL(const TCHAR* URL, const TCHAR* Parms, FS
 
 FString FAndroidPlatformProcess::GetGameBundleId()
 {
+#if USE_ANDROID_JNI
 	JNIEnv* JEnv = AndroidJavaEnv::GetJavaEnv();
 	if (nullptr != JEnv)
 	{
@@ -103,7 +113,7 @@ FString FAndroidPlatformProcess::GetGameBundleId()
 			return PackageName;
 		}
 	}
-	
+#endif
 	return TEXT("");
 }
 
@@ -142,6 +152,7 @@ static void ApplyDefaultThreadAffinity(IConsoleVariable* Var)
 				Aff = 0xFFFFFFFFFFFFFFFF;
 			}
 
+#if !PLATFORM_LUMIN
 			if (Args[Index] == TEXT("GT"))
 			{
 				FAndroidAffinity::GameThreadMask = Aff;
@@ -150,6 +161,7 @@ static void ApplyDefaultThreadAffinity(IConsoleVariable* Var)
 			{
 				FAndroidAffinity::RenderingThreadMask = Aff;
 			}
+#endif
 		}
 
 		if (FTaskGraphInterface::IsRunning())

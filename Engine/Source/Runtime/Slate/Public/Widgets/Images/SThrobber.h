@@ -114,6 +114,8 @@ public:
 		SLATE_ARGUMENT( float, Period )
 		/** The radius of the circle */
 		SLATE_ARGUMENT( float, Radius )
+		/** Throbber color and opacity */
+		SLATE_ATTRIBUTE(FSlateColor, ColorAndOpacity)
 
 	SLATE_END_ARGS()
 
@@ -157,4 +159,7 @@ private:
 
 	/** The radius of the circle */
 	float Radius;
+
+	/** Color and opacity of the throbber images. */
+	TAttribute<FSlateColor> ColorAndOpacity;
 };

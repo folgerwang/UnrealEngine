@@ -660,6 +660,11 @@ void StartRenderingThread()
 
 	check(!GRHIThread_InternalUseOnly && !GIsRunningRHIInSeparateThread_InternalUseOnly && !GIsRunningRHIInDedicatedThread_InternalUseOnly && !GIsRunningRHIInTaskThread_InternalUseOnly);
 
+	// Flush GT since render commands issued by threads other than GT are sent to
+	// the main queue of GT when RT is disabled. Without this flush, those commands
+	// will run on GT after RT is enabled
+	FlushRenderingCommands();
+
 	if (GUseRHIThread_InternalUseOnly)
 	{
 		FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);		
@@ -1179,6 +1184,16 @@ void FlushRenderingCommands(bool bFlushDeferredDeletes)
 	if (!GIsRHIInitialized)
 	{
 		return;
+	}
+
+	// Need to flush GT because render commands from threads other than GT are sent to
+	// the main queue of GT when RT is disabled
+	if (!GIsThreadedRendering
+		&& !FTaskGraphInterface::Get().IsThreadProcessingTasks(ENamedThreads::GameThread)
+		&& !FTaskGraphInterface::Get().IsThreadProcessingTasks(ENamedThreads::GameThread_Local))
+	{
+		FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
+		FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread_Local);
 	}
 
 	ENQUEUE_RENDER_COMMAND(FlushPendingDeleteRHIResourcesCmd)(

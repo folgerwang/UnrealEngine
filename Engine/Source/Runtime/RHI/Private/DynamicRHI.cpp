@@ -181,6 +181,7 @@ void RHIInit(bool bHasEditorToken)
 			if (GDynamicRHI)
 			{
 				GDynamicRHI->Init();
+
 				GRHICommandList.GetImmediateCommandList().SetContext(GDynamicRHI->RHIGetDefaultContext());
 				GRHICommandList.GetImmediateAsyncComputeCommandList().SetComputeContext(GDynamicRHI->RHIGetDefaultAsyncComputeContext());
 

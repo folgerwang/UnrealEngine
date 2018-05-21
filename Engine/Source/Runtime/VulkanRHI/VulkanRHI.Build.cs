@@ -11,22 +11,13 @@ public class VulkanRHI : ModuleRules
 		bOutputPubliclyDistributable = true;
 
 		PrivateIncludePaths.Add("Runtime/VulkanRHI/Private");
-
-		if(Target.Platform == UnrealTargetPlatform.Android)
-		{
-			PrivateIncludePaths.Add("Runtime/VulkanRHI/Private/Android");
-		}
-		else if(Target.Platform == UnrealTargetPlatform.Linux)
-		{
-			PrivateIncludePaths.Add("Runtime/VulkanRHI/Private/Linux");
-		}
-		else if(Target.Platform == UnrealTargetPlatform.Quail)
-		{
-			PrivateIncludePaths.Add("Runtime/VulkanRHI/Private/Quail");
-		}
-		else if(Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
+		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 		{
 			PrivateIncludePaths.Add("Runtime/VulkanRHI/Private/Windows");
+		}
+		else
+		{
+			PrivateIncludePaths.Add("Runtime/VulkanRHI/Private/" + Target.Platform);
 		}
 
 		PrivateDependencyModuleNames.AddRange(
@@ -93,8 +84,8 @@ public class VulkanRHI : ModuleRules
 				AddEngineThirdPartyPrivateStaticDependencies(Target, "VkHeadersExternal");
 			}
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Android || Target.Platform == UnrealTargetPlatform.Mac)
-		{
+        else if (Target.Platform == UnrealTargetPlatform.Android || Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.Lumin)
+        {
 			string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
 
 			bool bHaveVulkan = false;
@@ -112,6 +103,32 @@ public class VulkanRHI : ModuleRules
 				}
 				else
 				if (!String.IsNullOrEmpty(VulkanSDKPath))
+				{
+					// If the user has an installed SDK, use that instead
+					bHaveVulkan = true;
+					PrivateIncludePaths.Add(VulkanSDKPath + "/Include/vulkan");
+				}
+				else
+				{
+					// Fall back to the Windows Vulkan SDK (the headers are the same)
+					bHaveVulkan = true;
+					PrivateIncludePaths.Add(Target.UEThirdPartySourceDirectory + "Vulkan/Windows/Include/vulkan");
+				}
+			}
+			else if (Target.Platform == UnrealTargetPlatform.Lumin)
+			{
+				// Note: Lumin include path is public because plugin type requirements
+				// Note: header is the same for all architectures so just use default
+				string MLSDKPath = Environment.GetEnvironmentVariable("MLSDK");
+				string MLSDKVulkanIncludePath = MLSDKPath + "/lumin/usr/include/vulkan";
+
+				// Use MLSDK Vulkan header if discovered, or VulkanSDK if available
+				if (File.Exists(MLSDKVulkanIncludePath + "/vulkan.h"))
+				{
+					bHaveVulkan = true;
+					PrivateIncludePaths.Add(MLSDKVulkanIncludePath);
+				}
+				else if (!String.IsNullOrEmpty(VulkanSDKPath))
 				{
 					// If the user has an installed SDK, use that instead
 					bHaveVulkan = true;

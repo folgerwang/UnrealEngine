@@ -109,13 +109,13 @@ void FJpegImageWrapper::Compress(int32 Quality)
 			const int32 NumColors = RawData.Num() / 4;
 			for(int32 ColorIndex = 0; ColorIndex < NumColors; ColorIndex++)
 			{
-				uint8 Temp = Colors[ColorIndex].B;
-				Colors[ColorIndex].B = Colors[ColorIndex].R;
-				Colors[ColorIndex].R = Temp;
+				Colors[ColorIndex].B = Colors[ColorIndex].B ^ Colors[ColorIndex].R;
+				Colors[ColorIndex].R = Colors[ColorIndex].R ^ Colors[ColorIndex].B;
+				Colors[ColorIndex].B = Colors[ColorIndex].B ^ Colors[ColorIndex].R;
 			}
 		}
 
-		CompressedData.Empty();
+		CompressedData.Reset(RawData.Num());
 		CompressedData.AddUninitialized(RawData.Num());
 
 		int OutBufferSize = CompressedData.Num();
@@ -163,7 +163,8 @@ void FJpegImageWrapper::Uncompress(const ERGBFormat InFormat, int32 InBitDepth)
 	uint8* OutData = jpgd::decompress_jpeg_image_from_memory(
 		CompressedData.GetData(), CompressedData.Num(), &Width, &Height, &NumColors, Channels);
 
-	RawData.Empty();
+
+	RawData.Reset(Width * Height * Channels);
 	RawData.AddUninitialized(Width * Height * Channels);
 	if (OutData)
 	{

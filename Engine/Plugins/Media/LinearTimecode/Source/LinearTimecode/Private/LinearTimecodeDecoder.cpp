@@ -8,14 +8,10 @@ FLinearTimecodeDecoder::FLinearTimecodeDecoder()
 	Reset();
 }
 
-FLinearTimecodeDecoder::~FLinearTimecodeDecoder()
-{
-}
-
 void FLinearTimecodeDecoder::DecodeBitStream(uint16* InBitStream, EDecodePattern* InDecodePattern, int32 InForward, FDropTimecode& OutTimeCode)
 {
 	FMemory::Memset(&OutTimeCode, 0, sizeof(FDropTimecode));
-	OutTimeCode.Forward = InForward;
+	OutTimeCode.bRunningForward = InForward != 0;
 
 	auto DecodeBits = [InBitStream](EDecodePattern* inDecodePatern)
 	{
@@ -27,31 +23,31 @@ void FLinearTimecodeDecoder::DecodeBitStream(uint16* InBitStream, EDecodePattern
 		switch (InDecodePattern->Type)
 		{
 		case EDecodePattern::EDecodeType::Hours:
-			OutTimeCode.Hours += DecodeBits(InDecodePattern);
+			OutTimeCode.Timecode.Hours += DecodeBits(InDecodePattern);
 			break;
 		case EDecodePattern::EDecodeType::Minutes:
-			OutTimeCode.Minutes += DecodeBits(InDecodePattern);
+			OutTimeCode.Timecode.Minutes += DecodeBits(InDecodePattern);
 			break;
 		case EDecodePattern::EDecodeType::Seconds:
-			OutTimeCode.Seconds += DecodeBits(InDecodePattern);
+			OutTimeCode.Timecode.Seconds += DecodeBits(InDecodePattern);
 			break;
 		case EDecodePattern::EDecodeType::Frames:
-			OutTimeCode.Frame += DecodeBits(InDecodePattern);
+			OutTimeCode.Timecode.Frames += DecodeBits(InDecodePattern);
 			break;
 		case EDecodePattern::EDecodeType::DropFrame:
-			OutTimeCode.Drop += DecodeBits(InDecodePattern);
+			OutTimeCode.Timecode.bDropFrameFormat = (InBitStream[InDecodePattern->Index] & InDecodePattern->Mask) != 0;
 			break;
 		case EDecodePattern::EDecodeType::ColorFrame:
-			OutTimeCode.Color += DecodeBits(InDecodePattern);;
+			OutTimeCode.bColorFraming = (InBitStream[InDecodePattern->Index] & InDecodePattern->Mask) != 0;
 			break;
 		case EDecodePattern::EDecodeType::FrameRate:
 			if (InForward)
 			{
-				if (FrameMax < OutTimeCode.Frame)
+				if (FrameMax < OutTimeCode.Timecode.Frames)
 				{
-					FrameMax = OutTimeCode.Frame;
+					FrameMax = OutTimeCode.Timecode.Frames;
 				}
-				if (FrameMax > OutTimeCode.Frame)
+				if (FrameMax > OutTimeCode.Timecode.Frames)
 				{
 					FrameRate = FrameMax;
 				}
@@ -59,11 +55,11 @@ void FLinearTimecodeDecoder::DecodeBitStream(uint16* InBitStream, EDecodePattern
 			}
 			else
 			{
-				if (FrameMax < OutTimeCode.Frame && FrameRate < OutTimeCode.Frame)
+				if (FrameMax < OutTimeCode.Timecode.Frames && FrameRate < OutTimeCode.Timecode.Frames)
 				{
-					FrameRate = OutTimeCode.Frame;
+					FrameRate = OutTimeCode.Timecode.Frames;
 				}
-				FrameMax = OutTimeCode.Frame;
+				FrameMax = OutTimeCode.Timecode.Frames;
 			}
 			OutTimeCode.FrameRate = FrameRate;
 		}

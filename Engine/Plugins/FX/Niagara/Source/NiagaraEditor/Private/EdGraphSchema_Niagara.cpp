@@ -36,6 +36,8 @@
 #include "NiagaraEmitter.h"
 #include "NiagaraNodeEmitter.h"
 #include "NiagaraParameterCollection.h"
+#include "NiagaraNodeReroute.h"
+#include "NiagaraNodeUsageSelector.h"
 #include "EdGraphNode_Comment.h"
 
 #include "Modules/ModuleManager.h"
@@ -51,6 +53,7 @@ const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_SystemConstant = FLine
 const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_FunctionCall = FLinearColor::Blue;
 const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_CustomHlsl = FLinearColor::Yellow;
 const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_Event = FLinearColor::Red;
+const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_TranslatorConstant = FLinearColor::Gray;
 
 const FName UEdGraphSchema_Niagara::PinCategoryType("Type");
 const FName UEdGraphSchema_Niagara::PinCategoryMisc("Misc");
@@ -117,7 +120,7 @@ UEdGraphNode* FNiagaraSchemaAction_NewNode::PerformAction(class UEdGraph* Parent
 
 		ResultNode = NodeTemplate;
 
-		ParentGraph->NotifyGraphChanged();
+		//ParentGraph->NotifyGraphChanged();
 	}
 
 	return ResultNode;
@@ -299,6 +302,7 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 	NiagaraGraph->GetNodesOfClass<UNiagaraNodeEmitter>(Emitters);
 	bool bSystemGraph = Emitters.Num() != 0 || NiagaraGraph->FindOutputNode(ENiagaraScriptUsage::SystemSpawnScript) != nullptr || NiagaraGraph->FindOutputNode(ENiagaraScriptUsage::SystemUpdateScript) != nullptr;
 	bool bModuleGraph = NiagaraGraph->FindOutputNode(ENiagaraScriptUsage::Module) != nullptr;
+	bool bDynamicInputGraph = NiagaraGraph->FindOutputNode(ENiagaraScriptUsage::DynamicInput) != nullptr;
 	bool bFunctionGraph = NiagaraGraph->FindOutputNode(ENiagaraScriptUsage::Function) != nullptr;
 	bool bUpdateGraph = NiagaraGraph->FindOutputNode(ENiagaraScriptUsage::ParticleUpdateScript) != nullptr;
 
@@ -400,6 +404,36 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 					const FText TooltipDesc = FText::Format(LOCTEXT("ModulePopupTooltip", "Path: {0}\nDescription: {1}"), FText::FromString(ScriptAsset.ObjectPath.ToString()), AssetDesc);
 
 					TSharedPtr<FNiagaraSchemaAction_NewNode> FunctionCallAction = AddNewNodeAction(NewActions, LOCTEXT("Module Menu Title", "Modules"), MenuDesc, *DisplayNameString, FText::FromName(ScriptAsset.ObjectPath));
+
+					UNiagaraNodeFunctionCall* FunctionCallNode = NewObject<UNiagaraNodeFunctionCall>(OwnerOfTemporaries);
+					FunctionCallNode->FunctionScriptAssetObjectPath = ScriptAsset.ObjectPath;
+					FunctionCallAction->NodeTemplate = FunctionCallNode;
+				}
+			}
+		}
+	}
+
+	// Add dynamic inputs for default usage in module and dynamic input graphs
+	if (bModuleGraph || bDynamicInputGraph)
+	{
+		for (const FAssetData& ScriptAsset : ScriptAssets)
+		{
+			FName UsageName;
+			ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Usage), UsageName);
+			FString QualifiedUsageName = "ENiagaraScriptUsage::" + UsageName.ToString();
+			int32 UsageIndex = NiagaraScriptUsageEnum->GetIndexByNameString(QualifiedUsageName);
+			if (UsageIndex != INDEX_NONE)
+			{
+				ENiagaraScriptUsage Usage = static_cast<ENiagaraScriptUsage>(NiagaraScriptUsageEnum->GetValueByIndex(UsageIndex));
+				if (Usage == ENiagaraScriptUsage::DynamicInput)
+				{
+					FString DisplayNameString = FName::NameToDisplayString(ScriptAsset.AssetName.ToString(), false);
+					const FText MenuDesc = FText::FromString(DisplayNameString);
+					FText AssetDesc;
+					ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Description), AssetDesc);
+					const FText TooltipDesc = FText::Format(LOCTEXT("DynamicInputPopupTooltip", "Path: {0}\nDescription: {1}"), FText::FromString(ScriptAsset.ObjectPath.ToString()), AssetDesc);
+
+					TSharedPtr<FNiagaraSchemaAction_NewNode> FunctionCallAction = AddNewNodeAction(NewActions, LOCTEXT("DynamicInputMenu", "Dynamic Inputs"), MenuDesc, *DisplayNameString, FText::FromName(ScriptAsset.ObjectPath));
 
 					UNiagaraNodeFunctionCall* FunctionCallNode = NewObject<UNiagaraNodeFunctionCall>(OwnerOfTemporaries);
 					FunctionCallNode->FunctionScriptAssetObjectPath = ScriptAsset.ObjectPath;
@@ -711,6 +745,26 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 			GetConstAction->NodeTemplate = InputNode;
 		}
 
+		//Emitter constants managed by the Translator.
+		const TArray<FNiagaraVariable>& TranslatorConstants = FNiagaraConstants::GetTranslatorConstants();
+		for (const FNiagaraVariable& TransConst : TranslatorConstants)
+		{
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("Constant"), FText::FromName(TransConst.GetName()));
+			const FText MenuDesc = FText::Format(LOCTEXT("GetTranslatorConstant", "{Constant}"), Args);
+
+			TSharedPtr<FNiagaraSchemaAction_NewNode> GetConstAction = AddNewNodeAction(NewActions, LOCTEXT("Translator Parameters Menu Title", "Special Purpose Parameters"), MenuDesc, TransConst.GetName(), FText::GetEmpty());
+
+			UNiagaraNodeInput* InputNode = NewObject<UNiagaraNodeInput>(OwnerOfTemporaries);
+			InputNode->Usage = ENiagaraInputNodeUsage::TranslatorConstant;
+			InputNode->ExposureOptions.bCanAutoBind = true;
+			InputNode->ExposureOptions.bHidden = true;
+			InputNode->ExposureOptions.bRequired = false;
+			InputNode->ExposureOptions.bExposed = false;
+			InputNode->Input = TransConst;
+			GetConstAction->NodeTemplate = InputNode;
+		}
+
 		AddParameterMenuOptions(NewActions, NiagaraGraph, OwnerOfTemporaries, NiagaraGraph);
 
 		//Add a generic Parameter node to allow easy creation of parameters.
@@ -767,6 +821,24 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 		Action->NodeTemplate = IfNode;
 	}
 	//TODO: Add quick commands for certain UNiagaraStructs and UNiagaraScripts to be added as functions
+
+	// Add reroute node
+	{
+		const FText UtilMenuCat = LOCTEXT("NiagaraRerouteMenuCat", "Util");
+		const FText RerouteMenuDesc = LOCTEXT("NiagaraRerouteMenuDesc", "Reroute ");
+		TSharedPtr<FNiagaraSchemaAction_NewNode> Action = AddNewNodeAction(NewActions, UtilMenuCat, RerouteMenuDesc, TEXT("Reroute"), FText::GetEmpty());
+		UNiagaraNodeReroute* RerouteNode = NewObject<UNiagaraNodeReroute>(OwnerOfTemporaries);
+		Action->NodeTemplate = RerouteNode;
+	}
+
+	// Add usage selector node
+	{
+		const FText UtilMenuCat = LOCTEXT("NiagaraUsageSelectorMenuCat", "Util");
+		const FText UsageSelectorMenuDesc = LOCTEXT("NiagaraUsageSelectorMenuDesc", "Select By Use");
+		TSharedPtr<FNiagaraSchemaAction_NewNode> Action = AddNewNodeAction(NewActions, UtilMenuCat, UsageSelectorMenuDesc, TEXT("Select By Use"), FText::GetEmpty());
+		UNiagaraNodeUsageSelector* Node = NewObject<UNiagaraNodeUsageSelector>(OwnerOfTemporaries);
+		Action->NodeTemplate = Node;
+	}
 
 	return NewActions;
 }
@@ -874,9 +946,16 @@ void UEdGraphSchema_Niagara::BreakSinglePinLink(UEdGraphPin* SourcePin, UEdGraph
 	Super::BreakSinglePinLink(SourcePin, TargetPin);
 }
 
+void UEdGraphSchema_Niagara::BreakPinLinks(UEdGraphPin& TargetPin, bool bSendsNodeNotification) const
+{
+	const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "NiagaraEditorBreakPinLinks", "Niagara Editor: Break Pin Links"));
+
+	Super::BreakPinLinks(TargetPin, bSendsNodeNotification);
+}
+
 FConnectionDrawingPolicy* UEdGraphSchema_Niagara::CreateConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float InZoomFactor, const FSlateRect& InClippingRect, class FSlateWindowElementList& InDrawElements, class UEdGraph* InGraphObj) const
 {
-	return new FNiagaraConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, InZoomFactor, InClippingRect, InDrawElements);
+	return new FNiagaraConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, InZoomFactor, InClippingRect, InDrawElements, InGraphObj);
 }
 
 void UEdGraphSchema_Niagara::ResetPinToAutogeneratedDefaultValue(UEdGraphPin* Pin, bool bCallModifyCallbacks) const
@@ -886,6 +965,25 @@ void UEdGraphSchema_Niagara::ResetPinToAutogeneratedDefaultValue(UEdGraphPin* Pi
 	{
 		Pin->GetOwningNode()->PinDefaultValueChanged(Pin);
 	}
+}
+
+void UEdGraphSchema_Niagara::OnPinConnectionDoubleCicked(UEdGraphPin* PinA, UEdGraphPin* PinB, const FVector2D& GraphPosition) const
+{
+	const FScopedTransaction Transaction(LOCTEXT("CreateRerouteNodeOnWire", "Create Reroute Node"));
+
+	//@TODO: This constant is duplicated from inside of SGraphNodeKnot
+	const FVector2D NodeSpacerSize(42.0f, 24.0f);
+	const FVector2D KnotTopLeft = GraphPosition - (NodeSpacerSize * 0.5f);
+
+	// Create a new knot
+	UEdGraph* ParentGraph = PinA->GetOwningNode()->GetGraph();
+	UNiagaraNodeReroute* NewReroute = FNiagaraSchemaAction_NewNode::SpawnNodeFromTemplate<UNiagaraNodeReroute>(ParentGraph, NewObject<UNiagaraNodeReroute>(), KnotTopLeft);
+
+	// Move the connections across (only notifying the knot, as the other two didn't really change)
+	PinA->BreakLinkTo(PinB);
+	PinA->MakeLinkTo((PinA->Direction == EGPD_Output) ? NewReroute->GetInputPin(0) : NewReroute->GetOutputPin(0));
+	PinB->MakeLinkTo((PinB->Direction == EGPD_Output) ? NewReroute->GetInputPin(0) : NewReroute->GetOutputPin(0));
+	NewReroute->PropagatePinType();
 }
 
 bool UEdGraphSchema_Niagara::TryCreateConnection(UEdGraphPin* PinA, UEdGraphPin* PinB) const
@@ -988,37 +1086,42 @@ bool UEdGraphSchema_Niagara::TryCreateConnection(UEdGraphPin* PinA, UEdGraphPin*
 
 FLinearColor UEdGraphSchema_Niagara::GetPinTypeColor(const FEdGraphPinType& PinType) const
 {
-	const UGraphEditorSettings* Settings = GetDefault<UGraphEditorSettings>();
 	if (PinType.PinCategory == PinCategoryType)
 	{
 		FNiagaraTypeDefinition Type(CastChecked<UScriptStruct>(PinType.PinSubCategoryObject.Get()));
+		return GetTypeColor(Type);
+	}
+		
+	const UGraphEditorSettings* Settings = GetDefault<UGraphEditorSettings>();
+	return Settings->WildcardPinTypeColor;
+}
 
-		if (Type == FNiagaraTypeDefinition::GetFloatDef())
-		{
-			return Settings->FloatPinTypeColor;
-		}
-		else if (Type == FNiagaraTypeDefinition::GetIntDef())
-		{
-			return Settings->IntPinTypeColor;
-		}
-		else if (Type == FNiagaraTypeDefinition::GetBoolDef())
-		{
-			return Settings->BooleanPinTypeColor;
-		}
-		else if (Type == FNiagaraTypeDefinition::GetVec2Def()
-			|| Type == FNiagaraTypeDefinition::GetVec3Def()
-			|| Type == FNiagaraTypeDefinition::GetVec4Def())
-		{
-			return Settings->VectorPinTypeColor;
-		}
-		else
-		{
-			return Settings->StructPinTypeColor;
-		}
+FLinearColor UEdGraphSchema_Niagara::GetTypeColor(const FNiagaraTypeDefinition& Type)
+{
+	const UGraphEditorSettings* Settings = GetDefault<UGraphEditorSettings>();
+	if (Type == FNiagaraTypeDefinition::GetFloatDef())
+	{
+		return Settings->FloatPinTypeColor;
+	}
+	else if (Type == FNiagaraTypeDefinition::GetIntDef())
+	{
+		return Settings->IntPinTypeColor;
+	}
+	else if (Type == FNiagaraTypeDefinition::GetBoolDef())
+	{
+		return Settings->BooleanPinTypeColor;
+	}
+	else if (Type == FNiagaraTypeDefinition::GetVec3Def())
+	{
+		return Settings->VectorPinTypeColor;
+	}
+	else if (Type == FNiagaraTypeDefinition::GetParameterMapDef())
+	{
+		return Settings->ExecutionPinTypeColor;
 	}
 	else
 	{
-		return Settings->WildcardPinTypeColor;
+		return Settings->StructPinTypeColor;
 	}
 }
 
@@ -1041,7 +1144,7 @@ FNiagaraVariable UEdGraphSchema_Niagara::PinToNiagaraVariable(const UEdGraphPin*
 	if (Pin->bDefaultValueIsIgnored == false && Pin->DefaultValue.IsEmpty() == false)
 	{
 		FNiagaraEditorModule& NiagaraEditorModule = FModuleManager::GetModuleChecked<FNiagaraEditorModule>("NiagaraEditor");
-		TSharedPtr<INiagaraEditorTypeUtilities> TypeEditorUtilities = NiagaraEditorModule.GetTypeUtilities(Var.GetType());
+		TSharedPtr<INiagaraEditorTypeUtilities, ESPMode::ThreadSafe> TypeEditorUtilities = NiagaraEditorModule.GetTypeUtilities(Var.GetType());
 		if (TypeEditorUtilities.IsValid() && TypeEditorUtilities->CanHandlePinDefaults())
 		{
 			bHasValue = TypeEditorUtilities->SetValueFromPinDefaultString(Pin->DefaultValue, Var);
@@ -1053,14 +1156,21 @@ FNiagaraVariable UEdGraphSchema_Niagara::PinToNiagaraVariable(const UEdGraphPin*
 		}
 		else
 		{
-			FString OwningNodePath = Pin->GetOwningNode() != nullptr ? Pin->GetOwningNode()->GetPathName() : TEXT("Unknown");
-			UE_LOG(LogNiagaraEditor, Error, TEXT("Pin had default value string, but default values aren't supported for variables of type {%s}. Owning node path: %s"), *Var.GetType().GetName(), *OwningNodePath);
+			if (Pin->GetOwningNode() != nullptr && nullptr == Cast<UNiagaraNodeOp>(Pin->GetOwningNode()))
+			{
+				FString OwningNodePath = Pin->GetOwningNode() != nullptr ? Pin->GetOwningNode()->GetPathName() : TEXT("Unknown");
+				UE_LOG(LogNiagaraEditor, Error, TEXT("Pin had default value string, but default values aren't supported for variables of type {%s}. Owning node path: %s"), *Var.GetType().GetName(), *OwningNodePath);
+			}
 		}
 	}
 
 	if (bNeedsValue && bHasValue == false)
 	{
 		FNiagaraEditorUtilities::ResetVariableToDefaultValue(Var);
+		if (Var.GetData() == nullptr)
+		{
+			UE_LOG(LogNiagaraEditor, Error, TEXT("ResetVariableToDefaultValue called, but failed on var %s type %s. "), *Var.GetName().ToString(), *Var.GetType().GetName());
+		}
 	}
 
 	return Var;
@@ -1076,7 +1186,7 @@ bool UEdGraphSchema_Niagara::TryGetPinDefaultValueFromNiagaraVariable(const FNia
 	}
 
 	FNiagaraEditorModule& NiagaraEditorModule = FModuleManager::GetModuleChecked<FNiagaraEditorModule>("NiagaraEditor");
-	TSharedPtr<INiagaraEditorTypeUtilities> TypeEditorUtilities = NiagaraEditorModule.GetTypeUtilities(PinDefaultVariable.GetType());
+	TSharedPtr<INiagaraEditorTypeUtilities, ESPMode::ThreadSafe> TypeEditorUtilities = NiagaraEditorModule.GetTypeUtilities(PinDefaultVariable.GetType());
 	if (TypeEditorUtilities.IsValid() && TypeEditorUtilities->CanHandlePinDefaults())
 	{
 		OutPinDefaultValue = TypeEditorUtilities->GetPinDefaultStringFromValue(PinDefaultVariable);
@@ -1091,7 +1201,7 @@ FNiagaraTypeDefinition UEdGraphSchema_Niagara::PinToTypeDefinition(const UEdGrap
 {
 	if (Pin->PinType.PinCategory == PinCategoryType && Pin->PinType.PinSubCategoryObject != nullptr)
 	{
-		const UScriptStruct* Struct = Cast<const UScriptStruct>(Pin->PinType.PinSubCategoryObject.Get());
+		UScriptStruct* Struct = Cast<UScriptStruct>(Pin->PinType.PinSubCategoryObject.Get());
 		if (Struct == nullptr)
 		{
 			UE_LOG(LogNiagaraEditor, Error, TEXT("Pin states that it is of struct type, but is missing its struct object. This is usually the result of a registered type going away. Pin Name '%s' Owning Node '%s'."),
@@ -1102,7 +1212,7 @@ FNiagaraTypeDefinition UEdGraphSchema_Niagara::PinToTypeDefinition(const UEdGrap
 	}
 	else if (Pin->PinType.PinCategory == PinCategoryClass)
 	{
-		const UClass* Class = Cast<const UClass>(Pin->PinType.PinSubCategoryObject.Get());
+		UClass* Class = Cast<UClass>(Pin->PinType.PinSubCategoryObject.Get());
 		if (Class == nullptr)
 		{
 			UE_LOG(LogNiagaraEditor, Error, TEXT("Pin states that it is of class type, but is missing its class object. This is usually the result of a registered type going away. Pin Name '%s' Owning Node '%s'."),
@@ -1113,7 +1223,7 @@ FNiagaraTypeDefinition UEdGraphSchema_Niagara::PinToTypeDefinition(const UEdGrap
 	}
 	else if (Pin->PinType.PinCategory == PinCategoryEnum)
 	{
-		const UEnum* Enum = Cast<const UEnum>(Pin->PinType.PinSubCategoryObject.Get());
+		UEnum* Enum = Cast<UEnum>(Pin->PinType.PinSubCategoryObject.Get());
 		if (Enum == nullptr)
 		{
 			UE_LOG(LogNiagaraEditor, Error, TEXT("Pin states that it is of Enum type, but is missing its Enum! Pin Name '%s' Owning Node '%s'. Turning into standard int definition!"), *Pin->PinName.ToString(),
@@ -1162,6 +1272,47 @@ UNiagaraParameterCollection* UEdGraphSchema_Niagara::VariableIsFromParameterColl
 			{
 				if (VarName.StartsWith(Collection->GetFullNamespace()))
 				{
+					return Collection;
+				}
+			}
+		}
+	}
+	return nullptr;
+}
+
+UNiagaraParameterCollection* UEdGraphSchema_Niagara::VariableIsFromParameterCollection(const FString& VarName, bool bAllowPartialMatch, FNiagaraVariable& OutVar)const
+{
+	OutVar = FNiagaraVariable();
+
+	if (VarName.StartsWith(TEXT("NPC.")))
+	{
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+		TArray<FAssetData> CollectionAssets;
+		AssetRegistryModule.Get().GetAssetsByClass(UNiagaraParameterCollection::StaticClass()->GetFName(), CollectionAssets);
+		TArray<FName> ExistingNames;
+		for (FAssetData& CollectionAsset : CollectionAssets)
+		{
+			if (UNiagaraParameterCollection* Collection = CastChecked<UNiagaraParameterCollection>(CollectionAsset.GetAsset()))
+			{
+				if (VarName.StartsWith(Collection->GetFullNamespace()))
+				{
+					const TArray<FNiagaraVariable>& CollectionVariables = Collection->GetParameters();
+					FString BestMatchSoFar;
+
+					for (const FNiagaraVariable& CollVar : CollectionVariables)
+					{
+						FString CollVarName = CollVar.GetName().ToString();
+						if (CollVarName == VarName)
+						{
+							OutVar = CollVar;
+							break;
+						}
+						else if (bAllowPartialMatch && VarName.StartsWith(CollVarName + TEXT(".")) && (BestMatchSoFar.Len() == 0 || CollVarName.Len() > BestMatchSoFar.Len()))
+						{
+							OutVar = CollVar;
+							BestMatchSoFar = CollVarName;
+						}
+					}
 					return Collection;
 				}
 			}
@@ -1282,14 +1433,14 @@ void UEdGraphSchema_Niagara::ToggleNodeEnabledState(UNiagaraNode* InNode) const
 			const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "NiagaraEditorSetNodeEnabled", "Enabled Node"));
 			InNode->Modify();
 			InNode->SetEnabledState(ENodeEnabledState::Enabled, true);
-			InNode->GetNiagaraGraph()->NotifyGraphNeedsRecompile();
+			InNode->MarkNodeRequiresSynchronization(__FUNCTION__, true);
 		}
 		else if (InNode->GetDesiredEnabledState() == ENodeEnabledState::Enabled)
 		{
 			const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "NiagaraEditorSetNodeDisabled", "Disabled Node"));
 			InNode->Modify();
 			InNode->SetEnabledState(ENodeEnabledState::Disabled, true);
-			InNode->GetNiagaraGraph()->NotifyGraphNeedsRecompile();
+			InNode->MarkNodeRequiresSynchronization(__FUNCTION__, true);
 		}
 	}
 }
@@ -1383,9 +1534,12 @@ void UEdGraphSchema_Niagara::GetContextMenuActions(const UEdGraph* CurrentGraph,
 	Super::GetContextMenuActions(CurrentGraph, InGraphNode, InGraphPin, MenuBuilder, bIsDebugging);
 }
 
-FNiagaraConnectionDrawingPolicy::FNiagaraConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float InZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements)
+FNiagaraConnectionDrawingPolicy::FNiagaraConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float InZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraph)
 	: FConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, InZoomFactor, InClippingRect, InDrawElements)
+	, Graph(InGraph)
 {
+	ArrowImage = nullptr;
+	ArrowRadius = FVector2D::ZeroVector;
 }
 
 void FNiagaraConnectionDrawingPolicy::DetermineWiringStyle(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ FConnectionParams& Params)
@@ -1394,6 +1548,12 @@ void FNiagaraConnectionDrawingPolicy::DetermineWiringStyle(UEdGraphPin* OutputPi
 	if (HoveredPins.Contains(InputPin) && HoveredPins.Contains(OutputPin))
 	{
 		Params.WireThickness = Params.WireThickness * 5;
+	}
+
+	if (Graph)
+	{
+		const UEdGraphSchema* Schema = Graph->GetSchema();
+		Params.WireColor = Schema->GetPinTypeColor(OutputPin->PinType);
 	}
 }
 

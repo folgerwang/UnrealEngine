@@ -12,12 +12,12 @@ TSharedPtr<FStructOnScope> TMovieSceneKeyStructCustomization<ChannelType>::GetVa
 	ChannelType* Channel = ChannelHandle.Get();
 	if (Channel)
 	{
-		auto ChannelInterface = Channel->GetInterface();
-		const int32 KeyIndex = ChannelInterface.GetIndex(KeyHandle);
+		auto ChannelData = Channel->GetData();
+		const int32 KeyIndex = ChannelData.GetIndex(KeyHandle);
 
 		if (KeyIndex != INDEX_NONE)
 		{
-			auto& Value = ChannelInterface.GetValues()[KeyIndex];
+			auto& Value = ChannelData.GetValues()[KeyIndex];
 
 			TSharedPtr<FStructOnScope> NewStruct = MakeShared<FStructOnScope>(Value.StaticStruct());
 
@@ -52,13 +52,13 @@ void TMovieSceneKeyStructCustomization<ChannelType>::Apply(FFrameNumber NewTime)
 	ChannelType* Channel = ChannelHandle.Get();
 	if (Channel)
 	{
-		auto ChannelInterface = Channel->GetInterface();
-		const int32 KeyIndex = ChannelInterface.GetIndex(KeyHandle);
+		auto ChannelData = Channel->GetData();
+		const int32 KeyIndex = ChannelData.GetIndex(KeyHandle);
 		if (KeyIndex != INDEX_NONE)
 		{
 			if (KeyStruct.IsValid())
 			{
-				auto& Value = ChannelInterface.GetValues()[KeyIndex];
+				auto& Value = ChannelData.GetValues()[KeyIndex];
 
 				// Assign over the new value
 				typedef typename TDecay<decltype(Value)>::Type ValueType;
@@ -66,7 +66,7 @@ void TMovieSceneKeyStructCustomization<ChannelType>::Apply(FFrameNumber NewTime)
 			}
 
 			// Move the key to the new time
-			ChannelInterface.MoveKey(KeyIndex, NewTime);
+			ChannelData.MoveKey(KeyIndex, NewTime);
 		}
 	}
 }

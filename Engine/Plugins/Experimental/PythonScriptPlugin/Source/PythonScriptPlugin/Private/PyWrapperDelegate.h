@@ -3,9 +3,44 @@
 #pragma once
 
 #include "PyWrapperBase.h"
-#include "PyGenUtil.h"
+#include "PyPtr.h"
 #include "PyWrapperOwnerContext.h"
 #include "UObject/WeakObjectPtr.h"
+#include "PyWrapperDelegate.generated.h"
+
+/**
+ * UObject proxy base used to wrap a callable Python object so that it can be used with an Unreal delegate
+ * @note This can't go inside the WITH_PYTHON block due to UHT parsing limitations (it doesn't understand that macro)
+ */
+UCLASS()
+class UPythonCallableForDelegate : public UObject
+{
+	GENERATED_BODY()
+
+public:
+	//~ UObject interface
+	virtual void BeginDestroy() override;
+
+	/** Native function implementation used by the signature correct Unreal functions added to the derived classes (the ones that are bound to the delegate itself) */
+	DECLARE_FUNCTION(CallPythonNative);
+
+#if WITH_PYTHON
+	/** Get the Python callable object on this instance (borrowed reference) */
+	PyObject* GetCallable() const;
+
+	/** Set the Python callable object on this instance */
+	void SetCallable(PyObject* InCallable);
+#endif	// WITH_PYTHON
+
+	/** Name given to the generated function that we should bind to the Unreal delegate */
+	static const FName GeneratedFuncName;
+
+private:
+#if WITH_PYTHON
+	/** The callable Python callable object this object wraps (if any) */
+	FPyObjectPtr PyCallable;
+#endif	// WITH_PYTHON
+};
 
 #if WITH_PYTHON
 
@@ -16,7 +51,7 @@ extern PyTypeObject PyWrapperDelegateType;
 extern PyTypeObject PyWrapperMulticastDelegateType;
 
 /** Initialize the PyWrapperDelegate types and add them to the given Python module */
-void InitializePyWrapperDelegate(PyObject* PyModule);
+void InitializePyWrapperDelegate(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Base type for all UE4 exposed delegate instances */
 template <typename DelegateType>
@@ -39,6 +74,7 @@ struct TPyWrapperDelegateMetaData : public FPyWrapperBaseMetaData
 	PY_OVERRIDE_GETSET_METADATA(TPyWrapperDelegateMetaData)
 
 	TPyWrapperDelegateMetaData()
+		: PythonCallableForDelegateClass(nullptr)
 	{
 	}
 
@@ -56,8 +92,30 @@ struct TPyWrapperDelegateMetaData : public FPyWrapperBaseMetaData
 		return GetDelegateSignature(Py_TYPE(Instance));
 	}
 
+	/** Get the generated class type used to wrap Python callables for this delegate type */
+	static const UClass* GetPythonCallableForDelegateClass(PyTypeObject* PyType)
+	{
+		TPyWrapperDelegateMetaData* PyWrapperMetaData = TPyWrapperDelegateMetaData::GetMetaData(PyType);
+		return PyWrapperMetaData ? PyWrapperMetaData->PythonCallableForDelegateClass : nullptr;
+	}
+
+	/** Get the generated class type used to wrap Python callables for this delegate type */
+	static const UClass* GetPythonCallableForDelegateClass(WrapperType* Instance)
+	{
+		return GetPythonCallableForDelegateClass(Py_TYPE(Instance));
+	}
+
+	/** Add object references from the given Python object to the given collector */
+	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector) override
+	{
+		Collector.AddReferencedObject(PythonCallableForDelegateClass);
+	}
+
 	/** Unreal function representing the signature for the delegate */
 	PyGenUtil::FGeneratedWrappedFunction DelegateSignature;
+
+	/** Generated class type used to wrap Python callables for this delegate type */
+	const UClass* PythonCallableForDelegateClass;
 };
 
 /** Type for all UE4 exposed delegate instances */
@@ -95,6 +153,9 @@ struct FPyWrapperDelegate : public TPyWrapperDelegate<FScriptDelegate>
 struct FPyWrapperDelegateMetaData : public TPyWrapperDelegateMetaData<FPyWrapperDelegate>
 {
 	PY_METADATA_METHODS(FPyWrapperDelegateMetaData, FGuid(0xCB3D0485, 0x8A3A443E, 0xBEE336F4, 0x82888A81))
+
+	/** Add object references from the given Python object to the given collector */
+	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector) override;
 };
 
 /** Type for all UE4 exposed multicast delegate instances */
@@ -132,6 +193,9 @@ struct FPyWrapperMulticastDelegate : public TPyWrapperDelegate<FMulticastScriptD
 struct FPyWrapperMulticastDelegateMetaData : public TPyWrapperDelegateMetaData<FPyWrapperMulticastDelegate>
 {
 	PY_METADATA_METHODS(FPyWrapperMulticastDelegateMetaData, FGuid(0x448FB4DA, 0x38DC4386, 0xBCAFF448, 0x29C0F3A4))
+
+	/** Add object references from the given Python object to the given collector */
+	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector) override;
 };
 
 typedef TPyPtr<FPyWrapperDelegate> FPyWrapperDelegatePtr;

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertyPathHelpers.h"
 #include "UObject/UnrealType.h"
@@ -408,6 +408,12 @@ namespace PropertyPathHelpersInternal
 			else if(DestProperty->ArrayDim > 1)
 			{
 				DestProperty->CopyCompleteValue(InDestPropertyPath.GetCachedAddress(), InSrcPropertyPath.GetCachedAddress());
+			}
+			else if(UBoolProperty* DestBoolProperty = Cast<UBoolProperty>(DestProperty))
+			{
+				UBoolProperty* SrcBoolProperty = Cast<UBoolProperty>(InSrcPropertyPath.GetLastSegment().GetField());
+				const bool bValue = SrcBoolProperty->GetPropertyValue(InSrcPropertyPath.GetCachedAddress());
+				DestBoolProperty->SetPropertyValue(InDestPropertyPath.GetCachedAddress(), bValue);
 			}
 			else
 			{

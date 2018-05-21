@@ -17,7 +17,7 @@
 class USkeletalMeshComponent;
 
 USTRUCT()
-struct FSocketReference
+struct ANIMGRAPHRUNTIME_API FSocketReference
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -86,7 +86,7 @@ public:
 };
 
 USTRUCT()
-struct FBoneSocketTarget
+struct ANIMGRAPHRUNTIME_API  FBoneSocketTarget
 {
 	GENERATED_USTRUCT_BODY()
 

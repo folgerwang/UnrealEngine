@@ -22,6 +22,29 @@ class ENGINE_API USceneCaptureComponentCube : public USceneCaptureComponent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SceneCapture)
 	class UTextureRenderTargetCube* TextureTarget;
 
+	/**
+		Omni-directional Stereo Capture
+
+		If vr.ODSCapture is enabled and both left, right and ODS render targets are set,
+		we'll ignore the texture target and instead do an omni-directional stereo capture.
+		Warped cube maps will be rendered into the left and right texture targets using the 
+		IPD property for stereo offset. We will then reconstruct a stereo lat-long with the left
+		eye stacked on top of the right eye in the ODS target.
+		See: https://developers.google.com/vr/jump/rendering-ods-content.pdf
+	*/
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SceneCapture|Omni-directional Stereo Capture")
+	class UTextureRenderTargetCube* TextureTargetLeft;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SceneCapture|Omni-directional Stereo Capture")
+	class UTextureRenderTargetCube* TextureTargetRight;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SceneCapture|Omni-directional Stereo Capture")
+	class UTextureRenderTarget2D* TextureTargetODS;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SceneCapture|Omni-directional Stereo Capture", meta = (DisplayName = "Interpupillary Distance (cm)", UIMin = "0.0", UIMax = "16.0", ClampMin = "0.0", ClampMax = "16.0"))
+	float IPD;
+
 public:
 	//~ Begin UActorComponent Interface
 	virtual void OnRegister() override;

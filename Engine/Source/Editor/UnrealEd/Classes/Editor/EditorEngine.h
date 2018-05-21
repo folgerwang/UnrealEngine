@@ -224,7 +224,7 @@ struct FCachedActorLabels
 	UNREALED_API explicit FCachedActorLabels(UWorld* World, const TSet<AActor*>& IgnoredActors = TSet<AActor*>());
 
 	/** Populate the set of actor names */
-	void Populate(UWorld* World, const TSet<AActor*>& IgnoredActors = TSet<AActor*>());
+	UNREALED_API void Populate(UWorld* World, const TSet<AActor*>& IgnoredActors = TSet<AActor*>());
 
 	/** Add a new label to this set */
 	FORCEINLINE void Add(const FString& InLabel)
@@ -959,7 +959,7 @@ public:
 	void CancelTransaction(int32 Index);
 	bool UndoTransaction(bool bCanRedo = true);
 	bool RedoTransaction();
-	bool IsTransactionActive();
+	bool IsTransactionActive() const;
 	FText GetTransactionName() const;
 	bool IsObjectInTransactionBuffer( const UObject* Object ) const;
 
@@ -1123,7 +1123,7 @@ public:
 	 */
 	virtual void TakeHighResScreenShots(){}
 
-	virtual void NoteSelectionChange() { check(0); }
+	virtual void NoteSelectionChange() {}
 
 	/**
 	 * Adds an actor to the world at the specified location.
@@ -2440,14 +2440,14 @@ public:
 	 *
 	 * @return				true if a PIE session exists and the user refused to end it, false otherwise.
 	 */
-	bool ShouldAbortBecauseOfPIEWorld() const;
+	bool ShouldAbortBecauseOfPIEWorld();
 
 	/**
 	 * If an unsaved world exists that would be lost in a map transition, give the user the option to cancel a map load.
 	 *
 	 * @return				true if an unsaved world exists and the user refused to continue, false otherwise.
 	 */
-	bool ShouldAbortBecauseOfUnsavedWorld() const;
+	bool ShouldAbortBecauseOfUnsavedWorld();
 
 	/**
 	 * Gets the user-friendly, localized (if exists) name of a property

@@ -264,6 +264,16 @@ private:
 
 private:
 
+	template<typename TVectorFieldUniformParametersType>
+	void SimulateGPUParticles_Internal(
+		FRHICommandListImmediate& RHICmdList,
+		EParticleSimulatePhase::Type Phase,
+		const FUniformBufferRHIParamRef ViewUniformBuffer,
+		const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
+		FTexture2DRHIParamRef SceneDepthTexture,
+		FTexture2DRHIParamRef GBufferATexture
+	);
+
 	/*-------------------------------------------------------------------------
 		GPU simulation state.
 	-------------------------------------------------------------------------*/

@@ -103,48 +103,48 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugComputeCommandEncoder)
 #if METAL_DEBUG_OPTIONS
 - (void)insertDebugDispatch
 {
-	switch (Buffer->DebugLevel)
-	{
-		case EMetalDebugLevelConditionalSubmit:
-		case EMetalDebugLevelWaitForComplete:
-		case EMetalDebugLevelLogOperations:
-		case EMetalDebugLevelValidation:
-		{
-			uint32 const Index = Buffer->DebugCommands.Num();
-			[Inner setBytes:&Index length:sizeof(Index) atIndex:0];
-			[Inner setBuffer:Buffer->DebugInfoBuffer offset:0 atIndex:1];
-			[Inner setComputePipelineState:GetDebugComputeShaderState(Inner.device)];
-			
-			[Inner dispatchThreadgroups:MTLSizeMake(1, 1, 1) threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
-
-			if (Pipeline && Pipeline->ComputePipelineState)
-			{
-				[Inner setComputePipelineState:Pipeline->ComputePipelineState];
-			}
-			
-			if (ShaderBuffers.Buffers[0])
-			{
-				[Inner setBuffer:ShaderBuffers.Buffers[0] offset:ShaderBuffers.Offsets[0] atIndex:0];
-			}
-			else if (ShaderBuffers.Bytes[0])
-			{
-				[Inner setBytes:ShaderBuffers.Bytes[0] length:ShaderBuffers.Offsets[0] atIndex:0];
-			}
-			
-			if (ShaderBuffers.Buffers[1])
-			{
-				[Inner setBuffer:ShaderBuffers.Buffers[1] offset:ShaderBuffers.Offsets[1] atIndex:1];
-			}
-			else if (ShaderBuffers.Bytes[1])
-			{
-				[Inner setBytes:ShaderBuffers.Bytes[1] length:ShaderBuffers.Offsets[1] atIndex:1];
-			}
-		}
-		default:
-		{
-			break;
-		}
-	}
+//	switch (Buffer->DebugLevel)
+//	{
+//		case EMetalDebugLevelConditionalSubmit:
+//		case EMetalDebugLevelWaitForComplete:
+//		case EMetalDebugLevelLogOperations:
+//		case EMetalDebugLevelValidation:
+//		{
+//			uint32 const Index = Buffer->DebugCommands.Num();
+//			[Inner setBytes:&Index length:sizeof(Index) atIndex:0];
+//			[Inner setBuffer:Buffer->DebugInfoBuffer offset:0 atIndex:1];
+//			[Inner setComputePipelineState:GetDebugComputeShaderState(Inner.device)];
+//			
+//			[Inner dispatchThreadgroups:MTLSizeMake(1, 1, 1) threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
+//
+//			if (Pipeline && Pipeline->ComputePipelineState)
+//			{
+//				[Inner setComputePipelineState:Pipeline->ComputePipelineState];
+//			}
+//			
+//			if (ShaderBuffers.Buffers[0])
+//			{
+//				[Inner setBuffer:ShaderBuffers.Buffers[0] offset:ShaderBuffers.Offsets[0] atIndex:0];
+//			}
+//			else if (ShaderBuffers.Bytes[0])
+//			{
+//				[Inner setBytes:ShaderBuffers.Bytes[0] length:ShaderBuffers.Offsets[0] atIndex:0];
+//			}
+//			
+//			if (ShaderBuffers.Buffers[1])
+//			{
+//				[Inner setBuffer:ShaderBuffers.Buffers[1] offset:ShaderBuffers.Offsets[1] atIndex:1];
+//			}
+//			else if (ShaderBuffers.Bytes[1])
+//			{
+//				[Inner setBytes:ShaderBuffers.Bytes[1] length:ShaderBuffers.Offsets[1] atIndex:1];
+//			}
+//		}
+//		default:
+//		{
+//			break;
+//		}
+//	}
 }
 #endif
 

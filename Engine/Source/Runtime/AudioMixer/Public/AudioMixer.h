@@ -389,6 +389,9 @@ namespace Audio
 		/** Whether or not the platform supports realtime decompression. */
 		virtual bool SupportsRealtimeDecompression() const { return false; }
 
+		/** Whether or not the platform disables caching of decompressed PCM data (i.e. to save memory on fixed memory platforms) */
+		virtual bool DisablePCMAudioCaching() const { return false; }
+
 		/** Whether or not this platform has hardware decompression. */
 		virtual bool SupportsHardwareDecompression() const { return false; }
 

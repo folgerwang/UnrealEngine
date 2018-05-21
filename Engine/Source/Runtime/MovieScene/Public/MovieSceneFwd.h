@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Stats/Stats.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "MovieSceneSequenceID.h"
 
 UENUM()

@@ -102,23 +102,23 @@ static bool VerifyCompiledShader(GLuint Shader, const ANSICHAR* GlslCode )
 	{
 		bool const bCompiledOK = VerifyLinkedProgram(Shader);
 #if DEBUG_GL_SHADERS
-        if (!bCompiledOK && GlslCode)
-        {
-            UE_LOG(LogRHI,Error,TEXT("Shader:\n%s"),ANSI_TO_TCHAR(GlslCode));
-            
+		if (!bCompiledOK && GlslCode)
+		{
+			UE_LOG(LogRHI,Error,TEXT("Shader:\n%s"),ANSI_TO_TCHAR(GlslCode));
+			
 #if 0
-            const ANSICHAR *Temp = GlslCode;
-            
-            for ( int i = 0; i < 30 && (*Temp != '\0'); ++i )
-            {
-                FString Converted = ANSI_TO_TCHAR( Temp );
-                Converted.LeftChop( 256 );
-                
-                UE_LOG(LogRHI,Display,TEXT("%s"), *Converted );
-                Temp += Converted.Len();
-            }
+			const ANSICHAR *Temp = GlslCode;
+			
+			for ( int i = 0; i < 30 && (*Temp != '\0'); ++i )
+			{
+				FString Converted = ANSI_TO_TCHAR( Temp );
+				Converted.LeftChop( 256 );
+				
+				UE_LOG(LogRHI,Display,TEXT("%s"), *Converted );
+				Temp += Converted.Len();
+			}
 #endif
-        }
+		}
 #endif
 		return bCompiledOK;
 	}
@@ -468,14 +468,14 @@ GLint CompileCurrentShader(const GLuint Resource, const FAnsiCharArray& GlslCode
 	glCompileShader(Resource);
 
 	GLint CompileStatus = GL_TRUE;
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	// On Android the same shader is compiled with different hacks to find the right one(s) to apply so don't cache unless successful if currently testing them
 	if (FOpenGL::IsCheckingShaderCompilerHacks())
 	{
 		glGetShaderiv(Resource, GL_COMPILE_STATUS, &CompileStatus);
 	}
 #endif
-#if (PLATFORM_HTML5 || PLATFORM_ANDROID || PLATFORM_IOS) && !UE_BUILD_SHIPPING
+#if (PLATFORM_HTML5 || (PLATFORM_ANDROID && !PLATFORM_LUMINGL4) || PLATFORM_IOS) && !UE_BUILD_SHIPPING
 	if (!FOpenGL::IsCheckingShaderCompilerHacks())
 	{
 		glGetShaderiv(Resource, GL_COMPILE_STATUS, &CompileStatus);
@@ -633,7 +633,7 @@ ShaderType* CompileOpenGLShader(const TArray<uint8>& InShaderCode)
 		}
 	}
 
-    Shader = new ShaderType();
+	Shader = new ShaderType();
 	Shader->Resource = Resource;
 	Shader->Bindings = Header.Bindings;
 	Shader->UniformBuffersCopyInfo = Header.UniformBuffersCopyInfo;
@@ -679,20 +679,24 @@ void OPENGLDRV_API GetCurrentOpenGLShaderDeviceCapabilities(FOpenGLShaderDeviceC
 	}
 
 #elif PLATFORM_ANDROID
-	Capabilities.TargetPlatform = EOpenGLShaderTargetPlatform::OGLSTP_Android;
-	Capabilities.bUseES30ShadingLanguage = FOpenGL::UseES30ShadingLanguage();
-	Capabilities.bSupportsStandardDerivativesExtension = FOpenGL::SupportsStandardDerivativesExtension();
-	Capabilities.bSupportsRenderTargetFormat_PF_FloatRGBA = GSupportsRenderTargetFormat_PF_FloatRGBA;
-	Capabilities.bSupportsShaderFramebufferFetch = FOpenGL::SupportsShaderFramebufferFetch();
-	Capabilities.bRequiresARMShaderFramebufferFetchDepthStencilUndef = FOpenGL::RequiresARMShaderFramebufferFetchDepthStencilUndef();
-	Capabilities.bRequiresDontEmitPrecisionForTextureSamplers = FOpenGL::RequiresDontEmitPrecisionForTextureSamplers();
-	Capabilities.bSupportsShaderTextureLod = FOpenGL::SupportsShaderTextureLod();
-	Capabilities.bSupportsShaderTextureCubeLod = FOpenGL::SupportsShaderTextureCubeLod();
-	Capabilities.bRequiresTextureCubeLodEXTToTextureCubeLodDefine = FOpenGL::RequiresTextureCubeLodEXTToTextureCubeLodDefine();
-	Capabilities.bRequiresGLFragCoordVaryingLimitHack = FOpenGL::RequiresGLFragCoordVaryingLimitHack();
-	Capabilities.MaxVaryingVectors = FOpenGL::GetMaxVaryingVectors();
-	Capabilities.bRequiresTexture2DPrecisionHack = FOpenGL::RequiresTexture2DPrecisionHack();
-	Capabilities.bRequiresRoundFunctionHack = FOpenGL::RequiresRoundFunctionHack();
+	#if PLATFORM_LUMINGL4
+		Capabilities.TargetPlatform = EOpenGLShaderTargetPlatform::OGLSTP_Desktop;
+	#else
+		Capabilities.TargetPlatform = EOpenGLShaderTargetPlatform::OGLSTP_Android;
+		Capabilities.bUseES30ShadingLanguage = FOpenGL::UseES30ShadingLanguage();
+		Capabilities.bSupportsStandardDerivativesExtension = FOpenGL::SupportsStandardDerivativesExtension();
+		Capabilities.bSupportsRenderTargetFormat_PF_FloatRGBA = GSupportsRenderTargetFormat_PF_FloatRGBA;
+		Capabilities.bSupportsShaderFramebufferFetch = FOpenGL::SupportsShaderFramebufferFetch();
+		Capabilities.bRequiresARMShaderFramebufferFetchDepthStencilUndef = FOpenGL::RequiresARMShaderFramebufferFetchDepthStencilUndef();
+		Capabilities.bRequiresDontEmitPrecisionForTextureSamplers = FOpenGL::RequiresDontEmitPrecisionForTextureSamplers();
+		Capabilities.bSupportsShaderTextureLod = FOpenGL::SupportsShaderTextureLod();
+		Capabilities.bSupportsShaderTextureCubeLod = FOpenGL::SupportsShaderTextureCubeLod();
+		Capabilities.bRequiresTextureCubeLodEXTToTextureCubeLodDefine = FOpenGL::RequiresTextureCubeLodEXTToTextureCubeLodDefine();
+		Capabilities.bRequiresGLFragCoordVaryingLimitHack = FOpenGL::RequiresGLFragCoordVaryingLimitHack();
+		Capabilities.MaxVaryingVectors = FOpenGL::GetMaxVaryingVectors();
+		Capabilities.bRequiresTexture2DPrecisionHack = FOpenGL::RequiresTexture2DPrecisionHack();
+		Capabilities.bRequiresRoundFunctionHack = FOpenGL::RequiresRoundFunctionHack();
+	#endif // PLATFORM_LUMINGL4
 #elif PLATFORM_HTML5
 	Capabilities.TargetPlatform = EOpenGLShaderTargetPlatform::OGLSTP_HTML5;
 	Capabilities.bUseES30ShadingLanguage = FOpenGL::UseES30ShadingLanguage();
@@ -725,7 +729,7 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 
 	bool bUseES30ShadingLanguage = Capabilities.bUseES30ShadingLanguage;
 
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	FOpenGL::EImageExternalType ImageExternalType = FOpenGL::GetImageExternalType();
 
 	if (bEmitTextureExternal && ImageExternalType == FOpenGL::EImageExternalType::ImageExternal100)
@@ -744,9 +748,13 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 		bNeedsExtDrawInstancedDefine = !bES31;
 		if (bES31)
 		{
-			AppendCString(GlslCode, ES310Version);
-			AppendCString(GlslCode, "\n");
+			// @todo Lumin hack: This is needed for AEP on Lumin, so that some shaders compile that need version 320
+			AppendCString(GlslCode, "#version 320 es\n");
 			ReplaceCString(GlslCodeOriginal, ES310Version, "");
+
+			//AppendCString(GlslCode, ES310Version);
+			//AppendCString(GlslCode, "\n");
+			//ReplaceCString(GlslCodeOriginal, ES310Version, "");
 		}
 		else if (IsES2Platform(Capabilities.MaxRHIShaderPlatform))
 		{
@@ -762,6 +770,7 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 			}
 			ReplaceCString(GlslCodeOriginal, "#version 100", "");
 		}
+
 	}
 	else if (Capabilities.TargetPlatform == EOpenGLShaderTargetPlatform::OGLSTP_iOS)
 	{
@@ -798,7 +807,7 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 		{
 			AppendCString(GlslCode, "\n\n");
 
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 			switch (ImageExternalType)
 			{
 				case FOpenGL::EImageExternalType::ImageExternal100:
@@ -978,6 +987,9 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 					// to be right after the #version to ensure they are always correct.
 					MoveHashLines(GlslCode, GlslCodeOriginal);
 
+					// add #extension here for strict compilers complaining about order
+					AppendCString(GlslCode, "#extension GL_EXT_shader_texture_lod : enable\n");
+
 					AppendCString(GlslCode,
 						"#define texture2D texture \n"
 						"#define texture2DProj textureProj \n"
@@ -1000,6 +1012,9 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 						"#endif \n");
 
 					ReplaceCString(GlslCodeOriginal, "varying", "in");
+
+					// remove unneeded #extension added above (can cause compiler errors because of the location)
+					ReplaceCString(GlslCodeOriginal, "#extension GL_EXT_shader_texture_lod : enable", "");
 				}
 			}
 			else 
@@ -2165,13 +2180,13 @@ static FOpenGLSeparateShaderObjectCache& GetOpenGLSeparateShaderObjectCache()
 template<class TOpenGLStage0, class TOpenGLStage1>
 static void BindShaderStage(FOpenGLLinkedProgramConfiguration::ShaderInfo& ShaderInfo, TOpenGLStage0* NextStage, FOpenGLLinkedProgramConfiguration::ShaderInfo& PrevInfo, TOpenGLStage1* PrevStage)
 {
-    check(NextStage && PrevStage);
-    
-    GLuint NextStageResource = NextStage->Resource;
-    FOpenGLShaderBindings NextStageBindings = NextStage->Bindings;
-    
-    if ( FOpenGL::SupportsSeparateShaderObjects() )
-    {
+	check(NextStage && PrevStage);
+	
+	GLuint NextStageResource = NextStage->Resource;
+	FOpenGLShaderBindings NextStageBindings = NextStage->Bindings;
+	
+	if ( FOpenGL::SupportsSeparateShaderObjects() )
+	{
 		FOpenGLLinkedProgramConfiguration Config;
 		Config.Shaders[0] = PrevInfo;
 		Config.Shaders[1] = ShaderInfo;
@@ -2367,11 +2382,11 @@ static void BindShaderStage(FOpenGLLinkedProgramConfiguration::ShaderInfo& Shade
 			
 			GetOpenGLSeparateShaderObjectCache().Add(Config, PrevInfo);
 		}
-    }
-    
-    ShaderInfo.Bindings = NextStageBindings;
-    ShaderInfo.Resource = NextStageResource;
-    ShaderInfo.Hash = NextStage->GetHash();
+	}
+	
+	ShaderInfo.Bindings = NextStageBindings;
+	ShaderInfo.Resource = NextStageResource;
+	ShaderInfo.Hash = NextStage->GetHash();
 }
 
 // ============================================================================================================================
@@ -2434,42 +2449,42 @@ FBoundShaderStateRHIRef FOpenGLDynamicRHI::RHICreateBoundShaderState_OnThisThrea
 		{
 			if ( HullShader)
 			{
-                check(VertexShader);
-                BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_HULL], HullShader, Config.Shaders[CrossCompiler::SHADER_STAGE_VERTEX], VertexShader);
+				check(VertexShader);
+				BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_HULL], HullShader, Config.Shaders[CrossCompiler::SHADER_STAGE_VERTEX], VertexShader);
 			}
 			if ( DomainShader)
-            {
-                check(HullShader);
-                BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_DOMAIN], DomainShader, Config.Shaders[CrossCompiler::SHADER_STAGE_HULL], HullShader);
+			{
+				check(HullShader);
+				BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_DOMAIN], DomainShader, Config.Shaders[CrossCompiler::SHADER_STAGE_HULL], HullShader);
 			}
 		}
-        
-        if (GeometryShader)
-        {
-            check(DomainShader || VertexShader);
-            if ( DomainShader )
-            {
-                BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_GEOMETRY], GeometryShader, Config.Shaders[CrossCompiler::SHADER_STAGE_DOMAIN], DomainShader);
-            }
-            else
-            {
-                BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_GEOMETRY], GeometryShader, Config.Shaders[CrossCompiler::SHADER_STAGE_VERTEX], VertexShader);
-            }
-        }
-        
-        check(DomainShader || GeometryShader || VertexShader);
-        if ( DomainShader )
-        {
-            BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_PIXEL], PixelShader, Config.Shaders[CrossCompiler::SHADER_STAGE_DOMAIN], DomainShader);
-        }
-        else if ( GeometryShader )
-        {
-            BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_PIXEL], PixelShader, Config.Shaders[CrossCompiler::SHADER_STAGE_GEOMETRY], GeometryShader);
-        }
-        else
-        {
-            BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_PIXEL], PixelShader, Config.Shaders[CrossCompiler::SHADER_STAGE_VERTEX], VertexShader);
-        }
+		
+		if (GeometryShader)
+		{
+			check(DomainShader || VertexShader);
+			if ( DomainShader )
+			{
+				BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_GEOMETRY], GeometryShader, Config.Shaders[CrossCompiler::SHADER_STAGE_DOMAIN], DomainShader);
+			}
+			else
+			{
+				BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_GEOMETRY], GeometryShader, Config.Shaders[CrossCompiler::SHADER_STAGE_VERTEX], VertexShader);
+			}
+		}
+		
+		check(DomainShader || GeometryShader || VertexShader);
+		if ( DomainShader )
+		{
+			BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_PIXEL], PixelShader, Config.Shaders[CrossCompiler::SHADER_STAGE_DOMAIN], DomainShader);
+		}
+		else if ( GeometryShader )
+		{
+			BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_PIXEL], PixelShader, Config.Shaders[CrossCompiler::SHADER_STAGE_GEOMETRY], GeometryShader);
+		}
+		else
+		{
+			BindShaderStage(Config.Shaders[CrossCompiler::SHADER_STAGE_PIXEL], PixelShader, Config.Shaders[CrossCompiler::SHADER_STAGE_VERTEX], VertexShader);
+		}
 
 		// Check if we already have such a program in released programs cache. Use it, if we do.
 		FOpenGLLinkedProgram* LinkedProgram = 0;
@@ -3203,7 +3218,8 @@ void FOpenGLProgramBinaryCache::Initialize()
 	if (bEnableCache && FOpenGL::SupportsProgramBinary())
 	{
 		FString CacheFolderPath;
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && USE_ANDROID_FILE
+		// @todo Lumin: Use that GetPathForExternalWrite or something?
 		extern FString GExternalFilePath;
 		CacheFolderPath = GExternalFilePath / TEXT("ProgramBinaryCache");
 			
@@ -3245,7 +3261,7 @@ void FOpenGLProgramBinaryCache::Shutdown()
 bool FOpenGLProgramBinaryCache::DeferShaderCompilation(GLuint Shader, const TArray<ANSICHAR>& GlslCode)
 {
 	bool bCanDeferShaderCompilation = true;
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	bCanDeferShaderCompilation = !FOpenGL::IsCheckingShaderCompilerHacks();
 #endif
 	

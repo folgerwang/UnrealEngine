@@ -19,14 +19,14 @@ const FLinearColor FCommonChannelData::GreenChannelColor(0.0f, 0.7f, 0.0f, 0.5f)
 const FLinearColor FCommonChannelData::BlueChannelColor(0.0f, 0.0f, 0.7f, 0.5f);
 
 
-FMovieSceneChannelEditorData::FMovieSceneChannelEditorData()
+FMovieSceneChannelMetaData::FMovieSceneChannelMetaData()
 	: bEnabled(true)
 	, bCanCollapseToTrack(true)
 	, SortOrder(0)
 	, Name(NAME_None)
 {}
 
-FMovieSceneChannelEditorData::FMovieSceneChannelEditorData(FName InName, FText InDisplayText, FText InGroup)
+FMovieSceneChannelMetaData::FMovieSceneChannelMetaData(FName InName, FText InDisplayText, FText InGroup)
 	: bEnabled(true)
 	, bCanCollapseToTrack(true)
 	, SortOrder(0)
@@ -35,7 +35,7 @@ FMovieSceneChannelEditorData::FMovieSceneChannelEditorData(FName InName, FText I
 	, Group(InGroup)
 {}
 
-void FMovieSceneChannelEditorData::SetIdentifiers(FName InName, FText InDisplayText, FText InGroup)
+void FMovieSceneChannelMetaData::SetIdentifiers(FName InName, FText InDisplayText, FText InGroup)
 {
 	Group = InGroup;
 	Name = InName;

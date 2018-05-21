@@ -100,6 +100,10 @@ private:
 	D3D12_RESOURCE_STATES DefaultResourceState;
 	D3D12_RESOURCE_STATES ReadableState;
 	D3D12_RESOURCE_STATES WritableState;
+#ifdef PLATFORM_SUPPORTS_RESOURCE_COMPRESSION
+	D3D12_RESOURCE_STATES CompressedState;
+#endif
+
 	bool bRequiresResourceStateTracking;
 	bool bDepthStencil;
 	bool bDeferDelete;
@@ -162,6 +166,10 @@ public:
 	D3D12_RESOURCE_STATES GetDefaultResourceState() const { check(!bRequiresResourceStateTracking); return DefaultResourceState; }
 	D3D12_RESOURCE_STATES GetWritableState() const { return WritableState; }
 	D3D12_RESOURCE_STATES GetReadableState() const { return ReadableState; }
+#ifdef PLATFORM_SUPPORTS_RESOURCE_COMPRESSION
+	D3D12_RESOURCE_STATES GetCompressedState() const { return CompressedState; }
+	void SetCompressedState(D3D12_RESOURCE_STATES State) { CompressedState = State; }
+#endif
 	bool RequiresResourceStateTracking() const { return bRequiresResourceStateTracking; }
 
 	void SetName(const TCHAR* Name)
@@ -273,6 +281,10 @@ private:
 		const FD3D12ResourceTypeHelper Type(Desc, HeapType);
 
 		bDepthStencil = Type.bDSV;
+
+#ifdef PLATFORM_SUPPORTS_RESOURCE_COMPRESSION
+		SetCompressedState(D3D12_RESOURCE_STATE_COMMON);
+#endif
 
 		if (Type.bWritable)
 		{
@@ -730,11 +742,6 @@ public:
 		DynamicSRV = InSRV;
 	}
 
-	FD3D12ShaderResourceView* GetDynamicSRV() const
-	{
-		return DynamicSRV;
-	}
-
 	// IRefCountedObject interface.
 	virtual uint32 AddRef() const
 	{
@@ -894,4 +901,9 @@ template<>
 struct TD3D12ResourceTraits<FRHIGraphicsPipelineState>
 {
 	typedef FD3D12GraphicsPipelineState TConcreteType;
+};
+template<>
+struct TD3D12ResourceTraits<FRHIComputePipelineState>
+{
+	typedef FD3D12ComputePipelineState TConcreteType;
 };

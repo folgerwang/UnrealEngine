@@ -126,11 +126,11 @@ void FMovieSceneParticleSectionTemplate::Evaluate(const FMovieSceneEvaluationOpe
 	{
 		TRange<FFrameNumber> PlaybackRange = Context.GetFrameNumberRange();
 
-		TMovieSceneChannel<const uint8> ChannelInterface = ParticleKeys.GetInterface();
+		TMovieSceneChannelData<const uint8> ChannelData = ParticleKeys.GetData();
 
 		// Find the index of the key handle that exists before this time
-		TArrayView<const FFrameNumber> Times = ChannelInterface.GetTimes();
-		TArrayView<const uint8>        Values = ChannelInterface.GetValues();
+		TArrayView<const FFrameNumber> Times = ChannelData.GetTimes();
+		TArrayView<const uint8>        Values = ChannelData.GetValues();
 
 		const int32 LastKeyIndex = Algo::UpperBound(Times, PlaybackRange.GetUpperBoundValue())-1;
 		if (LastKeyIndex >= 0 && PlaybackRange.Contains(Times[LastKeyIndex]))

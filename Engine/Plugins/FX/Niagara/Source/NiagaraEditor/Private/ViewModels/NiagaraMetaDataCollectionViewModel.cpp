@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraMetaDataCollectionViewModel.h"
 #include "NiagaraTypes.h"
@@ -16,12 +16,39 @@
 #define LOCTEXT_NAMESPACE "NiagaraMetaDataCollectionViewModel"
 
 FNiagaraMetaDataCollectionViewModel::FNiagaraMetaDataCollectionViewModel()
+	: ModuleGraph(nullptr)
+	, bNeedsRefresh(false)
+	, bNeedsNotify(false)
 {
-	ModuleGraph = nullptr;
+}
+
+void FNiagaraMetaDataCollectionViewModel::Tick(float DeltaTime)
+{
+	if (bNeedsRefresh)
+	{
+		Refresh(bNeedsNotify);
+		bNeedsRefresh = false;
+		bNeedsNotify = false;
+	}
+}
+
+bool FNiagaraMetaDataCollectionViewModel::IsTickable() const
+{
+	return true;
+}
+
+TStatId FNiagaraMetaDataCollectionViewModel::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(FNiagaraMetaDataCollectionViewModel, STATGROUP_Tickables);
 }
 
 void FNiagaraMetaDataCollectionViewModel::SetGraph(UNiagaraGraph* InGraph)
 {
+	if (ModuleGraph != nullptr)
+	{
+		Cleanup();
+	}
+
 	if (InGraph == nullptr)
 	{
 		return;
@@ -29,36 +56,10 @@ void FNiagaraMetaDataCollectionViewModel::SetGraph(UNiagaraGraph* InGraph)
 	// now build variables
 	ModuleGraph = InGraph;
 	
-	// Get the variable metadata from the graph
-	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
-	TArray<UNiagaraNode*> NiagaraNodes;
-	ModuleGraph->GetNodesOfClass<UNiagaraNode>(NiagaraNodes);
-	for (UEdGraphNode* GraphNode : NiagaraNodes)
-	{
-		for (UEdGraphPin* CurrentPin : GraphNode->Pins)
-		{
-			// parse all pins, add all valid metadata to object array.
-			FNiagaraVariable NiagaraVariable = Schema->PinToNiagaraVariable(CurrentPin, true);
-			if (NiagaraVariable.IsInNameSpace(FNiagaraParameterHandle::ModuleNamespace.ToString()) && !FNiagaraConstants::IsNiagaraConstant(NiagaraVariable))
-			{
-				TSharedPtr<FNiagaraMetaDataViewModel> MetadataViewModel = GetMetadataViewModelForVariable(NiagaraVariable);
-				bool bNeedsToAdd = false;
-				if (!MetadataViewModel.IsValid())
-				{
-					MetadataViewModel = TSharedPtr<FNiagaraMetaDataViewModel>(new FNiagaraMetaDataViewModel(NiagaraVariable, *ModuleGraph));
-					bNeedsToAdd = true;
-				}
-				MetadataViewModel->AssociateNode(CurrentPin->GetOwningNode());
-				MetadataViewModel->OnMetadataChanged().AddRaw(this, &FNiagaraMetaDataCollectionViewModel::BroadcastChanged);
-				if (bNeedsToAdd)
-				{
-					MetaDataViewModels.Add(MetadataViewModel.ToSharedRef());
-				}
-			}
-		}
-	}
+	Refresh(false);
 
 	OnGraphChangedHandle = ModuleGraph->AddOnGraphChangedHandler(FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraMetaDataCollectionViewModel::OnGraphChanged));
+	OnRecompileHandle = ModuleGraph->AddOnGraphNeedsRecompileHandler(FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraMetaDataCollectionViewModel::OnGraphChanged));
 }
 
 TSharedPtr<FNiagaraMetaDataViewModel> FNiagaraMetaDataCollectionViewModel::GetMetadataViewModelForVariable(FNiagaraVariable InVariable)
@@ -76,9 +77,15 @@ TArray<TSharedRef<FNiagaraMetaDataViewModel>>& FNiagaraMetaDataCollectionViewMod
 	return MetaDataViewModels;
 }
 
+void FNiagaraMetaDataCollectionViewModel::RequestRefresh(bool bNotifyGraph)
+{
+	bNeedsRefresh = true;
+	bNeedsNotify = bNotifyGraph;
+}
+
 void FNiagaraMetaDataCollectionViewModel::OnGraphChanged(const struct FEdGraphEditAction& InAction)
 {
-	Reload(); 
+	RequestRefresh(false);
 } 
 
 void FNiagaraMetaDataCollectionViewModel::BroadcastChanged()
@@ -86,25 +93,86 @@ void FNiagaraMetaDataCollectionViewModel::BroadcastChanged()
 	OnCollectionChangedDelegate.Broadcast();
 }
 
-void FNiagaraMetaDataCollectionViewModel::Reload()
+void FNiagaraMetaDataCollectionViewModel::Refresh(bool bNotifyGraph)
 {
-	Cleanup();
-	SetGraph(ModuleGraph);
+	if (!ModuleGraph)
+	{
+		return;
+	}
+
+	// Get the variable metadata from the graph
+	MetaDataViewModels.Empty();
+	for (auto& MetadataElement : ModuleGraph->GetAllMetaData())
+	{
+		TSharedPtr<FNiagaraMetaDataViewModel> MetadataViewModel = GetMetadataViewModelForVariable(MetadataElement.Key);
+		if (!MetadataViewModel.IsValid())
+		{
+			MetadataViewModel = MakeShared<FNiagaraMetaDataViewModel>(MetadataElement.Key, *ModuleGraph);
+			MetaDataViewModels.Add(MetadataViewModel.ToSharedRef());
+		}
+
+		FNiagaraVariableMetaData& Metadata = MetadataElement.Value;
+		if (Metadata.ReferencerNodes.Num() > 0)
+		{
+			UNiagaraNode* Node = Cast<UNiagaraNode>(Metadata.ReferencerNodes[0].Get());
+			if (Node)
+			{
+				MetadataViewModel->AssociateNode(Node);
+			}
+		}
+	}
+	SortViewModels();
+	if (bNotifyGraph)
+	{
+		ModuleGraph->NotifyGraphNeedsRecompile();
+	}
 	BroadcastChanged();
+}
+
+void FNiagaraMetaDataCollectionViewModel::SortViewModels()
+{
+	TMap<FString, int32> CategoryPriorityMap;
+	for (auto Metadata : MetaDataViewModels)
+	{
+		Metadata->RefreshMetaDataValue();
+		FString CategoryName = Metadata->GetGraphMetaData()->CategoryName.ToString();
+		if (!CategoryName.IsEmpty() && 
+			(!CategoryPriorityMap.Contains(CategoryName) || (CategoryPriorityMap.Contains(CategoryName) && CategoryPriorityMap[CategoryName] > Metadata->GetEditorSortPriority())))
+		{
+			CategoryPriorityMap.Add(CategoryName, Metadata->GetEditorSortPriority());
+		}
+	}
+	auto SortVars = [&](const TSharedRef<FNiagaraMetaDataViewModel>& A, const TSharedRef<FNiagaraMetaDataViewModel>& B)
+	{
+		int32 CategoryPriorityA = CategoryPriorityMap.Contains(A->GetGraphMetaData()->CategoryName.ToString()) ? CategoryPriorityMap[A->GetGraphMetaData()->CategoryName.ToString()] : MIN_int32;
+		int32 CategoryPriorityB = CategoryPriorityMap.Contains(B->GetGraphMetaData()->CategoryName.ToString()) ? CategoryPriorityMap[B->GetGraphMetaData()->CategoryName.ToString()] : MIN_int32;
+		if (CategoryPriorityA < CategoryPriorityB)
+		{
+			return true;
+		}
+		else if (CategoryPriorityA > CategoryPriorityB)
+		{
+			return false;
+		}
+		if (A->GetEditorSortPriority() < B->GetEditorSortPriority())
+		{
+			return true;
+		}
+		else if (A->GetEditorSortPriority() > B->GetEditorSortPriority())
+		{
+			return false;
+		}
+		//If equal priority, sort alphabetically.
+		return A->GetName().ToString() < B->GetName().ToString();
+	};
+	MetaDataViewModels.Sort(SortVars);
 }
 
 void FNiagaraMetaDataCollectionViewModel::Cleanup()
 {
-	for (int32 i = 0; i < MetaDataViewModels.Num(); i++)
-	{
-		FNiagaraMetaDataViewModel* MetaDataViewModel = (FNiagaraMetaDataViewModel*)(&MetaDataViewModels[i].Get());
-		if (MetaDataViewModel != nullptr)
-		{
-			MetaDataViewModel->OnMetadataChanged().RemoveAll(this);
-		}
-	}
 	MetaDataViewModels.Empty();
 	ModuleGraph->RemoveOnGraphChangedHandler(OnGraphChangedHandle);
+	ModuleGraph->RemoveOnGraphNeedsRecompileHandler(OnRecompileHandle);
 }
 
 FNiagaraMetaDataCollectionViewModel::~FNiagaraMetaDataCollectionViewModel()

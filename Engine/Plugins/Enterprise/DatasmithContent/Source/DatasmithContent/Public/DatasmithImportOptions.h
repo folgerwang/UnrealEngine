@@ -37,6 +37,19 @@ enum class EDatasmithImportAssetConflictPolicy : uint8
 };
 
 UENUM()
+enum class EDatasmithImportActorPolicy : uint8
+{
+	/** Import new actors, update and delete existing actors. Doesn't recreate actors that exist in the source both not in the destination. */
+	Update,
+
+	/** Same as update but recreates deleted actors so that the source and destination are the same. */
+	Full,
+
+	/** Skip importing a certain type of actors */
+	Ignore,
+};
+
+UENUM()
 enum class EDatasmithImportMaterialQuality : uint8
 {
 	UseNoFresnelCurves,
@@ -105,9 +118,11 @@ struct DATASMITHCONTENT_API FDatasmithStaticMeshImportOptions
 
 	FDatasmithStaticMeshImportOptions();
 
+	/** Minimum resolution for auto-generated lightmap UVs */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lightmap)
 	EDatasmithImportLightmapMin MinLightmapResolution;
 
+	/** Maximum resolution for auto-generated lightmap UVs */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lightmap)
 	EDatasmithImportLightmapMax MaxLightmapResolution;
 
@@ -125,6 +140,23 @@ public:
 };
 
 USTRUCT(BlueprintType)
+struct DATASMITHCONTENT_API FDatasmithReimportOptions
+{
+	GENERATED_BODY()
+
+public:
+	FDatasmithReimportOptions();
+
+	/** Specifies whether or not to update Datasmith Scene Actors in the current Level */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SyncCurrentLevelActors", meta = (DisplayName = "Datasmith Scene Actors"))
+	bool bUpdateActors;
+
+	/** Specifies whether or not to add back Actors you've deleted from the current Level */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SyncCurrentLevelActors", meta = (DisplayName = "Re-Spawn Deleted Actors", EditCondition = "bUpdateActors"))
+	bool bRespawnDeletedActors;
+};
+
+USTRUCT(BlueprintType)
 struct DATASMITHCONTENT_API FDatasmithImportBaseOptions
 {
 	GENERATED_USTRUCT_BODY()
@@ -132,29 +164,29 @@ struct DATASMITHCONTENT_API FDatasmithImportBaseOptions
 	FDatasmithImportBaseOptions();
 
 	/** Specifies where to put the content */
-	UPROPERTY(BlueprintReadWrite, Category = Import)
-	EDatasmithImportScene SceneHandling; // Not displayed
+	UPROPERTY(BlueprintReadWrite, Category = Import, Transient)
+	EDatasmithImportScene SceneHandling; // Not displayed, not saved
 
-	/** Specifies whether geometry are to be imported or not */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Include, meta = (DisplayName = "Geometry"))
+	/** Specifies whether or not to import geometry */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Geometry"))
 	bool bIncludeGeometry;
 
-	/** Specifies whether materials and textures are to be imported or not */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Include, meta = (DisplayName = "Materials & Textures"))
+	/** Specifies whether or not to import materials and textures */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Materials & Textures"))
 	bool bIncludeMaterial;
 
-	/** Specifies whether lights are to be imported or not */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Include, meta = (DisplayName = "Lights"))
+	/** Specifies whether or not to import lights */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Lights"))
 	bool bIncludeLight;
 
-	/** Specifies whether cameras are to be imported or not */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Include, meta = (DisplayName = "Cameras"))
+	/** Specifies whether or not to import cameras */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Cameras"))
 	bool bIncludeCamera;
 
-	UPROPERTY(BlueprintReadWrite, AdvancedDisplay, Category = Include, meta = (ShowOnlyInnerProperties))
+	UPROPERTY(BlueprintReadWrite, AdvancedDisplay, Category = Process, meta = (ShowOnlyInnerProperties))
 	FDatasmithAssetImportOptions AssetOptions;
 
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = Include, meta = (ShowOnlyInnerProperties))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = Process, meta = (ShowOnlyInnerProperties))
 	FDatasmithStaticMeshImportOptions StaticMeshOptions;
 };
 
@@ -176,7 +208,7 @@ struct DATASMITHCONTENT_API FDatasmithTessellationOptions
 	 * The lower the value the more triangles.
 	 * Default value is 0.2.
 	 */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "Geometry & Tessellation Options", meta = (Units = cm, ToolTip = "Maximum distance between a generated triangle and the original surface. Smaller values increase triangles count.", ClampMin = "0.0"))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "Geometry & Tessellation Options", meta = (Units = cm, ToolTip = "Maximum distance between any generated triangle and the original surface. Smaller values make more triangles.", ClampMin = "0.0"))
 	float ChordTolerance;
 
 	/**
@@ -185,7 +217,7 @@ struct DATASMITHCONTENT_API FDatasmithTessellationOptions
 	 * Value of 0 means no constraint on length of edges
 	 * Default value is 0.
 	 */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "Geometry & Tessellation Options", meta = (Units = cm, DisplayName = "Max Edge Length", ToolTip = "Maximum length of an edge in the generated triangles. Smaller values increase triangles count.", ClampMin = "0.0"))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "Geometry & Tessellation Options", meta = (Units = cm, DisplayName = "Max Edge Length", ToolTip = "Maximum length of any edge in the generated triangles. Smaller values make more triangles.", ClampMin = "0.0"))
 	float MaxEdgeLength;
 
 	/**
@@ -193,7 +225,7 @@ struct DATASMITHCONTENT_API FDatasmithTessellationOptions
 	 * The angle is expressed in degree. The smaller the more triangles are generated.
 	 * Default value is 20 degrees.
 	 */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "Geometry & Tessellation Options", meta = (Units = deg, ToolTip = "Maximum angle between adjacent triangles generated from a surface. Smaller values increase triangles count.", ClampMin = "0.0", ClampMax = "90.0"))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "Geometry & Tessellation Options", meta = (Units = deg, ToolTip = "Maximum angle between adjacent triangles. Smaller values make more triangles.", ClampMin = "0.0", ClampMax = "90.0"))
 	float NormalTolerance;
 
 public:
@@ -203,7 +235,7 @@ public:
 	}
 };
 
-UCLASS(config = EditorPerProjectUserSettings, HideCategories = ("TessellationOff"))
+UCLASS(config = EditorPerProjectUserSettings, HideCategories = ("NotVisible"))
 class DATASMITHCONTENT_API UDatasmithImportOptions : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -223,15 +255,19 @@ public:
 
 	/** Specifies what to do when actor conflicts */
 	UPROPERTY(Transient, AdvancedDisplay)
-	EDatasmithImportAssetConflictPolicy ActorConflictPolicy; // Not displayed. Kept for future use
+	EDatasmithImportActorPolicy StaticMeshActorImportPolicy; // Not displayed. Kept for future use
 
 	/** Specifies what to do when light conflicts */
 	UPROPERTY(Transient, AdvancedDisplay)
-	EDatasmithImportAssetConflictPolicy LightConflictPolicy; // Not displayed. Kept for future use
+	EDatasmithImportActorPolicy LightImportPolicy; // Not displayed. Kept for future use
 
 	/** Specifies what to do when material conflicts */
 	UPROPERTY(Transient, AdvancedDisplay)
-	EDatasmithImportAssetConflictPolicy CameraConflictPolicy; // Not displayed. Kept for future use
+	EDatasmithImportActorPolicy CameraImportPolicy; // Not displayed. Kept for future use
+
+	/** Specifies what to do when actor conflicts */
+	UPROPERTY(Transient, AdvancedDisplay)
+	EDatasmithImportActorPolicy OtherActorImportPolicy; // Not displayed. Kept for future use
 
 	/** Specifies what to do when material conflicts */
 	UPROPERTY(Transient, AdvancedDisplay)
@@ -243,8 +279,12 @@ public:
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "Options", meta = (ShowOnlyInnerProperties))
 	FDatasmithImportBaseOptions BaseOptions;
 
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "TessellationOff", meta = (ShowOnlyInnerProperties))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "NotVisible", meta = (ShowOnlyInnerProperties))
 	FDatasmithTessellationOptions TessellationOptions;
+
+	/** Options specific to the reimport process */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "NotVisible", meta = (ShowOnlyInnerProperties))
+	FDatasmithReimportOptions ReimportOptions;
 
 	/** Name of the imported file without its path */
 	FString FileName;
@@ -253,5 +293,5 @@ public:
 	/** Whether to use or not the same options when loading multiple files. Default false */
 	bool bUseSameOptions;
 
-	void UpdateNotDisplayedConfig();
+	void UpdateNotDisplayedConfig( bool bIsAReimport );
 };

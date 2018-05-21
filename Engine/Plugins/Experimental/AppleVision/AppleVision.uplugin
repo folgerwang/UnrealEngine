@@ -1,0 +1,43 @@
+{
+	"FileVersion" : 3,
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"FriendlyName" : "Apple Vision API",
+	"Description" : "Allows you to issue computer vision api calls for textures (camera data or render targets)",
+	"Category" : "Experimental",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"EnabledByDefault" : true,
+	"CanContainContent" : false,
+	"IsBetaVersion" : true,
+	"Installed" : false,
+	"Modules" :
+	[
+		{
+			"Name" : "AppleVision",
+			"Type" : "Runtime",
+			"LoadingPhase" : "Default"
+		},
+		{
+			"Name" : "AppleVisionBlueprintSupport",
+			"Type" : "Developer",
+			"LoadingPhase" : "Default",
+			"WhitelistPlatforms" :
+			[
+				"Windows",
+				"Mac",
+				"Linux"
+			]
+		}
+	],
+    "Plugins":
+    [
+        {
+            "Name": "AppleImageUtils",
+            "Enabled": true
+        }
+    ]
+}

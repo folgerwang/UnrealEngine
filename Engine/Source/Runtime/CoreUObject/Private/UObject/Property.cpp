@@ -278,6 +278,17 @@ struct TStructOpsTypeTraits<FTimespan> : public TStructOpsTypeTraitsBase2<FTimes
 IMPLEMENT_STRUCT(Timespan);
 
 template<>
+struct TStructOpsTypeTraits<FFrameNumber> : public TStructOpsTypeTraitsBase2<FFrameNumber>
+{
+	enum
+	{
+		WithSerializer = true,
+		WithIdenticalViaEquality = true
+	};
+};
+IMPLEMENT_STRUCT(FrameNumber);
+
+template<>
 struct TStructOpsTypeTraits<FSoftObjectPath> : public TStructOpsTypeTraitsBase2<FSoftObjectPath>
 {
 	enum

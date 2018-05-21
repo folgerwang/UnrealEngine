@@ -291,6 +291,8 @@ void UAnimGraphNode_BlendListByEnum::Serialize(FArchive& Ar)
 
 void UAnimGraphNode_BlendListByEnum::ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog)
 {
+	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
+
 	if (BoundEnum == NULL)
 	{
 		MessageLog.Error(TEXT("@@ references an unknown enum; please delete the node and recreate it"), this);

@@ -159,9 +159,8 @@ public:
 	template <typename FmtType, typename... Types>
 	inline void RecordEventf(int32 CategoryIndex, const FmtType& Fmt, Types... Args)
 	{
-		// Intentional merge conflict - uncomment when we merge from UE4/main 
-		//static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
-		//static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FCsvProfiler::RecordEventf");
+		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
+		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FCsvProfiler::RecordEventf");
 		if (!bCapturing)
 		{
 			return;

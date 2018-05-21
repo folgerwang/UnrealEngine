@@ -52,9 +52,15 @@ void Main(
 #endif
 
 	float4 WorldPos = VertexFactoryGetWorldPosition(Input);
+
 	ISOLATE
 	{
+	#if ODS_CAPTURE
+		float3 ODS = OffsetODS(WorldPos.xyz, ResolvedView.TranslatedWorldCameraOrigin.xyz, ResolvedView.StereoIPD);
+		OutPosition = INVARIANT(mul(float4(WorldPos.xyz + ODS, 1.0), ResolvedView.TranslatedWorldToClip));
+	#else
 		OutPosition = INVARIANT(mul(WorldPos, ResolvedView.TranslatedWorldToClip));
+	#endif
 	}
 
 	#if INSTANCED_STEREO && !MULTI_VIEW

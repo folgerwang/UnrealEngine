@@ -33,10 +33,17 @@
 
 extern FMacMallocCrashHandler* GCrashMalloc;
 
-UpdateCachedMacMenuStateProc FPlatformApplicationMisc::UpdateCachedMacMenuState = nullptr;
+MacApplicationExternalCb FPlatformApplicationMisc::UpdateCachedMacMenuStateCb = nullptr;
+MacApplicationExternalCb FPlatformApplicationMisc::PostInitMacMenuStartupCb = nullptr;
+MacApplicationExternalCbOneBool FPlatformApplicationMisc::UpdateApplicationMenuCb = nullptr;
+MacApplicationExternalCbOneBool FPlatformApplicationMisc::UpdateWindowMenuCb = nullptr;
+MacApplicationExternalCb FPlatformApplicationMisc::LanguageChangedCb = nullptr;
+
 bool FPlatformApplicationMisc::bChachedMacMenuStateNeedsUpdate = true;
+bool FPlatformApplicationMisc::bLanguageChanged = false;
 bool FPlatformApplicationMisc::bMacApplicationModalMode = false;
 bool FPlatformApplicationMisc::bIsHighResolutionCapable = true;
+
 id<NSObject> FPlatformApplicationMisc::CommandletActivity = nil;
 
 extern CORE_API TFunction<EAppReturnType::Type(EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption)> MessageBoxExtCallback;
@@ -279,86 +286,11 @@ void FMacPlatformApplicationMisc::PostInit()
 		// Now that the engine is initialized we need to recalculate display work areas etc. that depend on DPI settings
 		FMacApplication::OnDisplayReconfiguration(kCGNullDirectDisplay, kCGDisplayDesktopShapeChangedFlag, MacApplication);
 	}
-
-	// Setup the app menu in menu bar
-	const bool bIsBundledApp = [[[NSBundle mainBundle] bundlePath] hasSuffix:@".app"];
-	if (bIsBundledApp)
+	
+	if(PostInitMacMenuStartupCb != nullptr)
 	{
-        FCocoaMenu* MenuBar = [[FCocoaMenu new] autorelease];
-        FCocoaMenu* AppMenu = [[FCocoaMenu new] autorelease];
-        NSMenuItem* AppMenuItem = [[NSMenuItem new] autorelease];
-        [AppMenuItem setTitle:@"AppMenuItem"];
-        [MenuBar addItem:AppMenuItem];
-        [AppMenuItem setSubmenu:AppMenu];
-        [NSApp setMainMenu:MenuBar];
-        
-        NSString* AppName = GIsEditor ? @"Unreal Editor" : FString(FApp::GetProjectName()).GetNSString();
-        NSMenu* MainMenu = [NSApp mainMenu];
-        SEL ShowAboutSelector = [[NSApp delegate] respondsToSelector:@selector(showAboutWindow:)] ? @selector(showAboutWindow:) : @selector(orderFrontStandardAboutPanel:);
-        NSMenuItem* AboutItem = [[[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"About %@", AppName] action:ShowAboutSelector keyEquivalent:@""] autorelease];
-        NSMenuItem* PreferencesItem = GIsEditor ? [[[NSMenuItem alloc] initWithTitle:@"Preferences..." action:@selector(showPreferencesWindow:) keyEquivalent:@","] autorelease] : nil;
-        NSMenuItem* HideItem = [[[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"Hide %@", AppName] action:@selector(hide:) keyEquivalent:@"h"] autorelease];
-        NSMenuItem* HideOthersItem = [[[NSMenuItem alloc] initWithTitle:@"Hide Others" action:@selector(hideOtherApplications:) keyEquivalent:@"h"] autorelease];
-        [HideOthersItem setKeyEquivalentModifierMask:NSEventModifierFlagCommand | NSEventModifierFlagOption];
-        NSMenuItem* ShowAllItem = [[[NSMenuItem alloc] initWithTitle:@"Show All" action:@selector(unhideAllApplications:) keyEquivalent:@""] autorelease];
-        
-        SEL RequestQuitSelector = [[NSApp delegate] respondsToSelector:@selector(requestQuit:)] ? @selector(requestQuit:) : @selector(terminate:);
-        NSMenuItem* QuitItem = [[[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"Quit %@", AppName] action:RequestQuitSelector keyEquivalent:@"q"] autorelease];
-        
-        NSMenuItem* ServicesItem = [[NSMenuItem new] autorelease];
-        FCocoaMenu* ServicesMenu = [[FCocoaMenu new] autorelease];
-        [ServicesItem setTitle:@"Services"];
-        [ServicesItem setSubmenu:ServicesMenu];
-        [NSApp setServicesMenu:ServicesMenu];
-        [AppMenu addItem:AboutItem];
-        [AppMenu addItem:[NSMenuItem separatorItem]];
-        if (PreferencesItem)
-        {
-            [AppMenu addItem:PreferencesItem];
-            [AppMenu addItem:[NSMenuItem separatorItem]];
-        }
-        [AppMenu addItem:ServicesItem];
-        [AppMenu addItem:[NSMenuItem separatorItem]];
-        [AppMenu addItem:HideItem];
-        [AppMenu addItem:HideOthersItem];
-        [AppMenu addItem:ShowAllItem];
-        [AppMenu addItem:[NSMenuItem separatorItem]];
-        [AppMenu addItem:QuitItem];
-
-		if (FApp::IsGame())
-		{
-			NSMenu* ViewMenu = [[FCocoaMenu new] autorelease];
-			[ViewMenu setTitle:@"View"];
-			NSMenuItem* ViewMenuItem = [[NSMenuItem new] autorelease];
-			[ViewMenuItem setSubmenu:ViewMenu];
-			[[NSApp mainMenu] addItem:ViewMenuItem];
-
-			NSMenuItem* ToggleFullscreenItem = [[[NSMenuItem alloc] initWithTitle:@"Enter Full Screen" action:@selector(toggleFullScreen:) keyEquivalent:@"f"] autorelease];
-			[ToggleFullscreenItem setKeyEquivalentModifierMask:NSEventModifierFlagCommand | NSEventModifierFlagControl];
-			[ViewMenu addItem:ToggleFullscreenItem];
-		}
-		
-        NSMenu* WindowMenu = [NSApp windowsMenu];
-        if (!WindowMenu)
-        {
-            WindowMenu = [[FCocoaMenu new] autorelease];
-            [WindowMenu setTitle:@"Window"];
-            NSMenuItem* WindowMenuItem = [[NSMenuItem new] autorelease];
-            [WindowMenuItem setSubmenu:WindowMenu];
-            [[NSApp mainMenu] addItem:WindowMenuItem];
-            [NSApp setWindowsMenu:WindowMenu];
-        }
-        
-        NSMenuItem* MinimizeItem = [[[NSMenuItem alloc] initWithTitle:@"Minimize" action:@selector(miniaturize:) keyEquivalent:@"m"] autorelease];
-        NSMenuItem* ZoomItem = [[[NSMenuItem alloc] initWithTitle:@"Zoom" action:@selector(zoom:) keyEquivalent:@""] autorelease];
-        NSMenuItem* CloseItem = [[[NSMenuItem alloc] initWithTitle:@"Close" action:@selector(performClose:) keyEquivalent:@"w"] autorelease];
-        NSMenuItem* BringAllToFrontItem = [[[NSMenuItem alloc] initWithTitle:@"Bring All to Front" action:@selector(arrangeInFront:) keyEquivalent:@""] autorelease];
-        [WindowMenu addItem:MinimizeItem];
-        [WindowMenu addItem:ZoomItem];
-        [WindowMenu addItem:CloseItem];
-        [WindowMenu addItem:[NSMenuItem separatorItem]];
-        [WindowMenu addItem:BringAllToFrontItem];
-        [WindowMenu addItem:[NSMenuItem separatorItem]];
+		// Initial menu bar setup
+		PostInitMacMenuStartupCb();
 	}
 
 	if (!MacApplication)
@@ -366,6 +298,15 @@ void FMacPlatformApplicationMisc::PostInit()
 		// No MacApplication means that app is a dedicated server, commandline tool or the editor running a commandlet. In these cases we don't want macOS to put our app into App Nap mode.
 		CommandletActivity = [[NSProcessInfo processInfo] beginActivityWithOptions:NSActivityUserInitiated reason:IsRunningCommandlet() ? @"Running commandlet" : @"Running dedicated server"];
 		[CommandletActivity retain];
+	}
+	
+	if(GIsEditor)
+	{
+		FInternationalization::Get().OnCultureChanged().AddLambda([]()
+		{
+			bLanguageChanged = true;
+			bChachedMacMenuStateNeedsUpdate = true;
+		});
 	}
 }
 
@@ -537,16 +478,24 @@ void FMacPlatformApplicationMisc::PumpMessages(bool bFromMainLoop)
 
 		if (MacApplication && !MacApplication->IsProcessingDeferredEvents() && IsInGameThread())
 		{
-			if (UpdateCachedMacMenuState && bChachedMacMenuStateNeedsUpdate)
+			if (UpdateCachedMacMenuStateCb && bChachedMacMenuStateNeedsUpdate)
 			{
-				MainThreadCall(^{
+				MainThreadCall(^
+				{
+					if(bLanguageChanged)
+					{
+						LanguageChanged();
+					}
+					
 					UpdateApplicationMenu();
 					UpdateWindowMenu();
 					UpdateCocoaButtons();
 				}, NSDefaultRunLoopMode, false);
 
-				UpdateCachedMacMenuState();
+				UpdateCachedMacMenuStateCb();
+				
                 bChachedMacMenuStateNeedsUpdate = false;
+                bLanguageChanged = false;
 			}
 		}
 	}
@@ -598,75 +547,26 @@ void FMacPlatformApplicationMisc::ActivateApplication()
 
 void FMacPlatformApplicationMisc::UpdateApplicationMenu()
 {
-    NSMenu* MainMenu = [NSApp mainMenu];
-    NSMenuItem* AppMenuItem = [MainMenu itemWithTitle:@"AppMenuItem"];
-    NSMenu* AppMenu = [AppMenuItem submenu];
+	if(UpdateApplicationMenuCb != nullptr)
+	{
+		UpdateApplicationMenuCb(bMacApplicationModalMode);
+	}
+}
 
-    NSString* AppName = GIsEditor ? @"Unreal Editor" : FString(FApp::GetProjectName()).GetNSString();
-    SEL ShowAboutSelector = [[NSApp delegate] respondsToSelector:@selector(showAboutWindow:)] ? @selector(showAboutWindow:) : @selector(orderFrontStandardAboutPanel:);
-    NSMenuItem* AboutItem = [AppMenu itemWithTitle:[NSString stringWithFormat:@"About %@", AppName]];
-    NSMenuItem* PreferencesItem = GIsEditor ? [AppMenu itemWithTitle:@"Preferences..."] : nil;
-    NSMenuItem* HideItem = [AppMenu itemWithTitle:[NSString stringWithFormat:@"Hide %@", AppName]];
-    NSMenuItem* HideOthersItem = [AppMenu itemWithTitle:@"Hide Others"];
-    NSMenuItem* ShowAllItem = [AppMenu itemWithTitle:@"Show All"];
-    NSMenuItem* QuitItem = [AppMenu itemWithTitle:[NSString stringWithFormat:@"Quit %@", AppName]];
-
-    if(!bMacApplicationModalMode)
-    {
-        [AboutItem setAction:ShowAboutSelector];
-        [PreferencesItem setAction:@selector(showPreferencesWindow:)];
-        [HideItem setAction:@selector(hide:)];
-        [HideOthersItem setAction:@selector(hideOtherApplications:)];
-        [ShowAllItem setAction:@selector(unhideAllApplications:)];
-        SEL RequestQuitSelector = [[NSApp delegate] respondsToSelector:@selector(requestQuit:)] ? @selector(requestQuit:) : @selector(terminate:);
-        [QuitItem setAction:RequestQuitSelector];
-    }
-    else
-    {
-        for (NSMenuItem* Item in [AppMenu itemArray])
-        {
-            if(![Item hasSubmenu])
-            {
-            [Item setAction:nil];
-            }
-        }
-    }
-    
-    [AppMenu update];
-    [MainMenu update];
-    
+void FMacPlatformApplicationMisc::LanguageChanged()
+{
+	if(LanguageChangedCb != nullptr)
+	{
+		LanguageChangedCb();
+	}
 }
 
 void FMacPlatformApplicationMisc::UpdateWindowMenu()
 {
-	NSMenu* WindowMenu = [NSApp windowsMenu];
-
-	NSMenuItem* MinimizeItem = [WindowMenu itemWithTitle:@"Minimize"];
-	NSMenuItem* ZoomItem = [WindowMenu itemWithTitle:@"Zoom"];
-	NSMenuItem* CloseItem = [WindowMenu itemWithTitle:@"Close"];
-	NSMenuItem* BringAllToFrontItem = [WindowMenu itemWithTitle:@"Bring All to Front"];
-    
-    if(!bMacApplicationModalMode)
-    {
-        [MinimizeItem setAction:@selector(miniaturize:)];
-        [ZoomItem setAction:@selector(zoom:)];
-        [CloseItem setAction:@selector(performClose:)];
-        [BringAllToFrontItem setAction:@selector(arrangeInFront:)];
-
-    }
-    else
-    {
-        for (NSMenuItem* Item in [WindowMenu itemArray])
-        {
-            if(![Item hasSubmenu])
-            {
-                [Item setAction:nil];
-            }
-        }
-    }
-    
-    [WindowMenu update];
-    [[NSApp mainMenu] update];
+	if(UpdateWindowMenuCb != nullptr)
+	{
+		UpdateWindowMenuCb(bMacApplicationModalMode);
+	}
 }
 
 

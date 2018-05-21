@@ -61,16 +61,12 @@ struct FAndroidPlatformProperties
 
 	static FORCEINLINE bool SupportsHighQualityLightmaps()
 	{
-#if PLATFORM_ANDROIDESDEFERRED
-		return true;
-#else
-		return false;
-#endif
+		return true; // always true because of Vulkan
 	}
 
 	static FORCEINLINE bool SupportsLowQualityLightmaps()
 	{
-#if PLATFORM_ANDROIDESDEFERRED
+#if PLATFORM_ANDROIDESDEFERRED || PLATFORM_ANDROIDGL4
 		return false;
 #else
 		return true;

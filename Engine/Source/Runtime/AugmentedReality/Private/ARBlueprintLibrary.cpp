@@ -315,3 +315,27 @@ EARLineTraceChannels UARTraceResultLibrary::GetTraceChannel( const FARTraceResul
 {
 	return TraceResult.GetTraceChannel();
 }
+
+UARTextureCameraImage* UARBlueprintLibrary::GetCameraImage()
+{
+	UARTextureCameraImage* Image = nullptr;
+
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		Image = ARSystem->GetCameraImage();
+	}
+	return Image;
+}
+
+UARTextureCameraDepth* UARBlueprintLibrary::GetCameraDepth()
+{
+	UARTextureCameraDepth* Depth = nullptr;
+
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		Depth = ARSystem->GetCameraDepth();
+	}
+	return Depth;
+}

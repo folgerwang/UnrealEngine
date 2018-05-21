@@ -1514,21 +1514,25 @@ void FillFbxSkelMeshArray(FbxNode* Node, TArray<FbxNode*>& outSkelMeshArray)
 
 void FFbxImporter::ValidateAllMeshesAreReferenceByNodeAttribute()
 {
+	TSet< FbxUInt64 > NodeGeometryIds;
+	NodeGeometryIds.Reserve( Scene->GetNodeCount() );
+
+	for (int NodeIndex = 0; NodeIndex < Scene->GetNodeCount(); ++NodeIndex)
+	{
+		FbxNode* SceneNode = Scene->GetNode(NodeIndex);
+		FbxGeometry* NodeGeometry = static_cast<FbxGeometry*>(SceneNode->GetMesh());
+
+		if ( NodeGeometry )
+		{
+			NodeGeometryIds.Add( NodeGeometry->GetUniqueID() );
+		}
+	}
+
 	for (int GeoIndex = 0; GeoIndex < Scene->GetGeometryCount(); ++GeoIndex)
 	{
-		bool FoundOneGeometryLinkToANode = false;
-		FbxGeometry *Geometry = Scene->GetGeometry(GeoIndex);
-		for (int NodeIndex = 0; NodeIndex < Scene->GetNodeCount(); ++NodeIndex)
-		{
-			FbxNode *SceneNode = Scene->GetNode(NodeIndex);
-			FbxGeometry *NodeGeometry = static_cast<FbxGeometry*>(SceneNode->GetMesh());
-			if (NodeGeometry && NodeGeometry->GetUniqueID() == Geometry->GetUniqueID())
-			{
-				FoundOneGeometryLinkToANode = true;
-				break;
-			}
-		}
-		if (!FoundOneGeometryLinkToANode)
+		FbxGeometry* Geometry = Scene->GetGeometry(GeoIndex);
+
+		if ( !NodeGeometryIds.Contains( Geometry->GetUniqueID() ) )
 		{
 			FString GeometryName = (Geometry->GetName() && Geometry->GetName()[0] != '\0') ? UTF8_TO_TCHAR(Geometry->GetName()) : TEXT("[Geometry have no name]");
 			AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning,

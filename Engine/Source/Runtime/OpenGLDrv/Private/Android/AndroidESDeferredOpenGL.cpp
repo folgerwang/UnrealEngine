@@ -1,8 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
+#include "Android/AndroidPlatform.h"
 
-#if PLATFORM_ANDROIDESDEFERRED
+#if USE_ANDROID_OPENGL && PLATFORM_ANDROIDESDEFERRED
 /*=============================================================================
 	AndroidESDeferredOpenGL.cpp: Manual loading of OpenGL functions from DLL.
 =============================================================================*/
@@ -291,6 +292,11 @@ void PlatformDestroyOpenGLDevice(FPlatformOpenGLDevice* Device)
 	delete Device;
 }
 
+FPlatformOpenGLContext* PlatformGetOpenGLRenderingContext(FPlatformOpenGLDevice* Device)
+{
+	return AndroidEGL::GetInstance()->GetRenderingContext();
+}
+
 FPlatformOpenGLContext* PlatformCreateOpenGLContext(FPlatformOpenGLDevice* Device, void* InWindowHandle)
 {
 	//Assumes Device is already initialized and context already created.
@@ -390,6 +396,11 @@ void PlatformNULLContextSetup()
 EOpenGLCurrentContext PlatformOpenGLCurrentContext(FPlatformOpenGLDevice* Device)
 {
 	return (EOpenGLCurrentContext)AndroidEGL::GetInstance()->GetCurrentContextType();
+}
+
+void* PlatformOpenGLCurrentContextHandle(FPlatformOpenGLDevice* Device)
+{
+	return AndroidEGL::GetInstance()->GetCurrentContext();
 }
 
 void PlatformRestoreDesktopDisplayMode()

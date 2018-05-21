@@ -135,11 +135,6 @@ struct FVertexDeclarationCache
 
 FVertexDeclarationCache GVertexDeclarationCache;
 
-FVertexDeclarationRHIRef FD3D12DynamicRHI::CreateVertexDeclaration_RenderThread(class FRHICommandListImmediate& RHICmdList, const FVertexDeclarationElementList& Elements)
-{
-	return GDynamicRHI->RHICreateVertexDeclaration(Elements);
-}
-
 FVertexDeclarationRHIRef FD3D12DynamicRHI::RHICreateVertexDeclaration(const FVertexDeclarationElementList& Elements)
 {
 	// Construct a key from the elements.

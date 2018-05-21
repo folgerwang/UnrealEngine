@@ -649,8 +649,8 @@ public:
 	const TArray<FListener>& GetListeners() const { check(IsInAudioThread()); return Listeners; }
 
 	/**
-	 * Get ambisonics mixer, if one is available
-	 */
+	* Get ambisonics mixer, if one is available
+	*/
 	TAmbisonicsMixerPtr GetAmbisonicsMixer() { return AmbisonicsMixer; };
 
 	/** 
@@ -670,6 +670,7 @@ public:
 		FCreateComponentParams(FAudioDevice* AudioDevice);
 
 		USoundAttenuation* AttenuationSettings;
+		TSubclassOf<UAudioComponent> AudioComponentClass = UAudioComponent::StaticClass();
 		USoundConcurrency* ConcurrencySettings;
 		bool bAutoDestroy;
 		bool bPlay;
@@ -940,6 +941,12 @@ public:
 		return false;
 	}
 
+	/** Whether or not the platform disables caching of decompressed PCM data (i.e. to save memory on fixed memory platforms */
+	virtual bool DisablePCMAudioCaching() const
+	{
+		return false;
+	}
+
 	/** Creates a Compressed audio info class suitable for decompressing this SoundWave */
 	virtual ICompressedAudioInfo* CreateCompressedAudioInfo(USoundWave* SoundWave) { return nullptr; }
 
@@ -1135,13 +1142,13 @@ public:
 	/** This is called by a USoundSubmix to start recording a submix instance on this device. */
 	virtual void StartRecording(USoundSubmix* InSubmix, float ExpectedRecordingDuration) 
 	{
-		UE_LOG(LogAudio, Fatal, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
+		UE_LOG(LogAudio, Error, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
 	}
 
 	/** This is called by a USoundSubmix when we stop recording a submix on this device. */
 	virtual Audio::AlignedFloatBuffer& StopRecording(USoundSubmix* InSubmix, float& OutNumChannels, float& OutSampleRate) 
 	{
-		UE_LOG(LogAudio, Fatal, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
+		UE_LOG(LogAudio, Error, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
 		
 		static Audio::AlignedFloatBuffer InvalidBuffer;
 		return InvalidBuffer;

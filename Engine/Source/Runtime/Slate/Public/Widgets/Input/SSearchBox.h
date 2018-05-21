@@ -29,12 +29,23 @@ public:
 		Next,
 	};
 
+	/** Data for external search results to be shown in the search box. */
+	struct FSearchResultData
+	{
+		/** The total number of search results. */
+		int32 NumSearchResults;
+		/** The index of the currently focused search result. */
+		int32 CurrentSearchResultIndex;
+	};
+
 	DECLARE_DELEGATE_OneParam(FOnSearch, SSearchBox::SearchDirection);
 
 	SLATE_BEGIN_ARGS(SSearchBox)
 		: _Style( &FCoreStyle::Get().GetWidgetStyle<FSearchBoxStyle>("SearchBox") )
 		, _HintText( LOCTEXT("SearchHint", "Search") )
 		, _InitialText()
+		, _SearchResultData()
+		, _IsSearching(false)
 		, _OnTextChanged()
 		, _OnTextCommitted()
 		, _OnSearch()
@@ -50,6 +61,12 @@ public:
 
 		/** The text displayed in the SearchBox when it's created */
 		SLATE_ATTRIBUTE( FText, InitialText )
+
+		/** Optional search result data to be shown in the search bar. */
+		SLATE_ATTRIBUTE( TOptional<FSearchResultData>, SearchResultData )
+
+		/** Whether or not an external search is currently running. */
+		SLATE_ATTRIBUTE( bool, IsSearching )
 
 		/** Invoked whenever the text changes */
 		SLATE_EVENT( FOnTextChanged, OnTextChanged )
@@ -89,8 +106,20 @@ private:
 	/** Fires the text changed delegate on a delay */
 	EActiveTimerReturnType TriggerOnTextChanged( double InCurrentTime, float InDeltaTime, FText NewText );
 
+	/** Gets the display text for the current search results. */
+	FText GetSearchResultText() const;
+
+	/** @return should we show the search result navigation buttons. */
+	EVisibility GetSearchResultNavigationButtonVisibility() const;
+
 	/** @return should we show the X to clear search? */
 	EVisibility GetXVisibility() const;
+
+	/** @return should we show the search results text. */
+	EVisibility GetSearchResultDataVisibility() const;
+
+	/** @return should we show the is searching throbber. */
+	EVisibility GetIsSearchingThrobberVisibility() const;
 
 	/** @return should we show the search glass icon? */
 	EVisibility GetSearchGlassVisibility() const;
@@ -124,6 +153,12 @@ private:
 
 	/** Fonts that specify how to render search text when inactive, and active */
 	FSlateFontInfo ActiveFont, InactiveFont;
+
+	/** Optional search result data to be shown in the search bar. */
+	TAttribute<TOptional<FSearchResultData>> SearchResultData;
+
+	/** Whether or not an external search is currently running. */
+	TAttribute<bool> bIsSearching;
 };
 
 

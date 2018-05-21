@@ -1,11 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// ..
+// .
 
 #include "VulkanShaderFormat.h"
 #include "VulkanCommon.h"
 #include "ShaderPreprocessor.h"
 #include "ShaderCompilerCommon.h"
 #include "hlslcc.h"
+
 #if PLATFORM_MAC
 // Horrible hack as we need the enum available but the Vulkan headers do not compile on Mac
 enum VkDescriptorType {
@@ -1115,7 +1116,7 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 	EHlslCompileTarget HlslCompilerTargetES = HCT_FeatureLevelES3_1Ext;
 	AdditionalDefines.SetDefine(TEXT("COMPILER_HLSLCC"), 1);
 	AdditionalDefines.SetDefine(TEXT("COMPILER_VULKAN"), 1);
-	if (Version == EVulkanShaderVersion::ES3_1 || Version == EVulkanShaderVersion::ES3_1_ANDROID || Version == EVulkanShaderVersion::ES3_1_UB || Version == EVulkanShaderVersion::ES3_1_ANDROID_UB)
+	if (Version == EVulkanShaderVersion::ES3_1 || Version == EVulkanShaderVersion::ES3_1_ANDROID)
 	{
 		HlslCompilerTarget = HCT_FeatureLevelES3_1Ext;
 		HlslCompilerTargetES = HCT_FeatureLevelES3_1Ext;
@@ -1180,7 +1181,7 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 
 	CompilerInfo.CCFlags |= HLSLCC_PackUniforms;
 	CompilerInfo.CCFlags |= HLSLCC_PackUniformsIntoUniformBuffers;
-	if (Version == EVulkanShaderVersion::SM4 || Version == EVulkanShaderVersion::SM5 || Version == EVulkanShaderVersion::ES3_1_ANDROID_UB || Version == EVulkanShaderVersion::ES3_1_UB)
+	if (Version == EVulkanShaderVersion::SM4 || Version == EVulkanShaderVersion::SM5 || Version == EVulkanShaderVersion::ES3_1_ANDROID || Version == EVulkanShaderVersion::ES3_1)
 	{
 		CompilerInfo.CCFlags |= HLSLCC_FlattenUniformBufferStructures;
 	}

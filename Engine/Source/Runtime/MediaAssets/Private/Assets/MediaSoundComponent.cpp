@@ -284,7 +284,7 @@ bool UMediaSoundComponent::Init(int32& SampleRate)
 }
 
 
-void UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
+int32 UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 {
 	TSharedPtr<FMediaAudioSampleQueue, ESPMode::ThreadSafe> PinnedSampleQueue;
 	{
@@ -306,7 +306,7 @@ void UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 
 			if (FramesWritten == 0)
 			{
-				return; // no samples available
+				return 0; // no samples available
 			}
 
 			if (DynamicRateAdjustment)
@@ -348,6 +348,7 @@ void UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 	{
 		Resampler->Flush();
 	}
+	return NumSamples;
 }
 
 

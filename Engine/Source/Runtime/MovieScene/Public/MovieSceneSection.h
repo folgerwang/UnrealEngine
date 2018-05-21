@@ -3,15 +3,16 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "FrameTime.h"
+#include "Misc/FrameTime.h"
 #include "UObject/ObjectMacros.h"
 #include "MovieSceneFwd.h"
 #include "KeyParams.h"
+#include "MovieScene.h"
 #include "MovieSceneSignedObject.h"
 #include "Evaluation/Blending/MovieSceneBlendType.h"
 #include "Generators/MovieSceneEasingFunction.h"
 #include "MovieSceneFrameMigration.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 #include "MovieSceneSection.generated.h"
 
 class FStructOnScope;
@@ -473,8 +474,14 @@ public:
 	/** The range in which this section is active */
 	UPROPERTY(EditAnywhere, Category="Section")
 	FMovieSceneFrameRange SectionRange;
-private:
 
+#if WITH_EDITORONLY_DATA
+	/** The timecode at which this movie scene section is based (ie. when it was recorded) */
+	UPROPERTY(EditAnywhere, Category="Section")
+	FMovieSceneTimecodeSource TimecodeSource;
+#endif
+
+private:
 
 	/** The amount of time to prepare this section for evaluation before it actually starts. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category="Section", meta=(UIMin=0))
@@ -530,6 +537,10 @@ protected:
 	UPROPERTY()
 	FOptionalMovieSceneBlendType BlendType;
 
-	/** Shared channel proxy - to be populated and invalidated by derived types */
+	/**
+	 * Channel proxy that contains all the channels in this section - must be populated and invalidated by derived types.
+	 * Must be re-allocated any time any channel pointer in derived types is reallocated (such as channel data stored in arrays)
+	 * to ensure that any weak handles to channels are invalidated correctly. Allocation is via MakeShared<FMovieSceneChannelProxy>().
+	 */
 	TSharedPtr<FMovieSceneChannelProxy> ChannelProxy;
 };

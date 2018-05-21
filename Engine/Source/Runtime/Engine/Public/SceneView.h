@@ -181,6 +181,9 @@ struct FSceneViewInitOptions : public FSceneViewProjectionData
 	/** For stereoscopic rendering, whether or not this is a full pass, or a left / right eye pass */
 	EStereoscopicPass StereoPass;
 
+	/** For stereoscopic scene capture rendering. Half of the view's stereo IPD (- for lhs, + for rhs) */
+	float StereoIPD;
+
 	/** Conversion from world units (uu) to meters, so we can scale motion to the world appropriately */
 	float WorldToMetersScale;
 
@@ -230,6 +233,7 @@ struct FSceneViewInitOptions : public FSceneViewProjectionData
 		, OverlayColor(FLinearColor::Transparent)
 		, ColorScale(FLinearColor::White)
 		, StereoPass(eSSP_FULL)
+		, StereoIPD(0.0f)
 		, WorldToMetersScale(100.f)
 		, CursorPos(-1, -1)
 		, LODDistanceFactor(1.0f)
@@ -734,7 +738,8 @@ enum ETranslucencyVolumeCascade
 	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapWorldToUVAdd) \
 	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapIndirectionTextureSize) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, VolumetricLightmapBrickSize) \
-	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapBrickTexelSize)
+	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapBrickTexelSize) \
+	VIEW_UNIFORM_BUFFER_MEMBER(float, StereoIPD)
 
 #define VIEW_UNIFORM_BUFFER_MEMBER(type, identifier) \
 	UNIFORM_MEMBER(type, identifier)
@@ -851,6 +856,8 @@ private:
 	FVector		PreShadowTranslation;
 
 public:
+	FSceneViewInitOptions SceneViewInitOptions;
+
 	/** The actor which is being viewed from. */
 	const AActor* ViewActor;
 	 
@@ -891,6 +898,9 @@ public:
 
 	/** For stereoscopic rendering, whether or not this is a full pass, or a left / right eye pass */
 	EStereoscopicPass StereoPass;
+
+	/** Half of the view's stereo IPD (- for lhs, + for rhs) */
+	float StereoIPD;
 
 	/** Whether this view should render the first instance only of any meshes using instancing. */
 	bool bRenderFirstInstanceOnly;
@@ -996,7 +1006,7 @@ public:
 
 	/** True if we need to bind the instanced view uniform buffer parameters. */
 	bool bShouldBindInstancedViewUB;
-	
+
 	/** Global clipping plane being applied to the scene, or all 0's if disabled.  This is used when rendering the planar reflection pass. */
 	FPlane GlobalClippingPlane;
 
@@ -1179,6 +1189,8 @@ public:
 	 * returns a the occlusion frame counter or MAX_uint32 if there is no view state
 	 */
 	uint32 GetOcclusionFrameCounter() const;
+
+  void UpdateProjectionMatrix(const FMatrix& NewProjectionMatrix);
 
 	/** Allow things like HMD displays to update the view matrix at the last minute, to minimize perceived latency */
 	void UpdateViewMatrix();

@@ -87,6 +87,7 @@ protected:
 	virtual bool Seek(const FTimespan& Time) override;
 	virtual bool SetLooping(bool Looping) override;
 	virtual bool SetRate(float Rate) override;
+	virtual bool SetNativeVolume(float Volume) override;
 
 protected:
 

@@ -225,6 +225,7 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	, bCastDynamicShadow(InLightComponent->CastShadows && InLightComponent->CastDynamicShadows)
 	, bCastStaticShadow(InLightComponent->CastShadows && InLightComponent->CastStaticShadows)
 	, bCastTranslucentShadows(InLightComponent->CastTranslucentShadows)
+	, bTransmission(InLightComponent->bTransmission && bCastDynamicShadow && !bStaticShadowing)
 	, bCastVolumetricShadow(InLightComponent->bCastVolumetricShadow)
 	, bCastShadowsFromCinematicObjectsOnly(InLightComponent->bCastShadowsFromCinematicObjectsOnly)
 	, bForceCachedShadowsForMovablePrimitives(InLightComponent->bForceCachedShadowsForMovablePrimitives)
@@ -358,6 +359,7 @@ ULightComponent::ULightComponent(const FObjectInitializer& ObjectInitializer)
 	IESTexture = NULL;
 
 	bAffectTranslucentLighting = true;
+	bTransmission = false;
 	LightFunctionScale = FVector(1024.0f, 1024.0f, 1024.0f);
 
 	LightFunctionFadeDistance = 100000.0f;
@@ -558,6 +560,7 @@ void ULightComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, bCastShadowsFromCinematicObjectsOnly) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, CastDynamicShadows) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, bAffectTranslucentLighting) &&
+		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, bTransmission) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, MinRoughness) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, LightFunctionMaterial) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, LightFunctionScale) &&
@@ -857,6 +860,17 @@ void ULightComponent::SetAffectTranslucentLighting(bool bNewValue)
 		MarkRenderStateDirty();
 	}
 }
+void ULightComponent::SetTransmission(bool bNewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& bTransmission != bNewValue)
+	{
+		bTransmission = bNewValue;
+		MarkRenderStateDirty();
+	}
+}
+
+
 
 void ULightComponent::SetEnableLightShaftBloom(bool bNewValue)
 {

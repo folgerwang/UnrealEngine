@@ -68,6 +68,10 @@ public:
 	UPROPERTY()
 	uint32 bHasVirtualizeWhenSilent:1;
 
+	/** Allows this sound to bypass volume-weighting for the max channel resolution. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency)
+	uint8 bBypassVolumeScaleForPriority : 1;
+
 	/** If Override Concurrency is false, the sound concurrency settings to use for this sound. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (EditCondition = "!bOverrideConcurrency"))
 	class USoundConcurrency* SoundConcurrencySettings;

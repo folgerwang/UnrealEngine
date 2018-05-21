@@ -656,7 +656,7 @@ void FShaderCompileUtilities::DoReadTaskResults(const TArray<FShaderCommonCompil
 							String += FString::Printf(TEXT(" VF '%s'"), SingleJob->VFType->GetName());
 						}
 						String += FString::Printf(TEXT(" Type '%s'"), SingleJob->ShaderType->GetName());
-						String += FString::Printf(TEXT(" '%s' Entry '%s' "), *SingleJob->Input.VirtualSourceFilePath, *SingleJob->Input.EntryPointName);
+						String += FString::Printf(TEXT(" '%s' Entry '%s' Permutation %i "), *SingleJob->Input.VirtualSourceFilePath, *SingleJob->Input.EntryPointName, SingleJob->PermutationId);
 						return String;
 					};
 					UE_LOG(LogShaderCompilers, Error, TEXT("SCW %d Queued Jobs:"), QueuedJobs.Num());
@@ -1518,7 +1518,7 @@ FShaderCompilingManager::FShaderCompilingManager() :
 
 	bool bIsUsingXGEInterface = false;
 #if PLATFORM_WINDOWS
-	bool bCanUseXGE = true;
+	bool bCanUseXGE = bAllowCompilingThroughWorkers;
 	ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();
 	if (TPM)
 	{
@@ -2591,7 +2591,7 @@ static void GenerateUniformBufferStructMember(FString& Result, const FUniformBuf
 }
 
 /* Generates the instanced stereo hlsl code that's dependent on view uniform declarations. */
-static void GenerateInstancedStereoCode(FString& Result)
+ENGINE_API void GenerateInstancedStereoCode(FString& Result)
 {
 	// Find the InstancedView uniform buffer struct
 	const FUniformBufferStruct* InstancedView = nullptr;
@@ -2860,11 +2860,13 @@ void GlobalBeginCompileShader(
 		static const auto CVarMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MultiView"));
 		static const auto CVarMobileMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView"));
 		static const auto CVarMonoscopicFarField = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MonoscopicFarField"));
+		static const auto CVarODSCapture = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.ODSCapture"));
 
 		const bool bIsInstancedStereoCVar = CVarInstancedStereo ? (CVarInstancedStereo->GetValueOnGameThread() != 0) : false;
 		const bool bIsMultiViewCVar = CVarMultiView ? (CVarMultiView->GetValueOnGameThread() != 0) : false;
 		const bool bIsMobileMultiViewCVar = CVarMobileMultiView ? (CVarMobileMultiView->GetValueOnGameThread() != 0) : false;
 		const bool bIsMonoscopicFarField = CVarMonoscopicFarField && (CVarMonoscopicFarField->GetValueOnGameThread() != 0);
+		const bool bIsODSCapture = CVarODSCapture && (CVarODSCapture->GetValueOnGameThread() != 0);
 
 		const EShaderPlatform ShaderPlatform = static_cast<EShaderPlatform>(Target.Platform);
 		
@@ -2883,6 +2885,7 @@ void GlobalBeginCompileShader(
 		}
 
 		Input.Environment.SetDefine(TEXT("MONOSCOPIC_FAR_FIELD"), bIsMonoscopicFarField);
+		Input.Environment.SetDefine(TEXT("ODS_CAPTURE"), bIsODSCapture);
 	}
 
 	ShaderType->AddReferencedUniformBufferIncludes(Input.Environment, Input.SourceFilePrefix, (EShaderPlatform)Target.Platform);
@@ -3629,6 +3632,12 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 				PermutationCountToCompile++;
 			}
 		}
+
+		ensureMsgf(
+			PermutationCountToCompile < 200 ||
+			FCString::Strcmp(GlobalShaderType->GetName(), TEXT("FPostProcessTonemapPS_ES2")) == 0, // TODO: UE-58014
+			TEXT("Global shader %s has %i permutation: probably more that it needs."),
+			GlobalShaderType->GetName(), PermutationCountToCompile);
 
 		if (!bEmptyMap && PermutationCountToCompile > 0)
 		{

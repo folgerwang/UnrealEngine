@@ -1,7 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "Engine/DataAsset.h"
 #include "ARTypes.generated.h"
 
 class FARSystemBase;
@@ -11,6 +12,7 @@ class UARPin;
 class UARTrackedGeometry;
 class UARLightEstimate;
 struct FARTraceResult;
+class UTexture2D;
 
 UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
 enum class EARTrackingState : uint8
@@ -67,7 +69,7 @@ enum class EARTrackingQuality : uint8
 /**
  * Describes the current status of the AR session.
  */
-UENUM(BlueprintType)
+UENUM(BlueprintType, meta=(ScriptName="ARSessionStatusType"))
 enum class EARSessionStatus : uint8
 {
 	/** Unreal AR session has not started yet.*/
@@ -132,4 +134,53 @@ public:
 public:
 	virtual ~IARRef() {}
 
+};
+
+/** Tells the image detection code how to assume the image is oriented */
+UENUM(BlueprintType)
+enum class EARCandidateImageOrientation : uint8
+{
+	Landscape,
+	Portrait
+};
+
+/** An asset that points to an image to be detected in a scene and provides the size of the object in real life */
+UCLASS(BlueprintType)
+class AUGMENTEDREALITY_API UARCandidateImage :
+	public UDataAsset
+{
+	GENERATED_BODY()
+
+public:
+	/** @see CandidateTexture */
+	UTexture2D* GetCandidateTexture() const { return CandidateTexture; }
+	/** @see FriendlyName */
+	const FString& GetFriendlyName() const { return FriendlyName; }
+	/** @see Width */
+	float GetPhysicalWidth() const { return Width; }
+	/** @see Height */
+	float GetPhysicalHeight() const { return Height; }
+	/** @see Orientation */
+	EARCandidateImageOrientation GetOrientation() const { return Orientation; }
+
+private:
+	/** The image to detect in scenes */
+	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
+	UTexture2D* CandidateTexture;
+
+	/** The friendly name to report back when the image is detected in scenes */
+	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
+	FString FriendlyName;
+
+	/** The physical width in centimeters of the object that this candidate image represents */
+	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
+	float Width;
+
+	/** The physical height in centimeters of the object that this candidate image represents */
+	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
+	float Height;
+
+	/** The orientation to treat the candidate image as */
+	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
+	EARCandidateImageOrientation Orientation;
 };

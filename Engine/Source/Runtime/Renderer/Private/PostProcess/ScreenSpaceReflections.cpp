@@ -514,8 +514,9 @@ FPooledRenderTargetDesc FRCPassPostProcessScreenSpaceReflections::ComputeOutputD
 	Ret.ClearValue = FClearValueBinding(FLinearColor(0, 0, 0, 0));
 	Ret.DebugName = TEXT("ScreenSpaceReflections");
 	Ret.AutoWritable = false;
+	Ret.Flags |= GFastVRamConfig.SSR; 
 	return Ret;
-}
+} 
 
 void RenderScreenSpaceReflections(FRHICommandListImmediate& RHICmdList, FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& SSROutput, TRefCountPtr<IPooledRenderTarget>& VelocityRT)
 {
@@ -580,7 +581,7 @@ void RenderScreenSpaceReflections(FRHICommandListImmediate& RHICmdList, FViewInf
 				Context, Parameters,
 				ViewState->SSRHistory, &ViewState->SSRHistory) );
 			TemporalAAPass->SetInput( ePId_Input0, Context.FinalOutput );
-			TemporalAAPass->SetInput( ePId_Input1, VelocityInput );
+			TemporalAAPass->SetInput( ePId_Input2, VelocityInput );
 
 			Context.FinalOutput = FRenderingCompositeOutputRef( TemporalAAPass );
 		}

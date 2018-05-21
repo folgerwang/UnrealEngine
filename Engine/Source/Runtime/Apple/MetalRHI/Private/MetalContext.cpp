@@ -13,11 +13,6 @@
 #include "MetalProfiler.h"
 #include "MetalCommandBuffer.h"
 
-#if METAL_STATISTICS
-#include "MetalStatistics.h"
-#include "Modules/ModuleManager.h"
-#endif
-
 #include "ShaderCache.h"
 
 int32 GMetalSupportsIntermediateBackBuffer = PLATFORM_MAC ? 1 : 0;
@@ -115,10 +110,6 @@ static mtlpp::Device GetMTLDevice(uint32& DeviceIndex)
 	SCOPED_AUTORELEASE_POOL;
 	
 	DeviceIndex = 0;
-	
-#if METAL_STATISTICS
-	IMetalStatisticsModule* StatsModule = FModuleManager::Get().LoadModulePtr<IMetalStatisticsModule>(TEXT("MetalStatistics"));
-#endif
 	
 	ns::Array<mtlpp::Device> DeviceList = mtlpp::Device::CopyAllDevices();
 	
@@ -358,6 +349,8 @@ FMetalDeviceContext::FMetalDeviceContext(mtlpp::Device MetalDevice, uint32 InDev
 	{
 		GMetalSupportsIntermediateBackBuffer = 1;
 	}
+	
+	METAL_GPUPROFILE(FMetalProfiler::CreateProfiler(this));
 	
 	InitFrame(true);
 }
@@ -1518,7 +1511,7 @@ public:
 		check(!CmdContext);
 	}
 	
-	virtual IRHICommandContext* GetContext(const FRHIGPUMask& NodeMask) override
+	virtual IRHICommandContext* GetContext() override
 	{
 		check(CmdContext);
 		CmdContext->GetInternalContext().InitFrame(false);
@@ -1531,7 +1524,7 @@ public:
 			CmdContext->GetInternalContext().FinishFrame();
 		}
 	}
-	virtual void SubmitAndFreeContextContainer(const FRHIGPUMask& NodeMask, int32 NewIndex, int32 NewNum) override
+	virtual void SubmitAndFreeContextContainer(int32 NewIndex, int32 NewNum) override
 	{
 		if (CmdContext)
 		{

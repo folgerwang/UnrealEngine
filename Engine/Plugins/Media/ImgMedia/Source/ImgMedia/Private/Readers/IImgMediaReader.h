@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "IMediaTextureSample.h"
 #include "Math/IntPoint.h"
 #include "Templates/SharedPointer.h"

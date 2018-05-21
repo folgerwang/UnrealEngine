@@ -56,10 +56,12 @@ FMetalQueryBuffer* FMetalQueryBufferPool::GetCurrentQueryBuffer()
 			LLM_SCOPE_METAL(ELLMTagMetal::Buffers);
 			LLM_PLATFORM_SCOPE_METAL(ELLMTagMetal::Buffers);
 #if PLATFORM_MAC
+			METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("AllocBuffer: %llu, %llu"), EQueryBufferMaxSize, mtlpp::ResourceOptions::StorageModeManaged)));
 			Buffer = FMetalBuffer(MTLPP_VALIDATE(mtlpp::Device, Context->GetDevice(), SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, NewBuffer(EQueryBufferMaxSize, GetMetalDeviceContext().GetCommandQueue().GetCompatibleResourceOptions((mtlpp::ResourceOptions)(BUFFER_CACHE_MODE | mtlpp::ResourceOptions::HazardTrackingModeUntracked | mtlpp::ResourceOptions::StorageModeManaged)))), false);
 			FMemory::Memzero((((uint8*)Buffer.GetContents())), EQueryBufferMaxSize);
 			Buffer.DidModify(ns::Range(0, EQueryBufferMaxSize));
 #else
+			METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("AllocBuffer: %llu, %llu"), EQueryBufferMaxSize, mtlpp::ResourceOptions::StorageModeShared)));
 			Buffer = FMetalBuffer(MTLPP_VALIDATE(mtlpp::Device, Context->GetDevice(), SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, NewBuffer(EQueryBufferMaxSize, GetMetalDeviceContext().GetCommandQueue().GetCompatibleResourceOptions((mtlpp::ResourceOptions)(BUFFER_CACHE_MODE | mtlpp::ResourceOptions::HazardTrackingModeUntracked | mtlpp::ResourceOptions::StorageModeShared)))), false);
 			FMemory::Memzero((((uint8*)Buffer.GetContents())), EQueryBufferMaxSize);
 #endif
@@ -243,15 +245,42 @@ void FMetalRenderQuery::End(FMetalContext* Context)
 			Result = 0;
 			bAvailable = false;
 			
-			// Insert the fence to wait on the current command buffer
-			Context->InsertCommandBufferFence(*(Buffer.CommandBufferFence), [this](mtlpp::CommandBuffer const&)
+#if METAL_STATISTICS
+			class IMetalStatistics* Stats = Context->GetCommandQueue().GetStatistics();
+			if (Stats)
 			{
-				Result = (FPlatformTime::ToMilliseconds64(mach_absolute_time()) * 1000.0);
-            });
-			
-			// Submit the current command buffer, marking this is as a break of a logical command buffer for render restart purposes
-			// This is necessary because we use command-buffer completion to emulate timer queries as Metal has no such API
-			Context->SubmitCommandsHint(EMetalSubmitFlagsCreateCommandBuffer|EMetalSubmitFlagsBreakCommandBuffer);
+				id<IMetalStatisticsSamples> StatSample = Stats->GetLastStatisticsSample(Context->GetCurrentCommandBuffer().GetPtr());
+				if (!StatSample)
+				{
+					Context->GetCurrentRenderPass().InsertDebugEncoder();
+					StatSample = Stats->GetLastStatisticsSample(Context->GetCurrentCommandBuffer().GetPtr());
+				}
+				check(StatSample);
+				[StatSample retain];
+				
+				// Insert the fence to wait on the current command buffer
+				Context->InsertCommandBufferFence(*(Buffer.CommandBufferFence), [this, StatSample](mtlpp::CommandBuffer const&)
+				{
+					if (StatSample.Count > 0)
+					{
+						Result = (FPlatformTime::ToMilliseconds64(StatSample.Array[0]) * 1000.0);
+					}
+					[StatSample release];
+				});
+			}
+			else
+#endif
+			{
+				// Insert the fence to wait on the current command buffer
+				Context->InsertCommandBufferFence(*(Buffer.CommandBufferFence), [this](mtlpp::CommandBuffer const&)
+				{
+					Result = (FPlatformTime::ToMilliseconds64(mach_absolute_time()) * 1000.0);
+				});
+				
+				// Submit the current command buffer, marking this is as a break of a logical command buffer for render restart purposes
+				// This is necessary because we use command-buffer completion to emulate timer queries as Metal has no such API
+				Context->SubmitCommandsHint(EMetalSubmitFlagsCreateCommandBuffer|EMetalSubmitFlagsBreakCommandBuffer);
+			}
 			break;
 		}
 		default:
@@ -368,4 +397,38 @@ void FMetalRHICommandContext::RHIEndOcclusionQueryBatch()
 	check(CommandBufferFence.IsValid());
 	Context->InsertCommandBufferFence(*CommandBufferFence);
 	CommandBufferFence.Reset();
+}
+
+void FMetalDynamicRHI::RHICalibrateTimers()
+{
+	check(IsInRenderingThread());
+#if METAL_STATISTICS
+	FMetalContext& Context = ImmediateContext.GetInternalContext();
+	if (Context.GetCommandQueue().GetStatistics())
+	{
+		FScopedRHIThreadStaller StallRHIThread(FRHICommandListExecutor::GetImmediateCommandList());
+		mtlpp::CommandBuffer Buffer = Context.GetCommandQueue().CreateCommandBuffer();
+		
+		id<IMetalStatisticsSamples> Samples = Context.GetCommandQueue().GetStatistics()->RegisterEncoderStatistics(Buffer.GetPtr(), EMetalSampleComputeEncoderStart);
+		mtlpp::ComputeCommandEncoder Encoder = Buffer.ComputeCommandEncoder();
+		
+		Context.GetCommandQueue().GetStatistics()->RegisterEncoderStatistics(Buffer.GetPtr(), EMetalSampleComputeEncoderEnd);
+		check(Samples);
+		[Samples retain];
+		Encoder.EndEncoding();
+		
+		FMetalProfiler* Profiler = ImmediateContext.GetProfiler();
+		Buffer.AddCompletedHandler(^(const mtlpp::CommandBuffer & theBuffer) {
+			double GpuTimeSeconds = theBuffer.GetGpuStartTime();
+			const double CyclesPerSecond = 1.0 / FPlatformTime::GetSecondsPerCycle();
+			NSUInteger EndTime = GpuTimeSeconds * CyclesPerSecond;
+			NSUInteger StatsTime = Samples.Array[0];
+			Profiler->TimingSupport.SetCalibrationTimestamp(StatsTime / 1000, EndTime / 1000);
+			[Samples release];
+		});
+		
+		Context.GetCommandQueue().CommitCommandBuffer(Buffer);
+		Buffer.WaitUntilCompleted();
+	}
+#endif
 }

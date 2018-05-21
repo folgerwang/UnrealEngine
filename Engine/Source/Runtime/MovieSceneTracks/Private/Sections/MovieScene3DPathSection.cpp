@@ -15,8 +15,8 @@ UMovieScene3DPathSection::UMovieScene3DPathSection( const FObjectInitializer& Ob
 {
 #if WITH_EDITOR
 
-	static const FMovieSceneChannelEditorData EditorData("Timing", NSLOCTEXT("MovieScene3DPathSection", "TimingArea", "Timing"));
-	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(TimingCurve, EditorData, TMovieSceneExternalValue<float>());
+	static const FMovieSceneChannelMetaData MetaData("Timing", NSLOCTEXT("MovieScene3DPathSection", "TimingArea", "Timing"));
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(TimingCurve, MetaData, TMovieSceneExternalValue<float>());
 
 #else
 
@@ -29,11 +29,11 @@ void UMovieScene3DPathSection::InitialPlacement(const TArray<UMovieSceneSection*
 {
 	Super::InitialPlacement(Sections, InStartTime, Duration, bAllowMultipleRows);
 
-	TMovieSceneChannel<FMovieSceneFloatValue> KeyInterface = TimingCurve.GetInterface();
-	KeyInterface.UpdateOrAddKey(InStartTime, FMovieSceneFloatValue(0.f));
+	TMovieSceneChannelData<FMovieSceneFloatValue> KeyData = TimingCurve.GetData();
+	KeyData.UpdateOrAddKey(InStartTime, FMovieSceneFloatValue(0.f));
 	if (Duration > 0)
 	{
-		KeyInterface.UpdateOrAddKey(InStartTime + Duration, FMovieSceneFloatValue(1.f));
+		KeyData.UpdateOrAddKey(InStartTime + Duration, FMovieSceneFloatValue(1.f));
 	}
 }
 

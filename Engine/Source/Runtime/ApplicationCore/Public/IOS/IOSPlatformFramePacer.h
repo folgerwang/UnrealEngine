@@ -12,7 +12,7 @@
 // Forward declare the ios frame pacer class we will be using.
 @class FIOSFramePacer;
 
-typedef void (^FIOSFramePacerHandler)(uint32 IgnoredId);
+typedef void (^FIOSFramePacerHandler)(uint32 IgnoredId, double OutputSeconds, double OutputDuration);
 
 /**
  * iOS implementation of FGenericPlatformRHIFramePacer

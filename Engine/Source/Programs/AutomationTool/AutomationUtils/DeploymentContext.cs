@@ -900,36 +900,37 @@ public class DeploymentContext //: ProjectParams
 		return FilesAdded;
 	}
 
+	public String GetSanitizedDeviceName(String DeviceName)
+	{
+		return DeviceName.Replace(":", "").Replace("/", "").Replace("\\", "").Replace("-", "").Replace(".exe", "");
+	}
+
 	public String GetUFSDeploymentDeltaPath(string DeviceName)
 	{
-		//replace the port name in the case of deploy while adb is using wifi
-		string SanitizedDeviceName = DeviceName.Replace(":", "_");
+		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
 
-		return Path.Combine(StageDirectory.FullName, UFSDeployDeltaFileName + SanitizedDeviceName);
+		return Path.Combine(EngineRoot.FullName, "Intermediate", "UAT", UFSDeployDeltaFileName + SanitizedDeviceName);
 	}
 
 	public String GetNonUFSDeploymentDeltaPath(string DeviceName)
 	{
-		//replace the port name in the case of deploy while adb is using wifi
-		string SanitizedDeviceName = DeviceName.Replace(":", "_");
+		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
 
-		return Path.Combine(StageDirectory.FullName, NonUFSDeployDeltaFileName + SanitizedDeviceName);
+		return Path.Combine(EngineRoot.FullName, "Intermediate", "UAT", NonUFSDeployDeltaFileName + SanitizedDeviceName);
 	}
 
 	public String GetUFSDeploymentObsoletePath(string DeviceName)
 	{
-		//replace the port name in the case of deploy while adb is using wifi
-		string SanitizedDeviceName = DeviceName.Replace(":", "_");
+		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
 
-		return Path.Combine(StageDirectory.FullName, UFSDeployObsoleteFileName + SanitizedDeviceName);
+		return Path.Combine(EngineRoot.FullName, "Intermediate", "UAT", UFSDeployObsoleteFileName + SanitizedDeviceName);
 	}
 
 	public String GetNonUFSDeploymentObsoletePath(string DeviceName)
 	{
-		//replace the port name in the case of deploy while adb is using wifi
-		string SanitizedDeviceName = DeviceName.Replace(":", "_");
+		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
 
-		return Path.Combine(StageDirectory.FullName, NonUFSDeployObsoleteFileName + SanitizedDeviceName);
+		return Path.Combine(EngineRoot.FullName, "Intermediate", "UAT", NonUFSDeployObsoleteFileName + SanitizedDeviceName);
 	}
 
 	public string UFSDeployedManifestFileName

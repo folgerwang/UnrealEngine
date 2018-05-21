@@ -103,15 +103,13 @@ struct FPyWrapperArrayIterator
 	}
 };
 
-void InitializePyWrapperArray(PyObject* PyModule)
+void InitializePyWrapperArray(PyGenUtil::FNativePythonModule& ModuleInfo)
 {
 	if (PyType_Ready(&PyWrapperArrayType) == 0)
 	{
 		static FPyWrapperArrayMetaData MetaData;
 		FPyWrapperArrayMetaData::SetMetaData(&PyWrapperArrayType, &MetaData);
-
-		Py_INCREF(&PyWrapperArrayType);
-		PyModule_AddObject(PyModule, PyWrapperArrayType.tp_name, (PyObject*)&PyWrapperArrayType);
+		ModuleInfo.AddType(&PyWrapperArrayType);
 	}
 
 	PyType_Ready(&PyWrapperArrayIteratorType);
@@ -1388,23 +1386,23 @@ PyTypeObject InitializePyWrapperArrayType()
 	};
 
 	static PyMethodDef PyMethods[] = {
-		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.cast(type, obj) -> TArray -- cast the given object to this Unreal array type" },
-		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> TArray -- copy this Unreal array" },
-		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> TArray -- copy this Unreal array" },
-		{ "append", PyCFunctionCast(&FMethods::Append), METH_VARARGS, "x.append(value) -- append the given value to the end of this Unreal array (equivalent to TArray::Add in C++)" },
+		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.cast(type, obj) -> Array -- cast the given object to this Unreal array type" },
+		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> Array -- copy this Unreal array" },
+		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> Array -- copy this Unreal array" },
+		{ "append", PyCFunctionCast(&FMethods::Append), METH_VARARGS, "x.append(value) -> None -- append the given value to the end of this Unreal array (equivalent to TArray::Add in C++)" },
 		{ "count", PyCFunctionCast(&FMethods::Count), METH_VARARGS, "x.count(value) -> integer -- return the number of times that value appears in this this Unreal array" },
-		{ "extend", PyCFunctionCast(&FMethods::Extend), METH_VARARGS, "x.extend(iterable) -- extend this Unreal array by appending elements from the given iterable (equivalent to TArray::Append in C++)" },
+		{ "extend", PyCFunctionCast(&FMethods::Extend), METH_VARARGS, "x.extend(iterable) -> None -- extend this Unreal array by appending elements from the given iterable (equivalent to TArray::Append in C++)" },
 		{ "index", PyCFunctionCast(&FMethods::Index), METH_VARARGS | METH_KEYWORDS, "x.index(value, start=0, stop=len) -> integer -- get the index of the first matching value in this Unreal array, or raise ValueError if missing (equivalent to TArray::IndexOfByKey in C++)" },
-		{ "insert", PyCFunctionCast(&FMethods::Insert), METH_VARARGS | METH_KEYWORDS, "x.insert(index, value) -- insert the given value at the given index in this Unreal array" },
+		{ "insert", PyCFunctionCast(&FMethods::Insert), METH_VARARGS | METH_KEYWORDS, "x.insert(index, value) -> None -- insert the given value at the given index in this Unreal array" },
 		{ "pop", PyCFunctionCast(&FMethods::Pop), METH_VARARGS, "x.pop(index=len-1) -> value -- remove and return the value at the given index in this Unreal array, or raise IndexError if the index is out-of-bounds" },
-		{ "remove", PyCFunctionCast(&FMethods::Remove), METH_VARARGS, "x.remove(value) -- remove the first matching value in this Unreal array, or raise ValueError if missing" },
-		{ "reverse", PyCFunctionCast(&FMethods::Reverse), METH_NOARGS, "x.reverse() -- reverse this Unreal array in-place" },
+		{ "remove", PyCFunctionCast(&FMethods::Remove), METH_VARARGS, "x.remove(value) -> None -- remove the first matching value in this Unreal array, or raise ValueError if missing" },
+		{ "reverse", PyCFunctionCast(&FMethods::Reverse), METH_NOARGS, "x.reverse() -> None -- reverse this Unreal array in-place" },
 #if PY_MAJOR_VERSION < 3
-		{ "sort", PyCFunctionCast(&FMethods::Sort), METH_VARARGS | METH_KEYWORDS, "x.sort(cmp=None, key=None, reverse=False) -- stable sort this Unreal array in-place" },
+		{ "sort", PyCFunctionCast(&FMethods::Sort), METH_VARARGS | METH_KEYWORDS, "x.sort(cmp=None, key=None, reverse=False) -> None -- stable sort this Unreal array in-place" },
 #else	// PY_MAJOR_VERSION < 3
-		{ "sort", PyCFunctionCast(&FMethods::Sort), METH_VARARGS | METH_KEYWORDS, "x.sort(key=None, reverse=False) -- stable sort this Unreal array in-place" },
+		{ "sort", PyCFunctionCast(&FMethods::Sort), METH_VARARGS | METH_KEYWORDS, "x.sort(key=None, reverse=False) -> None -- stable sort this Unreal array in-place" },
 #endif	// PY_MAJOR_VERSION < 3
-		{ "resize", PyCFunctionCast(&FMethods::Resize), METH_VARARGS, "x.resize(len) -- resize this Unreal array to hold the given number of elements" },
+		{ "resize", PyCFunctionCast(&FMethods::Resize), METH_VARARGS, "x.resize(len) -> None -- resize this Unreal array to hold the given number of elements" },
 		{ nullptr, nullptr, 0, nullptr }
 	};
 

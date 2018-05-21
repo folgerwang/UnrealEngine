@@ -726,7 +726,9 @@ bool GIsSuspended = 0;
 	
 #if !PLATFORM_TVOS
 	// Save launch local notification so the app can check for it when it is ready
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	UILocalNotification *notification = [launchOptions objectForKey:UIApplicationLaunchOptionsLocalNotificationKey];
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	if ( notification != nullptr )
 	{
 		NSDictionary*	userInfo = [notification userInfo];
@@ -979,6 +981,7 @@ FCriticalSection RenderSuspend;
 #if !PLATFORM_TVOS && NOTIFICATIONS_ENABLED
 
 #ifdef __IPHONE_8_0
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 - (void)application:(UIApplication *)application didRegisterUserNotificationSettings:(UIUserNotificationSettings *)notificationSettings
 {
 	[application registerForRemoteNotifications];
@@ -988,6 +991,7 @@ FCriticalSection RenderSuspend;
 		FCoreDelegates::ApplicationRegisteredForUserNotificationsDelegate.Broadcast(types);
     }, TStatId(), NULL, ENamedThreads::GameThread);
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 #endif
 
 - (void)application:(UIApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken
@@ -1070,7 +1074,7 @@ FCriticalSection RenderSuspend;
 #endif
 
 #if !PLATFORM_TVOS
-
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 - (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification
 {
 	NSString*	activationEvent = (NSString*)[notification.userInfo objectForKey: @"ActivationEvent"];
@@ -1104,7 +1108,7 @@ FCriticalSection RenderSuspend;
 		NSLog(@"Warning: Missing local notification activation event");
 	}
 }
-
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 #endif
 
 /**

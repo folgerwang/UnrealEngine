@@ -7,12 +7,51 @@
 
 UNiagaraMeshRendererProperties::UNiagaraMeshRendererProperties()
 	: ParticleMesh(nullptr)
+	, SortMode(ENiagaraSortMode::ViewDistance)
+	, bSortOnlyWhenTranslucent(true)
 {
 }
 
 NiagaraRenderer* UNiagaraMeshRendererProperties::CreateEmitterRenderer(ERHIFeatureLevel::Type FeatureLevel)
 {
 	return new NiagaraRendererMeshes(FeatureLevel, this);
+}
+
+
+
+void UNiagaraMeshRendererProperties::PostInitProperties()
+{
+	Super::PostInitProperties();
+	SyncId = 0;
+	if (HasAnyFlags(RF_ClassDefaultObject) == false)
+	{
+		InitBindings();
+	}
+}
+
+/** The bindings depend on variables that are created during the NiagaraModule startup. However, the CDO's are build prior to this being initialized, so we defer setting these values until later.*/
+void UNiagaraMeshRendererProperties::InitCDOPropertiesAfterModuleStartup()
+{
+	UNiagaraMeshRendererProperties* CDO = CastChecked<UNiagaraMeshRendererProperties>(UNiagaraMeshRendererProperties::StaticClass()->GetDefaultObject());
+	CDO->InitBindings();
+}
+
+void UNiagaraMeshRendererProperties::InitBindings()
+{
+	if (PositionBinding.BoundVariable.GetName() == NAME_None)
+	{
+		PositionBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_POSITION);
+		ColorBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_COLOR);
+		VelocityBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_VELOCITY);
+		DynamicMaterialBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_DYNAMIC_MATERIAL_PARAM);
+		DynamicMaterial1Binding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_DYNAMIC_MATERIAL_PARAM_1);
+		DynamicMaterial2Binding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_DYNAMIC_MATERIAL_PARAM_2);
+		DynamicMaterial3Binding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_DYNAMIC_MATERIAL_PARAM_3);
+		MeshOrientationBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_MESH_ORIENTATION);
+		ScaleBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_SCALE);
+		//Default custom sorting to age
+		CustomSortingBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_NORMALIZED_AGE);
+	}
 }
 
 void UNiagaraMeshRendererProperties::GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials) const
@@ -49,8 +88,13 @@ void UNiagaraMeshRendererProperties::GetUsedMaterials(TArray<UMaterialInterface*
 	}
 }
 
-#if WITH_EDITORONLY_DATA
+uint32 UNiagaraMeshRendererProperties::GetNumIndicesPerInstance() 
+{
+	return ParticleMesh ? ParticleMesh->RenderData->LODResources[0].IndexBuffer.GetNumIndices() : 0;
+}
 
+
+#if WITH_EDITORONLY_DATA
 bool UNiagaraMeshRendererProperties::IsMaterialValidForRenderer(UMaterial* Material, FText& InvalidMessage)
 {
 	if (Material->bUsedWithNiagaraMeshParticles == false)
@@ -74,10 +118,6 @@ const TArray<FNiagaraVariable>& UNiagaraMeshRendererProperties::GetRequiredAttri
 
 	if (Attrs.Num() == 0)
 	{
-		Attrs.Add(SYS_PARAM_PARTICLES_POSITION);
-		Attrs.Add(SYS_PARAM_PARTICLES_VELOCITY);
-		Attrs.Add(SYS_PARAM_PARTICLES_COLOR);
-		Attrs.Add(SYS_PARAM_PARTICLES_NORMALIZED_AGE);
 	}
 
 	return Attrs;
@@ -90,17 +130,20 @@ const TArray<FNiagaraVariable>& UNiagaraMeshRendererProperties::GetOptionalAttri
 
 	if (Attrs.Num() == 0)
 	{
+		Attrs.Add(SYS_PARAM_PARTICLES_POSITION);
+		Attrs.Add(SYS_PARAM_PARTICLES_VELOCITY);
+		Attrs.Add(SYS_PARAM_PARTICLES_COLOR);
+		Attrs.Add(SYS_PARAM_PARTICLES_NORMALIZED_AGE);
 		Attrs.Add(SYS_PARAM_PARTICLES_SCALE);
-		//Attrs.Add(SYS_PARAM_PARTICLES_SPRITE_FACING);
-		//Attrs.Add(SYS_PARAM_PARTICLES_SPRITE_ALIGNMENT);
-		//Attrs.Add(SYS_PARAM_PARTICLES_SUB_IMAGE_INDEX);
+		Attrs.Add(SYS_PARAM_PARTICLES_MESH_ORIENTATION);
 		Attrs.Add(SYS_PARAM_PARTICLES_DYNAMIC_MATERIAL_PARAM);
+		Attrs.Add(SYS_PARAM_PARTICLES_DYNAMIC_MATERIAL_PARAM_1);
+		Attrs.Add(SYS_PARAM_PARTICLES_DYNAMIC_MATERIAL_PARAM_2);
+		Attrs.Add(SYS_PARAM_PARTICLES_DYNAMIC_MATERIAL_PARAM_3);
 	}
 
 	return Attrs;
 }
-
-#endif // WITH_EDITORONLY_DATA
 
 void UNiagaraMeshRendererProperties::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
@@ -118,4 +161,11 @@ void UNiagaraMeshRendererProperties::PostEditChangeProperty(FPropertyChangedEven
 			}
 		}
 	}
+	
+	if (PropertyChangedEvent.GetPropertyName() != TEXT("SyncId"))
+	{
+		SyncId++;
+	}
 }
+
+#endif // WITH_EDITORONLY_DATA

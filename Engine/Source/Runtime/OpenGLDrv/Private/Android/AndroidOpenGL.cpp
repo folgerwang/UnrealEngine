@@ -1,8 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
+#include "Android/AndroidPlatform.h"
 
-#if !PLATFORM_ANDROIDESDEFERRED
+#if USE_ANDROID_OPENGL && !PLATFORM_ANDROIDESDEFERRED
 
 #include "OpenGLDrvPrivate.h"
 #include "AndroidOpenGL.h"
@@ -209,6 +210,11 @@ EOpenGLCurrentContext PlatformOpenGLCurrentContext(FPlatformOpenGLDevice* Device
 	return (EOpenGLCurrentContext)AndroidEGL::GetInstance()->GetCurrentContextType();
 }
 
+void* PlatformOpenGLCurrentContextHandle(FPlatformOpenGLDevice* Device)
+{
+	return AndroidEGL::GetInstance()->GetCurrentContext();
+}
+
 void PlatformRestoreDesktopDisplayMode()
 {
 }
@@ -336,6 +342,11 @@ void FPlatformOpenGLDevice::LoadEXT()
 
 	glGetProgramBinary = (PFNGLGETPROGRAMBINARYOESPROC)((void*)eglGetProcAddress("glGetProgramBinaryOES"));
 	glProgramBinary = (PFNGLPROGRAMBINARYOESPROC)((void*)eglGetProcAddress("glProgramBinaryOES"));
+}
+
+FPlatformOpenGLContext* PlatformGetOpenGLRenderingContext(FPlatformOpenGLDevice* Device)
+{
+	return AndroidEGL::GetInstance()->GetRenderingContext();
 }
 
 FPlatformOpenGLContext* PlatformCreateOpenGLContext(FPlatformOpenGLDevice* Device, void* InWindowHandle)

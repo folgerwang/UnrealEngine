@@ -62,6 +62,7 @@ namespace Audio
 		virtual FName GetRuntimeFormat(USoundWave* SoundWave) override;
 		virtual bool HasCompressedAudioInfoClass(USoundWave* SoundWave) override;
 		virtual bool SupportsRealtimeDecompression() const override;
+		virtual bool DisablePCMAudioCaching() const override;
 		virtual class ICompressedAudioInfo* CreateCompressedAudioInfo(USoundWave* SoundWave) override;
 		virtual bool ValidateAPICall(const TCHAR* Function, uint32 ErrorCode) override;
 		virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;

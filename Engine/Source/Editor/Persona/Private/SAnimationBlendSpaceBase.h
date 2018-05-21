@@ -38,7 +38,7 @@ public:
 	// End FNotifyHook overrides
 
 protected:
-	void OnSampleMoved(const int32 SampleIndex, const FVector& NewValue, bool bIsInteractive);
+	void OnSampleMoved(const int32 SampleIndex, const FVector& NewValue, bool bIsInteractive, bool bSnap);
 	void OnSampleRemoved(const int32 SampleIndex);
 	void OnSampleAdded(UAnimSequence* Animation, const FVector& Value);
 	void OnUpdateAnimation(UAnimSequence* Animation, const FVector& Value);

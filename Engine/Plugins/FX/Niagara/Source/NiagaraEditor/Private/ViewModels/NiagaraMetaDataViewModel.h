@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -45,8 +45,10 @@ public:
 
 	/** associates a node to this metadata*/
 	void AssociateNode(UEdGraphNode* InNode);
+
+	/** gets the sort order prioriy from metadata */
+	int32 GetEditorSortPriority();
 	
-private:
 	/** Refreshes the parameter value struct from the variable data. */
 	void RefreshMetaDataValue();
 

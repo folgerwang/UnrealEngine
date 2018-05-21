@@ -734,6 +734,11 @@ namespace UnrealBuildTool
 							bGenerateProjectFiles = true;
 							ProjectFileFormats.Add(ProjectFileFormat.VisualStudioCode);
 						}
+						else if (LowercaseArg == "-clion")
+						{
+							bGenerateProjectFiles = true;
+							ProjectFileFormats.Add(ProjectFileFormat.CLion);
+						}
 						else if (LowercaseArg == "development" || LowercaseArg == "debug" || LowercaseArg == "shipping" || LowercaseArg == "test" || LowercaseArg == "debuggame")
 						{
 							//ConfigName = Arg;
@@ -875,6 +880,9 @@ namespace UnrealBuildTool
 									break;
 								case ProjectFileFormat.VisualStudioCode:
 									Generator = new VSCodeProjectFileGenerator(ProjectFile);
+									break;
+								case ProjectFileFormat.CLion:
+									Generator = new CLionGenerator(ProjectFile);
 									break;
 								default:
 									throw new BuildException("Unhandled project file type '{0}", ProjectFileFormat);

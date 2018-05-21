@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -667,6 +667,37 @@ namespace PropertyPathHelpersInternal
 		}
 	};
 
+	/** Partial specialization for bools/bitfields */
+	template<typename ContainerType>
+	struct FGetValueHelper<bool, ContainerType>
+	{
+		static bool GetValue(ContainerType* InContainer, const FCachedPropertyPath& InPropertyPath, bool& OutValue, UProperty*& OutProperty)
+		{
+			const FPropertyPathSegment& LastSegment = InPropertyPath.GetLastSegment();
+			int32 ArrayIndex = LastSegment.GetArrayIndex();
+			UProperty* Property = CastChecked<UProperty>(LastSegment.GetField());
+
+			// Verify that the cpp type matches a known property type.
+			if ( IsConcreteTypeCompatibleWithReflectedType<bool>(Property) )
+			{
+				ArrayIndex = ArrayIndex == INDEX_NONE ? 0 : ArrayIndex;
+				if ( PropertySizesMatch<bool>(Property) && ArrayIndex < Property->ArrayDim )
+				{
+					if(void* Address = Property->ContainerPtrToValuePtr<bool>(InContainer, ArrayIndex))
+					{
+						InPropertyPath.ResolveLeaf(Address);
+						UBoolProperty* BoolProperty = CastChecked<UBoolProperty>(LastSegment.GetField());
+						OutValue = BoolProperty->GetPropertyValue(Address);
+						OutProperty = Property;
+						return true;
+					}
+				}
+			}
+
+			return false;
+		}
+	};
+
 	/** 
 	 * Resolve a property path to a property and a value. Supports functions as input fields.
 	 * @param InContainer			The containing object/structure for the current path iteration
@@ -854,7 +885,38 @@ namespace PropertyPathHelpersInternal
 				}
 			}
 
-			return true;
+			return false;
+		}
+	};
+
+	/** Partial specialization for bools/bitfields */
+	template<typename ContainerType>
+	struct FSetValueHelper<bool, ContainerType>
+	{
+		static bool SetValue(ContainerType* InContainer, const FCachedPropertyPath& InPropertyPath, const bool& InValue)
+		{
+			const FPropertyPathSegment& LastSegment = InPropertyPath.GetLastSegment();
+			int32 ArrayIndex = LastSegment.GetArrayIndex();
+			UProperty* Property = CastChecked<UProperty>(LastSegment.GetField());
+
+			// Verify that the cpp type matches a known property type.
+			if ( IsConcreteTypeCompatibleWithReflectedType<bool>(Property) )
+			{
+				// Ensure that the element sizes are the same, prevents the user from doing something terribly wrong.
+				ArrayIndex = ArrayIndex == INDEX_NONE ? 0 : ArrayIndex;
+				if ( PropertySizesMatch<bool>(Property) && ArrayIndex < Property->ArrayDim )
+				{
+					if(void* Address = Property->ContainerPtrToValuePtr<bool>(InContainer, ArrayIndex))
+					{
+						InPropertyPath.ResolveLeaf(Address);
+						UBoolProperty* BoolProperty = CastChecked<UBoolProperty>(LastSegment.GetField());
+						BoolProperty->SetPropertyValue(Address, InValue);
+						return true;
+					}
+				}
+			}
+
+			return false;
 		}
 	};
 
@@ -1020,6 +1082,28 @@ namespace PropertyPathHelpersInternal
 		}
 	};
 
+	/** Explicit specialization for bools/bitfields */
+	template<>
+	struct FGetValueFastHelper<bool>
+	{
+		static bool GetValue(const FCachedPropertyPath& InPropertyPath, bool& OutValue, UProperty*& OutProperty)
+		{
+			const FPropertyPathSegment& LastSegment = InPropertyPath.GetLastSegment();
+			OutProperty = CastChecked<UProperty>(LastSegment.GetField());
+			UArrayProperty* ArrayProp = Cast<UArrayProperty>(OutProperty);
+			if ( ArrayProp && LastSegment.GetArrayIndex() != INDEX_NONE )
+			{
+				ArrayProp->Inner->CopySingleValue(&OutValue, InPropertyPath.GetCachedAddress());
+			}
+			else
+			{
+				UBoolProperty* BoolProperty = CastChecked<UBoolProperty>(OutProperty);
+				OutValue = BoolProperty->GetPropertyValue(InPropertyPath.GetCachedAddress());
+			}
+			return true;
+		}
+	};
+
 	/** 
 	 * Fast, unsafe version of GetValue().
 	 * @param	InContainer		The containing object/structure to iterate against
@@ -1073,6 +1157,29 @@ namespace PropertyPathHelpersInternal
 			const FPropertyPathSegment& LastSegment = InPropertyPath.GetLastSegment();
 			UProperty* Property = CastChecked<UProperty>(LastSegment.GetField());
 			Property->CopyCompleteValue(InPropertyPath.GetCachedAddress(), &InValue);
+			return true;
+		}
+	};
+
+	/** Explicit specialization for bools/bitfields */
+	template<>
+	struct FSetValueFastHelper<bool>
+	{
+		static bool SetValue(const FCachedPropertyPath& InPropertyPath, const bool& InValue)
+		{
+			const FPropertyPathSegment& LastSegment = InPropertyPath.GetLastSegment();
+			UProperty* Property = CastChecked<UProperty>(LastSegment.GetField());
+			UArrayProperty* ArrayProp = Cast<UArrayProperty>(Property);
+			if ( ArrayProp && LastSegment.GetArrayIndex() != INDEX_NONE )
+			{
+				ArrayProp->Inner->CopySingleValue(InPropertyPath.GetCachedAddress(), &InValue);
+			}
+			else
+			{
+				UBoolProperty* BoolProperty = CastChecked<UBoolProperty>(Property);
+				BoolProperty->SetPropertyValue(InPropertyPath.GetCachedAddress(), InValue);
+			}
+			
 			return true;
 		}
 	};

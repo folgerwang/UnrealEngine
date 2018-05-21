@@ -278,7 +278,7 @@ void AVREditorAvatarActor::TickManually( const float DeltaTime )
 			auto XRCamera = GEngine->XRSystem->GetXRCamera();
 			if (XRCamera.IsValid())
 			{
-				XRCamera->SetupLateUpdate(ParentToWorld, HeadMeshComponent);
+				XRCamera->SetupLateUpdate(ParentToWorld, HeadMeshComponent, false);
 			}
 			HeadMeshComponent->SetRelativeTransform( RoomSpaceTransformWithWorldToMetersScaling );
 		}

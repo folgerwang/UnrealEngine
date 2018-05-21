@@ -81,6 +81,17 @@ void FMovieSceneTrackEditor::AnimatablePropertyChanged( FOnKeyProperty OnKeyProp
 		{
 			Sequencer.Pin()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 		}
+		else
+		{
+			// If the only thing we changed as a result of the external change were channel defaults, we suppress automatic
+			// re-evaluation of the sequence for this change to ensure that the object does not have the change immediately overwritten
+			// by animated channels that have keys, but did not have keys added
+			UMovieSceneSequence* FocusedSequence = Sequencer.Pin()->GetFocusedMovieSceneSequence();
+			if (FocusedSequence)
+			{
+				Sequencer.Pin()->SuppressAutoEvaluation(FocusedSequence, FocusedSequence->GetSignature());
+			}
+		}
 
 		UpdatePlaybackRange();
 

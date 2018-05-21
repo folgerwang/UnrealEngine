@@ -1,9 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Android/AndroidWindow.h"
+#if USE_ANDROID_JNI
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
 #include <jni.h>
+#endif
 #include "HAL/OutputDevices.h"
 #include "HAL/IConsoleManager.h"
 
@@ -64,6 +66,7 @@ void FAndroidWindow::SetOSWindowHandle(void* InWindow)
 //This function is declared in the Java-defined class, GameActivity.java: "public native void nativeSetObbInfo(String PackageName, int Version, int PatchVersion);"
 static bool GAndroidIsPortrait = false;
 static int GAndroidDepthBufferPreference = 0;
+#if USE_ANDROID_JNI
 JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetWindowInfo(JNIEnv* jenv, jobject thiz, jboolean bIsPortrait, jint DepthBufferPreference)
 {
 	WindowInit = false;
@@ -78,6 +81,7 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetSurfaceViewInfo(JNI
 	GSurfaceViewHeight = height;
 	UE_LOG(LogAndroid, Log, TEXT("nativeSetSurfaceViewInfo width=%d and height=%d"), GSurfaceViewWidth, GSurfaceViewHeight);
 }
+#endif
 
 int32 FAndroidWindow::GetDepthBufferPreference()
 {
@@ -91,12 +95,16 @@ void FAndroidWindow::InvalidateCachedScreenRect()
 
 void FAndroidWindow::AcquireWindowRef(ANativeWindow* InWindow)
 {
+#if USE_ANDROID_JNI
 	ANativeWindow_acquire(InWindow);
+#endif
 }
 
 void FAndroidWindow::ReleaseWindowRef(ANativeWindow* InWindow)
 {
+#if USE_ANDROID_JNI
 	ANativeWindow_release(InWindow);
+#endif
 }
 
 void FAndroidWindow::SetHardwareWindow(void* InWindow)
@@ -109,10 +117,30 @@ void* FAndroidWindow::GetHardwareWindow()
 	return NativeWindow;
 }
 
+#if USE_ANDROID_JNI
 extern bool AndroidThunkCpp_IsGearVRApplication();
-
+#endif
 FPlatformRect FAndroidWindow::GetScreenRect()
 {
+	int32 OverrideResX, OverrideResY;
+	// allow a subplatform to dictate resolution - we can't easily subclass FAndroidWindow the way its used
+	if (FPlatformMisc::GetOverrideResolution(OverrideResX, OverrideResY))
+	{
+		FPlatformRect Rect;
+		Rect.Left = Rect.Top = 0;
+		Rect.Right = OverrideResX;
+		Rect.Bottom = OverrideResY;
+
+		return Rect;
+	}
+
+	// too much of the following code needs JNI things, just assume override
+#if !USE_ANDROID_JNI
+
+	UE_LOG(LogAndroid, Fatal, TEXT("FAndroidWindow::CalculateSurfaceSize currently expedcts non-JNI platforms to override resolution"));
+	return FPlatformRect();
+#else
+
 	// CSF is a multiplier to 1280x720
 	static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MobileContentScaleFactor"));
 	static const bool bIsGearVRApp = AndroidThunkCpp_IsGearVRApplication();
@@ -308,11 +336,25 @@ FPlatformRect FAndroidWindow::GetScreenRect()
 	bLastMosaicState = bMosaicEnabled;
 
 	return ScreenRect;
+#endif
 }
 
 
 void FAndroidWindow::CalculateSurfaceSize(void* InWindow, int32_t& SurfaceWidth, int32_t& SurfaceHeight)
 {
+	// allow a subplatform to dictate resolution - we can't easily subclass FAndroidWindow the way its used
+	if (FPlatformMisc::GetOverrideResolution(SurfaceWidth, SurfaceHeight))
+	{
+		return;
+	}
+
+	// too much of the following code needs JNI things, just assume override
+#if !USE_ANDROID_JNI
+	
+	UE_LOG(LogAndroid, Fatal, TEXT("FAndroidWindow::CalculateSurfaceSize currently expedcts non-JNI platforms to override resolution"));
+
+#else
+
 	check(InWindow);
 
 	static const bool bIsMobileVRApp = AndroidThunkCpp_IsGearVRApplication() || FAndroidMisc::IsDaydreamApplication();
@@ -335,6 +377,7 @@ void FAndroidWindow::CalculateSurfaceSize(void* InWindow, int32_t& SurfaceWidth,
 	const int DividableBy = bIsMobileVRApp ? 1 : 8;
 	SurfaceWidth = (SurfaceWidth / DividableBy) * DividableBy;
 	SurfaceHeight = (SurfaceHeight / DividableBy) * DividableBy;
+#endif
 }
 
 bool FAndroidWindow::OnWindowOrientationChanged(bool bIsPortrait)

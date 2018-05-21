@@ -56,6 +56,7 @@ struct FAndroidDeviceInfo
 class IAndroidDeviceDetection
 {
 public:
+	virtual void Initialize(const TCHAR* SDKDirectoryEnvVar, const TCHAR* SDKRelativeExePath, const TCHAR* GetPropCommand, bool bGetExtensionsViaSurfaceFlinger) = 0;
 	virtual const TMap<FString,FAndroidDeviceInfo>& GetDeviceMap() = 0;
 	virtual FCriticalSection* GetDeviceMapLock() = 0;
 	virtual void UpdateADBPath() = 0;

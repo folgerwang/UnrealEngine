@@ -46,10 +46,15 @@ FD3D12CommandListHandle::FD3D12CommandListData::FD3D12CommandListData(FD3D12Devi
 	, CommandListType(InCommandListType)
 	, ResidencySet(nullptr)
 	, FD3D12DeviceChild(ParentDevice)
-	, FD3D12SingleNodeGPUObject(ParentDevice->GetNodeMask())
+	, FD3D12SingleNodeGPUObject(ParentDevice->GetGPUMask())
 {
-	VERIFYD3D12RESULT(ParentDevice->GetDevice()->CreateCommandList((uint32)GetNodeMask(), CommandListType, CommandAllocator, nullptr, IID_PPV_ARGS(CommandList.GetInitReference())));
+	VERIFYD3D12RESULT(ParentDevice->GetDevice()->CreateCommandList((uint32)GetGPUMask(), CommandListType, CommandAllocator, nullptr, IID_PPV_ARGS(CommandList.GetInitReference())));
 	INC_DWORD_STAT(STAT_D3D12NumCommandLists);
+
+#if PLATFORM_WINDOWS
+	// Optionally obtain the ID3D12GraphicsCommandList1 interface, we don't check the HRESULT.
+	CommandList->QueryInterface(IID_PPV_ARGS(CommandList1.GetInitReference()));
+#endif
 
 	// Initially start with all lists closed.  We'll open them as we allocate them.
 	Close();

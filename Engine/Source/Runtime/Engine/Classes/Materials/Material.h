@@ -88,6 +88,9 @@ enum EDecalBlendMode
 	/** Output signed distance in Opacity depending on LightVector. Note: Can be costly, no shadow casting but receiving, no per pixel normal yet, no quality settings yet */
 	DBM_Volumetric_DistanceFunction UMETA(DisplayName="Volumetric Distance Function (experimental)"),
 
+	/** Ambient occlusion. */
+	DBM_AmbientOcclusion UMETA(DisplayName = "Ambient Occlusion"),
+
 	DBM_MAX,
 };
 
@@ -537,6 +540,10 @@ public:
 	/** Whether to draw on top of opaque pixels even if behind them. This only has meaning for translucency. */
 	UPROPERTY(EditAnywhere, Category=Translucency, AdvancedDisplay)
 	uint32 bDisableDepthTest:1;
+
+	/** Whether the transluency pass should write its alpha, and only the alpha, into the framebuffer */
+	UPROPERTY(EditAnywhere, Category = Translucency, AdvancedDisplay)
+	uint32 bWriteOnlyAlpha : 1;
 
 	/** Whether to generate spherical normals for particles that use this material. */
 	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)

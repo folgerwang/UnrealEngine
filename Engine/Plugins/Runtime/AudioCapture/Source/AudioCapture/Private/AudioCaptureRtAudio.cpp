@@ -26,20 +26,8 @@ void FAudioCaptureImpl::OnAudioCapture(void* InBuffer, uint32 InBufferFrames, do
 {
 	check(Callback);
 
-	int32 NumSamples = (int32)(InBufferFrames * NumChannels);
-
-	FloatBuffer.Reset(InBufferFrames);
-	FloatBuffer.AddUninitialized(NumSamples);
-
-	int16* InBufferData = (int16*)InBuffer;
-	float* FloatBufferPtr = FloatBuffer.GetData();
-
-	for (int32 i = 0; i < NumSamples; ++i)
-	{
-		FloatBufferPtr[i] = ((float)InBufferData[i] / 32767.0f);
-	}
-
-	Callback->OnAudioCapture(FloatBufferPtr, InBufferFrames, NumChannels, StreamTime, bOverflow);
+	float* InBufferData = (float*)InBuffer;
+	Callback->OnAudioCapture(InBufferData, InBufferFrames, NumChannels, StreamTime, bOverflow);
 }
 
 bool FAudioCaptureImpl::GetDefaultCaptureDeviceInfo(FCaptureDeviceInfo& OutInfo)
@@ -85,7 +73,12 @@ bool FAudioCaptureImpl::OpenDefaultCaptureStream(const FAudioCaptureStreamParam&
 	Callback = StreamParams.Callback;
 
 	// Open up new audio stream
-	CaptureDevice.openStream(nullptr, &RtAudioStreamParams, RTAUDIO_SINT16, SampleRate, &NumFrames, &OnAudioCaptureCallback, this);
+	CaptureDevice.openStream(nullptr, &RtAudioStreamParams, RTAUDIO_FLOAT32, SampleRate, &NumFrames, &OnAudioCaptureCallback, this);
+
+	if (CaptureDevice.isStreamOpen())
+	{
+		SampleRate = CaptureDevice.getStreamSampleRate();
+	}
 
 	return true;
 }
@@ -129,12 +122,12 @@ bool FAudioCaptureImpl::GetStreamTime(double& OutStreamTime)
 	return true;
 }
 
-bool FAudioCaptureImpl::IsStreamOpen()
+bool FAudioCaptureImpl::IsStreamOpen() const
 {
 	return CaptureDevice.isStreamOpen();
 }
 
-bool FAudioCaptureImpl::IsCapturing()
+bool FAudioCaptureImpl::IsCapturing() const
 {
 	return CaptureDevice.isStreamRunning();
 }

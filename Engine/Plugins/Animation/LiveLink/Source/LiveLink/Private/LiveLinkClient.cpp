@@ -432,6 +432,18 @@ void FLiveLinkClient::RemoveSource(FGuid InEntryGuid)
 	}
 }
 
+void FLiveLinkClient::RemoveSource(TSharedPtr<ILiveLinkSource> InSource)
+{
+	LastValidationCheck = 0.0; //Force validation check next frame
+	int32 SourceIdx = GetSourceIndexForPointer(InSource);
+	if (SourceIdx != INDEX_NONE)
+	{
+		SourcesToRemove.Add(Sources[SourceIdx]);
+		RemoveSourceInternal(SourceIdx);
+		OnLiveLinkSourcesChanged.Broadcast();
+	}
+}
+
 void FLiveLinkClient::RemoveAllSources()
 {
 	LastValidationCheck = 0.0; //Force validation check next frame
@@ -506,6 +518,31 @@ TArray<FLiveLinkSubjectKey> FLiveLinkClient::GetSubjects()
 	}
 
 	return SubjectEntries;
+}
+
+void FLiveLinkClient::GetSubjectNames(TArray<FName>& SubjectNames)
+{
+	SubjectNames.Reset();
+	{
+		FScopeLock Lock(&SubjectDataAccessCriticalSection);
+
+		SubjectNames.Reserve(LiveSubjectData.Num() + VirtualSubjects.Num());
+
+		for (const TPair<FName, FLiveLinkSubject>& LiveSubject : LiveSubjectData)
+		{
+			SubjectNames.Emplace(LiveSubject.Key);
+		}
+	}
+
+	for (TPair<FName, FLiveLinkVirtualSubject>& VirtualSubject : VirtualSubjects)
+	{
+		SubjectNames.Emplace(VirtualSubject.Key);
+	}
+}
+
+int32 FLiveLinkClient::GetSourceIndexForPointer(TSharedPtr<ILiveLinkSource> InSource) const
+{
+	return Sources.IndexOfByKey(InSource);
 }
 
 int32 FLiveLinkClient::GetSourceIndexForGUID(FGuid InEntryGuid) const

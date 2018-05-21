@@ -8,9 +8,6 @@
 #include "AppleARKitTransform.h"
 #include "AppleARKitVideoOverlay.h"
 #include "AppleARKitFrame.h"
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-#include "IOS/IOSAppDelegate.h"
-#endif
 #include "AppleARKitAnchor.h"
 #include "AppleARKitPlaneAnchor.h"
 #include "AppleARKitConfiguration.h"
@@ -26,6 +23,11 @@
 
 // For orientation changed
 #include "Misc/CoreDelegates.h"
+
+#if PLATFORM_IOS
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Wpartial-availability"
+#endif
 
 namespace ARKitUtil
 {
@@ -151,8 +153,8 @@ private:
 			ARKitSystem.OnGetARSessionStatus().Status == EARSessionStatus::Running &&
 			ARKitSystem.GetSessionConfig().ShouldRenderCameraOverlay();
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-		if ([IOSAppDelegate GetDelegate].OSVersion >= 11.0f)
+#if SUPPORTS_ARKIT_1_0
+		if (FAppleARKitAvailability::SupportsARKit10())
 		{
 			return bRenderOverlay;
 		}
@@ -162,7 +164,7 @@ private:
 		}
 #else
 		return false;
-#endif //ARKIT_SUPPORT
+#endif
 	}
 	//~ FDefaultXRCamera
 	
@@ -173,7 +175,7 @@ private:
 
 
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 static FORCEINLINE FGuid ToFGuid( uuid_t UUID )
 {
 	FGuid AsGUID(
@@ -194,14 +196,26 @@ static FORCEINLINE FGuid ToFGuid( NSUUID* Identifier )
 	return ToFGuid( UUID );
 }
 
-FARBlendShapeMap ToBlendShapeMap(NSDictionary<ARBlendShapeLocation,NSNumber *>* BlendShapes)
+FARBlendShapeMap ToBlendShapeMap(NSDictionary<ARBlendShapeLocation,NSNumber *>* BlendShapes, const FTransform& Transform)
 {
 	FARBlendShapeMap BlendShapeMap;
+	FRotator TrackedRot(Transform.GetRotation());
+	// Map the -180..180 range to -1..1
+	float HeadYaw = (float)TrackedRot.Yaw / 180.f;
+	float HeadPitch = (float)TrackedRot.Pitch / 180.f;
+	float HeadRoll = (float)TrackedRot.Roll / 180.f;
+	BlendShapeMap.Add(EARFaceBlendShape::HeadYaw, HeadYaw);
+	BlendShapeMap.Add(EARFaceBlendShape::HeadPitch, HeadPitch);
+	BlendShapeMap.Add(EARFaceBlendShape::HeadRoll, HeadRoll);
 
 #define SET_BLEND_SHAPE(AppleShape, UE4Shape) \
 	if (BlendShapes[AppleShape]) \
 	{ \
 		BlendShapeMap.Add(UE4Shape, [BlendShapes[AppleShape] floatValue]); \
+	} \
+	else \
+	{ \
+		BlendShapeMap.Add(UE4Shape, 0.f); \
 	}
 
 	// Do we want to capture face performance or look at the face as if in a mirror
@@ -317,6 +331,7 @@ enum class EAppleAnchorType : uint8
 	Anchor,
 	PlaneAnchor,
 	FaceAnchor,
+	ImageAnchor,
 	MAX
 };
 
@@ -347,20 +362,32 @@ struct FAppleARKitAnchorData
 	{
 	}
 
+    FAppleARKitAnchorData(FGuid InAnchorGuid, FTransform InTransform, FString InDetectedImageName)
+    : Transform( InTransform )
+    , AnchorType( EAppleAnchorType::ImageAnchor )
+    , AnchorGUID( InAnchorGuid )
+    , DetectedImageName( MoveTemp(InDetectedImageName) )
+    {
+    }
+
 	FTransform Transform;
 	EAppleAnchorType AnchorType;
 	FGuid AnchorGUID;
 	FVector Center;
 	FVector Extent;
+
+	TArray<FVector> BoundaryVerts;
 	FARBlendShapeMap BlendShapes;
 	TArray<FVector> FaceVerts;
 	// Note: the index buffer never changes so can be safely read once
 	static TArray<int32> FaceIndices;
+
+	FString DetectedImageName;
 };
 
 TArray<int32> FAppleARKitAnchorData::FaceIndices;
 
-#endif//ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#endif
 
 
 
@@ -376,6 +403,8 @@ FAppleARKitSystem::FAppleARKitSystem()
 , DeviceOrientation(EScreenOrientation::Unknown)
 , DerivedTrackingToUnrealRotation(FRotator::ZeroRotator)
 , LightEstimate(nullptr)
+, CameraImage(nullptr)
+, CameraDepth(nullptr)
 , GameThreadFrameNumber(0)
 , GameThreadTimestamp(0.0)
 , LastTrackedGeometry_DebugId(0)
@@ -490,6 +519,30 @@ void FAppleARKitSystem::UpdateFrame()
 			// Used to mark the time at which tracked geometry was updated
 			GameThreadFrameNumber++;
 			GameThreadTimestamp = GameThreadFrame->Timestamp;
+
+#if SUPPORTS_ARKIT_1_0
+			// Only create a new camera image texture if it's set
+			if (GameThreadFrame->CameraImage != nullptr)
+			{
+				if (!bCanReuseCameraImage || CameraImage == nullptr)
+				{
+					CameraImage = NewObject<UAppleARKitTextureCameraImage>();
+					bCanReuseCameraImage = true;
+				}
+                CameraImage->Init(GameThreadTimestamp, GameThreadFrame->CameraImage);
+			}
+
+			// Only create a new camera depth texture if it's set (currently only Face AR)
+			if (GameThreadFrame->CameraDepth != nullptr)
+			{
+				if (!bCanReuseCameraDepth || CameraDepth == nullptr)
+				{
+					CameraDepth = NewObject<UAppleARKitTextureCameraDepth>();
+					bCanReuseCameraDepth = true;
+				}
+                CameraDepth->Init(GameThreadTimestamp, GameThreadFrame->CameraDepth);
+			}
+#endif
 		}
 	}
 }
@@ -517,8 +570,8 @@ bool FAppleARKitSystem::IsHeadTrackingAllowed() const
 		OnGetARSessionStatus().Status == EARSessionStatus::Running &&
 		GetSessionConfig().ShouldEnableCameraTracking();
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-	if ([IOSAppDelegate GetDelegate].OSVersion >= 11.0f)
+#if SUPPORTS_ARKIT_1_0
+	if (FAppleARKitAvailability::SupportsARKit10())
 	{
 		return bEnableCameraTracking;
 	}
@@ -528,7 +581,7 @@ bool FAppleARKitSystem::IsHeadTrackingAllowed() const
 	}
 #else
 	return false;
-#endif //ARKIT_SUPPORT
+#endif
 }
 
 TSharedPtr<class IXRCamera, ESPMode::ThreadSafe> FAppleARKitSystem::GetXRCamera(int32 DeviceId)
@@ -575,6 +628,31 @@ bool FAppleARKitSystem::OnStartGameFrame(FWorldContext& WorldContext)
 	}
 	
 	return true;
+}
+
+void* FAppleARKitSystem::GetARSessionRawPointer()
+{
+#if SUPPORTS_ARKIT_1_0
+	return static_cast<void*>(Session);
+#endif
+	ensureAlwaysMsgf(false, TEXT("FAppleARKitSystem::GetARSessionRawPointer is unimplemented on current platform."));
+	return nullptr;
+}
+
+void* FAppleARKitSystem::GetGameThreadARFrameRawPointer()
+{
+#if SUPPORTS_ARKIT_1_0
+	if (GameThreadFrame.IsValid())
+	{
+		return GameThreadFrame->NativeFrame;
+	}
+	else
+	{
+		return nullptr;
+	}
+#endif
+	ensureAlwaysMsgf(false, TEXT("FAppleARKitSystem::GetARGameThreadFrameRawPointer is unimplemented on current platform."));
+	return nullptr;
 }
 
 //bool FAppleARKitSystem::ARLineTraceFromScreenPoint(const FVector2D ScreenPosition, TArray<FARTraceResult>& OutHitResults)
@@ -643,7 +721,7 @@ static bool IsHitInRange( float UnrealHitDistance )
 	return 20.0f < UnrealHitDistance && UnrealHitDistance < 500.0f;
 }
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 static UARTrackedGeometry* FindGeometryFromAnchor( ARAnchor* InAnchor, TMap<FGuid, UARTrackedGeometry*>& Geometries )
 {
@@ -660,7 +738,7 @@ static UARTrackedGeometry* FindGeometryFromAnchor( ARAnchor* InAnchor, TMap<FGui
 	return nullptr;
 }
 
-#endif//ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#endif
 
 TArray<FARTraceResult> FAppleARKitSystem::OnLineTraceTrackedObjects( const FVector2D ScreenCoord, EARLineTraceChannels TraceChannels )
 {
@@ -670,7 +748,7 @@ TArray<FARTraceResult> FAppleARKitSystem::OnLineTraceTrackedObjects( const FVect
 	// Sanity check
 	if (IsRunning())
 	{
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 		
 		TSharedRef<FARSystemBase, ESPMode::ThreadSafe> This = SharedThis(this);
 		
@@ -757,7 +835,7 @@ TArray<FARTraceResult> FAppleARKitSystem::OnLineTraceTrackedObjects( const FVect
 				}
 			}
 		}
-#endif // ARKIT_SUPPORT
+#endif
 	}
 	
 	if (Results.Num() > 1)
@@ -781,6 +859,18 @@ TArray<UARTrackedGeometry*> FAppleARKitSystem::OnGetAllTrackedGeometries() const
 TArray<UARPin*> FAppleARKitSystem::OnGetAllPins() const
 {
 	return Pins;
+}
+
+UARTextureCameraImage* FAppleARKitSystem::OnGetCameraImage()
+{
+	bCanReuseCameraImage = false;
+	return CameraImage;
+}
+
+UARTextureCameraDepth* FAppleARKitSystem::OnGetCameraDepth()
+{
+	bCanReuseCameraDepth = false;
+	return CameraDepth;
 }
 
 UARLightEstimate* FAppleARKitSystem::OnGetCurrentLightEstimate() const
@@ -845,7 +935,7 @@ bool FAppleARKitSystem::GetCurrentFrame(FAppleARKitFrame& OutCurrentFrame) const
 
 bool FAppleARKitSystem::OnIsTrackingTypeSupported(EARSessionType SessionType) const
 {
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 	switch (SessionType)
 	{
 		case EARSessionType::Orientation:
@@ -871,7 +961,10 @@ void FAppleARKitSystem::AddReferencedObjects( FReferenceCollector& Collector )
 
 	Collector.AddReferencedObjects( TrackedGeometries );
 	Collector.AddReferencedObjects( Pins );
-	
+	Collector.AddReferencedObject( CameraImage );
+	Collector.AddReferencedObject( CameraDepth );
+	Collector.AddReferencedObjects( CandidateImages );
+
 	if(LightEstimate)
 	{
 		Collector.AddReferencedObject(LightEstimate);
@@ -886,7 +979,7 @@ bool FAppleARKitSystem::HitTestAtScreenPosition(const FVector2D ScreenPosition, 
 
 static TOptional<EScreenOrientation::Type> PickAllowedDeviceOrientation( EScreenOrientation::Type InOrientation )
 {
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 	const UIOSRuntimeSettings* IOSSettings = GetDefault<UIOSRuntimeSettings>();
 	
 	const bool bOrientationSupported[] =
@@ -957,8 +1050,6 @@ void FAppleARKitSystem::SetDeviceOrientation( EScreenOrientation::Type InOrienta
 
 bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 {
-// @todo - JoeG & NickA talk about incompatible session types and what to do here
-
 	if (IsRunning())
 	{
 		UE_LOG(LogAppleARKit, Log, TEXT("Session already running"), this);
@@ -968,13 +1059,13 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 
 	// @todo arkit FAppleARKitSystem::GetWorldToMetersScale needs a real scale somehow
 	FAppleARKitConfiguration Config;
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-	if ([IOSAppDelegate GetDelegate].OSVersion >= 11.0f)
+#if SUPPORTS_ARKIT_1_0
+	if (FAppleARKitAvailability::SupportsARKit10())
 	{
 		ARSessionRunOptions options = 0;
 
 		// Convert to native ARWorldTrackingSessionConfiguration
-		ARConfiguration* Configuration = ToARConfiguration(SessionConfig, Config);
+		ARConfiguration* Configuration = ToARConfiguration(SessionConfig, Config, CandidateImages, ConvertedCandidateImages);
 		// Not all session types are supported by all devices
 		if (Configuration == nullptr)
 		{
@@ -1022,13 +1113,14 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 		[Session runWithConfiguration : Configuration options : options];
 	}
 	
-#endif // ARKIT_SUPPORT
+#endif
 	
 	// @todo arkit Add support for relocating ARKit space to Unreal World Origin? BaseTransform = FTransform::Identity;
 	
 	// Set running state
 	bIsRunning = true;
 	
+	OnARSessionStarted.Broadcast();
 	return true;
 }
 
@@ -1046,9 +1138,9 @@ bool FAppleARKitSystem::Pause()
 	}
 	
 	UE_LOG(LogAppleARKit, Log, TEXT("Stopping session: %p"), this);
-	
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-	if ([IOSAppDelegate GetDelegate].OSVersion >= 11.0f)
+
+#if SUPPORTS_ARKIT_1_0
+	if (FAppleARKitAvailability::SupportsARKit10())
 	{
 		// Suspend the session
 		[Session pause];
@@ -1064,7 +1156,7 @@ bool FAppleARKitSystem::Pause()
 		}
 	}
 	
-#endif // ARKIT_SUPPORT
+#endif
 	
 	// Set running state
 	bIsRunning = false;
@@ -1094,7 +1186,7 @@ void FAppleARKitSystem::SessionDidFailWithError_DelegateThread(const FString& Er
 	UE_LOG(LogAppleARKit, Warning, TEXT("Session failed with error: %s"), *Error);
 }
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData( ARAnchor* Anchor, const float WorldToMeterScale )
 {
@@ -1110,14 +1202,39 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData( ARAnchor* Anchor, const
 			// @todo use World Settings WorldToMetersScale
 			0.5f*FAppleARKitTransform::ToFVector(PlaneAnchor.extent, WorldToMeterScale).GetAbs()
 		);
+
+#if SUPPORTS_ARKIT_1_5
+		if (FAppleARKitAvailability::SupportsARKit15())
+		{
+			//@todo All this copying should really happen on-demand.
+			const int32 NumBoundaryVerts = PlaneAnchor.geometry.boundaryVertexCount;
+			NewAnchor->BoundaryVerts.Reset(NumBoundaryVerts);
+			for(int32 i=0; i<NumBoundaryVerts; ++i)
+			{
+				const vector_float3& Vert = PlaneAnchor.geometry.boundaryVertices[i];
+				NewAnchor->BoundaryVerts.Add(FAppleARKitTransform::ToFVector(Vert, WorldToMeterScale));
+			}
+		}
+#endif
 	}
+#if SUPPORTS_ARKIT_1_5
+	else if (FAppleARKitAvailability::SupportsARKit15() && [Anchor isKindOfClass:[ARImageAnchor class]])
+	{
+		ARImageAnchor* ImageAnchor = (ARImageAnchor*)Anchor;
+		NewAnchor = MakeShared<FAppleARKitAnchorData>(
+			ToFGuid(ImageAnchor.identifier),
+			FAppleARKitTransform::ToFTransform(ImageAnchor.transform, WorldToMeterScale),
+			FString(ImageAnchor.referenceImage.name)
+		);
+	}
+#endif
 	else if ([Anchor isKindOfClass:[ARFaceAnchor class]])
 	{
 		ARFaceAnchor* FaceAnchor = (ARFaceAnchor*)Anchor;
 		NewAnchor = MakeShared<FAppleARKitAnchorData>(
 			ToFGuid(FaceAnchor.identifier),
 			FAppleARKitTransform::ToFTransform(FaceAnchor.transform, WorldToMeterScale),
-			ToBlendShapeMap(FaceAnchor.blendShapes),
+			ToBlendShapeMap(FaceAnchor.blendShapes, FAppleARKitTransform::ToFTransform(FaceAnchor.transform)),
 			ToVertexBuffer(FaceAnchor.geometry.vertices, FaceAnchor.geometry.vertexCount)
 		);
 		// Only convert from 16bit to 32bit once
@@ -1195,17 +1312,20 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 		UpdateFrame();
 	}
 
+	FString NewAnchorDebugName;
 	UARTrackedGeometry* NewGeometry = nullptr;
 	switch (AnchorData->AnchorType)
 	{
 		case EAppleAnchorType::Anchor:
 		{
+			NewAnchorDebugName = FString::Printf(TEXT("ANCHOR-%02d"), LastTrackedGeometry_DebugId++);
 			NewGeometry = NewObject<UARTrackedGeometry>();
 			NewGeometry->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform());
 			break;
 		}
 		case EAppleAnchorType::PlaneAnchor:
 		{
+			NewAnchorDebugName = FString::Printf(TEXT("PLN-%02d"), LastTrackedGeometry_DebugId++);
 			UARPlaneGeometry* NewGeo = NewObject<UARPlaneGeometry>();
 			NewGeo->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->Center, AnchorData->Extent);
 			NewGeometry = NewGeo;
@@ -1213,6 +1333,7 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 		}
 		case EAppleAnchorType::FaceAnchor:
 		{
+			NewAnchorDebugName = FString::Printf(TEXT("FACE-%02d"), LastTrackedGeometry_DebugId++);
 			// Update LiveLink first, because the other updates use MoveTemp for efficiency
 			if (LiveLinkSource.IsValid())
 			{
@@ -1224,12 +1345,26 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 			NewGeometry = NewGeo;
 			break;
 		}
+		case EAppleAnchorType::ImageAnchor:
+		{
+			NewAnchorDebugName = FString::Printf(TEXT("IMG-%02d"), LastTrackedGeometry_DebugId++);
+			UARTrackedImage* NewImage = NewObject<UARTrackedImage>();
+			UARCandidateImage** CandidateImage = CandidateImages.Find(AnchorData->DetectedImageName);
+			ensure(CandidateImage != nullptr);
+			NewImage->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), *CandidateImage);
+			NewGeometry = NewImage;
+			break;
+		}
+		default:
+		{
+			NewAnchorDebugName = FString::Printf(TEXT("APPL-%02d"), LastTrackedGeometry_DebugId++);
+			break;
+		}
 	}
 	check(NewGeometry != nullptr);
 
 	UARTrackedGeometry* NewTrackedGeometry = TrackedGeometries.Add( AnchorData->AnchorGUID, NewGeometry );
 	
-	const FString NewAnchorDebugName = FString::Printf(TEXT("APPL-%02d"), LastTrackedGeometry_DebugId++);
 	NewTrackedGeometry->SetDebugName( FName(*NewAnchorDebugName) );
 }
 
@@ -1272,7 +1407,7 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKit
 			{
 				if (UARPlaneGeometry* PlaneGeo = Cast<UARPlaneGeometry>(FoundGeometry))
 				{
-					PlaneGeo->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->Center, AnchorData->Extent);
+					PlaneGeo->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->Center, AnchorData->Extent, AnchorData->BoundaryVerts, nullptr);
 					for (UARPin* Pin : PinsToUpdate)
 					{
 						const FTransform Pin_LocalToTrackingTransform_PostUpdate = Pin->GetLocalToTrackingTransform_NoAlignment() * AnchorDeltaTransform;
@@ -1327,7 +1462,7 @@ void FAppleARKitSystem::SessionDidRemoveAnchors_Internal( FGuid AnchorGuid )
 	TrackedGeometries.Remove(AnchorGuid);
 }
 
-#endif //ARKIT_SUPPORT
+#endif
 
 void FAppleARKitSystem::SessionDidUpdateFrame_Internal( TSharedRef< FAppleARKitFrame, ESPMode::ThreadSafe > Frame )
 {
@@ -1343,14 +1478,22 @@ namespace AppleARKitSupport
 {
 	TSharedPtr<class FAppleARKitSystem, ESPMode::ThreadSafe> CreateAppleARKitSystem()
 	{
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-		const bool bIsARApp = GetDefault<UGeneralProjectSettings>()->bSupportAR;
-		if (bIsARApp)
+#if SUPPORTS_ARKIT_1_0
+		// Handle older iOS devices somehow calling this
+		if (FAppleARKitAvailability::SupportsARKit10())
 		{
-			auto NewARKitSystem = NewARSystem<FAppleARKitSystem>();
-			return NewARKitSystem;
+			const bool bIsARApp = GetDefault<UGeneralProjectSettings>()->bSupportAR;
+			if (bIsARApp)
+			{
+				auto NewARKitSystem = NewARSystem<FAppleARKitSystem>();
+				return NewARKitSystem;
+			}
 		}
 #endif
 		return TSharedPtr<class FAppleARKitSystem, ESPMode::ThreadSafe>();
 	}
 }
+
+#if PLATFORM_IOS
+	#pragma clang diagnostic pop
+#endif

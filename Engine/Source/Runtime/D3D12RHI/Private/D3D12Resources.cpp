@@ -167,7 +167,7 @@ FD3D12Resource::FD3D12Resource(FD3D12Device* ParentDevice,
 	, ResourceBaseAddress(nullptr)
 	, ResidencyHandle()
 	, FD3D12DeviceChild(ParentDevice)
-	, FD3D12MultiNodeGPUObject(ParentDevice->GetNodeMask(), VisibleNodes)
+	, FD3D12MultiNodeGPUObject(ParentDevice->GetGPUMask(), VisibleNodes)
 {
 #if UE_BUILD_DEBUG
 	FPlatformAtomics::InterlockedIncrement(&TotalResourceCount);
@@ -224,7 +224,7 @@ void FD3D12Resource::UpdateResidency(FD3D12CommandListHandle& CommandList)
 FD3D12Heap::FD3D12Heap(FD3D12Device* Parent, FRHIGPUMask VisibleNodes) :
 	ResidencyHandle(),
 	FD3D12DeviceChild(Parent),
-	FD3D12MultiNodeGPUObject(Parent->GetNodeMask(), VisibleNodes)
+	FD3D12MultiNodeGPUObject(Parent->GetGPUMask(), VisibleNodes)
 {
 }
 
@@ -477,7 +477,7 @@ void FD3D12ResourceLocation::Alias(FD3D12ResourceLocation & Destination, FD3D12R
 	Source.GetResource()->AddRef();
 }
 
-void FD3D12ResourceLocation::ReferenceNode(FD3D12Device* DestinationDevice, FD3D12ResourceLocation& Destination, FD3D12ResourceLocation & Source)
+void FD3D12ResourceLocation::ReferenceNode(FD3D12Device* DestinationDevice, FD3D12ResourceLocation& Destination, FD3D12ResourceLocation& Source)
 {
 	check(Source.GetResource() != nullptr);
 	Destination.Clear();
@@ -486,6 +486,9 @@ void FD3D12ResourceLocation::ReferenceNode(FD3D12Device* DestinationDevice, FD3D
 	Destination.SetType(ResourceLocationType::eNodeReference);
 
 	Destination.Parent = DestinationDevice;
+
+	// Addref the source as another resource location references it
+	Source.GetResource()->AddRef();
 }
 
 void FD3D12ResourceLocation::ReleaseResource()
@@ -494,7 +497,8 @@ void FD3D12ResourceLocation::ReleaseResource()
 	{
 	case ResourceLocationType::eStandAlone:
 	{
-		check(UnderlyingResource->GetRefCount() == 1);
+		// Multi-GPU support : because of references, several GPU nodes can refrence the same stand-alone resource.
+		check(UnderlyingResource->GetRefCount() == 1 || GNumExplicitGPUsForRendering > 1);
 		
 		if (UnderlyingResource->ShouldDeferDelete())
 		{
@@ -512,6 +516,7 @@ void FD3D12ResourceLocation::ReleaseResource()
 		Allocator->Deallocate(*this);
 		break;
 	}
+	case ResourceLocationType::eNodeReference:
 	case ResourceLocationType::eAliased:
 	{
 		if (UnderlyingResource->ShouldDeferDelete() && UnderlyingResource->GetRefCount() == 1)

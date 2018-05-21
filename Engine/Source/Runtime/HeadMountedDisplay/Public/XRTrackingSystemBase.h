@@ -5,6 +5,13 @@
 #include "IXRTrackingSystem.h"
 #include "IXRCamera.h"
 
+class HEADMOUNTEDDISPLAY_API FXRTrackingSystemDelegates
+{
+public:
+	DECLARE_MULTICAST_DELEGATE_OneParam(FXRTrackingOriginChanged, const IXRTrackingSystem* /*TrackingSystem*/);
+	static FXRTrackingOriginChanged OnXRTrackingOriginChanged;
+};
+
 /** 
  * Base utility class for implementations of the IXRTrackingSystem interface
  * Contains helpers and default implementation of most abstract methods, so final implementations only need to override features that they support.
@@ -82,7 +89,7 @@ public:
 	 *
 	 * The default implementations simply ignores the origin value.
 	 */
-	virtual void SetTrackingOrigin(EHMDTrackingOrigin::Type NewOrigin) override {}
+	virtual void SetTrackingOrigin(EHMDTrackingOrigin::Type NewOrigin) override { }
 
 	/**
 	 * Returns current tracking origin.
@@ -99,6 +106,12 @@ public:
 	 */
 	virtual FTransform GetTrackingToWorldTransform() const override;
 
+	/** 
+	 * Returns a transform for converting from 'Floor' origin space to 'Eye' origin space.
+	 * The default implementation always returns the identity.
+	 */
+	virtual bool GetFloorToEyeTrackingTransform(FTransform& OutFloorToEye) const override { OutFloorToEye = FTransform::Identity; return false; }
+
 	/**
 	 * Refreshes the system's known tracking-to-world transform.
 	 */
@@ -112,6 +125,13 @@ public:
 	virtual float GetWorldToMetersScale() const =0;
 
 protected:
+	/** 
+	 * Meant to be called by sub-classes whenever the tracking origin is altered.
+	 */
+	virtual void OnTrackingOriginChanged()
+	{
+		FXRTrackingSystemDelegates::OnXRTrackingOriginChanged.Broadcast(this);
+	}
 
 	/**
 	 * Computes the project's tracking-to-world transform based off how the user 

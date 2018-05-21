@@ -8,7 +8,7 @@
 #include "Math/Vector2D.h"
 #include "Misc/Attribute.h"
 #include "Math/Range.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 #include "CurveEditorTypes.h"
 #include "CurveDataAbstraction.h"
@@ -249,17 +249,17 @@ public:
 	/**
 	 * Called by SCurveEditorPanel to determine where to draw grid lines along the X-axis
 	 */
-	virtual void GetGridLinesX(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines) const
+	virtual void GetGridLinesX(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines, TArray<FText>& MajorGridLabels) const
 	{
-		ConstructInputGridLines(MajorGridLines, MinorGridLines);
+		ConstructXGridLines(MajorGridLines, MinorGridLines, MajorGridLabels);
 	}
 
 	/**
 	 * Called by SCurveEditorPanel to determine where to draw grid lines along the Y-axis
 	 */
-	virtual void GetGridLinesY(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines) const
+	virtual void GetGridLinesY(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines, TArray<FText>& MajorGridLabels) const
 	{
-		ConstructOutputGridLines(MajorGridLines, MinorGridLines, 4);
+		ConstructYGridLines(MajorGridLines, MinorGridLines, MajorGridLabels, 4);
 	}
 
 	/**
@@ -289,12 +289,12 @@ protected:
 	/**
 	 * Construct grid lines along the current display frame rate or time-base
 	 */
-	void ConstructInputGridLines(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines) const;
+	void ConstructXGridLines(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines, TArray<FText>& MajorGridLabels) const;
 
 	/**
 	 * Construct grid lines for the current visible value range
 	 */
-	void ConstructOutputGridLines(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines, uint8 MinorDivisions) const;
+	void ConstructYGridLines(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines, TArray<FText>& MajorGridLabels, uint8 MinorDivisions) const;
 
 	/**
 	 * Internal zoom to fit implementation

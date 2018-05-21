@@ -219,15 +219,12 @@ void InjectShadowedLocalLightPS(
 		LightData.bInverseSquared = INVERSE_SQUARED_FALLOFF;
 		LightData.bRadialLight = true;
 		LightData.bSpotLight = LightData.SpotAnglesAndSourceRadius.x > -2.0f;
+		LightData.bRectLight = false;
 
 		float VolumetricScatteringIntensity = DeferredLightUniforms.VolumetricScatteringIntensity;
 
 		float3 L = 0;
 		float3 ToLight = 0;
-		float NoL = 0;
-		float DistanceAttenuation = 1;
-		float LightRadiusMask = 1;
-		float SpotFalloff = 1;
 
 		uint NumSuperSamples = 1;
 
@@ -258,9 +255,28 @@ void InjectShadowedLocalLightPS(
 			float CellRadius = length(WorldPosition - ComputeCellWorldPosition(GridCoordinate + uint3(1, 1, 1), CellOffset));
 			// Bias the inverse squared light falloff based on voxel size to prevent aliasing near the light source
 			float DistanceBias = max(CellRadius * InverseSquaredLightDistanceBiasScale, 1);
-			GetLocalLightAttenuation(WorldPosition, float3(0, 0, 1), LightData, DistanceBias * DistanceBias, ToLight, L, NoL, DistanceAttenuation, LightRadiusMask, SpotFalloff);
-			float CombinedAttenuation = DistanceAttenuation * LightRadiusMask * SpotFalloff;
 
+			float3 LightColor = DeferredLightUniforms.LightColor;
+			float LightMask = GetLocalLightAttenuation(WorldPosition, LightData, ToLight, L);
+
+			float Lighting;
+			if( LightData.bRectLight )
+			{
+				FRect Rect = GetRect( ToLight, LightData );
+				// TODO Move CPU side
+				LightColor /= 2 * Rect.Extent.x * Rect.Extent.y;
+
+				Lighting = IntegrateLight( Rect );
+			}
+			else
+			{
+				FCapsuleLight Capsule = GetCapsule( ToLight, LightData );
+				Capsule.DistBiasSqr = Pow2( DistanceBias );
+
+				Lighting = IntegrateLight( Capsule, LightData.bInverseSquared );
+			}
+
+			float CombinedAttenuation = Lighting * LightMask;
 			float ShadowFactor = 1.0f;
 
 			if (CombinedAttenuation > 0)
@@ -268,8 +284,7 @@ void InjectShadowedLocalLightPS(
 				ShadowFactor = ComputeVolumeShadowing(WorldPosition, LightData.bRadialLight && !LightData.bSpotLight, LightData.bSpotLight);
 			}
 
-			OutScattering.rgb += DeferredLightUniforms.LightColor
-				* (PhaseFunction(PhaseG, dot(L, -CameraVector)) * CombinedAttenuation * ShadowFactor * VolumetricScatteringIntensity);
+			OutScattering.rgb += LightColor * (PhaseFunction(PhaseG, dot(L, -CameraVector)) * CombinedAttenuation * ShadowFactor * VolumetricScatteringIntensity);
 				
 			// To debug culling
 			//OutScattering.rgb += DeferredLightUniforms.LightColor * .0000001f;
@@ -570,19 +585,32 @@ void LightScatteringCS(
 				LightData.bRadialLight = true;
 				LightData.bSpotLight = LightData.SpotAnglesAndSourceRadius.x > -2.0f;
 
+				float3 LightColor = LightData.LightColorAndFalloffExponent.rgb;
+
 				float3 L = 0;
 				float3 ToLight = 0;
-				float NoL = 0;
-				float DistanceAttenuation = 1;
-				float LightRadiusMask = 1;
-				float SpotFalloff = 1;
+				float LightMask = GetLocalLightAttenuation(WorldPosition, LightData, ToLight, L);
 
-				GetLocalLightAttenuation(WorldPosition, float3(0, 0, 1), LightData, DistanceBiasSqr, ToLight, L, NoL, DistanceAttenuation, LightRadiusMask, SpotFalloff);
+				float Lighting;
+				if( LightData.bRectLight )
+				{
+					FRect Rect = GetRect( ToLight, LightData );
+					// TODO Move CPU side
+					LightColor /= 2 * Rect.Extent.x * Rect.Extent.y;
 
-				float CombinedAttenuation = DistanceAttenuation * LightRadiusMask * SpotFalloff;
+					Lighting = IntegrateLight( Rect );
+				}
+				else
+				{
+					FCapsuleLight Capsule = GetCapsule( ToLight, LightData );
+					Capsule.DistBiasSqr = DistanceBiasSqr;
 
-				LightScattering += LocalLight.LightColorAndFalloffExponent.xyz
-					* (PhaseFunction(PhaseG, dot(L, -CameraVector)) * CombinedAttenuation * VolumetricScatteringIntensity);
+					Lighting = IntegrateLight( Capsule, LightData.bInverseSquared );
+				}
+
+				float CombinedAttenuation = Lighting * LightMask;
+
+				LightScattering += LightColor * (PhaseFunction(PhaseG, dot(L, -CameraVector)) * CombinedAttenuation * VolumetricScatteringIntensity);
 
 				// To debug culling
 				//LightScattering += LocalLight.LightColorAndFalloffExponent.xyz * .0000001f;

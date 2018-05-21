@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AbcImporter.h"
 
@@ -87,6 +87,8 @@ void FAbcImporter::UpdateAssetImportData(UAbcAssetImportData* AssetImportData)
 			AssetImportData->TrackNames.Add(PolyMesh->GetName());
 		}
 	}
+
+	AssetImportData->SamplingSettings = ImportSettings->SamplingSettings;
 }
 
 void FAbcImporter::RetrieveAssetImportData(UAbcAssetImportData* AssetImportData)
@@ -100,6 +102,10 @@ void FAbcImporter::RetrieveAssetImportData(UAbcAssetImportData* AssetImportData)
 			PolyMesh->bShouldImport = true;
 			bAnySetForImport = true;
 		}		
+		else
+		{
+			PolyMesh->bShouldImport = false;
+		}
 	}
 
 	// If none were set to import, set all of them to import (probably different scene/setup)

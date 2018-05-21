@@ -1,20 +1,14 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "LinearTimecodePlugin.h"
 
-class FLinearTimecodePlugin : public IModuleInterface
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+
+DEFINE_LOG_CATEGORY(LogLinearTimecode);
+
+class FLinearTimecodeModule : public IModuleInterface
 {
-public:
-	/** IModuleInterface implementation */
-	virtual void StartupModule() override;
-	virtual void ShutdownModule() override;
 };
 
-void FLinearTimecodePlugin::StartupModule()
-{
-}
-
-void FLinearTimecodePlugin::ShutdownModule()
-{
-}
-
-IMPLEMENT_MODULE(FLinearTimecodePlugin, LinearTimecode)
+IMPLEMENT_MODULE(FLinearTimecodeModule, LinearTimecode)

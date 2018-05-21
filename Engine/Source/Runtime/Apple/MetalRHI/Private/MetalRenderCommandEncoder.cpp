@@ -154,52 +154,52 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugRenderCommandEncoder)
 #if METAL_DEBUG_OPTIONS
 - (void)insertDebugDraw
 {
-	switch (Buffer->DebugLevel)
-	{
-		case EMetalDebugLevelConditionalSubmit:
-		case EMetalDebugLevelWaitForComplete:
-		case EMetalDebugLevelLogOperations:
-		case EMetalDebugLevelValidation:
-		{
-			uint32 const Index = Buffer->DebugCommands.Num();
-#if PLATFORM_MAC
-			[Inner textureBarrier];
-#endif
-			[Inner setVertexBytes:&Index length:sizeof(Index) atIndex:0];
-			[Inner setVertexBuffer:Buffer->DebugInfoBuffer offset:0 atIndex:1];
-			[Inner setRenderPipelineState:DebugState];
-			[Inner drawPrimitives:MTLPrimitiveTypePoint vertexStart:0 vertexCount:1];
-#if PLATFORM_MAC
-			[Inner textureBarrier];
-#endif
-			if (Pipeline && Pipeline->RenderPipelineState)
-			{
-				[Inner setRenderPipelineState:Pipeline->RenderPipelineState];
-			}
-			
-			if (ShaderBuffers[EMetalShaderVertex].Buffers[0])
-			{
-				[Inner setVertexBuffer:ShaderBuffers[EMetalShaderVertex].Buffers[0] offset:ShaderBuffers[EMetalShaderVertex].Offsets[0] atIndex:0];
-			}
-			else if (ShaderBuffers[EMetalShaderVertex].Bytes[0])
-			{
-				[Inner setVertexBytes:ShaderBuffers[EMetalShaderVertex].Bytes[0] length:ShaderBuffers[EMetalShaderVertex].Offsets[0] atIndex:0];
-			}
-			
-			if (ShaderBuffers[EMetalShaderVertex].Buffers[1])
-			{
-				[Inner setVertexBuffer:ShaderBuffers[EMetalShaderVertex].Buffers[1] offset:ShaderBuffers[EMetalShaderVertex].Offsets[1] atIndex:1];
-			}
-			else if (ShaderBuffers[EMetalShaderVertex].Bytes[1])
-			{
-				[Inner setVertexBytes:ShaderBuffers[EMetalShaderVertex].Bytes[1] length:ShaderBuffers[EMetalShaderVertex].Offsets[1] atIndex:1];
-			}
-		}
-		default:
-		{
-			break;
-		}
-	}
+//	switch (Buffer->DebugLevel)
+//	{
+//		case EMetalDebugLevelConditionalSubmit:
+//		case EMetalDebugLevelWaitForComplete:
+//		case EMetalDebugLevelLogOperations:
+//		case EMetalDebugLevelValidation:
+//		{
+//			uint32 const Index = Buffer->DebugCommands.Num();
+//#if PLATFORM_MAC
+//			[Inner textureBarrier];
+//#endif
+//			[Inner setVertexBytes:&Index length:sizeof(Index) atIndex:0];
+//			[Inner setVertexBuffer:Buffer->DebugInfoBuffer offset:0 atIndex:1];
+//			[Inner setRenderPipelineState:DebugState];
+//			[Inner drawPrimitives:MTLPrimitiveTypePoint vertexStart:0 vertexCount:1];
+//#if PLATFORM_MAC
+//			[Inner textureBarrier];
+//#endif
+//			if (Pipeline && Pipeline->RenderPipelineState)
+//			{
+//				[Inner setRenderPipelineState:Pipeline->RenderPipelineState];
+//			}
+//			
+//			if (ShaderBuffers[EMetalShaderVertex].Buffers[0])
+//			{
+//				[Inner setVertexBuffer:ShaderBuffers[EMetalShaderVertex].Buffers[0] offset:ShaderBuffers[EMetalShaderVertex].Offsets[0] atIndex:0];
+//			}
+//			else if (ShaderBuffers[EMetalShaderVertex].Bytes[0])
+//			{
+//				[Inner setVertexBytes:ShaderBuffers[EMetalShaderVertex].Bytes[0] length:ShaderBuffers[EMetalShaderVertex].Offsets[0] atIndex:0];
+//			}
+//			
+//			if (ShaderBuffers[EMetalShaderVertex].Buffers[1])
+//			{
+//				[Inner setVertexBuffer:ShaderBuffers[EMetalShaderVertex].Buffers[1] offset:ShaderBuffers[EMetalShaderVertex].Offsets[1] atIndex:1];
+//			}
+//			else if (ShaderBuffers[EMetalShaderVertex].Bytes[1])
+//			{
+//				[Inner setVertexBytes:ShaderBuffers[EMetalShaderVertex].Bytes[1] length:ShaderBuffers[EMetalShaderVertex].Offsets[1] atIndex:1];
+//			}
+//		}
+//		default:
+//		{
+//			break;
+//		}
+//	}
 }
 #endif
 

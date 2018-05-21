@@ -645,14 +645,14 @@ void FGPUSkinPassthroughVertexFactory::InternalUpdateVertexDeclaration(FGPUBaseS
 	{
 		Data.TangentBasisComponents[0].VertexBuffer = &TangentVBAlias;
 		Data.TangentBasisComponents[0].Offset = 0;
-		Data.TangentBasisComponents[0].Type = VET_PackedNormal;
-		Data.TangentBasisComponents[0].Stride = 8;
+		Data.TangentBasisComponents[0].Type = VET_Short4N;
+		Data.TangentBasisComponents[0].Stride = 16;
 		Data.TangentBasisComponents[0].VertexStreamUsage = EVertexStreamUsage::Overridden | EVertexStreamUsage::ManualFetch;
 
 		Data.TangentBasisComponents[1].VertexBuffer = &TangentVBAlias;
-		Data.TangentBasisComponents[1].Offset = 4;
-		Data.TangentBasisComponents[1].Type = VET_PackedNormal;
-		Data.TangentBasisComponents[1].Stride = 8;
+		Data.TangentBasisComponents[1].Offset = 8;
+		Data.TangentBasisComponents[1].Type = VET_Short4N;
+		Data.TangentBasisComponents[1].Stride = 16;
 		Data.TangentBasisComponents[1].VertexStreamUsage = EVertexStreamUsage::Overridden | EVertexStreamUsage::ManualFetch;
 	}
 

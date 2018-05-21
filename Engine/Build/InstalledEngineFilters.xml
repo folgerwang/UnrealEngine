@@ -30,6 +30,7 @@
 	<Property Name="IOSStripFilter" Value="*.a;"/>
 	<Property Name="TVOSStripFilter" Value="*.a;"/>
 	<Property Name="LinuxStripFilter" Value="Engine\Binaries\Linux\*."/>
+	<Property Name="LuminStripFilter" Value="*.a;*.so"/>
 
 	<Property Name="WindowsSignFilter" Value="*.exe;*.dll"/>
 	<Property Name="MacSignFilter" Value="*.dylib;*.app"/>
@@ -446,5 +447,15 @@
 
 	<!-- Additional Binaries(.nspd directories) -->
 	<Property Name="CopySwitchFilter" Value="$(CopySwitchFilter);Engine/Binaries/Switch/*.nspd/..."/>
+	
+	<!-- Lumin -->
+	<Property Name="CopyLuminFilter">
+		<!-- Build Files -->
+		Engine/Build/Lumin/...
+		Engine/Source/ThirdParty/ResonanceAudioApi/Lumin/ResonanceAudio_LPL.xml
+	</Property>
+	
+	<Property Name="CopyLuminExceptions">
+	</Property>
 
 </BuildGraph>

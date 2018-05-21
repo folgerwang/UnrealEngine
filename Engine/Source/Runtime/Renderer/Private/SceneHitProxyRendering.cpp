@@ -458,6 +458,8 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 
 	const auto FeatureLevel = SceneRenderer->FeatureLevel;
 
+	GEngine->GetPreRenderDelegate().Broadcast();
+
 	// Dynamic vertex and index buffers need to be committed before rendering.
 	FGlobalDynamicVertexBuffer::Get().Commit();
 	FGlobalDynamicIndexBuffer::Get().Commit();
