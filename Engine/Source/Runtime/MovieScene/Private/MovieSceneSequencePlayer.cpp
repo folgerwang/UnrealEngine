@@ -685,6 +685,24 @@ TArray<UObject*> UMovieSceneSequencePlayer::GetBoundObjects(FMovieSceneObjectBin
 	return Objects;
 }
 
+TArray<FMovieSceneObjectBindingID> UMovieSceneSequencePlayer::GetObjectBindings(UObject* InObject)
+{
+	TArray<FMovieSceneObjectBindingID> ObjectBindings;
+
+	for (FMovieSceneSequenceIDRef SequenceID : GetEvaluationTemplate().GetThisFrameMetaData().ActiveSequences)
+	{
+		FGuid ObjectGuid = FindObjectId(*InObject, SequenceID);
+		if (ObjectGuid.IsValid())
+		{
+			FMovieSceneObjectBindingID ObjectBinding(ObjectGuid, SequenceID);
+
+			ObjectBindings.Add(ObjectBinding);
+		}
+	}
+
+	return ObjectBindings;
+}
+
 void UMovieSceneSequencePlayer::BeginDestroy()
 {
 	Stop();

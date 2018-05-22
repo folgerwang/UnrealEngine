@@ -402,6 +402,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	TArray<UObject*> GetBoundObjects(FMovieSceneObjectBindingID ObjectBinding);
 
+	/** Get the object bindings for the requested object */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	TArray<FMovieSceneObjectBindingID> GetObjectBindings(UObject* InObject);
+
 public:
 
 	/** Update the sequence for the current time, if playing */
