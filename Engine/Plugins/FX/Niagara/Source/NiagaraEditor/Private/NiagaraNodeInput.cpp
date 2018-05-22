@@ -319,6 +319,8 @@ FLinearColor UNiagaraNodeInput::GetNodeTitleColor() const
 		return Schema->NodeTitleColor_Attribute;
 	case ENiagaraInputNodeUsage::TranslatorConstant:
 		return Schema->NodeTitleColor_TranslatorConstant;
+	case ENiagaraInputNodeUsage::RapidIterationParameter:
+		return Schema->NodeTitleColor_RapidIteration;
 	default:
 		// TODO: Do something better here.
 		return FLinearColor::Black;
@@ -503,6 +505,8 @@ void UNiagaraNodeInput::Compile(class FHlslNiagaraTranslator* Translator, TArray
 		Outputs.Add(Translator->GetAttribute(Input)); break;
 	case ENiagaraInputNodeUsage::TranslatorConstant:
 		Outputs.Add(Translator->GetParameter(Input)); break;
+	case ENiagaraInputNodeUsage::RapidIterationParameter:
+		Outputs.Add(Translator->GetRapidIterationParameter(Input)); break;
 	default:
 		check(false);
 	}

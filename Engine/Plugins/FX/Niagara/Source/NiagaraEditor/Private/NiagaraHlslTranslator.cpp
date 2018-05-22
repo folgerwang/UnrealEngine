@@ -2345,6 +2345,67 @@ bool FHlslNiagaraTranslator::ShouldInterpolateParameter(const FNiagaraVariable& 
 	return true;
 }
 
+int32 FHlslNiagaraTranslator::GetRapidIterationParameter(const FNiagaraVariable& Parameter)
+{
+	if (!AddStructToDefinitionSet(Parameter.GetType()))
+	{
+		Error(FText::Format(LOCTEXT("GetRapidIterationParameterTypeFail", "Cannot handle type {0}! Variable: {1}"), Parameter.GetType().GetNameText(), FText::FromName(Parameter.GetName())), nullptr, nullptr);
+		return INDEX_NONE;
+	}
+
+	int32 FuncParam = INDEX_NONE;
+	if (GetFunctionParameter(Parameter, FuncParam))
+	{
+		Error(FText::Format(LOCTEXT("GetRapidIterationParameterFuncParamFail", "Variable: {0} cannot be a function parameter because it is a RapidIterationParameter type."), FText::FromName(Parameter.GetName())), nullptr, nullptr);
+		return INDEX_NONE;
+	}
+
+	bool bIsCandidateForRapidIteration = false;
+	if (ActiveHistoryForFunctionCalls.InTopLevelFunctionCall(CompileOptions.TargetUsage))
+	{
+		if (Parameter.GetType() != FNiagaraTypeDefinition::GetBoolDef() && !Parameter.GetType().IsEnum() && !Parameter.GetType().IsDataInterface())
+		{
+			bIsCandidateForRapidIteration = true;
+		}
+		else
+		{
+			Error(FText::Format(LOCTEXT("GetRapidIterationParameterTypeFail", "Variable: {0} cannot be a RapidIterationParameter input node because it isn't a supported type {1}"), FText::FromName(Parameter.GetName()), Parameter.GetType().GetNameText()), nullptr, nullptr);
+			return INDEX_NONE;
+		}
+	}
+	else
+	{
+		Error(FText::Format(LOCTEXT("GetRapidIterationParameterInTopLevelFail", "Variable: {0} cannot be a RapidIterationParameter input node because it isn't in the top level of an emitter/system/particle graph."), FText::FromName(Parameter.GetName())), nullptr, nullptr);
+		return INDEX_NONE;
+	}
+
+	FNiagaraVariable RapidIterationConstantVar = Parameter;
+
+	int32 LastSetChunkIdx = INDEX_NONE;
+	// Check to see if this is the first time we've encountered this node and it is a viable candidate for rapid iteration
+	if (bIsCandidateForRapidIteration && TranslationOptions.bParameterRapidIteration)
+	{
+		
+		// go ahead and make it into a constant variable..
+		int32 OutputChunkId = INDEX_NONE;
+		if (ParameterMapRegisterExternalConstantNamespaceVariable(Parameter, nullptr, INDEX_NONE, OutputChunkId, nullptr))
+		{
+			return OutputChunkId;
+		}
+	}
+	else
+	{
+		int32 FoundIdx = TranslationOptions.OverrideModuleConstants.Find(RapidIterationConstantVar);
+		if (FoundIdx != INDEX_NONE)
+		{
+			int32 OutputChunkId = GetConstant(TranslationOptions.OverrideModuleConstants[FoundIdx]);
+			return OutputChunkId;
+		}
+	}
+
+	return INDEX_NONE;
+}
+
 int32 FHlslNiagaraTranslator::GetParameter(const FNiagaraVariable& Parameter)
 {
 
@@ -2962,10 +3023,14 @@ bool FHlslNiagaraTranslator::ParameterMapRegisterExternalConstantNamespaceVariab
 		}
 
 		bool bMissingParameter = false;
-		UNiagaraParameterCollection* Collection = ParamMapHistories[InParamMapHistoryIdx].IsParameterCollectionParameter(InVariable, bMissingParameter);
-		if (Collection && bMissingParameter)
+		UNiagaraParameterCollection* Collection = nullptr;
+		if (InParamMapHistoryIdx >= 0)
 		{
-			Error(FText::Format(LOCTEXT("MissingNPCParameterError", "Parameter {0} was not found in Parameter Collection {1}"), FText::FromName(InVariable.GetName()), FText::FromString(Collection->GetFullName())), InNode, nullptr);
+			Collection = ParamMapHistories[InParamMapHistoryIdx].IsParameterCollectionParameter(InVariable, bMissingParameter);
+			if (Collection && bMissingParameter)
+			{
+				Error(FText::Format(LOCTEXT("MissingNPCParameterError", "Parameter {0} was not found in Parameter Collection {1}"), FText::FromName(InVariable.GetName()), FText::FromString(Collection->GetFullName())), InNode, nullptr);
+			}
 		}
 
 		bool bIsDataInterface = InVariable.GetType().IsDataInterface();

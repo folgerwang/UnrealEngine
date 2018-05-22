@@ -66,6 +66,7 @@ enum class ENiagaraInputNodeUsage : uint8
 	Attribute,
 	SystemConstant,
 	TranslatorConstant,
+	RapidIterationParameter
 };
 
 /**

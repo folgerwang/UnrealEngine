@@ -408,6 +408,8 @@ public:
 	virtual void Output(UNiagaraNodeOutput* OutputNode, const TArray<int32>& ComputedInputs);
 
 	virtual int32 GetParameter(const FNiagaraVariable& Parameter);
+	virtual int32 GetRapidIterationParameter(const FNiagaraVariable& Parameter);
+
 
 	virtual int32 GetAttribute(const FNiagaraVariable& Attribute);
 

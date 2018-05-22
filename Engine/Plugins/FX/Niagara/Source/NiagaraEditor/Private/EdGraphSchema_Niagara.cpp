@@ -54,6 +54,7 @@ const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_FunctionCall = FLinear
 const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_CustomHlsl = FLinearColor::Yellow;
 const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_Event = FLinearColor::Red;
 const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_TranslatorConstant = FLinearColor::Gray;
+const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_RapidIteration = FLinearColor::Black;
 
 const FName UEdGraphSchema_Niagara::PinCategoryType("Type");
 const FName UEdGraphSchema_Niagara::PinCategoryMisc("Misc");
@@ -798,6 +799,27 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 					InputAction->NodeTemplate = InputNode;
 				}
 
+				// TODO sckime please remove this..
+				for (FNiagaraTypeDefinition Type : RegisteredTypes)
+				{
+					FText MenuCat;
+					if (const UClass* Class = Type.GetClass())
+					{
+						continue;
+					}
+					else
+					{
+						MenuCat = LOCTEXT("AddRIParameterCat", "Add Rapid Iteration Param");
+					}
+
+					const FText MenuDesc = FText::Format(MenuDescFmt, Type.GetStruct()->GetDisplayNameText());
+					TSharedPtr<FNiagaraSchemaAction_NewNode> InputAction = AddNewNodeAction(NewActions, MenuCat, MenuDesc, *MenuDesc.ToString(), FText::GetEmpty());
+					UNiagaraNodeInput* InputNode = NewObject<UNiagaraNodeInput>(OwnerOfTemporaries);
+					FNiagaraEditorUtilities::InitializeParameterInputNode(*InputNode, Type, NiagaraGraph);
+					InputNode->Usage = ENiagaraInputNodeUsage::RapidIterationParameter;
+					InputAction->NodeTemplate = InputNode;
+				}
+				
 				if (PinType != FNiagaraTypeDefinition::GetGenericNumericDef())
 				{
 					//For correctly typed pins, offer the correct type at the top level.				
