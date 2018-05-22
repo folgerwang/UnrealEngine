@@ -935,7 +935,17 @@ namespace OculusHMD
 
 		FGameFrame* const CurrentGameFrame = Frame.Get();
 
-		if (!InWorldContext.World() || (!(GEnableVREditorHacks && InWorldContext.WorldType == EWorldType::Editor) && !InWorldContext.World()->IsGameWorld()) || !CurrentGameFrame)
+		if (CurrentGameFrame)
+		{
+			// don't use the cached value, as it could be affected by the player's position, so we update it here at the latest point in the game frame
+			CurrentGameFrame->TrackingToWorld = ComputeTrackingToWorldTransform(InWorldContext);
+		}
+		else
+		{
+			return false;
+		}
+
+		if ( !InWorldContext.World() || (!(GEnableVREditorHacks && InWorldContext.WorldType == EWorldType::Editor) && !InWorldContext.World()->IsGameWorld()) )
 		{
 			// ignore all non-game worlds
 			return false;
