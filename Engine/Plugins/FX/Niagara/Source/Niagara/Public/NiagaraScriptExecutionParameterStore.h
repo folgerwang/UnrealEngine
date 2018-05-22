@@ -10,11 +10,12 @@ struct FNiagaraScriptExecutionPaddingInfo
 {
 	GENERATED_USTRUCT_BODY()
 public:
-	FNiagaraScriptExecutionPaddingInfo() : SrcOffset(0), DestOffset(0), Size(0) {}
-	FNiagaraScriptExecutionPaddingInfo(uint32 InSrcOffset, uint32 InDestOffset, uint32 InSize) : SrcOffset(InSrcOffset), DestOffset(InDestOffset), Size(InSize) {}
+	FNiagaraScriptExecutionPaddingInfo() : SrcOffset(0), DestOffset(0), SrcSize(0), DestSize(0) {}
+	FNiagaraScriptExecutionPaddingInfo(uint32 InSrcOffset, uint32 InDestOffset, uint32 InSrcSize, uint32 InDestSize) : SrcOffset(InSrcOffset), DestOffset(InDestOffset), SrcSize(InSrcSize), DestSize(InDestSize) {}
 	uint32 SrcOffset;
 	uint32 DestOffset;
-	uint32 Size;
+	uint32 SrcSize;
+	uint32 DestSize;
 };
 
 /**

@@ -223,7 +223,7 @@ FString FHlslNiagaraTranslator::GetCodeAsSource(int32 ChunkIdx)
 	if(ChunkIdx>=0 && ChunkIdx<CodeChunks.Num())
 	{ 
 		FNiagaraCodeChunk& Chunk = CodeChunks[ChunkIdx];
-		return Chunk.SymbolName;
+		return Chunk.SymbolName + Chunk.ComponentMask;
 	}
 	return "Undefined";
 }
@@ -1383,7 +1383,7 @@ void FHlslNiagaraTranslator::DefineInterpolatedParametersFunction(FString &HlslO
 						FNiagaraCodeChunk& Chunk = CodeChunks[ChunkIdx];
 						if (ShouldInterpolateParameter(*FoundNamespacedVar))
 						{
-							HlslOutputString += TEXT("\tContext.") + PrevMap + TEXT(".") + FoundName + TEXT(" = lerp(") + INTERPOLATED_PARAMETER_PREFIX + Chunk.SymbolName + TEXT(", ") + Chunk.SymbolName + TEXT(", ") + TEXT("SpawnInterp);\n");
+							HlslOutputString += TEXT("\tContext.") + PrevMap + TEXT(".") + FoundName + TEXT(" = lerp(") + INTERPOLATED_PARAMETER_PREFIX + Chunk.SymbolName + Chunk.ComponentMask + TEXT(", ") + Chunk.SymbolName + Chunk.ComponentMask + TEXT(", ") + TEXT("SpawnInterp);\n");
 						}
 						else
 						{
@@ -2209,6 +2209,21 @@ int32 FHlslNiagaraTranslator::AddUniformChunk(FString SymbolName, const FNiagara
 		FNiagaraCodeChunk& Chunk = CodeChunks[Ret];
 		Chunk.SymbolName = GetSanitizedSymbolName(SymbolName);
 		Chunk.Type = Type;
+
+		if (CompileOptions.TargetUsage == ENiagaraScriptUsage::ParticleGPUComputeScript)
+		{
+			if (Type == FNiagaraTypeDefinition::GetVec2Def())
+			{
+				Chunk.Type = FNiagaraTypeDefinition::GetVec4Def();
+				Chunk.ComponentMask = TEXT(".xy");
+			}
+			else if (Type == FNiagaraTypeDefinition::GetVec3Def())
+			{
+				Chunk.Type = FNiagaraTypeDefinition::GetVec4Def();
+				Chunk.ComponentMask = TEXT(".xyz");
+			}
+		}
+
 		Chunk.Mode = ENiagaraCodeChunkMode::Uniform;
 
 		ChunksByMode[(int32)ENiagaraCodeChunkMode::Uniform].Add(Ret);
@@ -3006,6 +3021,7 @@ bool FHlslNiagaraTranslator::ParameterMapRegisterExternalConstantNamespaceVariab
 
 				CompilationOutput.ScriptData.Parameters.SetOrAdd(InVariable);
 				UniformIdx = ChunksByMode[(int32)ENiagaraCodeChunkMode::Uniform].Num();
+
 				UniformChunk = AddUniformChunk(SymbolNameDefined, InVariable.GetType());
 				ParamMapDefinedSystemVarsToUniformChunks.Add(InVariable.GetName(), UniformIdx);
 				ParamMapDefinedSystemToNamespaceVars.Add(InVariable.GetName(), InVariable);

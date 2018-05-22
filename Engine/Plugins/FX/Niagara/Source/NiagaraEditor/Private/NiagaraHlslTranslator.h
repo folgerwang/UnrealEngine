@@ -198,12 +198,15 @@ struct FNiagaraCodeChunk
 	bool bIsTerminated;
 	/** Chunks used as input for this chunk. */
 	TArray<int32> SourceChunks;
+	/** Component mask for access to padded uniforms; will be empty except for float2 and float3 uniforms */
+	FString ComponentMask;
 
 	ENiagaraCodeChunkMode Mode;
 
 	FNiagaraCodeChunk()
 		: bDecl(true)
 		, bIsTerminated(true)
+		, ComponentMask("")
 		, Mode(ENiagaraCodeChunkMode::Num)
 	{
 		Type = FNiagaraTypeDefinition::GetFloatDef();
