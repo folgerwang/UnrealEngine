@@ -511,7 +511,7 @@ void DrawPixelPassTemplate(
 	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
 	SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-
+	VertexShader->TransitionResources(Context);
 	VertexShader->SetVS(Context);
 	PixelShader->SetParameters(Context.RHICmdList, Context, InputHistory, PassParameters, bUseDither, SrcSize);
 
