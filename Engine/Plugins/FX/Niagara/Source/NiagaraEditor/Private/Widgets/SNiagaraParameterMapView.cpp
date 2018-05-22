@@ -719,6 +719,7 @@ void SNiagaraAddParameterMenu::Construct(const FArguments& InArgs, TArray<TWeakO
 	this->ShowNamespaceCategory = InArgs._ShowNamespaceCategory;
 	this->ShowGraphParameters = InArgs._ShowGraphParameters;
 	this->AutoExpandMenu = InArgs._AutoExpandMenu;
+	this->IsParameterRead = InArgs._IsParameterRead;
 
 	Graphs = InGraphs;
 
@@ -782,70 +783,89 @@ void SNiagaraAddParameterMenu::CollectAllActions(FGraphActionListBuilderBase& Ou
 		return ID == NiagaraParameterMapSectionID::NONE || (ID != NiagaraParameterMapSectionID::NONE && ID == GivenSectionID);
 	};
 
-	// Particle
-	if (CanCollectSection(NiagaraParameterMapSectionID::PARTICLE))
+	TArray<NiagaraParameterMapSectionID::Type> IDsExcluded;
+	// If this is a write node, exclude any read-only vars.
+	if (!IsParameterRead.Get())
 	{
-		bool bSupportsAttributes = true;
-		for (TWeakObjectPtr<UNiagaraGraph>& GraphWeakPtr : Graphs)
-		{
-			UNiagaraGraph* Graph = GraphWeakPtr.Get();
-			bool IsModule = Graph->FindOutputNode(ENiagaraScriptUsage::Module) != nullptr || Graph->FindOutputNode(ENiagaraScriptUsage::DynamicInput) != nullptr
-				|| Graph->FindOutputNode(ENiagaraScriptUsage::Function) != nullptr;
+		IDsExcluded.Add(NiagaraParameterMapSectionID::USER);
+		IDsExcluded.Add(NiagaraParameterMapSectionID::ENGINE);
+		IDsExcluded.Add(NiagaraParameterMapSectionID::PARAMETERCOLLECTION);
+	}
 
-			UNiagaraScriptSource* Source = Cast<UNiagaraScriptSource>(Graph->GetOuter());
-			if (Source && IsModule)
+	// If this doesn't have particles in the script, exclude reading or writing them.
+	for (TWeakObjectPtr<UNiagaraGraph>& GraphWeakPtr : Graphs)
+	{
+		UNiagaraGraph* Graph = GraphWeakPtr.Get();
+		bool IsModule = Graph->FindOutputNode(ENiagaraScriptUsage::Module) != nullptr || Graph->FindOutputNode(ENiagaraScriptUsage::DynamicInput) != nullptr
+			|| Graph->FindOutputNode(ENiagaraScriptUsage::Function) != nullptr;
+
+		UNiagaraScriptSource* Source = Cast<UNiagaraScriptSource>(Graph->GetOuter());
+		if (Source && IsModule)
+		{
+			UNiagaraScript* Script = Cast<UNiagaraScript>(Source->GetOuter());
+			if (Script)
 			{
-				UNiagaraScript* Script = Cast<UNiagaraScript>(Source->GetOuter());
-				if (Script)
+				TArray<ENiagaraScriptUsage> Usages = Script->GetSupportedUsageContexts();
+				if (!Usages.Contains(ENiagaraScriptUsage::ParticleEventScript) && 
+					!Usages.Contains(ENiagaraScriptUsage::ParticleSpawnScript) && 
+					!Usages.Contains(ENiagaraScriptUsage::ParticleUpdateScript))
 				{
-					TArray<ENiagaraScriptUsage> Usages = Script->GetSupportedUsageContexts();
-					if (Usages.Contains(ENiagaraScriptUsage::ParticleEventScript) || Usages.Contains(ENiagaraScriptUsage::ParticleSpawnScript) || Usages.Contains(ENiagaraScriptUsage::ParticleUpdateScript))
+					IDsExcluded.Add(NiagaraParameterMapSectionID::PARTICLE);
+				}
+
+				if (!IsParameterRead.Get())
+				{
+					if (!Usages.Contains(ENiagaraScriptUsage::SystemSpawnScript) &&
+						!Usages.Contains(ENiagaraScriptUsage::SystemUpdateScript))
 					{
-						bSupportsAttributes = true;
+						IDsExcluded.Add(NiagaraParameterMapSectionID::SYSTEM);
 					}
-					else
+
+					if (!Usages.Contains(ENiagaraScriptUsage::EmitterSpawnScript) &&
+						!Usages.Contains(ENiagaraScriptUsage::EmitterUpdateScript))
 					{
-						bSupportsAttributes = false;
+						IDsExcluded.Add(NiagaraParameterMapSectionID::EMITTER);
 					}
 				}
 			}
 		}
-
-		if (bSupportsAttributes)
-		{
-			const FText Category = ShowNamespaceCategory.Get() ? NiagaraParameterMapSectionID::OnGetSectionTitle(NiagaraParameterMapSectionID::PARTICLE) : FText::GetEmpty();
-			TArray<FNiagaraVariable> Variables = FNiagaraConstants::GetCommonParticleAttributes();
-			AddParameterGroup(OutAllActions, Variables, NiagaraParameterMapSectionID::PARTICLE, Category, FString(), true, false);
-			CollectMakeNew(OutAllActions, NiagaraParameterMapSectionID::PARTICLE);
-		}
+	}
+	// Particle
+	if (CanCollectSection(NiagaraParameterMapSectionID::PARTICLE) && !IDsExcluded.Contains(NiagaraParameterMapSectionID::PARTICLE))
+	{
+		const FText Category = ShowNamespaceCategory.Get() ? NiagaraParameterMapSectionID::OnGetSectionTitle(NiagaraParameterMapSectionID::PARTICLE) : FText::GetEmpty();
+		TArray<FNiagaraVariable> Variables;
+		Variables = FNiagaraConstants::GetCommonParticleAttributes();
+		AddParameterGroup(OutAllActions, Variables, NiagaraParameterMapSectionID::PARTICLE, Category, FString(), true, false);
+		CollectMakeNew(OutAllActions, NiagaraParameterMapSectionID::PARTICLE);
 	}
 
 	// Emitter
-	if (CanCollectSection(NiagaraParameterMapSectionID::EMITTER))
+	if (CanCollectSection(NiagaraParameterMapSectionID::EMITTER) && !IDsExcluded.Contains(NiagaraParameterMapSectionID::EMITTER))
 	{
 		CollectMakeNew(OutAllActions, NiagaraParameterMapSectionID::EMITTER);
 	}
 
 	// Module
-	if (CanCollectSection(NiagaraParameterMapSectionID::MODULE))
+	if (CanCollectSection(NiagaraParameterMapSectionID::MODULE) && !IDsExcluded.Contains(NiagaraParameterMapSectionID::MODULE))
 	{
 		CollectMakeNew(OutAllActions, NiagaraParameterMapSectionID::MODULE);
 	}
 
 	// System
-	if (CanCollectSection(NiagaraParameterMapSectionID::SYSTEM))
+	if (CanCollectSection(NiagaraParameterMapSectionID::SYSTEM) && !IDsExcluded.Contains(NiagaraParameterMapSectionID::SYSTEM))
 	{
 		CollectMakeNew(OutAllActions, NiagaraParameterMapSectionID::SYSTEM);
 	}
 
 	// User
-	if (CanCollectSection(NiagaraParameterMapSectionID::USER))
+	if (CanCollectSection(NiagaraParameterMapSectionID::USER) && !IDsExcluded.Contains(NiagaraParameterMapSectionID::USER))
 	{
 		CollectMakeNew(OutAllActions, NiagaraParameterMapSectionID::USER);
 	}
 
 	// Parameter collections
-	if (CanCollectSection(NiagaraParameterMapSectionID::PARAMETERCOLLECTION))
+	if (CanCollectSection(NiagaraParameterMapSectionID::PARAMETERCOLLECTION) && !IDsExcluded.Contains(NiagaraParameterMapSectionID::PARAMETERCOLLECTION))
 	{
 		CollectParameterCollectionsActions(OutAllActions);
 	}
@@ -856,7 +876,7 @@ void SNiagaraAddParameterMenu::CollectAllActions(FGraphActionListBuilderBase& Ou
 	}
 
 	// Engine
-	if (CanCollectSection(NiagaraParameterMapSectionID::ENGINE))
+	if (CanCollectSection(NiagaraParameterMapSectionID::ENGINE) && !IDsExcluded.Contains(NiagaraParameterMapSectionID::ENGINE))
 	{
 		const FText Category = NiagaraParameterMapSectionID::OnGetSectionTitle(NiagaraParameterMapSectionID::ENGINE);
 		TArray<FNiagaraVariable> Variables = FNiagaraConstants::GetEngineConstants();
@@ -882,6 +902,11 @@ void SNiagaraAddParameterMenu::CollectAllActions(FGraphActionListBuilderBase& Ou
 				const NiagaraParameterMapSectionID::Type ParameterSectionID = NiagaraParameterMapSectionID::OnGetSectionFromVariable(Parameter, Handle, /*Default*/ NiagaraParameterMapSectionID::OTHER);
 				if (CanCollectSection(ParameterSectionID))
 				{
+					if (IDsExcluded.Contains(ParameterSectionID))
+					{
+						continue;
+					}
+
 					const FText Category = ShowNamespaceCategory.Get() ? NiagaraParameterMapSectionID::OnGetSectionTitle(ParameterSectionID) : FText::GetEmpty();
 					const FText DisplayName = FText::FromName(Parameter.GetName());
 

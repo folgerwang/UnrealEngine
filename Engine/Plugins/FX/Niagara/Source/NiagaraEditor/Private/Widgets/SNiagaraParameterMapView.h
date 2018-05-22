@@ -172,7 +172,8 @@ public:
 		, _AllowCreatingNew(true)
 		, _ShowNamespaceCategory(true)
 		, _ShowGraphParameters(true)
-		, _AutoExpandMenu(false) {}
+		, _AutoExpandMenu(false)
+		, _IsParameterRead(true) {}
 		SLATE_EVENT(FOnAddParameter, OnAddParameter)
 		SLATE_EVENT(FOnCollectCustomActions, OnCollectCustomActions)
 		SLATE_EVENT(FOnAllowMakeType, OnAllowMakeType)
@@ -181,6 +182,7 @@ public:
 		SLATE_ATTRIBUTE(bool, ShowNamespaceCategory)
 		SLATE_ATTRIBUTE(bool, ShowGraphParameters)
 		SLATE_ATTRIBUTE(bool, AutoExpandMenu)
+		SLATE_ATTRIBUTE(bool, IsParameterRead)
 	SLATE_END_ARGS();
 
 	void Construct(const FArguments& InArgs, TArray<TWeakObjectPtr<UNiagaraGraph>> InGraphs);
@@ -210,4 +212,5 @@ private:
 	TAttribute<bool> ShowNamespaceCategory;
 	TAttribute<bool> ShowGraphParameters;
 	TAttribute<bool> AutoExpandMenu;
+	TAttribute<bool> IsParameterRead;
 };
