@@ -79,8 +79,8 @@ public:
 
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
-	/** Helper function indicating whether we're in editing mode, and can modify the target blueprint */
-	bool IsEditingMode() const;
+	/** Wheter the add parameter button should be enabled. */
+	bool ParameterAddEnabled() const;
 
 	/** Adds parameter to the graph parameter store and refreshes the menu. */
 	void AddParameter(FNiagaraVariable NewVariable);
@@ -183,7 +183,7 @@ public:
 		SLATE_ATTRIBUTE(bool, AutoExpandMenu)
 	SLATE_END_ARGS();
 
-	void Construct(const FArguments& InArgs, UNiagaraGraph* InGraph);
+	void Construct(const FArguments& InArgs, TArray<TWeakObjectPtr<UNiagaraGraph>> InGraphs);
 
 	TSharedRef<SEditableTextBox> GetSearchBox();
 
@@ -203,7 +203,7 @@ private:
 	FOnCollectCustomActions OnCollectCustomActions;
 	FOnAllowMakeType OnAllowMakeType;
 
-	TWeakObjectPtr<UNiagaraGraph> Graph;
+	TArray<TWeakObjectPtr<UNiagaraGraph>> Graphs;
 
 	TAttribute<NiagaraParameterMapSectionID::Type> Section;
 	TAttribute<bool> AllowCreatingNew;
