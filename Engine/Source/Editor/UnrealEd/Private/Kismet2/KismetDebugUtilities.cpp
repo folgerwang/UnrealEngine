@@ -331,12 +331,6 @@ void FKismetDebugUtilities::OnScriptException(const UObject* ActiveObject, const
 			}
 		}
 
-		// Can't do intraframe debugging when the editor is actively stopping
-		if (GEditor->ShouldEndPlayMap()) 
-		{
-			bShouldBreakExecution = false;
-		}
-
 		if (BlueprintObj->GetObjectBeingDebugged() == ActiveObject)
 		{
 			// Record into the trace log
@@ -352,6 +346,12 @@ void FKismetDebugUtilities::OnScriptException(const UObject* ActiveObject, const
 			{
 				// Handle Node stepping and update the stack
 				CheckBreakConditions(NodeStoppedAt, Info.GetType() == EBlueprintExceptionType::Breakpoint, BreakpointOffset, bShouldBreakExecution);
+			}
+
+			// Can't do intraframe debugging when the editor is actively stopping
+			if (GEditor->ShouldEndPlayMap())
+			{
+				bShouldBreakExecution = false;
 			}
 
 			// Handle a breakpoint or single-step
