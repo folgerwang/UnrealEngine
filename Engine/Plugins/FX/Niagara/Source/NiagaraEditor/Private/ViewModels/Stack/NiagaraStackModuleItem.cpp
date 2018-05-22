@@ -224,13 +224,13 @@ void UNiagaraStackModuleItem::RefreshChildrenInternal(const TArray<UNiagaraStack
 
 		NewChildren.Add(InputCollection);
 		NewChildren.Add(OutputCollection);
+
+		RefreshIsEnabled();
+
+		Super::RefreshChildrenInternal(CurrentChildren, NewChildren, NewIssues);
+
+		RefreshIssues(NewIssues);
 	}
-
-	RefreshIsEnabled();
-
-	Super::RefreshChildrenInternal(CurrentChildren, NewChildren, NewIssues);
-	
-	RefreshIssues(NewIssues);
 }
 
 void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
