@@ -1089,7 +1089,7 @@ void UMixedRealityCaptureComponent::FillOutCalibrationData(UMrcCalibrationData* 
 		{
 			Dst->CompositingData.CaptureDeviceURL = CaptureFeedRef;
 			Dst->CompositingData.DepthOffset = ProjectionDepthOffset;
-			Dst->CompositingData.TrackingLatency = GetTrackingLatency();
+			Dst->CompositingData.TrackingLatency = GetTrackingDelay();
 			Dst->CompositingData.VideoProcessingParams = VideoProcessingParams;
 		}
 		// garbage matte
