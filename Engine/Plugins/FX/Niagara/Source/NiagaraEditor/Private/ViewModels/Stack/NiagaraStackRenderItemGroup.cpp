@@ -48,11 +48,11 @@ private:
 	UClass* RendererClass;
 };
 
-class FRenderItemGroupAddUtilities : public FNiagaraStackItemGroupAddUtilities
+class FRenderItemGroupAddUtilities : public TNiagaraStackItemGroupAddUtilities<UNiagaraRendererProperties*>
 {
 public:
 	FRenderItemGroupAddUtilities(TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, FOnItemAdded InOnItemAdded)
-		: FNiagaraStackItemGroupAddUtilities(LOCTEXT("RenderGroupAddItemName", "Renderer"), EAddMode::AddFromAction, true, InOnItemAdded)
+		: TNiagaraStackItemGroupAddUtilities(LOCTEXT("RenderGroupAddItemName", "Renderer"), EAddMode::AddFromAction, true, InOnItemAdded)
 		, EmitterViewModel(InEmitterViewModel)
 	{
 	}
@@ -105,7 +105,7 @@ public:
 			FSlateNotificationManager::Get().AddNotification(Info);
 		}
 
-		OnItemAdded.ExecuteIfBound();
+		OnItemAdded.ExecuteIfBound(RendererProperties);
 	}
 
 private:
@@ -117,7 +117,7 @@ void UNiagaraStackRenderItemGroup::Initialize(FRequiredEntryData InRequiredEntry
 	FText DisplayName = LOCTEXT("RenderGroupName", "Render");
 	FText ToolTip = LOCTEXT("RendererGroupTooltip", "Describes how we should display/present each particle. Note that this doesn't have to be visual. Multiple renderers are supported. Order in this stack is not necessarily relevant to draw order.");
 	AddUtilities = MakeShared<FRenderItemGroupAddUtilities>(InRequiredEntryData.EmitterViewModel,
-		FNiagaraStackItemGroupAddUtilities::FOnItemAdded::CreateUObject(this, &UNiagaraStackRenderItemGroup::ItemAdded));
+		TNiagaraStackItemGroupAddUtilities<UNiagaraRendererProperties*>::FOnItemAdded::CreateUObject(this, &UNiagaraStackRenderItemGroup::ItemAdded));
 	Super::Initialize(InRequiredEntryData, DisplayName, ToolTip, AddUtilities.Get());
 }
 
@@ -156,9 +156,10 @@ void UNiagaraStackRenderItemGroup::RefreshChildrenInternal(const TArray<UNiagara
 	Super::RefreshChildrenInternal(CurrentChildren, NewChildren, NewIssues);
 }
 
-void UNiagaraStackRenderItemGroup::ItemAdded()
+void UNiagaraStackRenderItemGroup::ItemAdded(UNiagaraRendererProperties* AddedRenderer)
 {
 	RefreshChildren();
+	OnDataObjectModified().Broadcast(AddedRenderer);
 }
 
 void UNiagaraStackRenderItemGroup::ChildModifiedGroupItems()

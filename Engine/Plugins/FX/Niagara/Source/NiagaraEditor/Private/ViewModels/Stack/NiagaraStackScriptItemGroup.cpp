@@ -131,11 +131,11 @@ private:
 	bool bIsMaterialParameterModuleAction;
 };
 
-class FScriptItemGroupAddUtilities : public FNiagaraStackItemGroupAddUtilities
+class FScriptItemGroupAddUtilities : public TNiagaraStackItemGroupAddUtilities<UNiagaraNodeFunctionCall*>
 {
 public:
 	FScriptItemGroupAddUtilities(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, UNiagaraStackEditorData& InStackEditorData, FOnItemAdded InOnItemAdded)
-		: FNiagaraStackItemGroupAddUtilities(LOCTEXT("ScriptGroupAddItemName", "Module"), EAddMode::AddFromAction, false, InOnItemAdded)
+		: TNiagaraStackItemGroupAddUtilities(LOCTEXT("ScriptGroupAddItemName", "Module"), EAddMode::AddFromAction, false, InOnItemAdded)
 		, SystemViewModel(InSystemViewModel)
 		, EmitterViewModel(InEmitterViewModel)
 		, StackEditorData(InStackEditorData)
@@ -202,7 +202,7 @@ public:
 		checkf(NewModuleNode != nullptr, TEXT("Add module action failed"));
 		FNiagaraStackGraphUtilities::InitializeStackFunctionInputs(SystemViewModel.Pin().ToSharedRef(), EmitterViewModel.Pin().ToSharedRef(), StackEditorData, *NewModuleNode, *NewModuleNode);
 		FNiagaraStackGraphUtilities::RelayoutGraph(*OutputNode->GetGraph());
-		OnItemAdded.ExecuteIfBound();
+		OnItemAdded.ExecuteIfBound(NewModuleNode);
 	}
 private:
 	UNiagaraNodeFunctionCall* AddScriptAssetModule(const FAssetData& AssetData, int32 TargetIndex)
@@ -249,7 +249,7 @@ void UNiagaraStackScriptItemGroup::Initialize(
 {
 	checkf(ScriptViewModel.IsValid() == false, TEXT("Can not set the script view model more than once."));
 	AddUtilities = MakeShared<FScriptItemGroupAddUtilities>(InRequiredEntryData.SystemViewModel, InRequiredEntryData.EmitterViewModel,
-		*InRequiredEntryData.StackEditorData, FNiagaraStackItemGroupAddUtilities::FOnItemAdded::CreateUObject(this, &UNiagaraStackScriptItemGroup::ItemAdded));
+		*InRequiredEntryData.StackEditorData, TNiagaraStackItemGroupAddUtilities<UNiagaraNodeFunctionCall*>::FOnItemAdded::CreateUObject(this, &UNiagaraStackScriptItemGroup::ItemAdded));
 	Super::Initialize(InRequiredEntryData, InDisplayName, InToolTip, AddUtilities.Get());
 	ScriptViewModel = InScriptViewModel;
 	ScriptUsage = InScriptUsage;
@@ -583,7 +583,7 @@ TOptional<UNiagaraStackEntry::FDropResult> UNiagaraStackScriptItemGroup::ChildRe
 	return FDropResult(false);
 }
 
-void UNiagaraStackScriptItemGroup::ItemAdded()
+void UNiagaraStackScriptItemGroup::ItemAdded(UNiagaraNodeFunctionCall* AddedModule)
 {
 	RefreshChildren();
 }

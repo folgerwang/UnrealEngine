@@ -159,6 +159,7 @@ void UNiagaraStackRendererItem::Delete()
 	Emitter->Modify();
 	Emitter->RemoveRenderer(RendererProperties.Get());
 
+	OnDataObjectModified().Broadcast(RendererProperties.Get());
 	ModifiedGroupItemsDelegate.ExecuteIfBound();
 }
 
@@ -201,8 +202,9 @@ bool UNiagaraStackRendererItem::GetIsEnabled() const
 void UNiagaraStackRendererItem::SetIsEnabled(bool bInIsEnabled)
 {
 	FScopedTransaction ScopedTransaction(LOCTEXT("SetRendererEnabledState", "Set renderer enabled/disabled state."));
-	RendererObject->Modify();
+	RendererProperties->Modify();
 	RendererProperties->SetIsEnabled(bInIsEnabled);
+	OnDataObjectModified().Broadcast(RendererProperties.Get());
 }
 
 void UNiagaraStackRendererItem::BeginDestroy()
