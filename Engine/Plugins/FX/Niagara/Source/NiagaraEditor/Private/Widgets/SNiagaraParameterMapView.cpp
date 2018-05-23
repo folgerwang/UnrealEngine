@@ -363,11 +363,11 @@ void SNiagaraParameterMapView::CollectStaticSections(TArray<int32>& StaticSectio
 		StaticSectionIDs.Add(NiagaraParameterMapSectionID::MODULE);
 	}
 	StaticSectionIDs.Add(NiagaraParameterMapSectionID::ENGINE);
-	StaticSectionIDs.Add(NiagaraParameterMapSectionID::EMITTER);
-	StaticSectionIDs.Add(NiagaraParameterMapSectionID::SYSTEM);
-	StaticSectionIDs.Add(NiagaraParameterMapSectionID::PARTICLE);
-	StaticSectionIDs.Add(NiagaraParameterMapSectionID::USER);
 	StaticSectionIDs.Add(NiagaraParameterMapSectionID::PARAMETERCOLLECTION);
+	StaticSectionIDs.Add(NiagaraParameterMapSectionID::USER);
+	StaticSectionIDs.Add(NiagaraParameterMapSectionID::SYSTEM);
+	StaticSectionIDs.Add(NiagaraParameterMapSectionID::EMITTER);
+	StaticSectionIDs.Add(NiagaraParameterMapSectionID::PARTICLE);
 	StaticSectionIDs.Add(NiagaraParameterMapSectionID::OTHER);
 }
 

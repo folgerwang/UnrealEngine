@@ -30,12 +30,12 @@ namespace NiagaraParameterMapSectionID
 	{
 		NONE = 0,
 		MODULE,
+		ENGINE,
+		PARAMETERCOLLECTION,
+		USER,
+		SYSTEM,
 		EMITTER,
 		PARTICLE,
-		SYSTEM,
-		ENGINE,
-		USER,
-		PARAMETERCOLLECTION,
 		OTHER,
 	};
 
