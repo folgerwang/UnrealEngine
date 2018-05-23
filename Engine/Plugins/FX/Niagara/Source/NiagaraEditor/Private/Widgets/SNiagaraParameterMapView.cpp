@@ -654,7 +654,7 @@ bool SNiagaraParameterMapView::CanRequestRenameOnActionNode() const
 void SNiagaraParameterMapView::OnPostRenameActionNode(const FText& InText, FNiagaraParameterAction& InAction)
 {
 	const FName NewName = FName(*InText.ToString());
-	if (InAction.Parameter.GetName() != NewName)
+	if (!InAction.Parameter.GetName().IsEqual(NewName, ENameCase::CaseSensitive))
 	{
 		FNiagaraParameterHandle ParameterHandle;
 		if (NiagaraParameterMapSectionID::OnGetSectionFromVariable(InAction.Parameter, ParameterHandle) == NiagaraParameterMapSectionID::USER)
