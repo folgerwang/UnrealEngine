@@ -236,30 +236,30 @@ void UNiagaraStackRendererItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 {
 	for (FNiagaraVariable Attribute : MissingAttributes)
 	{
+		FText FixDescription = LOCTEXT("AddMissingVariable", "Add missing variable");
+		FStackIssueFix AddAttributeFix(
+			FixDescription,
+			FStackIssueFixDelegate::CreateLambda([=]()
+		{
+			FScopedTransaction ScopedTransaction(FixDescription);
+			if (AddMissingVariable(GetEmitterViewModel()->GetEmitter(), Attribute))
+			{
+				FNotificationInfo Info(FText::Format(LOCTEXT("AddedVariableForFix", "Added {0} to the Spawn script to support the renderer."), FText::FromName(Attribute.GetName())));
+				Info.ExpireDuration = 5.0f;
+				Info.bFireAndForget = true;
+				Info.Image = FCoreStyle::Get().GetBrush(TEXT("MessageLog.Info"));
+				FSlateNotificationManager::Get().AddNotification(Info);
+			}
+		}));
+
 		FStackIssue MissingAttributeError(
 			EStackIssueSeverity::Error,
 			LOCTEXT("FailedRendererBindShort", "An attribute is missing."),
 			FText::Format(LOCTEXT("FailedRendererBind", "Missing attribute \"{0}\" of Type \"{1}\"."), FText::FromName(Attribute.GetName()), Attribute.GetType().GetNameText()),
 			GetStackEditorDataKey(),
-			false);
+			false,
+			AddAttributeFix);
 
-		FText FixDescription = LOCTEXT("AddMissingVariable", "Add missing variable");
-		FStackIssueFix AddAttributeFix(
-			FixDescription,
-			FStackIssueFixDelegate::CreateLambda([=]()
-			{
-				FScopedTransaction ScopedTransaction(FixDescription);
-				if (AddMissingVariable(GetEmitterViewModel()->GetEmitter(), Attribute))
-				{
-					FNotificationInfo Info(FText::Format(LOCTEXT("AddedVariableForFix", "Added {0} to the Spawn script to support the renderer."), FText::FromName(Attribute.GetName())));
-					Info.ExpireDuration = 5.0f;
-					Info.bFireAndForget = true;
-					Info.Image = FCoreStyle::Get().GetBrush(TEXT("MessageLog.Info"));
-					FSlateNotificationManager::Get().AddNotification(Info);
-				}
-			}));
-
-		MissingAttributeError.AddFix(AddAttributeFix);
 		NewIssues.Add(MissingAttributeError);
 	}
 

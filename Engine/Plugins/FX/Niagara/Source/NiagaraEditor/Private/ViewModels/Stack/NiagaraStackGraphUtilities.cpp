@@ -965,6 +965,7 @@ TOptional<bool> FNiagaraStackGraphUtilities::GetModuleIsEnabled(UNiagaraNodeFunc
 
 void FNiagaraStackGraphUtilities::SetModuleIsEnabled(UNiagaraNodeFunctionCall& FunctionCallNode, bool bIsEnabled)
 {
+	FunctionCallNode.Modify();
 	TArray<UNiagaraNode*> ModuleNodes;
 	GetAllNodesForModule(FunctionCallNode, ModuleNodes);
 	for (UNiagaraNode* ModuleNode : ModuleNodes)

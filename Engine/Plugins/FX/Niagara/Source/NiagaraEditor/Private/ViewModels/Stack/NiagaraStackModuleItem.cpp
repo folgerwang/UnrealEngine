@@ -235,6 +235,11 @@ void UNiagaraStackModuleItem::RefreshChildrenInternal(const TArray<UNiagaraStack
 
 void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 {
+	if (!GetIsEnabled())
+	{
+		NewIssues.Empty();
+		return;
+	}
 	if (FunctionCallNode != nullptr)
 	{
 		if (!FunctionCallNode->ScriptIsValid())
@@ -253,23 +258,21 @@ void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 		if (!IsEnabled.IsSet())
 		{
 			bIsEnabled = false;
+			FText FixDescription = LOCTEXT("EnableModule", "Enable module");
+			FStackIssueFix EnableFix(
+				FixDescription,
+				FStackIssueFixDelegate::CreateLambda([this, FixDescription]()
+			{
+				SetIsEnabled(true);;
+			}));
 			FStackIssue InconsistentEnabledError(
 				EStackIssueSeverity::Error,
 				LOCTEXT("InconsistentEnabledErrorSummary", "The enabled state for module is inconsistent."),
 				LOCTEXT("InconsistentEnabledError", "This module is using multiple functions and their enabled state is inconsistent.\nClick fix to make all of the functions for this module enabled."),
 				GetStackEditorDataKey(),
-				false);
+				false,
+				EnableFix);
 
-			FText FixDescription = LOCTEXT("EnableModule", "Enable module");
-			FStackIssueFix EnableFix(
-				FixDescription,
-				FStackIssueFixDelegate::CreateLambda([=]()
-				{
-					FScopedTransaction ScopedTransaction(FixDescription);
-					SetIsEnabled(true);
-				}));
-
-			InconsistentEnabledError.AddFix(EnableFix);
 			NewIssues.Add(InconsistentEnabledError);
 		}
 	}
@@ -343,40 +346,36 @@ void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 		}
 		if (bDependencyMet == false)
 		{
+			TArray<FStackIssueFix> Fixes;
 			DependenciesNeeded.Add(Dependency);
 			
 			FText DependencyTypeString = Dependency.Type == ENiagaraModuleDependencyType::PreDependency ? LOCTEXT("PreDependency", "pre-dependency") : LOCTEXT("PostDependency", "post-dependency");
-			UNiagaraStackEntry::FStackIssue Error(
-				EStackIssueSeverity::Error,
-				LOCTEXT("DependencyWarning", "The module has unmet dependencies."),
-				FText::Format(LOCTEXT("DependencyWarningLong", "The following {0} is not met: {1}"), DependencyTypeString, Dependency.Description),
-				FString::Printf(TEXT("%s-dependency-%s"), *GetStackEditorDataKey(), *Dependency.Id.ToString()),
-				true);
-			
 
 			for ( UNiagaraNodeFunctionCall* DisabledNode : DisabledDependencies) // module exists but disabled
 			{
 				UNiagaraStackEntry::FStackIssueFix Fix(
 					FText::Format(LOCTEXT("EnableDependency", "Enable dependency module {0}"), FText::FromString(DisabledNode->GetFunctionName())),
-					FStackIssueFixDelegate::CreateLambda([=]()
+					FStackIssueFixDelegate::CreateLambda([this, DisabledNode]()
 					{
 						FScopedTransaction ScopedTransaction(LOCTEXT("EnableDependencyModule", "Enable dependency module"));
-						DisabledNode->Modify();
 						FNiagaraStackGraphUtilities::SetModuleIsEnabled(*DisabledNode, true);
+						OnRequestFullRefresh().Broadcast();
+
 					}));
-				Error.AddFix(Fix);
+				Fixes.Add(Fix);
 			}
 
 			for (FNiagaraStackModuleData DisorderedNode : DisorderedDependencies) // module exists but is not in the correct order (and possibly also disabled)
 			{
 				bool bNeedsEnable = !DisorderedNode.ModuleNode->IsNodeEnabled();
-				FText AndEnableModule = bNeedsEnable ? LOCTEXT("AndEnableModule", "and enable it") : FText();
+				FText AndEnableModule = bNeedsEnable ? FText::Format(LOCTEXT("AndEnableDependency", "And enable dependency module {0}"), FText::FromString(DisorderedNode.ModuleNode->GetFunctionName())) : FText();
 				UNiagaraStackEntry::FStackIssueFix Fix(
-					FText::Format(LOCTEXT("ReorderDependency", "Reposition dependency module {0} in the correct order {1}"), FText::FromString(DisorderedNode.ModuleNode->GetFunctionName()), AndEnableModule),
-					FStackIssueFixDelegate::CreateLambda([=]()
+					FText::Format(LOCTEXT("ReorderDependency", "Reposition this module in the correct order related to {0} {1}"), FText::FromString(DisorderedNode.ModuleNode->GetFunctionName()), AndEnableModule),
+					FStackIssueFixDelegate::CreateLambda([this, bNeedsEnable, DisorderedNode, SystemModuleData, Dependency, ModuleIndex, OutputNode]()
 					{
 						FScopedTransaction ScopedTransaction(LOCTEXT("ReorderDependencyModule", "Reorder dependency module"));
-						DisorderedNode.ModuleNode->Modify();
+					
+						FunctionCallNode->Modify();
 						// reorder node
 						int32 CorrectIndex = Dependency.Type == ENiagaraModuleDependencyType::PostDependency ? DisorderedNode.Index : DisorderedNode.Index + 1;
 						checkf(ModuleIndex != INDEX_NONE, TEXT("Module data wasn't found in system for current module!"));
@@ -390,7 +389,7 @@ void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 						FNiagaraStackGraphUtilities::RelayoutGraph(*OutputNode->GetGraph());
 						OnRequestFullRefresh().Broadcast();
 					}));
-				Error.AddFix(Fix);
+				Fixes.Add(Fix);
 			}
 			if (DisorderedDependencies.Num() == 0 && DisabledDependencies.Num() == 0)
 			{
@@ -488,9 +487,16 @@ void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 						FNiagaraStackGraphUtilities::RelayoutGraph(*TargetOutputNode->GetGraph());
 						OnRequestFullRefresh().Broadcast();
 					}));
-					Error.AddFix(Fix);
+					Fixes.Add(Fix);
 				}
 			}
+			UNiagaraStackEntry::FStackIssue Error(
+				EStackIssueSeverity::Error,
+				LOCTEXT("DependencyWarning", "The module has unmet dependencies."),
+				FText::Format(LOCTEXT("DependencyWarningLong", "The following {0} is not met: {1}"), DependencyTypeString, Dependency.Description),
+				FString::Printf(TEXT("%s-dependency-%s"), *GetStackEditorDataKey(), *Dependency.Id.ToString()),
+				true,
+				Fixes);
 			NewIssues.Add(Error);
 		}
 	}
@@ -544,8 +550,10 @@ bool UNiagaraStackModuleItem::GetIsEnabled() const
 
 void UNiagaraStackModuleItem::SetIsEnabled(bool bInIsEnabled)
 {
+	FScopedTransaction ScopedTransaction(LOCTEXT("EnableDisableModule", "Enable/Disable Module"));
 	FNiagaraStackGraphUtilities::SetModuleIsEnabled(*FunctionCallNode, bInIsEnabled);
 	bIsEnabled = bInIsEnabled;
+	OnRequestFullRefresh().Broadcast();
 }
 
 void UNiagaraStackModuleItem::Delete()

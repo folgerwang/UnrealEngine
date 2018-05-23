@@ -195,33 +195,33 @@ void UNiagaraStackFunctionInputCollection::RefreshIssues(TArray<FName> Duplicate
 				FNiagaraParameterHandle(OverridePin->PinName).GetNamespace().ToString() == InputFunctionCallNode->GetFunctionName() &&
 				ValidAliasedInputNames.Contains(OverridePin->PinName) == false)
 			{
+				FText FixDescription = LOCTEXT("RemoveInvalidInputTransaction", "Remove invalid input override.");
+				FStackIssueFix RemoveInputOverrideFix(
+					FixDescription,
+					UNiagaraStackEntry::FStackIssueFixDelegate::CreateLambda([=]()
+				{
+					FScopedTransaction ScopedTransaction(FixDescription);
+					TArray<TWeakObjectPtr<UNiagaraDataInterface>> RemovedDataObjects;
+					FNiagaraStackGraphUtilities::RemoveNodesForStackFunctionInputOverridePin(*OverridePin, RemovedDataObjects);
+					for (TWeakObjectPtr<UNiagaraDataInterface> RemovedDataObject : RemovedDataObjects)
+					{
+						if (RemovedDataObject.IsValid())
+						{
+							OnDataObjectModified().Broadcast(RemovedDataObject.Get());
+						}
+					}
+					OverridePin->GetOwningNode()->RemovePin(OverridePin);
+				}));
+
 				FStackIssue InvalidInputOverrideError(
 					EStackIssueSeverity::Error,
 					FText::Format(LOCTEXT("InvalidInputSummaryFormat", "Invalid Input Override: {0}"), FText::FromString(OverridePin->PinName.ToString())),
 					FText::Format(LOCTEXT("InvalidInputFormat", "The input {0} was previously overriden but is no longer exposed by the function {1}.\nPress the fix button to remove this unused override data,\nor check the function definition to see why this input is no longer exposed."),
 						FText::FromString(OverridePin->PinName.ToString()), FText::FromString(InputFunctionCallNode->GetFunctionName())),
 					GetStackEditorDataKey(),
-					false);
+					false,
+					RemoveInputOverrideFix);
 
-				FText FixDescription = LOCTEXT("RemoveInvalidInputTransaction", "Remove invalid input override.");
-				FStackIssueFix RemoveInputOverrideFix(
-					FixDescription,
-					UNiagaraStackEntry::FStackIssueFixDelegate::CreateLambda([=]()
-					{
-						FScopedTransaction ScopedTransaction(FixDescription);
-						TArray<TWeakObjectPtr<UNiagaraDataInterface>> RemovedDataObjects;
-						FNiagaraStackGraphUtilities::RemoveNodesForStackFunctionInputOverridePin(*OverridePin, RemovedDataObjects);
-						for (TWeakObjectPtr<UNiagaraDataInterface> RemovedDataObject : RemovedDataObjects)
-						{
-							if (RemovedDataObject.IsValid())
-							{
-								OnDataObjectModified().Broadcast(RemovedDataObject.Get());
-							}
-						}
-						OverridePin->GetOwningNode()->RemovePin(OverridePin);
-					}));
-
-				InvalidInputOverrideError.AddFix(RemoveInputOverrideFix);
 				NewIssues.Add(InvalidInputOverrideError);
 			}
 		}

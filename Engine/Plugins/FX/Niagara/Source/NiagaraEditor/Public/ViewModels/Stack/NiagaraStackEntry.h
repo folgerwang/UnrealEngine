@@ -128,6 +128,10 @@ public:
 	{
 		FStackIssue();
 
+		FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed, TArray<FStackIssueFix>& InFixes);
+
+		FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed, FStackIssueFix InFix);
+
 		FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed);
 
 		bool IsValid();
@@ -141,8 +145,6 @@ public:
 		const FString& GetUniqueIdentifier() const;
 
 		bool GetCanBeDismissed() const;
-
-		void AddFix(FStackIssueFix InFix);
 
 		const TArray<FStackIssueFix>& GetFixes() const;
 

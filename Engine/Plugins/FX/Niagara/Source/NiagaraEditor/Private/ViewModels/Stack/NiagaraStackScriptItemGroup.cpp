@@ -333,24 +333,25 @@ void UNiagaraStackScriptItemGroup::RefreshIssues(TArray<FStackIssue>& NewIssues)
 	
 	if (FNiagaraStackGraphUtilities::ValidateGraphForOutput(*Graph, ScriptUsage, ScriptUsageId, ErrorMessage) == false)
 	{
-		FStackIssue InvalidStackError(
-			EStackIssueSeverity::Error,
-			LOCTEXT("InvalidErrorSummaryText", "The stack data is invalid"),
-			LOCTEXT("InvalidErrorText", "The data used to generate the stack has been corrupted and can not be used.\nUsing the fix option will reset this part of the stack to its default empty state."),
-			GetStackEditorDataKey(),
-			false);
 
 		FText FixDescription = LOCTEXT("FixStackGraph", "Fix invalid stack graph");
 		FStackIssueFix ResetStackFix(
 			FixDescription,
 			FStackIssueFixDelegate::CreateLambda([=]()
-			{
-				FScopedTransaction ScopedTransaction(FixDescription);
-				FNiagaraStackGraphUtilities::ResetGraphForOutput(*Graph, ScriptUsage, ScriptUsageId);
-				FNiagaraStackGraphUtilities::RelayoutGraph(*Graph);
-			}));
+		{
+			FScopedTransaction ScopedTransaction(FixDescription);
+			FNiagaraStackGraphUtilities::ResetGraphForOutput(*Graph, ScriptUsage, ScriptUsageId);
+			FNiagaraStackGraphUtilities::RelayoutGraph(*Graph);
+		}));
 
-		InvalidStackError.AddFix(ResetStackFix);
+		FStackIssue InvalidStackError(
+			EStackIssueSeverity::Error,
+			LOCTEXT("InvalidErrorSummaryText", "The stack data is invalid"),
+			LOCTEXT("InvalidErrorText", "The data used to generate the stack has been corrupted and can not be used.\nUsing the fix option will reset this part of the stack to its default empty state."),
+			GetStackEditorDataKey(),
+			false,
+			ResetStackFix);
+
 		NewIssues.Add(InvalidStackError); 
 	}
 	else
@@ -372,31 +373,31 @@ void UNiagaraStackScriptItemGroup::RefreshIssues(TArray<FStackIssue>& NewIssues)
 			{
 				bForcedError = true;
 
+				FText FixDescription = LOCTEXT("AddingSystemLifecycleModule", "Adding System Lifecycle Module.");
+				FStackIssueFix AddLifeCycleFix(
+					FixDescription,
+					FStackIssueFixDelegate::CreateLambda([=]()
+				{
+					FScopedTransaction ScopedTransaction(FixDescription);
+					UNiagaraNodeFunctionCall* AddedModuleNode = FNiagaraStackGraphUtilities::AddScriptModuleToStack(ModuleScriptAsset, *MatchingOutputNode);
+					if (AddedModuleNode == nullptr)
+					{
+						FNotificationInfo Info(LOCTEXT("FailedToAddSystemLifecycle", "Failed to add system life cycle module.\nCheck the log for errors."));
+						Info.ExpireDuration = 5.0f;
+						Info.bFireAndForget = true;
+						Info.Image = FCoreStyle::Get().GetBrush(TEXT("MessageLog.Error"));
+						FSlateNotificationManager::Get().AddNotification(Info);
+					}
+				}));
+
 				FStackIssue MissingLifeCycleError(
 					EStackIssueSeverity::Error,
 					LOCTEXT("SystemLifeCycleWarning", "The stack needs a SystemLifeCycle module."),
 					LOCTEXT("MissingRequiredMode", "Missing required module."),
 					GetStackEditorDataKey(),
-					false);
+					false,
+					AddLifeCycleFix);
 
-				FText FixDescription = LOCTEXT("AddingSystemLifecycleModule", "Adding System Lifecycle Module.");
-				FStackIssueFix AddLifeCycleFix(
-					FixDescription,
-					FStackIssueFixDelegate::CreateLambda([=]()
-					{
-						FScopedTransaction ScopedTransaction(FixDescription);
-						UNiagaraNodeFunctionCall* AddedModuleNode = FNiagaraStackGraphUtilities::AddScriptModuleToStack(ModuleScriptAsset, *MatchingOutputNode);
-						if (AddedModuleNode == nullptr)
-						{
-							FNotificationInfo Info(LOCTEXT("FailedToAddSystemLifecycle", "Failed to add system life cycle module.\nCheck the log for errors."));
-							Info.ExpireDuration = 5.0f;
-							Info.bFireAndForget = true;
-							Info.Image = FCoreStyle::Get().GetBrush(TEXT("MessageLog.Error"));
-							FSlateNotificationManager::Get().AddNotification(Info);
-						}
-					}));
-
-				MissingLifeCycleError.AddFix(AddLifeCycleFix);
 				NewIssues.Add(MissingLifeCycleError);
 			}
 		}

@@ -46,16 +46,35 @@ UNiagaraStackEntry::FStackIssue::FStackIssue()
 {
 }
 
-UNiagaraStackEntry::FStackIssue::FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed)
+UNiagaraStackEntry::FStackIssue::FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed, TArray<FStackIssueFix>& InFixes)
 	: Severity(InSeverity)
 	, ShortDescription(InShortDescription)
 	, LongDescription(InLongDescription)
-	, UniqueIdentifier(FMD5::HashAnsiString(*FString::Printf(TEXT("%s-%s"), *InStackEditorDataKey, *LongDescription.ToString())))
 	, bCanBeDismissed(bInCanBeDismissed)
+	, Fixes(InFixes)
 {
 	checkf(ShortDescription.IsEmptyOrWhitespace() == false, TEXT("Short description can not be empty."));
 	checkf(LongDescription.IsEmptyOrWhitespace() == false, TEXT("Long description can not be empty."));
 	checkf(InStackEditorDataKey.IsEmpty() == false, TEXT("Stack editor data key can not be empty."));
+	FString Descriptions = LongDescription.ToString();
+	for (FStackIssueFix Fix : Fixes)
+	{
+		Descriptions += Fix.GetDescription().ToString();
+	}
+	UniqueIdentifier = FMD5::HashAnsiString(*FString::Printf(TEXT("%s-%s"), *InStackEditorDataKey, *Descriptions));
+}
+
+UNiagaraStackEntry::FStackIssue::FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed, FStackIssueFix InFix)
+{
+	TArray<FStackIssueFix> FixArray;
+	FixArray.Add(InFix);
+	FStackIssue(InSeverity, InShortDescription, InLongDescription, InStackEditorDataKey, bInCanBeDismissed, FixArray);
+}
+
+UNiagaraStackEntry::FStackIssue::FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed)
+{
+	TArray<FStackIssueFix> FixArray;
+	FStackIssue(InSeverity, InShortDescription, InLongDescription, InStackEditorDataKey, bInCanBeDismissed, FixArray);
 }
 
 bool UNiagaraStackEntry::FStackIssue::IsValid()
@@ -86,13 +105,6 @@ bool UNiagaraStackEntry::FStackIssue::GetCanBeDismissed() const
 const FString& UNiagaraStackEntry::FStackIssue::GetUniqueIdentifier() const
 {
 	return UniqueIdentifier;
-}
-
-void UNiagaraStackEntry::FStackIssue::AddFix(FStackIssueFix InFix)
-{
-	checkf(IsValid(), TEXT("Issue is not valid."));
-	checkf(InFix.IsValid(), TEXT("Fix must be valid"));
-	Fixes.Add(InFix);
 }
 
 const TArray<UNiagaraStackEntry::FStackIssueFix>& UNiagaraStackEntry::FStackIssue::GetFixes() const
