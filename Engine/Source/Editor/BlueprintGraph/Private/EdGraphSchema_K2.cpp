@@ -2456,6 +2456,12 @@ public:
 		return *AutocastFunctionMap;
 	}
 
+	static void Shutdown()
+	{
+		delete AutocastFunctionMap;
+		AutocastFunctionMap = nullptr;
+	}
+
 	static void OnProjectHotReloaded(bool bWasTriggeredAutomatically)
 	{
 		if (AutocastFunctionMap)
@@ -2494,6 +2500,12 @@ public:
 };
 
 FAutocastFunctionMap* FAutocastFunctionMap::AutocastFunctionMap = nullptr;
+
+void UEdGraphSchema_K2::Shutdown()
+{
+	FAutocastFunctionMap::Shutdown();
+}
+
 
 bool UEdGraphSchema_K2::SearchForAutocastFunction(const UEdGraphPin* OutputPin, const UEdGraphPin* InputPin, /*out*/ FName& TargetFunction, /*out*/ UClass*& FunctionOwner) const
 {
