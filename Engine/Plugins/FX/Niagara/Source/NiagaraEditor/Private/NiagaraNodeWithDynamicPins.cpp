@@ -139,7 +139,6 @@ void UNiagaraNodeWithDynamicPins::MoveDynamicPin(UEdGraphPin* Pin, int32 Directi
 		{
 			if (i + DirectionToMove >= 0 && i + DirectionToMove < SameDirectionPins.Num())
 			{
-				FScopedTransaction MovePinTransaction(LOCTEXT("MovePinTransaction", "Moved pin"));
 				Modify();
 				UEdGraphPin* PinOld = SameDirectionPins[i + DirectionToMove];
 				if (PinOld)
@@ -188,7 +187,7 @@ void UNiagaraNodeWithDynamicPins::GetContextMenuActions(const FGraphNodeContextM
 				LOCTEXT("RemoveDynamicPin", "Remove pin"),
 				LOCTEXT("RemoveDynamicPinToolTip", "Remove this pin and any connections."),
 				FSlateIcon(),
-				FUIAction(FExecuteAction::CreateUObject(const_cast<UNiagaraNodeWithDynamicPins*>(this), &UNiagaraNodeWithDynamicPins::RemoveDynamicPin, const_cast<UEdGraphPin*>(Context.Pin))));
+				FUIAction(FExecuteAction::CreateUObject(const_cast<UNiagaraNodeWithDynamicPins*>(this), &UNiagaraNodeWithDynamicPins::RemoveDynamicPinFromMenu, const_cast<UEdGraphPin*>(Context.Pin))));
 		}
 		if (CanMovePin(Context.Pin))
 		{
@@ -210,7 +209,7 @@ void UNiagaraNodeWithDynamicPins::GetContextMenuActions(const FGraphNodeContextM
 					LOCTEXT("MoveDynamicPinUp", "Move pin up"),
 					LOCTEXT("MoveDynamicPinToolTipUp", "Move this pin and any connections one slot up."),
 					FSlateIcon(),
-					FUIAction(FExecuteAction::CreateUObject(const_cast<UNiagaraNodeWithDynamicPins*>(this), &UNiagaraNodeWithDynamicPins::MoveDynamicPin, const_cast<UEdGraphPin*>(Context.Pin), -1)));
+					FUIAction(FExecuteAction::CreateUObject(const_cast<UNiagaraNodeWithDynamicPins*>(this), &UNiagaraNodeWithDynamicPins::MoveDynamicPinFromMenu, const_cast<UEdGraphPin*>(Context.Pin), -1)));
 			}
 			if (PinIdx >= 0 && PinIdx < SameDirectionPins.Num() - 1)
 			{
@@ -261,10 +260,7 @@ void UNiagaraNodeWithDynamicPins::AddParameter(FNiagaraVariable Parameter, UEdGr
 
 void UNiagaraNodeWithDynamicPins::RemoveDynamicPin(UEdGraphPin* Pin)
 {
-	FScopedTransaction RemovePinTransaction(LOCTEXT("RemovePinTransaction", "Remove pin"));
 	RemovePin(Pin);
-	//GetGraph()->NotifyGraphChanged();
-
 	MarkNodeRequiresSynchronization(__FUNCTION__, true);
 }
 
@@ -284,6 +280,18 @@ void UNiagaraNodeWithDynamicPins::PinNameTextCommitted(const FText& Text, ETextC
 		Pin->PinName = *Text.ToString();
 		OnPinRenamed(Pin, PinOldName);
 	}
+}
+
+void UNiagaraNodeWithDynamicPins::RemoveDynamicPinFromMenu(UEdGraphPin* Pin)
+{
+	FScopedTransaction RemovePinTransaction(LOCTEXT("RemovePinTransaction", "Remove pin"));
+	RemoveDynamicPin(Pin);
+}
+
+void UNiagaraNodeWithDynamicPins::MoveDynamicPinFromMenu(UEdGraphPin* Pin, int32 DirectionToMove)
+{
+	FScopedTransaction MovePinTransaction(LOCTEXT("MovePinTransaction", "Moved pin"));
+	MoveDynamicPin(Pin, DirectionToMove);
 }
 
 #undef LOCTEXT_NAMESPACE

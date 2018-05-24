@@ -290,7 +290,12 @@ void FNiagaraSystemViewModel::AddEmitter(UNiagaraEmitter& Emitter)
 	// Kill all system instances before modifying the emitter handle list to prevent accessing deleted data.
 	KillSystemInstances();
 
-	const FScopedTransaction Transaction(LOCTEXT("AddEmitter", "Add emitter"));
+	// When editing an emitter asset the system is a placeholder and we don't want to make adding an emitter to it
+	// undoable.
+	if (EditMode != ENiagaraSystemViewModelEditMode::EmitterAsset)
+	{
+		GEditor->BeginTransaction(LOCTEXT("AddEmitter", "Add emitter"));
+	}
 
 	TSet<FName> EmitterHandleNames;
 	for (const FNiagaraEmitterHandle& EmitterHandle : System.GetEmitterHandles())
@@ -311,6 +316,11 @@ void FNiagaraSystemViewModel::AddEmitter(UNiagaraEmitter& Emitter)
 
 	check(SystemScriptViewModel.IsValid());
 	SystemScriptViewModel->RebuildEmitterNodes();
+
+	if (EditMode == ENiagaraSystemViewModelEditMode::SystemAsset)
+	{
+		GEditor->EndTransaction();
+	}
 
 	if (System.GetNumEmitters() == 1 && EditorSettings->GetAutoPlay())
 	{

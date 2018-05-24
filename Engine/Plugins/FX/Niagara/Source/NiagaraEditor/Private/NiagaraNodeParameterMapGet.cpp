@@ -171,8 +171,6 @@ void UNiagaraNodeParameterMapGet::OnNewTypedPinAdded(UEdGraphPin* NewPin)
 
 void UNiagaraNodeParameterMapGet::RemoveDynamicPin(UEdGraphPin* Pin)
 {
-	FScopedTransaction RemovePinTransaction(LOCTEXT("RemovePinTransaction", "Remove pin"));
-
 	UEdGraphPin* DefaultPin = nullptr;
 	if (Pin->Direction == EEdGraphPinDirection::EGPD_Output)
 	{

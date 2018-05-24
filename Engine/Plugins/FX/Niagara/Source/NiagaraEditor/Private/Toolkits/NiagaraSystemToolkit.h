@@ -130,6 +130,9 @@ private:
 	/** The emitter being edited in emitter mode, or null when editing in system mode. */
 	UNiagaraEmitter* Emitter;
 
+	/** The value of the emitter change id from the last time it was in sync with the original emitter. */
+	FGuid LastSyncedEmitterChangeId;
+
 	ESystemToolkitMode SystemToolkitMode;
 
 	TSharedPtr<SNiagaraSystemViewport> Viewport;
