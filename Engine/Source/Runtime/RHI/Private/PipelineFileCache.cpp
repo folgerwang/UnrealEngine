@@ -1050,12 +1050,7 @@ public:
 
 		FString FilePath = FPaths::ProjectSavedDir() / FString::Printf(TEXT("%s_%s.upipelinecache"), *FileName, *PlatformName.ToString());
 
-#define FAKE_BRCL 0
-#if FAKE_BRCL
-		RecordingFilename = FString::Printf(TEXT("%s-CL-%u-"), TEXT("++Fortnite+Release-3.4"), 3951433);
-#else
 		RecordingFilename = FString::Printf(TEXT("%s-CL-%u-"), *FEngineVersion::Current().GetBranchDescriptor(), FEngineVersion::Current().GetChangelist());
-#endif
 
 		FGuid UniqueFileGuid;
 		FPlatformMisc::CreateGuid(UniqueFileGuid);  // not very unique on android, but won't matter much here
