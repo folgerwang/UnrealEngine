@@ -1659,6 +1659,12 @@ namespace UnrealBuildTool
 
 					// Only execute linking on the local PC.
 					LinkAction.bCanExecuteRemotely = false;
+
+					if(bExecuteCompilerThroughShell)
+					{
+						LinkAction.CommandArguments = String.Format("/c \"{0} {1}\"", LinkAction.CommandPath, LinkAction.CommandArguments);
+						LinkAction.CommandPath = "cmd.exe";
+					}
 				}
 			}
 
