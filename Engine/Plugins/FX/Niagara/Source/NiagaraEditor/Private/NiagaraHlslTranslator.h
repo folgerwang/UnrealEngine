@@ -489,7 +489,8 @@ private:
 		FNiagaraFunctionSignature& OutSignature, TArray<int32>& Inputs);
 	
 	// Add a raw float constant chunk
-	int32 GetConstantFloat(float InValue);
+	int32 GetConstantDirect(float InValue);
+	int32 GetConstantDirect(bool InValue);
 
 	FNiagaraTypeDefinition GetChildType(const FNiagaraTypeDefinition& BaseType, const FName& PropertyName);
 	FString NamePathToString(const FString& Prefix, const FNiagaraTypeDefinition& RootType, const TArray<FName>& NamePath);
@@ -526,6 +527,9 @@ private:
 	bool IsBulkSystemScript() const;
 	bool IsSpawnScript() const;
 	bool RequiresInterpolation() const;
+
+	/** If OutVar can be replaced by a literal constant, it's data is initialized with the correct value and we return true. Returns false otherwise. */
+	bool GetLiteralConstantVariable(FNiagaraVariable& OutVar);
 
 	/** Map of symbol names to count of times it's been used. Used for generating unique symbol names. */
 	TMap<FName, uint32> SymbolCounts;

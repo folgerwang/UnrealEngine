@@ -2530,9 +2530,17 @@ int32 FHlslNiagaraTranslator::GetConstant(const FNiagaraVariable& Constant)
 	return AddBodyChunk(GetUniqueSymbolName(TEXT("Constant")), ConstantStr, Constant.GetType());
 }
 
-int32 FHlslNiagaraTranslator::GetConstantFloat(float InConstantValue)
+int32 FHlslNiagaraTranslator::GetConstantDirect(float InConstantValue)
 {
 	FNiagaraVariable Constant(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Constant"));
+	Constant.SetValue(InConstantValue);
+
+	return GetConstant(Constant);
+}
+
+int32 FHlslNiagaraTranslator::GetConstantDirect(bool InConstantValue)
+{
+	FNiagaraVariable Constant(FNiagaraTypeDefinition::GetBoolDef(), TEXT("Constant"));
 	Constant.SetValue(InConstantValue);
 
 	return GetConstant(Constant);
@@ -2999,6 +3007,20 @@ bool FHlslNiagaraTranslator::RequiresInterpolation() const
 	return false;
 }
 
+bool FHlslNiagaraTranslator::GetLiteralConstantVariable(FNiagaraVariable& OutVar)
+{
+	if (FNiagaraParameterMapHistory::IsInNamespace(OutVar, PARAM_MAP_EMITTER_STR) || FNiagaraParameterMapHistory::IsInNamespace(OutVar, PARAM_MAP_SYSTEM_STR))
+	{
+		FNiagaraVariable ResolvedVar = ActiveHistoryForFunctionCalls.ResolveAliases(OutVar);
+		if (OutVar == FNiagaraVariable(FNiagaraTypeDefinition::GetBoolDef(), TEXT("Emitter.Localspace")))
+		{
+			bool bEmitterLocalSpace = CompileOptions.AdditionalDefines.Contains(ResolvedVar.GetName().ToString());
+			OutVar.SetValue(bEmitterLocalSpace ? FNiagaraBool(true) : FNiagaraBool(false));
+			return true;
+		}
+	}
+	return false;
+}
 
 bool FHlslNiagaraTranslator::ParameterMapRegisterExternalConstantNamespaceVariable(FNiagaraVariable InVariable, UNiagaraNode* InNode, int32 InParamMapHistoryIdx, int32& Output, const UEdGraphPin* InDefaultPin)
 {
@@ -3017,7 +3039,7 @@ bool FHlslNiagaraTranslator::ParameterMapRegisterExternalConstantNamespaceVariab
 			if (InVariable == SYS_PARAM_ENGINE_DELTA_TIME || InVariable == SYS_PARAM_ENGINE_INV_DELTA_TIME)
 			{
 				Warning(FText::Format(LOCTEXT("GetParameterInvalidParam", "Cannot call system variable {0} in a spawn script! It is invalid."), FText::FromName(InVariable.GetName())), nullptr, nullptr);
-				Output = GetConstantFloat(0.0f);
+				Output = GetConstantDirect(0.0f);
 				return true;
 			}
 		}
@@ -3340,6 +3362,13 @@ void FHlslNiagaraTranslator::HandleParameterRead(int32 ParamMapHistoryIdx, const
 	if (!ParamMapHistories[ParamMapHistoryIdx].IsValidNamespaceForReading(CompileOptions.TargetUsage, CompileOptions.TargetUsageBitmask, Namespace))
 	{
 		Error(FText::Format(LOCTEXT("InvalidReadingNamespace", "Variable {0} is in a namespace that isn't valid for reading"), FText::FromName(Var.GetName())), ErrorNode, nullptr);
+		return;
+	}
+
+	//Some special variables can be replaced directly with constants which allows for extra optimization in the compiler.
+	if (GetLiteralConstantVariable(Var))
+	{
+		OutputChunkId = GetConstant(Var);
 		return;
 	}
 

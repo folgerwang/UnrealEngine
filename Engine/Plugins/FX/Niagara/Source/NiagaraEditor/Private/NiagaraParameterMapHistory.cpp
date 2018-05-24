@@ -22,21 +22,6 @@
 
 #define LOCTEXT_NAMESPACE "NiagaraEditor"
 
-#define PARAM_MAP_NPC_STR TEXT("NPC.")
-#define PARAM_MAP_ENGINE_STR TEXT("Engine.")
-#define PARAM_MAP_ENGINE_OWNER_STR TEXT("Engine.Owner.")
-#define PARAM_MAP_ENGINE_SYSTEM_STR TEXT("Engine.System.")
-#define PARAM_MAP_ENGINE_EMITTER_STR TEXT("Engine.Emitter.")
-#define PARAM_MAP_USER_STR TEXT("User.")
-#define PARAM_MAP_SYSTEM_STR TEXT("System.")
-#define PARAM_MAP_EMITTER_STR TEXT("Emitter.")
-#define PARAM_MAP_MODULE_STR TEXT("Module.")
-#define PARAM_MAP_ATTRIBUTE_STR TEXT("Particles.")
-#define PARAM_MAP_INITIAL_STR TEXT("Initial.")
-#define PARAM_MAP_INITIAL_BASE_STR TEXT("Initial")
-#define PARAM_MAP_RAPID_ITERATION_STR TEXT("Constants.")
-#define PARAM_MAP_RAPID_ITERATION_BASE_STR TEXT("Constants")
-
 
 FNiagaraParameterMapHistory::FNiagaraParameterMapHistory() 
 {

@@ -207,8 +207,7 @@ void UNiagaraScript::ComputeVMCompilationId(FNiagaraVMExecutableDataId& Id) cons
 	// Ideally we wouldn't want to do this but rather than push the data down
 	// from the emitter.
 	UObject* Obj = GetOuter();
-	UNiagaraEmitter* Emitter = Cast<UNiagaraEmitter>(Obj);
-	if (Emitter)
+	if (UNiagaraEmitter* Emitter = Cast<UNiagaraEmitter>(Obj))
 	{
 		if ((Emitter->bInterpolatedSpawning && Usage == ENiagaraScriptUsage::ParticleGPUComputeScript) || 
 			(Emitter->bInterpolatedSpawning && Usage == ENiagaraScriptUsage::ParticleSpawnScript) ||
@@ -219,6 +218,25 @@ void UNiagaraScript::ComputeVMCompilationId(FNiagaraVMExecutableDataId& Id) cons
 		if (Emitter->RequiresPersistantIDs())
 		{
 			Id.AdditionalDefines.Add(TEXT("RequiresPersistentIDs"));
+		}
+		if (Emitter->bLocalSpace)
+		{
+			Id.AdditionalDefines.Add(TEXT("Emitter.Localspace"));
+		}
+	}
+
+	if (UNiagaraSystem* System = Cast<UNiagaraSystem>(Obj))
+	{
+		for (const FNiagaraEmitterHandle& EmitterHandle: System->GetEmitterHandles())
+		{
+			UNiagaraEmitter* Emitter = Cast<UNiagaraEmitter>(EmitterHandle.GetInstance());
+			if (Emitter)
+			{
+				if (Emitter->bLocalSpace)
+				{
+					Id.AdditionalDefines.Add(Emitter->GetUniqueEmitterName() + TEXT(".Localspace"));
+				}
+			}
 		}
 	}
 
