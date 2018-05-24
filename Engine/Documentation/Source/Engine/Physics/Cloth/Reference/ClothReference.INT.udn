@@ -41,7 +41,6 @@ mesh that you've selected, create a cloth asset for your render mesh and its LOD
 
 
 [COMMENT:none]
--
 
 [EXCERPT:createclothsection]
 ![](CreateClothSection.png)(w:350)
@@ -51,17 +50,6 @@ mesh that you've selected, create a cloth asset for your render mesh and its LOD
 | **Remove from Mesh** | Whether or not to leave this section behind (if driving a mesh with itself). Enable this is driving a high-poly mesh with a low-poly mesh. |
 | [REGION:tablesection] Collision [/REGION] ||
 | **Physics Asset** | Physics Asset to extract collisions from. Note that this will export Sphere and Sphylls, but does support up to 32 convex faces (or 5 boxes). |
-<!---| [REGION:tablesection] Auto Fix [/REGION] ||-
-[/COMMENT]
-[COMMENT:none]
--| **Try Auto Fix** |  |-
-[/COMMENT]
-[COMMENT:none]
--| **Auto Fix Threshold** |  |-
-[/COMMENT]
-[COMMENT:none]
--| **Simulated Particle Max Distance** |  |-
-[/COMMENT]
 [/EXCERPT:createclothsection]
 
 [EXCERPT:createclothsectionLOD]
@@ -82,8 +70,7 @@ mesh that you've selected, create a cloth asset for your render mesh and its LOD
 | **Add LOD** | Use the selected section to add as a new LOD. |
 [/EXCERPT:lodindex]
 
-
---->
+[/COMMENT]
 
 
 ## Cloth Paint Panel
@@ -116,7 +103,7 @@ The **Masks** window displays any created parameter sets for painted cloth value
 
 [REGION:raw]
 | Property | Description |
-| --- | --- | --- |
+| --- | --- |
 | **Name** | The name given to the mask along with its target setting for this parameter set. [INCLUDE:#masksettings]  |
 | **Add Mask** | Adds a new Mask to the available list of Mask parameters. |
 [/REGION]
@@ -124,7 +111,6 @@ The **Masks** window displays any created parameter sets for painted cloth value
 
 
 [COMMENT:none]
--
 [INCLUDE:#masksettings]
 
 [EXCERPT:masksettings]
@@ -141,8 +127,6 @@ The **Masks** window displays any created parameter sets for painted cloth value
 | **Delete** | Deletes the Mask from the list. |
 | **Apply** | Applies the Mask to the physical mesh. |
 [/EXCERPT:masksettings]
-
--
 [/COMMENT]
 
 
@@ -186,7 +170,6 @@ The **Config** properties enables you to adjust how your cloth react so that it 
 
 
 [COMMENT:none]
--
 [INCLUDE:#constraintgconfig]
 
 [EXCERPT:constraintgconfig]
@@ -200,11 +183,8 @@ The **Config** properties enables you to adjust how your cloth react so that it 
 [EXCERPT:windmethod]
 | --- | --- |
 | **Legacy** | Use the Legacy wind mode, where accelerations are modified directly by the simulation with no regard to drag or lift. |
-<!--- | **Accurate** |  | -
-[/COMMENT]
 [/EXCERPT:windmethod]
-
---->
+[/COMMENT]
 
 
 

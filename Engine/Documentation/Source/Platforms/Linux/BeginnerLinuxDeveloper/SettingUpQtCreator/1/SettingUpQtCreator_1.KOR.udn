@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3810467
 Availability: Public
-Title: 1 - Configuring Qt Creator to Build UE4
+Title: 1 - UE4 빌드를 위한 Qt Creator 환경설정
 Crumbs:%ROOT%
-Description:Learn how to configure your IDE to build UE4 in Debug and Release mode.
+Description:UE4 를 Debug 및 Release 모드로 빌드하도록 IDE 를 환경설정하는 방법을 배워봅니다.
 Version: 4.14
 type:how to
 parent:Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator
@@ -12,152 +12,152 @@ SkillLevel:Beginner
 
 [NAV]
 
-While some developers like to use text editors and command line debuggers to modify their game's source code, most developers 
-prefer to use an Integrated Development Environment (IDE) to edit, debug, and compile their code. If you're a game developer looking to set up 
-an IDE to work with Unreal Engine 4 (UE4) in a Linux environment, this guide is for you. 
+게임 소스 코드를 변경하는 데 명령줄 디버거나 텍스트 에디터를 선호하는 개발자도 있지만, 대부분의 경우 
+통합 개발 환경(IDE)에서 코드를 편집, 디버깅, 컴파일하는 것을 선호합니다. 이 문서는 리눅스 환경에서 
+UE4 작업을 하기 위한 IDE 구성 방법을 찾으시는 분들을 위한 문서입니다.
 
-Although we recognize that chosing an IDE is a matter of individual preference, we've configured UE4 to interface with three IDEs in Linux; 
-specifically, Qt Creator, KDevelop, and Codelite. We don't endorse one IDE over another; however, as an example for learning purposes, we've chosen to 
-show you how to configure Qt Creator to build and run UE4. By the end of this guide, you'll know how to configure your IDE to build and run UE4. Finally, 
-you'll also learn how to set up the IDE to build and run new C++ (CPP) projects that you create from the Unreal Editor.
+어떤 IDE 를 선택할 것인지는 개인 취향이라는 것을 알기는 하지만, UE4 에서는 리눅스에 세 가지 IDE 인터페이스를 사용하도록 환경설정되어 있습니다. 
+구체적으로 Qt Creator, KDevelop, Codelite 입니다. 어느 IDE 하나를 특별히 지지하지는 않지만, 여기서는 학습 목적 상, Qt Creator 를 환경설정하여 
+UE4 를 실행하는 방법을 보여드리도록 하겠습니다. 이 문서가 끝날 즈음이면 IDE 환경설정 방법과 UE4 를 빌드하고 실행하는 방법을 터득하게 되실 것입니다. 마지막으로,
+언리얼 에디터에서 생성한 C++ (CPP) 프로젝트를 빌드하고 실행하도록 IDE 를 구성하는 방법도 배우게 될 것입니다.
 
 [REGION:note]
-Before we begin, please make sure that you've already set up your workflow using our [](Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow). Also, please make sure that [Qt Creator](https://wiki.qt.io/Install_Qt_5_on_Ubuntu) is
- installed on your machine.
+시작하기에 앞서, [](Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow) 문서를 참고하여 작업방식 구성이 되어있는지 확인해 주세요. 또, 컴퓨터에 [Qt Creator](https://wiki.qt.io/Install_Qt_5_on_Ubuntu) 가 
+설치되어 있는지도 확인해 주시기 바랍니다.
 [/REGION]
 
-1.	Launch Qt Creator, opening the **Qt Welcome** menu.  
+1.	Qt Creator 를 실행하면, **Qt Welcome** 메뉴가 뜹니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step1.png)(w:720)](SetupIDE_Step1.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	Click the **Open Project** button to open the Qt Project file browser.  
+1.	**Open Project** (프로젝트 열기) 버튼을 눌러 Qt Project 파일 브라우저를 엽니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step2.png)(w:720)](SetupIDE_Step2.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	Navigate to the directory where you built UE4, select the UE4 Qt Project (**UE4.pro**) file, and click the **Open** button.
+1.	UE4 를 빌드한 디렉토리로 이동하여, UE4 Qt Project (**UE4.pro**) 파일을 선택한 뒤 **Open** (열기)버튼을 누릅니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step3.png)(w:720)](SetupIDE_Step3.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	At this point, Qt Creator hasn't been configured to build UE4 in Debug and Release Mode. Click the **Configure Project** button located in the **Configure Project** menu.
+1.	아직은 UE4 를 Debug 및 Release 모드로 빌드할 수 있도록 Qt Creator 구성이 완료되지 않았습니다. **Configure Project** (프로젝트 환경설정) 메뉴의 **Configure Project** (프로젝트 환경설정) 버튼을 클릭합니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step4.png)(w:720)](SetupIDE_Step4.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	Now, click the **Projects** button to enter into Projects mode, opening the **Build Settings** menu.
+1.	**Projects** (프로젝트) 버튼을 클릭하여 프로젝트 모드로 들어가면 **Build Settings** (빌드 세팅) 메뉴가 열립니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step5.png)(w:720)](SetupIDE_Step5.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
 	[REGION:note]
-	When you open the **Build Settings** menu, you'll notice that Qt Creator defaults its **Edit build configuration: ** to **Debug** mode.
+	**Build Settings** (빌드 세팅) 메뉴를 열면, Qt Creator 의 기본 **Edit build configuration:** (빌드 구성 편집)이 **Debug** (디버그) 모드로 된 것이 보일 것입니다.
 	[region: lightbox]
-	[![](SetupIDE_Step5_Note.png)(w:347 h:249)](SetupIDE_Step5_Note.png)
+	[![](SetupIDE_Step5_Note.png)(w:347)](SetupIDE_Step5_Note.png)
 	[/region]
 	[REGION:caption]
-	Click for full image.
+	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 	[/REGION]
 
-1.	Under the **Build Steps** section, clear the **qmake** build step by clicking on the **X** button next to the **Details** drop down menu.
+1.	**Build Steps** (빌드 스텝) 섹션에서, **디테일** 드롭 다운 메뉴 옆 **X** 버튼을 클릭하여 **qmake** 빌드 스텝을 지웁니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step6Alt.png)(w:720)](SetupIDE_Step6Alt.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	Now, clear the **Shadow build** checkbox to cancel the selection. 
+1.	**Shadow build** (섀도우 빌드) 박스 체크를 지워 선택을 취소합니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step7.png)(w:720)](SetupIDE_Step7.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
 	[REGION:note]
-	Shadow building allows you to build projects in a separate build directory with Qt Creator's qmake utility. Because UE4 is distributed with a custom Make file that makes use of 
-	[](Programming/UnrealBuildSystem), you don't need to use Qt Creator's qmake utility.
+	섀도우 빌드란 Qt Creator 의 qmake 유틸리티로 별도의 빌드 디렉토리에 프로젝트를 빌드할 수 있도록 해줍니다. UE4 는 [](Programming/UnrealBuildSystem) 활용을 통해 커스텀 Make 파일과 
+	함께 배포되므로, Qt Creator 의 qmake 유틸리티를 사용할 필요가 없습니다.
 	[/REGION]
 
-1.	Now, click the **Details** drop down menu to open the input form for the **Make** build step.
+1.	이제 **디테일** 드롭 다운 메뉴를 클릭하여 **Make** 빌드 스텝의 입력 양식을 엽니다.
 
 	![](SetupIDE_Step8.png)
 
-1.	Enter `UE4Editor-Linux-Debug` into the **Make arguments:** text field.
+1.	**Make arguments:** 글상자에 `UE4Editor-Linux-Debug` 라 입력합니다.
 
 	![](SetupIDE_Step9.png)
 
-1.	Under the **Clean Steps** section, click the **Details** drop down menu to open the input form for the **Make** clean step.
+1.	**Clean Steps** 섹션 아래, **디테일** 드롭 다운 메뉴를 클릭하여 **Make** 클린 스텝의 입력 양식을 엽니다.
 
 	![](SetupIDE_Step10.png)
 
-1.	Replace `clean` by entering `UE4Editor-Linux-Debug ARGS="-clean"` into the **Make arguments:** text field.
+1.	**Make arguments:** 글상자에 `UE4Editor-Linux-Debug ARGS="-clean"` 을 입력하여 `clean` 을 대체합니다.
 
 	![](SetupIDE_Step11.png)
 
-1.	Now, click the **Edit build configuration:** drop down menu and select **Release** to open the **Build Settings** for Release mode.
+1.	이제 **Edit build configuration:** 드롭 다운 메뉴를 클릭하고 **Release** (릴리즈)를 선택하면 릴리즈 모드의 **Build Settings** (빌드 세팅)이 열립니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step12.png)(w:720)](SetupIDE_Step12.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	Repeat Steps 6 through 11 to edit the build configuration settings for Release mode. Please make sure that your settings match the following image:
+1.	6 단계에서 11 단계까지 반복하여 릴리즈 모드의 빌드 구성을 편집합니다. 세팅이 다음 이미지와 같은지 확인합니다:
 
 	![](SetupIDE_Step13.png)
 
 	[REGION:note]
-	If you'd like to set up additional build configurations for your project, please refer to the Qt Creator [Build Settings Documentation](http://doc.qt.io/qtcreator/creator-build-settings.html),
-	where they show you how to add as many build configurations as you might need.
+	프로젝트에 빌드 구성을 추가로 만들려는 경우, Qt Creator 의 [Build Settings Documentation](http://doc.qt.io/qtcreator/creator-build-settings.html) 을 참고하여 
+	빌드 구성을 필요한 만큼 추가시킬 수 있습니다.
 	[/REGION]
 
-## End Result
+## 최종 결과
 
 [REGION:lightbox]
 	[![](QtBuildSettings_UE4.png)(w:720)](QtBuildSettings_UE4.png)
 [/REGION]
 
 [REGION:caption]
-	Click for full image.
+	클릭하면 이미지 원본을 확인합니다.
 [/REGION]
 
-At this point, you've configured UE4 to build in both Debug and Release mode. Depending on your system's specifications, you may notice that UE4 runs slower while in Debug mode. For more information 
-on the performance characteristics of available build configurations, please read through our [](Programming/Development/BuildConfigurations) page. With this in 
-mind, you're ready to configure Qt Creator to run UE4.
+이제 UE4 를 Debug 와 Release 모드로 빌드할 수 있도록 구성을 마쳤습니다. 시스템 사양에 따라, UE4 가 Debug 모드에서 더욱 느리게 실행되는 것을 알 수 있습니다. 
+가능한 빌드 구성에 따른 퍼포먼스 특징 관련해서는 [](Programming/Development/BuildConfigurations) 문서를 참고하세요. 
+이 점을 염두에 두고, UE4 실행을 위한 Qt Creator 환경설정을 시작해 봅시다.
 
 [NAV]

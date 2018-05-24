@@ -1,8 +1,10 @@
-﻿Availability:Public
+﻿INTSourceChangelist:3242329
+Availability:Public
 Title:Constant 表現式
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
 Description:一度エディタに設定される、またはプレイが開始すると出力値が通常変化しない表現式
 Version:4.9
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]

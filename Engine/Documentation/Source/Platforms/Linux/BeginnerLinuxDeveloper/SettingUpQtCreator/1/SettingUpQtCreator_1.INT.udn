@@ -76,7 +76,7 @@ Before we begin, please make sure that you've already set up your workflow using
 	[/REGION]
 
 	[REGION:note]
-	When you open the **Build Settings** menu, you'll notice that Qt Creator defaults its **Edit build configuration: ** to **Debug** mode.
+	When you open the **Build Settings** menu, you'll notice that Qt Creator defaults its **Edit build configuration:** to **Debug** mode.
 	[region: lightbox]
 	[![](SetupIDE_Step5_Note.png)(w:347)](SetupIDE_Step5_Note.png)
 	[/region]

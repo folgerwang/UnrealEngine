@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3429264
+﻿INTSourceChangelist:3808342
 Availability:Public
 Title:Installed Build のリファレンス
 Crumbs: %ROOT%, Programming, Programming/Development
@@ -58,7 +58,7 @@ Installed Build を作成することができます。
 
 ## Installed Build スクリプトのオプション
 
-(#Bookmark1)
+(#bookmark1)
 
 `InstalledEngineBuild.xml` スクリプトは、Installed Build のすべてのデフォルト オプションとプラットフォームを有効にします。ただし、これは 
 オプション一式を指定し、どのプラットフォームを対象にするかを有効にし、ビルドをどこにパブリッシュするかなどを設定します。このビルド プロセスのカスタマイズに使えるオプション リスト (ビルドされるノートのリストも併せて) をご覧になりたい場合は、 
@@ -81,8 +81,10 @@ Installed Build を作成することができます。
 | `-set:WithPS4=[true/false]` | false | PS4 ターゲット プラットフォームを含みます。 [REGION:note]このオプションを有効にするには、PS4 SDK が必要です。[/REGION] |
 | `-set:WithXboxOne=[true/false]` | false | XboxOne ターゲット プラットフォームを含みます。 [REGION:note]このオプションを有効にするには Xbox One SDK が必要です。[/REGION] |
 | `-set:WithDDC=[true/false]` | true | エンジンのコンテンツとテンプレート用にスタンドアロンの派生データ キャッシュをビルドします。[REGION:note]エンジンとテンプレートのコンテンツ用のスタンドアロンの [派生データ キャッシュ (DDC)](Engine/Basics/DerivedDataCache) ビルドは、処理に時間がかかります。スタンドアロンの DDC が不要な場合は、コマンドラインに `-set:WithDDC=false` を追加することでこのステップをスキップできます。[/REGION] |
+| `-set:WithFullDebugInfo=[true/false]` | false | バイナリ エディタとパッケージ化されたアプリケーションのビルドに対してフル デバッグ情報を生成します。 |
 | `-set:SignExecutables=[true/false]` | false | ビルド プロセスの一部として実行ファイルに署名するようにマシンをセットアップしなければならない場合は、署名します。 |
 | `-set:AnalyticsTypeOverride=[ID]` | N/A | 送信する分析イベントの識別子です。 |
+| `-set:GameConfigurations=[Configurations]` | Development;Shipping | パッケージ化されたアプリケーションのコンフィギュレーションを指定します。 |
 
 
 ### さらにファイルを含める

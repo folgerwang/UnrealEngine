@@ -3392,6 +3392,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		//Log.debug("VK: AndroidThunkJava_VirtualInputIgnoreClick false");
 		return false;
 	}
+	
 
 	public boolean AndroidThunkJava_LaunchPackage(String packageName, String extraKey, String extraValue)
 	{

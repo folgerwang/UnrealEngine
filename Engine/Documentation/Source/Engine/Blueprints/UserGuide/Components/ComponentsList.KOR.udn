@@ -29,7 +29,7 @@ topic-image:Engine/Blueprints/UserGuide/Components/componentslist_topic.png
 
 [EXCERPT:Intro]
 컴포넌트에 대해 이해해 두면, **블루프린트 에디터** 안의 **컴포넌트** 창을 통해 **블루프린트** 에 컴포넌트를 추가시킬 수 있습니다. 
-이는 `CapsuleComponents`, `BoxComponents`, `SphereComponents` 를 통해 컬리전 지오메트리를 추가하거나, `StaticMeshComponents`, 
+이는 `CapsuleComponents`, `BoxComponents`, `SphereComponents` 를 통해 콜리전 지오메트리를 추가하거나, `StaticMeshComponents`, 
 `SkeletalMeshComponents` 형태의 렌더링되는 지오메트리를 추가하거나, `MovementComponents` 를 사용해서 
 운동을 제어할 수 있는 수단이 됩니다. **컴포넌트** 리스트에 추가된 컴포넌트는 인스턴스 변수에 할당시켜 
 이 _블루프린트_ 나 다른 _블루프린트_ 에서 접근하도록 할 수도 있습니다.

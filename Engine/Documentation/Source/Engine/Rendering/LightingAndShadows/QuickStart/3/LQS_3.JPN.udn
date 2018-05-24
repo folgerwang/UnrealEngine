@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2683826
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:3.Point Light（ポイントライト）の追加
 Crumbs:%ROOT%, GettingStarted, Engine\Rendering\LightingAndShadows\QuickStart
-Description:このステップでは、Point Light（ポイントライト）を使って小さな浴室を明るくします。 
+Description:このステップでは、Point Light を使って小さな浴室を明るくします。 
 SkillLevel:Beginner
 Version:4.9
 
@@ -61,7 +61,7 @@ Version:4.9
 
 	![](newLightAdded.png)(w:520)
 
-1.	**メイン ツールバー** から [Build] アイコンをクリックして、ライトをビルドします。 
+1.	**メイン ツールバー** から **[Build]** アイコンをクリックして、ライトをビルドします。 
 
 [REGION:note]
 **Point Lights** に使用できる設定の詳細は、[](Engine/Rendering/LightingAndShadows/LightTypes/Point) をご覧ください。 

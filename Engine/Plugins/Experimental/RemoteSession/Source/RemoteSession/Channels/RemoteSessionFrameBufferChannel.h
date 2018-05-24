@@ -36,9 +36,15 @@ public:
 	UTexture2D* GetHostScreen() const;
 
 	/* Begin IRemoteSessionChannel implementation */
-	static FString StaticType();
-	virtual FString GetType() const override { return StaticType(); }
+	static const TCHAR* StaticType() { return TEXT("FRemoteSessionFrameBufferChannel"); }
+	virtual const TCHAR* GetType() const override { return StaticType(); }
 	/* End IRemoteSessionChannel implementation */
+
+	/** Signals that the viewport was resized */
+	void OnViewportResized(FVector2D NewSize);
+
+	/** Safely create the frame grabber */
+	void CreateFrameGrabber(TSharedRef<FSceneViewport> Viewport);
 
 protected:
 
@@ -57,6 +63,9 @@ protected:
 
 	/** Creates a texture to receive images into */
 	void CreateTexture(const int32 InSlot, const int32 InWidth, const int32 InHeight);
+
+	/** Release the FrameGrabber*/
+	void ReleaseFrameGrabber();
 
 	TSharedPtr<FFrameGrabber>				FrameGrabber;
 	
@@ -91,4 +100,10 @@ protected:
 
 	/** So we can manage callback lifetimes properly */
 	FDelegateHandle MessageCallbackHandle;
+
+	/** Shows that the viewport was just resized */
+	bool ViewportResized;
+
+	/** Holds a reference to the scene viewport */
+	TSharedPtr<FSceneViewport> SceneViewport;
 };

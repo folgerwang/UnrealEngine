@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 브랜드 용어집
+Description: 언리얼 엔진 4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되는 핵심 용어 해설집입니다.
 Type: Reference
 Version: 4.16
 Parent:BrandGlossary
 Order:16
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+언리얼 엔진 4 (UE4) **브랜드 용어집** 에 오신 것을 환영합니다. UE4 커뮤니티의 사용자를 위한 자료를 만들고자 하는 경우, 
+UE4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되고 있는 용어의 이해를 돕기 위한 문서입니다.
+이 용어집을 통독하고나면, 언리얼 엔진 설명에 사용하는 용어의 스펠링과 대소문자 구분을 확실히 하실 수 있을 것입니다.
 
 <hr>
   
@@ -44,20 +44,20 @@ through this glossary, you'll also know how to properly spell and capitalize the
 
 ##Unreal Build Tool (UBT)
 
-UnrealBuildTool (UBT) is a custom tool that manages the process of building the Unreal Engine source code across the numerous possible build configurations.
+언리얼 빌드 툴 - 언리얼 엔진 소스 코드를 여러가지 빌드 구성으로 빌드하는 프로세스를 관리하는 커스텀 툴입니다.
 
 ##Unreal Editor
 
-Unreal Editor is the complete suite of tools provided with Unreal Engine that enables developers to build levels, import content, create effects, and much more.
+언리얼 에디터 - 개발자가 레벨 제작, 콘텐츠 임포트, 이펙트 제작 등의 작업을 할 수 있도록 해주는 언리얼 엔진에 기본 제공된 종합 툴 세트입니다.
 
 ##Unreal Header Tool (UHT)
 
-UnrealHeaderTool (UHT) is a custom parsing and code-generation tool that supports the UObject system.
+언리얼 헤더 툴 - UObject 시스템을 지원하는 커스텀 파싱 및 코드 생성 툴입니다.
 
 ##UMG UI Designer
 
-Unreal Motion Graphics UI Designer (UMG) is a visual UI authoring tool that can be used to create UI elements, such as in-game HUDs, menus or other interface related graphics you wish to present to your users.
+언리얼 모션 그래픽 UI 디자이너 - 사용자에게 제공하고자 하는 UI 요소, 예를 들면 게임내 HUD, 메뉴, 기타 인터페이스 관련 그래픽을 만들 수 있는 비주얼 UI 제작 툴입니다.
 
 ##Unreal Frontend (UFE)
 
-Unreal Frontend (UFE) is a tool intended to simplify and speed up daily video game development and testing tasks, such as preparing game builds, deploying them to a device, and launching them. UFE is designed to be the central interface for all game deployment, profiling, and testing tasks.
+언리얼 프론트엔드 - 게임 빌드 준비, 디바이스에 디플로이, 실행 등 비디오 게임 개발 및 테스트 과정에서 일상적으로 벌어지는 작업을 단순화시켜 빠르게 할 수 있도록 해주는 툴입니다. 모든 게임 디플로이, 프로파일링, 테스팅 작업의 중앙 인터페이스 역할을 합니다.

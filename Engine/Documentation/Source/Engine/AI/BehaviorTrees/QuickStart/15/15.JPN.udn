@@ -3,7 +3,7 @@ Availability:Public
 Title:15.これから先のこと
 Crumbs:%ROOT%, Engine, Gameplay, Engine/AI/BehaviorTrees, Engine/AI/BehaviorTrees/QuickStart
 Description:ステップ15.これから先のこと
-version:4.9
+version: 4.9
 parent:Engine/AI/BehaviorTrees/QuickStart
 type:quick start
 type:multi-step
@@ -32,10 +32,10 @@ order:15
 * [ビヘイビア ツリーのユーザー ガイド](Engine/AI/BehaviorTrees/UserGuide "%Engine/AI/BehaviorTrees/UserGuide:description%")
 * [ビヘイビア ツリーのノード リファレンス](Engine/AI/BehaviorTrees/NodeReference "%Engine/AI/BehaviorTrees/NodeReference:description%")
 * [](Engine/AI/EnvironmentQuerySystem "%Engine/AI/EnvironmentQuerySystem:description%")
-	## 外部リンク
 
-	* [次世代ゲームの AI 向けビヘイビアツリー](http://aigamedev.com/insider/presentation/behavior-trees/ "Hosted on AIGameDev.com の動画では、ビヘイビアツリーの利点と機能を紹介しています。ご覧頂くには、サイトで無料のサインアップが必要となります。)
+## 外部リンク
 
+* [次世代ゲームの AI 向けビヘイビアツリー](http://aigamedev.com/insider/presentation/behavior-trees/ "Hosted on AIGameDev.com の動画では、ビヘイビアツリーの利点と機能を紹介しています。ご覧頂くには、サイトで無料のサインアップが必要となります。)
 
 [NAV]
 

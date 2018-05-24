@@ -1,4 +1,4 @@
-﻿INTSoruceChangelist:3750344
+﻿INTSourceChangelist:3807092
 Availability:Public
 Title:アンリアル エンジン 4.18 リリース ノート
 Description:Unreal Engine 4.18 リリース ノート
@@ -615,7 +615,7 @@ Emscripten ツールチェーンを 1.37.19 にアップデートしました。
 
 * **Oculus Runtime:** 1.17
 
-* **Steam:** 1.39
+* **SteamVR:** 1.39
 
 * **Switch:** 1.7.0, 3.5.1 + NEX 4.2.0; Firmware Version 3.0.1-1.0
 
@@ -3257,13 +3257,12 @@ Added a new editor command "BuildMaterialTextureStreamingData" to refresh materi
 
 #### UnrealBuildTool
 
-* Added support for adaptive non-unity builds when working from a Git repository.The ISourceFileWorkingSet interface is now used to query files belonging to the working set, and has separate implementations for Perforce (PerforceSourceFileWorkingSet) and Git (GitSourceFileWorkingSet).The Git implementation is used if a .git directory is found in the directory containing the Engine folder, the directory containing the project file, or the parent directory of the project file, and spawns a "git status" process in the background to determine which files are untracked or staged.Several new settings are supported in BuildConfiguration.xml to allow modifying default behavior: <SourceFileWorkingSet> <Provider>Default</Provider> [COMMENT:none]
- May be None, Default, Git or Perforce 
-[/COMMENT] <RepositoryPath></RepositoryPath> [COMMENT:none]
- Specifies the path to the repository, relative to the directory containing the Engine folder.If not set, tries to find a .git directory in the locations listed above. 
-[/COMMENT] <GitPath>git</GitPath> [COMMENT:none]
- Specifies the path to the Git executable.Defaults to "git", which assumes that it will be on the PATH 
-[/COMMENT] </SourceFileWorkingSet>
+* Added support for adaptive non-unity builds when working from a Git repository.The ISourceFileWorkingSet interface is now used to query files belonging to the working set, and has separate implementations for Perforce (PerforceSourceFileWorkingSet) and Git (GitSourceFileWorkingSet).The Git implementation is used if a .git directory is found in the directory containing the Engine folder, the directory containing the project file, or the parent directory of the project file, and spawns a "git status" process in the background to determine which files are untracked or staged.Several new settings are supported in BuildConfiguration.xml to allow modifying default behavior:
+
+		<SourceFileWorkingSet> <Provider>Default</Provider> <!-- May be None, Default, Git or Perforce -->
+			<RepositoryPath></RepositoryPath> <!-- Specifies the path to the repository, relative to the directory containing the Engine folder.If not set, tries to find a .git directory in the locations listed above. -->
+			<GitPath>git</GitPath> <!-- Specifies the path to the Git executable.Defaults to "git", which assumes that it will be on the PATH -->
+		</SourceFileWorkingSet>
 
 * Simplified how targets are cleaned.Delete all intermediate folders for a platform/configuration, and delete any build products matching the UE4 naming convention for that target, rather than relying on the current build configuration or list of previous build products.This will ensure that build products which are no longer being generated will also be cleaned.
 

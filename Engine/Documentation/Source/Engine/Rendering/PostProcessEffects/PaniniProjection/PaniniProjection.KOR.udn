@@ -28,9 +28,9 @@ r.Upscale.Panini.D > 0 인 경우 사용된다는 뜻입니다. 이 파라미터
 
 ![](qagame_fov120_panini.png)
 
-r.Upscale.Panini.D > 0 이면 이펙트가 직접 강조됩니다. 하지만 이게 유일한 파라미터는 아닙니다. r.Upscale.Panini.S 는
+r.Upscale.Panini.D 가 0 보다 크면 이펙트가 직접 강조됩니다. 하지만 이게 유일한 파라미터는 아닙니다. r.Upscale.Panini.S 는
 논문의 하드 컴프레션과 함께 선형보간됩니다. 여전히 구체 구석이 가려진 것처럼 보인다면, 이 파라미터도 같이 
-조정해주면 됩니다. 하지만 r.Upscale.Panini.S < 0 인 경우, 구석에 렌더링되지 않은 것처럼 보이는 
+조정해주면 됩니다. 하지만 r.Upscale.Panini.S 가 0 보다 작은 경우 , 구석에 렌더링되지 않은 것처럼 보이는 
 검정 픽셀이 나타나기 시작합니다.
 
 ![](qagame_fov120_vertical_compression.png)

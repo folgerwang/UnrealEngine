@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 브랜드 용어집
+Description: 언리얼 엔진 4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되는 핵심 용어 해설집입니다.
 Type: Reference
 Version: 4.16
 Parent:BrandGlossary
 Order:12
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+언리얼 엔진 4 (UE4) **브랜드 용어집** 에 오신 것을 환영합니다. UE4 커뮤니티의 사용자를 위한 자료를 만들고자 하는 경우, 
+UE4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되고 있는 용어의 이해를 돕기 위한 문서입니다.
+이 용어집을 통독하고나면, 언리얼 엔진 설명에 사용하는 용어의 스펠링과 대소문자 구분을 확실히 하실 수 있을 것입니다.
 
 <hr>
   
@@ -44,76 +44,76 @@ through this glossary, you'll also know how to properly spell and capitalize the
 
 ##Packaging
 
-The purpose of packaging is to test your full game instead of a single map, or to prepare your game for submission/distribution.
+패키징 - 단일 맵이 아닌 전체 게임을 테스트하거나, 게임의 제출/배포하기 위해 준비하는 작업을 말합니다.
 
 ##Paper 2D
 
-Paper 2D is a sprite-based system for creating 2D and 2D/3D hybrid games entirely within Unreal Engine.
+페이퍼 2D - 언리얼 엔진 안에서만 2D 및 2D/3D 하이브리드 게임을 만들 수 있도록 해주는 스프라이트 기반 시스템입니다.
 
 ##Paper 2D Flipbook Editor
 
-The Flipbook Editor enables setup and editing of individual Flipbook assets, where you can edit the sequential playability of your sprites, tune or tweak the duration in which a sprite is displayed, or determine the overall playback speed of the Flipbook animation through the Frames Per Second option.
+페이퍼 2D 플립북 에디터 - 개별 플립북 애셋 구성 및 편집, 스프라이트 재생 순서 편집, 스프라이트 표시 기간 미세 조정, Frames Per Second 옵션을 통한 플립북 애니메이션 전체 재생 속도 조정 등이 가능한 에디터입니다.
 
 ##Paper 2D Sprite Editor
 
-The Paper 2D Sprite Editor enables setup and editing of individual Sprite assets.
+페이퍼 2D 스프라이트 에디터 - 개별 스프라이트 애셋을 구성하고 편집할 수 있습니다.
 
 ##Particle System Component
 
-A ParticleSystemComponent allows you to add a particle emitter as a sub-object to another object. 
+파티클 시스템 컴포넌트 - 통해 파티클 이미터를 다른 오브젝트의 서브 오브젝트로 추가할 수 있습니다.
 
 ##Pawn
 
-A Pawn is an Actor that can be an “agent” within the world. Pawns can be possessed by a Controller, they are set up to easily accept input, and they can do a variety of player-like things. Note that a Pawn is not assumed to be humanoid.
+폰 - 월드의 아바타가 될 수 있는 액터입니다. 폰은 컨트롤러에 빙의되며, 입력을 쉽게 받도록 구성되어 있고, 플레이어같은 여러가지 것들을 할 수 있습니다. 폰은 인간형이라 가정하지 않습니다.
 
 ##Persona Animation Editor
 
-The Persona Animation Editor is the animation editing toolset which provides a robust system for editing Skeletons, Skeletal Meshes, Animation Blueprints, and various other animation assets.
+페르소나 애니메이션 에디터 - 스켈레톤, 스켈레탈 메시, 애니메이션 블루프린트, 여러가지 다양한 애니메이션 애셋 편집을 위한 안전성 높은 시스템을 제공하는 애니메이션 편집 툴세트입니다.
 
 ##Physics Asset Tool (PhAT)
 
-The Unreal Physics Asset Tool (PhAT) is an integrated editor in the Unreal Editor that is designed specifically to manipulate Physics Assets for Skeletal Meshes.
+피직스 애셋 툴 - 스켈레탈 메시에 쓰이는 피직스 애셋 조작 전용으로 디자인된 언리얼 엔진 통합 에디터입니다.
 
 ##Play in Editor (PIE)
 
-Play In Editor allows you to play the current level directly from the editor, so that you can test gameplay functionality, including player controls and level events triggered by players’ actions.
+에디터에서 플레이 - 현재 레벨을 에디터에서 바로 플레이할 수 있으며, 플레이어 조작 및 플레이어 동작에 따라 발동되는 레벨 이벤트 포함 게임플레이 기능을 테스트할 수 있습니다.
 
 ##PlayerController
 
-A PlayerController is the interface between the Pawn and the human player controlling it. The PlayerController essentially represents the human player’s will.
+플레이어 컨트롤러 - 폰과 그것을 조종하는 인간 플레이어 사이의 인터페이스입니다. 본질적으로 인간 플레이어의 의지를 나타냅니다.
 
 ##PlayerState
 
-A PlayerState is the state of a participant in the game, such as a human player or a bot that is simulating a player.
+플레이어 스테이트 - 인간 플레이어 또는 플레이어를 시뮬레이션하는 봇과 같은 게임 참여자의 상태를 말합니다.
 
 ##Plugin
 
-Plugins enable you to add entirely new features and to modify built-in functionality without modifying the engine code directly, such as adding new menu items and tool bar commands to the editor, or even adding entirely new features and editor sub-modes.
+플러그인 - 완전 새로운 기능을 추가하거나 엔진 코드를 직접 수정할 필요 없이 내장 기능을 변경할 수 있도록 해주는 기능입니다. 예를 들면 에디터에 메뉴 항목과 툴바 명령을 새로 추가하거나, 완전 새로운 기능 및 에디터 서브 모드 추가도 가능합니다.
 
 ##Post Process Effect
 
-Post Process Effects enable artists and designers to tweak the overall look and feel of the scene by applying effects including bloom (HDR blooming effect on bright objects), ambient occlusion, and tone mapping to the rendered scene before displaying it in the viewport.
+포스트 프로세스 이펙트 - 아티스트와 디자이너는 씬의 전반적인 모양과 느낌을 미세 조정할 수 있습니다. 그 이펙트는 블룸 (밝은 오브젝트의 HDR 블룸 이펙트), 앰비언트 오클루전, 그리고 뷰포트에 표시하기 전의 렌더링 씬에 적용하는 톤 매핑이 있습니다.
 
 ##Procedural Foliage Tool
 
-The Procedural Foliage Tool is used for simulating huge forests that are filled with lots of different kinds of trees and bushes. This tool works by simulating how a forest grows over the years using Steps to define years of growth. At each Step in the simulation, newly created virtual seeds are cast into the level to act as spawn locations for other Foliage Type Actors. By tweaking the various Foliage Type options like Spread, Size, and Priority Settings, you will affect how those Foliage Types spread and compete for spawn locations through the level that the Procedural Foliage Spawner is placed in. 
+프로시저럴 폴리지 툴 - 여러가지 다양한 나무와 덤불로 채워진 거대한 숲을 시뮬레이션하는 데 사용됩니다. 이 툴은 Step 을 통해 몇 년에 걸친 숲의 성장을 시뮬레이션할지 정의하는 식으로 작동합니다. 시뮬레이션 각 Step 마다 가상의 씨앗을 새로 생성한 뒤 레벨에 뿌려 다른 폴리지 타입 액터의 스폰 위치 역할을 하도록 합니다. Speard, Size, Priority 세팅과 같은 다양한 폴리지 타입 옵션을 조정하면 프로시저럴 폴리지 스포너가 배치된 레벨 전반의 스폰 위치에 대해 그 폴리지 타입이 퍼지는 정도와 생존 경쟁 방식에 영향을 줍니다.
 
 ##Project
 
-A Project is a self-contained unit that holds all of the content and code that make-up an individual game and coincides with a set of directories on your disk.
+프로젝트 - 개별 게임을 이루는 코드와 콘텐츠 전부가 들어있는 자체 독립적인 유닛으로, 디스크의 디렉토리 구조와 일치합니다.
 
 ##Project Browser
 
-The Project Browser provides an interface for creating new projects, opening your existing projects, or opening sample content like sample games and Showcases.
+프로젝트 브라우저 - 새 프로젝트 생성, 기존 프로젝트 열기, 샘플 게임 및 쇼케이스같은 샘플 콘텐츠 열기 등을 위한 인터페이스를 제공합니다.
 
 ##Project Launcher
 
-The Project Launcher tab provides a graphical front-end interface to build, cook, deploy, and launch your game.
+프로젝트 런처 - 게임 빌드, 쿠킹, 디플로이, 실행을 위한 그래픽 프론트엔드 인터페이스를 제공하는 탭입니다.
 
 ##Project Settings
 
-The Project Settings editor provides access to configuration options that specify information about your project, as well as defining how the engine behaves when running the project.
+프로젝트 세팅 - 프로젝트 관련 정보를 지정하는 환경설정 옵션에 접근할 수 있고, 프로젝트를 실행할 때 엔진 작동방식을 정의할 수도 있는 에디터입니다.
 
 ##Property Matrix
 
-The Property Matrix enables easy bulk editing and value comparison for large numbers of Objects or Actors by displaying a configurable set of properties for a collection of objects as columns in a table view that can be sorted on any column.
+프로퍼티 매트릭스 - 오브젝트 모음에 대해 환결설정 가능한 프로퍼티 세트를 표의 열에 표시하고 정렬해 보면서, 다수의 오브젝트 또는 액터의 값을 비교하고 한꺼번에 편집하는 작업을 쉽게 할 수 있습니다.

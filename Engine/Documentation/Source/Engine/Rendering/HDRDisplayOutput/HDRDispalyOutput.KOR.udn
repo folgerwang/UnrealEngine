@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3801260
 Availability:Public
 Crumbs:
 Title: 하이 다이내믹 레인지 디스플레이 출력
@@ -28,9 +28,8 @@ Social-image:HDRDisplayOutput_Social.png
 	![다이 다이내믹 레인지 (HDR) ](HDR.png)(w:700)
 	[/PARAM]
 [/OBJECT]
-[REGION:caption] [COMMENT:none]
-- Spacer -
-[/COMMENT]
+[REGION:caption]
+
 [/REGION]
 [REGION:caption]
 이는 순전히 데모용 시뮬레이션 이미지입니다. LDR 화면에 HDR 차이를 나타내는 것은 불가능합니다.

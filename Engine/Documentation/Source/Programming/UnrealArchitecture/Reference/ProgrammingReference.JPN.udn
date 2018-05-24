@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3692796
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:アンリアルのアーキテクチャ
 Crumbs:%ROOT%, Programming
@@ -27,11 +27,9 @@ C++ コードでゲームプレイ要素をプログラミングする場合、�
 ## ゲームプレイ プログラミングのリファレンス ディレクトリ
 
 [REGION:buttonlist]
-
-		* [](Programming\UnrealArchitecture\Reference\Classes "%Programming/UnrealArchitecture/Reference/Classes:Description% ")
-			* [](Programming\UnrealArchitecture\Reference\Functions "%Programming/UnrealArchitecture/Reference/Functions:Description% ")
-			* [](Programming\UnrealArchitecture\Reference\Properties "%Programming/UnrealArchitecture/Reference/Properties:Description% ")
-		* [](Programming\UnrealArchitecture\Reference\Structs "%Programming/UnrealArchitecture/Reference/Structs:Description% ")
-		* [](Programming\UnrealArchitecture\Reference\Interfaces "%Programming/UnrealArchitecture/Reference/Interfaces:Description% ")
-	
+* [](Programming\UnrealArchitecture\Reference\Classes "%Programming/UnrealArchitecture/Reference/Classes:Description% ")
+	* [](Programming\UnrealArchitecture\Reference\Functions "%Programming/UnrealArchitecture/Reference/Functions:Description% ")
+	* [](Programming\UnrealArchitecture\Reference\Properties "%Programming/UnrealArchitecture/Reference/Properties:Description% ")
+* [](Programming\UnrealArchitecture\Reference\Structs "%Programming/UnrealArchitecture/Reference/Structs:Description% ")
+* [](Programming\UnrealArchitecture\Reference\Interfaces "%Programming/UnrealArchitecture/Reference/Interfaces:Description% ")
 [/REGION]

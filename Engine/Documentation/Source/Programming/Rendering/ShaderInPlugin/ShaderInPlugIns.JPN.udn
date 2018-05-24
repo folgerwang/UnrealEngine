@@ -1,7 +1,6 @@
-﻿INTSourceChangelist:3544387
-Availability:Docs
+﻿Availability:Public
 Crumbs: %ROOT%
-Title:Shader In Plugins の概要
+Title:Shader In Plugins
 Description:UE4 でプラグインによってシェーダーを作成および使用する方法
 Type:Landing
 Version:4.17

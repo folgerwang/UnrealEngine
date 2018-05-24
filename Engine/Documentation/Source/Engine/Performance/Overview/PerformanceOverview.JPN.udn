@@ -1,52 +1,12 @@
-﻿INTSourceChangelist:2956400
-Availability:Public
+﻿Availability:Public
 Title:パフォーマンスおよびプロファイリングの概要
 Crumbs: %ROOT%, Engine
 Description:パフォーマンス問題の特定および修正方法
 Navigation:topic
 version:4.9
-parent:Engine/Performance
+Parent:Engine/Performance
 order:1
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Performance/Overview:title%](performance_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Performance/Overview:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Performance/Overview:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Performance/Overview]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Performance/Overview:title%](performance_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Performance/Overview:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Performance/Overview:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Performance/Overview]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+topic-image:performance_topic.png
 
 
 [TOC (start:2 end:3)]
@@ -91,7 +51,7 @@ order:1
 最初に制約を特定する必要があります。それを最適化することでパフォーマンスを向上できる可能性は高くなります。最適化対象を間違えると時間の無駄になりますし、別のケースに新しいバグやパフォーマンス リグレッションを 
 取り込んでしまう可能性があります。対象領域の改善が終了したら、多くの場合、再度プロファイリングするのが良いでしょう。こうすることで、以前は隠れていた新たなパフォーマンスのボトルネックが見つかるかもしれないからです。
 
-フレームレートが、CPU または GPU の負荷の制約を受けるかをチェックします。いつものように作業負荷を変更して (例、解像度を変更)、その効果を見てみます。ここでは、 **stat unit** 機能でエンジンの
+フレームレートが、CPU または GPU の負荷の制約を受けるかをチェックします。いつものように作業負荷を変更 (たとえば解像度を変更) して、その効果を見てみます。ここでは、 **stat unit** 機能でエンジンの
 ビルドを見ると簡単です。
 
 [REGION:imagetable]
@@ -114,7 +74,7 @@ order:1
 エディタの UI を使用する必要があります。コンソール変数 (**_showflag.Bloom_** など) を使用してインゲームまたはエディタ内で表示フラグ値をオーバーライドできますが、UI も無効にします。
 
 [REGION:note]
-機能がレンダリングを行っていなくてもパフォーマンスを消費することにご注意ください。例えば、 show particles はパーティクルを隠しますが、
+レンダリングを行っていなくてもパフォーマンスに負荷をかける機能もあります。例えば、 show particles はパーティクルを隠しますが、
 後でそれらをもう一度有効にするためにシミュレーション時間が必要になります。コンソール変数 **_fx.freezeparticlesimulation_** は更新部分も無効にできます (エディタ UI も存在します)。
 もうひとつの変数、show tesselation は、triangle amplification を無効にしますが、なおもテッセレーションのシェーダを使用します。
 [/REGION:note]
@@ -128,8 +88,8 @@ order:1
 
 | 表示フラグ | 説明 |
 | -------- | ----------- |
-| **ScreenSpaceReflections** | スクリーン空間の反射を切り替えます。パフォーマンスにかなりの負荷がかかることがあり、一定のラフネスまでのピクセルのみに影響を与えることができます (r.SSR.MaxRoughness で調整、またはポストプロセスの設定で調整)。
-| **AmbientOcclusion** | スクリーン空間環境オクルージョン (シーンによっては、ライトマスで AO（アンビエント オクルージョン）をベイクする静的オブジェクトに対して成果はごくわずかです)。
+| **ScreenSpaceReflections** | スクリーン スペースの反射を切り替えます。多くのパフォーマンスの消費を生じる、一定のラフネスまでのピクセルのみに影響を与えることができます (r.SSR.MaxRoughness で調整、またはポストプロセスの設定で調整)。
+| **AmbientOcclusion** | スクリーン スペース環境オクルージョン (シーンによっては、ライトマスで AO（アンビエント オクルージョン）をベイクする静的オブジェクトに対して成果はごくわずかです)。
 | **AntiAliasing** | アンチエイリアシング (TemporalAA と FXAA) を切り替え、 TemporalAA を使って FXAA に切り替えます (速め、遅めの品質)。
 | **Bloom** | レンズフレアとブルーム機能を基にした画像に影響します。
 | **DeferredLighting** | すべてのディファード ライティング パスを切り替えます
@@ -147,17 +107,17 @@ order:1
 | **Tessellation** | テッセレーションを切り替えます (テッセレーション シェーダーを実行したままで、より多くのトライアングルをスポーンします)。
 | **IndirectLightingCache** | 無効なライトマップを持つ動的オブジェクトまたは静的オブジェクトが、Indirect Lighting Cache (間接光キャッシュ) を使用するかを切り替えます。
 | **Bounds** | エディタで選択されているオブジェクトの境界ボリュームを表示します。
-| **Visualize SSR** | スクリーン空間の反射の影響を受けるすべてのピクセルをレンダリングすると、明るいオレンジ (遅い) になります。以下を参照。
+| **Visualize SSR** | スクリーン スペースの反射の影響を受けるすべてのピクセルをレンダリングすると、明るいオレンジ (遅い) になります。以下を参照。
 
 [REGION:imagetable]
 | ![](SSR.png)(w:794) |
 | :----: | 
 | CONSOLE: r.SSR.MaxRoughness 0.9 = 最高品質 (左) と r.SSR.MaxRoughness 0.1 = より高速 (右) |
-| Unlit (ライティングなし)  (上), VisualizeSSR 表示 (下) |
+| Unlit (ライティングなし) (上) と VisualizeSSR 表示 (下) |
 [/REGION]
 
 
-###ビュー モード
+### ビュー モード
 
 ビュー モードは表示フラグの単なる組み合わせです。エディタの UI は表示フラグとは別のものであり、ViewMode コンソール コマンドを使用してエディタの UI と表示フラグとを切り替えることができます。
 パフォーマンスで非常に役立つものは、**Wireframe**、**LightComplexity**、**ShaderComplexity**、および **Lit** です。
@@ -236,7 +196,7 @@ SynthBenchmark ツールは、テストする価値があるハードウェア�
 * [](Engine/Performance/SystemSettings)
 * [](Engine/Performance/Profiler)
 * [](Engine/Performance/Scalability)
-* [VFX の最適化、最適化の中心的な概念] (Engine/Rendering/ParticleSystems/Optimization/Concepts)
+* [VFX 最適化の中心的な概念](Engine/Rendering/ParticleSystems/Optimization/Concepts)
 
 
 

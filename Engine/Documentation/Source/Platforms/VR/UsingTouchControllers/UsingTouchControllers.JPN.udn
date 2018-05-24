@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3645562
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:モーション コントローラーの使用方法 
 Crumbs: %ROOT%, Platforms
@@ -10,39 +10,29 @@ skilllevel:Intermediate
 type:Overview
 parent:Platforms/VR
 tags:VR
+prereq:Platforms\VR\MotionController
+prereq:Platforms\Oculus\HowTo\StandingCamera
+prereq:Platforms\Oculus\HowTo\GuardianSystem
+prereq:Platforms\SteamVR\HowTo\Chaperone
 [COMMENT:none]
 topic-image:Platforms\Oculus\HowTo\TouchControllers\HT_Rift_Touch_Setup_Topic_Image.png
 [/COMMENT]
 
 UE4 プロジェクトにモーション コントローラーのサポートを追加すると、没入感およびリアリズムの水準をあげることができます。没入感およびリアリズムの水準を上げる方法の 1 つは、モーション コントローラーを使ってワールド内に置かれたオブジェクトを拾う機能の追加です。本ページでは、この機能を UE4 VR プロジェクトに対応させる方法を説明します。 
 
-
-[REGION:note]
-以下のドキュメントでは、タッチ コントローラーとトラッキング サポートを追加して Standing VR Pawn を使用する方法を説明します。設定方法が分からない場合は、以下の 2 種類のガイドを参照してください。
-
-* [モーション コントローラーの設定方法](Platforms\VR\MotionController)
-
-* [Oculus Rift 用カメラの設定方法](Platforms\Oculus\HowTo\StandingCamera)
-* [SteamVR 用スタンディング式カメラの設定方法](Platforms\SteamVR\HowTo\StandingCamera)
-* [ガーディアン システムの設定方法](Platforms\Oculus\HowTo\GuardianSystem)
-* [Chaperone システムの設定方法](Platforms\SteamVR\HowTo\Chaperone)
-
-以下は Oculus Rift HMD およびタッチコントローラーの使用方法ですが、UE4 に対応するすべてのモーション コントローラーにも適用することができます。
-
-[/REGION]
-
-## モーション コントローラーの使用方法 
+## モーション コントローラーの設定
 
 次のセクションでは、レベル内に置かれたアイテムを拾う / 落とすことができるようにモーション コントローラーを設定する方法を説明します。
 
 ### コンポーネント、変数、イベントの設定
 イベントグラフへのノードの追加を開始する前に、コンポーネントと変数の作成と設定が必要になります。次のセクションで、必要なコンポーネントと変数、およびどのような設定項目があるのかを説明します。
 
+[REGION:simpletable]
 |コンポーネント / 変数タイプ|名前|値|
 |----------|-------|----|
 |**Scene**|HeldObjectLocation|X:38, Y:0, Z:0|
 |**Boolean**|IsHoldingObject|false|
-
+[/REGION]
 
 [REGION:lightbox]
 [![](HT_Using_Touch_03.png)(w:150)](HT_Using_Touch_03.png)
@@ -58,8 +48,12 @@ UE4 プロジェクトにモーション コントローラーのサポートを
 
 さらに、以下の名前で 2 つの **カスタムイベント** を作成する必要があります。
 
-* **PickUpObject**
-* **DropObject**
+[REGION:simpletable]
+|ノード名| 値 |
+|--------|------------|
+|**PickUpObject**|N/A|
+|**DropObject**|N/A|
+[/REGION]
 
 ![](HT_Using_Touch_06.png)
 

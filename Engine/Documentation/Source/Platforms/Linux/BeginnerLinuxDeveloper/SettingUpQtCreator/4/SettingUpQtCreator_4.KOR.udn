@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3719888
 Availability:Public
-Title: 4 - Running UE4 from Qt Creator
+Title: 4 - Qt Creator 에서 UE4 실행
 Crumbs:%ROOT%
-Description:Learn how to run Unreal Engine from your IDE.
+Description:IDE 에서 언리얼 엔진을 실행하는 법을 배워봅니다.
 Version: 4.14
 type:how to
 parent:Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator
@@ -12,38 +12,38 @@ SkillLevel:Beginner
 
 [NAV]
 
-Now that you've compiled the engine, you're ready to run the editor. During this step, you're going to use the IDE to run UE4.
+엔진을 컴파일했으니, 에디터를 실행할 준비가 되었습니다. 이 단계에서는 IDE 를 사용하여 UE4 를 실행하겠습니다.
 
-1.	If you want to view the status of your application while running UE4, you'll want to open the **Application Output** window pane. To open the **Application Output** window pane, press the **Alt+3** keyboard combination.
+1.	UE4 실행 도중 어플리케이션 상태를 확인하려면 **Application Output** (어플리케이션 출력) 창을 엽니다. **Alt+3** 키를 누르면 됩니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step17a.png)(w:720)](SetupIDE_Step17a.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	To run UE4 from the IDE, click the **Run** button. Alternatively, you can press the **Ctrl+R** keyboard combination to run UE4 from the IDE.
+1.	IDE 에서 UE4 를 실행하려면, **Run** (실행) 버튼을 누릅니다. 다른 방법으로는 **Ctrl+R** 키를 누르면 됩니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step17.png)(w:720)](SetupIDE_Step17.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-## End Result
+## 최종 결과
 
 [REGION:lightbox]
 	[![](SetupIDE_Step18.png)(w:720)](SetupIDE_Step18.png)
 [/REGION]
 
 [REGION:caption]
-	Click for full image.
+	클릭하면 이미지 원본을 확인합니다.
 [/REGION]
 
-Congratulations! You should now see UE4 running from your IDE.
+축하합니다! 이제 IDE 에서 UE4 가 실행되는 것이 보일 것입니다.
 
 [NAV]

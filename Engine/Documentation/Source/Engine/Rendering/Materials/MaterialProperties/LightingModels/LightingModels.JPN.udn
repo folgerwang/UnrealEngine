@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3007356
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:シェーディング モデル
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/IntroductionToMaterials,  Engine/Rendering/Materials/MaterialProperties
 Description:マテリアルのシェーディングモデルのプロパティのオプション分類です。
 Version:4.9
-
+tags:Materials
 
 [TOC(start:2 end:3)]
 

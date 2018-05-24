@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2872097
+﻿INTSourceChangelist:3151855
 Availability:Docs
 Title:パーティクル モジュール テクニカル ガイド
 Crumbs:%ROOT%, Programming, Programming/Rendering
-Description:パーティクル システムのビヘイビアをカスタマイズするために新規エミッタ タイプを追加するためのプログラマー向けガイド
+Description:新規エミッタ タイプを追加して、パーティクル システムのビヘイビアをカスタマイズする方法 (プログラマー向け)
 Version:4.9
+tags:Rendering
 
 [TOC (start:2 end:3)]
 
@@ -11,7 +12,7 @@ Version:4.9
 
 
 
-UE4 のパーティクル システムは、多数のパーティクル エミッタより構成され、それぞれが、パーティクルの動作の仕方に影響するモジュールを含みます。カスタム モジュールとエミッタ タイプを使用してシステムを拡張することは、非常に簡単です。本ページではその方法を紹介します。
+UE4 のパーティクル システムは、多数のパーティクル エミッタより構成され、それぞれが、パーティクルの動作方法に影響するモジュールを含みます。カスタム モジュールとエミッタ タイプを使用してシステムを拡張することは、非常に簡単です。本ページではその方法を紹介します。
 
 ## ParticleModule 基本クラス 
 
@@ -51,8 +52,8 @@ ParticleModule クラスには、次のメンバ変数が含まれます。
 | -------- | -------- |
 | `void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime)` | エミッタにより新しくスポーンされるパーティクルに呼び出されます。ここでモジュールが、各パーティクルの作成時の最初の値を設定 / 修正をすることができます。 |
 | `void Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime)` | エミッタにより更新されるパーティクルに呼び出されます。カラーや速度の変更など、更新中のパーティクルへの処理を、モジュールはここで実行します。 |
-| `uint32 RequiredBytes(FParticleEmitterInstance* Owner = NULL)` | モジュルがパーティクル ペイロード ブロックで要求するバイト数を返します。これにより、モジュールがパーティクルごとに必要なデータを保存できます。 |
-| `uint32 RequiredBytesPerInstance(FParticleEmitterInstance* Owner = NULL)` | モジュールが、エミッタの _インスタンスごとの_ データ ブロックで要求するバイト数を返します。これにより、モジュールがエミッタインスタンスごとに必要なデータを保存できます。 |
+| `uint32 RequiredBytes(UParticleModuleTypeDataBase* TypeData)` | モジュルがパーティクル ペイロード ブロックで要求するバイト数を返します。これにより、モジュールがパーティクルごとに必要なデータを保存できます。 |
+| `uint32 RequiredBytesPerInstance()` | モジュールが、エミッタの _インスタンスごとの_ データ ブロックで要求するバイト数を返します。これにより、モジュールがエミッタインスタンスごとに必要なデータを保存できます。 |
 | `virtual void CompileModule( struct FParticleEmitterBuildInfo& EmitterInfo )` | `CompileModule()`は GPU パーティクル エミッタと使用可能なモジュールに対して実行されなければなりません。そのモジュールはエミッタ情報構造体を修正してモジュールのエフェクトをシミュレーションに適用します。 |
 
 ## カスタム モジュールを書く
@@ -104,7 +105,7 @@ ParticleModule クラスには、次のメンバ変数が含まれます。
 	{
 		bSpawnModule = true;
 		bUpdateModule = true;
-
+	
 		UDistributionVectorConstant* DistributionScaleVelocity = ConstructorHelpers::CreateDefaultSubobject<UDistributionVectorConstant>(this, TEXT("DistributionScaleVelocity"));
 		DistributionScaleVelocity->Constant = FVector(1.0f, 1.0f, 1.0f);
 		ScaleVelocity.Distribution = DistributionScaleVelocity;
@@ -124,7 +125,7 @@ ParticleModule クラスには、次のメンバ変数が含まれます。
 	   }
 	}
 
-`Spawn()` 関数は、`Particle.RelativeTime` を使用するディストリビューションからの `ScaleVelocity` 値を取得します。この値に速度をかけると、スケーリングされた速度がでます。そして、`Particle.Color` はこのスケール速度の結果をかけた `BaseColor` として設定されます。 
+`Spawn()` 関数は、`Particle.RelativeTime` を使用するディストリビューションからの `ScaleVelocity` 値を取得します。この値に速度をかけるた値が、スケーリングされた速度です。そして、`Particle.Color` はこのスケール速度の結果をかけた `BaseColor` として設定されます。 
 
 `SPAWN_INIT` は、パーティクル データにアクセス時に一般的に使用される値 (例えば、パーティクル ペイロードへのオフセット トラッキングなど) と同様、スポーンされるパーティクルに `FBaseParticle` 参照を設定するマクロです。詳細については `//depot/UE4/Engine/Source/Runtime/Engine/Public/ParticleHelper.h` を参照してください。
 

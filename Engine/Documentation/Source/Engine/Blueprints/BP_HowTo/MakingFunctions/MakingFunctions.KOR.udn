@@ -57,7 +57,7 @@ tags:Blueprints
 
 	![](RenameFunction.png)
 
-1.	함수 이름을 "Print Text" 식으로 짓습니다.
+	함수 이름을 "Print Text" 식으로 짓습니다.
 
 1.	함수의 그래프에서 **Print Text** 핀을 끌어 놓은 다음 **Print String** 노드를 검색 추가합니다.
 

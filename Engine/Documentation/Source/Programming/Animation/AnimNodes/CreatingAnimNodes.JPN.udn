@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:2719731
+﻿INTSourceChangelist:3108692
 Availability:Public
-Title:アニメーションノードのテクニカルガイド
+Title:アニメーション ノードのテクニカル ガイド
 Crumbs: %ROOT%, Engine, Engine/Animation
 Description:Anim ブループリントのグラフで使用するノードの新規作成ガイド
 Version:4.9
@@ -15,7 +15,7 @@ Version:4.9
 [Anim ブループリント](Engine/Animation/AnimBlueprints) 内で使用します。複数のアニメーション ノードがありますが、 
 ゲームの必要性に応じたカスタムノードを作成できます。
 
-##アニメーションノードの分析
+## アニメーション ノードの分析
 
 アニメーションノードは以下の 2 つの要素から構成されています。
 
@@ -34,11 +34,11 @@ Version:4.9
 
 ## ランタイムノード
 
-ランタイム構造体は `FAnimNode_Base` から派生し、必要な出力ポーズを生成するために一つ以上の入力ポーズの 
-初期化、更新、演算の実行を行います。必要な演算を実行するためにノードが必要とする 
+ランタイム構造体は `FAnimNode_Base` から派生し、必要な出力ポーズを生成するために 
+初期化、更新、一つ以上の入力ポーズの操作を行います。必要な演算を実行するためにノードが必要とする 
 入力ポーズのリンクやプロパティも宣言します。
 
-### ポーズ入力
+### ポーズの入力
 
 ランタイム ノードでは、ポーズ入力はタイプ `FPoseLink`、または `FComponentSpacePoseLink` のプロパティの作成によってエクスポーズされます。 
 `FPoseLink` は、ローカル空間でポーズの作業、例えばアニメーションのブレンディングなどに使用されます。 
@@ -47,14 +47,14 @@ Version:4.9
 
 ノードは単一ポーズ入力を持つことができます。
 
-**ローカル空間**
+**Local Space**
 
 	UPROPERTY(Category=Links)
 	FPoseLink BasePose;
 
 ![Pose Input Pin](node_posepin.png)
 
-** コンポーネント空間**
+**Component Space**
 
 	UPROPERTY(Category=Links)
 	FComponentSpacePoseLink ComponentPose;
@@ -67,22 +67,22 @@ Version:4.9
 または、ノードに対し一つ以上の入力が複数のアニメーションでブレンドされます。
 
 	UPROPERTY(Category=Links)
-	FPoseLink Base;
+	FPoseLink BasePose;
 
 	UPROPERTY(Category=Links)
 	FPoseLink Additive;
 
 ![Pose Input Pins](node_posepin_multiple.png)
 
-それぞれのプロパティによって、ポーズのリンクが表示されます。このタイプのプロパティは、常に 
-入力ピンとしてエクスポーズされます。任意で非表示にしたり、**[詳細]** パネルで、 
+こうした各プロパティによってポーズのリンクが表示されます。このタイプのプロパティは常に入力ピンとして 
+公開されます。任意で非表示にしたり、**[詳細]** パネルで、 
 編集可能なプロパティとしてのみ使用することはできません。
 
 ### プロパティとデータ入力
 
 アニメーション ノードは、ノード操作の実行に使用するためのアルファ値や変換データなど、 
 いくつでもプロパティを持つことができます。こうしたプロパティは `UPROPERTY()` マクロを使用して、 
-他のプロパティ同様に宣言されます。
+他のプロパティと同様に宣言されます。
 
 	UPROPERTY(Category=Settings, meta(PinShownByDefault))
 	mutable float Alpha;
@@ -101,7 +101,7 @@ Version:4.9
 | `AlwaysAsPin` | プロパティは常にデータピンとしてエクスポーズされます。|
 
 (#OptionalPins)
-**オプション ピン**
+**Optional Pins**
 [REGION:none]
 	 `PinHiddenByDefault` または `PinShownByDefault` を持つプロパティでは **[詳細]** パネルのプロパティの横にチェックボックスが表示され、 
 	表示/非表示を選択することができます。
@@ -110,7 +110,7 @@ Version:4.9
 	![Property Details](node_property_details.png)
 [/REGION]
 
-##エディタノード
+## Editor Node
 
 Editor クラスは `UAnimGraphNode_Base` から派生し、ビジュアルノードのタイトルや、 
 コンテキスト メニュー アクションの追加を行います。
@@ -120,7 +120,7 @@ editor-time クラスには、編集可能としてエクスポーズされた�
 	UPROPERTY(Category=Settings)
 	FAnimNode_ApplyAdditive Node;
 
-### タイトル
+### Title
 
 ![Node Title](node_title.png)
 
@@ -150,7 +150,7 @@ editor-time クラスには、編集可能としてエクスポーズされた�
 		return TEXT("Apply additive animation to normal pose");
 	}
 
-### コンテキスト メニュー
+### コンテキストメニュー
 
 各アニメーション ノードは、ペルソナのグラフでノードを **右クリック** すると表示されるコンテキストメニューへ、 
 ノード固有オプションを追加することができます。オプションは、全てのブループリント ノードのメンバーである 
@@ -166,7 +166,7 @@ editor-time クラスには、編集可能としてエクスポーズされた�
 		{
 			if (Context.Pin != NULL)
 			{
-				// これは通常の BlendList / 列挙型変数による BlendList でのみ行います。ブールによる BlendList ではピンの追加 / 削除に対応していません。
+				// we only do this for normal BlendList/BlendList by enum, BlendList by Bool doesn't support add/remove pins
 				if (Context.Pin->Direction == EGPD_Input)
 				{
 					//@TODO:Only offer this option on arrayed pins
@@ -187,3 +187,29 @@ editor-time クラスには、編集可能としてエクスポーズされた�
 			}
 		}
 	}
+
+## 派生ネイティブ ゲッター
+
+多くのプロジェクトでは独自の `UAnimInstance` 派生クラスを作成し、パフォーマンスを高めます。これに合わせて、必要に応じて新しいゲッターを追加することができます。ただし、そのためには適切に動作するように若干のセットアップが必要になります。 
+
+* ゲッター関数には **UFUNCTIONS** とタグ付けします。 
+* これらは **BlueprintPure** でなければなりません。 
+* これらはメタデータ、 **AnimGetter="True"** を含まなければなりません。 
+
+いくつかの名前が付けられたパラメータも定義しなければなりません (これは上記の `AnimInstance.h` の基本の anim getter 関数でも説明されています)。パラメータのリストは以下のようになります。 
+
+| **パラメータ** | **説明** |
+| --- | --- |
+| **int32 AssetPlayerIndex**| このゲッターはアセット プレイヤーに作用し、利用可能なアセット プレイヤー毎にエントリがエディタに追加されます。 |
+| **int32 MachineIndex**| このゲッターはステートマシンに作用し、ステートマシン毎にエントリが追加されます。 |
+| **int32 StateIndex**| これには MachineIndex も必要です。ゲッターはステートに作用し、ステート毎にエントリが追加されます。 |
+| **int32 TransitionIndex**| これには MachineIndex も必要です。ゲッターは遷移に作用し、遷移毎にエントリが追加されます。 |
+
+ゲッターで実際のノードを get するヘルパー関数もあります。これは、`UAnimInstance` にあります。 
+
+| **関数** | **説明** |
+| --- | --- |
+| **GetStateMachineInstance(int32 MachineIndex)**| ベイクしたステートマシンのインスタンスを get します。 |
+| **GetCheckedNodeFromIndex(int32 NodeIdx)**| インデックスからノードを get します。無効ならアサートします。 |
+| **GetNodeFromIndex(int32 NodeIdx)**| 上記のように、nullptr を戻すことがあります。 |
+| **GetRelevantAssetPlayerFromState(int32 MachineIndex, int32 StateIndex)**| ステート内で一番ウェイトが高いアセット プレイヤーを get します。 |

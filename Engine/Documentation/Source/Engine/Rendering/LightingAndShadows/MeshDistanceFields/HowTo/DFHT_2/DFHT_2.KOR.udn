@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3716175
+﻿INTSourceChangelist:3801260
 Availability: Public
 Crumbs: %ROOT%
 Title:디스턴스 필드 앰비언트 오클루전 사용법
@@ -15,10 +15,6 @@ Tags:Lighting
 Topic-image:DFAO_Topic.png
 Social-image:DFAO_Header.png
 
-
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:75 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:30 convert:false)[/VAR]
 
 
 [REGION:fullwidth raw]

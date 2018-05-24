@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3680633
+﻿INTSourceChangelist:3810557
 Availability:Public
 Crumbs: %ROOT%
 Title:ディスタンス フィールド アンビエント オクルージョン
@@ -25,8 +25,8 @@ Social-Image:Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_2
 
 [TOC(start:2 end:2)]
 
-それぞれの剛体オブジェクトの周囲で事前計算された Signed Distance Field Volumes から中程度のアンビエント オクルージョンを作成する新機能が、Movable Sky Light (可動スカイライト) のシャドウイングに備わりました。動的シーンの変更に対応しているので、
-剛体メッシュの移動あるいは非表示が可能となり、オクルージョンにも影響します。[スクリーン空間アンビエント オクルージョン](Engine/Rendering/LightingAndShadows/AmbientOcclusion) (SSAO) とは異なり、
+それぞれの剛体オブジェクトの周囲で事前計算された Signed Distance Field Volumes から中程度のアンビエント オクルージョンを作成する新機能が、Movable Sky Light (可動スカイライト) のシャドウイングに備わりました。アンリアル エンジン 4 (UE4) では  
+**Distance Field Ambient Occlusion** (DFAO) と呼ばれます。動的シーンの変更に対応しているので、剛体メッシュの移動あるいは非表示が可能となり、オクルージョンにも影響します。[Screen Space Ambient Occlusion](Engine/Rendering/LightingAndShadows/AmbientOcclusion) (SSAO) とは異なり、 
 オクルージョンはワールド スペース オクルーダから計算されるので、オフスクリーン上でデータ不足によるアーティファクトは生じません。
 
 この動的 AO ソリューションは、動的シーンの変更に対応できるように侵害制限をかけているので、すべてのプロジェクトで機能するわけではありません。具体的には、
@@ -35,17 +35,18 @@ Social-Image:Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_2
 ## シーンの設定
 
 [REGION:note]
-この機能を使うには、**[Project Settings (プロジェクト設定)]** の **[Rendering]** セクションで **[Generate Mesh Distance Fields (メッシュ ディスタンス フィールドの生成)]** を有効にする必要があります。詳細は、[ディスタンス フィールド](Engine/Rendering/LightingAndShadows/MeshDistanceFields#enablingdistancefields) ページを参照してください。
+この機能を使うには、**[Project Settings (プロジェクト設定)]** の **[Rendering]** セクションで **[Generate Mesh Distance Fields (メッシュ ディスタンス フィールドの生成)]** を有効にする必要があります。詳細は、[ディスタンス フィールド](Engine/Rendering/LightingAndShadows/MeshDistanceFields#ディスタンスフィールドを有効にする) ページを参照してください。
 [/REGION]
 
 ディスタンス フィールド アンビエント オクルージョンを有効にするために、**スカイライト** をシーンにドラッグし [Mobility] を **[Movable]** に設定します。
 
+[REGION:note]
+ステップごとの操作については [Distance Field Ambient Occlusion](Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_2) 操作ガイドをご覧ください。
+[/REGION]
+
 ## スカイライト
 
-ポイントライトとスポットライトの場合は、**ソース半径 (Source Radius)** を使用して、ポイントライトのシャドウの半暗部の大きさを決定します。エリア シャドウは、 
-距離が長くなるほどソフトになるシャープなコンタクトで計算されます。ポイントライトおよびスポットライト上では、黄色い球体で表されます。
-
-Sky Light コンポーネントを使って、**Distance Field Ambient Occlusion** の中にある各種設定を調節することができます。調節した設定を比較すると、例えばこのようになります。
+**Sky Light** コンポーネントを使って、**Distance Field Ambient Occlusion** の中にある各種設定を調節することができます。調節した設定を比較すると、例えばこのようになります。
 
 [REGION:imagetable]
 | [INCLUDE:#occlusioncontrast] | [INCLUDE:#MinOcclusion] | [INCLUDE:#OcclusionTint] |
@@ -54,7 +55,7 @@ Sky Light コンポーネントを使って、**Distance Field Ambient Occlusion
 [/REGION]
 
 [REGION:note]
-スカイライトの設定の詳細は、[ディスタンス フィールド リファレンス](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#skylight) を参照してください。
+スカイライトの設定の詳細およびその他のサンプルは、[ディスタンス フィールド リファレンス](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#スカイライト) を参照してください。
 [/REGION]
 
 [COMMENT:none]
@@ -109,23 +110,23 @@ Sky Light コンポーネントを使って、**Distance Field Ambient Occlusion
 **[Show]** > **[Visualize]** > **[Distance Fields Ambient Occlusion]** を選択すると、**ディスタンス フィールド アンビエント オクルージョン** の Level Viewport ビューモードを使用してシーンのアンビエント オクルージョンを表現するディスタンス フィールドを視覚化できます。
 
 [REGION:imagetable]
-| [REGION:lightbox] [![](DFAOVisualize.png)(w:400 h:450)](DFAOVisualize.png) [/REGION] | [REGION:lightbox] [![](DFAOView.png)(w:750 h:450)](DFAOView.png) [/REGION] |
+| [REGION:lightbox] [![](DFAOVisualize.png)(w:400)](DFAOVisualize.png) [/REGION] | [REGION:lightbox] [![](DFAOView.png)(w:750)](DFAOView.png) [/REGION] |
 | --- | --- |
-| 画像をクリックしてフルサイズ表示 | 画像をクリックしてフルサイズ表示 |
+| _画像をクリックしてフルサイズ表示_ | _画像をクリックしてフルサイズ表示_ |
 [/REGION]
 
-このビューモードの間は、エフェクトのある [Skylight 設定](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#Skylight) は **Occlusion Max Distance** のみです。
+このビューモードの間は、エフェクトのある [Skylight 設定](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#OcclusionMaxDistance) は **Occlusion Max Distance** のみです。
 
 
 ### 品質
 
 Distance Field AO の品質は、表示するメッシュ ディスタンス フィールドの解像度によって決まります。AO は非常にソフトなシャドウイングなので、
 サーフェスが正しく表現されていない場合でも、サーフェスから先のオクルージョンは正確になります。スカイ オクルージョンでは気が付くことは滅多にありませんが、メッシュの大き目のディティールがメッシュ ディスタンス フィールドでうまく表示されているか
-確認してください。[メッシュ ディスタンス フィールドの視覚化](Engine/Rendering/LightingAndShadows/MeshDistanceFields#scenerepresentation) 
+確認してください。[メッシュ ディスタンス フィールドの視覚化](Engine/Rendering/LightingAndShadows/MeshDistanceFields#シーンの表現) 
 を使って品質を確認します。
 
 [REGION:note]
-メッシュ ディスタンス フィールドの品質の詳細は、[ディスタンス フィールド](Engine/Rendering/LightingAndShadows/MeshDistanceFields#Quality) を参照してください。
+メッシュ ディスタンス フィールドの品質の詳細は、[ディスタンス フィールド](Engine/Rendering/LightingAndShadows/MeshDistanceFields#品質) を参照してください。
 [/REGION]
 
 
@@ -191,11 +192,20 @@ Field AO は周囲のレベルにおけるこのような動的変化をサポ�
 
 ### フォリッジ 
 
-[Foliage ツール](Engine/Rendering/LightingAndShadows/MeshDistanceFields#folaigetoolsettings) でペイントされたアクタの場合、ツール設定の **[Affect Distance Field Lighting]** オプションをまず有効にしなければなりません。
+[Foliage ツール](Engine/Rendering/LightingAndShadows/MeshDistanceFields#Foliageツール設定) でペイントされたアクタの場合、ツール設定の **[Affect Distance Field Lighting]** オプションをまず有効にしなければなりません。
 
+![](Engine/Rendering/LightingAndShadows/MeshDistanceFields/FoliageToolSettings.png)
 
-ディスタンス フィールド AO がサーフェス上で実行されていても、多数の小さい葉がシートにまとめられているフォリッジを処理することができます。フォリッジを使ったアセットを一番きれいに表示する方法は、
-**[Two-Sided Distance Field Generation (両面のディスタンス フィールドを生成する)]** を有効にすることです。計算したオクルージョンをソフトにします。スカイライトの **[Min Occlusion]** はアセット内部の黒潰れを防ぐ場合に便利です。
+ディスタンス フィールド AO がサーフェス上で実行されていても、多数の小さい葉がシートにまとめられているフォリッジを処理することができます。**スタティックメッシュ エディタ** の **[Build Settings]** オプションからフォリッジ タイプのアセットに対して **[Two-Sided Distance Field Generation]** を有効にすると
+フォリッジを使ったアセットが最もきれいに表示することができます。計算したオクルージョンをソフトにします。 
+
+[REGION:tip]
+[Sky Light] オプションの **[Min Occlusion]** の値を上げて、アセット内部の黒潰れを防ぎます。
+[/REGION]
+
+![](Engine/Rendering/LightingAndShadows/MeshDistanceFields/BuildSettings_TwoSided.png)
+
+これは DFAO を有効してひて Two-Sided Distance Field Generation を使用した例です。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
@@ -208,10 +218,10 @@ Field AO は周囲のレベルにおけるこのような動的変化をサポ�
 [REGION:caption]
 [/REGION]
 
-LOD (Level of Detail) を伴うフォリッジは、トライアングル メッシュがディスタンス フィールド内で収縮するのでオクルージョンが出すぎて、ディスタンス フィールド AO に問題が発生することがあります。この原因は、
-ディスタンス フィールドは距離に忠実であるのにトライアングル メッシュ LOD はそうではないためです。
+LOD (Level of Detail) を伴うフォリッジの場合、Distance Field AO に問題が発生することがあります。これは、[メッシュ ディスタンス フィールド](Engine/Rendering/LightingAndShadows/MeshDistanceFields) が遠方でも正確であるのも関わらず、
+LOD レベルが使用するトライアングル数が低いため、生成されたメッシュ ディスタンス フィールド内に縮小する場合に発生します。
 
-対策としては、これらの LOD 上で World Position Offset を使って、頂点をディスタンス フィールド外へ出すことができます。カメラに対してオフセットを小さくすれば、 
+対策としては、これらの LOD 上で **World Position Offset** を使って、頂点をディスタンス フィールド外へ出すことができます。カメラに対してオフセットを小さくすれば、 
 通常はアーティファクトの問題解決に効果があります。ビルボードの場合、新機能 [Pixel Depth Offset](Engine/Content/Tools/RenderToTextureTools/4) を使って、
 元の 3D トライアングル メッシュをきれいに表示する有効なデプス値を作成します。これは GDC で行われたデモ "A Boy and His Kite" で使用された技法で、長い表示距離をディスタンス フィールドに依存しています。
 
@@ -243,8 +253,8 @@ LOD (Level of Detail) を伴うフォリッジは、トライアングル メッ
 
 ## パフォーマンス
 
-ディスタンス フィールド AO の主な負荷要因は、GPU 時間とビデオメモリです。DFAO は中程度のスペックの PC や PlayStation 4 および Xbox One で実行できるように最適化されました。負荷の信頼性も高くなり、 
-オブジェクトの密度に若干依存しますが、ほぼ一定になりました。
+ディスタンス フィールド AO の主な負荷要因は、GPU 時間とビデオメモリです。DFAO は中程度のスペックの PC や PlayStation 4 および Xbox One で実行できるように最適化されました。現在、負荷の信頼性も高くなり、ほぼ安定しました 
+(オブジェクトの密度への若干の依存あり)。
 
 ほぼフラットなサーフェスで静的カメラを使ってこの新しいメソッドを実行すると、これまでの速度の 1.6 倍になります。フォリッジのある複雑なシーンで高速カメラを使うと、
 最新の最適化は 5.5 倍の速さになります。PlayStation 4 の場合、フル ゲーム シーンへのディスタンス フィールド AO 負荷は 3.7 ms になります。
@@ -263,7 +273,7 @@ PlayStation 4 を使ったテスト結果を元に、アンリアル エンジ�
 | 最適化の内容 | 改善前 (ms) | 改善後 (ms) | 差 (ms) |
 | ------------ | ------------ | -------- | ------- |
 | カリング アルゴリズムを変更して、オブジェクトごとに交差する画面タイルのリストが作成されるようにしました。各タイル / オブジェクトの交差でコーン トレース スレッド グループを取得して、波面を小さくしてスケジュール化しやすくしました。  | 3.63 | 3.48 | 0.15 |
-| 内部ループの処理の遅い命令を速い近似値に置き換えました (exp2 -> sqr + 1, rcpFast, lengthFast). | 3.25 | 3.09 | 0.16 |
+| 内部ループの処理の遅い命令を速い近似値に置き換えました | 3.25 | 3.09 | 0.16 |
 | トランスフォームをワールドの内部ループからローカル スペースに移動しました (ローカル空間位置 + 方向から作成されたサンプル位置). | 3.09 | 3.04 | 0.05 |
 | ClearUAV のシェーダーが計算されるようにしました。  | 3.04 | 2.62 | 0.42 |
 [/REGION]
@@ -282,12 +292,12 @@ PlayStation 4 を使ったテスト結果を元に、アンリアル エンジ�
 | シーンの表示 | DFAO ビジュアル化 |
 [/REGION]
 
-スムーズ サンプリングの場合、さらに長い履歴フィルターが必要になります。これは、特にシャドウ キャスターが移動した場合にゴーストの原因になります。アンリアル エンジン 4.16 以降では、
-アップサンプル時のオクルージョン漏れをトラックし、履歴から漏れた値を迅速にフラッシュするために使われる信頼値をディスタンス フィールド テンポラル フィルタに格納することでカメラの移動中のゴーストの発生を抑えやすくなり、 
-ゴースト問題が改善されました。
+スムーズ サンプリングの場合、さらに長い履歴フィルターが必要になります。これは、特にシャドウ キャスターが移動した場合にゴースト (移動オブジェクトがひきずるトレイル) 原因になります。アンリアル エンジン 4.16 以降では、 
+Distance Field 一時フィルタに信頼値を格納することでゴースト問題は改善されています。信頼値は、アップサンプル時のオクルージョン漏れをトラックし、
+履歴から漏れた値を迅速にフラッシュするために使用されています。これにより、カメラや動的オブジェクトが高速で移動する際に発生したゴースト問題を全体的に減らすことができました。 
+
 
 [COMMENT:none]
---
 
 [INCLUDE:#comp2]
 
@@ -317,15 +327,12 @@ PlayStation 4 を使ったテスト結果を元に、アンリアル エンジ�
 [/REGION]
 [/EXCERPT:comp2]
 
--
 [/COMMENT]
 
 
 #### グローバル ディスタンス フィールド
 
-グローバル ディスタンス フィールドは、カメラを追いかけながらレベル内で Signed Distance Fields オクルージョンを使用する、低解像度のディスタンス フィールドです。これはオブジェクト毎のディスタンス フィールドのキャッシュを作成し、
-それをカメラ周囲を中心としたクリップマップと呼ばれるいくつかのボリューム テクスチャに合成します。新たに見えるエリアや、シーンの変更の影響を受けるエリアだけを更新する必要があります。 
-そのため、合成の負荷はあまりかかりません。
+[INCLUDE:Engine/Rendering/LightingAndShadows/MeshDistanceFields#visualizeglobaldf1]
 
 クリップマップはカメラ周辺で 4 枚に分割され、必要な場合のみアップデートされます。 
 それは、カメラの移動により、新しい部分またはオブジェクトが全く動かないためにその影響範囲に汚れの発生が見つかった場合です。その状態での平均負荷はゼロに近いですが、
@@ -334,25 +341,14 @@ PlayStation 4 を使ったテスト結果を元に、アンリアル エンジ�
 ![](DF_ClipMap.png)(w:750)
 [REGION:caption] クリップマップをテクセル サイズでビジュアル化すると、それぞれのクリップマップが違う色で表現されます。 [/REGION]
 
-オブジェクトのディスタンス フィールドが低解像度の場合、すべてのものには使用できなくなります。スカイ オクルージョンでコーンのトレースを演算処理する場合、オブジェクトのディスタンス フィールドはシェーディングされているポイント近くでサンプリングされます。
-一方、はるかに高速なグローバル ディスタンス フィールドはさらに離れた場所でサンプリングされます。
 
-**[Show]** > **[Visualize]** > **[Global Distance Fields]** を選択し、**ディスタンス フィールド アンビエント オクルージョン** の Level Viewport ビューモードを使用すれば、グローバル ディスタンス フィールドを視覚化できます。
+[INCLUDE:Engine/Rendering/LightingAndShadows/MeshDistanceFields#visualizeglobaldf2]
 
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Object Distance Fields](ODFVisualization.png)(w:750)
-	[/PARAM]
-	[PARAM:after]
-	![Global Distance Fields](GDFVisualization.png)(w:750)
-	[/PARAM]
-[/OBJECT]
-[REGION:caption]
-[/REGION]
-
-この例では、グローバル ディスタンス フィールドはそのオブジェクトのディスタンス フィールドよりも解像度が低いため、サーフェス付近で正確が落ちます。コーン トレースが起こると、
+グローバル ディスタンス フィールドはそのオブジェクトのディスタンス フィールドよりも解像度が低いため、グローバル ディスタンス フィールドの精度はサーフェス付近で下がります。コーン トレースが起こると、
 オブジェクトのディスタンス フィールドはオクルージョン コーンと残りのトレース用のグローバル ディスタンス フィールドの開始地点付近で使用されます。
 正確なセルフ オクルージョンと効率的な長距離トレースを取得できるので、最もきれいに表示できます。このため、使用している最大オブジェクトの影響距離が激減し、スカイ オクルージョンのパフォーマンスは 5 倍向上します。 
+
+
 
 ## 制限事項
 
@@ -364,14 +360,14 @@ PlayStation 4 を使ったテスト結果を元に、アンリアル エンジ�
 * 動的シーンから AO へ更新すると機能が複数のフレームへ広まり、新たにサンプルが作成されるオクルージョンが少しラグが若干変わります。アップサンプル時のオクルージョン漏れをトラックし、履歴から漏れた値を迅速にフラッシュするために使われる信頼値をディスタンス フィールド テンポラル フィルタに格納することでアンリアル エンジン 4.16 以降でこの問題は改善されました。カメラの移動中のゴーストの発生も抑えやすくなりました。
 * ボリューム テクスチャはそれぞれのメッシュにマップされるので、オブジェクトが大きいとディスタンス フィールドの解像度が低く、そのため AO 品質が悪くなります。 
 
-ディスタンス フィールドの制約については、[ディスタンス フィールド](Engine/Rendering/LightingAndShadows/MeshDistanceFields#Limitations) を参照してください。
+ディスタンス フィールドの制約については、[ディスタンス フィールド](Engine/Rendering/LightingAndShadows/MeshDistanceFields#制限事項) を参照してください。
 
 
-## ヒントとトリック
+## ヒントとコツ
 
 ### 負荷の少ないバウンスライト
 
-スカイライトの [Lower Hemisphere Is Black (下半球が黒)] のチェックを外し、グラウンド カラーをキューブマップにペイントすることで、負荷をかけずに太陽光がバウンスしているように見せることができます。 
+スカイライトの **[Lower Hemisphere Is Black (下半球が黒)]** のチェックを外し、グラウンド カラーをキューブマップにペイントすることで、負荷をかけずに太陽光がバウンスしているように見せることができます。 
 指向性ライトのシャドウイングは考慮されないので室内には光が漏れてしまいますが、屋外のシーンには有効です。
 
 

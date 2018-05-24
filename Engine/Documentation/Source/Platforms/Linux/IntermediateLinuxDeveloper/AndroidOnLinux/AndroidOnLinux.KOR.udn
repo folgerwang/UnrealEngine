@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Public
-Title: Android On Linux Quick Start
+Title: 리눅스에서 안드로이드 퀵 스타트
 Crumbs:%ROOT%
-Description:Learn how to create, deploy, and package games to Android from Linux.
+Description:리눅스에서 안드로이드로 게임을 생성, 디플로이, 패키징하는 법을 배웁니다.
 Platform:Linux
 Version: 4.17
 type:quick start
@@ -18,33 +18,33 @@ Contributor:yaakuro
 
 [REGION:imagetable]
 ![](DeployedAndroidGame_Linux.png)(w:900)  
-_At the end of this tutorial, you'll create, deploy, and package a game onto your Android device from Linux on Unreal Engine 4 (UE4)._
+_이 글에서는 언리얼 엔진 4 (UE4) 를 사용하여 리눅스에서 안드로이드 디바이스로 게임을 만들어 디플로이하고 패키징해 봅니다._
 [/REGION]
 
-If you're a developer looking to create and distribute games on Android devices from Linux; you've landed on the right page. 
+이 글은 리눅스에서 안드로이드 디바이스용 게임을 만들어 배포하려는 개발자를 위한 글입니다.
 
-## Goal
+## 목적
 
-This guide teaches you how to configure an Android device with UE4 on Linux, ultimately showing you how to deploy and package mobile games on Android from Linux.
+여기서는 리눅스에서 UE4 로 안드로이드 디바이스를 환경설정하는 법, 궁극적으로는 리눅스에서 안드로이드에 모바일 게임을 디플로이하고 패키징하는 법을 안내해 드립니다.
 
-## Objectives
+## 목표
 
-After working through this tutorial, you'll know the following: 
+이 튜토리얼에서 배울 수 있는 것은 다음과 같습니다:
 
-* How to install and set up the Android SDK for mobile game development with UE4 on Linux. 
-* How to enable an Android's development environment. 
-* How to create an Android mobile game project in UE4. 
-* How to deploy a level onto your Android device from UE4. 
-* How to package your mobile game for distribution (release). 
+* 리눅스에서 UE4 로 모바일 게임 개발을 하기 위해 안드로이드 SDK 를 설치하고 구성하는 법.
+* 안드로이드의 개발 환경을 활성화시키는 법.
+* UE4 에서 안드로이드 모바일 게임 프로젝트를 만드는 법.
+* UE4 에서 안드로이드 디바이스에 레벨을 디플로이하는 법.
+* 모바일 게임을 배포용으로 (release) 패키징하는 법.
 
-## Steps
+## 단계
 
 [DIR(output:"checkpoint" parent:"Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux" org:"hierarchy")]
 
 [REGION:call_to_action]
-	[Click to Start](Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux/1 "%Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux/1:title%")
+	[클릭하면 시작합니다.](Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux/1 "%Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux/1:title%")
 [/REGION]
 
 [REGION:quote]
-Thanks to our community of talented contributors, we've successfully added Android support for Linux on UE4.
+커뮤니티의 뛰어난 재능 기부 덕에 UE4 에서 리눅스용 안드로이드 지원을 추가할 수 있었습니다. 감사합니다.
 [/REGION]

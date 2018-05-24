@@ -1,17 +1,18 @@
-﻿INTSourceChangelist:3011466
+﻿INTSourceChangelist:3429254
 Availability:Public
 Title:ゲーム フローの概要
 Crumbs:%ROOT%, Gameplay/Framework
 Description:エンジンを起動し、ゲームまたは Play-In-Editor セッションを開始する方法を説明します。
 Version:4.12
-type:reference
+type:overview
 parent:Gameplay/Framework
-order:5
+order:1
 tags:Gameplay Framework
+topic-image:Gameplay/Framework/gameflow_lander.png
 
 エンジンを起動し、ゲームを開始する方法を説明します。ここでは、エディタ パスとスタンドアローン パスの 2 つのメインのパスがあります。エンジンを初期化する一般的なイベントの順序は、エンジンを初期化し、**GameInstance** を作成し初期化し、レベルをロードし、最終的にプレイを開始します。しかし、スタンドアローン モードとエディタ モードには呼び出されるいくつかの関数の正確な順序と関数が呼び出される順序の両方について違いがあります。以下のフローチャートは、ゲーム開始時に収束するまで平行して実行する 2 つのパスを示しています。
 
-## ゲーム フローの内訳
+## ゲーム フローの詳細
 
 [![](GameFlowChart.png)(w:320)](GameFlowChart.png)
 [REGION:caption]

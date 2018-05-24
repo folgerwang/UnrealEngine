@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3782314
 Title:Sequencer Subway
 Crumbs:
 Description:シーケンサーのサンプルでは、アンリアル エンジン 4 のシーケンサー エディタを使った、映画のような品質のシネマティック シーケンスの作成方法を紹介します。
@@ -7,46 +7,7 @@ Related:Engine/Sequencer
 Related:Engine/Sequencer/HowTo/TracksShot
 Related:Engine/Sequencer/HowTo/ViewportOptions
 tags:Sequencer
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/Showcases/SequencerSubway:title%](SequencerSubway_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/SequencerSubway:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/SequencerSubway:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/SequencerSubway]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/Showcases/SequencerSubway:title%](SequencerSubway_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/SequencerSubway:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/SequencerSubway:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/SequencerSubway]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:SequencerSubway_Topic.png
 
 [TOC]
 
@@ -54,9 +15,9 @@ Sequencer Subway サンプルでは、アンリアル エンジン 4 のシー�
 
 ![](SequencerSubway.png)
 
-シーケンサーでビルドしたシーンを分析して、高度なシネマティクスの作成方法を学びます。アニメートされたキャラクターから VFX まで、エディター内でコントロールする方法を実践しながら確認できます。エピックのシネマティックス サンプルを使って、シーケンサーの一部始終を学びましょう。
+シーケンサーでビルドしたシーンを分析して、高度なシネマティクスの作成方法を学びます。アニメートされたキャラクターから VFX まで、エディター内でコントロールする方法を実践しながら確認できます。エピックのシネマティックス サンプルを使って、シーケンサーの使用方法を学びましょう。
 
-このサンプルには、マチネ エディタで作成した同じシネマティック シーケンスが含まれているので、シーケンサーを使った場合の技術とワークフローを比較できます。
+このサンプルには、マチネ エディタで作成したものと同じシネマティック シーケンスが含まれているので、シーケンサーを使った場合の技術とワークフローを比較できます。
 
 ## マスター シーケンス
 
@@ -78,13 +39,13 @@ _SubwaySequencerMASTER_ シーケンスには、シネマティックスを構�
 
 ![](Sequence_Viewport_Lock.png)(convert:false)
 
-シーケンス エディタ トランスポート コントロールの [Play (プレイ)] ボタンをクリックして、シネマティックスをプレイします。アクティブなビューポートがシーケンス内のカメラを使ってレンダリングをします。
+シーケンス エディタ トランスポート コントロールの [Play (プレイ)] ボタンをクリックして、シネマティックスを再生します。アクティブなビューポートがシーケンス内のカメラを使ってレンダリングをします。
 
 ![](Sequence_Viewport.png)(convert:false)
 
 ## Cinematic Viewport (シネマティックス ビューポート)
 
-ビューポートを切り替えて、トランスポートを完全制御し、詳細なビジュアル化オーバーレイ表示ができる詳細シネマティックス ビューポートを使用することができます。
+ビューポートを切り替えて、トランスポートを完全制御し、詳細なビジュアル化のオーバーレイ表示ができる詳細シネマティックス ビューポートを使用することができます。
 
 ![](Sequence_Viewport_Cinematic.png)(convert:false)
 
@@ -94,7 +55,7 @@ _SubwaySequencerMASTER_ シーケンスには、シネマティックスを構�
 
 	![](Sequence_Viewport_Cinematic_Enable.png)(convert:false)
 
-様々なビューポート オーバーレイ表示をシネマティックス ビューポートで使用して、シネマティックスをきれいに可視化することができます。
+様々なビューポート オーバーレイ表示をシネマティックス ビューポートで使用して、シネマティックスを美しく視覚化することができます。
 
 ![](Sequence_Viewport_Overlay.png)(convert:false)
 

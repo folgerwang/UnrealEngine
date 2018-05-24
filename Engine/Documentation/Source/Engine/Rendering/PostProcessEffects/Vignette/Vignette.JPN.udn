@@ -1,9 +1,17 @@
-﻿INTSourceChangelist:3200686
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title:Vignette（ビネット効果）
-Crumbs: %ROOT%, Engine, Engine/Rendering/PostProcessEffects
+Crumbs: %ROOT%
+Title:ビネット効果
 Description:ビューポート中心からの距離に応じて画像輝度を低下させるエフェクト
-Version:4.9
+Type:Overview
+SkillLevel:Beginner
+Version:4.16
+Parent:Engine/Rendering/PostProcessEffects
+Order:11
+Tags:Post Process
+Topic-image:Vignette_topic.png
+
+
 
 [REGION:fullwidth]
 ![Vignette Effect](vignette.png)

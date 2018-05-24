@@ -11,7 +11,7 @@ Object Channel (오브젝트 채널)은 Object Type (오브젝트 유형)으로 
 
 ![](ObjectType.png)
 
-이 오브젝트 이동시 사용되었기에 [Movement Channel] (무브먼트 채널)로 사용됩니다.
+이 오브젝트 이동시 사용되었기에 [Movement Channel (무브먼트 채널)] 로 사용됩니다.
 
 오브젝트에 대한 콜리전 프로퍼티를 정의할 때, 세 가지 셋업을 정의합니다.
 
@@ -21,11 +21,11 @@ Object Channel (오브젝트 채널)은 Object Type (오브젝트 유형)으로 
 
 ![](CollisionResponse.png)
 
-셋업해야 할 정보가 많이 있있어서, 빠르게 선택하여 설정할 수 있는 [Collision Presets] (콜리전 프리셋)을 구현했습니다.
+셋업해야 할 정보가 많이 있있어서, 빠르게 선택하여 설정할 수 있는 [Collision Presets (콜리전 프리셋)] 을 구현했습니다.
 
 ![](CollisionPreset.png)
 
-오브젝트에 할당하고자 하는 경우, 이 채널을 [Object Channel] (오브젝트 채널)로 사용하면 됩니다.
+오브젝트에 할당하고자 하는 경우, 이 채널을 [Object Channel (오브젝트 채널)] 로 사용하면 됩니다.
 
 질의(query) 함수 역시 트레이스 [Object Type] 이 가능합니다. 예를 들어 Object Type 이 Pawn 일 때 이 구체 안의 모든 오브젝트를 찾도록 질의할 수 있습니다.
 

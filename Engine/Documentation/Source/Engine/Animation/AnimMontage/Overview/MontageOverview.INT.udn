@@ -175,7 +175,7 @@ Each node in the track is given a number denoting the trigger order of that obje
 
 * **Red** - This denotes Notifies, Notify States and Notify State ending markers.
 * **Light Blue** - This denotes Branching Points.
-* ** Green** - This denotes a Montage Section.
+* **Green** - This denotes a Montage Section.
 
 Clicking the ![](ElementOptions.png) button on the Element Timing track presents you with options for showing/hiding additional information. 
 

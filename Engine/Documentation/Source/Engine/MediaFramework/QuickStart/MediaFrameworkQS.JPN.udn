@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3684558
-Availability:Docs
+﻿INTSourceChangelist:3782314
+Availability:Public
 Title:メディア フレームワークのクイック スタート
 Crumbs: %ROOT%, Engine
 Description:Media Framework ツールを使ってゲーム レベル内で動画をすぐに追加およびプレイするための操作ガイドです。 
@@ -10,7 +10,6 @@ Version:4.18
 type:quick start
 checkpoint:mediaframeworkqs
 tags:Media Framework
-tags:Getting Started
 topic-image:MediaFrameworkTopic.png
 
 ![](MediaFrameworkHero.png)
@@ -19,7 +18,7 @@ _操作ガイドを最後まで終えると、レベル内で複数のテレビ�
 
 ## 目標
 
-メディア フレームワーク クイックスタート ガイドでは、レベル内で動画をプレイテレビのセットアップを行います。 
+メディア フレームワーク クイックスタート ガイドでは、レベル内で動画をプレイテレビ (TV) のセットアップを行います。 
 さらに、ブループリントでもテレビのセットアップを行うので、テレビのコンテンツを変更したり、複数のテレビをレベル内に、しかもそれぞれ別のコンテンツで配置することができます。 
 メディア フレームワークが初めての方、もしくはレベル内のスタティックメッシュ上での動画再生方法を学びたい方にぴったりのガイドです。 
 
@@ -39,7 +38,7 @@ _操作ガイドを最後まで終えると、レベル内で複数のテレビ�
 
 ## ステップ
 
-
+[DIR(output:"checkpoint" parent:"Engine\MediaFramework\QuickStart" org:"hierarchy")]
 
 [REGION:call_to_action]
 	[クイック スタート](Engine\MediaFramework\QuickStart/1 "%Engine\MediaFramework\QuickStart/1:title%")

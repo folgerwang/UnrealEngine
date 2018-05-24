@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750612
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Beam モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:Beam TypeData モジュールを使用してエミッタの挙動設定をするモジュール
 Version:4.9
+tags:Particles
 
 [TOC(start:2 end:3)]
 
@@ -71,19 +72,19 @@ Version:4.9
 | **オプション** | **説明** |
 | --- | --- |
 |_Lock_| _true_ の場合、ソース / ターゲットの強さはパーティクルのライフのためにロックされます。|
-|_Modify_| _true_ の場合、ソース / ターゲットの強さが修正されます。|もしくは強度に影響は及びません。|
+|_Modify_| _true_ の場合、ソース / ターゲットの強さが修正されます。もしくは強度に影響は及びません。|
 |_Scale_| _true_ の場合、ソース / ターゲットの強さは Modifier モジュールの _Strength_ 値でスケーリングされます。もしくはソースおよびターゲットの強さをオーバーライドします。|
 [/REGION]
 [/EXCERPT:StrengthOptions]
 
 
 
--------------------End Beam Modifier Includes----------
+--------------------End Beam Modifier Includes----------
 [/COMMENT]
 
 
 
-## ノイズ
+## Noise
 
 [OBJECT:EmbeddedVideo]
 [PARAMLITERAL:width]
@@ -97,7 +98,7 @@ TfgyUi-QAAg
 [/PARAMLITERAL]
 [/OBJECT]
 
-Beam Noise モジュールはビームと一緒にノイズの投入を有効にします。このモジュールは以下のプロパティを提供します。
+**Beam Noise** モジュールはビームと一緒にノイズの投入を有効にします。このモジュールは以下のプロパティを提供します。
 
 | プロパティ | 説明 |
 | ---- | ---- |
@@ -133,22 +134,22 @@ Beam Noise モジュールはビームと一緒にノイズの投入を有効に
 [/REGION]
 [/EXCERPT:LowFreqNote]
 
-----------------------End Beam Noise Includes-----------
+-----------------------End Beam Noise Includes-----------
 [/COMMENT]
 
 ## ソース
 
-Beam Source モジュールはビームエミッタに対しソースを 1 つだけ実装します。(ビームエミッタに Source モジュールが存在しない場合、エミッタの位置をソースとして使用します。)このモジュールは以下のプロパティを提供します。
+**Beam Source** モジュールはビームエミッタに対しソースを 1 つだけ実装します。(ビームエミッタに Source モジュールが存在しない場合、エミッタの位置をソースとして使用します。)このモジュールは以下のプロパティを提供します。
 
 | プロパティ | 説明 |
 | ---- | ---- |
 |[REGION:tablesection]Source[/REGION]||
-| **Source Method** | この列挙型変数は、ビームソースの位置を取得するメソッドを設定します。メソッドは以下のどれかになります：[INCLUDE:#SourceMethod]|
+| **Source Method** | この列挙型変数は、ビームソースの位置を取得するメソッドを設定します。メソッドは以下のいずれかになります：[INCLUDE:#SourceMethod]|
 | **Source Name** | ソースとして使用するアクタの名前です。SourceMethod が PEB2STM_Actor に設定されている時のみ使用します。アクタが見つからなかった場合、フォールバックにソース分布を使用します。|
 | **Source Absolute** | _true_ の場合、ソースをワールド空間の絶対位置として扱います (つまり、変換しません)。|
 | **Source** | ソース位置の設定を有効にするベクター分布です。メソッドがデフォルトに設定された時に使用、またはその他のメソッドがソース点の決定に失敗した際に使用します。現エミッタ時間を使用して分布から値を検索します。|
 | **Lock Source** | _true_ の場合、ソース位置はスポーン時間のみに設定されます。|
-| **Source Tangent Method** | この列挙型変数は、ビームソースのタンジェントを取得するメソッドを設定します。メソッドは以下のどれかになります：[INCLUDE:#SourceTangentMethod]|
+| **Source Tangent Method** | この列挙型変数は、ビームソースのタンジェントを取得するメソッドを設定します。メソッドは以下のいずれかになります：[INCLUDE:#SourceTangentMethod]|
 | **Source Tangent** | ソース タンジェントの設定を有効にするベクター分布です。SourceTangentMethod が PEB2STTM_Distribution に設定されている時のみ使用します。現エミッタ時間を使用して分布から値を検索します。|
 | **Lock Source Tangent** | _true_の場合、ソース位置はスポーン時間のみに設定されます。|
 | **Lock Source Tangent** | 各ビームのソースポイントからタンジェントの強度を提供する浮動小数点分布です。値は現エミッタ時間を使用して取得します。この強度は、Source / SourceTangent の取得に使用したメソッドに関係なく使用されます。|
@@ -188,19 +189,19 @@ Beam Source モジュールはビームエミッタに対しソースを 1 つ�
 [/COMMENT]
 
 
-##ターゲット
+## ターゲット
 
 **Beam Target** モジュールはビーム エミッタに対しターゲットを 1 つだけ実装します。(Target モジュールがビーム エミッタに存在しない場合、エミッタはビームを一方向に使用すると仮定します)このモジュールは以下のプロパティを提供します。
 
 | プロパティ | 説明 |
 | ---- | ---- |
 |[REGION:tablesection]Target[/REGION]||
-| **Target Method** | この列挙型変数は、ビーム ターゲットの位置を取得するメソッドを設定します。メソッドは以下のどれかになります：[INCLUDE:#SourceMethodTarget]|
+| **Target Method** | この列挙型変数は、ビーム ターゲットの位置を取得するメソッドを設定します。メソッドは以下のいずれかになります：[INCLUDE:#SourceMethodTarget]|
 | **Target Name** | ターゲットとして使用するアクタの名前です。TargetMethod が PEB2STM_Actor に設定されている時のみ使用します。アクタが見つからなかった場合、フォールバックはターゲット分布を使用します。|
 | **Target** | ターゲット位置の設定を有効にするベクター分布です。メソッドがデフォルトに設定された時に使用、またはその他のメソッドがターゲットポイントの決定に失敗した場合に使用します。現エミッタ時間を使用して分布から値を検索します。|
 | **Target Absolute** | _true_ の場合、ターゲットをワールド空間の絶対位置として扱います (つまり、変換しません)。|
 | **Lock Target** | _true_ の場合、ターゲット位置はスポーン時間においてのみ設定されます。|
-| **Target Tangent Method** | この列挙型変数は、ビームのターゲット タンジェントを取得するメソッドを設定します。メソッドは以下のどれかになります：[INCLUDE:#SourceTangentMethodTarget]|
+| **Target Tangent Method** | この列挙型変数は、ビームのターゲット タンジェントを取得するメソッドを設定します。メソッドは以下のいずれかになります：[INCLUDE:#SourceTangentMethodTarget]|
 | **Target Tangent** | ターゲット タンジェントの設定を有効にするベクター分布です。TargetTangentMethod が PEB2STTM_Distribution に設定されている時のみ使用します。現エミッタ時間を使用して分布から値を検索します。|
 |**Lock Target Tangent** | _true_ の場合、ターゲット タンジェントはスポーン時間においてのみ設定されます。|
 | **Target Strength** | 各ビームのターゲットポイントからタンジェントの強度を提供する浮動小数点分布です。値は現エミッタ時間を使用して取得します。タンジェントの強度は、Target / TargetTangent の取得に使用したメソッドに関係なく使用されます。|

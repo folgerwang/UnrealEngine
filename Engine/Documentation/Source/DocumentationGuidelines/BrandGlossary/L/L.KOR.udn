@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 브랜드 용어집
+Description: 언리얼 엔진 4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되는 핵심 용어 해설집입니다.
 Type: Reference
 Version: 4.16
 Parent:BrandGlossary
 Order:9
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+언리얼 엔진 4 (UE4) **브랜드 용어집** 에 오신 것을 환영합니다. UE4 커뮤니티의 사용자를 위한 자료를 만들고자 하는 경우, 
+UE4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되고 있는 용어의 이해를 돕기 위한 문서입니다.
+이 용어집을 통독하고나면, 언리얼 엔진 설명에 사용하는 용어의 스펠링과 대소문자 구분을 확실히 하실 수 있을 것입니다.
 
 <hr>
   
@@ -44,28 +44,28 @@ through this glossary, you'll also know how to properly spell and capitalize the
 
 ##Landscape
 
-The Landscape system enables you to create terrain for your world - mountains, valleys, uneven or sloped ground, openings for caves - and easily modify both its shape and its appearance by using a range of tools.
+랜드스케이프 - 월드의 산악, 계곡, 고르지 않거나 경사진 땅, 동굴 구멍과 같은 지형을 제작하는 시스템으로, 다양한 툴을 사용하여 그 외형과 모습을 쉽게 변경할 수 있습니다.
 
 ##Landscape Mode
 
-The Landscape system enables you to create terrain for your world - mountains, valleys, uneven or sloped ground, openings for caves - and easily modify both its shape and its appearance by using a range of tools.
+랜드스케이프 모드 - 랜드스케이프 조작 방식을 바꿔줍니다.
 
 ##Level
 
-A Level is a user defined area of gameplay. Levels are created, viewed, and modified by placing, transforming, and editing the properties of the Actors it contains. In the Unreal Editor, each Level is saved as a separate .umap file, which is also why you will sometimes see them referred to as Maps.
+레벨 - 게임플레이의 사용자 정의 구역입니다. 액터를 배치하고 그 프로퍼티를 편집 및 트랜스폼 조정하는 것으로 레벨을 만들고 확인하고 변경할 수 있습니다. 언리얼 에디터에서, 각 레벨은 별도의 .umap 파일에 저장되기에, Map (맵)이라고도 합니다.
 
 ##Level Editor
 
-Tools for viewing and editing levels. Container for many Editor functions.
+레벨 에디터 - 레벨을 확인하고 편집하는 툴입니다. 여러가지 에디터 기능이 담긴 컨테이너입니다.
 
 ##Level Sequence
 
-The Level Sequence is the “container” for your cinematic scenes and must be created in order to begin working inside the Sequencer Editor.
+레벨 시퀀스 - 시네마틱 씬을 담는 "컨테이너"로, 이를 생성한 뒤 시퀀서 에디터 안에서의 작업이 시작됩니다.
 
 ##Level Streaming
 
-The Level Streaming feature makes it possible to load and unload map files into memory as well as toggle their visibility during play. This makes it possible to have worlds broken up into smaller chunks so that only the relevant parts of the world are taking up resources and being rendered at any point. If done properly, this allows for the creation of very large, seamless levels that can make the player feel as if they are playing within a world that dwarfs them in size.
+레벨 스트리밍 - 게임플레이 도중 맵 파일을 메모리에 로드 및 언로드하는 것은 물론 그 표시여부를 켜고 끌 수 있도록 해줍니다. 월드를 작은 조각들로 나눈 뒤 어느 시점에서든 연관성이 있는 부분만 자원을 차지하여 렌더링되도록 할 수 있습니다. 제대로 된 경우라면, 플레이어가 왜소한 느낌이 들도록 만들 수 있는 매우 커다란 심리스 레벨을 만드는 것이 가능합니다.
 
 ##Lightmass
 
-Lightmass is the static global illumination system which creates lightmaps with complex light interactions, such as area shadowing and diffuse interreflection from stationary and static lights.
+라이트매스 - 스테이셔너리 라이트와 스태틱 라이트로부터 생기는 확산 상호반사나 영역 그림자와 같은 복잡한 빛의 상호작용을 포함하여 라이트맵을 생성하는 스태틱 글로벌 일루미네이션 시스템입니다.

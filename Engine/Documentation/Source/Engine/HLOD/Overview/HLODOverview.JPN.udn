@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3801260
+﻿INTSourceChangelist:3807090
 title:HLOD （Hierarchical Level of Detail）の概要
 Description:UE4 の HLOD システムの概要のページです。
 crumbs:%ROOT%
@@ -18,11 +18,11 @@ HLOD の最も単純な形式では、既存の **Static Mesh アクタ** を、
 
 プロキシ メッシュが生成されると、プロジェクトで生成された `HLOD` フォルダに入ります。これには、**HLOD アウトライナー** で参照される **LODActor** が含まれます。  
 
-![image alt text](image_15.png)(h:320 w:373 convert:false)
+![image alt text](image_15.png)(w:373 convert:false)
 
 こうしたプロキシ メッシュを個別に開いて設定を調整することができます。
 
-![image alt text](image_16.png)(h:357 w:404 convert:false)
+![image alt text](image_16.png)(w:404 convert:false)
 
 上の画面のプロキシ メッシュには、単一のテクスチャに結合された元々独自のテクスチャを持っていた複数種類のエレメントが含まれます。
 
@@ -33,13 +33,13 @@ HLOD の最も単純な形式では、既存の **Static Mesh アクタ** を、
 
 [/REGION]
 
-![image alt text](image_17.png)(h:420 w:422 convert:false)
+![image alt text](image_17.png)(w:422 convert:false)
 
 ## HLOD ボリューム
 
 **HLOD ボリューム** を使って、HLOD クラスタを手動で定義 / 作成します。このボリュームは、**[Modes]** パネルの **[Place Mode]** から追加して、レベルにドラッグすることができます。  
 
-![image alt text](image_18.png)(h:266 w:229 convert:false)
+![image alt text](image_18.png)(w:229 convert:false)
 
 このボリュームを同じクラスタにグルーピングしたい **アクタ** 周囲に配置します。これを **アクタ** よりも少しだけ大きくして、密接に結合しないようにすると便利です。**アクタ** 周囲にボリュームを配置したら、HLOD アウトライナーから **[Generate Clusters (クラスタ生成)]** オプションを使って、グルーピングした **アクタ** で新規クラスタを作成することができます。
 
@@ -47,29 +47,29 @@ HLOD の最も単純な形式では、既存の **Static Mesh アクタ** を、
 
 以下は、HLOD ボリューム追加前後の生成されたクラスタの例です。
 
-![image alt text](image_19.png)(h:264 w:354 convert:false)
+![image alt text](image_19.png)(w:354 convert:false)
 
 HLOD レベルの望ましい境界範囲:500
 
-![image alt text](image_20.png)(h:288 w:372 convert:false)
+![image alt text](image_20.png)(w:372 convert:false)
 
 ボリューム内をドラッグして、**アクタ** をカバーするようにスケーリングします。
 
- ![image alt text](image_21.png)(h:273 w:370 convert:false)
+ ![image alt text](image_21.png)(w:370 convert:false)
 
 HLOD アウトライナーから **LODActor** を選択すると、作成されたクラスタとクラスタの境界が表示されます。 
 
 HLOD アウトライナーで **LODActor** を右クリックし、**Select Contained Actors** をクリックして、シーンのこの **LODActor** で使われている **アクタ** を確認します。
 
-![image alt text](image_22.png)(h:93 w:212 convert:false)
+![image alt text](image_22.png)(w:212 convert:false)
 
-![image alt text](image_23.png)(h:268 w:357 convert:false)
+![image alt text](image_23.png)(w:357 convert:false)
 
 ## LODActor の詳細パネル
 
 レベル内で **LODActor** を選択することで、[Details (詳細)] パネルの一部の設定にアクセスして生成された HLOD の一部の設定を、このクラスタに含まれるスタティックメッシュの詳細と合わせてオーバーライドすることができます。これはシーン内の他の **アクタ** と同様です。ここにはデザインの範囲内で機能する一部の値をオーバーライドしたり、変更したりするオプションがあります。 
 
-![image alt text](image_24.png)(h:237 w:270 convert:false)
+![image alt text](image_24.png)(w:270 convert:false)
 
 [COMMENT:none]
 

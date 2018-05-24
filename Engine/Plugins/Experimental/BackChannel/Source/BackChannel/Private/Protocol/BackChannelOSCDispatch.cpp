@@ -12,7 +12,6 @@ FBackChannelOSCDispatch::FBackChannelOSCDispatch()
 
 FBackChannelDispatchDelegate& FBackChannelOSCDispatch::GetAddressHandler(const TCHAR* Path)
 {
-	
 	FString LowerPath = FString(Path).ToLower();
 
 	if (DispatchMap.Contains(LowerPath) == false)
@@ -21,7 +20,6 @@ FBackChannelDispatchDelegate& FBackChannelOSCDispatch::GetAddressHandler(const T
 	}
 
 	return DispatchMap.FindChecked(LowerPath);
-
 }
 
 

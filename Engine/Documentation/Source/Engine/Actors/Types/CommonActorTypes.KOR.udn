@@ -22,9 +22,9 @@ order:0
 | **Triggers** | ![](BoxTrigger.png)(w:43) ![](CapsuleTrigger.png)(w:43) ![](SphereTrigger.png)(w:43) | 트리거 - [INCLUDE:Engine/Actors/Triggers#intro] [INCLUDE:#trigger] 좀 더 자세한 사용법 관련 정보는 [](Engine/Actors/Triggers) 문서를 참고하세요. |
 | **MatineeActor** | ![](MatineeIcon.png)(w:43) | 마티네 액터 - **마티네** 애니메이션 툴을 통해 액터의 프로퍼티를 시간에 따라 변화시킬 수 있습니다. 이 시스템은 특수한 애니메이션 트랙에 키프레임을 배치하면, 그 키프레임이 레벨 내 액터의 특정 프로퍼티 값을 설정하는 식으로 작동하는 시스템입니다. 마티네 애니메이션 툴은 영상 편집시 사용되는 논 리니어 에디터와 유사하므로, 영상 전문가에게 익숙합니다. 자세한 사용법은 [](Engine/Matinee) 문서를 참고해 주시기 바랍니다. |
 | [REGION:tablesection]라이트 액터 유형[/REGION] |||
-| **PointLight** | ![](Shared/Icons/Source/icon_class_PointLight_40px.png)(convert:false) | 포인트 라이트 - [INCLUDE:Engine/Rendering/LightingAndShadows/LightTypes/Point#intro] |
-| **SpotLight** | ![](SpotLight.png)(w:43) | 스포트 라이트 - [INCLUDE:Engine/Rendering/LightingAndShadows/LightTypes/Spot#intro] |
-| **DirectionalLight** | ![](Shared/Icons/Source/icon_class_DirectionalLight_40px.png)(convert:false) | 스포트 라이트 - [INCLUDE:Engine/Rendering/LightingAndShadows/LightTypes/Directional#intro] |
+| **PointLight** | ![](Shared/Icons/Source/icon_class_PointLight_40px.png)(convert:false) | [INCLUDE:Engine/Rendering/LightingAndShadows/LightTypes/Point#intro] |
+| **SpotLight** | ![](SpotLight.png)(w:43) | [INCLUDE:Engine/Rendering/LightingAndShadows/LightTypes/Spot#intro] |
+| **DirectionalLight** | ![](Shared/Icons/Source/icon_class_DirectionalLight_40px.png)(convert:false) | [INCLUDE:Engine/Rendering/LightingAndShadows/LightTypes/Directional#intro] |
 | [REGION:tablesection]이펙트 액터 유형[/REGION] |||
 | **ParticleEmitter** | ![](Shared/Icons/Source/ActorIcons/Emitter_40x.png)(convert:false) | 파티클 이미터 - 스프라이트(항상 카메라를 향하는 면) 또는 메시 형태로 파티클을 스폰시켜 연기, 화염, 스파크와 같은 이펙트를 만드는 데 사용되는 액터입니다. 파티클의 실제 동작의 정의와 제어는 [파티클 시스템](Engine/Rendering/ParticleSystems) 이라 불리는 특수한 애셋에서 이루어지며, 이 애셋은 [콘텐츠 브라우저](Engine/Content/Browser) 에서 만들고 [캐스케이드 파티클 에디터](Engine/Rendering/ParticleSystems/Cascade) 에서 편집합니다. |
 | [REGION:tablesection]사운드 액터 유형[/REGION] |||

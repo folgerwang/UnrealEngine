@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:3622880
+﻿INTSourceChangelist:3721197
 Availability:Public
 Title:1. SteamVR の初期設定
 Crumbs:%ROOT%, Platforms/SteamVR
 Description:SteamVR に必要なハードウェアとソフトウェアの設定
 Navigation:platform
 Version:4.17
-Skilllevel:Intermediate
+Skilllevel:Beginner
 Platform:SteamVR
 type:multi-step
 parent:Platforms/SteamVR/QuickStart
 order:1
 Checkpoint:SteamVRQS
-tags:Steam VR
+tags:SteamVR
 
 [nav]
 
@@ -51,18 +51,18 @@ SteamVR 開発キット Valve には、正しい設定方法を説明した [Det
 
     ![](T_Steam_VR_Ready.png)
     [region:note]
-    以下の画像のように、SteamVR にすべてのデバイスが緑で表示されたら、すべて正常に動ているという意味です。 
+    (以下の画像のように) SteamVR にすべてのデバイスが緑で表示されたら、すべて正常に動ているという意味です。 
     デバイスがグレーアウト表示された場合、そのデバイスに問題があります。
     SteamVR は、グレーアウトされたデバイスの問題の原因と可能な修正方法を提示します。修正方法を表示するには、グレーアウト表示のデバイス上にマウスオーバーします。
     [/region]
 
 1. SteamVR を UE4 で使う前に、SteamVR インタラクション エリアを設定しなければなりません。 
-手順は、[SteamVR] ウィンドウを **右クリック** して、**[Run Room Setup]** を選択したら、インストラクションに従って SteamVR インタラクション エリアを設定します。
+手順は、[SteamVR] ウィンドウを 右クリック して、**[Run Room Setup]** を選択したら、画面のインストラクションに従って SteamVR インタラクション エリアを設定します。
 
     ![](T_Steam_VR_App.png)
 
 ## 結果
 
-完了すれば SteamVR が設定され UE4 で使用することができます。
+完了すれば SteamVR が設定され UE4 で使用することができます。続いてステップ 2 では、SteamVR 向けのプロジェクトを UE4 で設定します。
 
 [nav]

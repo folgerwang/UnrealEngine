@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3750366
+﻿INTSourceChangelist:3753383
 Availability:Public
 Crumbs: %ROOT%
 Title:Lightmass Portal
@@ -50,7 +50,7 @@ Skylight や HDR イメージを使ってアンリアル エンジン 4 (UE4) �
 
 ## ステップ 
 
-アンリアル エンジン (UE4) プロジェクトで Lighting Scenarios を使用する手順を説明します。
+UE4 プロジェクトで Lighting Scenarios を使用する手順を説明します。
 
 1. まず **[Modes]** パネルを開き、検索欄に **[Lightmass Portal]** と入力します。見つかったら、それをレベルにドラッグします。
 
@@ -104,6 +104,7 @@ Lightmass のビルドが完了すると、以下の画像のようになりま�
 * Lightmass によるシーンのライティングの計算時間が増えてしまうので、Lightmass Portal は必要な時だけ使用します。
 
 * エミッシブのライト キャスターにスタティックメッシュを使う場合は、入射することになるスタティックメッシュ上のエリアの周りに Lightmass Portal を配置するようにしてください。
+
 
 
 

@@ -4,6 +4,8 @@
 
 #include "RemoteSessionRole.h"
 
+class FBackChannelOSCMessage;
+class FBackChannelOSCDispatch;
 
 class FRemoteSessionClient : public FRemoteSessionRole
 {
@@ -18,8 +20,12 @@ public:
 
 protected:
 
-	void StartConnection();
-	void CheckConnection();
+	virtual void	OnBindEndpoints() override;
+	
+	void 			StartConnection();
+	void 			CheckConnection();
+	
+	void OnChannelSelection(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch);
 
 	FString				HostAddress;
 	
@@ -28,4 +34,6 @@ protected:
 
 	double				ConnectionAttemptTimer;
 	double				TimeConnectionAttemptStarted;
+	
+	FDelegateHandle		ChannelCallbackHandle;
 };

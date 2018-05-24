@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3590614
-Availability:Docs
+﻿INTSourceChangelist:3810467
+Availability:Public
 Crumbs: %ROOT%
 Title:Shader In Plugins の概要
 Description:プラグインでのシェーダー作成方法の概要
@@ -153,9 +153,9 @@ C/C++ ファイルと同じように、HelloWorld.usf を #includeでインク�
         // ...
 以下のいずれかの方法で、プラグインまたはプロジェクト モジュールのシェーダーから USF ファイルをインクルードすることができます。
 
-* 「#include "/Engine/＜FilePath＞"」のあるエンジン内 (<FilePath> は //Engine/Shaders/ directory; に相当するファイル パス)。
+* #include `/Engine/<FilePath>` のあるエンジン内 (`<FilePath>` は `//Engine/Shaders/` directory; に相当するファイル パス)。
 
-* または「#include "/Plugin/＜PluginName＞/＜PluginFilePath＞"」のある別のプラグイン。PluginName は **アクティベートされた** プラグインの名前、<PluginFilePath> はプラグインの Shaders/ directory に相当するファイル パス。 .uplugin の正しいプラグインに依存関係を追加するのはデベロッパーの役割です。
+* または #include `/Plugin/<PluginName>/<PluginFilePath>` のある別のプラグイン。`<PluginName>` は **アクティベートされた** プラグインの名前、`<PluginFilePath>` はプラグインの `Shaders/` directory に相当するファイル パス。 .uplugin の正しいプラグインに依存関係を追加するのはデベロッパーの役割です。
 
 
 ## First Global Shader
@@ -284,11 +284,11 @@ ConsoleVariables.ini をローカルでカスタマイズしてレンダラー�
 |シェーダー ドメイン  | 接尾辞 |
 |-------------- |--------|
 |**Vertex Shader**  |VS|
-|**Hull Shader **   |HS|
+|**Hull Shader**   |HS|
 |**Domain Shader**  |DS|
 |**Geometry Shader**|GS|
-|**Pixel Shader  ** |PS|
-|**Compute Shader **|CS|
+|**Pixel Shader** |PS|
+|**Compute Shader**|CS|
 
 例えば、C++ ファイルで **FLensDistortionUVGenerationVS** へのコールには最後に頂点シェーダーの VS シグナルが付きます。USF ファイル内では **void MainVS(...)** は VS シグナルで終わります。HLSL で構造体を処理する場合、構造体名は、例えば FBasePassInterpolators のように **F** で始めます。
 

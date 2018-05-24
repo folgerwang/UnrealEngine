@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3736300
 Availability: Public
-Title: 3 - Creating your Project
+Title: 3 - 프로젝트 생성
 Crumbs:%ROOT%
-Description:Learn how to create an Android mobile game project in UE4.
+Description:UE4 에서 안드로이드 모바일 게임 프로젝트를 만드는 법입니다.
 Version: 4.17
 type:quick start
 parent:Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux
@@ -14,56 +14,56 @@ Contributor:yaakuro
 
 [nav]
 
-By now, you've installed and configured the Android SDK, you've set up your Android's development environment, and Android Debug Bridge is able to list all devices that are connected to your Linux computer. 
-You're ready to create a new mobile project in UE4.
+지금까지 Android SDK 를 설치하고 환경설정, 안드로이드 개발 환경 구성을 했고, 리눅스 컴퓨터에 연결된 모든 디바이스가 Android Debug Bridge 에 나열될 것입니다.
+UE4 에서 새로운 모바일 프로젝트를 만들 준비가 되었습니다.
 
-## Creating your Mobile Project
+## 모바일 프로젝트 생성
 
-1.	Open the **Unreal Project Browser** and create a new Blueprint project with the following options.
+1.	**언리얼 프로젝트 브라우저** 를 열고 다음과 같은 옵션으로 새 블루프린트 프로젝트를 생성합니다.
 
-	* Select the **Third Person** Template
-	* Set the Target Hardware to be **Mobile / Tablet**
-	* Set the Graphics Level to **Scalable 3D or 2D**
-	* Select **No Starter Content**
+	* **Third Person** (삼인칭) 템플릿을 선택합니다.
+	* Target Hardware (타겟 하드웨어)를 **Mobile / Tablet** (모바일 / 태블릿)으로 선택합니다.
+	* Graphics Level (그래픽 레벨)을 **Scalable 3D or 2D** (스케일가능 3D 또는 2D)로 설정합니다.
+	* **No Starter Content** (시작용 콘텐츠 없음)을 선택합니다.
 
 	[REGION:lightbox]
 		[![](LinuxAndroid_Step23.png)(w:720)](LinuxAndroid_Step23.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	Give the project a name, setting the Project's **Folder** location. For this tutorial, we're naming the project `LinuxAndroidProject`.
+1.	프로젝트에 이름을 짓고, 프로젝트의 **Folder** (폴더) 위치를 설정합니다. 이 튜토리얼에서는 이름을 `LinuxAndroidProject` 라 합니다.
 
 	[REGION:lightbox]
 		[![](LinuxAndroid_Step24.png)(w:720)](LinuxAndroid_Step24.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	After you've set up your Project's settings, click the **Create Project** button.
+1.	프로젝트 세팅을 구성한 이후, **프로젝트 생성** 버튼을 클릭합니다.
 
 	[REGION:lightbox]
 		[![](LinuxAndroid_Step25.png)(w:720)](LinuxAndroid_Step25.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-## End Result
+## 최종 결과
 
 [REGION:lightbox]
 	[![](LinuxAndroid_Step3EndResult.png)(w:720)](LinuxAndroid_Step3EndResult.png)
 [/REGION]
 
 [REGION:caption]
-	Click for full image.
+	클릭하면 이미지 원본을 확인합니다.
 [/REGION]
 
-Congratulations! You've just created a new UE4 project that's ready for use with a mobile device.
+축하합니다! 모바일 디바이스에 사용할 수 있는 새 UE4 프로젝트를 생성하셨습니다.
 
 [nav]

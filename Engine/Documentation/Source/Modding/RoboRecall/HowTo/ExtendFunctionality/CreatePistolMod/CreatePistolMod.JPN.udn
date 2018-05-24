@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:1.新規ピストル mod を作成する
 Crumbs:%ROOT%
@@ -50,17 +50,17 @@ checkpoint:mod_extend
 
 1. **コンテンツ ブラウザ** で新しい mod パッケージが自動的にフォーカスされますが、mod のルート レベルに位置します。
 
-	![image alt text](image_3.png)(w:934 h:288 convert:false)
+	![image alt text](image_3.png)(w:934 convert:false)
 
 1. **「Blueprints」** フォルダをダブルクリックします。次に **「Weapons」** フォルダをダブルクリックして、作成した新規カスタム ピストルの Blueprint アセットを探します。
 
-	![image alt text](image_4.png)(w:934 h:288 convert:false)
+	![image alt text](image_4.png)(w:934 convert:false)
 
 ## 結果
 
 これでゲーム内のデフォルト ピストルに代わる mod のカスタム ピストルが用意できました。投げたときに爆発する機能を加える必要があります。
 
-![image alt text](image_0.png)(w:805 h:352 convert:false)
+![image alt text](image_0.png)(w:805 convert:false)
 
 [NAV]
 

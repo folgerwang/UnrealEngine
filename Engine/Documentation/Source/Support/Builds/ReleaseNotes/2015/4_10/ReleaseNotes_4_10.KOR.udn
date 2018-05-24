@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:언리얼 엔진 4.10 릴리즈 노트
 Crumbs:%ROOT%, Engine
@@ -695,7 +695,7 @@ Visual Studio 2013 을 계속 사용하려면, GitHub 소스 코드를 통해 �
 
 * 기본 다운로더 배경 이미지를 (올바른 종횡비의 작은 PNG 파일로) 대체했습니다.
 
-* 안드로이드 어플리케이션 표시명에서 이스케이프 처리가 필요한 < > & ' " 등의 특수 문자가 자동으로 처리됩니다.
+* 안드로이드 어플리케이션 표시명에서 이스케이프 처리가 필요한 `< > & ' "` 등의 특수 문자가 자동으로 처리됩니다.
 
 * 최소 SDK 옵션 툴팁을 지원되는 최소 버전이 9 라고 업데이트했습니다.
 
@@ -1023,7 +1023,7 @@ Visual Studio 2013 을 계속 사용하려면, GitHub 소스 코드를 통해 �
 
 * ARecastNavMesh::OnNavMeshGenerationFinished 를 virtual 로 만들어 게임 전용 ARecastNavMesh 파생 클래스가 그 이벤트에 쉽게 반응할 수 있도록 했습니다.
 
-* 캐시된 월드 포인터가 NavigationData 클래스에서 이동되었습니다. 가비지 콜렉션 문제가 생길 수 있기 때문입니다.
+* 캐시된 월드 포인터가 NavigationData 클래스에서 이동되었습니다. 가비지 컬렉션 문제가 생길 수 있기 때문입니다.
 
 * 내비게이션 데이터 인스턴스가 이제 Destroy 될 때까지 기다리기 보다는, EndPlay 에서 정리됩니다.
 

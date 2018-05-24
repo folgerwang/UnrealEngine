@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:하드웨어 & 소프트웨어 사양
 SEO-Title:하드웨어 & 소프트웨어 사양
@@ -15,9 +15,7 @@ Tags:Specifications
 [TOC(start:2)]
 
 [EXCERPT:Main]
-[EXCERPT:Intro]
-언리얼 엔진으로 개발을 하거나 게임 및 에디터를 실행시키는 데는 일정 수준의 하드웨어 사양과 소프트웨어가 필요합니다.
-[/EXCERPT:Intro]
+[INCLUDE:#Intro]
 
 ## 추천 하드웨어 사양
 
@@ -61,35 +59,6 @@ Tags:Specifications
 	[INCLUDE:#linuxminhardware]
 	[/PARAM]
 [/OBJECT]
-
-[COMMENT:none]
-
-[EXCERPT:WindowsMinHardware]
-|||
-| -------- | --- |
-| **운영 체제** | 윈도우 7/8 64 비트 |
-| **프로세서** | 쿼드코어 인텔 또는 AMD 2.5 GHz 이상|
-| **메모리** | 8 GB 램 |
-| **비디오 카드/DirectX 버전** | DirectX 11 호환 그래픽 카드 |
-[/EXCERPT:WindowsMinHardware]
-[EXCERPT:MacOSMinHardware]
-|||
-| -------- | --- |
-| **운영 체제** | macOS 10.13 High Sierra  |
-| **프로세서** | 쿼드코어 인텔 2.5 GHz 이상|
-| **메모리** | 8 GB 램 |
-| **비디오 카드** | Metal 1.2 호환 그래픽 카드 |
-[/EXCERPT:MacOSMinHardware]
-[EXCERPT:LinuxMinHardware]
-|||
-| -------- | --- |
-| **운영 체제** | Ubuntu 15.04  |
-| **프로세서** | 쿼드코어 인텔 또는 AMD 2.5 GHz 이상|
-| **메모리** | 16 GB 램 |
-| **비디오 카드** | 	NVIDIA GeForce 470 GTX 이상에 최신 NVIDIA 바이너리 드라이버 |
-[/EXCERPT:LinuxMinHardware]
-
-[/COMMENT]
 
 
 [PUBLISH:Licensee]
@@ -151,43 +120,6 @@ Tags:Specifications
 [/REGION]
 [/PUBLISH:Licensee]
 
-[COMMENT:none]
-
-[EXCERPT:WindowsMinSoftware]
-| 엔진 실행 ||
-| -------- | --- |
-| **운영체제** | Windows 7/8 64-bit |
-| **DirectX 런타임** | [DirectX End-User Runtimes (June 2010)](http://www.microsoft.com/en-us/download/details.aspx?id=8109) |
-
-[/EXCERPT:WindowsMinSoftware]
-
-[EXCERPT:MacOSMinSoftware]
-| 엔진 실행 ||
-| -------- | --- |
-| **운영 체제** | macOS 10.12.6 Sierra  |
-[/EXCERPT:MacOSMinSoftware]
-
-[EXCERPT:LinuxMinSoftware]
-| 엔진 실행 ||
-| -------- | --- |
-| **운영체제 ** | 적당히 신형 리눅스 배포판 (테스트를 거친 가장 오래된 버전은 CentOS 6.x)  |
-| **리눅스 커널 버전** | kernel 2.6.32 이상 |
-| **부가 종속성** | glibc 2.12.2 이상  |
-[/EXCERPT:LinuxMinSoftware]
-
-[EXCERPT:WER]
-[REGION:note]
-UE4 의 크래시 리포트 기능은 원래 기본으로 켜있는 **Windows Error Reporting** 윈도우 오류 리포트 기능을 필요로 합니다. 이 기능을 끄신 경우 켜 주시기 바랍니다.
-[/REGION]
-[/EXCERPT:WER]
-
-[EXCERPT:VCRuntime]
-[Visual Studio C++ 2015 Redist](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
-[/EXCERPT:VCRuntime]
-
-
-[/COMMENT]
-
 
 엔진으로 개발하는 프로그래머용 필수 소프트웨어는 아래와 같습니다.
 
@@ -232,44 +164,7 @@ UE4 의 크래시 리포트 기능은 원래 기본으로 켜있는 **Windows Er
 	[/PARAM]
 [/OBJECT]
 
-[COMMENT:none]
 
-[EXCERPT:WindowsMinDevelopment]
-| 엔진으로 개발 ||
-| -------- | --- |
-| **엔진 실행에 필요한 것들 전부 (자동 설치됨)** ||
-| **Visual Studio 버전** | [INCLUDE:#VS] |
-| [REGION:tablesection]iOS 개발[/REGION] ||
-| **iTunes 버전** | [iTunes 11 이상](http://www.apple.com/itunes/) |
-[/EXCERPT:WindowsMinDevelopment]
-[EXCERPT:MacOSMinDevelopment]
-| 엔진으로 개발 ||
-| -------- | --- |
-| **Xcode 버전** | 9.0 [REGION:note]제대로 된 Xcode 버전을 실행중인지 검증하는 터미널 명령은 다음과 같습니다: `sudo xcode-select -s /Applications/Xcode-beta.app/Contents/Developer`[/REGION] |
-[/EXCERPT:MacOSMinDevelopment]
-[EXCERPT:LinuxMinDevelopment]
-| 엔진으로 개발 ||
-| -------- | --- |
-| **운영체제** | Ubuntu 15.04  |
-| **컴파일러** | clang 3.5.x 또는 3.6.x  |
-| [REGION:tablesection]옵션[/REGION] ||
-| **IDE** | QtCreator 3.1 또는 KDevelop 4.6|
-| **빌드 시스템** | CMake 2.8 |
-[/EXCERPT:LinuxMinDevelopment]
-
-[/COMMENT]
-
-[COMMENT:none]
-
-[EXCERPT:VS]
-Visual Studio 2015 Professional 또는 Visual Studio 2015 Community:
-
-* [Pro](https://www.visualstudio.com/downloads/download-visual-studio-vs)
-* [Community](https://www.visualstudio.com/en-us/products/visual-studio-community-vs.aspx)
-
-[/EXCERPT:VS]
-
-[/COMMENT]
 
 [PUBLISH:Licensee]
 ## 그래픽 카드 드라이버
@@ -311,3 +206,92 @@ VTune 은 퍼포먼스 문제를 찾아내는 데 매우 유용한 툴이지만,
 [/REGION]
 [/PUBLISH:Licensee]
 [/EXCERPT:Main]
+[COMMENT:none]
+[EXCERPT:Intro]
+언리얼 엔진으로 개발을 하거나 게임 및 에디터를 실행시키는 데는 일정 수준의 하드웨어 사양과 소프트웨어가 필요합니다.
+[/EXCERPT:Intro]
+[EXCERPT:VS]
+Visual Studio 2015 Professional 또는 Visual Studio 2015 Community:
+
+* [Pro](https://www.visualstudio.com/downloads/download-visual-studio-vs)
+* [Community](https://www.visualstudio.com/en-us/products/visual-studio-community-vs.aspx)
+
+[/EXCERPT:VS]
+[EXCERPT:WindowsMinDevelopment]
+| 엔진으로 개발 ||
+| -------- | --- |
+| **'엔진 실행' 에 필요한 모든 요건 (자동 설치)** ||
+| **Visual Studio 버전** | [INCLUDE:#VS] |
+| [REGION:tablesection]iOS 개발[/REGION] ||
+| **iTunes 버전** | [iTunes 11 이상](http://www.apple.com/itunes/) |
+[/EXCERPT:WindowsMinDevelopment]
+[EXCERPT:MacOSMinDevelopment]
+| 엔진으로 개발 ||
+| -------- | --- |
+| **Xcode 버전** | 9.0 [REGION:note]Xcode 버전이 올바른지 확인하려면 터미널 창에 다음 명령을 입력하세요: `sudo xcode-select -s /Applications/Xcode-beta.app/Contents/Developer`[/REGION] |
+[/EXCERPT:MacOSMinDevelopment]
+[EXCERPT:LinuxMinDevelopment]
+| 엔진으로 개발 ||
+| -------- | --- |
+| **운영 체제** | Ubuntu 15.04  |
+| **컴파일러** | clang 3.5.x 또는 3.6.x  |
+| [REGION:tablesection]옵션[/REGION] ||
+| **IDE** | QtCreator 3.1 또는 KDevelop 4.6|
+| **빌드 시스템** | CMake 2.8 |
+[/EXCERPT:LinuxMinDevelopment]
+[EXCERPT:WindowsMinSoftware]
+| 엔진 실행 ||
+| -------- | --- |
+| **운영 체제** | Windows 7/8 64-비트 |
+| **DirectX Runtime** | [DirectX End-User Runtimes (June 2010)](http://www.microsoft.com/en-us/download/details.aspx?id=8109) |
+
+[/EXCERPT:WindowsMinSoftware]
+
+[EXCERPT:MacOSMinSoftware]
+| 엔진 실행 ||
+| -------- | --- |
+| **운영 체제** | macOS 10.12.6 Sierra  |
+[/EXCERPT:MacOSMinSoftware]
+
+[EXCERPT:LinuxMinSoftware]
+| 엔진 실행 ||
+| -------- | --- |
+| **운영 체제** | 적합한 신형 Linux 배포판 (최신 테스트 버전은 CentOS 6.x)  |
+| **Linux Kernel 버전** | kernel 2.6.32 이상 |
+| **부가 종속성** | glibc 2.12.2 이상  |
+[/EXCERPT:LinuxMinSoftware]
+
+[EXCERPT:WER]
+[REGION:note]
+UE4 의 크래시 리포트 기능은 **Windows Error Reporting** (윈도우 오류 보고) 기능이 켜져있어야 하며, 기본 설정되어 있습니다. 이 기능을 껐다면, 켜주시기 바랍니다.
+[/REGION]
+[/EXCERPT:WER]
+
+[EXCERPT:VCRuntime]
+[Visual Studio C++ 2015 Redist](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
+[/EXCERPT:VCRuntime]
+[EXCERPT:WindowsMinHardware]
+|||
+| -------- | --- |
+| **운영 체제** | Windows 7/8 64-bit |
+| **프로세서** | 쿼드코어 Intel 또는 AMD, 2.5 GHz 이상 |
+| **메모리** | 8 GB RAM |
+| **비디오 카드/DirectX 버전** | DirectX 11 호환 그래픽 카드 |
+[/EXCERPT:WindowsMinHardware]
+[EXCERPT:MacOSMinHardware]
+|||
+| -------- | --- |
+| **운영 체제** | macOS 10.13 High Sierra  |
+| **프로세서** | 쿼드코어 Intel, 2.5 GHz 이상 |
+| **메모리** | 8 GB RAM |
+| **비디오 카드** | Metal 1.2 호환 그래픽 카드 |
+[/EXCERPT:MacOSMinHardware]
+[EXCERPT:LinuxMinHardware]
+|||
+| -------- | --- |
+| **운영 체제** | Ubuntu 15.04  |
+| **프로세서** | 쿼드코어 Intel 또는 AMD, 2.5 GHz 이상 |
+| **메모리** | 16 GB RAM |
+| **비디오 카드** | 	NVIDIA GeForce 470 GTX 이상, 최신 NVIDIA 바이너리 드라이버 |
+[/EXCERPT:LinuxMinHardware]
+[/COMMENT]

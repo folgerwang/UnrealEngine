@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:3471591
-Availability:Public
-title:Pivot Painter マテリアル関数
+﻿Availability:Public
+title:Pivot Painter Tool 1.0 マテリアル関数
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:Pivot Painter MAXScript を使うために作成された機能
 Version:4.9
 Parent:Engine/Rendering/Materials/Functions/Reference
 Related:Engine/Content/Tools/PivotPainter
+Related:Engine/Content/Tools/PivotPainter/PivotPainter1
 Topic-Image:PivotPainterMF_Topic.png
 tags:Materials
 tags:Pivot Painter
@@ -17,10 +17,10 @@ tags:Pivot Painter
 [REGION:header_img]
 [OBJECT:EmbeddedVideo]
 [PARAMLITERAL:width]
-640
+960
 [/PARAMLITERAL]
 [PARAMLITERAL:height]
-360
+540
 [/PARAMLITERAL]
 [PARAMLITERAL:videoid]
 G3vUj7c5gUM
@@ -129,7 +129,7 @@ Pivot Painter が提供するデータは、これらの関数を使わなくて
 | **Leaf Flow Grad 90 Deg** | 風に対して 90 度の角度でワールド空間を横切るグラディエント値を返します。|
 | **Object Pivot Point** | オブジェクトの回転軸の位置を返します。|
 | **Object Orientation** | オブジェクトの方向を返します。|
-| **オブジェクト回転軸** | オブジェクトの回転軸を返します。|
+| **Object Rotation Axis** | オブジェクトの回転軸を返します。|
 | **Object Scale** | オブジェクトのスケールを返します。|
 | **Object Flow Grad** | ワールド空間のオブジェクトレベルで風のベクター値と揃っているグラディエントです。|
 | **Object Flow Grad 90 deg** | ワールド空間のオブジェクトレベルで風のベクター値と揃っているグラディエントです。|

@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2859170
+﻿INTSourceChangelist:3810467
 Availability:Public
-Title:マテリアル エディタ - マテリアル インスタンスの作成と使用のガイド 
+Title:マテリアル インスタンスの作成と使用方法 
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/HowTo
-Description:マテリアル インスタンスのセットアップおよび使用の操作手順 
+Description:マテリアル インスタンスのセットアップおよび使用の操作手順  
 Related:Engine/Rendering/Materials/MaterialInstances
 Related:Engine/Rendering/Materials/Editor/Interface
 Related:Engine/Rendering/Materials/MaterialInputs
@@ -11,6 +11,7 @@ Related:Engine/Rendering/Materials/IntroductionToMaterials
 Related:Engine/Rendering/Materials/MaterialProperties
 Version:4.9
 SkillLevel:Intermediate
+tags:Materials
 
 [TOC(start:2 end:3)]
 
@@ -135,7 +136,7 @@ UE4 で標準マテリアルを作成、セットアップ、および微調整�
 
 	* **Base Color **
 
-	* **Metallic **
+	* **Metallic**
 
 	* **Roughness **
 
@@ -178,8 +179,8 @@ UE4 で標準マテリアルを作成、セットアップ、および微調整�
 	[/region]
 
 1. 新規作成されたマテリアル インスタンスを **コンテンツ ブラウザ** 内で **マウスの左ボタン** で **ダブル クリック** して開きます。開くと、以下のようになります。  
-	![](Materails_Instances_Instance_Editor.png)(convert:false)
 
+	![](Materails_Instances_Instance_Editor.png)(convert:false)
 
 1. **マテリアル インスタンス エディタ** を開くと、必要に応じてパラメータを調整できます。パラメータを調整するには、最初にそれを有効にします。これは、パラメータ名の左にあるボックスでクリックして行います。パラメータが有効になると、名前はグレイアウトされなくなり、名前の左側のボックスにチェックマークが入ります。
 
