@@ -6,11 +6,6 @@
 #include "Launch/Resources/Version.h"
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
 
-// For compatibility with a change that has not yet made it to //UE4/Main.
-// Please let andrew.grant know when you run into this as we may want to do some
-// cleanup if it occurs prior to the 4.20 branch.
-#define REMOTE_WITH_FORCE_PARAM 0
-
 class FProxyMessageHandler : public FGenericApplicationMessageHandler
 {
 	
@@ -62,15 +57,9 @@ public:
 
 	virtual void OnEndGesture() override;
 
-#if REMOTE_WITH_FORCE_PARAM
 	virtual bool OnTouchStarted(const TSharedPtr< FGenericWindow >& Window, const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId) override;
 
 	virtual bool OnTouchMoved(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId) override;
-#else
-	virtual bool OnTouchStarted(const TSharedPtr< FGenericWindow >& Window, const FVector2D& Location, int32 TouchIndex, int32 ControllerId) override;
-
-	virtual bool OnTouchMoved(const FVector2D& Location, int32 TouchIndex, int32 ControllerId) override;
-#endif // REMOTE_WITH_FORCE_PARAM
 
 	virtual bool OnTouchEnded(const FVector2D& Location, int32 TouchIndex, int32 ControllerId) override;
 

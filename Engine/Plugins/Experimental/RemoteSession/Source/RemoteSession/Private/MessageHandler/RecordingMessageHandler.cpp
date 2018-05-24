@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "RecordingMessageHandler.h"
 #include "RemoteSession.h"
@@ -239,19 +239,11 @@ void FRecordingMessageHandler::PlayOnKeyUp(FArchive& Ar)
 	OnKeyUp(Msg.Param1, Msg.Param2, Msg.Param3);
 }
 
-#if REMOTE_WITH_FORCE_PARAM
 bool FRecordingMessageHandler::OnTouchStarted(const TSharedPtr< FGenericWindow >& Window, const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId)
-#else
-bool FRecordingMessageHandler::OnTouchStarted(const TSharedPtr< FGenericWindow >& Window, const FVector2D& Location, int32 TouchIndex, int32 ControllerId)
-#endif
 {
 	if (IsRecording())
 	{
 		FVector2D Normalized;
-
-#if !REMOTE_WITH_FORCE_PARAM
-		float Force = 1.0f;
-#endif
 
 		if (ConvertToNormalizedScreenLocation(Location, Normalized))
 		{
@@ -268,11 +260,7 @@ bool FRecordingMessageHandler::OnTouchStarted(const TSharedPtr< FGenericWindow >
 		return true;
 	}
 
-#if REMOTE_WITH_FORCE_PARAM
 	return FProxyMessageHandler::OnTouchStarted(Window, Location, Force, TouchIndex, ControllerId);
-#else
-	return FProxyMessageHandler::OnTouchStarted(Window, Location, TouchIndex, ControllerId);
-#endif
 }
 
 void FRecordingMessageHandler::PlayOnTouchStarted(FArchive& Ar)
@@ -287,27 +275,16 @@ void FRecordingMessageHandler::PlayOnTouchStarted(FArchive& Ar)
 		Window = PlaybackWindow.Pin()->GetNativeWindow();
 	}
 
-#if REMOTE_WITH_FORCE_PARAM
 	// note - force is serialized last for backwards compat - force was introduced in 4.20
 	OnTouchStarted(Window, ScreenLocation, Msg.Param4, Msg.Param2, Msg.Param3 );
-#else
-	OnTouchStarted(Window, ScreenLocation, Msg.Param2, Msg.Param3);
-#endif
 }
 
-#if REMOTE_WITH_FORCE_PARAM
 bool FRecordingMessageHandler::OnTouchMoved(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId)
-#else
-bool FRecordingMessageHandler::OnTouchMoved(const FVector2D& Location, int32 TouchIndex, int32 ControllerId)
-#endif
 {
 	if (IsRecording())
 	{
 		FVector2D Normalized;
 
-#if !REMOTE_WITH_FORCE_PARAM
-		float Force = 1.0f;
-#endif
 		if (ConvertToNormalizedScreenLocation(Location, Normalized))
 		{
 			// note - force is serialized last for backwards compat - force was introduced in 4.20
@@ -323,23 +300,15 @@ bool FRecordingMessageHandler::OnTouchMoved(const FVector2D& Location, int32 Tou
 		return true;
 	}
 
-#if REMOTE_WITH_FORCE_PARAM
 	return FProxyMessageHandler::OnTouchMoved(Location, Force, TouchIndex, ControllerId);
-#else
-	return FProxyMessageHandler::OnTouchMoved(Location, TouchIndex, ControllerId);
-#endif
 }
 
 void FRecordingMessageHandler::PlayOnTouchMoved(FArchive& Ar)
 {
 	FourParamMsg<FVector2D, int32, int32, float > Msg(Ar);
 	FVector2D ScreenLocation = ConvertFromNormalizedScreenLocation(Msg.Param1);
-#if REMOTE_WITH_FORCE_PARAM
 	// note - force is serialized last for backwards compat - force was introduced in 4.20
 	OnTouchMoved(ScreenLocation, Msg.Param4, Msg.Param2, Msg.Param3);
-#else
-	OnTouchMoved(ScreenLocation, Msg.Param2, Msg.Param3);
-#endif
 }
 
 bool FRecordingMessageHandler::OnTouchEnded(const FVector2D& Location, int32 TouchIndex, int32 ControllerId)
