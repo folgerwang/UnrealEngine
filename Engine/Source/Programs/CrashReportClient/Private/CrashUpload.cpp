@@ -18,6 +18,8 @@
 #include "Misc/EngineBuildSettings.h"
 #include "Misc/CommandLine.h"
 
+#include "Stats/Stats.h"
+
 // Switched off CRR upload - Jun 2016
 #define PRIMARY_UPLOAD_RECEIVER 0
 #define PRIMARY_UPLOAD_DATAROUTER 1
