@@ -39,7 +39,7 @@
 #include "IHapticDevice.h"
 #include "CoreMinimal.h"
 
-TSharedRef<FAndroidInputInterface> FAndroidInputInterface::Create(const TSharedRef<FGenericApplicationMessageHandler>& InMessageHandler)
+TSharedRef<FAndroidInputInterface> FAndroidInputInterface::Create(const TSharedRef<FGenericApplicationMessageHandler>& InMessageHandler, const TSharedPtr< ICursor >& InCursor)
 {
 	return MakeShareable(new FAndroidInputInterface(InMessageHandler));
 }
