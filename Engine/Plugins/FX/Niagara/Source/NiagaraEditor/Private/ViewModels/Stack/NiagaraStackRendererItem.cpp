@@ -234,6 +234,11 @@ void UNiagaraStackRendererItem::RefreshChildrenInternal(const TArray<UNiagaraSta
 
 void UNiagaraStackRendererItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 {
+	if (!GetIsEnabled())
+	{
+		NewIssues.Empty();
+		return;
+	}
 	for (FNiagaraVariable Attribute : MissingAttributes)
 	{
 		FText FixDescription = LOCTEXT("AddMissingVariable", "Add missing variable");
