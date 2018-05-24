@@ -6,6 +6,7 @@
 #include "Engine/LatentActionManager.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "AutomationScreenshotOptions.h"
+#include "HAL/IConsoleManager.h"
 
 #include "AutomationBlueprintFunctionLibrary.generated.h"
 
@@ -22,7 +23,7 @@ class FUNCTIONALTESTING_API UAutomationBlueprintFunctionLibrary : public UBluepr
 public:
 	static void FinishLoadingBeforeScreenshot();
 
-	static bool TakeAutomationScreenshotInternal(UObject* WorldContextObject, const FString& Name, FAutomationScreenshotOptions Options);
+	static bool TakeAutomationScreenshotInternal(UObject* WorldContextObject, const FString& Name, const FString& Notes, FAutomationScreenshotOptions Options);
 
 	static FIntPoint GetAutomationScreenshotSize(const FAutomationScreenshotOptions& Options);
 
@@ -30,13 +31,13 @@ public:
 	 * Takes a screenshot of the game's viewport.  Does not capture any UI.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Automation", meta = (Latent, HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", LatentInfo = "LatentInfo", Name = "" ))
-	static void TakeAutomationScreenshot(UObject* WorldContextObject, FLatentActionInfo LatentInfo, const FString& Name, const FAutomationScreenshotOptions& Options);
+	static void TakeAutomationScreenshot(UObject* WorldContextObject, FLatentActionInfo LatentInfo, const FString& Name, const FString& Notes, const FAutomationScreenshotOptions& Options);
 
 	/**
 	 * Takes a screenshot of the game's viewport, from a particular camera actors POV.  Does not capture any UI.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Automation", meta = (Latent, HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", LatentInfo = "LatentInfo", NameOverride = "" ))
-	static void TakeAutomationScreenshotAtCamera(UObject* WorldContextObject, FLatentActionInfo LatentInfo, ACameraActor* Camera, const FString& NameOverride, const FAutomationScreenshotOptions& Options);
+	static void TakeAutomationScreenshotAtCamera(UObject* WorldContextObject, FLatentActionInfo LatentInfo, ACameraActor* Camera, const FString& NameOverride, const FString& Notes, const FAutomationScreenshotOptions& Options);
 
 	/**
 	 * 
@@ -84,6 +85,19 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category="Automation")
 	static FAutomationScreenshotOptions GetDefaultScreenshotOptionsForRendering(EComparisonTolerance Tolerance = EComparisonTolerance::Low, float Delay = 0.2);
+
+	/**
+	 * Sets all other settings based on an overall value
+	 * @param Value 0:Cinematic, 1:Epic...etc.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Automation", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject"))
+	static void SetScalabilityQualityLevelRelativeToMax(UObject* WorldContextObject, int32 Value = 1);
+
+	UFUNCTION(BlueprintCallable, Category = "Automation", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject"))
+	static void SetScalabilityQualityToEpic(UObject* WorldContextObject);
+
+	UFUNCTION(BlueprintCallable, Category = "Automation", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject"))
+	static void SetScalabilityQualityToLow(UObject* WorldContextObject);
 };
 
 #if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
@@ -109,12 +123,14 @@ class FAutomationTestScreenshotEnvSetup
 {
 public:
 	FAutomationTestScreenshotEnvSetup();
+	~FAutomationTestScreenshotEnvSetup();
 
 	// Disable AA, auto-exposure, motion blur, contact shadow if InOutOptions.bDisableNoisyRenderingFeatures.
 	// Update screenshot comparison tolerance stored in InOutOptions.
 	// Set visualization buffer name if required.
-	void Setup(FAutomationScreenshotOptions& InOutOptions);
+	void Setup(UWorld* InWorld, FAutomationScreenshotOptions& InOutOptions);
 
+	/** Restore the old settings. */
 	void Restore();
 
 private:
@@ -127,7 +143,11 @@ private:
 	FConsoleVariableSwapperTempl<int32> EyeAdaptationQuality;
 	FConsoleVariableSwapperTempl<int32> ContactShadows;
 	FConsoleVariableSwapperTempl<float> TonemapperGamma;
+	FConsoleVariableSwapperTempl<float> TonemapperSharpen;
 	FConsoleVariableSwapperTempl<float> SecondaryScreenPercentage;
+
+	TWeakObjectPtr<UWorld> WorldPtr;
+	TSharedPtr< class FAutomationViewExtension, ESPMode::ThreadSafe > AutomationViewExtension;
 };
 
 #endif

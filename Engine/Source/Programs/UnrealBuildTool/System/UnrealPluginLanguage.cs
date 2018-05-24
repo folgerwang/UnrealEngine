@@ -12,7 +12,7 @@ using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
-    /* UnrealPluginLanguage (UPL) is a simple XML-based language for manipulating XML and returning
+	/* UnrealPluginLanguage (UPL) is a simple XML-based language for manipulating XML and returning
 	 * strings.  It contains an <init> section which is evaluated once per architecture before any
 	 * other sections.  The state is maintained and carried forward to the next section evaluated
 	 * so the order the sections are executed matters.
@@ -189,7 +189,7 @@ namespace UnrealBuildTool
 	 *	
 	 * is the equivalent of:
 	 * 
-	 *	<if condition="$B(Distribution)">
+	 *	<if condition="Distribution">
 	 *		<!-- do stuff -->
 	 *	</if>
 	 * 
@@ -274,8 +274,9 @@ namespace UnrealBuildTool
 	 *	<addElement tag="" name=""/>
 	 *	<addElements tag=""> body </addElements>
 	 *	<removeElement tag=""/>
-	 *	<setStringFromTag result="" tag="" name=""/>
+	 *	<setStringFromTag result="" tag=""/>
 	 *	<setStringFromAttribute result="" tag="" name=""/>
+	 *	<setStringFromTagText result="" tag=""/>
 	 *	<addAttribute tag="" name="" value=""/>
 	 *	<removeAttribute tag="" name=""/>
 	 *	<loopElements tag=""> instructions </loopElements>
@@ -299,8 +300,10 @@ namespace UnrealBuildTool
 	 *	
 	 * Finally, these nodes allow copying of files useful for staging jar and so files:
 	 * 
-	 *	<copyFile src="" dst=""/>
-	 *	<copyDir src="" dst=""/>
+	 *	<copyFile src="" dst="" force=""/>
+	 *	<copyDir src="" dst="" force=""/>
+	 *
+	 * If force is false the file(s) are replaced only if length or timestamp don't match.  Default is true.
 	 *	
 	 * The following should be used as the base for the src and dst paths:
 	 * 
@@ -339,6 +342,9 @@ namespace UnrealBuildTool
 	 * 	<!-- optional base build.gradle additions -->
 	 * 	<baseBuildGradleAdditions>  </baseBuildGradleAdditions>
 	 *
+	 *	<!-- optional base build.gradle buildscript additions -->
+	 *	<buildscriptGradleAdditions>  </buildscriptGradleAdditions>
+	 *	
 	 * 	<!-- optional app build.gradle additions -->
 	 * 	<buildGradleAdditions>  </buildGradleAdditions>
 	 * 	
@@ -350,6 +356,18 @@ namespace UnrealBuildTool
 	 * 	
 	 * 	<!-- optional files or directories to copy or delete from Intermediate/Android/APK after ndk-build -->
 	 * 	<resourceCopies> </resourceCopies>
+	 * 	
+	 * 	<!-- optional files or directories to copy or delete from Intermediate/Android/APK before Gradle -->
+	 * 	<gradleCopies> </gradleCopies>
+	 * 	
+	 * 	<!-- optional properties to add to gradle.properties -->
+	 * 	<gradleProperties> </gradleProperties>
+	 *
+ 	 * 	<!-- optional parameters to add to Gradle commandline (prefix with a space or will run into previous parameter(s)) -->
+	 * 	<gradleParameters> </gradleParameters>
+	 *
+	 *  <!-- optional minimum SDK API level required -->
+	 *  <minimumSDKAPI> </minimumSDKAPI>
 	 * 	
 	 * 	<!-- optional additions to the GameActivity imports in GameActivity.java -->
 	 * 	<gameActivityImportAdditions> </gameActivityImportAdditions>
@@ -439,7 +457,7 @@ namespace UnrealBuildTool
 	 * 
 	 */
 
-    class UnrealPluginLanguage
+	class UnrealPluginLanguage
 	{
 		/** The merged XML program to run */
 		private XDocument XDoc;
@@ -476,8 +494,14 @@ namespace UnrealBuildTool
 				StringVariables = new Dictionary<string, string>();
 				ElementVariables = new Dictionary<string, XElement>();
 
+				if (PluginDir == null || PluginDir == "")
+				{
+					PluginDir = ".";
+				}
+				StringVariables["PluginDir"] = PluginDir.Replace("\\", "/");
+				StringVariables["AbsPluginDir"] = Path.GetFullPath(PluginDir).Replace("\\", "/");
+
 				StringVariables["Architecture"] = Architecture;
-				StringVariables["PluginDir"] = PluginDir;
 
 				bTrace = false;
 			}
@@ -505,7 +529,7 @@ namespace UnrealBuildTool
 			foreach (string Basename in InXMLFiles)
 			{
 				string Filename = Path.Combine(PathPrefix, Basename.Replace("\\", "/"));
-				Log.TraceInformation("\nUPL: {0}", Filename);
+				Log.TraceInformation("UPL: {0}", Filename);
 				if (File.Exists(Filename))
 				{
 					string PluginDir = Path.GetDirectoryName(Filename);
@@ -816,7 +840,41 @@ namespace UnrealBuildTool
 			return config;
 		}
 
-		private static void CopyFileDirectory(string SourceDir, string DestDir)
+		private static bool FilesAreDifferent(string SourceFilename, string DestFilename)
+		{
+			// source must exist
+			FileInfo SourceInfo = new FileInfo(SourceFilename);
+			if (!SourceInfo.Exists)
+			{
+				Log.TraceInformation("File {0} does not exist", SourceFilename);
+				return false;
+			}
+
+			// different if destination doesn't exist
+			FileInfo DestInfo = new FileInfo(DestFilename);
+			if (!DestInfo.Exists)
+			{
+				return true;
+			}
+
+			// file lengths differ?
+			if (SourceInfo.Length != DestInfo.Length)
+			{
+				return true;
+			}
+
+			// validate timestamps
+			TimeSpan Diff = DestInfo.LastWriteTimeUtc - SourceInfo.LastWriteTimeUtc;
+			if (Diff.TotalSeconds < -1 || Diff.TotalSeconds > 1)
+			{
+				return true;
+			}
+
+			// could check actual bytes just to be sure, but good enough
+			return false;
+		}
+
+		private static void CopyFileDirectory(string SourceDir, string DestDir, bool bForce = false)
 		{
 			if (!Directory.Exists(SourceDir))
 			{
@@ -828,23 +886,29 @@ namespace UnrealBuildTool
 			{
 				// make the dst filename with the same structure as it was in SourceDir
 				string DestFilename = Path.Combine(DestDir, Utils.MakePathRelativeTo(Filename, SourceDir));
-				if (File.Exists(DestFilename))
+
+				if (bForce || FilesAreDifferent(Filename, DestFilename))
 				{
-					File.Delete(DestFilename);
+					if (File.Exists(DestFilename))
+					{
+						File.SetAttributes(DestFilename, FileAttributes.Normal);
+						File.Delete(DestFilename);
+					}
+
+					// make the subdirectory if needed
+					string DestSubdir = Path.GetDirectoryName(DestFilename);
+					if (!Directory.Exists(DestSubdir))
+					{
+						Directory.CreateDirectory(DestSubdir);
+					}
+
+					File.Copy(Filename, DestFilename);
+
+					// remove any read only flags and keep timestamp
+					FileInfo DestFileInfo = new FileInfo(DestFilename);
+					DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
+					File.SetLastWriteTimeUtc(DestFilename, File.GetLastWriteTimeUtc(Filename));
 				}
-
-				// make the subdirectory if needed
-				string DestSubdir = Path.GetDirectoryName(DestFilename);
-				if (!Directory.Exists(DestSubdir))
-				{
-					Directory.CreateDirectory(DestSubdir);
-				}
-
-				File.Copy(Filename, DestFilename);
-
-				// remove any read only flags
-				FileInfo DestFileInfo = new FileInfo(DestFilename);
-				DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
 			}
 		}
 
@@ -861,6 +925,7 @@ namespace UnrealBuildTool
 			string[] Files = Directory.GetFiles(BaseDir, Mask, SearchOption.TopDirectoryOnly);
 			foreach (string Filename in Files)
 			{
+				File.SetAttributes(Filename, FileAttributes.Normal);
 				File.Delete(Filename);
 				Log.TraceInformation("\nDeleted file {0}", Filename);
 			}
@@ -1612,27 +1677,32 @@ namespace UnrealBuildTool
 						{
 							string Src = GetAttribute(CurrentContext, Node, "src");
 							string Dst = GetAttribute(CurrentContext, Node, "dst");
+							bool bForce = StringToBool(GetAttribute(CurrentContext, Node, "once", true, false, "true"));
 							if (Src != null && Dst != null)
 							{
 								if (File.Exists(Src))
 								{
 									// check to see if newer than last time we copied
-									bool bFileExists = File.Exists(Dst);
-									TimeSpan Diff = File.GetLastWriteTimeUtc(Dst) - File.GetLastWriteTimeUtc(Src);
-									if (!bFileExists || Diff.TotalSeconds < -1 || Diff.TotalSeconds > 1)
+									if (bForce || FilesAreDifferent(Src, Dst))
 									{
-										if (bFileExists)
+										if (File.Exists(Dst))
 										{
+											File.SetAttributes(Dst, FileAttributes.Normal);
 											File.Delete(Dst);
 										}
 										Directory.CreateDirectory(Path.GetDirectoryName(Dst));
 										File.Copy(Src, Dst, true);
 										Log.TraceInformation("\nFile {0} copied to {1}", Src, Dst);
 
-										// remove any read only flags
+										// remove any read only flags and keep timestamp
 										FileInfo DestFileInfo = new FileInfo(Dst);
 										DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
+										File.SetLastWriteTimeUtc(Dst, File.GetLastWriteTimeUtc(Src));
 									}
+								}
+								else
+								{
+									Log.TraceInformation("\nFile {0} does not exist, not copied!", Src);
 								}
 							}
 						}
@@ -1642,10 +1712,11 @@ namespace UnrealBuildTool
 						{
 							string Src = GetAttribute(CurrentContext, Node, "src");
 							string Dst = GetAttribute(CurrentContext, Node, "dst");
+							bool bForce = StringToBool(GetAttribute(CurrentContext, Node, "once", true, false, "true"));
 							if (Src != null && Dst != null)
 							{
-								CopyFileDirectory(Src, Dst);
-								Log.TraceInformation("\nDirectory {0} copied to {1}", Src, Dst);
+								CopyFileDirectory(Src, Dst, bForce);
+								Log.TraceInformation("\nDirectory {0} copied to {1}", Src, Dst, bForce);
 							}
 						}
 						break;
@@ -2143,6 +2214,39 @@ namespace UnrealBuildTool
 						}
 						break;
 
+					case "setStringFromTagText":
+						{
+							string Result = GetAttribute(CurrentContext, Node, "result");
+							string Tag = GetAttribute(CurrentContext, Node, "tag", true, false, "$");
+							if (Result != null)
+							{
+								XElement Element = CurrentElement;
+								if (Tag.StartsWith("$"))
+								{
+									if (Tag.Length > 1)
+									{
+										if (!CurrentContext.ElementVariables.TryGetValue(Tag.Substring(1), out Element))
+										{
+											if (!GlobalContext.ElementVariables.TryGetValue(Tag.Substring(1), out Element))
+											{
+												Log.TraceWarning("\nMissing element variable '{0}' in '{1}' (skipping instruction)", Tag, TraceNodeString(Node));
+												continue;
+											}
+										}
+									}
+								}
+
+								if (Element.Value == null)
+								{
+									Log.TraceWarning("\nExpected text in element '{0}' in '{1}' but found none (skipping instruction)", Element.Name.ToString(), TraceNodeString(Node));
+									continue;
+								}
+
+								CurrentContext.StringVariables[Result] = Element.Value;
+							}
+						}
+						break;
+
 					case "setStringFromProperty":
 						{
 							string Result = GetAttribute(CurrentContext, Node, "result");
@@ -2286,10 +2390,28 @@ namespace UnrealBuildTool
 		public void Init(List<string> Architectures, bool bDistribution, string EngineDirectory, string BuildDirectory, string ProjectDirectory, string Configuration)
 		{
 			GlobalContext.BoolVariables["Distribution"] = bDistribution;
-			GlobalContext.StringVariables["EngineDir"] = EngineDirectory;
-			GlobalContext.StringVariables["BuildDir"] = BuildDirectory;
-			GlobalContext.StringVariables["ProjectDir"] = ProjectDirectory;
 			GlobalContext.StringVariables["Configuration"] = Configuration;
+
+			GlobalContext.StringVariables["EngineDir"] = EngineDirectory.Replace("\\", "/");
+			GlobalContext.StringVariables["BuildDir"] = BuildDirectory.Replace("\\", "/");
+			GlobalContext.StringVariables["ProjectDir"] = ProjectDirectory.Replace("\\", "/");
+
+			if (GlobalContext.StringVariables["EngineDir"].Length < 1)
+			{
+				GlobalContext.StringVariables["EngineDir"] = "./";
+			}
+			if (GlobalContext.StringVariables["BuildDir"].Length < 1)
+			{
+				GlobalContext.StringVariables["BuildDir"] = "./";
+			}
+			if (GlobalContext.StringVariables["ProjectDir"].Length < 1)
+			{
+				GlobalContext.StringVariables["ProjectDir"] = "./";
+			}
+
+			GlobalContext.StringVariables["AbsEngineDir"] = Path.GetFullPath(GlobalContext.StringVariables["EngineDir"]).Replace("\\", "/");
+			GlobalContext.StringVariables["AbsBuildDir"] = Path.GetFullPath(GlobalContext.StringVariables["BuildDir"]).Replace("\\", "/");
+			GlobalContext.StringVariables["AbsProjectDir"] = Path.GetFullPath(GlobalContext.StringVariables["ProjectDir"]).Replace("\\", "/");
 
 			foreach (string Arch in Architectures)
 			{

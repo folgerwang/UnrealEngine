@@ -120,7 +120,7 @@ void USoundNodeModPlayer::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT N
 	}
 }
 
-float USoundNodeModPlayer::GetDuration() const
+float USoundNodeModPlayer::GetDuration()
 {
 	float Duration = 0.f;
 	if (SoundMod)

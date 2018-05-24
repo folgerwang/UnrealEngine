@@ -1482,6 +1482,7 @@ struct GAMEPLAYABILITIES_API FMinimalReplicationTagCountMap
 	GENERATED_USTRUCT_BODY()
 
 	FMinimalReplicationTagCountMap()
+		: Owner(nullptr)
 	{
 		MapID = 0;
 	}

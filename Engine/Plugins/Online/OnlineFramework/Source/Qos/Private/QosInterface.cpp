@@ -93,3 +93,9 @@ void FQosInterface::DumpRegionStats()
 	check(RegionManager);
 	return RegionManager->DumpRegionStats();
 }
+
+void FQosInterface::RegisterQoSSettingsChangedDelegate(const FSimpleDelegate& OnQoSSettingsChanged)
+{
+	check(RegionManager);
+	RegionManager->RegisterQoSSettingsChangedDelegate(OnQoSSettingsChanged);
+}

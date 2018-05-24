@@ -17,6 +17,7 @@
 #include "PlatformInfo.h"
 #include "PIEPreviewDeviceProfileSelectorModule.h"
 #endif
+#include "ProfilingDebugging/CsvProfiler.h"
 
 static TAutoConsoleVariable<FString> CVarDeviceProfileOverride(
 	TEXT("dp.Override"),
@@ -99,6 +100,30 @@ void UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile(bool bPushSett
 		DeviceProfileManagerSingleton->PushedSettings.Empty();
 	}
 
+#if !UE_BUILD_SHIPPING
+	// pre-apply any -dpcvars= items, so that they override anything in the DPs
+	FString DPCVarString;
+	if (FParse::Value(FCommandLine::Get(), TEXT("DPCVars="), DPCVarString, false) || FParse::Value(FCommandLine::Get(), TEXT("DPCVar="), DPCVarString, false))
+	{
+		// look over a list of cvars
+		TArray<FString> DPCVars;
+		DPCVarString.ParseIntoArray(DPCVars, TEXT(","), true);
+		for (FString& DPCVar : DPCVars)
+		{
+			// split up each Key=Value pair
+			FString CVarKey, CVarValue;
+			if (DPCVar.Split(TEXT("="), &CVarKey, &CVarValue))
+			{
+				UE_LOG(LogInit, Log, TEXT("Setting CommandLine Device Profile CVar: [[%s:%s]]"), *CVarKey, *CVarValue);
+
+				// set it and remember it (no thanks, Ron Popeil)
+				OnSetCVarFromIniEntry(*DeviceProfileFileName, *CVarKey, *CVarValue, ECVF_SetByDeviceProfile);
+				CVarsAlreadySetList.Add(CVarKey, CVarValue);
+			}
+		}
+	}
+#endif
+	
 	// For each device profile, starting with the selected and working our way up the BaseProfileName tree,
 	// Find all CVars and set them 
 	FString BaseDeviceProfileName = ActiveProfileName;
@@ -118,6 +143,7 @@ void UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile(bool bPushSett
 				TEXT("_Default"),
 				TEXT("_Smaller"),
 				TEXT("_Smallest"),
+                TEXT("_Tiniest"),
 			};
 
 			for (int Pass = 0; Pass < 2; Pass++)
@@ -553,6 +579,10 @@ const FString UDeviceProfileManager::GetActiveProfileName()
 void UDeviceProfileManager::SetActiveDeviceProfile( UDeviceProfile* DeviceProfile )
 {
 	ActiveDeviceProfile = DeviceProfile;
+
+#if CSV_PROFILER
+	FCsvProfiler::Get()->SetDeviceProfileName(ActiveDeviceProfile->GetName());
+#endif
 }
 
 

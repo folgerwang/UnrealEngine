@@ -12,6 +12,7 @@
 #include <android/input.h>
 #include <android/keycodes.h>
 #include <android/api-level.h>
+#include "GenericPlatform/ICursor.h"
 #include "GenericPlatform/IInputInterface.h"
 #include "GenericPlatform/IForceFeedbackSystem.h"
 #include "Math/Vector.h"
@@ -205,7 +206,7 @@ class FAndroidInputInterface : public IForceFeedbackSystem
 {
 public:
 
-	static TSharedRef< FAndroidInputInterface > Create(  const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler );
+	static TSharedRef< FAndroidInputInterface > Create(  const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler, const TSharedPtr< ICursor >& InCursor);
 
 
 public:
@@ -231,6 +232,10 @@ public:
 	static void JoystickAxisEvent(int32 deviceId, int32 axisId, float axisValue);
 	static void JoystickButtonEvent(int32 deviceId, int32 buttonId, bool buttonDown);
 
+	static void MouseMoveEvent(int32 deviceId, float absoluteX, float absoluteY, float deltaX, float deltaY);
+	static void MouseWheelEvent(int32 deviceId, float wheelDelta);
+	static void MouseButtonEvent(int32 deviceId, int32 buttonId, bool buttonDown);
+
 	static void DeferMessage(const FDeferredAndroidMessage& DeferredMessage);
 
 	static void QueueMotionData(const FVector& Tilt, const FVector& RotationRate, const FVector& Gravity, const FVector& Acceleration);
@@ -246,9 +251,11 @@ public:
 
 	virtual void AddExternalInputDevice(TSharedPtr<class IInputDevice> InputDevice);
 
+	const TSharedPtr< ICursor > GetCursor() const { return Cursor; }
+	
 private:
 
-	FAndroidInputInterface( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler );
+	FAndroidInputInterface( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler, const TSharedPtr< ICursor >& InCursor);
 
 
 private:
@@ -270,6 +277,25 @@ private:
 		FVector Acceleration;
 	};
 
+	enum MouseEventType
+	{
+		MouseMove,
+		MouseWheel,
+		MouseButtonDown,
+		MouseButtonUp
+	};
+
+	struct MouseData
+	{
+		MouseEventType EventType;
+		EMouseButtons::Type Button;
+		int32 AbsoluteX;
+		int32 AbsoluteY;
+		int32 DeltaX;
+		int32 DeltaY;
+		float WheelDelta;
+	};
+
 	// protects the input stack
 	static FCriticalSection TouchInputCriticalSection;
 
@@ -278,6 +304,9 @@ private:
 	/** Vibration settings */
 	static bool VibeIsOn;
 	static FForceFeedbackValues VibeValues;
+
+	// should we allow controllers to send input
+	static bool bAllowControllers;
 
 	static FAndroidGamepadDeviceMapping DeviceMapping[MAX_NUM_CONTROLLERS];
 
@@ -294,8 +323,10 @@ private:
 	static int32 DeferredMessageQueueDroppedCount;
 
 	static TArray<MotionData> MotionDataStack;
+	static TArray<MouseData> MouseDataStack;
 
 	TSharedRef< FGenericApplicationMessageHandler > MessageHandler;
+	const TSharedPtr< ICursor > Cursor;
 
 	/** List of input devices implemented in external modules. */
 	TArray<TSharedPtr<class IInputDevice>> ExternalInputDevices;

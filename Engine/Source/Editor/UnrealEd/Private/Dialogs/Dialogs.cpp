@@ -11,9 +11,10 @@
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SUniformGridPanel.h"
 #include "Widgets/Input/SButton.h"
-#include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "EditorStyleSet.h"
 #include "Editor.h"
@@ -864,50 +865,63 @@ bool PromptUserIfExistingObject( const FString& Name, const FString& Package, co
 
 void SGenericDialogWidget::Construct( const FArguments& InArgs )
 {
-	TSharedPtr< SScrollBox > ScrollBox;
+	TSharedPtr<SWidget> ContentWidget;
+	if (InArgs._UseScrollBox)
+	{
+		ContentWidget = 
+			SNew(SBox)
+			.MaxDesiredHeight(InArgs._ScrollBoxMaxHeight)
+			[
+				SNew(SScrollBox)
+				+SScrollBox::Slot()
+				[
+					InArgs._Content.Widget
+				]
+			];
+	}
+	else
+	{
+		ContentWidget = InArgs._Content.Widget;
+	}
 
 	this->ChildSlot
 	[
 		SNew(SVerticalBox)
 		+SVerticalBox::Slot()
-		.AutoHeight()
-		.MaxHeight(300.0f)
 		[
-			SAssignNew(ScrollBox, SScrollBox)
+			ContentWidget.ToSharedRef()
 		]
 
 		+SVerticalBox::Slot()
-			.HAlign(HAlign_Right)
-			.AutoHeight()
-			.Padding(0.0f, 2.0f, 0.0f, 0.0f)
-			[
-				SNew(SButton)
-					.Text( NSLOCTEXT("UnrealEd", "OK", "OK") )
-					.OnClicked(this, &SGenericDialogWidget::OnOK_Clicked)
-			]
-	];
-
-	ScrollBox->AddSlot()
-	[
-		InArgs._Content.Widget
+		.HAlign(HAlign_Right)
+		.AutoHeight()
+		.Padding(0.0f, 2.0f, 0.0f, 0.0f)
+		[
+			SNew(SButton)
+			.Text( NSLOCTEXT("UnrealEd", "OK", "OK") )
+			.OnClicked(this, &SGenericDialogWidget::OnOK_Clicked)
+		]
 	];
 }
 
-void SGenericDialogWidget::OpenDialog (const FText& InDialogTitle, const TSharedRef< SWidget >& DisplayContent)
+void SGenericDialogWidget::OpenDialog(const FText& InDialogTitle, const TSharedRef< SWidget >& DisplayContent, const FArguments& InArgs)
 {
 	TSharedPtr< SWindow > Window;
 	TSharedPtr< SGenericDialogWidget > GenericDialogWidget;
 
 	Window = SNew(SWindow)
 		.Title(InDialogTitle)
-		.SizingRule( ESizingRule::Autosized )
-		.SupportsMaximize(false) .SupportsMinimize(false)
+		.SizingRule(ESizingRule::Autosized)
+		.SupportsMaximize(false)
+		.SupportsMinimize(false)
 		[
 			SNew( SBorder )
 			.Padding( 4.f )
 			.BorderImage( FEditorStyle::GetBrush( "ToolPanel.GroupBorder" ) )
 			[
 				SAssignNew(GenericDialogWidget, SGenericDialogWidget)
+				.UseScrollBox(InArgs._UseScrollBox)
+				.ScrollBoxMaxHeight(InArgs._ScrollBoxMaxHeight)
 				[
 					DisplayContent
 				]

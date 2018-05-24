@@ -61,28 +61,25 @@ enum class EVoiceChatRoomState : uint8
 	Leaving
 };
 
-namespace Lex
+inline const TCHAR* LexToString(EVoiceChatRoomState InState)
 {
-	inline const TCHAR* ToString(EVoiceChatRoomState InState)
+	switch (InState)
 	{
-		switch (InState)
-		{
-			case EVoiceChatRoomState::Invalid:
-				return TEXT("Invalid");
-				break;
-			case EVoiceChatRoomState::Entering:
-				return TEXT("Entering");
-				break;
-			case EVoiceChatRoomState::Entered:
-				return TEXT("Entered");
-				break;
-			case EVoiceChatRoomState::Leaving:
-				return TEXT("Leaving");
-				break;
-		}
-
-		return TEXT("");
+		case EVoiceChatRoomState::Invalid:
+			return TEXT("Invalid");
+			break;
+		case EVoiceChatRoomState::Entering:
+			return TEXT("Entering");
+			break;
+		case EVoiceChatRoomState::Entered:
+			return TEXT("Entered");
+			break;
+		case EVoiceChatRoomState::Leaving:
+			return TEXT("Leaving");
+			break;
 	}
+
+	return TEXT("");
 }
 
 /**

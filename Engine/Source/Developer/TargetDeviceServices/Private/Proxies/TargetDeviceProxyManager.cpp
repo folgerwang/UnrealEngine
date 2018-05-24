@@ -119,6 +119,8 @@ void FTargetDeviceProxyManager::GetProxyList(FName TargetPlatformName, bool Incl
 
 void FTargetDeviceProxyManager::RemoveDeadProxies()
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FTargetDeviceProxyManager_RemoveDeadProxies);
+
 	FDateTime CurrentTime = FDateTime::UtcNow();
 
 	for (auto ProxyIter = Proxies.CreateIterator(); ProxyIter; ++ProxyIter)
@@ -135,6 +137,8 @@ void FTargetDeviceProxyManager::RemoveDeadProxies()
 
 void FTargetDeviceProxyManager::SendPing()
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FTargetDeviceProxyManager_SendPing);
+
 	if (MessageEndpoint.IsValid())
 	{
 		MessageEndpoint->Publish(new FTargetDeviceServicePing(FPlatformProcess::UserName(false)), EMessageScope::Network);

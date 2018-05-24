@@ -9,6 +9,7 @@
 #include "CoreMinimal.h"
 #include "FXSystem.h"
 #include "VectorField.h"
+#include "ParticleSortingGPU.h"
 
 class FCanvas;
 class FGlobalDistanceFieldParameterData;
@@ -291,7 +292,6 @@ private:
 
 	/** Previous frame new particles for multi-gpu simulation*/
 	TArray<FNewParticle> LastFrameNewParticles;
-
 #if WITH_EDITOR
 	/** true if the system has been suspended. */
 	bool bSuspended;

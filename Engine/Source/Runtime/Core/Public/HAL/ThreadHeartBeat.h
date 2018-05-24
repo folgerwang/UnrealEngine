@@ -57,6 +57,9 @@ class CORE_API FThreadHeartBeat : public FRunnable
 
 	void InitSettings();
 
+	void OnApplicationWillEnterBackground();
+	void OnApplicationEnteredForeground();
+
 public:
 
 	enum EConstants
@@ -146,6 +149,8 @@ class CORE_API FGameThreadHitchHeartBeat : public FRunnable
 	double FrameStartTime;
 	double LastReportTime;
 
+	int32 SuspendedCount;
+
 #if LOOKUP_SYMBOLS_IN_HITCH_STACK_WALK
 	static const SIZE_T StackTraceSize = 65535;
 	ANSICHAR StackTrace[StackTraceSize];
@@ -155,6 +160,9 @@ class CORE_API FGameThreadHitchHeartBeat : public FRunnable
 #endif
 
 	void InitSettings();
+
+	void OnApplicationWillEnterBackground();
+	void OnApplicationEnteredForeground();
 
 	FGameThreadHitchHeartBeat();
 	virtual ~FGameThreadHitchHeartBeat();
@@ -177,9 +185,32 @@ public:
 
 	double GetFrameStartTime();
 
+	/**
+	* Suspend heartbeat hitch detection. Must call ResumeHeartBeat later to resume.
+	*/
+	void SuspendHeartBeat();
+
+	/**
+	* Resume heartbeat hitch detection. Call only after first calling SuspendHeartBeat.
+	*/
+	void ResumeHeartBeat();
+
 	//~ Begin FRunnable Interface.
 	virtual bool Init();
 	virtual uint32 Run();
 	virtual void Stop();
 	//~ End FRunnable Interface
+};
+
+/** Suspends hitch detection in the current scope */
+struct FDisableHitchDetectorScope
+{
+	FORCEINLINE FDisableHitchDetectorScope()
+	{
+		FGameThreadHitchHeartBeat::Get().SuspendHeartBeat();
+	}
+	FORCEINLINE ~FDisableHitchDetectorScope()
+	{
+		FGameThreadHitchHeartBeat::Get().ResumeHeartBeat();
+	}
 };

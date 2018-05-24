@@ -73,6 +73,10 @@ extern RHI_API bool GIsRunningRHIInSeparateThread_InternalUseOnly;
 extern RHI_API bool GIsRunningRHIInDedicatedThread_InternalUseOnly;
 extern RHI_API bool GIsRunningRHIInTaskThread_InternalUseOnly;
 
+/** private accumulator for the RHI thread. */
+extern RHI_API uint32 GWorkingRHIThreadTime;
+extern RHI_API uint32 GWorkingRHIThreadStallTime;
+
 /**
 * Whether the RHI commands are being run in a thread other than the render thread
 */
@@ -1805,6 +1809,22 @@ struct FRHICommandInvalidateCachedState final : public FRHICommand<FRHICommandIn
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
 
+struct FRHICommandDiscardRenderTargets final : public FRHICommand<FRHICommandDiscardRenderTargets>
+{
+	uint32 ColorBitMask;
+	bool Depth;
+	bool Stencil;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandDiscardRenderTargets(bool InDepth, bool InStencil, uint32 InColorBitMask)
+		: ColorBitMask(InColorBitMask)
+		, Depth(InDepth)
+		, Stencil(InStencil)
+	{
+	}
+	
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
 struct FRHICommandDebugBreak final : public FRHICommand<FRHICommandDebugBreak>
 {
 	void Execute(FRHICommandListBase& CmdList)
@@ -2362,6 +2382,7 @@ public:
 
 	FORCEINLINE_DEBUGGABLE void SetComputeShader(FComputeShaderRHIParamRef ComputeShader)
 	{
+		ComputeShader->UpdateStats();
 		if (Bypass())
 		{
 			CMD_CONTEXT(RHISetComputeShader)(ComputeShader);
@@ -2752,6 +2773,16 @@ public:
 		}
 		new (AllocCommand<FRHICommandInvalidateCachedState>()) FRHICommandInvalidateCachedState();
 	}
+
+	FORCEINLINE void DiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHIDiscardRenderTargets)(Depth, Stencil, ColorBitMask);
+			return;
+		}
+		new (AllocCommand<FRHICommandDiscardRenderTargets>()) FRHICommandDiscardRenderTargets(Depth, Stencil, ColorBitMask);
+	}
 	
 	FORCEINLINE_DEBUGGABLE void BreakPoint()
 	{
@@ -2863,6 +2894,7 @@ public:
 	
 	FORCEINLINE_DEBUGGABLE void SetComputeShader(FComputeShaderRHIParamRef ComputeShader)
 	{
+		ComputeShader->UpdateStats();
 		if (Bypass())
 		{
 			COMPUTE_CONTEXT(RHISetComputeShader)(ComputeShader);
@@ -3045,7 +3077,7 @@ class RHI_API FRHICommandListImmediate : public FRHICommandList
 			: Lambda(Forward<LAMBDA>(InLambda))
 		{}
 
-		void ExecuteAndDestruct(FRHICommandListBase& CmdList, FRHICommandListDebugContext& Context) override final
+		void ExecuteAndDestruct(FRHICommandListBase& CmdList, FRHICommandListDebugContext&) override final
 		{
 			Lambda(*static_cast<FRHICommandListImmediate*>(&CmdList));
 			Lambda.~LAMBDA();
@@ -3803,11 +3835,6 @@ public:
 		GDynamicRHI->RHISetStreamOutTargets(NumTargets,VertexBuffers,Offsets);
 	}
 	
-	FORCEINLINE void DiscardRenderTargets(bool Depth,bool Stencil,uint32 ColorBitMask)
-	{
-		GDynamicRHI->RHIDiscardRenderTargets(Depth,Stencil,ColorBitMask);
-	}
-	
 	FORCEINLINE void BlockUntilGPUIdle()
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_BlockUntilGPUIdle_Flush);
@@ -3903,12 +3930,6 @@ public:
 		return RHIGetCommandContextContainer(Index, Num, GetGPUMask());
 	}
 	void UpdateTextureReference(FTextureReferenceRHIParamRef TextureRef, FTextureRHIParamRef NewTexture);
-	
-	FORCEINLINE FRHIShaderLibraryRef CreateShaderLibrary(EShaderPlatform Platform, FString FilePath)
-	{
-		LLM_SCOPE(ELLMTag::Shaders);
-		return GDynamicRHI->RHICreateShaderLibrary_RenderThread(*this, Platform, FilePath);
-	}
 
 };
 
@@ -3966,7 +3987,7 @@ public:
 
 
 // This controls if the cmd list bypass can be toggled at runtime. It is quite expensive to have these branches in there.
-#define CAN_TOGGLE_COMMAND_LIST_BYPASS (!UE_BUILD_SHIPPING && !UE_BUILD_TEST) || (UE_BUILD_TEST && PLATFORM_ANDROID)
+#define CAN_TOGGLE_COMMAND_LIST_BYPASS (!UE_BUILD_SHIPPING && !UE_BUILD_TEST)
 
 class RHI_API FRHICommandListExecutor
 {
@@ -4002,7 +4023,7 @@ public:
 #if CAN_TOGGLE_COMMAND_LIST_BYPASS
 		return bLatchedUseParallelAlgorithms;
 #else
-		return  FApp::ShouldUseThreadingForPerformance() && !Bypass();
+		return  FApp::ShouldUseThreadingForPerformance() && !Bypass() && (GSupportsParallelRenderingTasksWithSeparateRHIThread || !IsRunningRHIInSeparateThread());
 #endif
 	}
 	static void CheckNoOutstandingCmdLists();
@@ -4461,9 +4482,9 @@ FORCEINLINE void RHIRecreateRecursiveBoundShaderStates()
 	GDynamicRHI->RHIRecreateRecursiveBoundShaderStates();
 }
 
-FORCEINLINE FRHIShaderLibraryRef RHICreateShaderLibrary(EShaderPlatform Platform, FString FilePath)
+FORCEINLINE FRHIShaderLibraryRef RHICreateShaderLibrary(EShaderPlatform Platform, FString const& FilePath, FString const& Name)
 {
-	return FRHICommandListExecutor::GetImmediateCommandList().CreateShaderLibrary(Platform, FilePath);
+    return GDynamicRHI->RHICreateShaderLibrary(Platform, FilePath, Name);
 }
 
 

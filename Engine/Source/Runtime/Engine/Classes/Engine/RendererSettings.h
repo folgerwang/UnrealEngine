@@ -191,6 +191,12 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ToolTip = "Multi-sample anti-aliasing setting to use on mobile. MSAA is currently supported using Metal on iOS, and on Android devices with the required support using ES 2 or ES 3.1.\nIf MSAA is not available, the current default AA method will be used."))
 	TEnumAsByte<EMobileMSAASampleCount::Type> MobileMSAASampleCount;
 
+	UPROPERTY(config, EditAnywhere, Category = Mobile, meta = (
+		ConsoleVariable = "r.Mobile.UseLegacyShadingModel", DisplayName = "Use legacy shading model",
+		ToolTip = "If true then mobile shaders will use the cheaper but lower quality specular calculation found in versions prior to 4.20.",
+		ConfigRestartRequired = true))
+		uint32 bMobileUseLegacyShadingModel : 1;
+
 	UPROPERTY(config, EditAnywhere, Category = Materials, meta = (
 		ConsoleVariable = "r.DiscardUnusedQuality", DisplayName = "Game Discards Unused Material Quality Levels",
 		ToolTip = "When running in game mode, whether to keep shaders for all quality levels in memory or only those needed for the current quality level.\nUnchecked: Keep all quality levels in memory allowing a runtime quality level change. (default)\nChecked: Discard unused quality levels when loading content for the game, saving some memory."))
@@ -463,6 +469,20 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ToolTip = "When enabled, after changing the material on a Required particle module a Particle Cutout texture will be chosen automatically from the Opacity Mask texture if it exists, if not the Opacity Texture will be used if it exists."))
 	uint32 bDefaultParticleCutouts : 1;
 
+	UPROPERTY(config, EditAnywhere, Category = Optimizations, meta = (
+		ConsoleVariable = "fx.GPUSimulationTextureSizeX",
+		DisplayName = "GPU Particle simulation texture size - X",
+		ToolTip = "The X size of the GPU simulation texture size. SizeX*SizeY determines the maximum number of GPU simulated particles in an emitter. Potentially overridden by CVar settings in BaseDeviceProfile.ini.",
+		ConfigRestartRequired = true))
+	int32 GPUSimulationTextureSizeX;
+	
+	UPROPERTY(config, EditAnywhere, Category = Optimizations, meta = (
+		ConsoleVariable = "fx.GPUSimulationTextureSizeY",
+		DisplayName = "GPU Particle simulation texture size - Y",
+		ToolTip = "The Y size of the GPU simulation texture size. SizeX*SizeY determines the maximum number of GPU simulated particles in an emitter. Potentially overridden by CVar settings in BaseDeviceProfile.ini.",
+		ConfigRestartRequired = true))
+	int32 GPUSimulationTextureSizeY;
+
 	UPROPERTY(config, EditAnywhere, Category = Lighting, meta = (
 		ConsoleVariable = "r.AllowGlobalClipPlane", DisplayName = "Support global clip plane for Planar Reflections",
 		ToolTip = "Whether to support the global clip plane needed for planar reflections.  Enabling this increases BasePass triangle cost by ~15% regardless of whether planar reflections are active. Changing this setting requires restarting the editor.",
@@ -634,8 +654,8 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConfigRestartRequired = true))
 		uint32 bSupportReversedIndexBuffers : 1;
 
-	UPROPERTY(config, EditAnywhere, Category = Optimizations, meta = (
-		ConsoleVariable = "r.SupportMaterialLayers", DisplayName = "Support new material layering. This also requires the experimental feature 'MaterialLayeringEnabled' to be turned on",
+	UPROPERTY(config, EditAnywhere, Category = Experimental, meta = (
+		ConsoleVariable = "r.SupportMaterialLayers", Tooltip = "Support new material layering system. Disabling it reduces some overhead in place to support the experimental feature",
 		ConfigRestartRequired = true))
 		uint32 bSupportMaterialLayers : 1;
 

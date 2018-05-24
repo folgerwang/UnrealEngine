@@ -96,6 +96,11 @@ namespace UnrealBuildTool
 		PostConfigInit,
 
 		/// <summary>
+		/// After PostConfigInit and before coreUobject initialized. used for early boot loading screens before the uobjects are initialized
+		/// </summary>
+		PreEarlyLoadingScreen,
+
+		/// <summary>
 		/// Loaded before the engine is fully initialized for modules that need to hook into the loading screen before it triggers
 		/// </summary>
 		PreLoadingScreen,

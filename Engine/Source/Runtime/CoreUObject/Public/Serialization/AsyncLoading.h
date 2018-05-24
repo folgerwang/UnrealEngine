@@ -334,7 +334,7 @@ public:
 * FLinkerLoad.
 */
 
-struct FAsyncPackage : FGCObject
+struct FAsyncPackage : public FGCObject
 {
 	friend struct FScopedAsyncPackageEvent;
 	/**
@@ -477,6 +477,10 @@ struct FAsyncPackage : FGCObject
 
 	/** FGCObject Interface */
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	virtual FString GetReferencerName() const override
+	{ 
+		return FString::Printf(TEXT("FAsyncPackage %s"), *GetPackageName().ToString()); 
+	}
 
 	/** Adds a new object referenced by this package */
 	void AddObjectReference(UObject* InObject);

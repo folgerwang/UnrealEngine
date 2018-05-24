@@ -158,7 +158,7 @@ namespace AutomationTool.Tasks
 				{
 					foreach (BuildProduct BuildProduct in Receipt.BuildProducts)
 					{
-						if (String.IsNullOrEmpty(Parameters.BuildProductType) || BuildProduct.Type == BuildProductType)
+						if ((String.IsNullOrEmpty(Parameters.BuildProductType) && TargetReceipt.GetStageTypeFromBuildProductType(BuildProduct) == StagedFileType) || BuildProduct.Type == BuildProductType)
 						{
 							Files.Add(BuildProduct.Path);
 						}

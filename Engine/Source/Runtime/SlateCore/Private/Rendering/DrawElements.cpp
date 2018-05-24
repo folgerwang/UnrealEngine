@@ -6,14 +6,28 @@
 #include "Widgets/SWindow.h"
 #include "HAL/IConsoleManager.h"
 #include "Types/ReflectionMetadata.h"
+#include "Fonts/ShapedTextFwd.h"
+#include "Fonts/FontCache.h"
+#include "Rendering/SlateObjectReferenceCollector.h"
 
 DECLARE_CYCLE_STAT(TEXT("FSlateDrawElement::Make Time"), STAT_SlateDrawElementMakeTime, STATGROUP_SlateVerbose);
 DECLARE_CYCLE_STAT(TEXT("FSlateDrawElement::MakeCustomVerts Time"), STAT_SlateDrawElementMakeCustomVertsTime, STATGROUP_Slate);
+DECLARE_CYCLE_STAT(TEXT("FSlateDrawElement::Prebatch Time"), STAT_SlateDrawElementPrebatchTime, STATGROUP_Slate);
 
 DEFINE_STAT(STAT_SlateBufferPoolMemory);
 
 FSlateShaderResourceManager* FSlateDataPayload::ResourceManager;
 
+static bool IsResourceObjectValid(UObject*& InObject)
+{
+	if (InObject != nullptr && (InObject->IsPendingKillOrUnreachable() || InObject->HasAnyFlags(RF_BeginDestroyed)))
+	{
+		UE_LOG(LogSlate, Warning, TEXT("Attempted to access resource for %s which is pending kill, unreachable or pending destroy"), *InObject->GetName());
+		return false;
+	}
+
+	return true;
+}
 
 FSlateWindowElementList::FSlateWindowElementList(TSharedPtr<SWindow> InPaintWindow)
 	: PaintWindow(InPaintWindow)
@@ -33,7 +47,15 @@ FSlateWindowElementList::FSlateWindowElementList(TSharedPtr<SWindow> InPaintWind
 	// Only keep UObject resources alive if this window element list is born on the game thread.
 	if (IsInGameThread())
 	{
-		ResourceGCRoot = MakeShared<FWindowElementGCObject>(this);
+		ResourceGCRoot = MakeUnique<FWindowElementGCObject>(this);
+	}
+}
+
+FSlateWindowElementList::~FSlateWindowElementList()
+{
+	if (ResourceGCRoot.IsValid())
+	{
+		ResourceGCRoot->ClearOwner();
 	}
 }
 
@@ -193,8 +215,6 @@ void FSlateDrawElement::ApplyPositionOffset(FSlateDrawElement& Element, const FV
 	Element.LayoutToRenderTransform = Concatenate(InverseLayoutTransform, Element.RenderTransform);
 }
 
-#if SLATE_EXCESSIVE_CULLING
-
 bool FSlateDrawElement::ShouldCull(const FSlateWindowElementList& ElementList)
 {
 	const FSlateClippingManager& ClippingManager = ElementList.GetClippingManager();
@@ -208,7 +228,26 @@ bool FSlateDrawElement::ShouldCull(const FSlateWindowElementList& ElementList)
 	return false;
 }
 
-#endif
+bool FSlateDrawElement::ShouldCull(const FSlateWindowElementList& ElementList, const FPaintGeometry& PaintGeometry, const FSlateBrush* InBrush)
+{
+	if (ShouldCull(ElementList, PaintGeometry))
+	{
+		return true;
+	}
+
+	if (InBrush->GetDrawType() == ESlateBrushDrawType::NoDrawType)
+	{
+		return true;
+	}
+
+	UObject* ResourceObject = InBrush->GetResourceObject();
+	if (!IsResourceObjectValid(ResourceObject))
+	{
+		return true;
+	}
+
+	return false;
+}
 
 void FSlateDrawElement::MakeDebugQuad( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry)
 {
@@ -238,20 +277,15 @@ void FSlateDrawElement::MakeBox(
 	{
 		return;
 	}
-	
-	if (InBrush->DrawAs == ESlateBrushDrawType::Border)
+
+	FSlateDrawBox& Element = (InBrush->DrawAs == ESlateBrushDrawType::Border) ? ElementList.AddBorder() : ElementList.AddBox();
+	Element.Setup(ElementList, InLayer, PaintGeometry, InDrawEffects);
+	Element.SetTint(InTint);
+	Element.SetBrush(InBrush);
+
+	if (UObject* ResourceObject = InBrush->GetResourceObject())
 	{
-		FSlateDrawBox& Box = ElementList.AddBorder();
-		Box.Setup(ElementList, InLayer, PaintGeometry, InDrawEffects);
-		Box.SetTint(InTint);
-		Box.SetBrush(InBrush, FSlateDataPayload::ResourceManager);
-	}
-	else
-	{
-		FSlateDrawBox& Box = ElementList.AddBox();
-		Box.Setup(ElementList, InLayer, PaintGeometry, InDrawEffects);
-		Box.SetTint(InTint);
-		Box.SetBrush(InBrush, FSlateDataPayload::ResourceManager);
+		ElementList.ResourcesToReport.Add(InBrush->GetResourceObject());
 	}
 }
 
@@ -264,66 +298,43 @@ void FSlateDrawElement::MakeBox(
 	ESlateDrawEffect InDrawEffects, 
 	const FLinearColor& InTint )
 {
-	PaintGeometry.CommitTransformsIfUsingLegacyConstructor();
+	MakeBox(ElementList, InLayer, PaintGeometry, InBrush, InDrawEffects, InTint);
+}
 
-	// Ignore invalid rendering handles.
-	if ( !InRenderingHandle.IsValid() )
-	{
-		return;
-	}
+void FSlateDrawElement::MakeRotatedBox(
+	FSlateWindowElementList& ElementList,
+	uint32 InLayer,
+	const FPaintGeometry& PaintGeometry,
+	const FSlateBrush* InBrush,
+	ESlateDrawEffect InDrawEffects,
+	float Angle2D,
+	TOptional<FVector2D> InRotationPoint,
+	ERotationSpace RotationSpace,
+	const FLinearColor& InTint)
+{
+	PaintGeometry.CommitTransformsIfUsingLegacyConstructor();
 
 	if (ShouldCull(ElementList, PaintGeometry, InBrush, InTint))
 	{
 		return;
 	}
 
-	FSlateShaderResourceProxy* RenderingProxy = InRenderingHandle.Data->Proxy;
+	FSlateDrawBox& Element = (InBrush->DrawAs == ESlateBrushDrawType::Border) ? ElementList.AddBorder() : ElementList.AddBox();
+	Element.Setup(ElementList, InLayer, PaintGeometry, InDrawEffects);
+	Element.SetTint(InTint);
+	Element.SetBrush(InBrush);
 
-	if (InBrush->DrawAs == ESlateBrushDrawType::Border)
-	{
-		FSlateDrawBox& Box = ElementList.AddBorder();
-		Box.Setup(ElementList, InLayer, PaintGeometry, InDrawEffects);
-		Box.SetTint(InTint);
-		Box.SetBrush(InBrush, RenderingProxy);
-	}
-	else
-	{
-		FSlateDrawBox& Box = ElementList.AddBox();
-		Box.Setup(ElementList, InLayer, PaintGeometry, InDrawEffects);
-		Box.SetTint(InTint);
-		Box.SetBrush(InBrush, RenderingProxy);
-	}
-}
-
-void FSlateDrawElement::MakeRotatedBox( 
-	FSlateWindowElementList& ElementList,
-	uint32 InLayer, 
-	const FPaintGeometry& PaintGeometry,
-	const FSlateBrush* InBrush,
-	ESlateDrawEffect InDrawEffects, 
-	float Angle2D,
-	TOptional<FVector2D> InRotationPoint,
-	ERotationSpace RotationSpace,
-	const FLinearColor& InTint )
-{
-	PaintGeometry.CommitTransformsIfUsingLegacyConstructor();
-
-	FPaintGeometry RotatedPaintGeometry = PaintGeometry;
-	
 	if (Angle2D != 0.0f)
 	{
-		FVector2D RotationPoint = GetRotationPoint(PaintGeometry, InRotationPoint, RotationSpace);
+		const FVector2D RotationPoint = GetRotationPoint(PaintGeometry, InRotationPoint, RotationSpace);
 		const FSlateRenderTransform RotationTransform = Concatenate(Inverse(RotationPoint), FQuat2D(Angle2D), RotationPoint);
-		RotatedPaintGeometry.SetRenderTransform(Concatenate(RotationTransform, RotatedPaintGeometry.GetAccumulatedRenderTransform()));
+		Element.SetRenderTransform(Concatenate(RotationTransform, Element.GetRenderTransform()));
 	}
 
-	MakeBox(
-		ElementList,
-		InLayer,
-		RotatedPaintGeometry,
-		InBrush,
-		InDrawEffects,
-		InTint);
+	if (UObject* ResourceObject = InBrush->GetResourceObject())
+	{
+		ElementList.ResourcesToReport.Add(InBrush->GetResourceObject());
+	}
 }
 
 
@@ -332,7 +343,7 @@ void FSlateDrawElement::MakeText( FSlateWindowElementList& ElementList, uint32 I
 	SCOPE_CYCLE_COUNTER(STAT_SlateDrawElementMakeTime)
 	PaintGeometry.CommitTransformsIfUsingLegacyConstructor();
 
-	if (ShouldCull(ElementList, PaintGeometry, InTint))
+	if (ShouldCull(ElementList, PaintGeometry, InTint, InText))
 	{
 		return;
 	}
@@ -341,6 +352,9 @@ void FSlateDrawElement::MakeText( FSlateWindowElementList& ElementList, uint32 I
 	Element.Setup(ElementList, InLayer, PaintGeometry, InDrawEffects);
 	Element.SetTint(InTint);
 	Element.SetText(ElementList, InText, InFontInfo, StartIndex, EndIndex);
+
+	FSlateObjectReferenceCollector Collector(ElementList.ResourcesToReport);
+	Element.AddReferencedObjects(Collector);
 }
 
 void FSlateDrawElement::MakeText( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FString& InText, const FSlateFontInfo& InFontInfo, ESlateDrawEffect InDrawEffects, const FLinearColor& InTint )
@@ -348,23 +362,19 @@ void FSlateDrawElement::MakeText( FSlateWindowElementList& ElementList, uint32 I
 	SCOPE_CYCLE_COUNTER(STAT_SlateDrawElementMakeTime)
 	PaintGeometry.CommitTransformsIfUsingLegacyConstructor();
 
-	if (ShouldCull(ElementList, PaintGeometry, InTint))
+	// Don't try and render empty text
+	if (InText.Len() == 0)
 	{
 		return;
 	}
 
-	FSlateDrawText& Box = ElementList.AddText();
-	Box.Setup(ElementList, InLayer, PaintGeometry, InDrawEffects);
-	Box.SetTint(InTint);
-	Box.SetText(ElementList, InText, InFontInfo);
-}
+	if (ShouldCull(ElementList, PaintGeometry, InTint, InText))
+	{
+		return;
+	}
 
-void FSlateDrawElement::MakeText( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FText& InText, const FSlateFontInfo& InFontInfo, ESlateDrawEffect InDrawEffects, const FLinearColor& InTint )
-{
-	SCOPE_CYCLE_COUNTER(STAT_SlateDrawElementMakeTime)
-	PaintGeometry.CommitTransformsIfUsingLegacyConstructor();
-
-	if (ShouldCull(ElementList, PaintGeometry, InTint))
+	// Don't do anything if there the font would be completely transparent 
+	if (InTint.A == 0 && !InFontInfo.OutlineSettings.IsVisible())
 	{
 		return;
 	}
@@ -372,7 +382,10 @@ void FSlateDrawElement::MakeText( FSlateWindowElementList& ElementList, uint32 I
 	FSlateDrawText& Element = ElementList.AddText();
 	Element.Setup(ElementList, InLayer, PaintGeometry, InDrawEffects);
 	Element.SetTint(InTint);
-	Element.SetText(ElementList, InText.ToString(), InFontInfo);
+	Element.SetText(ElementList, InText, InFontInfo);
+
+	FSlateObjectReferenceCollector Collector(ElementList.ResourcesToReport);
+	Element.AddReferencedObjects(Collector);
 }
 
 void FSlateDrawElement::MakeShapedText( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FShapedGlyphSequenceRef& InShapedGlyphSequence, ESlateDrawEffect InDrawEffects, const FLinearColor& BaseTint, const FLinearColor& OutlineTint )
@@ -380,7 +393,19 @@ void FSlateDrawElement::MakeShapedText( FSlateWindowElementList& ElementList, ui
 	SCOPE_CYCLE_COUNTER(STAT_SlateDrawElementMakeTime)
 	PaintGeometry.CommitTransformsIfUsingLegacyConstructor();
 
+	if (InShapedGlyphSequence->GetGlyphsToRender().Num() == 0)
+	{
+		return;
+	}
+
 	if (ShouldCull(ElementList, PaintGeometry))
+	{
+		return;
+	}
+
+	// Don't do anything if there the font would be completely transparent 
+	if ((BaseTint.A == 0 && InShapedGlyphSequence->GetFontOutlineSettings().OutlineSize == 0) || 
+		(BaseTint.A == 0 && OutlineTint.A == 0))
 	{
 		return;
 	}
@@ -389,6 +414,9 @@ void FSlateDrawElement::MakeShapedText( FSlateWindowElementList& ElementList, ui
 	Element.Setup(ElementList, InLayer, PaintGeometry, InDrawEffects);
 	Element.SetTint(BaseTint);
 	Element.SetShapedText(InShapedGlyphSequence, OutlineTint);
+
+	FSlateObjectReferenceCollector Collector(ElementList.ResourcesToReport);
+	Element.AddReferencedObjects(Collector);
 }
 
 void FSlateDrawElement::MakeGradient( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TArray<FSlateGradientStop> InGradientStops, EOrientation InGradientType, ESlateDrawEffect InDrawEffects )
@@ -405,7 +433,6 @@ void FSlateDrawElement::MakeGradient( FSlateWindowElementList& ElementList, uint
 	DrawElt.ElementType = ET_Gradient;
 	DrawElt.DataPayload.SetGradientPayloadProperties( InGradientStops, InGradientType );
 }
-
 
 void FSlateDrawElement::MakeSpline( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness, ESlateDrawEffect InDrawEffects, const FLinearColor& InTint )
 {
@@ -434,7 +461,6 @@ void FSlateDrawElement::MakeCubicBezierSpline(FSlateWindowElementList & ElementL
 	DrawElt.ElementType = ET_Spline;
 	DrawElt.DataPayload.SetCubicBezierPayloadProperties(P0, P1, P2, P3, InThickness, InTint);
 }
-
 
 void FSlateDrawElement::MakeDrawSpaceSpline( FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness, ESlateDrawEffect InDrawEffects, const FLinearColor& InTint )
 {
@@ -472,7 +498,6 @@ void FSlateDrawElement::MakeDrawSpaceGradientSpline(FSlateWindowElementList& Ele
 	DrawElt.ElementType = ET_Spline;
 	DrawElt.DataPayload.SetGradientHermiteSplinePayloadProperties(InStart, InStartDir, InEnd, InEndDir, InThickness, InGradientStops);
 }
-
 
 void FSlateDrawElement::MakeLines(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const TArray<FVector2D>& Points, ESlateDrawEffect InDrawEffects, const FLinearColor& InTint, bool bAntialias, float Thickness)
 {
@@ -539,8 +564,8 @@ void FSlateDrawElement::MakeCustom( FSlateWindowElementList& ElementList, uint32
 
 void FSlateDrawElement::MakeCustomVerts(FSlateWindowElementList& ElementList, uint32 InLayer, const FSlateResourceHandle& InRenderResourceHandle, const TArray<FSlateVertex>& InVerts, const TArray<SlateIndex>& InIndexes, ISlateUpdatableInstanceBuffer* InInstanceData, uint32 InInstanceOffset, uint32 InNumInstances, ESlateDrawEffect InDrawEffects)
 {
-	SCOPE_CYCLE_COUNTER(STAT_SlateDrawElementMakeCustomVertsTime)
-
+	SCOPE_CYCLE_COUNTER(STAT_SlateDrawElementMakeCustomVertsTime);
+	
 	if (ShouldCull(ElementList))
 	{
 		return;
@@ -551,7 +576,7 @@ void FSlateDrawElement::MakeCustomVerts(FSlateWindowElementList& ElementList, ui
 	DrawElt.RenderTransform = FSlateRenderTransform();
 	DrawElt.ElementType = ET_CustomVerts;
 
-	FSlateShaderResourceProxy* RenderingProxy = InRenderResourceHandle.Data->Proxy;
+	const FSlateShaderResourceProxy* RenderingProxy = InRenderResourceHandle.GetResourceProxy();
 
 	DrawElt.DataPayload.SetCustomVertsPayloadProperties(RenderingProxy, InVerts, InIndexes, InInstanceData, InInstanceOffset, InNumInstances);
 }
@@ -563,12 +588,17 @@ void FSlateDrawElement::MakeCachedBuffer(FSlateWindowElementList& ElementList, u
 		return;
 	}
 
-	FSlateDrawElement& DrawElt = ElementList.AddUninitialized();
-	DrawElt.Init(ElementList, InLayer, FPaintGeometry(), ESlateDrawEffect::None);
-	DrawElt.RenderTransform = FSlateRenderTransform();
-	DrawElt.ElementType = ET_CachedBuffer;
-	DrawElt.DataPayload.SetCachedBufferPayloadProperties(CachedRenderDataHandle.Get(), Offset);
+	// Don't draw invalid render data handles.
+	if (!CachedRenderDataHandle.IsValid())
+	{
+		return;
+	}
 
+	FSlateDrawCachedBuffer& Element = ElementList.AddCachedBuffer();
+	Element.Setup(ElementList, InLayer, FPaintGeometry(), ESlateDrawEffect::None);
+	Element.SetCachedBuffer(CachedRenderDataHandle.Get(), Offset);
+
+	// Note that the buffer is currently in use, this avoid releasing it back into a pool.
 	ElementList.BeginUsingCachedBuffer(CachedRenderDataHandle);
 }
 
@@ -901,9 +931,14 @@ void FSlateBatchData::Merge(FElementBatchMap& InLayerToElementBatches, uint32& V
 	InLayerToElementBatches.Reset();
 }
 
-void FSlateWindowElementList::MergeResources(const TSet<UObject*>& AssociatedResources)
+void FSlateWindowElementList::MergeResources(const TArray<UObject*>& AssociatedResources)
 {
-	ExtraResources.Append(AssociatedResources);
+	for (UObject* AssociatedResource : AssociatedResources)
+	{
+		IsResourceObjectValid(AssociatedResource);
+	}
+
+	ResourcesToReport.Append(AssociatedResources);
 }
 
 void FSlateWindowElementList::MergeElementList(FSlateWindowElementList* ElementList, FVector2D AbsoluteOffset)
@@ -1048,7 +1083,7 @@ int32 FSlateWindowElementList::FVolatilePaint::ExecutePaint(FSlateWindowElementL
 	if ( WidgetToPaint.IsValid() )
 	{
 #if SLATE_VERBOSE_NAMED_EVENTS
-		FScopedNamedEvent Event(FColor::Orange, *FReflectionMetaData::GetWidgetDebugInfo(WidgetToPaint.Get()));
+		SCOPED_NAMED_EVENT_FSTRING(FReflectionMetaData::GetWidgetDebugInfo(WidgetToPaint.Get()), FColor::Orange);
 #endif
 
 		// Have to run a slate pre-pass for all volatile elements, some widgets cache information like 
@@ -1244,6 +1279,11 @@ void FSlateWindowElementList::PostDraw_ParallelThread()
 {
 	check(IsInParallelRenderingThread());
 
+	PostDraw_NonParallelRenderer();
+}
+
+void FSlateWindowElementList::PostDraw_NonParallelRenderer()
+{
 	for ( auto& Entry : DrawLayers )
 	{
 		Entry.Key->BatchMap = nullptr;
@@ -1273,10 +1313,8 @@ void FSlateWindowElementList::ResetElementBuffers()
 	checkSlow(!IsCachedRenderDataInUse());
 	check(IsThreadSafeForSlateRendering());
 
-	bReportReferences = true;
-
 	// Reset the Main Thread Resources, because we no longer need to keep these referenced objects alive.
-	ExtraResources.Reset();
+	ResourcesToReport.Reset();
 
 	DeferredPaintList.Reset();
 	VolatilePaintList.Reset();
@@ -1305,6 +1343,18 @@ void FSlateWindowElementList::ResetElementBuffers()
 	MemManager.Flush();
 
 	RenderTargetWindow = nullptr;
+
+	bReportReferences = true;
+}
+
+void FSlateWindowElementList::SetShouldReportReferencesToGC(bool bInReportReferences)
+{
+	bReportReferences = bInReportReferences;
+}
+
+bool FSlateWindowElementList::ShouldReportUObjectReferences() const
+{
+	return bReportReferences || IsCachedRenderDataInUse();
 }
 
 FSlateWindowElementList::FWindowElementGCObject::FWindowElementGCObject(FSlateWindowElementList* InOwner)
@@ -1312,41 +1362,35 @@ FSlateWindowElementList::FWindowElementGCObject::FWindowElementGCObject(FSlateWi
 {
 }
 
+void FSlateWindowElementList::FWindowElementGCObject::ClearOwner()
+{
+	Owner = nullptr;
+}
+
 void FSlateWindowElementList::FWindowElementGCObject::AddReferencedObjects(FReferenceCollector& Collector)
 {
-	if (GGameThreadId == FPlatformTLS::GetCurrentThreadId() && Owner->bReportReferences)
+	if (Owner && Owner->ShouldReportUObjectReferences())
 	{
-		AddReferencedObjectsForLayer(Collector, Owner->RootDrawLayer);
-
-		for (auto& DrawLayerEntry : Owner->DrawLayers)
-		{
-			AddReferencedObjectsForLayer(Collector, *DrawLayerEntry.Value.Get());
-		}
-
-		Collector.AddReferencedObjects(Owner->ExtraResources);
+		Owner->AddReferencedObjects(Collector);
 	}
 }
 
-void FSlateWindowElementList::FWindowElementGCObject::AddReferencedObjectsForLayer(FReferenceCollector& Collector, FSlateDrawLayer& DrawLayer)
+void FSlateWindowElementList::AddReferencedObjects(FReferenceCollector& Collector)
 {
-	for (FSlateDrawElement& DrawElement : DrawLayer.DrawElements)
+	Collector.AddReferencedObjects(ResourcesToReport);
+}
+
+int32 FSlateWindowElementList::GetElementCount() const
+{
+	int32 ElementTotal = RootDrawLayer.GetElementCount();
+
+	for (auto& DrawLayerEntry : DrawLayers)
 	{
-		if (const FSlateBrush* BrushResource = DrawElement.GetDataPayload().BrushResource)
+		if (FSlateDrawLayer* DrawLayer = DrawLayerEntry.Value.Get())
 		{
-			if (UObject* ResourceObject = BrushResource->GetResourceObject())
-			{
-				Collector.AddReferencedObject(ResourceObject);
-			}
+			ElementTotal += DrawLayer->GetElementCount();
 		}
 	}
 
-	for (FSlateDrawBox& BoxElement : DrawLayer.BoxElements)
-	{
-		BoxElement.AddReferencedObjects(Collector);
-	}
-
-	for (FSlateDrawBox& BorderElement : DrawLayer.BorderElements)
-	{
-		BorderElement.AddReferencedObjects(Collector);
-	}
+	return ElementTotal;
 }

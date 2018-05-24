@@ -2268,7 +2268,7 @@ bool APlayerController::InputAxis(FKey Key, float Delta, float DeltaTime, int32 
 	return bResult;
 }
 
-bool APlayerController::InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex)
+bool APlayerController::InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex)
 {
 	if (GEngine->XRSystem.IsValid())
 	{
@@ -2282,7 +2282,7 @@ bool APlayerController::InputTouch(uint32 Handle, ETouchType::Type Type, const F
 	bool bResult = false;
 	if (PlayerInput)
 	{
-		bResult = PlayerInput->InputTouch(Handle, Type, TouchLocation, DeviceTimestamp, TouchpadIndex);
+		bResult = PlayerInput->InputTouch(Handle, Type, TouchLocation, Force, DeviceTimestamp, TouchpadIndex);
 
 		if (bEnableTouchEvents || bEnableTouchOverEvents)
 		{
@@ -2459,7 +2459,10 @@ void APlayerController::BuildInputStack(TArray<UInputComponent*>& InputStack)
 
 void APlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
 {
-	TArray<UInputComponent*> InputStack;
+	static TArray<UInputComponent*> InputStack;
+
+	// must be called non-recursively and on the game thread
+	check(IsInGameThread() && !InputStack.Num());
 
 	// process all input components in the stack, top down
 	{
@@ -2472,6 +2475,8 @@ void APlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGa
 		SCOPE_CYCLE_COUNTER(STAT_PC_ProcessInputStack);
 		PlayerInput->ProcessInputStack(InputStack, DeltaTime, bGamePaused);
 	}
+
+	InputStack.Reset();
 }
 
 void APlayerController::PreProcessInput(const float DeltaTime, const bool bGamePaused)
@@ -3033,7 +3038,7 @@ void APlayerController::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayI
 	{
 		DisplayDebugManager.SetDrawColor(FColor::White);
 		DisplayDebugManager.DrawString(FString::Printf(TEXT("Force Feedback - Enabled: %s LL: %.2f LS: %.2f RL: %.2f RS: %.2f"), (bForceFeedbackEnabled ? TEXT("true") : TEXT("false")), ForceFeedbackValues.LeftLarge, ForceFeedbackValues.LeftSmall, ForceFeedbackValues.RightLarge, ForceFeedbackValues.RightSmall));
-		DisplayDebugManager.DrawString(FString::Printf(TEXT("Pawn: %s"), *this->AcknowledgedPawn->GetFName().ToString()));
+		DisplayDebugManager.DrawString(FString::Printf(TEXT("Pawn: %s"), this->AcknowledgedPawn ? *this->AcknowledgedPawn->GetFName().ToString() : TEXT("none")));
 		
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		DisplayDebugManager.DrawString(TEXT("-------------Last Played Force Feedback--------------"));												      
@@ -5179,7 +5184,7 @@ void APlayerController::BuildHiddenComponentList(const FVector& ViewLocation, TS
 		}
 	}
 
-	// iterate backwards to we can remove as we go
+	// iterate backwards so we can remove as we go
 	for (int32 ComponentIndx = HiddenPrimitiveComponents.Num() - 1; ComponentIndx >= 0; --ComponentIndx)
 	{
 		TWeakObjectPtr<UPrimitiveComponent> ComponentPtr = HiddenPrimitiveComponents[ComponentIndx];

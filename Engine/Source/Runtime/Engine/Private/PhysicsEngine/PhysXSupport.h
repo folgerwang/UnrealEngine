@@ -442,6 +442,24 @@ private:
 	int32 SceneType;
 };
 
+class FPhysXProfilerCallback : public PxProfilerCallback
+{
+
+public:
+	virtual void* zoneStart(const char* eventName, bool detached, uint64_t contextId) override;
+	virtual void zoneEnd(void* profilerData, const char* eventName, bool detached, uint64_t contextId) override;
+
+private:
+};
+
+struct FPhysXMbpBroadphaseCallback : public PxBroadPhaseCallback
+{
+
+public:
+	virtual void onObjectOutOfBounds(PxShape& InShape, PxActor& InActor) override;
+	virtual void onObjectOutOfBounds(PxAggregate& InAggregate) override;
+
+};
 
 #if WITH_APEX
 /**

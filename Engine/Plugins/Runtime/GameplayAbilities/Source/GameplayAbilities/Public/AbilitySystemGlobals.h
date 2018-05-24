@@ -71,10 +71,7 @@ class GAMEPLAYABILITIES_API UAbilitySystemGlobals : public UObject
 	virtual void PopCurrentAppliedGE() { }
 
 	/** Returns true if the ability system should try to predict gameplay effects applied to non local targets */
-	bool ShouldPredictTargetGameplayEffects() const
-	{
-		return PredictTargetGameplayEffects;
-	}
+	bool ShouldPredictTargetGameplayEffects() const;
 
 	/** Searches the passed in class to look for a UFunction implementing the gameplay cue tag, sets MatchedTag to the exact tag found */
 	UFunction* GetGameplayCueFunction(const FGameplayTag &Tag, UClass* Class, FName &MatchedTag);

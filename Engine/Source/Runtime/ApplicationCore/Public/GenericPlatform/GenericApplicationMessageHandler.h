@@ -337,12 +337,24 @@ public:
     {
     }
 
+	DEPRECATED(4.20, "This function signature is deprecated, use OnTouchStarted that takes a Force")
 	virtual bool OnTouchStarted( const TSharedPtr< FGenericWindow >& Window, const FVector2D& Location, int32 TouchIndex, int32 ControllerId )
+	{
+		return OnTouchStarted(Window, Location, 1.0f, TouchIndex, ControllerId);
+	}
+
+	virtual bool OnTouchStarted( const TSharedPtr< FGenericWindow >& Window, const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId )
 	{
 		return false;
 	}
 
+	DEPRECATED(4.20, "This function signature is deprecated, use OnTouchMoved that takes a Force")
 	virtual bool OnTouchMoved( const FVector2D& Location, int32 TouchIndex, int32 ControllerId )
+	{
+		return OnTouchMoved(Location, 1.0f, TouchIndex, ControllerId);
+	}
+
+	virtual bool OnTouchMoved( const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId )
 	{
 		return false;
 	}

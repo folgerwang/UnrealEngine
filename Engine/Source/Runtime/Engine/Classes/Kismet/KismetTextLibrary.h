@@ -6,6 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/TextProperty.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Internationalization/PolyglotTextData.h"
 #include "KismetTextLibrary.generated.h"
 
 #if !CPP
@@ -275,4 +276,18 @@ class ENGINE_API UKismetTextLibrary : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintPure, Category="Utilities|Text", meta=(DisplayName="Find String Table ID and Key from Text"))
 	static bool StringTableIdAndKeyFromText(FText Text, FName& OutTableId, FString& OutKey);
+
+	/**
+	 * Check whether the given polyglot data is valid.
+	 * @return True if the polyglot data is valid, false otherwise. ErrorMessage will be filled in if the the data is invalid.
+	 */
+	UFUNCTION(BlueprintPure, Category="Utilities|Text")
+	static void IsPolyglotDataValid(const FPolyglotTextData& PolyglotData, bool& IsValid, FText& ErrorMessage);
+
+	/**
+	 * Get the text instance created from this polyglot data.
+	 * @return The text instance, or an empty text if the data is invalid.
+	 */
+	UFUNCTION(BlueprintPure, Category="Utilities|Text")
+	static FText PolyglotDataToText(const FPolyglotTextData& PolyglotData);
 };

@@ -115,6 +115,8 @@ public:
 
 	virtual ~FOnlineSessionIOS();
 
+	virtual TSharedPtr<const FUniqueNetId> CreateSessionIdFromString(const FString& SessionIdStr) override;
+
 	FNamedOnlineSession* GetNamedSession(FName SessionName) override;
 
 	virtual void RemoveNamedSession(FName SessionName) override;

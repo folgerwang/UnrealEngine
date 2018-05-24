@@ -78,22 +78,19 @@ struct FAnalyticsEventAttribute;
 	"bAllowToBeContacted"
  */
 
-namespace Lex
+inline void LexFromString( ECrashDescVersions& OutValue, const TCHAR* Buffer )
 {
-	inline void FromString( ECrashDescVersions& OutValue, const TCHAR* Buffer )
-	{
-		OutValue = (ECrashDescVersions)FCString::Atoi( Buffer );
-	}
+	OutValue = (ECrashDescVersions)FCString::Atoi( Buffer );
+}
 
-	inline void FromString( ECrashDumpMode& OutValue, const TCHAR* Buffer )
-	{
-		OutValue = (ECrashDumpMode)FCString::Atoi( Buffer );
-	}
+inline void LexFromString( ECrashDumpMode& OutValue, const TCHAR* Buffer )
+{
+	OutValue = (ECrashDumpMode)FCString::Atoi( Buffer );
+}
 
-	inline void FromString( FEngineVersion& OutValue, const TCHAR* Buffer )
-	{
-		FEngineVersion::Parse( Buffer, OutValue );
-	}
+inline void LexFromString( FEngineVersion& OutValue, const TCHAR* Buffer )
+{
+	FEngineVersion::Parse( Buffer, OutValue );
 }
 
 /** Simple crash property. Only for string values. */
@@ -438,7 +435,7 @@ protected:
 			const FXmlNode* CategoryNode = MainNode->FindChildNode( SecondCategory );
 			if (CategoryNode)
 			{
-				Lex::FromString( out_ReadValue, *FGenericCrashContext::UnescapeXMLString( CategoryNode->GetContent() ) );
+				LexFromString( out_ReadValue, *FGenericCrashContext::UnescapeXMLString( CategoryNode->GetContent() ) );
 			}
 		}
 	}

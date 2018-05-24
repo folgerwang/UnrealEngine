@@ -23,6 +23,7 @@
 #include "Engine/PendingNetGame.h"
 #include "Engine/LatentActionManager.h"
 #include "Engine/GameInstance.h"
+#include "Particles/WorldPSCPool.h"
 
 #include "World.generated.h"
 
@@ -74,7 +75,7 @@ typedef TArray<TWeakObjectPtr<APhysicsVolume> >::TConstIterator FConstPhysicsVol
 DECLARE_LOG_CATEGORY_EXTERN(LogSpawn, Warning, All);
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnActorSpawned, AActor*);
-
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnFeatureLevelChanged, ERHIFeatureLevel::Type);
 
 /** Proxy class that allows verification on GWorld accesses. */
 class UWorldProxy
@@ -858,16 +859,16 @@ public:
 	FString										StreamingLevelsPrefix;
 
 private:
-	/** Pointer to the current level in the queue to be made visible, NULL if none are pending.					*/
+	/** Pointer to the current level in the queue to be made visible, NULL if none are pending. */
 	UPROPERTY(Transient)
 	class ULevel*								CurrentLevelPendingVisibility;
 
-	/** Pointer to the current level in the queue to be made invisible, NULL if none are pending.					*/
+	/** Pointer to the current level in the queue to be made invisible, NULL if none are pending. */
 	UPROPERTY(Transient)
 	class ULevel*								CurrentLevelPendingInvisibility;
 
 public:
-	/** Fake NetDriver for capturing network traffic to record demos															*/
+	/** Fake NetDriver for capturing network traffic to record demos */
 	UPROPERTY()
 	class UDemoNetDriver*						DemoNetDriver;
 
@@ -936,6 +937,10 @@ public:
 	/** Hierarchical LOD System. Used when WorldSetting.bEnableHierarchicalLODSystem is true */
 	struct FHierarchicalLODBuilder*						HierarchicalLODBuilder;
 #endif // WITH_EDITOR
+
+	/** Called from DemoNetDriver when playing back a replay and the timeline is successfully scrubbed */
+	UFUNCTION()
+	void HandleTimelineScrubbed();
 
 private:
 
@@ -1135,6 +1140,10 @@ private:
 
 	/** Disables the broadcasting of level selection change. Internal use only. */
 	uint32 bBroadcastSelectionChange:1;
+
+	/** a delegate that broadcasts a notification whenever the current feautre level is changed */
+	FOnFeatureLevelChanged OnFeatureLevelChanged;
+
 #endif //WITH_EDITORONLY_DATA
 public:
 	/** The URL that was used when loading this World.																			*/
@@ -1947,7 +1956,7 @@ public:
 	FORCEINLINE UAISystemBase* GetAISystem() { return AISystem; }
 	/** AISystem const getter */
 	FORCEINLINE const UAISystemBase* GetAISystem() const { return AISystem; }
-
+	
 	/** Avoidance manager getter */
 	FORCEINLINE class UAvoidanceManager* GetAvoidanceManager() { return AvoidanceManager; }
 	/** Avoidance manager getter */
@@ -2584,6 +2593,12 @@ public:
 
 	/** Shrink level elements to their minimum size. */
 	void ShrinkLevel();
+
+	/** Add a listener for OnFeatureLevelChanged events */
+	FDelegateHandle AddOnFeatureLevelChangedHandler(const FOnFeatureLevelChanged::FDelegate& InHandler);
+
+	/** Remove a listener for OnFeatureLevelChanged events */
+	void RemoveOnFeatureLevelChangedHandler(FDelegateHandle InHandle);
 #endif // WITH_EDITOR
 	
 	/**
@@ -2912,10 +2927,10 @@ public:
 	APlayerController* SpawnPlayActor(class UPlayer* Player, ENetRole RemoteRole, const FURL& InURL, const FUniqueNetIdRepl& UniqueId, FString& Error, uint8 InNetPlayerIndex = 0);
 	
 	/** Try to find an acceptable position to place TestActor as close to possible to PlaceLocation.  Expects PlaceLocation to be a valid location inside the level. */
-	bool FindTeleportSpot( AActor* TestActor, FVector& PlaceLocation, FRotator PlaceRotation );
+	bool FindTeleportSpot( const AActor* TestActor, FVector& PlaceLocation, FRotator PlaceRotation );
 
 	/** @Return true if Actor would encroach at TestLocation on something that blocks it.  Returns a ProposedAdjustment that might result in an unblocked TestLocation. */
-	bool EncroachingBlockingGeometry( AActor* TestActor, FVector TestLocation, FRotator TestRotation, FVector* ProposedAdjustment = NULL );
+	bool EncroachingBlockingGeometry( const AActor* TestActor, FVector TestLocation, FRotator TestRotation, FVector* ProposedAdjustment = NULL );
 
 	/** Begin physics simulation */ 
 	void StartPhysicsSim();
@@ -3294,6 +3309,15 @@ public:
 
 	/** If the specified package contains a redirector to a UWorld, that UWorld is returned. Otherwise, nullptr is returned. */
 	static UWorld* FollowWorldRedirectorInPackage(UPackage* Package, UObjectRedirector** OptionalOutRedirector = nullptr);
+
+	FORCEINLINE FWorldPSCPool& GetPSCPool() { return PSCPool; }
+
+	private:
+
+	UPROPERTY()
+	FWorldPSCPool PSCPool;
+
+	//PSC Pooling END
 };
 
 /** Global UWorld pointer. Use of this pointer should be avoided whenever possible. */

@@ -222,6 +222,8 @@ void FCrashReportClient::StoreCommentAndUpload()
 
 bool FCrashReportClient::Tick(float UnusedDeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FCrashReportClient_Tick);
+
 	// We are waiting for diagnose report task to complete.
 	if( IsProcessingCallstack() )
 	{

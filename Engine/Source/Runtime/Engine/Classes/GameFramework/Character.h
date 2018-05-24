@@ -426,6 +426,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, replicatedUsing=OnRep_IsCrouched, Category=Character)
 	uint32 bIsCrouched:1;
 
+	/** Set to indicate that this Character is currently under the force of a jump (if JumpMaxHoldTime is non-zero). IsJumpProvidingForce() handles this as well. */
+	UPROPERTY(Transient, Replicated)
+	uint32 bProxyIsJumpForceApplied : 1;
+
 	/** Handle Crouching replicated from server */
 	UFUNCTION()
 	virtual void OnRep_IsCrouched();
@@ -471,6 +475,16 @@ public:
 	 */
 	UPROPERTY(Transient, BlueprintReadOnly, VisibleInstanceOnly, Category=Character)
 	float JumpKeyHoldTime;
+
+	/**
+	 * Amount of jump force time remaining, if JumpMaxHoldTime > 0.
+	 */
+	UPROPERTY(Transient, BlueprintReadOnly, VisibleInstanceOnly, Category=Character)
+	float JumpForceTimeRemaining;
+
+	/** Track last time a jump force started for a proxy. */
+	UPROPERTY(Transient, BlueprintReadOnly, VisibleInstanceOnly, Category=Character)
+	float ProxyJumpForceStartedTime;
 
 	/** 
 	 * The max time the jump key can be held.
@@ -794,8 +808,8 @@ public:
 	/** Trigger jump if jump button has been pressed. */
 	virtual void CheckJumpInput(float DeltaTime);
 
-	/** Reset jump input state after having checked input. */
-	virtual void ClearJumpInput();
+	/** Update jump input state after having checked input. */
+	virtual void ClearJumpInput(float DeltaTime);
 
 	/**
 	 * Get the maximum jump time for the character.

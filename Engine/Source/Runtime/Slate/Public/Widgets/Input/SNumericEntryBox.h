@@ -470,7 +470,7 @@ private:
 		else
 		{
 			NumericType NumericValue;
-			if (LexicalConversion::TryParseString(NumericValue, *NewValue.ToString()))
+			if (LexTryParseString(NumericValue, *NewValue.ToString()))
 			{
 				OnValueChanged.ExecuteIfBound( NumericValue );
 			}

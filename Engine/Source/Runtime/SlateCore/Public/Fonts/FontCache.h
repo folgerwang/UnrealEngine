@@ -339,6 +339,8 @@ public:
 	 */
 	FShapedGlyphSequencePtr GetSubSequence(const int32 InStartIndex, const int32 InEndIndex) const;
 
+	void AddReferencedObjects(FReferenceCollector& Collector);
+
 private:
 	/** Non-copyable */
 	FShapedGlyphSequence(const FShapedGlyphSequence&);

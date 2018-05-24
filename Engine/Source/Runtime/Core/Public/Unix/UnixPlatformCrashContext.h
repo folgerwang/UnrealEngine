@@ -114,3 +114,13 @@ protected:
 };
 
 typedef FUnixCrashContext FPlatformCrashContext;
+
+namespace UnixCrashReporterTracker
+{
+	/**
+	 * Only call this function from a forked child process. The child process cannot be responsible for a sibling process.
+	 *
+	 * This removes a valid Crash Reporter tracker from the calling process.
+	 */
+	void RemoveValidCrashReportTickerForChildProcess();
+}

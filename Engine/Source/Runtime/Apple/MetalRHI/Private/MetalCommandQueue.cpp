@@ -69,9 +69,15 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		
 		if(Vers.majorVersion > 10 || (Vers.majorVersion == 10 && Vers.minorVersion >= 3))
         {
-            Features |= EMetalFeaturesGPUCommandBufferTimes;
+            // This isn't currently working, with GPUStartTime and GPUStopTime usually coming back as zero.
+            // The docs say this means the GPU isn't finished with the command buffer yet, but we are running
+            // in the completed handler and the status is MTLCommandBufferStatusCompleted, so it has to be
+            // finished. My guess is that the command buffer is empty so the GPU isn't executing it.
+            //Features |= EMetalFeaturesGPUCommandBufferTimes;
+            
 			Features |= EMetalFeaturesLinearTextures;
-			Features |= EMetalFeaturesEfficientBufferBlits;
+			// InjectCurves() does not work with this
+			//Features |= EMetalFeaturesEfficientBufferBlits;
 			Features |= EMetalFeaturesPrivateBufferSubAllocation;
 			
 			if(!bNoMetalv2 && ([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v3] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily1_v3]))
@@ -91,7 +97,12 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		Features = EMetalFeaturesSeparateStencil | EMetalFeaturesSetBufferOffset;
 	}
 #else // Assume that Mac & other platforms all support these from the start. They can diverge later.
-	Features = EMetalFeaturesSeparateStencil | EMetalFeaturesSetBufferOffset | EMetalFeaturesDepthClipMode | EMetalFeaturesResourceOptions | EMetalFeaturesDepthStencilBlitOptions | EMetalFeaturesCountingQueries | EMetalFeaturesBaseVertexInstance | EMetalFeaturesIndirectBuffer | EMetalFeaturesLayeredRendering | EMetalFeaturesShaderVersions | EMetalFeaturesCombinedDepthStencil | EMetalFeaturesCubemapArrays;
+	const bool bIsNVIDIA = [Device.GetName().GetPtr() rangeOfString:@"Nvidia" options:NSCaseInsensitiveSearch].location != NSNotFound;
+	Features = EMetalFeaturesSeparateStencil | EMetalFeaturesDepthClipMode | EMetalFeaturesResourceOptions | EMetalFeaturesDepthStencilBlitOptions | EMetalFeaturesCountingQueries | EMetalFeaturesBaseVertexInstance | EMetalFeaturesIndirectBuffer | EMetalFeaturesLayeredRendering | EMetalFeaturesShaderVersions | EMetalFeaturesCombinedDepthStencil | EMetalFeaturesCubemapArrays;
+	if (!bIsNVIDIA)
+	{
+		Features |= EMetalFeaturesSetBufferOffset;
+	}
 	if (!FParse::Param(FCommandLine::Get(),TEXT("nometalv2")) && Device.SupportsFeatureSet(mtlpp::FeatureSet::macOS_GPUFamily1_v2))
     {
         Features |= EMetalFeaturesStencilView | EMetalFeaturesDepth16 | EMetalFeaturesTessellation | EMetalFeaturesFunctionConstants | EMetalFeaturesGraphicsUAVs | EMetalFeaturesDeferredStoreActions | EMetalFeaturesMSAADepthResolve | EMetalFeaturesMSAAStoreAndResolve;
@@ -112,7 +123,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 			Features |= EMetalFeaturesPrivateBufferSubAllocation;
 		}
     }
-    else if (FString(Device.GetName()).Contains(TEXT("Nvidia")))
+    else if ([Device.GetName().GetPtr() rangeOfString:@"Nvidia" options:NSCaseInsensitiveSearch].location != NSNotFound)
     {
 		// Using set*Bytes fixes bugs on Nvidia for 10.11 so we should use it...
     	Features |= EMetalFeaturesSetBytes;
@@ -137,7 +148,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		Features |= EMetalFeaturesValidation;
 	}
 #endif
-	
+    
 	static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.Optimize"));
 	if (CVar->GetInt() == 0 || FParse::Param(FCommandLine::Get(),TEXT("metalshaderdebug")))
 	{
@@ -331,7 +342,7 @@ mtlpp::ResourceOptions FMetalCommandQueue::GetCompatibleResourceOptions(mtlpp::R
 void FMetalCommandQueue::InsertDebugCaptureBoundary(void)
 {
 	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	CommandQueue.InsertDebugCaptureBoundary();
+	[CommandQueue insertDebugCaptureBoundary];
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 

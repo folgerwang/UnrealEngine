@@ -50,6 +50,17 @@ public:
 	UPROPERTY(Transient)
 	bool bHasRelevantPoses;
 
+	/*
+ 	 * Max LOD that this node is allowed to run
+	 * For example if you have LODThreadhold to be 2, it will run until LOD 2 (based on 0 index)
+	 * when the component LOD becomes 3, it will stop update/evaluate
+	 * currently transition would be issue and that has to be re-visited
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Performance, meta = (DisplayName = "LOD Threshold"))
+	int32 LODThreshold;
+
+	virtual int32 GetLODThreshold() const override { return LODThreshold; }
+
 protected:
 
 	// This is buffer to serialize blend weight data for each joints
@@ -73,6 +84,10 @@ protected:
 
 public:	
 	FAnimNode_LayeredBoneBlend()
+		: bMeshSpaceRotationBlend(false)
+		, CurveBlendOption(ECurveBlendOption::MaxWeight)
+		, bHasRelevantPoses(false)
+		, LODThreshold(INDEX_NONE)
 	{
 		bBlendRootMotionBasedOnRootBone = true;
 	}

@@ -73,6 +73,14 @@ public:
 	void SetBrush(const FSlateBrush& InBrush);
 
 	/**  */
+	UFUNCTION(BlueprintCallable, Category = "Appearance")
+	void SetBrushSize(FVector2D DesiredSize);
+
+	/**  */
+	UFUNCTION(BlueprintCallable, Category = "Appearance")
+	void SetBrushTintColor(FSlateColor TintColor);
+
+	/**  */
 	UFUNCTION(BlueprintCallable, Category="Appearance")
 	void SetBrushFromAsset(USlateBrushAsset* Asset);
 

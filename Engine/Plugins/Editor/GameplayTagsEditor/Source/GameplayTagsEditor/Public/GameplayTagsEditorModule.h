@@ -38,7 +38,7 @@ public:
 	}
 
 	/** Tries to add a new gameplay tag to the ini lists */
-	GAMEPLAYTAGSEDITOR_API virtual bool AddNewGameplayTagToINI(const FString& NewTag, const FString& Comment = TEXT(""), FName TagSourceName = NAME_None) = 0;
+	GAMEPLAYTAGSEDITOR_API virtual bool AddNewGameplayTagToINI(const FString& NewTag, const FString& Comment = TEXT(""), FName TagSourceName = NAME_None, bool bIsRestrictedTag = false, bool bAllowNonRestrictedChildren = true) = 0;
 
 	/** Tries to delete a tag from the library. This will pop up special UI or error messages as needed. It will also delete redirectors if that is specified. */
 	GAMEPLAYTAGSEDITOR_API virtual bool DeleteTagFromINI(const FString& TagToDelete) = 0;
@@ -52,6 +52,11 @@ public:
 
 /** This is public so that child structs of FGameplayTag can use the details customization */
 struct GAMEPLAYTAGSEDITOR_API FGameplayTagCustomizationPublic
+{
+	static TSharedRef<IPropertyTypeCustomization> MakeInstance();
+};
+
+struct GAMEPLAYTAGSEDITOR_API FRestrictedGameplayTagCustomizationPublic
 {
 	static TSharedRef<IPropertyTypeCustomization> MakeInstance();
 };

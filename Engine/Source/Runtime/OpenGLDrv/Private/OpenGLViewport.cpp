@@ -110,11 +110,6 @@ void FOpenGLDynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI
 		PlatformRenderingContextSetup(PlatformDevice);
 	}
 
-	if(!GPUProfilingData.FrameTiming.IsInitialized())
-	{
-		GPUProfilingData.FrameTiming.InitResource();
-	}
-	
 	// Set the render target and viewport.
 	if( RenderTarget )
 	{
@@ -135,6 +130,8 @@ void FOpenGLDynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,b
 	FOpenGLViewport* Viewport = ResourceCast(ViewportRHI);
 
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLPresentTime);
+	uint32 IdleStart = FPlatformTime::Cycles();
+
 
 	check(DrawingViewport.GetReference() == Viewport);
 
@@ -190,6 +187,17 @@ void FOpenGLDynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,b
 		PlatformSharedContextSetup(PlatformDevice);
 		bRevertToSharedContextAfterDrawingViewport = false;
 	}
+	uint32 ThisCycles = FPlatformTime::Cycles() - IdleStart;
+	if (IsInRHIThread())
+	{
+		GWorkingRHIThreadStallTime += ThisCycles;
+	}
+	else if (IsInActualRenderingThread())
+	{
+		GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUPresent] += ThisCycles;
+		GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUPresent]++;
+	}
+
 }
 
 
@@ -246,7 +254,7 @@ FOpenGLViewport::~FOpenGLViewport()
 	BackBuffer.SafeRelease();
 	check(!IsValidRef(BackBuffer));
 
-	PlatformDestroyOpenGLContext(OpenGLRHI->PlatformDevice,OpenGLContext);
+	RunOnGLRenderContextThread([&]() {	PlatformDestroyOpenGLContext(OpenGLRHI->PlatformDevice, OpenGLContext); }, true);
 	OpenGLContext = NULL;
 	OpenGLRHI->Viewports.Remove(this);
 }

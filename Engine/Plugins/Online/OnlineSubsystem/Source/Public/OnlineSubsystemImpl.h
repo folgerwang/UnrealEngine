@@ -91,11 +91,13 @@ public:
 	virtual bool IsLocalPlayer(const FUniqueNetId& UniqueId) const override;
 	virtual void SetUsingMultiplayerFeatures(const FUniqueNetId& UniqueId, bool bUsingMP) override {};
 	virtual EOnlineEnvironment::Type GetOnlineEnvironment() const override { return EOnlineEnvironment::Unknown; }
+	virtual FString GetOnlineEnvironmentName() const override { return EOnlineEnvironment::ToString(GetOnlineEnvironment()); }
 	virtual IMessageSanitizerPtr GetMessageSanitizer(int32 LocalUserNum, FString& OutAuthTypeToExclude) const override;
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
 	virtual FName GetSubsystemName() const override { return SubsystemName; }
 	virtual FName GetInstanceName() const override { return InstanceName; }
 	virtual bool IsEnabled() const override;
+	virtual void ReloadConfigs(const TSet<FString>& /*ConfigSections*/) override {};
 
 	/**
 	 * Tick function

@@ -14,12 +14,16 @@ public class libstrophe : ModuleRules
 		bool bIsSupported =
 			Target.Platform == UnrealTargetPlatform.XboxOne ||
 			Target.Platform == UnrealTargetPlatform.Android ||
-			Target.Platform == UnrealTargetPlatform.IOS;
+			Target.Platform == UnrealTargetPlatform.IOS ||
+			Target.Platform == UnrealTargetPlatform.Win32 ||
+			Target.Platform == UnrealTargetPlatform.Win64 ||
+			Target.Platform == UnrealTargetPlatform.PS4 ||
+			Target.Platform == UnrealTargetPlatform.Mac ||
+			Target.Platform == UnrealTargetPlatform.Switch;
 
 		if (bIsSupported)
 		{
-			PublicDefinitions.Add("WITH_XMPP_STROPHE=1");
-			PublicDefinitions.Add("XML_STATIC");
+			PrivateDefinitions.Add("XML_STATIC");
 
 			PublicSystemIncludePaths.Add(StrophePackagePath);
 
@@ -29,7 +33,6 @@ public class libstrophe : ModuleRules
 
 			if (Target.Platform == UnrealTargetPlatform.XboxOne)
 			{
-
 				// Use reflection to allow type not to exist if console code is not present
 				string ToolchainName = "VS";
 				System.Type XboxOnePlatformType = System.Type.GetType("UnrealBuildTool.XboxOnePlatform,UnrealBuildTool");
@@ -50,17 +53,21 @@ public class libstrophe : ModuleRules
 
 				PublicAdditionalLibraries.Add("strophe");
 			}
-			else if (Target.Platform == UnrealTargetPlatform.IOS)
+			else if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.Mac)
 			{
-				// add IOS library dir
-				PublicLibraryPaths.Add(Path.Combine(StrophePackagePath, "IOS", ConfigName));
-				PublicAdditionalLibraries.Add("strophe");
+				PublicAdditionalLibraries.Add(Path.Combine(StrophePackagePath, Target.Platform.ToString(), ConfigName, "libstrophe.a"));
 				PublicAdditionalLibraries.Add("resolv");
 			}
+			else if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
+			{
+				PublicLibraryPaths.Add(Path.Combine(StrophePackagePath, Target.Platform.ToString(), "VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName(), ConfigName));
+				PublicAdditionalLibraries.Add("strophe.lib");
+			}
+			else if (Target.Platform == UnrealTargetPlatform.PS4 || Target.Platform == UnrealTargetPlatform.Switch)
+			{
+				PublicLibraryPaths.Add(Path.Combine(StrophePackagePath, Target.Platform.ToString(), ConfigName));
+				PublicAdditionalLibraries.Add("strophe");
+			}
 		}
-		else
-		{
-			PublicDefinitions.Add("WITH_XMPP_STROPHE=0");
-		}
-    }
+	}
 }

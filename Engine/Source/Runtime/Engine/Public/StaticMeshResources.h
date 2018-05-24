@@ -837,7 +837,7 @@ public:
 		}
 	}
 
-	void AllocateInstances(int32 InNumInstances, bool DestroyExistingInstances)
+	void AllocateInstances(int32 InNumInstances, EResizeBufferFlags BufferFlags, bool DestroyExistingInstances)
 	{
 		NumInstances = InNumInstances;
 
@@ -850,13 +850,13 @@ public:
 
 		// We cannot write directly to the data on all platforms,
 		// so we make a TArray of the right type, then assign it
-		InstanceOriginData->ResizeBuffer(NumInstances);
+		InstanceOriginData->ResizeBuffer(NumInstances, BufferFlags);
 		InstanceOriginDataPtr = InstanceOriginData->GetDataPointer();
 
-		InstanceLightmapData->ResizeBuffer(NumInstances);
+		InstanceLightmapData->ResizeBuffer(NumInstances, BufferFlags);
 		InstanceLightmapDataPtr = InstanceLightmapData->GetDataPointer();
 
-		InstanceTransformData->ResizeBuffer(NumInstances);
+		InstanceTransformData->ResizeBuffer(NumInstances, BufferFlags);
 		InstanceTransformDataPtr = InstanceTransformData->GetDataPointer();
 	}
 
@@ -1031,14 +1031,36 @@ public:
 		}
 	}
 
+	FORCEINLINE_DEBUGGABLE void ClearInstanceEditorData(int32 InstanceIndex)
+	{
+		FVector4 InstanceTransform[3];
+		if (bUseHalfFloat)
+		{
+			GetInstanceTransformInternal<FFloat16>(InstanceIndex, InstanceTransform);
+			InstanceTransform[0][3] = 0.0f;
+			InstanceTransform[1][3] = 0.0f;
+			InstanceTransform[2][3] = 0.0f;
+			SetInstanceTransformInternal<FFloat16>(InstanceIndex, InstanceTransform);
+		}
+		else
+		{
+			GetInstanceTransformInternal<float>(InstanceIndex, InstanceTransform);
+			InstanceTransform[0][3] = 0.0f;
+			InstanceTransform[1][3] = 0.0f;
+			InstanceTransform[2][3] = 0.0f;
+			SetInstanceTransformInternal<float>(InstanceIndex, InstanceTransform);
+		}
+	}
+
 	FORCEINLINE_DEBUGGABLE void SwapInstance(int32 Index1, int32 Index2)
 	{
 		if (bUseHalfFloat)
 		{
 			FInstanceTransformMatrix<FFloat16>* ElementData = reinterpret_cast<FInstanceTransformMatrix<FFloat16>*>(InstanceTransformDataPtr);
-			check((void*)((&ElementData[Index1]) + 1) <= (void*)(InstanceTransformDataPtr + InstanceTransformData->GetResourceSize()));
+			uint32 CurrentSize = InstanceTransformData->Num() * InstanceTransformData->GetStride();
+			check((void*)((&ElementData[Index1]) + 1) <= (void*)(InstanceTransformDataPtr + CurrentSize));
 			check((void*)((&ElementData[Index1]) + 0) >= (void*)(InstanceTransformDataPtr));
-			check((void*)((&ElementData[Index2]) + 1) <= (void*)(InstanceTransformDataPtr + InstanceTransformData->GetResourceSize()));
+			check((void*)((&ElementData[Index2]) + 1) <= (void*)(InstanceTransformDataPtr + CurrentSize));
 			check((void*)((&ElementData[Index2]) + 0) >= (void*)(InstanceTransformDataPtr));
 
 			FInstanceTransformMatrix<FFloat16> TempStore = ElementData[Index1];
@@ -1048,9 +1070,10 @@ public:
 		else
 		{
 			FInstanceTransformMatrix<float>* ElementData = reinterpret_cast<FInstanceTransformMatrix<float>*>(InstanceTransformDataPtr);
-			check((void*)((&ElementData[Index1]) + 1) <= (void*)(InstanceTransformDataPtr + InstanceTransformData->GetResourceSize()));
+			uint32 CurrentSize = InstanceTransformData->Num() * InstanceTransformData->GetStride();
+			check((void*)((&ElementData[Index1]) + 1) <= (void*)(InstanceTransformDataPtr + CurrentSize));
 			check((void*)((&ElementData[Index1]) + 0) >= (void*)(InstanceTransformDataPtr));
-			check((void*)((&ElementData[Index2]) + 1) <= (void*)(InstanceTransformDataPtr + InstanceTransformData->GetResourceSize()));
+			check((void*)((&ElementData[Index2]) + 1) <= (void*)(InstanceTransformDataPtr + CurrentSize));
 			check((void*)((&ElementData[Index2]) + 0) >= (void*)(InstanceTransformDataPtr));
 			
 			FInstanceTransformMatrix<float> TempStore = ElementData[Index1];
@@ -1060,9 +1083,10 @@ public:
 		{
 
 			FVector4* ElementData = reinterpret_cast<FVector4*>(InstanceOriginDataPtr);
-			check((void*)((&ElementData[Index1]) + 1) <= (void*)(InstanceOriginDataPtr + InstanceOriginData->GetResourceSize()));
+			uint32 CurrentSize = InstanceOriginData->Num() * InstanceOriginData->GetStride();
+			check((void*)((&ElementData[Index1]) + 1) <= (void*)(InstanceOriginDataPtr + CurrentSize));
 			check((void*)((&ElementData[Index1]) + 0) >= (void*)(InstanceOriginDataPtr));
-			check((void*)((&ElementData[Index2]) + 1) <= (void*)(InstanceOriginDataPtr + InstanceOriginData->GetResourceSize()));
+			check((void*)((&ElementData[Index2]) + 1) <= (void*)(InstanceOriginDataPtr + CurrentSize));
 			check((void*)((&ElementData[Index2]) + 0) >= (void*)(InstanceOriginDataPtr));
 
 			FVector4 TempStore = ElementData[Index1];
@@ -1071,9 +1095,10 @@ public:
 		}
 		{
 			FInstanceLightMapVector* ElementData = reinterpret_cast<FInstanceLightMapVector*>(InstanceLightmapDataPtr);
-			check((void*)((&ElementData[Index1]) + 1) <= (void*)(InstanceLightmapDataPtr + InstanceLightmapData->GetResourceSize()));
+			uint32 CurrentSize = InstanceLightmapData->Num() * InstanceLightmapData->GetStride();
+			check((void*)((&ElementData[Index1]) + 1) <= (void*)(InstanceLightmapDataPtr + CurrentSize));
 			check((void*)((&ElementData[Index1]) + 0) >= (void*)(InstanceLightmapDataPtr));
-			check((void*)((&ElementData[Index2]) + 1) <= (void*)(InstanceLightmapDataPtr + InstanceLightmapData->GetResourceSize()));
+			check((void*)((&ElementData[Index2]) + 1) <= (void*)(InstanceLightmapDataPtr + CurrentSize));
 			check((void*)((&ElementData[Index2]) + 0) >= (void*)(InstanceLightmapDataPtr));
 			
 			FInstanceLightMapVector TempStore = ElementData[Index1];
@@ -1150,7 +1175,8 @@ private:
 	FORCEINLINE_DEBUGGABLE void GetInstanceTransformInternal(int32 InstanceIndex, FVector4 (&Transform)[3]) const
 	{
 		FInstanceTransformMatrix<T>* ElementData = reinterpret_cast<FInstanceTransformMatrix<T>*>(InstanceTransformDataPtr);
-		check((void*)((&ElementData[InstanceIndex]) + 1) <= (void*)(InstanceTransformDataPtr + InstanceTransformData->GetResourceSize()));
+		uint32 CurrentSize = InstanceTransformData->Num() * InstanceTransformData->GetStride();
+		check((void*)((&ElementData[InstanceIndex]) + 1) <= (void*)(InstanceTransformDataPtr + CurrentSize));
 		check((void*)((&ElementData[InstanceIndex]) + 0) >= (void*)(InstanceTransformDataPtr));
 		
 		Transform[0][0] = ElementData[InstanceIndex].InstanceTransform1[0];
@@ -1172,7 +1198,8 @@ private:
 	FORCEINLINE_DEBUGGABLE void GetInstanceOriginInternal(int32 InstanceIndex, FVector4 &Origin) const
 	{
 		FVector4* ElementData = reinterpret_cast<FVector4*>(InstanceOriginDataPtr);
-		check((void*)((&ElementData[InstanceIndex]) + 1) <= (void*)(InstanceOriginDataPtr + InstanceOriginData->GetResourceSize()));
+		uint32 CurrentSize = InstanceOriginData->Num() * InstanceOriginData->GetStride();
+		check((void*)((&ElementData[InstanceIndex]) + 1) <= (void*)(InstanceOriginDataPtr + CurrentSize));
 		check((void*)((&ElementData[InstanceIndex]) + 0) >= (void*)(InstanceOriginDataPtr));
 
 		Origin = ElementData[InstanceIndex];
@@ -1181,7 +1208,8 @@ private:
 	FORCEINLINE_DEBUGGABLE void GetInstanceLightMapDataInternal(int32 InstanceIndex, FVector4 &LightmapData) const
 	{
 		FInstanceLightMapVector* ElementData = reinterpret_cast<FInstanceLightMapVector*>(InstanceLightmapDataPtr);
-		check((void*)((&ElementData[InstanceIndex]) + 1) <= (void*)(InstanceLightmapDataPtr + InstanceLightmapData->GetResourceSize()));
+		uint32 CurrentSize = InstanceLightmapData->Num() * InstanceLightmapData->GetStride();
+		check((void*)((&ElementData[InstanceIndex]) + 1) <= (void*)(InstanceLightmapDataPtr + CurrentSize));
 		check((void*)((&ElementData[InstanceIndex]) + 0) >= (void*)(InstanceLightmapDataPtr));
 
 		LightmapData = FVector4
@@ -1197,7 +1225,8 @@ private:
 	FORCEINLINE_DEBUGGABLE void SetInstanceTransformInternal(int32 InstanceIndex, FVector4(Transform)[3]) const
 	{
 		FInstanceTransformMatrix<T>* ElementData = reinterpret_cast<FInstanceTransformMatrix<T>*>(InstanceTransformDataPtr);
-		check((void*)((&ElementData[InstanceIndex]) + 1) <= (void*)(InstanceTransformDataPtr + InstanceTransformData->GetResourceSize()));
+		uint32 CurrentSize = InstanceTransformData->Num() * InstanceTransformData->GetStride();
+		check((void*)((&ElementData[InstanceIndex]) + 1) <= (void*)(InstanceTransformDataPtr + CurrentSize));
 		check((void*)((&ElementData[InstanceIndex]) + 0) >= (void*)(InstanceTransformDataPtr));
 
 		ElementData[InstanceIndex].InstanceTransform1[0] = Transform[0][0];
@@ -1219,7 +1248,8 @@ private:
 	FORCEINLINE_DEBUGGABLE void SetInstanceOriginInternal(int32 InstanceIndex, const FVector4& Origin) const
 	{
 		FVector4* ElementData = reinterpret_cast<FVector4*>(InstanceOriginDataPtr);
-		check((void*)((&ElementData[InstanceIndex]) + 1) <= (void*)(InstanceOriginDataPtr + InstanceOriginData->GetResourceSize()));
+		uint32 CurrentSize = InstanceOriginData->Num() * InstanceOriginData->GetStride();
+		check((void*)((&ElementData[InstanceIndex]) + 1) <= (void*)(InstanceOriginDataPtr + CurrentSize));
 		check((void*)((&ElementData[InstanceIndex]) + 0) >= (void*)(InstanceOriginDataPtr));
 
 		ElementData[InstanceIndex] = Origin;
@@ -1228,7 +1258,8 @@ private:
 	FORCEINLINE_DEBUGGABLE void SetInstanceLightMapDataInternal(int32 InstanceIndex, const FVector4& LightmapData) const
 	{
 		FInstanceLightMapVector* ElementData = reinterpret_cast<FInstanceLightMapVector*>(InstanceLightmapDataPtr);
-		check((void*)((&ElementData[InstanceIndex]) + 1) <= (void*)(InstanceLightmapDataPtr + InstanceLightmapData->GetResourceSize()));
+		uint32 CurrentSize = InstanceLightmapData->Num() * InstanceLightmapData->GetStride();
+		check((void*)((&ElementData[InstanceIndex]) + 1) <= (void*)(InstanceLightmapDataPtr + CurrentSize));
 		check((void*)((&ElementData[InstanceIndex]) + 0) >= (void*)(InstanceLightmapDataPtr));
 
 		ElementData[InstanceIndex].InstanceLightmapAndShadowMapUVBias[0] = FMath::Clamp<int32>(FMath::TruncToInt(LightmapData.X * 32767.0f), MIN_int16, MAX_int16);
@@ -1237,7 +1268,7 @@ private:
 		ElementData[InstanceIndex].InstanceLightmapAndShadowMapUVBias[3] = FMath::Clamp<int32>(FMath::TruncToInt(LightmapData.W * 32767.0f), MIN_int16, MAX_int16);
 	}
 
-	void AllocateBuffers(int32 InNumInstances)
+	void AllocateBuffers(int32 InNumInstances, EResizeBufferFlags BufferFlags = EResizeBufferFlags::None)
 	{
 		delete InstanceOriginData;
 		InstanceOriginDataPtr = nullptr;
@@ -1249,9 +1280,9 @@ private:
 		InstanceLightmapDataPtr = nullptr;
 		 		
 		InstanceOriginData = new TStaticMeshVertexData<FVector4>();
-		InstanceOriginData->ResizeBuffer(InNumInstances);
+		InstanceOriginData->ResizeBuffer(InNumInstances, BufferFlags);
 		InstanceLightmapData = new TStaticMeshVertexData<FInstanceLightMapVector>();
-		InstanceLightmapData->ResizeBuffer(InNumInstances);
+		InstanceLightmapData->ResizeBuffer(InNumInstances, BufferFlags);
 		if (bUseHalfFloat)
 		{
 			InstanceTransformData = new TStaticMeshVertexData<FInstanceTransformMatrix<FFloat16>>();
@@ -1260,7 +1291,7 @@ private:
 		{
 			InstanceTransformData = new TStaticMeshVertexData<FInstanceTransformMatrix<float>>();
 		}
-		InstanceTransformData->ResizeBuffer(InNumInstances);
+		InstanceTransformData->ResizeBuffer(InNumInstances, BufferFlags);
 	}
 
 	FStaticMeshVertexDataInterface* InstanceOriginData = nullptr;

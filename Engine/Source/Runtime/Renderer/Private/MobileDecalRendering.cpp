@@ -15,6 +15,17 @@
 #include "ScenePrivate.h"
 #include "DecalRenderingShared.h"
 
+
+static FRasterizerStateRHIParamRef GetDecalRasterizerState(EDecalRasterizerState DecalRasterizerState)
+{
+	switch (DecalRasterizerState)
+	{
+	case DRS_CW: return TStaticRasterizerState<FM_Solid, CM_CW>::GetRHI();
+	case DRS_CCW: return TStaticRasterizerState<FM_Solid, CM_CCW>::GetRHI();
+	default: check(0); return nullptr;
+	}
+}
+
 void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 {
 	if (Scene->Decals.Num() == 0 || !IsMobileHDR())
@@ -24,8 +35,12 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 
 	SCOPE_CYCLE_COUNTER(STAT_DecalsDrawTime);
 
-	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-	SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
+	EShaderPlatform ShaderPlatform = ViewFamily.GetShaderPlatform();
+	if (ShaderPlatform != SP_METAL) // temporary workaround for iOS Metal to avoid restarting render-pass
+	{
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+		SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
+	}
 	
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
 	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -46,6 +61,7 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1);
 			RHICmdList.SetStreamSource(0, GetUnitCubeVertexBuffer(), 0);
 
+			EDecalRasterizerState LastDecalRasterizerState = DRS_Undefined;
 			TOptional<EDecalBlendMode> LastDecalBlendMode;
 			TOptional<bool> LastDecalDepthState;
 			bool bEncodedHDR = GetMobileHDRMode() == EMobileHDRMode::EnabledRGBE;
@@ -63,12 +79,29 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 				const float ConservativeRadius = DecalData.ConservativeRadius;
 				const bool bInsideDecal = ((FVector)View.ViewMatrices.GetViewOrigin() - ComponentToWorldMatrix.GetOrigin()).SizeSquared() < FMath::Square(ConservativeRadius * 1.05f + View.NearClippingDistance * 2.0f);
 
+				// update rasterizer state if needed
+				{
+					bool bReverseHanded = false;
+					{
+						// Account for the reversal of handedness caused by negative scale on the decal
+						const auto& Scale3d = DecalProxy.ComponentTrans.GetScale3D();
+						bReverseHanded = Scale3d[0] * Scale3d[1] * Scale3d[2] < 0.f;
+					}
+					EDecalRasterizerState DecalRasterizerState = FDecalRenderingCommon::ComputeDecalRasterizerState(bInsideDecal, bReverseHanded, View.bReverseCulling);
+
+					if (LastDecalRasterizerState != DecalRasterizerState)
+					{
+						LastDecalRasterizerState = DecalRasterizerState;
+						GraphicsPSOInit.RasterizerState = GetDecalRasterizerState(DecalRasterizerState);
+					}
+				}
+
+				// update DepthStencil state if needed
 				if (!LastDecalDepthState.IsSet() || LastDecalDepthState.GetValue() != bInsideDecal)
 				{
 					LastDecalDepthState = bInsideDecal;
 					if (bInsideDecal)
 					{
-						GraphicsPSOInit.RasterizerState = View.bReverseCulling ? TStaticRasterizerState<FM_Solid, CM_CCW>::GetRHI() : TStaticRasterizerState<FM_Solid, CM_CW>::GetRHI();
 						GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<
 							false, CF_Always,
 							true, CF_Equal, SO_Keep, SO_Keep, SO_Keep,
@@ -77,7 +110,6 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 					}
 					else
 					{
-						GraphicsPSOInit.RasterizerState = View.bReverseCulling ? TStaticRasterizerState<FM_Solid, CM_CW>::GetRHI() : TStaticRasterizerState<FM_Solid, CM_CCW>::GetRHI();
 						GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<
 							false, CF_DepthNearOrEqual,
 							true, CF_Equal, SO_Keep, SO_Keep, SO_Keep,
@@ -86,6 +118,7 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 					}
 				}
 
+				// update BlendMode if needed
 				if (!bEncodedHDR && (!LastDecalBlendMode.IsSet() || LastDecalBlendMode.GetValue() != DecalData.DecalBlendMode))
 				{
 					LastDecalBlendMode = DecalData.DecalBlendMode;
@@ -101,6 +134,10 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 					case DBM_Emissive:
 						// Additive
 						GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGB, BO_Add, BF_SourceAlpha, BF_One>::GetRHI();
+						break;
+					case DBM_AlphaComposite:
+						// Premultiplied alpha
+						GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha>::GetRHI();
 						break;
 					default:
 						check(0);

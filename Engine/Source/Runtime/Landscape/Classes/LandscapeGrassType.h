@@ -6,6 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 #include "Engine/EngineTypes.h"
+#include "PerPlatformProperties.h"
 #include "LandscapeGrassType.generated.h"
 
 class UStaticMesh;
@@ -32,7 +33,7 @@ struct FGrassVariety
 
 	/* Instances per 10 square meters. */
 	UPROPERTY(EditAnywhere, Category=Grass, meta = (UIMin = 0, ClampMin = 0, UIMax = 10000, ClampMax = 10000))
-	float GrassDensity;
+	FPerPlatformFloat GrassDensity;
 
 	/* If true, use a jittered grid sequence for placement, otherwise use a halton sequence. */
 	UPROPERTY(EditAnywhere, Category=Grass)
@@ -43,14 +44,14 @@ struct FGrassVariety
 
 	/* The distance where instances will begin to fade out if using a PerInstanceFadeAmount material node. 0 disables. */
 	UPROPERTY(EditAnywhere, Category=Grass, meta = (UIMin = 0, ClampMin = 0, UIMax = 1000000, ClampMax = 1000000))
-	int32 StartCullDistance;
+	FPerPlatformInt StartCullDistance;
 
 	/**
 	 * The distance where instances will have completely faded out when using a PerInstanceFadeAmount material node. 0 disables. 
 	 * When the entire cluster is beyond this distance, the cluster is completely culled and not rendered at all.
 	 */
 	UPROPERTY(EditAnywhere, Category = Grass, meta = (UIMin = 0, ClampMin = 0, UIMax = 1000000, ClampMax = 1000000))
-	int32 EndCullDistance;
+	FPerPlatformInt EndCullDistance;
 
 	/** 
 	 * Specifies the smallest LOD that will be used for this component.

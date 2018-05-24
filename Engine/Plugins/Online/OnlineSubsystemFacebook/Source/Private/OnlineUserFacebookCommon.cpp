@@ -79,7 +79,7 @@ TSharedPtr<FOnlineUser> FOnlineUserFacebookCommon::GetUserInfo(int32 LocalUserNu
 
 bool FOnlineUserFacebookCommon::QueryUserIdMapping(const FUniqueNetId& UserId, const FString& DisplayNameOrEmail, const FOnQueryUserMappingComplete& Delegate)
 {
-	Delegate.ExecuteIfBound(false, UserId, DisplayNameOrEmail, FUniqueNetIdString(), TEXT("not implemented"));
+	Delegate.ExecuteIfBound(false, UserId, DisplayNameOrEmail, FUniqueNetIdFacebook(), TEXT("not implemented"));
 	return false;
 }
 

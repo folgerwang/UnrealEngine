@@ -80,6 +80,7 @@ class UParticleLODLevel : public UObject
 
 	//~ Begin UObject Interface
 	virtual void	PostLoad() override;
+	virtual bool	IsPostLoadThreadSafe() const override;
 	//~ End UObject Interface
 
 	// @todo document

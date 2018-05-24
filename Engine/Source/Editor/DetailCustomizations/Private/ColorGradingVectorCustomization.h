@@ -5,6 +5,7 @@
 #include "MathStructCustomizations.h"
 #include "IDetailCustomNodeBuilder.h"
 #include "EditorUndoClient.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 class FVector4StructCustomization;
 class SColorGradingPicker;

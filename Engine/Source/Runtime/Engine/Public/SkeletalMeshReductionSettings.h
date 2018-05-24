@@ -15,8 +15,9 @@
 UENUM()
 enum SkeletalMeshOptimizationType
 {
-	SMOT_NumOfTriangles UMETA(DisplayName = "Number of Triangles"),
-	SMOT_MaxDeviation UMETA(DisplayName = "Max Deviation"),
+	SMOT_NumOfTriangles UMETA(DisplayName = "Triangles", ToolTip = "Triangle requirement will be used for simplification."),
+	SMOT_MaxDeviation UMETA(DisplayName = "Accuracy", ToolTip = "Accuracy requirement will be used for simplification."),
+	SMOT_TriangleOrDeviation UMETA(DisplayName = "Any", ToolTip = "Simplification will continue until either Triangle or Accuracy requirement is met."),
 	SMOT_MAX UMETA(Hidden),
 };
 
@@ -107,7 +108,7 @@ struct FSkeletalMeshOptimizationSettings
 	FSkeletalMeshOptimizationSettings()
 		: ReductionMethod(SMOT_NumOfTriangles)
 		, NumOfTrianglesPercentage(0.5f)
-		, MaxDeviationPercentage(0.02f)
+		, MaxDeviationPercentage(0.5f)
 		, bRemapMorphTargets(false)
 		, SilhouetteImportance(SMOI_Normal)
 		, TextureImportance(SMOI_Normal)

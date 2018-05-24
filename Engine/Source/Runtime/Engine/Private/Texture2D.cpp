@@ -274,7 +274,27 @@ void UTexture2D::InvalidateLastRenderTimeForStreaming()
 	}
 	TextureReference.InvalidateLastRenderTime();
 }
-
+int32 UTexture2D::CalcNumOptionalMips() const
+{
+	if (PlatformData)
+	{
+		int32 NumOptionalMips = 0;
+		for (int32 MipIndex = 0; MipIndex < PlatformData->Mips.Num(); ++MipIndex)
+		{
+			if (PlatformData->Mips[MipIndex].BulkData.GetBulkDataFlags() & BULKDATA_OptionalPayload)
+			{
+				++NumOptionalMips;
+			}
+			else
+			{
+				// currently the rules specify all the optional mips need to be at the end of hte mip chain
+				break;
+			}
+		}
+		return NumOptionalMips;
+	}
+	return 0;
+}
 int32 UTexture2D::GetNumResidentMips() const
 {
 	FTexture2DResource* Texture2DResource = (FTexture2DResource*)Resource;
@@ -525,13 +545,6 @@ FString UTexture2D::GetDesc()
 		GPixelFormats[GetPixelFormat()].Name
 		);
 }
-
-bool UTexture2D::IsReadyForStreaming() const
-{
-	FTexture2DResource* Texture2DResource = (FTexture2DResource*)Resource;
-	return Texture2DResource && Texture2DResource->bReadyForStreaming;
-}
-
 
 void UTexture2D::WaitForStreaming()
 {

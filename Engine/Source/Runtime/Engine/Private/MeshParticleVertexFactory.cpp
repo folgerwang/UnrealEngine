@@ -106,6 +106,45 @@ private:
 	FShaderResourceParameter PrevTransformBuffer;
 };
 
+class FDummyPrevTransformBuffer : public FRenderResource
+{
+public:
+	virtual ~FDummyPrevTransformBuffer() {}
+
+	virtual void InitRHI()
+	{
+		FRHIResourceCreateInfo CreateInfo;
+		VB = RHICreateVertexBuffer(sizeof(FVector4) * 3, BUF_Static | BUF_ShaderResource, CreateInfo);
+		SRV = RHICreateShaderResourceView(VB, sizeof(FVector4), PF_A32B32G32R32F);
+	}
+
+	virtual void ReleaseRHI()
+	{
+		VB.SafeRelease();
+		SRV.SafeRelease();
+	}
+
+	virtual FString GetFriendlyName() const
+	{
+		return TEXT("FDummyPrevTransformBuffer");
+	}
+
+	inline FVertexBufferRHIParamRef GetVB() const
+	{
+		return VB;
+	}
+
+	inline FShaderResourceViewRHIParamRef GetSRV() const
+	{
+		return SRV;
+	}
+
+private:
+	FVertexBufferRHIRef VB;
+	FShaderResourceViewRHIRef SRV;
+};
+
+static TGlobalResource<FDummyPrevTransformBuffer> GDummyPrevTransformBuffer;
 
 void FMeshParticleVertexFactory::InitRHI()
 {
@@ -154,7 +193,9 @@ void FMeshParticleVertexFactory::InitRHI()
 			// Add a dummy resource to avoid crash due to missing resource
 			if (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4)
 			{
-				PrevTransformBuffer.Initialize(sizeof(FVector4), 3, PF_A32B32G32R32F, BUF_Dynamic);
+				PrevTransformBuffer.NumBytes = 0;
+				PrevTransformBuffer.Buffer = GDummyPrevTransformBuffer.GetVB();
+				PrevTransformBuffer.SRV = GDummyPrevTransformBuffer.GetSRV();
 			}
 		}
 

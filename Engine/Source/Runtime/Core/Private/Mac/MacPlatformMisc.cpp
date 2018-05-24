@@ -1434,8 +1434,8 @@ void FMacPlatformMisc::SetCrashHandler(void (* CrashHandler)(const FGenericCrash
 	SCOPED_AUTORELEASE_POOL;
 	
 	GCrashHandlerPointer = CrashHandler;
-	
-	if(!FMacApplicationInfo::CrashReporter && !GCrashMalloc)
+
+	if(!FMacApplicationInfo::CrashReporter && !GCrashMalloc && !CrashHandler)
 	{
 		// Configure the crash handler malloc zone to reserve some VM space for itself
 		GCrashMalloc = new FMacMallocCrashHandler( 128 * 1024 * 1024 );

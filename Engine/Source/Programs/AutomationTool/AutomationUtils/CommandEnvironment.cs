@@ -112,7 +112,12 @@ namespace AutomationTool
 				}
 				CommandUtils.SetEnvVar(EnvVarNames.LogFolder, LogFolder);
 			}
-			ClearLogFolder(LogFolder);
+
+			// clear the logfolder if we're the only running instance
+			if (InternalUtils.IsSoleInstance)
+			{
+				ClearLogFolder(LogFolder);
+			}
 
 			FinalLogFolder = CommandUtils.GetEnvVar(EnvVarNames.FinalLogFolder);
 			if(String.IsNullOrEmpty(FinalLogFolder))

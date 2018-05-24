@@ -611,9 +611,14 @@ public:
 	}
 		
 	/** Queue up a regeneration of the linearized items on the next tick. */
-	void RequestTreeRefresh()
+	virtual void RequestListRefresh() override
 	{
 		bTreeItemsAreDirty = true;
+		SListView<ItemType>::RequestListRefresh();
+	}
+
+	void RequestTreeRefresh()
+	{
 		RequestListRefresh();
 	}
 		
@@ -686,15 +691,6 @@ public:
 		RequestTreeRefresh();
 	}
 
-private:
-
-	/** Hide RequestListRefresh() for the tree widget's interface.  You should always call RequestTreeRefresh()
-		for trees, not RequestListRefresh() */
-	void RequestListRefresh()
-	{
-		SListView< ItemType >::RequestListRefresh();
-	}
-
 protected:
 	
 	/** The delegate that is invoked whenever we need to gather an item's children. */
@@ -724,8 +720,8 @@ protected:
 private:		
 
 	/** true when the LinearizedItems need to be regenerated. */
-	bool bTreeItemsAreDirty;
+	bool bTreeItemsAreDirty = false;
 
 	/** true if we allow invisible items to stay selected. */
-	bool bAllowInvisibleItemSelection;
+	bool bAllowInvisibleItemSelection = false;
 };

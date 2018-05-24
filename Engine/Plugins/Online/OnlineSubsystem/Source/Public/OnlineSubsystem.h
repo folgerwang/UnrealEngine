@@ -41,7 +41,6 @@ class IOnlineVoice;
 
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnline, Display, All);
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineGame, Display, All);
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineChat, Display, All);
 
 /** Online subsystem stats */
 DECLARE_STATS_GROUP(TEXT("Online"), STATGROUP_Online, STATCAT_Advanced);
@@ -53,12 +52,6 @@ DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("NumTasks"), STAT_Online_AsyncTasks, 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("SessionInt"), STAT_Session_Interface, STATGROUP_Online, ONLINESUBSYSTEM_API);
 /** Total time to process both local/remote voice */
 DECLARE_CYCLE_STAT_EXTERN(TEXT("VoiceInt"), STAT_Voice_Interface, STATGROUP_Online, ONLINESUBSYSTEM_API);
-
-#if UE_BUILD_SHIPPING
-#define OSS_REDACT(x) TEXT("<Redacted>")
-#else
-#define OSS_REDACT(x) (x)
-#endif
 
 #define ONLINE_LOG_PREFIX TEXT("OSS: ")
 #define UE_LOG_ONLINE(Verbosity, Format, ...) \
@@ -157,7 +150,7 @@ public:
 	}
 
 	/** 
-	 * Get the online subsystem based on current platform
+	 * Get the online subsystem native to the current hardware
 	 *
 	 * @param bAutoLoad - load the module if not already loaded
 	 *
@@ -165,33 +158,11 @@ public:
 	 */
 	static IOnlineSubsystem* GetByPlatform(bool bAutoLoad=true)
 	{
-		if (PLATFORM_PS4)
+		static const FName OnlineSubsystemModuleName = TEXT("OnlineSubsystem");
+		if (bAutoLoad || FModuleManager::Get().IsModuleLoaded(OnlineSubsystemModuleName))
 		{
-			if (bAutoLoad || IOnlineSubsystem::IsLoaded(PS4_SUBSYSTEM))
-			{
-				return IOnlineSubsystem::Get(PS4_SUBSYSTEM);
-			}
-		}
-		else if (PLATFORM_XBOXONE)
-		{
-			if (bAutoLoad || IOnlineSubsystem::IsLoaded(LIVE_SUBSYSTEM))
-			{
-				return IOnlineSubsystem::Get(LIVE_SUBSYSTEM);
-			}
-		}
-		else if (PLATFORM_ANDROID)
-		{
-			if (bAutoLoad || IOnlineSubsystem::IsLoaded(GOOGLEPLAY_SUBSYSTEM))
-			{
-				return IOnlineSubsystem::Get(GOOGLEPLAY_SUBSYSTEM);
-			}
-		}
-		else if (PLATFORM_IOS)
-		{
-			if (bAutoLoad || IOnlineSubsystem::IsLoaded(IOS_SUBSYSTEM))
-			{
-				return IOnlineSubsystem::Get(IOS_SUBSYSTEM);
-			}
+			FOnlineSubsystemModule& OSSModule = FModuleManager::GetModuleChecked<FOnlineSubsystemModule>(OnlineSubsystemModuleName);
+			return OSSModule.GetNativeSubsystem(bAutoLoad);
 		}
 		return nullptr;
 	}
@@ -273,6 +244,13 @@ public:
 	 * @return the instance name of this subsystem
 	 */
 	virtual FName GetInstanceName() const = 0;
+
+	/**
+	 * Get the local online platform based on compile time determination of hardware.
+	 * @see OnlineSubsystemNames.h OSS_PLATFORM_NAME_*
+	 * @return string representation of online platform name
+	 */
+	static FString GetLocalPlatformName();
 
 	/** @return true if the subsystem is enabled, false otherwise */
 	virtual bool IsEnabled() const = 0;
@@ -550,6 +528,11 @@ public:
 	virtual EOnlineEnvironment::Type GetOnlineEnvironment() const = 0;
 
 	/**
+	 * @return the current environment being used for the online platform as defined by the platform (not necessarily EOnlineEnvironment::ToString)
+	 */
+	virtual FString GetOnlineEnvironmentName() const = 0;
+
+	/**
 	 * Delegate fired when the online environment changes
 	 *
 	 * @param LastEnvironment - old online environment
@@ -569,6 +552,13 @@ public:
 	 * @return The name of the online service this platform uses
 	 */
 	virtual FText GetOnlineServiceName() const = 0;
+
+	/**
+	 * Reload the configuration if it is relevant for this OSS instance
+	 *
+	 * @param ConfigSections list of ini sections that need to be reloaded
+	 */
+	virtual void ReloadConfigs(const TSet<FString>& ConfigSections) = 0;
 };
 
 /** Public references to the online subsystem pointer should use this */

@@ -116,6 +116,7 @@ namespace IOSDisplayConstants
 
 uint32 FIOSPlatformRHIFramePacer::FrameInterval = 1;
 FIOSFramePacer* FIOSPlatformRHIFramePacer::FramePacer = nil;
+uint32 FIOSPlatformRHIFramePacer::Pace = 0;
 
 
 bool FIOSPlatformRHIFramePacer::IsEnabled()
@@ -148,6 +149,9 @@ bool FIOSPlatformRHIFramePacer::IsEnabled()
 			FrameInterval = IOSDisplayConstants::MaxRefreshRate / FrameRateLock;
 
 			bIsRHIFramePacerEnabled = (FrameInterval > 0);
+			
+			// remember the Pace if we are enabled
+			Pace = bIsRHIFramePacerEnabled ? FrameRateLock : 0;
 		}
 		bInitialized = true;
 	}

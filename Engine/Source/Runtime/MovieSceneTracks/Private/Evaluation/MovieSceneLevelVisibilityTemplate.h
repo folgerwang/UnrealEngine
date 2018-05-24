@@ -15,7 +15,7 @@ struct FMovieSceneLevelVisibilitySectionTemplate
 {
 	GENERATED_BODY()
 	
-	FMovieSceneLevelVisibilitySectionTemplate(){}
+	FMovieSceneLevelVisibilitySectionTemplate() : Visibility(ELevelVisibility::Visible) {}
 	FMovieSceneLevelVisibilitySectionTemplate(const UMovieSceneLevelVisibilitySection& Section);
 
 	static FSharedPersistentDataKey GetSharedDataKey();

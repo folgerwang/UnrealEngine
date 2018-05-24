@@ -11,8 +11,10 @@
 #include "XmppNull.h"
 #if WITH_XMPP_JINGLE
 #include "XmppJingle/XmppJingle.h"
-#elif WITH_XMPP_STROPHE
+#endif
+#if WITH_XMPP_STROPHE
 #include "XmppStrophe/XmppStrophe.h"
+#include "WebSocketsModule.h"
 #endif
 
 DEFINE_LOG_CATEGORY(LogXmpp);
@@ -34,8 +36,10 @@ void FXmppModule::StartupModule()
 	{
 #if WITH_XMPP_JINGLE
 		FXmppJingle::Init();
-#elif WITH_XMPP_STROPHE
+#endif
+#if WITH_XMPP_STROPHE
 		FXmppStrophe::Init();
+		FModuleManager::LoadModuleChecked<FWebSocketsModule>("WebSockets");
 #endif
 	}
 }
@@ -51,7 +55,8 @@ void FXmppModule::ShutdownModule()
 	{
 #if WITH_XMPP_JINGLE
 		FXmppJingle::Cleanup();
-#elif WITH_XMPP_STROPHE
+#endif
+#if WITH_XMPP_STROPHE
 		FXmppStrophe::Cleanup();
 #endif
 	}
@@ -80,6 +85,7 @@ bool FXmppModule::HandleXmppCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 	XmppServer.ServerAddr = TEXT("127.0.0.1");
 	XmppServer.Domain = TEXT("localhost.net");
 	XmppServer.ServerPort = 5222;
+
 
 	if (FParse::Command(&Cmd, TEXT("Test")))
 	{
@@ -683,19 +689,37 @@ TSharedRef<IXmppConnection> FXmppModule::CreateConnection(const FString& UserId)
 	}
 	else
 	{
+		bool bEnableWebsockets = false;
+		GConfig->GetBool(TEXT("XMPP"), TEXT("bEnableWebsockets"), bEnableWebsockets, GEngineIni);
+
+		bool bUseStrophe = WITH_XMPP_STROPHE && bEnableWebsockets;
+		bool bUseJingle = WITH_XMPP_JINGLE && !bUseStrophe;
+		if (!bUseJingle && !bUseStrophe)
+		{
+			// if not using websockets, use the previous default implementation (jingle if available, otherwise strophe)
 #if WITH_XMPP_JINGLE
-		if (bEnabled)
-		{
-			Connection = FXmppJingle::CreateConnection();
-		}
-		else
+			bUseJingle = true;
 #elif WITH_XMPP_STROPHE
-		if (bEnabled)
+			bUseStrophe = true;
+#endif
+		}
+
+		if (bEnabled && (bUseStrophe || bUseJingle))
 		{
-			Connection = FXmppStrophe::CreateConnection();
+#if WITH_XMPP_STROPHE
+			if (bUseStrophe)
+			{
+				Connection = FXmppStrophe::CreateConnection();
+			}
+#endif
+#if WITH_XMPP_JINGLE
+			if (bUseJingle)
+			{
+				Connection = FXmppJingle::CreateConnection();
+			}
+#endif
 		}
 		else
-#endif
 		{
 			Connection = FXmppNull::CreateConnection();
 		}

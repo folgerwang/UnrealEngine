@@ -151,6 +151,8 @@ void FRendererModule::DebugLogOnCrash()
 	GRenderTargetPool.VisualizeTexture.SortOrder = 1;
 	GRenderTargetPool.VisualizeTexture.bFullList = true;
 	GRenderTargetPool.VisualizeTexture.DebugLog(false);
+	
+	GEngine->Exec(NULL, TEXT("rhi.DumpMemory"), *GLog);
 
 	// execute on main thread
 	{
@@ -159,7 +161,6 @@ void FRendererModule::DebugLogOnCrash()
 			void Thread()
 			{
 				GEngine->Exec(NULL, TEXT("Mem FromReport"), *GLog);
-				GEngine->Exec(NULL, TEXT("rhi.DumpMemory"), *GLog);
 			}
 		} Test;
 

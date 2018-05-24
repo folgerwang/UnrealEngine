@@ -189,7 +189,7 @@ public:
 	FBinaryObjectWriter(UObject* Obj, TArray<uint8>& InBytes)
 		: FObjectWriter(InBytes)
 	{
-		ArWantBinaryPropertySerialization = true;
+		this->SetWantBinaryPropertySerialization(true);
 		Obj->Serialize(*this);
 	}
 };
@@ -203,7 +203,7 @@ public:
 	FBinaryObjectReader(UObject* Obj, TArray<uint8>& InBytes)
 		: FObjectReader(InBytes)
 	{
-		ArWantBinaryPropertySerialization = true;
+		this->SetWantBinaryPropertySerialization(true);
 		Obj->Serialize(*this);
 	}
 };

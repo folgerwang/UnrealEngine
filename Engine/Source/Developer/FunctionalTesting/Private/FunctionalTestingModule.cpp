@@ -209,25 +209,29 @@ void FFunctionalTestingModule::SetLooping(const bool bLoop)
 
 UWorld* FFunctionalTestingModule::GetTestWorld()
 {
-	UWorld* TestWorld = nullptr;
-
 #if WITH_EDITOR
 	const TIndirectArray<FWorldContext>& WorldContexts = GEngine->GetWorldContexts();
 	for (const FWorldContext& Context : WorldContexts)
 	{
-		if ((Context.WorldType == EWorldType::PIE) && (Context.World() != nullptr))
+		if (Context.World() != nullptr)
 		{
-			TestWorld = Context.World();
+			if (Context.WorldType == EWorldType::PIE /*&& Context.PIEInstance == 0*/)
+			{
+				return Context.World();
+			}
+			
+			if (Context.WorldType == EWorldType::Game)
+			{
+				return Context.World();
+			}
 		}
 	}
 #endif
-	if (!TestWorld)
+
+	UWorld* TestWorld = GWorld;
+	if (GIsEditor)
 	{
-		TestWorld = GWorld;
-		if (GIsEditor)
-		{
-			UE_LOG(LogFunctionalTest, Warning, TEXT("Functional Test using GWorld.  Not correct for PIE"));
-		}
+		UE_LOG(LogFunctionalTest, Warning, TEXT("Functional Test using GWorld.  Not correct for PIE"));
 	}
 
 	return TestWorld;

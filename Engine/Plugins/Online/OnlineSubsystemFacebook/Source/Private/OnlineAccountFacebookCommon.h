@@ -39,7 +39,7 @@ public:
 	// FUserOnlineAccountFacebookCommon
 
 	explicit FUserOnlineAccountFacebookCommon(const FString& InUserId = FString(), const FString& InAuthTicket = FString())
-		: UserIdPtr(new FUniqueNetIdString(InUserId))
+		: UserIdPtr(new FUniqueNetIdFacebook(InUserId))
 		, UserId(InUserId)
 		, AuthTicket(InAuthTicket)
 	{

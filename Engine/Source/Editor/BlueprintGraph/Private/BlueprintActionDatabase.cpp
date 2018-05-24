@@ -1307,6 +1307,13 @@ void FBlueprintActionDatabase::RefreshAssetActions(UObject* const AssetObject)
 {
 	using namespace BlueprintActionDatabaseImpl;
 
+	// this method is very expensive and is only for blueprint editor functionality
+	// it should remain that way as *greatly* increases cook times, etc!
+	if (IsRunningCommandlet())
+	{
+		return;
+	}
+
 	FActionList& AssetActionList = ActionRegistry.FindOrAdd(AssetObject);
 	for (UBlueprintNodeSpawner* Action : AssetActionList)
 	{

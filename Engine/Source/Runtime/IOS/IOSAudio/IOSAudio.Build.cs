@@ -19,6 +19,7 @@ public class IOSAudio : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
+            "AudioMixer"
 		});
 
 		PublicFrameworks.AddRange(new string[]

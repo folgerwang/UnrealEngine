@@ -39,19 +39,19 @@ FTestMessageInterface::FTestMessageInterface(const FString& InSubsystem)
 	, bSendMessages(true)
 	, bDeleteMessages(false)
 {
-	UE_LOG(LogOnline, Display, TEXT("FTestMessageInterface::FTestMessageInterface"));
+	UE_LOG_ONLINE(Display, TEXT("FTestMessageInterface::FTestMessageInterface"));
 	SubsystemName = InSubsystem;
 }
 
 
 FTestMessageInterface::~FTestMessageInterface()
 {
-	UE_LOG(LogOnline, Display, TEXT("FTestMessageInterface::~FTestMessageInterface"));
+	UE_LOG_ONLINE(Display, TEXT("FTestMessageInterface::~FTestMessageInterface"));
 }
 
 void FTestMessageInterface::Test(UWorld* InWorld, const TArray<FString>& InRecipients)
 {
-	UE_LOG(LogOnline, Display, TEXT("FTestMessageInterface::Test"));
+	UE_LOG_ONLINE(Display, TEXT("FTestMessageInterface::Test"));
 
 	OnlineSub = Online::GetSubsystem(InWorld, SubsystemName.Len() ? FName(*SubsystemName, FNAME_Find) : NAME_None);
 	if (OnlineSub != NULL &&
@@ -84,7 +84,7 @@ void FTestMessageInterface::Test(UWorld* InWorld, const TArray<FString>& InRecip
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning,
+		UE_LOG_ONLINE(Warning,
 			TEXT("Failed to get message interface for %s"), *SubsystemName);
 		
 		FinishTest();
@@ -155,7 +155,7 @@ void FTestMessageInterface::FinishTest()
 
 void FTestMessageInterface::OnEnumerateMessagesComplete(int32 LocalPlayer, bool bWasSuccessful, const FString& ErrorStr)
 {
-	UE_LOG(LogOnline, Log,
+	UE_LOG_ONLINE(Log,
 		TEXT("EnumerateMessages() for player (%d) was success=%d"), LocalPlayer, bWasSuccessful);
 
 	if (bWasSuccessful)
@@ -163,7 +163,7 @@ void FTestMessageInterface::OnEnumerateMessagesComplete(int32 LocalPlayer, bool 
 		TArray< TSharedRef<FOnlineMessageHeader> > MessageHeaders;
 		if (OnlineSub->GetMessageInterface()->GetMessageHeaders(LocalPlayer, MessageHeaders))
 		{
-			UE_LOG(LogOnline, Log,
+			UE_LOG_ONLINE(Log,
 				TEXT("GetMessageHeaders(%d) returned %d message headers"), LocalPlayer, MessageHeaders.Num());
 			
 			// Clear old entries
@@ -174,15 +174,15 @@ void FTestMessageInterface::OnEnumerateMessagesComplete(int32 LocalPlayer, bool 
 			for (int32 Index = 0; Index < MessageHeaders.Num(); Index++)
 			{
 				const FOnlineMessageHeader& Header = *MessageHeaders[Index];
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE(Log,
 					TEXT("\t message id (%s)"), *Header.MessageId->ToDebugString());
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE(Log,
 					TEXT("\t\t from user id (%s)"), *Header.FromUserId->ToDebugString());
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE(Log,
 					TEXT("\t\t from name: %s"), *Header.FromName);
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE(Log,
 					TEXT("\t\t type (%s)"), *Header.Type);
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE(Log,
 					TEXT("\t\t time stamp (%s)"), *Header.TimeStamp);
 
 				// Add to list of messages to download
@@ -193,7 +193,7 @@ void FTestMessageInterface::OnEnumerateMessagesComplete(int32 LocalPlayer, bool 
 		}	
 		else
 		{
-			UE_LOG(LogOnline, Log,
+			UE_LOG_ONLINE(Log,
 				TEXT("GetMessageHeaders(%d) failed"), LocalPlayer);
 		}
 	}
@@ -205,7 +205,7 @@ void FTestMessageInterface::OnEnumerateMessagesComplete(int32 LocalPlayer, bool 
 
 void FTestMessageInterface::OnReadMessageComplete(int32 LocalPlayer, bool bWasSuccessful, const FUniqueMessageId& MessageId, const FString& ErrorStr)
 {
-	UE_LOG(LogOnline, Log,
+	UE_LOG_ONLINE(Log,
 		TEXT("ReadMessage() for player (%d) was success=%d"), LocalPlayer, bWasSuccessful);
 
 	// Dump the message content back out
@@ -221,18 +221,18 @@ void FTestMessageInterface::OnReadMessageComplete(int32 LocalPlayer, bool bWasSu
 			{
 				if (Value != TestAttributeList[i].Value)
 				{
-					UE_LOG(LogOnline, Log,
+					UE_LOG_ONLINE(Log,
 						TEXT("Attribute %s is the wrong value in the received message payload"), *TestAttributeList[i].Name);
 				}
 				else
 				{
-					UE_LOG(LogOnline, Log,
+					UE_LOG_ONLINE(Log,
 						TEXT("Attribute %s MATCHED in the received message payload"), *TestAttributeList[i].Name);
 				}
 			}
 			else
 			{
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE(Log,
 					TEXT("Attribute %s is missing from the received message payload"), *TestAttributeList[i].Name);
 			}
 		}
@@ -245,7 +245,7 @@ void FTestMessageInterface::OnReadMessageComplete(int32 LocalPlayer, bool bWasSu
 				BLOBValue.GetValue(TestData);
 				if (TestData.Num() != sizeof(BLOBTestValue))
 				{
-					UE_LOG(LogOnline, Log,
+					UE_LOG_ONLINE(Log,
 						TEXT("Attribute BLOBValue is the wrong size in the received message payload"));
 				}
 				else
@@ -255,7 +255,7 @@ void FTestMessageInterface::OnReadMessageComplete(int32 LocalPlayer, bool bWasSu
 					{
 						if (TestData[i] != BLOBTestValue[i])
 						{
-							UE_LOG(LogOnline, Log,
+							UE_LOG_ONLINE(Log,
 								TEXT("Attribute BLOBValue contains the wrong data at position %d in the received message payload"), i);
 							bIsDataGood = false;
 							break;
@@ -264,14 +264,14 @@ void FTestMessageInterface::OnReadMessageComplete(int32 LocalPlayer, bool bWasSu
 
 					if (bIsDataGood)
 					{
-						UE_LOG(LogOnline, Log,
+						UE_LOG_ONLINE(Log,
 							TEXT("Attribute BLOBValue MATCHED in the received message payload"));
 					}
 				}
 			}
 			else
 			{
-				UE_LOG(LogOnline, Log, TEXT("Attribute BLOBValue is missing from the received message payload"));
+				UE_LOG_ONLINE(Log, TEXT("Attribute BLOBValue is missing from the received message payload"));
 			}
 		}
 	}
@@ -288,7 +288,7 @@ void FTestMessageInterface::OnReadMessageComplete(int32 LocalPlayer, bool bWasSu
 
 void FTestMessageInterface::OnSendMessageComplete(int32 LocalPlayer, bool bWasSuccessful, const FString& ErrorStr)
 {
-	UE_LOG(LogOnline, Log,
+	UE_LOG_ONLINE(Log,
 		TEXT("SendMessage() for player (%d) was success=%d"), LocalPlayer, bWasSuccessful);
 
 	// done with this part of the test
@@ -300,7 +300,7 @@ void FTestMessageInterface::OnSendMessageComplete(int32 LocalPlayer, bool bWasSu
 
 void FTestMessageInterface::OnDeleteMessageComplete(int32 LocalPlayer, bool bWasSuccessful, const FUniqueMessageId& MessageId, const FString& ErrorStr)
 {
-	UE_LOG(LogOnline, Log,
+	UE_LOG_ONLINE(Log,
 		TEXT("DeleteMessage() for player (%d) was success=%d"), LocalPlayer, bWasSuccessful);
 
 	// done with this part of the test if no more messages to delete

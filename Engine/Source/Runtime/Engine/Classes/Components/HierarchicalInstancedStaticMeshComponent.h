@@ -88,10 +88,6 @@ class ENGINE_API UHierarchicalInstancedStaticMeshComponent : public UInstancedSt
 	UPROPERTY()
 	TArray<FBox> UnbuiltInstanceBoundsList;
 
-	// Instance Index of each individual unbuilt instance, used in unbuilt rendering during a wait for the build
-	UPROPERTY()
-	TArray<int32> UnbuiltInstanceIndexList;
-
 	// Enable for detail meshes that don't really affect the game. Disable for anything important.
 	// Typically, this will be enabled for small meshes without collision (e.g. grass) and disabled for large meshes with collision (e.g. trees)
 	UPROPERTY()
@@ -115,11 +111,15 @@ class ENGINE_API UHierarchicalInstancedStaticMeshComponent : public UInstancedSt
 
 	bool bIsAsyncBuilding;
 	bool bDiscardAsyncBuildResults;
-	bool bConcurrentRemoval;
+	bool bConcurrentChanges;
 	bool bAutoRebuildTreeOnInstanceChanges;
 
 	UPROPERTY()
 	bool bDisableCollision;
+
+	// Instances to render (including removed one until the build is complete)
+	UPROPERTY()
+	int32 InstanceCountToRender;
 
 	// Apply the results of the async build
 	void ApplyBuildTreeAsync(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent, TSharedRef<FClusterBuilder, ESPMode::ThreadSafe> Builder, double StartTime);
@@ -144,6 +144,7 @@ public:
 	virtual void ClearInstances() override;
 	virtual TArray<int32> GetInstancesOverlappingSphere(const FVector& Center, float Radius, bool bSphereInWorldSpace = true) const override;
 	virtual TArray<int32> GetInstancesOverlappingBox(const FBox& Box, bool bBoxInWorldSpace = true) const override;
+	virtual void PreAllocateInstancesMemory(int32 AddedInstanceCount) override;
 
 	/** Removes all the instances with indices specified in the InstancesToRemove array. Returns true on success. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")

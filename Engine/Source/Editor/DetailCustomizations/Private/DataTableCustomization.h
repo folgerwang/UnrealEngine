@@ -66,7 +66,7 @@ private:
 
 	/** The comboButton objects */
 	TSharedPtr<SComboButton> RowNameComboButton;
-	TSharedPtr<SSearchBox> SearchBox;
+	TSharedPtr<class SSearchBox> SearchBox;
 	TSharedPtr<SListView<TSharedPtr<FString> > > RowNameComboListView;
 	TSharedPtr<FString> CurrentSelectedItem;	
 	/** Handle to the struct properties being customized */

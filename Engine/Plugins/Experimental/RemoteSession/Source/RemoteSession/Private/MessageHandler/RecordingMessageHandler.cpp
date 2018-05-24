@@ -185,11 +185,11 @@ void FRecordingMessageHandler::PlayOnKeyUp(FArchive& Ar)
 	OnKeyUp(Msg.Param1, Msg.Param2, Msg.Param3);
 }
 
-bool FRecordingMessageHandler::OnTouchStarted(const TSharedPtr< FGenericWindow >& Window, const FVector2D& Location, int32 TouchIndex, int32 ControllerId)
+bool FRecordingMessageHandler::OnTouchStarted(const TSharedPtr< FGenericWindow >& Window, const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId)
 {
 	if (IsRecording())
 	{
-		ThreeParamMsg<FVector2D, int32, int32> Msg(ConvertToNormalizedScreenLocation(Location), TouchIndex, ControllerId);
+		FourParamMsg<FVector2D, float, int32, int32> Msg(ConvertToNormalizedScreenLocation(Location), Force, TouchIndex, ControllerId);
 		RecordMessage(TEXT("OnTouchStarted"), Msg.AsData());
 	}
 
@@ -198,12 +198,12 @@ bool FRecordingMessageHandler::OnTouchStarted(const TSharedPtr< FGenericWindow >
 		return true;
 	}
 
-	return FProxyMessageHandler::OnTouchStarted(Window, Location, TouchIndex, ControllerId);
+	return FProxyMessageHandler::OnTouchStarted(Window, Location, Force, TouchIndex, ControllerId);
 }
 
 void FRecordingMessageHandler::PlayOnTouchStarted(FArchive& Ar)
 {
-	ThreeParamMsg<FVector2D, int32, int32 > Msg(Ar);
+	FourParamMsg<FVector2D, float, int32, int32 > Msg(Ar);
 	FVector2D ScreenLocation = ConvertFromNormalizedScreenLocation(Msg.Param1);
 
 	TSharedPtr<FGenericWindow> Window;
@@ -213,14 +213,14 @@ void FRecordingMessageHandler::PlayOnTouchStarted(FArchive& Ar)
 		Window = PlaybackWindow.Pin()->GetNativeWindow();
 	}
 
-	OnTouchStarted(Window, ScreenLocation, Msg.Param2, Msg.Param3);
+	OnTouchStarted(Window, ScreenLocation, Msg.Param2, Msg.Param3, Msg.Param4);
 }
 
-bool FRecordingMessageHandler::OnTouchMoved(const FVector2D& Location, int32 TouchIndex, int32 ControllerId)
+bool FRecordingMessageHandler::OnTouchMoved(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId)
 {
 	if (IsRecording())
 	{
-		ThreeParamMsg<FVector2D, int32, int32> Msg(ConvertToNormalizedScreenLocation(Location), TouchIndex, ControllerId);
+		FourParamMsg<FVector2D, float, int32, int32> Msg(ConvertToNormalizedScreenLocation(Location), Force, TouchIndex, ControllerId);
 		OutputWriter->RecordMessage(TEXT("OnTouchMoved"), Msg.AsData());
 	}
 
@@ -229,14 +229,14 @@ bool FRecordingMessageHandler::OnTouchMoved(const FVector2D& Location, int32 Tou
 		return true;
 	}
 
-	return FProxyMessageHandler::OnTouchMoved(Location, TouchIndex, ControllerId);
+	return FProxyMessageHandler::OnTouchMoved(Location, Force, TouchIndex, ControllerId);
 }
 
 void FRecordingMessageHandler::PlayOnTouchMoved(FArchive& Ar)
 {
-	ThreeParamMsg<FVector2D, int32, int32 > Msg(Ar);
+	FourParamMsg<FVector2D, float, int32, int32 > Msg(Ar);
 	FVector2D ScreenLocation = ConvertFromNormalizedScreenLocation(Msg.Param1);
-	OnTouchMoved(ScreenLocation, Msg.Param2, Msg.Param3);
+	OnTouchMoved(ScreenLocation, Msg.Param2, Msg.Param3, Msg.Param4);
 }
 
 bool FRecordingMessageHandler::OnTouchEnded(const FVector2D& Location, int32 TouchIndex, int32 ControllerId)

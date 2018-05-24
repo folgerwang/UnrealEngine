@@ -8,6 +8,7 @@
 #include "PyPtr.h"
 #include "Misc/CoreMisc.h"
 #include "HAL/IConsoleManager.h"
+#include "Framework/Commands/InputChord.h"
 
 class FPythonScriptPlugin;
 
@@ -31,7 +32,10 @@ public:
 	virtual bool Exec(const TCHAR* Input) override;
 	virtual bool AllowHotKeyClose() const override;
 	virtual bool AllowMultiLine() const override;
-
+	virtual FInputChord GetHotKey() const override
+	{
+		return FInputChord();
+	}
 private:
 	FPythonScriptPlugin* PythonScriptPlugin;
 };

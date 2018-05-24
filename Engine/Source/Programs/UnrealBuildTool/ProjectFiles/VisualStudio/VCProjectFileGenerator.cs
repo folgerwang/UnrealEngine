@@ -54,7 +54,13 @@ namespace UnrealBuildTool
 		/// The version of Visual Studio to generate project files for.
 		/// </summary>
 		[XmlConfigFile(Name = "Version")]
-		VCProjectFileFormat ProjectFileFormat = VCProjectFileFormat.Default;
+		protected VCProjectFileFormat ProjectFileFormat = VCProjectFileFormat.Default;
+
+		/// <summary>
+		/// Whether to write a solution option (suo) file for the sln
+		/// </summary>
+		[XmlConfigFile(Category = "BuildConfiguration")]
+		protected bool bWriteSolutionOptionFile = true;
 
 		/// <summary>
 		/// Whether to add the -FastPDB option to build command lines by default
@@ -958,7 +964,7 @@ namespace UnrealBuildTool
 
 
 			// Save a solution config file which selects the development editor configuration by default.
-			if (bSuccess)
+			if (bSuccess && bWriteSolutionOptionFile)
 			{
 				// Figure out the filename for the SUO file. VS will automatically import the options from earlier versions if necessary.
 				FileReference SolutionOptionsFileName;

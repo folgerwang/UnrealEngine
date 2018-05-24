@@ -82,7 +82,6 @@ public:
 	SLATE_BEGIN_ARGS(SGameLayerManager)
 	{
 		_Visibility = EVisibility::SelfHitTestInvisible;
-		_Clipping = EWidgetClipping::ClipToBoundsAlways;
 	}
 
 		/** Slot for this content (optional) */
@@ -196,7 +195,7 @@ private:
 		}
 	};
 
-	TArray<FWindowTitleBarState> WindowTitleBarStateStack;
+	FWindowTitleBarState WindowTitleBarState;
 	TSharedPtr<SWidget> DefaultTitleBarContentWidget;
 	float DefaultWindowTitleBarHeight;
 	bool bIsGameUsingBorderlessWindow;

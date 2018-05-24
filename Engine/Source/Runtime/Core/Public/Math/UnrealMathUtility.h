@@ -11,7 +11,11 @@
 
 // Assert on non finite numbers. Used to track NaNs.
 #ifndef ENABLE_NAN_DIAGNOSTIC
-	#define ENABLE_NAN_DIAGNOSTIC 0
+	#if UE_BUILD_DEBUG
+		#define ENABLE_NAN_DIAGNOSTIC 1
+	#else
+		#define ENABLE_NAN_DIAGNOSTIC 0
+	#endif
 #endif
 
 /*-----------------------------------------------------------------------------
@@ -595,7 +599,15 @@ struct FMath : public FPlatformMath
 	/** Calculates the percentage along a line from MinValue to MaxValue that Value is. */
 	static FORCEINLINE float GetRangePct(float MinValue, float MaxValue, float Value)
 	{
-		return (Value - MinValue) / (MaxValue - MinValue);
+		// Avoid Divide by Zero.
+		// But also if our range is a point, output whether Value is before or after.
+		const float Divisor = MaxValue - MinValue;
+		if (FMath::IsNearlyZero(Divisor))
+		{
+			return (Value >= MaxValue) ? 1.f : 0.f;
+		}
+
+		return (Value - MinValue) / Divisor;
 	}
 
 	/** Same as above, but taking a 2d vector as the range. */

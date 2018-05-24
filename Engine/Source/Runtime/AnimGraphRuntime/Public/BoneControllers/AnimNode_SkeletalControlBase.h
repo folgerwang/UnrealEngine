@@ -299,13 +299,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_SkeletalControlBase : public FAnimNode_Bas
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Links)
 	FComponentSpacePoseLink ComponentPose;
 
-	// Current strength of the skeletal control
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
-	mutable float Alpha;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings)
-	FInputScaleBias AlphaScaleBias;
-
 	/*
 	* Max LOD that this node is allowed to run
 	* For example if you have LODThreadhold to be 2, it will run until LOD 2 (based on 0 index)
@@ -315,15 +308,41 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_SkeletalControlBase : public FAnimNode_Bas
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Performance, meta = (DisplayName = "LOD Threshold"))
 	int32 LODThreshold;
 
+	virtual int32 GetLODThreshold() const override { return LODThreshold; }
+
 	UPROPERTY(Transient)
 	float ActualAlpha;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
+	EAnimAlphaInputType AlphaInputType;
+
+	// Current strength of the skeletal control
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault))
+	mutable float Alpha;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
+	FInputScaleBias AlphaScaleBias;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault, DisplayName = "bEnabled"))
+	mutable bool bAlphaBoolEnabled;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (DisplayName = "Blend Settings"))
+	FInputAlphaBoolBlend AlphaBoolBlend;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault))
+	mutable FName AlphaCurveName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
+	FInputScaleBiasClamp AlphaScaleBiasClamp;
 
 public:
 
 	FAnimNode_SkeletalControlBase()
-		: Alpha(1.0f)
-		, LODThreshold(INDEX_NONE)
+		: LODThreshold(INDEX_NONE)
 		, ActualAlpha(0.f)
+		, AlphaInputType(EAnimAlphaInputType::Float)
+		, Alpha(1.0f)
+		, bAlphaBoolEnabled(true)
 	{
 	}
 

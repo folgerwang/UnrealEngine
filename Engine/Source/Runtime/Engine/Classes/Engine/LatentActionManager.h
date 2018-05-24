@@ -48,6 +48,16 @@ struct ENGINE_API FLatentActionInfo
 	}
 };
 
+enum class ELatentActionChangeType : uint8
+{
+	/** Latent actions were removed */
+	ActionsRemoved,
+
+	/** Latent actions were added */
+	ActionsAdded,
+};
+
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnLatentActionsChanged, UObject*, ELatentActionChangeType)
 
 // The latent action manager handles all pending latent actions for a single world
 USTRUCT()
@@ -61,6 +71,10 @@ struct ENGINE_API FLatentActionManager
 	/** Map to convert from object to FActionList. */
 	typedef TMap< TWeakObjectPtr<UObject>, TSharedPtr<FActionList> > FObjectToActionListMap;
 	FObjectToActionListMap ObjectToActionListMap;
+
+	/** @return A delegate that will be broadcast when a latent action is added or removed from the manager */
+	static FOnLatentActionsChanged& OnLatentActionsChanged() { return LatentActionsChangedDelegate; }
+
 public:
 	/** 
 	 * Advance pending latent actions by DeltaTime.
@@ -205,5 +219,8 @@ protected:
 	typedef TPair<int32, class FPendingLatentAction*> FUuidAndAction;
 	typedef TMap< TWeakObjectPtr<UObject>, TSharedPtr<TArray<FUuidAndAction>>> FActionsForObject;
 	FActionsForObject ActionsToRemoveMap;
+
+	/** Delegate called when a latent action is added or removed */
+	static FOnLatentActionsChanged LatentActionsChangedDelegate;
 };
 

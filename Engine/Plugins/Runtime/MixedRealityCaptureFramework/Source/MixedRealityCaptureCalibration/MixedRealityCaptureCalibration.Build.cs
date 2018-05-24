@@ -8,7 +8,7 @@ public class MixedRealityCaptureCalibration : ModuleRules
 	{
 		PublicIncludePaths.AddRange(
 			new string[] {
-            }
+			}
 		);
 
 		PrivateIncludePaths.AddRange(

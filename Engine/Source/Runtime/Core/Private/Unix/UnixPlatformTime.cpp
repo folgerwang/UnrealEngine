@@ -30,6 +30,7 @@ double FUnixTime::InitTiming()
 {
 	if (ClockSource == -1)
 	{
+		// Only ever set this ClockSource once
 		ClockSource = FUnixTime::CalibrateAndSelectClock();
 	}
 

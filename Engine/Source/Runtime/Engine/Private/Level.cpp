@@ -964,13 +964,11 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 	}
 
 	// See whether we are done.
-	if (CurrentActorIndexForUpdateComponents == Actors.Num())
+	if (CurrentActorIndexForUpdateComponents >= Actors.Num())
 	{
 		CurrentActorIndexForUpdateComponents	= 0;
 		bHasCurrentActorCalledPreRegister		= false;
 		bAreComponentsCurrentlyRegistered		= true;
-		
-		CreateCluster();
 
 #if PERF_TRACK_DETAILED_ASYNC_STATS
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_ULevel_IncrementalUpdateComponents_RerunConstructionScripts);
@@ -997,6 +995,8 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 			}
 			bHasRerunConstructionScripts = true;
 		}
+
+		CreateCluster();
 	}
 	// Only the game can use incremental update functionality.
 	else
@@ -1034,7 +1034,7 @@ bool ULevel::IncrementalUnregisterComponents(int32 NumComponentsToUnregister)
 		}
 	}
 
-	if (CurrentActorIndexForUnregisterComponents == Actors.Num())
+	if (CurrentActorIndexForUnregisterComponents >= Actors.Num())
 	{
 		CurrentActorIndexForUnregisterComponents = 0;
 		return true;
@@ -2007,7 +2007,7 @@ void ULevel::FixupForPIE(int32 PIEInstanceID)
 	{
 		FSoftPathPIEFixupSerializer() 
 		{
-			ArIsSaving = true;
+			this->SetIsSaving(true);
 		}
 
 		FArchive& operator<<(FSoftObjectPath& Value)

@@ -470,7 +470,7 @@ public:
 	/**
 	* Should shaders compiled for this material be saved to disk?
 	*/
-	virtual bool IsPersistent() const override { return false; }
+	virtual bool IsPersistent() const override { return true; }
 	virtual FGuid GetMaterialId() const override { return Id; }
 
 	virtual UMaterialInterface* GetMaterialInterface() const override

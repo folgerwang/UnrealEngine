@@ -167,6 +167,18 @@ namespace ELandscapeCullingPrecision
 	};
 }
 
+UENUM()
+namespace EProxyNormalComputationMethod
+{
+	enum Type
+	{
+		AngleWeighted = 0 UMETA(DisplayName = "Angle Weighted"),
+		AreaWeighted = 1 UMETA(DisplayName = "Area  Weighted"),
+		EqualWeighted = 2 UMETA(DisplayName = "Equal Weighted")
+	};
+}
+
+
 USTRUCT()
 struct FMeshProxySettings
 {
@@ -209,13 +221,33 @@ struct FMeshProxySettings
 	UPROPERTY(EditAnywhere, Category = ProxySettings)
 	bool bCalculateCorrectLODModel;
 
-	/** Distance at which meshes should be merged together */
+	/** Distance at which meshes should be merged together, this can close gaps like doors and windows in distant geometry */
 	UPROPERTY(EditAnywhere, Category = ProxySettings)
 	float MergeDistance;
-	
+
+	/** Base color assigned to LOD geometry that can't be associated with the source geometry: e.g. doors and windows that have been closed by the Merge Distance */
+	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (DisplayName = "Unresolved Geometry Color"))
+	FColor UnresolvedGeometryColor;
+
+	/** Enable an override for material transfer distance */
+	UPROPERTY(EditAnywhere, Category = MaxRayCastDist, meta = (InlineEditConditionToggle))
+	bool bOverrideTransferDistance;
+
+	/** Override search distance used when discovering texture values for simplified geometry.  Useful when non-zero Merge Distance setting generates new geometry in concave corners.*/
+	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (EditCondition = "bOverrideTransferDistance", DisplayName = "Transfer Distance Override", ClampMin = 0))
+	float MaxRayCastDist;
+
+	/** Enable the use of hard angle based vertex splitting */
+	UPROPERTY(EditAnywhere, Category = HardAngleThreshold, meta = (InlineEditConditionToggle))
+	bool bUseHardAngleThreshold;
+
 	/** Angle at which a hard edge is introduced between faces */
-	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (DisplayName = "Hard Edge Angle"))
+	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (EditCondition = "bUseHardAngleThreshold", DisplayName = "Hard Edge Angle", ClampMin = 0, ClampMax = 180))
 	float HardAngleThreshold;
+
+	/** Controls the method used to calculate the normal for the simplified geometry */
+	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (DisplayName = "Normal Calculation Method"))
+	TEnumAsByte<EProxyNormalComputationMethod::Type> NormalCalculationMethod;
 
 	/** Lightmap resolution */
 	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (ClampMin = 32, ClampMax = 4096, EditCondition = "!bComputeLightMapResolution"))
@@ -275,10 +307,18 @@ struct FMeshProxySettings
 		, bExportMetallicMap_DEPRECATED(false)
 		, bExportRoughnessMap_DEPRECATED(false)
 		, bExportSpecularMap_DEPRECATED(false)
-		, MergeDistance(4)
-		, HardAngleThreshold(80.0f)
+		, bCalculateCorrectLODModel(false)
+		, MergeDistance(0)
+		, UnresolvedGeometryColor(FColor::Black)
+		, bOverrideTransferDistance(false)
+		, MaxRayCastDist(20)
+		, bUseHardAngleThreshold(false)
+		, HardAngleThreshold(130.f)
+		, NormalCalculationMethod(EProxyNormalComputationMethod::AngleWeighted)
 		, LightMapResolution(256)
+		, bComputeLightMapResolution(false)
 		, bRecalculateNormals(true)
+		, bBakeVertexData_DEPRECATED(false)
 		, bUseLandscapeCulling(false)
 		, LandscapeCullingPrecision(ELandscapeCullingPrecision::Medium)
 		, bAllowAdjacency(false)
@@ -297,8 +337,13 @@ struct FMeshProxySettings
 		return ScreenSize == Other.ScreenSize
 			&& MaterialSettings == Other.MaterialSettings
 			&& bRecalculateNormals == Other.bRecalculateNormals
+			&& bOverrideTransferDistance == Other.bOverrideTransferDistance
+			&& MaxRayCastDist == Other.MaxRayCastDist
+			&& bUseHardAngleThreshold == Other.bUseHardAngleThreshold
 			&& HardAngleThreshold == Other.HardAngleThreshold
+			&& NormalCalculationMethod == Other.NormalCalculationMethod
 			&& MergeDistance == Other.MergeDistance
+			&& UnresolvedGeometryColor == Other.UnresolvedGeometryColor
 			&& bOverrideVoxelSize == Other.bOverrideVoxelSize
 			&& VoxelSize == Other.VoxelSize;
 	}
@@ -430,6 +475,10 @@ struct FMeshMergingSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MeshSettings)
 	bool bIncludeImposters;
 
+	/** Whether to allow distance field to be computed for this mesh.  Disable this to save memory if you mesh will only rendered in the distance. */
+	UPROPERTY(EditAnywhere, Category = MeshSettings)
+	bool bAllowDistanceField;
+
 	/** Whether to export normal maps for material merging */
 	UPROPERTY()
 	bool bExportNormalMap_DEPRECATED;
@@ -452,6 +501,7 @@ struct FMeshMergingSettings
 	FMeshMergingSettings()
 		: bGenerateLightMapUV(true)
 		, TargetLightMapResolution(256)
+		, bComputedLightMapResolution(false)
 		, bImportVertexColors_DEPRECATED(false)
 		, bPivotPointAtZero(false)
 		, bMergePhysicsData(false)
@@ -468,6 +518,7 @@ struct FMeshMergingSettings
 		, SpecificLOD(0)
 		, bUseLandscapeCulling(false)
 		, bIncludeImposters(true)
+		, bAllowDistanceField(false)
 		, bExportNormalMap_DEPRECATED(true)
 		, bExportMetallicMap_DEPRECATED(false)
 		, bExportRoughnessMap_DEPRECATED(false)

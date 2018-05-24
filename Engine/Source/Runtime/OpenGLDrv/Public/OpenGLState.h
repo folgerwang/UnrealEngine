@@ -92,6 +92,8 @@ struct FOpenGLRasterizerStateData
 class FOpenGLRasterizerState : public FRHIRasterizerState
 {
 public:
+	virtual bool GetInitializer(FRasterizerStateInitializerRHI& Init) override final;
+	
 	FOpenGLRasterizerStateData Data;
 };
 
@@ -138,6 +140,8 @@ struct FOpenGLDepthStencilStateData
 class FOpenGLDepthStencilState : public FRHIDepthStencilState
 {
 public:
+	virtual bool GetInitializer(FDepthStencilStateInitializerRHI& Init) override final;
+	
 	FOpenGLDepthStencilStateData Data;
 };
 
@@ -185,6 +189,8 @@ struct FOpenGLBlendStateData
 class FOpenGLBlendState : public FRHIBlendState
 {
 public:
+	virtual bool GetInitializer(FBlendStateInitializerRHI& Init) override final;
+	
 	FOpenGLBlendStateData Data;
 };
 
@@ -236,9 +242,14 @@ struct FOpenGLCachedAttr
 	GLuint StreamIndex;
 	GLboolean bNormalized;
 
-	bool bEnabled;
-
-	FOpenGLCachedAttr() : Pointer(FOpenGLCachedAttr_Invalid), Stride(-1), Divisor(0xFFFFFFFF), Type(0), StreamIndex(0xFFFFFFFF), bEnabled(false) {}
+	FOpenGLCachedAttr() : 
+		Pointer(FOpenGLCachedAttr_Invalid), 
+		Stride(-1), 
+		Divisor(0xFFFFFFFF), 
+		Type(0), 
+		StreamIndex(0xFFFFFFFF)
+	{
+	}
 };
 
 struct FOpenGLStream
@@ -333,6 +344,25 @@ struct FOpenGLContextState : public FOpenGLCommonState
 	FOpenGLCachedAttr				VertexAttrs[NUM_OPENGL_VERTEX_STREAMS];
 	FOpenGLStream					VertexStreams[NUM_OPENGL_VERTEX_STREAMS];
 
+	uint32 VertexAttrs_EnabledBits;
+	FORCEINLINE bool GetVertexAttrEnabled(int32 Index) const
+	{
+		static_assert(NUM_OPENGL_VERTEX_STREAMS <= sizeof(VertexAttrs_EnabledBits) * 8, "Not enough bits in VertexAttrs_EnabledBits to store NUM_OPENGL_VERTEX_STREAMS");
+		return !!(VertexAttrs_EnabledBits & (1 << Index));
+	}
+	FORCEINLINE void SetVertexAttrEnabled(int32 Index, bool bEnable)
+	{
+		if (bEnable)
+		{
+			VertexAttrs_EnabledBits |= (1 << Index);
+		}
+		else
+		{
+			VertexAttrs_EnabledBits &= ~(1 << Index);
+		}
+	}
+
+
 	FOpenGLVertexDeclaration* VertexDecl;
 	uint32 ActiveAttribMask;
 	uint32 ActiveStreamMask;
@@ -361,6 +391,7 @@ struct FOpenGLContextState : public FOpenGLCommonState
 	,	LastES2ColorRTResource(0)
 #endif
 	,	LastES2ColorTargetType(GL_NONE)
+	, VertexAttrs_EnabledBits(0)
 	, VertexDecl(0)
 	, ActiveAttribMask(0)
 	, ActiveStreamMask(0)
@@ -424,6 +455,9 @@ struct FOpenGLRHIState : public FOpenGLCommonState
 	uint32							IndexDataStride;
 
 	FOpenGLStream					Streams[NUM_OPENGL_VERTEX_STREAMS];
+
+	// we null this when the we dirty PackedGlobalUniformDirty. Thus we can skip all of CommitNonComputeShaderConstants if it matches the current program
+	FOpenGLLinkedProgram* LinkedProgramAndDirtyFlag;
 	FOpenGLShaderParameterCache*	ShaderParameters;
 
 	TRefCountPtr<FOpenGLBoundShaderState>	BoundShaderState;
@@ -436,6 +470,7 @@ struct FOpenGLRHIState : public FOpenGLCommonState
 	FUniformBufferRHIRef BoundUniformBuffers[SF_NumFrequencies][MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE];
 
 	/** Bit array to track which uniform buffers have changed since the last draw call. */
+	bool bAnyDirtyGraphicsUniformBuffers;
 	uint16 DirtyUniformBuffers[SF_NumFrequencies];
 
 	// Used for if(!FOpenGL::SupportsFastBufferData())
@@ -466,6 +501,7 @@ struct FOpenGLRHIState : public FOpenGLCommonState
 	,	NumPrimitives(0)
 	,	MinVertexIndex(0)
 	,	IndexDataStride(0)
+	,	LinkedProgramAndDirtyFlag(nullptr)
 	,	ShaderParameters(NULL)
 	,	BoundShaderState(NULL)
 	,	CurrentComputeShader(NULL)

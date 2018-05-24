@@ -547,6 +547,8 @@ void FAssetEditorManager::OpenEditorForAsset(const FString& AssetPathName)
 
 bool FAssetEditorManager::HandleTicker( float DeltaTime )
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FAssetEditorManager_HandleTicker);
+
 	if (bRequestRestorePreviouslyOpenAssets)
 	{
 		RestorePreviouslyOpenAssets();

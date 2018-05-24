@@ -25,7 +25,7 @@ namespace UE4EnumProperty_Private
 				LogClass,
 				Warning,
 				TEXT("Failed to find valid enum value '%s' for enum type '%s' when converting property '%s' during property loading - setting to '%s'"),
-				*Lex::ToString(OldValue),
+				*LexToString(OldValue),
 				*Enum->GetName(),
 				*EnumProp->GetName(),
 				*Enum->GetNameByValue(Enum->GetMaxEnumValue()).ToString()
@@ -264,7 +264,7 @@ const TCHAR* UEnumProperty::ImportText_Internal(const TCHAR* InBuffer, void* Dat
 			if (EnumIndex == INDEX_NONE && (Temp.IsNumeric() && !Algo::Find(Temp, TEXT('.'))))
 			{
 				int64 EnumValue = INDEX_NONE;
-				Lex::FromString(EnumValue, *Temp);
+				LexFromString(EnumValue, *Temp);
 				EnumIndex = Enum->GetIndexByValue(EnumValue);
 			}
 			if (EnumIndex != INDEX_NONE)

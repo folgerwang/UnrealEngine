@@ -361,6 +361,9 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 	GSavedCommandLine += TEXT(" -installed");
 #endif
 
+	// convert $'s to " because Xcode swallows the " and this will allow -execcmds= to be usable from xcode
+	GSavedCommandLine = GSavedCommandLine.Replace(TEXT("$"), TEXT("\""));
+
 	SCOPED_AUTORELEASE_POOL;
 	[NSApplication sharedApplication];
 	[NSApp setDelegate:[UE4AppDelegate new]];

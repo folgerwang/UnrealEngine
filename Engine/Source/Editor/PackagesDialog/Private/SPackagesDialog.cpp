@@ -48,6 +48,34 @@ UObject* FPackageItem::GetPackageObject() const
 	return nullptr;
 }
 
+bool FPackageItem::HasMultipleAssets() const
+{
+	bool bHasMultipleAssets = false;
+	if ( !EntryName.StartsWith(TEXT("/Temp/Untitled")) )
+	{
+		TArray<UObject*> ObjectsInPackage;
+		GetObjectsWithOuter(Package, ObjectsInPackage, false);
+		UObject* FirstObj = nullptr;
+		for (UObject* Obj : ObjectsInPackage)
+		{
+			if (Obj->IsAsset())
+			{
+				if(FirstObj == nullptr)
+				{
+					FirstObj = Obj;
+				}
+				else
+				{
+					bHasMultipleAssets = true;
+					break;
+				}
+			}
+		}
+	}
+	return bHasMultipleAssets;
+}
+
+
 bool FPackageItem::GetTypeNameAndColor(FString& OutName, FColor& OutColor) const
 {
 	// Resolve the object belonging to the package and cache.
@@ -63,14 +91,21 @@ bool FPackageItem::GetTypeNameAndColor(FString& OutName, FColor& OutColor) const
 		const TSharedPtr<IAssetTypeActions> AssetTypeActions = AssetToolsModule.Get().GetAssetTypeActionsForClass(Object->GetClass()).Pin();
 		if ( AssetTypeActions.IsValid() )
 		{
-			const FColor EngineBorderColor = AssetTypeActions->GetTypeColor();
-			OutColor = FColor(						// Copied from ContentBrowserCLR.cpp
-				127 + EngineBorderColor.R / 2,		// Desaturate the colors a bit (GB colors were too.. much)
-				127 + EngineBorderColor.G / 2,
-				127 + EngineBorderColor.B / 2, 
-				200);		// Opacity
-			OutName = AssetTypeActions->GetName().ToString();
-
+			if(HasMultipleAssets())
+			{
+				OutColor = FColor::White;
+				OutName = LOCTEXT("MultipleAssets", "Multiple Assets").ToString();
+			}
+			else
+			{
+				const FColor EngineBorderColor = AssetTypeActions->GetTypeColor();
+				OutColor = FColor(						// Copied from ContentBrowserCLR.cpp
+					127 + EngineBorderColor.R / 2,		// Desaturate the colors a bit (GB colors were too.. much)
+					127 + EngineBorderColor.G / 2,
+					127 + EngineBorderColor.B / 2, 
+					200);		// Opacity
+				OutName = AssetTypeActions->GetName().ToString();
+			}
 			return true;
 		}
 	}

@@ -28,8 +28,9 @@ public class PhysXCookingLib : ModuleRules
 					return PhysXLibraryMode.Checked;
 				}
 			case UnrealTargetConfiguration.Shipping:
-			case UnrealTargetConfiguration.Test:
 				return PhysXLibraryMode.Shipping;
+			case UnrealTargetConfiguration.Test:
+				return PhysXLibraryMode.Profile;
 			case UnrealTargetConfiguration.Development:
 			case UnrealTargetConfiguration.DebugGame:
 			case UnrealTargetConfiguration.Unknown:

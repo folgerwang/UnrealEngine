@@ -6,6 +6,18 @@
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
 
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineCloud, Display, All);
+
+#define UE_LOG_ONLINE_CLOUD(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineCloud, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_CLOUD(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineCloud, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
 /**
  * Delegate fired when the list of files has been returned from the network store
  *
@@ -101,7 +113,7 @@ public:
 	 * @param FileName the name of the file to read
 	 * @param FileContents the out buffer to copy the data into
 	 *
- 	 * @return true if the data was copied, false otherwise
+	 * @return true if the data was copied, false otherwise
 	 */
 	virtual bool GetFileContents(const FUniqueNetId& UserId, const FString& FileName, TArray<uint8>& FileContents) = 0;
 

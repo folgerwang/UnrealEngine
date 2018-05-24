@@ -96,6 +96,8 @@ public:
 
 	static void OnWindowSizeChanged();
 
+	virtual void Tick(const float TimeDelta) override;
+
 	virtual bool IsGamepadAttached() const override;
 
 protected:

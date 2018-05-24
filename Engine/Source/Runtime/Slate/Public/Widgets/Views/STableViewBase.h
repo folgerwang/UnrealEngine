@@ -94,8 +94,14 @@ public:
 		        either mouse button and dragging. */
 	bool IsUserScrolling() const;
 
-	/** Mark the list as dirty, so that it will regenerate its widgets on next tick. */
-	void RequestListRefresh();
+	/**
+	 * Mark the list as dirty so that it will refresh its widgets on next tick.
+	 * Note that refreshing will only generate/release widgets as needed from any deltas in the list items source.
+	 */
+	virtual void RequestListRefresh();
+
+	/** Completely wipe existing widgets and fully regenerate them on next tick. */
+	virtual void RebuildList() = 0;
 
 	/** Return true if there is currently a refresh pending, false otherwise */
 	bool IsPendingRefresh() const;
@@ -126,13 +132,14 @@ public:
 	// SWidget interface
 
 	virtual void OnFocusLost( const FFocusEvent& InFocusEvent ) override;
-	virtual void OnMouseCaptureLost() override;
+	virtual void OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent) override;
 	virtual bool SupportsKeyboardFocus() const override;
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	virtual FReply OnPreviewMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent ) override;
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
+	virtual void OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual void OnMouseLeave( const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
@@ -225,6 +232,8 @@ protected:
 	 */
 	virtual void UpdateSelectionSet() = 0;
 
+	/** Internal request for a layout update on the next tick (i.e. a refresh without implication that the source items have changed) */
+	void RequestLayoutRefresh();
 
 	/** Information about the outcome of the WidgetRegeneratePass */
 	struct SLATE_API FReGenerateResults
@@ -358,9 +367,8 @@ protected:
 	EConsumeMouseWheel ConsumeMouseWheel;
 
 private:
-	
 	/** When true, a refresh should occur the next tick */
-	bool bItemsNeedRefresh;
+	bool bItemsNeedRefresh = false;
 };
 
 

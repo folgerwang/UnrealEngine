@@ -37,6 +37,14 @@ enum EDecompressionType
 	DTYPE_MAX,
 };
 
+/** Precache states */
+enum class ESoundWavePrecacheState
+{
+	NotStarted,
+	InProgress,
+	Done
+};
+
 /**
  * A chunk of streamed audio.
  */
@@ -130,59 +138,91 @@ class ENGINE_API USoundWave : public USoundBase
 	UPROPERTY(EditAnywhere, Category=Compression, meta=(ClampMin = "1", ClampMax = "100"), AssetRegistrySearchable)
 	int32 CompressionQuality;
 
-	/** Quality of sample rate conversion for platforms that opt into resampling during cook. */
-	UPROPERTY(EditAnywhere, Category = Quality)
-	ESoundwaveSampleRateSettings SampleRateQuality;
-
-	/** If set, when played directly (not through a sound cue) the wave will be played looping. */
-	UPROPERTY(EditAnywhere, Category=SoundWave, AssetRegistrySearchable)
-	uint32 bLooping:1;
-
-	/** Whether this sound can be streamed to avoid increased memory usage */
-	UPROPERTY(EditAnywhere, Category=Streaming)
-	uint32 bStreaming:1;
-
 	/** Priority of this sound when streaming (lower priority streams may not always play) */
 	UPROPERTY(EditAnywhere, Category=Streaming, meta=(ClampMin=0))
 	int32 StreamingPriority;
 
-	/** Set to true for programmatically-generated, streamed audio. */
-	uint32 bProcedural:1;
+	/** Quality of sample rate conversion for platforms that opt into resampling during cook. */
+	UPROPERTY(EditAnywhere, Category = Quality)
+	ESoundwaveSampleRateSettings SampleRateQuality;
 
-	/** Set to true of this is a bus sound source. This will result in the sound wave not generating audio for itself, but generate audio through instances. Used only in audio mixer. */
-	uint32 bIsBus:1;
-
-	/** Set to true for procedural waves that can be processed asynchronously. */
-	uint32 bCanProcessAsync:1;
-
-	/** Whether to free the resource data after it has been uploaded to the hardware */
-	uint32 bDynamicResource:1;
-
-	/** If set to true if this sound is considered to contain mature/adult content. */
-	UPROPERTY(EditAnywhere, Category=Subtitles, AssetRegistrySearchable)
-	uint32 bMature:1;
-
-	/** If set to true will disable automatic generation of line breaks - use if the subtitles have been split manually. */
-	UPROPERTY(EditAnywhere, Category=Subtitles )
-	uint32 bManualWordWrap:1;
-
-	/** If set to true the subtitles display as a sequence of single lines as opposed to multiline. */
-	UPROPERTY(EditAnywhere, Category=Subtitles )
-	uint32 bSingleLine:1;
-
-	/** Allows sound to play at 0 volume, otherwise will stop the sound when the sound is silent. */
-	UPROPERTY(EditAnywhere, Category=Sound)
-	uint32 bVirtualizeWhenSilent:1;
-
-	/** Whether or not this source is ambisonics file format. */
-	UPROPERTY(EditAnywhere, Category = Sound)
-	uint32 bIsAmbisonics : 1;
-
-	/** Whether this SoundWave was decompressed from OGG. */
-	uint32 bDecompressedFromOgg:1;
+	/** Type of buffer this wave uses. Set once on load */
+	TEnumAsByte<enum EDecompressionType> DecompressionType;
 
 	UPROPERTY(EditAnywhere, Category=Sound)
 	TEnumAsByte<ESoundGroup> SoundGroup;
+
+	/** If set, when played directly (not through a sound cue) the wave will be played looping. */
+	UPROPERTY(EditAnywhere, Category=SoundWave, AssetRegistrySearchable)
+	uint8 bLooping:1;
+
+	/** Whether this sound can be streamed to avoid increased memory usage */
+	UPROPERTY(EditAnywhere, Category=Streaming)
+	uint8 bStreaming:1;
+
+	/** Set to true for programmatically-generated, streamed audio. */
+	uint8 bProcedural:1;
+
+	/** Set to true of this is a bus sound source. This will result in the sound wave not generating audio for itself, but generate audio through instances. Used only in audio mixer. */
+	uint8 bIsBus:1;
+
+	/** Set to true for procedural waves that can be processed asynchronously. */
+	uint8 bCanProcessAsync:1;
+
+	/** Whether to free the resource data after it has been uploaded to the hardware */
+	uint8 bDynamicResource:1;
+
+	/** If set to true if this sound is considered to contain mature/adult content. */
+	UPROPERTY(EditAnywhere, Category=Subtitles, AssetRegistrySearchable)
+	uint8 bMature:1;
+
+	/** If set to true will disable automatic generation of line breaks - use if the subtitles have been split manually. */
+	UPROPERTY(EditAnywhere, Category=Subtitles )
+	uint8 bManualWordWrap:1;
+
+	/** If set to true the subtitles display as a sequence of single lines as opposed to multiline. */
+	UPROPERTY(EditAnywhere, Category=Subtitles )
+	uint8 bSingleLine:1;
+
+	/** Allows sound to play at 0 volume, otherwise will stop the sound when the sound is silent. */
+	UPROPERTY(EditAnywhere, Category=Sound)
+	uint8 bVirtualizeWhenSilent:1;
+
+	/** Whether or not this source is ambisonics file format. */
+	UPROPERTY(EditAnywhere, Category = Sound)
+	uint8 bIsAmbisonics : 1;
+
+	/** Whether this SoundWave was decompressed from OGG. */
+	uint8 bDecompressedFromOgg:1;
+
+private:
+
+#if !WITH_EDITOR
+	// This is set to false on initialization, then set to true on non-editor platforms when we cache appropriate sample rate.
+	uint8 bCachedSampleRateFromPlatformSettings : 1;
+
+	// This is set when SetSampleRate is called to invalidate our cached sample rate while not re-parsing project settings.
+	uint8 bSampleRateManuallyReset : 1;
+#endif
+
+	enum class ESoundWaveResourceState : uint8
+	{
+		NeedsFree,
+		Freeing,
+		Freed
+	};
+
+	ESoundWaveResourceState ResourceState;
+
+	/** What state the precache decompressor is in. */
+	FThreadSafeCounter PrecacheState;
+
+#if !WITH_EDITOR
+	// This is the sample rate gotten from platform settings.
+	float CachedSampleRateOverride;
+#endif // !WITH_EDITOR
+
+public:
 
 	/** A localized version of the text that is actually spoken phonetically in the audio. */
 	UPROPERTY(EditAnywhere, Category=Subtitles )
@@ -219,6 +259,13 @@ class ENGINE_API USoundWave : public USoundBase
 	UPROPERTY()
 	int32 RawPCMDataSize;
 
+protected:
+
+	/** Cached sample rate for displaying in the tools */
+	UPROPERTY(Category = Info, AssetRegistrySearchable, VisibleAnywhere)
+	int32 SampleRate;
+
+public:
 	/**
 	 * Subtitle cues.  If empty, use SpokenText as the subtitle.  Will often be empty,
 	 * as the contents of the subtitle is commonly identical to what is spoken.
@@ -260,12 +307,6 @@ protected:
 	UPROPERTY()
 	class UCurveTable* InternalCurves;
 
-protected:
-
-	/** Cached sample rate for displaying in the tools */
-	UPROPERTY(Category = Info, AssetRegistrySearchable, VisibleAnywhere)
-	int32 SampleRate;
-
 private:
 
 	/**
@@ -277,9 +318,6 @@ public:
 	/** Async worker that decompresses the audio data on a different thread */
 	typedef FAsyncTask< class FAsyncAudioDecompressWorker > FAsyncAudioDecompress;	// Forward declare typedef
 	FAsyncAudioDecompress*		AudioDecompressor;
-
-	/** Whether or not the the precache task has finished. */
-	FThreadSafeBool				bIsPrecacheDone;
 
 	/** Pointer to 16 bit PCM data - used to avoid synchronous operation to obtain first block of the realtime decompressed buffer */
 	uint8*						CachedRealtimeFirstBuffer;
@@ -298,9 +336,6 @@ public:
 
 	FFormatContainer			CompressedFormatData;
 
-	/** Type of buffer this wave uses. Set once on load */
-	TEnumAsByte<enum EDecompressionType> DecompressionType;
-
 	/** Resource index to cross reference with buffers */
 	int32 ResourceID;
 
@@ -311,10 +346,10 @@ public:
 	int32 TrackedMemoryUsage;
 
 	/** The streaming derived data for this sound on this platform. */
-	FStreamedAudioPlatformData *RunningPlatformData;
+	FStreamedAudioPlatformData* RunningPlatformData;
 
 	/** cooked streaming platform data for this sound */
-	TMap<FString, FStreamedAudioPlatformData*> CookedPlatformData;
+	TSortedMap<FString, FStreamedAudioPlatformData*> CookedPlatformData;
 
 	//~ Begin UObject Interface. 
 	virtual void Serialize( FArchive& Ar ) override;
@@ -334,7 +369,7 @@ public:
 	//~ Begin USoundBase Interface.
 	virtual bool IsPlayable() const override;
 	virtual void Parse( class FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
-	virtual float GetDuration() const override;
+	virtual float GetDuration() override;
 	virtual float GetSubtitlePriority() const override;
 	virtual bool IsAllowedVirtual() const override;
 	//~ End USoundBase Interface.
@@ -364,6 +399,9 @@ public:
 	 * Frees up all the resources allocated in this class
 	 */
 	void FreeResources();
+
+	/** Will clean up the decompressor task if the task has finished or force it finish. Returns true if the decompressor is cleaned up. */
+	bool CleanupDecompressor(bool bForceCleanup = false);
 
 	/** 
 	 * Copy the compressed audio data from the bulk data
@@ -550,27 +588,15 @@ public:
 	 */
 	bool GetChunkData(int32 ChunkIndex, uint8** OutChunkData);
 
-private:
-
-	enum class ESoundWaveResourceState
+	void SetPrecacheState(ESoundWavePrecacheState InState)
 	{
-		NeedsFree,
-		Freeing,
-		Freed
-	};
+		PrecacheState.Set((int32)InState);
+	}
 
-	ESoundWaveResourceState ResourceState;
-
-#if !WITH_EDITOR
-	// This is set to false on initialization, then set to true on non-editor platforms when we cache appropriate sample rate.
-	bool bCachedSampleRateFromPlatformSettings;
-
-	// This is set when SetSampleRate is called to invalidate our cached sample rate while not re-parsing project settings.
-	bool bSampleRateManuallyReset;
-
-	// This is the sample rate gotten from platform settings.
-	float CachedSampleRateOverride;
-#endif // !WITH_EDITOR
+	ESoundWavePrecacheState GetPrecacheState() const
+	{
+		return (ESoundWavePrecacheState)PrecacheState.GetValue();
+	}
 };
 
 

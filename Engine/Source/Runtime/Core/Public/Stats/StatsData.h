@@ -78,8 +78,7 @@ void ParseTypedValue( const TCHAR* Stream, const TCHAR* Match, T& Out )
 	TCHAR Temp[64] = TEXT( "" );
 	if( FParse::Value( Stream, Match, Temp, ARRAY_COUNT( Temp ) ) )
 	{
-		using namespace Lex;
-		FromString( Out, Temp );
+		LexFromString( Out, Temp );
 	}
 }
 

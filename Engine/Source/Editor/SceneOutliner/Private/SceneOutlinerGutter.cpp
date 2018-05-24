@@ -262,7 +262,7 @@ private:
 	}
 
 	/** Called when this widget had captured the mouse, but that capture has been revoked for some reason. */
-	virtual void OnMouseCaptureLost() override
+	virtual void OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent) override
 	{
 		UndoTransaction.Reset();
 	}

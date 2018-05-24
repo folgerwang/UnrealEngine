@@ -36,6 +36,7 @@ DEFINE_LOG_CATEGORY(LogFbx);
 
 #define LOCTEXT_NAMESPACE "FbxMainImport"
 
+#define GeneratedLODNameSuffix "_GeneratedLOD_"
 namespace UnFbx
 {
 
@@ -1166,6 +1167,8 @@ bool FFbxImporter::ImportFromFile(const FString& Filename, const FString& Type, 
 			//Warn the user if there is some geometry that cannot be imported because they are not reference by any scene node attribute
 			ValidateAllMeshesAreReferenceByNodeAttribute();
 
+			ConvertLodPrefixToLodGroup();
+
 			MeshNamesCache.Empty();
 		}
 		
@@ -1542,6 +1545,129 @@ void FFbxImporter::ValidateAllMeshesAreReferenceByNodeAttribute()
 	}
 }
 
+void FFbxImporter::ConvertLodPrefixToLodGroup()
+{
+	const FString LodPrefix = TEXT("LOD");
+	TMap<FString, TArray<uint64>> LodPrefixNodeMap;
+	TMap<uint64, FbxNode*> NodeMap;
+	for (int NodeIndex = 0; NodeIndex < Scene->GetNodeCount(); ++NodeIndex)
+	{
+		FbxNode *SceneNode = Scene->GetNode(NodeIndex);
+		if (SceneNode == nullptr)
+		{
+			continue;
+		}
+		FbxGeometry *NodeGeometry = static_cast<FbxGeometry*>(SceneNode->GetMesh());
+		if (NodeGeometry && NodeGeometry->GetUniqueID() != SceneNode->GetUniqueID())
+		{
+			FString SceneNodeName = UTF8_TO_TCHAR(SceneNode->GetName());
+			if (SceneNodeName.Len() > 5 && SceneNodeName.StartsWith(LodPrefix, ESearchCase::CaseSensitive) && SceneNodeName[4] == '_')
+			{
+				FString LODXNumber = SceneNodeName.RightChop(3).Left(1);
+				if (LODXNumber.IsNumeric())
+				{
+					NodeMap.FindOrAdd(SceneNode->GetUniqueID()) = SceneNode;
+					int32 LodNumber = FPlatformString::Atoi(*FString(&SceneNodeName[3]));
+
+					FString MatchName = SceneNodeName.RightChop(5);
+					if (SceneNode->GetParent())
+					{
+						uint64 ParentUniqueID = SceneNode->GetParent()->GetUniqueID();
+						FString ParentID = FString::FromInt((int32)ParentUniqueID);
+						if (ParentUniqueID > MAX_int32)
+						{
+							ParentID = FString::FromInt((int32)(ParentUniqueID >> 32)) + FString::FromInt((int32)ParentUniqueID);
+						}
+						MatchName += TEXT("_") + ParentID;
+					}
+					TArray<uint64>& LodPrefixNodeValues = LodPrefixNodeMap.FindOrAdd(MatchName);
+					//Add LOD in the correct order
+					if (LodNumber >= LodPrefixNodeValues.Num())
+					{
+						int32 AddCount = LodNumber + 1 - LodPrefixNodeValues.Num();
+						for (int32 AddIndex = 0; AddIndex < AddCount; ++AddIndex)
+						{
+							LodPrefixNodeValues.Add(MAX_uint64);
+						}
+					}
+					LodPrefixNodeValues[LodNumber] = SceneNode->GetUniqueID();
+				}
+			}
+		}
+	}
+	
+	for (const auto& Kvp : LodPrefixNodeMap)
+	{
+		if (Kvp.Value.Num() <= 1)
+		{
+			continue;
+		}
+		//Find the first valid node to be able to discover the parent of this LOD Group
+		const TArray<uint64>& LodGroupNodes = Kvp.Value;
+		FbxNode* FirstNode = nullptr;
+		int32 ValidNodeCount = 0;
+		for (int CurrentLodIndex = 0; CurrentLodIndex < LodGroupNodes.Num(); ++CurrentLodIndex)
+		{
+			if (LodGroupNodes[CurrentLodIndex] != MAX_uint64)
+			{
+				if (FirstNode == nullptr)
+				{
+					FirstNode = NodeMap[LodGroupNodes[CurrentLodIndex]];
+				}
+				ValidNodeCount++;
+			}
+		}
+		//Do not create LODGroup with less then two child
+		if (ValidNodeCount <= 1)
+		{
+			continue;
+		}
+		check(FirstNode != nullptr);
+		//Set the parent node, we assume all node in LodGroupNodes have the same parent
+		FbxNode* ParentNode = FirstNode->GetParent() == nullptr ? Scene->GetRootNode() : FirstNode->GetParent();
+		if (ParentNode->GetNodeAttribute() && ParentNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eLODGroup)
+		{
+			//LODGroup already exist no need to create one
+			continue;
+		}
+
+		//Get a valid name for the LODGroup actor
+		FString FbxNodeName = UTF8_TO_TCHAR(FirstNode->GetName());
+		FbxNodeName = FbxNodeName.RightChop(5);
+		FbxNodeName += TEXT("_LodGroup");
+		//Create a LodGroup and child all fbx node to the Group
+		FbxNode* ActorNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*FbxNodeName));
+		FString FbxLODGroupName = FbxNodeName + TEXT("Attribute");
+		FbxLODGroup *FbxLodGroupAttribute = FbxLODGroup::Create(Scene, TCHAR_TO_UTF8(*FbxLODGroupName));
+		ActorNode->AddNodeAttribute(FbxLodGroupAttribute);
+
+		for (int CurrentLodIndex = 0; CurrentLodIndex < LodGroupNodes.Num(); ++CurrentLodIndex)
+		{
+			if (LodGroupNodes[CurrentLodIndex] == MAX_uint64)
+			{
+				FString FbxGeneratedNodeName = UTF8_TO_TCHAR(FirstNode->GetName());
+				FbxGeneratedNodeName = FbxGeneratedNodeName.RightChop(5);
+				FbxGeneratedNodeName += TEXT(GeneratedLODNameSuffix) + FString::FromInt(CurrentLodIndex);
+				//Generated LOD add dummy FbxNode to tell the import to add such a LOD
+				FbxNode* DummyGeneratedLODActorNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*FbxGeneratedNodeName));
+				ActorNode->AddChild(DummyGeneratedLODActorNode);
+				continue;
+			}
+			FbxNode* CurrentNode = NodeMap[LodGroupNodes[CurrentLodIndex]];
+			if (CurrentNode->GetParent() != nullptr)
+			{
+				//All parent should be the same for a LOD group
+				check(ParentNode == CurrentNode->GetParent());
+				ParentNode->RemoveChild(CurrentNode);
+			}
+			ActorNode->AddChild(CurrentNode);
+		}
+		//We must have a parent node
+		check(ParentNode != nullptr);
+		ParentNode->AddChild(ActorNode);
+	}
+}
+
 FbxNode *FFbxImporter::RecursiveGetFirstMeshNode(FbxNode* Node, FbxNode* NodeToFind)
 {
 	if (Node->GetMesh() != nullptr)
@@ -1570,6 +1696,23 @@ void FFbxImporter::RecursiveGetAllMeshNode(TArray<FbxNode *> &OutAllNode, FbxNod
 	{
 		OutAllNode.Add(Node);
 		return;
+	}
+	else
+	{
+		//Look if its a generated LOD
+		FString FbxGeneratedNodeName = UTF8_TO_TCHAR(Node->GetName());
+		if (FbxGeneratedNodeName.Contains(TEXT(GeneratedLODNameSuffix)))
+		{
+			FString SuffixSearch = TEXT(GeneratedLODNameSuffix);
+			int32 SuffixIndex = FbxGeneratedNodeName.Find(SuffixSearch, ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+			SuffixIndex += SuffixSearch.Len();
+			FString LODXNumber = FbxGeneratedNodeName.RightChop(SuffixIndex).Left(1);
+			if (LODXNumber.IsNumeric())
+			{
+				OutAllNode.Add(Node);
+				return;
+			}
+		}
 	}
 	for (int32 ChildIndex = 0; ChildIndex < Node->GetChildCount(); ++ChildIndex)
 	{
@@ -1604,12 +1747,16 @@ FbxNode *FFbxImporter::RecursiveFindParentLodGroup(FbxNode *ParentNode)
 
 void FFbxImporter::RecursiveFixSkeleton(FbxNode* Node, TArray<FbxNode*> &SkelMeshes, bool bImportNestedMeshes )
 {
-	for (int32 i = 0; i < Node->GetChildCount(); i++)
+	FbxNodeAttribute* Attr = Node->GetNodeAttribute();
+	bool NodeIsLodGroup = (Attr && (Attr->GetAttributeType() == FbxNodeAttribute::eLODGroup));
+	if (!NodeIsLodGroup)
 	{
-		RecursiveFixSkeleton(Node->GetChild(i), SkelMeshes, bImportNestedMeshes );
+		for (int32 i = 0; i < Node->GetChildCount(); i++)
+		{
+			RecursiveFixSkeleton(Node->GetChild(i), SkelMeshes, bImportNestedMeshes);
+		}
 	}
 
-	FbxNodeAttribute* Attr = Node->GetNodeAttribute();
 	if ( Attr && (Attr->GetAttributeType() == FbxNodeAttribute::eMesh || Attr->GetAttributeType() == FbxNodeAttribute::eNull ) )
 	{
 		if( bImportNestedMeshes  && Attr->GetAttributeType() == FbxNodeAttribute::eMesh )

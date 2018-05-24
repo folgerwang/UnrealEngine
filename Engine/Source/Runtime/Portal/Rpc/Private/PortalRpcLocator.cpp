@@ -59,6 +59,8 @@ private:
 
 	bool HandleTicker(float DeltaTime)
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_FPortalRpcLocatorImple_HandleTicker);
+
 		if (ServerAddress.IsValid() && ((FDateTime::UtcNow() - LastServerResponse).GetTotalSeconds() > PORTAL_RPC_LOCATE_TIMEOUT))
 		{
 			ServerAddress.Invalidate();

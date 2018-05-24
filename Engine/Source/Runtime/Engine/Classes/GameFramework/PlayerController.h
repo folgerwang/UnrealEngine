@@ -1450,7 +1450,13 @@ public:
 	virtual bool InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad);
 
 	/** Handles a touch screen action */
-	virtual bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex);
+	virtual bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex);
+
+	DEPRECATED(4.20, "InputTouch now takes a Force")
+	bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex)
+	{
+		return InputTouch(Handle, Type, TouchLocation, 1.0f, DeviceTimestamp, TouchpadIndex);
+	}
 
 	/** Handles a controller axis input */
 	virtual bool InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad);

@@ -16,6 +16,9 @@
 FPropertyLocalizationDataGatherer::FPropertyLocalizationDataGatherer(TArray<FGatherableTextData>& InOutGatherableTextDataArray, const UPackage* const InPackage, EPropertyLocalizationGathererResultFlags& OutResultFlags)
 	: GatherableTextDataArray(InOutGatherableTextDataArray)
 	, Package(InPackage)
+#if USE_STABLE_LOCALIZATION_KEYS
+	, PackageNamespace(TextNamespaceUtil::GetPackageNamespace(InPackage))
+#endif	// USE_STABLE_LOCALIZATION_KEYS
 	, ResultFlags(OutResultFlags)
 	, AllObjectsInPackage()
 {
@@ -363,6 +366,17 @@ void FPropertyLocalizationDataGatherer::GatherTextInstance(const FText& Text, co
 	// Always include the text without its package localization ID
 	const FString CleanNamespace = TextNamespaceUtil::StripPackageNamespace(Namespace);
 	AddGatheredText(CleanNamespace, Key, SourceData, bIsEditorOnly);
+
+#if USE_STABLE_LOCALIZATION_KEYS
+	// Sanity check that the text we gathered has the expected package localization ID
+	{
+		const FString TextPackageNamespace = TextNamespaceUtil::ExtractPackageNamespace(Namespace);
+		if (!TextPackageNamespace.IsEmpty() && !TextPackageNamespace.Equals(PackageNamespace, ESearchCase::CaseSensitive))
+		{
+			ResultFlags |= EPropertyLocalizationGathererResultFlags::HasTextWithInvalidPackageLocalizationID;
+		}
+	}
+#endif // USE_STABLE_LOCALIZATION_KEYS
 }
 
 struct FGatherTextFromScriptBytecode

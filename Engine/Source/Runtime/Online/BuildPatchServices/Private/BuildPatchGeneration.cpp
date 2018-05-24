@@ -2,9 +2,10 @@
 
 #include "BuildPatchGeneration.h"
 #include "Templates/ScopedPointer.h"
+#include "Templates/UniquePtr.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/SecureHash.h"
-#include "Templates/UniquePtr.h"
+#include "Misc/OutputDeviceRedirector.h"
 #include "BuildPatchManifest.h"
 #include "BuildPatchServicesModule.h"
 #include "BuildPatchHash.h"
@@ -642,7 +643,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 	ChunkWriter.WaitForThread();
 
 	// Collect chunk info for the manifest builder.
-	TMap<FGuid, FChunkInfoData> ChunkInfoMap;
+	TMap<FGuid, FChunkInfo> ChunkInfoMap;
 	TMap<FGuid, int64> ChunkFileSizes = CloudEnumeration->GetChunkFileSizes();
 	ChunkWriter.GetChunkFilesizes(ChunkFileSizes);
 	for (const TPair<uint64, TSet<FGuid>>& ChunkInventoryPair : CloudEnumeration->GetChunkInventory())
@@ -657,7 +658,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 		{
 			if (ChunkShaHashes.Contains(ChunkGuid) && ChunkFileSizes.Contains(ChunkGuid))
 			{
-				FChunkInfoData& ChunkInfo = ChunkInfoMap.FindOrAdd(ChunkGuid);
+				FChunkInfo& ChunkInfo = ChunkInfoMap.FindOrAdd(ChunkGuid);
 				ChunkInfo.Guid = ChunkGuid;
 				ChunkInfo.Hash = ChunkInventoryPair.Key;
 				FMemory::Memcpy(ChunkInfo.ShaHash.Hash, ChunkShaHashes[ChunkGuid].Hash, FSHA1::DigestSize);
@@ -668,7 +669,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 	}
 
 	// Finalize the manifest data.
-	TArray<FChunkInfoData> ChunkInfoList;
+	TArray<FChunkInfo> ChunkInfoList;
 	ChunkInfoMap.GenerateValueArray(ChunkInfoList);
 	if (ManifestBuilder->FinalizeData(BuildStream->GetAllFiles(), MoveTemp(ChunkInfoList)) == false)
 	{

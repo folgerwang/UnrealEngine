@@ -5,6 +5,7 @@ PipelineStateCache.cpp: Pipeline state cache implementation.
 =============================================================================*/
 
 #include "PipelineStateCache.h"
+#include "PipelineFileCache.h"
 #include "Misc/ScopeRWLock.h"
 #include "Misc/ScopeLock.h"
 #include "Misc/CoreDelegates.h"
@@ -80,6 +81,7 @@ class FPipelineState
 public:
 
 	FPipelineState()
+	: Stats(nullptr)
 	{
 		InitStats();
 	}
@@ -92,14 +94,20 @@ public:
 
 	FGraphEventRef CompletionEvent;
 
+	inline void AddUse()
+	{
+		FPipelineStateStats::UpdateStats(Stats);
+	}
+	
 #if PSO_TRACK_CACHE_STATS
+	
 	void InitStats()
 	{
 		FirstUsedTime = LastUsedTime = FPlatformTime::Seconds();
 		FirstFrameUsed = LastFrameUsed = 0;
 		Hits = HitsAcrossFrames = 0;
 	}
-
+	
 	void AddHit()
 	{
 		LastUsedTime = FPlatformTime::Seconds();
@@ -124,6 +132,7 @@ public:
 	void AddHit() {}
 #endif // PSO_TRACK_CACHE_STATS
 
+	FPipelineStateStats* Stats;
 };
 
 /* State for compute  */
@@ -133,6 +142,12 @@ public:
 	FComputePipelineState(FRHIComputeShader* InComputeShader)
 		: ComputeShader(InComputeShader)
 	{
+		ComputeShader->AddRef();
+	}
+	
+	~FComputePipelineState()
+	{
+		ComputeShader->Release();
 	}
 
 	virtual bool IsCompute() const
@@ -322,34 +337,35 @@ public:
 		// this is verified by the VerifyMutex.
 		for ( FPipelineStateCacheType* PipelineStateCache : AllThreadsPipelineStateCache)
 		{
-			for (const auto& PipelineStateCacheIterator : *PipelineStateCache)
+			for (auto PipelineStateCacheIterator = PipelineStateCache->CreateIterator(); PipelineStateCacheIterator; ++PipelineStateCacheIterator)
 			{
-				const TMyKey& ThreadKey = PipelineStateCacheIterator.Key;
-				const TMyValue& ThreadValue = PipelineStateCacheIterator.Value;
+				const TMyKey& ThreadKey = PipelineStateCacheIterator->Key;
+				const TMyValue& ThreadValue = PipelineStateCacheIterator->Value;
 
 				// All events should be complete because we are running this code after the RHI Flush
-				check(!ThreadValue->CompletionEvent.IsValid() || ThreadValue->CompletionEvent->IsComplete());
-				
-				ThreadValue->CompletionEvent = nullptr;
-
-				BackfillMap->Remove(ThreadKey);
-
-				TMyValue* CurrentValue = CurrentMap->Find(ThreadKey);
-				if (CurrentValue) 
+				if(!ThreadValue->CompletionEvent.IsValid() || ThreadValue->CompletionEvent->IsComplete())
 				{
-					// if two threads get from the backfill map then we might just be dealing with one pipelinestate, in which case we have already added it to the currentmap and don't need to do anything else
-					if ( *CurrentValue != ThreadValue ) 
+					ThreadValue->CompletionEvent = nullptr;
+
+					BackfillMap->Remove(ThreadKey);
+
+					TMyValue* CurrentValue = CurrentMap->Find(ThreadKey);
+					if (CurrentValue)
 					{
-						++DuplicateStateGenerated;
-						DeleteArray.Add(ThreadValue);
+						// if two threads get from the backfill map then we might just be dealing with one pipelinestate, in which case we have already added it to the currentmap and don't need to do anything else
+						if ( *CurrentValue != ThreadValue )
+						{
+							++DuplicateStateGenerated;
+							DeleteArray.Add(ThreadValue);
+						}
 					}
-				}
-				else
-				{
-					CurrentMap->Add(ThreadKey, ThreadValue);
+					else
+					{
+						CurrentMap->Add(ThreadKey, ThreadValue);
+					}
+					PipelineStateCacheIterator.RemoveCurrent();
 				}
 			}
-			PipelineStateCache->Empty();
 		}
 
 	}
@@ -443,6 +459,24 @@ public:
 		: Pipeline(InPipeline)
 		, Initializer(InInitializer)
 	{
+		if (Initializer.BoundShaderState.VertexDeclarationRHI)
+			Initializer.BoundShaderState.VertexDeclarationRHI->AddRef();
+		if (Initializer.BoundShaderState.VertexShaderRHI)
+			Initializer.BoundShaderState.VertexShaderRHI->AddRef();
+		if (Initializer.BoundShaderState.PixelShaderRHI)
+			Initializer.BoundShaderState.PixelShaderRHI->AddRef();
+		if (Initializer.BoundShaderState.GeometryShaderRHI)
+			Initializer.BoundShaderState.GeometryShaderRHI->AddRef();
+		if (Initializer.BoundShaderState.DomainShaderRHI)
+			Initializer.BoundShaderState.DomainShaderRHI->AddRef();
+		if (Initializer.BoundShaderState.HullShaderRHI)
+			Initializer.BoundShaderState.HullShaderRHI->AddRef();
+		if (Initializer.BlendState)
+			Initializer.BlendState->AddRef();
+		if (Initializer.RasterizerState)
+			Initializer.RasterizerState->AddRef();
+		if (Initializer.DepthStencilState)
+			Initializer.DepthStencilState->AddRef();
 	}
 
 	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
@@ -458,6 +492,25 @@ public:
 		{
 			FGraphicsPipelineState* GfxPipeline = static_cast<FGraphicsPipelineState*>(Pipeline);
 			GfxPipeline->RHIPipeline = RHICreateGraphicsPipelineState(Initializer);
+			
+			if (Initializer.BoundShaderState.VertexDeclarationRHI)
+				Initializer.BoundShaderState.VertexDeclarationRHI->Release();
+			if (Initializer.BoundShaderState.VertexShaderRHI)
+				Initializer.BoundShaderState.VertexShaderRHI->Release();
+			if (Initializer.BoundShaderState.PixelShaderRHI)
+				Initializer.BoundShaderState.PixelShaderRHI->Release();
+			if (Initializer.BoundShaderState.GeometryShaderRHI)
+				Initializer.BoundShaderState.GeometryShaderRHI->Release();
+			if (Initializer.BoundShaderState.DomainShaderRHI)
+				Initializer.BoundShaderState.DomainShaderRHI->Release();
+			if (Initializer.BoundShaderState.HullShaderRHI)
+				Initializer.BoundShaderState.HullShaderRHI->Release();
+			if (Initializer.BlendState)
+				Initializer.BlendState->Release();
+			if (Initializer.RasterizerState)
+				Initializer.RasterizerState->Release();
+			if (Initializer.DepthStencilState)
+				Initializer.DepthStencilState->Release();
 		}
 	}
 
@@ -551,7 +604,7 @@ static bool IsAsyncCompilationAllowed(FRHICommandList& RHICmdList)
 FComputePipelineState* PipelineStateCache::GetAndOrCreateComputePipelineState(FRHICommandList& RHICmdList, FRHIComputeShader* ComputeShader)
 {
 	SCOPE_CYCLE_COUNTER(STAT_GetOrCreatePSO);
-
+	
 	bool DoAsyncCompile = IsAsyncCompilationAllowed(RHICmdList);
 
 	FComputePipelineState* OutCachedState = nullptr;
@@ -562,8 +615,11 @@ FComputePipelineState* PipelineStateCache::GetAndOrCreateComputePipelineState(FR
 
 	if (WasFound == false)
 	{
+		FPipelineFileCache::CacheComputePSO(GetTypeHash(ComputeShader), ComputeShader);
+
 		// create new graphics state
 		OutCachedState = new FComputePipelineState(ComputeShader);
+		OutCachedState->Stats = FPipelineFileCache::RegisterPSOStats(GetTypeHash(ComputeShader));
 
 		// create a compilation task, or just do it now...
 		if (DoAsyncCompile)
@@ -606,6 +662,7 @@ FComputePipelineState* PipelineStateCache::GetAndOrCreateComputePipelineState(FR
 	bool WasFound = GComputePipelineCache.FindOrAdd(ComputeShader, OutCachedState, [&RHICmdList, &ComputeShader, &DoAsyncCompile] {
 			// create new graphics state
 			TSharedPtr<FComputePipelineState, ESPMode::Fast> PipelineState(new FComputePipelineState(ComputeShader));
+			PipelineState->Stats = FPipelineFileCache::RegisterPSOStats(GetTypeHash(ComputeShader));
 
 			// create a compilation task, or just do it now...
 			if (DoAsyncCompile)
@@ -649,7 +706,7 @@ FRHIComputePipelineState* ExecuteSetComputePipelineState(FComputePipelineState* 
 {
 	ensure(ComputePipelineState->RHIPipeline);
 	FRWScopeLock ScopeLock(GComputePipelineCache.RWLock(), SLT_Write);
-
+	ComputePipelineState->AddUse();
 	ComputePipelineState->CompletionEvent = nullptr;
 	return ComputePipelineState->RHIPipeline;
 }
@@ -724,8 +781,11 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 
 	if (bWasFound == false)
 	{
+		FPipelineFileCache::CacheGraphicsPSO(GetTypeHash(*Initializer), *Initializer);
+
 		// create new graphics state
 		OutCachedState = new FGraphicsPipelineState();
+		OutCachedState->Stats = FPipelineFileCache::RegisterPSOStats(GetTypeHash(*Initializer));
 
 		// create a compilation task, or just do it now...
 		if (DoAsyncCompile)
@@ -764,6 +824,8 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 FRHIGraphicsPipelineState* ExecuteSetGraphicsPipelineState(FGraphicsPipelineState* GraphicsPipelineState)
 {
 	FRHIGraphicsPipelineState* RHIPipeline = GraphicsPipelineState->RHIPipeline;
+
+	GraphicsPipelineState->AddUse();
 
 #if PIPELINESTATECACHE_VERIFYTHREADSAFE
 	int32 Result = GraphicsPipelineState->InUseCount.Decrement();
@@ -840,7 +902,6 @@ void DumpPipelineCacheStats()
 #endif // PSO_VALIDATE_CACHE
 }
 
-
 void PipelineStateCache::Shutdown()
 {
 	// call discard twice to clear both the backing and main caches
@@ -849,7 +910,8 @@ void PipelineStateCache::Shutdown()
 		GComputePipelineCache.Discard([](FComputePipelineState* CacheItem) {
 			delete CacheItem;
 		});
-
+		
 		GGraphicsPipelineCache.DiscardAndSwap();
 	}
+	FPipelineFileCache::Shutdown();
 }

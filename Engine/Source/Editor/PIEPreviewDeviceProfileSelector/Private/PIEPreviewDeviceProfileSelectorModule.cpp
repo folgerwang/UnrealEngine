@@ -57,6 +57,7 @@ void FPIEPreviewDeviceModule::InitPreviewDevice()
 					TMap<FString, FString> DeviceParameters;
 					DeviceParameters.Add("GPUFamily", AndroidProperties.GPUFamily);
 					DeviceParameters.Add("GLVersion", AndroidProperties.GLVersion);
+					DeviceParameters.Add("VulkanAvailable", AndroidProperties.VulkanAvailable ? "true" : "false");
 					DeviceParameters.Add("VulkanVersion", AndroidProperties.VulkanVersion);
 					DeviceParameters.Add("AndroidVersion", AndroidProperties.AndroidVersion);
 					DeviceParameters.Add("DeviceMake", AndroidProperties.DeviceMake);

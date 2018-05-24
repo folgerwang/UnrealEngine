@@ -37,6 +37,12 @@ namespace BuildGraph.Tasks
 		public string To;
 
 		/// <summary>
+		/// Whether or not to overwrite existing files
+		/// </summary>
+		[TaskParameter(Optional = true)]
+		public bool Overwrite = true;
+
+		/// <summary>
 		/// Tag to be applied to build products of this task
 		/// </summary>
 		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.TagList)]
@@ -87,6 +93,20 @@ namespace BuildGraph.Tasks
 
 			// Build the file mapping
 			Dictionary<FileReference, FileReference> TargetFileToSourceFile = FilePattern.CreateMapping(Files, ref SourcePattern, ref TargetPattern);
+
+			//  If we're not overwriting, remove any files where the destination file already exists.
+			if(!Parameters.Overwrite)
+			{
+				TargetFileToSourceFile = TargetFileToSourceFile.Where(File =>
+				{
+					if (FileReference.Exists(File.Key))
+					{
+						CommandUtils.Log("Not copying existing file {0}", File.Key);
+						return false;
+					}
+					return true;
+				}).ToDictionary(Pair => Pair.Key, Pair => Pair.Value);
+			}
 
 			// Check we got some files
 			if(TargetFileToSourceFile.Count == 0)

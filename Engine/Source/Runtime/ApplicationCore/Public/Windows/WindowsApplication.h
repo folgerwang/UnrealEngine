@@ -453,6 +453,8 @@ private:
 
 	bool bForceActivateByMouse;
 
+	bool bForceNoGamepads;
+
 	TArray<FDeferredWindowsMessage> DeferredMessages;
 
 	TArray<FDeferredWindowsDragDropOperation> DeferredDragDropOperations;

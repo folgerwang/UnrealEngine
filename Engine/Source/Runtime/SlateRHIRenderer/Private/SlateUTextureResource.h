@@ -36,18 +36,18 @@ public:
 		return FTextureRHIRef();
 	}
 
+	UTexture* GetTextureObject() const { return TextureObject; }
+
+
 #if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
-	void CheckIfValid() const;
-#else
-	FORCEINLINE void CheckIfValid() const { }
+	virtual void CheckForStaleResources() const override;
 #endif
 
-private:
+protected:
 #if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
 	void UpdateDebugName();
 #endif
 
-public:
 	/** Texture UObject.  Note: lifetime is managed externally */
 	UTexture* TextureObject;
 
@@ -71,8 +71,8 @@ public:
 	/**
 	 * Updates the rendering resource with a potentially new texture
 	 */
-	void UpdateRenderResource(FTexture* InFTexture);
-
+	void UpdateTexture(UTexture* InTexture);
+	void ResetTexture();
 public:
 	/** Slate rendering proxy */
 	FSlateShaderResourceProxy* Proxy;

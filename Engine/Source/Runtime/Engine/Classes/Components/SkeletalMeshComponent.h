@@ -23,6 +23,7 @@
 #include "ClothingSystemRuntimeTypes.h"
 #include "ClothingSimulationInterface.h"
 #include "ClothingSimulationFactoryInterface.h"
+#include "PhysicsEngine/PhysicsAsset.h"
 
 #include "SkeletalMeshComponent.generated.h"
 
@@ -32,7 +33,6 @@ class FPhysScene;
 class FPrimitiveDrawInterface;
 class UAnimInstance;
 class UPhysicalMaterial;
-class UPhysicsAsset;
 class USkeletalMeshComponent;
 struct FConstraintInstance;
 struct FNavigableGeometryExport;
@@ -669,12 +669,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|SkeletalMesh", meta = (Keywords = "AnimBlueprint"))
 	UAnimInstance* GetPostProcessInstance() const;
 
+	/** 
+	 * Returns whether there are any valid instances to run, currently this means whether we have
+	 * have an animation instance or a post process instance available to process.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Components|SkeletalMesh", meta = (Keywords = "AnimBlueprint"))
+	bool HasValidAnimationInstance() const;
+
 	/**
 	 * Informs any active anim instances (main instance, sub instances, post instance) that a dynamics reset is required
 	 * for example if a teleport occurs.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|SkeletalMesh", meta = (Keywords = "Dynamics,Physics", UnsafeDuringActorConstruction = "true"))
-	void ResetAnimInstanceDynamics();
+	void ResetAnimInstanceDynamics(ETeleportType InTeleportType = ETeleportType::ResetPhysics);
 
 	/** Below are the interface to control animation when animation mode, not blueprint mode **/
 	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
@@ -1084,6 +1091,37 @@ private:
 	UPROPERTY(Transient)
 	UClothingSimulationInteractor* ClothingInteractor;
 
+	/** Helper struct used to store info about a cloth collision source */
+	struct FClothCollisionSource
+	{
+		FClothCollisionSource(USkeletalMeshComponent* InSourceComponent, UPhysicsAsset* InSourcePhysicsAsset)
+			: SourceComponent(InSourceComponent)
+			, SourcePhysicsAsset(InSourcePhysicsAsset)
+			, bCached(false)
+		{}
+
+		/** Component that collision data will be copied from */
+		TWeakObjectPtr<USkeletalMeshComponent> SourceComponent;
+
+		/** Physics asset to use to generate collision against the source component */
+		TWeakObjectPtr<UPhysicsAsset> SourcePhysicsAsset;
+
+		/** Cached skeletal mesh used to invalidate the cache if the skeletal mesh has changed */
+		TWeakObjectPtr<USkeletalMesh> CachedSkeletalMesh;
+
+		/** Cached spheres from physics asset */
+		TArray<FClothCollisionPrim_Sphere> CachedSpheres;
+
+		/** Cached sphere connections from physics asset */
+		TArray<FClothCollisionPrim_SphereConnection> CachedSphereConnections;
+
+		/** Flag whether the cache is valid */
+		bool bCached;
+	};
+
+	/** Array of sources for cloth collision */
+	TArray<FClothCollisionSource> ClothCollisionSources;
+
 	/** Ref for the clothing parallel task, so we can detect whether or not a sim is running */
 	FGraphEventRef ParallelClothTask;
 
@@ -1408,6 +1446,7 @@ protected:
 public:
 	//~ Begin USkinnedMeshComponent Interface
 	virtual bool UpdateLODStatus() override;
+	virtual void UpdateVisualizeLODString(FString& DebugString) override;
 	virtual void RefreshBoneTransforms( FActorComponentTickFunction* TickFunction = NULL ) override;
 protected:
 	virtual void DispatchParallelTickPose( FActorComponentTickFunction* TickFunction ) override;
@@ -1495,6 +1534,9 @@ public:
 
 	/** Instantiates bodies given a physics asset. Typically you should call InitArticulated unless you are planning to do something special with the bodies. The Created bodies and constraints are owned by the calling code and must be freed when necessary.*/
 	void InstantiatePhysicsAsset(const UPhysicsAsset& PhysAsset, const FVector& Scale3D, TArray<FBodyInstance*>& OutBodies, TArray<FConstraintInstance*>& OutConstraints, FPhysScene* PhysScene = nullptr, USkeletalMeshComponent* OwningComponent = nullptr, int32 UseRootBodyIndex = INDEX_NONE, physx::PxAggregate* UseAggregate = nullptr) const;
+
+	/** Instantiates bodies given a physics asset like InstantiatePhysicsAsset but instead of reading the current component state, this reads the ref-pose from the reference skeleton of the mesh. Useful if trying to create bodies to be used during any evaluation work */
+	void InstantiatePhysicsAssetRefPose(const UPhysicsAsset& PhysAsset, const FVector& Scale3D, TArray<FBodyInstance*>& OutBodies, TArray<FConstraintInstance*>& OutConstraints, FPhysScene* PhysScene = nullptr, USkeletalMeshComponent* OwningComponent = nullptr, int32 UseRootBodyIndex = INDEX_NONE, physx::PxAggregate* UseAggregate = nullptr) const;
 
 	/** Turn off all physics and remove the instance. */
 	void TermArticulated();
@@ -1713,17 +1755,47 @@ public:
 
 #if WITH_CLOTH_COLLISION_DETECTION
 
+	/**
+	 * Add a collision source for the cloth on this component.
+	 * Each cloth tick, the collision defined by the physics asset, transformed by the bones in the source
+	 * component, will be applied to cloth.
+	 * @param	InSourceComponent		The component to extract collision transforms from
+	 * @param	InSourcePhysicsAsset	The physics asset that defines the collision primitives (that will be transformed by InSourceComponent's bones)
+	 */
+	void AddClothCollisionSource(USkeletalMeshComponent* InSourceComponent, UPhysicsAsset* InSourcePhysicsAsset);
+
+	/** Remove a cloth collision source defined by a component */
+	void RemoveClothCollisionSource(USkeletalMeshComponent* InSourceComponent);
+
+	/** Remove a cloth collision source defined by both a component and a physics asset */
+	void RemoveClothCollisionSource(USkeletalMeshComponent* InSourceComponent, UPhysicsAsset* InSourcePhysicsAsset);
+
+protected:
+	/** copy cloth collision sources to this, where parent means components above it in the hierarchy */
+	void CopyClothCollisionSources();
+
 	void ProcessClothCollisionWithEnvironment();
+
 	/** copy parent's cloth collisions to attached children, where parent means this component */
 	void CopyClothCollisionsToChildren();
+
 	/** copy children's cloth collisions to parent, where parent means this component */
 	void CopyChildrenClothCollisionsToParent();
 
 	/** find if this component has collisions for clothing and return the results calculated by bone transforms */
 	void FindClothCollisions(FClothCollisionData& OutCollisions);
 
-#endif // WITH_CLOTH_COLLISION_DETECTION
+#else
 
+public:
+	/** Stub out these public functions if cloth collision is disabled */
+	void AddClothCollisionSource(USkeletalMeshComponent* InSourceComponent, UPhysicsAsset* InSourcePhysicsAsset) {}
+	void RemoveClothCollisionSource(USkeletalMeshComponent* InSourceComponent) {}
+	void RemoveClothCollisionSource(USkeletalMeshComponent* InSourceComponent, UPhysicsAsset* InSourcePhysicsAsset) {}
+
+#endif
+
+public:
 	bool IsAnimBlueprintInstanced() const;
 
 protected:
@@ -1731,6 +1803,9 @@ protected:
 	bool NeedToSpawnPostPhysicsInstance() const;
 
 	bool ShouldBlendPhysicsBones() const;
+
+	/** Extract collisions for cloth from this component (given a component we want to apply the data to) */
+	static void ExtractCollisionsForCloth(USkeletalMeshComponent* SourceComponent,  UPhysicsAsset* PhysicsAsset, USkeletalMeshComponent* DestClothComponent, FClothCollisionData& OutCollisions, FClothCollisionSource& ClothCollisionSource);
 
 private:
 
@@ -1759,7 +1834,9 @@ private:
 	virtual void RefreshMorphTargets() override;
 
 	void GetWindForCloth_GameThread(FVector& WindVector, float& WindAdaption) const;
-	
+
+	void InstantiatePhysicsAsset_Internal(const UPhysicsAsset& PhysAsset, const FVector& Scale3D, TArray<FBodyInstance*>& OutBodies, TArray<FConstraintInstance*>& OutConstraints, TFunctionRef<FTransform(int32)> BoneTransformGetter, FPhysScene* PhysScene = nullptr, USkeletalMeshComponent* OwningComponent = nullptr, int32 UseRootBodyIndex = INDEX_NONE, physx::PxAggregate* UseAggregate = nullptr) const;
+
 	// Reference to our current parallel animation evaluation task (if there is one)
 	FGraphEventRef				ParallelAnimationEvaluationTask;
 

@@ -80,6 +80,8 @@ FString GAndroidAppType;
 FString GFilePathBase;
 // Obb File Path base - setup during load
 FString GOBBFilePathBase;
+// Internal File Direcory Path (for application) - setup during load
+FString GInternalFilePath;
 // External File Direcory Path (for application) - setup during load
 FString GExternalFilePath;
 // External font path base - setup during load
@@ -957,9 +959,8 @@ public:
 			// See <http://developer.android.com/google/play/expansion-files.html>
 			FString OBBDir1 = GOBBFilePathBase + FString(TEXT("/Android/obb/") + GPackageName);
 			FString OBBDir2 = GOBBFilePathBase + FString(TEXT("/obb/") + GPackageName);
-			FString Period = GAndroidAppType.IsEmpty() ? TEXT("") : TEXT(".");
-			FString MainOBBName = FString::Printf(TEXT("main.%d.%s.%s%sobb"), GAndroidPackageVersion, *GPackageName, *GAndroidAppType, *Period);
-			FString PatchOBBName = FString::Printf(TEXT("patch.%d.%s.%s%sobb"), GAndroidPackageVersion, *GPackageName, *GAndroidAppType, *Period);
+			FString MainOBBName = FString::Printf(TEXT("main.%d.%s.obb"), GAndroidPackageVersion, *GPackageName);
+			FString PatchOBBName = FString::Printf(TEXT("patch.%d.%s.obb"), GAndroidPackageVersion, *GPackageName);
 			if (FileExists(*(OBBDir1 / MainOBBName), true))
 			{
 				MountOBB(*(OBBDir1 / MainOBBName));
@@ -1868,9 +1869,10 @@ private:
 #endif
 		if (!AndroidPath.IsEmpty())
 		{
-			if ((AllowLocal && AndroidPath.StartsWith(TEXT("/"))) ||
+			if (AndroidPath.StartsWith(TEXT("/")) ||	// (AllowLocal && AndroidPath.StartsWith(TEXT("/"))) ||		// requiring AllowLocal isn't really useful; system will do permission checks anyway
 				AndroidPath.StartsWith(GFontPathBase) ||
 				AndroidPath.StartsWith(TEXT("/system/etc/")) ||
+				AndroidPath.StartsWith(GInternalFilePath.Left(AndroidPath.Len())) ||
 				AndroidPath.StartsWith(GExternalFilePath.Left(AndroidPath.Len())))
 			{
 				// Absolute paths are only local.

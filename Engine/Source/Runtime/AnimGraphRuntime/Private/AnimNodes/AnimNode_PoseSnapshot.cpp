@@ -8,6 +8,7 @@
 
 FAnimNode_PoseSnapshot::FAnimNode_PoseSnapshot()
 {
+	Mode = ESnapshotSourceMode::NamedSnapshot;
 	MappedSourceMeshName = NAME_None;
 	MappedTargetMeshName = NAME_None;
 	TargetBoneNameMesh = NAME_None;

@@ -9,6 +9,8 @@
 #include "HttpThread.h"
 #include "Misc/ConfigCacheIni.h"
 
+#include "Stats/Stats.h"
+
 // FHttpManager
 
 FCriticalSection FHttpManager::RequestLock;
@@ -97,6 +99,8 @@ void FHttpManager::Flush(bool bShutdown)
 
 bool FHttpManager::Tick(float DeltaSeconds)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FHttpManager_Tick);
+
 	FScopeLock ScopeLock(&RequestLock);
 
 	// Tick each active request

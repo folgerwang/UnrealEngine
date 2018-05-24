@@ -334,6 +334,44 @@ private:
 	FShaderParameter AOGlobalMaxOcclusionDistance;
 };
 
+class FDFAOUpsampleParameters
+{
+public:
+	void Bind(const FShaderParameterMap& ParameterMap)
+	{
+		BentNormalAOTexture.Bind(ParameterMap, TEXT("BentNormalAOTexture"));
+		BentNormalAOSampler.Bind(ParameterMap, TEXT("BentNormalAOSampler"));
+		AOBufferBilinearUVMax.Bind(ParameterMap, TEXT("AOBufferBilinearUVMax"));
+	}
+
+	void Set(FRHICommandList& RHICmdList, const FPixelShaderRHIParamRef& ShaderRHI, const FViewInfo& View, const TRefCountPtr<IPooledRenderTarget>& DistanceFieldAOBentNormal)
+	{
+		FTextureRHIParamRef BentNormalAO = DistanceFieldAOBentNormal ? DistanceFieldAOBentNormal->GetRenderTargetItem().ShaderResourceTexture : GWhiteTexture->TextureRHI;
+		SetTextureParameter(RHICmdList, ShaderRHI, BentNormalAOTexture, BentNormalAOSampler, TStaticSamplerState<SF_Bilinear>::GetRHI(), BentNormalAO);
+
+		FIntPoint const AOBufferSize = GetBufferSizeForAO();
+		FVector2D const UVMax(
+			(View.ViewRect.Width() / GAODownsampleFactor - 0.51f) / AOBufferSize.X, // 0.51 - so bilateral gather4 won't sample invalid texels
+			(View.ViewRect.Height() / GAODownsampleFactor - 0.51f) / AOBufferSize.Y);
+		SetShaderValue(RHICmdList, ShaderRHI, AOBufferBilinearUVMax, UVMax);
+	}
+
+	/** Serializer. */
+	friend FArchive& operator<<(FArchive& Ar, FDFAOUpsampleParameters& P)
+	{
+		Ar << P.BentNormalAOTexture;
+		Ar << P.BentNormalAOSampler;
+		Ar << P.AOBufferBilinearUVMax;
+
+		return Ar;
+	}
+
+private:
+	FShaderResourceParameter BentNormalAOTexture;
+	FShaderResourceParameter BentNormalAOSampler;
+	FShaderParameter AOBufferBilinearUVMax;
+};
+
 inline float GetMaxAOViewDistance()
 {
 	extern float GAOMaxViewDistance;
@@ -484,4 +522,5 @@ extern void TrackGPUProgress(FRHICommandListImmediate& RHICmdList, uint32 DebugI
 extern bool ShouldRenderDeferredDynamicSkyLight(const FScene* Scene, const FSceneViewFamily& ViewFamily);
 
 extern void CullObjectsToView(FRHICommandListImmediate& RHICmdList, FScene* Scene, const FViewInfo& View, const FDistanceFieldAOParameters& Parameters, FDistanceFieldObjectBufferResource& CulledObjectBuffers);
-extern FIntPoint BuildTileObjectLists(FRHICommandListImmediate& RHICmdList, FScene* Scene, TArray<FViewInfo>& Views, FSceneRenderTargetItem& DistanceFieldNormal, const FDistanceFieldAOParameters& Parameters);
+extern void BuildTileObjectLists(FRHICommandListImmediate& RHICmdList, FScene* Scene, TArray<FViewInfo>& Views, FSceneRenderTargetItem& DistanceFieldNormal, const FDistanceFieldAOParameters& Parameters);
+extern FIntPoint GetTileListGroupSizeForView(const FViewInfo& View);

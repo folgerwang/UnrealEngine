@@ -2152,6 +2152,18 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category = "Math|Geometry")
 	static bool IsPointInBoxWithTransform(FVector Point, const FTransform& BoxWorldTransform, FVector BoxExtent);
 
+	/**
+	* Returns Slope Pitch and Roll angles in degrees based on the following information: 
+	*
+	* @param	MyRightYAxis				Right (Y) direction unit vector of Actor standing on Slope.
+	* @param	FloorNormal					Floor Normal (unit) vector.
+	* @param	UpVector					UpVector of reference frame.
+	* @outparam OutSlopePitchDegreeAngle	Slope Pitch angle (degrees)
+	* @outparam OutSlopeRollDegreeAngle		Slope Roll angle (degrees)
+	*/
+	UFUNCTION(BlueprintPure, Category = "Math|Geometry")
+	static void GetSlopeDegreeAngles(const FVector& MyRightYAxis, const FVector& FloorNormal, const FVector& UpVector, float& OutSlopePitchDegreeAngle, float& OutSlopeRollDegreeAngle);
+
 	//
 	// Intersection
 	//

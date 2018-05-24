@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -102,6 +102,11 @@ namespace AutomationTool
 		/// If set, anyone that has submitted to one of the given paths will be notified on failure of this node
 		/// </summary>
 		public HashSet<string> NotifySubmitters = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
+
+		/// <summary>
+		/// Whether to start this node as soon as its dependencies are satisfied, rather than waiting for all of its agent's dependencies to be met.
+		/// </summary>
+		public bool bRunEarly = false;
 
 		/// <summary>
 		/// Whether to ignore warnings produced by this node
@@ -296,6 +301,11 @@ namespace AutomationTool
 			if (!bNotifyOnWarnings)
 			{
 				Writer.WriteAttributeString("NotifyOnWarnings", bNotifyOnWarnings.ToString());
+			}
+
+			if(bRunEarly)
+			{
+				Writer.WriteAttributeString("RunEarly", bRunEarly.ToString());
 			}
 
 			foreach (CustomTask Task in Tasks)

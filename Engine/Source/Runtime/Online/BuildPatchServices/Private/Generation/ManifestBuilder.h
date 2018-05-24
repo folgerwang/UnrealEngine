@@ -41,7 +41,7 @@ namespace BuildPatchServices
 	{
 	public:
 		virtual void AddChunkMatch(const FGuid& ChunkGuid, const FBlockStructure& Structure) = 0;
-		virtual bool FinalizeData(const TArray<FFileSpan>& FileSpans, TArray<FChunkInfoData> ChunkInfo) = 0;
+		virtual bool FinalizeData(const TArray<FFileSpan>& FileSpans, TArray<FChunkInfo> ChunkInfo) = 0;
 		virtual bool SaveToFile(const FString& Filename) = 0;
 	};
 

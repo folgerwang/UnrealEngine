@@ -5,6 +5,7 @@
 #include "UObject/NameTypes.h"
 #include "Logging/LogMacros.h"
 #include "HAL/FileManager.h"
+#include "HAL/PlatformFile.h"
 #include "Misc/Parse.h"
 #include "Misc/ScopeLock.h"
 #include "Misc/CommandLine.h"
@@ -83,11 +84,76 @@ namespace UE4Paths_Private
 
 		return FullyPathed;
 	}
+
+	// Returns, if any, the value of the -userdir command line argument. This can be used to sandbox artifacts to a desired location
+	const FString& CustomUserDirArgument()
+	{
+		static bool bCheckedArgs = false;
+		static FString UserDirArg;
+		
+		if (!bCheckedArgs)
+		{
+			// Check for a -userdir arg. If set this overrides the platform preference for using the UserDir and
+			// the default. The caller is responsible for ensuring that this is a valid path for the current platform!
+			FParse::Value(FCommandLine::Get(), TEXT("UserDir="), UserDirArg);
+			bCheckedArgs = true;
+			
+			if (UserDirArg.IsEmpty() == false)
+			{
+				if (FPaths::IsRelative(UserDirArg))
+				{
+					UserDirArg = FPaths::Combine(*FPaths::ProjectDir(), *UserDirArg) + TEXT("/");
+				}
+				else
+				{
+					FPaths::NormalizeDirectoryName(UserDirArg);
+					UserDirArg = UserDirArg + TEXT("/");
+				}
+			}
+		}
+
+		return UserDirArg;
+	}
+
+	// Returns, if any, the value of the -shaderworkingdir command line argument. This can be used to sandbox shader working files to a desired location
+	const FString& CustomShaderDirArgument()
+	{
+		static bool bCheckedArgs = false;
+		static FString ShaderDir;
+
+		if (!bCheckedArgs)
+		{
+			// Check for a -userdir arg. If set this overrides the platform preference for using the UserDir and
+			// the default. The caller is responsible for ensuring that this is a valid path for the current platform!
+			FParse::Value(FCommandLine::Get(), TEXT("ShaderWorkingDir="), ShaderDir);
+			bCheckedArgs = true;
+
+			if (ShaderDir.IsEmpty() == false)
+			{
+				if (FPaths::IsRelative(ShaderDir))
+				{
+					ShaderDir = FPaths::Combine(*FPaths::ProjectDir(), *ShaderDir) + TEXT("/");
+				}
+				else
+				{
+					FPaths::NormalizeDirectoryName(ShaderDir);
+					ShaderDir = ShaderDir + TEXT("/");
+				}
+			}
+		}
+
+		return ShaderDir;
+	}
 }
 
 bool FPaths::ShouldSaveToUserDir()
 {
-	static bool bShouldSaveToUserDir = FApp::IsInstalled() || FParse::Param(FCommandLine::Get(), TEXT("SaveToUserDir")) || FPlatformProcess::ShouldSaveToUserDir();
+	static bool bShouldSaveToUserDir =
+		FApp::IsInstalled()
+		|| FParse::Param(FCommandLine::Get(), TEXT("SaveToUserDir"))
+		|| FPlatformProcess::ShouldSaveToUserDir()
+		|| !UE4Paths_Private::CustomUserDirArgument().IsEmpty();
+		
 	return bShouldSaveToUserDir;
 }
 
@@ -177,23 +243,19 @@ FString FPaths::ProjectDir()
 
 FString FPaths::ProjectUserDir()
 {
+	const FString& UserDirArg = UE4Paths_Private::CustomUserDirArgument();
+	
+	if (!UserDirArg.IsEmpty())
+	{
+		return UserDirArg;
+	}
+
 	if (ShouldSaveToUserDir())
 	{
 		return FPaths::Combine(FPlatformProcess::UserSettingsDir(), FApp::GetProjectName()) + TEXT("/");
 	}
 	else
 	{
-		FString UserDir;
-		if (FParse::Value(FCommandLine::Get(), TEXT("UserDir="), UserDir))
-		{
-			if (FPaths::IsRelative(UserDir))
-			{
-				return FPaths::Combine(*FPaths::ProjectDir(), *UserDir) + TEXT("/");
-			}
-			FPaths::NormalizeDirectoryName(UserDir);
-			return UserDir + TEXT("/");
-		}
-
 		return FPaths::ProjectDir();
 	}
 }
@@ -217,6 +279,18 @@ FString FPaths::ProjectSavedDir()
 FString FPaths::ProjectIntermediateDir()
 {
 	return ProjectUserDir() + TEXT("Intermediate/");
+}
+
+FString FPaths::ShaderWorkingDir()
+{
+	const FString& ShaderDirArg = UE4Paths_Private::CustomShaderDirArgument();
+
+	if (!ShaderDirArg.IsEmpty())
+	{
+		return ShaderDirArg;
+	}
+
+	return FPlatformProcess::ShaderWorkingDir();
 }
 
 FString FPaths::ProjectPluginsDir()
@@ -275,11 +349,24 @@ FString FPaths::VideoCaptureDir()
 
 FString FPaths::ProjectLogDir()
 {
-#if PLATFORM_MAC || PLATFORM_XBOXONE
-	return FPlatformProcess::UserLogsDir();
-#else
-	return FPaths::ProjectSavedDir() + TEXT("Logs/");
+#if PLATFORM_PS4
+
+	const FString* OverrideDir = FPS4PlatformFile::GetOverrideLogDirectory();
+	if (OverrideDir != nullptr)
+	{
+		return *OverrideDir;
+	}
+
 #endif
+
+#if PLATFORM_MAC || PLATFORM_XBOXONE
+	if (UE4Paths_Private::CustomUserDirArgument().IsEmpty())
+	{
+		return FPlatformProcess::UserLogsDir();
+	}
+#endif
+
+	return FPaths::ProjectSavedDir() + TEXT("Logs/");
 }
 
 FString FPaths::AutomationDir()
@@ -746,12 +833,12 @@ bool FPaths::IsDrive(const FString& InPath)
 	return false;
 }
 
-#if WITH_EDITOR
-FString FPaths::RootPrefix = TEXT("root:/");
-#endif // WITH_EDITOR
-
 bool FPaths::IsRelative(const FString& InPath)
 {
+#if WITH_EDITOR
+	static FString RootPrefix = TEXT("root:/");
+#endif // WITH_EDITOR
+
 	// The previous implementation of this function seemed to handle normalized and unnormalized paths, so this one does too for legacy reasons.
 	const uint32 PathLen = InPath.Len();
 	const bool IsRooted = PathLen &&
@@ -1023,13 +1110,82 @@ FString FPaths::CreateTempFilename( const TCHAR* Path, const TCHAR* Prefix, cons
 	return UniqueFilename;
 }
 
-bool FPaths::ValidatePath( const FString& InPath, FText* OutReason )
+const FString& FPaths::GetInvalidFileSystemChars()
 {
 	// Windows has the most restricted file system, and since we're cross platform, we have to respect the limitations of the lowest common denominator
 	// # isn't legal. Used for revision specifiers in P4/SVN, and also not allowed on Windows anyway
 	// @ isn't legal. Used for revision/label specifiers in P4/SVN
-	// ^ isn't legal. While the file-system won't complain about this character, Visual Studio will				
+	// ^ isn't legal. While the file-system won't complain about this character, Visual Studio will			
 	static const FString RestrictedChars = "/?:&\\*\"<>|%#@^";
+	return RestrictedChars;
+}
+
+FString FPaths::MakeValidFileName(const FString& InString, const TCHAR InReplacementChar /*= 0*/)
+{
+	const FString RestrictedChars = GetInvalidFileSystemChars();
+
+	const int InLen = InString.Len();
+
+	TArray<TCHAR> Output;
+	Output.AddUninitialized(InLen + 1);
+
+	// first remove all invalid chars
+	for (int i = 0; i < InLen; i++)
+	{
+		int32 Unused = 0;
+		if (RestrictedChars.FindChar(InString[i], Unused))
+		{
+			Output[i] = InReplacementChar;
+		}
+		else
+		{
+			Output[i] = InString[i];
+		}
+	}
+
+	Output[InLen] = 0;
+
+	if (InReplacementChar == 0)
+	{
+		int CurrentChar = 0;
+
+		// compact the string by replacing any null entries with the next non-null entry
+		int iFill = 0;
+		for (int iChar = 0; iChar < InLen; iChar++)
+		{
+			if (Output[iChar] == 0)
+			{
+				// adjust our fill index if we passed it
+				if (iFill < iChar)
+				{
+					iFill = iChar;
+				}
+
+				// scan forward
+				while (++iFill < InLen)
+				{
+					if (Output[iFill] != 0)
+					{
+						break;
+					}
+				}
+
+				if (iFill < InLen)
+				{
+					// take this char and null it out
+					Output[iChar] = Output[iFill];
+					Output[iFill] = 0;
+				}
+			}
+		}
+	}
+	
+	return FString(Output.GetData());
+}
+
+bool FPaths::ValidatePath( const FString& InPath, FText* OutReason )
+{
+	const FString RestrictedChars = GetInvalidFileSystemChars();
 	static const FString RestrictedNames[] = {	"CON", "PRN", "AUX", "CLOCK$", "NUL", 
 												"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", 
 												"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };

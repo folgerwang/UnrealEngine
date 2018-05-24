@@ -17,9 +17,9 @@ public class ReplicationGraph : ModuleRules
 			}
 		);
 
-        PrivateIncludePaths.AddRange(
-            new string[] {
-                "Private"
-            });     
-    }
+		PrivateIncludePaths.AddRange(
+			new string[] {
+				"Private"
+			});     
+		}
 }

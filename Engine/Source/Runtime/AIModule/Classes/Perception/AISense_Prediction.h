@@ -26,7 +26,7 @@ struct AIMODULE_API FAIPredictionEvent
 
 	float TimeToPredict;
 		
-	FAIPredictionEvent(){}
+	FAIPredictionEvent() : Requestor(nullptr), PredictedActor(nullptr) {}
 	
 	FAIPredictionEvent(AActor* InRequestor, AActor* InPredictedActor, float PredictionTime)
 		: Requestor(InRequestor), PredictedActor(InPredictedActor), TimeToPredict(PredictionTime)

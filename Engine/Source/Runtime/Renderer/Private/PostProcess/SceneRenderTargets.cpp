@@ -84,7 +84,7 @@ static TAutoConsoleVariable<int32> CVarMobileMSAA(
 	TEXT("2: Use 2x MSAA (Temporal AA disabled)\n")
 	TEXT("4: Use 4x MSAA (Temporal AA disabled)\n")
 	TEXT("8: Use 8x MSAA (Temporal AA disabled)"),
-	ECVF_RenderThreadSafe | ECVF_ReadOnly
+	ECVF_RenderThreadSafe | ECVF_Scalability
 	);
 
 static TAutoConsoleVariable<int32> CVarGBufferFormat(
@@ -545,7 +545,7 @@ void FSceneRenderTargets::Allocate(FRHICommandListImmediate& RHICmdList, const F
 		// Reinitialize the render targets for the given size.
 		SetBufferSize(DesiredBufferSize.X, DesiredBufferSize.Y);
 
-		UE_LOG(LogRenderer, Log, TEXT("Reallocating scene render targets to support %ux%u Format %u NumSamples %u (Frame:%u)."), BufferSize.X, BufferSize.Y, (uint32)GetSceneColorFormat(), CurrentMSAACount, ViewFamily.FrameNumber);
+		UE_LOG(LogRenderer, Log, TEXT("Reallocating scene render targets to support %ux%u Format %u NumSamples %u (Frame:%u)."), BufferSize.X, BufferSize.Y, (uint32)GetSceneColorFormat(NewFeatureLevel), CurrentMSAACount, ViewFamily.FrameNumber);
 
 		UpdateRHI();
 	}
@@ -2168,9 +2168,14 @@ template void FSceneRenderTargets::ClearVolumeTextures<8>(FRHICommandList& RHICm
 
 EPixelFormat FSceneRenderTargets::GetSceneColorFormat() const
 {
+	return GetSceneColorFormat(CurrentFeatureLevel);
+}
+
+EPixelFormat FSceneRenderTargets::GetSceneColorFormat(ERHIFeatureLevel::Type InFeatureLevel) const
+{
 	EPixelFormat SceneColorBufferFormat = PF_FloatRGBA;
 
-	if (CurrentFeatureLevel < ERHIFeatureLevel::SM4)
+	if (InFeatureLevel < ERHIFeatureLevel::SM4)
 	{
 		return GetMobileSceneColorFormat();
 	}

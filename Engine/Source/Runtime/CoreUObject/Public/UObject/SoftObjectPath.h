@@ -24,6 +24,13 @@ struct COREUOBJECT_API FSoftObjectPath
 	{
 	}
 
+	/** Construct from a moveable soft object path */
+	FSoftObjectPath(FSoftObjectPath&& Other)
+		: AssetPathName(Other.AssetPathName)
+		, SubPathString(MoveTemp(Other.SubPathString))
+	{
+	}
+
 	/** Construct from a path string */
 	FSoftObjectPath(FString PathString)
 	{
@@ -33,7 +40,7 @@ struct COREUOBJECT_API FSoftObjectPath
 	/** Construct from an asset FName and subobject pair */
 	FSoftObjectPath(FName InAssetPathName, FString InSubPathString)
 		: AssetPathName(InAssetPathName)
-		, SubPathString(InSubPathString)
+		, SubPathString(MoveTemp(InSubPathString))
 	{}
 	
 	/** Construct from an existing object in memory */
@@ -62,7 +69,7 @@ struct COREUOBJECT_API FSoftObjectPath
 	}
 
 	/** Returns the sub path, which is often empty */
-	FORCEINLINE FString GetSubPathString() const
+	FORCEINLINE const FString& GetSubPathString() const
 	{
 		return SubPathString;
 	}
@@ -138,7 +145,7 @@ struct COREUOBJECT_API FSoftObjectPath
 	{
 		return !(*this == Other);
 	}
-	FSoftObjectPath& operator=(FSoftObjectPath const& Other);
+	FSoftObjectPath& operator=(FSoftObjectPath Other);
 	bool ExportTextItem(FString& ValueStr, FSoftObjectPath const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const;
 	bool ImportTextItem( const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText );
 	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar);
@@ -197,7 +204,7 @@ private:
 	/** Package names currently being duplicated, needed by FixupForPIE */
 	static TSet<FName> PIEPackageNames;
 
-	friend COREUOBJECT_API UScriptStruct* Z_Construct_UScriptStruct_FSoftObjectPath();
+	friend struct Z_Construct_UScriptStruct_FSoftObjectPath_Statics;
 };
 
 /**

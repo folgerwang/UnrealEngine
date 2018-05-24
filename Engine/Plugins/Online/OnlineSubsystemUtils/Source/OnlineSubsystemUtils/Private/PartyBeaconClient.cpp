@@ -66,8 +66,11 @@ void APartyBeaconClient::ClearTimers(bool bCallFailSafeIfNeeded)
 		UE_LOG(LogBeacon, Verbose, TEXT("Clearing timers with cancel reservation in flight.  Calling Failsafe."));
 
 		UWorld* World = GetWorld();
-		FTimerManager& TM = World->GetTimerManager();
-		TM.ClearTimer(CancelRPCFailsafe);
+		if (World)
+		{
+			FTimerManager& TM = World->GetTimerManager();
+			TM.ClearTimer(CancelRPCFailsafe);
+		}
 		OnCancelledFailsafe();
 	}
 

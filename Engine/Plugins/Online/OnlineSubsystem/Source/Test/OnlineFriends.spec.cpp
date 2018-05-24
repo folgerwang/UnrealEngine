@@ -54,11 +54,11 @@ void FOnlineFriendsSpec::Define()
 				// If OnlineFriends or OnlineIdentity is not valid, the following test, including all other nested BeforeEaches, will not run
 				if (!OnlineFriends.IsValid())
 				{
-					UE_LOG(LogOnline, Error, TEXT("Failed to get online friends interface for %s"), *SubsystemType.ToString());
+					UE_LOG_ONLINE_FRIEND(Error, TEXT("Failed to get online friends interface for %s"), *SubsystemType.ToString());
 				}
 				if (!OnlineIdentity.IsValid())
 				{
-					UE_LOG(LogOnline, Error, TEXT("Failed to get online identity interface for %s"), *SubsystemType.ToString());
+					UE_LOG_ONLINE_FRIEND(Error, TEXT("Failed to get online identity interface for %s"), *SubsystemType.ToString());
 				}
 			});
 			
@@ -107,7 +107,7 @@ void FOnlineFriendsSpec::Define()
 
 							TestEqual("Verify that FriendsList is populated", FriendsList.Num() > 0, true);
 
-							UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+							UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 							TestDone.Execute();
 						}));
 					});
@@ -126,7 +126,7 @@ void FOnlineFriendsSpec::Define()
 
 							TestEqual("Verify that FriendsList is populated", FriendsList.Num() > 0, true);
 
-							UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+							UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 							TestDone.Execute();
 						}));
 					});
@@ -145,7 +145,7 @@ void FOnlineFriendsSpec::Define()
 
 							TestEqual("Verify that FriendsList is populated", FriendsList.Num() > 0, true);
 
-							UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+							UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 							TestDone.Execute();
 						}));
 					});
@@ -192,7 +192,7 @@ void FOnlineFriendsSpec::Define()
 
 								TestEqual("Verify that FriendsList is not populated", FriendsList.Num() == 0, true);
 
-								UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+								UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 								TestDone.Execute();
 							}));
 						}));
@@ -260,7 +260,7 @@ void FOnlineFriendsSpec::Define()
 
 							TestEqual("Verify that FriendsList is not populated", FriendsList.Num() == 0, true);
 
-							UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+							UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 							TestDone.Execute();
 						}));
 					});
@@ -280,7 +280,7 @@ void FOnlineFriendsSpec::Define()
 
 							TestEqual("Verify that FriendsList is not populated", FriendsList.Num() == 0, true);
 
-							UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+							UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 							TestDone.Execute();
 						}));
 					});
@@ -300,7 +300,7 @@ void FOnlineFriendsSpec::Define()
 
 							TestEqual("Verify that FriendsList is not populated", FriendsList.Num() == 0, true);
 
-							UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+							UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 							TestDone.Execute();
 						}));
 					});
@@ -335,7 +335,7 @@ void FOnlineFriendsSpec::Define()
 
 					It("When calling DeleteFriendsList with a valid local user but an invalid list name, this subsystem does not attempt a delete friends list request", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 					});
 
 					LatentAfterEach(EAsyncExecution::ThreadPool, [this, SubsystemType](const FDoneDelegate& TestDone)
@@ -518,7 +518,7 @@ void FOnlineFriendsSpec::Define()
 							TestEqual("Verify that SendInviteListName is: InvalidListName", SendInviteListName == TEXT("InvalidListName"), true);
 							TestEqual("Verify that SendInviteErrorStr returns the expected error code: ONLINE_EXPECTEDERROR_INVALID_LOCALUSER", SendInviteErrorStr.Contains(ONLINE_EXPECTEDERROR_INVALID_LOCALUSER), true);
 
-							UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+							UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 							TestDone.Execute();
 						}));
 					});
@@ -759,7 +759,7 @@ void FOnlineFriendsSpec::Define()
 									TestEqual("Verify that RejectInviteListName is: Default", RejectInviteListName == EFriendsLists::ToString(EFriendsLists::Default), true);
 									TestEqual("Verify that RejectInviteErrorStr returns the expected error code: ONLINE_EXPECTEDERROR_INVALID_LOCALUSER", RejectInviteErrorStr.Contains(ONLINE_EXPECTEDERROR_INVALID_LOCALUSER), true);
 
-									UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Bug: OGS-1023 - Macro that builds TriggerDELEGATE does not accept a negative LocalUserNum to trigger the delegate"));
+									UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Bug: OGS-1023 - Macro that builds TriggerDELEGATE does not accept a negative LocalUserNum to trigger the delegate"));
 									TestDone.Execute();
 								}));
 
@@ -824,7 +824,7 @@ void FOnlineFriendsSpec::Define()
 									TestEqual("Verify that RejectInviteListName is: InvalidListName", RejectInviteListName == TEXT("InvalidListName"), true);
 									TestEqual("Verify that RejectInviteErrorStr returns the expected error code: ", RejectInviteErrorStr.Contains(TEXT("something")), true);
 
-									UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+									UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 									TestDone.Execute();
 								}));
 
@@ -920,7 +920,7 @@ void FOnlineFriendsSpec::Define()
 
 										TestEqual("Verify that FriendsList is populated", FriendsList.Num() > 0, true);
 
-										UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Bug: OGS-1023 - Macro that builds TriggerDELEGATE does not accept a negative LocalUserNum to trigger the delegate"));
+										UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Bug: OGS-1023 - Macro that builds TriggerDELEGATE does not accept a negative LocalUserNum to trigger the delegate"));
 										TestDone.Execute();
 									}));
 								}));
@@ -973,7 +973,7 @@ void FOnlineFriendsSpec::Define()
 
 					It("When calling DeleteFriend with a valid local user and friend ID but an invalid list name, this subsystem does not delete that friend ID", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 					});
 
 					LatentAfterEach(EAsyncExecution::ThreadPool, [this, SubsystemType](const FDoneDelegate& TestDone)
@@ -1064,7 +1064,7 @@ void FOnlineFriendsSpec::Define()
 
 					It("When calling GetFriendsList with a valid local user but an invalid list name after polling for friends list data, this subsystem will not return that data", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 					});
 
 					LatentAfterEach(EAsyncExecution::ThreadPool, [this, SubsystemType](const FDoneDelegate& TestDone)
@@ -1111,9 +1111,9 @@ void FOnlineFriendsSpec::Define()
 								}
 								else
 								{
-									UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on FriendEntry failed after a call to OnlineFriends->GetFriend()"));
+									UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on FriendEntry failed after a call to OnlineFriends->GetFriend()"));
 								}
-								UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need more checks against FriendEntry"));
+								UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need more checks against FriendEntry"));
 								TestDone.Execute();
 							}));
 						}));
@@ -1183,7 +1183,7 @@ void FOnlineFriendsSpec::Define()
 
 					It("When calling GetFriend with a valid local user and friend ID but an invalid list name after polling for friend data, this subsystem will not return that online friend", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 					});
 
 					LatentAfterEach(EAsyncExecution::ThreadPool, [this, SubsystemType](const FDoneDelegate& TestDone)
@@ -1281,7 +1281,7 @@ void FOnlineFriendsSpec::Define()
 								}
 								else
 								{
-									UE_LOG(LogOnline, Error, TEXT("OSS Automation: FriendsList was empty after calling GetFriendsList(). Expected 1 friend entry"));
+									UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: FriendsList was empty after calling GetFriendsList(). Expected 1 friend entry"));
 									TestDone.Execute();
 								}
 							}));
@@ -1334,7 +1334,7 @@ void FOnlineFriendsSpec::Define()
 
 					It("When calling IsFriend with a valid local user and friend ID who is on the user's friends list but an invalid list name after polling for friend data, this subsystem will return false", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to verify that different friends lists produce different results"));
 					});
 
 					LatentAfterEach(EAsyncExecution::ThreadPool, [this, SubsystemType](const FDoneDelegate& TestDone)
@@ -1362,22 +1362,22 @@ void FOnlineFriendsSpec::Define()
 
 					It("When calling QueryRecentPlayers with a namespace and a valid FUniqueNetId who recently played with others, this subsystem will return that user's recent players", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
 					});
 
 					It("When calling QueryRecentPlayers with a namespace but a valid FUniqueNetId who has not played with others, this subsystem will return that user's recent players", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
 					});
 
 					It("When calling QueryRecentPlayers a valid FUniqueNetId who recently played with others but an invalid namespace, this subsystem will return that user's recent players", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
 					});
 
 					It("When calling QueryRecentPlayers with a namespace but an invalid FUniqueNetId, this subsystem will return that user's recent players", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
 					});
 
 					AfterEach(EAsyncExecution::ThreadPool, [this, SubsystemType]()
@@ -1392,27 +1392,27 @@ void FOnlineFriendsSpec::Define()
 
 					It("When calling GetRecentPlayers with a namespace and a valid FUniqueNetId who recently played with others after polling for recent players data, this subsystem will return that user's recent players", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
 					});
 
 					It("When calling GetRecentPlayers with a namespace and a valid FUniqueNetId who recently played with others without polling for recent players data, this subsystem will not return that user's recent players", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
 					});
 
 					It("When calling GetRecentPlayers with a namespace and a valid FUniqueNetId who has not played with others after polling for recent players data, this subsystem will return not that user's recent players", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
 					});
 
 					It("When calling GetRecentPlayers with a valid FUniqueNetId who recently played with others but an invalid namespace after polling for recent players data, this subsystem will not return that user's recent players", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
 					});
 
 					It("When calling GetRecentPlayers with a namespace but an invalid FUniqueNetId after polling for recent players data, this subsystem will not return that user's recent players", [this, SubsystemType]()
 					{
-						UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
+						UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out how to set-up an account to have recent players to query"));
 					});
 
 					AfterEach(EAsyncExecution::ThreadPool, [this, SubsystemType]()
@@ -1470,7 +1470,7 @@ void FOnlineFriendsSpec::Define()
 									}
 									else
 									{
-										UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->GetUniquePlayerId()"));
+										UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->GetUniquePlayerId()"));
 										TestDone.Execute();
 									}
 								}));
@@ -1479,7 +1479,7 @@ void FOnlineFriendsSpec::Define()
 							}
 							else
 							{
-								UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on FriendsAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+								UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on FriendsAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
 								TestDone.Execute();
 							}
 						}));
@@ -1515,7 +1515,7 @@ void FOnlineFriendsSpec::Define()
 							}
 							else
 							{
-								UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+								UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
 								TestDone.Execute();
 							}
 						}));
@@ -1543,7 +1543,7 @@ void FOnlineFriendsSpec::Define()
 							}
 							else
 							{
-								UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+								UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
 								TestDone.Execute();
 							}
 						}));
@@ -1616,7 +1616,7 @@ void FOnlineFriendsSpec::Define()
 									}
 									else
 									{
-										UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->GetUniquePlayerId()"));
+										UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->GetUniquePlayerId()"));
 										TestDone.Execute();
 									}
 								}));
@@ -1625,7 +1625,7 @@ void FOnlineFriendsSpec::Define()
 							}
 							else
 							{
-								UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+								UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
 								TestDone.Execute();
 							}
 						}));
@@ -1661,7 +1661,7 @@ void FOnlineFriendsSpec::Define()
 							}
 							else
 							{
-								UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+								UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
 								TestDone.Execute();
 							}
 						}));
@@ -1689,7 +1689,7 @@ void FOnlineFriendsSpec::Define()
 							}
 							else
 							{
-								UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+								UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
 								TestDone.Execute();
 							}
 						}));
@@ -1748,7 +1748,7 @@ void FOnlineFriendsSpec::Define()
 							}
 							else
 							{
-								UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+								UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
 								TestDone.Execute();
 							}
 						}));
@@ -1787,7 +1787,7 @@ void FOnlineFriendsSpec::Define()
 							}
 							else
 							{
-								UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+								UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
 								TestDone.Execute();
 							}
 						}));
@@ -1845,7 +1845,7 @@ void FOnlineFriendsSpec::Define()
 							}
 							else
 							{
-								UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+								UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
 								TestDone.Execute();
 							}
 						}));
@@ -1879,7 +1879,7 @@ void FOnlineFriendsSpec::Define()
 								}
 								else
 								{
-									UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on InvalidUserId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+									UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on InvalidUserId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
 									TestDone.Execute();
 								}
 							}));
@@ -1890,7 +1890,7 @@ void FOnlineFriendsSpec::Define()
 							}
 							else
 							{
-								UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+								UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
 								TestDone.Execute();
 							}
 						}));
@@ -1929,7 +1929,7 @@ void FOnlineFriendsSpec::Define()
 						{
 							OnlineFriends->DumpBlockedPlayers();
 
-							UE_LOG(LogOnline, Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out what to check against to test"));
+							UE_LOG_ONLINE_FRIEND(Error, TEXT("OSS Automation: Test implementation not yet complete. Need to figure out what to check against to test"));
 						}));
 
 						OnlineIdentity->Login(0, AccountCredentials);

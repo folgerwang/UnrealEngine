@@ -32,7 +32,7 @@ public:
 	// FUserOnlineAccountGoogleCommon
 
 	explicit FUserOnlineAccountGoogleCommon(const FString& InUserId = FString(), const FAuthTokenGoogle& InAuthToken = FAuthTokenGoogle())
-		: UserIdPtr(new FUniqueNetIdString(InUserId))
+		: UserIdPtr(new FUniqueNetIdGoogle(InUserId))
 		, UserId(InUserId)
 		, AuthToken(InAuthToken)
 	{

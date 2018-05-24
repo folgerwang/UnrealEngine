@@ -125,6 +125,8 @@ namespace UnrealBuildTool
 		[CommandLine("-Architectures=", ListSeparator = '+')]
 		public List<string> ArchitectureArg = new List<string>();
 
+		protected bool bEnableGcSections = true;
+
 		public AndroidToolChain(FileReference InProjectFile, bool bInUseLdGold, IReadOnlyList<string> InAdditionalArches, IReadOnlyList<string> InAdditionalGPUArches)
 			: this(CppPlatform.Android, InProjectFile, bInUseLdGold, InAdditionalArches, InAdditionalGPUArches, false)
 		{
@@ -842,7 +844,10 @@ namespace UnrealBuildTool
 			Result += " -nostdlib";
 			Result += " -Wl,-shared,-Bsymbolic";
 			Result += " -Wl,--no-undefined";
-			Result += " -Wl,-gc-sections"; // Enable garbage collection of unused input sections. works best with -ffunction-sections, -fdata-sections
+			if(bEnableGcSections)
+			{
+				Result += " -Wl,-gc-sections"; // Enable garbage collection of unused input sections. works best with -ffunction-sections, -fdata-sections
+			}
 
 			if (!LinkEnvironment.bCreateDebugInfo)
 			{
@@ -884,6 +889,8 @@ namespace UnrealBuildTool
 
 			// make sure the DT_SONAME field is set properly (or we can a warning toast at startup on new Android)
 			Result += " -Wl,-soname,libUE4.so";
+
+			Result += " -Wl,--build-id";				// add build-id to make debugging easier
 
 			// verbose output from the linker
 			// Result += " -v";
@@ -966,6 +973,16 @@ namespace UnrealBuildTool
 				}
 			}
 
+			// deal with .so files with wrong architecture
+			if (Path.GetExtension(Lib) == ".so")
+			{
+				string ParentDirectory = Path.GetDirectoryName(Lib);
+				if (!IsDirectoryForArch(ParentDirectory, Arch))
+				{
+					return true;
+				}
+			}
+
 			// if another architecture is in the filename, reject it
 			foreach (string ComboName in AllComboNames)
 			{
@@ -990,7 +1007,7 @@ namespace UnrealBuildTool
 		protected virtual void ModifySourceFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName)
 		{
 			// We need to add the extra glue and cpu code only to Launch module.
-			if (ModuleName.Equals("Launch"))
+			if (ModuleName.Equals("Launch") || ModuleName.Equals("AndroidLauncher"))
 			{
 				SourceFiles.Add(FileItem.GetItemByPath(GetNativeGluePath()));
 
@@ -1212,7 +1229,7 @@ namespace UnrealBuildTool
 			string NativeGluePath = Path.GetFullPath(GetNativeGluePath());
 
 			// Deal with Launch module special if first time seen
-			if (!bHasHandledLaunchModule && ModuleName.Equals("Launch"))
+			if (!bHasHandledLaunchModule && (ModuleName.Equals("Launch") || ModuleName.Equals("AndroidLauncher")))
 			{
 				// Directly added NDK files for NDK extensions
 				ModifySourceFiles(CompileEnvironment, InputFiles, ModuleName);
@@ -1318,11 +1335,7 @@ namespace UnrealBuildTool
 						bDisableOptimizations = bDisableOptimizations || !CompileEnvironment.bOptimizeCode;
 
 						// Add C or C++ specific compiler arguments.
-						if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Create)
-						{
-							FileArguments += GetCompileArguments_PCH(bDisableOptimizations);
-						}
-						else if (bIsPlainCFile)
+						if (bIsPlainCFile)
 						{
 							FileArguments += GetCompileArguments_C(bDisableOptimizations);
 
@@ -1331,6 +1344,10 @@ namespace UnrealBuildTool
 							{
 								bDisableShadowWarning = true;
 							}
+						}
+						else if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Create)
+						{
+							FileArguments += GetCompileArguments_PCH(bDisableOptimizations);
 						}
 						else
 						{
@@ -1343,7 +1360,7 @@ namespace UnrealBuildTool
 						// Add the C++ source file and its included files to the prerequisite item list.
 						AddPrerequisiteSourceFile(CompileEnvironment, SourceFile, CompileAction.PrerequisiteItems);
 
-						if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Create)
+						if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Create && !bIsPlainCFile)
 						{
 							// Add the precompiled header file to the produced item list.
 							FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(
@@ -1369,6 +1386,11 @@ namespace UnrealBuildTool
 							}
 
 							string ObjectFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.Object);
+
+							if(CompileEnvironment.AdditionalArguments != null && CompileEnvironment.AdditionalArguments.Contains("-emit-llvm"))
+							{
+								ObjectFileExtension = ".bc";
+							}
 
 							// Add the object file to the produced item list.
 							FileItem ObjectFile = FileItem.GetItemByFileReference(

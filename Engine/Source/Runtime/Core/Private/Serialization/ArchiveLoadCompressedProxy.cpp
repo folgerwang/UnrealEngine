@@ -19,9 +19,9 @@ FArchiveLoadCompressedProxy::FArchiveLoadCompressedProxy( const TArray<uint8>& I
 :	CompressedData(InCompressedData)
 ,	CompressionFlags(InCompressionFlags)
 {
-	ArIsLoading							= true;
-	ArIsPersistent						= true;
-	ArWantBinaryPropertySerialization	= true;
+	this->SetIsLoading(true);
+	this->SetIsPersistent(true);
+	this->SetWantBinaryPropertySerialization(true);
 	bShouldSerializeFromArray			= false;
 	RawBytesSerialized					= 0;
 	CurrentIndex						= 0;

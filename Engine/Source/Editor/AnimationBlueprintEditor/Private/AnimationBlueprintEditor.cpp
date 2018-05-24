@@ -63,6 +63,9 @@
 #include "AnimGraphNode_RotationOffsetBlendSpace.h"
 #include "Algo/Transform.h"
 #include "ISkeletonTreeItem.h"
+#include "IPersonaViewport.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorFontGlyphs.h"
 
 #define LOCTEXT_NAMESPACE "AnimationBlueprintEditor"
 
@@ -1477,6 +1480,148 @@ void FAnimationBlueprintEditor::HandlePreviewMeshChanged(USkeletalMesh* OldPrevi
 	{
 		HandleSetObjectBeingDebugged(Object);
 	}
+}
+
+void FAnimationBlueprintEditor::HandleViewportCreated(const TSharedRef<IPersonaViewport>& InPersonaViewport)
+{
+	auto GetCompilationStateText = [this]()
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			switch (Blueprint->Status)
+			{
+			case BS_UpToDate:
+			case BS_UpToDateWithWarnings:
+				// Fall thru and return empty string
+				break;
+			case BS_Dirty:
+				return LOCTEXT("AnimBP_Dirty", "Preview out of date");
+			case BS_Error:
+				return LOCTEXT("AnimBP_CompileError", "Compile Error");
+			default:
+				return LOCTEXT("AnimBP_UnknownStatus", "Unknown Status");
+			}
+		}
+
+		return FText::GetEmpty();
+	};
+
+	auto GetCompilationStateVisibility = [this]()
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			const bool bUpToDate = (Blueprint->Status == BS_UpToDate) || (Blueprint->Status == BS_UpToDateWithWarnings);
+			return bUpToDate ? EVisibility::Collapsed : EVisibility::Visible;
+		}
+
+		return EVisibility::Collapsed;
+	};
+
+	auto GetCompileButtonVisibility = [this]()
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			return (Blueprint->Status == BS_Dirty) ? EVisibility::Visible : EVisibility::Collapsed;
+		}
+
+		return EVisibility::Collapsed;
+	};
+
+	auto CompileBlueprint = [this]()
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			if (!Blueprint->IsUpToDate())
+			{
+				Compile();
+			}
+		}
+
+		return FReply::Handled();
+	};
+
+	auto GetErrorSeverity = [this]()
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			return (Blueprint->Status == BS_Error) ? EMessageSeverity::Error : EMessageSeverity::Warning;
+		}
+
+		return EMessageSeverity::Warning;
+	};
+
+	auto GetIcon = [this]()
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			return (Blueprint->Status == BS_Error) ? FEditorFontGlyphs::Exclamation_Triangle : FEditorFontGlyphs::Eye;
+		}
+
+		return FEditorFontGlyphs::Eye;
+	};
+
+	InPersonaViewport->AddNotification(MakeAttributeLambda(GetErrorSeverity),
+		false,
+		SNew(SHorizontalBox)
+		.Visibility_Lambda(GetCompilationStateVisibility)
+		+SHorizontalBox::Slot()
+		.FillWidth(1.0f)
+		.Padding(4.0f, 4.0f)
+		[
+			SNew(SHorizontalBox)
+			.ToolTipText_Lambda(GetCompilationStateText)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+			[
+				SNew(STextBlock)
+				.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+				.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
+				.Text_Lambda(GetIcon)
+			]
+			+SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			.FillWidth(1.0f)
+			[
+				SNew(STextBlock)
+				.Text_Lambda(GetCompilationStateText)
+				.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+			]
+		]
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2.0f, 0.0f)
+		[
+			SNew(SButton)
+			.ForegroundColor(FSlateColor::UseForeground())
+			.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+			.Visibility_Lambda(GetCompileButtonVisibility)
+			.ToolTipText(LOCTEXT("AnimBPViewportCompileButtonToolTip", "Compile this Animation Blueprint to update the preview to reflect any recent changes."))
+			.OnClicked_Lambda(CompileBlueprint)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+				[
+					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
+					.Text(FEditorFontGlyphs::Cog)
+				]
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				[
+					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+					.Text(LOCTEXT("AnimBPViewportCompileButtonLabel", "Compile"))
+				]
+			]
+		]
+	);
 }
 
 #undef LOCTEXT_NAMESPACE

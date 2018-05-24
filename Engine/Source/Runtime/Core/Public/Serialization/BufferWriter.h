@@ -42,7 +42,7 @@ public:
 		, bFreeOnClose((InFlags & EBufferWriterFlags::TakeOwnership) != EBufferWriterFlags::None)
 		, bAllowResize((InFlags & EBufferWriterFlags::AllowResize) != EBufferWriterFlags::None)
 	{
-		ArIsSaving = true;
+		this->SetIsSaving(true);
 	}
 
 	~FBufferWriter()

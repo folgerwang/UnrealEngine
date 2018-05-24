@@ -79,7 +79,7 @@ void FAlphaBlend::Reset()
 		BlendTimeRemaining = BlendTime * FMath::Abs(1.f - AlphaLerp);
 	}
 
-	RecacheDesiredBlendedValue();
+	bNeedsToResetCachedDesiredBlendedValue = true;
 	bNeedsToResetAlpha = false;
 	bNeedsToResetBlendTime = false;
 }
@@ -170,7 +170,7 @@ void FAlphaBlend::SetValueRange(float Begin, float Desired)
 	DesiredValue = Desired;
 
 	bNeedsToResetAlpha = true;
-	RecacheDesiredBlendedValue();
+	bNeedsToResetCachedDesiredBlendedValue = true;
 }
 
 /** Sets the final desired value for the blended value */
@@ -187,11 +187,6 @@ void FAlphaBlend::SetAlpha(float InAlpha)
 	BlendedValue = BeginValue + (DesiredValue - BeginValue) * AlphaBlend;
 }
 
-void FAlphaBlend::RecacheDesiredBlendedValue()
-{
-	CachedDesiredBlendedValue = BeginValue + (DesiredValue - BeginValue) * AlphaToBlendOption(1.f, BlendOption, CustomCurve);
-}
-
 void FAlphaBlend::SetBlendTime(float InBlendTime)
 {
 	BlendTime = FMath::Max(InBlendTime, 0.f);
@@ -202,17 +197,23 @@ void FAlphaBlend::SetBlendTime(float InBlendTime)
 void FAlphaBlend::SetBlendOption(EAlphaBlendOption InBlendOption)
 {
 	BlendOption = InBlendOption;
-	RecacheDesiredBlendedValue();
+	bNeedsToResetCachedDesiredBlendedValue = true;
 }
 
 void FAlphaBlend::SetCustomCurve(UCurveFloat* InCustomCurve)
 {
 	CustomCurve = InCustomCurve;
-	RecacheDesiredBlendedValue();
+	bNeedsToResetCachedDesiredBlendedValue = true;
 }
 
-bool FAlphaBlend::IsComplete() const
+bool FAlphaBlend::IsComplete() const 
 {
-	return CachedDesiredBlendedValue == BlendedValue;
+	if (bNeedsToResetCachedDesiredBlendedValue)
+	{
+		CachedDesiredBlendedValue = BeginValue + (DesiredValue - BeginValue) * AlphaToBlendOption(1.f, BlendOption, CustomCurve);
+		bNeedsToResetCachedDesiredBlendedValue = false;
+	}
+
+	return (CachedDesiredBlendedValue == BlendedValue);
 }
 

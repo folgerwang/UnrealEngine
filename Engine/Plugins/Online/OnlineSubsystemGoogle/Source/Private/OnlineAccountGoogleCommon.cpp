@@ -47,7 +47,7 @@ bool FUserOnlineAccountGoogleCommon::Parse(const FAuthTokenGoogle& InAuthToken, 
 			{
 				if (!UserId.IsEmpty())
 				{
-					UserIdPtr = MakeShared<FUniqueNetIdString>(UserId);
+					UserIdPtr = MakeShared<FUniqueNetIdGoogle>(UserId);
 
 					// update the access token
 					AuthToken = InAuthToken;

@@ -136,7 +136,10 @@ public:
 
 	virtual void StartupModule() override
 	{
-		TickerThread = FRunnableThread::Create(&Ticker, TEXT("FMediaTicker"));
+		if (!IsRunningDedicatedServer())
+		{
+			TickerThread = FRunnableThread::Create(&Ticker, TEXT("FMediaTicker"));
+		}
 	}
 
 	virtual void ShutdownModule() override

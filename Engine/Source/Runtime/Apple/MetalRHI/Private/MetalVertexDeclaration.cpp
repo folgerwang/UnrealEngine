@@ -191,7 +191,7 @@ void FMetalVertexDeclaration::GenerateLayout(const FVertexDeclarationElementList
 	ns::Array<mtlpp::VertexBufferLayoutDescriptor> Layouts = NewLayout.GetLayouts();
 	ns::Array<mtlpp::VertexAttributeDescriptor> Attributes = NewLayout.GetAttributes();
 
-	BaseHash = FCrc::MemCrc_DEPRECATED(InElements.GetData(),InElements.Num()*sizeof(FVertexElement));
+	BaseHash = 0;
 	uint32 StrideHash = BaseHash;
 
 	TMap<uint32, uint32> BufferStrides;
@@ -202,7 +202,13 @@ void FMetalVertexDeclaration::GenerateLayout(const FVertexDeclarationElementList
 		checkf(Element.Stride == 0 || Element.Offset + TranslateElementTypeToSize(Element.Type) <= Element.Stride, 
 			TEXT("Stream component is bigger than stride: Offset: %d, Size: %d [Type %d], Stride: %d"), Element.Offset, TranslateElementTypeToSize(Element.Type), (uint32)Element.Type, Element.Stride);
 
-		StrideHash = FCrc::MemCrc32(&Element.Stride, sizeof(Element.Stride), StrideHash);
+		BaseHash = FCrc::MemCrc32(&Element.StreamIndex, sizeof(Element.StreamIndex), BaseHash);
+		BaseHash = FCrc::MemCrc32(&Element.Offset, sizeof(Element.Offset), BaseHash);
+		BaseHash = FCrc::MemCrc32(&Element.Type, sizeof(Element.Type), BaseHash);
+		BaseHash = FCrc::MemCrc32(&Element.AttributeIndex, sizeof(Element.AttributeIndex), BaseHash);
+		
+		uint32 Stride = Element.Stride;
+		StrideHash = FCrc::MemCrc32(&Stride, sizeof(Stride), StrideHash);
 
 		// Vertex & Constant buffers are set up in the same space, so add VB's from the top
 		uint32 ShaderBufferIndex = UNREAL_TO_METAL_BUFFER_INDEX(Element.StreamIndex);
@@ -214,9 +220,13 @@ void FMetalVertexDeclaration::GenerateLayout(const FVertexDeclarationElementList
 			// handle 0 stride buffers
 			mtlpp::VertexStepFunction Function = (Element.Stride == 0 ? mtlpp::VertexStepFunction::Constant : (Element.bUseInstanceIndex ? mtlpp::VertexStepFunction::PerInstance : mtlpp::VertexStepFunction::PerVertex));
 			uint32 StepRate = (Element.Stride == 0 ? 0 : 1);
-			// even with MTLVertexStepFunctionConstant, it needs a non-zero stride (not sure why)
-			uint32 Stride = (Element.Stride == 0 ? TranslateElementTypeToSize(Element.Type) : Element.Stride);
 
+			// even with MTLVertexStepFunctionConstant, it needs a non-zero stride (not sure why)
+			if (Element.Stride == 0)
+			{
+				Stride = TranslateElementTypeToSize(Element.Type);
+			}
+						
 			// look for any unset strides coming from UE4 (this can be removed when all are fixed)
 			if (Element.Stride == 0xFFFF)
 			{
@@ -246,5 +256,5 @@ void FMetalVertexDeclaration::GenerateLayout(const FVertexDeclarationElementList
 		Attrib.SetBufferIndex(ShaderBufferIndex);
 	}
 	
-	Layout = FMetalHashedVertexDescriptor(NewLayout, StrideHash);
+	Layout = FMetalHashedVertexDescriptor(NewLayout, HashCombine(BaseHash, StrideHash));
 }

@@ -32,6 +32,7 @@ void SVirtualKeyboardEntry::Construct( const FArguments& InArgs )
 	OnTextCommitted = InArgs._OnTextCommitted;
 	MinDesiredWidth = InArgs._MinDesiredWidth;
 	KeyboardType = InArgs._KeyboardType;
+	VirtualKeyboardOptions = InArgs._VirtualKeyboardOptions;
 }
 
 void SVirtualKeyboardEntry::SetText(const TAttribute< FText >& InNewText)

@@ -499,13 +499,6 @@ static bool PassesAllFilters( FDetailItemNode* ItemNode, const FDetailLayoutCust
 		bPassesAllFilters = false;
 		if( PropertyNodePin.IsValid() && !PropertyNodePin->AsCategoryNode())
 		{
-			UClass* ObjectClass = nullptr;
-			FObjectPropertyNode* PropertyNodeParent = PropertyNodePin->FindObjectItemParent();
-			if (PropertyNodeParent)
-			{
-				ObjectClass = PropertyNodeParent->GetObjectBaseClass();
-			}
-
 			const bool bIsNotBeingFiltered = PropertyNodePin->HasNodeFlags(EPropertyNodeFlags::IsBeingFiltered) == 0;
 			const bool bIsSeenDueToFiltering = PropertyNodePin->HasNodeFlags(EPropertyNodeFlags::IsSeenDueToFiltering) != 0;
 			const bool bIsParentSeenDueToFiltering = PropertyNodePin->HasNodeFlags(EPropertyNodeFlags::IsParentSeenDueToFiltering) != 0;
@@ -513,7 +506,21 @@ static bool PassesAllFilters( FDetailItemNode* ItemNode, const FDetailLayoutCust
 			const bool bPassesSearchFilter = bSearchFilterIsEmpty || ( bIsNotBeingFiltered || bIsSeenDueToFiltering || bIsParentSeenDueToFiltering );
 			const bool bPassesModifiedFilter = bPassesSearchFilter && ( InFilter.bShowOnlyModifiedProperties == false || PropertyNodePin->GetDiffersFromDefault() == true );
 			const bool bPassesDifferingFilter = InFilter.bShowOnlyDiffering ? InFilter.WhitelistedProperties.Find(*FPropertyNode::CreatePropertyPath(PropertyNodePin.ToSharedRef())) != nullptr : true;
-			const bool bPassesKeyableFilter = (InFilter.bShowKeyable == false || (ObjectClass ? Local::ItemIsKeyable(ItemNode, ObjectClass, PropertyNodePin) : false));
+
+			bool bPassesKeyableFilter = true;
+			if (InFilter.bShowKeyable)
+			{
+				FObjectPropertyNode* ParentPropertyNode = PropertyNodePin->FindObjectItemParent();
+				if (ParentPropertyNode != nullptr)
+				{
+					UClass* ObjectClass = ParentPropertyNode->GetObjectBaseClass();
+					bPassesKeyableFilter = Local::ItemIsKeyable(ItemNode, ObjectClass, PropertyNodePin);
+				}
+				else
+				{
+					bPassesKeyableFilter = false;
+				}
+			}
 			const bool bPassesAnimatedFilter = (InFilter.bShowAnimated == false || Local::ItemIsAnimated(ItemNode, PropertyNodePin));
 
 			// The property node is visible (note categories are never visible unless they have a child that is visible )

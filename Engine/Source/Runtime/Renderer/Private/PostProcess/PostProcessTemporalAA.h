@@ -54,6 +54,11 @@ struct FTAAPassParameters
 	// Whether to do compute or not.
 	bool bIsComputePass;
 
+	// Whether downsampled (box filtered, half resolution) frame should be written out.
+	// Only used when bIsComputePass is true.
+	bool bDownsample;
+	EPixelFormat DownsampleOverrideFormat;
+
 	// Viewport rectangle of the input and output of TAA at ResolutionDivisor == 1.
 	FIntRect InputViewRect;
 	FIntRect OutputViewRect;
@@ -66,6 +71,8 @@ struct FTAAPassParameters
 		: Pass(ETAAPassConfig::Main)
 		, bUseFast(false)
 		, bIsComputePass(false)
+		, bDownsample(false)
+		, DownsampleOverrideFormat(PF_Unknown)
 		, InputViewRect(View.ViewRect)
 		, OutputViewRect(View.ViewRect)
 		, ResolutionDivisor(1)
@@ -102,8 +109,10 @@ struct FTAAPassParameters
 
 // ePId_Input0: Full Res Scene color (point)
 // ePId_Input2: Velocity (point)
+// ePId_Output0: Antialiased color
+// ePId_Output1: Downsampled antialiased color (only when FTAAConfig::bDownsample is true)
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 
-class FRCPassPostProcessTemporalAA : public TRenderingCompositePassBase<3, 2>
+class FRCPassPostProcessTemporalAA : public TRenderingCompositePassBase<3, 3>
 {
 public:
 	FRCPassPostProcessTemporalAA(
@@ -119,6 +128,8 @@ public:
 
 	virtual FComputeFenceRHIParamRef GetComputePassEndFence() const override { return AsyncEndFence; }
 
+	bool IsDownsamplePossible() const { return bDownsamplePossible; }
+
 private:
 	const FTAAPassParameters Parameters;
 
@@ -128,4 +139,6 @@ private:
 
 	const FTemporalAAHistory& InputHistory;
 	FTemporalAAHistory* OutputHistory;
+
+	bool bDownsamplePossible = false;
 };

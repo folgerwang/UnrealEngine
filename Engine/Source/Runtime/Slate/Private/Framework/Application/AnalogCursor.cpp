@@ -140,7 +140,7 @@ bool FAnalogCursor::HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEv
 				SlateApp.CursorPointerIndex,
 				SlateApp.GetCursorPos(),
 				SlateApp.GetLastCursorPos(),
-				SlateApp.PressedMouseButtons,
+				SlateApp.GetPressedMouseButtons(),
 				EKeys::LeftMouseButton,
 				0,
 				SlateApp.GetPlatformApplication()->GetModifierKeys()
@@ -177,7 +177,7 @@ bool FAnalogCursor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FKeyEven
 			SlateApp.CursorPointerIndex,
 			SlateApp.GetCursorPos(),
 			SlateApp.GetLastCursorPos(),
-			SlateApp.PressedMouseButtons,
+			SlateApp.GetPressedMouseButtons(),
 			EKeys::LeftMouseButton,
 			0,
 			SlateApp.GetPlatformApplication()->GetModifierKeys()
@@ -283,7 +283,7 @@ void FAnalogCursor::UpdateCursorPosition(FSlateApplication& SlateApp, TSharedRef
 			0,
 			UpdatedPosition,
 			OldPosition,
-			SlateApp.PressedMouseButtons,
+			SlateApp.GetPressedMouseButtons(),
 			EKeys::Invalid,
 			0,
 			SlateApp.GetPlatformApplication()->GetModifierKeys()

@@ -213,7 +213,7 @@ namespace Audio
 		// Get the wave format to parse there rest of the device details
 		const WAVEFORMATEX& WaveFormatEx = DeviceDetails.OutputFormat.Format;
 		OutInfo.SampleRate = WaveFormatEx.nSamplesPerSec;
-		
+
 		bool bIsMono = (WaveFormatEx.nChannels == 1);
 		// We are going to default to stereo for mono devices, then mix to mono on buffer submission (automatically done by xaudio2)
 		if (bIsMono == 1)
@@ -476,9 +476,10 @@ namespace Audio
 		return true;
 	}
 
-
 	bool FMixerPlatformXAudio2::CheckAudioDeviceChange()
 	{
+		FScopeLock Lock(&AudioDeviceSwapCriticalSection);
+
 		if (bMoveAudioStreamToNewAudioDevice)
 		{
 			bMoveAudioStreamToNewAudioDevice = false;

@@ -14,10 +14,7 @@ public:
 	 * @param	InOutPixels		The image to apply the smear to
 	 * @param	ImageWidth		The width of the image in pixels
 	 * @param	ImageHeight		The height of the image in pixels
-	 * @param	bIsNormalMap	Whether the image represents a normal map
 	 * @param	MaxIterations	The max distance in pixels to smear the edges of the texture. When set to -1 this value is the max of the width and height of the buffer
 	 */
-	static void PerformUVBorderSmear(TArray<FColor>& InOutPixels, int32 ImageWidth, int32 ImageHeight, bool bIsNormalMap, int32 MaxIterations = -1);	
-protected:
-	static FColor BoxBlurSample(TArray<FColor>& InBMP, int32 X, int32 Y, int32 InImageWidth, int32 InImageHeight, bool bIsNormalMap);	
+	static void PerformUVBorderSmear(TArray<FColor>& InOutPixels, int32 ImageWidth, int32 ImageHeight, int32 MaxIterations = -1);
 };

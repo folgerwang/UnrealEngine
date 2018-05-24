@@ -10,6 +10,7 @@
 #include "ShaderCore.h"
 #include "Shader.h"
 #include "VertexFactory.h"
+#include "ShaderCodeLibrary.h"
 
 void FShaderParameter::Bind(const FShaderParameterMap& ParameterMap,const TCHAR* ParameterName,EShaderParameterFlags Flags)
 {
@@ -389,6 +390,86 @@ void FShaderType::AddReferencedUniformBufferIncludes(FShaderCompilerEnvironment&
 	FString& GeneratedUniformBuffersInclude = OutEnvironment.IncludeVirtualPathToContentsMap.FindOrAdd("/Engine/Generated/GeneratedUniformBuffers.ush");
 	GeneratedUniformBuffersInclude.Append(UniformBufferIncludes);
 }
+
+void FShaderType::DumpDebugInfo()
+{
+	UE_LOG(LogConsoleResponse, Display, TEXT("----------------------------- GLobalShader %s"), GetName());
+	UE_LOG(LogConsoleResponse, Display, TEXT("               :Target %s"), GetShaderFrequencyString(GetFrequency()));
+	UE_LOG(LogConsoleResponse, Display, TEXT("               :TotalPermutationCount %d"), TotalPermutationCount);
+#if WITH_EDITOR
+	UE_LOG(LogConsoleResponse, Display, TEXT("               :SourceHash %s"), *GetSourceHash().ToString());
+#endif
+	switch (ShaderTypeForDynamicCast)
+	{
+	case EShaderTypeForDynamicCast::Global:
+		UE_LOG(LogConsoleResponse, Display, TEXT("               :ShaderType Global"));
+		break;
+	case EShaderTypeForDynamicCast::Material:
+		UE_LOG(LogConsoleResponse, Display, TEXT("               :ShaderType Material"));
+		break;
+	case EShaderTypeForDynamicCast::MeshMaterial:
+		UE_LOG(LogConsoleResponse, Display, TEXT("               :ShaderType MeshMaterial"));
+		break;
+	case EShaderTypeForDynamicCast::Niagara:
+		UE_LOG(LogConsoleResponse, Display, TEXT("               :ShaderType Niagara"));
+		break;
+	}
+
+	UE_LOG(LogConsoleResponse, Display, TEXT("  --- %d shaders"), ShaderIdMap.Num());
+	int32 Index = 0;
+	for (auto& KeyValue : ShaderIdMap)
+	{
+		UE_LOG(LogConsoleResponse, Display, TEXT("    --- shader %d"), Index);
+		FShader* Shader = KeyValue.Value;
+		Shader->DumpDebugInfo();
+		Index++;
+	}
+
+}
+
+void FShaderType::GetShaderStableKeyParts(FStableShaderKeyAndValue& SaveKeyVal)
+{
+#if WITH_EDITOR
+	static FName NAME_Global(TEXT("Global"));
+	static FName NAME_Material(TEXT("Material"));
+	static FName NAME_MeshMaterial(TEXT("MeshMaterial"));
+	static FName NAME_Niagara(TEXT("Niagara"));
+	switch (ShaderTypeForDynamicCast)
+	{
+	case EShaderTypeForDynamicCast::Global:
+		SaveKeyVal.ShaderClass = NAME_Global;
+		break;
+	case EShaderTypeForDynamicCast::Material:
+		SaveKeyVal.ShaderClass = NAME_Material;
+		break;
+	case EShaderTypeForDynamicCast::MeshMaterial:
+		SaveKeyVal.ShaderClass = NAME_MeshMaterial;
+		break;
+	case EShaderTypeForDynamicCast::Niagara:
+		SaveKeyVal.ShaderClass = NAME_Niagara;
+		break;
+	}
+	SaveKeyVal.ShaderType = FName(GetName() ? GetName() : TEXT("null"));
+#endif
+}
+
+void FShaderType::SaveShaderStableKeys(EShaderPlatform TargetShaderPlatform)
+{
+#if WITH_EDITOR
+	FStableShaderKeyAndValue SaveKeyVal;
+	if (ShaderIdMap.Num())
+	{
+		for (auto& KeyValue : ShaderIdMap)
+		{
+			FShader* Shader = KeyValue.Value;
+			check(Shader);
+			check(Shader->Type == this);
+			Shader->SaveShaderStableKeys(TargetShaderPlatform, SaveKeyVal);
+		}
+	}
+#endif
+}
+
 
 void FVertexFactoryType::AddReferencedUniformBufferIncludes(FShaderCompilerEnvironment& OutEnvironment, FString& OutSourceFilePrefix, EShaderPlatform Platform)
 {

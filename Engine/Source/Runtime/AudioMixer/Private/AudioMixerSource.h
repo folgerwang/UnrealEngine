@@ -58,6 +58,10 @@ namespace Audio
 		virtual bool IsPreparedToInit() override;
 		virtual void Play() override;
 		virtual void Stop() override;
+		virtual void StopNow() override;
+		virtual bool IsStopping() override { return bIsStopping; }
+		virtual void EnsureStopped() override;
+		virtual void ReleaseStoppedSound() override;
 		virtual void Pause() override;
 		virtual bool IsFinished() override;
 		virtual FString Describe(bool bUseLongName) override;
@@ -85,6 +89,9 @@ namespace Audio
 			/** Read the next buffer asynchronously but skip the first chunk of audio. */
 			AsynchronousSkipFirstFrame
 		};
+
+		/** Internal stop function. */
+		void StopInternal(bool bStopNow);
 
 		/** Submit the current decoded PCM buffer to the contained source voice. */
 		void SubmitPCMBuffers();
@@ -180,6 +187,7 @@ namespace Audio
 
 		FThreadSafeBool bPlayedCachedBuffer;
 		FThreadSafeBool bPlaying;
+		FThreadSafeBool bIsStopping;
 		FThreadSafeBool bLoopCallback;
 		FThreadSafeBool bIsFinished;
 		FThreadSafeBool bIsPlayingEffectTails;

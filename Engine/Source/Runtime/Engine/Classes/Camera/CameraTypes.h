@@ -51,6 +51,10 @@ struct FMinimalViewInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Camera)
 	float FOV;
 
+	/** This is the originally desired field of view before any adjustments to account for different aspect ratios */
+	UPROPERTY(Transient)
+	float DesiredFOV;
+
 	/** The desired width (in world units) of the orthographic view (ignored in Perspective mode) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Camera)
 	float OrthoWidth;
@@ -95,6 +99,7 @@ struct FMinimalViewInfo
 		: Location(ForceInit)
 		, Rotation(ForceInit)
 		, FOV(90.0f)
+		, DesiredFOV(90.0f)
 		, OrthoWidth(512.0f)
 		, OrthoNearClipPlane(0.0f)
 		, OrthoFarClipPlane(WORLD_MAX)

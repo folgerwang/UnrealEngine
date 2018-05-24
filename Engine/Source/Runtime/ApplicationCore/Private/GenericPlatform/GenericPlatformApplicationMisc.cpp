@@ -16,7 +16,7 @@ bool FGenericPlatformApplicationMisc::CachedPhysicalScreenData = false;
 EScreenPhysicalAccuracy FGenericPlatformApplicationMisc::CachedPhysicalScreenAccuracy = EScreenPhysicalAccuracy::Unknown;
 int32 FGenericPlatformApplicationMisc::CachedPhysicalScreenDensity = 0;
 
-static int32 bEnableHighDPIAwareness = 0;
+static int32 bEnableHighDPIAwareness = 1;
 
 FAutoConsoleVariableRef FGenericPlatformApplicationMisc::CVarEnableHighDPIAwareness(
 	TEXT("EnableHighDPIAwareness"),

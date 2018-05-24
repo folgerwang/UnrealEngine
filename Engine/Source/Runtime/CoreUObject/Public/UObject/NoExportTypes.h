@@ -20,6 +20,7 @@
 #include "Misc/Guid.h"
 #include "Misc/DateTime.h"
 #include "Misc/Timespan.h"
+
 #include "UObject/SoftObjectPath.h"
 
 #include "Math/InterpCurvePoint.h"
@@ -43,6 +44,8 @@
 #include "Math/RandomStream.h"
 #include "Math/RangeBound.h"
 #include "Math/Interval.h"
+
+#include "Internationalization/PolyglotTextData.h"
 
 #include "GenericPlatform/ICursor.h"
 
@@ -1166,6 +1169,41 @@ struct FInt32Interval
 	int32 Max;
 };
 
+// Localization
+
+UENUM(BlueprintType)
+enum class ELocalizedTextSourceCategory : uint8
+{
+	Game,
+	Engine,
+	Editor,
+};
+
+USTRUCT(noexport, BlueprintType)
+struct FPolyglotTextData
+{
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
+	ELocalizedTextSourceCategory Category;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
+	FString NativeCulture;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
+	FString Namespace;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
+	FString Key;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
+	FString NativeString;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
+	TMap<FString, FString> LocalizedStrings;
+
+	UPROPERTY(Transient)
+	FText CachedText;
+};
+
 // Automation
 
 UENUM()
@@ -1187,6 +1225,16 @@ struct FAutomationEvent
 
 	UPROPERTY()
 	FString Context;
+
+	UPROPERTY()
+	FGuid Artifact;
+};
+
+USTRUCT(noexport)
+struct FAutomationExecutionEntry
+{
+	UPROPERTY()
+	FAutomationEvent Event;
 
 	UPROPERTY()
 	FString Filename;

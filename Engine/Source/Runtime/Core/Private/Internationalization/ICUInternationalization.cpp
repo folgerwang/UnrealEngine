@@ -137,6 +137,7 @@ bool FICUInternationalization::Initialize()
 
 	u_setDataFileFunctions(nullptr, &FICUInternationalization::OpenDataFile, &FICUInternationalization::CloseDataFile, &(ICUStatus));
 	u_init(&(ICUStatus));
+	checkf(U_SUCCESS(ICUStatus), TEXT("Failed to open ICUInternationalization data file, missing or corrupt?"));
 
 	FICURegexManager::Create();
 	FICUBreakIteratorManager::Create();
@@ -174,6 +175,13 @@ void FICUInternationalization::Terminate()
 	CachedCultures.Empty();
 
 	u_cleanup();
+
+	for (auto& PathToCachedFileDataPair : PathToCachedFileDataMap)
+	{
+		UE_LOG(LogICUInternationalization, Warning, TEXT("ICU data file '%s' (ref count %d) was still referenced after ICU shutdown. This will likely lead to a crash."), *PathToCachedFileDataPair.Key, PathToCachedFileDataPair.Value.ReferenceCount);
+	}
+	PathToCachedFileDataMap.Empty();
+
 #if NEEDS_ICU_DLLS
 	UnloadDLLs();
 #endif //IS_PROGRAM || !IS_MONOLITHIC
@@ -836,20 +844,15 @@ void FICUInternationalization::CloseDataFile(const void* context, void* const fi
 
 FICUInternationalization::FICUCachedFileData::FICUCachedFileData(const int64 FileSize)
 	: ReferenceCount(0)
-	, Buffer( FICUOverrides::Malloc(nullptr, FileSize) )
+	, Buffer(FICUOverrides::Malloc(nullptr, FileSize))
 {
-}
-
-FICUInternationalization::FICUCachedFileData::FICUCachedFileData(const FICUCachedFileData& Source)
-{
-	checkf(false, TEXT("Cached file data for ICU may not be copy constructed. Something is trying to copy construct FICUCachedFileData."));
 }
 
 FICUInternationalization::FICUCachedFileData::FICUCachedFileData(FICUCachedFileData&& Source)
 	: ReferenceCount(Source.ReferenceCount)
-	, Buffer( Source.Buffer )
+	, Buffer(Source.Buffer)
 {
-	// Make sure the moved source object doesn't retain the pointer and free the memory we now point to.
+	Source.ReferenceCount = 0;
 	Source.Buffer = nullptr;
 }
 
@@ -857,7 +860,9 @@ FICUInternationalization::FICUCachedFileData::~FICUCachedFileData()
 {
 	if (Buffer)
 	{
-		check(ReferenceCount == 0);
+		// Removing this check as the actual crash when the lingering ICU resource is 
+		// deleted is much more useful at tracking down where the leak is coming from
+		//check(ReferenceCount == 0);
 		FICUOverrides::Free(nullptr, Buffer);
 	}
 }

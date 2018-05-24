@@ -68,7 +68,7 @@ FString UAnimGraphNode_Slot::GetNodeCategory() const
 void UAnimGraphNode_Slot::BakeDataDuringCompilation(class FCompilerResultsLog& MessageLog)
 {
 	UAnimBlueprint* AnimBlueprint = GetAnimBlueprint();
-	if (AnimBlueprint->TargetSkeleton)
+	if (!GIsCookerLoadingPackage && AnimBlueprint->TargetSkeleton) // Don't modify skeleton during cook
 	{
 		AnimBlueprint->TargetSkeleton->RegisterSlotNode(Node.SlotName);
 	}

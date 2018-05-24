@@ -44,11 +44,11 @@ void FGameplayAbilityActorInfo::InitFromActor(AActor *InOwnerActor, AActor *InAv
 		InAbilitySystemComponent->OnPlayerControllerSet();
 	}
 
-	if (AvatarActor.Get())
+	if (AActor* const AvatarActorPtr = AvatarActor.Get())
 	{
 		// Grab Components that we care about
-		SkeletalMeshComponent = AvatarActor->FindComponentByClass<USkeletalMeshComponent>();
-		MovementComponent = AvatarActor->FindComponentByClass<UMovementComponent>();
+		SkeletalMeshComponent = AvatarActorPtr->FindComponentByClass<USkeletalMeshComponent>();
+		MovementComponent = AvatarActorPtr->FindComponentByClass<UMovementComponent>();
 	}
 	else
 	{
@@ -73,9 +73,9 @@ void FGameplayAbilityActorInfo::ClearActorInfo()
 
 bool FGameplayAbilityActorInfo::IsLocallyControlled() const
 {
-	if (PlayerController.IsValid())
+	if (const APlayerController* PC = PlayerController.Get())
 	{
-		return PlayerController->IsLocalController();
+		return PC->IsLocalController();
 	}
 	else if (IsNetAuthority())
 	{
@@ -88,9 +88,9 @@ bool FGameplayAbilityActorInfo::IsLocallyControlled() const
 
 bool FGameplayAbilityActorInfo::IsLocallyControlledPlayer() const
 {
-	if (PlayerController.IsValid())
+	if (const APlayerController* PC = PlayerController.Get())
 	{
-		return PlayerController->IsLocalController();
+		return PC->IsLocalController();
 	}
 
 	return false;
@@ -99,9 +99,10 @@ bool FGameplayAbilityActorInfo::IsLocallyControlledPlayer() const
 bool FGameplayAbilityActorInfo::IsNetAuthority() const
 {
 	// Make sure this works on pending kill actors
-	if (OwnerActor.IsValid(true))
+	AActor* const OwnerActorPtr = OwnerActor.Get(/*bEvenIfPendingKill=*/ true);
+	if (OwnerActorPtr)
 	{
-		return (OwnerActor.Get(true)->Role == ROLE_Authority);
+		return (OwnerActorPtr->Role == ROLE_Authority);
 	}
 
 	// This rarely happens during shutdown cases for reasons that aren't quite clear

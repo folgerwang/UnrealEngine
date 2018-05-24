@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Internationalization/Internationalization.h"
+#include "Internationalization/TextLocalizationResource.h"
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
@@ -403,6 +404,16 @@ void FInternationalization::LoadAllCultureData()
 	Implementation->LoadAllCultureData();
 }
 
+bool FInternationalization::IsCultureRemapped(const FString& Name, FString* OutMappedCulture)
+{
+	return Implementation->IsCultureRemapped(Name, OutMappedCulture);
+}
+
+bool FInternationalization::IsCultureAllowed(const FString& Name)
+{
+	return Implementation->IsCultureAllowed(Name);
+}
+
 void FInternationalization::GetCultureNames(TArray<FString>& CultureNames) const
 {
 	Implementation->GetCultureNames(CultureNames);
@@ -413,61 +424,32 @@ TArray<FString> FInternationalization::GetPrioritizedCultureNames(const FString&
 	return Implementation->GetPrioritizedCultureNames(Name);
 }
 
-void FInternationalization::GetCulturesWithAvailableLocalization(const TArray<FString>& InLocalizationPaths, TArray< FCultureRef >& OutAvailableCultures, const bool bIncludeDerivedCultures)
+void FInternationalization::GetCulturesWithAvailableLocalization(const TArray<FString>& InLocalizationPaths, TArray<FCultureRef>& OutAvailableCultures, const bool bIncludeDerivedCultures)
 {
-	OutAvailableCultures.Reset();
+	const TArray<FString> LocalizedCultureNames = TextLocalizationResourceUtil::GetLocalizedCultureNames(InLocalizationPaths);
+	OutAvailableCultures = GetAvailableCultures(LocalizedCultureNames, bIncludeDerivedCultures);
+}
 
-	TArray<FString> AllLocalizationFolders;
-	IFileManager& FileManager = IFileManager::Get();
-	for(const auto& LocalizationPath : InLocalizationPaths)
-	{
-		/* Visitor class used to enumerate directories of culture */
-		class FCultureEnumeratorVistor : public IPlatformFile::FDirectoryVisitor
-		{
-		public:
-			FCultureEnumeratorVistor( TArray<FString>& OutLocalizationFolders )
-				: LocalizationFolders(OutLocalizationFolders)
-			{
-			}
-
-			virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory) override
-			{
-				if(bIsDirectory)
-				{
-					// UE localization resource folders use "en-US" style while ICU uses "en_US"
-					const FString LocalizationFolder = FPaths::GetCleanFilename(FilenameOrDirectory);
-					const FString CanonicalName = FCulture::GetCanonicalName(LocalizationFolder);
-					LocalizationFolders.AddUnique(CanonicalName);
-				}
-
-				return true;
-			}
-
-			/** Array to fill with the names of the UE localization folders available at the given path */
-			TArray<FString>& LocalizationFolders;
-		};
-
-		FCultureEnumeratorVistor CultureEnumeratorVistor(AllLocalizationFolders);
-		FileManager.IterateDirectory(*LocalizationPath, CultureEnumeratorVistor);
-	}
+TArray<FCultureRef> FInternationalization::GetAvailableCultures(const TArray<FString>& InCultureNames, const bool bIncludeDerivedCultures)
+{
+	TArray<FCultureRef> AvailableCultures;
 
 	// Find any cultures that are a partial match for those we have translations for.
-	if(bIncludeDerivedCultures)
+	if (bIncludeDerivedCultures)
 	{
 		TArray<FString> CultureNames;
 		GetCultureNames(CultureNames);
-		for(const FString& CultureName : CultureNames)
+		for (const FString& CultureName : CultureNames)
 		{
 			FCulturePtr Culture = GetCulture(CultureName);
 			if (Culture.IsValid())
 			{
-				TArray<FString> PrioritizedParentCultureNames = Culture->GetPrioritizedParentCultureNames();
-
+				const TArray<FString> PrioritizedParentCultureNames = Culture->GetPrioritizedParentCultureNames();
 				for (const FString& PrioritizedParentCultureName : PrioritizedParentCultureNames)
 				{
-					if(AllLocalizationFolders.Contains(PrioritizedParentCultureName))
+					if (InCultureNames.Contains(PrioritizedParentCultureName) && Implementation->IsCultureAllowed(Culture->GetName()))
 					{
-						OutAvailableCultures.AddUnique(Culture.ToSharedRef());
+						AvailableCultures.AddUnique(Culture.ToSharedRef());
 						break;
 					}
 				}
@@ -477,21 +459,17 @@ void FInternationalization::GetCulturesWithAvailableLocalization(const TArray<FS
 	// Find any cultures that are a complete match for those we have translations for.
 	else
 	{
-		for(const FString& LocalizationFolder : AllLocalizationFolders)
+		for (const FString& CultureNames : InCultureNames)
 		{
-			FCulturePtr Culture = GetCulture(LocalizationFolder);
-			if(Culture.IsValid())
+			FCulturePtr Culture = GetCulture(CultureNames);
+			if (Culture.IsValid())
 			{
-				OutAvailableCultures.AddUnique(Culture.ToSharedRef());
+				AvailableCultures.AddUnique(Culture.ToSharedRef());
 			}
 		}
 	}
 
-	// Remove any cultures that were explicitly disallowed
-	OutAvailableCultures.RemoveAll([&](const FCultureRef& InCulture) -> bool
-	{
-		return !Implementation->IsCultureAllowed(InCulture->GetName());
-	});
+	return AvailableCultures;
 }
 
 FInternationalization::FInternationalization()

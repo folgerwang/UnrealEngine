@@ -51,7 +51,7 @@ static TAutoConsoleVariable<int32> GCVarDumpHitchesAllThreads(
 	ECVF_RenderThreadSafe
 );
 
-void FromString( EStatCompareBy::Type& OutValue, const TCHAR* Buffer )
+void LexFromString( EStatCompareBy::Type& OutValue, const TCHAR* Buffer )
 {
 	OutValue = EStatCompareBy::Sum;
 
