@@ -187,7 +187,6 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "Performance/EnginePerformanceTargets.h"
 
 #include "InstancedReferenceSubobjectHelper.h"
-#include "Engine/EndUserSettings.h"
 
 #include "Engine/LODActor.h"
 #include "Engine/AssetManager.h"
@@ -12546,21 +12545,6 @@ UGameViewportClient* UEngine::GameViewportForWorld(const UWorld *InWorld) const
 {
 	const FWorldContext* Context = GetWorldContextFromWorld(InWorld);
 	return (Context ? Context->GameViewport : NULL);
-}
-
-bool UEngine::AreGameAnalyticsEnabled() const
-{ 
-	return FPlatformMisc::AllowSendAnonymousGameUsageDataToEpic() && GetDefault<UEndUserSettings>()->bSendAnonymousUsageDataToEpic;
-}
-
-bool UEngine::AreGameAnalyticsAnonymous() const
-{
-	return !GetDefault<UEndUserSettings>()->bAllowUserIdInUsageData;
-}
-
-bool UEngine::AreGameMTBFEventsEnabled() const
-{
-	return GetDefault<UEndUserSettings>()->bSendMeanTimeBetweenFailureDataToEpic;
 }
 
 void UEngine::SetIsVanillaProduct(bool bInIsVanillaProduct)

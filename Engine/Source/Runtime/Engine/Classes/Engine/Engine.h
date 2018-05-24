@@ -2929,12 +2929,6 @@ public:
 
 	/** @return true if editor analytics are enabled */
 	virtual bool AreEditorAnalyticsEnabled() const { return false; }
-	/** @return true if in-game analytics are enabled */
-	bool AreGameAnalyticsEnabled() const;
-	/** @return true if in-game analytics are sent with an anonymous GUID rather than real account and machine ids */
-	bool AreGameAnalyticsAnonymous() const;
-	/** @return true if in-game MTBF analytics are enabled */
-	bool AreGameMTBFEventsEnabled() const;
 	virtual void CreateStartupAnalyticsAttributes( TArray<struct FAnalyticsEventAttribute>& StartSessionAttributes ) const {}
 	
 	/** @return true if the engine is autosaving a package */

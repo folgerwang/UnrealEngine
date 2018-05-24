@@ -1127,14 +1127,6 @@ public:
 	static const TArray<FString>& GetConfidentialPlatforms();
 	
 	/**
-	 * Returns true if the platform allows network traffic for anonymous end user usage data
-	 */
-	static bool AllowSendAnonymousGameUsageDataToEpic()
-	{
-		return true;
-	}
-
-	/**
 	 * For mobile devices, this will crank up a haptic engine for the specified type to be played later with TriggerMobileHaptics
 	 * If this is called again before Release, it will switch to this type
 	 */
