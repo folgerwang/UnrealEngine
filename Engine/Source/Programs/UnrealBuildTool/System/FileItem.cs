@@ -324,7 +324,7 @@ namespace UnrealBuildTool
 						FileReference PrevAbsolutePath = new FileReference(AbsolutePath.FullName + ".prev");
 						FileReference.Delete(PrevAbsolutePath);
 						FileReference.Move(AbsolutePath, PrevAbsolutePath);
-						Log.TraceLog("Updating {0} - contents have changed (previous version renamed to {1}).", PrevAbsolutePath);
+						Log.TraceLog("Updating {0} - contents have changed (previous version renamed to {1}).", AbsolutePath.FullName, PrevAbsolutePath);
 					}
 					catch
 					{
