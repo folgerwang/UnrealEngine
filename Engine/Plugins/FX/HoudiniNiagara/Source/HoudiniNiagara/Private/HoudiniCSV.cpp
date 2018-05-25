@@ -517,85 +517,111 @@ int32 UHoudiniCSV::GetNumberOfLinesInCSV()
 	return NumberOfLines;
 }
 
+// Get the last row index for a given time value (the row with a time smaller or equal to desiredTime)
+// If the CSV file doesn't have time informations, returns false and set the LastRowIndex to the last line in the file
+// If desiredTime is smaller than the time value in the first row, LastRowIndex will be set to -1
+// If desiredTime is higher than the last time value in the last row of the csv file, LastIndex will be set to the last row's index
+bool UHoudiniCSV::GetLastRowIndexAtTime(const float& desiredTime, int32& lastRowIndex)
+{
+	// If we dont have proper time info, always return the last line
+	if (TimeColumnIndex < 0 || TimeColumnIndex >= NumberOfColumns)
+	{
+		lastRowIndex = NumberOfLines - 1;
+		return false;
+	}
+
+	float temp_time = 0.0f;
+	// Check first if we have anything to spawn at the current time by looking at the last value
+	if ( GetCSVTimeValue( NumberOfLines - 1, temp_time ) && temp_time < desiredTime )
+	{
+		// We didn't find a suitable index because the desired time is higher than our last time value
+		lastRowIndex = NumberOfLines - 1;
+		return true;
+	}
+
+	// Iterates through all the lines
+	lastRowIndex = INDEX_NONE;
+	for ( int32 n = 0; n < NumberOfLines; n++ )
+	{
+		if ( GetCSVTimeValue( n, temp_time ) )
+		{
+			if ( temp_time == desiredTime )
+			{
+				lastRowIndex = n;
+			}
+			else if ( temp_time > desiredTime )
+			{
+				lastRowIndex = n - 1;
+				return true;
+			}
+		}
+	}
+
+	// We didn't find a suitable index because the desired time is higher than our last time value
+	if ( lastRowIndex == INDEX_NONE )
+		lastRowIndex = NumberOfLines - 1;
+
+	return true;
+}
 // Get the last index of the particles with a time value smaller or equal to desiredTime
 // If the CSV file doesn't have time informations, returns false and set the LastIndex to the last particle
 // If desiredTime is smaller than the first particle, LastIndex will be set to -1
 // If desiredTime is higher than the last particle in the csv file, LastIndex will be set to the last particle's index
-bool UHoudiniCSV::GetLastParticleIndexAtTime( const float& desiredTime, int32& lastIndex )
+bool UHoudiniCSV::GetLastParticleIndexAtTime( const float& desiredTime, int32& lastID )
 {
-    // If we dont have proper time info, always return the last line
+    // If we dont have proper time info, always return the last particle
     if ( TimeColumnIndex < 0 || TimeColumnIndex >= NumberOfColumns )
     {
-		lastIndex = NumberOfLines - 1;
+		lastID = NumberOfParticles - 1;
 		return false;
     }
 
-	/*
     float temp_time = 0.0f;
-	if ( SpawnTimes.IsValidIndex(NumberOfParticles - 1) )
+	if ( !SpawnTimes.IsValidIndex( NumberOfParticles - 1 ) )
 	{
-		if ( SpawnTimes[ NumberOfParticles - 1 ] < desiredTime )
+		lastID = NumberOfParticles - 1;
+		return false;
+	}
+
+	if ( SpawnTimes[ NumberOfParticles - 1 ] < desiredTime )
+	{
+		// We didn't find a suitable index because the desired time is higher than our last time value
+		lastID = NumberOfParticles - 1;
+		return true;
+	}
+
+	// Iterates through all the particles
+	lastID = INDEX_NONE;
+	for ( int32 n = 0; n < NumberOfParticles; n++ )
+	{
+		temp_time = SpawnTimes[ n ];
+
+		if ( temp_time == desiredTime )
 		{
-			// We didn't find a suitable index because the desired time is higher than our last time value
-			lastIndex = NumberOfLines - 1;
+			lastID = n;
+		}
+		else if ( temp_time > desiredTime )
+		{
+			lastID = n - 1;
 			return true;
 		}
 	}
 
-	// Iterates through all the particles
-	lastIndex = INDEX_NONE;
-	for (int32 n = 0; n < NumberOfParticles; n++)
+	return true;
+}
+
+bool UHoudiniCSV::GetParticleLifeAtTime( const int32& ParticleID, const float& DesiredTime, float& Value )
+{
+	if ( !SpawnTimes.IsValidIndex( ParticleID )  || !LifeValues.IsValidIndex( ParticleID ) )
 	{
-		temp_time = SpawnTimes[ NumberOfParticles - 1 ];
-
-
-
-		if (GetCSVTimeValue(n, temp_time))
-		{
-			if (temp_time == desiredTime)
-			{
-				lastIndex = n;
-			}
-			else if (temp_time > desiredTime)
-			{
-				lastIndex = n - 1;
-				return true;
-			}
-		}
+		Value = -1.0f;
+		return false;
 	}
-	*/
-	float temp_time = 0.0f;
-    // Check first if we have anything to spawn at the current time by looking at the last value
-    if ( GetCSVTimeValue( NumberOfLines - 1, temp_time ) && temp_time < desiredTime )
-    {
-		// We didn't find a suitable index because the desired time is higher than our last time value
-		lastIndex = NumberOfLines - 1;
-		return true;
-    }	
 
-    // Iterates through all the particles
-    lastIndex = INDEX_NONE;
-    for ( int32 n = 0; n < NumberOfLines; n++ )
-    {
-		if (GetCSVTimeValue(n, temp_time))
-		{
-			if (temp_time == desiredTime)
-			{
-				lastIndex = n;
-			}
-			else if (temp_time > desiredTime)
-			{
-				lastIndex = n - 1;
-				return true;
-			}
-		}
-    }
+	if ( DesiredTime < SpawnTimes[ ParticleID ] )
+		return LifeValues[ ParticleID ];
 
-    // We didn't find a suitable index because the desired time is higher than our last time value
-    if ( lastIndex == INDEX_NONE )
-		lastIndex = NumberOfLines - 1;
-
-    return true;
+	return LifeValues[ ParticleID ] - ( DesiredTime - SpawnTimes[ ParticleID ] );
 }
 
 bool UHoudiniCSV::GetParticleValueAtTime( const int32& ParticleID, const int32& ColumnIndex, const float& desiredTime, float& Value )

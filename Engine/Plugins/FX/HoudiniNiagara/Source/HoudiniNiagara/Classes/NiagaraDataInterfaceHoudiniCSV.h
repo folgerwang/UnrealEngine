@@ -137,6 +137,10 @@ protected:
 	bool GPUBufferDirty;
 
 	// Last Index used to spawn particles
+	//UPROPERTY()
+	//int32 LastSpawnIndex;
+
+	// Last Spawned Particle ID
 	UPROPERTY()
-	int32 LastSpawnIndex;
+	int32 LastSpawnedParticleID;
 };

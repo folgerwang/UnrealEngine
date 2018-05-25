@@ -32,7 +32,8 @@ UNiagaraDataInterfaceHoudiniCSV::UNiagaraDataInterfaceHoudiniCSV(FObjectInitiali
 	: Super(ObjectInitializer)
 {
     CSVFile = nullptr;
-    LastSpawnIndex = -1;
+    //LastSpawnIndex = -1;
+	LastSpawnedParticleID = -1;
 }
 
 void UNiagaraDataInterfaceHoudiniCSV::PostInitProperties()
@@ -45,14 +46,16 @@ void UNiagaraDataInterfaceHoudiniCSV::PostInitProperties()
     }
 
     GPUBufferDirty = true;
-    LastSpawnIndex = -1;
+    //LastSpawnIndex = -1;
+	LastSpawnedParticleID = -1;
 }
 
 void UNiagaraDataInterfaceHoudiniCSV::PostLoad()
 {
     Super::PostLoad();
     GPUBufferDirty = true;
-    LastSpawnIndex = -1;
+    //LastSpawnIndex = -1;
+	LastSpawnedParticleID = -1;
 }
 
 #if WITH_EDITOR
@@ -67,7 +70,8 @@ void UNiagaraDataInterfaceHoudiniCSV::PostEditChangeProperty(struct FPropertyCha
 		if (CSVFile)
 		{
 			GPUBufferDirty = true;
-			LastSpawnIndex = -1;
+			//LastSpawnIndex = -1;
+			LastSpawnedParticleID = -1;
 		}
     }
 }
@@ -650,7 +654,7 @@ void UNiagaraDataInterfaceHoudiniCSV::GetLastRowIndexAtTime(FVectorVMContext& Co
 
 		int32 value = 0;
 		if ( CSVFile )
-			CSVFile->GetLastParticleIndexAtTime( t, value );
+			CSVFile->GetLastRowIndexAtTime( t, value );
 
 		*OutValue.GetDest() = value;
 		TimeParam.Advance();
@@ -686,13 +690,13 @@ void UNiagaraDataInterfaceHoudiniCSV::GetParticleIndexesToSpawnAtTime( FVectorVM
 			{
 				// The CSV file has time informations
 				// First, detect if we need to reset LastSpawnIndex (after a loop)
-				if ( value < LastSpawnIndex )
-					LastSpawnIndex = -1;
+				if ( value < LastSpawnedParticleID )
+					LastSpawnedParticleID = -1;
 
 				if ( value < 0 )
 				{
 					// Nothing to spawn, t is lower than the particle's time
-					LastSpawnIndex = -1;
+					LastSpawnedParticleID = -1;
 				}
 				else
 				{
@@ -700,21 +704,21 @@ void UNiagaraDataInterfaceHoudiniCSV::GetParticleIndexesToSpawnAtTime( FVectorVM
 					if ( value >= CSVFile->GetNumberOfParticlesInCSV() )
 						value = value - 1;
 
-					if ( value == LastSpawnIndex )
+					if ( value == LastSpawnedParticleID)
 					{
-						// We've already spawned all the particles for this time
+						// We dont have any new particle to spawn
 						min = value;
 						max = value;
 						count = 0;
 					}
 					else
 					{
-						// Found particles to spawn at time t
-						min = LastSpawnIndex + 1;
+						// We have particles to spawn at time t
+						min = LastSpawnedParticleID + 1;
 						max = value;
 						count = max - min + 1;
 
-						LastSpawnIndex = max;
+						LastSpawnedParticleID = max;
 					}
 				}
 			}

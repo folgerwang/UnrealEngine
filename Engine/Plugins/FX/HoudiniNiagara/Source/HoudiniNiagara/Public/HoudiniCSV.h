@@ -72,11 +72,18 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	// Returns a Normal Vector3 for a given point in the CSV file (converted to unreal's coordinate system)
 	bool GetCSVNormalValue( const int32& lineIndex, FVector& value );
 
+	// Get the last row index for a given time value (the row with a time smaller or equal to desiredTime)
+	// If the CSV file doesn't have time informations, returns false and set the LastRowIndex to the last line in the file
+	// If desiredTime is smaller than the time value in the first row, LastRowIndex will be set to -1
+	// If desiredTime is higher than the last time value in the last row of the csv file, LastIndex will be set to the last row's index
+	bool GetLastRowIndexAtTime( const float& desiredTime, int32& lastRowIndex );
+
 	// Get the last index of the particles to be spawned at time t
 	// Invalid Index are used to indicate edge cases:
 	// -1 will be returned if no particles have been spawned ( t is smaller than the first particle time )
 	// NumberOfLines will be returned if all particles in the CSV have been spawned ( t is higher than the last particle time )
 	bool GetLastParticleIndexAtTime( const float& time, int32& lastIndex );
+
 	// Returns the previous and next indexes for reading the values of a specified particle at a given time
 	bool GetParticleLineIndexAtTime(const int32& ParticleID, const float& desiredTime, int32& PrevIndex, int32& NextIndex, float& PrevWeight);
 	// Returns the value for a particle at a given time value (linearly interpolated) 
@@ -85,6 +92,9 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	bool GetParticleVectorValueAtTime(const int32& ParticleID, const int32& ColumnIndex, const float& desiredTime, FVector& Vector, const bool& DoSwap, const bool& DoScale);
 	// Returns the Position Value for a given particle at a given time value (linearly interpolated) 
 	bool GetParticlePositionAtTime(const int32& ParticleID, const float& desiredTime, FVector& Vector);
+
+	// Return a Particle's life for a given time value
+	bool GetParticleLifeAtTime(const int32& ParticleID, const float& DesiredTime, float& Value);
 
 	//-----------------------------------------------------------------------------------------
 	//  MEMBER VARIABLES
@@ -125,15 +135,17 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	// Array containing all the CSV data converted to floats
 	UPROPERTY()
 	TArray<float> FloatCSVData;
+	
+	// Array containing the spawn times for each particles in the file
+	UPROPERTY()
+	TArray<float> SpawnTimes;
+
+	// Array containing all the life values for each particles in the file
+	UPROPERTY()
+	TArray<float> LifeValues;
 
 	// Array containing the different time values for each particles in the file
 	TArray<float> TimeValues;
-
-	// Array containing the spawn times for each particles in the file
-	TArray<float> SpawnTimes;
-
-	// Array containing all the life values for each particles in the file 
-	TArray<float> LifeValues;	
 
 	// Index of the Position values in the buffer
 	UPROPERTY()	    
