@@ -309,7 +309,7 @@ void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 		{
 			FunctionNode = ModuleData.ModuleNode;
 			DependencyModuleIndex++;
-			if (FunctionNode != nullptr && FunctionNode->FunctionScript->ProvidedDependencies.Contains(Dependency.Id)) 
+			if (FunctionNode != nullptr && FunctionNode->FunctionScript != nullptr && FunctionNode->FunctionScript->ProvidedDependencies.Contains(Dependency.Id))
 			{
 				auto DependencyOutputUsage = ModuleData.Usage;
 				int32 PossibleIndex = UsagePriority.IndexOfByPredicate(
