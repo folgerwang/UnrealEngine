@@ -49,10 +49,6 @@ FInBunch::FInBunch( UNetConnection* InConnection, uint8* Src, int64 CountBits )
 /** Copy constructor but with optional parameter to not copy buffer */
 FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 {
-	// Copy fields
-//	FMemory::Memcpy(&PacketId,&InBunch.PacketId,sizeof(FInBunch) - sizeof(FNetBitReader));
-
-	// This is portable
 	PacketId =	InBunch.PacketId;
 	Next =	InBunch.Next;
 	Connection = InBunch.Connection;
