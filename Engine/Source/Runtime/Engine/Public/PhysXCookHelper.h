@@ -24,7 +24,7 @@ struct ENGINE_API FPhysXCookHelper
 	FPhysXCookHelper(IPhysXCookingModule* InPhysXCookingModule);
 
 	/** Cooks based on CookInfo and saves the results into the output data */
-	void CreatePhysicsMeshes_Concurrent();
+	bool CreatePhysicsMeshes_Concurrent();
 
 	/** Cooks based on CookInfo and saves the results into the output data. Calls back into the delegate on the game thread when done */
 	void CreatePhysicsMeshesAsync_Concurrent(FSimpleDelegateGraphTask::FDelegate FinishDelegate);

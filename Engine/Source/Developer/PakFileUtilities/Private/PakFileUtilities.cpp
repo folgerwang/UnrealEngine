@@ -478,12 +478,16 @@ void ProcessCommandLine(const TCHAR* CmdLine, const TArray<FString>& NonOptionAr
 	FString CompressorFileName;
 	if (FParse::Value(CmdLine, TEXT("compressor="), CompressorFileName))
 	{
+		FPlatformProcess::AddDllDirectory(*FPaths::GetPath(CompressorFileName));
+
 		void* CustomCompressorDll = FPlatformProcess::GetDllHandle(*CompressorFileName);
 		if (CustomCompressorDll == nullptr)
 		{
 			UE_LOG(LogPakFile, Error, TEXT("Unable to load custom compressor from %s"), *CompressorFileName);
 			return;
 		}
+
+		UE_LOG(LogPakFile, Display, TEXT("Loaded custom compressor from %s."), *CompressorFileName);
 
 		static const TCHAR* CreateCustomCompressorExport = TEXT("CreateCustomCompressor");
 		typedef ICustomCompressor* (CreateCustomCompressorFunc)(const TCHAR*);
@@ -778,9 +782,16 @@ bool UncompressCopyFile(FArchive& Dest, FArchive& Source, const FPakEntry& Entry
 		return false;
 	}
 
-	int64 WorkingSize = Entry.CompressionBlockSize;
-	int32 MaxCompressionBlockSize = FCompression::CompressMemoryBound((ECompressionFlags)Entry.CompressionMethod, WorkingSize);
-	WorkingSize += MaxCompressionBlockSize;
+	// The compression block size depends on the bit window that the PAK file was originally created with. Since this isn't stored in the PAK file itself,
+	// we can use FCompression::CompressMemoryBound as a guideline for the max expected size to avoid unncessary reallocations, but we need to make sure
+	// that we check if the actual size is not actually greater (eg. UE-59278).
+	int32 MaxCompressionBlockSize = FCompression::CompressMemoryBound((ECompressionFlags)Entry.CompressionMethod, Entry.CompressionBlockSize);
+	for (const FPakCompressedBlock& Block : Entry.CompressionBlocks)
+	{
+		MaxCompressionBlockSize = FMath::Max<int32>(MaxCompressionBlockSize, Block.CompressedEnd - Block.CompressedStart);
+	}
+
+	int64 WorkingSize = Entry.CompressionBlockSize + MaxCompressionBlockSize;
 	if (BufferSize < WorkingSize)
 	{
 		PersistentBuffer = (uint8*)FMemory::Realloc(PersistentBuffer, WorkingSize);

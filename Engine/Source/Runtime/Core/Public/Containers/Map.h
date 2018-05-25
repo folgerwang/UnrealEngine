@@ -546,8 +546,7 @@ public:
 				for (int32 Index = 0; Index < Num; ++Index)
 				{
 					FStructuredArchive::FSlot ValueSlot = Map.EnterElement(KeyString);
-					using namespace Lex;
-					FromString(Key, *KeyString);
+					LexFromString(Key, *KeyString);
 					ValueSlot << InMap.Add(Key);
 				}
 			}
@@ -556,8 +555,7 @@ public:
 				FString StringK;
 				for (TMapBase::TIterator It(InMap); It; ++It)
 				{
-					using namespace Lex;
-					StringK = ToString(It->Key);
+					StringK = LexToString(It->Key);
 					FStructuredArchive::FSlot ValueSlot = Map.EnterElement(StringK);
 					ValueSlot << It->Value;
 				}

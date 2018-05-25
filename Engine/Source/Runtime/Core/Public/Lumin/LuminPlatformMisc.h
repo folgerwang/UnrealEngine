@@ -77,12 +77,6 @@ struct CORE_API FLuminPlatformMisc : public FAndroidMisc
 	static const FString& GetApplicationApplicationPackageName();
 	static const FString& GetApplicationComponentName();
 
-	// Disable anonymous usage data network traffic on Lumin
-	static bool AllowSendAnonymousGameUsageDataToEpic()
-	{
-		return false;
-	}
-
 private:
 	static void InitApplicationPaths();
 

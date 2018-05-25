@@ -636,7 +636,7 @@ public:
 			return CurEntry->GetWideName();
 		}
 
-		return L"*INVALID*";
+		return TEXT("*INVALID*");
 	}
 
 	const FNameEntry* GetComparisonNameEntry() const;
@@ -1219,17 +1219,14 @@ inline uint32 GetTypeHash( const FName N )
 	return N.GetComparisonIndex() + N.GetNumber();
 }
 
-namespace Lex
+FORCEINLINE FString LexToString(const FName& Name)
 {
-	FORCEINLINE FString ToString(const FName& Name)
-	{
-		return Name.ToString();
-	}
+	return Name.ToString();
+}
 
-	FORCEINLINE void FromString(FName& Name, const TCHAR* Str)
-	{
-		Name = FName(Str);
-	}
+FORCEINLINE void LexFromString(FName& Name, const TCHAR* Str)
+{
+	Name = FName(Str);
 }
 
 FORCEINLINE FMinimalName NameToMinimalName(const FName& InName)

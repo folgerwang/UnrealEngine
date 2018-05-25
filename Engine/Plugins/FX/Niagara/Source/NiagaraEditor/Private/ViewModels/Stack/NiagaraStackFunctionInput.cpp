@@ -438,9 +438,9 @@ FString UNiagaraStackFunctionInput::ResolveDisplayNameArgument(const FString& In
 		
 		FString Suffix = InArg.Right(3);
 		int32 ParamIdx;
-		LexicalConversion::FromString(ParamIdx, *Suffix.Left(1));
+		LexFromString(ParamIdx, *Suffix.Left(1));
 		int32 ParamSlotIdx;
-		LexicalConversion::FromString(ParamSlotIdx, *Suffix.Right(1));
+		LexFromString(ParamSlotIdx, *Suffix.Right(1));
 		
 		if (ParamIdx < 0 || ParamIdx > 3 || ParamSlotIdx < 0 || ParamSlotIdx > 3)
 		{

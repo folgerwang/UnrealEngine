@@ -136,6 +136,7 @@ namespace UnrealBuildTool
 		XCode,
 		Eddie,
 		VisualStudioCode,
+		VisualStudioMac,
 		CLion
 	}
 

@@ -236,8 +236,8 @@ public:
 		const int32 LODIndex
 		)
 	{
-		const bool bUsingMaxDeviation = (Settings.ReductionMethod == SMOT_MaxDeviation && Settings.MaxDeviationPercentage > 0.0f);
-		const bool bUsingReductionRatio = (Settings.ReductionMethod == SMOT_NumOfTriangles && Settings.NumOfTrianglesPercentage < 1.0f);
+		const bool bUsingMaxDeviation = (Settings.ReductionMethod != SMOT_NumOfTriangles && Settings.MaxDeviationPercentage > 0.0f);
+		const bool bUsingReductionRatio = (Settings.ReductionMethod != SMOT_MaxDeviation && Settings.NumOfTrianglesPercentage < 1.0f);
 		const bool bProcessGeometry = ( bUsingMaxDeviation || bUsingReductionRatio );
 		const bool bProcessBones = (Settings.MaxBonesPerVertex < MAX_TOTAL_INFLUENCES);
 		const bool bOptimizeMesh = (bProcessGeometry || bProcessBones);
@@ -283,11 +283,12 @@ public:
 
 			// We require the max deviation if we're calculating the LOD's display distance.
 			MaxDeviation = ReductionProcessor->GetResultDeviation();
-
-			CreateSkeletalLODModelFromGeometry( GeometryData, RefSkeleton, OutModel );
+			CreateSkeletalLODModelFromGeometry(GeometryData, RefSkeleton, OutModel);
+			// return true if it created any vertice
+			return (OutModel->NumVertices > 0);
 		}
 
-		return bOptimizeMesh;
+		return false;
 	}
 
 	bool RemoveMeshSection(FSkeletalMeshLODModel* Model, int32 SectionIndex)
@@ -528,6 +529,16 @@ public:
 			SrcModel->RawPointIndices.Unlock();
 			SrcModel->LegacyRawPointIndices.Unlock();
 
+			// See if we'd like to remove extra bones first
+			if (MeshBoneReductionInterface->GetBoneReductionData(SkeletalMesh, LODIndex, BonesToRemove))
+			{
+				// fix up chunks to remove the bones that set to be removed
+				for (int32 SectionIndex = 0; SectionIndex < NewModel->Sections.Num(); ++SectionIndex)
+				{
+					MeshBoneReductionInterface->FixUpSectionBoneMaps(NewModel->Sections[SectionIndex], BonesToRemove);
+				}
+			}
+						
 			//Clean up some section data
 			for (int32 SectionIndex = SrcModel->Sections.Num()-1; SectionIndex >= 0; --SectionIndex)
 			{
@@ -541,9 +552,11 @@ public:
 				}
 			}
 
+			SkeletalMesh->GetLODInfo(LODIndex)->LODMaterialMap = SkeletalMesh->GetLODInfo(BaseLOD)->LODMaterialMap;			
 			// Required bones are recalculated later on.
 			NewModel->RequiredBones.Empty();
-			SkeletalMesh->GetLODInfo(LODIndex)->bHasBeenSimplified = false;
+			SkeletalMesh->GetLODInfo(LODIndex)->bHasBeenSimplified = true;
+			SkeletalMesh->bHasBeenSimplified = true;
 		}
 
 		SkeletalMesh->CalculateRequiredBones(SkeletalMeshResource->LODModels[LODIndex], SkeletalMesh->RefSkeleton, &BonesToRemove);
@@ -1011,7 +1024,7 @@ public:
 
 		if (!InData.Num())
 		{
-			UE_LOG(LogSimplygon, Log, TEXT("The selected meshes are not valid. Make sure to select static meshes only."));
+			FailedDelegate.ExecuteIfBound(InJobGUID, TEXT("The selected meshes are not valid. Make sure to select static meshes only."));
 			OutProxyMesh.Empty();
 			return;
 		}
@@ -1083,7 +1096,12 @@ public:
 		RemeshingProcessor->AddObserver(&EventHandler, SimplygonSDK::SG_EVENT_PROGRESS);
 		RemeshingProcessor->GetRemeshingSettings()->SetOnScreenSize(InProxySettings.ScreenSize);
 		RemeshingProcessor->GetRemeshingSettings()->SetMergeDistance(InProxySettings.MergeDistance);
-		
+		if (InProxySettings.bUseHardAngleThreshold)
+		{
+			// Otherwise the default Remeshing setting of 80-degree will be used.
+			RemeshingProcessor->GetRemeshingSettings()->SetHardEdgeAngleInRadians(FMath::DegreesToRadians(InProxySettings.HardAngleThreshold));
+		}
+
 		// Setup sets for the remeshing processor
 		bool bUseClippingGeometry = clippingGeometrySet->GetItemCount() > 0 ? true : false;
 
@@ -2187,11 +2205,34 @@ private:
 	void SetReductionSettings( const FSkeletalMeshOptimizationSettings& Settings, float BoundsRadius, int32 SourceTriCount, SimplygonSDK::spReductionSettings ReductionSettings )
 	{
 		// Compute max deviation from quality.
-		float MaxDeviation = Settings.MaxDeviationPercentage > 0.0f ? Settings.MaxDeviationPercentage * BoundsRadius : SimplygonSDK::REAL_MAX;
-		// Set the reduction ratio such that at least 1 triangle or 5% of the original triangles remain, whichever is larger.
-		float MinReductionRatio = FMath::Max<float>(1.0f / SourceTriCount, 0.05f);
-		float MaxReductionRatio = (Settings.MaxDeviationPercentage > 0.0f && Settings.NumOfTrianglesPercentage == 1.0f) ? MinReductionRatio : 1.0f;
-		float ReductionRatio = FMath::Clamp(Settings.NumOfTrianglesPercentage, MinReductionRatio, MaxReductionRatio);
+		float MaxDeviation = (Settings.ReductionMethod != SMOT_NumOfTriangles)? Settings.MaxDeviationPercentage * BoundsRadius : SimplygonSDK::REAL_MAX;
+		
+		// Set the reduction ratio such that at least 1 triangle or 1% of the original triangles remain, whichever is larger.
+		float MinReductionRatio = FMath::Max<float>(1.0f / SourceTriCount, 0.01f);
+		float ReductionRatio = MinReductionRatio;
+
+		// if reduction is not deviate, we set the percentage
+		if (Settings.ReductionMethod != SMOT_MaxDeviation)
+		{
+			ReductionRatio = FMath::Clamp(Settings.NumOfTrianglesPercentage, MinReductionRatio, 1.f);
+		}
+		
+		unsigned int ReductionTarget = 0;
+		unsigned int StopCondition = SimplygonSDK::SG_STOPCONDITION_ANY;
+		switch (Settings.ReductionMethod)
+		{
+		case SMOT_MaxDeviation:
+			// we still give triangle ratio because otherwise you won't get any triangle back and crash render resource
+			ReductionTarget = SimplygonSDK::SG_REDUCTIONTARGET_TRIANGLERATIO | SimplygonSDK::SG_REDUCTIONTARGET_MAXDEVIATION;
+			break;
+		case SMOT_NumOfTriangles:
+			ReductionTarget = SimplygonSDK::SG_REDUCTIONTARGET_TRIANGLERATIO;
+			break;
+		case SMOT_TriangleOrDeviation:
+		default:
+			ReductionTarget = SimplygonSDK::SG_REDUCTIONTARGET_TRIANGLERATIO | SimplygonSDK::SG_REDUCTIONTARGET_MAXDEVIATION;
+			break;
+		}
 
 		const float ImportanceTable[] =
 		{
@@ -2209,8 +2250,8 @@ private:
 		check( Settings.ShadingImportance < SMOI_MAX );
 		check( Settings.SkinningImportance < SMOI_MAX );
 		
-		ReductionSettings->SetStopCondition(SimplygonSDK::SG_STOPCONDITION_ANY);
-		ReductionSettings->SetReductionTargets(SimplygonSDK::SG_REDUCTIONTARGET_TRIANGLERATIO | SimplygonSDK::SG_REDUCTIONTARGET_MAXDEVIATION);
+		ReductionSettings->SetStopCondition(StopCondition);
+		ReductionSettings->SetReductionTargets(ReductionTarget);
 		ReductionSettings->SetMaxDeviation( MaxDeviation );
 		ReductionSettings->SetTriangleRatio( ReductionRatio );
 		ReductionSettings->SetGeometryImportance( ImportanceTable[Settings.SilhouetteImportance] );
@@ -2925,7 +2966,11 @@ private:
 			else
 			{
 				FString ErrorMessage = ANSI_TO_TCHAR(GeometryValidator->GetErrorString());
-				UE_LOG(LogSimplygon, Warning, TEXT("Invalid mesh data: %s."), *ErrorMessage);
+
+				// Downgrade geometry validation errors to info
+				ErrorMessage = ErrorMessage.Replace(TEXT("Error:"), TEXT("Info:"));
+
+				UE_LOG(LogSimplygon, Log, TEXT("Invalid mesh data: %s."), *ErrorMessage);
 			}
 		}
 	}

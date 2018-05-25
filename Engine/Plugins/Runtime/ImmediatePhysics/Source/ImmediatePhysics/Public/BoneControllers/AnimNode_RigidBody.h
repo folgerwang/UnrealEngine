@@ -52,7 +52,8 @@ struct IMMEDIATEPHYSICS_API FAnimNode_RigidBody : public FAnimNode_SkeletalContr
 	virtual bool HasPreUpdate() const override { return true; }
 	virtual bool IsValidToEvaluate(const USkeleton* Skeleton, const FBoneContainer& RequiredBones) override { return true; }
 	virtual bool NeedsDynamicReset() const override;
-	virtual void ResetDynamics() override;
+	virtual void ResetDynamics(ETeleportType InTeleportType) override;
+	virtual int32 GetLODThreshold() const override;
 	// End of FAnimNode_SkeletalControlBase interface
 
 	/** Physics asset to use. If empty use the skeletal mesh's default physics asset */
@@ -66,6 +67,18 @@ struct IMMEDIATEPHYSICS_API FAnimNode_RigidBody : public FAnimNode_SkeletalContr
 	/** Applies a uniform external force in world space. This allows for easily faking inertia of movement while still simulating in component space for example */
 	UPROPERTY(EditAnywhere, Category = Settings, meta = (PinShownByDefault))
 	FVector ExternalForce;
+
+	/** When using non-world-space sim, this controls how much of the components world-space acceleration is passed on to the local-space simulation. */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	FVector ComponentLinearAccScale;
+
+	/** When using non-world-space sim, this applies a 'drag' to the bodies in the local space simulation, based on the components world-space velocity. */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	FVector ComponentLinearVelScale;
+
+	/** When using non-world-space sim, this is an overall clamp on acceleration derived from ComponentLinearAccScale and ComponentLinearVelScale, to ensure it is not too large. */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	FVector	ComponentAppliedLinearAccClamp;
 
 	/** The channel we use to find static geometry to collide with */
 	UPROPERTY(EditAnywhere, Category = Settings, meta = (editcondition = "bEnableWorldGeometry"))
@@ -169,6 +182,8 @@ private:
 	float AccumulatedDeltaTime;
 	float TotalMass;
 
+	FTransform PreviousCompWorldSpaceTM;
+
 	FSphere Bounds;
 	FSphere CachedBounds;
 
@@ -188,7 +203,11 @@ private:
 	FCSPose<FCompactHeapPose> CapturedFrozenPose;
 	FBlendedHeapCurve CapturedFrozenCurves;
 
-	bool bResetSimulated;
+	FTransform CurrentTransform;
+	FTransform PreviousTransform;
+	FVector PreviousComponentLinearVelocity;
+
+	ETeleportType ResetSimulatedTeleportType;
 	bool bSimulationStarted;
 	bool bCheckForBodyTransformInit;
 };

@@ -9,6 +9,7 @@ LandscapeRenderMobile.cpp: Landscape Rendering without using vertex texture fetc
 #include "Serialization/BufferArchive.h"
 #include "Serialization/MemoryReader.h"
 #include "PrimitiveSceneInfo.h"
+#include "LandscapeLayerInfoObject.h"
 
 void FLandscapeVertexFactoryMobile::InitRHI()
 {
@@ -317,6 +318,18 @@ FLandscapeComponentSceneProxyMobile::FLandscapeComponentSceneProxyMobile(ULandsc
 	NormalmapTexture = InComponent->MobileWeightNormalmapTexture;
 
 	BlendableLayerMask = InComponent->MobileBlendableLayerMask;
+
+#if WITH_EDITOR
+	TArray<FWeightmapLayerAllocationInfo>& LayerAllocations = InComponent->MobileWeightmapLayerAllocations.Num() ? InComponent->MobileWeightmapLayerAllocations : InComponent->WeightmapLayerAllocations;
+	LayerColors.Empty();
+	for (auto& Allocation : LayerAllocations)
+	{
+		if (Allocation.LayerInfo != nullptr)
+		{
+			LayerColors.Add(Allocation.LayerInfo->LayerUsageDebugColor);
+		}
+	}
+#endif
 }
 
 bool FLandscapeComponentSceneProxyMobile::CollectOccluderElements(FOccluderElementsCollector& Collector) const

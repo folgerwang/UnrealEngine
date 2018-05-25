@@ -61,16 +61,76 @@ public class AndroidPlatform : Platform
 		return ApkName;
 	}
 
-	private static string GetFinalSymbolizedSODirectory(DeploymentContext SC, string Architecture, string GPUArchitecture)
-	{
-		ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(SC.RawProjectPath), SC.StageTargetPlatform.PlatformType);
-		int StoreVersion;
-		Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "StoreVersion", out StoreVersion);
+	private static bool bHaveReadEngineVersion = false;
+	private static string EngineMajorVersion = "4";
+	private static string EngineMinorVersion = "0";
+	private static string EnginePatchVersion = "0";
+	private static string EngineChangelist = "0";
 
-		return SC.ShortProjectName + "_Symbols_v" + StoreVersion + "/" + SC.ShortProjectName + Architecture + GPUArchitecture;
+	private static string ReadEngineVersion(string EngineDirectory)
+	{
+		if (!bHaveReadEngineVersion)
+		{
+			string EngineVersionFile = Path.Combine(EngineDirectory, "Source", "Runtime", "Launch", "Resources", "Version.h");
+			string[] EngineVersionLines = File.ReadAllLines(EngineVersionFile);
+			for (int i = 0; i < EngineVersionLines.Length; ++i)
+			{
+				if (EngineVersionLines[i].StartsWith("#define ENGINE_MAJOR_VERSION"))
+				{
+					EngineMajorVersion = EngineVersionLines[i].Split('\t')[1].Trim(' ');
+				}
+				else if (EngineVersionLines[i].StartsWith("#define ENGINE_MINOR_VERSION"))
+				{
+					EngineMinorVersion = EngineVersionLines[i].Split('\t')[1].Trim(' ');
+				}
+				else if (EngineVersionLines[i].StartsWith("#define ENGINE_PATCH_VERSION"))
+				{
+					EnginePatchVersion = EngineVersionLines[i].Split('\t')[1].Trim(' ');
+				}
+				else if (EngineVersionLines[i].StartsWith("#define BUILT_FROM_CHANGELIST"))
+				{
+					EngineChangelist = EngineVersionLines[i].Split(new char[] { ' ', '\t' })[2].Trim(' ');
+				}
+			}
+
+			bHaveReadEngineVersion = true;
+		}
+
+		return EngineMajorVersion + "." + EngineMinorVersion + "." + EnginePatchVersion;
 	}
 
-	private static string GetFinalObbName(string ApkName)
+	private static int GetStoreVersion(DeploymentContext SC)
+	{
+		ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(SC.RawProjectPath), SC.StageTargetPlatform.PlatformType);
+		int StoreVersion = 1;
+		Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "StoreVersion", out StoreVersion);
+
+		bool bUseChangeListAsStoreVersion = false;
+		Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bUseChangeListAsStoreVersion", out bUseChangeListAsStoreVersion);
+
+		// override store version with changelist if enabled and is build machine
+		if (bUseChangeListAsStoreVersion && Environment.GetEnvironmentVariable("IsBuildMachine") == "1")
+		{
+			int Changelist = 0;
+			ReadEngineVersion(SC.EngineRoot.FullName);
+			if (int.TryParse(EngineChangelist, out Changelist))
+			{
+				if (Changelist != 0)
+				{
+					StoreVersion = Changelist;
+				}
+			}
+		}
+
+		return StoreVersion;
+	}
+
+	private static string GetFinalSymbolizedSODirectory(DeploymentContext SC, string Architecture, string GPUArchitecture)
+	{
+		return SC.ShortProjectName + "_Symbols_v" + GetStoreVersion(SC) + "/" + SC.ShortProjectName + Architecture + GPUArchitecture;
+	}
+
+	private static string GetFinalObbName(string ApkName, bool bUseAppType = true)
 	{
 		// calculate the name for the .obb file
 		string PackageName = GetPackageInfo(ApkName, false);
@@ -91,7 +151,7 @@ public class AndroidPlatform : Platform
 			PackageVersion = IntVersion.ToString("0");
 		}
 
-		string AppType = GetMetaAppType();
+		string AppType = bUseAppType ? GetMetaAppType() : "";
 		if (AppType.Length > 0)
 		{
 			AppType += ".";
@@ -105,9 +165,23 @@ public class AndroidPlatform : Platform
 		return ObbName;
 	}
 
+
+	public override string GetPlatformPakCommandLine(ProjectParams Params, DeploymentContext SC)
+	{
+		string PakParams = "";
+
+		string OodleDllPath = DirectoryReference.Combine(SC.ProjectRoot, "Binaries/ThirdParty/Oodle/Win64/UnrealPakPlugin.dll").FullName;
+		if (File.Exists(OodleDllPath))
+		{
+			PakParams += String.Format(" -customcompressor=\"{0}\"", OodleDllPath);
+		}
+
+		return PakParams;
+	}
+
 	private static string GetDeviceObbName(string ApkName)
 	{
-        string ObbName = GetFinalObbName(ApkName);
+        string ObbName = GetFinalObbName(ApkName, false);
         string PackageName = GetPackageInfo(ApkName, false);
         return TargetAndroidLocation + PackageName + "/" + Path.GetFileName(ObbName);
 	}
@@ -248,7 +322,30 @@ public class AndroidPlatform : Platform
 							e.CurrentEntry.FileName);
 					}
 				};
-			ObbFile.AddDirectory(SC.StageDirectory+"/"+SC.ShortProjectName, SC.ShortProjectName);
+
+
+
+			FileFilter ObbFileFilter = new FileFilter(FileFilterType.Include);
+			ConfigHierarchy EngineIni = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(Params.RawProjectPath), UnrealTargetPlatform.Android);
+			List<string> ObbFilters;
+			EngineIni.GetArray("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "ObbFilters", out ObbFilters);
+			if (ObbFilters != null)
+			{
+				ObbFileFilter.AddRules(ObbFilters);
+			}
+
+			string StageDirectoryPath = Path.Combine(SC.StageDirectory.FullName, SC.ShortProjectName);
+			List<FileReference> FilesToObb = ObbFileFilter.ApplyToDirectory(new DirectoryReference(StageDirectoryPath), true);
+
+			foreach (FileReference FileToObb in FilesToObb)
+			{
+				string DestinationPath = Path.GetDirectoryName(FileToObb.FullName).Replace(StageDirectoryPath, SC.ShortProjectName);
+				ObbFile.AddFile(FileToObb.FullName, DestinationPath);
+			}
+			
+
+
+			// ObbFile.AddDirectory(SC.StageDirectory+"/"+SC.ShortProjectName, SC.ShortProjectName);
 			try
 			{
 				ObbFile.Save();
@@ -726,7 +823,7 @@ public class AndroidPlatform : Platform
 
 	private static string GetAdbCommandLine(ProjectParams Params, string SerialNumber, string Args)
 	{
-	    if (SerialNumber != "")
+	    if (string.IsNullOrEmpty(SerialNumber) == false)
 		{
 			SerialNumber = "-s " + SerialNumber;
 		}
@@ -757,7 +854,7 @@ public class AndroidPlatform : Platform
 		return Message;
 	}
 
-	public static IProcessResult RunAdbCommand(ProjectParams Params, string SerialNumber, string Args, string Input = null, ERunOptions Options = ERunOptions.Default)
+	public static IProcessResult RunAdbCommand(ProjectParams Params, string SerialNumber, string Args, string Input = null, ERunOptions Options = ERunOptions.Default, bool bShouldLogCommand = false)
 	{
 		string AdbCommand = Environment.ExpandEnvironmentVariables("%ANDROID_HOME%/platform-tools/adb" + (Utils.IsRunningOnMono ? "" : ".exe"));
 		if (Options.HasFlag(ERunOptions.AllowSpew) || Options.HasFlag(ERunOptions.SpewIsVerbose))

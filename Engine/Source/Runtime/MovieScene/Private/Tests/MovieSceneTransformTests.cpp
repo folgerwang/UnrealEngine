@@ -28,33 +28,28 @@ bool IsEqual(TRange<FFrameNumber> A, TRange<FFrameNumber> B)
 	return IsEqual(A.GetLowerBound(), B.GetLowerBound()) && IsEqual(A.GetUpperBound(), B.GetUpperBound());
 }
 
-namespace Lex
+FString LexToString(const TRange<FFrameNumber>& InRange)
 {
-	FString ToString(const TRange<FFrameNumber>& InRange)
-	{
-		TRangeBound<FFrameNumber> SourceLower = InRange.GetLowerBound();
-		TRangeBound<FFrameNumber> SourceUpper = InRange.GetUpperBound();
+	TRangeBound<FFrameNumber> SourceLower = InRange.GetLowerBound();
+	TRangeBound<FFrameNumber> SourceUpper = InRange.GetUpperBound();
 
-		return *FString::Printf(TEXT("%s-%s"),
-			SourceLower.IsOpen() ? 
-				TEXT("[...") : 
-				SourceLower.IsInclusive() ?
-					*FString::Printf(TEXT("[%i"), SourceLower.GetValue().Value) :
-					*FString::Printf(TEXT("(%i"), SourceLower.GetValue().Value),
+	return *FString::Printf(TEXT("%s-%s"),
+		SourceLower.IsOpen() ? 
+			TEXT("[...") : 
+			SourceLower.IsInclusive() ?
+				*FString::Printf(TEXT("[%i"), SourceLower.GetValue().Value) :
+				*FString::Printf(TEXT("(%i"), SourceLower.GetValue().Value),
 
-			SourceUpper.IsOpen() ? 
-				TEXT("...]") : 
-				SourceUpper.IsInclusive() ?
-					*FString::Printf(TEXT("%i]"), SourceUpper.GetValue().Value) :
-					*FString::Printf(TEXT("%i)"), SourceUpper.GetValue().Value)
-			);
-	}
+		SourceUpper.IsOpen() ? 
+			TEXT("...]") : 
+			SourceUpper.IsInclusive() ?
+				*FString::Printf(TEXT("%i]"), SourceUpper.GetValue().Value) :
+				*FString::Printf(TEXT("%i)"), SourceUpper.GetValue().Value)
+		);
 }
 
 bool TestTransform(FAutomationTestBase& Test, FMovieSceneSequenceTransform Transform, TArrayView<TRange<FFrameNumber>> InSource, TArrayView<TRange<FFrameNumber>> InExpected, const TCHAR* TestName)
 {
-	using namespace Lex;
-
 	check(InSource.Num() == InExpected.Num());
 
 	bool bSuccess = true;
@@ -69,8 +64,8 @@ bool TestTransform(FAutomationTestBase& Test, FMovieSceneSequenceTransform Trans
 				Transform.TimeScale,
 				Transform.Offset.FrameNumber.Value,
 				Transform.Offset.GetSubFrame(),
-				*ToString(Result),
-				*ToString(InExpected[Index])));
+				*LexToString(Result),
+				*LexToString(InExpected[Index])));
 
 			bSuccess = false;
 		}

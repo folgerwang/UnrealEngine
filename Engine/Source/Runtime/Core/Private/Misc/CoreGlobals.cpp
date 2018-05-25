@@ -212,6 +212,7 @@ static bool IsAsyncLoadingCoreInternal()
 bool (*IsAsyncLoading)() = &IsAsyncLoadingCoreInternal;
 void (*SuspendAsyncLoading)() = &appNoop;
 void (*ResumeAsyncLoading)() = &appNoop;
+bool (*IsAsyncLoadingSuspended)() = &IsAsyncLoadingCoreInternal;
 bool (*IsAsyncLoadingMultithreaded)() = &IsAsyncLoadingCoreInternal;
 void (*SuspendTextureStreamingRenderTasks)() = &appNoop;
 void (*ResumeTextureStreamingRenderTasks)() = &appNoop;
@@ -277,7 +278,8 @@ FName					GCurrentTraceName				= NAME_None;
 ELogTimes::Type			GPrintLogTimes					= ELogTimes::None;
 /** How to print the category in log output. */
 bool					GPrintLogCategory = true;
-
+/** How to print the verbosity in log output. */
+bool					GPrintLogVerbosity = true;
 
 #if USE_HITCH_DETECTION
 bool				GHitchDetected = false;

@@ -66,7 +66,7 @@ struct FPrimaryAssetType
 	}
 
 private:
-	friend COREUOBJECT_API UScriptStruct* Z_Construct_UScriptStruct_FPrimaryAssetType();
+	friend struct Z_Construct_UScriptStruct_FPrimaryAssetType_Statics;
 
 	/** The FName representing this type */
 	FName Name;
@@ -164,5 +164,5 @@ struct FPrimaryAssetId
 		return Hash;
 	}
 
-	friend COREUOBJECT_API UScriptStruct* Z_Construct_UScriptStruct_FPrimaryAssetId();
+	friend struct Z_Construct_UScriptStruct_FPrimaryAssetId_Statics;
 };

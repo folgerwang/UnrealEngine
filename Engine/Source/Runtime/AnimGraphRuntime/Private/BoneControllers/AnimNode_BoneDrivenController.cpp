@@ -10,6 +10,7 @@
 
 FAnimNode_BoneDrivenController::FAnimNode_BoneDrivenController()
 	: SourceComponent(EComponentType::None)
+	, DrivingCurve(nullptr)
 	, Multiplier(1.0f)
 	, bUseRange(false)
 	, RangeMin(-1.0f)

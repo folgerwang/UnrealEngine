@@ -122,15 +122,20 @@ void DecrementBufferMemory(GLenum Type, bool bStructuredBuffer, uint32 NumBytes)
 }
 
 // Run passed function on whichever thread owns the render context.
-void RunOnGLRenderContextThread(TFunction<void(void)> GLFunc)
+void RunOnGLRenderContextThread(TFunction<void(void)> GLFunc, bool bWaitForCompletion)
 {
 	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
-	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread() || IsInRHIThread())
+	if (ShouldRunGLRenderContextOpOnThisThread(RHICmdList))
 	{
 		GLFunc();
 	}
 	else
 	{
 		new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand(MoveTemp(GLFunc));
+		if (bWaitForCompletion)
+		{
+			RHITHREAD_GLTRACE_BLOCKING;
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+		}
 	}
 }

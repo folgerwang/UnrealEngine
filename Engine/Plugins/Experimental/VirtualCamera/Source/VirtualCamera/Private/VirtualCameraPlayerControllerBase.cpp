@@ -354,12 +354,12 @@ UVirtualCameraMovementComponent* AVirtualCameraPlayerControllerBase::GetVirtualC
 	return nullptr;
 }
 
-bool AVirtualCameraPlayerControllerBase::InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D & TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex)
+bool AVirtualCameraPlayerControllerBase::InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D & TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex)
 {
 	// Don't allow for input touch events if not within matte
 	if (!IsLocationWithinMatte(FVector(TouchLocation, 0.0f)))
 	{
-		return Super::InputTouch(Handle, Type, TouchLocation, DeviceTimestamp, TouchpadIndex);;
+		return Super::InputTouch(Handle, Type, TouchLocation, Force, DeviceTimestamp, TouchpadIndex);;
 	}
 
 	// Allow touch and drag of the auto focus reticle when in auto focus targeting mode
@@ -368,7 +368,7 @@ bool AVirtualCameraPlayerControllerBase::InputTouch(uint32 Handle, ETouchType::T
 		UpdateScreenFocus(ETouchIndex::Touch1, FVector(TouchLocation, 0.f));
 	}
 
-	return Super::InputTouch(Handle, Type, TouchLocation, DeviceTimestamp, TouchpadIndex);
+	return Super::InputTouch(Handle, Type, TouchLocation, Force, DeviceTimestamp, TouchpadIndex);
 }
 
 void AVirtualCameraPlayerControllerBase::OnTouchInput(const ETouchIndex::Type TouchIndex, const FVector Location)

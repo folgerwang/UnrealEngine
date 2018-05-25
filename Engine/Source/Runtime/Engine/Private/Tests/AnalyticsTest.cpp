@@ -58,8 +58,9 @@ bool FAnalyticStartUpSimTest::RunTest(const FString& Parameters)
 			FString FullAccountIDTestEventName = FString::Printf(TEXT("AccountID\":\"%s"), *AccountIDTest);
 			FString FullOSIDTestEventName = FString::Printf(TEXT("OSID\":\"%s"), *OSID);
 
-			for ( const FAutomationEvent& Event : ExecutionInfo.GetEvents() )
+			for ( const FAutomationExecutionEntry& Entry : ExecutionInfo.GetEntries() )
 			{
+				const FAutomationEvent& Event = Entry.Event;
 				if ( Event.Type == EAutomationEventType::Info && Event.Message.Contains(TEXT("Engine.AutomationTest.Analytics.ProgramStartedEvent")) )
 				{
 					const FString& Message = Event.Message;

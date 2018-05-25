@@ -1045,8 +1045,8 @@ void GetWindowSizeForInstanceType(FIntPoint &WindowSize, const ULevelEditorPlayS
 	const EPlayNetMode PlayNetMode = [&PlayInSettings]{ EPlayNetMode NetMode(PIE_Standalone); return (PlayInSettings->GetPlayNetMode(NetMode) ? NetMode : PIE_Standalone); }();
 	if (PlayNetMode == PIE_Standalone)
 	{
-		WindowSize.X = PlayInSettings->StandaloneWindowWidth;
-		WindowSize.Y = PlayInSettings->StandaloneWindowHeight;
+		WindowSize.X = PlayInSettings->NewWindowWidth;
+		WindowSize.Y = PlayInSettings->NewWindowHeight;
 	}
 	else
 	{
@@ -1060,8 +1060,8 @@ void SetWindowSizeForInstanceType(const FIntPoint &WindowSize, ULevelEditorPlayS
 	const EPlayNetMode PlayNetMode = [&PlayInSettings]{ EPlayNetMode NetMode(PIE_Standalone); return (PlayInSettings->GetPlayNetMode(NetMode) ? NetMode : PIE_Standalone); }();
 	if (PlayNetMode == PIE_Standalone)
 	{
-		PlayInSettings->StandaloneWindowWidth = WindowSize.X;
-		PlayInSettings->StandaloneWindowHeight = WindowSize.Y;
+		PlayInSettings->NewWindowWidth = WindowSize.X;
+		PlayInSettings->NewWindowHeight = WindowSize.Y;
 	}
 	else
 	{
@@ -1421,7 +1421,7 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 	
 	// Check if centered
 	FString Params;
-	if (PlayInSettings->CenterStandaloneWindow)
+	if (PlayInSettings->CenterNewWindow)
 	{
 		Params = FString::Printf(TEXT("%s %s -game -PIEVIACONSOLE -ResX=%d -ResY=%d %s%s %s"),
 			*GameNameOrProjectFile,
@@ -1440,8 +1440,8 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 		Params = FString::Printf(TEXT("%s %s -game -PIEVIACONSOLE -WinX=%d -WinY=%d -ResX=%d -ResY=%d %s%s %s"),
 			*GameNameOrProjectFile,
 			*BuildPlayWorldURL(*SavedMapNames[0], false, URLParms),
-			PlayInSettings->StandaloneWindowPosition.X,
-			PlayInSettings->StandaloneWindowPosition.Y,
+			PlayInSettings->NewWindowPosition.X,
+			PlayInSettings->NewWindowPosition.Y,
 			WinSize.X,
 			WinSize.Y,
 			*FCommandLine::GetSubprocessCommandline(),
@@ -1461,6 +1461,13 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 	{
 		UE_LOG(LogPlayLevel, Error, TEXT("Failed to run a copy of the game on this PC."));
 	}
+
+	FMargin SafeZoneRatio = PlayInSettings->PIESafeZoneOverride;
+	SafeZoneRatio.Left /= (PlayInSettings->NewWindowPosition.X / 2.0f);
+	SafeZoneRatio.Right /= (PlayInSettings->NewWindowPosition.X / 2.0f);
+	SafeZoneRatio.Bottom /= (PlayInSettings->NewWindowPosition.Y / 2.0f);
+	SafeZoneRatio.Top /= (PlayInSettings->NewWindowPosition.Y / 2.0f);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
 
 	FEditorDelegates::BeginStandaloneLocalPlay.Broadcast(ProcessID);
 }
@@ -2198,7 +2205,7 @@ bool UEditorEngine::SpawnPlayFromHereStart( UWorld* World, AActor*& PlayerStart,
 	return true;
 }
 
-void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
+void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor, FPlayInEditorOverrides Overrides )
 {
 	// Broadcast PreBeginPIE before checks that might block PIE below (BeginPIE is broadcast below after the checks)
 	FEditorDelegates::PreBeginPIE.Broadcast(bInSimulateInEditor);
@@ -2360,9 +2367,12 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 	bool CanRunUnderOneProcess = [&PlayInSettings]{ bool RunUnderOneProcess(false); return (PlayInSettings->GetRunUnderOneProcess(RunUnderOneProcess) && RunUnderOneProcess); }();
 	if (CanRunUnderOneProcess)
 	{
-		const bool CanPlayNetDedicated = [&PlayInSettings]{ bool PlayNetDedicated(false); return (PlayInSettings->GetPlayNetDedicated(PlayNetDedicated) && PlayNetDedicated); }();
-		const int32 PlayNumberOfClients = [&PlayInSettings]{ int32 NumberOfClients(0); return (PlayInSettings->GetPlayNumberOfClients(NumberOfClients) ? NumberOfClients : 0); }();
+		bool CanPlayNetDedicated = [&PlayInSettings]{ bool PlayNetDedicated(false); return (PlayInSettings->GetPlayNetDedicated(PlayNetDedicated) && PlayNetDedicated); }();
+		CanPlayNetDedicated = Overrides.bDedicatedServer.Get(CanPlayNetDedicated);
+		int32 PlayNumberOfClients = [&PlayInSettings]{ int32 NumberOfClients(0); return (PlayInSettings->GetPlayNumberOfClients(NumberOfClients) ? NumberOfClients : 0); }();
+		PlayNumberOfClients = Overrides.NumberOfClients.Get(PlayNumberOfClients);
 		const bool WillAutoConnectToServer = [&PlayInSettings]{ bool AutoConnectToServer(false); return (PlayInSettings->GetAutoConnectToServer(AutoConnectToServer) && AutoConnectToServer); }();
+
 		if (!CanPlayNetDedicated && (PlayNumberOfClients == 1 || !WillAutoConnectToServer))
 		{
 			// Since we don't expose PlayNetMode as an option when doing RunUnderOnProcess,
@@ -2485,6 +2495,13 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 	{
 		FSlateApplication::Get().SetAllUserFocusToGameViewport();
 	}
+
+	FMargin SafeZoneRatio = PlayInSettings->PIESafeZoneOverride;
+	SafeZoneRatio.Left /= (PlayInSettings->NewWindowWidth / 2.0f);
+	SafeZoneRatio.Right /= (PlayInSettings->NewWindowWidth / 2.0f);
+	SafeZoneRatio.Bottom /= (PlayInSettings->NewWindowHeight / 2.0f);
+	SafeZoneRatio.Top /= (PlayInSettings->NewWindowHeight / 2.0f);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
 
 	FEditorDelegates::PostPIEStarted.Broadcast( bInSimulateInEditor );
 }

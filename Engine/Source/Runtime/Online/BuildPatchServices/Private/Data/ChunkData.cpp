@@ -483,7 +483,7 @@ namespace BuildPatchServices
 										OutLoadResult = EChunkLoadResult::HashCheckFailed;
 									}
 								}
-								FSHAHashData ShaHashCheck;
+								FSHAHash ShaHashCheck;
 								if (OutLoadResult == EChunkLoadResult::Success && (Header->HashType & EChunkHashFlags::Sha1) != EChunkHashFlags::None)
 								{
 									FSHA1::HashBuffer(Data, Header->DataSize, ShaHashCheck.Hash);

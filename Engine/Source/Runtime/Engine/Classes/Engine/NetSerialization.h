@@ -891,8 +891,6 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 				int32 ElementID;
 				Reader << ElementID;
 
-				ArraySerializer.GuidReferencesMap.Remove( ElementID );
-
 				int32* ElementIndexPtr = ArraySerializer.ItemMap.Find(ElementID);
 				if (ElementIndexPtr)
 				{
@@ -1047,6 +1045,12 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		{
 			if (Items.IsValidIndex(idx))
 			{
+				// Remove the deleted element's tracked GUID references
+				if (ArraySerializer.GuidReferencesMap.Remove(Items[idx].ReplicationID) > 0)
+				{
+					Parms.bGuidListsChanged = true;
+				}
+
 				// Call the delete callbacks now, actually remove them at the end
 				Items[idx].PreReplicatedRemove(ArraySerializer);
 			}

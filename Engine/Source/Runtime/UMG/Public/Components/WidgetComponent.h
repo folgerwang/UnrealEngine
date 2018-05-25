@@ -485,5 +485,5 @@ protected:
 	static TSharedPtr<class FWidget3DHitTester> WidgetHitTester;
 
 	/** Helper class for drawing widgets to a render target. */
-	TSharedPtr<class FWidgetRenderer> WidgetRenderer;
+	class FWidgetRenderer* WidgetRenderer;
 };

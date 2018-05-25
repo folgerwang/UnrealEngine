@@ -129,7 +129,8 @@ bool FSSAOHelper::IsBasePassAmbientOcclusionRequired(const FViewInfo& View)
 bool FSSAOHelper::IsAmbientOcclusionAsyncCompute(const FViewInfo& View, uint32 AOPassCount)
 {
 	// if AsyncCompute is feasible
-	if(IsAmbientOcclusionCompute(View) && (AOPassCount > 0))
+	// only single level is allowed.  more levels end up reading from gbuffer normals atm which is not allowed.
+	if(IsAmbientOcclusionCompute(View) && (AOPassCount == 1))
 	{
 		int32 ComputeCVar = CVarAmbientOcclusionCompute.GetValueOnRenderThread();
 

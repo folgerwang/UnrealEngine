@@ -18,6 +18,9 @@ namespace ELoadingPhase
 		/** Loaded before the engine is fully initialized, immediately after the config system has been initialized.  Necessary only for very low-level hooks */
 		PostConfigInit,
 
+		/** Loaded before coreUObject for setting up manual loading screens, used for our chunk patching system */
+		PreEarlyLoadingScreen,
+
 		/** Loaded before the engine is fully initialized for modules that need to hook into the loading screen before it triggers */
 		PreLoadingScreen,
 

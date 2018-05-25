@@ -47,6 +47,11 @@ static TAutoConsoleVariable<int32> CVarDrawAnimRateOptimization(
 
 static TAutoConsoleVariable<int32> CVarEnableMorphTargets(TEXT("r.EnableMorphTargets"), 1, TEXT("Enable Morph Targets"));
 
+static TAutoConsoleVariable<int32> CVarAnimVisualizeLODs(
+	TEXT("a.VisualizeLODs"),
+	0,
+	TEXT("Visualize SkelMesh LODs"));
+
 namespace FAnimUpdateRateManager
 {
 	static float TargetFrameTimeForUpdateRate = 1.f / 30.f; //Target frame rate for lookahead URO
@@ -318,7 +323,6 @@ USkinnedMeshComponent::USkinnedMeshComponent(const FObjectInitializer& ObjectIni
 	bAutoActivate = true;
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.TickGroup = TG_PrePhysics;
-	WireframeColor = FColor(221, 221, 28, 255);
 
 	MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 
@@ -703,6 +707,12 @@ void USkinnedMeshComponent::TickUpdateRate(float DeltaTime, bool bNeedsValidRoot
 			{
 				FColor DrawColor = AnimUpdateRateParams->GetUpdateRateDebugColor();
 				DrawDebugBox(GetWorld(), Bounds.Origin, Bounds.BoxExtent, FQuat::Identity, DrawColor, false);
+
+				FString DebugString = FString::Printf(TEXT("%s UpdateRate(%d) EvaluationRate(%d) Interp(%d) AdditionalTime(%f)"),
+					*GetNameSafe(SkeletalMesh), AnimUpdateRateParams->UpdateRate, AnimUpdateRateParams->EvaluationRate, 
+					AnimUpdateRateParams->ShouldInterpolateSkippedFrames(), AnimUpdateRateParams->ShouldSkipUpdate(), AnimUpdateRateParams->AdditionalTime);
+
+				GEngine->AddOnScreenDebugMessage(INDEX_NONE, 0.f, FColor::Red, DebugString, false);
 			}
 #endif // ENABLE_DRAW_DEBUG
 		}
@@ -1241,9 +1251,6 @@ void USkinnedMeshComponent::SetSkeletalMesh(USkeletalMesh* InSkelMesh, bool bRei
 		// UpdateLODStatus needs a valid MeshObject
 		UpdateLODStatus(); 
 	}
-	
-	// Update this component streaming data.
-	IStreamingManager::Get().NotifyPrimitiveUpdated(this);
 }
 
 FSkeletalMeshRenderData* USkinnedMeshComponent::GetSkeletalMeshRenderData() const
@@ -1324,6 +1331,12 @@ void USkinnedMeshComponent::SetPhysicsAsset(class UPhysicsAsset* InPhysicsAsset,
 
 void USkinnedMeshComponent::SetMasterPoseComponent(class USkinnedMeshComponent* NewMasterBoneComponent)
 {
+	// Early out if we're already setup.
+	if (NewMasterBoneComponent == MasterPoseComponent)
+	{
+		return;
+	}
+
 	USkinnedMeshComponent* OldMasterPoseComponent = MasterPoseComponent.Get();
 
 	MasterPoseComponent = NewMasterBoneComponent;
@@ -1359,7 +1372,7 @@ void USkinnedMeshComponent::SetMasterPoseComponent(class USkinnedMeshComponent* 
 		PrimaryComponentTick.AddPrerequisite(MasterPoseComponent.Get(), MasterPoseComponent->PrimaryComponentTick);
 	}
 
-	if (OldMasterPoseComponent != nullptr)
+	if ((OldMasterPoseComponent != nullptr) && (OldMasterPoseComponent != NewMasterBoneComponent))
 	{
 		OldMasterPoseComponent->RemoveSlavePoseComponent(this);
 
@@ -1370,6 +1383,12 @@ void USkinnedMeshComponent::SetMasterPoseComponent(class USkinnedMeshComponent* 
 	AllocateTransformData();
 	RecreatePhysicsState();
 	UpdateMasterBoneMap();
+
+	// Update Slave in case Master has already been ticked, and we won't get an update for another frame.
+	if (MasterPoseComponent != nullptr)
+	{
+		UpdateSlaveComponent();
+	}
 }
 
 void USkinnedMeshComponent::AddSlavePoseComponent(USkinnedMeshComponent* SkinnedMeshComponent)
@@ -1585,19 +1604,57 @@ FTransform USkinnedMeshComponent::GetSocketTransform(FName InSocketName, ERelati
 
 class USkeletalMeshSocket const* USkinnedMeshComponent::GetSocketByName(FName InSocketName) const
 {
+	const FName* OverrideSocket = SocketOverrideLookup.Find(InSocketName);
+	const FName OverrideSocketName = OverrideSocket ? *OverrideSocket : InSocketName;
+
 	USkeletalMeshSocket const* Socket = NULL;
 
 	if( SkeletalMesh )
 	{
-		Socket = SkeletalMesh->FindSocket( InSocketName );
+		Socket = SkeletalMesh->FindSocket(OverrideSocketName);
 	}
 	else
 	{
-		UE_LOG(LogSkinnedMeshComp, Warning, TEXT("GetSocketByName(%s): No SkeletalMesh for Component(%s) Actor(%s)"), 
-			*InSocketName.ToString(), *GetName(), *GetNameSafe(GetOuter()));
+		if (OverrideSocket)
+		{
+			UE_LOG(LogSkinnedMeshComp, Warning, TEXT("GetSocketByName(%s -> override To %s): No SkeletalMesh for Component(%s) Actor(%s)"),
+				*InSocketName.ToString(), *OverrideSocketName.ToString(), *GetName(), *GetNameSafe(GetOuter()));
+		}
+		else
+		{
+			UE_LOG(LogSkinnedMeshComp, Warning, TEXT("GetSocketByName(%s): No SkeletalMesh for Component(%s) Actor(%s)"),
+				*OverrideSocketName.ToString(), *GetName(), *GetNameSafe(GetOuter()));
+		}
 	}
 
 	return Socket;
+}
+
+void USkinnedMeshComponent::AddSocketOverride(FName SourceSocketName, FName OverrideSocketName, bool bWarnHasOverrided)
+{
+	if (FName* FoundName = SocketOverrideLookup.Find(SourceSocketName))
+	{
+		if (bWarnHasOverrided)
+		{
+			UE_LOG(LogSkinnedMeshComp, Warning, TEXT("AddSocketOverride(%s, %s): Component(%s) Actor(%s) has already defined an override for socket(%s), replacing %s as override"),
+				*SourceSocketName.ToString(), *OverrideSocketName.ToString(), *GetName(), *GetNameSafe(GetOuter()), *SourceSocketName.ToString(), *(FoundName->ToString()));
+		}
+		*FoundName = OverrideSocketName;
+	}
+	else
+	{
+		SocketOverrideLookup.Add(SourceSocketName, OverrideSocketName);
+	}
+}
+
+void USkinnedMeshComponent::RemoveSocketOverrides(FName SourceSocketName)
+{
+	SocketOverrideLookup.Remove(SourceSocketName);
+}
+
+void USkinnedMeshComponent::RemoveAllSocketOverrides()
+{
+	SocketOverrideLookup.Reset();
 }
 
 bool USkinnedMeshComponent::DoesSocketExist(FName InSocketName) const
@@ -1612,17 +1669,20 @@ FName USkinnedMeshComponent::GetSocketBoneName(FName InSocketName) const
 		return NAME_None;
 	}
 
+	const FName* OverrideSocket = SocketOverrideLookup.Find(InSocketName);
+	const FName OverrideSocketName = OverrideSocket ? *OverrideSocket : InSocketName;
+
 	// First check for a socket
-	USkeletalMeshSocket const* TmpSocket = SkeletalMesh->FindSocket(InSocketName);
+	USkeletalMeshSocket const* TmpSocket = SkeletalMesh->FindSocket(OverrideSocketName);
 	if( TmpSocket )
 	{
 		return TmpSocket->BoneName;
 	}
 
 	// If socket is not found, maybe it was just a bone name.
-	if( GetBoneIndex(InSocketName) != INDEX_NONE )
+	if( GetBoneIndex(OverrideSocketName) != INDEX_NONE )
 	{
-		return InSocketName;
+		return OverrideSocketName;
 	}
 
 	// Doesn't exist.
@@ -2419,16 +2479,22 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 
 	if (SkeletalMesh != nullptr)
 	{
-		int32 MinLodIndex = 0;
+#if WITH_EDITOR
+		const int32 LODBias = GetLODBias();
+#else
+		const int32 LODBias = GSkeletalMeshLODBias;
+#endif
+
+		int32 MinLodIndex = bOverrideMinLod ? MinLodModel : 0;
 		if(FSceneInterface* Scene = GetScene())
 		{
 			const ERHIFeatureLevel::Type SceneFeatureLevel = GetScene()->GetFeatureLevel();
-			MinLodIndex = bOverrideMinLod ? MinLodModel : SkeletalMesh->MinLod.GetValueForFeatureLevel(SceneFeatureLevel);
+			MinLodIndex = FMath::Max(MinLodIndex, SkeletalMesh->MinLod.GetValueForFeatureLevel(SceneFeatureLevel));
 		}
 		else
 		{
 			// No scene, can't reliably get per-platform Min LOD, get default
-			MinLodIndex = bOverrideMinLod ? MinLodModel : SkeletalMesh->MinLod.Default;
+			MinLodIndex = FMath::Max(MinLodIndex, SkeletalMesh->MinLod.Default);
 		}
 
 		int32 MaxLODIndex = 0;
@@ -2457,11 +2523,6 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 			}
 			else if (MeshObject)
 			{
-#if WITH_EDITOR
-				const int32 LODBias = GetLODBias();
-#else
-				const int32 LODBias = GSkeletalMeshLODBias;
-#endif
 				PredictedLODLevel = FMath::Clamp(MeshObject->MinDesiredLODLevel + LODBias, 0, MaxLODIndex);
 			}
 			// If no MeshObject - just assume lowest LOD.
@@ -2483,6 +2544,39 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 				}
 			}
 		}
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if (CVarAnimVisualizeLODs.GetValueOnAnyThread() != 0)
+		{
+			// Reduce to visible animated, non SyncAttachParentLOD to reduce clutter.
+			if (SkeletalMesh && MeshObject && bRecentlyRendered)
+			{
+				const bool bHasValidSyncAttachParent = bSyncAttachParentLOD && GetAttachParent() && GetAttachParent()->IsA(USkinnedMeshComponent::StaticClass());
+				if (!bHasValidSyncAttachParent)
+				{
+					const float ScreenSize = FMath::Sqrt(MeshObject->MaxDistanceFactor) * 2.f;
+					FString DebugString = FString::Printf(TEXT("PredictedLODLevel(%d)\nMinDesiredLODLevel(%d) ForcedLodModel(%d) MinLodIndex(%d) LODBias(%d)\nMaxDistanceFactor(%f) ScreenSize(%f)"),
+						PredictedLODLevel, MeshObject->MinDesiredLODLevel, ForcedLodModel, MinLodIndex, LODBias, MeshObject->MaxDistanceFactor, ScreenSize);
+
+					// See if Child classes want to add something.
+					UpdateVisualizeLODString(DebugString);
+
+					FColor DrawColor = FColor::White;
+					switch (PredictedLODLevel)
+					{
+					case 0: DrawColor = FColor::White; break;
+					case 1: DrawColor = FColor::Green; break;
+					case 2: DrawColor = FColor::Yellow; break;
+					case 3: DrawColor = FColor::Red; break;
+					default:
+						DrawColor = FColor::Purple; break;
+					}
+
+					DrawDebugString(GetWorld(), Bounds.Origin, DebugString, nullptr, DrawColor, 0.f, true, 1.2f);
+				}
+			}
+		}
+#endif
 	}
 	else
 	{

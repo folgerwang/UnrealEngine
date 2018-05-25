@@ -125,13 +125,6 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = Core)
 	bool bTextAssetFormatSupport;
 
-	/** Enable material layering assets and workflow - Requires project setting 'Support new material layering' to be enabled */
-	UPROPERTY(EditAnywhere, config, Category = Materials, meta = (DisplayName = "Enable material layering assets and workflow"))
-	bool bMaterialLayeringEnabled;
-
-	UPROPERTY(EditAnywhere, config, Category = HLOD, meta = (DisplayName = "Use new HLOD packages naming convention"))
-	bool bUseNewHLODPackageNamingConvention;
-
 	/** When creating new Material Layers and Material Layer Blends, set up example graphs. */
 	UPROPERTY(EditAnywhere, config, Category = Materials)
 	bool bExampleLayersAndBlends;

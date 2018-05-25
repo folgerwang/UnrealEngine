@@ -472,6 +472,7 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh, 
 		ExistingMeshDataPtr = new ExistingSkelMeshData();
 		
 		ExistingMeshDataPtr->UseMaterialNameSlotWorkflow = SkeletalMeshIsUsingMaterialSlotNameWorkflow(ExistingSkelMesh->AssetImportData);
+		ExistingMeshDataPtr->MinLOD = ExistingSkelMesh->MinLod;
 
 		FSkeletalMeshModel* ImportedResource = ExistingSkelMesh->GetImportedModel();
 
@@ -635,6 +636,8 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 	{
 		return;
 	}
+
+	SkeletalMesh->MinLod = MeshData->MinLOD;
 
 	//Create a remap material Index use to find the matching section later
 	TArray<int32> RemapMaterial;

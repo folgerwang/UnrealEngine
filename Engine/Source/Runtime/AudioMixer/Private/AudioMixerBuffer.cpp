@@ -320,7 +320,7 @@ namespace Audio
 
 	FMixerBuffer* FMixerBuffer::CreateNativeBuffer(FMixerDevice* InMixer, USoundWave* InWave)
 	{
-		check(InWave->bIsPrecacheDone);
+		check(InWave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 
 		FMixerBuffer* Buffer = new FMixerBuffer(InMixer, InWave, EBufferType::PCM);
 		return Buffer;
@@ -358,7 +358,7 @@ namespace Audio
 	{
 		check(InMixer);
 		check(InWave);
-		check(InWave->bIsPrecacheDone);
+		check(InWave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 
 		// Create a new buffer for real-time sounds
 		FMixerBuffer* Buffer = new FMixerBuffer(InMixer, InWave, EBufferType::PCMRealTime);

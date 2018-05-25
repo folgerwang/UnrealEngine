@@ -330,6 +330,7 @@ namespace AutomationTool
 			this.ServerConfigsToBuild = InParams.ServerConfigsToBuild;
 			this.NumClients = InParams.NumClients;
             this.Compressed = InParams.Compressed;
+			this.AdditionalPakOptions = InParams.AdditionalPakOptions;
             this.UseDebugParamForEditorExe = InParams.UseDebugParamForEditorExe;
 			this.Archive = InParams.Archive;
 			this.ArchiveDirectoryParam = InParams.ArchiveDirectoryParam;
@@ -390,9 +391,10 @@ namespace AutomationTool
 			bool? SkipServer = null,
 			bool? Clean = null,
             bool? Compressed = null,
+			string AdditionalPakOptions = null,
             bool? UseDebugParamForEditorExe = null,
             bool? IterativeCooking = null,
-			bool? IterateSharedCookedBuild = null,
+			string IterateSharedCookedBuild = null,
 			bool? IterateSharedBuildUsePrecompiledExe = null,
 			bool? CookAll = null,
 			bool? CookPartialGC = null,
@@ -630,9 +632,11 @@ namespace AutomationTool
                 this.NumCookersToSpawn = Command.ParseParamInt("NumCookersToSpawn");
             }
             this.Compressed = GetParamValueIfNotSpecified(Command, Compressed, this.Compressed, "compressed");
+			this.AdditionalPakOptions = ParseParamValueIfNotSpecified(Command, AdditionalPakOptions, "AdditionalPakOptions");
             this.UseDebugParamForEditorExe = GetParamValueIfNotSpecified(Command, UseDebugParamForEditorExe, this.UseDebugParamForEditorExe, "UseDebugParamForEditorExe");
 			this.IterativeCooking = GetParamValueIfNotSpecified(Command, IterativeCooking, this.IterativeCooking, new string[] { "iterativecooking", "iterate" });
-			this.IterateSharedCookedBuild = GetParamValueIfNotSpecified(Command, IterateSharedCookedBuild, this.IterateSharedCookedBuild, new string[] { "IterateSharedCookedBuild"});
+			this.IterateSharedCookedBuild = GetParamValueIfNotSpecified(Command, false, false, "iteratesharedcookedbuild") ? "usesyncedbuild" : null;
+			this.IterateSharedCookedBuild = ParseParamValueIfNotSpecified(Command, IterateSharedCookedBuild, "IterateSharedCookedBuild", String.Empty);
 			this.IterateSharedBuildUsePrecompiledExe = GetParamValueIfNotSpecified(Command, IterateSharedBuildUsePrecompiledExe, this.IterateSharedBuildUsePrecompiledExe, new string[] { "IterateSharedBuildUsePrecompiledExe" });
 			
 			this.SkipCookOnTheFly = GetParamValueIfNotSpecified(Command, SkipCookOnTheFly, this.SkipCookOnTheFly, "skipcookonthefly");
@@ -1525,6 +1529,11 @@ namespace AutomationTool
         /// </summary>
         public bool Compressed;
 
+		/// <summary>
+		/// Additional parameters when generating the PAK file
+		/// </summary>
+		public string AdditionalPakOptions;
+
         /// <summary>
         /// put -debug on the editorexe commandline
         /// </summary>
@@ -1546,7 +1555,7 @@ namespace AutomationTool
 		/// Cook: Iterate from a build on the network
 		/// </summary>
 		[Help("Iteratively cook from a shared cooked build")]
-		public bool IterateSharedCookedBuild;
+		public string IterateSharedCookedBuild;
 
 		/// <summary>
 		/// Build: Don't build the game instead use the prebuild exe (requires iterate shared cooked build
@@ -2158,6 +2167,11 @@ namespace AutomationTool
 			get { return !CommandUtils.IsNullOrEmpty(DirectoriesToCook); }
 		}
 
+		public bool HasIterateSharedCookedBuild
+		{
+			get { return !String.IsNullOrEmpty(IterateSharedCookedBuild);  }
+		}
+
         public bool HasInternationalizationPreset
         {
             get { return !String.IsNullOrEmpty(InternationalizationPreset); }
@@ -2536,7 +2550,7 @@ namespace AutomationTool
                 throw new AutomationException("Can't create a release version at the same time as creating dlc.");
             }
 
-            if (HasBasedOnReleaseVersion && (IterativeCooking || IterativeDeploy || IterateSharedCookedBuild))
+            if (HasBasedOnReleaseVersion && (IterativeCooking || IterativeDeploy || HasIterateSharedCookedBuild))
             {
                 throw new AutomationException("Can't use iterative cooking / deploy on dlc or patching or creating a release");
             }
@@ -2561,10 +2575,10 @@ namespace AutomationTool
 				throw new AutomationException("-createchunkinstall must specify the chunk install data version string with -chunkinstallversion=");
 			}
 
-			if(IsGeneratingRemaster && string.IsNullOrEmpty(DiscVersion))
+			/*if(IsGeneratingRemaster && string.IsNullOrEmpty(DiscVersion))
 			{
 				throw new AutomationException("DiscVersion is required for generating remaster package.");
-			}
+			}*/
 		}
 
 		protected bool bLogged = false;
@@ -2592,6 +2606,7 @@ namespace AutomationTool
 				CommandUtils.LogLog("ClientCookedTargets={0}", ClientCookedTargets.ToString());
 				CommandUtils.LogLog("ClientTargetPlatform={0}", string.Join(",", ClientTargetPlatforms));
 				CommandUtils.LogLog("Compressed={0}", Compressed);
+				CommandUtils.LogLog("AdditionalPakOptions={0}", AdditionalPakOptions);
 				CommandUtils.LogLog("UseDebugParamForEditorExe={0}", UseDebugParamForEditorExe);
 				CommandUtils.LogLog("CookOnTheFly={0}", CookOnTheFly);
 				CommandUtils.LogLog("CookOnTheFlyStreaming={0}", CookOnTheFlyStreaming);

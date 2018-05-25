@@ -592,7 +592,7 @@ public class HTML5Platform : Platform
 		return HTMLPakAutomation.CanCreateMapPaks(Params) ? PakType.Never : PakType.Always;
 	}
 
-	public override string GetPlatformPakCommandLine()
+	public override string GetPlatformPakCommandLine(ProjectParams Params, DeploymentContext SC)
 	{
 		return Compressed ? " -compress" : "";
 	}

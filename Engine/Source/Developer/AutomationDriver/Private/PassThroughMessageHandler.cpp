@@ -238,24 +238,24 @@ public:
 		RealMessageHandler->OnEndGesture();
 	}
 
-	virtual bool OnTouchStarted(const TSharedPtr< FGenericWindow >& Window, const FVector2D& Location, int32 TouchIndex, int32 ControllerId) override
+	virtual bool OnTouchStarted(const TSharedPtr< FGenericWindow >& Window, const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId) override
 	{
 		if (!bAllowMessageHandling)
 		{
 			return false;
 		}
 
-		return RealMessageHandler->OnTouchStarted(Window, Location, TouchIndex, ControllerId);
+		return RealMessageHandler->OnTouchStarted(Window, Location, Force, TouchIndex, ControllerId);
 	}
 
-	virtual bool OnTouchMoved(const FVector2D& Location, int32 TouchIndex, int32 ControllerId) override
+	virtual bool OnTouchMoved(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId) override
 	{
 		if (!bAllowMessageHandling)
 		{
 			return false;
 		}
 
-		return RealMessageHandler->OnTouchMoved(Location, TouchIndex, ControllerId);
+		return RealMessageHandler->OnTouchMoved(Location, Force, TouchIndex, ControllerId);
 	}
 
 	virtual bool OnTouchEnded(const FVector2D& Location, int32 TouchIndex, int32 ControllerId) override

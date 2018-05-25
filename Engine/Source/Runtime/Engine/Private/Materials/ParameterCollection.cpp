@@ -12,6 +12,14 @@
 #include "Materials/MaterialParameterCollection.h"
 #include "Materials/MaterialExpressionCollectionParameter.h"
 
+int32 GDeferUpdateRenderStates = 1;
+FAutoConsoleVariableRef CVarDeferUpdateRenderStates(
+	TEXT("r.DeferUpdateRenderStates"),
+	GDeferUpdateRenderStates,
+	TEXT("Whether to defer updating the render states of material parameter collections when a paramter is changed until a rendering command needs them up to date.  Deferring updates is more efficient because multiple SetVectorParameterValue and SetScalarParameterValue calls in a frame will only result in one update."),
+	ECVF_RenderThreadSafe
+);
+
 TMap<FGuid, FMaterialParameterCollectionInstanceResource*> GDefaultMaterialParameterCollectionInstances;
 
 UMaterialParameterCollection::UMaterialParameterCollection(const FObjectInitializer& ObjectInitializer)
@@ -477,7 +485,8 @@ void UMaterialParameterCollection::UpdateDefaultResource()
 UMaterialParameterCollectionInstance::UMaterialParameterCollectionInstance(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	Resource = NULL;
+	Resource = nullptr;
+	bNeedsRenderStateUpdate = false;
 }
 
 void UMaterialParameterCollectionInstance::PostInitProperties()
@@ -596,12 +605,33 @@ bool UMaterialParameterCollectionInstance::GetVectorParameterValue(FName Paramet
 
 void UMaterialParameterCollectionInstance::UpdateRenderState()
 {
-	// Propagate the new values to the rendering thread
-	TArray<FVector4> ParameterData;
-	GetParameterData(ParameterData);
-	Resource->GameThread_UpdateContents(Collection ? Collection->StateId : FGuid(), ParameterData, GetFName());
-	// Update the world's scene with the new uniform buffer pointer
-	World->UpdateParameterCollectionInstances(false);
+	// Don't need material parameters on the server
+	if (World && World->GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+
+	bNeedsRenderStateUpdate = true;
+
+	if (!GDeferUpdateRenderStates)
+	{
+		DeferredUpdateRenderState();
+	}
+}
+
+void UMaterialParameterCollectionInstance::DeferredUpdateRenderState()
+{
+	if (bNeedsRenderStateUpdate)
+	{
+		// Propagate the new values to the rendering thread
+		TArray<FVector4> ParameterData;
+		GetParameterData(ParameterData);
+		Resource->GameThread_UpdateContents(Collection ? Collection->StateId : FGuid(), ParameterData, GetFName());
+		// Update the world's scene with the new uniform buffer pointer
+		World->UpdateParameterCollectionInstances(false);
+	}
+
+	bNeedsRenderStateUpdate = false;
 }
 
 void UMaterialParameterCollectionInstance::GetParameterData(TArray<FVector4>& ParameterData) const

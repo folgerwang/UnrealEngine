@@ -124,6 +124,11 @@ public:
 	{
 	}
 
+	virtual FName GetType() const override
+	{
+		return STEAM_SUBSYSTEM;
+	}
+
 	/**
 	 * Get the raw byte representation of this net id
 	 * This data is platform dependent and shouldn't be manipulated directly

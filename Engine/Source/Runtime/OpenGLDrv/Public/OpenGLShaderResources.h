@@ -303,11 +303,11 @@ public:
 };
 
 
-typedef TOpenGLShader<FRHIVertexShader, GL_VERTEX_SHADER, SF_Vertex> FOpenGLVertexShader;
-typedef TOpenGLShader<FRHIPixelShader, GL_FRAGMENT_SHADER, SF_Pixel> FOpenGLPixelShader;
-typedef TOpenGLShader<FRHIGeometryShader, GL_GEOMETRY_SHADER, SF_Geometry> FOpenGLGeometryShader;
-typedef TOpenGLShader<FRHIHullShader, GL_TESS_CONTROL_SHADER, SF_Hull> FOpenGLHullShader;
-typedef TOpenGLShader<FRHIDomainShader, GL_TESS_EVALUATION_SHADER, SF_Domain> FOpenGLDomainShader;
+typedef TOpenGLShader<FRefCountedObject, GL_VERTEX_SHADER, SF_Vertex> FOpenGLVertexShader;
+typedef TOpenGLShader<FRefCountedObject, GL_FRAGMENT_SHADER, SF_Pixel> FOpenGLPixelShader;
+typedef TOpenGLShader<FRefCountedObject, GL_GEOMETRY_SHADER, SF_Geometry> FOpenGLGeometryShader;
+typedef TOpenGLShader<FRefCountedObject, GL_TESS_CONTROL_SHADER, SF_Hull> FOpenGLHullShader;
+typedef TOpenGLShader<FRefCountedObject, GL_TESS_EVALUATION_SHADER, SF_Domain> FOpenGLDomainShader;
 
 
 class FOpenGLComputeShader : public TOpenGLShader<FRHIComputeShader, GL_COMPUTE_SHADER, SF_Compute>
@@ -321,7 +321,9 @@ public:
 
 	bool NeedsTextureStage(int32 TextureStageIndex);
 	int32 MaxTextureStageUsed();
+	const TBitArray<>& GetTextureNeeds(int32& OutMaxTextureStageUsed);
 	bool NeedsUAVStage(int32 UAVStageIndex);
+
 	FOpenGLLinkedProgram* LinkedProgram;
 };
 
@@ -360,6 +362,7 @@ public:
 	void CommitPackedUniformBuffers(FOpenGLLinkedProgram* LinkedProgram, int32 Stage, FUniformBufferRHIRef* UniformBuffers, const TArray<CrossCompiler::FUniformBufferCopyInfo>& UniformBuffersCopyInfo);
 
 private:
+
 	/** CPU memory block for storing uniform values. */
 	uint8* PackedGlobalUniforms[CrossCompiler::PACKED_TYPEINDEX_MAX];
 	

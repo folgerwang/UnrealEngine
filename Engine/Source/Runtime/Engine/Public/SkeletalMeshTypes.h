@@ -273,6 +273,8 @@ public:
 
 	friend class FSkeletalMeshSectionIter;
 
+	virtual void OnTransformChanged() override;
+
 protected:
 	AActor* Owner;
 	class FSkeletalMeshObject* MeshObject;

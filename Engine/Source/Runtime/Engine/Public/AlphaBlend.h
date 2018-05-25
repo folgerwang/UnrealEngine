@@ -193,10 +193,8 @@ private:
 	/** internal flat to reset blend time. The two distinction is required. Otherwise, you'll modify blend time when you just change range */
 	bool bNeedsToResetBlendTime;
 
+	mutable bool bNeedsToResetCachedDesiredBlendedValue;
+
 	/** Cached Desired Value with Alpha 1 so that we can check if reached or not */
-	float CachedDesiredBlendedValue;
-	
-	/** This function refreshes desired blended value, so that we can check if we reached there or not. We make sure this value gets updated whenever any data changes. 
-	 *	IsComplete is called by Update, and recalc in every frame might not be worth it, so caching that data here*/
-	void RecacheDesiredBlendedValue();
+	mutable float CachedDesiredBlendedValue;
 };

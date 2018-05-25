@@ -114,11 +114,35 @@ struct FOpenGLVertexDeclarationKey
 		{
 			FORCEINLINE bool operator()( const FOpenGLVertexElement& A, const FOpenGLVertexElement& B ) const
 			{
-				return ((int32)A.Offset + A.StreamIndex * MAX_uint16) < ((int32)B.Offset + B.StreamIndex * MAX_uint16);
+				if (A.StreamIndex < B.StreamIndex)
+				{
+					return true;
+				}
+				if (A.StreamIndex > B.StreamIndex)
+				{
+					return false;
+				}
+				if (A.Offset < B.Offset)
+				{
+					return true;
+				}
+				if (A.Offset > B.Offset)
+				{
+					return false;
+				}
+				if (A.AttributeIndex < B.AttributeIndex)
+				{
+					return true;
+				}
+				if (A.AttributeIndex > B.AttributeIndex)
+				{
+					return false;
+				}
+				return false;
 			}
 		};
 		// Sort the FOpenGLVertexElements by stream then offset.
-		Sort( VertexElements.GetData(), VertexElements.Num(), FCompareFOpenGLVertexElement() );
+		StableSort( VertexElements.GetData(), VertexElements.Num(), FCompareFOpenGLVertexElement() );
 
 		Hash = FCrc::MemCrc_DEPRECATED(VertexElements.GetData(),VertexElements.Num()*sizeof(FOpenGLVertexElement));
 		Hash = FCrc::MemCrc_DEPRECATED(StreamStrides, sizeof(StreamStrides), Hash);
@@ -172,4 +196,168 @@ FVertexDeclarationRHIRef FOpenGLDynamicRHI::RHICreateVertexDeclaration(const FVe
 	checkSlow(OpenGLVertexDeclaration->VertexElements == Key.VertexElements);
 
 	return *VertexDeclarationRefPtr;
+}
+
+bool FOpenGLVertexDeclaration::GetInitializer(FVertexDeclarationElementList& Init)
+{
+	check(!Init.Num());
+	for(int32 ElementIndex = 0;ElementIndex < VertexElements.Num();ElementIndex++)
+	{
+		FOpenGLVertexElement const& GLElement = VertexElements[ElementIndex];
+		FVertexElement Element;
+		Element.StreamIndex = GLElement.StreamIndex;
+		Element.Offset = GLElement.Offset;
+		Element.bUseInstanceIndex = GLElement.Divisor == 1;
+		Element.AttributeIndex = GLElement.AttributeIndex;
+		Element.Stride = GLElement.HashStride;
+		
+		switch(GLElement.Type)
+		{
+			case GL_FLOAT:
+			{
+				switch(GLElement.Size)
+				{
+					case 1:
+						Element.Type = VET_Float1;
+						break;
+					case 2:
+						Element.Type = VET_Float2;
+						break;
+					case 3:
+						Element.Type = VET_Float3;
+						break;
+					case 4:
+						Element.Type = VET_Float4;
+						break;
+					default:
+						check(false);
+						break;
+				}
+				break;
+			}
+			case GL_UNSIGNED_BYTE:
+			{
+				if (GLElement.Size == 4)
+				{
+					// Can't distinguish VET_PackedNormal, VET_Color & VET_UByte4N, but it shouldn't matter
+					Element.Type = (GLElement.bNormalized) ? VET_UByte4N : VET_UByte4;
+				}
+				else if (GLElement.Size == GL_BGRA)
+				{
+					Element.Type = VET_Color;
+				}
+				else
+				{
+					check(false);
+				}
+				break;
+			}
+			case GL_BYTE:
+			{
+				if (GLElement.Size == 4)
+				{
+					// Can't distinguish VET_PackedNormal, VET_Color & VET_UByte4N, but it shouldn't matter
+					ensure(GLElement.bNormalized);
+					Element.Type = VET_PackedNormal;
+				}
+				else
+				{
+					checkf(false, TEXT("Vertex Declaration GL_BYTE, Size=%d"), GLElement.Size);
+				}
+				break;
+			}
+			case GL_SHORT:
+			{
+				switch(GLElement.Size)
+				{
+					case 2:
+						if (GLElement.bNormalized)
+						{
+							Element.Type = VET_Short2N;
+						}
+						else
+						{
+							Element.Type = (!GLElement.bShouldConvertToFloat) ? VET_Short2 : VET_Half2;
+						}
+						break;
+					case 4:
+						if (GLElement.bNormalized)
+						{
+							Element.Type = VET_Short4N;
+						}
+						else
+						{
+							Element.Type = (!GLElement.bShouldConvertToFloat) ? VET_Short4 : VET_Half4;
+						}
+						break;
+					default:
+						check(false);
+						break;
+				}
+				break;
+			}
+#if defined(GL_HALF_FLOAT)
+			case GL_HALF_FLOAT:
+#endif
+#if defined(GL_HALF_FLOAT_OES)
+			case GL_HALF_FLOAT_OES:
+#endif
+			{
+				switch(GLElement.Size)
+				{
+					case 2:
+						Element.Type = VET_Half2;
+						break;
+					case 4:
+						Element.Type = VET_Half4;
+						break;
+					default:
+						check(false);
+						break;
+				}
+				break;
+			}
+			case GL_UNSIGNED_SHORT:
+			{
+				switch(GLElement.Size)
+				{
+					case 2:
+						if (GLElement.bNormalized)
+						{
+							Element.Type = VET_UShort2N;
+						}
+						else
+						{
+							Element.Type = VET_UShort2;
+						}
+						break;
+					case 4:
+						if (GLElement.bNormalized)
+						{
+							Element.Type = VET_UShort4N;
+						}
+						else
+						{
+							Element.Type = VET_UShort4;
+						}
+						break;
+					default:
+						check(false);
+						break;
+				}
+				break;
+			}
+			case GL_UNSIGNED_INT_2_10_10_10_REV:
+			{
+				Element.Type = VET_URGB10A2N;
+				break;
+			}
+			default:
+				checkf(false, TEXT("Unknown GLEnum 0x%x"), (int32)GLElement.Type);
+				break;
+		}
+		Init.Add(Element);
+	}
+
+	return true;
 }

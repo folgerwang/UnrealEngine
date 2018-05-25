@@ -111,6 +111,16 @@ float UScrollBox::GetScrollOffset() const
 	return 0;
 }
 
+float UScrollBox::GetViewOffsetFraction() const
+{
+	if ( MyScrollBox.IsValid() )
+	{
+		return MyScrollBox->GetViewOffsetFraction();
+	}
+
+	return 0;
+}
+
 void UScrollBox::SetScrollOffset(float NewScrollOffset)
 {
 	DesiredScrollOffset = NewScrollOffset;
@@ -278,6 +288,7 @@ void UScrollBox::OnDescendantDeselectedByDesigner( UWidget* DescendantWidget )
 	// because we get a deselect before we get a select, we need to delay this call until we're sure we didn't scroll to another widget.
 	TickHandle = FTicker::GetCoreTicker().AddTicker( FTickerDelegate::CreateLambda( [=]( float ) -> bool
 	                                                                                {
+                                                                                        QUICK_SCOPE_CYCLE_COUNTER(STAT_UScrollBox_ScrollToStart_LambdaTick);
 		                                                                                this->ScrollToStart();
 		                                                                                return false;
 		                                                                            } ) );

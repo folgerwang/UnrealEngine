@@ -209,7 +209,10 @@ TSharedRef<SWidget> SDesignerToolBar::FillLocalizationPreviewMenu()
 	FMenuBuilder LocationGridMenuBuilder(bShouldCloseWindowAfterMenuSelection, CommandList);
 
 	TArray<FCultureRef> GameCultures;
-	FInternationalization::Get().GetCulturesWithAvailableLocalization(FPaths::GetGameLocalizationPaths(), GameCultures, false);
+	{
+		const TArray<FString> LocalizedCultureNames = FTextLocalizationManager::Get().GetLocalizedCultureNames(ELocalizationLoadFlags::Game);
+		GameCultures = FInternationalization::Get().GetAvailableCultures(LocalizedCultureNames, false);
+	}
 
 	LocationGridMenuBuilder.BeginSection("LocalizationPreviewLanguage", LOCTEXT("LocalizationPreviewLanguage", "Preview Language"));
 	LocationGridMenuBuilder.AddMenuEntry(

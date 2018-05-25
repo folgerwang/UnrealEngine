@@ -306,6 +306,9 @@ FString FName::NameToDisplayString( const FString& InDisplayName, const bool bIs
 	bool bInARun = false;
 	bool bWasSpace = false;
 	bool bWasOpenParen = false;
+	bool bWasNumber = false;
+	bool bWasMinusSign = false;
+
 	FString OutDisplayName;
 	OutDisplayName.GetCharArray().Reserve(Chars.Num());
 	for( int32 CharIndex = 0 ; CharIndex < Chars.Num() ; ++CharIndex )
@@ -328,7 +331,8 @@ FString FName::NameToDisplayString( const FString& InDisplayName, const bool bIs
 		}
 
 		// If the current character is upper case or a digit, and the previous character wasn't, then we need to insert a space if there wasn't one previously
-		if( (bUpperCase || bIsDigit) && !bInARun && !bWasOpenParen)
+		// We don't do this for numerical expressions, for example "-1.2" should not be formatted as "- 1. 2"
+		if( (bUpperCase || (bIsDigit && !bWasMinusSign)) && !bInARun && !bWasOpenParen && !bWasNumber)
 		{
 			if( !bWasSpace && OutDisplayName.Len() > 0 )
 			{
@@ -356,7 +360,7 @@ FString FName::NameToDisplayString( const FString& InDisplayName, const bool bIs
 		{
 			ch = FChar::ToUpper( ch );
 		}
-		else if( bWasSpace || bWasOpenParen)	// If this is first character after a space, then make sure it is case-correct
+		else if( !bIsDigit && (bWasSpace || bWasOpenParen))	// If this is first character after a space, then make sure it is case-correct
 		{
 			// Some words are always forced lowercase
 			const TCHAR* Articles[] =
@@ -408,6 +412,12 @@ FString FName::NameToDisplayString( const FString& InDisplayName, const bool bIs
 
 		bWasSpace = ( ch == TEXT( ' ' ) ? true : false );
 		bWasOpenParen = ( ch == TEXT( '(' ) ? true : false );
+
+		// What could be included as part of a numerical representation.
+		// For example -1.2
+		bWasMinusSign = (ch == TEXT('-'));
+		const bool bPotentialNumericalChar = bWasMinusSign || (ch == TEXT('.'));
+		bWasNumber = bIsDigit || (bWasNumber && bPotentialNumericalChar);
 
 		OutDisplayName += ch;
 	}

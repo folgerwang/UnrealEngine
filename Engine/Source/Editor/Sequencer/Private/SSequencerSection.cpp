@@ -721,7 +721,7 @@ void SSequencerSection::GetKeysUnderMouse( const FVector2D& MousePosition, const
 
 	UMovieSceneSection& Section = *SectionInterface->GetSectionObject();
 
-	FTimeToPixel    TimeToPixelConverter = ConstructTimeConverterForSection(SectionGeometry, Section, GetSequencer());
+	FTimeToPixel TimeToPixelConverter = ConstructTimeConverterForSection(SectionGeometry, Section, GetSequencer());
 	const FVector2D MousePixel           = SectionGeometry.AbsoluteToLocal( MousePosition );
 
 	// HitTest 

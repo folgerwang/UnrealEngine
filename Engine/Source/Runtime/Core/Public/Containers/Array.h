@@ -1132,7 +1132,7 @@ public:
 	 *   - sizeof(ElementType) must be equal to the sum of sizes of it's member variables.
 	 *        - e.g. use pragma pack (push,1)/ (pop) to ensure alignment
 	 *        - match up uint8/ WORDs so everything always end up being properly aligned
-	 *   - Code can not rely on serialization of T if neither ArIsLoading nor ArIsSaving is true.
+	 *   - Code can not rely on serialization of T if neither IsLoading() nor IsSaving() is true.
 	 *   - Can only be called platforms that either have the same endianness as the one the content was saved with
 	 *     or had the endian conversion occur in a cooking process like e.g. for consoles.
 	 *

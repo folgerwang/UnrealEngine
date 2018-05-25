@@ -17,11 +17,13 @@ struct VIEWPORTINTERACTION_API FViewportActionKeyInput
 	
 	FViewportActionKeyInput() :
 		ActionType( NAME_None ),
+		Event( IE_Pressed ),
 		bIsInputCaptured( false )
 	{}
 
 	FViewportActionKeyInput( const FName& InActionType ) : 
 		ActionType( InActionType ),
+		Event( IE_Pressed ),
 		bIsInputCaptured( false )
 	{}
 

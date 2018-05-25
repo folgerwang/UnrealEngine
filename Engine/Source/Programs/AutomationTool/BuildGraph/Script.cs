@@ -938,6 +938,7 @@ namespace AutomationTool
 				string[] ProducesNames = ReadListAttribute(Element, "Produces");
 				string[] AfterNames = ReadListAttribute(Element, "After");
 				string[] TokenFileNames = ReadListAttribute(Element, "Token");
+				bool bRunEarly = ReadBooleanAttribute(Element, "RunEarly", false);
 				bool bNotifyOnWarnings = ReadBooleanAttribute(Element, "NotifyOnWarnings", true);
 
 				// Resolve all the inputs we depend on
@@ -1015,6 +1016,7 @@ namespace AutomationTool
 				{
 					// Add it to the node lookup
 					Node NewNode = new Node(Name, Inputs.ToArray(), ValidOutputNames.ToArray(), InputDependencies.ToArray(), OrderDependencies.ToArray(), ControllingTrigger, RequiredTokens.ToArray());
+					NewNode.bRunEarly = bRunEarly;
 					NewNode.bNotifyOnWarnings = bNotifyOnWarnings;
 					Graph.NameToNode.Add(Name, NewNode);
 

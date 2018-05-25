@@ -86,7 +86,7 @@ bool FOnlineIdentityNull::Login(int32 LocalUserNum, const FOnlineAccountCredenti
 		{
 			FString RandomUserId = GenerateRandomUserId(LocalUserNum);
 
-			FUniqueNetIdString NewUserId(RandomUserId);
+			FUniqueNetIdNull NewUserId(RandomUserId);
 			UserAccountPtr = MakeShareable(new FUserOnlineAccountNull(RandomUserId));
 			UserAccountPtr->UserAttributes.Add(USER_ATTR_ID, RandomUserId);
 
@@ -98,7 +98,7 @@ bool FOnlineIdentityNull::Login(int32 LocalUserNum, const FOnlineAccountCredenti
 		}
 		else
 		{
-			const FUniqueNetIdString* UniqueIdStr = (FUniqueNetIdString*)(UserId->Get());
+			const FUniqueNetIdNull* UniqueIdStr = (FUniqueNetIdNull*)(UserId->Get());
 			TSharedRef<FUserOnlineAccountNull>* TempPtr = UserAccounts.Find(*UniqueIdStr);
 			check(TempPtr);
 			UserAccountPtr = *TempPtr;
@@ -108,7 +108,7 @@ bool FOnlineIdentityNull::Login(int32 LocalUserNum, const FOnlineAccountCredenti
 	if (!ErrorStr.IsEmpty())
 	{
 		UE_LOG_ONLINE(Warning, TEXT("Login request failed. %s"), *ErrorStr);
-		TriggerOnLoginCompleteDelegates(LocalUserNum, false, FUniqueNetIdString(), ErrorStr);
+		TriggerOnLoginCompleteDelegates(LocalUserNum, false, FUniqueNetIdNull(), ErrorStr);
 		return false;
 	}
 
@@ -122,7 +122,7 @@ bool FOnlineIdentityNull::Logout(int32 LocalUserNum)
 	if (UserId.IsValid())
 	{
 		// remove cached user account
-		UserAccounts.Remove(FUniqueNetIdString(*UserId));
+		UserAccounts.Remove(FUniqueNetIdNull(*UserId));
 		// remove cached user id
 		UserIds.Remove(LocalUserNum);
 		// not async but should call completion delegate anyway
@@ -181,7 +181,7 @@ TSharedPtr<FUserOnlineAccount> FOnlineIdentityNull::GetUserAccount(const FUnique
 {
 	TSharedPtr<FUserOnlineAccount> Result;
 
-	FUniqueNetIdString StringUserId(UserId);
+	FUniqueNetIdNull StringUserId(UserId);
 	const TSharedRef<FUserOnlineAccountNull>* FoundUserAccount = UserAccounts.Find(StringUserId);
 	if (FoundUserAccount != NULL)
 	{
@@ -195,7 +195,7 @@ TArray<TSharedPtr<FUserOnlineAccount> > FOnlineIdentityNull::GetAllUserAccounts(
 {
 	TArray<TSharedPtr<FUserOnlineAccount> > Result;
 	
-	for (TMap<FUniqueNetIdString, TSharedRef<FUserOnlineAccountNull>>::TConstIterator It(UserAccounts); It; ++It)
+	for (TMap<FUniqueNetIdNull, TSharedRef<FUserOnlineAccountNull>>::TConstIterator It(UserAccounts); It; ++It)
 	{
 		Result.Add(It.Value());
 	}
@@ -218,14 +218,14 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityNull::CreateUniquePlayerId(uint8* 
 	if (Bytes != NULL && Size > 0)
 	{
 		FString StrId(Size, (TCHAR*)Bytes);
-		return MakeShareable(new FUniqueNetIdString(StrId));
+		return MakeShareable(new FUniqueNetIdNull(StrId));
 	}
 	return NULL;
 }
 
 TSharedPtr<const FUniqueNetId> FOnlineIdentityNull::CreateUniquePlayerId(const FString& Str)
 {
-	return MakeShareable(new FUniqueNetIdString(Str));
+	return MakeShareable(new FUniqueNetIdNull(Str));
 }
 
 ELoginStatus::Type FOnlineIdentityNull::GetLoginStatus(int32 LocalUserNum) const

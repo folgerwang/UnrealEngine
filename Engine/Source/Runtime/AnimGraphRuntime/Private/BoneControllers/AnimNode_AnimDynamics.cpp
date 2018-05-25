@@ -11,15 +11,116 @@ DEFINE_STAT(STAT_AnimDynamicsBoneEval);
 DEFINE_STAT(STAT_AnimDynamicsSubSteps);
 
 TAutoConsoleVariable<int32> CVarRestrictLod(TEXT("p.AnimDynamicsRestrictLOD"), -1, TEXT("Forces anim dynamics to be enabled for only a specified LOD, -1 to enable on all LODs."));
-TAutoConsoleVariable<int32> CVarEnableDynamics(TEXT("p.AnimDynamics"), 1, TEXT("Enables/Disables anim dynamics node updates."));
+TAutoConsoleVariable<int32> CVarLODThreshold(TEXT("p.AnimDynamicsLODThreshold"), -1, TEXT("Max LOD that anim dynamics is allowed to run on. Provides a global threshold that overrides per-node the LODThreshold property. -1 means no override."), ECVF_Scalability);
+TAutoConsoleVariable<int32> CVarEnableDynamics(TEXT("p.AnimDynamics"), 1, TEXT("Enables/Disables anim dynamics node updates."), ECVF_Scalability);
 TAutoConsoleVariable<int32> CVarEnableAdaptiveSubstep(TEXT("p.AnimDynamicsAdaptiveSubstep"), 0, TEXT("Enables/disables adaptive substepping. Adaptive substepping will substep the simulation when it is necessary and maintain a debt buffer for time, always trying to utilise as much time as possible."));
 TAutoConsoleVariable<int32> CVarAdaptiveSubstepNumDebtFrames(TEXT("p.AnimDynamicsNumDebtFrames"), 5, TEXT("Number of frames to maintain as time debt when using adaptive substepping, this should be at least 1 or the time debt will never be cleared."));
-TAutoConsoleVariable<int32> CVarEnableWind(TEXT("p.AnimDynamicsWind"), 1, TEXT("Enables/Disables anim dynamics wind forces globally."));
+TAutoConsoleVariable<int32> CVarEnableWind(TEXT("p.AnimDynamicsWind"), 1, TEXT("Enables/Disables anim dynamics wind forces globally."), ECVF_Scalability);
 
 const float FAnimNode_AnimDynamics::MaxTimeDebt = (1.0f / 60.0f) * 5.0f; // 5 frames max debt
 
+#if ENABLE_ANIM_DRAW_DEBUG
+
+TAutoConsoleVariable<int32> CVarShowDebug(TEXT("p.animdynamics.showdebug"), 0, TEXT("Enable/disable the drawing of animdynamics data."));
+TAutoConsoleVariable<FString> CVarDebugBone(TEXT("p.animdynamics.debugbone"), FString(), TEXT("Filters p.animdynamics.showdebug to a specific bone by name."));
+
+void FAnimNode_AnimDynamics::DrawBodies(FComponentSpacePoseContext& InContext, const TArray<FAnimPhysRigidBody*>& InBodies)
+{
+	if(CVarShowDebug.GetValueOnAnyThread() == 0)
+	{
+		return;
+	}
+
+	auto ToWorldT = [this](FComponentSpacePoseContext& InPoseContext, const FTransform& SimTransform)
+	{
+		FTransform OutTransform = GetComponentSpaceTransformFromSimSpace(SimulationSpace, InPoseContext, SimTransform);
+		OutTransform *= InPoseContext.AnimInstanceProxy->GetComponentTransform();
+		return OutTransform;
+	};
+
+	auto ToWorldV = [this](FComponentSpacePoseContext& InPoseContext, const FVector& SimLocation)
+	{
+		FVector OutLoc = GetComponentSpaceTransformFromSimSpace(SimulationSpace, InPoseContext, FTransform(SimLocation)).GetTranslation();
+		OutLoc = InPoseContext.AnimInstanceProxy->GetComponentTransform().TransformPosition(SimLocation);
+		return OutLoc;
+	};
+
+	FAnimInstanceProxy* Proxy = InContext.AnimInstanceProxy;
+
+	check(Proxy);
+
+	const FString FilteredBoneName = CVarDebugBone.GetValueOnAnyThread();
+	const bool bFilterBone = FilteredBoneName.Len() > 0;
+
+	const int32 NumBodies = Bodies.Num();
+	for(int32 BodyIndex = 0 ; BodyIndex < NumBodies ; ++BodyIndex)
+	{
+		const FAnimPhysRigidBody& Body = Bodies[BodyIndex].RigidBody.PhysBody;
+
+		if(bFilterBone && BoundBoneReferences[BodyIndex].BoneName != FName(*FilteredBoneName))
+		{
+			continue;
+		}
+
+		FTransform Transform(Body.Pose.Orientation, Body.Pose.Position + Body.Pose.Orientation.RotateVector(JointOffsets[BodyIndex]));
+		Transform = GetComponentSpaceTransformFromSimSpace(SimulationSpace, InContext, Transform);
+		Transform *= Proxy->GetComponentTransform();
+
+		Proxy->AnimDrawDebugCoordinateSystem(Transform.GetTranslation(), Transform.Rotator(), 2.0f, false, -1.0f, 0.15f);
+
+		for(const FAnimPhysShape& Shape : Body.Shapes)
+		{
+			const int32 NumTris = Shape.Triangles.Num();
+			for(int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
+			{
+				FIntVector Tri = Shape.Triangles[TriIndex];
+
+				Proxy->AnimDrawDebugLine(ToWorldV(InContext, Transform.TransformPosition(Shape.Vertices[Tri.X])), ToWorldV(InContext, Transform.TransformPosition(Shape.Vertices[Tri.Y])), FColor::Yellow, false, -1.0f, 0.15f);
+				Proxy->AnimDrawDebugLine(ToWorldV(InContext, Transform.TransformPosition(Shape.Vertices[Tri.Y])), ToWorldV(InContext, Transform.TransformPosition(Shape.Vertices[Tri.Z])), FColor::Yellow, false, -1.0f, 0.15f);
+				Proxy->AnimDrawDebugLine(ToWorldV(InContext, Transform.TransformPosition(Shape.Vertices[Tri.Z])), ToWorldV(InContext, Transform.TransformPosition(Shape.Vertices[Tri.X])), FColor::Yellow, false, -1.0f, 0.15f);
+			}
+		}
+	}
+
+	if(SimulationSpace != AnimPhysSimSpaceType::World)
+	{
+		FTransform Origin;
+
+		switch(SimulationSpace)
+		{
+			case AnimPhysSimSpaceType::Actor:
+			{
+				Origin = Proxy->GetActorTransform();
+			}
+			break;
+			case AnimPhysSimSpaceType::BoneRelative:
+			{
+				Origin = Proxy->GetComponentTransform() * InContext.Pose.GetComponentSpaceTransform(FCompactPoseBoneIndex(RelativeSpaceBone.BoneIndex));
+			}
+			break;
+			case AnimPhysSimSpaceType::Component:
+			{
+				Origin = Proxy->GetComponentTransform();
+			}
+			break;
+			case AnimPhysSimSpaceType::RootRelative:
+			{
+				Origin = Proxy->GetComponentTransform() * InContext.Pose.GetComponentSpaceTransform(FCompactPoseBoneIndex(0));
+			}
+			break;
+
+			default: break;
+		}
+
+		Proxy->AnimDrawDebugSphere(Origin.GetTranslation(), 25.0f, 16, FColor::Green, false, -1.0f, 0.15f);
+		Proxy->AnimDrawDebugCoordinateSystem(Origin.GetTranslation(), Origin.Rotator(), 3.0f, false, -1.0f, 0.15f);
+	}
+}
+#endif
+
 FAnimNode_AnimDynamics::FAnimNode_AnimDynamics()
 : SimulationSpace(AnimPhysSimSpaceType::Component)
+, bChain(false)
 , BoxExtents(0.0f)
 , LocalJointOffset(0.0f)
 , GravityScale(1.0f)
@@ -28,6 +129,7 @@ FAnimNode_AnimDynamics::FAnimNode_AnimDynamics()
 , LinearSpringConstant(0.0f)
 , AngularSpringConstant(0.0f)
 , bEnableWind(true)
+, bWindWasEnabled(false)
 , WindScale(1.0f)
 , bOverrideLinearDamping(false)
 , LinearDampingOverride(0.0f)
@@ -40,6 +142,12 @@ FAnimNode_AnimDynamics::FAnimNode_AnimDynamics()
 , NumSolverIterationsPreUpdate(4)
 , NumSolverIterationsPostUpdate(1)
 , bUsePlanarLimit(true)
+, bUseSphericalLimits(false)
+, CollisionType(AnimPhysCollisionType::CoM)
+, SphereCollisionRadius(0.0f)
+#if ENABLE_ANIM_DRAW_DEBUG
+, FilteredBoneIndex(INDEX_NONE)
+#endif
 {
 	
 }
@@ -54,7 +162,7 @@ void FAnimNode_AnimDynamics::Initialize_AnyThread(const FAnimationInitializeCont
 
 	if(BoundBone.IsValidToEvaluate(RequiredBones))
 	{
-		RequestInitialise();
+		RequestInitialise(ETeleportType::ResetPhysics);
 	}
 
 	NextTimeStep = 0.0f;
@@ -91,10 +199,10 @@ void FAnimNode_AnimDynamics::EvaluateSkeletalControl_AnyThread(FComponentSpacePo
 
 		// Pretty nasty - but there isn't really a good way to get clean bone transforms (without the modification from
 		// previous runs) so we have to initialize here, checking often so we can restart a simulation in the editor.
-		if (bRequiresInit)
+		if (InitTeleportType != ETeleportType::None)
 		{
 			InitPhysics(Output);
-			bRequiresInit = false;
+			InitTeleportType = ETeleportType::None;
 		}
 
 		const FBoneContainer& RequiredBones = Output.Pose.GetPose().GetBoneContainer();
@@ -134,6 +242,7 @@ void FAnimNode_AnimDynamics::EvaluateSkeletalControl_AnyThread(FComponentSpacePo
 
 			if (CVarEnableAdaptiveSubstep.GetValueOnAnyThread() == 1)
 			{
+				float CurrentTimeDilation = Output.AnimInstanceProxy->GetTimeDilation();
 				float FixedTimeStep = MaxSubstepDeltaTime * CurrentTimeDilation;
 
 				// Clamp the fixed timestep down to max physics tick time.
@@ -169,6 +278,10 @@ void FAnimNode_AnimDynamics::EvaluateSkeletalControl_AnyThread(FComponentSpacePo
 				UpdateLimits(Output);
 				FAnimPhys::PhysicsUpdate(NextTimeStep, SimBodies, LinearLimits, AngularLimits, Springs, SimSpaceGravityDirection, OrientedExternalForce, NumSolverIterationsPreUpdate, NumSolverIterationsPostUpdate);
 			}
+
+#if ENABLE_ANIM_DRAW_DEBUG
+			DrawBodies(Output, SimBodies);
+#endif
 		}
 
 		if (bDoEval)
@@ -200,6 +313,10 @@ void FAnimNode_AnimDynamics::EvaluateSkeletalControl_AnyThread(FComponentSpacePo
 
 		// Store our sim space incase it changes
 		LastSimSpace = SimulationSpace;
+
+		// Store previous component and actor space transform
+		PreviousCompWorldSpaceTM = Output.AnimInstanceProxy->GetComponentTransform();
+		PreviousActorWorldSpaceTM = Output.AnimInstanceProxy->GetActorTransform();
 	}
 }
 
@@ -338,191 +455,233 @@ const FBoneReference* FAnimNode_AnimDynamics::GetBoundBoneReference(int32 Index)
 
 #endif
 
+void FAnimNode_AnimDynamics::RequestInitialise(ETeleportType InTeleportType)
+{ 
+	// Request an initialization. Teleport type can only go higher - i.e. if we have requested a reset, then a teleport will still reset fully
+	InitTeleportType = ((InTeleportType > InitTeleportType) ? InTeleportType : InitTeleportType); 
+}
+
 void FAnimNode_AnimDynamics::InitPhysics(FComponentSpacePoseContext& Output)
 {
-	// Clear up any existing physics data
-	TermPhysics();
+	switch(InitTeleportType)
+	{
+		case ETeleportType::ResetPhysics:
+		{
+			// Clear up any existing physics data
+			TermPhysics();
 
-	const FBoneContainer& BoneContainer = Output.Pose.GetPose().GetBoneContainer();
+			const FBoneContainer& BoneContainer = Output.Pose.GetPose().GetBoneContainer();
 
 	
-	// List of bone indices in the chain.
-	TArray<int32> ChainBoneIndices;
-	TArray<FName> ChainBoneNames;
+			// List of bone indices in the chain.
+			TArray<int32> ChainBoneIndices;
+			TArray<FName> ChainBoneNames;
 
-	if(ChainEnd.IsValidToEvaluate(BoneContainer))
-	{
-		// Add the end of the chain. We have to walk from the bottom upwards to find a chain
-		// as walking downwards doesn't guarantee a single end point.
-
-		ChainBoneIndices.Add(ChainEnd.BoneIndex);
-		ChainBoneNames.Add(ChainEnd.BoneName);
-
-		int32 ParentBoneIndex = BoneContainer.GetParentBoneIndex(ChainEnd.BoneIndex);
-
-		// Walk up the chain until we either find the top or hit the root bone
-		while(ParentBoneIndex != 0)
-		{
-			ChainBoneIndices.Add(ParentBoneIndex);
-			ChainBoneNames.Add(BoneContainer.GetReferenceSkeleton().GetBoneName(ParentBoneIndex));
-
-			if(ParentBoneIndex == BoundBone.BoneIndex)
+			if(ChainEnd.IsValidToEvaluate(BoneContainer))
 			{
-				// Found the top of the chain
-				break;
-			}
+				// Add the end of the chain. We have to walk from the bottom upwards to find a chain
+				// as walking downwards doesn't guarantee a single end point.
 
-			ParentBoneIndex = BoneContainer.GetParentBoneIndex(ParentBoneIndex);
-		}
+				ChainBoneIndices.Add(ChainEnd.BoneIndex);
+				ChainBoneNames.Add(ChainEnd.BoneName);
 
-		// Bail if we can't find a chain, and let the user know
-		if(ParentBoneIndex != BoundBone.BoneIndex)
-		{
-			UE_LOG(LogAnimation, Error, TEXT("AnimDynamics: Attempted to find bone chain starting at %s and ending at %s but failed."), *BoundBone.BoneName.ToString(), *ChainEnd.BoneName.ToString());
-			return;
-		}
-	}
-	else
-	{
-		// No chain specified, just use the bound bone
-		ChainBoneIndices.Add(BoundBone.BoneIndex);
-		ChainBoneNames.Add(BoundBone.BoneName);
-	}
+				int32 ParentBoneIndex = BoneContainer.GetParentBoneIndex(ChainEnd.BoneIndex);
 
-	Bodies.Reserve(ChainBoneIndices.Num());
-	// Walk backwards here as the chain was discovered in reverse order
-	for (int32 Idx = ChainBoneIndices.Num() - 1; Idx >= 0; --Idx)
-	{
-		TArray<FAnimPhysShape> BodyShapes;
-		BodyShapes.Add(FAnimPhysShape::MakeBox(BoxExtents));
+				// Walk up the chain until we either find the top or hit the root bone
+				while(ParentBoneIndex != 0)
+				{
+					ChainBoneIndices.Add(ParentBoneIndex);
+					ChainBoneNames.Add(BoneContainer.GetReferenceSkeleton().GetBoneName(ParentBoneIndex));
 
-		FBoneReference LinkBoneRef;
-		LinkBoneRef.BoneName = ChainBoneNames[Idx];
-		LinkBoneRef.Initialize(BoneContainer);
+					if(ParentBoneIndex == BoundBone.BoneIndex)
+					{
+						// Found the top of the chain
+						break;
+					}
 
-		// Calculate joint offsets by looking at the length of the bones and extending the provided offset
-		if (BoundBoneReferences.Num() > 0)
-		{
-			FTransform CurrentBoneTransform = GetBoneTransformInSimSpace(Output, LinkBoneRef.GetCompactPoseIndex(BoneContainer));
-			FTransform PreviousBoneTransform = GetBoneTransformInSimSpace(Output, BoundBoneReferences.Last().GetCompactPoseIndex(BoneContainer));
+					ParentBoneIndex = BoneContainer.GetParentBoneIndex(ParentBoneIndex);
+				}
 
-			FVector PreviousAnchor = PreviousBoneTransform.TransformPosition(-LocalJointOffset);
-			float DistanceToAnchor = (PreviousBoneTransform.GetTranslation() - CurrentBoneTransform.GetTranslation()).Size() * 0.5f;
-
-			if(LocalJointOffset.SizeSquared() < SMALL_NUMBER)
-			{
-				// No offset, just use the position between chain links as the offset
-				// This is likely to just look horrible, but at least the bodies will
-				// be placed correctly and not stack up at the top of the chain.
-				JointOffsets.Add(PreviousAnchor - CurrentBoneTransform.GetTranslation());
+				// Bail if we can't find a chain, and let the user know
+				if(ParentBoneIndex != BoundBone.BoneIndex)
+				{
+					UE_LOG(LogAnimation, Error, TEXT("AnimDynamics: Attempted to find bone chain starting at %s and ending at %s but failed."), *BoundBone.BoneName.ToString(), *ChainEnd.BoneName.ToString());
+					return;
+				}
 			}
 			else
 			{
-				// Extend offset along chain.
-				JointOffsets.Add(LocalJointOffset.GetSafeNormal() * DistanceToAnchor);
+				// No chain specified, just use the bound bone
+				ChainBoneIndices.Add(BoundBone.BoneIndex);
+				ChainBoneNames.Add(BoundBone.BoneName);
+			}
+
+			Bodies.Reserve(ChainBoneIndices.Num());
+			// Walk backwards here as the chain was discovered in reverse order
+			for (int32 Idx = ChainBoneIndices.Num() - 1; Idx >= 0; --Idx)
+			{
+				TArray<FAnimPhysShape> BodyShapes;
+				BodyShapes.Add(FAnimPhysShape::MakeBox(BoxExtents));
+
+				FBoneReference LinkBoneRef;
+				LinkBoneRef.BoneName = ChainBoneNames[Idx];
+				LinkBoneRef.Initialize(BoneContainer);
+
+				// Calculate joint offsets by looking at the length of the bones and extending the provided offset
+				if (BoundBoneReferences.Num() > 0)
+				{
+					FTransform CurrentBoneTransform = GetBoneTransformInSimSpace(Output, LinkBoneRef.GetCompactPoseIndex(BoneContainer));
+					FTransform PreviousBoneTransform = GetBoneTransformInSimSpace(Output, BoundBoneReferences.Last().GetCompactPoseIndex(BoneContainer));
+
+					FVector PreviousAnchor = PreviousBoneTransform.TransformPosition(-LocalJointOffset);
+					float DistanceToAnchor = (PreviousBoneTransform.GetTranslation() - CurrentBoneTransform.GetTranslation()).Size() * 0.5f;
+
+					if(LocalJointOffset.SizeSquared() < SMALL_NUMBER)
+					{
+						// No offset, just use the position between chain links as the offset
+						// This is likely to just look horrible, but at least the bodies will
+						// be placed correctly and not stack up at the top of the chain.
+						JointOffsets.Add(PreviousAnchor - CurrentBoneTransform.GetTranslation());
+					}
+					else
+					{
+						// Extend offset along chain.
+						JointOffsets.Add(LocalJointOffset.GetSafeNormal() * DistanceToAnchor);
+					}
+				}
+				else
+				{
+					// No chain to worry about, just use the specified offset.
+					JointOffsets.Add(LocalJointOffset);
+				}
+
+				BoundBoneReferences.Add(LinkBoneRef);
+
+				FTransform BodyTransform = GetBoneTransformInSimSpace(Output, LinkBoneRef.GetCompactPoseIndex(BoneContainer));
+
+				BodyTransform.SetTranslation(BodyTransform.GetTranslation() + BodyTransform.GetRotation().RotateVector(-LocalJointOffset));
+
+				FAnimPhysLinkedBody NewChainBody(BodyShapes, BodyTransform.GetTranslation(), LinkBoneRef);
+				FAnimPhysRigidBody& PhysicsBody = NewChainBody.RigidBody.PhysBody;
+				PhysicsBody.Pose.Orientation = BodyTransform.GetRotation();
+				PhysicsBody.PreviousOrientation = PhysicsBody.Pose.Orientation;
+				PhysicsBody.NextOrientation = PhysicsBody.Pose.Orientation;
+				PhysicsBody.CollisionType = CollisionType;
+
+				switch(PhysicsBody.CollisionType)
+				{
+					case AnimPhysCollisionType::CustomSphere:
+						PhysicsBody.SphereCollisionRadius = SphereCollisionRadius;
+						break;
+					case AnimPhysCollisionType::InnerSphere:
+						PhysicsBody.SphereCollisionRadius = BoxExtents.GetAbsMin() / 2.0f;
+						break;
+					case AnimPhysCollisionType::OuterSphere:
+						PhysicsBody.SphereCollisionRadius = BoxExtents.GetAbsMax() / 2.0f;
+						break;
+					default:
+						break;
+				}
+
+				if (bOverrideLinearDamping)
+				{
+					PhysicsBody.bLinearDampingOverriden = true;
+					PhysicsBody.LinearDamping = LinearDampingOverride;
+				}
+
+				if (bOverrideAngularDamping)
+				{
+					PhysicsBody.bAngularDampingOverriden = true;
+					PhysicsBody.AngularDamping = AngularDampingOverride;
+				}
+
+				PhysicsBody.GravityScale = GravityScale;
+				PhysicsBody.bWindEnabled = bWindWasEnabled;
+
+				// Link to parent
+				if (Bodies.Num() > 0)
+				{
+					NewChainBody.ParentBody = &Bodies.Last().RigidBody;
+				}
+
+				Bodies.Add(NewChainBody);
+				ActiveBoneIndices.Add(Bodies.Num() - 1);
+			}
+	
+			BaseBodyPtrs.Empty();
+			for(FAnimPhysLinkedBody& Body : Bodies)
+			{
+				BaseBodyPtrs.Add(&Body.RigidBody.PhysBody);
+			}
+
+			// Set up transient constraint data
+			const bool bXAxisLocked = ConstraintSetup.LinearXLimitType != AnimPhysLinearConstraintType::Free && ConstraintSetup.LinearAxesMin.X - ConstraintSetup.LinearAxesMax.X == 0.0f;
+			const bool bYAxisLocked = ConstraintSetup.LinearYLimitType != AnimPhysLinearConstraintType::Free && ConstraintSetup.LinearAxesMin.Y - ConstraintSetup.LinearAxesMax.Y == 0.0f;
+			const bool bZAxisLocked = ConstraintSetup.LinearZLimitType != AnimPhysLinearConstraintType::Free && ConstraintSetup.LinearAxesMin.Z - ConstraintSetup.LinearAxesMax.Z == 0.0f;
+
+			ConstraintSetup.bLinearFullyLocked = bXAxisLocked && bYAxisLocked && bZAxisLocked;
+
+			// Cache physics settings to avoid accessing UPhysicsSettings continuously
+			if(UPhysicsSettings* Settings = UPhysicsSettings::Get())
+			{
+				MaxPhysicsDeltaTime = Settings->MaxPhysicsDeltaTime;
+				MaxSubstepDeltaTime = Settings->MaxSubstepDeltaTime;
+				MaxSubsteps = Settings->MaxSubsteps;
+			}
+			else
+			{
+				MaxPhysicsDeltaTime = (1.0f/30.0f);
+				MaxSubstepDeltaTime = (1.0f/60.0f);
+				MaxSubsteps = 4;
+			}
+
+			SimSpaceGravityDirection = TransformWorldVectorToSimSpace(Output, FVector(0.0f, 0.0f, -1.0f));
+		}
+		break;
+
+		case ETeleportType::TeleportPhysics:
+		{
+			// Clear any external forces
+			ExternalForce = FVector::ZeroVector;
+
+			// Move any active bones
+			for(const int32& BodyIndex : ActiveBoneIndices)
+			{
+				FAnimPhysRigidBody& Body = Bodies[BodyIndex].RigidBody.PhysBody;
+
+				// Get old comp space transform
+				FTransform BodyTransform(Body.Pose.Orientation, Body.Pose.Position + Body.Pose.Orientation.RotateVector(JointOffsets[BodyIndex]));
+				BodyTransform = GetComponentSpaceTransformFromSimSpace(SimulationSpace, Output, BodyTransform, PreviousCompWorldSpaceTM, PreviousActorWorldSpaceTM);
+
+				// move to new space
+				BodyTransform = GetSimSpaceTransformFromComponentSpace(SimulationSpace, Output, BodyTransform);
+				
+				Body.Pose.Orientation = BodyTransform.GetRotation();
+				Body.PreviousOrientation = Body.Pose.Orientation;
+				Body.NextOrientation = Body.Pose.Orientation;
+
+				Body.Pose.Position = BodyTransform.GetTranslation() - Body.Pose.Orientation.RotateVector(JointOffsets[BodyIndex]);
 			}
 		}
-		else
-		{
-			// No chain to worry about, just use the specified offset.
-			JointOffsets.Add(LocalJointOffset);
-		}
-
-		BoundBoneReferences.Add(LinkBoneRef);
-
-		FTransform BodyTransform = GetBoneTransformInSimSpace(Output, LinkBoneRef.GetCompactPoseIndex(BoneContainer));
-
-		BodyTransform.SetTranslation(BodyTransform.GetTranslation() + BodyTransform.GetRotation().RotateVector(-LocalJointOffset));
-
-		FAnimPhysLinkedBody NewChainBody(BodyShapes, BodyTransform.GetTranslation(), LinkBoneRef);
-		FAnimPhysRigidBody& PhysicsBody = NewChainBody.RigidBody.PhysBody;
-		PhysicsBody.Pose.Orientation = BodyTransform.GetRotation();
-		PhysicsBody.PreviousOrientation = PhysicsBody.Pose.Orientation;
-		PhysicsBody.NextOrientation = PhysicsBody.Pose.Orientation;
-		PhysicsBody.CollisionType = CollisionType;
-
-		switch(PhysicsBody.CollisionType)
-		{
-			case AnimPhysCollisionType::CustomSphere:
-				PhysicsBody.SphereCollisionRadius = SphereCollisionRadius;
-				break;
-			case AnimPhysCollisionType::InnerSphere:
-				PhysicsBody.SphereCollisionRadius = BoxExtents.GetAbsMin() / 2.0f;
-				break;
-			case AnimPhysCollisionType::OuterSphere:
-				PhysicsBody.SphereCollisionRadius = BoxExtents.GetAbsMax() / 2.0f;
-				break;
-			default:
-				break;
-		}
-
-		if (bOverrideLinearDamping)
-		{
-			PhysicsBody.bLinearDampingOverriden = true;
-			PhysicsBody.LinearDamping = LinearDampingOverride;
-		}
-
-		if (bOverrideAngularDamping)
-		{
-			PhysicsBody.bAngularDampingOverriden = true;
-			PhysicsBody.AngularDamping = AngularDampingOverride;
-		}
-
-		PhysicsBody.GravityScale = GravityScale;
-		PhysicsBody.bWindEnabled = bWindWasEnabled;
-
-		// Link to parent
-		if (Bodies.Num() > 0)
-		{
-			NewChainBody.ParentBody = &Bodies.Last().RigidBody;
-		}
-
-		Bodies.Add(NewChainBody);
-		ActiveBoneIndices.Add(Bodies.Num() - 1);
-	}
-	
-	BaseBodyPtrs.Empty();
-	for(FAnimPhysLinkedBody& Body : Bodies)
-	{
-		BaseBodyPtrs.Add(&Body.RigidBody.PhysBody);
+		break;
 	}
 
-	// Set up transient constraint data
-	const bool bXAxisLocked = ConstraintSetup.LinearXLimitType != AnimPhysLinearConstraintType::Free && ConstraintSetup.LinearAxesMin.X - ConstraintSetup.LinearAxesMax.X == 0.0f;
-	const bool bYAxisLocked = ConstraintSetup.LinearYLimitType != AnimPhysLinearConstraintType::Free && ConstraintSetup.LinearAxesMin.Y - ConstraintSetup.LinearAxesMax.Y == 0.0f;
-	const bool bZAxisLocked = ConstraintSetup.LinearZLimitType != AnimPhysLinearConstraintType::Free && ConstraintSetup.LinearAxesMin.Z - ConstraintSetup.LinearAxesMax.Z == 0.0f;
-
-	ConstraintSetup.bLinearFullyLocked = bXAxisLocked && bYAxisLocked && bZAxisLocked;
-
-	// Cache physics settings to avoid accessing UPhysicsSettings continuously
-	if(UPhysicsSettings* Settings = UPhysicsSettings::Get())
-	{
-		MaxPhysicsDeltaTime = Settings->MaxPhysicsDeltaTime;
-		MaxSubstepDeltaTime = Settings->MaxSubstepDeltaTime;
-		MaxSubsteps = Settings->MaxSubsteps;
-	}
-	else
-	{
-		MaxPhysicsDeltaTime = (1.0f/30.0f);
-		MaxSubstepDeltaTime = (1.0f/60.0f);
-		MaxSubsteps = 4;
-	}
-
-	SimSpaceGravityDirection = TransformWorldVectorToSimSpace(Output, FVector(0.0f, 0.0f, -1.0f));
-
-	bRequiresInit = false;
+	InitTeleportType = ETeleportType::None;
+	PreviousCompWorldSpaceTM = Output.AnimInstanceProxy->GetComponentTransform();
+	PreviousActorWorldSpaceTM = Output.AnimInstanceProxy->GetActorTransform();
 }
 
 void FAnimNode_AnimDynamics::TermPhysics()
 {
-	Bodies.Empty();
-	LinearLimits.Empty();
-	AngularLimits.Empty();
-	Springs.Empty();
+	Bodies.Reset();
+	LinearLimits.Reset();
+	AngularLimits.Reset();
+	Springs.Reset();
+	ActiveBoneIndices.Reset();
 
-	BoundBoneReferences.Empty();
-	JointOffsets.Empty();
-	BodiesToReset.Empty();
+	BoundBoneReferences.Reset();
+	JointOffsets.Reset();
+	BodiesToReset.Reset();
 }
 
 void FAnimNode_AnimDynamics::UpdateLimits(FComponentSpacePoseContext& Output)
@@ -679,6 +838,20 @@ void FAnimNode_AnimDynamics::UpdateLimits(FComponentSpacePoseContext& Output)
 	}
 }
 
+bool FAnimNode_AnimDynamics::HasPreUpdate() const
+{
+	if(CVarEnableDynamics.GetValueOnGameThread() == 1)
+	{
+		return (CVarEnableWind.GetValueOnGameThread() == 1 && (bEnableWind || bWindWasEnabled))
+#if ENABLE_ANIM_DRAW_DEBUG
+				|| (CVarShowDebug.GetValueOnGameThread() == 1 && !CVarDebugBone.GetValueOnGameThread().IsEmpty())
+#endif
+				;
+	}
+
+	return false;
+}
+
 void FAnimNode_AnimDynamics::PreUpdate(const UAnimInstance* InAnimInstance)
 {
 	// If dynamics are disabled, skip all this work as it'll never get used
@@ -703,9 +876,6 @@ void FAnimNode_AnimDynamics::PreUpdate(const UAnimInstance* InAnimInstance)
 
 	const UWorld* World = SkelComp->GetWorld();
 
-	check(World->GetWorldSettings());
-
-	CurrentTimeDilation = World->GetWorldSettings()->GetEffectiveTimeDilation();
 	if(CVarEnableWind.GetValueOnAnyThread() == 1 && bEnableWind)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_AnimDynamicsWindData);
@@ -742,6 +912,37 @@ void FAnimNode_AnimDynamics::PreUpdate(const UAnimInstance* InAnimInstance)
 			Body->bWindEnabled = false;
 		}
 	}
+
+#if ENABLE_ANIM_DRAW_DEBUG
+	FilteredBoneIndex = INDEX_NONE;
+	if(SkelComp)
+	{
+		FString FilteredBoneName = CVarDebugBone.GetValueOnGameThread();
+		if(FilteredBoneName.Len() > 0)
+		{
+			FilteredBoneIndex = SkelComp->GetBoneIndex(FName(*FilteredBoneName));
+		}
+	}
+#endif
+}
+
+int32 FAnimNode_AnimDynamics::GetLODThreshold() const
+{
+	if(CVarLODThreshold.GetValueOnAnyThread() != -1)
+	{
+		if(LODThreshold != -1)
+		{
+			return FMath::Min(LODThreshold, CVarLODThreshold.GetValueOnAnyThread());
+		}
+		else
+		{
+			return CVarLODThreshold.GetValueOnAnyThread();
+		}
+	}
+	else
+	{
+		return LODThreshold;
+	}
 }
 
 FTransform FAnimNode_AnimDynamics::GetBoneTransformInSimSpace(FComponentSpacePoseContext& Output, const FCompactPoseBoneIndex& BoneIndex)
@@ -752,6 +953,11 @@ FTransform FAnimNode_AnimDynamics::GetBoneTransformInSimSpace(FComponentSpacePos
 }
 
 FTransform FAnimNode_AnimDynamics::GetComponentSpaceTransformFromSimSpace(AnimPhysSimSpaceType SimSpace, FComponentSpacePoseContext& Output, const FTransform& InSimTransform)
+{
+	return GetComponentSpaceTransformFromSimSpace(SimSpace, Output, InSimTransform, Output.AnimInstanceProxy->GetComponentTransform(), Output.AnimInstanceProxy->GetActorTransform());
+}
+
+FTransform FAnimNode_AnimDynamics::GetComponentSpaceTransformFromSimSpace(AnimPhysSimSpaceType SimSpace, FComponentSpacePoseContext& Output, const FTransform& InSimTransform, const FTransform& InCompWorldSpaceTM, const FTransform& InActorWorldSpaceTM)
 {
 	FTransform OutTransform = InSimTransform;
 
@@ -765,8 +971,8 @@ FTransform FAnimNode_AnimDynamics::GetComponentSpaceTransformFromSimSpace(AnimPh
 
 	case AnimPhysSimSpaceType::Actor:
 	{
-		FTransform WorldTransform(OutTransform * Output.AnimInstanceProxy->GetActorTransform());
-		WorldTransform.SetToRelativeTransform(Output.AnimInstanceProxy->GetComponentTransform());
+		FTransform WorldTransform(OutTransform * InActorWorldSpaceTM);
+		WorldTransform.SetToRelativeTransform(InCompWorldSpaceTM);
 		OutTransform = WorldTransform;
 
 		break;
@@ -797,7 +1003,7 @@ FTransform FAnimNode_AnimDynamics::GetComponentSpaceTransformFromSimSpace(AnimPh
 	}
 	case AnimPhysSimSpaceType::World:
 	{
-		OutTransform *= Output.AnimInstanceProxy->GetComponentTransform().Inverse();
+		OutTransform *= InCompWorldSpaceTM.Inverse();
 	}
 
 	default:

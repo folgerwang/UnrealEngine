@@ -160,9 +160,7 @@ linear_set_converter (SRC_PRIVATE *psrc, int src_enum)
 {	LINEAR_DATA *priv = NULL ;
 
 	if (src_enum != SRC_LINEAR)
-	{
-		return SRC_ERR_BAD_CONVERTER;
-	}
+		return SRC_ERR_BAD_CONVERTER ;
 
 	if (psrc->private_data != NULL)
 	{	
@@ -172,7 +170,7 @@ linear_set_converter (SRC_PRIVATE *psrc, int src_enum)
 
 	if (psrc->private_data == NULL)
 	{	
-		priv = (LINEAR_DATA *) FMemory::Malloc(sizeof(LINEAR_DATA) + psrc->channels * sizeof (float));
+		priv = (LINEAR_DATA *)FMemory::Malloc(sizeof(LINEAR_DATA) + psrc->channels * sizeof(float));
 		*priv = LINEAR_DATA();
 		void* BufferPtr = ((uint8*)priv) + sizeof(LINEAR_DATA);
 		FMemory::Memset(BufferPtr, 0, psrc->channels * sizeof(float));
@@ -180,9 +178,7 @@ linear_set_converter (SRC_PRIVATE *psrc, int src_enum)
 	}
 
 	if (priv == NULL)
-	{
-		return SRC_ERR_MALLOC_FAILED;
-	}
+		return SRC_ERR_MALLOC_FAILED ;
 
 	priv->linear_magic_marker = LINEAR_MAGIC_MARKER ;
 	priv->channels = psrc->channels ;
@@ -191,7 +187,7 @@ linear_set_converter (SRC_PRIVATE *psrc, int src_enum)
 	psrc->vari_process = linear_vari_process ;
 	psrc->reset = linear_reset ;
 
-	linear_reset(psrc) ;
+	linear_reset (psrc) ;
 
 	return SRC_ERR_NO_ERROR ;
 } /* linear_set_converter */
@@ -209,7 +205,7 @@ linear_reset (SRC_PRIVATE *psrc)
 
 	priv->channels = psrc->channels ;
 	priv->reset = 1 ;
-	FMemory::Memset(priv->last_value, 0, sizeof(priv->last_value [0]) * priv->channels) ;
+	FMemory::Memset(priv->last_value, 0, sizeof (priv->last_value [0]) * priv->channels) ;
 
 	return ;
 } /* linear_reset */

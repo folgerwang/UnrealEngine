@@ -12,6 +12,18 @@ class FOnlineSessionSearch;
 class FOnlineSessionSearchResult;
 class FOnlineSessionSettings;
 
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineSession, Display, All);
+
+#define UE_LOG_ONLINE_SESSION(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineSession, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINESESSION(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineSession, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
 /**
  * Delegate fired when a session create request has completed
  *
@@ -111,29 +123,26 @@ namespace EOnJoinSessionCompleteResult
 	};
 }
 
-namespace Lex
+/** Convert a EOnJoinSessionCompleteResult into a string */
+inline const TCHAR* LexToString(const EOnJoinSessionCompleteResult::Type Value)
 {
-	/** Convert a EOnJoinSessionCompleteResult into a string */
-	inline const TCHAR* ToString(const EOnJoinSessionCompleteResult::Type Value)
+	switch (Value)
 	{
-		switch (Value)
-		{
-		case EOnJoinSessionCompleteResult::Success:
-			return TEXT("Success");
-		case EOnJoinSessionCompleteResult::SessionIsFull:
-			return TEXT("SessionIsFull");
-		case EOnJoinSessionCompleteResult::SessionDoesNotExist:
-			return TEXT("SessionDoesNotExist");
-		case EOnJoinSessionCompleteResult::CouldNotRetrieveAddress:
-			return TEXT("CouldNotretrieveAddress");
-		case EOnJoinSessionCompleteResult::AlreadyInSession:
-			return TEXT("AlreadyInSession");
-		case EOnJoinSessionCompleteResult::UnknownError:
-			; // Intentional fall-through
-		}
-		
-		return TEXT("UnknownError");
+	case EOnJoinSessionCompleteResult::Success:
+		return TEXT("Success");
+	case EOnJoinSessionCompleteResult::SessionIsFull:
+		return TEXT("SessionIsFull");
+	case EOnJoinSessionCompleteResult::SessionDoesNotExist:
+		return TEXT("SessionDoesNotExist");
+	case EOnJoinSessionCompleteResult::CouldNotRetrieveAddress:
+		return TEXT("CouldNotretrieveAddress");
+	case EOnJoinSessionCompleteResult::AlreadyInSession:
+		return TEXT("AlreadyInSession");
+	case EOnJoinSessionCompleteResult::UnknownError:
+		; // Intentional fall-through
 	}
+		
+	return TEXT("UnknownError");
 }
 
 /**
@@ -283,6 +292,13 @@ protected:
 
 public:
 	virtual ~IOnlineSession() {};
+
+	/**
+	 * Create a session id from a string
+	 * @param SessionIdStr the string representation of the session id
+	 * @return a session id, or nullptr if SessionIdStr is invalid
+	 */
+	virtual TSharedPtr<const FUniqueNetId> CreateSessionIdFromString(const FString& SessionIdStr) = 0;
 
 	/**
 	 * Searches the named session array for the specified session
@@ -503,6 +519,7 @@ public:
 	 * Find a single advertised session by session id
 	 *
 	 * @param SearchingUserId user initiating the request
+	 * @param Platform platform the session is on
 	 * @param SessionId session id to search for
 	 * @param FriendId optional id of user to verify in session
 	 * @param CompletionDelegate delegate to call on completion

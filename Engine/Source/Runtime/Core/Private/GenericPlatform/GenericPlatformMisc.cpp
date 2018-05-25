@@ -27,6 +27,8 @@
 #include "GenericPlatform/GenericPlatformCrashContext.h"
 #include "GenericPlatform/GenericPlatformDriver.h"
 #include "ProfilingDebugging/ExternalProfiler.h"
+#include "HAL/LowLevelMemTracker.h"
+#include "Templates/Function.h"
 
 #include "Misc/UProjectInfo.h"
 #include "Internationalization/Culture.h"
@@ -178,6 +180,39 @@ FString FSHA256Signature::ToString() const
 	}
 	return LocalHashStr;
 }
+
+/* ENetworkConnectionType interface
+ *****************************************************************************/
+
+    const TCHAR* LexToString( ENetworkConnectionType Target )
+    {
+        switch (Target)
+        {
+            case ENetworkConnectionType::None:
+                return TEXT("None");
+                
+            case ENetworkConnectionType::AirplaneMode:
+                return TEXT("AirplaneMode");
+                
+            case ENetworkConnectionType::Cell:
+                return TEXT("Cell");
+                
+            case ENetworkConnectionType::WiFi:
+                return TEXT("WiFi");
+                
+            case ENetworkConnectionType::Ethernet:
+                return TEXT("Ethernet");
+                
+			case ENetworkConnectionType::Bluetooth:
+				return TEXT("Bluetooth");
+
+			case ENetworkConnectionType::WiMAX:
+				return TEXT("WiMAX");
+
+			default:
+                return TEXT("Unknown");
+        }
+    }
 
 /* FGenericPlatformMisc interface
  *****************************************************************************/
@@ -359,17 +394,19 @@ void FGenericPlatformMisc::RaiseException(uint32 ExceptionCode)
 
 void FGenericPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
 {
+#if UE_EXTERNAL_PROFILING_ENABLED
 	//If there's an external profiler attached, trigger its scoped event.
 	FExternalProfiler* CurrentProfiler = FActiveExternalProfilerBase::GetActiveProfiler();
-
 	if (CurrentProfiler != NULL)
 	{
 		CurrentProfiler->StartScopedEvent(ANSI_TO_TCHAR(Text));
 	}
+#endif
 }
 
 void FGenericPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
 {
+#if UE_EXTERNAL_PROFILING_ENABLED
 	//If there's an external profiler attached, trigger its scoped event.
 	FExternalProfiler* CurrentProfiler = FActiveExternalProfilerBase::GetActiveProfiler();
 
@@ -377,10 +414,12 @@ void FGenericPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCH
 	{
 		CurrentProfiler->StartScopedEvent(Text);
 	}
+#endif
 }
 
 void FGenericPlatformMisc::EndNamedEvent()
 {
+#if UE_EXTERNAL_PROFILING_ENABLED
 	//If there's an external profiler attached, trigger its scoped event.
 	FExternalProfiler* CurrentProfiler = FActiveExternalProfilerBase::GetActiveProfiler();
 
@@ -388,6 +427,7 @@ void FGenericPlatformMisc::EndNamedEvent()
 	{
 		CurrentProfiler->EndScopedEvent();
 	}
+#endif
 }
 
 bool FGenericPlatformMisc::SetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, const FString& InValue)
@@ -480,7 +520,9 @@ void FGenericPlatformMisc::SetUTF8Output()
 
 void FGenericPlatformMisc::LocalPrint( const TCHAR* Str )
 {
-#if PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
+#if PLATFORM_TCHAR_IS_CHAR16
+	printf("%s", TCHAR_TO_UTF8(Str));
+#elif PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
 	printf("%ls", Str);
 #else
 	wprintf(TEXT("%s"), Str);
@@ -899,9 +941,53 @@ const TCHAR* FGenericPlatformMisc::GetDefaultDeviceProfileName()
 	return TEXT("Default");
 }
 
+float FGenericPlatformMisc::GetDeviceTemperatureLevel()
+{
+	return -1.0f;
+}
+
 void FGenericPlatformMisc::SetOverrideProjectDir(const FString& InOverrideDir)
 {
 	OverrideProjectDir = InOverrideDir;
+}
+
+bool FGenericPlatformMisc::UseRenderThread()
+{
+	// look for disabling commandline options (-onethread is old-school, here for compatibility with people's brains)
+	if (FParse::Param(FCommandLine::Get(), TEXT("norenderthread")) || FParse::Param(FCommandLine::Get(), TEXT("onethread")))
+	{
+		return false;
+	}
+
+	// single core devices shouldn't use it (unless that platform overrides this function - maybe RT could be required?)
+	if (FPlatformMisc::NumberOfCoresIncludingHyperthreads() < 2)
+	{
+		return false;
+	}
+
+	// if the platform doesn't allow threading at all, we really can't use it
+	if (FPlatformProcess::SupportsMultithreading() == false)
+	{
+		return false;
+	}
+
+	// dedicated servers should not use a rendering thread
+	if (IsRunningDedicatedServer())
+	{
+		return false;
+	}
+
+
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+	// disable rendering thread when LLM wants to so that memory is attributer better
+	if (FLowLevelMemTracker::Get().ShouldReduceThreads())
+	{
+		return false;
+	}
+#endif
+
+	// allow if not overridden
+	return true;
 }
 
 bool FGenericPlatformMisc::AllowThreadHeartBeat()
@@ -1102,4 +1188,14 @@ bool FGenericPlatformMisc::IsRegisteredForRemoteNotifications()
 void FGenericPlatformMisc::UnregisterForRemoteNotifications()
 {
 	// not implemented by default
+}
+
+void FGenericPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QueryCompleteFunc)
+{
+	// not implemented by default
+}
+
+TArray<FChunkTagID> FGenericPlatformMisc::GetOnDemandChunkTagIDs()
+{
+	return TArray<FChunkTagID>();
 }

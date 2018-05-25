@@ -8,7 +8,7 @@ FOnlineIdentityGooglePlay::FPendingConnection FOnlineIdentityGooglePlay::Pending
 FOnlineIdentityGooglePlay::FOnlineIdentityGooglePlay(FOnlineSubsystemGooglePlay* InSubsystem)
 	: bPrevLoggedIn(false)
 	, bLoggedIn(false)
-	, PlayerAlias("NONE")
+	, PlayerAlias("")
 	, AuthToken("NONE")
 	, MainSubsystem(InSubsystem)
 	, bRegisteringUser(false)
@@ -46,7 +46,7 @@ bool FOnlineIdentityGooglePlay::Login(int32 LocalUserNum, const FOnlineAccountCr
 		int32 Len = FCString::Snprintf(Line, MAX_TEXT_LINE_LEN, TEXT("%d"), LocalUserNum);
 
 		const FString PlayerId(Line);
-		UniqueNetId = MakeShareable(new FUniqueNetIdString(PlayerId));
+		UniqueNetId = MakeShareable(new FUniqueNetIdGooglePlay(PlayerId));
 		TriggerOnLoginCompleteDelegates(LocalUserNum, true, *UniqueNetId, TEXT(""));
 	}
 	else if (!PendingConnectRequest.IsConnectionPending)
@@ -57,7 +57,7 @@ bool FOnlineIdentityGooglePlay::Login(int32 LocalUserNum, const FOnlineAccountCr
 	}
 	else
 	{
-		TriggerOnLoginCompleteDelegates(LocalUserNum, false, FUniqueNetIdString(TEXT("")), FString("Already trying to login"));
+		TriggerOnLoginCompleteDelegates(LocalUserNum, false, FUniqueNetIdGooglePlay(TEXT("")), FString("Already trying to login"));
 	}
 	
 	return bStartedLogin;
@@ -106,7 +106,7 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityGooglePlay::GetUniquePlayerId(int3
 		return UniqueNetId;
 	}
 
-	TSharedPtr<const FUniqueNetId> NewID = MakeShareable(new FUniqueNetIdString(""));
+	TSharedPtr<const FUniqueNetId> NewID = MakeShareable(new FUniqueNetIdGooglePlay(""));
 	return NewID;
 }
 
@@ -119,7 +119,7 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityGooglePlay::CreateUniquePlayerId(u
 		if (StrLen > 0)
 		{
 			FString StrId((TCHAR*)Bytes);
-			return MakeShareable(new FUniqueNetIdString(StrId));
+			return MakeShareable(new FUniqueNetIdGooglePlay(StrId));
 		}
 	}
 	return NULL;
@@ -128,7 +128,7 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityGooglePlay::CreateUniquePlayerId(u
 
 TSharedPtr<const FUniqueNetId> FOnlineIdentityGooglePlay::CreateUniquePlayerId(const FString& Str)
 {
-	return MakeShareable(new FUniqueNetIdString(Str));
+	return MakeShareable(new FUniqueNetIdGooglePlay(Str));
 }
 
 
@@ -170,7 +170,7 @@ void FOnlineIdentityGooglePlay::OnLoginCompleted(const int playerID, const gpg::
 	TCHAR Line[MAX_TEXT_LINE_LEN + 1] = { 0 };
 	int32 Len = FCString::Snprintf(Line, MAX_TEXT_LINE_LEN, TEXT("%d"), playerID);
 
-	UniqueNetId = MakeShareable(new FUniqueNetIdString(Line));
+	UniqueNetId = MakeShareable(new FUniqueNetIdGooglePlay(Line));
 	bLoggedIn = errorCode == gpg::AuthStatus::VALID;
 	TriggerOnLoginCompleteDelegates(playerID, bLoggedIn, *UniqueNetId, TEXT(""));
 
@@ -204,7 +204,7 @@ FString FOnlineIdentityGooglePlay::GetAuthType() const
 void FOnlineIdentityGooglePlay::SetPlayerDataFromFetchSelfResponse(const gpg::Player& PlayerData)
 {
 	FString PlayerId(PlayerData.Id().c_str());
-	UniqueNetId = MakeShareable(new FUniqueNetIdString(PlayerId));
+	UniqueNetId = MakeShareable(new FUniqueNetIdGooglePlay(PlayerId));
 	PlayerAlias = PlayerData.Name().c_str();
 }
 

@@ -55,26 +55,36 @@ public:
 	// End UWidget interface
 #endif
 
+	/**  */
 	UFUNCTION(BlueprintCallable, Category = "Widget")
 	void SetText(const FText& InText);
 
 	const FTextBlockStyle& GetDefaultTextStyle() const;
+
+	/**  */
+	UFUNCTION(BlueprintCallable, Category = "Widget")
+	URichTextBlockDecorator* GetDecoratorByClass(TSubclassOf<URichTextBlockDecorator> DecoratorClass);
 
 protected:
 	/** The text to display */
 	UPROPERTY(EditAnywhere, Category=Content, meta=( MultiLine="true" ))
 	FText Text;
 
-	UPROPERTY(EditAnywhere, Category = Appearance, meta=(RowType="RichTextStyleRow"))
+	/**  */
+	UPROPERTY(EditAnywhere, Category=Appearance, meta=(RowType="RichTextStyleRow"))
 	class UDataTable* TextStyleSet;
-	
-	UPROPERTY(EditAnywhere, Instanced, Category = Appearance)
-	TArray<URichTextBlockDecorator*> Decorators;
+
+	/**  */
+	UPROPERTY(EditAnywhere, Category=Appearance)
+	TArray<TSubclassOf<URichTextBlockDecorator>> DecoratorClasses;
 
 protected:
 	FTextBlockStyle DefaultTextStyle;
 
 	TSharedPtr<class FSlateStyleSet> StyleInstance;
+
+	UPROPERTY(Transient)
+	TArray<URichTextBlockDecorator*> InstanceDecorators;
 
 	/** Native Slate Widget */
 	TSharedPtr<SRichTextBlock> MyRichTextBlock;
@@ -83,5 +93,8 @@ protected:
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 	// End of UWidget interface
 
-	void UpdateStyleData();
+	virtual void UpdateStyleData();
+	virtual void CreateDecorators(TArray< TSharedRef< class ITextDecorator > >& OutDecorators);
+	virtual TSharedPtr< class IRichTextMarkupParser > CreateMarkupParser();
+	virtual TSharedPtr< class IRichTextMarkupWriter > CreateMarkupWriter();
 };

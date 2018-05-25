@@ -45,34 +45,31 @@
 #define CASE_ENUM_TO_TEXT(txt) case txt: return TEXT(#txt);
 #endif
 
-namespace Lex
+const TCHAR* LexToString(ECollisionTraceFlag Enum)
 {
-	const TCHAR* ToString(ECollisionTraceFlag Enum)
+	switch (Enum)
 	{
-		switch (Enum)
-		{
-			FOREACH_ENUM_ECOLLISIONTRACEFLAG(CASE_ENUM_TO_TEXT)
-		}
-		return TEXT("<Unknown ECollisionTraceFlag>");
+		FOREACH_ENUM_ECOLLISIONTRACEFLAG(CASE_ENUM_TO_TEXT)
 	}
+	return TEXT("<Unknown ECollisionTraceFlag>");
+}
 
-	const TCHAR* ToString(EPhysicsType Enum)
+const TCHAR* LexToString(EPhysicsType Enum)
+{
+	switch (Enum)
 	{
-		switch (Enum)
-		{
-			FOREACH_ENUM_EPHYSICSTYPE(CASE_ENUM_TO_TEXT)
-		}
-		return TEXT("<Unknown EPhysicsType>");
+		FOREACH_ENUM_EPHYSICSTYPE(CASE_ENUM_TO_TEXT)
 	}
+	return TEXT("<Unknown EPhysicsType>");
+}
 
-	const TCHAR* ToString(EBodyCollisionResponse::Type Enum)
+const TCHAR* LexToString(EBodyCollisionResponse::Type Enum)
+{
+	switch (Enum)
 	{
-		switch (Enum)
-		{
-			FOREACH_ENUM_EBODYCOLLISIONRESPONSE(CASE_ENUM_TO_TEXT)
-		}
-		return TEXT("<Unknown EBodyCollisionResponse>");
+		FOREACH_ENUM_EBODYCOLLISIONRESPONSE(CASE_ENUM_TO_TEXT)
 	}
+	return TEXT("<Unknown EBodyCollisionResponse>");
 }
 
 
@@ -174,6 +171,7 @@ UBodySetup::UBodySetup(const FObjectInitializer& ObjectInitializer)
 	bConsiderForBounds = true;
 	bMeshCollideAll = false;
 	CollisionTraceFlag = CTF_UseDefault;
+	bFailedToCreatePhysicsMeshes = false;
 	bHasCookedCollisionData = true;
 	bNeverNeedsCookedCollisionData = false;
 	bGenerateMirroredCollision = true;
@@ -471,9 +469,16 @@ void UBodySetup::CreatePhysicsMeshes()
 				}
 				else
 				{
-					CookHelper.CreatePhysicsMeshes_Concurrent();
-					FinishCreatingPhysicsMeshes(CookHelper.OutNonMirroredConvexMeshes, CookHelper.OutMirroredConvexMeshes, CookHelper.OutTriangleMeshes);
-					bClearMeshes = false;
+                    if (CookHelper.CreatePhysicsMeshes_Concurrent())
+                    {
+					    FinishCreatingPhysicsMeshes(CookHelper.OutNonMirroredConvexMeshes, CookHelper.OutMirroredConvexMeshes, CookHelper.OutTriangleMeshes);
+					    bClearMeshes = false;
+                        bFailedToCreatePhysicsMeshes = false;
+                    }
+                    else
+                    {
+                        bFailedToCreatePhysicsMeshes = true;
+                    }
 				}
 			}
 		}

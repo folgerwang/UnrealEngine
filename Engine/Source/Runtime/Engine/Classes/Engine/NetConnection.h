@@ -333,7 +333,7 @@ public:
 	float			BestLag,   AvgLag;		// Lag.
 
 	// Stat accumulators.
-	float			LagAcc, BestLagAcc;		// Previous msec lag.
+	double			LagAcc, BestLagAcc;		// Previous msec lag.
 	int32			LagCount;				// Counter for lag measurement.
 	double			LastTime, FrameTime;	// Monitors frame time.
 	/** @todo document */
@@ -342,6 +342,8 @@ public:
 	int32			CountedFrames;
 	/** bytes sent/received on this connection (accumulated during a StatPeriod) */
 	int32 InBytes, OutBytes;
+	/** total bytes sent/received on this connection */
+	int32 InTotalBytes, OutTotalBytes;
 	/** packets sent/received on this connection (accumulated during a StatPeriod) */
 	int32 InPackets, OutPackets;
 	/** total packets sent/received on this connection */
@@ -419,6 +421,11 @@ public:
 	UActorChannel** FindActorChannel(const TWeakObjectPtr<AActor>& Actor)
 	{
 		return ActorChannels.Find(Actor);
+	}
+
+	bool ContainsActorChannel(const TWeakObjectPtr<AActor>& Actor)
+	{
+		return ActorChannels.Contains(Actor);
 	}
 
 	int32 ActorChannelsNum() const
@@ -771,6 +778,11 @@ public:
 	 */
 	ENGINE_API void EnableEncryption();
 
+	/**
+	 * Returns true if encryption is enabled for this connection.
+	 */
+	ENGINE_API bool IsEncryptionEnabled() const;
+
 	/** 
 	* Gets a unique ID for the connection, this ID depends on the underlying connection
 	* For IP connections this is an IP Address and port, for steam this is a SteamID
@@ -835,6 +847,7 @@ public:
 
 	/** @return The driver object */
 	UNetDriver* GetDriver() {return Driver;}
+	const UNetDriver* GetDriver() const { return Driver; }
 
 	/** @todo document */
 	class UControlChannel* GetControlChannel();
@@ -925,7 +938,7 @@ public:
 
 	/** Returns the online platform name for the player on this connection. Only valid for client connections on servers. */
 	ENGINE_API FName GetPlayerOnlinePlatformName() const { return PlayerOnlinePlatformName; }
-
+	
 	/**
 	 * Sets whether or not we should ignore bunches that would attempt to open channels that are already open.
 	 * Should only be used with InternalAck.
@@ -935,6 +948,9 @@ public:
 protected:
 
 	void CleanupDormantActorState();
+
+	/** Called internally to destroy an actor during replay fast-forward when the actor channel index will be recycled */
+	ENGINE_API virtual void DestroyIgnoredActor(AActor* Actor);
 
 private:
 	/**

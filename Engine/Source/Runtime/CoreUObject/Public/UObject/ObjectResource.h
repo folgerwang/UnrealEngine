@@ -145,8 +145,18 @@ public:
 	/**
 	Friend declarations for Lex functions
 	*/
-	friend FString ToString(const FPackageIndex& Value);
-	friend void FromString(FPackageIndex& Value, const TCHAR* String);
+	/**
+	Lex functions
+	*/
+	friend FString LexToString(const FPackageIndex& Value)
+	{
+		return FString::FromInt(Value.Index);
+	}
+
+	friend void LexFromString(FPackageIndex& Value, const TCHAR* String)
+	{
+		Value.Index = FCString::Atoi(String);
+	}
 };
 
 /**

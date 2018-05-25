@@ -208,15 +208,31 @@ bool UClothingAsset::BindToSkeletalMesh(USkeletalMesh* InSkelMesh, int32 InMeshL
 		}
 	}
 
+	// We have to copy the bone map to verify we don't exceed the maximum while adding the clothing bones
+	TArray<FBoneIndexType> TempBoneMap = OriginalSection.BoneMap;
+
 	for(FName& BoneName : UsedBoneNames)
 	{
 		const int32 BoneIndex = InSkelMesh->RefSkeleton.FindBoneIndex(BoneName);
 
 		if(BoneIndex != INDEX_NONE)
 		{
-			OriginalSection.BoneMap.AddUnique(BoneIndex);
+			TempBoneMap.AddUnique(BoneIndex);
 		}
 	}
+	
+	// Verify number of bones against current capabilities
+	if(TempBoneMap.Num() > FGPUBaseSkinVertexFactory::GetMaxGPUSkinBones())
+	{
+		// Failed to apply as we've exceeded the number of bones we can skin
+		FText Error = FText::Format(LOCTEXT("Error_TooManyBones", "Failed to bind clothing asset {0} LOD{1} as this causes the section to require {2} bones. The maximum per section is currently {3}."), FText::FromString(GetName()), FText::AsNumber(InAssetLodIndex), FText::AsNumber(TempBoneMap.Num()), FText::AsNumber(FGPUBaseSkinVertexFactory::GetMaxGPUSkinBones()));
+		LogAndToastClothingInfo(Error);
+
+		return false;
+	}
+
+	// After verifying copy the new bone map to the section
+	OriginalSection.BoneMap = TempBoneMap;
 
 	// Array of re-import contexts for components using this mesh
 	TIndirectArray<FComponentReregisterContext> ComponentContexts;
@@ -992,37 +1008,6 @@ void ClothingAssetUtils::ClearSectionClothingData(FSkelMeshSection& InSection)
 bool FClothConfig::HasSelfCollision() const
 {
 	return SelfCollisionRadius > 0.0f && SelfCollisionStiffness > 0.0f;
-}
-
-void FClothCollisionData::Reset()
-{
-	Spheres.Reset();
-	SphereConnections.Reset();
-	Convexes.Reset();
-}
-
-void FClothCollisionData::Append(const FClothCollisionData& InOther)
-{
-	const int32 NumSpheresBefore = Spheres.Num();
-	const int32 NumSphereConnectionsBefore = SphereConnections.Num();
-
-	Spheres.Append(InOther.Spheres);
-	SphereConnections.Append(InOther.SphereConnections);
-
-	const int32 NumSphereConnectionsAfter = SphereConnections.Num();
-
-	if(NumSpheresBefore > 0)
-	{
-		// Each connection that was added needs to have its sphere indices increased to match the new spheres that were added
-		for(int32 NewConnectionIndex = NumSphereConnectionsBefore; NewConnectionIndex < NumSphereConnectionsAfter; ++NewConnectionIndex)
-		{
-			FClothCollisionPrim_SphereConnection& Connection = SphereConnections[NewConnectionIndex];
-			Connection.SphereIndices[0] += NumSpheresBefore;
-			Connection.SphereIndices[1] += NumSpheresBefore;
-		}
-	}
-
-	Convexes.Append(InOther.Convexes);
 }
 
 void FClothPhysicalMeshData::Reset(const int32 InNumVerts)

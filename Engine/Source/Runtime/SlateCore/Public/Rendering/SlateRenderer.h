@@ -20,6 +20,16 @@ struct FSlateBrush;
 
 typedef FRHITexture2D* FTexture2DRHIParamRef;
 
+/**
+ * Update context for deferred drawing of widgets to render targets
+ */
+struct FRenderThreadUpdateContext
+{
+	class FSlateDrawBuffer* DrawBuffer;
+	void* RenderTargetResource;
+	void* Renderer;
+	bool bClearTarget;
+};
 
 /**
  * Provides access to the game and render thread font caches that Slate should use
@@ -235,7 +245,7 @@ public:
 	/** 
 	 * Sets which color vision filter to use
 	 */
-	virtual void SetColorVisionDeficiencyType( uint32 Type ) {} 
+	virtual void SetColorVisionDeficiencyType(EColorVisionDeficiency Type, int32 Severity, bool bCorrectDeficiency, bool bShowCorrectionWithDeficiency) { }
 
 	/** 
 	 * Creates a dynamic image resource and returns its size
@@ -268,6 +278,9 @@ public:
 	 * @return	The created resource handle.  
 	 */
 	virtual FSlateResourceHandle GetResourceHandle( const FSlateBrush& Brush ) = 0;
+
+	/** The default implementation assumes all things are renderable. */
+	virtual bool CanRenderResource(UObject& InResourceObject) const { return true; }
 
 	/**
 	 * Queues a dynamic brush for removal when it is safe.  The brush is not immediately released but you should consider the brush destroyed and no longer usable
@@ -436,7 +449,7 @@ public:
 	 * Necessary to grab before flushing the resource pool, as it may be being 
 	 * accessed by multiple threads when loading.
 	 */
-	FCriticalSection* GetResourceCriticalSection() { return &ResourceCriticalSection; }
+	virtual FCriticalSection* GetResourceCriticalSection() = 0;
 
 	/** Register the active scene pointer with the renderer. This will return the scene internal index that will be used for all subsequent elements drawn. */
 	virtual int32 RegisterCurrentScene(FSceneInterface* Scene) = 0;
@@ -449,6 +462,15 @@ public:
 
 	virtual bool HasLostDevice() const { return false; }
 
+	/**
+	 * Lets the renderer know that we need to render some widgets to a render target.
+	 * 
+	 * @param Context						The context that describes what we're rendering to
+	 * @param bDeferredRenderTargetUpdate	Whether or not the update is deferred until the end of the frame when it is potentially less expensive to update the render target. 
+											See GDeferRetainedRenderingRenderThread for more info.
+											Care must be taken to destroy anything referenced in the context when it is safe to do so.
+	 */
+	virtual void AddWidgetRendererUpdate(const struct FRenderThreadUpdateContext& Context, bool bDeferredRenderTargetUpdate) {}
 private:
 
 	// Non-copyable

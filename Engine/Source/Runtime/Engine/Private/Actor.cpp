@@ -976,10 +976,7 @@ void AActor::PreReplication( IRepChangedPropertyTracker & ChangedPropertyTracker
 	// Attachment replication gets filled in by GatherCurrentMovement(), but in the case of a detached root we need to trigger remote detachment.
 	AttachmentReplication.AttachParent = nullptr;
 
-	if ( bReplicateMovement || (RootComponent && RootComponent->GetAttachParent()) )
-	{
-		GatherCurrentMovement();
-	}
+	GatherCurrentMovement();
 
 	DOREPLIFETIME_ACTIVE_OVERRIDE( AActor, ReplicatedMovement, bReplicateMovement );
 
@@ -1028,6 +1025,7 @@ void AActor::CallPreReplication(UNetDriver* NetDriver)
 
 void AActor::PreReplicationForReplay(IRepChangedPropertyTracker & ChangedPropertyTracker)
 {
+	GatherCurrentMovement();
 }
 
 void AActor::RewindForReplay()
@@ -1476,8 +1474,13 @@ static void MarkOwnerRelevantComponentsDirty(AActor* TheActor)
 
 bool AActor::WasRecentlyRendered(float Tolerance) const
 {
-	UWorld* World = GetWorld();
-	return (World) ? (World->GetTimeSeconds() - GetLastRenderTime() <= Tolerance) : false;
+	if (const UWorld* const World = GetWorld())
+	{
+		// Adjust tolerance, so visibility is not affected by bad frame rate / hitches.
+		const float RenderTimeThreshold = FMath::Max(Tolerance, World->DeltaTimeSeconds + KINDA_SMALL_NUMBER);
+		return World->TimeSince(GetLastRenderTime()) <= RenderTimeThreshold;
+	}
+	return false;
 }
 
 float AActor::GetLastRenderTime() const
@@ -1834,6 +1837,12 @@ void AActor::ForceNetUpdate()
 	if (UNetDriver* NetDriver = GetNetDriver())
 	{
 		NetDriver->ForceNetUpdate(this);
+
+		UWorld* MyWorld = GetWorld();
+		if (MyWorld && MyWorld->DemoNetDriver && MyWorld->DemoNetDriver != NetDriver)
+		{
+			MyWorld->DemoNetDriver->ForceNetUpdate(this);
+		}
 
 		if (NetDormancy > DORM_Awake)
 		{
@@ -3092,16 +3101,20 @@ void AActor::SetReplicates(bool bInReplicates)
 { 
 	if (Role == ROLE_Authority)
 	{
-		if (bReplicates == false && bInReplicates == true)
+		const bool ChangedReplicates = (bReplicates == false && bInReplicates == true);
+
+		// Update our settings before calling into net driver
+		RemoteRole = (bInReplicates ? ROLE_SimulatedProxy : ROLE_None);
+		bReplicates = bInReplicates;
+
+		// Only call into net driver if we actually changed
+		if (ChangedReplicates)
 		{
 			if (UWorld* MyWorld = GetWorld())		// GetWorld will return nullptr on CDO, FYI
 			{
 				MyWorld->AddNetworkActor(this);
 			}
 		}
-
-		RemoteRole = (bInReplicates ? ROLE_SimulatedProxy : ROLE_None);
-		bReplicates = bInReplicates;
 	}
 	else
 	{
@@ -4696,6 +4709,24 @@ void AActor::PostRename(UObject* OldOuter, const FName OldName)
 		{
 			World->DemoNetDriver->NotifyActorRenamed(this, OldName);
 		}
+	}
+}
+
+void AActor::SetLODParent(UPrimitiveComponent* InLODParent, float InParentDrawDistance)
+{
+	if (InLODParent)
+	{
+		InLODParent->MinDrawDistance = InParentDrawDistance;
+		InLODParent->MarkRenderStateDirty();
+	}
+
+	TArray<UPrimitiveComponent*> ComponentsToBeReplaced;
+	GetComponents(ComponentsToBeReplaced);
+
+	for (UPrimitiveComponent* Component : ComponentsToBeReplaced)
+	{
+		// parent primitive will be null if no LOD parent is selected
+		Component->SetLODParentPrimitive(InLODParent);
 	}
 }
 

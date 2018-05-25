@@ -275,6 +275,9 @@ int32 FIOSTargetPlatform::CheckRequirements(const FString& ProjectPath, bool bPr
 
 void FIOSTargetPlatform::PingNetworkDevices()
 {
+    //Only put this here in case we put in auto-detection of missing stats
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FIOSTargetPlatform_PingNetworkDevices);
+
 	// disabled for now because we find IOS devices from the USB, this is a relic from ULD, but it may be needed in the future
 /*	if (!MessageEndpoint.IsValid())
 	{

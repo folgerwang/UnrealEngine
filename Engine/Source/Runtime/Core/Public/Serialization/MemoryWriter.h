@@ -23,8 +23,8 @@ public:
 	, Bytes(InBytes)
 	, ArchiveName(InArchiveName)
 	{
-		ArIsSaving		= true;
-		ArIsPersistent	= bIsPersistent;
+		this->SetIsSaving(true);
+		this->SetIsPersistent(bIsPersistent);
 		if (bSetOffset)
 		{
 			Offset = InBytes.Num();

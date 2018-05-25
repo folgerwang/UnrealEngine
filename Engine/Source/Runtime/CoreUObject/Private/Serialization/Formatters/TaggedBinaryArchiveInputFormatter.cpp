@@ -10,7 +10,7 @@ FTaggedBinaryArchiveInputFormatter::FTaggedBinaryArchiveInputFormatter(FArchive&
 	, NextRecordIdx(0)
 	, CurrentType(EArchiveValueType::None)
 {
-	Inner.ArIsTextFormat = true;
+	Inner.SetIsTextFormat(true);
 
 	int64 StartOffset = Inner.Tell();
 

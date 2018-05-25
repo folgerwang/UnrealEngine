@@ -154,7 +154,6 @@ int32 SProgressBar::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGe
 	if( ProgressFraction.IsSet() )
 	{
 		const float ClampedFraction = FMath::Clamp(ProgressFraction.GetValue(), 0.0f, 1.0f);
-
 		switch (BarFillType)
 		{
 			case EProgressBarFillType::RightToLeft:

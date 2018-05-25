@@ -34,9 +34,6 @@ public class SlateCore : ModuleRules
 			});
 
         PublicDefinitions.Add("SLATE_PARENT_POINTERS=1");
-        //PublicDefinitions.Add("SLATE_FAST_WIDGET_PATH=1");
-        //PublicDefinitions.Add("SLATE_DYNAMIC_PREPASS=1");
-        //PublicDefinitions.Add("SLATE_LAYOUT_CHANGE=1");
 
         if (Target.Type != TargetType.Server)
 		{

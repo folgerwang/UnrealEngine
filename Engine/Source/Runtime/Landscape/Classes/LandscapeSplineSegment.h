@@ -46,6 +46,7 @@ struct FLandscapeSplineInterpPoint
 	float StartEndFalloff;
 
 	FLandscapeSplineInterpPoint()
+		: StartEndFalloff(0.0f)
 	{
 	}
 
@@ -184,6 +185,15 @@ class ULandscapeSplineSegment : public UObject
 	UPROPERTY()
 	uint32 bEnableCollision_DEPRECATED:1;
 
+	/** Name of the collision profile to use for this spline */
+	//
+	// TODO: This field does not have proper Slate customization.
+	// Instead of a text field, this should be a dropdown with the
+	// default option.
+	//
+	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes)
+	FName CollisionProfileName;
+
 	/** Whether the Spline Meshes should cast a shadow. */
 	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes)
 	uint32 bCastShadow:1;
@@ -285,6 +295,8 @@ public:
 #endif // WITH_EDITOR
 protected:
 	virtual void PostInitProperties() override;
+private:
+	void UpdateMeshCollisionProfile(USplineMeshComponent* MeshComponent);
 public:
 	//~ End UObject Interface
 

@@ -49,7 +49,9 @@ public:
 		bWriteAlpha(false),
 		TextureWeightType(ETextureWeightTypes::AlphaLerp),
 		PaintTextureWeightIndex(ETexturePaintIndex::TextureOne),
-		EraseTextureWeightIndex(ETexturePaintIndex::TextureTwo)	{}	
+		EraseTextureWeightIndex(ETexturePaintIndex::TextureTwo),
+		bPaintOnSpecificLOD(false),
+		LODIndex(0) {}
 
 	UPROPERTY()
 	EMeshPaintMode MeshPaintMode;

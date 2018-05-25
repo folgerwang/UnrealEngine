@@ -57,6 +57,7 @@ public:
 	FCompositeSection()
 		: FAnimLinkableElement()
 		, SectionName(NAME_None)
+		, StartTime_DEPRECATED(0.0f)
 		, NextSectionName(NAME_None)
 	{
 	}

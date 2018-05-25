@@ -55,7 +55,13 @@ public:
 	{
 		TSharedRef<FPhysicsAssetEditor> NewPhysicsAssetEditor(new FPhysicsAssetEditor());
 		NewPhysicsAssetEditor->InitPhysicsAssetEditor(Mode, InitToolkitHost, PhysicsAsset);
+		OnPhysicsAssetEditorCreatedDelegate.Broadcast(NewPhysicsAssetEditor);
 		return NewPhysicsAssetEditor;
+	}
+
+	virtual FOnPhysicsAssetEditorCreated& OnPhysicsAssetEditorCreated() override
+	{
+		return OnPhysicsAssetEditorCreatedDelegate;
 	}
 
 	virtual void OpenNewBodyDlg(EAppReturnType::Type* NewBodyResponse) override
@@ -73,6 +79,9 @@ private:
 
 	/** Node factory for skeleton graph */
 	TSharedPtr<FPhysicsAssetGraphPanelNodeFactory> PhysicsAssetGraphPanelNodeFactory;
+
+	/** Delegate called when a physics asset editor is created */
+	FOnPhysicsAssetEditorCreated OnPhysicsAssetEditorCreatedDelegate;
 };
 
 IMPLEMENT_MODULE(FPhysicsAssetEditorModule, PhysicsAssetEditor);

@@ -52,6 +52,7 @@ LandscapeEdit.cpp: Landscape editing
 #include "ScopedTransaction.h"
 #endif
 #include "Algo/Count.h"
+#include "Serialization/MemoryWriter.h"
 
 DEFINE_LOG_CATEGORY(LogLandscape);
 
@@ -125,6 +126,7 @@ ULandscapeMaterialInstanceConstant* ALandscapeProxy::GetLayerThumbnailMIC(UMater
 
 	ULandscapeMaterialInstanceConstant* MaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetTransientPackage());
 	MaterialInstance->bIsLayerThumbnail = true;
+	MaterialInstance->bMobile = false;
 	MaterialInstance->SetParentEditorOnly(LandscapeMaterial);
 
 	FStaticParameterSet StaticParameters;
@@ -155,7 +157,7 @@ ULandscapeMaterialInstanceConstant* ALandscapeProxy::GetLayerThumbnailMIC(UMater
 	return MaterialInstance;
 }
 
-UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(bool bMobile /*= false*/)
+UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(const TArray<FWeightmapLayerAllocationInfo>& Allocations, bool bMobile /*= false*/) const
 {
 	check(GIsEditor);
 
@@ -189,8 +191,7 @@ UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(bool bMob
 	if (ensure(MaterialToUse != nullptr))
 	{
 		ALandscapeProxy* Proxy = GetLandscapeProxy();
-		FString LayerKey = GetLayerAllocationKey(MaterialToUse, bMobile);
-		//UE_LOG(LogLandscape, Log, TEXT("Looking for key %s"), *LayerKey);
+		FString LayerKey = GetLayerAllocationKey(Allocations, MaterialToUse, bMobile);
 
 		// Find or set a matching MIC in the Landscape's map.
 		UMaterialInstanceConstant* CombinationMaterialInstance = Proxy->MaterialInstanceConstantMap.FindRef(*LayerKey);
@@ -198,7 +199,9 @@ UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(bool bMob
 		{
 			FlushRenderingCommands();
 
-			CombinationMaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
+			ULandscapeMaterialInstanceConstant* LandscapeCombinationMaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
+			LandscapeCombinationMaterialInstance->bMobile = bMobile;
+			CombinationMaterialInstance = LandscapeCombinationMaterialInstance;
 			UE_LOG(LogLandscape, Log, TEXT("Looking for key %s, making new combination %s"), *LayerKey, *CombinationMaterialInstance->GetName());
 			Proxy->MaterialInstanceConstantMap.Add(*LayerKey, CombinationMaterialInstance);
 			CombinationMaterialInstance->SetParentEditorOnly(MaterialToUse);
@@ -210,12 +213,12 @@ UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(bool bMob
 			}
 
 			FStaticParameterSet StaticParameters;
-			for (const FWeightmapLayerAllocationInfo& Allocation : WeightmapLayerAllocations)
+			for (const FWeightmapLayerAllocationInfo& Allocation : Allocations)
 			{
 				if (Allocation.LayerInfo)
 				{
 					const FName LayerParameter = (Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer) ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.LayerInfo->LayerName;
-					StaticParameters.TerrainLayerWeightParameters.Add(FStaticTerrainLayerWeightParameter(LayerParameter, Allocation.WeightmapTextureIndex, true, FGuid()));
+					StaticParameters.TerrainLayerWeightParameters.Add(FStaticTerrainLayerWeightParameter(LayerParameter, Allocation.WeightmapTextureIndex, true, FGuid(), !Allocation.LayerInfo->bNoWeightBlend));
 				}
 			}
 			CombinationMaterialInstance->UpdateStaticPermutation(StaticParameters);
@@ -233,7 +236,7 @@ void ULandscapeComponent::UpdateMaterialInstances_Internal(FMaterialUpdateContex
 	check(GIsEditor);
 
 	// Find or set a matching MIC in the Landscape's map.
-	UMaterialInstanceConstant* CombinationMaterialInstance = GetCombinationMaterial(false);
+	UMaterialInstanceConstant* CombinationMaterialInstance = GetCombinationMaterial(WeightmapLayerAllocations, false);
 
 	if (CombinationMaterialInstance != nullptr)
 	{
@@ -306,6 +309,12 @@ void ULandscapeComponent::UpdateMaterialInstances_Internal(FMaterialUpdateContex
 	{
 		MaterialInstances.Empty(1);
 		MaterialInstances.Add(nullptr);
+	}
+
+	// Update mobile combination material
+	{
+		GenerateMobileWeightmapLayerAllocations();
+		MobileCombinationMaterialInstance = GetCombinationMaterial(MobileWeightmapLayerAllocations, true);
 	}
 }
 
@@ -539,7 +548,7 @@ void ULandscapeComponent::FixupWeightmaps()
 				UMaterialInstanceConstant* CombinationMaterialInstance = Cast<UMaterialInstanceConstant>(GetMaterialInstance(0, false)->Parent);
 				if (CombinationMaterialInstance)
 				{
-					Proxy->MaterialInstanceConstantMap.Add(*GetLayerAllocationKey(CombinationMaterialInstance->Parent), CombinationMaterialInstance);
+					Proxy->MaterialInstanceConstantMap.Add(*GetLayerAllocationKey(WeightmapLayerAllocations, CombinationMaterialInstance->Parent), CombinationMaterialInstance);
 				}
 			}
 		}
@@ -4909,147 +4918,191 @@ bool ALandscapeStreamingProxy::IsValidLandscapeActor(ALandscape* Landscape)
 	return false;
 }
 
-struct FMobileLayerAllocation
+/* Returns the list of layer names relevant to mobile platforms. Walks the material tree following feature level switch nodes. */
+static void GetAllMobileRelevantLayerNames(TSet<FName>& OutLayerNames, UMaterial* InMaterial)
 {
-	FWeightmapLayerAllocationInfo Allocation;
+	TArray<FMaterialParameterInfo> ParameterInfos;
+	TArray<FGuid> ParameterIds;
 
-	FMobileLayerAllocation(const FWeightmapLayerAllocationInfo& InAllocation)
-		: Allocation(InAllocation)
+	TArray<UMaterialExpression*> ES2MobileExpressions;
+	InMaterial->GetAllReferencedExpressions(ES2MobileExpressions, nullptr, ERHIFeatureLevel::ES2);
+	TArray<UMaterialExpression*> ES31Expressions;
+	InMaterial->GetAllReferencedExpressions(ES31Expressions, nullptr, ERHIFeatureLevel::ES3_1);
+
+	TArray<UMaterialExpression*> MobileExpressions = MoveTemp(ES2MobileExpressions);
+	for (UMaterialExpression* Expression : ES31Expressions)
 	{
+		MobileExpressions.AddUnique(Expression);
 	}
 
-	friend bool operator<(const FMobileLayerAllocation& Lhs, const FMobileLayerAllocation& Rhs)
+	for (UMaterialExpression* Expression : MobileExpressions)
 	{
-		ULandscapeLayerInfoObject* LhsLayerInfo = Lhs.Allocation.LayerInfo;
-		ULandscapeLayerInfoObject* RhsLayerInfo = Rhs.Allocation.LayerInfo;
+		UMaterialExpressionLandscapeLayerWeight* LayerWeightExpression = Cast<UMaterialExpressionLandscapeLayerWeight>(Expression);
+		UMaterialExpressionLandscapeLayerSwitch* LayerSwitchExpression = Cast<UMaterialExpressionLandscapeLayerSwitch>(Expression);
+		UMaterialExpressionLandscapeLayerSample* LayerSampleExpression = Cast<UMaterialExpressionLandscapeLayerSample>(Expression);
+		UMaterialExpressionLandscapeLayerBlend*	LayerBlendExpression = Cast<UMaterialExpressionLandscapeLayerBlend>(Expression);
+		UMaterialExpressionLandscapeVisibilityMask* VisibilityMaskExpression = Cast<UMaterialExpressionLandscapeVisibilityMask>(Expression);
+
+		FMaterialParameterInfo BaseParameterInfo;
+		BaseParameterInfo.Association = EMaterialParameterAssociation::GlobalParameter;
+		BaseParameterInfo.Index = INDEX_NONE;
+
+		if(LayerWeightExpression != nullptr)
+		{
+			LayerWeightExpression->GetAllParameterInfo(ParameterInfos, ParameterIds, BaseParameterInfo);
+		}
+		if (LayerSwitchExpression != nullptr)
+		{
+			LayerSwitchExpression->GetAllParameterInfo(ParameterInfos, ParameterIds, BaseParameterInfo);
+		}
+		if (LayerSampleExpression != nullptr)
+		{
+			LayerSampleExpression->GetAllParameterInfo(ParameterInfos, ParameterIds, BaseParameterInfo);
+		}
+		if (LayerBlendExpression != nullptr)
+		{
+			LayerBlendExpression->GetAllParameterInfo(ParameterInfos, ParameterIds, BaseParameterInfo);
+		}
+		if (VisibilityMaskExpression != nullptr)
+		{
+			VisibilityMaskExpression->GetAllParameterInfo(ParameterInfos, ParameterIds, BaseParameterInfo);
+		}
+	}
+
+	for (FMaterialParameterInfo& Info : ParameterInfos)
+	{
+		OutLayerNames.Add(Info.Name);
+	}
+}
+
+void ULandscapeComponent::GenerateMobileWeightmapLayerAllocations()
+{
+	TSet<FName> LayerNames;
+	GetAllMobileRelevantLayerNames(LayerNames, GetLandscapeMaterial()->GetMaterial());
+	MobileWeightmapLayerAllocations = WeightmapLayerAllocations.FilterByPredicate([&](const FWeightmapLayerAllocationInfo& Allocation) -> bool 
+		{
+			return Allocation.LayerInfo && LayerNames.Contains(Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.GetLayerName());
+		}
+	);
+	MobileWeightmapLayerAllocations.StableSort(([&](const FWeightmapLayerAllocationInfo& A, const FWeightmapLayerAllocationInfo& B) -> bool
+	{
+		ULandscapeLayerInfoObject* LhsLayerInfo = A.LayerInfo;
+		ULandscapeLayerInfoObject* RhsLayerInfo = B.LayerInfo;
 
 		if (!LhsLayerInfo && !RhsLayerInfo) return false; // equally broken :P
 		if (!LhsLayerInfo && RhsLayerInfo) return false; // broken layers sort to the end
 		if (!RhsLayerInfo && LhsLayerInfo) return true;
 
-		if (LhsLayerInfo == ALandscapeProxy::VisibilityLayer && RhsLayerInfo != ALandscapeProxy::VisibilityLayer) return true; // visibility layer to the front
+		// Sort visibility layer to the front
+		if (LhsLayerInfo == ALandscapeProxy::VisibilityLayer && RhsLayerInfo != ALandscapeProxy::VisibilityLayer) return true;
 		if (RhsLayerInfo == ALandscapeProxy::VisibilityLayer && LhsLayerInfo != ALandscapeProxy::VisibilityLayer) return false;
 
-		if (LhsLayerInfo->bNoWeightBlend && !RhsLayerInfo->bNoWeightBlend) return false; // non-blended layers sort to the end
-		if (RhsLayerInfo->bNoWeightBlend && !LhsLayerInfo->bNoWeightBlend) return true;
-
-		// TODO: If we want to support cleanly decaying a pc landscape for mobile
-		// we should probably add other sort criteria, e.g. coverage
-		// or e.g. add an "importance" to layerinfos and sort on that
+		// Sort non-weight blended layers to the front so if we have exactly 3 layers, the 3rd is definitely weight-based.
+		if (LhsLayerInfo->bNoWeightBlend && !RhsLayerInfo->bNoWeightBlend) return true;
+		if (RhsLayerInfo->bNoWeightBlend && !LhsLayerInfo->bNoWeightBlend) return false;
 
 		return false; // equal, preserve order
-	}
-};
+	}));
+}
 
 void ULandscapeComponent::GeneratePlatformPixelData()
 {
-	check(!IsTemplate())
+	check(!IsTemplate());
 
-	TArray<FMobileLayerAllocation> MobileLayerAllocations;
-	MobileLayerAllocations.Reserve(WeightmapLayerAllocations.Num());
-	for (const auto& Allocation : WeightmapLayerAllocations)
-	{
-		MobileLayerAllocations.Emplace(Allocation);
-	}
-	MobileLayerAllocations.StableSort();
-
-	// in the current mobile shader only 3 layers are supported (the 3rd only as a blended layer)
-	// so make sure we have a blended layer for layer 3 if possible
-	if (MobileLayerAllocations.Num() >= 3 &&
-		MobileLayerAllocations[2].Allocation.LayerInfo && MobileLayerAllocations[2].Allocation.LayerInfo->bNoWeightBlend)
-	{
-		int32 BlendedLayerToMove = INDEX_NONE;
-
-		// First try to swap layer 3 with an earlier blended layer
-		// this will allow both to work
-		for (int32 i = 1; i >= 0; --i)
-		{
-			if (MobileLayerAllocations[i].Allocation.LayerInfo && !MobileLayerAllocations[i].Allocation.LayerInfo->bNoWeightBlend)
-			{
-				BlendedLayerToMove = i;
-				break;
-			}
-		}
-
-		// otherwise swap layer 3 with the first weight-blended layer found
-		// as non-blended layers aren't supported for layer 3 it wasn't going to work anyway, might as well swap it out for one that will work
-		if (BlendedLayerToMove == INDEX_NONE)
-		{
-			// I wish I could specify a start index here, but it doesn't affect the result
-			BlendedLayerToMove = MobileLayerAllocations.IndexOfByPredicate([](const FMobileLayerAllocation& MobileAllocation){ return MobileAllocation.Allocation.LayerInfo && !MobileAllocation.Allocation.LayerInfo->bNoWeightBlend; });
-		}
-
-		if (BlendedLayerToMove != INDEX_NONE)
-		{
-			// Preserve order of all but the blended layer we're moving into slot 3
-			FMobileLayerAllocation TempAllocation = MoveTemp(MobileLayerAllocations[BlendedLayerToMove]);
-			MobileLayerAllocations.RemoveAt(BlendedLayerToMove, 1, false);
-			MobileLayerAllocations.Insert(MoveTemp(TempAllocation), 2);
-		}
-	}
+	GenerateMobileWeightmapLayerAllocations();
 
 	int32 WeightmapSize = (SubsectionSizeQuads + 1) * NumSubsections;
-	UTexture2D* NewWeightNormalmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8);
-	CreateEmptyTextureMips(NewWeightNormalmapTexture);
+
+	MobileWeightNormalmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8);
+	CreateEmptyTextureMips(MobileWeightNormalmapTexture);
+	TArray<UTexture2D*> MobileWeightmapTextures;
 
 	{
 		FLandscapeTextureDataInterface LandscapeData;
 
-		if (WeightmapTextures.Num() > 0)
+		// copy normals into B/A channels
+		LandscapeData.CopyTextureFromHeightmap(MobileWeightNormalmapTexture, 2, this, 2);
+		LandscapeData.CopyTextureFromHeightmap(MobileWeightNormalmapTexture, 3, this, 3);
+
+		UTexture2D* CurrentWeightmapTexture = MobileWeightNormalmapTexture;
+		MobileWeightmapTextures.Add(CurrentWeightmapTexture);
+		int32 CurrentChannel = 0;
+		int32 RemainingChannels = 2;
+
+		MobileBlendableLayerMask = 0;
+
+		bool bAtLeastOneWeightBasedBlend = MobileWeightmapLayerAllocations.FindByPredicate([&](const FWeightmapLayerAllocationInfo& Allocation) -> bool { return !Allocation.LayerInfo->bNoWeightBlend; }) != nullptr;
+
+		for (auto& Allocation : MobileWeightmapLayerAllocations)
 		{
-			int32 CurrentIdx = 0;
-			for (const auto& MobileAllocation : MobileLayerAllocations)
+			if (Allocation.LayerInfo)
 			{
-				// Only for valid Layers
-				if (MobileAllocation.Allocation.LayerInfo)
+				// If we can pack into 2 channels with the 3rd implied, track the mask for the weight blendable layers
+				if (bAtLeastOneWeightBasedBlend && MobileWeightmapLayerAllocations.Num() <= 3)
 				{
-					LandscapeData.CopyTextureFromWeightmap(NewWeightNormalmapTexture, CurrentIdx, this, MobileAllocation.Allocation.LayerInfo);
-					CurrentIdx++;
-					if (CurrentIdx >= 2) // Only support 2 layers in texture
+					// we don't need to create a new texture for the 3rd layer
+					if (RemainingChannels == 0)
 					{
 						break;
 					}
+
+					MobileBlendableLayerMask |= (!Allocation.LayerInfo->bNoWeightBlend ? (1 << CurrentChannel) : 0);
 				}
+
+				if (RemainingChannels == 0)
+				{
+
+					// create a new weightmap texture if we've run out of channels
+					CurrentChannel = 0;
+					RemainingChannels = 4;
+					CurrentWeightmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8);
+					CreateEmptyTextureMips(CurrentWeightmapTexture);
+					MobileWeightmapTextures.Add(CurrentWeightmapTexture);
+				}
+
+				LandscapeData.CopyTextureFromWeightmap(CurrentWeightmapTexture, CurrentChannel, this, Allocation.LayerInfo);
+				// update Allocation
+				Allocation.WeightmapTextureIndex = MobileWeightmapTextures.Num() - 1;
+				Allocation.WeightmapTextureChannel = CurrentChannel;
+				CurrentChannel++;
+				RemainingChannels--;
 			}
 		}
-
-		// copy normals into B/A channels.
-		LandscapeData.CopyTextureFromHeightmap(NewWeightNormalmapTexture, 2, this, 2);
-		LandscapeData.CopyTextureFromHeightmap(NewWeightNormalmapTexture, 3, this, 3);
 	}
 
-	NewWeightNormalmapTexture->PostEditChange();
+	for (int TextureIdx = 0; TextureIdx < MobileWeightmapTextures.Num(); TextureIdx++)
+	{
+		MobileWeightmapTextures[TextureIdx]->PostEditChange();
+	}
 
-	MobileWeightNormalmapTexture = NewWeightNormalmapTexture;
-
-	FLinearColor Masks[5];
+	FLinearColor Masks[4];
 	Masks[0] = FLinearColor(1, 0, 0, 0);
 	Masks[1] = FLinearColor(0, 1, 0, 0);
 	Masks[2] = FLinearColor(0, 0, 1, 0);
 	Masks[3] = FLinearColor(0, 0, 0, 1);
-	Masks[4] = FLinearColor(0, 0, 0, 0); // mask out layers 4+ altogether
+
 
 	if (!GIsEditor)
 	{
-		// This path is used by game mode running with uncooked data, eg Mobile Preview.
+		// This path is used by game mode running with uncooked data, eg standalone executable Mobile Preview.
 		// Game mode cannot create MICs, so we use a MaterialInstanceDynamic here.
-		UMaterialInstanceDynamic* NewMobileMaterialInstance = UMaterialInstanceDynamic::Create(MaterialInstances[0], GetOutermost());
-
-		MobileBlendableLayerMask = 0;
+		UMaterialInstanceDynamic* NewMobileMaterialInstance = UMaterialInstanceDynamic::Create(MobileCombinationMaterialInstance, GetOutermost());
 
 		// Set the layer mask
-		int32 CurrentIdx = 0;
-		for (const auto& MobileAllocation : MobileLayerAllocations)
+		for (const auto& Allocation : MobileWeightmapLayerAllocations)
 		{
-			const FWeightmapLayerAllocationInfo& Allocation = MobileAllocation.Allocation;
 			if (Allocation.LayerInfo)
 			{
 				FName LayerName = Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.LayerInfo->LayerName;
-				NewMobileMaterialInstance->SetVectorParameterValue(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[FMath::Min(4, CurrentIdx)]);
-				MobileBlendableLayerMask |= (!Allocation.LayerInfo->bNoWeightBlend ? (1 << CurrentIdx) : 0);
-				CurrentIdx++;
+				NewMobileMaterialInstance->SetVectorParameterValue(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[Allocation.WeightmapTextureChannel]);
 			}
 		}
+
+		for (int TextureIdx = 0; TextureIdx < MobileWeightmapTextures.Num(); TextureIdx++)
+		{
+			NewMobileMaterialInstance->SetTextureParameterValue(FName(*FString::Printf(TEXT("Weightmap%d"), TextureIdx)), MobileWeightmapTextures[TextureIdx]);
+		}
+		
 		MobileMaterialInterface = NewMobileMaterialInstance;
 	}
 	else
@@ -5057,25 +5110,24 @@ void ULandscapeComponent::GeneratePlatformPixelData()
 		// When cooking, we need to make a persistent MIC. In the editor we also do so in
 		// case we start a Cook in Editor operation, which will reuse the MIC we create now.
 
-		UMaterialInstanceConstant* CombinationMaterialInstance = GetCombinationMaterial(true);
+		MobileCombinationMaterialInstance = GetCombinationMaterial(MobileWeightmapLayerAllocations, true);
 		UMaterialInstanceConstant* NewMobileMaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
 
-		NewMobileMaterialInstance->SetParentEditorOnly(CombinationMaterialInstance);
-
-		MobileBlendableLayerMask = 0;
+		NewMobileMaterialInstance->SetParentEditorOnly(MobileCombinationMaterialInstance);
 
 		// Set the layer mask
-		int32 CurrentIdx = 0;
-		for (const auto& MobileAllocation : MobileLayerAllocations)
+		for (const auto& Allocation : MobileWeightmapLayerAllocations)
 		{
-			const FWeightmapLayerAllocationInfo& Allocation = MobileAllocation.Allocation;
 			if (Allocation.LayerInfo)
 			{
 				FName LayerName = Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.LayerInfo->LayerName;
-				NewMobileMaterialInstance->SetVectorParameterValueEditorOnly(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[FMath::Min(4, CurrentIdx)]);
-				MobileBlendableLayerMask |= (!Allocation.LayerInfo->bNoWeightBlend ? (1 << CurrentIdx) : 0);
-				CurrentIdx++;
+				NewMobileMaterialInstance->SetVectorParameterValueEditorOnly(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[Allocation.WeightmapTextureChannel]);
 			}
+		}
+
+		for (int TextureIdx = 0; TextureIdx < MobileWeightmapTextures.Num(); TextureIdx++)
+		{
+			NewMobileMaterialInstance->SetTextureParameterValueEditorOnly(FName(*FString::Printf(TEXT("Weightmap%d"), TextureIdx)), MobileWeightmapTextures[TextureIdx]);
 		}
 
 		NewMobileMaterialInstance->PostEditChange();

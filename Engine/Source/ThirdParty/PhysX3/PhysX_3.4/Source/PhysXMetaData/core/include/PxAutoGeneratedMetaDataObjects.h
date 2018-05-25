@@ -2491,6 +2491,14 @@ template<> struct PxEnumTraits< physx::PxVisualizationParameter::Enum > { PxEnum
 	};
 
 template<> struct PxEnumTraits< physx::PxPruningStructureType::Enum > { PxEnumTraits() : NameConversion( g_physx__PxPruningStructureType__EnumConversion ) {} const PxU32ToName* NameConversion; }; 
+	static PxU32ToName g_physx__PxSceneQueryUpdateMode__EnumConversion[] = {
+		{ "eBUILD_ENABLED_COMMIT_ENABLED", static_cast<PxU32>( physx::PxSceneQueryUpdateMode::eBUILD_ENABLED_COMMIT_ENABLED ) },
+		{ "eBUILD_ENABLED_COMMIT_DISABLED", static_cast<PxU32>( physx::PxSceneQueryUpdateMode::eBUILD_ENABLED_COMMIT_DISABLED ) },
+		{ "eBUILD_DISABLED_COMMIT_DISABLED", static_cast<PxU32>( physx::PxSceneQueryUpdateMode::eBUILD_DISABLED_COMMIT_DISABLED ) },
+		{ NULL, 0 }
+	};
+
+template<> struct PxEnumTraits< physx::PxSceneQueryUpdateMode::Enum > { PxEnumTraits() : NameConversion( g_physx__PxSceneQueryUpdateMode__EnumConversion ) {} const PxU32ToName* NameConversion; }; 
 	static PxU32ToName g_physx__PxHitFlag__EnumConversion[] = {
 		{ "ePOSITION", static_cast<PxU32>( physx::PxHitFlag::ePOSITION ) },
 		{ "eNORMAL", static_cast<PxU32>( physx::PxHitFlag::eNORMAL ) },
@@ -2543,6 +2551,7 @@ template<> struct PxEnumTraits< physx::PxBroadPhaseType::Enum > { PxEnumTraits()
 		PxPruningStructureType::Enum StaticStructure;
 		PxPruningStructureType::Enum DynamicStructure;
 		PxU32 DynamicTreeRebuildRateHint;
+		PxSceneQueryUpdateMode::Enum SceneQueryUpdateMode;
 		PxU32 SceneQueryStaticTimestamp;
 		PxBroadPhaseType::Enum BroadPhaseType;
 		PxTaskManager * TaskManager;
@@ -2576,6 +2585,7 @@ template<> struct PxEnumTraits< physx::PxBroadPhaseType::Enum > { PxEnumTraits()
 	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxScene, StaticStructure, PxSceneGeneratedValues)
 	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxScene, DynamicStructure, PxSceneGeneratedValues)
 	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxScene, DynamicTreeRebuildRateHint, PxSceneGeneratedValues)
+	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxScene, SceneQueryUpdateMode, PxSceneGeneratedValues)
 	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxScene, SceneQueryStaticTimestamp, PxSceneGeneratedValues)
 	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxScene, BroadPhaseType, PxSceneGeneratedValues)
 	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxScene, TaskManager, PxSceneGeneratedValues)
@@ -2615,6 +2625,7 @@ template<> struct PxEnumTraits< physx::PxBroadPhaseType::Enum > { PxEnumTraits()
 		PxReadOnlyPropertyInfo<PX_PROPERTY_INFO_NAME::PxScene_StaticStructure, PxScene, PxPruningStructureType::Enum > StaticStructure;
 		PxReadOnlyPropertyInfo<PX_PROPERTY_INFO_NAME::PxScene_DynamicStructure, PxScene, PxPruningStructureType::Enum > DynamicStructure;
 		PxPropertyInfo<PX_PROPERTY_INFO_NAME::PxScene_DynamicTreeRebuildRateHint, PxScene, PxU32, PxU32 > DynamicTreeRebuildRateHint;
+		PxPropertyInfo<PX_PROPERTY_INFO_NAME::PxScene_SceneQueryUpdateMode, PxScene, PxSceneQueryUpdateMode::Enum, PxSceneQueryUpdateMode::Enum > SceneQueryUpdateMode;
 		PxReadOnlyPropertyInfo<PX_PROPERTY_INFO_NAME::PxScene_SceneQueryStaticTimestamp, PxScene, PxU32 > SceneQueryStaticTimestamp;
 		PxReadOnlyPropertyInfo<PX_PROPERTY_INFO_NAME::PxScene_BroadPhaseType, PxScene, PxBroadPhaseType::Enum > BroadPhaseType;
 		PxReadOnlyCollectionPropertyInfo<PX_PROPERTY_INFO_NAME::PxScene_BroadPhaseRegions, PxScene, PxBroadPhaseRegionInfo > BroadPhaseRegions;
@@ -2645,7 +2656,7 @@ template<> struct PxEnumTraits< physx::PxBroadPhaseType::Enum > { PxEnumTraits()
 			PX_UNUSED(inStartIndex);
 			return inStartIndex;
 		}
-		static PxU32 instancePropertyCount() { return 37; }
+		static PxU32 instancePropertyCount() { return 38; }
 		static PxU32 totalPropertyCount() { return instancePropertyCount(); }
 		template<typename TOperator>
 		PxU32 visitInstanceProperties( TOperator inOperator, PxU32 inStartIndex = 0 ) const
@@ -2678,18 +2689,19 @@ template<> struct PxEnumTraits< physx::PxBroadPhaseType::Enum > { PxEnumTraits()
 			inOperator( StaticStructure, inStartIndex + 23 );; 
 			inOperator( DynamicStructure, inStartIndex + 24 );; 
 			inOperator( DynamicTreeRebuildRateHint, inStartIndex + 25 );; 
-			inOperator( SceneQueryStaticTimestamp, inStartIndex + 26 );; 
-			inOperator( BroadPhaseType, inStartIndex + 27 );; 
-			inOperator( BroadPhaseRegions, inStartIndex + 28 );; 
-			inOperator( TaskManager, inStartIndex + 29 );; 
-			inOperator( NbContactDataBlocks, inStartIndex + 30 );; 
-			inOperator( MaxNbContactDataBlocksUsed, inStartIndex + 31 );; 
-			inOperator( ContactReportStreamBufferSize, inStartIndex + 32 );; 
-			inOperator( SolverBatchSize, inStartIndex + 33 );; 
-			inOperator( WakeCounterResetValue, inStartIndex + 34 );; 
-			inOperator( UserData, inStartIndex + 35 );; 
-			inOperator( SimulationStatistics, inStartIndex + 36 );; 
-			return 37 + inStartIndex;
+			inOperator( SceneQueryUpdateMode, inStartIndex + 26 );; 
+			inOperator( SceneQueryStaticTimestamp, inStartIndex + 27 );; 
+			inOperator( BroadPhaseType, inStartIndex + 28 );; 
+			inOperator( BroadPhaseRegions, inStartIndex + 29 );; 
+			inOperator( TaskManager, inStartIndex + 30 );; 
+			inOperator( NbContactDataBlocks, inStartIndex + 31 );; 
+			inOperator( MaxNbContactDataBlocksUsed, inStartIndex + 32 );; 
+			inOperator( ContactReportStreamBufferSize, inStartIndex + 33 );; 
+			inOperator( SolverBatchSize, inStartIndex + 34 );; 
+			inOperator( WakeCounterResetValue, inStartIndex + 35 );; 
+			inOperator( UserData, inStartIndex + 36 );; 
+			inOperator( SimulationStatistics, inStartIndex + 37 );; 
+			return 38 + inStartIndex;
 		}
 	};
 	template<> struct PxClassInfoTraits<PxScene>
@@ -2983,6 +2995,7 @@ template<> struct PxEnumTraits< physx::PxBroadPhaseType::Enum > { PxEnumTraits()
 		PxPruningStructureType::Enum StaticStructure;
 		PxPruningStructureType::Enum DynamicStructure;
 		PxU32 DynamicTreeRebuildRateHint;
+		PxSceneQueryUpdateMode::Enum SceneQueryUpdateMode;
 		void * UserData;
 		PxU32 SolverBatchSize;
 		PxU32 NbContactDataBlocks;
@@ -3019,6 +3032,7 @@ template<> struct PxEnumTraits< physx::PxBroadPhaseType::Enum > { PxEnumTraits()
 	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxSceneDesc, StaticStructure, PxSceneDescGeneratedValues)
 	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxSceneDesc, DynamicStructure, PxSceneDescGeneratedValues)
 	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxSceneDesc, DynamicTreeRebuildRateHint, PxSceneDescGeneratedValues)
+	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxSceneDesc, SceneQueryUpdateMode, PxSceneDescGeneratedValues)
 	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxSceneDesc, UserData, PxSceneDescGeneratedValues)
 	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxSceneDesc, SolverBatchSize, PxSceneDescGeneratedValues)
 	DEFINE_PROPERTY_TO_VALUE_STRUCT_MAP( PxSceneDesc, NbContactDataBlocks, PxSceneDescGeneratedValues)
@@ -3058,6 +3072,7 @@ template<> struct PxEnumTraits< physx::PxBroadPhaseType::Enum > { PxEnumTraits()
 		PxPropertyInfo<PX_PROPERTY_INFO_NAME::PxSceneDesc_StaticStructure, PxSceneDesc, PxPruningStructureType::Enum, PxPruningStructureType::Enum > StaticStructure;
 		PxPropertyInfo<PX_PROPERTY_INFO_NAME::PxSceneDesc_DynamicStructure, PxSceneDesc, PxPruningStructureType::Enum, PxPruningStructureType::Enum > DynamicStructure;
 		PxPropertyInfo<PX_PROPERTY_INFO_NAME::PxSceneDesc_DynamicTreeRebuildRateHint, PxSceneDesc, PxU32, PxU32 > DynamicTreeRebuildRateHint;
+		PxPropertyInfo<PX_PROPERTY_INFO_NAME::PxSceneDesc_SceneQueryUpdateMode, PxSceneDesc, PxSceneQueryUpdateMode::Enum, PxSceneQueryUpdateMode::Enum > SceneQueryUpdateMode;
 		PxPropertyInfo<PX_PROPERTY_INFO_NAME::PxSceneDesc_UserData, PxSceneDesc, void *, void * > UserData;
 		PxPropertyInfo<PX_PROPERTY_INFO_NAME::PxSceneDesc_SolverBatchSize, PxSceneDesc, PxU32, PxU32 > SolverBatchSize;
 		PxPropertyInfo<PX_PROPERTY_INFO_NAME::PxSceneDesc_NbContactDataBlocks, PxSceneDesc, PxU32, PxU32 > NbContactDataBlocks;
@@ -3089,7 +3104,7 @@ template<> struct PxEnumTraits< physx::PxBroadPhaseType::Enum > { PxEnumTraits()
 			PX_UNUSED(inStartIndex);
 			return inStartIndex;
 		}
-		static PxU32 instancePropertyCount() { return 35; }
+		static PxU32 instancePropertyCount() { return 36; }
 		static PxU32 totalPropertyCount() { return instancePropertyCount(); }
 		template<typename TOperator>
 		PxU32 visitInstanceProperties( TOperator inOperator, PxU32 inStartIndex = 0 ) const
@@ -3119,19 +3134,20 @@ template<> struct PxEnumTraits< physx::PxBroadPhaseType::Enum > { PxEnumTraits()
 			inOperator( StaticStructure, inStartIndex + 20 );; 
 			inOperator( DynamicStructure, inStartIndex + 21 );; 
 			inOperator( DynamicTreeRebuildRateHint, inStartIndex + 22 );; 
-			inOperator( UserData, inStartIndex + 23 );; 
-			inOperator( SolverBatchSize, inStartIndex + 24 );; 
-			inOperator( NbContactDataBlocks, inStartIndex + 25 );; 
-			inOperator( MaxNbContactDataBlocks, inStartIndex + 26 );; 
-			inOperator( MaxBiasCoefficient, inStartIndex + 27 );; 
-			inOperator( ContactReportStreamBufferSize, inStartIndex + 28 );; 
-			inOperator( CcdMaxPasses, inStartIndex + 29 );; 
-			inOperator( WakeCounterResetValue, inStartIndex + 30 );; 
-			inOperator( SanityBounds, inStartIndex + 31 );; 
-			inOperator( GpuDynamicsConfig, inStartIndex + 32 );; 
-			inOperator( GpuMaxNumPartitions, inStartIndex + 33 );; 
-			inOperator( GpuComputeVersion, inStartIndex + 34 );; 
-			return 35 + inStartIndex;
+			inOperator( SceneQueryUpdateMode, inStartIndex + 23 );; 
+			inOperator( UserData, inStartIndex + 24 );; 
+			inOperator( SolverBatchSize, inStartIndex + 25 );; 
+			inOperator( NbContactDataBlocks, inStartIndex + 26 );; 
+			inOperator( MaxNbContactDataBlocks, inStartIndex + 27 );; 
+			inOperator( MaxBiasCoefficient, inStartIndex + 28 );; 
+			inOperator( ContactReportStreamBufferSize, inStartIndex + 29 );; 
+			inOperator( CcdMaxPasses, inStartIndex + 30 );; 
+			inOperator( WakeCounterResetValue, inStartIndex + 31 );; 
+			inOperator( SanityBounds, inStartIndex + 32 );; 
+			inOperator( GpuDynamicsConfig, inStartIndex + 33 );; 
+			inOperator( GpuMaxNumPartitions, inStartIndex + 34 );; 
+			inOperator( GpuComputeVersion, inStartIndex + 35 );; 
+			return 36 + inStartIndex;
 		}
 	};
 	template<> struct PxClassInfoTraits<PxSceneDesc>

@@ -50,6 +50,11 @@ UDistribution::UDistribution(const FObjectInitializer& ObjectInitializer)
 {
 }
 
+bool UDistribution::IsPostLoadThreadSafe() const
+{
+	return true;
+}
+
 /*-----------------------------------------------------------------------------
 	Lookup table related functions.
 ------------------------------------------------------------------------------*/

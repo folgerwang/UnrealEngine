@@ -90,6 +90,7 @@ class LANDSCAPE_API UMaterialExpressionLandscapeLayerBlend : public UMaterialExp
 	virtual FName GetInputName(int32 InputIndex) const override;
 #endif
 	virtual UTexture* GetReferencedTexture() override;
+	virtual bool CanReferenceTexture() const override { return true; }
 	//~ End UMaterialExpression Interface
 
 	virtual FGuid& GetParameterExpressionId() override;

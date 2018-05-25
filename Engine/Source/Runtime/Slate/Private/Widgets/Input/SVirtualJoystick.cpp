@@ -141,7 +141,7 @@ int32 SVirtualJoystick::OnPaint( const FPaintArgs& Args, const FGeometry& Allott
 					AllottedGeometry.ToPaintGeometry(
 					Control.VisualCenter - FVector2D(Control.CorrectedVisualSize.X * 0.5f, Control.CorrectedVisualSize.Y * 0.5f),
 					Control.CorrectedVisualSize),
-					Control.Image2.Get(),
+					Control.Image2->GetSlateBrush(),
 					ESlateDrawEffect::None,
 					ColorAndOpacitySRGB
 					);
@@ -155,7 +155,7 @@ int32 SVirtualJoystick::OnPaint( const FPaintArgs& Args, const FGeometry& Allott
 					AllottedGeometry.ToPaintGeometry(
 					Control.VisualCenter + Control.ThumbPosition - FVector2D(Control.CorrectedThumbSize.X * 0.5f, Control.CorrectedThumbSize.Y * 0.5f),
 					Control.CorrectedThumbSize),
-					Control.Image1.Get(),
+					Control.Image1->GetSlateBrush(),
 					ESlateDrawEffect::None,
 					ColorAndOpacitySRGB
 					);

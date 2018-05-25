@@ -2,8 +2,10 @@
 
 #include "Internationalization/TextLocalizationResource.h"
 #include "Internationalization/TextLocalizationResourceVersion.h"
+#include "Internationalization/Culture.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
+#include "Misc/Optional.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTextLocalizationResource, Log, All);
 
@@ -90,6 +92,27 @@ bool FTextLocalizationMetaDataResource::SaveToArchive(FArchive& Archive, const F
 }
 
 
+void FTextLocalizationResource::AddEntry(const FString& InNamespace, const FString& InKey, const FString& InSourceString, const FString& InLocalizedString, const FTextLocalizationResourceId& InLocResID)
+{
+	AddEntry(InNamespace, InKey, HashString(InSourceString), InLocalizedString, InLocResID);
+}
+
+void FTextLocalizationResource::AddEntry(const FString& InNamespace, const FString& InKey, const uint32 InSourceStringHash, const FString& InLocalizedString, const FTextLocalizationResourceId& InLocResID)
+{
+	FKeysTable& KeyTable = Namespaces.FindOrAdd(InNamespace);
+	FEntryArray& EntryArray = KeyTable.FindOrAdd(InKey);
+
+	FEntry& NewEntry = EntryArray.AddDefaulted_GetRef();
+	NewEntry.LocResID = InLocResID;
+	NewEntry.SourceStringHash = InSourceStringHash;
+	NewEntry.LocalizedString = InLocalizedString;
+}
+
+bool FTextLocalizationResource::IsEmpty() const
+{
+	return Namespaces.Num() == 0;
+}
+
 void FTextLocalizationResource::LoadFromDirectory(const FString& DirectoryPath)
 {
 	// Find resources in the specified folder.
@@ -111,12 +134,12 @@ bool FTextLocalizationResource::LoadFromFile(const FString& FilePath)
 		return false;
 	}
 
-	bool Success = LoadFromArchive(*Reader, FilePath);
+	bool Success = LoadFromArchive(*Reader, FTextLocalizationResourceId(FilePath));
 	Success &= Reader->Close();
 	return Success;
 }
 
-bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FString& LocalizationResourceIdentifier)
+bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FTextLocalizationResourceId& LocResID)
 {
 	Archive.SetForceUnicode(true);
 
@@ -137,14 +160,14 @@ bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FString
 	{
 		// Legacy LocRes files lack the magic number, assume that's what we're dealing with, and seek back to the start of the file
 		Archive.Seek(0);
-		//UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocRes '%s' failed the magic number check! Assuming this is a legacy resource (please re-generate your localization resources!)"), *LocalizationResourceIdentifier);
-		UE_LOG(LogTextLocalizationResource, Log, TEXT("LocRes '%s' failed the magic number check! Assuming this is a legacy resource (please re-generate your localization resources!)"), *LocalizationResourceIdentifier);
+		//UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocRes '%s' failed the magic number check! Assuming this is a legacy resource (please re-generate your localization resources!)"), *LocResID.GetString());
+		UE_LOG(LogTextLocalizationResource, Log, TEXT("LocRes '%s' failed the magic number check! Assuming this is a legacy resource (please re-generate your localization resources!)"), *LocResID.GetString());
 	}
 
 	// Is this LocRes file too new to load?
 	if (VersionNumber > FTextLocalizationResourceVersion::ELocResVersion::Latest)
 	{
-		UE_LOG(LogTextLocalizationResource, Error, TEXT("LocRes '%s' is too new to be loaded (File Version: %d, Loader Version: %d)"), *LocalizationResourceIdentifier, (int32)VersionNumber, (int32)FTextLocalizationResourceVersion::ELocResVersion::Latest);
+		UE_LOG(LogTextLocalizationResource, Error, TEXT("LocRes '%s' is too new to be loaded (File Version: %d, Loader Version: %d)"), *LocResID.GetString(), (int32)VersionNumber, (int32)FTextLocalizationResourceVersion::ELocResVersion::Latest);
 		return false;
 	}
 
@@ -178,7 +201,7 @@ bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FString
 		uint32 KeyCount;
 		Archive << KeyCount;
 
-		FKeysTable& KeyTable = Namespaces.FindOrAdd(*Namespace);
+		FKeysTable& KeyTable = Namespaces.FindOrAdd(Namespace);
 
 		for (uint32 j = 0; j < KeyCount; ++j)
 		{
@@ -186,10 +209,10 @@ bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FString
 			FString Key;
 			Archive << Key;
 
-			FEntryArray& EntryArray = KeyTable.FindOrAdd(*Key);
+			FEntryArray& EntryArray = KeyTable.FindOrAdd(Key);
 
-			FEntry NewEntry;
-			NewEntry.LocResID = LocalizationResourceIdentifier;
+			FEntry& NewEntry = EntryArray.AddDefaulted_GetRef();
+			NewEntry.LocResID = LocResID;
 
 			// Read string entry.
 			Archive << NewEntry.SourceStringHash;
@@ -205,15 +228,13 @@ bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FString
 				}
 				else
 				{
-					UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocRes '%s' has an invalid localized string index for namespace '%s' and key '%s'. This entry will have no translation."), *LocalizationResourceIdentifier, *Namespace, *Key);
+					UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocRes '%s' has an invalid localized string index for namespace '%s' and key '%s'. This entry will have no translation."), *LocResID.GetString(), *Namespace, *Key);
 				}
 			}
 			else
 			{
 				Archive << NewEntry.LocalizedString;
 			}
-
-			EntryArray.Add(NewEntry);
 		}
 	}
 
@@ -229,12 +250,12 @@ bool FTextLocalizationResource::SaveToFile(const FString& FilePath)
 		return false;
 	}
 
-	bool bSaved = SaveToArchive(*Writer, FilePath);
+	bool bSaved = SaveToArchive(*Writer, FTextLocalizationResourceId(FilePath));
 	bSaved &= Writer->Close();
 	return bSaved;
 }
 
-bool FTextLocalizationResource::SaveToArchive(FArchive& Archive, const FString& LocResID)
+bool FTextLocalizationResource::SaveToArchive(FArchive& Archive, const FTextLocalizationResourceId& LocResID)
 {
 	Archive.SetForceUnicode(true);
 
@@ -298,7 +319,7 @@ bool FTextLocalizationResource::SaveToArchive(FArchive& Archive, const FString& 
 			// Skip this key if there are no entries.
 			if (EntryArray.Num() == 0)
 			{
-				UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocRes '%s': Archives contained no entries for key (%s)"), *LocResID, *Key);
+				UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocRes '%s': Archives contained no entries for key (%s)"), *LocResID.GetString(), *Key);
 				continue;
 			}
 
@@ -316,7 +337,7 @@ bool FTextLocalizationResource::SaveToArchive(FArchive& Archive, const FString& 
 			// Skip this key if there is no valid entry.
 			if (!Value)
 			{
-				UE_LOG(LogTextLocalizationResource, Verbose, TEXT("LocRes '%s': Archives contained only blank entries for key (%s)"), *LocResID, *Key);
+				UE_LOG(LogTextLocalizationResource, Verbose, TEXT("LocRes '%s': Archives contained only blank entries for key (%s)"), *LocResID.GetString(), *Key);
 				continue;
 			}
 
@@ -389,11 +410,134 @@ void FTextLocalizationResource::DetectAndLogConflicts() const
 						CollidingEntryListString += TEXT('\n');
 					}
 
-					CollidingEntryListString += FString::Printf(TEXT("    Localization Resource: (%s) Source String Hash: (%d) Localized String: (%s)"), *(Entry.LocResID), Entry.SourceStringHash, *(Entry.LocalizedString));
+					CollidingEntryListString += FString::Printf(TEXT("    Localization Resource: (%s) Source String Hash: (%d) Localized String: (%s)"), *(Entry.LocResID.GetString()), Entry.SourceStringHash, *(Entry.LocalizedString));
 				}
 
 				UE_LOG(LogTextLocalizationResource, Warning, TEXT("Loaded localization resources contain conflicting entries for (Namespace:%s, Key:%s):\n%s"), *NamespaceName, *KeyName, *CollidingEntryListString);
 			}
 		}
 	}
+}
+
+
+FString TextLocalizationResourceUtil::GetNativeCultureName(const TArray<FString>& InLocalizationPaths)
+{
+	// Use the native culture of any of the targets on the given paths (it is assumed that all targets for a particular product have the same native culture)
+	for (const FString& LocalizationPath : InLocalizationPaths)
+	{
+		TArray<FString> LocMetaFilenames;
+		IFileManager::Get().FindFiles(LocMetaFilenames, *(LocalizationPath / TEXT("*.locmeta")), true, false);
+
+		// There should only be zero or one LocMeta file
+		check(LocMetaFilenames.Num() <= 1);
+
+		if (LocMetaFilenames.Num() == 1)
+		{
+			FTextLocalizationMetaDataResource LocMetaResource;
+			if (LocMetaResource.LoadFromFile(LocalizationPath / LocMetaFilenames[0]))
+			{
+				return LocMetaResource.NativeCulture;
+			}
+		}
+	}
+
+	return FString();
+}
+
+FString TextLocalizationResourceUtil::GetNativeCultureName(const ELocalizedTextSourceCategory InCategory)
+{
+	switch (InCategory)
+	{
+	case ELocalizedTextSourceCategory::Game:
+		return GetNativeProjectCultureName();
+	case ELocalizedTextSourceCategory::Engine:
+		return GetNativeEngineCultureName();
+	case ELocalizedTextSourceCategory::Editor:
+#if WITH_EDITOR
+		return GetNativeEditorCultureName();
+#else
+		break;
+#endif
+	default:
+		checkf(false, TEXT("Unknown ELocalizedTextSourceCategory!"));
+		break;
+	}
+	return FString();
+}
+
+FString TextLocalizationResourceUtil::GetNativeProjectCultureName(const bool bSkipCache)
+{
+	static TOptional<FString> NativeProjectCultureName;
+	if (!NativeProjectCultureName.IsSet() || bSkipCache)
+	{
+		NativeProjectCultureName = TextLocalizationResourceUtil::GetNativeCultureName(FPaths::GetGameLocalizationPaths());
+	}
+	return NativeProjectCultureName.GetValue();
+}
+
+FString TextLocalizationResourceUtil::GetNativeEngineCultureName(const bool bSkipCache)
+{
+	static TOptional<FString> NativeEngineCultureName;
+	if (!NativeEngineCultureName.IsSet() || bSkipCache)
+	{
+		NativeEngineCultureName = TextLocalizationResourceUtil::GetNativeCultureName(FPaths::GetEngineLocalizationPaths());
+	}
+	return NativeEngineCultureName.GetValue();
+}
+
+#if WITH_EDITOR
+FString TextLocalizationResourceUtil::GetNativeEditorCultureName(const bool bSkipCache)
+{
+	static TOptional<FString> NativeEditorCultureName;
+	if (!NativeEditorCultureName.IsSet() || bSkipCache)
+	{
+		NativeEditorCultureName = TextLocalizationResourceUtil::GetNativeCultureName(FPaths::GetEditorLocalizationPaths());
+	}
+	return NativeEditorCultureName.GetValue();
+}
+#endif	// WITH_EDITOR
+
+TArray<FString> TextLocalizationResourceUtil::GetLocalizedCultureNames(const TArray<FString>& InLocalizationPaths)
+{
+	TArray<FString> CultureNames;
+
+	// Find all unique culture folders that exist in the given paths
+	for (const FString& LocalizationPath : InLocalizationPaths)
+	{
+		/* Visitor class used to enumerate directories of culture */
+		class FCultureEnumeratorVistor : public IPlatformFile::FDirectoryVisitor
+		{
+		public:
+			FCultureEnumeratorVistor(TArray<FString>& OutCultureNames)
+				: CultureNamesRef(OutCultureNames)
+			{
+			}
+
+			virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory) override
+			{
+				if (bIsDirectory)
+				{
+					// UE localization resource folders use "en-US" style while ICU uses "en_US"
+					const FString LocalizationFolder = FPaths::GetCleanFilename(FilenameOrDirectory);
+					const FString CanonicalName = FCulture::GetCanonicalName(LocalizationFolder);
+					CultureNamesRef.AddUnique(CanonicalName);
+				}
+				return true;
+			}
+
+			TArray<FString>& CultureNamesRef;
+		};
+
+		FCultureEnumeratorVistor CultureEnumeratorVistor(CultureNames);
+		IFileManager::Get().IterateDirectory(*LocalizationPath, CultureEnumeratorVistor);
+	}
+
+	// Remove any cultures that were explicitly disallowed
+	FInternationalization& I18N = FInternationalization::Get();
+	CultureNames.RemoveAll([&](const FString& InCultureName) -> bool
+	{
+		return !I18N.IsCultureAllowed(InCultureName);
+	});
+
+	return CultureNames;
 }

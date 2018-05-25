@@ -451,14 +451,14 @@ void FScene::UpdateParameterCollections(const TArray<FMaterialParameterCollectio
 	ENQUEUE_RENDER_COMMAND(UpdateParameterCollectionsCommand)(
 		[this, InParameterCollections](FRHICommandList&)
 	{
-		// Empy the scene's map so any unused uniform buffers will be released
+		// Empty the scene's map so any unused uniform buffers will be released
 		ParameterCollections.Empty();
 
 		// Add each existing parameter collection id and its uniform buffer
 		for (int32 CollectionIndex = 0; CollectionIndex < InParameterCollections.Num(); CollectionIndex++)
 		{
-			FMaterialParameterCollectionInstanceResource* InstanceReousrce = InParameterCollections[CollectionIndex];
-			ParameterCollections.Add(InstanceReousrce->GetId(), InstanceReousrce->GetUniformBuffer());
+			FMaterialParameterCollectionInstanceResource* InstanceResource = InParameterCollections[CollectionIndex];
+			ParameterCollections.Add(InstanceResource->GetId(), InstanceResource->GetUniformBuffer());
 		}
 	});
 }

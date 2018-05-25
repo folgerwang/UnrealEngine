@@ -12,6 +12,11 @@
 #if PLATFORM_IOS && ENABLE_PLATFORM_COMPRESSION_OVERRIDES
 #include "IOSRuntimeSettings.h"
 #endif
+
+#if PLATFORM_SWITCH && ENABLE_PLATFORM_COMPRESSION_OVERRIDES
+#include "SwitchRuntimeSettings.h"
+#endif
+
 #include "Misc/ConfigCacheIni.h"
 
 const FPlatformRuntimeAudioCompressionOverrides* FPlatformCompressionUtilities::GetRuntimeCompressionOverridesForCurrentPlatform()
@@ -30,6 +35,15 @@ const FPlatformRuntimeAudioCompressionOverrides* FPlatformCompressionUtilities::
 	{
 		return &(Settings->CompressionOverrides);
 	}
+
+#elif PLATFORM_SWITCH && ENABLE_PLATFORM_COMPRESSION_OVERRIDES
+	static const USwitchRuntimeSettings* Settings = GetDefault<USwitchRuntimeSettings>();
+
+	if (Settings)
+	{
+		return &(Settings->CompressionOverrides);
+	}
+
 #endif // PLATFORM_ANDROID
 	return nullptr;
 }
@@ -40,6 +54,8 @@ void CacheCurrentPlatformAudioCookOverrides(FPlatformAudioCookOverrides& OutOver
 	const TCHAR* CategoryName = TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings");
 #elif PLATFORM_IOS
 	const TCHAR* CategoryName = TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings");
+#elif PLATFORM_SWITCH
+	const TCHAR* CategoryName = TEXT("/Script/SwitchRuntimeSettings.SwitchRuntimeSettings");
 #else
 	const TCHAR* CategoryName = TEXT("");
 #endif
@@ -77,14 +93,14 @@ void CacheCurrentPlatformAudioCookOverrides(FPlatformAudioCookOverrides& OutOver
 	OutOverrides.PlatformSampleRates.Add(ESoundwaveSampleRateSettings::Min, RetrievedSampleRate);
 }
 
-#if PLATFORM_ANDROID || PLATFORM_IOS
+#if PLATFORM_ANDROID || PLATFORM_IOS || PLATFORM_SWITCH
 static FPlatformAudioCookOverrides OutOverrides = FPlatformAudioCookOverrides();
 #endif
 
 
 const FPlatformAudioCookOverrides* FPlatformCompressionUtilities::GetCookOverridesForCurrentPlatform()
 {
-#if PLATFORM_ANDROID || PLATFORM_IOS
+#if PLATFORM_ANDROID || PLATFORM_IOS || PLATFORM_SWITCH
 	static bool bCachedCookOverrides = false;
 	if (!bCachedCookOverrides)
 	{
@@ -124,7 +140,7 @@ float FPlatformCompressionUtilities::GetTargetSampleRateForPlatform(ESoundwaveSa
 		}
 		else
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Warning: Could not find a matching sample rate for this platform. Check your project settings."))
+			ensureMsgf(false, TEXT("Warning: Could not find a matching sample rate for this platform. Check your project settings."));
 		}
 	}
 

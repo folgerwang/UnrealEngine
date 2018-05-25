@@ -67,6 +67,8 @@
 
 #include "Fonts/FontMeasure.h"
 #include "UMGEditorProjectSettings.h"
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -312,11 +314,12 @@ UWidget* SDesignerView::GetWidgetInDesignScopeFromSlateWidget(TSharedRef<SWidget
 
 /////////////////////////////////////////////////////
 // SDesignerView
-
+ 
 const FString SDesignerView::ConfigSectionName = "UMGEditor.Designer";
 const uint32 SDesignerView::DefaultResolutionWidth = 1280;
 const uint32 SDesignerView::DefaultResolutionHeight = 720;
 const FString SDesignerView::DefaultAspectRatio = "16:9";
+const FString SDesignerView::DefaultPreviewOverrideName = "";
 
 void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBlueprintEditor> InBlueprintEditor)
 {
@@ -565,22 +568,52 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 			SNew(SDesignerToolBar)
 			.CommandList(CommandList)
 		]
+		+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			[
+				SNew(SButton)
+				.ButtonStyle(FEditorStyle::Get(), "ViewportMenu.Button")
+				.ToolTipText(LOCTEXT("ZoomToFit_ToolTip", "Zoom To Fit"))
+				.OnClicked(this, &SDesignerView::HandleZoomToFitClicked)
+				.ContentPadding(FEditorStyle::Get().GetMargin("ViewportMenu.SToolBarButtonBlock.Button.Padding"))
+				[
+					SNew(SImage)
+					.Image(FEditorStyle::GetBrush("UMGEditor.ZoomToFit"))
+				]
+			]
 
 		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SButton)
-			.ButtonStyle(FEditorStyle::Get(), "ViewportMenu.Button")
-			.ToolTipText(LOCTEXT("ZoomToFit_ToolTip", "Zoom To Fit"))
-			.OnClicked(this, &SDesignerView::HandleZoomToFitClicked)
-			.ContentPadding(FEditorStyle::Get().GetMargin("ViewportMenu.SToolBarButtonBlock.Button.Padding"))
+			.AutoWidth()
+			.VAlign(VAlign_Center)
 			[
-				SNew(SImage)
-				.Image(FEditorStyle::GetBrush("UMGEditor.ZoomToFit"))
+				SNew(SButton)
+				.ButtonStyle(FEditorStyle::Get(), "ViewportMenu.Button")
+				.ToolTipText(LOCTEXT("SwapAspectRatio_ToolTip", "Switch between Landscape and Portrait"))
+				.OnClicked(this, &SDesignerView::HandleSwapAspectRatioClicked)
+				.ContentPadding(FEditorStyle::Get().GetMargin("ViewportMenu.SToolBarButtonBlock.Button.Padding"))
+				.IsEnabled(this, &SDesignerView::GetAspectRatioSwitchEnabled)
+				[
+					SNew(SImage)
+					.Image(this, &SDesignerView::GetAspectRatioSwitchImage)
+				]
 			]
-		]
-		
+		+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			[
+				SNew(SButton)
+				.ButtonStyle(FEditorStyle::Get(), "ViewportMenu.Button")
+				.ToolTipText(LOCTEXT("Mirror_ToolTip", "Flip the current safe zones"))
+				.OnClicked(this, &SDesignerView::HandleFlipSafeZonesClicked)
+				.ContentPadding(FEditorStyle::Get().GetMargin("ViewportMenu.SToolBarButtonBlock.Button.Padding"))	
+				.IsEnabled(this, &SDesignerView::GetFlipDeviceEnabled)
+				[
+					SNew(SImage)
+					.Image(FEditorStyle::Get().GetBrush("UMGEditor.Mirror"))
+				]
+			]
+
 		// Preview Screen Size
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
@@ -626,13 +659,14 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 			.AllowSpin(true)
 			.Delta(1)
 			.MinSliderValue(1)
-			.MinValue(1)
+			.MinValue(0)
 			.MaxSliderValue(TOptional<int32>(10000))
 			.Value(this, &SDesignerView::GetCustomResolutionWidth)
 			.OnValueChanged(this, &SDesignerView::OnCustomResolutionWidthChanged)
 			.Visibility(this, &SDesignerView::GetCustomResolutionEntryVisibility)
 			.MinDesiredValueWidth(50)
 			.LabelPadding(0)
+			.ToolTipText(LOCTEXT("CustomSize_WidthTooltip", "1+\tSets the width of the widget in the designer.\n0\tThe width will match the desired width of the widget."))
 			.Label()
 			[
 				SNumericEntryBox<int32>::BuildLabel(LOCTEXT("Width", "Width"), FLinearColor::White, SNumericEntryBox<int32>::RedLabelBackgroundColor)
@@ -649,11 +683,12 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 			.Delta(1)
 			.MinSliderValue(1)
 			.MaxSliderValue(TOptional<int32>(10000))
-			.MinValue(1)
+			.MinValue(0)
 			.Value(this, &SDesignerView::GetCustomResolutionHeight)
 			.OnValueChanged(this, &SDesignerView::OnCustomResolutionHeightChanged)
 			.Visibility(this, &SDesignerView::GetCustomResolutionEntryVisibility)
 			.MinDesiredValueWidth(50)
+			.ToolTipText(LOCTEXT("CustomSize_HeightTooltip", "1+\tSets the height of the widget in the designer.\n0\tThe height will match the desired height of the widget."))
 			.LabelPadding(0)
 			.Label()
 			[
@@ -690,16 +725,35 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 	.VAlign(VAlign_Bottom)
 	[
 		SNew(SHorizontalBox)
-
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		.Padding(6, 0, 0, 2)
 		[
-			SNew(STextBlock)
-			.Visibility(this, &SDesignerView::GetResolutionTextVisibility)
-			.TextStyle(FEditorStyle::Get(), "Graph.ZoomText")
-			.Text(this, &SDesignerView::GetCurrentResolutionText)
-			.ColorAndOpacity(this, &SDesignerView::GetResolutionTextColorAndOpacity)
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			[
+				SNew(STextBlock)
+				.Visibility(this, &SDesignerView::GetResolutionTextVisibility)
+				.TextStyle(FEditorStyle::Get(), "Graph.ZoomText")
+				.Text(this, &SDesignerView::GetCurrentScaleFactorText)
+				.ColorAndOpacity(this, &SDesignerView::GetResolutionTextColorAndOpacity)
+			]
+			+ SVerticalBox::Slot()
+			[
+				SNew(STextBlock)
+				.Visibility(this, &SDesignerView::GetResolutionTextVisibility)
+				.TextStyle(FEditorStyle::Get(), "Graph.ZoomText")
+				.Text(this, &SDesignerView::GetCurrentSafeZoneText)
+				.ColorAndOpacity(this, &SDesignerView::GetResolutionTextColorAndOpacity)
+			]
+			+SVerticalBox::Slot()
+			[			
+				SNew(STextBlock)
+				.Visibility(this, &SDesignerView::GetResolutionTextVisibility)
+				.TextStyle(FEditorStyle::Get(), "Graph.ZoomText")
+				.Text(this, &SDesignerView::GetCurrentResolutionText)
+				.ColorAndOpacity(this, &SDesignerView::GetResolutionTextColorAndOpacity)
+			]
 		]
 
 		+ SHorizontalBox::Slot()
@@ -708,9 +762,9 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 		.Padding(0, 0, 6, 2)
 		[
 			SNew(SHorizontalBox)
-
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
+			.VAlign(VAlign_Bottom)
 			[
 				SNew(STextBlock)
 				.TextStyle(FEditorStyle::Get(), "Graph.ZoomText")
@@ -721,6 +775,7 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
 			.Padding(6, 0, 0, 0)
+			.VAlign(VAlign_Bottom)
 			[
 				SNew(SButton)
 				.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
@@ -881,6 +936,47 @@ void SDesignerView::SetStartupResolution()
 		GConfig->SetString(*ConfigSectionName, TEXT("PreviewAspectRatio"), *DefaultAspectRatio, GEditorPerProjectIni);
 		PreviewAspectRatio = DefaultAspectRatio;
 	}
+	// Portrait Mode
+	if (!GConfig->GetBool(*ConfigSectionName, TEXT("bIsInPortraitMode"), bPreviewIsPortrait, GEditorPerProjectIni))
+	{
+		GConfig->SetBool(*ConfigSectionName, TEXT("bIsInPortraitMode"), false, GEditorPerProjectIni);
+		bPreviewIsPortrait = false;
+	}
+	// Profile Type
+	if (!GConfig->GetString(*ConfigSectionName, TEXT("ProfileName"), PreviewOverrideName, GEditorPerProjectIni))
+	{
+		GConfig->SetString(*ConfigSectionName, TEXT("ProfileName"), *DefaultPreviewOverrideName, GEditorPerProjectIni);
+		PreviewOverrideName = DefaultPreviewOverrideName;
+	}
+	// Scale factor
+	if (!GConfig->GetFloat(*ConfigSectionName, TEXT("ScaleFactor"), ScaleFactor, GEditorPerProjectIni))
+	{
+		GConfig->SetFloat(*ConfigSectionName, TEXT("ScaleFactor"), 1.0f, GEditorPerProjectIni);
+		ScaleFactor = 1.0f;
+	}
+	if (!GConfig->GetBool(*ConfigSectionName, TEXT("bCanPreviewSwapAspectRatio"), bCanPreviewSwapAspectRatio, GEditorPerProjectIni))
+	{
+		GConfig->SetBool(*ConfigSectionName, TEXT("bCanPreviewSwapAspectRatio"), false, GEditorPerProjectIni);
+		bCanPreviewSwapAspectRatio = false;
+	}
+
+	if (!PreviewOverrideName.IsEmpty())
+	{
+		ULevelEditorPlaySettings* PlaySettings = GetMutableDefault<ULevelEditorPlaySettings>();
+		DesignerSafeZoneOverride = PlaySettings->CalculateCustomUnsafeZones(CustomSafeZoneStarts, CustomSafeZoneDimensions, PreviewOverrideName, FVector2D(PreviewWidth, PreviewHeight));
+	}
+	else
+	{
+		FSlateApplication::Get().ResetCustomSafeZone();
+		FSlateApplication::Get().GetSafeZoneSize(DesignerSafeZoneOverride, FVector2D(PreviewWidth, PreviewHeight));
+	}
+	FMargin SafeZoneRatio = DesignerSafeZoneOverride;
+	SafeZoneRatio.Left /= (PreviewWidth / 2.0f);
+	SafeZoneRatio.Right /= (PreviewWidth / 2.0f);
+	SafeZoneRatio.Bottom /= (PreviewHeight / 2.0f);
+	SafeZoneRatio.Top /= (PreviewHeight / 2.0f);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+
 }
 
 float SDesignerView::GetPreviewScale() const
@@ -987,6 +1083,10 @@ void SDesignerView::SetPreviewAreaSize(int32 Width, int32 Height)
 					GConfig->SetInt(*ConfigSectionName, TEXT("PreviewWidth"), Width, GEditorPerProjectIni);
 					GConfig->SetInt(*ConfigSectionName, TEXT("PreviewHeight"), Height, GEditorPerProjectIni);
 					GConfig->SetString(*ConfigSectionName, TEXT("PreviewAspectRatio"), *PreviewAspectRatio, GEditorPerProjectIni);
+					GConfig->SetBool(*ConfigSectionName, TEXT("bIsInPortraitMode"), bPreviewIsPortrait, GEditorPerProjectIni);
+					GConfig->SetString(*ConfigSectionName, TEXT("ProfileName"), *PreviewOverrideName, GEditorPerProjectIni);
+					GConfig->SetFloat(*ConfigSectionName, TEXT("ScaleFactor"), ScaleFactor, GEditorPerProjectIni);
+					GConfig->SetBool(*ConfigSectionName, TEXT("bCanPreviewSwapAspectRatio"), bCanPreviewSwapAspectRatio, GEditorPerProjectIni);
 				}
 				break;
 			}
@@ -1049,15 +1149,33 @@ void SDesignerView::GetPreviewAreaAndSize(FVector2D& Area, FVector2D& Size) cons
 		{
 		case EDesignPreviewSizeMode::Custom:
 			Area = DefaultWidget->DesignTimeSize;
-			Size = DefaultWidget->DesignTimeSize;
-			return;
+			// If the custom size is 0 in some dimension, use the desired size instead.
+			if (Area.X == 0)
+			{
+				Area.X = CachedPreviewDesiredSize.X;
+			}
+			if (Area.Y == 0)
+			{
+				Area.Y = CachedPreviewDesiredSize.Y;
+			}
+			Size = Area;
+			break;
 		case EDesignPreviewSizeMode::CustomOnScreen:
 			Size = DefaultWidget->DesignTimeSize;
+
+			// If the custom size is 0 in some dimension, use the desired size instead.
+			if (Size.X == 0)
+			{
+				Size.X = CachedPreviewDesiredSize.X;
+			}
+			if (Size.Y == 0)
+			{
+				Size.Y = CachedPreviewDesiredSize.Y;
+			}
 			return;
 		case EDesignPreviewSizeMode::Desired:
 			Area = CachedPreviewDesiredSize;
-			Size = CachedPreviewDesiredSize;
-			return;
+			// Fall through to DesiredOnScreen
 		case EDesignPreviewSizeMode::DesiredOnScreen:
 			Size = CachedPreviewDesiredSize;
 			return;
@@ -1149,13 +1267,16 @@ void SDesignerView::OnEditorSelectionChanged()
 			WidgetRef.GetPreview()->DeselectByDesigner();
 		}
 
-		// Find all named slot host widgets that are hierarchical ancestors of this widget and call deselect on them as well
-		TArray<FWidgetReference> AncestorSlotHostWidgets;
-		FWidgetBlueprintEditorUtils::FindAllAncestorNamedSlotHostWidgetsForContent(AncestorSlotHostWidgets, WidgetRef.GetTemplate(), BPEd.ToSharedRef());
-
-		for (FWidgetReference SlotHostWidget : AncestorSlotHostWidgets)
+		if (UWidget* WidgetTemplate = WidgetRef.GetTemplate())
 		{
-			SlotHostWidget.GetPreview()->DeselectByDesigner();
+			// Find all named slot host widgets that are hierarchical ancestors of this widget and call deselect on them as well
+			TArray<FWidgetReference> AncestorSlotHostWidgets;
+			FWidgetBlueprintEditorUtils::FindAllAncestorNamedSlotHostWidgetsForContent(AncestorSlotHostWidgets, WidgetTemplate, BPEd.ToSharedRef());
+
+			for (FWidgetReference SlotHostWidget : AncestorSlotHostWidgets)
+			{
+				SlotHostWidget.GetPreview()->DeselectByDesigner();
+			}
 		}
 	}
 
@@ -1166,13 +1287,16 @@ void SDesignerView::OnEditorSelectionChanged()
 		{
 			WidgetRef.GetPreview()->SelectByDesigner();
 
-			// Find all named slot host widgets that are hierarchical ancestors of this widget and call select on them as well
-			TArray<FWidgetReference> AncestorSlotHostWidgets;
-			FWidgetBlueprintEditorUtils::FindAllAncestorNamedSlotHostWidgetsForContent(AncestorSlotHostWidgets, WidgetRef.GetTemplate(), BPEd.ToSharedRef());
-
-			for (FWidgetReference SlotHostWidget : AncestorSlotHostWidgets)
+			if (UWidget* WidgetTemplate = WidgetRef.GetTemplate())
 			{
-				SlotHostWidget.GetPreview()->SelectByDesigner();
+				// Find all named slot host widgets that are hierarchical ancestors of this widget and call select on them as well
+				TArray<FWidgetReference> AncestorSlotHostWidgets;
+				FWidgetBlueprintEditorUtils::FindAllAncestorNamedSlotHostWidgetsForContent(AncestorSlotHostWidgets, WidgetTemplate, BPEd.ToSharedRef());
+
+				for (FWidgetReference SlotHostWidget : AncestorSlotHostWidgets)
+				{
+					SlotHostWidget.GetPreview()->SelectByDesigner();
+				}
 			}
 		}
 	}
@@ -2039,40 +2163,22 @@ void SDesignerView::DrawSafeZone(const FOnPaintHandlerParams& PaintArgs)
 	}
 
 	if ( bCanShowSafeZone )
-	{
-		IConsoleVariable* SafeZoneDebugMode = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DebugSafeZone.Mode"));
-		check(SafeZoneDebugMode);
-
-		int32 DebugSafeZoneMode = SafeZoneDebugMode->GetInt();
-		if ( DebugSafeZoneMode != 0 )
+{
+		const float UnsafeZoneAlpha = 0.2f;
+		const FLinearColor UnsafeZoneColor(1.0f, 0.5f, 0.5f, UnsafeZoneAlpha);
+		const FSlateBrush* WhiteBrush = FEditorStyle::GetBrush("WhiteBrush");
+			
+		FGeometry PreviewGeometry = PreviewAreaConstraint->GetCachedGeometry();
+		PreviewGeometry.AppendTransform(FSlateLayoutTransform(Inverse(PaintArgs.Args.GetWindowToDesktopTransform())));
+		
+		const float Width = PreviewWidth;
+		const float Height = PreviewHeight;
+		if (PreviewOverrideName.IsEmpty())
 		{
-			FDisplayMetrics Metrics;
-			FSlateApplication::Get().GetDisplayMetrics(Metrics);
-
-			const FMargin DebugSafeMargin = 
-				// FVector4(X,Y,Z,W) being used like FMargin(left, top, right, bottom)
-				( DebugSafeZoneMode == 1 )
-				? FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y, Metrics.TitleSafePaddingSize.Z, Metrics.TitleSafePaddingSize.W)
-				: FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y, Metrics.ActionSafePaddingSize.Z, Metrics.ActionSafePaddingSize.W);
-
-
-			float PaddingRatio = DebugSafeMargin.Left / ( Metrics.PrimaryDisplayWidth * 0.5 );
-
-			const FMargin SafeMargin = FMargin(PaddingRatio * PreviewWidth * 0.5, PaddingRatio * PreviewHeight * 0.5);
-
-			const float UnsafeZoneAlpha = 0.2f;
-			const FLinearColor UnsafeZoneColor(1.0f, 0.5f, 0.5f, UnsafeZoneAlpha);
-
-			const float Width = PreviewWidth;
-			const float Height = PreviewHeight;
-
+			FMargin SafeMargin;
+			FSlateApplication::Get().ResetCustomSafeZone();
+			FSlateApplication::Get().GetSafeZoneSize(SafeMargin, FVector2D(Width, Height));
 			const float HeightOfSides = Height - SafeMargin.GetTotalSpaceAlong<Orient_Vertical>();
-
-			FGeometry PreviewGeometry = PreviewAreaConstraint->GetCachedGeometry();
-			PreviewGeometry.AppendTransform(FSlateLayoutTransform(Inverse(PaintArgs.Args.GetWindowToDesktopTransform())));
-
-			const FSlateBrush* WhiteBrush = FEditorStyle::GetBrush("WhiteBrush");
-
 			// Top bar
 			FSlateDrawElement::MakeBox(
 				PaintArgs.OutDrawElements,
@@ -2112,6 +2218,33 @@ void SDesignerView::DrawSafeZone(const FOnPaintHandlerParams& PaintArgs)
 				ESlateDrawEffect::None,
 				UnsafeZoneColor
 			);
+
+		}
+		else
+		{
+			ULevelEditorPlaySettings* PlaySettings = GetMutableDefault<ULevelEditorPlaySettings>();
+			if (bSafeZoneFlipped)
+			{
+				DesignerSafeZoneOverride = PlaySettings->FlipCustomUnsafeZones(CustomSafeZoneStarts, CustomSafeZoneDimensions, PreviewOverrideName, FVector2D(PreviewWidth, PreviewHeight));
+			}
+			else
+			{
+				DesignerSafeZoneOverride = PlaySettings->CalculateCustomUnsafeZones(CustomSafeZoneStarts, CustomSafeZoneDimensions, PreviewOverrideName, FVector2D(PreviewWidth, PreviewHeight));
+			}
+
+			for (int ZoneIndex = 0; ZoneIndex < CustomSafeZoneStarts.Num(); ZoneIndex++)
+			{
+				FVector2D Start = CustomSafeZoneStarts[ZoneIndex];
+				FVector2D Dimensions = CustomSafeZoneDimensions[ZoneIndex];
+				FSlateDrawElement::MakeBox(
+					PaintArgs.OutDrawElements,
+					PaintArgs.Layer,
+					PreviewGeometry.ToPaintGeometry(Start, Dimensions),
+					WhiteBrush,
+					ESlateDrawEffect::None,
+					UnsafeZoneColor
+				);
+			}
 		}
 	}
 }
@@ -2174,6 +2307,8 @@ void SDesignerView::UpdatePreviewWidget(bool bForceUpdate)
 void SDesignerView::BroadcastDesignerChanged()
 {
 	UUserWidget* LatestPreviewWidget = BlueprintEditor.Pin()->GetPreview();
+	ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
+	
 	if ( LatestPreviewWidget )
 	{
 		FDesignerChangedEventArgs EventArgs;
@@ -2270,20 +2405,12 @@ void SDesignerView::Tick( const FGeometry& AllottedGeometry, const double InCurr
 		SideRuler->SetCursor(TOptional<FVector2D>());
 	}
 
-	DefaultWidget = GetDefaultWidget();
-	if (DefaultWidget)
+	if ( PreviewWidget )
 	{
-		const bool bNeedDesiredSize = 
-			DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::Desired || 
-			DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::DesiredOnScreen;
-
-		if ( bNeedDesiredSize && PreviewWidget )
+		TSharedPtr<SWidget> CachedWidget = PreviewWidget->GetCachedWidget();
+		if ( CachedWidget.IsValid() )
 		{
-			TSharedPtr<SWidget> CachedWidget = PreviewWidget->GetCachedWidget();
-			if ( CachedWidget.IsValid() )
-			{
-				CachedPreviewDesiredSize = CachedWidget->GetDesiredSize();
-			}
+			CachedPreviewDesiredSize = CachedWidget->GetDesiredSize();
 		}
 	}
 }
@@ -2950,6 +3077,33 @@ FText SDesignerView::GetCurrentDPIScaleText() const
 	return FText::Format(LOCTEXT("CurrentDPIScaleFormat", "DPI Scale {0}"), DPIString);
 }
 
+FText SDesignerView::GetCurrentScaleFactorText() const
+{
+	FInternationalization& I18N = FInternationalization::Get();
+
+	FNumberFormattingOptions Options;
+	Options.MinimumIntegralDigits = 1;
+	Options.MaximumFractionalDigits = 2;
+	Options.MinimumFractionalDigits = 1;
+
+	FText DPIString = FText::AsNumber(ScaleFactor, &Options, I18N.GetInvariantCulture());
+	return FText::Format(LOCTEXT("CurrentContentScale", "Device Content Scale {0}"), DPIString);
+}
+
+FText SDesignerView::GetCurrentSafeZoneText() const
+{
+	if (PreviewOverrideName.IsEmpty())
+	{
+		float SafeZone = FDisplayMetrics::GetDebugTitleSafeZoneRatio();
+		if (FMath::IsNearlyEqual(SafeZone, 1.0f))
+		{
+			return LOCTEXT("NoSafeZoneSet", "No Device Safe Zone Set");
+		}
+		return FText::Format(LOCTEXT("UniformSafeZone", "Uniform Safe Zone: {0}"), FText::AsNumber(SafeZone));
+	}
+	return FText::FromString(PreviewOverrideName);
+}
+
 FSlateColor SDesignerView::GetResolutionTextColorAndOpacity() const
 {
 	return FLinearColor(1, 1, 1, 1.25f - ResolutionTextFade.GetLerp());
@@ -3028,15 +3182,63 @@ FReply SDesignerView::HandleDPISettingsClicked()
 	return FReply::Handled();
 }
 
-void SDesignerView::HandleOnCommonResolutionSelected(int32 Width, int32 Height, FString AspectRatio)
+void SDesignerView::HandleOnCommonResolutionSelected(FPlayScreenResolution InResolution)
 {
-	PreviewWidth = Width;
-	PreviewHeight = Height;
-	PreviewAspectRatio = AspectRatio;
+	bSafeZoneFlipped = false;
+	bCanPreviewSwapAspectRatio = InResolution.bCanSwapAspectRatio;
+	// Phone/tablet resolutions can be stored in either portrait or landscape mode, and may need to be flipped
+	if (bCanPreviewSwapAspectRatio && ((!bPreviewIsPortrait && InResolution.Width < InResolution.Height) ||
+		(bPreviewIsPortrait && InResolution.Width > InResolution.Height)))
+	{
+		PreviewWidth = InResolution.Height;
+		PreviewHeight = InResolution.Width;
+	}
+	else
+	{
+		PreviewWidth = InResolution.Width;
+		PreviewHeight = InResolution.Height;
+		bPreviewIsPortrait = PreviewWidth < PreviewHeight;
+	}
+	PreviewAspectRatio = InResolution.AspectRatio;
 
-	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewWidth"), Width, GEditorPerProjectIni);
-	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewHeight"), Height, GEditorPerProjectIni);
-	GConfig->SetString(*ConfigSectionName, TEXT("PreviewAspectRatio"), *AspectRatio, GEditorPerProjectIni);
+	PreviewOverrideName = InResolution.ProfileName;
+
+	if (!bCanPreviewSwapAspectRatio)
+	{
+		bPreviewIsPortrait = (PreviewHeight > PreviewWidth);
+	}
+
+	ScaleFactor = 1.0f;
+	ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
+	UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(PreviewOverrideName, false);
+	if (DeviceProfile)
+	{
+		PlayInSettings->RescaleForMobilePreview(DeviceProfile, PreviewWidth, PreviewHeight, ScaleFactor);
+	}
+
+	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewWidth"), PreviewWidth, GEditorPerProjectIni);
+	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewHeight"), PreviewHeight, GEditorPerProjectIni);
+	GConfig->SetString(*ConfigSectionName, TEXT("PreviewAspectRatio"), *PreviewAspectRatio, GEditorPerProjectIni);
+	GConfig->SetBool(*ConfigSectionName, TEXT("bIsInPortraitMode"), bPreviewIsPortrait, GEditorPerProjectIni);
+	GConfig->SetString(*ConfigSectionName, TEXT("ProfileName"), *PreviewOverrideName, GEditorPerProjectIni);
+	GConfig->SetFloat(*ConfigSectionName, TEXT("ScaleFactor"), ScaleFactor, GEditorPerProjectIni);
+	GConfig->SetBool(*ConfigSectionName, TEXT("bCanPreviewSwapAspectRatio"), bCanPreviewSwapAspectRatio, GEditorPerProjectIni);
+
+	if (!PreviewOverrideName.IsEmpty())
+	{
+		DesignerSafeZoneOverride = PlayInSettings->CalculateCustomUnsafeZones(CustomSafeZoneStarts, CustomSafeZoneDimensions, PreviewOverrideName, FVector2D(PreviewWidth, PreviewHeight));
+	}
+	else
+	{
+		FSlateApplication::Get().ResetCustomSafeZone();
+		FSlateApplication::Get().GetSafeZoneSize(DesignerSafeZoneOverride, FVector2D(PreviewWidth, PreviewHeight));
+	}
+	FMargin SafeZoneRatio = DesignerSafeZoneOverride;
+	SafeZoneRatio.Left /= (PreviewWidth / 2.0f);
+	SafeZoneRatio.Right /= (PreviewWidth / 2.0f);
+	SafeZoneRatio.Bottom /= (PreviewHeight / 2.0f);
+	SafeZoneRatio.Top /= (PreviewHeight / 2.0f);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
 
 	if (UUserWidget* DefaultWidget = GetDefaultWidget())
 	{
@@ -3060,7 +3262,7 @@ void SDesignerView::HandleOnCommonResolutionSelected(int32 Width, int32 Height, 
 	ResolutionTextFade.Play(this->AsShared());
 }
 
-bool SDesignerView::HandleIsCommonResolutionSelected(int32 Width, int32 Height) const
+bool SDesignerView::HandleIsCommonResolutionSelected(FPlayScreenResolution InResolution) const
 {
 	// If we're using a custom design time size, none of the other resolutions should appear selected, even if they match.
 	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
@@ -3070,19 +3272,24 @@ bool SDesignerView::HandleIsCommonResolutionSelected(int32 Width, int32 Height) 
 			return false;
 		}
 	}
-	
-	return ( Width == PreviewWidth ) && ( Height == PreviewHeight );
+
+	if (!InResolution.ProfileName.IsEmpty())
+	{
+		return InResolution.ProfileName.Equals(PreviewOverrideName);
+	}
+
+	return ((InResolution.Width == PreviewWidth ) && (InResolution.Height == PreviewHeight )) || (InResolution.bCanSwapAspectRatio && (InResolution.Height == PreviewWidth) && (InResolution.Width == PreviewHeight));
 }
 
-void SDesignerView::AddScreenResolutionSection(FMenuBuilder& MenuBuilder, const TArray<FPlayScreenResolution>& Resolutions, const FText& SectionName)
+void SDesignerView::AddScreenResolutionSection(FMenuBuilder& MenuBuilder, const TArray<FPlayScreenResolution> Resolutions, const FText SectionName)
 {
 	MenuBuilder.BeginSection(NAME_None, SectionName);
 	{
 		for ( auto Iter = Resolutions.CreateConstIterator(); Iter; ++Iter )
 		{
 			// Actions for the resolution menu entry
-			FExecuteAction OnResolutionSelected = FExecuteAction::CreateRaw(this, &SDesignerView::HandleOnCommonResolutionSelected, Iter->Width, Iter->Height, Iter->AspectRatio);
-			FIsActionChecked OnIsResolutionSelected = FIsActionChecked::CreateRaw(this, &SDesignerView::HandleIsCommonResolutionSelected, Iter->Width, Iter->Height);
+			FExecuteAction OnResolutionSelected = FExecuteAction::CreateRaw(this, &SDesignerView::HandleOnCommonResolutionSelected, *Iter);
+			FIsActionChecked OnIsResolutionSelected = FIsActionChecked::CreateRaw(this, &SDesignerView::HandleIsCommonResolutionSelected, *Iter);
 			FUIAction Action(OnResolutionSelected, FCanExecuteAction(), OnIsResolutionSelected);
 
 			MenuBuilder.AddMenuEntry(FText::FromString(Iter->Description), GetResolutionText(Iter->Width, Iter->Height, Iter->AspectRatio), FSlateIcon(), Action, NAME_None, EUserInterfaceActionType::Check);
@@ -3158,20 +3365,48 @@ TSharedRef<SWidget> SDesignerView::GetResolutionsMenu()
 {
 	const ULevelEditorPlaySettings* PlaySettings = GetDefault<ULevelEditorPlaySettings>();
 	FMenuBuilder MenuBuilder(true, nullptr);
-
 	// Add the normal set of resolution options.
-	AddScreenResolutionSection(MenuBuilder, PlaySettings->PhoneScreenResolutions, LOCTEXT("CommonPhonesSectionHeader", "Phones"));
-	AddScreenResolutionSection(MenuBuilder, PlaySettings->TabletScreenResolutions, LOCTEXT("CommonTabletsSectionHeader", "Tablets"));
-	AddScreenResolutionSection(MenuBuilder, PlaySettings->LaptopScreenResolutions, LOCTEXT("CommonLaptopsSectionHeader", "Laptops"));
-	AddScreenResolutionSection(MenuBuilder, PlaySettings->MonitorScreenResolutions, LOCTEXT("CommoMonitorsSectionHeader", "Monitors"));
-	AddScreenResolutionSection(MenuBuilder, PlaySettings->TelevisionScreenResolutions, LOCTEXT("CommonTelevesionsSectionHeader", "Televisions"));
+	FText PhoneTitle = LOCTEXT("CommonPhonesSectionHeader", "Phones");
+	FText TabletTitle = LOCTEXT("CommonTabletsSectionHeader", "Tablets");
+	FText LaptopTitle = LOCTEXT("CommonLaptopsSectionHeader", "Laptops");
+	FText MonitorTitle = LOCTEXT("CommonMonitorsSectionHeader", "Monitors");
+	FText TelevisionTitle = LOCTEXT("CommonTelevesionsSectionHeader", "Televisions");
+	MenuBuilder.AddSubMenu(
+		PhoneTitle,
+		FText(),
+		FNewMenuDelegate::CreateRaw(this, &SDesignerView::AddScreenResolutionSection, (PlaySettings->PhoneScreenResolutions), PhoneTitle),
+		false,
+		FSlateIcon());
+	MenuBuilder.AddSubMenu(
+		TabletTitle,
+		FText(),
+		FNewMenuDelegate::CreateRaw(this, &SDesignerView::AddScreenResolutionSection, (PlaySettings->TabletScreenResolutions), TabletTitle),
+		false,
+		FSlateIcon());
+	MenuBuilder.AddSubMenu(
+		LaptopTitle,
+		FText(),
+		FNewMenuDelegate::CreateRaw(this, &SDesignerView::AddScreenResolutionSection, (PlaySettings->LaptopScreenResolutions), LaptopTitle),
+		false,
+		FSlateIcon());
+	MenuBuilder.AddSubMenu(
+		MonitorTitle,
+		FText(),
+		FNewMenuDelegate::CreateRaw(this, &SDesignerView::AddScreenResolutionSection, (PlaySettings->MonitorScreenResolutions), MonitorTitle),
+		false,
+		FSlateIcon());
+	MenuBuilder.AddSubMenu(
+		TelevisionTitle,
+		FText(),
+		FNewMenuDelegate::CreateRaw(this, &SDesignerView::AddScreenResolutionSection, (PlaySettings->TelevisionScreenResolutions), TelevisionTitle),
+		false,
+		FSlateIcon());
 
 	return MenuBuilder.MakeWidget();
 }
 
 TSharedRef<SWidget> SDesignerView::GetScreenSizingFillMenu()
 {
-	const ULevelEditorPlaySettings* PlaySettings = GetDefault<ULevelEditorPlaySettings>();
 	FMenuBuilder MenuBuilder(true, nullptr);
 
 	CreateScreenFillEntry(MenuBuilder, EDesignPreviewSizeMode::FillScreen);
@@ -3228,6 +3463,25 @@ void SDesignerView::OnScreenFillRuleSelected(EDesignPreviewSizeMode SizeMode)
 	}
 }
 
+const FSlateBrush* SDesignerView::GetAspectRatioSwitchImage() const
+{
+	if (PreviewHeight > PreviewWidth)
+	{
+		return FEditorStyle::Get().GetBrush("UMGEditor.OrientPortrait");
+	}
+	return FEditorStyle::Get().GetBrush("UMGEditor.OrientLandscape");
+}
+
+bool SDesignerView::GetAspectRatioSwitchEnabled() const
+{
+	return bCanPreviewSwapAspectRatio;
+}
+
+bool SDesignerView::GetFlipDeviceEnabled() const
+{
+	return PreviewWidth > PreviewHeight && !PreviewOverrideName.IsEmpty();
+}
+
 void SDesignerView::BeginTransaction(const FText& SessionName)
 {
 	if ( ScopedTransaction == nullptr )
@@ -3267,6 +3521,85 @@ void SDesignerView::EndTransaction(bool bCancel)
 FReply SDesignerView::HandleZoomToFitClicked()
 {
 	ZoomToFit(/*bInstantZoom*/ false);
+	return FReply::Handled();
+}
+
+FReply SDesignerView::HandleSwapAspectRatioClicked()
+{
+	bSafeZoneFlipped = false;
+	int32 OldPreviewHeight = PreviewHeight;
+	PreviewHeight = PreviewWidth;
+	PreviewWidth = OldPreviewHeight;
+	bPreviewIsPortrait = (PreviewHeight > PreviewWidth);
+	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewWidth"), PreviewWidth, GEditorPerProjectIni);
+	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewHeight"), PreviewHeight, GEditorPerProjectIni);
+	GConfig->SetString(*ConfigSectionName, TEXT("PreviewAspectRatio"), *PreviewAspectRatio, GEditorPerProjectIni);
+	GConfig->SetBool(*ConfigSectionName, TEXT("bIsInPortraitMode"), bPreviewIsPortrait, GEditorPerProjectIni);
+	GConfig->SetString(*ConfigSectionName, TEXT("ProfileName"), *PreviewOverrideName, GEditorPerProjectIni);
+	GConfig->SetFloat(*ConfigSectionName, TEXT("ScaleFactor"), ScaleFactor, GEditorPerProjectIni);
+	GConfig->SetBool(*ConfigSectionName, TEXT("bCanPreviewSwapAspectRatio"), bCanPreviewSwapAspectRatio, GEditorPerProjectIni);
+
+	if (!PreviewOverrideName.IsEmpty())
+	{
+		ULevelEditorPlaySettings* PlaySettings = GetMutableDefault<ULevelEditorPlaySettings>();
+		DesignerSafeZoneOverride = PlaySettings->CalculateCustomUnsafeZones(CustomSafeZoneStarts, CustomSafeZoneDimensions, PreviewOverrideName, FVector2D(PreviewWidth, PreviewHeight));
+	}
+	else
+	{
+		FSlateApplication::Get().ResetCustomSafeZone();
+		FSlateApplication::Get().GetSafeZoneSize(DesignerSafeZoneOverride, FVector2D(PreviewWidth, PreviewHeight));
+	}
+	FMargin SafeZoneRatio = DesignerSafeZoneOverride;
+	SafeZoneRatio.Left /= (PreviewWidth / 2.0f);
+	SafeZoneRatio.Right /= (PreviewWidth / 2.0f);
+	SafeZoneRatio.Bottom /= (PreviewHeight / 2.0f);
+	SafeZoneRatio.Top /= (PreviewHeight / 2.0f);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+
+	if (UUserWidget* DefaultWidget = GetDefaultWidget())
+	{
+		MarkDesignModifed(/*bRequiresRecompile*/ false);
+	}
+
+	BroadcastDesignerChanged();
+
+	ResolutionTextFade.Play(this->AsShared());
+
+	return FReply::Handled();
+}
+
+FReply SDesignerView::HandleFlipSafeZonesClicked()
+{
+	if (!PreviewOverrideName.IsEmpty())
+	{
+		ULevelEditorPlaySettings* PlaySettings = GetMutableDefault<ULevelEditorPlaySettings>();
+		if (!bSafeZoneFlipped)
+		{
+			DesignerSafeZoneOverride = PlaySettings->FlipCustomUnsafeZones(CustomSafeZoneStarts, CustomSafeZoneDimensions, PreviewOverrideName, FVector2D(PreviewWidth, PreviewHeight));
+			bSafeZoneFlipped = true;
+		}
+		else
+		{
+			DesignerSafeZoneOverride = PlaySettings->CalculateCustomUnsafeZones(CustomSafeZoneStarts, CustomSafeZoneDimensions, PreviewOverrideName, FVector2D(PreviewWidth, PreviewHeight));
+			bSafeZoneFlipped = false;
+		}
+	}
+
+	FMargin SafeZoneRatio = DesignerSafeZoneOverride;
+	SafeZoneRatio.Left /= (PreviewWidth / 2.0f);
+	SafeZoneRatio.Right /= (PreviewWidth / 2.0f);
+	SafeZoneRatio.Bottom /= (PreviewHeight / 2.0f);
+	SafeZoneRatio.Top /= (PreviewHeight / 2.0f);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+
+	if (UUserWidget* DefaultWidget = GetDefaultWidget())
+	{
+		MarkDesignModifed(/*bRequiresRecompile*/ false);
+	}
+	BroadcastDesignerChanged();
+
+	ResolutionTextFade.Play(this->AsShared());
+
 	return FReply::Handled();
 }
 

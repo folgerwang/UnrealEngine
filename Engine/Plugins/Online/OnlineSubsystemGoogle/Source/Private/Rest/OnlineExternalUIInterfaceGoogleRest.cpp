@@ -11,13 +11,11 @@
 #define GOOGLE_ACCESS_TOKEN TEXT("code")
 #define GOOGLE_ERRORCODE_TOKEN TEXT("error")
 #define GOOGLE_ERRORCODE_DENY TEXT("access_denied")
-#define LOGIN_ERROR_CANCEL TEXT("com.epicgames.login.canceled")
-#define LOGIN_ERROR_UNKNOWN TEXT("com.epicgames.login.unknown")
-
 
 bool FOnlineExternalUIGoogle::ShowLoginUI(const int ControllerIndex, bool bShowOnlineOnly, bool bShowSkipButton, const FOnLoginUIClosedDelegate& Delegate)
 {
 	bool bStarted = false;
+	FString ErrorStr;
 	if (ControllerIndex >= 0 && ControllerIndex < MAX_LOCAL_PLAYERS)
 	{
 		FOnlineIdentityGooglePtr IdentityInt = StaticCastSharedPtr<FOnlineIdentityGoogle>(GoogleSubsystem->GetIdentityInterface());
@@ -33,14 +31,31 @@ bool FOnlineExternalUIGoogle::ShowLoginUI(const int ControllerIndex, bool bShowO
 				TriggerOnLoginFlowUIRequiredDelegates(RequestedURL, OnRedirectURLDelegate, OnExternalLoginFlowCompleteDelegate, bShouldContinueLoginFlow);
 				bStarted = bShouldContinueLoginFlow;
 			}
+			else
+			{
+				ErrorStr = TEXT("ShowLoginUI: Url Details not properly configured");
+			}
 		}
+		else
+		{
+			ErrorStr = TEXT("ShowLoginUI: Missing identity interface");
+		}
+	}
+	else
+	{
+		ErrorStr = FString::Printf(TEXT("ShowLoginUI: Invalid controller index (%d)"), ControllerIndex);
 	}
 
 	if (!bStarted)
 	{
-		GoogleSubsystem->ExecuteNextTick([ControllerIndex, Delegate]()
+		UE_LOG_ONLINE(Warning, TEXT("%s"), *ErrorStr);
+
+		FOnlineError Error;
+		Error.SetFromErrorCode(MoveTemp(ErrorStr));
+
+		GoogleSubsystem->ExecuteNextTick([ControllerIndex, Delegate, Error = MoveTemp(Error)]()
 		{
-			Delegate.ExecuteIfBound(nullptr, ControllerIndex);
+			Delegate.ExecuteIfBound(nullptr, ControllerIndex, FOnlineError(false));
 		});
 	}
 
@@ -104,9 +119,9 @@ FLoginFlowResult FOnlineExternalUIGoogle::OnLoginRedirectURL(const FString& Redi
 							{
 								if (*ErrorCode == GOOGLE_ERRORCODE_DENY)
 								{
-									Result.Error.ErrorRaw = LOGIN_ERROR_CANCEL;
-									Result.Error.ErrorMessage = FText::FromString(LOGIN_ERROR_CANCEL);
-									Result.Error.ErrorCode = TEXT("-1");
+									Result.Error.ErrorRaw = LOGIN_CANCELLED;
+									Result.Error.ErrorMessage = FText::FromString(LOGIN_CANCELLED);
+									Result.Error.ErrorCode = LOGIN_CANCELLED;
 									Result.Error.ErrorMessage = NSLOCTEXT("GoogleAuth", "GoogleAuthDeny", "Google Auth Denied");
 									Result.Error.NumericErrorCode = -1;
 								}
@@ -125,7 +140,7 @@ FLoginFlowResult FOnlineExternalUIGoogle::OnLoginRedirectURL(const FString& Redi
 								// Set some default in case parsing fails
 								Result.Error.ErrorRaw = LOGIN_ERROR_UNKNOWN;
 								Result.Error.ErrorMessage = FText::FromString(LOGIN_ERROR_UNKNOWN);
-								Result.Error.ErrorCode = TEXT("-2");
+								Result.Error.ErrorCode = LOGIN_ERROR_UNKNOWN;
 								Result.Error.NumericErrorCode = -2;
 							}
 						}
@@ -160,9 +175,10 @@ void FOnlineExternalUIGoogle::OnExternalLoginFlowComplete(const FLoginFlowResult
 
 	if (!bStarted)
 	{
-		GoogleSubsystem->ExecuteNextTick([ControllerIndex, Delegate]()
+		FOnlineError LoginFlowError = Result.Error;
+		GoogleSubsystem->ExecuteNextTick([ControllerIndex, LoginFlowError, Delegate]()
 		{
-			Delegate.ExecuteIfBound(nullptr, ControllerIndex);
+			Delegate.ExecuteIfBound(nullptr, ControllerIndex, LoginFlowError);
 		});
 	}
 }
@@ -170,9 +186,9 @@ void FOnlineExternalUIGoogle::OnExternalLoginFlowComplete(const FLoginFlowResult
 void FOnlineExternalUIGoogle::OnAccessTokenLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error, FOnLoginUIClosedDelegate Delegate)
 {
 	TSharedPtr<const FUniqueNetId> StrongUserId = UserId.AsShared();
-	GoogleSubsystem->ExecuteNextTick([StrongUserId, LocalUserNum, Delegate]()
+	GoogleSubsystem->ExecuteNextTick([StrongUserId, LocalUserNum, bWasSuccessful, Delegate]()
 	{
-		Delegate.ExecuteIfBound(StrongUserId, LocalUserNum);
+		Delegate.ExecuteIfBound(StrongUserId, LocalUserNum, FOnlineError(bWasSuccessful));
 	});
 }
 

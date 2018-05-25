@@ -22,36 +22,24 @@ void CopyCulledObjectData(uint DestIndex, uint SourceIndex)
 		RWCulledObjectData[DestIndex * CULLED_OBJECT_DATA_STRIDE + VectorIndex] = LoadFloat4(SceneObjectData, SourceIndex * OBJECT_DATA_STRIDE + VectorIndex);
 	}
 
-	float3 LocalVolumeBoundsMin;
-	float3 LocalVolumeBoundsMax;
-	LoadGlobalObjectLocalVolumeBoundsMinMax(SourceIndex, LocalVolumeBoundsMin, LocalVolumeBoundsMax);
-
-	float3 LocalBoundsVertices[8];
-	LocalBoundsVertices[0] = float3(LocalVolumeBoundsMin.x, LocalVolumeBoundsMin.y, LocalVolumeBoundsMin.z);
-	LocalBoundsVertices[1] = float3(LocalVolumeBoundsMax.x, LocalVolumeBoundsMin.y, LocalVolumeBoundsMin.z);
-	LocalBoundsVertices[2] = float3(LocalVolumeBoundsMin.x, LocalVolumeBoundsMax.y, LocalVolumeBoundsMin.z);
-	LocalBoundsVertices[3] = float3(LocalVolumeBoundsMax.x, LocalVolumeBoundsMax.y, LocalVolumeBoundsMin.z);
-	LocalBoundsVertices[4] = float3(LocalVolumeBoundsMin.x, LocalVolumeBoundsMin.y, LocalVolumeBoundsMax.z);
-	LocalBoundsVertices[5] = float3(LocalVolumeBoundsMax.x, LocalVolumeBoundsMin.y, LocalVolumeBoundsMax.z);
-	LocalBoundsVertices[6] = float3(LocalVolumeBoundsMin.x, LocalVolumeBoundsMax.y, LocalVolumeBoundsMax.z);
-	LocalBoundsVertices[7] = float3(LocalVolumeBoundsMax.x, LocalVolumeBoundsMax.y, LocalVolumeBoundsMax.z);
-
 	float3 MinViewSpacePosition = float3(2000000, 2000000, 2000000);
 	float3 MaxViewSpacePosition = float3(-2000000, -2000000, -2000000);
 
-	float4 M0 = LoadFloat4(SceneObjectData, SourceIndex * OBJECT_DATA_STRIDE + 11);
-	float4 M1 = LoadFloat4(SceneObjectData, SourceIndex * OBJECT_DATA_STRIDE + 12);
-	float4 M2 = LoadFloat4(SceneObjectData, SourceIndex * OBJECT_DATA_STRIDE + 13);
-	float4 M3 = LoadFloat4(SceneObjectData, SourceIndex * OBJECT_DATA_STRIDE + 14);
-
-	float4x4 LocalToWorld = float4x4(M0, M1, M2, M3);
+	float4x4 ObjectOBBToWorld = LoadGlobalObjectOBBToWorld(SourceIndex);
 
 	float3 ViewSpaceBoundsVertices[8];
 
 	for (uint i = 0; i < 8; i++)
 	{
-		float3 WorldBoundsPosition = mul(float4(LocalBoundsVertices[i], 1), LocalToWorld).xyz;
-		float3 ViewSpacePosition = mul(float4(WorldBoundsPosition, 1), WorldToShadow).xyz;
+		float3 UnitBoxVertex;
+		UnitBoxVertex.x = i & 0x1 ? 1.0f : -1.0f;
+		UnitBoxVertex.y = i & 0x2 ? 1.0f : -1.0f;
+		UnitBoxVertex.z = i & 0x4 ? 1.0f : -1.0f;
+
+		UnitBoxVertex *= SDF_APPROX_MARGIN;
+
+		float3 WorldBoundsPosition = mul(float4(UnitBoxVertex, 1.0f), ObjectOBBToWorld).xyz;
+		float3 ViewSpacePosition = mul(float4(WorldBoundsPosition, 1.0f), WorldToShadow).xyz;
 		MinViewSpacePosition = min(MinViewSpacePosition, ViewSpacePosition);
 		MaxViewSpacePosition = max(MaxViewSpacePosition, ViewSpacePosition);
 		ViewSpaceBoundsVertices[i] = ViewSpacePosition;
@@ -181,12 +169,10 @@ RWBuffer<uint> RWShadowTileArrayData;
 
 struct FShadowObjectCullVertexOutput
 {
-	nointerpolation float4 PositionAndRadius : TEXCOORD0;
-	nointerpolation uint ObjectIndex : TEXCOORD1;
+	nointerpolation uint ObjectIndex : TEXCOORD0;
 };
 
-float ConservativeRadiusScale;
-float MinRadius;
+float MinExpandRadius;
 
 /** Used when culling objects into screenspace tile lists */
 void ShadowObjectCullVS(
@@ -194,14 +180,20 @@ void ShadowObjectCullVS(
 	uint ObjectIndex : SV_InstanceID,
 	out FShadowObjectCullVertexOutput Output,
 	out float4 OutPosition : SV_POSITION
-	)
+)
 {
-	float4 ObjectPositionAndRadius = LoadObjectPositionAndRadius(ObjectIndex);
-	// ConservativeRadiusScale pushes the sphere vertices out so the triangles between them lie completely outside the sphere
-	// MinRadius is for conservative rasterization
-	float EffectiveRadius = (ObjectPositionAndRadius.w + MinRadius) * ConservativeRadiusScale;
-	float3 WorldPosition = InPosition.xyz * EffectiveRadius + ObjectPositionAndRadius.xyz;
-	OutPosition = mul(float4(WorldPosition, 1), WorldToShadow);
+	float4x4 ObjectOBBToWorld = LoadObjectOBBToWorld(ObjectIndex);
+
+	float ObjectScaleX = length(ObjectOBBToWorld[0].xyz);
+	float ObjectScaleY = length(ObjectOBBToWorld[1].xyz);
+	float ObjectScaleZ = length(ObjectOBBToWorld[2].xyz);
+
+	ObjectOBBToWorld[0].xyz *= (SDF_APPROX_MARGIN + MinExpandRadius / ObjectScaleX);
+	ObjectOBBToWorld[1].xyz *= (SDF_APPROX_MARGIN + MinExpandRadius / ObjectScaleY);
+	ObjectOBBToWorld[2].xyz *= (SDF_APPROX_MARGIN + MinExpandRadius / ObjectScaleZ);
+
+	float3 WorldPosition = mul(float4(InPosition.xyz, 1.0f), ObjectOBBToWorld).xyz;
+	OutPosition = mul(float4(WorldPosition, 1.0f), WorldToShadow);
 
 	// Clamp the vertex to the near plane if it is in front of the near plane
 	if (OutPosition.z < 0)
@@ -210,7 +202,6 @@ void ShadowObjectCullVS(
 		OutPosition.w = 1.0f;
 	}
 
-	Output.PositionAndRadius = ObjectPositionAndRadius;
 	Output.ObjectIndex = ObjectIndex;
 } 
 
@@ -241,15 +232,13 @@ void ShadowObjectCullPS(
 
 #define OBJECT_OBB_INTERSECTION 1
 #if OBJECT_OBB_INTERSECTION
-	
+	float2 TilePositionForCulling = float2(TilePosition.x, ShadowTileListGroupSize.y - 1 - TilePosition.y);
+
 	float3 ShadowTileMin;
 	float3 ShadowTileMax;
+	ShadowTileMin.xy = (TilePositionForCulling + 0.0f) / (float2)ShadowTileListGroupSize * 2 - 1;
+	ShadowTileMax.xy = (TilePositionForCulling + 1.0f) / (float2)ShadowTileListGroupSize * 2 - 1;
 
-	float2 TilePositionForCulling = float2(TilePosition.x, ShadowTileListGroupSize.y - TilePosition.y);
-	//@todo - why is this expand needed
-	float TileExpand = 1;
-	ShadowTileMin.xy = (TilePositionForCulling - TileExpand) / (float2)ShadowTileListGroupSize * 2 - 1;
-	ShadowTileMax.xy = (TilePositionForCulling + 1) / (float2)ShadowTileListGroupSize * 2 - 1;
 	// Extrude toward light to avoid culling objects between the light and the shadow frustum
 	ShadowTileMin.z = -1000;
 	ShadowTileMax.z = 1;
@@ -502,8 +491,7 @@ void DistanceFieldShadowingCS(
 	float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
 
 	float SceneDepth = CalcSceneDepth(ScreenUV);
-	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
-	float3 OpaqueWorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+	float3 OpaqueWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld).xyz;
 
 	// Distance for directional lights to trace
 	float TraceDistance = TanLightAngleAndNormalThreshold.z;
@@ -581,7 +569,7 @@ void DistanceFieldShadowingCS(
 			float SubsurfaceDensity = 0;
 			bool bUseSubsurfaceTransmission = false;
 
-#if !FORWARD_SHADING
+#if !FORWARD_SHADING && DF_SHADOW_QUALITY > 1
 			FGBufferData GBufferData = GetGBufferData(ScreenUV);
 
 			BRANCH

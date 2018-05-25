@@ -150,7 +150,7 @@ public:
 	virtual bool InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent EventType, float AmountDepressed=1.f, bool bGamepad=false) override;
 	virtual bool InputAxis(FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples=1, bool bGamepad=false) override;
 	virtual bool InputChar(FViewport* Viewport,int32 ControllerId, TCHAR Character) override;
-	virtual bool InputTouch(FViewport* Viewport, int32 ControllerId, uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex) override;
+	virtual bool InputTouch(FViewport* Viewport, int32 ControllerId, uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex) override;
 	virtual bool InputMotion(FViewport* Viewport, int32 ControllerId, const FVector& Tilt, const FVector& RotationRate, const FVector& Gravity, const FVector& Acceleration) override;
 	virtual EMouseCursor::Type GetCursor(FViewport* Viewport, int32 X, int32 Y ) override;
 	virtual TOptional<TSharedRef<SWidget>> MapCursor(FViewport* Viewport, const FCursorReply& CursorReply) override;
@@ -180,6 +180,11 @@ public:
 	//~ Begin FExec Interface.
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd,FOutputDevice& Ar) override;
 	//~ End FExec Interface.
+
+	/**
+	 * Gives the game's custom viewport client a way to handle F11 or Alt+Enter before processing the input
+	 */
+	bool TryToggleFullscreenOnInputKey(FKey Key, EInputEvent EventType);
 
 	/**
 	 * Exec command handlers
@@ -401,7 +406,7 @@ public:
 	void GetPixelSizeOfScreen( float& Width, float& Height, UCanvas* Canvas, int32 LocalPlayerIndex );
 
 	/** Calculate the amount of safezone needed for a single side for both vertical and horizontal dimensions*/
-	void CalculateSafeZoneValues( float& Horizontal, float& Vertical, UCanvas* Canvas, int32 LocalPlayerIndex, bool bUseMaxPercent );
+	void CalculateSafeZoneValues( FMargin& SafeZone, UCanvas* Canvas, int32 LocalPlayerIndex, bool bUseMaxPercent );
 
 	/**
 	* pixel size of the deadzone for all sides (right/left/top/bottom) based on which local player it is
@@ -559,6 +564,15 @@ public:
 
 	/** FViewport interface */
 	virtual bool ShouldDPIScaleSceneCanvas() const override { return false; }
+
+#if WITH_EDITOR
+	void SetPlayInEditorUseMouseForTouch(bool bUseMouseForTouch);
+#endif
+
+protected:
+
+	bool GetUseMouseForTouch() const;
+
 protected:
 	/** FCommonViewportClient interface */
 	virtual float UpdateViewportClientWindowDPIScale() const override;
@@ -930,4 +944,9 @@ private:
 
 	/** Is the mouse currently over the viewport client */
 	bool bIsMouseOverClient;
+
+#if WITH_EDITOR
+	/** Should the mouse send touch events. */
+	bool bUseMouseForTouchInEditor;
+#endif
 };

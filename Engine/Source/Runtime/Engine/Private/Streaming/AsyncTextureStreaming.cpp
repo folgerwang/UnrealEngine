@@ -228,6 +228,7 @@ void FAsyncTextureStreamingTask::UpdateBudgetedMips_Async(int64& MemoryUsed, int
 		PerfectWantedMipsBudgetResetThresold = MemoryBudgeted; 
 	}
 
+
 	const int64 NonStreamingTextureMemory =  AllocatedMemory - MemoryUsed;
 	int64 AvailableMemoryForStreaming = PoolSize - NonStreamingTextureMemory - MemoryMargin;
 
@@ -580,10 +581,19 @@ void FAsyncTextureStreamingTask::DoWork()
 	// Update the distance and size for each bounds.
 	StreamingData.UpdateBoundSizes_Async(Settings);
 	
+	bool bNewFilesLoaded = StreamingManager.GetAndResetNewFilesHaveLoaded();
+	
 	for (FStreamingTexture& StreamingTexture : StreamingTextures)
 	{
 		if (IsAborted()) break;
 
+		if (bNewFilesLoaded)
+		{
+			StreamingTexture.ClearCachedOptionalMipsState_Async();
+		}
+
+		StreamingTexture.UpdateOptionalMipsState_Async();
+		
 		StreamingData.UpdatePerfectWantedMips_Async(StreamingTexture, Settings);
 		StreamingTexture.DynamicBoostFactor = 1.f; // Reset after every computation.
 	}

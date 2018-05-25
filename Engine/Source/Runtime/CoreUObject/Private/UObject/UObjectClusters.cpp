@@ -469,7 +469,7 @@ public:
 	void AddObjectToCluster(int32 ObjectIndex, FUObjectItem* ObjectItem, UObject* Obj, TArray<UObject*>& ObjectsToSerialize, bool bOuterAndClass)
 	{
 		// If we haven't finished loading, we can't be sure we know all the references
-		checkf(!Obj->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad), TEXT("%s hasn't been loaded (%s) but is being added to cluster %s"), 
+		checkf(!Obj->HasAnyFlags(RF_NeedLoad), TEXT("%s hasn't been loaded (%s) but is being added to cluster %s"), 
 			*Obj->GetFullName(), 
 			*LoadFlagsToString(Obj),
 			*GetClusterRoot()->GetFullName());
@@ -555,9 +555,9 @@ public:
 	{
 		if (Object)
 		{
-			// If we haven't finished loading, we can't be sure we know all the references
-			checkf(!Object->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad), TEXT("%s hasn't been loaded (%s) but is being added to cluster %s"),
-				*Object->GetFullName(), 
+			// If we haven't finished loading, we can't be sure we know all the references so the object will be added as mutable reference
+			UE_CLOG(Object->HasAnyFlags(RF_NeedLoad), LogObj, Log, TEXT("%s hasn't been loaded (%s) but is being added to cluster %s"),
+				*Object->GetFullName(),
 				*LoadFlagsToString(Object),
 				*GetClusterRoot()->GetFullName());
 
@@ -601,17 +601,13 @@ public:
 					check(ObjectItem->GetOwnerIndex() == 0);
 
 					// New object, add it to the cluster.
-					if (Object->CanBeInCluster() && !Object->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad))
+					if (Object->CanBeInCluster() && !Object->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad) && !Object->IsRooted())
 					{
 						AddObjectToCluster(GUObjectArray.ObjectToIndex(Object), ObjectItem, Object, ObjectsToSerialize, true);
 					}
 					else
 					{
-						checkf(!Object->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad), TEXT("%s hasn't been loaded (%s) but is being added to cluster %s"),
-							*Object->GetFullName(), 
-							*LoadFlagsToString(Object),
-							*GetClusterRoot()->GetFullName());
-
+						// If the object can't be in a cluster or is being loaded, adding to the mutable objects list (and we won't be processing it further)
 						Cluster.MutableObjects.AddUnique(GUObjectArray.ObjectToIndex(Object));
 					}
 				}
@@ -703,7 +699,7 @@ void UObjectBaseUtility::CreateCluster()
 	}
 
 	// If we haven't finished loading, we can't be sure we know all the references
-	check(!HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad));
+	check(!HasAnyFlags(RF_NeedLoad));
 
 	// Create a new cluster, reserve an arbitrary amount of memory for it.
 	const int32 ClusterIndex = GUObjectClusters.AllocateCluster(InternalIndex);

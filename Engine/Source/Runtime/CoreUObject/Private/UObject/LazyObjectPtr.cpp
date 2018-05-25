@@ -76,6 +76,12 @@ FUniqueObjectGuid FUniqueObjectGuid::GetOrCreateIDForObject(const class UObject 
 	FUniqueObjectGuid ObjectGuid(Object);
 	if (!ObjectGuid.IsValid())
 	{
+#if WITH_EDITOR
+		if (GIsCookerLoadingPackage)
+		{
+			UE_ASSET_LOG(LogUObjectGlobals, Warning, Object, TEXT("Creating a new object GUID for object '%s' during cooking - this asset should be resaved"), *Object->GetFullName());
+		}
+#endif
 		ObjectGuid.Guid = FGuid::NewGuid();
 		GuidAnnotation.AddAnnotation(Object, ObjectGuid);
 		Object->MarkPackageDirty();

@@ -49,9 +49,10 @@ InstancedFoliage.cpp: Instanced foliage implementation.
 
 DEFINE_LOG_CATEGORY(LogInstancedFoliage);
 
-DECLARE_CYCLE_STAT(TEXT("FoliageTrace"), STAT_FoliageTrace, STATGROUP_Foliage);
-DECLARE_CYCLE_STAT(TEXT("FoliageAddInstance"), STAT_FoliageAddInstance, STATGROUP_Foliage);
-DECLARE_CYCLE_STAT(TEXT("FoliageCreateComponent"), STAT_FoliageCreateComponent, STATGROUP_Foliage);
+DECLARE_CYCLE_STAT(TEXT("FoliageActor_Trace"), STAT_FoliageTrace, STATGROUP_Foliage);
+DECLARE_CYCLE_STAT(TEXT("FoliageMeshInfo_AddInstance"), STAT_FoliageAddInstance, STATGROUP_Foliage);
+DECLARE_CYCLE_STAT(TEXT("FoliageMeshInfo_RemoveInstance"), STAT_FoliageRemoveInstance, STATGROUP_Foliage);
+DECLARE_CYCLE_STAT(TEXT("FoliageMeshInfo_CreateComponent"), STAT_FoliageCreateComponent, STATGROUP_Foliage);
 
 
 static TAutoConsoleVariable<int32> CVarFoliageDiscardDataOnLoad(
@@ -1022,6 +1023,53 @@ void FFoliageMeshInfo::UpdateComponentSettings(const UFoliageType* InSettings)
 	}
 }
 
+void FFoliageMeshInfo::AddInstances(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings, const TSet<const FFoliageInstance*>& InNewInstances, bool RebuildFoliageTree)
+{
+	SCOPE_CYCLE_COUNTER(STAT_FoliageAddInstance);
+
+	InIFA->Modify();
+
+	if (Component == nullptr)
+	{
+		CreateNewComponent(InIFA, InSettings);
+		check(Component);
+	}
+	else
+	{
+		Component->InitPerInstanceRenderData(false);
+		Component->InvalidateLightingCache();
+	}
+
+	bool PreviousbAutoRebuildTreeOnInstanceChanges = Component->bAutoRebuildTreeOnInstanceChanges;
+	Component->bAutoRebuildTreeOnInstanceChanges = RebuildFoliageTree;
+
+	Instances.Reserve(Instances.Num() + InNewInstances.Num());
+	Component->PreAllocateInstancesMemory(InNewInstances.Num());
+
+	for (const FFoliageInstance* Instance : InNewInstances)
+	{
+		// Add the instance taking either a free slot or adding a new item.
+		int32 InstanceIndex = Instances.Add(*Instance);
+		FFoliageInstance& AddedInstance = Instances[InstanceIndex];
+
+		AddedInstance.BaseId = InIFA->InstanceBaseCache.AddInstanceBaseId(Instance->BaseComponent);
+
+		// Add the instance to the hash
+		AddToBaseHash(InstanceIndex);
+		InstanceHash->InsertInstance(AddedInstance.Location, InstanceIndex);
+
+		// Calculate transform for the instance
+		FTransform InstanceToWorld = Instance->GetInstanceWorldTransform();
+
+		// Add the instance to the component
+		Component->AddInstanceWorldSpace(InstanceToWorld);
+	}
+
+	CheckValid();
+
+	Component->bAutoRebuildTreeOnInstanceChanges = PreviousbAutoRebuildTreeOnInstanceChanges;
+}
+
 void FFoliageMeshInfo::AddInstance(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings, const FFoliageInstance& InNewInstance, UActorComponent* InBaseComponent, bool RebuildFoliageTree)
 {
 	FFoliageInstance Instance = InNewInstance;
@@ -1070,88 +1118,90 @@ void FFoliageMeshInfo::AddInstance(AInstancedFoliageActor* InIFA, const UFoliage
 
 void FFoliageMeshInfo::RemoveInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesToRemove, bool RebuildFoliageTree)
 {
-	if (InInstancesToRemove.Num())
+	SCOPE_CYCLE_COUNTER(STAT_FoliageRemoveInstance);
+
+	if (InInstancesToRemove.Num() <= 0)
 	{
-		check(Component);
-		InIFA->Modify();
+		return;
+	}
 
-		bool PreviousbAutoRebuildTreeOnInstanceChanges = Component->bAutoRebuildTreeOnInstanceChanges;
-		Component->bAutoRebuildTreeOnInstanceChanges = false;
+	check(Component);
+	InIFA->Modify();
 
+	bool PreviousbAutoRebuildTreeOnInstanceChanges = Component->bAutoRebuildTreeOnInstanceChanges;
+	Component->bAutoRebuildTreeOnInstanceChanges = false;
 
-		TSet<int32> InstancesToRemove;
-		for (int32 Instance : InInstancesToRemove)
+	TSet<int32> InstancesToRemove;
+	InstancesToRemove.Append(InInstancesToRemove);
+
+	while (InstancesToRemove.Num() > 0)
+	{
+		// Get an item from the set for processing
+		auto It = InstancesToRemove.CreateConstIterator();
+		int32 InstanceIndex = *It;
+		int32 InstanceIndexToRemove = InstanceIndex;
+
+		FFoliageInstance& Instance = Instances[InstanceIndex];
+
+		// remove from hash
+		RemoveFromBaseHash(InstanceIndex);
+		InstanceHash->RemoveInstance(Instance.Location, InstanceIndex);
+
+		// remove from the component
+		Component->RemoveInstance(InstanceIndex);
+
+		// Remove it from the selection.
+		SelectedIndices.Remove(InstanceIndex);
+
+		// remove from instances array
+		Instances.RemoveAtSwap(InstanceIndex, 1, false);
+
+		// update hashes for swapped instance
+		if (InstanceIndex != Instances.Num() && Instances.Num() > 0)
 		{
-			InstancesToRemove.Add(Instance);
-		}
+			// Instance hash
+			FFoliageInstance& SwappedInstance = Instances[InstanceIndex];
+			InstanceHash->RemoveInstance(SwappedInstance.Location, Instances.Num());
+			InstanceHash->InsertInstance(SwappedInstance.Location, InstanceIndex);
 
-		while (InstancesToRemove.Num())
-		{
-			// Get an item from the set for processing
-			auto It = InstancesToRemove.CreateConstIterator();
-			int32 InstanceIndex = *It;
-			int32 InstanceIndexToRemove = InstanceIndex;
-
-			FFoliageInstance& Instance = Instances[InstanceIndex];
-
-			// remove from hash
-			RemoveFromBaseHash(InstanceIndex);
-			InstanceHash->RemoveInstance(Instance.Location, InstanceIndex);
-
-			// remove from the component
-			Component->RemoveInstance(InstanceIndex);
-
-			// Remove it from the selection.
-			SelectedIndices.Remove(InstanceIndex);
-
-			// remove from instances array
-			Instances.RemoveAtSwap(InstanceIndex);
-
-			// update hashes for swapped instance
-			if (InstanceIndex != Instances.Num() && Instances.Num())
+			// Component hash
+			auto* InstanceSet = ComponentHash.Find(SwappedInstance.BaseId);
+			if (InstanceSet)
 			{
-				// Instance hash
-				FFoliageInstance& SwappedInstance = Instances[InstanceIndex];
-				InstanceHash->RemoveInstance(SwappedInstance.Location, Instances.Num());
-				InstanceHash->InsertInstance(SwappedInstance.Location, InstanceIndex);
-
-				// Component hash
-				auto* InstanceSet = ComponentHash.Find(SwappedInstance.BaseId);
-				if (InstanceSet)
-				{
-					InstanceSet->Remove(Instances.Num());
-					InstanceSet->Add(InstanceIndex);
-				}
-
-				// Selection
-				if (SelectedIndices.Contains(Instances.Num()))
-				{
-					SelectedIndices.Remove(Instances.Num());
-					SelectedIndices.Add(InstanceIndex);
-				}
-
-				// Removal list
-				if (InstancesToRemove.Contains(Instances.Num()))
-				{
-					// The item from the end of the array that we swapped in to InstanceIndex is also on the list to remove.
-					// Remove the item at the end of the array and leave InstanceIndex in the removal list.
-					InstanceIndexToRemove = Instances.Num();
-				}
+				InstanceSet->Remove(Instances.Num());
+				InstanceSet->Add(InstanceIndex);
 			}
 
-			// Remove the removed item from the removal list
-			InstancesToRemove.Remove(InstanceIndexToRemove);
+			// Selection
+			if (SelectedIndices.Contains(Instances.Num()))
+			{
+				SelectedIndices.Remove(Instances.Num());
+				SelectedIndices.Add(InstanceIndex);
+			}
+
+			// Removal list
+			if (InstancesToRemove.Contains(Instances.Num()))
+			{
+				// The item from the end of the array that we swapped in to InstanceIndex is also on the list to remove.
+				// Remove the item at the end of the array and leave InstanceIndex in the removal list.
+				InstanceIndexToRemove = Instances.Num();
+			}
 		}
-		
-		Component->bAutoRebuildTreeOnInstanceChanges = PreviousbAutoRebuildTreeOnInstanceChanges;
 
-		if (RebuildFoliageTree)
-		{
-			Component->BuildTreeIfOutdated(true, true);
-		}		
-
-		CheckValid();
+		// Remove the removed item from the removal list
+		InstancesToRemove.Remove(InstanceIndexToRemove);
 	}
+
+	Instances.Shrink();
+		
+	Component->bAutoRebuildTreeOnInstanceChanges = PreviousbAutoRebuildTreeOnInstanceChanges;
+
+	if (RebuildFoliageTree)
+	{
+		Component->BuildTreeIfOutdated(true, true);
+	}		
+
+	CheckValid();
 }
 
 void FFoliageMeshInfo::PreMoveInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesToMove)
@@ -1662,6 +1712,9 @@ void AInstancedFoliageActor::MoveInstancesForMovedComponent(UActorComponent* InC
 				Modify();
 			}
 
+			check(MeshInfo.Component);
+			MeshInfo.Component->bAutoRebuildTreeOnInstanceChanges = false;
+
 			for (int32 InstanceIndex : *InstanceSet)
 			{
 				FFoliageInstance& Instance = MeshInfo.Instances[InstanceIndex];
@@ -1679,12 +1732,14 @@ void AInstancedFoliageActor::MoveInstancesForMovedComponent(UActorComponent* InC
 				Instance.Rotation = NewTransform.Rotator();
 
 				// Apply render data
-				check(MeshInfo.Component);
-				MeshInfo.Component->UpdateInstanceTransform(InstanceIndex, Instance.GetInstanceWorldTransform(), true);
+				MeshInfo.Component->UpdateInstanceTransform(InstanceIndex, Instance.GetInstanceWorldTransform(), true, true);
 
 				// Re-add the new instance location to the hash
 				MeshInfo.InstanceHash->InsertInstance(Instance.Location, InstanceIndex);
 			}
+
+			MeshInfo.Component->bAutoRebuildTreeOnInstanceChanges = true;
+			MeshInfo.Component->BuildTreeIfOutdated(true, false);
 		}
 	}
 }

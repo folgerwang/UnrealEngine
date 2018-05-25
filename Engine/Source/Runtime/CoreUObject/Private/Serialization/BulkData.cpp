@@ -905,10 +905,15 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 						SerializeBulkData(Ar, BulkData.Get());
 					}
 				}
+				else if (BulkDataFlags & BULKDATA_OptionalPayload)
+				{
+					Filename = FPaths::ChangeExtension(Filename, TEXT(".uptnl"));
+				}
 				else if (BulkDataFlags & BULKDATA_PayloadInSeperateFile)
 				{
 					Filename = FPaths::ChangeExtension(Filename, TEXT(".ubulk"));
 				}
+				
 			}
 			// Serialize the bulk data right away.
 			else

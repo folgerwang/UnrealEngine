@@ -17,7 +17,7 @@ FJsonArchiveInputFormatter::FJsonArchiveInputFormatter(FArchive& InInner, TFunct
 	: Inner(InInner)
 	, ResolveObjectName(InResolveObjectName)
 {
-	Inner.ArIsTextFormat = true;
+	Inner.SetIsTextFormat(true);
 	Inner.ArAllowLazyLoading = false;
 
 	TSharedPtr< FJsonObject > RootObject;

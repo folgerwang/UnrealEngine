@@ -543,6 +543,9 @@ public:
 	 */
 	FVector BoundToCube(float Radius) const;
 
+	/** Get a copy of this vector, clamped inside of a cube. */
+	FVector BoundToBox(const FVector& Min, const FVector Max) const;
+
 	/** Create a copy of this vector, with its magnitude clamped between Min and Max. */
 	FVector GetClampedToSize(float Min, float Max) const;
 
@@ -1597,6 +1600,17 @@ FORCEINLINE FVector FVector::BoundToCube(float Radius) const
 		FMath::Clamp(Z,-Radius,Radius)
 		);
 }
+
+FORCEINLINE FVector FVector::BoundToBox(const FVector& Min, const FVector Max) const
+{
+	return FVector
+	(
+		FMath::Clamp(X, Min.X, Max.X),
+		FMath::Clamp(Y, Min.Y, Max.Y),
+		FMath::Clamp(Z, Min.Z, Max.Z)
+	);
+}
+
 
 FORCEINLINE FVector FVector::GetClampedToSize(float Min, float Max) const
 {

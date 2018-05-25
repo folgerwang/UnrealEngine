@@ -57,6 +57,7 @@ FActiveSound::FActiveSound()
 	, bUpdateSingleEnvelopeValue(false)
 	, bUpdateMultiEnvelopeValue(false)
 	, bIsPlayingAudio(false)
+	, bIsStopping(false)
 	, UserIndex(0)
 	, bIsOccluded(false)
 	, bAsyncOcclusionPending(false)
@@ -571,11 +572,13 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 	InWaveInstances.Append(ThisSoundsWaveInstances);
 }
 
-void FActiveSound::Stop()
+void FActiveSound::Stop(bool bStopNow)
 {
 	check(AudioDevice);
 
-	if (Sound)
+	bool bWasStopping = bIsStopping;
+
+	if (Sound && !bIsStopping)
 	{
 		Sound->CurrentPlayCount = FMath::Max( Sound->CurrentPlayCount - 1, 0 );
 	}
@@ -586,27 +589,137 @@ void FActiveSound::Stop()
 
 		// Stop the owning sound source
 		FSoundSource* Source = AudioDevice->GetSoundSource(WaveInstance);
-		if( Source )
+		if (Source)
 		{
-			Source->Stop();
+			bool bStopped = false;
+			if (AudioDevice->IsAudioMixerEnabled())
+			{
+				if (bStopNow || !AudioDevice->GetNumFreeSources() || AudioDevice->CurrentStoppingVoiceCount == AudioDevice->NumStoppingVoices)
+				{
+					Source->StopNow();
+					bStopped = true;
+				}
+			}
+
+			if (!bStopped)
+			{
+				Source->Stop();
+			}
 		}
 
-		// Dequeue subtitles for this sounds on the game thread
-		DECLARE_CYCLE_STAT(TEXT("FGameThreadAudioTask.KillSubtitles"), STAT_AudioKillSubtitles, STATGROUP_TaskGraphTasks);
-		const PTRINT WaveInstanceID = (PTRINT)WaveInstance;
-		FAudioThread::RunCommandOnGameThread([WaveInstanceID]()
+		if (!bIsStopping)
 		{
-			FSubtitleManager::GetSubtitleManager()->KillSubtitles(WaveInstanceID);
-		}, GET_STATID(STAT_AudioKillSubtitles));
+			// Dequeue subtitles for this sounds on the game thread
+			DECLARE_CYCLE_STAT(TEXT("FGameThreadAudioTask.KillSubtitles"), STAT_AudioKillSubtitles, STATGROUP_TaskGraphTasks);
+			const PTRINT WaveInstanceID = (PTRINT)WaveInstance;
+			FAudioThread::RunCommandOnGameThread([WaveInstanceID]()
+			{
+				FSubtitleManager::GetSubtitleManager()->KillSubtitles(WaveInstanceID);
+			}, GET_STATID(STAT_AudioKillSubtitles));
+		}
 
-		delete WaveInstance;
+		if (Source)
+		{
+			if (!Source->IsStopping())
+			{
+				delete WaveInstance;
+				WaveInstance = nullptr;
+			}
+			else
+			{
+				// Increment the stopping voice count
+				AudioDevice->CurrentStoppingVoiceCount++;
+				check(AudioDevice->CurrentStoppingVoiceCount <= AudioDevice->NumStoppingVoices);
 
-		// Null the entry out temporarily as later Stop calls could try to access this structure
-		WaveInstance = nullptr;
+				// This source is doing a fade out, so stopping. Can't remove the wave instance yet.
+				bIsStopping = true;
+			}
+		}
+		else
+		{
+			// Have a wave instance but no source.
+			delete WaveInstance;
+			WaveInstance = nullptr;
+		}
 	}
-	WaveInstances.Empty();
 
-	AudioDevice->RemoveActiveSound(this);
+	if (bStopNow)
+	{
+		bIsStopping = false;
+	}
+
+	if (!bIsStopping)
+	{
+		WaveInstances.Empty();
+	}
+
+	if (!bWasStopping)
+	{
+		AudioDevice->RemoveActiveSound(this);
+	}
+}
+
+bool FActiveSound::UpdateStoppingSources(uint64 CurrentTick, bool bEnsureStopped)
+{
+	// If we're not stopping, then just return true (we can be cleaned up)
+	if (!bIsStopping)
+	{
+		return true;
+	}
+
+	for (auto WaveInstanceIt(WaveInstances.CreateIterator()); WaveInstanceIt; ++WaveInstanceIt)
+	{
+		FWaveInstance*& WaveInstance = WaveInstanceIt.Value();
+
+		// Some wave instances in the list here may be nullptr if some sounds have already stopped or didn't need to do a stop
+		if (WaveInstance)
+		{
+			// Stop the owning sound source
+			FSoundSource* Source = AudioDevice->GetSoundSource(WaveInstance);
+			if (Source)
+			{
+				// We should have a stopping source here
+				check(Source->IsStopping());
+
+				// Wait until the source has finished stopping
+				if (bEnsureStopped)
+				{
+					Source->EnsureStopped();
+				}
+
+				// The source has finished (totally faded out)
+				if (Source->IsFinished() || bEnsureStopped)
+				{
+					// Release source resources now safely
+					Source->ReleaseStoppedSound();
+
+					// Delete the wave instance
+					delete WaveInstance;
+					WaveInstance = nullptr;
+					AudioDevice->CurrentStoppingVoiceCount--;
+					check(AudioDevice->CurrentStoppingVoiceCount >= 0);
+				}
+				else
+				{
+					Source->LastUpdate = CurrentTick;
+					Source->LastHeardUpdate = CurrentTick;
+					// One of sources has not finished fading out, just return false now
+					return false;
+				}
+			}
+			else
+			{
+				// We have a wave instance but no source for it, so just delete it. 
+				delete WaveInstance;
+				WaveInstance = nullptr;
+			}
+		}
+	}
+
+	// Return true to indicate this active sound can be cleaned up
+	// If we've reached this point, all sound waves have stopped so we can clear this wave instance out.
+	WaveInstances.Reset();
+	return true;
 }
 
 FWaveInstance* FActiveSound::FindWaveInstance( const UPTRINT WaveInstanceHash )
@@ -669,6 +782,8 @@ void FActiveSound::OcclusionTraceDone(const FTraceHandle& TraceHandle, FTraceDat
 			{
 				FActiveSound* ActiveSound = TraceDetails.ActiveSound;
 
+				DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.OcclusionTraceDone"), STAT_OcclusionTraceDone, STATGROUP_AudioThreadCommands);
+
 				FAudioThread::RunCommandOnAudioThread([AudioDevice, ActiveSound, bFoundBlockingHit]()
 				{
 					if (AudioDevice->GetActiveSounds().Contains(ActiveSound))
@@ -676,7 +791,7 @@ void FActiveSound::OcclusionTraceDone(const FTraceHandle& TraceHandle, FTraceDat
 						ActiveSound->bIsOccluded = bFoundBlockingHit;
 						ActiveSound->bAsyncOcclusionPending = false;
 					}
-				});
+				}, GET_STATID(STAT_OcclusionTraceDone));
 			}
 		}
 	}

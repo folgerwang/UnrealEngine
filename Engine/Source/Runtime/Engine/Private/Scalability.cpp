@@ -10,6 +10,14 @@
 #include "Interfaces/IAnalyticsProvider.h"
 #include "Interfaces/IProjectManager.h"
 
+// @TODO: abstract this away into a PLATFORM_ define or something
+#if PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_SWITCH
+static bool GUserSettingsOverrideCVarPriority = false;
+#else
+static bool GUserSettingsOverrideCVarPriority = true;
+#endif
+
+
 static TAutoConsoleVariable<float> CVarResolutionQuality(
 	TEXT("sg.ResolutionQuality"),
 	100.0f,
@@ -521,7 +529,7 @@ void ProcessCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 	}
 }
 
-void SetQualityLevels(const FQualityLevels& QualityLevels)
+void SetQualityLevels(const FQualityLevels& QualityLevels, bool bForce/* = false*/)
 {
 	const int32 NewViewDistanceQuality = FMath::Clamp(QualityLevels.ViewDistanceQuality, 0, CVarViewDistanceQuality_NumLevels->GetInt() - 1);
 	const int32 NewAntiAliasingQuality = FMath::Clamp(QualityLevels.AntiAliasingQuality, 0, CVarAntiAliasingQuality_NumLevels->GetInt() - 1);
@@ -531,16 +539,30 @@ void SetQualityLevels(const FQualityLevels& QualityLevels)
 	const int32 NewEffectsQuality = FMath::Clamp(QualityLevels.EffectsQuality, 0, CVarEffectsQuality_NumLevels->GetInt() - 1);
 	const int32 NewFoliageQuality = FMath::Clamp(QualityLevels.FoliageQuality, 0, CVarFoliageQuality_NumLevels->GetInt() - 1);
 
-	// set the cvars, but don't change their priority - there are issues with scalability and 
-	// device profiles conflicting in different combinations
-	CVarResolutionQuality.AsVariable()->SetWithCurrentPriority(QualityLevels.ResolutionQuality);
-	CVarViewDistanceQuality.AsVariable()->SetWithCurrentPriority(NewViewDistanceQuality);
-	CVarAntiAliasingQuality.AsVariable()->SetWithCurrentPriority(NewAntiAliasingQuality);
-	CVarShadowQuality.AsVariable()->SetWithCurrentPriority(NewShadowQuality);
-	CVarPostProcessQuality.AsVariable()->SetWithCurrentPriority(NewPostProcessQuality);
-	CVarTextureQuality.AsVariable()->SetWithCurrentPriority(NewTextureQuality);
-	CVarEffectsQuality.AsVariable()->SetWithCurrentPriority(NewEffectsQuality);
-	CVarFoliageQuality.AsVariable()->SetWithCurrentPriority(NewFoliageQuality);
+	if (GUserSettingsOverrideCVarPriority || bForce)
+	{
+		// set the cvars, but don't change their priority - there are issues with scalability and 
+		// device profiles conflicting in different combinations
+		CVarResolutionQuality.AsVariable()->SetWithCurrentPriority(QualityLevels.ResolutionQuality);
+		CVarViewDistanceQuality.AsVariable()->SetWithCurrentPriority(NewViewDistanceQuality);
+		CVarAntiAliasingQuality.AsVariable()->SetWithCurrentPriority(NewAntiAliasingQuality);
+		CVarShadowQuality.AsVariable()->SetWithCurrentPriority(NewShadowQuality);
+		CVarPostProcessQuality.AsVariable()->SetWithCurrentPriority(NewPostProcessQuality);
+		CVarTextureQuality.AsVariable()->SetWithCurrentPriority(NewTextureQuality);
+		CVarEffectsQuality.AsVariable()->SetWithCurrentPriority(NewEffectsQuality);
+		CVarFoliageQuality.AsVariable()->SetWithCurrentPriority(NewFoliageQuality);
+	}
+	else
+	{
+		CVarResolutionQuality.AsVariable()->Set(QualityLevels.ResolutionQuality, ECVF_SetByScalability);
+		CVarViewDistanceQuality.AsVariable()->Set(NewViewDistanceQuality, ECVF_SetByScalability);
+		CVarAntiAliasingQuality.AsVariable()->Set(NewAntiAliasingQuality, ECVF_SetByScalability);
+		CVarShadowQuality.AsVariable()->Set(NewShadowQuality, ECVF_SetByScalability);
+		CVarPostProcessQuality.AsVariable()->Set(NewPostProcessQuality, ECVF_SetByScalability);
+		CVarTextureQuality.AsVariable()->Set(NewTextureQuality, ECVF_SetByScalability);
+		CVarEffectsQuality.AsVariable()->Set(NewEffectsQuality, ECVF_SetByScalability);
+		CVarFoliageQuality.AsVariable()->Set(NewFoliageQuality, ECVF_SetByScalability);
+	}
 }
 
 FQualityLevels GetQualityLevels()
@@ -710,5 +732,4 @@ FQualityLevels GetQualityLevelCounts()
 }
 
 }
-
 

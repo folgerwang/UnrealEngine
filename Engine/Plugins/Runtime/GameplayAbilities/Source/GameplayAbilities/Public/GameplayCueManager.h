@@ -33,15 +33,15 @@ struct FGameplayCueObjectLibrary
 {
 	GENERATED_BODY()
 	FGameplayCueObjectLibrary()
+		: ActorObjectLibrary(nullptr)
+		, StaticObjectLibrary(nullptr)
+		, CueSet(nullptr)
+		, AsyncPriority(0)
+		, bShouldSyncScan(false)
+		, bShouldAsyncLoad(false)
+		, bShouldSyncLoad(false)
+		, bHasBeenInitialized(false)
 	{
-		ActorObjectLibrary = nullptr;
-		StaticObjectLibrary = nullptr;
-		CueSet = nullptr;
-		AsyncPriority = 0;
-		bShouldSyncScan = false;
-		bShouldAsyncLoad = false;
-		bShouldSyncLoad = false;
-		bHasBeenInitialized = false;
 	}
 
 	/** Paths to search for */
@@ -193,9 +193,6 @@ class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
 	TArray<UGameplayCueSet*> GetGlobalCueSets();
 
 #if WITH_EDITOR
-	/** Call before cooking to add gameplay cue assets to the cook. Call after Initializing. */
-	virtual void ModifyCook(TArray<FName>& PackagesToCook, TArray<FName>& PackagesToNeverCook);
-	
 	/** Called from editor to soft load all gameplay cue notifies for the GameplayCueEditor */
 	void InitializeEditorObjectLibrary();
 

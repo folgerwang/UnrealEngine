@@ -46,7 +46,7 @@ public:
 		{
 			// hack: if it's the hardcoded IPv4 multicasting address then translate into an IPv6 multicast address
 			bool isValid;
-			SetIp(L"ff02::2", isValid);
+			SetIp(TEXT("ff02::2"), isValid);
 			check(isValid);
 		}
 		else
@@ -100,12 +100,11 @@ public:
 			// IPv4 address will only have a port when a colon is present.
 			// IPv6 address will only have a port when surrounded by brackets.
 			const bool bHasPort = (INDEX_NONE != LastColonIndex) && (!bIsIPv6 || (bHasCloseBracket && LastColonIndex > CloseBracketIndex));
-
+			FString Port;
 			if (bHasPort)
 			{
-				FString Port = AddressString.RightChop(LastColonIndex + 1);
+				Port = AddressString.RightChop(LastColonIndex + 1);
 				AddressString = AddressString.Left(LastColonIndex);
-				SetPort(FCString::Atoi(*Port));
 			}
 
 			if (bIsIPv6)
@@ -115,6 +114,14 @@ public:
 
 				// Check for valid IPv6 address
 				const auto InAddrAnsi = StringCast<ANSICHAR>(*AddressString);
+#if PLATFORM_IOS
+				ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
+				if (SocketSubsystem && SocketSubsystem->GetHostByName(InAddrAnsi.Get(), *this) == SE_NO_ERROR)
+				{
+					bIsValid = true;
+				}
+				else
+#endif
 				if (inet_pton(AF_INET6, InAddrAnsi.Get(), &Addr.sin6_addr))
 				{
 					bIsValid = true;
@@ -124,11 +131,24 @@ public:
 			{
 				const auto InAddrAnsi = StringCast<ANSICHAR>(*AddressString);
 				in_addr IPv4Addr;
+#if PLATFORM_IOS
+				ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
+				if (SocketSubsystem && SocketSubsystem->GetHostByName(InAddrAnsi.Get(), *this) == SE_NO_ERROR)
+				{
+					bIsValid = true;
+				}
+				else
+#endif
 				if (inet_pton(AF_INET, InAddrAnsi.Get(), &IPv4Addr))
 				{
 					bIsValid = true;
 					SetIp(IPv4Addr);
 				}
+			}
+
+			if (bHasPort)
+			{
+				SetPort(FCString::Atoi(*Port));
 			}
 		}
 	}
@@ -173,6 +193,13 @@ public:
 	{
 		Addr.sin6_addr = IpAddr;
 	}
+	
+#if PLATFORM_IOS
+	void SetIp(const sockaddr_in6& IpAddr)
+	{
+		Addr = IpAddr;
+	}
+#endif
 
 	/**
 	* Sets the ip address using a generic sockaddr_storage
@@ -328,6 +355,13 @@ public:
 	{
 		return (const sockaddr*)&Addr;
 	}
+	
+#if PLATFORM_IOS
+	virtual void Copy(const FInternetAddr& Other) override
+	{
+		Addr = static_cast<const FInternetAddrBSDIPv6&>(Other).Addr;
+	}
+#endif
 };
 
 

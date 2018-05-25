@@ -69,6 +69,7 @@ struct FKismetUserDeclaredFunctionMetadata
 public:
 	FKismetUserDeclaredFunctionMetadata()
 		: InstanceTitleColor(FLinearColor::White)
+		, bCallInEditor(false)
 		, HasLatentFunctions(INDEX_NONE)
 	{
 	}

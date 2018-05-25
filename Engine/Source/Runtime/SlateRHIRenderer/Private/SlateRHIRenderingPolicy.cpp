@@ -304,11 +304,19 @@ static void UpdateScissorRect(
 		if (RenderBatch.ClippingState.IsSet())
 		{
 			const FSlateClippingState& ClipState = RenderBatch.ClippingState.GetValue();
-			if (ClipState.ScissorRect.IsSet())
+			if (ClipState.GetClippingMethod() == EClippingMethod::Scissor)
 			{
 #if STATS
 				ScissorClips++;
 #endif
+
+				if (bForceStateChange && MaskingID > 0)
+				{
+					FRHIRenderTargetView ColorView(ColorTarget, ERenderTargetLoadAction::ELoad);
+					FRHIDepthRenderTargetView DepthStencilView(DepthStencilTarget, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::ENoAction, ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::EStore);
+					FRHISetRenderTargetsInfo CurrentRTInfo(1, &ColorView, DepthStencilView);
+					RHICmdList.SetRenderTargetsAndClear(CurrentRTInfo);
+				}
 
 				const FSlateClippingZone& ScissorRect = ClipState.ScissorRect.GetValue();
 
@@ -547,7 +555,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 	FSlateBackBuffer& BackBuffer,
 	FTexture2DRHIRef& ColorTarget,
 	FTexture2DRHIRef& DepthStencilTarget,
-	const TArray<FSlateRenderBatch>& RenderBatches, 
+	const TArray<FSlateRenderBatch>& RenderBatches,
 	const FSlateRenderingOptions& Options)
 {
 	// Should only be called by the rendering thread
@@ -609,7 +617,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 			SceneViews[i] = CreateSceneView(SceneViewFamilyContexts[i], BackBuffer, Options.ViewProjectionMatrix);
 		}
 
-		SceneViewFamilyContexts[NumScenes-1] = new FSceneViewFamilyContext
+		SceneViewFamilyContexts[NumScenes - 1] = new FSceneViewFamilyContext
 		(
 			FSceneViewFamily::ConstructionValues
 			(
@@ -621,12 +629,12 @@ void FSlateRHIRenderingPolicy::DrawElements(
 			.SetGammaCorrection(DisplayGamma)
 			.SetRealtimeUpdate(true)
 		);
-		SceneViews[NumScenes-1] = CreateSceneView(SceneViewFamilyContexts[NumScenes-1], BackBuffer, Options.ViewProjectionMatrix);
+		SceneViews[NumScenes - 1] = CreateSceneView(SceneViewFamilyContexts[NumScenes - 1], BackBuffer, Options.ViewProjectionMatrix);
 	}
 
 	TShaderMapRef<FSlateElementVS> GlobalVertexShader(GetGlobalShaderMap(GMaxRHIFeatureLevel));
 
-	FSamplerStateRHIRef BilinearClamp = TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI();
+	FSamplerStateRHIRef BilinearClamp = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 
 	TSlateElementVertexBuffer<FSlateVertex>* VertexBuffer = &VertexBuffers;
 	FSlateElementIndexBuffer* IndexBuffer = &IndexBuffers;
@@ -661,7 +669,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 	FVector2D ViewTranslation2D = Options.ViewOffset;
 
 	// Draw each element
-	for( int32 BatchIndex = 0; BatchIndex < RenderBatches.Num(); ++BatchIndex )
+	for (int32 BatchIndex = 0; BatchIndex < RenderBatches.Num(); ++BatchIndex)
 	{
 #if WITH_SLATE_VISUALIZERS
 		FLinearColor BatchColor = FLinearColor(BatchColors.GetUnitVector());
@@ -671,7 +679,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 		const FSlateRenderDataHandle* RenderHandle = RenderBatch.CachedRenderHandle.Get();
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if(BatchIndex != RenderBatches.Num() - 1)
+		if (BatchIndex != RenderBatches.Num() - 1)
 		{
 			if (BatchToDraw != -1 && BatchToDraw != BatchIndex)
 			{
@@ -680,16 +688,16 @@ void FSlateRHIRenderingPolicy::DrawElements(
 		}
 #endif
 
-		if ( RenderHandle != LastHandle )
+		if (RenderHandle != LastHandle)
 		{
 			SLATE_DRAW_EVENT(RHICmdList, ChangingRenderBuffers);
 
 			LastHandle = RenderHandle;
 
-			if ( RenderHandle )
+			if (RenderHandle)
 			{
 				FCachedRenderBuffers* Buffers = ResourceManager->FindCachedBuffersForHandle(RenderHandle);
-				if ( Buffers != nullptr )
+				if (Buffers != nullptr)
 				{
 					VertexBuffer = &Buffers->VertexBuffer;
 					IndexBuffer = &Buffers->IndexBuffer;
@@ -711,7 +719,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 		const ESlateShader::Type ShaderType = RenderBatch.ShaderType;
 		const FShaderParams& ShaderParams = RenderBatch.ShaderParams;
 
-		if ( EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::Wireframe) )
+		if (EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::Wireframe))
 		{
 			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Wireframe, CM_None, false>::GetRHI();
 		}
@@ -720,15 +728,15 @@ void FSlateRHIRenderingPolicy::DrawElements(
 			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None, false>::GetRHI();
 		}
 
-		if( !RenderBatch.CustomDrawer.IsValid() )
+		if (!RenderBatch.CustomDrawer.IsValid())
 		{
 			FMatrix DynamicOffset = FTranslationMatrix::Make(FVector(RenderBatch.DynamicOffset.X, RenderBatch.DynamicOffset.Y, 0));
 			const FMatrix ViewProjection = DynamicOffset * Options.ViewProjectionMatrix;
 
 			UpdateScissorRect(
-				RHICmdList, 
+				RHICmdList,
 #if STATS
-				ScissorClips, 
+				ScissorClips,
 				StencilClips,
 #endif
 				StencilRef,
@@ -740,14 +748,14 @@ void FSlateRHIRenderingPolicy::DrawElements(
 				LastClippingState,
 				ViewTranslation2D,
 				bSwitchVerticalAxis,
-				GraphicsPSOInit, 
+				GraphicsPSOInit,
 				ViewProjection,
 				false);
 
-			const uint32 PrimitiveCount = RenderBatch.DrawPrimitiveType == ESlateDrawPrimitive::LineList ? RenderBatch.NumIndices / 2 : RenderBatch.NumIndices / 3; 
+			const uint32 PrimitiveCount = RenderBatch.DrawPrimitiveType == ESlateDrawPrimitive::LineList ? RenderBatch.NumIndices / 2 : RenderBatch.NumIndices / 3;
 
 			ESlateShaderResource::Type ResourceType = ShaderResource ? ShaderResource->GetType() : ESlateShaderResource::Invalid;
-			if( ResourceType != ESlateShaderResource::Material && ShaderType != ESlateShader::PostProcess ) 
+			if (ResourceType != ESlateShaderResource::Material && ShaderType != ESlateShader::PostProcess)
 			{
 				check(RenderBatch.NumIndices > 0);
 				FSlateElementPS* PixelShader = nullptr;
@@ -757,7 +765,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 
 #if WITH_SLATE_VISUALIZERS
 				FSlateDebugBatchingPS* BatchingPixelShader = nullptr;
-				if ( CVarShowSlateBatching.GetValueOnRenderThread() != 0 )
+				if (CVarShowSlateBatching.GetValueOnRenderThread() != 0)
 				{
 					BatchingPixelShader = *TShaderMapRef<FSlateDebugBatchingPS>(ShaderMap);
 					PixelShader = BatchingPixelShader;
@@ -769,11 +777,11 @@ void FSlateRHIRenderingPolicy::DrawElements(
 				}
 
 #if WITH_SLATE_VISUALIZERS
-				if ( CVarShowSlateBatching.GetValueOnRenderThread() != 0 )
+				if (CVarShowSlateBatching.GetValueOnRenderThread() != 0)
 				{
 					GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha>::GetRHI();
 				}
-				else if ( CVarShowSlateOverdraw.GetValueOnRenderThread() != 0 )
+				else if (CVarShowSlateOverdraw.GetValueOnRenderThread() != 0)
 				{
 					GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGB, BO_Add, BF_One, BF_One, BO_Add, BF_Zero, BF_InverseSourceAlpha>::GetRHI();
 				}
@@ -781,19 +789,19 @@ void FSlateRHIRenderingPolicy::DrawElements(
 #endif
 				{
 					GraphicsPSOInit.BlendState =
-						EnumHasAllFlags( DrawFlags, ESlateBatchDrawFlag::NoBlending )
+						EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::NoBlending)
 						? TStaticBlendState<>::GetRHI()
-						: ( EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::PreMultipliedAlpha )
+						: (EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::PreMultipliedAlpha)
 							? TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha>::GetRHI()
-							: TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha>::GetRHI() )
+							: TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_InverseSourceAlpha>::GetRHI())
 						;
 				}
 
-				if ( EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::Wireframe) || Options.bWireFrame )
+				if (EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::Wireframe) || Options.bWireFrame)
 				{
 					GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Wireframe, CM_None, false>::GetRHI();
 
-					if ( Options.bWireFrame )
+					if (Options.bWireFrame)
 					{
 						GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 					}
@@ -828,13 +836,12 @@ void FSlateRHIRenderingPolicy::DrawElements(
 					if (ResourceType == ESlateShaderResource::TextureObject)
 					{
 						FSlateBaseUTextureResource* TextureObjectResource = (FSlateBaseUTextureResource*)ShaderResource;
-
-						TextureObjectResource->CheckIfValid();
-
-						TextureRHI = TextureObjectResource->AccessRHIResource();
-
-						if (UTexture* TextureObj = TextureObjectResource->TextureObject)
+						if (const UTexture* TextureObj = TextureObjectResource->GetTextureObject())
 						{
+							TextureObjectResource->CheckForStaleResources();
+
+							TextureRHI = TextureObjectResource->AccessRHIResource();
+
 							Filter = GetSamplerFilter(TextureObj);
 						}
 					}
@@ -930,7 +937,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 						}
 					}
 				}
-				
+
 				{
 					QUICK_SCOPE_CYCLE_COUNTER(Slate_SetTextureShaderParams);
 
@@ -982,9 +989,9 @@ void FSlateRHIRenderingPolicy::DrawElements(
 					// used.
 					ActiveSceneIndex = NumScenes - 1;
 #if UE_BUILD_DEBUG
-	#if WITH_EDITOR
+#if WITH_EDITOR
 					UE_LOG(LogSlate, Error, TEXT("Invalid scene index in batch: %d of %d known scenes!"), RenderBatch.SceneIndex, ResourceManager->GetSceneCount());
-	#endif
+#endif
 #endif
 				}
 
@@ -999,7 +1006,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 				FSlateMaterialResource* MaterialShaderResource = (FSlateMaterialResource*)ShaderResource;
 				if (MaterialShaderResource->GetMaterialObject() != nullptr)
 				{
-					MaterialShaderResource->CheckIfValid();
+					MaterialShaderResource->CheckForStaleResources();
 
 					FMaterialRenderProxy* MaterialRenderProxy = MaterialShaderResource->GetRenderProxy();
 
@@ -1071,7 +1078,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 								}
 							}
 						}
-						
+
 						{
 							SCOPE_CYCLE_COUNTER(STAT_SlateRTMaterialDrawCall);
 							if (bUseInstancing)
@@ -1118,7 +1125,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 					}
 				}
 			}
-			else if(ShaderType == ESlateShader::PostProcess)
+			else if (ShaderType == ESlateShader::PostProcess)
 			{
 				SLATE_DRAW_EVENT(RHICmdList, PostProcess);
 
@@ -1126,7 +1133,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 
 				FPostProcessRectParams RectParams;
 				RectParams.SourceTexture = BackBuffer.GetRenderTargetTexture();
-				RectParams.SourceRect = FSlateRect(0,0,BackBuffer.GetSizeXY().X, BackBuffer.GetSizeXY().Y);
+				RectParams.SourceRect = FSlateRect(0, 0, BackBuffer.GetSizeXY().X, BackBuffer.GetSizeXY().Y);
 				RectParams.DestRect = FSlateRect(QuadPositionData.X, QuadPositionData.Y, QuadPositionData.Z, QuadPositionData.W);
 				RectParams.SourceTextureSize = BackBuffer.GetSizeXY();
 
@@ -1177,17 +1184,36 @@ void FSlateRHIRenderingPolicy::DrawElements(
 
 				// This element is custom and has no Slate geometry.  Tell it to render itself now
 				CustomDrawer->DrawRenderThread(RHICmdList, &BackBuffer.GetRenderTargetTexture());
-				
+
 
 				//We reset the maskingID here because otherwise the RT might not get re-set in the lines above see: if (bClearStencil || bForceStateChange)
 				MaskingID = 0;
-			
+
 				// Something may have messed with the viewport size so set it back to the full target.
-				RHICmdList.SetViewport( 0,0,0,BackBuffer.GetSizeXY().X, BackBuffer.GetSizeXY().Y, 0.0f ); 
+				RHICmdList.SetViewport(0, 0, 0, BackBuffer.GetSizeXY().X, BackBuffer.GetSizeXY().Y, 0.0f);
 				RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, 0);
 			}
 		}
 	}
+
+	// Don't do color correction on iOS or Android, we don't have the GPU overhead for it.
+#if !(PLATFORM_IOS || PLATFORM_ANDROID)
+	if (GSlateColorDeficiencyType != EColorVisionDeficiency::NormalVision && GSlateColorDeficiencySeverity > 0)
+	{
+		FPostProcessRectParams RectParams;
+		RectParams.SourceTexture = BackBuffer.GetRenderTargetTexture();
+		RectParams.SourceRect = FSlateRect(0, 0, BackBuffer.GetSizeXY().X, BackBuffer.GetSizeXY().Y);
+		RectParams.DestRect = FSlateRect(0, 0, BackBuffer.GetSizeXY().X, BackBuffer.GetSizeXY().Y);
+		RectParams.SourceTextureSize = BackBuffer.GetSizeXY();
+
+		PostProcessor->ColorDeficiency(RHICmdList, RendererModule, RectParams);
+	}
+#endif
+
+	// Disable scissor rect we no longer need this.
+	RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
+	// Disable depth/stencil testing once we're done also.
+	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
 	for (int i = 0; i < NumScenes; i++)
 	{

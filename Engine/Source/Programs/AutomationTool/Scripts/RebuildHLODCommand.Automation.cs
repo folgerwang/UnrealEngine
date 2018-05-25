@@ -123,7 +123,7 @@ namespace AutomationScripts.Automation
 		{
 			Log("Running Step:- RebuildHLOD::CheckOutMaps");
 			// Setup a P4 Cl we will use to submit the new HLOD data
-			WorkingCL = P4.CreateChange(P4Env.Client, String.Format("{0} rebuilding HLODs from changelist {1}\n#rb None\n#tests None", Params.ShortProjectName, P4Env.Changelist));
+			WorkingCL = P4.CreateChange(P4Env.Client, String.Format("{0} rebuilding HLODs from changelist {1}\n#rb None\n#tests None\n#jira none\n#robomerge #DisregardExcludedAuthors", Params.ShortProjectName, P4Env.Changelist));
 			Log("Working in {0}", WorkingCL);
 
 		}
@@ -145,6 +145,9 @@ namespace AutomationScripts.Automation
             {
 				var CommandletParams = IsBuildMachine ? "-unattended -buildmachine -fileopenlog" : "-fileopenlog";
                 CommandletParams += " -AutoCheckOutPackages";
+                CommandletParams += " -xgeshadercompile";
+                CommandletParams += " -AllowSoftwareRendering";
+                CommandletParams += " -SkipCheckedOutPackages";
 
                 string BuildOptions = ParseParamValue("BuildOptions", "");
                 if ( BuildOptions.Length >0)
@@ -205,7 +208,7 @@ namespace AutomationScripts.Automation
 			if (WorkingCL != -1)
 			{
                 Log("Running Step:- Submitting CL " + WorkingCL);
-				//P4.Submit(WorkingCL, out SubmittedCL, true, true);
+				P4.Submit(WorkingCL, out SubmittedCL, true, true);
 				Log("INFO: HLODs successfully submitted in cl " + SubmittedCL.ToString());
 			}
 		}
@@ -295,45 +298,48 @@ namespace AutomationScripts.Automation
 		 */
         void SendCompletionMessage(bool bWasSuccessful, String MessageBody)
 		{
-			MailMessage Message = new System.Net.Mail.MailMessage();
-			Message.Priority = MailPriority.High;
-			Message.From = new MailAddress("unrealbot@epicgames.com");
+            if(StakeholdersEmailAddresses != null)
+            { 
+			    MailMessage Message = new System.Net.Mail.MailMessage();
+			    Message.Priority = MailPriority.High;
+			    Message.From = new MailAddress("unrealbot@epicgames.com");
 
-            string Branch = "Unknown";
-            if ( P4Enabled )
-            {
-                Branch = P4Env.Branch;
-            }
+                string Branch = "Unknown";
+                if ( P4Enabled )
+                {
+                    Branch = P4Env.Branch;
+                }
 
-			foreach (String NextStakeHolder in StakeholdersEmailAddresses)
-			{
-				Message.To.Add(new MailAddress(NextStakeHolder));
-			}
+			    foreach (String NextStakeHolder in StakeholdersEmailAddresses)
+			    {
+				    Message.To.Add(new MailAddress(NextStakeHolder));
+			    }
 
-			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.EditorPerProjectUserSettings, DirectoryReference.FromFile(ProjectFullPath), UnrealTargetPlatform.Win64);
-			List<string> Emails;
-			Ini.GetArray("RebuildHLODSettings", "EmailNotification", out Emails);
-			foreach (var Email in Emails)
-			{
-				Message.CC.Add(new MailAddress(Email));
-			}
+			    ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.EditorPerProjectUserSettings, DirectoryReference.FromFile(ProjectFullPath), UnrealTargetPlatform.Win64);
+			    List<string> Emails;
+			    Ini.GetArray("RebuildHLODSettings", "EmailNotification", out Emails);
+			    foreach (var Email in Emails)
+			    {
+				    Message.CC.Add(new MailAddress(Email));
+			    }
 
-			Message.Subject = String.Format("Nightly HLOD rebuild {0} for {1}", bWasSuccessful ? "[SUCCESS]" : "[FAILED]", Branch);
-			Message.Body = MessageBody;
-            /*Attachment Attach = new Attachment();
-            Message.Attachments.Add()*/
-			try
-			{
-				#pragma warning disable CS0618 // Mono 4.6.x obsoletes this class
-				SmtpClient MailClient = new SmtpClient("smtp.epicgames.net");
-				MailClient.Send(Message);
-				#pragma warning restore CS0618
-			}
-			catch (Exception Ex)
-			{
-				LogError("Failed to send notify email to {0} ({1})", String.Join(", ", StakeholdersEmailAddresses.ToArray()), Ex.Message);
-			}
-		}
+			    Message.Subject = String.Format("Nightly HLOD rebuild {0} for {1}", bWasSuccessful ? "[SUCCESS]" : "[FAILED]", Branch);
+			    Message.Body = MessageBody;
+                /*Attachment Attach = new Attachment();
+                Message.Attachments.Add()*/
+			    try
+			    {
+				    #pragma warning disable CS0618 // Mono 4.6.x obsoletes this class
+				    SmtpClient MailClient = new SmtpClient("smtp.epicgames.net");
+				    MailClient.Send(Message);
+				    #pragma warning restore CS0618
+			    }
+			    catch (Exception Ex)
+			    {
+				    LogError("Failed to send notify email to {0} ({1})", String.Join(", ", StakeholdersEmailAddresses.ToArray()), Ex.Message);
+			    }
+		    }
+        }
 
 		#endregion
 

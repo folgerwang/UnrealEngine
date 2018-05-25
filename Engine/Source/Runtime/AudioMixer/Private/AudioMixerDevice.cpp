@@ -124,6 +124,7 @@ namespace Audio
 			OpenStreamParams.OutputDeviceIndex = AUDIO_MIXER_DEFAULT_DEVICE_INDEX; // TODO: Support overriding which audio device user wants to open, not necessarily default.
 			OpenStreamParams.SampleRate = SampleRate;
 			OpenStreamParams.AudioMixer = this;
+			OpenStreamParams.MaxChannels = GetMaxChannels();
 
 			FString DefaultDeviceName = AudioMixerPlatform->GetDefaultDeviceName();
 
@@ -163,8 +164,11 @@ namespace Audio
 				// Initialize some data that depends on speaker configuration, etc.
 				InitializeChannelAzimuthMap(PlatformInfo.NumChannels);
 
+				// We initialize the number of sources to be 2 times the max channels
+				// This extra source count is used for "stopping sources", which are sources
+				// which are fading out (very quickly) to avoid discontinuities when stopping sounds
 				FSourceManagerInitParams SourceManagerInitParams;
-				SourceManagerInitParams.NumSources = MaxChannels;
+				SourceManagerInitParams.NumSources = GetMaxChannels();
 				SourceManagerInitParams.NumSourceWorkers = 4;
 
 				SourceManager.Init(SourceManagerInitParams);
@@ -210,6 +214,11 @@ namespace Audio
 
 				AudioMixerPlatform->PostInitializeHardware();
 
+				// Initialize the data used for audio thread sub-frame timing.
+				AudioThreadTimingData.StartTime = FPlatformTime::Seconds();
+				AudioThreadTimingData.AudioThreadTime = 0.0;
+				AudioThreadTimingData.AudioRenderThreadTime = 0.0;
+
 				// Start streaming audio
 				return AudioMixerPlatform->StartAudioStream();
 			}
@@ -251,9 +260,19 @@ namespace Audio
 		}
 	}
 
+	void FMixerDevice::UpdateHardwareTiming()
+	{
+		// Get the relative audio thread time (from start of audio engine)
+		// Add some jitter delta to account for any audio thread timing jitter.
+		const double AudioThreadJitterDelta = AudioClockDelta;
+		AudioThreadTimingData.AudioThreadTime = FPlatformTime::Seconds() - AudioThreadTimingData.StartTime + AudioThreadJitterDelta;
+	}
+
 	void FMixerDevice::UpdateHardware()
 	{
 		SourceManager.Update();
+
+		AudioMixerPlatform->OnHardwareUpdate();
 
 		if (AudioMixerPlatform->CheckAudioDeviceChange())
 		{
@@ -378,6 +397,9 @@ namespace Audio
 		// This function could be called in a task manager, which means the thread ID may change between calls.
 		ResetAudioRenderingThreadId();
 
+		// Update the audio render thread time at the head of the render
+		AudioThreadTimingData.AudioRenderThreadTime = FPlatformTime::Seconds() - AudioThreadTimingData.StartTime;
+
 		// Pump the command queue to the audio render thread
 		PumpCommandQueue();
 
@@ -392,6 +414,9 @@ namespace Audio
 			// Process the audio output from the master submix
 			MasterSubmix->ProcessAudio(ESubmixChannelFormat::Device, Output);
 		}
+
+		// Reset stopping sounds and clear their state after submixes have been mixed
+		SourceManager.ClearStoppingSounds();
 
 		// Do any debug output performing
 		if (bDebugOutputEnabled)
@@ -420,10 +445,12 @@ namespace Audio
 	{
 		if (!IsInAudioThread())
 		{
+			DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.InitSoundSubmixes"), STAT_InitSoundSubmixes, STATGROUP_AudioThreadCommands);
+
 			FAudioThread::RunCommandOnAudioThread([this]()
 			{
 				InitSoundSubmixes();
-			});
+			}, GET_STATID(STAT_InitSoundSubmixes));
 			return;
 		}
 
@@ -500,6 +527,7 @@ namespace Audio
 
 				USoundSubmix* MasterReverbSubix = FMixerDevice::MasterSubmixes[EMasterSubmixType::Reverb];
 				USubmixEffectReverbPreset* ReverbPreset = NewObject<USubmixEffectReverbPreset>(MasterReverbSubix, TEXT("Master Reverb Effect Preset"));
+				ReverbPreset->AddToRoot();
 
 				FSoundEffectSubmix* ReverbEffectSubmix = static_cast<FSoundEffectSubmix*>(ReverbPreset->CreateNewEffect());
 
@@ -518,6 +546,7 @@ namespace Audio
 			// Setup the master EQ
 			USoundSubmix* MasterEQSoundSubmix = FMixerDevice::MasterSubmixes[EMasterSubmixType::EQ];
 			USubmixEffectSubmixEQPreset* EQPreset = NewObject<USubmixEffectSubmixEQPreset>(MasterEQSoundSubmix, TEXT("Master EQ Effect preset"));
+			EQPreset->AddToRoot();
 
 			FSoundEffectSubmix* EQEffectSubmix = static_cast<FSoundEffectSubmix*>(EQPreset->CreateNewEffect());
 			EQEffectSubmix->Init(InitData);

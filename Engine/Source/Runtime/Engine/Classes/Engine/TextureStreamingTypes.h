@@ -260,6 +260,7 @@ ENGINE_API uint32 PackRelativeBox(const FBox& RefBox, const FBox& Box);
 ENGINE_API void UnpackRelativeBox(const FBoxSphereBounds& InRefBounds, uint32 InPackedRelBox, FBoxSphereBounds& OutBounds);
 
 extern ENGINE_API TAutoConsoleVariable<int32> CVarStreamingUseNewMetrics;
+extern ENGINE_API TAutoConsoleVariable<int32> CVarFramesForFullUpdate;
 
 /** Reset the history of the value returned by GetAverageRequiredTexturePoolSize() */
 ENGINE_API void ResetAverageRequiredTexturePoolSize();

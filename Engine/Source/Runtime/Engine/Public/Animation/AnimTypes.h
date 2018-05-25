@@ -691,3 +691,22 @@ struct FAxisOption
 	}
 };
 
+// The transform component (attribute) to read from
+UENUM()
+namespace EComponentType
+{
+	enum Type
+	{
+		None = 0,
+		TranslationX,
+		TranslationY,
+		TranslationZ,
+		RotationX,
+		RotationY,
+		RotationZ,
+		Scale UMETA(DisplayName = "Scale (largest component)"),
+		ScaleX,
+		ScaleY,
+		ScaleZ
+	};
+}

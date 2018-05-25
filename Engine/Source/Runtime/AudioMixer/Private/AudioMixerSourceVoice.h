@@ -65,8 +65,17 @@ namespace Audio
 		// Pauses the source voice (i.e. stops generating output but keeps its state as "active and playing". Can be restarted.)
 		void Pause();
 
-		// Stops the source voice (no longer playing or active, can't be restarted.)
+		// Immediately stops the source voice (no longer playing or active, can't be restarted.)
 		void Stop();
+
+		// Does a faded stop (to avoid discontinuity)
+		void StopFade();
+
+		// Makes sure the source has stopped
+		void EnsureStopped();
+
+		// Triggers the stop event
+		void NotifyStopped();
 
 		// Queries if the voice is playing
 		bool IsPlaying() const;
@@ -79,6 +88,9 @@ namespace Audio
 
 		// Queries if the source voice has finished playing all its audio.
 		bool IsDone() const;
+
+		// Queries if the source has finished its fade out.
+		bool IsStopFadedOut() const;
 
 		// Queries if the source ffect tails have finished
 		bool IsSourceEffectTailsDone() const;
@@ -105,6 +117,7 @@ namespace Audio
 
 		friend class FMixerSourceManager;
 
+		FEvent* SourceStoppedEvent;
 		FMixerSourceManager* SourceManager;
 		TMap<uint32, FMixerSourceSubmixSend> SubmixSends;
 		FMixerDevice* MixerDevice;

@@ -196,6 +196,19 @@ public:
 		return true;
 	}
 
+	/**
+	* Guid default string conversion.
+	*/
+	friend FString LexToString(const FGuid& Value)
+	{
+		return Value.ToString();
+	}
+
+	friend void LexFromString(FGuid& Result, const TCHAR* String)
+	{
+		FGuid::Parse(String, Result);
+	}
+
 	bool Serialize(FStructuredArchive::FSlot Slot)
 	{
 		Slot << *this;
@@ -331,19 +344,3 @@ public:
 
 
 template <> struct TIsPODType<FGuid> { enum { Value = true }; };
-
-namespace Lex
-{
-	/**
-	 * Guid default string conversion.
-	 */
-	inline FString ToString(const FGuid& Value)
-	{
-		return Value.ToString();
-	}
-
-	inline void FromString(FGuid& Result, const TCHAR* String)
-	{
-		FGuid::Parse(String, Result);
-	}
-}

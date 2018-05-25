@@ -107,6 +107,23 @@ FAnimationEditorPreviewScene::~FAnimationEditorPreviewScene()
 	{
 		GEditor->UnregisterForUndo(this);
 	}
+
+	UDebugSkelMeshComponent* MeshComponent = GetPreviewMeshComponent();
+	if (MeshComponent)
+	{
+		MeshComponent->SelectionOverrideDelegate.Unbind();
+	}
+}
+
+void FAnimationEditorPreviewScene::SetPreviewMeshComponent(UDebugSkelMeshComponent* InSkeletalMeshComponent) 
+{
+	SkeletalMeshComponent = InSkeletalMeshComponent; 
+
+	if(SkeletalMeshComponent)
+	{
+		SkeletalMeshComponent->SelectionOverrideDelegate = UPrimitiveComponent::FSelectionOverride::CreateRaw(this, &FAnimationEditorPreviewScene::PreviewComponentSelectionOverride);
+		SkeletalMeshComponent->PushSelectionToProxy();	
+	}
 }
 
 void FAnimationEditorPreviewScene::SetPreviewMesh(USkeletalMesh* NewPreviewMesh)
@@ -844,6 +861,8 @@ void FAnimationEditorPreviewScene::RecordAnimation()
 	{
 		PersonaModule.OnRecord().ExecuteIfBound(SkeletalMeshComponent);
 	}
+
+	OnRecordingStateChangedDelegate.Broadcast();
 }
 
 bool FAnimationEditorPreviewScene::IsRecording() const
@@ -859,6 +878,8 @@ void FAnimationEditorPreviewScene::StopRecording()
 {
 	FPersonaModule& PersonaModule = FModuleManager::GetModuleChecked<FPersonaModule>("Persona");
 	PersonaModule.OnStopRecording().ExecuteIfBound(SkeletalMeshComponent);
+
+	OnRecordingStateChangedDelegate.Broadcast();
 }
 
 UAnimSequence* FAnimationEditorPreviewScene::GetCurrentRecording() const
@@ -875,6 +896,17 @@ float FAnimationEditorPreviewScene::GetCurrentRecordingTime() const
 	float RecordingTime = 0.0f;
 	PersonaModule.OnGetCurrentRecordingTime().ExecuteIfBound(SkeletalMeshComponent, RecordingTime);
 	return RecordingTime;
+}
+
+bool FAnimationEditorPreviewScene::PreviewComponentSelectionOverride(const UPrimitiveComponent* InComponent) const
+{
+	if (InComponent == GetPreviewMeshComponent())
+	{
+		const USkeletalMeshComponent* Component = CastChecked<USkeletalMeshComponent>(InComponent);
+		return (Component->GetSelectedEditorSection() != INDEX_NONE || Component->GetSelectedEditorMaterial() != INDEX_NONE);
+	}
+
+	return false;
 }
 
 TWeakObjectPtr<AWindDirectionalSource> FAnimationEditorPreviewScene::CreateWindActor(UWorld* World)

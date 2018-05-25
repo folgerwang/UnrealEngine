@@ -3455,6 +3455,8 @@ void SLevelViewport::StartPlayInEditorSession(UGameViewportClient* PlayClient, c
 	// Focus will be set when the game viewport is registered
 	FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
 
+	PlayClient->SetPlayInEditorUseMouseForTouch(GetDefault<ULevelEditorPlaySettings>()->UseMouseForTouch);
+
 	// Attach global play world actions widget to view port
 	ActiveViewport = MakeShareable( new FSceneViewport( PlayClient, ViewportWidget) );
 	ActiveViewport->SetPlayInEditorViewport( true );

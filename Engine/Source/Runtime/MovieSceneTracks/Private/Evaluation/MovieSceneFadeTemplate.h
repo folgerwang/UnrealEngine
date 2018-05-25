@@ -16,7 +16,7 @@ struct FMovieSceneFadeSectionTemplate : public FMovieSceneEvalTemplate
 {
 	GENERATED_BODY()
 	
-	FMovieSceneFadeSectionTemplate() {}
+	FMovieSceneFadeSectionTemplate() : bFadeAudio(false) {}
 	FMovieSceneFadeSectionTemplate(const UMovieSceneFadeSection& Section);
 
 private:

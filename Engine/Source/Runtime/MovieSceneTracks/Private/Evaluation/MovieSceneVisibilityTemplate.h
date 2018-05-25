@@ -16,7 +16,7 @@ struct FMovieSceneVisibilitySectionTemplate : public FMovieSceneBoolPropertySect
 {
 	GENERATED_BODY()
 	
-	FMovieSceneVisibilitySectionTemplate(){}
+	FMovieSceneVisibilitySectionTemplate() {}
 	FMovieSceneVisibilitySectionTemplate(const UMovieSceneBoolSection& Section, const UMovieScenePropertyTrack& Track);
 
 private:

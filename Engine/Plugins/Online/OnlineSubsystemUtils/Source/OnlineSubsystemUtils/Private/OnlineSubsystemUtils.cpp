@@ -282,37 +282,37 @@ bool HandleVoiceCommands(IOnlineSubsystem* InOnlineSub, UWorld* InWorld, const T
 		bool bRequiresPushToTalk = false;
 		if (!GConfig->GetBool(TEXT("/Script/Engine.GameSession"), TEXT("bRequiresPushToTalk"), bRequiresPushToTalk, GGameIni))
 		{
-			UE_LOG(LogVoice, Warning, TEXT("Missing bRequiresPushToTalk key in [/Script/Engine.GameSession] of DefaultGame.ini"));
+			UE_LOG_ONLINE_VOICE(Warning, TEXT("Missing bRequiresPushToTalk key in [/Script/Engine.GameSession] of DefaultGame.ini"));
 		}
 
 		int32 MaxLocalTalkers = 0;
 		if (!GConfig->GetInt(TEXT("OnlineSubsystem"), TEXT("MaxLocalTalkers"), MaxLocalTalkers, GEngineIni))
 		{
-			UE_LOG(LogVoice, Warning, TEXT("Missing MaxLocalTalkers key in OnlineSubsystem of DefaultEngine.ini"));
+			UE_LOG_ONLINE_VOICE(Warning, TEXT("Missing MaxLocalTalkers key in OnlineSubsystem of DefaultEngine.ini"));
 		}
 
 		int32 MaxRemoteTalkers = 0;
 		if (!GConfig->GetInt(TEXT("OnlineSubsystem"), TEXT("MaxRemoteTalkers"), MaxRemoteTalkers, GEngineIni))
 		{
-			UE_LOG(LogVoice, Warning, TEXT("Missing MaxRemoteTalkers key in OnlineSubsystem of DefaultEngine.ini"));
+			UE_LOG_ONLINE_VOICE(Warning, TEXT("Missing MaxRemoteTalkers key in OnlineSubsystem of DefaultEngine.ini"));
 		}
 		
 		float VoiceNotificationDelta = 0.0f;
 		if (!GConfig->GetFloat(TEXT("OnlineSubsystem"), TEXT("VoiceNotificationDelta"), VoiceNotificationDelta, GEngineIni))
 		{
-			UE_LOG(LogVoice, Warning, TEXT("Missing VoiceNotificationDelta key in OnlineSubsystem of DefaultEngine.ini"));
+			UE_LOG_ONLINE_VOICE(Warning, TEXT("Missing VoiceNotificationDelta key in OnlineSubsystem of DefaultEngine.ini"));
 		}
 
 		bool bHasVoiceInterfaceEnabled = false;
 		if (!GConfig->GetBool(TEXT("OnlineSubsystem"), TEXT("bHasVoiceEnabled"), bHasVoiceInterfaceEnabled, GEngineIni))
 		{
-			UE_LOG(LogVoice, Log, TEXT("Voice interface disabled by config [OnlineSubsystem].bHasVoiceEnabled"));
+			UE_LOG_ONLINE_VOICE(Log, TEXT("Voice interface disabled by config [OnlineSubsystem].bHasVoiceEnabled"));
 		}
 
 		bool bDuckingOptOut = false;
 		if (!GConfig->GetBool(TEXT("OnlineSubsystem"), TEXT("bDuckingOptOut"), bDuckingOptOut, GEngineIni))
 		{
-			UE_LOG(LogVoice, Log, TEXT("Voice ducking not set by config [OnlineSubsystem].bDuckingOptOut"));
+			UE_LOG_ONLINE_VOICE(Log, TEXT("Voice ducking not set by config [OnlineSubsystem].bDuckingOptOut"));
 		}
 
 		FString VoiceDump;
@@ -325,21 +325,21 @@ bool HandleVoiceCommands(IOnlineSubsystem* InOnlineSub, UWorld* InWorld, const T
 			VoiceDump = VoiceInt->GetVoiceDebugState();
 		}
 
-		UE_LOG(LogVoice, Display, TEXT("Voice Module Available: %s"), bVoiceModule ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogVoice, Display, TEXT("Voice Module Enabled: %s"), bVoiceModuleEnabled ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogVoice, Display, TEXT("Voice Interface Available: %s"), bVoiceInterface ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogVoice, Display, TEXT("Voice Interface Enabled: %s"), bHasVoiceInterfaceEnabled ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogVoice, Display, TEXT("Ducking Opt Out Enabled: %s"), bDuckingOptOut ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogVoice, Display, TEXT("Max Local Talkers: %d"), MaxLocalTalkers);
-		UE_LOG(LogVoice, Display, TEXT("Max Remote Talkers: %d"), MaxRemoteTalkers);
-		UE_LOG(LogVoice, Display, TEXT("Notification Delta: %0.2f"), VoiceNotificationDelta);
-		UE_LOG(LogVoice, Display, TEXT("Voice Requires Push To Talk: %s"), bRequiresPushToTalk ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Voice Module Available: %s"), bVoiceModule ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Voice Module Enabled: %s"), bVoiceModuleEnabled ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Voice Interface Available: %s"), bVoiceInterface ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Voice Interface Enabled: %s"), bHasVoiceInterfaceEnabled ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Ducking Opt Out Enabled: %s"), bDuckingOptOut ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Max Local Talkers: %d"), MaxLocalTalkers);
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Max Remote Talkers: %d"), MaxRemoteTalkers);
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Notification Delta: %0.2f"), VoiceNotificationDelta);
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Voice Requires Push To Talk: %s"), bRequiresPushToTalk ? TEXT("true") : TEXT("false"));
 
 		TArray<FString> OutArray;
 		VoiceDump.ParseIntoArray(OutArray, TEXT("\n"), false);
 		for (const FString& Str : OutArray)
 		{
-			UE_LOG(LogVoice, Display, TEXT("%s"), *Str);
+			UE_LOG_ONLINE_VOICE(Display, TEXT("%s"), *Str);
 		}
 	}
 	else

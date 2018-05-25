@@ -188,8 +188,14 @@ public:
 	/** Is a point inside the clipping state? */
 	bool IsPointInside(const FVector2D& Point) const;
 
-	FORCEINLINE void SetStateIndex(int32 InStateIndex) { StateIndex = InStateIndex; }
-	FORCEINLINE int32 GetStateIndex() const { return StateIndex; }
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	/** Set the state index that this clipping state originated from.  We just do this for debugging purposes. */
+	FORCEINLINE void SetDebuggingStateIndex(int32 InStateIndex)
+	{
+		Debugging_StateIndex = InStateIndex;
+		Debugging_StateIndexFromFrame = GFrameNumber;
+	}
+#endif
 
 	FORCEINLINE bool GetAlwaysClip() const { return EnumHasAllFlags(Flags, EClippingFlags::AlwaysClip); }
 
@@ -213,22 +219,27 @@ public:
 			return ScissorRect->HasZeroArea();
 		}
 
+		// Assume that stenciled clipping state has some area, don't bother computing it.
 		return false;
 	}
 
 	bool operator==(const FSlateClippingState& Other) const
 	{
-		return StateIndex == Other.StateIndex &&
-			Flags == Other.Flags &&
+		return Flags == Other.Flags &&
 			ScissorRect == Other.ScissorRect &&
 			StencilQuads == Other.StencilQuads;
 	}
 
 private:
-	/** For a given frame, this is a unique index into a state array of clipping zones that have been registered for a window being drawn. */
-	int32 StateIndex;
+
 	/** The specialized flags needed for this clipping state. */
 	EClippingFlags Flags;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	/** For a given frame, this is a unique index into a state array of clipping zones that have been registered for a window being drawn. */
+	int32 Debugging_StateIndex;
+	int32 Debugging_StateIndexFromFrame;
+#endif
 
 public:
 	/** If this is an axis aligned clipping state, this will be filled. */

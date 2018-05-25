@@ -334,10 +334,10 @@ public:
 	}
 
 	/**
-	 * Adds a bit to the array with the given value.
-	 * @return The index of the added bit.
+	 * Adds bits to the array with the given value.
+	 * @return The index of the first added bit.
 	 */
-	int32 Add(const bool Value)
+	int32 Add(const bool Value, const int32 Count = 1)
 	{
 		const int32 Index = NumBits;
 
@@ -447,12 +447,12 @@ public:
 		}
 
 		// Work out which uint32 index to set from, and how many
-		uint32 StartIndex = Index / 32;
-		uint32 Count      = (Index + Num + 31) / 32 - StartIndex;
+		uint32 StartIndex = Index / NumBitsPerDWORD;
+		uint32 Count      = (Index + Num + (NumBitsPerDWORD - 1)) / NumBitsPerDWORD - StartIndex;
 
 		// Work out masks for the start/end of the sequence
-		uint32 StartMask  = 0xFFFFFFFFu << (Index % 32);
-		uint32 EndMask    = 0xFFFFFFFFu >> (32 - (Index + Num) % 32) % 32;
+		uint32 StartMask  = 0xFFFFFFFFu << (Index % NumBitsPerDWORD);
+		uint32 EndMask    = 0xFFFFFFFFu >> (NumBitsPerDWORD - (Index + Num) % NumBitsPerDWORD) % NumBitsPerDWORD;
 
 		uint32* Data = GetData() + StartIndex;
 		if (Value)

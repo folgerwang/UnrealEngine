@@ -54,7 +54,7 @@ uint GetCulledNumObjects()
 }
 
 // In float4's.  Must match equivalent C++ variables.
-#define OBJECT_DATA_STRIDE 18
+#define OBJECT_DATA_STRIDE 17
 
 uint NumSceneObjects;
 
@@ -127,49 +127,52 @@ float4x4 LoadGlobalObjectWorldToVolume(uint ObjectIndex)
 	float4 M0 = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 0);
 	float4 M1 = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 1);
 	float4 M2 = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 2);
-	float4 M3 = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 3);
-	return float4x4(M0, M1, M2, M3);
+
+	return transpose(float4x4(M0, M1, M2, float4(0.0f, 0.0f, 0.0f, 1.0f)));
 }
  
 float3 LoadGlobalObjectLocalPositionExtent(uint ObjectIndex)
 {
-	return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 4).xyz;
-}
-
-float4 LoadGlobalObjectUVScale(uint ObjectIndex)
-{
-	return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 5);
-}
-
-float3 LoadGlobalObjectUVAdd(uint ObjectIndex)
-{
-	return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 6).xyz;
-}
-
-float2 LoadGlobalObjectDistanceFieldMAD(uint ObjectIndex)
-{
-	return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 7).xy;
-}
-
-float2 LoadGlobalObjectMinMaxDrawDistance2(uint ObjectIndex)
-{
-    return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 7).zw;
-}
-
-void LoadGlobalObjectLocalVolumeBoundsMinMax(uint ObjectIndex, out float3 LocalVolumeBoundsMin, out float3 LocalVolumeBoundsMax)
-{
-	LocalVolumeBoundsMin = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 16).xyz;
-	LocalVolumeBoundsMax = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 17).xyz;
+	return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 3).xyz;
 }
 
 uint LoadGlobalObjectOftenMoving(uint ObjectIndex)
 {
-	float WComponent = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 17).w;
-	return WComponent > 0.0f ? 1 : 0;
+	float WComponent = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 3).w;
+	return WComponent;
+}
+
+float4 LoadGlobalObjectUVScale(uint ObjectIndex)
+{
+	return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 4);
+}
+
+float3 LoadGlobalObjectUVAdd(uint ObjectIndex)
+{
+	return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 5).xyz;
+}
+
+float2 LoadGlobalObjectDistanceFieldMAD(uint ObjectIndex)
+{
+	return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 6).xy;
+}
+
+float2 LoadGlobalObjectMinMaxDrawDistance2(uint ObjectIndex)
+{
+    return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 6).zw;
+}
+
+float4x4 LoadGlobalObjectOBBToWorld(uint ObjectIndex)
+{
+	float4 M0 = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 14);
+	float4 M1 = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 15);
+	float4 M2 = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 16);
+
+	return transpose(float4x4(M0, M1, M2, float4(0.0f, 0.0f, 0.0f, 1.0f)));
 }
 
 // In float4's.  Must match equivalent C++ variables.
-#define CULLED_OBJECT_DATA_STRIDE 16
+#define CULLED_OBJECT_DATA_STRIDE 17
 #define CULLED_OBJECT_BOX_BOUNDS_STRIDE 5
 
 float4 LoadObjectPositionAndRadiusFromBuffer(uint ObjectIndex, StructuredBuffer<float4> InBuffer)
@@ -182,50 +185,57 @@ float4x4 LoadObjectWorldToVolumeFromBuffer(uint ObjectIndex, StructuredBuffer<fl
 	float4 M0 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 0];
 	float4 M1 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 1];
 	float4 M2 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 2];
-	float4 M3 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 3];
 
-	return float4x4(M0, M1, M2, M3);
+	return transpose(float4x4(M0, M1, M2, float4(0.0f, 0.0f, 0.0f, 1.0f)));
 }
  
 float3 LoadObjectLocalPositionExtentFromBuffer(uint ObjectIndex, StructuredBuffer<float4> InBuffer)
 {
-	return InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 4].xyz;
+	return InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 3].xyz;
 }
 
 float4 LoadObjectUVScaleFromBuffer(uint ObjectIndex, StructuredBuffer<float4> InBuffer, out bool bGeneratedAsTwoSided)
 {
-	float4 Value = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 5].xyzw;
+	float4 Value = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 4].xyzw;
 	bGeneratedAsTwoSided = Value.w < 0;
 	return float4(Value.xyz, abs(Value.w));
 }
 
 float4 LoadObjectUVAddAndSelfShadowBiasFromBuffer(uint ObjectIndex, StructuredBuffer<float4> InBuffer)
 {
-	return InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 6];
+	return InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 5];
 }
 
 float2 LoadObjectDistanceFieldMADFromBuffer(uint ObjectIndex, StructuredBuffer<float4> InBuffer)
 {
-	return InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 7].xy;
+	return InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 6].xy;
 }
 
 float3x3 LoadObjectVolumeToWorldFromBuffer(uint ObjectIndex, StructuredBuffer<float4> InBuffer)
 {
-	float3 M0 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 8].xyz;
-	float3 M1 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 9].xyz;
-	float3 M2 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 10].xyz;
+	float3 M0 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 7].xyz;
+	float3 M1 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 8].xyz;
+	float3 M2 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 9].xyz;
 
 	return float3x3(M0, M1, M2);
 }
 
 float4x4 LoadObjectLocalToWorldFromBuffer(uint ObjectIndex, StructuredBuffer<float4> InBuffer)
 {
-	float4 M0 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 11];
-	float4 M1 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 12];
-	float4 M2 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 13];
-	float4 M3 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 14];
+	float4 M0 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 10];
+	float4 M1 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 11];
+	float4 M2 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 12];
 
-	return float4x4(M0, M1, M2, M3);
+	return transpose(float4x4(M0, M1, M2, float4(0.0f, 0.0f, 0.0f, 1.0f)));
+}
+
+float4x4 LoadObjectOBBToWorldFromBuffer(uint ObjectIndex, StructuredBuffer<float4> InBuffer)
+{
+	float4 M0 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 14];
+	float4 M1 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 15];
+	float4 M2 = InBuffer[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 16];
+
+	return transpose(float4x4(M0, M1, M2, float4(0.0f, 0.0f, 0.0f, 1.0f)));
 }
 
 // These are structured buffers so they can be scalar memory loads on GCN
@@ -283,10 +293,15 @@ float4x4 LoadObjectLocalToWorld(uint ObjectIndex)
 	return LoadObjectLocalToWorldFromBuffer(ObjectIndex, CulledObjectData);
 }
 
+float4x4 LoadObjectOBBToWorld(uint ObjectIndex)
+{
+	return LoadObjectOBBToWorldFromBuffer(ObjectIndex, CulledObjectData);
+}
+
 // x = Offset in global buffer, y = NumLOD0, z = NumSurfels (all LODs), W = instance index
 uint4 LoadObjectSurfelCoordinate(uint ObjectIndex)
 {
-	return (uint4)CulledObjectData[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 15];
+	return (uint4)CulledObjectData[ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 13];
 }
 
 void LoadObjectViewSpaceBox(uint ObjectIndex, out float3 ObjectViewSpaceMin, out float3 ObjectViewSpaceMax)

@@ -666,10 +666,9 @@ void SAnimTrackCurvePanel::UpdatePanel()
 			FTransformCurve&  Curve = Sequence->RawCurveData.TransformCurves[CurrentIt];
 
 			const bool bEditable = Curve.GetCurveTypeFlag(AACF_Editable);
-			FName CurveName;
 
 			// if editable, add to the list
-			if(bEditable && NameMapping->GetName(Curve.Name.UID, CurveName))
+			if(bEditable)
 			{
 				TSharedPtr<STransformCurveEdTrack> CurrentTrack;
 				PanelSlot->AddSlot()

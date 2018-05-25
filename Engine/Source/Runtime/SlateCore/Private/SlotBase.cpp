@@ -23,8 +23,10 @@ const TSharedPtr<SWidget> FSlotBase::DetachWidget()
 	if (Widget != SNullWidget::NullWidget)
 	{
 #if SLATE_PARENT_POINTERS
-		Widget->AssignParentWidget(TSharedPtr<SWidget>());
+		Widget->ConditionallyDetatchParentWidget(RawParentPtr);
 #endif
+
+		// Invalidate Prepass?
 
 		const TSharedRef<SWidget> MyExWidget = Widget;
 		Widget = SNullWidget::NullWidget;	
@@ -37,20 +39,32 @@ const TSharedPtr<SWidget> FSlotBase::DetachWidget()
 	}
 }
 
-void FSlotBase::AfterContentOrOwnerChanges()
+void FSlotBase::DetatchParentFromContent()
 {
-#if SLATE_DYNAMIC_PREPASS
-	if (RawParentPtr)
+#if SLATE_PARENT_POINTERS
+	if (Widget != SNullWidget::NullWidget)
+	{
+		Widget->ConditionallyDetatchParentWidget(RawParentPtr);
+	}
+#endif
+}
+
+void FSlotBase::AfterContentOrOwnerAssigned()
+{
+	if (GSlateLayoutCaching && RawParentPtr)
 	{
 		RawParentPtr->InvalidatePrepass();
 	}
-#endif
 
 #if SLATE_PARENT_POINTERS
 	if (RawParentPtr)
 	{
 		if (Widget != SNullWidget::NullWidget)
 		{
+			// TODO NDarnell I want to enable this, but too many places in the codebase
+			// have made assumptions about being able to freely reparent widgets, while they're
+			// still connected to an existing hierarchy.
+			//ensure(!Widget->IsParentValid());
 			Widget->AssignParentWidget(RawParentPtr->AsShared());
 		}
 	}
@@ -59,10 +73,5 @@ void FSlotBase::AfterContentOrOwnerChanges()
 
 FSlotBase::~FSlotBase()
 {
-#if SLATE_PARENT_POINTERS
-	if (Widget != SNullWidget::NullWidget)
-	{
-		Widget->AssignParentWidget(TSharedPtr<SWidget>());
-	}
-#endif
+	DetatchParentFromContent();
 }

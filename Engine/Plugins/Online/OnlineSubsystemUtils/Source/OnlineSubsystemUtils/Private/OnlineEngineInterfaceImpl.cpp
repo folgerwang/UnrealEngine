@@ -65,12 +65,20 @@ void UOnlineEngineInterfaceImpl::DestroyOnlineSubsystem(FName OnlineIdentifier)
 	IOnlineSubsystem::Destroy(OnlineIdentifier);
 }
 
-#if OSS_DEDICATED_SERVER_VOICECHAT
 FName UOnlineEngineInterfaceImpl::GetDefaultOnlineSubsystemName() const
 {
 	return DefaultSubsystemName;
 }
-#endif
+
+uint8 UOnlineEngineInterfaceImpl::GetReplicationHashForSubsystem(FName InSubsystemName) const
+{
+	return Online::GetUtils()->GetReplicationHashForSubsystem(InSubsystemName);
+}
+
+FName UOnlineEngineInterfaceImpl::GetSubsystemFromReplicationHash(uint8 InHash) const
+{
+	return Online::GetUtils()->GetSubsystemFromReplicationHash(InHash);
+}
 
 FName UOnlineEngineInterfaceImpl::GetDedicatedServerSubsystemNameForSubsystem(const FName Subsystem) const
 {
@@ -96,30 +104,48 @@ FName UOnlineEngineInterfaceImpl::GetDedicatedServerSubsystemNameForSubsystem(co
 	return NAME_None;
 }
 
-TSharedPtr<const FUniqueNetId> UOnlineEngineInterfaceImpl::CreateUniquePlayerId(const FString& Str)
+TSharedPtr<const FUniqueNetId> UOnlineEngineInterfaceImpl::CreateUniquePlayerId(const FString& Str, FName Type)
 {
-	IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface();
-	if (IdentityInt.IsValid())
+	// Foreign types may be passed into this function, do not load OSS modules explicitly here
+	TSharedPtr<const FUniqueNetId> UniqueId = nullptr;
+	if (IsLoaded(Type))
 	{
-		return IdentityInt->CreateUniquePlayerId(Str);
+		IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(Type);
+		if (IdentityInt.IsValid())
+		{
+			UniqueId = IdentityInt->CreateUniquePlayerId(Str);
+		}
 	}
-	return nullptr;
+	
+	if (!UniqueId.IsValid())
+	{
+		if (IOnlineSubsystemUtils* Utils = Online::GetUtils())
+		{
+			// Create a unique id for other platforms unknown to this instance
+			// Will not compare correctly against native types (do not use on platform where native type is available)
+			// Used to maintain opaque unique id that will compare against other non native types
+			UniqueId = Utils->CreateForeignUniqueNetId(Str, Type);
+		}
+	}
+	return UniqueId;
 }
 
-TSharedPtr<const FUniqueNetId> UOnlineEngineInterfaceImpl::GetUniquePlayerId(UWorld* World, int32 LocalUserNum)
+TSharedPtr<const FUniqueNetId> UOnlineEngineInterfaceImpl::GetUniquePlayerId(UWorld* World, int32 LocalUserNum, FName Type)
 {
-	IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(World);
+	IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(World, Type);
 	if (IdentityInt.IsValid())
 	{
 		TSharedPtr<const FUniqueNetId> UniqueId = IdentityInt->GetUniquePlayerId(LocalUserNum);
 		return UniqueId;
 	}
+
+	UE_LOG_ONLINE(Verbose, TEXT("GetUniquePlayerId() returning null, can't find OSS of type %s"), *Type.ToString());
 	return nullptr;
 }
 
 FString UOnlineEngineInterfaceImpl::GetPlayerNickname(UWorld* World, const FUniqueNetId& UniqueId)
 {
-	IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(World);
+	IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(World, UniqueId.GetType());
 	if (IdentityInt.IsValid())
 	{	
 		return IdentityInt->GetPlayerNickname(UniqueId);
@@ -364,7 +390,6 @@ TSharedPtr<FVoicePacket> UOnlineEngineInterfaceImpl::GetLocalPacket(UWorld* Worl
 	return nullptr;
 }
 
-#if OSS_DEDICATED_SERVER_VOICECHAT
 TSharedPtr<FVoicePacket> UOnlineEngineInterfaceImpl::SerializeRemotePacket(UWorld* World, const UNetConnection* const RemoteConnection, FArchive& Ar)
 {
 	FName VoiceSubsystemName = VoiceSubsystemNameOverride;
@@ -385,17 +410,6 @@ TSharedPtr<FVoicePacket> UOnlineEngineInterfaceImpl::SerializeRemotePacket(UWorl
 	}
 	return nullptr;
 }
-#else
-TSharedPtr<FVoicePacket> UOnlineEngineInterfaceImpl::SerializeRemotePacket(UWorld* World, FArchive& Ar)
-{
-	IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(World, VoiceSubsystemNameOverride);
-	if (VoiceInt.IsValid())
-	{
-		return VoiceInt->SerializeRemotePacket(Ar);
-	}
-	return nullptr;
-}
-#endif
 
 void UOnlineEngineInterfaceImpl::StartNetworkedVoice(UWorld* World, uint8 LocalUserNum)
 {
@@ -552,7 +566,7 @@ void UOnlineEngineInterfaceImpl::DumpVoiceState(UWorld* World)
 	IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(World);
 	if (VoiceInt.IsValid())
 	{
-		UE_LOG(LogOnline, Verbose, TEXT("\n%s"), *VoiceInt->GetVoiceDebugState());
+		UE_LOG_ONLINE(Verbose, TEXT("\n%s"), *VoiceInt->GetVoiceDebugState());
 	}
 }
 

@@ -763,7 +763,9 @@ bool FWidgetBlueprintEditorUtils::CanBeReplacedWithTemplate(TSharedRef<FWidgetBl
 			}
 		}
 		UUserWidget* NewUserWidget = CastChecked<UUserWidget>(FWidgetTemplateBlueprintClass(SelectedUserWidget).Create(BP->WidgetTree));
-		return BP->IsWidgetFreeFromCircularReferences(NewUserWidget);
+		const bool bFreeFromCircularRefs = BP->IsWidgetFreeFromCircularReferences(NewUserWidget);
+		NewUserWidget->Rename(nullptr, nullptr);
+		return bFreeFromCircularRefs;
 	}
 
 	UClass* WidgetClass = BlueprintEditor->GetSelectedTemplate().Get();

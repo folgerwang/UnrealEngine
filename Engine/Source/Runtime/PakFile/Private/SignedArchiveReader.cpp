@@ -361,7 +361,7 @@ FSignedArchiveReader::FSignedArchiveReader(FArchive* InPakReader, FChunkCacheWor
 	, SignatureChecker(InSignatureChecker)
 {
 	// Cache global info about the archive
-	ArIsLoading = true;
+	this->SetIsLoading(true);
 	SizeOnDisk = PakReader->TotalSize();
 	ChunkCount = SizeOnDisk / FPakInfo::MaxChunkDataSize + ((SizeOnDisk % FPakInfo::MaxChunkDataSize) ? 1 : 0);
 	PakSize = SizeOnDisk;

@@ -31,7 +31,7 @@ void USoundNodeDialoguePlayer::ParseNodes( FAudioDevice* AudioDevice, const UPTR
 	}
 }
 
-float USoundNodeDialoguePlayer::GetDuration() const
+float USoundNodeDialoguePlayer::GetDuration()
 {
 	USoundBase* SoundBase = GetDialogueWave() ? GetDialogueWave()->GetWaveFromContext(DialogueWaveParameter.Context) : NULL;
 	float Duration = 0.f;

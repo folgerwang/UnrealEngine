@@ -228,26 +228,26 @@ void FAutomationReportManager::AddResultReport(TSharedPtr< IAutomationReport > I
 
 
 				// Add any warning or errors
-				for ( const FAutomationEvent& Event : TestResults.GetEvents() )
+				for ( const FAutomationExecutionEntry& Entry : TestResults.GetEntries() )
 				{
-					switch ( Event.Type )
+					switch (Entry.Event.Type )
 					{
 					case EAutomationEventType::Info:
 						if ( EFileExportType::IsSet(FileExportTypeMask, EFileExportType::FET_All) || EFileExportType::IsSet(FileExportTypeMask, EFileExportType::FET_Logs) )
 						{
-							ResultsLog.Add(ErrorPrefixText + Event.ToString() + ErrorSufixText);
+							ResultsLog.Add(ErrorPrefixText + Entry.ToString() + ErrorSufixText);
 						}
 						break;
 					case EAutomationEventType::Warning:
 						if ( EFileExportType::IsSet(FileExportTypeMask, EFileExportType::FET_All) || EFileExportType::IsSet(FileExportTypeMask, EFileExportType::FET_Warnings) )
 						{
-							ResultsLog.Add(ErrorPrefixText + Event.ToString() + ErrorSufixText);
+							ResultsLog.Add(ErrorPrefixText + Entry.ToString() + ErrorSufixText);
 						}
 						break;
 					case EAutomationEventType::Error:
 						if ( EFileExportType::IsSet(FileExportTypeMask, EFileExportType::FET_All) || EFileExportType::IsSet(FileExportTypeMask, EFileExportType::FET_Errors) )
 						{
-							ResultsLog.Add(ErrorPrefixText + Event.ToString() + ErrorSufixText);
+							ResultsLog.Add(ErrorPrefixText + Entry.ToString() + ErrorSufixText);
 						}
 						break;
 					}

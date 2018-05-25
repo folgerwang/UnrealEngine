@@ -11,7 +11,14 @@
 #include "Misc/OutputDeviceRedirector.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/CommandLine.h"
+#include "Misc/CoreDelegates.h"
 #include "HAL/ExceptionHandling.h"
+#include "Stats/Stats.h"
+#include "Async/TaskGraphInterfaces.h"
+
+// When enabled, the heart beat thread will call abort() when a hang
+// is detected, rather than performing stack back-traces and logging.
+#define MINIMAL_FATAL_HANG_DETECTION	((PLATFORM_PS4 || PLATFORM_XBOXONE) && 1)
 
 // When enabled, the heart beat thread will call abort() when a hang
 // is detected, rather than performing stack back-traces and logging.
@@ -43,6 +50,9 @@ FThreadHeartBeat::FThreadHeartBeat()
 	if (bAllowThreadHeartBeat && FPlatformProcess::SupportsMultithreading())
 	{
 		Thread = FRunnableThread::Create(this, TEXT("FHeartBeatThread"), 0, TPri_AboveNormal);
+
+		FCoreDelegates::ApplicationWillEnterBackgroundDelegate.AddRaw(this, &FThreadHeartBeat::OnApplicationWillEnterBackground);
+		FCoreDelegates::ApplicationHasEnteredForegroundDelegate.AddRaw(this, &FThreadHeartBeat::OnApplicationEnteredForeground);
 	}
 #endif
 
@@ -55,6 +65,13 @@ FThreadHeartBeat::FThreadHeartBeat()
 
 FThreadHeartBeat::~FThreadHeartBeat()
 {
+#if USE_HANG_DETECTION
+	// Intentionally not unbinding these delegates because this object is a static singleton and the delegates may be destructed before this object is
+	// This is fine, since both the delegate and this object are both destroyed at static destruction time, so there is no need to unregister
+	//FCoreDelegates::ApplicationHasEnteredForegroundDelegate.RemoveAll(this);
+	//FCoreDelegates::ApplicationWillEnterBackgroundDelegate.RemoveAll(this);
+#endif
+
 	delete Thread;
 	Thread = nullptr;
 }
@@ -231,6 +248,36 @@ void FThreadHeartBeat::InitSettings()
 	CurrentHangDuration = ConfigHangDuration * HangDurationMultiplier;
 }
 
+void FThreadHeartBeat::OnApplicationWillEnterBackground()
+{
+	// Suspend all threads
+#if USE_HANG_DETECTION
+	FScopeLock HeartBeatLock(&HeartBeatCritical);
+	for (TPair<uint32, FHeartBeatInfo>& LastHeartBeat : ThreadHeartBeat)
+	{
+		FHeartBeatInfo& HeartBeatInfo = LastHeartBeat.Value;
+		HeartBeatInfo.SuspendedCount++;
+	}
+#endif
+}
+
+void FThreadHeartBeat::OnApplicationEnteredForeground()
+{
+	// Resume all threads
+#if USE_HANG_DETECTION
+	FScopeLock HeartBeatLock(&HeartBeatCritical);
+	for (TPair<uint32, FHeartBeatInfo>& LastHeartBeat : ThreadHeartBeat)
+	{
+		FHeartBeatInfo& HeartBeatInfo = LastHeartBeat.Value;
+		check(HeartBeatInfo.SuspendedCount > 0);
+		if (--HeartBeatInfo.SuspendedCount == 0)
+		{
+			HeartBeatInfo.LastHeartBeatTime = FPlatformTime::Seconds();
+		}
+	}
+#endif
+}
+
 void FThreadHeartBeat::HeartBeat(bool bReadConfig)
 {
 #if USE_HANG_DETECTION
@@ -374,15 +421,26 @@ FGameThreadHitchHeartBeat::FGameThreadHitchHeartBeat()
 	, FirstStartTime(0.0)
 	, FrameStartTime(0.0)
 	, LastReportTime(0.0)
+	, SuspendedCount(0)
 {
 	// We don't care about programs for now so no point in spawning the extra thread
 #if USE_HITCH_DETECTION
 	InitSettings();
+
+	FCoreDelegates::ApplicationWillEnterBackgroundDelegate.AddRaw(this, &FGameThreadHitchHeartBeat::OnApplicationWillEnterBackground);
+	FCoreDelegates::ApplicationHasEnteredForegroundDelegate.AddRaw(this, &FGameThreadHitchHeartBeat::OnApplicationEnteredForeground);
 #endif
 }
 
 FGameThreadHitchHeartBeat::~FGameThreadHitchHeartBeat()
 {
+#if USE_HITCH_DETECTION
+	// Intentionally not unbinding these delegates because this object is a static singleton and the delegates may be destructed before this object is
+	// This is fine, since both the delegate and this object are both destroyed at static destruction time, so there is no need to unregister
+	//FCoreDelegates::ApplicationHasEnteredForegroundDelegate.RemoveAll(this);
+	//FCoreDelegates::ApplicationWillEnterBackgroundDelegate.RemoveAll(this);
+#endif
+
 	delete Thread;
 	Thread = nullptr;
 }
@@ -454,6 +512,16 @@ void FGameThreadHitchHeartBeat::InitSettings()
 #endif
 }
 
+void FGameThreadHitchHeartBeat::OnApplicationWillEnterBackground()
+{
+	SuspendHeartBeat();
+}
+
+void FGameThreadHitchHeartBeat::OnApplicationEnteredForeground()
+{
+	ResumeHeartBeat();
+}
+
 uint32 FGameThreadHitchHeartBeat::Run()
 {
 #if USE_HITCH_DETECTION
@@ -481,7 +549,7 @@ uint32 FGameThreadHitchHeartBeat::Run()
 				LocalFrameStartTime = FrameStartTime;
 				LocalHangDuration = HangDuration;
 			}
-			if (LocalFrameStartTime > 0.0 && LocalHangDuration > 0.0f)
+			if (LocalFrameStartTime > 0.0 && LocalHangDuration > 0.0f && SuspendedCount == 0)
 			{
 				const double CurrentTime = FPlatformTime::Seconds();
 				if (CurrentTime - LastReportTime > 60.0 && float(CurrentTime - LocalFrameStartTime) > LocalHangDuration)
@@ -570,12 +638,41 @@ void FGameThreadHitchHeartBeat::FrameStart(bool bSkipThisFrame)
 	{
 		FrameStartTime = bSkipThisFrame ? 0.0 : Now;
 	}
+#if !ENABLE_STATNAMEDEVENTS && defined(USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION) && USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION && USE_HITCH_DETECTION
+	if (GHitchDetected)
+	{
+		TFunction<void(ENamedThreads::Type CurrentThread)> Broadcast =
+			[this](ENamedThreads::Type MyThread)
+		{
+			FString ThreadString(FPlatformTLS::GetCurrentThreadId() == GGameThreadId ? TEXT("GameThread") : FThreadManager::Get().GetThreadName(FPlatformTLS::GetCurrentThreadId()));
+			UE_LOG(LogCore, Error, TEXT("FGameThreadHitchHeartBeat Flushed Thread [%s]"), *ThreadString);
+		};
+		// Skip task threads we will catch the wait for them
+		FTaskGraphInterface::BroadcastSlow_OnlyUseForSpecialPurposes(false, false, Broadcast);
+	}
+#endif
 	GHitchDetected = false;
+#endif
+}
+
+void FGameThreadHitchHeartBeat::SuspendHeartBeat()
+{
+#if USE_HITCH_DETECTION
+	FPlatformAtomics::InterlockedIncrement(&SuspendedCount);
+#endif
+}
+void FGameThreadHitchHeartBeat::ResumeHeartBeat()
+{
+#if USE_HITCH_DETECTION
+	check(SuspendedCount > 0);
+	if (FPlatformAtomics::InterlockedDecrement(&SuspendedCount) == 0)
+	{
+		FrameStart(true);
+	}
 #endif
 }
 
 double FGameThreadHitchHeartBeat::GetFrameStartTime()
 {
-	check(IsInGameThread());
 	return FrameStartTime;
 }

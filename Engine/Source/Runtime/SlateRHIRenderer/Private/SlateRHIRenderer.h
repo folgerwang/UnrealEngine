@@ -21,6 +21,8 @@ struct Rect;
 
 template<typename TCmd> struct FRHICommand;
 
+typedef TArray<FRenderThreadUpdateContext, TInlineAllocator<2>> FDeferredUpdateContextList;
+
 // Number of draw buffers that can be active at any given time
 const uint32 NumDrawBuffers = 3;
 
@@ -186,17 +188,20 @@ public:
 	virtual bool GenerateDynamicImageResource( FName ResourceName, uint32 Width, uint32 Height, const TArray< uint8 >& Bytes ) override;
 	virtual bool GenerateDynamicImageResource( FName ResourceName, FSlateTextureDataRef TextureData ) override;
 	virtual FSlateResourceHandle GetResourceHandle( const FSlateBrush& Brush ) override;
+	virtual bool CanRenderResource(UObject& InResourceObject) const override;
 	virtual void* GetViewportResource( const SWindow& Window ) override;
-	virtual void SetColorVisionDeficiencyType( uint32 Type ) override;
+	virtual void SetColorVisionDeficiencyType(EColorVisionDeficiency Type, int32 Severity, bool bCorrectDeficiency, bool bShowCorrectionWithDeficiency) override;
 	virtual FSlateUpdatableTexture* CreateUpdatableTexture(uint32 Width, uint32 Height) override;
 	virtual void ReleaseUpdatableTexture(FSlateUpdatableTexture* Texture) override;
 	virtual ISlateAtlasProvider* GetTextureAtlasProvider() override;
+	virtual FCriticalSection* GetResourceCriticalSection() override;
 	virtual void ReleaseAccessedResources(bool bImmediatelyFlush) override;
 	virtual TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> CacheElementRenderData(const ILayoutCache* Cacher, FSlateWindowElementList& ElementList) override;
 	virtual void ReleaseCachingResourcesFor(const ILayoutCache* Cacher) override;
 	virtual int32 RegisterCurrentScene(FSceneInterface* Scene) override;
 	virtual int32 GetCurrentSceneIndex() const override;
 	virtual void ClearScenes() override;
+	virtual void AddWidgetRendererUpdate(const struct FRenderThreadUpdateContext& Context, bool bDeferredRenderTargetUpdate) override;
 
 	/** Draws windows from a FSlateDrawBuffer on the render thread */
 	void DrawWindow_RenderThread(FRHICommandListImmediate& RHICmdList, FSlateRHIRenderer::FViewportInfo& ViewportInfo, FSlateWindowElementList& WindowElementList, bool bLockToVsync, bool bClear);
@@ -221,6 +226,7 @@ public:
 	virtual void PrepareToTakeScreenshot(const FIntRect& Rect, TArray<FColor>* OutColorData) override;
 
 	virtual void SetWindowRenderTarget(const SWindow& Window, class IViewportRenderTargetProvider* Provider) override;
+
 
 private:
 	/** Loads all known textures from Slate styles */
@@ -275,6 +281,8 @@ private:
 	TSharedPtr<FSlateRHIRenderingPolicy> RenderingPolicy;
 
 	TArray< TSharedPtr<FSlateDynamicImageBrush> > DynamicBrushesToRemove[NumDrawBuffers];
+
+	FDeferredUpdateContextList DeferredUpdateContexts;
 
 	bool bTakingAScreenShot;
 	FIntRect ScreenshotRect;

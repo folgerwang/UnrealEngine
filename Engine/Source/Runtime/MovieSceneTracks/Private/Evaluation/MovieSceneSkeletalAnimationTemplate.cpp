@@ -328,7 +328,7 @@ namespace MovieScene
 				if (bResetDynamics)
 				{
 					// make sure we reset any simulations
-					AnimInst->ResetDynamics();
+					AnimInst->ResetDynamics(ETeleportType::ResetPhysics);
 				}
 			}
 		}

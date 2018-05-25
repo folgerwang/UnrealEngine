@@ -182,6 +182,16 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Enumerates any additional directories needed to clean this target
+		/// </summary>
+		/// <param name="Target">The target to clean</param>
+		/// <param name="FilesToDelete">Receives a list of files to be removed</param>
+		/// <param name="DirectoriesToDelete">Receives a list of directories to be removed</param>
+		public virtual void FindAdditionalBuildProductsToClean(ReadOnlyTargetRules Target, List<FileReference> FilesToDelete, List<DirectoryReference> DirectoriesToDelete)
+		{
+		}
+
+		/// <summary>
 		/// Determines if a filename is a default UBT build product
 		/// </summary>
 		/// <param name="FileName">The name to check</param>
@@ -517,6 +527,14 @@ namespace UnrealBuildTool
 		public virtual bool CanUseXGE()
 		{
 			return true;
+		}
+
+		/// <summary>
+		/// If this platform can be compiled with the parallel executor
+		/// </summary>
+		public virtual bool CanUseParallelExecutor()
+		{
+			return CanUseXGE();
 		}
 
 		/// <summary>

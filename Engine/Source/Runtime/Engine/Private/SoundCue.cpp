@@ -17,6 +17,7 @@
 #include "Sound/SoundNodeAttenuation.h"
 #include "Sound/SoundNodeQualityLevel.h"
 #include "Sound/SoundNodeSoundClass.h"
+#include "Sound/SoundNodeRandom.h"
 #include "GameFramework/GameUserSettings.h"
 #include "AudioCompressionSettingsUtils.h"
 #if WITH_EDITOR
@@ -72,10 +73,9 @@ void USoundCue::CacheAggregateValues()
 {
 	if (FirstNode)
 	{
-		if (Duration == 0.0f)
-		{
-			Duration = FirstNode->GetDuration();
-		}
+		FirstNode->ConditionalPostLoad();
+
+		Duration = FirstNode->GetDuration();
 
 		if (MaxDistance == 0.0f)
 		{
@@ -100,6 +100,7 @@ void USoundCue::Serialize(FStructuredArchive::FRecord Record)
 	// Always force the duration to be updated when we are saving or cooking
 	if (UnderlyingArchive.IsSaving() || UnderlyingArchive.IsCooking())
 	{
+		Duration = (FirstNode ? FirstNode->GetDuration() : 0.f);
 		CacheAggregateValues();
 	}
 
@@ -210,6 +211,23 @@ void USoundCue::EvaluateNodes(bool bAddToRoot)
 
 #if WITH_EDITOR
 
+void USoundCue::RecursivelySetExcludeBranchCulling(USoundNode* CurrentNode)
+{
+	if (CurrentNode)
+	{
+		USoundNodeRandom* RandomNode = Cast<USoundNodeRandom>(CurrentNode);
+		if (RandomNode)
+		{
+			RandomNode->bSoundCueExcludedFromBranchCulling = bExcludeFromRandomNodeBranchCulling;
+			RandomNode->MarkPackageDirty();
+		}
+		for (USoundNode* ChildNode : CurrentNode->ChildNodes)
+		{
+			RecursivelySetExcludeBranchCulling(ChildNode);
+		}
+	}
+}
+
 void USoundCue::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -224,6 +242,9 @@ void USoundCue::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyCha
 				It->Play();
 			}
 		}
+
+		// Propagate branch exclusion to child nodes which care (sound node random)
+		RecursivelySetExcludeBranchCulling(FirstNode);
 	}
 }
 #endif
@@ -366,10 +387,20 @@ float USoundCue::GetMaxDistance() const
 	return MaxDistance;
 }
 
-float USoundCue::GetDuration() const
+float USoundCue::GetDuration()
 {
+	// Always recalc the duration when in the editor as it could change
+	if (GIsEditor || (Duration < SMALL_NUMBER) || HasDelayNode())
+	{
+		if (FirstNode)
+		{
+			Duration = FirstNode->GetDuration();
+		}
+	}
+
 	return Duration;
 }
+
 
 bool USoundCue::ShouldApplyInteriorVolumes()
 {

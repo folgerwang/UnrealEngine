@@ -8,6 +8,31 @@
 #include "Interfaces/OnlineMessageInterface.h"
 #include "OnlineError.h"
 
+class FOnlineAccountCredentials;
+
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineExternalUI, Display, All);
+
+#define UE_LOG_ONLINE_EXTERNALUI(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineExternalUI, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_EXTERNALUI(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineExternalUI, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+/**
+ * FLoginFlowResult codes
+ */
+#define LOGIN_TOKEN_FOUND FString()
+#define LOGIN_ERROR_UNKNOWN					TEXT("com.epicgames.login.unknown")
+#define LOGIN_ERROR_AUTH_FAILURE			TEXT("com.epicgames.login.auth_failure")
+#define LOGIN_ERROR_NO_EXTERNAL_ACCOUNT		TEXT("com.epicgames.login.no_account_found_for_external_auth")
+#define LOGIN_CANCELLED						TEXT("com.epicgames.login.canceled")
+#define LOGIN_PAGELOADFAILED				TEXT("com.epicgames.login.pageloadfailed")
+#define LOGIN_CEFLOADFAILED					TEXT("com.epicgames.login.cefloadfailed")
+
 /**
  * Delegate called when the external UI is opened or closed
  *
@@ -75,13 +100,37 @@ DECLARE_DELEGATE_RetVal_OneParam(FLoginFlowResult, FOnLoginRedirectURL, const FS
 DECLARE_MULTICAST_DELEGATE_FourParams(FOnLoginFlowUIRequired, const FString& /*RequestedURL*/, const FOnLoginRedirectURL& /*OnLoginRedirect*/, const FOnLoginFlowComplete& /*OnLoginFlowComplete*/, bool& /*bOutShouldContinueLogin*/);
 typedef FOnLoginFlowUIRequired::FDelegate FOnLoginFlowUIRequiredDelegate;
 
+//DECLARE_DELEGATE_OneParam(FOnCreateAccountFlowComplete, const FLoginFlowResult& /*Result*/);
+//DECLARE_DELEGATE_RetVal_OneParam(FLoginFlowResult, FOnLoginRedirectURL, const FString& /*URL*/);
+
+/**
+ * Delegate executed by the requesting system when a supporting account creation flow browser window is asked to handle the request
+ *
+ * @param RequestedURL destination to fulfill the creation request
+ * @param OnLoginRedirect delegate to fire when URL redirects are detected
+ * @param OnLoginFlowComplete delegate to fire when the creation flow code has reached flow conclusion
+ * @param bOutShouldContinueLogin true if the creation flow code can proceed with the information given, false the caller should handle creation failure
+ */
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnCreateAccountFlowUIRequired, const FString& /*RequestedURL*/, const FOnLoginRedirectURL& /*OnLoginRedirect*/, const FOnLoginFlowComplete& /*OnLoginFlowComplete*/, bool& /*bOutShouldContinueLogin*/);
+typedef FOnCreateAccountFlowUIRequired::FDelegate FOnCreateAccountFlowUIRequiredDelegate;
+
 /**
  * Delegate executed when the external login UI has been closed.
  *
  * @param UniqueId The unique id of the user who signed in. Null if no user signed in.
  * @param ControllerIndex The controller index of the controller that activated the login UI.
+ * @param Error any errors related to closing the UI
  */
-DECLARE_DELEGATE_TwoParams(FOnLoginUIClosedDelegate, TSharedPtr<const FUniqueNetId> /*UniqueId*/, const int /*ControllerIndex*/);
+DECLARE_DELEGATE_ThreeParams(FOnLoginUIClosedDelegate, TSharedPtr<const FUniqueNetId> /*UniqueId*/, const int /*ControllerIndex*/, const FOnlineError& /*Error*/);
+
+/**
+ * Delegate executed when the external account creation UI has been closed.
+ *
+ * @param ControllerIndex The controller index of the controller that activated the account creation UI.
+ * @param AccountCredentials Account credentials created for use by login if successful, invalid otherwiseS
+ * @param Error any errors related to closing the UI
+ */
+DECLARE_DELEGATE_ThreeParams(FOnAccountCreationUIClosedDelegate, const int /*ControllerIndex*/, const FOnlineAccountCredentials& /*AccountCredentials*/, const FOnlineError& /*Error*/);
 
 /**
  * Delegate executed when the web url UI has been closed
@@ -215,6 +264,14 @@ enum class EPlatformMessageType
 	UGCRestricted
 };
 
+/**
+* Shop Purchasable types
+*/
+#define SHOP_PURCHASABLE_APPLICATION		TEXT("Application")
+#define SHOP_PURCHASABLE_ADDON				TEXT("AddOnContent")
+#define SHOP_PURCHASABLE_CONSUMABLE			TEXT("ConsumableContent")
+#define SHOP_PURCHASABLE_SUBSCRIPTION		TEXT("SubscriptionContent")
+
 /** 
  * Interface definition for the online services external UIs
  * Any online service that provides extra UI overlays will implement the relevant functions
@@ -240,6 +297,17 @@ public:
 	 * @return true if it was able to show the UI, false if it failed
 	 */
 	virtual bool ShowLoginUI(const int ControllerIndex, bool bShowOnlineOnly, bool bShowSkipButton, const FOnLoginUIClosedDelegate& Delegate = FOnLoginUIClosedDelegate()) = 0;
+
+	/**
+	 * Displays the UI that prompts the user to create an account
+	 *
+	 * @param ControllerIndex The controller that prompted showing the account creation UI. If the platform supports it,
+	 * it will pair the signed-in user with this controller.
+	 * @param Delegate The delegate to execute when the user closes the account creation UI.
+	 *
+	 * @return true if it was able to show the UI, false if it failed
+	 */
+	virtual bool ShowAccountCreationUI(const int ControllerIndex, const FOnAccountCreationUIClosedDelegate& Delegate = FOnAccountCreationUIClosedDelegate()) = 0;
 
 	/**
 	 * Displays the UI that shows a user's list of friends
@@ -363,6 +431,10 @@ public:
 	 * Delegate called when the online subsystem requires an external UI to handle login flow
 	 */
 	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnLoginFlowUIRequired, const FString& /*RequestedURL*/, const FOnLoginRedirectURL& /*OnRedirectURL*/, const FOnLoginFlowComplete& /*OnLoginFlowComplete*/, bool& /*bOutShouldContinueLogin*/);
+	/**
+	 * Delegate called when the online subsystem requires an external UI to handle account creation
+	 */
+	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnCreateAccountFlowUIRequired, const FString& /*RequestedURL*/, const FOnLoginRedirectURL& /*OnRedirectURL*/, const FOnLoginFlowComplete& /*OnLoginFlowComplete*/, bool& /*bOutShouldContinueLogin*/);
 };
 
 typedef TSharedPtr<IOnlineExternalUI, ESPMode::ThreadSafe> IOnlineExternalUIPtr;

@@ -966,18 +966,18 @@ bool FCollection::CheckinCollection(FText& OutError)
 		}
 	}
 
+	if (ChangelistDescBuilder.IsEmpty())
+	{
+		// No changes could be detected
+		ChangelistDescBuilder.AppendLineFormat(LOCTEXT("CollectionNotModifiedDesc", "Collection '{0}' not modified"), CollectionNameText);
+	}
+
 	if (FEngineBuildSettings::IsInternalBuild())
 	{
-		ChangelistDescBuilder.AppendLine(FString(TEXT("#robomerge #deadend")));
 		ChangelistDescBuilder.AppendLine(FString(TEXT("#jira none")));
 	}
 
 	FText ChangelistDesc = ChangelistDescBuilder.ToText();
-	if (ChangelistDesc.IsEmpty())
-	{
-		// No changes could be detected
-		ChangelistDesc = FText::Format(LOCTEXT("CollectionNotModifiedDesc", "Collection '{0}' not modified"), CollectionNameText);
-	}
 
 	// Finally check in the file
 	TSharedRef<FCheckIn, ESPMode::ThreadSafe> CheckInOperation = ISourceControlOperation::Create<FCheckIn>();

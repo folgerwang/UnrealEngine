@@ -37,6 +37,8 @@
 #include "ComponentRecreateRenderStateContext.h"
 #include "Engine/StaticMesh.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "Algo/AllOf.h"
+#include "Algo/Transform.h"
 
 #define LOCTEXT_NAMESPACE "StaticMeshComponent"
 
@@ -89,6 +91,22 @@ public:
 		if (StaticMeshComponent != NULL)
 		{
 			StaticMeshComponent->SetLODDataCount(VertexColorLODs.Num(), StaticMeshComponent->LODData.Num());
+
+			// Its possible that we have recreated LODs in SetLODDataCount that existed prior
+			// to reconstruction, but not *rebuilt* them because static lighting usage was clobbered
+			// by the construction script. In this case we should recover the GUIDs we had before
+			// so we dont end up creating new (non-deterministic) data
+			for(int32 LODIndex = 0; LODIndex < StaticMeshComponent->LODData.Num(); ++LODIndex)
+			{
+				FStaticMeshComponentLODInfo& LODInfo = StaticMeshComponent->LODData[LODIndex];
+				if(CachedStaticLighting.MapBuildDataIds.IsValidIndex(LODIndex))
+				{
+					LODInfo.MapBuildDataId = CachedStaticLighting.MapBuildDataIds[LODIndex];
+#if WITH_EDITOR
+					LODInfo.bMapBuildDataIdLoaded = true;
+#endif
+				}
+			}
 
 			for (int32 LODDataIndex = 0; LODDataIndex < VertexColorLODs.Num(); ++LODDataIndex)
 			{
@@ -295,7 +313,25 @@ void UStaticMeshComponent::Serialize(FArchive& Ar)
 
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
 
+#if WITH_EDITOR
+	const bool bCheckBuildGuids = false;//Ar.IsCooking() && !GetOutermost()->HasAnyPackageFlags(PKG_CompiledIn);
+
+	TArray<FGuid> MapBuildGuids;
+	if (bCheckBuildGuids)
+	{
+		Algo::Transform(LODData, MapBuildGuids, &FStaticMeshComponentLODInfo::MapBuildDataId);
+	}
+#endif
+
 	Ar << LODData;
+
+#if WITH_EDITOR
+	if (bCheckBuildGuids)
+	{
+		// If we're cooking, display a deterministic cook warning if we didn't overwrite the generated GUIDs at load time
+		UE_CLOG(bCheckBuildGuids && !Algo::AllOf(LODData, &FStaticMeshComponentLODInfo::bMapBuildDataIdLoaded), LogStaticMesh, Warning, TEXT("%s contains a legacy UStaticMeshComponent and is being non-deterministically cooked - please resave the asset and recook."), *GetOutermost()->GetName());
+	}
+#endif
 
 	if (Ar.IsLoading())
 	{
@@ -966,21 +1002,50 @@ FTransform UStaticMeshComponent::GetSocketTransform(FName InSocketName, ERelativ
 
 bool UStaticMeshComponent::RequiresOverrideVertexColorsFixup()
 {
-	bool bFixupRequired = false;
-
 #if WITH_EDITORONLY_DATA
-	if ( GetStaticMesh() && GetStaticMesh()->RenderData
-		&& GetStaticMesh()->RenderData->DerivedDataKey != StaticMeshDerivedDataKey
-		&& LODData.Num() > 0
-		&& LODData[0].OverrideVertexColors
-		&& LODData[0].OverrideVertexColors->GetNumVertices() > 0
-		&& LODData[0].PaintedVertices.Num() > 0 )
+	UStaticMesh* Mesh = GetStaticMesh();
+	if (!Mesh)
 	{
-		bFixupRequired = true;
+		return false;
 	}
-#endif // WITH_EDITORONLY_DATA
 
-	return bFixupRequired;
+	if ( !Mesh->RenderData )
+	{
+		return false;
+	}
+
+	if (Mesh->RenderData->DerivedDataKey == StaticMeshDerivedDataKey)
+	{
+		return false;
+	}
+
+	if (LODData.Num() == 0)
+	{
+		return false;
+	}
+
+	FStaticMeshComponentLODInfo& LOD = LODData[0];
+	if (!LOD.OverrideVertexColors)
+	{
+		return false;
+	}
+
+	int32 NumOverrideVertices = LOD.OverrideVertexColors->GetNumVertices();
+	if (NumOverrideVertices == 0)
+	{
+		return false;
+	}
+
+	int32 NumPaintedVertices = LOD.PaintedVertices.Num();
+	if (NumPaintedVertices == 0)
+	{
+		return false;
+	}
+
+	return true;
+#else
+	return false;
+#endif // WITH_EDITORONLY_DATA
 }
 
 void UStaticMeshComponent::SetSectionPreview(int32 InSectionIndexPreview)
@@ -1704,6 +1769,11 @@ void UStaticMeshComponent::PostLoad()
 	InitResources();
 }
 
+bool UStaticMeshComponent::IsPostLoadThreadSafe() const
+{
+	return false;
+}
+
 bool UStaticMeshComponent::SetStaticMesh(UStaticMesh* NewMesh)
 {
 	// Do nothing if we are already using the supplied static mesh
@@ -2203,6 +2273,9 @@ void UStaticMeshComponent::ApplyComponentInstanceData(FStaticMeshComponentInstan
 			for (int32 i = 0; i < NumLODLightMaps; ++i)
 			{
 				LODData[i].MapBuildDataId = StaticMeshInstanceData->CachedStaticLighting.MapBuildDataIds[i];
+			#if WITH_EDITOR
+				LODData[i].bMapBuildDataIdLoaded = true;
+			#endif
 			}
 		}
 		else
@@ -2429,6 +2502,9 @@ FStaticMeshComponentLODInfo::FStaticMeshComponentLODInfo(UStaticMeshComponent* I
 	, OwningComponent(InOwningComponent)
 	{
 	MapBuildDataId = FGuid::NewGuid();
+#if WITH_EDITOR
+	bMapBuildDataIdLoaded = false;
+#endif
 }
 
 /** Destructor */
@@ -2590,6 +2666,9 @@ FArchive& operator<<(FArchive& Ar,FStaticMeshComponentLODInfo& I)
 		if (Ar.IsLoading() && Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::MapBuildDataSeparatePackage)
 		{
 			I.MapBuildDataId = FGuid::NewGuid();
+		#if WITH_EDITOR
+			I.bMapBuildDataIdLoaded = false;
+		#endif
 			I.LegacyMapBuildData = new FMeshMapBuildData();
 			Ar << I.LegacyMapBuildData->LightMap;
 			Ar << I.LegacyMapBuildData->ShadowMap;
@@ -2597,6 +2676,12 @@ FArchive& operator<<(FArchive& Ar,FStaticMeshComponentLODInfo& I)
 		else
 		{
 			Ar << I.MapBuildDataId;
+		#if WITH_EDITOR
+			if (Ar.IsLoading())
+			{
+				I.bMapBuildDataIdLoaded = true;
+			}
+		#endif
 		}
 	}
 

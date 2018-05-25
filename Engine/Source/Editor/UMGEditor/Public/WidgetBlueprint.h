@@ -20,6 +20,9 @@ class UUserWidget;
 class UWidget;
 class UWidgetAnimation;
 class FKismetCompilerContext;
+enum class EWidgetTickFrequency : uint8;
+enum class EWidgetCompileTimeTickPrediction : uint8;
+
 
 /** */
 USTRUCT()
@@ -181,6 +184,23 @@ enum class EWidgetSupportsDynamicCreation : uint8
 	No,
 };
 
+/**
+ * This represents the tickability of a widget computed at compile time
+ * It is designed as a hint so the runtime can determine if ticking needs to be enabled
+ * A lot of widgets set to WillTick means you might have a performance problem
+ */
+UENUM()
+enum class EWidgetCompileTimeTickPrediction : uint8
+{
+	/** The widget is manually set to never tick or we dont detect any animations, latent actions, and/or script or possible native tick methods */
+	WontTick,
+
+	/** This widget is set to auto tick and we detect animations, latent actions but not script or native tick methods*/
+	OnDemand,
+
+	/** This widget has an implemented script tick or native tick */
+	WillTick,
+};
 
 /**
  * The widget blueprint enables extending UUserWidget the user extensible UWidget.
@@ -192,47 +212,12 @@ class UMGEDITOR_API UWidgetBlueprint : public UBlueprint
 
 public:
 
-#if WITH_EDITORONLY_DATA
-	/** A tree of the widget templates to be created */
-	UPROPERTY()
-	class UWidgetTree* WidgetTree;
-
-	UPROPERTY()
-	TArray< FDelegateEditorBinding > Bindings;
-
-	UPROPERTY()
-	TArray<FWidgetAnimation_DEPRECATED> AnimationData_DEPRECATED;
-
-	UPROPERTY()
-	TArray<UWidgetAnimation*> Animations;
-
-	/**
-	 * Don't directly modify this property to change the palette category.  The actual value is stored 
-	 * in the CDO of the UUserWidget, but a copy is stored here so that it's available in the serialized 
-	 * Tag data in the asset header for access in the FAssetData.
-	 */
-	UPROPERTY(AssetRegistrySearchable, AssetRegistrySearchable)
-	FString PaletteCategory;
-
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=WidgetBlueprintOptions, AssetRegistrySearchable)
-	bool bForceSlowConstructionPath;
-
-private:
-	/**
-	 * Widgets by default all support calling CreateWidget for them, however for mobile games
-	 * you may want to disable this by default, or on a per widget basis as it can save several
-	 * MB on a large game from lots of widget templates being cooked ready to make dynamic
-	 * construction faster.
-	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=WidgetBlueprintOptions, AssetRegistrySearchable)
-	EWidgetSupportsDynamicCreation SupportDynamicCreation;
-#endif
-
-public:
-
 	/** UObject interface */
 	virtual void PostLoad() override;
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
+#if WITH_EDITORONLY_DATA
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
+#endif // WITH_EDITORONLY_DATA
 	virtual void Serialize(FArchive& Ar) override;
 
 	UPackage* GetWidgetTemplatePackage() const;
@@ -278,10 +263,82 @@ public:
 	
 	static TSharedPtr<FKismetCompilerContext> GetCompilerForWidgetBP(UBlueprint* BP, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions);
 
+	void UpdateTickabilityStats(bool& OutHasLatentActions, bool& OutHasAnimations, bool& OutClassRequiresNativeTick);
+
 private:
 	void ForEachSourceWidgetImpl(TFunctionRef<void(UWidget*)> Fn) const;
 
 #if WITH_EDITOR
 	virtual void LoadModulesRequiredForCompilation() override;
 #endif 
+
+public:
+
+#if WITH_EDITORONLY_DATA
+	/** A tree of the widget templates to be created */
+	UPROPERTY()
+	class UWidgetTree* WidgetTree;
+
+	UPROPERTY()
+	TArray<FDelegateEditorBinding> Bindings;
+
+	UPROPERTY()
+	TArray<FWidgetAnimation_DEPRECATED> AnimationData_DEPRECATED;
+
+	UPROPERTY()
+	TArray<UWidgetAnimation*> Animations;
+
+	/**
+	* Don't directly modify this property to change the palette category.  The actual value is stored
+	* in the CDO of the UUserWidget, but a copy is stored here so that it's available in the serialized
+	* Tag data in the asset header for access in the FAssetData.
+	*/
+	UPROPERTY(AssetRegistrySearchable)
+	FString PaletteCategory;
+
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = WidgetBlueprintOptions, AssetRegistrySearchable)
+	bool bForceSlowConstructionPath;
+
+	/**
+	 * The total number of widgets this widget contains.  This is a good way to find the "largest" widgets.
+	 */
+	UPROPERTY(AssetRegistrySearchable)
+	int32 InclusiveWidgets;
+
+private:
+	/**
+	 * The desired tick frequency set by the user on the UserWidget's CDO.
+	 */
+	UPROPERTY(AssetRegistrySearchable)
+	EWidgetTickFrequency TickFrequency;
+
+	/**
+	 * The computed frequency that the widget will need to be ticked at.  You can find the reasons for
+	 * this decision by looking at TickPredictionReason.
+	 */
+	UPROPERTY(AssetRegistrySearchable)
+	EWidgetCompileTimeTickPrediction TickPrediction;
+
+	/**
+	 * The reasons we may need to tick this widget.
+	 */
+	UPROPERTY(AssetRegistrySearchable)
+	FString TickPredictionReason;
+
+	/**
+	 * Widgets by default all support calling CreateWidget for them, however for mobile games
+	 * you may want to disable this by default, or on a per widget basis as it can save several
+	 * MB on a large game from lots of widget templates being cooked ready to make dynamic
+	 * construction faster.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = WidgetBlueprintOptions, AssetRegistrySearchable)
+	EWidgetSupportsDynamicCreation SupportDynamicCreation;
+
+	/**
+	 * The total number of property bindings.  Consider this as a performance warning.
+	 */
+	UPROPERTY(AssetRegistrySearchable)
+	int32 PropertyBindings;
+
+#endif
 };

@@ -552,19 +552,6 @@ void UGameplayCueManager::InitializeRuntimeObjectLibrary()
 }
 
 #if WITH_EDITOR
-void UGameplayCueManager::ModifyCook(TArray<FName>& PackagesToCook, TArray<FName>& PackagesToNeverCook)
-{
-	if (RuntimeGameplayCueObjectLibrary.CueSet)
-	{
-		TArray<FSoftObjectPath> CuePaths;
-		RuntimeGameplayCueObjectLibrary.CueSet->GetSoftObjectPaths(CuePaths);
-		for (const FSoftObjectPath& Path : CuePaths)
-		{
-			PackagesToCook.Add(FName(*FPackageName::ObjectPathToPackageName(Path.ToString())));
-		}
-	}
-}
-
 void UGameplayCueManager::InitializeEditorObjectLibrary()
 {
 	SCOPE_LOG_TIME_IN_SECONDS(*FString::Printf(TEXT("UGameplayCueManager::InitializeEditorObjectLibrary")), nullptr)
@@ -695,6 +682,9 @@ static void SearchDynamicClassCues(const FName PropertyName, const TArray<FStrin
 
 				CuesToAdd.Add(FGameplayCueReferencePair(GameplayCueTag, StringRef));
 				AssetsToLoad.Add(StringRef);
+
+				// Make sure core knows about this ref so it can be properly detected during cook.
+				StringRef.PostLoadPath();
 			}
 			else
 			{
@@ -875,6 +865,9 @@ void UGameplayCueManager::BuildCuesToAddToGlobalSet(const TArray<FAssetData>& As
 				OutCuesToAdd.Add(FGameplayCueReferencePair(GameplayCueTag, StringRef));
 
 				OutAssetsToLoad.Add(StringRef);
+
+				// Make sure core knows about this ref so it can be properly detected during cook.
+				StringRef.PostLoadPath();
 			}
 			else
 			{
@@ -1008,6 +1001,9 @@ void UGameplayCueManager::HandleAssetAdded(UObject *Object)
 				{
 					CuesToAdd.Add(FGameplayCueReferencePair(ActorCDO->GameplayCueTag, StringRef));
 				}
+
+				// Make sure core knows about this ref so it can be properly detected during cook.
+				StringRef.PostLoadPath();
 
 				for (UGameplayCueSet* Set : GetGlobalCueSets())
 				{

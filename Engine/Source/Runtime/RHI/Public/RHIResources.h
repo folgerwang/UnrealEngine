@@ -144,15 +144,33 @@ private:
 //
 
 class FRHISamplerState : public FRHIResource {};
-class FRHIRasterizerState : public FRHIResource {};
-class FRHIDepthStencilState : public FRHIResource {};
-class FRHIBlendState : public FRHIResource {};
+class FRHIRasterizerState : public FRHIResource
+{
+public:
+	virtual bool GetInitializer(struct FRasterizerStateInitializerRHI& Init) { return false; }
+};
+class FRHIDepthStencilState : public FRHIResource
+{
+public:
+	virtual bool GetInitializer(struct FDepthStencilStateInitializerRHI& Init) { return false; }
+};
+class FRHIBlendState : public FRHIResource
+{
+public:
+	virtual bool GetInitializer(class FBlendStateInitializerRHI& Init) { return false; }
+};
 
 //
 // Shader bindings
 //
 
-class FRHIVertexDeclaration : public FRHIResource {};
+typedef TArray<struct FVertexElement,TFixedAllocator<MaxVertexElementCount> > FVertexDeclarationElementList;
+class FRHIVertexDeclaration : public FRHIResource
+{
+public:
+	virtual bool GetInitializer(FVertexDeclarationElementList& Init) { return false; }
+};
+
 class FRHIBoundShaderState : public FRHIResource {};
 
 //
@@ -179,7 +197,17 @@ class FRHIHullShader : public FRHIShader {};
 class FRHIDomainShader : public FRHIShader {};
 class FRHIPixelShader : public FRHIShader {};
 class FRHIGeometryShader : public FRHIShader {};
-class FRHIComputeShader : public FRHIShader {};
+class RHI_API FRHIComputeShader : public FRHIShader
+{
+public:
+	FRHIComputeShader() : Stats(nullptr) {}
+	
+	inline void SetStats(struct FPipelineStateStats* Ptr) { Stats = Ptr; }
+	void UpdateStats();
+	
+private:
+	struct FPipelineStateStats* Stats;
+};
 
 //
 // Pipeline States
@@ -1740,10 +1768,12 @@ protected:
 class FRHIShaderLibrary : public FRHIResource
 {
 public:
-	FRHIShaderLibrary(EShaderPlatform InPlatform) : Platform(InPlatform) {}
+	FRHIShaderLibrary(EShaderPlatform InPlatform, FString const& InName) : Platform(InPlatform), LibraryName(InName), LibraryId(GetTypeHash(InName)) {}
 	virtual ~FRHIShaderLibrary() {}
 	
 	FORCEINLINE EShaderPlatform GetPlatform(void) const { return Platform; }
+	FORCEINLINE FString GetName(void) const { return LibraryName; }
+	FORCEINLINE uint32 GetId(void) const { return LibraryId; }
 	
 	virtual bool IsNativeLibrary() const = 0;
 	
@@ -1777,22 +1807,38 @@ public:
 		//Access the library we are iterating through - allow query e.g. GetPlatform from iterator object
 		FRHIShaderLibrary* GetLibrary() const			 {return ShaderLibrarySource;};
 		
-	private:
+	protected:
 		//Control source object lifetime while iterator is 'active'
 		TRefCountPtr<FRHIShaderLibrary> ShaderLibrarySource;
 	};
 	
 	virtual TRefCountPtr<FShaderLibraryIterator> CreateIterator(void) = 0;
-	
+	virtual bool RequestEntry(const FSHAHash& Hash, FArchive* Ar) = 0;
+	virtual bool ContainsEntry(const FSHAHash& Hash) = 0;
 	virtual uint32 GetShaderCount(void) const = 0;
 
 protected:
 	EShaderPlatform Platform;
+	FString LibraryName;
+	uint32 LibraryId;
 };
 
 typedef FRHIShaderLibrary*				FRHIShaderLibraryParamRef;
 typedef TRefCountPtr<FRHIShaderLibrary>	FRHIShaderLibraryRef;
 
+class FRHIPipelineBinaryLibrary : public FRHIResource
+{
+public:
+	FRHIPipelineBinaryLibrary(EShaderPlatform InPlatform, FString const& FilePath) : Platform(InPlatform) {}
+	virtual ~FRHIPipelineBinaryLibrary() {}
+	
+	FORCEINLINE EShaderPlatform GetPlatform(void) const { return Platform; }
+	
+protected:
+	EShaderPlatform Platform;
+};
+typedef FRHIPipelineBinaryLibrary*				FRHIPipelineBinaryLibraryParamRef;
+typedef TRefCountPtr<FRHIPipelineBinaryLibrary>	FRHIPipelineBinaryLibraryRef;
 
 enum class ERenderTargetActions : uint8
 {

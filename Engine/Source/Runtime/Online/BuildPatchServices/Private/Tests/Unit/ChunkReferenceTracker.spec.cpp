@@ -17,7 +17,7 @@ TArray<FString> FileList;
 TArray<FString> SubsetFileList;
 TSet<FGuid> AllChunks;
 TSet<FGuid> SubsetReferencedChunks;
-TMap<FString, FFileManifestData> FileManifests;
+TMap<FString, FFileManifest> FileManifests;
 TMap<FGuid, int32> ChunkRefCounts;
 TArray<FGuid> UseOrderForwardSortedSubsetArray;
 TArray<FGuid> UseOrderReverseSortedSubsetArray;
@@ -38,9 +38,9 @@ void FChunkReferenceTrackerSpec::Define()
 	SubsetFileList = FileList.FilterByPredicate([](const FString& Element) { return Element.StartsWith(TEXT("Some")); });
 	for (const FString& Filename : FileList)
 	{
-		FFileManifestData& FileManifest = FileManifests.Add(Filename, FFileManifestData());
+		FFileManifest& FileManifest = FileManifests.Add(Filename, FFileManifest());
 		FileManifest.Filename = Filename;
-		FChunkPartData ChunkPartData;
+		FChunkPart ChunkPartData;
 		// New chunk.
 		ChunkPartData.Guid = FGuid::NewGuid();
 		AllChunks.Add(ChunkPartData.Guid);
@@ -60,7 +60,7 @@ void FChunkReferenceTrackerSpec::Define()
 	}
 	for (const FString& File : SubsetFileList)
 	{
-		for (const FChunkPartData& FileChunkPart : FileManifests[File].FileChunkParts)
+		for (const FChunkPart& FileChunkPart : FileManifests[File].FileChunkParts)
 		{
 			SubsetReferencedChunks.Add(FileChunkPart.Guid);
 			UseOrderForwardSortedSubsetArray.Add(FileChunkPart.Guid);
@@ -70,7 +70,7 @@ void FChunkReferenceTrackerSpec::Define()
 	}
 	for (const FString& File : FileList)
 	{
-		for (const FChunkPartData& FileChunkPart : FileManifests[File].FileChunkParts)
+		for (const FChunkPart& FileChunkPart : FileManifests[File].FileChunkParts)
 		{
 			++ChunkRefCounts.FindOrAdd(FileChunkPart.Guid);
 		}
@@ -114,7 +114,7 @@ void FChunkReferenceTrackerSpec::Define()
 				{
 					for (const FString& File : FileList)
 					{
-						for (const FChunkPartData& FileChunkPart : FileManifests[File].FileChunkParts)
+						for (const FChunkPart& FileChunkPart : FileManifests[File].FileChunkParts)
 						{
 							ChunkReferenceTracker->PopReference(FileChunkPart.Guid);
 						}
@@ -157,7 +157,7 @@ void FChunkReferenceTrackerSpec::Define()
 				{
 					for (const FString& File : SubsetFileList)
 					{
-						for (const FChunkPartData& FileChunkPart : FileManifests[File].FileChunkParts)
+						for (const FChunkPart& FileChunkPart : FileManifests[File].FileChunkParts)
 						{
 							ChunkReferenceTracker->PopReference(FileChunkPart.Guid);
 						}
@@ -204,7 +204,7 @@ void FChunkReferenceTrackerSpec::Define()
 			{
 				for (const FString& File : FileList)
 				{
-					for (const FChunkPartData& FileChunkPart : FileManifests[File].FileChunkParts)
+					for (const FChunkPart& FileChunkPart : FileManifests[File].FileChunkParts)
 					{
 						ChunkReferenceTracker->PopReference(FileChunkPart.Guid);
 					}
@@ -358,7 +358,7 @@ void FChunkReferenceTrackerSpec::Define()
 			{
 				for (const FString& File : FileList)
 				{
-					for (const FChunkPartData& FileChunkPart : FileManifests[File].FileChunkParts)
+					for (const FChunkPart& FileChunkPart : FileManifests[File].FileChunkParts)
 					{
 						TEST_TRUE(ChunkReferenceTracker->PopReference(FileChunkPart.Guid));
 					}

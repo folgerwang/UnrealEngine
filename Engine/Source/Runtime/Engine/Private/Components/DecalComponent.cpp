@@ -119,6 +119,11 @@ void UDecalComponent::Serialize(FArchive& Ar)
 	}
 }
 
+bool UDecalComponent::IsPostLoadThreadSafe() const
+{
+	return true;
+}
+
 void UDecalComponent::SetLifeSpan(const float LifeSpan)
 {
 	if (LifeSpan > 0.f)

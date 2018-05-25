@@ -37,12 +37,13 @@ void FSkeletalMeshReductionSettingsDetails::CustomizeChildren(TSharedRef<IProper
 	StructBuilder.AddProperty(ReductionMethodPropertyHandle.ToSharedRef());
 
 	StructBuilder.AddCustomRow(LOCTEXT("PercentTriangles_Row", "Triangle Percentage"))
-		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FSkeletalMeshReductionSettingsDetails::GetVisibiltyIfCurrentReductionMethod, SMOT_NumOfTriangles)))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FSkeletalMeshReductionSettingsDetails::GetVisibiltyIfCurrentReductionMethodIsNot, SMOT_MaxDeviation)))
 		.NameContent()
 		[
 			SNew(STextBlock)
 			.Font(IDetailLayoutBuilder::GetDetailFont())
-			.Text(LOCTEXT("PercentTriangles", "Percentage of Triangles"))
+			.Text(LOCTEXT("PercentTriangles", "Triangle Percentage"))
+			.ToolTipText(LOCTEXT("PercentTriangles_ToolTip", "The simplification uses this percentage of source mesh's triangle count as a target."))
 		]
 		.ValueContent()
 		[
@@ -54,25 +55,24 @@ void FSkeletalMeshReductionSettingsDetails::CustomizeChildren(TSharedRef<IProper
 			.OnValueChanged(this, &FSkeletalMeshReductionSettingsDetails::SetNumTrianglesPercentage)
 		];
 
-	StructBuilder.AddCustomRow(LOCTEXT("MaxDeviation_Row", "MaxDeviation Percentage"))
-		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FSkeletalMeshReductionSettingsDetails::GetVisibiltyIfCurrentReductionMethod, SMOT_MaxDeviation)))
+	StructBuilder.AddCustomRow(LOCTEXT("Accuracy_Row", "Accuracy Percentage"))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FSkeletalMeshReductionSettingsDetails::GetVisibiltyIfCurrentReductionMethodIsNot, SMOT_NumOfTriangles)))
 		.NameContent()
 		[
 			SNew(STextBlock)
 			.Font(IDetailLayoutBuilder::GetDetailFont())
-			.Text(LOCTEXT("MaxDeviation", "Percentage of Max Deviation"))
-			.ToolTipText(LOCTEXT("MaxDeviation_ToolTip", "100% means it will deviate as much as mesh's bound radius."))
+			.Text(LOCTEXT("PercentAccuracy", "Accuracy Percentage"))
+			.ToolTipText(LOCTEXT("PercentAccuracy_ToolTip", "The simplification uses this as how much deviate from source mesh. Better works with hard surface meshes."))
 		]
 		.ValueContent()
 		[
 			SNew(SSpinBox<float>)
 			.Font(IDetailLayoutBuilder::GetDetailFont())
-			// if you're choosing reductionmethod to be max deviation, and if your MaxDeviation % is 0.f, that means you don't really reduce
-			// so we set min to be 1.0f, that means 1%, and translate to 0.01 for MaxDeviationPercentage value
-			.MinValue(1.0f)
-			.MaxValue(100.0f)
-			.Value(this, &FSkeletalMeshReductionSettingsDetails::GetMaxDeviationPercentage)
-			.OnValueChanged(this, &FSkeletalMeshReductionSettingsDetails::SetMaxDeviationPercentage)
+			.MinValue(0.0f)
+			// if you set 100% accuracy, which will set 0.f as max deviation, simplygon ignores the value. Considered invalid.
+			.MaxValue(100.f) 
+			.Value(this, &FSkeletalMeshReductionSettingsDetails::GetAccuracyPercentage)
+			.OnValueChanged(this, &FSkeletalMeshReductionSettingsDetails::SetAccuracyPercentage)
 		];
 
 	uint32 NumChildren = 0;
@@ -119,28 +119,30 @@ void FSkeletalMeshReductionSettingsDetails::SetNumTrianglesPercentage(float Valu
 	ensure(NumTrianglesPercentagePropertyHandle->SetValue(PropertyValue) != FPropertyAccess::Fail);
 }
 
-float FSkeletalMeshReductionSettingsDetails::GetMaxDeviationPercentage() const
+
+float FSkeletalMeshReductionSettingsDetails::GetAccuracyPercentage() const
 {
 	float CurrentValue;
 	if (MaxDeviationPercentagePropertyHandle->GetValue(CurrentValue) != FPropertyAccess::Fail)
 	{
-		return ConvertToPercentage(CurrentValue);
+		return ConvertToPercentage(1.f-CurrentValue);
 	}
 
 	return 0.f;
 }
-void FSkeletalMeshReductionSettingsDetails::SetMaxDeviationPercentage(float Value)
+void FSkeletalMeshReductionSettingsDetails::SetAccuracyPercentage(float Value)
 {
-	float PropertyValue = ConvertToDecimal(Value);
+	float PropertyValue = 1.f - ConvertToDecimal(Value);
 	ensure(MaxDeviationPercentagePropertyHandle->SetValue(PropertyValue) != FPropertyAccess::Fail);
 }
 
-EVisibility FSkeletalMeshReductionSettingsDetails::GetVisibiltyIfCurrentReductionMethod(enum SkeletalMeshOptimizationType ReductionType) const
+EVisibility FSkeletalMeshReductionSettingsDetails::GetVisibiltyIfCurrentReductionMethodIsNot(enum SkeletalMeshOptimizationType ReductionType) const
 {
 	uint8 CurrentEnum;
 	if (ReductionMethodPropertyHandle->GetValue(CurrentEnum) != FPropertyAccess::Fail)
 	{
-		if ((SkeletalMeshOptimizationType)CurrentEnum == ReductionType)
+		enum SkeletalMeshOptimizationType CurrentReductionType = (SkeletalMeshOptimizationType)CurrentEnum;
+		if (CurrentReductionType != ReductionType)
 		{
 			return EVisibility::Visible;
 		}

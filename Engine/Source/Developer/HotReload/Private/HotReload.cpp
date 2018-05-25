@@ -529,7 +529,7 @@ void FHotReloadModule::StartupModule()
 
 	FModuleManager::Get().OnModulesChanged().AddRaw(this, &FHotReloadModule::ModulesChangedCallback);
 
-	IPluginManager::Get().OnNewPluginMounted().AddRaw(this, &FHotReloadModule::PluginMountedCallback);
+	IPluginManager::Get().OnNewPluginCreated().AddRaw(this, &FHotReloadModule::PluginMountedCallback);
 }
 
 void FHotReloadModule::ShutdownModule()
@@ -1403,6 +1403,8 @@ void FHotReloadModule::ShutdownHotReloadWatcher()
 
 bool FHotReloadModule::Tick(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FHotReloadModule_Tick);
+
 	// We never want to block on a pending compile when checking compilation status during Tick().  We're
 	// just checking so that we can fire callbacks if and when compilation has finished.
 	// Ignored output variables

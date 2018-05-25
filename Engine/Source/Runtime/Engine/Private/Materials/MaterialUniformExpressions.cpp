@@ -354,6 +354,7 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 	{
 		FMemMark Mark(FMemStack::Get());
 		void* const TempBuffer = FMemStack::Get().PushBytes(UniformBufferStruct->GetSize(),UNIFORM_BUFFER_STRUCT_ALIGNMENT);
+		checkf(TempBuffer, TEXT("Failed to allocate uniform buffer struct of %i bytes."), UniformBufferStruct->GetSize());
 
 		FLinearColor* TempVectorBuffer = (FLinearColor*)TempBuffer;
 		for(int32 VectorIndex = 0;VectorIndex < UniformVectorExpressions.Num();++VectorIndex)

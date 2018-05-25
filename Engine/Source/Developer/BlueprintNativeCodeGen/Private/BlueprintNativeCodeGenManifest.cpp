@@ -328,7 +328,7 @@ FBlueprintNativeCodeGenPaths FBlueprintNativeCodeGenPaths::GetDefaultCodeGenPath
 				static const FName UBTTargetId_Windows = FName(TEXT("Windows"));
 
 				const FName UBTTargetId = (PlatformIt->UBTTargetId == UBTTargetId_Win32 || PlatformIt->UBTTargetId == UBTTargetId_Win64) ? UBTTargetId_Windows : PlatformIt->UBTTargetId;
-				DefaultPluginPath = FPaths::Combine(*DefaultPluginPath, *Lex::ToString(UBTTargetId), *Lex::ToString(PlatformIt->PlatformType));
+				DefaultPluginPath = FPaths::Combine(*DefaultPluginPath, *LexToString(UBTTargetId), *LexToString(PlatformIt->PlatformType));
 				break;
 			}
 		}

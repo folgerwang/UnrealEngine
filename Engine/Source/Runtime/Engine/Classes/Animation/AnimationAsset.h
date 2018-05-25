@@ -86,9 +86,11 @@ struct FBlendSampleData
 
 	FBlendSampleData()
 		:	SampleDataIndex(0)
+		,	Animation(nullptr)
 		,	TotalWeight(0.f)
 		,	Time(0.f)
 		,	PreviousTime(0.f)
+		,	SamplePlayRate(0.0f)
 	{}
 	FBlendSampleData(int32 Index)
 		:	SampleDataIndex(Index)
@@ -96,6 +98,7 @@ struct FBlendSampleData
 		,	TotalWeight(0.f)
 		,	Time(0.f)
 		,	PreviousTime(0.f)
+		,	SamplePlayRate(0.0f)
 	{}
 	bool operator==( const FBlendSampleData& Other ) const 
 	{
@@ -200,6 +203,7 @@ struct FMarkerSyncAnimPosition
 	bool IsValid() const { return (PreviousMarkerName != NAME_None && NextMarkerName != NAME_None); }
 
 	FMarkerSyncAnimPosition()
+		: PositionBetweenMarkers(0.0f)
 	{}
 
 	FMarkerSyncAnimPosition(const FName& InPrevMarkerName, const FName& InNextMarkerName, const float& InAlpha)
@@ -269,7 +273,8 @@ struct FAnimTickRecord
 
 public:
 	FAnimTickRecord()
-		: TimeAccumulator(nullptr)
+		: SourceAsset(nullptr)
+		, TimeAccumulator(nullptr)
 		, PlayRateMultiplier(1.f)
 		, EffectiveBlendWeight(0.f)
 		, RootMotionWeightModifier(1.f)

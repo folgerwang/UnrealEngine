@@ -182,6 +182,8 @@ private:
 
 	FText GetCurrentResolutionText() const;
 	FText GetCurrentDPIScaleText() const;
+	FText GetCurrentScaleFactorText() const;
+	FText GetCurrentSafeZoneText() const;
 	FSlateColor GetResolutionTextColorAndOpacity() const;
 	EVisibility GetResolutionTextVisibility() const;
 
@@ -192,9 +194,9 @@ private:
 	EVisibility GetCustomResolutionEntryVisibility() const;
 	
 	// Handles selecting a common screen resolution.
-	void HandleOnCommonResolutionSelected(int32 Width, int32 Height, FString AspectRatio);
-	bool HandleIsCommonResolutionSelected(int32 Width, int32 Height) const;
-	void AddScreenResolutionSection(FMenuBuilder& MenuBuilder, const TArray<FPlayScreenResolution>& Resolutions, const FText& SectionName);
+	void HandleOnCommonResolutionSelected(FPlayScreenResolution InResolution);
+	bool HandleIsCommonResolutionSelected(FPlayScreenResolution InResolution) const;
+	void AddScreenResolutionSection(FMenuBuilder& MenuBuilder, const TArray<FPlayScreenResolution> Resolutions, const FText SectionName);
 	TSharedRef<SWidget> GetResolutionsMenu();
 
 	TSharedRef<SWidget> GetScreenSizingFillMenu();
@@ -203,6 +205,9 @@ private:
 	bool GetIsScreenFillRuleSelected(EDesignPreviewSizeMode SizeMode) const;
 	void OnScreenFillRuleSelected(EDesignPreviewSizeMode SizeMode);
 
+	const FSlateBrush* GetAspectRatioSwitchImage() const;
+	bool GetAspectRatioSwitchEnabled() const;
+	bool GetFlipDeviceEnabled() const;
 	EVisibility GetDesignerOutlineVisibility() const;
 	FSlateColor GetDesignerOutlineColor() const;
 	FText GetDesignerOutlineText() const;
@@ -240,6 +245,8 @@ private:
 
 private:
 	FReply HandleZoomToFitClicked();
+	FReply HandleSwapAspectRatioClicked();
+	FReply HandleFlipSafeZonesClicked();
 	EVisibility GetRulerVisibility() const;
 
 private:
@@ -247,6 +254,7 @@ private:
 	static const uint32 DefaultResolutionWidth;
 	static const uint32 DefaultResolutionHeight;
 	static const FString DefaultAspectRatio;
+	static const FString DefaultPreviewOverrideName;
 
 	/** Extensions for the designer to allow for custom widgets to be inserted onto the design surface as selection changes. */
 	TArray< TSharedRef<FDesignerExtension> > DesignerExtensions;
@@ -347,6 +355,18 @@ private:
 	// Resolution Info
 	FString PreviewAspectRatio;
 
+	// Whether or not the resolution can flip between portrait and landscape
+	bool bCanPreviewSwapAspectRatio;
+
+	FString PreviewOverrideName;
+
+	float ScaleFactor;
+
+	bool bSafeZoneFlipped;
+
+	// Whether the preview is currently in portrait mode
+	bool bPreviewIsPortrait;
+
 	/** Curve to handle fading of the resolution */
 	FCurveSequence ResolutionTextFade;
 
@@ -373,4 +393,10 @@ private:
 
 	/** The message stack to display the last item to the user in a non-modal fashion. */
 	TArray<FText> DesignerMessageStack;
+
+	TArray<FVector2D> CustomSafeZoneStarts;
+
+	TArray<FVector2D> CustomSafeZoneDimensions;
+
+	FMargin DesignerSafeZoneOverride;
 };

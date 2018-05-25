@@ -15,7 +15,7 @@ struct FMovieSceneMaterialParameterCollectionTemplate : public FMovieSceneParame
 {
 	GENERATED_BODY()
 
-	FMovieSceneMaterialParameterCollectionTemplate() {}
+	FMovieSceneMaterialParameterCollectionTemplate() : MPC(nullptr) {}
 	FMovieSceneMaterialParameterCollectionTemplate(const UMovieSceneParameterSection& Section, const UMovieSceneMaterialParameterCollectionTrack& Track);
 
 private:

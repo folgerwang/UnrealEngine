@@ -32,6 +32,9 @@
 #include "Stats/StatsData.h"
 #include "HAL/PlatformProperties.h"
 #include "IAutomationControllerModule.h"
+#include "Scalability.h"
+#include "SceneViewExtension.h"
+#include "SceneView.h"
 
 #define LOCTEXT_NAMESPACE "Automation"
 
@@ -71,22 +74,7 @@ void FConsoleVariableSwapperTempl<T>::Set(T Value)
 			OriginalValue = ConsoleVariable->GetInt();
 		}
 
-		ConsoleVariable->Set(Value);
-	}
-}
-
-template<typename T>
-void FConsoleVariableSwapperTempl<T>::Restore()
-{
-	if (bModified)
-	{
-		IConsoleVariable* ConsoleVariable = IConsoleManager::Get().FindConsoleVariable(*ConsoleVariableName);
-		if (ensure(ConsoleVariable))
-		{
-			ConsoleVariable->Set(OriginalValue);
-		}
-
-		bModified = false;
+		ConsoleVariable->AsVariable()->SetWithCurrentPriority(Value);
 	}
 }
 
@@ -102,9 +90,132 @@ void FConsoleVariableSwapperTempl<float>::Set(float Value)
 			OriginalValue = ConsoleVariable->GetFloat();
 		}
 
-		ConsoleVariable->Set(Value);
+		// I need these overrides to superseded anything the user does while taking the shot.
+		ConsoleVariable->AsVariable()->SetWithCurrentPriority(Value);
 	}
 }
+
+template<typename T>
+void FConsoleVariableSwapperTempl<T>::Restore()
+{
+	if (bModified)
+	{
+		IConsoleVariable* ConsoleVariable = IConsoleManager::Get().FindConsoleVariable(*ConsoleVariableName);
+		if (ensure(ConsoleVariable))
+		{
+			// First we stomp the current with the original, then restore the original flags
+			// so that code continues to treat it using whatever source it was from originally, code, cmdline..etc.
+			ConsoleVariable->AsVariable()->SetWithCurrentPriority(OriginalValue);
+		}
+
+		bModified = false;
+	}
+}
+
+class FAutomationViewExtension : public FSceneViewExtensionBase
+{
+public:
+	FAutomationViewExtension(const FAutoRegister& AutoRegister, UWorld* InWorld, FAutomationScreenshotOptions& InOptions, float InCurrentTimeToSimulate)
+		: FSceneViewExtensionBase(AutoRegister)
+		, WorldPtr(InWorld)
+		, Options(InOptions)
+		, CurrentTime(InCurrentTimeToSimulate)
+	{
+	}
+	
+	/** ISceneViewExtension interface */
+	virtual void SetupView(FSceneViewFamily& InViewFamily, FSceneView& InView)
+	{
+		//if (Options.VisualizeBuffer != NAME_None)
+		//{
+		//	InViewFamily.ViewMode = VMI_VisualizeBuffer;
+		//	InViewFamily.EngineShowFlags.SetVisualizeBuffer(true);
+		//	InViewFamily.EngineShowFlags.SetTonemapper(false);
+
+		//	if (GetBufferVisualizationData().GetMaterial(Options.VisualizeBuffer) == NULL)
+		//	{
+		//		InView.CurrentBufferVisualizationMode = Options.VisualizeBuffer;
+		//	}
+		//}
+	}
+
+	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override
+	{
+		if (UAutomationViewSettings* ViewSettings = Options.ViewSettings)
+		{
+			// Turn off common show flags for noisy sources of rendering.
+			FEngineShowFlags& ShowFlags = InViewFamily.EngineShowFlags;
+			ShowFlags.SetAntiAliasing(ViewSettings->AntiAliasing);
+			ShowFlags.SetMotionBlur(ViewSettings->MotionBlur);
+			ShowFlags.SetTemporalAA(ViewSettings->TemporalAA);
+			ShowFlags.SetScreenSpaceReflections(ViewSettings->ScreenSpaceReflections);
+			ShowFlags.SetScreenSpaceAO(ViewSettings->ScreenSpaceAO);
+			ShowFlags.SetDistanceFieldAO(ViewSettings->DistanceFieldAO);
+			ShowFlags.SetContactShadows(ViewSettings->ContactShadows);
+			ShowFlags.SetEyeAdaptation(ViewSettings->EyeAdaptation);
+			ShowFlags.SetBloom(ViewSettings->Bloom);
+		}
+
+		if (Options.bOverride_OverrideTimeTo)
+		{
+			// Turn off time the ultimate source of noise.
+			InViewFamily.CurrentWorldTime = Options.OverrideTimeTo;
+			InViewFamily.CurrentRealTime = Options.OverrideTimeTo;
+			InViewFamily.DeltaWorldTime = 0;
+		}
+
+		if (Options.bDisableNoisyRenderingFeatures)
+		{
+			//// Turn off common show flags for noisy sources of rendering.
+			//InViewFamily.EngineShowFlags.SetAntiAliasing(false);
+			//InViewFamily.EngineShowFlags.SetMotionBlur(false);
+			//InViewFamily.EngineShowFlags.SetTemporalAA(false);
+			//InViewFamily.EngineShowFlags.SetScreenSpaceReflections(false);
+			////InViewFamily.EngineShowFlags.SetScreenSpaceAO(false);
+			////InViewFamily.EngineShowFlags.SetDistanceFieldAO(false);
+			//InViewFamily.EngineShowFlags.SetContactShadows(false);
+			//InViewFamily.EngineShowFlags.SetEyeAdaptation(false);
+
+			//TODO Auto Exposure?
+			//TODO EyeAdaptation Gamma?
+
+			// Disable screen percentage.
+			//InViewFamily.EngineShowFlags.SetScreenPercentage(false);
+		}
+		
+		if (Options.bDisableTonemapping)
+		{
+			//InViewFamily.EngineShowFlags.SetEyeAdaptation(false);
+			//InViewFamily.EngineShowFlags.SetTonemapper(false);
+		}
+	}
+
+	virtual void BeginRenderViewFamily(FSceneViewFamily& InViewFamily) {}
+	virtual void PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) {}
+	virtual void PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) {}
+
+	virtual bool IsActiveThisFrame(class FViewport* InViewport) const
+	{
+		if (InViewport)
+		{
+			FViewportClient* Client = InViewport->GetClient();
+			if (Client)
+			{
+				return WorldPtr->GetWorld() == Client->GetWorld();
+			}
+		}
+
+		return false;
+	}
+
+	/** We always want to go last. */
+	virtual int32 GetPriority() const override { return MIN_int32; }
+
+private:
+	TWeakObjectPtr<UWorld> WorldPtr;
+	FAutomationScreenshotOptions Options;
+	float CurrentTime;
+};
 
 FAutomationTestScreenshotEnvSetup::FAutomationTestScreenshotEnvSetup()
 	: DefaultFeature_AntiAliasing(TEXT("r.DefaultFeature.AntiAliasing"))
@@ -116,13 +227,20 @@ FAutomationTestScreenshotEnvSetup::FAutomationTestScreenshotEnvSetup()
 	, EyeAdaptationQuality(TEXT("r.EyeAdaptationQuality"))
 	, ContactShadows(TEXT("r.ContactShadows"))
 	, TonemapperGamma(TEXT("r.TonemapperGamma"))
+	, TonemapperSharpen(TEXT("r.Tonemapper.Sharpen"))
 	, SecondaryScreenPercentage(TEXT("r.SecondaryScreenPercentage.GameViewport"))
 {
 }
 
-void FAutomationTestScreenshotEnvSetup::Setup(FAutomationScreenshotOptions& InOutOptions)
+FAutomationTestScreenshotEnvSetup::~FAutomationTestScreenshotEnvSetup()
+{
+}
+
+void FAutomationTestScreenshotEnvSetup::Setup(UWorld* InWorld, FAutomationScreenshotOptions& InOutOptions)
 {
 	check(IsInGameThread());
+
+	WorldPtr = InWorld;
 
 	if (InOutOptions.bDisableNoisyRenderingFeatures)
 	{
@@ -132,14 +250,16 @@ void FAutomationTestScreenshotEnvSetup::Setup(FAutomationScreenshotOptions& InOu
 		PostProcessAAQuality.Set(0);
 		MotionBlurQuality.Set(0);
 		ScreenSpaceReflectionQuality.Set(0);
-		EyeAdaptationQuality.Set(0);
 		ContactShadows.Set(0);
+		EyeAdaptationQuality.Set(0);
 		TonemapperGamma.Set(2.2f);
+		//TonemapperSharpen.Set(0);
 	}
 	else if (InOutOptions.bDisableTonemapping)
 	{
 		EyeAdaptationQuality.Set(0);
 		TonemapperGamma.Set(2.2f);
+		//TonemapperSharpen.Set(0);
 	}
 
 	// Ignore High-DPI settings
@@ -147,6 +267,10 @@ void FAutomationTestScreenshotEnvSetup::Setup(FAutomationScreenshotOptions& InOu
 
 	InOutOptions.SetToleranceAmounts(InOutOptions.Tolerance);
 
+	const float InCurrentTimeToSimulate = 0.0f;
+	AutomationViewExtension = FSceneViewExtensions::NewExtension<FAutomationViewExtension>(InWorld, InOutOptions, InCurrentTimeToSimulate);
+
+	// TODO - I don't like needing to set this here.  Because the gameviewport uses a console variable, it wins.
 	if (UGameViewportClient* ViewportClient = GEngine->GameViewport)
 	{
 		static IConsoleVariable* ICVar = IConsoleManager::Get().FindConsoleVariable(FBufferVisualizationData::GetVisualizationTargetConsoleCommandName());
@@ -175,7 +299,10 @@ void FAutomationTestScreenshotEnvSetup::Restore()
 	EyeAdaptationQuality.Restore();
 	ContactShadows.Restore();
 	TonemapperGamma.Restore();
+	//TonemapperSharpen.Restore();
 	SecondaryScreenPercentage.Restore();
+
+	AutomationViewExtension.Reset();
 
 	if (UGameViewportClient* ViewportClient = GEngine->GameViewport)
 	{
@@ -195,16 +322,14 @@ void FAutomationTestScreenshotEnvSetup::Restore()
 class FAutomationScreenshotTaker
 {
 public:
-	FAutomationScreenshotTaker(UWorld* InWorld, const FString& InName, FAutomationScreenshotOptions InOptions)
+	FAutomationScreenshotTaker(UWorld* InWorld, const FString& InName, const FString& InNotes, FAutomationScreenshotOptions InOptions)
 		: World(InWorld)
 		, Name(InName)
+		, Notes(InNotes)
 		, Options(InOptions)
 		, bNeedsViewportSizeRestore(false)
 	{
-		GEngine->GameViewport->OnScreenshotCaptured().AddRaw(this, &FAutomationScreenshotTaker::GrabScreenShot);
-
-		EnvSetup.Setup(Options);
-		FlushRenderingCommands();
+		EnvSetup.Setup(InWorld, Options);
 
 		if (!FPlatformProperties::HasFixedResolution())
 		{
@@ -216,7 +341,7 @@ public:
 				UEditorEngine* EditorEngine = Cast<UEditorEngine>(GEngine);	
 
 				const bool bIsPIEViewport = GameViewport->IsPlayInEditorViewport();	
-				const bool bIsNewViewport = World.IsValid() && EditorEngine && EditorEngine->WorldIsPIEInNewViewport(World.Get());
+				const bool bIsNewViewport = InWorld && EditorEngine && EditorEngine->WorldIsPIEInNewViewport(InWorld);
 
 				if (!bIsPIEViewport || bIsNewViewport)
 #endif		
@@ -228,19 +353,36 @@ public:
 				}
 			}
 		}
+
+		FlushRenderingCommands();
+
+		GEngine->GameViewport->OnScreenshotCaptured().AddRaw(this, &FAutomationScreenshotTaker::GrabScreenShot);
+		FWorldDelegates::LevelRemovedFromWorld.AddRaw(this, &FAutomationScreenshotTaker::WorldDestroyed);
+		FScreenshotRequest::OnScreenshotRequestProcessed().AddRaw(this, &FAutomationScreenshotTaker::OnScreenshotProcessed);
 	}
 
 	virtual ~FAutomationScreenshotTaker()
 	{
+		FAutomationTestFramework::Get().OnScreenshotCompared.RemoveAll(this);
+		FScreenshotRequest::OnScreenshotRequestProcessed().RemoveAll(this);
+
+		if (GEngine->GameViewport)
+		{
+			GEngine->GameViewport->OnScreenshotCaptured().RemoveAll(this);
+		}
+
+		FWorldDelegates::LevelRemovedFromWorld.RemoveAll(this);
+
 		if (!FPlatformProperties::HasFixedResolution() && bNeedsViewportSizeRestore)
 		{
-			FSceneViewport* GameViewport = GEngine->GameViewport->GetGameViewport();
-			GameViewport->SetViewportSize(ViewportRestoreSize.X, ViewportRestoreSize.Y);
+			if (GEngine->GameViewport)
+			{
+				FSceneViewport* GameViewport = GEngine->GameViewport->GetGameViewport();
+				GameViewport->SetViewportSize(ViewportRestoreSize.X, ViewportRestoreSize.Y);
+			}
 		}
 
 		EnvSetup.Restore();
-
-		GEngine->GameViewport->OnScreenshotCaptured().RemoveAll(this);
 
 		FAutomationTestFramework::Get().NotifyScreenshotTakenAndCompared();
 	}
@@ -249,63 +391,70 @@ public:
 	{
 		check(IsInGameThread());
 
-		FAutomationScreenshotData Data = AutomationCommon::BuildScreenshotData(GWorld->GetName(), Name, InSizeX, InSizeY);
-
-		// Copy the relevant data into the metadata for the screenshot.
-		Data.bHasComparisonRules = true;
-		Data.ToleranceRed = Options.ToleranceAmount.Red;
-		Data.ToleranceGreen = Options.ToleranceAmount.Green;
-		Data.ToleranceBlue = Options.ToleranceAmount.Blue;
-		Data.ToleranceAlpha = Options.ToleranceAmount.Alpha;
-		Data.ToleranceMinBrightness = Options.ToleranceAmount.MinBrightness;
-		Data.ToleranceMaxBrightness = Options.ToleranceAmount.MaxBrightness;
-		Data.bIgnoreAntiAliasing = Options.bIgnoreAntiAliasing;
-		Data.bIgnoreColors = Options.bIgnoreColors;
-		Data.MaximumLocalError = Options.MaximumLocalError;
-		Data.MaximumGlobalError = Options.MaximumGlobalError;
-
-		FAutomationTestFramework::Get().OnScreenshotCaptured().ExecuteIfBound(InImageData, Data);
-
-		UE_LOG(AutomationFunctionLibrary, Log, TEXT("Screenshot captured as %s"), *Data.Path);
-
-		if ( GIsAutomationTesting )
+		if (World.IsValid())
 		{
-			FAutomationTestFramework::Get().OnScreenshotCompared.AddRaw(this, &FAutomationScreenshotTaker::OnComparisonComplete);
+			FAutomationScreenshotData Data = AutomationCommon::BuildScreenshotData(World->GetName(), Name, InSizeX, InSizeY);
+
+			// Copy the relevant data into the metadata for the screenshot.
+			Data.bHasComparisonRules = true;
+			Data.ToleranceRed = Options.ToleranceAmount.Red;
+			Data.ToleranceGreen = Options.ToleranceAmount.Green;
+			Data.ToleranceBlue = Options.ToleranceAmount.Blue;
+			Data.ToleranceAlpha = Options.ToleranceAmount.Alpha;
+			Data.ToleranceMinBrightness = Options.ToleranceAmount.MinBrightness;
+			Data.ToleranceMaxBrightness = Options.ToleranceAmount.MaxBrightness;
+			Data.bIgnoreAntiAliasing = Options.bIgnoreAntiAliasing;
+			Data.bIgnoreColors = Options.bIgnoreColors;
+			Data.MaximumLocalError = Options.MaximumLocalError;
+			Data.MaximumGlobalError = Options.MaximumGlobalError;
+
+			// Record any user notes that were made to accompany this shot.
+			Data.Notes = Notes;
+
+			bool bAttemptToCompareShot = FAutomationTestFramework::Get().OnScreenshotCaptured().ExecuteIfBound(InImageData, Data);
+
+			UE_LOG(AutomationFunctionLibrary, Log, TEXT("Screenshot captured as %s"), *Data.Path);
+
+			if (GIsAutomationTesting)
+			{
+				FAutomationTestFramework::Get().OnScreenshotCompared.AddRaw(this, &FAutomationScreenshotTaker::OnComparisonComplete);
+				FScreenshotRequest::OnScreenshotRequestProcessed().RemoveAll(this);
+				return;
+			}
 		}
-		else
-		{
-			delete this;
-		}
+		
+		delete this;
 	}
 
-	void OnComparisonComplete(bool bWasNew, bool bWasSimilar, double MaxLocalDifference, double GlobalDifference, FString ErrorMessage)
+	void OnScreenshotProcessed()
+	{
+		UE_LOG(AutomationFunctionLibrary, Log, TEXT("Screenshot processed, but not compared."));
+
+		// If it's done being processed 
+		delete this;
+	}
+
+	void OnComparisonComplete(const FAutomationScreenshotCompareResults& CompareResults)
 	{
 		FAutomationTestFramework::Get().OnScreenshotCompared.RemoveAll(this);
 
-		if ( bWasNew )
+		if (FAutomationTestBase* CurrentTest = FAutomationTestFramework::Get().GetCurrentTest())
 		{
-			UE_LOG(AutomationFunctionLibrary, Warning, TEXT("New Screenshot '%s' was discovered!  Please add a ground truth version of it."), *Name);
-		}
-		else
-		{
-			if ( bWasSimilar )
-			{
-				UE_LOG(AutomationFunctionLibrary, Display, TEXT("Screenshot '%s' was similar!  Global Difference = %f, Max Local Difference = %f"), *Name, GlobalDifference, MaxLocalDifference);
-			}
-			else
-			{
-				if ( ErrorMessage.IsEmpty() )
-				{
-					UE_LOG(AutomationFunctionLibrary, Error, TEXT("Screenshot '%s' test failed, Screenshots were different!  Global Difference = %f, Max Local Difference = %f"), *Name, GlobalDifference, MaxLocalDifference);
-				}
-				else
-				{
-					UE_LOG(AutomationFunctionLibrary, Error, TEXT("Screenshot '%s' test failed;  Error = %s"), *Name, *ErrorMessage);
-				}
-			}
+			CurrentTest->AddEvent(CompareResults.ToAutomationEvent(Name));
 		}
 
 		delete this;
+	}
+
+	void WorldDestroyed(ULevel* InLevel, UWorld* InWorld)
+	{
+		// If the InLevel is null, it's a signal that the entire world is about to disappear, so
+		// go ahead and remove this widget from the viewport, it could be holding onto too many
+		// dangerous actor references that won't carry over into the next world.
+		if (InLevel == nullptr && InWorld == World.Get())
+		{
+			delete this;
+		}
 	}
 
 private:
@@ -313,6 +462,7 @@ private:
 	TWeakObjectPtr<UWorld> World;
 	
 	FString	Name;
+	FString Notes;
 	FAutomationScreenshotOptions Options;
 
 	FAutomationTestScreenshotEnvSetup EnvSetup;
@@ -340,6 +490,8 @@ void UAutomationBlueprintFunctionLibrary::FinishLoadingBeforeScreenshot()
 	UTexture::ForceUpdateTextureStreaming();
 
 	IStreamingManager::Get().StreamAllResources(0.0f);
+
+	//IStreamingManager::Get().
 }
 
 FIntPoint UAutomationBlueprintFunctionLibrary::GetAutomationScreenshotSize(const FAutomationScreenshotOptions& Options)
@@ -383,19 +535,19 @@ FIntPoint UAutomationBlueprintFunctionLibrary::GetAutomationScreenshotSize(const
 	return FIntPoint(ResolutionX, ResolutionY);
 }
 
-bool UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotInternal(UObject* WorldContextObject, const FString& Name, FAutomationScreenshotOptions Options)
+bool UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotInternal(UObject* WorldContextObject, const FString& Name, const FString& Notes, FAutomationScreenshotOptions Options)
 {
 	UAutomationBlueprintFunctionLibrary::FinishLoadingBeforeScreenshot();
 
 #if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
-	FAutomationScreenshotTaker* TempObject = new FAutomationScreenshotTaker(WorldContextObject ? WorldContextObject->GetWorld() : nullptr, Name, Options);
+	FAutomationScreenshotTaker* TempObject = new FAutomationScreenshotTaker(WorldContextObject ? WorldContextObject->GetWorld() : nullptr, Name, Notes, Options);
 #endif
 
 	FScreenshotRequest::RequestScreenshot(false);
 	return true; //-V773
 }
 
-void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshot(UObject* WorldContextObject, FLatentActionInfo LatentInfo, const FString& Name, const FAutomationScreenshotOptions& Options)
+void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshot(UObject* WorldContextObject, FLatentActionInfo LatentInfo, const FString& Name, const FString& Notes, const FAutomationScreenshotOptions& Options)
 {
 	if ( GIsAutomationTesting )
 	{
@@ -404,7 +556,7 @@ void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshot(UObject* Worl
 			FLatentActionManager& LatentActionManager = World->GetLatentActionManager();
 			if ( LatentActionManager.FindExistingAction<FTakeScreenshotAfterTimeLatentAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == nullptr )
 			{
-				LatentActionManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, new FTakeScreenshotAfterTimeLatentAction(LatentInfo, Name, Options));
+				LatentActionManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, new FTakeScreenshotAfterTimeLatentAction(LatentInfo, Name, Notes, Options));
 			}
 		}
 	}
@@ -414,7 +566,7 @@ void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshot(UObject* Worl
 	}
 }
 
-void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotAtCamera(UObject* WorldContextObject, FLatentActionInfo LatentInfo, ACameraActor* Camera, const FString& NameOverride, const FAutomationScreenshotOptions& Options)
+void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotAtCamera(UObject* WorldContextObject, FLatentActionInfo LatentInfo, ACameraActor* Camera, const FString& NameOverride, const FString& Notes, const FAutomationScreenshotOptions& Options)
 {
 	if ( Camera == nullptr )
 	{
@@ -447,7 +599,7 @@ void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotAtCamera(UObje
 		FLatentActionManager& LatentActionManager = World->GetLatentActionManager();
 		if ( LatentActionManager.FindExistingAction<FTakeScreenshotAfterTimeLatentAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == nullptr )
 		{
-			LatentActionManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, new FTakeScreenshotAfterTimeLatentAction(LatentInfo, ScreenshotName, Options));
+			LatentActionManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, new FTakeScreenshotAfterTimeLatentAction(LatentInfo, ScreenshotName, Notes, Options));
 		}
 	}
 }
@@ -478,7 +630,7 @@ bool UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotOfUI_Immediate
 					}
 
 					// The screenshot taker deletes itself later.
-					FAutomationScreenshotTaker* TempObject = new FAutomationScreenshotTaker(World, Name, Options);
+					FAutomationScreenshotTaker* TempObject = new FAutomationScreenshotTaker(World, Name, TEXT(""), Options);
 
 					FAutomationScreenshotData Data = AutomationCommon::BuildScreenshotData(World->GetName(), Name, OutSize.X, OutSize.Y);
 
@@ -661,6 +813,27 @@ FAutomationScreenshotOptions UAutomationBlueprintFunctionLibrary::GetDefaultScre
 	Options.SetToleranceAmounts(Tolerance);
 
 	return Options;
+}
+
+void UAutomationBlueprintFunctionLibrary::SetScalabilityQualityLevelRelativeToMax(UObject* WorldContextObject, int32 Value /*= 1*/)
+{
+	Scalability::FQualityLevels Quality;
+	Quality.SetFromSingleQualityLevelRelativeToMax(Value);
+	Scalability::SetQualityLevels(Quality, true);
+}
+
+void UAutomationBlueprintFunctionLibrary::SetScalabilityQualityToEpic(UObject* WorldContextObject)
+{
+	Scalability::FQualityLevels Quality;
+	Quality.SetFromSingleQualityLevelRelativeToMax(0);
+	Scalability::SetQualityLevels(Quality, true);
+}
+
+void UAutomationBlueprintFunctionLibrary::SetScalabilityQualityToLow(UObject* WorldContextObject)
+{
+	Scalability::FQualityLevels Quality;
+	Quality.SetFromSingleQualityLevel(0);
+	Scalability::SetQualityLevels(Quality, true);
 }
 
 #undef LOCTEXT_NAMESPACE

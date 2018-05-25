@@ -1152,6 +1152,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 		{
 			// We've finished iterating over all unreachable objects, but we need still need to handle
 			// objects that were deferred.
+			int32 LastLoopObjectsPendingDestructionCount = GGCObjectsPendingDestructionCount;
 			while( GGCObjectsPendingDestructionCount > 0 )
 			{
 				int32 CurPendingObjIndex = 0;
@@ -1212,9 +1213,46 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 				}
 				else if( GGCObjectsPendingDestructionCount > 0 )
 				{
+					if (FPlatformProperties::RequiresCookedData())
+					{
+						const bool bPollTimeLimit = ((TimePollCounter++) % TimeLimitEnforcementGranularityForDestroy == 0);
+						const double MaxTimeForFinishDestroy = 10.0;
+						// Check if we spent too much time on waiting for FinishDestroy without making any progress
+						if (LastLoopObjectsPendingDestructionCount == GGCObjectsPendingDestructionCount && bPollTimeLimit &&
+							((FPlatformTime::Seconds() - StartTime) > MaxTimeForFinishDestroy))
+						{
+							UE_LOG(LogGarbage, Warning, TEXT("Spent more than %.2fs on routing FinishDestroy to objects (objects in queue: %d)"), MaxTimeForFinishDestroy, GGCObjectsPendingDestructionCount);
+							UObject* LastObjectNotReadyForFinishDestroy = nullptr;
+							for (int32 ObjectIndex = 0; ObjectIndex < GGCObjectsPendingDestructionCount; ++ObjectIndex)
+							{
+								UObject* Obj = GGCObjectsPendingDestruction[ObjectIndex];
+								bool bReady = Obj->IsReadyForFinishDestroy();
+								UE_LOG(LogGarbage, Warning, TEXT("  [%d]: %s, IsReadyForFinishDestroy: %s"),
+									ObjectIndex,
+									*GetFullNameSafe(Obj),
+									bReady ? TEXT("true") : TEXT("false"));
+								if (!bReady)
+								{
+									LastObjectNotReadyForFinishDestroy = Obj;
+								}
+							}
+
+#if PLATFORM_DESKTOP
+							ensureMsgf(0, TEXT("Spent to much time waiting for FinishDestroy for %d object(s) (last object: %s), check log for details"),
+								GGCObjectsPendingDestructionCount,
+								*GetFullNameSafe(LastObjectNotReadyForFinishDestroy));
+#else
+							UE_LOG(LogGarbage, Fatal, TEXT("Spent to much time waiting for FinishDestroy for %d object(s) (last object: %s), check log for details"),
+								GGCObjectsPendingDestructionCount,
+								*GetFullNameSafe(LastObjectNotReadyForFinishDestroy));
+#endif
+						}
+					}
 					// Sleep before the next pass to give the render thread some time to release fences.
 					FPlatformProcess::Sleep( 0 );
 				}
+
+				LastLoopObjectsPendingDestructionCount = GGCObjectsPendingDestructionCount;
 			}
 
 			// Have all objects been destroyed now?
@@ -1309,11 +1347,7 @@ bool IsIncrementalPurgePending()
 }
 
 // Allow parallel GC to be overridden to single threaded via console command.
-#if !PLATFORM_MAC || !WITH_EDITORONLY_DATA
 static int32 GAllowParallelGC = 1;
-#else
-	static int32 GAllowParallelGC = 0;
-#endif
 
 static FAutoConsoleVariableRef CVarAllowParallelGC(
 	TEXT("gc.AllowParallelGC"),

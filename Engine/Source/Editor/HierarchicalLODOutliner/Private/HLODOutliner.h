@@ -77,13 +77,16 @@ namespace HLODOutliner
 		void Construct(const FArguments& InArgs);
 
 		/** Create the panel's forced HLOD level viewer */
-		TSharedRef<SWidget> CreateForcedViewSlider();
+		TSharedRef<SWidget> CreateForcedViewWidget();
 
-		/** Creates the panel's ButtonWidget rows */
-		TSharedRef<SWidget> CreateButtonWidgets();
+		/** Creates the panel's main button widget rows */
+		TSharedRef<SWidget> CreateMainButtonWidgets();
+
+		/** Creates the panel's button widgets for cluster operations */
+		TSharedRef<SWidget> CreateClusterButtonWidgets();
 
 		/** Creates the panel's Tree view widget*/
-		TSharedRef<SWidget> CreateTreeviewWidget();
+		TSharedRef<SHLODTree> CreateTreeviewWidget();
 		
 		/** Initializes and creates the settings view */
 		void CreateSettingsView();
@@ -103,13 +106,20 @@ namespace HLODOutliner
 		// End of FEditorUndoClient	
 
 		/** Button handlers */
+		FText GetForceBuildText() const;
+		FText GetBuildText() const;
 		FReply HandleBuildHLODs();
 		FReply HandleDeleteHLODs();
+		bool CanDeleteHLODs() const;
 		FReply HandlePreviewHLODs();
 		FReply HandleDeletePreviewHLODs();
 		FReply RetrieveActors();
 		FReply HandleBuildLODActors();
+		bool CanBuildLODActors() const;
+		FText GetBuildLODActorsTooltipText() const;
+		FReply HandleForceBuildLODActors();
 		FReply HandleForceRefresh();
+		FReply HandleSaveAll();
 		/** End button handlers */
 
 	private:
@@ -118,6 +128,9 @@ namespace HLODOutliner
 
 		/** De-registers all the callback delegates required for keeping the treeview sync */
 		void DeregisterDelegates();
+
+		/** Helper function used to determine whether there are any LOD actors present */
+		bool HasHLODActors() const;
 
 	protected:
 		/** Forces viewing the mesh of a Cluster (LODActor) */
@@ -131,55 +144,30 @@ namespace HLODOutliner
 		bool AreHLODsBuild() const;
 		
 		/**
-		* Handles changes in slider value, maps/snaps it to the corresponding HLOD level
-		*
-		* @param NewValue - New value of the slider (0.0 - 1.0)
-		*/
-		void HandleForcedLevelSliderValueChanged(float NewValue);
-
-		/** Delegate for starting the forced HLOD level capture from the slider */
-		void HandleForcedLevelSliderCaptureBegin();
-		
-		/** Delegate for ending the forced HLOD level capture from the slider */
-		void HandleForcedLevelSliderCaptureEnd();
-
-		/**
-		* Returns the float sliding value corresponding to the currently forced HLOD level
-		*
-		* @return float
-		*/
-		float HandleForcedLevelSliderValue() const;
-
-		/**
 		* Returns FText with information about current forced HLOD level "None", "1" etc.
 		*
 		* @return FText
 		*/
 		FText HandleForceLevelText() const;
 
-		/**
-		* Returns whether or not a HLOD level can be forced, this depends on whether or not all of the Clusters with LODLevel are non-dirty (have their meshes build)
-		*
-		* @param LODLevel - LOD level to check for
-		* @return bool
-		*/
-		bool CanHLODLevelBeForced(const uint32 LODLevel) const;
+		/** Build the forced level widget */
+		TSharedRef<SWidget> GetForceLevelMenuContent() const;
 
 		/**
 		* Restores the forced viewing state for the given LOD levle
 		*
 		* @param LODLevel - LOD level to force
 		*/
-		void RestoreForcedLODLevel(const uint32 LODLevel);
+		void RestoreForcedLODLevel(int32 LODLevel);
 
 		/**
 		* Forces LODActors within the given LODLevel to show their meshes (other levels hide theirs)
 		*
 		* @param LODLevel - LOD level to force
 		*/
-		void SetForcedLODLevel(const uint32 LODLevel);
+		void SetForcedLODLevel(int32 LODLevel);
 
-		/** Resets the forced LOD level and the Slider value */
+		/** Resets the forced LOD level */
 		void ResetLODLevelForcing();
 
 		/** Creates a Hierarchical LOD Volume for the given LODActorItem, volume bounds correspond to those of the LODActor's SubActors */
@@ -225,6 +213,9 @@ namespace HLODOutliner
 		* @param LODLevelIndex -		
 		*/
 		void RemoveLODLevelActors(const int32 HLODLevelIndex);
+
+		/** Handle splitting horizontally or vertically based on dimensions */
+		int32 GetSpitterWidgetIndex() const;
 	protected:
 		/** Tree view callbacks */
 
@@ -354,9 +345,6 @@ namespace HLODOutliner
 		/** Called when and HLODActor is added to the level */
 		void OnHLODActorAddedEvent(const AActor* InActor, const AActor* ParentActor);
 
-		/** Called when and HLODActor is added to the level */
-		void OnHLODActorMarkedDirtyEvent(ALODActor* InActor);	
-
 		/** Called when a DrawDistance value within WorldSettings changed */
 		void OnHLODTransitionScreenSizeChangedEvent();
 
@@ -422,12 +410,19 @@ namespace HLODOutliner
 		* @param InItem - Item to select
 		*/
 		void SelectItemInTree(FTreeItemPtr InItem);
+
+		/** Timer to update cached 'needs build' flag */
+		EActiveTimerReturnType UpdateNeedsBuildFlagTimer(double InCurrentTime, float InDeltaTime);
+
+		/** Closes asset editors showing HLOD data */
+		void CloseOpenAssetEditors();
+
 	private:
 		/** Whether or not we need to do a refresh of the Tree view*/
 		bool bNeedsRefresh;
 
 		/** World instance we are currently representing/mirroring in the panel */
-		UWorld* CurrentWorld;
+		TWeakObjectPtr<UWorld> CurrentWorld;
 
 		/** World settings found in CurrentWorld */
 		AWorldSettings* CurrentWorldSettings;
@@ -460,18 +455,20 @@ namespace HLODOutliner
 		/** Currently forced LOD level*/
 		int32 ForcedLODLevel;
 
-		/** Updating slider value for the Forced LOD level */
-		float ForcedLODSliderValue;
-		bool bForcedSliderValueUpdating;
-
 		/** Array with flags for each LOD level (whether or not all their Clusters/LODActors have their meshes built) */
 		TArray<bool> LODLevelBuildFlags;
 		/** Array of LODActors/Cluster per LOD level*/
-		TArray<TArray<ALODActor*>> LODLevelActors;
+		TArray<TArray<TWeakObjectPtr<ALODActor>>> LODLevelActors;
 		/** Array of TransitionScreenSizes for each LOD Level*/
 		TArray<float> LODLevelTransitionScreenSizes;
 
 		/** Cached pointer to HLOD utilities */
 		IHierarchicalLODUtilities* HierarchicalLODUtilities;
+
+		/** Cached flag to see if we need to generate meshes (any actors are dirty) */
+		bool bCachedNeedsBuild;
+
+		/** Whether to arrange the main UI horizontally or vertically */
+		bool bArrangeHorizontally;
 	};
 };

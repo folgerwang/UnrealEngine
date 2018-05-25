@@ -305,6 +305,7 @@ public:
 		}
 	}
 
+	virtual bool IsPostLoadThreadSafe() const override;
 	virtual void SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults = NULL) const PURE_VIRTUAL(UProperty::SerializeItem, );
 	virtual bool NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData = NULL ) const;
 	virtual bool SupportsNetSharedSerialization() const;
@@ -1292,8 +1293,8 @@ protected:
 			TEXT("Potential data loss during conversion of integer property %s of %s - was (%s) now (%s) - for package: %s"),
 			*this->GetName(),
 			*Slot.GetUnderlyingArchive().GetArchiveName(),
-			*Lex::ToString(OldValue),
-			*Lex::ToString(NewValue),
+			*LexToString(OldValue),
+			*LexToString(NewValue),
 			*Slot.GetUnderlyingArchive().GetArchiveName()
 			);
 	}
@@ -1390,11 +1391,11 @@ public:
 	}
 	virtual void SetNumericPropertyValueFromString(void* Data, TCHAR const* Value) const override
 	{
-		Lex::FromString(*TTypeFundamentals::GetPropertyValuePtr(Data), Value);
+		LexFromString(*TTypeFundamentals::GetPropertyValuePtr(Data), Value);
 	}
 	virtual FString GetNumericPropertyValueToString(void const* Data) const override
 	{
-		return Lex::ToString(TTypeFundamentals::GetPropertyValue(Data));
+		return LexToString(TTypeFundamentals::GetPropertyValue(Data));
 	}
 	virtual int64 GetSignedIntPropertyValue(void const* Data) const override
 	{
@@ -3293,14 +3294,13 @@ public:
 	{
 		UProperty* LocalKeyPropForCapture = KeyProp;
 		UProperty* LocalValuePropForCapture = ValueProp;
-		FScriptMapLayout& LocalMapLayoutForCapture = MapLayout;
 		Map->Add(
 			KeyPtr,
 			ValuePtr,
 			MapLayout,
 			[LocalKeyPropForCapture](const void* ElementKey) { return LocalKeyPropForCapture->GetValueTypeHash(ElementKey); },
 			[LocalKeyPropForCapture](const void* A, const void* B) { return LocalKeyPropForCapture->Identical(A, B); },
-			[LocalKeyPropForCapture, KeyPtr, LocalMapLayoutForCapture](void* NewElementKey)
+			[LocalKeyPropForCapture, KeyPtr](void* NewElementKey)
 			{
 				if (LocalKeyPropForCapture->PropertyFlags & CPF_ZeroConstructor)
 				{
@@ -3313,7 +3313,7 @@ public:
 
 				LocalKeyPropForCapture->CopySingleValueToScriptVM(NewElementKey, KeyPtr);
 			},
-			[LocalValuePropForCapture, ValuePtr, LocalMapLayoutForCapture](void* NewElementValue)
+			[LocalValuePropForCapture, ValuePtr](void* NewElementValue)
 			{
 				if (LocalValuePropForCapture->PropertyFlags & CPF_ZeroConstructor)
 				{

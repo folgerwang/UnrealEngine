@@ -184,6 +184,7 @@ public:
 
 	/** Add a collection of actors for this trace to ignore */
 	void AddIgnoredActors(const TArray<AActor*>& InIgnoreActors);
+	void AddIgnoredActors(const TArray<const AActor*>& InIgnoreActors);
 
 	/** Variant that uses an array of TWeakObjectPtrs */
 	void AddIgnoredActors(const TArray<TWeakObjectPtr<AActor> >& InIgnoreActors);

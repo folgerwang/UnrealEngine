@@ -624,7 +624,7 @@ bool ModificationTimeRemoteFile(FString const& RemotePath, uint64& Time)
 	bool bOK = ExecRemoteProcess(TEXT("/usr/bin/stat"), *Args, &ReturnCode, &Output, nullptr);
 	if (bOK)
 	{
-		Lex::FromString(Time, *Output);
+		LexFromString(Time, *Output);
 	}
 	return bOK;
 }
@@ -978,7 +978,7 @@ void BuildMetalShaderOutput(
 	const ANSICHAR* SideTableString = FCStringAnsi::Strstr(USFSource, "@SideTable: ");
 	
 	EShaderFrequency Frequency = (EShaderFrequency)ShaderOutput.Target.Frequency;
-	const bool bIsMobile = (ShaderInput.Target.Platform == SP_METAL || ShaderInput.Target.Platform == SP_METAL_MRT);
+	const bool bIsMobile = (ShaderInput.Target.Platform == SP_METAL_MRT);
 	bool bNoFastMath = ShaderInput.Environment.CompilerFlags.Contains(CFLAG_NoFastMath);
 	FString const* UsingWPO = ShaderInput.Environment.GetDefinitions().Find(TEXT("USES_WORLD_POSITION_OFFSET"));
 	if (UsingWPO && FString("1") == *UsingWPO && bIsMobile && Frequency == SF_Vertex)
@@ -1367,6 +1367,11 @@ void BuildMetalShaderOutput(
 		
 		// store data we can pickup later with ShaderCode.FindOptionalData('n'), could be removed for shipping
 		ShaderOutput.ShaderCode.AddOptionalData('n', TCHAR_TO_UTF8(*ShaderInput.GenerateShaderName()));
+
+		if (ShaderInput.ExtraSettings.bExtractShaderSource)
+		{
+			ShaderOutput.OptionalFinalShaderSource = MetalCode;
+		}
 
 		ShaderOutput.NumInstructions = NumLines;
 		ShaderOutput.NumTextureSamplers = Header.Bindings.NumSamplers;
@@ -1780,6 +1785,11 @@ void BuildMetalShaderOutput(
 			
 			ShaderOutput.NumTextureSamplers = Header.Bindings.NumSamplers;
 		}
+
+		if (ShaderInput.ExtraSettings.bExtractShaderSource)
+		{
+			ShaderOutput.OptionalFinalShaderSource = MetalCode;
+		}
 		
 		ShaderOutput.NumInstructions = NumLines;
 		ShaderOutput.bSucceeded = bSucceeded;
@@ -1906,7 +1916,7 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
     {
         if(MaxVersion->IsNumeric())
         {
-            LexicalConversion::FromString(VersionEnum, *(*MaxVersion));
+            LexFromString(VersionEnum, *(*MaxVersion));
         }
     }
     

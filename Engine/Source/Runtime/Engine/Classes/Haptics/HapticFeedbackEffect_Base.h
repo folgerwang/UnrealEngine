@@ -31,7 +31,8 @@ struct ENGINE_API FActiveHapticFeedbackEffect
 	class UHapticFeedbackEffect_Base* HapticEffect;
 
 	FActiveHapticFeedbackEffect()
-		: PlayTime(0.f)
+		: HapticEffect(nullptr)
+		, PlayTime(0.f)
 		, Scale(1.f)
 	{
 	}

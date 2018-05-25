@@ -189,7 +189,13 @@ public:
 	/** Gets the current scale of the UI based on the size of a viewport */
 	float GetDPIScaleBasedOnSize(FIntPoint Size) const;
 
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+
 private:
+	float CalculateScale(FIntPoint Size, bool& bError) const;
+
 	UPROPERTY(Transient)
 	TArray<UObject*> CursorClasses;
 
@@ -198,4 +204,7 @@ private:
 
 	UPROPERTY(Transient)
 	mutable UDPICustomScalingRule* CustomScalingRule;
+
+	mutable TOptional<FIntPoint> LastViewportSize;
+	mutable float CalculatedScale;
 };

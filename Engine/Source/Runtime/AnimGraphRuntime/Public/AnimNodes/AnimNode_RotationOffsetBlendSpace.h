@@ -27,18 +27,35 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_RotationOffsetBlendSpace : public FAnimNod
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Performance, meta = (DisplayName = "LOD Threshold"))
 	int32 LODThreshold;
 
+	virtual int32 GetLODThreshold() const override { return LODThreshold; }
+
 	UPROPERTY(Transient)
 	bool bIsLODEnabled;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
+	EAnimAlphaInputType AlphaInputType;
+
 	// Current strength of the AimOffset
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinShownByDefault))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault))
 	mutable float Alpha;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
 	FInputScaleBias AlphaScaleBias;
 
 	UPROPERTY(Transient)
 	float ActualAlpha;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault, DisplayName = "bEnabled"))
+	mutable bool bAlphaBoolEnabled;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (DisplayName = "Blend Settings"))
+	FInputAlphaBoolBlend AlphaBoolBlend;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault))
+	mutable FName AlphaCurveName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
+	FInputScaleBiasClamp AlphaScaleBiasClamp;
 
 public:	
 	FAnimNode_RotationOffsetBlendSpace();

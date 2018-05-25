@@ -103,20 +103,25 @@ static FAutoConsoleVariableRef CVarAllowSubPrimitiveQueries(
 	ECVF_RenderThreadSafe
 	);
 
-static int32 GOcclusionQueriesLimit = 0;
-static FAutoConsoleVariableRef CVarOcclusionQueriesLimit(
-	TEXT("r.OcclusionQueriesLimit"),
-	GOcclusionQueriesLimit,
-	TEXT("Limit number of occlusion queries per frame, (0 no limit)"),
-	ECVF_RenderThreadSafe
-	);
-
 static TAutoConsoleVariable<float> CVarStaticMeshLODDistanceScale(
 	TEXT("r.StaticMeshLODDistanceScale"),
 	1.0f,
 	TEXT("Scale factor for the distance used in computing discrete LOD for static meshes. (defaults to 1)\n")
 	TEXT("(higher values make LODs transition earlier, e.g., 2 is twice as fast / half the distance)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarMinAutomaticViewMipBias(
+	TEXT("r.ViewTextureMipBias.Min"),
+	-1.0f,
+	TEXT("Automatic view mip bias's minimum value (default to -1)."),
+	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarMinAutomaticViewMipBiasOffset(
+	TEXT("r.ViewTextureMipBias.Offset"),
+	-0.3,
+	TEXT("Automatic view mip bias's constant offset (default to -0.3)."),
+	ECVF_RenderThreadSafe);
+
 
 static int32 GOcclusionCullParallelPrimFetch = 0;
 static FAutoConsoleVariableRef CVarOcclusionCullParallelPrimFetch(
@@ -142,6 +147,46 @@ static FAutoConsoleVariableRef CVarDoInitViewsLightingAfterPrepass(
 	TEXT("Delays the lighting part of InitViews until after the prepass. This improves the threading throughput and gets the prepass to the GPU ASAP. Experimental options; has an unknown race."),
 	ECVF_RenderThreadSafe
 	);
+
+static int32 GFramesNotOcclusionTestedToExpandBBoxes = 5;
+static FAutoConsoleVariableRef CVarFramesNotOcclusionTestedToExpandBBoxes(
+	TEXT("r.GFramesNotOcclusionTestedToExpandBBoxes"),
+	GFramesNotOcclusionTestedToExpandBBoxes,
+	TEXT("If we don't occlusion test a primitive for this many frames, then we expand the BBox when we do occlusion test it for a few frames. See also r.ExpandNewlyOcclusionTestedBBoxesAmount, r.FramesToExpandNewlyOcclusionTestedBBoxes"),
+	ECVF_RenderThreadSafe
+);
+
+static int32 GFramesToExpandNewlyOcclusionTestedBBoxes = 2;
+static FAutoConsoleVariableRef CVarFramesToExpandNewlyOcclusionTestedBBoxes(
+	TEXT("r.FramesToExpandNewlyOcclusionTestedBBoxes"),
+	GFramesToExpandNewlyOcclusionTestedBBoxes,
+	TEXT("If we don't occlusion test a primitive for r.GFramesNotOcclusionTestedToExpandBBoxes frames, then we expand the BBox when we do occlusion test it for this number of frames. See also r.GFramesNotOcclusionTestedToExpandBBoxes, r.ExpandNewlyOcclusionTestedBBoxesAmount"),
+	ECVF_RenderThreadSafe
+);
+
+static float GExpandNewlyOcclusionTestedBBoxesAmount = 0.0f;
+static FAutoConsoleVariableRef CVarExpandNewlyOcclusionTestedBBoxesAmount(
+	TEXT("r.ExpandNewlyOcclusionTestedBBoxesAmount"),
+	GExpandNewlyOcclusionTestedBBoxesAmount,
+	TEXT("If we don't occlusion test a primitive for r.GFramesNotOcclusionTestedToExpandBBoxes frames, then we expand the BBox when we do occlusion test it for a few frames by this amount. See also r.FramesToExpandNewlyOcclusionTestedBBoxes, r.GFramesNotOcclusionTestedToExpandBBoxes."),
+	ECVF_RenderThreadSafe
+);
+
+static float GExpandAllTestedBBoxesAmount = 0.0f;
+static FAutoConsoleVariableRef CVarExpandAllTestedBBoxesAmount(
+	TEXT("r.ExpandAllOcclusionTestedBBoxesAmount"),
+	GExpandAllTestedBBoxesAmount,
+	TEXT("Amount to expand all occlusion test bounds by."),
+	ECVF_RenderThreadSafe
+);
+
+static float GNeverOcclusionTestDistance = 0.0f;
+static FAutoConsoleVariableRef CVarNeverOcclusionTestDistance(
+	TEXT("r.NeverOcclusionTestDistance"),
+	GNeverOcclusionTestDistance,
+	TEXT("When the distance between the viewpoint and the bounding sphere center is less than this, never occlusion cull."),
+	ECVF_RenderThreadSafe
+);
 
 /** Distance fade cvars */
 static int32 GDisableLODFade = false;
@@ -324,6 +369,7 @@ static int32 FrustumCull(const FScene* Scene, FViewInfo& View)
 
 	FThreadSafeCounter NumCulledPrimitives;
 	float MaxDrawDistanceScale = GetCachedScalabilityCVars().ViewDistanceScale;
+	MaxDrawDistanceScale *= GetCachedScalabilityCVars().CalculateFieldOfViewDistanceScale(View.DesiredFOV);
 
 	FSceneViewState* ViewState = (FSceneViewState*)View.State;
 	const bool bHLODActive = Scene->SceneLODHierarchy.IsActive();
@@ -491,11 +537,28 @@ struct FOcclusionBounds
 		, BoundsOrigin(InBoundsOrigin)
 		, BoundsExtent(InBoundsExtent)
 		, bGroupedQuery(bInGroupedQuery)
-	{}
-	FPrimitiveOcclusionHistory* PrimitiveOcclusionHistory;
+	{
+	}
+	FOcclusionBounds(FPrimitiveOcclusionHistoryKey InPrimitiveOcclusionHistoryKey, const FVector& InBoundsOrigin, const FVector& InBoundsExtent, uint32 InLastQuerySubmitFrame)
+		: PrimitiveOcclusionHistoryKey(InPrimitiveOcclusionHistoryKey)
+		, BoundsOrigin(InBoundsOrigin)
+		, BoundsExtent(InBoundsExtent)
+		, LastQuerySubmitFrame(InLastQuerySubmitFrame)
+	{
+	}
+	union 
+	{
+		FPrimitiveOcclusionHistory* PrimitiveOcclusionHistory;
+		FPrimitiveOcclusionHistoryKey PrimitiveOcclusionHistoryKey;
+	};
+
 	FVector BoundsOrigin;
 	FVector BoundsExtent;	
-	bool bGroupedQuery;
+	union 
+	{
+		bool bGroupedQuery;
+		uint32 LastQuerySubmitFrame;
+	};
 };
 
 struct FHZBBound
@@ -608,6 +671,8 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 	const bool bSubmitQueries		= Params.bSubmitQueries;
 	const bool bHZBOcclusion		= Params.bHZBOcclusion;
 
+	const float PrimitiveProbablyVisibleTime = GEngine->PrimitiveProbablyVisibleTime;
+
 	FSceneViewState* ViewState = (FSceneViewState*)View.State;
 	const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(Scene->GetFeatureLevel());
 	const bool bClearQueries = !View.Family->EngineShowFlags.HitProxies;
@@ -622,6 +687,9 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 	TArray<FPrimitiveOcclusionHistory*>* QueriesToRelease = Params.QueriesToRelease;
 	TArray<FHZBBound>* HZBBoundsToAdd = Params.HZBBoundsToAdd;
 	TArray<FOcclusionBounds>* QueriesToAdd = Params.QueriesToAdd;	
+
+	const bool bNewlyConsideredBBoxExpandActive = GExpandNewlyOcclusionTestedBBoxesAmount > 0.0f && GFramesToExpandNewlyOcclusionTestedBBoxes > 0 && GFramesNotOcclusionTestedToExpandBBoxes > 0;
+	const float NeverOcclusionTestDistanceSquared = GNeverOcclusionTestDistance * GNeverOcclusionTestDistance;
 
 	const int32 ReserveAmount = NumToProcess;
 	if (!bSingleThreaded)
@@ -742,7 +810,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 				{
 					if (bHZBOcclusion)
 					{
-						if (HZBOcclusionTests.IsValidFrame(PrimitiveOcclusionHistory->HZBTestFrameNumber))
+						if (HZBOcclusionTests.IsValidFrame(PrimitiveOcclusionHistory->LastTestFrameNumber))
 						{
 							bIsOccluded = !HZBOcclusionTests.IsVisible(PrimitiveOcclusionHistory->HZBTestIndex);
 							bOcclusionStateIsDefinite = true;
@@ -752,13 +820,14 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 					{
 						// Read the occlusion query results.
 						uint64 NumSamples = 0;
-						FRenderQueryRHIRef& PastQuery = PrimitiveOcclusionHistory->GetPastQuery(OcclusionFrameCounter, NumBufferedFrames);
-						if (IsValidRef(PastQuery))
+						bool bGrouped = false;
+						FRenderQueryRHIParamRef PastQuery = PrimitiveOcclusionHistory->GetPastQuery(OcclusionFrameCounter, NumBufferedFrames, bGrouped);
+						if (PastQuery)
 						{
 							//int32 RefCount = PastQuery.GetReference()->GetRefCount();
 							// NOTE: RHIGetOcclusionQueryResult should never fail when using a blocking call, rendering artifacts may show up.
 							//if (RHICmdList.GetRenderQueryResult(PastQuery, NumSamples, true))
-							if (GDynamicRHI->RHIGetRenderQueryResult(PastQuery.GetReference(), NumSamples, true))
+							if (GDynamicRHI->RHIGetRenderQueryResult(PastQuery, NumSamples, true))
 							{
 								// we render occlusion without MSAA
 								uint32 NumPixels = (uint32)NumSamples;
@@ -779,22 +848,29 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 
 
 								// Flag the primitive's occlusion state as definite if it wasn't grouped.
-								bOcclusionStateIsDefinite = !PrimitiveOcclusionHistory->bGroupedQuery;
+								bOcclusionStateIsDefinite = !bGrouped;
 							}
 							else
 							{
 								// If the occlusion query failed, treat the primitive as visible.  
 								// already set bIsOccluded = false;
 							}
-							//checkf(RefCount == PastQuery.GetReference()->GetRefCount(), TEXT("Ref count on prim: %i, old: %i, new: %i"), PrimitiveOcclusionHistory->PrimitiveId.PrimIDValue, RefCount, PastQuery.GetReference()->GetRefCount());
 						}
 						else
 						{
-							// If there's no occlusion query for the primitive, set it's visibility state to whether it has been unoccluded recently.
-							bIsOccluded = (PrimitiveOcclusionHistory->LastVisibleTime + GEngine->PrimitiveProbablyVisibleTime < CurrentRealTime);
-
-							
-							
+							if (NumBufferedFrames > 1 || GRHIMaximumReccommendedOustandingOcclusionQueries < MAX_int32)
+							{
+								// If there's no occlusion query for the primitive, assume it is whatever it was last frame
+								bIsOccluded = PrimitiveOcclusionHistory->WasOccludedLastFrame;
+								bOcclusionStateIsDefinite = PrimitiveOcclusionHistory->OcclusionStateWasDefiniteLastFrame;
+							}
+							else
+							{
+								// If there's no occlusion query for the primitive, set it's visibility state to whether it has been unoccluded recently.
+								bIsOccluded = (PrimitiveOcclusionHistory->LastProvenVisibleTime + GEngine->PrimitiveProbablyVisibleTime < CurrentRealTime);
+								// the state was definite last frame, otherwise we would have ran a query
+								bOcclusionStateIsDefinite = true;
+							}
 							if (bIsOccluded)
 							{
 								PrimitiveOcclusionHistory->LastPixelsPercentage = 0.0f;
@@ -802,10 +878,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 							else
 							{
 								PrimitiveOcclusionHistory->LastPixelsPercentage = GEngine->MaxOcclusionPixelsFraction;
-							}							
-
-							// the state was definite last frame, otherwise we would have ran a query
-							bOcclusionStateIsDefinite = true;							
+							}
 						}
 					}
 
@@ -826,14 +899,14 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 				{					
 					if (bSingleThreaded)
 					{						
-						OcclusionQueryPool.ReleaseQuery(PrimitiveOcclusionHistory->GetPastQuery(OcclusionFrameCounter, NumBufferedFrames));
+						PrimitiveOcclusionHistory->ReleaseQuery(OcclusionQueryPool, OcclusionFrameCounter, NumBufferedFrames);
 					}
 					else
 					{
-						FRenderQueryRHIRef &Query = PrimitiveOcclusionHistory->GetPastQuery(OcclusionFrameCounter, NumBufferedFrames);
-						if (IsValidRef(Query))
+						bool bGrouped = false;
+						FRenderQueryRHIParamRef Query = PrimitiveOcclusionHistory->GetPastQuery(OcclusionFrameCounter, NumBufferedFrames, bGrouped);
+						if (Query)
 						{
-							check(Query.GetRefCount() > 0);
 							QueriesToRelease->Add(PrimitiveOcclusionHistory);							
 						}
 					}
@@ -842,15 +915,33 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 
 			if (PrimitiveOcclusionHistory)
 			{
-
-				// Set the primitive's considered time to keep its occlusion history from being trimmed.
-				PrimitiveOcclusionHistory->LastConsideredTime = CurrentRealTime;
-
 				if (bSubmitQueries && bCanBeOccluded)
 				{
+					bool bSkipNewlyConsidered = false;
+
+					if (bNewlyConsideredBBoxExpandActive)
+					{
+						if (!PrimitiveOcclusionHistory->BecameEligibleForQueryCooldown && OcclusionFrameCounter - PrimitiveOcclusionHistory->LastConsideredFrameNumber > uint32(GFramesNotOcclusionTestedToExpandBBoxes))
+						{
+							PrimitiveOcclusionHistory->BecameEligibleForQueryCooldown = GFramesToExpandNewlyOcclusionTestedBBoxes;
+						}
+
+						bSkipNewlyConsidered = !!PrimitiveOcclusionHistory->BecameEligibleForQueryCooldown;
+
+						if (bSkipNewlyConsidered)
+						{
+							PrimitiveOcclusionHistory->BecameEligibleForQueryCooldown--;
+						}
+					}
+
+
 					bool bAllowBoundsTest;
-					const FBoxSphereBounds& OcclusionBounds = bSubQueries ? (*SubBounds)[SubQuery] : Scene->PrimitiveOcclusionBounds[BitIt.GetIndex()];
-					if (View.bHasNearClippingPlane)
+					const FBoxSphereBounds OcclusionBounds = (bSubQueries ? (*SubBounds)[SubQuery] : Scene->PrimitiveOcclusionBounds[BitIt.GetIndex()]).ExpandBy(GExpandAllTestedBBoxesAmount + (bSkipNewlyConsidered ? GExpandNewlyOcclusionTestedBBoxesAmount : 0.0));
+					if (FVector::DistSquared(View.ViewLocation, OcclusionBounds.Origin) < NeverOcclusionTestDistanceSquared)
+					{
+						bAllowBoundsTest = false;
+					}
+					else if (View.bHasNearClippingPlane)
 					{
 						bAllowBoundsTest = View.NearClippingPlane.PlaneDot(OcclusionBounds.Origin) <
 							-(FVector::BoxPushOut(View.NearClippingPlane, OcclusionBounds.BoxExtent));
@@ -867,19 +958,9 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 						bAllowBoundsTest = OcclusionBounds.SphereRadius < HALF_WORLD_MAX;
 					}
 
-					// if we can't submit more queries this frame threat primitive as unoccluded
-					bool bQueriesOnLimit = true;
-					if (false && GOcclusionQueriesLimit > 0)
+					if (bAllowBoundsTest)
 					{
-						int32 NumQueries = View.GroupedOcclusionQueries.GetNumBatchOcclusionQueries() + View.IndividualOcclusionQueries.GetNumBatchOcclusionQueries();
-						if (NumQueries >= GOcclusionQueriesLimit)
-						{
-							bQueriesOnLimit = false;
-						}
-					}
-
-					if (bAllowBoundsTest && bQueriesOnLimit)
-					{
+						PrimitiveOcclusionHistory->LastTestFrameNumber = OcclusionFrameCounter;
 						if (bHZBOcclusion)
 						{
 							// Always run
@@ -891,7 +972,6 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 							{
 								HZBBoundsToAdd->Emplace(PrimitiveOcclusionHistory, OcclusionBounds.Origin, OcclusionBounds.BoxExtent);
 							}
-							PrimitiveOcclusionHistory->HZBTestFrameNumber = OcclusionFrameCounter;
 						}
 						else
 						{
@@ -909,10 +989,17 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 								}
 								else if (bOcclusionStateIsDefinite)
 								{
-									// If the primitive's is definitely unoccluded, only requery it occasionally.
-									float FractionMultiplier = FMath::Max(PrimitiveOcclusionHistory->LastPixelsPercentage / GEngine->MaxOcclusionPixelsFraction, 1.0f);
-									bRunQuery = (FractionMultiplier * GOcclusionRandomStream.GetFraction()) < GEngine->MaxOcclusionPixelsFraction;
 									bGroupedQuery = false;
+									float Rnd = GOcclusionRandomStream.GetFraction();
+									if (GRHISupportsExactOcclusionQueries)
+									{
+										float FractionMultiplier = FMath::Max(PrimitiveOcclusionHistory->LastPixelsPercentage / GEngine->MaxOcclusionPixelsFraction, 1.0f);
+										bRunQuery = (FractionMultiplier * Rnd) < GEngine->MaxOcclusionPixelsFraction;
+									}
+									else
+									{
+										bRunQuery = CurrentRealTime - PrimitiveOcclusionHistory->LastProvenVisibleTime > PrimitiveProbablyVisibleTime * (0.5f * 0.25f * Rnd);
+									}									
 								}
 								else
 								{
@@ -934,20 +1021,27 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 
 								if (bSingleThreaded)
 								{
-									PrimitiveOcclusionHistory->SetCurrentQuery(OcclusionFrameCounter,
-										bGroupedQuery ?
-										View.GroupedOcclusionQueries.BatchPrimitive(BoundOrigin, BoundExtent) :
-										View.IndividualOcclusionQueries.BatchPrimitive(BoundOrigin, BoundExtent),
-										NumBufferedFrames
+									if (GRHIMaximumReccommendedOustandingOcclusionQueries < MAX_int32 && !bGroupedQuery)
+									{
+										QueriesToAdd->Emplace(FPrimitiveOcclusionHistoryKey(PrimitiveId, SubQuery), BoundOrigin, BoundExtent, PrimitiveOcclusionHistory->LastQuerySubmitFrame());
+									}
+									else
+									{
+										PrimitiveOcclusionHistory->SetCurrentQuery(OcclusionFrameCounter,
+											bGroupedQuery ?
+											View.GroupedOcclusionQueries.BatchPrimitive(BoundOrigin, BoundExtent) :
+											View.IndividualOcclusionQueries.BatchPrimitive(BoundOrigin, BoundExtent),
+											NumBufferedFrames,
+											bGroupedQuery
 										);
+									}
 								}
 								else
 								{
+									check(GRHIMaximumReccommendedOustandingOcclusionQueries < MAX_int32); // it would be fairly easy to set up this path to optimize when there are a limited number, but it hasn't been done yet
 									QueriesToAdd->Emplace(PrimitiveOcclusionHistory, BoundOrigin, BoundExtent, bGroupedQuery);
 								}
 							}
-
-							PrimitiveOcclusionHistory->bGroupedQuery = bGroupedQuery;
 						}
 					}
 					else
@@ -957,24 +1051,24 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 						bOcclusionStateIsDefinite = true;
 					}
 				}
+				// Set the primitive's considered time to keep its occlusion history from being trimmed.
+				PrimitiveOcclusionHistory->LastConsideredTime = CurrentRealTime;
+				if (!bIsOccluded && bOcclusionStateIsDefinite)
+				{
+					PrimitiveOcclusionHistory->LastProvenVisibleTime = CurrentRealTime;
+				}
+				PrimitiveOcclusionHistory->LastConsideredFrameNumber = OcclusionFrameCounter;
+				PrimitiveOcclusionHistory->WasOccludedLastFrame = bIsOccluded;
+				PrimitiveOcclusionHistory->OcclusionStateWasDefiniteLastFrame = bOcclusionStateIsDefinite;
 			}
-
 
 			if (bSubQueries)
 			{
-					SubIsOccluded.Add(bIsOccluded);
-					if (!bIsOccluded)
-					{
-						bAllSubOccluded = false;
-						if (bOcclusionStateIsDefinite)
-						{
-							if (PrimitiveOcclusionHistory)
-							{
-								PrimitiveOcclusionHistory->LastVisibleTime = CurrentRealTime;
-							}
-						}
-					}
-
+				SubIsOccluded.Add(bIsOccluded);
+				if (!bIsOccluded)
+				{
+					bAllSubOccluded = false;
+				}
 				if (bIsOccluded || !bOcclusionStateIsDefinite)
 				{
 					bAllSubOcclusionStateIsDefinite = false;
@@ -990,11 +1084,6 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 				}
 				else if (bOcclusionStateIsDefinite)
 				{
-					if (PrimitiveOcclusionHistory)
-					{
-						PrimitiveOcclusionHistory->LastVisibleTime = CurrentRealTime;
-					}
-					
 					View.PrimitiveDefinitelyUnoccludedMap.AccessCorrespondingBit(BitIt) = true;
 				}					
 			}			
@@ -1070,6 +1159,10 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 	
 	static int32 SubIsOccludedArrayIndex = 0;
 	SubIsOccludedArrayIndex = 1 - SubIsOccludedArrayIndex;
+
+	const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(Scene->GetFeatureLevel());
+	uint32 OcclusionFrameCounter = ViewState->OcclusionFrameCounter;
+	TSet<FPrimitiveOcclusionHistory, FPrimitiveOcclusionHistoryKeyFuncs>& ViewPrimitiveOcclusionHistory = ViewState->PrimitiveOcclusionHistorySet;
 
 	if (GOcclusionCullParallelPrimFetch && GSupportsParallelOcclusionQueries)
 	{		
@@ -1167,9 +1260,6 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 			StartIndex += NumToProcess;
 		}
 
-		const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(Scene->GetFeatureLevel());
-		uint32 OcclusionFrameCounter = ViewState->OcclusionFrameCounter;
-		TSet<FPrimitiveOcclusionHistory, FPrimitiveOcclusionHistoryKeyFuncs>& ViewPrimitiveOcclusionHistory = ViewState->PrimitiveOcclusionHistorySet;
 		FRenderQueryPool& OcclusionQueryPool = ViewState->OcclusionQueryPool;
 		FHZBOcclusionTester& HZBOcclusionTests = ViewState->HZBOcclusionTests;		
 
@@ -1220,7 +1310,7 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 				for (auto ReleaseQueryIter = OutQueriesToRelease[i].CreateIterator(); ReleaseQueryIter; ++ReleaseQueryIter)
 				{
 					FPrimitiveOcclusionHistory* History = *ReleaseQueryIter;
-					OcclusionQueryPool.ReleaseQuery(History->GetPastQuery(OcclusionFrameCounter, NumBufferedFrames));
+					History->ReleaseQuery(OcclusionQueryPool, OcclusionFrameCounter, NumBufferedFrames);
 				}
 				
 				//New query batching
@@ -1230,7 +1320,8 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 						RunQueriesIter->bGroupedQuery ?
 						View.GroupedOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent) :
 						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent),
-						NumBufferedFrames
+						NumBufferedFrames,
+						RunQueriesIter->bGroupedQuery
 						);
 				}
 			}
@@ -1258,6 +1349,12 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 		TArray<bool>& SubIsOccluded = View.FrameSubIsOccluded[SubIsOccludedArrayIndex];
 		SubIsOccluded.Reset();
 
+		static TArray<FOcclusionBounds> PendingIndividualQueriesWhenOptimizing;
+		PendingIndividualQueriesWhenOptimizing.Reset();
+
+		static TArray<FOcclusionBounds*> PendingIndividualQueriesWhenOptimizingSorter;
+		PendingIndividualQueriesWhenOptimizingSorter.Reset();
+
 		FViewElementPDI OcclusionPDI(&View, NULL);
 		int32 StartIndex = 0;
 		int32 NumToProcess = View.PrimitiveVisibilityMap.Num();				
@@ -1272,11 +1369,87 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 			nullptr,
 			nullptr,
 			nullptr,
-			nullptr,
+			&PendingIndividualQueriesWhenOptimizing,
 			&SubIsOccluded
 			);
 
 		FetchVisibilityForPrimitives_Range<true>(Params);
+
+		int32 IndQueries = PendingIndividualQueriesWhenOptimizing.Num();
+		if (IndQueries)
+		{
+			int32 SoftMaxQueries = GRHIMaximumReccommendedOustandingOcclusionQueries / FMath::Min(NumBufferedFrames, 2); // extra RHIT frame does not count
+			int32 UsedQueries = View.GroupedOcclusionQueries.GetNumBatchOcclusionQueries();
+
+			int32 FirstQueryToDo = 0;
+			int32 QueriesToDo = IndQueries;
+
+
+			if (SoftMaxQueries < UsedQueries + IndQueries)
+			{
+				QueriesToDo = (IndQueries + 9) / 10;  // we need to make progress, even if it means stalling and waiting for the GPU. At a minimum, we will do 10%
+
+				if (SoftMaxQueries > UsedQueries + QueriesToDo)
+				{
+					// we can do more than the minimum
+					QueriesToDo = SoftMaxQueries - UsedQueries;
+				}
+			}
+			if (QueriesToDo == IndQueries)
+			{
+				for (int32 Index = 0; Index < IndQueries; Index++)
+				{
+					FOcclusionBounds* RunQueriesIter = &PendingIndividualQueriesWhenOptimizing[Index];
+					FPrimitiveOcclusionHistory* PrimitiveOcclusionHistory = ViewPrimitiveOcclusionHistory.Find(RunQueriesIter->PrimitiveOcclusionHistoryKey);
+
+					PrimitiveOcclusionHistory->SetCurrentQuery(OcclusionFrameCounter,
+						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent),
+						NumBufferedFrames,
+						false
+					);
+				}
+			}
+			else
+			{
+				check(QueriesToDo < IndQueries);
+				PendingIndividualQueriesWhenOptimizingSorter.Reserve(PendingIndividualQueriesWhenOptimizing.Num());
+				for (int32 Index = 0; Index < IndQueries; Index++)
+				{
+					FOcclusionBounds* RunQueriesIter = &PendingIndividualQueriesWhenOptimizing[Index];
+					PendingIndividualQueriesWhenOptimizingSorter.Add(RunQueriesIter);
+				}
+
+				PendingIndividualQueriesWhenOptimizingSorter.Sort(
+					[](const FOcclusionBounds& A, const FOcclusionBounds& B) 
+					{
+						return A.LastQuerySubmitFrame < B.LastQuerySubmitFrame;
+					}
+				);
+				for (int32 Index = 0; Index < QueriesToDo; Index++)
+				{
+					FOcclusionBounds* RunQueriesIter = PendingIndividualQueriesWhenOptimizingSorter[Index];
+					FPrimitiveOcclusionHistory* PrimitiveOcclusionHistory = ViewPrimitiveOcclusionHistory.Find(RunQueriesIter->PrimitiveOcclusionHistoryKey);
+					PrimitiveOcclusionHistory->SetCurrentQuery(OcclusionFrameCounter,
+						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent),
+						NumBufferedFrames,
+						false
+					);
+				}
+			}
+
+
+			// lets prevent this from staying too large for too long
+			if (PendingIndividualQueriesWhenOptimizing.GetSlack() > IndQueries * 4)
+			{
+				PendingIndividualQueriesWhenOptimizing.Empty();
+				PendingIndividualQueriesWhenOptimizingSorter.Empty();
+			}
+			else
+			{
+				PendingIndividualQueriesWhenOptimizing.Reset();
+				PendingIndividualQueriesWhenOptimizingSorter.Reset();
+			}
+		}
 		return Params.NumOccludedPrims;
 	}
 }
@@ -1409,7 +1582,6 @@ struct FRelevancePrimSet
 struct FMarkRelevantStaticMeshesForViewData
 {
 	FVector ViewOrigin;
-	float MaxDrawDistanceScaleSquared;
 	int32 ForcedLODLevel;
 	float LODScale;
 	float InvLODScale;
@@ -1420,8 +1592,6 @@ struct FMarkRelevantStaticMeshesForViewData
 	FMarkRelevantStaticMeshesForViewData(FViewInfo& View)
 	{
 		ViewOrigin = View.ViewMatrices.GetViewOrigin();
-
-		MaxDrawDistanceScaleSquared = GetCachedScalabilityCVars().ViewDistanceScaleSquared;
 
 		// outside of the loop to be more efficient
 		ForcedLODLevel = (View.Family->EngineShowFlags.LOD) ? GetCVarForceLOD() : 0;
@@ -2427,7 +2597,8 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 					SampleX = Halton(TemporalSampleIndex + 1, 2) - 0.5f;
 					SampleY = Halton(TemporalSampleIndex + 1, 3) - 0.5f;
 
-					View.MaterialTextureMipBias = -(FMath::Max(-FMath::Log2(EffectivePrimaryResolutionFraction), 0.0f) + 0.3f);
+					View.MaterialTextureMipBias = -(FMath::Max(-FMath::Log2(EffectivePrimaryResolutionFraction), 0.0f) ) + CVarMinAutomaticViewMipBiasOffset.GetValueOnRenderThread();
+					View.MaterialTextureMipBias = FMath::Max(View.MaterialTextureMipBias, CVarMinAutomaticViewMipBias.GetValueOnRenderThread());
 				}
 				else
 				{
@@ -3376,44 +3547,41 @@ void FDeferredShadingSceneRenderer::InitViewsPossiblyAfterPrepass(FRHICommandLis
 /*------------------------------------------------------------------------------
 	FLODSceneTree Implementation
 ------------------------------------------------------------------------------*/
-void FLODSceneTree::AddChildNode(const FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* ChildSceneInfo)
+void FLODSceneTree::AddChildNode(const FPrimitiveComponentId ParentId, FPrimitiveSceneInfo* ChildSceneInfo)
 {
-	if (NodeId.IsValid() && ChildSceneInfo)
+	if (ParentId.IsValid() && ChildSceneInfo)
 	{
-		FLODSceneNode* Node = SceneNodes.Find(NodeId);
+		FLODSceneNode* Parent = SceneNodes.Find(ParentId);
 
-		if(!Node)
+		if (!Parent)
 		{
-			Node = &SceneNodes.Add(NodeId, FLODSceneNode());
+			Parent = &SceneNodes.Add(ParentId, FLODSceneNode());
 
-			// scene info can be added later depending on order of adding to the scene
+			// Scene info can be added later depending on order of adding to the scene
 			// but at least add componentId, that way when parent is added, it will add its info properly
-			int32 ParentIndex = Scene->PrimitiveComponentIds.Find(NodeId);
-			if(Scene->Primitives.IsValidIndex(ParentIndex))
+			int32 ParentIndex = Scene->PrimitiveComponentIds.Find(ParentId);
+			if (Scene->Primitives.IsValidIndex(ParentIndex))
 			{
-				Node->SceneInfo = Scene->Primitives[ParentIndex];				
+				Parent->SceneInfo = Scene->Primitives[ParentIndex];				
 			}
-			//new nodes that will need distance scale, reset since we don't keep stateful data about this per node.
-			ResetHLODDistanceScaleApplication();
 		}
 
-		Node->AddChild(ChildSceneInfo);
+		Parent->AddChild(ChildSceneInfo);
 	}
 }
 
-void FLODSceneTree::RemoveChildNode(const FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* ChildSceneInfo)
+void FLODSceneTree::RemoveChildNode(const FPrimitiveComponentId ParentId, FPrimitiveSceneInfo* ChildSceneInfo)
 {
-	if(NodeId.IsValid() && ChildSceneInfo)
+	if (ParentId.IsValid() && ChildSceneInfo)
 	{
-		FLODSceneNode* Node = SceneNodes.Find(NodeId);
-		if (Node)
+		if (FLODSceneNode* Parent = SceneNodes.Find(ParentId))
 		{
-			Node->RemoveChild(ChildSceneInfo);
+			Parent->RemoveChild(ChildSceneInfo);
 
-			// delete from scene if no children remains
-			if(Node->ChildrenSceneInfos.Num() == 0)
+			// Delete from scene if no children remain
+			if (Parent->ChildrenSceneInfos.Num() == 0)
 			{
-				SceneNodes.Remove(NodeId);
+				SceneNodes.Remove(ParentId);
 			}
 		}
 	}
@@ -3421,8 +3589,7 @@ void FLODSceneTree::RemoveChildNode(const FPrimitiveComponentId NodeId, FPrimiti
 
 void FLODSceneTree::UpdateNodeSceneInfo(FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* SceneInfo)
 {
-	FLODSceneNode* Node = SceneNodes.Find(NodeId);
-	if(Node)
+	if (FLODSceneNode* Node = SceneNodes.Find(NodeId))
 	{
 		Node->SceneInfo = SceneInfo;
 	}
@@ -3440,18 +3607,21 @@ void FLODSceneTree::UpdateVisibilityStates(FViewInfo& View)
 		}
 #endif
 
-		const float HLODDistanceScale = FMath::Max(0.0f, CVarHLODDistanceScale.GetValueOnRenderThread());
-		const bool bUpdateHLODOverrides = LastHLODDistanceScale != HLODDistanceScale;
-
 		// Per-frame initialization
 		FHLODVisibilityState& HLODState = ViewState->HLODVisibilityState;
 		TMap<FPrimitiveComponentId, FHLODSceneNodeVisibilityState>& VisibilityStates = ViewState->HLODSceneNodeVisibilityStates;
 
-		HLODState.PrimitiveFadingLODMap.Init(false, View.PrimitiveVisibilityMap.Num());
-		HLODState.PrimitiveFadingOutLODMap.Init(false, View.PrimitiveVisibilityMap.Num());
-		HLODState.ForcedVisiblePrimitiveMap.Init(false, View.PrimitiveVisibilityMap.Num());
-		HLODState.ForcedHiddenPrimitiveMap.Init(false, View.PrimitiveVisibilityMap.Num());
+		HLODState.PrimitiveFadingLODMap.Init(false, Scene->Primitives.Num());
+		HLODState.PrimitiveFadingOutLODMap.Init(false, Scene->Primitives.Num());
+		HLODState.ForcedVisiblePrimitiveMap.Init(false, Scene->Primitives.Num());
+		HLODState.ForcedHiddenPrimitiveMap.Init(false, Scene->Primitives.Num());
 		TArray<FPrimitiveViewRelevance, SceneRenderingAllocator>& RelevanceMap = View.PrimitiveViewRelevanceMap;
+
+		if (HLODState.PrimitiveFadingLODMap.Num() != Scene->Primitives.Num())
+		{
+			checkf(0, TEXT("HLOD update incorrectly allocated primitive maps"));
+			return;
+		}		
 
 		int32 UpdateCount = ++HLODState.UpdateCount;
 
@@ -3463,50 +3633,60 @@ void FLODSceneTree::UpdateVisibilityStates(FViewInfo& View)
 		{
 			HLODState.TemporalLODSyncTime = LODState.TemporalLODTime[0];
 			bSyncFrame = true;
+
+			// Only update our scaling on sync frames else we might end up changing transition direction mid-fade	
+			const FCachedSystemScalabilityCVars& ScalabilityCVars = GetCachedScalabilityCVars();
+			if (ScalabilityCVars.FieldOfViewAffectsHLOD)
+			{
+				HLODState.FOVDistanceScaleSq = ScalabilityCVars.CalculateFieldOfViewDistanceScale(View.DesiredFOV);
+				HLODState.FOVDistanceScaleSq *= HLODState.FOVDistanceScaleSq;
+			}
+			else
+			{
+				HLODState.FOVDistanceScaleSq = 1.f;
+			}
 		}
 
 		for (auto Iter = SceneNodes.CreateIterator(); Iter; ++Iter)
 		{
 			FLODSceneNode& Node = Iter.Value();
+			FPrimitiveSceneInfo* SceneInfo = Node.SceneInfo;
 
-			if (!Node.SceneInfo)
+			if (!SceneInfo || !SceneInfo->PrimitiveComponentId.IsValid() || !SceneInfo->IsIndexValid())
 			{
 				continue;
 			}
 
-			FHLODSceneNodeVisibilityState& NodeVisibility = VisibilityStates.FindOrAdd(Node.SceneInfo->PrimitiveComponentId);
-			const TIndirectArray<FStaticMesh>& NodeMeshes = Node.SceneInfo->StaticMeshes;
+			FHLODSceneNodeVisibilityState& NodeVisibility = VisibilityStates.FindOrAdd(SceneInfo->PrimitiveComponentId);
+			const TIndirectArray<FStaticMesh>& NodeMeshes = SceneInfo->StaticMeshes;
 
 			// Ignore already updated nodes, or those that we can't work with
-			if (NodeVisibility.UpdateCount == UpdateCount || NodeMeshes.Num() == 0)
+			if (NodeVisibility.UpdateCount == UpdateCount || !NodeMeshes.IsValidIndex(0))
 			{
 				continue;
 			}
 
-			const int32 NodeIndex = Node.SceneInfo->GetIndex();	
+			const int32 NodeIndex = SceneInfo->GetIndex();	
+
+			if (!Scene->PrimitiveBounds.IsValidIndex(NodeIndex))
+			{
+				checkf(0, TEXT("A HLOD Node's PrimitiveSceneInfo PackedIndex was out of Scene.Primitive bounds!"));
+				continue;
+			}
 
 			FPrimitiveBounds& Bounds = Scene->PrimitiveBounds[NodeIndex];
 			const bool bForcedIntoView = FMath::IsNearlyZero(Bounds.MinDrawDistanceSq);
-			{
-				if (bUpdateHLODOverrides)
-				{
-					// Determine desired HLOD state
-					float MinDrawDistance = Scene->Primitives[NodeIndex]->Proxy->GetMinDrawDistance();
-					const float AdjustedMinDrawDist = MinDrawDistance * HLODDistanceScale;
-					Bounds.MinDrawDistanceSq = AdjustedMinDrawDist * AdjustedMinDrawDist;
-				}
-			}
 
-			const float DistanceSquared = (Bounds.BoxSphereBounds.Origin - View.ViewMatrices.GetViewOrigin()).SizeSquared();
-			const bool bIsInDrawRange = DistanceSquared >= Bounds.MinDrawDistanceSq;
+			// Update visibility states of this node and owned children
+			const float DistanceSquared = Bounds.BoxSphereBounds.ComputeSquaredDistanceFromBoxToPoint(View.ViewMatrices.GetViewOrigin());
+			const bool bIsInDrawRange = DistanceSquared >= Bounds.MinDrawDistanceSq * HLODState.FOVDistanceScaleSq;
 
 			const bool bWasFadingPreUpdate = !!NodeVisibility.bIsFading;
 			const bool bIsDitheredTransition = NodeMeshes[0].bDitheredLODTransition;
 
-			// Update fading state
 			if (bIsDitheredTransition && !bForcedIntoView)
 			{		
-				// Update with syncs
+				// Update fading state with syncs
 				if (bSyncFrame)
 				{
 					// Fade when HLODs change threshold
@@ -3516,7 +3696,7 @@ void FLODSceneTree::UpdateVisibilityStates(FViewInfo& View)
 					{
 						NodeVisibility.bIsFading = false;
 					}
-					else if (bChangedRange )
+					else if (bChangedRange)
 					{
 						NodeVisibility.bIsFading = true;
 					}
@@ -3533,14 +3713,41 @@ void FLODSceneTree::UpdateVisibilityStates(FViewInfo& View)
 				NodeVisibility.bIsFading = false;
 			}
 
+			// Flush cached lighting data when changing visible contents
+			if (NodeVisibility.bIsVisible != NodeVisibility.bWasVisible || bWasFadingPreUpdate || NodeVisibility.bIsFading)
+			{
+				FLightPrimitiveInteraction* NodeLightList = SceneInfo->LightList;
+				while (NodeLightList)
+				{
+					NodeLightList->FlushCachedShadowMapData();
+					NodeLightList = NodeLightList->GetNextLight();
+				}
+			}
+
+			// Force fully disabled view relevance so shadows don't attempt to recompute
+			if (!NodeVisibility.bIsVisible)
+			{
+				if (RelevanceMap.IsValidIndex(NodeIndex))
+				{
+					FPrimitiveViewRelevance& ViewRelevance = RelevanceMap[NodeIndex];
+					FMemory::Memzero(&ViewRelevance, sizeof(FPrimitiveViewRelevance));
+					ViewRelevance.bInitializedThisFrame = true;
+				}
+				else
+				{
+					checkf(0, TEXT("A HLOD Node's PrimitiveSceneInfo PackedIndex was out of View.Relevancy bounds!"));
+				}
+			}
+
+			// NOTE: We update our children last as HideNodeChildren can add new visibility
+			// states, potentially invalidating our cached reference above, NodeVisibility
 			if (NodeVisibility.bIsFading)
 			{
 				// Fade until state back in sync
 				HLODState.PrimitiveFadingLODMap[NodeIndex] = true;
 				HLODState.PrimitiveFadingOutLODMap[NodeIndex] = !NodeVisibility.bIsVisible;
 				HLODState.ForcedVisiblePrimitiveMap[NodeIndex] = true;
-
-				ApplyNodeFadingToChildren(ViewState, Node, true, !!NodeVisibility.bIsVisible);
+				ApplyNodeFadingToChildren(ViewState, Node, NodeVisibility, true, !!NodeVisibility.bIsVisible);
 			}
 			else if (NodeVisibility.bIsVisible)
 			{
@@ -3553,46 +3760,34 @@ void FLODSceneTree::UpdateVisibilityStates(FViewInfo& View)
 				// Not visible and waiting for a transition to fade, keep HLOD hidden
 				HLODState.ForcedHiddenPrimitiveMap[NodeIndex] = true;
 			}
-
-			// Flush cached lighting data when changing visible contents
-			if (NodeVisibility.bIsVisible != NodeVisibility.bWasVisible || bWasFadingPreUpdate || NodeVisibility.bIsFading)
-			{
-				FLightPrimitiveInteraction* NodeLightList = Node.SceneInfo->LightList;
-				while (NodeLightList)
-				{
-					NodeLightList->FlushCachedShadowMapData();
-					NodeLightList = NodeLightList->GetNextLight();
-				}
-			}
-
-			// Force fully disabled view relevance so shadows don't attempt to recompute
-			if (!NodeVisibility.bIsVisible)
-			{
-				FPrimitiveViewRelevance& ViewRelevance = RelevanceMap[NodeIndex];
-				FMemory::Memzero(&ViewRelevance, sizeof(FPrimitiveViewRelevance));
-				ViewRelevance.bInitializedThisFrame = true;
-			}
 		}
-		LastHLODDistanceScale = HLODDistanceScale;
 	}	
 }
 
-void FLODSceneTree::ApplyNodeFadingToChildren(FSceneViewState* ViewState, FLODSceneNode& Node, const bool bIsFading, const bool bIsFadingOut)
+void FLODSceneTree::ApplyNodeFadingToChildren(FSceneViewState* ViewState, FLODSceneNode& Node, FHLODSceneNodeVisibilityState& NodeVisibility, const bool bIsFading, const bool bIsFadingOut)
 {
 	checkSlow(ViewState);
-
 	if (Node.SceneInfo)
 	{
 		FHLODVisibilityState& HLODState = ViewState->HLODVisibilityState;
-		TMap<FPrimitiveComponentId, FHLODSceneNodeVisibilityState>& VisibilityStates = ViewState->HLODSceneNodeVisibilityStates;
-		FHLODSceneNodeVisibilityState& NodeVisibility = VisibilityStates.FindOrAdd(Node.SceneInfo->PrimitiveComponentId);
 		NodeVisibility.UpdateCount = HLODState.UpdateCount;
 
 		// Force visibility during fades
-		for (const auto& Child : Node.ChildrenSceneInfos)
+		for (const auto Child : Node.ChildrenSceneInfos)
 		{
+			if (!Child || !Child->PrimitiveComponentId.IsValid() || !Child->IsIndexValid())
+			{
+				continue;
+			}
+
 			const int32 ChildIndex = Child->GetIndex();
 
+			if (!HLODState.PrimitiveFadingLODMap.IsValidIndex(ChildIndex))
+			{
+				checkf(0, TEXT("A HLOD Child's PrimitiveSceneInfo PackedIndex was out of FadingMap's bounds!"));
+				continue;
+			}
+		
 			HLODState.PrimitiveFadingLODMap[ChildIndex] = bIsFading;
 			HLODState.PrimitiveFadingOutLODMap[ChildIndex] = bIsFadingOut;
 			HLODState.ForcedHiddenPrimitiveMap[ChildIndex] = false;
@@ -3614,22 +3809,37 @@ void FLODSceneTree::ApplyNodeFadingToChildren(FSceneViewState* ViewState, FLODSc
 void FLODSceneTree::HideNodeChildren(FSceneViewState* ViewState, FLODSceneNode& Node)
 {
 	checkSlow(ViewState);
-	FHLODVisibilityState& HLODState = ViewState->HLODVisibilityState;
-	TMap<FPrimitiveComponentId, FHLODSceneNodeVisibilityState>& VisibilityStates = ViewState->HLODSceneNodeVisibilityStates;
-	FHLODSceneNodeVisibilityState& NodeVisibility = VisibilityStates.FindOrAdd(Node.SceneInfo->PrimitiveComponentId);
-
-	if (NodeVisibility.UpdateCount != HLODState.UpdateCount)
+	if (Node.SceneInfo)
 	{
-		NodeVisibility.UpdateCount = HLODState.UpdateCount;
+		FHLODVisibilityState& HLODState = ViewState->HLODVisibilityState;
+		TMap<FPrimitiveComponentId, FHLODSceneNodeVisibilityState>& VisibilityStates = ViewState->HLODSceneNodeVisibilityStates;
+		FHLODSceneNodeVisibilityState& NodeVisibility = VisibilityStates.FindOrAdd(Node.SceneInfo->PrimitiveComponentId);
 
-		for (const auto& Child : Node.ChildrenSceneInfos)
+		if (NodeVisibility.UpdateCount != HLODState.UpdateCount)
 		{
-			const int32 ChildIndex = Child->GetIndex();
-			HLODState.ForcedHiddenPrimitiveMap[ChildIndex] = true;
+			NodeVisibility.UpdateCount = HLODState.UpdateCount;
+
+			for (const auto Child : Node.ChildrenSceneInfos)
+			{
+				if (!Child || !Child->PrimitiveComponentId.IsValid() || !Child->IsIndexValid())
+				{
+					continue;
+				}
+
+				const int32 ChildIndex = Child->GetIndex();
+
+				if (!HLODState.ForcedHiddenPrimitiveMap.IsValidIndex(ChildIndex))
+				{
+					checkf(0, TEXT("A HLOD Child's PrimitiveSceneInfo PackedIndex was out of ForcedHidden's bounds!"));
+					continue;
+				}
+
+				HLODState.ForcedHiddenPrimitiveMap[ChildIndex] = true;
 
 				if (FLODSceneNode* ChildNode = SceneNodes.Find(Child->PrimitiveComponentId))
 				{
-				HideNodeChildren(ViewState, *ChildNode);
+					HideNodeChildren(ViewState, *ChildNode);
+				}
 			}
 		}
 	}
