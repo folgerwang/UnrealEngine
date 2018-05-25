@@ -46,7 +46,7 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	void SetFileName( const FString& TheFilename );
 
 	// Returns the number of points found in the CSV file
-	int32 GetNumberOfPointsInCSV();
+	int32 GetNumberOfParticlesInCSV();
 
 	// Returns the number of points found in the CSV file
 	int32 GetNumberOfLinesInCSV();

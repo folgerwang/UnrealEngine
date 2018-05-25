@@ -75,27 +75,30 @@ public:
 	void GetCSVVectorValue(FVectorVMContext& Context);
 
 	// Returns the positions for a given point in the CSV file
-	template<typename NParamType>
+	template<typename RowParamType>
 	void GetCSVPosition(FVectorVMContext& Context);
 
 	// Returns the normals for a given point in the CSV file
-	template<typename NParamType>
+	template<typename RowParamType>
 	void GetCSVNormal(FVectorVMContext& Context);
 
 	// Returns the time for a given point in the CSV file
-	template<typename NParamType>
+	template<typename RowParamType>
 	void GetCSVTime(FVectorVMContext& Context);
 
 	// Returns the position and time for a given point in the CSV file
-	template<typename NParamType>
+	template<typename RowParamType>
 	void GetCSVPositionAndTime(FVectorVMContext& Context);
 
+	// Returns the number of rows found in the CSV file
+	void GetNumberOfRowsInCSV(FVectorVMContext& Context);
+
 	// Returns the number of points found in the CSV file
-	void GetNumberOfPointsInCSV(FVectorVMContext& Context);
+	void GetNumberOfParticlesInCSV(FVectorVMContext& Context);
 
 	// Returns the last index of the particles that should be spawned at time t
 	template<typename TimeParamType>
-	void GetLastParticleIndexAtTime(FVectorVMContext& Context);
+	void GetLastRowIndexAtTime(FVectorVMContext& Context);
 
 	// Returns the indexes (min, max) and number of particles that should be spawned at time t
 	template<typename TimeParamType>
@@ -115,7 +118,7 @@ public:
 
 	// Returns the line indexes (previous, next) for reading values for a given particle at a given time
 	template<typename NParamType, typename TimeParamType>
-	void GetParticleIndexesAtTime(FVectorVMContext& Context);
+	void GetRowIndexesForParticleAtTime(FVectorVMContext& Context);
 	
 	//----------------------------------------------------------------------------
 	// GPU / HLSL Functions

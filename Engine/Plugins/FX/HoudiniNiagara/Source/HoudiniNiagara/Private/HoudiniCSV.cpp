@@ -503,7 +503,7 @@ bool UHoudiniCSV::GetCSVTimeValue( const int32& lineIndex, float& value )
 }
 
 // Returns the number of points found in the CSV file
-int32 UHoudiniCSV::GetNumberOfPointsInCSV()
+int32 UHoudiniCSV::GetNumberOfParticlesInCSV()
 {
 	if ( IDColumnIndex != INDEX_NONE )
 		return NumberOfParticles;
