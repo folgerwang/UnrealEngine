@@ -8,6 +8,7 @@
 
 class FLevelEditorViewportClient;
 class FViewport;
+class FSceneViewport;
 
 /**
  * Public interface to SLevelViewport
