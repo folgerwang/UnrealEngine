@@ -1,188 +1,171 @@
-﻿INTSourceChangelist:3151855
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:UE4 をはじめよう
 Crumbs: %ROOT%
-Description:アンリアル エンジン入門編です。
+Description:アンリアル エンジン入門
 Navigation:start
 version:4.9
 parent:%ROOT%
 order:1
 tags:Getting Started
 type:landing
-
-[VAR:Params]
-[PARAM:image]
-	![](gettingstarted_topic.png)
-[/PARAM]
-[PARAM:icon]
-	![](%ROOT%/start_icon.png)(convert:false)
-[/PARAM]
-[PARAM:title]
-	%GettingStarted:title%
-[/PARAM]
-[PARAM:description]
-	%GettingStarted:description%
-[/PARAM]
-[PARAM:path]
-	[RELATIVE:GettingStarted]
-[/PARAM]
-[/VAR]
-
-[VAR:Topic]
-[OBJECT:Topic]
-%params%
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-%params%
-[/OBJECT]
-[/VAR]
-
-[VAR:Role]
-[OBJECT:Role]
-%params%
-[PARAMLITERAL:id]
-gettingstarted
-[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
+topic-image:gettingstarted_topic.png
+topic-icon:%ROOT%/start_icon.png
 
 
 ## はじめよう
 
-[REGION:buttonlist]
-
-	
+%Engine/QuickStart:topiccompact%
+%Engine/Content/QuickStart:topiccompact%
+%Programming/QuickStart:topiccompact%
+%GettingStarted/Terminology:topiccompact%
+[OBJECT:TopicCompact]
+	[PARAM:image]
+		![](GettingStarted/FromUnity/image_0.png)
+	[/PARAM]
+	[PARAM:icon]
+		![](%ROOT%/start_icon.png)(convert:false)
+	[/PARAM]
+	[PARAM:title]
+		%GettingStarted/FromUnity:title%
+	[/PARAM]
+	[PARAM:description]
+		%GettingStarted/FromUnity:description%
+	[/PARAM]
+	[PARAM:path]
+		[RELATIVE:GettingStarted/FromUnity]
+	[/PARAM]
+[/OBJECT]
+%GettingStarted/SubEditors:topiccompact%
+[REGION:section]
+	[REGION:normaltitle]
+	追加情報
+	[/REGION]
+	* [必要なハードウェアとソフトウェア](GettingStarted/RecommendedSpecifications "%GettingStarted/RecommendedSpecifications:description%")	
+	* [エンジンのインストール](GettingStarted/Installation "%GettingStarted/Installation:description%")	
+	* [](GettingStarted/DownloadingUnrealEngine "%GettingStarted/DownloadingUnrealEngine:description%")
+	* [リリースノート](Support/Builds "%Support/Builds:description%")
 [/REGION]
 
-## エディタの基本原理
+## エディタの基本
 
-[REGION:buttonlist]
+[INCLUDE:Shared/Glossary/P/#Glossary_project]
 
-		* [](Engine/QuickStart "%Engine/QuickStart:description%")
-		* [レベルエディタのウォークスルー](Engine/UI/LevelEditor "%Engine/UI/LevelEditor:description%")
-		* [](Engine/UI/LevelEditor/Toolbar "%Engine/UI/LevelEditor/Toolbar:description%")
+[INCLUDE:Engine/UI/LevelEditor#levels]
 
-		[REGION:gallery]
-		[REGION:normaltitle]
-		関連ビデオ
-		[/REGION]
-		[VideoLink(videoid:"w4XlBKeE46E" playlistid:"PLZlv_N0_O1gasd4IcOe9Cx9wHoBB7rxFl" width:"180")]
-		[/REGION]
-	
+%Engine/QuickStart:topic%
+%Engine/UI/LevelEditor:topic%
+%Engine/UI/LevelEditor/Toolbar:topic%
+
+[REGION:section]
+[REGION:normaltitle]
+関連ビデオ
+[/REGION]
+[DIR(playlist_id:"PLZlv_N0_O1gasd4IcOe9Cx9wHoBB7rxFl" type:"playlist" output:"playlist")]
 [/REGION]
 
 ## エディタのビューポート
 
-[REGION:buttonlist]
+[INCLUDE:Engine/UI/LevelEditor/Viewports#intro]
 
-		* [](Engine/UI/LevelEditor/Viewports/Basics "%Engine/UI/LevelEditor/Viewports/Basics:description%")
-		* [](Engine/UI/LevelEditor/Viewports/ViewportControls "%Engine/UI/LevelEditor/Viewports/ViewportControls:description%")
-	
-[/REGION]
+%Engine/UI/LevelEditor/Viewports/Basics:topic%
+%Engine/UI/LevelEditor/Viewports/ViewportControls:topic%
 
 ## エディタのモード
 
-[REGION:buttonlist]
+[INCLUDE:Shared/Glossary/M#glossary_modes_panel]
 
-		* [](Engine/UI/LevelEditor/Modes "%Engine/UI/LevelEditor/Modes:description%")
-	
-[/REGION]
+%Engine/UI/LevelEditor/Modes:topic%
 
 ## アクタとジオメトリー
 
-[REGION:buttonlist]
+[INCLUDE:Engine/UI/LevelEditor#actors]
 
-	* [配置](Engine/Actors/Placement "%Engine/Actors/Placement:description%")
-	* [ジオメトリー ブラシ](Engine/Actors/Brushes "%Engine/Actors/Brushes:description%")
-	* [トランスフォーム](Engine/Actors/Transform "%Engine/Actors/Transform:description%")
+%Engine/Actors/Placement:topic%
+%Engine/Actors/Brushes:topic%
+%Engine/Actors/Transform:topic%
 
-	[REGION:gallery]
-	[REGION:normaltitle]
-	関連ビデオ
-	[/REGION]
-	[VideoLink(videoid:"cl_eoVfNDKU" playlistid:"PLZlv_N0_O1gak1_FoAJVrEGiLIploeF3F" width:"180")]
-	[/REGION]
-	
+[REGION:section]
+[REGION:normaltitle]
+関連ビデオ
+[/REGION]
+[DIR(playlist_id:"PLZlv_N0_O1gak1_FoAJVrEGiLIploeF3F" type:"playlist" output:"playlist")]
 [/REGION]
 
 ## コンテンツ ブラウザ
 
-[REGION:buttonlist]
+[INCLUDE:Shared/Glossary/C/#Glossary_Content_Browser]
 
-		* [](Engine/Content/QuickStart "%Engine/Content/QuickStart:description%")
-		* [](Engine/Basics/AssetsAndPackages "%Engine/Basics/AssetsAndPackages:description%")
-		* [](Engine/Content/Browser "%Engine/Content/Browser:description%")	
-	
-[/REGION]
+%Engine/Content/QuickStart:topic%
+%Engine/Basics/AssetsAndPackages:topic%
+%Engine/Content/Browser:topic%
 
 ## ライティング
 
-[REGION:buttonlist]
+シーンをライティングするには、光源として機能し、以下のようなライトの特性を決めるプロパティを含むライト アクタを使用します。
 
-		* [](Engine/Rendering/LightingAndShadows/QuickStart "%Engine/Rendering/LightingAndShadows/QuickStart:description%")
-		* [](Engine/Rendering/LightingAndShadows/Basics "%Engine/Rendering/LightingAndShadows/Basics:description%")
-	
-[/REGION]
+* ライトの明るさ
+* ライトの色
+
+様々な方向に光を放出する様々な種類のライトもあります。例えば、標準的な電球は全方向に光を放出します。アンリアル エンジンでは、 
+これを _ポイントライト_ と呼びます。他の状況では、放出された光はフラッドライトなど電球の背面を不透明にすることで物理的制約を受けます。 
+これは、_スポットライト_ になります。太陽からの屋外光は非常に遠くにあるため、単独の場所からというよりは、 
+ある方向からくるように見えます。このタイプのライティングをシミュレーションするために、_指向性ライト_ があります。 
+
+%Engine/Rendering/LightingAndShadows/QuickStart:description%
+%Engine/Rendering/LightingAndShadows/Basics:description%
 
 ## マテリアルとシェーディング
 
-[REGION:buttonlist]
+[INCLUDE:Shared/Glossary/M/#Glossary_Material]
 
-		* [](Engine/Rendering/Materials/IntroductionToMaterials "%Engine/Rendering/Materials/IntroductionToMaterials:description%")
+%Engine/Rendering/Materials/IntroductionToMaterials:topic%
 
-		[REGION:gallery]
-		[REGION:normaltitle]
-		関連ビデオ
-		[/REGION]
-		[VideoLink(videoid:"lngF4VVNER4" playlistid:"PLZlv_N0_O1gbQjgY0nDwZNYe_N8IcYWS-" width:"180" image:"https://img.youtube.com/vi/lngF4VVNER4/hqdefault.jpg")]
-		[/REGION]
-	
+[REGION:section]
+[REGION:normaltitle]
+関連ビデオ
 [/REGION]
-
+[DIR(playlist_id:"PLZlv_N0_O1gbQjgY0nDwZNYe_N8IcYWS-" type:"playlist" output:"playlist")]
+[/REGION]
 
 ## ブループリント ビジュアル スクリプティング
 
-[REGION:buttonlist]
+[INCLUDE:Engine/Blueprints#intro]	
 
-		* [ブループリント入門](Engine/Blueprints/GettingStarted "%Engine/Blueprints/GettingStarted:description%")
+%Engine/Blueprints/GettingStarted:topic%
 
-		[REGION:gallery]
-		[REGION:normaltitle]
-		関連ビデオ
-		[/REGION]
-		[VideoLink(videoid:"EFXMW_UEDco" playlistid:"PLZlv_N0_O1gY35ezlSQn1sWOGfh4C7ewO" width:"180")]
-		[/REGION]
-	
+[REGION:gallery]
+[REGION:normaltitle]
+関連ビデオ
+[/REGION]
+[DIR(playlist_id:"PLZlv_N0_O1gY35ezlSQn1sWOGfh4C7ewO" type:"playlist" output:"playlist")]
 [/REGION]
 
 ## プログラミング
 
-[REGION:buttonlist]
+ゲームプレイの実装やエンジンの修正は、ゲームプロジェクトに必要不可欠な側面です。アンリアル エンジンには、 
+コードまたはブループリントを用いて視覚的にゲームプレイを実装する機能があります。 
+また、エンジンやエディタを修正または拡張するプラグインまで作成し、 
+デザイナーやアーティストが使用するための完全なカスタム機能を追加します。
 
-		* [](Programming/QuickStart "%Programming/QuickStart:description%")
-		* [](Programming/Basics "%Programming/Basics:description%")
-		* [クイック リファレンス](Gameplay/Framework/QuickReference "%Gameplay/Framework/QuickReference:description%")
+%Programming:topic%
+%Programming/Development/VisualStudioSetup:topic%
+%Programming/QuickStart:topic%
+%Programming/Basics:topic%
+%Gameplay/Framework/QuickReference:topic%
 
-		[REGION:gallery]
-		[REGION:normaltitle]
-		関連ビデオ
-		[/REGION]
-		[VideoLink(videoid:"mSRov77hNR4" playlistid:"PLZlv_N0_O1gYup-gvJtMsgJqnEB_dGiM4" width:"180")]
-		[/REGION]
-	
+[REGION:gallery]
+[REGION:normaltitle]
+関連ビデオ
+[/REGION]
+[DIR(playlist_id:"PLZlv_N0_O1gYup-gvJtMsgJqnEB_dGiM4" type:"playlist" output:"playlist")]
 [/REGION]
 
 ## 自分のゲームをプレイテストする
 
-[REGION:buttonlist]
+アンリアル エンジンのビルトイン機能を使用してレベルとゲームプレイをテストし、デバッグします。Play In Editor (エディタでプレイする (PIE)) モードを使用してリアルタイムのフィードバックを直接エディタから得ます。 
+Simulate In Editor (エディタでシミュレートする) モードを使用して 
+ゲームの実行中にオブジェクトを調べたり、操作したりすることもします。ホットリロードを使用して 
+プレイ中にゲームプレイ コードを変更、ゲームをリコンパイル、更新します。
 
-		* [](Engine/UI/LevelEditor/InEditorTesting "%Engine/UI/LevelEditor/InEditorTesting:description%")
-		* **プラットフォーム**
-			* [](Platforms/iOS/QuickStart "%Platforms/iOS/QuickStart:description%")	
-			* [](Platforms/Android/GettingStarted "%Platforms/Android/GettingStarted:description%")
-			* [](Platforms/Oculus/QuickStart "%Platforms/Oculus/QuickStart:description%")	
-	
-[/REGION]
+%Engine/UI/LevelEditor/InEditorTesting:topic%

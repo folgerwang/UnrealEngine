@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3242329
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title:이중 노멀 투명 코팅 사용법
 Description: Clear Coat 머티리얼에 이중 노멀 맵을 사용하는 방법 안내서입니다.
@@ -16,10 +16,10 @@ Clear Coat (투명 코팅) 셰이딩 모델에 이제 투명 코팅 레이어 �
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Clear Coat Bottom Normal Off](Dual_CC_Off.png)(w:700 h:700)
+	![Clear Coat Bottom Normal Off](Dual_CC_Off.png)(w:700)
 	[/PARAM]
 	[PARAM:after]
-	![Clear Coat Bottom Normal On](Dual_CC_On.png)(w:700 h:700)
+	![Clear Coat Bottom Normal On](Dual_CC_On.png)(w:700)
 	[/PARAM]
 [/OBJECT]
 
@@ -68,7 +68,7 @@ Dual - Normal Clear Coat (이중 노멀 투명 코팅) 옵션이 켜졌으면, �
 	|Scalar Parameter| Clear Coat Roughness|0.1225|
 
 	[REGION:lightbox]
-	[![](Dual_CC_Base_Nodes_Setup.png)(w:200 h:250)](Dual_CC_Base_Nodes_Setup.png)
+	[![](Dual_CC_Base_Nodes_Setup.png)(w:200)](Dual_CC_Base_Nodes_Setup.png)
 	[/REGION]
 
 1. 머티리얼의 **Roughness** 섹션 구성은, 머티리얼 그래프에 다음와 같은 머티리얼 표현식 노드를 추가하고, 이름과 값을 설정합니다. 머티리얼 표현식 노드 추가가 완료되면, 아래 그림과 같이 연결합니다.
@@ -118,7 +118,7 @@ Dual - Normal Clear Coat (이중 노멀 투명 코팅) 옵션이 켜졌으면, �
 1. 머티리얼의 모든 부분 구성이 완료되었으니, 다음 그림과 같이 메인 머티리얼 노드의 출력을 연결하여 머티리얼을 구성합니다.
 	
 	[REGION:lightbox]
-	[![](Dual_CC_Final_Setup.png)(w:500 h:350)](Dual_CC_Final_Setup.png)
+	[![](Dual_CC_Final_Setup.png)(w:500)](Dual_CC_Final_Setup.png)
 	[/REGION]
 
 1. 마지막으로 머티리얼의 여러가지 다양한 부분이 메인 머티리얼 노드의 적합한 곳에 연결되었으면, **적용** 버튼을 눌러 머티리얼을 컴파일한 뒤 머티리얼 에디터를 닫습니다.

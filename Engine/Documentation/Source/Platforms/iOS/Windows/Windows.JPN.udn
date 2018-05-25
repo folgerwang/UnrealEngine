@@ -6,7 +6,7 @@ Description:Windows マシンから Mac マシンでリモート コンパイル
 Platform:iOS
 Navigation:platform
 Version:4.9
-type:how to
+type:how-to
 parent:Platforms/iOS
 tags:Mobile
 tags:iOS
@@ -69,7 +69,7 @@ SSH 設定は、ポップアップ ウィンドウで表示されるプロンプ
 
 	![](ConfigFiles.png)
 
-	1. SSH データのパスに使用したい `.ini` ファイルに個別にプロパティを設定します。  
+1. SSH データのパスに使用したい `.ini` ファイルに個別にプロパティを設定します。  
 
 	![](inifileexample.png)
 

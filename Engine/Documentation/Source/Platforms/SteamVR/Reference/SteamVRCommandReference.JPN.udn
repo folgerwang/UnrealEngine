@@ -29,7 +29,7 @@ VR Mirror は、VR を使っていない人が VR ユーザーの見ているも
 
 |コマンド|説明|イメージ|
 |-----------|-------------------|----------------|
-| **VR.SpectatorScreenMode 0** | VR Mirror を無効にします。||N/A|
+| **VR.SpectatorScreenMode 0** | VR Mirror を無効にします。|N/A|
 | **VR.SpectatorScreenMode 1** | 歪みのない片目分の映像を表示します。|[REGION:lightbox][![](SteamVRCR_00.png)(w:160)](SteamVRCR_00.png)[/REGION]|
 | **VR.SpectatorScreenMode 2** | 歪みのない両目の映像をステレオ表示します。|[REGION:lightbox][![](SteamVRCR_01.png)(w:160)](SteamVRCR_01.png)[/REGION]|
 | **VR.SpectatorScreenMode 3** | 画面合わせてトリミングされた長方形に片目分の映像を表示します。|[REGION:lightbox][![](SteamVRCR_02.png)(w:160)](SteamVRCR_02.png)[/REGION]|

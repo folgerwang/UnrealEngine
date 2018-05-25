@@ -9,7 +9,7 @@ Description:언리얼 엔진 4용 크래시 리포트 인트라넷 어플리케�
 
 CrashReport(크래시 리포트)는 유저가 크래시를 살펴보고 관리할 수 있는 인트라넷 어플입니다. 크래시 리포트는 Bugg 호출을 어느 콜스택 안에서 했는지에 따라 크래시를 그룹화시킵니다. Bugg는 유저의 코드 내 실제 버그 식별을 돕기 위해 둘 이상의 크래시를 그룹화시킵니다. 여기서는 인트라넷에서 크래시 리포트 셋업 방법을 상세히 알려 드리도록 하겠습니다.
 
-사용자가 크래시 리포트 툴을 써 보면 하나의 웹 어플처럼 느끼겠지만, 이 툴의 작동에는 다양한 요소가 필요합니다. 엔진 크래시가 발생하면 AutoReport.exe를 실행시켜 모든 크래시 데이터를 그러모아 http://AutoReportService로 전송하며, 이 서비스는 보고서를 크래시 리포트 데이터베이스에 등록하고 로그와 덤프 파일을 http://AutoReportFiles 에다 업로드하는 서비스이며, 또 이 사이트는 보고서를 단순히 저장했다가 나중에 볼라 치면 내 주는 역할을 합니다. 
+사용자가 크래시 리포트 툴을 써 보면 하나의 웹 어플처럼 느끼겠지만, 이 툴의 작동에는 다양한 요소가 필요합니다. 엔진 크래시가 발생하면 `AutoReport.exe` 를 실행시켜 모든 크래시 데이터를 그러모아 http://AutoReportService로 전송하며, 이 서비스는 보고서를 크래시 리포트 데이터베이스에 등록하고 로그와 덤프 파일을 http://AutoReportFiles 에다 업로드하는 서비스이며, 또 이 사이트는 보고서를 단순히 저장했다가 나중에 볼라 치면 내 주는 역할을 합니다. 
 
 ## 요구사항
 
@@ -63,9 +63,9 @@ CrashReport(크래시 리포트)는 유저가 크래시를 살펴보고 관리�
     * Site Name: CrashReport
     * Application Pool: CrashReport  
 		![](AddSiteWizard.JPG)
-    * Physical Path: <웹 루트>/CrashReport 공유  
+    * Physical Path: `<웹 루트>/CrashReport` 공유  
 		![](AddSiteCreateDirectory.JPG)
-* 단순 배포 허용을 위해 네트워크에 <웹 루트>/CrashReport를 공유합니다.
+* 단순 배포 허용을 위해 네트워크에 `<웹 루트>/CrashReport` 를 공유합니다.
     * IIS에서 웹사이트 위에 우클릭 -> Explore
     * 폴더에 우클릭 > Properties
         * 최소한 사이트 액세스를 배포하는 사람은 허용해 주고서 적절히 권한을 설정합니다.
@@ -84,7 +84,7 @@ CrashReport(크래시 리포트)는 유저가 크래시를 살펴보고 관리�
     * Physical Path: `<웹 루트>/AutoReportService`
 * 파일 시스템에서 웹 루트 밖에다가 로그 파일용 폴더를 만듭니다.
     * 예로 C:\AutoReportLog\
-* 단순 배포 허용을 위해 로컬 네트워크에 `<웹 루트>/AutoReportService`를 공유합니다.
+* 단순 배포 허용을 위해 로컬 네트워크에 `<웹 루트>/AutoReportService` 를 공유합니다.
     * IIS에서 그냥 웹사이트 이름에 우클릭 -> Explore
     * 폴더에 우클릭 > Properties
         * 최소한 사이트 액세스를 배포하는 사람은 허용해 주고서 적절히 권한을 설정합니다.
@@ -100,9 +100,9 @@ CrashReport(크래시 리포트)는 유저가 크래시를 살펴보고 관리�
 * Sites 우클릭 -> Add Web Site
     * Site Name: AutoReportFiles
     * Application Pool: AutoReportFiles
-    * Physical Path: <웹 루트>/AutoReportFiles
+    * Physical Path: `<웹 루트>/AutoReportFiles`
 * 리포트 파일용 디렉토리를 만듭니다.
-    * <웹 루트>/AutoReportFiles/ReportFiles/
+    * `<웹 루트>/AutoReportFiles/ReportFiles/`
 * 로그와 덤프에 대한 MIME 유형을 추가합니다.
     * AutoReportFiles 사이트 선택
     * MIME Types 더블클릭

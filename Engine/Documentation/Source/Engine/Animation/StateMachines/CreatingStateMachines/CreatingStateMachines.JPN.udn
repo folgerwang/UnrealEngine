@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3198499
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:ステートマシンの作成
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/StateMachines
@@ -7,7 +7,7 @@ version:4.14
 related:Engine\Animation\StateMachines\EditingStateMachines
 related:Engine\Animation\StateMachines\TransitionRules
 related:Engine\Animation\AnimBlueprints
-
+type:how-to
 
 実際に [**ステートマシン**](Engine\Animation\StateMachines\Overview) を作成する前に、ステート間の遷移を操作する状況と、本当に必要なステートについてじっくり計画すると良いでしょう。そうすることで、ステートマシンのみならず、ステートマシンを操作するための変数や各ステートに組み込むアニメーションについて、周到な計画を立てることができます。
 

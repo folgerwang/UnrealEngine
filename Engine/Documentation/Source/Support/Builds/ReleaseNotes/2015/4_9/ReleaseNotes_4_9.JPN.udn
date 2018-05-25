@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2760663
+﻿INTSourceChangelist:3108692
 Availability:Public
 Title:アンリアル エンジン 4.9 リリースノート
 Crumbs:%ROOT%, Engine
@@ -472,8 +472,8 @@ Math Expression ノードを最適化し、通常のノードよりもパフォ�
         * Normalize by Weight (ウェイトでノーマライズする)： すべてのカーブに対してブレンドしたポーズのすべてのウェイトを合計し、1 にノーマライズします。
 
         * Blend by Weight (ウェイトでブレンド): 単に合計します (ウェイト * カーブ値)。
-	![image alt text](image_51.png)
 
+	![image alt text](image_51.png)
 
 * Curve Evaluation は、並列評価を使用している場合、マルチ スレッディングに移動しました。
 

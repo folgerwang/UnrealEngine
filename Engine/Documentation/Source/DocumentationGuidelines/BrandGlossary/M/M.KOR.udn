@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 브랜드 용어집
+Description: 언리얼 엔진 4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되는 핵심 용어 해설집입니다.
 Type: Reference
 Version: 4.16
 Parent:BrandGlossary
 Order:10
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+언리얼 엔진 4 (UE4) **브랜드 용어집** 에 오신 것을 환영합니다. UE4 커뮤니티의 사용자를 위한 자료를 만들고자 하는 경우, 
+UE4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되고 있는 용어의 이해를 돕기 위한 문서입니다.
+이 용어집을 통독하고나면, 언리얼 엔진 설명에 사용하는 용어의 스펠링과 대소문자 구분을 확실히 하실 수 있을 것입니다.
 
 <hr>
   
@@ -44,36 +44,36 @@ through this glossary, you'll also know how to properly spell and capitalize the
 
 ##Material
 
-A Material is an asset that can be applied to a mesh to control the visual look of the scene. At a high level, it is easiest to think of a Material as the “paint” that’s applied to an object. But even that can be a bit misleading, since a Material literally defines the type of surface from which your object appears to be made. You can define its color, its shininess, its transparency, and much more.
+머티리얼 - 메시에 적용하여 씬의 시각적 모양을 제어할 수 있는 애셋입니다. 일반적인 관점에서 머티리얼이란 오브젝트에 적용하는 "페인트"로 생각해 보면 쉽습니다. 그래도 약간 오해의 소지는 있는 것이, 머티리얼은 소재, 재질이라는 단어 뜻 그대로 사물의 어떤 유형의 표면으로 보이는지를 정의하는 것이기 때문입니다. 색, 광택, 투명도 등 여러가지를 정의할 수 있습니다.
 
 ##Material Editor
 
-The Material Editor provides the ability to create shaders for geometry, using a node-based graph interface.
+머티리얼 에디터 - 노드 기반 그래프 인터페이스를 통해 지오메트리의 셰이더를 만들 수 있는 에디터입니다.
 
 ##Material Instance
 
-Material Instances are child Materials that use parameters to change the appearance of a Material without incurring an expensive recompilation of the Material.
+머티리얼 인스턴스 - 파라미터를 사용하는 자식 머티리얼로, 비싼 머티리얼 리컴파일 없이 머티리얼 외형을 바꿀 수 있습니다.
 
 ##Matinee Editor
 
-The Matinee animation tool provides the ability to animate the properties of Actors over time, to create either dynamic gameplay or cinematic in-game sequences. The system is based on the use of specialized animation tracks in which you can place keyframes to set the values of certain properties of the Actors in the level. The Matinee Editor is similar to the non-linear editors used for video editing, making it familiar to video professionals.
+마티네 - 액터 프로퍼티에 시간에 따른 변화를 줄 수 있는 기능을 제공하는 애니메이션 툴로, 동적인 게임플레이 또는 게임내 시네마틱 시퀀스를 제작하는 것이 가능합니다. 이 시스템은 특수 애니메이션 트랙 속에 키프레임을 배치하여 레벨 내 액터의 특정 프로퍼티 값을 설정하는 방식으로 이루어집니다. 마티네 에디터는 다른 비디오 편집용 비선형 에디터 프로그램과 비슷하여, 비디오 전문가들에게 익숙할 것입니다.
 
 ##Media Framework
 
-The Media Framework enables playback of videos inside Unreal Engine.
+미디어 프레임워크 - 언리얼 엔진 안에서 비디오를 재생할 수 있도록 해줍니다.
 
 ##Media Player Window
 
-The Media Player Window provides playback and preview functionality for any Media Source asset.
+미디어 플레이어 창 - 미디어 소스 애셋에 대한 재생 및 미리보기 기능을 제공합니다.
 
 ##Modes
 
-Modes are tools that change the primary behavior of the Level Editor for a specialized task, such as placing new assets into the world, creating geometry brushes and volumes, painting on meshes, generating foliage, and sculpting landscapes.
+모드 - 레벨 에디터 주요 작동방식을 어떤 작업에 특화되도록 바꿔주는 도구로, 예를 들면 월드에 신규 애셋 배치, 지오메트리 브러시와 볼륨 생성, 메시에 칠하기, 폴리지 생성, 랜드스케이프 조각 등입니다.
 
 ##Modes Panel
 
-The Modes panel provides access to the Editor Modes’s settings and tools.
+모드 패널 - 에디터 모드의 세팅과 툴을 열어볼 수 있습니다.
 
 ##Module
 
-Modules are containers for a collection of related classes that are compiled into a Dynamic-Link Library (DLL).
+모듈 - Dynamic-Link Library (DLL)에 컴파일되는 관련 클래스 집합 컨테이너입니다.

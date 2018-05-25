@@ -1,9 +1,9 @@
-﻿INTSourceChangelist:3487496
+﻿INTSourceChangelist:3808342
 Availability:NoPublish
 Title:ビルド コンフィギュレーション プロパティのページ
 Crumbs:
 Description:プロシージャルに生成されるマークダウンの説明です。
-Version:4.17
+Version:4.19
 
 ### 読み取り専用プロパティ
 
@@ -59,8 +59,6 @@ $ bCompileAPEX (Boolean):PhysX APEX サポートをインクルードするか�
 
 $ bCompileNvCloth (Boolean):NvCloth をインクルードするかどうかを指定します。
 
-$ bCompileBox2D (Boolean):Box2D サポートをインクルードするかどうか指定します。
-
 $ bCompileICU (Boolean):ICU unicode/i18n サポートをコアにインクルードするかどうか指定します。
 
 $ bCompileCEF3 (Boolean):CEF3 サポートをコンパイルするかどうか指定します。
@@ -97,6 +95,10 @@ $ bCompileSpeedTree (Boolean):SpeedTree サポートをコンパイルするか�
 
 $ bForceEnableExceptions (Boolean):すべてのモジュールに対して例外を有効にします。
 
+$ bUseInlining (Boolean):Enable inlining for all modules.
+
+$ bForceEnableObjCExceptions (Boolean):Enable exceptions for all modules.
+
 $ bForceEnableRTTI (Boolean):すべてのモジュールに対して RTTI を有効にします。
 
 $ bWithServerCode (Boolean):サーバー専用コードをコンパイルします。
@@ -104,6 +106,8 @@ $ bWithServerCode (Boolean):サーバー専用コードをコンパイルしま�
 $ bCompileWithStatsWithoutEngine (Boolean):エンジンなしても統計サポートを含むかどうかを設定します。
 
 $ bCompileWithPluginSupport (Boolean):プラグイン サポートをインクルードするかどうかを指定します。
+
+$ bIncludePluginsForTargetPlatforms (Boolean):Whether to allow plugins which support all target platforms.
 
 $ bWithPerfCounters (Boolean):PerfCounters サポートをインクルードするかどうか指定します。
 
@@ -124,6 +128,10 @@ $ bForceCompileDevelopmentAutomationTests (Boolean):開発自動化テストを�
 $ bForceCompilePerformanceAutomationTests (Boolean):パフォーマンス自動化テストをコンパイルするかどうか設定します。
 
 $ bEventDrivenLoader (Boolean):True の場合、イベント ドリブン ローダーがクック済みビルドで使用されます。非同期読み込みがリファクタリングされた後、ランタイム ソリューションに置き換える必要があります。
+
+$ bUseXGEController (Boolean):Whether the XGE controller worker and modules should be included in the engine build.These are required for distributed shader compilation using the XGE interception interface.
+
+$ bIWYU (Boolean):Enables "include what you use" by default for modules in this target.Changes the default PCH mode for any module in this project to PCHUsageModule.UseExplicitOrSharedPCHs.
 
 $ bEnforceIWYU (Boolean):PCHU"include what you use" ルールが強制され、モノリシック (Engine.h、UnrealEd.h など) の使用に対して警告が出され、ソースファイルがマッチするヘッダをが最初にインクルードされているかをチェックします。
 
@@ -183,6 +191,10 @@ $ bUseIncrementalLinking (Boolean):インクリメンタルリンクの使用に
 
 $ bAllowLTCG (Boolean):リンク時コード生成の使用の許可について指定します。
 
+$ bPGOProfile (Boolean):Whether to enable Profile Guided Optimization (PGO) instrumentation in this build.
+
+$ bPGOOptimize (Boolean):Whether to optimize this build with Profile Guided Optimization (PGO).
+
 $ bAllowASLRInShipping (Boolean):ASLR (アドレス空間配置のランダム化) がサポートされている場合、使用の許可について指定します。シッピング ビルドのみに適用します。
 
 $ bSupportEditAndContinue (Boolean):編集をサポートし継続するかどうかを指定します。32 ビット コンパイルの Microsoft コンパイラでのみ機能します。
@@ -227,6 +239,10 @@ $ bFlushBuildDirOnRemoteMac (Boolean):ビルド前にリモート Mac で Builds
 
 $ bPrintToolChainTimingInfo (Boolean):コンパイラとリンカから詳細なタイミング情報を書き出すかどうかを指定します。
 
+$ bHideSymbolsByDefault (Boolean):Whether to hide symbols by default on POSIX platforms
+
+$ bAllowGeneratedIniWhenCooked (Boolean):Whether to load generated ini files in cooked build
+
 $ PCHOutputDirectory (String):プリコンパイル済みヘッダ ファイルを入れるディレクトリです。より速いドライブでのパスを使うことができる実験段階の設定です。設定しない場合、デフォルト値は標準出力ディレクトリです。
 
 $ GlobalDefinitions (List&lt;String&gt;):ターゲット全体をグローバルに定義するためのマクロです。
@@ -234,6 +250,10 @@ $ GlobalDefinitions (List&lt;String&gt;):ターゲット全体をグローバル
 $ ExtraModuleNames (List&lt;String&gt;):ターゲットにコンパイルされる追加モジュールのリストです。
 
 $ BuildEnvironment (TargetBuildEnvironment):このターゲットのビルド環境を設定します。使用可能なオプションの詳細は TargetBuildEnvironment をご覧ください。
+
+$ PreBuildSteps (List&lt;String&gt;):Specifies a list of steps which should be executed before this target is built, in the context of the host platform's shell.The following variables will be expanded before execution: $(EngineDir), $(ProjectDir), $(TargetName), $(TargetPlatform), $(TargetConfiguration), $(TargetType), $(ProjectFile).
+
+$ PostBuildSteps (List&lt;String&gt;):Specifies a list of steps which should be executed after this target is built, in the context of the host platform's shell.The following variables will be expanded before execution: $(EngineDir), $(ProjectDir), $(TargetName), $(TargetPlatform), $(TargetConfiguration), $(TargetType), $(ProjectFile).
 
 $ OverrideExecutableFileExtension (String):実行ファイルのファイル拡張子 (Windows では通常.exe もしくは .dll) のオーバーライド設定が可能です。
 

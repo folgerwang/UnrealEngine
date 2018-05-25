@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750629
+﻿INTSourceChangelist:3243860
 Availability:Public
 Title:Color モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:Color モジュールはエミット (放射) したパーティクルの色に影響を与えます。
 Version:4.9
+tags:Particles
 
 [TOC(start:2 end:3)]
 

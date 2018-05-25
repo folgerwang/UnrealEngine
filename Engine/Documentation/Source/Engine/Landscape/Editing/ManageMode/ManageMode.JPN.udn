@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3260884
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:Manage モード
 Crumbs: %ROOT%, Engine, Engine/Landscape, Engine/Landscape/Editing
@@ -28,7 +28,7 @@ version:4.9
 
 [TOC(start:2 end:3)]
 
-**[Manage]** モードで、新規のランドスケープを作成することができます。作成済みのランドスケープのコンポーネント修正には、コンポーネント ツールを使用します。レベルエディタの **[Details (詳細)]** パネルでコンポーネントを選択して、プロパティを修正することも出来ます。
+**[Manage]** モードで、新規のランドスケープを作成することができます。作成済みのランドスケープのコンポーネントを修正するには、コンポーネント ツールを使用します。あるいは、レベルエディタの **[Details (詳細)]** パネルでコンポーネントを選択してもプロパティを修正することができます。
 
 ランドスケープの作成に関する詳細は、[](Engine/Landscape\Creation) を参照してください。
 
@@ -39,7 +39,7 @@ Landscape Manage モードは、VR エディタでも使用できます。VR で
 
 ## ランドスケープの選択
 
-**Landscape** ツールでは、どのモードでも、レベルに存在するすべてのランドスケープのリストから修正したいランドスケープを選択できます。
+**Landscape** ツールでは、どのモードでも、レベルに存在するすべてのランドスケープのリストから修正したいランドスケープを選択することができます。
 
 ![](Landscape_Select_Different_LS.png)
 
@@ -48,14 +48,14 @@ Landscape Manage モードは、VR エディタでも使用できます。VR で
 * ランドスケープ ツールの **[Landscape Editor]** セクションで **[Landscape]** ドロップダウン ボックスをクリックして、マップに存在するすべてのランドスケープのリストを表示します。
 * 編集するランドスケープを選択します。
 
-このリストから選択されたランドスケープは、アクティブなランドスケープに設定されます。その後実行される編集内容は、すべてこのランドスケープに適用されます。
+このリストから選択されたランドスケープは、アクティブなランドスケープに設定されます。その後行う編集は、すべてこのランドスケープに反映されます。
 ## コンポーネント
 
-**コンポーネント** はランドスケープの構成要素です。コンポーネントの作業は Component ツールで行うことができます。また、コンポーネントのプロパティはレベルエディタの **[Details (詳細)]** パネルで個別に修正できます。
+**コンポーネント** はランドスケープの構成要素です。コンポーネントの作業は Component ツールを用いて行います。また、コンポーネントのプロパティはレベルエディタの **[Details (詳細)]** パネルで個別に修正できます。
 
 ### Component ツール
 
-以下で説明するツールは、使用中のランドスケープのコンポーネント レベル上で作用します。
+以下は、使用中のランドスケープのコンポーネント レベル上で使用するツールの説明です。
 
 ####Selection ツール
 
@@ -69,13 +69,13 @@ Landscape Manage モードは、VR エディタでも使用できます。VR で
 | **Shift + マウスの左ボタンをクリック** | コンポーネントの選択を解除します。 |
 
 
-選択カーソルは常に 1 つのコンポーネントに限定されます。
+選択カーソルは常に 1 つのコンポーネントに対してのみ使用されます。
 
-![selection_cursor.jpg](Engine/Landscape/Editing/Brushes/selection_cursor.jpg)(w:900 h:453)
+![selection_cursor.jpg](Engine/Landscape/Editing/Brushes/selection_cursor.jpg)(w:900)
 
-コンポーネントが選択されると、赤色で陰影が付けられます。
+コンポーネントが選択されると、赤いグラデーションが付きます。
 
-![selection_components.jpg](selection_components.jpg)(w:900 h:453)
+![selection_components.jpg](selection_components.jpg)(w:900)
 
 | オプション | 説明 |
 | ------ | ----------- |
@@ -92,13 +92,13 @@ Landscape Manage モードは、VR エディタでも使用できます。VR で
 | --- | --- |
 | **マウスの左ボタンをクリック** | 新規コンポーネントを追加します。|
 
-Add Landscape Component ツールがアクティブにされていると、カーソルが新規コンポーネントの追加位置に緑のワイヤーフレームで表示されます。
+Add Landscape Component ツールをアクティブにすると、カーソルが緑の縁取りで新規コンポーネントの追加位置に表示されます。
 
-![selection_add_cursor.jpg](selection_add_cursor.jpg)(w:900 h:453)
+![selection_add_cursor.jpg](selection_add_cursor.jpg)(w:900)
 
 このツールは、カーソルが置かれている位置に新たなコンポーネントを追加します。
 
-![selection_add.jpg](selection_add.jpg)(w:900 h:453)
+![selection_add.jpg](selection_add.jpg)(w:900)
 
 
 #### Delete
@@ -112,29 +112,29 @@ Add Landscape Component ツールがアクティブにされていると、カ�
 | **マウスの左ボタンをクリック** | Selection ツールで選択したコンポーネントを削除します。選択中のコンポーネントがない場合、マウスカーソルをかざしてハイライトされたコンポーネントを削除します。 |
 
 
-![selection_remove_cursor.jpg](selection_remove_cursor.jpg)(w:900 h:453)
+![selection_remove_cursor.jpg](selection_remove_cursor.jpg)(w:900)
 
 ツールは選択したコンポーネントを削除します。
 
-![selection_remove.jpg](selection_remove.jpg)(w:900 h:453)
+![selection_remove.jpg](selection_remove.jpg)(w:900)
 
 [REGION:note]
-ランドスケープ内のどこをプレイヤーが通り抜けることができるのか、さらに制御したい場合は、[Landscape Hole マテリアル](Engine/Landscape/Materials#landscapeholeマテリアル) を参照してください。
+ランドスケープ内でプレイヤーが通り抜ける位置を調節したい場合は、[Landscape Hole マテリアル](Engine/Landscape/Materials#landscapeholeマテリアル) を参照してください。
 [/REGION]
 
 #### Move Level (レベル移動) ツール
 
 ![Move Level](Landscape_MoveLevel.png)
 
-このツールは、Selection ツールを使用して選択したコンポーネントを現在のストリーミングレベルへ移動させます。このツールを使用すると、ランドスケープのパフォーマンスを最適化して、そのレベルと一緒にセクションがストリームイン / アウトするように、ランドスケープの一部をストリーミング レベルに移動させることが可能です。
+このツールは、Selection ツールを使用して選択したコンポーネントを現在のストリーミング レベルへ移動させます。このツールを使用すると、ランドスケープのパフォーマンスを最適化して、そのレベルと一緒にセクションがストリームイン / アウトするように、ランドスケープの一部をストリーミング レベルに移動させることが可能です。
 
-ストリーミング レベルが表示されている場合は、ランドスケープはすべてのコンポーネントをレンダリングします。
+ストリーミング レベルが表示されていれば、ランドスケープはすべてのコンポーネントをレンダリングします。
 
-![selection_movestream_visible.jpg](selection_movestream_visible.jpg)(w:900 h:453)
+![selection_movestream_visible.jpg](selection_movestream_visible.jpg)(w:900)
 
 レベルの表示は、**[Levels]** ウィンドウで目のアイコン (![Level Window Eye Icon](icon_Landscape_LevelWindowEye.png)) をクリックして切り替えることができます (レベル エディタの **[Window]** メニューからアクセスできます)。レベルの表示に切り替えると、そのレベルにあるコンポーネントはレンダリングされなくなります。
 
-![selection_movestream_invisible.jpg](selection_movestream_invisible.jpg)(w:900 h:453)
+![selection_movestream_invisible.jpg](selection_movestream_invisible.jpg)(w:900)
 
 
 #### コンポーネント サイズの変更

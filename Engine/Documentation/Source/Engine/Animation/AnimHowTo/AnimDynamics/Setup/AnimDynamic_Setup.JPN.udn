@@ -49,8 +49,8 @@ Order:1
 	![](4_AssignBones.png)
 
 	以下の表は全体の割り当てを示したものです。 
-		|ノード (リグ) |ボーン (スケルトン) |
 
+	| Node (Rig) | Bone (Skeleton) |
 	| ------- | ------------ |
 	| **Root** | b_MF_Root |
 	| **Pelvis** | b_MF_Pelvis |

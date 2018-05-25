@@ -16,7 +16,7 @@ UE4 와 Oculus Rift (오큘러스 리프트)를 같이 사용하는 방법을 �
 
 오큘러스 리프트 초보자 안내에서는 Rift HMD, 터치 컨트롤러, 가디언(Guardian) 시스템 작업을 하기 위한 UE4 프로젝트 구성 방법을 안내해 드립니다.
 
-[DIR(output:"fancy" type:"how-to" type:"!landing" skilllevel:"Beginner" parent:"Platforms/Oculus" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Beginner" parent:"Platforms/Oculus" org:"flat")]
 
 ## 중급
 

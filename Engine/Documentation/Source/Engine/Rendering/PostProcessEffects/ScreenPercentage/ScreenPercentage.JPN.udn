@@ -1,7 +1,7 @@
 ﻿INTSourceChangelist:3782314
 Availability:Docs
 Crumbs: %ROOT%
-Title:画面比率:動的解像度とテンポラル アンチエイリアシング アップ サンプリング
+Title:Screen Percentage:動的解像度とテンポラル アンチエイリアシング アップ サンプリング
 Description: 
 Type:Overview
 SkillLevel:Intermediate
@@ -674,7 +674,7 @@ Windows D3D11
 
 	* できません。できてしまった場合はバグで解決する必要があるので、エピック ゲームズまでご連絡ください。
 
-	* `ScreenPercentage` の **FPostProcessSettings** の関数はなぜ動的な解像度に無視されるのですか？ 
+* `ScreenPercentage` の **FPostProcessSettings** の関数はなぜ動的な解像度に無視されるのですか？ 
 
 	* これは、画面上の表示比率を Post Process Volume の設定でマニュアルで縮小拡張できるようにした以前のメカニズムの一部です。動的な解像度を使うと、GPU の作業負荷に応じて自動的に処理されるので、その設定が必要なくなります。
 

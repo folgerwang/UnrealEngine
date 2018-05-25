@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3339965
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:Robo Recall Mod Kit のインストール
 Crumbs:%ROOT%
@@ -17,7 +17,7 @@ social-image:install.png
 
 1. エピック ゲームズのランチャーから Robo Recall Mod Kit をダウンロードするには、**[Install]** をクリックします。
 
-	![](install.png)(w:934 h:433 convert:false)
+	![](install.png)(w:934 convert:false)
 
 	[REGION:tip]
 	Robo Recall Editor はかなり大きいため (20 GB 以上)、ある程度時間がかかります。この時間を使って Robo Recall の他のドキュメントに目を通したり、以下の UE4 の操作ガイドをご覧ください。

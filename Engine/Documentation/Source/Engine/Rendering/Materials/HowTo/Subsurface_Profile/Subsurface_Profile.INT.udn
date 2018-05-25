@@ -56,7 +56,7 @@ When completed, your **Content Browser** should look like this.
 
 Creating Subsurface Profiles is something that can be accomplished in the following steps. 
 
-1. First **Right-Click** inside of the **Content Browser**. Then select the ** Materials & Textures** option and select the **Subsurface Profile** option. 
+1. First **Right-Click** inside of the **Content Browser**. Then select the **Materials & Textures** option and select the **Subsurface Profile** option. 
 
 	![](Engine\Rendering\Materials\LightingModels\SubSurfaceProfile\2.png)
 
@@ -243,9 +243,9 @@ When completed, your **Content Browser** should look something like this.
 
 	You can adjust the properties of the **Subsurface Profile** by using the **Left Mouse Button** to click on the property that you want to edit to expose the color picker.  
 
-	* ** Scatter Radius:** The distance in world space units to perform the scatter. 
+	* **Scatter Radius:** The distance in world space units to perform the scatter. 
 
-	* ** Subsurface Color:** The Subsurface Color can be used as a mask or a weight for the subsurface effect. Black means there is no subsurface scattering. 
+	* **Subsurface Color:** The Subsurface Color can be used as a mask or a weight for the subsurface effect. Black means there is no subsurface scattering. 
 	White means all lighting is entering the material and gets scattered around. A non-grayscale value give more control over what
 	color contributions are entering the surface resulting in a more complex looking shading. 
 

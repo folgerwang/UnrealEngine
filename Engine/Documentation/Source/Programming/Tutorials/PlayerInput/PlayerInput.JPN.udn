@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3429264
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:プレイヤー入力と Pawn クラス
 Crumbs:%ROOT%, GettingStarted
@@ -7,40 +7,6 @@ version:4.9
 type:how-to
 type:landing
 skilllevel:Beginner
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](newclass_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Programming\Tutorials\PlayerInput:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming\Tutorials\PlayerInput]
-	[/PARAM]
-	[PARAM:description]
-		%Programming\Tutorials\PlayerInput:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](newclass_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Programming\Tutorials\PlayerInput:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming\Tutorials\PlayerInput]
-	[/PARAM]
-	[PARAM:description]
-		%Programming\Tutorials\PlayerInput:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 このチュートリアルでは、Pawn クラスを拡張することでプレイヤー入力に反応する方法を学習します。
 
@@ -59,12 +25,10 @@ skilllevel:Beginner
 ## ステップ
 
 [REGION:buttonlist]
-
-	* [](Programming\Tutorials\PlayerInput\1 "%Programming\Tutorials\PlayerInput\1:description%")
-	* [](Programming\Tutorials\PlayerInput\2 "%Programming\Tutorials\PlayerInput\2:description%")
-	* [](Programming\Tutorials\PlayerInput\3 "%Programming\Tutorials\PlayerInput\3:description%")
-	* [](Programming\Tutorials\PlayerInput\4 "%Programming\Tutorials\PlayerInput\4:description%")
-	
+* [](Programming\Tutorials\PlayerInput\1 "%Programming\Tutorials\PlayerInput\1:description%")
+* [](Programming\Tutorials\PlayerInput\2 "%Programming\Tutorials\PlayerInput\2:description%")
+* [](Programming\Tutorials\PlayerInput\3 "%Programming\Tutorials\PlayerInput\3:description%")
+* [](Programming\Tutorials\PlayerInput\4 "%Programming\Tutorials\PlayerInput\4:description%")
 [/REGION]
 
 

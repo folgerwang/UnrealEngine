@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3839686
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 브랜드 용어집
+Description: 언리얼 엔진 4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되는 핵심 용어 해설집입니다.
 Type: Reference
 Version: 4.16
 Parent:BrandGlossary
 Order:6
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+언리얼 엔진 4 (UE4) **브랜드 용어집** 에 오신 것을 환영합니다. UE4 커뮤니티의 사용자를 위한 자료를 만들고자 하는 경우, 
+UE4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되고 있는 용어의 이해를 돕기 위한 문서입니다.
+이 용어집을 통독하고나면, 언리얼 엔진 설명에 사용하는 용어의 스펠링과 대소문자 구분을 확실히 하실 수 있을 것입니다.
 
 <hr>
   
@@ -44,8 +44,8 @@ through this glossary, you'll also know how to properly spell and capitalize the
 
 ##Foliage Instanced Meshes
 
-The Foliage Instanced Mesh system allows you to quickly paint or erase sets of Static Meshes on Landscape Actors, other Static Mesh Actors, and BSP. These meshes are automatically grouped together into batches that are rendered using hardware instancing; meaning, that many instances can be rendered with only a single draw call.
+폴리지 인스턴스드 메시 - 랜드스케이프 액터, 다른 스태틱 메시 액터, BSP 에 스태틱 메시 세트를 빠르게 칠하고 지울 수 있도록 해주는 시스템입니다. 이 메시는 자동으로 일괄 그룹으로 묶여 하드웨어 인스턴싱으로 렌더링됩니다. 드로 콜 하나만으로 여러 인스턴스를 렌더링할 수 있다는 뜻입니다.
 
 ##Foliage Mode
 
-The Foliage Instanced Mesh system enables you to quickly paint or erase batched sets of Static Meshes that use hardware instancing for efficient rendering on Landscape Actors, other Static Mesh Actors, and BSP geometry.
+폴리지 모드 - 랜드스케이프 액터, 다른 스태틱 메시 액터, BSP 지오메트리에 효율적으로 렌더링하기 위하여 하드웨어 인스턴싱을 사용하는 스태틱 메시 세트를 빠르게 칠하고 지울 수 있습니다.

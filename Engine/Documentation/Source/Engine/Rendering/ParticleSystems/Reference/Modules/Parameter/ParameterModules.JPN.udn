@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750701
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Parameter モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:マテリアルなど他の局面へパーティクルシステムからデータを渡すモジュールです。
 Version:4.9
+tags:Particles
 
 [TOC(start:2 end:3)]
 
@@ -27,7 +28,7 @@ Version:4.9
 
 [EXCERPT:DynamicParams]
 [REGION:simpletable]
-|**プロパティ**|**説明**|
+| **プロパティ** | **説明** |
 | --- | --- |
 |**Param Name** | マテリアルの DynamicParameter 表現式にある関連パラメータの名前です。このプロパティは読み取り専用で、エミッタに適用したマテリアル内に Particle Dynamic マテリアル表現式が存在する場合、自動的に追加されます。
 |**Use Emitter Time** | _true_ の場合、パラメータの分布値の読み出しにエミッタ時間を使用します。もしくは、パーティクルに相対的な時間を使用します。|

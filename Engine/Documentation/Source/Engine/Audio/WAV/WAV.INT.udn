@@ -31,41 +31,7 @@ The engine currently supports importing uncompressed little endian 16 bit wave f
 
 Importing with the normal sound factory yields a simple sound node wave that can be referenced by a sound cue for playback. These sounds can be mono or stereo. Importing with a special naming convention gives the potential of multichannel (e.g. 5.1) sounds. Up to 8 channel sounds can be compressed on all platforms, although not all platforms can play them back efficiently. The package saving process does all the necessary work to convert to the platform's native format. There is no strict speaker mapping, so the number of channels infers which channels are played on which speakers (see table below).
 
-[EXCERPT:multiChannelExtensionTable]
-
-[REGION:raw]
-|                   | Extension | 4.0         | 5.1         | 6.1         | 7.1         |
-| ---               | ---       | ---         | ---         | ---         | ---         |
-| **FrontLeft**     | _fl       |  &#x2713;   |  &#x2713;   |  &#x2713;   |  &#x2713;   |
-| **FrontRight**    | _fr       |  &#x2713;   |  &#x2713;   |  &#x2713;   |  &#x2713;   |
-| **FrontCenter**   | _fc       |             |  &#x2713;   |  &#x2713;   |  &#x2713;   |
-| **LowFrequency**  | _lf       |             |  &#x2713;   |  &#x2713;   |  &#x2713;   |
-| **SideLeft**      | _sl       |  &#x2713;   |  &#x2713;   |  &#x2713;   |  &#x2713;   |
-| **SideRight**     | _sr       |  &#x2713;   |  &#x2713;   |  &#x2713;   |  &#x2713;   |
-| **BackLeft**      | _bl       |             |             |  &#x2713;   |  &#x2713;   |
-| **BackRight**     | _br       |             |             |             |  &#x2713;   |
-[/REGION]
-
-[/EXCERPT:multiChannelExtensionTable]
-
-[COMMENT:none]
-
-
-[REGION:raw]
-|                   | Extension | 4.0 | 5.1 | 6.1 | 7.1 |  
-| --- | --- | --- | --- | --- | --- | 
-| **FrontLeft**     | _fl       | ![](icon_MatEd_Apply_40x.png) | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | 
-| **FrontRight**    | _fr       | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | 
-| **FrontCenter**   | _fc       |     | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | 
-| **LowFrequency**  | _lf       |     | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | 
-| **SideLeft**      | _sl       | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | 
-| **SideRight**     | _sr       | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | ![]( icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   | 
-|**BackLeft**      | _bl       |     |     | ![](icon_MatEd_Apply_40x.png)   | ![](icon_MatEd_Apply_40x.png)   |  
-| **BackRight**     | _br       |     |     |     | ![](icon_MatEd_Apply_40x.png)   |  
-[/REGION]
-
-
-[/COMMENT]
+[INCLUDE:#multiChannelExtensionTable]
 
 Compression settings are tweaked to maintain similar quality across platforms. After testing many sounds, our musician determined an XMA quality of 40 was equivalent to an ogg vorbis quality of 0.15. 
 
@@ -98,7 +64,24 @@ Or
 
 [/EXCERPT:wav01]
 
+[COMMENT:none]
+[EXCERPT:multiChannelExtensionTable]
 
+[REGION:raw]
+|                   | Extension | 4.0         | 5.1         | 6.1         | 7.1         |
+| ---               | ---       | ---         | ---         | ---         | ---         |
+| **FrontLeft**     | _fl       |  &#x2713;   |  &#x2713;   |  &#x2713;   |  &#x2713;   |
+| **FrontRight**    | _fr       |  &#x2713;   |  &#x2713;   |  &#x2713;   |  &#x2713;   |
+| **FrontCenter**   | _fc       |             |  &#x2713;   |  &#x2713;   |  &#x2713;   |
+| **LowFrequency**  | _lf       |             |  &#x2713;   |  &#x2713;   |  &#x2713;   |
+| **SideLeft**      | _sl       |  &#x2713;   |  &#x2713;   |  &#x2713;   |  &#x2713;   |
+| **SideRight**     | _sr       |  &#x2713;   |  &#x2713;   |  &#x2713;   |  &#x2713;   |
+| **BackLeft**      | _bl       |             |             |  &#x2713;   |  &#x2713;   |
+| **BackRight**     | _br       |             |             |             |  &#x2713;   |
+[/REGION]
+
+[/EXCERPT:multiChannelExtensionTable]
+[/COMMENT]
 
 [REGION:note]
 Exporting a multi channel sound asset will create a mono .WAV file for each channel with the above speaker extension naming convention.
@@ -107,7 +90,5 @@ Exporting a multi channel sound asset will create a mono .WAV file for each chan
 
 ## Related
 
-[REGION:topics half]
 %Engine/Audio:topiccompact%
 %Engine/Audio/Overview:topiccompact%
-[/REGION]

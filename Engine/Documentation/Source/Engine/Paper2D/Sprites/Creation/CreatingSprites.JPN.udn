@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2632159
+﻿INTSourceChangelist:3782314
 Title:スプライトを作成する
 Crumbs: %ROOT%, Engine, Engine/Paper2D, Engine/Paper2D/Sprites
 Description:
@@ -14,9 +14,9 @@ Availability:Docs
 
 **ブランクの Sprite アセットの作成方法**
 
-1. コンテンツ ブラウザで  ![New](button_cb_new.png)(h:24) ボタンをクリックします。
+1. **コンテンツ ブラウザ** で ![New](button_cb_new.png)(h:24) ボタンをクリックします。
 
-1. [ _Miscellaneous_ ] で **[スプライト]** を選択します。
+1. _[Miscellaneous]_ で **[スプライト]** を選択します。
 
 	![](sprite_new_menu.png)
 

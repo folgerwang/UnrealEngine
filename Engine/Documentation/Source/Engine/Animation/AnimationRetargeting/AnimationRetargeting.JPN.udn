@@ -118,7 +118,7 @@ topic-image:AnimationgRetargeting_topic.png
 [REGION:note]
 同じ Skeleton アセットを共有するキャラクターのアニメーションのリターゲットをしている場合、こうしたアニメーションはアニメーションのリターゲットの影響を受けます。 
 同じ Skeleton アセットを共有しないキャラクターにアニメーションをリターゲットする場合、アニメーションが適切にリターゲットされるように行う必要があるいくつかの追加の手順があります。
-* 詳しい情報については [](Engine\Animation\AnimHowTo\Retargeting) をご覧ください。
+詳しい情報については [](Engine\Animation\AnimHowTo\Retargeting) をご覧ください。
 [/REGION]
 
 

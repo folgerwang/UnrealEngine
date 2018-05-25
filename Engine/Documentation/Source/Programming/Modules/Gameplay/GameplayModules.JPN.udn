@@ -1,18 +1,19 @@
-﻿INTSourceChangelist:2725063
+﻿INTSourceChangelist:3429264
 Availability:Public
 Title:Gameplay モジュール
 Crumbs:%ROOT%, Programming
 Description:DLL にコンパイルされたゲームプロジェクトに属するゲームプレイ クラスの集まり
 Version:4.9
+Parent:Programming/UnrealArchitecture/Reference
 
 [TOC(start:2)]
 
 [EXCERPT:Intro]
-エンジンそのものがモジュールの集まりで構成されているように、各ゲームも 1 つ以上のゲームプレイ モジュール構成されます。これらは、関連クラスの集まりのためのコンテナであるという意味において、エンジンの過去のバージョンのパッケージに似ています。アンリアル エンジン 4 では、ゲームプレイはすべて C++ で行われるため、モジュールは独自のパッケージ ファイルではなく実際には DLL です。
+エンジンそのものがモジュールの集まりで構成されるのと同様に各ゲームは1 つ以上のゲームプレイ モジュールから構成されます。これらは、関連クラスの集まりのためのコンテナであるという意味においてエンジンの過去のバージョンのパッケージに似ています。アンリアル エンジン 4 では、ゲームプレイはすべて C++ で行われるため、モジュールは独自のパッケージ ファイルではなく実際には DLL です。
 [/EXCERPT:Intro]
 
 [REGION:note]
-まだゲームプロジェクトを作成していない場合、ゲーム用のプロジェクトを作成し、セットアップする手順については、[ゲームプロジェクトの作成](Engine/Basics/Projects/Browser#新規プロジェクトの作成) をご覧ください。
+まだゲームプロジェクトを作成していない場合、ゲーム用のプロジェクトを作成し、セットアップする手順については、以下をご覧ください。[ゲームプロジェクトの作成](Engine/Basics/Projects/Browser#新規プロジェクトの作成)
 [/REGION]
 
 ## モジュール作成
@@ -25,7 +26,7 @@ Version:4.9
 
 C++ ファイルは、モジュールのディレクトリの「Private」フォルダ (すなわち、[GameName]\Source\[ModuleName]\Private) に入れられ、モジュールを登録し、実装します。
 
-[REGION:note]ゲーム内の少なくとも 1 つのモジュールは、必ず `IMPLEMENT_PRIMARY_GAME_MODULE` を使用して登録します。追加のモジュールでは、代替の `IMPLEMENT_GAME_MODULE` メソッドを使用することができます。ゲーム プロジェクトで 1 つ以上のゲームプレイ モジュールを使用する詳細については、[複数ゲームプレイモジュール](#複数ゲームプレイモジュール) セクションをご覧ください。[/REGION]
+[REGION:note]ゲーム内の少なくとも 1 つのモジュールは、必ず `IMPLEMENT_PRIMARY_GAME_MODULE` を使用して登録します。追加のモジュールでは、代替の `IMPLEMENT_GAME_MODULE` メソッドを使用することができます。ゲーム プロジェクトで 1 つ以上のゲームプレイ モジュールを使用する詳細については、以下をご覧ください [複数ゲームプレイモジュール](#複数ゲームプレイモジュール) セクション。[/REGION]
 
 	// Include our game's header file
 	#include "<ModuleName>.h"
@@ -62,7 +63,7 @@ C++ ファイルは、モジュールのディレクトリの「Private」フォ
 		[Launch]
 		Module=<ModuleName>
 
-	`[/Script/Engine.UObjectPackages]` セクションの `NativePackages` 配列:
+	`[/Script/Engine.UObjectPackages]` セクションの `NativePackages` 配列。:
 
 		[/Script/Engine.UObjectPackages]
 		+NativePackages=<ModuleName>
@@ -72,7 +73,7 @@ C++ ファイルは、モジュールのディレクトリの「Private」フォ
 
 ゲームの DLL モジュール方式については、現実的な選択があります。数多くの DLL ファイルにゲームを分割すると、必要以上の手間がかかりますが、ニーズと方針を踏まえた上で各チームがこのように決定しました。複数ゲームプレイ モジュールを使用すると、リンク時間は向上し、コードのイタレーションは速くなります。しかし、モジュールが多くなると、DLL のエクスポートおよび / またはインターフェース クラスに対処する必要が増えます。このトレードオフは、エンジンとエディタのコードの場合は妥当ですが、ゲームプレイに関しては疑問があります。
 
-プライマリ ゲーム モジュールを作成して、ゲーム固有のモジュールをいくつでも追加することができます。こうした新規モジュールに対して *.Build.cs ファイルを作成して、モジュールへの参照を、ゲームの [Target.cs file](Programming/UnrealBuildSystem/TargetFiles) (OutExtraModuleNames array) に追加できます。C++ コードでゲーム モジュールに対して適切なマクロを使用するようにしてください。少なくとも 1 つのモジュールでは必ず `IMPLEMENT_PRIMARY_GAME_MODULE` マクロを使用し、その他すべてのモジュールでは `IMPLEMENT_GAME_MODULE` を使用するようにします。これで、UBT は自動的にモジュールを発見し、追加のゲーム DLL ファイルをコンパイルします。
+プライマリ ゲーム モジュールを作成して、ゲーム固有のモジュールをいくつでも追加することができます。こうした新規モジュールに対して *.Build.cs ファイルを作成して、モジュールへの参照を、ゲームの [Target.cs file](Programming/UnrealBuildSystem/TargetFiles) (OutExtraModuleNames array) に追加できます。C++ コードでゲーム モジュールに対して適切なマクロを使用するようにしてください。少なくとも 1 つのモジュールは、必ず `IMPLEMENT_PRIMARY_GAME_MODULE` マクロを使用し、他のすべてのモジュールは、`IMPLEMENT_GAME_MODULE` を使用するようにします。これで、UBT は自動的にモジュールを発見し、追加のゲーム DLL ファイルをコンパイルします。
 
 ## 制限事項
 

@@ -47,8 +47,9 @@ FRemoteSessionXRTrackingChannel::FRemoteSessionXRTrackingChannel(ERemoteSessionC
 		// Make the proxy and set GEngine->XRSystem to it
 		ProxyXRSystem = MakeShared<FXRTrackingProxy, ESPMode::ThreadSafe>();
 		GEngine->XRSystem = ProxyXRSystem;
-
-		MessageCallbackHandle = Connection->GetDispatchMap().GetAddressHandler(MESSAGE_ADDRESS).AddRaw(this, &FRemoteSessionXRTrackingChannel::ReceiveXRTracking);
+		
+		auto Delegate = FBackChannelDispatchDelegate::FDelegate::CreateRaw(this, &FRemoteSessionXRTrackingChannel::ReceiveXRTracking);
+		MessageCallbackHandle = Connection->AddMessageHandler(MESSAGE_ADDRESS, Delegate);
 		Connection->SetMessageOptions(MESSAGE_ADDRESS, 1);
 	}
 }
@@ -58,8 +59,7 @@ FRemoteSessionXRTrackingChannel::~FRemoteSessionXRTrackingChannel()
 	if (Role == ERemoteSessionChannelMode::Receive)
 	{
 		// Remove the callback so it doesn't call back on an invalid this
-		Connection->GetDispatchMap().GetAddressHandler(MESSAGE_ADDRESS).Remove(MessageCallbackHandle);
-		MessageCallbackHandle.Reset();
+		Connection->RemoveMessageHandler(MESSAGE_ADDRESS, MessageCallbackHandle);
 
         if (GEngine != nullptr)
         {

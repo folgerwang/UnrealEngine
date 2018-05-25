@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3807090
 Availability: Licensee
 Title:언리얼 엔진에 퍼포스 사용하기
 Crumbs:%ROOT%, Engine, Programming, Programming/Basics
@@ -103,7 +103,7 @@ VPN 연결이 이루어지고 나면 퍼포스 클라이언트를 사용하여 �
 * **//depot/Devel** - 개발 트리
 
 
-![Perforce_33.jpg](Perforce_33.jpg)(w:640 h:443)
+![Perforce_33.jpg](Perforce_33.jpg)(w:640)
 
 엔진 버전을 새 QA 빌드로 업그레이드하는 과정은 개략적으로:
 
@@ -117,7 +117,7 @@ VPN 연결이 이루어지고 나면 퍼포스 클라이언트를 사용하여 �
 
 그 작업방식에 대한 예제는 다음과 같습니다:
 
-![Perforce_34.jpg](Perforce_34.jpg)(w:665 h:443)
+![Perforce_34.jpg](Perforce_34.jpg)(w:665)
 
 업데이트를 자주 할 수록, 병합할 때 심각한 충돌 문제에 맞닥뜨릴 확률도 줄어듭니다. Araxis 같은 병합 프로그램을 사용하면 충돌 문제를 아주 쉽게 해결할 수 있습니다.
 

@@ -105,6 +105,22 @@ tags:Unreal Build System
 	[/PARAM]
 [/OBJECT]
 
+## Getting Started with Unreal Engine
+
+Learn how to use Unreal Engine by referring to the [](GettingStarted) documentation!
+
+If you're looking to quickly get started with UE4, refer to the following tutorials:
+*	[](Engine/Content/QuickStart)
+*	[](Programming/QuickStart)
+*	[](Engine/QuickStart)
+
+
+[REGION:note]
+UE4's in-editor help features are a great way to get your questions answered.
+[/REGION]
+
+[/EXCERPT:Main]
+
 [COMMENT:none]
 
 [EXCERPT:windowscompile]
@@ -173,10 +189,6 @@ the source code on a machine that has at least eight (8) gigabytes of RAM with a
 
 [/EXCERPT:linuxcompile]
 
-[/COMMENT]
-
-[COMMENT:none]
-
 [EXCERPT:windowsrun]
 
 1.	Set your startup project to **UE4**.
@@ -226,19 +238,3 @@ If you're unable to create an OpenGL context as you're working through these ste
 [/EXCERPT:linuxrun]
 
 [/COMMENT]
-
-## Getting Started with Unreal Engine
-
-Learn how to use Unreal Engine by referring to the [](GettingStarted) documentation!
-
-If you're looking to quickly get started with UE4, refer to the following tutorials:
-*	[](Engine/Content/QuickStart)
-*	[](Programming/QuickStart)
-*	[](Engine/QuickStart)
-
-
-[REGION:note]
-UE4's in-editor help features are a great way to get your questions answered.
-[/REGION]
-
-[/EXCERPT:Main]

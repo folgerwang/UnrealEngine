@@ -53,7 +53,7 @@ Vehicles are now fully supported in Unreal Engine! This sample game features an 
 	* [Vehicle Setup Guide](https://docs.unrealengine.com/latest/INT/Engine/Physics/Vehicles/VehicleUserGuide)
 
 #### New: Camera Animation System
-Support for** CameraAnims** has now been added into Unreal Engine 4! These are very similar to CameraAnims from Unreal Engine 3, but now expanded with Blueprint support.
+Support for **CameraAnims** has now been added into Unreal Engine 4! These are very similar to CameraAnims from Unreal Engine 3, but now expanded with Blueprint support.
 
 * Conceptually, a **CameraAnim** is simply an animation that can be layered onto the in-game camera.  You can animate the camera position and rotation, FOV, and post process settings.
 * They can be created in the Content Browser, you can convert a track in Matinee to one, or you can import keyframes from external tools like Maya

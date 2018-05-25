@@ -56,8 +56,8 @@ Tarray を埋める方法は何通りかあります。1 つ目は、要素の�
 
 	StrArr.AddUnique(TEXT("!"));
 	// StrArr == ["Hello","World","of","Tomorrow","!"]
-	StrArr.AddUnique(TEXT("!"));
 
+	StrArr.AddUnique(TEXT("!"));
 	// StrArr is unchanged as "!" is already an element ("!" が既に存在しているため、StrArr は変わりません) 
 
 Add、Emplace、Append と同様に **Insert** は、単一の要素または要素の配列のコピーを所定のインデックスに追加します。
@@ -281,8 +281,8 @@ IndexOfByKey は、演算子==(ElementType 、KeyType) に対して存在する�
 
 	StrArr.Remove(TEXT("hello"));
 	// StrArr == ["!","of","Brave","World","Tomorrow"]
-	StrArr.Remove(TEXT("goodbye"));
 
+	StrArr.Remove(TEXT("goodbye"));
 	// StrArr is unchanged, as it doesn’t contain "goodbye" (StrArr は "goodbye" を含まないので変化しません)
 
 "hello" の削除を指示した場合ですら、"HELLO" が削除されていることに注目してください。要素の型の演算子 == によって等価がテストされます。FString の場合は、大文字・小文字を区別しない比較になります。
@@ -299,8 +299,8 @@ Remove は同等と見なされるすべてのインスタンスを取り除き�
 	int32 Temp[] = { 10, 20, 30, 5, 10, 15, 20, 25, 30 };
 	ValArr.Append(Temp, ARRAY_COUNT(Temp));
 	// ValArr == [10,20,30,5,10,15,20,25,30]
-	ValArr.Remove(20);
 
+	ValArr.Remove(20);
 	// ValArr == [10,30,5,10,15,25,30]
 
 **RemoveSingle** を使って、配列の先頭に一番近い要素を消去することもできます。配列に複製が含まれているかもしれないのでそれを消去したい場合や、配列にはその要素のうち 1 つしか含むことができない時の最適化をする場合に便利です。それを見つけて削除すると検索を止めるからです。
@@ -312,8 +312,8 @@ Remove は同等と見なされるすべてのインスタンスを取り除き�
 
 	ValArr.RemoveAt(2); // Removes the element at index 2 (インデックス 2 で要素を取り除きます) 
 	// ValArr == [10,5,15,25,30]
-	ValArr.RemoveAt(99); // This will cause a runtime error as
 
+	ValArr.RemoveAt(99); // This will cause a runtime error as
 	                       // there is no element at index 99 (index 99 に要素が存在しないのでランタイム エラーが発生します)
 
 **RemoveAll** 関数を使って、述語と一致する要素を削除することもできます。例えば、3 の乗数となるすべての値を削除するには以下のようになります。
@@ -333,14 +333,14 @@ Remove は同等と見なされるすべてのインスタンスを取り除き�
 	for (int32 i = 0; i != 10; ++i)
 		ValArr2.Add(i % 5);
 	// ValArr2 == [0,1,2,3,4,0,1,2,3,4]
+
 	ValArr2.RemoveSwap(2);
-
 	// ValArr2 == [0,1,4,3,4,0,1,3]
+
 	ValArr2.RemoveAtSwap(1);
-
 	// ValArr2 == [0,3,4,3,4,0,1]
-	ValArr2.RemoveAllSwap([](int32 Val) {
 
+	ValArr2.RemoveAllSwap([](int32 Val) {
 		return Val % 3 == 0;
 	});
 	// ValArr2 == [1,4,4]
@@ -358,8 +358,8 @@ Remove は同等と見なされるすべてのインスタンスを取り除き�
 	ValArr3.Add(1);
 	ValArr3.Add(2);
 	ValArr3.Add(3);
-	auto ValArr4 = ValArr3;
 
+	auto ValArr4 = ValArr3;
 	// ValArr4 == [1,2,3];
 	ValArr4[0] = 5;
 	// ValArr3 == [1,2,3];
@@ -382,26 +382,26 @@ TArray は、**MoveTemp** 関数で呼び出し可能な移動の動作もサポ
 	FlavorArr1.Emplace(TEXT("Chocolate"));
 	FlavorArr1.Emplace(TEXT("Vanilla"));
 	// FlavorArr1 == ["Chocolate","Vanilla"]
+
 	auto FlavorArr2 = Str1Array;
-
 	// FlavorArr2 == ["Chocolate","Vanilla"]
+
 	bool bComparison1 = FlavorArr1 == FlavorArr2;
-
 	// bComparison1 == true
-	for (auto& Str :FlavorArr2)
 
+	for (auto& Str :FlavorArr2)
 	{
 		Str = Str.ToUpper();
 	}
 	// FlavorArr2 == ["CHOCOLATE","VANILLA"]
+
 	bool bComparison2 = FlavorArr1 == FlavorArr2;
-
 	// bComparison2 == true, because FString comparison ignores case
+
 	Exchange(FlavorArr2[0], FlavorArr2[1]);
-
 	// FlavorArr2 == ["VANILLA","CHOCOLATE"]
-	bool bComparison3 = FlavorArr1 == FlavorArr2;
 
+	bool bComparison3 = FlavorArr1 == FlavorArr2;
 	// bComparison3 == false, because the order has changed (順序が変わったので bComparison3 == false です)
 
 ## Heap
@@ -473,13 +473,13 @@ HeapPush、HeapPop、HeapPopDiscard、HeapRemoveAt は、例えば Heapify() の
 	// SlackArray.GetSlack() == 0
 	// SlackArray.Num()      == 0
 	// SlackArray.Max()      == 0
-	SlackArray.Add(1);
 
+	SlackArray.Add(1);
 	// SlackArray.GetSlack() == 3
 	// SlackArray.Num()      == 1
 	// SlackArray.Max()      == 4
-	SlackArray.Add(2);
 
+	SlackArray.Add(2);
 	SlackArray.Add(3);
 	SlackArray.Add(4);
 	SlackArray.Add(5);
@@ -583,8 +583,8 @@ HeapPush、HeapPop、HeapPopDiscard、HeapRemoveAt は、例えば Heapify() の
 	//   { Int:5, Ptr:0x12345678, Flt:3.14f },
 	//   { Int:2, Ptr:0x87654321, Flt:2.72f }
 	// ]
-	SArr.SetNumZeroed(5);
 
+	SArr.SetNumZeroed(5);
 	// SArr == [
 	//   { Int:0, Ptr: nullptr,    Flt:0.0f  },
 	//   { Int:5, Ptr:0x12345678, Flt:3.14f },

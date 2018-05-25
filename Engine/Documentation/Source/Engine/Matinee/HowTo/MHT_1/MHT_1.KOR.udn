@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability: Public
 Title:문 구성하기
 Crumbs: %ROOT%, Engine, Engine/Matinee, Engine/Matinee/HowTo
@@ -9,6 +9,7 @@ SkillLevel: Beginner
 
 다음 단계에서는 트리거 볼륨에 들어가고/나갈 때 열리고/닫히는 간단한 문을 만들어 보겠습니다.
 
+[EXCERPT:ProjectStart]
 ## 프로젝트 생성하기
 
 이 섹션에서는 프로젝트를 셋업해 봅니다.
@@ -22,6 +23,7 @@ SkillLevel: Beginner
 1. 프로젝트에 이름을 붙입니다.
 
 1. 위 각각을 정의한 상태로, **프로젝트 생성** 을 클릭하여 새 프로젝트를 만듭니다.
+[/EXCERPT:ProjectStart]
 
 ## 문과 트리거 배치하기
 
@@ -63,7 +65,7 @@ SkillLevel: Beginner
 
 1. **이동** 위젯을 사용하여 문을 문틀 안에 위치시킵니다.
 
-	![](MHT1_MoveDoor.png)(h:300) ![](MHT1_MoveDoor2.png)(w:310 h:300)
+	![](MHT1_MoveDoor.png)(h:300) ![](MHT1_MoveDoor2.png)(w:310)
 	
 1. **모드** 메뉴의 **기본** 탭 아래 **박스 트리거** 를 찾아 **레벨 뷰포트** 의 문틀 안에 끌어 놓습니다.
 

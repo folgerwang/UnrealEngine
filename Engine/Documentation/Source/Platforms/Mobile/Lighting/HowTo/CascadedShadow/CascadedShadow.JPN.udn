@@ -1,4 +1,5 @@
-﻿Availability:Public
+﻿INTSourceChangelist:3807090
+Availability:Public
 Title:カスケード シャドウの使用方法
 Crumbs:%ROOT%, Platforms, Platforms/Mobile
 Description:モバイル ゲーム向けカスケード シャドウの設定方法
@@ -21,7 +22,7 @@ UE4 モバイル プロジェクトでこの機能を使用するには、以下
 1. **[Project Settings (プロジェクト設定)]** で **[Engine]** > **[Rendering]** >  **[Mobile]** セクションの順に選択し、**[Enable Combined Static and CSM Shadowing (静的シャドウインと CSM シャドウイングの結合を有効にする)]** にチェックが入っていることを確認します。 
 
 	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_00.png)(w:562 h:310)](Platforms\Mobile\Lighting\CSM_Setup_00.png)
+	[![](Platforms\Mobile\Lighting\CSM_Setup_00.png)(w:562)](Platforms\Mobile\Lighting\CSM_Setup_00.png)
 	[/region]
 
 	[REGION:caption]
@@ -32,7 +33,7 @@ UE4 モバイル プロジェクトでこの機能を使用するには、以下
 1. CSM はシーンに **指向性ライト** がある場合のみ使用できます。指向性ライトがない場合は、1 つ追加し、それを選択してください。次に **[Transform (トランスフォーム)]** セクションの **[Mobility (可動性)]** 設定を **[Stationary (固定)]** にしてください。
 
 	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_01.png)(w:300 h:400)](Platforms\Mobile\Lighting\CSM_Setup_01.png)
+	[![](Platforms\Mobile\Lighting\CSM_Setup_01.png)(w:300)](Platforms\Mobile\Lighting\CSM_Setup_01.png)
 	[/region]
 
 	[REGION:caption]
@@ -42,7 +43,7 @@ UE4 モバイル プロジェクトでこの機能を使用するには、以下
 1. 指向性ライトを選択したまま、**[Details (詳細)]** パネルの **[Cascaded Shadows Maps]** セクションで、選択した指向性ライトの以下のプロパティを調節します。
 
 	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_02.png)(w:300 h:400)](Platforms\Mobile\Lighting\CSM_Setup_02.png)
+	[![](Platforms\Mobile\Lighting\CSM_Setup_02.png)(w:300)](Platforms\Mobile\Lighting\CSM_Setup_02.png)
 	[/region]
 
 	[REGION:caption]
@@ -59,7 +60,7 @@ UE4 モバイル プロジェクトでこの機能を使用するには、以下
 1. プロジェクトのレベル内で、CSM を受け取りたいスタティックメッシュを選択して **[Details (詳細)]** パネルの **[Mobile]** セクションの **[Receive Combined Static and CSM Shadows from Stationary Lights]** オプションを有効にします。
 
 	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_03.png)(w:300 h:400)](Platforms\Mobile\Lighting\CSM_Setup_03.png)
+	[![](Platforms\Mobile\Lighting\CSM_Setup_03.png)(w:300)](Platforms\Mobile\Lighting\CSM_Setup_03.png)
 	[/region]
 
 	[REGION:caption]
@@ -86,7 +87,7 @@ UE4 モバイル プロジェクトでこの機能を使用するには、以下
 1. **メインツールバー** で **[Play Mode]** を **[Mobile Preview]** に変更し、**[Play]** ボタンを押してレベルを起動します。
 
 	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_04.png)(w:800 h:400)](Platforms\Mobile\Lighting\CSM_Setup_04.png)
+	[![](Platforms\Mobile\Lighting\CSM_Setup_04.png)(w:800)](Platforms\Mobile\Lighting\CSM_Setup_04.png)
 	[/region]
 
 	[REGION:caption]
@@ -100,7 +101,7 @@ UE4 モバイル プロジェクトでこの機能を使用するには、以下
 1. 正常に起動したら、静的シャドウのある場所にキャラクターを配置します。シャドウに出入りすると、キャラクターの動的シャドウは以下の画像のようにレベル内にベイクされたシャドウと滑らかにブレンドされます。
 
 	[REGION:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Final_Result.png)(w:262 h:281)](Platforms\Mobile\Lighting\CSM_Final_Result.png)
+	[![](Platforms\Mobile\Lighting\CSM_Final_Result.png)(w:262)](Platforms\Mobile\Lighting\CSM_Final_Result.png)
 	[/REGION]
 
 	[REGION:caption]

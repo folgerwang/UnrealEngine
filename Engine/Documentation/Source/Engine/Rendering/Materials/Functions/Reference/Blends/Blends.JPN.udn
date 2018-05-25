@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2705150
+﻿INTSourceChangelist:3242329
 Availability:Public
 title:ブレンド
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:色をブレンドするためにデザインされた関数。一般的に使用されている画像編集アプリケーションのブレンドモードに似た機能です。
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 

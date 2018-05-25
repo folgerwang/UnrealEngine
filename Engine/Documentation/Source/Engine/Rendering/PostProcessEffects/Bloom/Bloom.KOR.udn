@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3801260
 Availability:Public
 Crumbs:
 Title:블룸
@@ -9,9 +9,6 @@ Parent:Engine/Rendering/PostProcessEffects
 Order:1
 Tags:Post Process
 Topic-image:bloom_Topic.png
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
 
 [TOC(start:2 end:2)]
 
@@ -35,12 +32,12 @@ Topic-image:bloom_Topic.png
 넓은 블러에는 주로 저해상도 (높은 번호) 블러를 사용해야 할 것입니다.
 
 [REGION:raw]
-| 프로퍼티 | %spacer2% | 설명 |
-| -------- | --------- | ----------- |
-| **Intensity** || 블룸 강도 - 전체 블룸 이펙트의 (선형) 색 스케일입니다. 시간에 따른 페이드 인이나 아웃, 어둡게 만드는 데 사용할 수 있습니다. [INCLUDE:#Intensity] |
-| **Threshold** || 블룸 한계치 - 블룸을 적용하기 시작할 색의 휘도를 정의합니다. 한계치 이외에 색이 블룸에 부분적으로만 영향을 끼치는 (1 유닛 폭) 선형 부분이 있습니다. 씬의 모든 색이 블룸에 공헌하게 하려면, -1 볼륨을 사용해야 합니다. 일부 비현실적인 HDR 콘텐츠, 몽환적인 부분 트윅에 사용할 수 있습니다. [INCLUDE:#Threshold] |
-| **#1/#2/#3/#4/#5 Tint** || 블룸 #1/#2/#3/#4/#5 색조 - 각 블룸의 밝기와 색을 변경합니다. 검정색을 사용한다고 그 패스가 빨라지지는 않지만, 가능은 합니다. |
-| **#1/#2/#3/#4/#5 Size** || 블룸 #1/#2/#3/#4/#5 크기 - 화면 폭을 기준으로 한 백분율 크기입니다. 일정 수치로 제한됩니다. 큰 수치가 필요하다면 한 단계 낮은 해상도 (높은 번호) 블러를 대신 사용하세요. [INCLUDE:#Size] |
+| 프로퍼티 | 설명 |
+| -------- | ----------- |
+| **Intensity** | 블룸 강도 - 전체 블룸 이펙트의 (선형) 색 스케일입니다. 시간에 따른 페이드 인이나 아웃, 어둡게 만드는 데 사용할 수 있습니다. [INCLUDE:#Intensity] |
+| **Threshold** | 블룸 한계치 - 블룸을 적용하기 시작할 색의 휘도를 정의합니다. 한계치 이외에 색이 블룸에 부분적으로만 영향을 끼치는 (1 유닛 폭) 선형 부분이 있습니다. 씬의 모든 색이 블룸에 공헌하게 하려면, -1 볼륨을 사용해야 합니다. 일부 비현실적인 HDR 콘텐츠, 몽환적인 부분 트윅에 사용할 수 있습니다. [INCLUDE:#Threshold] |
+| **#1/#2/#3/#4/#5 Tint** | 블룸 #1/#2/#3/#4/#5 색조 - 각 블룸의 밝기와 색을 변경합니다. 검정색을 사용한다고 그 패스가 빨라지지는 않지만, 가능은 합니다. |
+| **#1/#2/#3/#4/#5 Size** | 블룸 #1/#2/#3/#4/#5 크기 - 화면 폭을 기준으로 한 백분율 크기입니다. 일정 수치로 제한됩니다. 큰 수치가 필요하다면 한 단계 낮은 해상도 (높은 번호) 블러를 대신 사용하세요. [INCLUDE:#Size] |
 [/REGION]
 
 [COMMENT:none]
@@ -108,14 +105,14 @@ Topic-image:bloom_Topic.png
 ![](ConvolutionBloomSettings.png)(w:450)
 
 [REGION:raw]
-| 프로퍼티 | %spacer2% | 설명 |
-| -------- | --------- | ----------- |
-| **Convolution Kernel** || 컨볼루션 커널 - 커널을 정의하는 텍스처를 선택합니다. |
-| [REGION:tablesection] 고급 프로퍼티 [/REGION] |||
-| **Convolution Scale**  || 컨볼루션 스케일 - 컨볼루션 커널 이미지의 상대적 크기를 뷰포트 유닛 단위로 나타낸 것으로, 기본값은 1 입니다. 블룸 크기를 줄이는 데 주로 사용됩니다. |
-| **Convolution Center** || 컨볼루션 중심 - UV 좌표로 기본값은 (1/2, 1/2) 입니다. Convolution Kernel 이미지는 보다 밝은 소소에 대해 완벽히 중심 위치인 것이 이상적이지만, 일반적으로 약간의 트윅이 필요합니다. 여기서 오프셋은 블룸 이미지에 풀 오프셋을 주게 됩니다. |
-| **Convolution Boost** || 컨볼루션 부스트 - 컨볼루션 블룸 필터 적용 전 선택 픽셀 밝기를 증폭시킵니다. 최소, 최대값과 배수로 이루어집니다. 최소값 이상의 밝기 델타에 배수만큼 증폭시킵니다. 기본적으로 이 부스트는 꺼져있으며, 조심해서 사용해야 합니다. |
-| **Convolution Buffer** || 컨볼루션 버퍼 - 화면 크기의 일정 비율로 정하는 암묵적 버퍼 구역으로, 블룸이 이미지를 감싸지(wrap around) 않도록 하기 위함입니다. 이 값을 올리면 퍼포먼스에 안좋은 영향을 줍니다. |
+| 프로퍼티 | 설명 |
+| -------- | ----------- |
+| **Convolution Kernel** | 컨볼루션 커널 - 커널을 정의하는 텍스처를 선택합니다. |
+| [REGION:tablesection] 고급 프로퍼티 [/REGION] ||
+| **Convolution Scale**  | 컨볼루션 스케일 - 컨볼루션 커널 이미지의 상대적 크기를 뷰포트 유닛 단위로 나타낸 것으로, 기본값은 1 입니다. 블룸 크기를 줄이는 데 주로 사용됩니다. |
+| **Convolution Center** | 컨볼루션 중심 - UV 좌표로 기본값은 (1/2, 1/2) 입니다. Convolution Kernel 이미지는 보다 밝은 소소에 대해 완벽히 중심 위치인 것이 이상적이지만, 일반적으로 약간의 트윅이 필요합니다. 여기서 오프셋은 블룸 이미지에 풀 오프셋을 주게 됩니다. |
+| **Convolution Boost** | 컨볼루션 부스트 - 컨볼루션 블룸 필터 적용 전 선택 픽셀 밝기를 증폭시킵니다. 최소, 최대값과 배수로 이루어집니다. 최소값 이상의 밝기 델타에 배수만큼 증폭시킵니다. 기본적으로 이 부스트는 꺼져있으며, 조심해서 사용해야 합니다. |
+| **Convolution Buffer** | 컨볼루션 버퍼 - 화면 크기의 일정 비율로 정하는 암묵적 버퍼 구역으로, 블룸이 이미지를 감싸지(wrap around) 않도록 하기 위함입니다. 이 값을 올리면 퍼포먼스에 안좋은 영향을 줍니다. |
 [/REGION]
 
 ### 커널 이미지 실전 사례
@@ -146,7 +143,7 @@ Topic-image:bloom_Topic.png
 
 [EXCERPT:cbtextureproperties]
 [REGION:simpletable]
-|||
+||
 |---|---|
 |  [INCLUDE:#cbtexturepropertiesimage] | [INCLUDE:#cbtexturepropertieslist] |
 [/REGION]
@@ -183,11 +180,11 @@ Bloom Dirt Mask (블룸 더트 마스크)를 켜려면, Post Process Volume 의 
 ![](DirtMaskProperties.png)(w:450)
 
 [REGION:raw]
-| 프로퍼티 | %spacer2% | 설명 |
-| -------- | --------- | ----------- |
-| **Dirt Mask Texture** || 더트 마스크 텍스처 - 선택 박스로 더트 마스크에 사용할 Texture2D 를 할당합니다. 이 프로퍼티는 다른 Post Process Volume 과 블렌딩할 수 없다는 점 유념하세요. |
-| **Dirt Mask Intensity** || 블룸 더트 마스크 강도 - 블룸 더트 마스크의 (선형) 색 스케일입니다. 이 프로퍼티는 더트 마스크의 밝기를 조정하는 데 사용됩니다. |
-| **Dirt Mask Tint Color** || 블룸 더트 마스크 색조 - 더트 마스크 텍스처에 색을 입히거나 어둡게 만듭니다. 더트 마스크 밝기와 색을 조정하는 데 사용할 수 있습니다.|
+| 프로퍼티 | 설명 |
+| -------- | ----------- |
+| **Dirt Mask Texture** | 더트 마스크 텍스처 - 선택 박스로 더트 마스크에 사용할 Texture2D 를 할당합니다. 이 프로퍼티는 다른 Post Process Volume 과 블렌딩할 수 없다는 점 유념하세요. |
+| **Dirt Mask Intensity** | 블룸 더트 마스크 강도 - 블룸 더트 마스크의 (선형) 색 스케일입니다. 이 프로퍼티는 더트 마스크의 밝기를 조정하는 데 사용됩니다. |
+| **Dirt Mask Tint Color** | 블룸 더트 마스크 색조 - 더트 마스크 텍스처에 색을 입히거나 어둡게 만듭니다. 더트 마스크 밝기와 색을 조정하는 데 사용할 수 있습니다.|
 [/REGION]
 
 ### 더트 마스크 이미지 실전 사례
@@ -210,7 +207,7 @@ Bloom Dirt Mask (블룸 더트 마스크)를 켜려면, Post Process Volume 의 
 
 [EXCERPT:dirtmasktextureproperty]
 [REGION:simpletable]
-|||
+||
 |---|---|
 |  [INCLUDE:#dirtmasktexturepropertyimage] | [INCLUDE:#dirtmasktexturepropertylist] |
 [/REGION]

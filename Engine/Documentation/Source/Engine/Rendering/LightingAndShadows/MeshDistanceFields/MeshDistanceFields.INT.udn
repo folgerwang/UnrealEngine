@@ -207,7 +207,7 @@ the opaque one and will come at a higher cost.
 [/EXCERPT:twosided]
 [/COMMENT]
 
-##### Folaige Tool Settings
+##### Foliage Tool Settings
 
 In the [Foliage Tool](Engine/Foliage), you must enable each foliage type that you want to use Distance Field lighting features for ambient occlusion and shadowing. By default, this setting is disabled because
 some foliage assets (like grass) where you would have thousands or tens of thousands of instances would overflow the tile culling buffer. When this happens, you can unsightly artifacts. So, only enable 

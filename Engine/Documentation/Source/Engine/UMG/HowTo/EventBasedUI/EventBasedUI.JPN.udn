@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3244089
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:イベントで UI の更新を操作する
 Crumbs: %ROOT%, Engine, Engine/UMG, Engine/UMG/HowTo
@@ -10,46 +10,8 @@ Related:Resources\SampleGames\UnrealMatch3
 Version:4.10
 SkillLevel:Advanced
 tags:UMG UI Designer
+topic-image:EventUI.png
 
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/UMG/HowTo/EventBasedUI:title%](EventUI.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UMG/HowTo/EventBasedUI:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UMG/HowTo/EventBasedUI:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UMG/HowTo/EventBasedUI]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/UMG/HowTo/EventBasedUI:title%](EventUI.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UMG/HowTo/EventBasedUI:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UMG/HowTo/EventBasedUI:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UMG/HowTo/EventBasedUI]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:note]
 この操作ガイドに進む前に、[](Engine/UMG) の概要を理解することをお勧めします。 
@@ -94,7 +56,7 @@ UI エレメントを作成する場合、作成するコンテンツを最適�
 
 ![](PropBinding_EventConstruct.png)
 
-ひとつめの例では、Character ブループリントにフレーム毎に [](Engine/Blueprints/UserGuide/CastNodes) ようにし、ヘルスとエネルギーの変数にアクセスするようにしました。ここでは、これを再度行い、参照として保存し、フレーム毎に行わなくてもいいようにします。これは前の方法に比べて若干コスト効率が高くなります。 
+ひとつめの例では、Character ブループリントにフレーム毎に [](Engine/Blueprints/UserGuide/CastNodes) するようにし、ヘルスとエネルギーの変数にアクセスするようにしました。ここでは、これを再度行い、参照として保存し、フレーム毎に行わなくてもいいようにします。これは前の方法に比べて若干コスト効率が高くなります。 
 
 次に進捗バーの値を Character ブループリント内の変数に直接バインドできます。 
 

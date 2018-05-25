@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3719888
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:1 -  UE4 をビルドするための Qt Creator の設定方法
 Crumbs:%ROOT%
@@ -79,7 +79,7 @@ IDE は個人の好みの問題です。
 	[REGION:note]
 	**[Build Settings (ビルド設定)]** メニューを開くと、Qt Creator はデフォルトで **[Edit build configuration: ]** が **Debug** モードになっていることが分かります。
 	[region: lightbox]
-	[![](SetupIDE_Step5_Note.png)(w:347 h:249)](SetupIDE_Step5_Note.png)
+	[![](SetupIDE_Step5_Note.png)(w:347)](SetupIDE_Step5_Note.png)
 	[/region]
 	[REGION:caption]
 	クリックしてフルサイズで表示

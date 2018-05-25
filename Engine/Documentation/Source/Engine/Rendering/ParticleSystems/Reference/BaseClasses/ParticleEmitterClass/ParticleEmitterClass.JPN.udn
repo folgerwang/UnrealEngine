@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750551
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Particle Emitter クラス
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:Cascade のエミッタリストを構成するパーティクルエミッタのプロパティ リファレンス
 Version:4.9
+tags:Particles
 
 ParticleEmitter は ParticleSystem に含まれる単体のパーティクル効果です。ParticleEmitter クラスには、以下のパブリック変数が含まれます。 
 
@@ -18,7 +19,7 @@ ParticleEmitter は ParticleSystem に含まれる単体のパーティクル効
 
 
 [COMMENT:none]
- Begin ParticleEmitter Table Includes 
+ BeginパーティクルTableインクルード ファイル 
 [/COMMENT]
 [COMMENT:none]
 

@@ -1,49 +1,9 @@
-﻿INTSourceChangelist:3599948
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:オンライン サブシステムの概要
 Crumbs:%ROOT%, Programming
 Description:オンライン プラットフォームに関連するさまざまなシステムの概要
 Version:4.9
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Programming/Online:title%](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/ue4_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Programming/Online:title%
-	[/PARAM]
-	[PARAM:description]
-		%Programming/Online:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming/Online]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Programming/Online:title%](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/ue4_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Programming/Online:title%
-	[/PARAM]
-	[PARAM:description]
-		%Programming/Online:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming/Online]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 
 [TOC(start:2)]
@@ -86,17 +46,11 @@ Version:4.9
 
 オンラインサービスのプロファイルサービスのインターフェース定義です。プロファイルサービスは、ユーザーのプロファイルおよびメタデータに関連付けにより定義されます (オンラインプレゼンス、アクセス許可など)。
 
-[COMMENT:none]
-詳細は [](Programming/Online/Interfaces/Profile) をご覧ください。
-[/COMMENT]
 
 #### フレンド
 
 オンラインサービスのフレンドサービスのインターフェース定義です。フレンドサービスとは、フレンドのメンテナンスやフレンドリストに関連するものすべてのことです。
 
-[COMMENT:none]
-詳細は [](Programming/Online/Interfaces/Friends) をご覧ください。
-[/COMMENT]
 
 #### セッション
 
@@ -108,85 +62,36 @@ Version:4.9
 
 既にクラウドに存在するファイルを共有するためのインターフェースです (他のユーザーとの共有は [ユーザークラウド](#ユーザークラウド) 参照)。
 
-[COMMENT:none]
-詳細は [](Programming/Online/Interfaces/SharedCloud) ページをご覧ください。
-[/COMMENT]
 
 #### ユーザークラウド
 
 ユーザーごとのクラウドファイル保存スペースのインターフェースです。
 
-[COMMENT:none]
-詳細は [](Programming/Online/Interfaces/UserCloud) ページをご覧ください。
-[/COMMENT]
 
 #### リーダーボード
 
 オンラインでリーダーボードへアクセスするインターフェースです。
 
-[COMMENT:none]
-詳細は [](Programming/Online/Interfaces/Leaderboards) をご覧ください。
-[/COMMENT]
 
 #### ボイス
 
 ゲーム中にネットワーク上のボイス コミュニケーションを提供するインターフェースです。
 
-[COMMENT:none]
-詳細は [](Programming/Online/Interfaces/Voice) をご覧ください。
-[/COMMENT]
 
 #### アチーブメント
 
 読み込み/書き込み/アチーブメントのアンロックを提供するインターフェースです。
 
-[COMMENT:none]
-詳細は [](Programming/Online/Interfaces/Achievements) をご覧ください。
-[/COMMENT]
-
 #### 外部 UI
 
 任意のプラットフォームの外部インターフェース (利用可能な場合) へアクセスするインターフェースです。
 
-[COMMENT:none]
-詳細は [](Programming/Online/Interfaces/ExternalUI) をご覧ください。
-[/COMMENT]
 
-
-## Reference
+## リファレンス
 
 [REGION:buttonlist]
-
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/Profile "%Programming/Online/Interfaces/Profile:Description%")
-[/COMMENT]
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/Friends "%Programming/Online/Interfaces/Friends:Description%")
-[/COMMENT]
-		* [](Programming/Online/Interfaces/Session "%Programming/Online/Interfaces/Session:Description%")
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/SharedCloud "%Programming/Online/Interfaces/SharedCloud:Description%")
-[/COMMENT]
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/UserCloud "%Programming/Online/Interfaces/UserCloud:Description%")
-[/COMMENT]
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/Leaderboards "%Programming/Online/Interfaces/Leaderboards:Description%")
-[/COMMENT]
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/Voice "%Programming/Online/Interfaces/Voice:Description%")
-[/COMMENT]
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/Achievements "%Programming/Online/Interfaces/Achievements:Description%")
-[/COMMENT]
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/ExternalUI "%Programming/Online/Interfaces/ExternalUI:Description%")
-[/COMMENT]
-		* [](Programming/Online/Types/ "%Programming/Online/Types:Description%")
-		[COMMENT:none]
-* [](Programming/Online/AsyncManager/ "%Programming/Online/AsyncManager:Description%")
-[/COMMENT]
-	
+* [](Programming/Online/Interfaces/Session "%Programming/Online/Interfaces/Session:Description%")
+* [](Programming/Online/Types/ "%Programming/Online/Types:Description%")	
 [/REGION]
 
 

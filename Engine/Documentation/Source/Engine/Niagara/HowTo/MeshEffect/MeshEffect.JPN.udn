@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3669916
+﻿INTSourceChangelist:3716096
 Availability:Docs
 Crumbs: %ROOT%, 
 Title:Niagara を使ってメッシュ ベースのエフェクトを作る
@@ -7,7 +7,7 @@ Type: how-to
 SkillLevel:Beginner
 Version:4.17
 parent:Engine/Niagara/HowTo
-order:1
+order:3
 tags:Niagara
 topic-image:
 
@@ -29,11 +29,15 @@ topic-image:
     
     ![](ME_02.png)
 
-1. FX_Mesh エミッターの **[Emitter Spawn]** セクションに進み、**[Render]** セクションで、**[Niagara Sprite Render Properties]** 上でクリックして表示されるリストから、**[Niagara Mesh Render Properties]** オプションを選択します。
+1. **[Render]** セクションに進み、**[Trashcan]** アイコンを押して、**Sprite Rendering** コンポーネントを取り除きます。 
 
     ![](ME_03.png)
 
-1. **[Mesh Rendering]** セクションを展開し、**[Particle Mesh]** セクションで、**Shape_Sphere** スタティックメッシュを **Particle Mesh** 入力にインプットします。
+1. **プラス** 記号のアイコンを押して、表示されるリストから **[Niagara Mesh Renderer Properties]** オプションを選択します。
+
+	 ![](ME_12.png)
+
+1. **[Mesh Rendering]** セクションを展開し、**[Particle Mesh]** で、**Shape_Sphere** スタティックメッシュをインプットします。
 
     ![](ME_04.png)
 
