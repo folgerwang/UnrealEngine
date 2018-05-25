@@ -495,11 +495,11 @@ public:
 			const FName& StatName = Event->GetName();
 
 			// Check if we've seen this stat yet 
-			bool bIsNew = true;
+			bool bIsNew = false;
 			if (StatSeenMap.Find(StatName) == nullptr)
 			{
 				StatSeenMap.Add(StatName, true);
-				bIsNew = false;
+				bIsNew = true;
 			}
 
 			const float EventTime = GPUStatsChildTimesIncluded
@@ -778,3 +778,5 @@ void FRenderQueryPool::ReleaseQuery(FRenderQueryRHIRef &Query)
 		Query = NULL;
 	}
 }
+
+PRAGMA_ENABLE_OPTIMIZATION

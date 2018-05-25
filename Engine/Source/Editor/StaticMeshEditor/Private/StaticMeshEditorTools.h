@@ -267,11 +267,10 @@ private:
 class FMeshSectionSettingsLayout : public TSharedFromThis<FMeshSectionSettingsLayout>
 {
 public:
-	FMeshSectionSettingsLayout( IStaticMeshEditor& InStaticMeshEditor, int32 InLODIndex, TArray<class IDetailCategoryBuilder*> &InLodCategories, bool *InCustomLODEditModePtr)
+	FMeshSectionSettingsLayout( IStaticMeshEditor& InStaticMeshEditor, int32 InLODIndex, TArray<class IDetailCategoryBuilder*> &InLodCategories)
 		: StaticMeshEditor( InStaticMeshEditor )
 		, LODIndex( InLODIndex )
 		, LodCategoriesPtr(&InLodCategories)
-		, CustomLODEditModePtr(InCustomLODEditModePtr)
 	{}
 
 	virtual ~FMeshSectionSettingsLayout();
@@ -344,7 +343,6 @@ private:
 	int32 LODIndex;
 
 	TArray<class IDetailCategoryBuilder*> *LodCategoriesPtr;
-	bool *CustomLODEditModePtr;
 };
 
 struct FSectionLocalizer
@@ -488,6 +486,9 @@ private:
 	void OnLODScreenSizeCommitted(float NewValue, ETextCommit::Type CommitType, FName PlatformGroupName, int32 LODIndex);
 	float GetScreenSizeWidgetWidth(int32 LODIndex) const;
 
+	FString GetSourceImportFilename(int32 LODIndex) const;
+	void SetSourceImportFilename(const FString& SourceFileName, int32 LODIndex) const;
+
 	void OnBuildSettingsExpanded(bool bIsExpanded, int32 LODIndex);
 	void OnReductionSettingsExpanded(bool bIsExpanded, int32 LODIndex);
 	void OnSectionSettingsExpanded(bool bIsExpanded, int32 LODIndex);
@@ -552,6 +553,5 @@ private:
 	TArray<class IDetailCategoryBuilder*> LodCategories;
 	IDetailCategoryBuilder* LodCustomCategory;
 
-	bool CustomLODEditMode;
 	bool DetailDisplayLODs[MAX_STATIC_MESH_LODS];
 };

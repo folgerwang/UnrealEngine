@@ -253,6 +253,9 @@ public:
 
 	virtual void RHISubmitCommandsHint() = 0;
 
+	// Not all RHIs need this (Mobile specific)
+	virtual void RHIDiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask) {};
+
 	// This method is queued with an RHIThread, otherwise it will flush after it is queued; without an RHI thread there is no benefit to queuing this frame advance commands
 	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) = 0;
 

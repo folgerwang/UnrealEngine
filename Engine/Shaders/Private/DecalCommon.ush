@@ -23,6 +23,8 @@ half3 FrameBufferDecalBlendOp(half4 Source)
 	return (Source.rgb*Source.a) + (Dest.rgb*(1.0 - Source.a));
 #elif DECAL_BLEND_MODE == DECALBLENDMODEID_EMISSIVE
 	return (Source.rgb*Source.a) + Dest.rgb;
+#elif DECAL_BLEND_MODE == DECALBLENDMODEID_ALPHACOMPOSITE
+	return Source.rgb + (Dest.rgb*(1.0 - Source.a));
 #else
 	return Source.rgb;
 #endif

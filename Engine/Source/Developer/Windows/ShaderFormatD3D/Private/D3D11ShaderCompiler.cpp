@@ -1122,6 +1122,11 @@ void CompileD3D11Shader(const FShaderCompilerInput& Input,FShaderCompilerOutput&
 		}
 		Output.Errors.Add(NewError);
 	}
+
+	if (Input.ExtraSettings.bExtractShaderSource)
+	{
+		Output.OptionalFinalShaderSource = PreprocessedShaderSource;
+	}
 }
 
 void CompileShader_Windows_SM5(const FShaderCompilerInput& Input,FShaderCompilerOutput& Output,const FString& WorkingDirectory)

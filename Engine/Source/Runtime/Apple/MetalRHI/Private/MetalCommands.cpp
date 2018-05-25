@@ -621,11 +621,6 @@ void FMetalRHICommandContext::RHISetRenderTargets(uint32 NumSimultaneousRenderTa
 	}
 }
 
-void FMetalDynamicRHI::RHIDiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask)
-{
-	// Deliberate do nothing - Metal doesn't care about this.
-}
-
 void FMetalRHICommandContext::RHISetRenderTargetsAndClear(const FRHISetRenderTargetsInfo& RenderTargetsInfo)
 {
 	@autoreleasepool {
@@ -1004,6 +999,11 @@ void FMetalRHICommandContext::RHISubmitCommandsHint()
 	@autoreleasepool {
     Context->SubmitCommandsHint();
 	}
+}
+
+void FMetalRHICommandContext::RHIDiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask)
+{
+	Context->GetCurrentState().DiscardRenderTargets(Depth, Stencil, ColorBitMask);
 }
 
 IRHICommandContext* FMetalDynamicRHI::RHIGetDefaultContext()

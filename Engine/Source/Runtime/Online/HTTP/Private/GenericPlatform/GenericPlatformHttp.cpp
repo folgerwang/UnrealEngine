@@ -259,8 +259,28 @@ FString FGenericPlatformHttp::GetMimeType(const FString& FilePath)
 
 FString FGenericPlatformHttp::GetDefaultUserAgent()
 {
-	static FString CachedUserAgent = FString::Printf(TEXT("game=%s, engine=UE4, version=%s, platform=%s, osver=%s"), FApp::GetProjectName(), *FEngineVersion::Current().ToString(), *FString(FPlatformProperties::IniPlatformName()), *FPlatformMisc::GetOSVersion());
+	//** strip/escape slashes and whitespace from components
+	static FString CachedUserAgent = FString::Printf(TEXT("%s/%s %s/%s"),
+		*EscapeUserAgentString(FApp::GetProjectName()),
+		*EscapeUserAgentString(FApp::GetBuildVersion()),
+		*EscapeUserAgentString(FString(FPlatformProperties::IniPlatformName())),
+		*EscapeUserAgentString(FPlatformMisc::GetOSVersion()));
 	return CachedUserAgent;
+}
+
+FString FGenericPlatformHttp::EscapeUserAgentString(const FString& UnescapedString)
+{
+	if (UnescapedString.Contains(" ") || UnescapedString.Contains("/"))
+	{
+		FString EscapedString;
+		EscapedString = UnescapedString.Replace(TEXT(" "), TEXT(""));
+		EscapedString = UnescapedString.Replace(TEXT("/"), TEXT("+"));
+		return EscapedString;
+	}
+	else
+	{
+		return UnescapedString;
+	}
 }
 
 TOptional<FString> FGenericPlatformHttp::GetOperatingSystemProxyAddress()

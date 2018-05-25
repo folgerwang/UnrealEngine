@@ -8,6 +8,7 @@
 #include "IHardwareSurveyModule.h"
 #include "AnalyticsEventAttribute.h"
 #include "Interfaces/IAnalyticsProvider.h"
+#include "Stats/Stats.h"
 
 /**
  * Implements the HardwareSurvey module.
@@ -61,6 +62,8 @@ protected:
 
 	bool TickHardwareSurvey(float Delta)
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_HardwareSurveyModule_TickHardwareSurvey);
+
 		bool bContinueTick = true;
 		if (bPendingHardwareSurveyResults)
 		{

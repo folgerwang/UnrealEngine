@@ -38,7 +38,7 @@ public:
 	: EditorContentPackages(inEditorContentPackages)
 	{
 		ArIsObjectReferenceCollector = true;
-		ArIsPersistent = true;
+		this->SetIsPersistent(true);
 		ArIgnoreClassRef = true;
 	}
 

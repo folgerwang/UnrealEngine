@@ -640,18 +640,22 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		&& bUseGBuffer;
 
 	bool bComputeLightGrid = false;
-	if (bUseGBuffer)
+	// Simple forward shading doesn't support local lights. No need to compute light grid
+	if (!IsSimpleForwardShadingEnabled(GetFeatureLevelShaderPlatform(FeatureLevel)))
 	{
-		bComputeLightGrid = bRenderDeferredLighting;
-	}
-	else
-	{
-		bComputeLightGrid = ViewFamily.EngineShowFlags.Lighting;
-	}
+		if (bUseGBuffer)
+		{
+			bComputeLightGrid = bRenderDeferredLighting;
+		}
+		else
+		{
+			bComputeLightGrid = ViewFamily.EngineShowFlags.Lighting;
+		}
 
-	bComputeLightGrid |= (
-		ShouldRenderVolumetricFog() ||
-		ViewFamily.ViewMode != VMI_Lit);
+		bComputeLightGrid |= (
+			ShouldRenderVolumetricFog() ||
+			ViewFamily.ViewMode != VMI_Lit);
+	}
 
 	if (ClearMethodCVar)
 	{
@@ -1202,17 +1206,15 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 			}
 		}
 
-		RenderDynamicSkyLighting(RHICmdList, VelocityRT, DynamicBentNormalAO);
-		ServiceLocalQueue();
+		// Render diffuse sky lighting and reflections that only operate on opaque pixels
+		RenderDeferredReflectionsAndSkyLighting(RHICmdList, DynamicBentNormalAO, VelocityRT);
+
+		DynamicBentNormalAO = NULL;
 
 		// SSS need the SceneColor finalized as an SRV.
 		ResolveSceneColor(RHICmdList);
 
-		// Render reflections that only operate on opaque pixels
-		RenderDeferredReflections(RHICmdList, DynamicBentNormalAO, VelocityRT);
 		ServiceLocalQueue();
-
-		DynamicBentNormalAO = NULL;
 
 		// Post-lighting composition lighting stage
 		// e.g. ScreenSpaceSubsurfaceScattering
@@ -1331,13 +1333,13 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		RendererModule.RenderOverlayExtensions(View, RHICmdList, SceneContext);
 	}
 
-	if (ViewFamily.EngineShowFlags.VisualizeDistanceFieldAO || ViewFamily.EngineShowFlags.VisualizeDistanceFieldGI)
+	if (ViewFamily.EngineShowFlags.VisualizeDistanceFieldAO)
 	{
 		// Use the skylight's max distance if there is one, to be consistent with DFAO shadowing on the skylight
 		const float OcclusionMaxDistance = Scene->SkyLight && !Scene->SkyLight->bWantsStaticShadowing ? Scene->SkyLight->OcclusionMaxDistance : Scene->DefaultMaxDistanceFieldOcclusionDistance;
 		TRefCountPtr<IPooledRenderTarget> DummyOutput;
 		RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_RenderDistanceFieldLighting));
-		RenderDistanceFieldLighting(RHICmdList, FDistanceFieldAOParameters(OcclusionMaxDistance), VelocityRT, DummyOutput, DummyOutput, false, ViewFamily.EngineShowFlags.VisualizeDistanceFieldAO, ViewFamily.EngineShowFlags.VisualizeDistanceFieldGI); 
+		RenderDistanceFieldLighting(RHICmdList, FDistanceFieldAOParameters(OcclusionMaxDistance), VelocityRT, DummyOutput, false, ViewFamily.EngineShowFlags.VisualizeDistanceFieldAO); 
 		ServiceLocalQueue();
 	}
 

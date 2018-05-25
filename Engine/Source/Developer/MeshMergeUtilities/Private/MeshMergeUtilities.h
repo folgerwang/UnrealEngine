@@ -5,12 +5,18 @@
 #include "IMeshMergeUtilities.h"
 #include "SceneTypes.h"
 
+class FMeshMergeDataTracker;
+struct FMeshLODKey;
+
+typedef TPair<uint32, uint32> MaterialRemapPair;
+
 /**
  * Mesh Merge Utilities
  */
 class MESHMERGEUTILITIES_API FMeshMergeUtilities : public IMeshMergeUtilities
 {
 public:	
+	friend class FProxyGenerationProcessor;
 	FMeshMergeUtilities();
 	virtual ~FMeshMergeUtilities() override;
 	virtual void BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObject>>& OptionObjects, IMaterialBakingAdapter* Adapter) const override;
@@ -45,7 +51,9 @@ protected:
 	/** Merges flattened material into atlas textures */
 	void MergeFlattenedMaterials(TArray<struct FFlattenMaterial>& InMaterialList, int32 InGutter, FFlattenMaterial& OutMergedMaterial, TArray<FUVOffsetScalePair>& OutUVTransforms) const;
 	/** Merges flattened material into binned textures */
-	void FlattenBinnedMaterials(TArray<struct FFlattenMaterial>& InMaterialList, const TArray<FBox2D>& InMaterialBoxes, int32 InGutter, FFlattenMaterial& OutMergedMaterial, TArray<FUVOffsetScalePair>& OutUVTransforms) const;
+	void FlattenBinnedMaterials(TArray<struct FFlattenMaterial>& InMaterialList, const TArray<FBox2D>& InMaterialBoxes, int32 InGutter, bool bCopyOnlyMaskedPixels, FFlattenMaterial& OutMergedMaterial, TArray<FUVOffsetScalePair>& OutUVTransforms) const;
+	/** Helper function to create the final merged raw meshes */
+	void CreateMergedRawMeshes(FMeshMergeDataTracker& InDataTracker, const FMeshMergingSettings& InSettings, const TArray<UStaticMeshComponent*>& InStaticMeshComponentsToMerge, const TArray<UMaterialInterface*>& InUniqueMaterials, const TMap<UMaterialInterface*, UMaterialInterface*>& InCollapsedMaterialMap, const TMultiMap<FMeshLODKey, MaterialRemapPair>& InOutputMaterialsMap, bool bInMergeAllLODs, bool bInMergeMaterialData, const FVector& InMergedAssetPivot, TArray<FRawMesh>& OutMergedRawMeshes) const;
 protected:
 	/** Flattens out emissive scale across all flatten material instances */
 	float FlattenEmissivescale(TArray<struct FFlattenMaterial>& InMaterialList) const;
@@ -54,7 +62,7 @@ protected:
 	/** Populates a single property entry with correct material baking settings */
 	void PopulatePropertyEntry(const FMaterialProxySettings& MaterialSettings, EMaterialProperty MaterialProperty, struct FPropertyEntry& InOutPropertyEntry) const;
 	/** Copies part (box) from a texture to another texture */
-	void CopyTextureRect(const FColor* Src, const FIntPoint& SrcSize, FColor* Dst, const FIntPoint& DstSize, const FIntPoint& DstPos) const;
+	void CopyTextureRect(const FColor* Src, const FIntPoint& SrcSize, FColor* Dst, const FIntPoint& DstSize, const FIntPoint& DstPos, bool bCopyOnlyMaskedPixels = false) const;
 	/** Sets a part (box) on a texture to ColorValue */
 	void SetTextureRect(const FColor& ColorValue, const FIntPoint& SrcSize, FColor* Dst, const FIntPoint& DstSize, const FIntPoint& DstPos) const;
 	/** Conditionally resizes the source data into OutImage */

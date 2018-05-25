@@ -102,6 +102,9 @@ public:
 		return FString(TEXT("Engine/Physics/PhysicsAssetEditor"));
 	}
 
+	/** IHasPersonaToolkit interface */
+	virtual TSharedRef<IPersonaToolkit> GetPersonaToolkit() const override { return PersonaToolkit.ToSharedRef(); }
+
 	/** FGCObject interface */
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
@@ -120,8 +123,6 @@ public:
 	void HandleSelectionChanged(const TArrayView<TSharedPtr<ISkeletonTreeItem>>& InSelectedItems, ESelectInfo::Type InSelectInfo);
 
 	void HandleCreateNewConstraint(int32 BodyIndex0, int32 BodyIndex1);
-
-	TSharedRef<IPersonaToolkit> GetPersonaToolkit() const { return PersonaToolkit.ToSharedRef(); }
 
 	TSharedPtr<ISkeletonTree> GetSkeletonTree() const { return SkeletonTree.ToSharedRef(); }
 

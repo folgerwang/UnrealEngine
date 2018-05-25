@@ -627,7 +627,7 @@ FPrimitiveSceneProxy* UWidgetComponent::CreateSceneProxy()
 		return nullptr;
 	}
 
-	if (WidgetRenderer.IsValid() && CurrentSlateWidget.IsValid())
+	if (WidgetRenderer && CurrentSlateWidget.IsValid())
 	{
 		// Create a new MID for the current base material
 		{
@@ -774,9 +774,9 @@ void UWidgetComponent::OnRegister()
 				RegisterHitTesterWithViewport(GameViewportWidget);
 			}
 
-			if ( !WidgetRenderer.IsValid() && !GUsingNullRHI )
+			if ( !WidgetRenderer && !GUsingNullRHI )
 			{
-				WidgetRenderer = MakeShareable(new FWidgetRenderer(bApplyGammaCorrection));
+				WidgetRenderer = new FWidgetRenderer(bApplyGammaCorrection);
 			}
 		}
 
@@ -873,7 +873,11 @@ void UWidgetComponent::ReleaseResources()
 		Widget = nullptr;
 	}
 
-	WidgetRenderer.Reset();
+	if (WidgetRenderer)
+	{
+		BeginCleanup(WidgetRenderer);
+		WidgetRenderer = nullptr;
+	}
 
 	UnregisterWindow();
 }
@@ -1274,7 +1278,7 @@ void UWidgetComponent::InitWidget()
 	{
 		if ( WidgetClass && Widget == nullptr && GetWorld() )
 		{
-			Widget = CreateWidget<UUserWidget>(GetWorld(), WidgetClass);
+			Widget = CreateWidget(GetWorld(), WidgetClass);
 		}
 		
 #if WITH_EDITOR
@@ -1852,7 +1856,7 @@ void UWidgetComponent::SetWidgetClass(TSubclassOf<UUserWidget> InWidgetClass)
 		{
 			if (WidgetClass)
 			{
-				UUserWidget* NewWidget = CreateWidget<UUserWidget>(GetWorld(), WidgetClass);
+				UUserWidget* NewWidget = CreateWidget(GetWorld(), WidgetClass);
 				SetWidget(NewWidget);
 			}
 			else

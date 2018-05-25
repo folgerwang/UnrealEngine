@@ -32,15 +32,15 @@ static_assert(GParticleCurveTextureSizeY <= 0xffff, "Curve texture taller than s
 TGlobalResource<FParticleCurveTexture> GParticleCurveTexture;
 
 /*-----------------------------------------------------------------------------
-	Shaders used for uploading curves to the GPU.
+Shaders used for uploading curves to the GPU.
 -----------------------------------------------------------------------------*/
 
 /**
 * Uniform buffer to hold parameters for particle curve injection.
 */
 BEGIN_UNIFORM_BUFFER_STRUCT(FParticleCurveInjectionParameters, )
-	UNIFORM_MEMBER(FVector2D, PixelScale)
-	UNIFORM_MEMBER(FVector2D, CurveOffset)
+UNIFORM_MEMBER(FVector2D, PixelScale)
+UNIFORM_MEMBER(FVector2D, CurveOffset)
 END_UNIFORM_BUFFER_STRUCT(FParticleCurveInjectionParameters)
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleCurveInjectionParameters, TEXT("ParticleCurveInjection"));
@@ -48,8 +48,8 @@ IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleCurveInjectionParameters, TEXT("Particl
 typedef TUniformBufferRef<FParticleCurveInjectionParameters> FParticleCurveInjectionBufferRef;
 
 /**
- * Vertex shader for simulating particles on the GPU.
- */
+* Vertex shader for simulating particles on the GPU.
+*/
 class FParticleCurveInjectionVS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FParticleCurveInjectionVS, Global);
@@ -73,8 +73,8 @@ public:
 	}
 
 	/**
-	 * Sets parameters for particle injection.
-	 */
+	* Sets parameters for particle injection.
+	*/
 	void SetParameters(FRHICommandList& RHICmdList, const FVector2D& CurveOffset)
 	{
 		FParticleCurveInjectionParameters Parameters;
@@ -88,8 +88,8 @@ public:
 };
 
 /**
- * Pixel shader for simulating particles on the GPU.
- */
+* Pixel shader for simulating particles on the GPU.
+*/
 class FParticleCurveInjectionPS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FParticleCurveInjectionPS, Global);
@@ -125,8 +125,8 @@ IMPLEMENT_SHADER_TYPE(, FParticleCurveInjectionVS, TEXT("/Engine/Private/Particl
 IMPLEMENT_SHADER_TYPE(, FParticleCurveInjectionPS, TEXT("/Engine/Private/ParticleCurveInjectionShader.usf"), TEXT("PixelMain"), SF_Pixel);
 
 /**
- * Vertex declaration for injecting curves.
- */
+* Vertex declaration for injecting curves.
+*/
 class FParticleCurveInjectionVertexDeclaration : public FRenderResource
 {
 public:
@@ -167,12 +167,12 @@ public:
 TGlobalResource<FParticleCurveInjectionVertexDeclaration> GParticleCurveInjectionVertexDeclaration;
 
 /**
- * Transfers a list of curves to a texture on the GPU. All main memory allocated
- * for curve samples is released.
- * @param CurveTextureRHI - The texture holding the curve data, sampled by the particle simulation shader
- * @param CurveTextureTargetRHI - The render target for the curve texture.
- * @param InPendingCurves - Curves to be stored on the GPU.
- */
+* Transfers a list of curves to a texture on the GPU. All main memory allocated
+* for curve samples is released.
+* @param CurveTextureRHI - The texture holding the curve data, sampled by the particle simulation shader
+* @param CurveTextureTargetRHI - The render target for the curve texture.
+* @param InPendingCurves - Curves to be stored on the GPU.
+*/
 static void InjectCurves(
 	FRHICommandListImmediate& RHICmdList,
 	FTexture2DRHIParamRef CurveTextureRHI,

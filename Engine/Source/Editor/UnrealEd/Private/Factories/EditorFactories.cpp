@@ -253,6 +253,8 @@
 #include "Editor/EditorPerProjectUserSettings.h"
 #include "JsonObjectConverter.h"
 #include "MaterialEditorModule.h"
+#include "Factories/CurveLinearColorAtlasFactory.h"
+#include "Curves/CurveLinearColorAtlas.h"
 
 #include "Misc/App.h"
 
@@ -1968,6 +1970,61 @@ UObject* UCanvasRenderTarget2DFactoryNew::FactoryCreateNew(UClass* Class,UObject
 	// initialize the resource
 	Result->InitAutoFormat( Width, Height );
 	return( Result );
+}
+
+/*-----------------------------------------------------------------------------
+UCurveLinearColorAtlasFactory
+-----------------------------------------------------------------------------*/
+
+UCurveLinearColorAtlasFactory::UCurveLinearColorAtlasFactory(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	SupportedClass = UCurveLinearColorAtlas::StaticClass();
+	bCreateNew = true;
+	bEditAfterNew = true;
+	bEditorImport = false;
+
+	Width = 256;
+	Height = 256;
+	Format = 0;
+}
+
+FText UCurveLinearColorAtlasFactory::GetDisplayName() const
+{
+	return LOCTEXT("CurveAtlas", "Curve Atlas");
+}
+
+uint32 UCurveLinearColorAtlasFactory::GetMenuCategories() const
+{
+	return EAssetTypeCategories::Misc;
+}
+
+UObject* UCurveLinearColorAtlasFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
+{
+	// Do not create a texture with bad dimensions.
+	if ((Width & (Width - 1)) || (Height & (Height - 1)))
+	{
+		return nullptr;
+	}
+
+	UCurveLinearColorAtlas* Object = NewObject<UCurveLinearColorAtlas>(InParent, Class, Name, Flags);
+	Object->Source.Init2DWithMipChain(Width, Height, TSF_BGRA8);
+	Object->SrcData.AddUninitialized(Object->TextureSize*Object->TextureSize);
+	uint8* MipData = Object->Source.LockMip(0);
+	for (uint32 y = 0; y < Object->TextureSize; y++)
+	{
+		// Create base mip for the texture we created.
+		FColor Src = FLinearColor::White.ToFColor(false);
+		for (uint32 x = 0; x < Object->TextureSize; x++)
+		{
+			Object->SrcData[x*Object->TextureSize + y] = Src;
+		}
+	}
+	FMemory::Memcpy(MipData, Object->SrcData.GetData(), Object->TextureSize*Object->TextureSize * sizeof(FColor));
+	Object->Source.UnlockMip(0);
+
+	Object->UpdateResource();
+	return Object;
 }
 
 
@@ -5026,7 +5083,7 @@ UTextureCube* UReimportTextureFactory::CreateTextureCube( UObject* InParent, FNa
 bool UReimportTextureFactory::CanReimport( UObject* Obj, TArray<FString>& OutFilenames )
 {	
 	UTexture* pTex = Cast<UTexture>(Obj);
-	if( pTex && !pTex->IsA<UTextureRenderTarget>() )
+	if( pTex && !pTex->IsA<UTextureRenderTarget>() && !pTex->IsA<UCurveLinearColorAtlas>())
 	{
 		pTex->AssetImportData->ExtractFilenames(OutFilenames);
 		return true;
@@ -5188,7 +5245,8 @@ bool UReimportFbxStaticMeshFactory::CanReimport( UObject* Obj, TArray<FString>& 
 				//This mesh was import with a scene import, we cannot reimport it
 				return false;
 			}
-			else if (!FbxAssetImportData)
+
+			if (FPaths::GetExtension(Mesh->AssetImportData->GetFirstFilename()) == TEXT("abc"))
 			{
 				return false;
 			}
@@ -5263,6 +5321,13 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		ReimportUI->bIsReimport = true;
 		ReimportUI->StaticMeshImportData = ImportData;
 		
+		//Force the bAutoGenerateCollision to false if the Mesh Customize collision is true
+		bool bOldAutoGenerateCollision = ReimportUI->StaticMeshImportData->bAutoGenerateCollision;
+		if (Mesh->bCustomizedCollision)
+		{
+			ReimportUI->StaticMeshImportData->bAutoGenerateCollision = false;
+		}
+		
 		bool bImportOperationCanceled = false;
 		bool bForceImportType = true;
 		bool bShowOptionDialog = true;
@@ -5270,6 +5335,12 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		bool bIsObjFormat = false;
 		bool bIsAutomated = false;
 		GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, bForceImportType, FBXIT_StaticMesh, Mesh);
+		
+		//Put back the original bAutoGenerateCollision settings since the user cancel the re-import
+		if (bOperationCanceled && Mesh->bCustomizedCollision)
+		{
+			ReimportUI->StaticMeshImportData->bAutoGenerateCollision = bOldAutoGenerateCollision;
+		}
 	}
 	ImportOptions->bCanShowDialog = !IsUnattended;
 	//We do not touch bAutoComputeLodDistances when we re-import, setting it to true will make sure we do not change anything.

@@ -15,12 +15,6 @@
 
 DEFINE_LOG_CATEGORY(LogLoginFlow);
 
-#define LOGIN_TOKEN_FOUND FString()
-#define LOGIN_ERROR_UNKNOWN TEXT("com.epicgames.login.unknown")
-#define LOGIN_CANCELLED TEXT("com.epicgames.login.cancelled")
-#define LOGIN_PAGELOADFAILED TEXT("com.epicgames.login.pageloadfailed")
-#define LOGIN_CEFLOADFAILED TEXT("com.epicgames.login.cefloadfailed")
-
 struct FLoginFlowProperties
 {
 	/** Instance of the login flow */
@@ -39,8 +33,25 @@ struct FLoginFlowProperties
 	bool bIsDisplayed;
 };
 
+struct FAccountCreationFlowProperties
+{
+	/** Instance of the login flow */
+	FString InstanceId;
+	/** Delegate fired on every RedirectURL detected by the web interface */
+	FOnLoginRedirectURL OnRedirectURL;
+	/** Wrapper slate widget around the actual creation flow web page */
+	TSharedPtr<SBox> PopupHolder;
+	/** Delegate fired externally when the creation flow is dismissed */
+	FLoginFlowManager::FOnPopupDismissed OnPopupDismissed;
+	/** Delegate fired when the creation flow is complete for any reason */
+	FOnLoginFlowComplete OnComplete;
+	/** Structure containing results of creation flow attempt */
+	FLoginFlowResult Result;
+	/** Is the creation flow actively being shown */
+	bool bIsDisplayed;
+};
+
 FLoginFlowManager::FLoginFlowManager()
-	: bLoginFlowInProgress(false)
 {
 }
 
@@ -58,6 +69,12 @@ void FLoginFlowManager::Reset()
 		PendingLogin = nullptr;
 	}
 
+	if (PendingAccountCreation.IsValid())
+	{
+		PendingAccountCreation->OnPopupDismissed.ExecuteIfBound();
+		PendingAccountCreation = nullptr;
+	}
+
 	for (auto& OnlineParamPair : OnlineSubsystemsMap)
 	{
 		FOnlineParams& OnlineParams = OnlineParamPair.Value;
@@ -69,6 +86,7 @@ void FLoginFlowManager::Reset()
 			if (OnlineExternalUI.IsValid())
 			{
 				OnlineExternalUI->ClearOnLoginFlowUIRequiredDelegate_Handle(OnlineParams.LoginFlowUIRequiredDelegateHandle);
+				OnlineExternalUI->ClearOnCreateAccountFlowUIRequiredDelegate_Handle(OnlineParams.AccountCreationFlowUIRequiredDelegateHandle);
 			}
 			if (OnlineIdentity.IsValid())
 			{
@@ -79,7 +97,7 @@ void FLoginFlowManager::Reset()
 	OnlineSubsystemsMap.Empty();
 }
 
-bool FLoginFlowManager::AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPopup& InPopupDelegate, bool bPersistCookies)
+bool FLoginFlowManager::AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPopup& InPopupDelegate, const FOnDisplayPopup& InCreationFlowPopupDelegate, bool bPersistCookies)
 {
 	bool bSuccess = false;
 
@@ -96,10 +114,14 @@ bool FLoginFlowManager::AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPop
 			{
 				IWebBrowserSingleton* WebBrowserSingleton = IWebBrowserModule::Get().GetSingleton();
 				FString ContextName = FString::Printf(TEXT("LoginFlowContext_%s"), *OnlineIdentifier.ToString());
+#if !UE_BUILD_SHIPPING
+				WebBrowserSingleton->SetDevToolsShortcutEnabled(true);
+#endif
 
 				FOnlineParams& NewParams = OnlineSubsystemsMap.Add(OnlineIdentifier);
 				NewParams.OnlineIdentifier = OnlineIdentifier;
-				NewParams.OnDisplayPopup = InPopupDelegate;
+				NewParams.OnLoginFlowPopup = InPopupDelegate;
+				NewParams.OnAccountCreationFlowPopup = InCreationFlowPopupDelegate;
 				NewParams.BrowserContextSettings = MakeShared<FBrowserContextSettings>(ContextName);
 				NewParams.BrowserContextSettings->bPersistSessionCookies = bPersistCookies;
 				if (NewParams.BrowserContextSettings->bPersistSessionCookies)
@@ -116,8 +138,9 @@ bool FLoginFlowManager::AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPop
 				}
 
 				NewParams.LoginFlowLogoutDelegateHandle = OnlineIdentity->AddOnLoginFlowLogoutDelegate_Handle(FOnLoginFlowLogoutDelegate::CreateSP(this, &FLoginFlowManager::OnLoginFlowLogout, OnlineIdentifier));
-
+				
 				NewParams.LoginFlowUIRequiredDelegateHandle = OnlineExternalUI->AddOnLoginFlowUIRequiredDelegate_Handle(FOnLoginFlowUIRequiredDelegate::CreateSP(this, &FLoginFlowManager::OnLoginFlowStarted, OnlineIdentifier));
+				NewParams.AccountCreationFlowUIRequiredDelegateHandle = OnlineExternalUI->AddOnCreateAccountFlowUIRequiredDelegate_Handle(FOnCreateAccountFlowUIRequiredDelegate::CreateSP(this, &FLoginFlowManager::OnAccountCreationFlowStarted, OnlineIdentifier));
 				bSuccess = true;
 			}
 		}
@@ -147,14 +170,14 @@ void FLoginFlowManager::OnLoginFlowStarted(const FString& RequestedURL, const FO
 	if (Params)
 	{
 		// check for login in flight (one at a time)
-		if (PendingLogin.IsValid())
+		if (IsFlowInProgress())
 		{
 			UE_LOG(LogLoginFlow, Error, TEXT("Simultaneous login flows not supported"));
 			return;
 		}
 
 		// make sure we have a display callback currently bound
-		if (!Params->OnDisplayPopup.IsBound())
+		if (!Params->OnLoginFlowPopup.IsBound())
 		{
 			UE_LOG(LogLoginFlow, Error, TEXT("Login did not have display code bound to OnLoginFlowStarted."));
 			return;
@@ -173,7 +196,7 @@ void FLoginFlowManager::OnLoginFlowStarted(const FString& RequestedURL, const FO
 		SAssignNew(PendingLogin->PopupHolder, SBox);
 
 		// give the widget to the App to display and get back a callback we should use to dismiss it
-		PendingLogin->OnPopupDismissed = Params->OnDisplayPopup.Execute(PendingLogin->PopupHolder.ToSharedRef());
+		PendingLogin->OnPopupDismissed = Params->OnLoginFlowPopup.Execute(PendingLogin->PopupHolder.ToSharedRef());
 
 		// generate a login flow chromium widget
 		ILoginFlowModule::FCreateSettings CreateSettings;
@@ -262,7 +285,7 @@ bool FLoginFlowManager::OnLoginFlow_RedirectURL(const FString& RedirectURL, FStr
 
 void FLoginFlowManager::CancelLoginFlow()
 {
-	if (!PendingLogin.IsValid())
+	if (!PendingLogin.IsValid() || PendingLogin->Result.IsComplete())
 	{
 		return;
 	}
@@ -280,14 +303,166 @@ void FLoginFlowManager::FinishLogin()
 		UE_LOG(LogLoginFlow, Warning, TEXT("Login Flow failed with error: %s"), PendingLogin->Result.Error.ToLogString());
 	}
 
+	// fire the login complete callback
+	PendingLogin->OnComplete.ExecuteIfBound(PendingLogin->Result);
+	
 	// dismiss the popup
 	PendingLogin->OnPopupDismissed.ExecuteIfBound();
 
-	// fire the login complete callback
-	PendingLogin->OnComplete.Execute(PendingLogin->Result);
-
 	// clear this object so we can handle another login
 	PendingLogin.Reset();
+}
+
+
+void FLoginFlowManager::OnAccountCreationFlow_Error(ELoginFlowErrorResult ErrorType, const FString& ErrorInfo, FString InstanceId)
+{
+	if (!PendingAccountCreation.IsValid() || PendingAccountCreation->InstanceId != InstanceId)
+	{
+		// assume we got canceled
+		return;
+	}
+
+	FString ErrorString = ErrorInfo;
+	if (ErrorString.IsEmpty())
+	{
+		// try to get more info from the type
+		switch (ErrorType)
+		{
+			case ELoginFlowErrorResult::LoadFail:
+				ErrorString = PendingAccountCreation->bIsDisplayed ? LOGIN_PAGELOADFAILED : LOGIN_CEFLOADFAILED;
+				break;
+			default:
+				ErrorString = LOGIN_ERROR_UNKNOWN;
+				break;
+		}
+	}
+
+	PendingAccountCreation->Result.Error.SetFromErrorCode(ErrorString);
+	FinishAccountCreation();
+}
+
+void FLoginFlowManager::OnAccountCreationFlow_Close(const FString& CloseInfo, FString InstanceId)
+{
+	if (!PendingAccountCreation.IsValid() || PendingAccountCreation->InstanceId != InstanceId)
+	{
+		// assume we got canceled
+		return;
+	}
+
+	PendingAccountCreation->Result.Error.SetFromErrorCode(CloseInfo);
+	FinishAccountCreation();
+}
+
+bool FLoginFlowManager::OnAccountCreationFlow_RedirectURL(const FString& RedirectURL, FString InstanceId)
+{
+	if (!PendingAccountCreation.IsValid() || PendingAccountCreation->InstanceId != InstanceId)
+	{
+		return false;
+	}
+
+	FLoginFlowResult Result = PendingAccountCreation->OnRedirectURL.Execute(RedirectURL);
+	if (Result.IsComplete())
+	{
+		PendingAccountCreation->Result = Result;
+		FinishAccountCreation();
+		return true;
+	}
+
+	return false;
+}
+
+void FLoginFlowManager::OnAccountCreationFlowStarted(const FString& RequestedURL, const FOnLoginRedirectURL& OnRedirectURL, const FOnLoginFlowComplete& OnAccountCreationFlowComplete, bool& bOutShouldContinueAccountCreation, FName InOnlineIdentifier)
+{
+	bOutShouldContinueAccountCreation = false;
+
+	FOnlineParams* Params = OnlineSubsystemsMap.Find(InOnlineIdentifier);
+	if (Params)
+	{
+		// check for login in flight (one at a time)
+		if (IsFlowInProgress())
+		{
+			UE_LOG(LogLoginFlow, Error, TEXT("Simultaneous login flows not supported"));
+			return;
+		}
+
+		// make sure we have a display callback currently bound
+		if (!Params->OnAccountCreationFlowPopup.IsBound())
+		{
+			UE_LOG(LogLoginFlow, Error, TEXT("Account creation did not have display code bound to OnLoginFlowStarted."));
+			return;
+		}
+
+		bOutShouldContinueAccountCreation = true;
+
+		// save the pending order for reference later
+		PendingAccountCreation = MakeUnique<FAccountCreationFlowProperties>();
+		PendingAccountCreation->InstanceId = FGuid::NewGuid().ToString();
+		PendingAccountCreation->OnRedirectURL = OnRedirectURL;
+		PendingAccountCreation->OnComplete = OnAccountCreationFlowComplete;
+		PendingAccountCreation->bIsDisplayed = false;
+
+		// create a placeholder widget to display while this process is going on
+		SAssignNew(PendingAccountCreation->PopupHolder, SBox);
+
+		// give the widget to the App to display and get back a callback we should use to dismiss it
+		PendingAccountCreation->OnPopupDismissed = Params->OnAccountCreationFlowPopup.Execute(PendingAccountCreation->PopupHolder.ToSharedRef());
+
+		// generate a login flow chromium widget
+		ILoginFlowModule::FCreateSettings CreateSettings;
+		CreateSettings.Url = RequestedURL;
+		CreateSettings.BrowserContextSettings = Params->BrowserContextSettings;
+
+		// Setup will allow login flow module events to trigger passed in delegates
+		CreateSettings.CloseCallback = FOnLoginFlowRequestClose::CreateSP(this, &FLoginFlowManager::OnAccountCreationFlow_Close, PendingAccountCreation->InstanceId);
+		CreateSettings.ErrorCallback = FOnLoginFlowError::CreateSP(this, &FLoginFlowManager::OnAccountCreationFlow_Error, PendingAccountCreation->InstanceId);
+		CreateSettings.RedirectCallback = FOnLoginFlowRedirectURL::CreateSP(this, &FLoginFlowManager::OnAccountCreationFlow_RedirectURL, PendingAccountCreation->InstanceId);
+		TSharedRef<SWidget> AccountCreationFlowWidget = ILoginFlowModule::Get().CreateLoginFlowWidget(CreateSettings);
+
+		// make sure none of the delegates were called during creation (would invalidate this ptr)
+		if (PendingAccountCreation.IsValid())
+		{
+			// put this widget into the holder
+			PendingAccountCreation->PopupHolder->SetContent(AccountCreationFlowWidget);
+			PendingAccountCreation->bIsDisplayed = true;
+
+			// focus the login flow widget
+			FSlateApplication::Get().SetKeyboardFocus(AccountCreationFlowWidget, EFocusCause::SetDirectly);
+		}
+	}
+	else
+	{
+		UE_LOG(LogLoginFlow, Error, TEXT("Online platform requesting account creation flow not registered [%s]"), *InOnlineIdentifier.ToString());
+	}
+}
+
+void FLoginFlowManager::CancelAccountCreationFlow()
+{
+	if (!PendingAccountCreation.IsValid() || PendingAccountCreation->Result.IsComplete())
+	{
+		return;
+	}
+
+	PendingAccountCreation->Result.Error.SetFromErrorCode(LOGIN_CANCELLED);
+	FinishAccountCreation();
+}
+
+void FLoginFlowManager::FinishAccountCreation()
+{
+	check(PendingAccountCreation.IsValid());
+
+	if (!PendingAccountCreation->Result.Error.bSucceeded)
+	{
+		UE_LOG(LogLoginFlow, Warning, TEXT("Account Creation Flow failed with error: %s"), PendingAccountCreation->Result.Error.ToLogString());
+	}
+
+	// fire the login complete callback
+	PendingAccountCreation->OnComplete.ExecuteIfBound(PendingAccountCreation->Result);
+
+	// dismiss the popup
+	PendingAccountCreation->OnPopupDismissed.ExecuteIfBound();
+
+	// clear this object so we can handle another login
+	PendingAccountCreation.Reset();
 }
 
 void FLoginFlowManager::OnLoginFlowLogout(const TArray<FString>& LoginDomains, FName InOnlineIdentifier)
@@ -295,16 +470,25 @@ void FLoginFlowManager::OnLoginFlowLogout(const TArray<FString>& LoginDomains, F
 	FOnlineParams* Params = OnlineSubsystemsMap.Find(InOnlineIdentifier);
 	if (Params)
 	{
-		IWebBrowserSingleton* WebBrowserSingleton = IWebBrowserModule::Get().GetSingleton();
-		TOptional<FString> ContextId;
-		if (Params->BrowserContextSettings.IsValid())
+		if (LoginDomains.Num() > 0)
 		{
-			ContextId = Params->BrowserContextSettings->Id;
-		}
-		TSharedPtr<IWebBrowserCookieManager> CookieManager = WebBrowserSingleton->GetCookieManager(ContextId);
-		for (const FString& LoginDomain : LoginDomains)
-		{
-			CookieManager->DeleteCookies(LoginDomain);
+			IWebBrowserSingleton* WebBrowserSingleton = IWebBrowserModule::Get().GetSingleton();
+			if (WebBrowserSingleton)
+			{
+				TOptional<FString> ContextId;
+				if (Params->BrowserContextSettings.IsValid())
+				{
+					ContextId = Params->BrowserContextSettings->Id;
+				}
+				TSharedPtr<IWebBrowserCookieManager> CookieManager = WebBrowserSingleton->GetCookieManager(ContextId);
+				if (CookieManager.IsValid())
+				{
+					for (const FString& LoginDomain : LoginDomains)
+					{
+						CookieManager->DeleteCookies(LoginDomain);
+					}
+				}
+			}
 		}
 	}
 	else
@@ -312,3 +496,5 @@ void FLoginFlowManager::OnLoginFlowLogout(const TArray<FString>& LoginDomains, F
 		UE_LOG(LogLoginFlow, Error, TEXT("No login flow registered for online subsystem %s"), *InOnlineIdentifier.ToString());
 	}
 }
+
+

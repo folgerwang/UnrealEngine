@@ -103,6 +103,8 @@ public:
 private:
 	virtual bool Tick(float DeltaTime) override
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_Icmp_Tick);
+
 		if (bThreadCompleted)
 		{
 			FIcmpEchoResult Result;

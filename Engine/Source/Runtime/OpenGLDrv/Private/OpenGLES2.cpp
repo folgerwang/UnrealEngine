@@ -32,7 +32,7 @@ static TAutoConsoleVariable<int32> CVarDisjointTimerQueries(
 	TEXT("r.DisjointTimerQueries"),
 	0,
 	TEXT("If set to 1, allows GPU time to be measured (e.g. STAT UNIT). It defaults to 0 because some devices supports it but very slowly."),
-	ECVF_RenderThreadSafe);
+	ECVF_ReadOnly);
 
 /** Some timer query implementations are never disjoint */
 bool FOpenGLES2::bTimerQueryCanBeDisjoint = true;

@@ -346,7 +346,7 @@ bool operator<<(FArchive& Ar,FVertexFactoryParameterRef& Ref)
 		Ref.ShaderFrequency = (EShaderFrequency)ShaderFrequencyByte;
 	}
 
-	Ar << Ref.VFHash;
+	Ar << FShaderResource::FilterShaderSourceHashForSerialization(Ar, Ref.VFHash);
 
 
 	if (Ar.IsLoading())

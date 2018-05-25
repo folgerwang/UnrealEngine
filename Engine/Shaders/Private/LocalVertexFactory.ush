@@ -689,7 +689,14 @@ half3x3 VertexFactoryGetTangentToLocal( FVertexFactoryInput Input, FVertexFactor
 float4 VertexFactoryGetWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
 #if USE_INSTANCING
-	return CalcWorldPosition(Input.Position, GetInstanceTransform(Intermediates)) * Intermediates.PerInstanceParams.z;
+	// Workaround for FORT-70572. It turns out on old Nvidia (AMD?) drivers, SV_VertexID must be used if
+    // SV_InstanceID is used. Otherwise, SV_InstanceID will get weird (SV_VertexID?) values
+    #if SM4_PROFILE && MANUAL_VERTEX_FETCH
+        float4 Position = Input.Position + Input.VertexId * asfloat(0x00800001);
+    #else
+        float4 Position = Input.Position;
+    #endif
+	return CalcWorldPosition(Position, GetInstanceTransform(Intermediates)) * Intermediates.PerInstanceParams.z;
 #else
 	return CalcWorldPosition(Input.Position);
 #endif	// USE_INSTANCING

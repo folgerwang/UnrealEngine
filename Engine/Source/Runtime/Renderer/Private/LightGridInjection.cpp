@@ -146,16 +146,11 @@ IMPLEMENT_UNIFORM_BUFFER_STRUCT(FForwardLightData, TEXT("ForwardLightData"));
 
 FForwardLightData::FForwardLightData()
 {
-	NumLocalLights = 0;
-	HasDirectionalLight = 0;
-	NumDirectionalLightCascades = 0;
-	CascadeEndDepths = FVector4(0, 0, 0, 0);
+	FMemory::Memzero(*this);
 	DirectionalLightShadowmapAtlas = GBlackTexture->TextureRHI;
-	ShadowmapSampler = TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
-	DirectionalLightUseStaticShadowing = 0;
+	ShadowmapSampler = TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI();
 	DirectionalLightStaticShadowmap = GBlackTexture->TextureRHI;
-	StaticShadowmapSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
-	DirectionalLightShadowmapAtlasBufferSize = FVector4(0, 0, 0, 0);
+	StaticShadowmapSampler = TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI();
 
 	ForwardLocalLightBuffer = nullptr;
 	NumCulledLightsGrid = nullptr;

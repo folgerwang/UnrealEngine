@@ -116,28 +116,28 @@ void FViewInfo::CalcTranslucencyLightingVolumeBounds(FBox* InOutCascadeBoundsArr
 		const float FrustumStartDistance = CascadeIndex == 0 ? 0 : InnerDistance;
 		const float FrustumEndDistance = CascadeIndex == 0 ? InnerDistance : OuterDistance;
 
-		float FOV = PI / 4.0f;
+		float FieldOfView = PI / 4.0f;
 		float AspectRatio = 1.0f;
 
 		if (IsPerspectiveProjection())
 		{
 			// Derive FOV and aspect ratio from the perspective projection matrix
-			FOV = FMath::Atan(1.0f / ShadowViewMatrices.GetProjectionMatrix().M[0][0]);
+			FieldOfView = FMath::Atan(1.0f / ShadowViewMatrices.GetProjectionMatrix().M[0][0]);
 			// Clamp to prevent shimmering when zooming in
-			FOV = FMath::Max(FOV, GTranslucentVolumeMinFOV * (float)PI / 180.0f);
+			FieldOfView = FMath::Max(FieldOfView, GTranslucentVolumeMinFOV * (float)PI / 180.0f);
 			const float RoundFactorRadians = GTranslucentVolumeFOVSnapFactor * (float)PI / 180.0f;
 			// Round up to a fixed factor
 			// This causes the volume lighting to make discreet jumps as the FOV animates, instead of slowly crawling over a long period
-			FOV = FOV + RoundFactorRadians - FMath::Fmod(FOV, RoundFactorRadians);
+			FieldOfView = FieldOfView + RoundFactorRadians - FMath::Fmod(FieldOfView, RoundFactorRadians);
 			AspectRatio = ShadowViewMatrices.GetProjectionMatrix().M[1][1] / ShadowViewMatrices.GetProjectionMatrix().M[0][0];
 		}
 
-		const float StartHorizontalLength = FrustumStartDistance * FMath::Tan(FOV);
+		const float StartHorizontalLength = FrustumStartDistance * FMath::Tan(FieldOfView);
 		const FVector StartCameraRightOffset = ShadowViewMatrices.GetViewMatrix().GetColumn(0) * StartHorizontalLength;
 		const float StartVerticalLength = StartHorizontalLength / AspectRatio;
 		const FVector StartCameraUpOffset = ShadowViewMatrices.GetViewMatrix().GetColumn(1) * StartVerticalLength;
 
-		const float EndHorizontalLength = FrustumEndDistance * FMath::Tan(FOV);
+		const float EndHorizontalLength = FrustumEndDistance * FMath::Tan(FieldOfView);
 		const FVector EndCameraRightOffset = ShadowViewMatrices.GetViewMatrix().GetColumn(0) * EndHorizontalLength;
 		const float EndVerticalLength = EndHorizontalLength / AspectRatio;
 		const FVector EndCameraUpOffset = ShadowViewMatrices.GetViewMatrix().GetColumn(1) * EndVerticalLength;

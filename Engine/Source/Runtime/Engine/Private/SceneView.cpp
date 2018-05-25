@@ -274,7 +274,7 @@ static TAutoConsoleVariable<int32> CVarAllowTranslucencyAfterDOF(
 	TEXT("after DOF, if not specified otherwise in the material).\n")
 	TEXT(" 0: off (translucency is affected by depth of field)\n")
 	TEXT(" 1: on costs GPU performance and memory but keeps translucency unaffected by Depth of Field. (default)"),
-	ECVF_RenderThreadSafe);
+	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarEnableTemporalUpsample(
 	TEXT("r.TemporalAA.Upsampling"),
@@ -685,6 +685,9 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	}
 
 	bUseFieldOfViewForLOD = InitOptions.bUseFieldOfViewForLOD;
+	FOV = InitOptions.FOV;
+	DesiredFOV = InitOptions.DesiredFOV;
+
 	DrawDynamicFlags = EDrawDynamicFlags::None;
 	bAllowTemporalJitter = true;
 
@@ -811,20 +814,6 @@ float FSceneView::GetLODDistanceFactor() const
 	float Fac = PI * ScreenMultiple * ScreenMultiple / UnscaledViewRect.Area();
 	return Fac;
 }
-
-float FSceneView::GetTemporalLODDistanceFactor(int32 Index, bool bUseLaggedLODTransition) const
-{
-	if (bUseLaggedLODTransition && State)
-	{
-		const FTemporalLODState& LODState = State->GetTemporalLODState();
-		if (LODState.TemporalLODLag != 0.0f)
-		{
-			return LODState.TemporalDistanceFactor[Index];
-		}
-	}
-	return GetLODDistanceFactor();
-}
-
 
 FVector FSceneView::GetTemporalLODOrigin(int32 Index, bool bUseLaggedLODTransition) const
 {

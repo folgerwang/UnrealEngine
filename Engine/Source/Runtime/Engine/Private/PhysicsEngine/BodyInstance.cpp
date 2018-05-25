@@ -444,8 +444,6 @@ FBodyInstance::FBodyInstance()
 	, SceneIndexSync(0)
 	, SceneIndexAsync(0)
 	, ObjectType(ECC_WorldStatic)
-	, Scale3D(1.0f)
-	, CollisionProfileName(UCollisionProfile::CustomCollisionProfileName)
 	, MaskFilter(0)
 	, CollisionEnabled(ECollisionEnabled::QueryAndPhysics)
 #if WITH_PHYSX
@@ -470,9 +468,15 @@ FBodyInstance::FBodyInstance()
 	, bLockXRotation(false)
 	, bLockYRotation(false)
 	, bLockZRotation(false)
+	, bOverrideMaxAngularVelocity(false)
 	, bUseAsyncScene(false)
 	, bOverrideMaxDepenetrationVelocity(false)
 	, bOverrideWalkableSlopeOnInstance(false)
+	, bInterpolateWhenSubStepping(true)
+	, bPendingCollisionProfileSetup(false)
+	, bHasSharedShapes(false)
+	, Scale3D(1.0f)
+	, CollisionProfileName(UCollisionProfile::CustomCollisionProfileName)
 	, MaxDepenetrationVelocity(0.f)
 	, MassInKgOverride(100.f)
 	, ExternalCollisionProfileBodySetup(nullptr)
@@ -489,12 +493,12 @@ FBodyInstance::FBodyInstance()
 	, StabilizationThresholdMultiplier(1.f)
 	, PhysicsBlendWeight(0.f)
 	, PositionSolverIterationCount(8)
+	, VelocitySolverIterationCount(1)
 #if WITH_PHYSX
 	, RigidActorSync(nullptr)
 	, RigidActorAsync(nullptr)
 	, BodyAggregate(nullptr)
 #endif // WITH_PHYSX
-	, VelocitySolverIterationCount(1)
 {
 	MaxAngularVelocity = UPhysicsSettings::Get()->MaxAngularVelocity;
 }
@@ -639,6 +643,7 @@ void FBodyInstance::InvalidateCollisionProfileName()
 {
 	CollisionProfileName = UCollisionProfile::CustomCollisionProfileName;
 	ExternalCollisionProfileBodySetup = nullptr;
+	bPendingCollisionProfileSetup = false;
 }
 
 void FBodyInstance::SetResponseToChannel(ECollisionChannel Channel, ECollisionResponse NewResponse)
@@ -668,12 +673,28 @@ void FBodyInstance::SetResponseToChannels(const FCollisionResponseContainer& New
 	CollisionResponses.SetCollisionResponseContainer(NewReponses);
 	UpdatePhysicsFilterData();
 }
-	
+
 void FBodyInstance::SetObjectType(ECollisionChannel Channel)
 {
 	InvalidateCollisionProfileName();
 	ObjectType = Channel;
 	UpdatePhysicsFilterData();
+}
+
+void FBodyInstance::ApplyDeferredCollisionProfileName()
+{
+	if(bPendingCollisionProfileSetup)
+	{
+		SetCollisionProfileName(CollisionProfileName);
+		bPendingCollisionProfileSetup = false;
+	}
+}
+
+void FBodyInstance::SetCollisionProfileNameDeferred(FName InCollisionProfileName)
+{
+	CollisionProfileName = InCollisionProfileName;
+	ExternalCollisionProfileBodySetup = nullptr;
+	bPendingCollisionProfileSetup = true;
 }
 
 void FBodyInstance::SetCollisionProfileName(FName InCollisionProfileName)
@@ -683,13 +704,15 @@ void FBodyInstance::SetCollisionProfileName(FName InCollisionProfileName)
 	//Note that GetCollisionProfileName will use the external profile if one is set.
 	//GetCollisionProfileName will be consistent with the values set by LoadProfileData.
 	//This is why we can't use CollisionProfileName directly during the equality check
-	if (GetCollisionProfileName() != InCollisionProfileName)
+	if (bPendingCollisionProfileSetup || GetCollisionProfileName() != InCollisionProfileName)
 	{
 		//LoadProfileData uses GetCollisionProfileName internally so we must now set the external collision data to null.
 		ExternalCollisionProfileBodySetup = nullptr;
 		CollisionProfileName = InCollisionProfileName;
 		// now Load ProfileData
 		LoadProfileData(false);
+
+		bPendingCollisionProfileSetup = false;
 	}
 	
 	ExternalCollisionProfileBodySetup = nullptr;	//Even if incoming is the same as GetCollisionProfileName we turn it into "manual mode"
@@ -788,6 +811,7 @@ void FBodyInstance::UseExternalCollisionProfile(UBodySetup* InExternalCollisionP
 {
 	ensureAlways(InExternalCollisionProfileBodySetup);
 	ExternalCollisionProfileBodySetup = InExternalCollisionProfileBodySetup;
+	bPendingCollisionProfileSetup = false;
 	LoadProfileData(false);
 }
 
@@ -964,6 +988,7 @@ void FBodyInstance::UpdatePhysicsShapeFilterData(uint32 ComponentID, bool bPhysi
 			const TEnumAsByte<ECollisionEnabled::Type> UseCollisionEnabled = CollisionEnabledOverride && !bIsWelded ? *CollisionEnabledOverride : (TEnumAsByte<ECollisionEnabled::Type>)BI->GetCollisionEnabled();
 			const FCollisionResponseContainer& UseResponse = ResponseOverride && !bIsWelded ? *ResponseOverride : BI->CollisionResponses.GetResponseContainer();
 			bool bUseNotify = bNotifyOverride && !bIsWelded ? *bNotifyOverride : BI->bNotifyRigidBodyCollision;
+			bool bUseContactModification = BI->bContactModification;
 
 
 			UPrimitiveComponent* OwnerPrimitiveComponent = BI->OwnerComponent.Get();
@@ -976,7 +1001,7 @@ void FBodyInstance::UpdatePhysicsShapeFilterData(uint32 ComponentID, bool bPhysi
 			PxFilterData PComplexQueryData;
 			if (UseCollisionEnabled != ECollisionEnabled::NoCollision)
 			{
-				CreateShapeFilterData(BI->ObjectType, MaskFilter, ActorID, UseResponse, ComponentID, InstanceBodyIndex, PSimpleQueryData, PSimFilterData, bUseCCD && !bPhysicsStatic, bUseNotify, bPhysicsStatic);	//InstanceBodyIndex and CCD are determined by root body in case of welding
+				CreateShapeFilterData(BI->ObjectType, MaskFilter, ActorID, UseResponse, ComponentID, InstanceBodyIndex, PSimpleQueryData, PSimFilterData, bUseCCD && !bPhysicsStatic, bUseNotify, bPhysicsStatic, bUseContactModification);	//InstanceBodyIndex and CCD are determined by root body in case of welding
 				PComplexQueryData = PSimpleQueryData;
 
 				// Build filterdata variations for complex and simple
@@ -1205,6 +1230,7 @@ void FBodyInstance::UpdatePhysicsFilterData()
 	UpdatePhysicsShapeFilterData(ComponentID, bPhysicsStatic, CollisionEnabledOverride, ResponseOverride, bNotifyOverridePtr);
 #endif
 
+	UpdateInterpolateWhenSubStepping();
 }
 
 TAutoConsoleVariable<int32> CDisableQueryOnlyActors(TEXT("p.DisableQueryOnlyActors"), 0, TEXT("If QueryOnly is used, actors are marked as simulation disabled. This is NOT compatible with origin shifting at the moment."));
@@ -1802,6 +1828,8 @@ void FBodyInstance::InitBody(class UBodySetup* Setup, const FTransform& Transfor
 
 	Bodies.Reset();
 	Transforms.Reset();
+
+	UpdateInterpolateWhenSubStepping();
 }
 
 FVector GetInitialLinearVelocity(const AActor* OwningActor, bool& bComponentAwake)
@@ -2075,6 +2103,8 @@ bool FBodyInstance::Weld(FBodyInstance* TheirBody, const FTransform& TheirTM)
 		TermBodyHelper(TheirBody->SceneIndexAsync, TheirBody->RigidActorAsync, TheirBody);
 	});
 	
+	UpdateInterpolateWhenSubStepping();
+
 	TheirBody->UpdateDebugRendering();
 	UpdateDebugRendering();
 
@@ -2130,6 +2160,8 @@ void FBodyInstance::UnWeld(FBodyInstance* TheirBI)
 
 		TheirBI->WeldParent = nullptr;
 	});
+
+	UpdateInterpolateWhenSubStepping();
 
 	TheirBI->UpdateDebugRendering();
 	UpdateDebugRendering();
@@ -3339,10 +3371,14 @@ void FBodyInstance::UpdateMassProperties()
 			Shapes.AddUninitialized(NumShapes);
 			PRigidBody->getShapes(Shapes.GetData(), NumShapes);
 
-			//Ignore trimeshes
+			// Ignore trimeshes & shapes which don't contribute to the mass
 			for(int32 ShapeIdx = Shapes.Num() - 1; ShapeIdx >= 0; --ShapeIdx)
 			{
-				if(Shapes[ShapeIdx]->getGeometryType() == PxGeometryType::eTRIANGLEMESH)
+				const PxShape* Shape = Shapes[ShapeIdx];
+				const FKShapeElem* ShapeElem = FPhysxUserData::Get<FKShapeElem>(Shape->userData);
+				bool bIsTriangleMesh = Shape->getGeometryType() == PxGeometryType::eTRIANGLEMESH;
+				bool bHasNoMass = ShapeElem && !ShapeElem->GetContributeToMass();
+				if (bIsTriangleMesh || bHasNoMass)
 				{
 					Shapes.RemoveAtSwap(ShapeIdx);
 				}
@@ -3737,6 +3773,15 @@ void FBodyInstance::SetEnableGravity(bool bInGravityEnabled)
 		{
 			WakeInstance();
 		}
+	}
+}
+
+void FBodyInstance::SetContactModification(bool bNewContactModification)
+{
+	if (bNewContactModification != bContactModification)
+	{
+		bContactModification = bNewContactModification;
+		UpdatePhysicsFilterData();
 	}
 }
 
@@ -4338,7 +4383,7 @@ bool FBodyInstance::IsValidCollisionProfileName(FName InCollisionProfileName)
 
 void FBodyInstance::LoadProfileData(bool bVerifyProfile)
 {
-	FName UseCollisionProfileName = GetCollisionProfileName();
+	const FName UseCollisionProfileName = GetCollisionProfileName();
 	if ( bVerifyProfile )
 	{
 		// if collision profile name exists, 
@@ -4365,7 +4410,6 @@ void FBodyInstance::LoadProfileData(bool bVerifyProfile)
 				InvalidateCollisionProfileName(); 
 			}
 		}
-
 	}
 	else
 	{
@@ -4677,6 +4721,7 @@ void FBodyInstance::GetFilterData_AssumesLocked(FShapeData& ShapeData, bool bFor
 	bool bUseCollisionEnabledOverride = false;
 	bool bResponseOverride = false;
 	bool bNotifyOverride = false;
+	bool bUseContactModification = bContactModification;
 
 	if(USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>(OwnerComponentInst))
 	{
@@ -4746,7 +4791,7 @@ void FBodyInstance::GetFilterData_AssumesLocked(FShapeData& ShapeData, bool bFor
 			PxFilterData PComplexQueryData;
 			uint32 ActorID = Owner ? Owner->GetUniqueID() : 0;
 			uint32 CompID = (OwnerComponentInst != nullptr) ? OwnerComponentInst->GetUniqueID() : 0;
-			CreateShapeFilterData(ObjectType, MaskFilter, ActorID, UseResponse, CompID, InstanceBodyIndex, PSimpleQueryData, PSimFilterData, bUseCCD && !bPhysicsStatic, bUseNotifyRBCollision, bPhysicsStatic);	//CCD is determined by root body in case of welding
+			CreateShapeFilterData(ObjectType, MaskFilter, ActorID, UseResponse, CompID, InstanceBodyIndex, PSimpleQueryData, PSimFilterData, bUseCCD && !bPhysicsStatic, bUseNotifyRBCollision, bPhysicsStatic, bUseContactModification);	//CCD is determined by root body in case of welding
 			PComplexQueryData = PSimpleQueryData;
 			
 			// Set output sim data
@@ -4952,6 +4997,33 @@ void FBodyInstance::GetShapeFlags_AssumesLocked(FShapeData& ShapeData, TEnumAsBy
 	}
 }
 #endif // WITH_PHYSX
+
+void FBodyInstance::UpdateInterpolateWhenSubStepping()
+{
+	if(UPhysicsSettings::Get()->bSubstepping)
+	{
+		// We interpolate based around our current collision enabled flag
+		ECollisionEnabled::Type UseCollisionEnabled = ECollisionEnabled::NoCollision;
+		if(OwnerComponent.IsValid() && OwnerComponent.Get()->GetBodyInstance() != this)
+		{
+			UseCollisionEnabled = OwnerComponent->GetCollisionEnabled();
+		}
+		else
+		{
+			UseCollisionEnabled = GetCollisionEnabled();
+		}
+	
+		bInterpolateWhenSubStepping = UseCollisionEnabled == ECollisionEnabled::PhysicsOnly || UseCollisionEnabled == ECollisionEnabled::QueryAndPhysics;
+
+		// If we have a weld parent we should take into account that too as that may be simulating while we are not
+		if(WeldParent)
+		{
+			// Potentially recurse here
+			WeldParent->UpdateInterpolateWhenSubStepping();
+			bInterpolateWhenSubStepping |= WeldParent->bInterpolateWhenSubStepping;
+		}
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////
 // FBodyInstanceEditorHelpers

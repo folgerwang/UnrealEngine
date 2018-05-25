@@ -298,4 +298,14 @@ bool UKismetTextLibrary::StringTableIdAndKeyFromText(FText Text, FName& OutTable
 	return FStringTableRegistry::Get().FindTableIdAndKey(Text, OutTableId, OutKey);
 }
 
+void UKismetTextLibrary::IsPolyglotDataValid(const FPolyglotTextData& PolyglotData, bool& IsValid, FText& ErrorMessage)
+{
+	IsValid = PolyglotData.IsValid(&ErrorMessage);
+}
+
+FText UKismetTextLibrary::PolyglotDataToText(const FPolyglotTextData& PolyglotData)
+{
+	return PolyglotData.GetText();
+}
+
 #undef LOCTEXT_NAMESPACE

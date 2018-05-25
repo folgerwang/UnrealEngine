@@ -24,14 +24,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
 	mutable bool bLoopAnimation;
 
-	// The play rate multiplier. Can be negative, which will cause the animation to play in reverse.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
-	mutable float PlayRate;
-
 	// The Basis in which the PlayRate is expressed in. This is used to rescale PlayRate inputs.
 	// For example a Basis of 100 means that the PlayRate input will be divided by 100.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
 	mutable float PlayRateBasis;
+
+	// The play rate multiplier. Can be negative, which will cause the animation to play in reverse.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
+	mutable float PlayRate;
 	
 	// Additional scaling, offsetting and clamping of PlayRate input.
 	// Performed after PlayRateBasis.
@@ -47,8 +47,8 @@ public:
 	FAnimNode_SequencePlayer()
 		: Sequence(NULL)
 		, bLoopAnimation(true)
-		, PlayRate(1.0f)
 		, PlayRateBasis(1.0f)
+		, PlayRate(1.0f)
 		, StartPosition(0.f)
 	{
 	}

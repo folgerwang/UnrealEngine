@@ -33,10 +33,10 @@ public:
 	UWidget* FindWidget(TSharedRef<SWidget> InWidget) const;
 
 	/** Finds the widget in the tree by name and casts the return to the desired type. */
-	template<class WidgetClass>
-	FORCEINLINE WidgetClass* FindWidget(const FName& Name) const
+	template <typename WidgetT>
+	FORCEINLINE WidgetT* FindWidget(const FName& Name) const
 	{
-		return Cast<WidgetClass>(FindWidget(Name));
+		return Cast<WidgetT>(FindWidget(Name));
 	}
 
 	/** Removes the widget from the hierarchy and all sub widgets. */
@@ -75,26 +75,17 @@ public:
 	static void ForWidgetAndChildren(UWidget* Widget, TFunctionRef<void(UWidget*)> Predicate);
 
 	/** Constructs the widget, and adds it to the tree. */
-	template< class T >
-	FORCEINLINE T* ConstructWidget(TSubclassOf<UWidget> WidgetType = T::StaticClass(), FName WidgetName = NAME_None)
+	template <typename WidgetT>
+	FORCEINLINE_DEBUGGABLE WidgetT* ConstructWidget(TSubclassOf<UWidget> WidgetClass = WidgetT::StaticClass(), FName WidgetName = NAME_None)
 	{
-		EObjectFlags NewObjectFlags = RF_Transactional;
-		if (HasAnyFlags(RF_Transient))
+		static_assert(TIsDerivedFrom<WidgetT, UWidget>::IsDerived, "WidgetTree::ConstructWidget can only create UWidget objects.");
+
+		if (WidgetClass->IsChildOf<UUserWidget>())
 		{
-			NewObjectFlags |= RF_Transient;
+			return Cast<WidgetT>(CreateWidget(this, *WidgetClass, WidgetName));
 		}
 
-		if ( WidgetType->IsChildOf(UUserWidget::StaticClass()) )
-		{
-			UUserWidget* Widget = UUserWidget::NewWidgetObject(this, WidgetType, WidgetName);
-			Widget->Initialize();
-			return (T*)Widget;
-		}
-		else
-		{
-			UWidget* Widget = (UWidget*)NewObject<UWidget>(this, WidgetType, WidgetName, NewObjectFlags);
-			return (T*)Widget;
-		}
+		return NewObject<WidgetT>(this, WidgetClass, WidgetName, RF_Transactional);
 	}
 
 	// UObject interface
@@ -109,6 +100,8 @@ public:
 
 protected:
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY(Instanced)
 	TArray< UWidget* > AllWidgets;
+#endif
 };

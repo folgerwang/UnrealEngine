@@ -145,6 +145,7 @@ public:
 
 	/**~ UObject implementation */
 	virtual void Serialize( FArchive& Ar ) override;
+	virtual bool IsPostLoadThreadSafe() const override;
 
 public:
 

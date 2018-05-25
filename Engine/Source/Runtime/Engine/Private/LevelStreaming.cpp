@@ -53,25 +53,25 @@ int32 ULevelStreamingKismet::UniqueLevelInstanceId = 0;
  */
 static void NetDriverRenameStreamingLevelPackageForPIE(const UWorld* World, FName UnPrefixedPackageName)
 {
-	if (World == nullptr || World->NetDriver == nullptr || !World->NetDriver->GuidCache.IsValid())
-	{
-		UE_LOG(LogNet, Verbose, TEXT("NetDriverRenameStreamingLevelPackageForPIE, GuidCache is invalid! Package name %s"), *UnPrefixedPackageName.ToString());
-		return;
-	}
-
-	const FWorldContext* const WorldContext = GEngine->GetWorldContextFromWorld(World);
+	FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(World);
 	if (!WorldContext || WorldContext->WorldType != EWorldType::PIE)
 	{
 		return;
 	}
 
-	for (TPair<FNetworkGUID, FNetGuidCacheObject>& GuidPair : World->NetDriver->GuidCache->ObjectLookup)
+	for (FNamedNetDriver& Driver : WorldContext->ActiveNetDrivers)
 	{
-		// Only look for packages, which will have a static GUID and an invalid OuterGUID.
-		const bool bIsPackage = GuidPair.Key.IsStatic() && !GuidPair.Value.OuterGUID.IsValid();
-		if (bIsPackage && GuidPair.Value.PathName == UnPrefixedPackageName)
+		if (Driver.NetDriver && Driver.NetDriver->GuidCache.IsValid())
 		{
-			GuidPair.Value.PathName = *UWorld::ConvertToPIEPackageName(GuidPair.Value.PathName.ToString(), WorldContext->PIEInstance);
+			for (TPair<FNetworkGUID, FNetGuidCacheObject>& GuidPair : Driver.NetDriver->GuidCache->ObjectLookup)
+			{
+				// Only look for packages, which will have a static GUID and an invalid OuterGUID.
+				const bool bIsPackage = GuidPair.Key.IsStatic() && !GuidPair.Value.OuterGUID.IsValid();
+				if (bIsPackage && GuidPair.Value.PathName == UnPrefixedPackageName)
+				{
+					GuidPair.Value.PathName = *UWorld::ConvertToPIEPackageName(GuidPair.Value.PathName.ToString(), WorldContext->PIEInstance);
+				}
+			}
 		}
 	}
 }

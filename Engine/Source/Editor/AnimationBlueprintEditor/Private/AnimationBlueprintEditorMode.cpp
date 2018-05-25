@@ -123,7 +123,7 @@ FAnimationBlueprintEditorMode::FAnimationBlueprintEditorMode(const TSharedRef<FA
 	FPersonaModule& PersonaModule = FModuleManager::LoadModuleChecked<FPersonaModule>("Persona");
 
 	FPersonaViewportArgs ViewportArgs(InAnimationBlueprintEditor->GetPersonaToolkit()->GetPreviewScene());
-	ViewportArgs.BlueprintEditor = InAnimationBlueprintEditor;
+	ViewportArgs.OnViewportCreated = FOnViewportCreated::CreateSP(&InAnimationBlueprintEditor.Get(), &FAnimationBlueprintEditor::HandleViewportCreated);	ViewportArgs.BlueprintEditor = InAnimationBlueprintEditor;
 	ViewportArgs.bShowStats = false;
 	ViewportArgs.ContextName = TEXT("AnimationBlueprintEditor.Viewport");
 

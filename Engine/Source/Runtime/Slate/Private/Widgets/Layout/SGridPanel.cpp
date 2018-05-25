@@ -55,10 +55,11 @@ void SGridPanel::Construct( const FArguments& InArgs )
 
 int32 SGridPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
-#if SLATE_DYNAMIC_PREPASS
-	// HACK
-	GetDesiredSize();
-#endif
+	if(GSlateLayoutCaching)
+	{
+		// HACK
+		GetDesiredSize();
+	}
 
 	FArrangedChildren ArrangedChildren(EVisibility::All);
 	this->ArrangeChildren(AllottedGeometry, ArrangedChildren);

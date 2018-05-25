@@ -20,6 +20,7 @@
 #include "Engine/Engine.h"
 #include "UObject/Package.h"
 #include "Components/PrimitiveComponent.h"
+#include "UObject/UObjectThreadContext.h"
 
 #if WITH_RECAST
 #include "NavMesh/RecastNavMesh.h"
@@ -38,6 +39,7 @@
 #endif
 
 #include "NavAreas/NavArea_Null.h"
+#include "NavAreas/NavArea_Obstacle.h"
 #include "NavAreas/NavArea_Default.h"
 #include "NavAreas/NavAreaMeta_SwitchByAgent.h"
 #include "NavLinkCustomInterface.h"
@@ -119,6 +121,14 @@ namespace FNavigationSystem
 			: (const UNavigationSystemV1*)nullptr;
 		return NavSysCDO && NavSysCDO->ShouldLoadNavigationOnClient(&NavData);
 	}
+
+	bool ShouldDiscardSubLevelNavData(ANavigationData& NavData)
+	{
+		const UNavigationSystemV1* NavSysCDO = (*GEngine->NavigationSystemClass != nullptr)
+			? (GEngine->NavigationSystemClass->GetDefaultObject<const UNavigationSystemV1>())
+			: (const UNavigationSystemV1*)nullptr;
+		return NavSysCDO == nullptr || NavSysCDO->ShouldDiscardSubLevelNavData(&NavData);
+	}
 }
 
 namespace NavigationDebugDrawing
@@ -148,6 +158,23 @@ FNavigationInvoker::FNavigationInvoker(AActor& InActor, float InGenerationRadius
 }
 
 //----------------------------------------------------------------------//
+// helpers
+//----------------------------------------------------------------------//
+namespace
+{
+#if ENABLE_VISUAL_LOG
+	void NavigationDataDump(const UObject* Object, const FName& CategoryName, const ELogVerbosity::Type Verbosity, const FBox& Box, const UWorld& World, FVisualLogEntry& CurrentEntry)
+	{
+		const ANavigationData* MainNavData = FNavigationSystem::GetCurrent<UNavigationSystemV1>(&World)->GetDefaultNavDataInstance();
+		const FNavDataGenerator* Generator = MainNavData ? MainNavData->GetGenerator() : nullptr;
+		if (Generator)
+		{
+			Generator->GrabDebugSnapshot(&CurrentEntry, FMath::IsNearlyZero(Box.GetVolume()) ? MainNavData->GetBounds().ExpandBy(FVector(20, 20, 20)) : Box, CategoryName, Verbosity);
+		}
+	}
+#endif // ENABLE_VISUAL_LOG
+}
+//----------------------------------------------------------------------//
 // UNavigationSystemV1                                                                
 //----------------------------------------------------------------------//
 bool UNavigationSystemV1::bNavigationAutoUpdateEnabled = true;
@@ -164,6 +191,7 @@ UNavigationSystemV1::FOnNavigationDirty UNavigationSystemV1::NavigationDirtyEven
 
 bool UNavigationSystemV1::bUpdateNavOctreeOnComponentChange = true;
 bool UNavigationSystemV1::bStaticRuntimeNavigation = false;
+bool UNavigationSystemV1::bIsPIEActive = false;
 //----------------------------------------------------------------------//
 // life cycle stuff                                                                
 //----------------------------------------------------------------------//
@@ -318,6 +346,7 @@ UNavigationSystemV1::UNavigationSystemV1(const FObjectInitializer& ObjectInitial
 	bGenerateNavigationOnlyAroundNavigationInvokers = false;
 	DataGatheringMode = ENavDataGatheringModeConfig::Instant;
 	bCanAccumulateDirtyAreas = true;
+	bShouldDiscardSubLevelNavData = true;
 #if !UE_BUILD_SHIPPING
 	bDirtyAreasReportedWhileAccumulationLocked = false;
 #endif // !UE_BUILD_SHIPPING
@@ -846,7 +875,12 @@ void UNavigationSystemV1::Tick(float DeltaSeconds)
 
 	UWorld* World = GetWorld();
 
-	if (World == nullptr || (bTickWhilePaused == false && World->IsPaused()))
+	if (World == nullptr 
+		|| (bTickWhilePaused == false && World->IsPaused())
+#if WITH_EDITOR
+		|| (bIsPIEActive && !World->IsGameWorld())
+#endif // WITH_EDITOR
+		)
 	{
 		return;
 	}
@@ -1688,7 +1722,11 @@ void UNavigationSystemV1::RequestRegistration(ANavigationData* NavData, bool bTr
 	{
 		NavDataRegistrationQueue.AddUnique(NavData);
 
-		if (bTriggerRegistrationProcessing == true)
+		// checking if bWorldInitDone since requesting out-of-order registration
+		// processing when we're still setting up can result in odd cases,
+		// like initializing navmesh generators while the nav system doesn't have
+		// the navmesh bounds collected yet.
+		if (bTriggerRegistrationProcessing && bWorldInitDone)
 		{
 			// trigger registration candidates processing
 			DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.Process registration candidates"),
@@ -1708,6 +1746,12 @@ void UNavigationSystemV1::RequestRegistration(ANavigationData* NavData, bool bTr
 
 void UNavigationSystemV1::ProcessRegistrationCandidates()
 {
+	//if (FUObjectThreadContext::Get().IsRoutingPostLoad)
+	//{
+	//	// postopne
+	//	return;
+	//}
+
 	FScopeLock RegistrationLock(&NavDataRegistrationSection);
 
 	if (NavDataRegistrationQueue.Num() == 0)
@@ -2239,7 +2283,7 @@ ANavigationData* UNavigationSystemV1::GetNavDataWithID(const uint16 NavDataID) c
 
 void UNavigationSystemV1::AddDirtyArea(const FBox& NewArea, int32 Flags)
 {
-	if (Flags > 0 && bCanAccumulateDirtyAreas)
+	if (Flags > 0 && bCanAccumulateDirtyAreas && NewArea.IsValid)
 	{
 		DirtyAreas.Add(FNavigationDirtyArea(NewArea, Flags));
 	}
@@ -3176,8 +3220,6 @@ void UNavigationSystemV1::Build()
 
 void UNavigationSystemV1::SpawnMissingNavigationData()
 {
-	DoInitialSetup();
-
 	const int32 SupportedAgentsCount = SupportedAgents.Num();
 	check(SupportedAgentsCount >= 0);
 	
@@ -3190,18 +3232,17 @@ void UNavigationSystemV1::SpawnMissingNavigationData()
 	for (TActorIterator<ANavigationData> It(NavWorld); It && NumberFound < SupportedAgentsCount; ++It)
 	{
 		ANavigationData* Nav = (*It);
-		if (Nav != NULL && Nav->GetTypedOuter<UWorld>() == NavWorld && Nav->IsPendingKill() == false)
+		if (Nav != nullptr 
+			&& Nav->IsPendingKill() == false
+			// mz@todo the 'is level in' condition is temporary
+			&& (Nav->GetTypedOuter<UWorld>() == NavWorld || NavWorld->GetLevels().Contains(Nav->GetLevel())))
 		{
 			// find out which one it is
 			for (int32 AgentIndex = 0; AgentIndex < SupportedAgentsCount; ++AgentIndex)
 			{
-				if (AlreadyInstantiated[AgentIndex] == true)
-				{
-					// already present, skip
-					continue;
-				}
-
-				if (Nav->GetClass() == SupportedAgents[AgentIndex].NavigationDataClass && Nav->DoesSupportAgent(SupportedAgents[AgentIndex]) == true)
+				if (AlreadyInstantiated[AgentIndex] == false
+					&& Nav->GetClass() == SupportedAgents[AgentIndex].NavigationDataClass 
+					&& Nav->DoesSupportAgent(SupportedAgents[AgentIndex]) == true)
 				{
 					AlreadyInstantiated[AgentIndex] = true;
 					++NumberFound;
@@ -3237,7 +3278,7 @@ void UNavigationSystemV1::SpawnMissingNavigationData()
 				}
 
 				ANavigationData* Instance = CreateNavigationDataInstance(NavConfig);
-				if (Instance != NULL)
+				if (Instance)
 				{
 					RequestRegistration(Instance);
 				}
@@ -3247,17 +3288,13 @@ void UNavigationSystemV1::SpawnMissingNavigationData()
 				}
 			}
 		}
-
-		ProcessRegistrationCandidates();
 	}
 	
-	if (MainNavData == NULL || MainNavData->IsPendingKill())
+	if (MainNavData == nullptr || MainNavData->IsPendingKillPending())
 	{
 		// update 
 		MainNavData = GetDefaultNavDataInstance(FNavigationSystem::DontCreate);
 	}
-
-	UpdateAbstractNavData();
 }
 
 ANavigationData* UNavigationSystemV1::CreateNavigationDataInstance(const FNavDataConfig& NavConfig)
@@ -3266,7 +3303,22 @@ ANavigationData* UNavigationSystemV1::CreateNavigationDataInstance(const FNavDat
 	check(World);
 
 	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.OverrideLevel = World->PersistentLevel;
+	if (bSpawnNavDataInNavBoundsLevel && RegisteredNavBounds.Num() > 0)
+	{
+		// pick the first valid level
+		for (const FNavigationBounds& Bounds : RegisteredNavBounds)
+		{
+			if (Bounds.Level.IsValid())
+			{
+				SpawnInfo.OverrideLevel = Bounds.Level.Get();
+				break;
+			}
+		}
+	}
+	if (SpawnInfo.OverrideLevel == nullptr)
+	{
+		SpawnInfo.OverrideLevel = World->PersistentLevel;
+	}
 	ANavigationData* Instance = World->SpawnActor<ANavigationData>(*NavConfig.NavigationDataClass, SpawnInfo);
 
 	if (Instance != NULL)
@@ -3307,13 +3359,26 @@ ANavigationData* UNavigationSystemV1::CreateNavigationDataInstance(const FNavDat
 
 void UNavigationSystemV1::OnPIEStart()
 {
-	// Do not tick async build for editor world while PIE is active
-	bAsyncBuildPaused = true;
+	bIsPIEActive = true;
+	// no updates for editor world while PIE is active
+	const UWorld* MyWorld = GetWorld();
+	if (MyWorld && !MyWorld->IsGameWorld())
+	{
+		bAsyncBuildPaused = true;
+		AddNavigationBuildLock(ENavigationBuildLock::NoUpdateInEditor);
+	}
 }
 
 void UNavigationSystemV1::OnPIEEnd()
 {
-	bAsyncBuildPaused = false;
+	bIsPIEActive = false;
+	const UWorld* MyWorld = GetWorld();
+	if (MyWorld && !MyWorld->IsGameWorld())
+	{
+		bAsyncBuildPaused = false;
+		// there's no need to request while navigation rebuilding just because PIE has ended
+		RemoveNavigationBuildLock(ENavigationBuildLock::NoUpdateInEditor, /*bSkipRebuildInEditor=*/true);
+	}
 }
 
 void UNavigationSystemV1::RemoveNavigationBuildLock(uint8 Flags, bool bSkipRebuildInEditor)
@@ -3346,7 +3411,10 @@ void UNavigationSystemV1::RebuildAll(bool bIsLoadTime)
 	// discard all pending dirty areas, we are going to rebuild navmesh anyway 
 	DirtyAreas.Reset();
 	PendingNavBoundsUpdates.Reset();
-	
+#if !UE_BUILD_SHIPPING
+	bDirtyAreasReportedWhileAccumulationLocked = false;
+#endif // !UE_BUILD_SHIPPING
+
 	// 
 	for (int32 NavDataIndex = 0; NavDataIndex < NavDataSet.Num(); ++NavDataIndex)
 	{
@@ -3811,8 +3879,15 @@ bool UNavigationSystemV1::HandleCycleNavDrawnCommand( const TCHAR* Cmd, FOutputD
 	return true;
 }
 
-bool UNavigationSystemV1::HandleCountNavMemCommand( const TCHAR* Cmd, FOutputDevice& Ar )
+bool UNavigationSystemV1::HandleCountNavMemCommand()
 {
+	UE_LOG(LogNavigation, Warning, TEXT("Logging NavigationSystem memory usage:"));
+
+	if (NavOctree.IsValid())
+	{
+		UE_LOG(LogNavigation, Warning, TEXT("NavOctree memory: %d"), NavOctree->GetSizeBytes());
+	}
+
 	for (int32 NavDataIndex = 0; NavDataIndex < NavDataSet.Num(); ++NavDataIndex)
 	{
 		ANavigationData* NavData = NavDataSet[NavDataIndex];
@@ -3841,7 +3916,7 @@ bool FNavigationSystemExec::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevic
 		}
 		else if (FParse::Command(&Cmd, TEXT("CountNavMem")))
 		{
-			NavSys->HandleCountNavMemCommand( Cmd, Ar );
+			NavSys->HandleCountNavMemCommand();
 			return false;
 		}
 		/** Builds the navigation mesh (or rebuilds it). **/
@@ -4192,31 +4267,9 @@ void UNavigationSystemV1::GetOnScreenMessages(TMultiMap<FCoreDelegates::EOnScree
 	{
 		OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Error
 			, LOCTEXT("NAVMESHERROR", "NAVMESH NEEDS TO BE REBUILT"));
-
-		/*SmallTextItem.SetColor(FLinearColor::White);
-		SmallTextItem.Text = ;
-		Canvas->DrawItem(SmallTextItem, FVector2D(MessageX, MessageY));
-		MessageY += FontSizeY;*/
 	}
 }
 #endif // !UE_BUILD_SHIPPING
-// mz@todo
-//FVisualLogger::NavigationDataDumpDelegate
-//{
-//	UWorld* World = nullptr;
-//	FVisualLogEntry* CurrentEntry = nullptr;
-//	if (CheckVisualLogInputInternal(Object, Category, Verbosity, &World, &CurrentEntry) == false || CurrentEntry == nullptr)
-//	{
-//		return;
-//	}
-//
-//	const ANavigationData* MainNavData = World ? UNavigationSystemV1::GetNavigationSystem(World)->GetDefaultNavDataInstance(FNavigationSystem::ECreateIfEmpty::DontCreate) : nullptr;
-//	const FNavDataGenerator* Generator = MainNavData ? MainNavData->GetGenerator() : nullptr;
-//	if (Generator)
-//	{
-//		Generator->GrabDebugSnapshot(CurrentEntry, FMath::IsNearlyZero(Box.GetVolume()) ? MainNavData->GetBounds().ExpandBy(FVector(20, 20, 20)) : Box, Category, Verbosity);
-//	}
-//}
 
 INavigationDataInterface* UNavigationSystemV1::GetNavDataForActor(const AActor& Actor)
 {
@@ -4264,9 +4317,48 @@ const FNavDataConfig& UNavigationSystemV1::GetDefaultSupportedAgent()
 		: DefaultAgent;
 }
 
+void UNavigationSystemV1::OverrideSupportedAgents(const TArray<FNavDataConfig>& NewSupportedAgents)
+{
+	UE_CLOG(bWorldInitDone, LogNavigation, Warning, TEXT("Trying to override NavigationSystem\'s SupportedAgents past the World\'s initialization"));
+
+	SupportedAgents = NewSupportedAgents;
+	if (SupportedAgents.Num() == 0)
+	{
+		SupportedAgents.Add(FNavDataConfig(FNavigationSystem::FallbackAgentRadius, FNavigationSystem::FallbackAgentHeight));
+	}
+}
+
 void UNavigationSystemV1::Configure(const UNavigationSystemConfig& Config)
 {
 
+}
+
+//----------------------------------------------------------------------//
+// UNavigationSystemModuleConfig
+//----------------------------------------------------------------------//
+UNavigationSystemModuleConfig::UNavigationSystemModuleConfig(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	const UNavigationSystemV1* NavSysCDO = GetDefault<UNavigationSystemV1>();
+	bAutoSpawnMissingNavData = NavSysCDO && NavSysCDO->bAutoCreateNavigationData;
+	bSpawnNavDataInNavBoundsLevel = NavSysCDO && NavSysCDO->bSpawnNavDataInNavBoundsLevel;
+}
+
+UNavigationSystemBase* UNavigationSystemModuleConfig::CreateAndConfigureNavigationSystem(UWorld& World) const
+{
+	UNavigationSystemV1* NavSysInstance = Cast<UNavigationSystemV1>(Super::CreateAndConfigureNavigationSystem(World));
+	UE_CLOG(NavSysInstance == nullptr, LogNavigation, Error
+		, TEXT("Unable to spawn navsys instance of class %s - unable to cast to UNavigationSystemV1")
+		, *NavigationSystemClass.GetAssetName()
+	);
+	
+	if (NavSysInstance)
+	{
+		NavSysInstance->bAutoCreateNavigationData = bAutoSpawnMissingNavData;
+		NavSysInstance->bSpawnNavDataInNavBoundsLevel = bSpawnNavDataInNavBoundsLevel;
+	}
+
+	return NavSysInstance;
 }
 
 #undef LOCTEXT_NAMESPACE

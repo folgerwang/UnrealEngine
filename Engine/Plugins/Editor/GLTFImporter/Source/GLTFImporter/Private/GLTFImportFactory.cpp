@@ -11,9 +11,9 @@
 #include "Engine/StaticMesh.h"
 #include "RawMesh.h"
 #include "Serialization/ArrayReader.h"
+#include "Editor/UnrealEd/Public/Editor.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
-#include "Editor/UnrealEd/Public/Editor.h"
 
 #define LOCTEXT_NAMESPACE "GLTFFactory"
 

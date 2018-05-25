@@ -224,14 +224,14 @@ static void UpdatePlanarReflectionContents_RenderThread(
 				const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(SceneRenderer->FeatureLevel) + 1;
 				// +1 to frame counter because we are operating before the main view's InitViews, which is where OcclusionFrameCounter is incremented
 				uint32 OcclusionFrameCounter = ViewState->OcclusionFrameCounter + 1;
-				FRenderQueryRHIRef& PastQuery = OcclusionHistory.GetPastQuery(OcclusionFrameCounter, NumBufferedFrames);
+				FRenderQueryRHIParamRef PastQuery = OcclusionHistory.GetPastQuery(OcclusionFrameCounter, NumBufferedFrames);
 
-				if (IsValidRef(PastQuery))
+				if (PastQuery)
 				{
 					uint64 NumSamples = 0;
 					QUICK_SCOPE_CYCLE_COUNTER(STAT_PlanarReflectionOcclusionQueryResults);
 
-					if (RHIGetRenderQueryResult(PastQuery.GetReference(), NumSamples, true))
+					if (RHIGetRenderQueryResult(PastQuery, NumSamples, true))
 					{
 						bIsVisibleInAnyView = NumSamples > 0;
 						if (bIsVisibleInAnyView)

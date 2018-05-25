@@ -119,6 +119,10 @@ public:
 	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
 	TEnumAsByte<EVirtualKeyboardType::Type> KeyboardType;
 
+	/** Additional options to use for the virtual keyboard summoned by this widget */
+	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
+	FVirtualKeyboardOptions VirtualKeyboardOptions;
+
 	/** What action should be taken when the virtual keyboard is dismissed? */
 	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
 	EVirtualKeyboardDismissAction VirtualKeyboardDismissAction;

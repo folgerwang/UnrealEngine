@@ -511,7 +511,7 @@ struct FMallocBinned::Private
 		Allocator.PendingFreeList->Push(Ptr);
 #else
 #ifdef USE_COARSE_GRAIN_LOCKS
-		FScopeLock ScopedLock(&AccessGuard);
+		FScopeLock ScopedLock(&Allocator.AccessGuard);
 #endif
 		FreeInternal(Allocator, Ptr);
 #endif

@@ -9,6 +9,9 @@
 // FAnimNode_RotationMultiplier
 
 FAnimNode_RotationMultiplier::FAnimNode_RotationMultiplier()
+	: Multiplier(0.0f)
+	, RotationAxisToRefer(BA_X)
+	, bIsAdditive(false)
 {
 }
 

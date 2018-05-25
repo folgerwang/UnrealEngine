@@ -43,6 +43,7 @@ typedef FIOSPlatformTextField FPlatformTextField;
 
 -(void)show:(TSharedPtr<IVirtualKeyboardEntry>)InTextWidget;
 -(void)hide;
+-(bool)hasTextWidget;
 
 @end
 #endif

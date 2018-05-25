@@ -112,7 +112,7 @@ struct FTargetDeviceServiceDeployFinished
 
 
 	/** Default constructor. */
-	FTargetDeviceServiceDeployFinished() { }
+	FTargetDeviceServiceDeployFinished() : Succeeded(false) { }
 
 	/** Creates and initializes a new instance. */
 	FTargetDeviceServiceDeployFinished(FName InVariant, const FString& InAppId, bool InSucceeded, FGuid InTransactionId)
@@ -163,7 +163,7 @@ struct FTargetDeviceServiceLaunchApp
 
 
 	/** Default constructor. */
-	FTargetDeviceServiceLaunchApp() { }
+	FTargetDeviceServiceLaunchApp() : BuildConfiguration(0) { }
 
 	/** Creates and initializes a new instance. */
 	FTargetDeviceServiceLaunchApp(FName InVariant, const FString& InAppId, uint8 InBuildConfiguration, const FString& InParams)
@@ -206,7 +206,7 @@ struct FTargetDeviceServiceLaunchFinished
 
 
 	/** Default constructor. */
-	FTargetDeviceServiceLaunchFinished() { }
+	FTargetDeviceServiceLaunchFinished() : ProcessId(0), Succeeded(false) { }
 
 	/** Creates and initializes a new instance. */
 	FTargetDeviceServiceLaunchFinished(const FString& InAppId, int32 InProcessId, bool InSucceeded)
@@ -535,7 +535,7 @@ struct FTargetDeviceServicePowerOff
 
 
 	/** Default constructor. */
-	FTargetDeviceServicePowerOff() { }
+	FTargetDeviceServicePowerOff() : Force(false) { }
 
 	/** Creates and initializes a new instance. */
 	FTargetDeviceServicePowerOff(const FString& InOperator, bool InForce)
@@ -656,7 +656,10 @@ struct FTargetDeviceServiceRunFinished
 
 
 	/** Default constructor. */
-	FTargetDeviceServiceRunFinished() { }
+	FTargetDeviceServiceRunFinished()
+		: ProcessId(0)
+		, Succeeded(false)
+	{ }
 
 	/** Creates and initializes a new instance. */
 	FTargetDeviceServiceRunFinished(FName InVariant, const FString& InExecutablePath, int32 InProcessId, bool InSucceeded)

@@ -49,10 +49,6 @@ struct ENGINE_API FBaseAttenuationSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category= AttenuationDistance, meta = (DisplayName = "Attenuation Function"))
 	EAttenuationDistanceModel DistanceAlgorithm;
 
-	/* The custom volume attenuation curve to use. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category= AttenuationDistance)
-	FRuntimeFloatCurve CustomAttenuationCurve;
-
 	/* The shape of the non-custom attenuation method. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category= AttenuationDistance)
 	TEnumAsByte<enum EAttenuationShape::Type> AttenuationShape;
@@ -77,6 +73,10 @@ struct ENGINE_API FBaseAttenuationSettings
 	/* The distance over which volume attenuation occurs. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category= AttenuationDistance, meta=(ClampMin = "0"))
 	float FalloffDistance;
+
+	/* The custom volume attenuation curve to use. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category= AttenuationDistance)
+	FRuntimeFloatCurve CustomAttenuationCurve;
 
 	FBaseAttenuationSettings()
 		: DistanceAlgorithm(EAttenuationDistanceModel::Linear)

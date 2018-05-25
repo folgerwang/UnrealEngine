@@ -45,6 +45,9 @@ private:
 	// Called when the app id is modified
 	void OnAppIDModified();
 
+	// Called when GoogleVRCaps is modified
+	void OnGoogleVRCapsChange();
+
 	// Called when EnableGradle is modified
 	void OnEnableGradleChange();
 

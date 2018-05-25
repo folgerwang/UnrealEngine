@@ -29,6 +29,7 @@
 #include "EngineAnalytics.h"
 #include "Editor/EditorPerformanceSettings.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "Toolkits/FConsoleCommandExecutor.h"
 
 DEFINE_LOG_CATEGORY(LogMainFrame);
 #define LOCTEXT_NAMESPACE "FMainFrameModule"
@@ -319,7 +320,9 @@ TSharedRef<SWidget> FMainFrameModule::MakeDeveloperTools() const
 
 
 	// We need the output log module in order to instantiate SConsoleInputBox widgets
-	const FOutputLogModule& OutputLogModule = FModuleManager::LoadModuleChecked< FOutputLogModule >(TEXT("OutputLog"));
+	FOutputLogModule& OutputLogModule = FModuleManager::LoadModuleChecked< FOutputLogModule >(TEXT("OutputLog"));
+	TSharedPtr<FConsoleCommandExecutor> CmdExec = MakeShared<FConsoleCommandExecutor>();
+	OutputLogModule.SetActiveCommandExecutor(StaticCastSharedPtr<IConsoleCommandExecutor>(CmdExec));
 
 	const FSlateFontInfo& SmallFixedFont = FEditorStyle::GetFontStyle(TEXT("MainFrame.DebugTools.SmallFont") );
 	const FSlateFontInfo& NormalFixedFont = FEditorStyle::GetFontStyle(TEXT("MainFrame.DebugTools.NormalFont") );
@@ -521,6 +524,13 @@ void FMainFrameModule::StartupModule( )
 
 void FMainFrameModule::ShutdownModule( )
 {
+	FOutputLogModule* OutputLogModule = FModuleManager::GetModulePtr< FOutputLogModule >(TEXT("OutputLog"));
+	if (OutputLogModule)
+	{
+		TSharedPtr<FConsoleCommandExecutor> CmdExec = MakeShared<FConsoleCommandExecutor>();
+		OutputLogModule->RemoveActiveCommandExecutor(CmdExec);
+	}
+
 	// Destroy the main frame window
 	TSharedPtr< SWindow > ParentWindow( GetParentWindow() );
 	if( ParentWindow.IsValid() )

@@ -375,6 +375,7 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleInner(
 
 	bool bDirty = false;
 	STAT(int32 StatInc = 0;)
+	uint32 NumDraws = 0;
 	for (int32 Index = FirstPolicy; Index <= LastPolicy; Index++)
 	{
 		FDrawingPolicyLink* DrawingPolicyLink = &DrawingPolicySet[OrderedDrawingPolicies[Index]];
@@ -397,6 +398,12 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleInner(
 					// Avoid the cache miss looking up batch visibility if there is only one element.
 					uint64 BatchElementMask = Element.Mesh->bRequiresPerElementVisibility ? (*BatchVisibilityArray)[Element.Mesh->BatchVisibilityId] : ((1ull << SubCount) - 1);
 					Count += DrawElement<InstancedStereoPolicy::Disabled>(RHICmdList, View, PolicyContext, DrawRenderState, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
+					if (++NumDraws % 16 == 0)
+					{
+						// Periodically kick the RHI thread when some work has accumulated.
+						RHICmdList.MaybeDispatchToRHIThread();
+					}
+
 				}
 			}
 
@@ -422,6 +429,11 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleInner(
 					// Avoid the cache miss looking up batch visibility if there is only one element.
 					uint64 BatchElementMask = Element.Mesh->bRequiresPerElementVisibility ? (*ResolvedBatchVisiblityArray)[Element.Mesh->BatchVisibilityId] : ((1ull << SubCount) - 1);
 					Count += DrawElement<InstancedStereo>(RHICmdList, View, PolicyContext, DrawRenderState, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
+					if (++NumDraws % 16 == 0)
+					{
+						// Periodically kick the RHI thread when some work has accumulated.
+						RHICmdList.MaybeDispatchToRHIThread();
+					}
 				}
 			}
 		}
@@ -892,7 +904,10 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBackInner(
 				float DistanceSq = (Bounds.Origin - ViewLocation).SizeSquared();
 				float DrawingPolicyDistanceSq = (DrawingPolicyCenter - ViewLocation).SizeSquared();
 				int32 DrawingPolicyIndex = DrawingPolicyLink.SetId.AsInteger();
-				SortKeys.Add(GetSortKey(Element.bBackground,Bounds.SphereRadius,DrawingPolicyDistanceSq,DrawingPolicyIndex,DistanceSq,ElementIndex,Element.Mesh));
+				SortKeys.Add(GetSortKey(Element.bBackground, Bounds.SphereRadius, DrawingPolicyDistanceSq, DrawingPolicyIndex, DistanceSq, ElementIndex, Element.Mesh));
+#if USE_SORT_DRAWLISTS_BY_SHADER
+				SetShadersDrawListSortKey(SortKeys.Last(), DrawingPolicyLink.DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+#endif
 			}
 		}
 	}
@@ -924,8 +939,9 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBackInner(
 		DrawElement<InstancedStereoPolicy::Disabled>(RHICmdList, View, PolicyContext, DrawRenderState, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
 		NumDraws++;
 
-		if ((NumDraws % 16) == 0)
+		if (((uint32)NumDraws % 16) == 0)
 		{
+			// Periodically kick the RHI thread when some work has accumulated.
 			RHICmdList.MaybeDispatchToRHIThread();
 		}
 	}

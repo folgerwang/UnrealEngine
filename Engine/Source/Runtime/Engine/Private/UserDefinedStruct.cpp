@@ -285,6 +285,7 @@ void UUserDefinedStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, US
 	// So if we don't have defaults we need to use the struct defaults
 	const bool bUseNewDefaults = !Defaults
 		&& UDDefaultsStruct
+		&& (UDDefaultsStruct->GetDefaultInstance() != Data)
 		&& !bDuplicate
 		&& (Ar.IsSaving() || Ar.IsLoading())
 		&& !Ar.IsCooking();

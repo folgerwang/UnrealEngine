@@ -6,6 +6,18 @@
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
 
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineTitleFile, Display, All);
+
+#define UE_LOG_ONLINE_TITLEFILE(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineTitleFile, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_TITLEFILE(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineTitleFile, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
 /**
  * Delegate fired when the list of files has been returned from the network store
  *

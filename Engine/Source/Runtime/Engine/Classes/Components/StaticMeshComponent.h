@@ -91,6 +91,11 @@ struct FStaticMeshComponentLODInfo
 	/** Uniquely identifies this LOD's built map data. */
 	FGuid MapBuildDataId;
 
+#if WITH_EDITOR
+	/** Check to see if MapBuildDataId was loaded - otherwise we need to display a warning on cook */
+	bool bMapBuildDataIdLoaded;
+#endif
+
 	/** Used during deserialization to temporarily store legacy lightmap data. */
 	FMeshMapBuildData* LegacyMapBuildData;
 
@@ -405,6 +410,7 @@ public:
 #endif // WITH_EDITOR
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void PostLoad() override;
+	virtual bool IsPostLoadThreadSafe() const override;
 	virtual bool AreNativePropertiesIdenticalTo( UObject* Other ) const override;
 	virtual FString GetDetailedInfoInternal() const override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);

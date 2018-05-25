@@ -14,7 +14,7 @@ bool FOnlineExternalUIGoogleCommon::ShowLoginUI(const int ControllerIndex, bool 
 
 	GoogleSubsystem->ExecuteNextTick([ControllerIndex, Delegate]()
 	{
-		Delegate.ExecuteIfBound(nullptr, ControllerIndex);
+		Delegate.ExecuteIfBound(nullptr, ControllerIndex, FOnlineError(false));
 	});
 
 	return bStarted;

@@ -33,6 +33,8 @@
 #include "Interfaces/IProjectManager.h"
 #include "ProjectDescriptor.h"
 #include "Settings/SkeletalMeshEditorSettings.h"
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
 
 #define LOCTEXT_NAMESPACE "SettingsClasses"
 
@@ -113,7 +115,6 @@ UEditorExperimentalSettings::UEditorExperimentalSettings( const FObjectInitializ
 	, bEnableLocalizationDashboard(true)
 	, bUseOpenCLForConvexHullDecomp(false)
 	, bAllowPotentiallyUnsafePropertyEditing(false)
-	, bUseNewHLODPackageNamingConvention(false)
 {
 }
 
@@ -384,7 +385,6 @@ ULevelEditorPlaySettings::ULevelEditorPlaySettings( const FObjectInitializer& Ob
 	LaunchConfiguration = EPlayOnLaunchConfiguration::LaunchConfig_Default;
 	bAutoCompileBlueprintsOnLaunch = true;
 	CenterNewWindow = true;
-	CenterStandaloneWindow = true;
 
 	bBindSequencerToPIE = false;
 	bBindSequencerToSimulate = true;
@@ -415,9 +415,178 @@ void ULevelEditorPlaySettings::PostInitProperties()
 
 	NewWindowWidth = FMath::Max(0, NewWindowWidth);
 	NewWindowHeight = FMath::Max(0, NewWindowHeight);
-	StandaloneWindowWidth = FMath::Max(0, StandaloneWindowWidth);
-	StandaloneWindowHeight = FMath::Max(0, StandaloneWindowHeight);
+}
 
+FMargin ULevelEditorPlaySettings::CalculateCustomUnsafeZones(TArray<FVector2D>& CustomSafeZoneStarts, TArray<FVector2D>& CustomSafeZoneDimensions, FString& DeviceType, FVector2D PreviewSize)
+{
+	int32 PreviewHeight = PreviewSize.Y;
+	int32 PreviewWidth = PreviewSize.X;
+	bool bPreviewIsPortrait = PreviewHeight > PreviewWidth;
+	FMargin CustomSafeZoneOverride = FMargin();
+	CustomSafeZoneStarts.Empty();
+	CustomSafeZoneDimensions.Empty();
+	UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(DeviceType, false);
+	if (DeviceProfile)
+	{
+		FString CVarUnsafeZonesString;
+		if (DeviceProfile->GetConsolidatedCVarValue(TEXT("r.CustomUnsafeZones"), CVarUnsafeZonesString))
+		{
+			TArray<FString> UnsafeZones;
+			CVarUnsafeZonesString.ParseIntoArray(UnsafeZones, TEXT(";"), true);
+			for (FString UnsafeZone : UnsafeZones)
+			{
+				FString Orientation;
+				FString FixedState;
+				FString TempString;
+				FVector2D Start;
+				FVector2D Dimensions;
+				bool bAdjustsToDeviceRotation = false;
+				UnsafeZone.Split(TEXT("("), &TempString, &UnsafeZone);
+				Orientation = UnsafeZone.Left(1);
+				UnsafeZone.Split(TEXT("["), &TempString, &UnsafeZone);
+				if (TempString.Contains(TEXT("free")))
+				{
+					bAdjustsToDeviceRotation = true;
+				}
+
+				UnsafeZone.Split(TEXT(","), &TempString, &UnsafeZone);
+				Start.X = FCString::Atof(*TempString);
+				UnsafeZone.Split(TEXT("]"), &TempString, &UnsafeZone);
+				Start.Y = FCString::Atof(*TempString);
+				UnsafeZone.Split(TEXT("["), &TempString, &UnsafeZone);
+				UnsafeZone.Split(TEXT(","), &TempString, &UnsafeZone);
+				Dimensions.X = FCString::Atof(*TempString);
+				Dimensions.Y = FCString::Atof(*UnsafeZone);
+
+				bool bShouldScale = false;
+				float CVarMobileContentScaleFactor = FCString::Atof(*DeviceProfile->GetCVarValue(TEXT("r.MobileContentScaleFactor")));
+				if (CVarMobileContentScaleFactor != 0)
+				{
+					bShouldScale = true;
+				}
+				else
+				{
+					if (DeviceProfile->GetConsolidatedCVarValue(TEXT("r.MobileContentScaleFactor"), CVarMobileContentScaleFactor, true))
+					{
+						bShouldScale = true;
+					}
+				}
+				if (bShouldScale)
+				{
+					Start *= CVarMobileContentScaleFactor;
+					Dimensions *= CVarMobileContentScaleFactor;
+				}
+
+				if (!bAdjustsToDeviceRotation && ((Orientation.Contains(TEXT("L")) && bPreviewIsPortrait) ||
+					(Orientation.Contains(TEXT("P")) && !bPreviewIsPortrait)))
+				{
+					float Placeholder = Start.X;
+					Start.X = Start.Y;
+					Start.Y = Placeholder;
+
+					Placeholder = Dimensions.X;
+					Dimensions.X = Dimensions.Y;
+					Dimensions.Y = Placeholder;
+				}
+
+				if (Start.X < 0)
+				{
+					Start.X += PreviewWidth;
+				}
+				if (Start.Y < 0)
+				{
+					Start.Y += PreviewHeight;
+				}
+
+				// Remove any overdraw if this is an unsafe zone that could adjust with device rotation
+				if (bAdjustsToDeviceRotation)
+				{
+					if (Dimensions.X + Start.X > PreviewWidth)
+					{
+						Dimensions.X = PreviewWidth - Start.X;
+					}
+					if (Dimensions.Y + Start.Y > PreviewHeight)
+					{
+						Dimensions.Y = PreviewHeight - Start.Y;
+					}
+				}
+
+				CustomSafeZoneStarts.Add(Start);
+				CustomSafeZoneDimensions.Add(Dimensions);
+
+				if (Start.X + Dimensions.X == PreviewWidth && !FMath::IsNearlyZero(Start.X))
+				{
+					CustomSafeZoneOverride.Right = FMath::Max(CustomSafeZoneOverride.Right, Dimensions.X);
+				}
+				else if (Start.X == 0.0f && Start.X + Dimensions.X != PreviewWidth)
+				{
+					CustomSafeZoneOverride.Left = FMath::Max(CustomSafeZoneOverride.Left, Dimensions.X);
+				}
+				if (Start.Y + Dimensions.Y == PreviewHeight && !FMath::IsNearlyZero(Start.Y))
+				{
+					CustomSafeZoneOverride.Bottom = FMath::Max(CustomSafeZoneOverride.Bottom, Dimensions.Y);
+				}
+				else if (Start.Y == 0.0f && Start.Y + Dimensions.Y != PreviewHeight)
+				{
+					CustomSafeZoneOverride.Top = FMath::Max(CustomSafeZoneOverride.Top, Dimensions.Y);
+				}
+			}
+		}
+	}
+	return CustomSafeZoneOverride;
+}
+
+FMargin ULevelEditorPlaySettings::FlipCustomUnsafeZones(TArray<FVector2D>& CustomSafeZoneStarts, TArray<FVector2D>& CustomSafeZoneDimensions, FString& DeviceType, FVector2D PreviewSize)
+{
+	FMargin CustomSafeZoneOverride = CalculateCustomUnsafeZones(CustomSafeZoneStarts, CustomSafeZoneDimensions, DeviceType, PreviewSize);
+	for (FVector2D& CustomSafeZoneStart : CustomSafeZoneStarts)
+	{
+		CustomSafeZoneStart.X = PreviewSize.X - CustomSafeZoneStart.X;
+	}
+	for (FVector2D& CustomSafeZoneDimension : CustomSafeZoneDimensions)
+	{
+		CustomSafeZoneDimension.X *= -1.0f;
+	}
+	float Placeholder = CustomSafeZoneOverride.Left;
+	CustomSafeZoneOverride.Left = CustomSafeZoneOverride.Right;
+	CustomSafeZoneOverride.Right = Placeholder;
+	return CustomSafeZoneOverride;
+}
+
+void ULevelEditorPlaySettings::RescaleForMobilePreview(UDeviceProfile* DeviceProfile, int32 &PreviewWidth, int32 &PreviewHeight, float &ScaleFactor)
+{
+	bool bShouldScale = false;
+	float CVarMobileContentScaleFactor = FCString::Atof(*DeviceProfile->GetCVarValue(TEXT("r.MobileContentScaleFactor")));
+	if (CVarMobileContentScaleFactor != 0)
+	{
+		bShouldScale = true;
+	}
+	else
+	{
+		if (DeviceProfile->GetConsolidatedCVarValue(TEXT("r.MobileContentScaleFactor"), CVarMobileContentScaleFactor, true))
+		{
+			bShouldScale = true;
+		}
+	}
+	if (bShouldScale)
+	{
+		if (DeviceProfile->DeviceType == TEXT("Android"))
+		{
+			if (PreviewHeight > PreviewWidth)
+			{
+				PreviewHeight = 1280;
+				PreviewWidth = 720;
+			}
+			else
+			{
+				PreviewHeight = 720;
+				PreviewWidth = 1280;
+			}
+		}
+		PreviewWidth *= CVarMobileContentScaleFactor;
+		PreviewHeight *= CVarMobileContentScaleFactor;
+		ScaleFactor = CVarMobileContentScaleFactor;
+	}
 }
 
 /* ULevelEditorViewportSettings interface

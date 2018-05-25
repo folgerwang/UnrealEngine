@@ -8,13 +8,14 @@
 
 struct FMergeCompleteData;
 struct FProxyGenerationData;
+class FMeshMergeUtilities;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMeshMerging, Verbose, All);
 
 class FProxyGenerationProcessor : FTickerObjectBase
 {
 public:
-	FProxyGenerationProcessor();
+	FProxyGenerationProcessor(const FMeshMergeUtilities* InOwner);
 	~FProxyGenerationProcessor();
 
 	void AddProxyJob(FGuid InJobGuid, FMergeCompleteData* InCompleteData);
@@ -52,5 +53,7 @@ protected:
 	TMap<FGuid, FProxyGenerationData*> ToProcessJobDataMap;
 	/** Critical section to keep ProxyMeshJobs/ToProcessJobDataMap access thread-safe */
 	FCriticalSection StateLock;
+
+	const FMeshMergeUtilities* Owner;
 };
 

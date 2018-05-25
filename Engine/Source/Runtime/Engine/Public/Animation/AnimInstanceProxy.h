@@ -106,15 +106,16 @@ public:
 		, Skeleton(nullptr)
 		, SkeletalMeshComponent(nullptr)
 		, CurrentDeltaSeconds(0.0f)
-#if WITH_EDITORONLY_DATA
-		, bIsBeingDebugged(false)
-#endif
+		, CurrentTimeDilation(1.0f)
 		, RootNode(nullptr)
 		, SubInstanceInputNode(nullptr)
 		, SyncGroupWriteIndex(0)
 		, RootMotionMode(ERootMotionMode::NoRootMotionExtraction)
-		, bShouldExtractRootMotion(false)
 		, bBoneCachesInvalidated(false)
+		, bShouldExtractRootMotion(false)
+#if WITH_EDITORONLY_DATA
+		, bIsBeingDebugged(false)
+#endif
 	{
 	}
 
@@ -124,15 +125,16 @@ public:
 		, Skeleton(nullptr)
 		, SkeletalMeshComponent(nullptr)
 		, CurrentDeltaSeconds(0.0f)
-#if WITH_EDITORONLY_DATA
-		, bIsBeingDebugged(false)
-#endif
+		, CurrentTimeDilation(1.0f)
 		, RootNode(nullptr)
 		, SubInstanceInputNode(nullptr)
 		, SyncGroupWriteIndex(0)
 		, RootMotionMode(ERootMotionMode::NoRootMotionExtraction)
-		, bShouldExtractRootMotion(false)
 		, bBoneCachesInvalidated(false)
+		, bShouldExtractRootMotion(false)
+#if WITH_EDITORONLY_DATA
+		, bIsBeingDebugged(false)
+#endif
 	{
 	}
 
@@ -157,6 +159,12 @@ public:
 	float GetDeltaSeconds() const
 	{
 		return CurrentDeltaSeconds;
+	}
+
+	/** Get the last time dilation, gleaned from world settings */
+	float GetTimeDilation() const
+	{
+		return CurrentTimeDilation;
 	}
 
 #if WITH_EDITORONLY_DATA
@@ -406,6 +414,9 @@ public:
 
 	bool IsSlotNodeRelevantForNotifies(const FName& SlotNodeName) const;
 	/** Reset any dynamics running simulation-style updates (e.g. on teleport, time skip etc.) */
+	void ResetDynamics(ETeleportType InTeleportType);
+
+	DEPRECATED(4.20, "Please use ResetDynamics with a ETeleportType argument")
 	void ResetDynamics();
 
 	/** Get the relative transform of the component we are running on */
@@ -433,6 +444,9 @@ protected:
 
 	/** Called before update so we can copy any data we need */
 	virtual void PreUpdate(UAnimInstance* InAnimInstance, float DeltaSeconds);
+
+	/** Called during PreUpdate, if SkelMesh LOD has changed since last update */
+	void OnPreUpdateLODChanged(const int32 PreviousLODIndex, const int32 NewLODIndex);
 
 	/** Update override point */
 	virtual void Update(float DeltaSeconds) {}
@@ -670,6 +684,7 @@ protected:
 
 	/** Manually add object references to GC */
 	void AddReferencedObjects(UAnimInstance* InAnimInstance, FReferenceCollector& Collector);
+
 	/** Allow nodes to register log messages to be processed on the game thread */
 	void LogMessage(FName InLogType, EMessageSeverity::Type InSeverity, const FText& InMessage);
 
@@ -698,10 +713,10 @@ private:
 	/** The last time passed into PreUpdate() */
 	float CurrentDeltaSeconds;
 
-#if WITH_EDITORONLY_DATA
-	/** Whether this UAnimInstance is currently being debugged in the editor */
-	bool bIsBeingDebugged;
+	/** The last dime dilation (gleaned from world settings) */
+	float CurrentTimeDilation;
 
+#if WITH_EDITORONLY_DATA
 	/** Array of visited nodes this frame */
 	TArray<FAnimBlueprintDebugData::FNodeVisit> UpdatedNodesThisFrame;
 
@@ -750,9 +765,6 @@ private:
 	// Root motion mode duplicated from the anim instance
 	ERootMotionMode::Type RootMotionMode;
 
-	// Diplicate of bool result of ShouldExtractRootMotion()
-	bool bShouldExtractRootMotion;
-
 	// Read/write buffers Tracker map for slot name->weights/relevancy
 	TMap<FName, int32> SlotNameToTrackerIndex;
 	TArray<FMontageActiveSlotTracker> SlotWeightTracker[2];
@@ -785,17 +797,15 @@ private:
 	int16 NumUroSkippedFrames_Update;
 	int16 NumUroSkippedFrames_Eval;
 
-protected:
-
-	/** When RequiredBones mapping has changed, AnimNodes need to update their bones caches. */
-	bool bBoneCachesInvalidated;
-
 private:
 	/** Copy of UAnimInstance::MontageInstances data used for update & evaluation */
 	TArray<FMontageEvaluationState> MontageEvaluationData;
 
 	/** Delegate fired on the game thread before update occurs */
 	TArray<FAnimNode_Base*> GameThreadPreUpdateNodes;
+
+	/** When GameThreadPreUpdateNodes are disabled due to LOD, they are stored here. To be potentially restored later. */
+	TArray<FAnimNode_Base*> LODDisabledGameThreadPreUpdateNodes;
 
 	/** All nodes that need to be reset on DynamicReset() */
 	TArray<FAnimNode_Base*> DynamicResetNodes;
@@ -812,6 +822,7 @@ private:
 	/** Array of snapshots. Each entry contains a name for finding specific pose snapshots */
 	TArray<FPoseSnapshot> PoseSnapshots;
 
+#if !NO_LOGGING
 	/** Logged message queues. Allows nodes to report messages to MessageLog even though they may be running
 	 *  on a worked thread
 	 */
@@ -820,4 +831,20 @@ private:
 
 	/** Cache of guids generated from previously sent messages so we can stop spam*/
 	TArray<FGuid> PreviouslyLoggedMessages;
+#endif
+
+protected:
+
+	/** When RequiredBones mapping has changed, AnimNodes need to update their bones caches. */
+	uint8 bBoneCachesInvalidated : 1;
+
+private:
+
+	// Diplicate of bool result of ShouldExtractRootMotion()
+	uint8 bShouldExtractRootMotion : 1;
+
+#if WITH_EDITORONLY_DATA
+	/** Whether this UAnimInstance is currently being debugged in the editor */
+	uint8 bIsBeingDebugged : 1;
+#endif
 };

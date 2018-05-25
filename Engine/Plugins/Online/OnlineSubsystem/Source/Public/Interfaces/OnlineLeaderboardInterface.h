@@ -7,6 +7,18 @@
 #include "OnlineDelegateMacros.h"
 #include "OnlineStats.h"
 
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineLeaderboard, Display, All);
+
+#define UE_LOG_ONLINE_LEADERBOARD(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineLeaderboard, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_LEADERBOARD(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineLeaderboard, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
 /**
  * Delegate called when the last leaderboard read is complete
  *

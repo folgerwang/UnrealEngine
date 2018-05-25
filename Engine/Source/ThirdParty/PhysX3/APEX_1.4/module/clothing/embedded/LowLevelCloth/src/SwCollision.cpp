@@ -32,7 +32,7 @@ const Simd4i cloth::Gather<Simd4i>::sIntSignBit = simd4i(_sign);
 const Simd4i cloth::Gather<Simd4i>::sSignedMask = sIntSignBit | simd4i(0x7);
 #elif NVMATH_NEON
 const Simd4i cloth::Gather<Simd4i>::sPack = simd4i(0x00000000, 0x04040404, 0x08080808, 0x0c0c0c0c);
-const Simd4i cloth::Gather<Simd4i>::sOffset = simd4i(0x03020100);
+const Simd4i cloth::Gather<Simd4i>::sOffset = simd4i(0x03020100, 0x03020100, 0x03020100, 0x03020100);
 const Simd4i cloth::Gather<Simd4i>::sShift = simd4i(detail::IntType<2>());
 const Simd4i cloth::Gather<Simd4i>::sMask = simd4i(detail::IntType<7>());
 #endif

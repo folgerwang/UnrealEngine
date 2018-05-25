@@ -7,6 +7,7 @@
 #include "Delegates/IDelegateInstance.h"
 #include "Containers/Ticker.h"
 #include "HAL/IConsoleManager.h"
+#include "Stats/Stats.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenericPlatformTime, Log, All);
 
@@ -207,6 +208,8 @@ protected:
 	/** Retrieves the current CPU time. */
 	bool OnAddCPUTime( float /*DeltaTime*/ )
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_FCPUTimeDump_OnAddCPUTime);
+
 		const FCPUTime CPUTime = FPlatformTime::GetCPUTime();
 		CPUTimes.Add( CPUTime );
 		return true;
@@ -215,6 +218,8 @@ protected:
 	/** Prints the average CPU time from the last n frames. */
 	bool OnCPUTimeDump( float /*DeltaTime*/ )
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_FCPUTimeDump_OnCPUTimeDump);
+
 		FCPUTime TotalCPUTime(0.0f,0.0f);
 		const int32 NumCPUTimes = CPUTimes.Num();
 		for( int32 Nx = 0; Nx < NumCPUTimes; ++Nx )

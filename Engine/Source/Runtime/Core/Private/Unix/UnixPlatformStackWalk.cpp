@@ -1149,6 +1149,30 @@ void FUnixPlatformStackWalk::ProgramCounterToSymbolInfo( uint64 ProgramCounter, 
 				sprintf(out_SymbolInfo.FunctionName, "0x%016llx", ProgramCounter);
 			}
 		}
+		// Temp fix to get modules names for portable callstack. Once we have the new way to symbolicate crashes we can remove this
+		else
+		{
+			Dl_info info;
+			if (dladdr(reinterpret_cast<void*>(ProgramCounter), &info) != 0)
+			{
+				// Only need the Module name for the portable bits
+				if (LIKELY(info.dli_fname != nullptr))
+				{
+					const ANSICHAR* SOPath = info.dli_fname;
+					const ANSICHAR* SOName = FCStringAnsi::Strrchr(SOPath, '/');
+					if (SOName)
+					{
+						SOName += 1;
+					}
+					else
+					{
+						SOName = SOPath;
+					}
+
+					FCStringAnsi::Strcpy(out_SymbolInfo.ModuleName, SOName);
+				}
+			}
+		}
 	}
 }
 
@@ -1459,7 +1483,11 @@ int32 FUnixPlatformStackWalk::GetProcessModuleCount()
 	int Size = 0;
 	dl_iterate_phdr(NumberOfDynamicLibrariesCallback, &Size);
 
-	return Size;
+	return 0;
+
+	// This will disable portable callstacks for Linux. Need to wait for the new symbolicator to enable
+	// otherwise we end up loading dwarf in while an ensure happens causing huge hitches/slowdowns
+	/* return Size; */
 }
 
 namespace
@@ -1524,7 +1552,11 @@ int32 FUnixPlatformStackWalk::GetProcessModuleSignatures(FStackWalkModuleInfo *M
 	ProcessModuleSignatures Signatures{ModuleSignatures, ModuleSignaturesSize, 0};
 	dl_iterate_phdr(CollectModuleSignatures, &Signatures);
 
-	return Signatures.Index;
+	return 0;
+
+	// This will disable portable callstacks for Linux. Need to wait for the new symbolicator to enable
+	// otherwise we end up loading dwarf in while an ensure happens causing huge hitches/slowdowns
+	/* return Signatures.Index; */
 }
 
 static FCriticalSection EnsureLock;

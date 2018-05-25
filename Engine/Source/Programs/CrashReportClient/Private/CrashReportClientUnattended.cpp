@@ -23,6 +23,8 @@ FCrashReportClientUnattended::FCrashReportClientUnattended(FPlatformErrorReport&
 
 bool FCrashReportClientUnattended::Tick(float UnusedDeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FCrashReportClientUnattended_Tick);
+
 	if (!FCrashUploadBase::IsInitialized())
 	{
 		FCrashUploadBase::StaticInitialize(ErrorReport);

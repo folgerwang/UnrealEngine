@@ -16,6 +16,7 @@ public class BuildPatchTool : ModuleRules
 			new string[]
 			{
 				"Core",
+				"CoreUObject",
 				"ApplicationCore",
 				"BuildPatchServices",
 				"Projects",

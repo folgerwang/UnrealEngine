@@ -12,6 +12,7 @@
 
 static void OnGoogleOpenURL(UIApplication* application, NSURL* url, NSString* sourceApplication, id annotation)
 {
+	// post iOS8 call signature
 	//bool bResult = [[GIDSignIn sharedInstance] handleURL:url
 	//						           sourceApplication:options[UIApplicationOpenURLOptionsSourceApplicationKey]
 	//								   annotation:options[UIApplicationOpenURLOptionsAnnotationKey]];

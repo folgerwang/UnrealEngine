@@ -1483,7 +1483,7 @@ TSharedPtr<FStreamableHandle> UAssetManager::LoadAssetList(const TArray<FSoftObj
 	}
 
 	// SynchronousLoad doesn't make sense if chunks are missing
-	if (bShouldUseSynchronousLoad && MissingChunks.Num() > 0)
+	if (bShouldUseSynchronousLoad && MissingChunks.Num() == 0)
 	{
 		NewHandle = StreamableManager.RequestSyncLoad(AssetList, false, DebugName);
 	}
@@ -2848,7 +2848,7 @@ void UAssetManager::ModifyCook(TArray<FName>& PackagesToCook, TArray<FName>& Pac
 			// Treat DevAlwaysCook as AlwaysCook, may get excluded in VerifyCanCookPackage
 			bool bAlwaysCook = (CookRule == EPrimaryAssetCookRule::AlwaysCook || CookRule == EPrimaryAssetCookRule::DevelopmentAlwaysCook);
 			bool bCanCook = VerifyCanCookPackage(AssetData.PackageName, false);
-			
+
 			if (bAlwaysCook && bCanCook && !TypeInfo.bIsEditorOnly)
 			{
 				// If this is always cook, not excluded, and not editor only, cook it
@@ -2861,6 +2861,11 @@ void UAssetManager::ModifyCook(TArray<FName>& PackagesToCook, TArray<FName>& Pac
 			}
 		}
 	}
+}
+
+bool UAssetManager::ShouldCookForPlatform(const UPackage* Package, const ITargetPlatform* TargetPlatform)
+{
+	return true;
 }
 
 EPrimaryAssetCookRule UAssetManager::GetPackageCookRule(FName PackageName) const
@@ -3291,6 +3296,17 @@ void UAssetManager::InitializeAssetBundlesFromMetadata(const UStruct* Struct, co
 				}
 				// Skip recursion, we don't care about the raw string property
 				It.SkipRecursiveProperty();
+			}
+		}
+		else if (const UObjectProperty* ObjectProperty = Cast<UObjectProperty>(Property))
+		{
+			if (ObjectProperty->PropertyFlags & CPF_InstancedReference)
+			{
+				UObject* const* ObjectPtr = reinterpret_cast<UObject* const*>(PropertyValue);
+				if (ObjectPtr && *ObjectPtr)
+				{
+					UAssetManager::Get().InitializeAssetBundlesFromMetadata(*ObjectPtr, AssetBundle);
+				}
 			}
 		}
 

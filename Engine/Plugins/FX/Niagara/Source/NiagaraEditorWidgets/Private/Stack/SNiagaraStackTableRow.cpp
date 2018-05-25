@@ -436,7 +436,7 @@ EVisibility SNiagaraStackTableRow::GetSearchResultBorderVisibility() const
 
 void SNiagaraStackTableRow::NavigateTo(UNiagaraStackEntry* Item)
 {
-	OwnerTree->RequestScrollIntoView(Item, 0, true);
+	OwnerTree->RequestNavigateToItem(Item, 0);
 }
 
 void SNiagaraStackTableRow::OpenSourceAsset()

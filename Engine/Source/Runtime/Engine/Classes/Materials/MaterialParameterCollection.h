@@ -44,6 +44,7 @@ struct FCollectionScalarParameter : public FCollectionParameterBase
 	GENERATED_USTRUCT_BODY()
 
 	FCollectionScalarParameter()
+		: DefaultValue(0.0f)
 	{
 		ParameterName = FName(TEXT("Scalar"));
 	}

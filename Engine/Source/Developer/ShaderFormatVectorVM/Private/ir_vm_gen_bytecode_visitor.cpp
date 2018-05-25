@@ -1084,7 +1084,7 @@ struct op_external_func : public op_base
 			}
 			check(input->is_scalar());
 			ComponentStr.Empty(64);
-			ComponentStr = LexicalConversion::ToString(input->offset);
+			ComponentStr = LexToString(input->offset);
 
 			Str += FString::Printf(TEXT("%s[%s]"), get_location_string(input->owner->location), *ComponentStr);
 		}
@@ -1099,7 +1099,7 @@ struct op_external_func : public op_base
 
 			ComponentStr.Empty(64);
 			check(output->is_scalar());
-			ComponentStr = LexicalConversion::ToString(output->offset);
+			ComponentStr = LexToString(output->offset);
 
 			Str += FString::Printf(TEXT("%s[%s]"), get_location_string(output->owner->location), *ComponentStr);
 		}

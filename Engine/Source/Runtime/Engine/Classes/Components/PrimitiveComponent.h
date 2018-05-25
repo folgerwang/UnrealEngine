@@ -965,7 +965,7 @@ public:
 	 * @param ElementIndex - The index of the skin to replace the material for.  If invalid, the material is unchanged and NULL is returned.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Rendering|Material")
-	virtual class UMaterialInstanceDynamic* CreateDynamicMaterialInstance(int32 ElementIndex, class UMaterialInterface* SourceMaterial = NULL);
+	virtual class UMaterialInstanceDynamic* CreateDynamicMaterialInstance(int32 ElementIndex, class UMaterialInterface* SourceMaterial = NULL, FName OptionalName = NAME_None);
 
 	/** 
 	 * Try and retrieve the material applied to a particular collision face of mesh. Used with face index returned from collision trace. 
@@ -1816,6 +1816,7 @@ public:
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual void UpdateCollisionProfile();
 #endif // WITH_EDITOR
+	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;

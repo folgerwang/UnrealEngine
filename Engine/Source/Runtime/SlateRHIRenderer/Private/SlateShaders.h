@@ -11,7 +11,10 @@
 #include "ShaderParameterUtils.h"
 #include "Rendering/RenderingCommon.h"
 
-extern uint32 GSlateShaderColorVisionDeficiencyType;
+extern EColorVisionDeficiency GSlateColorDeficiencyType;
+extern int32 GSlateColorDeficiencySeverity;
+extern bool GSlateColorDeficiencyCorrection;
+extern bool GSlateShowColorDeficiencyCorrectionWithDeficiency;
 
 /**
  * The vertex declaration for the slate vertex shader
@@ -209,7 +212,6 @@ public:
 		OutEnvironment.SetDefine(TEXT("SHADER_TYPE"), (uint32)ShaderType);
 		OutEnvironment.SetDefine(TEXT("DRAW_DISABLED_EFFECT"), (uint32)( bDrawDisabledEffect ? 1 : 0 ));
 		OutEnvironment.SetDefine(TEXT("USE_TEXTURE_ALPHA"), (uint32)( bUseTextureAlpha ? 1 : 0 ));
-		OutEnvironment.SetDefine(TEXT("COLOR_VISION_DEFICIENCY_TYPE"), GSlateShaderColorVisionDeficiencyType);
 		OutEnvironment.SetDefine(TEXT("USE_MATERIALS"), (uint32)0);
 
 		FSlateElementPS::ModifyCompilationEnvironment( Parameters, OutEnvironment );
@@ -397,6 +399,57 @@ private:
 	FShaderParameter UVBounds;
 };
 
+
+class FSlatePostProcessColorDeficiencyPS : public FSlateElementPS
+{
+	DECLARE_SHADER_TYPE(FSlatePostProcessColorDeficiencyPS, Global);
+public:
+	/** Indicates that this shader should be cached */
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	{
+		return true;
+	}
+
+	FSlatePostProcessColorDeficiencyPS()
+	{
+	}
+
+	/** Constructor.  Binds all parameters used by the shader */
+	FSlatePostProcessColorDeficiencyPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+		: FSlateElementPS(Initializer)
+	{
+		ColorVisionDeficiencyType.Bind(Initializer.ParameterMap, TEXT("ColorVisionDeficiencyType"));
+		ColorVisionDeficiencySeverity.Bind(Initializer.ParameterMap, TEXT("ColorVisionDeficiencySeverity"));
+		bCorrectDeficiency.Bind(Initializer.ParameterMap, TEXT("bCorrectDeficiency"));
+		bSimulateCorrectionWithDeficiency.Bind(Initializer.ParameterMap, TEXT("bSimulateCorrectionWithDeficiency"));
+	}
+
+	void SetColorRules(FRHICommandList& RHICmdList, bool bCorrect, EColorVisionDeficiency DeficiencyType, int32 Severity)
+	{
+		SetShaderValue(RHICmdList, GetPixelShader(), ColorVisionDeficiencyType, (float)DeficiencyType);
+		SetShaderValue(RHICmdList, GetPixelShader(), ColorVisionDeficiencySeverity, (float)Severity);
+		SetShaderValue(RHICmdList, GetPixelShader(), bCorrectDeficiency, bCorrect ? 1.0f : 0.0f);
+	}
+
+	void SetShowCorrectionWithDeficiency(FRHICommandList& RHICmdList, bool bShowCorrectionWithDeficiency)
+	{
+		SetShaderValue(RHICmdList, GetPixelShader(), bSimulateCorrectionWithDeficiency, bShowCorrectionWithDeficiency ? 1.0f : 0.0f);
+	}
+
+	virtual bool Serialize(FArchive& Ar) override
+	{
+		Ar << ColorVisionDeficiencyType;
+		Ar << ColorVisionDeficiencySeverity;
+		Ar << bCorrectDeficiency;
+		Ar << bSimulateCorrectionWithDeficiency;
+		return FSlateElementPS::Serialize(Ar);
+	}
+private:
+	FShaderParameter ColorVisionDeficiencyType;
+	FShaderParameter ColorVisionDeficiencySeverity;
+	FShaderParameter bCorrectDeficiency;
+	FShaderParameter bSimulateCorrectionWithDeficiency;
+};
 
 
 class FSlateMaskingVS : public FGlobalShader

@@ -743,13 +743,13 @@ FNiagaraCompileResults FHlslNiagaraCompiler::CompileScript(const FNiagaraCompile
 				case EVectorVMBaseTypes::Float:
 				{
 					float Val = *(float*)(CompilationOutput.InternalConstantData.GetData() + Offset);
-					CompileResults.Data->InternalParameters.SetOrAdd(FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), *LexicalConversion::ToString(Val)))->SetValue(Val);
+					CompileResults.Data->InternalParameters.SetOrAdd(FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), *LexToString(Val)))->SetValue(Val);
 				}
 				break;
 				case EVectorVMBaseTypes::Int:
 				{
 					int32 Val = *(int32*)(CompilationOutput.InternalConstantData.GetData() + Offset);
-					CompileResults.Data->InternalParameters.SetOrAdd(FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), *LexicalConversion::ToString(Val)))->SetValue(Val);
+					CompileResults.Data->InternalParameters.SetOrAdd(FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), *LexToString(Val)))->SetValue(Val);
 				}
 				break;
 				case EVectorVMBaseTypes::Bool:

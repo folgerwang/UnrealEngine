@@ -59,6 +59,7 @@ UMaterialInterface::UMaterialInterface(const FObjectInitializer& ObjectInitializ
 {
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
+		MaterialDomainString(MD_Surface); // find the enum for this now before we start saving
 #if USE_EVENT_DRIVEN_ASYNC_LOAD_AT_BOOT_TIME
 		if (!GIsInitialLoad || !GEventDrivenLoaderEnabled)
 #endif
@@ -288,6 +289,11 @@ bool UMaterialInterface::GetScalarParameterSliderMinMax(const FMaterialParameter
 bool UMaterialInterface::GetScalarParameterValue(const FMaterialParameterInfo& ParameterInfo, float& OutValue, bool bOveriddenOnly) const
 {
 	// is never called but because our system wants a UMaterialInterface instance we cannot use "virtual =0"
+	return false;
+}
+
+bool UMaterialInterface::IsScalarParameterUsedAsAtlasPosition(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, TSoftObjectPtr<class UCurveLinearColor>& Curve, TSoftObjectPtr<class UCurveLinearColorAtlas>& Atlas) const
+{
 	return false;
 }
 

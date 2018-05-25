@@ -22,6 +22,9 @@
 #include "Ssl.h"
 #endif
 
+#include "SocketSubsystem.h"
+#include "IPAddress.h"
+
 CURLM* FCurlHttpManager::GMultiHandle = NULL;
 CURLSH* FCurlHttpManager::GShareHandle = NULL;
 
@@ -183,6 +186,17 @@ void FCurlHttpManager::InitCurl()
 			UE_LOG(LogInit, Fatal, TEXT("Could not initialize create libcurl multi handle! HTTP transfers will not function properly."));
 		}
 
+		int32 MaxTotalConnections = 0;
+		if (GConfig->GetInt(TEXT("HTTP.Curl"), TEXT("MaxTotalConnections"), MaxTotalConnections, GEngineIni) && MaxTotalConnections > 0)
+		{
+			const CURLMcode SetOptResult = curl_multi_setopt(GMultiHandle, CURLMOPT_MAX_TOTAL_CONNECTIONS, static_cast<long>(MaxTotalConnections));
+			if (SetOptResult != CURLM_OK)
+			{
+				UE_LOG(LogInit, Warning, TEXT("Failed to set libcurl max total connections options (%d), error %d ('%s')"),
+					MaxTotalConnections, static_cast<int32>(SetOptResult), StringCast<TCHAR>(curl_multi_strerror(SetOptResult)).Get());
+			}
+		}
+
 		GShareHandle = curl_share_init();
 		if (NULL != GShareHandle)
 		{
@@ -313,19 +327,57 @@ void FCurlHttpManager::InitCurl()
 	{
 		CurlRequestOptions.bVerifyPeer = false;
 	}
-	else
+	bool bVerifyPeer = true;
+	if (GConfig->GetBool(TEXT("/Script/Engine.NetworkSettings"), TEXT("n.VerifyPeer"), bVerifyPeer, GEngineIni))
 	{
-		bool bVerifyPeer = true;
-		if (GConfig->GetBool(TEXT("/Script/Engine.NetworkSettings"), TEXT("n.VerifyPeer"), bVerifyPeer, GEngineIni))
-		{
-			CurlRequestOptions.bVerifyPeer = bVerifyPeer;
-		}
+		CurlRequestOptions.bVerifyPeer = bVerifyPeer;
+	}
+
+	bool bAcceptCompressedContent = true;
+	if (GConfig->GetBool(TEXT("HTTP"), TEXT("AcceptCompressedContent"), bAcceptCompressedContent, GEngineIni))
+	{
+		CurlRequestOptions.bAcceptCompressedContent = bAcceptCompressedContent;
 	}
 
 	int32 ConfigBufferSize = 0;
 	if (GConfig->GetInt(TEXT("HTTP.Curl"), TEXT("BufferSize"), ConfigBufferSize, GEngineIni) && ConfigBufferSize > 0)
 	{
 		CurlRequestOptions.BufferSize = ConfigBufferSize;
+	}
+
+	CurlRequestOptions.MaxHostConnections = FHttpModule::Get().GetHttpMaxConnectionsPerServer();
+	if (CurlRequestOptions.MaxHostConnections > 0)
+	{
+		const CURLMcode SetOptResult = curl_multi_setopt(GMultiHandle, CURLMOPT_MAX_HOST_CONNECTIONS, static_cast<long>(CurlRequestOptions.MaxHostConnections));
+		if (SetOptResult != CURLM_OK)
+		{
+			FUTF8ToTCHAR Converter(curl_multi_strerror(SetOptResult));
+			UE_LOG(LogInit, Warning, TEXT("Failed to set max host connections options (%d), error %d ('%s')"),
+				CurlRequestOptions.MaxHostConnections, (int32)SetOptResult, Converter.Get());
+			CurlRequestOptions.MaxHostConnections = 0;
+		}
+	}
+	else
+	{
+		CurlRequestOptions.MaxHostConnections = 0;
+	}
+
+	TCHAR Home[256] = TEXT("");
+	if (FParse::Value(FCommandLine::Get(), TEXT("MULTIHOMEHTTP="), Home, ARRAY_COUNT(Home)))
+	{
+		ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
+		if (SocketSubsystem)
+		{
+			TSharedRef<FInternetAddr> HostAddr = SocketSubsystem->CreateInternetAddr();
+			HostAddr->SetAnyAddress();
+
+			bool bIsValid = false;
+			HostAddr->SetIp(Home, bIsValid);
+			if (bIsValid)
+			{
+				CurlRequestOptions.LocalHostAddr = FString(Home);
+			}
+		}
 	}
 
 	// print for visibility
@@ -360,6 +412,13 @@ void FCurlHttpManager::FCurlRequestOptions::Log()
 		(CertBundlePath != nullptr) ? *FString(CertBundlePath) : TEXT("nullptr"),
 		(CertBundlePath != nullptr) ? TEXT("set CURLOPT_CAINFO to it") : TEXT("use whatever was configured at build time.")
 		);
+
+	UE_LOG(LogInit, Log, TEXT(" - MaxHostConnections = %d  - Libcurl will %slimit the number of connections to a host"),
+		MaxHostConnections,
+		(MaxHostConnections == 0) ? TEXT("NOT ") : TEXT("")
+		);
+
+	UE_LOG(LogInit, Log, TEXT(" - LocalHostAddr = %s"), LocalHostAddr.IsEmpty() ? TEXT("Default") : *LocalHostAddr);
 
 	UE_LOG(LogInit, Log, TEXT(" - BufferSize = %d"), CurlRequestOptions.BufferSize);
 }

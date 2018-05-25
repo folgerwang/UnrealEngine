@@ -518,12 +518,12 @@ bool UMovementComponent::K2_MoveUpdatedComponent(FVector Delta, FRotator NewRota
 	return SafeMoveUpdatedComponent(Delta, NewRotation.Quaternion(), bSweep, OutHit, TeleportFlagToEnum(bTeleport));
 }
 
-
+namespace MovementComponentCVars
+{
 // Typically we want to depenetrate regardless of direction, so we can get all the way out of penetration quickly.
 // Our rules for "moving with depenetration normal" only get us so far out of the object. We'd prefer to pop out by the full MTD amount.
 // Depenetration moves (in ResolvePenetration) then ignore blocking overlaps to be able to move out by the MTD amount.
 static int32 MoveIgnoreFirstBlockingOverlap = 0;
-
 static FAutoConsoleVariableRef CVarMoveIgnoreFirstBlockingOverlap(
 	TEXT("p.MoveIgnoreFirstBlockingOverlap"),
 	MoveIgnoreFirstBlockingOverlap,
@@ -531,7 +531,7 @@ static FAutoConsoleVariableRef CVarMoveIgnoreFirstBlockingOverlap(
 	TEXT("The 'p.InitialOverlapTolerance' setting determines the 'move out' rules, but by default we always try to depenetrate first (not ignore the hit).\n")
 	TEXT("0: Disable (do not ignore), 1: Enable (ignore)"),
 	ECVF_Default);
-
+}
 
 bool UMovementComponent::SafeMoveUpdatedComponent(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult& OutHit, ETeleportType Teleport)
 {
@@ -547,7 +547,7 @@ bool UMovementComponent::SafeMoveUpdatedComponent(const FVector& Delta, const FQ
 	{
 		// Conditionally ignore blocking overlaps (based on CVar)
 		const EMoveComponentFlags IncludeBlockingOverlapsWithoutEvents = (MOVECOMP_NeverIgnoreBlockingOverlaps | MOVECOMP_DisableBlockingOverlapDispatch);
-		TGuardValue<EMoveComponentFlags> ScopedFlagRestore(MoveComponentFlags, MoveIgnoreFirstBlockingOverlap ? MoveComponentFlags : (MoveComponentFlags | IncludeBlockingOverlapsWithoutEvents));
+		TGuardValue<EMoveComponentFlags> ScopedFlagRestore(MoveComponentFlags, MovementComponentCVars::MoveIgnoreFirstBlockingOverlap ? MoveComponentFlags : (MoveComponentFlags | IncludeBlockingOverlapsWithoutEvents));
 		bMoveResult = MoveUpdatedComponent(Delta, NewRotation, bSweep, &OutHit, Teleport);
 	}
 
@@ -565,17 +565,23 @@ bool UMovementComponent::SafeMoveUpdatedComponent(const FVector& Delta, const FQ
 	return bMoveResult;
 }
 
-static TAutoConsoleVariable<float> CVarPenetrationPullbackDistance(TEXT("p.PenetrationPullbackDistance"),
-	0.125f,
+
+namespace MovementComponentCVars
+{
+static float PenetrationPullbackDistance = 0.125f;
+static FAutoConsoleVariableRef CVarPenetrationPullbackDistance(TEXT("p.PenetrationPullbackDistance"),
+	PenetrationPullbackDistance,
 	TEXT("Pull out from penetration of an object by this extra distance.\n")
 	TEXT("Distance added to penetration fix-ups."),
 	ECVF_Default);
 
-static TAutoConsoleVariable<float> CVarPenetrationOverlapCheckInflation(TEXT("p.PenetrationOverlapCheckInflation"),
-	0.100,
+static float PenetrationOverlapCheckInflation = 0.100f;
+static FAutoConsoleVariableRef CVarPenetrationOverlapCheckInflation(TEXT("p.PenetrationOverlapCheckInflation"),
+	PenetrationOverlapCheckInflation,
 	TEXT("Inflation added to object when checking if a location is free of blocking collision.\n")
 	TEXT("Distance added to inflation in penetration overlap check."),
 	ECVF_Default);
+}
 
 FVector UMovementComponent::GetPenetrationAdjustment(const FHitResult& Hit) const
 {
@@ -585,7 +591,7 @@ FVector UMovementComponent::GetPenetrationAdjustment(const FHitResult& Hit) cons
 	}
 
 	FVector Result;
-	const float PullBackDistance = FMath::Abs(CVarPenetrationPullbackDistance.GetValueOnGameThread());
+	const float PullBackDistance = FMath::Abs(MovementComponentCVars::PenetrationPullbackDistance);
 	const float PenetrationDepth = (Hit.PenetrationDepth > 0.f ? Hit.PenetrationDepth : 0.125f);
 
 	Result = Hit.Normal * (PenetrationDepth + PullBackDistance);
@@ -599,6 +605,7 @@ bool UMovementComponent::ResolvePenetrationImpl(const FVector& ProposedAdjustmen
 	const FVector Adjustment = ConstrainDirectionToPlane(ProposedAdjustment);
 	if (!Adjustment.IsZero() && UpdatedPrimitive)
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_MovementComponent_ResolvePenetration);
 		// See if we can fit at the adjusted location without overlapping anything.
 		AActor* ActorOwner = UpdatedComponent->GetOwner();
 		if (!ActorOwner)
@@ -618,7 +625,7 @@ bool UMovementComponent::ResolvePenetrationImpl(const FVector& ProposedAdjustmen
 
 		// We really want to make sure that precision differences or differences between the overlap test and sweep tests don't put us into another overlap,
 		// so make the overlap test a bit more restrictive.
-		const float OverlapInflation = CVarPenetrationOverlapCheckInflation.GetValueOnGameThread();
+		const float OverlapInflation = MovementComponentCVars::PenetrationOverlapCheckInflation;
 		bool bEncroached = OverlapTest(Hit.TraceStart + Adjustment, NewRotationQuat, UpdatedPrimitive->GetCollisionObjectType(), UpdatedPrimitive->GetCollisionShape(OverlapInflation), ActorOwner);
 		if (!bEncroached)
 		{

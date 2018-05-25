@@ -19,9 +19,13 @@
 
 	#define LLM_SUPPORTED_PLATFORM (PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_WINDOWS || PLATFORM_IOS || PLATFORM_MAC || PLATFORM_ANDROID || PLATFORM_SWITCH || PLATFORM_UNIX)
 
+#ifndef ALLOW_LOW_LEVEL_MEM_TRACKER_IN_TEST
+	#define ALLOW_LOW_LEVEL_MEM_TRACKER_IN_TEST 0
+#endif
+
 	// *** enable/disable LLM here ***
 #ifndef ENABLE_LOW_LEVEL_MEM_TRACKER
-	#define ENABLE_LOW_LEVEL_MEM_TRACKER (!UE_BUILD_SHIPPING && LLM_SUPPORTED_PLATFORM && WITH_ENGINE && 1)
+	#define ENABLE_LOW_LEVEL_MEM_TRACKER (!UE_BUILD_SHIPPING && (!UE_BUILD_TEST || ALLOW_LOW_LEVEL_MEM_TRACKER_IN_TEST) && LLM_SUPPORTED_PLATFORM && WITH_ENGINE && 1)
 #endif
 
 	// using asset tagging requires a significantly higher number of per-thread tags, so make it optional
@@ -200,7 +204,7 @@ extern const TCHAR* LLMGetTagName(ELLMTag Tag);
 extern FName LLMGetTagStatGroup(ELLMTag Tag);
 extern FName LLMGetTagStat(ELLMTag Tag);
 
-/**
+/*
  * LLM utility macros
  */
 #define LLM(x) x

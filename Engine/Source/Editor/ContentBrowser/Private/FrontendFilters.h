@@ -41,6 +41,15 @@ public:
 	/** If bIncludeClassName is true, the text filter will include an asset's class name in the search */
 	void SetIncludeClassName(const bool InIncludeClassName);
 
+	/** If bIncludeAssetPath is true, the text filter will match against full Asset path */
+	void SetIncludeAssetPath(const bool InIncludeAssetPath);
+
+	bool GetIncludeAssetPath() const;
+
+	/** If bIncludeCollectionNames is true, the text filter will match against collection names as well */
+	void SetIncludeCollectionNames(const bool InIncludeCollectionNames);
+
+	bool GetIncludeCollectionNames() const;
 private:
 	/** Handles an on collection created event */
 	void HandleCollectionCreated(const FCollectionNameType& Collection);

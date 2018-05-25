@@ -116,10 +116,10 @@ bool FDataTableImporterCSV::ReadTable()
 	const FCsvParser Parser(CSVData);
 	const auto& Rows = Parser.GetRows();
 
-	// Must have at least 2 rows (column names + data)
-	if(Rows.Num() <= 1)
+	// Must have at least a header row (column names)
+	if(Rows.Num() < 1)
 	{
-		ImportProblems.Add(TEXT("Too few rows."));
+		ImportProblems.Add(TEXT("Too few rows (there must be at least a header row)."));
 		return false;
 	}
 

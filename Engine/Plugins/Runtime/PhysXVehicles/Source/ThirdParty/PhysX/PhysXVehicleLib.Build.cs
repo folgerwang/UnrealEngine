@@ -30,8 +30,9 @@ public class PhysXVehicleLib : ModuleRules
                     return PhysXLibraryMode.Checked;
                 }
             case UnrealTargetConfiguration.Shipping:
+				return PhysXLibraryMode.Shipping;
             case UnrealTargetConfiguration.Test:
-                return PhysXLibraryMode.Shipping;
+                return PhysXLibraryMode.Profile;
             case UnrealTargetConfiguration.Development:
             case UnrealTargetConfiguration.DebugGame:
             case UnrealTargetConfiguration.Unknown:

@@ -254,6 +254,7 @@ public:
 	
 	//~ Begin UObject Interface. 
 	virtual void PostLoad() override;
+	virtual bool IsPostLoadThreadSafe() const override;
 	virtual void BeginDestroy() override;
 
 #if WITH_EDITOR

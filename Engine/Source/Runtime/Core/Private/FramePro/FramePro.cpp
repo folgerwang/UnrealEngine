@@ -3385,7 +3385,7 @@ namespace FramePro
 		uint64 m_OSThreadId;
 
 // START EPIC
-		#if !FRAMEPRO_WIN_BASED_PLATFORM
+		#if !FRAMEPRO_WIN_BASED_PLATFORM && !FRAMEPRO_UE4_BASED_PLATFORM
 // END EPIC
 
 			static int m_NewThreadId;
@@ -7076,7 +7076,7 @@ namespace FramePro
 {
 	//------------------------------------------------------------------------
 // START EPIC
-	#if !FRAMEPRO_WIN_BASED_PLATFORM
+	#if !FRAMEPRO_WIN_BASED_PLATFORM && !FRAMEPRO_UE4_BASED_PLATFORM
 // END EPIC
 		int FrameProTLS::m_NewThreadId = 1;
 	#endif
@@ -7118,7 +7118,9 @@ namespace FramePro
 		,m_SendCallstacks(false)
 #endif
 	{
-		#if FRAMEPRO_WIN_BASED_PLATFORM
+// START EPIC
+		#if FRAMEPRO_WIN_BASED_PLATFORM || FRAMEPRO_UE4_BASED_PLATFORM
+// END EPIC
 			m_ThreadId = (int)m_OSThreadId;
 		#else
 			m_ThreadId = m_NewThreadId++;

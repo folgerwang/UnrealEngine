@@ -75,13 +75,13 @@ namespace
 {
 	FString TimestampToString(FDateTime InTimestamp)
 	{
-		return Lex::ToString(InTimestamp.ToUnixTimestamp());
+		return LexToString(InTimestamp.ToUnixTimestamp());
 	}
 
 	FDateTime StringToTimestamp(FString InString)
 	{
 		int64 TimestampUnix;
-		if (Lex::TryParseString(TimestampUnix, *InString))
+		if (LexTryParseString(TimestampUnix, *InString))
 		{
 			return FDateTime::FromUnixTimestamp(TimestampUnix);
 		}

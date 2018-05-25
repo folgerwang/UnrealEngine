@@ -19,8 +19,8 @@
 #include "LocalVertexFactory.h"
 #include "MaterialShared.h"
 #include "Materials/Material.h"
-#include "Components/InstancedStaticMeshComponent.h"
 #include "StaticMeshResources.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 
 #include "StaticMeshLight.h"
@@ -169,9 +169,9 @@ struct FInstancedStaticMeshDataType
 	/** The stream to read the Lightmap Bias and Random instance ID from. */
 	FVertexStreamComponent InstanceLightmapAndShadowMapUVBiasComponent;
 
-	FShaderResourceViewRHIParamRef InstanceOriginSRV;
-	FShaderResourceViewRHIParamRef InstanceTransformSRV;
-	FShaderResourceViewRHIParamRef InstanceLightmapSRV;
+	FShaderResourceViewRHIParamRef InstanceOriginSRV = nullptr;
+	FShaderResourceViewRHIParamRef InstanceTransformSRV = nullptr;
+	FShaderResourceViewRHIParamRef InstanceLightmapSRV = nullptr;
 };
 
 /**

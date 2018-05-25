@@ -12,6 +12,55 @@ using Tools.DotNETCommon;
 namespace UnrealBuildTool
 {
 	/// <summary>
+	/// IOS-specific target settings
+	/// </summary>
+	public class IOSTargetRules
+	{
+		/// <summary>
+		/// Don't generate crashlytics data
+		/// </summary>
+		[CommandLine("-skipcrashlytics")]
+		public bool bSkipCrashlytics = false;
+	}
+
+	/// <summary>
+	/// Read-only wrapper for IOS-specific target settings
+	/// </summary>
+	public class ReadOnlyIOSTargetRules
+	{
+		/// <summary>
+		/// The private mutable settings object
+		/// </summary>
+		private IOSTargetRules Inner;
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Inner">The settings object to wrap</param>
+		public ReadOnlyIOSTargetRules(IOSTargetRules Inner)
+		{
+			this.Inner = Inner;
+		}
+
+		/// <summary>
+		/// Accessors for fields on the inner TargetRules instance
+		/// </summary>
+		#region Read-only accessor properties 
+#if !__MonoCS__
+#pragma warning disable CS1591
+#endif
+		public bool bSkipCrashlytics
+		{
+			get { return Inner.bSkipCrashlytics; }
+		}
+
+#if !__MonoCS__
+#pragma warning restore CS1591
+#endif
+		#endregion
+	}
+
+	/// <summary>
 	/// Stores project-specific IOS settings. Instances of this object are cached by IOSPlatform.
 	/// </summary>
 	class IOSProjectSettings
@@ -25,12 +74,14 @@ namespace UnrealBuildTool
 		/// Whether to generate a dSYM file or not.
 		/// </summary>
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bGeneratedSYMFile")]
+		[CommandLine("-skipgeneratedsymfile", Value="false")]
 		public readonly bool bGeneratedSYMFile = true;
 
 		/// <summary>
 		/// Whether to generate a dSYM bundle or not.
 		/// </summary>
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bGeneratedSYMBundle")]
+		[CommandLine("-skipgeneratedsymbundle", Value = "false")]
 		public readonly bool bGeneratedSYMBundle = false;
 
         /// <summary>
@@ -806,6 +857,7 @@ namespace UnrealBuildTool
 
 			LinkEnvironment.AdditionalFrameworks.Add(new UEBuildFramework("GameKit"));
 			LinkEnvironment.AdditionalFrameworks.Add(new UEBuildFramework("StoreKit"));
+			LinkEnvironment.AdditionalFrameworks.Add(new UEBuildFramework("DeviceCheck"));
 		}
 
 		/// <summary>

@@ -75,7 +75,7 @@ public:
 
 private:
 	NSUInteger MinAlign;
-	NSUInteger UsedSize;
+	int64 volatile UsedSize;
 	mtlpp::Buffer ParentBuffer;
 	TLockFreePointerListLIFO<ns::Range> FreeRanges;
 };

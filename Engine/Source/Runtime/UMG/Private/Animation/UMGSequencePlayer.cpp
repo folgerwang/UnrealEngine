@@ -122,12 +122,6 @@ void UUMGSequencePlayer::Tick(float DeltaTime)
 
 		if ( bCompleted )
 		{
-			// There was a bug where Finish wasn't called, assets were created expecting this behavior. At the time of fixing this bug, the object version was incremented so that newly created assets would finish evaluation.
-			if (RootTemplateInstance.IsValid() && Animation->GetLegacyFinishOnStop())
-			{
-				RootTemplateInstance.Finish(*this);
-			}
-			
 			PlayerStatus = EMovieScenePlayerStatus::Stopped;
 			OnSequenceFinishedPlayingEvent.Broadcast(*this);
 			Animation->OnAnimationFinished.Broadcast();

@@ -13,7 +13,9 @@ USoundBase::USoundBase(const FObjectInitializer& ObjectInitializer)
 	, bIgnoreFocus_DEPRECATED(false)
 	, Priority(1.0f)
 {
+#if WITH_EDITORONLY_DATA
 	MaxConcurrentPlayCount_DEPRECATED = 16;
+#endif
 }
 
 void USoundBase::PostInitProperties()
@@ -70,7 +72,7 @@ float USoundBase::GetMaxDistance() const
 	return (AttenuationSettings ? AttenuationSettings->Attenuation.GetMaxDimension() : WORLD_MAX);
 }
 
-float USoundBase::GetDuration() const
+float USoundBase::GetDuration()
 {
 	return Duration;
 }
@@ -168,6 +170,7 @@ void USoundBase::PostLoad()
 {
 	Super::PostLoad();
 
+#if WITH_EDITORONLY_DATA
 	const int32 LinkerUE4Version = GetLinkerUE4Version();
 
 	if (LinkerUE4Version < VER_UE4_SOUND_CONCURRENCY_PACKAGE)
@@ -178,5 +181,6 @@ void USoundBase::PostLoad()
 		ConcurrencyOverrides.ResolutionRule = MaxConcurrentResolutionRule_DEPRECATED;
 		ConcurrencyOverrides.VolumeScale = 1.0f;
 	}
+#endif
 }
 

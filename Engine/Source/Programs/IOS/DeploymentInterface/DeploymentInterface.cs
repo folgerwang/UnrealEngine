@@ -41,7 +41,8 @@ namespace iPhonePackager
         ConnectedDeviceInfo [] EnumerateConnectedDevices();
         bool InstallIPAOnDevice(string IPAPath);
 		bool InstallFilesOnDevice(string BundleIdentifier, string ManifestFile);
-		bool BackupDocumentsDirectory(string BundleIdentifier, string DestinationDocumentsDirectory);
+        bool CopyFileToDevice(string BundleIdentifier, string SourceFile, string DestFile);
+        bool BackupDocumentsDirectory(string BundleIdentifier, string DestinationDocumentsDirectory);
 		bool BackupFiles(string BundleIdentifier, string[] Files);
 		bool ListApplications();
 	}

@@ -663,6 +663,9 @@ void ULocalPlayer::GetViewPoint(FMinimalViewInfo& OutViewInfo, EStereoscopicPass
 	{
 		ViewExt->SetupViewPoint(PlayerController, OutViewInfo);
 	};
+
+	// We store the originally desired FOV as other classes may adjust to account for ultra-wide aspect ratios
+	OutViewInfo.DesiredFOV = OutViewInfo.FOV;
 }
 
 bool ULocalPlayer::CalcSceneViewInitOptions(
@@ -797,6 +800,8 @@ FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily,
 	OutViewLocation = ViewInfo.Location;
 	OutViewRotation = ViewInfo.Rotation;
 	ViewInitOptions.bUseFieldOfViewForLOD = ViewInfo.bUseFieldOfViewForLOD;
+	ViewInitOptions.FOV = ViewInfo.FOV;
+	ViewInitOptions.DesiredFOV = ViewInfo.DesiredFOV;
 
 	// Fill out the rest of the view init options
 	ViewInitOptions.ViewFamily = ViewFamily;
@@ -1542,18 +1547,18 @@ FString ULocalPlayer::GetNickname() const
 	return TEXT("");
 }
 
-TSharedPtr<const FUniqueNetId> ULocalPlayer::GetUniqueNetIdFromCachedControllerId() const
+FUniqueNetIdRepl ULocalPlayer::GetUniqueNetIdFromCachedControllerId() const
 {
 	UWorld* World = GetWorld();
 	if (World != nullptr)
 	{
-		return UOnlineEngineInterface::Get()->GetUniquePlayerId(World, ControllerId);
+		return FUniqueNetIdRepl(UOnlineEngineInterface::Get()->GetUniquePlayerId(World, ControllerId));
 	}
 
-	return nullptr;
+	return FUniqueNetIdRepl();
 }
 
-TSharedPtr<const FUniqueNetId> ULocalPlayer::GetCachedUniqueNetId() const
+FUniqueNetIdRepl ULocalPlayer::GetCachedUniqueNetId() const
 {
 	return CachedUniqueNetId;
 }
@@ -1563,11 +1568,11 @@ void ULocalPlayer::SetCachedUniqueNetId(TSharedPtr<const FUniqueNetId> NewUnique
 	CachedUniqueNetId = NewUniqueNetId;
 }
 
-TSharedPtr<const FUniqueNetId> ULocalPlayer::GetPreferredUniqueNetId() const
+FUniqueNetIdRepl ULocalPlayer::GetPreferredUniqueNetId() const
 {
 	// Prefer the cached unique net id (only if it's valid)
 	// This is for backwards compatibility for games that don't yet cache the unique id properly
-	if (GetCachedUniqueNetId().IsValid() && GetCachedUniqueNetId()->IsValid())
+	if (GetCachedUniqueNetId().IsValid())
 	{
 		return GetCachedUniqueNetId();
 	}
@@ -1579,23 +1584,8 @@ TSharedPtr<const FUniqueNetId> ULocalPlayer::GetPreferredUniqueNetId() const
 bool ULocalPlayer::IsCachedUniqueNetIdPairedWithControllerId() const
 {
 	// Get the UniqueNetId that is paired with the controller
-	TSharedPtr<const FUniqueNetId> UniqueIdFromController = GetUniqueNetIdFromCachedControllerId();
-
-	if (CachedUniqueNetId.IsValid() != UniqueIdFromController.IsValid())
-	{
-		// Definitely can't match if one is valid and not the other
-		return false;
-	}
-
-	if (!CachedUniqueNetId.IsValid())
-	{
-		// Both are invalid, technically they match
-		check(!UniqueIdFromController.IsValid());
-		return true;
-	}
-
-	// Both are valid, ask them if they match
-	return *CachedUniqueNetId == *UniqueIdFromController;
+	FUniqueNetIdRepl UniqueIdFromController = GetUniqueNetIdFromCachedControllerId();
+	return (CachedUniqueNetId == UniqueIdFromController);
 }
 
 UWorld* ULocalPlayer::GetWorld() const

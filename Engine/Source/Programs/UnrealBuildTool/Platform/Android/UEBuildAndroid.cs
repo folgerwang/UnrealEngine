@@ -14,7 +14,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Android-specific target settings
 	/// </summary>
-	public class AndroidTargetRules
+	public partial class AndroidTargetRules
 	{
 		/// <summary>
 		/// Lists Architectures that you want to build
@@ -32,7 +32,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Read-only wrapper for Android-specific target settings
 	/// </summary>
-	public class ReadOnlyAndroidTargetRules
+	public partial class ReadOnlyAndroidTargetRules
 	{
 		/// <summary>
 		/// The private mutable settings object
@@ -172,6 +172,16 @@ namespace UnrealBuildTool
 			return new string [] {};
 		}
 
+		public override void FindAdditionalBuildProductsToClean(ReadOnlyTargetRules Target, List<FileReference> FilesToDelete, List<DirectoryReference> DirectoriesToDelete)
+		{
+			base.FindAdditionalBuildProductsToClean(Target, FilesToDelete, DirectoriesToDelete);
+
+			if(Target.ProjectFile != null)
+			{
+				DirectoriesToDelete.Add(DirectoryReference.Combine(DirectoryReference.FromFile(Target.ProjectFile), "Intermediate", "Android"));
+			}
+		}
+
 		public virtual bool HasSpecificDefaultBuildConfig(UnrealTargetPlatform Platform, DirectoryReference ProjectPath)
 		{
 			string[] BoolKeys = new string[] {
@@ -190,6 +200,7 @@ namespace UnrealBuildTool
 			}
 			return true;
 		}
+
 		public override bool HasDefaultBuildConfig(UnrealTargetPlatform Platform, DirectoryReference ProjectPath)
 		{
 			// @todo Lumin: This is kinda messy - better way?
@@ -334,7 +345,7 @@ namespace UnrealBuildTool
 		public override void AddExtraModules(ReadOnlyTargetRules Target, List<string> PlatformExtraModules)
 		{
 			bool bVulkanExists = IsVulkanSDKAvailable();
-			if (bVulkanExists)
+			if (bVulkanExists && Target.Type != TargetType.Program)
 			{
 				PlatformExtraModules.Add("VulkanRHI");
 			}
@@ -416,6 +427,15 @@ namespace UnrealBuildTool
 
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/native_app_glue"));
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/cpufeatures"));
+
+
+			// if the project has an Oodle compression Dll, enable the decompressor on Android
+			DirectoryReference ProjectDir = Target.ProjectFile != null ? DirectoryReference.GetParentDirectory(Target.ProjectFile) : UnrealBuildTool.EngineDirectory;
+			string OodleDllPath = DirectoryReference.Combine(ProjectDir, "Binaries/ThirdParty/Oodle/Win64/UnrealPakPlugin.dll").FullName;
+			if (File.Exists(OodleDllPath))
+			{
+				CompileEnvironment.Definitions.Add("REGISTER_OODLE_CUSTOM_COMPRESSOR=1");
+			}
 
 			//@TODO: Tegra Gfx Debugger - standardize locations - for now, change the hardcoded paths and force this to return true to test
 			if (UseTegraGraphicsDebugger(Target))

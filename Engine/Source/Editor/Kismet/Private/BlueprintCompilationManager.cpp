@@ -911,6 +911,7 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 
 			if(BP->GeneratedClass)
 			{
+				BP->GeneratedClass->ClassFlags &= ~CLASS_ReplicationDataIsSetUp;
 				BP->GeneratedClass->SetUpRuntimeReplicationData();
 			}
 

@@ -313,8 +313,9 @@ protected:
 				, SerializedObject(InSerializedObject)
 				, Offset(0)
 			{
-				ArWantBinaryPropertySerialization = bWantBinarySerialization;
-				ArIsLoading = ArIsTransacting = 1;
+				this->SetWantBinaryPropertySerialization(bWantBinarySerialization);
+				this->SetIsLoading(true);
+				this->SetIsTransacting(true);
 			}
 
 			virtual int64 Tell() override {return Offset;}
@@ -390,8 +391,9 @@ protected:
 					ObjectMap.Add(SerializedObject.ReferencedObjects[ObjIndex].Get(), ObjIndex);
 				}
 
-				ArWantBinaryPropertySerialization = bWantBinarySerialization;
-				ArIsSaving = ArIsTransacting = 1;
+				this->SetWantBinaryPropertySerialization(bWantBinarySerialization);
+				this->SetIsSaving(true);
+				this->SetIsTransacting(true);
 			}
 
 			virtual int64 Tell() override {return Offset;}

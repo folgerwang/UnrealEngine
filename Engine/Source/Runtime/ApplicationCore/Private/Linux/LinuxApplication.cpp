@@ -959,7 +959,7 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 				Touches.Add(FingerId, NewTouch);
 
 				UE_LOG(LogLinuxWindow, Verbose, TEXT("OnTouchStarted at (%f, %f), finger %d (system touch id %llu)"), NewTouch.Location.X, NewTouch.Location.Y, NewTouch.TouchIndex, FingerId);
-				MessageHandler->OnTouchStarted(CurrentEventWindow, NewTouch.Location, NewTouch.TouchIndex, 0);// NewTouch.DeviceId);
+				MessageHandler->OnTouchStarted(CurrentEventWindow, NewTouch.Location, 1.0f, NewTouch.TouchIndex, 0);// NewTouch.DeviceId);
 			}
 			else
 			{
@@ -1029,7 +1029,7 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 					{
 						TouchContext->Location = Location;
 						UE_LOG(LogLinuxWindow, Verbose, TEXT("OnTouchMoved at (%f, %f), finger %d (system touch id %llu)"), TouchContext->Location.X, TouchContext->Location.Y, TouchContext->TouchIndex, FingerId);
-						MessageHandler->OnTouchMoved(TouchContext->Location, TouchContext->TouchIndex, 0);// TouchContext->DeviceId);
+						MessageHandler->OnTouchMoved(TouchContext->Location, 1.0f, TouchContext->TouchIndex, 0);// TouchContext->DeviceId);
 	}
 }
 			}

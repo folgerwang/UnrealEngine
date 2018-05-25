@@ -42,6 +42,12 @@
 typedef float(*GetAxesType)(const AInputEvent*, int32_t axis, size_t pointer_index);
 static GetAxesType GetAxes = NULL;
 
+// Define missing events for earlier NDKs
+#if PLATFORM_ANDROID_NDK_VERSION < 140200
+#define AMOTION_EVENT_AXIS_RELATIVE_X 27
+#define AMOTION_EVENT_AXIS_RELATIVE_Y 28
+#endif
+
 // List of default axes to query for each controller
 // Ideal solution is to call out to Java and enumerate the list of axes.
 static const int32_t AxisList[] =
@@ -98,6 +104,24 @@ extern "C"
 	extern void *__dso_handle __attribute__((__visibility__ ("hidden")));
 	void *__dso_handle;
 }
+
+int32 GAndroidEnableMouse = 0;
+static FAutoConsoleVariableRef CVarEnableMouse(
+	TEXT("Android.EnableMouse"),
+	GAndroidEnableMouse,
+	TEXT("Whether mouse support is enabled on Android.\n")
+	TEXT(" 0: disabled (default)\n")
+	TEXT(" 1: enabled"),
+	ECVF_ReadOnly);
+
+int32 GAndroidEnableHardwareKeyboard = 0;
+static FAutoConsoleVariableRef CVarEnableHWKeyboard(
+	TEXT("Android.EnableHardwareKeyboard"),
+	GAndroidEnableHardwareKeyboard,
+	TEXT("Whether hardware keyboard support is enabled on Android.\n")
+	TEXT(" 0: disabled (default)\n")
+	TEXT(" 1: enabled"),
+	ECVF_ReadOnly);
 
 extern void AndroidThunkCpp_InitHMDs();
 extern void AndroidThunkCpp_ShowConsoleWindow();
@@ -422,7 +446,98 @@ int32 AndroidMain(struct android_app* state)
 	return 0;
 }
 
+// this is a prototype currently unused, left here for possible future use
+#if !defined(WITH_Android_Choreographer)
+#define WITH_Android_Choreographer (0)
+#endif
 
+#if WITH_Android_Choreographer
+
+struct AChoreographer;
+struct FChoreographer
+{
+	typedef void(*AChoreographer_frameCallback)(long frameTimeNanos, void* data);
+	typedef AChoreographer* (*func_AChoreographer_getInstance)();
+	typedef void(*func_AChoreographer_postFrameCallback)(
+		AChoreographer* choreographer, AChoreographer_frameCallback callback,
+		void* data);
+
+	func_AChoreographer_getInstance AChoreographer_getInstance_ = nullptr;
+	func_AChoreographer_postFrameCallback AChoreographer_postFrameCallback_ = nullptr;
+
+	FCriticalSection ChoreographerSetupLock;
+
+	TFunction<void(int64)> Callback;
+
+	int64 FrameCounterInc = 0;
+
+	void SetupChoreographer()
+	{
+		FScopeLock Lock(&ChoreographerSetupLock);
+		check(!AChoreographer_getInstance_);
+		if (!AChoreographer_getInstance_)
+		{
+			void* lib = dlopen("libandroid.so", RTLD_NOW | RTLD_LOCAL);
+			if (lib != nullptr)
+			{
+				// Retrieve function pointers from shared object.
+				AChoreographer_getInstance_ =
+					reinterpret_cast<func_AChoreographer_getInstance>(
+						dlsym(lib, "AChoreographer_getInstance"));
+				AChoreographer_postFrameCallback_ =
+					reinterpret_cast<func_AChoreographer_postFrameCallback>(
+						dlsym(lib, "AChoreographer_postFrameCallback"));
+			}
+
+			if (!AChoreographer_getInstance_ || !AChoreographer_postFrameCallback_)
+			{
+				UE_LOG(LogAndroid, Fatal, TEXT("Failed to set up Choreographer"));
+			}
+			SetCallback();
+		}
+	}
+	void SetupCallback(TFunction<void(int64)> InCallback)
+	{
+		FScopeLock Lock(&ChoreographerSetupLock);
+		check(AChoreographer_getInstance_);
+		Callback = InCallback;
+	}
+
+	void SetCallback();
+	void DoCallback(int64 InFrameCounter)
+	{
+		FScopeLock Lock(&ChoreographerSetupLock);
+		// Post next callback for self.
+		FrameCounterInc++;
+		SetCallback();
+		if (Callback)
+		{
+			//Callback(FrameCounterInc);
+			Callback(InFrameCounter);
+		}
+	}
+};
+FChoreographer TheChoreographer;
+
+void StartChoreographer(TFunction<void(int64)> Callback)
+{
+	TheChoreographer.SetupCallback(Callback);
+}
+
+
+static void choreographer_callback(long frameTimeNanos, void* data)
+{
+	TheChoreographer.DoCallback((frameTimeNanos * 60 + 500000000) / 1000000000);
+}
+
+void FChoreographer::SetCallback()
+{
+	AChoreographer* choreographer = AChoreographer_getInstance_();
+	UE_CLOG(!choreographer, LogAndroid, Fatal, TEXT("Choreographer was null."));
+	AChoreographer_postFrameCallback_(choreographer, choreographer_callback, nullptr);
+}
+
+#endif
 
 static void* AndroidEventThreadWorker( void* param )
 {
@@ -445,6 +560,10 @@ static void* AndroidEventThreadWorker( void* param )
 
 	FPlatformMisc::LowLevelOutputDebugString(L"Passed callback initialization");
 	FPlatformMisc::LowLevelOutputDebugString(L"Passed sensor initialization");
+
+#if WITH_Android_Choreographer
+	TheChoreographer.SetupChoreographer();
+#endif
 
 	//continue to process events until the engine is shutting down
 	while (!GIsRequestingExit)
@@ -516,6 +635,78 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 
 	int32 EventType = AInputEvent_getType(event);
 	int32 EventSource = AInputEvent_getSource(event);
+
+	if ((EventSource & AINPUT_SOURCE_MOUSE) == AINPUT_SOURCE_MOUSE)
+	{
+		static int32 previousButtonState = 0;
+
+		if (!GAndroidEnableMouse)
+		{
+			// this will block event
+			return 1;
+		}
+
+		int32 action = AMotionEvent_getAction(event);
+		int32 actionType = action & AMOTION_EVENT_ACTION_MASK;
+		int32 device = AInputEvent_getDeviceId(event);
+		int32 buttonState = AMotionEvent_getButtonState(event);
+
+//		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("-- EVENT: %d, device: %d, action: %x, actionType: %x, buttonState: %x"), EventType, device, action, actionType, buttonState);
+
+		if (actionType == AMOTION_EVENT_ACTION_DOWN || actionType == AMOTION_EVENT_ACTION_UP)
+		{
+			bool bDown = (actionType == AMOTION_EVENT_ACTION_DOWN);
+			if (!bDown)
+			{
+				buttonState = previousButtonState;
+			}
+			if (buttonState & AMOTION_EVENT_BUTTON_PRIMARY)
+			{
+//				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Mouse button 0: %d"), bDown ? 1 : 0);
+				FAndroidInputInterface::MouseButtonEvent(device, 0, bDown);
+			}
+			if (buttonState & AMOTION_EVENT_BUTTON_SECONDARY)
+			{
+//				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Mouse button 1: %d"), bDown ? 1 : 0);
+				FAndroidInputInterface::MouseButtonEvent(device, 0, bDown);
+			}
+			if (buttonState & AMOTION_EVENT_BUTTON_TERTIARY)
+			{
+//				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Mouse button 2: %d"), bDown ? 1 : 0);
+				FAndroidInputInterface::MouseButtonEvent(device, 0, bDown);
+			}
+			previousButtonState = buttonState;
+			return 1;
+		}
+
+		if (actionType == AMOTION_EVENT_ACTION_SCROLL)
+		{
+			if (GetAxes)
+			{
+				float WheelDelta = GetAxes(event, AMOTION_EVENT_AXIS_VSCROLL, 0);
+
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Mouse scroll: %f"), WheelDelta);
+				FAndroidInputInterface::MouseWheelEvent(device, WheelDelta);
+			}
+			return 1;
+		}
+
+		if (GetAxes && (actionType == AMOTION_EVENT_ACTION_MOVE || actionType == AMOTION_EVENT_ACTION_HOVER_MOVE))
+		{
+			float XAbsolute = GetAxes(event, AMOTION_EVENT_AXIS_X, 0);
+			float YAbsolute = GetAxes(event, AMOTION_EVENT_AXIS_Y, 0);
+			float XRelative = GetAxes(event, AMOTION_EVENT_AXIS_RELATIVE_X, 0);
+			float YRelative = GetAxes(event, AMOTION_EVENT_AXIS_RELATIVE_Y, 0);
+
+			if (XRelative != 0.0f || YRelative != 0.0f)
+			{
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Mouse absolute: (%f, %f), relative (%f, %f)"), XAbsolute, YAbsolute, XRelative, YRelative);
+				FAndroidInputInterface::MouseMoveEvent(device, XAbsolute, YAbsolute, XRelative, YRelative);
+			}
+		}
+
+		return 1;
+	}
 
 	if (EventType == AINPUT_EVENT_TYPE_MOTION)
 	{
@@ -690,8 +881,10 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 	if (EventType == AINPUT_EVENT_TYPE_KEY)
 	{
 		int keyCode = AKeyEvent_getKeyCode(event);
+		int keyFlags = AKeyEvent_getFlags(event);
+		bool bSoftKey = (keyFlags & AKEY_EVENT_FLAG_SOFT_KEYBOARD) != 0;
 
-		FPlatformMisc::LowLevelOutputDebugStringf(L"Received keycode: %d", keyCode);
+		FPlatformMisc::LowLevelOutputDebugStringf(L"Received keycode: %d, softkey: %d", keyCode, bSoftKey ? 1 : 0);
 
 		//Trap codes handled as possible gamepad events
 		if (ValidGamepadKeyCodes.Contains(keyCode))
@@ -718,14 +911,17 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 				return 0;
 			}
 
-			FDeferredAndroidMessage Message;
+			if (bSoftKey || GAndroidEnableHardwareKeyboard)
+			{
+				FDeferredAndroidMessage Message;
 
-			Message.messageType = AKeyEvent_getAction(event) == AKEY_EVENT_ACTION_UP ? MessageType_KeyUp : MessageType_KeyDown; 
-			Message.KeyEventData.unichar = keyCode;
-			Message.KeyEventData.keyId = keyCode;
-			Message.KeyEventData.modifier = AKeyEvent_getMetaState(event);
-			Message.KeyEventData.isRepeat = AKeyEvent_getAction(event) == AKEY_EVENT_ACTION_MULTIPLE;
-			FAndroidInputInterface::DeferMessage(Message);
+				Message.messageType = AKeyEvent_getAction(event) == AKEY_EVENT_ACTION_UP ? MessageType_KeyUp : MessageType_KeyDown;
+				Message.KeyEventData.unichar = keyCode;
+				Message.KeyEventData.keyId = keyCode;
+				Message.KeyEventData.modifier = AKeyEvent_getMetaState(event);
+				Message.KeyEventData.isRepeat = AKeyEvent_getAction(event) == AKEY_EVENT_ACTION_MULTIPLE;
+				FAndroidInputInterface::DeferMessage(Message);
+			}
 
 			// allow event to be generated for volume up and down, but conditionally allow system to handle it, too
 			if (keyCode == AKEYCODE_VOLUME_UP || keyCode == AKEYCODE_VOLUME_DOWN)

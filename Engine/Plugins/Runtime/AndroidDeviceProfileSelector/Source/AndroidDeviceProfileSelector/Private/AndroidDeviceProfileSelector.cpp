@@ -29,15 +29,17 @@ static UAndroidDeviceProfileMatchingRules* GetAndroidDeviceProfileMatchingRules(
 	return Rules;
 }
 
-FString FAndroidDeviceProfileSelector::FindMatchingProfile(FString GPUFamily, FString GLVersion, FString AndroidVersion, FString DeviceMake, FString DeviceModel, FString VulkanVersion, FString UsingHoudini, FString ProfileName)
+FString FAndroidDeviceProfileSelector::FindMatchingProfile(const FString& GPUFamily, const FString& GLVersion, const FString& AndroidVersion, const FString& DeviceMake, const FString& DeviceModel, const FString& VulkanAvailable, const FString& VulkanVersion, const FString& UsingHoudini, const FString& ProfileName)
 {
+	FString OutProfileName = ProfileName;
+
 	for (const FProfileMatch& Profile : GetAndroidDeviceProfileMatchingRules()->MatchProfile)
 	{
 		FString PreviousRegexMatch;
 		bool bFoundMatch = true;
 		for (const FProfileMatchItem& Item : Profile.Match)
 		{
-			FString* SourceString = nullptr;
+			const FString* SourceString = nullptr;
 			switch (Item.SourceType)
 			{
 			case SRC_PreviousRegexMatch:
@@ -63,6 +65,9 @@ FString FAndroidDeviceProfileSelector::FindMatchingProfile(FString GPUFamily, FS
 				break;
 			case SRC_UsingHoudini:
 				SourceString = &UsingHoudini;
+				break;
+			case SRC_VulkanAvailable:
+				SourceString = &VulkanAvailable;
 				break;
 			default:
 				continue;
@@ -132,11 +137,11 @@ FString FAndroidDeviceProfileSelector::FindMatchingProfile(FString GPUFamily, FS
 
 		if (bFoundMatch)
 		{
-			ProfileName = Profile.Profile;
+			OutProfileName = Profile.Profile;
 			break;
 		}
 	}
-	return ProfileName;
+	return OutProfileName;
 }
 
 int32 FAndroidDeviceProfileSelector::GetNumProfiles()

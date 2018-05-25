@@ -36,6 +36,15 @@ FAutoConsoleVariableRef CVarDistanceFieldShadowing(
 	ECVF_Scalability | ECVF_RenderThreadSafe
 	);
 
+int32 GDFShadowQuality = 2;
+FAutoConsoleVariableRef CVarDFShadowQuality(
+	TEXT("r.DFShadowQuality"),
+	GDFShadowQuality,
+	TEXT("Defines the distance field shadow method which allows to adjust for quality or performance.\n")
+	TEXT(" 0:off, 1:medium (less samples, no SSS), 2:high (default)"),
+	ECVF_Scalability | ECVF_RenderThreadSafe
+);
+
 int32 GFullResolutionDFShadowing = 0;
 FAutoConsoleVariableRef CVarFullResolutionDFShadowing(
 	TEXT("r.DFFullResolution"),
@@ -52,10 +61,10 @@ FAutoConsoleVariableRef CVarShadowScatterTileCulling(
 	ECVF_RenderThreadSafe
 	);
 
-float GShadowWorldTileSize = 200.0f;
-FAutoConsoleVariableRef CVarShadowWorldTileSize(
-	TEXT("r.DFShadowWorldTileSize"),
-	GShadowWorldTileSize,
+float GShadowCullTileWorldSize = 200.0f;
+FAutoConsoleVariableRef CVarShadowCullTileWorldSize(
+	TEXT("r.DFShadowCullTileWorldSize"),
+	GShadowCullTileWorldSize,
 	TEXT("World space size of a tile used for culling for directional lights."),
 	ECVF_Scalability | ECVF_RenderThreadSafe
 	);
@@ -75,6 +84,9 @@ FAutoConsoleVariableRef CVarAverageObjectsPerShadowCullTile(
 	TEXT("Determines how much memory should be allocated in distance field object culling data structures.  Too much = memory waste, too little = flickering due to buffer overflow."),
 	ECVF_RenderThreadSafe | ECVF_ReadOnly
 	);
+
+int32 const GDistanceFieldShadowTileSizeX = 8;
+int32 const GDistanceFieldShadowTileSizeY = 8;
 
 int32 GetDFShadowDownsampleFactor()
 {
@@ -135,7 +147,7 @@ public:
 
 		CulledObjectParameters.Set(RHICmdList, ShaderRHI, GShadowCulledObjectBuffers.Buffers);
 
-		SetShaderValue(RHICmdList, ShaderRHI, ObjectBoundingGeometryIndexCount, StencilingGeometry::GLowPolyStencilSphereIndexBuffer.GetIndexCount());
+		SetShaderValue(RHICmdList, ShaderRHI, ObjectBoundingGeometryIndexCount, ARRAY_COUNT(GCubeIndices));
 		SetShaderValue(RHICmdList, ShaderRHI, WorldToShadow, WorldToShadowValue);
 		SetShaderValue(RHICmdList, ShaderRHI, ShadowBoundingSphere, ShadowBoundingSphereValue);
 
@@ -204,9 +216,8 @@ public:
 		FGlobalShader(Initializer)
 	{
 		ObjectParameters.Bind(Initializer.ParameterMap);
-		ConservativeRadiusScale.Bind(Initializer.ParameterMap, TEXT("ConservativeRadiusScale"));
 		WorldToShadow.Bind(Initializer.ParameterMap, TEXT("WorldToShadow"));
-		MinRadius.Bind(Initializer.ParameterMap, TEXT("MinRadius"));
+		MinExpandRadius.Bind(Initializer.ParameterMap, TEXT("MinExpandRadius"));
 	}
 
 	FShadowObjectCullVS() {}
@@ -218,35 +229,25 @@ public:
 		
 		ObjectParameters.Set(RHICmdList, ShaderRHI, GShadowCulledObjectBuffers.Buffers);
 
-		const int32 NumRings = StencilingGeometry::GLowPolyStencilSphereVertexBuffer.GetNumRings();
-		const float RadiansPerRingSegment = PI / (float)NumRings;
-
-		// Boost the effective radius so that the edges of the sphere approximation lie on the sphere, instead of the vertices
-		const float ConservativeRadiusScaleValue = 1.0f / FMath::Cos(RadiansPerRingSegment);
-
-		SetShaderValue(RHICmdList, ShaderRHI, ConservativeRadiusScale, ConservativeRadiusScaleValue);
-
 		SetShaderValue(RHICmdList, ShaderRHI, WorldToShadow, WorldToShadowMatrixValue);
 
-		float MinRadiusValue = 2 * ShadowRadius / FMath::Min(NumGroupsValue.X, NumGroupsValue.Y);
-		SetShaderValue(RHICmdList, ShaderRHI, MinRadius, MinRadiusValue);
+		float MinExpandRadiusValue = 1.414f * ShadowRadius / FMath::Min(NumGroupsValue.X, NumGroupsValue.Y);
+		SetShaderValue(RHICmdList, ShaderRHI, MinExpandRadius, MinExpandRadiusValue);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << ObjectParameters;
-		Ar << ConservativeRadiusScale;
 		Ar << WorldToShadow;
-		Ar << MinRadius;
+		Ar << MinExpandRadius;
 		return bShaderHasOutdatedParameters;
 	}
 
 private:
 	FDistanceFieldCulledObjectBufferParameters ObjectParameters;
-	FShaderParameter ConservativeRadiusScale;
 	FShaderParameter WorldToShadow;
-	FShaderParameter MinRadius;
+	FShaderParameter MinExpandRadius;
 };
 
 IMPLEMENT_SHADER_TYPE(,FShadowObjectCullVS,TEXT("/Engine/Private/DistanceFieldShadowing.usf"),TEXT("ShadowObjectCullVS"),SF_Vertex);
@@ -321,7 +322,7 @@ enum EDistanceFieldShadowingType
 	DFS_PointLightTiledCulling
 };
 
-template<EDistanceFieldShadowingType ShadowingType>
+template<EDistanceFieldShadowingType ShadowingType, uint32 DFShadowQuality>
 class TDistanceFieldShadowingCS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(TDistanceFieldShadowingCS, Global);
@@ -335,10 +336,11 @@ public:
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FLightTileIntersectionParameters::ModifyCompilationEnvironment(Parameters.Platform, OutEnvironment);
-		OutEnvironment.SetDefine(TEXT("THREADGROUP_SIZEX"), GDistanceFieldAOTileSizeX);
-		OutEnvironment.SetDefine(TEXT("THREADGROUP_SIZEY"), GDistanceFieldAOTileSizeY);
+		OutEnvironment.SetDefine(TEXT("THREADGROUP_SIZEX"), GDistanceFieldShadowTileSizeX);
+		OutEnvironment.SetDefine(TEXT("THREADGROUP_SIZEY"), GDistanceFieldShadowTileSizeY);
 		OutEnvironment.SetDefine(TEXT("SCATTER_TILE_CULLING"), ShadowingType == DFS_DirectionalLightScatterTileCulling);
 		OutEnvironment.SetDefine(TEXT("POINT_LIGHT"), ShadowingType == DFS_PointLightTiledCulling);
+		OutEnvironment.SetDefine(TEXT("DF_SHADOW_QUALITY"), DFShadowQuality);
 	}
 
 	/** Default constructor. */
@@ -464,6 +466,16 @@ public:
 		return bShaderHasOutdatedParameters;
 	}
 
+	static const TCHAR* GetSourceFilename()
+	{
+		return TEXT("/Engine/Private/DistanceFieldShadowing.usf");
+	}
+
+	static const TCHAR* GetFunctionName()
+	{
+		return TEXT("DistanceFieldShadowingCS");
+	}
+
 private:
 
 	FRWShaderParameter ShadowFactors;
@@ -484,9 +496,18 @@ private:
 	FShaderParameter DownsampleFactor;
 };
 
-IMPLEMENT_SHADER_TYPE(template<>,TDistanceFieldShadowingCS<DFS_DirectionalLightScatterTileCulling>,TEXT("/Engine/Private/DistanceFieldShadowing.usf"),TEXT("DistanceFieldShadowingCS"),SF_Compute);
-IMPLEMENT_SHADER_TYPE(template<>,TDistanceFieldShadowingCS<DFS_DirectionalLightTiledCulling>,TEXT("/Engine/Private/DistanceFieldShadowing.usf"),TEXT("DistanceFieldShadowingCS"),SF_Compute);
-IMPLEMENT_SHADER_TYPE(template<>,TDistanceFieldShadowingCS<DFS_PointLightTiledCulling>,TEXT("/Engine/Private/DistanceFieldShadowing.usf"),TEXT("DistanceFieldShadowingCS"),SF_Compute);
+// #define avoids a lot of code duplication
+#define VARIATION(A) \
+	typedef TDistanceFieldShadowingCS<A, 1> FDistanceFieldShadowingCS##A##1; \
+	typedef TDistanceFieldShadowingCS<A, 2> FDistanceFieldShadowingCS##A##2; \
+	IMPLEMENT_SHADER_TYPE2(FDistanceFieldShadowingCS##A##1, SF_Compute); \
+	IMPLEMENT_SHADER_TYPE2(FDistanceFieldShadowingCS##A##2, SF_Compute);
+
+VARIATION(DFS_DirectionalLightScatterTileCulling)
+VARIATION(DFS_DirectionalLightTiledCulling)
+VARIATION(DFS_PointLightTiledCulling)
+
+#undef VARIATION
 
 template<bool bUpsampleRequired>
 class TDistanceFieldShadowingUpsamplePS : public FGlobalShader
@@ -689,7 +710,6 @@ void ScatterObjectsToShadowTiles(
 	GraphicsPSOInit.RasterizerState = View.bReverseCulling ? TStaticRasterizerState<FM_Solid, CM_CW>::GetRHI() : TStaticRasterizerState<FM_Solid, CM_CCW>::GetRHI();
 	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-
 	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
 	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
@@ -699,11 +719,11 @@ void ScatterObjectsToShadowTiles(
 	VertexShader->SetParameters(RHICmdList, View, FVector2D(LightTileDimensions.X, LightTileDimensions.Y), WorldToShadowValue, ShadowBoundingRadius);
 	PixelShader->SetParameters(RHICmdList, View, TileIntersectionResources);
 
-	RHICmdList.SetStreamSource(0, StencilingGeometry::GLowPolyStencilSphereVertexBuffer.VertexBufferRHI, 0);
+	RHICmdList.SetStreamSource(0, GetUnitCubeVertexBuffer(), 0);
 
 	RHICmdList.DrawIndexedPrimitiveIndirect(
 		PT_TriangleList,
-		StencilingGeometry::GLowPolyStencilSphereIndexBuffer.IndexBufferRHI, 
+		GetUnitCubeIndexBuffer(),
 		GShadowCulledObjectBuffers.Buffers.ObjectIndirectArguments.Buffer,
 		0);
 
@@ -754,8 +774,7 @@ void CullDistanceFieldObjectsForLight(
 	}
 
 	// Allocate tile resolution based on world space size
-	//@todo - light space perspective shadow maps would make much better use of the resolution
-	const float LightTiles = FMath::Min(ShadowBoundingRadius / GShadowWorldTileSize + 1, 256.0f);
+	const float LightTiles = FMath::Min(ShadowBoundingRadius / GShadowCullTileWorldSize + 1.0f, 256.0f);
 	FIntPoint LightTileDimensions(LightTiles, LightTiles);
 
 	if (LightSceneProxy->GetLightType() == LightType_Directional && GShadowScatterTileCulling)
@@ -813,9 +832,15 @@ void CullDistanceFieldObjectsForLight(
 	}
 }
 
+int32 GetDFShadowQuality()
+{
+	return FMath::Clamp(GDFShadowQuality, 0, 2);
+}
+
 bool SupportsDistanceFieldShadows(ERHIFeatureLevel::Type FeatureLevel, EShaderPlatform ShaderPlatform)
 {
-	return GDistanceFieldShadowing
+	return GDistanceFieldShadowing 
+		&& GetDFShadowQuality() > 0
 		&& FeatureLevel >= ERHIFeatureLevel::SM5
 		&& DoesPlatformSupportDistanceFieldShadowing(ShaderPlatform);
 }
@@ -851,43 +876,62 @@ bool FDeferredShadingSceneRenderer::ShouldPrepareForDistanceFieldShadows() const
 		&& SupportsDistanceFieldShadows(Scene->GetFeatureLevel(), Scene->GetShaderPlatform());
 }
 
-template<typename TRHICommandList>
-void RayTraceShadows(TRHICommandList& RHICmdList, const FViewInfo& View, FProjectedShadowInfo* ProjectedShadowInfo, FLightTileIntersectionResources* TileIntersectionResources)
+template<typename TRHICommandList, EDistanceFieldShadowingType DFSType, uint32 DFSQuality>
+void RayTraceShadowsDispatch(TRHICommandList& RHICmdList, const FViewInfo& View, FProjectedShadowInfo* ProjectedShadowInfo, FLightTileIntersectionResources* TileIntersectionResources)
 {
 	FIntRect ScissorRect;
-
 	if (!ProjectedShadowInfo->GetLightSceneInfo().Proxy->GetScissorRect(ScissorRect, View, View.ViewRect))
 	{
 		ScissorRect = View.ViewRect;
 	}
 
-	uint32 GroupSizeX = FMath::DivideAndRoundUp(ScissorRect.Size().X / GetDFShadowDownsampleFactor(), GDistanceFieldAOTileSizeX);
-	uint32 GroupSizeY = FMath::DivideAndRoundUp(ScissorRect.Size().Y / GetDFShadowDownsampleFactor(), GDistanceFieldAOTileSizeY);
+	uint32 GroupSizeX = FMath::DivideAndRoundUp(ScissorRect.Size().X / GetDFShadowDownsampleFactor(), GDistanceFieldShadowTileSizeX);
+	uint32 GroupSizeY = FMath::DivideAndRoundUp(ScissorRect.Size().Y / GetDFShadowDownsampleFactor(), GDistanceFieldShadowTileSizeY);
 
+	TShaderMapRef<TDistanceFieldShadowingCS<DFSType, DFSQuality> > ComputeShader(View.ShaderMap);
+	RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 	FSceneRenderTargetItem& RayTracedShadowsRTI = ProjectedShadowInfo->RayTracedShadowsRT->GetRenderTargetItem();
+	ComputeShader->SetParameters(RHICmdList, View, ProjectedShadowInfo, RayTracedShadowsRTI, FVector2D(GroupSizeX, GroupSizeY), ScissorRect, TileIntersectionResources);
+	DispatchComputeShader(RHICmdList, *ComputeShader, GroupSizeX, GroupSizeY, 1);
+	ComputeShader->UnsetParameters(RHICmdList, RayTracedShadowsRTI);
+}
+
+template<typename TRHICommandList>
+void RayTraceShadows(TRHICommandList& RHICmdList, const FViewInfo& View, FProjectedShadowInfo* ProjectedShadowInfo, FLightTileIntersectionResources* TileIntersectionResources)
+{
+	int32 const DFShadowQuality = GetDFShadowQuality();
 	if (ProjectedShadowInfo->bDirectionalLight && GShadowScatterTileCulling)
 	{
-		TShaderMapRef<TDistanceFieldShadowingCS<DFS_DirectionalLightScatterTileCulling> > ComputeShader(View.ShaderMap);
-		RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
-		ComputeShader->SetParameters(RHICmdList, View, ProjectedShadowInfo, RayTracedShadowsRTI, FVector2D(GroupSizeX, GroupSizeY), ScissorRect, TileIntersectionResources);
-		DispatchComputeShader(RHICmdList, *ComputeShader, GroupSizeX, GroupSizeY, 1);
-		ComputeShader->UnsetParameters(RHICmdList, RayTracedShadowsRTI);
+		if (DFShadowQuality == 1)
+		{
+			RayTraceShadowsDispatch<TRHICommandList, DFS_DirectionalLightScatterTileCulling, 1>(RHICmdList, View, ProjectedShadowInfo, TileIntersectionResources);
+		}
+		else
+		{
+			RayTraceShadowsDispatch<TRHICommandList, DFS_DirectionalLightScatterTileCulling, 2>(RHICmdList, View, ProjectedShadowInfo, TileIntersectionResources);
+		}
 	}
 	else if (ProjectedShadowInfo->bDirectionalLight)
 	{
-		TShaderMapRef<TDistanceFieldShadowingCS<DFS_DirectionalLightTiledCulling> > ComputeShader(View.ShaderMap);
-		RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
-		ComputeShader->SetParameters(RHICmdList, View, ProjectedShadowInfo, RayTracedShadowsRTI, FVector2D(GroupSizeX, GroupSizeY), ScissorRect, TileIntersectionResources);
-		DispatchComputeShader(RHICmdList, *ComputeShader, GroupSizeX, GroupSizeY, 1);
-		ComputeShader->UnsetParameters(RHICmdList, RayTracedShadowsRTI);
+		if (DFShadowQuality == 1)
+		{
+			RayTraceShadowsDispatch<TRHICommandList, DFS_DirectionalLightTiledCulling, 1>(RHICmdList, View, ProjectedShadowInfo, TileIntersectionResources);
+		}
+		else
+		{
+			RayTraceShadowsDispatch<TRHICommandList, DFS_DirectionalLightTiledCulling, 2>(RHICmdList, View, ProjectedShadowInfo, TileIntersectionResources);
+		}
 	}
 	else
 	{
-		TShaderMapRef<TDistanceFieldShadowingCS<DFS_PointLightTiledCulling> > ComputeShader(View.ShaderMap);
-		RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
-		ComputeShader->SetParameters(RHICmdList, View, ProjectedShadowInfo, RayTracedShadowsRTI, FVector2D(GroupSizeX, GroupSizeY), ScissorRect, TileIntersectionResources);
-		DispatchComputeShader(RHICmdList, *ComputeShader, GroupSizeX, GroupSizeY, 1);
-		ComputeShader->UnsetParameters(RHICmdList, RayTracedShadowsRTI);
+		if (DFShadowQuality == 1)
+		{
+			RayTraceShadowsDispatch<TRHICommandList, DFS_PointLightTiledCulling, 1>(RHICmdList, View, ProjectedShadowInfo, TileIntersectionResources);
+		}
+		else
+		{
+			RayTraceShadowsDispatch<TRHICommandList, DFS_PointLightTiledCulling, 2>(RHICmdList, View, ProjectedShadowInfo, TileIntersectionResources);
+		}
 	}
 }
 
@@ -956,9 +1000,9 @@ void FProjectedShadowInfo::BeginRenderRayTracedDistanceFieldProjection(FRHIComma
 			SCOPED_DRAW_EVENT(RHICmdList, RayTraceShadows);
 			SetRenderTarget(RHICmdList, NULL, NULL);
 
-				RayTraceShadows(RHICmdList, View, this, TileIntersectionResources);
-			}
+			RayTraceShadows(RHICmdList, View, this, TileIntersectionResources);
 		}
+	}
 }
 
 void FProjectedShadowInfo::RenderRayTracedDistanceFieldProjection(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, IPooledRenderTarget* ScreenShadowMaskTexture, bool bProjectingForForwardShading) 

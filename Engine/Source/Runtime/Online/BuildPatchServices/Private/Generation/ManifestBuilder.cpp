@@ -32,11 +32,11 @@ namespace BuildPatchServices
 		virtual ~FManifestBuilder();
 
 		virtual void AddChunkMatch(const FGuid& ChunkGuid, const FBlockStructure& Structure) override;
-		virtual bool FinalizeData(const TArray<FFileSpan>& FileSpans, TArray<FChunkInfoData> ChunkInfo) override;
+		virtual bool FinalizeData(const TArray<FFileSpan>& FileSpans, TArray<FChunkInfo> ChunkInfo) override;
 		virtual bool SaveToFile(const FString& Filename) override;
 
 	private:
-		TArray<FChunkPartData> GetChunkPartsForFile(uint64 StartIdx, uint64 Size, TSet<FGuid>& ReferencedChunks);
+		TArray<FChunkPart> GetChunkPartsForFile(uint64 StartIdx, uint64 Size, TSet<FGuid>& ReferencedChunks);
 
 		FBuildPatchAppManifestRef Manifest;
 		TMap<FString, FFileAttributes> FileAttributesMap;
@@ -93,7 +93,7 @@ namespace BuildPatchServices
 		UE_LOG(LogManifestBuilder, Verbose, TEXT("Match added for chunk %s."), *ChunkGuid.ToString());
 	}
 
-	bool FManifestBuilder::FinalizeData(const TArray<FFileSpan>& FileSpans, TArray<FChunkInfoData> ChunkInfo)
+	bool FManifestBuilder::FinalizeData(const TArray<FFileSpan>& FileSpans, TArray<FChunkInfo> ChunkInfo)
 	{
 		// Keep track of referenced chunks so we can trim the list down.
 		TSet<FGuid> ReferencedChunks;
@@ -102,7 +102,7 @@ namespace BuildPatchServices
 		{
 			FFileAttributes FileAttributes = FileAttributesMap.FindRef(FileSpan.Filename);
 			Manifest->FileManifestList.AddDefaulted();
-			FFileManifestData& FileManifest = Manifest->FileManifestList.Last();
+			FFileManifest& FileManifest = Manifest->FileManifestList.Last();
 			FileManifest.Filename = FileSpan.Filename;
 			FMemory::Memcpy(FileManifest.FileHash.Hash, FileSpan.SHAHash.Hash, FSHA1::DigestSize);
 			FileManifest.InstallTags = FileAttributes.InstallTags.Array();
@@ -119,7 +119,7 @@ namespace BuildPatchServices
 		// Setup chunk list, removing all that were not referenced.
 		Manifest->ChunkList = MoveTemp(ChunkInfo);
 		int32 TotalChunkListNum = Manifest->ChunkList.Num();
-		Manifest->ChunkList.RemoveAll([&](FChunkInfoData& Candidate){ return ReferencedChunks.Contains(Candidate.Guid) == false; });
+		Manifest->ChunkList.RemoveAll([&](FChunkInfo& Candidate){ return ReferencedChunks.Contains(Candidate.Guid) == false; });
 		UE_LOG(LogManifestBuilder, Verbose, TEXT("Chunk info list trimmed from %d to %d."), TotalChunkListNum, Manifest->ChunkList.Num());
 
 		// Init the manifest, and we are done.
@@ -145,7 +145,7 @@ namespace BuildPatchServices
 		if (Manifest->PrereqIds.Num() == 0 && !Manifest->PrereqPath.IsEmpty())
 		{
 			UE_LOG(LogManifestBuilder, Log, TEXT("Setting PrereqIds to be the SHA hash of the PrereqPath."));
-			FSHAHashData PrereqHash;
+			FSHAHash PrereqHash;
 			Manifest->GetFileHash(Manifest->PrereqPath, PrereqHash);
 			Manifest->PrereqIds.Add(PrereqHash.ToString());
 		}
@@ -177,9 +177,9 @@ namespace BuildPatchServices
 		return Manifest->SaveToFile(Filename, false);
 	}
 
-	TArray<FChunkPartData> FManifestBuilder::GetChunkPartsForFile(uint64 FileStart, uint64 FileSize, TSet<FGuid>& ReferencedChunks)
+	TArray<FChunkPart> FManifestBuilder::GetChunkPartsForFile(uint64 FileStart, uint64 FileSize, TSet<FGuid>& ReferencedChunks)
 	{
-		TArray<FChunkPartData> FileChunkParts;
+		TArray<FChunkPart> FileChunkParts;
 		// Collect all matching blocks.
 		TArray<FFileBlock> MatchingBlocks;
 		uint64 FileEnd = FileStart + FileSize;
@@ -229,7 +229,7 @@ namespace BuildPatchServices
 		for (const FFileBlock& MatchingBlock : MatchingBlocks)
 		{
 			FileChunkParts.AddDefaulted();
-			FChunkPartData& ChunkPart = FileChunkParts.Last();
+			FChunkPart& ChunkPart = FileChunkParts.Last();
 			ChunkPart.Guid = MatchingBlock.ChunkGuid;
 			ChunkPart.Offset = MatchingBlock.ChunkOffset;
 			ChunkPart.Size = MatchingBlock.Size;

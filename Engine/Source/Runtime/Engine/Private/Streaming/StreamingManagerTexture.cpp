@@ -18,6 +18,7 @@
 #include "DeviceProfiles/DeviceProfileManager.h"
 #include "Streaming/AsyncTextureStreaming.h"
 #include "Components/PrimitiveComponent.h"
+#include "Misc/CoreDelegates.h"
 
 bool TrackTexture( const FString& TextureName );
 bool UntrackTexture( const FString& TextureName );
@@ -111,6 +112,8 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 	DynamicComponentManager.RegisterTasks(TextureInstanceAsyncWork->GetTask());
 
 	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().AddRaw(this, &FStreamingManagerTexture::OnPreGarbageCollect);
+
+	FCoreDelegates::PakFileMountedCallback.AddRaw(this, &FStreamingManagerTexture::OnPakFileMounted);
 }
 
 FStreamingManagerTexture::~FStreamingManagerTexture()
@@ -150,6 +153,13 @@ void FStreamingManagerTexture::OnPreGarbageCollect()
 	SetTexturesRemovedTimestamp(RemovedTextures);
 }
 
+
+
+void FStreamingManagerTexture::OnPakFileMounted(const TCHAR* PakFilename)
+{
+	// clear the cached file exists checks which failed as they may now be loaded
+	bNewFilesLoaded = true;
+}
 
 /**
  * Cancels the timed Forced resources (i.e used the Kismet action "Stream In Textures").
@@ -712,6 +722,7 @@ void FStreamingManagerTexture::SetTexturesRemovedTimestamp(const FRemovedTexture
 	}
 }
 
+
 void FStreamingManagerTexture::NotifyPrimitiveUpdated( const UPrimitiveComponent* Primitive )
 {
 	STAT(GatheredStats.CallbacksCycles = -(int32)FPlatformTime::Cycles();)
@@ -1115,7 +1126,7 @@ void FStreamingManagerTexture::LogViewLocationChange()
  * @param DeltaTime				Time since last call in seconds
  * @param bProcessEverything	[opt] If true, process all resources with no throttling limits
  */
-static TAutoConsoleVariable<int32> CVarFramesForFullUpdate(
+ENGINE_API TAutoConsoleVariable<int32> CVarFramesForFullUpdate(
 	TEXT("r.Streaming.FramesForFullUpdate"),
 	5,
 	TEXT("Texture streaming is time sliced per frame. This values gives the number of frames to visit all textures."));

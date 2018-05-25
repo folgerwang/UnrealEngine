@@ -505,6 +505,7 @@ namespace iPhonePackager
 		{
 			public abstract byte[] ReadAllBytes(string RelativeFilename);
 			public abstract Stream OpenRead(string RelativeFilename);
+			public abstract void CloseFile(Stream InStream);
 			public abstract void WriteAllBytes(string RelativeFilename, byte[] Data);
 			public abstract void Close();
 
@@ -547,6 +548,11 @@ namespace iPhonePackager
 			public override Stream OpenRead(string RelativeFilename)
 			{
 				return File.OpenRead(GetNativePath(RelativeFilename));
+			}
+
+			public override void CloseFile(Stream InStream)
+			{
+
 			}
 
 			public override void WriteAllBytes(string RelativeFilename, byte[] Data)
@@ -653,7 +659,7 @@ namespace iPhonePackager
 			{
 				string FullPath = InternalRootPath + RelativeFilename;
 
-				MemoryStream ReadStream;
+				Stream ReadStream;
 
 				byte[] PreviousData;
 				if (PendingWrites.TryGetValue(FullPath, out PreviousData))
@@ -665,8 +671,16 @@ namespace iPhonePackager
 					if (Zip.ContainsEntry(FullPath))
 					{
 						ZipEntry Entry = Zip[FullPath];
-						ReadStream = new MemoryStream((int)Entry.UncompressedSize);
-						Zip[FullPath].Extract(ReadStream);
+						if (Entry.UncompressedSize >= (2L * 1024 * 1024 * 1024))
+						{
+							Entry.Extract(Path.GetTempPath());
+							ReadStream = File.OpenRead(Path.Combine(Path.GetTempPath(), Entry.FileName));
+						}
+						else
+						{
+							ReadStream = new MemoryStream((int)Entry.UncompressedSize);
+							Zip[FullPath].Extract(ReadStream);
+						}
 					}
 					else
 					{
@@ -678,6 +692,15 @@ namespace iPhonePackager
 
 				ReadStream.Position = 0;
 				return ReadStream;
+			}
+
+			public override void CloseFile(Stream InStream)
+			{
+				if ((InStream as System.IO.FileStream) != null)
+				{
+					InStream.Close();
+					File.Delete((InStream as System.IO.FileStream).Name);
+				}
 			}
 
 			public override void WriteAllBytes(string RelativeFilename, byte[] Data)

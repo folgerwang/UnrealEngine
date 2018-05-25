@@ -20,7 +20,7 @@ struct FConvertedAssetRecord
 	GENERATED_USTRUCT_BODY()
 
 public:
-	FConvertedAssetRecord() {}
+	FConvertedAssetRecord() : AssetType(nullptr) {}
 	FConvertedAssetRecord(const FAssetData& AssetInfo, const FBlueprintNativeCodeGenPaths& TargetPaths, const FCompilerNativizationOptions& NativizationOptions);
 
 public:

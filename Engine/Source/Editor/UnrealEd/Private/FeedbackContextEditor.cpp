@@ -17,6 +17,7 @@
 #include "Dialogs/SBuildProgress.h"
 #include "Interfaces/IMainFrameModule.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "Engine/Engine.h"
 
 /** Called to cancel the slow task activity */
 DECLARE_DELEGATE( FOnCancelClickedDelegate );
@@ -383,9 +384,27 @@ void FFeedbackContextEditor::StartSlowTask( const FText& Task, bool bShowCancelB
 {
 	FFeedbackContext::StartSlowTask( Task, bShowCancelButton );
 
-	// Attempt to parent the slow task window to the slate main frame
 	TSharedPtr<SWindow> ParentWindow;
-	if( FModuleManager::Get().IsModuleLoaded( "MainFrame" ) )
+	if (GEditor)
+	{		
+		// If there is a pie window and it is active attempt to parent any slow task dialogs to it to prevent the game window from falling behind due to a slowtask window opening.
+		if (FWorldContext* PieWorldContext = GEditor->GetPIEWorldContext())
+		{
+			FSlatePlayInEditorInfo* SlatePlayInEditorSession = GEditor->SlatePlayInEditorMap.Find(PieWorldContext->ContextHandle);
+	
+
+			if (SlatePlayInEditorSession && SlatePlayInEditorSession->SlatePlayInEditorWindow.IsValid())
+			{
+				if (FSlateApplication::Get().GetActiveTopLevelWindow() == SlatePlayInEditorSession->SlatePlayInEditorWindow)
+				{
+					ParentWindow = SlatePlayInEditorSession->SlatePlayInEditorWindow.Pin();
+				}
+			}
+		}
+	}
+
+	// Attempt to parent the slow task window to the slate main frame
+	if(!ParentWindow.IsValid() && FModuleManager::Get().IsModuleLoaded( "MainFrame" ) )
 	{
 		IMainFrameModule& MainFrame = FModuleManager::LoadModuleChecked<IMainFrameModule>( "MainFrame" );
 		ParentWindow = MainFrame.GetParentWindow();

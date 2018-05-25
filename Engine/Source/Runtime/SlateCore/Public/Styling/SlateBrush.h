@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "Styling/SlateColor.h"
 #include "Layout/Margin.h"
-
+#include "Textures/SlateShaderResource.h"
 #include "SlateBrush.generated.h"
 
 /**
@@ -105,11 +105,12 @@ namespace SlateBrushDefs
 /**
  * An brush which contains information about how to draw a Slate element
  */
-USTRUCT(BlueprintType)
+USTRUCT(BlueprintType) //, meta = (HasNativeMake = ""))
 struct SLATECORE_API FSlateBrush
 {
 	GENERATED_USTRUCT_BODY()
 
+public:
 	/** Size of the resource in Slate Units */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Brush)
 	FVector2D ImageSize;
@@ -155,6 +156,18 @@ public:
 
 public:
 
+	FVector2D GetImageSize() const { return ImageSize; }
+
+	const FMargin& GetMargin() const { return Margin; }
+
+	ESlateBrushTileType::Type GetTiling() const { return Tiling; }
+
+	ESlateBrushMirrorType::Type GetMirroring() const { return Mirroring; }
+
+	ESlateBrushImageType::Type GetImageType() const { return ImageType; }
+
+	ESlateBrushDrawType::Type GetDrawType() const { return DrawAs; }
+
 	/**
 	 * Gets the name of the resource object, if any.
 	 *
@@ -184,7 +197,20 @@ public:
 	 */
 	void SetResourceObject(class UObject* InResourceObject)
 	{
-		ResourceObject = InResourceObject;
+#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
+		if (!ensure(CanRenderResourceObject(InResourceObject)))
+		{
+			// If we can't render the resource return, don't let people use them as brushes, we'll just crash later.
+			return;
+		}
+#endif
+
+		if (ResourceObject != InResourceObject)
+		{
+			ResourceObject = InResourceObject;
+			// Invalidate resource handle
+			ResourceHandle = FSlateResourceHandle();
+		}
 	}
 
 	/**
@@ -223,7 +249,7 @@ public:
 	 *
 	 * @return UV region
 	 */
-	FBox2D GetUVRegion() const
+	const FBox2D& GetUVRegion() const
 	{
 		return UVRegion;
 	}
@@ -271,9 +297,11 @@ public:
 		return !(*this == Other);
 	}
 
-	void PostSerialize(const FArchive& Ar);
-
-	void AddReferencedObjects(FReferenceCollector& Collector);
+	/** Report any references to UObjects to the reference collector. */
+	void AddReferencedObjects(FReferenceCollector& Collector)
+	{
+		Collector.AddReferencedObject(ResourceObject);
+	}
 
 	/**
 	 * Gets the identifier for UObject based texture paths.
@@ -281,16 +309,31 @@ public:
 	 * @return Texture identifier string.
 	 */
 	static const FString UTextureIdentifier( );
+	
+	const FSlateResourceHandle& GetRenderingResource() const
+	{
+		if (!ResourceHandle.IsValid())
+		{
+			UpdateRenderingResource();
+		}
 
-protected:
+		return ResourceHandle;
+	}
+
+private:
+	void UpdateRenderingResource() const;
+	bool CanRenderResourceObject(UObject* InResourceObject) const;
+
+private:
 
 	/**
 	 * The image to render for this brush, can be a UTexture or UMaterialInterface or an object implementing 
 	 * the AtlasedTextureInterface. 
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Brush, meta=( DisplayThumbnail="true", DisplayName="Image", AllowedClasses="Texture,MaterialInterface,SlateTextureAtlasInterface" ))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Brush, meta=( AllowPrivateAccess="true", DisplayThumbnail="true", DisplayName="Image", AllowedClasses="Texture,MaterialInterface,SlateTextureAtlasInterface" ))
 	UObject* ResourceObject;
 
+protected:
 	/** The name of the rendering resource to use */
 	UPROPERTY()
 	FName ResourceName;
@@ -320,6 +363,8 @@ public:
 	UPROPERTY()
 	TEnumAsByte<enum ESlateBrushImageType::Type> ImageType;
 
+	/** Rendering resource for this brush */
+	mutable FSlateResourceHandle ResourceHandle;
 protected:
 
 	/** Whether or not the brush path is a path to a UObject */
@@ -345,4 +390,11 @@ protected:
 	 FORCENOINLINE FSlateBrush( ESlateBrushDrawType::Type InDrawType, const FName InResourceName, const FMargin& InMargin, ESlateBrushTileType::Type InTiling, ESlateBrushImageType::Type InImageType, const FVector2D& InImageSize, const TSharedRef< FLinearColor >& InTint, UObject* InObjectResource = nullptr, bool bInDynamicallyLoaded = false );
 
 	 FORCENOINLINE FSlateBrush( ESlateBrushDrawType::Type InDrawType, const FName InResourceName, const FMargin& InMargin, ESlateBrushTileType::Type InTiling, ESlateBrushImageType::Type InImageType, const FVector2D& InImageSize, const FSlateColor& InTint, UObject* InObjectResource = nullptr, bool bInDynamicallyLoaded = false );
+};
+
+/** Provides a means to hold onto the source of a slate brush. */
+class ISlateBrushSource
+{
+public:
+	virtual const FSlateBrush* GetSlateBrush() const = 0;
 };

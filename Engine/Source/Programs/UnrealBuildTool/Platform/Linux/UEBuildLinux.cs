@@ -187,6 +187,12 @@ namespace UnrealBuildTool
 			return false;//BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux;
 		}
 
+		public override bool CanUseParallelExecutor()
+		{
+			// No known problems with parallel executor, always use for build machines
+			return true;
+		}
+
 		/// <summary>
 		/// Determines if the given name is a build product for a target.
 		/// </summary>

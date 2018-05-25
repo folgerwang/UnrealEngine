@@ -9,11 +9,17 @@
 #include "Delegates/IDelegateInstance.h"
 #include "Delegates/DelegateBase.h"
 
+#if USE_SMALL_MULTICAST_DELEGATES
+	typedef FHeapAllocator FMulticastInvocationListAllocatorType;
+#else
+	typedef TInlineAllocator<1> FMulticastInvocationListAllocatorType;
+#endif
+
+typedef TArray<FDelegateBase, FMulticastInvocationListAllocatorType> TInvocationList;
+
 /**
  * Abstract base class for multicast delegates.
  */
-typedef TArray<FDelegateBase, TInlineAllocator<1> > TInvocationList;
-
 template<typename ObjectPtrType>
 class FMulticastDelegateBase
 {

@@ -40,41 +40,58 @@ const FXmppServer& FXmppConnectionStrophe::GetServer() const
 
 void FXmppConnectionStrophe::Login(const FString& UserId, const FString& Auth)
 {
+	FString ErrorStr;
+
 	FXmppUserJid NewJid(UserId, ServerConfiguration.Domain, ServerConfiguration.ClientResource);
 	if (!NewJid.IsValid())
 	{
-		UE_LOG(LogXmpp, Error, TEXT("Invalid Jid %s"), *UserJid.GetFullPath());
-		return;
-	}
-
-	UE_LOG(LogXmpp, Log, TEXT("Starting Login on connection"));
-	UE_LOG(LogXmpp, Log, TEXT("  Server = %s:%d"), *ServerConfiguration.ServerAddr, ServerConfiguration.ServerPort);
-	UE_LOG(LogXmpp, Log, TEXT("  User = %s"), *NewJid.GetFullPath());
-
-	if (LoginStatus == EXmppLoginStatus::ProcessingLogin)
-	{
-		UE_LOG(LogXmpp, Warning, TEXT("Still processing last login"));
-	}
-	else if (LoginStatus == EXmppLoginStatus::ProcessingLogout)
-	{
-		UE_LOG(LogXmpp, Warning, TEXT("Still processing last logout"));
-	}
-	else if (LoginStatus == EXmppLoginStatus::LoggedIn)
-	{
-		UE_LOG(LogXmpp, Warning, TEXT("Already logged in"));
+		ErrorStr = FString::Printf(TEXT("Invalid Jid %s"), *UserJid.GetFullPath());
 	}
 	else
 	{
-		// Close down any existing thread
-		if (StropheThread.IsValid())
+		UE_LOG(LogXmpp, Log, TEXT("Starting Login on connection"));
+		UE_LOG(LogXmpp, Log, TEXT("  Server = %s:%d"), *ServerConfiguration.ServerAddr, ServerConfiguration.ServerPort);
+		UE_LOG(LogXmpp, Log, TEXT("  User = %s"), *NewJid.GetFullPath());
+
+		if (LoginStatus == EXmppLoginStatus::ProcessingLogin)
 		{
-			Logout();
+			ErrorStr = TEXT("Still processing last login");
 		}
+		else if (LoginStatus == EXmppLoginStatus::ProcessingLogout)
+		{
+			ErrorStr = TEXT("Still processing last logout");
+		}
+		else if (LoginStatus == EXmppLoginStatus::LoggedIn)
+		{
+			ErrorStr = TEXT("Already logged in");
+		}
+		else
+		{
+			// Close down any existing thread
+			if (StropheThread.IsValid() || WebsocketConnection.IsValid())
+			{
+				Logout();
+			}
 
-		UserJid = MoveTemp(NewJid);
-		MucDomain = FString::Printf(TEXT("muc.%s"), *ServerConfiguration.Domain);
+			UserJid = MoveTemp(NewJid);
+			MucDomain = FString::Printf(TEXT("muc.%s"), *ServerConfiguration.Domain);
 
-		StartXmppThread(UserJid, Auth);
+			if (ServerConfiguration.ServerAddr.StartsWith(TEXT("wss://")) || ServerConfiguration.ServerAddr.StartsWith(TEXT("ws://")))
+			{
+				WebsocketConnection = MakeUnique<FStropheWebsocketConnection>(StropheContext, FString::Printf(TEXT("%s:%i"), *ServerConfiguration.ServerAddr, ServerConfiguration.ServerPort));
+				WebsocketConnection->Connect(UserJid, Auth, *this);
+			}
+			else
+			{
+				StartXmppThread(UserJid, Auth);
+			}
+		}
+	}
+
+	if (!ErrorStr.IsEmpty())
+	{
+		UE_LOG(LogXmpp, Warning, TEXT("Login failed. %s"), *ErrorStr);
+		OnLoginComplete().Broadcast(GetUserJid(), false, ErrorStr);
 	}
 }
 
@@ -83,6 +100,11 @@ void FXmppConnectionStrophe::Logout()
 	if (StropheThread.IsValid())
 	{
 		StopXmppThread();
+	}
+
+	if (WebsocketConnection.IsValid())
+	{
+		WebsocketConnection.Reset();
 	}
 
 	MessagesStrophe->OnDisconnect();
@@ -146,45 +168,16 @@ bool FXmppConnectionStrophe::Tick(float DeltaTime)
 
 	while (!IncomingLoginStatusChanges.IsEmpty())
 	{
-		EXmppLoginStatus::Type OldLoginStatus = LoginStatus;
 		EXmppLoginStatus::Type NewLoginStatus;
 		if (IncomingLoginStatusChanges.Dequeue(NewLoginStatus))
 		{
-			if (OldLoginStatus != NewLoginStatus)
-			{
-				UE_LOG(LogXmpp, Log, TEXT("Strophe XMPP thread received LoginStatus change Was: %s Now: %s"), EXmppLoginStatus::ToString(OldLoginStatus), EXmppLoginStatus::ToString(NewLoginStatus));
-
-				// New login status needs to be set before calling below delegates
-				LoginStatus = NewLoginStatus;
-
-				if (NewLoginStatus == EXmppLoginStatus::LoggedIn)
-				{
-					UE_LOG(LogXmpp, Log, TEXT("Logged IN JID=%s"), *GetUserJid().GetFullPath());
-					if (OldLoginStatus == EXmppLoginStatus::ProcessingLogin)
-					{
-						OnLoginComplete().Broadcast(GetUserJid(), true, FString());
-					}
-					OnLoginChanged().Broadcast(GetUserJid(), EXmppLoginStatus::LoggedIn);
-				}
-				else if (NewLoginStatus == EXmppLoginStatus::LoggedOut)
-				{
-					UE_LOG(LogXmpp, Log, TEXT("Logged OUT JID=%s"), *GetUserJid().GetFullPath());
-					if (OldLoginStatus == EXmppLoginStatus::ProcessingLogin)
-					{
-						OnLoginComplete().Broadcast(GetUserJid(), false, FString());
-					}
-					else if (OldLoginStatus == EXmppLoginStatus::ProcessingLogout)
-					{
-						OnLogoutComplete().Broadcast(GetUserJid(), true, FString());
-					}
-					if (OldLoginStatus == EXmppLoginStatus::LoggedIn ||
-						OldLoginStatus == EXmppLoginStatus::ProcessingLogout)
-					{
-						OnLoginChanged().Broadcast(GetUserJid(), EXmppLoginStatus::LoggedOut);
-					}
-				}
-			}
+			ProcessLoginStatusChange(NewLoginStatus);
 		}
+	}
+
+	if (WebsocketConnection.IsValid())
+	{
+		WebsocketConnection->Tick();
 	}
 
 	return true;
@@ -197,12 +190,20 @@ bool FXmppConnectionStrophe::SendStanza(FStropheStanza&& Stanza)
 		return false;
 	}
 
-	if (!StropheThread.IsValid())
+	bool bQueuedStanzaToBeSent = true;
+	if (StropheThread.IsValid())
+	{
+		bQueuedStanzaToBeSent = StropheThread->SendStanza(MoveTemp(Stanza));
+	}
+	else if (WebsocketConnection.IsValid())
+	{
+		bQueuedStanzaToBeSent = WebsocketConnection->SendStanza(MoveTemp(Stanza));
+	}
+	else
 	{
 		return false;
 	}
 
-	const bool bQueuedStanzaToBeSent = StropheThread->SendStanza(MoveTemp(Stanza));
 	if (bQueuedStanzaToBeSent)
 	{
 		// Reset our ping timer now that we're queuing a different message to be sent
@@ -229,7 +230,7 @@ void FXmppConnectionStrophe::StopXmppThread()
 	StropheThread.Reset();
 }
 
-void FXmppConnectionStrophe::ReceiveConnectionStateChange(EStropheConnectionEvent StateChange)
+void FXmppConnectionStrophe::ReceiveConnectionStateChange(EStropheConnectionEvent StateChange, bool bQueue)
 {
 	EXmppLoginStatus::Type NewLoginStatus = EXmppLoginStatus::LoggedOut;
 	switch (StateChange)
@@ -245,9 +246,16 @@ void FXmppConnectionStrophe::ReceiveConnectionStateChange(EStropheConnectionEven
 		break;
 	}
 
-	UE_LOG(LogXmpp, Log, TEXT("Strophe XMPP thread received state change Was: %s Now: %s"), EXmppLoginStatus::ToString(LoginStatus), EXmppLoginStatus::ToString(NewLoginStatus));
+	if (bQueue)
+	{
+		UE_LOG(LogXmpp, Log, TEXT("Strophe XMPP thread received state change Was: %s Now: %s"), EXmppLoginStatus::ToString(LoginStatus), EXmppLoginStatus::ToString(NewLoginStatus));
 
-	QueueNewLoginStatus(NewLoginStatus);
+		QueueNewLoginStatus(NewLoginStatus);
+	}
+	else
+	{
+		ProcessLoginStatusChange(NewLoginStatus);
+	}
 }
 
 void FXmppConnectionStrophe::ReceiveConnectionError(const FStropheError& Error, EStropheConnectionEvent Event)
@@ -315,13 +323,51 @@ void FXmppConnectionStrophe::ReceiveStanza(const FStropheStanza& Stanza)
 		}
 	}
 
-	checkfSlow(false, TEXT("Unhandled XMPP stanza %s"), *Stanza.GetName());
 	UE_LOG(LogXmpp, Warning, TEXT("%s Stanza left unhandled"), *Stanza.GetName());
 }
 
 void FXmppConnectionStrophe::QueueNewLoginStatus(EXmppLoginStatus::Type NewStatus)
 {
 	IncomingLoginStatusChanges.Enqueue(NewStatus);
+}
+
+void FXmppConnectionStrophe::ProcessLoginStatusChange(EXmppLoginStatus::Type NewLoginStatus)
+{
+	EXmppLoginStatus::Type OldLoginStatus = LoginStatus;
+	if (OldLoginStatus != NewLoginStatus)
+	{
+		UE_LOG(LogXmpp, Log, TEXT("Strophe processing LoginStatus change Was: %s Now: %s"), EXmppLoginStatus::ToString(OldLoginStatus), EXmppLoginStatus::ToString(NewLoginStatus));
+
+		// New login status needs to be set before calling below delegates
+		LoginStatus = NewLoginStatus;
+
+		if (NewLoginStatus == EXmppLoginStatus::LoggedIn)
+		{
+			UE_LOG(LogXmpp, Log, TEXT("Logged IN JID=%s"), *GetUserJid().GetFullPath());
+			if (OldLoginStatus == EXmppLoginStatus::ProcessingLogin)
+			{
+				OnLoginComplete().Broadcast(GetUserJid(), true, FString());
+			}
+			OnLoginChanged().Broadcast(GetUserJid(), EXmppLoginStatus::LoggedIn);
+		}
+		else if (NewLoginStatus == EXmppLoginStatus::LoggedOut)
+		{
+			UE_LOG(LogXmpp, Log, TEXT("Logged OUT JID=%s"), *GetUserJid().GetFullPath());
+			if (OldLoginStatus == EXmppLoginStatus::ProcessingLogin)
+			{
+				OnLoginComplete().Broadcast(GetUserJid(), false, FString());
+			}
+			else if (OldLoginStatus == EXmppLoginStatus::ProcessingLogout)
+			{
+				OnLogoutComplete().Broadcast(GetUserJid(), true, FString());
+			}
+			if (OldLoginStatus == EXmppLoginStatus::LoggedIn ||
+				OldLoginStatus == EXmppLoginStatus::ProcessingLogout)
+			{
+				OnLoginChanged().Broadcast(GetUserJid(), EXmppLoginStatus::LoggedOut);
+			}
+		}
+	}
 }
 
 #endif

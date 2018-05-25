@@ -36,9 +36,9 @@ FICUBreakIteratorManager& FICUBreakIteratorManager::Get()
 
 TWeakPtr<icu::BreakIterator> FICUBreakIteratorManager::CreateCharacterBoundaryIterator()
 {
+    FScopeLock ScopeLock(&AllocatedIteratorsCS);
 	TSharedRef<icu::BreakIterator> Iterator = MakeShareable( FInternationalization::Get().GetDefaultCulture()->Implementation->GetBreakIterator(EBreakIteratorType::Grapheme)->clone() );
 	{
-		FScopeLock ScopeLock(&AllocatedIteratorsCS);
 		AllocatedIterators.Add(Iterator);
 	}
 	return Iterator;
@@ -46,9 +46,9 @@ TWeakPtr<icu::BreakIterator> FICUBreakIteratorManager::CreateCharacterBoundaryIt
 
 TWeakPtr<icu::BreakIterator> FICUBreakIteratorManager::CreateWordBreakIterator()
 {
+    FScopeLock ScopeLock(&AllocatedIteratorsCS);
 	TSharedRef<icu::BreakIterator> Iterator = MakeShareable( FInternationalization::Get().GetDefaultCulture()->Implementation->GetBreakIterator(EBreakIteratorType::Word)->clone() );
 	{
-		FScopeLock ScopeLock(&AllocatedIteratorsCS);
 		AllocatedIterators.Add(Iterator);
 	}
 	return Iterator;
@@ -56,9 +56,9 @@ TWeakPtr<icu::BreakIterator> FICUBreakIteratorManager::CreateWordBreakIterator()
 
 TWeakPtr<icu::BreakIterator> FICUBreakIteratorManager::CreateLineBreakIterator()
 {
+    FScopeLock ScopeLock(&AllocatedIteratorsCS);
 	TSharedRef<icu::BreakIterator> Iterator = MakeShareable( FInternationalization::Get().GetDefaultCulture()->Implementation->GetBreakIterator(EBreakIteratorType::Line)->clone() );
 	{
-		FScopeLock ScopeLock(&AllocatedIteratorsCS);
 		AllocatedIterators.Add(Iterator);
 	}
 	return Iterator;
@@ -66,10 +66,10 @@ TWeakPtr<icu::BreakIterator> FICUBreakIteratorManager::CreateLineBreakIterator()
 
 void FICUBreakIteratorManager::DestroyIterator(TWeakPtr<icu::BreakIterator>& InIterator)
 {
+    FScopeLock ScopeLock(&AllocatedIteratorsCS);
 	TSharedPtr<icu::BreakIterator> Iterator = InIterator.Pin();
 	if(Iterator.IsValid())
 	{
-		FScopeLock ScopeLock(&AllocatedIteratorsCS);
 		AllocatedIterators.Remove(Iterator);
 	}
 	InIterator.Reset();

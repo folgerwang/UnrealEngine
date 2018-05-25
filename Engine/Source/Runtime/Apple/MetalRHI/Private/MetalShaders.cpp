@@ -89,8 +89,11 @@ public:
 	void Add(FMetalCompiledShaderKey Key, mtlpp::Library const& Lib, mtlpp::Function const& Function)
 	{
 		FRWScopeLock ScopedLock(Lock, SLT_Write);
-		Cache.Add(Key, Function);
-		LibCache.Add(Function.GetPtr(), Lib);
+		if (Cache.FindRef(Key) == nil)
+		{
+			Cache.Add(Key, Function);
+			LibCache.Add(Function.GetPtr(), Lib);
+		}
 	}
 	
 private:
@@ -1064,8 +1067,8 @@ FDomainShaderRHIRef FMetalDynamicRHI::CreateDomainShader_RenderThread(class FRHI
 	return RHICreateDomainShader(Library, Hash);
 }
 
-FMetalShaderLibrary::FMetalShaderLibrary(EShaderPlatform InPlatform, mtlpp::Library InLibrary, FMetalShaderMap const& InMap)
-: FRHIShaderLibrary(InPlatform)
+FMetalShaderLibrary::FMetalShaderLibrary(EShaderPlatform InPlatform, FString const& Name, mtlpp::Library InLibrary, FMetalShaderMap const& InMap)
+: FRHIShaderLibrary(InPlatform, Name)
 , Library(InLibrary)
 , Map(InMap)
 {
@@ -1075,6 +1078,18 @@ FMetalShaderLibrary::FMetalShaderLibrary(EShaderPlatform InPlatform, mtlpp::Libr
 FMetalShaderLibrary::~FMetalShaderLibrary()
 {
 	
+}
+
+bool FMetalShaderLibrary::ContainsEntry(const FSHAHash& Hash)
+{
+	TPair<uint8, TArray<uint8>>* Code = Map.HashMap.Find(Hash);
+	return (Code != nullptr);
+}
+
+bool FMetalShaderLibrary::RequestEntry(const FSHAHash& Hash, FArchive* Ar)
+{
+	TPair<uint8, TArray<uint8>>* Code = Map.HashMap.Find(Hash);
+	return (Code != nullptr);
 }
 
 FPixelShaderRHIRef FMetalShaderLibrary::CreatePixelShader(const FSHAHash& Hash)
@@ -1199,21 +1214,34 @@ FRHIShaderLibrary::FShaderLibraryEntry FMetalShaderLibrary::FMetalShaderLibraryI
 	return Entry;
 }
 
-FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary_RenderThread(class FRHICommandListImmediate& RHICmdList, EShaderPlatform Platform, FString FilePath)
+FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary_RenderThread(class FRHICommandListImmediate& RHICmdList, EShaderPlatform Platform, FString FilePath, FString Name)
 {
-	return RHICreateShaderLibrary(Platform, FilePath);
+	return RHICreateShaderLibrary(Platform, FilePath, Name);
 }
 
-FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Platform, FString FolderPath)
+FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Platform, FString const& FilePath, FString const& Name)
 {
 	@autoreleasepool {
 	FRHIShaderLibraryRef Result = nullptr;
 	
 	FName PlatformName = LegacyShaderPlatformToShaderFormat(Platform);
+	FString LibName = FString::Printf(TEXT("%s_%s"), *Name, *PlatformName.GetPlainNameString());
+	LibName.ToLowerInline();
 	
 	FMetalShaderMap Map;
-	FString BinaryShaderFile = FolderPath / PlatformName.GetPlainNameString() + METAL_MAP_EXTENSION;
+	FString BinaryShaderFile = FilePath / LibName + METAL_MAP_EXTENSION;
+
+	if ( IFileManager::Get().FileExists(*BinaryShaderFile) == false )
+	{
+		// the metal map files are stored in UFS file system
+		// for pak files this means they might be stored in a different location as the pak files will mount them to the project content directory
+		// the metal libraries are stores non UFS and could be anywhere on the file system.
+		// if we don't find the metalmap file straight away try the pak file path
+		BinaryShaderFile = FPaths::ProjectContentDir() / LibName + METAL_MAP_EXTENSION;
+	}
+
 	FArchive* BinaryShaderAr = IFileManager::Get().CreateFileReader(*BinaryShaderFile);
+
 	if( BinaryShaderAr != NULL )
 	{
 		*BinaryShaderAr << Map;
@@ -1223,7 +1251,7 @@ FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Pl
 		// Would be good to check the language version of the library with the archive format here.
 		if (Map.Format == PlatformName.GetPlainNameString())
 		{
-			FString MetalLibraryFilePath = FolderPath / PlatformName.GetPlainNameString() + METAL_LIB_EXTENSION;
+			FString MetalLibraryFilePath = FilePath / LibName + METAL_LIB_EXTENSION;
 			MetalLibraryFilePath = FPaths::ConvertRelativePathToFull(MetalLibraryFilePath);
 #if !PLATFORM_MAC
 			MetalLibraryFilePath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*MetalLibraryFilePath);
@@ -1234,7 +1262,7 @@ FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Pl
 			mtlpp::Library Library = [GetMetalDeviceContext().GetDevice() newLibraryWithFile:MetalLibraryFilePath.GetNSString() error:&Error];
 			if (Library != nil)
 			{
-				Result = new FMetalShaderLibrary(Platform, Library, Map);
+				Result = new FMetalShaderLibrary(Platform, Name, Library, Map);
 			}
 			else
 			{
@@ -1243,12 +1271,12 @@ FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Pl
 		}
 		else
 		{
-			UE_LOG(LogMetal, Display, TEXT("Wrong shader platform wanted: %s, got: %s"), *PlatformName.GetPlainNameString(), *Map.Format);
+			UE_LOG(LogMetal, Display, TEXT("Wrong shader platform wanted: %s, got: %s"), *LibName, *Map.Format);
 		}
 	}
 	else
 	{
-		UE_LOG(LogMetal, Display, TEXT("No .metalmap file found for %s!"), *PlatformName.GetPlainNameString());
+		UE_LOG(LogMetal, Display, TEXT("No .metalmap file found for %s!"), *LibName);
 	}
 	
 	return Result;

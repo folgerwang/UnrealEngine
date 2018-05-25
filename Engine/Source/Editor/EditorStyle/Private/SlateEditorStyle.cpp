@@ -60,12 +60,12 @@ FSlateEditorStyle::FStyle::FStyle( const TWeakObjectPtr< UEditorStyleSettings >&
 	, SelectionColor_Inactive_LinearRef( MakeShareable( new FLinearColor( 0.25f, 0.25f, 0.25f ) ) )
 	, SelectionColor_Pressed_LinearRef( MakeShareable( new FLinearColor( 0.701f, 0.225f, 0.003f ) ) )
 
-	, LogColor_Background_LinearRef(MakeShareable(new FLinearColor(FColor(0xFF3E3E3E))))
-	, LogColor_SelectionBackground_LinearRef(MakeShareable(new FLinearColor(FColor(0xff666666))))
+	, LogColor_Background_LinearRef(MakeShareable(new FLinearColor(FColor(0x040404FF))))
+	, LogColor_SelectionBackground_LinearRef(MakeShareable(new FLinearColor(FColor(0x020202FF))))
 	, LogColor_Normal_LinearRef(MakeShareable(new FLinearColor(FColor(0xffaaaaaa))))
 	, LogColor_Command_LinearRef(MakeShareable(new FLinearColor(FColor(0xff33dd33))))
-	, LogColor_Warning_LinearRef(MakeShareable(new FLinearColor(FColor(0xffbbbb44))))
-	, LogColor_Error_LinearRef(MakeShareable(new FLinearColor(FColor(0xffdd0000))))
+	, LogColor_Warning_LinearRef(MakeShareable(new FLinearColor(FColor(0xEBB000FF))))
+	, LogColor_Error_LinearRef(MakeShareable(new FLinearColor(FColor(0xFF0D0FFF))))
 
 	// These are the Slate colors which reference those above; these are the colors to put into the style
 	, DefaultForeground( DefaultForeground_LinearRef )
@@ -5248,12 +5248,15 @@ void FSlateEditorStyle::FStyle::SetupPersonaStyle()
 			.SetShadowOffset(FVector2D(1.0f, 1.0f))
 			.SetShadowColorAndOpacity(FLinearColor(0.0f, 0.0f, 0.0f)));
 		
-		Set( "Persona.Viewport.BlueprintDirtyText", FTextBlockStyle(NormalText)
-			.SetFont( DEFAULT_FONT( "BoldCondensed", 18 ) )
-			.SetColorAndOpacity( FLinearColor(0.8, 0.8f, 0.0f, 0.8f) )
-			.SetShadowOffset( FVector2D( 1,1 ) )
-			.SetShadowColorAndOpacity( FLinearColor(0,0,0,0.9f) )
-			);
+		// Viewport notifications 
+		Set("AnimViewport.Notification.Error", new BOX_BRUSH("Common/RoundedSelection_16x", 4.0f / 16.0f, FLinearColor(0.728f, 0.0f, 0.0f)));
+		Set("AnimViewport.Notification.Warning", new BOX_BRUSH("Common/RoundedSelection_16x", 4.0f / 16.0f, FLinearColor(0.728f, 0.364f, 0.003f)));
+		Set("AnimViewport.Notification.Message", new BOX_BRUSH("Common/RoundedSelection_16x", 4.0f / 16.0f, FLinearColor(0.364f, 0.364f, 0.364f)));
+
+		Set("AnimViewport.Notification.CloseButton", FButtonStyle()
+			.SetNormal(IMAGE_BRUSH("/Docking/CloseApp_Normal", Icon16x16))
+			.SetPressed(IMAGE_BRUSH("/Docking/CloseApp_Pressed", Icon16x16))
+			.SetHovered(IMAGE_BRUSH("/Docking/CloseApp_Hovered", Icon16x16)));
 
 		// persona commands
 		Set("Persona.AnimNotifyWindow", new IMAGE_BRUSH(TEXT("Icons/icon_Persona_AnimNotift_40x"), Icon40x40));
@@ -6732,8 +6735,8 @@ void FSlateEditorStyle::FStyle::SetupToolkitStyles()
 		Set( "MaterialEditor.ToggleMaterialStats.Small", new IMAGE_BRUSH( "Icons/icon_MatEd_Stats_40x", Icon20x20 ) );
 		Set( "MaterialEditor.ToggleBuiltinStats", new IMAGE_BRUSH( "Icons/icon_MatEd_BuiltInStats_40x", Icon40x40 ) );
 		Set( "MaterialEditor.ToggleBuiltinStats.Small", new IMAGE_BRUSH( "Icons/icon_MatEd_BuiltInStats_40x", Icon20x20 ) );
-		Set( "MaterialEditor.ToggleMobileStats", new IMAGE_BRUSH( "Icons/icon_MobileStats_40x", Icon40x40 ) );
-		Set( "MaterialEditor.ToggleMobileStats.Small", new IMAGE_BRUSH( "Icons/icon_MobileStats_40x", Icon20x20 ) );
+		Set( "MaterialEditor.TogglePlatformStats", new IMAGE_BRUSH( "Icons/icon_MobileStats_40x", Icon40x40 ) );
+		Set( "MaterialEditor.TogglePlatformStats.Small", new IMAGE_BRUSH( "Icons/icon_MobileStats_40x", Icon20x20 ) );
 		Set( "MaterialEditor.CleanUnusedExpressions", new IMAGE_BRUSH( "Icons/icon_MatEd_CleanUp_40x", Icon40x40 ) );
 		Set( "MaterialEditor.CleanUnusedExpressions.Small", new IMAGE_BRUSH( "Icons/icon_MatEd_CleanUp_40x", Icon20x20 ) );
 		Set( "MaterialEditor.ToggleRealtimeExpressions", new IMAGE_BRUSH( "Icons/icon_MatEd_LiveNodes_40x", Icon40x40 ) );
@@ -6761,6 +6764,8 @@ void FSlateEditorStyle::FStyle::SetupToolkitStyles()
 		Set("MaterialInstanceEditor.StackHeader", new FSlateColorBrush(FLinearColor(0.025f, 0.025f, 0.025f, 1.0f)));
 		Set("MaterialInstanceEditor.StackBody", new FSlateColorBrush(FLinearColor(0.045f, 0.045f, 0.045f, 1.0f)));
 		Set("MaterialInstanceEditor.StackBodyBlend", new FSlateColorBrush(FLinearColor(0.06f, 0.06f, 0.06f, 1.0f)));
+		Set("MaterialInstanceEditor.StackBodyDragged", new FSlateColorBrush(FLinearColor(0.0f, 0.0f, 0.0f, 1.0f)));
+		Set("MaterialInstanceEditor.StackBody_Highlighted", new BOX_BRUSH("Common/TextBox_Special_Active", FMargin(8.0f / 32.0f)));
 	}
 
 	// Sound Class Editor
@@ -6818,6 +6823,8 @@ void FSlateEditorStyle::FStyle::SetupToolkitStyles()
 		Set( "StaticMeshEditor.SetShowVertexColor.Small", new IMAGE_BRUSH( "Icons/icon_StaticMeshEd_VertColor_40x", Icon20x20 ) );
 		Set( "StaticMeshEditor.SetRealtimePreview", new IMAGE_BRUSH( "Icons/icon_MatEd_Realtime_40x", Icon40x40 ) );
 		Set( "StaticMeshEditor.SetRealtimePreview.Small", new IMAGE_BRUSH( "Icons/icon_MatEd_Realtime_40x", Icon20x20 ) );
+		Set( "StaticMeshEditor.ReimportMesh", new IMAGE_BRUSH(TEXT("Icons/icon_Persona_ReimportMesh_40x"), Icon40x40));
+		Set( "StaticMeshEditor.ReimportMesh.Small", new IMAGE_BRUSH(TEXT("Icons/icon_Persona_ReimportMesh_40x"), Icon20x20));
 		Set( "StaticMeshEditor.SetShowBounds", new IMAGE_BRUSH( "Icons/icon_StaticMeshEd_Bounds_40x", Icon40x40 ) );
 		Set( "StaticMeshEditor.SetShowBounds.Small", new IMAGE_BRUSH( "Icons/icon_StaticMeshEd_Bounds_40x", Icon20x20 ) );
 		Set( "StaticMeshEditor.SetShowCollision", new IMAGE_BRUSH( "Icons/icon_StaticMeshEd_Collision_40x", Icon40x40 ) );
@@ -7695,6 +7702,10 @@ void FSlateEditorStyle::FStyle::SetupUMGEditorStyles()
 	Set("UMGEditor.DPISettings", new IMAGE_BRUSH("Icons/UMG/SettingsButton", Icon16x16));
 
 	Set("UMGEditor.DesignerMessageBorder", new BOX_BRUSH("/UMG/MessageRoundedBorder", FMargin(18.0f / 64.0f)));
+
+	Set("UMGEditor.OrientLandscape", new IMAGE_BRUSH("Icons/UMG/Icon_Landscape_v2", Icon16x16));
+	Set("UMGEditor.OrientPortrait", new IMAGE_BRUSH("Icons/UMG/Icon_Portrait_v2", Icon16x16));
+	Set("UMGEditor.Mirror", new IMAGE_BRUSH("Icons/UMG/Icon_Mirror_v3", Icon16x16));
 
 	Set("UMGEditor.ResizeResolutionFont", DEFAULT_FONT("Bold", 10));
 }

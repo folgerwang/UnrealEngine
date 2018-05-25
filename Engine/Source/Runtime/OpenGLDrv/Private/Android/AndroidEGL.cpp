@@ -163,7 +163,9 @@ struct AndroidESPImpl
 	EOpenGLCurrentContext CurrentContextType;
 	GLuint OnScreenColorRenderBuffer;
 	GLuint ResolveFrameBuffer;
-	int32 SyncInterval;
+	int32 DesiredSyncInterval;
+	int32 DriverSyncInterval;
+	double LastTimeEmulatedSync;
 	AndroidESPImpl();
 };
 
@@ -574,7 +576,9 @@ eglDisplay(EGL_NO_DISPLAY)
 	,ResolveFrameBuffer(0)
 	,NativeVisualID(0)
 	,CurrentContextType(CONTEXT_Invalid)
-	,SyncInterval(-1)
+	,DesiredSyncInterval(-1)
+	,DriverSyncInterval(1)
+	,LastTimeEmulatedSync(-1.0)
 {
 }
 
@@ -750,48 +754,175 @@ int32 AndroidEGL::GetError()
 	return eglGetError();
 }
 
+// this is a prototype currently unused, left here for possible future use
+#if !defined(WITH_Android_Choreographer)
+#define WITH_Android_Choreographer (0)
+#endif
+
+#if WITH_Android_Choreographer
+
+extern void StartChoreographer(TFunction<void(int64)> Callback);
+
+
+struct AChoreographer;
+struct FChoreographerFramePacer
+{
+	bool bSetup = false;
+	FCriticalSection ChoreographerSetupLock;
+
+	int64 LastFrameCounter = -1000; // this will force it to always fire on the very first frame....we don't know what the frame counter will be then.
+	int64 TriggerFrameCounter = MAX_int64;
+
+	FEvent* ChoreographerEvent = nullptr;
+
+	void SetupChoreographer()
+	{
+		if (!bSetup)
+		{
+			bSetup = true;
+			ChoreographerEvent = FPlatformProcess::GetSynchEventFromPool(false);
+			StartChoreographer([this](int64 FrameCounter) {DoCallback(FrameCounter); });
+		}
+	}
+
+	void DoCallback(int64 FrameCounter)
+	{
+		FScopeLock Lock(&ChoreographerSetupLock);
+		LastFrameCounter = FrameCounter;
+		if (FrameCounter >= TriggerFrameCounter)
+		{
+			TriggerFrameCounter = MAX_int64;
+			ChoreographerEvent->Trigger();
+		}
+	}
+	void StartSync(int32 SyncInterval)
+	{
+		FScopeLock Lock(&ChoreographerSetupLock);
+		SetupChoreographer();
+		TriggerFrameCounter = LastFrameCounter + SyncInterval;
+		ChoreographerEvent->Reset();
+	}
+	void WaitSync()
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_StallForChoreographerSyncInterval);
+		check(ChoreographerEvent);
+		if (!ChoreographerEvent->Wait(FTimespan::FromMilliseconds(75.0)))
+		{
+			UE_LOG(LogRHI, Error, TEXT("Timed out waiting for ChoreographerEvent."));
+			FScopeLock Lock(&ChoreographerSetupLock);
+			TriggerFrameCounter = MAX_int64;
+			ChoreographerEvent->Reset();
+		}
+	}
+};
+FChoreographerFramePacer TheChoreographerFramePacer;
+
+static TAutoConsoleVariable<int32> CVarUseChoreographer(
+	TEXT("a.UseChoreographer"),
+	1,
+	TEXT("True to use Choreographer to do frame pacing on android."));
+
+static bool ShouldUseChoreographer()
+{
+	// should check the ndk version, etc
+	return CVarUseChoreographer.GetValueOnAnyThread() > 0;
+}
+
+#endif
+
 bool AndroidEGL::SwapBuffers(int32 SyncInterval)
 {
 	VERIFY_EGL_SCOPE();
-	if (PImplData->SyncInterval != SyncInterval)
+
+// this is a prototype currently unused, left here for possible future use
+#if WITH_Android_Choreographer
+
+	static bool bUseChoreographer = false;
+
+	if (bUseChoreographer)
 	{
+		TheChoreographerFramePacer.WaitSync();
+		bUseChoreographer = false;
+	}
+#endif
+
+	if (PImplData->DesiredSyncInterval != SyncInterval)
+	{
+		PImplData->DesiredSyncInterval = SyncInterval;
 		// make sure requested interval is in supported range
 		EGLint MinSwapInterval, MaxSwapInterval;
 		eglGetConfigAttrib(PImplData->eglDisplay, PImplData->eglConfigParam, EGL_MIN_SWAP_INTERVAL, &MinSwapInterval);
 		eglGetConfigAttrib(PImplData->eglDisplay, PImplData->eglConfigParam, EGL_MAX_SWAP_INTERVAL, &MaxSwapInterval);
-		PImplData->SyncInterval = FMath::Clamp<int32>(SyncInterval, MinSwapInterval, MaxSwapInterval);
-		//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("AndroidEGL:SwapBuffers Min=%d, Max=%d, Request=%d, Set=%d"), MinSwapInterval, MaxSwapInterval, SyncInterval, PImplData->SyncInterval);
 
-		// disabled for now since setting it to 0 doesn't do anything with compositor limiting us to 60 fps and have seen issues with some drivers
-		//eglSwapInterval(PImplData->eglDisplay, PImplData->SyncInterval);
+		int32 DesiredDriverSyncInterval = FMath::Clamp<int32>(SyncInterval, MinSwapInterval, MaxSwapInterval);
+		
+		UE_LOG(LogRHI, Log, TEXT("AndroidEGL:SwapBuffers Min=%d, Max=%d, Request=%d, SetDriver=%d"), MinSwapInterval, MaxSwapInterval, PImplData->DesiredSyncInterval, DesiredDriverSyncInterval);
+
+		if (DesiredDriverSyncInterval != PImplData->DriverSyncInterval)
+		{
+			PImplData->DriverSyncInterval = DesiredDriverSyncInterval;
+			UE_LOG(LogRHI, Log, TEXT("Called eglSwapInterval %d"), DesiredDriverSyncInterval);
+			eglSwapInterval(PImplData->eglDisplay, PImplData->DriverSyncInterval);
+		}
 	}
 
-	if ( PImplData->eglSurface == NULL || !eglSwapBuffers(PImplData->eglDisplay, PImplData->eglSurface))
 	{
-		// shutdown if swapbuffering goes down
-		if( PImplData->SwapBufferFailureCount > 10 )
-		{
-			//Process.killProcess(Process.myPid());		//@todo android
-		}
-		PImplData->SwapBufferFailureCount++;
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_eglSwapBuffers);
 
-		// basic reporting
-		if( PImplData->eglSurface == NULL )
+		if (PImplData->eglSurface == NULL || !eglSwapBuffers(PImplData->eglDisplay, PImplData->eglSurface))
 		{
+			// shutdown if swapbuffering goes down
+			if (PImplData->SwapBufferFailureCount > 10)
+			{
+				//Process.killProcess(Process.myPid());		//@todo android
+			}
+			PImplData->SwapBufferFailureCount++;
+
+			// basic reporting
+			if (PImplData->eglSurface == NULL)
+			{
+				return false;
+			}
+			else
+			{
+				if (eglGetError() == EGL_CONTEXT_LOST)
+				{
+					//Logger.LogOut("swapBuffers: EGL11.EGL_CONTEXT_LOST err: " + eglGetError());					
+					//Process.killProcess(Process.myPid());		//@todo android
+				}
+			}
+
 			return false;
 		}
-		else
+	}
+
+	if (PImplData->DesiredSyncInterval > PImplData->DriverSyncInterval)
+	{
+// this is a prototype currently unused, left here for possible future use
+#if WITH_Android_Choreographer		
+		if (ShouldUseChoreographer())
 		{
-			if( eglGetError() == EGL_CONTEXT_LOST )
-			{				
-				//Logger.LogOut("swapBuffers: EGL11.EGL_CONTEXT_LOST err: " + eglGetError());					
-				//Process.killProcess(Process.myPid());		//@todo android
+			TheChoreographerFramePacer.StartSync(PImplData->DesiredSyncInterval);
+			bUseChoreographer = true;
+		}
+		else 
+#endif
+		if (PImplData->LastTimeEmulatedSync > 0.0)
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_StallForEmulatedSyncInterval);
+			float MinTimeBetweenFrames = (float(PImplData->DesiredSyncInterval) / 60.0f);
+
+			float ThisTime = FPlatformTime::Seconds() - PImplData->LastTimeEmulatedSync;
+			if (ThisTime > 0 && ThisTime < MinTimeBetweenFrames)
+			{
+				FPlatformProcess::Sleep(MinTimeBetweenFrames - ThisTime);
 			}
 		}
 
-		return false;
 	}
 
+
+	PImplData->LastTimeEmulatedSync = FPlatformTime::Seconds();
 	return true;
 }
 

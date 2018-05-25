@@ -749,6 +749,20 @@ static void BuildShaderOutput(
 	ShaderOutput.NumInstructions = 0;
 	ShaderOutput.NumTextureSamplers = Header.SerializedBindings.NumSamplers;
 	ShaderOutput.bSucceeded = true;
+
+	if (ShaderInput.ExtraSettings.bExtractShaderSource)
+	{
+		TArray<ANSICHAR> CodeOriginal;
+		CodeOriginal.Append(USFSource, FCStringAnsi::Strlen(USFSource) + 1);
+		ShaderOutput.OptionalFinalShaderSource = FString(CodeOriginal.GetData());
+	}
+	if (ShaderInput.ExtraSettings.OfflineCompilerPath.Len() > 0)
+	{
+		if (IsVulkanMobilePlatform((EShaderPlatform)ShaderInput.Target.Platform))
+		{
+			CompileOfflineMali(ShaderInput, ShaderOutput, (ANSICHAR *)Spirv.Data.GetData(), Spirv.Data.Num(), true);
+		}
+	}
 }
 
 //static void BuildShaderOutput(

@@ -727,7 +727,8 @@ enum EFoldedMathOperation
 	FMO_Sub,
 	FMO_Mul,
 	FMO_Div,
-	FMO_Dot
+	FMO_Dot,
+	FMO_Cross
 };
 
 /** Converts an arbitrary number into a safe divisor. i.e. FMath::Abs(Number) >= DELTA */
@@ -800,6 +801,29 @@ public:
 					DotProduct += (ValueType >= MCT_Float3) ? ValueA.B * ValueB.B : 0;
 					DotProduct += (ValueType >= MCT_Float4) ? ValueA.A * ValueB.A : 0;
 					OutValue.R = OutValue.G = OutValue.B = OutValue.A = DotProduct;
+				}
+				break;
+			case FMO_Cross: 
+				{
+					// Must be Float3, replicate CoerceParameter behavior
+					switch (ValueType)
+					{
+					case MCT_Float:
+						ValueA.B = ValueA.G = ValueA.R;
+						ValueB.B = ValueB.G = ValueB.R;
+						break;
+					case MCT_Float1:
+						ValueA.B = ValueA.G = 0.f;
+						ValueB.B = ValueB.G = 0.f;
+						break;
+					case MCT_Float2:
+						ValueA.B = 0.f;
+						ValueB.B = 0.f;
+						break;
+					};
+					FVector Cross = FVector::CrossProduct(FVector(ValueA), FVector(ValueB));
+					OutValue.R = Cross.X; OutValue.G = Cross.Y; OutValue.B = Cross.Z;
+					OutValue.A = 0.f;
 				}
 				break;
 			default: UE_LOG(LogMaterial, Fatal,TEXT("Unknown folded math operation: %08x"),(int32)Op);

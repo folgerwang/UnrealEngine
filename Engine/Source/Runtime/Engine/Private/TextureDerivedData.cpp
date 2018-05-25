@@ -1006,10 +1006,19 @@ static void SerializePlatformData(
 		}
 	}
 
+	TArray<uint32> BulkDataMipFlags;
+
 	// Force resident mips inline
 	if (bCooked && Ar.IsSaving())
 	{
+		BulkDataMipFlags.AddZeroed(PlatformData->Mips.Num());
+		for (int32 MipIndex = 0; MipIndex < PlatformData->Mips.Num(); ++MipIndex)
+		{
+			BulkDataMipFlags[MipIndex] = PlatformData->Mips[MipIndex].BulkData.GetBulkDataFlags();
+		}
+
 		int32 MinMipToInline = 0;
+		int32 OptionalMips = 0; // TODO: do we need to consider platforms saving texture assets as cooked files? all the info to calculate the optional is part of the editor only data
 		
 #if WITH_EDITORONLY_DATA
 		check(Ar.CookingTarget());
@@ -1022,9 +1031,23 @@ static void SerializePlatformData(
 #endif
 		{
 			MinMipToInline = FMath::Max(0, NumMips - PlatformData->GetNumNonStreamingMips());
+#if WITH_EDITORONLY_DATA
+			const int32 Width = PlatformData->SizeX;
+			const int32 Height = PlatformData->SizeY;
+			const int32 LODGroup = Texture->LODGroup;
+			const int32 LODBias = Texture->LODBias;
+			const int32 NumCinematicMipLevels = Texture->NumCinematicMipLevels;
+
+			OptionalMips = Ar.CookingTarget()->GetTextureLODSettings().CalculateNumOptionalMips(LODGroup, Width, Height, NumMips, MinMipToInline, Texture->MipGenSettings);
+#endif
 		}
 
-		for (int32 MipIndex = 0; MipIndex < NumMips && MipIndex < MinMipToInline; ++MipIndex)
+		for (int32 MipIndex = 0; MipIndex < NumMips && MipIndex < OptionalMips; ++MipIndex )
+		{
+			PlatformData->Mips[MipIndex + FirstMipToSerialize].BulkData.SetBulkDataFlags(BULKDATA_Force_NOT_InlinePayload| BULKDATA_OptionalPayload);
+		}
+
+		for (int32 MipIndex = OptionalMips; MipIndex < NumMips && MipIndex < MinMipToInline; ++MipIndex)
 		{
 			PlatformData->Mips[MipIndex + FirstMipToSerialize].BulkData.SetBulkDataFlags(BULKDATA_Force_NOT_InlinePayload);
 		}
@@ -1033,7 +1056,6 @@ static void SerializePlatformData(
 			PlatformData->Mips[MipIndex + FirstMipToSerialize].BulkData.SetBulkDataFlags(BULKDATA_ForceInlinePayload | BULKDATA_SingleUse);
 		}
 	}
-
 	Ar << NumMips;
 	if (Ar.IsLoading())
 	{
@@ -1048,6 +1070,14 @@ static void SerializePlatformData(
 	{
 		PlatformData->Mips[FirstMipToSerialize + MipIndex].Serialize(Ar, Texture, MipIndex);
 	}
+
+	for (int32 MipIndex = 0; MipIndex < BulkDataMipFlags.Num(); ++MipIndex)
+	{
+		check( Ar.IsSaving() );
+		PlatformData->Mips[MipIndex].BulkData.ClearBulkDataFlags(~BulkDataMipFlags[MipIndex]);
+		PlatformData->Mips[MipIndex].BulkData.SetBulkDataFlags(BulkDataMipFlags[MipIndex]);
+	}
+	
 }
 
 void FTexturePlatformData::Serialize(FArchive& Ar, UTexture* Owner)
@@ -1525,31 +1555,31 @@ void UTexture::SerializeCookedPlatformData(FArchive& Ar)
 			}
 			else
 			{
-			TMap<FString, FTexturePlatformData*> *CookedPlatformDataPtr = GetCookedPlatformData();
+				TMap<FString, FTexturePlatformData*> *CookedPlatformDataPtr = GetCookedPlatformData();
 				if (CookedPlatformDataPtr == NULL)
-				return;
+					return;
 
-			TArray<FName> PlatformFormats;
+				TArray<FName> PlatformFormats;
 
-			Ar.CookingTarget()->GetTextureFormats(this, PlatformFormats);
-			for (int32 FormatIndex = 0; FormatIndex < PlatformFormats.Num(); FormatIndex++)
-			{
-				FString DerivedDataKey;
-				BuildSettings.TextureFormatName = PlatformFormats[FormatIndex];
-				GetTextureDerivedDataKey(*this, BuildSettings, DerivedDataKey);
-
-				FTexturePlatformData *PlatformDataPtr = (*CookedPlatformDataPtr).FindRef(DerivedDataKey);
-				
-				if (PlatformDataPtr == NULL)
+				Ar.CookingTarget()->GetTextureFormats(this, PlatformFormats);
+				for (int32 FormatIndex = 0; FormatIndex < PlatformFormats.Num(); FormatIndex++)
 				{
-					PlatformDataPtr = new FTexturePlatformData();
-					PlatformDataPtr->Cache(*this, BuildSettings, ETextureCacheFlags::InlineMips | ETextureCacheFlags::Async, nullptr);
-					
+					FString DerivedDataKey;
+					BuildSettings.TextureFormatName = PlatformFormats[FormatIndex];
+					GetTextureDerivedDataKey(*this, BuildSettings, DerivedDataKey);
+
+					FTexturePlatformData *PlatformDataPtr = (*CookedPlatformDataPtr).FindRef(DerivedDataKey);
+
+					if (PlatformDataPtr == NULL)
+					{
+						PlatformDataPtr = new FTexturePlatformData();
+						PlatformDataPtr->Cache(*this, BuildSettings, ETextureCacheFlags::InlineMips | ETextureCacheFlags::Async, nullptr);
+
 						CookedPlatformDataPtr->Add(DerivedDataKey, PlatformDataPtr);
-					
+
+					}
+					PlatformDataToSerialize.Add(PlatformDataPtr);
 				}
-				PlatformDataToSerialize.Add(PlatformDataPtr);
-			}
 			}
 
 			for (int32 i = 0; i < PlatformDataToSerialize.Num(); ++i)

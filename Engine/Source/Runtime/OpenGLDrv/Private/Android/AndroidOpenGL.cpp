@@ -169,6 +169,13 @@ void* PlatformGetWindow(FPlatformOpenGLContext* Context, void** AddParam)
 	return (void*)&Context->eglContext;
 }
 
+
+static TAutoConsoleVariable<int32> CVarDisableOpenGLGPUSync(
+	TEXT("r.Android.DisableOpenGLGPUSync"),
+	1,
+	TEXT("When true, android OpenGL will not prevent the GPU from running more than one frame behind. This will allow higher performance on some devices but increase input latency."),
+	ECVF_RenderThreadSafe);
+
 bool PlatformBlitToViewport( FPlatformOpenGLDevice* Device, const FOpenGLViewport& Viewport, uint32 BackbufferSizeX, uint32 BackbufferSizeY, bool bPresent,bool bLockToVsync, int32 SyncInterval )
 {
 	if (bPresent && Viewport.GetCustomPresent())
@@ -179,7 +186,7 @@ bool PlatformBlitToViewport( FPlatformOpenGLDevice* Device, const FOpenGLViewpor
 	{
 		AndroidEGL::GetInstance()->SwapBuffers(bLockToVsync ? SyncInterval : 0);
 	}
-	return bPresent;
+	return bPresent && !CVarDisableOpenGLGPUSync.GetValueOnAnyThread();
 }
 
 void PlatformRenderingContextSetup(FPlatformOpenGLDevice* Device)
@@ -239,9 +246,7 @@ bool PlatformInitOpenGL()
 		GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES31"), bBuildForES31, GEngineIni);
 
 		const bool bSupportsFloatingPointRTs = FAndroidMisc::SupportsFloatingPointRenderTargets();
-		const bool bSupportsShaderIOBlocks = FAndroidMisc::SupportsShaderIOBlocks();
-
-		const bool bES20Fallback = !bSupportsFloatingPointRTs || !bSupportsShaderIOBlocks || !!CVarDisableES31->GetValueOnAnyThread();
+		const bool bES20Fallback = !bSupportsFloatingPointRTs || !!CVarDisableES31->GetValueOnAnyThread();
 
 		if (bBuildForES31 && bES31Supported && !bES20Fallback)
 		{
@@ -271,9 +276,6 @@ bool PlatformInitOpenGL()
 
 				Message.Append(TEXT("	Floating point render target support: "));
 				Message.Append(bSupportsFloatingPointRTs ? TEXT("Yes\n") : TEXT("NO\n"));
-
-				Message.Append(TEXT("	EXT_shader_io_blocks support: "));
-				Message.Append(bSupportsShaderIOBlocks ? TEXT("Yes\n") : TEXT("NO\n"));
 
 				UE_LOG(LogRHI, Log, TEXT("%s"), *Message);
 			}
@@ -357,7 +359,6 @@ FPlatformOpenGLContext* PlatformCreateOpenGLContext(FPlatformOpenGLDevice* Devic
 
 void PlatformDestroyOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGLContext* Context)
 {
-	delete Device; //created here, destroyed here, but held by RHI.
 }
 
 FRHITexture* PlatformCreateBuiltinBackBuffer(FOpenGLDynamicRHI* OpenGLRHI, uint32 SizeX, uint32 SizeY)
@@ -429,47 +430,71 @@ void PlatformLabelObjects()
 }
 
 //--------------------------------
+#define VIRTUALIZE_QUERIES (1)
 
+static int32 GMaxmimumOcclusionQueries = 4000;
 
-static int32 GMaxmimumOcclusionQueries = 1020;
-
+#if VIRTUALIZE_QUERIES
 // These data structures could be better, but it would be tricky. InFlightVirtualQueries.Remove(QueryId) is a drag
 TArray<GLuint> UsableRealQueries;
 TArray<int32> InFlightVirtualQueries;
 TArray<GLuint> VirtualToRealMap;
 TArray<GLuint64> VirtualResults;
 TArray<int32> FreeVirtuals;
+TArray<GLuint> QueriesBeganButNotEnded;
+#endif
 
-#define QUERY_CHECK(x) if (!(x)) { FPlatformMisc::LocalPrint(TEXT("Failed a check on line:\n")); FPlatformMisc::LocalPrint(TEXT( PREPROCESSOR_TO_STRING(__LINE__))); FPlatformMisc::LocalPrint(TEXT("\n")); *((int*)3) = 13; }
+#define QUERY_CHECK(x) check(x)
+//#define QUERY_CHECK(x) if (!(x)) { FPlatformMisc::LocalPrint(TEXT("Failed a check on line:\n")); FPlatformMisc::LocalPrint(TEXT( PREPROCESSOR_TO_STRING(__LINE__))); FPlatformMisc::LocalPrint(TEXT("\n")); *((int*)3) = 13; }
+
+#define CHECK_QUERY_ERRORS (DO_CHECK)
 
 void PlatformGetNewRenderQuery(GLuint* OutQuery, uint64* OutQueryContext)
 {
+#if CHECK_QUERY_ERRORS
+	GLenum Err = glGetError();
+	while (Err != GL_NO_ERROR)
+	{
+		Err = glGetError();
+	}
+#endif
+
+	*OutQueryContext = 0;
+	VERIFY_GL_SCOPE();
+
+#if !VIRTUALIZE_QUERIES
+	FOpenGLES2::GenQueries(1, OutQuery);
+	//glGenQueriesEXT(1, OutQuery);
+#if CHECK_QUERY_ERRORS
+	Err = glGetError();
+	if (Err != GL_NO_ERROR)
+	{
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("GenQueries Failed, glError %d (0x%x)"), Err, Err);
+		*(char*)3 = 0;
+	}
+#endif
+#else
+
+
 	if (!UsableRealQueries.Num() && !InFlightVirtualQueries.Num())
 	{
+		GRHIMaximumReccommendedOustandingOcclusionQueries = GMaxmimumOcclusionQueries;
 		UE_LOG(LogRHI, Log, TEXT("AndroidOpenGL: Using a maximum of %d occlusion queries."), GMaxmimumOcclusionQueries);
 
-		GLenum Err = glGetError();
-		while (Err != GL_NO_ERROR)
-		{
-			Err = glGetError();
-		}
-
-		VERIFY_GL_SCOPE();
-
-		QUERY_CHECK(Err == GL_NO_ERROR);
 		UsableRealQueries.AddDefaulted(GMaxmimumOcclusionQueries);
 		glGenQueriesEXT(GMaxmimumOcclusionQueries, &UsableRealQueries[0]);
+#if CHECK_QUERY_ERRORS
 		Err = glGetError();
 		if (Err != GL_NO_ERROR)
 		{
 			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("GenQueries Failed, glError %d (0x%x)"), Err, Err);
 			*(char*)3 = 0;
 		}
+#endif
 		VirtualToRealMap.Add(0); // this is null, it is not a real query and never will be
 		VirtualResults.Add(0); // this is null, it is not a real query and never will be
 	}
 
-	*OutQueryContext = 0;
 	if (FreeVirtuals.Num())
 	{
 		*OutQuery = FreeVirtuals.Pop();
@@ -478,10 +503,14 @@ void PlatformGetNewRenderQuery(GLuint* OutQuery, uint64* OutQueryContext)
 	*OutQuery = VirtualToRealMap.Num();
 	VirtualToRealMap.Add(0);
 	VirtualResults.Add(0);
+#endif
 }
 
 void PlatformReleaseRenderQuery(GLuint Query, uint64 QueryContext)
 {
+#if !VIRTUALIZE_QUERIES
+	glDeleteQueriesEXT(1, &Query);
+#else
 	GLuint RealIndex = VirtualToRealMap[Query];
 	if (RealIndex)
 	{
@@ -491,6 +520,7 @@ void PlatformReleaseRenderQuery(GLuint Query, uint64 QueryContext)
 		QUERY_CHECK(!VirtualToRealMap[Query]);
 	}
 	FreeVirtuals.Add(Query);
+#endif
 }
 
 void FAndroidOpenGL::GetQueryObject(GLuint QueryId, EQueryMode QueryMode, GLuint *OutResult)
@@ -500,10 +530,37 @@ void FAndroidOpenGL::GetQueryObject(GLuint QueryId, EQueryMode QueryMode, GLuint
 	*OutResult = GLuint(Result);
 }
 
+static void GetQueryObjectui64(GLuint QueryId, GLenum QueryName, GLuint64* OutResult)
+{
+	if (glGetQueryObjectui64vEXT)
+	{
+		glGetQueryObjectui64vEXT(QueryId, QueryName, OutResult);
+	}
+	else
+	{
+		GLuint TempResult = 0;
+		glGetQueryObjectuivEXT(QueryId, QueryName, &TempResult);
+		*OutResult = TempResult;
+	}
+}
 
 void FAndroidOpenGL::GetQueryObject(GLuint QueryId, EQueryMode QueryMode, GLuint64* OutResult)
 {
 	GLenum QueryName = (QueryMode == QM_Result) ? GL_QUERY_RESULT_EXT : GL_QUERY_RESULT_AVAILABLE_EXT;
+	VERIFY_GL_SCOPE();
+	uint32 IdleStart = (QueryName == GL_QUERY_RESULT_EXT) ? FPlatformTime::Cycles() : 0;
+
+#if !VIRTUALIZE_QUERIES
+#if CHECK_QUERY_ERRORS
+	GLenum Err = glGetError();
+	while (Err != GL_NO_ERROR)
+	{
+		Err = glGetError();
+	}
+#endif
+
+	GetQueryObjectui64(QueryId, QueryName, OutResult);
+#else
 	GLuint RealIndex = VirtualToRealMap[QueryId];
 	if (!RealIndex)
 	{
@@ -518,7 +575,6 @@ void FAndroidOpenGL::GetQueryObject(GLuint QueryId, EQueryMode QueryMode, GLuint
 		return;
 	}
 
-
 	if (QueryName == GL_QUERY_RESULT_EXT)
 	{
 		{
@@ -530,29 +586,46 @@ void FAndroidOpenGL::GetQueryObject(GLuint QueryId, EQueryMode QueryMode, GLuint
 		VirtualToRealMap[QueryId] = 0;
 	}
 
+#if CHECK_QUERY_ERRORS
 	GLenum Err = glGetError();
 	while (Err != GL_NO_ERROR)
 	{
 		Err = glGetError();
 	}
+#endif
 
-	VERIFY_GL_SCOPE();
-
-	glGetQueryObjectui64vEXT(RealIndex, QueryName, OutResult);
-
-	Err = glGetError();
-	QUERY_CHECK(Err == GL_NO_ERROR);
+	GetQueryObjectui64(RealIndex, QueryName, OutResult);
 
 	if (QueryName == GL_QUERY_RESULT_EXT)
 	{
 		VirtualResults[QueryId] = *OutResult;
 	}
+#endif
+	if (QueryName == GL_QUERY_RESULT_EXT)
+	{
+		uint32 ThisCycles = FPlatformTime::Cycles() - IdleStart;
+		if (IsInRHIThread())
+		{
+			GWorkingRHIThreadStallTime += ThisCycles;
+		}
+		else
+		{
+			GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUQuery] += ThisCycles;
+			GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUQuery]++;
+		}
+	}
+
+#if CHECK_QUERY_ERRORS
+	Err = glGetError();
+	QUERY_CHECK(Err == GL_NO_ERROR);
+#endif
 }
 
-void FAndroidOpenGL::BeginQuery(GLenum QueryType, GLuint Query)
+GLuint FAndroidOpenGL::MakeVirtualQueryReal(GLuint Query)
 {
-	QUERY_CHECK(QueryType == UGL_ANY_SAMPLES_PASSED || SupportsDisjointTimeQueries());
-
+#if !VIRTUALIZE_QUERIES
+	return Query;
+#else
 	GLuint RealIndex = VirtualToRealMap[Query];
 	if (RealIndex)
 	{
@@ -564,7 +637,8 @@ void FAndroidOpenGL::BeginQuery(GLenum QueryType, GLuint Query)
 	}
 	if (!UsableRealQueries.Num())
 	{
-		QUERY_CHECK(InFlightVirtualQueries.Num() == GMaxmimumOcclusionQueries);
+		QUERY_CHECK(InFlightVirtualQueries.Num() + QueriesBeganButNotEnded.Num() == GMaxmimumOcclusionQueries);
+		QUERY_CHECK(InFlightVirtualQueries.Num()); // if this fires, then it means the nesting of begins is too deep.
 		GLuint OutResult;
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_FAndroidOpenGL_BeginQuery_FreeWait);
 		FAndroidOpenGL::GetQueryObject(InFlightVirtualQueries[0], QM_Result, &OutResult);
@@ -573,37 +647,99 @@ void FAndroidOpenGL::BeginQuery(GLenum QueryType, GLuint Query)
 	RealIndex = UsableRealQueries.Pop();
 	VirtualToRealMap[Query] = RealIndex;
 	VirtualResults[Query] = 0;
-	InFlightVirtualQueries.Add(Query);
 
+	return RealIndex;
+#endif
+}
+
+
+void FAndroidOpenGL::QueryTimestampCounter(GLuint Query)
+{
+	QUERY_CHECK(SupportsDisjointTimeQueries());
+	VERIFY_GL_SCOPE();
+#if CHECK_QUERY_ERRORS
 	GLenum Err = glGetError();
 	while (Err != GL_NO_ERROR)
 	{
 		Err = glGetError();
 	}
+#endif
+#if !VIRTUALIZE_QUERIES
+	glQueryCounterEXT(Query, GL_TIMESTAMP_EXT);
+#else
+
+	GLuint RealIndex = MakeVirtualQueryReal(Query);
+
+	InFlightVirtualQueries.Add(Query);
+
+	glQueryCounterEXT(RealIndex, GL_TIMESTAMP_EXT);
+#endif
+#if CHECK_QUERY_ERRORS
+
+	Err = glGetError();
+
+	QUERY_CHECK(Err == GL_NO_ERROR);
+#endif
+
+}
+
+
+void FAndroidOpenGL::BeginQuery(GLenum QueryType, GLuint Query)
+{
+	QUERY_CHECK(QueryType == UGL_ANY_SAMPLES_PASSED || SupportsDisjointTimeQueries());
+#if CHECK_QUERY_ERRORS
+	GLenum Err = glGetError();
+	while (Err != GL_NO_ERROR)
+	{
+		Err = glGetError();
+	}
+#endif
 
 	VERIFY_GL_SCOPE();
 
+#if !VIRTUALIZE_QUERIES
+	glBeginQueryEXT(QueryType, Query);
+#else
+	GLuint RealIndex = MakeVirtualQueryReal(Query);
+	QueriesBeganButNotEnded.Add(Query);
 	glBeginQueryEXT(QueryType, RealIndex);
-
+#endif
+#if CHECK_QUERY_ERRORS
 	Err = glGetError();
+
 	QUERY_CHECK(Err == GL_NO_ERROR);
+#endif
 }
 
 void FAndroidOpenGL::EndQuery(GLenum QueryType)
 {
 	QUERY_CHECK(QueryType == UGL_ANY_SAMPLES_PASSED || SupportsDisjointTimeQueries());
+
+#if CHECK_QUERY_ERRORS
 	GLenum Err = glGetError();
 	while (Err != GL_NO_ERROR)
 	{
 		Err = glGetError();
 	}
+#endif
 
 	VERIFY_GL_SCOPE();
 
+	if (QueryType == UGL_ANY_SAMPLES_PASSED)
+	{
+		//return;
+	}
+
+#if VIRTUALIZE_QUERIES
+	InFlightVirtualQueries.Add(QueriesBeganButNotEnded.Pop());
+#endif
 	glEndQueryEXT(QueryType);
 
+#if CHECK_QUERY_ERRORS
 	Err = glGetError();
+
 	QUERY_CHECK(Err == GL_NO_ERROR);
+#endif
 }
 
 
@@ -637,6 +773,15 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 	if (bES30Support || bES31Support)
 	{
 		bSupportsOcclusionQueries = true;
+	}
+
+	// Disable ASTC if requested by device profile
+	static const auto CVarDisableASTC = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Android.DisableASTCSupport"));
+	if (bSupportsASTC && CVarDisableASTC->GetValueOnAnyThread())
+	{
+		bSupportsASTC = false;
+		FAndroidGPUInfo::Get().RemoveTargetPlatform(TEXT("Android_ASTC"));
+		UE_LOG(LogRHI, Log, TEXT("ASTC was disabled via r.OpenGL.DisableASTCSupport"));
 	}
 
 	// Get procedures
@@ -1104,11 +1249,6 @@ bool FAndroidMisc::SupportsShaderFramebufferFetch()
 bool FAndroidMisc::SupportsES30()
 {
 	return FAndroidGPUInfo::Get().bES30Support;
-}
-
-bool FAndroidMisc::SupportsShaderIOBlocks()
-{
-	return FAndroidGPUInfo::Get().bSupportsShaderIOBlocks;
 }
 
 void FAndroidMisc::GetValidTargetPlatforms(TArray<FString>& TargetPlatformNames)

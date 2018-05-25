@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
+#include "Misc/Guid.h"
 
 enum class EAutomationEventType : uint8
 {
@@ -13,20 +14,11 @@ enum class EAutomationEventType : uint8
 
 struct CORE_API FAutomationEvent
 {
-	EAutomationEventType Type;
-	FString Message;
-	FString Context;
-	FString Filename;
-	int32 LineNumber;
-	FDateTime Timestamp;
-
+public:
 	FAutomationEvent(EAutomationEventType InType, FString InMessage)
 		: Type(InType)
 		, Message(InMessage)
 		, Context()
-		, Filename()
-		, LineNumber(-1)
-		, Timestamp(FDateTime::UtcNow())
 	{
 	}
 
@@ -34,16 +26,34 @@ struct CORE_API FAutomationEvent
 		: Type(InType)
 		, Message(InMessage)
 		, Context(InContext)
+	{
+	}
+
+public:
+
+	EAutomationEventType Type;
+	FString Message;
+	FString Context;
+	FGuid Artifact;
+};
+
+struct CORE_API FAutomationExecutionEntry
+{
+	FAutomationEvent Event;
+	FString Filename;
+	int32 LineNumber;
+	FDateTime Timestamp;
+
+	FAutomationExecutionEntry(FAutomationEvent InEvent)
+		: Event(InEvent)
 		, Filename()
 		, LineNumber(-1)
 		, Timestamp(FDateTime::UtcNow())
 	{
 	}
 
-	FAutomationEvent(EAutomationEventType InType, FString InMessage, FString InContext, FString InFilename, int32 InLineNumber)
-		: Type(InType)
-		, Message(InMessage)
-		, Context(InContext)
+	FAutomationExecutionEntry(FAutomationEvent InEvent, FString InFilename, int32 InLineNumber)
+		: Event(InEvent)
 		, Filename(InFilename)
 		, LineNumber(InLineNumber)
 		, Timestamp(FDateTime::UtcNow())

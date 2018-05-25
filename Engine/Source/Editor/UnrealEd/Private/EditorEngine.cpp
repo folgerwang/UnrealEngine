@@ -200,6 +200,8 @@
 #include "DynamicResolutionState.h"
 
 #include "Developer/HotReload/Public/IHotReload.h"
+#include "EditorBuildUtils.h"
+#include "MaterialStatsCommon.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditor, Log, All);
 
@@ -600,8 +602,13 @@ void UEditorEngine::InitEditor(IEngineLoop* InEngineLoop)
 
 	if ( FSlateApplication::IsInitialized() )
 	{
-		FSlateApplication::Get().GetRenderer()->SetColorVisionDeficiencyType((uint32)( GetDefault<UEditorStyleSettings>()->ColorVisionDeficiencyPreviewType.GetValue() ));
-		FSlateApplication::Get().EnableMenuAnimations(GetDefault<UEditorStyleSettings>()->bEnableWindowAnimations);
+		const UEditorStyleSettings* EditorSettings = GetDefault<UEditorStyleSettings>();
+		const EColorVisionDeficiency DeficiencyType = EditorSettings->ColorVisionDeficiencyPreviewType;
+		const int32 Severity = EditorSettings->ColorVisionDeficiencySeverity;
+		const bool bCorrectDeficiency = EditorSettings->bColorVisionDeficiencyCorrection;
+		const bool bShowCorrectionWithDeficiency = EditorSettings->bColorVisionDeficiencyCorrectionPreviewWithDeficiency;
+		FSlateApplication::Get().GetRenderer()->SetColorVisionDeficiencyType(DeficiencyType, Severity, bCorrectDeficiency, bShowCorrectionWithDeficiency);
+		FSlateApplication::Get().EnableMenuAnimations(EditorSettings->bEnableWindowAnimations);
 	}
 
 	UEditorStyleSettings* StyleSettings = GetMutableDefault<UEditorStyleSettings>();
@@ -808,13 +815,20 @@ void UEditorEngine::HandlePackageReloaded(const EPackageReloadPhase InPackageRel
 void UEditorEngine::HandleSettingChanged( FName Name )
 {
 	// When settings are reset to default, the property name will be "None" so make sure that case is handled.
-	if (Name == FName(TEXT("ColorVisionDeficiencyPreviewType")) || Name == NAME_None)
+	if (Name == FName(TEXT("ColorVisionDeficiencyPreviewType")) || 
+		Name == FName(TEXT("bColorVisionDeficiencyCorrection")) ||
+		Name == FName(TEXT("bColorVisionDeficiencyCorrectionPreviewWithDeficiency")) ||
+		Name == FName(TEXT("ColorVisionDeficiencySeverity")) ||
+		Name == NAME_None)
 	{
-		uint32 DeficiencyType = (uint32)GetDefault<UEditorStyleSettings>()->ColorVisionDeficiencyPreviewType.GetValue();
-		FSlateApplication::Get().GetRenderer()->SetColorVisionDeficiencyType(DeficiencyType);
-
-		GEngine->Exec(NULL, TEXT("RecompileShaders /Engine/Private/SlateElementPixelShader.usf"));
+		const UEditorStyleSettings* EditorSettings = GetDefault<UEditorStyleSettings>();
+		const EColorVisionDeficiency DeficiencyType = EditorSettings->ColorVisionDeficiencyPreviewType;
+		const int32 Severity = EditorSettings->ColorVisionDeficiencySeverity;
+		const bool bCorrectDeficiency = EditorSettings->bColorVisionDeficiencyCorrection;
+		const bool bShowCorrectionWithDeficiency = EditorSettings->bColorVisionDeficiencyCorrectionPreviewWithDeficiency;
+		FSlateApplication::Get().GetRenderer()->SetColorVisionDeficiencyType(DeficiencyType, Severity, bCorrectDeficiency, bShowCorrectionWithDeficiency);
 	}
+
 	if (Name == FName("SelectionColor") || Name == NAME_None)
 	{
 		// Selection outline color and material color use the same color but sometimes the selected material color can be overidden so these need to be set independently
@@ -7248,12 +7262,18 @@ void UEditorEngine::AutomationLoadMap(const FString& MapName, FString* OutError)
 		FEditorFileUtils::LoadMap(*MapName, bLoadAsTemplate, bShowProgress);
 		bNeedPieStart = true;
 	}
+
 	// special precaution needs to be taken while triggering PIE since it can
 	// fail if there are BP compilation issues
 	if (bNeedPieStart)
 	{
+		UE_LOG(LogEditor, Log, TEXT("Starting PIE for the automation tests for world, %s"), *GWorld->GetMapName());
+
 		FFailedGameStartHandler FailHandler;
-		PlayInEditor(GWorld, /*bInSimulateInEditor=*/false);
+		FPlayInEditorOverrides Overrides;
+		Overrides.bDedicatedServer = false;
+		Overrides.NumberOfClients = 1;
+		PlayInEditor(GWorld, /*bInSimulateInEditor=*/false, Overrides);
 		if (!FailHandler.CanProceed())
 		{
 			*OutError = TEXT("Error encountered.");
@@ -7279,6 +7299,58 @@ void UEditorEngine::OnModuleCompileStarted(bool bIsAsyncCompile)
 void UEditorEngine::OnModuleCompileFinished(const FString& CompilationOutput, ECompilationResult::Type CompilationResult, bool bShowLog)
 {
 	bIsCompiling = false;
+}
+
+bool UEditorEngine::IsEditorShaderPlatformEmulated(UWorld* World)
+{
+	const EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform(World->FeatureLevel);
+
+	bool bIsSimulated = IsSimulatedPlatform(ShaderPlatform);
+
+	return bIsSimulated;
+}
+
+bool UEditorEngine::IsOfflineShaderCompilerAvailable(UWorld* World)
+{
+	const auto ShaderPlatform = GetFeatureLevelShaderPlatform(World->FeatureLevel);
+
+	const auto RealPlatform = GetSimulatedPlatform(ShaderPlatform);
+
+	return FMaterialStatsUtils::IsPlatformOfflineCompilerAvailable(RealPlatform);
+}
+
+void UEditorEngine::UpdateShaderComplexityMaterials()
+{
+	TSet<UWorld *> WorldSet;
+
+	for (int32 i = 0; i < LevelViewportClients.Num(); ++i)
+	{
+		auto *ViewportClient = LevelViewportClients[i];
+
+		auto ViewMode = ViewportClient->GetViewMode();
+		if (ViewMode == EViewModeIndex::VMI_ShaderComplexity || ViewMode == EViewModeIndex::VMI_ShaderComplexityWithQuadOverdraw)
+		{
+			WorldSet.Add(ViewportClient->GetWorld());
+		}
+	}
+
+	for (auto* SomeWorld : WorldSet)
+	{
+		bool bShadersEmulated = IsEditorShaderPlatformEmulated(SomeWorld);
+		if (bShadersEmulated)
+		{
+			bool bOfflineCompilerAvailable = IsOfflineShaderCompilerAvailable(SomeWorld);
+			if (bOfflineCompilerAvailable)
+			{
+				FEditorBuildUtils::CompileViewModeShaders(SomeWorld, VMI_ShaderComplexity);
+			}
+		}
+	}
+}
+
+void UEditorEngine::OnSceneMaterialsModified()
+{
+	UpdateShaderComplexityMaterials();
 }
 
 #undef LOCTEXT_NAMESPACE 

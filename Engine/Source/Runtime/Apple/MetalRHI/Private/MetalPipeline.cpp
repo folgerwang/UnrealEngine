@@ -305,11 +305,16 @@ struct FMetalGraphicsPipelineKey
 		else
 		{
 			Key.SetHashValue(Offset_IndexType, NumBits_IndexType, EMetalIndexType_None);
+			Key.DomainBufferHash = 0;
 		}
 		if (PixelShader)
 		{
 			Key.PixelFunction = PixelShader->GetHash();
 			Key.PixelBufferHash = PixelShader->GetBindingHash(PixelBufferTypes);
+		}
+		else
+		{
+			Key.PixelBufferHash = 0;
 		}
 	}
 };
@@ -864,7 +869,7 @@ static FMetalShaderPipeline* GetMTLRenderPipeline(bool const bSync, FMetalGraphi
 	static TMap<FMetalGraphicsPipelineKey, FMetalShaderPipeline*> Pipelines;
 	
 	SCOPE_CYCLE_COUNTER(STAT_MetalPipelineStateTime);
-
+	
 	FMetalGraphicsPipelineKey Key;
 	InitMetalGraphicsPipelineKey(Key, Init, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes);
 
@@ -875,14 +880,14 @@ static FMetalShaderPipeline* GetMTLRenderPipeline(bool const bSync, FMetalGraphi
 	FMetalShaderPipeline* Desc = Pipelines.FindRef(Key);
 	if (Desc == nil)
 	{
+		Desc = CreateMTLRenderPipeline(bSync, Key, Init, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes);
+
 		// Now we are a writer as we want to create & add the new pipeline
 		Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
 		
 		// Retest to ensure no-one beat us here!
-		Desc = Pipelines.FindRef(Key);
-		if (Desc == nil)
+		if (Pipelines.FindRef(Key) == nil)
 		{
-			Desc = CreateMTLRenderPipeline(bSync, Key, Init, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes);
 			Pipelines.Add(Key, Desc);
 		}
 	}

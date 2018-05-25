@@ -255,7 +255,7 @@ void FRawMeshBulkData::SaveRawMesh(FRawMesh& InMesh)
 	BulkData.Lock(LOCK_READ_WRITE);
 	uint8* Dest = (uint8*)BulkData.Realloc(NumBytes);
 	FBufferWriter Ar(Dest, NumBytes);
-	Ar.ArIsPersistent = true;
+	Ar.SetIsPersistent(true);
 	Ar << InMesh;
 	check(Ar.AtEnd());
 	check(Dest == Ar.GetWriterData());

@@ -8,6 +8,8 @@
 #endif
 #include "HAL/OutputDevices.h"
 #include "HAL/IConsoleManager.h"
+#include "Misc/CommandLine.h"
+#include "HAL/PlatformStackWalk.h"
 
 // Cached calculated screen resolution
 static int32 WindowWidth = -1;
@@ -147,6 +149,12 @@ FPlatformRect FAndroidWindow::GetScreenRect()
 	// If the app is for Gear VR then always use 0 as ScaleFactor (to match window size).
 	float RequestedContentScaleFactor = (!bIsGearVRApp) ? CVar->GetFloat() : 0;
 
+	FString CmdLineCSF;
+	if (FParse::Value(FCommandLine::Get(), TEXT("mcsf="), CmdLineCSF, false))
+	{
+		RequestedContentScaleFactor = FCString::Atof(*CmdLineCSF);
+	}
+	
 	ANativeWindow* Window = (ANativeWindow*)FAndroidWindow::GetHardwareWindow();
 	static const bool bIsDaydreamApp = FAndroidMisc::IsDaydreamApplication();
 	if (bIsDaydreamApp && Window == NULL)
@@ -355,14 +363,57 @@ void FAndroidWindow::CalculateSurfaceSize(void* InWindow, int32_t& SurfaceWidth,
 
 #else
 
-	check(InWindow);
-
 	static const bool bIsMobileVRApp = AndroidThunkCpp_IsGearVRApplication() || FAndroidMisc::IsDaydreamApplication();
 
 	ANativeWindow* Window = (ANativeWindow*)InWindow;
 
-	SurfaceWidth = (GSurfaceViewWidth > 0) ? GSurfaceViewWidth : ANativeWindow_getWidth(Window);
-	SurfaceHeight = (GSurfaceViewHeight > 0) ? GSurfaceViewHeight : ANativeWindow_getHeight(Window);
+	if (InWindow == nullptr)
+	{
+		// log the issue and callstack for backtracking the issue
+		// dump the stack HERE
+		{
+			const SIZE_T StackTraceSize = 65535;
+			ANSICHAR* StackTrace = (ANSICHAR*)FMemory::Malloc(StackTraceSize);
+			StackTrace[0] = 0;
+
+			// Walk the stack and dump it to the allocated memory.
+			FPlatformStackWalk::StackWalkAndDump(StackTrace, StackTraceSize, 0, NULL);
+
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("== WARNNG: CalculateSurfaceSize called with NULL window:"));
+
+			ANSICHAR* Start = StackTrace;
+			ANSICHAR* Next = StackTrace;
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("==> STACK TRACE"));
+			while (*Next)
+			{
+				while (*Next)
+				{
+					if (*Next == 10 || *Next == 13)
+					{
+						while (*Next == 10 || *Next == 13)
+						{
+							*Next++ = 0;
+						}
+						break;
+					}
+					++Next;
+				}
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("==> %s"), ANSI_TO_TCHAR(Start));
+				Start = Next;
+			}
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("<== STACK TRACE"));
+
+			FMemory::Free(StackTrace);
+		}
+
+		SurfaceWidth = (GSurfaceViewWidth > 0) ? GSurfaceViewWidth : 1280;
+		SurfaceHeight = (GSurfaceViewHeight > 0) ? GSurfaceViewHeight : 720;
+	}
+	else
+	{
+		SurfaceWidth = (GSurfaceViewWidth > 0) ? GSurfaceViewWidth : ANativeWindow_getWidth(Window);
+		SurfaceHeight = (GSurfaceViewHeight > 0) ? GSurfaceViewHeight : ANativeWindow_getHeight(Window);
+	}
 
 	// some phones gave it the other way (so, if swap if the app is landscape, but width < height)
 	if ((GAndroidIsPortrait && SurfaceWidth > SurfaceHeight) || 

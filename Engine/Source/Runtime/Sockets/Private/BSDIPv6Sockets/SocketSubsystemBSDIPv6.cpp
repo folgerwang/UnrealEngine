@@ -58,19 +58,9 @@ ESocketErrors FSocketSubsystemBSDIPv6::GetHostByName(const ANSICHAR* HostName, F
 	// We are only interested in IPv6 addresses.
 	addrinfo HintAddrInfo;
 	FMemory::Memzero(&HintAddrInfo, sizeof(HintAddrInfo));
-	HintAddrInfo.ai_family = AF_INET6;
+	HintAddrInfo.ai_family = AF_UNSPEC;
 
-	// Handle both IPv4 and IPv6 addrs
-	FString HostNameIpV6(HostName);
-	FInternetAddrBSDIPv6 IPv6Addr;
-	bool bValidIPv6Addr = false;
-	IPv6Addr.SetIp(ANSI_TO_TCHAR(HostName), bValidIPv6Addr);
-	if (bValidIPv6Addr)
-	{
-		HostNameIpV6 = IPv6Addr.ToString(false);
-	}
-
-	int32 ErrorCode = getaddrinfo(TCHAR_TO_ANSI(*HostNameIpV6), NULL, &HintAddrInfo, &AddrInfo);
+	int32 ErrorCode = getaddrinfo(HostName, NULL, &HintAddrInfo, &AddrInfo);
 	ESocketErrors SocketError = TranslateGAIErrorCode(ErrorCode);
 	if (SocketError == SE_NO_ERROR)
 	{
@@ -81,7 +71,21 @@ ESocketErrors FSocketSubsystemBSDIPv6::GetHostByName(const ANSICHAR* HostName, F
 				sockaddr_in6* IPv6SockAddr = reinterpret_cast<sockaddr_in6*>(AddrInfo->ai_addr);
 				if (IPv6SockAddr != nullptr)
 				{
+#if PLATFORM_IOS
+					static_cast<FInternetAddrBSDIPv6&>(OutAddr).SetIp(*IPv6SockAddr);
+#else
 					static_cast<FInternetAddrBSDIPv6&>(OutAddr).SetIp(IPv6SockAddr->sin6_addr);
+#endif
+					freeaddrinfo(AddrInfo);
+					return SE_NO_ERROR;
+				}
+			}
+			else if (AddrInfo->ai_family == AF_INET)
+			{
+				sockaddr_in* IPv4SockAddr = reinterpret_cast<sockaddr_in*>(AddrInfo->ai_addr);
+				if (IPv4SockAddr != nullptr)
+				{
+					static_cast<FInternetAddrBSDIPv6&>(OutAddr).SetIp(IPv4SockAddr->sin_addr);
 					freeaddrinfo(AddrInfo);
 					return SE_NO_ERROR;
 				}
@@ -183,7 +187,7 @@ ESocketErrors FSocketSubsystemBSDIPv6::TranslateErrorCode(int32 Code)
 #if !PLATFORM_HAS_NO_EPROCLIM
 	case EPROCLIM: return SE_EPROCLIM;
 #endif
-    case EPIPE: return SE_ECONNRESET; // for when backgrounding with an open pipe to a server
+	case EPIPE: return SE_ECONNRESET; // for when backgrounding with an open pipe to a server
 	case HOST_NOT_FOUND: return SE_HOST_NOT_FOUND;
 	case TRY_AGAIN: return SE_TRY_AGAIN;
 	case NO_RECOVERY: return SE_NO_RECOVERY;
@@ -192,9 +196,9 @@ ESocketErrors FSocketSubsystemBSDIPv6::TranslateErrorCode(int32 Code)
 	}
 #endif
 
-    UE_LOG(LogSockets, Warning, TEXT("Unhandled socket error! Error Code: %d. Returning SE_EINVAL!"), Code);
-    ensure(0);
-    return SE_EINVAL;
+	UE_LOG(LogSockets, Warning, TEXT("Unhandled socket error! Error Code: %d. Returning SE_EINVAL!"), Code);
+	ensure(0);
+	return SE_EINVAL;
 }
 
 #endif

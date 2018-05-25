@@ -8,11 +8,6 @@
 #include "Net/OnlineEngineInterface.h"
 #include "OnlineEngineInterfaceImpl.generated.h"
 
-/** If OnlineEngineInterface.h doesn't define this, it isn't available. */
-#ifndef OSS_DEDICATED_SERVER_VOICECHAT
-#define OSS_DEDICATED_SERVER_VOICECHAT 0
-#endif
-
 class Error;
 class FVoicePacket;
 struct FWorldContext;
@@ -32,9 +27,13 @@ public:
 	virtual bool DoesInstanceExist(FName OnlineIdentifier) override;
 	virtual void ShutdownOnlineSubsystem(FName OnlineIdentifier) override;
 	virtual void DestroyOnlineSubsystem(FName OnlineIdentifier) override;
-#if OSS_DEDICATED_SERVER_VOICECHAT
 	virtual FName GetDefaultOnlineSubsystemName() const override;
-#endif
+
+	/**
+	 * Utils
+	 */
+	virtual uint8 GetReplicationHashForSubsystem(FName InSubsystemName) const override;
+	virtual FName GetSubsystemFromReplicationHash(uint8 InHash) const override;
 
 private:
 
@@ -55,8 +54,8 @@ private:
 	 */
 public:
 
-	virtual TSharedPtr<const FUniqueNetId> CreateUniquePlayerId(const FString& Str) override;
-	virtual TSharedPtr<const FUniqueNetId> GetUniquePlayerId(UWorld* World, int32 LocalUserNum) override;
+	virtual TSharedPtr<const FUniqueNetId> CreateUniquePlayerId(const FString& Str, FName Type) override;
+	virtual TSharedPtr<const FUniqueNetId> GetUniquePlayerId(UWorld* World, int32 LocalUserNum, FName Type) override;
 
 	virtual FString GetPlayerNickname(UWorld* World, const FUniqueNetId& UniqueId) override;
 	virtual bool GetPlayerPlatformNickname(UWorld* World, int32 LocalUserNum, FString& OutNickname) override;
@@ -103,11 +102,7 @@ private:
 public:
 
 	virtual TSharedPtr<FVoicePacket> GetLocalPacket(UWorld* World, uint8 LocalUserNum) override;
-#if OSS_DEDICATED_SERVER_VOICECHAT
 	virtual TSharedPtr<FVoicePacket> SerializeRemotePacket(UWorld* World, const UNetConnection* const RemoteConnection, FArchive& Ar) override;
-#else
-	virtual TSharedPtr<FVoicePacket> SerializeRemotePacket(UWorld* World, FArchive& Ar) override;
-#endif
 
 	virtual void StartNetworkedVoice(UWorld* World, uint8 LocalUserNum) override;
 	virtual void StopNetworkedVoice(UWorld* World, uint8 LocalUserNum) override;

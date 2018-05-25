@@ -9,14 +9,14 @@
 
 FTestSharingInterface::FTestSharingInterface(const FString& InSubsystem)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FTestSharingInterface::FTestSharingInterface"));
+	UE_LOG_ONLINE_SHARING(Verbose, TEXT("FTestSharingInterface::FTestSharingInterface"));
 	SubsystemName = InSubsystem;
 }
 
 
 FTestSharingInterface::~FTestSharingInterface()
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FTestSharingInterface::~FTestSharingInterface"));
+	UE_LOG_ONLINE_SHARING(Verbose, TEXT("FTestSharingInterface::~FTestSharingInterface"));
 	
 	if(TestStatusUpdate.Image)
 	{
@@ -28,7 +28,7 @@ FTestSharingInterface::~FTestSharingInterface()
 
 void FTestSharingInterface::Test(UWorld* InWorld, bool bWithImage)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FTestSharingInterface::Test"));
+	UE_LOG_ONLINE_SHARING(Verbose, TEXT("FTestSharingInterface::Test"));
 
 	IOnlineSubsystem* OnlineSub = Online::GetSubsystem(InWorld, FName(*SubsystemName));
 	check(OnlineSub); 
@@ -50,7 +50,7 @@ void FTestSharingInterface::Test(UWorld* InWorld, bool bWithImage)
 
 void FTestSharingInterface::RequestPermissionsToSharePosts()
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FTestSharingInterface::RequestPermissionsToSharePosts"));
+	UE_LOG_ONLINE_SHARING(Verbose, TEXT("FTestSharingInterface::RequestPermissionsToSharePosts"));
 
 	ResponsesReceived = 0;
 	RequestPermissionsToPostToFeedDelegate = FOnRequestNewPublishPermissionsCompleteDelegate::CreateRaw(this, &FTestSharingInterface::OnStatusPostingPermissionsUpdated);
@@ -68,7 +68,7 @@ void FTestSharingInterface::RequestPermissionsToSharePosts()
 
 void FTestSharingInterface::OnStatusPostingPermissionsUpdated(int32 LocalUserNum, bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Display, TEXT("FTestSharingInterface::OnStatusPostingPermissionsUpdated() - %d"), bWasSuccessful);
+	UE_LOG_ONLINE_SHARING(Display, TEXT("FTestSharingInterface::OnStatusPostingPermissionsUpdated() - %d"), bWasSuccessful);
 
 	FDelegateHandle DelegateHandle = RequestPermissionsToPostToFeedDelegateHandles.FindRef(LocalUserNum);
 	SharingInterface->ClearOnRequestNewPublishPermissionsCompleteDelegate_Handle(LocalUserNum, DelegateHandle);
@@ -83,7 +83,7 @@ void FTestSharingInterface::OnStatusPostingPermissionsUpdated(int32 LocalUserNum
 
 void FTestSharingInterface::SharePost()
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FTestSharingInterface::SharePost"));
+	UE_LOG_ONLINE_SHARING(Verbose, TEXT("FTestSharingInterface::SharePost"));
 
 	ResponsesReceived = 0;
 	OnPostSharedDelegate = FOnSharePostCompleteDelegate::CreateRaw(this, &FTestSharingInterface::OnPostShared);
@@ -98,7 +98,7 @@ void FTestSharingInterface::SharePost()
 
 void FTestSharingInterface::OnPostShared(int32 LocalPlayer, bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FTestSharingInterface::OnPostShared[PlayerIdx:%i - Successful:%i]"), LocalPlayer, bWasSuccessful);
+	UE_LOG_ONLINE_SHARING(Verbose, TEXT("FTestSharingInterface::OnPostShared[PlayerIdx:%i - Successful:%i]"), LocalPlayer, bWasSuccessful);
 
 	FDelegateHandle DelegateHandle = OnPostSharedDelegateHandles.FindRef(LocalPlayer);
 	SharingInterface->ClearOnSharePostCompleteDelegate_Handle(LocalPlayer, DelegateHandle);
@@ -112,7 +112,7 @@ void FTestSharingInterface::OnPostShared(int32 LocalPlayer, bool bWasSuccessful)
 
 void FTestSharingInterface::RequestPermissionsToReadNewsFeed()
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FTestSharingInterface::RequestPermissionsToReadNewsFeed"));
+	UE_LOG_ONLINE_SHARING(Verbose, TEXT("FTestSharingInterface::RequestPermissionsToReadNewsFeed"));
 
 	ResponsesReceived = 0;
 	RequestPermissionsToReadFeedDelegate = FOnRequestNewReadPermissionsCompleteDelegate::CreateRaw(this, &FTestSharingInterface::OnReadFeedPermissionsUpdated);
@@ -130,7 +130,7 @@ void FTestSharingInterface::RequestPermissionsToReadNewsFeed()
 
 void FTestSharingInterface::OnReadFeedPermissionsUpdated(int32 LocalUserNum, bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Display, TEXT("FTestSharingInterface::OnReadFeedPermissionsUpdated() - %d"), bWasSuccessful);
+	UE_LOG_ONLINE_SHARING(Display, TEXT("FTestSharingInterface::OnReadFeedPermissionsUpdated() - %d"), bWasSuccessful);
 
 	FDelegateHandle DelegateHandle = RequestPermissionsToReadFeedDelegateHandles.FindRef(LocalUserNum);
 	SharingInterface->ClearOnRequestNewReadPermissionsCompleteDelegate_Handle(LocalUserNum, DelegateHandle);
@@ -145,7 +145,7 @@ void FTestSharingInterface::OnReadFeedPermissionsUpdated(int32 LocalUserNum, boo
 
 void FTestSharingInterface::ReadNewsFeed()
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FTestSharingInterface::ReadNewsFeed"));
+	UE_LOG_ONLINE_SHARING(Verbose, TEXT("FTestSharingInterface::ReadNewsFeed"));
 
 	ResponsesReceived = 0;
 	OnNewsFeedReadDelegate = FOnReadNewsFeedCompleteDelegate::CreateRaw(this, &FTestSharingInterface::OnNewsFeedRead);
@@ -160,24 +160,24 @@ void FTestSharingInterface::ReadNewsFeed()
 
 void FTestSharingInterface::OnNewsFeedRead(int32 LocalPlayer, bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Display, TEXT("FTestSharingInterface::OnNewsFeedRead[PlayerIdx:%i - Successful:%i]"), LocalPlayer, bWasSuccessful);
+	UE_LOG_ONLINE_SHARING(Display, TEXT("FTestSharingInterface::OnNewsFeedRead[PlayerIdx:%i - Successful:%i]"), LocalPlayer, bWasSuccessful);
 
 	if (bWasSuccessful)
 	{
 		// Get the 1st cached post
 		FOnlineStatusUpdate FirstReadStatusUpdate;
 		SharingInterface->GetCachedNewsFeed(LocalPlayer, 0, FirstReadStatusUpdate);
-		UE_LOG(LogOnline, Display, TEXT("FTestSharingInterface first read update: %s"), *FirstReadStatusUpdate.Message);
+		UE_LOG_ONLINE_SHARING(Display, TEXT("FTestSharingInterface first read update: %s"), *FirstReadStatusUpdate.Message);
 
 		// Get all the cached posts
 		TArray<FOnlineStatusUpdate> AllReadStatusUpdates;
 		SharingInterface->GetCachedNewsFeeds(LocalPlayer, AllReadStatusUpdates);
-		UE_LOG(LogOnline, Display, TEXT("FTestSharingInterface number of read updates: %d"), AllReadStatusUpdates.Num());
+		UE_LOG_ONLINE_SHARING(Display, TEXT("FTestSharingInterface number of read updates: %d"), AllReadStatusUpdates.Num());
 
 		for (int Idx = 0; Idx < AllReadStatusUpdates.Num(); ++Idx)
 		{
 			const FOnlineStatusUpdate& StatusUpdate = AllReadStatusUpdates[Idx];
-			UE_LOG(LogOnline, Display, TEXT("FTestSharingInterface status update [%d]: %s"), Idx, *StatusUpdate.Message);
+			UE_LOG_ONLINE_SHARING(Display, TEXT("FTestSharingInterface status update [%d]: %s"), Idx, *StatusUpdate.Message);
 		}
 	}
 
@@ -185,7 +185,7 @@ void FTestSharingInterface::OnNewsFeedRead(int32 LocalPlayer, bool bWasSuccessfu
 	SharingInterface->ClearOnReadNewsFeedCompleteDelegate_Handle(LocalPlayer, DelegateHandle);
 	if( ++ResponsesReceived == MAX_LOCAL_PLAYERS )
 	{
-		UE_LOG(LogOnline, Display, TEXT("FTestSharingInterface TESTS COMPLETED"), LocalPlayer, bWasSuccessful);
+		UE_LOG_ONLINE_SHARING(Display, TEXT("FTestSharingInterface TESTS COMPLETED"), LocalPlayer, bWasSuccessful);
 		delete this;
 	}
 }

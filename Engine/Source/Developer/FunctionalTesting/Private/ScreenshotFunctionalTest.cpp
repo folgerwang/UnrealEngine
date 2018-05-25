@@ -35,6 +35,9 @@ void AScreenshotFunctionalTest::Serialize(FArchive& Ar)
 
 void AScreenshotFunctionalTest::PrepareTest()
 {
+	// Pre-prep flush to allow rendering to temporary targets and other test resources
+	UAutomationBlueprintFunctionLibrary::FinishLoadingBeforeScreenshot();
+
 	Super::PrepareTest();
 
 	// Apply a camera cut if requested
@@ -52,6 +55,7 @@ void AScreenshotFunctionalTest::PrepareTest()
 		}
 	}
 
+	// Post-prep flush deal with any temporary resources allocated during prep before the main test
 	UAutomationBlueprintFunctionLibrary::FinishLoadingBeforeScreenshot();
 }
 

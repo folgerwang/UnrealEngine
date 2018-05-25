@@ -29,8 +29,9 @@ public class NvCloth : ModuleRules
                     return NvClothLibraryMode.Checked;
                 }
 			case UnrealTargetConfiguration.Shipping:
-			case UnrealTargetConfiguration.Test:
 				return NvClothLibraryMode.Shipping;
+			case UnrealTargetConfiguration.Test:
+				return NvClothLibraryMode.Profile;
 			case UnrealTargetConfiguration.Development:
 			case UnrealTargetConfiguration.DebugGame:
 			case UnrealTargetConfiguration.Unknown:

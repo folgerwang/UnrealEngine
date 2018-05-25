@@ -361,7 +361,7 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateQueuedBuffer( FXAudio2Device* XA
 	check(XAudio2Device);
 	check(Wave);
 
-	check(Wave->bIsPrecacheDone);
+	check(Wave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 	// Always create a new buffer for real time decompressed sounds
 	FXAudio2SoundBuffer* Buffer = new FXAudio2SoundBuffer( XAudio2Device, SoundFormat_PCMRT );
 
@@ -447,7 +447,7 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreatePreviewBuffer( FXAudio2Device* X
 
 FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateNativeBuffer( FXAudio2Device* XAudio2Device, USoundWave* Wave )
 {
-	check(Wave->bIsPrecacheDone);
+	check(Wave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 
 	// Create new buffer.
 	FXAudio2SoundBuffer* Buffer = new FXAudio2SoundBuffer( XAudio2Device, SoundFormat_PCM );

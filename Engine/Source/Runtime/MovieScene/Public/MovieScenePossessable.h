@@ -18,7 +18,7 @@ struct FMovieScenePossessable
 public:
 
 	/** Default constructor. */
-	FMovieScenePossessable() { }
+	FMovieScenePossessable() : PossessedObjectClass(nullptr) { }
 
 	/**
 	 * Creates and initializes a new instance.

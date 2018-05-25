@@ -23,15 +23,15 @@ template<typename PixelParametersType> class TBasePassPixelShaderPolicyParamType
 template<typename VertexParametersType> class TBasePassVertexShaderPolicyParamType;
 
 template<typename VertexParametersType>
-inline void TBasePassVertexShaderPolicyParamType<VertexParametersType>::SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy, const FMeshBatch& Mesh, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
+inline void TBasePassVertexShaderPolicyParamType<VertexParametersType>::SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatch& Mesh, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
 {
 	FVertexShaderRHIParamRef VertexShaderRHI = GetVertexShader();
 	FMeshMaterialShader::SetMesh(RHICmdList, VertexShaderRHI, VertexFactory, View, Proxy, BatchElement, DrawRenderState);
 
 	const bool bHasPreviousLocalToWorldParameter = PreviousLocalToWorldParameter.IsBound();
 	const bool bHasSkipOutputVelocityParameter = SkipOutputVelocityParameter.IsBound();
-    
-    float SkipOutputVelocityValue = 1.0f;
+
+	float SkipOutputVelocityValue = 1.0f;
 	FMatrix PreviousLocalToWorldMatrix;
 
 	if (bHasPreviousLocalToWorldParameter || bHasSkipOutputVelocityParameter)
@@ -59,15 +59,15 @@ inline void TBasePassVertexShaderPolicyParamType<VertexParametersType>::SetMesh(
 		}
 	}
 
-    if (bHasPreviousLocalToWorldParameter)
-    {
-        SetShaderValue(RHICmdList, VertexShaderRHI, PreviousLocalToWorldParameter, PreviousLocalToWorldMatrix);
-    }
-    
-    if (bHasSkipOutputVelocityParameter)
-    {
-        SetShaderValue(RHICmdList, VertexShaderRHI, SkipOutputVelocityParameter, SkipOutputVelocityValue);
-    }
+	if (bHasPreviousLocalToWorldParameter)
+	{
+		SetShaderValue(RHICmdList, VertexShaderRHI, PreviousLocalToWorldParameter, PreviousLocalToWorldMatrix);
+	}
+
+	if (bHasSkipOutputVelocityParameter)
+	{
+		SetShaderValue(RHICmdList, VertexShaderRHI, SkipOutputVelocityParameter, SkipOutputVelocityValue);
+	}
 }
 
 template<typename VertexParametersType>

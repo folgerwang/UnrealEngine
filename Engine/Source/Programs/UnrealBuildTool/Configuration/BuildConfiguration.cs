@@ -135,6 +135,12 @@ namespace UnrealBuildTool
 		public bool bAllowDistcc = false;
 
 		/// <summary>
+		/// Whether to allow using parallel executor on Windows.
+		/// </summary>
+		[XmlConfigFile]
+		public bool bAllowParallelExecutor = true;
+
+		/// <summary>
 		/// If specified, we will only build this particular source file, ignore all other outputs.  Useful for testing non-Unity builds.
 		/// </summary>
 		public string SingleFileToCompile = null;

@@ -113,6 +113,11 @@ UAtmosphericFogComponent::UAtmosphericFogComponent(const FObjectInitializer& Obj
 	bDisableGroundScattering = false;
 }
 
+bool UAtmosphericFogComponent::IsPostLoadThreadSafe() const
+{
+	return true;
+}
+
 void UAtmosphericFogComponent::PostLoad()
 {
 	Super::PostLoad();

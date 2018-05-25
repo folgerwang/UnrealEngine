@@ -48,11 +48,18 @@
 					FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer); \
 				} \
 			} \
+			else \
+			{ \
+				JsonValue = FString(); \
+			} \
 		} \
 		else \
 		{ \
-			Serializer.WriteIdentifierPrefix(TEXT(JsonName)); \
-			Serializer.WriteRawJSONValue(*JsonValue); \
+			if (!JsonValue.IsEmpty()) \
+			{ \
+				Serializer.WriteIdentifierPrefix(TEXT(JsonName)); \
+				Serializer.WriteRawJSONValue(*JsonValue); \
+			} \
 		}
 
 #define JSON_SERIALIZE_ARRAY_SERIALIZABLE(JsonName, JsonArray, ElementType) \
@@ -149,6 +156,7 @@ struct FJsonSerializerBase
 	virtual void EndArray() = 0;
 	virtual void Serialize(const TCHAR* Name, int32& Value) = 0;
 	virtual void Serialize(const TCHAR* Name, uint32& Value) = 0;
+	virtual void Serialize(const TCHAR* Name, int64& Value) = 0;
 	virtual void Serialize(const TCHAR* Name, bool& Value) = 0;
 	virtual void Serialize(const TCHAR* Name, FString& Value) = 0;
 	virtual void Serialize(const TCHAR* Name, FText& Value) = 0;
@@ -254,6 +262,16 @@ public:
 	virtual void Serialize(const TCHAR* Name, uint32& Value) override
 	{
 		JsonWriter->WriteValue(Name, static_cast<int64>(Value));
+	}
+	/**
+	 * Writes the field name and the corresponding value to the JSON data
+	 *
+	 * @param Name the field name to write out
+	 * @param Value the value to write out
+	 */
+	virtual void Serialize(const TCHAR* Name, int64& Value) override
+	{
+		JsonWriter->WriteValue(Name, Value);
 	}
 	/**
 	 * Writes the field name and the corresponding value to the JSON data
@@ -493,6 +511,19 @@ public:
 	 * @param Name the name of the field to read
 	 * @param Value the out value to read the data into
 	 */
+	virtual void Serialize(const TCHAR* Name, int64& Value) override
+	{
+		if (JsonObject->HasTypedField<EJson::Number>(Name))
+		{
+			JsonObject->TryGetNumberField(Name, Value);
+		}
+	}
+	/**
+	 * If the underlying json object has the field, it is read into the value
+	 *
+	 * @param Name the name of the field to read
+	 * @param Value the out value to read the data into
+	 */
 	virtual void Serialize(const TCHAR* Name, bool& Value) override
 	{
 		if (JsonObject->HasTypedField<EJson::Boolean>(Name))
@@ -716,6 +747,7 @@ struct FJsonSerializable
 		FJsonSerializerWriter<TCHAR, TCondensedJsonPrintPolicy< TCHAR >> Serializer(JsonWriter);
 		((FJsonSerializable*)this)->Serialize(Serializer, bFlatObject);
 	}
+
 	/**
 	 * Serializes the contents of a JSON string into this object
 	 *
@@ -734,6 +766,26 @@ struct FJsonSerializable
 		}
 		return false;
 	}
+
+	/**
+	 * Serializes the contents of a JSON string into this object
+	 *
+	 * @param Json the JSON data to serialize from
+	 */
+	virtual bool FromJson(FString&& Json)
+	{
+		TSharedPtr<FJsonObject> JsonObject;
+		TSharedRef<TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(MoveTemp(Json));
+		if (FJsonSerializer::Deserialize(JsonReader,JsonObject) &&
+			JsonObject.IsValid())
+		{
+			FJsonSerializerReader Serializer(JsonObject);
+			Serialize(Serializer, false);
+			return true;
+		}
+		return false;
+	}
+
 	virtual bool FromJson(TSharedPtr<FJsonObject> JsonObject)
 	{
 		if (JsonObject.IsValid())
