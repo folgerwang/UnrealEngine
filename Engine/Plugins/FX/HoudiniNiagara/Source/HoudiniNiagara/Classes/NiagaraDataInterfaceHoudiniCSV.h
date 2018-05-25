@@ -1,5 +1,5 @@
 /*
-* Copyright (c) <2017> Side Effects Software Inc.
+* Copyright (c) <2018> Side Effects Software Inc.
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -39,13 +39,8 @@ class HOUDININIAGARA_API UNiagaraDataInterfaceHoudiniCSV : public UNiagaraDataIn
 	GENERATED_UCLASS_BODY()
 public:
 
-	//UPROPERTY( EditAnywhere, Category = "Houdini Niagara", meta = (DisplayName = "Houdini CSV File Path" ) )
-	//FFilePath CSVFileName;
-
 	UPROPERTY( EditAnywhere, Category = "Houdini Niagara", meta = (DisplayName = "Houdini CSV File" ) )
 	UHoudiniCSV* CSVFile;
-
-	//void UpdateDataFromCSVFile();
 
 	//----------------------------------------------------------------------------
 	//UObject Interface
@@ -70,8 +65,10 @@ public:
 	template<typename RowParamType, typename ColParamType>
 	void GetCSVFloatValue(FVectorVMContext& Context);
 
+	/*
 	template<typename RowParamType, typename ColTitleParamType>
 	void GetCSVFloatValueByString(FVectorVMContext& Context);
+	*/
 
 	// Returns a Vector3 value for a given point in the csv file
 	template<typename RowParamType, typename ColParamType>
@@ -103,6 +100,22 @@ public:
 	// Returns the indexes (min, max) and number of particles that should be spawned at time t
 	template<typename TimeParamType>
 	void GetParticleIndexesToSpawnAtTime(FVectorVMContext& Context);
+
+	// Returns the position for a given particle at a given time
+	template<typename NParamType, typename TimeParamType>
+	void GetParticlePositionAtTime(FVectorVMContext& Context);
+
+	// Returns a float value for a given particle at a given time
+	template<typename NParamType, typename ColParamType, typename TimeParamType>
+	void GetParticleValueAtTime(FVectorVMContext& Context);
+
+	// Returns a Vector value for a given particle at a given time
+	template<typename NParamType, typename ColParamType, typename TimeParamType>
+	void GetParticleVectorValueAtTime(FVectorVMContext& Context);
+
+	// Returns the line indexes (previous, next) for reading values for a given particle at a given time
+	template<typename NParamType, typename TimeParamType>
+	void GetParticleIndexesAtTime(FVectorVMContext& Context);
 	
 	//----------------------------------------------------------------------------
 	// GPU / HLSL Functions

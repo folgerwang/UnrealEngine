@@ -1,5 +1,5 @@
 /*
-* Copyright (c) <2017> Side Effects Software Inc.
+* Copyright (c) <2018> Side Effects Software Inc.
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -49,23 +49,23 @@ void FHoudiniCSVAssetActions::GetActions(const TArray<UObject*>& InObjects, FMen
     auto HoudiniCSVAssets = GetTypedWeakObjectPtrs<UHoudiniCSV>(InObjects);
 
     MenuBuilder.AddMenuEntry(
-	LOCTEXT("ReimportHoudiniCSVLabel", "Reimport"),
-	LOCTEXT("ReimportHoudiniCSVTooltip", "Reimport the selected Houdini CSV file(s)."),
-	FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.ReimportAsset"),
-	FUIAction(
-	    FExecuteAction::CreateSP(this, &FHoudiniCSVAssetActions::ExecuteReimport, HoudiniCSVAssets),
-	    FCanExecuteAction::CreateSP(this, &FHoudiniCSVAssetActions::CanExecuteReimport, HoudiniCSVAssets)
-	)
+		LOCTEXT("ReimportHoudiniCSVLabel", "Reimport"),
+		LOCTEXT("ReimportHoudiniCSVTooltip", "Reimport the selected Houdini CSV file(s)."),
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.ReimportAsset"),
+		FUIAction(
+			FExecuteAction::CreateSP(this, &FHoudiniCSVAssetActions::ExecuteReimport, HoudiniCSVAssets),
+			FCanExecuteAction::CreateSP(this, &FHoudiniCSVAssetActions::CanExecuteReimport, HoudiniCSVAssets)
+		)
     );
 
     MenuBuilder.AddMenuEntry(
-	LOCTEXT("OpenHoudiniCSVLabel", "Open in Text Editor"),
-	LOCTEXT("OpenHoudiniCSVTooltip", "Open the selected Houdini CSV file(s) in a Text Editor."),
-	FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.OpenInExternalEditor"),
-	FUIAction(
-	    FExecuteAction::CreateSP(this, &FHoudiniCSVAssetActions::ExecuteOpenInEditor, HoudiniCSVAssets),
-	    FCanExecuteAction::CreateSP(this, &FHoudiniCSVAssetActions::CanExecuteOpenInEditor, HoudiniCSVAssets)
-	)
+		LOCTEXT("OpenHoudiniCSVLabel", "Open in Text Editor"),
+		LOCTEXT("OpenHoudiniCSVTooltip", "Open the selected Houdini CSV file(s) in a Text Editor."),
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.OpenInExternalEditor"),
+		FUIAction(
+			FExecuteAction::CreateSP(this, &FHoudiniCSVAssetActions::ExecuteOpenInEditor, HoudiniCSVAssets),
+			FCanExecuteAction::CreateSP(this, &FHoudiniCSVAssetActions::CanExecuteOpenInEditor, HoudiniCSVAssets)
+		)
     );
 }
 
@@ -127,9 +127,9 @@ bool FHoudiniCSVAssetActions::CanExecuteReimport(const TArray<TWeakObjectPtr<UHo
 {
     for (auto ObjIt = Objects.CreateConstIterator(); ObjIt; ++ObjIt)
     {
-	auto Object = (*ObjIt).Get();
-	if (!Object)
-	    return false;
+		auto Object = (*ObjIt).Get();
+		if (!Object)
+			return false;
     }
 
     return true;
@@ -139,12 +139,12 @@ void FHoudiniCSVAssetActions::ExecuteReimport(const TArray<TWeakObjectPtr<UHoudi
 {
     for ( auto ObjIt = Objects.CreateConstIterator(); ObjIt; ++ObjIt )
     {
-	auto Object = (*ObjIt).Get();
-	if ( Object )
-	{
-	    // Fonts fail to reimport if they ask for a new file if missing
-	    FReimportManager::Instance()->Reimport(Object, true);
-	}
+		auto Object = (*ObjIt).Get();
+		if ( Object )
+		{
+			// Fonts fail to reimport if they ask for a new file if missing
+			FReimportManager::Instance()->Reimport(Object, true);
+		}
     }
 }
 
@@ -154,9 +154,9 @@ FHoudiniCSVAssetActions::CanExecuteOpenInEditor(const TArray<TWeakObjectPtr<UHou
 {
     for (auto ObjIt = Objects.CreateConstIterator(); ObjIt; ++ObjIt)
     {
-	auto Object = ( *ObjIt ).Get();
-	if ( !Object )
-	    return false;
+		auto Object = ( *ObjIt ).Get();
+		if ( !Object )
+			return false;
     }
 
     return true;
@@ -167,12 +167,12 @@ FHoudiniCSVAssetActions::ExecuteOpenInEditor(const TArray<TWeakObjectPtr<UHoudin
 {
     for ( auto ObjIt = Objects.CreateConstIterator(); ObjIt; ++ObjIt )
     {
-	auto Object = ( *ObjIt ).Get();
-	if ( Object )
-	{
-	    // Fonts fail to reimport if they ask for a new file if missing
-	    FPlatformProcess::LaunchFileInDefaultExternalApplication(*(Object->FileName), NULL, ELaunchVerb::Open);
-	}
+		auto Object = ( *ObjIt ).Get();
+		if ( Object )
+		{
+			// Fonts fail to reimport if they ask for a new file if missing
+			FPlatformProcess::LaunchFileInDefaultExternalApplication(*(Object->FileName), NULL, ELaunchVerb::Open);
+		}
     }
 }
 

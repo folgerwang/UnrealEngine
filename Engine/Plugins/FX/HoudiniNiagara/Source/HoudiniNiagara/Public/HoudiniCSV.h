@@ -1,5 +1,5 @@
 /*
-* Copyright (c) <2017> Side Effects Software Inc.
+* Copyright (c) <2018> Side Effects Software Inc.
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -48,13 +48,16 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	// Returns the number of points found in the CSV file
 	int32 GetNumberOfPointsInCSV();
 
+	// Returns the number of points found in the CSV file
+	int32 GetNumberOfLinesInCSV();
+
 	// Returns the column index for a given string
 	bool GetColumnIndexFromString(const FString& ColumnTitle, int32& ColumnIndex);
 
 	// Returns the float value at a given point in the CSV file
 	bool GetCSVFloatValue( const int32& lineIndex, const int32& colIndex, float& value );
 	// Returns the float value at a given point in the CSV file
-	bool GetCSVFloatValue(const int32& lineIndex, const FString& ColumnTitle, float& value);
+	bool GetCSVFloatValue( const int32& lineIndex, const FString& ColumnTitle, float& value );
 	// Returns the float value at a given point in the CSV file
 	bool GetCSVStringValue( const int32& lineIndex, const int32& colIndex, FString& value );
 	// Returns the string value at a given point in the CSV file
@@ -74,11 +77,18 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	// -1 will be returned if no particles have been spawned ( t is smaller than the first particle time )
 	// NumberOfLines will be returned if all particles in the CSV have been spawned ( t is higher than the last particle time )
 	bool GetLastParticleIndexAtTime( const float& time, int32& lastIndex );
+	// Returns the previous and next indexes for reading the values of a specified particle at a given time
+	bool GetParticleLineIndexAtTime(const int32& ParticleID, const float& desiredTime, int32& PrevIndex, int32& NextIndex, float& PrevWeight);
+	// Returns the value for a particle at a given time value (linearly interpolated) 
+	bool GetParticleValueAtTime(const int32& ParticleID, const int32& ColumnIndex, const float& desiredTime, float& Value);
+	// Returns the Vector Value for a given particle at a given time value (linearly interpolated) 
+	bool GetParticleVectorValueAtTime(const int32& ParticleID, const int32& ColumnIndex, const float& desiredTime, FVector& Vector, const bool& DoSwap, const bool& DoScale);
+	// Returns the Position Value for a given particle at a given time value (linearly interpolated) 
+	bool GetParticlePositionAtTime(const int32& ParticleID, const float& desiredTime, FVector& Vector);
 
 	//-----------------------------------------------------------------------------------------
 	//  MEMBER VARIABLES
 	//-----------------------------------------------------------------------------------------
-	//UPROPERTY(EditAnywhere, Category = "My Object Properties")
 	UPROPERTY( VisibleAnywhere, Category = "Houdini CSV File Properties" )
 	FString FileName;
 
@@ -90,12 +100,16 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	UPROPERTY( VisibleAnywhere, Category = "Houdini CSV File Properties" )
 	int32 NumberOfColumns;
 
+	// The number of particles found in the CSV file
+	UPROPERTY(VisibleAnywhere, Category = "Houdini CSV File Properties")
+	int32 NumberOfParticles;
+
 	// The tokenized title raw, describing the content of each column
 	UPROPERTY( VisibleAnywhere, Category = "Houdini CSV File Properties" )
 	TArray<FString> TitleRowArray;
 
 #if WITH_EDITORONLY_DATA
-	/** Importing data and options used for this mesh */
+	/** Importing data and options used for this asset */
 	UPROPERTY(EditAnywhere, Instanced, Category = ImportSettings)
 	class UAssetImportData* AssetImportData;
 
@@ -112,18 +126,36 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	UPROPERTY()
 	TArray<float> FloatCSVData;
 
-	// Array containing the Position buffer
+	// Array containing the different time values for each particles in the file
+	TArray<float> TimeValues;
+
+	// Array containing the spawn times for each particles in the file
+	TArray<float> SpawnTimes;
+
+	// Array containing all the life values for each particles in the file 
+	TArray<float> LifeValues;	
+
+	// Index of the Position values in the buffer
 	UPROPERTY()	    
 	int32 PositionColumnIndex;
-	//TArray<float> PositionData;
 
-	// Array containing the Normal buffer
+	// Index of the Normal values in the buffer
 	UPROPERTY()
 	int32 NormalColumnIndex;
-	//TArray<float> NormalData;
 
-	// Array containing the time buffer
+	// Index of the time values in the buffer
 	UPROPERTY()
 	int32 TimeColumnIndex;
-	//TArray<float> TimeData;
+
+	// Index of the particle id values in the buffer
+	UPROPERTY()
+	int32 IDColumnIndex;
+
+	// Index of the alive values in the buffer
+	UPROPERTY()
+	int32 AliveColumnIndex;
+
+	// Index of the life values in the buffer
+	UPROPERTY()
+	int32 LifeColumnIndex;
 };

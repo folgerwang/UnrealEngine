@@ -1,5 +1,5 @@
 /*
-* Copyright (c) <2017> Side Effects Software Inc.
+* Copyright (c) <2018> Side Effects Software Inc.
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -39,7 +39,7 @@ public class HoudiniNiagara : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-              			"NiagaraCore",
+				"NiagaraCore",
 				"Niagara",
 				"NiagaraShader",
 				"RenderCore",
@@ -53,7 +53,7 @@ public class HoudiniNiagara : ModuleRules
 			new string[]
 			{
 				"Core",
-              			"NiagaraCore",
+              	"NiagaraCore",
 				"Niagara",
 				"NiagaraShader",
 				"CoreUObject",
