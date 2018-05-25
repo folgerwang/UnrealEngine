@@ -272,7 +272,7 @@ namespace UE4Function_Private
 			GetBoundObject()->~IFunction_OwnedObject();
 		}
 
-		FunctionAllocatorType::ForElementType<AlignedInlineFunctionType> Allocator;
+		FFunctionAllocatorType::ForElementType<FAlignedInlineFunctionType> Allocator;
 	};
 
 	struct FFunctionStorage : public FUniqueFunctionStorage
@@ -319,8 +319,8 @@ namespace UE4Function_Private
 
 inline void* operator new(size_t Size, UE4Function_Private::FUniqueFunctionStorage& Storage)
 {
-	int32 NewSize = FMath::DivideAndRoundUp(Size, sizeof(UE4Function_Private::AlignedInlineFunctionType));
-	Storage.Allocator.ResizeAllocation(0, NewSize, sizeof(UE4Function_Private::AlignedInlineFunctionType));
+	int32 NewSize = FMath::DivideAndRoundUp(Size, sizeof(UE4Function_Private::FAlignedInlineFunctionType));
+	Storage.Allocator.ResizeAllocation(0, NewSize, sizeof(UE4Function_Private::FAlignedInlineFunctionType));
 
 	return Storage.Allocator.GetAllocation();
 }

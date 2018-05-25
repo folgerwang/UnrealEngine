@@ -334,10 +334,10 @@ public:
 	}
 
 	/**
-	 * Adds bits to the array with the given value.
-	 * @return The index of the first added bit.
+	 * Adds a bit to the array with the given value.
+	 * @return The index of the added bit.
 	 */
-	int32 Add(const bool Value, const int32 Count = 1)
+	int32 Add(const bool Value)
 	{
 		const int32 Index = NumBits;
 
@@ -350,7 +350,7 @@ public:
 
 	/**
 	 * Adds multiple bits to the array with the given value.
-	 * @return The index of the added bit.
+	 * @return The index of the first added bit.
 	 */
 	int32 Add(const bool Value, int32 NumToAdd)
 	{

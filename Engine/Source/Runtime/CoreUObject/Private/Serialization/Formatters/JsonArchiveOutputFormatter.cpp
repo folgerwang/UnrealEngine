@@ -192,7 +192,7 @@ void FJsonArchiveOutputFormatter::Serialize(float& Value)
 		FString String = FString::Printf(TEXT("%.9g"), Value);
 #if DO_GUARD_SLOW
 		float RoundTripped;
-		Lex::FromString(RoundTripped, *String);
+		LexFromString(RoundTripped, *String);
 		check(RoundTripped == Value);
 #endif
 		WriteValue(String);
@@ -210,7 +210,7 @@ void FJsonArchiveOutputFormatter::Serialize(double& Value)
 		FString String = FString::Printf(TEXT("%.17g"), Value);
 #if DO_GUARD_SLOW
 		double RoundTripped;
-		Lex::FromString(RoundTripped, *String);
+		LexFromString(RoundTripped, *String);
 		check(RoundTripped == Value);
 #endif
 		WriteValue(FString::Printf(TEXT("%.17g"), Value));

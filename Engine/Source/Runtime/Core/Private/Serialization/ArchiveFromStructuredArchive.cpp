@@ -13,7 +13,7 @@ FArchiveFromStructuredArchive::FArchiveFromStructuredArchive(FStructuredArchive:
 	// For some reason, the FArchive copy constructor will copy all the trivial members of the source archive, but then specifically set ArIsFilterEditorOnly to false, with a comment saying
 	// they don't know why it's doing this... make sure we inherit this flag here!
 	ArIsFilterEditorOnly = InnerArchive.ArIsFilterEditorOnly;
-	ArIsTextFormat = false;
+	SetIsTextFormat(false);
 }
 
 FArchiveFromStructuredArchive::~FArchiveFromStructuredArchive()
