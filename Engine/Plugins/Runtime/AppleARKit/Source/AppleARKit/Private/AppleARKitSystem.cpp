@@ -157,6 +157,7 @@ FAppleARKitSystem::FAppleARKitSystem()
 , GameThreadFrameNumber(0)
 , GameThreadTimestamp(0.0)
 , LastTrackedGeometry_DebugId(0)
+, FaceARSupport(nullptr)
 {
 	// See Initialize(), as we need access to SharedThis()
 }
@@ -171,7 +172,7 @@ void FAppleARKitSystem::Shutdown()
 #if SUPPORTS_ARKIT_1_0
 	if (Session != nullptr)
 	{
-		FaceARSupport = TSharedPtr<FAppleARKitFaceSupportBase, ESPMode::ThreadSafe>();
+		FaceARSupport = nullptr;
 		[Session pause];
 		Session.delegate = nullptr;
 		[Session release];
@@ -187,7 +188,7 @@ void FAppleARKitSystem::CheckForFaceARSupport(UARSessionConfig* InSessionConfig)
 	if (InSessionConfig->GetSessionType() != EARSessionType::Face)
 	{
 		// Clear the face ar support so we don't forward to it
-		FaceARSupport = TSharedPtr<FAppleARKitFaceSupportBase, ESPMode::ThreadSafe>();
+		FaceARSupport = nullptr;
 		return;
 	}
 
@@ -196,21 +197,9 @@ void FAppleARKitSystem::CheckForFaceARSupport(UARSessionConfig* InSessionConfig)
 	if (ensureAlwaysMsgf(Feature != nullptr, TEXT("Face AR session has been requested but the face ar plugin is not enabled")))
 	{
 		IAppleARKitFaceSupportFactory* Factory = static_cast<IAppleARKitFaceSupportFactory*>(Feature);
-		FaceARSupport = Factory->CreateFaceSupport(SharedThis(this), this);
-		ensureAlwaysMsgf(FaceARSupport.IsValid(), TEXT("Face AR session has been requested but the face ar plugin is not enabled"));
+		FaceARSupport = Factory->CreateFaceSupport();
+		ensureAlwaysMsgf(FaceARSupport != nullptr, TEXT("Face AR session has been requested but the face ar plugin is not enabled"));
 	}
-}
-
-UARTrackedGeometry* FAppleARKitSystem::GetTrackedGeometry(const FGuid& GeoGuid)
-{
-	UARTrackedGeometry** GeometrySearchResult = TrackedGeometries.Find(GeoGuid);
-	return GeometrySearchResult != nullptr ? *GeometrySearchResult : nullptr;
-}
-
-void FAppleARKitSystem::AddTrackedGeometry(const FGuid& Guid, UARTrackedGeometry* TrackedGeo)
-{
-	check(nullptr);
-	TrackedGeometries.Add(Guid, TrackedGeo);
 }
 
 FName FAppleARKitSystem::GetSystemName() const
@@ -848,7 +837,7 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 
 		ARConfiguration* Configuration = nullptr;
 		CheckForFaceARSupport(SessionConfig);
-		if (!FaceARSupport.IsValid())
+		if (FaceARSupport == nullptr)
 		{
 			Configuration = ToARConfiguration(SessionConfig, Config, CandidateImages, ConvertedCandidateImages);
 		}
@@ -979,6 +968,8 @@ void FAppleARKitSystem::SessionDidFailWithError_DelegateThread(const FString& Er
 
 #if SUPPORTS_ARKIT_1_0
 
+TArray<int32> FAppleARKitAnchorData::FaceIndices;
+
 static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData( ARAnchor* Anchor )
 {
 	TSharedPtr<FAppleARKitAnchorData> NewAnchor;
@@ -1035,9 +1026,14 @@ void FAppleARKitSystem::SessionDidAddAnchors_DelegateThread( NSArray<ARAnchor*>*
 					   STATGROUP_APPLEARKIT);
 
 	// If this object is valid, we are running a face session and need that code to process things
-	if (FaceARSupport.IsValid())
+	if (FaceARSupport != nullptr)
 	{
-		FaceARSupport->ProcessAnchorAdd(anchors, GetAlignmentTransform(), GameThreadFrameNumber, GameThreadTimestamp);
+		const TArray<TSharedPtr<FAppleARKitAnchorData>> AnchorList = FaceARSupport->MakeAnchorData(anchors, GameThreadTimestamp, GameThreadFrameNumber);
+		for (TSharedPtr<FAppleARKitAnchorData> NewAnchorData : AnchorList)
+		{
+			auto AddAnchorTask = FSimpleDelegateGraphTask::FDelegate::CreateSP(this, &FAppleARKitSystem::SessionDidAddAnchors_Internal, NewAnchorData.ToSharedRef());
+			FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(AddAnchorTask, GET_STATID(STAT_FAppleARKitSystem_SessionDidAddAnchors), nullptr, ENamedThreads::GameThread);
+		}
 		return;
 	}
 
@@ -1059,9 +1055,14 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_DelegateThread( NSArray<ARAnchor
 					   STATGROUP_APPLEARKIT);
 	
 	// If this object is valid, we are running a face session and need that code to process things
-	if (FaceARSupport.IsValid())
+	if (FaceARSupport != nullptr)
 	{
-		FaceARSupport->ProcessAnchorUpdate(anchors, GetAlignmentTransform(), GameThreadFrameNumber, GameThreadTimestamp);
+		const TArray<TSharedPtr<FAppleARKitAnchorData>> AnchorList = FaceARSupport->MakeAnchorData(anchors, GameThreadTimestamp, GameThreadFrameNumber);
+		for (TSharedPtr<FAppleARKitAnchorData> NewAnchorData : AnchorList)
+		{
+			auto UpdateAnchorTask = FSimpleDelegateGraphTask::FDelegate::CreateSP(this, &FAppleARKitSystem::SessionDidUpdateAnchors_Internal, NewAnchorData.ToSharedRef());
+			FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(UpdateAnchorTask, GET_STATID(STAT_FAppleARKitSystem_SessionDidUpdateAnchors), nullptr, ENamedThreads::GameThread);
+		}
 		return;
 	}
 
@@ -1132,6 +1133,14 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 			NewGeometry = NewImage;
 			break;
 		}
+		case EAppleAnchorType::FaceAnchor:
+		{
+			UARFaceGeometry* NewGeo = NewObject<UARFaceGeometry>();
+			NewAnchorDebugName = FString::Printf(TEXT("FACE-%02d"), LastTrackedGeometry_DebugId++);
+			NewGeo->SetDebugName(FName(*NewAnchorDebugName));
+			NewGeo->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices);
+			NewGeometry = NewGeo;
+		}
 		default:
 		{
 			NewAnchorDebugName = FString::Printf(TEXT("APPL-%02d"), LastTrackedGeometry_DebugId++);
@@ -1185,6 +1194,19 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKit
 				if (UARPlaneGeometry* PlaneGeo = Cast<UARPlaneGeometry>(FoundGeometry))
 				{
 					PlaneGeo->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->Center, AnchorData->Extent, AnchorData->BoundaryVerts, nullptr);
+					for (UARPin* Pin : PinsToUpdate)
+					{
+						const FTransform Pin_LocalToTrackingTransform_PostUpdate = Pin->GetLocalToTrackingTransform_NoAlignment() * AnchorDeltaTransform;
+						Pin->OnTransformUpdated(Pin_LocalToTrackingTransform_PostUpdate);
+					}
+				}
+				break;
+			}
+			case EAppleAnchorType::FaceAnchor:
+			{
+				if (UARFaceGeometry* FaceGeo = Cast<UARFaceGeometry>(FoundGeometry))
+				{
+					FaceGeo->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices);
 					for (UARPin* Pin : PinsToUpdate)
 					{
 						const FTransform Pin_LocalToTrackingTransform_PostUpdate = Pin->GetLocalToTrackingTransform_NoAlignment() * AnchorDeltaTransform;

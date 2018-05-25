@@ -12,46 +12,27 @@
 #endif
 
 class UARSessionConfig;
-class UARTrackedGeometry;
 class FAppleARKitConfiguration;
-class FARSystemBase;
+struct FAppleARKitAnchorData;
 
-
-class APPLEARKIT_API IAppleARKitFaceSupportCallback
-{
-public:
-	/** So that face processing can get access to the face geometry objects by their guid */
-	virtual UARTrackedGeometry* GetTrackedGeometry(const FGuid& GeoGuid) = 0;
-	/** So that face processing can add new geometry as updates come in */
-	virtual void AddTrackedGeometry(const FGuid& Guid, UARTrackedGeometry* TrackedGeo) = 0;
-};
 
 class APPLEARKIT_API IAppleARKitFaceSupport
 {
 public:
 #if SUPPORTS_ARKIT_1_0
 	/**
-	 * Forwards the anchor add for face processing
+	 * Converts a set of generic ARAnchors into their face anchor equivalents without exposing the main code to the face APIs
 	 *
-	 * @param NewAnchors the anchor list that the face support should process
-	 * @param AlignmentTransform the transform to apply for user alignment
-	 * @param FrameNumber the frame number to publish with LiveLink
-	 * @param Timestamp the timestamp to publish with LiveLink
+	 * @param NewAnchors the list of anchors to convert to our intermediate format
+	 * @param Timestamp the timestamp of this update
+	 * @param FrameNumber the frame number for this update
+	 *
+	 * @return the set of face anchors to dispatch
 	 */
-	virtual void ProcessAnchorAdd(NSArray<ARAnchor*>* NewAnchors, const FTransform& AlignmentTransform, uint32 FrameNumber, double Timestamp) = 0;
+	virtual TArray<TSharedPtr<FAppleARKitAnchorData>> MakeAnchorData(NSArray<ARAnchor*>* NewAnchors, double Timestamp, uint32 FrameNumber) = 0;
 
 	/**
-	 * Forwards the anchor add for face processing
-	 *
-	 * @param UpdatedAnchors the anchor list that the face support should process
-	 * @param AlignmentTransform the transform to apply for user alignment
-	 * @param FrameNumber the frame number to publish with LiveLink
-	 * @param Timestamp the timestamp to publish with LiveLink
-	 */
-	virtual void ProcessAnchorUpdate(NSArray<ARAnchor*>* UpdatedAnchors, const FTransform& AlignmentTransform, uint32 FrameNumber, double Timestamp) = 0;
-
-	/**
-	 * Creates a face ar specific configuration object if that is requested
+	 * Creates a face ar specific configuration object if that is requested without exposing the main code to the face APIs
 	 *
 	 * @param SessionConfig the UE4 configuration object that needs processing
 	 * @param InConfiguration the legacy configuration object that needs to go away
@@ -60,57 +41,7 @@ public:
 #endif
 
 	IAppleARKitFaceSupport() { }
-	IAppleARKitFaceSupport(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, IAppleARKitFaceSupportCallback* Callback) { }
 	virtual ~IAppleARKitFaceSupport() { }
-};
-
-class APPLEARKIT_API FAppleARKitFaceSupportBase :
-	public IAppleARKitFaceSupport,
-	public TSharedFromThis<FAppleARKitFaceSupportBase, ESPMode::ThreadSafe>
-{
-public:
-#if SUPPORTS_ARKIT_1_0
-	/**
-	 * Forwards the anchor add for face processing
-	 *
-	 * @param NewAnchors the anchor list that the face support should process
-	 * @param AlignmentTransform the transform to apply for user alignment
-	 * @param FrameNumber the frame number to publish with LiveLink
-	 * @param Timestamp the timestamp to publish with LiveLink
-	 */
-	virtual void ProcessAnchorAdd(NSArray<ARAnchor*>* NewAnchors, const FTransform& AlignmentTransform, uint32 FrameNumber, double Timestamp) override
-	{
-
-	}
-
-	/**
-	 * Forwards the anchor add for face processing
-	 *
-	 * @param UpdatedAnchors the anchor list that the face support should process
-	 * @param AlignmentTransform the transform to apply for user alignment
-	 * @param FrameNumber the frame number to publish with LiveLink
-	 * @param Timestamp the timestamp to publish with LiveLink
-	 */
-	virtual void ProcessAnchorUpdate(NSArray<ARAnchor*>* UpdatedAnchors, const FTransform& AlignmentTransform, uint32 FrameNumber, double Timestamp) override
-	{
-
-	}
-
-	/**
-	 * Creates a face ar specific configuration object if that is requested
-	 *
-	 * @param SessionConfig the UE4 configuration object that needs processing
-	 * @param InConfiguration the legacy configuration object that needs to go away
-	 */
-	virtual ARConfiguration* ToARConfiguration(UARSessionConfig* SessionConfig, FAppleARKitConfiguration& InConfiguration) override
-	{
-		return nullptr;
-	}
-#endif
-
-	FAppleARKitFaceSupportBase() { }
-	FAppleARKitFaceSupportBase(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, IAppleARKitFaceSupportCallback* Callback) { }
-	virtual ~FAppleARKitFaceSupportBase() { }
 };
 
 class APPLEARKIT_API IAppleARKitFaceSupportFactory :
@@ -118,7 +49,7 @@ class APPLEARKIT_API IAppleARKitFaceSupportFactory :
 {
 public:
 	/** Factory method that returns the object to use to handle face ar requests */
-	virtual TSharedPtr<FAppleARKitFaceSupportBase, ESPMode::ThreadSafe> CreateFaceSupport(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, IAppleARKitFaceSupportCallback* Callback) = 0;
+	virtual IAppleARKitFaceSupport* CreateFaceSupport() = 0;
 
 	static FName GetModularFeatureName()
 	{

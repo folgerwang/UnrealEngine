@@ -145,6 +145,15 @@ struct FAppleARKitAnchorData
 	{
 	}
 
+	FAppleARKitAnchorData(FGuid InAnchorGuid, FTransform InTransform, FARBlendShapeMap InBlendShapes, TArray<FVector> InFaceVerts)
+		: Transform( InTransform )
+		, AnchorType( EAppleAnchorType::FaceAnchor )
+		, AnchorGUID( InAnchorGuid )
+		, BlendShapes( MoveTemp(InBlendShapes) )
+		, FaceVerts( MoveTemp(InFaceVerts) )
+	{
+	}
+
 	FTransform Transform;
 	EAppleAnchorType AnchorType;
 	FGuid AnchorGUID;
@@ -153,6 +162,11 @@ struct FAppleARKitAnchorData
 	TArray<FVector> BoundaryVerts;
 
 	FString DetectedImageName;
+
+	FARBlendShapeMap BlendShapes;
+	TArray<FVector> FaceVerts;
+	// Note: the index buffer never changes so can be safely read once
+	static TArray<int32> FaceIndices;
 };
 
 namespace ARKitUtil

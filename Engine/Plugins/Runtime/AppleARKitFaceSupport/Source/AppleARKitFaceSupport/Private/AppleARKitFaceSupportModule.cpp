@@ -31,24 +31,27 @@ public:
 	}
 
 private:
-	FAppleARKitFaceSupportFactory()
-	{
-	}
-	virtual ~FAppleARKitFaceSupportFactory()
+	FAppleARKitFaceSupportFactory() :
+		FaceARSupport(nullptr)
 	{
 	}
 
-	virtual TSharedPtr<FAppleARKitFaceSupportBase, ESPMode::ThreadSafe> CreateFaceSupport(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, IAppleARKitFaceSupportCallback* Callback)
+	virtual ~FAppleARKitFaceSupportFactory()
 	{
-		if (!FaceARSupport.IsValid())
+		delete FaceARSupport;
+	}
+
+	virtual IAppleARKitFaceSupport* CreateFaceSupport()
+	{
+		if (FaceARSupport == nullptr)
 		{
-			FaceARSupport = MakeShared<FAppleARKitFaceSupport, ESPMode::ThreadSafe>(InTrackingSystem, Callback);
+			FaceARSupport = new FAppleARKitFaceSupport();
 		}
 		return FaceARSupport;
 	};
 
 	static FAppleARKitFaceSupportFactory* Factory;
-	TSharedPtr<FAppleARKitFaceSupport, ESPMode::ThreadSafe> FaceARSupport;
+	IAppleARKitFaceSupport* FaceARSupport;
 };
 
 FAppleARKitFaceSupportFactory* FAppleARKitFaceSupportFactory::Factory = nullptr;

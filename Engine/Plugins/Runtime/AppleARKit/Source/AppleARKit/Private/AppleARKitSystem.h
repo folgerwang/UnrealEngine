@@ -27,8 +27,7 @@ struct FAppleARKitFrame;
 struct FAppleARKitAnchorData;
 
 class FAppleARKitSystem :
-	public FARSystemBase,
-	public IAppleARKitFaceSupportCallback
+	public FARSystemBase
 {
 	friend class FAppleARKitXRCamera;
 	
@@ -49,11 +48,6 @@ public:
 	void OnBeginRendering_GameThread() override;
 	bool OnStartGameFrame(FWorldContext& WorldContext) override;
 	//~ IXRTrackingSystem
-
-	//~IAppleARKitFaceSupportCallback
-	virtual UARTrackedGeometry* GetTrackedGeometry(const FGuid& GeoGuid) override;
-	virtual void AddTrackedGeometry(const FGuid& Guid, UARTrackedGeometry* TrackedGeo) override;
-	//~IAppleARKitFaceSupportCallback
 
 	void* GetARSessionRawPointer() override;
 	void* GetGameThreadARFrameRawPointer() override;
@@ -195,7 +189,7 @@ private:
 	TSharedPtr< FAppleARKitFrame, ESPMode::ThreadSafe > LastReceivedFrame;
 
 	// The object that is handling face support if present
-	TSharedPtr<FAppleARKitFaceSupportBase, ESPMode::ThreadSafe> FaceARSupport;
+	IAppleARKitFaceSupport* FaceARSupport;
 };
 
 
