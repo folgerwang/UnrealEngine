@@ -4,6 +4,7 @@
 #include "Containers/Ticker.h"
 #include "CrashReportClientConfig.h"
 #include "CrashDescription.h"
+#include "Stats/Stats.h"
 
 FCrashReportClientUnattended::FCrashReportClientUnattended(FPlatformErrorReport& InErrorReport)
 	: ReceiverUploader(FCrashReportClientConfig::Get().GetReceiverAddress())
