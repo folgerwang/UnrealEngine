@@ -390,7 +390,6 @@ public:
 	class UNiagaraScriptSourceBase *GetSource() { return Source; }
 	const class UNiagaraScriptSourceBase *GetSource() const  { return Source; }
 	void SetSource(class UNiagaraScriptSourceBase *InSource) { Source = InSource; }
-	NIAGARA_API void CleanUpOldAndInitializeNewRapidIterationParameters(FString UniqueEmitterName);
 
 	NIAGARA_API FGuid GetBaseChangeID() const;
 	NIAGARA_API ENiagaraScriptCompileStatus GetLastCompileStatus() const;

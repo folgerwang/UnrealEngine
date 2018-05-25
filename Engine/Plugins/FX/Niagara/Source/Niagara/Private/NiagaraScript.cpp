@@ -1348,11 +1348,6 @@ bool UNiagaraScript::LegacyCanBeRunOnGpu() const
 
 
 #if WITH_EDITORONLY_DATA
-void UNiagaraScript::CleanUpOldAndInitializeNewRapidIterationParameters(FString UniqueEmitterName)
-{
-	Source->CleanUpOldAndInitializeNewRapidIterationParameters(UniqueEmitterName, Usage, UsageId, RapidIterationParameters);
-}
-
 FGuid UNiagaraScript::GetBaseChangeID() const
 {
 	return Source->GetChangeID(); 
