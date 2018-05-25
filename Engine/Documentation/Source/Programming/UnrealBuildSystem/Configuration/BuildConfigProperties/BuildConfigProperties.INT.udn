@@ -18,11 +18,19 @@ $ bEnableThreadSanitizer : Enables thread sanitizer (TSan)
 
 $ bEnableUndefinedBehaviorSanitizer : Enables undefined behavior sanitizer (UBSan)
 
+$ bWriteSolutionOptionFile : Whether to write a solution option (suo) file for the sln
+
 $ bAddFastPDBToProjects : Whether to add the -FastPDB option to build command lines by default
 
 $ bUsePerFileIntellisense : Whether to generate per-file intellisense data
 
 $ bEditorDependsOnShaderCompileWorker : Whether to include a dependency on ShaderCompileWorker when generating project files for the editor.
+
+$ ProcessorCountMultiplier : Processor count multiplier for local execution. Can be below 1 to reserve CPU for other tasks. When using the local executor (not XGE), run a single action on each CPU core.  Note that you can set this to a larger value to get slightly faster build times in many cases, but your computer's responsiveness during compiling may be much worse.
+
+$ MaxProcessorCount : Maximum processor count for local execution.
+
+$ bStopCompilationAfterErrors : When enabled, will stop compiling targets after a compile error occurs.
 
 $ bDebugBuildsActuallyUseDebugCRT : Enables the debug C++ runtime (CRT) for debug builds. By default we always use the release runtime, since the debug version isn't particularly useful when debugging Unreal Engine projects, and linking against the debug CRT libraries forces our third party library dependencies to also be compiled using the debug CRT (and often perform more slowly). Often it can be inconvenient to require a separate copy of the debug versions of third party static libraries simply so that you can debug your program's code.
 
@@ -142,6 +150,8 @@ $ bUseUBTMakefiles : Enables support for very fast iterative builds by caching t
 
 $ bAllowDistcc : Whether DMUCS/Distcc may be used. Distcc requires some setup - so by default disable it so we don't break local or remote building
 
+$ bAllowParallelExecutor : Whether to allow using parallel executor on Windows.
+
 $ bIgnoreJunk : Whether to skip checking for files identified by the junk manifest
 
 $ bAllowDistccLocalFallback : When enabled allows DMUCS/Distcc to fallback to local compilation when remote compiling fails. Defaults to true as separation of pre-process and compile stages can introduce non-fatal errors.
@@ -153,10 +163,6 @@ $ DistccExecutablesPath : Path to the Distcc and DMUCS executables.
 $ DMUCSCoordinator : DMUCS coordinator hostname or IP address.
 
 $ DMUCSDistProp : The DMUCS distinguishing property value to request for compile hosts.
-
-$ ProcessorCountMultiplier : Processor count multiplier for local execution. Can be below 1 to reserve CPU for other tasks. When using the local executor (not XGE), run a single action on each CPU core.  Note that you can set this to a larger value to get slightly faster build times in many cases, but your computer's responsiveness during compiling may be much worse.
-
-$ MaxProcessorCount : Maximum processor count for local execution.
 
 $ bXGENoWatchdogThread : Whether to use the no_watchdog_thread option to prevent VS2015 toolchain stalls.
 
@@ -263,6 +269,16 @@ $ Provider : Sets the provider to use for determining the working set
 $ RepositoryPath : Sets the path to use for the repository. Interpreted relative to the UE root directory (ie. folder above the Engine folder) if relative.
 
 $ GitPath : Sets the path to use for the Git executable. Defaults to "git" (assuming it's in the PATH).
+
+### VCMacProjectFileGenerator
+
+$ Version : The version of Visual Studio to generate project files for.
+
+$ bIncludeDocumentation : True if we should include documentation in the generated projects
+
+$ MasterProjectName : Name of the master project file (e.g. base file name for the solution file for Visual Studio, or the Xcode project file on Mac)
+
+$ bMasterProjectNameFromFolder : If true, sets the master project name according to the name of the folder it's in
 
 ### IOSToolChain
 
