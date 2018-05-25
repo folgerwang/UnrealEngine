@@ -1204,14 +1204,14 @@ TSharedPtr<FMovieSceneImportAudioSectionData> FMovieSceneImportData::ConstructAu
 	USoundBase* SoundBase = InAudioSection->GetSound();
 	if (SoundBase == nullptr || !SoundBase->IsA<USoundWave>())
 	{
-		return false;
+		return nullptr;
 	}
 
 	USoundWave* SoundWave = nullptr;
 	SoundWave = Cast<USoundWave>(SoundBase);
 	if (SoundWave == nullptr || SoundWave->AssetImportData == nullptr)
 	{
-		return false;
+		return nullptr;
 	}
 
 	TSharedPtr<FMovieSceneImportAudioSectionData> SectionData = MakeShared<FMovieSceneImportAudioSectionData>();
@@ -1220,7 +1220,7 @@ TSharedPtr<FMovieSceneImportAudioSectionData> FMovieSceneImportData::ConstructAu
 	TArray<FString> Filenames = SoundWave->AssetImportData->ExtractFilenames();
 	if (Filenames.Num() < 1)
 	{
-		return false;
+		return nullptr;
 	}
 
 	SectionData->SourceFilename = FPaths::GetCleanFilename(Filenames[0]);

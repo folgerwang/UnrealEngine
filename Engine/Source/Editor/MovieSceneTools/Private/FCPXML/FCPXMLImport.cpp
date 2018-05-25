@@ -58,10 +58,10 @@ FFCPXMLImportVisitor::FFCPXMLImportVisitor(TSharedRef<FMovieSceneImportData> InI
 , bInVideoTrackNode(false)
 , bInAudioTrackNode(false)
 , CurrVideoTrackRowIndex(0)
-, bCurrImportAudioTrackIsStereoChannel(false)
 , CurrAudioTrackListIndex(0)
 , CurrAudioMasterTrack(nullptr)
 , CurrAudioTrackRowIndex(0)
+, bCurrImportAudioTrackIsStereoChannel(false)
 {
 	ConstructAudioTrackList();
 	if (AudioTrackList.Num() > 0)
