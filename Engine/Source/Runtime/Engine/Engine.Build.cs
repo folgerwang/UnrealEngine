@@ -70,6 +70,7 @@ public class Engine : ModuleRules
 				"RenderCore",
 				"RHI",
 				"ShaderCore",
+				"Sockets",
 				"UtilityShaders",
 				"AssetRegistry", // Here until FAssetData is moved to engine
 				"EngineMessages",
@@ -88,7 +89,6 @@ public class Engine : ModuleRules
 			new string[] {
 				"AppFramework",
 				"Networking",
-				"Sockets",
 				"Landscape",
 				"UMG",
 				"Projects",
