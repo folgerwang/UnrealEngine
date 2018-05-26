@@ -307,18 +307,12 @@ public:
 			Addr.sin6_family == OtherBSD.Addr.sin6_family;
 	}
 
-	virtual bool operator<(const FInternetAddr& Other) const override
-	{
-		FInternetAddrBSDIPv6& OtherBSD = (FInternetAddrBSDIPv6&)Other;
-
-		return Addr.sin6_family < OtherBSD.Addr.sin6_family ||
-				FMemory::Memcmp(Addr.sin6_addr.u.Bytes, OtherBSD.Addr.sin6_addr.u.Bytes) < 0 ||
-				Addr.sin6_port < OtherBSD.Addr.sin6_port;
-	}
-
 	virtual uint32 GetTypeHash() override
 	{
-		return GetTypeHash(Addr.sin_addr.s_addr) + (Addr.sin_port * 23);
+		// @todo: Find a more efficient way to hash IPv6 addresses, if they are to be used with NetConnection's
+		//return Addr.sin_addr.s_addr + (Addr.sin_port * 23);
+
+		return ::GetTypeHash(*ToString(true));
 	}
 
 	/**

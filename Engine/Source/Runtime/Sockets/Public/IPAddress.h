@@ -106,21 +106,6 @@ public:
 	}
 
 	/**
-	 * Compares two internet addresses for sorting (used with binary searching IP lists)
-	 *
-	 * @param Other		The other address to compare against
-	 */
-	virtual bool operator<(const FInternetAddr& Other) const
-	{
-		uint32 ThisIP, OtherIP;
-
-		GetIp(ThisIP);
-		Other.GetIp(OtherIP);
-
-		return (ThisIP < OtherIP) || GetPort() < Other.GetPort();
-	}
-
-	/**
 	 * Hash function for use with TMap's - exposed through FInternetAddrMapRef
 	 *
 	 * @return	The value to use for the hash
