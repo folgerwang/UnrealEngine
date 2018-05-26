@@ -25,6 +25,7 @@
 #include "HAL/PlatformMallocCrash.h"
 #include "Unix/UnixPlatformRunnableThread.h"
 #include "HAL/ExceptionHandling.h"
+#include "Stats/Stats.h"
 
 #include "HAL/ThreadHeartBeat.h"
 
