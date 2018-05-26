@@ -144,13 +144,6 @@ public:
 		return !(FInternetAddrSteam::operator==(Other));
 	}
 
-	virtual bool operator<(const FInternetAddr& Other) const override
-	{
-		FInternetAddrSteam& SteamOther = (FInternetAddrSteam&)Other;
-
-		return (CSteamID)SteamId < (CSteamID)SteamOther.SteamId || SteamChannel < SteamOther.SteamChannel;
-	}
-
 	virtual uint32 GetTypeHash() override
 	{
 		return ::GetTypeHash(*(uint64*)SteamId.GetBytes());

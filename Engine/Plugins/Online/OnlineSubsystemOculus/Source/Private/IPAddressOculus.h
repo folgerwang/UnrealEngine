@@ -156,13 +156,6 @@ public:
 		return !(FInternetAddrOculus::operator==(Other));
 	}
 
-	virtual bool operator<(const FInternetAddr& Other) const override
-	{
-		FInternetAddrOculus& OculusOther = (FInternetAddrOculus&)Other;
-
-		return GetID() < OculusOther.GetID();
-	}
-
 	virtual uint32 GetTypeHash() override
 	{
 		return ::GetTypeHash((uint64)GetID());
