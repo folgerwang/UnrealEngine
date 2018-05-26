@@ -242,7 +242,8 @@ void StatelessConnectHandlerComponent::SendConnectChallenge(FString ClientAddres
 		ChallengePacket.Serialize(Cookie, ARRAY_COUNT(Cookie));
 
 #if !UE_BUILD_SHIPPING
-		UE_LOG( LogHandshake, Log, TEXT( "SendConnectChallenge. Timestamp: %f, Cookie: %s" ), Timestamp, *FString::FromBlob( Cookie, ARRAY_COUNT( Cookie ) ) );
+		UE_CLOG((Handler->DDoS == nullptr || !Handler->DDoS->CheckLogRestrictions()), LogHandshake, Log,
+				TEXT("SendConnectChallenge. Timestamp: %f, Cookie: %s" ), Timestamp, *FString::FromBlob(Cookie, ARRAY_COUNT(Cookie)));
 #endif
 
 		CapHandshakePacket(ChallengePacket);
@@ -619,8 +620,14 @@ void StatelessConnectHandlerComponent::IncomingConnectionless(FString Address, F
 		{
 			Packet.SetError();
 
+			if (Handler->DDoS != nullptr)
+			{
+				Handler->DDoS->IncBadPacketCounter();
+			}
+
 #if !UE_BUILD_SHIPPING
-			UE_LOG(LogHandshake, Log, TEXT("IncomingConnectionless: Error reading handshake packet."));
+			UE_CLOG(Handler->DDoS == nullptr || !Handler->DDoS->CheckLogRestrictions(), LogHandshake, Log,
+					TEXT("IncomingConnectionless: Error reading handshake packet."));
 #endif
 		}
 	}

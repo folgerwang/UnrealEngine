@@ -22,6 +22,7 @@ class HTML5NETWORKING_API UWebSocketConnection : public UNetConnection
 	FString LowLevelDescribe() override;
 	virtual int32 GetAddrAsInt(void) override;
 	virtual int32 GetAddrPort(void) override;
+	virtual TSharedPtr<FInternetAddr> GetInternetAddr() override;
 	virtual FString RemoteAddressToString() override;
 	virtual void Tick();
 	virtual void FinishDestroy();

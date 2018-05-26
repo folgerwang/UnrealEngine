@@ -4499,6 +4499,12 @@ void UDemoNetConnection::HandleClientPlayer( APlayerController* PC, UNetConnecti
 	}
 }
 
+TSharedPtr<FInternetAddr> UDemoNetConnection::GetInternetAddr()
+{
+	// Does not use MappedClientConnections
+	return TSharedPtr<FInternetAddr>();
+}
+
 bool UDemoNetConnection::ClientHasInitializedLevelFor(const AActor* TestActor) const
 {
 	// We save all currently streamed levels into the demo stream so we can force the demo playback client

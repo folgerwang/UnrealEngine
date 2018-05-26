@@ -11,9 +11,11 @@
 PACKETHANDLER_API DECLARE_LOG_CATEGORY_EXTERN(PacketHandlerLog, Log, All);
 
 
+// Forward declarations
 class HandlerComponent;
 class FEncryptionComponent;
 class ReliabilityHandlerComponent;
+class FDDoSDetection;
 
 
 /**
@@ -495,6 +497,9 @@ public:
 
 	/** Whether or not this PacketHandler handles connectionless (i.e. non-UNetConnection) data */
 	bool bConnectionlessHandler;
+
+	/** Mirroring UNetDriver.DDoS*/
+	FDDoSDetection* DDoS;
 
 private:
 	/** Delegate used for triggering PacketHandler/HandlerComponent-sourced sends */

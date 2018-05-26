@@ -202,6 +202,7 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,   bNoTimeouts(false)
 ,   ServerConnection(nullptr)
 ,	ClientConnections()
+,	MappedClientConnections()
 ,	ConnectionlessHandler()
 ,	StatelessConnectComponent()
 ,   World(nullptr)
@@ -232,6 +233,7 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,	SendRPCDel()
 #endif
 ,	ProcessQueuedBunchesCurrentFrameMilliseconds(0.0f)
+,	DDoS()
 ,	NetworkObjects(new FNetworkObjectList)
 ,	LagState(ENetworkLagState::NotLagging)
 ,	DuplicateLevelID(INDEX_NONE)
@@ -1254,6 +1256,17 @@ bool UNetDriver::InitBase(bool bInitAsClient, FNetworkNotify* InNotify, const FU
 
 		InitReplicationDriverClass();
 		SetReplicationDriver(UReplicationDriver::CreateReplicationDriver(this, URL, GetWorld()));
+
+		DDoS.Init(FMath::Clamp(NetServerMaxTickRate, 1, 1000));
+
+		if (DDoS.bDDoSDetection && DDoS.bDDoSAnalytics)
+		{
+			DDoS.NotifySeverityEscalation.BindLambda(
+				[this](FString SeverityCategory)
+				{
+					GEngine->BroadcastNetworkDDosSEscalation(this->GetWorld(), this, SeverityCategory);
+				});
+		}
 	}
 
 	Notify = InNotify;
@@ -1274,6 +1287,7 @@ void UNetDriver::InitConnectionlessHandler()
 		if (ConnectionlessHandler.IsValid())
 		{
 			ConnectionlessHandler->bConnectionlessHandler = true;
+			ConnectionlessHandler->DDoS = &DDoS;
 
 			ConnectionlessHandler->Initialize(Handler::Mode::Server, MAX_PACKET_SIZE, true, AnalyticsProvider);
 
@@ -4097,9 +4111,17 @@ void UNetDriver::AddClientConnection(UNetConnection * NewConnection)
 {
 	SCOPE_CYCLE_COUNTER(Stat_NetDriverAddClientConnection);
 
-	UE_LOG( LogNet, Log, TEXT( "AddClientConnection: Added client connection: %s" ), *NewConnection->Describe() );
+	UE_CLOG(!DDoS.CheckLogRestrictions(), LogNet, Log, TEXT("AddClientConnection: Added client connection: %s"),
+			*NewConnection->Describe());
 
 	ClientConnections.Add(NewConnection);
+
+	TSharedPtr<FInternetAddr> ConnAddr = NewConnection->GetInternetAddr();
+
+	if (ConnAddr.IsValid())
+	{
+		MappedClientConnections.Add(FInternetAddrMapRef(ConnAddr), NewConnection);
+	}
 
 	if (ReplicationDriver)
 	{
@@ -4194,6 +4216,14 @@ void UNetDriver::NotifyActorFullyDormantForConnection(AActor* Actor, UNetConnect
 void UNetDriver::RemoveClientConnection(UNetConnection* ClientConnectionToRemove)
 {
 	verify(ClientConnections.Remove(ClientConnectionToRemove) == 1);
+
+	TSharedPtr<FInternetAddr> AddrToRemove = ClientConnectionToRemove->GetInternetAddr();
+
+	if (AddrToRemove.IsValid())
+	{
+		verify(MappedClientConnections.Remove(AddrToRemove) == 1);
+	}
+
 	if (ReplicationDriver)
 	{
 		ReplicationDriver->RemoveClientConnection(ClientConnectionToRemove);

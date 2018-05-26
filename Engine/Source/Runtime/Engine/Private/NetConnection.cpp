@@ -560,8 +560,9 @@ void UNetConnection::CleanUp()
 
 	Handler.Reset(NULL);
 
-	Driver = NULL;
 	SetClientLoginState(EClientLoginState::CleanedUp);
+
+	Driver = nullptr;
 }
 
 UChildConnection::UChildConnection(const FObjectInitializer& ObjectInitializer)
@@ -2610,24 +2611,33 @@ void UNetConnection::SetClientLoginState( const EClientLoginState::Type NewState
 		return;
 	}
 
-	UE_LOG(LogNet, Verbose, TEXT("UNetConnection::SetClientLoginState: State changing from %s to %s"), EClientLoginState::ToString( ClientLoginState ), EClientLoginState::ToString( NewState ) );
+	UE_CLOG((Driver == nullptr || !Driver->DDoS.CheckLogRestrictions()), LogNet, Verbose,
+				TEXT("UNetConnection::SetClientLoginState: State changing from %s to %s"),
+				EClientLoginState::ToString(ClientLoginState), EClientLoginState::ToString(NewState));
+
 	ClientLoginState = NewState;
 }
 
 /** Wrapper for setting the current expected client login msg type. */
-void UNetConnection::SetExpectedClientLoginMsgType( const uint8 NewType )
+void UNetConnection::SetExpectedClientLoginMsgType(const uint8 NewType)
 {
+	const bool bLogRestricted = Driver != nullptr && Driver->DDoS.CheckLogRestrictions();
+
 	if ( ExpectedClientLoginMsgType == NewType )
 	{
-		UE_LOG(LogNet, Verbose, TEXT("UNetConnection::SetExpectedClientLoginMsgType: Type same: [%d]%s"), NewType, FNetControlMessageInfo::IsRegistered(NewType) ? FNetControlMessageInfo::GetName(NewType) : TEXT("UNKNOWN"));
+		UE_CLOG(!bLogRestricted, LogNet, Verbose, TEXT("UNetConnection::SetExpectedClientLoginMsgType: Type same: [%d]%s"),
+				NewType, FNetControlMessageInfo::IsRegistered(NewType) ? FNetControlMessageInfo::GetName(NewType) : TEXT("UNKNOWN"));
+
 		return;
 	}
 
-	UE_LOG(LogNet, Verbose, TEXT("UNetConnection::SetExpectedClientLoginMsgType: Type changing from [%d]%s to [%d]%s"), 
+	UE_CLOG(!bLogRestricted, LogNet, Verbose,
+		TEXT("UNetConnection::SetExpectedClientLoginMsgType: Type changing from [%d]%s to [%d]%s"), 
 		ExpectedClientLoginMsgType,
 		FNetControlMessageInfo::IsRegistered(ExpectedClientLoginMsgType) ? FNetControlMessageInfo::GetName(ExpectedClientLoginMsgType) : TEXT("UNKNOWN"),
 		NewType,
 		FNetControlMessageInfo::IsRegistered(NewType) ? FNetControlMessageInfo::GetName(NewType) : TEXT("UNKNOWN"));
+
 	ExpectedClientLoginMsgType = NewType;
 }
 

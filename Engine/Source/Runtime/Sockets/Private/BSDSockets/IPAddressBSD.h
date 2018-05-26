@@ -193,6 +193,19 @@ public:
 			Addr.sin_family == OtherBSD.Addr.sin_family;
 	}
 
+	virtual bool operator<(const FInternetAddr& Other) const override
+	{
+		FInternetAddrBSD& OtherBSD = (FInternetAddrBSD&)Other;
+
+		return Addr.sin_family < OtherBSD.Addr.sin_family || ntohl(Addr.sin_addr.s_addr) < ntohl(OtherBSD.Addr.sin_addr.s_addr) ||
+				ntohs(Addr.sin_port) < ntohs(OtherBSD.Addr.sin_port);
+	}
+
+	virtual uint32 GetTypeHash() override
+	{
+		return Addr.sin_addr.s_addr + (Addr.sin_port * 23);
+	}
+
 	/**
 	 * Is this a well formed internet address
 	 *

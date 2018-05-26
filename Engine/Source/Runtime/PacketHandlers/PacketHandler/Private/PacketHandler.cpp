@@ -10,6 +10,7 @@
 #include "UObject/Package.h"
 #include "HAL/ConsoleManager.h"
 
+#include "DDoSDetection.h"
 #include "HandlerComponentFactory.h"
 #include "ReliabilityHandlerComponent.h"
 
@@ -31,6 +32,7 @@ PacketHandler::PacketHandler()
 	: Mode(Handler::Mode::Client)
 	, Time(0.f)
 	, bConnectionlessHandler(false)
+	, DDoS(nullptr)
 	, LowLevelSendDel()
 	, HandshakeCompleteDel()
 	, OutgoingPacket()
@@ -374,7 +376,8 @@ const ProcessedPacket PacketHandler::Incoming_Internal(uint8* Packet, int32 Coun
 			bError = true;
 
 #if !UE_BUILD_SHIPPING
-			UE_LOG(PacketHandlerLog, Error, TEXT("PacketHandler parsing packet with zero's in last byte."));
+			UE_CLOG((DDoS == nullptr || !DDoS->CheckLogRestrictions()), PacketHandlerLog, Error,
+					TEXT("PacketHandler parsing packet with zero's in last byte."));
 #endif
 		}
 	}
