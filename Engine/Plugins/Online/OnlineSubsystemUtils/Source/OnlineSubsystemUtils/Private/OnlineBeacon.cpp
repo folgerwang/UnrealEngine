@@ -118,7 +118,7 @@ EAcceptConnection::Type AOnlineBeacon::NotifyAcceptingConnection()
 	else //if(BeaconState == EBeaconState::AllowRequests)
 	{
 		// Server is up and running.
-		UE_LOG(LogNet, Log, TEXT("NotifyAcceptingConnection: Server %s accept"), *GetName());
+		UE_CLOG(!NetDriver->DDoS.CheckLogRestrictions(), LogNet, Log, TEXT("NotifyAcceptingConnection: Server %s accept"), *GetName());
 		return EAcceptConnection::Accept;
 	}
 }

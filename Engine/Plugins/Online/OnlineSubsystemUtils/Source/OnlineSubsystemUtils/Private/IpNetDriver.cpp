@@ -209,7 +209,7 @@ bool UIpNetDriver::InitListen( FNetworkNotify* InNotify, FURL& LocalURL, bool bR
 	return true;
 }
 
-void UIpNetDriver::TickDispatch( float DeltaTime )
+void UIpNetDriver::TickDispatch(float DeltaTime)
 {
 	LLM_SCOPE(ELLMTag::Networking);
 
@@ -225,15 +225,18 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 
 	ISocketSubsystem* SocketSubsystem = GetSocketSubsystem();
 
+	DDoS.PreFrameReceive(DeltaTime);
+
 	const double StartReceiveTime = FPlatformTime::Seconds();
 	double AlarmTime = StartReceiveTime + GIpNetDriverMaxDesiredTimeSliceBeforeAlarmSecs;
 
 	// Process all incoming packets.
 	uint8 Data[MAX_PACKET_SIZE];
 	uint8* DataRef = Data;
-	TSharedRef<FInternetAddr> FromAddr = SocketSubsystem->CreateInternetAddr();
+	FInternetAddrMapRef FromAddrMap(SocketSubsystem->CreateInternetAddr());
+	TSharedRef<FInternetAddr>& FromAddr = FromAddrMap.Element;
 
-	for( ; Socket != NULL; )
+	for (; Socket != nullptr;)
 	{
 		{
 			const double CurrentTime = FPlatformTime::Seconds();
@@ -256,12 +259,13 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 			SCOPE_CYCLE_COUNTER(STAT_IpNetDriver_RecvFromSocket);
 			bOk = Socket->RecvFrom(Data, sizeof(Data), BytesRead, *FromAddr);
 		}
-		
+
 		if (bOk)
 		{
 			// Immediately stop processing (continuing to next receive), for empty packets (usually a DDoS)
 			if (BytesRead == 0)
 			{
+				DDoS.IncBadPacketCounter();
 				continue;
 			}
 
@@ -276,12 +280,14 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 				// No data or no error?
 				break;
 			}
-			else
+			else if (Error != SE_ECONNRESET && Error != SE_UDP_ERR_PORT_UNREACH)
 			{
 				// MalformedPacket: Client tried sending a packet that exceeded the maximum packet limit
 				// enforced by the server
 				if (Error == SE_EMSGSIZE)
 				{
+					DDoS.IncBadPacketCounter();
+
 					UIpConnection* Connection = nullptr;
 					if (GetServerConnection() && (*GetServerConnection()->RemoteAddr == *FromAddr))
 					{
@@ -293,19 +299,30 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 						UE_SECURITY_LOG(Connection, ESecurityEvent::Malformed_Packet, TEXT("Received Packet with bytes > max MTU"));
 					}
 				}
-
-				if( Error != SE_ECONNRESET && Error != SE_UDP_ERR_PORT_UNREACH )
+				else
 				{
-					UE_LOG(LogNet, Warning, TEXT("UDP recvfrom error: %i (%s) from %s"),
-						(int32)Error,
-						SocketSubsystem->GetSocketError(Error),
-						*FromAddr->ToString(true));
-
-					// Unexpected packet errors should continue to the next iteration, rather than block all further receives this tick
-					continue;
+					DDoS.IncErrorPacketCounter();
 				}
+
+				UE_CLOG(!DDoS.CheckLogRestrictions(), LogNet, Warning, TEXT("UDP recvfrom error: %i (%s) from %s"),
+						(int32)Error, SocketSubsystem->GetSocketError(Error), *FromAddr->ToString(true));
+
+				// Unexpected packet errors should continue to the next iteration, rather than block all further receives this tick
+				continue;
 			}
 		}
+
+		// Very-early-out - the NetConnection per frame time limit, limits all packet processing
+		if (DDoS.bHitFrameNetConnLimit)
+		{
+			if (bOk)
+			{
+				DDoS.IncDroppedPacketCounter();
+			}
+
+			continue;
+		}
+
 		// Figure out which socket the received data came from.
 		UIpConnection* Connection = nullptr;
 		UIpConnection* MyServerConnection = GetServerConnection();
@@ -322,15 +339,16 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 					MyServerConnection->RemoteAddr.IsValid() ? *MyServerConnection->RemoteAddr->ToString(true) : TEXT("Invalid"));
 			}
 		}
-		for( int32 i=0; i<ClientConnections.Num() && !Connection; i++ )
+
+		if (Connection == nullptr)
 		{
-			UIpConnection* TestConnection = (UIpConnection*)ClientConnections[i]; 
-            check(TestConnection);
-			if(*TestConnection->RemoteAddr == *FromAddr)
-			{
-				Connection = TestConnection;
-			}
+			UNetConnection** Result = MappedClientConnections.Find(FromAddrMap);
+
+			Connection = (Result != nullptr ? (UIpConnection*)*Result : nullptr);
+
+			check(Connection == nullptr || *Connection->RemoteAddr == *FromAddr);
 		}
+
 
 		if( bOk == false )
 		{
@@ -361,7 +379,9 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 			}
 			else
 			{
-				if (LogPortUnreach)
+				DDoS.IncNonConnPacketCounter();
+
+				if (LogPortUnreach && !DDoS.CheckLogRestrictions())
 				{
 					UE_LOG(LogNet, Log, TEXT("Received ICMP port unreachable from %s.  No matching connection found."),
 						*FromAddr->ToString(true));
@@ -375,12 +395,26 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 			// If we didn't find a client connection, maybe create a new one.
 			if( !Connection )
 			{
+				if (DDoS.bDDoSDetection)
+				{
+					// If packet limits were reached, stop processing
+					if (DDoS.bHitFrameNonConnLimit)
+					{
+						DDoS.IncDroppedPacketCounter();
+						continue;
+					}
+
+					DDoS.IncNonConnPacketCounter();
+					DDoS.CondCheckNonConnQuotasAndLimits();
+				}
+
 				// Determine if allowing for client/server connections
 				const bool bAcceptingConnection = Notify != nullptr && Notify->NotifyAcceptingConnection() == EAcceptConnection::Accept;
 
 				if (bAcceptingConnection)
 				{
-					UE_LOG( LogNet, Log, TEXT( "NotifyAcceptingConnection accepted from: %s" ), *FromAddr->ToString( true ) );
+					UE_CLOG(!DDoS.CheckLogRestrictions(), LogNet, Log, TEXT("NotifyAcceptingConnection accepted from: %s"),
+							*FromAddr->ToString(true));
 
 					bool bPassedChallenge = false;
 					TSharedPtr<StatelessConnectHandlerComponent> StatelessConnect;
@@ -411,7 +445,8 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 #if !UE_BUILD_SHIPPING
 					else if (FParse::Param(FCommandLine::Get(), TEXT("NoPacketHandler")))
 					{
-						UE_LOG(LogNet, Log, TEXT("Accepting connection without handshake, due to '-NoPacketHandler'."))
+						UE_CLOG(!DDoS.CheckLogRestrictions(), LogNet, Log,
+									TEXT("Accepting connection without handshake, due to '-NoPacketHandler'."))
 
 						bIgnorePacket = false;
 						bPassedChallenge = true;
@@ -470,13 +505,20 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 			// Send the packet to the connection for processing.
 			if (Connection && !bIgnorePacket)
 			{
+				if (DDoS.bDDoSDetection)
+				{
+					DDoS.IncNetConnPacketCounter();
+					DDoS.CondCheckNetConnLimits();
+				}
+
 				Connection->ReceivedRawPacket( DataRef, BytesRead );
 			}
 		}
 	}
 
-	const double EndReceiveTime = FPlatformTime::Seconds();
-	const float DeltaReceiveTime = EndReceiveTime - StartReceiveTime;
+	DDoS.PostFrameReceive();
+
+	const float DeltaReceiveTime = FPlatformTime::Seconds() - StartReceiveTime;
 
 	if (DeltaReceiveTime > GIpNetDriverLongFramePrintoutThresholdSecs)
 	{
