@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "RemoteSessionHost.h"
 #include "BackChannel/Transport/IBackChannelTransport.h"
@@ -110,19 +110,32 @@ void FRemoteSessionHost::OnCreateChannels()
 	if (DesiredChannels.Num() == 0)
 	{
 		// Default to Input receive and framebuffer send
-		DesiredChannels.Add(FString::Printf(TEXT("%s,receive"), *FRemoteSessionInputChannel::StaticType()));
-		DesiredChannels.Add(FString::Printf(TEXT("%s,send"), *FRemoteSessionFrameBufferChannel::StaticType()));
+		DesiredChannels.Add(FString::Printf(TEXT("(Name=%s,Mode=Read)"), FRemoteSessionInputChannel::StaticType()));
+		DesiredChannels.Add(FString::Printf(TEXT("(Name=%s,Mode=Write)"), FRemoteSessionFrameBufferChannel::StaticType()));
+        UE_LOG(LogRemoteSession, Log, TEXT("No channels specified. Defaulting to Input and Framebuffer."));
 	}
 	
 	TMap<FString, ERemoteSessionChannelMode> ChannelsWithModes;
 	
-	for (const FString& Channel : DesiredChannels)
+	for (FString Channel : DesiredChannels)
 	{
-		FString ChannelName, Mode;
-		
-		if (Channel.Split(TEXT(","), &ChannelName, &Mode))
+        FString ChannelName, Mode;
+        
+        Channel.TrimStartAndEndInline();
+        
+        if (Channel[0] == TEXT('('))
+        {
+            const TCHAR* ChannelArgs = (*Channel)+1;
+            
+            FParse::Value(ChannelArgs, TEXT("Name="), ChannelName);
+            FParse::Value(ChannelArgs, TEXT("Mode="), Mode);
+        }
+        
+		if (ChannelName.Len() && Mode.Len())
 		{
-			ChannelsWithModes.Add(ChannelName, Mode == TEXT("receive") ? ERemoteSessionChannelMode::Receive : ERemoteSessionChannelMode::Send);
+			ChannelsWithModes.Add(ChannelName, Mode == TEXT("Read") ? ERemoteSessionChannelMode::Receive : ERemoteSessionChannelMode::Send);
+            
+            UE_LOG(LogRemoteSession, Log, TEXT("Will request channel %s in mode %s."), *ChannelName, *Mode);
 		}
 		else
 		{
