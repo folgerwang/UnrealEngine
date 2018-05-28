@@ -93,6 +93,9 @@ public:
 	// Returns the number of rows found in the CSV file
 	void GetNumberOfRowsInCSV(FVectorVMContext& Context);
 
+	// Returns the number of columns found in the CSV file
+	void GetNumberOfColumnsInCSV(FVectorVMContext& Context);
+
 	// Returns the number of points found in the CSV file
 	void GetNumberOfParticlesInCSV(FVectorVMContext& Context);
 
@@ -139,10 +142,6 @@ protected:
 	// Indicates the GPU buffers need to be updated
 	UPROPERTY()
 	bool GPUBufferDirty;
-
-	// Last Index used to spawn particles
-	//UPROPERTY()
-	//int32 LastSpawnIndex;
 
 	// Last Spawned Particle ID
 	UPROPERTY()

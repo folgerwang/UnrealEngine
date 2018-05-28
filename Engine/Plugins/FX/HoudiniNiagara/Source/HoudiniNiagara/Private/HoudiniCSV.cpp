@@ -29,7 +29,7 @@
 #include "EditorFramework/AssetImportData.h"
 #endif
 
-#define LOCTEXT_NAMESPACE HOUDINI_NIAGARA_LOCTEXT_NAMESPACE 
+#define LOCTEXT_NAMESPACE "HoudiniNiagaraCSVAsset"
 
 DEFINE_LOG_CATEGORY(LogHoudiniNiagara);
  
@@ -104,6 +104,13 @@ bool UHoudiniCSV::UpdateFromStringArray( TArray<FString>& RawStringArray )
 		return false;
     }
 
+	// Parses the CSV file's title line to update the column indexes of special values we're interested in
+	// Also look for packed vectors in the first line and update the indexes accordingly
+	bool HasPackedVectors = false;
+	if ( !ParseCSVTitleLine( RawStringArray[0], RawStringArray[1], HasPackedVectors ) )
+		return false;
+
+/*
     // Get the number of values per lines via the title line
     FString TitleString = RawStringArray[ 0 ];
     TitleRowArray.Empty();
@@ -271,6 +278,7 @@ bool UHoudiniCSV::UpdateFromStringArray( TArray<FString>& RawStringArray )
 			TEXT("Error while parsing the CSV File. Found %d columns but found %d values in the first line! Some values will have an offset!" ),
 			NumberOfColumns, FirstLineColumns );
     }
+	*/
     
     // Remove the title row now that it's been processed
     RawStringArray.RemoveAt( 0 );
@@ -400,6 +408,179 @@ bool UHoudiniCSV::UpdateFromStringArray( TArray<FString>& RawStringArray )
     return true;
 }
 
+bool UHoudiniCSV::ParseCSVTitleLine( const FString& TitleLine, const FString& FirstLine, bool& HasPackedVectors )
+{
+	// Get the number of values per lines via the title line
+    //FString TitleString = RawStringArray[ 0 ];
+    TitleRowArray.Empty();
+    TitleLine.ParseIntoArray( TitleRowArray, TEXT(",") );
+    NumberOfColumns = TitleRowArray.Num();
+    if ( NumberOfColumns < 1 )
+    {
+		UE_LOG( LogHoudiniNiagara, Error, TEXT( "Could not load the CSV file, error: not enough columns." ) );
+		return false;
+    }
+
+    // Look for the position, normal and time attributes indexes
+    for ( int32 n = 0; n < TitleRowArray.Num(); n++ )
+    {
+		FString CurrentTitle = TitleRowArray[ n ];
+		CurrentTitle.ToLowerInline();
+		CurrentTitle.ReplaceInline( TEXT(" "), TEXT("") );
+
+		if ( CurrentTitle.Equals( TEXT("P"), ESearchCase::IgnoreCase )
+			|| CurrentTitle.Equals( TEXT("Px"), ESearchCase::IgnoreCase )
+			|| CurrentTitle.Equals( TEXT("X"), ESearchCase::IgnoreCase )
+			|| CurrentTitle.Equals(TEXT("pos"), ESearchCase::IgnoreCase ) )
+		{
+			if ( PositionColumnIndex == INDEX_NONE )
+				PositionColumnIndex = n;
+		}
+		else if ( CurrentTitle.Equals( TEXT("N"), ESearchCase::IgnoreCase )
+			|| CurrentTitle.Equals( TEXT("Nx"), ESearchCase::IgnoreCase ) )
+		{
+			if ( NormalColumnIndex == INDEX_NONE )
+				NormalColumnIndex = n;
+		}
+		else if ( ( CurrentTitle.Equals( TEXT("T"), ESearchCase::IgnoreCase ) )
+			|| ( CurrentTitle.Contains( TEXT("time"), ESearchCase::IgnoreCase ) ) )
+		{
+			if ( TimeColumnIndex == INDEX_NONE )
+				TimeColumnIndex = n;
+		}
+		else if ( ( CurrentTitle.Equals( TEXT("#"), ESearchCase::IgnoreCase ) )
+			|| ( CurrentTitle.Equals( TEXT("id"), ESearchCase::IgnoreCase ) ) )
+		{
+			if ( IDColumnIndex == INDEX_NONE )
+				IDColumnIndex = n;
+		}
+		else if ( CurrentTitle.Equals( TEXT("alive"), ESearchCase::IgnoreCase ) )
+		{
+			if (AliveColumnIndex == INDEX_NONE)
+				AliveColumnIndex = n;
+		}
+		else if ( CurrentTitle.Equals( TEXT("life"), ESearchCase::IgnoreCase ) )
+		{
+			if ( LifeColumnIndex == INDEX_NONE)
+				LifeColumnIndex = n;
+		}
+    }
+
+	 // Read the first line of the CSV file, and look for packed vectors value (X,Y,Z)
+    // We'll have to expand them in the title row to match the parsed data
+    int32 FoundPackedVectorCharIndex = 0;
+    HasPackedVectors = false;
+    while ( FoundPackedVectorCharIndex != INDEX_NONE )
+    {
+		// Try to find ( in the line
+		FoundPackedVectorCharIndex = FirstLine.Find( TEXT("("), ESearchCase::IgnoreCase, ESearchDir::FromStart, FoundPackedVectorCharIndex );
+		if ( FoundPackedVectorCharIndex == INDEX_NONE )
+			break;
+
+		// We want to know which column this char belong to
+		int32 FoundPackedVectorColumnIndex = INDEX_NONE;
+		{
+			// Chop the first line up to the found character
+			FString FirstLineLeft = FirstLine.Left( FoundPackedVectorCharIndex );
+
+			// ReplaceInLine returns the number of occurences of ",", that's what we want! 
+			FoundPackedVectorColumnIndex = FirstLineLeft.ReplaceInline(TEXT(","), TEXT(""));
+		}
+
+		if ( !TitleRowArray.IsValidIndex( FoundPackedVectorColumnIndex ) )
+		{
+			UE_LOG( LogHoudiniNiagara, Warning,
+			TEXT( "Error while parsing the CSV File. Couldn't unpack vector found at character %d in the first line!" ),
+			FoundPackedVectorCharIndex + 1 );
+			continue;
+		}
+
+		// We found a packed vector, get its size
+		int32 FoundVectorSize = 0;
+		{
+			// Extract the vector string
+			int32 FoundPackedVectorEndCharIndex = FirstLine.Find( TEXT(")"), ESearchCase::IgnoreCase, ESearchDir::FromStart, FoundPackedVectorCharIndex );
+			FString VectorString = FirstLine.Mid( FoundPackedVectorCharIndex + 1, FoundPackedVectorEndCharIndex - FoundPackedVectorCharIndex - 1 );
+
+			// Use ReplaceInLine to count the number of , to get the vector's size!
+			FoundVectorSize = VectorString.ReplaceInline( TEXT(","), TEXT("") ) + 1;
+		}
+
+		if ( FoundVectorSize < 2 )
+			continue;
+
+		// Increment the number of columns
+		NumberOfColumns += ( FoundVectorSize - 1 );
+
+		// Expand TitleRowArray
+		if ( ( FoundPackedVectorColumnIndex == PositionColumnIndex ) && ( FoundVectorSize == 3 ) )
+		{
+			// Expand P to Px,Py,Pz
+			TitleRowArray[ PositionColumnIndex ] = TEXT("Px");
+			TitleRowArray.Insert( TEXT( "Py" ), PositionColumnIndex + 1 );
+			TitleRowArray.Insert( TEXT( "Pz" ), PositionColumnIndex + 2 );
+		}
+		else if ( ( FoundPackedVectorColumnIndex == NormalColumnIndex ) && ( FoundVectorSize == 3 ) )
+		{
+			// Expand N to Nx,Ny,Nz
+			TitleRowArray[ NormalColumnIndex ] = TEXT("Nx");
+			TitleRowArray.Insert( TEXT("Ny"), NormalColumnIndex + 1 );
+			TitleRowArray.Insert( TEXT("Nz"), NormalColumnIndex + 2 );
+		}
+		else
+		{
+			// Expand the vector's title from V to V, V1, V2, V3 ...
+			FString FoundPackedVectortTitle = TitleRowArray[ FoundPackedVectorColumnIndex ];
+			for ( int32 n = 1; n < FoundVectorSize; n++ )
+			{
+				FString CurrentTitle = FoundPackedVectortTitle + FString::FromInt( n );
+				TitleRowArray.Insert( CurrentTitle, FoundPackedVectorColumnIndex + n );
+			}
+		}
+
+		// Eventually offset the stored index
+		if ( PositionColumnIndex != INDEX_NONE && ( PositionColumnIndex > FoundPackedVectorColumnIndex) )
+			PositionColumnIndex += FoundVectorSize - 1;
+
+		if ( NormalColumnIndex != INDEX_NONE && ( NormalColumnIndex > FoundPackedVectorColumnIndex) )
+			NormalColumnIndex += FoundVectorSize - 1;
+
+		if ( TimeColumnIndex != INDEX_NONE && ( TimeColumnIndex > FoundPackedVectorColumnIndex) )
+			TimeColumnIndex += FoundVectorSize - 1;
+
+		if ( IDColumnIndex != INDEX_NONE && ( IDColumnIndex > FoundPackedVectorColumnIndex ) )
+			IDColumnIndex += FoundVectorSize - 1;
+
+		if ( AliveColumnIndex != INDEX_NONE && ( AliveColumnIndex > FoundPackedVectorColumnIndex ) )
+			AliveColumnIndex += FoundVectorSize - 1;
+
+		if ( LifeColumnIndex != INDEX_NONE && ( LifeColumnIndex > FoundPackedVectorColumnIndex ) )
+			LifeColumnIndex += FoundVectorSize - 1;
+
+		HasPackedVectors = true;
+		FoundPackedVectorCharIndex++;
+    }
+
+    // For sanity, Check that the number of columns matches the title row and the first line
+    {
+		// Check the title row
+		if ( NumberOfColumns != TitleRowArray.Num() )
+			UE_LOG( LogHoudiniNiagara, Error,
+			TEXT( "Error while parsing the CSV File. Found %d columns but the Title string has %d values! Some values will have an offset!" ),
+			NumberOfColumns, TitleRowArray.Num() );
+
+		// Use ReplaceInLine to count the number of columns in the first line and make sure it's correct
+		FString FirstLineCopy = FirstLine;
+		int32 FirstLineColumns = FirstLineCopy.ReplaceInline( TEXT(","), TEXT("") ) + 1;
+		if ( NumberOfColumns != FirstLineColumns )
+			UE_LOG( LogHoudiniNiagara, Error,
+			TEXT("Error while parsing the CSV File. Found %d columns but found %d values in the first line! Some values will have an offset!" ),
+			NumberOfColumns, FirstLineColumns );
+    }
+
+	return true;
+}
+
 
 // Returns the float value at a given point in the CSV file
 bool UHoudiniCSV::GetCSVFloatValue( const int32& lineIndex, const int32& colIndex, float& value )
@@ -511,10 +692,16 @@ int32 UHoudiniCSV::GetNumberOfParticlesInCSV()
     return NumberOfLines;
 }
 
-// Returns the number of points found in the CSV file
+// Returns the number of lines found in the CSV file
 int32 UHoudiniCSV::GetNumberOfLinesInCSV()
 {
 	return NumberOfLines;
+}
+
+// Returns the number of columns found in the CSV file
+int32 UHoudiniCSV::GetNumberOfColumnsInCSV()
+{
+	return NumberOfColumns;
 }
 
 // Get the last row index for a given time value (the row with a time smaller or equal to desiredTime)

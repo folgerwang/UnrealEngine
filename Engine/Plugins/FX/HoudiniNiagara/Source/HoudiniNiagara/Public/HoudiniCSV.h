@@ -51,6 +51,9 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	// Returns the number of points found in the CSV file
 	int32 GetNumberOfLinesInCSV();
 
+	// Returns the number of columns found in the CSV file
+	int32 GetNumberOfColumnsInCSV();
+
 	// Returns the column index for a given string
 	bool GetColumnIndexFromString(const FString& ColumnTitle, int32& ColumnIndex);
 
@@ -125,6 +128,13 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 
 	virtual void PostInitProperties() override;
 #endif
+
+	protected:
+
+	// Parses the CSV file's title line to update the column indexes of special values we're interested in
+	// Also look for packed vectors in the first line and update the indexes accordingly
+	bool ParseCSVTitleLine( const FString& CSVTitleString, const FString& FirstLine, bool& HasPackedVectors );
+
 
     private:
 
