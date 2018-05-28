@@ -27,6 +27,7 @@ UGeometryCacheComponent::UGeometryCacheComponent(const FObjectInitializer& Objec
 	StartTimeOffset = 0.0f;
 	PlaybackSpeed = 1.0f;
 	Duration = 0.0f;
+	bManualTick = false;
 }
 
 void UGeometryCacheComponent::BeginDestroy()
@@ -90,7 +91,7 @@ void UGeometryCacheComponent::OnUnregister()
 void UGeometryCacheComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	SCOPE_CYCLE_COUNTER(STAT_GeometryCacheComponent_TickComponent);
-	if (GeometryCache && bRunning)
+	if (GeometryCache && bRunning && !bManualTick)
 	{
 		// Increase total elapsed time since BeginPlay according to PlayDirection and speed
 		ElapsedTime += (DeltaTime * PlayDirection * GetPlaybackSpeed());
@@ -130,6 +131,57 @@ void UGeometryCacheComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 				float, AnimationTime, GetAnimationTime(),
 				bool, bLooping, IsLooping(),
 				bool, bIsPlayingBackwards, IsPlayingReversed(),
+				float, PlaybackSpeed, ActualPlaybackSpeed,
+				{
+					SceneProxy->UpdateAnimation(AnimationTime, bLooping, bIsPlayingBackwards,PlaybackSpeed);
+				});
+		}
+	}
+}
+
+void UGeometryCacheComponent::SetManualTick(bool bInManualTick)
+{
+	bManualTick = bInManualTick;
+}
+bool UGeometryCacheComponent::GetManualTick() const
+{
+	return bManualTick;
+}
+
+void UGeometryCacheComponent::TickAtThisTime(const float Time, bool bInIsRunning, bool bInBackwards, bool bInIsLooping)
+{
+	if (bManualTick && GeometryCache && bRunning)
+	{
+		// Game thread update:
+		// This mainly just updates the matrix and bounding boxes. All render state (meshes) is done on the render thread
+		bool bUpdatedBoundsOrMatrix = false;
+		for (int32 TrackIndex = 0; TrackIndex < NumTracks; ++TrackIndex)
+		{
+			bUpdatedBoundsOrMatrix |= UpdateTrackSection(TrackIndex);
+		}
+
+		if (bUpdatedBoundsOrMatrix)
+		{
+			UpdateLocalBounds();
+			// Mark the transform as dirty, so the bounds are updated and sent to the render thread
+			MarkRenderTransformDirty();
+		}
+
+		// The actual current playback speed. The PlaybackSpeed variable contains the speed it would
+		// play back at if it were running regardless of if we're running or not. The renderer
+		// needs the actual playback speed if not a paused animation with explicit motion vectors
+		// would just keep on blurring as if it were moving even when paused.
+		float ActualPlaybackSpeed = (bInIsRunning) ? PlaybackSpeed : 0.0f;
+
+		// Schedule an update on the render thread
+		if (FGeometryCacheSceneProxy* CastedProxy = static_cast<FGeometryCacheSceneProxy*>(SceneProxy))
+		{
+			ENQUEUE_UNIQUE_RENDER_COMMAND_FIVEPARAMETER(
+				FGeometryCacheUpdateAnimation,
+				FGeometryCacheSceneProxy*, SceneProxy, CastedProxy,
+				float, AnimationTime, Time,
+				bool, bLooping, bInIsLooping,
+				bool, bIsPlayingBackwards, bInBackwards,
 				float, PlaybackSpeed, ActualPlaybackSpeed,
 				{
 					SceneProxy->UpdateAnimation(AnimationTime, bLooping, bIsPlayingBackwards,PlaybackSpeed);
@@ -365,15 +417,20 @@ void UGeometryCacheComponent::SetStartTimeOffset(const float NewStartTimeOffset)
 	MarkRenderStateDirty();
 }
 
-float UGeometryCacheComponent::GetAnimationTime()
+float UGeometryCacheComponent::GetAnimationTime() const
 {
 	const float ClampedStartTimeOffset = FMath::Clamp(StartTimeOffset, -14400.0f, 14400.0f);
 	return ElapsedTime + ClampedStartTimeOffset;
 }
 
-float UGeometryCacheComponent::GetPlaybackDirection()
+float UGeometryCacheComponent::GetPlaybackDirection() const
 {
 	return PlayDirection;
+}
+
+float UGeometryCacheComponent::GetDuration() const
+{
+	return Duration;
 }
 
 void UGeometryCacheComponent::PlayReversedFromEnd()
@@ -408,6 +465,31 @@ void UGeometryCacheComponent::ReleaseResources()
 	DetachFence.BeginFence();
 }
 
+int32 UGeometryCacheComponent::GetFrameAtTime(const float Time) const
+{
+
+	const float FrameTime = GetNumberOfFrames() > 1 ? Duration / (float)(GetNumberOfFrames() - 1) : 0.0f;
+	const int32 NormalizedFrame =  FMath::Clamp(FMath::RoundToInt(Time / FrameTime), 0, GetNumberOfFrames() - 1);
+	const int32 StartFrame = GeometryCache != nullptr ? GeometryCache->GetStartFrame() : 0;
+	return StartFrame + NormalizedFrame; //
+}
+
+float UGeometryCacheComponent::GetTimeAtFrame(const int32 Frame) const
+{
+	const float FrameTime = GetNumberOfFrames() > 1 ? Duration / (float)(GetNumberOfFrames() - 1) : 0.0f;
+	const int32 StartFrame = GeometryCache != nullptr ? GeometryCache->GetStartFrame() : 0;
+
+	return FMath::Clamp(FrameTime * (Frame - StartFrame), 0.0f, Duration);
+}
+
+int32 UGeometryCacheComponent::GetNumberOfFrames() const
+{
+	if (GeometryCache)
+	{
+		return GeometryCache->GetEndFrame() - GeometryCache->GetStartFrame()  + 1;
+	}
+	return 0;
+}
 #if WITH_EDITOR
 void UGeometryCacheComponent::PreEditUndo()
 {

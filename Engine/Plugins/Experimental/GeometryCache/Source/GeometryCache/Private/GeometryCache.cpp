@@ -20,6 +20,8 @@ DEFINE_LOG_CATEGORY(LogGeometryCache);
 
 UGeometryCache::UGeometryCache(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
+	StartFrame = 0;
+	EndFrame = 0;
 }
 
 void UGeometryCache::PostInitProperties()
@@ -125,6 +127,22 @@ void UGeometryCache::PreEditChange(UProperty* PropertyAboutToChange)
 void UGeometryCache::AddTrack(UGeometryCacheTrack* Track)
 {
 	Tracks.Add(Track);
+}
+
+void UGeometryCache::SetFrameStartEnd(int32 InStartFrame, int32 InEndFrame)
+{
+	StartFrame = InStartFrame;
+	EndFrame = InEndFrame;
+}
+
+int32 UGeometryCache::GetStartFrame() const
+{
+	return StartFrame;
+}
+
+int32 UGeometryCache::GetEndFrame() const
+{
+	return EndFrame;
 }
 
 #undef LOCTEXT_NAMESPACE // "GeometryCache"
