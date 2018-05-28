@@ -10,6 +10,8 @@
 /**
  * Handles animation of geometry cache actors
  */
+class UGeometryCacheComponent;
+
 UCLASS(MinimalAPI)
 class UMovieSceneGeometryCacheTrack
 	: public UMovieSceneNameableTrack

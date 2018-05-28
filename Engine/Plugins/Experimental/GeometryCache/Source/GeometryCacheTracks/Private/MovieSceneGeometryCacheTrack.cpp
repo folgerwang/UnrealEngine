@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneGeometryCacheTrack.h"
+#include "GeometryCacheComponent.h"
 #include "MovieSceneGeometryCacheSection.h"
 #include "Compilation/MovieSceneCompilerRules.h"
 #include "Evaluation/MovieSceneEvaluationTrack.h"
