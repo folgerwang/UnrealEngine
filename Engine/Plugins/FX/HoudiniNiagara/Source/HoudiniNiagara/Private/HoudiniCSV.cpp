@@ -758,12 +758,14 @@ bool UHoudiniCSV::GetParticleLineIndexAtTime(const int32& ParticleID, const floa
 	if ( PrevIndex < 0 )
 	{
 		PrevWeight = 0.0f;
+		PrevIndex = NextIndex;
 		return true;
 	}
 
 	if ( NextIndex < 0 )
 	{
 		PrevWeight = 1.0f;
+		NextIndex = PrevIndex;
 		return true;
 	}
 

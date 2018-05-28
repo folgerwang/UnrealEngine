@@ -119,6 +119,10 @@ public:
 	// Returns the line indexes (previous, next) for reading values for a given particle at a given time
 	template<typename NParamType, typename TimeParamType>
 	void GetRowIndexesForParticleAtTime(FVectorVMContext& Context);
+
+	// Return the life of a given particle at a given time
+	template<typename NParamType, typename TimeParamType>
+	void GetParticleLifeAtTime(FVectorVMContext& Context);
 	
 	//----------------------------------------------------------------------------
 	// GPU / HLSL Functions
