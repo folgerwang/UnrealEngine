@@ -4,8 +4,8 @@
 #include "CoreTypes.h"
 #include "Misc/Guid.h"
 
-// Custom serialization version for changes made in Dev-Athena stream
-struct CORE_API FAthenaObjectVersion
+// Custom serialization version for changes made in the //Fortnite/Main stream
+struct CORE_API FFortniteMainBranchObjectVersion
 {
 	enum Type
 	{
@@ -53,5 +53,5 @@ struct CORE_API FAthenaObjectVersion
 	const static FGuid GUID;
 
 private:
-	FAthenaObjectVersion() {}
+	FFortniteMainBranchObjectVersion() {}
 };

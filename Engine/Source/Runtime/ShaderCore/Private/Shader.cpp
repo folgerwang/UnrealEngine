@@ -17,7 +17,7 @@
 #include "ShaderCore.h"
 #include "Misc/ConfigCacheIni.h"
 #include "UObject/RenderingObjectVersion.h"
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 
 DEFINE_LOG_CATEGORY(LogShaders);
@@ -959,7 +959,7 @@ const FSHAHash& FShader::GetHash() const
 
 bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 {
-	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 	Serialize(Ar);
 
@@ -990,7 +990,7 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 		{
 			FUniformBufferStruct* Struct = nullptr;
 
-			if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::MaterialInstanceSerializeOptimization_ShaderFName)
+			if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::MaterialInstanceSerializeOptimization_ShaderFName)
 			{
 				FString StructName;
 				Ar << StructName;
@@ -1026,7 +1026,7 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 		{
 			FString StructName(UniformBufferParameterStructs[StructIndex]->GetStructTypeName());
 
-			if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::MaterialInstanceSerializeOptimization_ShaderFName)
+			if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::MaterialInstanceSerializeOptimization_ShaderFName)
 			{
 				Ar << StructName;
 			}
