@@ -138,6 +138,8 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 
     private:
 
+	static bool SortPredicate(const TArray<FString>& A, const TArray<FString>& B);
+
 	// Array containing the Raw String data
 	UPROPERTY()
 	TArray<FString> StringCSVData;
@@ -153,9 +155,6 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	// Array containing all the life values for each particles in the file
 	UPROPERTY()
 	TArray<float> LifeValues;
-
-	// Array containing the different time values for each particles in the file
-	TArray<float> TimeValues;
 
 	// Index of the Position values in the buffer
 	UPROPERTY()	    
