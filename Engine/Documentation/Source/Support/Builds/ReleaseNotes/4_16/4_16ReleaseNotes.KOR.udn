@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3457153
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title: 언리얼 엔진 4.16 릴리즈 노트
 Description: 언리얼 엔진 4.16 릴리즈 노트
@@ -38,11 +38,11 @@ reference-image: image_35.gif
 
 새로운 Volumetric Fog (볼류메트릭 포그) 기능으로 환경에 놀라운 배경 효과와 분위기를 연출해 보세요! 다양한 농도 설정이 지원되어 빛줄기 사이로 흐르는 먼지나 연기 구름 시뮬레이션이 가능하며, 이 볼류메트릭 포그에는 다수의 라이트가 동시에 영향을 줄 수 있습니다.
 
-![image alt text](image_0.png)(w:929 h:529 convert:false)
+![image alt text](image_0.png)(w:929 convert:false)
 
-![image alt text](image_1.png)(w:928 h:510 convert:false)
+![image alt text](image_1.png)(w:928 convert:false)
 
-![image alt text](image_2.png)(w:928 h:510 convert:false)
+![image alt text](image_2.png)(w:928 convert:false)
 
 볼류메트릭 포그가 받을 수 있는 라이팅은 다음과 같습니다:
 
@@ -62,7 +62,7 @@ reference-image: image_35.gif
 
 새로운 이미지 기반 (FFT) 컨볼루션(합성곱) 기능으로 물리 법칙에 맞는 사실적인 블룸 포스트 프로세스 이펙트를 만들 수 있습니다! 언리얼 엔진 4.16 에 포함된 FFT 블룸 기능으로, 아티스트는 커스텀 블룸 커널 모양을 사용할 수 있을 뿐 아니라, 원하는 결과를 낼 수 있도록 그 세기도 완벽히 제어할 수 있습니다.
 
-![image alt text](image_3.png)(w:928 h:485 convert:false)
+![image alt text](image_3.png)(w:928 convert:false)
 
 소스 이미지의 수학 컨볼루션 연산에 커널 이미지를 사용하는 이 블룸 기법을 통해, 별모양 광채에서부터 일정 구역의 디퓨즈 글로우에 이르기까지 다양한 반응 연속체 효과를 낼 수 있습니다. 이미지 기반 컨볼루션으로 사실감을 더할 수 있는 것은, 시각적으로 흥미로운 비대칭 커널 이미지를 사용할 수 있기 때문입니다. 보통은 방사형으로 퍼지는 별모양 광채같아 보이지만, 속눈썹 실루엣, 보케, 기타 부작용같은 모양을 포함시킬 수도 있습니다.
 
@@ -72,7 +72,7 @@ reference-image: image_35.gif
 
 **디스턴스 필드 앰비언트 오클루전** 및 **레이 트레이스드 디스턴스 필드 섀도우** 가 현 세대 콘솔과 중간 사양 PC 에서 **30-50% 빨라졌습니다**! 씬에 보다 사실적인 앰비언트 라이팅과 다이내믹 메시에 에리어 섀도우를 드리울 수 있도록 해주는 기능입니다.
 
-![image alt text](image_4.png)(w:929 h:513 convert:false)
+![image alt text](image_4.png)(w:929 convert:false)
 
 게다가, Intel 의 Embree 레이 트레이싱 라이브러리를 사용하여 **메시 디스턴스 필드 생성 시간도 2.5 배 빨라졌습니다**. 프로젝트 세팅 중 Eight Bit Mesh Distance Fields (8비트 메시 디스턴스 필드) 및 Compress Mesh Distance Fields (메시 디스턴스 필드 압축) 옵션을 사용하면 메모리 사용량 역시 크게 감소합니다.
 
@@ -127,14 +127,14 @@ Nvidia 의 새로운 로우 레벨 NvCloth 클로딩 솔버를 사용하여 보�
 등록한 개발자들은 이제 Nitendo Switch 용 게임 제작 및 출시가 가능합니다! 언리얼 엔진 4 는 Nintendo Switch 검증 사항을 준수하며, 네트워크 멀티플레이어 게임은 물론, 디퍼드 / 모바일 포워드 / 클러스터드 포워드와 같은 멀티 렌더링 파이프라인 접근도 지원하여, 사실상 어떤 유형의 게임도 쉽게 제작할 수 있습니다.
 
 [REGION:raw]
-![image alt text](image_7.png)(w:925 h:641 convert:false)
+![image alt text](image_7.png)(w:925 convert:false)
 [/REGION]
 
 ### 신규: VR 모드 UI 및 인터랙션 업데이트
 
 언리얼 에디터의 VR 모드가 대폭 개선되어 보다 직관적인 작업방식과 편집 환경을 제공해 줍니다.
 
-![image alt text](image_8.jpg)(w:722 h:646 convert:false)
+![image alt text](image_8.jpg)(w:722 convert:false)
 
 새로운 비대칭 컨트롤러 셋업으로 한 손에는 새롭게 개선된 원형 메뉴를, 다른 한 손에는 보다 정밀해진 인터랙션 레이저로 레벨의 오브젝트 작업을 빠르고 쉽게 할 수 있습니다.
 
@@ -216,7 +216,7 @@ Nvidia 의 새로운 로우 레벨 NvCloth 클로딩 솔버를 사용하여 보�
 
 **DirectX 12 가 Xbox One 의 기본 렌더러가 되었습니다**! DirectX 12 에 가한 여러가지 안전성 및 퍼포먼스 개선사항 덕에 Xbox One 의 기본 RHI 로 활용하여, **CPU 및 GPU 퍼포먼스 향상** 효과를 누릴 수 있게 되었습니다.
 
-![image alt text](image_12.png)(w:556 h:356 convert:false)
+![image alt text](image_12.png)(w:556 convert:false)
 
 #### D3D11 로 돌아가기
 
@@ -235,7 +235,7 @@ D3D11 로 돌아갈 필요가 있는 타이틀의 경우 그 방법은 다음과
 언리얼 엔진 4 가 이제 HTML5 의 새로운 WebAssembly 표준(다른 명칭으로는 WASM)을 지원하여, 웹에서도 C++ 코드를 가장 빠르고 효율적으로 컴파일하고 실행할 수 있게 되었습니다! Mozilla 의 최신 (v1.37.9) Emscripten 툴체인을 사용하고 있습니다. 이 기능은 아직 모든 브라우저에 지원되지 않는 신기술이라 얼리 액세스 기능으로 간주되고 있으며, GitHub 접근 권한이 필요합니다.
 
 [REGION:raw]
-![image alt text](image_13.png)(w:929 h:630 convert:false)
+![image alt text](image_13.png)(w:929 convert:false)
 [/REGION]
 
 WASM 은 웹 앱에 사용되는 새로운 JavaScript 코드-투-바이너리 포맷으로, 앱 다운로드 크기와 시작 시간 및 메모리 소모량을 감소시켜 퍼포먼스를 크게 향상시켜 줍니다. WASM 및 브라우저 지원 관련 자세한 내용은 http://webassembly.org/ 페이지를 참고하세요.
@@ -295,7 +295,7 @@ Firefox 또는 Chrome (위 지원 버전) 브라우저에서 [HTML5 에서 실�
 매 번 릴리즈마다 플랫폼 파트너사의 최신 SDK 버전을 지원할 수 있도록 엔진을 업그레이드하고 있습니다.
 
 [REGION:raw]
-![image alt text](image_15.jpg)(w:929 h:522 convert:false)
+![image alt text](image_15.jpg)(w:929 convert:false)
 [/REGION]
 
 * **Visual Studio:** 중요: Visual Studio 2013 은 윈도우에서 이번 릴리즈에 더이상 지원되지 않습니다. Visual Studio 2015 또는 Visual Studio 2017 로 업그레이드해 주세요.
@@ -415,7 +415,7 @@ Firefox 또는 Chrome (위 지원 버전) 브라우저에서 [HTML5 에서 실�
 
 블렌드 모드 옵션을 사용하여 머지 액터와 HLOD 로 오파시티 (마스크) 값을 구워내는 기능이 지원됩니다. 결과 (인스턴싱된) 머티리얼은 set blend mode 를 사용하여 올바른 렌더 패스를 따르도록 합니다. 마스크드 머티리얼을 구워낸 예제입니다:
 
-![image alt text](image_20.png)(w:904 h:740 convert:false)
+![image alt text](image_20.png)(w:904 convert:false)
 
 ### 신규: 메시 페인트 툴 개선
 
@@ -516,7 +516,7 @@ Look At 컨트롤에 대한 시각화 역시 개선되었습니다. 예를 들�
 
 이 부가 데이터를 포함시키려면, 애니메이션 생성 또는 애니메이션 익스포트 에서 **프리뷰 메시** 를 선택하면 됩니다.
 
-![image alt text](image_25.png)(w:697 h:256 convert:false)
+![image alt text](image_25.png)(w:697 convert:false)
 
 ### 신규: 언리얼 오디오 엔진 (얼리 액세스 프리뷰)
 
@@ -542,7 +542,7 @@ synthesis 플러그인에는 새로운 언리얼 오디오 엔진에서 사용�
 
 에픽과 Valve 가 팀을 이뤄 새로운 언리얼 오디오 엔진의 신기능을 활용하여 처음으로 완벽 통합 구현한 Steam Audio SDK  를 발매했습니다.
 
-![image alt text](image_26.png)(w:600 h:160 convert:false)
+![image alt text](image_26.png)(w:600 convert:false)
 
 Steam Audio 는 새로운 언리얼 오디오 엔진의 공간화, 오클루전, 리버브 시스템과 근본적인 수준에서 통합되어 UE4 의 VR 을 위한 차세대 물리 기반 오디오 체험을 선사할 수 있습니다. 이번 버전은 Steam Audio 얼리 액세스 버전이며, 4.17 에 중요 업데이트, 추가 예제 프로젝트, 작업방식 개선사항이 계획되어 있습니다. 개선을 위한 피드백, 질문, 아이디어는 언제든 환영입니다.
 
@@ -552,7 +552,7 @@ Steam Audio 관련 자세한 정보, 문서, 기술지원 도움말은 [https://
 
 컬러 그레이딩 유저 인터페이스가 사용하기 쉽도록 개선되었습니다!
 
-![image alt text](image_27.jpg)(w:529 h:257 convert:false)
+![image alt text](image_27.jpg)(w:529 convert:false)
 
 * 새로운 HSV 모드가 추가되었습니다.
 
@@ -572,7 +572,7 @@ Steam Audio 관련 자세한 정보, 문서, 기술지원 도움말은 [https://
 
 UE4 에 이제 현지화 스트링 테이블이 지원됩니다!
 
-![image alt text](image_29.png)(w:601 h:218 convert:false)
+![image alt text](image_29.png)(w:601 convert:false)
 
 스트링 테이블은 현지화 텍스트를 하나( 또는 여러 개)의 알려진 위치에 몰아두고 스티링 테이블 안의 항목을 다른 애셋이나 코드에서 안정적인 방식으로 레퍼런싱하여 현지화 텍스트를 쉽게 재사용할 수 있습니다. 스트링 테이블은 C++ 에서 정의하거나, CSV 파일을 통해 로드하거나, 애셋으로 생성할 수 있습니다.
 
@@ -619,7 +619,7 @@ UE4 에 이제 현지화 스트링 테이블이 지원됩니다!
 
 안드로이드 23 을 타겟으로 삼는 경우, Android Runtimes Permission 플러그인에 네이티브 코드나 Check Android Permission 블루프린트 노드를 사용하여 권한이 이미 부여되었는지 검사하는 기능이 제공됩니다. 권한이 아직 부여되지 않은 경우, 앱에서는 Request Android Permissions 블루프린트 노드를 사용하여 사용자에게 요청한 뒤, On Permissions Granted Dynamic 델리게이트에 바인딩된 이벤트를 사용하여 결과를 구할 수 있습니다. 그러면 게임이 권한이 필요한 기능을 사용하기 직전에 권한을 요청하도록 하여, 사용자 경험 향상에 도움이 됩니다. 안드로이드 23 이전 버전을 타겟으로 삼는 경우, 예전처럼 Android Manifest 에 지정하여 권한을 부여해야 합니다.
 
-![image alt text](image_32.png)(w:718 h:346 convert:false)
+![image alt text](image_32.png)(w:718 convert:false)
 
 **주:** 4.16 은 Android SDK 23 이상이 설치되어 있어야 합니다. 기존 버전을 사용하시는 경우 SDK 매니저를 사용하여 안드로이드의 Upgrade Note 부분 안내에 따라 설치해 주시기 바랍니다. 또한 Android SDK 프로젝트 세팅에서, Android SDK API Level 을 "matchndk" 에서 "latest" 으로 변경해 주세요. 그러면 Android SDK 플랫폼 디렉토리에 설치된 최신 SDK 를 사용합니다. NDK API Level 은 변경할 필요 없습니다. Lollipop (Android 5.0) 이전 버전 안드로이드에 APK 를 설치할 수 있도록 하려면 "android-19" 가 맞습니다. 이 값을 높여 설정하면 Android 5.0 이상이 필요합니다.
 
@@ -655,7 +655,7 @@ iOS, TVOS, MacOS 의 Metal 에서는 보다 효율적인 플랫폼 전용 셰이
 
 Play Montage 는 어느 블루프린트 로직에서도 애님 몽타주 재생에 쓸 수 있는 새로운 비동기 노드입니다. 이를 통해 몇몇 콜백 이벤트에 쉽게 접근할 수 있어, 몽타주가 블렌드 아웃 되거나 중단되는 등의 경우에 다른 노드를 발동시킬 수 있습니다.
 
-![image alt text](image_33.png)(w:376 h:272 convert:false)
+![image alt text](image_33.png)(w:376 convert:false)
 
 * OnCompleted 는 몽타주 재생이 완료되고 완전히 블렌드 아웃 되면 호출됩니다.
 
@@ -754,11 +754,11 @@ PSVR 소셜 스크린 프리뷰에 소셜 스크린 분리 모드가 지원됩�
 
 기존에 버텍스 셰이더 작업을 덜어내는 방식은 Customized UV 출력을 활용하는 것이었습니다. 데이터 수동 패킹 작업이 수반되는 약간 번거로울 수 있는 작업이었지요. 아래 예제 머티리얼은 미리 스키닝된 메시 데이터를 패킹한 후 언패킹하여 이펙트에서 사용하는 것입니다:
 
-![image alt text](image_36.png)(w:766 h:665 convert:false)
+![image alt text](image_36.png)(w:766 convert:false)
 
 새로운 인터폴레이터 노드는 패킹을 자동 처리해 주어, 그래프가 단순하고 깔끔해집니다:
 
-![image alt text](image_37.png)(w:776 h:357 convert:false)
+![image alt text](image_37.png)(w:776 convert:false)
 
 기존에 Customized UVs 를 통해 패킹하던 작업은 VS (버텍스 셰이더) 핀에 걸어주고 PS (픽셀 셰이더) 핀에서 구합니다.
 
@@ -766,17 +766,17 @@ PSVR 소셜 스크린 프리뷰에 소셜 스크린 분리 모드가 지원됩�
 
 이 기능은 Customized UVs 와 호환되며, 결과를 같이 패킹합니다.
 
-## 신규: 애셋 관리 프레임워크 (얼리 액세스 프리뷰)
+### 신규: 애셋 관리 프레임워크 (얼리 액세스 프리뷰)
 
-Asset Manager (애셋 매니저)는 에디터에서나 실행시간에 게임 전용 애셋 유형과 맵을 발견, 로드, 검사하는 데 사용할 수 있는 새로운 글로벌 오브젝트입니다. 퀘스트, 무기, 영웅과 같은 것들을 만들고 요청이 있을 때 로드하는 작업을 수월하게 해주는 프레임워크를 제공합니다. 아직 활발히 개발중인 기능이라, 숙련되지 않은 개발자나 블루프린트 전용 게임에서 사용하기에는 아직 이르며, 4.17 이나 되어야 할 것입니다. 프로젝트 세팅의 애셋 매니저 탭에서 게임의 규칙을 구성할 수 있습니다:
+Asset Manager (애셋 매니저)는 에디터에서나 실행시간에 게임 전용 애셋 유형과 맵을 발견, 로드, 감수하는 데 사용할 수 있는 새로운 글로벌 오브젝트입니다. 퀘스트, 무기, 영웅과 같은 것들을 만들고 요청이 있을 때 로드하는 작업을 수월하게 해주는 프레임워크를 제공합니다. 아직 활발히 개발중인 기능이라, 숙련되지 않은 개발자나 블루프린트 전용 게임에서 사용하기에는 아직 이르며, 4.17 이나 되어야 할 것입니다. 프로젝트 세팅의 애셋 매니저 탭에서 게임의 규칙을 구성할 수 있습니다:
 
-애셋 매니저가 검색한 주요 애셋 유형은 로드 직전 실행시간에 쿼리한 뒤, 요청이 있을 때 비동기 로드 가능합니다. 또한 애셋 매니저 세팅을 통해 게임을 패키지 제작 및 릴리즈할 때 쿠킹 및 청크 규칙을 구성할 수 있습니다. AnswerHub 에서 이 기능에 대해 작성중인 문서를 참고해 보실 수 있습니다: [https://answers.unrealengine.com/questions/595580/what-is-the-asset-manager.html](https://answers.unrealengine.com/questions/595580/what-is-the-asset-manager.html)
+애셋 매니저가 검색한 프라이머리 애셋 유형은 로드 직전 실행시간에 쿼리한 뒤, 요청이 있을 때 비동기 로드 가능합니다. 또한 애셋 매니저 세팅을 통해 게임을 패키지 제작 및 릴리즈할 때 쿠킹 및 청크 규칙을 구성할 수 있습니다. AnswerHub 에서 이 기능에 대해 작성중인 문서를 참고해 보실 수 있습니다: [https://answers.unrealengine.com/questions/595580/what-is-the-asset-manager.html](https://answers.unrealengine.com/questions/595580/what-is-the-asset-manager.html)
 
-### 신규: 애셋 검사 창 [얼리 액세스 프리뷰]
+### 신규: 애셋 감수 창 [얼리 액세스 프리뷰]
 
-애셋 관리 프레임워크 기반으로 제작된 Asset Audit (애셋 검사) 창을 사용하여 디스크 크기, 메모리 사용량, 다수 애셋에 대한 일반적인 애셋 프로퍼티를 한꺼번에 검사할 수 있습니다. 콘텐츠 브라우저의 특수 버전으로, 창 > 개발자 툴 메뉴에서, 또는 콘텐츠 브라우저나 레퍼런스 뷰어의 우클릭 메뉴에서 접할 수 있습니다. 창을 연 이후에는, 버튼으로 애셋을 추가하고, 플랫폼 드롭다운으로 쿠킹된 애셋 레지스트리에서 로드한 플랫폼 데이터를 로드할 수 있습니다. PS4 에서 ShooterGame 샘플의 텍스처를 검사하는 예제입니다:
+애셋 관리 프레임워크 기반으로 제작된 Asset Audit (애셋 감수) 창을 사용하여 디스크 크기, 메모리 사용량, 다수 애셋에 대한 일반적인 애셋 프로퍼티를 한꺼번에 감수할 수 있습니다. 콘텐츠 브라우저의 특수 버전으로, 창 > 개발자 툴 메뉴에서, 또는 콘텐츠 브라우저나 레퍼런스 뷰어의 우클릭 메뉴에서 접할 수 있습니다. 창을 연 이후에는, 버튼으로 애셋을 추가하고, 플랫폼 드롭다운으로 쿠킹된 애셋 레지스트리에서 로드한 플랫폼 데이터를 로드할 수 있습니다. PS4 에서 ShooterGame 샘플의 텍스처를 감수하는 예제입니다:
 
-![image alt text](image_38.png)(w:929 h:289 convert:false)
+![image alt text](image_38.png)(w:929 convert:false)
 
 ### VR: VR 용 콘솔 명령 통합
 
@@ -830,7 +830,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * The "Get AI Controller" is now a pure Blueprint Function.
 
-* Exposed Brain Component's "Is Running" and â€œIs Pausedâ€ functions to Blueprint.
+* Exposed Brain Component's "Is Running" and "Is Paused" functions to Blueprint.
 
 * Clamped AI Sight's peripheral vision angle as well as changed the UI to not allow values outside of the 0-180 range.
 
@@ -854,13 +854,13 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Added a flag to Recast Navmesh, "Allow Nav Link As Path End", that is used to control whether path corridors can end on a navigation link or not. This may happen with partial paths and not usually desired behavior. Navigation links at the end are not allowed by default. 
 
-* The Blueprint functions "Project Point To Navigation", â€œGet Random Reachable Point In Radiusâ€, and â€œGet Random Point In Navigable Radiusâ€ all return booleans determining if the projection/generation was successful, as well as the vector value that describes the requested point.
+* The Blueprint functions "Project Point To Navigation", "Get Random Reachable Point In Radius", and "Get Random Point In Navigable Radius" all return booleans determining if the projection/generation was successful, as well as the vector value that describes the requested point.
 
 * Bugfix: Fixed a memory leak in navmesh generators.
 
 * Bugfix: Fixed an issue that resulted in losing user settings in Static Mesh's navigation export (Nav Collision object) after changing any property of the Static Mesh.
 
-* Bugfix: Hand-placed AI pawns now get their Path Following Component's "My Nav Dataâ€ variable set properly.
+* Bugfix: Hand-placed AI pawns now get their Path Following Component's "My Nav Data" variable set properly.
 
 * Bugfix: Fixed an issue with missing update of navigation area after duplicate or undo operations on Nav Link Proxy and Nav Link Component.
 
@@ -988,9 +988,9 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Refactored "Evaluate Bone Transforms" to prevent usage of Skeletal Mesh component.
 
-    * Deprecated "Evaluate Bone Transforms" in favor of new â€œ'EvaluateSkeletalControl_AnyThreadâ€.
+    * Deprecated "Evaluate Bone Transforms" in favor of new "EvaluateSkeletalControl_AnyThread".
 
-    * Deprecated Skeletal Mesh component argument to "Convert CS Transform To Bone Space" and â€œâ€‹Convert Bone Space Transform To CSâ€. Now they just take a transform.
+    * Deprecated Skeletal Mesh component argument to "Convert CS Transform To Bone Space" and "Convert Bone Space Transform To CS". Now they just take a transform.
 
 * When selecting bones that are non-required, we now do not render gizmos or text labels.
 
@@ -1018,7 +1018,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * New: Animation Blueprints can now specify a Preview Mesh.
 
-* New: Added the "Look At" node so you can use â€œLook at Locationâ€ on a socket or joint, and improved the Visualizer.
+* New: Added the "Look At" node so you can use "Look at Location" on a socket or joint, and improved the Visualizer.
 
 * Bugfix: Fixed a crash when "Pose Asset" contains a bone that is not in the mesh.
 
@@ -1026,7 +1026,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Bugfix: Fixed a crash when diffing State Machine Transition graphs.
 
-* Bugfix: Fixed an issue with "Pose Handler" using mesh bone index and not compact bone index for setting up â€œBone Blend Weightsâ€ array.
+* Bugfix: Fixed an issue with "Pose Handler" using mesh bone index and not compact bone index for setting up "Bone Blend Weights" array.
 
 * Bugfix: Fixed an issue with incorrect errors on compiling Aim Offset nodes with exposed blendspace pins. 
 
@@ -1108,7 +1108,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Macro instances that contain latent actions will now show an overlay clock icon like other latent nodes, which makes them easier to spot and understand that they impact execution flow
 
-	![image alt text](image_39.png)(w:720 h:180 convert:false)
+	![image alt text](image_39.png)(w:720 convert:false)
 
 * New: Improved comments in Blueprints.
 
@@ -1348,7 +1348,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 	When either pak index encryption or signing are enabled in the Project Settings, pak ini encryption must also be enabled in order to avoid a potential security issue. All of these settings can be found in the Packaging section of the Project Settings dialog in the editor.
 	[/REGION]
 
-* New: Added "Get Component For Axis" and â€œSet Component For Axisâ€ to FVector and FRotator.
+* New: Added "Get Component For Axis" and "Set Component For Axis" to FVector and FRotator.
 
 * New: Added support for -iterate for content plugins that require path remapping during cook/packaging.
 
@@ -1446,7 +1446,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Separate pak cache granularity from pak signing chunk size in the EDL loader.
 
-* Increase "Serial Size" and â€œSerial Offsetâ€ in FObjectExport to 64bits, to handle larger file sizes.
+* Increase "Serial Size" and "Serial Offset" in FObjectExport to 64bits, to handle larger file sizes.
 
 * Added some validation of the class index in exportmap entries.
 
@@ -1480,7 +1480,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * New: UnrealGameSync now allows a project to specify filters for the streams that should be displayed for fast-switching to. 
 
-    * The "Quick Select Stream List" setting in the â€œOptionsâ€ section of the Project Settings references a depot path containing a list of strings used to filter the stream list. An option is shown to switch back to showing all available streams, if desired.
+    * The "Quick Select Stream List" setting in the "Options" section of the Project Settings references a depot path containing a list of strings used to filter the stream list. An option is shown to switch back to showing all available streams, if desired.
 
 * New: Added support for in memory packages. Helps distinguish between packages which can and can't be cooked. 
 
@@ -1492,11 +1492,11 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
     * You can adjust the 'Editor Window Background Color' for a subtle effect, as the default background is already a pretty dark grey:
 
-		![image alt text](image_40.jpg)(w:929 h:416 convert:false)
+		![image alt text](image_40.jpg)(w:929 convert:false)
 
     * Or you can edit the tint in the two brushes (which sets the texture to a white default one) to get a very brazen effect:
 
-		![image alt text](image_41.jpg)(w:929 h:416 convert:false)
+		![image alt text](image_41.jpg)(w:929 convert:false)
 
 * New: Added Data Table export/import support for TMap and TSet.
 
@@ -1762,7 +1762,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Bugfix: Fixed an issue that prevented textures from updating correctly if a source texture with the same name as a texture asset is imported from a location that differs from the asset's original source image.
 
-* Bugfix: Fixed an issue where the Force Feedback "Play" and â€œStopâ€ icons weren't rendered correctly and would only be displayed when hovering over the asset or when the asset is currently playing. 
+* Bugfix: Fixed an issue where the Force Feedback "Play" and "Stop" icons weren't rendered correctly and would only be displayed when hovering over the asset or when the asset is currently playing. 
 
 * Bugfix: The Content Browser file path will now update correctly if it is pointing to a path that is deleted through the Sources Panel.
 
@@ -1862,15 +1862,15 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * New: Unlocked the Cine Camera Post Process Depth of Field to use options other than CircleDoF.
 
-* New: "Pre Roll" and â€œPost Rollâ€ are now exposed at the section level for all sections. 
+* New: "Pre Roll" and "Post Roll" are now exposed at the section level for all sections. 
 
-* New: Enabled "Use Custom Start Frame" and â€œUse Custom End Frameâ€ when rendering a single shot from the menu. 
+* New: Enabled "Use Custom Start Frame" and "Use Custom End Frame" when rendering a single shot from the menu. 
 
 * New: You can now set the fade color in the Track display.
 
 * New: Audio row heights are now also resizable by dragging on the bottom end of the track lane in the track area view.  
 
-* New: Sequencer now re-evaluates when starting PIE or Simulate. This can be disabled with "Bind Sequencer to PIE" and â€œBind Sequencer to Simulateâ€ in the Play-in-Editor Advanced settings. 
+* New: Sequencer now re-evaluates when starting PIE or Simulate. This can be disabled with "Bind Sequencer to PIE" and "Bind Sequencer to Simulate" in the Play-in-Editor Advanced settings. 
 
 * New: Split "Snap to the Dragged Key" option into two options, "Snap to the Pressed Key", and "Snap to the Dragged Key".
 
@@ -1982,7 +1982,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * New: Added an option for components to opt out of physics impulses on damage using "Apply Impulse On Damage".
 
-* New: Exposed component's "Ignore Radial Impulse" and â€œIgnore Radial Forceâ€ flags to Blueprints. â€œIgnore Radial Impulseâ€ is now properly respected when applying impulse to relevant movement components. 
+* New: Exposed component's "Ignore Radial Impulse" and "Ignore Radial Force" flags to Blueprints. "Ignore Radial Impulse" is now properly respected when applying impulse to relevant movement components. 
 
 * New: The Player Controller's "Should Perform Full Ticket When Paused" can now be set from Blueprints and the Details panel. 
 
@@ -1998,9 +1998,9 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
     * Normally the information would come from a Camera component, but this is useful when using custom view logic that doesn't source from a Camera component as the view target. 
 
-* New: Added "â€‹On Component Collision Settings Changed Event" delegate to Primitive Component. Fixed Skeletal Mesh Component not calling Super implementation for â€œOn Component Collision Settings Changedâ€.
+* New: Added "On Component Collision Settings Changed Event" delegate to Primitive Component. Fixed Skeletal Mesh Component not calling Super implementation for "On Component Collision Settings Changed".
 
-* New: Refactored Character Movement Component determination of net send rate when combining moves into a virtual function Get Client Net Send Delta Time. Added configurable values to Game Network Manager under â€‹[/Script/Engine.GameNetworkManager] in BaseGame.ini: "ClientNetSendMoveDeltaTime", â€œClientNetSendMoveDeltaTimeâ€, â€œClientNetSendMoveThrottleAtNetSpeedâ€, â€œClientNetSendMoveThrottleOverPlayerCountâ€.
+* New: Refactored Character Movement Component determination of net send rate when combining moves into a virtual function Get Client Net Send Delta Time. Added configurable values to Game Network Manager under Script/Engine.GameNetworkManager] in BaseGame.ini: "ClientNetSendMoveDeltaTime", "ClientNetSendMoveDeltaTime", "ClientNetSendMoveThrottleAtNetSpeed", "ClientNetSendMoveThrottleOverPlayerCount".
 
     * This replaces the values that were hardcoded in the network code for characters and enables easier configuration of client send rates for movement.
 
@@ -2016,7 +2016,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Bugfix: Fixed several issues with renaming or deleting Gameplay Tags from the Gameplay Tag Project Settings page. 
 
-* Bugfix: Fixed an issue when calling "Set Visibility" or â€œSet Hidden In Gameâ€ all children of the component will now properly be reconsidered as to whether they should render.
+* Bugfix: Fixed an issue when calling "Set Visibility" or "Set Hidden In Game" all children of the component will now properly be reconsidered as to whether they should render.
 
 * Bugfix: After duplicating an Actor, components added to the source instance will now have the correct position in the duplicate.
 
@@ -2036,17 +2036,17 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Bugfix: Fixed accumulated forces in Character Movement applied incorrectly when movement mode or active state changes.
 
-    * Added â€‹"Clear Accumulated Forcesâ€
+    * Added "Clear Accumulated Forces"
 
     * "Add Force" and related functions now avoid adding the force if in Movement Mode is set to "None". When ticking in "None", forces are cleared so they don't pile up until the next valid movement mode. Forces are also cleared if the updated component changes or when the capsule simulates physics.
 
-    * "Deactivate" implemented to stop movement and call â€œClear Accumulated Forcesâ€.
+    * "Deactivate" implemented to stop movement and call "Clear Accumulated Forces".
 
-    * "Clear Accumulated Forces" now also clears pending launch velocity. Exposed â€œClear Accumulated Forcesâ€ to Blueprints.
+    * "Clear Accumulated Forces" now also clears pending launch velocity. Exposed "Clear Accumulated Forces" to Blueprints.
 
-    * "Apply Accumulated Forces" does not call â€Clear Accumulated Forcesâ€, since that would prevent pending launch.
+    * "Apply Accumulated Forces" does not call "Clear Accumulated Forces", since that would prevent pending launch.
 
-    * "Add Force" and â€œAdd Impulseâ€ now also check that character movement is active (not deactivated, able to tick).
+    * "Add Force" and "Add Impulse" now also check that character movement is active (not deactivated, able to tick).
 
     * "Simulate Movement" handles pending launch and clears forces regardless of whether it's simulated proxy.
 
@@ -2060,7 +2060,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
     * Added a call to this function from Begin Play in addition to the existing call from "Post Initialize Components", and exposed this to Blueprints as well for custom changes to mesh offset at runtime.
 
-* Bugfix: Fixed an issue with Projectile Movement Component continuing to simulate (and generate hit events) after it is deactivated during simulation. "Has Stopped Simulation" function now checks if â€œIs Activeâ€ is false.
+* Bugfix: Fixed an issue with Projectile Movement Component continuing to simulate (and generate hit events) after it is deactivated during simulation. "Has Stopped Simulation" function now checks if "Is Active" is false.
 
 * Bugfix: Fixed an issue with "Get Welded Bodies" so that it properly returns Skeletal Bodies, instead of the default body for Skeletal Mesh Components.
 
@@ -2070,7 +2070,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Clarified the tooltip on the "Inverse Lerp" function.
 
-* In the Movement Component "Deactivate" calls â€œStop Movementâ€ to clear cached velocity. 
+* In the Movement Component "Deactivate" calls "Stop Movement" to clear cached velocity. 
 
     * It was undesirable that reactivation many seconds or frames later would restore a stale velocity. 
 
@@ -2172,9 +2172,9 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Bugfix: Fixed an issue with syncing of non-contiguious UENUMs over networks. 
 
-* AActor "Pending Net Update" has been deprecated. Please use â€œPending Net Updateâ€ that is now on FNetworkObjectInfo (obtained by calling â€œGet Network Object Info).
+* AActor "Pending Net Update" has been deprecated. Please use "Pending Net Update" that is now on FNetworkObjectInfo (obtained by calling "Get Network Object Info).
 
-* UNetDriver "Get Network Actor" is now deprecated. Use UNetDriver â€œGet Network Object Infoâ€ instead. 
+* UNetDriver "Get Network Actor" is now deprecated. Use UNetDriver "Get Network Object Info" instead. 
 
 * Disabled net.PartialBunchReliableThreshold for replays (we don't need to worry about bunch fragment sizes since there is no packet loss for replay connections).
 
@@ -2248,7 +2248,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Bugfix: Editing collision profiles in Editor Preferences no longer discards edits.
 
-* Bugfix: "Find Closest Bone" function no longer ignores the â€œRequired Physics Assetâ€ option. 
+* Bugfix: "Find Closest Bone" function no longer ignores the "Required Physics Asset" option. 
 
 * Bugfix: Fixed an issue teleport not working for physical animation component.
 
@@ -2304,7 +2304,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * New: Added "use fixed timestep" setting option for HTML5 builds (This has been separated from Engine > General Settings - Framerate).
 
-    * This is slightly different to "Smooth Framerate" and â€œFixed Framerateâ€.
+    * This is slightly different to "Smooth Framerate" and "Fixed Framerate".
 
     * NOTE: Fixing the timestep does not guarantee the actual framerate. Calculations based on delta time may be adversely affected by this.
 
@@ -2360,7 +2360,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * New: Bad package names are now detected and APK generation is stopped with a proper error message instead of failing during Java compiling.
 
-    * Package names with fewer than 2 segments are not allowed (e.g., "myproject" is not allowed, but â€œcom.myprojectâ€ is legal).
+    * Package names with fewer than 2 segments are not allowed (e.g., "myproject" is not allowed, but "com.myproject" is legal).
 
     * Only alphanumeric characters and underscore are allowed in the package name (Note: hyphens in the project name will be converted to underscores, but any other hyphens need to be corrected in Android project settings).
 
@@ -2476,7 +2476,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * New: Configurable .ini settings have been exposed to the editor. These can be found in Project Settings > Engine > HTML5.
 
-* New: Added support for emscripten "-pre-js" and â€œ-post-jsâ€ option when building for HTML5.
+* New: Added support for emscripten "-pre-js" and "-post-js" option when building for HTML5.
 
 * New:  Added support for WebGL 2 shader to turn on Instance Static Mesh Vertex Factory.
 
@@ -2766,7 +2766,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * New: Added some new features to the Skylight component. 
 
-    * "Occlusion Exponent" which is useful for brightening up indoors without losing contact shadows as â€œMin Occlusionâ€ does. 
+    * "Occlusion Exponent" which is useful for brightening up indoors without losing contact shadows as "Min Occlusion" does. 
 
     * "Occlusion Combine Mode" which is useful for artists to choose how to combine SSAO with Distance Field Ambient Occlusion.
 
@@ -2794,7 +2794,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * New: Added MinimalAPI to several material expressions.
 
-* New: Updated default behavior of "Power" node to no longer â€œabsâ€ or â€œmaxâ€ against an arbitrary value as the results were incorrect.
+* New: Updated default behavior of "Power" node to no longer "abs" or "max" against an arbitrary value as the results were incorrect.
 
     * Previous version available by calling ClampedPow(x, y) in a "Custom" node.
 
@@ -2816,7 +2816,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Bugfix: Fixed various data type inconsistencies on legacy Make and Break Material Attributes graph nodes.
 
-    * Using these together with the "Get" and â€œSetâ€ Materia lAttributes nodes should now be more forgiving.
+    * Using these together with the "Get" and "Set" Materia lAttributes nodes should now be more forgiving.
 
 * Bugfix: Fixed a regression in HLOD shadow casting performance.
 
@@ -2960,7 +2960,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Disabled point / spot lights with Max Draw Distance on Low PC.
 
-* Made use of Metal's "Deferred Store Actions" where available to avoid incorrect â€œStoreâ€ actions introduced when restarting passes to switch encoder types or when using the Metal RHI debugging tools.
+* Made use of Metal's "Deferred Store Actions" where available to avoid incorrect "Store" actions introduced when restarting passes to switch encoder types or when using the Metal RHI debugging tools.
 
 * Stopped the Shader Cache recording all the RHI resources unless it is running on OpenGL. This significantly reduces the CPU overhead of enabling the Shader Cache.
 
@@ -3174,7 +3174,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * New: Added new cvars to help with optimization (only applies to the new Audio Mixer).
 
-    * au.DisableReverbSubmix, au.DisableEQSubmix, â€‹au.DisableParallelSourceProcessing, au.SetAudioChannelCount
+    * au.DisableReverbSubmix, au.DisableEQSubmix, au.DisableParallelSourceProcessing, au.SetAudioChannelCount
 
 * Bugfix: Fixed MIDI Device plugin public headers not being able to be included from an external module.
 
@@ -3408,7 +3408,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
     * Overlap events from the move will still only trigger from UpdateOverlaps() if bGenerateOverlapEvents is enabled on both components, as before.
 
-    * Made some data in FScopedMovementUpdate protected rather than private so it can easily be subclassed, and exposed a new helper â€‹SetWorldLocationAndRotation() for committing the move.
+    * Made some data in FScopedMovementUpdate protected rather than private so it can easily be subclassed, and exposed a new helper SetWorldLocationAndRotation() for committing the move.
 
 * Bugfix: Fixed a crash when manipulating audio component properties from an Actor's constructor during async loading.
 
@@ -3426,9 +3426,9 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
     * It is still recommended to use TInlineComponent array or an array using TInlineAllocator<> when using this function.
 
-* Removed allocations during creation in â€‹AAIController::PostInitializeComponents() (in non-shipping builds).
+* Removed allocations during creation in AIController::PostInitializeComponents() (in non-shipping builds).
 
-* Optimized HasActiveCameraComponent() and â€‹HasActivePawnControlCameraComponent() to avoid filling an array while searching for a certain component, which could have caused an allocation.
+* Optimized HasActiveCameraComponent() and HasActivePawnControlCameraComponent() to avoid filling an array while searching for a certain component, which could have caused an allocation.
 
 * Optimized MoveComponent() collision queries to avoid processing PhysX touches when bGenerateOverlapEvents is off.
 
@@ -3444,13 +3444,13 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Optimized CharacterMovement tick to not extract transform values twice when they would not change in a small block of code.
 
-* Call TickCharacterPose() and clear root motion before abandoning tick in â€‹UCharacterMovementComponent::PerformMovement() when movement mode is None. This prevents root motion building up until the next valid movement mode.
+* Call TickCharacterPose() and clear root motion before abandoning tick in UCharacterMovementComponent::PerformMovement() when movement mode is None. This prevents root motion building up until the next valid movement mode.
 
-* Applied a performance tweak to â€‹ApplyRadialDamageWithFalloff().
+* Applied a performance tweak to ApplyRadialDamageWithFalloff().
 
     * Do not rebuild FRadialDamageEvent each loop over hit actors.
 
-    * Added stats for â€‹BreakHitResult()/MakeHitResult() under "stat game".
+    * Added stats for BreakHitResult()/MakeHitResult() under "stat game".
 
 * Optimized attachment to check welding option before expensive casts and body instance fetching.
 
@@ -3654,7 +3654,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
     * Synchronous Load and Simple Async Load on Streamable Manager have been deprecated in favor of the new Streamable Handle system. Both of those functions would keep assets loaded until explicitly unloaded, which in practice was not what most people wanted.
 
-* The Class/Property/Function redirect system has been rewritten to be faster and more flexible. Ini redirects such as "+ActiveClassRedirects" defined in [/Script/Engine.Engine] will still work, but the new system is used by putting redirects like â€œ+ClassRedirectsâ€ in the [CoreRedirects] section of Engine.ini.
+* The Class/Property/Function redirect system has been rewritten to be faster and more flexible. Ini redirects such as "+ActiveClassRedirects" defined in [/Script/Engine.Engine] will still work, but the new system is used by putting redirects like "+ClassRedirects" in the [CoreRedirects] section of Engine.ini.
 
     * All engine redirects prior to 4.10 have been moved to CoreRedirects.cpp, newer redirects are now in the new format in BaseEngine.ini.
 
@@ -3666,9 +3666,9 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Several Enum functions dealing with string conversion have been deprecated, and the names and comments have been cleaned up to make it more clear which are meant to be used at Runtime and which are meant to be used in the Editor/for debugging.
 
-* The console command "r.MSAACount 1" now produces no MSAA or TAA. â€œr.MSAACount 0â€ can be used to toggle TAA on for comparisons.
+* The console command "r.MSAACount 1" now produces no MSAA or TAA. "r.MSAACount 0" can be used to toggle TAA on for comparisons.
 
-* Cascaded Shadow Map resolution is now controlled by the console command "r.Shadow.MaxCSMResolution" instead of â€œr.Shadow.MaxResolutionâ€.
+* Cascaded Shadow Map resolution is now controlled by the console command "r.Shadow.MaxCSMResolution" instead of "r.Shadow.MaxResolution".
 
 * New mobile targeted projects will have better UI performance settings by default.
 
@@ -3782,9 +3782,9 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 * Refactored EvaluateBoneTransforms to prevent usage of skeletal mesh component.
 
-    * Deprecated EvaluateBoneTransforms in favor of new â€‹EvaluateSkeletalControl_AnyThread.
+    * Deprecated EvaluateBoneTransforms in favor of new EvaluateSkeletalControl_AnyThread.
 
-    * Deprecated skeletal mesh component argument to ConvertCSTransformToBoneSpace and â€‹ConvertBoneSpaceTransformToCS. Now they just take a transform.
+    * Deprecated skeletal mesh component argument to ConvertCSTransformToBoneSpace and ConvertBoneSpaceTransformToCS. Now they just take a transform.
 
 * Added a new overload for IOnlineSession::FindFriendSession in the session interface that can retrieve sessions for multiple friends.
 
@@ -3800,7 +3800,7 @@ UMG 위젯 생성이 최대 3 배 빨라졌습니다! 쿠킹할 때, 이제 위�
 
 #### Animation
 
-* When converting skeletal controls to the newer API, convert EvaluateBoneTransforms to â€‹EvaluateSkeletalControl_AnyThread. Backwards compatibility will be maintained, however warnings will persist. Any mesh component access should be cached in PreUpdate() as accessing the component is not thread safe.
+* When converting skeletal controls to the newer API, convert EvaluateBoneTransforms to EvaluateSkeletalControl_AnyThread. Backwards compatibility will be maintained, however warnings will persist. Any mesh component access should be cached in PreUpdate() as accessing the component is not thread safe.
 
 * If differences in timing between Maya and UE4 are experienced after importing Alembic files, this has been corrected. The fix requires that any problematic assets be reimported.
 

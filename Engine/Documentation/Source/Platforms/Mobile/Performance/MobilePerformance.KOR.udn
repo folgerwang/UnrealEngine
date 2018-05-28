@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability: Public
 Crumbs: %ROOT%
 Title: 모바일 디바이스용 퍼포먼스 지침서
@@ -10,12 +10,6 @@ Parent:Platforms/Mobile
 Order:6
 Tags:mobile
 
-
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
-[VAR:spacer3]![](%ROOT%/spacer.png)(w:100 convert:false)[/VAR]
-[VAR:spacer4]![](%ROOT%/spacer.png)(w:140 convert:false)[/VAR]
 
 [TOC(start:2 end:2)]
 
@@ -245,7 +239,7 @@ Mobile Content Scale Factor 는 프로젝트의 해상도가 이를 표현하는
 다음 그림은, 환경설정 파일에서 Mobile Content Scale Factor 를 설정한 예제입니다:
 
 [REGION:lightbox]
-[![](T_MCF_INI_File.png)(w:358 h:505)](T_MCF_INI_File.png)
+[![](T_MCF_INI_File.png)(w:358)](T_MCF_INI_File.png)
 [/REGION]
 [REGION:caption]
 클릭하면 이미지 원본을 확인합니다.
@@ -307,7 +301,7 @@ iOS 스케일 팩터는 Apple 의 스케일 팩터 시스템과 직접적인 연
 미리보고자 하는 퀄리티 레벨을 선택하는 것으로 확인할 수 있습니다.
 
 [REGION:lightbox]
-[![](MQS_Material_Preview_Level.png)(w:332 h:324)](MQS_Material_Preview_Level.png)
+[![](MQS_Material_Preview_Level.png)(w:332)](MQS_Material_Preview_Level.png)
 [/REGION]
 [REGION:caption]
 클릭하면 이미지 원본을 확인합니다.
@@ -360,7 +354,7 @@ iOS 스케일 팩터는 Apple 의 스케일 팩터 시스템과 직접적인 연
 1. **Rendering** (렌더링) 아래 **Console Variables** (콘솔 변수) 부분에서 **더하기** 아이콘을 클릭하면 뜨는 입력 창에서 **R.MaterialQualityLevel** 이라 입력하고 Enter 키를 쳐 목록에 그 명령을 추가합니다.
 
 	[REGION:lightbox]
-	[![](MQS_Set_Con_Var.png)(w:505 h:242)](MQS_Set_Con_Var.png)
+	[![](MQS_Set_Con_Var.png)(w:505)](MQS_Set_Con_Var.png)
 	[/REGION]
 	[REGION:caption]
 	클릭하면 이미지 원본을 확인합니다.
@@ -369,7 +363,7 @@ iOS 스케일 팩터는 Apple 의 스케일 팩터 시스템과 직접적인 연
 1. 새로운 항목을 추가한 후, 기본값을 **1** 에서 **0** 으로 바꾸면 저사양 안드로이드 디바이스에서 프로젝트가 가장 빠른 머티리얼 세팅을 사용합니다.
 
 	[REGION:lightbox]
-	[![](MQS_Set_Quality_Level.png)(w:505 h:242)](MQS_Set_Quality_Level.png)
+	[![](MQS_Set_Quality_Level.png)(w:505)](MQS_Set_Quality_Level.png)
 	[/REGION]
 	[REGION:caption]
 	클릭하면 이미지 원본을 확인합니다.
@@ -381,7 +375,7 @@ iOS 스케일 팩터는 Apple 의 스케일 팩터 시스템과 직접적인 연
 이 세팅은 **메인 툴바** 에서 **세팅** > **Preview Rendering Level** (프리뷰 렌더링 레벨)에서 사용하고자 하는 프리뷰 레벨을 선택하면 됩니다.
 
 [REGION:lightbox]
-[![](MQS_Material_Quality_Level.png)(w:332 h:324)](MQS_Material_Quality_Level.png)
+[![](MQS_Material_Quality_Level.png)(w:332)](MQS_Material_Quality_Level.png)
 [/REGION]
 [REGION:caption]
 클릭하면 이미지 원본을 확인합니다.
@@ -398,7 +392,7 @@ iOS 스케일 팩터는 Apple 의 스케일 팩터 시스템과 직접적인 연
 다음 그림은, 시작용 콘텐츠에서 찾을 수 있는 M_Brick_Clay_Old 머티리얼을, 퀄리티 레벨을 바꿨을 때 머티리얼 복잡도가 감소되도록 구성한 것입니다.
 
 [REGION:lightbox]
-[![](MQS_Material_Setup.png)(w:789 h:412)](MQS_Material_Setup.png)
+[![](MQS_Material_Setup.png)(w:789)](MQS_Material_Setup.png)
 [/REGION]
 [REGION:caption]
 클릭하면 이미지 원본을 확인합니다.
@@ -417,7 +411,7 @@ iOS 스케일 팩터는 Apple 의 스케일 팩터 시스템과 직접적인 연
 
 
 [REGION:lightbox]
-[![](MQS_Mobile_Material_Options.png)(w:556 h:410)](MQS_Mobile_Material_Options.png)
+[![](MQS_Mobile_Material_Options.png)(w:556)](MQS_Mobile_Material_Options.png)
 [/REGION]
 [REGION:caption]
 클릭하면 이미지 원본을 확인합니다.
@@ -528,10 +522,10 @@ iOS 스케일 팩터는 Apple 의 스케일 팩터 시스템과 직접적인 연
 ![](MobileOptimizations.png)
 
 [REGION:raw]
-|프로퍼티 이름| %spacer3% | 설명|
-|------------ | --------- |-------|
-| **Lighting** || 라이팅 - 프로젝트 세팅의 **Lighting** (라이팅) 섹션 아래 있는 옵션은 모바일 퍼포먼스 조정에 사용됩니다. [INCLUDE:#lighting] |
-| **Mobile Shader Permutation Reduction** || 모바일 셰이더 퍼뮤테이션 감소 - **Mobile Shader Permutation Reduction** (모바일 셰이더 퍼뮤테이션 감소) 섹션 아래 있는 옵션은 모바일 퍼포먼스 조정에 사용됩니다. [INCLUDE:#shaderpermutations] |
+|프로퍼티 이름| 설명|
+|------------ | -------|
+| **Lighting** | 라이팅 - 프로젝트 세팅의 **Lighting** (라이팅) 섹션 아래 있는 옵션은 모바일 퍼포먼스 조정에 사용됩니다. [INCLUDE:#lighting] |
+| **Mobile Shader Permutation Reduction** | 모바일 셰이더 퍼뮤테이션 감소 - **Mobile Shader Permutation Reduction** (모바일 셰이더 퍼뮤테이션 감소) 섹션 아래 있는 옵션은 모바일 퍼포먼스 조정에 사용됩니다. [INCLUDE:#shaderpermutations] |
 [/REGION]
 
 [COMMENT:none]
@@ -541,21 +535,20 @@ iOS 스케일 팩터는 Apple 의 스케일 팩터 시스템과 직접적인 연
 
 [EXCERPT:lighting]
 [REGION:simpletable]
-|--------------------| --- |-------|
-| **Allow Static Lighting** || 스태틱 라이팅 허용 - 라이트맵이나 섀도우맵 등 스태틱 라이팅 생성을 허용하는 옵션입니다. 다이내믹 라이트만 사용하거나 언릿 모드만 사용하는 게임은 이 옵션을 0 으로 설정하면 스태틱 라이팅 비용을 조금 절약됩니다. |
-| | %spacer4% | | 
+|--------------------| -------|
+| **Allow Static Lighting** | 스태틱 라이팅 허용 - 라이트맵이나 섀도우맵 등 스태틱 라이팅 생성을 허용하는 옵션입니다. 다이내믹 라이트만 사용하거나 언릿 모드만 사용하는 게임은 이 옵션을 0 으로 설정하면 스태틱 라이팅 비용을 조금 절약됩니다. |
 [/REGION]
 [/EXCERPT:lighting]
 
 [EXCERPT:shaderpermutations]
 [REGION:simpletable]
-| ------------------ | ----- | -------|
-| **Support Combined Static and CSM Shadowing** || 스태틱 및 CSM 그림자 합성 지원 - 프리미티브가 스테이셔너리 라이트의 스태틱 그림자도 CSM 그림자도 받을 수 있도록 합니다. 이 옵션을 끄면 모바일 텍스처 샘플러가 하나 해제됩니다. |
-| **Support Distance Field Shadowing** || 디스턴스 필드 섀도잉 지원 - 프리미티브가 스테이셔너리 디렉셔널 라이트에서 디스턴스 필드 섀도우를 받도록 셰이더를 생성합니다. |
-| **Support Movable Directional Light** || 무버블 디렉셔널 라이트 지원 - 프리미티브가 무버블 디렉셔널 라이트를 받도록 셰이더를 생성합니다. |
-| **Max Movable Point Lights** || 최대 무버블 포인트 라이트 - 모바일 디바이스에서 지원할 다이내믹 포인트 라이트 개수입니다. 다이내믹 포인트 라이트가 필요치 않은 게임에서 이 값을 0 으로 설정하면 생성되는 셰이더 개수가 줄어듭니다. |
-| **Use Shared Movable Point Light Shaders** || 공유 무버블 포인트 라이트 셰이더 사용 - 이 세팅을 켜면, 표면에 닿는 다이내믹 포인트 라이트가 몇 개든 (최대 위에 지정된 개수까지) 같은 셰이더를 사용합니다. 약간 느리지만 생성되는 셰이더 개수가 줄어듭니다. |
-|| %spacer3% |||
+| ------------------ | -------|
+| **Support Combined Static and CSM Shadowing** | 스태틱 및 CSM 그림자 합성 지원 - 프리미티브가 스테이셔너리 라이트의 스태틱 그림자도 CSM 그림자도 받을 수 있도록 합니다. 이 옵션을 끄면 모바일 텍스처 샘플러가 하나 해제됩니다. |
+| **Support Distance Field Shadowing** | 디스턴스 필드 섀도잉 지원 - 프리미티브가 스테이셔너리 디렉셔널 라이트에서 디스턴스 필드 섀도우를 받도록 셰이더를 생성합니다. |
+| **Support Movable Directional Light** | 무버블 디렉셔널 라이트 지원 - 프리미티브가 무버블 디렉셔널 라이트를 받도록 셰이더를 생성합니다. |
+| **Max Movable Point Lights** | 최대 무버블 포인트 라이트 - 모바일 디바이스에서 지원할 다이내믹 포인트 라이트 개수입니다. 다이내믹 포인트 라이트가 필요치 않은 게임에서 이 값을 0 으로 설정하면 생성되는 셰이더 개수가 줄어듭니다. |
+| **Use Shared Movable Point Light Shaders** | 공유 무버블 포인트 라이트 셰이더 사용 - 이 세팅을 켜면, 표면에 닿는 다이내믹 포인트 라이트가 몇 개든 (최대 위에 지정된 개수까지) 같은 셰이더를 사용합니다. 약간 느리지만 생성되는 셰이더 개수가 줄어듭니다. |
+
 [/REGION]
 [/EXCERPT:shaderpermutations]
 

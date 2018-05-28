@@ -1,47 +1,13 @@
-﻿INTSourceChangelist:2695230
-Availability:Public
+﻿Availability:Public
 Title: フロー制御
-Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
+Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/Scripting
 Description: 条件に合わせて実行フローの制御を可能にするノード
 version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\FlowControl:title%](Engine\Blueprints\UserGuide\FlowControl.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\FlowControl:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\FlowControl:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\FlowControl]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\FlowControl:title%](Engine\Blueprints\UserGuide\FlowControl.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\FlowControl:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\FlowControl:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\FlowControl]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Parent:Engine/Blueprints/Scripting
+tags:Execution Flow
+tags:Blueprints
+tags:Special Nodes
+topic-image:FlowControl.png
 
 
 [TOC (start:2 end:3)]
@@ -61,7 +27,7 @@ Swithc ノードがデータ入力を読み取り、その入力値に基づい�
 通常、スイッチには実行入力と、評価対象データの種類にあわせたデータ入力が付いています。出力はすべて実行出力です。**Enum** スイッチは、 **Enum** のプロパティから自動的に出力実行ピンを作成します。 
 一方、 **Int** 、 **String** 、 **Name** スイッチの出力実行ピンはカスタマイズが可能です。
 
-### Switch ノードの編集
+### スイッチノードの編集
 
 **Int** 、**String**、あるいは **Name** スイッチノードをブループリントに追加する場合、使用できる出力実行ピンは **Default** ピンのみです。入力値が他に指定した出力ピンのいずれにも一致しないと、 
 **Default** 出力実行ピンが発行されます。削除するには、ピンを右クリックしスイッチノードの **[Default (詳細)]** タブで **[Remove Execution Pin (実行ピンを削除)]** を選択するか、 
@@ -211,14 +177,14 @@ Swithc ノードがデータ入力を読み取り、その入力値に基づい�
 | **Is A** | 出力 A がトリガーされているかどうかを表す boolean 値を出力します。実際には FlipFlop ノードがトリガーされるたびに *true* と *false* を切り替えます。 |
 [/EXCERPT:Flipflop]
 
-###ForLoop
+### ForLoop
 [EXCERPT:Forloop]
 ![ForLoop_Example.png](ForLoop_Example.png)
 
 **ForLoop** ノードは、標準的なコードのループのように、開始と終了の間の各インデックスに対し実行パルスを発行します。 
 
 下記の簡単なサンプルではプレーヤーがシンプルなレベル トリガーに触れるとループがトリガーされます。ループは都度 Print String を呼び出しながら 10 回反復し、 
-現在のイテレーションと一緒に、メッセージのプレフィックスのログを取ります。
+現在のイタレーションと一緒に、メッセージのプレフィックスのログを取ります。
 
 [REGION:warning]
 	フレーム間でループ イテレーションが起こるので、ループが大きいとパフォーマンス ヒットが生じます。
@@ -237,7 +203,7 @@ Swithc ノードがデータ入力を読み取り、その入力値に基づい�
 | **First Index** | ループの最初のインデックスを表す Int を受け取ります。 |
 | **Last Index** | ループの最後のインデックスを表す Int を受け取ります。 |
 | [REGION:tablesection]出力ピン[/REGION] ||
-| **Loop Body** | インデックス間を移動するので、ループのイタレーションごとに実行パルスを出力します。
+| **Loop Body** | インデックス間を移動するので、ループのイタレーションごとに実行パルスを出力します。 |
 | **Index** | 現在のループインデックスを出力します。 |
 | **Completed** | for loop が完了すると発行する標準の実行出力ピンです。 |
 
@@ -254,8 +220,8 @@ ForLoop ノードと非常によく似た動きをします。
 
 下記の簡単なサンプルではプレーヤーがシンプルなレベル トリガーに触れるとループがトリガーされます。ループは 1000 回イテレートしますが、 
 毎回 Branch をヒットしてループが 500 回イテレートしたかを確認します。 
-500 回に達していない場合、現在のイタレーション数についてメッセージが画面に流れます。500 回を超えると、 
-Branch が Custom Event を呼び出し、ループが終了します。映像を明確にし、Break 入力ピンをぐるりと回ってワイヤーラップする必要性をなくすために、 
+500 回に達していない場合、現在のイタレーション数についてメッセージが画面に流れます。500回を超えると、 
+Branch がカスタム イベントを呼び出し、ループが終了します。映像を明確にし、Break 入力ピンをぐるりと回ってワイヤーラップする必要性をなくすために、 
 カスタムイベントを使用します。 
 
 [REGION:warning]
@@ -319,7 +285,7 @@ Branch が Custom Event を呼び出し、ループが終了します。映像�
 
 ![MultiGate_Example.png](MultiGate_Example.png)
 
-**MultiGate** は単一データパルスを受け取り、それを出力の可能性のあるところ全てに送ります。連続でもランダムでも行われ、 
+**MultiGate** は単一データパルスを受け取り、それを出力の可能性のあるところ全てに送ります。ランドスケープに裂け目が生成され、 
 ループする場合もあれば、しない場合もあります。 
 
 下図は、単一ループで 0.5 秒ごとの自動再生タイムラインによるパルス出力のサンプルです。 

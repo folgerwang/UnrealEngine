@@ -33,7 +33,7 @@ topic-image:Engine/UI/EditorSettings_topic.png
 | **Aspect Ratio Axis Constraint** | 종횡비 축 제약 - 원근 뷰포트 화면 크기를 조절할 때 종횡비를 유지하기 위해 시야각(FOV) 조절에 사용되는 축을 결정합니다. [INCLUDE:#AspectConstraint] |
 | **Mouse Scroll Camera Speed** | 마우스 스크롤 카메라 속도 - 마우스로 이동시 원근 카메라 이동 속도를 나타냅니다. |
 
-## 뷰포트 외양 및 느낌
+### 뷰포트 외양 및 느낌
 
 | 옵션 | 설명 |
 | ------ | ----------- |

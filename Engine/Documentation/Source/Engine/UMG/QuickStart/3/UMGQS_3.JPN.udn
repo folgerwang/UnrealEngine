@@ -3,7 +3,7 @@ Availability:Public
 Title:3.メインメニューを作成する
 Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/QuickStart
 Description:このステップではメインメニューの視覚的レイアウトを行います。
-version:4.13
+version: 4.13
 tags:UMG UI Designer
 
 
@@ -79,8 +79,8 @@ tags:UMG UI Designer
 
 	[REGION:note]
 	このガイドと同じものをご利用になりたい場合は、[バックグラウンドのサンプル](ExampleBackground.png) からダウンロードできます。
-	**アンリアル エンジン** にドラッグ＆ドロップしてインポートします (確認メッセージが表示されるたびに **Yes** をクリックしてください)。 
 
+	**アンリアル エンジン** にドラッグ＆ドロップしてインポートします (確認メッセージが表示されるたびに **Yes** をクリックしてください)。 
 	[/REGION]
 
 1.	**[Designer]** ウィンドウで、画像をサイズ調整してレイアウト全体を占めるようにします。

@@ -1,10 +1,12 @@
-﻿INTSourceChangelist:2744744
-Title:9.追加のリソース
+﻿INTSourceChangelist:3782314
+Title:9.追加情報
 Crumbs:%ROOT%, Platforms, Platforms/iOS, Platforms/iOS/QuickStart
 Description:アンリアル エンジンによる iOS 開発についての追加情報
 Availability:Public
-Version:4.9
+Version:4.18
 SkillLevel:Intermediate
+checkpoint:iOSQS
+order:9
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -36,7 +38,7 @@ SkillLevel:Intermediate
 * [](Platforms\Mobile\PostProcessEffects)
 * [](Platforms\Mobile\Textures)
 
-[](Platforms\Mobile\Previewer) を使用すれば、デバイスにデプロイせずにご自分のモバイルゲームをプレビューすることもできます。
+[](Platforms\Mobile\Previewer) を使用すれば、デバイスにデプロイせずにモバイルゲームのプレビューも可能になります。
 
 
 

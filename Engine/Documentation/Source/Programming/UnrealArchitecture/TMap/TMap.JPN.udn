@@ -295,8 +295,8 @@ Visual Studio の [Watch] ウィンドウでマップを視覚化すると分か
 	// 	{ Key:3, Value:"Orange" },
 	// 	{ Key:9, Value:"Melon"  }
 	// ]
-	FruitMapCopy.Empty();
 
+	FruitMapCopy.Empty();
 	// FruitMapCopy == []
 
 TArray と同様に、Empty はマップに一定のエレメント数を再追加する時の最適化をするスラック値をオプションで受け取ります。
@@ -316,8 +316,8 @@ TMaps は一時的にソートすることができます。さらに修正を�
 	// 	{ Key:4, Value:"Kiwi"   },
 	// 	{ Key:3, Value:"Orange" }
 	// ]
-	FruitMap.ValueSort([](const FString& A, const FString& B) {
 
+	FruitMap.ValueSort([](const FString& A, const FString& B) {
 		return A.Len() < B.Len(); // sort strings by length
 	});
 	// FruitMap == [
@@ -456,13 +456,13 @@ KeyInitType と ElementInitType は key 型と element 型の通常の渡し方�
 
 	struct FMyStruct
 	{
-		// String which identifies our key (キーを特定する文字列) 
+		// String which identifies our key
 		FString UniqueID;
-	// Some state which doesn't affect struct identity (構造体の恒等式に影響を及ぼさない一部のステート) 
-
+	
+		// Some state which doesn't affect struct identity
 		float SomeFloat;
-	explicit FMyStruct(float InFloat)
-
+	
+		explicit FMyStruct(float InFloat)
 			:UniqueID (FGuid::NewGuid().ToString())
 			, SomeFloat(InFloat)
 		{
@@ -480,8 +480,8 @@ KeyInitType と ElementInitType は key 型と element 型の通常の渡し方�
 			TPair<FMyStruct, ValueType>,
 			FString
 		> Super;
+	
 	public:
-
 		typedef typename Super::ElementInitType ElementInitType;
 		typedef typename Super::KeyInitType     KeyInitType;
 
@@ -489,13 +489,13 @@ KeyInitType と ElementInitType は key 型と element 型の通常の渡し方�
 		{
 			return Element.Key.UniqueID;
 		}
-	static bool Matches(KeyInitType A, KeyInitType B)
-
+	
+		static bool Matches(KeyInitType A, KeyInitType B)
 		{
 			return A.Compare(B, ESearchCase::CaseSensitive) == 0;
 		}
-	static uint32 GetKeyHash(KeyInitType Key)
-
+	
+		static uint32 GetKeyHash(KeyInitType Key)
 		{
 			return FCrc::StrCrc32(*Key);
 		}
@@ -521,12 +521,12 @@ KeyInitType と ElementInitType は key 型と element 型の通常の渡し方�
 			FDefaultSetAllocator,
 			TMyStructMapKeyFuncs<int32>
 		> MyMapToInt32;
-	// Add some elements
-
+	
+		// Add some elements
 		MyMapToInt32.Add(FMyStruct(3.14f), 5);
 		MyMapToInt32.Add(FMyStruct(1.23f), 2);
-	// MyMapToInt32 == [
-
+	
+		// MyMapToInt32 == [
 		// 	{
 		// 		Key: {
 		// 			UniqueID:"D06AABBA466CAA4EB62D2F97936274E4",

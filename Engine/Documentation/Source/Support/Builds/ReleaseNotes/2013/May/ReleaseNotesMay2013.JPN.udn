@@ -65,8 +65,8 @@ Order:-9
 	* アクションと軸は、「Base/DefaultInput.ini」ファイルで定義され、各アクションは複数のキーとマッピングすることができます。
 	* アクタはもはや制御されません。ポーンとして所有されるか、アクタで入力を有効にします。
 	アクタ * Bindings in the Level Blueprint are always active, bindings in a Pawn are active whenever it is Possessed, and bindings in an Actor are activated/deactivated by calling Enable/Disable Input, with input stacks being ordered as follows:
-		1. 有効な入力を持つアクタ
 
+		1. 有効な入力を持つアクタ
 		1. Level ブループリント
 		1. 所有するポーン
 
@@ -521,8 +521,8 @@ Order:-9
 * UObject native base classes no longer have to start with 'F'.
 * Remote debugging setup 
 	* Engine.ini has the following settings:
-			[Engine.ErrorHandling] 
 
+			[Engine.ErrorHandling] 
 			bPromptForRemoteDebugging=false
 			bPromptForRemoteDebugOnEnsure=false
 		* If either is set to true, then the user will be prompted to get a programmer when a crash occurs so they can remotely debug the issue. 
@@ -540,8 +540,8 @@ Order:-9
 	* Coded new layout for the Device Manager - **Power On**, **Power Off**, and **Reboot**.
 * DependencyCache.bin files now exist per-platform.
 * Module rules can now specify a `BinariesSubFolder` that is used when building DLLs.For example:
-	If `BinariesSubFolder=IOS`, the resulting DLL for Win64 builds would be placed in `Engine/Binaries/Win64/IOS` 
 
+	If `BinariesSubFolder=IOS`, the resulting DLL for Win64 builds would be placed in `Engine/Binaries/Win64/IOS` 
 * If Game or Server target for Desktop platforms, the Sandbox directory will be inferred if not specified.
 * Moved `PhysX3Common` to the `Engine/Binaries/ThirdParty` folder as it is no longer required to load as part of Engine 
 

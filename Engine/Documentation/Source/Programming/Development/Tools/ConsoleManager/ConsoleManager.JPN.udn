@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3429264
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:C++ のコンソール変数
 Crumbs:%ROOT%, Engine, Programming, Programming/Basics
@@ -267,8 +267,8 @@ see IConsoleManager.h:
 優先度は変数を最後に設定したのが誰であるかを見るのにも役立ちます。例えば、コンソール変数の状態を得る場合にこの情報を取得できます。
 
 	> r.GBuffer
-	r.GBuffer = "1"      LastSetBy:Constructor
 
+	r.GBuffer = "1"      LastSetBy:Constructor
 
 
 

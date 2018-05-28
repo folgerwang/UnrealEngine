@@ -13,10 +13,6 @@ related:Engine/Basics/Projects/Packaging
 related:Platforms/Linux/GettingStarted
 topic-image:LegacyRef_Topic.png
 
-[COMMENT:none]
-- %Globals:BinarySourceSelectVar% -
-[/COMMENT]
-
 [TOC(start:2 end:3)]
 
 This reference is an archive for users who need to set up their cross-compilation toolchains in Unreal Engine 4 (UE4) versions that were released prior to 4.14. 
@@ -35,13 +31,15 @@ Mac users currently have to resort to [native compilation](https://wiki.unrealen
 
 Please use the following table to download the appropriate toolchain: 
 
-| Toolchain                                                                                                                       | UE4 Version    | 
-| ------------------------------------------------------------------------------------------------------------------------------- | -------------- | 
-| **-v4** [clang-3.5.0-based](http://cdn.unrealengine.com/qfe/v4_clang-3.5.0_ld-2.24_glibc-2.12.2.zip)                            | 4.8 and earlier| 
-| **-v6** [clang-3.6.0-based](https://s3.amazonaws.com/unrealengine/qfe/v6_clang-3.6.0_ld-2.24_glibc-2.12.2.zip)                  | 4.9 and 4.10   | 
-| **-v7** [clang-3.7.0-based](https://s3.amazonaws.com/unrealengine/CrossToolchain_Linux/v7_clang-3.7.0_ld-2.24_glibc-2.12.2.zip) | 4.11 thru 4.13 | 
-| **-v8** [clang-3.9.0-based](http://cdn.unrealengine.com/qfe/v8_clang-3.9.0-centos7.zip)                                         | 4.14 and 4.15  |
-| **-v9** [clang-4.0.0-based](http://cdn.unrealengine.com/CrossToolchain_Linux/v9_clang-4.0.0-centos7.zip)                        | 4.16           |
+| Toolchain                                                                                                                        | UE4 Version    | 
+| -------------------------------------------------------------------------------------------------------------------------------- | -------------- | 
+| **-v11** [clang-5.0.0-based](http://cdn.unrealengine.com/CrossToolchain_Linux/v11_clang-5.0.0-centos7.zip)                       | 4.19           |
+| **-v10** [clang-5.0.0-based](http://cdn.unrealengine.com/CrossToolchain_Linux/v10_clang-5.0.0-centos7.zip)                       | 4.18           |
+| **-v9**  [clang-4.0.0-based](http://cdn.unrealengine.com/CrossToolchain_Linux/v9_clang-4.0.0-centos7.zip)                        | 4.16 and 4.17  |
+| **-v8**  [clang-3.9.0-based](http://cdn.unrealengine.com/qfe/v8_clang-3.9.0-centos7.zip)                                         | 4.14 and 4.15  |
+| **-v7**  [clang-3.7.0-based](https://s3.amazonaws.com/unrealengine/CrossToolchain_Linux/v7_clang-3.7.0_ld-2.24_glibc-2.12.2.zip) | 4.11 thru 4.13 | 
+| **-v6**  [clang-3.6.0-based](https://s3.amazonaws.com/unrealengine/qfe/v6_clang-3.6.0_ld-2.24_glibc-2.12.2.zip)                  | 4.9 and 4.10   | 
+| **-v4**  [clang-3.5.0-based](http://cdn.unrealengine.com/qfe/v4_clang-3.5.0_ld-2.24_glibc-2.12.2.zip)                            | 4.8 and earlier| 
 
 [REGION:note]
 The Setup and UnSetup Windows Batch Files (\*.bat) are not included in **-v9** because you only need these files if you're setting up AutoSDKs for UE4. 

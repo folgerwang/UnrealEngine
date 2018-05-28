@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2697628
+﻿INTSourceChangelist:3108692
 Availability:NoPublish
 Title:
 Crumbs:
@@ -83,7 +83,7 @@ Engine/Landscape/Editing/SculptMode
 [/EXCERPT:SculptTool]
 
 [EXCERPT:SmoothTool]
-Smooth ツールを使うと、Sculpting ツールや Erosion ツールの使用後に時々発生するギザギザのアーティファクトが取り除かれるので、高さマップをスムーズにしやすくなります。Smooth ツールを Painting モードで使うと、異なるランドスケープ マテリアル間をスムーズに移行しやすくなります。Smooth ツールを使うには、CTRL キーを押しながらマウスの左ボタンを使って、ブラシの下の領域をスムーズにします。 
+Smooth ツールを使うと、Sculpting ツールや Erosion ツールの使用後にたまに発生するギザギザのアーティファクトを取り除いて、高さマップをスムーズにしやすくなります。Smooth ツールを Painting モードで使うと、異なるランドスケープ マテリアル間をスムーズに移行しやすくなります。Smooth ツールを使うには、CTRL キーを押しながらマウスの左ボタンを使って、ブラシの下の領域をスムーズにします。 
 ![](Smoothing_Before_And_After_00.png)
 左が Smooth ツールの使用前、右が使用後です。左が Smooth ツールの使用前、右が使用後です。
 [VAR:ToolTipFullLink]
@@ -110,7 +110,7 @@ Engine/Landscape/Editing/SculptMode
 [/EXCERPT:RampTool]
 
 [EXCERPT:ErosionTool]
-Erosion ツールは、高さマップの高さを調整するために熱による浸食のシミュレーションを使用します。高度が高いところから低いところまでの土壌の動きをシミュレートします。高度の差異が大きくなると、浸食が大きくなります。より自然でランダムな外観を作成するために、必要に応じて、浸食に加えてノイズ エフェクトをツールへ適用することができます。Erosion ツールを使うには、CTRL キーを押しながらマウスの左ボタンを使って、ブラシの下の領域に侵食を適用します。
+Erosion ツールは、高さマップの高さを調整するために熱による浸食のシミュレーションを使用します。高度が高いところから低いところまでの土壌の動きをシミュレートします。高度差が大きくなると、浸食が大きくなります。外観に自然なランダムさが出るように、必要に応じて、浸食の他にノイズ エフェクトをツールに適用することができます。Erosion ツールを使うには、CTRL キーを押しながらマウスの左ボタンを使って、ブラシの下の領域に侵食を適用します。
 ![](Erosion_Before_And_After_00.png)
 左が Erosion ツールの使用前、右が使用後です。
 [VAR:ToolTipFullLink]
@@ -137,7 +137,7 @@ Engine/Landscape/Editing/SculptMode
 [/EXCERPT:NoiseTool]
 
 [EXCERPT:RetopologizeTool]
-Retopologize はランドスケープの頂点を X/Y オフセット マップで自動調整し、テクスチャの伸縮を減らして、がん壁の頂点密度を改善します。X/Y オフセット マップは、他のツールでのレンダリングやペイントを遅くするので、 Retopologize ツールは必要な場合のみ使用します。Retopologize ツールを使うには、CTRL キーを押しながらマウスの左ボタンを使って、ブラシの下の領域に Retopologize を適用します。
+Retopologize ツールは、ランドスケープの頂点を X/Y オフセット マップで自動調整し、テクスチャの伸縮を減らして、がん壁の頂点密度を改善します。X/Y オフセット マップは、他のツールでのレンダリングやペイントを遅くするので、Retopologize ツールは必要な場合のみ使用します。Retopologize ツールを使うには、CTRL キーを押しながらマウスの左ボタンを使って、ブラシの下の領域に Retopologize を適用します。
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/SculptMode
 [/VAR]
@@ -167,7 +167,7 @@ Engine/Landscape/Editing/SculptMode
 [/EXCERPT:RegionCopyPasteTool]
 
 [EXCERPT:CircleBrush]
-フォールオフを数値とタイプ両方で定義した円形ブラシは、円形領域に現行ツールを適用します。
+フォールオフを数値とタイプの両方で定義した Circle ブラシは、円形領域に現在のツールを適用します。
 ![](Circel_Brush_00.png)
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/Brushes
@@ -175,7 +175,7 @@ Engine/Landscape/Editing/Brushes
 [/EXCERPT:CircleBrush]
 
 [EXCERPT:AlphaBrush]
-アルファブラシはパターンブラシと似ていますが、ペイント時にランドスケープ全体にテクスチャをタイリングする代わりに、ブラシテクスチャをペイント方向に合わせるとともに、カーソルを移動するにつれて形状をドラッグします。複数のブラシのパターンを、様々な RGB チャネルのテクスチャへパックすることができます。異なるパターンを選択するには、Texture Channel オプションで現在割り当てられている異なるチャネルのテクスチャを選択します。  
+アルファ ブラシはパターンブラシと似ていますが、ペイント時にランドスケープ全体にテクスチャをタイリングする代わりに、ブラシ テクスチャをペイント方向に合わせるとともに、カーソルを移動するにつれて形状をドラッグします。You can pack multiple brush patterns in the various RGB channels of a texture.異なるパターンを選択するには、Texture Channel オプションで現在割り当てられている異なるチャネルのテクスチャを選択します。  
 ![](brush_alpha_drag.png)
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/Brushes
@@ -183,7 +183,7 @@ Engine/Landscape/Editing/Brushes
 [/EXCERPT:AlphaBrush]
 
 [EXCERPT:AlphaBrush_Pattern]
-パターンブラシは、ブラシのアルファとして使用するために、テクスチャから単一カラーチャンネルをサンプリングして、ブラシに任意の形状を使用することができます。ブラシがペイントされるとテクスチャ パターンがタイリングされます。複数のブラシのパターンを、様々な RGB チャネルのテクスチャへパックすることができます。異なるパターンを選択するには、Texture Channel オプションで現在割り当てられている異なるチャネルのテクスチャを選択します。  
+Pattern ブラシは、ブラシのアルファとして使用するために、テクスチャから単一カラーチャンネルをサンプリングして、ブラシで任意の形状を使用することができます。ブラシがペイントされるとテクスチャ パターンがタイリングされます。You can pack multiple brush patterns in the various RGB channels of a texture.異なるパターンを選択するには、Texture Channel オプションで現在割り当てられている異なるチャネルのテクスチャを選択します。  
 ![](Patteren_Brush_00.png)
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/Brushes

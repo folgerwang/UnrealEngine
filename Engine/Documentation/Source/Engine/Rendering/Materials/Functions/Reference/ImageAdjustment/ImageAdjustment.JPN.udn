@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2735587
+﻿INTSourceChangelist:3242329
 Availability:Public
 title:画像補正
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:コントラストや色合いの変更など既存画像のテクスチャを補正する関数
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 

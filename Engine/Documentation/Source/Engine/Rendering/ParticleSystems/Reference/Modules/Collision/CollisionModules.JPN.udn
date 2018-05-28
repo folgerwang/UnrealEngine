@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2872149
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Collision モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:パーティクルによるアクタコリジョンの処理方法を管理するモジュール。
 Version:4.9
+tags:Particles
 
 [TOC(start:2 end:3)]
 
@@ -113,8 +114,8 @@ Min Desired Frame Rate を変更し、[Drop Detail (省略を省く)] のチェ�
 |_EPCC_Freeze_|パーティクルを定位置にフリーズさせます。|
 |_EPCC_HaltCollisions_|衝突チェックを停止しますが、続けて更新します。これにより、パーティクルはオブジェクトを「通り抜け」ることになります。
 |_EPCC_FreezeTranslation_|パーティクルの平行移動を停止しますが、その他はすべて更新し続けます。|
-|_EPCC_FreeRotation_|パーティクルの回転を停止しますが、その他はすべて更新し続けます。|
-|_EPCC_FreeMovement_|パーティクルの平行移動/回転を停止しますが、その他はすべて更新し続けます。.|
+|_EPCC_FreezeRotation_|パーティクルの回転を停止しますが、その他はすべて更新し続けます。|
+|_EPCC_FreezeMovement_|パーティクルの平行移動/回転を停止しますが、その他はすべて更新し続けます。.|
 [/REGION]
 [/EXCERPT:CollisionCompletionOption]
 

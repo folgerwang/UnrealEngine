@@ -62,12 +62,9 @@ In addition, the viewport will display an overlay to alert the player that the g
 
 ## Debug Tab and Blueprint Debugger
 
-
 [EXCERPT:DebugTab]
 
-[EXCERPT:DebugPanel]
-The **Debug** tab shows information designated as important by the designer in the form of Breakpoints and watch values as well as a trace stack of all nodes belonging to the Blueprint that have been executed. This window also shows controls for controlling execution of the game when using Breakpoints.
-[/EXCERPT:DebugPanel]
+[INCLUDE:#DebugPanel]
 
 ### Watch Values
 
@@ -90,3 +87,9 @@ The **Execution Trace** stack shows a list of the nodes executed with the most r
 This list updates as you step through the graph when debugging.
 
 [/EXCERPT:DebugTab]
+
+[COMMENT:none]
+[EXCERPT:DebugPanel]
+The **Debug** tab shows information designated as important by the designer in the form of Breakpoints and watch values as well as a trace stack of all nodes belonging to the Blueprint that have been executed. This window also shows controls for controlling execution of the game when using Breakpoints.
+[/EXCERPT:DebugPanel]
+[/COMMENT]

@@ -1,34 +1,32 @@
-﻿INTSourceChangelist:3622867
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%, Platforms
 Title:SteamVR Chaperone システムの起動を探知する
 Description:ユーザーが SteamVR Chaperone システムを起動したかどうかを探知する
 Type: how-to
-Skilllevel:Intermidate
+Skilllevel:Intermediate
 Version:4.17
 Parent:Platforms/SteamVR
 Order:2
 tags:VR
 topic-image:Platforms\SteamVR\SteamVRDevelopment_topic.png
+prereq:Platforms\SteamVR\HowTo\StandingCamera
+prereq:Platforms\VR\MotionController
+prereq:Platforms\SteamVR\HowTo\Chaperone
+
+![](SteamVRChapActivation_Hero_Image.png)
 
 SteamVR Chaperone システムは、VR インタラクション エリアの境界をユーザーに表示します。トラックされたデバイスが境界に近づくと、SteamVR Runtime が自動的に視覚的なヒントを出してユーザーに知らせます。この操作ガイドでは、デバイスの 1 つがインタラクション エリアに接近またはエリア外に出たことをユーザーに知らせる視覚的ヒントとインタラクションの表示方法を説明します。
 
 [REGION:note]
-Standing VR Pawn を Motion Controller と Chaperone と一緒に使用する方法を説明します。設定方法が分からない場合は、以下を参考にしてください。
-* [SteamVR 用スタンディング式カメラの設定方法](Platforms\SteamVR\HowTo\StandingCamera)
-* [SteamVR 用 Motion Contolloers の設定方法](Platforms\VR\MotionController)
-* [Chaperone システムの設定方法](Platforms\SteamVR\HowTo\Chaperone)
-[/REGION]
-
-[REGION:note]
-Chaperone システムを使うためには、SteamVR ツールを使って Room Scale VR が正しく設定されていなければなりません。設定方法の詳細は、[HTC Vive](https://www.vive.com/us/support/category_howto/setting-up-room-scale-play-area.html) をご覧ください。
+Chaperone システムを使うためには、SteamVR ツールを使って **Room Scale VR** が正しく設定されていなければなりません。設定方法の詳細は、[HTC Vive](https://www.vive.com/us/support/category_howto/setting-up-room-scale-play-area.html) をご覧ください。
 [/REGION]
 
 [REGION:warning]
 UE4 から Chaperone システムを無効にすることは **できません**し、推奨もしません。ただし、ユーザーの境界への接近に対する UE4 の反応はいろいろ変えることができます。  
 [/REGION]
 
-## SteamVR Chaperone システムとのインタラクト方法
+## ステップ
 
 1. SteamVR Chaperone Boundary を表示するには、まずユーザーのデバイスが範囲に近づくタイミングを知る必要があります。UE4 では、**Bind Event to OnRetunToBounds** と **Bind Event to OnLeaveBounds** ノードを使うことで探知できます。プレイヤー Pawn Blueprint で以下のノードを **イベントグラフ** に追加します。
 
@@ -40,9 +38,14 @@ UE4 から Chaperone システムを無効にすることは **できません**
     クリックしてフルサイズで表示
     [/REGION]
 
-    * **Bind Event to OnRetunToBounds**
-    * **Bind Event to OnLeaveBounds**
-    * **SteamVRChaperone**
+	[REGION:simpletable]
+    |ノード名| 値 |
+    |--------|------------|
+    |**Bind Event to OnReturnToBounds**|N/A|
+    |**Bind Event to OnLeaveBounds**|N/A|
+    |**SteamVRChaperone**|N/A|
+    [/REGION]
+
 
 1. **[Variables]** パネル上で、**inBounds** という名前の **Boolean** 変数を新規に作成し、ユーザーが Chaperone 境界に出入りするタイミングをトラックできるようにします。 
 
@@ -80,12 +83,18 @@ UE4 から Chaperone システムを無効にすることは **できません**
 
 1. 次は、トラッキング エリアへの出入りをユーザーに知らせる方法が必要になります。**Print String** ノードを使って、トラッキング エリア内にいるかどうかをティックごとにユーザーに知らせるメッセージを画面に出力します。これを Pawn ブループリントで行うには、以下のノードをイベントグラフに追加する必要があります。
 
-    * **Event Tick**
-    * **Branch**
-    * **Print String** x 2 
-    * **InBounds**
+	[REGION:simpletable]
+    |ノード名| 値 |
+    |--------|------------|
+    |** Event Tick**|N/A|
+    |**Branch**|N/A|
+    |**Print String** x 2|N/A|
+	|**InBounds**|N/A|
+    [/REGION]
 
-1. Event Tick 出力を Branch ノードの入力に接続して、**InBounds** を **Condition** 入力に接続し、Print String ノードを Branch ノードの **True** 出力と **False** 出力に接続します。Print String ノードに事象を説明するテキストを必ず入力します。この例では、**[You have returned to the tracking bounds (トラック領域に戻りました)]** と **[You have left the tracking bounds (トラック領域から出ました)]** を好きなところに自由に使うことができます。完了すると、Pawn ブループリントは以下のようになります。
+1. Event Tick 出力を Branch ノードの入力に接続して、**InBounds** を **Condition** 入力に接続し、Print String ノードを Branch ノードの **True** 出力と **False** 出力に接続します。Print String ノードに事象を説明するテキストを必ず入力します。この例では、**[You have returned to the tracking bounds (トラック領域に戻りました)]** と **[You have left the tracking bounds (トラック領域から出ました)]** を好きなところに自由に使うことができます。
+
+	完了すると、Pawn ブループリントは以下のようになります。
 
     [REGION:lightbox]
     [Include:Platforms\SteamVR\HowTo\ChaperoneActivation\#SVRFinalBP]
@@ -95,30 +104,32 @@ UE4 から Chaperone システムを無効にすることは **できません**
     画像をクリックしてブループリント コードをコピー
     [/REGION]
 
-1. ここで HTC Vive HMD を装着してモーション コントローラーを持って、VR Review でプロジェクトを起動します。プロジェクトが起動したら、モーション コントローラーの片方を Chaperone 範囲に向けてゆっくり動かします。範囲に近づくと、画面に出力されるメッセージが以下の動画にように変わります。
+## 最終結果
 
-    [OBJECT:EmbeddedVideo]
-        [PARAMLITERAL:videoid]
-            _QyYbsdbQT4
-        [/PARAMLITERAL]
-        [PARAMLITERAL:width]
-        100
-        [/PARAMLITERAL]
-        [PARAMLITERAL:height]
-        56.25
-        [/PARAMLITERAL]
-        [PARAMLITERAL:units]
-        %
-        [/PARAMLITERAL]
-        [PARAMLITERAL:type]
-        simple
-        [/PARAMLITERAL]
-    [/OBJECT]
+ここで HTC Vive HMD を装着してモーション コントローラーを持って、VR Review でプロジェクトを起動します。プロジェクトが起動したら、モーション コントローラーの片方を Chaperone 範囲に向けてゆっくり動かします。範囲に近づくと、画面に出力されるメッセージが以下の動画にように変わります。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+        _QyYbsdbQT4
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
 ## UE4 プロジェクトのダウンロード
 以下のリンクから、このサンプルの作成に使われた UE4 プロジェクトをダウンロードすることができます。
 
-* [**SteamVR Chaperon Activation Example Project**](https://epicgames.box.com/s/zpvbgdudx756l8n6z50fk58pap4ou7u0)
+* [**SteamVR Chaperone Activation Example Project**](https://epicgames.box.com/s/zpvbgdudx756l8n6z50fk58pap4ou7u0)
 
 [COMMENT:none]
 

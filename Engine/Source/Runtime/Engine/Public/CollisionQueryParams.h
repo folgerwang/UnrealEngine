@@ -57,7 +57,7 @@ struct ENGINE_API FCollisionQueryParams
 	/** Whether we want to return the triangle face index for complex static mesh traces */
 	bool bReturnFaceIndex;
 
-	/** Only fill in the PhysMaterial field of  */
+	/** Whether we want to include the physical material in the results. */
 	bool bReturnPhysicalMaterial;
 
 	/** Whether to ignore blocking results. */

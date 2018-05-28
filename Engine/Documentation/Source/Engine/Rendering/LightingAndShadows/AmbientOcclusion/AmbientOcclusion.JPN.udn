@@ -1,29 +1,11 @@
-﻿INTSourceChangelist:2666775
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:アンビエント オクルージョン
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
 Description:オクルージョンによるライトの減衰の程度
 Version:4.9
+topic-image:ao.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/AmbientOcclusion:title%](ao.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/tech_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/AmbientOcclusion:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/AmbientOcclusion:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/AmbientOcclusion]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [EXCERPT:AmbientOcclusion_Desc]
 **アンビエント オクルージョン** (SSAO) は、オクルージョンを起因とする光源の減衰の程度を表すエフェクトです。繊細な効果のもたらす上に、奥まった領域や面や岩の隙間を暗くしたり、その他の特性の見た目をより自然でリアルに表現する際に最も有益です。
@@ -35,7 +17,7 @@ Version:4.9
 | アンビエントオクルージョンが適用されていないシーン | アンビエントオクルージョンの適用のみ | アンビエントオクルージョンが適用されたシーン |
 [/REGION]
 
-このエフェクトは SSAO 手法で実現しています。つまり、スクリーン空間の後処理効果で AO の量が計算されています。 
+このエフェクトは SSAO 手法で実現しています。つまり、スクリーン スペースの後処理効果で AO の量が計算されています。 
 我々の手法は深度バッファと標準型の GBuffer (遅延シェーディング参照) を使用しています。これは法線マップの詳細が結果に影響を与えることを意味します。UE4 におけるエフェクトは、 AmbientCubemap に適用されます。ここではシャドウマッピングを使用しているため、直接照明に影響は及びません。
 
 「Visualize GBuffer」ビューモード (ビューモード参照) または「Visualize Ambient Occlusiion」フラグを表示して AO 値を直接見ることが出来ます。
@@ -49,9 +31,7 @@ AO 値は GBuffer の一部であるため、マテリアルからも出力す�
 | **Radius in WorldSpace** | 有効化されると、 **AO Radius** の値はワールド空間にあると仮定されます。さもなければ、ビュー空間にあると仮定されます。 |
 | **Distance** | オブジェクト周りの暗いハローを回避するために必要な微調整用のパラメータです。オブジェクトの濃さが分からないため、SSAO 技術にはzbuffer のみが存在します。[INCLUDE:Engine/Rendering/LightingAndShadows/AmbientOcclusion#Distance]
 | **Power** | 計算された暗色化効果の強度を制御します。 [INCLUDE:Engine/Rendering/LightingAndShadows/AmbientOcclusion#Power] |
-| **Bias** |アンビエント オクルージョンの詳細を微調整します。遠方の高精度なアーティファクトを回避するために何かしらのバイアスが必要です。アンリアル単位の >0 、デフォルト(3.0) 値は平面に適していますが詳細度は縮小します。[COMMENT:none]
-TODO: images
-[/COMMENT] |
+| **Bias** |アンビエント オクルージョンの詳細を微調整します。遠方の高精度なアーティファクトを回避するために何かしらのバイアスが必要です。アンリアル単位の >0 、デフォルト(3.0) 値は平面に適していますが詳細度は縮小します。 |
 
 [COMMENT:none]
 

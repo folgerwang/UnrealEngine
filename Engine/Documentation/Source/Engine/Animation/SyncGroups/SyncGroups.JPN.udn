@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3809606
 Availability:Public
 Title:Sync Group
 Crumbs: %ROOT%, Engine, Engine/Animation
@@ -44,9 +44,7 @@ Sync Group は、 1 つのアニメーションがリーダーとなり、その
 |[INCLUDE:#walkanimationscaled] | このインスタンスでは、走行アニメーションのブレンド ウェイトが歩行アニメーションより重くなります。これらは同じ Sync グループなので、歩行アニメーションが走行アニメーションの長さに一致するように短縮されます。|
 |[INCLUDE:#runanimationscaled]| ここで、歩行アニメーションのブレンド ウェイトの方が重たくなります。この結果、走行アニメーションは歩行の長さに一致するように拡大されます。 | 
 
-[COMMENT]
--
-
+[COMMENT:none]
 
 [EXCERPT:RunAnimation]
 [REGION:raw]
@@ -82,7 +80,6 @@ Sync Group は、 1 つのアニメーションがリーダーとなり、その
 * 自分の Notifies を抑止して、リーダーの Notifies に従います。
 [/EXCERPT:FollowerList]
 
---
 [/COMMENT]
 
 
@@ -97,12 +94,11 @@ Sync Group の設定を行うには、AnimGraph で Animation ノードを選ん
 |**Group Name**| Sync Group を設定する場所です。通常、ブレンド予定の関連するアニメーション (コソコソ歩く、歩行、走行、スプリントなどのボディ モーション) は同じ Sync Group に入れると良いでしょう。|
 |**Group Role**| グループのメンバーのタイプを設定する場所です。利用可能な値は、 "Can Be Leader" (デフォルト)、 "Always Leader"、 および "Never Leader" です。|
 
-[COMMENT]
--
+[COMMENT:none]
 Group Role には 3 つのオプションがあります。
 * Can Be Leader - デフォルト設定です。このアニメーションのブレンド ウェイトが一番大きい場合にリーダーとなり、他のアニメーションはその長さに一致するようにスケールします。
 * Always Leader - この設定がされたアニメーションが常にリーダーとなり、全てのアニメーションはリーダーの長さと一致するように常にスケールされます。
-* Never Leader - この設定がされたアニメーションは決してリーダーにはならず、次にウェイトのあるアニメーションにマッチするように常にスケールされます。-
+* Never Leader - この設定がされたアニメーションは決してリーダーにはならず、次にウェイトのあるアニメーションにマッチするように常にスケールされます。
 [/COMMENT]
 
 

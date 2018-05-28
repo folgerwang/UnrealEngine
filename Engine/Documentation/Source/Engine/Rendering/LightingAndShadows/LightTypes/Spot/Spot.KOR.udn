@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability: Public
 Title:스포트 라이트
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows, Engine/Rendering/LightingAndShadows/LightTypes
@@ -18,11 +18,10 @@ topic-image:SpotLight_Topic.png
 
 다른 라이트처럼 **스포트 라이트** 도 세 가지 **모빌리티** 세팅 중 하나로 설정할 수 있습니다:
 
-
-
 * **스태틱** - (왼쪽 그림) 게임에서 변경할 수 없는 라이트라는 뜻입니다. 렌더링에 가장 빠른 방법으로, 라이팅을 구을 수 있습니다.
 * **스테이셔너리** - (역시 왼쪽 그림) 스태틱 지오메트리에서의 반사광과 그림자만 **라이트매스** 로 굽고, 다른 모든 라이팅은 다이내믹이 되는 라이트입니다. 이 세팅은 게임에서 라이트의 색과 강도를 변경할 수 있지만 이동할 수는 없으며, 라이팅을 부분적으로 굽는 것이 가능합니다.
 * **무버블** - (왼쪽 그림) 라이트가 완전히 동적이어서 다이내믹 섀도잉이 가능하다는 뜻입니다. 렌더링 속도 측면에서는 가장 느리지만, 게임플레이 도중 유연성이 가장 높습니다.
+[/EXCERPT:Intro]
 
 아래 레벨 안에 배치된 **스포트 라이트** 두 예제를 통해 라이트의 반경과 원뿔 유효 범위 결정 방식을 알 수 있습니다:
 

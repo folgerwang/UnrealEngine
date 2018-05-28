@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3482403
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%
 Title:Sculpt モード
@@ -67,7 +67,7 @@ Sculpting ツールを選択すると、以下の制御を使ってランドス�
 
 **Sculpting ツール** は様々な方法でランドスケープの形状修正に使用することができます。利用できる機能については、こちらをご覧ください。
 
-[DIR(output:"topiccompact" parent:"Engine/Landscape/Editing/SculptMode" org:"hierarchy" tags:"landscape" tags:"!region" end:"1")]
+[DIR(output:"topiccompact" parent:"Engine/Landscape/Editing/SculptMode" org:"hierarchy" tags:"landscape" tags:"sculpting" end:"1")]
 
 (#Regionツール)
 

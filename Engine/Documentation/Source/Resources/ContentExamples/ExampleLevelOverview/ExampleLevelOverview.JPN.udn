@@ -1,50 +1,10 @@
-﻿INTSourceChangelist:2714574
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:コンテンツ サンプルの使い方
 Crumbs:%ROOT%, Resources, Resources/ContentExamples
 Description:「コンテンツ サンプル」をランチャーのラーニングタブからダウンロードして各機能を勉強しましよう。
 Version:4.9
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/ExampleLevelOverview:title%](ExampleMapTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/ExampleLevelOverview:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/ExampleLevelOverview:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/ExampleLevelOverview]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/ExampleLevelOverview:title%](ExampleMapTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/ExampleLevelOverview:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/ExampleLevelOverview:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/ExampleLevelOverview]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:ExampleMapTopic.png
 
 [REGION:fullwidth]
 ![](ExampleMap.png)

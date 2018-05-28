@@ -1,57 +1,18 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3622529
 Availability:Public
-Title:VR Camera のリファクタリング
-Crumbs:%ROOT%, Platforms
-Description: 新しい VR カメラ設定の説明
-Navigation:platform
-Version:4.11
-Skilllevel:Intermediate
+Crumbs: %ROOT%
+Title:アイテムを HMD にアタッチする方法
+Description:アイテムを HMD にアタッチする方法の説明
+Type:Overview
+SkillLevel:Beginner
+Version:4.17
 parent:Platforms/VR
-type:overview
+Order:4
+Tags:VR
 
 [TOC(start:2)]
 
-
-
-アンリアル エンジン 4.11 のリリースで、仮想現実 (VR) カメラの動きが以前のバージョンから若干変わりました。 
-最大の変更点は、カメラをオブジェクトの親にすると、オブジェクトがカメラを追うようになります。
-つまり、追跡中のオブジェクトをヘッドマウント ディスプレイ (HMD) でオフセットする必要はなくなりました。
-Camera アクタにアタッチされたコンポーネントがカメラと相対的な位置を維持するので、ヘルメット、コリジョン、その他のプリミティブを簡単にプレイヤーに追加できるようになりました。アタッチされたレンダリング可能なコンポーネントは、低レイテンシーで使用される同じ **late update** トランスフォームも受け取って HMD モーションと完全に同期し続けます。
-これらの変更を前のバージョンに反映させ、新規の UE4 プロジェクトで有効のままにする方法について、説明します。
-
-## UE4 バージョン 4.11 以降の VR カメラの設定方法
-
-[region:note]
-**[Lock to HMD]** オプションでカメラ自体に直接設定されているカメラ マネージャが、カメラが HMD に合わせるべきか判断しなくなっていることを必ず確認してください。
-[/region]
-
-この機能はデフォルトで有効になっているので、バージョン 4.11 以降の UE で新規に VR プロジェクトを作成する場合は、カメラは HMD と同期する設定になっています。 
-機能を無効にするには、**Player ブループリント** で **[Camera]** を選んでから、 
-**[Camera]** セクションの**[Details (詳細)]** パネルの **[Lock to HMD]** オプションのチェックを外すと、以下のような画像の黄色い枠部分のようになります。
-
- ![](VR_Camera_Refactor_00.png)
-
-
-## 古いバージョンから VR Camera 4.11 へのアップグレード
-
-以前のリリースから 4.11 へ UE4 プロジェクトをアップグレードする場合、以前の VR カメラ設定が変更後の 4.11 の設定で動作することを確認してください。 
-カメラの作成および設定方法に合わせて、VR カメラが正常に機能するように、以下のいずれかの変更がのいずれかが行われていることを確認してください。 
-
-### Base Camera コンポーネント
-
-Camera コンポーネントの場合は、カメラ トランスフォームは HMD オフセットなので、シーンの中でプレイヤーの頭を動かすために "base" が必要になります。
- 4.11 へ移行後、地上で VR カメラを見るには、以下の画像に表されるように、新規のシーン トランスフォームを挿入してカメラ ベースの配置を設定する必要があります。
-
- ![](VR_Camera_Refactor_01.png)
-
-
-### Camera Actor コンポーネント
-
-Camera アクタの場合、以下の画像に示されているようにトランスフォーム チェーンを全部入れると、アクタそのものの Camera コンポーネントの親としてベース シーン トランスフォームが自動的に挿入されます。 
-
- ![](VR_Camera_Refactor_02.png)
-
-
+アンリアル エンジン 4 (UE4) で使用するヘッドマウント ディスプレイ (HMD) はどの種類の場合も、アイテムを HMD にアタッチする方法は一緒です。方法が同じなだけでなく、HMD とも完全に同期して移動します。このどぎゅメントでは、HMD にアイテムをアタッチする場合に必要なことを説明します。
 
 [region:note]
 ワールドでのプレイヤー位置を知りたい時は、Camera アクタの位置を取得することができるようになりました。
@@ -60,42 +21,58 @@ Camera アクタの場合、以下の画像に示されているようにトラ�
 
 ## オブジェクトと HMD を連動させる設定
 
-3D メッシュ、パーティクル エフェクト、UI エレメントを HMD に連動させる設定は、以下の手順で行います。
+スタティックメッシュ、パーティクルエフェクト、UI エレメント、その他いろいろなアイテムを HMD の移動に追従するようにするには、以下の設定を行います。 
 
-1. まず最初に Character ブループリントを開いて、ブループリント エディタの **[Viewport]** タブを開きます。
+1. まず最初にポーンのブループリントを開いて、**[Viewport]** タブを開きます。
 
-	![](VR_Follow_HMD_Setup_00.png)
+	[REGION:lightbox]
+	[![](VR_Follow_HMD_Setup_00.png)(w:737)](VR_Follow_HMD_Setup_00.png)
+	[/REGION]
 
-1. 次に **[Component (コンポーネント)]** タブの **[Add Component (コンポーネントを追加)]** オプションをクリックして **「Cube」** を検索ボックスに入力し、表示された **Cube** メッシュをクリックしてコンポーネントとして追加します。
+	[REGION:caption]
+	クリックしてフルサイズで表示
+	[/REGION]
 
-	![](VR_Follow_HMD_Setup_01.png)
+1. **[Component (コンポーネント)]** タブの **[Add Component (コンポーネントを追加)]** オプションをクリックし、検索ボックスに **「Cube」** と入力し、表示された **Cube** メッシュをクリックしてコンポーネントとして追加します。
 
-1. キューブ スタティック メッシュを追加したら、そのキューブ スタティック メッシュを選んで、カメラがメッシュの親になるようにカメラ上にドラッグします。
+	[REGION:lightbox]
+	[![](VR_Follow_HMD_Setup_01.png)(w:737)](VR_Follow_HMD_Setup_01.png)
+	[/REGION]
+
+	[REGION:caption]
+	クリックしてフルサイズで表示
+	[/REGION]
+
+1. その Cube スタティック メッシュを選んでカメラの上にドラッグし、カメラがそのメッシュの親になるようにします。
 
 	![](VR_Follow_HMD_Setup_02.png)
 
-1. 次に、ブループリントをコンパイルし、VR プレビュー オプションを使って UE4 エディタ内からプロジェクトを起動します。 
-HMD を装着して頭を動かすと、以下の動画のようにキューブは頭の動きにぴったり付いていきます。
+1. 次に、ブループリントをコンパイルし、VR プレビュー オプションを使って UE4 エディタ内からプロジェクトを起動します。HMD を装着して頭を動かすと、以下の動画のようにキューブは頭の動きにぴったり付いていきます。
 
 	[OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:width]
-	640
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	360
-	[/PARAMLITERAL]
-	[PARAMLITERAL:videoid]
-	xzdA-JU3-js
-	[/PARAMLITERAL]
+		[PARAMLITERAL:videoid]
+		5brQDHHFR0w
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		100
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
 	[/OBJECT]
 
-## HMD とプレイヤー位置
+## HMD とプレイヤーのワールド位置
 
-新機能のカメラ リファクタの利点の 1 つは、Camera コンポーネントの位置を取得すればカメラ / HMD の位置がすぐに分かるという点です。 
-下の画像で実際の様子が分かります。
+以下のようにブループリントを設定すると、Camera コンポーネントを使って HMD のワールド位置を素早く取得することができます。
 
 ![](VR_Get_Player_Location_00.png)
 
 上の画像では、ユーザーがキーボードの T を押すと、ワールド内のカメラの X、Y、Z の位置がシーンとログ ウィンドウに出力されます。
 
-
+![](VR_Follow_HMD_Setup_03.png)

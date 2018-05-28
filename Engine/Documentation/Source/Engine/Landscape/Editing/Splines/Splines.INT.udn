@@ -30,13 +30,17 @@ The **Spline** tool creates a spline Actor that deforms a terrain mesh along it,
 
 [EXCERPT:Splines001]
 
-[EXCERPT:LandscapeSplines]
-**Landscape Splines** are a flexible system for creating any linear feature that needs to conform to a Landscape, and can even push and pull the terrain to better facilitate building these features. They are created and edited using the spline tool in the Landscape tool.
-[/EXCERPT:LandscapeSplines]
+[INCLUDE:#LandscapeSplines]
 
 The Spline tool is best used to make streets or paths in the environment, but in general, it can be used for any mesh that must conform to the terrain, such as cobblestone walls or long straight rows of corn. 
 
 [/EXCERPT:Splines001]
+
+[COMMENT:none]
+[EXCERPT:LandscapeSplines]
+**Landscape Splines** are a flexible system for creating any linear feature that needs to conform to a Landscape, and can even push and pull the terrain to better facilitate building these features. They are created and edited using the spline tool in the Landscape tool.
+[/EXCERPT:LandscapeSplines]
+[/COMMENT]
 
 ## Creating a Spline
 

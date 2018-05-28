@@ -1,56 +1,19 @@
-﻿Availability:Public
+﻿INTSourceChangelist:3782314
+Availability:Public
 Title:レイヤー マテリアルの作成
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/LayeredMaterials
 Description:UE4 のレイヤー マテリアル技術に関する入門書
 Version:4.9
 SkillLevel:Intermediate
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](%ROOT%/Resources/Tutorials/Materials/CreatingLayeredMaterials/layered_tutorial_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Tutorials/Materials/CreatingLayeredMaterials:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Tutorials/Materials/CreatingLayeredMaterials:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Tutorials/Materials/CreatingLayeredMaterials]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](%ROOT%/Resources/Tutorials/Materials/CreatingLayeredMaterials/layered_tutorial_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Tutorials/Materials/CreatingLayeredMaterials:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Tutorials/Materials/CreatingLayeredMaterials:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Tutorials/Materials/CreatingLayeredMaterials]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+tags:Materials
+topic-image:layered_tutorial_topic.png
 
 [REGION:fullwidth]
 ![](SnowyStuff.png)
 [/REGION]
 
 
-このチュートリアルでは、クロムと雪の 2 つのマテリアル レイヤーを使用して、簡単なレイヤー マテリアルを作成する一連の作業について説明します。最後のレイヤー マテリアルは、オブジェクトの上面に自動的に雪を配置して、効率的に 2 つのマテリアルを切り替えます。マテリアル間のブレンドは常に上面をチェックします。つまり、オブジェクトを回転しても雪は上部に残ります。
+このチュートリアルでは、クロムと雪の 2 つのマテリアル レイヤーを使用して、簡単な **レイヤー マテリアル** を作成する一連の作業について説明します。最後のレイヤー マテリアルは、オブジェクトの上面に自動的に雪を配置して、効率的に 2 つのマテリアルを切り替えます。マテリアル間のブレンドは常に上面をチェックします。つまり、オブジェクトを回転しても雪は上部に残ります。
 
 
 
@@ -159,7 +122,7 @@ SkillLevel:Intermediate
 
 1. **Base Color** - 唯一の比較的高度なネットワーク部分で、_FuzzyShading_ Material 関数を使用していることに起因します。この関数はマテリアルがライトを受け取った時、テクスチャが暗くなりすぎるのを防ぎます。繊維質の表面を通過するライトと若干似ています。ベルベット、苔、または雪などの使用にとても実用的です。ベースカラー テクスチャ (T_Cave_Ice_Tiling_D.png) の受け取りから始めて、値を 0.3 乗することによってコントラストをいくつか削除します。 
 
-	次にマテリアル エディタの [Function] タブから FuzzyShading Material 関数へ結果を接続して、 _Core Darkness_ を値 0 、 _Power_ を値 1 、そして _EdgeBrightness_ を値 0.5 に設定します。最後に、とても淡い青 (R=0.8 、 G=0.9 、 B=0.95) で全体を乗算して、冷たく凍えるような色あいにします。
+	次にマテリアル エディタの [Function (関数)] タブから FuzzyShading Material 関数へ結果を接続して、 _Core Darkness_ を値 0 、 _Power_ を値 1 、そして _EdgeBrightness_ を値 0.5 に設定します。最後に、とても淡い青 (R=0.8 、 G=0.9 、 B=0.95) で全体を乗算して、冷たく凍えるような色あいにします。
 
 1. **Metallic** - サーフェスはメタルではないので、 Metalic を 0 に設定します。
 
@@ -197,7 +160,7 @@ SkillLevel:Intermediate
 
 	![](enableMatAttrib.png)
 
-1. [Functions] パネルから MatLayerBlend_Simple 関数および World_Aligned_Blend 関数へドラッグします。クロムから雪への変形処理に MatLayerBlend_Simple 関数を使用し、World_Aligned_Blend 関数は表面が指し示す方向に基づいてレイヤー ブレンドを出力します。 
+1. [Functions (関数)] パネルから **MatLayerBlend_Simple** 関数および **World_Aligned_Blend** 関数へドラッグします。クロムから雪への遷移処理に MatLayerBlend_Simple 関数を使用し、World_Aligned_Blend  関数は表面が指し示す方向に基づいてレイヤー ブレンドを出力します。 
 
 
 ### レイヤ マテリアル ネットワーク
@@ -239,8 +202,8 @@ SkillLevel:Intermediate
 	![](DragDropMaterialSnowy.png)(w:700)
 
 1. インスタンスを **ダブルクリック** して、プロパティに必要な変更を加えます。クロムのカラー、クロムの法線マップの深度、表面上に降りかかる降雪量の変更ができます。
-	[REGION:raw]
 
+	[REGION:raw]
 		![](SnowChromeInstanceTesting.png)
 	[/REGION]
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3645555
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%, Platforms
 Title:Oculus Rift ガーディアン システムのアクティベーションを探知する
@@ -6,19 +6,17 @@ Description:ユーザーの Oculus Rift ガーディアン システムのアク
 Type: how-to
 Skilllevel:Intermediate
 Version:4.17
-Parent:Platforms/Oculus/HowTo
+Parent:Platforms/Oculus
 Order:2
 tags:VR
 topic-image:Platforms\Oculus\HowTo\GuardianSystem\HTGuardian_System_Topic_Image.png
+prereq:Platforms\Oculus\HowTo\StandingCamera
+prereq:Platforms\VR\MotionController
+prereq:Platforms\Oculus\HowTo\GuardianSystem
+
+![](HTGuardian_Hero_Image.png)
 
 Oculus Guardian システムは、VR インタラクション エリアの境界をユーザーに表示します。トラックされたデバイスが境界に近づくと、Oculus Runtime が自動的に視覚的なヒントを出してユーザーに知らせます。この操作ガイドでは、デバイスの 1 つがインタラクション エリアに接近またはエリア外に出たことをユーザーに知らせる視覚的ヒントとインタラクションの表示方法を説明します。
-
-[REGION:note]
-タッチ コントローラーとガーディアンを追加した Standing VR Pawn の使用方法を説明します。設定方法が分からない場合は、以下の 2 種類のガイドを参照してください。
-* [Oculus Rift 用カメラの設定方法](Platforms\Oculus\HowTo\StandingCamera)
-* [モーション コントローラーの設定方法](Platforms\VR\MotionController)
-* [ガーディアン システムの設定方法](Platforms\Oculus\HowTo\GuardianSystem)
-[/REGION]
 
 [REGION:note]
 ガーディアン システムを使用するためには Oculus App による設定が必要です。設定方法の詳細は、[Oculus ガーディアン システム](https://www.vive.com/us/support/category_howto/setting-up-room-scale-play-area.html) 設定ページをご覧ください。
@@ -28,14 +26,18 @@ Oculus Guardian システムは、VR インタラクション エリアの境界
 UE4 からガーディアン システムを無効にすることは **できません**。また推奨もしません。ただし、ユーザーの境界への接近に対する UE4 の反応はいろいろ変えることができます。  
 [/REGION]
 
-## Oculus Rift ガーディアン システムとのインタラクション
+## ステップ
 
 1. Oculus Rift Boundary を表示するには、まずユーザーのデバイスが範囲に近づくタイミングを知る必要があります。**Is Outer Boundary Displayed** ノードで行うことができますが、ティックごとに確認しなければなりません。UE4 で行うこともできます。まず、以下のノードをイベントグラフに追加します。
 
-    * **Event Tick**  
-    * **Branch**
-    * **Is Outer Boundary Displayed**
-    * **Oculus Rift Boundary**
+	[REGION:simpletable]
+	|ノード名| 値 |
+	|--------|------------|
+	|**Event Tick**|N/A|
+	|**Branch**|N/A|
+	|**Is Outer Boundary Displayed**|N/A|
+	|**Oculus Rift Boundary**|N/A|
+	[/REGION]
 
 1. Is Outer Boundary Displayed ノードがユーザーのデバイスが境界に接近した時だけ呼び出され、それ以外は何も起きないように、イベントグラフを以下の画像と同じになるように接続します。
 
@@ -67,25 +69,27 @@ UE4 からガーディアン システムを無効にすることは **できま
     クリックしてフルサイズで表示
     [/REGION]
 
-1. では Oculus Rift HMD を装着してタッチ コントローラーを持って、VR Review でプロジェクトを起動してみましょう。プロジェクトが起動したら、いずれかのタッチ コントローラーをガーディアン境界に向けてゆっくり動かします。以下の動画のように、ガーディアン境界が表示されると、四角いインタラクション エリアも表示されるようになります。
+## 最終結果
 
-    [OBJECT:EmbeddedVideo]
-        [PARAMLITERAL:videoid]
-            09yYAc_kLXM
-        [/PARAMLITERAL]
-        [PARAMLITERAL:width]
-        100
-        [/PARAMLITERAL]
-        [PARAMLITERAL:height]
-        56.25
-        [/PARAMLITERAL]
-        [PARAMLITERAL:units]
-        %
-        [/PARAMLITERAL]
-        [PARAMLITERAL:type]
-        simple
-        [/PARAMLITERAL]
-    [/OBJECT]
+では Oculus Rift HMD を装着してタッチ コントローラーを持って、VR Review でプロジェクトを起動してみましょう。プロジェクトが起動したら、いずれかのタッチ コントローラーをガーディアン境界に向けてゆっくり動かします。以下の動画のように、ガーディアン境界が表示されると、四角いインタラクション エリアも表示されるようになります。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+        09yYAc_kLXM
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
 
 ## UE4 プロジェクトのダウンロード

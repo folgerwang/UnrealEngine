@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability:Public 
 Crumbs: %ROOT%
 Title: 새로운 글로벌 셰이더를 플러그인으로 생성 - 블루프린트 구성
@@ -111,7 +111,7 @@ Checkpoint:shaderqs
 
 [NAV]
 
-	[COMMENT:none]
+[COMMENT:none]
 
 [EXCERPT:DrawDIS]	
 [OBJECT:Snippet]

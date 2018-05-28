@@ -3,12 +3,12 @@ Availability:Public
 Title:2 - AnimDynamics を適用する
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/AnimHowTo, Engine/Animation/AnimHowTo/AnimDynamics
 Description:このステップでは、動きに反応できるようにキャラクターが運んでいるものに AnimDynamics を適用します。
-version:4.12
-skilllevel:Advanced
+version: 4.12
+skilllevel: Advanced
 parent:Engine/Animation/AnimHowTo/AnimDynamics
 type:how-to
 type:multi-step
-Order:2
+Order: 2
 
 [NAV]
 
@@ -47,6 +47,7 @@ Order:2
 	![](5_Furnance1.png)
 
 	**[Preview]** セクションは、すべてビジュアル化に関するもので、動きに適用されている現在の制限をビューポート内に表示します。**Planar Limits** を使用し、 **CoM** (重心) が有効になっていなければ、コリジョンの球体も見えます (これはこの例で扱う範囲外ですが、この設定で試すことができます)。 
+
 	最後に設定するのは **Bound Bone** すなわち影響を及ぼすボーンです。このキャラクターでは **furnace** ボーン (このボーンがハーネス (Harness) に影響を及ぼします) に設定しました。 
 
 1.	まだノードを選択したままの状態で **Setup** セクションと **Constraint** セクションを以下のように設定します。 

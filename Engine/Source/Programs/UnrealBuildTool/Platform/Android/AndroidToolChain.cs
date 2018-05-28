@@ -43,6 +43,7 @@ namespace UnrealBuildTool
 		private bool bUseLdGold;
 		private List<string> AdditionalArches;
 		private List<string> AdditionalGPUArches;
+		protected bool bExecuteCompilerThroughShell;
 
 		// the Clang version being used to compile
 		static int ClangVersionMajor = -1;
@@ -1436,8 +1437,16 @@ namespace UnrealBuildTool
 						string ResponseArgument = string.Format("@\"{0}\"", ResponseFileName);
 
 						CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
-						CompileAction.CommandPath = ClangPath;
-						CompileAction.CommandArguments = ResponseArgument;
+						if(bExecuteCompilerThroughShell)
+						{
+							CompileAction.CommandPath = "cmd.exe";
+							CompileAction.CommandArguments = String.Format("/c \"{0} {1}\"", ClangPath, ResponseArgument);
+						}
+						else
+						{
+							CompileAction.CommandPath = ClangPath;
+							CompileAction.CommandArguments = ResponseArgument;
+						}
 						CompileAction.PrerequisiteItems.Add(ResponseFileItem);
 						CompileAction.StatusDescription = string.Format("{0} [{1}-{2}]", Path.GetFileName(SourceFile.AbsolutePath), Arch.Replace("-", ""), GPUArchitecture.Replace("-", ""));
 
@@ -1650,6 +1659,12 @@ namespace UnrealBuildTool
 
 					// Only execute linking on the local PC.
 					LinkAction.bCanExecuteRemotely = false;
+
+					if(bExecuteCompilerThroughShell)
+					{
+						LinkAction.CommandArguments = String.Format("/c \"{0} {1}\"", LinkAction.CommandPath, LinkAction.CommandArguments);
+						LinkAction.CommandPath = "cmd.exe";
+					}
 				}
 			}
 

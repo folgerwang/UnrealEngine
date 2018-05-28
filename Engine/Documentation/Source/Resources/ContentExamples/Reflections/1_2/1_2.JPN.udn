@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2721919
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.2 - メタル以外のマテリアルの反射
 Crumbs: %ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Reflections
@@ -10,70 +10,14 @@ Related:Engine/Rendering/Materials/PhysicallyBased
 Related:Resources/Showcases/RealisticRendering
 Related:Engine/Rendering/PostProcessEffects
 Version:4.9
-
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[前のサンプル](Resources/ContentExamples/Reflections/1_1 "%Resources/ContentExamples/Reflections/1_1:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[反射のホーム](Resources/ContentExamples/Reflections)
-	[/PARAM]
-	[PARAM:next]
-		[前のサンプル](Resources/ContentExamples/Reflections/1_3 "%Resources/ContentExamples/Reflections/1_3:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Reflections/1_2:title%](Reflections_1_2_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Reflections/1_2:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Reflections/1_2:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Reflections/1_2]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Reflections/1_2:title%](Reflections_1_2_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Reflections/1_2:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Reflections/1_2:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Reflections/1_2]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Reflections_1_2_Topic.png
 
 
 [REGION:fullwidth]
 
 ![](Reflections_1_2_Header.png)
 
-**Reflection Capture** アクタはボックス状または球状で、エフェクト ボリュームもしくは半径内に反射を投影します。マテリアルがメタル以外の場合 (Metallic プロパティが値 0.0 のマテリアルなど) は、反射は Roughness (ラフネス値) や Specular (スペキュラ) 値に基づいて投影します。ラフネス値を高めにして、スペキュラリティ (鏡面反射性) を低めにすると、マテリアルの反射プロパティ値は減少します。Roughness 値と Specular 値はサーフェスの反射プロパティに異なる影響を与えるので、これらの値を調整して期待通りの効果を実現します。
+**Reflection Capture** アクタはボックス状または球状で、エフェクト ボリュームもしくは半径内に反射を投影します。メタル以外のマテリアル (Metallic プロパティが値 0.0 のマテリアルなど) の反射は、Roughness (ラフネス値) や Specular (スペキュラ) 値に基づきます。ラフネス値を高めにして、スペキュラリティ (鏡面反射性) を低めにすると、マテリアルの反射プロパティ値は減少します。Roughness 値と Specular 値はサーフェスの反射プロパティに異なる影響を与えるので、これらの値を調整して期待通りの効果を実現します。
 
 マテリアルがメタル以外の場合、ほとんどの色を Base Color プロパティから受け取っていることに注目すべきです。
 

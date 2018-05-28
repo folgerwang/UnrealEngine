@@ -1,9 +1,8 @@
-﻿INTSourceChangelist:3665025
-Availability:Public
+﻿Availability:Public
 Title:4.レベルのデプロイ
 Crumbs:%ROOT%, Platforms, Platforms/Android, Platforms/Android/GettingStarted
 Description: ワンクリック デプロイでレベルを起動する
-version:4.16
+Version:4.17
 Skilllevel:Intermediate
 tags:Android
 tags:Mobile
@@ -19,7 +18,7 @@ Checkpoint:AndroidQS
 [nav]
 
 [region:note]
-この作業を行うには、Android デバイスが USB で PC に 接続されている必要があります。まだ接続していない場合は、接続を行ってからステップを開始してください。
+このセクションでの作業を行うために、Android デバイスを USB で PC に接続してください。まだの場合は、開始するまえに接続を完了させてください。
 [/region]
 
 レベルを Android デバイスにデプロイするためには、Android デバイスがサポートしているテクスチャ フォーマットを知る必要があります。
@@ -30,76 +29,78 @@ Android デバイスが正しく動作するためには、タイプごとに異
 
 ## ステップ
 
-1.	Android ベースのデバイス上でレベルのテストを行うには、テスト対象のレベルが開いていることをまず確認してください。 
-	最後のステップで作成したブループリント ベースのプロジェクトの **ThirdPersonExampleMap** レベルを使って説明します。
+1.     Android ベースのデバイス上でレベルのテストを行うには、テスト対象のレベルが開いていることをまず確認してください。 
+    最後のステップで作成したブループリント ベースのプロジェクトの **ThirdPersonExampleMap** レベルを使って説明します。
+    
+    ![](Correct_Level_Open.png)
 
-	![](Correct_Level_Open.png)
+    [region:note]
+	4.18 では Gradle ビルドシステムがデフォルトで有効化されています。ただし、**[Project Settings]** > **[Android]** から SDK ライセンス同意に承諾する必要があります (予め同意していない場合、ボタンは無効になります)。ボタンを押して、同意内容を読み、[Accept] を押して同意します。その後、ボタンがグレーアウトされます。**[Enable Gradle instead of Ant]** チェックボックスのチェックを外すせば、4.18 でも引き続き Ant ビルド システムを使用することができます。
 
-	[region:note]
-	UE4.18 の場合、デバイスのパッケージ化とデプロイに **Ant** ではなく Gradle を使用するために、以下の手順で **[Gradle]** のチェックマーク ボックスを有効にする必要があります。**[Project Settings]** > **[Platforms]** > **[Android]** > **[APKPacking]** を選択し、**[Enable Gradle instead of Ant [Experimental]]** オプションをクリックします。UE4.19 の場合は、Gradle がデフォルトで有効になっているため、このオプションは出てきません。
+    [REGION:lightbox]
+    [![](Gradle_418_Update.png)(w:519)](Gradle_418_Update.png)
+    [/REGION]
 
-	[REGION:lightbox]
-	[![](Gradle_418_Update.png)(w:519)](Gradle_418_Update.png)
-	[/REGION]
+    [REGION:caption]
+    クリックしてフルサイズで表示
+    [/REGION]
 
-	[REGION:caption]
-	クリックしてフルサイズで表示
-	[/REGION]
+    このオプションは削除し、4.19 で実装される Gradle のみを使用する予定です。
 
-	[/region]
+    [/region]
 
-1.	**ThirdPersonExampleMap** を開いたら、**メイン ツールバー** の **[Launch]** アイコンの横にある三角をクリックしてオプションを展開します。
+1.     **ThirdPersonExampleMap** を開いたら、**メイン ツールバー** の **[Launch]** アイコンの横にある三角をクリックしてオプションを展開します。
 
-	![](Level_Deploy_Options.png)
+    ![](Level_Deploy_Options.png)
 
 1. **[Launch]** メニューの **[Devices]** セクションのリストの中から、使用する Android デバイスをクリックして選択します。
 
-	![](launch_rightformat.png)
+    ![](launch_rightformat.png)
 
 1. デバイス上でレベルが起動している間、画面の右下隅に進捗が表示されます。 
  プロジェクトが正常にデバイスにデプロイされると、その旨のメッセージが表示されます。
+    
+    [OBJECT:EmbeddedVideo]
+        [PARAMLITERAL:videoid]
+        afagQeEvf4Q
+        [/PARAMLITERAL]
+        [PARAMLITERAL:width]
+        640
+        [/PARAMLITERAL]
+        [PARAMLITERAL:height]
+        360
+        [/PARAMLITERAL]
+        [PARAMLITERAL:units]
+        px
+        [/PARAMLITERAL]
+        [PARAMLITERAL:type]
+        simple
+        [/PARAMLITERAL]
+    [/OBJECT]
 
-	[OBJECT:EmbeddedVideo]
-		[PARAMLITERAL:videoid]
-		afagQeEvf4Q
-		[/PARAMLITERAL]
-		[PARAMLITERAL:width]
-		640
-		[/PARAMLITERAL]
-		[PARAMLITERAL:height]
-		360
-		[/PARAMLITERAL]
-		[PARAMLITERAL:units]
-		px
-		[/PARAMLITERAL]
-		[PARAMLITERAL:type]
-		simple
-		[/PARAMLITERAL]
-	[/OBJECT]
 
-1.	クックおよび起動処理が完了すると、ゲームがデバイス上に自動表示され Apps ドロワーからのアクセスも可能になります。 
-
-	[REGION:lightbox]
-	[![](Deployed_Project_Android.png)(w:500)](Deployed_Project_Android.png)
-	[/REGION]
-
-	[REGION:caption]
-	クリックしてフルサイズで表示
-	[/REGION]
 
 [REGION:tip]
-	サポート対象のテクスチャ フォーマットを確認するには、ゲームを実行して以下の操作を行います。
+    サポート対象のテクスチャ フォーマットを確認するには、ゲームを実行して以下の操作を行います。
 
-	1. 画面を指 4 本で一度にタップすると、ダイアログが表示されます。
-	1. このダイアログ ボックスは通常はコンソールコマンド (stat fps などの) の入力に使用しますが、ユーザーのデバイスがサポートしているフォーマットも表示します。 
-	1. このリストの中から、デプロイおよびパッケージ化に最も適しているフォーマット タイプを選択することができます。
+    1. 画面を指 4 本で一度にタップすると、ダイアログが表示されます。
+    1. このダイアログ ボックスは通常はコンソールコマンド (stat fps などの) の入力に使用しますが、ユーザーのデバイスがサポートしているフォーマットも表示します。 
+    1. このリストの中から、デプロイおよびパッケージ化に最も適しているフォーマット タイプを選択することができます。
 
-	![](Available_Texture_Formats.png)
+    ![](Available_Texture_Formats.png)
 [/REGION:tip]
 
 ## 結果
 
-この設定により、作成した UE4 プロジェクトが Android スマートフォンで動作するようになります。
+クックおよび起動処理が完了すると、ゲームがデバイス上に自動表示され Apps ドロワーからのアクセスも可能になります。 
+
+[REGION:lightbox]
+[![](Deployed_Project_Android.png)(w:500)](Deployed_Project_Android.png)
+[/REGION]
+
+[REGION:caption]
+クリックしてフルサイズで表示
+[/REGION]
 
 [nav]
 

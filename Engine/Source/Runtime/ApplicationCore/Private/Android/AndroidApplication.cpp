@@ -28,7 +28,7 @@ FAndroidApplication::FAndroidApplication()
 }
 
 FAndroidApplication::FAndroidApplication(TSharedPtr<class FAndroidInputInterface> InInputInterface)
-	: GenericApplication(InInputInterface.IsValid() ? InInputInterface->GetCursor() : MakeShareable(new FAndroidCursor()))
+	: GenericApplication((InInputInterface.IsValid() && InInputInterface->GetCursor()) ? InInputInterface->GetCursor() : MakeShareable(new FAndroidCursor()))
 	, InputInterface(InInputInterface)
 	, bHasLoadedInputPlugins(false)
 {

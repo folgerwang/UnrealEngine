@@ -1,52 +1,9 @@
-﻿INTSourceChangelist:2704715
-Availability:Public
+﻿Availability:Public
 Title:範囲外のピクセル
 Crumbs: %ROOT%, Engine, Engine/Performance/Visualizers
 Description: アンリアル エディタ ビューポートで範囲外のピクセルを表示する
 version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Performance/Visualizers/OutOfBoundsPixels:title%](OOBP_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Performance/Visualizers/OutOfBoundsPixels:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Performance/Visualizers/OutOfBoundsPixels:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Performance/Visualizers/OutOfBoundsPixels]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Performance/Visualizers/OutOfBoundsPixels:title%](OOBP_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Performance/Visualizers/OutOfBoundsPixels:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Performance/Visualizers/OutOfBoundsPixels:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Performance/Visualizers/OutOfBoundsPixels]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[REGION:banner]
-
-[/REGION]
+topic-image:OOBP_Topic.png
 
 [TOC(start:2)]
 
@@ -60,7 +17,7 @@ version:4.9
 
 **[Visualize (可視化)] -> [Out of Bounds Pixels (範囲外のピクセル)]** では、オブジェクトの範囲外にある全てのピクセルが表示されます。
 
-## 使用法
+## 使用方法
 
 ビューポート上でこのモードを有効にするには、ビューポート上の **[Show (表示)]** ボタンを **左クリック** し、**[Visualize (可視化)] から [Out of Bounds Pixels (範囲外のピクセル)]**を選択します。
 
@@ -105,6 +62,6 @@ Visualize Out of Bounds Pixels がこれらの部分を様々な色 (青、黄�
 ##スケルタル メッシュ
 
 スケルタルメッシュがその範囲から変位する主な理由は、メッシュをアクタ ルートから遠ざけてしまうアニメーションです。ただし、物理アセットのあるスケルタルメッシュは、 
-物理アセットを使って範囲を計算します。
-これを有効にするためには、 **コンテンツ ブラウザ** でスケルタルメッシュを **右クリック** して **[Create Physics Asset (物理アセットを作成)]** を選択します。デフォルト設定を使用すれば、スケルタルメッシュの範囲に起因するエラーを通過することができますが、恐らく結果は編集したいと思います。 
+物理アセットを使って範囲を計算します。これを有効にするためには、 **コンテンツ ブラウザ** でスケルタルメッシュを **右クリック** して  
+**[Create Physics Asset (物理アセットを作成)]** を選択します。デフォルト設定を使用すれば、スケルタルメッシュの範囲に起因するエラーを通過することができますが、恐らく結果は編集したいと思います。 
 **物理アセット** の編集に関する詳細は、 [物理アセットツール](Engine/Physics\PhAT) を参照してください。

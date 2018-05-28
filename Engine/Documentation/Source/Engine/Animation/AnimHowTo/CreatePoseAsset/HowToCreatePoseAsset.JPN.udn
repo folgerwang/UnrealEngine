@@ -1,10 +1,11 @@
-﻿INTSourceChangelist:3211487
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Pose アセットを作成する
 Crumbs: %ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
 Description:アニメーション エディタを使って、単一フレームの Pose アセットを生成する方法を説明します。
 version:4.14
 skilllevel:Intermediate
+tags:Pose Assets
 
 これまで、単一フレームのアニメーションをある程度の時間のアニメーション シーケンスから抽出することはできましたが、ブレンドは各自で設定していました。 
 こうしたやり方は、FACS (Facial Action Coding System) または viseme (口形素) カーブがポーズを操作する、フェイシャル アニメーションをサポートするために実装された **Pose アセット** を使用することで変わりました。 

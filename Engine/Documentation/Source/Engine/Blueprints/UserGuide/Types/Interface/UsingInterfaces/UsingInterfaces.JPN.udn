@@ -1,47 +1,10 @@
-﻿INTSourceChangelist:2695818
-Availability:Public
+﻿Availability:Public
 Title:ブループリント インターフェースの実装
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide/Types/Interface
 Description:ブループリント インターフェースは、相手側もインターフェースを実装していればタイプの異なるターゲットでもブループリントに関数を呼び出すことができます。
 Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\Types\Interface\UsingInterfaces:title%](Engine\Blueprints\UserGuide\using_interface_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\Types\Interface\UsingInterfaces:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\Types\Interface\UsingInterfaces:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\Types\Interface\UsingInterfaces]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\Types\Interface\UsingInterfaces:title%](Engine\Blueprints\UserGuide\using_interface_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\Types\Interface\UsingInterfaces:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\Types\Interface\UsingInterfaces:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\Types\Interface\UsingInterfaces]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/using_interface_topic.png
 
 [TOC (start:2)]
 
@@ -49,8 +12,8 @@ Version:4.9
 
 [EXCERPT:intro]
 ブループリント インターフェースを使用すると、ある特有の機能を共有するタイプの異なる多数のオブジェクトの相互作用に 
-共通のメソッドを使用することができます。つまり車や木など、狙撃されてダメージを受けるといったある特定の共通項がある、 
-まったく異なるタイプのオブジェクトを設定することができます。OnTakeWeaponFire 関数を格納するブループリント インターフェースを作成し、 
+共通メソッドを使用することができます。つまり車や木など、狙撃されてダメージを受けるといったある特定の共通項を持つ、 
+まったく異なるタイプのオブジェクトを持つことができます。OnTakeWeaponFire 関数を格納するブループリント インターフェースを作成し、 
 車と木の両オブジェクトを作成したブループリント インターフェースへ実装することによって、 
 車と木を同タイプのオブジェクトとみなし、いずれかが撃たれた時に OnTakeWeaponFire 関数を呼ぶことができます。
 [/EXCERPT:intro]
@@ -68,16 +31,16 @@ Version:4.9
 
 	![](ClassSettings.png)
 
-1. 右側の **[Details (詳細)]** パネルで **Interfaces** カテゴリを見つけます。 
+1. 右側の **[Details (詳細)]** パネルで **Interfaces ** カテゴリを見つけます。 
 
-1. ￼[Add Interface (インターフェスを追加)]￼ ボタンをクリックして、有効なインターフェースのリストを表示し、使用するインターフェースを選択します。
+1. **[Add Interface (インターフェスを追加)]** ボタンをクリックして、有効なインターフェースのリストを表示し、使用するインターフェースを選択します。 
 
 	![](InterfacesCategory.png)
 
 	![](InterfacesListPopulated.png)
 
 [REGION:tip]
-	インターフェースを削除するには、それぞれの **実装済みインターフェース** リストの横にある ![](button_X_Remove.png) ボタンをクリックします。ブループリント インターフェースから通常のブループリント関数に移動することもできます。詳細は、[](Engine/Blueprints\UserGuide\BlueprintComms\InterfaceMigration) を参照してください。
+	インターフェースを削除するには、それぞれの **実装済みインターフェース** リストの横にある ![](button_X_Remove.png) ボタンをクリックします。ブループリント インターフェースから通常のブループリント関数に移動することもできます。詳細は、[](Engine/Blueprints/UserGuide/BlueprintComms/InterfaceMigration) を参照してください。
 [/REGION]
 
 [REGION:note]
@@ -86,7 +49,7 @@ Version:4.9
 
 
 
-### インターフェース メンバーの実装
+### インタフェース メンバの実装
 
 インターフェースがブループリントへ追加されると、ブループリントは呼び出し時にアクションを実行するために 
 インターフェースの関数を実装しなくてはいけません。実装は、**EventGraph** でインターフェース関数用に **Event** ノードを配置して行います。 
@@ -109,12 +72,12 @@ Event ノードに接続したノードは、関数の機能の定義や実装�
 ターゲットがインターフェースを実装していないと失敗する点を除いて、通常の[](Engine/Blueprints/UserGuide/Functions/FunctionCalls) 
 のような動作をします。
 
- ![Implement Interface - Call Function](k2_interface_event_call.png)
+![Implement Interface - Call Function](k2_interface_event_call.png)
 
 
 ### 他のブループリント上でインターフェース関数を呼び出す
 
-インターフェースは異なるブループリント間のコミュニケーションに役立ちます。単一のインターフェースの関数は、他のブループリントで呼び出すことができます。これは以下の 2 つの基準が合致すると可能になります。
+インターフェースは異なるブループリント間のコミュニケーションに役立ちます。単一のインターフェースからの関数はブループリント上に呼び出すことができます。これは以下の 2 つの基準が合致すると可能になります。
 
 * 両ブループリントが必須の関数を伴って同一インターフェースを実装している時
 * 呼び出し側のブループリントが、相手のブループリントのインゲームのインスタンス名を把握している時
@@ -138,7 +101,7 @@ Event ノードに接続したノードは、関数の機能の定義や実装�
 
 インターフェース メッセージ関数の呼び出しには、関数を呼び出している適切なブループリントのインスタンスの提供が必須となります。
 
-この画像は、ターゲット入力値として別のブループリントを送信しています。これにより供給されるブループリント上で関数が呼ばれます。このブループリントがインターフェースを実装していない場合、何も起こりません。
+この画像は、ターゲット入力値として別のブループリントを送信しています。これにより提供されたブループリント上で関数を呼び出します。このブループリントがインターフェースを実装していない場合、何も起こりません。
 
 ![](InterfaceMessageFunctionCalled.png)
 

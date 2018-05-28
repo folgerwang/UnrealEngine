@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3809606
 Availability:Public
 Title:アニメーション エディタ
 Crumbs: %ROOT%, Engine, Engine/Animation
@@ -126,7 +126,7 @@ mac
 
 
 
-[COMMENT]
+[COMMENT:none]
 
 [EXCERPT:SkeletonOverview]
 **Skeleton モード** では、ボーンやジョイントの階層に関与するキャラクターやスケルタルメッシュの様々なビジュアル化や制御を行うことができます。以下はその使用例です。
@@ -150,7 +150,6 @@ mac
 **アニメーション モード** は、スケルタルメッシュで利用できる様々なアニメーション中心のアセットに簡単にアクセスできるようにします。こうしたアセットには、Animation Sequence (アニムシーケンス)、Blend Space (ブレンドスペース)、Animation Montage (アニムモンタージュ) などがあります。以下はその使用例です。
 
 * アニメーションをプレビューする (アニメーションのシーケンス、ブレンドスペース、モンタージュ等) 
-
 * アセットに編集を加える (Blend Space、Animation Montage)
 * マテリアルまたはモーフ ターゲットの変更に対してカーブを追加、編集する
 * アニメーション通知を作成、編集する
@@ -164,10 +163,6 @@ mac
 * アニメーション ブループリントのイベントグラフ内からアニメーションのモンタージュを再生する
 * AnimGraph を使用して様々なポーズとアニメーション結果をブレンドする
 [/EXCERPT:GraphOverview]
-
-[/COMMENT]
-
-[COMMENT]
 
 [EXCERPT:SkeletonUI]
 [REGION:simpletable]

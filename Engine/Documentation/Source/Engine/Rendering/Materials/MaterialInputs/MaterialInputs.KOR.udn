@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3242329
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:머티리얼 입력
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/IntroductionToMaterials
@@ -52,13 +52,11 @@ tags:Materials
 
 [INCLUDE:Engine/Rendering/Materials\PhysicallyBased#RoughnessMap]
 
-[EXCERPT:lightbox]
 **클릭하면 원래 크기로 볼 수 있습니다.**
 
 [REGION:lightbox]
 [![](Engine/Rendering/Materials\PhysicallyBased/RoughBias_12.png)(w:935)](Engine/Rendering/Materials\PhysicallyBased/RoughBias_12.png)
 [/REGION]
-[/EXCERPT:lightbox]
 
 ## 이미시브 컬러
 
@@ -67,13 +65,11 @@ tags:Materials
 
 HDR 라이팅이 지원되므로 1 보다 큰 값이 허용됩니다.
 
-[EXCERPT:lightbox]
 **클릭하면 원래 크기로 볼 수 있습니다.**
 
 [REGION:lightbox]
 [![](Emissive_21.png)(w:935)](Emissive_21.png)
 [/REGION]
-[/EXCERPT:lightbox]
 [/EXCERPT:Emissive]
 
 ## 오파시티
@@ -86,13 +82,11 @@ HDR 라이팅이 지원되므로 1 보다 큰 값이 허용됩니다.
 
 불투명 및 마스크드 블렌드 모드는 서브서피스 셰이딩 모델 중 하나를 사용할 때도 오파시티를 사용합니다.
 
-[EXCERPT:lightbox]
 **클릭하면 원래 크기로 볼 수 있습니다.**
 
 [REGION:lightbox]
 [![](TranslucencyImage.png)(w:935)](TranslucencyImage.png)
 [/REGION]
-[/EXCERPT:lightbox]
 
 오파시티는 _반투명_, _애디티브_, _모듈레이트 머티리얼_ 에만 사용됩니다.
 [/EXCERPT:Opacity]
@@ -105,13 +99,11 @@ HDR 라이팅이 지원되므로 1 보다 큰 값이 허용됩니다.
 
 베이스 머티리얼 노드의 **Opacity Mask Clip Value** (오파시티 마스크 클립 값) 프로퍼티를 사용해서 클리핑이 벌어지는 지점을 제어할 수 있습니다. 자세한 것은 [마스크드 블렌드 모드 문서](Engine/Rendering/Materials\MaterialProperties\BlendModes#마스크) 를 참고하시기 바랍니다.
 
-[EXCERPT:lightbox]
 **클릭하면 원래 크기로**
 
 [REGION:lightbox]
 [![](MaskedChainlink.png)(w:935)](Engine/Rendering/Materials\MaterialInputs/MaskedChainlink.png)
 [/REGION]
-[/EXCERPT:lightbox]
 
 [/EXCERPT:OpacityMask]
 

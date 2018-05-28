@@ -52,6 +52,7 @@ public class RemoteSession : ModuleRules
 				"ImageWrapper",
 				"MovieSceneCapture",
 				"Sockets",
+				"EngineSettings",
 				"HeadMountedDisplay",
                 "AugmentedReality",
                 // iOS uses the Apple Image Utils plugin for GPU accellerated JPEG compression

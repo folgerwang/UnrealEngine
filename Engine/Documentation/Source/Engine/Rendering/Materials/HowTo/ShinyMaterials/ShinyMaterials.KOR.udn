@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3242329
+﻿INTSourceChangelist:3810467
 Availability: Public
 Title:광택 머티리얼 제작
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
@@ -101,7 +101,7 @@ Shininess, 광택이란 단순히 표면의 빛 반사 능력을 말합니다.
 
 1. 머티리얼 표현식 노드를 배치한 이후에는, Scalar Parameter 이름을 짓고 기본값을 설정해 줘야 합니다. 여기서 사용된 이름과 기본값은 다음과 같습니다.
 	
-	* ** Metallic:** 0
+	* **Metallic:** 0
 	* **Specular:**  0.5
 	* **Roughness:** 0.5
 

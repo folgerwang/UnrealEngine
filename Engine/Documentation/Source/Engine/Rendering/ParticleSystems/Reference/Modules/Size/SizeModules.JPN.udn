@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750779
+﻿INTSourceChangelist:3243860
 Availability:Public
 Title:Size モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:ライフ期間のさまざまな時点でパーティクルのサイズに影響を与えるモジュール。
 Version:4.9
+tags:Particles
 
 [TOC(start:2 end:3)]
 

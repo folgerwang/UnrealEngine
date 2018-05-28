@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3807090
 Title: 안드로이드 Vulkan 모바일 렌더러
 Description:Vulkan 모바일 렌더러 작업이 가능한 UE4 안드로이드 프로젝트 구성 방법입니다.
 Crumbs:
@@ -49,7 +49,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 1. 그 후 [https://vulkan.lunarg.com/signin](https://vulkan.lunarg.com/signin) 로 이동하여 download 섹션에서 **Windows** 옵션을 선택합니다.
 
 	[REGION:lightbox]
-	[![](VMP_LunarG_00.png)(w:469 h:577)](VMP_LunarG_00.png)
+	[![](VMP_LunarG_00.png)(w:469)](VMP_LunarG_00.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -63,7 +63,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 1. LunarG Vulkan SDK License Agreement 페이지에서, 버전을 **Latest** 에서 변경한 뒤 **I Accept** 버튼을 누르면 다운로드가 시작됩니다.
 
 	[REGION:lightbox]
-	[![](VMP_LunarG_01.png)(w:463 h:224)](VMP_LunarG_01.png)
+	[![](VMP_LunarG_01.png)(w:463)](VMP_LunarG_01.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -85,7 +85,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 	* 시작용 콘텐츠 없음
 
 	[REGION:lightbox]
-	[![](VMP_New_Project_Settings.png)(w:555 h:387)](VMP_New_Project_Settings.png)
+	[![](VMP_New_Project_Settings.png)(w:555)](VMP_New_Project_Settings.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -96,7 +96,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 1. 프로젝트 로드가 끝나면 **편집** > **프로젝트 세팅** 으로 가 **엔진** 아래 **Rendering** (렌더링) 섹션에서 **Mobile HDR** 옵션이 켜져있는지 확인합니다.
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_04.png)(w:639 h:385)](VMP_Android_Settings_04.png)
+	[![](VMP_Android_Settings_04.png)(w:639)](VMP_Android_Settings_04.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -106,7 +106,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 1. 다음, **플랫폼** 아래 **Android** (안드로이드) 섹션을 찾습니다.
 	
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_00.png)(w:639 h:385)](VMP_Android_Settings_00.png)
+	[![](VMP_Android_Settings_00.png)(w:639)](VMP_Android_Settings_00.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -116,7 +116,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 1. **APKPackaging** (APK 패키징) 아래 안드로이드 섹션에서 **Minimum SDK Version** (최소 SDK 버전)을 **19**, **Target SDK Version** (대상 SDK 버전)을 **19** 로 설정합니다. 
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_01.png)(w:639 h:385)](VMP_Android_Settings_01.png)
+	[![](VMP_Android_Settings_01.png)(w:639)](VMP_Android_Settings_01.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -130,7 +130,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 	* **Support Vulkan[Experimental]**
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_02.png)(w:639 h:385)](VMP_Android_Settings_02.png)
+	[![](VMP_Android_Settings_02.png)(w:639)](VMP_Android_Settings_02.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -140,7 +140,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 1. **Android SDK** (안드로이드 SDK) 섹션에서 **SDKConfig** (SDK 환경설정) 경로가 개발 PC 의 SDK 경로로 맞게 되어있는지 확인합니다.
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_03.png)(w:639 h:385)](VMP_Android_Settings_03.png)
+	[![](VMP_Android_Settings_03.png)(w:639)](VMP_Android_Settings_03.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -150,7 +150,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 1. 메뉴 바에서 **파일** > **패키지 프로젝트** > **안드로이드** 에서 **안드로이드 (ASTC)** 옵션을 선택합니다.
 	
 	[REGION:lightbox]
-	[![](VMP_Package_Game.png)(w:329 h:266)](VMP_Package_Game.png)
+	[![](VMP_Package_Game.png)(w:329)](VMP_Package_Game.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -160,7 +160,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 1. 안드로이드 빌드를 저장할 위치를 선택한 뒤 **확인** 버튼을 눌러 패키지 프로세스를 시작합니다.
 
 	[REGION:lightbox]
-	[![](VMP_Save_Build_Location.png)(w:245 h:267)](VMP_Save_Build_Location.png)
+	[![](VMP_Save_Build_Location.png)(w:245)](VMP_Save_Build_Location.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -170,7 +170,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 1. 패키지 프로세스가 끝나면, 패키지 빌드가 들어간 폴더를 엽니다. 이 폴더에는 .BAT 파일이 둘 있는데, 이름에 **Install** 이 들어간 .BAT 파일을 찾아 더블클릭하여 디바이스에 설치합니다.
 	
 	[REGION:lightbox]
-	[![](VMP_Build_Files.png)(w:439 h:198)](VMP_Build_Files.png)
+	[![](VMP_Build_Files.png)(w:439)](VMP_Build_Files.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -180,7 +180,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 1. 디바이스에 설치가 끝나면, 프로젝트 이름이 붙어있는 UE4 아이콘을 눌러 디바이스에서 프로젝트를 실행시킵니다.
 
 	[REGION:lightbox]
-	[![](VMP_On_Device.png)(w:818 h:320)](VMP_On_Device.png)
+	[![](VMP_On_Device.png)(w:818)](VMP_On_Device.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -197,7 +197,7 @@ UE4 안에 있을 때 Vulkan 렌더러를 사용하는 기능을 켤 수 있는�
 1. **일반** 섹션에서 **실험단계** 카테고리 아래, **Rendering** (렌더링) 섹션을 펼치고 **Enable Metal/Vulkan/High-end mobile Preview Rendering Level in editor** 옆 박스를 체크합니다.
 
 	[REGION:lightbox]
-	[![](VMP_03.png)(w:447 h:308)](VMP_03.png)
+	[![](VMP_03.png)(w:447)](VMP_03.png)
 	[/REGION]
 	
 	[REGION:caption]
@@ -211,13 +211,13 @@ UE4 안에 있을 때 Vulkan 렌더러를 사용하는 기능을 켤 수 있는�
 1. **메인 툴바** 의 **세팅** 버튼을 클릭하고 **프리뷰 렌더링 레벨** 옵션을 선택한 뒤 **고사양 모바일 / Metal** 옵션을 선택하여 UE4 뷰포트에 OpenGL ES 3.1 프리뷰를 켭니다.
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_05.png)(w:447 h:308)](VMP_Android_Settings_05.png)
+	[![](VMP_Android_Settings_05.png)(w:447)](VMP_Android_Settings_05.png)
 	[/REGION]
 
 1. UE4 에디터 뷰포트 우하단 구석에 **피처 레벨: ES3_1** 이라는 문구가 보입니다. 이 문구가 보이면 모두 제대로 구성된 것이며, Vulkan API 를 지원하는 디바이스에서 프로젝트를 볼 때 어때 보이는지 확인할 수 있습니다.
 
 	[REGION:lightbox]
-	[![](VMP_04.png)(w:447 h:308)](VMP_04.png)
+	[![](VMP_04.png)(w:447)](VMP_04.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -234,7 +234,7 @@ UE4 안에 있을 때 Vulkan 렌더러를 사용하는 기능을 켤 수 있는�
 1. **일반** 섹션의 **실험단계** 카테고리 아래 **PIE** 섹션을 펼친 후 **Allow Vulkan Mobile Preview** 옵션을 선택합니다.
 
 	[REGION:lightbox]
-	[![](VMP_01.png)(w:447 h:308)](VMP_01.png)
+	[![](VMP_01.png)(w:447)](VMP_01.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -248,7 +248,7 @@ UE4 안에 있을 때 Vulkan 렌더러를 사용하는 기능을 켤 수 있는�
 1. 메인 툴바의 **플레이** 버튼을 눌러 UE4 프로젝트를 Vulkan 렌더링이 켜진 새 프리뷰 창에서 실행시킵니다. 모두 제대로 구성되었다면, 아래 그림과 같은 화면이 보일 것입니다.
 
 	[REGION:lightbox]
-	[![](VMP_05.png)(w:447 h:308)](VMP_05.png)
+	[![](VMP_05.png)(w:447)](VMP_05.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -258,6 +258,7 @@ UE4 안에 있을 때 Vulkan 렌더러를 사용하는 기능을 켤 수 있는�
 [region:note]
 프로젝트 이름 옆 프리뷰 창 상단에 **(SF_VULKAN_ES31)** 가 보이지 않는 경우, 프로젝트가 Vulkan API 를 사용하지 않고 있다는 뜻입니다.
 [/region]
+
 
 
 

@@ -3,16 +3,16 @@ Availability:Public
 Crumbs: %ROOT%, Engine, Engine/Animation
 Title:アニメーションの最適化
 Description:最適化の技術を使って Animation ブループリントのパフォーマンスを高めます。
-Type:Overview
-SkillLevel:Advanced
-Version:4.16
-Parent:Engine/Animation
-Order:1
-Tags:Animation
-Tags:Optimization
-Tags:Animation Blueprint
+Type: Overview
+SkillLevel: Advanced
+Version: 4.16
+Parent: Engine/Animation
+Order: 1
+Tags: Animation
+Tags: Optimization
+Tags: Animation Blueprint
 topic-image:OptimizationTopic.png
-Related:Engine/Performance
+Related: Engine/Performance
 
 [TOC (start:2 end:2)]
 
@@ -77,9 +77,9 @@ Anim グラフの観点から、`UAnimInstance` ではなく `FAnimInstanceProxy
 
 		{
 
-			// Update internal variables (内部変数を更新)
-	    MovementAngle += 1.0f * DeltaSeconds;
-
+			// Update internal variables
+	
+		    MovementAngle += 1.0f * DeltaSeconds;
 
 	        HorizontalSpeed = FMath::Max(0.0f, HorizontalSpeed - DeltaSeconds);
 
@@ -107,9 +107,9 @@ Anim グラフの観点から、`UAnimInstance` ではなく `FAnimInstanceProxy
 
 	private:
 
-	    // The AllowPrivateAccess meta flag will allow this to be exposed to Blueprint, (AllowPrivateAccess メタ フラグは、これをブループリントに公開します。) 
+	    // The AllowPrivateAccess meta flag will allow this to be exposed to Blueprint,
 
-	    // but only to graphs internal to this class. (ただし、このクラス内部のグラフに対してのみ公開します) 
+	    // but only to graphs internal to this class.
 
 	    UPROPERTY(Transient, BlueprintReadOnly, Category = "Example", meta = (AllowPrivateAccess = "true"))
 
@@ -119,7 +119,7 @@ Anim グラフの観点から、`UAnimInstance` ではなく `FAnimInstanceProxy
 
 		{
 
-		    // override this to just return the proxy on this instance (これをオーバーライドして、このインスタンスにプロキシを戻します)
+		    // override this to just return the proxy on this instance
 
 			return &Proxy;
 

@@ -4,6 +4,7 @@ Title:스레디드 렌더링
 Crumbs:%ROOT%, Programming, Programming/Rendering
 Description:스레디드 렌더러 작업을 하는 그래픽 프로그래머를 위한 정보입니다.
 Version: 4.9
+tags:Rendering
 
 ## 렌더링 스레드
 
@@ -49,19 +50,19 @@ FRenderCommandFence 는 게임 스레드상에서 렌더링 스레드의 진행�
 
 FRenderResource 는 기본적인 렌더링 리소스 인터페이스를 제공하며, 초기화(initialization) 및 해제(releasing)용 후크를 제공합니다. FRenderResource 에서 파생되는 것들은 (FVertexBuffer, FIndexBuffer 등) 렌더링이나 해제에 사용되기 전 초기화를 시켜줘야 삭제가 가능합니다. FRenderResource::InitResource 는 렌더링 스레드에서만 호출 가능하므로, 게임 스레드에서 FRenderResource::InitResource 호출을 위한 렌더링 명령을 대기열 등록(enqueue)시키기 위해 호출 가능한 헬퍼 함수 (BeginInitResource) 가 있습니다. RHI 함수는 (디바이스, 뷰포트 생성 등의 몇 가지 예외를 제외하고) 렌더링 스레드에서만 호출 가능합니다.
 
-#### UObject 및 가비지 콜렉션
+#### UObject 및 가비지 컬렉션
 
-가비지 콜렉션(GC)은 게임 스레드에서 발생하여 UObject 상에서 작동됩니다. 렌더링 스레드에서 UObject 를 가리키는 명령을 처리하는 와중에 게임 스레드에서 그 오브젝트를 삭제할 수가 있습니다. 그렇기 때문에 렌더링 스레드에서 UObject 를 더이상 가리키지 않는다는 것이 확실한 상태에서만 지울 수 있도록 하는 메커니즘이 확보되지 않고서야 UObject 포인터에 대한 레퍼런스를 절대 해제해서는 안될 것입니다. UPrimitiveComponent 를 예로 들면, DetachFence 라는 FRenderCommandFence 를 사용하여 렌더링 스레드가 detach 명령 처리를 끝낼 때까지 GC 가 UObject 를 삭제하지 못하도록 막는 것입니다.
+가비지 컬렉션(GC)은 게임 스레드에서 발생하여 UObject 상에서 작동됩니다. 렌더링 스레드에서 UObject 를 가리키는 명령을 처리하는 와중에 게임 스레드에서 그 오브젝트를 삭제할 수가 있습니다. 그렇기 때문에 렌더링 스레드에서 UObject 를 더이상 가리키지 않는다는 것이 확실한 상태에서만 지울 수 있도록 하는 메커니즘이 확보되지 않고서야 UObject 포인터에 대한 레퍼런스를 절대 해제해서는 안될 것입니다. UPrimitiveComponent 를 예로 들면, DetachFence 라는 FRenderCommandFence 를 사용하여 렌더링 스레드가 detach 명령 처리를 끝낼 때까지 GC 가 UObject 를 삭제하지 못하도록 막는 것입니다.
 #### 게임 스레드 FRenderResource 처리
 
-게임 스레드 <-> 렌더링 스레드 리소스 상호작용간에는 고려해야 할 시나리오가 두 가지 있는데, (인덱스 버퍼처럼 로드시 또는 에디터에서만 변경되는) 정적인 리소스의 경우와, 게임 스레드 시뮬레이션의 최신 결과로 매 프레임마다 업데이트시켜줘야 하는 동적인 리소스의 경우입니다.
+게임 스레드와 렌더링 스레드 리소스 상호작용간에는 고려해야 할 시나리오가 두 가지 있는데, (인덱스 버퍼처럼 로드시 또는 에디터에서만 변경되는) 정적인 리소스의 경우와, 게임 스레드 시뮬레이션의 최신 결과로 매 프레임마다 업데이트시켜줘야 하는 동적인 리소스의 경우입니다.
 #### 정적인 리소스
 
 UE4 에서의 정적인 리소스 상호작용 처리방식을, USkeletalMesh 를 예로 들어 설명하겠습니다.
 
  * 로드시 USkeletalMesh::PostLoad 가 호출되어, InitResources 를 호출합니다. 여기에 인덱스 버퍼같은 정적인 FRenderResource 에 대해 BeginInitResource 를 호출합니다. BeginInitResource 는 FRenderResource::InitResource 호출을 위해 렌더링 명령을 대기열에 등록시킵니다. 이 시점에서 게임 스레드는 인덱스 버퍼 메모리 소유권을 되찾기 위한 작업을 해 주기 전까지 더이상 그 메모리 변경이 불가능합니다.
  * USkeletalMesh 의 인덱스 버퍼로 렌더링을 시작하는 컴포넌트를 등록합니다.
- * 일정 (레벨 언로드 또는 레퍼런싱 해제) 시점에서 가비지 콜렉션(GC)이 더이상 레퍼런싱되지 않는 컴포넌트를 확인하여 컴포넌트를 detach 시킵니다. 참고로 이 때, 게임 스레드는 인덱스 버퍼 메모리를 삭제할 수 없는데, 렌더링 스레드에서 detach 처리가 끝나지 않아 여전히 인덱스 버퍼로 렌더링중일 수 있기 때문입니다.
+ * 일정 (레벨 언로드 또는 레퍼런싱 해제) 시점에서 가비지 컬렉션(GC)이 더이상 레퍼런싱되지 않는 컴포넌트를 확인하여 컴포넌트를 detach 시킵니다. 참고로 이 때, 게임 스레드는 인덱스 버퍼 메모리를 삭제할 수 없는데, 렌더링 스레드에서 detach 처리가 끝나지 않아 여전히 인덱스 버퍼로 렌더링중일 수 있기 때문입니다.
  * GC 는 USkeletalMesh::BeginDestroy 를 호출하는데, 이는 게임 스레드 오브젝트가 렌더링 리소스를 해제시키기 위한 명령을 대기열에 등록시킬 수 있는 기회이므로, BeginReleaseResource(&IndexBuffer); 를 합니다. 게임 스레드는 여전히 인덱스 버퍼 메모리를 삭제할 수 없는데, 렌더링 스레드가 아직 해제 처리를 마치지 못했을 수가 있기 때문입니다. 렌더링 스레드가 따라잡을 때까지 게임 스레드를 블록시킬 수는 있지만, 버벅임이 생기고 느려질 수 있으니 비동기적인 방법을 사용하겠습니다. 렌더링 스레드의 해제 명령 처리 진행상황을 추적하기 위해 펜스를 초기화시킵니다.
  * GC 가 USkeletalMesh::IsReadyForFinishDestroy 를 호출, 이 함수가 True 를 반환할 때까지 UObject 는 소멸되지 않습니다. 함수가 True 를 반환하는 것은 오로지 렌더링 스레드가 펜스를 통과했을 경우만인데, 그렇다는 것은 게임 스레드에서 인덱스 버퍼 메모리를 안전하게 지울 수 있다는 뜻입니다.
  * GC 가 마지막으로 중앙 위치에서 메모리 해제에 사용할 수 있는 UObject::FinishDestroy 를 호출합니다. 인덱스 버퍼의 경우, 그 메모리가 해제되는 것은 USkeletalMesh 소멸자가 FRawStaticIndexBuffer 를 호출할 때이며, FRawStaticIndexBuffer 에서는 인덱스 버퍼 메모리를 담고 있는 TArray 의 소멸자를 호출하므로 메모리를 해제시킵니다.

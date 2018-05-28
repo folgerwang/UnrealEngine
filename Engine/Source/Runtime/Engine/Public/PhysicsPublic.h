@@ -283,7 +283,6 @@ public:
 	virtual physx::PxSimulationEventCallback* Create(class FPhysScene* PhysScene, int32 SceneType) = 0;
 	virtual void Destroy(physx::PxSimulationEventCallback* Callback) = 0;
 };
-#endif // WITH PHYSX
 
 /** Interface for the creation of contact modify callbacks. */
 class IContactModifyCallbackFactory
@@ -292,6 +291,7 @@ public:
 	virtual FContactModifyCallback* Create(class FPhysScene* PhysScene, int32 SceneType) = 0;
 	virtual void Destroy(FContactModifyCallback* Callback) = 0;
 };
+#endif // WITH PHYSX
 
 class FPhysicsReplication;
 

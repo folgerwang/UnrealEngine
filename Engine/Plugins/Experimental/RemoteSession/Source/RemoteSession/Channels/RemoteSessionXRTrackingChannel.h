@@ -41,8 +41,8 @@ public:
 	void ReceiveXRTracking(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch);
 
 	/* Begin IRemoteSessionChannel implementation */
-	static FString StaticType() { return TEXT("rs.xrtracking"); }
-	virtual FString GetType() const override { return StaticType(); }
+	static const TCHAR* StaticType() { return TEXT("FRemoteSessionXRTrackingChannel"); }
+	virtual const TCHAR* GetType() const override { return StaticType(); }
 	/* End IRemoteSessionChannel implementation */
 
 protected:

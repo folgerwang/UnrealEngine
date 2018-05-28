@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3697586
+﻿INTSourceChangelist:3782314
 Title:Oculus Rift 向けの開発
 Availability:Public
 Crumbs: %ROOT%, Platforms
 Description:UE4 で Oculus Rift HMD を使用する
 Navigation: platform
-Platform: Oculus
+Platform:Oculus
 Version:4.17
 type: landing
 parent:Platforms/VR
@@ -19,18 +19,18 @@ topic-image:OculusRiftDevelopment_topic.png
 
 ## はじめよう 
 
-[DIR(end:"1" output:"topic" type:"!multi-step" tags:"Getting Started" parent:"Platforms/Oculus")]
+[DIR(end:"1" output:"topic" type:"quick start" parent:"Platforms/Oculus")]
 
-## Oculus Rift の開発
+## Samsung Gear VR の開発
 
-[DIR(end:"1" output:"topic" type:"reference,overview" tags:"!Getting Started" parent:"Platforms/Oculus")]
+[DIR(end:"1" output:"topic" type:"reference,overview" parent:"Platforms/Oculus")]
 
 ## ガイド
 
-[DIR(output:"fancy" type:"how-to" type:"!landing" skilllevel:"Beginner" parent:"Platforms/Oculus" org:"flat")]
-[DIR(output:"fancy" type:"how-to" type:"!landing" skilllevel:"Intermediate" parent:"Platforms/Oculus" org:"flat")]
-[DIR(output:"fancy" type:"how-to" type:"!landing" skilllevel:"Advanced" parent:"Platforms/Oculus" org:"flat")]
-[DIR(output:"fancy" type:"how-to" type:"!landing" skilllevel:"Expert" parent:"Platforms/Oculus" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Beginner" parent:"Platforms/Oculus" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Intermediate" parent:"Platforms/Oculus" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Advanced" parent:"Platforms/Oculus" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Expert" parent:"Platforms/Oculus" org:"flat")]
 
 
 
