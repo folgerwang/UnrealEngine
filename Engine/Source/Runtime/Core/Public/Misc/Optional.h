@@ -7,6 +7,8 @@
 #include "Templates/TypeCompatibleBytes.h"
 #include "Templates/UnrealTemplate.h"
 
+class FArchive;
+
 /**
  * When we have an optional value IsSet() returns true, and GetValue() is meaningful.
  * Otherwise GetValue() is not meaningful.
@@ -138,9 +140,39 @@ public:
 		}
 		return (*(OptionalType*)&lhs.Value) == (*(OptionalType*)&rhs.Value);
 	}
+
 	friend bool operator!=(const TOptional& lhs, const TOptional& rhs)
 	{
 		return !(lhs == rhs);
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, TOptional& Optional)
+	{
+		bool bIsSet = Optional.bIsSet;
+		Ar << bIsSet;
+		if (Ar.IsLoading())
+		{
+			if (bIsSet)
+			{
+				if (!Optional.bIsSet)
+				{
+					Optional.Emplace();
+				}
+				Ar << Optional.GetValue();
+			}
+			else
+			{
+				Optional.Reset();
+			}
+		}
+		else
+		{
+			if (bIsSet)
+			{
+				Ar << Optional.GetValue();
+			}
+		}
+		return Ar;
 	}
 
 	/** @return true when the value is meaningful; false if calling GetValue() is undefined. */
