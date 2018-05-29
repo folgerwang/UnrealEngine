@@ -27,6 +27,7 @@
 #include "NiagaraScriptSource.h"
 #include "NiagaraNodeAssignment.h"
 #include "NiagaraCommon.h"
+#include "NiagaraConstants.h"
 #include "Widgets/SWidget.h"
 
 #include "ScopedTransaction.h"
@@ -606,6 +607,21 @@ UNiagaraNodeOutput* UNiagaraStackModuleItem::GetOutputNode() const
 void UNiagaraStackModuleItem::NotifyModuleMoved()
 {
 	ModifiedGroupItemsDelegate.ExecuteIfBound();
+}
+
+bool UNiagaraStackModuleItem::CanAddInput() const
+{
+	return FunctionCallNode->IsA<UNiagaraNodeAssignment>();
+}
+
+void UNiagaraStackModuleItem::AddInput(FNiagaraVariable InputParameter)
+{
+	if(ensureMsgf(CanAddInput(), TEXT("This module doesn't support adding inputs.")))
+	{
+		UNiagaraNodeAssignment* AssignmentNode = CastChecked<UNiagaraNodeAssignment>(FunctionCallNode);
+		AssignmentNode->AddParameter(InputParameter, FNiagaraConstants::GetAttributeDefaultValue(InputParameter));
+		FNiagaraStackGraphUtilities::InitializeStackFunctionInput(GetSystemViewModel(), GetEmitterViewModel(), GetStackEditorData(), *FunctionCallNode, *FunctionCallNode, InputParameter.GetName());
+	}
 }
 
 UObject* UNiagaraStackModuleItem::GetExternalAsset() const

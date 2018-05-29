@@ -268,17 +268,14 @@ void SNiagaraStackModuleItem::ShowInsertModuleMenu(int32 InsertIndex)
 
 FReply SNiagaraStackModuleItem::OnModuleItemDrop(TSharedPtr<FDragDropOperation> DragDropOperation)
 {
-	if (DragDropOperation->IsOfType<FNiagaraStackDragOperation>())
+	if (ModuleItem->CanAddInput() && DragDropOperation->IsOfType<FNiagaraStackDragOperation>())
 	{
-		if (UNiagaraNodeAssignment* NodeAssignment = Cast<UNiagaraNodeAssignment>(&ModuleItem->GetModuleNode()))
+		TSharedPtr<FNiagaraStackDragOperation> InputDragDropOperation = StaticCastSharedPtr<FNiagaraStackDragOperation>(DragDropOperation);
+		TSharedPtr<FNiagaraParameterAction> Action = StaticCastSharedPtr<FNiagaraParameterAction>(InputDragDropOperation->GetAction());
+		if (Action.IsValid())
 		{
-			TSharedPtr<FNiagaraStackDragOperation> InputDragDropOperation = StaticCastSharedPtr<FNiagaraStackDragOperation>(DragDropOperation);
-			TSharedPtr<FNiagaraParameterAction> Action = StaticCastSharedPtr<FNiagaraParameterAction>(InputDragDropOperation->GetAction());
-			if (Action.IsValid())
-			{
-				NodeAssignment->AddParameter(Action->GetParameter(), FNiagaraConstants::GetAttributeDefaultValue(Action->GetParameter()));
-				return FReply::Handled();
-			}
+			ModuleItem->AddInput(Action->GetParameter());
+			return FReply::Handled();
 		}
 	}
 
@@ -287,7 +284,7 @@ FReply SNiagaraStackModuleItem::OnModuleItemDrop(TSharedPtr<FDragDropOperation> 
 
 bool SNiagaraStackModuleItem::OnModuleItemAllowDrop(TSharedPtr<FDragDropOperation> DragDropOperation)
 {
-	return ModuleItem != nullptr && Cast<UNiagaraNodeAssignment>(&ModuleItem->GetModuleNode()) && DragDropOperation->IsOfType<FNiagaraStackDragOperation>();
+	return ModuleItem->CanAddInput() && DragDropOperation->IsOfType<FNiagaraStackDragOperation>();
 }
 
 EVisibility SNiagaraStackModuleItem::GetStackIssuesWarningVisibility() const
