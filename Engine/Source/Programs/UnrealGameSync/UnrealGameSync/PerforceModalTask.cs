@@ -45,7 +45,14 @@ namespace UnrealGameSync
 					PerforceConnection Perforce = new PerforceConnection(UserName, null, null);
 					if(ProjectFileName != null)
 					{
-						Directory.SetCurrentDirectory(Path.GetDirectoryName(ProjectFileName));
+						try
+						{
+							Directory.SetCurrentDirectory(Path.GetDirectoryName(ProjectFileName));
+						}
+						catch
+						{
+							// Just ignore
+						}
 					}
 
 					string NewServerAndPort;
